@@ -1,5 +1,5 @@
 
-@import "tailwindcss";
+@layer reset, base, tokens, recipes, utilities;
 
 * {
   box-sizing: border-box;

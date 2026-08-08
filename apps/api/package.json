@@ -1,0 +1,35 @@
+{
+  "name": "api",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch --env-file=.env src/index.ts",
+    "start": "tsx --env-file=.env src/index.ts",
+    "build": "tsc --noEmit",
+    "format": "biome format .",
+    "lint": "biome lint .",
+    "check": "biome check .",
+    "db:generate": "drizzle-kit generate",
+    "db:push": "drizzle-kit push",
+    "db:migrate": "drizzle-kit migrate",
+    "db:studio": "drizzle-kit studio"
+  },
+  "dependencies": {
+    "@apollo/server": "^5.5.1",
+    "@pothos/core": "^4.13.1",
+    "@pothos/plugin-drizzle": "^0.17.5",
+    "drizzle-orm": "1.0.0-rc.4",
+    "graphql": "^16.14.2",
+    "pg": "^8.23.0",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.4.5",
+    "@types/node": "^22.20.1",
+    "@types/pg": "^8.21.0",
+    "dotenv": "^17.4.2",
+    "drizzle-kit": "1.0.0-rc.4",
+    "tsx": "^4.23.11",
+    "typescript": "^6.0.3"
+  }
+}
