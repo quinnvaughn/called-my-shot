@@ -14,7 +14,8 @@
 			"apps/*/vite.config.ts",
 			"apps/*/drizzle.config.ts",
 			"!apps/web/src/routeTree.gen.ts",
-			"!apps/web/src/styles.css"
+			"!apps/web/src/styles.css",
+			"!apps/web/src/graphql/generated"
 		]
 	},
 	"formatter": {

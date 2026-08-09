@@ -15,3 +15,6 @@ todos.json
 ## Panda
 styled-system
 styled-system-studio
+
+## GraphQL Codegen
+src/graphql/generated

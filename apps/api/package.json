@@ -6,6 +6,7 @@
     "dev": "tsx watch --env-file=.env src/index.ts",
     "start": "tsx --env-file=.env src/index.ts",
     "build": "tsc --noEmit",
+    "schema:print": "tsx --env-file=.env src/graphql/print-schema.ts",
     "format": "biome format .",
     "lint": "biome lint .",
     "check": "biome check .",

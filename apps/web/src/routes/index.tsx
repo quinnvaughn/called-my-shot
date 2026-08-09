@@ -1,17 +1,27 @@
-import { createFileRoute } from '@tanstack/react-router'
-import { css } from '../../styled-system/css'
+import { createFileRoute } from "@tanstack/react-router"
+import { css } from "styled-system/css"
+import { LandingPageNav } from "#/components/landing-page/landing-page-nav"
+import { LandingPageWrap } from "#/components/landing-page/landing-page-wrap"
 
-export const Route = createFileRoute('/')({ component: Home })
+export const Route = createFileRoute("/")({
+	component: Home,
+})
 
 function Home() {
-  return (
-    <div className={css({ p: '8' })}>
-      <h1 className={css({ fontSize: '4xl', fontWeight: 'bold' })}>
-        Welcome to TanStack Start
-      </h1>
-      <p className={css({ mt: '4', fontSize: 'lg' })}>
-        Edit <code>src/routes/index.tsx</code> to get started.
-      </p>
-    </div>
-  )
+	return (
+		<div>
+			<LandingPageNav />
+			<header className={css({ padding: "{spacing.16} 0 {spacing.20}" })}>
+				<LandingPageWrap
+					className={css({
+						display: "grid",
+						gridTemplateColumns: { base: "1fr", lg: "1fr 1fr" },
+					})}
+				>
+					<div>Hi</div>
+					<div>Hello</div>
+				</LandingPageWrap>
+			</header>
+		</div>
+	)
 }
