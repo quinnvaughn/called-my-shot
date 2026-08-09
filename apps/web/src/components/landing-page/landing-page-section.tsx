@@ -8,8 +8,8 @@ type Props = {
 
 const altStyles = css({
 	backgroundColor: "bg.surface",
-	borderTop: "0.5px solid {border.default}",
-	borderBottom: "0.5px solid {border.default}",
+	borderTop: "1px solid {border.default}",
+	borderBottom: "1px solid {border.default}",
 })
 
 export function LandingPageSection({ alt, children, id }: Props) {

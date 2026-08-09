@@ -7,6 +7,7 @@ import {
 } from "@tanstack/react-router"
 import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools"
 
+import { ModalHost } from "#/components/ui/modal"
 import type { RouterContext } from "../router-context"
 import appCss from "../styles.css?url"
 
@@ -31,7 +32,7 @@ export const Route = createRootRouteWithContext<RouterContext>()({
 			},
 			{
 				rel: "stylesheet",
-				href: "https://fonts.googleapis.com/css2?family=Archivo+Black&family=Space+Mono:wght@400;700&display=swap",
+				href: "https://fonts.googleapis.com/css2?family=Archivo+Black&family=Space+Mono:wght@400;700&family=Inter:wght@400;500;600;700&display=swap",
 			},
 			{
 				rel: "stylesheet",
@@ -69,6 +70,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
 			<body>
 				<ApolloProvider client={apolloClient}>
 					{children}
+					<ModalHost />
 					<TanStackDevtools
 						config={{
 							position: "bottom-right",

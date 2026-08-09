@@ -1,6 +1,9 @@
 import { Link } from "@tanstack/react-router"
 import { css } from "styled-system/css"
 import { HStack } from "styled-system/jsx"
+import { AuthModal } from "#/components/auth/auth-modal"
+import { openModal } from "#/stores/modal-store"
+import { Brand } from "../ui/brand"
 import { Button } from "../ui/button"
 
 export function LandingPageNav() {
@@ -12,7 +15,7 @@ export function LandingPageNav() {
 				zIndex: 20,
 				bg: "bg.surface/88",
 				backdropFilter: "blur(10px)",
-				borderBottom: "0.5px solid {colors.border.default}",
+				borderBottom: "1px solid {colors.border.default}",
 			})}
 		>
 			<div
@@ -27,11 +30,7 @@ export function LandingPageNav() {
 				})}
 			>
 				<Link to="/">
-					<img
-						src="/logo.svg"
-						alt="Called My Shot"
-						className={css({ h: { base: "4", md: "5" } })}
-					/>
+					<Brand />
 				</Link>
 				<HStack
 					gap="7"
@@ -53,8 +52,18 @@ export function LandingPageNav() {
 					</Link>
 				</HStack>
 				<HStack alignItems="center" gap="4.5">
-					<Button variant="ghost">Sign in</Button>
-					<Button variant="solid">Get Started</Button>
+					<Button
+						variant="ghost"
+						onClick={() => openModal(<AuthModal defaultView="signin" />)}
+					>
+						Sign in
+					</Button>
+					<Button
+						variant="solid"
+						onClick={() => openModal(<AuthModal defaultView="signup" />)}
+					>
+						Get Started
+					</Button>
 				</HStack>
 			</div>
 		</nav>

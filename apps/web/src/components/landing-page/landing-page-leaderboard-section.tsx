@@ -32,7 +32,7 @@ export function LandingPageLeaderboardSection() {
 					flexDirection: "column",
 					width: "full",
 					borderRadius: "2xl",
-					border: "0.5px solid",
+					border: "1px solid",
 					borderColor: "border.default",
 					overflow: "hidden",
 					bg: "bg.surface",
@@ -58,7 +58,7 @@ function LeaderboardRowItem({
 			gap="3.5"
 			alignItems="center"
 			padding="{spacing.3.5} {spacing.5}"
-			borderTop={rank > 1 ? "0.5px solid {border.default}" : undefined}
+			borderTop={rank > 1 ? "1px solid {border.default}" : undefined}
 		>
 			<div
 				className={cx(
@@ -80,7 +80,7 @@ function LeaderboardRowItem({
 					height: "8",
 					borderRadius: "full",
 					bg: "bg.subtle",
-					border: "0.5px solid",
+					border: "1px solid",
 					borderColor: "border.default",
 					display: "flex",
 					alignItems: "center",

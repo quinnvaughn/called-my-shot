@@ -21,6 +21,7 @@ body,
   min-height: 100%;
   background-color: var(--colors-ink);
   color: var(--colors-bone);
+  font-family: var(--fonts-body);
 }
 
 body {

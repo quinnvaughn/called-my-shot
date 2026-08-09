@@ -21,10 +21,16 @@ export default defineConfig({
     extend: {
       tokens: {
         fonts: {
-          // Shortcuts for the two display fonts loaded in __root.tsx alongside the
-          // system sans stack — reference via fontFamily: "heading" / "mono".
+          // Loaded in __root.tsx — reference via fontFamily: "body" / "heading" / "mono".
+          body: { value: "'Inter', sans-serif" }, // default — applied globally in styles.css
           heading: { value: "'Archivo Black', sans-serif" }, // headings (see landing.html mockups)
           mono: { value: "'Space Mono', monospace" }, // eyebrows, labels, numeric/stat callouts
+        },
+        fontSizes: {
+          // Panda's default 2xs (0.5rem / 8px) is illegible in practice — the
+          // mockups' smallest real text (labels, fineprint) sits around 10-11px,
+          // so bump it there instead of leaving an unused 8px step in the scale.
+          "2xs": { value: "0.625rem" }, // 10px
         },
         colors: {
           // Brand palette — raw values, named the way the product already names them
@@ -32,12 +38,12 @@ export default defineConfig({
           ink: { value: "#0B0B0C" }, // app background, deepest layer
           card: { value: "#151513" }, // primary surface: cards, panels, inputs, nav rail
           cardMuted: { value: "#1B1B18" }, // nested/inset surface: selected rows, tab tracks, dropdowns
-          border: { value: "#2A2A28" }, // default hairline border
-          track: { value: "#3E3E3A" }, // was --bar in the mockups — declared but not yet used anywhere; reserved for progress-track backgrounds
+          border: { value: "#3D3D38" }, // default hairline border — lightened from #2A2A28, which barely showed up against card/cardMuted at 1px
+          track: { value: "#52524A" }, // emphasized border (see Tabs); also reserved for progress-track backgrounds — lightened from #3E3E3A to stay a clear step above border above
           bone: { value: "#F5F1E8" }, // primary text
           linen: { value: "#D8D4C9" }, // softer body-copy tone (hero subhead, info-card paragraphs) — hardcoded inline in the mockups, never promoted to a var there
-          dim: { value: "#8A8A84" }, // secondary/meta text
-          steel: { value: "#6B6B66" }, // tertiary text, placeholders, inactive icons
+          dim: { value: "#9E9E95" }, // secondary/meta text — lightened from #8A8A84 to keep a clear step above steel below
+          steel: { value: "#8C8C85" }, // tertiary text, placeholders, inactive icons — lightened again from #787873, still too close to illegible
           signal: { value: "#FF5A1F" }, // brand accent — CTAs, active/selected state, focus ring
           signalMuted: { value: "#3A1E12" }, // opaque accent-tinted background for badges/chips (not the same as signal at low alpha)
           verified: { value: "#34D399" }, // success / correct-call / positive value
@@ -135,6 +141,14 @@ export default defineConfig({
               sm: {
                 fontSize: "sm",
               },
+              // Same treatment as lg, just tighter padding — the hero CTA is
+              // meant to feel bigger than a modal's submit button.
+              md: {
+                fontSize: "md",
+                letterSpacing: "wide",
+                fontFamily: "heading",
+                textTransform: "uppercase",
+              },
               lg: {
                 fontSize: "md",
                 letterSpacing: "wide",
@@ -147,6 +161,14 @@ export default defineConfig({
             },
           },
           compoundVariants: [
+            {
+              variant: "solid",
+              size: "md",
+              css: {
+                paddingBlock: "3",
+                paddingInline: "5",
+              },
+            },
             {
               variant: "solid",
               size: "lg",

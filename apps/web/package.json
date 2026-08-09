@@ -21,6 +21,7 @@
     "@apollo/client": "^4.2.10",
     "@graphql-typed-document-node/core": "^3.2.0",
     "@tanstack/react-devtools": "latest",
+    "@tanstack/react-store": "^0.9.3",
     "@tanstack/react-router": "latest",
     "@tanstack/react-router-devtools": "latest",
     "@tanstack/react-start": "latest",

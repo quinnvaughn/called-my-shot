@@ -22,7 +22,7 @@ function MockTeamRow({ name, percent, tier, selected }: Team) {
 				position: "relative",
 				overflow: "hidden",
 				bg: "bg.subtle",
-				border: "0.5px solid",
+				border: "1px solid",
 				borderColor: selected ? "primary.default" : "border.default",
 				borderRadius: "lg",
 				padding: "{spacing.2.5} {spacing.3.5}",

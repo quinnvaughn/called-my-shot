@@ -81,7 +81,7 @@ function FeatureCard({ icon, title, description, example }: FeatureItem) {
 								fontFamily: "mono",
 								fontSize: "xs",
 								color: "fg.subtle",
-								borderTop: "0.5px solid {border.default}",
+								borderTop: "1px solid {border.default}",
 								paddingTop: "3",
 								width: "full",
 							})}

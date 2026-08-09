@@ -16,6 +16,7 @@ import {
 } from "react-icons/fi"
 import { css } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
+import { AuthModal } from "#/components/auth/auth-modal"
 import { LandingPageFeatureSection } from "#/components/landing-page/landing-page-feature-section"
 import { LandingPageGetStartedSection } from "#/components/landing-page/landing-page-get-started-section"
 import { LandingPageLeaderboardSection } from "#/components/landing-page/landing-page-leaderboard-section"
@@ -24,6 +25,7 @@ import { LandingPageNav } from "#/components/landing-page/landing-page-nav"
 import { LandingPageWrap } from "#/components/landing-page/landing-page-wrap"
 import { Badge } from "#/components/ui/badge"
 import { Button, button } from "#/components/ui/button"
+import { openModal } from "#/stores/modal-store"
 
 export const Route = createFileRoute("/")({
 	component: Home,
@@ -131,6 +133,7 @@ function Home() {
 					className={css({
 						display: "grid",
 						gridTemplateColumns: { base: "1fr", lg: "1fr 1fr" },
+						gap: "10",
 						alignItems: "center",
 					})}
 				>
@@ -163,7 +166,13 @@ function Home() {
 							</VStack>
 							<VStack alignItems="flex-start" gap="7">
 								<HStack gap="5" flexWrap="wrap">
-									<Button variant="solid" size="lg">
+									<Button
+										variant="solid"
+										size="lg"
+										onClick={() =>
+											openModal(<AuthModal defaultView="signup" />)
+										}
+									>
 										Get started free
 									</Button>
 									<Link
