@@ -20,6 +20,12 @@ export default defineConfig({
   theme: {
     extend: {
       tokens: {
+        fonts: {
+          // Shortcuts for the two display fonts loaded in __root.tsx alongside the
+          // system sans stack — reference via fontFamily: "heading" / "mono".
+          heading: { value: "'Archivo Black', sans-serif" }, // headings (see landing.html mockups)
+          mono: { value: "'Space Mono', monospace" }, // eyebrows, labels, numeric/stat callouts
+        },
         colors: {
           // Brand palette — raw values, named the way the product already names them
           // (see the prototype HTML: landing.html / feed.html / create-question.html).
