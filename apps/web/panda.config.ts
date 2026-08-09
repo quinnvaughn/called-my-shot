@@ -138,6 +138,8 @@ export default defineConfig({
               lg: {
                 fontSize: "md",
                 letterSpacing: "wide",
+                fontFamily: "heading",
+                textTransform: "uppercase",
               },
             },
             fullWidth: {

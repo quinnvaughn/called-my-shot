@@ -1,0 +1,96 @@
+import type { ReactNode } from "react"
+import { css } from "styled-system/css"
+import { Grid, VStack } from "styled-system/jsx"
+import { Card } from "../ui/card"
+import { LandingPageContentSection } from "./landing-page-content-section"
+
+type FeatureItem = {
+	icon: ReactNode
+	title: string
+	description: string
+	example?: string
+}
+
+type Props = {
+	eyebrow: string
+	title: string
+	description: string
+	items: FeatureItem[]
+	columns?: 2 | 3 | 4
+	alt?: boolean
+	id?: string
+}
+
+export function LandingPageFeatureSection({
+	items,
+	columns = 4,
+	...headerProps
+}: Props) {
+	return (
+		<LandingPageContentSection {...headerProps}>
+			<Grid
+				gridTemplateColumns={{
+					base: "1fr",
+					md: "1fr 1fr",
+					xl: `repeat(${columns}, 1fr)`,
+				}}
+				gap="5"
+				width="full"
+			>
+				{items.map((item) => (
+					<FeatureCard {...item} key={item.title} />
+				))}
+			</Grid>
+		</LandingPageContentSection>
+	)
+}
+
+function FeatureCard({ icon, title, description, example }: FeatureItem) {
+	return (
+		<Card>
+			<Card.Body>
+				<VStack alignItems="flex-start" gap="3.5">
+					<div
+						className={css({
+							width: "9",
+							height: "9",
+							borderRadius: "lg",
+							bg: "bg.subtle",
+							color: "primary.default",
+							display: "flex",
+							alignItems: "center",
+							justifyContent: "center",
+							flexShrink: "0",
+						})}
+					>
+						{icon}
+					</div>
+					<div className={css({ fontWeight: "semibold" })}>{title}</div>
+					<div
+						className={css({
+							color: "fg.muted",
+							fontSize: "sm",
+							lineHeight: "relaxed",
+						})}
+					>
+						{description}
+					</div>
+					{example && (
+						<div
+							className={css({
+								fontFamily: "mono",
+								fontSize: "xs",
+								color: "fg.subtle",
+								borderTop: "0.5px solid {border.default}",
+								paddingTop: "3",
+								width: "full",
+							})}
+						>
+							{example}
+						</div>
+					)}
+				</VStack>
+			</Card.Body>
+		</Card>
+	)
+}

@@ -1,6 +1,7 @@
 import { css, cx } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
 import { Card } from "#/components/ui/card"
+import { Tag } from "#/components/ui/tag"
 
 type Team = {
 	name: string
@@ -13,24 +14,6 @@ const teams: Team[] = [
 	{ name: "Detroit Lions", percent: 6, tier: "UNDERDOG", selected: true },
 	{ name: "Kansas City Chiefs", percent: 19 },
 ]
-
-function MockTag({ alt, children }: { alt?: boolean; children: string }) {
-	return (
-		<span
-			className={css({
-				fontFamily: "mono",
-				fontSize: "xs",
-				letterSpacing: "wide",
-				padding: "{spacing.1} {spacing.2}",
-				borderRadius: "sm",
-				bg: alt ? "bg.subtle" : "primary.subtle",
-				color: alt ? "fg.subtle" : "primary.default",
-			})}
-		>
-			{children}
-		</span>
-	)
-}
 
 function MockTeamRow({ name, percent, tier, selected }: Team) {
 	return (
@@ -83,8 +66,8 @@ export function LandingPageMockCard() {
 				<VStack gap="3.5" alignItems="flex-start">
 					<VStack gap="3.5" alignItems="flex-start" width="full">
 						<HStack gap="2">
-							<MockTag>OFFICIAL</MockTag>
-							<MockTag alt>SEASON AWARDS</MockTag>
+							<Tag variant="primary">OFFICIAL</Tag>
+							<Tag>SEASON AWARDS</Tag>
 						</HStack>
 						<VStack gap="4.5" alignItems="flex-start" width="full">
 							<div

@@ -27,7 +27,8 @@
     "graphql": "^16.14.2",
     "nitro": "3.0.260610-beta",
     "react": "^19.2.0",
-    "react-dom": "^19.2.0"
+    "react-dom": "^19.2.0",
+    "react-icons": "^5.7.0"
   },
   "devDependencies": {
     "@biomejs/biome": "2.4.5",
