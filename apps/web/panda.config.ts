@@ -20,6 +20,16 @@ export default defineConfig({
   // Vite's resolver expects .js for extensionless imports like "#styled-system/css"
   outExtension: "js",
 
+  // dropdown's `placement` prop only ever reaches the recipe call through a
+  // variable (account-menu.tsx passes it via a ternary, not a literal), so
+  // Panda's static scanner can't discover the "top" variant on its own —
+  // force both here or its CSS silently never gets generated.
+  staticCss: {
+    recipes: {
+      dropdown: [{ placement: ["top", "bottom"] }],
+    },
+  },
+
   // Useful for theme customization
   theme: {
     extend: {

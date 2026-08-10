@@ -81,6 +81,38 @@ export function AccountMenu({
 				placement={variant === "sidebar" ? "top" : "bottom"}
 				className={css(variant === "sidebar" ? { width: "full" } : undefined)}
 			>
+				{variant === "topbar" && (
+					<>
+						<div className={css({ padding: "{spacing.1} {spacing.2.5}" })}>
+							<div
+								className={css({
+									fontSize: "sm",
+									fontWeight: "medium",
+									overflow: "hidden",
+									textOverflow: "ellipsis",
+									whiteSpace: "nowrap",
+								})}
+							>
+								{name}
+							</div>
+							<div
+								className={css({
+									fontFamily: "mono",
+									fontSize: "2xs",
+									color: "fg.muted",
+								})}
+							>
+								@{username}
+							</div>
+						</div>
+						<div
+							className={css({
+								borderTop: "1px solid {colors.border.default}",
+								marginBlock: "1",
+							})}
+						/>
+					</>
+				)}
 				<Dropdown.Item onClick={handleSignOut}>
 					<span
 						className={css({ display: "flex", alignItems: "center", gap: "2" })}

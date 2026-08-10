@@ -170,8 +170,7 @@ function SidebarNav({
 				display: "flex",
 				flexDirection: "column",
 				padding: "{spacing.6} {spacing.5}",
-				borderRight: "1px solid",
-				borderColor: "border.default",
+				borderRight: "1px solid {colors.border.default}",
 				bg: "bg.canvas",
 				position: { base: "fixed", md: "sticky" },
 				top: 0,
@@ -264,11 +263,13 @@ function SidebarNav({
 
 			<div className={css({ marginTop: "auto" })}>
 				{me ? (
-					<AccountMenu
-						name={me.name}
-						username={me.username}
-						variant="sidebar"
-					/>
+					<div className={css({ display: { base: "none", md: "block" } })}>
+						<AccountMenu
+							name={me.name}
+							username={me.username}
+							variant="sidebar"
+						/>
+					</div>
 				) : (
 					<div
 						className={css({
