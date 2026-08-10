@@ -31,18 +31,27 @@ export function deleteSession(sessionId: string) {
 	return db.delete(sessions).where(eq(sessions.id, sessionId))
 }
 
+const isProduction = env.NODE_ENV === "production"
+
+// SameSite=None is required because the web and api apps are deployed on
+// separate fly.dev subdomains, which the browser treats as different sites.
+// It requires secure: true, which only holds in production.
+const sessionCookieOptions = {
+	httpOnly: true,
+	sameSite: isProduction ? ("none" as const) : ("lax" as const),
+	secure: isProduction,
+}
+
 export function setSessionCookie(
 	res: Response,
 	session: { id: string; expiresAt: Date },
 ) {
 	res.cookie(SESSION_COOKIE_NAME, session.id, {
-		httpOnly: true,
-		sameSite: "lax",
-		secure: env.NODE_ENV === "production",
+		...sessionCookieOptions,
 		expires: session.expiresAt,
 	})
 }
 
 export function clearSessionCookie(res: Response) {
-	res.clearCookie(SESSION_COOKIE_NAME)
+	res.clearCookie(SESSION_COOKIE_NAME, sessionCookieOptions)
 }
