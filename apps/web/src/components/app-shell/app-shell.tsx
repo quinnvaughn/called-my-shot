@@ -108,7 +108,7 @@ function MobileTopbar({
 				zIndex: "20",
 				bg: "bg.canvas",
 				borderBottom: "1px solid {colors.border.default}",
-				padding: "3.5 5",
+				padding: "{spacing.3.5} {spacing.5}",
 			})}
 		>
 			<HStack gap="3">
@@ -125,7 +125,7 @@ function MobileTopbar({
 						borderRadius: "lg",
 						color: "fg.default",
 						cursor: "pointer",
-						_hover: { bg: "bg.surface" },
+						_hover: { bg: "fg.default/10" },
 					})}
 				>
 					<FiMenu size={20} />
@@ -203,7 +203,7 @@ function SidebarNav({
 							borderRadius: "full",
 							color: "fg.muted",
 							cursor: "pointer",
-							_hover: { bg: "bg.surface", color: "fg.default" },
+							_hover: { bg: "fg.default/10", color: "fg.default" },
 						})}
 					>
 						<FiX size={16} />
@@ -232,7 +232,7 @@ function SidebarNav({
 								fontSize: "sm",
 								color: "fg.muted",
 								fontWeight: "medium",
-								_hover: { bg: "bg.surface", color: "fg.default" },
+								_hover: { bg: "fg.default/10", color: "fg.default" },
 							})}
 						>
 							<item.icon size={20} />
@@ -250,9 +250,8 @@ function SidebarNav({
 								fontWeight: "medium",
 								border: "1px solid transparent",
 								_hover: {
-									bg: "border.default",
+									bg: "fg.default/10",
 									color: "fg.default",
-									// border: "1px solid {colors.border.default}",
 								},
 							})}
 						>

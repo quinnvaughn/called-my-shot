@@ -8,83 +8,8 @@ import {
 	useRef,
 	useState,
 } from "react"
-import { cx, sva } from "styled-system/css"
-
-const dropdownRecipe = sva({
-	slots: ["root", "trigger", "content", "item"],
-	base: {
-		root: {
-			position: "relative",
-		},
-		trigger: {
-			background: "none",
-			border: "none",
-			padding: "0",
-			margin: "0",
-			font: "inherit",
-			color: "inherit",
-			cursor: "pointer",
-		},
-		content: {
-			display: "flex",
-			flexDirection: "column",
-			position: "absolute",
-			right: "0",
-			minWidth: "44",
-			gap: "0.5",
-			backgroundColor: "bg.surface",
-			border: "1px solid",
-			borderColor: "border.default",
-			borderRadius: "xl",
-			padding: "1.5",
-			boxShadow: "0 12px 32px rgba(0, 0, 0, 0.4)",
-			zIndex: "30",
-		},
-		item: {
-			width: "full",
-			textAlign: "left",
-			fontSize: "sm",
-			color: "fg.default",
-			borderRadius: "md",
-			paddingBlock: "2.5",
-			paddingInline: "3",
-			cursor: "pointer",
-			transition: "background-color 0.15s ease, opacity 0.15s ease",
-			_hover: {
-				backgroundColor: "fg.default/10",
-			},
-		},
-	},
-	variants: {
-		variant: {
-			default: {},
-			primary: {
-				item: {
-					color: "primary.default",
-					fontWeight: "bold",
-				},
-			},
-		},
-		placement: {
-			bottom: {
-				content: {
-					top: "calc(100% + 8px)",
-					bottom: "auto",
-				},
-			},
-			top: {
-				content: {
-					top: "auto",
-					bottom: "calc(100% + 8px)",
-				},
-			},
-		},
-	},
-	defaultVariants: {
-		variant: "default",
-		placement: "bottom",
-	},
-})
+import { cx } from "styled-system/css"
+import { dropdown as dropdownRecipe } from "styled-system/recipes"
 
 type DropdownSlots = ReturnType<typeof dropdownRecipe>
 

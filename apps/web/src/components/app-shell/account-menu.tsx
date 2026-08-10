@@ -45,7 +45,7 @@ export function AccountMenu({
 						justifyContent: "flex-start",
 						gap: "2.5",
 						padding: "2.5",
-						_hover: { bg: "bg.surface" },
+						_hover: { bg: "fg.default/10" },
 					})}
 				>
 					<Avatar name={name} />

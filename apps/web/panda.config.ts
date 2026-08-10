@@ -1,4 +1,8 @@
-import { defineConfig, defineRecipe } from "@pandacss/dev";
+import {
+  defineConfig,
+  defineRecipe,
+  defineSlotRecipe,
+} from "@pandacss/dev";
 
 export default defineConfig({
   // Whether to use css reset
@@ -96,6 +100,88 @@ export default defineConfig({
             default: { value: "{colors.loss}" },
           },
         },
+      },
+      slotRecipes: {
+        // Registered (rather than built via runtime `sva()`) so its base styles land
+        // in the `recipes` cascade layer, which always loses to `utilities` — letting
+        // a consumer's `css({ padding: ... })` override reliably beat e.g. the
+        // trigger's `padding: "0"` reset regardless of atomic-class extraction order.
+        dropdown: defineSlotRecipe({
+          className: "dropdown",
+          slots: ["root", "trigger", "content", "item"],
+          base: {
+            root: {
+              position: "relative",
+            },
+            trigger: {
+              background: "none",
+              border: "none",
+              padding: "0",
+              margin: "0",
+              font: "inherit",
+              color: "inherit",
+              cursor: "pointer",
+            },
+            content: {
+              display: "flex",
+              flexDirection: "column",
+              position: "absolute",
+              right: "0",
+              minWidth: "44",
+              gap: "0.5",
+              backgroundColor: "bg.surface",
+              border: "1px solid",
+              borderColor: "border.default",
+              borderRadius: "xl",
+              padding: "1.5",
+              boxShadow: "0 12px 32px rgba(0, 0, 0, 0.4)",
+              zIndex: "30",
+            },
+            item: {
+              width: "full",
+              textAlign: "left",
+              fontSize: "sm",
+              color: "fg.default",
+              borderRadius: "md",
+              paddingBlock: "2.5",
+              paddingInline: "3",
+              cursor: "pointer",
+              transition: "background-color 0.15s ease, opacity 0.15s ease",
+              _hover: {
+                backgroundColor: "fg.default/10",
+              },
+            },
+          },
+          variants: {
+            variant: {
+              default: {},
+              primary: {
+                item: {
+                  color: "primary.default",
+                  fontWeight: "bold",
+                },
+              },
+            },
+            placement: {
+              bottom: {
+                content: {
+                  top: "calc(100% + 8px)",
+                  bottom: "auto",
+                },
+              },
+              top: {
+                content: {
+                  top: "auto",
+                  bottom: "calc(100% + 8px)",
+                },
+              },
+            },
+          },
+          defaultVariants: {
+            variant: "default",
+            placement: "bottom",
+          },
+        }),
       },
       recipes: {
         // Also exported as a plain fn (`button()` from #styled-system/recipes) for

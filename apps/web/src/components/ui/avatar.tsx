@@ -17,7 +17,7 @@ const avatarStyle = cva({
 	},
 	variants: {
 		size: {
-			sm: { width: "6", height: "6", fontSize: "2xs" },
+			sm: { width: "7", height: "7", fontSize: "xs" },
 			md: { width: "8", height: "8", fontSize: "xs" },
 		},
 	},
