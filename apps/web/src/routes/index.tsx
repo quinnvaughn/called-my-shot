@@ -18,6 +18,7 @@ import { css } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
 import { AuthModal } from "#/components/auth/auth-modal"
 import { LandingPageFeatureSection } from "#/components/landing-page/landing-page-feature-section"
+import { LandingPageFooter } from "#/components/landing-page/landing-page-footer"
 import { LandingPageGetStartedSection } from "#/components/landing-page/landing-page-get-started-section"
 import { LandingPageLeaderboardSection } from "#/components/landing-page/landing-page-leaderboard-section"
 import { LandingPageMockCard } from "#/components/landing-page/landing-page-mock-card"
@@ -231,6 +232,7 @@ function Home() {
 			/>
 			<LandingPageLeaderboardSection />
 			<LandingPageGetStartedSection />
+			<LandingPageFooter />
 		</div>
 	)
 }
