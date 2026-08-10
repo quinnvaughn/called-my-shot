@@ -29,8 +29,6 @@ const copy = {
 	},
 } as const
 
-// Passed directly to openModal(<AuthModal />) — owns its own tab state since
-// nothing outside the modal ever needs to know which view is active.
 export function AuthModal({ defaultView = "signin" }: AuthModalProps) {
 	const [view, setView] = useState<AuthModalView>(defaultView)
 
@@ -48,7 +46,6 @@ export function AuthModal({ defaultView = "signin" }: AuthModalProps) {
 				<Modal.Title>{copy[view].title}</Modal.Title>
 				<Modal.Description>{copy[view].description}</Modal.Description>
 			</VStack>
-
 			{view === "signin" ? <SignInFields /> : <SignUpFields />}
 		</Modal>
 	)
