@@ -130,7 +130,7 @@ function MobileTopbar({
 				>
 					<FiMenu size={20} />
 				</button>
-				<Brand size="sm" />
+				<Brand size="nav" />
 			</HStack>
 			{me ? (
 				<AccountMenu name={me.name} username={me.username} variant="topbar" />
@@ -189,7 +189,7 @@ function SidebarNav({
 		>
 			<VStack alignItems="stretch" gap="8">
 				<HStack justifyContent="space-between" paddingInline="1">
-					<Brand />
+					<Brand size="nav" />
 					<button
 						type="button"
 						aria-label="Close menu"
@@ -242,6 +242,7 @@ function SidebarNav({
 					{me && (
 						<Link
 							to="/new-question"
+							onClick={onNavigate}
 							className={css({
 								padding: "{spacing.2.5} {spacing.3}",
 								borderRadius: "xl",

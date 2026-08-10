@@ -10,6 +10,7 @@ const brandRecipe = cva({
 		size: {
 			sm: { h: "4" },
 			md: { h: { base: "4", md: "5" } },
+			nav: { h: { base: "0.85rem", md: "5" } },
 		},
 	},
 	defaultVariants: {
