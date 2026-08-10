@@ -1,0 +1,28 @@
+# Self-hosted single-node Postgres (not Fly's managed Postgres product).
+# Reachable only over the private network at called-my-shot-postgres.internal:5432
+# from other apps in the called-my-shot org - no public ports are opened.
+#
+# One-time setup, in order:
+#   fly apps create called-my-shot-postgres --org called-my-shot
+#   fly volumes create postgres_data --app called-my-shot-postgres --region iad --size 1
+#   fly secrets set --app called-my-shot-postgres POSTGRES_PASSWORD=<generate a strong one>
+#
+# Deploy: fly deploy --config infra/postgres/fly.toml
+app = "called-my-shot-postgres"
+primary_region = "iad"
+
+[build]
+  image = "postgres:18"
+
+[env]
+  POSTGRES_USER = "postgres"
+  POSTGRES_DB = "called_my_shot"
+  PGDATA = "/data/pgdata"
+
+[[mounts]]
+  source = "postgres_data"
+  destination = "/data"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"

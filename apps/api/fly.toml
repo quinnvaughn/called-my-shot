@@ -1,0 +1,21 @@
+# Deploy from the repo root: fly deploy --config apps/api/fly.toml
+# App is created once via: fly apps create called-my-shot-api --org called-my-shot
+app = "called-my-shot-api"
+primary_region = "iad"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[deploy]
+  release_command = "pnpm exec drizzle-kit migrate"
+
+[http_service]
+  internal_port = 4000
+  force_https = true
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 0
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"

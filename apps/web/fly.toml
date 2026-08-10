@@ -1,0 +1,21 @@
+# Deploy from the repo root: fly deploy --config apps/web/fly.toml
+# App is created once via: fly apps create called-my-shot-web --org called-my-shot
+app = "called-my-shot-web"
+primary_region = "iad"
+
+[build]
+  dockerfile = "Dockerfile"
+
+  [build.args]
+    VITE_GRAPHQL_URL = "https://called-my-shot-api.fly.dev/"
+
+[http_service]
+  internal_port = 3000
+  force_https = true
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 0
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"
