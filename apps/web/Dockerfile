@@ -22,10 +22,6 @@ RUN pnpm --filter web run prepare
 # opens a database connection.
 RUN printf 'DATABASE_URL=postgres://user:pass@localhost:5432/db\nPORT=4000\nCLIENT_ORIGIN=http://localhost:3000\nNODE_ENV=production\n' > apps/api/.env
 
-# Baked into the client bundle at build time - point this at the deployed api.
-ARG VITE_GRAPHQL_URL
-ENV VITE_GRAPHQL_URL=${VITE_GRAPHQL_URL}
-
 RUN pnpm exec turbo run build --filter=web
 
 FROM base AS runner

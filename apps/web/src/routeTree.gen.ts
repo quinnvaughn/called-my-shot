@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AppRouteImport } from './routes/_app'
+import { Route as GraphqlRouteImport } from './routes/graphql'
 import { Route as AppAuthedRouteImport } from './routes/_app/_authed'
 import { Route as AppLeaderboardRouteImport } from './routes/_app/leaderboard'
 import { Route as AppAuthedGroupsRouteImport } from './routes/_app/_authed/groups'
@@ -26,6 +27,11 @@ const IndexRoute = IndexRouteImport.update({
 } as any)
 const AppRoute = AppRouteImport.update({
   id: '/_app',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const GraphqlRoute = GraphqlRouteImport.update({
+  id: '/graphql',
+  path: '/graphql',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AppAuthedRoute = AppAuthedRouteImport.update({
@@ -65,6 +71,7 @@ const AppUserUsernameRoute = AppUserUsernameRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/graphql': typeof GraphqlRoute
   '/leaderboard': typeof AppLeaderboardRoute
   '/groups': typeof AppAuthedGroupsRoute
   '/home': typeof AppAuthedHomeRoute
@@ -74,6 +81,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/graphql': typeof GraphqlRoute
   '/leaderboard': typeof AppLeaderboardRoute
   '/groups': typeof AppAuthedGroupsRoute
   '/home': typeof AppAuthedHomeRoute
@@ -85,6 +93,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/_app': typeof AppRouteWithChildren
+  '/graphql': typeof GraphqlRoute
   '/_app/_authed': typeof AppAuthedRouteWithChildren
   '/_app/leaderboard': typeof AppLeaderboardRoute
   '/_app/_authed/groups': typeof AppAuthedGroupsRoute
@@ -97,6 +106,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/graphql'
     | '/leaderboard'
     | '/groups'
     | '/home'
@@ -106,6 +116,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/graphql'
     | '/leaderboard'
     | '/groups'
     | '/home'
@@ -116,6 +127,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/_app'
+    | '/graphql'
     | '/_app/_authed'
     | '/_app/leaderboard'
     | '/_app/_authed/groups'
@@ -128,6 +140,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AppRoute: typeof AppRouteWithChildren
+  GraphqlRoute: typeof GraphqlRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -144,6 +157,13 @@ declare module '@tanstack/react-router' {
       path: ''
       fullPath: '/'
       preLoaderRoute: typeof AppRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/graphql': {
+      id: '/graphql'
+      path: '/graphql'
+      fullPath: '/graphql'
+      preLoaderRoute: typeof GraphqlRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_app/_authed': {
@@ -233,6 +253,7 @@ const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AppRoute: AppRouteWithChildren,
+  GraphqlRoute: GraphqlRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

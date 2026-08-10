@@ -31,15 +31,12 @@ export function deleteSession(sessionId: string) {
 	return db.delete(sessions).where(eq(sessions.id, sessionId))
 }
 
-const isProduction = env.NODE_ENV === "production"
-
-// SameSite=None is required because the web and api apps are deployed on
-// separate fly.dev subdomains, which the browser treats as different sites.
-// It requires secure: true, which only holds in production.
+// The browser only ever talks to the web app's own origin (which proxies to
+// this api server-side), so the cookie is always first-party - lax is fine.
 const sessionCookieOptions = {
 	httpOnly: true,
-	sameSite: isProduction ? ("none" as const) : ("lax" as const),
-	secure: isProduction,
+	sameSite: "lax" as const,
+	secure: env.NODE_ENV === "production",
 }
 
 export function setSessionCookie(

@@ -1,11 +1,18 @@
 import { ApolloClient, HttpLink, InMemoryCache } from "@apollo/client"
+import { createIsomorphicFn } from "@tanstack/react-start"
+import { env } from "../env.server"
 
-const GRAPHQL_URL = import.meta.env.VITE_GRAPHQL_URL ?? "http://localhost:4000/"
+// The browser always talks to this app's own origin (same-origin /graphql,
+// proxied server-side to the api) so the session cookie is never cross-site.
+// SSR calls the api directly since that request never touches the browser.
+const getGraphQLUrl = createIsomorphicFn()
+	.server(() => env.API_INTERNAL_URL)
+	.client(() => "/graphql")
 
 export function createApolloClient(cookie?: string) {
 	return new ApolloClient({
 		link: new HttpLink({
-			uri: GRAPHQL_URL,
+			uri: getGraphQLUrl(),
 			fetchOptions: { credentials: "include" },
 			headers: cookie ? { cookie } : undefined,
 		}),

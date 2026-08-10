@@ -6,8 +6,9 @@ primary_region = "iad"
 [build]
   dockerfile = "Dockerfile"
 
-  [build.args]
-    VITE_GRAPHQL_URL = "https://called-my-shot-api.fly.dev/"
+[env]
+  # Reaches the api over Fly's private network (6PN) - never the public internet.
+  API_INTERNAL_URL = "http://called-my-shot-api.internal:4000/"
 
 [http_service]
   internal_port = 3000
