@@ -13,6 +13,7 @@
 			"apps/*/index.html",
 			"apps/*/vite.config.ts",
 			"apps/*/drizzle.config.ts",
+			"packages/*/src/**/*",
 			"!apps/web/src/routeTree.gen.ts",
 			"!apps/web/src/styles.css",
 			"!apps/web/src/graphql/generated"

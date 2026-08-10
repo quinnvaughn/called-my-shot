@@ -1,12 +1,14 @@
-import { db } from "../db";
-import { builder } from "./builder";
-import "./types/user";
+import { db } from "../db"
+import { builder } from "./builder"
+import "./types/auth"
+import { UserRef } from "./types/user"
 
 builder.queryType({
 	fields: (t) => ({
-		users: t.drizzleField({
-			type: ["users"],
-			resolve: (query) => db.query.users.findMany(query({})),
+		me: t.field({
+			type: UserRef,
+			nullable: true,
+			resolve: (_root, _args, ctx) => ctx.user,
 		}),
 		user: t.drizzleField({
 			type: "users",
@@ -18,6 +20,6 @@ builder.queryType({
 				db.query.users.findFirst(query({ where: { id: args.id } })),
 		}),
 	}),
-});
+})
 
-export const schema = builder.toSchema();
+export const schema = builder.toSchema()

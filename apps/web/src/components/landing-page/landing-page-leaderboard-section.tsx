@@ -4,17 +4,17 @@ import { LandingPageContentSection } from "./landing-page-content-section"
 
 type LeaderboardRow = {
 	initials: string
-	handle: string
+	username: string
 	accuracy: number
 	points: number
 }
 
 const rows: LeaderboardRow[] = [
-	{ initials: "DK", handle: "@dkanalytics", accuracy: 64, points: 28110 },
-	{ initials: "MP", handle: "@mpendzone", accuracy: 52, points: 24200 },
-	{ initials: "JR", handle: "@jrhoops", accuracy: 68, points: 21940 },
-	{ initials: "SL", handle: "@statlord", accuracy: 61, points: 19655 },
-	{ initials: "RS", handle: "@rsidelines", accuracy: 57, points: 17310 },
+	{ initials: "DK", username: "@dkanalytics", accuracy: 64, points: 28110 },
+	{ initials: "MP", username: "@mpendzone", accuracy: 52, points: 24200 },
+	{ initials: "JR", username: "@jrhoops", accuracy: 68, points: 21940 },
+	{ initials: "SL", username: "@statlord", accuracy: 61, points: 19655 },
+	{ initials: "RS", username: "@rsidelines", accuracy: 57, points: 17310 },
 ]
 
 export function LandingPageLeaderboardSection() {
@@ -39,7 +39,7 @@ export function LandingPageLeaderboardSection() {
 				})}
 			>
 				{rows.map((row, index) => (
-					<LeaderboardRowItem {...row} rank={index + 1} key={row.handle} />
+					<LeaderboardRowItem {...row} rank={index + 1} key={row.username} />
 				))}
 			</div>
 		</LandingPageContentSection>
@@ -49,7 +49,7 @@ export function LandingPageLeaderboardSection() {
 function LeaderboardRowItem({
 	rank,
 	initials,
-	handle,
+	username,
 	accuracy,
 	points,
 }: LeaderboardRow & { rank: number }) {
@@ -95,7 +95,7 @@ function LeaderboardRowItem({
 			</div>
 			<VStack gap="0.5" alignItems="flex-start" flex="1" minWidth="0">
 				<div className={css({ fontSize: "sm", fontWeight: "medium" })}>
-					{handle}
+					{username}
 				</div>
 				<div
 					className={css({

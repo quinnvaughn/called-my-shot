@@ -1,11 +1,13 @@
-import SchemaBuilder from "@pothos/core";
-import DrizzlePlugin from "@pothos/plugin-drizzle";
-import { getTableConfig } from "drizzle-orm/pg-core";
-import { db } from "../db";
-import { relations } from "../db/relations";
+import SchemaBuilder from "@pothos/core"
+import DrizzlePlugin from "@pothos/plugin-drizzle"
+import { getTableConfig } from "drizzle-orm/pg-core"
+import { db } from "../db"
+import { relations } from "../db/relations"
+import type { Context } from "./context"
 
 export interface PothosTypes {
-	DrizzleRelations: typeof relations;
+	DrizzleRelations: typeof relations
+	Context: Context
 }
 
 export const builder = new SchemaBuilder<PothosTypes>({
@@ -15,4 +17,4 @@ export const builder = new SchemaBuilder<PothosTypes>({
 		getTableConfig,
 		relations,
 	},
-});
+})
