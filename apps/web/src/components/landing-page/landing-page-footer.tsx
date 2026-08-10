@@ -21,7 +21,7 @@ export function LandingPageFooter() {
 				})}
 			>
 				<Link to="/">
-					<Brand size="sm" className={css({ opacity: 0.6 })} />
+					<Brand size="nav" className={css({ opacity: 0.6 })} />
 				</Link>
 				<div
 					className={css({
