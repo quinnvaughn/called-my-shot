@@ -1,10 +1,12 @@
 import { Link } from "@tanstack/react-router"
+import { FiMenu, FiX } from "react-icons/fi"
 import { css } from "styled-system/css"
 import { HStack } from "styled-system/jsx"
 import { AuthModal } from "#/components/auth/auth-modal"
 import { openModal } from "#/stores/modal-store"
 import { Brand } from "../ui/brand"
 import { Button } from "../ui/button"
+import { Dropdown } from "../ui/dropdown"
 
 export function LandingPageNav() {
 	return (
@@ -51,7 +53,11 @@ export function LandingPageNav() {
 						Leaderboard
 					</Link>
 				</HStack>
-				<HStack alignItems="center" gap="4.5">
+				<HStack
+					alignItems="center"
+					gap="4.5"
+					className={css({ display: { base: "none", md: "flex" } })}
+				>
 					<Button
 						variant="ghost"
 						onClick={() => openModal(<AuthModal defaultView="signin" />)}
@@ -65,6 +71,58 @@ export function LandingPageNav() {
 						Get Started
 					</Button>
 				</HStack>
+				<Dropdown className={css({ display: { base: "block", md: "none" } })}>
+					<Dropdown.Trigger aria-label="Menu">
+						{({ open }) => (
+							<span
+								className={css({
+									position: "relative",
+									display: "block",
+									width: "5",
+									height: "5",
+								})}
+							>
+								<FiMenu
+									size={20}
+									className={css({
+										position: "absolute",
+										inset: 0,
+										transition: "opacity 0.2s ease, transform 0.2s ease",
+										opacity: open ? 0 : 1,
+										transform: open
+											? "rotate(-45deg) scale(0.5)"
+											: "rotate(0deg) scale(1)",
+									})}
+								/>
+								<FiX
+									size={20}
+									className={css({
+										position: "absolute",
+										inset: 0,
+										transition: "opacity 0.2s ease, transform 0.2s ease",
+										opacity: open ? 1 : 0,
+										transform: open
+											? "rotate(0deg) scale(1)"
+											: "rotate(45deg) scale(0.5)",
+									})}
+								/>
+							</span>
+						)}
+					</Dropdown.Trigger>
+					<Dropdown.Content>
+						<Dropdown.Item
+							onClick={() => openModal(<AuthModal defaultView="signin" />)}
+						>
+							Sign in
+						</Dropdown.Item>
+						<Dropdown.Item
+							variant="primary"
+							onClick={() => openModal(<AuthModal defaultView="signup" />)}
+						>
+							Get Started
+						</Dropdown.Item>
+					</Dropdown.Content>
+				</Dropdown>
 			</div>
 		</nav>
 	)
