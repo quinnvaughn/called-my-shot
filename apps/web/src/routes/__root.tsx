@@ -27,7 +27,54 @@ export const Route = createRootRouteWithContext<RouterContext>()({
 				content: "width=device-width, initial-scale=1",
 			},
 			{
-				title: "TanStack Start Starter",
+				title: "Called My Shot",
+			},
+			{
+				name: "description",
+				content:
+					"Call outcomes, set your conviction, and get paid more for bold picks against the crowd. No real money, no house edge — just your accuracy on the record.",
+			},
+			{
+				property: "og:type",
+				content: "website",
+			},
+			{
+				property: "og:site_name",
+				content: "Called My Shot",
+			},
+			{
+				property: "og:title",
+				content: "Called My Shot",
+			},
+			{
+				property: "og:description",
+				content:
+					"Call outcomes, set your conviction, and get paid more for bold picks against the crowd. No real money, no house edge — just your accuracy on the record.",
+			},
+			{
+				property: "og:url",
+				content: "https://calledmyshot.com/",
+			},
+			{
+				property: "og:image",
+				content: "https://calledmyshot.com/android-chrome-512x512.png",
+			},
+			{
+				name: "twitter:card",
+				content: "summary",
+			},
+			{
+				name: "twitter:title",
+				content: "Called My Shot",
+			},
+			{
+				name: "twitter:description",
+				content:
+					"Call outcomes, set your conviction, and get paid more for bold picks against the crowd. No real money, no house edge — just your accuracy on the record.",
+			},
+			{
+				name: "twitter:image",
+				content: "https://calledmyshot.com/android-chrome-512x512.png",
 			},
 		],
 		links: [
