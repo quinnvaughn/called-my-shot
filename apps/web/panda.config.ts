@@ -111,7 +111,7 @@ export default defineConfig({
             cursor: "pointer",
             transition: "opacity 0.15s ease, color 0.15s ease",
             _disabled: {
-              cursor: "default",
+              cursor: "not-allowed",
               opacity: 0.6,
             },
             _focusVisible: {
@@ -126,20 +126,38 @@ export default defineConfig({
                 color: "primary.contrast",
                 fontWeight: "bold",
                 borderRadius: "lg",
-                paddingBlock: "2.5",
-                paddingInline: "4.5",
                 _hover: { opacity: 0.88 },
+                _disabled: { _hover: { opacity: 0.6 } },
               },
               ghost: {
                 bg: "transparent",
                 color: "fg.default",
                 fontWeight: "medium",
                 _hover: { color: "fg.muted" },
+                _disabled: { _hover: { color: "fg.default" } },
+              },
+              // Same as ghost, but reserves a transparent border so a border
+              // can fade in on hover without shifting layout.
+              outline: {
+                bg: "transparent",
+                color: "fg.default",
+                fontWeight: "medium",
+                borderRadius: "lg",
+                border: "1px solid transparent",
+                _hover: {
+                  color: "fg.muted",
+                  borderColor: "border.default",
+                },
+                _disabled: {
+                  _hover: { color: "fg.default", borderColor: "transparent" },
+                },
               },
             },
             size: {
               sm: {
                 fontSize: "sm",
+                paddingBlock: "2.5",
+                paddingInline: "4.5",
               },
               // Same treatment as lg, just tighter padding — the hero CTA is
               // meant to feel bigger than a modal's submit button.
@@ -148,12 +166,16 @@ export default defineConfig({
                 letterSpacing: "wide",
                 fontFamily: "heading",
                 textTransform: "uppercase",
+                paddingBlock: "3",
+                paddingInline: "5",
               },
               lg: {
                 fontSize: "md",
                 letterSpacing: "wide",
                 fontFamily: "heading",
                 textTransform: "uppercase",
+                paddingBlock: "4",
+                paddingInline: "7",
               },
             },
             fullWidth: {
@@ -162,19 +184,9 @@ export default defineConfig({
           },
           compoundVariants: [
             {
-              variant: "solid",
-              size: "md",
-              css: {
-                paddingBlock: "3",
-                paddingInline: "5",
-              },
-            },
-            {
-              variant: "solid",
+              variant: ["solid", "outline"],
               size: "lg",
               css: {
-                paddingBlock: "4",
-                paddingInline: "7",
                 borderRadius: "xl",
               },
             },

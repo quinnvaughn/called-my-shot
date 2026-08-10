@@ -1,9 +1,11 @@
 import { createRouter as createTanStackRouter } from "@tanstack/react-router"
+import { getRequestHeader } from "@tanstack/react-start/server"
 import { createApolloClient } from "./graphql/apollo-client"
 import { routeTree } from "./routeTree.gen"
 
 export function getRouter() {
-	const apolloClient = createApolloClient()
+	const cookie = import.meta.env.SSR ? getRequestHeader("cookie") : undefined
+	const apolloClient = createApolloClient(cookie)
 
 	const router = createTanStackRouter({
 		routeTree,

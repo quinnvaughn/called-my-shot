@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router"
+import { createFileRoute, Link, redirect } from "@tanstack/react-router"
 import {
 	FiActivity,
 	FiAward,
@@ -29,6 +29,11 @@ import { Button, button } from "#/components/ui/button"
 import { openModal } from "#/stores/modal-store"
 
 export const Route = createFileRoute("/")({
+	beforeLoad: ({ context }) => {
+		if (context.me) {
+			throw redirect({ to: "/home" })
+		}
+	},
 	component: Home,
 })
 

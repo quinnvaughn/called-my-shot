@@ -1,0 +1,95 @@
+import { useMutation } from "@apollo/client/react"
+import { useNavigate, useRouter } from "@tanstack/react-router"
+import { FiLogOut } from "react-icons/fi"
+import { css } from "styled-system/css"
+import { Avatar } from "#/components/ui/avatar"
+import { Dropdown } from "#/components/ui/dropdown"
+import { SignOutDocument } from "#/graphql/mutations/auth"
+
+type AccountMenuProps = {
+	name: string
+	username: string
+	// "sidebar": full identity chip, menu opens upward (trigger sits at the
+	// bottom of the nav column). "topbar": compact avatar-only trigger, menu
+	// opens downward (trigger sits in the mobile top bar).
+	variant?: "sidebar" | "topbar"
+}
+
+export function AccountMenu({
+	name,
+	username,
+	variant = "sidebar",
+}: AccountMenuProps) {
+	const [signOut] = useMutation(SignOutDocument)
+	const router = useRouter()
+	const navigate = useNavigate()
+
+	async function handleSignOut() {
+		await signOut()
+		await router.invalidate()
+		navigate({ to: "/" })
+	}
+
+	return (
+		<Dropdown
+			className={css({ width: variant === "sidebar" ? "full" : "auto" })}
+		>
+			{variant === "sidebar" ? (
+				<Dropdown.Trigger
+					aria-label="Account menu"
+					className={css({
+						display: "flex",
+						alignItems: "center",
+						width: "full",
+						borderRadius: "2xl",
+						justifyContent: "flex-start",
+						gap: "2.5",
+						padding: "2.5",
+						_hover: { bg: "bg.surface" },
+					})}
+				>
+					<Avatar name={name} />
+					<div className={css({ minWidth: 0, textAlign: "left" })}>
+						<div
+							className={css({
+								fontSize: "sm",
+								fontWeight: "medium",
+								overflow: "hidden",
+								textOverflow: "ellipsis",
+								whiteSpace: "nowrap",
+							})}
+						>
+							{name}
+						</div>
+						<div
+							className={css({
+								fontFamily: "mono",
+								fontSize: "2xs",
+								color: "fg.muted",
+							})}
+						>
+							@{username}
+						</div>
+					</div>
+				</Dropdown.Trigger>
+			) : (
+				<Dropdown.Trigger aria-label="Account menu">
+					<Avatar name={name} size="sm" />
+				</Dropdown.Trigger>
+			)}
+			<Dropdown.Content
+				placement={variant === "sidebar" ? "top" : "bottom"}
+				className={css(variant === "sidebar" ? { width: "full" } : undefined)}
+			>
+				<Dropdown.Item onClick={handleSignOut}>
+					<span
+						className={css({ display: "flex", alignItems: "center", gap: "2" })}
+					>
+						<FiLogOut size={14} />
+						Log out
+					</span>
+				</Dropdown.Item>
+			</Dropdown.Content>
+		</Dropdown>
+	)
+}

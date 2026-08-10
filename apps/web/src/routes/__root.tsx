@@ -8,10 +8,15 @@ import {
 import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools"
 
 import { ModalHost } from "#/components/ui/modal"
+import { MeDocument } from "#/graphql/queries/me"
 import type { RouterContext } from "../router-context"
 import appCss from "../styles.css?url"
 
 export const Route = createRootRouteWithContext<RouterContext>()({
+	beforeLoad: async ({ context }) => {
+		const { data } = await context.apolloClient.query({ query: MeDocument })
+		return { me: data?.me ?? null }
+	},
 	head: () => ({
 		meta: [
 			{

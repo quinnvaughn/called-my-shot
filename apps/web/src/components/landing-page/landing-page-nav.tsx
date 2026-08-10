@@ -72,7 +72,23 @@ export function LandingPageNav() {
 					</Button>
 				</HStack>
 				<Dropdown className={css({ display: { base: "block", md: "none" } })}>
-					<Dropdown.Trigger aria-label="Menu">
+					<Dropdown.Trigger
+						aria-label="Menu"
+						className={css({
+							display: "flex",
+							alignItems: "center",
+							justifyContent: "center",
+							width: "8",
+							height: "8",
+							borderRadius: "lg",
+							border: "1px solid",
+							borderColor: "border.default",
+							color: "fg.default",
+							_hover: {
+								borderColor: "border.emphasized",
+							},
+						})}
+					>
 						{({ open }) => (
 							<span
 								className={css({

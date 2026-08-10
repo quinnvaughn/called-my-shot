@@ -17,25 +17,18 @@ const dropdownRecipe = sva({
 			position: "relative",
 		},
 		trigger: {
-			display: "flex",
-			alignItems: "center",
-			justifyContent: "center",
-			width: "8",
-			height: "8",
-			borderRadius: "lg",
-			border: "1px solid",
-			borderColor: "border.default",
-			color: "fg.default",
+			background: "none",
+			border: "none",
+			padding: "0",
+			margin: "0",
+			font: "inherit",
+			color: "inherit",
 			cursor: "pointer",
-			_hover: {
-				borderColor: "border.emphasized",
-			},
 		},
 		content: {
 			display: "flex",
 			flexDirection: "column",
 			position: "absolute",
-			top: "calc(100% + 8px)",
 			right: "0",
 			minWidth: "44",
 			gap: "0.5",
@@ -72,9 +65,24 @@ const dropdownRecipe = sva({
 				},
 			},
 		},
+		placement: {
+			bottom: {
+				content: {
+					top: "calc(100% + 8px)",
+					bottom: "auto",
+				},
+			},
+			top: {
+				content: {
+					top: "auto",
+					bottom: "calc(100% + 8px)",
+				},
+			},
+		},
 	},
 	defaultVariants: {
 		variant: "default",
+		placement: "bottom",
 	},
 })
 
@@ -162,13 +170,19 @@ function DropdownTrigger({
 	)
 }
 
+type DropdownContentProps = HTMLAttributes<HTMLDivElement> & {
+	placement?: "top" | "bottom"
+}
+
 function DropdownContent({
 	className,
+	placement = "bottom",
 	...props
-}: HTMLAttributes<HTMLDivElement>) {
-	const { slots, open } = useDropdownContext("Content")
+}: DropdownContentProps) {
+	const { open } = useDropdownContext("Content")
+	const { content } = dropdownRecipe({ placement })
 	if (!open) return null
-	return <div role="menu" className={cx(slots.content, className)} {...props} />
+	return <div role="menu" className={cx(content, className)} {...props} />
 }
 
 type DropdownItemProps = ButtonHTMLAttributes<HTMLButtonElement> & {

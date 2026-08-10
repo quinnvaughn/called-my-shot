@@ -10,33 +10,124 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AppRouteImport } from './routes/_app'
+import { Route as AppAuthedRouteImport } from './routes/_app/_authed'
+import { Route as AppLeaderboardRouteImport } from './routes/_app/leaderboard'
+import { Route as AppAuthedGroupsRouteImport } from './routes/_app/_authed/groups'
+import { Route as AppAuthedHomeRouteImport } from './routes/_app/_authed/home'
+import { Route as AppAuthedMyCallsRouteImport } from './routes/_app/_authed/my-calls'
+import { Route as AppAuthedNewQuestionRouteImport } from './routes/_app/_authed/new-question'
+import { Route as AppUserUsernameRouteImport } from './routes/_app/user/$username'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AppRoute = AppRouteImport.update({
+  id: '/_app',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AppAuthedRoute = AppAuthedRouteImport.update({
+  id: '/_authed',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppLeaderboardRoute = AppLeaderboardRouteImport.update({
+  id: '/leaderboard',
+  path: '/leaderboard',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppAuthedGroupsRoute = AppAuthedGroupsRouteImport.update({
+  id: '/groups',
+  path: '/groups',
+  getParentRoute: () => AppAuthedRoute,
+} as any)
+const AppAuthedHomeRoute = AppAuthedHomeRouteImport.update({
+  id: '/home',
+  path: '/home',
+  getParentRoute: () => AppAuthedRoute,
+} as any)
+const AppAuthedMyCallsRoute = AppAuthedMyCallsRouteImport.update({
+  id: '/my-calls',
+  path: '/my-calls',
+  getParentRoute: () => AppAuthedRoute,
+} as any)
+const AppAuthedNewQuestionRoute = AppAuthedNewQuestionRouteImport.update({
+  id: '/new-question',
+  path: '/new-question',
+  getParentRoute: () => AppAuthedRoute,
+} as any)
+const AppUserUsernameRoute = AppUserUsernameRouteImport.update({
+  id: '/user/$username',
+  path: '/user/$username',
+  getParentRoute: () => AppRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/leaderboard': typeof AppLeaderboardRoute
+  '/groups': typeof AppAuthedGroupsRoute
+  '/home': typeof AppAuthedHomeRoute
+  '/my-calls': typeof AppAuthedMyCallsRoute
+  '/new-question': typeof AppAuthedNewQuestionRoute
+  '/user/$username': typeof AppUserUsernameRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/leaderboard': typeof AppLeaderboardRoute
+  '/groups': typeof AppAuthedGroupsRoute
+  '/home': typeof AppAuthedHomeRoute
+  '/my-calls': typeof AppAuthedMyCallsRoute
+  '/new-question': typeof AppAuthedNewQuestionRoute
+  '/user/$username': typeof AppUserUsernameRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/_app': typeof AppRouteWithChildren
+  '/_app/_authed': typeof AppAuthedRouteWithChildren
+  '/_app/leaderboard': typeof AppLeaderboardRoute
+  '/_app/_authed/groups': typeof AppAuthedGroupsRoute
+  '/_app/_authed/home': typeof AppAuthedHomeRoute
+  '/_app/_authed/my-calls': typeof AppAuthedMyCallsRoute
+  '/_app/_authed/new-question': typeof AppAuthedNewQuestionRoute
+  '/_app/user/$username': typeof AppUserUsernameRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/leaderboard'
+    | '/groups'
+    | '/home'
+    | '/my-calls'
+    | '/new-question'
+    | '/user/$username'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to:
+    | '/'
+    | '/leaderboard'
+    | '/groups'
+    | '/home'
+    | '/my-calls'
+    | '/new-question'
+    | '/user/$username'
+  id:
+    | '__root__'
+    | '/'
+    | '/_app'
+    | '/_app/_authed'
+    | '/_app/leaderboard'
+    | '/_app/_authed/groups'
+    | '/_app/_authed/home'
+    | '/_app/_authed/my-calls'
+    | '/_app/_authed/new-question'
+    | '/_app/user/$username'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AppRoute: typeof AppRouteWithChildren
 }
 
 declare module '@tanstack/react-router' {
@@ -48,11 +139,100 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_app': {
+      id: '/_app'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof AppRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_app/_authed': {
+      id: '/_app/_authed'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof AppAuthedRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/leaderboard': {
+      id: '/_app/leaderboard'
+      path: '/leaderboard'
+      fullPath: '/leaderboard'
+      preLoaderRoute: typeof AppLeaderboardRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/_authed/groups': {
+      id: '/_app/_authed/groups'
+      path: '/groups'
+      fullPath: '/groups'
+      preLoaderRoute: typeof AppAuthedGroupsRouteImport
+      parentRoute: typeof AppAuthedRoute
+    }
+    '/_app/_authed/home': {
+      id: '/_app/_authed/home'
+      path: '/home'
+      fullPath: '/home'
+      preLoaderRoute: typeof AppAuthedHomeRouteImport
+      parentRoute: typeof AppAuthedRoute
+    }
+    '/_app/_authed/my-calls': {
+      id: '/_app/_authed/my-calls'
+      path: '/my-calls'
+      fullPath: '/my-calls'
+      preLoaderRoute: typeof AppAuthedMyCallsRouteImport
+      parentRoute: typeof AppAuthedRoute
+    }
+    '/_app/_authed/new-question': {
+      id: '/_app/_authed/new-question'
+      path: '/new-question'
+      fullPath: '/new-question'
+      preLoaderRoute: typeof AppAuthedNewQuestionRouteImport
+      parentRoute: typeof AppAuthedRoute
+    }
+    '/_app/user/$username': {
+      id: '/_app/user/$username'
+      path: '/user/$username'
+      fullPath: '/user/$username'
+      preLoaderRoute: typeof AppUserUsernameRouteImport
+      parentRoute: typeof AppRoute
+    }
   }
 }
 
+interface AppAuthedRouteChildren {
+  AppAuthedGroupsRoute: typeof AppAuthedGroupsRoute
+  AppAuthedHomeRoute: typeof AppAuthedHomeRoute
+  AppAuthedMyCallsRoute: typeof AppAuthedMyCallsRoute
+  AppAuthedNewQuestionRoute: typeof AppAuthedNewQuestionRoute
+}
+
+const AppAuthedRouteChildren: AppAuthedRouteChildren = {
+  AppAuthedGroupsRoute: AppAuthedGroupsRoute,
+  AppAuthedHomeRoute: AppAuthedHomeRoute,
+  AppAuthedMyCallsRoute: AppAuthedMyCallsRoute,
+  AppAuthedNewQuestionRoute: AppAuthedNewQuestionRoute,
+}
+
+const AppAuthedRouteWithChildren = AppAuthedRoute._addFileChildren(
+  AppAuthedRouteChildren,
+)
+
+interface AppRouteChildren {
+  AppAuthedRoute: typeof AppAuthedRouteWithChildren
+  AppLeaderboardRoute: typeof AppLeaderboardRoute
+  AppUserUsernameRoute: typeof AppUserUsernameRoute
+}
+
+const AppRouteChildren: AppRouteChildren = {
+  AppAuthedRoute: AppAuthedRouteWithChildren,
+  AppLeaderboardRoute: AppLeaderboardRoute,
+  AppUserUsernameRoute: AppUserUsernameRoute,
+}
+
+const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AppRoute: AppRouteWithChildren,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

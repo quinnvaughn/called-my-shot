@@ -43,3 +43,9 @@ export const SignInDocument = graphql(`
 		}
 	}
 `)
+
+export const SignOutDocument = graphql(`
+	mutation SignOut {
+		signOut
+	}
+`)

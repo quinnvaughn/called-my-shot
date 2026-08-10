@@ -1,5 +1,6 @@
 import { useMutation } from "@apollo/client/react"
 import { signInSchema, signUpSchema } from "@called-my-shot/schemas"
+import { useNavigate, useRouter } from "@tanstack/react-router"
 import { useState } from "react"
 import { css } from "styled-system/css"
 import { VStack } from "styled-system/jsx"
@@ -69,6 +70,8 @@ function FormError({ message }: { message: string | null }) {
 
 function SignInFields() {
 	const [signIn] = useMutation(SignInDocument)
+	const router = useRouter()
+	const navigate = useNavigate()
 
 	const form = useForm({
 		schema: signInSchema,
@@ -91,7 +94,8 @@ function SignInFields() {
 				helpers.setErrors(errors)
 				return
 			}
-
+			await router.invalidate()
+			await navigate({ to: "/home" })
 			closeModal()
 		},
 	})
@@ -141,6 +145,7 @@ function SignInFields() {
 								size="md"
 								fullWidth
 								loading={meta.isSubmitting}
+								disabled={meta.isSubmitting || !meta.canSubmit}
 							>
 								Sign in
 							</Button>
@@ -155,6 +160,8 @@ function SignInFields() {
 
 function SignUpFields() {
 	const [signUp] = useMutation(SignUpDocument)
+	const router = useRouter()
+	const navigate = useNavigate()
 
 	const form = useForm({
 		schema: signUpSchema,
@@ -178,6 +185,8 @@ function SignUpFields() {
 				return
 			}
 
+			await router.invalidate()
+			await navigate({ to: "/home" })
 			closeModal()
 		},
 	})
@@ -261,6 +270,7 @@ function SignUpFields() {
 								size="md"
 								fullWidth
 								loading={meta.isSubmitting}
+								disabled={meta.isSubmitting || !meta.canSubmit}
 							>
 								Create account
 							</Button>
