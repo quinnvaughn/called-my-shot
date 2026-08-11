@@ -59,6 +59,7 @@ export function LandingPageNav() {
 					className={css({ display: { base: "none", md: "flex" } })}
 				>
 					<Button
+						size="md"
 						variant="ghost"
 						onClick={() => openModal(<AuthModal defaultView="signin" />)}
 					>

@@ -184,7 +184,7 @@ function Home() {
 									<Link
 										to="/"
 										hash="how-it-works"
-										className={button({ variant: "ghost" })}
+										className={button({ variant: "ghost", size: "md" })}
 									>
 										See how scoring works ↓
 									</Link>
