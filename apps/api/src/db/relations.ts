@@ -28,10 +28,7 @@ export const relations = defineRelations(schema, (r) => ({
 			to: r.users.id,
 		}),
 		members: r.many.groupMembers(),
-		invite: r.one.groupInvites({
-			from: r.groups.id,
-			to: r.groupInvites.groupId,
-		}),
+		invites: r.many.groupInvites(),
 	},
 	groupMembers: {
 		group: r.one.groups({
@@ -47,6 +44,10 @@ export const relations = defineRelations(schema, (r) => ({
 		group: r.one.groups({
 			from: r.groupInvites.groupId,
 			to: r.groups.id,
+		}),
+		creator: r.one.users({
+			from: r.groupInvites.createdBy,
+			to: r.users.id,
 		}),
 	},
 	questions: {

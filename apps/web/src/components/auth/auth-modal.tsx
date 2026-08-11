@@ -19,6 +19,10 @@ export type AuthModalView = "signin" | "signup"
 
 type AuthModalProps = {
 	defaultView?: AuthModalView
+	// Runs instead of the default "/home" redirect once sign-in/sign-up
+	// succeeds - lets callers (e.g. useRequireAuth) resume whatever action
+	// was gated behind auth.
+	onSuccess?: () => void
 }
 
 const copy = {
@@ -32,7 +36,10 @@ const copy = {
 	},
 } as const
 
-export function AuthModal({ defaultView = "signin" }: AuthModalProps) {
+export function AuthModal({
+	defaultView = "signin",
+	onSuccess,
+}: AuthModalProps) {
 	const [view, setView] = useState<AuthModalView>(defaultView)
 
 	return (
@@ -49,12 +56,16 @@ export function AuthModal({ defaultView = "signin" }: AuthModalProps) {
 				<Modal.Title>{copy[view].title}</Modal.Title>
 				<Modal.Description>{copy[view].description}</Modal.Description>
 			</VStack>
-			{view === "signin" ? <SignInFields /> : <SignUpFields />}
+			{view === "signin" ? (
+				<SignInFields onSuccess={onSuccess} />
+			) : (
+				<SignUpFields onSuccess={onSuccess} />
+			)}
 		</Modal>
 	)
 }
 
-function SignInFields() {
+function SignInFields({ onSuccess }: { onSuccess?: () => void }) {
 	const [signIn] = useMutation(SignInDocument)
 	const router = useRouter()
 	const navigate = useNavigate()
@@ -82,8 +93,9 @@ function SignInFields() {
 				})
 				.with({ __typename: "AuthPayload" }, async () => {
 					await router.invalidate()
-					await navigate({ to: "/home" })
 					closeModal()
+					if (onSuccess) onSuccess()
+					else await navigate({ to: "/home" })
 				})
 				.exhaustive()
 		},
@@ -147,7 +159,7 @@ function SignInFields() {
 	)
 }
 
-function SignUpFields() {
+function SignUpFields({ onSuccess }: { onSuccess?: () => void }) {
 	const [signUp] = useMutation(SignUpDocument)
 	const router = useRouter()
 	const navigate = useNavigate()
@@ -175,8 +187,9 @@ function SignUpFields() {
 				})
 				.with({ __typename: "AuthPayload" }, async () => {
 					await router.invalidate()
-					await navigate({ to: "/home" })
 					closeModal()
+					if (onSuccess) onSuccess()
+					else await navigate({ to: "/home" })
 				})
 				.exhaustive()
 		},

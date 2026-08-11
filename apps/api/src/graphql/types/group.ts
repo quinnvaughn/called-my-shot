@@ -1,7 +1,13 @@
 import { createGroupSchema, joinGroupSchema } from "@called-my-shot/schemas"
 import { and, eq } from "drizzle-orm"
 import { db } from "../../db"
-import { groupInvites, groupMembers, groups, type users } from "../../db/schema"
+import {
+	type Group,
+	groupInvites,
+	groupMembers,
+	groups,
+	type User,
+} from "../../db/schema"
 import { requireUser } from "../../lib/auth"
 import {
 	AuthenticationError,
@@ -11,10 +17,12 @@ import {
 } from "../../lib/errors"
 import {
 	expiryToDate,
+	getOrCreateMemberInvite,
 	insertGroupInvite,
 	isInviteExpired,
 	regenerateInviteCode,
 	requireAdmin,
+	requireInviteOwnerOrAdmin,
 } from "../../lib/groups"
 import { builder } from "../builder"
 import { UserRef } from "./user"
@@ -33,12 +41,14 @@ const InviteExpiry = builder.enumType("InviteExpiry", {
 const GroupInviteRef = builder.drizzleObject("groupInvites", {
 	name: "GroupInvite",
 	fields: (t) => ({
+		id: t.exposeID("id"),
 		code: t.exposeString("code"),
 		expiresAt: t.field({
 			type: "String",
 			nullable: true,
 			resolve: (invite) => invite.expiresAt?.toISOString() ?? null,
 		}),
+		creator: t.relation("creator"),
 	}),
 })
 
@@ -57,7 +67,7 @@ export const GroupMemberRef = builder.drizzleObject("groupMembers", {
 
 type LeaderboardEntry = {
 	rank: number
-	user: typeof users.$inferSelect
+	user: User
 	totalPoints: number
 	accuracy: number | null
 	callCount: number
@@ -136,6 +146,54 @@ async function buildLeaderboard(groupId: string): Promise<LeaderboardEntry[]> {
 	return entries.map((entry, index) => ({ ...entry, rank: index + 1 }))
 }
 
+// Cheaper than buildLeaderboard for callers that only need the #1 name and
+// point total (e.g. the invite preview teaser) - no accuracy/option join,
+// no full sort, just a single pass to find the max.
+async function findTopScorer(
+	memberUsers: User[],
+): Promise<{ user: User; totalPoints: number }> {
+	// A group can't structurally have zero members - creation seeds the
+	// creator as a member, and leaveGroup deletes the group once the last
+	// member leaves. Callers should only ever pass the members of a group
+	// that exists.
+	if (memberUsers.length === 0) {
+		throw new Error("findTopScorer called with no members")
+	}
+	const usersById = new Map(memberUsers.map((u) => [u.id, u]))
+
+	const memberCalls = await db.query.calls.findMany({
+		where: { userId: { in: memberUsers.map((u) => u.id) } },
+		with: { selections: true },
+	})
+
+	// seed every member at 0 first - a member who hasn't called anything is
+	// still tied for the top spot, not absent from it
+	const pointsByUser = new Map<string, number>(
+		memberUsers.map((u) => [u.id, 0]),
+	)
+	for (const call of memberCalls) {
+		let points = 0
+		if (call.selections.length > 0) {
+			for (const selection of call.selections) {
+				if (selection.resultPoints !== null) points += selection.resultPoints
+			}
+		} else if (call.resultPoints !== null) {
+			points = call.resultPoints
+		}
+		pointsByUser.set(call.userId, (pointsByUser.get(call.userId) ?? 0) + points)
+	}
+
+	let top: { user: User; totalPoints: number } | null = null
+	for (const [userId, totalPoints] of pointsByUser) {
+		if (top && totalPoints <= top.totalPoints) continue
+		const user = usersById.get(userId)
+		if (user) top = { user, totalPoints }
+	}
+	if (!top)
+		throw new Error("findTopScorer found no top scorer despite having members")
+	return top
+}
+
 const GroupRef = builder.drizzleObject("groups", {
 	name: "Group",
 	fields: (t) => ({
@@ -147,7 +205,30 @@ const GroupRef = builder.drizzleObject("groups", {
 		}),
 		memberCount: t.relatedCount("members"),
 		members: t.relation("members"),
-		invite: t.relation("invite"),
+		// the viewer's own invite link - null if they haven't opened the invite
+		// modal yet (createGroupInvite creates it on demand)
+		myInvite: t.field({
+			type: GroupInviteRef,
+			nullable: true,
+			resolve: (group, _args, ctx) => {
+				if (!ctx.user) return null
+				return db.query.groupInvites.findFirst({
+					where: { groupId: group.id, createdBy: ctx.user.id },
+				})
+			},
+		}),
+		// every member's invite link - admins only, for a "manage invites" view
+		invites: t.field({
+			type: [GroupInviteRef],
+			resolve: async (group, _args, ctx) => {
+				if (!ctx.user) return []
+				const membership = await db.query.groupMembers.findFirst({
+					where: { groupId: group.id, userId: ctx.user.id },
+				})
+				if (membership?.role !== "admin") return []
+				return db.query.groupInvites.findMany({ where: { groupId: group.id } })
+			},
+		}),
 		viewerIsAdmin: t.field({
 			type: "Boolean",
 			resolve: async (group, _args, ctx) => {
@@ -182,18 +263,73 @@ const GroupRef = builder.drizzleObject("groups", {
 	}),
 })
 
+const GROUP_PREVIEW_MEMBER_LIMIT = 5
+
+const GroupPreviewMemberRef = builder
+	.objectRef<{ id: string; name: string }>("GroupPreviewMember")
+	.implement({
+		fields: (t) => ({
+			id: t.exposeID("id"),
+			name: t.exposeString("name"),
+		}),
+	})
+
+const GroupPreviewInvitedByRef = builder
+	.objectRef<{ name: string; username: string }>("GroupPreviewInvitedBy")
+	.implement({
+		fields: (t) => ({
+			name: t.exposeString("name"),
+			username: t.exposeString("username"),
+		}),
+	})
+
+const GroupPreviewTopScorerRef = builder
+	.objectRef<{ name: string; username: string; points: number }>(
+		"GroupPreviewTopScorer",
+	)
+	.implement({
+		fields: (t) => ({
+			name: t.exposeString("name"),
+			username: t.exposeString("username"),
+			points: t.exposeInt("points"),
+		}),
+	})
+
 const GroupPreviewRef = builder
-	.objectRef<{ id: string; name: string; memberCount: number }>("GroupPreview")
+	.objectRef<{
+		id: string
+		name: string
+		memberCount: number
+		members: { id: string; name: string }[]
+		invitedBy: { name: string; username: string }
+		topScorer: { name: string; username: string; points: number }
+	}>("GroupPreview")
 	.implement({
 		fields: (t) => ({
 			id: t.exposeID("id"),
 			name: t.exposeString("name"),
 			memberCount: t.exposeInt("memberCount"),
+			// capped preview for an avatar stack - not the full roster, this is
+			// visible to unauthenticated visitors
+			members: t.field({
+				type: [GroupPreviewMemberRef],
+				resolve: (preview) => preview.members,
+			}),
+			invitedBy: t.field({
+				type: GroupPreviewInvitedByRef,
+				resolve: (preview) => preview.invitedBy,
+			}),
+			// ranked by total points across every sport a member has called, same
+			// as the real leaderboard - there's no "season" here, just points
+			topScorer: t.field({
+				type: GroupPreviewTopScorerRef,
+				resolve: (preview) => preview.topScorer,
+			}),
 		}),
 	})
 
 const GroupPayload = builder
-	.objectRef<{ group: typeof groups.$inferSelect }>("GroupPayload")
+	.objectRef<{ group: Group }>("GroupPayload")
 	.implement({
 		fields: (t) => ({
 			group: t.field({ type: GroupRef, resolve: (payload) => payload.group }),
@@ -247,7 +383,10 @@ builder.queryFields((t) => ({
 		args: { code: t.arg.string({ required: true }) },
 		resolve: async (_root, args) => {
 			const code = args.code.trim().toUpperCase()
-			const invite = await db.query.groupInvites.findFirst({ where: { code } })
+			const invite = await db.query.groupInvites.findFirst({
+				where: { code },
+				with: { creator: true },
+			})
 			if (!invite || isInviteExpired(invite.expiresAt)) return null
 
 			const group = await db.query.groups.findFirst({
@@ -257,10 +396,27 @@ builder.queryFields((t) => ({
 
 			const members = await db.query.groupMembers.findMany({
 				where: { groupId: group.id },
-				columns: { id: true },
+				with: { user: true },
 			})
+			const memberUsers = members.flatMap((m) => (m.user ? [m.user] : []))
+			const topScorer = await findTopScorer(memberUsers)
 
-			return { id: group.id, name: group.name, memberCount: members.length }
+			return {
+				id: group.id,
+				name: group.name,
+				memberCount: memberUsers.length,
+				members: memberUsers
+					.slice(0, GROUP_PREVIEW_MEMBER_LIMIT)
+					.map((u) => ({ id: u.id, name: u.name })),
+				invitedBy: invite.creator
+					? { name: invite.creator.name, username: invite.creator.username }
+					: { name: "a member", username: "" },
+				topScorer: {
+					name: topScorer.user.name,
+					username: topScorer.user.username,
+					points: topScorer.totalPoints,
+				},
+			}
 		},
 	}),
 }))
@@ -288,7 +444,7 @@ builder.mutationFields((t) => ({
 			await db
 				.insert(groupMembers)
 				.values({ groupId: group.id, userId: user.id, role: "admin" })
-			await insertGroupInvite(group.id, expiryToDate("SEVEN_DAYS"))
+			await insertGroupInvite(group.id, user.id, expiryToDate("SEVEN_DAYS"))
 
 			return { group }
 		},
@@ -417,6 +573,26 @@ builder.mutationFields((t) => ({
 		},
 	}),
 
+	createGroupInvite: t.field({
+		type: GroupInviteRef,
+		errors: {
+			types: [AuthenticationError, AuthorizationError],
+			directResult: true,
+			union: { name: "CreateGroupInviteResult" },
+		},
+		args: { groupId: t.arg.id({ required: true }) },
+		resolve: async (_root, args, ctx) => {
+			const user = requireUser(ctx)
+			const membership = await db.query.groupMembers.findFirst({
+				where: { groupId: args.groupId, userId: user.id },
+			})
+			if (!membership) {
+				throw new AuthorizationError("You're not a member of this group.")
+			}
+			return getOrCreateMemberInvite(args.groupId, user.id)
+		},
+	}),
+
 	setGroupInviteExpiry: t.field({
 		type: GroupInviteRef,
 		errors: {
@@ -425,19 +601,19 @@ builder.mutationFields((t) => ({
 			union: { name: "SetGroupInviteExpiryResult" },
 		},
 		args: {
-			groupId: t.arg.id({ required: true }),
+			inviteId: t.arg.id({ required: true }),
 			expiry: t.arg({ type: InviteExpiry, required: true }),
 		},
 		resolve: async (_root, args, ctx) => {
 			const user = requireUser(ctx)
-			await requireAdmin(args.groupId, user.id)
+			await requireInviteOwnerOrAdmin(args.inviteId, user.id)
 
 			const [invite] = await db
 				.update(groupInvites)
 				.set({ expiresAt: expiryToDate(args.expiry) })
-				.where(eq(groupInvites.groupId, args.groupId))
+				.where(eq(groupInvites.id, args.inviteId))
 				.returning()
-			if (!invite) throw new NotFoundError("Group not found")
+			if (!invite) throw new NotFoundError("Invite not found")
 
 			return invite
 		},
@@ -450,12 +626,12 @@ builder.mutationFields((t) => ({
 			directResult: true,
 			union: { name: "ResetGroupInviteCodeResult" },
 		},
-		args: { groupId: t.arg.id({ required: true }) },
+		args: { inviteId: t.arg.id({ required: true }) },
 		resolve: async (_root, args, ctx) => {
 			const user = requireUser(ctx)
-			await requireAdmin(args.groupId, user.id)
+			await requireInviteOwnerOrAdmin(args.inviteId, user.id)
 
-			return regenerateInviteCode(args.groupId)
+			return regenerateInviteCode(args.inviteId)
 		},
 	}),
 }))

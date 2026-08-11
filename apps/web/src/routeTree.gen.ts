@@ -20,6 +20,7 @@ import { Route as AppAuthedNewQuestionRouteImport } from './routes/_app/_authed/
 import { Route as AppUserUsernameRouteImport } from './routes/_app/user/$username'
 import { Route as AppAuthedGroupsIndexRouteImport } from './routes/_app/_authed/groups/index'
 import { Route as AppAuthedGroupsGroupIdRouteImport } from './routes/_app/_authed/groups/$groupId'
+import { Route as AppGroupsJoinCodeRouteImport } from './routes/_app/groups/join/$code'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -74,6 +75,11 @@ const AppAuthedGroupsGroupIdRoute = AppAuthedGroupsGroupIdRouteImport.update({
   path: '/groups/$groupId',
   getParentRoute: () => AppAuthedRoute,
 } as any)
+const AppGroupsJoinCodeRoute = AppGroupsJoinCodeRouteImport.update({
+  id: '/groups/join/$code',
+  path: '/groups/join/$code',
+  getParentRoute: () => AppRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -84,6 +90,7 @@ export interface FileRoutesByFullPath {
   '/new-question': typeof AppAuthedNewQuestionRoute
   '/user/$username': typeof AppUserUsernameRoute
   '/groups/$groupId': typeof AppAuthedGroupsGroupIdRoute
+  '/groups/join/$code': typeof AppGroupsJoinCodeRoute
   '/groups/': typeof AppAuthedGroupsIndexRoute
 }
 export interface FileRoutesByTo {
@@ -95,6 +102,7 @@ export interface FileRoutesByTo {
   '/new-question': typeof AppAuthedNewQuestionRoute
   '/user/$username': typeof AppUserUsernameRoute
   '/groups/$groupId': typeof AppAuthedGroupsGroupIdRoute
+  '/groups/join/$code': typeof AppGroupsJoinCodeRoute
   '/groups': typeof AppAuthedGroupsIndexRoute
 }
 export interface FileRoutesById {
@@ -109,6 +117,7 @@ export interface FileRoutesById {
   '/_app/_authed/new-question': typeof AppAuthedNewQuestionRoute
   '/_app/user/$username': typeof AppUserUsernameRoute
   '/_app/_authed/groups/$groupId': typeof AppAuthedGroupsGroupIdRoute
+  '/_app/groups/join/$code': typeof AppGroupsJoinCodeRoute
   '/_app/_authed/groups/': typeof AppAuthedGroupsIndexRoute
 }
 export interface FileRouteTypes {
@@ -122,6 +131,7 @@ export interface FileRouteTypes {
     | '/new-question'
     | '/user/$username'
     | '/groups/$groupId'
+    | '/groups/join/$code'
     | '/groups/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -133,6 +143,7 @@ export interface FileRouteTypes {
     | '/new-question'
     | '/user/$username'
     | '/groups/$groupId'
+    | '/groups/join/$code'
     | '/groups'
   id:
     | '__root__'
@@ -146,6 +157,7 @@ export interface FileRouteTypes {
     | '/_app/_authed/new-question'
     | '/_app/user/$username'
     | '/_app/_authed/groups/$groupId'
+    | '/_app/groups/join/$code'
     | '/_app/_authed/groups/'
   fileRoutesById: FileRoutesById
 }
@@ -234,6 +246,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppAuthedGroupsGroupIdRouteImport
       parentRoute: typeof AppAuthedRoute
     }
+    '/_app/groups/join/$code': {
+      id: '/_app/groups/join/$code'
+      path: '/groups/join/$code'
+      fullPath: '/groups/join/$code'
+      preLoaderRoute: typeof AppGroupsJoinCodeRouteImport
+      parentRoute: typeof AppRoute
+    }
   }
 }
 
@@ -261,12 +280,14 @@ interface AppRouteChildren {
   AppAuthedRoute: typeof AppAuthedRouteWithChildren
   AppLeaderboardRoute: typeof AppLeaderboardRoute
   AppUserUsernameRoute: typeof AppUserUsernameRoute
+  AppGroupsJoinCodeRoute: typeof AppGroupsJoinCodeRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
   AppAuthedRoute: AppAuthedRouteWithChildren,
   AppLeaderboardRoute: AppLeaderboardRoute,
   AppUserUsernameRoute: AppUserUsernameRoute,
+  AppGroupsJoinCodeRoute: AppGroupsJoinCodeRoute,
 }
 
 const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)

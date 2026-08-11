@@ -1,12 +1,10 @@
 import { Link } from "@tanstack/react-router"
 import { css } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
+import { AvatarStack } from "#/components/ui/avatar-stack"
 import { Card } from "#/components/ui/card"
 import { type FragmentType, graphql, useFragment } from "#/graphql/generated"
-import { Avatar, avatarStyle } from "../ui/avatar"
 import { Eyebrow } from "../ui/eyebrow"
-
-const MAX_VISIBLE_MEMBERS = 5
 
 export const GroupCardFragment = graphql(`
 	fragment GroupCard_group on Group {
@@ -65,16 +63,12 @@ export function GroupCard(props: GroupCardProps) {
 								You're #{group.viewerRank}
 							</Eyebrow>
 						</HStack>
-						<HStack gap="1">
-							{group.members.slice(0, MAX_VISIBLE_MEMBERS).map((m) => (
-								<Avatar size="xs" key={m.id} name={m.user.name} />
-							))}
-							{group.members.length > MAX_VISIBLE_MEMBERS && (
-								<div className={avatarStyle({ size: "xs" })}>
-									+{group.members.length - MAX_VISIBLE_MEMBERS}
-								</div>
-							)}
-						</HStack>
+						<AvatarStack
+							members={group.members.map((m) => ({
+								id: m.id,
+								name: m.user.name,
+							}))}
+						/>
 					</VStack>
 				</Card.Body>
 			</Card>

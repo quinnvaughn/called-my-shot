@@ -8,3 +8,26 @@ export const MyGroupsDocument = graphql(`
         }
     }
 `)
+
+export const GroupPreviewDocument = graphql(`
+    query GroupPreview($code: String!) {
+        groupPreview(code: $code) {
+            id
+            name
+            memberCount
+            invitedBy {
+                name
+                username
+            }
+            members {
+                id
+                name
+            }
+            topScorer {
+                name
+                username
+                points
+            }
+        }
+    }
+`)

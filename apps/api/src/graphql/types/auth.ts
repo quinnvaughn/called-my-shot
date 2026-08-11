@@ -1,6 +1,6 @@
 import { signInSchema, signUpSchema } from "@called-my-shot/schemas"
 import { db } from "../../db"
-import { users } from "../../db/schema"
+import { type User, users } from "../../db/schema"
 import { ValidationError } from "../../lib/errors"
 import { hashPassword, verifyPassword } from "../../lib/password"
 import {
@@ -12,7 +12,7 @@ import {
 import { builder } from "../builder"
 import { UserRef } from "./user"
 
-type AuthPayloadShape = { user: typeof users.$inferSelect }
+type AuthPayloadShape = { user: User }
 
 const AuthPayload = builder
 	.objectRef<AuthPayloadShape>("AuthPayload")

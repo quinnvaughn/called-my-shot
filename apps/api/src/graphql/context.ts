@@ -1,5 +1,5 @@
 import type { Request, Response } from "express"
-import type { users } from "../db/schema"
+import type { User } from "../db/schema"
 import {
 	clearSessionCookie,
 	getSessionWithUser,
@@ -10,7 +10,7 @@ export type Context = {
 	req: Request
 	res: Response
 	sessionId: string | null
-	user: typeof users.$inferSelect | null
+	user: User | null
 }
 
 const UUID_RE =

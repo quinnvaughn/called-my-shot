@@ -128,6 +128,7 @@ export const questionOptions = pgTable("question_options", {
 	// null until the question resolves
 	isCorrect: boolean("is_correct"),
 })
+export type QuestionOption = typeof questionOptions.$inferSelect
 
 // One row per user per question. numeric_guess scores entirely off the columns
 // here (no options involved); every other type scores through callSelections.

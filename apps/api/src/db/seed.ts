@@ -15,15 +15,15 @@ import {
 	groupMembers,
 	groups,
 	leagues,
+	type Player,
 	players,
-	type players as playersTable,
+	type QuestionOption,
 	questionOptions,
-	type questionOptions as questionOptionsTable,
 	questions,
 	sports,
 	stats,
+	type Team,
 	teams,
-	type teams as teamsTable,
 	users,
 } from "./schema"
 
@@ -58,7 +58,11 @@ async function createGroup(
 		})),
 	])
 
-	const invite = await insertGroupInvite(group.id, expiryToDate(expiry))
+	const invite = await insertGroupInvite(
+		group.id,
+		adminUserId,
+		expiryToDate(expiry),
+	)
 	return { group, invite }
 }
 
@@ -76,10 +80,7 @@ async function addOptions(questionId: string, labels: string[]) {
 		.returning()
 }
 
-async function addTeamOptions(
-	questionId: string,
-	teamRows: (typeof teamsTable.$inferSelect)[],
-) {
+async function addTeamOptions(questionId: string, teamRows: Team[]) {
 	return db
 		.insert(questionOptions)
 		.values(
@@ -93,10 +94,7 @@ async function addTeamOptions(
 		.returning()
 }
 
-async function addPlayerOptions(
-	questionId: string,
-	playerRows: (typeof playersTable.$inferSelect)[],
-) {
+async function addPlayerOptions(questionId: string, playerRows: Player[]) {
 	return db
 		.insert(questionOptions)
 		.values(
@@ -149,7 +147,7 @@ async function callWithGuess(
 // question via the same tierFor/selectionPoints math the live app will use.
 async function resolveOptionQuestion(
 	questionId: string,
-	options: (typeof questionOptionsTable.$inferSelect)[],
+	options: QuestionOption[],
 	correctOptionIds: string[],
 	resolutionNote: string,
 ) {

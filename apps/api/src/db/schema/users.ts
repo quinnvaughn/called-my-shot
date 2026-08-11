@@ -8,6 +8,7 @@ export const users = pgTable("users", {
 	passwordHash: text("password_hash").notNull(),
 	createdAt: timestamp("created_at").notNull().defaultNow(),
 })
+export type User = typeof users.$inferSelect
 
 export const sessions = pgTable("sessions", {
 	id: uuid("id").primaryKey().defaultRandom(),

@@ -18,6 +18,7 @@ export const groups = pgTable("groups", {
 		.references(() => users.id, { onDelete: "cascade" }),
 	createdAt: timestamp("created_at").notNull().defaultNow(),
 })
+export type Group = typeof groups.$inferSelect
 
 export const groupMembers = pgTable(
 	"group_members",
@@ -35,13 +36,21 @@ export const groupMembers = pgTable(
 	(t) => [unique().on(t.groupId, t.userId)],
 )
 
-export const groupInvites = pgTable("group_invites", {
-	id: uuid("id").primaryKey().defaultRandom(),
-	groupId: uuid("group_id")
-		.notNull()
-		.references(() => groups.id, { onDelete: "cascade" })
-		.unique(),
-	code: text("code").notNull().unique(),
-	expiresAt: timestamp("expires_at"),
-	createdAt: timestamp("created_at").notNull().defaultNow(),
-})
+export const groupInvites = pgTable(
+	"group_invites",
+	{
+		id: uuid("id").primaryKey().defaultRandom(),
+		groupId: uuid("group_id")
+			.notNull()
+			.references(() => groups.id, { onDelete: "cascade" }),
+		createdBy: uuid("created_by")
+			.notNull()
+			.references(() => users.id, { onDelete: "cascade" }),
+		code: text("code").notNull().unique(),
+		expiresAt: timestamp("expires_at"),
+		createdAt: timestamp("created_at").notNull().defaultNow(),
+	},
+	// one invite link per member per group - resetting it regenerates their
+	// own code rather than spawning a second link
+	(t) => [unique().on(t.groupId, t.createdBy)],
+)

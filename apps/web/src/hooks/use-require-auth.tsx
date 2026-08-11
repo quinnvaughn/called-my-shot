@@ -12,6 +12,6 @@ export function useRequireAuth() {
 			callback()
 			return
 		}
-		openModal(<AuthModal defaultView="signup" />)
+		openModal(<AuthModal defaultView="signup" onSuccess={callback} />)
 	}
 }

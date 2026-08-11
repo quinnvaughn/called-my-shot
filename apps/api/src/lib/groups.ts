@@ -56,26 +56,61 @@ export function expiryToDate(expiry: InviteExpiryOption): Date | null {
 	}
 }
 
-export function insertGroupInvite(groupId: string, expiresAt: Date | null) {
+export function insertGroupInvite(
+	groupId: string,
+	createdBy: string,
+	expiresAt: Date | null,
+) {
 	return withRetriedCode(async (code) => {
 		const [invite] = await db
 			.insert(groupInvites)
-			.values({ groupId, code, expiresAt })
+			.values({ groupId, createdBy, code, expiresAt })
 			.returning()
 		return invite
 	})
 }
 
-export async function regenerateInviteCode(groupId: string) {
+// Every member gets one invite link per group - fetch theirs, creating it on
+// first request so opening the invite modal always has something to show.
+export async function getOrCreateMemberInvite(groupId: string, userId: string) {
+	const existing = await db.query.groupInvites.findFirst({
+		where: { groupId, createdBy: userId },
+	})
+	if (existing) return existing
+	return insertGroupInvite(groupId, userId, expiryToDate("SEVEN_DAYS"))
+}
+
+export async function requireInviteOwnerOrAdmin(
+	inviteId: string,
+	userId: string,
+) {
+	const invite = await db.query.groupInvites.findFirst({
+		where: { id: inviteId },
+	})
+	if (!invite) throw new NotFoundError("Invite not found")
+	if (invite.createdBy === userId) return invite
+
+	const membership = await db.query.groupMembers.findFirst({
+		where: { groupId: invite.groupId, userId },
+	})
+	if (membership?.role !== "admin") {
+		throw new AuthorizationError(
+			"Only the link's creator or a group admin can do that.",
+		)
+	}
+	return invite
+}
+
+export async function regenerateInviteCode(inviteId: string) {
 	const invite = await withRetriedCode(async (code) => {
 		const [updated] = await db
 			.update(groupInvites)
 			.set({ code })
-			.where(eq(groupInvites.groupId, groupId))
+			.where(eq(groupInvites.id, inviteId))
 			.returning()
 		return updated
 	})
-	if (!invite) throw new NotFoundError("Group not found")
+	if (!invite) throw new NotFoundError("Invite not found")
 	return invite
 }
 

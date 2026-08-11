@@ -29,6 +29,7 @@ export const teams = pgTable(
 	},
 	(t) => [unique().on(t.leagueId, t.abbreviation)],
 )
+export type Team = typeof teams.$inferSelect
 
 // currentTeamId is a plain "who they play for right now" pointer, kept up to
 // date by hand as trades happen - not a historical roster log. A question
@@ -42,6 +43,7 @@ export const players = pgTable("players", {
 	name: text("name").notNull(),
 	position: text("position"), // free text - positions vary too much by sport for an enum
 })
+export type Player = typeof players.$inferSelect
 
 // Scoped to sport, not league - NBA and NCAAB share a stat vocabulary even
 // though they're different leagues. category groups a long list for display
