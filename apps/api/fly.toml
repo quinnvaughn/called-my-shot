@@ -9,7 +9,7 @@ primary_region = "iad"
 [deploy]
   # Re-seeds prod on every deploy while we're still in development. Remove
   # the seed step (and ALLOW_PROD_SEED below) once real data matters.
-  release_command = "pnpm exec drizzle-kit migrate && pnpm exec tsx src/db/seed.ts"
+  release_command = "sh -c 'pnpm exec drizzle-kit migrate && pnpm exec tsx src/db/seed.ts'"
 
 [env]
   ALLOW_PROD_SEED = "true"
