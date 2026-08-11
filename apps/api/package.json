@@ -13,7 +13,8 @@
     "db:generate": "drizzle-kit generate",
     "db:push": "drizzle-kit push",
     "db:migrate": "drizzle-kit migrate",
-    "db:studio": "drizzle-kit studio"
+    "db:studio": "drizzle-kit studio",
+    "db:seed": "tsx --env-file=.env src/db/seed.ts"
   },
   "dependencies": {
     "@apollo/server": "^5.5.1",
@@ -22,11 +23,13 @@
     "@node-rs/argon2": "^2.0.2",
     "@pothos/core": "^4.13.1",
     "@pothos/plugin-drizzle": "^0.17.5",
+    "@pothos/plugin-errors": "^4.9.1",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
     "drizzle-orm": "1.0.0-rc.4",
     "express": "^5.1.0",
     "graphql": "^16.14.2",
+    "luxon": "^3.7.2",
     "pg": "^8.23.0",
     "zod": "^4.4.3"
   },
@@ -35,6 +38,7 @@
     "@types/cookie-parser": "^1.4.9",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.3",
+    "@types/luxon": "^3.7.4",
     "@types/node": "^22.20.1",
     "@types/pg": "^8.21.0",
     "dotenv": "^17.4.2",

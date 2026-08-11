@@ -1,6 +1,7 @@
 import { signInSchema, signUpSchema } from "@called-my-shot/schemas"
 import { db } from "../../db"
 import { users } from "../../db/schema"
+import { ValidationError } from "../../lib/errors"
 import { hashPassword, verifyPassword } from "../../lib/password"
 import {
 	clearSessionCookie,
@@ -11,41 +12,7 @@ import {
 import { builder } from "../builder"
 import { UserRef } from "./user"
 
-type FieldErrorShape = { field: string | null; message: string }
-type AuthErrorShape = { fieldErrors: FieldErrorShape[] }
 type AuthPayloadShape = { user: typeof users.$inferSelect }
-type AuthResult = AuthPayloadShape | AuthErrorShape
-
-function fieldError(field: string | null, message: string): AuthErrorShape {
-	return { fieldErrors: [{ field, message }] }
-}
-
-function fieldErrorsFromIssues(
-	issues: { path: PropertyKey[]; message: string }[],
-): AuthErrorShape {
-	return {
-		fieldErrors: issues.map((issue) => ({
-			field: issue.path.length ? issue.path.join(".") : null,
-			message: issue.message,
-		})),
-	}
-}
-
-const FieldError = builder.objectRef<FieldErrorShape>("FieldError").implement({
-	fields: (t) => ({
-		field: t.exposeString("field", { nullable: true }),
-		message: t.exposeString("message"),
-	}),
-})
-
-const AuthError = builder.objectRef<AuthErrorShape>("AuthError").implement({
-	fields: (t) => ({
-		fieldErrors: t.field({
-			type: [FieldError],
-			resolve: (error) => error.fieldErrors,
-		}),
-	}),
-})
 
 const AuthPayload = builder
 	.objectRef<AuthPayloadShape>("AuthPayload")
@@ -57,17 +24,6 @@ const AuthPayload = builder
 			}),
 		}),
 	})
-
-function authResult(name: string) {
-	return builder.unionType(name, {
-		types: [AuthPayload, AuthError],
-		resolveType: (result: AuthResult) =>
-			"user" in result ? AuthPayload : AuthError,
-	})
-}
-
-const SignUpResult = authResult("SignUpResult")
-const SignInResult = authResult("SignInResult")
 
 const SignUpInput = builder.inputType("SignUpInput", {
 	fields: (t) => ({
@@ -88,20 +44,23 @@ const SignInInput = builder.inputType("SignInInput", {
 builder.mutationType({
 	fields: (t) => ({
 		signUp: t.field({
-			type: SignUpResult,
+			type: AuthPayload,
+			errors: { directResult: true, union: { name: "SignUpResult" } },
 			args: { input: t.arg({ type: SignUpInput, required: true }) },
-			resolve: async (_root, args, ctx): Promise<AuthResult> => {
+			resolve: async (_root, args, ctx): Promise<AuthPayloadShape> => {
 				const parsed = signUpSchema.safeParse(args.input)
-				if (!parsed.success) return fieldErrorsFromIssues(parsed.error.issues)
+				if (!parsed.success) {
+					throw ValidationError.fromZodIssues(parsed.error.issues)
+				}
 				const { name, username, email, password } = parsed.data
 
 				const existing = await db.query.users.findFirst({
 					where: { OR: [{ email }, { username }] },
 				})
 				if (existing) {
-					return existing.email === email
-						? fieldError("email", "Email is already in use")
-						: fieldError("username", "Username is already taken")
+					throw existing.email === email
+						? ValidationError.field("email", "Email is already in use")
+						: ValidationError.field("username", "Username is already taken")
 				}
 
 				const passwordHash = await hashPassword(password)
@@ -118,18 +77,24 @@ builder.mutationType({
 		}),
 
 		signIn: t.field({
-			type: SignInResult,
+			type: AuthPayload,
+			errors: { directResult: true, union: { name: "SignInResult" } },
 			args: { input: t.arg({ type: SignInInput, required: true }) },
-			resolve: async (_root, args, ctx): Promise<AuthResult> => {
+			resolve: async (_root, args, ctx): Promise<AuthPayloadShape> => {
 				const parsed = signInSchema.safeParse(args.input)
-				if (!parsed.success) return fieldErrorsFromIssues(parsed.error.issues)
+				if (!parsed.success) {
+					throw ValidationError.fromZodIssues(parsed.error.issues)
+				}
 				const { identifier, password } = parsed.data
 
 				const user = await db.query.users.findFirst({
 					where: { OR: [{ email: identifier }, { username: identifier }] },
 				})
 				if (!user || !(await verifyPassword(user.passwordHash, password))) {
-					return fieldError(null, "Invalid email/username or password")
+					throw ValidationError.field(
+						null,
+						"Invalid email/username or password",
+					)
 				}
 
 				const session = await createSession(user.id)

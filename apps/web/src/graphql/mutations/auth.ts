@@ -12,7 +12,7 @@ export const SignUpDocument = graphql(`
 					email
 				}
 			}
-			... on AuthError {
+			... on ValidationError {
 				fieldErrors {
 					field
 					message
@@ -34,7 +34,7 @@ export const SignInDocument = graphql(`
 					email
 				}
 			}
-			... on AuthError {
+			... on ValidationError {
 				fieldErrors {
 					field
 					message

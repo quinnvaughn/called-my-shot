@@ -1,4 +1,4 @@
-import { Link, useRouteContext } from "@tanstack/react-router"
+import { Link, useMatches, useRouteContext } from "@tanstack/react-router"
 import { type ReactNode, useEffect, useState } from "react"
 import { BsBarChartFill } from "react-icons/bs"
 import { FaRegCheckSquare } from "react-icons/fa"
@@ -40,6 +40,10 @@ export function AppShell({ children }: { children: ReactNode }) {
 		? { name: rawMe.name ?? "", username: rawMe.username ?? "" }
 		: null
 	const [drawerOpen, setDrawerOpen] = useState(false)
+	const matches = useMatches()
+	const rightRail = [...matches]
+		.reverse()
+		.find((match) => match.staticData?.rightRail)?.staticData.rightRail
 
 	useEffect(() => {
 		if (!drawerOpen) return
@@ -84,7 +88,39 @@ export function AppShell({ children }: { children: ReactNode }) {
 					drawerOpen={drawerOpen}
 					onNavigate={() => setDrawerOpen(false)}
 				/>
-				<main className={css({ flex: 1, minWidth: 0 })}>{children}</main>
+				<main
+					className={css({
+						flex: 1,
+						minWidth: 0,
+						maxWidth: rightRail ? "700px" : "none",
+						px: "6",
+						borderRight: rightRail
+							? "1px solid {colors.border.default}"
+							: "none",
+						padding: {
+							base: "5",
+							xl: "{spacing.6} {spacing.8}",
+						},
+					})}
+				>
+					{children}
+				</main>
+				{rightRail && (
+					<div
+						className={css({
+							display: { base: "none", xl: "block" },
+							width: "80",
+							flexShrink: 0,
+							position: "sticky",
+							top: 0,
+							height: "100dvh",
+							overflowY: "auto",
+							padding: "6",
+						})}
+					>
+						{rightRail}
+					</div>
+				)}
 			</div>
 		</div>
 	)

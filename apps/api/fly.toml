@@ -7,7 +7,12 @@ primary_region = "iad"
   dockerfile = "Dockerfile"
 
 [deploy]
-  release_command = "pnpm exec drizzle-kit migrate"
+  # Re-seeds prod on every deploy while we're still in development. Remove
+  # the seed step (and ALLOW_PROD_SEED below) once real data matters.
+  release_command = "pnpm exec drizzle-kit migrate && pnpm exec tsx src/db/seed.ts"
+
+[env]
+  ALLOW_PROD_SEED = "true"
 
 [http_service]
   internal_port = 4000

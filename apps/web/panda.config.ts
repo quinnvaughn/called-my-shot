@@ -43,8 +43,10 @@ export default defineConfig({
         fontSizes: {
           // Panda's default 2xs (0.5rem / 8px) is illegible in practice — the
           // mockups' smallest real text (labels, fineprint) sits around 10-11px,
-          // so bump it there instead of leaving an unused 8px step in the scale.
-          "2xs": { value: "0.625rem" }, // 10px
+          // so the scale is shifted down a notch to make room for both sizes
+          // (default xs stays 12px, unchanged).
+          "3xs": { value: "0.625rem" }, // 10px
+          "2xs": { value: "0.6875rem" }, // 11px
         },
         colors: {
           // Brand palette — raw values, named the way the product already names them
@@ -116,6 +118,100 @@ export default defineConfig({
         // in the `recipes` cascade layer, which always loses to `utilities` — letting
         // a consumer's `css({ padding: ... })` override reliably beat e.g. the
         // trigger's `padding: "0"` reset regardless of atomic-class extraction order.
+        textInput: defineSlotRecipe({
+          className: "text-input",
+          slots: [
+            "root",
+            "label",
+            "group",
+            "field",
+            "icon",
+            "iconButton",
+            "description",
+            "error",
+          ],
+          base: {
+            root: {
+              display: "flex",
+              flexDirection: "column",
+              gap: "1.5",
+            },
+            label: {
+              display: "block",
+              fontFamily: "mono",
+              fontSize: "2xs",
+              letterSpacing: "wide",
+              color: "fg.subtle",
+              textTransform: "uppercase",
+            },
+            group: {
+              display: "flex",
+              alignItems: "center",
+              gap: "2",
+              width: "full",
+              backgroundColor: "bg.canvas",
+              border: "1px solid",
+              borderColor: "border.default",
+              borderRadius: "lg",
+              paddingInline: "3.5",
+              transition: "border-color 0.15s ease",
+              _focusWithin: {
+                borderColor: "primary.default",
+              },
+            },
+            field: {
+              flex: "1",
+              minWidth: "0",
+              width: "full",
+              backgroundColor: "transparent",
+              border: "none",
+              outline: "none",
+              color: "fg.default",
+              fontFamily: "inherit",
+              fontSize: "sm",
+              paddingBlock: "3",
+              _placeholder: {
+                color: "fg.subtle",
+              },
+            },
+            icon: {
+              flexShrink: "0",
+              display: "flex",
+              alignItems: "center",
+              color: "fg.subtle",
+            },
+            iconButton: {
+              flexShrink: "0",
+              display: "flex",
+              alignItems: "center",
+              background: "none",
+              border: "none",
+              padding: "0",
+              cursor: "pointer",
+              color: "fg.subtle",
+              _hover: {
+                color: "fg.default",
+              },
+            },
+            description: {
+              fontSize: "xs",
+              color: "fg.muted",
+            },
+            error: {
+              fontSize: "xs",
+              color: "danger.default",
+            },
+          },
+          variants: {
+            error: {
+              true: {
+                group: {
+                  borderColor: "danger.default",
+                },
+              },
+            },
+          },
+        }),
         dropdown: defineSlotRecipe({
           className: "dropdown",
           slots: ["root", "trigger", "content", "item"],
@@ -205,6 +301,7 @@ export default defineConfig({
             gap: "2",
             fontFamily: "inherit",
             cursor: "pointer",
+            whiteSpace: 'nowrap',
             transition: "opacity 0.15s ease, color 0.15s ease",
             _disabled: {
               cursor: "not-allowed",
@@ -216,11 +313,20 @@ export default defineConfig({
             },
           },
           variants: {
+            // Text treatment (font family, case, weight) is a property of the *variant*,
+            // not the size — every mockup CTA (primary-btn, join-btn, modal-submit,
+            // invite-join-btn) is uppercase Archivo Black regardless of how big it is,
+            // and outline buttons (secondary-btn, confirm-cancel) are uppercase Space
+            // Mono regardless of size too. Only ghost stays sentence-case Inter. `size`
+            // below is purely a padding/font-size scale — keeping the two axes separate
+            // means picking a size never silently opts a button in or out of caps.
             variant: {
               solid: {
                 bg: "primary.default",
                 color: "primary.contrast",
-                fontWeight: "bold",
+                fontFamily: "heading",
+                textTransform: "uppercase",
+                letterSpacing: "wide",
                 borderRadius: "lg",
                 _hover: { opacity: 0.88 },
                 _disabled: { _hover: { opacity: 0.6 } },
@@ -232,12 +338,14 @@ export default defineConfig({
                 _hover: { color: "fg.muted" },
                 _disabled: { _hover: { color: "fg.default" } },
               },
-              // Same as ghost, but reserves a transparent border so a border
-              // can fade in on hover without shifting layout.
+              // Same shape as ghost, but reserves a transparent border so a border
+              // can fade in on hover without shifting layout. Mono + uppercase to
+              // match the mockups' secondary-btn / confirm-cancel treatment.
               outline: {
                 bg: "transparent",
                 color: "fg.default",
-                fontWeight: "medium",
+                fontFamily: "mono",
+                textTransform: "uppercase",
                 borderRadius: "lg",
                 border: "1px solid transparent",
                 _hover: {
@@ -248,28 +356,34 @@ export default defineConfig({
                   _hover: { color: "fg.default", borderColor: "transparent" },
                 },
               },
+              // Same treatment as solid, but bone-on-ink instead of signal-on-ink
+              // (see join-btn in the groups.html mockup).
+              white: {
+                bg: "bone",
+                color: "ink",
+                fontFamily: "heading",
+                textTransform: "uppercase",
+                letterSpacing: "wide",
+                borderRadius: "lg",
+                _hover: { opacity: 0.88 },
+                _disabled: { _hover: { opacity: 0.6 } },
+              },
             },
             size: {
               sm: {
-                fontSize: "sm",
+                fontSize: "xs",
                 paddingBlock: "2.5",
                 paddingInline: "4.5",
               },
-              // Same treatment as lg, just tighter padding — the hero CTA is
-              // meant to feel bigger than a modal's submit button.
+              // Same font-size as lg, just tighter padding — a modal submit is
+              // meant to feel smaller than the landing hero's CTA.
               md: {
-                fontSize: "md",
-                letterSpacing: "wide",
-                fontFamily: "heading",
-                textTransform: "uppercase",
+                fontSize: "sm",
                 paddingBlock: "3",
                 paddingInline: "5",
               },
               lg: {
                 fontSize: "md",
-                letterSpacing: "wide",
-                fontFamily: "heading",
-                textTransform: "uppercase",
                 paddingBlock: "4",
                 paddingInline: "7",
               },
@@ -280,7 +394,7 @@ export default defineConfig({
           },
           compoundVariants: [
             {
-              variant: ["solid", "outline"],
+              variant: ["solid", "outline", "white"],
               size: "lg",
               css: {
                 borderRadius: "xl",

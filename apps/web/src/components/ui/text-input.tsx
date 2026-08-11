@@ -9,103 +9,8 @@ import {
 	useState,
 } from "react"
 import { FiEye, FiEyeOff } from "react-icons/fi"
-import { cx, sva } from "styled-system/css"
-
-const textInputRecipe = sva({
-	slots: [
-		"root",
-		"label",
-		"group",
-		"field",
-		"icon",
-		"iconButton",
-		"description",
-		"error",
-	],
-	base: {
-		root: {
-			display: "flex",
-			flexDirection: "column",
-			gap: "1.5",
-		},
-		label: {
-			display: "block",
-			fontFamily: "mono",
-			fontSize: "2xs",
-			letterSpacing: "wide",
-			color: "fg.subtle",
-			textTransform: "uppercase",
-		},
-		// The styled surface — border, background, focus ring, error state.
-		// The <input> inside it stays bare so icons can share the same box.
-		group: {
-			display: "flex",
-			alignItems: "center",
-			gap: "2",
-			width: "full",
-			backgroundColor: "bg.canvas",
-			border: "1px solid",
-			borderColor: "border.default",
-			borderRadius: "lg",
-			paddingInline: "3.5",
-			transition: "border-color 0.15s ease",
-			_focusWithin: {
-				borderColor: "primary.default",
-			},
-		},
-		field: {
-			flex: "1",
-			minWidth: "0",
-			width: "full",
-			backgroundColor: "transparent",
-			border: "none",
-			outline: "none",
-			color: "fg.default",
-			fontFamily: "inherit",
-			fontSize: "sm",
-			paddingBlock: "3",
-			_placeholder: {
-				color: "fg.subtle",
-			},
-		},
-		icon: {
-			flexShrink: "0",
-			display: "flex",
-			alignItems: "center",
-			color: "fg.subtle",
-		},
-		iconButton: {
-			flexShrink: "0",
-			display: "flex",
-			alignItems: "center",
-			background: "none",
-			border: "none",
-			padding: "0",
-			cursor: "pointer",
-			color: "fg.subtle",
-			_hover: {
-				color: "fg.default",
-			},
-		},
-		description: {
-			fontSize: "xs",
-			color: "fg.muted",
-		},
-		error: {
-			fontSize: "xs",
-			color: "danger.default",
-		},
-	},
-	variants: {
-		error: {
-			true: {
-				group: {
-					borderColor: "danger.default",
-				},
-			},
-		},
-	},
-})
+import { cx } from "styled-system/css"
+import { textInput as textInputRecipe } from "styled-system/recipes"
 
 type TextInputSlots = ReturnType<typeof textInputRecipe>
 
@@ -127,12 +32,18 @@ function useTextInputContext(part: string) {
 }
 
 type TextInputProps = {
+	className?: string
 	error?: string
 	description?: string
 	children: ReactNode
 }
 
-function TextInput({ error, description, children }: TextInputProps) {
+function TextInput({
+	className,
+	error,
+	description,
+	children,
+}: TextInputProps) {
 	const fieldId = useId()
 	const descriptionId = useId()
 	const errorId = useId()
@@ -151,7 +62,7 @@ function TextInput({ error, description, children }: TextInputProps) {
 		<TextInputContext.Provider
 			value={{ slots, fieldId, hasError, describedBy }}
 		>
-			<div className={slots.root}>
+			<div className={cx(slots.root, className)}>
 				{children}
 				{hasError ? (
 					<div id={errorId} role="alert" className={slots.error}>

@@ -4,6 +4,7 @@ import { useNavigate, useRouter } from "@tanstack/react-router"
 import { useState } from "react"
 import { css } from "styled-system/css"
 import { VStack } from "styled-system/jsx"
+import { match } from "ts-pattern"
 import { Button } from "#/components/ui/button"
 import { Modal } from "#/components/ui/modal"
 import { Tabs } from "#/components/ui/tabs"
@@ -12,6 +13,7 @@ import { SignInDocument, SignUpDocument } from "#/graphql/mutations/auth"
 import { useForm } from "#/lib/form/use-form"
 import { closeModal } from "#/stores/modal-store"
 import { Brand } from "../ui/brand"
+import { FormError } from "../ui/form-error"
 
 export type AuthModalView = "signin" | "signup"
 
@@ -52,22 +54,6 @@ export function AuthModal({ defaultView = "signin" }: AuthModalProps) {
 	)
 }
 
-function FormError({ message }: { message: string | null }) {
-	if (!message) return null
-	return (
-		<p
-			role="alert"
-			className={css({
-				fontSize: "xs",
-				color: "danger.default",
-				textAlign: "center",
-			})}
-		>
-			{message}
-		</p>
-	)
-}
-
 function SignInFields() {
 	const [signIn] = useMutation(SignInDocument)
 	const router = useRouter()
@@ -85,18 +71,21 @@ function SignInFields() {
 				return
 			}
 
-			if (result.__typename === "AuthError") {
-				const errors: Record<string, string | null> = {}
-				for (const fieldError of result.fieldErrors ?? []) {
-					if (fieldError.field) errors[fieldError.field] = fieldError.message
-					else helpers.setFormError(fieldError.message)
-				}
-				helpers.setErrors(errors)
-				return
-			}
-			await router.invalidate()
-			await navigate({ to: "/home" })
-			closeModal()
+			await match(result)
+				.with({ __typename: "ValidationError" }, async (r) => {
+					const errors: Record<string, string | null> = {}
+					for (const fieldError of r.fieldErrors ?? []) {
+						if (fieldError.field) errors[fieldError.field] = fieldError.message
+						else helpers.setFormError(fieldError.message)
+					}
+					helpers.setErrors(errors)
+				})
+				.with({ __typename: "AuthPayload" }, async () => {
+					await router.invalidate()
+					await navigate({ to: "/home" })
+					closeModal()
+				})
+				.exhaustive()
 		},
 	})
 
@@ -175,19 +164,21 @@ function SignUpFields() {
 				return
 			}
 
-			if (result.__typename === "AuthError") {
-				const errors: Record<string, string | null> = {}
-				for (const fieldError of result.fieldErrors ?? []) {
-					if (fieldError.field) errors[fieldError.field] = fieldError.message
-					else helpers.setFormError(fieldError.message)
-				}
-				helpers.setErrors(errors)
-				return
-			}
-
-			await router.invalidate()
-			await navigate({ to: "/home" })
-			closeModal()
+			await match(result)
+				.with({ __typename: "ValidationError" }, async (r) => {
+					const errors: Record<string, string | null> = {}
+					for (const fieldError of r.fieldErrors ?? []) {
+						if (fieldError.field) errors[fieldError.field] = fieldError.message
+						else helpers.setFormError(fieldError.message)
+					}
+					helpers.setErrors(errors)
+				})
+				.with({ __typename: "AuthPayload" }, async () => {
+					await router.invalidate()
+					await navigate({ to: "/home" })
+					closeModal()
+				})
+				.exhaustive()
 		},
 	})
 
@@ -278,7 +269,7 @@ function SignUpFields() {
 							<p
 								className={css({
 									fontFamily: "mono",
-									fontSize: "2xs",
+									fontSize: "3xs",
 									color: "fg.subtle",
 									textAlign: "center",
 								})}

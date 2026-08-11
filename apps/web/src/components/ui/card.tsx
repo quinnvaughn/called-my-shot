@@ -34,6 +34,14 @@ const cardRecipe = sva({
 			subtle: { root: { bg: "bg.subtle" } },
 			outline: { root: { bg: "transparent" } },
 		},
+		interactive: {
+			true: {
+				root: {
+					transition: "border-color 0.15s ease",
+					_hover: { borderColor: "border.emphasized" },
+				},
+			},
+		},
 		size: {
 			sm: {
 				header: { padding: "3", gap: "2" },
@@ -74,8 +82,18 @@ function useCardSlots(part: string) {
 
 type CardProps = HTMLAttributes<HTMLDivElement> & CardVariantProps
 
-function Card({ variant, size, className, children, ...props }: CardProps) {
-	const slots = useMemo(() => cardRecipe({ variant, size }), [variant, size])
+function Card({
+	variant,
+	size,
+	interactive,
+	className,
+	children,
+	...props
+}: CardProps) {
+	const slots = useMemo(
+		() => cardRecipe({ variant, size, interactive }),
+		[variant, size, interactive],
+	)
 	return (
 		<CardContext.Provider value={slots}>
 			<div className={cx(slots.root, className)} {...props}>

@@ -1,7 +1,7 @@
 import type { HTMLAttributes } from "react"
 import { cva, cx } from "styled-system/css"
 
-const avatarStyle = cva({
+export const avatarStyle = cva({
 	base: {
 		display: "flex",
 		alignItems: "center",
@@ -17,6 +17,7 @@ const avatarStyle = cva({
 	},
 	variants: {
 		size: {
+			xs: { width: "6", height: "6", fontSize: "3xs" },
 			sm: { width: "7", height: "7", fontSize: "xs" },
 			md: { width: "8", height: "8", fontSize: "xs" },
 		},
@@ -26,7 +27,7 @@ const avatarStyle = cva({
 
 type AvatarProps = HTMLAttributes<HTMLDivElement> & {
 	name: string
-	size?: "sm" | "md"
+	size?: "xs" | "sm" | "md"
 }
 
 export function Avatar({ name, size, className, ...props }: AvatarProps) {

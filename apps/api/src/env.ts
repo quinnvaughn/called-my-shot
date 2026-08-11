@@ -7,6 +7,7 @@ const envSchema = z.object({
 	NODE_ENV: z
 		.enum(["development", "production", "test"])
 		.default("development"),
+	ALLOW_PROD_SEED: z.coerce.boolean().default(false),
 })
 
 export const env = envSchema.parse(process.env)

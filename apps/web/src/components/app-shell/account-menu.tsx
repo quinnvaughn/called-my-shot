@@ -64,7 +64,7 @@ export function AccountMenu({
 						<div
 							className={css({
 								fontFamily: "mono",
-								fontSize: "2xs",
+								fontSize: "3xs",
 								color: "fg.muted",
 							})}
 						>
