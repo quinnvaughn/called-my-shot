@@ -4,6 +4,7 @@ import { HStack, VStack } from "styled-system/jsx"
 import { Card } from "#/components/ui/card"
 import { type FragmentType, graphql, useFragment } from "#/graphql/generated"
 import { Avatar, avatarStyle } from "../ui/avatar"
+import { Eyebrow } from "../ui/eyebrow"
 
 const MAX_VISIBLE_MEMBERS = 5
 
@@ -12,6 +13,7 @@ export const GroupCardFragment = graphql(`
 		id
 		name
 		memberCount
+		viewerRank
         members {
             id
             user {
@@ -41,7 +43,7 @@ export function GroupCard(props: GroupCardProps) {
 			<Card size="md" interactive>
 				<Card.Body>
 					<VStack gap="3" alignItems="stretch">
-						<HStack justify="space-between" alignItems="center">
+						<HStack justify="space-between" alignItems="flex-start">
 							<VStack gap="0.5" alignItems="flex-start">
 								<span className={css({ fontWeight: "semibold" })}>
 									{group.name}
@@ -57,6 +59,11 @@ export function GroupCard(props: GroupCardProps) {
 									{group.memberCount === 1 ? "member" : "members"}
 								</span>
 							</VStack>
+							<Eyebrow
+								variant={group.viewerRank === 1 ? "secondary" : "primary"}
+							>
+								You're #{group.viewerRank}
+							</Eyebrow>
 						</HStack>
 						<HStack gap="1">
 							{group.members.slice(0, MAX_VISIBLE_MEMBERS).map((m) => (

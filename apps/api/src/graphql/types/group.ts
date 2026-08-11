@@ -1,7 +1,7 @@
 import { createGroupSchema, joinGroupSchema } from "@called-my-shot/schemas"
 import { and, eq } from "drizzle-orm"
 import { db } from "../../db"
-import { groupInvites, groupMembers, groups } from "../../db/schema"
+import { groupInvites, groupMembers, groups, type users } from "../../db/schema"
 import { requireUser } from "../../lib/auth"
 import {
 	AuthenticationError,
@@ -17,6 +17,7 @@ import {
 	requireAdmin,
 } from "../../lib/groups"
 import { builder } from "../builder"
+import { UserRef } from "./user"
 
 const GroupRole = builder.enumType("GroupRole", {
 	values: {
@@ -54,6 +55,87 @@ export const GroupMemberRef = builder.drizzleObject("groupMembers", {
 	}),
 })
 
+type LeaderboardEntry = {
+	rank: number
+	user: typeof users.$inferSelect
+	totalPoints: number
+	accuracy: number | null
+	callCount: number
+	resolvedCallCount: number
+}
+
+const GroupLeaderboardEntryRef = builder
+	.objectRef<LeaderboardEntry>("GroupLeaderboardEntry")
+	.implement({
+		fields: (t) => ({
+			rank: t.exposeInt("rank"),
+			totalPoints: t.exposeInt("totalPoints"),
+			// % of this member's resolved picks that hit - null until they have any
+			accuracy: t.exposeFloat("accuracy", { nullable: true }),
+			callCount: t.exposeInt("callCount"),
+			resolvedCallCount: t.exposeInt("resolvedCallCount"),
+			user: t.field({ type: UserRef, resolve: (entry) => entry.user }),
+		}),
+	})
+
+async function buildLeaderboard(groupId: string): Promise<LeaderboardEntry[]> {
+	const memberships = await db.query.groupMembers.findMany({
+		where: { groupId },
+		with: { user: true },
+	})
+
+	const memberCalls = await db.query.calls.findMany({
+		where: { userId: { in: memberships.map((m) => m.userId) } },
+		with: { selections: { with: { option: true } } },
+	})
+
+	const callsByUser = new Map<string, typeof memberCalls>()
+	for (const call of memberCalls) {
+		const existing = callsByUser.get(call.userId)
+		if (existing) existing.push(call)
+		else callsByUser.set(call.userId, [call])
+	}
+
+	const entries = memberships.flatMap((membership) => {
+		if (!membership.user) return []
+		const calls = callsByUser.get(membership.userId) ?? []
+		let totalPoints = 0
+		let resolvedCallCount = 0
+		let correctCount = 0
+
+		for (const call of calls) {
+			if (call.selections.length > 0) {
+				for (const selection of call.selections) {
+					if (selection.resultPoints === null) continue
+					resolvedCallCount++
+					totalPoints += selection.resultPoints
+					if (selection.option?.isCorrect) correctCount++
+				}
+			} else if (call.resultPoints !== null) {
+				resolvedCallCount++
+				totalPoints += call.resultPoints
+				if (call.hitTolerance) correctCount++
+			}
+		}
+
+		return [
+			{
+				user: membership.user,
+				totalPoints,
+				accuracy:
+					resolvedCallCount > 0
+						? (correctCount / resolvedCallCount) * 100
+						: null,
+				callCount: calls.length,
+				resolvedCallCount,
+			},
+		]
+	})
+
+	entries.sort((a, b) => b.totalPoints - a.totalPoints)
+	return entries.map((entry, index) => ({ ...entry, rank: index + 1 }))
+}
+
 const GroupRef = builder.drizzleObject("groups", {
 	name: "Group",
 	fields: (t) => ({
@@ -74,6 +156,27 @@ const GroupRef = builder.drizzleObject("groups", {
 					where: { groupId: group.id, userId: ctx.user.id },
 				})
 				return membership?.role === "admin"
+			},
+		}),
+		// ranked by total points across every call a member has made, not just
+		// calls on questions created within this group - a group is just a set
+		// of people, there's no group-scoped question pool
+		leaderboard: t.field({
+			type: [GroupLeaderboardEntryRef],
+			resolve: (group) => buildLeaderboard(group.id),
+		}),
+		// convenience for group cards ("YOU'RE #2") that don't need the full list
+		viewerRank: t.field({
+			type: "Int",
+			resolve: async (group, _args, ctx) => {
+				const user = requireUser(ctx)
+				const leaderboard = await buildLeaderboard(group.id)
+				const entry = leaderboard.find((e) => e.user.id === user.id)
+				// group/myGroups already gate on the viewer being a member, so this
+				// should always be found
+				if (!entry)
+					throw new NotFoundError("You're not a member of this group.")
+				return entry.rank
 			},
 		}),
 	}),

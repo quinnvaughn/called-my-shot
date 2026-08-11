@@ -9,6 +9,12 @@ export const relations = defineRelations(schema, (r) => ({
 			to: r.groups.createdBy,
 		}),
 		groupMemberships: r.many.groupMembers(),
+		questionsCreated: r.many.questions({
+			from: r.users.id,
+			to: r.questions.creatorId,
+		}),
+		calls: r.many.calls(),
+		disputesFiled: r.many.resolutionDisputes(),
 	},
 	sessions: {
 		user: r.one.users({
@@ -41,6 +47,114 @@ export const relations = defineRelations(schema, (r) => ({
 		group: r.one.groups({
 			from: r.groupInvites.groupId,
 			to: r.groups.id,
+		}),
+	},
+	questions: {
+		creator: r.one.users({
+			from: r.questions.creatorId,
+			to: r.users.id,
+		}),
+		sport: r.one.sports({
+			from: r.questions.sportId,
+			to: r.sports.id,
+		}),
+		league: r.one.leagues({
+			from: r.questions.leagueId,
+			to: r.leagues.id,
+		}),
+		stat: r.one.stats({
+			from: r.questions.statId,
+			to: r.stats.id,
+		}),
+		subjectTeam: r.one.teams({
+			from: r.questions.subjectTeamId,
+			to: r.teams.id,
+		}),
+		subjectPlayer: r.one.players({
+			from: r.questions.subjectPlayerId,
+			to: r.players.id,
+		}),
+		options: r.many.questionOptions(),
+		calls: r.many.calls(),
+		disputes: r.many.resolutionDisputes(),
+	},
+	questionOptions: {
+		question: r.one.questions({
+			from: r.questionOptions.questionId,
+			to: r.questions.id,
+		}),
+		team: r.one.teams({
+			from: r.questionOptions.teamId,
+			to: r.teams.id,
+		}),
+		player: r.one.players({
+			from: r.questionOptions.playerId,
+			to: r.players.id,
+		}),
+		selections: r.many.callSelections(),
+	},
+	sports: {
+		leagues: r.many.leagues(),
+		stats: r.many.stats(),
+	},
+	leagues: {
+		sport: r.one.sports({
+			from: r.leagues.sportId,
+			to: r.sports.id,
+		}),
+		teams: r.many.teams(),
+	},
+	teams: {
+		league: r.one.leagues({
+			from: r.teams.leagueId,
+			to: r.leagues.id,
+		}),
+		players: r.many.players({
+			from: r.teams.id,
+			to: r.players.currentTeamId,
+		}),
+	},
+	players: {
+		currentTeam: r.one.teams({
+			from: r.players.currentTeamId,
+			to: r.teams.id,
+		}),
+	},
+	stats: {
+		sport: r.one.sports({
+			from: r.stats.sportId,
+			to: r.sports.id,
+		}),
+	},
+	calls: {
+		question: r.one.questions({
+			from: r.calls.questionId,
+			to: r.questions.id,
+		}),
+		user: r.one.users({
+			from: r.calls.userId,
+			to: r.users.id,
+		}),
+		selections: r.many.callSelections(),
+	},
+	callSelections: {
+		call: r.one.calls({
+			from: r.callSelections.callId,
+			to: r.calls.id,
+		}),
+		option: r.one.questionOptions({
+			from: r.callSelections.optionId,
+			to: r.questionOptions.id,
+		}),
+	},
+	resolutionDisputes: {
+		question: r.one.questions({
+			from: r.resolutionDisputes.questionId,
+			to: r.questions.id,
+		}),
+		user: r.one.users({
+			from: r.resolutionDisputes.userId,
+			to: r.users.id,
 		}),
 	},
 }))

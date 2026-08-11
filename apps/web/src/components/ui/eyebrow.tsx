@@ -1,7 +1,8 @@
+import type { ReactNode } from "react"
 import { css } from "styled-system/css"
 
 type Props = {
-	children: string
+	children: ReactNode
 	variant?: "primary" | "secondary"
 }
 

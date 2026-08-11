@@ -1,5 +1,7 @@
-import { sql } from "drizzle-orm"
+import { eq } from "drizzle-orm"
+import { DateTime } from "luxon"
 import { env } from "../env"
+import { hitTolerance, numericGuessPoints, selectionPoints } from "../lib/calls"
 import {
 	expiryToDate,
 	type InviteExpiryOption,
@@ -7,13 +9,34 @@ import {
 } from "../lib/groups"
 import { hashPassword } from "../lib/password"
 import { db } from "./index"
-import { groupMembers, groups, users } from "./schema"
+import {
+	callSelections,
+	calls,
+	groupMembers,
+	groups,
+	leagues,
+	players,
+	type players as playersTable,
+	questionOptions,
+	type questionOptions as questionOptionsTable,
+	questions,
+	sports,
+	stats,
+	teams,
+	type teams as teamsTable,
+	users,
+} from "./schema"
 
 if (env.NODE_ENV === "production" && !env.ALLOW_PROD_SEED) {
 	throw new Error(
 		"Refusing to run the seed script against production. Set ALLOW_PROD_SEED=true to override.",
 	)
 }
+
+const daysAgo = (n: number) => DateTime.now().minus({ days: n }).toJSDate()
+const daysFromNow = (n: number) => DateTime.now().plus({ days: n }).toJSDate()
+const hoursAgo = (n: number) => DateTime.now().minus({ hours: n }).toJSDate()
+const hoursFromNow = (n: number) => DateTime.now().plus({ hours: n }).toJSDate()
 
 async function createGroup(
 	name: string,
@@ -39,10 +62,176 @@ async function createGroup(
 	return { group, invite }
 }
 
+async function createQuestion(input: typeof questions.$inferInsert) {
+	const [question] = await db.insert(questions).values(input).returning()
+	return question
+}
+
+async function addOptions(questionId: string, labels: string[]) {
+	return db
+		.insert(questionOptions)
+		.values(
+			labels.map((label, sortOrder) => ({ questionId, label, sortOrder })),
+		)
+		.returning()
+}
+
+async function addTeamOptions(
+	questionId: string,
+	teamRows: (typeof teamsTable.$inferSelect)[],
+) {
+	return db
+		.insert(questionOptions)
+		.values(
+			teamRows.map((team, sortOrder) => ({
+				questionId,
+				label: team.name,
+				teamId: team.id,
+				sortOrder,
+			})),
+		)
+		.returning()
+}
+
+async function addPlayerOptions(
+	questionId: string,
+	playerRows: (typeof playersTable.$inferSelect)[],
+) {
+	return db
+		.insert(questionOptions)
+		.values(
+			playerRows.map((player, sortOrder) => ({
+				questionId,
+				label: player.name,
+				playerId: player.id,
+				sortOrder,
+			})),
+		)
+		.returning()
+}
+
+async function callOnOptions(
+	questionId: string,
+	userId: string,
+	picks: { optionId: string; fieldPctAtCall: number; conviction: number }[],
+	caseText?: string,
+) {
+	const [call] = await db
+		.insert(calls)
+		.values({ questionId, userId, caseText })
+		.returning()
+	await db.insert(callSelections).values(
+		picks.map((pick) => ({
+			callId: call.id,
+			optionId: pick.optionId,
+			conviction: pick.conviction,
+			fieldPctAtCall: pick.fieldPctAtCall,
+		})),
+	)
+	return call
+}
+
+async function callWithGuess(
+	questionId: string,
+	userId: string,
+	guessValue: number,
+	conviction: number,
+	caseText?: string,
+) {
+	const [call] = await db
+		.insert(calls)
+		.values({ questionId, userId, guessValue, conviction, caseText })
+		.returning()
+	return call
+}
+
+// Marks the winning option(s) and scores every selection made on this
+// question via the same tierFor/selectionPoints math the live app will use.
+async function resolveOptionQuestion(
+	questionId: string,
+	options: (typeof questionOptionsTable.$inferSelect)[],
+	correctOptionIds: string[],
+	resolutionNote: string,
+) {
+	for (const option of options) {
+		await db
+			.update(questionOptions)
+			.set({ isCorrect: correctOptionIds.includes(option.id) })
+			.where(eq(questionOptions.id, option.id))
+
+		const selections = await db.query.callSelections.findMany({
+			where: { optionId: option.id },
+		})
+		for (const selection of selections) {
+			await db
+				.update(callSelections)
+				.set({
+					resultPoints: selectionPoints(
+						selection.fieldPctAtCall,
+						selection.conviction,
+						correctOptionIds.includes(option.id),
+					),
+				})
+				.where(eq(callSelections.id, selection.id))
+		}
+	}
+
+	await db
+		.update(questions)
+		.set({ status: "resolved", resolvedAt: new Date(), resolutionNote })
+		.where(eq(questions.id, questionId))
+}
+
+// Ranks every guess against the actual value to award points, and separately
+// flags which guesses fell inside the tolerance band for the accuracy stat.
+async function resolveNumericQuestion(
+	questionId: string,
+	actualValue: number,
+	tolerancePct: number,
+	resolutionNote: string,
+) {
+	const questionCalls = await db.query.calls.findMany({ where: { questionId } })
+	const guesses = questionCalls
+		.filter(
+			(
+				call,
+			): call is typeof call & { guessValue: number; conviction: number } =>
+				call.guessValue !== null && call.conviction !== null,
+		)
+		.map((call) => ({
+			callId: call.id,
+			guessValue: call.guessValue,
+			conviction: call.conviction,
+		}))
+	const pointsByCallId = new Map(
+		numericGuessPoints(guesses, actualValue).map((r) => [r.callId, r.points]),
+	)
+
+	for (const call of guesses) {
+		await db
+			.update(calls)
+			.set({
+				hitTolerance: hitTolerance(call.guessValue, actualValue, tolerancePct),
+				resultPoints: pointsByCallId.get(call.callId),
+			})
+			.where(eq(calls.id, call.callId))
+	}
+
+	await db
+		.update(questions)
+		.set({
+			status: "resolved",
+			resolvedAt: new Date(),
+			resolutionNote,
+			numericActualValue: actualValue,
+		})
+		.where(eq(questions.id, questionId))
+}
+
 async function main() {
 	console.log("Wiping existing data...")
 	await db.execute(
-		sql`TRUNCATE TABLE group_invites, group_members, groups, sessions, users RESTART IDENTITY CASCADE`,
+		"TRUNCATE TABLE call_selections, calls, question_options, questions, stats, players, teams, leagues, sports, group_invites, group_members, groups, sessions, users RESTART IDENTITY CASCADE",
 	)
 
 	console.log("Seeding users...")
@@ -184,6 +373,735 @@ async function main() {
 		"NO_EXPIRY",
 	)
 
+	console.log("Seeding sports, leagues, teams, players, stats...")
+
+	const [basketball, football] = await db
+		.insert(sports)
+		.values([
+			{ name: "Basketball", slug: "basketball" },
+			{ name: "Football", slug: "football" },
+		])
+		.returning()
+
+	const [nba, nfl] = await db
+		.insert(leagues)
+		.values([
+			{ sportId: basketball.id, name: "NBA", abbreviation: "NBA", slug: "nba" },
+			{ sportId: football.id, name: "NFL", abbreviation: "NFL", slug: "nfl" },
+		])
+		.returning()
+
+	// Real primary brand colors, current as of this data's writing - team
+	// identities are stable and low-maintenance, unlike rosters below.
+	const nbaTeamRows = await db
+		.insert(teams)
+		.values(
+			[
+				["Atlanta Hawks", "ATL", "#E03A3E"],
+				["Boston Celtics", "BOS", "#007A33"],
+				["Brooklyn Nets", "BKN", "#000000"],
+				["Charlotte Hornets", "CHA", "#1D1160"],
+				["Chicago Bulls", "CHI", "#CE1141"],
+				["Cleveland Cavaliers", "CLE", "#860038"],
+				["Dallas Mavericks", "DAL", "#00538C"],
+				["Denver Nuggets", "DEN", "#0E2240"],
+				["Detroit Pistons", "DET", "#C8102E"],
+				["Golden State Warriors", "GSW", "#1D428A"],
+				["Houston Rockets", "HOU", "#CE1141"],
+				["Indiana Pacers", "IND", "#002D62"],
+				["LA Clippers", "LAC", "#C8102E"],
+				["Los Angeles Lakers", "LAL", "#552583"],
+				["Memphis Grizzlies", "MEM", "#5D76A9"],
+				["Miami Heat", "MIA", "#98002E"],
+				["Milwaukee Bucks", "MIL", "#00471B"],
+				["Minnesota Timberwolves", "MIN", "#0C2340"],
+				["New Orleans Pelicans", "NOP", "#0C2340"],
+				["New York Knicks", "NYK", "#006BB6"],
+				["Oklahoma City Thunder", "OKC", "#007AC1"],
+				["Orlando Magic", "ORL", "#0077C0"],
+				["Philadelphia 76ers", "PHI", "#006BB6"],
+				["Phoenix Suns", "PHX", "#E56020"],
+				["Portland Trail Blazers", "POR", "#E03A3E"],
+				["Sacramento Kings", "SAC", "#5A2D81"],
+				["San Antonio Spurs", "SAS", "#C4CED4"],
+				["Toronto Raptors", "TOR", "#CE1141"],
+				["Utah Jazz", "UTA", "#002B5C"],
+				["Washington Wizards", "WAS", "#002B5C"],
+			].map(([name, abbreviation, color]) => ({
+				leagueId: nba.id,
+				name,
+				abbreviation,
+				color,
+			})),
+		)
+		.returning()
+
+	const nflTeamRows = await db
+		.insert(teams)
+		.values(
+			[
+				["Arizona Cardinals", "ARI", "#97233F"],
+				["Atlanta Falcons", "ATL", "#A71930"],
+				["Baltimore Ravens", "BAL", "#241773"],
+				["Buffalo Bills", "BUF", "#00338D"],
+				["Carolina Panthers", "CAR", "#0085CA"],
+				["Chicago Bears", "CHI", "#0B162A"],
+				["Cincinnati Bengals", "CIN", "#FB4F14"],
+				["Cleveland Browns", "CLE", "#311D00"],
+				["Dallas Cowboys", "DAL", "#041E42"],
+				["Denver Broncos", "DEN", "#FB4F14"],
+				["Detroit Lions", "DET", "#0076B6"],
+				["Green Bay Packers", "GB", "#203731"],
+				["Houston Texans", "HOU", "#03202F"],
+				["Indianapolis Colts", "IND", "#002C5F"],
+				["Jacksonville Jaguars", "JAX", "#101820"],
+				["Kansas City Chiefs", "KC", "#E31837"],
+				["Las Vegas Raiders", "LV", "#000000"],
+				["Los Angeles Chargers", "LAC", "#0080C6"],
+				["Los Angeles Rams", "LAR", "#003594"],
+				["Miami Dolphins", "MIA", "#008E97"],
+				["Minnesota Vikings", "MIN", "#4F2683"],
+				["New England Patriots", "NE", "#002244"],
+				["New Orleans Saints", "NO", "#D3BC8D"],
+				["New York Giants", "NYG", "#0B2265"],
+				["New York Jets", "NYJ", "#125740"],
+				["Philadelphia Eagles", "PHI", "#004C54"],
+				["Pittsburgh Steelers", "PIT", "#FFB612"],
+				["San Francisco 49ers", "SF", "#AA0000"],
+				["Seattle Seahawks", "SEA", "#002244"],
+				["Tampa Bay Buccaneers", "TB", "#D50A0A"],
+				["Tennessee Titans", "TEN", "#0C2340"],
+				["Washington Commanders", "WAS", "#5A1414"],
+			].map(([name, abbreviation, color]) => ({
+				leagueId: nfl.id,
+				name,
+				abbreviation,
+				color,
+			})),
+		)
+		.returning()
+
+	const nbaTeam = (abbr: string) => {
+		const team = nbaTeamRows.find((t) => t.abbreviation === abbr)
+		if (!team) throw new Error(`Missing NBA team: ${abbr}`)
+		return team
+	}
+	const nflTeam = (abbr: string) => {
+		const team = nflTeamRows.find((t) => t.abbreviation === abbr)
+		if (!team) throw new Error(`Missing NFL team: ${abbr}`)
+		return team
+	}
+
+	// A real, maintained roster - but a partial one. Enough current/notable
+	// players per team to exercise search and autofill, not an exhaustive
+	// 53-man/15-man roster sync. Expect this to drift out of date; whoever
+	// keeps it current does so by hand, same as team data above.
+	const nbaPlayerRows = await db
+		.insert(players)
+		.values(
+			(
+				[
+					["Joel Embiid", "PHI", "C"],
+					["Nikola Jokic", "DEN", "C"],
+					["Luka Doncic", "LAL", "PG"],
+					["Shai Gilgeous-Alexander", "OKC", "PG"],
+					["Giannis Antetokounmpo", "MIL", "PF"],
+					["Jayson Tatum", "BOS", "SF"],
+					["Anthony Edwards", "MIN", "SG"],
+					["Victor Wembanyama", "SAS", "C"],
+					["Devin Booker", "PHX", "SG"],
+					["Jalen Brunson", "NYK", "PG"],
+					["Anthony Davis", "DAL", "PF"],
+					["Domantas Sabonis", "SAC", "C"],
+					["Tyrese Haliburton", "IND", "PG"],
+					["Donovan Mitchell", "CLE", "SG"],
+					["Damian Lillard", "MIL", "PG"],
+					["Kevin Durant", "HOU", "PF"],
+					["Stephen Curry", "GSW", "PG"],
+					["LeBron James", "LAL", "SF"],
+					["Paolo Banchero", "ORL", "PF"],
+					["Karl-Anthony Towns", "NYK", "C"],
+					// 2025-26 rookie class, used by the Rookie of the Year question below -
+					// draft destinations here are illustrative, not a claim of real fact
+					["Cooper Flagg", "DAL", "PF"],
+					["Ace Bailey", "UTA", "SF"],
+					["Dylan Harper", "SAS", "PG"],
+					["Kon Knueppel", "CHA", "SG"],
+				] as const
+			).map(([name, teamAbbr, position]) => ({
+				name,
+				position,
+				currentTeamId: nbaTeam(teamAbbr).id,
+			})),
+		)
+		.returning()
+
+	const nflPlayerRows = await db
+		.insert(players)
+		.values(
+			(
+				[
+					["Patrick Mahomes", "KC", "QB"],
+					["Josh Allen", "BUF", "QB"],
+					["Lamar Jackson", "BAL", "QB"],
+					["Joe Burrow", "CIN", "QB"],
+					["Justin Jefferson", "MIN", "WR"],
+					["Ja'Marr Chase", "CIN", "WR"],
+					["CeeDee Lamb", "DAL", "WR"],
+					["Christian McCaffrey", "SF", "RB"],
+					["Saquon Barkley", "PHI", "RB"],
+					["Travis Kelce", "KC", "TE"],
+					["Tyreek Hill", "MIA", "WR"],
+					["A.J. Brown", "PHI", "WR"],
+					["Jahmyr Gibbs", "DET", "RB"],
+					["Amon-Ra St. Brown", "DET", "WR"],
+					["Bijan Robinson", "ATL", "RB"],
+				] as const
+			).map(([name, teamAbbr, position]) => ({
+				name,
+				position,
+				currentTeamId: nflTeam(teamAbbr).id,
+			})),
+		)
+		.returning()
+
+	const nbaPlayer = (name: string) => {
+		const player = nbaPlayerRows.find((p) => p.name === name)
+		if (!player) throw new Error(`Missing NBA player: ${name}`)
+		return player
+	}
+	const nflPlayer = (name: string) => {
+		const player = nflPlayerRows.find((p) => p.name === name)
+		if (!player) throw new Error(`Missing NFL player: ${name}`)
+		return player
+	}
+
+	// Scoped to sport, not league - NBA and NCAAB (once we have it) share this
+	// same catalog. category groups the list for display instead of one flat
+	// wall of chips.
+	const basketballStatRows = await db
+		.insert(stats)
+		.values(
+			[
+				["Points", "Scoring"],
+				["3-Pointers Made", "Scoring"],
+				["Rebounds", "Rebounding"],
+				["Assists", "Playmaking"],
+				["Turnovers", "Playmaking"],
+				["Steals", "Defense"],
+				["Blocks", "Defense"],
+			].map(([name, category], sortOrder) => ({
+				sportId: basketball.id,
+				name,
+				category,
+				sortOrder,
+			})),
+		)
+		.returning()
+
+	const footballStatRows = await db
+		.insert(stats)
+		.values(
+			[
+				["Points", "Scoring"],
+				["Passing Yards", "Passing"],
+				["Passing Touchdowns", "Passing"],
+				["Rushing Yards", "Rushing"],
+				["Rushing Touchdowns", "Rushing"],
+				["Receiving Yards", "Receiving"],
+				["Receptions", "Receiving"],
+				["Receiving Touchdowns", "Receiving"],
+				["Sacks", "Defense"],
+				["Interceptions", "Defense"],
+			].map(([name, category], sortOrder) => ({
+				sportId: football.id,
+				name,
+				category,
+				sortOrder,
+			})),
+		)
+		.returning()
+
+	const basketballStat = (name: string) => {
+		const stat = basketballStatRows.find((s) => s.name === name)
+		if (!stat) throw new Error(`Missing basketball stat: ${name}`)
+		return stat
+	}
+	const footballStat = (name: string) => {
+		const stat = footballStatRows.find((s) => s.name === name)
+		if (!stat) throw new Error(`Missing football stat: ${name}`)
+		return stat
+	}
+
+	console.log("Seeding NBA questions and calls...")
+
+	// 1. Multiple choice, still open
+	const championship2027 = await createQuestion({
+		type: "multiple_choice",
+		category: "season_awards",
+		title: "Who wins the 2027 NBA championship?",
+		creatorId: quinn.id,
+		isOfficial: true,
+		sportId: basketball.id,
+		leagueId: nba.id,
+		resolutionSource: "Official NBA Finals result",
+		locksAt: daysFromNow(70),
+	})
+	const [celtics27, nuggets27, thunder27, wolves27, magic27] =
+		await addTeamOptions(championship2027.id, [
+			nbaTeam("BOS"),
+			nbaTeam("DEN"),
+			nbaTeam("OKC"),
+			nbaTeam("MIN"),
+			nbaTeam("ORL"),
+			nbaTeam("MIL"),
+		])
+	await callOnOptions(championship2027.id, mpwolves.id, [
+		{ optionId: celtics27.id, fieldPctAtCall: 30, conviction: 55 },
+	])
+	await callOnOptions(championship2027.id, tswish.id, [
+		{ optionId: nuggets27.id, fieldPctAtCall: 22, conviction: 60 },
+	])
+	await callOnOptions(championship2027.id, dkanalytics.id, [
+		{ optionId: thunder27.id, fieldPctAtCall: 18, conviction: 50 },
+	])
+	await callOnOptions(championship2027.id, rcourtside.id, [
+		{ optionId: celtics27.id, fieldPctAtCall: 28, conviction: 40 },
+	])
+	await callOnOptions(championship2027.id, ballknower.id, [
+		{ optionId: magic27.id, fieldPctAtCall: 4, conviction: 35 },
+	])
+	await callOnOptions(
+		championship2027.id,
+		quinn.id,
+		[{ optionId: wolves27.id, fieldPctAtCall: 4, conviction: 65 }],
+		"Two conference finals runs already - continuity matters more than people give it credit for.",
+	)
+
+	// 2. Multiple choice, resolved - quinn called it right
+	const championship2026 = await createQuestion({
+		type: "multiple_choice",
+		category: "season_awards",
+		title: "Who will win the 2026 NBA championship?",
+		creatorId: quinn.id,
+		isOfficial: true,
+		sportId: basketball.id,
+		leagueId: nba.id,
+		resolutionSource: "Official NBA Finals result",
+		locksAt: daysAgo(220),
+	})
+	const [nuggets26, celtics26, , suns26] = await addTeamOptions(
+		championship2026.id,
+		[nbaTeam("DEN"), nbaTeam("BOS"), nbaTeam("MIL"), nbaTeam("PHX")],
+	)
+	await callOnOptions(
+		championship2026.id,
+		quinn.id,
+		[{ optionId: nuggets26.id, fieldPctAtCall: 4, conviction: 70 }],
+		"Jokic playing angry after last year's exit - this was the easiest read of the season.",
+	)
+	await callOnOptions(championship2026.id, mpwolves.id, [
+		{ optionId: celtics26.id, fieldPctAtCall: 35, conviction: 50 },
+	])
+	await callOnOptions(championship2026.id, tswish.id, [
+		{ optionId: nuggets26.id, fieldPctAtCall: 8, conviction: 40 },
+	])
+	await callOnOptions(championship2026.id, dkanalytics.id, [
+		{ optionId: suns26.id, fieldPctAtCall: 5, conviction: 45 },
+	])
+	await resolveOptionQuestion(
+		championship2026.id,
+		await db.query.questionOptions.findMany({
+			where: { questionId: championship2026.id },
+		}),
+		[nuggets26.id],
+		"Denver Nuggets won the 2026 NBA Finals.",
+	)
+
+	// 3. Multiple choice, resolved - quinn called it wrong. Options are players,
+	// not teams, so this exercises playerId-backed options.
+	const rookieOfYear = await createQuestion({
+		type: "multiple_choice",
+		category: "season_awards",
+		title: "Who will win 2025-26 Rookie of the Year?",
+		creatorId: quinn.id,
+		isOfficial: true,
+		sportId: basketball.id,
+		leagueId: nba.id,
+		resolutionSource: "Official NBA Rookie of the Year announcement",
+		locksAt: daysAgo(150),
+	})
+	const [flagg, bailey, harper] = await addPlayerOptions(rookieOfYear.id, [
+		nbaPlayer("Cooper Flagg"),
+		nbaPlayer("Ace Bailey"),
+		nbaPlayer("Dylan Harper"),
+		nbaPlayer("Kon Knueppel"),
+	])
+	await callOnOptions(
+		rookieOfYear.id,
+		quinn.id,
+		[{ optionId: bailey.id, fieldPctAtCall: 20, conviction: 45 }],
+		"Usage rate on that roster favors him over Flagg early.",
+	)
+	await callOnOptions(rookieOfYear.id, mpwolves.id, [
+		{ optionId: flagg.id, fieldPctAtCall: 55, conviction: 60 },
+	])
+	await callOnOptions(rookieOfYear.id, rcourtside.id, [
+		{ optionId: harper.id, fieldPctAtCall: 15, conviction: 30 },
+	])
+	await resolveOptionQuestion(
+		rookieOfYear.id,
+		await db.query.questionOptions.findMany({
+			where: { questionId: rookieOfYear.id },
+		}),
+		[flagg.id],
+		"Cooper Flagg won 2025-26 Rookie of the Year.",
+	)
+
+	// 4. Yes/No, still open - not every question has a clean stat/subject shape,
+	// so this stays a plain title with no statId/subject reference.
+	const jokicTripleDouble = await createQuestion({
+		type: "yes_no",
+		category: "game_stats",
+		title: "Will Jokic record a triple-double tonight?",
+		creatorId: jrhoops.id,
+		sportId: basketball.id,
+		leagueId: nba.id,
+		resolutionSource: "ESPN box score",
+		locksAt: hoursFromNow(5),
+	})
+	const [tdYes, tdNo] = await addOptions(jokicTripleDouble.id, ["Yes", "No"])
+	await callOnOptions(jokicTripleDouble.id, quinn.id, [
+		{ optionId: tdYes.id, fieldPctAtCall: 65, conviction: 55 },
+	])
+	await callOnOptions(jokicTripleDouble.id, tswish.id, [
+		{ optionId: tdYes.id, fieldPctAtCall: 60, conviction: 40 },
+	])
+	await callOnOptions(jokicTripleDouble.id, ballknower.id, [
+		{ optionId: tdNo.id, fieldPctAtCall: 35, conviction: 50 },
+	])
+
+	// 5. Yes/No, resolved - quinn called it wrong
+	const lakersMargin = await createQuestion({
+		type: "yes_no",
+		category: "game_stats",
+		title: "Will the Lakers win by 10 or more?",
+		creatorId: mpwolves.id,
+		sportId: basketball.id,
+		leagueId: nba.id,
+		resolutionSource: "ESPN box score",
+		locksAt: daysAgo(3),
+	})
+	const [marginYes, marginNo] = await addOptions(lakersMargin.id, ["Yes", "No"])
+	await callOnOptions(lakersMargin.id, quinn.id, [
+		{ optionId: marginYes.id, fieldPctAtCall: 75, conviction: 80 },
+	])
+	await callOnOptions(lakersMargin.id, mpwolves.id, [
+		{ optionId: marginNo.id, fieldPctAtCall: 25, conviction: 50 },
+	])
+	await resolveOptionQuestion(
+		lakersMargin.id,
+		await db.query.questionOptions.findMany({
+			where: { questionId: lakersMargin.id },
+		}),
+		[marginNo.id],
+		"Lakers won by 6 - final margin fell short of 10.",
+	)
+
+	// 6. Over/under, locked (game underway, not resolved yet). Game-wide total,
+	// so no subject team/player - just the stat and the line.
+	const totalPointsOU = await createQuestion({
+		type: "over_under",
+		category: "game_stats",
+		title: "76ers @ Nuggets - combined total over or under 224.5?",
+		creatorId: dkanalytics.id,
+		sportId: basketball.id,
+		leagueId: nba.id,
+		resolutionSource: "ESPN box score",
+		locksAt: hoursAgo(2),
+		status: "locked",
+		statId: basketballStat("Points").id,
+		ouLine: 224.5,
+	})
+	const [over2245, under2245] = await addOptions(totalPointsOU.id, [
+		"Over 224.5",
+		"Under 224.5",
+	])
+	await callOnOptions(totalPointsOU.id, quinn.id, [
+		{ optionId: over2245.id, fieldPctAtCall: 54, conviction: 50 },
+	])
+	await callOnOptions(totalPointsOU.id, jrhoops.id, [
+		{ optionId: over2245.id, fieldPctAtCall: 54, conviction: 60 },
+	])
+	await callOnOptions(totalPointsOU.id, rcourtside.id, [
+		{ optionId: under2245.id, fieldPctAtCall: 46, conviction: 45 },
+	])
+
+	// 7. Numeric guess, still open
+	const embiidRebounds = await createQuestion({
+		type: "numeric_guess",
+		category: "player_stats",
+		title: "How many rebounds will Embiid grab tonight?",
+		creatorId: ballknower.id,
+		sportId: basketball.id,
+		leagueId: nba.id,
+		resolutionSource: "ESPN box score",
+		locksAt: hoursFromNow(6),
+		statId: basketballStat("Rebounds").id,
+		numericSubjectType: "player",
+		subjectPlayerId: nbaPlayer("Joel Embiid").id,
+		numericTolerancePct: 0.15,
+	})
+	await callWithGuess(
+		embiidRebounds.id,
+		quinn.id,
+		13,
+		60,
+		"Minutes have been up the last three games with Maxey out.",
+	)
+	await callWithGuess(embiidRebounds.id, tswish.id, 13, 45)
+	await callWithGuess(embiidRebounds.id, dkanalytics.id, 11, 50)
+	await callWithGuess(embiidRebounds.id, mpwolves.id, 12, 55)
+	await callWithGuess(embiidRebounds.id, statlinesteve.id, 14, 40)
+
+	// 8. Numeric guess, resolved - ranked by distance from the actual value
+	const tatumPoints = await createQuestion({
+		type: "numeric_guess",
+		category: "player_stats",
+		title: "How many points will Tatum score?",
+		creatorId: statlinesteve.id,
+		sportId: basketball.id,
+		leagueId: nba.id,
+		resolutionSource: "ESPN box score",
+		locksAt: daysAgo(1),
+		statId: basketballStat("Points").id,
+		numericSubjectType: "player",
+		subjectPlayerId: nbaPlayer("Jayson Tatum").id,
+		numericTolerancePct: 0.15,
+	})
+	await callWithGuess(
+		tatumPoints.id,
+		quinn.id,
+		27,
+		65,
+		"Feel good about this one.",
+	)
+	await callWithGuess(tatumPoints.id, jrhoops.id, 25, 50)
+	await callWithGuess(tatumPoints.id, courtvision.id, 32, 45)
+	await callWithGuess(tatumPoints.id, hoopqueen.id, 22, 30)
+	await resolveNumericQuestion(
+		tatumPoints.id,
+		27,
+		0.15,
+		"Jayson Tatum finished with 27 points.",
+	)
+
+	// 9. Multi-select, still open - quinn hasn't picked yet
+	const allNbaFirstTeam = await createQuestion({
+		type: "multi_select",
+		category: "season_awards",
+		title: "Predict the 2027 All-NBA First Team",
+		creatorId: quinn.id,
+		isOfficial: true,
+		sportId: basketball.id,
+		leagueId: nba.id,
+		resolutionSource: "Official NBA All-NBA voting result",
+		locksAt: daysFromNow(70),
+		picksRequired: 5,
+	})
+	const allNbaPool = await addPlayerOptions(allNbaFirstTeam.id, [
+		nbaPlayer("Nikola Jokic"),
+		nbaPlayer("Shai Gilgeous-Alexander"),
+		nbaPlayer("Giannis Antetokounmpo"),
+		nbaPlayer("Luka Doncic"),
+		nbaPlayer("Jayson Tatum"),
+		nbaPlayer("Victor Wembanyama"),
+		nbaPlayer("LeBron James"),
+		nbaPlayer("Anthony Edwards"),
+		nbaPlayer("Stephen Curry"),
+		nbaPlayer("Kevin Durant"),
+		nbaPlayer("Anthony Davis"),
+		nbaPlayer("Tyrese Haliburton"),
+	])
+	const byName = (name: string) => {
+		const option = allNbaPool.find((o) => o.label === name)
+		if (!option) throw new Error(`Missing All-NBA option: ${name}`)
+		return option
+	}
+	// one conviction level applied to every pick ("ONE FOR ALL" mode)
+	await callOnOptions(allNbaFirstTeam.id, tswish.id, [
+		{ optionId: byName("Nikola Jokic").id, fieldPctAtCall: 92, conviction: 50 },
+		{ optionId: byName("Luka Doncic").id, fieldPctAtCall: 79, conviction: 50 },
+		{ optionId: byName("Jayson Tatum").id, fieldPctAtCall: 68, conviction: 50 },
+		{
+			optionId: byName("Victor Wembanyama").id,
+			fieldPctAtCall: 61,
+			conviction: 50,
+		},
+		{
+			optionId: byName("Anthony Edwards").id,
+			fieldPctAtCall: 54,
+			conviction: 50,
+		},
+	])
+	// conviction set independently per pick ("PER PICK" mode)
+	await callOnOptions(
+		allNbaFirstTeam.id,
+		jrhoops.id,
+		[
+			{
+				optionId: byName("Nikola Jokic").id,
+				fieldPctAtCall: 92,
+				conviction: 60,
+			},
+			{
+				optionId: byName("Shai Gilgeous-Alexander").id,
+				fieldPctAtCall: 88,
+				conviction: 55,
+			},
+			{
+				optionId: byName("Giannis Antetokounmpo").id,
+				fieldPctAtCall: 81,
+				conviction: 50,
+			},
+			{
+				optionId: byName("Jayson Tatum").id,
+				fieldPctAtCall: 68,
+				conviction: 45,
+			},
+			{
+				optionId: byName("Anthony Edwards").id,
+				fieldPctAtCall: 54,
+				conviction: 40,
+			},
+		],
+		"Jokic and SGA are the easy ones. Went with Ant over Wemby since the Spurs' schedule is brutal down the stretch.",
+	)
+
+	console.log("Seeding NFL questions and calls...")
+
+	// 10. Multiple choice, still open
+	const superBowl = await createQuestion({
+		type: "multiple_choice",
+		category: "season_awards",
+		title: "Who wins Super Bowl LXI?",
+		creatorId: quinn.id,
+		isOfficial: true,
+		sportId: football.id,
+		leagueId: nfl.id,
+		resolutionSource: "Official NFL Super Bowl result",
+		locksAt: daysFromNow(150),
+	})
+	const [chiefs, bills, ravens, eagles] = await addTeamOptions(superBowl.id, [
+		nflTeam("KC"),
+		nflTeam("BUF"),
+		nflTeam("BAL"),
+		nflTeam("PHI"),
+		nflTeam("SF"),
+	])
+	await callOnOptions(superBowl.id, quinn.id, [
+		{ optionId: bills.id, fieldPctAtCall: 22, conviction: 60 },
+	])
+	await callOnOptions(superBowl.id, dannyRinger.id, [
+		{ optionId: chiefs.id, fieldPctAtCall: 28, conviction: 55 },
+	])
+	await callOnOptions(superBowl.id, mattfantasy.id, [
+		{ optionId: eagles.id, fieldPctAtCall: 18, conviction: 45 },
+	])
+	await callOnOptions(superBowl.id, statlinesteve.id, [
+		{ optionId: ravens.id, fieldPctAtCall: 14, conviction: 40 },
+	])
+
+	// 11. Numeric guess, still open
+	const mahomesYards = await createQuestion({
+		type: "numeric_guess",
+		category: "player_stats",
+		title: "How many passing yards will Mahomes throw for?",
+		creatorId: dannyRinger.id,
+		sportId: football.id,
+		leagueId: nfl.id,
+		resolutionSource: "ESPN box score",
+		locksAt: hoursFromNow(30),
+		statId: footballStat("Passing Yards").id,
+		numericSubjectType: "player",
+		subjectPlayerId: nflPlayer("Patrick Mahomes").id,
+		numericTolerancePct: 0.15,
+	})
+	await callWithGuess(
+		mahomesYards.id,
+		quinn.id,
+		275,
+		55,
+		"Defense is banged up in the secondary this week.",
+	)
+	await callWithGuess(mahomesYards.id, mattfantasy.id, 260, 45)
+	await callWithGuess(mahomesYards.id, courtvision.id, 300, 50)
+
+	// 12. Over/under, locked - game-wide total, no subject
+	const chiefsBillsOU = await createQuestion({
+		type: "over_under",
+		category: "game_stats",
+		title: "Chiefs @ Bills - combined total over or under 47.5?",
+		creatorId: statlinesteve.id,
+		sportId: football.id,
+		leagueId: nfl.id,
+		resolutionSource: "ESPN box score",
+		locksAt: hoursAgo(1),
+		status: "locked",
+		statId: footballStat("Points").id,
+		ouLine: 47.5,
+	})
+	const [over475, under475] = await addOptions(chiefsBillsOU.id, [
+		"Over 47.5",
+		"Under 47.5",
+	])
+	await callOnOptions(chiefsBillsOU.id, quinn.id, [
+		{ optionId: over475.id, fieldPctAtCall: 58, conviction: 50 },
+	])
+	await callOnOptions(chiefsBillsOU.id, dannyRinger.id, [
+		{ optionId: under475.id, fieldPctAtCall: 42, conviction: 45 },
+	])
+
+	// 13. Multiple choice, resolved - jrhoops hits a big underdog pick here so
+	// Fantasy League Chat's leaderboard isn't just quinn at #1 in every group.
+	const inSeasonTournament = await createQuestion({
+		type: "multiple_choice",
+		category: "season_awards",
+		title: "Who will win the 2025 NBA In-Season Tournament?",
+		creatorId: jrhoops.id,
+		sportId: basketball.id,
+		leagueId: nba.id,
+		resolutionSource: "Official NBA In-Season Tournament result",
+		locksAt: daysAgo(30),
+	})
+	const [thunderIST, celticsIST, , bucksIST] = await addTeamOptions(
+		inSeasonTournament.id,
+		[nbaTeam("OKC"), nbaTeam("BOS"), nbaTeam("DEN"), nbaTeam("MIL")],
+	)
+	await callOnOptions(
+		inSeasonTournament.id,
+		jrhoops.id,
+		[{ optionId: thunderIST.id, fieldPctAtCall: 1.5, conviction: 85 }],
+		"Nobody was talking about OKC before this thing started. Book it.",
+	)
+	await callOnOptions(inSeasonTournament.id, courtvision.id, [
+		{ optionId: thunderIST.id, fieldPctAtCall: 40, conviction: 50 },
+	])
+	await callOnOptions(inSeasonTournament.id, tswish.id, [
+		{ optionId: celticsIST.id, fieldPctAtCall: 25, conviction: 45 },
+	])
+	await callOnOptions(inSeasonTournament.id, statlinesteve.id, [
+		{ optionId: bucksIST.id, fieldPctAtCall: 20, conviction: 30 },
+	])
+	await resolveOptionQuestion(
+		inSeasonTournament.id,
+		await db.query.questionOptions.findMany({
+			where: { questionId: inSeasonTournament.id },
+		}),
+		[thunderIST.id],
+		"Oklahoma City won the 2025 NBA In-Season Tournament.",
+	)
+
 	console.log("\nDone.\n")
 	console.log("Log in as quinn: qvaughn3@gmail.com / password")
 	console.log("\nGroups:")
@@ -195,6 +1113,36 @@ async function main() {
 	)
 	console.log(
 		`  The Ringer Fantasy Show (quinn not a member, pending invite) code: ${ringerFantasyShow.invite.code}`,
+	)
+	console.log("\nQuestions seeded:")
+	console.log("  NBA 1. 2027 championship        multiple_choice  open")
+	console.log(
+		"  NBA 2. 2026 championship        multiple_choice  resolved - quinn won",
+	)
+	console.log(
+		"  NBA 3. 2025-26 Rookie of Year   multiple_choice  resolved - quinn lost",
+	)
+	console.log("  NBA 4. Jokic triple-double      yes_no           open")
+	console.log(
+		"  NBA 5. Lakers win by 10+        yes_no           resolved - quinn lost",
+	)
+	console.log(
+		"  NBA 6. 76ers @ Nuggets total    over_under       locked, unresolved",
+	)
+	console.log("  NBA 7. Embiid rebounds          numeric_guess    open")
+	console.log(
+		"  NBA 8. Tatum points             numeric_guess    resolved - quinn won",
+	)
+	console.log(
+		"  NBA 9. All-NBA First Team       multi_select     open, quinn hasn't called",
+	)
+	console.log("  NFL 10. Super Bowl LXI winner    multiple_choice  open")
+	console.log("  NFL 11. Mahomes passing yards    numeric_guess    open")
+	console.log(
+		"  NFL 12. Chiefs @ Bills total     over_under       locked, unresolved",
+	)
+	console.log(
+		"  NBA 13. 2025 In-Season Tournament multiple_choice resolved - jrhoops won big",
 	)
 
 	await db.$client.end()
