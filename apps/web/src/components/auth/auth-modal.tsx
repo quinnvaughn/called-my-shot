@@ -17,15 +17,30 @@ import { FormError } from "../ui/form-error"
 
 export type AuthModalView = "signin" | "signup"
 
+type AuthModalCopyEntry = {
+	title: string
+	description: string
+}
+
+export type AuthModalCopy = Record<AuthModalView, AuthModalCopyEntry>
+
+export type AuthModalCopyOverride = Partial<
+	Record<AuthModalView, Partial<AuthModalCopyEntry>>
+>
+
 type AuthModalProps = {
 	defaultView?: AuthModalView
+	// Lets callers override the title/description per view - e.g. gating
+	// "join a group" behind auth should explain *why* auth is required
+	// instead of showing the generic copy.
+	copy?: AuthModalCopyOverride
 	// Runs instead of the default "/home" redirect once sign-in/sign-up
 	// succeeds - lets callers (e.g. useRequireAuth) resume whatever action
 	// was gated behind auth.
 	onSuccess?: () => void
 }
 
-const copy = {
+const defaultCopy: AuthModalCopy = {
 	signin: {
 		title: "Welcome back",
 		description: "Sign in to make your calls.",
@@ -34,13 +49,19 @@ const copy = {
 		title: "Make your first call",
 		description: "Free to play. Takes about 30 seconds.",
 	},
-} as const
+}
 
 export function AuthModal({
 	defaultView = "signin",
+	copy,
 	onSuccess,
 }: AuthModalProps) {
 	const [view, setView] = useState<AuthModalView>(defaultView)
+
+	const { title, description } = {
+		...defaultCopy[view],
+		...copy?.[view],
+	}
 
 	return (
 		<Modal>
@@ -53,8 +74,8 @@ export function AuthModal({
 				</Tabs.List>
 			</Tabs>
 			<VStack gap="1" alignItems="flex-start">
-				<Modal.Title>{copy[view].title}</Modal.Title>
-				<Modal.Description>{copy[view].description}</Modal.Description>
+				<Modal.Title>{title}</Modal.Title>
+				<Modal.Description>{description}</Modal.Description>
 			</VStack>
 			{view === "signin" ? (
 				<SignInFields onSuccess={onSuccess} />

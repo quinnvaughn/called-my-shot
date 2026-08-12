@@ -36,18 +36,32 @@ function RouteComponent() {
 	const navigate = useNavigate()
 
 	function handleJoin() {
-		requireAuth(async () => {
-			const { data } = await joinGroupByCode({ variables: { input: { code } } })
-			const result = data?.joinGroupByCode
-
-			if (result?.__typename === "GroupPayload") {
-				await router.invalidate()
-				await navigate({
-					to: "/groups/$groupId",
-					params: { groupId: result.group.id },
+		requireAuth(
+			async () => {
+				const { data } = await joinGroupByCode({
+					variables: { input: { code } },
 				})
-			}
-		})
+				const result = data?.joinGroupByCode
+
+				if (result?.__typename === "GroupPayload") {
+					await router.invalidate()
+					await navigate({
+						to: "/groups/$groupId",
+						params: { groupId: result.group.id },
+					})
+				}
+			},
+			{
+				signup: {
+					title: `Sign up to join ${preview.name}`,
+					description: "Create a free account to lock in your invite.",
+				},
+				signin: {
+					title: `Sign in to join ${preview.name}`,
+					description: "Log back in to accept this invite.",
+				},
+			},
+		)
 	}
 
 	if (!preview) {
