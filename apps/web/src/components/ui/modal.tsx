@@ -71,6 +71,15 @@ const modalRecipe = sva({
 			color: "fg.muted",
 		},
 	},
+	variants: {
+		size: {
+			sm: { box: { maxWidth: "sm" } },
+			md: { box: { maxWidth: "md" } },
+		},
+	},
+	defaultVariants: {
+		size: "sm",
+	},
 })
 
 type ModalSlots = ReturnType<typeof modalRecipe>
@@ -88,17 +97,17 @@ function useModalSlots(part: string) {
 	return ctx
 }
 
-type ModalProps = { children: ReactNode }
+type ModalProps = { children: ReactNode; size?: "sm" | "md" }
 
 // The portal/overlay/box/focus-trap chrome. Used directly at the root of each
 // modal's own content component — <Modal> only ever renders because it's the
 // content ModalHost pulled out of the store, so its mount *is* "open", and its
 // unmount (via cleanup below) is "closed". No separate isOpen check needed.
-function Modal({ children }: ModalProps) {
+function Modal({ children, size = "sm" }: ModalProps) {
 	const boxRef = useRef<HTMLDivElement>(null)
 	const lastFocusedRef = useRef<HTMLElement | null>(null)
 	const titleId = useId()
-	const slots = useMemo(() => modalRecipe(), [])
+	const slots = useMemo(() => modalRecipe({ size }), [size])
 
 	useEffect(() => {
 		lastFocusedRef.current = document.activeElement as HTMLElement | null
@@ -180,10 +189,10 @@ Modal.Description = ModalDescription
 
 export { Modal }
 
-// Mounted once at the app root. Purely renders whatever's in modalStore —
-// opening a modal is openModal(<YourModal />), where YourModal renders
+// Mounted once at the app root. Purely renders the top of modalStore's stack
+// — opening a modal is openModal(<YourModal />), where YourModal renders
 // <Modal>...</Modal> as its own root. ModalHost never needs to change when a
-// new modal is added.
+// new modal is added, nested or not.
 export function ModalHost() {
-	return useStore(modalStore, (state) => state)
+	return useStore(modalStore, (state) => state.at(-1) ?? null)
 }

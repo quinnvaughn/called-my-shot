@@ -63,6 +63,9 @@ async function createGroup(
 		adminUserId,
 		expiryToDate(expiry),
 	)
+	for (const userId of memberUserIds) {
+		await insertGroupInvite(group.id, userId, expiryToDate(expiry))
+	}
 	return { group, invite }
 }
 

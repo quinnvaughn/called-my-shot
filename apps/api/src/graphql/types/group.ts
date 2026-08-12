@@ -4,7 +4,6 @@ import { db } from "../../db"
 import {
 	type Call,
 	type Group,
-	groupInvites,
 	groupMembers,
 	groups,
 	type Question,
@@ -274,16 +273,13 @@ const GroupRef = builder.drizzleObject("groups", {
 		}),
 		memberCount: t.relatedCount("members"),
 		members: t.relation("members"),
-		// the viewer's own invite link - null if they haven't opened the invite
-		// modal yet (createGroupInvite creates it on demand)
+		// the viewer's own invite link - every member gets one the moment they
+		// join (see createGroup / joinGroupByCode), so this should always exist
 		myInvite: t.field({
 			type: GroupInviteRef,
-			nullable: true,
 			resolve: (group, _args, ctx) => {
-				if (!ctx.user) return null
-				return db.query.groupInvites.findFirst({
-					where: { groupId: group.id, createdBy: ctx.user.id },
-				})
+				const user = requireUser(ctx)
+				return getOrCreateMemberInvite(group.id, user.id)
 			},
 		}),
 		// every member's invite link - admins only, for a "manage invites" view
@@ -636,6 +632,9 @@ builder.mutationFields((t) => ({
 					.insert(groupMembers)
 					.values({ groupId: invite.groupId, userId: user.id, role: "member" })
 			}
+			// every member gets their own invite link, same as the creator does in
+			// createGroup - myInvite should never be null for a member
+			await getOrCreateMemberInvite(invite.groupId, user.id)
 
 			const group = await db.query.groups.findFirst({
 				where: { id: invite.groupId },
@@ -746,12 +745,12 @@ builder.mutationFields((t) => ({
 		},
 	}),
 
-	setGroupInviteExpiry: t.field({
+	resetGroupInviteCode: t.field({
 		type: GroupInviteRef,
 		errors: {
 			types: [AuthenticationError, AuthorizationError, NotFoundError],
 			directResult: true,
-			union: { name: "SetGroupInviteExpiryResult" },
+			union: { name: "ResetGroupInviteCodeResult" },
 		},
 		args: {
 			inviteId: t.arg.id({ required: true }),
@@ -761,30 +760,7 @@ builder.mutationFields((t) => ({
 			const user = requireUser(ctx)
 			await requireInviteOwnerOrAdmin(args.inviteId, user.id)
 
-			const [invite] = await db
-				.update(groupInvites)
-				.set({ expiresAt: expiryToDate(args.expiry) })
-				.where(eq(groupInvites.id, args.inviteId))
-				.returning()
-			if (!invite) throw new NotFoundError("Invite not found")
-
-			return invite
-		},
-	}),
-
-	resetGroupInviteCode: t.field({
-		type: GroupInviteRef,
-		errors: {
-			types: [AuthenticationError, AuthorizationError, NotFoundError],
-			directResult: true,
-			union: { name: "ResetGroupInviteCodeResult" },
-		},
-		args: { inviteId: t.arg.id({ required: true }) },
-		resolve: async (_root, args, ctx) => {
-			const user = requireUser(ctx)
-			await requireInviteOwnerOrAdmin(args.inviteId, user.id)
-
-			return regenerateInviteCode(args.inviteId)
+			return regenerateInviteCode(args.inviteId, expiryToDate(args.expiry))
 		},
 	}),
 

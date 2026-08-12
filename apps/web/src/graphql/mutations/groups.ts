@@ -41,3 +41,28 @@ export const JoinGroupByCodeDocument = graphql(`
 		}
 	}
 `)
+
+export const ResetGroupInviteCodeDocument = graphql(`
+	mutation ResetGroupInviteCode($inviteId: ID!, $expiry: InviteExpiry!) {
+		resetGroupInviteCode(inviteId: $inviteId, expiry: $expiry) {
+			__typename
+			... on GroupInvite {
+				id
+				code
+				expiresAt
+			}
+			... on AuthenticationError {
+				message
+			}
+			... on AuthorizationError {
+				message
+			}
+			... on NotFoundError {
+				message
+			}
+			... on ValidationError {
+				message
+			}
+		}
+	}
+`)

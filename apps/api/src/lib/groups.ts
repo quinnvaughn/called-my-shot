@@ -101,11 +101,14 @@ export async function requireInviteOwnerOrAdmin(
 	return invite
 }
 
-export async function regenerateInviteCode(inviteId: string) {
+export async function regenerateInviteCode(
+	inviteId: string,
+	expiresAt: Date | null,
+) {
 	const invite = await withRetriedCode(async (code) => {
 		const [updated] = await db
 			.update(groupInvites)
-			.set({ code })
+			.set({ code, expiresAt })
 			.where(eq(groupInvites.id, inviteId))
 			.returning()
 		return updated

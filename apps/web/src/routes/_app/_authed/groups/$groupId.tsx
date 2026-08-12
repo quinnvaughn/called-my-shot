@@ -2,12 +2,15 @@ import { createFileRoute, useRouteContext } from "@tanstack/react-router"
 import { useState } from "react"
 import { HiMiniQuestionMarkCircle } from "react-icons/hi2"
 import { css } from "styled-system/css"
-import { HStack } from "styled-system/jsx"
+import { HStack, VStack } from "styled-system/jsx"
 import { IncorrectGroup } from "#/components/groups/incorrect-group"
+import { InviteCodeModal } from "#/components/groups/invite-code-modal"
 import { Avatar } from "#/components/ui/avatar"
+import { Button } from "#/components/ui/button"
 import { Table } from "#/components/ui/table"
 import { Tabs } from "#/components/ui/tabs"
 import { GroupDetailDocument } from "#/graphql/generated/graphql"
+import { openModal } from "#/stores/modal-store"
 
 export const Route = createFileRoute("/_app/_authed/groups/$groupId")({
 	component: RouteComponent,
@@ -43,7 +46,39 @@ function RouteComponent() {
 	}
 
 	return (
-		<div>
+		<VStack alignItems="stretch" gap="6">
+			<HStack alignItems="flex-start" justify="space-between" gap="4">
+				<VStack gap="1" alignItems="flex-start">
+					<h1 className={css({ fontSize: "3xl", fontFamily: "heading" })}>
+						{group.name}
+					</h1>
+					<p
+						className={css({
+							fontFamily: "mono",
+							fontSize: "xs",
+							color: "fg.muted",
+						})}
+					>
+						{group.memberCount} members
+					</p>
+				</VStack>
+				<Button
+					size="sm"
+					variant="white"
+					onClick={() =>
+						openModal(
+							<InviteCodeModal
+								groupName={group.name}
+								inviteId={group.myInvite.id}
+								inviteCode={group.myInvite.code}
+								expirationDate={group.myInvite.expiresAt}
+							/>,
+						)
+					}
+				>
+					Invite
+				</Button>
+			</HStack>
 			<Table sortBy="rank" sortDir="desc">
 				<Table.Head
 					columns={[
@@ -93,6 +128,6 @@ function RouteComponent() {
 					<Tabs.Trigger value="shared">Shared</Tabs.Trigger>
 				</Tabs.List>
 			</Tabs>
-		</div>
+		</VStack>
 	)
 }
