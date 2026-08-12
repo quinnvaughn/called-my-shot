@@ -7,7 +7,8 @@ import {
 	useContext,
 } from "react"
 import { FiChevronDown, FiChevronUp } from "react-icons/fi"
-import { css, cx } from "styled-system/css"
+import { cx } from "styled-system/css"
+import { table as tableRecipe } from "styled-system/recipes"
 
 type SortDir = "asc" | "desc"
 
@@ -30,69 +31,6 @@ function useTableContext(part: string) {
 	return ctx
 }
 
-const wrapperStyle = css({
-	width: "full",
-	overflowX: "auto",
-})
-
-const tableStyle = css({
-	width: "full",
-	minWidth: "600px",
-	borderCollapse: "collapse",
-	fontFamily: "body",
-	backgroundColor: "bg.surface",
-	border: "1px solid",
-	borderColor: "border.default",
-	borderRadius: "2xl",
-	overflow: "hidden",
-})
-
-function headerCellStyle(
-	isActive: boolean,
-	sortable: boolean,
-	numeric: boolean,
-) {
-	return css({
-		color: isActive ? "primary.default" : "fg.subtle",
-		fontFamily: "mono",
-		fontSize: "2xs",
-		letterSpacing: "wide",
-		textTransform: "uppercase",
-		opacity: isActive ? "1" : "0.8",
-		cursor: sortable ? "pointer" : "default",
-		borderBottom: "1px solid",
-		borderColor: "border.default",
-		userSelect: "none",
-		whiteSpace: "nowrap",
-		// Numeric headers center to sit over their centered cells (see Cell's
-		// `numeric` prop) — left-aligning them here would let the header label
-		// drift away from its own column's values as the column stretches
-		// wider than the label.
-		textAlign: numeric ? "center" : "left",
-		padding: "3.5",
-	})
-}
-
-const headerLabelStyle = css({
-	display: "inline-flex",
-	alignItems: "center",
-	gap: "1",
-	whiteSpace: "nowrap",
-})
-
-const cellStyle = css({
-	fontSize: "sm",
-	color: "fg.default",
-	borderBottom: "1px solid",
-	borderColor: "border.default",
-	whiteSpace: "nowrap",
-	padding: "3.5",
-})
-
-const numericCellStyle = css({
-	textAlign: "right",
-})
-
 type TableProps<Key extends string> = TableHTMLAttributes<HTMLTableElement> & {
 	sortBy: Key
 	sortDir: SortDir
@@ -107,6 +45,7 @@ function Root<Key extends string>({
 	children,
 	...props
 }: TableProps<Key>) {
+	const slots = tableRecipe()
 	return (
 		<TableContext.Provider
 			value={{ sortBy, sortDir, onSort: onSort as TableContextValue["onSort"] }}
@@ -115,8 +54,8 @@ function Root<Key extends string>({
 			with alignItems: "flex-start" (VStack/HStack's default), a plain
 			block div shrinks to fit its content instead of stretching, which
 			silently defeats width: "full" on the table itself. */}
-			<div className={wrapperStyle}>
-				<table className={cx(tableStyle, className)} {...props}>
+			<div className={slots.wrapper}>
+				<table className={cx(slots.table, className)} {...props}>
 					{children}
 				</table>
 			</div>
@@ -129,6 +68,10 @@ export type TableColumn<Key extends string> = {
 	label: string
 	sortable?: boolean
 	numeric?: boolean
+	// Leave unset on the one column that should absorb whatever width the
+	// other (explicitly-sized) columns don't use — the <table> analog of a
+	// CSS grid "1fr" track.
+	width?: string
 }
 
 function Head<Key extends string>({
@@ -139,29 +82,41 @@ function Head<Key extends string>({
 	const { sortBy, sortDir, onSort } = useTableContext("Head")
 
 	return (
-		<thead>
-			<tr>
-				{columns.map(({ key, label, sortable = true, numeric = false }) => {
-					const isActive = sortable && sortBy === key
-					const canSort = sortable && !!onSort
-					const Icon =
-						isActive && sortDir === "asc" ? FiChevronUp : FiChevronDown
+		<>
+			<colgroup>
+				{columns.map(({ key, width }) => (
+					<col key={key} style={width ? { width } : undefined} />
+				))}
+			</colgroup>
+			<thead>
+				<tr>
+					{columns.map(({ key, label, sortable = true, numeric = false }) => {
+						const isActive = sortable && sortBy === key
+						const canSort = sortable && !!onSort
+						const Icon =
+							isActive && sortDir === "asc" ? FiChevronUp : FiChevronDown
+						const slots = tableRecipe({
+							sortActive: isActive,
+							sortable: canSort,
+							numeric,
+						})
 
-					return (
-						<th
-							key={key}
-							onClick={canSort ? () => onSort?.(key) : undefined}
-							className={headerCellStyle(isActive, canSort, numeric)}
-						>
-							<span className={headerLabelStyle}>
-								{label}
-								{sortable && <Icon />}
-							</span>
-						</th>
-					)
-				})}
-			</tr>
-		</thead>
+						return (
+							<th
+								key={key}
+								onClick={canSort ? () => onSort?.(key) : undefined}
+								className={slots.headerCell}
+							>
+								<span className={slots.headerLabel}>
+									{label}
+									{sortable && <Icon />}
+								</span>
+							</th>
+						)
+					})}
+				</tr>
+			</thead>
+		</>
 	)
 }
 
@@ -172,8 +127,14 @@ function Body({
 	return <tbody className={className} {...props} />
 }
 
-function Row({ className, ...props }: HTMLAttributes<HTMLTableRowElement>) {
-	return <tr className={className} {...props} />
+type RowProps = HTMLAttributes<HTMLTableRowElement> & {
+	// Highlights the row belonging to the viewer (eg. "you" on a leaderboard).
+	active?: boolean
+}
+
+function Row({ active, className, ...props }: RowProps) {
+	const slots = tableRecipe({ selected: active })
+	return <tr className={cx(slots.row, className)} {...props} />
 }
 
 type CellProps = TdHTMLAttributes<HTMLTableCellElement> & {
@@ -181,55 +142,11 @@ type CellProps = TdHTMLAttributes<HTMLTableCellElement> & {
 }
 
 function Cell({ numeric, className, ...props }: CellProps) {
-	return (
-		<td
-			className={cx(cellStyle, numeric && numericCellStyle, className)}
-			{...props}
-		/>
-	)
+	const slots = tableRecipe({ numeric })
+	return <td className={cx(slots.cell, className)} {...props} />
 }
 
 // --- Pagination ---
-
-const pageButtonStyle = css({
-	display: "inline-flex",
-	alignItems: "center",
-	justifyContent: "center",
-	minWidth: "9",
-	height: "9",
-	paddingInline: "3",
-	borderRadius: "lg",
-	border: "1px solid",
-	borderColor: "border.default",
-	fontFamily: "mono",
-	fontSize: "sm",
-	backgroundColor: "bg.surface",
-	color: "fg.default",
-})
-
-const pageActiveStyle = css({
-	backgroundColor: "primary.default",
-	color: "primary.contrast",
-	borderColor: "primary.default",
-})
-
-const pageDisabledStyle = css({
-	opacity: "0.4",
-	cursor: "not-allowed",
-})
-
-const pageLinkStyle = css({
-	cursor: "pointer",
-	_hover: { borderColor: "primary.default" },
-})
-
-const paginationRowStyle = css({
-	display: "flex",
-	alignItems: "center",
-	justifyContent: "center",
-	gap: "3",
-	paddingTop: "6",
-})
 
 // Always shows first/last page plus a window around the current page,
 // collapsing the rest into an ellipsis — avoids a wall of page numbers once
@@ -272,18 +189,17 @@ function PageButton({
 	children: ReactNode
 }) {
 	if (active) {
-		return (
-			<span className={cx(pageButtonStyle, pageActiveStyle)}>{children}</span>
-		)
+		const slots = tableRecipe({ pageActive: true })
+		return <span className={slots.pageButton}>{children}</span>
 	}
 
 	if (disabled) {
-		return (
-			<span className={cx(pageButtonStyle, pageDisabledStyle)}>{children}</span>
-		)
+		const slots = tableRecipe({ pageDisabled: true })
+		return <span className={slots.pageButton}>{children}</span>
 	}
 
-	return <>{renderLink(page, children, cx(pageButtonStyle, pageLinkStyle))}</>
+	const slots = tableRecipe({ pageLink: true })
+	return <>{renderLink(page, children, slots.pageButton)}</>
 }
 
 function Pagination({
@@ -302,8 +218,9 @@ function Pagination({
 		className: string,
 	) => ReactNode
 }) {
+	const slots = tableRecipe()
 	return (
-		<div className={paginationRowStyle}>
+		<div className={slots.paginationRow}>
 			<PageButton page={page - 1} disabled={page <= 1} renderLink={renderLink}>
 				← Prev
 			</PageButton>

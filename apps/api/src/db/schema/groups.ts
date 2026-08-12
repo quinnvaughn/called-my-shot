@@ -6,6 +6,7 @@ import {
 	unique,
 	uuid,
 } from "drizzle-orm/pg-core"
+import { questions } from "./questions"
 import { users } from "./users"
 
 export const groupMemberRole = pgEnum("group_member_role", ["admin", "member"])
@@ -54,3 +55,26 @@ export const groupInvites = pgTable(
 	// own code rather than spawning a second link
 	(t) => [unique().on(t.groupId, t.createdBy)],
 )
+
+// A member pushing a public question into the group's "Shared" feed. Distinct
+// from authorship - sharedBy is whoever sent it, not necessarily the question's
+// creator. One share per question per group; re-sharing is a no-op rather than
+// bumping it back to the top.
+export const questionShares = pgTable(
+	"question_shares",
+	{
+		id: uuid("id").primaryKey().defaultRandom(),
+		groupId: uuid("group_id")
+			.notNull()
+			.references(() => groups.id, { onDelete: "cascade" }),
+		questionId: uuid("question_id")
+			.notNull()
+			.references(() => questions.id, { onDelete: "cascade" }),
+		sharedBy: uuid("shared_by")
+			.notNull()
+			.references(() => users.id, { onDelete: "cascade" }),
+		createdAt: timestamp("created_at").notNull().defaultNow(),
+	},
+	(t) => [unique().on(t.groupId, t.questionId)],
+)
+export type QuestionShare = typeof questionShares.$inferSelect

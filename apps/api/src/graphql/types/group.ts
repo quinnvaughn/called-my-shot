@@ -2,10 +2,14 @@ import { createGroupSchema, joinGroupSchema } from "@called-my-shot/schemas"
 import { and, eq } from "drizzle-orm"
 import { db } from "../../db"
 import {
+	type Call,
 	type Group,
 	groupInvites,
 	groupMembers,
 	groups,
+	type Question,
+	type QuestionShare,
+	questionShares,
 	type User,
 } from "../../db/schema"
 import { requireUser } from "../../lib/auth"
@@ -24,8 +28,22 @@ import {
 	requireAdmin,
 	requireInviteOwnerOrAdmin,
 } from "../../lib/groups"
+import {
+	clampPageSize,
+	cursorWhere,
+	decodeCursor,
+	paginate,
+} from "../../lib/pagination"
+import { isUuid } from "../../lib/uuid"
 import { builder } from "../builder"
+import { PageInfoRef } from "./pagination"
+import { CallRef, QuestionRef } from "./question"
 import { UserRef } from "./user"
+
+type Connection<T> = {
+	items: T[]
+	pageInfo: { hasNextPage: boolean; endCursor: string | null }
+}
 
 const GroupRole = builder.enumType("GroupRole", {
 	values: {
@@ -72,6 +90,7 @@ type LeaderboardEntry = {
 	accuracy: number | null
 	callCount: number
 	resolvedCallCount: number
+	role: "admin" | "member"
 }
 
 const GroupLeaderboardEntryRef = builder
@@ -84,6 +103,7 @@ const GroupLeaderboardEntryRef = builder
 			accuracy: t.exposeFloat("accuracy", { nullable: true }),
 			callCount: t.exposeInt("callCount"),
 			resolvedCallCount: t.exposeInt("resolvedCallCount"),
+			role: t.field({ type: GroupRole, resolve: (entry) => entry.role }),
 			user: t.field({ type: UserRef, resolve: (entry) => entry.user }),
 		}),
 	})
@@ -138,6 +158,7 @@ async function buildLeaderboard(groupId: string): Promise<LeaderboardEntry[]> {
 						: null,
 				callCount: calls.length,
 				resolvedCallCount,
+				role: membership.role,
 			},
 		]
 	})
@@ -193,6 +214,54 @@ async function findTopScorer(
 		throw new Error("findTopScorer found no top scorer despite having members")
 	return top
 }
+
+async function getMemberUserIds(groupId: string): Promise<string[]> {
+	const memberships = await db.query.groupMembers.findMany({
+		where: { groupId },
+		columns: { userId: true },
+	})
+	return memberships.map((m) => m.userId)
+}
+
+export const QuestionShareRef = builder.drizzleObject("questionShares", {
+	name: "QuestionShare",
+	fields: (t) => ({
+		id: t.exposeID("id"),
+		createdAt: t.field({
+			type: "String",
+			resolve: (share) => share.createdAt.toISOString(),
+		}),
+		question: t.relation("question"),
+		sharedBy: t.relation("sharedByUser"),
+	}),
+})
+
+const CallConnectionRef = builder
+	.objectRef<Connection<Call>>("CallConnection")
+	.implement({
+		fields: (t) => ({
+			items: t.field({ type: [CallRef], resolve: (c) => c.items }),
+			pageInfo: t.field({ type: PageInfoRef, resolve: (c) => c.pageInfo }),
+		}),
+	})
+
+const QuestionConnectionRef = builder
+	.objectRef<Connection<Question>>("QuestionConnection")
+	.implement({
+		fields: (t) => ({
+			items: t.field({ type: [QuestionRef], resolve: (c) => c.items }),
+			pageInfo: t.field({ type: PageInfoRef, resolve: (c) => c.pageInfo }),
+		}),
+	})
+
+const QuestionShareConnectionRef = builder
+	.objectRef<Connection<QuestionShare>>("QuestionShareConnection")
+	.implement({
+		fields: (t) => ({
+			items: t.field({ type: [QuestionShareRef], resolve: (c) => c.items }),
+			pageInfo: t.field({ type: PageInfoRef, resolve: (c) => c.pageInfo }),
+		}),
+	})
 
 const GroupRef = builder.drizzleObject("groups", {
 	name: "Group",
@@ -258,6 +327,79 @@ const GroupRef = builder.drizzleObject("groups", {
 				if (!entry)
 					throw new NotFoundError("You're not a member of this group.")
 				return entry.rank
+			},
+		}),
+		// The viewer's own calls on questions created by a fellow member - the
+		// "Answered" tab. Scoped to the viewer because the result line (called X,
+		// actual Y, +N pts) is inherently a first-person read of one call.
+		answeredQuestions: t.field({
+			type: CallConnectionRef,
+			args: {
+				first: t.arg.int(),
+				after: t.arg.string(),
+			},
+			resolve: async (group, args, ctx) => {
+				const user = requireUser(ctx)
+				const memberIds = await getMemberUserIds(group.id)
+				const limit = clampPageSize(args.first)
+				const cursor = args.after ? decodeCursor(args.after) : null
+				const rows = await db.query.calls.findMany({
+					where: {
+						userId: user.id,
+						question: { creatorId: { in: memberIds } },
+						...(cursor ? cursorWhere(cursor) : {}),
+					},
+					orderBy: { createdAt: "desc", id: "desc" },
+					limit: limit + 1,
+				})
+				return paginate(rows, limit)
+			},
+		}),
+		// Public questions created by any member of this group - the "Created"
+		// tab. Not group-scoped content of its own; a group is just a set of
+		// people, same as leaderboard above.
+		createdQuestions: t.field({
+			type: QuestionConnectionRef,
+			args: {
+				first: t.arg.int(),
+				after: t.arg.string(),
+			},
+			resolve: async (group, args) => {
+				const memberIds = await getMemberUserIds(group.id)
+				const limit = clampPageSize(args.first)
+				const cursor = args.after ? decodeCursor(args.after) : null
+				const rows = await db.query.questions.findMany({
+					where: {
+						creatorId: { in: memberIds },
+						...(cursor ? cursorWhere(cursor) : {}),
+					},
+					orderBy: { createdAt: "desc", id: "desc" },
+					limit: limit + 1,
+				})
+				return paginate(rows, limit)
+			},
+		}),
+		// Public questions a member explicitly pushed into the group's feed via
+		// shareQuestionToGroup - the "Shared" tab. Independent of who created the
+		// question; sharedBy on each row is who sent it.
+		sharedQuestions: t.field({
+			type: QuestionShareConnectionRef,
+			args: {
+				first: t.arg.int(),
+				after: t.arg.string(),
+			},
+			resolve: async (group, args) => {
+				const limit = clampPageSize(args.first)
+				const cursor = args.after ? decodeCursor(args.after) : null
+				const rows = await db.query.questionShares.findMany({
+					where: {
+						groupId: group.id,
+						...(cursor ? cursorWhere(cursor) : {}),
+					},
+					orderBy: { createdAt: "desc", id: "desc" },
+					limit: limit + 1,
+				})
+				return paginate(rows, limit)
 			},
 		}),
 	}),
@@ -336,6 +478,17 @@ const GroupPayload = builder
 		}),
 	})
 
+const QuestionSharePayload = builder
+	.objectRef<{ share: QuestionShare }>("QuestionSharePayload")
+	.implement({
+		fields: (t) => ({
+			share: t.field({
+				type: QuestionShareRef,
+				resolve: (payload) => payload.share,
+			}),
+		}),
+	})
+
 const CreateGroupInput = builder.inputType("CreateGroupInput", {
 	fields: (t) => ({
 		name: t.string({ required: true }),
@@ -368,7 +521,7 @@ builder.queryFields((t) => ({
 		nullable: true,
 		args: { id: t.arg.id({ required: true }) },
 		resolve: async (_root, args, ctx) => {
-			if (!ctx.user) return null
+			if (!ctx.user || !isUuid(args.id)) return null
 			const membership = await db.query.groupMembers.findFirst({
 				where: { groupId: args.id, userId: ctx.user.id },
 			})
@@ -632,6 +785,50 @@ builder.mutationFields((t) => ({
 			await requireInviteOwnerOrAdmin(args.inviteId, user.id)
 
 			return regenerateInviteCode(args.inviteId)
+		},
+	}),
+
+	// Idempotent - sharing a question that's already in the group's feed just
+	// returns the existing share rather than erroring or bumping its position.
+	shareQuestionToGroup: t.field({
+		type: QuestionSharePayload,
+		errors: {
+			types: [AuthenticationError, AuthorizationError, NotFoundError],
+			directResult: true,
+			union: { name: "ShareQuestionToGroupResult" },
+		},
+		args: {
+			groupId: t.arg.id({ required: true }),
+			questionId: t.arg.id({ required: true }),
+		},
+		resolve: async (_root, args, ctx) => {
+			const user = requireUser(ctx)
+			const membership = await db.query.groupMembers.findFirst({
+				where: { groupId: args.groupId, userId: user.id },
+			})
+			if (!membership) {
+				throw new AuthorizationError("You're not a member of this group.")
+			}
+
+			const question = await db.query.questions.findFirst({
+				where: { id: args.questionId },
+			})
+			if (!question) throw new NotFoundError("Question not found")
+
+			const existing = await db.query.questionShares.findFirst({
+				where: { groupId: args.groupId, questionId: args.questionId },
+			})
+			if (existing) return { share: existing }
+
+			const [share] = await db
+				.insert(questionShares)
+				.values({
+					groupId: args.groupId,
+					questionId: args.questionId,
+					sharedBy: user.id,
+				})
+				.returning()
+			return { share }
 		},
 	}),
 }))

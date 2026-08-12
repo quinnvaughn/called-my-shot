@@ -108,6 +108,7 @@ export const questions = pgTable("questions", {
 
 	createdAt: timestamp("created_at").notNull().defaultNow(),
 })
+export type Question = typeof questions.$inferSelect
 
 // The option pool for multiple_choice, yes_no (fixed Yes/No pair), over_under
 // (its two sides), and multi_select (the full candidate pool). teamId/playerId
@@ -158,6 +159,7 @@ export const calls = pgTable(
 	},
 	(t) => [unique().on(t.questionId, t.userId)],
 )
+export type Call = typeof calls.$inferSelect
 
 // A call's picks for option-based types: exactly one row for multiple_choice /
 // yes_no / over_under, up to picksRequired rows for multi_select. Conviction and

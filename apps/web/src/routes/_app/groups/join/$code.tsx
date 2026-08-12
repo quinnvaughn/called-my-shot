@@ -1,15 +1,11 @@
 import { useMutation } from "@apollo/client/react"
-import {
-	createFileRoute,
-	Link,
-	useNavigate,
-	useRouter,
-} from "@tanstack/react-router"
+import { createFileRoute, useNavigate, useRouter } from "@tanstack/react-router"
 import { FaRegTimesCircle } from "react-icons/fa"
 import { css } from "styled-system/css"
 import { VStack } from "styled-system/jsx"
+import { IncorrectGroup } from "#/components/groups/incorrect-group"
 import { AvatarStack } from "#/components/ui/avatar-stack"
-import { Button, button } from "#/components/ui/button"
+import { Button } from "#/components/ui/button"
 import { Card } from "#/components/ui/card"
 import { Eyebrow } from "#/components/ui/eyebrow"
 import { JoinGroupByCodeDocument } from "#/graphql/generated/graphql"
@@ -56,44 +52,16 @@ function RouteComponent() {
 
 	if (!preview) {
 		return (
-			<VStack gap="8" alignItems="center" className={css({ padding: "8" })}>
-				<VStack gap="4" alignItems="center">
-					<div
-						className={css({
-							width: "56px",
-							height: "56px",
-							borderRadius: "full",
-							border: "1px solid {colors.border.default}",
-							display: "flex",
-							alignItems: "center",
-							justifyContent: "center",
-							color: "fg.subtle",
-							background: "card",
-						})}
-					>
-						<FaRegTimesCircle size={24} />
-					</div>
-					<VStack gap="3" alignItems={"center"}>
-						<Eyebrow variant="neutral">Invite link</Eyebrow>
-						<h1 className={css({ fontFamily: "heading", fontSize: "2xl" })}>
-							This link isn't valid anymore
-						</h1>
-					</VStack>
-					<p
-						className={css({
-							fontFamily: "mono",
-							fontSize: "xs",
-							color: "fg.subtle",
-						})}
-					>
-						It may have expired, been reset, or never existed. Ask whoever
-						invited you for a new one.
-					</p>
-				</VStack>
-				<Link to="/home" className={button({ variant: "solid", size: "md" })}>
-					Back to home
-				</Link>
-			</VStack>
+			<IncorrectGroup
+				icon={<FaRegTimesCircle size={24} />}
+				eyebrowText="Invite link"
+				heading="This link isn't valid anymore"
+				subtitle="It may have expired, been reset, or never existed. Ask whoever invited you for a new one."
+				link={{
+					text: "Back to home",
+					url: "/home",
+				}}
+			/>
 		)
 	}
 

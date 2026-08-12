@@ -24,9 +24,14 @@ export default defineConfig({
   // variable (account-menu.tsx passes it via a ternary, not a literal), so
   // Panda's static scanner can't discover the "top" variant on its own —
   // force both here or its CSS silently never gets generated.
+  //
+  // Same issue for table: `sortActive`, `numeric`, and `selected` are always
+  // passed through variables (isActive/canSort, numeric, active), never a
+  // literal `true` at the call site, so the scanner never finds them either.
   staticCss: {
     recipes: {
       dropdown: [{ placement: ["top", "bottom"] }],
+      table: [{ sortActive: ["true"] }, { numeric: ["true"] }, { selected: ["true"] }],
     },
   },
 
@@ -286,6 +291,148 @@ export default defineConfig({
           defaultVariants: {
             variant: "default",
             placement: "bottom",
+          },
+        }),
+        table: defineSlotRecipe({
+          className: "table",
+          slots: [
+            "wrapper",
+            "table",
+            "headerCell",
+            "headerLabel",
+            "cell",
+            "row",
+            "pageButton",
+            "paginationRow",
+          ],
+          base: {
+            wrapper: {
+              width: "full",
+              overflowX: "auto",
+            },
+            table: {
+              width: "full",
+              minWidth: "600px",
+              // Fixed layout hands column sizing to the <colgroup> below instead
+              // of the browser's content-based auto algorithm — needed so a
+              // column left without an explicit width (eg. "Member") stretches
+              // to fill whatever space the other, explicitly-sized columns
+              // don't use.
+              tableLayout: "fixed",
+              borderCollapse: "collapse",
+              fontFamily: "body",
+              backgroundColor: "bg.surface",
+              border: "1px solid {colors.border.default}",
+              borderRadius: "2xl",
+              overflow: "hidden",
+            },
+            headerCell: {
+              color: "fg.subtle",
+              fontFamily: "mono",
+              fontSize: "2xs",
+              letterSpacing: "wide",
+              textTransform: "uppercase",
+              opacity: "0.8",
+              cursor: "default",
+              borderBottom: "1px solid {colors.border.default}",
+              userSelect: "none",
+              whiteSpace: "nowrap",
+              textAlign: "left",
+              padding: "3.5",
+            },
+            headerLabel: {
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "1",
+              whiteSpace: "nowrap",
+            },
+            cell: {
+              fontSize: "sm",
+              color: "fg.default",
+              borderBottom: "1px solid {colors.border.default}",
+              whiteSpace: "nowrap",
+              padding: "3.5",
+            },
+            row: {},
+            pageButton: {
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              minWidth: "9",
+              height: "9",
+              paddingInline: "3",
+              borderRadius: "lg",
+              border: "1px solid",
+              borderColor: "border.default",
+              fontFamily: "mono",
+              fontSize: "sm",
+              backgroundColor: "bg.surface",
+              color: "fg.default",
+            },
+            paginationRow: {
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: "3",
+              paddingTop: "6",
+            },
+          },
+          variants: {
+            sortActive: {
+              true: {
+                headerCell: {
+                  color: "primary.default",
+                  opacity: "1",
+                },
+              },
+            },
+            sortable: {
+              true: {
+                headerCell: {
+                  cursor: "pointer",
+                },
+              },
+            },
+            numeric: {
+              true: {
+                // Numeric headers center to sit over their centered cells —
+                // left-aligning them here would let the header label drift
+                // away from its own column's values as the column stretches
+                // wider than the label.
+                headerCell: { textAlign: "right" },
+                cell: { textAlign: "right" },
+              },
+            },
+            selected: {
+              true: {
+                row: { backgroundColor: "primary.subtle" },
+              },
+            },
+            pageActive: {
+              true: {
+                pageButton: {
+                  backgroundColor: "primary.default",
+                  color: "primary.contrast",
+                  borderColor: "primary.default",
+                },
+              },
+            },
+            pageDisabled: {
+              true: {
+                pageButton: {
+                  opacity: "0.4",
+                  cursor: "not-allowed",
+                },
+              },
+            },
+            pageLink: {
+              true: {
+                pageButton: {
+                  cursor: "pointer",
+                  _hover: { borderColor: "primary.default" },
+                },
+              },
+            },
           },
         }),
       },

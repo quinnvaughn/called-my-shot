@@ -14,6 +14,7 @@ export const relations = defineRelations(schema, (r) => ({
 			to: r.questions.creatorId,
 		}),
 		calls: r.many.calls(),
+		questionShares: r.many.questionShares(),
 		disputesFiled: r.many.resolutionDisputes(),
 	},
 	sessions: {
@@ -29,6 +30,7 @@ export const relations = defineRelations(schema, (r) => ({
 		}),
 		members: r.many.groupMembers(),
 		invites: r.many.groupInvites(),
+		questionShares: r.many.questionShares(),
 	},
 	groupMembers: {
 		group: r.one.groups({
@@ -78,6 +80,7 @@ export const relations = defineRelations(schema, (r) => ({
 		options: r.many.questionOptions(),
 		calls: r.many.calls(),
 		disputes: r.many.resolutionDisputes(),
+		shares: r.many.questionShares(),
 	},
 	questionOptions: {
 		question: r.one.questions({
@@ -155,6 +158,20 @@ export const relations = defineRelations(schema, (r) => ({
 		}),
 		user: r.one.users({
 			from: r.resolutionDisputes.userId,
+			to: r.users.id,
+		}),
+	},
+	questionShares: {
+		group: r.one.groups({
+			from: r.questionShares.groupId,
+			to: r.groups.id,
+		}),
+		question: r.one.questions({
+			from: r.questionShares.questionId,
+			to: r.questions.id,
+		}),
+		sharedByUser: r.one.users({
+			from: r.questionShares.sharedBy,
 			to: r.users.id,
 		}),
 	},
