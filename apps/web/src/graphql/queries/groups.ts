@@ -73,6 +73,9 @@ export const GroupDetailDocument = graphql(`
                     endCursor
                 }
             }
+            viewerLeaderboardEntry {
+                ...GroupLeaderboard_entry
+            }
             answeredQuestions(first: 10, after: $answeredAfter) {
                 items {
                     id

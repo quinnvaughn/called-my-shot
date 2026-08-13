@@ -77,6 +77,7 @@ function RouteComponent() {
 				groupId={group.id}
 				initialItems={group.leaderboard.items}
 				initialPageInfo={group.leaderboard.pageInfo}
+				initialViewerEntry={group.viewerLeaderboardEntry}
 				leagues={leagues}
 				viewerId={me?.id}
 			/>

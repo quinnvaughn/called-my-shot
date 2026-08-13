@@ -382,6 +382,22 @@ const GroupRef = builder.drizzleObject("groups", {
 				return entry.rank
 			},
 		}),
+		// the viewer's full leaderboard row (rank + points/accuracy), for the
+		// pinned "your rank" summary above the leaderboard table - viewerRank
+		// above only exposes the rank int, which isn't enough for that card.
+		// leagueId keeps it in sync with whichever league tab is selected.
+		viewerLeaderboardEntry: t.field({
+			type: GroupLeaderboardEntryRef,
+			nullable: true,
+			args: { leagueId: t.arg.id() },
+			resolve: async (group, args, ctx) => {
+				const user = requireUser(ctx)
+				const leaderboard = await buildLeaderboard(group.id, args.leagueId)
+				// group/myGroups already gate on the viewer being a member, so this
+				// should always be found
+				return leaderboard.find((e) => e.user.id === user.id) ?? null
+			},
+		}),
 		// Calls made by other members of this group - the "Answered" tab.
 		// Group-wide (a group is just a set of people, there's no group-scoped
 		// question pool), but excludes the viewer's own calls: the point of this

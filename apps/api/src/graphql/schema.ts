@@ -4,6 +4,7 @@ import "./types/pagination"
 import "./types/user"
 import "./types/auth"
 import "./types/group"
+import "./types/leaderboard"
 import "./types/sports"
 import "./types/question"
 

@@ -3,13 +3,13 @@ import { useEffect, useRef, useState } from "react"
 import { FiChevronDown, FiChevronUp } from "react-icons/fi"
 import { css } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
-import { Avatar } from "#/components/ui/avatar"
 import { Button } from "#/components/ui/button"
-import { EmptyState } from "#/components/ui/empty-state"
-import { Table } from "#/components/ui/table"
 import { Tabs } from "#/components/ui/tabs"
-import { Tag } from "#/components/ui/tag"
 import { type FragmentType, graphql, useFragment } from "#/graphql/generated"
+import {
+	Leaderboard,
+	type LeaderboardRowData,
+} from "../leaderboard/leaderboard"
 
 export const GroupLeaderboardEntryFragment = graphql(`
 	fragment GroupLeaderboard_entry on GroupLeaderboardEntry {
@@ -28,8 +28,9 @@ export const GroupLeaderboardEntryFragment = graphql(`
 `)
 
 // Standalone from GroupDetailDocument - the league tabs and "show more"
-// button both need to refetch this connection on their own (new league,
-// next page) without touching the rest of the group page.
+// button both need to refetch this connection (and the viewer's own row,
+// which moves with the league too) on their own without touching the rest
+// of the group page.
 export const GroupLeaderboardDocument = graphql(`
 	query GroupLeaderboard($groupId: ID!, $leagueId: ID, $after: String) {
 		group(id: $groupId) {
@@ -47,6 +48,9 @@ export const GroupLeaderboardDocument = graphql(`
 					endCursor
 				}
 			}
+			viewerLeaderboardEntry(leagueId: $leagueId) {
+				...GroupLeaderboard_entry
+			}
 		}
 	}
 `)
@@ -55,6 +59,8 @@ type LeaderboardEntryItem = {
 	rank: number
 	user: { id: string }
 } & FragmentType<typeof GroupLeaderboardEntryFragment>
+
+type ViewerEntryItem = FragmentType<typeof GroupLeaderboardEntryFragment>
 
 type PageInfo = { hasNextPage: boolean; endCursor: string | null }
 
@@ -66,8 +72,27 @@ type GroupLeaderboardProps = {
 	groupId: string
 	initialItems: LeaderboardEntryItem[]
 	initialPageInfo: PageInfo
+	initialViewerEntry?: ViewerEntryItem | null
 	leagues: League[]
 	viewerId?: string
+}
+
+function toRowData(entry: {
+	rank: number
+	role: "ADMIN" | "MEMBER"
+	totalPoints: number
+	callCount: number
+	accuracy: number | null
+	user: { id: string; name: string; username: string }
+}): LeaderboardRowData {
+	return {
+		rank: entry.rank,
+		totalPoints: entry.totalPoints,
+		callCount: entry.callCount,
+		accuracy: entry.accuracy,
+		role: entry.role,
+		user: entry.user,
+	}
 }
 
 // Rank-only pagination (see buildLeaderboard/leaderboard on GroupRef): a
@@ -79,6 +104,7 @@ export function GroupLeaderboard({
 	groupId,
 	initialItems,
 	initialPageInfo,
+	initialViewerEntry,
 	leagues,
 	viewerId,
 }: GroupLeaderboardProps) {
@@ -87,6 +113,7 @@ export function GroupLeaderboard({
 	const [leagueId, setLeagueId] = useState<string | null>(null)
 	const [items, setItems] = useState(initialItems)
 	const [pageInfo, setPageInfo] = useState(initialPageInfo)
+	const [viewerEntry, setViewerEntry] = useState(initialViewerEntry ?? null)
 	const [loading, setLoading] = useState(false)
 	const skipNextFetch = useRef(true)
 
@@ -112,6 +139,7 @@ export function GroupLeaderboard({
 						endCursor: null,
 					},
 				)
+				setViewerEntry(data?.group?.viewerLeaderboardEntry ?? null)
 			})
 			.finally(() => {
 				if (!cancelled) setLoading(false)
@@ -141,6 +169,16 @@ export function GroupLeaderboard({
 			setLoading(false)
 		}
 	}
+
+	const unwrappedItems = useFragment(GroupLeaderboardEntryFragment, items)
+	const rows = unwrappedItems.map(toRowData)
+	const unwrappedViewerEntry = useFragment(
+		GroupLeaderboardEntryFragment,
+		viewerEntry,
+	)
+	const viewerRow = unwrappedViewerEntry
+		? toRowData(unwrappedViewerEntry)
+		: null
 
 	return (
 		<VStack alignItems="stretch" gap="3">
@@ -182,87 +220,16 @@ export function GroupLeaderboard({
 							</Tabs.List>
 						</Tabs>
 					)}
-					{items.length === 0 && !loading ? (
-						<EmptyState>No calls yet.</EmptyState>
-					) : (
-						<Table sortBy="rank" sortDir="desc">
-							<Table.Head
-								columns={[
-									{ key: "rank", label: "#", numeric: true, width: "56px" },
-									{ key: "member", label: "Member" },
-									{
-										key: "points",
-										label: "Points",
-										numeric: true,
-										width: "120px",
-									},
-								]}
-							/>
-							<Table.Body>
-								{items.map((item) => (
-									<LeaderboardRow
-										key={item.user.id}
-										item={item}
-										viewerId={viewerId}
-									/>
-								))}
-							</Table.Body>
-						</Table>
-					)}
-					{pageInfo.hasNextPage && (
-						<Button
-							variant="outline"
-							size="sm"
-							loading={loading}
-							onClick={loadMore}
-						>
-							Show more →
-						</Button>
-					)}
+					<Leaderboard
+						items={rows}
+						viewerId={viewerId}
+						viewerEntry={viewerRow}
+						hasMore={pageInfo.hasNextPage}
+						loading={loading}
+						onLoadMore={loadMore}
+					/>
 				</>
 			)}
 		</VStack>
-	)
-}
-
-function LeaderboardRow({
-	item,
-	viewerId,
-}: {
-	item: LeaderboardEntryItem
-	viewerId?: string
-}) {
-	const entry = useFragment(GroupLeaderboardEntryFragment, item)
-	const isTop3 = entry.rank <= 3
-	return (
-		<Table.Row active={entry.user.id === viewerId}>
-			<Table.Cell
-				numeric
-				className={css({
-					color: isTop3 ? "primary.default" : "fg.subtle",
-					fontWeight: isTop3 ? "bold" : "inherit",
-					fontSize: "sm",
-					fontFamily: "mono",
-				})}
-			>
-				{entry.rank}
-			</Table.Cell>
-			<Table.Cell>
-				<HStack gap="3">
-					<Avatar size="sm" name={entry.user.name} />
-					<span className={css({ fontSize: "sm", fontWeight: "medium" })}>
-						{entry.user.name} (@{entry.user.username})
-					</span>
-					{entry.user.id === viewerId && <Tag>You</Tag>}
-					{entry.role === "ADMIN" && <Tag variant="primary">Admin</Tag>}
-				</HStack>
-			</Table.Cell>
-			<Table.Cell
-				numeric
-				className={css({ fontFamily: "mono", fontSize: "sm" })}
-			>
-				{entry.totalPoints}
-			</Table.Cell>
-		</Table.Row>
 	)
 }
