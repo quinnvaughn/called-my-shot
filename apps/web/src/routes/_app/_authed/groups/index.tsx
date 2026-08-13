@@ -1,11 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router"
-import { css } from "styled-system/css"
-import { Grid, HStack, VStack } from "styled-system/jsx"
+import { Grid, VStack } from "styled-system/jsx"
 import { GroupCard } from "#/components/groups/group-card"
 import { JoinCode } from "#/components/groups/join-code"
 import { NewGroupModal } from "#/components/groups/new-group-modal"
 import { Button } from "#/components/ui/button"
 import { InfoCard } from "#/components/ui/info-card"
+import { PageHeader } from "#/components/ui/page-header"
 import { MyGroupsDocument } from "#/graphql/generated/graphql"
 import { openModal } from "#/stores/modal-store"
 
@@ -38,30 +38,19 @@ function RouteComponent() {
 	const { groups } = Route.useLoaderData()
 	return (
 		<VStack gap="6" alignItems="stretch">
-			<HStack alignItems="flex-start" justify="space-between" gap="4">
-				<VStack gap="1" alignItems="flex-start">
-					<h1 className={css({ fontFamily: "heading", fontSize: "3xl" })}>
-						Groups
-					</h1>
-					<p
-						className={css({
-							textTransform: "uppercase",
-							fontFamily: "mono",
-							fontSize: "xs",
-							color: "fg.muted",
-						})}
+			<PageHeader
+				title="Groups"
+				subtitle="Same real points as your profile, just ranked against your group."
+				action={
+					<Button
+						variant="solid"
+						size="sm"
+						onClick={() => openModal(<NewGroupModal />)}
 					>
-						Same real points as your profile, just ranked against your group.
-					</p>
-				</VStack>
-				<Button
-					variant="solid"
-					size="sm"
-					onClick={() => openModal(<NewGroupModal />)}
-				>
-					+ New Group
-				</Button>
-			</HStack>
+						+ New Group
+					</Button>
+				}
+			/>
 			<JoinCode />
 			<Grid gap="6" gridTemplateColumns={"1fr"}>
 				{groups.map((g) => (

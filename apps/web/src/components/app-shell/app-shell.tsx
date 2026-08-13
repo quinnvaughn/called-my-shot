@@ -257,7 +257,13 @@ function SidebarNav({
 							key={item.to}
 							to={item.to}
 							onClick={onNavigate}
-							activeProps={{ className: css({ color: "fg.default" }) }}
+							activeProps={{
+								className: css({
+									bg: "bg.subtle",
+									color: "fg.default",
+									fontWeight: "semibold",
+								}),
+							}}
 							className={css({
 								display: "flex",
 								alignItems: "center",
@@ -265,7 +271,7 @@ function SidebarNav({
 								padding: "{spacing.2.5} {spacing.3}",
 								borderRadius: "xl",
 								fontSize: "sm",
-								color: "fg.muted",
+								color: "fg.subtle",
 								fontWeight: "medium",
 								_hover: { bg: "fg.default/10", color: "fg.default" },
 							})}

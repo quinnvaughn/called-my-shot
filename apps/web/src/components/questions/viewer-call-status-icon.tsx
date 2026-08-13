@@ -3,6 +3,11 @@ import { css } from "styled-system/css"
 
 type Props = {
 	called: boolean
+	// Whether the question is still open to new calls. When false and the
+	// viewer hasn't called, there's nothing left for them to do here, so the
+	// chip (which would otherwise read "Call") is omitted entirely rather than
+	// advertising an action that's no longer available.
+	canCall: boolean
 	size?: number
 }
 
@@ -16,7 +21,9 @@ type Props = {
 // meaning immediate without reading as a clickable button. Styled like a Tag
 // (pill, filled) rather than a bare icon+text pair since it sits inline with
 // the other tag chips now.
-export function ViewerCallStatusIcon({ called, size = 11 }: Props) {
+export function ViewerCallStatusIcon({ called, canCall, size = 11 }: Props) {
+	if (!called && !canCall) return null
+
 	const Icon = called ? FaSquareCheck : FaRegSquare
 	const label = called ? "Called" : "Call"
 	return (

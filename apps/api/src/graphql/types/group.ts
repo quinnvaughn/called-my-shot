@@ -2,7 +2,6 @@ import { createGroupSchema, joinGroupSchema } from "@called-my-shot/schemas"
 import { and, eq } from "drizzle-orm"
 import { db } from "../../db"
 import {
-	type Call,
 	type Group,
 	groupMembers,
 	groups,
@@ -36,7 +35,7 @@ import {
 import { isUuid } from "../../lib/uuid"
 import { builder } from "../builder"
 import { PageInfoRef } from "./pagination"
-import { CallRef, QuestionRef } from "./question"
+import { CallConnectionRef, QuestionRef } from "./question"
 import { UserRef } from "./user"
 
 type Connection<T> = {
@@ -275,15 +274,6 @@ export const QuestionShareRef = builder.drizzleObject("questionShares", {
 		sharedBy: t.relation("sharedByUser"),
 	}),
 })
-
-const CallConnectionRef = builder
-	.objectRef<Connection<Call>>("CallConnection")
-	.implement({
-		fields: (t) => ({
-			items: t.field({ type: [CallRef], resolve: (c) => c.items }),
-			pageInfo: t.field({ type: PageInfoRef, resolve: (c) => c.pageInfo }),
-		}),
-	})
 
 const QuestionConnectionRef = builder
 	.objectRef<Connection<Question>>("QuestionConnection")

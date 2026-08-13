@@ -65,14 +65,16 @@ export const CallCardFragment = graphql(`
 
 type CallCardProps = {
 	call: FragmentType<typeof CallCardFragment>
+	// Whose call this is, as shown in "{label} called...". Defaults to the
+	// caller's name - right for the group's Answered tab, which excludes the
+	// viewer's own calls server-side so this is always someone else's. My
+	// Calls overrides this to "You" since every card there is the viewer's.
+	label?: string
 }
 
-export function CallCard({ call: callProp }: CallCardProps) {
+export function CallCard({ call: callProp, label: labelProp }: CallCardProps) {
 	const call = useFragment(CallCardFragment, callProp)
-	// The group tabs that render this (answeredQuestions) exclude the
-	// viewer's own calls server-side, so this is always someone else's - no
-	// "is this you" branching needed.
-	const label = call.user.name
+	const label = labelProp ?? call.user.name
 
 	return (
 		<Link

@@ -133,6 +133,7 @@ function SignInFields({ onSuccess }: { onSuccess?: () => void }) {
 								<TextInput.Group>
 									<TextInput.Field
 										type="text"
+										autoCapitalize="off"
 										placeholder="you@email.com or @username"
 										autoComplete="username"
 										value={field.value}

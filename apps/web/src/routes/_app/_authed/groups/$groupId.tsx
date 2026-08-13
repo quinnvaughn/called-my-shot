@@ -2,7 +2,7 @@ import { createFileRoute, useRouteContext } from "@tanstack/react-router"
 import { useState } from "react"
 import { HiMiniQuestionMarkCircle } from "react-icons/hi2"
 import { css } from "styled-system/css"
-import { HStack, VStack } from "styled-system/jsx"
+import { VStack } from "styled-system/jsx"
 import { match } from "ts-pattern"
 import { AnsweredQuestionsTab } from "#/components/groups/answered-questions-tab"
 import { CreatedQuestionsTab } from "#/components/groups/created-questions-tab"
@@ -11,6 +11,7 @@ import { IncorrectGroup } from "#/components/groups/incorrect-group"
 import { InviteCodeModal } from "#/components/groups/invite-code-modal"
 import { SharedQuestionsTab } from "#/components/groups/shared-questions-tab"
 import { Button } from "#/components/ui/button"
+import { PageHeader } from "#/components/ui/page-header"
 import { Tabs } from "#/components/ui/tabs"
 import { GroupDetailDocument } from "#/graphql/generated/graphql"
 import { openModal } from "#/stores/modal-store"
@@ -50,38 +51,28 @@ function RouteComponent() {
 
 	return (
 		<VStack alignItems="stretch" gap="6">
-			<HStack alignItems="flex-start" justify="space-between" gap="4">
-				<VStack gap="1" alignItems="flex-start">
-					<h1 className={css({ fontSize: "3xl", fontFamily: "heading" })}>
-						{group.name}
-					</h1>
-					<p
-						className={css({
-							fontFamily: "mono",
-							fontSize: "xs",
-							color: "fg.muted",
-						})}
+			<PageHeader
+				title={group.name}
+				subtitle={`${group.memberCount} members`}
+				action={
+					<Button
+						size="sm"
+						variant="dark"
+						onClick={() =>
+							openModal(
+								<InviteCodeModal
+									groupName={group.name}
+									inviteId={group.myInvite.id}
+									inviteCode={group.myInvite.code}
+									expirationDate={group.myInvite.expiresAt}
+								/>,
+							)
+						}
 					>
-						{group.memberCount} members
-					</p>
-				</VStack>
-				<Button
-					size="sm"
-					variant="dark"
-					onClick={() =>
-						openModal(
-							<InviteCodeModal
-								groupName={group.name}
-								inviteId={group.myInvite.id}
-								inviteCode={group.myInvite.code}
-								expirationDate={group.myInvite.expiresAt}
-							/>,
-						)
-					}
-				>
-					Invite
-				</Button>
-			</HStack>
+						Invite
+					</Button>
+				}
+			/>
 			<GroupLeaderboard
 				groupId={group.id}
 				initialItems={group.leaderboard.items}

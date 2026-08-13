@@ -73,7 +73,10 @@ export function QuestionSummaryHeader({ question, sharedBy }: Props) {
 							color={question.subjectTeam.color}
 						/>
 					)}
-					<ViewerCallStatusIcon called={!!question.viewerCall} />
+					<ViewerCallStatusIcon
+						called={!!question.viewerCall}
+						canCall={question.status === "OPEN"}
+					/>
 				</HStack>
 				<QuestionTypeIcon type={question.type} />
 			</HStack>

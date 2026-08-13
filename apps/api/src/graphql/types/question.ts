@@ -1,7 +1,21 @@
 import { db } from "../../db"
+import type { Call } from "../../db/schema"
+import { requireUser } from "../../lib/auth"
 import { canViewerSeePick } from "../../lib/call-visibility"
 import { fieldPct } from "../../lib/calls"
+import {
+	clampPageSize,
+	cursorWhere,
+	decodeCursor,
+	paginate,
+} from "../../lib/pagination"
 import { builder } from "../builder"
+import { PageInfoRef } from "./pagination"
+
+type Connection<T> = {
+	items: T[]
+	pageInfo: { hasNextPage: boolean; endCursor: string | null }
+}
 
 const QuestionType = builder.enumType("QuestionType", {
 	values: {
@@ -43,6 +57,17 @@ const NumericSubjectType = builder.enumType("NumericSubjectType", {
 	values: {
 		PLAYER: { value: "player" },
 		TEAM: { value: "team" },
+	},
+})
+
+// Not a DB column - derived from question.status (see myCalls below). A call
+// is "resolved" once its question has resolved and scoring is final; open,
+// locked, and disputed questions all still count as "open" from the caller's
+// point of view since none of them are a final outcome yet.
+const CallResolutionStatus = builder.enumType("CallResolutionStatus", {
+	values: {
+		OPEN: { value: "open" },
+		RESOLVED: { value: "resolved" },
 	},
 })
 
@@ -176,6 +201,24 @@ export const CallRef = builder.drizzleObject("calls", {
 		}),
 	}),
 })
+
+export const CallConnectionRef = builder
+	.objectRef<Connection<Call>>("CallConnection")
+	.implement({
+		fields: (t) => ({
+			items: t.field({ type: [CallRef], resolve: (c) => c.items }),
+			pageInfo: t.field({ type: PageInfoRef, resolve: (c) => c.pageInfo }),
+		}),
+	})
+
+const MyCallCountsRef = builder
+	.objectRef<{ open: number; resolved: number }>("MyCallCounts")
+	.implement({
+		fields: (t) => ({
+			open: t.exposeInt("open"),
+			resolved: t.exposeInt("resolved"),
+		}),
+	})
 
 export const ResolutionDisputeRef = builder.drizzleObject(
 	"resolutionDisputes",
@@ -348,14 +391,50 @@ builder.queryFields((t) => ({
 			db.query.questions.findFirst({ where: { id: args.id } }),
 	}),
 
+	// The "My Calls" page - every call the viewer has made, split into an
+	// Open tab (question still open/locked/disputed - no final outcome yet)
+	// and a Resolved tab (question resolved, points are final). See
+	// myCallCounts below for the counts shown on each tab.
 	myCalls: t.field({
-		type: [CallRef],
-		resolve: async (_root, _args, ctx) => {
-			if (!ctx.user) return []
-			return db.query.calls.findMany({
-				where: { userId: ctx.user.id },
-				orderBy: { createdAt: "desc" },
+		type: CallConnectionRef,
+		args: {
+			status: t.arg({ type: CallResolutionStatus, required: true }),
+			first: t.arg.int(),
+			after: t.arg.string(),
+		},
+		resolve: async (_root, args, ctx) => {
+			const user = requireUser(ctx)
+			const limit = clampPageSize(args.first)
+			const cursor = args.after ? decodeCursor(args.after) : null
+			const rows = await db.query.calls.findMany({
+				where: {
+					userId: user.id,
+					question: {
+						status:
+							args.status === "resolved" ? "resolved" : { ne: "resolved" },
+					},
+					...(cursor ? cursorWhere(cursor) : {}),
+				},
+				orderBy: { createdAt: "desc", id: "desc" },
+				limit: limit + 1,
 			})
+			return paginate(rows, limit)
+		},
+	}),
+
+	myCallCounts: t.field({
+		type: MyCallCountsRef,
+		resolve: async (_root, _args, ctx) => {
+			const user = requireUser(ctx)
+			const calls = await db.query.calls.findMany({
+				where: { userId: user.id },
+				columns: { id: true },
+				with: { question: { columns: { status: true } } },
+			})
+			const resolved = calls.filter(
+				(call) => call.question?.status === "resolved",
+			).length
+			return { open: calls.length - resolved, resolved }
 		},
 	}),
 }))
