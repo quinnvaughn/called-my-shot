@@ -107,16 +107,57 @@ const GroupLeaderboardEntryRef = builder
 		}),
 	})
 
-async function buildLeaderboard(groupId: string): Promise<LeaderboardEntry[]> {
+const GroupLeaderboardConnectionRef = builder
+	.objectRef<Connection<LeaderboardEntry>>("GroupLeaderboardConnection")
+	.implement({
+		fields: (t) => ({
+			items: t.field({
+				type: [GroupLeaderboardEntryRef],
+				resolve: (c) => c.items,
+			}),
+			pageInfo: t.field({ type: PageInfoRef, resolve: (c) => c.pageInfo }),
+		}),
+	})
+
+// The leaderboard is fully recomputed and sorted in memory on every call (see
+// below), so its cursor is just the rank already reached rather than a
+// (createdAt, id) keyset like lib/pagination.ts uses for DB-ordered lists.
+function encodeLeaderboardCursor(rank: number): string {
+	return Buffer.from(String(rank)).toString("base64url")
+}
+
+function decodeLeaderboardCursor(cursor: string): number {
+	const rank = Number(Buffer.from(cursor, "base64url").toString("utf8"))
+	if (!Number.isInteger(rank) || rank < 0) {
+		throw ValidationError.field("after", "Invalid pagination cursor")
+	}
+	return rank
+}
+
+// leagueId narrows the ranking to calls made on questions in that league only
+// (points/accuracy recomputed from scratch, not a filter over the
+// all-league numbers) - null/undefined ranks across every league, same as
+// before this param existed. Scoped to league, not sport - NBA and NCAAB
+// calls shouldn't rank against each other even though both are basketball.
+async function buildLeaderboard(
+	groupId: string,
+	leagueId?: string | null,
+): Promise<LeaderboardEntry[]> {
 	const memberships = await db.query.groupMembers.findMany({
 		where: { groupId },
 		with: { user: true },
 	})
 
-	const memberCalls = await db.query.calls.findMany({
+	const memberCallsRaw = await db.query.calls.findMany({
 		where: { userId: { in: memberships.map((m) => m.userId) } },
-		with: { selections: { with: { option: true } } },
+		with: {
+			selections: { with: { option: true } },
+			question: { columns: { leagueId: true } },
+		},
 	})
+	const memberCalls = leagueId
+		? memberCallsRaw.filter((call) => call.question?.leagueId === leagueId)
+		: memberCallsRaw
 
 	const callsByUser = new Map<string, typeof memberCalls>()
 	for (const call of memberCalls) {
@@ -306,10 +347,36 @@ const GroupRef = builder.drizzleObject("groups", {
 		}),
 		// ranked by total points across every call a member has made, not just
 		// calls on questions created within this group - a group is just a set
-		// of people, there's no group-scoped question pool
+		// of people, there's no group-scoped question pool. Paginated (button-
+		// driven "show more" on the frontend, not infinite scroll - most groups
+		// are small, nobody needs the whole roster by default) and optionally
+		// scoped to one league via leagueId; omitting it ranks across every
+		// league. League, not sport, since e.g. NBA and NCAAB calls shouldn't
+		// rank against each other despite both being basketball.
 		leaderboard: t.field({
-			type: [GroupLeaderboardEntryRef],
-			resolve: (group) => buildLeaderboard(group.id),
+			type: GroupLeaderboardConnectionRef,
+			args: {
+				first: t.arg.int(),
+				after: t.arg.string(),
+				leagueId: t.arg.id(),
+			},
+			resolve: async (group, args) => {
+				const entries = await buildLeaderboard(group.id, args.leagueId)
+				const limit = clampPageSize(args.first)
+				const afterRank = args.after ? decodeLeaderboardCursor(args.after) : 0
+				const items = entries.slice(afterRank, afterRank + limit)
+				const hasNextPage = afterRank + limit < entries.length
+				return {
+					items,
+					pageInfo: {
+						hasNextPage,
+						endCursor:
+							items.length > 0
+								? encodeLeaderboardCursor(afterRank + items.length)
+								: null,
+					},
+				}
+			},
 		}),
 		// convenience for group cards ("YOU'RE #2") that don't need the full list
 		viewerRank: t.field({
@@ -325,9 +392,11 @@ const GroupRef = builder.drizzleObject("groups", {
 				return entry.rank
 			},
 		}),
-		// The viewer's own calls on questions created by a fellow member - the
-		// "Answered" tab. Scoped to the viewer because the result line (called X,
-		// actual Y, +N pts) is inherently a first-person read of one call.
+		// Calls made by other members of this group - the "Answered" tab.
+		// Group-wide (a group is just a set of people, there's no group-scoped
+		// question pool), but excludes the viewer's own calls: the point of this
+		// tab is surfacing what your groupmates did, not restating your own
+		// history back to you (that's "My Calls").
 		answeredQuestions: t.field({
 			type: CallConnectionRef,
 			args: {
@@ -337,12 +406,12 @@ const GroupRef = builder.drizzleObject("groups", {
 			resolve: async (group, args, ctx) => {
 				const user = requireUser(ctx)
 				const memberIds = await getMemberUserIds(group.id)
+				const otherMemberIds = memberIds.filter((id) => id !== user.id)
 				const limit = clampPageSize(args.first)
 				const cursor = args.after ? decodeCursor(args.after) : null
 				const rows = await db.query.calls.findMany({
 					where: {
-						userId: user.id,
-						question: { creatorId: { in: memberIds } },
+						userId: { in: otherMemberIds },
 						...(cursor ? cursorWhere(cursor) : {}),
 					},
 					orderBy: { createdAt: "desc", id: "desc" },
@@ -351,22 +420,25 @@ const GroupRef = builder.drizzleObject("groups", {
 				return paginate(rows, limit)
 			},
 		}),
-		// Public questions created by any member of this group - the "Created"
-		// tab. Not group-scoped content of its own; a group is just a set of
-		// people, same as leaderboard above.
+		// Public questions created by other members of this group - the
+		// "Created" tab. Not group-scoped content of its own (a group is just a
+		// set of people, same as leaderboard above); excludes the viewer's own
+		// questions for the same reason as answeredQuestions above.
 		createdQuestions: t.field({
 			type: QuestionConnectionRef,
 			args: {
 				first: t.arg.int(),
 				after: t.arg.string(),
 			},
-			resolve: async (group, args) => {
+			resolve: async (group, args, ctx) => {
+				const user = requireUser(ctx)
 				const memberIds = await getMemberUserIds(group.id)
+				const otherMemberIds = memberIds.filter((id) => id !== user.id)
 				const limit = clampPageSize(args.first)
 				const cursor = args.after ? decodeCursor(args.after) : null
 				const rows = await db.query.questions.findMany({
 					where: {
-						creatorId: { in: memberIds },
+						creatorId: { in: otherMemberIds },
 						...(cursor ? cursorWhere(cursor) : {}),
 					},
 					orderBy: { createdAt: "desc", id: "desc" },
@@ -375,21 +447,24 @@ const GroupRef = builder.drizzleObject("groups", {
 				return paginate(rows, limit)
 			},
 		}),
-		// Public questions a member explicitly pushed into the group's feed via
-		// shareQuestionToGroup - the "Shared" tab. Independent of who created the
-		// question; sharedBy on each row is who sent it.
+		// Public questions another member explicitly pushed into the group's
+		// feed via shareQuestionToGroup - the "Shared" tab. Independent of who
+		// created the question; sharedBy on each row is who sent it. Excludes
+		// the viewer's own shares for the same reason as the two tabs above.
 		sharedQuestions: t.field({
 			type: QuestionShareConnectionRef,
 			args: {
 				first: t.arg.int(),
 				after: t.arg.string(),
 			},
-			resolve: async (group, args) => {
+			resolve: async (group, args, ctx) => {
+				const user = requireUser(ctx)
 				const limit = clampPageSize(args.first)
 				const cursor = args.after ? decodeCursor(args.after) : null
 				const rows = await db.query.questionShares.findMany({
 					where: {
 						groupId: group.id,
+						sharedBy: { ne: user.id },
 						...(cursor ? cursorWhere(cursor) : {}),
 					},
 					orderBy: { createdAt: "desc", id: "desc" },

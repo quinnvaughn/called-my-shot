@@ -79,7 +79,7 @@ export function JoinCode() {
 								{(meta) => (
 									<Button
 										type="submit"
-										variant="white"
+										variant="dark"
 										loading={meta.isSubmitting}
 										disabled={meta.isSubmitting || !meta.canSubmit}
 									>

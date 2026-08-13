@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 925.1 82.1" width="925.1" height="82.1">
-  <!-- Self-contained: font embedded, renders correctly anywhere. Designed for dark surfaces (ink #0B0B0C). -->
+  <!-- Self-contained: font embedded, renders correctly anywhere. Designed for light surfaces (paper #FFFFFF). -->
   <defs>
     <style>
       @font-face {
@@ -8,14 +8,14 @@
       }
     </style>
   </defs>
-  <text x="2.0" y="73.0" font-family="'Archivo Black', sans-serif" font-size="90" fill="#F5F1E8">CALLED MY SH</text>
+  <text x="2.0" y="73.0" font-family="'Archivo Black', sans-serif" font-size="90" fill="#14140F">CALLED MY SH</text>
   <g transform="translate(766.0, 2.0) scale(0.9762)">
-    <circle cx="40" cy="40" r="26" fill="none" stroke="#FF5A1F" stroke-width="6"/>
-    <line x1="40" y1="4" x2="40" y2="17" stroke="#F5F1E8" stroke-width="6" stroke-linecap="square"/>
-    <line x1="40" y1="63" x2="40" y2="76" stroke="#F5F1E8" stroke-width="6" stroke-linecap="square"/>
-    <line x1="4" y1="40" x2="17" y2="40" stroke="#F5F1E8" stroke-width="6" stroke-linecap="square"/>
-    <line x1="63" y1="40" x2="76" y2="40" stroke="#F5F1E8" stroke-width="6" stroke-linecap="square"/>
-    <circle cx="40" cy="40" r="9" fill="#FF5A1F"/>
+    <circle cx="40" cy="40" r="26" fill="none" stroke="#C2410C" stroke-width="6"/>
+    <line x1="40" y1="4" x2="40" y2="17" stroke="#C2410C" stroke-width="6" stroke-linecap="square"/>
+    <line x1="40" y1="63" x2="40" y2="76" stroke="#C2410C" stroke-width="6" stroke-linecap="square"/>
+    <line x1="4" y1="40" x2="17" y2="40" stroke="#C2410C" stroke-width="6" stroke-linecap="square"/>
+    <line x1="63" y1="40" x2="76" y2="40" stroke="#C2410C" stroke-width="6" stroke-linecap="square"/>
+    <circle cx="40" cy="40" r="9" fill="#C2410C"/>
   </g>
-  <text x="858.1" y="73.0" font-family="'Archivo Black', sans-serif" font-size="90" fill="#F5F1E8">T</text>
+  <text x="858.1" y="73.0" font-family="'Archivo Black', sans-serif" font-size="90" fill="#14140F">T</text>
 </svg>

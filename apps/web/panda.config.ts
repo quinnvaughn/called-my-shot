@@ -54,22 +54,26 @@ export default defineConfig({
           "2xs": { value: "0.6875rem" }, // 11px
         },
         colors: {
-          // Brand palette — raw values, named the way the product already names them
-          // (see the prototype HTML: landing.html / feed.html / create-question.html).
-          ink: { value: "#0B0B0C" }, // app background, deepest layer
-          card: { value: "#151513" }, // primary surface: cards, panels, inputs, nav rail
-          cardMuted: { value: "#1B1B18" }, // nested/inset surface: selected rows, tab tracks, dropdowns
-          border: { value: "#3D3D38" }, // default hairline border — lightened from #2A2A28, which barely showed up against card/cardMuted at 1px
-          track: { value: "#52524A" }, // emphasized border (see Tabs); also reserved for progress-track backgrounds — lightened from #3E3E3A to stay a clear step above border above
-          bone: { value: "#F5F1E8" }, // primary text
-          linen: { value: "#D8D4C9" }, // softer body-copy tone (hero subhead, info-card paragraphs) — hardcoded inline in the mockups, never promoted to a var there
-          dim: { value: "#9E9E95" }, // secondary/meta text — lightened from #8A8A84 to keep a clear step above steel below
-          steel: { value: "#8C8C85" }, // tertiary text, placeholders, inactive icons — lightened again from #787873, still too close to illegible
-          signal: { value: "#FF5A1F" }, // brand accent — CTAs, active/selected state, focus ring
-          signalMuted: { value: "#3A1E12" }, // opaque accent-tinted background for badges/chips (not the same as signal at low alpha)
-          verified: { value: "#34D399" }, // success / correct-call / positive value
-          loss: { value: "#E24B4A" }, // error / wrong-call / negative value
-          overlay: { value: "#060607" }, // modal scrim base color (used as rgba, e.g. overlay/70)
+          // Brand palette — light theme. Was originally a dark palette (near-black
+          // canvas, off-white text); flipped so every color choice (team colors
+          // especially) is picked against a white background instead.
+          paper: { value: "#FFFFFF" }, // app background, canvas (was `ink`)
+          card: { value: "#FFFFFF" }, // primary surface: cards, panels, inputs, nav rail — same white as paper, separated by border/shadow
+          cardMuted: { value: "#EDEDEA" }, // nested/inset surface: selected rows, tab tracks, dropdowns — kept close to neutral gray (not tan/beige) so it doesn't muddy together with the warm orange accent
+          border: { value: "#E5E2D9" }, // default hairline border
+          track: { value: "#C9C4B5" }, // emphasized border (see Tabs); also reserved for progress-track backgrounds
+          ink: { value: "#14140F" }, // primary text (was `bone`)
+          linen: { value: "#4A4941" }, // softer body-copy tone (hero subhead, info-card paragraphs)
+          dim: { value: "#6B6B62" }, // secondary/meta text
+          steel: { value: "#767267" }, // tertiary text, placeholders, inactive icons — darkened from #96938A (only 3:1 on white), which was tuned for a dark background and read as barely-there once flipped
+          signal: { value: "#C2410C" }, // brand accent — CTAs, active/selected state, focus ring; darkened from #FF5A1F to hold 4.5:1 as text on white
+          signalMuted: { value: "#FCEAE0" }, // pale accent-tinted background for badges/chips (not the same as signal at low alpha)
+          verified: { value: "#15803D" }, // success / correct-call / positive value; darkened from #34D399, which was ~2:1 on white
+          verifiedMuted: { value: "#E1F3E7" }, // pale success-tinted background for the "Called" status chip
+          loss: { value: "#C22B2A" }, // error / wrong-call / negative value; darkened from #E24B4A
+          caution: { value: "#A6650E" }, // warning / disputed / under-review value; darkened from #E8A33D
+          cautionMuted: { value: "#FBEEDA" }, // pale caution-tinted background for the disputed-resolution banner
+          overlay: { value: "#0B0B0C" }, // modal scrim base color (used as rgba, e.g. overlay/70) — stays dark in both themes
         },
       },
       keyframes: {
@@ -81,7 +85,7 @@ export default defineConfig({
         colors: {
           // Purpose-based aliases — components should reference these, not the raw palette above.
           bg: {
-            canvas: { value: "{colors.ink}" },
+            canvas: { value: "{colors.paper}" },
             surface: { value: "{colors.card}" },
             subtle: { value: "{colors.cardMuted}" },
             overlay: { value: "{colors.overlay}" },
@@ -91,7 +95,7 @@ export default defineConfig({
             emphasized: { value: "{colors.track}" },
           },
           fg: {
-            default: { value: "{colors.bone}" },
+            default: { value: "{colors.ink}" },
             body: { value: "{colors.linen}" },
             muted: { value: "{colors.dim}" },
             subtle: { value: "{colors.steel}" },
@@ -102,19 +106,24 @@ export default defineConfig({
             default: { value: "{colors.signal}" },
             subtle: { value: "{colors.signalMuted}" },
             // text/icon color to place on top of a solid `primary.default` fill (e.g. primary buttons)
-            contrast: { value: "{colors.ink}" },
+            contrast: { value: "{colors.paper}" },
           },
           secondary: {
             default: { value: "{colors.verified}" },
-            contrast: { value: "{colors.ink}" },
+            contrast: { value: "{colors.paper}" },
           },
           // Status feedback — reused today (secondary === success), but kept as separate
           // tokens so status meaning can diverge from brand color without a rename later.
           success: {
             default: { value: "{colors.verified}" },
+            subtle: { value: "{colors.verifiedMuted}" },
           },
           danger: {
             default: { value: "{colors.loss}" },
+          },
+          warning: {
+            default: { value: "{colors.caution}" },
+            subtle: { value: "{colors.cautionMuted}" },
           },
         },
       },
@@ -319,17 +328,30 @@ export default defineConfig({
               // to fill whatever space the other, explicitly-sized columns
               // don't use.
               tableLayout: "fixed",
-              borderCollapse: "collapse",
+              // `collapse` breaks border-radius/overflow:hidden clipping on a
+              // <table> in most browsers - the outer border silently never
+              // rendered no matter what color it was set to. `separate` +
+              // zeroed spacing looks identical here since no cell defines its
+              // own top/left/right border for collapse to merge in the first
+              // place - only the table's own outer border was at stake.
+              borderCollapse: "separate",
+              borderSpacing: "0",
               fontFamily: "body",
               backgroundColor: "bg.surface",
-              border: "1px solid {colors.border.default}",
+              border: "1px solid {colors.border.emphasized}",
               borderRadius: "2xl",
               overflow: "hidden",
+              // Now that the table's own bottom border actually renders (see
+              // above), the last row's own borderBottom sits flush against it
+              // and doubles up the line.
+              "& tbody tr:last-child > td": {
+                borderBottom: "none",
+              },
             },
             headerCell: {
               color: "fg.subtle",
               fontFamily: "mono",
-              fontSize: "2xs",
+              fontSize: "xs",
               letterSpacing: "wide",
               textTransform: "uppercase",
               opacity: "0.8",
@@ -478,12 +500,17 @@ export default defineConfig({
                 _hover: { opacity: 0.88 },
                 _disabled: { _hover: { opacity: 0.6 } },
               },
+              // On a light background, dimming the text on hover (the old dark-theme
+              // treatment) reads as the button going *away*, not as a hover state -
+              // a soft fill behind the text is a clearer "you're over me" signal
+              // without ever lowering contrast.
               ghost: {
                 bg: "transparent",
                 color: "fg.default",
                 fontWeight: "medium",
-                _hover: { color: "fg.muted" },
-                _disabled: { _hover: { color: "fg.default" } },
+                borderRadius: "lg",
+                _hover: { bg: "bg.subtle" },
+                _disabled: { _hover: { bg: "transparent" } },
               },
               // Same shape as ghost, but reserves a transparent border so a border
               // can fade in on hover without shifting layout. Mono + uppercase to
@@ -496,18 +523,19 @@ export default defineConfig({
                 borderRadius: "lg",
                 border: "1px solid transparent",
                 _hover: {
-                  color: "fg.muted",
                   borderColor: "border.default",
                 },
                 _disabled: {
-                  _hover: { color: "fg.default", borderColor: "transparent" },
+                  _hover: { borderColor: "transparent" },
                 },
               },
-              // Same treatment as solid, but bone-on-ink instead of signal-on-ink
-              // (see join-btn in the groups.html mockup).
-              white: {
-                bg: "bone",
-                color: "ink",
+              // Same treatment as solid, but ink-on-paper instead of signal-on-paper —
+              // a neutral solid CTA that doesn't reach for the brand accent color
+              // (see join-btn in the groups.html mockup, formerly the "white" variant
+              // back when the theme was dark and this was the light-on-dark option).
+              dark: {
+                bg: "ink",
+                color: "paper",
                 fontFamily: "heading",
                 textTransform: "uppercase",
                 letterSpacing: "wide",
@@ -541,7 +569,7 @@ export default defineConfig({
           },
           compoundVariants: [
             {
-              variant: ["solid", "outline", "white"],
+              variant: ["solid", "outline", "dark"],
               size: "lg",
               css: {
                 borderRadius: "xl",

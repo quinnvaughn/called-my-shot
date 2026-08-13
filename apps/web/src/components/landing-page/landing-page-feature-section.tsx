@@ -55,7 +55,7 @@ function FeatureCard({ icon, title, description, example }: FeatureItem) {
 							width: "9",
 							height: "9",
 							borderRadius: "lg",
-							bg: "bg.subtle",
+							bg: "primary.subtle",
 							color: "primary.default",
 							display: "flex",
 							alignItems: "center",

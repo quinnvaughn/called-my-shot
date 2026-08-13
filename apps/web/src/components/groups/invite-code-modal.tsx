@@ -51,7 +51,7 @@ export function InviteCodeModal({
 							<TextInput.Field readOnly value={displayUrl} />
 						</TextInput.Group>
 					</TextInput>
-					<Button variant="white" onClick={handleCopy}>
+					<Button variant="dark" onClick={handleCopy}>
 						{copied ? "Copied" : "Copy"}
 					</Button>
 				</HStack>

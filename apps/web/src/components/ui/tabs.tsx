@@ -51,6 +51,15 @@ const tabsRecipe = sva({
 				},
 			},
 		},
+		stretch: {
+			true: {
+				list: {
+					"& > *": {
+						flex: 1,
+					},
+				},
+			},
+		},
 	},
 })
 
@@ -94,8 +103,12 @@ function Tabs<T extends string>({
 	)
 }
 
-function TabsList({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
-	const slots = tabsRecipe()
+type TabsListProps = HTMLAttributes<HTMLDivElement> & {
+	stretch?: boolean
+}
+
+function TabsList({ stretch, className, ...props }: TabsListProps) {
+	const slots = tabsRecipe({ stretch })
 	return <div role="tablist" className={cx(slots.list, className)} {...props} />
 }
 

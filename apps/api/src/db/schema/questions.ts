@@ -84,7 +84,8 @@ export const questions = pgTable("questions", {
 	// over_under only
 	ouLine: numeric("ou_line", { precision: 8, scale: 2, mode: "number" }),
 
-	// numeric_guess only
+	// yes_no, over_under, and numeric_guess - optional subject, null for a
+	// game-wide over/under (or a yes_no with no single team/player it's about)
 	numericSubjectType: numericSubjectType("numeric_subject_type"),
 	subjectTeamId: uuid("subject_team_id").references(() => teams.id, {
 		onDelete: "restrict",
@@ -162,9 +163,11 @@ export const calls = pgTable(
 export type Call = typeof calls.$inferSelect
 
 // A call's picks for option-based types: exactly one row for multiple_choice /
-// yes_no / over_under, up to picksRequired rows for multi_select. Conviction and
-// the contrarian tier are tracked per selection since multi_select lets a caller
-// set them independently per pick.
+// yes_no / over_under, up to picksRequired rows for multi_select. Conviction is
+// tracked per selection since multi_select lets a caller set it independently
+// per pick. The contrarian tier isn't stored here at all - it's computed once
+// per option from the final field at resolution (see fieldPct/tierFor in
+// lib/calls.ts), not snapshotted per selection at call time.
 export const callSelections = pgTable(
 	"call_selections",
 	{
@@ -176,13 +179,6 @@ export const callSelections = pgTable(
 			.notNull()
 			.references(() => questionOptions.id, { onDelete: "cascade" }),
 		conviction: integer("conviction").notNull(), // 1-100
-		// snapshot of this option's share of the field at the moment of the call -
-		// the contrarian tier is locked in then, not recomputed at resolution.
-		fieldPctAtCall: numeric("field_pct_at_call", {
-			precision: 5,
-			scale: 2,
-			mode: "number",
-		}).notNull(),
 		resultPoints: integer("result_points"),
 	},
 	(t) => [unique().on(t.callId, t.optionId)],

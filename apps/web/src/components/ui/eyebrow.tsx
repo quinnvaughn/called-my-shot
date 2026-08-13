@@ -18,6 +18,7 @@ export function Eyebrow({ children, variant = "secondary" }: Props) {
 			className={css({
 				fontFamily: "mono",
 				fontSize: "xs",
+				fontWeight: "medium",
 				textTransform: "uppercase",
 				letterSpacing: "wider",
 				color: colorByVariant[variant],

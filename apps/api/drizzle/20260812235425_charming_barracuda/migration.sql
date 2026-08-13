@@ -1,0 +1,1 @@
+ALTER TABLE "call_selections" DROP COLUMN "field_pct_at_call";

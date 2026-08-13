@@ -3,11 +3,14 @@ import { useState } from "react"
 import { HiMiniQuestionMarkCircle } from "react-icons/hi2"
 import { css } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
+import { match } from "ts-pattern"
+import { AnsweredQuestionsTab } from "#/components/groups/answered-questions-tab"
+import { CreatedQuestionsTab } from "#/components/groups/created-questions-tab"
+import { GroupLeaderboard } from "#/components/groups/group-leaderboard"
 import { IncorrectGroup } from "#/components/groups/incorrect-group"
 import { InviteCodeModal } from "#/components/groups/invite-code-modal"
-import { Avatar } from "#/components/ui/avatar"
+import { SharedQuestionsTab } from "#/components/groups/shared-questions-tab"
 import { Button } from "#/components/ui/button"
-import { Table } from "#/components/ui/table"
 import { Tabs } from "#/components/ui/tabs"
 import { GroupDetailDocument } from "#/graphql/generated/graphql"
 import { openModal } from "#/stores/modal-store"
@@ -19,7 +22,7 @@ export const Route = createFileRoute("/_app/_authed/groups/$groupId")({
 			query: GroupDetailDocument,
 			variables: { groupId: params.groupId },
 		})
-		return { group: data?.group ?? null }
+		return { group: data?.group ?? null, leagues: data?.leagues ?? [] }
 	},
 })
 
@@ -27,7 +30,7 @@ function RouteComponent() {
 	const [activeTab, setActiveTab] = useState<"answered" | "created" | "shared">(
 		"answered",
 	)
-	const { group } = Route.useLoaderData()
+	const { group, leagues } = Route.useLoaderData()
 	const { me } = useRouteContext({ from: "__root__" })
 
 	if (!group) {
@@ -64,7 +67,7 @@ function RouteComponent() {
 				</VStack>
 				<Button
 					size="sm"
-					variant="white"
+					variant="dark"
 					onClick={() =>
 						openModal(
 							<InviteCodeModal
@@ -79,55 +82,56 @@ function RouteComponent() {
 					Invite
 				</Button>
 			</HStack>
-			<Table sortBy="rank" sortDir="desc">
-				<Table.Head
-					columns={[
-						{ key: "rank", label: "#", numeric: true, width: "56px" },
-						{ key: "member", label: "Member" },
-						{ key: "points", label: "Points", numeric: true, width: "120px" },
-					]}
-				/>
-				<Table.Body>
-					{group.leaderboard.map((entry, i) => (
-						<Table.Row key={entry.user.id} active={entry.user.id === me?.id}>
-							<Table.Cell
-								numeric
-								className={css({
-									color: i <= 2 ? "primary.default" : "fg.subtle",
-									fontWeight: i <= 2 ? "bold" : "inherit",
-									fontSize: "sm",
-									fontFamily: "mono",
-								})}
-							>
-								{entry.rank}
-							</Table.Cell>
-							<Table.Cell>
-								<HStack gap="3">
-									<Avatar size="sm" name={entry.user.name} />
-									<span
-										className={css({ fontSize: "sm", fontWeight: "medium" })}
-									>
-										{entry.user.name} (@{entry.user.username})
-									</span>
-								</HStack>
-							</Table.Cell>
-							<Table.Cell
-								numeric
-								className={css({ fontFamily: "mono", fontSize: "sm" })}
-							>
-								{entry.totalPoints}
-							</Table.Cell>
-						</Table.Row>
-					))}
-				</Table.Body>
-			</Table>
-			<Tabs value={activeTab} onValueChange={setActiveTab}>
-				<Tabs.List>
-					<Tabs.Trigger value="answered">Answered</Tabs.Trigger>
-					<Tabs.Trigger value="created">Created</Tabs.Trigger>
-					<Tabs.Trigger value="shared">Shared</Tabs.Trigger>
-				</Tabs.List>
-			</Tabs>
+			<GroupLeaderboard
+				groupId={group.id}
+				initialItems={group.leaderboard.items}
+				initialPageInfo={group.leaderboard.pageInfo}
+				leagues={leagues}
+				viewerId={me?.id}
+			/>
+			<VStack alignItems="stretch" gap="3">
+				<h2
+					className={css({
+						fontFamily: "mono",
+						fontSize: "xs",
+						letterSpacing: "wide",
+						color: "fg.muted",
+						textTransform: "uppercase",
+					})}
+				>
+					Activity
+				</h2>
+				<Tabs value={activeTab} onValueChange={setActiveTab}>
+					<Tabs.List>
+						<Tabs.Trigger value="answered">Answered</Tabs.Trigger>
+						<Tabs.Trigger value="created">Created</Tabs.Trigger>
+						<Tabs.Trigger value="shared">Shared</Tabs.Trigger>
+					</Tabs.List>
+				</Tabs>
+			</VStack>
+			{match(activeTab)
+				.with("answered", () => (
+					<AnsweredQuestionsTab
+						groupId={group.id}
+						initialItems={group.answeredQuestions.items}
+						initialPageInfo={group.answeredQuestions.pageInfo}
+					/>
+				))
+				.with("created", () => (
+					<CreatedQuestionsTab
+						groupId={group.id}
+						initialItems={group.createdQuestions.items}
+						initialPageInfo={group.createdQuestions.pageInfo}
+					/>
+				))
+				.with("shared", () => (
+					<SharedQuestionsTab
+						groupId={group.id}
+						initialItems={group.sharedQuestions.items}
+						initialPageInfo={group.sharedQuestions.pageInfo}
+					/>
+				))
+				.exhaustive()}
 		</VStack>
 	)
 }

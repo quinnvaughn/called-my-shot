@@ -68,7 +68,7 @@ export function AuthModal({
 			<Modal.CloseButton />
 			<Brand size="sm" />
 			<Tabs value={view} onValueChange={setView}>
-				<Tabs.List>
+				<Tabs.List stretch>
 					<Tabs.Trigger value="signin">Sign in</Tabs.Trigger>
 					<Tabs.Trigger value="signup">Create account</Tabs.Trigger>
 				</Tabs.List>

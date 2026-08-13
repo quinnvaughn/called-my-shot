@@ -32,9 +32,10 @@ export const GroupPreviewDocument = graphql(`
     }
 `)
 
-// Flat selection rather than per-component fragments - there's no group
-// detail UI built yet to anchor fragment names to. Split this into
-// component fragments (à la GroupCard_group) once that UI exists.
+// Per-tab connections spread the same fragments their standalone paginated
+// queries use (AnsweredQuestionsTab_call, etc.) - see components/groups/
+// *-questions-tab.tsx, colocated with the components that render them.
+// leaderboard/leagues are colocated the same way with group-leaderboard.tsx.
 export const GroupDetailDocument = graphql(`
     query GroupDetail(
         $groupId: ID!
@@ -42,6 +43,12 @@ export const GroupDetailDocument = graphql(`
         $createdAfter: String
         $sharedAfter: String
     ) {
+        leagues {
+            id
+            name
+            abbreviation
+            slug
+        }
         group(id: $groupId) {
             id
             name
@@ -53,49 +60,23 @@ export const GroupDetailDocument = graphql(`
                 code
                 expiresAt
             }
-            leaderboard {
-                rank
-                role
-                totalPoints
-                accuracy
-                callCount
-                resolvedCallCount
-                user {
-                    id
-                    name
-                    username
+            leaderboard(first: 10) {
+                items {
+                    rank
+                    user {
+                        id
+                    }
+                    ...GroupLeaderboard_entry
+                }
+                pageInfo {
+                    hasNextPage
+                    endCursor
                 }
             }
             answeredQuestions(first: 10, after: $answeredAfter) {
                 items {
                     id
-                    createdAt
-                    guessValue
-                    totalPoints
-                    selections {
-                        id
-                        fieldPctAtCall
-                        resultPoints
-                        option {
-                            id
-                            label
-                            isCorrect
-                        }
-                    }
-                    question {
-                        id
-                        title
-                        type
-                        locksAt
-                        status
-                        numericActualValue
-                        numericTolerancePct
-                        creator {
-                            id
-                            name
-                            username
-                        }
-                    }
+                    ...AnsweredQuestionsTab_call
                 }
                 pageInfo {
                     hasNextPage
@@ -105,24 +86,7 @@ export const GroupDetailDocument = graphql(`
             createdQuestions(first: 10, after: $createdAfter) {
                 items {
                     id
-                    title
-                    category
-                    isOfficial
-                    type
-                    locksAt
-                    status
-                    callCount
-                    ouLine
-                    creator {
-                        id
-                        name
-                        username
-                    }
-                    options {
-                        id
-                        label
-                        fieldPct
-                    }
+                    ...CreatedQuestionsTab_question
                 }
                 pageInfo {
                     hasNextPage
@@ -132,33 +96,7 @@ export const GroupDetailDocument = graphql(`
             sharedQuestions(first: 10, after: $sharedAfter) {
                 items {
                     id
-                    createdAt
-                    sharedBy {
-                        id
-                        name
-                        username
-                    }
-                    question {
-                        id
-                        title
-                        category
-                        isOfficial
-                        type
-                        locksAt
-                        status
-                        callCount
-                        ouLine
-                        creator {
-                            id
-                            name
-                            username
-                        }
-                        options {
-                            id
-                            label
-                            fieldPct
-                        }
-                    }
+                    ...SharedQuestionsTab_questionShare
                 }
                 pageInfo {
                     hasNextPage

@@ -53,11 +53,11 @@ function RouteComponent() {
 			},
 			{
 				signup: {
-					title: `Sign up to join ${preview.name}`,
+					title: `Sign up to join ${preview ? preview.name : "the group"}`,
 					description: "Create a free account to lock in your invite.",
 				},
 				signin: {
-					title: `Sign in to join ${preview.name}`,
+					title: `Sign in to join ${preview ? preview.name : "the group"}`,
 					description: "Log back in to accept this invite.",
 				},
 			},

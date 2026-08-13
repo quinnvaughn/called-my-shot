@@ -1,4 +1,6 @@
 import { db } from "../../db"
+import { canViewerSeePick } from "../../lib/call-visibility"
+import { fieldPct } from "../../lib/calls"
 import { builder } from "../builder"
 
 const QuestionType = builder.enumType("QuestionType", {
@@ -57,8 +59,9 @@ export const QuestionOptionRef = builder.drizzleObject("questionOptions", {
 		// null until the question resolves
 		isCorrect: t.exposeBoolean("isCorrect", { nullable: true }),
 		callCount: t.relatedCount("selections"),
-		// live % of the question's callers who picked this option - not the
-		// fieldPctAtCall snapshot a caller's own selection locked in at call time
+		// live % of the question's callers who picked this option - same formula
+		// resolution scores against at lock (see fieldPct in lib/calls.ts), just
+		// evaluated whenever this is queried instead of frozen at any one moment.
 		fieldPct: t.field({
 			type: "Float",
 			nullable: true,
@@ -74,7 +77,7 @@ export const QuestionOptionRef = builder.drizzleObject("questionOptions", {
 					}),
 				])
 				if (questionCalls.length === 0) return null
-				return (selections.length / questionCalls.length) * 100
+				return fieldPct(selections.length, questionCalls.length)
 			},
 		}),
 	}),
@@ -85,7 +88,6 @@ export const CallSelectionRef = builder.drizzleObject("callSelections", {
 	fields: (t) => ({
 		id: t.exposeID("id"),
 		conviction: t.exposeInt("conviction"),
-		fieldPctAtCall: t.exposeFloat("fieldPctAtCall"),
 		// null until the question resolves
 		resultPoints: t.exposeInt("resultPoints", { nullable: true }),
 		option: t.relation("option"),
@@ -96,18 +98,67 @@ export const CallRef = builder.drizzleObject("calls", {
 	name: "Call",
 	fields: (t) => ({
 		id: t.exposeID("id"),
-		caseText: t.exposeString("caseText", { nullable: true }),
+		// caseText/guessValue/conviction/hitTolerance/selections all reveal what
+		// this call actually picked, so they're gated behind canViewerSeePick -
+		// see lib/call-visibility.ts for the anti-copying rule. Identity
+		// (user/question/createdAt) and totalPoints are not pick info and stay
+		// visible regardless.
+		caseText: t.field({
+			type: "String",
+			nullable: true,
+			resolve: async (call, _args, ctx) =>
+				(await canViewerSeePick(call, ctx.user?.id ?? null))
+					? call.caseText
+					: null,
+		}),
 		// numeric_guess only - everything else scores through selections
-		guessValue: t.exposeFloat("guessValue", { nullable: true }),
-		conviction: t.exposeInt("conviction", { nullable: true }),
-		hitTolerance: t.exposeBoolean("hitTolerance", { nullable: true }),
+		guessValue: t.field({
+			type: "Float",
+			nullable: true,
+			resolve: async (call, _args, ctx) =>
+				(await canViewerSeePick(call, ctx.user?.id ?? null))
+					? call.guessValue
+					: null,
+		}),
+		conviction: t.field({
+			type: "Int",
+			nullable: true,
+			resolve: async (call, _args, ctx) =>
+				(await canViewerSeePick(call, ctx.user?.id ?? null))
+					? call.conviction
+					: null,
+		}),
+		hitTolerance: t.field({
+			type: "Boolean",
+			nullable: true,
+			resolve: async (call, _args, ctx) =>
+				(await canViewerSeePick(call, ctx.user?.id ?? null))
+					? call.hitTolerance
+					: null,
+		}),
 		createdAt: t.field({
 			type: "String",
 			resolve: (call) => call.createdAt.toISOString(),
 		}),
 		user: t.relation("user"),
 		question: t.relation("question"),
-		selections: t.relation("selections"),
+		selections: t.field({
+			type: [CallSelectionRef],
+			resolve: async (call, _args, ctx) => {
+				if (!(await canViewerSeePick(call, ctx.user?.id ?? null))) return []
+				return db.query.callSelections.findMany({ where: { callId: call.id } })
+			},
+		}),
+		// Drives whether the client should render this call's pick or a
+		// "make your call to reveal" placeholder - same rule as the field
+		// gating above, exposed directly so the client doesn't have to infer it
+		// from null/empty values (which are also the legitimate "no pick yet"
+		// shape for an unresolved call).
+		viewerCanSeePick: t.field({
+			type: "Boolean",
+			resolve: (call, _args, ctx) =>
+				canViewerSeePick(call, ctx.user?.id ?? null),
+		}),
 		// numeric_guess scores off its own resultPoints column above; every other
 		// type sums across its selections. Null while any of those are pending.
 		totalPoints: t.field({
@@ -187,8 +238,8 @@ export const QuestionRef = builder.drizzleObject("questions", {
 		// over_under only
 		ouLine: t.exposeFloat("ouLine", { nullable: true }),
 
-		// over_under and numeric_guess only - optional subject, null for a
-		// game-wide over/under with no single team or player it's about
+		// yes_no, over_under, and numeric_guess - optional subject, null for a
+		// game-wide over/under (or a yes_no with no single team/player it's about)
 		numericSubjectType: t.field({
 			type: NumericSubjectType,
 			nullable: true,
@@ -202,6 +253,46 @@ export const QuestionRef = builder.drizzleObject("questions", {
 			nullable: true,
 		}),
 		numericActualValue: t.exposeFloat("numericActualValue", { nullable: true }),
+		// live average of every guessValue submitted so far - numeric_guess only,
+		// null until at least one call exists
+		averageGuess: t.field({
+			type: "Float",
+			nullable: true,
+			resolve: async (question) => {
+				const calls = await db.query.calls.findMany({
+					where: { questionId: question.id },
+					columns: { guessValue: true },
+				})
+				const guesses = calls
+					.map((call) => call.guessValue)
+					.filter((value): value is number => value !== null)
+				if (guesses.length === 0) return null
+				return guesses.reduce((sum, value) => sum + value, 0) / guesses.length
+			},
+		}),
+
+		// % of calls that landed within tolerance, once resolved - numeric_guess
+		// only, null until at least one call has been scored. An aggregate like
+		// averageGuess above, so it bypasses the per-call hitTolerance privacy
+		// gate (see CallRef.hitTolerance) without attributing the result to any
+		// one caller.
+		numericHitRatePct: t.field({
+			type: "Float",
+			nullable: true,
+			resolve: async (question) => {
+				const calls = await db.query.calls.findMany({
+					where: { questionId: question.id },
+					columns: { hitTolerance: true },
+				})
+				const scored = calls.filter(
+					(call): call is typeof call & { hitTolerance: boolean } =>
+						call.hitTolerance !== null,
+				)
+				if (scored.length === 0) return null
+				const hits = scored.filter((call) => call.hitTolerance).length
+				return (hits / scored.length) * 100
+			},
+		}),
 
 		// multi_select only
 		picksRequired: t.exposeInt("picksRequired", { nullable: true }),

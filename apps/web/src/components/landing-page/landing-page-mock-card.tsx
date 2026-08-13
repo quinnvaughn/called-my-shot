@@ -2,26 +2,40 @@ import { css, cx } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
 import { Card } from "#/components/ui/card"
 import { Tag } from "#/components/ui/tag"
+import { hexToRgba } from "#/lib/color"
 
 type Team = {
 	name: string
 	percent: number
 	tier?: string
 	selected?: boolean
+	// Real team color, not a brand token - same idea as TeamBadge/CallCard's
+	// subjectTeam.color, just hardcoded here since this card is static marketing
+	// copy, not backed by a real question.
+	color: string
 }
 
 const teams: Team[] = [
-	{ name: "Detroit Lions", percent: 6, tier: "UNDERDOG", selected: true },
-	{ name: "Kansas City Chiefs", percent: 19 },
+	{
+		name: "Detroit Lions",
+		percent: 6,
+		tier: "UNDERDOG",
+		selected: true,
+		color: "#0076B6",
+	},
+	{ name: "Kansas City Chiefs", percent: 19, color: "#E31837" },
 ]
 
-function MockTeamRow({ name, percent, tier, selected }: Team) {
+function MockTeamRow({ name, percent, tier, selected, color }: Team) {
 	return (
 		<div
 			className={css({
 				position: "relative",
 				overflow: "hidden",
-				bg: "bg.subtle",
+				// White track, not the muddy bg.subtle tan from before - the fill
+				// below is what needs to read clearly, and it can't against
+				// another warm neutral.
+				bg: "bg.surface",
 				border: "1px solid",
 				borderColor: selected ? "primary.default" : "border.default",
 				borderRadius: "lg",
@@ -32,9 +46,8 @@ function MockTeamRow({ name, percent, tier, selected }: Team) {
 				className={css({
 					position: "absolute",
 					inset: "0",
-					bg: "primary.subtle",
 				})}
-				style={{ width: `${percent}%` }}
+				style={{ width: `${percent}%`, backgroundColor: hexToRgba(color, 0.1) }}
 			/>
 			<div
 				className={css({

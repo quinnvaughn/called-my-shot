@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm"
 import { DateTime } from "luxon"
 import { env } from "../env"
-import { hitTolerance, numericGuessPoints, selectionPoints } from "../lib/calls"
+import { fieldPct, numericGuessPoints, selectionPoints } from "../lib/calls"
 import {
 	expiryToDate,
 	type InviteExpiryOption,
@@ -19,7 +19,9 @@ import {
 	players,
 	type QuestionOption,
 	questionOptions,
+	questionShares,
 	questions,
+	resolutionDisputes,
 	sports,
 	stats,
 	type Team,
@@ -74,6 +76,18 @@ async function createQuestion(input: typeof questions.$inferInsert) {
 	return question
 }
 
+async function shareQuestion(
+	groupId: string,
+	questionId: string,
+	sharedByUserId: string,
+) {
+	const [share] = await db
+		.insert(questionShares)
+		.values({ groupId, questionId, sharedBy: sharedByUserId })
+		.returning()
+	return share
+}
+
 async function addOptions(questionId: string, labels: string[]) {
 	return db
 		.insert(questionOptions)
@@ -114,7 +128,7 @@ async function addPlayerOptions(questionId: string, playerRows: Player[]) {
 async function callOnOptions(
 	questionId: string,
 	userId: string,
-	picks: { optionId: string; fieldPctAtCall: number; conviction: number }[],
+	picks: { optionId: string; conviction: number }[],
 	caseText?: string,
 ) {
 	const [call] = await db
@@ -126,7 +140,6 @@ async function callOnOptions(
 			callId: call.id,
 			optionId: pick.optionId,
 			conviction: pick.conviction,
-			fieldPctAtCall: pick.fieldPctAtCall,
 		})),
 	)
 	return call
@@ -148,12 +161,20 @@ async function callWithGuess(
 
 // Marks the winning option(s) and scores every selection made on this
 // question via the same tierFor/selectionPoints math the live app will use.
+// Each option's field share is computed once here, off the final tally, and
+// applied to every selection on that option - not a per-caller snapshot, so
+// it doesn't matter who called it first.
 async function resolveOptionQuestion(
 	questionId: string,
 	options: QuestionOption[],
 	correctOptionIds: string[],
 	resolutionNote: string,
 ) {
+	const questionCalls = await db.query.calls.findMany({
+		where: { questionId },
+		columns: { id: true },
+	})
+
 	for (const option of options) {
 		await db
 			.update(questionOptions)
@@ -163,12 +184,13 @@ async function resolveOptionQuestion(
 		const selections = await db.query.callSelections.findMany({
 			where: { optionId: option.id },
 		})
+		const optionFieldPct = fieldPct(selections.length, questionCalls.length)
 		for (const selection of selections) {
 			await db
 				.update(callSelections)
 				.set({
 					resultPoints: selectionPoints(
-						selection.fieldPctAtCall,
+						optionFieldPct,
 						selection.conviction,
 						correctOptionIds.includes(option.id),
 					),
@@ -183,8 +205,9 @@ async function resolveOptionQuestion(
 		.where(eq(questions.id, questionId))
 }
 
-// Ranks every guess against the actual value to award points, and separately
-// flags which guesses fell inside the tolerance band for the accuracy stat.
+// Ranks every guess against the actual value to award points; hitTolerance
+// comes back from the same call instead of being recomputed separately, so
+// there's one source of truth for which guesses actually hit the band.
 async function resolveNumericQuestion(
 	questionId: string,
 	actualValue: number,
@@ -204,16 +227,20 @@ async function resolveNumericQuestion(
 			guessValue: call.guessValue,
 			conviction: call.conviction,
 		}))
-	const pointsByCallId = new Map(
-		numericGuessPoints(guesses, actualValue).map((r) => [r.callId, r.points]),
+	const resultByCallId = new Map(
+		numericGuessPoints(guesses, actualValue, tolerancePct).map((r) => [
+			r.callId,
+			r,
+		]),
 	)
 
 	for (const call of guesses) {
+		const result = resultByCallId.get(call.callId)
 		await db
 			.update(calls)
 			.set({
-				hitTolerance: hitTolerance(call.guessValue, actualValue, tolerancePct),
-				resultPoints: pointsByCallId.get(call.callId),
+				hitTolerance: result?.hit ?? null,
+				resultPoints: result?.points,
 			})
 			.where(eq(calls.id, call.callId))
 	}
@@ -229,10 +256,21 @@ async function resolveNumericQuestion(
 		.where(eq(questions.id, questionId))
 }
 
+// Files a dispute against an already-resolved question and flips it to
+// "disputed" - see resolutionDisputes in db/schema/questions.ts for how an
+// admin later resolves it (upheld/overturned, back to "resolved").
+async function fileDispute(questionId: string, userId: string, reason: string) {
+	await db.insert(resolutionDisputes).values({ questionId, userId, reason })
+	await db
+		.update(questions)
+		.set({ status: "disputed" })
+		.where(eq(questions.id, questionId))
+}
+
 async function main() {
 	console.log("Wiping existing data...")
 	await db.execute(
-		"TRUNCATE TABLE call_selections, calls, question_options, questions, stats, players, teams, leagues, sports, group_invites, group_members, groups, sessions, users RESTART IDENTITY CASCADE",
+		"TRUNCATE TABLE call_selections, calls, question_options, question_shares, questions, stats, players, teams, leagues, sports, group_invites, group_members, groups, sessions, users RESTART IDENTITY CASCADE",
 	)
 
 	console.log("Seeding users...")
@@ -658,24 +696,24 @@ async function main() {
 			nbaTeam("MIL"),
 		])
 	await callOnOptions(championship2027.id, mpwolves.id, [
-		{ optionId: celtics27.id, fieldPctAtCall: 30, conviction: 55 },
+		{ optionId: celtics27.id, conviction: 55 },
 	])
 	await callOnOptions(championship2027.id, tswish.id, [
-		{ optionId: nuggets27.id, fieldPctAtCall: 22, conviction: 60 },
+		{ optionId: nuggets27.id, conviction: 60 },
 	])
 	await callOnOptions(championship2027.id, dkanalytics.id, [
-		{ optionId: thunder27.id, fieldPctAtCall: 18, conviction: 50 },
+		{ optionId: thunder27.id, conviction: 50 },
 	])
 	await callOnOptions(championship2027.id, rcourtside.id, [
-		{ optionId: celtics27.id, fieldPctAtCall: 28, conviction: 40 },
+		{ optionId: celtics27.id, conviction: 40 },
 	])
 	await callOnOptions(championship2027.id, ballknower.id, [
-		{ optionId: magic27.id, fieldPctAtCall: 4, conviction: 35 },
+		{ optionId: magic27.id, conviction: 35 },
 	])
 	await callOnOptions(
 		championship2027.id,
 		quinn.id,
-		[{ optionId: wolves27.id, fieldPctAtCall: 4, conviction: 65 }],
+		[{ optionId: wolves27.id, conviction: 65 }],
 		"Two conference finals runs already - continuity matters more than people give it credit for.",
 	)
 
@@ -698,17 +736,17 @@ async function main() {
 	await callOnOptions(
 		championship2026.id,
 		quinn.id,
-		[{ optionId: nuggets26.id, fieldPctAtCall: 4, conviction: 70 }],
+		[{ optionId: nuggets26.id, conviction: 70 }],
 		"Jokic playing angry after last year's exit - this was the easiest read of the season.",
 	)
 	await callOnOptions(championship2026.id, mpwolves.id, [
-		{ optionId: celtics26.id, fieldPctAtCall: 35, conviction: 50 },
+		{ optionId: celtics26.id, conviction: 50 },
 	])
 	await callOnOptions(championship2026.id, tswish.id, [
-		{ optionId: nuggets26.id, fieldPctAtCall: 8, conviction: 40 },
+		{ optionId: nuggets26.id, conviction: 40 },
 	])
 	await callOnOptions(championship2026.id, dkanalytics.id, [
-		{ optionId: suns26.id, fieldPctAtCall: 5, conviction: 45 },
+		{ optionId: suns26.id, conviction: 45 },
 	])
 	await resolveOptionQuestion(
 		championship2026.id,
@@ -741,14 +779,14 @@ async function main() {
 	await callOnOptions(
 		rookieOfYear.id,
 		quinn.id,
-		[{ optionId: bailey.id, fieldPctAtCall: 20, conviction: 45 }],
+		[{ optionId: bailey.id, conviction: 45 }],
 		"Usage rate on that roster favors him over Flagg early.",
 	)
 	await callOnOptions(rookieOfYear.id, mpwolves.id, [
-		{ optionId: flagg.id, fieldPctAtCall: 55, conviction: 60 },
+		{ optionId: flagg.id, conviction: 60 },
 	])
 	await callOnOptions(rookieOfYear.id, rcourtside.id, [
-		{ optionId: harper.id, fieldPctAtCall: 15, conviction: 30 },
+		{ optionId: harper.id, conviction: 30 },
 	])
 	await resolveOptionQuestion(
 		rookieOfYear.id,
@@ -773,16 +811,17 @@ async function main() {
 	})
 	const [tdYes, tdNo] = await addOptions(jokicTripleDouble.id, ["Yes", "No"])
 	await callOnOptions(jokicTripleDouble.id, quinn.id, [
-		{ optionId: tdYes.id, fieldPctAtCall: 65, conviction: 55 },
+		{ optionId: tdYes.id, conviction: 55 },
 	])
 	await callOnOptions(jokicTripleDouble.id, tswish.id, [
-		{ optionId: tdYes.id, fieldPctAtCall: 60, conviction: 40 },
+		{ optionId: tdYes.id, conviction: 40 },
 	])
 	await callOnOptions(jokicTripleDouble.id, ballknower.id, [
-		{ optionId: tdNo.id, fieldPctAtCall: 35, conviction: 50 },
+		{ optionId: tdNo.id, conviction: 50 },
 	])
 
-	// 5. Yes/No, resolved - quinn called it wrong
+	// 5. Yes/No, resolved - quinn called it wrong. Also the seed's one example
+	// of a yes_no with a subjectTeam set, for the team-color card accent/badge.
 	const lakersMargin = await createQuestion({
 		type: "yes_no",
 		category: "game_stats",
@@ -792,13 +831,15 @@ async function main() {
 		leagueId: nba.id,
 		resolutionSource: "ESPN box score",
 		locksAt: daysAgo(3),
+		numericSubjectType: "team",
+		subjectTeamId: nbaTeam("LAL").id,
 	})
 	const [marginYes, marginNo] = await addOptions(lakersMargin.id, ["Yes", "No"])
 	await callOnOptions(lakersMargin.id, quinn.id, [
-		{ optionId: marginYes.id, fieldPctAtCall: 75, conviction: 80 },
+		{ optionId: marginYes.id, conviction: 80 },
 	])
 	await callOnOptions(lakersMargin.id, mpwolves.id, [
-		{ optionId: marginNo.id, fieldPctAtCall: 25, conviction: 50 },
+		{ optionId: marginNo.id, conviction: 50 },
 	])
 	await resolveOptionQuestion(
 		lakersMargin.id,
@@ -824,18 +865,15 @@ async function main() {
 		statId: basketballStat("Points").id,
 		ouLine: 224.5,
 	})
-	const [over2245, under2245] = await addOptions(totalPointsOU.id, [
-		"Over 224.5",
-		"Under 224.5",
-	])
+	const [over2245, under2245] = await addOptions(totalPointsOU.id, ["Over", "Under"])
 	await callOnOptions(totalPointsOU.id, quinn.id, [
-		{ optionId: over2245.id, fieldPctAtCall: 54, conviction: 50 },
+		{ optionId: over2245.id, conviction: 50 },
 	])
 	await callOnOptions(totalPointsOU.id, jrhoops.id, [
-		{ optionId: over2245.id, fieldPctAtCall: 54, conviction: 60 },
+		{ optionId: over2245.id, conviction: 60 },
 	])
 	await callOnOptions(totalPointsOU.id, rcourtside.id, [
-		{ optionId: under2245.id, fieldPctAtCall: 46, conviction: 45 },
+		{ optionId: under2245.id, conviction: 45 },
 	])
 
 	// 7. Numeric guess, still open
@@ -931,17 +969,15 @@ async function main() {
 	}
 	// one conviction level applied to every pick ("ONE FOR ALL" mode)
 	await callOnOptions(allNbaFirstTeam.id, tswish.id, [
-		{ optionId: byName("Nikola Jokic").id, fieldPctAtCall: 92, conviction: 50 },
-		{ optionId: byName("Luka Doncic").id, fieldPctAtCall: 79, conviction: 50 },
-		{ optionId: byName("Jayson Tatum").id, fieldPctAtCall: 68, conviction: 50 },
+		{ optionId: byName("Nikola Jokic").id, conviction: 50 },
+		{ optionId: byName("Luka Doncic").id, conviction: 50 },
+		{ optionId: byName("Jayson Tatum").id, conviction: 50 },
 		{
 			optionId: byName("Victor Wembanyama").id,
-			fieldPctAtCall: 61,
 			conviction: 50,
 		},
 		{
 			optionId: byName("Anthony Edwards").id,
-			fieldPctAtCall: 54,
 			conviction: 50,
 		},
 	])
@@ -952,27 +988,22 @@ async function main() {
 		[
 			{
 				optionId: byName("Nikola Jokic").id,
-				fieldPctAtCall: 92,
 				conviction: 60,
 			},
 			{
 				optionId: byName("Shai Gilgeous-Alexander").id,
-				fieldPctAtCall: 88,
 				conviction: 55,
 			},
 			{
 				optionId: byName("Giannis Antetokounmpo").id,
-				fieldPctAtCall: 81,
 				conviction: 50,
 			},
 			{
 				optionId: byName("Jayson Tatum").id,
-				fieldPctAtCall: 68,
 				conviction: 45,
 			},
 			{
 				optionId: byName("Anthony Edwards").id,
-				fieldPctAtCall: 54,
 				conviction: 40,
 			},
 		],
@@ -1001,16 +1032,16 @@ async function main() {
 		nflTeam("SF"),
 	])
 	await callOnOptions(superBowl.id, quinn.id, [
-		{ optionId: bills.id, fieldPctAtCall: 22, conviction: 60 },
+		{ optionId: bills.id, conviction: 60 },
 	])
 	await callOnOptions(superBowl.id, dannyRinger.id, [
-		{ optionId: chiefs.id, fieldPctAtCall: 28, conviction: 55 },
+		{ optionId: chiefs.id, conviction: 55 },
 	])
 	await callOnOptions(superBowl.id, mattfantasy.id, [
-		{ optionId: eagles.id, fieldPctAtCall: 18, conviction: 45 },
+		{ optionId: eagles.id, conviction: 45 },
 	])
 	await callOnOptions(superBowl.id, statlinesteve.id, [
-		{ optionId: ravens.id, fieldPctAtCall: 14, conviction: 40 },
+		{ optionId: ravens.id, conviction: 40 },
 	])
 
 	// 11. Numeric guess, still open
@@ -1052,15 +1083,12 @@ async function main() {
 		statId: footballStat("Points").id,
 		ouLine: 47.5,
 	})
-	const [over475, under475] = await addOptions(chiefsBillsOU.id, [
-		"Over 47.5",
-		"Under 47.5",
-	])
+	const [over475, under475] = await addOptions(chiefsBillsOU.id, ["Over", "Under"])
 	await callOnOptions(chiefsBillsOU.id, quinn.id, [
-		{ optionId: over475.id, fieldPctAtCall: 58, conviction: 50 },
+		{ optionId: over475.id, conviction: 50 },
 	])
 	await callOnOptions(chiefsBillsOU.id, dannyRinger.id, [
-		{ optionId: under475.id, fieldPctAtCall: 42, conviction: 45 },
+		{ optionId: under475.id, conviction: 45 },
 	])
 
 	// 13. Multiple choice, resolved - jrhoops hits a big underdog pick here so
@@ -1082,17 +1110,17 @@ async function main() {
 	await callOnOptions(
 		inSeasonTournament.id,
 		jrhoops.id,
-		[{ optionId: thunderIST.id, fieldPctAtCall: 1.5, conviction: 85 }],
+		[{ optionId: thunderIST.id, conviction: 85 }],
 		"Nobody was talking about OKC before this thing started. Book it.",
 	)
 	await callOnOptions(inSeasonTournament.id, courtvision.id, [
-		{ optionId: thunderIST.id, fieldPctAtCall: 40, conviction: 50 },
+		{ optionId: thunderIST.id, conviction: 50 },
 	])
 	await callOnOptions(inSeasonTournament.id, tswish.id, [
-		{ optionId: celticsIST.id, fieldPctAtCall: 25, conviction: 45 },
+		{ optionId: celticsIST.id, conviction: 45 },
 	])
 	await callOnOptions(inSeasonTournament.id, statlinesteve.id, [
-		{ optionId: bucksIST.id, fieldPctAtCall: 20, conviction: 30 },
+		{ optionId: bucksIST.id, conviction: 30 },
 	])
 	await resolveOptionQuestion(
 		inSeasonTournament.id,
@@ -1102,6 +1130,62 @@ async function main() {
 		[thunderIST.id],
 		"Oklahoma City won the 2025 NBA In-Season Tournament.",
 	)
+
+	// 14. Multiple choice, disputed - resolved, then immediately contested, so
+	// the disputed treatment (ResolutionBanner's amber state, QuestionCard's
+	// resolved field signal) has a real question to render against.
+	const mvpRace = await createQuestion({
+		type: "multiple_choice",
+		category: "season_awards",
+		title: "Who wins 2025-26 NBA MVP?",
+		creatorId: courtvision.id,
+		sportId: basketball.id,
+		leagueId: nba.id,
+		resolutionSource: "Official NBA MVP announcement",
+		locksAt: daysAgo(5),
+	})
+	const [jokicMvp, sgaMvp, lukaMvp] = await addPlayerOptions(mvpRace.id, [
+		nbaPlayer("Nikola Jokic"),
+		nbaPlayer("Shai Gilgeous-Alexander"),
+		nbaPlayer("Luka Doncic"),
+	])
+	await callOnOptions(mvpRace.id, quinn.id, [
+		{ optionId: sgaMvp.id, conviction: 55 },
+	])
+	await callOnOptions(
+		mvpRace.id,
+		tswish.id,
+		[{ optionId: jokicMvp.id, conviction: 65 }],
+		"Efficiency numbers are absurd again and Denver's record backs it up.",
+	)
+	await callOnOptions(mvpRace.id, courtvision.id, [
+		{ optionId: lukaMvp.id, conviction: 40 },
+	])
+	await resolveOptionQuestion(
+		mvpRace.id,
+		await db.query.questionOptions.findMany({
+			where: { questionId: mvpRace.id },
+		}),
+		[sgaMvp.id],
+		"Shai Gilgeous-Alexander won 2025-26 NBA MVP.",
+	)
+	await fileDispute(
+		mvpRace.id,
+		tswish.id,
+		"The media panel's own ballots leaked and three of them had Jokic first - this doesn't match the announced result.",
+	)
+
+	console.log("Seeding shared questions...")
+
+	// Wolfpack (quinn = admin)
+	await shareQuestion(wolfpack.group.id, championship2027.id, mpwolves.id)
+	await shareQuestion(wolfpack.group.id, embiidRebounds.id, tswish.id)
+	await shareQuestion(wolfpack.group.id, allNbaFirstTeam.id, quinn.id)
+
+	// Fantasy League Chat (quinn = member)
+	await shareQuestion(fantasyLeagueChat.group.id, superBowl.id, jrhoops.id)
+	await shareQuestion(fantasyLeagueChat.group.id, mahomesYards.id, statlinesteve.id)
+	await shareQuestion(fantasyLeagueChat.group.id, jokicTripleDouble.id, quinn.id)
 
 	console.log("\nDone.\n")
 	console.log("Log in as quinn: qvaughn3@gmail.com / password")
@@ -1114,6 +1198,12 @@ async function main() {
 	)
 	console.log(
 		`  The Ringer Fantasy Show (quinn not a member, pending invite) code: ${ringerFantasyShow.invite.code}`,
+	)
+	console.log(
+		"\nWolfpack shared tab: 3 questions (1 shared by quinn)",
+	)
+	console.log(
+		"Fantasy League Chat shared tab: 3 questions (1 shared by quinn)",
 	)
 	console.log("\nQuestions seeded:")
 	console.log("  NBA 1. 2027 championship        multiple_choice  open")
@@ -1144,6 +1234,9 @@ async function main() {
 	)
 	console.log(
 		"  NBA 13. 2025 In-Season Tournament multiple_choice resolved - jrhoops won big",
+	)
+	console.log(
+		"  NBA 14. 2025-26 MVP             multiple_choice  disputed - quinn's pick contested",
 	)
 
 	await db.$client.end()
