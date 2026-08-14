@@ -1,14 +1,21 @@
 import { DateTime } from "luxon"
 import { el, type SatoriNode, svgEl } from "../share-image"
 
-// 2x the app's own CSS reference width (Card's maxWidth: 475px in
-// share-card-preview.tsx) for a crisp export - every other measurement
-// below is that same component's real token values (padding "4" = 16px,
-// fontSize "xl" = 20px, etc.), doubled the same way. Height is intentionally
-// omitted (see renderShareImage) - this is a card with natural content
-// height, not a fixed poster.
-const SCALE = 2
-export const USER_SHARE_CARD_SIZE = { width: Math.round(475 * SCALE) }
+// This PNG is never displayed in-app (see share-image-panel.tsx) - it's only
+// ever downloaded or copied elsewhere (Slack, Twitter, Notes, Finder
+// QuickLook), none of which know it was laid out against a 475px CSS
+// reference. So the target is a fixed resolution sized for that kind of
+// external viewing/pasting - roughly what OG/Twitter card images use -
+// rather than "2x whatever the in-app preview happens to be." REFERENCE_WIDTH
+// stays as the layout's design-time reference (it's what every token below
+// - padding "4" = 16px, fontSize "xl" = 20px, etc. - was measured against in
+// share-card-preview.tsx); SCALE is just how much bigger the export is than
+// that reference. Height is intentionally omitted (see renderShareImage) -
+// this is a card with natural content height, not a fixed poster.
+const REFERENCE_WIDTH = 475
+const TARGET_WIDTH = 1200
+const SCALE = TARGET_WIDTH / REFERENCE_WIDTH
+export const USER_SHARE_CARD_SIZE = { width: TARGET_WIDTH }
 
 function px(n: number): string {
 	return `${Math.round(n * SCALE)}px`
