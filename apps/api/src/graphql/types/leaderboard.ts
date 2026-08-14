@@ -1,9 +1,12 @@
-import { ValidationError } from "../../lib/errors"
 import {
 	buildGlobalLeaderboard,
 	type LeaderboardEntry,
 } from "../../lib/global-leaderboard"
-import { clampPageSize } from "../../lib/pagination"
+import {
+	clampPageSize,
+	decodeOffsetCursor,
+	encodeOffsetCursor,
+} from "../../lib/pagination"
 import { builder } from "../builder"
 import { PageInfoRef } from "./pagination"
 import { UserRef } from "./user"
@@ -39,21 +42,6 @@ const LeaderboardConnectionRef = builder
 		}),
 	})
 
-// Same scheme as the group leaderboard's cursor (types/group.ts) - the board
-// is fully recomputed and sorted in memory on every call, so the cursor is
-// just the rank already reached rather than a DB-ordered keyset.
-function encodeLeaderboardCursor(rank: number): string {
-	return Buffer.from(String(rank)).toString("base64url")
-}
-
-function decodeLeaderboardCursor(cursor: string): number {
-	const rank = Number(Buffer.from(cursor, "base64url").toString("utf8"))
-	if (!Number.isInteger(rank) || rank < 0) {
-		throw ValidationError.field("after", "Invalid pagination cursor")
-	}
-	return rank
-}
-
 builder.queryFields((t) => ({
 	leaderboard: t.field({
 		type: LeaderboardConnectionRef,
@@ -65,7 +53,7 @@ builder.queryFields((t) => ({
 		resolve: async (_root, args) => {
 			const entries = await buildGlobalLeaderboard(args.leagueId)
 			const limit = clampPageSize(args.first)
-			const afterRank = args.after ? decodeLeaderboardCursor(args.after) : 0
+			const afterRank = args.after ? decodeOffsetCursor(args.after) : 0
 			const items = entries.slice(afterRank, afterRank + limit)
 			const hasNextPage = afterRank + limit < entries.length
 			return {
@@ -74,7 +62,7 @@ builder.queryFields((t) => ({
 					hasNextPage,
 					endCursor:
 						items.length > 0
-							? encodeLeaderboardCursor(afterRank + items.length)
+							? encodeOffsetCursor(afterRank + items.length)
 							: null,
 				},
 			}

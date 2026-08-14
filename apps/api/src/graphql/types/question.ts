@@ -1,5 +1,28 @@
+import {
+	and,
+	asc,
+	count,
+	desc,
+	eq,
+	exists,
+	getColumns,
+	ilike,
+	lte,
+	or,
+	sql,
+} from "drizzle-orm"
+import { DateTime } from "luxon"
 import { db } from "../../db"
-import type { Call } from "../../db/schema"
+import {
+	type Call,
+	calls,
+	players,
+	type Question,
+	questionOptions,
+	questions,
+	teams,
+	users,
+} from "../../db/schema"
 import { requireUser } from "../../lib/auth"
 import { canViewerSeePick } from "../../lib/call-visibility"
 import { fieldPct } from "../../lib/calls"
@@ -7,6 +30,8 @@ import {
 	clampPageSize,
 	cursorWhere,
 	decodeCursor,
+	decodeOffsetCursor,
+	encodeOffsetCursor,
 	paginate,
 } from "../../lib/pagination"
 import { builder } from "../builder"
@@ -42,6 +67,18 @@ const QuestionStatus = builder.enumType("QuestionStatus", {
 		LOCKED: { value: "locked" },
 		RESOLVED: { value: "resolved" },
 		DISPUTED: { value: "disputed" },
+	},
+})
+
+// Drives ordering for the questions feed. HOT ranks by live call count (see
+// call_counts CTE in the questions resolver below) - not a stored column, so
+// its pagination uses an offset cursor rather than the (createdAt, id)
+// keyset NEW/CLOSING_SOON can use.
+const QuestionSortOrder = builder.enumType("QuestionSortOrder", {
+	values: {
+		HOT: { value: "hot" },
+		NEW: { value: "new" },
+		CLOSING_SOON: { value: "closing_soon" },
 	},
 })
 
@@ -207,6 +244,17 @@ export const CallConnectionRef = builder
 	.implement({
 		fields: (t) => ({
 			items: t.field({ type: [CallRef], resolve: (c) => c.items }),
+			pageInfo: t.field({ type: PageInfoRef, resolve: (c) => c.pageInfo }),
+		}),
+	})
+
+// Shared by the top-level questions feed below and group.ts's createdQuestions
+// - both are lists of full Question rows, just filtered differently.
+export const QuestionConnectionRef = builder
+	.objectRef<Connection<Question>>("QuestionConnection")
+	.implement({
+		fields: (t) => ({
+			items: t.field({ type: [QuestionRef], resolve: (c) => c.items }),
 			pageInfo: t.field({ type: PageInfoRef, resolve: (c) => c.pageInfo }),
 		}),
 	})
@@ -377,10 +425,120 @@ export const QuestionRef = builder.drizzleObject("questions", {
 })
 
 builder.queryFields((t) => ({
+	// The home feed. leagueId/teamId/search narrow the pool, sort picks the
+	// ordering - HOT (live call count, the default), NEW (createdAt), or
+	// CLOSING_SOON (soonest locksAt among still-open questions). teamId
+	// matches either the question's own subjectTeam or any team entered as one
+	// of its options (a championship field a team is competing in).
 	questions: t.field({
-		type: [QuestionRef],
-		resolve: () =>
-			db.query.questions.findMany({ orderBy: { createdAt: "desc" } }),
+		type: QuestionConnectionRef,
+		args: {
+			first: t.arg.int(),
+			after: t.arg.string(),
+			leagueId: t.arg.id(),
+			teamId: t.arg.id(),
+			search: t.arg.string(),
+			sort: t.arg({ type: QuestionSortOrder, required: false }),
+		},
+		resolve: async (_root, args) => {
+			const limit = clampPageSize(args.first)
+			const offset = args.after ? decodeOffsetCursor(args.after) : 0
+			const sort = args.sort ?? "hot"
+
+			const conditions = [
+				args.leagueId ? eq(questions.leagueId, args.leagueId) : undefined,
+				args.teamId
+					? or(
+							eq(questions.subjectTeamId, args.teamId),
+							exists(
+								db
+									.select({ one: sql`1` })
+									.from(questionOptions)
+									.where(
+										and(
+											eq(questionOptions.questionId, questions.id),
+											eq(questionOptions.teamId, args.teamId),
+										),
+									),
+							),
+						)
+					: undefined,
+				args.search
+					? or(
+							ilike(questions.title, `%${args.search}%`),
+							ilike(users.name, `%${args.search}%`),
+							ilike(users.username, `%${args.search}%`),
+							ilike(teams.name, `%${args.search}%`),
+							ilike(teams.abbreviation, `%${args.search}%`),
+							ilike(players.name, `%${args.search}%`),
+						)
+					: undefined,
+				// Locked/resolved/disputed questions have nothing left to "close" -
+				// closing-soon only makes sense among questions still open. Also
+				// bounded to a week out - without this, a sparse feed would pad
+				// itself out with questions locking months from now just to fill
+				// the page, which doesn't read as "soon" no matter where they rank.
+				sort === "closing_soon"
+					? and(
+							eq(questions.status, "open"),
+							lte(
+								questions.locksAt,
+								DateTime.now().plus({ days: 7 }).toJSDate(),
+							),
+						)
+					: undefined,
+			].filter((c) => c !== undefined)
+
+			// Live call count per question, joined in rather than computed with
+			// t.relatedCount (as QuestionRef.callCount does) so HOT can ORDER BY
+			// it directly instead of sorting the page in application code.
+			const callCounts = db.$with("call_counts").as(
+				db
+					.select({
+						questionId: calls.questionId,
+						cnt: count(calls.id).as("cnt"),
+					})
+					.from(calls)
+					.groupBy(calls.questionId),
+			)
+
+			let query = db
+				.with(callCounts)
+				.select(getColumns(questions))
+				.from(questions)
+				.leftJoin(users, eq(users.id, questions.creatorId))
+				.leftJoin(teams, eq(teams.id, questions.subjectTeamId))
+				.leftJoin(players, eq(players.id, questions.subjectPlayerId))
+				.leftJoin(callCounts, eq(callCounts.questionId, questions.id))
+				.$dynamic()
+
+			if (conditions.length > 0) {
+				query = query.where(and(...conditions))
+			}
+
+			query =
+				sort === "new"
+					? query.orderBy(desc(questions.createdAt), desc(questions.id))
+					: sort === "closing_soon"
+						? query.orderBy(asc(questions.locksAt), desc(questions.id))
+						: query.orderBy(
+								desc(sql`coalesce(${callCounts.cnt}, 0)`),
+								desc(questions.id),
+							)
+
+			const rows = await query.limit(limit + 1).offset(offset)
+			const hasNextPage = rows.length > limit
+			const items = rows.slice(0, limit)
+
+			return {
+				items,
+				pageInfo: {
+					hasNextPage,
+					endCursor:
+						items.length > 0 ? encodeOffsetCursor(offset + items.length) : null,
+				},
+			}
+		},
 	}),
 
 	question: t.field({

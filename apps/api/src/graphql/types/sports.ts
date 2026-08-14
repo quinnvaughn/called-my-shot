@@ -84,10 +84,18 @@ builder.queryFields((t) => ({
 
 	players: t.field({
 		type: [PlayerRef],
-		args: { teamId: t.arg.id({ required: false }) },
+		args: {
+			teamId: t.arg.id({ required: false }),
+			leagueId: t.arg.id({ required: false }),
+		},
 		resolve: (_root, args) =>
 			db.query.players.findMany({
-				where: args.teamId ? { currentTeamId: args.teamId } : undefined,
+				where: {
+					...(args.teamId ? { currentTeamId: args.teamId } : {}),
+					...(args.leagueId
+						? { currentTeam: { leagueId: args.leagueId } }
+						: {}),
+				},
 				orderBy: { name: "asc" },
 			}),
 	}),

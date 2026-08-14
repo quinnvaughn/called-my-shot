@@ -56,3 +56,19 @@ export function paginate<T extends { createdAt: Date; id: string }>(
 		},
 	}
 }
+
+// Offset-based cursor for connections whose ordering isn't over a stable
+// keyset column - a fully-recomputed-per-call ranking (leaderboards) or a
+// live aggregate (hot sort). Just the number of rows already returned, not
+// tied to any particular row's identity, so it can't use cursorWhere above.
+export function encodeOffsetCursor(offset: number): string {
+	return Buffer.from(String(offset)).toString("base64url")
+}
+
+export function decodeOffsetCursor(cursor: string): number {
+	const offset = Number(Buffer.from(cursor, "base64url").toString("utf8"))
+	if (!Number.isInteger(offset) || offset < 0) {
+		throw ValidationError.field("after", "Invalid pagination cursor")
+	}
+	return offset
+}

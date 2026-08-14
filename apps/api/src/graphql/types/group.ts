@@ -5,7 +5,6 @@ import {
 	type Group,
 	groupMembers,
 	groups,
-	type Question,
 	type QuestionShare,
 	questionShares,
 	type User,
@@ -30,12 +29,14 @@ import {
 	clampPageSize,
 	cursorWhere,
 	decodeCursor,
+	decodeOffsetCursor,
+	encodeOffsetCursor,
 	paginate,
 } from "../../lib/pagination"
 import { isUuid } from "../../lib/uuid"
 import { builder } from "../builder"
 import { PageInfoRef } from "./pagination"
-import { CallConnectionRef, QuestionRef } from "./question"
+import { CallConnectionRef, QuestionConnectionRef } from "./question"
 import { UserRef } from "./user"
 
 type Connection<T> = {
@@ -117,21 +118,6 @@ const GroupLeaderboardConnectionRef = builder
 			pageInfo: t.field({ type: PageInfoRef, resolve: (c) => c.pageInfo }),
 		}),
 	})
-
-// The leaderboard is fully recomputed and sorted in memory on every call (see
-// below), so its cursor is just the rank already reached rather than a
-// (createdAt, id) keyset like lib/pagination.ts uses for DB-ordered lists.
-function encodeLeaderboardCursor(rank: number): string {
-	return Buffer.from(String(rank)).toString("base64url")
-}
-
-function decodeLeaderboardCursor(cursor: string): number {
-	const rank = Number(Buffer.from(cursor, "base64url").toString("utf8"))
-	if (!Number.isInteger(rank) || rank < 0) {
-		throw ValidationError.field("after", "Invalid pagination cursor")
-	}
-	return rank
-}
 
 // leagueId narrows the ranking to calls made on questions in that league only
 // (points/accuracy recomputed from scratch, not a filter over the
@@ -275,15 +261,6 @@ export const QuestionShareRef = builder.drizzleObject("questionShares", {
 	}),
 })
 
-const QuestionConnectionRef = builder
-	.objectRef<Connection<Question>>("QuestionConnection")
-	.implement({
-		fields: (t) => ({
-			items: t.field({ type: [QuestionRef], resolve: (c) => c.items }),
-			pageInfo: t.field({ type: PageInfoRef, resolve: (c) => c.pageInfo }),
-		}),
-	})
-
 const QuestionShareConnectionRef = builder
 	.objectRef<Connection<QuestionShare>>("QuestionShareConnection")
 	.implement({
@@ -353,7 +330,7 @@ const GroupRef = builder.drizzleObject("groups", {
 			resolve: async (group, args) => {
 				const entries = await buildLeaderboard(group.id, args.leagueId)
 				const limit = clampPageSize(args.first)
-				const afterRank = args.after ? decodeLeaderboardCursor(args.after) : 0
+				const afterRank = args.after ? decodeOffsetCursor(args.after) : 0
 				const items = entries.slice(afterRank, afterRank + limit)
 				const hasNextPage = afterRank + limit < entries.length
 				return {
@@ -362,7 +339,7 @@ const GroupRef = builder.drizzleObject("groups", {
 						hasNextPage,
 						endCursor:
 							items.length > 0
-								? encodeLeaderboardCursor(afterRank + items.length)
+								? encodeOffsetCursor(afterRank + items.length)
 								: null,
 					},
 				}
