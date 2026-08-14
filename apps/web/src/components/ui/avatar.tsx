@@ -20,6 +20,7 @@ export const avatarStyle = cva({
 			xs: { width: "6", height: "6", fontSize: "3xs" },
 			sm: { width: "7", height: "7", fontSize: "xs" },
 			md: { width: "8", height: "8", fontSize: "xs" },
+			lg: { width: "16", height: "16", fontSize: "xl" },
 		},
 	},
 	defaultVariants: { size: "md" },
@@ -27,7 +28,7 @@ export const avatarStyle = cva({
 
 type AvatarProps = HTMLAttributes<HTMLDivElement> & {
 	name: string
-	size?: "xs" | "sm" | "md"
+	size?: "xs" | "sm" | "md" | "lg"
 }
 
 export function Avatar({ name, size, className, ...props }: AvatarProps) {

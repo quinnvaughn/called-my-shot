@@ -15,6 +15,7 @@ export const leagues = pgTable("leagues", {
 	abbreviation: text("abbreviation").notNull(),
 	slug: text("slug").notNull().unique(), // "nba"
 })
+export type League = typeof leagues.$inferSelect
 
 export const teams = pgTable(
 	"teams",

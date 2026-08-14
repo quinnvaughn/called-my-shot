@@ -1,7 +1,9 @@
-import { db } from "../../db"
-import type { User } from "../../db/schema"
-import { clampPageSize } from "../../lib/pagination"
 import { ValidationError } from "../../lib/errors"
+import {
+	buildGlobalLeaderboard,
+	type LeaderboardEntry,
+} from "../../lib/global-leaderboard"
+import { clampPageSize } from "../../lib/pagination"
 import { builder } from "../builder"
 import { PageInfoRef } from "./pagination"
 import { UserRef } from "./user"
@@ -9,15 +11,6 @@ import { UserRef } from "./user"
 type Connection<T> = {
 	items: T[]
 	pageInfo: { hasNextPage: boolean; endCursor: string | null }
-}
-
-type LeaderboardEntry = {
-	rank: number
-	user: User
-	totalPoints: number
-	accuracy: number | null
-	callCount: number
-	resolvedCallCount: number
 }
 
 const LeaderboardEntryRef = builder
@@ -59,75 +52,6 @@ function decodeLeaderboardCursor(cursor: string): number {
 		throw ValidationError.field("after", "Invalid pagination cursor")
 	}
 	return rank
-}
-
-// Site-wide ranking across every registered user, not just one group's
-// members. leagueId narrows to calls on questions in that league only, same
-// as the group version. Unlike the group leaderboard - which seeds every
-// member at 0 so a quiet member still shows up in their own group - this
-// only includes users with at least one call: a public board listing every
-// zero-point registered account would be noise, not signal.
-async function buildGlobalLeaderboard(
-	leagueId?: string | null,
-): Promise<LeaderboardEntry[]> {
-	const users = await db.query.users.findMany()
-
-	const callsRaw = await db.query.calls.findMany({
-		with: {
-			selections: { with: { option: true } },
-			question: { columns: { leagueId: true } },
-		},
-	})
-	const calls = leagueId
-		? callsRaw.filter((call) => call.question?.leagueId === leagueId)
-		: callsRaw
-
-	const callsByUser = new Map<string, typeof calls>()
-	for (const call of calls) {
-		const existing = callsByUser.get(call.userId)
-		if (existing) existing.push(call)
-		else callsByUser.set(call.userId, [call])
-	}
-
-	const entries = users.flatMap((user) => {
-		const userCalls = callsByUser.get(user.id) ?? []
-		if (userCalls.length === 0) return []
-
-		let totalPoints = 0
-		let resolvedCallCount = 0
-		let correctCount = 0
-
-		for (const call of userCalls) {
-			if (call.selections.length > 0) {
-				for (const selection of call.selections) {
-					if (selection.resultPoints === null) continue
-					resolvedCallCount++
-					totalPoints += selection.resultPoints
-					if (selection.option?.isCorrect) correctCount++
-				}
-			} else if (call.resultPoints !== null) {
-				resolvedCallCount++
-				totalPoints += call.resultPoints
-				if (call.hitTolerance) correctCount++
-			}
-		}
-
-		return [
-			{
-				user,
-				totalPoints,
-				accuracy:
-					resolvedCallCount > 0
-						? (correctCount / resolvedCallCount) * 100
-						: null,
-				callCount: userCalls.length,
-				resolvedCallCount,
-			},
-		]
-	})
-
-	entries.sort((a, b) => b.totalPoints - a.totalPoints)
-	return entries.map((entry, index) => ({ ...entry, rank: index + 1 }))
 }
 
 builder.queryFields((t) => ({

@@ -9,23 +9,20 @@ const cardRecipe = sva({
 			display: "flex",
 			flexDirection: "column",
 			borderRadius: "2xl",
-			border: "1px solid",
-			borderColor: "border.default",
+			border: "1px solid {colors.border.default}",
 			overflow: "hidden",
 		},
 		header: {
 			display: "flex",
 			alignItems: "center",
 			justifyContent: "space-between",
-			borderBottom: "1px solid",
-			borderColor: "border.default",
+			borderBottom: "1px solid {colors.border.default}",
 		},
 		body: {
 			flex: "1",
 		},
 		footer: {
-			borderTop: "1px solid",
-			borderColor: "border.default",
+			borderTop: "1px solid {colors.border.default}",
 		},
 	},
 	variants: {

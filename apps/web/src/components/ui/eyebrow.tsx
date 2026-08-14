@@ -4,6 +4,7 @@ import { css } from "styled-system/css"
 type Props = {
 	children: ReactNode
 	variant?: "primary" | "secondary" | "neutral"
+	size?: "sm" | "md"
 }
 
 const colorByVariant = {
@@ -12,12 +13,16 @@ const colorByVariant = {
 	neutral: "fg.muted",
 } as const
 
-export function Eyebrow({ children, variant = "secondary" }: Props) {
+export function Eyebrow({
+	children,
+	variant = "secondary",
+	size = "md",
+}: Props) {
 	return (
 		<div
 			className={css({
 				fontFamily: "mono",
-				fontSize: "xs",
+				fontSize: size === "sm" ? "2xs" : "xs",
 				fontWeight: "medium",
 				textTransform: "uppercase",
 				letterSpacing: "wider",

@@ -59,7 +59,7 @@ export default defineConfig({
           // especially) is picked against a white background instead.
           paper: { value: "#FFFFFF" }, // app background, canvas (was `ink`)
           card: { value: "#FFFFFF" }, // primary surface: cards, panels, inputs, nav rail — same white as paper, separated by border/shadow
-          cardMuted: { value: "#EDEDEA" }, // nested/inset surface: selected rows, tab tracks, dropdowns — kept close to neutral gray (not tan/beige) so it doesn't muddy together with the warm orange accent
+          cardMuted: { value: "#F6F6F4" }, // nested/inset surface: selected rows, tab tracks, dropdowns — kept close to neutral gray (not tan/beige) so it doesn't muddy together with the warm orange accent; barely-there against white on purpose
           border: { value: "#E5E2D9" }, // default hairline border
           track: { value: "#C9C4B5" }, // emphasized border (see Tabs); also reserved for progress-track backgrounds
           ink: { value: "#14140F" }, // primary text (was `bone`)
@@ -68,8 +68,13 @@ export default defineConfig({
           steel: { value: "#767267" }, // tertiary text, placeholders, inactive icons — darkened from #96938A (only 3:1 on white), which was tuned for a dark background and read as barely-there once flipped
           signal: { value: "#C2410C" }, // brand accent — CTAs, active/selected state, focus ring; darkened from #FF5A1F to hold 4.5:1 as text on white
           signalMuted: { value: "#FCEAE0" }, // pale accent-tinted background for badges/chips (not the same as signal at low alpha)
-          verified: { value: "#15803D" }, // success / correct-call / positive value; darkened from #34D399, which was ~2:1 on white
+          verified: { value: "#15803D" }, // success / correct-call / positive value; darkened from #34D399, which was ~1.9:1 on white - confirmed illegible as text, tried and reverted
           verifiedMuted: { value: "#E1F3E7" }, // pale success-tinted background for the "Called" status chip
+          // The original, un-darkened mockup green - #15803D above is darkened
+          // specifically so it holds contrast as *text* on white; that reason
+          // doesn't apply to a filled shape (a bar, a chart segment) with no
+          // text sitting on top of it, where the darker tone just reads dull.
+          verifiedVibrant: { value: "#34D399" },
           loss: { value: "#C22B2A" }, // error / wrong-call / negative value; darkened from #E24B4A
           caution: { value: "#A6650E" }, // warning / disputed / under-review value; darkened from #E8A33D
           cautionMuted: { value: "#FBEEDA" }, // pale caution-tinted background for the disputed-resolution banner
@@ -117,6 +122,9 @@ export default defineConfig({
           success: {
             default: { value: "{colors.verified}" },
             subtle: { value: "{colors.verifiedMuted}" },
+            // For filled shapes (bars, chart segments), not text - see
+            // verifiedVibrant above for why this is brighter than default.
+            vibrant: { value: "{colors.verifiedVibrant}" },
           },
           danger: {
             default: { value: "{colors.loss}" },

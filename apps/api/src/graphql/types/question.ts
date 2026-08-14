@@ -27,7 +27,7 @@ const QuestionType = builder.enumType("QuestionType", {
 	},
 })
 
-const QuestionCategory = builder.enumType("QuestionCategory", {
+export const QuestionCategory = builder.enumType("QuestionCategory", {
 	values: {
 		SEASON_AWARDS: { value: "season_awards" },
 		GAME_STATS: { value: "game_stats" },
