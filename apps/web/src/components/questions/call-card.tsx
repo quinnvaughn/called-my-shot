@@ -86,18 +86,7 @@ export function CallCard({ call: callProp, label: labelProp }: CallCardProps) {
 				color: "inherit",
 			})}
 		>
-			<Card
-				size="sm"
-				interactive
-				style={
-					call.question.subjectTeam
-						? {
-								borderLeftColor: call.question.subjectTeam.color,
-								borderLeftWidth: "3px",
-							}
-						: undefined
-				}
-			>
+			<Card size="sm" interactive>
 				<Card.Body>
 					<VStack gap="2" alignItems="stretch">
 						<QuestionSummaryHeader question={call.question} />

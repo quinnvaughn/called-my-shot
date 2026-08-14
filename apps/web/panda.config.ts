@@ -54,30 +54,36 @@ export default defineConfig({
           "2xs": { value: "0.6875rem" }, // 11px
         },
         colors: {
-          // Brand palette — light theme. Was originally a dark palette (near-black
-          // canvas, off-white text); flipped so every color choice (team colors
-          // especially) is picked against a white background instead.
-          paper: { value: "#FFFFFF" }, // app background, canvas (was `ink`)
-          card: { value: "#FFFFFF" }, // primary surface: cards, panels, inputs, nav rail — same white as paper, separated by border/shadow
-          cardMuted: { value: "#F6F6F4" }, // nested/inset surface: selected rows, tab tracks, dropdowns — kept close to neutral gray (not tan/beige) so it doesn't muddy together with the warm orange accent; barely-there against white on purpose
-          border: { value: "#E5E2D9" }, // default hairline border
-          track: { value: "#C9C4B5" }, // emphasized border (see Tabs); also reserved for progress-track backgrounds
-          ink: { value: "#14140F" }, // primary text (was `bone`)
-          linen: { value: "#4A4941" }, // softer body-copy tone (hero subhead, info-card paragraphs)
-          dim: { value: "#6B6B62" }, // secondary/meta text
-          steel: { value: "#767267" }, // tertiary text, placeholders, inactive icons — darkened from #96938A (only 3:1 on white), which was tuned for a dark background and read as barely-there once flipped
-          signal: { value: "#C2410C" }, // brand accent — CTAs, active/selected state, focus ring; darkened from #FF5A1F to hold 4.5:1 as text on white
-          signalMuted: { value: "#FCEAE0" }, // pale accent-tinted background for badges/chips (not the same as signal at low alpha)
-          verified: { value: "#15803D" }, // success / correct-call / positive value; darkened from #34D399, which was ~1.9:1 on white - confirmed illegible as text, tried and reverted
-          verifiedMuted: { value: "#E1F3E7" }, // pale success-tinted background for the "Called" status chip
-          // The original, un-darkened mockup green - #15803D above is darkened
-          // specifically so it holds contrast as *text* on white; that reason
-          // doesn't apply to a filled shape (a bar, a chart segment) with no
-          // text sitting on top of it, where the darker tone just reads dull.
-          verifiedVibrant: { value: "#34D399" },
-          loss: { value: "#C22B2A" }, // error / wrong-call / negative value; darkened from #E24B4A
-          caution: { value: "#A6650E" }, // warning / disputed / under-review value; darkened from #E8A33D
-          cautionMuted: { value: "#FBEEDA" }, // pale caution-tinted background for the disputed-resolution banner
+          // Brand palette — dark theme. Was flipped to light (white canvas, near-
+          // black text) so every color choice would be picked against a white
+          // background instead; flipped back. Several tokens below were darkened
+          // during the light flip purely to hold text contrast on white (signal,
+          // verified, loss, caution, steel) — moving back to dark restores each
+          // one to its original, more-saturated value, since that's the value
+          // that actually holds contrast against a near-black canvas. Light-mode
+          // values are noted per token in case this flips again.
+          paper: { value: "#0B0B0C" }, // app background, canvas (light theme: #FFFFFF)
+          card: { value: "#151513" }, // primary surface: cards, panels, inputs, nav rail
+          cardMuted: { value: "#1B1B18" }, // nested/inset surface: selected rows, tab tracks, dropdowns
+          border: { value: "#2A2A28" }, // default hairline border
+          track: { value: "#3E3E3A" }, // emphasized border (see Tabs); also reserved for progress-track backgrounds
+          ink: { value: "#F5F1E8" }, // primary text (light theme: #14140F)
+          linen: { value: "#D8D4C9" }, // softer body-copy tone (hero subhead, info-card paragraphs)
+          dim: { value: "#8A8A84" }, // secondary/meta text
+          steel: { value: "#96938A" }, // tertiary text, placeholders, inactive icons — only ~3:1 on white, which is exactly why it got darkened to #767267 for the light theme; back to full value now that it's on a dark canvas again
+          signal: { value: "#FF5A1F" }, // brand accent — CTAs, active/selected state, focus ring; light theme darkened this to #C2410C to hold 4.5:1 as text on white
+          signalMuted: { value: "#3A1E12" }, // pale accent-tinted background for badges/chips (not the same as signal at low alpha)
+          // Same color as verifiedVibrant below — the light theme split these in
+          // two only because #34D399 as *text* on white measured ~1.9:1 (illegible;
+          // darkened to #15803D), while the raw value was still fine as a filled
+          // shape with no text on it. On a dark canvas that whole problem goes
+          // away, so both tokens converge back on the one original green.
+          verified: { value: "#34D399" }, // success / correct-call / positive value
+          verifiedMuted: { value: "#112921" }, // pale success-tinted background for the "Called" status chip
+          verifiedVibrant: { value: "#34D399" }, // for filled shapes (bars, chart segments) — see note above
+          loss: { value: "#E24B4A" }, // error / wrong-call / negative value; light theme darkened this to #C22B2A
+          caution: { value: "#E8A33D" }, // warning / disputed / under-review value; light theme darkened this to #A6650E
+          cautionMuted: { value: "#2C2213" }, // pale caution-tinted background for the disputed-resolution banner
           overlay: { value: "#0B0B0C" }, // modal scrim base color (used as rgba, e.g. overlay/70) — stays dark in both themes
         },
       },

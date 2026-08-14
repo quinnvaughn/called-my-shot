@@ -79,18 +79,7 @@ export function QuestionCard({
 				color: "inherit",
 			})}
 		>
-			<Card
-				size="sm"
-				interactive
-				style={
-					question.subjectTeam
-						? {
-								borderLeftColor: question.subjectTeam.color,
-								borderLeftWidth: "3px",
-							}
-						: undefined
-				}
-			>
+			<Card size="sm" interactive>
 				<Card.Body>
 					<VStack gap="2" alignItems="stretch">
 						<QuestionSummaryHeader question={question} sharedBy={sharedBy} />

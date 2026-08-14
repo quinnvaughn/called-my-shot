@@ -28,9 +28,7 @@ type QuestionSummaryData = {
 	viewerCall: { id: string } | null
 	league: { abbreviation: string }
 	// yes_no/over_under/numeric_guess only - null for a game-wide question with
-	// no single team it's about. Also drives QuestionCard/CallCard's left-
-	// border accent, so it lives on the shared data type even though only the
-	// badge itself renders here.
+	// no single team it's about.
 	subjectTeam: { abbreviation: string; color: string } | null
 }
 
