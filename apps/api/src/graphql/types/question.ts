@@ -1,4 +1,8 @@
 import {
+	createQuestionSchema,
+	type questionCategorySchema,
+} from "@called-my-shot/schemas"
+import {
 	and,
 	asc,
 	count,
@@ -26,6 +30,11 @@ import {
 import { requireUser } from "../../lib/auth"
 import { canViewerSeePick } from "../../lib/call-visibility"
 import { fieldPct } from "../../lib/calls"
+import {
+	AuthenticationError,
+	AuthorizationError,
+	ValidationError,
+} from "../../lib/errors"
 import {
 	clampPageSize,
 	cursorWhere,
@@ -593,6 +602,162 @@ builder.queryFields((t) => ({
 				(call) => call.question?.status === "resolved",
 			).length
 			return { open: calls.length - resolved, resolved }
+		},
+	}),
+}))
+
+const QuestionPayload = builder
+	.objectRef<{ question: Question }>("QuestionPayload")
+	.implement({
+		fields: (t) => ({
+			question: t.field({
+				type: QuestionRef,
+				resolve: (payload) => payload.question,
+			}),
+		}),
+	})
+
+const CreateQuestionOptionInput = builder.inputType(
+	"CreateQuestionOptionInput",
+	{
+		fields: (t) => ({
+			label: t.string({ required: true }),
+			teamId: t.id({ required: false }),
+			playerId: t.id({ required: false }),
+		}),
+	},
+)
+
+const CreateQuestionInput = builder.inputType("CreateQuestionInput", {
+	fields: (t) => ({
+		type: t.field({ type: QuestionType, required: true }),
+		category: t.field({ type: QuestionCategory, required: true }),
+		title: t.string({ required: true }),
+		sportId: t.id({ required: true }),
+		leagueId: t.id({ required: true }),
+
+		resolutionSource: t.string({ required: true }),
+		resolutionSourceUrl: t.string({ required: false }),
+		locksAt: t.string({ required: true }),
+		isOfficial: t.boolean({ required: false }),
+
+		// multiple_choice options / multi_select pool
+		options: t.field({
+			type: [CreateQuestionOptionInput],
+			required: false,
+		}),
+
+		// over_under, numeric_guess
+		statId: t.id({ required: false }),
+		customStat: t.string({ required: false }),
+
+		// over_under
+		ouLine: t.float({ required: false }),
+
+		// yes_no, over_under, numeric_guess
+		numericSubjectType: t.field({
+			type: NumericSubjectType,
+			required: false,
+		}),
+		subjectTeamId: t.id({ required: false }),
+		subjectPlayerId: t.id({ required: false }),
+
+		// numeric_guess
+		numericTolerancePct: t.float({ required: false }),
+
+		// multi_select
+		picksRequired: t.int({ required: false }),
+	}),
+})
+
+builder.mutationFields((t) => ({
+	createQuestion: t.field({
+		type: QuestionPayload,
+		errors: {
+			types: [AuthenticationError, AuthorizationError, ValidationError],
+			directResult: true,
+			union: { name: "CreateQuestionResult" },
+		},
+		args: { input: t.arg({ type: CreateQuestionInput, required: true }) },
+		resolve: async (_root, args, ctx) => {
+			const user = requireUser(ctx)
+			const parsed = createQuestionSchema.safeParse(args.input)
+			if (!parsed.success) {
+				throw ValidationError.fromZodIssues(parsed.error.issues)
+			}
+			const data = parsed.data
+
+			if (data.isOfficial && !user.isAdmin) {
+				throw new AuthorizationError("Only admins can post official questions.")
+			}
+
+			const question = await db.transaction(async (tx) => {
+				const [question] = await tx
+					.insert(questions)
+					.values({
+						type: data.type,
+						// createQuestionSchema validates category is a member of this
+						// enum at runtime (see packages/schemas/src/questions.ts) but
+						// keeps its output type as a plain string - the frontend form
+						// needs that to represent "no category chosen yet" - so it's
+						// narrowed back here for the insert.
+						category:
+							data.category as (typeof questionCategorySchema.options)[number],
+						title: data.title,
+						creatorId: user.id,
+						isOfficial: data.isOfficial ?? false,
+						sportId: data.sportId,
+						leagueId: data.leagueId,
+						resolutionSource: data.resolutionSource,
+						resolutionSourceUrl: data.resolutionSourceUrl || null,
+						locksAt: new Date(data.locksAt),
+						statId: data.statId ?? null,
+						customStat: data.customStat || null,
+						ouLine: data.ouLine ?? null,
+						numericSubjectType: data.numericSubjectType ?? null,
+						subjectTeamId: data.subjectTeamId ?? null,
+						subjectPlayerId: data.subjectPlayerId ?? null,
+						numericTolerancePct: data.numericTolerancePct ?? null,
+						picksRequired: data.picksRequired ?? null,
+					})
+					.returning()
+
+				if (data.type === "multiple_choice" || data.type === "multi_select") {
+					const options = data.options ?? []
+					await tx.insert(questionOptions).values(
+						options.map((option, index) => ({
+							questionId: question.id,
+							label: option.label,
+							sortOrder: index,
+							teamId: option.teamId ?? null,
+							playerId: option.playerId ?? null,
+						})),
+					)
+				} else if (data.type === "yes_no") {
+					await tx.insert(questionOptions).values([
+						{ questionId: question.id, label: "Yes", sortOrder: 0 },
+						{ questionId: question.id, label: "No", sortOrder: 1 },
+					])
+				} else if (data.type === "over_under") {
+					// createQuestionSchema guarantees ouLine is set for over_under.
+					await tx.insert(questionOptions).values([
+						{
+							questionId: question.id,
+							label: `Over ${data.ouLine}`,
+							sortOrder: 0,
+						},
+						{
+							questionId: question.id,
+							label: `Under ${data.ouLine}`,
+							sortOrder: 1,
+						},
+					])
+				}
+
+				return question
+			})
+
+			return { question }
 		},
 	}),
 }))

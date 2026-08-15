@@ -1,15 +1,19 @@
 import { createFileRoute, Link, redirect } from "@tanstack/react-router"
 import {
-	FiActivity,
+	FaArrowsUpDown,
+	FaHashtag,
+	FaListCheck,
+	FaListUl,
+	FaToggleOn,
+} from "react-icons/fa6"
+import {
 	FiAward,
 	FiCheckCircle,
 	FiEye,
 	FiFlag,
 	FiHelpCircle,
-	FiList,
 	FiLock,
 	FiMessageSquare,
-	FiTarget,
 	FiTrendingUp,
 	FiUserCheck,
 	FiUsers,
@@ -66,25 +70,39 @@ const howItWorksItems = [
 
 const questionTypeItems = [
 	{
-		icon: <FiList />,
+		icon: <FaListUl />,
 		title: "Multiple Choice",
 		description:
 			"Pick from a field of named options. The less popular your pick, the more it pays if you're right.",
 		example: "e.g. Who wins the 2027 NFL MVP?",
 	},
 	{
-		icon: <FiActivity />,
+		icon: <FaToggleOn />,
+		title: "Yes / No",
+		description:
+			"A clean binary call. Same contrarian scoring as multiple choice, just two sides instead of a field.",
+		example: "e.g. Will there be a triple-double tonight?",
+	},
+	{
+		icon: <FaArrowsUpDown />,
 		title: "Over / Under",
 		description:
 			"One line, two sides. Same contrarian scoring as multiple choice, just a coinflip's worth of options.",
 		example: "e.g. Total goals — over or under 2.5?",
 	},
 	{
-		icon: <FiTarget />,
+		icon: <FaHashtag />,
 		title: "Numeric Guess",
 		description:
 			"Call an exact number. A tolerance band decides if you're close enough; how close beats the field decides the payout.",
 		example: "e.g. How many rebounds will Embiid grab?",
+	},
+	{
+		icon: <FaListCheck />,
+		title: "Multi-Select",
+		description:
+			"Pick several from a pool. Scored on how many of your picks land, not all-or-nothing.",
+		example: "e.g. Pick this year's All-NBA First Team.",
 	},
 ]
 

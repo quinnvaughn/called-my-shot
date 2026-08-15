@@ -36,7 +36,11 @@ export default defineConfig({
       // select's `active`/`open` are always passed through a variable
       // (isHighlighted, isActive, open state), never a literal at the call site.
       combobox: [{ highlighted: ["true"] }],
-      select: [{ active: ["true"] }, { open: ["true"] }],
+      select: [
+        { active: ["true"] },
+        { open: ["true"] },
+        { hasError: ["true"] },
+      ],
     },
   },
 
@@ -245,6 +249,69 @@ export default defineConfig({
             },
           },
         }),
+        // Same shape as textInput, minus the icon/iconButton slots and the
+        // group/field split those exist for - a textarea never has a leading/
+        // trailing icon to lay out next to, so the border/background/padding
+        // that textInput puts on `group` just lives on `field` directly here.
+        textarea: defineSlotRecipe({
+          className: "textarea",
+          slots: ["root", "label", "field", "description", "error"],
+          base: {
+            root: {
+              display: "flex",
+              flexDirection: "column",
+              gap: "1.5",
+            },
+            label: {
+              display: "block",
+              fontFamily: "mono",
+              fontSize: "2xs",
+              letterSpacing: "wide",
+              color: "fg.subtle",
+              textTransform: "uppercase",
+            },
+            field: {
+              display: "block",
+              width: "full",
+              minHeight: "24",
+              resize: "vertical",
+              backgroundColor: "bg.canvas",
+              border: "1px solid",
+              borderColor: "border.default",
+              borderRadius: "lg",
+              padding: "3.5",
+              color: "fg.default",
+              fontFamily: "inherit",
+              fontSize: "sm",
+              lineHeight: "relaxed",
+              outline: "none",
+              transition: "border-color 0.15s ease",
+              _placeholder: {
+                color: "fg.subtle",
+              },
+              _focus: {
+                borderColor: "primary.default",
+              },
+            },
+            description: {
+              fontSize: "xs",
+              color: "fg.muted",
+            },
+            error: {
+              fontSize: "xs",
+              color: "danger.default",
+            },
+          },
+          variants: {
+            error: {
+              true: {
+                field: {
+                  borderColor: "danger.default",
+                },
+              },
+            },
+          },
+        }),
         dropdown: defineSlotRecipe({
           className: "dropdown",
           slots: ["root", "trigger", "content", "item"],
@@ -423,10 +490,19 @@ export default defineConfig({
             "content",
             "groupLabel",
             "option",
+            "description",
+            "error",
           ],
           base: {
+            // A flex column so trigger + description/error stack the same
+            // way TextInput/Textarea's root does - Content itself is
+            // portalled (see ui/select.tsx) and positioned from the
+            // trigger's own bounding rect, so it doesn't need this to be a
+            // positioning root anymore.
             root: {
-              position: "relative",
+              display: "flex",
+              flexDirection: "column",
+              gap: "1.5",
             },
             trigger: {
               display: "flex",
@@ -505,6 +581,14 @@ export default defineConfig({
                 backgroundColor: "bg.subtle",
               },
             },
+            description: {
+              fontSize: "xs",
+              color: "fg.muted",
+            },
+            error: {
+              fontSize: "xs",
+              color: "danger.default",
+            },
           },
           variants: {
             open: {
@@ -514,6 +598,13 @@ export default defineConfig({
                 },
                 caret: {
                   transform: "rotate(180deg)",
+                },
+              },
+            },
+            hasError: {
+              true: {
+                trigger: {
+                  borderColor: "danger.default",
                 },
               },
             },

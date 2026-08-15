@@ -299,6 +299,7 @@ async function main() {
 				username: "quinn",
 				email: "qvaughn3@gmail.com",
 				passwordHash: quinnPasswordHash,
+				isAdmin: true,
 			},
 			{
 				name: "Marcus Pierce",

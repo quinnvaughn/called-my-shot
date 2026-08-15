@@ -7,6 +7,7 @@ export const MeDocument = graphql(`
 			name
 			username
 			email
+			isAdmin
 		}
 	}
 `)

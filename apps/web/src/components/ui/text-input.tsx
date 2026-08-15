@@ -11,6 +11,7 @@ import {
 import { FiEye, FiEyeOff } from "react-icons/fi"
 import { cx } from "styled-system/css"
 import { textInput as textInputRecipe } from "styled-system/recipes"
+import { RequiredMark } from "./required-mark"
 
 type TextInputSlots = ReturnType<typeof textInputRecipe>
 
@@ -80,18 +81,22 @@ function TextInput({
 	)
 }
 
+type TextInputLabelProps = HTMLAttributes<HTMLLabelElement> & {
+	required?: boolean
+}
+
 function TextInputLabel({
 	className,
+	required,
+	children,
 	...props
-}: HTMLAttributes<HTMLLabelElement>) {
+}: TextInputLabelProps) {
 	const { slots, fieldId } = useTextInputContext("Label")
 	return (
-		// biome-ignore lint/a11y/noLabelWithoutControl: text content comes through {...props}.children at the call site, which biome can't see statically
-		<label
-			htmlFor={fieldId}
-			className={cx(slots.label, className)}
-			{...props}
-		/>
+		<label htmlFor={fieldId} className={cx(slots.label, className)} {...props}>
+			{children}
+			{required && <RequiredMark />}
+		</label>
 	)
 }
 

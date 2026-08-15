@@ -39,6 +39,7 @@ export const UserRef = builder.drizzleObject("users", {
 		name: t.exposeString("name"),
 		username: t.exposeString("username"),
 		email: t.exposeString("email"),
+		isAdmin: t.exposeBoolean("isAdmin"),
 		createdAt: t.field({
 			type: "String",
 			resolve: (user) => user.createdAt.toISOString(),
