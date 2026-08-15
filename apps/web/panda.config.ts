@@ -41,6 +41,18 @@ export default defineConfig({
         { open: ["true"] },
         { hasError: ["true"] },
       ],
+      // Same reasoning again - the calendar grid/time controls below always
+      // compute these from date math or toggle state, never a literal at the
+      // call site.
+      dateTimePicker: [
+        { open: ["true"] },
+        { hasError: ["true"] },
+        { dayOutside: ["true"] },
+        { dayToday: ["true"] },
+        { daySelected: ["true"] },
+        { dayDisabled: ["true"] },
+        { ampmActive: ["true"] },
+      ],
     },
   },
 
@@ -613,6 +625,311 @@ export default defineConfig({
                 option: {
                   backgroundColor: "primary.subtle",
                   color: "primary.default",
+                },
+              },
+            },
+          },
+        }),
+        // Custom date+time picker (calendar grid + hour/minute/AM-PM controls)
+        // replacing the native <input type="datetime-local"> - that control's
+        // popup UI is entirely browser-drawn and can't be themed, so it stuck
+        // out against every other field in the app.
+        dateTimePicker: defineSlotRecipe({
+          className: "date-time-picker",
+          slots: [
+            "root",
+            "trigger",
+            "triggerLabel",
+            "triggerIcon",
+            "content",
+            "calendarHeader",
+            "navButton",
+            "monthLabel",
+            "weekdayRow",
+            "weekday",
+            "dayGrid",
+            "day",
+            "timeRow",
+            "timeField",
+            "timeSeparator",
+            "ampmGroup",
+            "ampmButton",
+            "footer",
+            "description",
+            "error",
+            "scrim",
+            "dragHandle",
+          ],
+          base: {
+            root: {
+              display: "flex",
+              flexDirection: "column",
+              gap: "1.5",
+            },
+            trigger: {
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: "2",
+              width: "full",
+              backgroundColor: "bg.canvas",
+              border: "1px solid",
+              borderColor: "border.default",
+              borderRadius: "lg",
+              paddingBlock: "3",
+              paddingInline: "3.5",
+              fontSize: "sm",
+              color: "fg.default",
+              cursor: "pointer",
+              transition: "border-color 0.15s ease",
+              _hover: {
+                borderColor: "border.emphasized",
+              },
+            },
+            triggerLabel: {
+              flex: "1",
+              minWidth: "0",
+              textAlign: "left",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+            },
+            triggerIcon: {
+              flexShrink: "0",
+              color: "fg.subtle",
+            },
+            // Below `md`, date-time-picker.tsx stops setting an inline
+            // top/left (that's the trigger-relative placement the layout
+            // effect computes) and lets this take over instead - a sheet
+            // pinned to the bottom of the viewport, full width, rather than
+            // a small box hanging off wherever the trigger happens to sit.
+            // Above `md` the inline style wins per-property and this half of
+            // each responsive pair is simply never visible.
+            content: {
+              display: "flex",
+              flexDirection: "column",
+              gap: "3",
+              position: "fixed",
+              top: { base: "auto", md: "0" },
+              bottom: { base: "0", md: "auto" },
+              left: { base: "0", md: "0" },
+              right: { base: "0", md: "auto" },
+              width: { base: "full", md: "320px" },
+              // Never wider than the viewport itself - the JS clamp in
+              // date-time-picker.tsx only slides left/right within the space
+              // this leaves, it doesn't shrink the box.
+              maxWidth: { base: "full", md: "calc(100vw - 16px)" },
+              maxHeight: { base: "85vh", md: "none" },
+              overflowY: { base: "auto", md: "visible" },
+              backgroundColor: "bg.surface",
+              border: "1px solid",
+              borderColor: "border.default",
+              borderRadius: { base: "0", md: "xl" },
+              // Top corners stay rounded on the mobile sheet too - only the
+              // bottom ones flatten out to sit flush with the screen edge.
+              borderTopLeftRadius: "xl",
+              borderTopRightRadius: "xl",
+              padding: "3.5",
+              paddingBottom: { base: "6", md: "3.5" },
+              boxShadow: "0 12px 32px rgba(0, 0, 0, 0.4)",
+              zIndex: "30",
+            },
+            scrim: {
+              position: "fixed",
+              inset: "0",
+              backgroundColor: "bg.overlay/60",
+              zIndex: "29",
+            },
+            dragHandle: {
+              display: { base: "block", md: "none" },
+              alignSelf: "center",
+              width: "9",
+              height: "1",
+              borderRadius: "full",
+              backgroundColor: "border.emphasized",
+              marginBottom: "1",
+            },
+            calendarHeader: {
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+            },
+            navButton: {
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              width: "7",
+              height: "7",
+              borderRadius: "md",
+              color: "fg.subtle",
+              cursor: "pointer",
+              transition: "background-color 0.15s ease, color 0.15s ease",
+              _hover: {
+                backgroundColor: "bg.subtle",
+                color: "fg.default",
+              },
+            },
+            monthLabel: {
+              fontFamily: "mono",
+              fontSize: "xs",
+              letterSpacing: "wide",
+              textTransform: "uppercase",
+              color: "fg.default",
+            },
+            weekdayRow: {
+              display: "grid",
+              gridTemplateColumns: "repeat(7, 1fr)",
+            },
+            weekday: {
+              textAlign: "center",
+              fontFamily: "mono",
+              fontSize: "3xs",
+              letterSpacing: "wide",
+              textTransform: "uppercase",
+              color: "fg.subtle",
+              paddingBlock: "1",
+            },
+            dayGrid: {
+              display: "grid",
+              gridTemplateColumns: "repeat(7, 1fr)",
+              gap: "1",
+            },
+            day: {
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              aspectRatio: "1",
+              width: "full",
+              border: "none",
+              borderRadius: "md",
+              backgroundColor: "transparent",
+              fontFamily: "inherit",
+              fontSize: "xs",
+              color: "fg.default",
+              cursor: "pointer",
+              transition: "background-color 0.15s ease, color 0.15s ease",
+              _hover: {
+                backgroundColor: "bg.subtle",
+              },
+            },
+            timeRow: {
+              display: "flex",
+              alignItems: "center",
+              gap: "2",
+              borderTop: "1px solid",
+              borderColor: "border.default",
+              paddingTop: "3",
+            },
+            timeField: {
+              width: "12",
+              backgroundColor: "bg.canvas",
+              border: "1px solid",
+              borderColor: "border.default",
+              borderRadius: "md",
+              paddingBlock: "2",
+              textAlign: "center",
+              fontFamily: "mono",
+              fontSize: "sm",
+              color: "fg.default",
+              outline: "none",
+              _focus: {
+                borderColor: "primary.default",
+              },
+            },
+            timeSeparator: {
+              fontSize: "sm",
+              color: "fg.subtle",
+            },
+            ampmGroup: {
+              display: "flex",
+              marginLeft: "auto",
+              border: "1px solid",
+              borderColor: "border.default",
+              borderRadius: "md",
+              overflow: "hidden",
+            },
+            ampmButton: {
+              border: "none",
+              backgroundColor: "transparent",
+              paddingInline: "2.5",
+              paddingBlock: "2",
+              fontFamily: "mono",
+              fontSize: "2xs",
+              letterSpacing: "wide",
+              textTransform: "uppercase",
+              color: "fg.subtle",
+              cursor: "pointer",
+              transition: "background-color 0.15s ease, color 0.15s ease",
+              _hover: {
+                backgroundColor: "bg.subtle",
+              },
+            },
+            footer: {
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              borderTop: "1px solid",
+              borderColor: "border.default",
+              paddingTop: "3",
+            },
+            description: {
+              fontSize: "xs",
+              color: "fg.muted",
+            },
+            error: {
+              fontSize: "xs",
+              color: "danger.default",
+            },
+          },
+          variants: {
+            open: {
+              true: {
+                trigger: { borderColor: "primary.default" },
+              },
+            },
+            hasError: {
+              true: {
+                trigger: { borderColor: "danger.default" },
+              },
+            },
+            dayOutside: {
+              true: {
+                day: { color: "fg.subtle" },
+              },
+            },
+            // Only ever passed when the day isn't also selected (see
+            // date-time-picker.tsx) - keeps this from having to out-fight
+            // daySelected's background in the cascade for the current-day
+            // cell.
+            dayToday: {
+              true: {
+                day: { fontWeight: "bold", color: "primary.default" },
+              },
+            },
+            daySelected: {
+              true: {
+                day: {
+                  backgroundColor: "primary.default",
+                  color: "primary.contrast",
+                  fontWeight: "bold",
+                  _hover: { backgroundColor: "primary.default" },
+                },
+              },
+            },
+            dayDisabled: {
+              true: {
+                day: {
+                  opacity: "0.35",
+                  cursor: "not-allowed",
+                  pointerEvents: "none",
+                },
+              },
+            },
+            ampmActive: {
+              true: {
+                ampmButton: {
+                  backgroundColor: "primary.default",
+                  color: "primary.contrast",
                 },
               },
             },

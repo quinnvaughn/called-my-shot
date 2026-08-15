@@ -1,4 +1,6 @@
 import { HStack, VStack } from "styled-system/jsx"
+import { DateTimePicker } from "#/components/ui/date-time-picker"
+import { FieldLabel } from "#/components/ui/field-label"
 import { TextInput } from "#/components/ui/text-input"
 import { ChipButton } from "./chip-button"
 import type { CreateQuestionFormApi } from "./form-types"
@@ -63,21 +65,15 @@ export function ResolutionFields({ form }: Props) {
 
 			<form.Field name="locksAt">
 				{(field) => (
-					<TextInput
-						error={field.meta.error ?? undefined}
-						description="Locked the moment this publishes — the source can't change after someone's made a call."
-					>
-						<TextInput.Label required>Locks at</TextInput.Label>
-						<TextInput.Group>
-							<TextInput.Field
-								type="datetime-local"
-								aria-required
-								value={field.value}
-								onChange={field.onChange}
-								onBlur={field.onBlur}
-							/>
-						</TextInput.Group>
-					</TextInput>
+					<VStack gap="1.5" alignItems="stretch">
+						<FieldLabel required>Locks at</FieldLabel>
+						<DateTimePicker
+							value={field.value}
+							onValueChange={field.onChange}
+							error={field.meta.error ?? undefined}
+							description="Locked the moment this publishes — the source can't change after someone's made a call."
+						/>
+					</VStack>
 				)}
 			</form.Field>
 		</VStack>
