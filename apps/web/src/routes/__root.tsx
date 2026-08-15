@@ -26,6 +26,17 @@ export const Route = createRootRouteWithContext<RouterContext>()({
 				name: "viewport",
 				content: "width=device-width, initial-scale=1",
 			},
+			// Pins the color browsers/OSes use for link-preview tinting, mobile
+			// address bar chrome, and PWA splash background to the app's actual
+			// canvas color - without this, at least iMessage/Safari's link
+			// previews fall back to sampling a dominant color out of whichever
+			// icon happens to be referenced, which is how the share preview
+			// ended up orange (matching the old icon's mostly-orange ring)
+			// instead of the app's real near-black background.
+			{
+				name: "theme-color",
+				content: "#0B0B0C",
+			},
 			{
 				title: "Called My Shot",
 			},
