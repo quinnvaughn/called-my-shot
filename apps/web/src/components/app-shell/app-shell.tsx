@@ -6,11 +6,11 @@ import { FaUser, FaUserGroup } from "react-icons/fa6"
 import { FiMenu, FiX } from "react-icons/fi"
 import { GoHomeFill } from "react-icons/go"
 import type { IconType } from "react-icons/lib"
-import { css } from "styled-system/css"
+import { css, cx } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
 import { AuthModal } from "#/components/auth/auth-modal"
 import { Brand } from "#/components/ui/brand"
-import { Button } from "#/components/ui/button"
+import { Button, button } from "#/components/ui/button"
 import { openModal } from "#/stores/modal-store"
 import { AccountMenu } from "./account-menu"
 
@@ -281,24 +281,18 @@ function SidebarNav({
 						</Link>
 					))}
 					{me && (
-						<Link
-							to="/new-question"
-							onClick={onNavigate}
-							className={css({
-								padding: "{spacing.2.5} {spacing.3}",
-								borderRadius: "xl",
-								fontSize: "sm",
-								color: "fg.muted",
-								fontWeight: "medium",
-								border: "1px solid transparent",
-								_hover: {
-									bg: "fg.default/10",
-									color: "fg.default",
-								},
-							})}
-						>
-							+ New Question
-						</Link>
+						<HStack paddingTop="6" width="full">
+							<Link
+								to="/new-question"
+								onClick={onNavigate}
+								className={cx(
+									css({ flex: 1 }),
+									button({ variant: "dark", size: "sm" }),
+								)}
+							>
+								+ New Question
+							</Link>
+						</HStack>
 					)}
 				</nav>
 			</VStack>
