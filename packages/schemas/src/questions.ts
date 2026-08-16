@@ -233,3 +233,144 @@ export const createQuestionSchema = z
 		}
 	})
 export type CreateQuestionInput = z.infer<typeof createQuestionSchema>
+
+// One call selection - an option the caller picked plus how much conviction
+// they put behind that specific pick. multi_select is the only type that
+// submits more than one of these; every other option-based type submits
+// exactly one (enforced below, since the count that's valid depends on
+// question type, which this schema doesn't know on its own).
+const castCallSelectionSchema = z.object({
+	optionId: z.string().uuid(),
+	conviction: z.number().int().min(1, "Conviction must be 1-100").max(100, "Conviction must be 1-100"),
+})
+
+// Same flat-object-plus-superRefine shape as createQuestionSchema. `type` is
+// supplied by the resolver from the question it already had to load (for the
+// lock/status checks), not taken from client input - a client claiming a
+// different type than the question actually is would otherwise let it dodge
+// these per-type rules entirely.
+export const castCallSchema = z
+	.object({
+		type: questionTypeSchema,
+		questionId: z.string().uuid(),
+		caseText: z.string().trim().max(600, "Keep it under 600 characters").default(""),
+
+		// numeric_guess only
+		guessValue: z.number().optional(),
+		conviction: z
+			.number()
+			.int()
+			.min(1, "Conviction must be 1-100")
+			.max(100, "Conviction must be 1-100")
+			.optional(),
+
+		// multiple_choice / yes_no / over_under (exactly 1) / multi_select (>=1,
+		// exact count checked against the question's picksRequired in the
+		// resolver, which is the only place that number is known)
+		selections: z.array(castCallSelectionSchema).default([]),
+	})
+	.superRefine((data, ctx) => {
+		switch (data.type) {
+			case "numeric_guess": {
+				if (data.guessValue === undefined || Number.isNaN(data.guessValue)) {
+					ctx.addIssue({
+						code: "custom",
+						path: ["guessValue"],
+						message: "Enter your guess",
+					})
+				}
+				if (data.conviction === undefined) {
+					ctx.addIssue({
+						code: "custom",
+						path: ["conviction"],
+						message: "Set your conviction",
+					})
+				}
+				break
+			}
+			case "multiple_choice":
+			case "yes_no":
+			case "over_under": {
+				if (data.selections.length !== 1) {
+					ctx.addIssue({
+						code: "custom",
+						path: ["selections"],
+						message: "Pick one",
+					})
+				}
+				break
+			}
+			case "multi_select": {
+				if (data.selections.length < 1) {
+					ctx.addIssue({
+						code: "custom",
+						path: ["selections"],
+						message: "Pick at least one",
+					})
+				}
+				break
+			}
+		}
+	})
+export type CastCallInput = z.infer<typeof castCallSchema>
+
+// Same "type supplied by the resolver, not the client" reasoning as
+// castCallSchema above - a question's own type isn't something a resolve
+// call should be able to override either.
+export const resolveQuestionSchema = z
+	.object({
+		type: questionTypeSchema,
+		correctOptionIds: z.array(z.string().uuid()).default([]),
+		actualValue: z.number().optional(),
+		resolutionNote: z.string().trim().max(500, "Keep it under 500 characters").default(""),
+	})
+	.superRefine((data, ctx) => {
+		switch (data.type) {
+			case "multiple_choice":
+			case "yes_no":
+			case "over_under": {
+				if (data.correctOptionIds.length !== 1) {
+					ctx.addIssue({
+						code: "custom",
+						path: ["correctOptionIds"],
+						message: "Pick exactly one correct option",
+					})
+				}
+				break
+			}
+			case "multi_select": {
+				// Deliberately not compared against picksRequired - a real outcome
+				// can produce fewer genuine winners than the number of picks callers
+				// were asked to make, and that's a valid result, not an error.
+				if (data.correctOptionIds.length < 1) {
+					ctx.addIssue({
+						code: "custom",
+						path: ["correctOptionIds"],
+						message: "Pick at least one correct option",
+					})
+				}
+				break
+			}
+			case "numeric_guess": {
+				if (data.actualValue === undefined || Number.isNaN(data.actualValue)) {
+					ctx.addIssue({
+						code: "custom",
+						path: ["actualValue"],
+						message: "Enter the actual value",
+					})
+				}
+				break
+			}
+		}
+	})
+export type ResolveQuestionInput = z.infer<typeof resolveQuestionSchema>
+
+export const fileDisputeSchema = z.object({
+	questionId: z.string().uuid(),
+	reason: z
+		.string()
+		.trim()
+		.min(1, "Say why you're disputing this")
+		.max(500, "Keep it under 500 characters"),
+})
+export type FileDisputeInput = z.infer<typeof fileDisputeSchema>

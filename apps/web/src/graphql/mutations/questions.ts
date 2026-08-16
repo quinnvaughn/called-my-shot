@@ -24,3 +24,59 @@ export const CreateQuestionDocument = graphql(`
 		}
 	}
 `)
+
+export const ResolveQuestionDocument = graphql(`
+	mutation ResolveQuestion($input: ResolveQuestionInput!) {
+		resolveQuestion(input: $input) {
+			__typename
+			... on QuestionPayload {
+				question {
+					id
+				}
+			}
+			... on ValidationError {
+				fieldErrors {
+					field
+					message
+				}
+			}
+			... on AuthenticationError {
+				message
+			}
+			... on AuthorizationError {
+				message
+			}
+			... on NotFoundError {
+				message
+			}
+		}
+	}
+`)
+
+export const FileDisputeDocument = graphql(`
+	mutation FileDispute($input: FileDisputeInput!) {
+		fileDispute(input: $input) {
+			__typename
+			... on FileDisputePayload {
+				dispute {
+					id
+				}
+			}
+			... on ValidationError {
+				fieldErrors {
+					field
+					message
+				}
+			}
+			... on AuthenticationError {
+				message
+			}
+			... on AuthorizationError {
+				message
+			}
+			... on NotFoundError {
+				message
+			}
+		}
+	}
+`)

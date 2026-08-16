@@ -1,6 +1,9 @@
 import {
+	castCallSchema,
 	createQuestionSchema,
+	fileDisputeSchema,
 	type questionCategorySchema,
+	resolveQuestionSchema,
 } from "@called-my-shot/schemas"
 import {
 	and,
@@ -11,7 +14,9 @@ import {
 	exists,
 	getColumns,
 	ilike,
+	inArray,
 	lte,
+	notInArray,
 	or,
 	sql,
 } from "drizzle-orm"
@@ -19,20 +24,23 @@ import { DateTime } from "luxon"
 import { db } from "../../db"
 import {
 	type Call,
+	callSelections,
 	calls,
 	players,
 	type Question,
 	questionOptions,
 	questions,
+	resolutionDisputes,
 	teams,
 	users,
 } from "../../db/schema"
 import { requireUser } from "../../lib/auth"
 import { canViewerSeePick } from "../../lib/call-visibility"
-import { fieldPct } from "../../lib/calls"
+import { fieldPct, numericGuessPoints, selectionPoints } from "../../lib/calls"
 import {
 	AuthenticationError,
 	AuthorizationError,
+	NotFoundError,
 	ValidationError,
 } from "../../lib/errors"
 import {
@@ -257,6 +265,15 @@ export const CallConnectionRef = builder
 		}),
 	})
 
+const GuessBucketRef = builder
+	.objectRef<{ value: number; count: number }>("GuessBucket")
+	.implement({
+		fields: (t) => ({
+			value: t.exposeFloat("value"),
+			count: t.exposeInt("count"),
+		}),
+	})
+
 // Shared by the top-level questions feed below and group.ts's createdQuestions
 // - both are lists of full Question rows, just filtered differently.
 export const QuestionConnectionRef = builder
@@ -408,6 +425,56 @@ export const QuestionRef = builder.drizzleObject("questions", {
 		options: t.relation("options"),
 		callCount: t.relatedCount("calls"),
 		disputes: t.relation("disputes"),
+
+		// Every caller's pick on this question, newest first - the detail page's
+		// activity list. Same keyset-cursor shape as myCalls; each item still
+		// self-gates its pick fields through canViewerSeePick, this connection
+		// just controls which calls are in scope, not what's visible on them.
+		calls: t.field({
+			type: CallConnectionRef,
+			args: { first: t.arg.int(), after: t.arg.string() },
+			resolve: async (question, args) => {
+				const limit = clampPageSize(args.first)
+				const cursor = args.after ? decodeCursor(args.after) : null
+				const rows = await db.query.calls.findMany({
+					where: {
+						questionId: question.id,
+						...(cursor ? cursorWhere(cursor) : {}),
+					},
+					orderBy: { createdAt: "desc", id: "desc" },
+					limit: limit + 1,
+				})
+				return paginate(rows, limit)
+			},
+		}),
+
+		// Binned guess values for the guess-distribution chart - numeric_guess
+		// only, empty for every other type. Bin width is a flat 1 (nearest
+		// integer), which fits typical counting stats (points/rebounds/assists)
+		// but under-resolves a fractional-scale stat like shooting % - a real
+		// fix would derive bin width from numericTolerancePct instead; not
+		// needed for v1. Same "aggregate bypasses the per-caller pick-visibility
+		// gate" precedent averageGuess/numericHitRatePct already establish -
+		// individual bucket counts aren't attributed to any one caller.
+		guessDistribution: t.field({
+			type: [GuessBucketRef],
+			resolve: async (question) => {
+				if (question.type !== "numeric_guess") return []
+				const guessCalls = await db.query.calls.findMany({
+					where: { questionId: question.id },
+					columns: { guessValue: true },
+				})
+				const counts = new Map<number, number>()
+				for (const call of guessCalls) {
+					if (call.guessValue === null) continue
+					const bucket = Math.round(call.guessValue)
+					counts.set(bucket, (counts.get(bucket) ?? 0) + 1)
+				}
+				return [...counts.entries()]
+					.sort((a, b) => a[0] - b[0])
+					.map(([value, count]) => ({ value, count }))
+			},
+		}),
 
 		viewerCall: t.field({
 			type: CallRef,
@@ -670,6 +737,68 @@ const CreateQuestionInput = builder.inputType("CreateQuestionInput", {
 	}),
 })
 
+const CastCallSelectionInput = builder.inputType("CastCallSelectionInput", {
+	fields: (t) => ({
+		optionId: t.id({ required: true }),
+		conviction: t.int({ required: true }),
+	}),
+})
+
+const CastCallInput = builder.inputType("CastCallInput", {
+	fields: (t) => ({
+		questionId: t.id({ required: true }),
+		caseText: t.string({ required: false }),
+
+		// numeric_guess
+		guessValue: t.float({ required: false }),
+		conviction: t.int({ required: false }),
+
+		// multiple_choice/yes_no/over_under (exactly 1) / multi_select (a
+		// question's picksRequired worth)
+		selections: t.field({ type: [CastCallSelectionInput], required: false }),
+	}),
+})
+
+const CastCallPayload = builder
+	.objectRef<{ call: Call }>("CastCallPayload")
+	.implement({
+		fields: (t) => ({
+			call: t.field({ type: CallRef, resolve: (payload) => payload.call }),
+		}),
+	})
+
+const ResolveQuestionInput = builder.inputType("ResolveQuestionInput", {
+	fields: (t) => ({
+		questionId: t.id({ required: true }),
+		// multiple_choice/yes_no/over_under (exactly 1) / multi_select (the
+		// actual winners, not necessarily matching picksRequired)
+		correctOptionIds: t.field({ type: ["ID"], required: false }),
+		// numeric_guess
+		actualValue: t.float({ required: false }),
+		resolutionNote: t.string({ required: false }),
+	}),
+})
+
+const FileDisputeInput = builder.inputType("FileDisputeInput", {
+	fields: (t) => ({
+		questionId: t.id({ required: true }),
+		reason: t.string({ required: true }),
+	}),
+})
+
+const FileDisputePayload = builder
+	.objectRef<{ dispute: typeof resolutionDisputes.$inferSelect }>(
+		"FileDisputePayload",
+	)
+	.implement({
+		fields: (t) => ({
+			dispute: t.field({
+				type: ResolutionDisputeRef,
+				resolve: (payload) => payload.dispute,
+			}),
+		}),
+	})
+
 builder.mutationFields((t) => ({
 	createQuestion: t.field({
 		type: QuestionPayload,
@@ -758,6 +887,342 @@ builder.mutationFields((t) => ({
 			})
 
 			return { question }
+		},
+	}),
+
+	castCall: t.field({
+		type: CastCallPayload,
+		errors: {
+			types: [AuthenticationError, ValidationError, NotFoundError],
+			directResult: true,
+			union: { name: "CastCallResult" },
+		},
+		args: { input: t.arg({ type: CastCallInput, required: true }) },
+		resolve: async (_root, args, ctx) => {
+			const user = requireUser(ctx)
+
+			const question = await db.query.questions.findFirst({
+				where: { id: args.input.questionId },
+			})
+			if (!question) throw new NotFoundError("Question not found")
+
+			// status alone can't be trusted here - nothing in the app ever flips
+			// it from "open" to "locked" once locksAt passes (no cron/worker
+			// exists), so a stale "open" row past its lock time must still be
+			// rejected on the real clock, not the column.
+			if (question.status !== "open" || question.locksAt <= new Date()) {
+				throw ValidationError.field(
+					null,
+					"This question is no longer accepting calls.",
+				)
+			}
+
+			const existing = await db.query.calls.findFirst({
+				where: { questionId: question.id, userId: user.id },
+			})
+			if (existing) {
+				throw ValidationError.field(
+					null,
+					"You've already called this question.",
+				)
+			}
+
+			const parsed = castCallSchema.safeParse({
+				...args.input,
+				type: question.type,
+			})
+			if (!parsed.success) {
+				throw ValidationError.fromZodIssues(parsed.error.issues)
+			}
+			const data = parsed.data
+
+			if (
+				data.type === "multi_select" &&
+				data.selections.length !== question.picksRequired
+			) {
+				throw ValidationError.field(
+					"selections",
+					`Pick exactly ${question.picksRequired} - you picked ${data.selections.length}`,
+				)
+			}
+
+			if (data.selections.length > 0) {
+				const options = await db.query.questionOptions.findMany({
+					where: { questionId: question.id },
+					columns: { id: true },
+				})
+				const validIds = new Set(options.map((o) => o.id))
+				if (!data.selections.every((s) => validIds.has(s.optionId))) {
+					throw ValidationError.field(
+						"selections",
+						"One or more options don't belong to this question",
+					)
+				}
+			}
+
+			const call = await db.transaction(async (tx) => {
+				const [call] = await tx
+					.insert(calls)
+					.values({
+						questionId: question.id,
+						userId: user.id,
+						caseText: data.caseText || null,
+						guessValue:
+							data.type === "numeric_guess" ? (data.guessValue ?? null) : null,
+						conviction:
+							data.type === "numeric_guess" ? (data.conviction ?? null) : null,
+					})
+					.returning()
+
+				if (data.selections.length > 0) {
+					await tx.insert(callSelections).values(
+						data.selections.map((s) => ({
+							callId: call.id,
+							optionId: s.optionId,
+							conviction: s.conviction,
+						})),
+					)
+				}
+
+				return call
+			})
+
+			return { call }
+		},
+	}),
+
+	resolveQuestion: t.field({
+		type: QuestionPayload,
+		errors: {
+			types: [
+				AuthenticationError,
+				AuthorizationError,
+				NotFoundError,
+				ValidationError,
+			],
+			directResult: true,
+			union: { name: "ResolveQuestionResult" },
+		},
+		args: { input: t.arg({ type: ResolveQuestionInput, required: true }) },
+		resolve: async (_root, args, ctx) => {
+			const user = requireUser(ctx)
+
+			const question = await db.transaction(async (tx) => {
+				const [question] = await tx
+					.select()
+					.from(questions)
+					.where(eq(questions.id, args.input.questionId))
+					.for("update")
+				if (!question) throw new NotFoundError("Question not found")
+				if (question.creatorId !== user.id) {
+					throw new AuthorizationError(
+						"Only the creator can resolve this question.",
+					)
+				}
+				if (question.status === "resolved" || question.status === "disputed") {
+					throw ValidationError.field(
+						null,
+						"This question has already been resolved.",
+					)
+				}
+				// Readiness is derived from locksAt, never trusted from status -
+				// same reasoning as castCall above.
+				if (question.locksAt > new Date()) {
+					throw ValidationError.field(null, "This question hasn't locked yet.")
+				}
+
+				const parsed = resolveQuestionSchema.safeParse({
+					...args.input,
+					type: question.type,
+				})
+				if (!parsed.success) {
+					throw ValidationError.fromZodIssues(parsed.error.issues)
+				}
+				const data = parsed.data
+
+				if (question.type === "numeric_guess") {
+					const guessCalls = await tx.query.calls.findMany({
+						where: { questionId: question.id },
+						columns: { id: true, guessValue: true, conviction: true },
+					})
+					const guesses = guessCalls
+						.filter(
+							(c): c is typeof c & { guessValue: number; conviction: number } =>
+								c.guessValue !== null && c.conviction !== null,
+						)
+						.map((c) => ({
+							callId: c.id,
+							guessValue: c.guessValue,
+							conviction: c.conviction,
+						}))
+
+					// resolveQuestionSchema guarantees actualValue is set for
+					// numeric_guess, and createQuestionSchema guarantees
+					// numericTolerancePct was set at creation for this type.
+					const scored = numericGuessPoints(
+						guesses,
+						data.actualValue as number,
+						question.numericTolerancePct as number,
+					)
+					for (const r of scored) {
+						await tx
+							.update(calls)
+							.set({ resultPoints: r.points, hitTolerance: r.hit })
+							.where(eq(calls.id, r.callId))
+					}
+				} else {
+					const options = await tx.query.questionOptions.findMany({
+						where: { questionId: question.id },
+						columns: { id: true },
+					})
+					const validIds = new Set(options.map((o) => o.id))
+					if (!data.correctOptionIds.every((id) => validIds.has(id))) {
+						throw ValidationError.field(
+							"correctOptionIds",
+							"One or more options don't belong to this question",
+						)
+					}
+
+					await tx
+						.update(questionOptions)
+						.set({ isCorrect: true })
+						.where(
+							and(
+								eq(questionOptions.questionId, question.id),
+								inArray(questionOptions.id, data.correctOptionIds),
+							),
+						)
+					await tx
+						.update(questionOptions)
+						.set({ isCorrect: false })
+						.where(
+							and(
+								eq(questionOptions.questionId, question.id),
+								notInArray(questionOptions.id, data.correctOptionIds),
+							),
+						)
+
+					const [{ n: totalCalls }] = await tx
+						.select({ n: count() })
+						.from(calls)
+						.where(eq(calls.questionId, question.id))
+
+					const perOptionCounts = await tx
+						.select({ optionId: callSelections.optionId, n: count() })
+						.from(callSelections)
+						.innerJoin(calls, eq(calls.id, callSelections.callId))
+						.where(eq(calls.questionId, question.id))
+						.groupBy(callSelections.optionId)
+					const countByOption = new Map(
+						perOptionCounts.map((r) => [r.optionId, r.n]),
+					)
+					const correctOptionIds = new Set(data.correctOptionIds)
+
+					const selections = await tx.query.callSelections.findMany({
+						where: { call: { questionId: question.id } },
+						columns: { id: true, optionId: true, conviction: true },
+					})
+
+					for (const s of selections) {
+						const pct = fieldPct(countByOption.get(s.optionId) ?? 0, totalCalls)
+						const isCorrect = correctOptionIds.has(s.optionId)
+						const points = selectionPoints(pct, s.conviction, isCorrect)
+						await tx
+							.update(callSelections)
+							.set({ resultPoints: points })
+							.where(eq(callSelections.id, s.id))
+					}
+				}
+
+				const [updated] = await tx
+					.update(questions)
+					.set({
+						status: "resolved",
+						resolvedAt: new Date(),
+						resolutionNote: data.resolutionNote || null,
+						...(question.type === "numeric_guess"
+							? { numericActualValue: data.actualValue }
+							: {}),
+					})
+					.where(eq(questions.id, question.id))
+					.returning()
+
+				return updated
+			})
+
+			return { question }
+		},
+	}),
+
+	fileDispute: t.field({
+		type: FileDisputePayload,
+		errors: {
+			types: [
+				AuthenticationError,
+				AuthorizationError,
+				NotFoundError,
+				ValidationError,
+			],
+			directResult: true,
+			union: { name: "FileDisputeResult" },
+		},
+		args: { input: t.arg({ type: FileDisputeInput, required: true }) },
+		resolve: async (_root, args, ctx) => {
+			const user = requireUser(ctx)
+			const parsed = fileDisputeSchema.safeParse(args.input)
+			if (!parsed.success) {
+				throw ValidationError.fromZodIssues(parsed.error.issues)
+			}
+			const data = parsed.data
+
+			const question = await db.query.questions.findFirst({
+				where: { id: data.questionId },
+			})
+			if (!question) throw new NotFoundError("Question not found")
+			if (question.status !== "resolved") {
+				throw ValidationError.field(
+					null,
+					"Only resolved questions can be disputed.",
+				)
+			}
+
+			const callerCall = await db.query.calls.findFirst({
+				where: { questionId: data.questionId, userId: user.id },
+			})
+			if (!callerCall) {
+				throw new AuthorizationError(
+					"Only callers on this question can dispute its resolution.",
+				)
+			}
+
+			const existingDispute = await db.query.resolutionDisputes.findFirst({
+				where: { questionId: data.questionId, userId: user.id },
+			})
+			if (existingDispute) {
+				throw ValidationError.field(
+					null,
+					"You've already disputed this question.",
+				)
+			}
+
+			const dispute = await db.transaction(async (tx) => {
+				const [dispute] = await tx
+					.insert(resolutionDisputes)
+					.values({
+						questionId: data.questionId,
+						userId: user.id,
+						reason: data.reason,
+						status: "open",
+					})
+					.returning()
+				await tx
+					.update(questions)
+					.set({ status: "disputed" })
+					.where(eq(questions.id, data.questionId))
+				return dispute
+			})
+
+			return { dispute }
 		},
 	}),
 }))
