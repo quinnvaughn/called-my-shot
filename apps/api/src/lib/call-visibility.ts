@@ -15,9 +15,16 @@ export async function canViewerSeePick(
 
 	const question = await db.query.questions.findFirst({
 		where: { id: call.questionId },
-		columns: { status: true },
+		columns: { status: true, locksAt: true },
 	})
-	if (question && question.status !== "open") return true
+	// status alone can't be trusted here - nothing in the app ever flips it
+	// from "open" to "locked" once locksAt passes (no cron/worker exists), so
+	// a stale "open" row past its lock time must still open up on the real
+	// clock, not the column (see the same pattern in question.ts's cast-call
+	// resolver).
+	const isLocked =
+		question && (question.status !== "open" || question.locksAt <= new Date())
+	if (isLocked) return true
 
 	const viewerCall = await db.query.calls.findFirst({
 		where: { questionId: call.questionId, userId: viewerId },

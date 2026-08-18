@@ -100,6 +100,13 @@ export function GuessDistributionChart({
 		averageGuess !== null && hi > lo
 			? ((averageGuess - lo) / (hi - lo)) * 100
 			: null
+	// Which bucket the average line actually lands on, so that bar can be
+	// picked out too - not just the thin line above it. Buckets are always
+	// whole numbers (bin width 1, see the class comment), so round to match.
+	// Same "no match, no highlight" rule as myGuess below: an average that
+	// rounds to a value with zero guesses has no bar to point at, which is
+	// correct, not a bug.
+	const avgBucketValue = averageGuess !== null ? Math.round(averageGuess) : null
 
 	return (
 		<VStack gap="1.5" alignItems="stretch">
@@ -145,13 +152,18 @@ export function GuessDistributionChart({
 								minWidth: "1",
 								// border.emphasized (track, #3E3E3A) - the design system's
 								// reserved progress/chart-bar color for an unhighlighted bar.
-								// The one bucket matching myGuess swaps to primary.default
-								// instead - that's the only thing that ever picks a bar out
-								// from the rest, not field average.
+								// myGuess wins the solid primary.default fill when it lands on
+								// this bucket; failing that, the bucket the field average
+								// rounds to still gets picked out via the paler primary.subtle
+								// tint, so a spectator with no call of their own (viewer-status-
+								// card's "Locked" state, no myGuess to show) still sees where
+								// the field landed, not just a flat gray chart.
 								background:
 									bucket.value === myGuess
 										? "primary.default"
-										: "border.emphasized",
+										: bucket.value === avgBucketValue
+											? "primary.subtle"
+											: "border.emphasized",
 								borderRadius: "1px 1px 0 0",
 							})}
 							style={{ height: `${(bucket.count / maxCount) * 100}%` }}
