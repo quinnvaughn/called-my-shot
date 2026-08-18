@@ -1,7 +1,9 @@
-import { FaLock } from "react-icons/fa6"
 import { css } from "styled-system/css"
-import { HStack, VStack } from "styled-system/jsx"
+import { VStack } from "styled-system/jsx"
 import { type FragmentType, graphql, useFragment } from "#/graphql/generated"
+import { CallIdentityRow } from "./call-identity-row"
+import { CallLockedBox } from "./call-locked-box"
+import { CaseBlock } from "./case-block"
 import { PickSummaryRow } from "./pick-summary-row"
 
 export const CallRowFragment = graphql(`
@@ -12,12 +14,20 @@ export const CallRowFragment = graphql(`
 		totalPoints
 		caseText
 		viewerCanSeePick
+		createdAt
+		callerLeagueAccuracy
 		user {
 			name
+			username
 		}
 		question {
+			id
 			type
 			ouLine
+			league {
+				id
+				abbreviation
+			}
 		}
 		selections {
 			id
@@ -33,23 +43,19 @@ export const CallRowFragment = graphql(`
 
 type Props = {
 	call: FragmentType<typeof CallRowFragment>
-	// Defaults to the caller's name - overridden to "You" for the viewer's own
-	// row, same convention CallCard uses.
-	label?: string
 }
 
 // Lighter than CallCard - skips QuestionSummaryHeader entirely, since on the
 // question's own detail page repeating the question's title/tags/creator on
 // every row would be redundant. Otherwise the same lock-gated shape:
-// PickSummaryRow + optional case text once visible, a "make your call to
-// reveal" placeholder until then.
-export function CallRow({ call: callProp, label: labelProp }: Props) {
+// identity always visible (this IS activity, not pick info), then either the
+// pick + case or a locked placeholder.
+export function CallRow({ call: callProp }: Props) {
 	const call = useFragment(CallRowFragment, callProp)
-	const label = labelProp ?? call.user.name
 
 	return (
 		<VStack
-			gap="2"
+			gap="2.5"
 			alignItems="stretch"
 			className={css({
 				background: "card",
@@ -58,37 +64,30 @@ export function CallRow({ call: callProp, label: labelProp }: Props) {
 				padding: "3",
 			})}
 		>
+			<CallIdentityRow
+				name={call.user.name}
+				username={call.user.username}
+				leagueAccuracy={call.callerLeagueAccuracy}
+				leagueAbbreviation={call.question.league.abbreviation}
+				createdAt={call.createdAt}
+			/>
 			{call.viewerCanSeePick ? (
-				<>
-					<PickSummaryRow call={call} label={label} />
-					{call.caseText && (
-						<span
-							className={css({
-								fontSize: "xs",
-								color: "fg.subtle",
-								fontStyle: "italic",
-							})}
-						>
-							"{call.caseText}"
-						</span>
-					)}
-				</>
+				<VStack
+					gap="2"
+					alignItems="stretch"
+					className={css({
+						background: "bg.canvas",
+						borderRadius: "md",
+						padding: "2.5",
+					})}
+				>
+					<PickSummaryRow call={call} />
+				</VStack>
 			) : (
-				<HStack gap="2" alignItems="center">
-					<FaLock
-						size={12}
-						className={css({ color: "fg.subtle", flexShrink: "0" })}
-					/>
-					<span
-						className={css({
-							fontSize: "xs",
-							color: "fg.subtle",
-							fontFamily: "mono",
-						})}
-					>
-						{label} called this — make your call to reveal
-					</span>
-				</HStack>
+				<CallLockedBox name={call.user.name} />
+			)}
+			{call.viewerCanSeePick && call.caseText && (
+				<CaseBlock text={call.caseText} />
 			)}
 		</VStack>
 	)

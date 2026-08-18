@@ -1,5 +1,6 @@
 import {
 	createContext,
+	forwardRef,
 	type HTMLAttributes,
 	type ReactNode,
 	type TextareaHTMLAttributes,
@@ -97,20 +98,48 @@ type TextareaFieldProps = Omit<
 	id?: string
 }
 
-function TextareaField({ className, ...props }: TextareaFieldProps) {
-	const { slots, fieldId, hasError, describedBy } = useTextareaContext("Field")
+const TextareaField = forwardRef<HTMLTextAreaElement, TextareaFieldProps>(
+	function TextareaField({ className, ...props }, ref) {
+		const { slots, fieldId, hasError, describedBy } =
+			useTextareaContext("Field")
+		return (
+			<textarea
+				ref={ref}
+				id={fieldId}
+				aria-invalid={hasError || undefined}
+				aria-describedby={describedBy}
+				className={cx(slots.field, className)}
+				{...props}
+			/>
+		)
+	},
+)
+
+type TextareaCharCountProps = HTMLAttributes<HTMLSpanElement> & {
+	value: string
+	max: number
+}
+
+// Explicit value/max rather than reading the field's own props back out of
+// context - same reasoning as everywhere else in this file that renders
+// straight from what the caller passes it, and it keeps this usable even if
+// the field it's counting isn't the only one in the form.
+function TextareaCharCount({
+	value,
+	max,
+	className,
+	...props
+}: TextareaCharCountProps) {
+	const { slots } = useTextareaContext("CharCount")
 	return (
-		<textarea
-			id={fieldId}
-			aria-invalid={hasError || undefined}
-			aria-describedby={describedBy}
-			className={cx(slots.field, className)}
-			{...props}
-		/>
+		<span className={cx(slots.count, className)} {...props}>
+			{value.length}/{max}
+		</span>
 	)
 }
 
 Textarea.Label = TextareaLabel
 Textarea.Field = TextareaField
+Textarea.CharCount = TextareaCharCount
 
 export { Textarea }

@@ -20,6 +20,7 @@
     "@apollo/server": "^5.5.1",
     "@as-integrations/express5": "^1.1.2",
     "@called-my-shot/schemas": "workspace:*",
+    "@called-my-shot/scoring": "workspace:*",
     "@fontsource/archivo-black": "^5.3.0",
     "@fontsource/inter": "^5.3.0",
     "@fontsource/space-mono": "^5.3.0",

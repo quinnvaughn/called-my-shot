@@ -1,4 +1,12 @@
-import { integer, pgTable, text, unique, uuid } from "drizzle-orm/pg-core"
+import {
+	integer,
+	numeric,
+	pgTable,
+	text,
+	timestamp,
+	unique,
+	uuid,
+} from "drizzle-orm/pg-core"
 
 export const sports = pgTable("sports", {
 	id: uuid("id").primaryKey().defaultRandom(),
@@ -32,6 +40,27 @@ export const teams = pgTable(
 )
 export type Team = typeof teams.$inferSelect
 
+// A single real-world matchup - what a yes_no/over_under/numeric_guess
+// question about one specific game anchors to instead of just baking
+// "Team A @ Team B" into its title as unstructured text. Not every question
+// has one - season-long questions (a championship, an MVP race) leave
+// questions.gameId null. home/away, not a symmetric "teamA/teamB" pair - the
+// "@" convention (away @ home) is what the title text and UI both read off.
+export const games = pgTable("games", {
+	id: uuid("id").primaryKey().defaultRandom(),
+	leagueId: uuid("league_id")
+		.notNull()
+		.references(() => leagues.id, { onDelete: "cascade" }),
+	homeTeamId: uuid("home_team_id")
+		.notNull()
+		.references(() => teams.id, { onDelete: "restrict" }),
+	awayTeamId: uuid("away_team_id")
+		.notNull()
+		.references(() => teams.id, { onDelete: "restrict" }),
+	startsAt: timestamp("starts_at").notNull(),
+})
+export type Game = typeof games.$inferSelect
+
 // currentTeamId is a plain "who they play for right now" pointer, kept up to
 // date by hand as trades happen - not a historical roster log. A question
 // about a past game is anchored to that question's own team reference, not
@@ -46,6 +75,25 @@ export const players = pgTable("players", {
 })
 export type Player = typeof players.$inferSelect
 
+// A small, hand-picked set of tolerance bands - not one row per stat. Every
+// stat in the catalog points at one of these; adding a new stat means
+// classifying it into an existing tier, not inventing a new percentage.
+// Scoped to counting stats only (rebounds, points, yards) - a rate stat
+// (batting average) needs an absolute tolerance in its own units instead of
+// a percentage, and guessDistribution's bucketing is hardcoded to the
+// nearest whole number besides, so rate stats aren't wired up as numeric_guess
+// subjects yet at all. That's a deliberate follow-up, not an oversight.
+export const statToleranceTiers = pgTable("stat_tolerance_tiers", {
+	id: uuid("id").primaryKey().defaultRandom(),
+	name: text("name").notNull().unique(), // "Low-Count Box Stat", "High-Volume"
+	tolerancePct: numeric("tolerance_pct", {
+		precision: 4,
+		scale: 3,
+		mode: "number",
+	}).notNull(),
+})
+export type StatToleranceTier = typeof statToleranceTiers.$inferSelect
+
 // Scoped to sport, not league - NBA and NCAAB share a stat vocabulary even
 // though they're different leagues. category groups a long list for display
 // (e.g. "Scoring", "Rebounding", "Passing") rather than one flat wall of options.
@@ -59,6 +107,13 @@ export const stats = pgTable(
 		name: text("name").notNull(), // "Points", "Passing Yards"
 		category: text("category").notNull(),
 		sortOrder: integer("sort_order").notNull().default(0),
+		// Every stat gets one, even stats only ever used for over_under (which
+		// has no tolerance concept and ignores this) - assigning it costs
+		// nothing and means numeric_guess never has to handle "this catalog
+		// stat has no band" as a real case.
+		toleranceTierId: uuid("tolerance_tier_id")
+			.notNull()
+			.references(() => statToleranceTiers.id, { onDelete: "restrict" }),
 	},
 	(t) => [unique().on(t.sportId, t.name)],
 )

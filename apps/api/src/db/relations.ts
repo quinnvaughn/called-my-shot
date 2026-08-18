@@ -65,6 +65,10 @@ export const relations = defineRelations(schema, (r) => ({
 			from: r.questions.leagueId,
 			to: r.leagues.id,
 		}),
+		game: r.one.games({
+			from: r.questions.gameId,
+			to: r.games.id,
+		}),
 		stat: r.one.stats({
 			from: r.questions.statId,
 			to: r.stats.id,
@@ -107,6 +111,7 @@ export const relations = defineRelations(schema, (r) => ({
 			to: r.sports.id,
 		}),
 		teams: r.many.teams(),
+		games: r.many.games(),
 	},
 	teams: {
 		league: r.one.leagues({
@@ -124,11 +129,33 @@ export const relations = defineRelations(schema, (r) => ({
 			to: r.teams.id,
 		}),
 	},
+	games: {
+		league: r.one.leagues({
+			from: r.games.leagueId,
+			to: r.leagues.id,
+		}),
+		homeTeam: r.one.teams({
+			from: r.games.homeTeamId,
+			to: r.teams.id,
+		}),
+		awayTeam: r.one.teams({
+			from: r.games.awayTeamId,
+			to: r.teams.id,
+		}),
+		questions: r.many.questions(),
+	},
 	stats: {
 		sport: r.one.sports({
 			from: r.stats.sportId,
 			to: r.sports.id,
 		}),
+		toleranceTier: r.one.statToleranceTiers({
+			from: r.stats.toleranceTierId,
+			to: r.statToleranceTiers.id,
+		}),
+	},
+	statToleranceTiers: {
+		stats: r.many.stats(),
 	},
 	calls: {
 		question: r.one.questions({

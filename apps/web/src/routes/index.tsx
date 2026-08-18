@@ -46,13 +46,13 @@ const howItWorksItems = [
 		icon: <FiFlag />,
 		title: "Make your call",
 		description:
-			"Pick a side, set a line, or guess an exact number. Set your conviction — how much of the payout is actually riding on it.",
+			"Pick a side, set a line, or guess an exact number. Set your conviction — how many points are actually riding on it.",
 	},
 	{
 		icon: <FiTrendingUp />,
 		title: "The field reacts",
 		description:
-			"Every call shifts the percentages live. Bold picks against the crowd are worth more — that's baked into the payout, not a bonus.",
+			"Every call shifts the percentages live. Bold picks against the crowd are worth more — that's baked into the scoring, not a bonus.",
 	},
 	{
 		icon: <FiLock />,
@@ -73,7 +73,7 @@ const questionTypeItems = [
 		icon: <FaListUl />,
 		title: "Multiple Choice",
 		description:
-			"Pick from a field of named options. The less popular your pick, the more it pays if you're right.",
+			"Pick from a field of named options. The less popular your pick, the more it's worth if you're right.",
 		example: "e.g. Who wins the 2027 NFL MVP?",
 	},
 	{
@@ -94,7 +94,7 @@ const questionTypeItems = [
 		icon: <FaHashtag />,
 		title: "Numeric Guess",
 		description:
-			"Call an exact number. A tolerance band decides if you're close enough; how close beats the field decides the payout.",
+			"Call an exact number. A tolerance band decides if you're close enough; how close beats the field decides your score.",
 		example: "e.g. How many rebounds will Embiid grab?",
 	},
 	{

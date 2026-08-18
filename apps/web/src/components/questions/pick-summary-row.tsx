@@ -10,26 +10,26 @@ import {
 
 type Props = {
 	call: CallSummaryData
-	// Whose call this is.
-	label: string
 }
 
-export function PickSummaryRow({ call, label }: Props) {
+// Who made the call is shown separately, above this (see CallIdentityRow) -
+// this is just the pick itself and what it's worth, not "who called it"
+// again.
+export function PickSummaryRow({ call }: Props) {
 	const result = resultState(call.totalPoints)
 
 	return (
 		<HStack justify="space-between" alignItems="center" gap="3" flexWrap="wrap">
 			<span
 				className={css({
-					fontSize: "xs",
-					color: "fg.subtle",
-					fontFamily: "mono",
+					fontSize: "sm",
+					color: "fg.muted",
 					flex: "1",
 					minWidth: "180px",
 				})}
 			>
-				{label} called{" "}
-				<span className={css({ color: "fg.default", fontWeight: "medium" })}>
+				Called{" "}
+				<span className={css({ color: "fg.default", fontWeight: "bold" })}>
 					{pickSummary(call)}
 				</span>
 			</span>
@@ -53,13 +53,16 @@ export function PickSummaryRow({ call, label }: Props) {
 							fontFamily: "mono",
 							fontWeight: "bold",
 							whiteSpace: "nowrap",
+							padding: "{spacing.1} {spacing.2.5}",
+							borderRadius: "sm",
 							color:
 								result.status === "win" ? "success.default" : "danger.default",
+							backgroundColor:
+								result.status === "win" ? "success.subtle" : "danger.subtle",
 						})}
 					>
-						{result.status === "win" ? "W" : "L"}{" "}
 						{result.status === "win" ? "+" : ""}
-						{result.points} pts
+						{result.points} PTS
 					</span>
 				)}
 			</HStack>

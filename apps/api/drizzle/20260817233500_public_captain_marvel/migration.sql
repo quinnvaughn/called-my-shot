@@ -1,0 +1,1 @@
+ALTER TABLE "calls" ADD COLUMN "closeness_mult" numeric(4,2);

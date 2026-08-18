@@ -34,6 +34,20 @@ export const TeamRef = builder.drizzleObject("teams", {
 	}),
 })
 
+export const GameRef = builder.drizzleObject("games", {
+	name: "Game",
+	fields: (t) => ({
+		id: t.exposeID("id"),
+		startsAt: t.field({
+			type: "String",
+			resolve: (g) => g.startsAt.toISOString(),
+		}),
+		league: t.relation("league"),
+		homeTeam: t.relation("homeTeam"),
+		awayTeam: t.relation("awayTeam"),
+	}),
+})
+
 export const PlayerRef = builder.drizzleObject("players", {
 	name: "Player",
 	fields: (t) => ({
@@ -45,6 +59,18 @@ export const PlayerRef = builder.drizzleObject("players", {
 	}),
 })
 
+export const StatToleranceTierRef = builder.drizzleObject(
+	"statToleranceTiers",
+	{
+		name: "StatToleranceTier",
+		fields: (t) => ({
+			id: t.exposeID("id"),
+			name: t.exposeString("name"),
+			tolerancePct: t.exposeFloat("tolerancePct"),
+		}),
+	},
+)
+
 export const StatRef = builder.drizzleObject("stats", {
 	name: "Stat",
 	fields: (t) => ({
@@ -53,6 +79,7 @@ export const StatRef = builder.drizzleObject("stats", {
 		category: t.exposeString("category"),
 		sortOrder: t.exposeInt("sortOrder"),
 		sport: t.relation("sport"),
+		toleranceTier: t.relation("toleranceTier"),
 	}),
 })
 

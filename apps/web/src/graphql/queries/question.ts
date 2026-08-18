@@ -29,6 +29,7 @@ export const QuestionDetailDocument = graphql(`
 				label
 				fieldPct
 				isCorrect
+				callCount
 			}
 			creator {
 				id
@@ -40,6 +41,20 @@ export const QuestionDetailDocument = graphql(`
 				abbreviation
 				color
 			}
+			game {
+				id
+				startsAt
+				homeTeam {
+					id
+					abbreviation
+					color
+				}
+				awayTeam {
+					id
+					abbreviation
+					color
+				}
+			}
 			guessDistribution {
 				value
 				count
@@ -49,18 +64,23 @@ export const QuestionDetailDocument = graphql(`
 				guessValue
 				conviction
 				totalPoints
+				currentRank
+				closenessMult
 				caseText
 				question {
+					id
 					type
 					ouLine
 				}
 				selections {
 					id
 					conviction
+					resultPoints
 					option {
 						id
 						label
 						isCorrect
+						fieldPct
 					}
 				}
 			}

@@ -1,7 +1,13 @@
+import {
+	BASE_POINTS_BY_TYPE,
+	earlyTierFor,
+	fieldPct,
+	numericGuessPoints,
+	selectionPoints,
+} from "@called-my-shot/scoring"
 import { eq } from "drizzle-orm"
 import { DateTime } from "luxon"
 import { env } from "../env"
-import { fieldPct, numericGuessPoints, selectionPoints } from "../lib/calls"
 import {
 	expiryToDate,
 	type InviteExpiryOption,
@@ -12,6 +18,7 @@ import { db } from "./index"
 import {
 	callSelections,
 	calls,
+	games,
 	groupMembers,
 	groups,
 	leagues,
@@ -24,6 +31,8 @@ import {
 	resolutionDisputes,
 	sports,
 	stats,
+	type StatToleranceTier,
+	statToleranceTiers,
 	type Team,
 	teams,
 	users,
@@ -74,6 +83,13 @@ async function createGroup(
 async function createQuestion(input: typeof questions.$inferInsert) {
 	const [question] = await db.insert(questions).values(input).returning()
 	return question
+}
+
+// away @ home, matching the "@" convention question titles and the detail
+// page's game block both read off - not a symmetric teamA/teamB pair.
+async function createGame(input: typeof games.$inferInsert) {
+	const [game] = await db.insert(games).values(input).returning()
+	return game
 }
 
 async function shareQuestion(
@@ -159,6 +175,43 @@ async function callWithGuess(
 	return call
 }
 
+// multiple_choice on an optionsOpenField question only - mirrors what
+// castCall's resolver does when a caller picks someone not in the pool yet:
+// find their existing option on this question, or create it now. Lets the
+// seed model an open-field question's pool as genuinely caller-sourced
+// instead of pre-listed by addPlayerOptions like a normal multiple_choice.
+async function callOnOpenField(
+	questionId: string,
+	userId: string,
+	player: Player,
+	conviction: number,
+	caseText?: string,
+) {
+	const existingOptions = await db.query.questionOptions.findMany({
+		where: { questionId },
+	})
+	const existing = existingOptions.find((o) => o.playerId === player.id)
+	const option =
+		existing ??
+		(
+			await db
+				.insert(questionOptions)
+				.values({
+					questionId,
+					label: player.name,
+					playerId: player.id,
+					sortOrder: existingOptions.length,
+				})
+				.returning()
+		)[0]
+	return callOnOptions(
+		questionId,
+		userId,
+		[{ optionId: option.id, conviction }],
+		caseText,
+	)
+}
+
 // Marks the winning option(s) and scores every selection made on this
 // question via the same tierFor/selectionPoints math the live app will use.
 // Each option's field share is computed once here, off the final tally, and
@@ -170,10 +223,26 @@ async function resolveOptionQuestion(
 	correctOptionIds: string[],
 	resolutionNote: string,
 ) {
+	const question = await db.query.questions.findFirst({
+		where: { id: questionId },
+		columns: { type: true },
+	})
+	if (!question) throw new Error(`Question ${questionId} not found`)
+	const basePoints = BASE_POINTS_BY_TYPE[question.type]
+
 	const questionCalls = await db.query.calls.findMany({
 		where: { questionId },
-		columns: { id: true },
+		columns: { id: true, createdAt: true },
 	})
+	const orderedCalls = [...questionCalls].sort(
+		(a, b) => a.createdAt.getTime() - b.createdAt.getTime(),
+	)
+	const earlyMultByCallId = new Map(
+		orderedCalls.map((c, index) => [
+			c.id,
+			earlyTierFor(index + 1, orderedCalls.length).mult,
+		]),
+	)
 
 	for (const option of options) {
 		await db
@@ -186,13 +255,16 @@ async function resolveOptionQuestion(
 		})
 		const optionFieldPct = fieldPct(selections.length, questionCalls.length)
 		for (const selection of selections) {
+			const earlyMult = earlyMultByCallId.get(selection.callId) ?? 1
 			await db
 				.update(callSelections)
 				.set({
 					resultPoints: selectionPoints(
+						basePoints,
 						optionFieldPct,
 						selection.conviction,
 						correctOptionIds.includes(option.id),
+						earlyMult,
 					),
 				})
 				.where(eq(callSelections.id, selection.id))
@@ -226,12 +298,15 @@ async function resolveNumericQuestion(
 			callId: call.id,
 			guessValue: call.guessValue,
 			conviction: call.conviction,
+			createdAt: call.createdAt,
 		}))
 	const resultByCallId = new Map(
-		numericGuessPoints(guesses, actualValue, tolerancePct).map((r) => [
-			r.callId,
-			r,
-		]),
+		numericGuessPoints(
+			BASE_POINTS_BY_TYPE.numeric_guess,
+			guesses,
+			actualValue,
+			tolerancePct,
+		).map((r) => [r.callId, r]),
 	)
 
 	for (const call of guesses) {
@@ -241,6 +316,7 @@ async function resolveNumericQuestion(
 			.set({
 				hitTolerance: result?.hit ?? null,
 				resultPoints: result?.points,
+				closenessMult: result?.closenessMult ?? null,
 			})
 			.where(eq(calls.id, call.callId))
 	}
@@ -270,7 +346,7 @@ async function fileDispute(questionId: string, userId: string, reason: string) {
 async function main() {
 	console.log("Wiping existing data...")
 	await db.execute(
-		"TRUNCATE TABLE call_selections, calls, question_options, question_shares, questions, stats, players, teams, leagues, sports, group_invites, group_members, groups, sessions, users RESTART IDENTITY CASCADE",
+		"TRUNCATE TABLE call_selections, calls, question_options, question_shares, questions, games, stats, stat_tolerance_tiers, players, teams, leagues, sports, group_invites, group_members, groups, sessions, users RESTART IDENTITY CASCADE",
 	)
 
 	console.log("Seeding users...")
@@ -616,6 +692,20 @@ async function main() {
 		return player
 	}
 
+	// Two tolerance tiers, not one row per stat - a low-count box-score stat
+	// (rebounds, a touchdown count) needs a looser percentage than a
+	// high-volume one (passing yards, points) or rounding to the nearest whole
+	// number eats most of the band. Every stat below points at one of these;
+	// adding a new stat later means classifying it into an existing tier, not
+	// inventing a new percentage.
+	const [lowCountTier, highVolumeTier] = await db
+		.insert(statToleranceTiers)
+		.values([
+			{ name: "Low-Count Box Stat", tolerancePct: 0.15 },
+			{ name: "High-Volume", tolerancePct: 0.1 },
+		])
+		.returning()
+
 	// Scoped to sport, not league - NBA and NCAAB (once we have it) share this
 	// same catalog. category groups the list for display instead of one flat
 	// wall of chips.
@@ -623,17 +713,18 @@ async function main() {
 		.insert(stats)
 		.values(
 			[
-				["Points", "Scoring"],
-				["3-Pointers Made", "Scoring"],
-				["Rebounds", "Rebounding"],
-				["Assists", "Playmaking"],
-				["Turnovers", "Playmaking"],
-				["Steals", "Defense"],
-				["Blocks", "Defense"],
-			].map(([name, category], sortOrder) => ({
+				["Points", "Scoring", highVolumeTier],
+				["3-Pointers Made", "Scoring", lowCountTier],
+				["Rebounds", "Rebounding", lowCountTier],
+				["Assists", "Playmaking", lowCountTier],
+				["Turnovers", "Playmaking", lowCountTier],
+				["Steals", "Defense", lowCountTier],
+				["Blocks", "Defense", lowCountTier],
+			].map(([name, category, tier], sortOrder) => ({
 				sportId: basketball.id,
-				name,
-				category,
+				name: name as string,
+				category: category as string,
+				toleranceTierId: (tier as StatToleranceTier).id,
 				sortOrder,
 			})),
 		)
@@ -643,20 +734,21 @@ async function main() {
 		.insert(stats)
 		.values(
 			[
-				["Points", "Scoring"],
-				["Passing Yards", "Passing"],
-				["Passing Touchdowns", "Passing"],
-				["Rushing Yards", "Rushing"],
-				["Rushing Touchdowns", "Rushing"],
-				["Receiving Yards", "Receiving"],
-				["Receptions", "Receiving"],
-				["Receiving Touchdowns", "Receiving"],
-				["Sacks", "Defense"],
-				["Interceptions", "Defense"],
-			].map(([name, category], sortOrder) => ({
+				["Points", "Scoring", highVolumeTier],
+				["Passing Yards", "Passing", highVolumeTier],
+				["Passing Touchdowns", "Passing", lowCountTier],
+				["Rushing Yards", "Rushing", highVolumeTier],
+				["Rushing Touchdowns", "Rushing", lowCountTier],
+				["Receiving Yards", "Receiving", highVolumeTier],
+				["Receptions", "Receiving", lowCountTier],
+				["Receiving Touchdowns", "Receiving", lowCountTier],
+				["Sacks", "Defense", lowCountTier],
+				["Interceptions", "Defense", lowCountTier],
+			].map(([name, category, tier], sortOrder) => ({
 				sportId: football.id,
-				name,
-				category,
+				name: name as string,
+				category: category as string,
+				toleranceTierId: (tier as StatToleranceTier).id,
 				sortOrder,
 			})),
 		)
@@ -672,6 +764,96 @@ async function main() {
 		if (!stat) throw new Error(`Missing football stat: ${name}`)
 		return stat
 	}
+
+	const tierPctById = new Map(
+		[lowCountTier, highVolumeTier].map((tier) => [tier.id, tier.tolerancePct]),
+	)
+	// Mirrors what createQuestion's resolver derives server-side from a stat's
+	// toleranceTier - seed data inserts questions directly, bypassing that
+	// resolver, so this keeps the two in sync by construction instead of by
+	// hand-copied percentages.
+	function tolerancePctForStat(stat: { toleranceTierId: string }): number {
+		const pct = tierPctById.get(stat.toleranceTierId)
+		if (pct === undefined) {
+			throw new Error(`Missing tolerance tier for stat ${stat.toleranceTierId}`)
+		}
+		return pct
+	}
+
+	console.log("Seeding games...")
+
+	// Real-world matchups a handful of the questions below are actually
+	// scoped to - "away @ home", matching the "@" convention already used in
+	// question titles like "76ers @ Nuggets". Not every game-tied question
+	// below shares a game row with another (a team can appear in more than
+	// one of these, same as a real team plays more than one game a season) -
+	// only questions that are genuinely the same real-world game share one.
+	const nuggetsSunsGame = await createGame({
+		leagueId: nba.id,
+		homeTeamId: nbaTeam("DEN").id,
+		awayTeamId: nbaTeam("PHX").id,
+		startsAt: hoursFromNow(5),
+	})
+	const lakersWarriorsGame = await createGame({
+		leagueId: nba.id,
+		homeTeamId: nbaTeam("LAL").id,
+		awayTeamId: nbaTeam("GSW").id,
+		startsAt: daysAgo(3),
+	})
+	const sixersNuggetsGame = await createGame({
+		leagueId: nba.id,
+		homeTeamId: nbaTeam("DEN").id,
+		awayTeamId: nbaTeam("PHI").id,
+		startsAt: hoursAgo(2),
+	})
+	const sixersCelticsGame = await createGame({
+		leagueId: nba.id,
+		homeTeamId: nbaTeam("BOS").id,
+		awayTeamId: nbaTeam("PHI").id,
+		startsAt: hoursFromNow(6),
+	})
+	const celticsHeatGame = await createGame({
+		leagueId: nba.id,
+		homeTeamId: nbaTeam("BOS").id,
+		awayTeamId: nbaTeam("MIA").id,
+		startsAt: daysAgo(1),
+	})
+	const nuggetsCelticsGame = await createGame({
+		leagueId: nba.id,
+		homeTeamId: nbaTeam("BOS").id,
+		awayTeamId: nbaTeam("DEN").id,
+		startsAt: daysFromNow(2),
+	})
+	const bucksPacersGame = await createGame({
+		leagueId: nba.id,
+		homeTeamId: nbaTeam("MIL").id,
+		awayTeamId: nbaTeam("IND").id,
+		startsAt: hoursAgo(1),
+	})
+	const pacersBullsGame = await createGame({
+		leagueId: nba.id,
+		homeTeamId: nbaTeam("IND").id,
+		awayTeamId: nbaTeam("CHI").id,
+		startsAt: hoursFromNow(7),
+	})
+	const chiefsRaidersGame = await createGame({
+		leagueId: nfl.id,
+		homeTeamId: nflTeam("LV").id,
+		awayTeamId: nflTeam("KC").id,
+		startsAt: hoursFromNow(30),
+	})
+	const chiefsBillsGame = await createGame({
+		leagueId: nfl.id,
+		homeTeamId: nflTeam("BUF").id,
+		awayTeamId: nflTeam("KC").id,
+		startsAt: hoursAgo(1),
+	})
+	const billsDolphinsGame = await createGame({
+		leagueId: nfl.id,
+		homeTeamId: nflTeam("BUF").id,
+		awayTeamId: nflTeam("MIA").id,
+		startsAt: hoursFromNow(20),
+	})
 
 	console.log("Seeding NBA questions and calls...")
 
@@ -798,8 +980,9 @@ async function main() {
 		"Cooper Flagg won 2025-26 Rookie of the Year.",
 	)
 
-	// 4. Yes/No, still open - not every question has a clean stat/subject shape,
-	// so this stays a plain title with no statId/subject reference.
+	// 4. Yes/No, still open, quinn hasn't called - not every question has a
+	// clean stat/subject shape, so this stays a plain title with no
+	// statId/subject reference.
 	const jokicTripleDouble = await createQuestion({
 		type: "yes_no",
 		category: "game_stats",
@@ -807,13 +990,11 @@ async function main() {
 		creatorId: jrhoops.id,
 		sportId: basketball.id,
 		leagueId: nba.id,
+		gameId: nuggetsSunsGame.id,
 		resolutionSource: "ESPN box score",
 		locksAt: hoursFromNow(5),
 	})
 	const [tdYes, tdNo] = await addOptions(jokicTripleDouble.id, ["Yes", "No"])
-	await callOnOptions(jokicTripleDouble.id, quinn.id, [
-		{ optionId: tdYes.id, conviction: 55 },
-	])
 	await callOnOptions(jokicTripleDouble.id, tswish.id, [
 		{ optionId: tdYes.id, conviction: 40 },
 	])
@@ -830,6 +1011,7 @@ async function main() {
 		creatorId: mpwolves.id,
 		sportId: basketball.id,
 		leagueId: nba.id,
+		gameId: lakersWarriorsGame.id,
 		resolutionSource: "ESPN box score",
 		locksAt: daysAgo(3),
 		numericSubjectType: "team",
@@ -860,13 +1042,17 @@ async function main() {
 		creatorId: dkanalytics.id,
 		sportId: basketball.id,
 		leagueId: nba.id,
+		gameId: sixersNuggetsGame.id,
 		resolutionSource: "ESPN box score",
 		locksAt: hoursAgo(2),
 		status: "locked",
 		statId: basketballStat("Points").id,
 		ouLine: 224.5,
 	})
-	const [over2245, under2245] = await addOptions(totalPointsOU.id, ["Over", "Under"])
+	const [over2245, under2245] = await addOptions(totalPointsOU.id, [
+		"Over",
+		"Under",
+	])
 	await callOnOptions(totalPointsOU.id, quinn.id, [
 		{ optionId: over2245.id, conviction: 50 },
 	])
@@ -877,7 +1063,9 @@ async function main() {
 		{ optionId: under2245.id, conviction: 45 },
 	])
 
-	// 7. Numeric guess, still open
+	// 7. Numeric guess, still open, quinn hasn't called - enough guesses that
+	// the distribution chart clears MIN_GUESSES_FOR_CHART and actually renders
+	// as a spread of bars instead of the low-volume empty state.
 	const embiidRebounds = await createQuestion({
 		type: "numeric_guess",
 		category: "player_stats",
@@ -885,24 +1073,30 @@ async function main() {
 		creatorId: ballknower.id,
 		sportId: basketball.id,
 		leagueId: nba.id,
+		gameId: sixersCelticsGame.id,
 		resolutionSource: "ESPN box score",
 		locksAt: hoursFromNow(6),
 		statId: basketballStat("Rebounds").id,
 		numericSubjectType: "player",
 		subjectPlayerId: nbaPlayer("Joel Embiid").id,
-		numericTolerancePct: 0.15,
+		numericTolerancePct: tolerancePctForStat(basketballStat("Rebounds")),
 	})
 	await callWithGuess(
 		embiidRebounds.id,
-		quinn.id,
+		tswish.id,
 		13,
-		60,
+		45,
 		"Minutes have been up the last three games with Maxey out.",
 	)
-	await callWithGuess(embiidRebounds.id, tswish.id, 13, 45)
 	await callWithGuess(embiidRebounds.id, dkanalytics.id, 11, 50)
 	await callWithGuess(embiidRebounds.id, mpwolves.id, 12, 55)
 	await callWithGuess(embiidRebounds.id, statlinesteve.id, 14, 40)
+	await callWithGuess(embiidRebounds.id, rcourtside.id, 10, 35)
+	await callWithGuess(embiidRebounds.id, jrhoops.id, 15, 50)
+	await callWithGuess(embiidRebounds.id, ballknower.id, 9, 30)
+	await callWithGuess(embiidRebounds.id, courtvision.id, 16, 60)
+	await callWithGuess(embiidRebounds.id, hoopqueen.id, 11, 45)
+	await callWithGuess(embiidRebounds.id, dannyRinger.id, 13, 50)
 
 	// 8. Numeric guess, resolved - ranked by distance from the actual value
 	const tatumPoints = await createQuestion({
@@ -912,12 +1106,13 @@ async function main() {
 		creatorId: statlinesteve.id,
 		sportId: basketball.id,
 		leagueId: nba.id,
+		gameId: celticsHeatGame.id,
 		resolutionSource: "ESPN box score",
 		locksAt: daysAgo(1),
 		statId: basketballStat("Points").id,
 		numericSubjectType: "player",
 		subjectPlayerId: nbaPlayer("Jayson Tatum").id,
-		numericTolerancePct: 0.15,
+		numericTolerancePct: tolerancePctForStat(basketballStat("Points")),
 	})
 	await callWithGuess(
 		tatumPoints.id,
@@ -1045,7 +1240,9 @@ async function main() {
 		{ optionId: ravens.id, conviction: 40 },
 	])
 
-	// 11. Numeric guess, still open
+	// 11. Numeric guess, still open, quinn hasn't called - a couple of guesses
+	// in, below MIN_GUESSES_FOR_CHART, so the distribution renders its
+	// low-volume state rather than a full chart.
 	const mahomesYards = await createQuestion({
 		type: "numeric_guess",
 		category: "player_stats",
@@ -1053,21 +1250,21 @@ async function main() {
 		creatorId: dannyRinger.id,
 		sportId: football.id,
 		leagueId: nfl.id,
+		gameId: chiefsRaidersGame.id,
 		resolutionSource: "ESPN box score",
 		locksAt: hoursFromNow(30),
 		statId: footballStat("Passing Yards").id,
 		numericSubjectType: "player",
 		subjectPlayerId: nflPlayer("Patrick Mahomes").id,
-		numericTolerancePct: 0.15,
+		numericTolerancePct: tolerancePctForStat(footballStat("Passing Yards")),
 	})
 	await callWithGuess(
 		mahomesYards.id,
-		quinn.id,
-		275,
-		55,
+		mattfantasy.id,
+		260,
+		45,
 		"Defense is banged up in the secondary this week.",
 	)
-	await callWithGuess(mahomesYards.id, mattfantasy.id, 260, 45)
 	await callWithGuess(mahomesYards.id, courtvision.id, 300, 50)
 
 	// 12. Over/under, locked - game-wide total, no subject
@@ -1078,13 +1275,17 @@ async function main() {
 		creatorId: statlinesteve.id,
 		sportId: football.id,
 		leagueId: nfl.id,
+		gameId: chiefsBillsGame.id,
 		resolutionSource: "ESPN box score",
 		locksAt: hoursAgo(1),
 		status: "locked",
 		statId: footballStat("Points").id,
 		ouLine: 47.5,
 	})
-	const [over475, under475] = await addOptions(chiefsBillsOU.id, ["Over", "Under"])
+	const [over475, under475] = await addOptions(chiefsBillsOU.id, [
+		"Over",
+		"Under",
+	])
 	await callOnOptions(chiefsBillsOU.id, quinn.id, [
 		{ optionId: over475.id, conviction: 50 },
 	])
@@ -1092,7 +1293,36 @@ async function main() {
 		{ optionId: under475.id, conviction: 45 },
 	])
 
-	// 13. Multiple choice, resolved - jrhoops hits a big underdog pick here so
+	// 13. Over/under, still open - quinn hasn't called. The other two
+	// over/unders above (6, 12) are both locked with a quinn call already on
+	// them, so on their own over_under never exercised the "still open, quinn
+	// hasn't called" state every other type gets elsewhere in this file (see
+	// nflMvp, allenYards, allNbaFirstTeam). This is the one over_under that does.
+	const nuggetsCelticsOU = await createQuestion({
+		type: "over_under",
+		category: "game_stats",
+		title: "Nuggets @ Celtics - combined total over or under 231.5?",
+		creatorId: rcourtside.id,
+		sportId: basketball.id,
+		leagueId: nba.id,
+		gameId: nuggetsCelticsGame.id,
+		resolutionSource: "ESPN box score",
+		locksAt: daysFromNow(2),
+		statId: basketballStat("Points").id,
+		ouLine: 231.5,
+	})
+	const [over2315, under2315] = await addOptions(nuggetsCelticsOU.id, [
+		"Over",
+		"Under",
+	])
+	await callOnOptions(nuggetsCelticsOU.id, tswish.id, [
+		{ optionId: over2315.id, conviction: 45 },
+	])
+	await callOnOptions(nuggetsCelticsOU.id, ballknower.id, [
+		{ optionId: under2315.id, conviction: 50 },
+	])
+
+	// 14. Multiple choice, resolved - jrhoops hits a big underdog pick here so
 	// Fantasy League Chat's leaderboard isn't just quinn at #1 in every group.
 	const inSeasonTournament = await createQuestion({
 		type: "multiple_choice",
@@ -1132,7 +1362,7 @@ async function main() {
 		"Oklahoma City won the 2025 NBA In-Season Tournament.",
 	)
 
-	// 14. Multiple choice, disputed - resolved, then immediately contested, so
+	// 15. Multiple choice, disputed - resolved, then immediately contested, so
 	// the disputed treatment (ResolutionBanner's amber state, QuestionCard's
 	// resolved field signal) has a real question to render against.
 	const mvpRace = await createQuestion({
@@ -1176,6 +1406,132 @@ async function main() {
 		"The media panel's own ballots leaked and three of them had Jokic first - this doesn't match the announced result.",
 	)
 
+	// 16. Multiple choice, open field - no preset shortlist. Any NFL player is
+	// a legal pick, not just the usual QB contenders (see callOnOpenField's
+	// comment), so the option pool here is entirely sourced by the calls
+	// below rather than pre-listed by addPlayerOptions like every other
+	// multiple_choice in this file. Eight distinct picks so the option list
+	// actually exercises CastCallForm's "Show more" paging (OPTIONS_PAGE_STEP
+	// is 5), not just a short list that fits on one screen. Also still open,
+	// quinn hasn't picked yet - alongside allNbaFirstTeam above, gives the
+	// "can still call, hasn't called" state a second question type to render
+	// against.
+	const nflMvp = await createQuestion({
+		type: "multiple_choice",
+		category: "season_awards",
+		title: "Who wins NFL MVP this season?",
+		creatorId: dannyRinger.id,
+		isOfficial: true,
+		sportId: football.id,
+		leagueId: nfl.id,
+		resolutionSource: "Official NFL MVP announcement",
+		locksAt: daysFromNow(140),
+		optionsOpenField: true,
+		openFieldKind: "player",
+	})
+	await callOnOpenField(nflMvp.id, mattfantasy.id, nflPlayer("Josh Allen"), 55)
+	await callOnOpenField(
+		nflMvp.id,
+		statlinesteve.id,
+		nflPlayer("Patrick Mahomes"),
+		45,
+	)
+	await callOnOpenField(
+		nflMvp.id,
+		courtvision.id,
+		nflPlayer("Lamar Jackson"),
+		40,
+		"Ravens' offense runs through him more than any other frontrunner's team runs through them.",
+	)
+	await callOnOpenField(
+		nflMvp.id,
+		dannyRinger.id,
+		nflPlayer("Ja'Marr Chase"),
+		30,
+		"Nobody's taking a receiver seriously yet, which is exactly why I'm early on it.",
+	)
+	await callOnOpenField(nflMvp.id, mpwolves.id, nflPlayer("Joe Burrow"), 50)
+	await callOnOpenField(nflMvp.id, tswish.id, nflPlayer("Justin Jefferson"), 35)
+	await callOnOpenField(
+		nflMvp.id,
+		rcourtside.id,
+		nflPlayer("Christian McCaffrey"),
+		45,
+	)
+	await callOnOpenField(
+		nflMvp.id,
+		ballknower.id,
+		nflPlayer("Saquon Barkley"),
+		38,
+	)
+
+	// 17. Numeric guess, still open - quinn hasn't picked yet
+	const allenYards = await createQuestion({
+		type: "numeric_guess",
+		category: "player_stats",
+		title: "How many passing yards will Josh Allen throw for?",
+		creatorId: mattfantasy.id,
+		sportId: football.id,
+		leagueId: nfl.id,
+		gameId: billsDolphinsGame.id,
+		resolutionSource: "ESPN box score",
+		locksAt: hoursFromNow(20),
+		statId: footballStat("Passing Yards").id,
+		numericSubjectType: "player",
+		subjectPlayerId: nflPlayer("Josh Allen").id,
+		numericTolerancePct: tolerancePctForStat(footballStat("Passing Yards")),
+	})
+	await callWithGuess(allenYards.id, dannyRinger.id, 265, 50)
+	await callWithGuess(allenYards.id, courtvision.id, 240, 45)
+
+	// 19. Numeric guess, still open, zero calls - the other three numeric_guess
+	// questions above all have at least a couple of guesses on them already, so
+	// none of them shows what the picker/distribution actually look like on a
+	// genuinely untouched question. This is that one.
+	await createQuestion({
+		type: "numeric_guess",
+		category: "player_stats",
+		title: "How many assists will Haliburton dish out tonight?",
+		creatorId: slballer.id,
+		sportId: basketball.id,
+		leagueId: nba.id,
+		gameId: pacersBullsGame.id,
+		resolutionSource: "ESPN box score",
+		locksAt: hoursFromNow(7),
+		statId: basketballStat("Assists").id,
+		numericSubjectType: "player",
+		subjectPlayerId: nbaPlayer("Tyrese Haliburton").id,
+		numericTolerancePct: tolerancePctForStat(basketballStat("Assists")),
+	})
+
+	// 18. Yes/No, locked (game underway) but not yet resolved - quinn hasn't
+	// called. The other two locked-and-unresolved questions above (6, 12) both
+	// have a quinn call, so on their own the route's "Locked - you didn't call
+	// this one" empty state (see $questionId.tsx) never rendered anywhere in
+	// seed data. This is the one question that exercises it.
+	const giannisTripleDouble = await createQuestion({
+		type: "yes_no",
+		category: "game_stats",
+		title: "Will Giannis record a 30-point triple-double tonight?",
+		creatorId: jrhoops.id,
+		sportId: basketball.id,
+		leagueId: nba.id,
+		gameId: bucksPacersGame.id,
+		resolutionSource: "ESPN box score",
+		locksAt: hoursAgo(1),
+		status: "locked",
+	})
+	const [giannisYes, giannisNo] = await addOptions(giannisTripleDouble.id, [
+		"Yes",
+		"No",
+	])
+	await callOnOptions(giannisTripleDouble.id, jrhoops.id, [
+		{ optionId: giannisYes.id, conviction: 50 },
+	])
+	await callOnOptions(giannisTripleDouble.id, slballer.id, [
+		{ optionId: giannisNo.id, conviction: 40 },
+	])
+
 	console.log("Seeding shared questions...")
 
 	// Wolfpack (quinn = admin)
@@ -1185,8 +1541,16 @@ async function main() {
 
 	// Fantasy League Chat (quinn = member)
 	await shareQuestion(fantasyLeagueChat.group.id, superBowl.id, jrhoops.id)
-	await shareQuestion(fantasyLeagueChat.group.id, mahomesYards.id, statlinesteve.id)
-	await shareQuestion(fantasyLeagueChat.group.id, jokicTripleDouble.id, quinn.id)
+	await shareQuestion(
+		fantasyLeagueChat.group.id,
+		mahomesYards.id,
+		statlinesteve.id,
+	)
+	await shareQuestion(
+		fantasyLeagueChat.group.id,
+		jokicTripleDouble.id,
+		quinn.id,
+	)
 
 	console.log("\nDone.\n")
 	console.log("Log in as quinn: qvaughn3@gmail.com / password")
@@ -1200,12 +1564,8 @@ async function main() {
 	console.log(
 		`  The Ringer Fantasy Show (quinn not a member, pending invite) code: ${ringerFantasyShow.invite.code}`,
 	)
-	console.log(
-		"\nWolfpack shared tab: 3 questions (1 shared by quinn)",
-	)
-	console.log(
-		"Fantasy League Chat shared tab: 3 questions (1 shared by quinn)",
-	)
+	console.log("\nWolfpack shared tab: 3 questions (1 shared by quinn)")
+	console.log("Fantasy League Chat shared tab: 3 questions (1 shared by quinn)")
 	console.log("\nQuestions seeded:")
 	console.log("  NBA 1. 2027 championship        multiple_choice  open")
 	console.log(
@@ -1214,14 +1574,18 @@ async function main() {
 	console.log(
 		"  NBA 3. 2025-26 Rookie of Year   multiple_choice  resolved - quinn lost",
 	)
-	console.log("  NBA 4. Jokic triple-double      yes_no           open")
+	console.log(
+		"  NBA 4. Jokic triple-double      yes_no           open, quinn hasn't called",
+	)
 	console.log(
 		"  NBA 5. Lakers win by 10+        yes_no           resolved - quinn lost",
 	)
 	console.log(
 		"  NBA 6. 76ers @ Nuggets total    over_under       locked, unresolved",
 	)
-	console.log("  NBA 7. Embiid rebounds          numeric_guess    open")
+	console.log(
+		"  NBA 7. Embiid rebounds          numeric_guess    open, quinn hasn't called, 10 guesses (full chart)",
+	)
 	console.log(
 		"  NBA 8. Tatum points             numeric_guess    resolved - quinn won",
 	)
@@ -1229,15 +1593,32 @@ async function main() {
 		"  NBA 9. All-NBA First Team       multi_select     open, quinn hasn't called",
 	)
 	console.log("  NFL 10. Super Bowl LXI winner    multiple_choice  open")
-	console.log("  NFL 11. Mahomes passing yards    numeric_guess    open")
+	console.log(
+		"  NFL 11. Mahomes passing yards    numeric_guess    open, quinn hasn't called, 2 guesses (low-volume)",
+	)
 	console.log(
 		"  NFL 12. Chiefs @ Bills total     over_under       locked, unresolved",
 	)
 	console.log(
-		"  NBA 13. 2025 In-Season Tournament multiple_choice resolved - jrhoops won big",
+		"  NBA 13. Nuggets @ Celtics total  over_under       open, quinn hasn't called",
 	)
 	console.log(
-		"  NBA 14. 2025-26 MVP             multiple_choice  disputed - quinn's pick contested",
+		"  NBA 14. 2025 In-Season Tournament multiple_choice resolved - jrhoops won big",
+	)
+	console.log(
+		"  NBA 15. 2025-26 MVP             multiple_choice  disputed - quinn's pick contested",
+	)
+	console.log(
+		"  NFL 16. NFL MVP                 multiple_choice  open field, open, quinn hasn't called",
+	)
+	console.log(
+		"  NFL 17. Josh Allen passing yards numeric_guess    open, quinn hasn't called",
+	)
+	console.log(
+		"  NBA 18. Giannis 30pt triple-dbl yes_no           locked, unresolved, quinn hasn't called",
+	)
+	console.log(
+		"  NBA 19. Haliburton assists      numeric_guess    open, quinn hasn't called, 0 guesses (empty)",
 	)
 
 	await db.$client.end()

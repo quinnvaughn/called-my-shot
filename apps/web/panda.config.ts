@@ -71,6 +71,7 @@ export default defineConfig({
           // mockups' smallest real text (labels, fineprint) sits around 10-11px,
           // so the scale is shifted down a notch to make room for both sizes
           // (default xs stays 12px, unchanged).
+          "4xs": { value: "9px" }, // field avg marker label - smaller than 3xs on purpose
           "3xs": { value: "0.625rem" }, // 10px
           "2xs": { value: "0.6875rem" }, // 11px
         },
@@ -103,6 +104,7 @@ export default defineConfig({
           verifiedMuted: { value: "#112921" }, // pale success-tinted background for the "Called" status chip
           verifiedVibrant: { value: "#34D399" }, // for filled shapes (bars, chart segments) — see note above
           loss: { value: "#E24B4A" }, // error / wrong-call / negative value; light theme darkened this to #C22B2A
+          lossMuted: { value: "#2E1616" }, // pale danger-tinted background for loss/negative badges
           caution: { value: "#E8A33D" }, // warning / disputed / under-review value; light theme darkened this to #A6650E
           cautionMuted: { value: "#2C2213" }, // pale caution-tinted background for the disputed-resolution banner
           overlay: { value: "#0B0B0C" }, // modal scrim base color (used as rgba, e.g. overlay/70) — stays dark in both themes
@@ -111,6 +113,13 @@ export default defineConfig({
       keyframes: {
         spin: {
           to: { transform: "rotate(360deg)" },
+        },
+        // Live-status dot (see the pending-call badge) - a plain opacity pulse
+        // reads as "still active" without competing for attention the way a
+        // color or size change would.
+        pulse: {
+          "0%, 100%": { opacity: "1" },
+          "50%": { opacity: "0.25" },
         },
       },
       semanticTokens: {
@@ -155,6 +164,7 @@ export default defineConfig({
           },
           danger: {
             default: { value: "{colors.loss}" },
+            subtle: { value: "{colors.lossMuted}" },
           },
           warning: {
             default: { value: "{colors.caution}" },
@@ -267,7 +277,7 @@ export default defineConfig({
         // that textInput puts on `group` just lives on `field` directly here.
         textarea: defineSlotRecipe({
           className: "textarea",
-          slots: ["root", "label", "field", "description", "error"],
+          slots: ["root", "label", "field", "description", "error", "count"],
           base: {
             root: {
               display: "flex",
@@ -312,6 +322,13 @@ export default defineConfig({
             error: {
               fontSize: "xs",
               color: "danger.default",
+            },
+            count: {
+              display: "block",
+              fontFamily: "mono",
+              fontSize: "2xs",
+              color: "fg.subtle",
+              textAlign: "right",
             },
           },
           variants: {

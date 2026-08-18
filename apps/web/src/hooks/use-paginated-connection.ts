@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 
 type PageInfo = { hasNextPage: boolean; endCursor: string | null }
 type Connection<T> = { items: T[]; pageInfo: PageInfo }
@@ -14,6 +14,14 @@ export function usePaginatedConnection<T>(
 	const [items, setItems] = useState(initial.items)
 	const [pageInfo, setPageInfo] = useState(initial.pageInfo)
 	const [loading, setLoading] = useState(false)
+
+	// initial comes from a route loader; when the loader reruns (e.g. after
+	// router.invalidate()) it hands us a new items array with fresh server
+	// state - resync to it rather than keeping whatever was seeded at mount.
+	useEffect(() => {
+		setItems(initial.items)
+		setPageInfo(initial.pageInfo)
+	}, [initial.items, initial.pageInfo])
 
 	const loadMore = useCallback(async () => {
 		if (loading || !pageInfo.hasNextPage || !pageInfo.endCursor) return

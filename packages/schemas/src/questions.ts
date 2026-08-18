@@ -98,17 +98,36 @@ export const createQuestionSchema = z
 		subjectTeamId: z.string().uuid().optional(),
 		subjectPlayerId: z.string().uuid().optional(),
 
-		// numeric_guess - fraction of the actual value, e.g. 0.1 = within 10%
-		numericTolerancePct: z.number().optional(),
-
 		// multi_select
 		picksRequired: z.number().int().optional(),
+
+		// multiple_choice only - see optionsOpenField on the questions table for
+		// what this actually changes at runtime. openFieldKind says what kind of
+		// entity fills the pool (castCall needs to know whether a caller's pick
+		// has to resolve to a real team or a real player).
+		optionsOpenField: z.boolean().optional(),
+		openFieldKind: numericSubjectTypeSchema.optional(),
 	})
 	.superRefine((data, ctx) => {
 		switch (data.type) {
 			case "multiple_choice": {
 				const options = data.options ?? []
-				if (options.length < 2 || options.length > 30) {
+				if (data.optionsOpenField) {
+					if (!data.openFieldKind) {
+						ctx.addIssue({
+							code: "custom",
+							path: ["openFieldKind"],
+							message: "Pick what the field is made of",
+						})
+					}
+					if (options.length > 30) {
+						ctx.addIssue({
+							code: "custom",
+							path: ["options"],
+							message: "Start with at most 30 options",
+						})
+					}
+				} else if (options.length < 2 || options.length > 30) {
 					ctx.addIssue({
 						code: "custom",
 						path: ["options"],
@@ -149,11 +168,14 @@ export const createQuestionSchema = z
 				break
 			}
 			case "numeric_guess": {
-				if (!data.statId && !data.customStat.trim()) {
+				// Catalog stat required, no customStat fallback - the tolerance
+				// band comes from the stat's tolerance tier (see createQuestion's
+				// resolver), and a freeform stat has no tier to look one up from.
+				if (!data.statId) {
 					ctx.addIssue({
 						code: "custom",
-						path: ["customStat"],
-						message: "Pick a stat",
+						path: ["statId"],
+						message: "Pick a stat from the list",
 					})
 				}
 				if (!data.numericSubjectType) {
@@ -176,17 +198,6 @@ export const createQuestionSchema = z
 						code: "custom",
 						path: ["subjectTeamId"],
 						message: "Pick a team",
-					})
-				}
-				if (
-					data.numericTolerancePct === undefined ||
-					data.numericTolerancePct <= 0 ||
-					data.numericTolerancePct > 1
-				) {
-					ctx.addIssue({
-						code: "custom",
-						path: ["numericTolerancePct"],
-						message: "Tolerance must be between 0 and 100%",
 					})
 				}
 				break
@@ -244,6 +255,18 @@ const castCallSelectionSchema = z.object({
 	conviction: z.number().int().min(1, "Conviction must be 1-100").max(100, "Conviction must be 1-100"),
 })
 
+// multiple_choice on an optionsOpenField question only - a pick that isn't
+// among the question's existing questionOptions yet. The resolver finds or
+// creates the matching option from teamId/playerId (whichever the question's
+// openFieldKind calls for) rather than trusting label alone, same "must
+// resolve to a real entity" rule the creator-listed pool already enforces.
+const castCallNewOptionSchema = z.object({
+	label: z.string().trim().min(1),
+	teamId: z.string().uuid().optional(),
+	playerId: z.string().uuid().optional(),
+	conviction: z.number().int().min(1, "Conviction must be 1-100").max(100, "Conviction must be 1-100"),
+})
+
 // Same flat-object-plus-superRefine shape as createQuestionSchema. `type` is
 // supplied by the resolver from the question it already had to load (for the
 // lock/status checks), not taken from client input - a client claiming a
@@ -264,10 +287,12 @@ export const castCallSchema = z
 			.max(100, "Conviction must be 1-100")
 			.optional(),
 
-		// multiple_choice / yes_no / over_under (exactly 1) / multi_select (>=1,
-		// exact count checked against the question's picksRequired in the
+		// multiple_choice / yes_no / over_under (exactly 1, or - multiple_choice
+		// on an optionsOpenField question only - newOption instead) / multi_select
+		// (>=1, exact count checked against the question's picksRequired in the
 		// resolver, which is the only place that number is known)
 		selections: z.array(castCallSelectionSchema).default([]),
+		newOption: castCallNewOptionSchema.optional(),
 	})
 	.superRefine((data, ctx) => {
 		switch (data.type) {
@@ -288,10 +313,28 @@ export const castCallSchema = z
 				}
 				break
 			}
-			case "multiple_choice":
 			case "yes_no":
 			case "over_under": {
 				if (data.selections.length !== 1) {
+					ctx.addIssue({
+						code: "custom",
+						path: ["selections"],
+						message: "Pick one",
+					})
+				}
+				if (data.newOption) {
+					ctx.addIssue({
+						code: "custom",
+						path: ["newOption"],
+						message: "This question's options are fixed.",
+					})
+				}
+				break
+			}
+			case "multiple_choice": {
+				const pickedExisting = data.selections.length === 1
+				const pickedNew = data.newOption !== undefined
+				if (pickedExisting === pickedNew) {
 					ctx.addIssue({
 						code: "custom",
 						path: ["selections"],

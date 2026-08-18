@@ -14,11 +14,13 @@ type Props = {
 	initialPageInfo: { hasNextPage: boolean; endCursor: string | null }
 }
 
-// Every caller's pick, paginated - only rendered once the viewer has made
-// their own call (see the route's "make your call to unlock" gate above
-// this). Each CallRow still self-gates its pick fields through
-// viewerCanSeePick regardless, this list just controls which calls are in
-// scope.
+// Every call on this question, paginated - always rendered, whether or not
+// the viewer has made their own call yet. That activity (who called, when,
+// their track record in this league) is never the thing being hidden; only
+// the pick itself is, per-row, via CallRow's viewerCanSeePick gate. Hiding
+// the whole list until the viewer calls would hide the activity along with
+// the pick, which isn't the rule - see lib/call-visibility.ts on the API.
+
 export function QuestionCallsList({
 	questionId,
 	initialItems,

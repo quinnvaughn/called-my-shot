@@ -6,6 +6,13 @@ import {
 	resolveQuestionSchema,
 } from "@called-my-shot/schemas"
 import {
+	BASE_POINTS_BY_TYPE,
+	earlyTierFor,
+	fieldPct,
+	numericGuessPoints,
+	selectionPoints,
+} from "@called-my-shot/scoring"
+import {
 	and,
 	asc,
 	count,
@@ -36,7 +43,6 @@ import {
 } from "../../db/schema"
 import { requireUser } from "../../lib/auth"
 import { canViewerSeePick } from "../../lib/call-visibility"
-import { fieldPct, numericGuessPoints, selectionPoints } from "../../lib/calls"
 import {
 	AuthenticationError,
 	AuthorizationError,
@@ -51,6 +57,7 @@ import {
 	encodeOffsetCursor,
 	paginate,
 } from "../../lib/pagination"
+import { accuracyFrom, scoreCalls } from "../../lib/scoring"
 import { builder } from "../builder"
 import { PageInfoRef } from "./pagination"
 
@@ -139,8 +146,8 @@ export const QuestionOptionRef = builder.drizzleObject("questionOptions", {
 		isCorrect: t.exposeBoolean("isCorrect", { nullable: true }),
 		callCount: t.relatedCount("selections"),
 		// live % of the question's callers who picked this option - same formula
-		// resolution scores against at lock (see fieldPct in lib/calls.ts), just
-		// evaluated whenever this is queried instead of frozen at any one moment.
+		// resolution scores against at lock (see fieldPct in @called-my-shot/scoring),
+		// just evaluated whenever this is queried instead of frozen at any one moment.
 		fieldPct: t.field({
 			type: "Float",
 			nullable: true,
@@ -215,12 +222,89 @@ export const CallRef = builder.drizzleObject("calls", {
 					? call.hitTolerance
 					: null,
 		}),
+		// numeric_guess only - the actual closeness multiplier (see
+		// NUMERIC_MIN_MULT/NUMERIC_MAX_MULT in @called-my-shot/scoring)
+		// applied at resolution, from closenessMult on the calls table. Null
+		// until resolved, and null forever on a miss.
+		closenessMult: t.field({
+			type: "Float",
+			nullable: true,
+			resolve: async (call, _args, ctx) =>
+				(await canViewerSeePick(call, ctx.user?.id ?? null))
+					? call.closenessMult
+					: null,
+		}),
 		createdAt: t.field({
 			type: "String",
 			resolve: (call) => call.createdAt.toISOString(),
 		}),
+		// live: this call's 1-indexed position among every call on its question,
+		// ordered by createdAt - paired client-side with the question's live
+		// callCount to preview the earliness tier (see earlyTierFor in
+		// @called-my-shot/scoring) before the question resolves. A call's own position
+		// can't move once made, so this only ever improves as more calls come in
+		// after it; it settles into the true final rank on its own once the
+		// question locks and no more calls can land, without needing separate
+		// open/resolved logic.
+		currentRank: t.field({
+			type: "Int",
+			resolve: async (call) => {
+				// Comparing against a correlated subquery, not `call.createdAt`
+				// directly - Postgres timestamps carry microsecond precision but a
+				// JS Date only holds milliseconds, so round-tripping the parent's
+				// createdAt through JS and back into this query silently truncates
+				// it. When the truncated value lands *below* the row's real
+				// microsecond-precision value in the DB, `createdAt <= call.createdAt`
+				// is false for the call's own row, undercounting it out of its own
+				// rank (observed producing rank 0, which should be impossible - the
+				// count is inclusive of the row itself). Selecting the comparison
+				// value back out of the same table keeps it at full DB precision.
+				const [{ n }] = await db
+					.select({ n: count() })
+					.from(calls)
+					.where(
+						and(
+							eq(calls.questionId, call.questionId),
+							lte(
+								calls.createdAt,
+								sql`(select ${calls.createdAt} from ${calls} where ${calls.id} = ${call.id})`,
+							),
+						),
+					)
+				return n
+			},
+		}),
 		user: t.relation("user"),
 		question: t.relation("question"),
+		// Not pick info - shown even on a locked call to signal "this person
+		// tends to be right in this league", the same way identity is. Scoped to
+		// this call's own question's league (not the caller's site-wide
+		// accuracy) so it reads as relevant context for the question being
+		// viewed, not a vanity number. A lean per-user query, not a scan of
+		// buildGlobalLeaderboard (which sums every user's calls) - this only
+		// needs the one caller's history in the one league.
+		callerLeagueAccuracy: t.field({
+			type: "Float",
+			nullable: true,
+			resolve: async (call) => {
+				const question = await db.query.questions.findFirst({
+					where: { id: call.questionId },
+					columns: { leagueId: true },
+				})
+				if (!question) return null
+				const userCalls = await db.query.calls.findMany({
+					where: { userId: call.userId },
+					with: {
+						question: { columns: { leagueId: true } },
+						selections: { with: { option: true } },
+					},
+				})
+				const leagueCalls = userCalls.filter(
+					(c) => c.question?.leagueId === question.leagueId,
+				)
+				return accuracyFrom(scoreCalls(leagueCalls))
+			},
+		}),
 		selections: t.field({
 			type: [CallSelectionRef],
 			resolve: async (call, _args, ctx) => {
@@ -347,6 +431,10 @@ export const QuestionRef = builder.drizzleObject("questions", {
 		}),
 		resolutionNote: t.exposeString("resolutionNote", { nullable: true }),
 
+		// The single real-world matchup this question is about - null for
+		// anything not scoped to one game (season awards, an MVP race).
+		game: t.relation("game", { nullable: true }),
+
 		// over_under and numeric_guess only - stat is the catalog-backed default,
 		// customStat is the escape hatch used when stat is null
 		stat: t.relation("stat", { nullable: true }),
@@ -414,6 +502,16 @@ export const QuestionRef = builder.drizzleObject("questions", {
 		// multi_select only
 		picksRequired: t.exposeInt("picksRequired", { nullable: true }),
 
+		// multiple_choice only - true means the option pool below isn't fixed,
+		// it grows as castCall itself creates new options (see the resolver).
+		// openFieldKind says what kind of entity fills it.
+		optionsOpenField: t.exposeBoolean("optionsOpenField"),
+		openFieldKind: t.field({
+			type: NumericSubjectType,
+			nullable: true,
+			resolve: (q) => q.openFieldKind,
+		}),
+
 		createdAt: t.field({
 			type: "String",
 			resolve: (q) => q.createdAt.toISOString(),
@@ -422,7 +520,15 @@ export const QuestionRef = builder.drizzleObject("questions", {
 		creator: t.relation("creator"),
 		sport: t.relation("sport"),
 		league: t.relation("league"),
-		options: t.relation("options"),
+		// sortOrder is set once at creation (see castQuestion/castCall) to the
+		// order the creator/pool actually presented them in - nothing else on
+		// questionOptions gives a stable, intentional order, so every consumer
+		// of this list (the live picker, the resolve modal, the field
+		// breakdown) sees the same one rather than whatever order Postgres
+		// happens to return without an explicit sort.
+		options: t.relation("options", {
+			query: () => ({ orderBy: { sortOrder: "asc" } }),
+		}),
 		callCount: t.relatedCount("calls"),
 		disputes: t.relation("disputes"),
 
@@ -729,17 +835,31 @@ const CreateQuestionInput = builder.inputType("CreateQuestionInput", {
 		subjectTeamId: t.id({ required: false }),
 		subjectPlayerId: t.id({ required: false }),
 
-		// numeric_guess
-		numericTolerancePct: t.float({ required: false }),
-
 		// multi_select
 		picksRequired: t.int({ required: false }),
+
+		// multiple_choice only
+		optionsOpenField: t.boolean({ required: false }),
+		openFieldKind: t.field({ type: NumericSubjectType, required: false }),
 	}),
 })
 
 const CastCallSelectionInput = builder.inputType("CastCallSelectionInput", {
 	fields: (t) => ({
 		optionId: t.id({ required: true }),
+		conviction: t.int({ required: true }),
+	}),
+})
+
+// multiple_choice on an optionsOpenField question only - a pick not yet among
+// the question's existing options. teamId/playerId (whichever openFieldKind
+// calls for) is what the resolver actually trusts to find-or-create the
+// matching questionOptions row; label is just what gets stored on it.
+const CastCallNewOptionInput = builder.inputType("CastCallNewOptionInput", {
+	fields: (t) => ({
+		label: t.string({ required: true }),
+		teamId: t.id({ required: false }),
+		playerId: t.id({ required: false }),
 		conviction: t.int({ required: true }),
 	}),
 })
@@ -756,6 +876,10 @@ const CastCallInput = builder.inputType("CastCallInput", {
 		// multiple_choice/yes_no/over_under (exactly 1) / multi_select (a
 		// question's picksRequired worth)
 		selections: t.field({ type: [CastCallSelectionInput], required: false }),
+
+		// multiple_choice on an optionsOpenField question only - alternative to
+		// selections when the caller's pick isn't in the pool yet
+		newOption: t.field({ type: CastCallNewOptionInput, required: false }),
 	}),
 })
 
@@ -820,6 +944,22 @@ builder.mutationFields((t) => ({
 				throw new AuthorizationError("Only admins can post official questions.")
 			}
 
+			// numeric_guess's tolerance band comes from the stat's own tolerance
+			// tier, not the creator - createQuestionSchema guarantees statId is
+			// set (no customStat fallback) for this type specifically, so a
+			// creator can't set an unhittable or trivial-to-hit band by hand.
+			let numericTolerancePct: number | null = null
+			if (data.type === "numeric_guess") {
+				const stat = await db.query.stats.findFirst({
+					where: { id: data.statId },
+					with: { toleranceTier: true },
+				})
+				if (!stat?.toleranceTier) {
+					throw ValidationError.field("statId", "Pick a stat from the list")
+				}
+				numericTolerancePct = stat.toleranceTier.tolerancePct
+			}
+
 			const question = await db.transaction(async (tx) => {
 				const [question] = await tx
 					.insert(questions)
@@ -846,8 +986,12 @@ builder.mutationFields((t) => ({
 						numericSubjectType: data.numericSubjectType ?? null,
 						subjectTeamId: data.subjectTeamId ?? null,
 						subjectPlayerId: data.subjectPlayerId ?? null,
-						numericTolerancePct: data.numericTolerancePct ?? null,
+						numericTolerancePct,
 						picksRequired: data.picksRequired ?? null,
+						optionsOpenField: data.optionsOpenField ?? false,
+						openFieldKind: data.optionsOpenField
+							? (data.openFieldKind ?? null)
+							: null,
 					})
 					.returning()
 
@@ -960,7 +1104,66 @@ builder.mutationFields((t) => ({
 				}
 			}
 
+			const newOption = data.newOption
+			if (newOption) {
+				if (question.type !== "multiple_choice" || !question.optionsOpenField) {
+					throw ValidationError.field(
+						"newOption",
+						"This question's options are fixed.",
+					)
+				}
+				const wantsTeam = question.openFieldKind === "team"
+				if (wantsTeam && !newOption.teamId) {
+					throw ValidationError.field("newOption", "Pick a real team.")
+				}
+				if (!wantsTeam && !newOption.playerId) {
+					throw ValidationError.field("newOption", "Pick a real player.")
+				}
+			}
+
 			const call = await db.transaction(async (tx) => {
+				let selections: { optionId: string; conviction: number }[] =
+					data.selections
+
+				// An optionsOpenField pick not yet in the pool - find the matching
+				// team/player's existing option (someone else may have already
+				// called them) or create one now, the same way the creator's own
+				// options get inserted at question-creation time.
+				if (newOption) {
+					const matchCondition = newOption.teamId
+						? eq(questionOptions.teamId, newOption.teamId)
+						: eq(questionOptions.playerId, newOption.playerId as string)
+					const [existingOption] = await tx
+						.select()
+						.from(questionOptions)
+						.where(
+							and(eq(questionOptions.questionId, question.id), matchCondition),
+						)
+						.limit(1)
+
+					let optionId: string
+					if (existingOption) {
+						optionId = existingOption.id
+					} else {
+						const [{ n: sortOrder }] = await tx
+							.select({ n: count() })
+							.from(questionOptions)
+							.where(eq(questionOptions.questionId, question.id))
+						const [created] = await tx
+							.insert(questionOptions)
+							.values({
+								questionId: question.id,
+								label: newOption.label,
+								sortOrder,
+								teamId: newOption.teamId ?? null,
+								playerId: newOption.playerId ?? null,
+							})
+							.returning()
+						optionId = created.id
+					}
+					selections = [{ optionId, conviction: newOption.conviction }]
+				}
+
 				const [call] = await tx
 					.insert(calls)
 					.values({
@@ -974,9 +1177,9 @@ builder.mutationFields((t) => ({
 					})
 					.returning()
 
-				if (data.selections.length > 0) {
+				if (selections.length > 0) {
 					await tx.insert(callSelections).values(
-						data.selections.map((s) => ({
+						selections.map((s) => ({
 							callId: call.id,
 							optionId: s.optionId,
 							conviction: s.conviction,
@@ -1043,7 +1246,12 @@ builder.mutationFields((t) => ({
 				if (question.type === "numeric_guess") {
 					const guessCalls = await tx.query.calls.findMany({
 						where: { questionId: question.id },
-						columns: { id: true, guessValue: true, conviction: true },
+						columns: {
+							id: true,
+							guessValue: true,
+							conviction: true,
+							createdAt: true,
+						},
 					})
 					const guesses = guessCalls
 						.filter(
@@ -1054,12 +1262,14 @@ builder.mutationFields((t) => ({
 							callId: c.id,
 							guessValue: c.guessValue,
 							conviction: c.conviction,
+							createdAt: c.createdAt,
 						}))
 
 					// resolveQuestionSchema guarantees actualValue is set for
 					// numeric_guess, and createQuestionSchema guarantees
 					// numericTolerancePct was set at creation for this type.
 					const scored = numericGuessPoints(
+						BASE_POINTS_BY_TYPE[question.type],
 						guesses,
 						data.actualValue as number,
 						question.numericTolerancePct as number,
@@ -1067,7 +1277,11 @@ builder.mutationFields((t) => ({
 					for (const r of scored) {
 						await tx
 							.update(calls)
-							.set({ resultPoints: r.points, hitTolerance: r.hit })
+							.set({
+								resultPoints: r.points,
+								hitTolerance: r.hit,
+								closenessMult: r.closenessMult,
+							})
 							.where(eq(calls.id, r.callId))
 					}
 				} else {
@@ -1118,15 +1332,46 @@ builder.mutationFields((t) => ({
 					)
 					const correctOptionIds = new Set(data.correctOptionIds)
 
-					const selections = await tx.query.callSelections.findMany({
+					const rawSelections = await tx.query.callSelections.findMany({
 						where: { call: { questionId: question.id } },
 						columns: { id: true, optionId: true, conviction: true },
+						with: { call: { columns: { id: true, createdAt: true } } },
 					})
+					// The `where` above already filters to selections whose call
+					// belongs to this question, so `call` is always present here -
+					// this narrows the type Drizzle infers (nullable for every `one`
+					// relation regardless of FK nullability) rather than reflecting a
+					// real possibility.
+					const selections = rawSelections.filter(
+						(s): s is typeof s & { call: NonNullable<(typeof s)["call"]> } =>
+							s.call !== null,
+					)
+
+					// Earliness is a property of the call, not any one selection in it -
+					// a multi_select call's picks all share the same createdAt, so this
+					// ranks distinct calls, not selections, before mapping back.
+					const callsById = new Map(selections.map((s) => [s.call.id, s.call]))
+					const orderedCalls = [...callsById.values()].sort(
+						(a, b) => a.createdAt.getTime() - b.createdAt.getTime(),
+					)
+					const earlyMultByCallId = new Map(
+						orderedCalls.map((c, index) => [
+							c.id,
+							earlyTierFor(index + 1, totalCalls).mult,
+						]),
+					)
 
 					for (const s of selections) {
 						const pct = fieldPct(countByOption.get(s.optionId) ?? 0, totalCalls)
 						const isCorrect = correctOptionIds.has(s.optionId)
-						const points = selectionPoints(pct, s.conviction, isCorrect)
+						const earlyMult = earlyMultByCallId.get(s.call.id) ?? 1
+						const points = selectionPoints(
+							BASE_POINTS_BY_TYPE[question.type],
+							pct,
+							s.conviction,
+							isCorrect,
+							earlyMult,
+						)
 						await tx
 							.update(callSelections)
 							.set({ resultPoints: points })

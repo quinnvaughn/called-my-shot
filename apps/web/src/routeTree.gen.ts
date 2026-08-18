@@ -17,11 +17,11 @@ import { Route as AppLeaderboardRouteImport } from './routes/_app/leaderboard'
 import { Route as AppAuthedHomeRouteImport } from './routes/_app/_authed/home'
 import { Route as AppAuthedMyCallsRouteImport } from './routes/_app/_authed/my-calls'
 import { Route as AppAuthedNewQuestionRouteImport } from './routes/_app/_authed/new-question'
+import { Route as AppQuestionsQuestionIdRouteImport } from './routes/_app/questions/$questionId'
 import { Route as AppUserUsernameRouteImport } from './routes/_app/user/$username'
 import { Route as ShareUsersUsernameRouteImport } from './routes/share/users/$username'
 import { Route as AppAuthedGroupsIndexRouteImport } from './routes/_app/_authed/groups/index'
 import { Route as AppAuthedGroupsGroupIdRouteImport } from './routes/_app/_authed/groups/$groupId'
-import { Route as AppAuthedQuestionsQuestionIdRouteImport } from './routes/_app/_authed/questions/$questionId'
 import { Route as AppGroupsJoinCodeRouteImport } from './routes/_app/groups/join/$code'
 import { Route as ShareLeaguesLeagueIdUsersUsernameRouteImport } from './routes/share/leagues/$leagueId/users/$username'
 
@@ -63,6 +63,11 @@ const AppAuthedNewQuestionRoute = AppAuthedNewQuestionRouteImport.update({
   path: '/new-question',
   getParentRoute: () => AppAuthedRoute,
 } as any)
+const AppQuestionsQuestionIdRoute = AppQuestionsQuestionIdRouteImport.update({
+  id: '/questions/$questionId',
+  path: '/questions/$questionId',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppUserUsernameRoute = AppUserUsernameRouteImport.update({
   id: '/user/$username',
   path: '/user/$username',
@@ -83,12 +88,6 @@ const AppAuthedGroupsGroupIdRoute = AppAuthedGroupsGroupIdRouteImport.update({
   path: '/groups/$groupId',
   getParentRoute: () => AppAuthedRoute,
 } as any)
-const AppAuthedQuestionsQuestionIdRoute =
-  AppAuthedQuestionsQuestionIdRouteImport.update({
-    id: '/questions/$questionId',
-    path: '/questions/$questionId',
-    getParentRoute: () => AppAuthedRoute,
-  } as any)
 const AppGroupsJoinCodeRoute = AppGroupsJoinCodeRouteImport.update({
   id: '/groups/join/$code',
   path: '/groups/join/$code',
@@ -108,10 +107,10 @@ export interface FileRoutesByFullPath {
   '/home': typeof AppAuthedHomeRoute
   '/my-calls': typeof AppAuthedMyCallsRoute
   '/new-question': typeof AppAuthedNewQuestionRoute
+  '/questions/$questionId': typeof AppQuestionsQuestionIdRoute
   '/user/$username': typeof AppUserUsernameRoute
   '/share/users/$username': typeof ShareUsersUsernameRoute
   '/groups/$groupId': typeof AppAuthedGroupsGroupIdRoute
-  '/questions/$questionId': typeof AppAuthedQuestionsQuestionIdRoute
   '/groups/join/$code': typeof AppGroupsJoinCodeRoute
   '/groups/': typeof AppAuthedGroupsIndexRoute
   '/share/leagues/$leagueId/users/$username': typeof ShareLeaguesLeagueIdUsersUsernameRoute
@@ -123,10 +122,10 @@ export interface FileRoutesByTo {
   '/home': typeof AppAuthedHomeRoute
   '/my-calls': typeof AppAuthedMyCallsRoute
   '/new-question': typeof AppAuthedNewQuestionRoute
+  '/questions/$questionId': typeof AppQuestionsQuestionIdRoute
   '/user/$username': typeof AppUserUsernameRoute
   '/share/users/$username': typeof ShareUsersUsernameRoute
   '/groups/$groupId': typeof AppAuthedGroupsGroupIdRoute
-  '/questions/$questionId': typeof AppAuthedQuestionsQuestionIdRoute
   '/groups/join/$code': typeof AppGroupsJoinCodeRoute
   '/groups': typeof AppAuthedGroupsIndexRoute
   '/share/leagues/$leagueId/users/$username': typeof ShareLeaguesLeagueIdUsersUsernameRoute
@@ -141,10 +140,10 @@ export interface FileRoutesById {
   '/_app/_authed/home': typeof AppAuthedHomeRoute
   '/_app/_authed/my-calls': typeof AppAuthedMyCallsRoute
   '/_app/_authed/new-question': typeof AppAuthedNewQuestionRoute
+  '/_app/questions/$questionId': typeof AppQuestionsQuestionIdRoute
   '/_app/user/$username': typeof AppUserUsernameRoute
   '/share/users/$username': typeof ShareUsersUsernameRoute
   '/_app/_authed/groups/$groupId': typeof AppAuthedGroupsGroupIdRoute
-  '/_app/_authed/questions/$questionId': typeof AppAuthedQuestionsQuestionIdRoute
   '/_app/groups/join/$code': typeof AppGroupsJoinCodeRoute
   '/_app/_authed/groups/': typeof AppAuthedGroupsIndexRoute
   '/share/leagues/$leagueId/users/$username': typeof ShareLeaguesLeagueIdUsersUsernameRoute
@@ -158,10 +157,10 @@ export interface FileRouteTypes {
     | '/home'
     | '/my-calls'
     | '/new-question'
+    | '/questions/$questionId'
     | '/user/$username'
     | '/share/users/$username'
     | '/groups/$groupId'
-    | '/questions/$questionId'
     | '/groups/join/$code'
     | '/groups/'
     | '/share/leagues/$leagueId/users/$username'
@@ -173,10 +172,10 @@ export interface FileRouteTypes {
     | '/home'
     | '/my-calls'
     | '/new-question'
+    | '/questions/$questionId'
     | '/user/$username'
     | '/share/users/$username'
     | '/groups/$groupId'
-    | '/questions/$questionId'
     | '/groups/join/$code'
     | '/groups'
     | '/share/leagues/$leagueId/users/$username'
@@ -190,10 +189,10 @@ export interface FileRouteTypes {
     | '/_app/_authed/home'
     | '/_app/_authed/my-calls'
     | '/_app/_authed/new-question'
+    | '/_app/questions/$questionId'
     | '/_app/user/$username'
     | '/share/users/$username'
     | '/_app/_authed/groups/$groupId'
-    | '/_app/_authed/questions/$questionId'
     | '/_app/groups/join/$code'
     | '/_app/_authed/groups/'
     | '/share/leagues/$leagueId/users/$username'
@@ -265,6 +264,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppAuthedNewQuestionRouteImport
       parentRoute: typeof AppAuthedRoute
     }
+    '/_app/questions/$questionId': {
+      id: '/_app/questions/$questionId'
+      path: '/questions/$questionId'
+      fullPath: '/questions/$questionId'
+      preLoaderRoute: typeof AppQuestionsQuestionIdRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/user/$username': {
       id: '/_app/user/$username'
       path: '/user/$username'
@@ -293,13 +299,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppAuthedGroupsGroupIdRouteImport
       parentRoute: typeof AppAuthedRoute
     }
-    '/_app/_authed/questions/$questionId': {
-      id: '/_app/_authed/questions/$questionId'
-      path: '/questions/$questionId'
-      fullPath: '/questions/$questionId'
-      preLoaderRoute: typeof AppAuthedQuestionsQuestionIdRouteImport
-      parentRoute: typeof AppAuthedRoute
-    }
     '/_app/groups/join/$code': {
       id: '/_app/groups/join/$code'
       path: '/groups/join/$code'
@@ -322,7 +321,6 @@ interface AppAuthedRouteChildren {
   AppAuthedMyCallsRoute: typeof AppAuthedMyCallsRoute
   AppAuthedNewQuestionRoute: typeof AppAuthedNewQuestionRoute
   AppAuthedGroupsGroupIdRoute: typeof AppAuthedGroupsGroupIdRoute
-  AppAuthedQuestionsQuestionIdRoute: typeof AppAuthedQuestionsQuestionIdRoute
   AppAuthedGroupsIndexRoute: typeof AppAuthedGroupsIndexRoute
 }
 
@@ -331,7 +329,6 @@ const AppAuthedRouteChildren: AppAuthedRouteChildren = {
   AppAuthedMyCallsRoute: AppAuthedMyCallsRoute,
   AppAuthedNewQuestionRoute: AppAuthedNewQuestionRoute,
   AppAuthedGroupsGroupIdRoute: AppAuthedGroupsGroupIdRoute,
-  AppAuthedQuestionsQuestionIdRoute: AppAuthedQuestionsQuestionIdRoute,
   AppAuthedGroupsIndexRoute: AppAuthedGroupsIndexRoute,
 }
 
@@ -342,6 +339,7 @@ const AppAuthedRouteWithChildren = AppAuthedRoute._addFileChildren(
 interface AppRouteChildren {
   AppAuthedRoute: typeof AppAuthedRouteWithChildren
   AppLeaderboardRoute: typeof AppLeaderboardRoute
+  AppQuestionsQuestionIdRoute: typeof AppQuestionsQuestionIdRoute
   AppUserUsernameRoute: typeof AppUserUsernameRoute
   AppGroupsJoinCodeRoute: typeof AppGroupsJoinCodeRoute
 }
@@ -349,6 +347,7 @@ interface AppRouteChildren {
 const AppRouteChildren: AppRouteChildren = {
   AppAuthedRoute: AppAuthedRouteWithChildren,
   AppLeaderboardRoute: AppLeaderboardRoute,
+  AppQuestionsQuestionIdRoute: AppQuestionsQuestionIdRoute,
   AppUserUsernameRoute: AppUserUsernameRoute,
   AppGroupsJoinCodeRoute: AppGroupsJoinCodeRoute,
 }

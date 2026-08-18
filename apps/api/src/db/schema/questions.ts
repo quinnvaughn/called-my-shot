@@ -9,7 +9,7 @@ import {
 	unique,
 	uuid,
 } from "drizzle-orm/pg-core"
-import { leagues, players, sports, stats, teams } from "./sports"
+import { games, leagues, players, sports, stats, teams } from "./sports"
 import { users } from "./users"
 
 export const questionType = pgEnum("question_type", [
@@ -61,6 +61,13 @@ export const questions = pgTable("questions", {
 		.notNull()
 		.references(() => leagues.id, { onDelete: "restrict" }),
 
+	// The single real-world matchup this question is about - set for a
+	// question scoped to one specific game (a yes_no/over_under/numeric_guess
+	// about tonight's game), null for anything that isn't (season awards, an
+	// MVP race). set null on delete rather than restrict: a game going away
+	// shouldn't take its questions down with it.
+	gameId: uuid("game_id").references(() => games.id, { onDelete: "set null" }),
+
 	// Resolution is manual - a human states where they checked, in their own
 	// words. There's no fixed source list that actually fits every league, so
 	// this is disclosure, not an integration.
@@ -107,6 +114,15 @@ export const questions = pgTable("questions", {
 	// multi_select only
 	picksRequired: integer("picks_required"),
 
+	// multiple_choice only. When true, this question doesn't start from a
+	// fixed option pool - questionOptions rows for it get created on demand by
+	// castCall itself (see the resolver) as callers pick real teams/players not
+	// already in the pool, instead of all being pre-listed by the creator at
+	// question-creation time. openFieldKind says which kind of entity backs
+	// that pool; only meaningful (and set) when this is true.
+	optionsOpenField: boolean("options_open_field").notNull().default(false),
+	openFieldKind: numericSubjectType("open_field_kind"),
+
 	createdAt: timestamp("created_at").notNull().defaultNow(),
 })
 export type Question = typeof questions.$inferSelect
@@ -116,6 +132,8 @@ export type Question = typeof questions.$inferSelect
 // are set when the option actually is a real team or player (a championship
 // field, an All-NBA ballot) - that's what backs search/autofill. Freeform
 // options (Yes/No, an "other" category pick) leave both null and rely on label.
+// For an optionsOpenField question, rows here are seeded incrementally by
+// castCall rather than all inserted up front by the creator.
 export const questionOptions = pgTable("question_options", {
 	id: uuid("id").primaryKey().defaultRandom(),
 	questionId: uuid("question_id")
@@ -155,6 +173,18 @@ export const calls = pgTable(
 		conviction: integer("conviction"), // 1-100
 		hitTolerance: boolean("hit_tolerance"),
 		resultPoints: integer("result_points"),
+		// The closeness multiplier (1.00-6.00) actually applied at resolution -
+		// null until resolved, and null forever on a miss (see
+		// numericGuessPoints in @called-my-shot/scoring). Persisted rather than
+		// left for the client to reconstruct: unlike a selection's contrarian
+		// tier (derivable live from fieldPct), closeness rank only exists once
+		// every other hit on the question is known, which is resolve-time-only
+		// information with no live equivalent.
+		closenessMult: numeric("closeness_mult", {
+			precision: 4,
+			scale: 2,
+			mode: "number",
+		}),
 
 		createdAt: timestamp("created_at").notNull().defaultNow(),
 	},

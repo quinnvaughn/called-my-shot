@@ -19,7 +19,7 @@ const teams: Team[] = [
 	{
 		name: "Detroit Lions",
 		percent: 6,
-		tier: "UNDERDOG",
+		tier: "BOLD",
 		selected: true,
 		color: "#0076B6",
 	},

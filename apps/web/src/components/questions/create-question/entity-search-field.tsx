@@ -19,6 +19,11 @@ type Props = {
 	placeholder?: string
 	error?: string
 	required?: boolean
+	// Search-to-add fields (multi-select pool, open-field pick) want the
+	// input reset to empty right after a pick so it's ready for the next
+	// search; option rows and the subject picker want it to keep showing the
+	// picked label instead, so this defaults off rather than always clearing.
+	clearOnSelect?: boolean
 }
 
 const MAX_MATCHES = 6
@@ -35,6 +40,7 @@ export function EntitySearchField({
 	placeholder,
 	error,
 	required,
+	clearOnSelect,
 }: Props) {
 	const [open, setOpen] = useState(false)
 	const [highlightedKey, setHighlightedKey] = useState<string | null>(null)
@@ -50,6 +56,7 @@ export function EntitySearchField({
 
 	function selectItem(item: EntitySearchItem) {
 		onSelectItem(item)
+		if (clearOnSelect) onValueChange("")
 		setOpen(false)
 		setHighlightedKey(null)
 	}

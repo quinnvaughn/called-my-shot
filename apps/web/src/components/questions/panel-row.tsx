@@ -1,9 +1,10 @@
+import type { ReactNode } from "react"
 import { css } from "styled-system/css"
 import { HStack } from "styled-system/jsx"
 
 type Props = {
 	label: string
-	value: string
+	value: ReactNode
 }
 
 // One row in a label/value info panel (RESOLVES, LOCKS, etc. on the question

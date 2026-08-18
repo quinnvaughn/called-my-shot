@@ -68,6 +68,7 @@ export function QuestionCard({
 	// redundant lock line below.
 	const isSettled =
 		question.status === "RESOLVED" || question.status === "DISPUTED"
+	const signal = isSettled ? resolvedFieldSignal(question) : fieldSignal(question)
 
 	return (
 		<Link
@@ -84,17 +85,17 @@ export function QuestionCard({
 					<VStack gap="2" alignItems="stretch">
 						<QuestionSummaryHeader question={question} sharedBy={sharedBy} />
 						<HStack justify="space-between" alignItems="center">
-							<span
-								className={css({
-									fontSize: "xs",
-									color: "fg.subtle",
-									fontFamily: "mono",
-								})}
-							>
-								{isSettled
-									? resolvedFieldSignal(question)
-									: fieldSignal(question)}
-							</span>
+							{signal && (
+								<span
+									className={css({
+										fontSize: "xs",
+										color: "fg.subtle",
+										fontFamily: "mono",
+									})}
+								>
+									{signal}
+								</span>
+							)}
 							{!isSettled && (
 								<span
 									className={css({

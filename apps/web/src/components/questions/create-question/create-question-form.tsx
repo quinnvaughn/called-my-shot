@@ -30,9 +30,12 @@ import {
 } from "#/graphql/queries/sports"
 import { useForm } from "#/lib/form/use-form"
 import { questionCategoryLabel } from "#/lib/question-labels"
+import { ChipButton } from "./chip-button"
 import type { EntitySearchItem } from "./entity-search-field"
 import { LeagueField } from "./league-field"
 import { OfficialToggle } from "./official-toggle"
+import { OpenFieldNudge } from "./open-field-nudge"
+import { OpenFieldToggle } from "./open-field-toggle"
 import { OptionList } from "./option-list"
 import { PoolSummary } from "./pool-summary"
 import { QuestionTypePicker } from "./question-type-picker"
@@ -100,6 +103,8 @@ export function CreateQuestionForm({ sports, isAdmin }: Props) {
 			locksAt: "",
 			isOfficial: false,
 			options: [],
+			optionsOpenField: false,
+			openFieldKind: undefined,
 			statId: undefined,
 			customStat: "",
 			ouLine: undefined,
@@ -109,7 +114,6 @@ export function CreateQuestionForm({ sports, isAdmin }: Props) {
 			numericSubjectType: "player",
 			subjectTeamId: undefined,
 			subjectPlayerId: undefined,
-			numericTolerancePct: 0.15,
 			picksRequired: 5,
 		},
 		onSubmit: async (values, helpers) => {
@@ -130,6 +134,14 @@ export function CreateQuestionForm({ sports, isAdmin }: Props) {
 							teamId: option.teamId,
 							playerId: option.playerId,
 						})),
+						optionsOpenField:
+							values.type === "multiple_choice"
+								? values.optionsOpenField
+								: undefined,
+						openFieldKind:
+							values.type === "multiple_choice" && values.optionsOpenField
+								? (values.openFieldKind?.toUpperCase() as NumericSubjectType)
+								: undefined,
 						statId: values.statId,
 						customStat: values.customStat || undefined,
 						ouLine: values.ouLine,
@@ -143,7 +155,6 @@ export function CreateQuestionForm({ sports, isAdmin }: Props) {
 								: undefined,
 						subjectTeamId: values.subjectTeamId,
 						subjectPlayerId: values.subjectPlayerId,
-						numericTolerancePct: values.numericTolerancePct,
 						picksRequired: values.picksRequired,
 					},
 				},
@@ -185,6 +196,9 @@ export function CreateQuestionForm({ sports, isAdmin }: Props) {
 	const category = form.useWatch("category")
 	const sportId = form.useWatch("sportId")
 	const leagueId = form.useWatch("leagueId")
+	const optionsOpenField = form.useWatch("optionsOpenField")
+	const openFieldKind = form.useWatch("openFieldKind")
+	const options = form.useWatch("options")
 
 	const { data: teamsData } = useQuery(TeamsByLeagueDocument, {
 		variables: { leagueId },
@@ -226,6 +240,8 @@ export function CreateQuestionForm({ sports, isAdmin }: Props) {
 		// Type-specific fields from whatever was previously selected shouldn't
 		// leak into the newly chosen type's submission.
 		form.setValue("options", [])
+		form.setValue("optionsOpenField", false)
+		form.setValue("openFieldKind", undefined)
 		form.setValue("statId", undefined)
 		form.setValue("customStat", "")
 		form.setValue("ouLine", undefined)
@@ -303,12 +319,56 @@ export function CreateQuestionForm({ sports, isAdmin }: Props) {
 									<Card.Body>
 										<VStack gap="3.5" alignItems="stretch">
 											<LeagueField form={form} sports={sports} />
-											<OptionList
-												form={form}
-												items={optionItems}
-												rowPlaceholder="Option name"
-												addLabel="+ Add option"
-											/>
+											<form.Field name="optionsOpenField">
+												{(field) => (
+													<OpenFieldToggle
+														checked={!!field.value}
+														onChange={(checked) => {
+															field.onChange(checked)
+															form.setValue("options", [])
+															form.setValue("openFieldKind", undefined)
+														}}
+													/>
+												)}
+											</form.Field>
+											{optionsOpenField ? (
+												<VStack gap="2" alignItems="stretch">
+													<FieldLabel required>What fills the field</FieldLabel>
+													<HStack gap="1.5">
+														{(["player", "team"] as const).map((kind) => (
+															<ChipButton
+																key={kind}
+																selected={openFieldKind === kind}
+																onClick={() =>
+																	form.setValue("openFieldKind", kind)
+																}
+															>
+																{kind.toUpperCase()}
+															</ChipButton>
+														))}
+													</HStack>
+												</VStack>
+											) : (
+												<>
+													{(category === "season_awards" ||
+														category === "player_stats") &&
+														options.length > 0 && (
+															<OpenFieldNudge
+																onSwitchToOpenField={() => {
+																	form.setValue("optionsOpenField", true)
+																	form.setValue("options", [])
+																	form.setValue("openFieldKind", undefined)
+																}}
+															/>
+														)}
+													<OptionList
+														form={form}
+														items={optionItems}
+														rowPlaceholder="Option name"
+														addLabel="+ Add option"
+													/>
+												</>
+											)}
 										</VStack>
 									</Card.Body>
 								</Card>
@@ -388,49 +448,13 @@ export function CreateQuestionForm({ sports, isAdmin }: Props) {
 									<Card.Body>
 										<VStack gap="3.5" alignItems="stretch">
 											<LeagueField form={form} sports={sports} />
-											<StatPicker form={form} stats={stats} />
+											<StatPicker form={form} stats={stats} catalogOnly />
 											<SubjectPicker
 												form={form}
 												teams={teams}
 												players={players}
 												required
 											/>
-											<div className={css({ width: "64" })}>
-												<form.Field name="numericTolerancePct">
-													{(field) => (
-														<TextInput
-															error={field.meta.error ?? undefined}
-															description="How close counts as a hit - e.g. 15 means within 15% of the actual value."
-														>
-															<TextInput.Label required>
-																Tolerance %
-															</TextInput.Label>
-															<TextInput.Group>
-																<TextInput.Field
-																	type="number"
-																	min={1}
-																	max={100}
-																	step="1"
-																	aria-required
-																	value={
-																		field.value === undefined
-																			? ""
-																			: Math.round(field.value * 100)
-																	}
-																	onChange={(e) =>
-																		field.onChange(
-																			e.target.value === ""
-																				? undefined
-																				: Number(e.target.value) / 100,
-																		)
-																	}
-																	onBlur={field.onBlur}
-																/>
-															</TextInput.Group>
-														</TextInput>
-													)}
-												</form.Field>
-											</div>
 										</VStack>
 									</Card.Body>
 								</Card>

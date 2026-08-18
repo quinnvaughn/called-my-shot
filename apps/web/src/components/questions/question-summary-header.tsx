@@ -39,12 +39,20 @@ type Props = {
 	// comes from excludes the viewer's own shares server-side, so it's always
 	// someone else's name, never "You".
 	sharedBy?: { name: string }
+	// CallCard puts a full caller identity row (avatar, handle, accuracy)
+	// right below this header - giving the creator that same full-avatar
+	// treatment reads as "two equally important people" and buries which one
+	// actually made the call this card is about. Compact drops the creator to
+	// a plain credit line and skips the "Called" chip, which is always true
+	// on a list that's already scoped to calls (My Calls, group Answered) -
+	// on QuestionCard's feed, where it's genuinely unknown, it stays.
+	compact?: boolean
 }
 
 // Shared between QuestionCard and CallCard - both lead with "what is this
 // question" (tags, creator, title, outcome) before getting into whatever's
 // specific to that card (a lock countdown vs. a particular person's pick).
-export function QuestionSummaryHeader({ question, sharedBy }: Props) {
+export function QuestionSummaryHeader({ question, sharedBy, compact }: Props) {
 	// A dispute is only ever filed against an already-resolved question, so it
 	// still carries the prior resolution's answer - just contested rather than
 	// confirmed. See resolutionDisputes in db/schema/questions.ts.
@@ -71,10 +79,12 @@ export function QuestionSummaryHeader({ question, sharedBy }: Props) {
 							color={question.subjectTeam.color}
 						/>
 					)}
-					<ViewerCallStatusIcon
-						called={!!question.viewerCall}
-						canCall={question.status === "OPEN"}
-					/>
+					{!compact && (
+						<ViewerCallStatusIcon
+							called={!!question.viewerCall}
+							canCall={question.status === "OPEN"}
+						/>
+					)}
 				</HStack>
 				<QuestionTypeIcon type={question.type} />
 			</HStack>
@@ -89,10 +99,24 @@ export function QuestionSummaryHeader({ question, sharedBy }: Props) {
 					Shared by {sharedBy.name}
 				</span>
 			)}
-			<Identity
-				name={question.creator.name}
-				username={question.creator.username}
-			/>
+			{compact ? (
+				<span
+					className={css({
+						fontSize: "xs",
+						color: "fg.subtle",
+					})}
+				>
+					Asked by{" "}
+					<span className={css({ color: "fg.muted", fontWeight: "medium" })}>
+						{question.creator.name}
+					</span>
+				</span>
+			) : (
+				<Identity
+					name={question.creator.name}
+					username={question.creator.username}
+				/>
+			)}
 			<span className={css({ fontWeight: "medium", fontSize: "sm" })}>
 				{question.title}
 			</span>

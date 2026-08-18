@@ -65,5 +65,5 @@ export function MyCallsTab({
 
 function MyCallCard({ call }: { call: MyCallItem }) {
 	const data = useFragment(MyCallsTabFragment, call)
-	return <CallCard call={data} label="You" />
+	return <CallCard call={data} />
 }

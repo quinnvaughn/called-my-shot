@@ -1,0 +1,331 @@
+import { BASE_POINTS_BY_TYPE, toleranceBand } from "@called-my-shot/scoring"
+import { useRouteContext } from "@tanstack/react-router"
+import { css } from "styled-system/css"
+import { HStack, VStack } from "styled-system/jsx"
+import {
+	type CastCallFormState,
+	FORM_ID,
+} from "#/components/questions/cast-call-form"
+import { Button } from "#/components/ui/button"
+import { FormError } from "#/components/ui/form-error"
+import { Modal } from "#/components/ui/modal"
+import { useRequireAuth } from "#/hooks/use-require-auth"
+import {
+	previewNumericPoints,
+	previewSelectionPoints,
+	tierFor,
+} from "#/lib/scoring"
+import { closeModal } from "#/stores/modal-store"
+
+// The one place conviction, case, and payout are all guaranteed to be seen
+// together before anything actually locks in - reads live off the same form
+// instance CastCallForm is filling out (rather than a snapshot taken when it
+// opened), so it can't show a selection the viewer has since changed.
+export function ConfirmCallModal({
+	callForm,
+}: {
+	callForm: CastCallFormState
+}) {
+	const {
+		question,
+		type,
+		form,
+		convictionMode,
+		singleSelectConviction,
+		sharedConviction,
+		focusCaseText,
+	} = callForm
+	const { me } = useRouteContext({ from: "__root__" })
+	const requireAuth = useRequireAuth()
+
+	const selections = form.useWatch("selections")
+	const newOption = form.useWatch("newOption")
+	const guessValue = form.useWatch("guessValue")
+	const caseText = form.useWatch("caseText")
+	const numericConviction = form.useWatch("conviction")
+
+	if (!question) return null
+
+	const basePoints = BASE_POINTS_BY_TYPE[type]
+
+	// Split mode already shows each pick's own conviction inline below - a
+	// single summary number above the list would just be misleading there.
+	const showConvictionRow = !(
+		type === "multi_select" && convictionMode === "split"
+	)
+	const convictionValue =
+		type === "numeric_guess"
+			? (numericConviction ?? 50)
+			: type === "multi_select"
+				? sharedConviction
+				: singleSelectConviction
+
+	const ouLine = question.ouLine
+	function optionLabel(option: { label: string }) {
+		return type === "over_under" && ouLine !== null
+			? `${option.label} ${ouLine}`
+			: option.label
+	}
+
+	const trimmedCaseText = caseText.trim()
+
+	return (
+		<Modal size="md">
+			<Modal.CloseButton />
+			<Modal.Title>Confirm your call</Modal.Title>
+			<Modal.Description>
+				Last look before this locks — no edits after.
+			</Modal.Description>
+
+			<VStack gap="2" alignItems="stretch">
+				{type === "numeric_guess" ? (
+					guessValue !== undefined && (
+						<ConfirmPickRow
+							name={String(guessValue)}
+							meta={
+								question.numericTolerancePct !== null
+									? `within ±${toleranceBand(guessValue, question.numericTolerancePct)} counts as a hit`
+									: "counts as a hit within tolerance"
+							}
+							payout={previewNumericPoints(basePoints, convictionValue)}
+						/>
+					)
+				) : newOption ? (
+					<ConfirmPickRow
+						name={`${newOption.label} — new pick`}
+						meta="not picked by anyone yet"
+						payout={null}
+					/>
+				) : (
+					selections.map((selection) => {
+						const option = question.options.find(
+							(o) => o.id === selection.optionId,
+						)
+						if (!option) return null
+						const showConviction =
+							type === "multi_select" && convictionMode === "split"
+						const meta =
+							option.fieldPct !== null
+								? `${tierFor(option.fieldPct).label} · ${Math.round(option.fieldPct)}% of the field${showConviction ? ` · ${selection.conviction}% conviction` : ""}`
+								: showConviction
+									? `${selection.conviction}% conviction`
+									: "—"
+						return (
+							<ConfirmPickRow
+								key={selection.optionId}
+								name={optionLabel(option)}
+								meta={meta}
+								payout={
+									option.fieldPct !== null
+										? previewSelectionPoints(
+												basePoints,
+												option.fieldPct,
+												selection.conviction,
+											)
+										: null
+								}
+							/>
+						)
+					})
+				)}
+			</VStack>
+
+			{showConvictionRow && (
+				<HStack
+					justify="space-between"
+					className={css({
+						fontFamily: "mono",
+						fontSize: "xs",
+						letterSpacing: "wide",
+						color: "fg.subtle",
+						paddingInline: "0.5",
+					})}
+				>
+					<span>CONVICTION</span>
+					<span className={css({ color: "fg.default", fontWeight: "bold" })}>
+						{convictionValue}%
+					</span>
+				</HStack>
+			)}
+
+			{trimmedCaseText ? (
+				<VStack
+					gap="1"
+					alignItems="stretch"
+					className={css({
+						backgroundColor: "bg.subtle",
+						borderLeft: "2px solid {colors.border.default}",
+						borderRadius: "0 {radii.md} {radii.md} 0",
+						paddingBlock: "2.5",
+						paddingInline: "3",
+					})}
+				>
+					<span
+						className={css({
+							fontFamily: "mono",
+							fontSize: "2xs",
+							letterSpacing: "wide",
+							color: "fg.subtle",
+							textTransform: "uppercase",
+						})}
+					>
+						Your case
+					</span>
+					<span
+						className={css({
+							fontSize: "xs",
+							color: "fg.body",
+							lineHeight: "relaxed",
+						})}
+					>
+						{caseText}
+					</span>
+				</VStack>
+			) : (
+				<button
+					type="button"
+					onClick={() => {
+						closeModal()
+						focusCaseText()
+					}}
+					className={css({
+						textAlign: "center",
+						fontFamily: "mono",
+						fontSize: "xs",
+						letterSpacing: "wide",
+						color: "fg.subtle",
+						border: "1px dashed {colors.border.default}",
+						borderRadius: "md",
+						paddingBlock: "2.5",
+						cursor: "pointer",
+						_hover: { color: "fg.default", borderColor: "border.emphasized" },
+					})}
+				>
+					+ add a case before locking in
+				</button>
+			)}
+
+			<form.Subscribe selector={(s) => s.meta}>
+				{(meta) => (
+					<VStack gap="2" alignItems="stretch">
+						<Button
+							type={me ? "submit" : "button"}
+							form={FORM_ID}
+							variant="solid"
+							size="lg"
+							fullWidth
+							loading={meta.isSubmitting}
+							disabled={meta.isSubmitting || !meta.canSubmit}
+							onClick={
+								me
+									? undefined
+									: () =>
+											requireAuth(() => {
+												document
+													.querySelector<HTMLFormElement>(`#${FORM_ID}`)
+													?.requestSubmit()
+											})
+							}
+						>
+							Lock It In
+						</Button>
+						<button
+							type="button"
+							onClick={closeModal}
+							className={css({
+								textAlign: "center",
+								fontFamily: "mono",
+								fontSize: "xs",
+								letterSpacing: "wide",
+								color: "fg.subtle",
+								paddingBlock: "1.5",
+								cursor: "pointer",
+								_hover: { color: "fg.default" },
+							})}
+						>
+							Go back &amp; edit
+						</button>
+						<FormError message={meta.formError} />
+					</VStack>
+				)}
+			</form.Subscribe>
+		</Modal>
+	)
+}
+
+// Name is always the highest-contrast text in the row - this is the one
+// thing being confirmed, everything else here is supporting detail.
+function ConfirmPickRow({
+	name,
+	meta,
+	payout,
+}: {
+	name: string
+	meta: string
+	payout:
+		| { win: number; lose: number }
+		| { winLow: number; winHigh: number; lose: number }
+		| null
+}) {
+	return (
+		<HStack
+			justify="space-between"
+			gap="3"
+			className={css({
+				backgroundColor: "bg.canvas",
+				borderRadius: "md",
+				paddingBlock: "2.5",
+				paddingInline: "3.5",
+			})}
+		>
+			<VStack gap="0.5" alignItems="stretch" className={css({ minWidth: 0 })}>
+				<span
+					className={css({
+						fontSize: "sm",
+						fontWeight: "bold",
+						color: "fg.default",
+						overflow: "hidden",
+						textOverflow: "ellipsis",
+						whiteSpace: "nowrap",
+					})}
+				>
+					{name}
+				</span>
+				<span
+					className={css({
+						fontFamily: "mono",
+						fontSize: "2xs",
+						color: "fg.subtle",
+					})}
+				>
+					{meta}
+				</span>
+			</VStack>
+			{payout && (
+				<span
+					className={css({
+						flexShrink: "0",
+						fontFamily: "mono",
+						fontSize: "xs",
+						whiteSpace: "nowrap",
+					})}
+				>
+					<span
+						className={css({ color: "success.default", fontWeight: "bold" })}
+					>
+						+
+						{"win" in payout
+							? payout.win
+							: `${payout.winLow}–${payout.winHigh}`}
+					</span>
+					<span className={css({ color: "fg.subtle" })}> / </span>
+					<span
+						className={css({ color: "danger.default", fontWeight: "bold" })}
+					>
+						−{payout.lose}
+					</span>
+				</span>
+			)}
+		</HStack>
+	)
+}

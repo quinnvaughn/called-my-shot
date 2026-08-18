@@ -13,10 +13,12 @@ export function Tag({ children, variant = "neutral" }: Props) {
 				alignItems: "center",
 				fontFamily: "mono",
 				fontSize: "xs",
-				fontWeight: "medium",
+				fontWeight: "bold",
 				letterSpacing: "wide",
-				color: variant === "primary" ? "primary.default" : "fg.muted",
-				backgroundColor: variant === "primary" ? "primary.subtle" : "bg.subtle",
+				textTransform: "uppercase",
+				color: variant === "primary" ? "primary.default" : "fg.default",
+				backgroundColor:
+					variant === "primary" ? "primary.subtle" : "border.default",
 				padding: "{spacing.1} {spacing.2.5}",
 				borderRadius: "sm",
 			})}

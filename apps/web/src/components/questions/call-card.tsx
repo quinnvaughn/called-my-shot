@@ -1,9 +1,11 @@
 import { Link } from "@tanstack/react-router"
-import { FaLock } from "react-icons/fa6"
 import { css } from "styled-system/css"
-import { HStack, VStack } from "styled-system/jsx"
+import { VStack } from "styled-system/jsx"
 import { Card } from "#/components/ui/card"
 import { type FragmentType, graphql, useFragment } from "#/graphql/generated"
+import { CallIdentityRow } from "./call-identity-row"
+import { CallLockedBox } from "./call-locked-box"
+import { CaseBlock } from "./case-block"
 import { PickSummaryRow } from "./pick-summary-row"
 import { QuestionSummaryHeader } from "./question-summary-header"
 
@@ -15,8 +17,11 @@ export const CallCardFragment = graphql(`
 		totalPoints
 		caseText
 		viewerCanSeePick
+		createdAt
+		callerLeagueAccuracy
 		user {
 			name
+			username
 		}
 		question {
 			id
@@ -65,16 +70,10 @@ export const CallCardFragment = graphql(`
 
 type CallCardProps = {
 	call: FragmentType<typeof CallCardFragment>
-	// Whose call this is, as shown in "{label} called...". Defaults to the
-	// caller's name - right for the group's Answered tab, which excludes the
-	// viewer's own calls server-side so this is always someone else's. My
-	// Calls overrides this to "You" since every card there is the viewer's.
-	label?: string
 }
 
-export function CallCard({ call: callProp, label: labelProp }: CallCardProps) {
+export function CallCard({ call: callProp }: CallCardProps) {
 	const call = useFragment(CallCardFragment, callProp)
-	const label = labelProp ?? call.user.name
 
 	return (
 		<Link
@@ -89,44 +88,37 @@ export function CallCard({ call: callProp, label: labelProp }: CallCardProps) {
 			<Card size="sm" interactive>
 				<Card.Body>
 					<VStack gap="2" alignItems="stretch">
-						<QuestionSummaryHeader question={call.question} />
+						<QuestionSummaryHeader question={call.question} compact />
 						<VStack
-							gap="2"
+							gap="2.5"
 							alignItems="stretch"
 							borderTop="1px solid {colors.border.default}"
 							paddingTop="2.5"
 						>
+							<CallIdentityRow
+								name={call.user.name}
+								username={call.user.username}
+								leagueAccuracy={call.callerLeagueAccuracy}
+								leagueAbbreviation={call.question.league.abbreviation}
+								createdAt={call.createdAt}
+							/>
 							{call.viewerCanSeePick ? (
-								<>
-									<PickSummaryRow call={call} label={label} />
-									{call.caseText && (
-										<span
-											className={css({
-												fontSize: "xs",
-												color: "fg.subtle",
-												fontStyle: "italic",
-											})}
-										>
-											"{call.caseText}"
-										</span>
-									)}
-								</>
+								<VStack
+									gap="2"
+									alignItems="stretch"
+									className={css({
+										background: "bg.canvas",
+										borderRadius: "md",
+										padding: "2.5",
+									})}
+								>
+									<PickSummaryRow call={call} />
+								</VStack>
 							) : (
-								<HStack gap="2" alignItems="center">
-									<FaLock
-										size={12}
-										className={css({ color: "fg.subtle", flexShrink: "0" })}
-									/>
-									<span
-										className={css({
-											fontSize: "xs",
-											color: "fg.subtle",
-											fontFamily: "mono",
-										})}
-									>
-										{label} called this — make your call to reveal
-									</span>
-								</HStack>
+								<CallLockedBox name={call.user.name} />
+							)}
+							{call.viewerCanSeePick && call.caseText && (
+								<CaseBlock text={call.caseText} />
 							)}
 						</VStack>
 					</VStack>

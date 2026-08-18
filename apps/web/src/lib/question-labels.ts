@@ -34,6 +34,19 @@ export const questionTypeIcon: Record<QuestionType, IconType> = {
 	MULTI_SELECT: FaListCheck,
 }
 
+// The over_under line is part of the option's identity, not shown anywhere
+// else on its own - every place an option label renders (the live picker,
+// the viewer's own pick, the field breakdown) needs the same "Over 47.5" /
+// "Under 47.5" suffix, so it lives here once instead of as a repeated inline
+// ternary at each call site.
+export function optionDisplayLabel(
+	label: string,
+	type: QuestionType,
+	ouLine: number | null,
+): string {
+	return type === "OVER_UNDER" && ouLine !== null ? `${label} ${ouLine}` : label
+}
+
 export const questionTypeDescription: Record<QuestionType, string> = {
 	MULTIPLE_CHOICE:
 		"Pick from a list — a champion, an award winner, anything with 2 or more named options.",
