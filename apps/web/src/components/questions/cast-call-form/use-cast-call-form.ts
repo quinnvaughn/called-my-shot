@@ -2,7 +2,7 @@ import { useMutation, useQuery } from "@apollo/client/react"
 import { castCallSchema } from "@called-my-shot/schemas"
 import { toleranceBand as computeToleranceBand } from "@called-my-shot/scoring"
 import { useRouter } from "@tanstack/react-router"
-import { useRef, useState } from "react"
+import { useMemo, useRef, useState } from "react"
 import { match } from "ts-pattern"
 import type { EntitySearchItem } from "#/components/questions/create-question/entity-search-field"
 import { type FragmentType, graphql, useFragment } from "#/graphql/generated"
@@ -124,8 +124,32 @@ export function useCastCallForm(
 	// regardless of which step size is selected here.
 	const [guessStep, setGuessStep] = useState(1)
 
+	// castCallSchema itself only requires multi_select to have >=1 pick - the
+	// comment on its own multi_select branch is explicit that the exact count
+	// is "checked against the question's picksRequired in the resolver, which
+	// is the only place that number is known" server-side. But the client
+	// does know it too, from this same fragment (picksRequired above), so
+	// canSubmit can enforce the real count instead of going quiet past 1 pick
+	// and only failing once the server round-trips a ValidationError back.
+	const picksRequired = question?.picksRequired ?? null
+	const schema = useMemo(() => {
+		if (picksRequired == null) return castCallSchema
+		return castCallSchema.superRefine((data, ctx) => {
+			if (
+				data.type === "multi_select" &&
+				data.selections.length !== picksRequired
+			) {
+				ctx.addIssue({
+					code: "custom",
+					path: ["selections"],
+					message: `Pick exactly ${picksRequired} - you picked ${data.selections.length}`,
+				})
+			}
+		})
+	}, [picksRequired])
+
 	const form = useForm({
-		schema: castCallSchema,
+		schema,
 		defaultValues: {
 			type,
 			questionId: question?.id ?? "",
