@@ -517,7 +517,7 @@ export const QuestionRef = builder.drizzleObject("questions", {
 			resolve: (q) => q.createdAt.toISOString(),
 		}),
 
-		creator: t.relation("creator"),
+		creator: t.relation("creator", { nullable: true }),
 		sport: t.relation("sport"),
 		league: t.relation("league"),
 		// sortOrder is set once at creation (see castQuestion/castCall) to the

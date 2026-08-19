@@ -1,0 +1,71 @@
+import { createFileRoute } from "@tanstack/react-router"
+import { css } from "styled-system/css"
+import { VStack } from "styled-system/jsx"
+import { DangerZone } from "#/components/settings/danger-zone"
+import { EmailSection } from "#/components/settings/email-section"
+import { PasswordSection } from "#/components/settings/password-section"
+import { UsernameSection } from "#/components/settings/username-section"
+import { PageHeader } from "#/components/ui/page-header"
+import { SettingsPageDocument } from "#/graphql/queries/user"
+
+export const Route = createFileRoute("/_app/_authed/settings")({
+	component: RouteComponent,
+	loader: async ({ context }) => {
+		const { data } = await context.apolloClient.query({
+			query: SettingsPageDocument,
+		})
+		return { me: data?.me ?? null }
+	},
+})
+
+function sectionLabel(text: string) {
+	return (
+		<h2
+			className={css({
+				fontFamily: "mono",
+				fontSize: "xs",
+				letterSpacing: "wide",
+				color: "fg.muted",
+				textTransform: "uppercase",
+			})}
+		>
+			{text}
+		</h2>
+	)
+}
+
+function RouteComponent() {
+	const { me } = Route.useLoaderData()
+	// _authed's beforeLoad already redirects guests to "/" before this ever
+	// renders - me is only null for an instant during that redirect.
+	if (!me) return null
+
+	return (
+		<VStack alignItems="stretch" gap="8" maxWidth="xl">
+			<PageHeader
+				title="Settings"
+				subtitle="Manage your login and account-level preferences"
+			/>
+			<VStack alignItems="stretch" gap="3">
+				{sectionLabel("Username")}
+				<UsernameSection username={me.username} />
+			</VStack>
+			<VStack alignItems="stretch" gap="3">
+				{sectionLabel("Email")}
+				<EmailSection
+					email={me.email}
+					emailVerified={me.emailVerified}
+					pendingEmailChange={me.pendingEmailChange ?? null}
+				/>
+			</VStack>
+			<VStack alignItems="stretch" gap="3">
+				{sectionLabel("Password")}
+				<PasswordSection />
+			</VStack>
+			<VStack alignItems="stretch" gap="3">
+				{sectionLabel("Danger zone")}
+				<DangerZone username={me.username} />
+			</VStack>
+		</VStack>
+	)
+}

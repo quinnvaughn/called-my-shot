@@ -50,9 +50,12 @@ export const questions = pgTable("questions", {
 	type: questionType("type").notNull(),
 	category: questionCategory("category").notNull(),
 	title: text("title").notNull(),
-	creatorId: uuid("creator_id")
-		.notNull()
-		.references(() => users.id, { onDelete: "cascade" }),
+	// Nullable + set null on delete: deleting the account that created a
+	// question shouldn't take the question (and everyone else's calls on it)
+	// down with it - it's just orphaned instead, shown as "Deleted user".
+	creatorId: uuid("creator_id").references(() => users.id, {
+		onDelete: "set null",
+	}),
 	isOfficial: boolean("is_official").notNull().default(false),
 	sportId: uuid("sport_id")
 		.notNull()

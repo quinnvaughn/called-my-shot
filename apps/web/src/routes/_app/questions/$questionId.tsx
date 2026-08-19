@@ -87,7 +87,7 @@ function RouteComponent() {
 	}
 
 	const state = questionDetailState(question)
-	const isCreator = me?.id === question.creator.id
+	const isCreator = me?.id === question.creator?.id
 	const answer = state.isSettled ? resolvedAnswerSummary(question) : null
 	// "How rare was being right" - the correct option's own fieldPct for
 	// everything option-based, numericHitRatePct (computed across every
@@ -202,21 +202,27 @@ function RouteComponent() {
 						<PanelRow
 							label="CREATED BY"
 							value={
-								<Link
-									to="/user/$username"
-									params={{ username: question.creator.username }}
-									className={css({
-										display: "inline-flex",
-										_hover: {
-											"& span:first-of-type": { textDecoration: "underline" },
-										},
-									})}
-								>
-									<Identity
-										name={question.creator.name}
-										username={question.creator.username}
-									/>
-								</Link>
+								question.creator ? (
+									<Link
+										to="/user/$username"
+										params={{ username: question.creator.username }}
+										className={css({
+											display: "inline-flex",
+											_hover: {
+												"& span:first-of-type": { textDecoration: "underline" },
+											},
+										})}
+									>
+										<Identity
+											name={question.creator.name}
+											username={question.creator.username}
+										/>
+									</Link>
+								) : (
+									<span className={css({ fontSize: "sm", color: "fg.subtle" })}>
+										Deleted user
+									</span>
+								)
 							}
 						/>
 						<PanelRow label="RESOLVES" value={question.resolutionSource} />

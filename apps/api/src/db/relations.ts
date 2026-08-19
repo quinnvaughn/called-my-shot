@@ -4,6 +4,7 @@ import * as schema from "./schema"
 export const relations = defineRelations(schema, (r) => ({
 	users: {
 		sessions: r.many.sessions(),
+		pendingEmailChange: r.one.pendingEmailChanges(),
 		groupsCreated: r.many.groups({
 			from: r.users.id,
 			to: r.groups.createdBy,
@@ -20,6 +21,12 @@ export const relations = defineRelations(schema, (r) => ({
 	sessions: {
 		user: r.one.users({
 			from: r.sessions.userId,
+			to: r.users.id,
+		}),
+	},
+	pendingEmailChanges: {
+		user: r.one.users({
+			from: r.pendingEmailChanges.userId,
 			to: r.users.id,
 		}),
 	},

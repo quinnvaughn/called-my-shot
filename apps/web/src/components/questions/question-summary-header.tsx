@@ -24,7 +24,10 @@ type QuestionSummaryData = {
 	ouLine: number | null
 	numericActualValue: number | null
 	options: { label: string; isCorrect: boolean | null }[]
-	creator: { name: string; username: string }
+	// null once the account that created this question has been deleted -
+	// the question itself survives (see questions.creatorId in the schema),
+	// just orphaned.
+	creator: { name: string; username: string } | null
 	viewerCall: { id: string } | null
 	league: { abbreviation: string }
 	// yes_no/over_under/numeric_guess only - null for a game-wide question with
@@ -108,14 +111,18 @@ export function QuestionSummaryHeader({ question, sharedBy, compact }: Props) {
 				>
 					Asked by{" "}
 					<span className={css({ color: "fg.muted", fontWeight: "medium" })}>
-						{question.creator.name}
+						{question.creator?.name ?? "Deleted user"}
 					</span>
 				</span>
-			) : (
+			) : question.creator ? (
 				<Identity
 					name={question.creator.name}
 					username={question.creator.username}
 				/>
+			) : (
+				<span className={css({ fontSize: "xs", color: "fg.subtle" })}>
+					Deleted user
+				</span>
 			)}
 			<span className={css({ fontWeight: "medium", fontSize: "sm" })}>
 				{question.title}

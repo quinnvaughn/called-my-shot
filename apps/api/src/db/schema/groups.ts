@@ -14,9 +14,11 @@ export const groupMemberRole = pgEnum("group_member_role", ["admin", "member"])
 export const groups = pgTable("groups", {
 	id: uuid("id").primaryKey().defaultRandom(),
 	name: text("name").notNull(),
-	createdBy: uuid("created_by")
-		.notNull()
-		.references(() => users.id, { onDelete: "cascade" }),
+	// Nullable + set null on delete: deleting the account that created a group
+	// shouldn't take the group (and its other members) down with it.
+	createdBy: uuid("created_by").references(() => users.id, {
+		onDelete: "set null",
+	}),
 	createdAt: timestamp("created_at").notNull().defaultNow(),
 })
 export type Group = typeof groups.$inferSelect

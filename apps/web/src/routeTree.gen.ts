@@ -13,10 +13,12 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AppRouteImport } from './routes/_app'
 import { Route as GraphqlRouteImport } from './routes/graphql'
 import { Route as AppAuthedRouteImport } from './routes/_app/_authed'
+import { Route as AppConfirmEmailRouteImport } from './routes/_app/confirm-email'
 import { Route as AppLeaderboardRouteImport } from './routes/_app/leaderboard'
 import { Route as AppAuthedHomeRouteImport } from './routes/_app/_authed/home'
 import { Route as AppAuthedMyCallsRouteImport } from './routes/_app/_authed/my-calls'
 import { Route as AppAuthedNewQuestionRouteImport } from './routes/_app/_authed/new-question'
+import { Route as AppAuthedSettingsRouteImport } from './routes/_app/_authed/settings'
 import { Route as AppQuestionsQuestionIdRouteImport } from './routes/_app/questions/$questionId'
 import { Route as AppUserUsernameRouteImport } from './routes/_app/user/$username'
 import { Route as ShareUsersUsernameRouteImport } from './routes/share/users/$username'
@@ -43,6 +45,11 @@ const AppAuthedRoute = AppAuthedRouteImport.update({
   id: '/_authed',
   getParentRoute: () => AppRoute,
 } as any)
+const AppConfirmEmailRoute = AppConfirmEmailRouteImport.update({
+  id: '/confirm-email',
+  path: '/confirm-email',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppLeaderboardRoute = AppLeaderboardRouteImport.update({
   id: '/leaderboard',
   path: '/leaderboard',
@@ -61,6 +68,11 @@ const AppAuthedMyCallsRoute = AppAuthedMyCallsRouteImport.update({
 const AppAuthedNewQuestionRoute = AppAuthedNewQuestionRouteImport.update({
   id: '/new-question',
   path: '/new-question',
+  getParentRoute: () => AppAuthedRoute,
+} as any)
+const AppAuthedSettingsRoute = AppAuthedSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
   getParentRoute: () => AppAuthedRoute,
 } as any)
 const AppQuestionsQuestionIdRoute = AppQuestionsQuestionIdRouteImport.update({
@@ -103,10 +115,12 @@ const ShareLeaguesLeagueIdUsersUsernameRoute =
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/graphql': typeof GraphqlRoute
+  '/confirm-email': typeof AppConfirmEmailRoute
   '/leaderboard': typeof AppLeaderboardRoute
   '/home': typeof AppAuthedHomeRoute
   '/my-calls': typeof AppAuthedMyCallsRoute
   '/new-question': typeof AppAuthedNewQuestionRoute
+  '/settings': typeof AppAuthedSettingsRoute
   '/questions/$questionId': typeof AppQuestionsQuestionIdRoute
   '/user/$username': typeof AppUserUsernameRoute
   '/share/users/$username': typeof ShareUsersUsernameRoute
@@ -118,10 +132,12 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/graphql': typeof GraphqlRoute
+  '/confirm-email': typeof AppConfirmEmailRoute
   '/leaderboard': typeof AppLeaderboardRoute
   '/home': typeof AppAuthedHomeRoute
   '/my-calls': typeof AppAuthedMyCallsRoute
   '/new-question': typeof AppAuthedNewQuestionRoute
+  '/settings': typeof AppAuthedSettingsRoute
   '/questions/$questionId': typeof AppQuestionsQuestionIdRoute
   '/user/$username': typeof AppUserUsernameRoute
   '/share/users/$username': typeof ShareUsersUsernameRoute
@@ -136,10 +152,12 @@ export interface FileRoutesById {
   '/_app': typeof AppRouteWithChildren
   '/graphql': typeof GraphqlRoute
   '/_app/_authed': typeof AppAuthedRouteWithChildren
+  '/_app/confirm-email': typeof AppConfirmEmailRoute
   '/_app/leaderboard': typeof AppLeaderboardRoute
   '/_app/_authed/home': typeof AppAuthedHomeRoute
   '/_app/_authed/my-calls': typeof AppAuthedMyCallsRoute
   '/_app/_authed/new-question': typeof AppAuthedNewQuestionRoute
+  '/_app/_authed/settings': typeof AppAuthedSettingsRoute
   '/_app/questions/$questionId': typeof AppQuestionsQuestionIdRoute
   '/_app/user/$username': typeof AppUserUsernameRoute
   '/share/users/$username': typeof ShareUsersUsernameRoute
@@ -153,10 +171,12 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/graphql'
+    | '/confirm-email'
     | '/leaderboard'
     | '/home'
     | '/my-calls'
     | '/new-question'
+    | '/settings'
     | '/questions/$questionId'
     | '/user/$username'
     | '/share/users/$username'
@@ -168,10 +188,12 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/graphql'
+    | '/confirm-email'
     | '/leaderboard'
     | '/home'
     | '/my-calls'
     | '/new-question'
+    | '/settings'
     | '/questions/$questionId'
     | '/user/$username'
     | '/share/users/$username'
@@ -185,10 +207,12 @@ export interface FileRouteTypes {
     | '/_app'
     | '/graphql'
     | '/_app/_authed'
+    | '/_app/confirm-email'
     | '/_app/leaderboard'
     | '/_app/_authed/home'
     | '/_app/_authed/my-calls'
     | '/_app/_authed/new-question'
+    | '/_app/_authed/settings'
     | '/_app/questions/$questionId'
     | '/_app/user/$username'
     | '/share/users/$username'
@@ -236,6 +260,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppAuthedRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/confirm-email': {
+      id: '/_app/confirm-email'
+      path: '/confirm-email'
+      fullPath: '/confirm-email'
+      preLoaderRoute: typeof AppConfirmEmailRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/leaderboard': {
       id: '/_app/leaderboard'
       path: '/leaderboard'
@@ -262,6 +293,13 @@ declare module '@tanstack/react-router' {
       path: '/new-question'
       fullPath: '/new-question'
       preLoaderRoute: typeof AppAuthedNewQuestionRouteImport
+      parentRoute: typeof AppAuthedRoute
+    }
+    '/_app/_authed/settings': {
+      id: '/_app/_authed/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof AppAuthedSettingsRouteImport
       parentRoute: typeof AppAuthedRoute
     }
     '/_app/questions/$questionId': {
@@ -320,6 +358,7 @@ interface AppAuthedRouteChildren {
   AppAuthedHomeRoute: typeof AppAuthedHomeRoute
   AppAuthedMyCallsRoute: typeof AppAuthedMyCallsRoute
   AppAuthedNewQuestionRoute: typeof AppAuthedNewQuestionRoute
+  AppAuthedSettingsRoute: typeof AppAuthedSettingsRoute
   AppAuthedGroupsGroupIdRoute: typeof AppAuthedGroupsGroupIdRoute
   AppAuthedGroupsIndexRoute: typeof AppAuthedGroupsIndexRoute
 }
@@ -328,6 +367,7 @@ const AppAuthedRouteChildren: AppAuthedRouteChildren = {
   AppAuthedHomeRoute: AppAuthedHomeRoute,
   AppAuthedMyCallsRoute: AppAuthedMyCallsRoute,
   AppAuthedNewQuestionRoute: AppAuthedNewQuestionRoute,
+  AppAuthedSettingsRoute: AppAuthedSettingsRoute,
   AppAuthedGroupsGroupIdRoute: AppAuthedGroupsGroupIdRoute,
   AppAuthedGroupsIndexRoute: AppAuthedGroupsIndexRoute,
 }
@@ -338,6 +378,7 @@ const AppAuthedRouteWithChildren = AppAuthedRoute._addFileChildren(
 
 interface AppRouteChildren {
   AppAuthedRoute: typeof AppAuthedRouteWithChildren
+  AppConfirmEmailRoute: typeof AppConfirmEmailRoute
   AppLeaderboardRoute: typeof AppLeaderboardRoute
   AppQuestionsQuestionIdRoute: typeof AppQuestionsQuestionIdRoute
   AppUserUsernameRoute: typeof AppUserUsernameRoute
@@ -346,6 +387,7 @@ interface AppRouteChildren {
 
 const AppRouteChildren: AppRouteChildren = {
   AppAuthedRoute: AppAuthedRouteWithChildren,
+  AppConfirmEmailRoute: AppConfirmEmailRoute,
   AppLeaderboardRoute: AppLeaderboardRoute,
   AppQuestionsQuestionIdRoute: AppQuestionsQuestionIdRoute,
   AppUserUsernameRoute: AppUserUsernameRoute,

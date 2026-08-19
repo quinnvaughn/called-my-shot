@@ -1,10 +1,9 @@
-import { useMutation } from "@apollo/client/react"
-import { useNavigate, useRouter } from "@tanstack/react-router"
-import { FiLogOut } from "react-icons/fi"
+import { useNavigate } from "@tanstack/react-router"
+import { FiLogOut, FiSettings } from "react-icons/fi"
 import { css } from "styled-system/css"
 import { Avatar } from "#/components/ui/avatar"
 import { Dropdown } from "#/components/ui/dropdown"
-import { SignOutDocument } from "#/graphql/mutations/auth"
+import { useSignOut } from "#/hooks/use-sign-out"
 
 type AccountMenuProps = {
 	name: string
@@ -20,15 +19,8 @@ export function AccountMenu({
 	username,
 	variant = "sidebar",
 }: AccountMenuProps) {
-	const [signOut] = useMutation(SignOutDocument)
-	const router = useRouter()
+	const { signOut } = useSignOut()
 	const navigate = useNavigate()
-
-	async function handleSignOut() {
-		await signOut()
-		await router.invalidate()
-		navigate({ to: "/" })
-	}
 
 	return (
 		<Dropdown
@@ -113,7 +105,15 @@ export function AccountMenu({
 						/>
 					</>
 				)}
-				<Dropdown.Item onClick={handleSignOut}>
+				<Dropdown.Item onClick={() => navigate({ to: "/settings" })}>
+					<span
+						className={css({ display: "flex", alignItems: "center", gap: "2" })}
+					>
+						<FiSettings size={14} />
+						Settings
+					</span>
+				</Dropdown.Item>
+				<Dropdown.Item onClick={signOut}>
 					<span
 						className={css({ display: "flex", alignItems: "center", gap: "2" })}
 					>
