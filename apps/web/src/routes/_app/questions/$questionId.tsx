@@ -245,6 +245,7 @@ function RouteComponent() {
 				questionId={question.id}
 				state={state}
 				callCount={question.callCount}
+				totalOptions={question.options.length}
 				numericTolerancePct={question.numericTolerancePct}
 				viewerCall={viewerCall}
 				hasViewerDispute={question.viewerDispute !== null}

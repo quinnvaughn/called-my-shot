@@ -13,6 +13,7 @@ type Props =
 			// null = nothing picked yet, distinct from a genuinely new pick
 			// (fieldPct 0 - nobody's picked it yet either, but it IS a pick).
 			fieldPct: number | null
+			totalOptions: number
 			conviction: number
 			basePoints: number
 	  }
@@ -32,7 +33,7 @@ export function PointsPreview(props: Props) {
 		const preview = previewNumericPoints(props.basePoints, props.conviction)
 		return (
 			<PointsPreviewShell
-				tierText="Flat multiplier - no boldness bonus for numeric guesses"
+				tierText="Bonus depends on how rare your guess turns out to be"
 				winText={`+${preview.winLow}–${preview.winHigh}`}
 				loseText={`−${preview.lose}`}
 			/>
@@ -52,6 +53,7 @@ export function PointsPreview(props: Props) {
 	const preview = previewSelectionPoints(
 		props.basePoints,
 		props.fieldPct,
+		props.totalOptions,
 		props.conviction,
 	)
 	return (

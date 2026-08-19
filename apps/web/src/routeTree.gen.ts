@@ -14,6 +14,7 @@ import { Route as AppRouteImport } from './routes/_app'
 import { Route as GraphqlRouteImport } from './routes/graphql'
 import { Route as AppAuthedRouteImport } from './routes/_app/_authed'
 import { Route as AppConfirmEmailRouteImport } from './routes/_app/confirm-email'
+import { Route as AppHowItWorksRouteImport } from './routes/_app/how-it-works'
 import { Route as AppLeaderboardRouteImport } from './routes/_app/leaderboard'
 import { Route as AppAuthedHomeRouteImport } from './routes/_app/_authed/home'
 import { Route as AppAuthedMyCallsRouteImport } from './routes/_app/_authed/my-calls'
@@ -48,6 +49,11 @@ const AppAuthedRoute = AppAuthedRouteImport.update({
 const AppConfirmEmailRoute = AppConfirmEmailRouteImport.update({
   id: '/confirm-email',
   path: '/confirm-email',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppHowItWorksRoute = AppHowItWorksRouteImport.update({
+  id: '/how-it-works',
+  path: '/how-it-works',
   getParentRoute: () => AppRoute,
 } as any)
 const AppLeaderboardRoute = AppLeaderboardRouteImport.update({
@@ -116,6 +122,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/graphql': typeof GraphqlRoute
   '/confirm-email': typeof AppConfirmEmailRoute
+  '/how-it-works': typeof AppHowItWorksRoute
   '/leaderboard': typeof AppLeaderboardRoute
   '/home': typeof AppAuthedHomeRoute
   '/my-calls': typeof AppAuthedMyCallsRoute
@@ -133,6 +140,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/graphql': typeof GraphqlRoute
   '/confirm-email': typeof AppConfirmEmailRoute
+  '/how-it-works': typeof AppHowItWorksRoute
   '/leaderboard': typeof AppLeaderboardRoute
   '/home': typeof AppAuthedHomeRoute
   '/my-calls': typeof AppAuthedMyCallsRoute
@@ -153,6 +161,7 @@ export interface FileRoutesById {
   '/graphql': typeof GraphqlRoute
   '/_app/_authed': typeof AppAuthedRouteWithChildren
   '/_app/confirm-email': typeof AppConfirmEmailRoute
+  '/_app/how-it-works': typeof AppHowItWorksRoute
   '/_app/leaderboard': typeof AppLeaderboardRoute
   '/_app/_authed/home': typeof AppAuthedHomeRoute
   '/_app/_authed/my-calls': typeof AppAuthedMyCallsRoute
@@ -172,6 +181,7 @@ export interface FileRouteTypes {
     | '/'
     | '/graphql'
     | '/confirm-email'
+    | '/how-it-works'
     | '/leaderboard'
     | '/home'
     | '/my-calls'
@@ -189,6 +199,7 @@ export interface FileRouteTypes {
     | '/'
     | '/graphql'
     | '/confirm-email'
+    | '/how-it-works'
     | '/leaderboard'
     | '/home'
     | '/my-calls'
@@ -208,6 +219,7 @@ export interface FileRouteTypes {
     | '/graphql'
     | '/_app/_authed'
     | '/_app/confirm-email'
+    | '/_app/how-it-works'
     | '/_app/leaderboard'
     | '/_app/_authed/home'
     | '/_app/_authed/my-calls'
@@ -265,6 +277,13 @@ declare module '@tanstack/react-router' {
       path: '/confirm-email'
       fullPath: '/confirm-email'
       preLoaderRoute: typeof AppConfirmEmailRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/how-it-works': {
+      id: '/_app/how-it-works'
+      path: '/how-it-works'
+      fullPath: '/how-it-works'
+      preLoaderRoute: typeof AppHowItWorksRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/leaderboard': {
@@ -379,6 +398,7 @@ const AppAuthedRouteWithChildren = AppAuthedRoute._addFileChildren(
 interface AppRouteChildren {
   AppAuthedRoute: typeof AppAuthedRouteWithChildren
   AppConfirmEmailRoute: typeof AppConfirmEmailRoute
+  AppHowItWorksRoute: typeof AppHowItWorksRoute
   AppLeaderboardRoute: typeof AppLeaderboardRoute
   AppQuestionsQuestionIdRoute: typeof AppQuestionsQuestionIdRoute
   AppUserUsernameRoute: typeof AppUserUsernameRoute
@@ -388,6 +408,7 @@ interface AppRouteChildren {
 const AppRouteChildren: AppRouteChildren = {
   AppAuthedRoute: AppAuthedRouteWithChildren,
   AppConfirmEmailRoute: AppConfirmEmailRoute,
+  AppHowItWorksRoute: AppHowItWorksRoute,
   AppLeaderboardRoute: AppLeaderboardRoute,
   AppQuestionsQuestionIdRoute: AppQuestionsQuestionIdRoute,
   AppUserUsernameRoute: AppUserUsernameRoute,

@@ -230,6 +230,7 @@ export function MultiSelectFields({ callForm }: Props) {
 											<PointsPreview
 												kind="option"
 												fieldPct={option.fieldPct ?? 0}
+												totalOptions={question.options.length}
 												conviction={selection.conviction}
 												basePoints={BASE_POINTS_BY_TYPE.multi_select}
 											/>

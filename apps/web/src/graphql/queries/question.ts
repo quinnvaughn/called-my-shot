@@ -66,6 +66,7 @@ export const QuestionDetailDocument = graphql(`
 				totalPoints
 				currentRank
 				closenessMult
+				closenessFieldPct
 				caseText
 				question {
 					id

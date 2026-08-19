@@ -79,7 +79,7 @@ export function convictionSummary(call: CallSummaryData): string {
 // multi_select pick) is negative iff the pick was wrong, and numericGuessPoints
 // is never negative at all - a numeric guess is scored purely by closeness to
 // the field, so accuracy (hitTolerance) is a genuinely separate stat that can
-// disagree with points and shouldn't drive this badge (see apps/api/src/lib/calls.ts).
+// disagree with points and shouldn't drive this badge (see @called-my-shot/scoring).
 export function resultState(
 	totalPoints: number | null,
 ): { status: "pending" } | { status: "win" | "loss"; points: number } {

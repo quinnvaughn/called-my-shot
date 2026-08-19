@@ -148,6 +148,7 @@ export function OptionFields({ callForm }: Props) {
 						<PointsPreview
 							kind="option"
 							fieldPct={selectedFieldPct}
+							totalOptions={question.options.length}
 							conviction={singleSelectConviction}
 							basePoints={BASE_POINTS_BY_TYPE[type]}
 						/>

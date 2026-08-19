@@ -1,7 +1,7 @@
 import {
 	BASE_POINTS_BY_TYPE,
-	NUMERIC_MAX_MULT,
-	NUMERIC_MIN_MULT,
+	TIER_MAX_MULT,
+	TIER_MIN_MULT,
 	tierFor,
 	toleranceBand,
 } from "@called-my-shot/scoring"
@@ -34,13 +34,18 @@ type ViewerCall = {
 	conviction: number | null
 	totalPoints: number | null
 	currentRank: number
-	// The real closeness multiplier (NUMERIC_MIN_MULT-NUMERIC_MAX_MULT range)
+	// The real closeness multiplier (TIER_MIN_MULT-TIER_MAX_MULT range)
 	// applied at resolution (see calls.closeness_mult) - numeric_guess only,
 	// null until resolved and null forever on a miss. Persisted rather than
 	// reconstructed: unlike a
 	// selection's contrarian tier, closeness rank only exists once every
 	// other hit on the question is known.
 	closenessMult: number | null
+	// The raw share this call's closenessMult was derived from - what % of
+	// the whole field guessed at least as close as this call did. Same
+	// nullability as closenessMult. Exists purely so the resolved-state
+	// breakdown can explain "why this multiplier" with a real number.
+	closenessFieldPct: number | null
 	question: { type: QuestionType; ouLine: number | null }
 	selections: {
 		conviction: number
@@ -61,6 +66,10 @@ type Props = {
 	questionId: string
 	state: QuestionDetailState
 	callCount: number
+	// The question's total option count, feeding tierFor's relative-rarity
+	// normalization (an option's share means something different in a 2-option
+	// vs. a 20-option field). Ignored for numeric_guess, which has no options.
+	totalOptions: number
 	numericTolerancePct: number | null
 	viewerCall: ViewerCall | null
 	hasViewerDispute: boolean
@@ -87,6 +96,7 @@ export function ViewerStatusCard({
 	questionId,
 	state,
 	callCount,
+	totalOptions,
 	numericTolerancePct,
 	viewerCall,
 	hasViewerDispute,
@@ -143,6 +153,7 @@ export function ViewerStatusCard({
 				isLocked={state.isLocked}
 				numericTolerancePct={numericTolerancePct}
 				callCount={callCount}
+				totalOptions={totalOptions}
 				viewerCall={viewerCall}
 			/>
 		)
@@ -195,6 +206,7 @@ export function ViewerStatusCard({
 												kind: "resolved",
 												totalPoints: viewerCall.totalPoints,
 												closenessMult: viewerCall.closenessMult,
+												closenessFieldPct: viewerCall.closenessFieldPct,
 											}
 								}
 							/>
@@ -208,6 +220,7 @@ export function ViewerStatusCard({
 									viewerCall.question.ouLine,
 								)}
 								fieldPct={selection.option.fieldPct}
+								totalOptions={totalOptions}
 								conviction={selection.conviction}
 								rank={viewerCall.currentRank}
 								totalCalls={callCount}
@@ -480,11 +493,13 @@ function PendingContent({
 	isLocked,
 	numericTolerancePct,
 	callCount,
+	totalOptions,
 	viewerCall,
 }: {
 	isLocked: boolean
 	numericTolerancePct: number | null
 	callCount: number
+	totalOptions: number
 	viewerCall: ViewerCall
 }) {
 	const isNumeric = viewerCall.question.type === "NUMERIC_GUESS"
@@ -519,6 +534,7 @@ function PendingContent({
 									viewerCall.question.ouLine,
 								)}
 								fieldPct={selection.option.fieldPct}
+								totalOptions={totalOptions}
 								conviction={selection.conviction}
 								rank={viewerCall.currentRank}
 								totalCalls={callCount}
@@ -579,10 +595,15 @@ type SelectionRowResult =
 	| { kind: "resolved"; isCorrect: boolean; points: number }
 type NumericRowResult =
 	| { kind: "preview" }
-	// closenessMult is the real value from calls.closeness_mult (null on a
-	// miss) - the early multiplier isn't stored separately, but it's exact
-	// arithmetic to back out: totalPoints / (committed × closenessMult).
-	| { kind: "resolved"; totalPoints: number; closenessMult: number | null }
+	// closenessMult and closenessFieldPct are the real, persisted values (null
+	// on a miss) - the early multiplier isn't stored separately, but it's
+	// exact arithmetic to back out: totalPoints / (committed × closenessMult).
+	| {
+			kind: "resolved"
+			totalPoints: number
+			closenessMult: number | null
+			closenessFieldPct: number | null
+	  }
 
 // Collapsed by default so the card stays a name and a number at a glance -
 // the reasoning is one click away, not something everyone has to read past
@@ -738,6 +759,7 @@ function WhyThesePoints({ breakdown }: { breakdown: Breakdown }) {
 function SelectionPickRow({
 	label,
 	fieldPct,
+	totalOptions,
 	conviction,
 	rank,
 	totalCalls,
@@ -749,6 +771,7 @@ function SelectionPickRow({
 }: {
 	label: string
 	fieldPct: number | null
+	totalOptions: number
 	conviction: number
 	rank: number
 	totalCalls: number
@@ -771,7 +794,7 @@ function SelectionPickRow({
 		// multiplier is backed out from the authoritative number instead -
 		// committed and points are both trustworthy, so committed × mult =
 		// points always balances by construction.
-		const tier = tierFor(fieldPct)
+		const tier = tierFor(fieldPct, totalOptions)
 		const committed = Math.round(basePoints * (conviction / 100))
 		// The combined multiplier backed out of the authoritative points value
 		// (see comment above), then divided back by the safe/live tier.mult to
@@ -806,14 +829,6 @@ function SelectionPickRow({
 							// a hit still gets labeled "IF RIGHT" (it's explaining the
 							// formula, not narrating an event), a miss gets "RESULT"
 							// since there's no multiplier story left to tell.
-							//
-							// The multipliers are labeled right on the numbers
-							// ("boldness"/"early") instead of unpacked in a prose note
-							// below - a note trying to explain rank/percentile in words
-							// ("ahead of the curve, #1/3") reads as contradictory for a
-							// small field (being literally first doesn't look "early"
-							// once it's spelled out as a fraction), where the bare
-							// labeled multiplier doesn't make that claim at all.
 							label: result.isCorrect ? "IF RIGHT" : "RESULT",
 							math:
 								result.isCorrect && earlyMult !== null ? (
@@ -835,8 +850,12 @@ function SelectionPickRow({
 								),
 						},
 					],
+					// The raw number the multiplier came from, not a qualitative
+					// label - "33% of the field also picked this" stays true and
+					// legible no matter how small the field is, where a label like
+					// "ahead of the curve" would read strangely for, say, 1st of 3.
 					note: result.isCorrect
-						? undefined
+						? `${Math.round(fieldPct)}% of the field also picked this`
 						: "boldness and early bonuses only pay out on a hit",
 				}}
 				payout={null}
@@ -847,6 +866,7 @@ function SelectionPickRow({
 	const preview = previewSelectionPoints(
 		basePoints,
 		fieldPct,
+		totalOptions,
 		conviction,
 		rank,
 		totalCalls,
@@ -970,6 +990,15 @@ function NumericPickRow({
 								),
 						},
 					],
+					// The raw share the multiplier came from, same reasoning as
+					// SelectionPickRow's note - a real number ("62% of the field
+					// guessed at least this close") stays legible regardless of field
+					// size, where a qualitative label wouldn't.
+					note: win
+						? result.closenessFieldPct !== null
+							? `${Math.round(result.closenessFieldPct)}% of the field guessed at least this close`
+							: undefined
+						: "boldness and early bonuses only pay out on a hit",
 				}}
 				payout={null}
 			/>
@@ -1002,7 +1031,7 @@ function NumericPickRow({
 								<span className={mathDownside}>{stake}</span>
 								<span className={mathDefault}>
 									{" "}
-									× {NUMERIC_MIN_MULT}–{NUMERIC_MAX_MULT} closeness ×{" "}
+									× {TIER_MIN_MULT}–{TIER_MAX_MULT} closeness ×{" "}
 									{preview.earlyTier.mult} early ={" "}
 								</span>
 								<span className={mathUpside}>

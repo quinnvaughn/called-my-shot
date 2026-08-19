@@ -8,8 +8,8 @@ import {
 	type ContrarianTier,
 	type EarlyTier,
 	earlyTierFor,
-	NUMERIC_MAX_MULT,
-	NUMERIC_MIN_MULT,
+	TIER_MAX_MULT,
+	TIER_MIN_MULT,
 	tierFor,
 } from "@called-my-shot/scoring"
 
@@ -32,12 +32,13 @@ export type PointsPreview = {
 export function previewSelectionPoints(
 	basePoints: number,
 	fieldPct: number,
+	totalOptions: number,
 	conviction: number,
 	earlyRank?: number,
 	earlyTotalCalls?: number,
 ): PointsPreview {
 	const stake = conviction / 100
-	const tier = tierFor(fieldPct)
+	const tier = tierFor(fieldPct, totalOptions)
 	const earlyTier =
 		earlyRank !== undefined && earlyTotalCalls !== undefined
 			? earlyTierFor(earlyRank, earlyTotalCalls)
@@ -57,13 +58,16 @@ export type NumericPointsPreview = {
 	earlyTier: EarlyTier
 }
 
-// numeric_guess pays out on a curve ranked against everyone else who also
-// hit the tolerance band (see numericGuessPoints in @called-my-shot/scoring)
-// - unlike an option pick, the multiplier genuinely can't be known before
-// resolution, so this reports the full possible range instead of one number.
-// A miss is always a flat loss of the stake, same as every other type.
-// earlyRank/earlyTotalCalls follow the same optional-before-a-call-exists
-// rule as previewSelectionPoints above.
+// numeric_guess pays out on the same "how rare was being right" curve as
+// every other type (see numericGuessPoints in @called-my-shot/scoring) -
+// rare here means few people, out of the whole field, landed at least as
+// close to the actual value as this guess did. Unlike an option pick, that
+// share genuinely can't be known before resolution (it depends on where
+// everyone else's guesses end up relative to a value nobody's seen yet), so
+// this reports the full possible range instead of one number. A miss is
+// always a flat loss of the stake, same as every other type. earlyRank/
+// earlyTotalCalls follow the same optional-before-a-call-exists rule as
+// previewSelectionPoints above.
 export function previewNumericPoints(
 	basePoints: number,
 	conviction: number,
@@ -76,8 +80,8 @@ export function previewNumericPoints(
 			? earlyTierFor(earlyRank, earlyTotalCalls)
 			: { mult: 1, label: "STANDARD" }
 	return {
-		winLow: Math.round(basePoints * stake * NUMERIC_MIN_MULT * earlyTier.mult),
-		winHigh: Math.round(basePoints * stake * NUMERIC_MAX_MULT * earlyTier.mult),
+		winLow: Math.round(basePoints * stake * TIER_MIN_MULT * earlyTier.mult),
+		winHigh: Math.round(basePoints * stake * TIER_MAX_MULT * earlyTier.mult),
 		lose: Math.round(basePoints * stake),
 		earlyTier,
 	}

@@ -1,0 +1,1 @@
+ALTER TABLE "calls" ADD COLUMN "closeness_field_pct" numeric(5,2);

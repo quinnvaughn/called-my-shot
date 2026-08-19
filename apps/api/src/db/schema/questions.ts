@@ -188,6 +188,19 @@ export const calls = pgTable(
 			scale: 2,
 			mode: "number",
 		}),
+		// What % of the WHOLE field (not just other hitters) guessed at least as
+		// close to the actual value as this call did - the raw share
+		// closenessMult above was derived from (see numericGuessPoints). Exposed
+		// separately, not just left for the client to back out of the
+		// multiplier, so the UI can explain "why this multiplier" (e.g. "62% of
+		// the field guessed at least this close") with a real number instead of
+		// inverting a curve on the frontend. Same resolve-time-only reasoning as
+		// closenessMult - null until resolved, null forever on a miss.
+		closenessFieldPct: numeric("closeness_field_pct", {
+			precision: 5,
+			scale: 2,
+			mode: "number",
+		}),
 
 		createdAt: timestamp("created_at").notNull().defaultNow(),
 	},

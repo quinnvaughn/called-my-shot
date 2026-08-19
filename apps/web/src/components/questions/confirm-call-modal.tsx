@@ -106,7 +106,7 @@ export function ConfirmCallModal({
 							type === "multi_select" && convictionMode === "split"
 						const meta =
 							option.fieldPct !== null
-								? `${tierFor(option.fieldPct).label} · ${Math.round(option.fieldPct)}% of the field${showConviction ? ` · ${selection.conviction}% conviction` : ""}`
+								? `${tierFor(option.fieldPct, question.options.length).label} · ${Math.round(option.fieldPct)}% of the field${showConviction ? ` · ${selection.conviction}% conviction` : ""}`
 								: showConviction
 									? `${selection.conviction}% conviction`
 									: "—"
@@ -120,6 +120,7 @@ export function ConfirmCallModal({
 										? previewSelectionPoints(
 												basePoints,
 												option.fieldPct,
+												question.options.length,
 												selection.conviction,
 											)
 										: null

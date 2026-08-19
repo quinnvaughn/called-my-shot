@@ -262,6 +262,7 @@ async function resolveOptionQuestion(
 					resultPoints: selectionPoints(
 						basePoints,
 						optionFieldPct,
+						options.length,
 						selection.conviction,
 						correctOptionIds.includes(option.id),
 						earlyMult,
@@ -317,6 +318,7 @@ async function resolveNumericQuestion(
 				hitTolerance: result?.hit ?? null,
 				resultPoints: result?.points,
 				closenessMult: result?.closenessMult ?? null,
+				closenessFieldPct: result?.closenessFieldPct ?? null,
 			})
 			.where(eq(calls.id, call.callId))
 	}

@@ -223,15 +223,29 @@ export const CallRef = builder.drizzleObject("calls", {
 					: null,
 		}),
 		// numeric_guess only - the actual closeness multiplier (see
-		// NUMERIC_MIN_MULT/NUMERIC_MAX_MULT in @called-my-shot/scoring)
-		// applied at resolution, from closenessMult on the calls table. Null
-		// until resolved, and null forever on a miss.
+		// numericGuessPoints/TIER_MIN_MULT/TIER_MAX_MULT in
+		// @called-my-shot/scoring) applied at resolution, from closenessMult
+		// on the calls table. Null until resolved, and null forever on a miss.
 		closenessMult: t.field({
 			type: "Float",
 			nullable: true,
 			resolve: async (call, _args, ctx) =>
 				(await canViewerSeePick(call, ctx.user?.id ?? null))
 					? call.closenessMult
+					: null,
+		}),
+		// numeric_guess only - what % of the whole field (not just other
+		// hitters) guessed at least as close to the actual value as this call
+		// did, the raw share closenessMult above was derived from. Exposed
+		// separately so the UI can explain the multiplier with a real number
+		// ("62% of the field guessed at least this close") instead of inverting
+		// the curve client-side. Same visibility/nullability as closenessMult.
+		closenessFieldPct: t.field({
+			type: "Float",
+			nullable: true,
+			resolve: async (call, _args, ctx) =>
+				(await canViewerSeePick(call, ctx.user?.id ?? null))
+					? call.closenessFieldPct
 					: null,
 		}),
 		createdAt: t.field({
@@ -1281,6 +1295,7 @@ builder.mutationFields((t) => ({
 								resultPoints: r.points,
 								hitTolerance: r.hit,
 								closenessMult: r.closenessMult,
+								closenessFieldPct: r.closenessFieldPct,
 							})
 							.where(eq(calls.id, r.callId))
 					}
@@ -1368,6 +1383,7 @@ builder.mutationFields((t) => ({
 						const points = selectionPoints(
 							BASE_POINTS_BY_TYPE[question.type],
 							pct,
+							options.length,
 							s.conviction,
 							isCorrect,
 							earlyMult,
