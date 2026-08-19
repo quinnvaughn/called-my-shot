@@ -20,6 +20,7 @@ import { Route as AppAuthedHomeRouteImport } from './routes/_app/_authed/home'
 import { Route as AppAuthedMyCallsRouteImport } from './routes/_app/_authed/my-calls'
 import { Route as AppAuthedNewQuestionRouteImport } from './routes/_app/_authed/new-question'
 import { Route as AppAuthedSettingsRouteImport } from './routes/_app/_authed/settings'
+import { Route as AppAuthedSupportRouteImport } from './routes/_app/_authed/support'
 import { Route as AppQuestionsQuestionIdRouteImport } from './routes/_app/questions/$questionId'
 import { Route as AppUserUsernameRouteImport } from './routes/_app/user/$username'
 import { Route as ShareUsersUsernameRouteImport } from './routes/share/users/$username'
@@ -81,6 +82,11 @@ const AppAuthedSettingsRoute = AppAuthedSettingsRouteImport.update({
   path: '/settings',
   getParentRoute: () => AppAuthedRoute,
 } as any)
+const AppAuthedSupportRoute = AppAuthedSupportRouteImport.update({
+  id: '/support',
+  path: '/support',
+  getParentRoute: () => AppAuthedRoute,
+} as any)
 const AppQuestionsQuestionIdRoute = AppQuestionsQuestionIdRouteImport.update({
   id: '/questions/$questionId',
   path: '/questions/$questionId',
@@ -128,6 +134,7 @@ export interface FileRoutesByFullPath {
   '/my-calls': typeof AppAuthedMyCallsRoute
   '/new-question': typeof AppAuthedNewQuestionRoute
   '/settings': typeof AppAuthedSettingsRoute
+  '/support': typeof AppAuthedSupportRoute
   '/questions/$questionId': typeof AppQuestionsQuestionIdRoute
   '/user/$username': typeof AppUserUsernameRoute
   '/share/users/$username': typeof ShareUsersUsernameRoute
@@ -146,6 +153,7 @@ export interface FileRoutesByTo {
   '/my-calls': typeof AppAuthedMyCallsRoute
   '/new-question': typeof AppAuthedNewQuestionRoute
   '/settings': typeof AppAuthedSettingsRoute
+  '/support': typeof AppAuthedSupportRoute
   '/questions/$questionId': typeof AppQuestionsQuestionIdRoute
   '/user/$username': typeof AppUserUsernameRoute
   '/share/users/$username': typeof ShareUsersUsernameRoute
@@ -167,6 +175,7 @@ export interface FileRoutesById {
   '/_app/_authed/my-calls': typeof AppAuthedMyCallsRoute
   '/_app/_authed/new-question': typeof AppAuthedNewQuestionRoute
   '/_app/_authed/settings': typeof AppAuthedSettingsRoute
+  '/_app/_authed/support': typeof AppAuthedSupportRoute
   '/_app/questions/$questionId': typeof AppQuestionsQuestionIdRoute
   '/_app/user/$username': typeof AppUserUsernameRoute
   '/share/users/$username': typeof ShareUsersUsernameRoute
@@ -187,6 +196,7 @@ export interface FileRouteTypes {
     | '/my-calls'
     | '/new-question'
     | '/settings'
+    | '/support'
     | '/questions/$questionId'
     | '/user/$username'
     | '/share/users/$username'
@@ -205,6 +215,7 @@ export interface FileRouteTypes {
     | '/my-calls'
     | '/new-question'
     | '/settings'
+    | '/support'
     | '/questions/$questionId'
     | '/user/$username'
     | '/share/users/$username'
@@ -225,6 +236,7 @@ export interface FileRouteTypes {
     | '/_app/_authed/my-calls'
     | '/_app/_authed/new-question'
     | '/_app/_authed/settings'
+    | '/_app/_authed/support'
     | '/_app/questions/$questionId'
     | '/_app/user/$username'
     | '/share/users/$username'
@@ -321,6 +333,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppAuthedSettingsRouteImport
       parentRoute: typeof AppAuthedRoute
     }
+    '/_app/_authed/support': {
+      id: '/_app/_authed/support'
+      path: '/support'
+      fullPath: '/support'
+      preLoaderRoute: typeof AppAuthedSupportRouteImport
+      parentRoute: typeof AppAuthedRoute
+    }
     '/_app/questions/$questionId': {
       id: '/_app/questions/$questionId'
       path: '/questions/$questionId'
@@ -378,6 +397,7 @@ interface AppAuthedRouteChildren {
   AppAuthedMyCallsRoute: typeof AppAuthedMyCallsRoute
   AppAuthedNewQuestionRoute: typeof AppAuthedNewQuestionRoute
   AppAuthedSettingsRoute: typeof AppAuthedSettingsRoute
+  AppAuthedSupportRoute: typeof AppAuthedSupportRoute
   AppAuthedGroupsGroupIdRoute: typeof AppAuthedGroupsGroupIdRoute
   AppAuthedGroupsIndexRoute: typeof AppAuthedGroupsIndexRoute
 }
@@ -387,6 +407,7 @@ const AppAuthedRouteChildren: AppAuthedRouteChildren = {
   AppAuthedMyCallsRoute: AppAuthedMyCallsRoute,
   AppAuthedNewQuestionRoute: AppAuthedNewQuestionRoute,
   AppAuthedSettingsRoute: AppAuthedSettingsRoute,
+  AppAuthedSupportRoute: AppAuthedSupportRoute,
   AppAuthedGroupsGroupIdRoute: AppAuthedGroupsGroupIdRoute,
   AppAuthedGroupsIndexRoute: AppAuthedGroupsIndexRoute,
 }

@@ -7,6 +7,7 @@ import "./types/group"
 import "./types/leaderboard"
 import "./types/sports"
 import "./types/question"
+import "./types/support"
 
 builder.queryType({})
 

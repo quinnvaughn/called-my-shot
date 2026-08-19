@@ -8,6 +8,7 @@ const envSchema = z.object({
 		.enum(["development", "production", "test"])
 		.default("development"),
 	ALLOW_PROD_SEED: z.coerce.boolean().default(false),
+	SUPPORT_EMAIL: z.string().default("support@calledmyshot.local"),
 })
 
 export const env = envSchema.parse(process.env)

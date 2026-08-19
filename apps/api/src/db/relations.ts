@@ -17,6 +17,7 @@ export const relations = defineRelations(schema, (r) => ({
 		calls: r.many.calls(),
 		questionShares: r.many.questionShares(),
 		disputesFiled: r.many.resolutionDisputes(),
+		supportTickets: r.many.supportTickets(),
 	},
 	sessions: {
 		user: r.one.users({
@@ -206,6 +207,12 @@ export const relations = defineRelations(schema, (r) => ({
 		}),
 		sharedByUser: r.one.users({
 			from: r.questionShares.sharedBy,
+			to: r.users.id,
+		}),
+	},
+	supportTickets: {
+		user: r.one.users({
+			from: r.supportTickets.userId,
 			to: r.users.id,
 		}),
 	},

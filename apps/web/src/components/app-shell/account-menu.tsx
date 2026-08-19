@@ -1,5 +1,5 @@
 import { useNavigate } from "@tanstack/react-router"
-import { FiHelpCircle, FiLogOut, FiSettings } from "react-icons/fi"
+import { FiHelpCircle, FiLifeBuoy, FiLogOut, FiSettings } from "react-icons/fi"
 import { css } from "styled-system/css"
 import { Avatar } from "#/components/ui/avatar"
 import { Dropdown } from "#/components/ui/dropdown"
@@ -119,6 +119,14 @@ export function AccountMenu({
 					>
 						<FiHelpCircle size={14} />
 						How It Works
+					</span>
+				</Dropdown.Item>
+				<Dropdown.Item onClick={() => navigate({ to: "/support" })}>
+					<span
+						className={css({ display: "flex", alignItems: "center", gap: "2" })}
+					>
+						<FiLifeBuoy size={14} />
+						Support
 					</span>
 				</Dropdown.Item>
 				<Dropdown.Item onClick={signOut}>
