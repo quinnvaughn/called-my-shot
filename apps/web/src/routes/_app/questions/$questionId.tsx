@@ -5,6 +5,7 @@ import {
 	useRouter,
 } from "@tanstack/react-router"
 import { DateTime } from "luxon"
+import { FaRegTimesCircle } from "react-icons/fa"
 import { css } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
 import { CallSubmitBar } from "#/components/questions/call-submit-bar"
@@ -21,8 +22,8 @@ import { ResolveQuestionModal } from "#/components/questions/resolve-question-mo
 import { ViewerStatusCard } from "#/components/questions/viewer-status-card"
 import { Button } from "#/components/ui/button"
 import { Card } from "#/components/ui/card"
-import { EmptyState } from "#/components/ui/empty-state"
 import { Identity } from "#/components/ui/identity"
+import { NotFound } from "#/components/ui/not-found"
 import { Tag } from "#/components/ui/tag"
 import { TeamBadge } from "#/components/ui/team-badge"
 import {
@@ -83,7 +84,15 @@ function RouteComponent() {
 	const callForm = useCastCallForm(question)
 
 	if (!question) {
-		return <EmptyState>This question doesn't exist.</EmptyState>
+		return (
+			<NotFound
+				icon={<FaRegTimesCircle size={24} />}
+				eyebrowText="Question"
+				heading="This question doesn't exist"
+				subtitle="It may have been removed, or the link's just wrong. Double check the URL."
+				link={{ text: "View the leaderboard", url: "/leaderboard" }}
+			/>
+		)
 	}
 
 	const state = questionDetailState(question)

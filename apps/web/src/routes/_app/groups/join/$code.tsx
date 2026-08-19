@@ -3,11 +3,11 @@ import { createFileRoute, useNavigate, useRouter } from "@tanstack/react-router"
 import { FaRegTimesCircle } from "react-icons/fa"
 import { css } from "styled-system/css"
 import { VStack } from "styled-system/jsx"
-import { IncorrectGroup } from "#/components/groups/incorrect-group"
 import { AvatarStack } from "#/components/ui/avatar-stack"
 import { Button } from "#/components/ui/button"
 import { Card } from "#/components/ui/card"
 import { Eyebrow } from "#/components/ui/eyebrow"
+import { NotFound } from "#/components/ui/not-found"
 import { JoinGroupByCodeDocument } from "#/graphql/generated/graphql"
 import { GroupPreviewDocument } from "#/graphql/queries/groups"
 import { useRequireAuth } from "#/hooks/use-require-auth"
@@ -66,7 +66,7 @@ function RouteComponent() {
 
 	if (!preview) {
 		return (
-			<IncorrectGroup
+			<NotFound
 				icon={<FaRegTimesCircle size={24} />}
 				eyebrowText="Invite link"
 				heading="This link isn't valid anymore"

@@ -3,7 +3,8 @@ import type { ReactNode } from "react"
 import { css } from "styled-system/css"
 import { VStack } from "styled-system/jsx"
 import { button } from "styled-system/recipes"
-import { Eyebrow } from "../ui/eyebrow"
+import type { FileRouteTypes } from "#/routeTree.gen"
+import { Eyebrow } from "./eyebrow"
 
 type Props = {
 	icon: ReactNode
@@ -12,17 +13,11 @@ type Props = {
 	subtitle: string
 	link: {
 		text: string
-		url: string
+		url: FileRouteTypes["to"]
 	}
 }
 
-export function IncorrectGroup({
-	icon,
-	eyebrowText,
-	heading,
-	subtitle,
-	link,
-}: Props) {
+export function NotFound({ icon, eyebrowText, heading, subtitle, link }: Props) {
 	return (
 		<VStack gap="8" alignItems="center" className={css({ padding: "8" })}>
 			<VStack gap="4" alignItems="center">

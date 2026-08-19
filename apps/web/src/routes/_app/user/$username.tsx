@@ -1,13 +1,14 @@
 import { createFileRoute, useRouteContext } from "@tanstack/react-router"
+import { FiUserX } from "react-icons/fi"
 import { css } from "styled-system/css"
 import { VStack } from "styled-system/jsx"
-import { IncorrectUser } from "#/components/profile/incorrect-user"
 import { LeagueAccordion } from "#/components/profile/league-accordion"
 import { ProfileHeader } from "#/components/profile/profile-header"
 import { ShareImagePanel } from "#/components/profile/share-image-panel"
 import { StatGrid, statGridItems } from "#/components/profile/stat-grid"
 import { CallCard } from "#/components/questions/call-card"
 import { EmptyState } from "#/components/ui/empty-state"
+import { NotFound } from "#/components/ui/not-found"
 import { UserProfileDocument } from "#/graphql/generated/graphql"
 
 export const Route = createFileRoute("/_app/user/$username")({
@@ -41,7 +42,17 @@ function RouteComponent() {
 	const { user } = Route.useLoaderData()
 	const { me } = useRouteContext({ from: "__root__" })
 
-	if (!user) return <IncorrectUser />
+	if (!user) {
+		return (
+			<NotFound
+				icon={<FiUserX size="24" />}
+				eyebrowText="Profile"
+				heading="This user doesn't exist"
+				subtitle="They may have changed their username, or the link's just wrong. Double check the URL."
+				link={{ text: "View the leaderboard", url: "/leaderboard" }}
+			/>
+		)
+	}
 
 	return (
 		<VStack alignItems="stretch" gap="6">

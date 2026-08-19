@@ -7,10 +7,10 @@ import { match } from "ts-pattern"
 import { AnsweredQuestionsTab } from "#/components/groups/answered-questions-tab"
 import { CreatedQuestionsTab } from "#/components/groups/created-questions-tab"
 import { GroupLeaderboard } from "#/components/groups/group-leaderboard"
-import { IncorrectGroup } from "#/components/groups/incorrect-group"
 import { InviteCodeModal } from "#/components/groups/invite-code-modal"
 import { SharedQuestionsTab } from "#/components/groups/shared-questions-tab"
 import { Button } from "#/components/ui/button"
+import { NotFound } from "#/components/ui/not-found"
 import { PageHeader } from "#/components/ui/page-header"
 import { Tabs } from "#/components/ui/tabs"
 import { GroupDetailDocument } from "#/graphql/generated/graphql"
@@ -36,7 +36,7 @@ function RouteComponent() {
 
 	if (!group) {
 		return (
-			<IncorrectGroup
+			<NotFound
 				icon={<HiMiniQuestionMarkCircle size="24" />}
 				eyebrowText="Group"
 				heading="This group doesn't exist"
