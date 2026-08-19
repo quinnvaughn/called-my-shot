@@ -10,7 +10,7 @@ import { Tag } from "#/components/ui/tag"
 
 type LeaderboardColumnKey = "rank" | "member" | "points" | "calls" | "accuracy"
 
-const ALL_COLUMNS: TableColumn<LeaderboardColumnKey>[] = [
+const COLUMNS: TableColumn<LeaderboardColumnKey>[] = [
 	{ key: "rank", label: "#", numeric: true, width: "56px" },
 	{ key: "member", label: "Member" },
 	{ key: "points", label: "Points", numeric: true, width: "120px" },
@@ -35,9 +35,6 @@ type LeaderboardProps = {
 	// falls on the current page - null/undefined (signed out, or the viewer
 	// has no entry yet) simply renders nothing
 	viewerEntry?: LeaderboardRowData | null
-	// group leaderboards don't show an accuracy column today; the site-wide
-	// one does - shared component supports both rather than forking it
-	showAccuracy?: boolean
 	hasMore?: boolean
 	loading?: boolean
 	onLoadMore?: () => void
@@ -48,7 +45,6 @@ export function Leaderboard({
 	items,
 	viewerId,
 	viewerEntry,
-	showAccuracy = false,
 	hasMore = false,
 	loading = false,
 	onLoadMore,
@@ -86,8 +82,7 @@ export function Leaderboard({
 									})}
 								>
 									{viewerEntry.totalPoints} pts · {viewerEntry.callCount} calls
-									{showAccuracy &&
-										viewerEntry.accuracy !== null &&
+									{viewerEntry.accuracy !== null &&
 										` · ${Math.round(viewerEntry.accuracy)}%`}
 								</span>
 							</VStack>
@@ -99,21 +94,10 @@ export function Leaderboard({
 				<EmptyState>{emptyMessage}</EmptyState>
 			) : (
 				<Table sortBy="rank" sortDir="desc">
-					<Table.Head
-						columns={
-							showAccuracy
-								? ALL_COLUMNS
-								: ALL_COLUMNS.filter((c) => c.key !== "accuracy")
-						}
-					/>
+					<Table.Head columns={COLUMNS} />
 					<Table.Body>
 						{items.map((item) => (
-							<LeaderboardRow
-								key={item.user.id}
-								item={item}
-								viewerId={viewerId}
-								showAccuracy={showAccuracy}
-							/>
+							<LeaderboardRow key={item.user.id} item={item} viewerId={viewerId} />
 						))}
 					</Table.Body>
 				</Table>
@@ -130,11 +114,9 @@ export function Leaderboard({
 function LeaderboardRow({
 	item,
 	viewerId,
-	showAccuracy,
 }: {
 	item: LeaderboardRowData
 	viewerId?: string
-	showAccuracy: boolean
 }) {
 	const isTop3 = item.rank <= 3
 	return (
@@ -166,14 +148,9 @@ function LeaderboardRow({
 			<Table.Cell numeric className={css({ fontFamily: "mono", fontSize: "sm" })}>
 				{item.callCount}
 			</Table.Cell>
-			{showAccuracy && (
-				<Table.Cell
-					numeric
-					className={css({ fontFamily: "mono", fontSize: "sm" })}
-				>
-					{item.accuracy !== null ? `${Math.round(item.accuracy)}%` : "—"}
-				</Table.Cell>
-			)}
+			<Table.Cell numeric className={css({ fontFamily: "mono", fontSize: "sm" })}>
+				{item.accuracy !== null ? `${Math.round(item.accuracy)}%` : "—"}
+			</Table.Cell>
 		</Table.Row>
 	)
 }

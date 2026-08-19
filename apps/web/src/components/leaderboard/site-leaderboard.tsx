@@ -141,7 +141,6 @@ export function SiteLeaderboard({
 				items={rows}
 				viewerId={viewerId}
 				viewerEntry={viewerRow}
-				showAccuracy
 				hasMore={pageInfo.hasNextPage}
 				loading={loading}
 				onLoadMore={loadMore}
