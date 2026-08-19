@@ -33,6 +33,7 @@ import {
 	encodeOffsetCursor,
 	paginate,
 } from "../../lib/pagination"
+import { accuracyFrom, scoreCalls } from "../../lib/scoring"
 import { isUuid } from "../../lib/uuid"
 import { builder } from "../builder"
 import { PageInfoRef } from "./pagination"
@@ -154,35 +155,15 @@ async function buildLeaderboard(
 	const entries = memberships.flatMap((membership) => {
 		if (!membership.user) return []
 		const calls = callsByUser.get(membership.userId) ?? []
-		let totalPoints = 0
-		let resolvedCallCount = 0
-		let correctCount = 0
-
-		for (const call of calls) {
-			if (call.selections.length > 0) {
-				for (const selection of call.selections) {
-					if (selection.resultPoints === null) continue
-					resolvedCallCount++
-					totalPoints += selection.resultPoints
-					if (selection.option?.isCorrect) correctCount++
-				}
-			} else if (call.resultPoints !== null) {
-				resolvedCallCount++
-				totalPoints += call.resultPoints
-				if (call.hitTolerance) correctCount++
-			}
-		}
+		const summary = scoreCalls(calls)
 
 		return [
 			{
 				user: membership.user,
-				totalPoints,
-				accuracy:
-					resolvedCallCount > 0
-						? (correctCount / resolvedCallCount) * 100
-						: null,
+				totalPoints: summary.totalPoints,
+				accuracy: accuracyFrom(summary),
 				callCount: calls.length,
-				resolvedCallCount,
+				resolvedCallCount: summary.resolvedCallCount,
 				role: membership.role,
 			},
 		]

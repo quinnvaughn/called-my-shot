@@ -1,3 +1,4 @@
+import { Link } from "@tanstack/react-router"
 import { css } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
 import { Avatar } from "#/components/ui/avatar"
@@ -59,7 +60,9 @@ export function Leaderboard({
 							<Avatar size="md" name={viewerEntry.user.name} />
 							<VStack gap="0.5" alignItems="flex-start" flex="1" minWidth="0">
 								<Eyebrow variant="neutral">Your rank</Eyebrow>
-								<span className={css({ fontSize: "sm", fontWeight: "semibold" })}>
+								<span
+									className={css({ fontSize: "sm", fontWeight: "semibold" })}
+								>
 									{viewerEntry.user.name}
 								</span>
 							</VStack>
@@ -97,13 +100,22 @@ export function Leaderboard({
 					<Table.Head columns={COLUMNS} />
 					<Table.Body>
 						{items.map((item) => (
-							<LeaderboardRow key={item.user.id} item={item} viewerId={viewerId} />
+							<LeaderboardRow
+								key={item.user.id}
+								item={item}
+								viewerId={viewerId}
+							/>
 						))}
 					</Table.Body>
 				</Table>
 			)}
 			{hasMore && (
-				<Button variant="outline" size="sm" loading={loading} onClick={onLoadMore}>
+				<Button
+					variant="outline"
+					size="sm"
+					loading={loading}
+					onClick={onLoadMore}
+				>
 					Show more →
 				</Button>
 			)}
@@ -135,20 +147,35 @@ function LeaderboardRow({
 			<Table.Cell>
 				<HStack gap="3">
 					<Avatar size="sm" name={item.user.name} />
-					<span className={css({ fontSize: "sm", fontWeight: "medium" })}>
-						{item.user.name} (@{item.user.username})
-					</span>
+					<Link
+						to={"/user/$username"}
+						params={{ username: item.user.username }}
+						className={css({ _hover: { textDecoration: "underline" } })}
+					>
+						<span className={css({ fontSize: "sm", fontWeight: "medium" })}>
+							{item.user.name} (@{item.user.username})
+						</span>
+					</Link>
 					{item.user.id === viewerId && <Tag>You</Tag>}
 					{item.role === "ADMIN" && <Tag variant="primary">Admin</Tag>}
 				</HStack>
 			</Table.Cell>
-			<Table.Cell numeric className={css({ fontFamily: "mono", fontSize: "sm" })}>
+			<Table.Cell
+				numeric
+				className={css({ fontFamily: "mono", fontSize: "sm" })}
+			>
 				{item.totalPoints}
 			</Table.Cell>
-			<Table.Cell numeric className={css({ fontFamily: "mono", fontSize: "sm" })}>
+			<Table.Cell
+				numeric
+				className={css({ fontFamily: "mono", fontSize: "sm" })}
+			>
 				{item.callCount}
 			</Table.Cell>
-			<Table.Cell numeric className={css({ fontFamily: "mono", fontSize: "sm" })}>
+			<Table.Cell
+				numeric
+				className={css({ fontFamily: "mono", fontSize: "sm" })}
+			>
 				{item.accuracy !== null ? `${Math.round(item.accuracy)}%` : "—"}
 			</Table.Cell>
 		</Table.Row>
