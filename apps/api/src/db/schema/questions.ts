@@ -1,9 +1,11 @@
 import {
 	boolean,
+	index,
 	integer,
 	numeric,
 	pgEnum,
 	pgTable,
+	primaryKey,
 	text,
 	timestamp,
 	unique,
@@ -216,7 +218,13 @@ export const calls = pgTable(
 
 		createdAt: timestamp("created_at").notNull().defaultNow(),
 	},
-	(t) => [unique().on(t.questionId, t.userId)],
+	(t) => [
+		unique().on(t.questionId, t.userId),
+		// The unique constraint above leads with question_id, so it can't serve
+		// a `where user_id = ...` lookup - every points/leaderboard/career-stats
+		// aggregate filters or groups by user_id alone.
+		index("calls_user_id_idx").on(t.userId),
+	],
 )
 export type Call = typeof calls.$inferSelect
 
@@ -241,6 +249,51 @@ export const callSelections = pgTable(
 	},
 	(t) => [unique().on(t.callId, t.optionId)],
 )
+
+// Denormalized per-(user, league) rollup - the only source leaderboards/
+// career stats read from (see lib/points-aggregate.ts), rather than
+// aggregating live over calls/callSelections on every read. One row per
+// league a user has ever cast a call in; kept in sync transactionally by
+// castCall (callCount +1 on cast), resolveQuestionInternal (points/
+// resolvedCallCount/correctCount deltas on resolve, delta not overwrite, so
+// a dispute overturn re-resolving a question doesn't double-count), and
+// voidQuestion (reverses all four fields for every call on the voided
+// question - callCount always, the others only when calls had already been
+// scored, i.e. a disputed question being voided).
+//
+// Deliberately NOT a `points` column on `users` for the site-wide total -
+// that would mean two independently-updated running totals (one here, one
+// on users) that could drift if some future write path updates one and
+// forgets the other. Instead the site-wide/all-leagues total is just
+// sum(points) grouped by user_id over this table - cheap regardless of a
+// user's call count because this table's size is bounded by leagues (an
+// admin-curated catalog, realistically a couple dozen at most - see
+// sports.ts's createLeague), not by call volume.
+export const userLeagueStats = pgTable(
+	"user_league_stats",
+	{
+		userId: uuid("user_id")
+			.notNull()
+			.references(() => users.id, { onDelete: "cascade" }),
+		leagueId: uuid("league_id")
+			.notNull()
+			.references(() => leagues.id, { onDelete: "cascade" }),
+		points: integer("points").notNull().default(0),
+		// Counts picks, not calls, for multi_select (matches scoreCalls'
+		// pre-existing semantics) - one multi_select call with 3 resolved
+		// selections adds 3 here, not 1.
+		resolvedCallCount: integer("resolved_call_count").notNull().default(0),
+		correctCount: integer("correct_count").notNull().default(0),
+		// Unlike the three fields above, this counts calls (one per cast),
+		// incremented at castCall time regardless of resolution status.
+		callCount: integer("call_count").notNull().default(0),
+	},
+	(t) => [
+		primaryKey({ columns: [t.userId, t.leagueId] }),
+		index("user_league_stats_league_points_idx").on(t.leagueId, t.points),
+	],
+)
+export type UserLeagueStats = typeof userLeagueStats.$inferSelect
 
 // Filed against a resolved question when a caller thinks the stated result is
 // wrong. One per user per question. Filing one moves the question to

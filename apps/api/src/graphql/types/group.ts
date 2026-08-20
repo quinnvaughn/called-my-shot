@@ -33,7 +33,8 @@ import {
 	encodeOffsetCursor,
 	paginate,
 } from "../../lib/pagination"
-import { accuracyFrom, scoreCalls } from "../../lib/scoring"
+import { aggregatePointsByUser } from "../../lib/points-aggregate"
+import { accuracyFrom, compareRankableEntries } from "../../lib/scoring"
 import { isUuid } from "../../lib/uuid"
 import { builder } from "../builder"
 import { PageInfoRef } from "./pagination"
@@ -125,6 +126,12 @@ const GroupLeaderboardConnectionRef = builder
 // all-league numbers) - null/undefined ranks across every league, same as
 // before this param existed. Scoped to league, not sport - NBA and NCAAB
 // calls shouldn't rank against each other even though both are basketball.
+//
+// Points/accuracy/counts come from an indexed SQL GROUP BY
+// (aggregatePointsByUser), scoped to just this group's member ids, instead
+// of fetching every member's call/selection rows into JS - unlike the site
+// leaderboard, a group is small enough that this alone is plenty fast
+// without also reading the denormalized users.points column.
 async function buildLeaderboard(
 	groupId: string,
 	leagueId?: string | null,
@@ -133,49 +140,32 @@ async function buildLeaderboard(
 		where: { groupId },
 		with: { user: true },
 	})
-
-	const memberCallsRaw = await db.query.calls.findMany({
-		where: { userId: { in: memberships.map((m) => m.userId) } },
-		with: {
-			selections: { with: { option: true } },
-			question: { columns: { leagueId: true } },
-		},
-	})
-	const memberCalls = leagueId
-		? memberCallsRaw.filter((call) => call.question?.leagueId === leagueId)
-		: memberCallsRaw
-
-	const callsByUser = new Map<string, typeof memberCalls>()
-	for (const call of memberCalls) {
-		const existing = callsByUser.get(call.userId)
-		if (existing) existing.push(call)
-		else callsByUser.set(call.userId, [call])
-	}
+	const memberIds = memberships.flatMap((m) => (m.user ? [m.userId] : []))
+	const agg = await aggregatePointsByUser({ userIds: memberIds, leagueId })
 
 	const entries = memberships.flatMap((membership) => {
 		if (!membership.user) return []
-		const calls = callsByUser.get(membership.userId) ?? []
-		const summary = scoreCalls(calls)
+		const summary = agg.get(membership.userId)
 
 		return [
 			{
 				user: membership.user,
-				totalPoints: summary.totalPoints,
-				accuracy: accuracyFrom(summary),
-				callCount: calls.length,
-				resolvedCallCount: summary.resolvedCallCount,
+				totalPoints: summary?.totalPoints ?? 0,
+				accuracy: summary ? accuracyFrom(summary) : null,
+				callCount: summary?.callCount ?? 0,
+				resolvedCallCount: summary?.resolvedCallCount ?? 0,
 				role: membership.role,
 			},
 		]
 	})
 
-	entries.sort((a, b) => b.totalPoints - a.totalPoints)
+	entries.sort(compareRankableEntries)
 	return entries.map((entry, index) => ({ ...entry, rank: index + 1 }))
 }
 
 // Cheaper than buildLeaderboard for callers that only need the #1 name and
-// point total (e.g. the invite preview teaser) - no accuracy/option join,
-// no full sort, just a single pass to find the max.
+// point total (e.g. the invite preview teaser) - no accuracy join, no full
+// sort, just a single pass to find the max over one scoped aggregate query.
 async function findTopScorer(
 	memberUsers: User[],
 ): Promise<{ user: User; totalPoints: number }> {
@@ -186,35 +176,19 @@ async function findTopScorer(
 	if (memberUsers.length === 0) {
 		throw new Error("findTopScorer called with no members")
 	}
-	const usersById = new Map(memberUsers.map((u) => [u.id, u]))
 
-	const memberCalls = await db.query.calls.findMany({
-		where: { userId: { in: memberUsers.map((u) => u.id) } },
-		with: { selections: true },
+	const agg = await aggregatePointsByUser({
+		userIds: memberUsers.map((u) => u.id),
 	})
 
-	// seed every member at 0 first - a member who hasn't called anything is
-	// still tied for the top spot, not absent from it
-	const pointsByUser = new Map<string, number>(
-		memberUsers.map((u) => [u.id, 0]),
-	)
-	for (const call of memberCalls) {
-		let points = 0
-		if (call.selections.length > 0) {
-			for (const selection of call.selections) {
-				if (selection.resultPoints !== null) points += selection.resultPoints
-			}
-		} else if (call.resultPoints !== null) {
-			points = call.resultPoints
-		}
-		pointsByUser.set(call.userId, (pointsByUser.get(call.userId) ?? 0) + points)
-	}
-
+	// iterate memberUsers (not the aggregate map) so a member who hasn't
+	// called anything is still tied for the top spot, not absent from it, and
+	// ties break toward whoever comes first in that same order.
 	let top: { user: User; totalPoints: number } | null = null
-	for (const [userId, totalPoints] of pointsByUser) {
+	for (const user of memberUsers) {
+		const totalPoints = agg.get(user.id)?.totalPoints ?? 0
 		if (top && totalPoints <= top.totalPoints) continue
-		const user = usersById.get(userId)
-		if (user) top = { user, totalPoints }
+		top = { user, totalPoints }
 	}
 	if (!top)
 		throw new Error("findTopScorer found no top scorer despite having members")

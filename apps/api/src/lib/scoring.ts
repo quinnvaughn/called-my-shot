@@ -45,3 +45,23 @@ export function accuracyFrom(summary: ScoreSummary): number | null {
 		? (summary.correctCount / summary.resolvedCallCount) * 100
 		: null
 }
+
+type RankableEntry = {
+	totalPoints: number
+	accuracy: number | null
+	callCount: number
+}
+
+// Shared tiebreak for every points-sorted ranking (site leaderboard, group
+// leaderboard): points first, then accuracy (a tied point total earned at a
+// higher hit rate is the better prediction record - not just noisier
+// volume), then fewer calls (reaching the same points/accuracy in fewer
+// picks edges out). Null accuracy (no resolved calls yet) sorts last among
+// ties, not first.
+export function compareRankableEntries(a: RankableEntry, b: RankableEntry) {
+	if (b.totalPoints !== a.totalPoints) return b.totalPoints - a.totalPoints
+	const aAccuracy = a.accuracy ?? -1
+	const bAccuracy = b.accuracy ?? -1
+	if (bAccuracy !== aAccuracy) return bAccuracy - aAccuracy
+	return a.callCount - b.callCount
+}

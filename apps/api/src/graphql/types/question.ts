@@ -69,8 +69,14 @@ import {
 	encodeOffsetCursor,
 	paginate,
 } from "../../lib/pagination"
-import { accuracyFrom, scoreCalls } from "../../lib/scoring"
+import { aggregatePointsByUser } from "../../lib/points-aggregate"
+import { accuracyFrom } from "../../lib/scoring"
 import { STRIKE_LOCK_THRESHOLD } from "../../lib/strikes"
+import {
+	addLeagueStatDelta,
+	applyLeagueStatDeltas,
+	type LeagueStatDelta,
+} from "../../lib/user-league-stats"
 import { builder } from "../builder"
 import { PageInfoRef } from "./pagination"
 
@@ -320,9 +326,9 @@ export const CallRef = builder.drizzleObject("calls", {
 		// tends to be right in this league", the same way identity is. Scoped to
 		// this call's own question's league (not the caller's site-wide
 		// accuracy) so it reads as relevant context for the question being
-		// viewed, not a vanity number. A lean per-user query, not a scan of
-		// buildGlobalLeaderboard (which sums every user's calls) - this only
-		// needs the one caller's history in the one league.
+		// viewed, not a vanity number. A single-user, league-scoped SQL
+		// aggregate, not a scan of buildGlobalLeaderboard (which sums every
+		// user's calls) or a fetch of every call this user has ever made.
 		callerLeagueAccuracy: t.field({
 			type: "Float",
 			nullable: true,
@@ -332,17 +338,12 @@ export const CallRef = builder.drizzleObject("calls", {
 					columns: { leagueId: true },
 				})
 				if (!question) return null
-				const userCalls = await db.query.calls.findMany({
-					where: { userId: call.userId },
-					with: {
-						question: { columns: { leagueId: true } },
-						selections: { with: { option: true } },
-					},
+				const agg = await aggregatePointsByUser({
+					userIds: [call.userId],
+					leagueId: question.leagueId,
 				})
-				const leagueCalls = userCalls.filter(
-					(c) => c.question?.leagueId === question.leagueId,
-				)
-				return accuracyFrom(scoreCalls(leagueCalls))
+				const summary = agg.get(call.userId)
+				return summary ? accuracyFrom(summary) : null
 			},
 		}),
 		selections: t.field({
@@ -1169,13 +1170,26 @@ async function resolveQuestionInternal(
 	},
 	sourceOverride?: { resolutionSource?: string; resolutionSourceUrl?: string },
 ) {
+	// Accumulates each affected user's net (points, resolvedCallCount,
+	// correctCount) change across this call - not the new totals themselves,
+	// since overturnDispute can re-run this against a question that was
+	// already resolved once, and the calls/selections below still carry their
+	// *previous* values when that happens (there is no reset step). Using
+	// (new - old) instead of (new) keeps user_league_stats correct on a
+	// re-resolve instead of double-counting the prior award. callCount is
+	// never touched here - it only changes at castCall/voidQuestion time.
+	const statDeltas = new Map<string, LeagueStatDelta>()
+
 	if (question.type === "numeric_guess") {
 		const guessCalls = await tx.query.calls.findMany({
 			where: { questionId: question.id },
 			columns: {
 				id: true,
+				userId: true,
 				guessValue: true,
 				conviction: true,
+				resultPoints: true,
+				hitTolerance: true,
 				createdAt: true,
 			},
 		})
@@ -1200,6 +1214,7 @@ async function resolveQuestionInternal(
 			data.actualValue as number,
 			question.numericTolerancePct as number,
 		)
+		const oldByCallId = new Map(guessCalls.map((c) => [c.id, c]))
 		for (const r of scored) {
 			await tx
 				.update(calls)
@@ -1210,12 +1225,30 @@ async function resolveQuestionInternal(
 					closenessFieldPct: r.closenessFieldPct,
 				})
 				.where(eq(calls.id, r.callId))
+
+			const prior = oldByCallId.get(r.callId)
+			if (prior) {
+				const wasResolved = prior.resultPoints !== null
+				const wasCorrect = wasResolved && prior.hitTolerance === true
+				const isCorrect = r.hit === true
+				addLeagueStatDelta(statDeltas, prior.userId, {
+					points: r.points - (prior.resultPoints ?? 0),
+					resolvedCallCount: wasResolved ? 0 : 1,
+					correctCount: (isCorrect ? 1 : 0) - (wasCorrect ? 1 : 0),
+				})
+			}
 		}
 	} else {
 		const options = await tx.query.questionOptions.findMany({
 			where: { questionId: question.id },
-			columns: { id: true },
+			columns: { id: true, isCorrect: true },
 		})
+		// Captured before the two updates below overwrite isCorrect - the only
+		// record of "was this option previously marked correct" (needed for the
+		// per-selection correctCount delta on an overturn re-resolve).
+		const oldIsCorrectByOptionId = new Map(
+			options.map((o) => [o.id, o.isCorrect]),
+		)
 		const validIds = new Set(options.map((o) => o.id))
 		if (!data.correctOptionIds.every((id) => validIds.has(id))) {
 			throw ValidationError.field(
@@ -1259,8 +1292,13 @@ async function resolveQuestionInternal(
 
 		const rawSelections = await tx.query.callSelections.findMany({
 			where: { call: { questionId: question.id } },
-			columns: { id: true, optionId: true, conviction: true },
-			with: { call: { columns: { id: true, createdAt: true } } },
+			columns: {
+				id: true,
+				optionId: true,
+				conviction: true,
+				resultPoints: true,
+			},
+			with: { call: { columns: { id: true, userId: true, createdAt: true } } },
 		})
 		// The `where` above already filters to selections whose call belongs to
 		// this question, so `call` is always present here - this narrows the
@@ -1301,8 +1339,19 @@ async function resolveQuestionInternal(
 				.update(callSelections)
 				.set({ resultPoints: points })
 				.where(eq(callSelections.id, s.id))
+
+			const wasResolved = s.resultPoints !== null
+			const wasCorrect =
+				wasResolved && oldIsCorrectByOptionId.get(s.optionId) === true
+			addLeagueStatDelta(statDeltas, s.call.userId, {
+				points: points - (s.resultPoints ?? 0),
+				resolvedCallCount: wasResolved ? 0 : 1,
+				correctCount: (isCorrect ? 1 : 0) - (wasCorrect ? 1 : 0),
+			})
 		}
 	}
+
+	await applyLeagueStatDeltas(tx, question.leagueId, statDeltas)
 
 	const [updated] = await tx
 		.update(questions)
@@ -1328,6 +1377,55 @@ async function resolveQuestionInternal(
 			"resolveQuestionInternal: question vanished mid-transaction",
 		)
 	return updated
+}
+
+// Called by voidQuestion for every question it voids, regardless of status -
+// callCount always needs decrementing for each caller (an `open` question
+// can already have calls cast on it), while points/resolvedCallCount/
+// correctCount only come out non-zero when calls had already been scored,
+// i.e. a `disputed` question (the only status reachable after
+// resolveQuestionInternal has already run). Reads whatever's currently on
+// the calls/selections before the cascade delete removes them and un-applies
+// it from user_league_stats, so a voided-after-dispute question doesn't
+// leave stale points/accuracy behind.
+async function reverseQuestionLeagueStats(tx: Tx, question: Question) {
+	const questionCalls = await tx.query.calls.findMany({
+		where: { questionId: question.id },
+		columns: { userId: true, resultPoints: true, hitTolerance: true },
+		with: {
+			selections: {
+				columns: { resultPoints: true },
+				with: { option: { columns: { isCorrect: true } } },
+			},
+		},
+	})
+
+	const deltas = new Map<string, LeagueStatDelta>()
+	for (const call of questionCalls) {
+		let points = 0
+		let resolvedCallCount = 0
+		let correctCount = 0
+		if (call.selections.length > 0) {
+			for (const s of call.selections) {
+				if (s.resultPoints === null) continue
+				points += s.resultPoints
+				resolvedCallCount += 1
+				if (s.option?.isCorrect) correctCount += 1
+			}
+		} else if (call.resultPoints !== null) {
+			points += call.resultPoints
+			resolvedCallCount += 1
+			if (call.hitTolerance) correctCount += 1
+		}
+		addLeagueStatDelta(deltas, call.userId, {
+			points: -points,
+			resolvedCallCount: -resolvedCallCount,
+			correctCount: -correctCount,
+			callCount: -1,
+		})
+	}
+
+	await applyLeagueStatDeltas(tx, question.leagueId, deltas)
 }
 
 const AdminResolveQuestionInput = builder.inputType(
@@ -1650,6 +1748,22 @@ builder.mutationFields((t) => ({
 					)
 				}
 
+				await applyLeagueStatDeltas(
+					tx,
+					question.leagueId,
+					new Map([
+						[
+							user.id,
+							{
+								points: 0,
+								resolvedCallCount: 0,
+								correctCount: 0,
+								callCount: 1,
+							},
+						],
+					]),
+				)
+
 				return call
 			})
 
@@ -1891,11 +2005,14 @@ builder.mutationFields((t) => ({
 	}),
 
 	// Void = delete the question and everything on it (calls, options,
-	// disputes all cascade). Safe pre- or post-resolution: scoring is always
-	// computed live from calls/callSelections, nothing persisted per-user
-	// needs reversing. questionVoids keeps the audit trail (Users tab's void
-	// history, and the strike bookkeeping below) that the hard delete would
-	// otherwise erase.
+	// disputes all cascade). reverseQuestionLeagueStats always runs first -
+	// callCount needs decrementing for every caller even on an open question
+	// (calls can already exist pre-resolution), while points/resolvedCallCount/
+	// correctCount only come out non-zero for a disputed question (the only
+	// status that already went through resolveQuestionInternal once) - before
+	// the cascade delete removes the only rows that recorded any of it.
+	// questionVoids keeps the audit trail (Users tab's void history, and the
+	// strike bookkeeping below) that the hard delete would otherwise erase.
 	voidQuestion: t.field({
 		type: VoidQuestionPayload,
 		errors: {
@@ -1960,6 +2077,8 @@ builder.mutationFields((t) => ({
 						}
 					}
 				}
+
+				await reverseQuestionLeagueStats(tx, question)
 
 				await tx.delete(questions).where(eq(questions.id, question.id))
 			})

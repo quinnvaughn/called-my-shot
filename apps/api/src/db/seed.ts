@@ -5,7 +5,7 @@ import {
 	numericGuessPoints,
 	selectionPoints,
 } from "@called-my-shot/scoring"
-import { eq } from "drizzle-orm"
+import { eq, sql } from "drizzle-orm"
 import { DateTime } from "luxon"
 import { env } from "../env"
 import {
@@ -343,6 +343,54 @@ async function fileDispute(questionId: string, userId: string, reason: string) {
 		.update(questions)
 		.set({ status: "disputed" })
 		.where(eq(questions.id, questionId))
+}
+
+// This seed script sets calls/callSelections.resultPoints directly (it
+// computes scoring itself, above, rather than routing through castCall/
+// resolveQuestionInternal), so nothing ever populates user_league_stats the
+// way the real app's write path does. Every leaderboard/career-stats read
+// comes from that table now (see lib/points-aggregate.ts), so without this
+// step a fresh seed looks like every call vanished - the rows are all still
+// there, user_league_stats is just empty. Mirrors the one-time migration
+// backfill (drizzle/20260820041840_backfill_user_league_stats) exactly.
+async function backfillUserLeagueStats() {
+	await db.execute(sql`
+		insert into user_league_stats (user_id, league_id, points, resolved_call_count, correct_count, call_count)
+		with scored as (
+			select
+				calls.user_id as user_id,
+				q.league_id as league_id,
+				cs.result_points as points,
+				(cs.result_points is not null) as resolved,
+				(cs.result_points is not null and qo.is_correct) as correct,
+				calls.id as call_id
+			from call_selections cs
+			join calls on calls.id = cs.call_id
+			join question_options qo on qo.id = cs.option_id
+			join questions q on q.id = calls.question_id
+			where q.type != 'numeric_guess'
+			union all
+			select
+				calls.user_id as user_id,
+				q.league_id as league_id,
+				calls.result_points as points,
+				(calls.result_points is not null) as resolved,
+				(calls.result_points is not null and calls.hit_tolerance) as correct,
+				calls.id as call_id
+			from calls
+			join questions q on q.id = calls.question_id
+			where q.type = 'numeric_guess'
+		)
+		select
+			user_id,
+			league_id,
+			coalesce(sum(points) filter (where resolved), 0) as points,
+			count(*) filter (where resolved) as resolved_call_count,
+			count(*) filter (where correct) as correct_count,
+			count(distinct call_id) as call_count
+		from scored
+		group by user_id, league_id
+	`)
 }
 
 async function main() {
@@ -1553,6 +1601,8 @@ async function main() {
 		jokicTripleDouble.id,
 		quinn.id,
 	)
+
+	await backfillUserLeagueStats()
 
 	console.log("\nDone.\n")
 	console.log("Log in as quinn: qvaughn3@gmail.com / password")

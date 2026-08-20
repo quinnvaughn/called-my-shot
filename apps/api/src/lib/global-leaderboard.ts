@@ -1,6 +1,7 @@
 import { db } from "../db"
 import type { User } from "../db/schema"
-import { accuracyFrom, scoreCalls } from "./scoring"
+import { aggregatePointsByUser } from "./points-aggregate"
+import { accuracyFrom, compareRankableEntries } from "./scoring"
 
 export type LeaderboardEntry = {
 	rank: number
@@ -19,6 +20,13 @@ export type LeaderboardEntry = {
 // board listing every zero-point registered account would be noise, not
 // signal.
 //
+// Every field here comes from aggregatePointsByUser, which reads the
+// denormalized user_league_stats rollup rather than fetching every call/
+// selection row into JS - cheap regardless of leagueId, since that table's
+// size is bounded by leagues (a small admin-curated catalog), not by call
+// count. See db/schema/questions.ts's userLeagueStats for how it's kept in
+// sync.
+//
 // Plain function (no Pothos/GraphQL dependency) so it can be shared by both
 // graphql/types/leaderboard.ts and graphql/types/user.ts without those two
 // importing from each other (they already each need a type the other
@@ -28,42 +36,27 @@ export type LeaderboardEntry = {
 export async function buildGlobalLeaderboard(
 	leagueId?: string | null,
 ): Promise<LeaderboardEntry[]> {
-	const users = await db.query.users.findMany()
+	const agg = await aggregatePointsByUser({ leagueId })
+	if (agg.size === 0) return []
 
-	const callsRaw = await db.query.calls.findMany({
-		with: {
-			selections: { with: { option: true } },
-			question: { columns: { leagueId: true } },
-		},
+	const userRows = await db.query.users.findMany({
+		where: { id: { in: [...agg.keys()] } },
 	})
-	const calls = leagueId
-		? callsRaw.filter((call) => call.question?.leagueId === leagueId)
-		: callsRaw
+	const usersById = new Map(userRows.map((user) => [user.id, user]))
 
-	const callsByUser = new Map<string, typeof calls>()
-	for (const call of calls) {
-		const existing = callsByUser.get(call.userId)
-		if (existing) existing.push(call)
-		else callsByUser.set(call.userId, [call])
+	const entries: Omit<LeaderboardEntry, "rank">[] = []
+	for (const [userId, summary] of agg) {
+		const user = usersById.get(userId)
+		if (!user) continue
+		entries.push({
+			user,
+			totalPoints: summary.totalPoints,
+			accuracy: accuracyFrom(summary),
+			callCount: summary.callCount,
+			resolvedCallCount: summary.resolvedCallCount,
+		})
 	}
 
-	const entries = users.flatMap((user) => {
-		const userCalls = callsByUser.get(user.id) ?? []
-		if (userCalls.length === 0) return []
-
-		const summary = scoreCalls(userCalls)
-
-		return [
-			{
-				user,
-				totalPoints: summary.totalPoints,
-				accuracy: accuracyFrom(summary),
-				callCount: userCalls.length,
-				resolvedCallCount: summary.resolvedCallCount,
-			},
-		]
-	})
-
-	entries.sort((a, b) => b.totalPoints - a.totalPoints)
+	entries.sort(compareRankableEntries)
 	return entries.map((entry, index) => ({ ...entry, rank: index + 1 }))
 }
