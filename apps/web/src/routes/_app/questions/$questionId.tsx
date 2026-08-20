@@ -8,6 +8,7 @@ import { DateTime } from "luxon"
 import { FaRegTimesCircle } from "react-icons/fa"
 import { css } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
+import { AuthModal } from "#/components/auth/auth-modal"
 import { CallSubmitBar } from "#/components/questions/call-submit-bar"
 import {
 	CastCallForm,
@@ -18,6 +19,7 @@ import { GuessDistributionChart } from "#/components/questions/guess-distributio
 import { OptionFieldBreakdown } from "#/components/questions/option-field-breakdown"
 import { PanelRow } from "#/components/questions/panel-row"
 import { QuestionCallsList } from "#/components/questions/question-calls-list"
+import { ReportQuestionModal } from "#/components/questions/report-question-modal"
 import { ResolveQuestionModal } from "#/components/questions/resolve-question-modal"
 import { ViewerStatusCard } from "#/components/questions/viewer-status-card"
 import { Button } from "#/components/ui/button"
@@ -249,6 +251,63 @@ function RouteComponent() {
 						)}
 					</VStack>
 				</Card.Body>
+				<Card.Footer>
+					<HStack justify="center" gap="4" width="full">
+						<Link
+							to="/how-it-works"
+							hash="resolution"
+							className={css({
+								fontFamily: "mono",
+								fontSize: "2xs",
+								letterSpacing: "wide",
+								color: "fg.subtle",
+								_hover: { color: "fg.muted" },
+							})}
+						>
+							how resolution works →
+						</Link>
+						<span
+							className={css({
+								fontFamily: "mono",
+								fontSize: "2xs",
+								color: "fg.subtle",
+							})}
+						>
+							·
+						</span>
+						{question.viewerReport ? (
+							<span
+								className={css({
+									fontFamily: "mono",
+									fontSize: "2xs",
+									letterSpacing: "wide",
+									color: "fg.muted",
+								})}
+							>
+								reported — thanks
+							</span>
+						) : (
+							<button
+								type="button"
+								onClick={() =>
+									me
+										? openModal(<ReportQuestionModal questionId={question.id} />)
+										: openModal(<AuthModal defaultView="signin" />)
+								}
+								className={css({
+									fontFamily: "mono",
+									fontSize: "2xs",
+									letterSpacing: "wide",
+									color: "fg.subtle",
+									cursor: "pointer",
+									_hover: { color: "primary.default" },
+								})}
+							>
+								report this question
+							</button>
+						)}
+					</HStack>
+				</Card.Footer>
 			</Card>
 			<ViewerStatusCard
 				questionId={question.id}

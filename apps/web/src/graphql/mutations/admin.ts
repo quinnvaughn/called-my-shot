@@ -102,6 +102,32 @@ export const UpholdDisputeDocument = graphql(`
 	}
 `)
 
+export const DismissReportDocument = graphql(`
+	mutation DismissReport($input: DismissReportInput!) {
+		dismissReport(input: $input) {
+			__typename
+			... on QuestionReport {
+				id
+			}
+			... on AuthenticationError {
+				message
+			}
+			... on AuthorizationError {
+				message
+			}
+			... on NotFoundError {
+				message
+			}
+			... on ValidationError {
+				fieldErrors {
+					field
+					message
+				}
+			}
+		}
+	}
+`)
+
 export const SetUserQuestionCreationEnabledDocument = graphql(`
 	mutation SetUserQuestionCreationEnabled($userId: ID!, $enabled: Boolean!) {
 		setUserQuestionCreationEnabled(userId: $userId, enabled: $enabled) {

@@ -1,3 +1,4 @@
+import { useLocation } from "@tanstack/react-router"
 import type { ReactNode } from "react"
 import { css } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
@@ -247,6 +248,12 @@ function TypeGrid() {
 }
 
 export function HowItWorksSections() {
+	// Lets a link elsewhere (e.g. "how resolution works" on a question's own
+	// page) arrive here with the relevant section already open, not just
+	// scrolled to - a closed accordion header at the top of the viewport
+	// isn't actually an answer to whatever the link promised.
+	const { hash } = useLocation()
+
 	return (
 		<VStack alignItems="stretch" gap="3">
 			<Accordion title="The basics" subtitle="Questions vs. calls">
@@ -457,7 +464,12 @@ export function HowItWorksSections() {
 				</P>
 			</Accordion>
 
-			<Accordion title="Resolution" subtitle="Manual, sourced, and disputable">
+			<Accordion
+				id="resolution"
+				title="Resolution"
+				subtitle="Manual, sourced, and disputable"
+				defaultOpen={hash === "resolution"}
+			>
 				<P>
 					Every question resolves against a source stated when it's created: a
 					link or a plain description of where the answer was checked (a box

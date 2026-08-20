@@ -80,3 +80,28 @@ export const FileDisputeDocument = graphql(`
 		}
 	}
 `)
+
+export const ReportQuestionDocument = graphql(`
+	mutation ReportQuestion($input: ReportQuestionInput!) {
+		reportQuestion(input: $input) {
+			__typename
+			... on ReportQuestionPayload {
+				report {
+					id
+				}
+			}
+			... on ValidationError {
+				fieldErrors {
+					field
+					message
+				}
+			}
+			... on AuthenticationError {
+				message
+			}
+			... on NotFoundError {
+				message
+			}
+		}
+	}
+`)

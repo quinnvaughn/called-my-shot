@@ -1,5 +1,11 @@
 import { useNavigate } from "@tanstack/react-router"
-import { FiHelpCircle, FiLifeBuoy, FiLogOut, FiSettings } from "react-icons/fi"
+import {
+	FiHelpCircle,
+	FiLifeBuoy,
+	FiLogOut,
+	FiSettings,
+	FiShield,
+} from "react-icons/fi"
 import { css } from "styled-system/css"
 import { Avatar } from "#/components/ui/avatar"
 import { Dropdown } from "#/components/ui/dropdown"
@@ -8,6 +14,7 @@ import { useSignOut } from "#/hooks/use-sign-out"
 type AccountMenuProps = {
 	name: string
 	username: string
+	isAdmin?: boolean
 	// "sidebar": full identity chip, menu opens upward (trigger sits at the
 	// bottom of the nav column). "topbar": compact avatar-only trigger, menu
 	// opens downward (trigger sits in the mobile top bar).
@@ -17,6 +24,7 @@ type AccountMenuProps = {
 export function AccountMenu({
 	name,
 	username,
+	isAdmin = false,
 	variant = "sidebar",
 }: AccountMenuProps) {
 	const { signOut } = useSignOut()
@@ -104,6 +112,16 @@ export function AccountMenu({
 							})}
 						/>
 					</>
+				)}
+				{isAdmin && (
+					<Dropdown.Item onClick={() => navigate({ to: "/admin" })}>
+						<span
+							className={css({ display: "flex", alignItems: "center", gap: "2" })}
+						>
+							<FiShield size={14} />
+							Admin
+						</span>
+					</Dropdown.Item>
 				)}
 				<Dropdown.Item onClick={() => navigate({ to: "/settings" })}>
 					<span

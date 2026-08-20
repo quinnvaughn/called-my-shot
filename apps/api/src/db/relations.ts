@@ -26,6 +26,7 @@ export const relations = defineRelations(schema, (r) => ({
 			from: r.users.id,
 			to: r.questionVoids.voidedByAdminId,
 		}),
+		reportsFiled: r.many.questionReports(),
 	},
 	sessions: {
 		user: r.one.users({
@@ -100,6 +101,7 @@ export const relations = defineRelations(schema, (r) => ({
 		options: r.many.questionOptions(),
 		calls: r.many.calls(),
 		disputes: r.many.resolutionDisputes(),
+		reports: r.many.questionReports(),
 		shares: r.many.questionShares(),
 	},
 	questionOptions: {
@@ -236,6 +238,16 @@ export const relations = defineRelations(schema, (r) => ({
 		duplicateOfQuestion: r.one.questions({
 			from: r.questionVoids.duplicateOfQuestionId,
 			to: r.questions.id,
+		}),
+	},
+	questionReports: {
+		question: r.one.questions({
+			from: r.questionReports.questionId,
+			to: r.questions.id,
+		}),
+		reportedBy: r.one.users({
+			from: r.questionReports.reportedByUserId,
+			to: r.users.id,
 		}),
 	},
 }))

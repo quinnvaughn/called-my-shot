@@ -32,12 +32,16 @@ const NAV_ITEMS: NavItem[] = [
 	{ to: "/groups", label: "Groups", icon: FaUserGroup, authRequired: true },
 ]
 
-type Me = { name: string; username: string } | null
+type Me = { name: string; username: string; isAdmin: boolean } | null
 
 export function AppShell({ children }: { children: ReactNode }) {
 	const { me: rawMe } = useRouteContext({ from: "__root__" })
 	const me: Me = rawMe
-		? { name: rawMe.name ?? "", username: rawMe.username ?? "" }
+		? {
+				name: rawMe.name ?? "",
+				username: rawMe.username ?? "",
+				isAdmin: rawMe.isAdmin ?? false,
+			}
 		: null
 	const [drawerOpen, setDrawerOpen] = useState(false)
 	const matches = useMatches()
@@ -169,7 +173,12 @@ function MobileTopbar({
 				<Brand size="nav" />
 			</HStack>
 			{me ? (
-				<AccountMenu name={me.name} username={me.username} variant="topbar" />
+				<AccountMenu
+					name={me.name}
+					username={me.username}
+					isAdmin={me.isAdmin}
+					variant="topbar"
+				/>
 			) : (
 				<Button
 					variant="solid"
@@ -303,6 +312,7 @@ function SidebarNav({
 						<AccountMenu
 							name={me.name}
 							username={me.username}
+							isAdmin={me.isAdmin}
 							variant="sidebar"
 						/>
 					</div>

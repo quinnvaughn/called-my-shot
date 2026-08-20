@@ -348,3 +348,32 @@ export const questionVoids = pgTable("question_voids", {
 	createdAt: timestamp("created_at").notNull().defaultNow(),
 })
 export type QuestionVoid = typeof questionVoids.$inferSelect
+
+export const reportStatus = pgEnum("report_status", ["open", "dismissed"])
+
+// Filed by any signed-in caller who thinks a question itself is bad (not a
+// dispute over a resolution - see resolutionDisputes for that). Reuses
+// voidReason rather than its own enum: a report's reason is deliberately the
+// same set admin already voids questions for, just phrased for a caller who
+// doesn't know or care about admin's internal categories - the UI-facing
+// labels differ (see lib/report-defaults.ts on the frontend), the values
+// never do. One per user per question.
+export const questionReports = pgTable(
+	"question_reports",
+	{
+		id: uuid("id").primaryKey().defaultRandom(),
+		questionId: uuid("question_id")
+			.notNull()
+			.references(() => questions.id, { onDelete: "cascade" }),
+		reportedByUserId: uuid("reported_by_user_id")
+			.notNull()
+			.references(() => users.id, { onDelete: "cascade" }),
+		reason: voidReason("reason").notNull(),
+		details: text("details"),
+		status: reportStatus("status").notNull().default("open"),
+		createdAt: timestamp("created_at").notNull().defaultNow(),
+		reviewedAt: timestamp("reviewed_at"),
+	},
+	(t) => [unique().on(t.questionId, t.reportedByUserId)],
+)
+export type QuestionReport = typeof questionReports.$inferSelect

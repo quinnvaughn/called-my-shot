@@ -4,6 +4,7 @@ import {
 	createQuestionSchema,
 	fileDisputeSchema,
 	type questionCategorySchema,
+	reportQuestionSchema,
 	resolveQuestionSchema,
 	voidQuestionSchema,
 } from "@called-my-shot/schemas"
@@ -40,6 +41,7 @@ import {
 	players,
 	type Question,
 	questionOptions,
+	questionReports,
 	questions,
 	questionVoids,
 	resolutionDisputes,
@@ -143,6 +145,27 @@ const DisputeStatus = builder.enumType("DisputeStatus", {
 		OPEN: { value: "open" },
 		UPHELD: { value: "upheld" },
 		OVERTURNED: { value: "overturned" },
+	},
+})
+
+const ReportStatus = builder.enumType("ReportStatus", {
+	values: {
+		OPEN: { value: "open" },
+		DISMISSED: { value: "dismissed" },
+	},
+})
+
+// Defined up here (rather than beside VoidQuestionInput further down) so
+// QuestionReportRef below can use it too - a report's reason is deliberately
+// the same enum admin voids questions with, just surfaced under a caller-
+// facing label set (see lib/report-defaults.ts on the frontend).
+export const VoidReason = builder.enumType("VoidReason", {
+	values: {
+		NONSENSICAL: { value: "nonsensical" },
+		OFF_TOPIC: { value: "off_topic" },
+		UNSUPPORTED_SPORT: { value: "unsupported_sport" },
+		DUPLICATE: { value: "duplicate" },
+		OTHER: { value: "other" },
 	},
 })
 
@@ -444,6 +467,27 @@ export const ResolutionDisputeRef = builder.drizzleObject(
 	},
 )
 
+export const QuestionReportRef = builder.drizzleObject("questionReports", {
+	name: "QuestionReport",
+	fields: (t) => ({
+		id: t.exposeID("id"),
+		reason: t.field({ type: VoidReason, resolve: (r) => r.reason }),
+		details: t.exposeString("details", { nullable: true }),
+		status: t.field({ type: ReportStatus, resolve: (r) => r.status }),
+		createdAt: t.field({
+			type: "String",
+			resolve: (r) => r.createdAt.toISOString(),
+		}),
+		reviewedAt: t.field({
+			type: "String",
+			nullable: true,
+			resolve: (r) => r.reviewedAt?.toISOString() ?? null,
+		}),
+		reportedBy: t.relation("reportedBy"),
+		question: t.relation("question"),
+	}),
+})
+
 export const QuestionRef = builder.drizzleObject("questions", {
 	name: "Question",
 	fields: (t) => ({
@@ -644,6 +688,16 @@ export const QuestionRef = builder.drizzleObject("questions", {
 				})
 			},
 		}),
+		viewerReport: t.field({
+			type: QuestionReportRef,
+			nullable: true,
+			resolve: (question, _args, ctx) => {
+				if (!ctx.user) return null
+				return db.query.questionReports.findFirst({
+					where: { questionId: question.id, reportedByUserId: ctx.user.id },
+				})
+			},
+		}),
 	}),
 })
 
@@ -651,6 +705,7 @@ type AdminQueueSummaryData = {
 	needsResolution: Question[]
 	probablyStillLive: Question[]
 	disputed: (typeof resolutionDisputes.$inferSelect)[]
+	reported: (typeof questionReports.$inferSelect)[]
 	liveQuestionsCount: number
 	usersLockedCount: number
 }
@@ -676,6 +731,10 @@ const AdminQueueSummaryRef = builder
 			disputed: t.field({
 				type: [ResolutionDisputeRef],
 				resolve: (d) => d.disputed,
+			}),
+			reported: t.field({
+				type: [QuestionReportRef],
+				resolve: (d) => d.reported,
 			}),
 			liveQuestionsCount: t.exposeInt("liveQuestionsCount"),
 			usersLockedCount: t.exposeInt("usersLockedCount"),
@@ -984,6 +1043,11 @@ builder.queryFields((t) => ({
 				orderBy: { createdAt: "asc" },
 			})
 
+			const reported = await db.query.questionReports.findMany({
+				where: { status: "open" },
+				orderBy: { createdAt: "asc" },
+			})
+
 			const [{ n: liveQuestionsCount }] = await db
 				.select({ n: count() })
 				.from(questions)
@@ -997,6 +1061,7 @@ builder.queryFields((t) => ({
 				needsResolution,
 				probablyStillLive,
 				disputed,
+				reported,
 				liveQuestionsCount,
 				usersLockedCount,
 			}
@@ -1456,16 +1521,6 @@ const UpholdDisputeInput = builder.inputType("UpholdDisputeInput", {
 	}),
 })
 
-export const VoidReason = builder.enumType("VoidReason", {
-	values: {
-		NONSENSICAL: { value: "nonsensical" },
-		OFF_TOPIC: { value: "off_topic" },
-		UNSUPPORTED_SPORT: { value: "unsupported_sport" },
-		DUPLICATE: { value: "duplicate" },
-		OTHER: { value: "other" },
-	},
-})
-
 const VoidQuestionInput = builder.inputType("VoidQuestionInput", {
 	fields: (t) => ({
 		questionId: t.id({ required: true }),
@@ -1483,6 +1538,33 @@ const VoidQuestionPayload = builder
 			questionId: t.exposeID("questionId"),
 		}),
 	})
+
+const ReportQuestionInput = builder.inputType("ReportQuestionInput", {
+	fields: (t) => ({
+		questionId: t.id({ required: true }),
+		reason: t.field({ type: VoidReason, required: true }),
+		details: t.string({ required: false }),
+	}),
+})
+
+const ReportQuestionPayload = builder
+	.objectRef<{ report: typeof questionReports.$inferSelect }>(
+		"ReportQuestionPayload",
+	)
+	.implement({
+		fields: (t) => ({
+			report: t.field({
+				type: QuestionReportRef,
+				resolve: (payload) => payload.report,
+			}),
+		}),
+	})
+
+const DismissReportInput = builder.inputType("DismissReportInput", {
+	fields: (t) => ({
+		reportId: t.id({ required: true }),
+	}),
+})
 
 builder.mutationFields((t) => ({
 	createQuestion: t.field({
@@ -2004,6 +2086,45 @@ builder.mutationFields((t) => ({
 		},
 	}),
 
+	// Dismiss = admin looked at the report and decided the question is fine as
+	// is. Doesn't touch the question itself - if it actually needs to come
+	// down, that's a separate Void action (same escalation path the Disputes
+	// page already offers), not something this mutation does on its own.
+	dismissReport: t.field({
+		type: QuestionReportRef,
+		errors: {
+			types: [AuthenticationError, AuthorizationError, NotFoundError, ValidationError],
+			directResult: true,
+			union: { name: "DismissReportResult" },
+		},
+		args: { input: t.arg({ type: DismissReportInput, required: true }) },
+		resolve: async (_root, args, ctx) => {
+			requireAdmin(ctx)
+
+			return db.transaction(async (tx) => {
+				const [report] = await tx
+					.select()
+					.from(questionReports)
+					.where(eq(questionReports.id, args.input.reportId))
+					.for("update")
+				if (!report) throw new NotFoundError("Report not found")
+				if (report.status !== "open") {
+					throw ValidationError.field(null, "This report is already settled.")
+				}
+
+				const [updatedReport] = await tx
+					.update(questionReports)
+					.set({ status: "dismissed", reviewedAt: new Date() })
+					.where(eq(questionReports.id, report.id))
+					.returning()
+				if (!updatedReport)
+					throw new Error("dismissReport: report vanished mid-transaction")
+
+				return updatedReport
+			})
+		},
+	}),
+
 	// Void = delete the question and everything on it (calls, options,
 	// disputes all cascade). reverseQuestionLeagueStats always runs first -
 	// callCount needs decrementing for every caller even on an open question
@@ -2156,6 +2277,60 @@ builder.mutationFields((t) => ({
 			})
 
 			return { dispute }
+		},
+	}),
+
+	// Distinct from fileDispute above: a report flags the question itself as
+	// bad (nonsensical, off-topic, a duplicate, ...), not a resolution as
+	// wrong, so it's open to any signed-in caller regardless of question
+	// status, not just resolved ones a viewer actually called on.
+	reportQuestion: t.field({
+		type: ReportQuestionPayload,
+		errors: {
+			types: [AuthenticationError, NotFoundError, ValidationError],
+			directResult: true,
+			union: { name: "ReportQuestionResult" },
+		},
+		args: { input: t.arg({ type: ReportQuestionInput, required: true }) },
+		resolve: async (_root, args, ctx) => {
+			const user = requireUser(ctx)
+			const parsed = reportQuestionSchema.safeParse(args.input)
+			if (!parsed.success) {
+				throw ValidationError.fromZodIssues(parsed.error.issues)
+			}
+			const data = parsed.data
+
+			const question = await db.query.questions.findFirst({
+				where: { id: data.questionId },
+			})
+			if (!question) throw new NotFoundError("Question not found")
+
+			const existingReport = await db.query.questionReports.findFirst({
+				where: {
+					questionId: data.questionId,
+					reportedByUserId: user.id,
+				},
+			})
+			if (existingReport) {
+				throw ValidationError.field(
+					null,
+					"You've already reported this question.",
+				)
+			}
+
+			const [report] = await db
+				.insert(questionReports)
+				.values({
+					questionId: data.questionId,
+					reportedByUserId: user.id,
+					reason: data.reason,
+					details: data.details || null,
+					status: "open",
+				})
+				.returning()
+			if (!report) throw new Error("reportQuestion: insert returned no row")
+
+			return { report }
 		},
 	}),
 }))

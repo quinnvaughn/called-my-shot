@@ -89,6 +89,9 @@ export const QuestionDetailDocument = graphql(`
 				id
 				status
 			}
+			viewerReport {
+				id
+			}
 			...CastCallForm_question
 			...ResolveQuestionModal_question
 		}

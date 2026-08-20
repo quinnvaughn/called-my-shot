@@ -66,7 +66,7 @@ function RouteComponent() {
 			/>
 
 			<Grid
-				gridTemplateColumns={{ base: "1fr 1fr", md: "repeat(4, 1fr)" }}
+				gridTemplateColumns={{ base: "1fr 1fr", md: "repeat(5, 1fr)" }}
 				gap="3"
 			>
 				<StatCard
@@ -74,6 +74,7 @@ function RouteComponent() {
 					label="Needs resolution"
 				/>
 				<StatCard value={summary?.disputed.length ?? 0} label="Disputed" />
+				<StatCard value={summary?.reported.length ?? 0} label="Reported" />
 				<StatCard value={summary?.usersLockedCount ?? 0} label="Users locked" />
 				<StatCard
 					value={summary?.liveQuestionsCount ?? 0}
@@ -150,10 +151,6 @@ function RouteComponent() {
 						</HStack>
 					))
 				)}
-				<p className={css({ fontSize: "xs", color: "fg.subtle" })}>
-					Estimate only, not a confirmed final — no live feed to check against
-					yet. Verify the actual result before resolving.
-				</p>
 			</VStack>
 
 			{summary && summary.probablyStillLive.length > 0 && (
@@ -246,6 +243,60 @@ function RouteComponent() {
 							</VStack>
 							<Link
 								to="/admin/disputes"
+								className={button({ variant: "outline", size: "sm" })}
+							>
+								Review
+							</Link>
+						</HStack>
+					))}
+				</VStack>
+			)}
+
+			{summary && summary.reported.length > 0 && (
+				<VStack gap="3" alignItems="stretch">
+					<span
+						className={css({
+							fontFamily: "mono",
+							fontSize: "2xs",
+							letterSpacing: "wide",
+							textTransform: "uppercase",
+							color: "fg.subtle",
+						})}
+					>
+						Reported
+					</span>
+					{summary.reported.map((report) => (
+						<HStack
+							key={report.id}
+							justify="space-between"
+							gap="4"
+							className={css({
+								bg: "bg.surface",
+								border: "1px solid {colors.border.default}",
+								borderRadius: "xl",
+								padding: "3.5",
+							})}
+						>
+							<VStack
+								gap="1"
+								alignItems="flex-start"
+								className={css({ minWidth: 0 })}
+							>
+								<span className={css({ fontSize: "sm", fontWeight: "medium" })}>
+									{report.question.title}
+								</span>
+								<span
+									className={css({
+										fontFamily: "mono",
+										fontSize: "2xs",
+										color: "fg.subtle",
+									})}
+								>
+									@{report.reportedBy.username} · {timeAgo(report.createdAt)}
+								</span>
+							</VStack>
+							<Link
+								to="/admin/reports"
 								className={button({ variant: "outline", size: "sm" })}
 							>
 								Review

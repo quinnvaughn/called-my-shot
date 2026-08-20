@@ -201,6 +201,20 @@ export const AdminQueueSummaryDocument = graphql(`
 							username
 						}
 					}
+					reported {
+						id
+						reason
+						details
+						createdAt
+						question {
+							id
+							title
+						}
+						reportedBy {
+							id
+							username
+						}
+					}
 				}
 			}
 			... on AuthenticationError {
@@ -295,6 +309,44 @@ export const AdminDisputesDocument = graphql(`
 							}
 						}
 						user {
+							id
+							username
+						}
+					}
+				}
+			}
+			... on AuthenticationError {
+				message
+			}
+			... on AuthorizationError {
+				message
+			}
+		}
+	}
+`)
+
+// Reports tab - every currently-open report, oldest first (same order
+// adminQueueSummary's reported list uses).
+export const AdminReportsDocument = graphql(`
+	query AdminReports {
+		adminQueueSummary {
+			__typename
+			... on QueryAdminQueueSummarySuccess {
+				data {
+					reported {
+						id
+						reason
+						details
+						createdAt
+						question {
+							id
+							title
+							creator {
+								id
+								username
+							}
+						}
+						reportedBy {
 							id
 							username
 						}

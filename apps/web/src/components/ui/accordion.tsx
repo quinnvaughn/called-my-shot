@@ -4,6 +4,7 @@ import { css } from "styled-system/css"
 import { VStack } from "styled-system/jsx"
 
 type Props = {
+	id?: string
 	title: string
 	subtitle?: string
 	defaultOpen?: boolean
@@ -11,6 +12,7 @@ type Props = {
 }
 
 export function Accordion({
+	id,
 	title,
 	subtitle,
 	defaultOpen = false,
@@ -19,7 +21,7 @@ export function Accordion({
 	const [open, setOpen] = useState(defaultOpen)
 
 	return (
-		<VStack alignItems="stretch" gap="0">
+		<VStack id={id} alignItems="stretch" gap="0">
 			<button
 				type="button"
 				onClick={() => setOpen((o) => !o)}
