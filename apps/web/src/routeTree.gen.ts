@@ -26,6 +26,7 @@ import { Route as AdminUsersRouteImport } from './routes/admin/users'
 import { Route as AppAuthedHomeRouteImport } from './routes/_app/_authed/home'
 import { Route as AppAuthedMyCallsRouteImport } from './routes/_app/_authed/my-calls'
 import { Route as AppAuthedNewQuestionRouteImport } from './routes/_app/_authed/new-question'
+import { Route as AppAuthedNotificationsRouteImport } from './routes/_app/_authed/notifications'
 import { Route as AppAuthedSettingsRouteImport } from './routes/_app/_authed/settings'
 import { Route as AppAuthedSupportRouteImport } from './routes/_app/_authed/support'
 import { Route as AppQuestionsQuestionIdRouteImport } from './routes/_app/questions/$questionId'
@@ -125,6 +126,11 @@ const AppAuthedNewQuestionRoute = AppAuthedNewQuestionRouteImport.update({
   path: '/new-question',
   getParentRoute: () => AppAuthedRoute,
 } as any)
+const AppAuthedNotificationsRoute = AppAuthedNotificationsRouteImport.update({
+  id: '/notifications',
+  path: '/notifications',
+  getParentRoute: () => AppAuthedRoute,
+} as any)
 const AppAuthedSettingsRoute = AppAuthedSettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
@@ -219,6 +225,7 @@ export interface FileRoutesByFullPath {
   '/home': typeof AppAuthedHomeRoute
   '/my-calls': typeof AppAuthedMyCallsRoute
   '/new-question': typeof AppAuthedNewQuestionRoute
+  '/notifications': typeof AppAuthedNotificationsRoute
   '/settings': typeof AppAuthedSettingsRoute
   '/support': typeof AppAuthedSupportRoute
   '/questions/$questionId': typeof AppQuestionsQuestionIdRoute
@@ -250,6 +257,7 @@ export interface FileRoutesByTo {
   '/home': typeof AppAuthedHomeRoute
   '/my-calls': typeof AppAuthedMyCallsRoute
   '/new-question': typeof AppAuthedNewQuestionRoute
+  '/notifications': typeof AppAuthedNotificationsRoute
   '/settings': typeof AppAuthedSettingsRoute
   '/support': typeof AppAuthedSupportRoute
   '/questions/$questionId': typeof AppQuestionsQuestionIdRoute
@@ -284,6 +292,7 @@ export interface FileRoutesById {
   '/_app/_authed/home': typeof AppAuthedHomeRoute
   '/_app/_authed/my-calls': typeof AppAuthedMyCallsRoute
   '/_app/_authed/new-question': typeof AppAuthedNewQuestionRoute
+  '/_app/_authed/notifications': typeof AppAuthedNotificationsRoute
   '/_app/_authed/settings': typeof AppAuthedSettingsRoute
   '/_app/_authed/support': typeof AppAuthedSupportRoute
   '/_app/questions/$questionId': typeof AppQuestionsQuestionIdRoute
@@ -318,6 +327,7 @@ export interface FileRouteTypes {
     | '/home'
     | '/my-calls'
     | '/new-question'
+    | '/notifications'
     | '/settings'
     | '/support'
     | '/questions/$questionId'
@@ -349,6 +359,7 @@ export interface FileRouteTypes {
     | '/home'
     | '/my-calls'
     | '/new-question'
+    | '/notifications'
     | '/settings'
     | '/support'
     | '/questions/$questionId'
@@ -382,6 +393,7 @@ export interface FileRouteTypes {
     | '/_app/_authed/home'
     | '/_app/_authed/my-calls'
     | '/_app/_authed/new-question'
+    | '/_app/_authed/notifications'
     | '/_app/_authed/settings'
     | '/_app/_authed/support'
     | '/_app/questions/$questionId'
@@ -529,6 +541,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppAuthedNewQuestionRouteImport
       parentRoute: typeof AppAuthedRoute
     }
+    '/_app/_authed/notifications': {
+      id: '/_app/_authed/notifications'
+      path: '/notifications'
+      fullPath: '/notifications'
+      preLoaderRoute: typeof AppAuthedNotificationsRouteImport
+      parentRoute: typeof AppAuthedRoute
+    }
     '/_app/_authed/settings': {
       id: '/_app/_authed/settings'
       path: '/settings'
@@ -641,6 +660,7 @@ interface AppAuthedRouteChildren {
   AppAuthedHomeRoute: typeof AppAuthedHomeRoute
   AppAuthedMyCallsRoute: typeof AppAuthedMyCallsRoute
   AppAuthedNewQuestionRoute: typeof AppAuthedNewQuestionRoute
+  AppAuthedNotificationsRoute: typeof AppAuthedNotificationsRoute
   AppAuthedSettingsRoute: typeof AppAuthedSettingsRoute
   AppAuthedSupportRoute: typeof AppAuthedSupportRoute
   AppAuthedGroupsGroupIdRoute: typeof AppAuthedGroupsGroupIdRoute
@@ -651,6 +671,7 @@ const AppAuthedRouteChildren: AppAuthedRouteChildren = {
   AppAuthedHomeRoute: AppAuthedHomeRoute,
   AppAuthedMyCallsRoute: AppAuthedMyCallsRoute,
   AppAuthedNewQuestionRoute: AppAuthedNewQuestionRoute,
+  AppAuthedNotificationsRoute: AppAuthedNotificationsRoute,
   AppAuthedSettingsRoute: AppAuthedSettingsRoute,
   AppAuthedSupportRoute: AppAuthedSupportRoute,
   AppAuthedGroupsGroupIdRoute: AppAuthedGroupsGroupIdRoute,

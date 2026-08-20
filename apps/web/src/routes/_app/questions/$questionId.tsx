@@ -317,6 +317,7 @@ function RouteComponent() {
 				numericTolerancePct={question.numericTolerancePct}
 				viewerCall={viewerCall}
 				hasViewerDispute={question.viewerDispute !== null}
+				hasSettledDispute={question.hasSettledDispute}
 				answer={answer}
 				resolutionNote={question.resolutionNote}
 				fieldAccuracyPct={fieldAccuracyPct}

@@ -22,16 +22,18 @@ import {
 	groupMembers,
 	groups,
 	leagues,
+	notifications,
 	type Player,
 	players,
 	type QuestionOption,
 	questionOptions,
 	questionShares,
 	questions,
+	questionVoids,
 	resolutionDisputes,
+	type StatToleranceTier,
 	sports,
 	stats,
-	type StatToleranceTier,
 	statToleranceTiers,
 	type Team,
 	teams,
@@ -1602,6 +1604,273 @@ async function main() {
 		quinn.id,
 	)
 
+	console.log("Seeding quinn's notifications...")
+
+	// Option-based (multiple_choice/yes_no/over_under/multi_select) questions
+	// score on the selection, not the call - mirrors resolveQuestionInternal's
+	// own split.
+	async function quinnSelectionPoints(questionId: string): Promise<number> {
+		const call = await db.query.calls.findFirst({
+			where: { questionId, userId: quinn.id },
+			with: { selections: true },
+		})
+		const points = call?.selections[0]?.resultPoints
+		if (points == null) {
+			throw new Error(
+				`quinnSelectionPoints: no resolved selection for quinn on ${questionId}`,
+			)
+		}
+		return points
+	}
+
+	async function quinnCallPoints(questionId: string): Promise<number> {
+		const call = await db.query.calls.findFirst({
+			where: { questionId, userId: quinn.id },
+		})
+		if (call?.resultPoints == null) {
+			throw new Error(
+				`quinnCallPoints: no resolved call for quinn on ${questionId}`,
+			)
+		}
+		return call.resultPoints
+	}
+
+	// A dispute against quinn's own resolution - mpwolves lost his championship2026
+	// pick and contests the announced result. Mirrors what fileDispute actually
+	// does (flip the question to "disputed"), so this is currently pending
+	// admin review, same shape as mvpRace's dispute above.
+	await fileDispute(
+		championship2026.id,
+		mpwolves.id,
+		"Every recap I can find has this series going 7 games with Boston winning - the announced result doesn't match any coverage.",
+	)
+
+	// quinn disputes lakersMargin (he lost that pick) and an admin upholds the
+	// original call - no rescoring needed, the resolution just stands.
+	await db.insert(resolutionDisputes).values({
+		questionId: lakersMargin.id,
+		userId: quinn.id,
+		reason:
+			"Box score I saw had the final margin at 11, not 6 - worth a second look.",
+		status: "upheld",
+		resolvedAt: hoursAgo(20),
+	})
+
+	// quinn disputes rookieOfYear (he also lost that pick) and it gets
+	// overturned in his favor - re-runs the same resolution helper used above
+	// with the corrected answer, same as overturnDispute re-running
+	// resolveQuestionInternal in the real resolver.
+	await db.insert(resolutionDisputes).values({
+		questionId: rookieOfYear.id,
+		userId: quinn.id,
+		reason:
+			"The league office corrected the Rookie of the Year announcement the next morning - Bailey actually won, not Flagg.",
+		status: "overturned",
+		resolvedAt: hoursAgo(12),
+	})
+	// Captured before the re-resolve below overwrites it - the original loss,
+	// for the notification quinn already got at the time.
+	const rookieOfYearOriginalPoints = await quinnSelectionPoints(rookieOfYear.id)
+	const rookieOfYearOptions = await db.query.questionOptions.findMany({
+		where: { questionId: rookieOfYear.id },
+	})
+	const baileyOption = rookieOfYearOptions.find((o) => o.id === bailey.id)
+	if (!baileyOption)
+		throw new Error("Missing Ace Bailey option on rookieOfYear")
+	await resolveOptionQuestion(
+		rookieOfYear.id,
+		rookieOfYearOptions,
+		[bailey.id],
+		"Corrected: Ace Bailey actually won 2025-26 Rookie of the Year after a league office review.",
+	)
+
+	// A throwaway duplicate of championship2027, voided by an admin - gives
+	// quinn a question_voided notification (and the strike that comes with it).
+	const duplicateChampionship = await createQuestion({
+		type: "multiple_choice",
+		category: "season_awards",
+		title: "Who wins the 2027 NBA title?",
+		creatorId: quinn.id,
+		isOfficial: true,
+		sportId: basketball.id,
+		leagueId: nba.id,
+		resolutionSource: "Official NBA Finals result",
+		locksAt: daysFromNow(70),
+	})
+	await db.insert(questionVoids).values({
+		questionId: duplicateChampionship.id,
+		questionTitle: duplicateChampionship.title,
+		targetUserId: quinn.id,
+		voidedByAdminId: quinn.id,
+		reason: "duplicate",
+		duplicateOfQuestionId: championship2027.id,
+		note: "Same question as the existing 2027 championship post.",
+		countsAsStrike: true,
+	})
+	await db
+		.update(users)
+		.set({ strikeCount: sql`${users.strikeCount} + 1` })
+		.where(eq(users.id, quinn.id))
+	await db.delete(questions).where(eq(questions.id, duplicateChampionship.id))
+
+	// A new member joining Wolfpack after the fact (everyone else joined at
+	// group-creation time above) - gives quinn, the group's admin, a
+	// group_member_joined notification.
+	await db
+		.insert(groupMembers)
+		.values({ groupId: wolfpack.group.id, userId: slballer.id, role: "member" })
+	await insertGroupInvite(
+		wolfpack.group.id,
+		slballer.id,
+		expiryToDate("SEVEN_DAYS"),
+	)
+
+	await db.insert(notifications).values([
+		// Oldest -> newest, read -> unread, same as a real inbox someone hasn't
+		// opened in a few days would look.
+		{
+			userId: quinn.id,
+			type: "call_resolved",
+			questionId: championship2026.id,
+			questionTitle: championship2026.title,
+			pointsDelta: await quinnSelectionPoints(championship2026.id),
+			readAt: daysAgo(6),
+			createdAt: daysAgo(6),
+		},
+		{
+			userId: quinn.id,
+			type: "call_resolved",
+			questionId: rookieOfYear.id,
+			questionTitle: rookieOfYear.title,
+			// The original (pre-overturn) result - a real loss at the time,
+			// captured above before the corrective resolveOptionQuestion overwrote it.
+			pointsDelta: rookieOfYearOriginalPoints,
+			readAt: daysAgo(5),
+			createdAt: daysAgo(5),
+		},
+		{
+			userId: quinn.id,
+			type: "call_resolved",
+			questionId: lakersMargin.id,
+			questionTitle: lakersMargin.title,
+			pointsDelta: await quinnSelectionPoints(lakersMargin.id),
+			readAt: daysAgo(3),
+			createdAt: daysAgo(3),
+		},
+		{
+			userId: quinn.id,
+			type: "call_resolved",
+			questionId: tatumPoints.id,
+			questionTitle: tatumPoints.title,
+			pointsDelta: await quinnCallPoints(tatumPoints.id),
+			readAt: daysAgo(1),
+			createdAt: daysAgo(1),
+		},
+		{
+			userId: quinn.id,
+			type: "question_shared_to_group",
+			groupId: wolfpack.group.id,
+			groupName: wolfpack.group.name,
+			questionId: championship2027.id,
+			questionTitle: championship2027.title,
+			actorId: mpwolves.id,
+			actorUsername: mpwolves.username,
+			readAt: daysAgo(1),
+			createdAt: daysAgo(1),
+		},
+		{
+			userId: quinn.id,
+			type: "question_shared_to_group",
+			groupId: wolfpack.group.id,
+			groupName: wolfpack.group.name,
+			questionId: embiidRebounds.id,
+			questionTitle: embiidRebounds.title,
+			actorId: tswish.id,
+			actorUsername: tswish.username,
+			readAt: daysAgo(1),
+			createdAt: daysAgo(1),
+		},
+		{
+			userId: quinn.id,
+			type: "question_shared_to_group",
+			groupId: fantasyLeagueChat.group.id,
+			groupName: fantasyLeagueChat.group.name,
+			questionId: superBowl.id,
+			questionTitle: superBowl.title,
+			actorId: jrhoops.id,
+			actorUsername: jrhoops.username,
+			readAt: hoursAgo(20),
+			createdAt: hoursAgo(20),
+		},
+		{
+			userId: quinn.id,
+			type: "question_shared_to_group",
+			groupId: fantasyLeagueChat.group.id,
+			groupName: fantasyLeagueChat.group.name,
+			questionId: mahomesYards.id,
+			questionTitle: mahomesYards.title,
+			actorId: statlinesteve.id,
+			actorUsername: statlinesteve.username,
+			readAt: hoursAgo(20),
+			createdAt: hoursAgo(20),
+		},
+		{
+			userId: quinn.id,
+			type: "dispute_upheld",
+			questionId: lakersMargin.id,
+			questionTitle: lakersMargin.title,
+			readAt: hoursAgo(21),
+			createdAt: hoursAgo(21),
+		},
+		// Unread from here down.
+		{
+			userId: quinn.id,
+			type: "dispute_filed",
+			questionId: championship2026.id,
+			questionTitle: championship2026.title,
+			actorId: mpwolves.id,
+			actorUsername: mpwolves.username,
+			readAt: null,
+			createdAt: hoursAgo(18),
+		},
+		{
+			userId: quinn.id,
+			type: "dispute_overturned",
+			questionId: rookieOfYear.id,
+			questionTitle: rookieOfYear.title,
+			readAt: null,
+			createdAt: hoursAgo(12),
+		},
+		{
+			userId: quinn.id,
+			type: "call_resolved",
+			questionId: rookieOfYear.id,
+			questionTitle: rookieOfYear.title,
+			pointsDelta: await quinnSelectionPoints(rookieOfYear.id),
+			readAt: null,
+			createdAt: hoursAgo(12),
+		},
+		{
+			userId: quinn.id,
+			type: "group_member_joined",
+			groupId: wolfpack.group.id,
+			groupName: wolfpack.group.name,
+			actorId: slballer.id,
+			actorUsername: slballer.username,
+			readAt: null,
+			createdAt: hoursAgo(4),
+		},
+		{
+			userId: quinn.id,
+			type: "question_voided",
+			questionId: null,
+			questionTitle: duplicateChampionship.title,
+			strikeCount: 1,
+			readAt: null,
+			createdAt: hoursAgo(1),
+		},
+	])
+
 	await backfillUserLeagueStats()
 
 	console.log("\nDone.\n")
@@ -1621,10 +1890,10 @@ async function main() {
 	console.log("\nQuestions seeded:")
 	console.log("  NBA 1. 2027 championship        multiple_choice  open")
 	console.log(
-		"  NBA 2. 2026 championship        multiple_choice  resolved - quinn won",
+		"  NBA 2. 2026 championship        multiple_choice  disputed - quinn won, mpwolves' dispute pending",
 	)
 	console.log(
-		"  NBA 3. 2025-26 Rookie of Year   multiple_choice  resolved - quinn lost",
+		"  NBA 3. 2025-26 Rookie of Year   multiple_choice  resolved - quinn's dispute overturned it in his favor",
 	)
 	console.log(
 		"  NBA 4. Jokic triple-double      yes_no           open, quinn hasn't called",
@@ -1672,6 +1941,7 @@ async function main() {
 	console.log(
 		"  NBA 19. Haliburton assists      numeric_guess    open, quinn hasn't called, 0 guesses (empty)",
 	)
+	console.log("\nquinn's notifications: 14 total, 5 unread")
 
 	await db.$client.end()
 }

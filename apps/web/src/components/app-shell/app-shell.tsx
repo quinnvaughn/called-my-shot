@@ -1,9 +1,10 @@
+import { useQuery } from "@apollo/client/react"
 import { Link, useMatches, useRouteContext } from "@tanstack/react-router"
 import { type ReactNode, useEffect, useState } from "react"
 import { BsBarChartFill } from "react-icons/bs"
 import { FaRegCheckSquare } from "react-icons/fa"
 import { FaUser, FaUserGroup } from "react-icons/fa6"
-import { FiMenu, FiX } from "react-icons/fi"
+import { FiBell, FiMenu, FiX } from "react-icons/fi"
 import { GoHomeFill } from "react-icons/go"
 import type { IconType } from "react-icons/lib"
 import { css, cx } from "styled-system/css"
@@ -11,6 +12,7 @@ import { HStack, VStack } from "styled-system/jsx"
 import { AuthModal } from "#/components/auth/auth-modal"
 import { Brand } from "#/components/ui/brand"
 import { Button, button } from "#/components/ui/button"
+import { UnreadNotificationCountDocument } from "#/graphql/queries/notifications"
 import { openModal } from "#/stores/modal-store"
 import { AccountMenu } from "./account-menu"
 
@@ -22,6 +24,12 @@ type NavItem = {
 }
 const NAV_ITEMS: NavItem[] = [
 	{ to: "/home", label: "Home", icon: GoHomeFill },
+	{
+		to: "/notifications",
+		label: "Notifications",
+		icon: FiBell,
+		authRequired: true,
+	},
 	{ to: "/leaderboard", label: "Leaderboard", icon: BsBarChartFill },
 	{
 		to: "/my-calls",
@@ -48,6 +56,16 @@ export function AppShell({ children }: { children: ReactNode }) {
 	const rightRail = [...matches]
 		.reverse()
 		.find((match) => match.staticData?.rightRail)?.staticData.rightRail
+
+	const { data: unreadData } = useQuery(UnreadNotificationCountDocument, {
+		skip: !me,
+		pollInterval: 30_000,
+	})
+	const unreadCount =
+		unreadData?.unreadNotificationCount.__typename ===
+		"QueryUnreadNotificationCountSuccess"
+			? unreadData.unreadNotificationCount.data
+			: 0
 
 	useEffect(() => {
 		if (!drawerOpen) return
@@ -89,6 +107,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 			>
 				<SidebarNav
 					me={me}
+					unreadCount={unreadCount}
 					drawerOpen={drawerOpen}
 					onNavigate={() => setDrawerOpen(false)}
 				/>
@@ -194,10 +213,12 @@ function MobileTopbar({
 
 function SidebarNav({
 	me,
+	unreadCount,
 	drawerOpen,
 	onNavigate,
 }: {
 	me: Me
+	unreadCount: number
 	drawerOpen: boolean
 	onNavigate: () => void
 }) {
@@ -287,6 +308,25 @@ function SidebarNav({
 						>
 							<item.icon size={20} />
 							{item.label}
+							{item.to === "/notifications" && unreadCount > 0 && (
+								<span
+									className={css({
+										marginLeft: "auto",
+										bg: "primary.default",
+										color: "bg.canvas",
+										fontFamily: "mono",
+										fontSize: "2xs",
+										fontWeight: "bold",
+										borderRadius: "full",
+										paddingInline: "1.5",
+										minWidth: "5",
+										textAlign: "center",
+										lineHeight: "1.6",
+									})}
+								>
+									{unreadCount > 99 ? "99+" : unreadCount}
+								</span>
+							)}
 						</Link>
 					))}
 					{me && (

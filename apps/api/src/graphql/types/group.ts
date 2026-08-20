@@ -25,6 +25,7 @@ import {
 	requireAdmin,
 	requireInviteOwnerOrAdmin,
 } from "../../lib/groups"
+import { createNotifications } from "../../lib/notifications"
 import {
 	clampPageSize,
 	cursorWhere,
@@ -225,7 +226,7 @@ const QuestionShareConnectionRef = builder
 		}),
 	})
 
-const GroupRef = builder.drizzleObject("groups", {
+export const GroupRef = builder.drizzleObject("groups", {
 	name: "Group",
 	fields: (t) => ({
 		id: t.exposeID("id"),
@@ -637,22 +638,42 @@ builder.mutationFields((t) => ({
 				)
 			}
 
-			const existing = await db.query.groupMembers.findFirst({
-				where: { groupId: invite.groupId, userId: user.id },
-			})
-			if (!existing) {
-				await db
-					.insert(groupMembers)
-					.values({ groupId: invite.groupId, userId: user.id, role: "member" })
-			}
-			// every member gets their own invite link, same as the creator does in
-			// createGroup - myInvite should never be null for a member
-			await getOrCreateMemberInvite(invite.groupId, user.id)
-
 			const group = await db.query.groups.findFirst({
 				where: { id: invite.groupId },
 			})
 			if (!group) throw new NotFoundError("Group not found")
+
+			const existing = await db.query.groupMembers.findFirst({
+				where: { groupId: invite.groupId, userId: user.id },
+			})
+			if (!existing) {
+				await db.transaction(async (tx) => {
+					await tx.insert(groupMembers).values({
+						groupId: invite.groupId,
+						userId: user.id,
+						role: "member",
+					})
+
+					const otherMembers = await tx.query.groupMembers.findMany({
+						where: { groupId: invite.groupId, userId: { ne: user.id } },
+						columns: { userId: true },
+					})
+					await createNotifications(
+						tx,
+						otherMembers.map((m) => ({
+							type: "group_member_joined" as const,
+							userId: m.userId,
+							groupId: group.id,
+							groupName: group.name,
+							actorId: user.id,
+							actorUsername: user.username,
+						})),
+					)
+				})
+			}
+			// every member gets their own invite link, same as the creator does in
+			// createGroup - myInvite should never be null for a member
+			await getOrCreateMemberInvite(invite.groupId, user.id)
 
 			return { group }
 		},
@@ -794,10 +815,13 @@ builder.mutationFields((t) => ({
 			const user = requireUser(ctx)
 			const membership = await db.query.groupMembers.findFirst({
 				where: { groupId: args.groupId, userId: user.id },
+				with: { group: true },
 			})
 			if (!membership) {
 				throw new AuthorizationError("You're not a member of this group.")
 			}
+			if (!membership.group) throw new NotFoundError("Group not found")
+			const group = membership.group
 
 			const question = await db.query.questions.findFirst({
 				where: { id: args.questionId },
@@ -809,14 +833,36 @@ builder.mutationFields((t) => ({
 			})
 			if (existing) return { share: existing }
 
-			const [share] = await db
-				.insert(questionShares)
-				.values({
-					groupId: args.groupId,
-					questionId: args.questionId,
-					sharedBy: user.id,
+			const share = await db.transaction(async (tx) => {
+				const [share] = await tx
+					.insert(questionShares)
+					.values({
+						groupId: args.groupId,
+						questionId: args.questionId,
+						sharedBy: user.id,
+					})
+					.returning()
+
+				const otherMembers = await tx.query.groupMembers.findMany({
+					where: { groupId: args.groupId, userId: { ne: user.id } },
+					columns: { userId: true },
 				})
-				.returning()
+				await createNotifications(
+					tx,
+					otherMembers.map((m) => ({
+						type: "question_shared_to_group" as const,
+						userId: m.userId,
+						groupId: args.groupId,
+						groupName: group.name,
+						questionId: question.id,
+						questionTitle: question.title,
+						actorId: user.id,
+						actorUsername: user.username,
+					})),
+				)
+
+				return share
+			})
 			return { share }
 		},
 	}),

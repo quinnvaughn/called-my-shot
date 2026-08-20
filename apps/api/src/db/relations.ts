@@ -27,6 +27,10 @@ export const relations = defineRelations(schema, (r) => ({
 			to: r.questionVoids.voidedByAdminId,
 		}),
 		reportsFiled: r.many.questionReports(),
+		notifications: r.many.notifications({
+			from: r.users.id,
+			to: r.notifications.userId,
+		}),
 	},
 	sessions: {
 		user: r.one.users({
@@ -248,6 +252,28 @@ export const relations = defineRelations(schema, (r) => ({
 		reportedBy: r.one.users({
 			from: r.questionReports.reportedByUserId,
 			to: r.users.id,
+		}),
+	},
+	notifications: {
+		user: r.one.users({
+			from: r.notifications.userId,
+			to: r.users.id,
+		}),
+		actor: r.one.users({
+			from: r.notifications.actorId,
+			to: r.users.id,
+		}),
+		question: r.one.questions({
+			from: r.notifications.questionId,
+			to: r.questions.id,
+		}),
+		group: r.one.groups({
+			from: r.notifications.groupId,
+			to: r.groups.id,
+		}),
+		dispute: r.one.resolutionDisputes({
+			from: r.notifications.disputeId,
+			to: r.resolutionDisputes.id,
 		}),
 	},
 }))

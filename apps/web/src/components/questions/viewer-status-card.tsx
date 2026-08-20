@@ -73,6 +73,10 @@ type Props = {
 	numericTolerancePct: number | null
 	viewerCall: ViewerCall | null
 	hasViewerDispute: boolean
+	// Once any dispute on this question has been closed (upheld or
+	// overturned), the dispute process is done for good - no new "under
+	// review" banner, no new "Dispute this resolution" button.
+	hasSettledDispute: boolean
 	// The actual resolved outcome - null until settled. Lives inside this
 	// card (not as a separate banner up near the title) because it's the
 	// same information the badge/points above are about: what happened,
@@ -100,16 +104,19 @@ export function ViewerStatusCard({
 	numericTolerancePct,
 	viewerCall,
 	hasViewerDispute,
+	hasSettledDispute,
 	answer,
 	resolutionNote,
 	fieldAccuracyPct,
 }: Props) {
 	// A resolution can be disputed by anyone who saw it, not just people who
-	// called - a spectator can just as easily notice a wrong result. Only
-	// gated on the question not already being under an active dispute
-	// (the banner above already communicates that state, so there's nothing
-	// left for a second dispute action to do here).
-	const disputeRow = state.isSettled && !state.isDisputed && (
+	// called - a spectator can just as easily notice a wrong result. Gated on
+	// the question not already being under an active dispute (the banner
+	// above already communicates that state) and on the dispute process not
+	// having already run its course once (hasSettledDispute) - a resolution
+	// that's already been upheld or overturned is final, further correction
+	// is an admin action, not another caller dispute.
+	const disputeRow = state.isSettled && !state.isDisputed && !hasSettledDispute && (
 		<DisputeRow questionId={questionId} hasDispute={hasViewerDispute} />
 	)
 	const resultTitle = answer && (

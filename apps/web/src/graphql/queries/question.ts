@@ -12,6 +12,7 @@ export const QuestionDetailDocument = graphql(`
 			locksAt
 			resolvedAt
 			resolutionNote
+			hasSettledDispute
 			ouLine
 			numericActualValue
 			numericTolerancePct

@@ -64,6 +64,10 @@ import {
 } from "../../lib/errors"
 import { typicalGameLengthHours } from "../../lib/game-length"
 import {
+	createNotification,
+	createNotifications,
+} from "../../lib/notifications"
+import {
 	clampPageSize,
 	cursorWhere,
 	decodeCursor,
@@ -617,6 +621,22 @@ export const QuestionRef = builder.drizzleObject("questions", {
 		callCount: t.relatedCount("calls"),
 		disputes: t.relation("disputes"),
 
+		// True once any dispute on this question has been closed (upheld or
+		// overturned) - fileDispute refuses to reopen the dispute process past
+		// that point, so this also gates whether "Dispute this resolution" shows.
+		hasSettledDispute: t.field({
+			type: "Boolean",
+			resolve: async (question) => {
+				const settled = await db.query.resolutionDisputes.findFirst({
+					where: {
+						questionId: question.id,
+						status: { in: ["upheld", "overturned"] },
+					},
+				})
+				return settled != null
+			},
+		}),
+
 		// Every caller's pick on this question, newest first - the detail page's
 		// activity list. Same keyset-cursor shape as myCalls; each item still
 		// self-gates its pick fields through canViewerSeePick, this connection
@@ -684,7 +704,7 @@ export const QuestionRef = builder.drizzleObject("questions", {
 			resolve: (question, _args, ctx) => {
 				if (!ctx.user) return null
 				return db.query.resolutionDisputes.findFirst({
-					where: { questionId: question.id, userId: ctx.user.id },
+					where: { questionId: question.id, userId: ctx.user.id, status: "open" },
 				})
 			},
 		}),
@@ -1418,6 +1438,19 @@ async function resolveQuestionInternal(
 
 	await applyLeagueStatDeltas(tx, question.leagueId, statDeltas)
 
+	await createNotifications(
+		tx,
+		[...statDeltas]
+			.filter(([, d]) => d.points !== 0 || d.resolvedCallCount !== 0)
+			.map(([userId, d]) => ({
+				type: "call_resolved" as const,
+				userId,
+				questionId: question.id,
+				questionTitle: question.title,
+				pointsDelta: d.points,
+			})),
+	)
+
 	const [updated] = await tx
 		.update(questions)
 		.set({
@@ -2031,6 +2064,14 @@ builder.mutationFields((t) => ({
 					.set({ status: "overturned", resolvedAt: new Date() })
 					.where(eq(resolutionDisputes.id, dispute.id))
 
+				await createNotification(tx, {
+					type: "dispute_overturned",
+					userId: dispute.userId,
+					questionId: question.id,
+					questionTitle: question.title,
+					disputeId: dispute.id,
+				})
+
 				return updated
 			})
 
@@ -2080,6 +2121,21 @@ builder.mutationFields((t) => ({
 					.update(questions)
 					.set({ status: "resolved" })
 					.where(eq(questions.id, dispute.questionId))
+
+				const question = await tx.query.questions.findFirst({
+					where: { id: dispute.questionId },
+					columns: { title: true },
+				})
+				if (!question)
+					throw new Error("upholdDispute: question vanished mid-transaction")
+
+				await createNotification(tx, {
+					type: "dispute_upheld",
+					userId: dispute.userId,
+					questionId: dispute.questionId,
+					questionTitle: question.title,
+					disputeId: dispute.id,
+				})
 
 				return updatedDispute
 			})
@@ -2180,23 +2236,34 @@ builder.mutationFields((t) => ({
 						countsAsStrike: data.countsAsStrike,
 					})
 
+					let strikeCount: number | undefined
 					if (data.countsAsStrike) {
 						const [updatedUser] = await tx
 							.update(users)
 							.set({ strikeCount: sql`${users.strikeCount} + 1` })
 							.where(eq(users.id, question.creatorId))
 							.returning()
-						if (
-							updatedUser &&
-							updatedUser.strikeCount >= STRIKE_LOCK_THRESHOLD &&
-							updatedUser.questionCreationEnabled
-						) {
-							await tx
-								.update(users)
-								.set({ questionCreationEnabled: false })
-								.where(eq(users.id, question.creatorId))
+						if (updatedUser) {
+							strikeCount = updatedUser.strikeCount
+							if (
+								updatedUser.strikeCount >= STRIKE_LOCK_THRESHOLD &&
+								updatedUser.questionCreationEnabled
+							) {
+								await tx
+									.update(users)
+									.set({ questionCreationEnabled: false })
+									.where(eq(users.id, question.creatorId))
+							}
 						}
 					}
+
+					await createNotification(tx, {
+						type: "question_voided",
+						userId: question.creatorId,
+						questionId: question.id,
+						questionTitle: question.title,
+						strikeCount,
+					})
 				}
 
 				await reverseQuestionLeagueStats(tx, question)
@@ -2259,6 +2326,19 @@ builder.mutationFields((t) => ({
 				)
 			}
 
+			const settledDispute = await db.query.resolutionDisputes.findFirst({
+				where: {
+					questionId: data.questionId,
+					status: { in: ["upheld", "overturned"] },
+				},
+			})
+			if (settledDispute) {
+				throw ValidationError.field(
+					null,
+					"This question's resolution has already been reviewed and is final.",
+				)
+			}
+
 			const dispute = await db.transaction(async (tx) => {
 				const [dispute] = await tx
 					.insert(resolutionDisputes)
@@ -2273,6 +2353,19 @@ builder.mutationFields((t) => ({
 					.update(questions)
 					.set({ status: "disputed" })
 					.where(eq(questions.id, data.questionId))
+
+				if (question.creatorId && question.creatorId !== user.id) {
+					await createNotification(tx, {
+						type: "dispute_filed",
+						userId: question.creatorId,
+						questionId: question.id,
+						questionTitle: question.title,
+						actorId: user.id,
+						actorUsername: user.username,
+						disputeId: dispute.id,
+					})
+				}
+
 				return dispute
 			})
 
