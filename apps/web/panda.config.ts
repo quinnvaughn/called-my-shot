@@ -31,7 +31,12 @@ export default defineConfig({
   staticCss: {
     recipes: {
       dropdown: [{ placement: ["top", "bottom"] }],
-      table: [{ sortActive: ["true"] }, { numeric: ["true"] }, { selected: ["true"] }],
+      table: [
+        { sortActive: ["true"] },
+        { numeric: ["true"] },
+        { selected: ["true"] },
+        { wide: ["true"] },
+      ],
       // Same reasoning as dropdown/table above - combobox's `highlighted` and
       // select's `active`/`open` are always passed through a variable
       // (isHighlighted, isActive, open state), never a literal at the call site.
@@ -53,6 +58,11 @@ export default defineConfig({
         { dayDisabled: ["true"] },
         { ampmActive: ["true"] },
       ],
+      // modal's `size` prop and tabs' `active`/`stretch` are always passed
+      // through a variable (a component prop, active-tab comparison, etc.),
+      // never a literal at the call site - same reasoning as above.
+      modal: [{ size: ["sm", "md"] }],
+      tabs: [{ active: ["true"] }, { stretch: ["true"] }],
     },
   },
 
@@ -108,6 +118,28 @@ export default defineConfig({
           caution: { value: "#E8A33D" }, // warning / disputed / under-review value; light theme darkened this to #A6650E
           cautionMuted: { value: "#2C2213" }, // pale caution-tinted background for the disputed-resolution banner
           overlay: { value: "#0B0B0C" }, // modal scrim base color (used as rgba, e.g. overlay/70) — stays dark in both themes
+        },
+        // Named by purpose, not layer number, so nothing has to pick a raw
+        // number (and risk picking one that loses to some other raw number
+        // elsewhere) to answer "does this render above an open modal" - it's
+        // the one question basically every portalled/fixed-position element
+        // in this file eventually has to answer. Reference by key (e.g.
+        // `zIndex: "popover"`), never a literal number, for anything that's
+        // `position: fixed`/`absolute` and portalled or otherwise capable of
+        // overlapping page content.
+        zIndex: {
+          // Modal's own scrim + box (ui/modal.tsx).
+          overlay: { value: "100" },
+          // A popover's own internal backdrop, e.g. date-time-picker's
+          // mobile bottom-sheet scrim - sits below that popover's content,
+          // but still above `overlay` so it isn't buried if the picker is
+          // opened from inside a modal.
+          popoverScrim: { value: "109" },
+          // Portalled popover content - dropdown/combobox/select/date-time-
+          // picker. Always above `overlay`: any of these can be opened from
+          // a form inside a modal, and a popover that's behind the modal
+          // that spawned it is unusable.
+          popover: { value: "110" },
         },
       },
       keyframes: {
@@ -370,7 +402,7 @@ export default defineConfig({
               borderRadius: "xl",
               padding: "1.5",
               boxShadow: "0 12px 32px rgba(0, 0, 0, 0.4)",
-              zIndex: "30",
+              zIndex: "popover",
             },
             item: {
               width: "full",
@@ -445,7 +477,7 @@ export default defineConfig({
               maxHeight: "80",
               overflowY: "auto",
               boxShadow: "0 12px 32px rgba(0, 0, 0, 0.4)",
-              zIndex: "30",
+              zIndex: "popover",
             },
             groupLabel: {
               display: "flex",
@@ -583,7 +615,7 @@ export default defineConfig({
               maxHeight: "80",
               overflowY: "auto",
               boxShadow: "0 12px 32px rgba(0, 0, 0, 0.4)",
-              zIndex: "20",
+              zIndex: "popover",
             },
             groupLabel: {
               fontFamily: "mono",
@@ -725,13 +757,17 @@ export default defineConfig({
             content: {
               display: "flex",
               flexDirection: "column",
-              gap: "3",
+              gap: "2",
               position: "fixed",
               top: { base: "auto", md: "0" },
               bottom: { base: "0", md: "auto" },
               left: { base: "0", md: "0" },
               right: { base: "0", md: "auto" },
-              width: { base: "full", md: "320px" },
+              // Trimmed from 320px - narrower cells (day is aspect-ratio 1,
+              // so width drives height) is the single biggest lever on this
+              // popover's total height, which is what decides whether it
+              // fits below the trigger without flipping above it.
+              width: { base: "full", md: "292px" },
               // Never wider than the viewport itself - the JS clamp in
               // date-time-picker.tsx only slides left/right within the space
               // this leaves, it doesn't shrink the box.
@@ -746,16 +782,16 @@ export default defineConfig({
               // bottom ones flatten out to sit flush with the screen edge.
               borderTopLeftRadius: "xl",
               borderTopRightRadius: "xl",
-              padding: "3.5",
-              paddingBottom: { base: "6", md: "3.5" },
+              padding: "3",
+              paddingBottom: { base: "6", md: "3" },
               boxShadow: "0 12px 32px rgba(0, 0, 0, 0.4)",
-              zIndex: "30",
+              zIndex: "popover",
             },
             scrim: {
               position: "fixed",
               inset: "0",
               backgroundColor: "bg.overlay/60",
-              zIndex: "29",
+              zIndex: "popoverScrim",
             },
             dragHandle: {
               display: { base: "block", md: "none" },
@@ -775,8 +811,8 @@ export default defineConfig({
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              width: "7",
-              height: "7",
+              width: "6",
+              height: "6",
               borderRadius: "md",
               color: "fg.subtle",
               cursor: "pointer",
@@ -835,7 +871,7 @@ export default defineConfig({
               gap: "2",
               borderTop: "1px solid",
               borderColor: "border.default",
-              paddingTop: "3",
+              paddingTop: "2",
             },
             timeField: {
               width: "12",
@@ -843,7 +879,7 @@ export default defineConfig({
               border: "1px solid",
               borderColor: "border.default",
               borderRadius: "md",
-              paddingBlock: "2",
+              paddingBlock: "1.5",
               textAlign: "center",
               fontFamily: "mono",
               fontSize: "sm",
@@ -887,7 +923,7 @@ export default defineConfig({
               justifyContent: "space-between",
               borderTop: "1px solid",
               borderColor: "border.default",
-              paddingTop: "3",
+              paddingTop: "2",
             },
             description: {
               fontSize: "xs",
@@ -1023,6 +1059,13 @@ export default defineConfig({
               color: "fg.default",
               borderBottom: "1px solid {colors.border.default}",
               whiteSpace: "nowrap",
+              // `table-layout: fixed` above holds every column to a set width
+              // instead of growing to fit content, and `nowrap` means long
+              // content can't wrap to a second line either - without this,
+              // it does the one thing left available to it: render past the
+              // cell's own boundary and visually overlap whatever's next.
+              overflow: "hidden",
+              textOverflow: "ellipsis",
               padding: "3.5",
             },
             row: {},
@@ -1065,6 +1108,19 @@ export default defineConfig({
                 },
               },
             },
+            // Opt-in for a table with a column that can't be meaningfully
+            // truncated (eg. a free-text title) - switches column sizing
+            // from the fixed/<colgroup>-driven layout every other table
+            // variant uses to the browser's natural content-based algorithm,
+            // and drops the ellipsis clipping that goes with `fixed` sizing.
+            // The wrapper's existing horizontal scroll is what makes the
+            // rest of a too-wide row reachable, instead of hiding it.
+            wide: {
+              true: {
+                table: { tableLayout: "auto" },
+                cell: { overflow: "visible", textOverflow: "clip" },
+              },
+            },
             numeric: {
               true: {
                 // Numeric headers center to sit over their centered cells —
@@ -1102,6 +1158,127 @@ export default defineConfig({
                 pageButton: {
                   cursor: "pointer",
                   _hover: { borderColor: "primary.default" },
+                },
+              },
+            },
+          },
+        }),
+        modal: defineSlotRecipe({
+          className: "modal",
+          slots: ["overlay", "box", "closeButton", "title", "description"],
+          base: {
+            overlay: {
+              position: "fixed",
+              inset: 0,
+              zIndex: "overlay",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              padding: "5",
+              backgroundColor: "bg.overlay/70",
+              backdropFilter: "blur(6px)",
+            },
+            box: {
+              position: "relative",
+              display: "flex",
+              flexDirection: "column",
+              gap: "5.5",
+              width: "full",
+              maxWidth: "sm",
+              backgroundColor: "bg.surface",
+              border: "1px solid",
+              borderColor: "border.default",
+              borderRadius: "2xl",
+              padding: "7",
+              boxShadow: "0 24px 60px rgba(0, 0, 0, 0.45)",
+            },
+            closeButton: {
+              position: "absolute",
+              top: "3.5",
+              right: "3.5",
+              width: "8",
+              height: "8",
+              borderRadius: "full",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              color: "fg.muted",
+              _hover: {
+                backgroundColor: "bg.subtle",
+                color: "fg.default",
+                cursor: "pointer",
+              },
+            },
+            title: {
+              fontFamily: "heading",
+              fontSize: "xl",
+            },
+            description: {
+              fontSize: "xs",
+              color: "fg.muted",
+            },
+          },
+          variants: {
+            size: {
+              sm: { box: { maxWidth: "sm" } },
+              md: { box: { maxWidth: "md" } },
+            },
+          },
+          defaultVariants: {
+            size: "sm",
+          },
+        }),
+        tabs: defineSlotRecipe({
+          className: "tabs",
+          slots: ["list", "trigger"],
+          base: {
+            list: {
+              display: "flex",
+              gap: "1.5",
+              padding: "1",
+            },
+            trigger: {
+              textAlign: "center",
+              fontFamily: "mono",
+              fontSize: "xs",
+              fontWeight: "semibold",
+              letterSpacing: "wide",
+              color: "fg.subtle",
+              backgroundColor: "transparent",
+              border: "1px solid",
+              borderColor: "border.emphasized",
+              borderRadius: "md",
+              textTransform: "uppercase",
+              padding: "{spacing.2} {spacing.3.5}",
+              cursor: "pointer",
+              transition:
+                "background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease",
+              _hover: {
+                color: "fg.default",
+              },
+            },
+          },
+          variants: {
+            active: {
+              true: {
+                trigger: {
+                  backgroundColor: "fg.default",
+                  color: "bg.canvas",
+                  borderColor: "fg.default",
+                  // Base's _hover color would otherwise win here (same specificity,
+                  // applied after) and turn this into white-on-white.
+                  _hover: {
+                    color: "bg.canvas",
+                  },
+                },
+              },
+            },
+            stretch: {
+              true: {
+                list: {
+                  "& > *": {
+                    flex: 1,
+                  },
                 },
               },
             },

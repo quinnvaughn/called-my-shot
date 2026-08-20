@@ -18,6 +18,14 @@ export const relations = defineRelations(schema, (r) => ({
 		questionShares: r.many.questionShares(),
 		disputesFiled: r.many.resolutionDisputes(),
 		supportTickets: r.many.supportTickets(),
+		voidsReceived: r.many.questionVoids({
+			from: r.users.id,
+			to: r.questionVoids.targetUserId,
+		}),
+		voidsIssued: r.many.questionVoids({
+			from: r.users.id,
+			to: r.questionVoids.voidedByAdminId,
+		}),
 	},
 	sessions: {
 		user: r.one.users({
@@ -214,6 +222,20 @@ export const relations = defineRelations(schema, (r) => ({
 		user: r.one.users({
 			from: r.supportTickets.userId,
 			to: r.users.id,
+		}),
+	},
+	questionVoids: {
+		targetUser: r.one.users({
+			from: r.questionVoids.targetUserId,
+			to: r.users.id,
+		}),
+		voidedByAdmin: r.one.users({
+			from: r.questionVoids.voidedByAdminId,
+			to: r.users.id,
+		}),
+		duplicateOfQuestion: r.one.questions({
+			from: r.questionVoids.duplicateOfQuestionId,
+			to: r.questions.id,
 		}),
 	},
 }))

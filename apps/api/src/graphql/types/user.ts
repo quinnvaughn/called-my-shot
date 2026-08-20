@@ -15,8 +15,14 @@ import {
 	users,
 } from "../../db/schema"
 import { env } from "../../env"
-import { requireUser } from "../../lib/auth"
-import { AuthenticationError, ValidationError } from "../../lib/errors"
+import { SortDirection } from "../../lib/admin-pagination"
+import { requireAdmin, requireUser } from "../../lib/auth"
+import {
+	AuthenticationError,
+	AuthorizationError,
+	NotFoundError,
+	ValidationError,
+} from "../../lib/errors"
 import {
 	buildGlobalLeaderboard,
 	type LeaderboardEntry,
@@ -27,7 +33,7 @@ import { accuracyFrom, scoreCalls } from "../../lib/scoring"
 import { clearSessionCookie } from "../../lib/session"
 import { randomToken } from "../../lib/tokens"
 import { builder } from "../builder"
-import { CallRef, QuestionCategory } from "./question"
+import { CallRef, QuestionCategory, VoidReason } from "./question"
 import { LeagueRef } from "./sports"
 
 // Deliberately doesn't reuse LeaderboardEntryRef from ./leaderboard: that
@@ -68,6 +74,12 @@ export const UserRef = builder.drizzleObject("users", {
 		email: t.exposeString("email"),
 		isAdmin: t.exposeBoolean("isAdmin"),
 		emailVerified: t.exposeBoolean("emailVerified"),
+		// Admin-facing fields - Users tab strikes/creation-lock/verified badge.
+		// Exposed on User generally rather than a separate admin-only type since
+		// they're not sensitive, just not surfaced anywhere in the consumer UI yet.
+		isVerifiedPundit: t.exposeBoolean("isVerifiedPundit"),
+		strikeCount: t.exposeInt("strikeCount"),
+		questionCreationEnabled: t.exposeBoolean("questionCreationEnabled"),
 		pendingEmailChange: t.field({
 			type: PendingEmailChangeRef,
 			nullable: true,
@@ -102,6 +114,25 @@ export const UserRef = builder.drizzleObject("users", {
 					limit: 3,
 				}),
 		}),
+	}),
+})
+
+// Users tab's "void history" list - the only remaining record of a voided
+// question, since voidQuestion hard-deletes the question row itself (see
+// questionVoids on the questions schema for why).
+export const QuestionVoidRef = builder.drizzleObject("questionVoids", {
+	name: "QuestionVoid",
+	fields: (t) => ({
+		id: t.exposeID("id"),
+		questionTitle: t.exposeString("questionTitle"),
+		reason: t.field({ type: VoidReason, resolve: (v) => v.reason }),
+		note: t.exposeString("note", { nullable: true }),
+		countsAsStrike: t.exposeBoolean("countsAsStrike"),
+		createdAt: t.field({
+			type: "String",
+			resolve: (v) => v.createdAt.toISOString(),
+		}),
+		voidedByAdmin: t.relation("voidedByAdmin", { nullable: true }),
 	}),
 })
 
@@ -301,6 +332,15 @@ async function issuePendingEmailChange(
 	)
 }
 
+const AdminUserSort = builder.enumType("AdminUserSort", {
+	values: {
+		USERNAME: { value: "username" },
+		STRIKES: { value: "strikeCount" },
+		VERIFIED: { value: "isVerifiedPundit" },
+		CREATION_ENABLED: { value: "questionCreationEnabled" },
+	},
+})
+
 builder.queryFields((t) => ({
 	me: t.field({
 		type: UserRef,
@@ -337,6 +377,51 @@ builder.queryFields((t) => ({
 				where: { username: parsed.data },
 			})
 			return !existing || existing.id === user.id
+		},
+	}),
+
+	// Users tab - plain list + optional search, no cursor pagination, same
+	// "admin tool stays light" reasoning as adminGames in sports.ts. Sort is a
+	// real column only - Points isn't included since it's a derived value
+	// (buildGlobalLeaderboard, computed per-row by UserRef.careerStats below)
+	// with no stored column to order by cheaply across the whole table.
+	adminUsers: t.field({
+		type: [UserRef],
+		errors: { types: [AuthenticationError, AuthorizationError] },
+		args: {
+			search: t.arg.string({ required: false }),
+			sortBy: t.arg({ type: AdminUserSort, required: false }),
+			sortDir: t.arg({ type: SortDirection, required: false }),
+		},
+		resolve: (_root, args, ctx) => {
+			requireAdmin(ctx)
+			const search = args.search?.trim()
+			const sortBy = args.sortBy ?? "username"
+			const sortDir = args.sortDir ?? "asc"
+			return db.query.users.findMany({
+				where: search
+					? {
+							OR: [
+								{ name: { ilike: `%${search}%` } },
+								{ username: { ilike: `%${search}%` } },
+							],
+						}
+					: undefined,
+				orderBy: { [sortBy]: sortDir },
+			})
+		},
+	}),
+
+	adminUserVoidHistory: t.field({
+		type: [QuestionVoidRef],
+		errors: { types: [AuthenticationError, AuthorizationError] },
+		args: { userId: t.arg.id({ required: true }) },
+		resolve: (_root, args, ctx) => {
+			requireAdmin(ctx)
+			return db.query.questionVoids.findMany({
+				where: { targetUserId: args.userId },
+				orderBy: { createdAt: "desc" },
+			})
 		},
 	}),
 }))
@@ -591,6 +676,55 @@ builder.mutationFields((t) => ({
 			await db.delete(users).where(eq(users.id, user.id))
 			clearSessionCookie(ctx.res)
 			return true
+		},
+	}),
+
+	// Users tab toggle - always wins over voidQuestion's auto-lock (an admin
+	// re-enabling isn't immediately re-flipped by a later void; only crossing
+	// the strike threshold again would re-lock it).
+	setUserQuestionCreationEnabled: t.field({
+		type: UserRef,
+		errors: {
+			types: [AuthenticationError, AuthorizationError, NotFoundError],
+			directResult: true,
+			union: { name: "SetUserQuestionCreationEnabledResult" },
+		},
+		args: {
+			userId: t.arg.id({ required: true }),
+			enabled: t.arg.boolean({ required: true }),
+		},
+		resolve: async (_root, args, ctx) => {
+			requireAdmin(ctx)
+			const [updated] = await db
+				.update(users)
+				.set({ questionCreationEnabled: args.enabled })
+				.where(eq(users.id, args.userId))
+				.returning()
+			if (!updated) throw new NotFoundError("User not found")
+			return updated
+		},
+	}),
+
+	setUserVerified: t.field({
+		type: UserRef,
+		errors: {
+			types: [AuthenticationError, AuthorizationError, NotFoundError],
+			directResult: true,
+			union: { name: "SetUserVerifiedResult" },
+		},
+		args: {
+			userId: t.arg.id({ required: true }),
+			verified: t.arg.boolean({ required: true }),
+		},
+		resolve: async (_root, args, ctx) => {
+			requireAdmin(ctx)
+			const [updated] = await db
+				.update(users)
+				.set({ isVerifiedPundit: args.verified })
+				.where(eq(users.id, args.userId))
+				.returning()
+			if (!updated) throw new NotFoundError("User not found")
+			return updated
 		},
 	}),
 }))

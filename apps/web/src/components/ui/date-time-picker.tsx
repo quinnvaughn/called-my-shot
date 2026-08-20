@@ -182,12 +182,27 @@ export function DateTimePicker({
 		const contentWidth = contentEl.offsetWidth
 		const spaceBelow = window.innerHeight - triggerEdges.bottom
 		const spaceAbove = triggerEdges.top
-		const placeAbove =
-			spaceBelow < contentHeight + gap + margin && spaceAbove > spaceBelow
+		const required = contentHeight + gap + margin
+		// Only flip above when it actually fits there - otherwise this used to
+		// flip above just because there was *relatively* more room up than
+		// down, even when neither side truly fit, which left the popover
+		// clipped against the top of the viewport instead of the comparatively
+		// more natural (and scrollable) overflow of staying below.
+		const placeAbove = spaceBelow < required && spaceAbove >= required
 
+		// Below-placement also slides up to stay fully on-screen when the
+		// content is taller than the room left under the trigger (e.g. a
+		// trigger sitting low in a modal) - same idea as the horizontal clamp
+		// on `left` just below, which this used to lack entirely.
 		const top = placeAbove
 			? Math.max(margin, triggerEdges.top - contentHeight - gap)
-			: triggerEdges.bottom + gap
+			: Math.max(
+					margin,
+					Math.min(
+						triggerEdges.bottom + gap,
+						window.innerHeight - contentHeight - margin,
+					),
+				)
 		const left = Math.min(
 			Math.max(margin, triggerEdges.left),
 			window.innerWidth - contentWidth - margin,

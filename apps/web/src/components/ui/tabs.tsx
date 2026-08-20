@@ -1,67 +1,15 @@
+import { createLink, type LinkComponent } from "@tanstack/react-router"
 import {
 	type ButtonHTMLAttributes,
+	type ComponentPropsWithoutRef,
 	createContext,
+	forwardRef,
 	type HTMLAttributes,
 	type ReactNode,
 	useContext,
 } from "react"
-import { cx, sva } from "styled-system/css"
-
-const tabsRecipe = sva({
-	slots: ["list", "trigger"],
-	base: {
-		list: {
-			display: "flex",
-			gap: "1.5",
-			padding: "1",
-		},
-		trigger: {
-			textAlign: "center",
-			fontFamily: "mono",
-			fontSize: "xs",
-			fontWeight: "semibold",
-			letterSpacing: "wide",
-			color: "fg.subtle",
-			backgroundColor: "transparent",
-			border: "1px solid",
-			borderColor: "border.emphasized",
-			borderRadius: "md",
-			textTransform: "uppercase",
-			padding: "{spacing.2} {spacing.3.5}",
-			cursor: "pointer",
-			transition:
-				"background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease",
-			_hover: {
-				color: "fg.default",
-			},
-		},
-	},
-	variants: {
-		active: {
-			true: {
-				trigger: {
-					backgroundColor: "fg.default",
-					color: "bg.canvas",
-					borderColor: "fg.default",
-					// Base's _hover color would otherwise win here (same specificity,
-					// applied after) and turn this into white-on-white.
-					_hover: {
-						color: "bg.canvas",
-					},
-				},
-			},
-		},
-		stretch: {
-			true: {
-				list: {
-					"& > *": {
-						flex: 1,
-					},
-				},
-			},
-		},
-	},
-})
+import { cx } from "styled-system/css"
+import { tabs as tabsRecipe } from "styled-system/recipes"
 
 type TabsContextValue = {
 	value: string
@@ -135,7 +83,42 @@ function TabsTrigger({ value, className, ...props }: TabsTriggerProps) {
 	)
 }
 
+// Same look as Trigger, but a real, type-safe route Link instead of a
+// client-state button - for tab rows that are actually separate pages (e.g.
+// admin's Teams/Players/Games), so the URL, back button, and reload all
+// behave like navigation rather than throwaway UI state. Built with
+// createLink so `to`/`params` stay fully typed against the route tree at
+// each call site, same as the plain `Link` export.
+//
+// Reads `data-status` (which Link always sets, active or not) rather than
+// combining separate `className`/`activeProps.className` recipe outputs -
+// those are two independently-generated classes touching the same
+// properties (color, background), and nothing guarantees the active one's
+// declarations win the cascade over the base one's for every property.
+// Resolving to a single recipe call per render sidesteps that entirely.
+type TabsLinkAnchorProps = ComponentPropsWithoutRef<"a"> & {
+	"data-status"?: "active"
+}
+
+const TabsLinkAnchor = createLink(
+	forwardRef<HTMLAnchorElement, TabsLinkAnchorProps>((props, ref) => {
+		const isActive = props["data-status"] === "active"
+		return (
+			<a
+				ref={ref}
+				{...props}
+				className={tabsRecipe({ active: isActive }).trigger}
+			/>
+		)
+	}),
+)
+
+const TabsLinkTrigger: LinkComponent<typeof TabsLinkAnchor> = (props) => (
+	<TabsLinkAnchor {...props} />
+)
+
 Tabs.List = TabsList
 Tabs.Trigger = TabsTrigger
+Tabs.LinkTrigger = TabsLinkTrigger
 
 export { Tabs }

@@ -1,5 +1,7 @@
+export * from "./admin"
 export * from "./auth"
 export * from "./groups"
 export * from "./questions"
+export * from "./sports"
 export * from "./support"
 export * from "./users"

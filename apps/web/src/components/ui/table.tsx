@@ -19,6 +19,7 @@ type TableContextValue = {
 	sortBy: string
 	sortDir: SortDir
 	onSort?: (key: string) => void
+	wide?: boolean
 }
 
 const TableContext = createContext<TableContextValue | null>(null)
@@ -35,20 +36,29 @@ type TableProps<Key extends string> = TableHTMLAttributes<HTMLTableElement> & {
 	sortBy: Key
 	sortDir: SortDir
 	onSort?: (key: Key) => void
+	// See the `wide` variant in panda.config.ts - opt in when a column (eg. a
+	// free-text title) can't be meaningfully truncated to a fixed width.
+	wide?: boolean
 }
 
 function Root<Key extends string>({
 	sortBy,
 	sortDir,
 	onSort,
+	wide,
 	className,
 	children,
 	...props
 }: TableProps<Key>) {
-	const slots = tableRecipe()
+	const slots = tableRecipe({ wide })
 	return (
 		<TableContext.Provider
-			value={{ sortBy, sortDir, onSort: onSort as TableContextValue["onSort"] }}
+			value={{
+				sortBy,
+				sortDir,
+				onSort: onSort as TableContextValue["onSort"],
+				wide,
+			}}
 		>
 			{/* Explicit width here, not just on the table — inside a flex parent
 			with alignItems: "flex-start" (VStack/HStack's default), a plain
@@ -142,7 +152,8 @@ type CellProps = TdHTMLAttributes<HTMLTableCellElement> & {
 }
 
 function Cell({ numeric, className, ...props }: CellProps) {
-	const slots = tableRecipe({ numeric })
+	const { wide } = useTableContext("Cell")
+	const slots = tableRecipe({ numeric, wide })
 	return <td className={cx(slots.cell, className)} {...props} />
 }
 

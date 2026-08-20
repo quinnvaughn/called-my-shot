@@ -1,5 +1,6 @@
 import {
 	boolean,
+	integer,
 	pgTable,
 	text,
 	timestamp,
@@ -20,6 +21,20 @@ export const users = pgTable("users", {
 	// it only flips true once someone completes the change-email confirm flow,
 	// which is the first thing that actually proves ownership of an inbox.
 	emailVerified: boolean("email_verified").notNull().default(false),
+	// Media/pundit badge, set by an admin - unrelated to emailVerified above
+	// (that's "proved they own their inbox", this is "we recognize who they are").
+	isVerifiedPundit: boolean("is_verified_pundit").notNull().default(false),
+	// Denormalized rather than computed live from question_voids at read time
+	// (unlike careerStats/leaderboard rank elsewhere in this schema) because
+	// it's read on createQuestion's hot path for every single question post,
+	// not just an admin report. Kept in sync transactionally by voidQuestion.
+	strikeCount: integer("strike_count").notNull().default(0),
+	// Auto-flipped false by voidQuestion only on the transition that crosses
+	// the strike threshold (see lib/strikes.ts) - re-enabling it is always an
+	// explicit admin action and is never immediately undone by a later void.
+	questionCreationEnabled: boolean("question_creation_enabled")
+		.notNull()
+		.default(true),
 	createdAt: timestamp("created_at").notNull().defaultNow(),
 })
 export type User = typeof users.$inferSelect

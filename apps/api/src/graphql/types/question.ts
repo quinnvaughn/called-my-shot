@@ -1,9 +1,11 @@
 import {
+	adminResolveQuestionSchema,
 	castCallSchema,
 	createQuestionSchema,
 	fileDisputeSchema,
 	type questionCategorySchema,
 	resolveQuestionSchema,
+	voidQuestionSchema,
 } from "@called-my-shot/schemas"
 import {
 	BASE_POINTS_BY_TYPE,
@@ -22,6 +24,7 @@ import {
 	getColumns,
 	ilike,
 	inArray,
+	isNotNull,
 	lte,
 	notInArray,
 	or,
@@ -33,15 +36,23 @@ import {
 	type Call,
 	callSelections,
 	calls,
+	leagues,
 	players,
 	type Question,
 	questionOptions,
 	questions,
+	questionVoids,
 	resolutionDisputes,
 	teams,
 	users,
 } from "../../db/schema"
-import { requireUser } from "../../lib/auth"
+import {
+	buildAdminConnection,
+	clampAdminPageSize,
+	SortDirection,
+	sortColumn,
+} from "../../lib/admin-pagination"
+import { requireAdmin, requireUser } from "../../lib/auth"
 import { canViewerSeePick } from "../../lib/call-visibility"
 import {
 	AuthenticationError,
@@ -49,6 +60,7 @@ import {
 	NotFoundError,
 	ValidationError,
 } from "../../lib/errors"
+import { typicalGameLengthHours } from "../../lib/game-length"
 import {
 	clampPageSize,
 	cursorWhere,
@@ -58,6 +70,7 @@ import {
 	paginate,
 } from "../../lib/pagination"
 import { accuracyFrom, scoreCalls } from "../../lib/scoring"
+import { STRIKE_LOCK_THRESHOLD } from "../../lib/strikes"
 import { builder } from "../builder"
 import { PageInfoRef } from "./pagination"
 
@@ -103,6 +116,19 @@ const QuestionSortOrder = builder.enumType("QuestionSortOrder", {
 		HOT: { value: "hot" },
 		NEW: { value: "new" },
 		CLOSING_SOON: { value: "closing_soon" },
+	},
+})
+
+// Admin Questions table's column sort - a distinct axis from the feed
+// ordering above (which ranks by "what should a viewer see first", not by a
+// literal column), so it gets its own enum rather than extending that one.
+const AdminQuestionSort = builder.enumType("AdminQuestionSort", {
+	values: {
+		TITLE: { value: "title" },
+		TYPE: { value: "type" },
+		ASKER: { value: "asker" },
+		CALLERS: { value: "callers" },
+		STATUS: { value: "status" },
 	},
 })
 
@@ -620,6 +646,41 @@ export const QuestionRef = builder.drizzleObject("questions", {
 	}),
 })
 
+type AdminQueueSummaryData = {
+	needsResolution: Question[]
+	probablyStillLive: Question[]
+	disputed: (typeof resolutionDisputes.$inferSelect)[]
+	liveQuestionsCount: number
+	usersLockedCount: number
+}
+
+const AdminQueueSummaryRef = builder
+	.objectRef<AdminQueueSummaryData>("AdminQueueSummary")
+	.implement({
+		fields: (t) => ({
+			// "Locked a while, likely over" - estimate only (locked-time vs. a
+			// typical game length per league, see lib/game-length.ts), not a
+			// confirmed final. Has Resolve/Void actions on the frontend.
+			needsResolution: t.field({
+				type: [QuestionRef],
+				resolve: (d) => d.needsResolution,
+			}),
+			// "Locked recently, probably still live" - same estimate, other side
+			// of the threshold. No actions on the frontend - nothing to act on
+			// either way without a real result yet.
+			probablyStillLive: t.field({
+				type: [QuestionRef],
+				resolve: (d) => d.probablyStillLive,
+			}),
+			disputed: t.field({
+				type: [ResolutionDisputeRef],
+				resolve: (d) => d.disputed,
+			}),
+			liveQuestionsCount: t.exposeInt("liveQuestionsCount"),
+			usersLockedCount: t.exposeInt("usersLockedCount"),
+		}),
+	})
+
 builder.queryFields((t) => ({
 	// The home feed. leagueId/teamId/search narrow the pool, sort picks the
 	// ordering - HOT (live call count, the default), NEW (createdAt), or
@@ -634,6 +695,9 @@ builder.queryFields((t) => ({
 			leagueId: t.arg.id(),
 			teamId: t.arg.id(),
 			search: t.arg.string(),
+			// Admin Questions tab only - every other caller of this field leaves it
+			// unset and gets every status, same as before this arg existed.
+			status: t.arg({ type: QuestionStatus, required: false }),
 			sort: t.arg({ type: QuestionSortOrder, required: false }),
 		},
 		resolve: async (_root, args) => {
@@ -643,6 +707,7 @@ builder.queryFields((t) => ({
 
 			const conditions = [
 				args.leagueId ? eq(questions.leagueId, args.leagueId) : undefined,
+				args.status ? eq(questions.status, args.status) : undefined,
 				args.teamId
 					? or(
 							eq(questions.subjectTeamId, args.teamId),
@@ -737,6 +802,91 @@ builder.queryFields((t) => ({
 		},
 	}),
 
+	// Admin Questions table - every question regardless of status, with real
+	// column sort (unlike the public `questions` field above, which only ever
+	// ranks by HOT/NEW/CLOSING_SOON). Its own call-count CTE rather than
+	// reusing the one above - separate queries, no reason to share a `WITH`.
+	adminQuestions: t.field({
+		type: QuestionConnectionRef,
+		errors: { types: [AuthenticationError, AuthorizationError] },
+		args: {
+			first: t.arg.int(),
+			after: t.arg.string(),
+			search: t.arg.string(),
+			status: t.arg({ type: QuestionStatus, required: false }),
+			sortBy: t.arg({ type: AdminQuestionSort, required: false }),
+			sortDir: t.arg({ type: SortDirection, required: false }),
+		},
+		resolve: async (_root, args, ctx) => {
+			requireAdmin(ctx)
+			const limit = clampAdminPageSize(args.first)
+			const offset = args.after ? decodeOffsetCursor(args.after) : 0
+			const sortBy = args.sortBy ?? "title"
+			const sortDir = args.sortDir ?? "asc"
+
+			const conditions = [
+				args.status ? eq(questions.status, args.status) : undefined,
+				args.search
+					? or(
+							ilike(questions.title, `%${args.search}%`),
+							ilike(users.name, `%${args.search}%`),
+							ilike(users.username, `%${args.search}%`),
+						)
+					: undefined,
+			].filter((c) => c !== undefined)
+
+			const callCounts = db.$with("admin_question_call_counts").as(
+				db
+					.select({
+						questionId: calls.questionId,
+						cnt: count(calls.id).as("cnt"),
+					})
+					.from(calls)
+					.groupBy(calls.questionId),
+			)
+
+			let query = db
+				.with(callCounts)
+				.select(getColumns(questions))
+				.from(questions)
+				.leftJoin(users, eq(users.id, questions.creatorId))
+				.leftJoin(callCounts, eq(callCounts.questionId, questions.id))
+				.$dynamic()
+
+			if (conditions.length > 0) {
+				query = query.where(and(...conditions))
+			}
+
+			query =
+				sortBy === "asker"
+					? query.orderBy(
+							sortColumn(sortDir, users.username),
+							asc(questions.id),
+						)
+					: sortBy === "callers"
+						? query.orderBy(
+								sortDir === "asc"
+									? asc(sql`coalesce(${callCounts.cnt}, 0)`)
+									: desc(sql`coalesce(${callCounts.cnt}, 0)`),
+								asc(questions.id),
+							)
+						: query.orderBy(
+								sortColumn(
+									sortDir,
+									sortBy === "type"
+										? questions.type
+										: sortBy === "status"
+											? questions.status
+											: questions.title,
+								),
+								asc(questions.id),
+							)
+
+			const rows = await query.limit(limit + 1).offset(offset)
+			return buildAdminConnection(rows, limit, offset)
+		},
+	}),
+
 	question: t.field({
 		type: QuestionRef,
 		nullable: true,
@@ -789,6 +939,66 @@ builder.queryFields((t) => ({
 				(call) => call.question?.status === "resolved",
 			).length
 			return { open: calls.length - resolved, resolved }
+		},
+	}),
+
+	// Queue tab. "Needs resolution" / "probably still live" only ever considers
+	// game-scoped questions (gameId set) that are still open past their
+	// locksAt - season-long questions (MVP, championship) have no single game
+	// to estimate a "likely over" guess off of, and aren't time-sensitive the
+	// same way, so they're resolved manually elsewhere and never show up here.
+	adminQueueSummary: t.field({
+		type: AdminQueueSummaryRef,
+		errors: { types: [AuthenticationError, AuthorizationError] },
+		resolve: async (_root, _args, ctx) => {
+			requireAdmin(ctx)
+			const now = new Date()
+
+			const lockedOpenQuestions = await db
+				.select({ ...getColumns(questions), leagueSlug: leagues.slug })
+				.from(questions)
+				.innerJoin(leagues, eq(leagues.id, questions.leagueId))
+				.where(
+					and(
+						eq(questions.status, "open"),
+						isNotNull(questions.gameId),
+						lte(questions.locksAt, now),
+					),
+				)
+
+			const needsResolution: Question[] = []
+			const probablyStillLive: Question[] = []
+			for (const question of lockedOpenQuestions) {
+				const hoursSinceLock =
+					(now.getTime() - question.locksAt.getTime()) / (1000 * 60 * 60)
+				const typicalHours = typicalGameLengthHours(question.leagueSlug)
+				;(hoursSinceLock >= typicalHours
+					? needsResolution
+					: probablyStillLive
+				).push(question)
+			}
+
+			const disputed = await db.query.resolutionDisputes.findMany({
+				where: { status: "open" },
+				orderBy: { createdAt: "asc" },
+			})
+
+			const [{ n: liveQuestionsCount }] = await db
+				.select({ n: count() })
+				.from(questions)
+				.where(eq(questions.status, "open"))
+			const [{ n: usersLockedCount }] = await db
+				.select({ n: count() })
+				.from(users)
+				.where(eq(users.questionCreationEnabled, false))
+
+			return {
+				needsResolution,
+				probablyStillLive,
+				disputed,
+				liveQuestionsCount,
+				usersLockedCount,
+			}
 		},
 	}),
 }))
@@ -934,6 +1144,245 @@ const FileDisputePayload = builder
 				type: ResolutionDisputeRef,
 				resolve: (payload) => payload.dispute,
 			}),
+		}),
+	})
+
+type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0]
+
+// The scoring + question-update core of resolving a question - shared by the
+// creator-only resolveQuestion below and the admin-only adminResolveQuestion/
+// overturnDispute (question.ts's admin mutations further down). Deliberately
+// has no auth or status-eligibility checks of its own - every caller already
+// had to load and validate `question` itself (different rules per caller:
+// resolveQuestion requires the creator and refuses resolved/disputed,
+// adminResolveQuestion is admin-only, overturnDispute specifically requires
+// disputed), so re-checking here would just be redundant with all of them.
+// sourceOverride is only ever passed by the admin callers - regular creator
+// resolution never touches resolutionSource/resolutionSourceUrl.
+async function resolveQuestionInternal(
+	tx: Tx,
+	question: Question,
+	data: {
+		correctOptionIds: string[]
+		actualValue?: number
+		resolutionNote: string
+	},
+	sourceOverride?: { resolutionSource?: string; resolutionSourceUrl?: string },
+) {
+	if (question.type === "numeric_guess") {
+		const guessCalls = await tx.query.calls.findMany({
+			where: { questionId: question.id },
+			columns: {
+				id: true,
+				guessValue: true,
+				conviction: true,
+				createdAt: true,
+			},
+		})
+		const guesses = guessCalls
+			.filter(
+				(c): c is typeof c & { guessValue: number; conviction: number } =>
+					c.guessValue !== null && c.conviction !== null,
+			)
+			.map((c) => ({
+				callId: c.id,
+				guessValue: c.guessValue,
+				conviction: c.conviction,
+				createdAt: c.createdAt,
+			}))
+
+		// resolveQuestionSchema/adminResolveQuestionSchema guarantee actualValue
+		// is set for numeric_guess, and createQuestionSchema guarantees
+		// numericTolerancePct was set at creation for this type.
+		const scored = numericGuessPoints(
+			BASE_POINTS_BY_TYPE[question.type],
+			guesses,
+			data.actualValue as number,
+			question.numericTolerancePct as number,
+		)
+		for (const r of scored) {
+			await tx
+				.update(calls)
+				.set({
+					resultPoints: r.points,
+					hitTolerance: r.hit,
+					closenessMult: r.closenessMult,
+					closenessFieldPct: r.closenessFieldPct,
+				})
+				.where(eq(calls.id, r.callId))
+		}
+	} else {
+		const options = await tx.query.questionOptions.findMany({
+			where: { questionId: question.id },
+			columns: { id: true },
+		})
+		const validIds = new Set(options.map((o) => o.id))
+		if (!data.correctOptionIds.every((id) => validIds.has(id))) {
+			throw ValidationError.field(
+				"correctOptionIds",
+				"One or more options don't belong to this question",
+			)
+		}
+
+		await tx
+			.update(questionOptions)
+			.set({ isCorrect: true })
+			.where(
+				and(
+					eq(questionOptions.questionId, question.id),
+					inArray(questionOptions.id, data.correctOptionIds),
+				),
+			)
+		await tx
+			.update(questionOptions)
+			.set({ isCorrect: false })
+			.where(
+				and(
+					eq(questionOptions.questionId, question.id),
+					notInArray(questionOptions.id, data.correctOptionIds),
+				),
+			)
+
+		const [{ n: totalCalls }] = await tx
+			.select({ n: count() })
+			.from(calls)
+			.where(eq(calls.questionId, question.id))
+
+		const perOptionCounts = await tx
+			.select({ optionId: callSelections.optionId, n: count() })
+			.from(callSelections)
+			.innerJoin(calls, eq(calls.id, callSelections.callId))
+			.where(eq(calls.questionId, question.id))
+			.groupBy(callSelections.optionId)
+		const countByOption = new Map(perOptionCounts.map((r) => [r.optionId, r.n]))
+		const correctOptionIds = new Set(data.correctOptionIds)
+
+		const rawSelections = await tx.query.callSelections.findMany({
+			where: { call: { questionId: question.id } },
+			columns: { id: true, optionId: true, conviction: true },
+			with: { call: { columns: { id: true, createdAt: true } } },
+		})
+		// The `where` above already filters to selections whose call belongs to
+		// this question, so `call` is always present here - this narrows the
+		// type Drizzle infers (nullable for every `one` relation regardless of
+		// FK nullability) rather than reflecting a real possibility.
+		const selections = rawSelections.filter(
+			(s): s is typeof s & { call: NonNullable<(typeof s)["call"]> } =>
+				s.call !== null,
+		)
+
+		// Earliness is a property of the call, not any one selection in it - a
+		// multi_select call's picks all share the same createdAt, so this ranks
+		// distinct calls, not selections, before mapping back.
+		const callsById = new Map(selections.map((s) => [s.call.id, s.call]))
+		const orderedCalls = [...callsById.values()].sort(
+			(a, b) => a.createdAt.getTime() - b.createdAt.getTime(),
+		)
+		const earlyMultByCallId = new Map(
+			orderedCalls.map((c, index) => [
+				c.id,
+				earlyTierFor(index + 1, totalCalls).mult,
+			]),
+		)
+
+		for (const s of selections) {
+			const pct = fieldPct(countByOption.get(s.optionId) ?? 0, totalCalls)
+			const isCorrect = correctOptionIds.has(s.optionId)
+			const earlyMult = earlyMultByCallId.get(s.call.id) ?? 1
+			const points = selectionPoints(
+				BASE_POINTS_BY_TYPE[question.type],
+				pct,
+				options.length,
+				s.conviction,
+				isCorrect,
+				earlyMult,
+			)
+			await tx
+				.update(callSelections)
+				.set({ resultPoints: points })
+				.where(eq(callSelections.id, s.id))
+		}
+	}
+
+	const [updated] = await tx
+		.update(questions)
+		.set({
+			status: "resolved",
+			resolvedAt: new Date(),
+			resolutionNote: data.resolutionNote || null,
+			...(question.type === "numeric_guess"
+				? { numericActualValue: data.actualValue }
+				: {}),
+			...(sourceOverride?.resolutionSource
+				? { resolutionSource: sourceOverride.resolutionSource }
+				: {}),
+			...(sourceOverride?.resolutionSourceUrl !== undefined
+				? { resolutionSourceUrl: sourceOverride.resolutionSourceUrl || null }
+				: {}),
+		})
+		.where(eq(questions.id, question.id))
+		.returning()
+
+	if (!updated)
+		throw new Error(
+			"resolveQuestionInternal: question vanished mid-transaction",
+		)
+	return updated
+}
+
+const AdminResolveQuestionInput = builder.inputType(
+	"AdminResolveQuestionInput",
+	{
+		fields: (t) => ({
+			questionId: t.id({ required: true }),
+			correctOptionIds: t.field({ type: ["ID"], required: false }),
+			actualValue: t.float({ required: false }),
+			resolutionNote: t.string({ required: false }),
+			resolutionSource: t.string({ required: false }),
+			resolutionSourceUrl: t.string({ required: false }),
+		}),
+	},
+)
+
+const OverturnDisputeInput = builder.inputType("OverturnDisputeInput", {
+	fields: (t) => ({
+		disputeId: t.id({ required: true }),
+		resolution: t.field({ type: AdminResolveQuestionInput, required: true }),
+	}),
+})
+
+const UpholdDisputeInput = builder.inputType("UpholdDisputeInput", {
+	fields: (t) => ({
+		disputeId: t.id({ required: true }),
+		note: t.string({ required: false }),
+	}),
+})
+
+export const VoidReason = builder.enumType("VoidReason", {
+	values: {
+		NONSENSICAL: { value: "nonsensical" },
+		OFF_TOPIC: { value: "off_topic" },
+		UNSUPPORTED_SPORT: { value: "unsupported_sport" },
+		DUPLICATE: { value: "duplicate" },
+		OTHER: { value: "other" },
+	},
+})
+
+const VoidQuestionInput = builder.inputType("VoidQuestionInput", {
+	fields: (t) => ({
+		questionId: t.id({ required: true }),
+		reason: t.field({ type: VoidReason, required: true }),
+		duplicateOfQuestionId: t.id({ required: false }),
+		note: t.string({ required: false }),
+		countsAsStrike: t.boolean({ required: true }),
+	}),
+})
+
+const VoidQuestionPayload = builder
+	.objectRef<{ questionId: string }>("VoidQuestionPayload")
+	.implement({
+		fields: (t) => ({
+			questionId: t.exposeID("questionId"),
 		}),
 	})
 
@@ -1255,163 +1704,267 @@ builder.mutationFields((t) => ({
 				if (!parsed.success) {
 					throw ValidationError.fromZodIssues(parsed.error.issues)
 				}
-				const data = parsed.data
 
-				if (question.type === "numeric_guess") {
-					const guessCalls = await tx.query.calls.findMany({
-						where: { questionId: question.id },
-						columns: {
-							id: true,
-							guessValue: true,
-							conviction: true,
-							createdAt: true,
-						},
-					})
-					const guesses = guessCalls
-						.filter(
-							(c): c is typeof c & { guessValue: number; conviction: number } =>
-								c.guessValue !== null && c.conviction !== null,
-						)
-						.map((c) => ({
-							callId: c.id,
-							guessValue: c.guessValue,
-							conviction: c.conviction,
-							createdAt: c.createdAt,
-						}))
+				return resolveQuestionInternal(tx, question, parsed.data)
+			})
 
-					// resolveQuestionSchema guarantees actualValue is set for
-					// numeric_guess, and createQuestionSchema guarantees
-					// numericTolerancePct was set at creation for this type.
-					const scored = numericGuessPoints(
-						BASE_POINTS_BY_TYPE[question.type],
-						guesses,
-						data.actualValue as number,
-						question.numericTolerancePct as number,
+			return { question }
+		},
+	}),
+
+	// Admin-only counterpart to resolveQuestion above, for a question whose
+	// creator never got around to resolving it (the Queue tab's "needs
+	// resolution" list). Same eligibility rule as the creator path (open,
+	// locksAt already passed) except there's no creator check - any admin can
+	// resolve any question - and it can additionally overwrite the
+	// creation-time resolutionSource/resolutionSourceUrl with what the admin
+	// actually checked.
+	adminResolveQuestion: t.field({
+		type: QuestionPayload,
+		errors: {
+			types: [
+				AuthenticationError,
+				AuthorizationError,
+				NotFoundError,
+				ValidationError,
+			],
+			directResult: true,
+			union: { name: "AdminResolveQuestionResult" },
+		},
+		args: { input: t.arg({ type: AdminResolveQuestionInput, required: true }) },
+		resolve: async (_root, args, ctx) => {
+			requireAdmin(ctx)
+
+			const question = await db.transaction(async (tx) => {
+				const [question] = await tx
+					.select()
+					.from(questions)
+					.where(eq(questions.id, args.input.questionId))
+					.for("update")
+				if (!question) throw new NotFoundError("Question not found")
+				if (question.status === "resolved" || question.status === "disputed") {
+					throw ValidationError.field(
+						null,
+						"This question has already been resolved.",
 					)
-					for (const r of scored) {
-						await tx
-							.update(calls)
-							.set({
-								resultPoints: r.points,
-								hitTolerance: r.hit,
-								closenessMult: r.closenessMult,
-								closenessFieldPct: r.closenessFieldPct,
-							})
-							.where(eq(calls.id, r.callId))
-					}
-				} else {
-					const options = await tx.query.questionOptions.findMany({
-						where: { questionId: question.id },
-						columns: { id: true },
-					})
-					const validIds = new Set(options.map((o) => o.id))
-					if (!data.correctOptionIds.every((id) => validIds.has(id))) {
-						throw ValidationError.field(
-							"correctOptionIds",
-							"One or more options don't belong to this question",
-						)
-					}
-
-					await tx
-						.update(questionOptions)
-						.set({ isCorrect: true })
-						.where(
-							and(
-								eq(questionOptions.questionId, question.id),
-								inArray(questionOptions.id, data.correctOptionIds),
-							),
-						)
-					await tx
-						.update(questionOptions)
-						.set({ isCorrect: false })
-						.where(
-							and(
-								eq(questionOptions.questionId, question.id),
-								notInArray(questionOptions.id, data.correctOptionIds),
-							),
-						)
-
-					const [{ n: totalCalls }] = await tx
-						.select({ n: count() })
-						.from(calls)
-						.where(eq(calls.questionId, question.id))
-
-					const perOptionCounts = await tx
-						.select({ optionId: callSelections.optionId, n: count() })
-						.from(callSelections)
-						.innerJoin(calls, eq(calls.id, callSelections.callId))
-						.where(eq(calls.questionId, question.id))
-						.groupBy(callSelections.optionId)
-					const countByOption = new Map(
-						perOptionCounts.map((r) => [r.optionId, r.n]),
-					)
-					const correctOptionIds = new Set(data.correctOptionIds)
-
-					const rawSelections = await tx.query.callSelections.findMany({
-						where: { call: { questionId: question.id } },
-						columns: { id: true, optionId: true, conviction: true },
-						with: { call: { columns: { id: true, createdAt: true } } },
-					})
-					// The `where` above already filters to selections whose call
-					// belongs to this question, so `call` is always present here -
-					// this narrows the type Drizzle infers (nullable for every `one`
-					// relation regardless of FK nullability) rather than reflecting a
-					// real possibility.
-					const selections = rawSelections.filter(
-						(s): s is typeof s & { call: NonNullable<(typeof s)["call"]> } =>
-							s.call !== null,
-					)
-
-					// Earliness is a property of the call, not any one selection in it -
-					// a multi_select call's picks all share the same createdAt, so this
-					// ranks distinct calls, not selections, before mapping back.
-					const callsById = new Map(selections.map((s) => [s.call.id, s.call]))
-					const orderedCalls = [...callsById.values()].sort(
-						(a, b) => a.createdAt.getTime() - b.createdAt.getTime(),
-					)
-					const earlyMultByCallId = new Map(
-						orderedCalls.map((c, index) => [
-							c.id,
-							earlyTierFor(index + 1, totalCalls).mult,
-						]),
-					)
-
-					for (const s of selections) {
-						const pct = fieldPct(countByOption.get(s.optionId) ?? 0, totalCalls)
-						const isCorrect = correctOptionIds.has(s.optionId)
-						const earlyMult = earlyMultByCallId.get(s.call.id) ?? 1
-						const points = selectionPoints(
-							BASE_POINTS_BY_TYPE[question.type],
-							pct,
-							options.length,
-							s.conviction,
-							isCorrect,
-							earlyMult,
-						)
-						await tx
-							.update(callSelections)
-							.set({ resultPoints: points })
-							.where(eq(callSelections.id, s.id))
-					}
+				}
+				if (question.locksAt > new Date()) {
+					throw ValidationError.field(null, "This question hasn't locked yet.")
 				}
 
-				const [updated] = await tx
-					.update(questions)
-					.set({
-						status: "resolved",
-						resolvedAt: new Date(),
-						resolutionNote: data.resolutionNote || null,
-						...(question.type === "numeric_guess"
-							? { numericActualValue: data.actualValue }
-							: {}),
-					})
-					.where(eq(questions.id, question.id))
-					.returning()
+				const parsed = adminResolveQuestionSchema.safeParse({
+					...args.input,
+					type: question.type,
+				})
+				if (!parsed.success) {
+					throw ValidationError.fromZodIssues(parsed.error.issues)
+				}
+
+				return resolveQuestionInternal(tx, question, parsed.data, {
+					resolutionSource: parsed.data.resolutionSource,
+					resolutionSourceUrl: parsed.data.resolutionSourceUrl,
+				})
+			})
+
+			return { question }
+		},
+	}),
+
+	// Disputes tab's Overturn action - re-runs resolution with a corrected
+	// outcome and closes the dispute as overturned. Requires the dispute still
+	// be open and its question still disputed (both should always move
+	// together, but each is checked independently rather than assumed from
+	// the other).
+	overturnDispute: t.field({
+		type: QuestionPayload,
+		errors: {
+			types: [
+				AuthenticationError,
+				AuthorizationError,
+				NotFoundError,
+				ValidationError,
+			],
+			directResult: true,
+			union: { name: "OverturnDisputeResult" },
+		},
+		args: { input: t.arg({ type: OverturnDisputeInput, required: true }) },
+		resolve: async (_root, args, ctx) => {
+			requireAdmin(ctx)
+
+			const question = await db.transaction(async (tx) => {
+				const [dispute] = await tx
+					.select()
+					.from(resolutionDisputes)
+					.where(eq(resolutionDisputes.id, args.input.disputeId))
+					.for("update")
+				if (!dispute) throw new NotFoundError("Dispute not found")
+				if (dispute.status !== "open") {
+					throw ValidationError.field(null, "This dispute is already settled.")
+				}
+
+				const [question] = await tx
+					.select()
+					.from(questions)
+					.where(eq(questions.id, dispute.questionId))
+					.for("update")
+				if (!question) throw new NotFoundError("Question not found")
+				if (question.status !== "disputed") {
+					throw ValidationError.field(null, "This question isn't disputed.")
+				}
+
+				const parsed = adminResolveQuestionSchema.safeParse({
+					...args.input.resolution,
+					type: question.type,
+				})
+				if (!parsed.success) {
+					throw ValidationError.fromZodIssues(parsed.error.issues)
+				}
+
+				const updated = await resolveQuestionInternal(
+					tx,
+					question,
+					parsed.data,
+					{
+						resolutionSource: parsed.data.resolutionSource,
+						resolutionSourceUrl: parsed.data.resolutionSourceUrl,
+					},
+				)
+
+				await tx
+					.update(resolutionDisputes)
+					.set({ status: "overturned", resolvedAt: new Date() })
+					.where(eq(resolutionDisputes.id, dispute.id))
 
 				return updated
 			})
 
 			return { question }
+		},
+	}),
+
+	// Disputes tab's Uphold action - keeps the original resolution as-is,
+	// just closes the dispute. resolutionNote here is the dispute's own note
+	// field (shown as the dispute's resolution context), distinct from the
+	// question's own resolutionNote which this leaves untouched.
+	upholdDispute: t.field({
+		type: ResolutionDisputeRef,
+		errors: {
+			types: [AuthenticationError, AuthorizationError, NotFoundError],
+			directResult: true,
+			union: { name: "UpholdDisputeResult" },
+		},
+		args: { input: t.arg({ type: UpholdDisputeInput, required: true }) },
+		resolve: async (_root, args, ctx) => {
+			requireAdmin(ctx)
+
+			return db.transaction(async (tx) => {
+				const [dispute] = await tx
+					.select()
+					.from(resolutionDisputes)
+					.where(eq(resolutionDisputes.id, args.input.disputeId))
+					.for("update")
+				if (!dispute) throw new NotFoundError("Dispute not found")
+				if (dispute.status !== "open") {
+					throw ValidationError.field(null, "This dispute is already settled.")
+				}
+
+				const [updatedDispute] = await tx
+					.update(resolutionDisputes)
+					.set({
+						status: "upheld",
+						resolvedAt: new Date(),
+						resolutionNote: args.input.note || null,
+					})
+					.where(eq(resolutionDisputes.id, dispute.id))
+					.returning()
+				if (!updatedDispute)
+					throw new Error("upholdDispute: dispute vanished mid-transaction")
+
+				await tx
+					.update(questions)
+					.set({ status: "resolved" })
+					.where(eq(questions.id, dispute.questionId))
+
+				return updatedDispute
+			})
+		},
+	}),
+
+	// Void = delete the question and everything on it (calls, options,
+	// disputes all cascade). Safe pre- or post-resolution: scoring is always
+	// computed live from calls/callSelections, nothing persisted per-user
+	// needs reversing. questionVoids keeps the audit trail (Users tab's void
+	// history, and the strike bookkeeping below) that the hard delete would
+	// otherwise erase.
+	voidQuestion: t.field({
+		type: VoidQuestionPayload,
+		errors: {
+			types: [
+				AuthenticationError,
+				AuthorizationError,
+				NotFoundError,
+				ValidationError,
+			],
+			directResult: true,
+			union: { name: "VoidQuestionResult" },
+		},
+		args: { input: t.arg({ type: VoidQuestionInput, required: true }) },
+		resolve: async (_root, args, ctx) => {
+			const admin = requireAdmin(ctx)
+			const parsed = voidQuestionSchema.safeParse(args.input)
+			if (!parsed.success)
+				throw ValidationError.fromZodIssues(parsed.error.issues)
+			const data = parsed.data
+
+			await db.transaction(async (tx) => {
+				const [question] = await tx
+					.select()
+					.from(questions)
+					.where(eq(questions.id, data.questionId))
+					.for("update")
+				if (!question) throw new NotFoundError("Question not found")
+				if (question.status !== "open" && question.status !== "disputed") {
+					throw ValidationError.field(
+						null,
+						"Only a live, locked, or disputed question can be voided.",
+					)
+				}
+
+				if (question.creatorId) {
+					await tx.insert(questionVoids).values({
+						questionId: question.id,
+						questionTitle: question.title,
+						targetUserId: question.creatorId,
+						voidedByAdminId: admin.id,
+						reason: data.reason,
+						duplicateOfQuestionId: data.duplicateOfQuestionId,
+						note: data.note || null,
+						countsAsStrike: data.countsAsStrike,
+					})
+
+					if (data.countsAsStrike) {
+						const [updatedUser] = await tx
+							.update(users)
+							.set({ strikeCount: sql`${users.strikeCount} + 1` })
+							.where(eq(users.id, question.creatorId))
+							.returning()
+						if (
+							updatedUser &&
+							updatedUser.strikeCount >= STRIKE_LOCK_THRESHOLD &&
+							updatedUser.questionCreationEnabled
+						) {
+							await tx
+								.update(users)
+								.set({ questionCreationEnabled: false })
+								.where(eq(users.id, question.creatorId))
+						}
+					}
+				}
+
+				await tx.delete(questions).where(eq(questions.id, question.id))
+			})
+
+			return { questionId: data.questionId }
 		},
 	}),
 

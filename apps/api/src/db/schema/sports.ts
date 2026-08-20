@@ -1,6 +1,7 @@
 import {
 	integer,
 	numeric,
+	pgEnum,
 	pgTable,
 	text,
 	timestamp,
@@ -14,6 +15,11 @@ export const sports = pgTable("sports", {
 	slug: text("slug").notNull().unique(), // "basketball"
 })
 
+// "inactive" hides a league from new-question creation without deleting it or
+// anything that references it - the one lifecycle state this app actually
+// needs (e.g. a league announced but not live yet, like MLB at launch).
+export const leagueStatus = pgEnum("league_status", ["active", "inactive"])
+
 export const leagues = pgTable("leagues", {
 	id: uuid("id").primaryKey().defaultRandom(),
 	sportId: uuid("sport_id")
@@ -22,6 +28,7 @@ export const leagues = pgTable("leagues", {
 	name: text("name").notNull(), // "NBA"
 	abbreviation: text("abbreviation").notNull(),
 	slug: text("slug").notNull().unique(), // "nba"
+	status: leagueStatus("status").notNull().default("active"),
 })
 export type League = typeof leagues.$inferSelect
 
@@ -46,6 +53,10 @@ export type Team = typeof teams.$inferSelect
 // has one - season-long questions (a championship, an MVP race) leave
 // questions.gameId null. home/away, not a symmetric "teamA/teamB" pair - the
 // "@" convention (away @ home) is what the title text and UI both read off.
+// Manual for now - no live stats feed exists, so an admin sets this by hand
+// on the Data tab. homeScore/awayScore are only meaningful once "final".
+export const gameStatus = pgEnum("game_status", ["scheduled", "live", "final"])
+
 export const games = pgTable("games", {
 	id: uuid("id").primaryKey().defaultRandom(),
 	leagueId: uuid("league_id")
@@ -58,6 +69,9 @@ export const games = pgTable("games", {
 		.notNull()
 		.references(() => teams.id, { onDelete: "restrict" }),
 	startsAt: timestamp("starts_at").notNull(),
+	status: gameStatus("status").notNull().default("scheduled"),
+	homeScore: integer("home_score"),
+	awayScore: integer("away_score"),
 })
 export type Game = typeof games.$inferSelect
 

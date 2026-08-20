@@ -1,0 +1,238 @@
+import { useApolloClient } from "@apollo/client/react"
+import { createFileRoute, Link } from "@tanstack/react-router"
+import { useEffect, useState } from "react"
+import { css, cx } from "styled-system/css"
+import { HStack, VStack } from "styled-system/jsx"
+import { QuestionRowActions } from "#/components/admin/question-row-actions"
+import { Button } from "#/components/ui/button"
+import { PageHeader } from "#/components/ui/page-header"
+import { Table } from "#/components/ui/table"
+import { Tag } from "#/components/ui/tag"
+import { TextInput } from "#/components/ui/text-input"
+import type {
+	AdminQuestionSort,
+	QuestionStatus,
+} from "#/graphql/generated/graphql"
+import { AdminQuestionsDocument } from "#/graphql/queries/admin"
+import { useAdminConnection } from "#/hooks/use-admin-connection"
+import { useDebouncedValue } from "#/hooks/use-debounced-value"
+
+export const Route = createFileRoute("/admin/questions")({
+	component: RouteComponent,
+})
+
+const STATUS_FILTERS: { value: QuestionStatus | null; label: string }[] = [
+	{ value: null, label: "All" },
+	{ value: "OPEN", label: "Open" },
+	{ value: "RESOLVED", label: "Resolved" },
+	{ value: "DISPUTED", label: "Disputed" },
+]
+
+const columns = [
+	{ key: "title", label: "Question" },
+	{ key: "type", label: "Type" },
+	{ key: "asker", label: "Asker" },
+	{ key: "calls", label: "Callers", numeric: true },
+	{ key: "status", label: "Status" },
+	{ key: "actions", label: "", sortable: false },
+] as const
+
+type SortKey = "title" | "type" | "asker" | "calls" | "status"
+
+const SORT_KEY_TO_ENUM: Record<SortKey, AdminQuestionSort> = {
+	title: "TITLE",
+	type: "TYPE",
+	asker: "ASKER",
+	calls: "CALLERS",
+	status: "STATUS",
+}
+const SORT_ENUM_TO_KEY: Record<AdminQuestionSort, SortKey> = {
+	TITLE: "title",
+	TYPE: "type",
+	ASKER: "asker",
+	CALLERS: "calls",
+	STATUS: "status",
+}
+
+function questionDisplayStatus(status: QuestionStatus, locksAt: string) {
+	if (status === "OPEN") {
+		return new Date(locksAt) <= new Date()
+			? { label: "Locked", variant: "neutral" as const }
+			: { label: "Live", variant: "primary" as const }
+	}
+	if (status === "DISPUTED")
+		return { label: "Disputed", variant: "primary" as const }
+	return { label: "Resolved", variant: "success" as const }
+}
+
+const typeLabel: Record<string, string> = {
+	MULTIPLE_CHOICE: "Multiple Choice",
+	YES_NO: "Yes/No",
+	OVER_UNDER: "Over/Under",
+	NUMERIC_GUESS: "Numeric Guess",
+	MULTI_SELECT: "Multi Select",
+}
+
+const filterPill = css({
+	fontFamily: "mono",
+	fontSize: "2xs",
+	letterSpacing: "wide",
+	textTransform: "uppercase",
+	padding: "{spacing.1.5} {spacing.3}",
+	borderRadius: "lg",
+	border: "1px solid {colors.border.default}",
+	color: "fg.subtle",
+	cursor: "pointer",
+	_hover: { borderColor: "border.emphasized", color: "fg.default" },
+})
+
+const filterPillActive = css({
+	borderColor: "fg.default",
+	color: "bg.canvas",
+	bg: "fg.default",
+	_hover: { borderColor: "fg.default", color: "bg.canvas" },
+})
+
+type QuestionRow = {
+	id: string
+	title: string
+	type: string
+	status: QuestionStatus
+	createdAt: string
+	locksAt: string
+	callCount: number
+	creator: { id: string; username: string } | null
+}
+
+function RouteComponent() {
+	const client = useApolloClient()
+	const [search, setSearch] = useState("")
+	const [status, setStatus] = useState<QuestionStatus | null>(null)
+	const debouncedSearch = useDebouncedValue(search, 300)
+
+	const {
+		items,
+		loading,
+		hasNextPage,
+		sortBy,
+		sortDir,
+		onSort,
+		loadMore,
+		reload,
+	} = useAdminConnection<QuestionRow, AdminQuestionSort>({
+		defaultSort: "TITLE",
+		fetchPage: async ({ sortBy: sb, sortDir: sd, after }) => {
+			const { data } = await client.query({
+				query: AdminQuestionsDocument,
+				variables: {
+					search: debouncedSearch || undefined,
+					status: status ?? undefined,
+					sortBy: sb,
+					sortDir: sd === "asc" ? "ASC" : "DESC",
+					after,
+				},
+				fetchPolicy: "network-only",
+			})
+			if (data?.adminQuestions.__typename !== "QueryAdminQuestionsSuccess")
+				return null
+			return data.adminQuestions.data
+		},
+	})
+
+	// biome-ignore lint/correctness/useExhaustiveDependencies: reload is stable, see use-admin-connection.ts
+	useEffect(() => {
+		reload()
+	}, [debouncedSearch, status])
+
+	return (
+		<VStack gap="6" alignItems="stretch">
+			<PageHeader
+				title="Questions"
+				subtitle="Every question on the platform."
+			/>
+			<TextInput>
+				<TextInput.Group>
+					<TextInput.Field
+						placeholder="Search questions or askers…"
+						value={search}
+						onChange={(e) => setSearch(e.target.value)}
+					/>
+				</TextInput.Group>
+			</TextInput>
+			<HStack gap="1.5" flexWrap="wrap">
+				{STATUS_FILTERS.map((filter) => (
+					<button
+						key={filter.label}
+						type="button"
+						onClick={() => setStatus(filter.value)}
+						className={cx(
+							filterPill,
+							status === filter.value && filterPillActive,
+						)}
+					>
+						{filter.label}
+					</button>
+				))}
+			</HStack>
+
+			<Table
+				wide
+				sortBy={SORT_ENUM_TO_KEY[sortBy]}
+				sortDir={sortDir}
+				onSort={(key: SortKey) => onSort(SORT_KEY_TO_ENUM[key])}
+			>
+				<Table.Head columns={[...columns]} />
+				<Table.Body>
+					{items.map((question) => {
+						const displayStatus = questionDisplayStatus(
+							question.status,
+							question.locksAt,
+						)
+						return (
+							<Table.Row key={question.id}>
+								<Table.Cell>
+									<Link
+										className={css({ _hover: { textDecoration: "underline" } })}
+										to="/questions/$questionId"
+										params={{ questionId: question.id }}
+									>
+										{question.title}
+									</Link>
+								</Table.Cell>
+								<Table.Cell>
+									{typeLabel[question.type] ?? question.type}
+								</Table.Cell>
+								<Table.Cell>
+									{question.creator ? `@${question.creator.username}` : "—"}
+								</Table.Cell>
+								<Table.Cell numeric>{question.callCount}</Table.Cell>
+								<Table.Cell>
+									<Tag variant={displayStatus.variant}>
+										{displayStatus.label}
+									</Tag>
+								</Table.Cell>
+								<Table.Cell numeric>
+									<QuestionRowActions
+										question={question}
+										onChanged={() => reload()}
+									/>
+								</Table.Cell>
+							</Table.Row>
+						)
+					})}
+				</Table.Body>
+			</Table>
+
+			{hasNextPage && (
+				<Button
+					variant="outline"
+					size="sm"
+					loading={loading}
+					onClick={loadMore}
+				>
+					Show more →
+				</Button>
+			)}
+		</VStack>
+	)
+}

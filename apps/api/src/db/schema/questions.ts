@@ -40,6 +40,18 @@ export const disputeStatus = pgEnum("dispute_status", [
 	"overturned",
 ])
 
+// Reasons an admin can void a question. Not all of them strike the asker by
+// default (see questionVoids.countsAsStrike below) - nonsensical/off_topic/
+// unsupported_sport do by default, duplicate/other don't, but it's a per-void
+// toggle either way, never hardcoded to the reason.
+export const voidReason = pgEnum("void_reason", [
+	"nonsensical",
+	"off_topic",
+	"unsupported_sport",
+	"duplicate",
+	"other",
+])
+
 export const numericSubjectType = pgEnum("numeric_subject_type", [
 	"player",
 	"team",
@@ -253,3 +265,33 @@ export const resolutionDisputes = pgTable(
 	},
 	(t) => [unique().on(t.questionId, t.userId)],
 )
+
+// One row per voided question, kept even though the question itself is
+// hard-deleted (see voidQuestion resolver) - deleting the question is safe
+// for scoring (every point total is computed live from calls, nothing
+// persisted per-user needs reversing), but without this table the Users tab's
+// void history and the strike count backing questionCreationEnabled would
+// have nothing to read. questionId/questionTitle are a snapshot, not a live
+// FK, since the row they'd point to is gone by the time this is queried.
+export const questionVoids = pgTable("question_voids", {
+	id: uuid("id").primaryKey().defaultRandom(),
+	questionId: uuid("question_id").notNull(),
+	questionTitle: text("question_title").notNull(),
+	targetUserId: uuid("target_user_id")
+		.notNull()
+		.references(() => users.id, { onDelete: "cascade" }),
+	voidedByAdminId: uuid("voided_by_admin_id").references(() => users.id, {
+		onDelete: "set null",
+	}),
+	reason: voidReason("reason").notNull(),
+	// Only set when reason = "duplicate".
+	duplicateOfQuestionId: uuid("duplicate_of_question_id").references(
+		() => questions.id,
+		{ onDelete: "set null" },
+	),
+	// Internal-only - never shown to the asker, unlike questions.resolutionNote.
+	note: text("note"),
+	countsAsStrike: boolean("counts_as_strike").notNull(),
+	createdAt: timestamp("created_at").notNull().defaultNow(),
+})
+export type QuestionVoid = typeof questionVoids.$inferSelect

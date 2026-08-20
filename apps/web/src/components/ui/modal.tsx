@@ -11,76 +11,12 @@ import {
 } from "react"
 import { createPortal } from "react-dom"
 import { FiX } from "react-icons/fi"
-import { cx, sva } from "styled-system/css"
+import { cx } from "styled-system/css"
+import { modal as modalRecipe } from "styled-system/recipes"
 import { closeModal, modalStore } from "#/stores/modal-store"
 
 const FOCUSABLE_SELECTOR =
 	"input, button, [href], select, textarea, [tabindex]:not([tabindex='-1'])"
-
-const modalRecipe = sva({
-	slots: ["overlay", "box", "closeButton", "title", "description"],
-	base: {
-		overlay: {
-			position: "fixed",
-			inset: 0,
-			zIndex: "100",
-			display: "flex",
-			alignItems: "center",
-			justifyContent: "center",
-			padding: "5",
-			backgroundColor: "bg.overlay/70",
-			backdropFilter: "blur(6px)",
-		},
-		box: {
-			position: "relative",
-			display: "flex",
-			flexDirection: "column",
-			gap: "5.5",
-			width: "full",
-			maxWidth: "sm",
-			backgroundColor: "bg.surface",
-			border: "1px solid",
-			borderColor: "border.default",
-			borderRadius: "2xl",
-			padding: "7",
-			boxShadow: "0 24px 60px rgba(0, 0, 0, 0.45)",
-		},
-		closeButton: {
-			position: "absolute",
-			top: "3.5",
-			right: "3.5",
-			width: "8",
-			height: "8",
-			borderRadius: "full",
-			display: "flex",
-			alignItems: "center",
-			justifyContent: "center",
-			color: "fg.muted",
-			_hover: {
-				backgroundColor: "bg.subtle",
-				color: "fg.default",
-				cursor: "pointer",
-			},
-		},
-		title: {
-			fontFamily: "heading",
-			fontSize: "xl",
-		},
-		description: {
-			fontSize: "xs",
-			color: "fg.muted",
-		},
-	},
-	variants: {
-		size: {
-			sm: { box: { maxWidth: "sm" } },
-			md: { box: { maxWidth: "md" } },
-		},
-	},
-	defaultVariants: {
-		size: "sm",
-	},
-})
 
 type ModalSlots = ReturnType<typeof modalRecipe>
 

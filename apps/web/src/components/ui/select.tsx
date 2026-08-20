@@ -187,8 +187,13 @@ function SelectContent({ className, style, ...props }: SelectContentProps) {
 		// No scroll-follow - closing on scroll is the same tradeoff every other
 		// lightweight popover in this file makes (Combobox, Dropdown), just
 		// applied here too since a fixed-position portal would otherwise go
-		// stale under the trigger as the page scrolls.
-		function onScroll() {
+		// stale under the trigger as the page scrolls. Scrolling *inside* the
+		// content itself (a long option list) doesn't count - `scroll` doesn't
+		// bubble, but a capture-phase listener on document still sees it fire
+		// on that descendant, so without this check the list closes the
+		// instant you try to scroll it.
+		function onScroll(event: Event) {
+			if (contentRef.current?.contains(event.target as Node)) return
 			close()
 		}
 		document.addEventListener("scroll", onScroll, true)
@@ -196,7 +201,7 @@ function SelectContent({ className, style, ...props }: SelectContentProps) {
 			window.removeEventListener("resize", updateRect)
 			document.removeEventListener("scroll", onScroll, true)
 		}
-	}, [open, triggerRef, close])
+	}, [open, triggerRef, contentRef, close])
 
 	if (!open || !rect) return null
 

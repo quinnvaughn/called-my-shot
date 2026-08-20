@@ -11,11 +11,17 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AppRouteImport } from './routes/_app'
+import { Route as AdminRouteImport } from './routes/admin'
 import { Route as GraphqlRouteImport } from './routes/graphql'
 import { Route as AppAuthedRouteImport } from './routes/_app/_authed'
 import { Route as AppConfirmEmailRouteImport } from './routes/_app/confirm-email'
 import { Route as AppHowItWorksRouteImport } from './routes/_app/how-it-works'
 import { Route as AppLeaderboardRouteImport } from './routes/_app/leaderboard'
+import { Route as AdminIndexRouteImport } from './routes/admin/index'
+import { Route as AdminDisputesRouteImport } from './routes/admin/disputes'
+import { Route as AdminQuestionsRouteImport } from './routes/admin/questions'
+import { Route as AdminQueueRouteImport } from './routes/admin/queue'
+import { Route as AdminUsersRouteImport } from './routes/admin/users'
 import { Route as AppAuthedHomeRouteImport } from './routes/_app/_authed/home'
 import { Route as AppAuthedMyCallsRouteImport } from './routes/_app/_authed/my-calls'
 import { Route as AppAuthedNewQuestionRouteImport } from './routes/_app/_authed/new-question'
@@ -23,10 +29,16 @@ import { Route as AppAuthedSettingsRouteImport } from './routes/_app/_authed/set
 import { Route as AppAuthedSupportRouteImport } from './routes/_app/_authed/support'
 import { Route as AppQuestionsQuestionIdRouteImport } from './routes/_app/questions/$questionId'
 import { Route as AppUserUsernameRouteImport } from './routes/_app/user/$username'
+import { Route as AdminDataIndexRouteImport } from './routes/admin/data/index'
+import { Route as AdminDataLeagueIdRouteImport } from './routes/admin/data/$leagueId'
 import { Route as ShareUsersUsernameRouteImport } from './routes/share/users/$username'
 import { Route as AppAuthedGroupsIndexRouteImport } from './routes/_app/_authed/groups/index'
 import { Route as AppAuthedGroupsGroupIdRouteImport } from './routes/_app/_authed/groups/$groupId'
 import { Route as AppGroupsJoinCodeRouteImport } from './routes/_app/groups/join/$code'
+import { Route as AdminDataLeagueIdIndexRouteImport } from './routes/admin/data/$leagueId/index'
+import { Route as AdminDataLeagueIdGamesRouteImport } from './routes/admin/data/$leagueId/games'
+import { Route as AdminDataLeagueIdPlayersRouteImport } from './routes/admin/data/$leagueId/players'
+import { Route as AdminDataLeagueIdTeamsRouteImport } from './routes/admin/data/$leagueId/teams'
 import { Route as ShareLeaguesLeagueIdUsersUsernameRouteImport } from './routes/share/leagues/$leagueId/users/$username'
 
 const IndexRoute = IndexRouteImport.update({
@@ -36,6 +48,11 @@ const IndexRoute = IndexRouteImport.update({
 } as any)
 const AppRoute = AppRouteImport.update({
   id: '/_app',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminRoute = AdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
   getParentRoute: () => rootRouteImport,
 } as any)
 const GraphqlRoute = GraphqlRouteImport.update({
@@ -61,6 +78,31 @@ const AppLeaderboardRoute = AppLeaderboardRouteImport.update({
   id: '/leaderboard',
   path: '/leaderboard',
   getParentRoute: () => AppRoute,
+} as any)
+const AdminIndexRoute = AdminIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminDisputesRoute = AdminDisputesRouteImport.update({
+  id: '/disputes',
+  path: '/disputes',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminQuestionsRoute = AdminQuestionsRouteImport.update({
+  id: '/questions',
+  path: '/questions',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminQueueRoute = AdminQueueRouteImport.update({
+  id: '/queue',
+  path: '/queue',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminUsersRoute = AdminUsersRouteImport.update({
+  id: '/users',
+  path: '/users',
+  getParentRoute: () => AdminRoute,
 } as any)
 const AppAuthedHomeRoute = AppAuthedHomeRouteImport.update({
   id: '/home',
@@ -97,6 +139,16 @@ const AppUserUsernameRoute = AppUserUsernameRouteImport.update({
   path: '/user/$username',
   getParentRoute: () => AppRoute,
 } as any)
+const AdminDataIndexRoute = AdminDataIndexRouteImport.update({
+  id: '/data/',
+  path: '/data/',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminDataLeagueIdRoute = AdminDataLeagueIdRouteImport.update({
+  id: '/data/$leagueId',
+  path: '/data/$leagueId',
+  getParentRoute: () => AdminRoute,
+} as any)
 const ShareUsersUsernameRoute = ShareUsersUsernameRouteImport.update({
   id: '/share/users/$username',
   path: '/share/users/$username',
@@ -117,6 +169,27 @@ const AppGroupsJoinCodeRoute = AppGroupsJoinCodeRouteImport.update({
   path: '/groups/join/$code',
   getParentRoute: () => AppRoute,
 } as any)
+const AdminDataLeagueIdIndexRoute = AdminDataLeagueIdIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AdminDataLeagueIdRoute,
+} as any)
+const AdminDataLeagueIdGamesRoute = AdminDataLeagueIdGamesRouteImport.update({
+  id: '/games',
+  path: '/games',
+  getParentRoute: () => AdminDataLeagueIdRoute,
+} as any)
+const AdminDataLeagueIdPlayersRoute =
+  AdminDataLeagueIdPlayersRouteImport.update({
+    id: '/players',
+    path: '/players',
+    getParentRoute: () => AdminDataLeagueIdRoute,
+  } as any)
+const AdminDataLeagueIdTeamsRoute = AdminDataLeagueIdTeamsRouteImport.update({
+  id: '/teams',
+  path: '/teams',
+  getParentRoute: () => AdminDataLeagueIdRoute,
+} as any)
 const ShareLeaguesLeagueIdUsersUsernameRoute =
   ShareLeaguesLeagueIdUsersUsernameRouteImport.update({
     id: '/share/leagues/$leagueId/users/$username',
@@ -126,10 +199,16 @@ const ShareLeaguesLeagueIdUsersUsernameRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/admin': typeof AdminRouteWithChildren
   '/graphql': typeof GraphqlRoute
   '/confirm-email': typeof AppConfirmEmailRoute
   '/how-it-works': typeof AppHowItWorksRoute
   '/leaderboard': typeof AppLeaderboardRoute
+  '/admin/disputes': typeof AdminDisputesRoute
+  '/admin/questions': typeof AdminQuestionsRoute
+  '/admin/queue': typeof AdminQueueRoute
+  '/admin/users': typeof AdminUsersRoute
+  '/admin/': typeof AdminIndexRoute
   '/home': typeof AppAuthedHomeRoute
   '/my-calls': typeof AppAuthedMyCallsRoute
   '/new-question': typeof AppAuthedNewQuestionRoute
@@ -137,10 +216,16 @@ export interface FileRoutesByFullPath {
   '/support': typeof AppAuthedSupportRoute
   '/questions/$questionId': typeof AppQuestionsQuestionIdRoute
   '/user/$username': typeof AppUserUsernameRoute
+  '/admin/data/$leagueId': typeof AdminDataLeagueIdRouteWithChildren
   '/share/users/$username': typeof ShareUsersUsernameRoute
+  '/admin/data/': typeof AdminDataIndexRoute
   '/groups/$groupId': typeof AppAuthedGroupsGroupIdRoute
   '/groups/join/$code': typeof AppGroupsJoinCodeRoute
+  '/admin/data/$leagueId/games': typeof AdminDataLeagueIdGamesRoute
+  '/admin/data/$leagueId/players': typeof AdminDataLeagueIdPlayersRoute
+  '/admin/data/$leagueId/teams': typeof AdminDataLeagueIdTeamsRoute
   '/groups/': typeof AppAuthedGroupsIndexRoute
+  '/admin/data/$leagueId/': typeof AdminDataLeagueIdIndexRoute
   '/share/leagues/$leagueId/users/$username': typeof ShareLeaguesLeagueIdUsersUsernameRoute
 }
 export interface FileRoutesByTo {
@@ -149,6 +234,11 @@ export interface FileRoutesByTo {
   '/confirm-email': typeof AppConfirmEmailRoute
   '/how-it-works': typeof AppHowItWorksRoute
   '/leaderboard': typeof AppLeaderboardRoute
+  '/admin/disputes': typeof AdminDisputesRoute
+  '/admin/questions': typeof AdminQuestionsRoute
+  '/admin/queue': typeof AdminQueueRoute
+  '/admin/users': typeof AdminUsersRoute
+  '/admin': typeof AdminIndexRoute
   '/home': typeof AppAuthedHomeRoute
   '/my-calls': typeof AppAuthedMyCallsRoute
   '/new-question': typeof AppAuthedNewQuestionRoute
@@ -157,20 +247,31 @@ export interface FileRoutesByTo {
   '/questions/$questionId': typeof AppQuestionsQuestionIdRoute
   '/user/$username': typeof AppUserUsernameRoute
   '/share/users/$username': typeof ShareUsersUsernameRoute
+  '/admin/data': typeof AdminDataIndexRoute
   '/groups/$groupId': typeof AppAuthedGroupsGroupIdRoute
   '/groups/join/$code': typeof AppGroupsJoinCodeRoute
+  '/admin/data/$leagueId/games': typeof AdminDataLeagueIdGamesRoute
+  '/admin/data/$leagueId/players': typeof AdminDataLeagueIdPlayersRoute
+  '/admin/data/$leagueId/teams': typeof AdminDataLeagueIdTeamsRoute
   '/groups': typeof AppAuthedGroupsIndexRoute
+  '/admin/data/$leagueId': typeof AdminDataLeagueIdIndexRoute
   '/share/leagues/$leagueId/users/$username': typeof ShareLeaguesLeagueIdUsersUsernameRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/_app': typeof AppRouteWithChildren
+  '/admin': typeof AdminRouteWithChildren
   '/graphql': typeof GraphqlRoute
   '/_app/_authed': typeof AppAuthedRouteWithChildren
   '/_app/confirm-email': typeof AppConfirmEmailRoute
   '/_app/how-it-works': typeof AppHowItWorksRoute
   '/_app/leaderboard': typeof AppLeaderboardRoute
+  '/admin/disputes': typeof AdminDisputesRoute
+  '/admin/questions': typeof AdminQuestionsRoute
+  '/admin/queue': typeof AdminQueueRoute
+  '/admin/users': typeof AdminUsersRoute
+  '/admin/': typeof AdminIndexRoute
   '/_app/_authed/home': typeof AppAuthedHomeRoute
   '/_app/_authed/my-calls': typeof AppAuthedMyCallsRoute
   '/_app/_authed/new-question': typeof AppAuthedNewQuestionRoute
@@ -178,20 +279,32 @@ export interface FileRoutesById {
   '/_app/_authed/support': typeof AppAuthedSupportRoute
   '/_app/questions/$questionId': typeof AppQuestionsQuestionIdRoute
   '/_app/user/$username': typeof AppUserUsernameRoute
+  '/admin/data/$leagueId': typeof AdminDataLeagueIdRouteWithChildren
   '/share/users/$username': typeof ShareUsersUsernameRoute
+  '/admin/data/': typeof AdminDataIndexRoute
   '/_app/_authed/groups/$groupId': typeof AppAuthedGroupsGroupIdRoute
   '/_app/groups/join/$code': typeof AppGroupsJoinCodeRoute
+  '/admin/data/$leagueId/games': typeof AdminDataLeagueIdGamesRoute
+  '/admin/data/$leagueId/players': typeof AdminDataLeagueIdPlayersRoute
+  '/admin/data/$leagueId/teams': typeof AdminDataLeagueIdTeamsRoute
   '/_app/_authed/groups/': typeof AppAuthedGroupsIndexRoute
+  '/admin/data/$leagueId/': typeof AdminDataLeagueIdIndexRoute
   '/share/leagues/$leagueId/users/$username': typeof ShareLeaguesLeagueIdUsersUsernameRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/admin'
     | '/graphql'
     | '/confirm-email'
     | '/how-it-works'
     | '/leaderboard'
+    | '/admin/disputes'
+    | '/admin/questions'
+    | '/admin/queue'
+    | '/admin/users'
+    | '/admin/'
     | '/home'
     | '/my-calls'
     | '/new-question'
@@ -199,10 +312,16 @@ export interface FileRouteTypes {
     | '/support'
     | '/questions/$questionId'
     | '/user/$username'
+    | '/admin/data/$leagueId'
     | '/share/users/$username'
+    | '/admin/data/'
     | '/groups/$groupId'
     | '/groups/join/$code'
+    | '/admin/data/$leagueId/games'
+    | '/admin/data/$leagueId/players'
+    | '/admin/data/$leagueId/teams'
     | '/groups/'
+    | '/admin/data/$leagueId/'
     | '/share/leagues/$leagueId/users/$username'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -211,6 +330,11 @@ export interface FileRouteTypes {
     | '/confirm-email'
     | '/how-it-works'
     | '/leaderboard'
+    | '/admin/disputes'
+    | '/admin/questions'
+    | '/admin/queue'
+    | '/admin/users'
+    | '/admin'
     | '/home'
     | '/my-calls'
     | '/new-question'
@@ -219,19 +343,30 @@ export interface FileRouteTypes {
     | '/questions/$questionId'
     | '/user/$username'
     | '/share/users/$username'
+    | '/admin/data'
     | '/groups/$groupId'
     | '/groups/join/$code'
+    | '/admin/data/$leagueId/games'
+    | '/admin/data/$leagueId/players'
+    | '/admin/data/$leagueId/teams'
     | '/groups'
+    | '/admin/data/$leagueId'
     | '/share/leagues/$leagueId/users/$username'
   id:
     | '__root__'
     | '/'
     | '/_app'
+    | '/admin'
     | '/graphql'
     | '/_app/_authed'
     | '/_app/confirm-email'
     | '/_app/how-it-works'
     | '/_app/leaderboard'
+    | '/admin/disputes'
+    | '/admin/questions'
+    | '/admin/queue'
+    | '/admin/users'
+    | '/admin/'
     | '/_app/_authed/home'
     | '/_app/_authed/my-calls'
     | '/_app/_authed/new-question'
@@ -239,16 +374,23 @@ export interface FileRouteTypes {
     | '/_app/_authed/support'
     | '/_app/questions/$questionId'
     | '/_app/user/$username'
+    | '/admin/data/$leagueId'
     | '/share/users/$username'
+    | '/admin/data/'
     | '/_app/_authed/groups/$groupId'
     | '/_app/groups/join/$code'
+    | '/admin/data/$leagueId/games'
+    | '/admin/data/$leagueId/players'
+    | '/admin/data/$leagueId/teams'
     | '/_app/_authed/groups/'
+    | '/admin/data/$leagueId/'
     | '/share/leagues/$leagueId/users/$username'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AppRoute: typeof AppRouteWithChildren
+  AdminRoute: typeof AdminRouteWithChildren
   GraphqlRoute: typeof GraphqlRoute
   ShareUsersUsernameRoute: typeof ShareUsersUsernameRoute
   ShareLeaguesLeagueIdUsersUsernameRoute: typeof ShareLeaguesLeagueIdUsersUsernameRoute
@@ -268,6 +410,13 @@ declare module '@tanstack/react-router' {
       path: ''
       fullPath: '/'
       preLoaderRoute: typeof AppRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin': {
+      id: '/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AdminRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/graphql': {
@@ -304,6 +453,41 @@ declare module '@tanstack/react-router' {
       fullPath: '/leaderboard'
       preLoaderRoute: typeof AppLeaderboardRouteImport
       parentRoute: typeof AppRoute
+    }
+    '/admin/': {
+      id: '/admin/'
+      path: '/'
+      fullPath: '/admin/'
+      preLoaderRoute: typeof AdminIndexRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/disputes': {
+      id: '/admin/disputes'
+      path: '/disputes'
+      fullPath: '/admin/disputes'
+      preLoaderRoute: typeof AdminDisputesRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/questions': {
+      id: '/admin/questions'
+      path: '/questions'
+      fullPath: '/admin/questions'
+      preLoaderRoute: typeof AdminQuestionsRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/queue': {
+      id: '/admin/queue'
+      path: '/queue'
+      fullPath: '/admin/queue'
+      preLoaderRoute: typeof AdminQueueRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/users': {
+      id: '/admin/users'
+      path: '/users'
+      fullPath: '/admin/users'
+      preLoaderRoute: typeof AdminUsersRouteImport
+      parentRoute: typeof AdminRoute
     }
     '/_app/_authed/home': {
       id: '/_app/_authed/home'
@@ -354,6 +538,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppUserUsernameRouteImport
       parentRoute: typeof AppRoute
     }
+    '/admin/data/': {
+      id: '/admin/data/'
+      path: '/data'
+      fullPath: '/admin/data/'
+      preLoaderRoute: typeof AdminDataIndexRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/data/$leagueId': {
+      id: '/admin/data/$leagueId'
+      path: '/data/$leagueId'
+      fullPath: '/admin/data/$leagueId'
+      preLoaderRoute: typeof AdminDataLeagueIdRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/share/users/$username': {
       id: '/share/users/$username'
       path: '/share/users/$username'
@@ -381,6 +579,34 @@ declare module '@tanstack/react-router' {
       fullPath: '/groups/join/$code'
       preLoaderRoute: typeof AppGroupsJoinCodeRouteImport
       parentRoute: typeof AppRoute
+    }
+    '/admin/data/$leagueId/': {
+      id: '/admin/data/$leagueId/'
+      path: '/'
+      fullPath: '/admin/data/$leagueId/'
+      preLoaderRoute: typeof AdminDataLeagueIdIndexRouteImport
+      parentRoute: typeof AdminDataLeagueIdRoute
+    }
+    '/admin/data/$leagueId/games': {
+      id: '/admin/data/$leagueId/games'
+      path: '/games'
+      fullPath: '/admin/data/$leagueId/games'
+      preLoaderRoute: typeof AdminDataLeagueIdGamesRouteImport
+      parentRoute: typeof AdminDataLeagueIdRoute
+    }
+    '/admin/data/$leagueId/players': {
+      id: '/admin/data/$leagueId/players'
+      path: '/players'
+      fullPath: '/admin/data/$leagueId/players'
+      preLoaderRoute: typeof AdminDataLeagueIdPlayersRouteImport
+      parentRoute: typeof AdminDataLeagueIdRoute
+    }
+    '/admin/data/$leagueId/teams': {
+      id: '/admin/data/$leagueId/teams'
+      path: '/teams'
+      fullPath: '/admin/data/$leagueId/teams'
+      preLoaderRoute: typeof AdminDataLeagueIdTeamsRouteImport
+      parentRoute: typeof AdminDataLeagueIdRoute
     }
     '/share/leagues/$leagueId/users/$username': {
       id: '/share/leagues/$leagueId/users/$username'
@@ -438,9 +664,49 @@ const AppRouteChildren: AppRouteChildren = {
 
 const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
 
+interface AdminDataLeagueIdRouteChildren {
+  AdminDataLeagueIdGamesRoute: typeof AdminDataLeagueIdGamesRoute
+  AdminDataLeagueIdPlayersRoute: typeof AdminDataLeagueIdPlayersRoute
+  AdminDataLeagueIdTeamsRoute: typeof AdminDataLeagueIdTeamsRoute
+  AdminDataLeagueIdIndexRoute: typeof AdminDataLeagueIdIndexRoute
+}
+
+const AdminDataLeagueIdRouteChildren: AdminDataLeagueIdRouteChildren = {
+  AdminDataLeagueIdGamesRoute: AdminDataLeagueIdGamesRoute,
+  AdminDataLeagueIdPlayersRoute: AdminDataLeagueIdPlayersRoute,
+  AdminDataLeagueIdTeamsRoute: AdminDataLeagueIdTeamsRoute,
+  AdminDataLeagueIdIndexRoute: AdminDataLeagueIdIndexRoute,
+}
+
+const AdminDataLeagueIdRouteWithChildren =
+  AdminDataLeagueIdRoute._addFileChildren(AdminDataLeagueIdRouteChildren)
+
+interface AdminRouteChildren {
+  AdminDisputesRoute: typeof AdminDisputesRoute
+  AdminQuestionsRoute: typeof AdminQuestionsRoute
+  AdminQueueRoute: typeof AdminQueueRoute
+  AdminUsersRoute: typeof AdminUsersRoute
+  AdminIndexRoute: typeof AdminIndexRoute
+  AdminDataLeagueIdRoute: typeof AdminDataLeagueIdRouteWithChildren
+  AdminDataIndexRoute: typeof AdminDataIndexRoute
+}
+
+const AdminRouteChildren: AdminRouteChildren = {
+  AdminDisputesRoute: AdminDisputesRoute,
+  AdminQuestionsRoute: AdminQuestionsRoute,
+  AdminQueueRoute: AdminQueueRoute,
+  AdminUsersRoute: AdminUsersRoute,
+  AdminIndexRoute: AdminIndexRoute,
+  AdminDataLeagueIdRoute: AdminDataLeagueIdRouteWithChildren,
+  AdminDataIndexRoute: AdminDataIndexRoute,
+}
+
+const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AppRoute: AppRouteWithChildren,
+  AdminRoute: AdminRouteWithChildren,
   GraphqlRoute: GraphqlRoute,
   ShareUsersUsernameRoute: ShareUsersUsernameRoute,
   ShareLeaguesLeagueIdUsersUsernameRoute:
