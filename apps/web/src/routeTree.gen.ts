@@ -25,6 +25,7 @@ import { Route as AdminReportsRouteImport } from './routes/admin/reports'
 import { Route as AdminUsersRouteImport } from './routes/admin/users'
 import { Route as AppAuthedHomeRouteImport } from './routes/_app/_authed/home'
 import { Route as AppAuthedMyCallsRouteImport } from './routes/_app/_authed/my-calls'
+import { Route as AppAuthedMyQuestionsRouteImport } from './routes/_app/_authed/my-questions'
 import { Route as AppAuthedNewQuestionRouteImport } from './routes/_app/_authed/new-question'
 import { Route as AppAuthedNotificationsRouteImport } from './routes/_app/_authed/notifications'
 import { Route as AppAuthedSettingsRouteImport } from './routes/_app/_authed/settings'
@@ -119,6 +120,11 @@ const AppAuthedHomeRoute = AppAuthedHomeRouteImport.update({
 const AppAuthedMyCallsRoute = AppAuthedMyCallsRouteImport.update({
   id: '/my-calls',
   path: '/my-calls',
+  getParentRoute: () => AppAuthedRoute,
+} as any)
+const AppAuthedMyQuestionsRoute = AppAuthedMyQuestionsRouteImport.update({
+  id: '/my-questions',
+  path: '/my-questions',
   getParentRoute: () => AppAuthedRoute,
 } as any)
 const AppAuthedNewQuestionRoute = AppAuthedNewQuestionRouteImport.update({
@@ -224,6 +230,7 @@ export interface FileRoutesByFullPath {
   '/admin/': typeof AdminIndexRoute
   '/home': typeof AppAuthedHomeRoute
   '/my-calls': typeof AppAuthedMyCallsRoute
+  '/my-questions': typeof AppAuthedMyQuestionsRoute
   '/new-question': typeof AppAuthedNewQuestionRoute
   '/notifications': typeof AppAuthedNotificationsRoute
   '/settings': typeof AppAuthedSettingsRoute
@@ -256,6 +263,7 @@ export interface FileRoutesByTo {
   '/admin': typeof AdminIndexRoute
   '/home': typeof AppAuthedHomeRoute
   '/my-calls': typeof AppAuthedMyCallsRoute
+  '/my-questions': typeof AppAuthedMyQuestionsRoute
   '/new-question': typeof AppAuthedNewQuestionRoute
   '/notifications': typeof AppAuthedNotificationsRoute
   '/settings': typeof AppAuthedSettingsRoute
@@ -291,6 +299,7 @@ export interface FileRoutesById {
   '/admin/': typeof AdminIndexRoute
   '/_app/_authed/home': typeof AppAuthedHomeRoute
   '/_app/_authed/my-calls': typeof AppAuthedMyCallsRoute
+  '/_app/_authed/my-questions': typeof AppAuthedMyQuestionsRoute
   '/_app/_authed/new-question': typeof AppAuthedNewQuestionRoute
   '/_app/_authed/notifications': typeof AppAuthedNotificationsRoute
   '/_app/_authed/settings': typeof AppAuthedSettingsRoute
@@ -326,6 +335,7 @@ export interface FileRouteTypes {
     | '/admin/'
     | '/home'
     | '/my-calls'
+    | '/my-questions'
     | '/new-question'
     | '/notifications'
     | '/settings'
@@ -358,6 +368,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/home'
     | '/my-calls'
+    | '/my-questions'
     | '/new-question'
     | '/notifications'
     | '/settings'
@@ -392,6 +403,7 @@ export interface FileRouteTypes {
     | '/admin/'
     | '/_app/_authed/home'
     | '/_app/_authed/my-calls'
+    | '/_app/_authed/my-questions'
     | '/_app/_authed/new-question'
     | '/_app/_authed/notifications'
     | '/_app/_authed/settings'
@@ -534,6 +546,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppAuthedMyCallsRouteImport
       parentRoute: typeof AppAuthedRoute
     }
+    '/_app/_authed/my-questions': {
+      id: '/_app/_authed/my-questions'
+      path: '/my-questions'
+      fullPath: '/my-questions'
+      preLoaderRoute: typeof AppAuthedMyQuestionsRouteImport
+      parentRoute: typeof AppAuthedRoute
+    }
     '/_app/_authed/new-question': {
       id: '/_app/_authed/new-question'
       path: '/new-question'
@@ -659,6 +678,7 @@ declare module '@tanstack/react-router' {
 interface AppAuthedRouteChildren {
   AppAuthedHomeRoute: typeof AppAuthedHomeRoute
   AppAuthedMyCallsRoute: typeof AppAuthedMyCallsRoute
+  AppAuthedMyQuestionsRoute: typeof AppAuthedMyQuestionsRoute
   AppAuthedNewQuestionRoute: typeof AppAuthedNewQuestionRoute
   AppAuthedNotificationsRoute: typeof AppAuthedNotificationsRoute
   AppAuthedSettingsRoute: typeof AppAuthedSettingsRoute
@@ -670,6 +690,7 @@ interface AppAuthedRouteChildren {
 const AppAuthedRouteChildren: AppAuthedRouteChildren = {
   AppAuthedHomeRoute: AppAuthedHomeRoute,
   AppAuthedMyCallsRoute: AppAuthedMyCallsRoute,
+  AppAuthedMyQuestionsRoute: AppAuthedMyQuestionsRoute,
   AppAuthedNewQuestionRoute: AppAuthedNewQuestionRoute,
   AppAuthedNotificationsRoute: AppAuthedNotificationsRoute,
   AppAuthedSettingsRoute: AppAuthedSettingsRoute,

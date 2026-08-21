@@ -1022,6 +1022,30 @@ builder.queryFields((t) => ({
 		},
 	}),
 
+	// The "My Questions" page - every question the viewer has asked, newest
+	// first, across every status (live, locked, resolved).
+	myQuestions: t.field({
+		type: QuestionConnectionRef,
+		args: {
+			first: t.arg.int(),
+			after: t.arg.string(),
+		},
+		resolve: async (_root, args, ctx) => {
+			const user = requireUser(ctx)
+			const limit = clampPageSize(args.first)
+			const cursor = args.after ? decodeCursor(args.after) : null
+			const rows = await db.query.questions.findMany({
+				where: {
+					creatorId: user.id,
+					...(cursor ? cursorWhere(cursor) : {}),
+				},
+				orderBy: { createdAt: "desc", id: "desc" },
+				limit: limit + 1,
+			})
+			return paginate(rows, limit)
+		},
+	}),
+
 	// Queue tab. "Needs resolution" / "probably still live" only ever considers
 	// game-scoped questions (gameId set) that are still open past their
 	// locksAt - season-long questions (MVP, championship) have no single game

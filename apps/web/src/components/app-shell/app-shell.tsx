@@ -2,7 +2,7 @@ import { useQuery } from "@apollo/client/react"
 import { Link, useMatches, useRouteContext } from "@tanstack/react-router"
 import { type ReactNode, useEffect, useState } from "react"
 import { BsBarChartFill } from "react-icons/bs"
-import { FaRegCheckSquare } from "react-icons/fa"
+import { FaQuestion, FaRegCheckSquare } from "react-icons/fa"
 import { FaUser, FaUserGroup } from "react-icons/fa6"
 import { FiBell, FiMenu, FiX } from "react-icons/fi"
 import { GoHomeFill } from "react-icons/go"
@@ -35,6 +35,12 @@ const NAV_ITEMS: NavItem[] = [
 		to: "/my-calls",
 		label: "My Calls",
 		icon: FaRegCheckSquare,
+		authRequired: true,
+	},
+	{
+		to: "/my-questions",
+		label: "My Questions",
+		icon: FaQuestion,
 		authRequired: true,
 	},
 	{ to: "/groups", label: "Groups", icon: FaUserGroup, authRequired: true },
