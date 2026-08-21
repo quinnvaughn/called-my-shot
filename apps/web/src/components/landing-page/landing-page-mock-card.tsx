@@ -47,7 +47,7 @@ function MockTeamRow({ name, percent, tier, selected, color }: Team) {
 					position: "absolute",
 					inset: "0",
 				})}
-				style={{ width: `${percent}%`, backgroundColor: hexToRgba(color, 0.1) }}
+				style={{ width: `${percent}%`, backgroundColor: hexToRgba(color, 0.8) }}
 			/>
 			<div
 				className={css({

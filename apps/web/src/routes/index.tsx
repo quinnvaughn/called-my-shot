@@ -152,7 +152,7 @@ function Home() {
 	return (
 		<div>
 			<LandingPageNav />
-			<header className={css({ padding: "{spacing.16} 0 {spacing.20}" })}>
+			<header className={css({ paddingBlock: { base: "8", sm: "16" } })}>
 				<LandingPageWrap
 					className={css({
 						display: "grid",

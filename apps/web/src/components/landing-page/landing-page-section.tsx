@@ -11,15 +11,18 @@ type Props = {
 // that's actually a different color from the page background.
 const altStyles = css({
 	backgroundColor: "bg.subtle",
-	borderTop: "1px solid {border.default}",
-	borderBottom: "1px solid {border.default}",
+	borderTop: "1px solid {colors.border.default}",
+	borderBottom: "1px solid {colors.border.default}",
 })
 
 export function LandingPageSection({ alt, children, id }: Props) {
 	return (
 		<div
 			id={id}
-			className={cx(css({ padding: "{spacing.16} 0" }), alt && altStyles)}
+			className={cx(
+				css({ paddingBlock: { base: "8", sm: "16" }, paddingInline: "0" }),
+				alt && altStyles,
+			)}
 		>
 			{children}
 		</div>

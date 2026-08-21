@@ -259,7 +259,11 @@ export default defineConfig({
               outline: "none",
               color: "fg.default",
               fontFamily: "inherit",
-              fontSize: "sm",
+              // Must stay >= 16px: iOS Safari auto-zooms the page on focus for
+              // any input under that size, and since navigation here is
+              // client-side, that zoom persists into whatever page loads next
+              // instead of resetting on a real page load.
+              fontSize: "md",
               paddingBlock: "3",
               _placeholder: {
                 color: "fg.subtle",
@@ -336,7 +340,10 @@ export default defineConfig({
               padding: "3.5",
               color: "fg.default",
               fontFamily: "inherit",
-              fontSize: "sm",
+              // See textInput.field's comment: iOS Safari auto-zooms on
+              // focus below 16px, and the zoom persists across client-side
+              // navigation.
+              fontSize: "md",
               lineHeight: "relaxed",
               outline: "none",
               transition: "border-color 0.15s ease",
@@ -882,7 +889,10 @@ export default defineConfig({
               paddingBlock: "1.5",
               textAlign: "center",
               fontFamily: "mono",
-              fontSize: "sm",
+              // See textInput.field's comment: iOS Safari auto-zooms on
+              // focus below 16px, and the zoom persists across client-side
+              // navigation.
+              fontSize: "md",
               color: "fg.default",
               outline: "none",
               _focus: {
@@ -1185,6 +1195,12 @@ export default defineConfig({
               gap: "5.5",
               width: "full",
               maxWidth: "sm",
+              // Overlay centers this with `padding: 5` on all sides, so cap
+              // height to the remaining viewport and let the box itself
+              // scroll - otherwise tall content (e.g. the create-account
+              // form) overflows past the screen edges with nothing scrollable.
+              maxHeight: "calc(100dvh - {spacing.10})",
+              overflowY: "auto",
               backgroundColor: "bg.surface",
               border: "1px solid",
               borderColor: "border.default",
