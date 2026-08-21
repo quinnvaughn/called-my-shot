@@ -43,7 +43,7 @@ export const Route = createRootRouteWithContext<RouterContext>()({
 			{
 				name: "description",
 				content:
-					"Call outcomes, set your conviction, and get paid more for bold picks against the crowd. No real money, no house edge — just your accuracy on the record.",
+					"Call outcomes, set your conviction, and get paid more for bold picks against the crowd.",
 			},
 			{
 				property: "og:type",
@@ -60,7 +60,7 @@ export const Route = createRootRouteWithContext<RouterContext>()({
 			{
 				property: "og:description",
 				content:
-					"Call outcomes, set your conviction, and get paid more for bold picks against the crowd. No real money, no house edge — just your accuracy on the record.",
+					"Call outcomes, set your conviction, and get paid more for bold picks against the crowd.",
 			},
 			{
 				property: "og:url",
@@ -68,11 +68,11 @@ export const Route = createRootRouteWithContext<RouterContext>()({
 			},
 			{
 				property: "og:image",
-				content: "https://calledmyshot.com/android-chrome-512x512.png",
+				content: "https://calledmyshot.com/og-image.png",
 			},
 			{
 				name: "twitter:card",
-				content: "summary",
+				content: "summary_large_image",
 			},
 			{
 				name: "twitter:title",
@@ -81,11 +81,15 @@ export const Route = createRootRouteWithContext<RouterContext>()({
 			{
 				name: "twitter:description",
 				content:
-					"Call outcomes, set your conviction, and get paid more for bold picks against the crowd. No real money, no house edge — just your accuracy on the record.",
+					"Call outcomes, set your conviction, and get paid more for bold picks against the crowd.",
 			},
 			{
 				name: "twitter:image",
-				content: "https://calledmyshot.com/android-chrome-512x512.png",
+				content: "https://calledmyshot.com/og-image.png",
+			},
+			{
+				name: "twitter:url",
+				content: "https://calledmyshot.com/",
 			},
 		],
 		links: [

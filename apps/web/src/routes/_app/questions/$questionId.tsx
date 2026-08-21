@@ -74,6 +74,27 @@ export const Route = createFileRoute("/_app/questions/$questionId")({
 			},
 		}
 	},
+	head: ({ loaderData }) => {
+		const question = loaderData?.question
+		if (!question) return {}
+
+		const title = question.title
+		const description = `${question.league.abbreviation} · ${questionCategoryLabel[question.category]} — resolves via ${question.resolutionSource}.`
+		const url = `https://calledmyshot.com/questions/${question.id}`
+
+		return {
+			meta: [
+				{ title },
+				{ name: "description", content: description },
+				{ property: "og:title", content: title },
+				{ property: "og:description", content: description },
+				{ property: "og:url", content: url },
+				{ name: "twitter:title", content: title },
+				{ name: "twitter:description", content: description },
+				{ name: "twitter:url", content: url },
+			],
+		}
+	},
 })
 
 function RouteComponent() {
