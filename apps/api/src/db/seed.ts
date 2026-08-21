@@ -21,10 +21,8 @@ import {
 	games,
 	groupMembers,
 	groups,
-	leagues,
 	notifications,
 	type Player,
-	players,
 	type QuestionOption,
 	questionOptions,
 	questionShares,
@@ -32,11 +30,9 @@ import {
 	questionVoids,
 	resolutionDisputes,
 	type StatToleranceTier,
-	sports,
 	stats,
 	statToleranceTiers,
 	type Team,
-	teams,
 	users,
 } from "./schema"
 
@@ -85,13 +81,6 @@ async function createGroup(
 async function createQuestion(input: typeof questions.$inferInsert) {
 	const [question] = await db.insert(questions).values(input).returning()
 	return question
-}
-
-// away @ home, matching the "@" convention question titles and the detail
-// page's game block both read off - not a symmetric teamA/teamB pair.
-async function createGame(input: typeof games.$inferInsert) {
-	const [game] = await db.insert(games).values(input).returning()
-	return game
 }
 
 async function shareQuestion(
@@ -397,8 +386,12 @@ async function backfillUserLeagueStats() {
 
 async function main() {
 	console.log("Wiping existing data...")
+	// teams/players/games/leagues/sports are NOT wiped here - they're owned by
+	// `pnpm sync:sports` (see db/sync/), not this script. Run that first if
+	// they're empty; this only resets the app-specific demo content layered
+	// on top of whatever real data is already synced.
 	await db.execute(
-		"TRUNCATE TABLE call_selections, calls, question_options, question_shares, questions, games, stats, stat_tolerance_tiers, players, teams, leagues, sports, group_invites, group_members, groups, sessions, users RESTART IDENTITY CASCADE",
+		"TRUNCATE TABLE call_selections, calls, question_options, question_shares, questions, stats, stat_tolerance_tiers, group_invites, group_members, groups, sessions, users RESTART IDENTITY CASCADE",
 	)
 
 	console.log("Seeding users...")
@@ -541,206 +534,72 @@ async function main() {
 		"NO_EXPIRY",
 	)
 
-	console.log("Seeding sports, leagues, teams, players, stats...")
+	console.log("Loading synced sports, leagues, teams, players, stats...")
 
-	const [basketball, football] = await db
-		.insert(sports)
-		.values([
-			{ name: "Basketball", slug: "basketball" },
-			{ name: "Football", slug: "football" },
-		])
-		.returning()
+	// sports/leagues/teams/players/games are real data owned by `pnpm
+	// sync:sports` (db/sync/), not this script - it only queries them.
+	const basketball = await db.query.sports.findFirst({
+		where: { slug: "basketball" },
+	})
+	const football = await db.query.sports.findFirst({ where: { slug: "football" } })
+	if (!basketball || !football) {
+		throw new Error("Missing synced sports - run `pnpm sync:sports` first")
+	}
 
-	const [nba, nfl] = await db
-		.insert(leagues)
-		.values([
-			{ sportId: basketball.id, name: "NBA", abbreviation: "NBA", slug: "nba" },
-			{ sportId: football.id, name: "NFL", abbreviation: "NFL", slug: "nfl" },
-		])
-		.returning()
+	const nba = await db.query.leagues.findFirst({ where: { slug: "nba" } })
+	const nfl = await db.query.leagues.findFirst({ where: { slug: "nfl" } })
+	if (!nba || !nfl) {
+		throw new Error("Missing synced leagues - run `pnpm sync:sports` first")
+	}
 
-	// Real primary brand colors, current as of this data's writing - team
-	// identities are stable and low-maintenance, unlike rosters below.
-	const nbaTeamRows = await db
-		.insert(teams)
-		.values(
-			[
-				["Atlanta Hawks", "ATL", "#E03A3E"],
-				["Boston Celtics", "BOS", "#007A33"],
-				["Brooklyn Nets", "BKN", "#000000"],
-				["Charlotte Hornets", "CHA", "#1D1160"],
-				["Chicago Bulls", "CHI", "#CE1141"],
-				["Cleveland Cavaliers", "CLE", "#860038"],
-				["Dallas Mavericks", "DAL", "#00538C"],
-				["Denver Nuggets", "DEN", "#0E2240"],
-				["Detroit Pistons", "DET", "#C8102E"],
-				["Golden State Warriors", "GSW", "#1D428A"],
-				["Houston Rockets", "HOU", "#CE1141"],
-				["Indiana Pacers", "IND", "#002D62"],
-				["LA Clippers", "LAC", "#C8102E"],
-				["Los Angeles Lakers", "LAL", "#552583"],
-				["Memphis Grizzlies", "MEM", "#5D76A9"],
-				["Miami Heat", "MIA", "#98002E"],
-				["Milwaukee Bucks", "MIL", "#00471B"],
-				["Minnesota Timberwolves", "MIN", "#0C2340"],
-				["New Orleans Pelicans", "NOP", "#0C2340"],
-				["New York Knicks", "NYK", "#006BB6"],
-				["Oklahoma City Thunder", "OKC", "#007AC1"],
-				["Orlando Magic", "ORL", "#0077C0"],
-				["Philadelphia 76ers", "PHI", "#006BB6"],
-				["Phoenix Suns", "PHX", "#E56020"],
-				["Portland Trail Blazers", "POR", "#E03A3E"],
-				["Sacramento Kings", "SAC", "#5A2D81"],
-				["San Antonio Spurs", "SAS", "#C4CED4"],
-				["Toronto Raptors", "TOR", "#CE1141"],
-				["Utah Jazz", "UTA", "#002B5C"],
-				["Washington Wizards", "WAS", "#002B5C"],
-			].map(([name, abbreviation, color]) => ({
-				leagueId: nba.id,
-				name,
-				abbreviation,
-				color,
-			})),
-		)
-		.returning()
-
-	const nflTeamRows = await db
-		.insert(teams)
-		.values(
-			[
-				["Arizona Cardinals", "ARI", "#97233F"],
-				["Atlanta Falcons", "ATL", "#A71930"],
-				["Baltimore Ravens", "BAL", "#241773"],
-				["Buffalo Bills", "BUF", "#00338D"],
-				["Carolina Panthers", "CAR", "#0085CA"],
-				["Chicago Bears", "CHI", "#0B162A"],
-				["Cincinnati Bengals", "CIN", "#FB4F14"],
-				["Cleveland Browns", "CLE", "#311D00"],
-				["Dallas Cowboys", "DAL", "#041E42"],
-				["Denver Broncos", "DEN", "#FB4F14"],
-				["Detroit Lions", "DET", "#0076B6"],
-				["Green Bay Packers", "GB", "#203731"],
-				["Houston Texans", "HOU", "#03202F"],
-				["Indianapolis Colts", "IND", "#002C5F"],
-				["Jacksonville Jaguars", "JAX", "#101820"],
-				["Kansas City Chiefs", "KC", "#E31837"],
-				["Las Vegas Raiders", "LV", "#000000"],
-				["Los Angeles Chargers", "LAC", "#0080C6"],
-				["Los Angeles Rams", "LAR", "#003594"],
-				["Miami Dolphins", "MIA", "#008E97"],
-				["Minnesota Vikings", "MIN", "#4F2683"],
-				["New England Patriots", "NE", "#002244"],
-				["New Orleans Saints", "NO", "#D3BC8D"],
-				["New York Giants", "NYG", "#0B2265"],
-				["New York Jets", "NYJ", "#125740"],
-				["Philadelphia Eagles", "PHI", "#004C54"],
-				["Pittsburgh Steelers", "PIT", "#FFB612"],
-				["San Francisco 49ers", "SF", "#AA0000"],
-				["Seattle Seahawks", "SEA", "#002244"],
-				["Tampa Bay Buccaneers", "TB", "#D50A0A"],
-				["Tennessee Titans", "TEN", "#0C2340"],
-				["Washington Commanders", "WAS", "#5A1414"],
-			].map(([name, abbreviation, color]) => ({
-				leagueId: nfl.id,
-				name,
-				abbreviation,
-				color,
-			})),
-		)
-		.returning()
+	const nbaTeamRows = await db.query.teams.findMany({
+		where: { leagueId: nba.id },
+	})
+	const nflTeamRows = await db.query.teams.findMany({
+		where: { leagueId: nfl.id },
+	})
+	if (nbaTeamRows.length === 0 || nflTeamRows.length === 0) {
+		throw new Error("Missing synced teams - run `pnpm sync:sports` first")
+	}
 
 	const nbaTeam = (abbr: string) => {
 		const team = nbaTeamRows.find((t) => t.abbreviation === abbr)
-		if (!team) throw new Error(`Missing NBA team: ${abbr}`)
+		if (!team) throw new Error(`Missing synced NBA team: ${abbr}`)
 		return team
 	}
 	const nflTeam = (abbr: string) => {
 		const team = nflTeamRows.find((t) => t.abbreviation === abbr)
-		if (!team) throw new Error(`Missing NFL team: ${abbr}`)
+		if (!team) throw new Error(`Missing synced NFL team: ${abbr}`)
 		return team
 	}
 
-	// A real, maintained roster - but a partial one. Enough current/notable
-	// players per team to exercise search and autofill, not an exhaustive
-	// 53-man/15-man roster sync. Expect this to drift out of date; whoever
-	// keeps it current does so by hand, same as team data above.
-	const nbaPlayerRows = await db
-		.insert(players)
-		.values(
-			(
-				[
-					["Joel Embiid", "PHI", "C"],
-					["Nikola Jokic", "DEN", "C"],
-					["Luka Doncic", "LAL", "PG"],
-					["Shai Gilgeous-Alexander", "OKC", "PG"],
-					["Giannis Antetokounmpo", "MIL", "PF"],
-					["Jayson Tatum", "BOS", "SF"],
-					["Anthony Edwards", "MIN", "SG"],
-					["Victor Wembanyama", "SAS", "C"],
-					["Devin Booker", "PHX", "SG"],
-					["Jalen Brunson", "NYK", "PG"],
-					["Anthony Davis", "DAL", "PF"],
-					["Domantas Sabonis", "SAC", "C"],
-					["Tyrese Haliburton", "IND", "PG"],
-					["Donovan Mitchell", "CLE", "SG"],
-					["Damian Lillard", "MIL", "PG"],
-					["Kevin Durant", "HOU", "PF"],
-					["Stephen Curry", "GSW", "PG"],
-					["LeBron James", "LAL", "SF"],
-					["Paolo Banchero", "ORL", "PF"],
-					["Karl-Anthony Towns", "NYK", "C"],
-					// 2025-26 rookie class, used by the Rookie of the Year question below -
-					// draft destinations here are illustrative, not a claim of real fact
-					["Cooper Flagg", "DAL", "PF"],
-					["Ace Bailey", "UTA", "SF"],
-					["Dylan Harper", "SAS", "PG"],
-					["Kon Knueppel", "CHA", "SG"],
-				] as const
-			).map(([name, teamAbbr, position]) => ({
-				name,
-				position,
-				currentTeamId: nbaTeam(teamAbbr).id,
-			})),
-		)
-		.returning()
+	const nbaPlayerRows = await db.query.players.findMany({
+		where: { currentTeamId: { in: nbaTeamRows.map((t) => t.id) } },
+	})
+	const nflPlayerRows = await db.query.players.findMany({
+		where: { currentTeamId: { in: nflTeamRows.map((t) => t.id) } },
+	})
 
-	const nflPlayerRows = await db
-		.insert(players)
-		.values(
-			(
-				[
-					["Patrick Mahomes", "KC", "QB"],
-					["Josh Allen", "BUF", "QB"],
-					["Lamar Jackson", "BAL", "QB"],
-					["Joe Burrow", "CIN", "QB"],
-					["Justin Jefferson", "MIN", "WR"],
-					["Ja'Marr Chase", "CIN", "WR"],
-					["CeeDee Lamb", "DAL", "WR"],
-					["Christian McCaffrey", "SF", "RB"],
-					["Saquon Barkley", "PHI", "RB"],
-					["Travis Kelce", "KC", "TE"],
-					["Tyreek Hill", "MIA", "WR"],
-					["A.J. Brown", "PHI", "WR"],
-					["Jahmyr Gibbs", "DET", "RB"],
-					["Amon-Ra St. Brown", "DET", "WR"],
-					["Bijan Robinson", "ATL", "RB"],
-				] as const
-			).map(([name, teamAbbr, position]) => ({
-				name,
-				position,
-				currentTeamId: nflTeam(teamAbbr).id,
-			})),
-		)
-		.returning()
-
+	// Below reaches for specific named stars by exact synced full name - real
+	// rosters, so this drifts as trades/retirements happen. If a name below
+	// throws "missing", it's genuinely no longer on that team; swap it for
+	// someone who is (see the error for a hint).
 	const nbaPlayer = (name: string) => {
 		const player = nbaPlayerRows.find((p) => p.name === name)
-		if (!player) throw new Error(`Missing NBA player: ${name}`)
+		if (!player) {
+			throw new Error(
+				`Missing synced NBA player: ${name} - they may have moved teams or retired, pick another synced player`,
+			)
+		}
 		return player
 	}
 	const nflPlayer = (name: string) => {
 		const player = nflPlayerRows.find((p) => p.name === name)
-		if (!player) throw new Error(`Missing NFL player: ${name}`)
+		if (!player) {
+			throw new Error(
+				`Missing synced NFL player: ${name} - they may have moved teams or retired, pick another synced player`,
+			)
+		}
 		return player
 	}
 
@@ -834,12 +693,18 @@ async function main() {
 
 	console.log("Seeding games...")
 
-	// Real-world matchups a handful of the questions below are actually
-	// scoped to - "away @ home", matching the "@" convention already used in
-	// question titles like "76ers @ Nuggets". Not every game-tied question
-	// below shares a game row with another (a team can appear in more than
-	// one of these, same as a real team plays more than one game a season) -
-	// only questions that are genuinely the same real-world game share one.
+	// Fake demo games, same as the rest of this file - just needs a gameId to
+	// hang a question on. Teams are real (synced), the matchup/date isn't.
+	async function createGame(input: {
+		leagueId: string
+		homeTeamId: string
+		awayTeamId: string
+		startsAt: Date
+	}) {
+		const [game] = await db.insert(games).values(input).returning()
+		return game
+	}
+
 	const nuggetsSunsGame = await createGame({
 		leagueId: nba.id,
 		homeTeamId: nbaTeam("DEN").id,
@@ -849,7 +714,7 @@ async function main() {
 	const lakersWarriorsGame = await createGame({
 		leagueId: nba.id,
 		homeTeamId: nbaTeam("LAL").id,
-		awayTeamId: nbaTeam("GSW").id,
+		awayTeamId: nbaTeam("GS").id,
 		startsAt: daysAgo(3),
 	})
 	const sixersNuggetsGame = await createGame({

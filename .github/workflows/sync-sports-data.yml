@@ -1,0 +1,25 @@
+name: Sync sports data
+
+on:
+  schedule:
+    # Daily, 9am UTC - teams/colors barely change, rosters and the schedule
+    # (still-TBD games, postseason once brackets are set) do.
+    - cron: "0 9 * * *"
+  workflow_dispatch: {}
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: superfly/flyctl-actions/setup-flyctl@master
+
+      # Runs on the already-deployed API machine instead of connecting out to
+      # Postgres from the runner - it's already inside Fly's private network
+      # with DATABASE_URL set, and the sync module ships in the same image
+      # (deploy this repo to Fly before the first run, or this has nothing to
+      # execute yet). Only secret needed is a Fly API token.
+      - name: Run ESPN sync on the API machine
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: |
+          flyctl ssh console -a called-my-shot-api -C "pnpm exec tsx src/db/sync/run.ts"
