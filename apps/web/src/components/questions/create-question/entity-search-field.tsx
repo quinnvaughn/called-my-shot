@@ -1,4 +1,4 @@
-import { useRef, useState } from "react"
+import { useState } from "react"
 import { Combobox } from "#/components/ui/combobox"
 import { TextInput } from "#/components/ui/text-input"
 
@@ -44,7 +44,6 @@ export function EntitySearchField({
 }: Props) {
 	const [open, setOpen] = useState(false)
 	const [highlightedKey, setHighlightedKey] = useState<string | null>(null)
-	const wrapRef = useRef<HTMLDivElement>(null)
 
 	const query = value.trim().toLowerCase()
 	const matches =
@@ -62,7 +61,7 @@ export function EntitySearchField({
 	}
 
 	return (
-		<div ref={wrapRef} style={{ position: "relative" }}>
+		<div>
 			<TextInput error={error}>
 				<TextInput.Group>
 					<TextInput.Field

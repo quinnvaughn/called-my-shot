@@ -23,6 +23,23 @@ export type PointsPreview = {
 	earlyTier: EarlyTier
 }
 
+// The option/question call counts a not-yet-submitted call reads are always
+// "before this call" - it doesn't exist yet. Feeding that raw fieldPct
+// straight into a preview means the number the caller sees right before
+// submitting isn't the number they'll see right after: their own selection
+// is missing from both the option's count and the total, and adding it can
+// swing fieldPct hard when the field is still small (going from 3 to 4
+// total callers, adding yourself moves the ratio by 25%+, versus a rounding
+// error once the field is large). Simulating "as if I already submitted"
+// here means the preview always matches what fieldPct actually reads the
+// instant after Lock It In, not a stale before-me snapshot.
+export function previewFieldPct(
+	optionCallCount: number,
+	totalCalls: number,
+): number {
+	return ((optionCallCount + 1) / (totalCalls + 1)) * 100
+}
+
 // Preview for the option-based types (multiple_choice/yes_no/over_under/
 // multi_select) - both outcomes computed at once since which one applies
 // isn't known until resolution. earlyRank/earlyTotalCalls are optional

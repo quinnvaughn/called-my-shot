@@ -7,6 +7,7 @@ import { EntitySearchField } from "#/components/questions/create-question/entity
 import { Card } from "#/components/ui/card"
 import { FieldLabel } from "#/components/ui/field-label"
 import { Slider } from "#/components/ui/slider"
+import { previewFieldPct } from "#/lib/scoring"
 import { OptionRow } from "../option-row"
 import { PointsPreview } from "../points-preview"
 import { CaseField } from "./case-field"
@@ -45,14 +46,18 @@ export function OptionFields({ callForm }: Props) {
 
 	if (!question) return null
 
-	// null = nothing picked yet. A newOption pick has no fieldPct of its own
-	// (nobody's called it yet either), so it previews at 0 - same as any
-	// other option nobody else has picked.
+	// null = nothing picked yet. Simulated as if this call already went
+	// through (see previewFieldPct) so the number shown here matches what
+	// fieldPct will actually read the instant after submitting, rather than
+	// a before-me snapshot that jumps once the real call is counted.
 	const selectedFieldPct = newOption
-		? 0
+		? previewFieldPct(0, question.callCount)
 		: selections[0]
-			? (question.options.find((o) => o.id === selections[0].optionId)
-					?.fieldPct ?? 0)
+			? previewFieldPct(
+					question.options.find((o) => o.id === selections[0].optionId)
+						?.callCount ?? 0,
+					question.callCount,
+				)
 			: null
 
 	return (

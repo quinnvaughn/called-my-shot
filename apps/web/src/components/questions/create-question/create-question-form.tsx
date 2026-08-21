@@ -11,6 +11,7 @@ import { HStack, VStack } from "styled-system/jsx"
 import { match } from "ts-pattern"
 import { Button } from "#/components/ui/button"
 import { Card } from "#/components/ui/card"
+import { FieldHint } from "#/components/ui/field-hint"
 import { FieldLabel } from "#/components/ui/field-label"
 import { FormError } from "#/components/ui/form-error"
 import { Select } from "#/components/ui/select"
@@ -448,13 +449,22 @@ export function CreateQuestionForm({ sports, isAdmin }: Props) {
 									<Card.Body>
 										<VStack gap="3.5" alignItems="stretch">
 											<LeagueField form={form} sports={sports} />
-											<StatPicker form={form} stats={stats} catalogOnly />
-											<SubjectPicker
-												form={form}
-												teams={teams}
-												players={players}
-												required
-											/>
+											{leagueId ? (
+												<>
+													<StatPicker form={form} stats={stats} catalogOnly />
+													<SubjectPicker
+														form={form}
+														teams={teams}
+														players={players}
+														required
+													/>
+												</>
+											) : (
+												<FieldHint>
+													Pick a league above to choose the stat and subject -
+													both pull from that league's catalog.
+												</FieldHint>
+											)}
 										</VStack>
 									</Card.Body>
 								</Card>

@@ -25,9 +25,17 @@ const config = defineConfig({
 	},
 	plugins: [
 		devtools(),
-		nitro({ rollupConfig: { external: [/^@sentry\//] } }),
 		tanstackStart(),
 		viteReact(),
+		// Nitro registers its dev-request middleware directly in
+		// `configureServer` (not via a returned post-hook), so - per Nitro's
+		// own TanStack Start + Vite example - it has to be the last plugin:
+		// Vite installs same-priority plugins' middleware in array order, and
+		// an earlier nitro() intercepted requests (module/HMR fetches
+		// included) before React/TanStack Start's own dev middleware got a
+		// chance to handle them, which is what was causing edits to require a
+		// hard refresh instead of hot-reloading.
+		nitro({ rollupConfig: { external: [/^@sentry\//] } }),
 	],
 })
 

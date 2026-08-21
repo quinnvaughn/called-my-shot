@@ -259,11 +259,7 @@ export default defineConfig({
               outline: "none",
               color: "fg.default",
               fontFamily: "inherit",
-              // Must stay >= 16px: iOS Safari auto-zooms the page on focus for
-              // any input under that size, and since navigation here is
-              // client-side, that zoom persists into whatever page loads next
-              // instead of resetting on a real page load.
-              fontSize: "md",
+              fontSize: "sm",
               paddingBlock: "3",
               _placeholder: {
                 color: "fg.subtle",
@@ -340,10 +336,7 @@ export default defineConfig({
               padding: "3.5",
               color: "fg.default",
               fontFamily: "inherit",
-              // See textInput.field's comment: iOS Safari auto-zooms on
-              // focus below 16px, and the zoom persists across client-side
-              // navigation.
-              fontSize: "md",
+              fontSize: "sm",
               lineHeight: "relaxed",
               outline: "none",
               transition: "border-color 0.15s ease",
@@ -889,10 +882,7 @@ export default defineConfig({
               paddingBlock: "1.5",
               textAlign: "center",
               fontFamily: "mono",
-              // See textInput.field's comment: iOS Safari auto-zooms on
-              // focus below 16px, and the zoom persists across client-side
-              // navigation.
-              fontSize: "md",
+              fontSize: "sm",
               color: "fg.default",
               outline: "none",
               _focus: {

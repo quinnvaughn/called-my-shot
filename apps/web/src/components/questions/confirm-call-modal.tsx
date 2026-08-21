@@ -11,6 +11,7 @@ import { FormError } from "#/components/ui/form-error"
 import { Modal } from "#/components/ui/modal"
 import { useRequireAuth } from "#/hooks/use-require-auth"
 import {
+	previewFieldPct,
 	previewNumericPoints,
 	previewSelectionPoints,
 	tierFor,
@@ -104,27 +105,26 @@ export function ConfirmCallModal({
 						if (!option) return null
 						const showConviction =
 							type === "multi_select" && convictionMode === "split"
-						const meta =
-							option.fieldPct !== null
-								? `${tierFor(option.fieldPct, question.options.length).label} · ${Math.round(option.fieldPct)}% of the field${showConviction ? ` · ${selection.conviction}% conviction` : ""}`
-								: showConviction
-									? `${selection.conviction}% conviction`
-									: "—"
+						// Simulated as if this call already went through (see
+						// previewFieldPct) so this matches what fieldPct will
+						// actually read the instant after Lock It In, not the
+						// before-me snapshot the option list was queried with.
+						const simulatedFieldPct = previewFieldPct(
+							option.callCount,
+							question.callCount,
+						)
+						const meta = `${tierFor(simulatedFieldPct, question.options.length).label} · ${Math.round(simulatedFieldPct)}% of the field${showConviction ? ` · ${selection.conviction}% conviction` : ""}`
 						return (
 							<ConfirmPickRow
 								key={selection.optionId}
 								name={optionLabel(option)}
 								meta={meta}
-								payout={
-									option.fieldPct !== null
-										? previewSelectionPoints(
-												basePoints,
-												option.fieldPct,
-												question.options.length,
-												selection.conviction,
-											)
-										: null
-								}
+								payout={previewSelectionPoints(
+									basePoints,
+									simulatedFieldPct,
+									question.options.length,
+									selection.conviction,
+								)}
 							/>
 						)
 					})

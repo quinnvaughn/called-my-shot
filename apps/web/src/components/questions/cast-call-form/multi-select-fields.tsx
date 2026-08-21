@@ -7,6 +7,7 @@ import { EntitySearchField } from "#/components/questions/create-question/entity
 import { Card } from "#/components/ui/card"
 import { FieldLabel } from "#/components/ui/field-label"
 import { Slider } from "#/components/ui/slider"
+import { previewFieldPct } from "#/lib/scoring"
 import { PointsPreview } from "../points-preview"
 import { CaseField } from "./case-field"
 import { OptionPickerList } from "./option-picker-list"
@@ -229,7 +230,10 @@ export function MultiSelectFields({ callForm }: Props) {
 											)}
 											<PointsPreview
 												kind="option"
-												fieldPct={option.fieldPct ?? 0}
+												fieldPct={previewFieldPct(
+													option.callCount,
+													question.callCount,
+												)}
 												totalOptions={question.options.length}
 												conviction={selection.conviction}
 												basePoints={BASE_POINTS_BY_TYPE.multi_select}

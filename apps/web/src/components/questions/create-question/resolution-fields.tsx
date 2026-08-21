@@ -71,7 +71,7 @@ export function ResolutionFields({ form }: Props) {
 							value={field.value}
 							onValueChange={field.onChange}
 							error={field.meta.error ?? undefined}
-							description="Locked the moment this publishes — the source can't change after someone's made a call."
+							description="No one can make a call after this time."
 						/>
 					</VStack>
 				)}

@@ -24,7 +24,8 @@ export const Route = createRootRouteWithContext<RouterContext>()({
 			},
 			{
 				name: "viewport",
-				content: "width=device-width, initial-scale=1",
+				content:
+					"width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0",
 			},
 			// Pins the color browsers/OSes use for link-preview tinting, mobile
 			// address bar chrome, and PWA splash background to the app's actual
