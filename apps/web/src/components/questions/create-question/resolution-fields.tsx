@@ -16,6 +16,8 @@ type Props = {
 }
 
 export function ResolutionFields({ form }: Props) {
+	const gameId = form.useWatch("gameId")
+
 	return (
 		<VStack gap="3.5" alignItems="stretch">
 			<form.Field name="resolutionSource">
@@ -71,7 +73,12 @@ export function ResolutionFields({ form }: Props) {
 							value={field.value}
 							onValueChange={field.onChange}
 							error={field.meta.error ?? undefined}
-							description="No one can make a call after this time."
+							disabled={!!gameId}
+							description={
+								gameId
+									? "Set to the picked game's kickoff - clear the game above to choose a different time."
+									: "No one can make a call after this time."
+							}
 						/>
 					</VStack>
 				)}

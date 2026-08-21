@@ -730,9 +730,19 @@ export default defineConfig({
               fontSize: "sm",
               color: "fg.default",
               cursor: "pointer",
-              transition: "border-color 0.15s ease",
+              transition: "border-color 0.15s ease, opacity 0.15s ease",
               _hover: {
                 borderColor: "border.emphasized",
+              },
+              // Locked to a picked game's kickoff (see game-field.tsx) - same
+              // native :disabled treatment as the button recipe's _disabled,
+              // rather than a separate variant prop to thread through.
+              _disabled: {
+                cursor: "not-allowed",
+                opacity: 0.6,
+                _hover: {
+                  borderColor: "border.default",
+                },
               },
             },
             triggerLabel: {

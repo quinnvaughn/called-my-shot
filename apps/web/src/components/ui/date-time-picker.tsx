@@ -9,7 +9,11 @@ import { Button } from "./button"
 // Matches what a native <input type="datetime-local"> used to produce - no
 // timezone offset, so `new Date(value)` (the zod schema's refine, and the API
 // resolver's insert) keeps interpreting it as local time exactly like before.
-const VALUE_FORMAT = "yyyy-MM-dd'T'HH:mm"
+// Exported so callers that fill this field from something other than the
+// picker itself (the game field auto-setting locksAt from a picked game's
+// startsAt) can produce a value in the same shape.
+export const DATE_TIME_PICKER_VALUE_FORMAT = "yyyy-MM-dd'T'HH:mm"
+const VALUE_FORMAT = DATE_TIME_PICKER_VALUE_FORMAT
 const WEEKDAYS = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"]
 // Matches Panda's default `md` breakpoint (768px), same cutoff app-shell.tsx
 // uses to switch between the desktop nav rail and the mobile drawer - below
@@ -49,6 +53,9 @@ type DateTimePickerProps = {
 	description?: string
 	error?: string
 	className?: string
+	// The game field sets this once a game is picked - locksAt is then the
+	// game's own startsAt, not something the creator chooses by hand.
+	disabled?: boolean
 }
 
 export function DateTimePicker({
@@ -57,6 +64,7 @@ export function DateTimePicker({
 	description,
 	error,
 	className,
+	disabled,
 }: DateTimePickerProps) {
 	const [open, setOpen] = useState(false)
 	const [viewMonth, setViewMonth] = useState<DateTime>(() =>
@@ -80,6 +88,9 @@ export function DateTimePicker({
 
 	const selected = parseValue(value)
 	const hasError = Boolean(error)
+	// disabled isn't passed to the recipe - the trigger's own native `disabled`
+	// attribute below drives its look via the recipe's _disabled pseudo-class,
+	// same pattern as the button recipe.
 	const slots = dateTimePickerRecipe({ open, hasError })
 
 	function commit(next: DateTime) {
@@ -228,6 +239,7 @@ export function DateTimePicker({
 			<button
 				ref={triggerRef}
 				type="button"
+				disabled={disabled}
 				aria-haspopup="dialog"
 				aria-expanded={open}
 				className={slots.trigger}

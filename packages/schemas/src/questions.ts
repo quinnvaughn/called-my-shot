@@ -61,6 +61,12 @@ export const createQuestionSchema = z
 		sportId: z.string().uuid("Pick a sport"),
 		leagueId: z.string().uuid("Pick a league"),
 
+		// The single real-world matchup this question is about, if any - see
+		// gameId on the questions table. When set, the API resolver derives
+		// locksAt from the game's own startsAt instead of trusting this input's
+		// locksAt string, so a stale/tampered value here can't desync the two.
+		gameId: z.string().uuid().optional(),
+
 		resolutionSource: z.string().trim().min(1, "Say where you'll check this"),
 		resolutionSourceUrl: z
 			.string()

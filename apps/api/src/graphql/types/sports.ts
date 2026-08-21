@@ -206,6 +206,19 @@ builder.queryFields((t) => ({
 			db.query.leagues.findFirst({ where: { id: args.id } }),
 	}),
 
+	// Single-game lookup, same reasoning as `league` above - lets the
+	// create-question form's game field redisplay its current selection from
+	// just the stored gameId after its own component remounts (switching
+	// question type re-mounts the section it lives in), without keeping a
+	// second, ephemeral copy of the game's data in local component state.
+	game: t.field({
+		type: GameRef,
+		nullable: true,
+		args: { id: t.arg.id({ required: true }) },
+		resolve: (_root, args) =>
+			db.query.games.findFirst({ where: { id: args.id } }),
+	}),
+
 	teams: t.field({
 		type: [TeamRef],
 		args: { leagueId: t.arg.id({ required: false }) },
@@ -232,6 +245,60 @@ builder.queryFields((t) => ({
 				},
 				orderBy: { name: "asc" },
 			}),
+	}),
+
+	// Public, not admin-gated - same reasoning as teams/players above. Backs
+	// the create-question form's game picker: scoped to a league and to
+	// upcoming scheduled games only (nothing already live/final makes sense to
+	// attach a new question to), with an optional free-text match against
+	// either team's name/abbreviation to narrow down a league's full slate.
+	// Deliberately not the admin/adminGames cursor-paginated connection - this
+	// is a bounded typeahead result set, not something a caller pages through.
+	games: t.field({
+		type: [GameRef],
+		args: {
+			leagueId: t.arg.id({ required: true }),
+			query: t.arg.string({ required: false }),
+			first: t.arg.int({ required: false }),
+		},
+		resolve: (_root, args) => {
+			const limit = Math.min(Math.max(args.first ?? 8, 1), 20)
+			// Split into per-team search tokens rather than matching the raw
+			// string as one substring - "denver boston"/"denver vs boston"
+			// should find Denver @ Boston (or Boston @ Denver) even though no
+			// single team is named "Denver Boston". Each token must match SOME
+			// team (home or away, name or abbreviation) - that's the OR inside
+			// each token's clause - but every token has to match something,
+			// which is the AND across tokens below.
+			const tokens = (args.query ?? "")
+				.split(/\s+/)
+				.map((t) => t.trim())
+				.filter(
+					(t) =>
+						t.length > 0 && !["vs", "v", "at", "@"].includes(t.toLowerCase()),
+				)
+			return db.query.games.findMany({
+				where: {
+					leagueId: args.leagueId,
+					status: "scheduled",
+					startsAt: { gt: new Date() },
+					...(tokens.length > 0
+						? {
+								AND: tokens.map((token) => ({
+									OR: [
+										{ homeTeam: { name: { ilike: `%${token}%` } } },
+										{ homeTeam: { abbreviation: { ilike: `%${token}%` } } },
+										{ awayTeam: { name: { ilike: `%${token}%` } } },
+										{ awayTeam: { abbreviation: { ilike: `%${token}%` } } },
+									],
+								})),
+							}
+						: {}),
+				},
+				orderBy: { startsAt: "asc" },
+				limit,
+			})
+		},
 	}),
 
 	// scoped to a sport, not a league - see the Stat type doc

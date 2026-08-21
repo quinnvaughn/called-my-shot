@@ -1142,6 +1142,7 @@ const CreateQuestionInput = builder.inputType("CreateQuestionInput", {
 		title: t.string({ required: true }),
 		sportId: t.id({ required: true }),
 		leagueId: t.id({ required: true }),
+		gameId: t.id({ required: false }),
 
 		resolutionSource: t.string({ required: true }),
 		resolutionSourceUrl: t.string({ required: false }),
@@ -1654,6 +1655,27 @@ builder.mutationFields((t) => ({
 				throw new AuthorizationError("Only admins can post official questions.")
 			}
 
+			// When a game is picked, its own startsAt is what actually gets
+			// stored as locksAt below - the create-question form disables that
+			// field and fills it from the game client-side, but the server
+			// re-derives it from the game row rather than trusting the
+			// submitted string, so a stale or tampered locksAt can't desync
+			// the two.
+			let gameLocksAt: Date | null = null
+			if (data.gameId) {
+				const game = await db.query.games.findFirst({
+					where: { id: data.gameId },
+				})
+				if (!game) throw ValidationError.field("gameId", "Game not found")
+				if (game.leagueId !== data.leagueId) {
+					throw ValidationError.field(
+						"gameId",
+						"Game must belong to the selected league",
+					)
+				}
+				gameLocksAt = game.startsAt
+			}
+
 			// numeric_guess's tolerance band comes from the stat's own tolerance
 			// tier, not the creator - createQuestionSchema guarantees statId is
 			// set (no customStat fallback) for this type specifically, so a
@@ -1687,9 +1709,10 @@ builder.mutationFields((t) => ({
 						isOfficial: data.isOfficial ?? false,
 						sportId: data.sportId,
 						leagueId: data.leagueId,
+						gameId: data.gameId ?? null,
 						resolutionSource: data.resolutionSource,
 						resolutionSourceUrl: data.resolutionSourceUrl || null,
-						locksAt: new Date(data.locksAt),
+						locksAt: gameLocksAt ?? new Date(data.locksAt),
 						statId: data.statId ?? null,
 						customStat: data.customStat || null,
 						ouLine: data.ouLine ?? null,

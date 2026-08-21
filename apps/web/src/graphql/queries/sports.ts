@@ -57,3 +57,57 @@ export const StatsBySportDocument = graphql(`
 		}
 	}
 `)
+
+// Redisplays the game field's current selection from just the stored gameId
+// - normally served straight from Apollo's cache (the game was already
+// fetched via GamesByLeague), but a real network fallback if that cache
+// entry isn't there, e.g. the field's own component remounted with no local
+// memory of what it fetched before.
+export const GameByIdDocument = graphql(`
+	query GameById($id: ID!) {
+		game(id: $id) {
+			id
+			startsAt
+			status
+			homeScore
+			awayScore
+			homeTeam {
+				id
+				abbreviation
+				color
+			}
+			awayTeam {
+				id
+				abbreviation
+				color
+			}
+		}
+	}
+`)
+
+// The create-question form's game picker - server-side searched (see the
+// `games` resolver) rather than fetched-once-and-filtered like teams/players
+// above, since a league's full slate of games can run much larger than its
+// roster. Re-run on every query change with the current text (empty text
+// still returns a result: that league's soonest upcoming games).
+export const GamesByLeagueDocument = graphql(`
+	query GamesByLeague($leagueId: ID!, $query: String) {
+		games(leagueId: $leagueId, query: $query) {
+			id
+			startsAt
+			status
+			homeScore
+			awayScore
+			homeTeam {
+				id
+				abbreviation
+				color
+			}
+			awayTeam {
+				id
+				abbreviation
+				color
+			}
+		}
+	}
+`)

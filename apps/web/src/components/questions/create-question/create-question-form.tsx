@@ -5,7 +5,7 @@ import {
 } from "@called-my-shot/schemas"
 import { useNavigate, useRouter } from "@tanstack/react-router"
 import type { ReactNode } from "react"
-import { useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { css } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
 import { match } from "ts-pattern"
@@ -25,6 +25,7 @@ import type {
 } from "#/graphql/generated/graphql"
 import { CreateQuestionDocument } from "#/graphql/mutations/questions"
 import {
+	GameByIdDocument,
 	PlayersByLeagueDocument,
 	StatsBySportDocument,
 	TeamsByLeagueDocument,
@@ -33,6 +34,7 @@ import { useForm } from "#/lib/form/use-form"
 import { questionCategoryLabel } from "#/lib/question-labels"
 import { ChipButton } from "./chip-button"
 import type { EntitySearchItem } from "./entity-search-field"
+import { GameField } from "./game-field"
 import { LeagueField } from "./league-field"
 import { OfficialToggle } from "./official-toggle"
 import { OpenFieldNudge } from "./open-field-nudge"
@@ -99,6 +101,7 @@ export function CreateQuestionForm({ sports, isAdmin }: Props) {
 			title: "",
 			sportId: "",
 			leagueId: "",
+			gameId: undefined,
 			resolutionSource: "",
 			resolutionSourceUrl: "",
 			locksAt: "",
@@ -126,6 +129,7 @@ export function CreateQuestionForm({ sports, isAdmin }: Props) {
 						title: values.title,
 						sportId: values.sportId,
 						leagueId: values.leagueId,
+						gameId: values.gameId,
 						resolutionSource: values.resolutionSource,
 						resolutionSourceUrl: values.resolutionSourceUrl || undefined,
 						locksAt: values.locksAt,
@@ -197,9 +201,12 @@ export function CreateQuestionForm({ sports, isAdmin }: Props) {
 	const category = form.useWatch("category")
 	const sportId = form.useWatch("sportId")
 	const leagueId = form.useWatch("leagueId")
+	const gameId = form.useWatch("gameId")
 	const optionsOpenField = form.useWatch("optionsOpenField")
 	const openFieldKind = form.useWatch("openFieldKind")
 	const options = form.useWatch("options")
+	const subjectTeamId = form.useWatch("subjectTeamId")
+	const subjectPlayerId = form.useWatch("subjectPlayerId")
 
 	const { data: teamsData } = useQuery(TeamsByLeagueDocument, {
 		variables: { leagueId },
@@ -213,21 +220,78 @@ export function CreateQuestionForm({ sports, isAdmin }: Props) {
 		variables: { sportId },
 		skip: !sportId,
 	})
+	// Fetched here (not just inside GameField) because a picked game also
+	// narrows every team/player picker below to its own two sides - you can't
+	// pick the Cleveland Cavaliers as the subject of a Denver @ Boston game.
+	const { data: selectedGameData } = useQuery(GameByIdDocument, {
+		variables: { id: gameId ?? "" },
+		skip: !gameId,
+	})
+	const selectedGame = selectedGameData?.game ?? null
 
 	const teams = teamsData?.teams ?? []
 	const players = playersData?.players ?? []
 	const stats = statsData?.stats ?? []
 
+	// Stable across renders (unlike a plain `new Set(...)` literal) so the
+	// stale-selection effect below only actually re-runs when the picked
+	// game's two teams change, not on every render.
+	const gameTeamIds = useMemo(
+		() =>
+			selectedGame
+				? new Set([selectedGame.homeTeam.id, selectedGame.awayTeam.id])
+				: null,
+		[selectedGame],
+	)
+	const scopedTeams = gameTeamIds
+		? teams.filter((team) => gameTeamIds.has(team.id))
+		: teams
+	const scopedPlayers = gameTeamIds
+		? players.filter(
+				(player) =>
+					player.currentTeam && gameTeamIds.has(player.currentTeam.id),
+			)
+		: players
+
+	// Narrowing the pickers above is cosmetic on its own - a subject or option
+	// picked before the game was (or before it changed) can still be sitting
+	// in form state pointing at a team/player outside the new game's two
+	// sides. Only fires once there's an actual game to scope to; deselecting
+	// a game doesn't retroactively invalidate picks made under the full
+	// league-wide list.
+	useEffect(() => {
+		if (!gameTeamIds) return
+		if (subjectTeamId && !gameTeamIds.has(subjectTeamId)) {
+			form.setValue("subjectTeamId", undefined)
+		}
+		if (subjectPlayerId) {
+			const player = players.find((p) => p.id === subjectPlayerId)
+			if (!player?.currentTeam || !gameTeamIds.has(player.currentTeam.id)) {
+				form.setValue("subjectPlayerId", undefined)
+			}
+		}
+		form.setValue("options", (prev) =>
+			prev.filter((option) => {
+				if (option.teamId) return gameTeamIds.has(option.teamId)
+				if (option.playerId) {
+					const player = players.find((p) => p.id === option.playerId)
+					return !!player?.currentTeam && gameTeamIds.has(player.currentTeam.id)
+				}
+				return true
+			}),
+		)
+	}, [gameTeamIds, subjectTeamId, subjectPlayerId, players, form])
+
 	const optionItems: EntitySearchItem[] | null =
 		category === "season_awards" || category === "game_stats"
-			? teams.map((team) => ({
+			? scopedTeams.map((team) => ({
 					id: team.id,
 					label: team.name,
 					kind: "team" as const,
 					meta: team.abbreviation,
 				}))
 			: category === "player_stats"
-				? players.map((player) => ({
+				? scopedPlayers.map((player) => ({
 						id: player.id,
 						label: player.name,
 						kind: "player" as const,
@@ -320,6 +384,11 @@ export function CreateQuestionForm({ sports, isAdmin }: Props) {
 									<Card.Body>
 										<VStack gap="3.5" alignItems="stretch">
 											<LeagueField form={form} sports={sports} />
+											<GameField
+												form={form}
+												leagueId={leagueId}
+												selectedGame={selectedGame}
+											/>
 											<form.Field name="optionsOpenField">
 												{(field) => (
 													<OpenFieldToggle
@@ -382,6 +451,11 @@ export function CreateQuestionForm({ sports, isAdmin }: Props) {
 									<Card.Body>
 										<VStack gap="3.5" alignItems="stretch">
 											<LeagueField form={form} sports={sports} />
+											<GameField
+												form={form}
+												leagueId={leagueId}
+												selectedGame={selectedGame}
+											/>
 											<p
 												className={css({ fontSize: "xs", color: "fg.subtle" })}
 											>
@@ -400,6 +474,11 @@ export function CreateQuestionForm({ sports, isAdmin }: Props) {
 									<Card.Body>
 										<VStack gap="3.5" alignItems="stretch">
 											<LeagueField form={form} sports={sports} />
+											<GameField
+												form={form}
+												leagueId={leagueId}
+												selectedGame={selectedGame}
+											/>
 											<StatPicker form={form} stats={stats} />
 											<div className={css({ width: "64" })}>
 												<form.Field name="ouLine">
@@ -434,8 +513,8 @@ export function CreateQuestionForm({ sports, isAdmin }: Props) {
 											</div>
 											<SubjectPicker
 												form={form}
-												teams={teams}
-												players={players}
+												teams={scopedTeams}
+												players={scopedPlayers}
 											/>
 										</VStack>
 									</Card.Body>
@@ -449,13 +528,18 @@ export function CreateQuestionForm({ sports, isAdmin }: Props) {
 									<Card.Body>
 										<VStack gap="3.5" alignItems="stretch">
 											<LeagueField form={form} sports={sports} />
+											<GameField
+												form={form}
+												leagueId={leagueId}
+												selectedGame={selectedGame}
+											/>
 											{leagueId ? (
 												<>
 													<StatPicker form={form} stats={stats} catalogOnly />
 													<SubjectPicker
 														form={form}
-														teams={teams}
-														players={players}
+														teams={scopedTeams}
+														players={scopedPlayers}
 														required
 													/>
 												</>
@@ -477,6 +561,11 @@ export function CreateQuestionForm({ sports, isAdmin }: Props) {
 									<Card.Body>
 										<VStack gap="3.5" alignItems="stretch">
 											<LeagueField form={form} sports={sports} />
+											<GameField
+												form={form}
+												leagueId={leagueId}
+												selectedGame={selectedGame}
+											/>
 											<div className={css({ width: "64" })}>
 												<form.Field name="picksRequired">
 													{(field) => (
