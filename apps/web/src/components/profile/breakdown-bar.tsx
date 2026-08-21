@@ -43,7 +43,7 @@ export function BreakdownBar({ label, accuracy, callCount }: Props) {
 				<div
 					className={css({
 						// Matches the win/loss color convention already used for
-						// individual calls (see PickSummaryRow) - >=50% reads as a
+						// individual calls (see ResultBadge) - >=50% reads as a
 						// net-positive category, below reads as net-negative. No
 						// accuracy yet stays neutral rather than reading as a loss.
 						background:

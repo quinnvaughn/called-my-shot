@@ -18,8 +18,8 @@ export function Tag({ children, variant = "neutral", size = "md" }: Props) {
 				fontWeight: "bold",
 				letterSpacing: "wide",
 				textTransform: "uppercase",
-				// success.default/success.subtle - the same pairing
-				// ViewerCallStatusIcon uses for its "Called" chip.
+				// success.default/success.subtle - the same pairing ResultBadge
+				// uses for a winning call.
 				color:
 					variant === "primary"
 						? "primary.default"

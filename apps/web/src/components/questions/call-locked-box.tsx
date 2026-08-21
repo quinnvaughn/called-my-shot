@@ -3,7 +3,7 @@ import { css } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
 
 // Stands in for the pick + case once viewerCanSeePick is false - identity is
-// still shown above this (see CallIdentityRow), so the message here is only
+// still shown above this (see PersonLine), so the message here is only
 // ever about the pick, never about whether the call happened at all.
 export function CallLockedBox({ name }: { name: string }) {
 	return (

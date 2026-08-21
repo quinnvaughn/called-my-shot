@@ -47,6 +47,12 @@ export function optionDisplayLabel(
 	return type === "OVER_UNDER" && ouLine !== null ? `${label} ${ouLine}` : label
 }
 
+// LOCKED sub-line on QuestionCard - resolution is always a human manually
+// entering the answer (there's no automated score feed a question resolves
+// itself off of), so this is one generic line rather than a per-type guess
+// at what's being waited on.
+export const AWAITING_RESULT_TEXT = "awaiting resolution"
+
 export const questionTypeDescription: Record<QuestionType, string> = {
 	MULTIPLE_CHOICE:
 		"Pick from a list — a champion, an award winner, anything with 2 or more named options.",

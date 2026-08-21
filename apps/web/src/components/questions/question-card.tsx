@@ -1,12 +1,14 @@
 import { Link } from "@tanstack/react-router"
-import { DateTime } from "luxon"
 import { css } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
 import { Card } from "#/components/ui/card"
 import { type FragmentType, graphql, useFragment } from "#/graphql/generated"
-import type { QuestionStatus } from "#/graphql/generated/graphql"
-import { useNow } from "#/hooks/use-now"
-import { fieldSignal, resolvedFieldSignal } from "#/lib/field-signal"
+import { fieldSignal } from "#/lib/field-signal"
+import { AWAITING_RESULT_TEXT } from "#/lib/question-labels"
+import { CardRule } from "./card-rule"
+import { LockLine } from "./lock-line"
+import { LockedBadge } from "./locked-badge"
+import { QuestionResultBlock } from "./question-result-block"
 import { QuestionSummaryHeader } from "./question-summary-header"
 
 export const QuestionCardFragment = graphql(`
@@ -14,14 +16,10 @@ export const QuestionCardFragment = graphql(`
 		id
 		title
 		type
-		category
-		isOfficial
 		status
+		isOfficial
 		locksAt
-		resolutionNote
-		ouLine
 		numericActualValue
-		numericHitRatePct
 		callCount
 		averageGuess
 		league {
@@ -34,18 +32,25 @@ export const QuestionCardFragment = graphql(`
 			fieldPct
 			isCorrect
 		}
-		creator {
+		game {
 			id
-			name
-			username
+			status
+			startsAt
+			homeScore
+			awayScore
+			homeTeam {
+				id
+				abbreviation
+				color
+			}
+			awayTeam {
+				id
+				abbreviation
+				color
+			}
 		}
 		viewerCall {
 			id
-		}
-		subjectTeam {
-			id
-			abbreviation
-			color
 		}
 	}
 `)
@@ -53,8 +58,8 @@ export const QuestionCardFragment = graphql(`
 type QuestionCardProps = {
 	question: FragmentType<typeof QuestionCardFragment>
 	// Who put this question in front of the viewer in *this* list - distinct
-	// from the question's own creator. Only the group's Shared tab has one;
-	// every other context leaves it unset and relies on `creator` alone.
+	// from the question's own creator (not shown on this card at all). Only
+	// the group's Shared tab has one; every other context leaves it unset.
 	sharedBy?: { name: string }
 }
 
@@ -63,12 +68,10 @@ export function QuestionCard({
 	sharedBy,
 }: QuestionCardProps) {
 	const question = useFragment(QuestionCardFragment, questionProp)
-	// Disputed carries the same prior-resolution data as resolved (see
-	// ResolutionBanner) - both get the resolved field signal and drop the now-
-	// redundant lock line below.
 	const isSettled =
 		question.status === "RESOLVED" || question.status === "DISPUTED"
-	const signal = isSettled ? resolvedFieldSignal(question) : fieldSignal(question)
+	const isLocked = question.status === "LOCKED"
+	const signal = !isSettled ? fieldSignal(question) : null
 
 	return (
 		<Link
@@ -80,69 +83,83 @@ export function QuestionCard({
 				color: "inherit",
 			})}
 		>
-			<Card size="sm" interactive>
-				<Card.Body>
-					<VStack gap="2" alignItems="stretch">
-						<QuestionSummaryHeader question={question} sharedBy={sharedBy} />
-						<HStack justify="space-between" alignItems="center">
-							{signal && (
+			<Card
+				interactive
+				className={css({
+					borderRadius: "10px",
+					paddingBlock: "1.15rem",
+					paddingInline: "1.3rem",
+				})}
+			>
+				<VStack gap="2.5" alignItems="stretch">
+					<QuestionSummaryHeader
+						question={question}
+						sharedBy={sharedBy}
+						showTypeTag
+						viewerCalled={question.viewerCall !== null}
+					/>
+					<CardRule />
+					{isSettled ? (
+						<QuestionResultBlock
+							question={question}
+							disputed={question.status === "DISPUTED"}
+						/>
+					) : (
+						<VStack gap="1.5" alignItems="stretch">
+							<HStack justify="space-between" alignItems="center" gap="3">
+								{signal && (
+									<span
+										className={css({
+											fontFamily: "mono",
+											fontSize: "2xs",
+											color: "fg.subtle",
+										})}
+									>
+										{signal.before}
+										<span
+											className={css({
+												color: "fg.body",
+												fontWeight: "bold",
+											})}
+										>
+											{signal.emphasis}
+										</span>
+										{signal.after}
+									</span>
+								)}
+								{isLocked ? (
+									<LockedBadge />
+								) : (
+									<span
+										className={css({
+											fontFamily: "mono",
+											fontSize: "3xs",
+											color: "fg.subtle",
+											whiteSpace: "nowrap",
+										})}
+									>
+										<LockLine
+											status={question.status}
+											locksAt={question.locksAt}
+										/>
+									</span>
+								)}
+							</HStack>
+							{isLocked && (
 								<span
 									className={css({
-										fontSize: "xs",
-										color: "fg.subtle",
 										fontFamily: "mono",
+										fontSize: "3xs",
+										color: "fg.subtle",
 									})}
 								>
-									{signal}
+									{AWAITING_RESULT_TEXT}
 								</span>
 							)}
-							{!isSettled && (
-								<span
-									className={css({
-										fontSize: "xs",
-										color: "fg.subtle",
-										fontFamily: "mono",
-										whiteSpace: "nowrap",
-									})}
-								>
-									<LockLine
-										status={question.status}
-										locksAt={question.locksAt}
-									/>
-								</span>
-							)}
-						</HStack>
-					</VStack>
-				</Card.Body>
+						</VStack>
+					)}
+				</VStack>
 			</Card>
 		</Link>
 	)
-}
-
-// Only OPEN questions need a live countdown - every other status renders
-// static text, so this is the only place that pays for the ticking interval.
-function LockLine({
-	status,
-	locksAt,
-}: {
-	status: QuestionStatus
-	locksAt: string
-}) {
-	const now = useNow(status === "OPEN" ? 60_000 : null)
-	return <>{formatLockLine(status, locksAt, now)}</>
-}
-
-function formatLockLine(
-	status: QuestionStatus,
-	locksAt: string,
-	now: number,
-): string {
-	// RESOLVED and DISPUTED never reach here - QuestionCard hides this line for
-	// both in favor of ResolutionBanner above.
-	if (status === "LOCKED") return "Locked · awaiting resolution"
-
-	const locksAtTime = DateTime.fromISO(locksAt)
-	const current = DateTime.fromMillis(now)
-	if (locksAtTime <= current) return "Locking any moment"
-	return `Locks ${locksAtTime.toRelative({ base: current })}`
 }

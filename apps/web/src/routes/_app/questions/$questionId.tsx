@@ -15,6 +15,7 @@ import {
 	useCastCallForm,
 } from "#/components/questions/cast-call-form"
 import { FieldBreakdownCard } from "#/components/questions/field-breakdown-card"
+import { GameBlock } from "#/components/questions/game-block"
 import { GuessDistributionChart } from "#/components/questions/guess-distribution-chart"
 import { OptionFieldBreakdown } from "#/components/questions/option-field-breakdown"
 import { PanelRow } from "#/components/questions/panel-row"
@@ -27,7 +28,6 @@ import { Card } from "#/components/ui/card"
 import { Identity } from "#/components/ui/identity"
 import { NotFound } from "#/components/ui/not-found"
 import { Tag } from "#/components/ui/tag"
-import { TeamBadge } from "#/components/ui/team-badge"
 import {
 	QuestionCallsDocument,
 	QuestionDetailDocument,
@@ -148,12 +148,6 @@ function RouteComponent() {
 					{question.isOfficial && <Tag variant="primary">Official</Tag>}
 					<Tag>{question.league.abbreviation}</Tag>
 					<Tag>{questionCategoryLabel[question.category]}</Tag>
-					{question.subjectTeam && (
-						<TeamBadge
-							abbreviation={question.subjectTeam.abbreviation}
-							color={question.subjectTeam.color}
-						/>
-					)}
 				</HStack>
 				<h1 className={css({ fontSize: "2xl", fontFamily: "heading" })}>
 					{question.title}
@@ -162,51 +156,7 @@ function RouteComponent() {
 			{/* Only rendered when this question is actually tied to a single
 			game - season-long questions (championship, MVP) have no game and
 			this stays hidden for those. */}
-			{question.game && (
-				<HStack
-					justify="space-between"
-					alignItems="center"
-					flexWrap="wrap"
-					gap="2"
-					className={css({
-						border: "1px solid {colors.border.default}",
-						borderRadius: "lg",
-						bg: "bg.subtle",
-						paddingInline: "3",
-						paddingBlock: "2.5",
-					})}
-				>
-					<HStack gap="2" alignItems="center">
-						<TeamBadge
-							abbreviation={question.game.awayTeam.abbreviation}
-							color={question.game.awayTeam.color}
-						/>
-						<span
-							className={css({
-								fontFamily: "mono",
-								fontSize: "2xs",
-								color: "fg.subtle",
-							})}
-						>
-							@
-						</span>
-						<TeamBadge
-							abbreviation={question.game.homeTeam.abbreviation}
-							color={question.game.homeTeam.color}
-						/>
-					</HStack>
-					<span
-						className={css({
-							fontFamily: "mono",
-							fontSize: "2xs",
-							color: "fg.muted",
-							whiteSpace: "nowrap",
-						})}
-					>
-						{DateTime.fromISO(question.game.startsAt).toFormat("MMM d, h:mm a")}
-					</span>
-				</HStack>
-			)}
+			{question.game && <GameBlock game={question.game} />}
 			<Card>
 				<Card.Body>
 					<VStack gap="0" alignItems="stretch">

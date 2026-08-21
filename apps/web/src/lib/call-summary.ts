@@ -5,8 +5,13 @@ export type CallSummaryData = {
 	guessValue: number | null
 	conviction: number | null
 	totalPoints: number | null
-	question: { type: QuestionType; ouLine: number | null }
+	question: {
+		type: QuestionType
+		ouLine: number | null
+		numericActualValue: number | null
+	}
 	selections: {
+		id: string
 		conviction: number
 		option: { label: string; isCorrect: boolean | null }
 	}[]
@@ -59,7 +64,9 @@ function formatSingleSelection(call: CallSummaryData): string {
 // labeled "avg" rather than pretending it's one real value.
 export function convictionSummary(call: CallSummaryData): string {
 	return match(call.question.type)
-		.with("NUMERIC_GUESS", () => (call.conviction !== null ? `${call.conviction}%` : "—"))
+		.with("NUMERIC_GUESS", () =>
+			call.conviction !== null ? `${call.conviction}%` : "—",
+		)
 		.with("OVER_UNDER", "MULTIPLE_CHOICE", "YES_NO", () => {
 			const selection = call.selections[0]
 			return selection ? `${selection.conviction}%` : "—"
@@ -72,6 +79,19 @@ export function convictionSummary(call: CallSummaryData): string {
 			return `${Math.round(avg)}% avg`
 		})
 		.exhaustive()
+}
+
+// A numeric guess's own resultState comes purely from closeness scoring, not
+// a right/wrong answer - so on a loss, showing the actual final value next
+// to the conviction is what explains why it lost. A win's own points already
+// tell that story, so this is loss-only, and numeric_guess-only (every other
+// type's pick text already states what happened - "Over 47.5" either hit or
+// it didn't).
+export function lossContext(call: CallSummaryData): string | null {
+	if (call.question.type !== "NUMERIC_GUESS") return null
+	if (resultState(call.totalPoints).status !== "loss") return null
+	if (call.question.numericActualValue === null) return null
+	return `actual was ${call.question.numericActualValue}`
 }
 
 // The points sign is authoritative for win/loss across every type, not a

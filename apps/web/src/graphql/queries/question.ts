@@ -37,14 +37,12 @@ export const QuestionDetailDocument = graphql(`
 				name
 				username
 			}
-			subjectTeam {
-				id
-				abbreviation
-				color
-			}
 			game {
 				id
+				status
 				startsAt
+				homeScore
+				awayScore
 				homeTeam {
 					id
 					abbreviation

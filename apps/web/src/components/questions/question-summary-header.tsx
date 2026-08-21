@@ -1,38 +1,25 @@
 import { css } from "styled-system/css"
-import { HStack } from "styled-system/jsx"
-import { Identity } from "#/components/ui/identity"
-import { Tag } from "#/components/ui/tag"
-import { TeamBadge } from "#/components/ui/team-badge"
-import type {
-	QuestionCategory,
-	QuestionStatus,
-	QuestionType,
-} from "#/graphql/generated/graphql"
-import { questionCategoryLabel } from "#/lib/question-labels"
-import { resolvedAnswerSummary } from "#/lib/resolution-summary"
-import { QuestionTypeIcon } from "./question-type-icon"
-import { ResolutionBanner } from "./resolution-banner"
-import { ViewerCallStatusIcon } from "./viewer-call-status-icon"
+import { HStack, VStack } from "styled-system/jsx"
+import type { GameStatus, QuestionType } from "#/graphql/generated/graphql"
+import { questionTypeLabel } from "#/lib/question-labels"
+import { GameBlock } from "./game-block"
+import { PickStateIcon } from "./pick-state-icon"
 
 type QuestionSummaryData = {
 	title: string
 	type: QuestionType
-	category: QuestionCategory
 	isOfficial: boolean
-	status: QuestionStatus
-	resolutionNote: string | null
-	ouLine: number | null
-	numericActualValue: number | null
-	options: { label: string; isCorrect: boolean | null }[]
-	// null once the account that created this question has been deleted -
-	// the question itself survives (see questions.creatorId in the schema),
-	// just orphaned.
-	creator: { name: string; username: string } | null
-	viewerCall: { id: string } | null
 	league: { abbreviation: string }
-	// yes_no/over_under/numeric_guess only - null for a game-wide question with
-	// no single team it's about.
-	subjectTeam: { abbreviation: string; color: string } | null
+	// The single real-world matchup this question is about - null for
+	// anything not scoped to one game (season awards, an MVP race).
+	game: {
+		status: GameStatus
+		startsAt: string
+		homeScore: number | null
+		awayScore: number | null
+		homeTeam: { abbreviation: string; color: string }
+		awayTeam: { abbreviation: string; color: string }
+	} | null
 }
 
 type Props = {
@@ -42,54 +29,63 @@ type Props = {
 	// comes from excludes the viewer's own shares server-side, so it's always
 	// someone else's name, never "You".
 	sharedBy?: { name: string }
-	// CallCard puts a full caller identity row (avatar, handle, accuracy)
-	// right below this header - giving the creator that same full-avatar
-	// treatment reads as "two equally important people" and buries which one
-	// actually made the call this card is about. Compact drops the creator to
-	// a plain credit line and skips the "Called" chip, which is always true
-	// on a list that's already scoped to calls (My Calls, group Answered) -
-	// on QuestionCard's feed, where it's genuinely unknown, it stays.
-	compact?: boolean
+	// QuestionCard only - CallCard already shows what kind of pick this is
+	// via the pick itself, so calling out the type again here would be
+	// redundant there.
+	showTypeTag?: boolean
+	// QuestionCard only - whether the viewer has already made a call on this
+	// question. CallCard is always about someone else's pick, so there's no
+	// "did I call this" to show there.
+	viewerCalled?: boolean
 }
 
 // Shared between QuestionCard and CallCard - both lead with "what is this
-// question" (tags, creator, title, outcome) before getting into whatever's
-// specific to that card (a lock countdown vs. a particular person's pick).
-export function QuestionSummaryHeader({ question, sharedBy, compact }: Props) {
-	// A dispute is only ever filed against an already-resolved question, so it
-	// still carries the prior resolution's answer - just contested rather than
-	// confirmed. See resolutionDisputes in db/schema/questions.ts.
-	const isSettled =
-		question.status === "RESOLVED" || question.status === "DISPUTED"
-	const answer = isSettled ? resolvedAnswerSummary(question) : null
-
+// question" (sport, title, game) before getting into whatever's specific to
+// that card (aggregate stats/result vs. a particular person's pick). Neither
+// credits the question's creator here - CallCard leads with who CALLED it
+// instead (shown separately below), and QuestionCard drops the credit line
+// entirely since the title carries enough on its own.
+export function QuestionSummaryHeader({
+	question,
+	sharedBy,
+	showTypeTag,
+	viewerCalled,
+}: Props) {
 	return (
-		<>
-			{/* QuestionTypeIcon stays fixed in the top-right corner - it's its own
-			flex item, never part of the wrapping group on the left. Only the
-			call-status chip moved: it used to share that fixed-width right column
-			with the type icon, and once it grew real text ("Make your call") it
-			squeezed the tags into wrapping mid-word. It lives with the tags now,
-			so it wraps along with them instead of starving them. */}
-			<HStack justify="space-between" alignItems="flex-start" gap="3">
-				<HStack gap="2" alignItems="center" flexWrap="wrap">
-					{question.isOfficial && <Tag variant="primary">Official</Tag>}
-					<Tag>{question.league.abbreviation}</Tag>
-					<Tag>{questionCategoryLabel[question.category]}</Tag>
-					{question.subjectTeam && (
-						<TeamBadge
-							abbreviation={question.subjectTeam.abbreviation}
-							color={question.subjectTeam.color}
-						/>
-					)}
-					{!compact && (
-						<ViewerCallStatusIcon
-							called={!!question.viewerCall}
-							canCall={question.status === "OPEN"}
-						/>
+		<VStack gap="3" alignItems="stretch">
+			<HStack justify="space-between" alignItems="center" gap="2">
+				<HStack gap="2" alignItems="center">
+					<span
+						className={css({
+							fontFamily: "mono",
+							fontSize: "3xs",
+							letterSpacing: "wide",
+							textTransform: "uppercase",
+							color: "fg.subtle",
+						})}
+					>
+						{question.league.abbreviation}
+						{showTypeTag && ` · ${questionTypeLabel[question.type]}`}
+					</span>
+					{question.isOfficial && (
+						<span
+							className={css({
+								fontFamily: "mono",
+								fontSize: "4xs",
+								fontWeight: "bold",
+								letterSpacing: "wide",
+								textTransform: "uppercase",
+								color: "primary.default",
+								backgroundColor: "primary.subtle",
+								padding: "{spacing.0.5} {spacing.1.5}",
+								borderRadius: "sm",
+							})}
+						>
+							Official
+						</span>
 					)}
 				</HStack>
-				<QuestionTypeIcon type={question.type} />
+				{viewerCalled && <PickStateIcon state="win" />}
 			</HStack>
 			{sharedBy && (
 				<span
@@ -102,38 +98,16 @@ export function QuestionSummaryHeader({ question, sharedBy, compact }: Props) {
 					Shared by {sharedBy.name}
 				</span>
 			)}
-			{compact ? (
-				<span
-					className={css({
-						fontSize: "xs",
-						color: "fg.subtle",
-					})}
-				>
-					Asked by{" "}
-					<span className={css({ color: "fg.muted", fontWeight: "medium" })}>
-						{question.creator?.name ?? "Deleted user"}
-					</span>
-				</span>
-			) : question.creator ? (
-				<Identity
-					name={question.creator.name}
-					username={question.creator.username}
-				/>
-			) : (
-				<span className={css({ fontSize: "xs", color: "fg.subtle" })}>
-					Deleted user
-				</span>
-			)}
-			<span className={css({ fontWeight: "medium", fontSize: "sm" })}>
+			<span
+				className={css({
+					fontWeight: "bold",
+					fontSize: "xl",
+					lineHeight: "snug",
+				})}
+			>
 				{question.title}
 			</span>
-			{answer && (
-				<ResolutionBanner
-					answer={answer}
-					note={question.resolutionNote}
-					disputed={question.status === "DISPUTED"}
-				/>
-			)}
-		</>
+			{question.game && <GameBlock game={question.game} />}
+		</VStack>
 	)
 }

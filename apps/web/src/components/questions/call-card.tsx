@@ -1,13 +1,19 @@
 import { Link } from "@tanstack/react-router"
 import { css } from "styled-system/css"
 import { VStack } from "styled-system/jsx"
+import { match } from "ts-pattern"
 import { Card } from "#/components/ui/card"
 import { type FragmentType, graphql, useFragment } from "#/graphql/generated"
-import { CallIdentityRow } from "./call-identity-row"
 import { CallLockedBox } from "./call-locked-box"
+import { CardRule } from "./card-rule"
 import { CaseBlock } from "./case-block"
-import { PickSummaryRow } from "./pick-summary-row"
+import { DisputedFlag } from "./disputed-flag"
+import { LockLine } from "./lock-line"
+import { LockedBadge } from "./locked-badge"
+import { PersonLine } from "./person-line"
+import { PickList } from "./pick-list"
 import { QuestionSummaryHeader } from "./question-summary-header"
+import { ResultBadge } from "./result-badge"
 
 export const CallCardFragment = graphql(`
 	fragment CallCard_call on Call {
@@ -17,8 +23,6 @@ export const CallCardFragment = graphql(`
 		totalPoints
 		caseText
 		viewerCanSeePick
-		createdAt
-		callerLeagueAccuracy
 		user {
 			name
 			username
@@ -27,33 +31,31 @@ export const CallCardFragment = graphql(`
 			id
 			title
 			type
-			category
-			isOfficial
 			status
-			resolutionNote
+			isOfficial
 			ouLine
 			numericActualValue
+			locksAt
 			league {
 				id
 				abbreviation
 			}
-			options {
+			game {
 				id
-				label
-				isCorrect
-			}
-			creator {
-				id
-				name
-				username
-			}
-			viewerCall {
-				id
-			}
-			subjectTeam {
-				id
-				abbreviation
-				color
+				status
+				startsAt
+				homeScore
+				awayScore
+				homeTeam {
+					id
+					abbreviation
+					color
+				}
+				awayTeam {
+					id
+					abbreviation
+					color
+				}
 			}
 		}
 		selections {
@@ -85,44 +87,55 @@ export function CallCard({ call: callProp }: CallCardProps) {
 				color: "inherit",
 			})}
 		>
-			<Card size="sm" interactive>
-				<Card.Body>
-					<VStack gap="2" alignItems="stretch">
-						<QuestionSummaryHeader question={call.question} compact />
-						<VStack
-							gap="2.5"
-							alignItems="stretch"
-							borderTop="1px solid {colors.border.default}"
-							paddingTop="2.5"
-						>
-							<CallIdentityRow
-								name={call.user.name}
-								username={call.user.username}
-								leagueAccuracy={call.callerLeagueAccuracy}
-								leagueAbbreviation={call.question.league.abbreviation}
-								createdAt={call.createdAt}
-							/>
-							{call.viewerCanSeePick ? (
-								<VStack
-									gap="2"
-									alignItems="stretch"
-									className={css({
-										background: "bg.canvas",
-										borderRadius: "md",
-										padding: "2.5",
-									})}
-								>
-									<PickSummaryRow call={call} />
-								</VStack>
-							) : (
-								<CallLockedBox name={call.user.name} />
-							)}
-							{call.viewerCanSeePick && call.caseText && (
-								<CaseBlock text={call.caseText} />
-							)}
-						</VStack>
-					</VStack>
-				</Card.Body>
+			<Card
+				interactive
+				className={css({
+					borderRadius: "10px",
+					paddingBlock: "1.15rem",
+					paddingInline: "1.3rem",
+				})}
+			>
+				<VStack gap="2.5" alignItems="stretch">
+					<QuestionSummaryHeader question={call.question} />
+					<CardRule />
+					{call.question.status === "DISPUTED" && <DisputedFlag />}
+					<PersonLine
+						name={call.user.name}
+						username={call.user.username}
+						badge={
+							call.viewerCanSeePick &&
+							match(call.question.status)
+								.with("OPEN", () => (
+									<span
+										className={css({
+											fontFamily: "mono",
+											fontSize: "3xs",
+											color: "fg.subtle",
+											whiteSpace: "nowrap",
+										})}
+									>
+										<LockLine
+											status={call.question.status}
+											locksAt={call.question.locksAt}
+										/>
+									</span>
+								))
+								.with("LOCKED", () => <LockedBadge />)
+								.with("RESOLVED", "DISPUTED", () => (
+									<ResultBadge totalPoints={call.totalPoints} />
+								))
+								.exhaustive()
+						}
+					/>
+					{call.viewerCanSeePick ? (
+						<PickList call={call} />
+					) : (
+						<CallLockedBox name={call.user.name} />
+					)}
+					{call.viewerCanSeePick && call.caseText && (
+						<CaseBlock text={call.caseText} clampable />
+					)}
+				</VStack>
 			</Card>
 		</Link>
 	)

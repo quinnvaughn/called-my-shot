@@ -53,7 +53,7 @@ export function CallResolvedRow({
 	)
 }
 
-// Same success/danger token pattern PickSummaryRow uses for a call's own
+// Same success/danger token pattern ResultBadge uses for a call's own
 // points - reused here rather than a second convention for "did I win or
 // lose points".
 function PointsPill({ points }: { points: number }) {

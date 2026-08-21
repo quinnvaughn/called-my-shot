@@ -1,10 +1,10 @@
 import { css } from "styled-system/css"
 import { VStack } from "styled-system/jsx"
 import { type FragmentType, graphql, useFragment } from "#/graphql/generated"
-import { CallIdentityRow } from "./call-identity-row"
 import { CallLockedBox } from "./call-locked-box"
 import { CaseBlock } from "./case-block"
-import { PickSummaryRow } from "./pick-summary-row"
+import { PersonLine } from "./person-line"
+import { PickList } from "./pick-list"
 
 export const CallRowFragment = graphql(`
 	fragment CallRow_call on Call {
@@ -14,8 +14,6 @@ export const CallRowFragment = graphql(`
 		totalPoints
 		caseText
 		viewerCanSeePick
-		createdAt
-		callerLeagueAccuracy
 		user {
 			name
 			username
@@ -24,10 +22,7 @@ export const CallRowFragment = graphql(`
 			id
 			type
 			ouLine
-			league {
-				id
-				abbreviation
-			}
+			numericActualValue
 		}
 		selections {
 			id
@@ -46,10 +41,10 @@ type Props = {
 }
 
 // Lighter than CallCard - skips QuestionSummaryHeader entirely, since on the
-// question's own detail page repeating the question's title/tags/creator on
-// every row would be redundant. Otherwise the same lock-gated shape:
-// identity always visible (this IS activity, not pick info), then either the
-// pick + case or a locked placeholder.
+// question's own detail page repeating the question's title/game/status on
+// every row would be redundant (shown once at the top of the page instead).
+// No status badge here either, for the same reason - just identity, then
+// either the pick + case or a locked placeholder.
 export function CallRow({ call: callProp }: Props) {
 	const call = useFragment(CallRowFragment, callProp)
 
@@ -64,30 +59,14 @@ export function CallRow({ call: callProp }: Props) {
 				padding: "3",
 			})}
 		>
-			<CallIdentityRow
-				name={call.user.name}
-				username={call.user.username}
-				leagueAccuracy={call.callerLeagueAccuracy}
-				leagueAbbreviation={call.question.league.abbreviation}
-				createdAt={call.createdAt}
-			/>
+			<PersonLine name={call.user.name} username={call.user.username} />
 			{call.viewerCanSeePick ? (
-				<VStack
-					gap="2"
-					alignItems="stretch"
-					className={css({
-						background: "bg.canvas",
-						borderRadius: "md",
-						padding: "2.5",
-					})}
-				>
-					<PickSummaryRow call={call} />
-				</VStack>
+				<PickList call={call} />
 			) : (
 				<CallLockedBox name={call.user.name} />
 			)}
 			{call.viewerCanSeePick && call.caseText && (
-				<CaseBlock text={call.caseText} />
+				<CaseBlock text={call.caseText} clampable />
 			)}
 		</VStack>
 	)
