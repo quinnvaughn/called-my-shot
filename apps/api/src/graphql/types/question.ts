@@ -1634,6 +1634,16 @@ builder.mutationFields((t) => ({
 		args: { input: t.arg({ type: CreateQuestionInput, required: true }) },
 		resolve: async (_root, args, ctx) => {
 			const user = requireUser(ctx)
+			if (!user.emailVerified) {
+				throw new AuthorizationError(
+					"Verify your email before posting a question.",
+				)
+			}
+			if (!user.questionCreationEnabled) {
+				throw new AuthorizationError(
+					"Your question creation has been suspended. Contact support if you think this is a mistake.",
+				)
+			}
 			const parsed = createQuestionSchema.safeParse(args.input)
 			if (!parsed.success) {
 				throw ValidationError.fromZodIssues(parsed.error.issues)

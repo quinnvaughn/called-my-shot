@@ -127,8 +127,8 @@ export const RequestEmailChangeDocument = graphql(`
 `)
 
 export const ResendEmailChangeDocument = graphql(`
-	mutation ResendEmailChange {
-		resendEmailChange {
+	mutation ResendEmailChange($redirectTo: String) {
+		resendEmailChange(redirectTo: $redirectTo) {
 			__typename
 			... on User {
 				id

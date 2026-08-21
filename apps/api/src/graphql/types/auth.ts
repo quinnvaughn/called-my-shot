@@ -10,7 +10,7 @@ import {
 	setSessionCookie,
 } from "../../lib/session"
 import { builder } from "../builder"
-import { UserRef } from "./user"
+import { issuePendingEmailChange, UserRef } from "./user"
 
 type AuthPayloadShape = { user: User }
 
@@ -71,6 +71,10 @@ builder.mutationType({
 
 				const session = await createSession(user.id)
 				setSessionCookie(ctx.res, session)
+
+				// An email outage shouldn't fail signup - the account is already
+				// created, this just kicks off the verification email.
+				void issuePendingEmailChange(user.id, user.email, user.email, "/")
 
 				return { user }
 			},

@@ -11,13 +11,15 @@ export const Route = createFileRoute("/_app/confirm-email")({
 	component: RouteComponent,
 	validateSearch: (search: Record<string, unknown>) => ({
 		token: typeof search.token === "string" ? search.token : "",
+		redirect:
+			typeof search.redirect === "string" ? search.redirect : "/settings",
 	}),
 })
 
 type Status = "pending" | "success" | "error"
 
 function RouteComponent() {
-	const { token } = Route.useSearch()
+	const { token, redirect } = Route.useSearch()
 	const [confirmEmailChange] = useMutation(ConfirmEmailChangeDocument)
 	const [status, setStatus] = useState<Status>("pending")
 	const [message, setMessage] = useState<string | null>(null)
@@ -73,10 +75,10 @@ function RouteComponent() {
 						)}
 						{status !== "pending" && (
 							<Link
-								to="/settings"
+								to={redirect}
 								className={button({ variant: "solid", size: "sm" })}
 							>
-								Back to settings
+								Continue
 							</Link>
 						)}
 					</VStack>

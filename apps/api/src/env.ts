@@ -9,6 +9,8 @@ const envSchema = z.object({
 		.default("development"),
 	ALLOW_PROD_SEED: z.coerce.boolean().default(false),
 	SUPPORT_EMAIL: z.string().default("support@calledmyshot.local"),
+	RESEND_API_KEY: z.string().optional(),
+	EMAIL_FROM: z.string().default("Called My Shot <noreply@mail.calledmyshot.com>"),
 })
 
 export const env = envSchema.parse(process.env)

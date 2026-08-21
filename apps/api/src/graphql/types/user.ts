@@ -296,11 +296,24 @@ const EMAIL_CHANGE_TOKEN_TTL_MS = 24 * 60 * 60 * 1000
 // this flow safe against being used to probe which emails have accounts. The
 // only thing that's conditional is whether the two stub emails actually go
 // out.
-async function issuePendingEmailChange(
+//
+// Also doubles as the initial signup-verification send: called with
+// newEmail === currentEmail, it's "change your email to itself", which
+// confirmEmailChange resolves down to just flipping emailVerified. That case
+// skips the "someone requested to change your email" notice, since there's
+// no prior email to warn.
+//
+// redirectTo controls where confirm-email's button sends the user afterward
+// - this same mutation is triggered from multiple places (settings, the
+// new-question verification gate, ...) that each want to land somewhere
+// different once confirmed, rather than always assuming "settings".
+export async function issuePendingEmailChange(
 	userId: string,
 	currentEmail: string,
 	newEmail: string,
+	redirectTo?: string,
 ) {
+	const isInitialVerification = newEmail === currentEmail
 	const token = randomToken()
 	const expiresAt = new Date(Date.now() + EMAIL_CHANGE_TOKEN_TTL_MS)
 
@@ -314,22 +327,28 @@ async function issuePendingEmailChange(
 		expiresAt,
 	})
 
-	const alreadyTaken = await db.query.users.findFirst({
-		where: { email: newEmail },
+	const takenByAnotherUser = await db.query.users.findFirst({
+		where: { email: newEmail, id: { ne: userId } },
 	})
-	if (alreadyTaken) return
+	if (takenByAnotherUser) return
 
-	const confirmUrl = `${env.CLIENT_ORIGIN}/confirm-email?token=${token}`
+	const confirmUrl = `${env.CLIENT_ORIGIN}/confirm-email?token=${token}${
+		redirectTo ? `&redirect=${encodeURIComponent(redirectTo)}` : ""
+	}`
 	await sendMail(
 		newEmail,
-		"Confirm your new email",
-		`Confirm this change to your Called My Shot email: ${confirmUrl}\n\nIf you didn't request this, you can ignore this email.`,
+		isInitialVerification ? "Verify your email" : "Confirm your new email",
+		isInitialVerification
+			? `Welcome to Called My Shot! Confirm your email: ${confirmUrl}`
+			: `Confirm this change to your Called My Shot email: ${confirmUrl}\n\nIf you didn't request this, you can ignore this email.`,
 	)
-	await sendMail(
-		currentEmail,
-		"Email change requested",
-		`Someone requested to change the email on your Called My Shot account to ${newEmail}. Wasn't you? Secure your account - your current password can still sign in.`,
-	)
+	if (!isInitialVerification) {
+		await sendMail(
+			currentEmail,
+			"Email change requested",
+			`Someone requested to change the email on your Called My Shot account to ${newEmail}. Wasn't you? Secure your account - your current password can still sign in.`,
+		)
+	}
 }
 
 const AdminUserSort = builder.enumType("AdminUserSort", {
@@ -510,7 +529,7 @@ builder.mutationFields((t) => ({
 				throw ValidationError.field("newEmail", "That's already your email")
 			}
 
-			await issuePendingEmailChange(user.id, user.email, newEmail)
+			await issuePendingEmailChange(user.id, user.email, newEmail, "/settings")
 			return user
 		},
 	}),
@@ -518,6 +537,12 @@ builder.mutationFields((t) => ({
 	// Returns the user (with its refreshed pendingEmailChange) rather than a
 	// bare boolean - directResult needs an ObjectType to merge into the error
 	// union, and this saves the frontend a round trip to re-sync state.
+	//
+	// No pending row isn't an error here - it just means this user (seeded,
+	// or created before initial-signup verification existed) never had one
+	// issued. Falling back to their current email makes this double as
+	// "(re)send my verification email" for any account, not just ones
+	// mid email-change.
 	resendEmailChange: t.field({
 		type: UserRef,
 		errors: {
@@ -525,19 +550,19 @@ builder.mutationFields((t) => ({
 			directResult: true,
 			union: { name: "ResendEmailChangeResult" },
 		},
-		resolve: async (_root, _args, ctx) => {
+		args: { redirectTo: t.arg.string({ required: false }) },
+		resolve: async (_root, args, ctx) => {
 			const user = requireUser(ctx)
 			const pending = await db.query.pendingEmailChanges.findFirst({
 				where: { userId: user.id },
 			})
-			if (!pending) {
-				throw ValidationError.field(
-					null,
-					"There's no pending email change to resend",
-				)
-			}
 
-			await issuePendingEmailChange(user.id, user.email, pending.newEmail)
+			await issuePendingEmailChange(
+				user.id,
+				user.email,
+				pending?.newEmail ?? user.email,
+				args.redirectTo ?? "/settings",
+			)
 			return user
 		},
 	}),
@@ -581,7 +606,7 @@ builder.mutationFields((t) => ({
 			if (!pending || pending.expiresAt < new Date()) throw invalidLink()
 
 			const stillFree = !(await db.query.users.findFirst({
-				where: { email: pending.newEmail },
+				where: { email: pending.newEmail, id: { ne: pending.userId } },
 			}))
 			if (!stillFree) throw invalidLink()
 
