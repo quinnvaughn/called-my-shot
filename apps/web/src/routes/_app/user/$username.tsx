@@ -4,6 +4,7 @@ import { css } from "styled-system/css"
 import { VStack } from "styled-system/jsx"
 import { LeagueAccordion } from "#/components/profile/league-accordion"
 import { ProfileHeader } from "#/components/profile/profile-header"
+import { ShareCardPreview } from "#/components/profile/share-card-preview"
 import { ShareImagePanel } from "#/components/profile/share-image-panel"
 import { StatGrid, statGridItems } from "#/components/profile/stat-grid"
 import { CallCard } from "#/components/questions/call-card"
@@ -71,16 +72,21 @@ function RouteComponent() {
 					src={`/share/users/${user.username}`}
 					filename={`${user.username}-career-stats.png`}
 					label="Share my career stats"
-					previewData={{
-						name: user.name,
-						username: user.username,
-						memberSince: user.createdAt,
-						scopeTag: "All-time track record",
-						rank: user.careerStats.rank,
-						totalPoints: user.careerStats.totalPoints,
-						accuracy: user.careerStats.accuracy,
-						callCount: user.careerStats.callCount,
-					}}
+					renderPreview={(previewProps) => (
+						<ShareCardPreview
+							{...previewProps}
+							data={{
+								name: user.name,
+								username: user.username,
+								memberSince: user.createdAt,
+								scopeTag: "All-time track record",
+								rank: user.careerStats?.rank ?? 0,
+								totalPoints: user.careerStats?.totalPoints ?? 0,
+								accuracy: user.careerStats?.accuracy ?? null,
+								callCount: user.careerStats?.callCount ?? 0,
+							}}
+						/>
+					)}
 				/>
 			)}
 			{user.leagues.length > 0 && (

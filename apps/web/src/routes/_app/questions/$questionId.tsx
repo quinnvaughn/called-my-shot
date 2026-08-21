@@ -292,6 +292,11 @@ function RouteComponent() {
 				answer={answer}
 				resolutionNote={question.resolutionNote}
 				fieldAccuracyPct={fieldAccuracyPct}
+				questionTitle={question.title}
+				leagueAbbr={question.league.abbreviation}
+				category={question.category}
+				viewerName={me?.name ?? ""}
+				viewerUsername={me?.username ?? ""}
 			/>
 			{/* While the call is still open, the picker itself (CastCallForm)
 			shows this same live breakdown inline - one card for "make your

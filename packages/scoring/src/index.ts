@@ -304,3 +304,9 @@ export function numericGuessPoints(
 			: -Math.round(basePoints * (guess.conviction / 100)),
 	}))
 }
+
+// Share-card flavor text (WIN_QUIPS/LOSS_QUIPS) and quipForCall, the
+// deterministic picker between them, live in ./quips - split out from the
+// scoring math above since that list is expected to keep growing and has
+// nothing to do with points.
+export { LOSS_QUIPS, quipForCall, WIN_QUIPS } from "./quips"

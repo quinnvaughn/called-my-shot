@@ -1,5 +1,6 @@
 import {
 	BASE_POINTS_BY_TYPE,
+	quipForCall,
 	TIER_MAX_MULT,
 	TIER_MIN_MULT,
 	tierFor,
@@ -8,12 +9,23 @@ import {
 import { type ReactNode, useState } from "react"
 import { css, cx } from "styled-system/css"
 import { Flex, HStack, VStack } from "styled-system/jsx"
+import { ShareImagePanel } from "#/components/profile/share-image-panel"
+import {
+	CallShareCardPreview,
+	type CallShareCardPreviewData,
+} from "#/components/questions/call-share-card-preview"
 import { CaseBlock } from "#/components/questions/case-block"
 import { DisputeModal } from "#/components/questions/dispute-modal"
-import type { QuestionType } from "#/graphql/generated/graphql"
-import { resultState } from "#/lib/call-summary"
+import type {
+	QuestionCategory,
+	QuestionType,
+} from "#/graphql/generated/graphql"
+import { pickSummary, resultState } from "#/lib/call-summary"
 import type { QuestionDetailState } from "#/lib/question-detail-state"
-import { optionDisplayLabel } from "#/lib/question-labels"
+import {
+	optionDisplayLabel,
+	questionCategoryLabel,
+} from "#/lib/question-labels"
 import { previewNumericPoints, previewSelectionPoints } from "#/lib/scoring"
 import { openModal } from "#/stores/modal-store"
 
@@ -30,10 +42,14 @@ const BASE_POINTS_BY_GQL_TYPE: Record<QuestionType, number> = {
 }
 
 type ViewerCall = {
+	id: string
 	guessValue: number | null
 	conviction: number | null
 	totalPoints: number | null
 	currentRank: number
+	// The caller's own written reasoning, if they left one - shown on the
+	// share card the same way CaseBlock shows it elsewhere on this page.
+	caseText: string | null
 	// The real closeness multiplier (TIER_MIN_MULT-TIER_MAX_MULT range)
 	// applied at resolution (see calls.closeness_mult) - numeric_guess only,
 	// null until resolved and null forever on a miss. Persisted rather than
@@ -87,6 +103,14 @@ type Props = {
 	// until settled. "how rare was being right" belongs next to the outcome
 	// itself, not buried in the per-pick breakdown below.
 	fieldAccuracyPct: number | null
+	// Everything below feeds the win/loss share card only - the question's
+	// own identity (not the resolved answer, which is what's already shown
+	// above as the badge/title) plus who's sharing it.
+	questionTitle: string
+	leagueAbbr: string
+	category: QuestionCategory
+	viewerName: string
+	viewerUsername: string
 }
 
 // Pending / locked-no-call / resolved-no-call / won / lost are five faces of
@@ -108,6 +132,11 @@ export function ViewerStatusCard({
 	answer,
 	resolutionNote,
 	fieldAccuracyPct,
+	questionTitle,
+	leagueAbbr,
+	category,
+	viewerName,
+	viewerUsername,
 }: Props) {
 	// A resolution can be disputed by anyone who saw it, not just people who
 	// called - a spectator can just as easily notice a wrong result. Gated on
@@ -249,6 +278,18 @@ export function ViewerStatusCard({
 							/>
 						))}
 			</VStack>
+			{result.status !== "pending" && (
+				<ShareCallSection
+					viewerCall={viewerCall}
+					isWin={result.status === "win"}
+					points={result.points}
+					questionTitle={questionTitle}
+					leagueAbbr={leagueAbbr}
+					categoryLabel={questionCategoryLabel[category]}
+					viewerName={viewerName}
+					viewerUsername={viewerUsername}
+				/>
+			)}
 			{disputeRow}
 			{noteBlock}
 		</Shell>
@@ -273,6 +314,100 @@ function PointsFinal({ points, win }: { points: number; win: boolean }) {
 			{win ? "+" : "−"}
 			{Math.abs(points)} pts
 		</span>
+	)
+}
+
+// Assembles the win/loss share card and hands it to ShareImagePanel - same
+// Copy/Save machinery the profile stats card uses (see share-image-panel.tsx),
+// just fed a call's result instead of a career stat line. Only ever rendered
+// once the question has settled (see the win/loss branch above), so there's
+// always a real outcome to share.
+function ShareCallSection({
+	viewerCall,
+	isWin,
+	points,
+	questionTitle,
+	leagueAbbr,
+	categoryLabel,
+	viewerName,
+	viewerUsername,
+}: {
+	viewerCall: ViewerCall
+	isWin: boolean
+	points: number
+	questionTitle: string
+	leagueAbbr: string
+	categoryLabel: string
+	viewerName: string
+	viewerUsername: string
+}) {
+	// Deterministic off the call's own id (see quipForCall) rather than
+	// random - the same call always shows the same line, every time it's
+	// reopened, on both this preview and the exported PNG (apps/api's
+	// call-card.ts calls the same function against the same id), with
+	// nothing needing to be persisted or passed between the two.
+	const quip = quipForCall(viewerCall.id, isWin)
+
+	const isNumeric = viewerCall.question.type === "NUMERIC_GUESS"
+	const pickLabel = pickSummary({
+		guessValue: viewerCall.guessValue,
+		conviction: viewerCall.conviction,
+		totalPoints: viewerCall.totalPoints,
+		question: {
+			type: viewerCall.question.type,
+			ouLine: viewerCall.question.ouLine,
+			// Not needed here - pickSummary only reads it via lossContext,
+			// which this card never calls.
+			numericActualValue: null,
+		},
+		selections: viewerCall.selections.map((s) => ({
+			id: s.option.label,
+			conviction: s.conviction,
+			option: { label: s.option.label, isCorrect: s.option.isCorrect },
+		})),
+	})
+	// A single number describes exactly one pick's rarity - numeric_guess
+	// (closenessFieldPct) or a lone selection both qualify, multi_select's
+	// several independent picks don't, so that case is left null rather than
+	// picking one pick's fieldPct to stand in for the whole call.
+	const fieldPct = isNumeric
+		? viewerCall.closenessFieldPct
+		: viewerCall.selections.length === 1
+			? (viewerCall.selections[0]?.option.fieldPct ?? null)
+			: null
+	const conviction = isNumeric
+		? (viewerCall.conviction ?? 0)
+		: viewerCall.selections.length > 0
+			? Math.round(
+					viewerCall.selections.reduce((sum, s) => sum + s.conviction, 0) /
+						viewerCall.selections.length,
+				)
+			: 0
+
+	const data: CallShareCardPreviewData = {
+		questionTitle,
+		leagueAbbr,
+		categoryLabel,
+		name: viewerName,
+		username: viewerUsername,
+		pickLabel,
+		isWin,
+		points,
+		fieldPct,
+		conviction,
+		caseText: viewerCall.caseText,
+		quip,
+	}
+
+	return (
+		<ShareImagePanel
+			src={`/share/calls/${viewerCall.id}`}
+			filename={`${viewerUsername}-call-${viewerCall.id}.png`}
+			label="Share this call"
+			renderPreview={(previewProps) => (
+				<CallShareCardPreview {...previewProps} data={data} />
+			)}
+		/>
 	)
 }
 

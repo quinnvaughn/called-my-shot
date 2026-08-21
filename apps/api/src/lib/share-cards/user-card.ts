@@ -21,19 +21,25 @@ function px(n: number): string {
 	return `${Math.round(n * SCALE)}px`
 }
 
-// Real token values from apps/web/panda.config.ts and the components this
-// mirrors (Card, Avatar, Eyebrow) - not a separate palette. Keep in sync by
-// hand since satori can't read the actual CSS variables.
+// Real token values from apps/web/panda.config.ts's dark palette and the
+// components this mirrors (Card, Avatar, Eyebrow) - not a separate palette.
+// Keep in sync by hand since satori can't read the actual CSS variables.
+// This used to hold the "light theme: #..." values panda.config.ts notes
+// per-token - leftover from an old flip-to-light experiment that was
+// reverted, not a live theme anyone can select today - so the exported PNG
+// was rendering as a white card while the app itself has been dark-only for
+// a while. Switched to the dark values so the export matches what's
+// actually on screen.
 const COLOR = {
-	ink: "#14140F", // fg.default
-	dim: "#6B6B62", // fg.muted
-	steel: "#767267", // fg.subtle
-	border: "#E5E2D9", // border.default
-	card: "#FFFFFF", // bg.surface
-	cardMuted: "#F6F6F4", // bg.subtle (Avatar's fill)
-	primarySubtle: "#FCEAE0", // primary.subtle
-	primaryDefault: "#C2410C", // primary.default
-	successSubtle: "#E1F3E7", // success.subtle
+	ink: "#F5F1E8", // fg.default
+	dim: "#8A8A84", // fg.muted
+	steel: "#96938A", // fg.subtle
+	border: "#2A2A28", // border.default
+	card: "#151513", // bg.surface
+	cardMuted: "#1B1B18", // bg.subtle (Avatar's fill)
+	primarySubtle: "#3A1E12", // primary.subtle
+	primaryDefault: "#FF5A1F", // primary.default
+	successSubtle: "#112921", // success.subtle
 	verifiedVibrant: "#34D399",
 }
 
@@ -242,6 +248,12 @@ export function buildUserShareCard(data: UserShareCardData): SatoriNode {
 				{
 					display: "flex",
 					flexDirection: "column",
+					// Without this, brandWordmark's row stretches to the header's
+					// full width (column flex's default cross-axis stretch) and
+					// sits left-aligned inside it - the nested "everything below
+					// brand" div sets its own centering, but brandWordmark itself
+					// doesn't, so it needs the parent to center it instead.
+					alignItems: "center",
 					gap: px(12),
 					padding: px(16),
 					borderBottom: `${px(1)} solid ${COLOR.border}`,

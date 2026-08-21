@@ -1,21 +1,32 @@
+import type { ReactNode } from "react"
 import { useState } from "react"
 import { css } from "styled-system/css"
 import { VStack } from "styled-system/jsx"
 import { Button } from "#/components/ui/button"
-import {
-	ShareCardPreview,
-	type ShareCardPreviewData,
-} from "./share-card-preview"
+
+// What a preview component (ShareCardPreview, CallShareCardPreview, ...)
+// needs wired up to actually do the Copy/Save work this panel owns.
+export type SharePreviewRenderProps = {
+	onCopy: () => void
+	onSave: () => void
+	copied: boolean
+	disabled: boolean
+}
 
 type Props = {
 	// Same-origin path (see routes/share/*) - never the api's own domain.
 	// Only ever fetched, never rendered directly as an <img src> - the panel
-	// shows ShareCardPreview (real app UI) instead.
+	// shows renderPreview's real app UI instead.
 	src: string
 	filename: string
 	// Toggle button label when the panel is closed, e.g. "Share my career stats"
 	label: string
-	previewData: ShareCardPreviewData
+	// Renders the actual preview card - ShareCardPreview for a user's stats,
+	// CallShareCardPreview for a call's result, anything else later. Kept as
+	// a render prop rather than this panel hardcoding one preview component:
+	// the Copy/Save/blob-fetch machinery below is identical regardless of
+	// what the card looks like, only the preview markup and its data differ.
+	renderPreview: (props: SharePreviewRenderProps) => ReactNode
 }
 
 type BlobState =
@@ -35,7 +46,7 @@ type BlobState =
 // proxy route. Routing everything through explicit fetch() calls (which
 // send `Sec-Fetch-Dest: empty`) sidesteps that entirely, on top of being
 // what the user actually asked for here.
-export function ShareImagePanel({ src, filename, label, previewData }: Props) {
+export function ShareImagePanel({ src, filename, label, renderPreview }: Props) {
 	const [open, setOpen] = useState(false)
 	const [copied, setCopied] = useState(false)
 	const [blobState, setBlobState] = useState<BlobState>({ status: "idle" })
@@ -95,13 +106,12 @@ export function ShareImagePanel({ src, filename, label, previewData }: Props) {
 			</Button>
 			{open && (
 				<VStack alignItems="stretch" gap="2">
-					<ShareCardPreview
-						data={previewData}
-						onCopy={handleCopy}
-						onSave={handleSave}
-						copied={copied}
-						disabled={loading}
-					/>
+					{renderPreview({
+						onCopy: handleCopy,
+						onSave: handleSave,
+						copied,
+						disabled: loading,
+					})}
 					{blobState.status === "error" && (
 						<span
 							className={css({

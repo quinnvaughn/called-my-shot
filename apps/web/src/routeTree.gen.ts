@@ -34,6 +34,7 @@ import { Route as AppQuestionsQuestionIdRouteImport } from './routes/_app/questi
 import { Route as AppUserUsernameRouteImport } from './routes/_app/user/$username'
 import { Route as AdminDataIndexRouteImport } from './routes/admin/data/index'
 import { Route as AdminDataLeagueIdRouteImport } from './routes/admin/data/$leagueId'
+import { Route as ShareCallsCallIdRouteImport } from './routes/share/calls/$callId'
 import { Route as ShareUsersUsernameRouteImport } from './routes/share/users/$username'
 import { Route as AppAuthedGroupsIndexRouteImport } from './routes/_app/_authed/groups/index'
 import { Route as AppAuthedGroupsGroupIdRouteImport } from './routes/_app/_authed/groups/$groupId'
@@ -167,6 +168,11 @@ const AdminDataLeagueIdRoute = AdminDataLeagueIdRouteImport.update({
   path: '/data/$leagueId',
   getParentRoute: () => AdminRoute,
 } as any)
+const ShareCallsCallIdRoute = ShareCallsCallIdRouteImport.update({
+  id: '/share/calls/$callId',
+  path: '/share/calls/$callId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ShareUsersUsernameRoute = ShareUsersUsernameRouteImport.update({
   id: '/share/users/$username',
   path: '/share/users/$username',
@@ -238,6 +244,7 @@ export interface FileRoutesByFullPath {
   '/questions/$questionId': typeof AppQuestionsQuestionIdRoute
   '/user/$username': typeof AppUserUsernameRoute
   '/admin/data/$leagueId': typeof AdminDataLeagueIdRouteWithChildren
+  '/share/calls/$callId': typeof ShareCallsCallIdRoute
   '/share/users/$username': typeof ShareUsersUsernameRoute
   '/admin/data/': typeof AdminDataIndexRoute
   '/groups/$groupId': typeof AppAuthedGroupsGroupIdRoute
@@ -270,6 +277,7 @@ export interface FileRoutesByTo {
   '/support': typeof AppAuthedSupportRoute
   '/questions/$questionId': typeof AppQuestionsQuestionIdRoute
   '/user/$username': typeof AppUserUsernameRoute
+  '/share/calls/$callId': typeof ShareCallsCallIdRoute
   '/share/users/$username': typeof ShareUsersUsernameRoute
   '/admin/data': typeof AdminDataIndexRoute
   '/groups/$groupId': typeof AppAuthedGroupsGroupIdRoute
@@ -307,6 +315,7 @@ export interface FileRoutesById {
   '/_app/questions/$questionId': typeof AppQuestionsQuestionIdRoute
   '/_app/user/$username': typeof AppUserUsernameRoute
   '/admin/data/$leagueId': typeof AdminDataLeagueIdRouteWithChildren
+  '/share/calls/$callId': typeof ShareCallsCallIdRoute
   '/share/users/$username': typeof ShareUsersUsernameRoute
   '/admin/data/': typeof AdminDataIndexRoute
   '/_app/_authed/groups/$groupId': typeof AppAuthedGroupsGroupIdRoute
@@ -343,6 +352,7 @@ export interface FileRouteTypes {
     | '/questions/$questionId'
     | '/user/$username'
     | '/admin/data/$leagueId'
+    | '/share/calls/$callId'
     | '/share/users/$username'
     | '/admin/data/'
     | '/groups/$groupId'
@@ -375,6 +385,7 @@ export interface FileRouteTypes {
     | '/support'
     | '/questions/$questionId'
     | '/user/$username'
+    | '/share/calls/$callId'
     | '/share/users/$username'
     | '/admin/data'
     | '/groups/$groupId'
@@ -411,6 +422,7 @@ export interface FileRouteTypes {
     | '/_app/questions/$questionId'
     | '/_app/user/$username'
     | '/admin/data/$leagueId'
+    | '/share/calls/$callId'
     | '/share/users/$username'
     | '/admin/data/'
     | '/_app/_authed/groups/$groupId'
@@ -428,6 +440,7 @@ export interface RootRouteChildren {
   AppRoute: typeof AppRouteWithChildren
   AdminRoute: typeof AdminRouteWithChildren
   GraphqlRoute: typeof GraphqlRoute
+  ShareCallsCallIdRoute: typeof ShareCallsCallIdRoute
   ShareUsersUsernameRoute: typeof ShareUsersUsernameRoute
   ShareLeaguesLeagueIdUsersUsernameRoute: typeof ShareLeaguesLeagueIdUsersUsernameRoute
 }
@@ -609,6 +622,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminDataLeagueIdRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/share/calls/$callId': {
+      id: '/share/calls/$callId'
+      path: '/share/calls/$callId'
+      fullPath: '/share/calls/$callId'
+      preLoaderRoute: typeof ShareCallsCallIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/share/users/$username': {
       id: '/share/users/$username'
       path: '/share/users/$username'
@@ -771,6 +791,7 @@ const rootRouteChildren: RootRouteChildren = {
   AppRoute: AppRouteWithChildren,
   AdminRoute: AdminRouteWithChildren,
   GraphqlRoute: GraphqlRoute,
+  ShareCallsCallIdRoute: ShareCallsCallIdRoute,
   ShareUsersUsernameRoute: ShareUsersUsernameRoute,
   ShareLeaguesLeagueIdUsersUsernameRoute:
     ShareLeaguesLeagueIdUsersUsernameRoute,

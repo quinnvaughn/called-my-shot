@@ -3,6 +3,7 @@ import { FiChevronDown, FiChevronUp } from "react-icons/fi"
 import { css } from "styled-system/css"
 import { VStack } from "styled-system/jsx"
 import { BreakdownBar } from "#/components/profile/breakdown-bar"
+import { ShareCardPreview } from "#/components/profile/share-card-preview"
 import { ShareImagePanel } from "#/components/profile/share-image-panel"
 import { StatGrid, statGridItems } from "#/components/profile/stat-grid"
 
@@ -86,16 +87,21 @@ export function LeagueAccordion({ stats, user }: Props) {
 						src={`/share/leagues/${stats.league.id}/users/${user.username}`}
 						filename={`${user.username}-${stats.league.abbreviation.toLowerCase()}-stats.png`}
 						label={`Share my ${stats.league.abbreviation} stats`}
-						previewData={{
-							name: user.name,
-							username: user.username,
-							memberSince: user.createdAt,
-							scopeTag: `${stats.league.abbreviation} track record`,
-							rank: stats.rank,
-							totalPoints: stats.totalPoints,
-							accuracy: stats.accuracy,
-							callCount: stats.callCount,
-						}}
+						renderPreview={(previewProps) => (
+							<ShareCardPreview
+								{...previewProps}
+								data={{
+									name: user.name,
+									username: user.username,
+									memberSince: user.createdAt,
+									scopeTag: `${stats.league.abbreviation} track record`,
+									rank: stats.rank,
+									totalPoints: stats.totalPoints,
+									accuracy: stats.accuracy,
+									callCount: stats.callCount,
+								}}
+							/>
+						)}
 					/>
 					{stats.categoryBreakdown.length > 0 && (
 						<VStack alignItems="stretch" gap="2">
