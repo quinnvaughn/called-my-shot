@@ -198,7 +198,7 @@ function RouteComponent() {
 									] ?? question.shape}
 								</Table.Cell>
 								<Table.Cell>
-									{question.creator ? `@${question.creator.username}` : "—"}
+									{question.creator ? `@${question.creator.username}` : "-"}
 								</Table.Cell>
 								<Table.Cell numeric>{question.callCount}</Table.Cell>
 								<Table.Cell>

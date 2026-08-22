@@ -81,8 +81,11 @@ export const adminResolveQuestionSchema = z
 			.with(
 				"player_stat_over_under",
 				"team_stat_over_under",
+				"player_season_stat_over_under",
+				"team_season_stat_over_under",
 				"game_total_over_under",
 				"player_vs_player",
+				"player_vs_player_season",
 				"team_vs_team",
 				"yes_no_prop",
 				"player_award_finalists",

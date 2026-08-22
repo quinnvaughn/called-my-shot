@@ -13,16 +13,25 @@ import type { QuestionShape } from "#/graphql/generated/graphql"
 const OVER_UNDER_SHAPES: readonly QuestionShape[] = [
 	"PLAYER_STAT_OVER_UNDER",
 	"TEAM_STAT_OVER_UNDER",
+	"PLAYER_SEASON_STAT_OVER_UNDER",
+	"TEAM_SEASON_STAT_OVER_UNDER",
 	"GAME_TOTAL_OVER_UNDER",
 ]
 
+// _STAT_OVER_UNDER now always names the scope explicitly (Game vs Season) -
+// these two used to be one ambiguous shape with an optional game, which
+// wasn't obvious from the picker and read as "leave it blank for season
+// long" only once you were already deep in the form.
 export const questionShapeLabel: Record<QuestionShape, string> = {
-	PLAYER_STAT_OVER_UNDER: "Player Over/Under",
-	TEAM_STAT_OVER_UNDER: "Team Over/Under",
+	PLAYER_STAT_OVER_UNDER: "Player Game Over/Under",
+	TEAM_STAT_OVER_UNDER: "Team Game Over/Under",
+	PLAYER_SEASON_STAT_OVER_UNDER: "Player Season Over/Under",
+	TEAM_SEASON_STAT_OVER_UNDER: "Team Season Over/Under",
 	GAME_TOTAL_OVER_UNDER: "Game Total",
-	PLAYER_STAT_NUMERIC_GUESS: "Player Numeric Guess",
-	TEAM_STAT_NUMERIC_GUESS: "Team Numeric Guess",
-	PLAYER_VS_PLAYER: "Player vs Player",
+	PLAYER_STAT_NUMERIC_GUESS: "Player Game Numeric Guess",
+	TEAM_STAT_NUMERIC_GUESS: "Team Game Numeric Guess",
+	PLAYER_VS_PLAYER: "Player Game Head-to-Head",
+	PLAYER_VS_PLAYER_SEASON: "Player Season Head-to-Head",
 	TEAM_VS_TEAM: "Team vs Team",
 	YES_NO_PROP: "Yes/No",
 	PLAYER_SEASON_AWARD: "Player Season Award",
@@ -33,10 +42,13 @@ export const questionShapeLabel: Record<QuestionShape, string> = {
 export const questionShapeIcon: Record<QuestionShape, IconType> = {
 	PLAYER_STAT_OVER_UNDER: FaArrowsUpDown,
 	TEAM_STAT_OVER_UNDER: FaArrowsUpDown,
+	PLAYER_SEASON_STAT_OVER_UNDER: FaArrowsUpDown,
+	TEAM_SEASON_STAT_OVER_UNDER: FaArrowsUpDown,
 	GAME_TOTAL_OVER_UNDER: FaArrowsUpDown,
 	PLAYER_STAT_NUMERIC_GUESS: FaHashtag,
 	TEAM_STAT_NUMERIC_GUESS: FaHashtag,
 	PLAYER_VS_PLAYER: FaUserGroup,
+	PLAYER_VS_PLAYER_SEASON: FaUserGroup,
 	TEAM_VS_TEAM: FaPeopleGroup,
 	YES_NO_PROP: FaToggleOn,
 	PLAYER_SEASON_AWARD: FaTrophy,
@@ -69,10 +81,13 @@ export function optionDisplayLabel(
 export const shareCardShapeLabel: Record<QuestionShape, string> = {
 	PLAYER_STAT_OVER_UNDER: "Player Prop",
 	TEAM_STAT_OVER_UNDER: "Team Prop",
+	PLAYER_SEASON_STAT_OVER_UNDER: "Season Prop",
+	TEAM_SEASON_STAT_OVER_UNDER: "Season Prop",
 	GAME_TOTAL_OVER_UNDER: "Game Total",
 	PLAYER_STAT_NUMERIC_GUESS: "Player Prop",
 	TEAM_STAT_NUMERIC_GUESS: "Team Prop",
 	PLAYER_VS_PLAYER: "Head-to-Head",
+	PLAYER_VS_PLAYER_SEASON: "Head-to-Head",
 	TEAM_VS_TEAM: "Game Outcome",
 	YES_NO_PROP: "Yes/No",
 	PLAYER_SEASON_AWARD: "Season Award",
@@ -88,17 +103,24 @@ export const AWAITING_RESULT_TEXT = "awaiting resolution"
 
 export const questionShapeDescription: Record<QuestionShape, string> = {
 	PLAYER_STAT_OVER_UNDER:
-		"One player, one stat, one line: will they go over or under it.",
+		"One player, one stat, one game: will they go over or under the line.",
 	TEAM_STAT_OVER_UNDER:
-		"One team, one stat, one line: will they go over or under it.",
+		"One team, one stat, one game: will they go over or under the line.",
+	PLAYER_SEASON_STAT_OVER_UNDER:
+		"One player, one stat, the whole season: will they finish over or under the line.",
+	TEAM_SEASON_STAT_OVER_UNDER:
+		"One team, one stat, the whole season: will they finish over or under the line.",
 	GAME_TOTAL_OVER_UNDER:
 		"A game-wide total: combined points, anything split by over and under with no single player or team attached.",
 	PLAYER_STAT_NUMERIC_GUESS:
-		"An exact number for one player: rebounds, points, anything scored by closeness, not just right or wrong.",
+		"An exact number for one player, one game: rebounds, points, anything scored by closeness, not just right or wrong.",
 	TEAM_STAT_NUMERIC_GUESS:
-		"An exact number for one team: anything scored by closeness, not just right or wrong.",
-	PLAYER_VS_PLAYER: "Two named players, one stat: who comes out ahead.",
-	TEAM_VS_TEAM: "A real matchup: who wins.",
+		"An exact number for one team, one game: anything scored by closeness, not just right or wrong.",
+	PLAYER_VS_PLAYER:
+		"Two named players, one stat, same game: who comes out ahead. Teammates or opponents, either works.",
+	PLAYER_VS_PLAYER_SEASON:
+		"Two named players, one stat, the whole season: who comes out ahead.",
+	TEAM_VS_TEAM: "A real matchup: who will win.",
 	YES_NO_PROP:
 		"Will it happen or not: a triple-double, a buzzer-beater, anything with a clean yes or no.",
 	PLAYER_SEASON_AWARD:

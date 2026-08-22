@@ -58,7 +58,7 @@ export function LeagueAccordion({ stats, user }: Props) {
 							color: "fg.subtle",
 						})}
 					>
-						{stats.accuracy !== null ? `${Math.round(stats.accuracy)}%` : "—"} ·{" "}
+						{stats.accuracy !== null ? `${Math.round(stats.accuracy)}%` : "-"} ·{" "}
 						{stats.callCount} calls
 					</span>
 				</VStack>

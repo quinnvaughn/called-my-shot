@@ -3,7 +3,6 @@ import {
 	castCallSchema,
 	createQuestionSchema,
 	fileDisputeSchema,
-	generateQuestionTitle,
 	reportQuestionSchema,
 	resolveQuestionSchema,
 	voidQuestionSchema,
@@ -101,15 +100,27 @@ export const QuestionShape = builder.enumType("QuestionShape", {
 	values: {
 		PLAYER_STAT_OVER_UNDER: { value: "player_stat_over_under" },
 		TEAM_STAT_OVER_UNDER: { value: "team_stat_over_under" },
+		PLAYER_SEASON_STAT_OVER_UNDER: { value: "player_season_stat_over_under" },
+		TEAM_SEASON_STAT_OVER_UNDER: { value: "team_season_stat_over_under" },
 		GAME_TOTAL_OVER_UNDER: { value: "game_total_over_under" },
 		PLAYER_STAT_NUMERIC_GUESS: { value: "player_stat_numeric_guess" },
 		TEAM_STAT_NUMERIC_GUESS: { value: "team_stat_numeric_guess" },
 		PLAYER_VS_PLAYER: { value: "player_vs_player" },
+		PLAYER_VS_PLAYER_SEASON: { value: "player_vs_player_season" },
 		TEAM_VS_TEAM: { value: "team_vs_team" },
 		YES_NO_PROP: { value: "yes_no_prop" },
 		PLAYER_SEASON_AWARD: { value: "player_season_award" },
 		TEAM_SEASON_AWARD: { value: "team_season_award" },
 		PLAYER_AWARD_FINALISTS: { value: "player_award_finalists" },
+	},
+})
+
+// player_season_stat_over_under/team_season_stat_over_under only - see
+// statAggregation on the questions table.
+export const StatAggregation = builder.enumType("StatAggregation", {
+	values: {
+		TOTAL: { value: "total" },
+		PER_GAME: { value: "per_game" },
 	},
 })
 
@@ -528,6 +539,13 @@ export const QuestionRef = builder.drizzleObject("questions", {
 
 		// *_over_under shapes only
 		ouLine: t.exposeFloat("ouLine", { nullable: true }),
+
+		// player_season_stat_over_under/team_season_stat_over_under only
+		statAggregation: t.field({
+			type: StatAggregation,
+			nullable: true,
+			resolve: (q) => q.statAggregation,
+		}),
 
 		// player_stat_over_under/numeric_guess, team_stat_over_under/
 		// numeric_guess (required), yes_no_prop (optional - null for a
@@ -1140,6 +1158,13 @@ const CreateQuestionInput = builder.inputType("CreateQuestionInput", {
 		leagueId: t.id({ required: true }),
 		gameId: t.id({ required: false }),
 
+		// Required - the create-question form prefills this from
+		// generateQuestionTitle and lets the creator edit it, since the
+		// generated phrasing doesn't always read naturally (an unusual stat or
+		// award name especially). The server trusts whatever's here rather than
+		// regenerating its own copy.
+		title: t.string({ required: true }),
+
 		resolutionSource: t.string({ required: true }),
 		resolutionSourceUrl: t.string({ required: false }),
 		locksAt: t.string({ required: true }),
@@ -1159,6 +1184,9 @@ const CreateQuestionInput = builder.inputType("CreateQuestionInput", {
 
 		// *_over_under
 		ouLine: t.float({ required: false }),
+
+		// player_season_stat_over_under/team_season_stat_over_under
+		statAggregation: t.field({ type: StatAggregation, required: false }),
 
 		// player/team_stat_over_under, player/team_stat_numeric_guess
 		// (required), yes_no_prop (optional)
@@ -1699,8 +1727,8 @@ builder.mutationFields((t) => ({
 				numericTolerancePct = stat.toleranceTier.tolerancePct
 			}
 
-			// Resolved once up front for title generation - only the fields a
-			// given shape actually uses end up set.
+			// Resolved once up front for the structured-field validation below -
+			// only the fields a given shape actually uses end up set.
 			const [stat, subjectPlayer, subjectTeam] = await Promise.all([
 				data.statId
 					? db.query.stats.findFirst({ where: { id: data.statId } })
@@ -1712,8 +1740,6 @@ builder.mutationFields((t) => ({
 					? db.query.teams.findFirst({ where: { id: data.subjectTeamId } })
 					: null,
 			])
-			const statName = stat?.name ?? data.customStat
-			const subjectName = subjectPlayer?.name ?? subjectTeam?.name ?? null
 
 			// Only meaningful for a catalog stat - a freeform customStat (over_under
 			// and player_vs_player both allow one, see requireStat vs
@@ -1728,38 +1754,68 @@ builder.mutationFields((t) => ({
 				}
 			}
 
-			const title = match(data.shape)
-				.with("player_stat_over_under", (shape) => {
+			// Title itself is always data.title now (required - see title on
+			// createQuestionSchema); this match is pure structured-field
+			// validation, not title generation. generateQuestionTitle is what
+			// the create-question form uses client-side to prefill that field, so
+			// the two can't drift, but the server no longer needs its own copy of
+			// the generated string.
+			match(data.shape)
+				.with("player_stat_over_under", () => {
+					if (!subjectPlayer) {
+						throw ValidationError.field("subjectPlayerId", "Player not found")
+					}
+					if (!data.gameId) {
+						throw ValidationError.field("gameId", "Pick a game")
+					}
+					if (data.ouLine === undefined) {
+						throw ValidationError.field("ouLine", "Set the line")
+					}
+					requireStatAppliesTo("player")
+				})
+				.with("team_stat_over_under", () => {
+					if (!subjectTeam) {
+						throw ValidationError.field("subjectTeamId", "Team not found")
+					}
+					if (!data.gameId) {
+						throw ValidationError.field("gameId", "Pick a game")
+					}
+					if (data.ouLine === undefined) {
+						throw ValidationError.field("ouLine", "Set the line")
+					}
+					requireStatAppliesTo("team")
+				})
+				.with("player_season_stat_over_under", () => {
 					if (!subjectPlayer) {
 						throw ValidationError.field("subjectPlayerId", "Player not found")
 					}
 					if (data.ouLine === undefined) {
 						throw ValidationError.field("ouLine", "Set the line")
 					}
+					if (!data.statAggregation) {
+						throw ValidationError.field(
+							"statAggregation",
+							"Say whether that's a total or a per-game average",
+						)
+					}
 					requireStatAppliesTo("player")
-					return generateQuestionTitle({
-						shape,
-						playerName: subjectPlayer.name,
-						statName,
-						ouLine: data.ouLine,
-					})
 				})
-				.with("team_stat_over_under", (shape) => {
+				.with("team_season_stat_over_under", () => {
 					if (!subjectTeam) {
 						throw ValidationError.field("subjectTeamId", "Team not found")
 					}
 					if (data.ouLine === undefined) {
 						throw ValidationError.field("ouLine", "Set the line")
 					}
+					if (!data.statAggregation) {
+						throw ValidationError.field(
+							"statAggregation",
+							"Say whether that's a total or a per-game average",
+						)
+					}
 					requireStatAppliesTo("team")
-					return generateQuestionTitle({
-						shape,
-						teamName: subjectTeam.name,
-						statName,
-						ouLine: data.ouLine,
-					})
 				})
-				.with("game_total_over_under", (shape) => {
+				.with("game_total_over_under", () => {
 					if (!homeTeamName || !awayTeamName) {
 						throw ValidationError.field("gameId", "Pick a game")
 					}
@@ -1769,15 +1825,8 @@ builder.mutationFields((t) => ({
 					// A game-wide total is never about one specific player, same
 					// subject kind as a team stat for this check's purposes.
 					requireStatAppliesTo("team")
-					return generateQuestionTitle({
-						shape,
-						awayTeamName,
-						homeTeamName,
-						statName,
-						ouLine: data.ouLine,
-					})
 				})
-				.with("player_stat_numeric_guess", (shape) => {
+				.with("player_stat_numeric_guess", () => {
 					if (!subjectPlayer) {
 						throw ValidationError.field("subjectPlayerId", "Player not found")
 					}
@@ -1785,13 +1834,8 @@ builder.mutationFields((t) => ({
 						throw ValidationError.field("gameId", "Pick a game")
 					}
 					requireStatAppliesTo("player")
-					return generateQuestionTitle({
-						shape,
-						playerName: subjectPlayer.name,
-						statName,
-					})
 				})
-				.with("team_stat_numeric_guess", (shape) => {
+				.with("team_stat_numeric_guess", () => {
 					if (!subjectTeam) {
 						throw ValidationError.field("subjectTeamId", "Team not found")
 					}
@@ -1799,53 +1843,45 @@ builder.mutationFields((t) => ({
 						throw ValidationError.field("gameId", "Pick a game")
 					}
 					requireStatAppliesTo("team")
-					return generateQuestionTitle({
-						shape,
-						teamName: subjectTeam.name,
-						statName,
-					})
 				})
-				.with("player_vs_player", (shape) => {
+				.with("player_vs_player", () => {
 					const [a, b] = data.options ?? []
 					if (!a?.label || !b?.label) {
 						throw ValidationError.field("options", "Pick two players")
 					}
+					if (!data.gameId) {
+						throw ValidationError.field("gameId", "Pick a game")
+					}
 					requireStatAppliesTo("player")
-					return generateQuestionTitle({
-						shape,
-						playerAName: a.label,
-						playerBName: b.label,
-						statName,
-					})
 				})
-				.with("team_vs_team", (shape) => {
+				.with("player_vs_player_season", () => {
+					const [a, b] = data.options ?? []
+					if (!a?.label || !b?.label) {
+						throw ValidationError.field("options", "Pick two players")
+					}
+					if (!data.statAggregation) {
+						throw ValidationError.field(
+							"statAggregation",
+							"Say whether that's a total or a per-game average",
+						)
+					}
+					requireStatAppliesTo("player")
+				})
+				.with("team_vs_team", () => {
 					if (!homeTeamName || !awayTeamName) {
 						throw ValidationError.field("gameId", "Pick a game")
 					}
-					return generateQuestionTitle({ shape, awayTeamName, homeTeamName })
 				})
-				.with("yes_no_prop", (shape) =>
-					generateQuestionTitle({
-						shape,
-						subjectName,
-						eventClause: data.eventClause,
-					}),
-				)
-				.with("player_season_award", "team_season_award", (shape) =>
-					generateQuestionTitle({
-						shape,
-						awardName: data.awardName,
-						picksRequired: data.picksRequired ?? 1,
-					}),
-				)
-				.with("player_award_finalists", (shape) =>
-					generateQuestionTitle({
-						shape,
-						awardName: data.awardName,
-						finalistNames: (data.options ?? []).map((option) => option.label),
-					}),
-				)
+				// yes_no_prop, the award shapes, and player_award_finalists have
+				// nothing left to check here - createQuestionSchema's own
+				// superRefine (requireAwardName, the eventClause check) already
+				// guarantees their required fields by the time data exists.
+				.with("yes_no_prop", () => {})
+				.with("player_season_award", "team_season_award", () => {})
+				.with("player_award_finalists", () => {})
 				.exhaustive()
+
+			const title = data.title
 
 			const question = await db.transaction(async (tx) => {
 				const [question] = await tx
@@ -1864,6 +1900,7 @@ builder.mutationFields((t) => ({
 						statId: data.statId ?? null,
 						customStat: data.customStat || null,
 						ouLine: data.ouLine ?? null,
+						statAggregation: data.statAggregation ?? null,
 						subjectTeamId: data.subjectTeamId ?? null,
 						subjectPlayerId: data.subjectPlayerId ?? null,
 						numericTolerancePct,
@@ -1876,6 +1913,7 @@ builder.mutationFields((t) => ({
 				await match(data.shape)
 					.with(
 						"player_vs_player",
+						"player_vs_player_season",
 						"player_award_finalists",
 						"player_season_award",
 						"team_season_award",
@@ -1901,6 +1939,8 @@ builder.mutationFields((t) => ({
 					.with(
 						"player_stat_over_under",
 						"team_stat_over_under",
+						"player_season_stat_over_under",
+						"team_season_stat_over_under",
 						"game_total_over_under",
 						async () => {
 							// Bare "Over"/"Under" - the line itself isn't part of the

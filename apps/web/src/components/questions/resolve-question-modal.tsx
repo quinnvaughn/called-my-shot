@@ -37,10 +37,13 @@ export function ResolveQuestionModal({ question: questionProp }: Props) {
 	const shape = question.shape.toLowerCase() as
 		| "player_stat_over_under"
 		| "team_stat_over_under"
+		| "player_season_stat_over_under"
+		| "team_season_stat_over_under"
 		| "game_total_over_under"
 		| "player_stat_numeric_guess"
 		| "team_stat_numeric_guess"
 		| "player_vs_player"
+		| "player_vs_player_season"
 		| "team_vs_team"
 		| "yes_no_prop"
 		| "player_season_award"
@@ -53,6 +56,8 @@ export function ResolveQuestionModal({ question: questionProp }: Props) {
 	const isOverUnder =
 		shape === "player_stat_over_under" ||
 		shape === "team_stat_over_under" ||
+		shape === "player_season_stat_over_under" ||
+		shape === "team_season_stat_over_under" ||
 		shape === "game_total_over_under"
 	const [resolveQuestion] = useMutation(ResolveQuestionDocument)
 	const router = useRouter()

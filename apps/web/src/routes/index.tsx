@@ -46,19 +46,19 @@ const howItWorksItems = [
 		icon: <FiFlag />,
 		title: "Make your call",
 		description:
-			"Pick a side, set a line, or guess an exact number. Set your conviction — how many points are actually riding on it.",
+			"Pick a side, set a number, or guess an exact number. Set your conviction: how many points are actually riding on it.",
 	},
 	{
 		icon: <FiTrendingUp />,
 		title: "The field reacts",
 		description:
-			"Every call shifts the percentages live. Bold picks against the crowd are worth more — that's baked into the scoring, not a bonus.",
+			"Every call shifts the percentages live. Bold picks against the crowd are worth more: that's baked into the scoring, not a bonus.",
 	},
 	{
 		icon: <FiLock />,
 		title: "It locks and resolves",
 		description:
-			"Locked to a named source the second it's created. No moving goalposts, no fine print — the same rule for everyone.",
+			"Locked to a named source the second it's created. No moving goalposts, no fine print: the same rule for everyone.",
 	},
 	{
 		icon: <FiAward />,
@@ -73,14 +73,14 @@ const questionTypeItems = [
 		icon: <FaArrowsUpDown />,
 		title: "Stat lines",
 		description:
-			"Set a line on a player or team stat — over or under, your call.",
+			"Set a number on a player or team stat: over or under, your call.",
 		example: "e.g. Will Embiid grab over/under 10.5 rebounds?",
 	},
 	{
 		icon: <FaHashtag />,
 		title: "Exact guesses",
 		description:
-			"Call an exact number. A tolerance band decides if you're close enough; how close beats the field decides your score.",
+			"Call an exact number for one game. A tolerance band decides if you're close enough; how close beats the field decides your score.",
 		example: "e.g. How many passing yards will Mahomes throw for?",
 	},
 	{
@@ -94,15 +94,15 @@ const questionTypeItems = [
 		icon: <FaToggleOn />,
 		title: "Yes / No",
 		description:
-			"A clean binary call on anything — a stat, an event, a transaction.",
+			"A clean binary call on anything: a stat, an event, a transaction.",
 		example: "e.g. Will there be a triple-double tonight?",
 	},
 	{
 		icon: <FaTrophy />,
 		title: "Season-long awards",
 		description:
-			"MVP, a championship, an All-league team — decided at season's end, so calling it early is worth more.",
-		example: "e.g. Who wins NFL MVP this season?",
+			"MVP, a championship, an All-league team: decided at season's end, so calling it early is worth more.",
+		example: "e.g. Who will win NFL MVP this season?",
 	},
 ]
 
@@ -121,9 +121,9 @@ const noHouseItems = [
 	},
 	{
 		icon: <FiHelpCircle />,
-		title: "Ask about anything",
+		title: "Nothing needs our approval",
 		description:
-			"No licensed line to set, no real-money market to manage — so any question the community wants to argue about can exist.",
+			"Pick a shape, fill in the real players, teams, and stats, and it's live: no license to chase, no real-money market to manage.",
 	},
 	{
 		icon: <FiCheckCircle />,
@@ -138,13 +138,13 @@ const communityItems = [
 		icon: <FiMessageSquare />,
 		title: "Defend your take",
 		description:
-			"Every call can come with a real case — the reasoning behind it, out in the open. That's where the actual arguing happens, before anyone's proven right.",
+			"Every call can come with a real case: the reasoning behind it, out in the open. That's where the actual arguing happens, before anyone's proven right.",
 	},
 	{
 		icon: <FiUsers />,
 		title: "Run it with your group",
 		description:
-			"Invite-only leaderboards that run on the exact same real points — so you can settle who actually knows ball with the people you argue about it with anyway.",
+			"Invite-only leaderboards that run on the exact same real points: so you can settle who actually knows ball with the people you argue about it with anyway.",
 	},
 ]
 
@@ -185,7 +185,7 @@ function Home() {
 									Call your shot on real outcomes across every sport you follow,
 									defend it in the comments, and run your own leaderboard
 									against your group chat. Bold, correct calls score more than
-									safe ones — that's the whole game.
+									safe ones: that's the whole game.
 								</p>
 							</VStack>
 							<VStack alignItems="flex-start" gap="7">
@@ -234,14 +234,14 @@ function Home() {
 				id="question-types"
 				eyebrow="Question types"
 				title="Not every call works the same way."
-				description="Picking a side is different from guessing an exact number — so the scoring is honest about that instead of pretending it's all one thing. We post official questions every day, but anyone can create their own about anything."
+				description="Picking a side is different from guessing an exact number: so the scoring is honest about that instead of pretending it's all one thing. We post official questions every day, but anyone can create their own the same way."
 				items={questionTypeItems}
 				columns={3}
 			/>
 			<LandingPageFeatureSection
 				alt
 				eyebrow="No house, different incentives"
-				title="There's no line to protect, so we don't have to protect it from you."
+				title="There's nothing to protect, so we don't have to protect it from you."
 				description="Sportsbooks quietly limit or ban people who get too good at winning. We built the opposite thing on purpose."
 				items={noHouseItems}
 			/>
@@ -249,7 +249,7 @@ function Home() {
 				id="community"
 				eyebrow="This is a social product"
 				title="Being right is better with an audience."
-				description="A leaderboard is just a number until people can see the reasoning behind it — and until you can put it up against people you actually know."
+				description="A leaderboard is just a number until people can see the reasoning behind it: and until you can put it up against people you actually know."
 				items={communityItems}
 				columns={2}
 			/>

@@ -26,6 +26,8 @@ export function pickSummary(call: CallSummaryData): string {
 		.with(
 			"PLAYER_STAT_OVER_UNDER",
 			"TEAM_STAT_OVER_UNDER",
+			"PLAYER_SEASON_STAT_OVER_UNDER",
+			"TEAM_SEASON_STAT_OVER_UNDER",
 			"GAME_TOTAL_OVER_UNDER",
 			() => formatOverUnder(call),
 		)
@@ -37,6 +39,7 @@ export function pickSummary(call: CallSummaryData): string {
 		)
 		.with(
 			"PLAYER_VS_PLAYER",
+			"PLAYER_VS_PLAYER_SEASON",
 			"TEAM_VS_TEAM",
 			"YES_NO_PROP",
 			"PLAYER_AWARD_FINALISTS",
@@ -47,14 +50,14 @@ export function pickSummary(call: CallSummaryData): string {
 
 function formatOverUnder(call: CallSummaryData): string {
 	const selection = call.selections[0]
-	if (!selection) return "—"
+	if (!selection) return "-"
 	return call.question.ouLine !== null
 		? `${selection.option.label} ${call.question.ouLine}`
 		: selection.option.label
 }
 
 function formatMultiSelect(call: CallSummaryData): string {
-	if (call.selections.length === 0) return "—"
+	if (call.selections.length === 0) return "-"
 	// isCorrect is set on every option at once, at resolution - so any one
 	// selection having it set means the question resolved and all of them do.
 	const resolved = call.selections[0].option.isCorrect !== null
@@ -64,12 +67,12 @@ function formatMultiSelect(call: CallSummaryData): string {
 }
 
 function formatGuess(call: CallSummaryData): string {
-	return call.guessValue !== null ? String(call.guessValue) : "—"
+	return call.guessValue !== null ? String(call.guessValue) : "-"
 }
 
 function formatSingleSelection(call: CallSummaryData): string {
 	const selection = call.selections[0]
-	return selection ? selection.option.label : "—"
+	return selection ? selection.option.label : "-"
 }
 
 // Conviction lives in different places depending on shape: the numeric-guess
@@ -81,23 +84,26 @@ function formatSingleSelection(call: CallSummaryData): string {
 export function convictionSummary(call: CallSummaryData): string {
 	return match(call.question.shape)
 		.with("PLAYER_STAT_NUMERIC_GUESS", "TEAM_STAT_NUMERIC_GUESS", () =>
-			call.conviction !== null ? `${call.conviction}%` : "—",
+			call.conviction !== null ? `${call.conviction}%` : "-",
 		)
 		.with(
 			"PLAYER_STAT_OVER_UNDER",
 			"TEAM_STAT_OVER_UNDER",
+			"PLAYER_SEASON_STAT_OVER_UNDER",
+			"TEAM_SEASON_STAT_OVER_UNDER",
 			"GAME_TOTAL_OVER_UNDER",
 			"PLAYER_VS_PLAYER",
+			"PLAYER_VS_PLAYER_SEASON",
 			"TEAM_VS_TEAM",
 			"YES_NO_PROP",
 			"PLAYER_AWARD_FINALISTS",
 			() => {
 				const selection = call.selections[0]
-				return selection ? `${selection.conviction}%` : "—"
+				return selection ? `${selection.conviction}%` : "-"
 			},
 		)
 		.with("PLAYER_SEASON_AWARD", "TEAM_SEASON_AWARD", () => {
-			if (call.selections.length === 0) return "—"
+			if (call.selections.length === 0) return "-"
 			const avg =
 				call.selections.reduce((sum, s) => sum + s.conviction, 0) /
 				call.selections.length

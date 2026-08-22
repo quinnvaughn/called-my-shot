@@ -65,11 +65,11 @@ export function GameBlock({ game }: Props) {
 				{match(game.status)
 					.with(
 						"FINAL",
-						() => `FINAL · ${game.awayScore ?? "—"}–${game.homeScore ?? "—"}`,
+						() => `FINAL · ${game.awayScore ?? "-"}–${game.homeScore ?? "-"}`,
 					)
 					.with(
 						"LIVE",
-						() => `LIVE · ${game.awayScore ?? "—"}–${game.homeScore ?? "—"}`,
+						() => `LIVE · ${game.awayScore ?? "-"}–${game.homeScore ?? "-"}`,
 					)
 					.with("SCHEDULED", () =>
 						DateTime.fromISO(game.startsAt).toFormat("MMM d, h:mm a"),

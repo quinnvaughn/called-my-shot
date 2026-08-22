@@ -176,7 +176,7 @@ function LeaderboardRow({
 				numeric
 				className={css({ fontFamily: "mono", fontSize: "sm" })}
 			>
-				{item.accuracy !== null ? `${Math.round(item.accuracy)}%` : "—"}
+				{item.accuracy !== null ? `${Math.round(item.accuracy)}%` : "-"}
 			</Table.Cell>
 		</Table.Row>
 	)

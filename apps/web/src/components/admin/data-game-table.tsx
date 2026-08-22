@@ -74,7 +74,7 @@ export function DataGameTable({
 							<Table.Cell>
 								{game.status === "FINAL"
 									? `${game.awayScore}–${game.homeScore}`
-									: "—"}
+									: "-"}
 							</Table.Cell>
 							<Table.Cell numeric>
 								<Button

@@ -86,7 +86,7 @@ export function ShareCardPreview({
 						<HeroStat
 							label="Accuracy"
 							value={
-								data.accuracy !== null ? `${Math.round(data.accuracy)}%` : "—"
+								data.accuracy !== null ? `${Math.round(data.accuracy)}%` : "-"
 							}
 							tone={
 								data.accuracy !== null && data.accuracy >= 50

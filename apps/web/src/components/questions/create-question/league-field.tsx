@@ -32,7 +32,7 @@ export function LeagueField({ form, sports }: Props) {
 	}))
 
 	return (
-		<VStack gap="1.5" alignItems="stretch">
+		<VStack gap="1.5" alignItems="stretch" data-field="league">
 			<FieldLabel required>League</FieldLabel>
 			<EntitySearchField
 				value={inputText || (selected?.name ?? "")}

@@ -92,7 +92,7 @@ function RouteComponent() {
 						color: "fg.subtle",
 					})}
 				>
-					Locked a while — likely over (estimate)
+					Locked a while: likely over (estimate)
 				</span>
 				{!summary || summary.needsResolution.length === 0 ? (
 					<EmptyState>Nothing needs resolving right now.</EmptyState>
@@ -164,7 +164,7 @@ function RouteComponent() {
 							color: "fg.subtle",
 						})}
 					>
-						Locked recently — probably still live (estimate)
+						Locked recently: probably still live (estimate)
 					</span>
 					{summary.probablyStillLive.map((question) => (
 						<HStack

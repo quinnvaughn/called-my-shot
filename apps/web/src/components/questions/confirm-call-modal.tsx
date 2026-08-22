@@ -74,7 +74,7 @@ export function ConfirmCallModal({
 			<Modal.CloseButton />
 			<Modal.Title>Confirm your call</Modal.Title>
 			<Modal.Description>
-				Last look before this locks — no edits after.
+				Last look before this locks: no edits after.
 			</Modal.Description>
 
 			<VStack gap="2" alignItems="stretch">

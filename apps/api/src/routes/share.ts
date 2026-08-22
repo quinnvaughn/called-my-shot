@@ -35,10 +35,13 @@ export function registerShareRoutes(app: Express) {
 const SHAPE_LABEL: Record<string, string> = {
 	player_stat_over_under: "Player Prop",
 	team_stat_over_under: "Team Prop",
+	player_season_stat_over_under: "Season Prop",
+	team_season_stat_over_under: "Season Prop",
 	game_total_over_under: "Game Total",
 	player_stat_numeric_guess: "Player Prop",
 	team_stat_numeric_guess: "Team Prop",
 	player_vs_player: "Head-to-Head",
+	player_vs_player_season: "Head-to-Head",
 	team_vs_team: "Game Outcome",
 	yes_no_prop: "Yes/No",
 	player_season_award: "Season Award",
@@ -61,21 +64,23 @@ function buildPickLabel(call: {
 		call.question.shape === "player_stat_numeric_guess" ||
 		call.question.shape === "team_stat_numeric_guess"
 	) {
-		return call.guessValue !== null ? String(call.guessValue) : "—"
+		return call.guessValue !== null ? String(call.guessValue) : "-"
 	}
 	if (
 		call.question.shape === "player_season_award" ||
 		call.question.shape === "team_season_award"
 	) {
-		if (call.selections.length === 0) return "—"
+		if (call.selections.length === 0) return "-"
 		const hits = call.selections.filter((s) => s.option.isCorrect).length
 		return `${hits} of ${call.selections.length} hit`
 	}
 	const selection = call.selections[0]
-	if (!selection) return "—"
+	if (!selection) return "-"
 	if (
 		(call.question.shape === "player_stat_over_under" ||
 			call.question.shape === "team_stat_over_under" ||
+			call.question.shape === "player_season_stat_over_under" ||
+			call.question.shape === "team_season_stat_over_under" ||
 			call.question.shape === "game_total_over_under") &&
 		call.question.ouLine !== null
 	) {

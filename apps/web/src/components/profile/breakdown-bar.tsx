@@ -29,7 +29,7 @@ export function BreakdownBar({ label, accuracy, callCount }: Props) {
 						color: "fg.muted",
 					})}
 				>
-					{pct !== null ? `${pct}%` : "—"} · {callCount} calls
+					{pct !== null ? `${pct}%` : "-"} · {callCount} calls
 				</span>
 			</HStack>
 			<div

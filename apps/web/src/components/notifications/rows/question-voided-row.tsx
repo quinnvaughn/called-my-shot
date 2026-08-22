@@ -39,7 +39,7 @@ export function QuestionVoidedRow({
 		>
 			<p className={css({ fontSize: "sm" })}>
 				Your question "{n.questionTitle}" was voided
-				{n.strikeCount !== null && ` — strike ${n.strikeCount}`}
+				{n.strikeCount !== null && ` (strike ${n.strikeCount})`}
 			</p>
 		</NotificationShell>
 	)

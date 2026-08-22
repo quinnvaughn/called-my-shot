@@ -2,6 +2,7 @@ import { FiX } from "react-icons/fi"
 import { css } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
 import { FieldHint } from "#/components/ui/field-hint"
+import { FieldLabel } from "#/components/ui/field-label"
 import { FormError } from "#/components/ui/form-error"
 import type { EntitySearchItem } from "./entity-search-field"
 import { EntitySearchField } from "./entity-search-field"
@@ -18,6 +19,12 @@ type Props = {
 	// selectType in create-question-form.tsx) and neither addable nor
 	// removable here, unlike player_award_finalists' open-ended list.
 	exactCount?: number
+	// A fixed-size list (exactCount set) reads as "two named slots", not an
+	// open pool - labeling them ("Player A"/"Player B") makes that fixed
+	// identity visible instead of two identical-looking search fields with no
+	// visual distinction. Only meaningful alongside exactCount; an open-ended
+	// pool (player_award_finalists) doesn't have named slots to label.
+	rowLabels?: string[]
 }
 
 // A manually curated list - player_award_finalists' real announced
@@ -31,6 +38,7 @@ export function OptionList({
 	rowPlaceholder,
 	addLabel,
 	exactCount,
+	rowLabels,
 }: Props) {
 	return (
 		<form.FieldArray name="options">
@@ -44,7 +52,10 @@ export function OptionList({
 						</FieldHint>
 						{rows.map((row) => (
 							<HStack key={row.id} gap="2" alignItems="flex-start">
-								<div className={css({ flex: "1" })}>
+								<VStack gap="1.5" alignItems="stretch" className={css({ flex: "1" })}>
+									{rowLabels?.[row.index] && (
+										<FieldLabel required>{rowLabels[row.index]}</FieldLabel>
+									)}
 									<form.Field name={`options.${row.index}.label`}>
 										{(field) => (
 											<EntitySearchField
@@ -82,7 +93,7 @@ export function OptionList({
 											/>
 										)}
 									</form.Field>
-								</div>
+								</VStack>
 								{exactCount === undefined && (
 									<button
 										type="button"

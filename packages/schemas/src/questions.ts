@@ -16,10 +16,13 @@ import { z } from "zod"
 export const questionShapeSchema = z.enum([
 	"player_stat_over_under",
 	"team_stat_over_under",
+	"player_season_stat_over_under",
+	"team_season_stat_over_under",
 	"game_total_over_under",
 	"player_stat_numeric_guess",
 	"team_stat_numeric_guess",
 	"player_vs_player",
+	"player_vs_player_season",
 	"team_vs_team",
 	"yes_no_prop",
 	"player_season_award",
@@ -27,6 +30,12 @@ export const questionShapeSchema = z.enum([
 	"player_award_finalists",
 ])
 export type QuestionShape = z.infer<typeof questionShapeSchema>
+
+// player_season_stat_over_under/team_season_stat_over_under only - see
+// statAggregation on the questions table (apps/api/src/db/schema/
+// questions.ts) for why this exists.
+export const statAggregationSchema = z.enum(["total", "per_game"])
+export type StatAggregation = z.infer<typeof statAggregationSchema>
 
 const createQuestionOptionSchema = z.object({
 	label: z.string().trim().min(1, "Option can't be empty"),
@@ -63,22 +72,32 @@ const ADMIN_ONLY_SHAPES = AWARD_SHAPES
 // the form layer - it's parsed to a Date only where that's actually needed
 // (the refine below, and the API resolver's insert).
 //
-// title is not creator input - the server generates it from these
-// structured fields at creation time (see generateQuestionTitle).
 export const createQuestionSchema = z
 	.object({
 		shape: questionShapeSchema,
+
+		// Required, same as every other creator-facing field - but the
+		// create-question form prefills it from generateQuestionTitle the
+		// moment there's enough filled in to generate one, so a creator only
+		// ever has to type it by hand when the generated phrasing reads
+		// awkwardly (an unusual stat/award name especially, e.g. "Who will win
+		// Offensive Rating?"). Not a fallback-to-generated-if-blank field -
+		// the server trusts this value as-is.
+		title: z.string().trim().min(1, "Give it a title"),
 		sportId: z.string().uuid("Pick a sport"),
 		leagueId: z.string().uuid("Pick a league"),
 
 		// The single real-world matchup this question is about, if any - see
 		// gameId on the questions table. Required for game_total_over_under,
-		// team_vs_team, player_stat_numeric_guess, and team_stat_numeric_guess -
-		// an exact-number guess only makes sense pinned to one game's box score,
-		// unlike an over/under line which can also describe a season total. When
-		// set, the API resolver derives locksAt from the game's own startsAt instead
-		// of trusting this input's locksAt string, so a stale/tampered value
-		// here can't desync the two.
+		// team_vs_team, player_stat_numeric_guess, team_stat_numeric_guess,
+		// player_stat_over_under, and team_stat_over_under - season-long over/
+		// under lines are their own separate shapes now
+		// (player_season_stat_over_under/team_season_stat_over_under), which
+		// never take a gameId at all, so there's no shape left where this field
+		// is ambiguous about which one it means. When set, the API resolver
+		// derives locksAt from the game's own startsAt instead of trusting this
+		// input's locksAt string, so a stale/tampered value here can't desync
+		// the two.
 		gameId: z.string().uuid().optional(),
 
 		resolutionSource: z.string().trim().min(1, "Say where you'll check this"),
@@ -116,6 +135,9 @@ export const createQuestionSchema = z
 
 		// *_over_under only
 		ouLine: z.number().optional(),
+
+		// player_season_stat_over_under/team_season_stat_over_under only
+		statAggregation: statAggregationSchema.optional(),
 
 		// player_stat_over_under/numeric_guess (required), team_stat_over_under/
 		// numeric_guess (required), yes_no_prop (optional - null for a
@@ -223,6 +245,26 @@ export const createQuestionSchema = z
 			})
 		}
 
+		function requireGame() {
+			if (!data.gameId) {
+				ctx.addIssue({
+					code: "custom",
+					path: ["gameId"],
+					message: "Pick a game",
+				})
+			}
+		}
+
+		function requireStatAggregation() {
+			if (!data.statAggregation) {
+				ctx.addIssue({
+					code: "custom",
+					path: ["statAggregation"],
+					message: "Say whether that's a total or a per-game average",
+				})
+			}
+		}
+
 		match(data.shape)
 			.with("player_stat_over_under", () => {
 				if (!data.subjectPlayerId) {
@@ -232,6 +274,7 @@ export const createQuestionSchema = z
 						message: "Pick a player",
 					})
 				}
+				requireGame()
 				requireOuLine()
 				requireStat()
 			})
@@ -243,17 +286,36 @@ export const createQuestionSchema = z
 						message: "Pick a team",
 					})
 				}
+				requireGame()
 				requireOuLine()
 				requireStat()
 			})
-			.with("game_total_over_under", () => {
-				if (!data.gameId) {
+			.with("player_season_stat_over_under", () => {
+				if (!data.subjectPlayerId) {
 					ctx.addIssue({
 						code: "custom",
-						path: ["gameId"],
-						message: "Pick a game",
+						path: ["subjectPlayerId"],
+						message: "Pick a player",
 					})
 				}
+				requireOuLine()
+				requireStat()
+				requireStatAggregation()
+			})
+			.with("team_season_stat_over_under", () => {
+				if (!data.subjectTeamId) {
+					ctx.addIssue({
+						code: "custom",
+						path: ["subjectTeamId"],
+						message: "Pick a team",
+					})
+				}
+				requireOuLine()
+				requireStat()
+				requireStatAggregation()
+			})
+			.with("game_total_over_under", () => {
+				requireGame()
 				requireOuLine()
 				requireStat()
 			})
@@ -265,13 +327,7 @@ export const createQuestionSchema = z
 						message: "Pick a player",
 					})
 				}
-				if (!data.gameId) {
-					ctx.addIssue({
-						code: "custom",
-						path: ["gameId"],
-						message: "Pick a game",
-					})
-				}
+				requireGame()
 				requireCatalogStat()
 			})
 			.with("team_stat_numeric_guess", () => {
@@ -282,17 +338,15 @@ export const createQuestionSchema = z
 						message: "Pick a team",
 					})
 				}
-				if (!data.gameId) {
-					ctx.addIssue({
-						code: "custom",
-						path: ["gameId"],
-						message: "Pick a game",
-					})
-				}
+				requireGame()
 				requireCatalogStat()
 			})
-			.with("player_vs_player", () => {
+			.with("player_vs_player", "player_vs_player_season", (matchedShape) => {
 				requireStat()
+				if (matchedShape === "player_vs_player") requireGame()
+				if (matchedShape === "player_vs_player_season") {
+					requireStatAggregation()
+				}
 				const players = data.options ?? []
 				if (players.length !== 2) {
 					ctx.addIssue({
@@ -323,13 +377,7 @@ export const createQuestionSchema = z
 				}
 			})
 			.with("team_vs_team", () => {
-				if (!data.gameId) {
-					ctx.addIssue({
-						code: "custom",
-						path: ["gameId"],
-						message: "Pick a game",
-					})
-				}
+				requireGame()
 			})
 			.with("yes_no_prop", () => {
 				if (!data.eventClause.trim()) {
@@ -444,8 +492,11 @@ export const castCallSchema = z
 			.with(
 				"player_stat_over_under",
 				"team_stat_over_under",
+				"player_season_stat_over_under",
+				"team_season_stat_over_under",
 				"game_total_over_under",
 				"player_vs_player",
+				"player_vs_player_season",
 				"team_vs_team",
 				"yes_no_prop",
 				"player_award_finalists",
@@ -499,8 +550,11 @@ export const resolveQuestionSchema = z
 			.with(
 				"player_stat_over_under",
 				"team_stat_over_under",
+				"player_season_stat_over_under",
+				"team_season_stat_over_under",
 				"game_total_over_under",
 				"player_vs_player",
+				"player_vs_player_season",
 				"team_vs_team",
 				"yes_no_prop",
 				"player_award_finalists",

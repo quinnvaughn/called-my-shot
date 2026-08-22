@@ -199,8 +199,8 @@ export function VoidQuestionModal({ question, onVoided }: Props) {
 					label="Count against asker's strikes"
 					description={
 						defaultCountsAsStrike(reason)
-							? "This reason counts against strikes by default — toggle off if it shouldn't this time."
-							: "This reason doesn't count by default — toggle on if it should this time."
+							? "This reason counts against strikes by default: toggle off if it shouldn't this time."
+							: "This reason doesn't count by default: toggle on if it should this time."
 					}
 					checked={countsAsStrike}
 					onChange={(next) => {
@@ -220,7 +220,7 @@ export function VoidQuestionModal({ question, onVoided }: Props) {
 						padding: "3",
 					})}
 				>
-					Deletes the question and every call made on it. No points move —
+					Deletes the question and every call made on it. No points move:
 					nothing's committed until resolution, so there's nothing to reverse.
 					Can't be undone.
 				</p>

@@ -224,7 +224,7 @@ function statRow(label: string, value: string): SatoriNode {
 
 export function buildUserShareCard(data: UserShareCardData): SatoriNode {
 	const accuracyText =
-		data.accuracy !== null ? `${Math.round(data.accuracy)}%` : "—"
+		data.accuracy !== null ? `${Math.round(data.accuracy)}%` : "-"
 	const accuracyTone: "accent" | "good" =
 		data.accuracy !== null && data.accuracy >= 50 ? "good" : "accent"
 	const initial = data.name.charAt(0).toUpperCase()

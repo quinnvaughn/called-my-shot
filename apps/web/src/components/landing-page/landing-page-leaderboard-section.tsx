@@ -24,7 +24,7 @@ export function LandingPageLeaderboardSection() {
 			alt
 			eyebrow="The leaderboard"
 			title="Being right, on the record."
-			description="Points and accuracy are tracked in the open. This is what actually being good at this looks like — no way to fake it."
+			description="Points and accuracy are tracked in the open. This is what actually being good at this looks like: no way to fake it."
 		>
 			<div
 				className={css({

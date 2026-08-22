@@ -6,15 +6,20 @@ import {
 import { useNavigate, useRouter } from "@tanstack/react-router"
 import type { ReactNode } from "react"
 import { useEffect, useMemo, useState } from "react"
-import { css } from "styled-system/css"
+import { css, cx } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
 import { match } from "ts-pattern"
 import { Button } from "#/components/ui/button"
 import { Card } from "#/components/ui/card"
 import { FieldHint } from "#/components/ui/field-hint"
+import { FieldLabel } from "#/components/ui/field-label"
 import { FormError } from "#/components/ui/form-error"
 import { TextInput } from "#/components/ui/text-input"
-import type { QuestionShape, SportsQuery } from "#/graphql/generated/graphql"
+import type {
+	QuestionShape,
+	SportsQuery,
+	StatAggregation,
+} from "#/graphql/generated/graphql"
 import { CreateQuestionDocument } from "#/graphql/mutations/questions"
 import {
 	GameByIdDocument,
@@ -24,6 +29,7 @@ import {
 } from "#/graphql/queries/sports"
 import { useForm } from "#/lib/form/use-form"
 import type { EntitySearchItem } from "./entity-search-field"
+import type { CreateQuestionFormApi } from "./form-types"
 import { GameField } from "./game-field"
 import { LeagueField } from "./league-field"
 import { OfficialToggle } from "./official-toggle"
@@ -33,6 +39,15 @@ import { QuestionTypePicker } from "./question-type-picker"
 import { ResolutionFields } from "./resolution-fields"
 import { StatPicker } from "./stat-picker"
 import { SubjectPicker } from "./subject-picker"
+
+// A stable fallback for the teams/players/stats queries below while they're
+// skipped (no league picked yet) or still loading - `?? []` alone would
+// hand back a brand-new array every render, which is exactly the kind of
+// unstable reference that fed the awardPoolItems infinite loop (see its own
+// comment further down): a new array each render defeats any useMemo that
+// takes it as a dependency, since the dependency itself never looks equal
+// render to render.
+const EMPTY_ARRAY: never[] = []
 
 // player_season_award/team_season_award/player_award_finalists can only ever
 // be posted as official - see questionShapeSchema's ADMIN_ONLY_SHAPES in
@@ -77,6 +92,62 @@ function Section({
 	)
 }
 
+// player_season_stat_over_under/team_season_stat_over_under/
+// player_vs_player_season only - none of these have an automatic reading of
+// their number as a season total vs. a per-game rate, so it's its own
+// required choice rather than an assumption baked into the phrasing (same
+// "no fucking ambiguity" reasoning as the game/season shape split itself).
+function StatAggregationField({ form }: { form: CreateQuestionFormApi }) {
+	return (
+		<form.Field name="statAggregation">
+			{(field) => (
+				<VStack gap="1.5" alignItems="stretch">
+					<FieldLabel required>Total or per game</FieldLabel>
+					<HStack gap="1.5">
+						{(
+							[
+								["total", "Total"],
+								["per_game", "Per game"],
+							] as const
+						).map(([value, label]) => (
+							<button
+								key={value}
+								type="button"
+								aria-pressed={field.value === value}
+								onClick={() => field.onChange(value)}
+								className={cx(
+									css({
+										fontFamily: "mono",
+										fontSize: "2xs",
+										letterSpacing: "wide",
+										color: "fg.subtle",
+										border: "1px solid {colors.border.default}",
+										borderRadius: "sm",
+										padding: "{spacing.1} {spacing.2}",
+										cursor: "pointer",
+									}),
+									field.value === value &&
+										css({
+											color: "fg.default",
+											border: "1px solid {colors.border.emphasized}",
+										}),
+								)}
+							>
+								{label}
+							</button>
+						))}
+					</HStack>
+					{field.meta.error && (
+						<span className={css({ fontSize: "xs", color: "fg.error" })}>
+							{field.meta.error}
+						</span>
+					)}
+				</VStack>
+			)}
+		</form.Field>
+	)
+}
+
 type Props = {
 	sports: SportsQuery["sports"]
 	isAdmin: boolean
@@ -84,6 +155,7 @@ type Props = {
 
 export function CreateQuestionForm({ sports, isAdmin }: Props) {
 	const [hasSelectedType, setHasSelectedType] = useState(false)
+	const [titleEdited, setTitleEdited] = useState(false)
 	const [createQuestion] = useMutation(CreateQuestionDocument)
 	const router = useRouter()
 	const navigate = useNavigate()
@@ -92,6 +164,7 @@ export function CreateQuestionForm({ sports, isAdmin }: Props) {
 		schema: createQuestionSchema,
 		defaultValues: {
 			shape: "player_stat_over_under",
+			title: "",
 			sportId: "",
 			leagueId: "",
 			gameId: undefined,
@@ -103,6 +176,7 @@ export function CreateQuestionForm({ sports, isAdmin }: Props) {
 			statId: undefined,
 			customStat: "",
 			ouLine: undefined,
+			statAggregation: undefined,
 			subjectTeamId: undefined,
 			subjectPlayerId: undefined,
 			picksRequired: 1,
@@ -114,6 +188,7 @@ export function CreateQuestionForm({ sports, isAdmin }: Props) {
 				variables: {
 					input: {
 						shape: values.shape.toUpperCase() as QuestionShape,
+						title: values.title,
 						sportId: values.sportId,
 						leagueId: values.leagueId,
 						gameId: values.gameId,
@@ -129,6 +204,9 @@ export function CreateQuestionForm({ sports, isAdmin }: Props) {
 						statId: values.statId,
 						customStat: values.customStat || undefined,
 						ouLine: values.ouLine,
+						statAggregation: values.statAggregation
+							? (values.statAggregation.toUpperCase() as StatAggregation)
+							: undefined,
 						subjectTeamId: values.subjectTeamId,
 						subjectPlayerId: values.subjectPlayerId,
 						picksRequired: values.picksRequired,
@@ -180,6 +258,7 @@ export function CreateQuestionForm({ sports, isAdmin }: Props) {
 	const statId = form.useWatch("statId")
 	const customStat = form.useWatch("customStat")
 	const ouLine = form.useWatch("ouLine")
+	const statAggregation = form.useWatch("statAggregation")
 	const awardName = form.useWatch("awardName")
 	const eventClause = form.useWatch("eventClause")
 	const picksRequired = form.useWatch("picksRequired")
@@ -205,9 +284,9 @@ export function CreateQuestionForm({ sports, isAdmin }: Props) {
 	})
 	const selectedGame = selectedGameData?.game ?? null
 
-	const teams = teamsData?.teams ?? []
-	const players = playersData?.players ?? []
-	const stats = statsData?.stats ?? []
+	const teams = teamsData?.teams ?? EMPTY_ARRAY
+	const players = playersData?.players ?? EMPTY_ARRAY
+	const stats = statsData?.stats ?? EMPTY_ARRAY
 
 	// Stable across renders (unlike a plain `new Set(...)` literal) so the
 	// stale-selection effect below only actually re-runs when the picked
@@ -260,11 +339,19 @@ export function CreateQuestionForm({ sports, isAdmin }: Props) {
 
 	const isPlayerStatOU = shape === "player_stat_over_under"
 	const isTeamStatOU = shape === "team_stat_over_under"
+	const isPlayerSeasonOU = shape === "player_season_stat_over_under"
+	const isTeamSeasonOU = shape === "team_season_stat_over_under"
 	const isGameTotalOU = shape === "game_total_over_under"
-	const isAnyOU = isPlayerStatOU || isTeamStatOU || isGameTotalOU
+	const isAnyOU =
+		isPlayerStatOU ||
+		isTeamStatOU ||
+		isPlayerSeasonOU ||
+		isTeamSeasonOU ||
+		isGameTotalOU
 	const isPlayerNumeric = shape === "player_stat_numeric_guess"
 	const isTeamNumeric = shape === "team_stat_numeric_guess"
 	const isPlayerVsPlayer = shape === "player_vs_player"
+	const isPlayerVsPlayerSeason = shape === "player_vs_player_season"
 	const isTeamVsTeam = shape === "team_vs_team"
 	const isYesNo = shape === "yes_no_prop"
 	const isPlayerAward = shape === "player_season_award"
@@ -280,21 +367,32 @@ export function CreateQuestionForm({ sports, isAdmin }: Props) {
 	// admin-curated shortlist of real announced finalists instead (see
 	// option-list.tsx). Neither is scoped to a picked game since none of
 	// these three shapes are game-scoped in the first place.
-	const awardPoolItems: EntitySearchItem[] | null = isPlayerAward
-		? players.map((player) => ({
+	// Memoized, not recomputed inline: PoolSummary syncs this straight into
+	// options via a useEffect keyed on this same array (see pool-summary.tsx),
+	// which watches options right back (see the `options` useWatch above) - a
+	// fresh array reference here on every render, from every render, would
+	// retrigger that effect every time, which changes options, which
+	// retriggers this component, forever ("Maximum update depth exceeded").
+	// Stable across renders unless the underlying roster actually changes.
+	const awardPoolItems: EntitySearchItem[] | null = useMemo(() => {
+		if (isPlayerAward) {
+			return players.map((player) => ({
 				id: player.id,
 				label: player.name,
 				kind: "player" as const,
 				meta: player.currentTeam?.abbreviation,
 			}))
-		: isTeamAward
-			? teams.map((team) => ({
-					id: team.id,
-					label: team.name,
-					kind: "team" as const,
-					meta: team.abbreviation,
-				}))
-			: null
+		}
+		if (isTeamAward) {
+			return teams.map((team) => ({
+				id: team.id,
+				label: team.name,
+				kind: "team" as const,
+				meta: team.abbreviation,
+			}))
+		}
+		return null
+	}, [isPlayerAward, isTeamAward, players, teams])
 	const finalistItems: EntitySearchItem[] | null = isFinalists
 		? players.map((player) => ({
 				id: player.id,
@@ -307,6 +405,18 @@ export function CreateQuestionForm({ sports, isAdmin }: Props) {
 	function selectType(next: typeof shape) {
 		form.setValue("shape", next)
 		setHasSelectedType(true)
+		// The rest of the form only renders once a type's picked, and League is
+		// always its first field regardless of which shape branch renders (see
+		// the data-field="league" marker in league-field.tsx) - jump straight to
+		// it and focus it, rather than just nudging the scroll position, so
+		// picking a card visibly lands the viewer on the next thing to fill in.
+		requestAnimationFrame(() => {
+			const input = document.querySelector<HTMLInputElement>(
+				'[data-field="league"] input',
+			)
+			input?.scrollIntoView({ behavior: "smooth", block: "center" })
+			input?.focus({ preventScroll: true })
+		})
 		// Shape-specific fields from whatever was previously selected shouldn't
 		// leak into the newly chosen shape's submission. player_vs_player gets
 		// its 2 fixed slots pre-seeded here rather than grown/shrunk by
@@ -314,11 +424,31 @@ export function CreateQuestionForm({ sports, isAdmin }: Props) {
 		// state with anything other than exactly 2 for this shape.
 		form.setValue(
 			"options",
-			next === "player_vs_player" ? [{ label: "" }, { label: "" }] : [],
+			next === "player_vs_player" || next === "player_vs_player_season"
+				? [{ label: "" }, { label: "" }]
+				: [],
 		)
+		// player_season_stat_over_under/team_season_stat_over_under/
+		// player_vs_player_season never take a game at all (that's the whole
+		// reason they're separate shapes from their game-scoped counterparts) -
+		// GameField won't even render for them, so a stale gameId/locksAt from
+		// whatever was previously selected has to be cleared here instead of
+		// leaving it for the creator to notice and clear themselves. Every other
+		// shape switch still carries a picked game forward as a convenience
+		// (e.g. switching from team_vs_team to game_total_over_under for that
+		// same matchup).
+		if (
+			next === "player_season_stat_over_under" ||
+			next === "team_season_stat_over_under" ||
+			next === "player_vs_player_season"
+		) {
+			form.setValue("gameId", undefined)
+			form.setValue("locksAt", "")
+		}
 		form.setValue("statId", undefined)
 		form.setValue("customStat", "")
 		form.setValue("ouLine", undefined)
+		form.setValue("statAggregation", undefined)
 		form.setValue("subjectTeamId", undefined)
 		form.setValue("subjectPlayerId", undefined)
 		form.setValue("picksRequired", 1)
@@ -344,24 +474,71 @@ export function CreateQuestionForm({ sports, isAdmin }: Props) {
 		: undefined
 	const subjectName = selectedPlayerName ?? selectedTeamName ?? null
 
+	// player_stat_over_under/team_stat_over_under/player_stat_numeric_guess/
+	// team_stat_numeric_guess only - the game's other team, named in the title
+	// so "over/under 27.5 Points" reads as against a specific opponent rather
+	// than floating with no context beyond the date.
+	const opponentTeamName: string | undefined = (() => {
+		if (!selectedGame) return undefined
+		const subjectsTeamId =
+			subjectTeamId ??
+			players.find((player) => player.id === subjectPlayerId)?.currentTeam?.id
+		if (subjectsTeamId === selectedGame.homeTeam.id) {
+			return selectedGame.awayTeam.name
+		}
+		if (subjectsTeamId === selectedGame.awayTeam.id) {
+			return selectedGame.homeTeam.name
+		}
+		return undefined
+	})()
+
 	const titlePreview: string | null = match(shape)
 		.with("player_stat_over_under", (s) =>
-			selectedPlayerName && statName && ouLine !== undefined
+			selectedPlayerName &&
+			statName &&
+			ouLine !== undefined &&
+			opponentTeamName
 				? generateQuestionTitle({
 						shape: s,
 						playerName: selectedPlayerName,
 						statName,
 						ouLine,
+						opponentTeamName,
+						gameDate: selectedGame?.startsAt,
 					})
 				: null,
 		)
 		.with("team_stat_over_under", (s) =>
-			selectedTeamName && statName && ouLine !== undefined
+			selectedTeamName && statName && ouLine !== undefined && opponentTeamName
 				? generateQuestionTitle({
 						shape: s,
 						teamName: selectedTeamName,
 						statName,
 						ouLine,
+						opponentTeamName,
+						gameDate: selectedGame?.startsAt,
+					})
+				: null,
+		)
+		.with("player_season_stat_over_under", (s) =>
+			selectedPlayerName && statName && ouLine !== undefined && statAggregation
+				? generateQuestionTitle({
+						shape: s,
+						playerName: selectedPlayerName,
+						statName,
+						ouLine,
+						statAggregation,
+					})
+				: null,
+		)
+		.with("team_season_stat_over_under", (s) =>
+			selectedTeamName && statName && ouLine !== undefined && statAggregation
+				? generateQuestionTitle({
+						shape: s,
+						teamName: selectedTeamName,
+						statName,
+						ouLine,
+						statAggregation,
 					})
 				: null,
 		)
@@ -373,24 +550,29 @@ export function CreateQuestionForm({ sports, isAdmin }: Props) {
 						homeTeamName: selectedGame.homeTeam.name,
 						statName,
 						ouLine,
+						gameDate: selectedGame.startsAt,
 					})
 				: null,
 		)
 		.with("player_stat_numeric_guess", (s) =>
-			selectedPlayerName && statName
+			selectedPlayerName && statName && opponentTeamName
 				? generateQuestionTitle({
 						shape: s,
 						playerName: selectedPlayerName,
 						statName,
+						opponentTeamName,
+						gameDate: selectedGame?.startsAt,
 					})
 				: null,
 		)
 		.with("team_stat_numeric_guess", (s) =>
-			selectedTeamName && statName
+			selectedTeamName && statName && opponentTeamName
 				? generateQuestionTitle({
 						shape: s,
 						teamName: selectedTeamName,
 						statName,
+						opponentTeamName,
+						gameDate: selectedGame?.startsAt,
 					})
 				: null,
 		)
@@ -402,6 +584,19 @@ export function CreateQuestionForm({ sports, isAdmin }: Props) {
 						playerAName: a.label,
 						playerBName: b.label,
 						statName,
+						gameDate: selectedGame?.startsAt,
+					})
+				: null
+		})
+		.with("player_vs_player_season", (s) => {
+			const [a, b] = options
+			return a?.label && b?.label && statName && statAggregation
+				? generateQuestionTitle({
+						shape: s,
+						playerAName: a.label,
+						playerBName: b.label,
+						statName,
+						statAggregation,
 					})
 				: null
 		})
@@ -411,12 +606,18 @@ export function CreateQuestionForm({ sports, isAdmin }: Props) {
 						shape: s,
 						awayTeamName: selectedGame.awayTeam.name,
 						homeTeamName: selectedGame.homeTeam.name,
+						gameDate: selectedGame.startsAt,
 					})
 				: null,
 		)
 		.with("yes_no_prop", (s) =>
 			eventClause.trim()
-				? generateQuestionTitle({ shape: s, subjectName, eventClause })
+				? generateQuestionTitle({
+						shape: s,
+						subjectName,
+						eventClause,
+						gameDate: selectedGame?.startsAt,
+					})
 				: null,
 		)
 		.with("player_season_award", "team_season_award", (s) =>
@@ -435,6 +636,19 @@ export function CreateQuestionForm({ sports, isAdmin }: Props) {
 		)
 		.exhaustive()
 
+	const title = form.useWatch("title")
+	// Once the creator types into the title field directly, stop overwriting
+	// it as titlePreview keeps recomputing from the fields above - it's theirs
+	// now. Before that, keep it synced live so the field always shows the
+	// current best-guess title rather than going stale the moment any other
+	// field changes.
+	useEffect(() => {
+		if (titleEdited) return
+		if (titlePreview !== null && titlePreview !== title) {
+			form.setValue("title", titlePreview)
+		}
+	}, [titlePreview, titleEdited, title, form])
+
 	return (
 		<form onSubmit={form.handleSubmit}>
 			<VStack gap="6" alignItems="stretch">
@@ -449,17 +663,19 @@ export function CreateQuestionForm({ sports, isAdmin }: Props) {
 				{hasSelectedType && (
 					<>
 						{(isAnyOU || isPlayerNumeric || isTeamNumeric) && (
-							<Section label={isAnyOU ? "The line" : "The stat"} required>
+							<Section label={isAnyOU ? "The number" : "The stat"} required>
 								<Card>
 									<Card.Body>
 										<VStack gap="3.5" alignItems="stretch">
 											<LeagueField form={form} sports={sports} />
-											<GameField
-												form={form}
-												leagueId={leagueId}
-												selectedGame={selectedGame}
-												required={isGameTotalOU || isPlayerNumeric || isTeamNumeric}
-											/>
+											{!isPlayerSeasonOU && !isTeamSeasonOU && (
+												<GameField
+													form={form}
+													leagueId={leagueId}
+													selectedGame={selectedGame}
+													required
+												/>
+											)}
 											{leagueId ? (
 												<>
 													<StatPicker
@@ -468,7 +684,9 @@ export function CreateQuestionForm({ sports, isAdmin }: Props) {
 															(s) =>
 																s.appliesTo === "BOTH" ||
 																s.appliesTo ===
-																	(isPlayerStatOU || isPlayerNumeric
+																	(isPlayerStatOU ||
+																	isPlayerSeasonOU ||
+																	isPlayerNumeric
 																		? "PLAYER"
 																		: "TEAM"),
 														)}
@@ -483,7 +701,7 @@ export function CreateQuestionForm({ sports, isAdmin }: Props) {
 																		description="Can't be a whole number - the result has to be able to land on one side or the other, never exactly on it."
 																	>
 																		<TextInput.Label required>
-																			Line value
+																			Number
 																		</TextInput.Label>
 																		<TextInput.Group>
 																			<TextInput.Field
@@ -507,8 +725,13 @@ export function CreateQuestionForm({ sports, isAdmin }: Props) {
 															</form.Field>
 														</div>
 													)}
+													{(isPlayerSeasonOU || isTeamSeasonOU) && (
+														<StatAggregationField form={form} />
+													)}
 													{(isPlayerStatOU ||
 														isTeamStatOU ||
+														isPlayerSeasonOU ||
+														isTeamSeasonOU ||
 														isPlayerNumeric ||
 														isTeamNumeric) && (
 														<SubjectPicker
@@ -516,7 +739,9 @@ export function CreateQuestionForm({ sports, isAdmin }: Props) {
 															teams={scopedTeams}
 															players={scopedPlayers}
 															kind={
-																isPlayerStatOU || isPlayerNumeric
+																isPlayerStatOU ||
+																isPlayerSeasonOU ||
+																isPlayerNumeric
 																	? "player"
 																	: "team"
 															}
@@ -547,11 +772,13 @@ export function CreateQuestionForm({ sports, isAdmin }: Props) {
 												form={form}
 												leagueId={leagueId}
 												selectedGame={selectedGame}
+												required
 											/>
 											<StatPicker
 												form={form}
 												stats={stats.filter(
-													(s) => s.appliesTo === "BOTH" || s.appliesTo === "PLAYER",
+													(s) =>
+														s.appliesTo === "BOTH" || s.appliesTo === "PLAYER",
 												)}
 											/>
 											<OptionList
@@ -565,6 +792,44 @@ export function CreateQuestionForm({ sports, isAdmin }: Props) {
 												rowPlaceholder="Player name"
 												addLabel="+ Add player"
 												exactCount={2}
+												rowLabels={["Player A", "Player B"]}
+											/>
+											<p className={css({ fontSize: "xs", color: "fg.subtle" })}>
+												Both from this game - teammates or opponents, either
+												works.
+											</p>
+										</VStack>
+									</Card.Body>
+								</Card>
+							</Section>
+						)}
+
+						{isPlayerVsPlayerSeason && (
+							<Section label="The comparison" required>
+								<Card>
+									<Card.Body>
+										<VStack gap="3.5" alignItems="stretch">
+											<LeagueField form={form} sports={sports} />
+											<StatPicker
+												form={form}
+												stats={stats.filter(
+													(s) =>
+														s.appliesTo === "BOTH" || s.appliesTo === "PLAYER",
+												)}
+											/>
+											<StatAggregationField form={form} />
+											<OptionList
+												form={form}
+												items={players.map((player) => ({
+													id: player.id,
+													label: player.name,
+													kind: "player" as const,
+													meta: player.currentTeam?.abbreviation,
+												}))}
+												rowPlaceholder="Player name"
+												addLabel="+ Add player"
+												exactCount={2}
+												rowLabels={["Player A", "Player B"]}
 											/>
 										</VStack>
 									</Card.Body>
@@ -639,7 +904,7 @@ export function CreateQuestionForm({ sports, isAdmin }: Props) {
 											<p
 												className={css({ fontSize: "xs", color: "fg.subtle" })}
 											>
-												Fixed at exactly two options — nothing else to
+												Fixed at exactly two options - nothing else to
 												configure.
 											</p>
 										</VStack>
@@ -756,35 +1021,34 @@ export function CreateQuestionForm({ sports, isAdmin }: Props) {
 							</Section>
 						)}
 
-						<Section label="Title">
-							<Card>
-								<Card.Body>
-									<VStack gap="1.5" alignItems="stretch">
-										<span
-											className={css({
-												fontFamily: "mono",
-												fontSize: "2xs",
-												letterSpacing: "wide",
-												color: "fg.subtle",
-												textTransform: "uppercase",
-											})}
-										>
-											Generated automatically
-										</span>
-										<span
-											className={css({
-												fontSize: "md",
-												fontWeight: "semibold",
-												color: titlePreview ? "fg.default" : "fg.subtle",
-											})}
-										>
-											{titlePreview ??
-												"Fill in the fields above to preview your title."}
-										</span>
-									</VStack>
-								</Card.Body>
-							</Card>
-						</Section>
+						{titlePreview !== null && (
+							<Section label="Title">
+								<Card>
+									<Card.Body>
+										<form.Field name="title">
+											{(field) => (
+												<TextInput
+													error={field.meta.error ?? undefined}
+													description="Prefilled from the fields above - edit it if the generated phrasing reads awkwardly."
+												>
+													<TextInput.Label required>Title</TextInput.Label>
+													<TextInput.Group>
+														<TextInput.Field
+															value={field.value}
+															onChange={(e) => {
+																setTitleEdited(true)
+																field.onChange(e)
+															}}
+															onBlur={field.onBlur}
+														/>
+													</TextInput.Group>
+												</TextInput>
+											)}
+										</form.Field>
+									</Card.Body>
+								</Card>
+							</Section>
+						)}
 
 						<Section label="Resolution" required>
 							<Card>

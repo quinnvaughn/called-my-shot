@@ -20,7 +20,7 @@ export function statGridItems(stats: Stats): StatGridItem[] {
 		{ label: "Rank", value: `#${stats.rank}` },
 		{
 			label: "Accuracy",
-			value: stats.accuracy !== null ? `${Math.round(stats.accuracy)}%` : "—",
+			value: stats.accuracy !== null ? `${Math.round(stats.accuracy)}%` : "-",
 		},
 		{ label: "Calls made", value: stats.callCount.toLocaleString() },
 	]

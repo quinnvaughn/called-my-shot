@@ -82,7 +82,7 @@ export function OptionRow({
 							color: selected ? "primary.default" : "fg.muted",
 						})}
 					>
-						{fieldPct !== null ? `${Math.round(fieldPct)}%` : "—"}
+						{fieldPct !== null ? `${Math.round(fieldPct)}%` : "-"}
 					</span>
 					{count !== undefined && (
 						<>

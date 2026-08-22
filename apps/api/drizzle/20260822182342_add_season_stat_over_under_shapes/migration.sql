@@ -1,0 +1,2 @@
+ALTER TYPE "question_shape" ADD VALUE 'player_season_stat_over_under' BEFORE 'game_total_over_under';--> statement-breakpoint
+ALTER TYPE "question_shape" ADD VALUE 'team_season_stat_over_under' BEFORE 'game_total_over_under';

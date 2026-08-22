@@ -732,7 +732,7 @@ async function main() {
 	// be a legal pick for everyone, always).
 	const championship2027 = await createQuestion({
 		shape: "team_season_award",
-		title: "Who wins the 2027 NBA championship?",
+		title: "Who will win the 2027 NBA championship?",
 		awardName: "2027 NBA Championship",
 		picksRequired: 1,
 		creatorId: calledMyShot.id,
@@ -1077,7 +1077,7 @@ async function main() {
 	// 10. Team season award, still open
 	const superBowl = await createQuestion({
 		shape: "team_season_award",
-		title: "Who wins Super Bowl LXI?",
+		title: "Who will win Super Bowl LXI?",
 		awardName: "Super Bowl LXI",
 		picksRequired: 1,
 		creatorId: calledMyShot.id,
@@ -1235,7 +1235,7 @@ async function main() {
 	// resolved field signal) has a real question to render against.
 	const mvpRace = await createQuestion({
 		shape: "player_season_award",
-		title: "Who wins 2025-26 NBA MVP?",
+		title: "Who will win 2025-26 NBA MVP?",
 		awardName: "2025-26 NBA MVP",
 		picksRequired: 1,
 		isOfficial: true,
@@ -1289,7 +1289,7 @@ async function main() {
 	// a second shape to render against.
 	const nflMvp = await createQuestion({
 		shape: "player_season_award",
-		title: "Who wins NFL MVP this season?",
+		title: "Who will win NFL MVP this season?",
 		awardName: "NFL MVP",
 		picksRequired: 1,
 		creatorId: calledMyShot.id,
@@ -1432,7 +1432,7 @@ async function main() {
 	// own teams, away side first.
 	const pacersBullsOutcome = await createQuestion({
 		shape: "team_vs_team",
-		title: "Bulls @ Pacers - who wins?",
+		title: "Bulls @ Pacers - who will win?",
 		creatorId: hoopqueen.id,
 		sportId: basketball.id,
 		leagueId: nba.id,
@@ -1458,7 +1458,7 @@ async function main() {
 	const dpoyFinalists = await createQuestion({
 		shape: "player_award_finalists",
 		title:
-			"Who wins Defensive Player of the Year: Victor Wembanyama, Giannis Antetokounmpo, or Anthony Davis?",
+			"Who will win Defensive Player of the Year: Victor Wembanyama, Giannis Antetokounmpo, or Anthony Davis?",
 		awardName: "Defensive Player of the Year",
 		isOfficial: true,
 		creatorId: calledMyShot.id,
@@ -1583,7 +1583,7 @@ async function main() {
 	// quinn a question_voided notification (and the strike that comes with it).
 	const duplicateChampionship = await createQuestion({
 		shape: "team_season_award",
-		title: "Who wins the 2027 NBA title?",
+		title: "Who will win the 2027 NBA title?",
 		awardName: "2027 NBA Championship",
 		picksRequired: 1,
 		creatorId: calledMyShot.id,

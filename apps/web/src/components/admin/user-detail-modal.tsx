@@ -109,7 +109,7 @@ export function UserDetailModal({ user, onChanged }: Props) {
 
 			<ToggleRow
 				label="Question creation"
-				description="Auto-locks past the strike threshold — placeholder for now. Override anytime."
+				description="Auto-locks past the strike threshold: placeholder for now. Override anytime."
 				checked={user.questionCreationEnabled}
 				onChange={(enabled) => {
 					setCreationEnabled({ variables: { userId: user.id, enabled } }).then(
@@ -119,7 +119,7 @@ export function UserDetailModal({ user, onChanged }: Props) {
 			/>
 			<ToggleRow
 				label="Verified account"
-				description="Shows a verified badge — for media/pundit accounts."
+				description="Shows a verified badge: for media/pundit accounts."
 				checked={user.isVerifiedPundit}
 				onChange={(verified) => {
 					setVerified({ variables: { userId: user.id, verified } }).then(

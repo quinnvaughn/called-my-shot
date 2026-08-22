@@ -45,8 +45,8 @@ export function DataPlayerTable({
 				{players.map((player) => (
 					<Table.Row key={player.id}>
 						<Table.Cell>{player.name}</Table.Cell>
-						<Table.Cell>{player.currentTeam?.abbreviation ?? "—"}</Table.Cell>
-						<Table.Cell>{player.position ?? "—"}</Table.Cell>
+						<Table.Cell>{player.currentTeam?.abbreviation ?? "-"}</Table.Cell>
+						<Table.Cell>{player.position ?? "-"}</Table.Cell>
 						<Table.Cell numeric>
 							<Button
 								variant="outline"

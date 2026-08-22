@@ -49,7 +49,12 @@ export function fieldSignal(question: FieldSignalData): FieldSignal {
 				after: ` · ${callers}`,
 			}
 		})
-		.with("PLAYER_VS_PLAYER", "TEAM_VS_TEAM", "PLAYER_AWARD_FINALISTS", () => {
+		.with(
+		"PLAYER_VS_PLAYER",
+		"PLAYER_VS_PLAYER_SEASON",
+		"TEAM_VS_TEAM",
+		"PLAYER_AWARD_FINALISTS",
+		() => {
 			const leader = leadingOption(question.options)
 			if (!leader) return plain(callers)
 			return {
@@ -61,6 +66,8 @@ export function fieldSignal(question: FieldSignalData): FieldSignal {
 		.with(
 			"PLAYER_STAT_OVER_UNDER",
 			"TEAM_STAT_OVER_UNDER",
+			"PLAYER_SEASON_STAT_OVER_UNDER",
+			"TEAM_SEASON_STAT_OVER_UNDER",
 			"GAME_TOTAL_OVER_UNDER",
 			() => {
 				const leader = leadingOption(question.options)

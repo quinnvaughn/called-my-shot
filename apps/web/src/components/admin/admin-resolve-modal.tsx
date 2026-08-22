@@ -19,10 +19,13 @@ type QuestionForResolve = {
 	shape:
 		| "player_stat_over_under"
 		| "team_stat_over_under"
+		| "player_season_stat_over_under"
+		| "team_season_stat_over_under"
 		| "game_total_over_under"
 		| "player_stat_numeric_guess"
 		| "team_stat_numeric_guess"
 		| "player_vs_player"
+		| "player_vs_player_season"
 		| "team_vs_team"
 		| "yes_no_prop"
 		| "player_season_award"
@@ -169,7 +172,7 @@ export function AdminResolveModal({
 				<Textarea>
 					<Textarea.Label>Note (shown to callers)</Textarea.Label>
 					<Textarea.Field
-						placeholder="Optional — context on how this resolved"
+						placeholder="Optional: context on how this resolved"
 						maxLength={500}
 						value={resolutionNote}
 						onChange={(e) => setResolutionNote(e.target.value)}

@@ -19,10 +19,13 @@ export const Route = createFileRoute("/admin/disputes")({
 type QuestionShape =
 	| "player_stat_over_under"
 	| "team_stat_over_under"
+	| "player_season_stat_over_under"
+	| "team_season_stat_over_under"
 	| "game_total_over_under"
 	| "player_stat_numeric_guess"
 	| "team_stat_numeric_guess"
 	| "player_vs_player"
+	| "player_vs_player_season"
 	| "team_vs_team"
 	| "yes_no_prop"
 	| "player_season_award"
@@ -71,7 +74,7 @@ function RouteComponent() {
 			/>
 
 			{disputes.length === 0 ? (
-				<EmptyState>No open disputes — you're all caught up.</EmptyState>
+				<EmptyState>No open disputes: you're all caught up.</EmptyState>
 			) : (
 				<VStack gap="3" alignItems="stretch">
 					{disputes.map((dispute) => (
@@ -143,7 +146,7 @@ function RouteComponent() {
 										)
 									)}
 									<p className={css({ fontSize: "xs", color: "fg.muted" })}>
-										"{dispute.reason}" — @{dispute.user.username}
+										"{dispute.reason}" · @{dispute.user.username}
 									</p>
 								</VStack>
 								<HStack gap="1.5" flexShrink={0}>

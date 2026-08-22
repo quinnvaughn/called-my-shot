@@ -13,7 +13,7 @@ export function DisputedFlag() {
 			className={css({ fontSize: "xs", color: "warning.default" })}
 		>
 			<FaTriangleExclamation size={12} className={css({ flexShrink: "0" })} />
-			<span>Disputed — under review</span>
+			<span>Disputed: under review</span>
 		</HStack>
 	)
 }

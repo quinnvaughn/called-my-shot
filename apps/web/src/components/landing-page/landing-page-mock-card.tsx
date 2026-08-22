@@ -90,7 +90,7 @@ export function LandingPageMockCard() {
 									lineHeight: "snug",
 								})}
 							>
-								Who wins Super Bowl LXI?
+								Who will win Super Bowl LXI?
 							</div>
 							<VStack gap="2" alignItems="stretch" width="full">
 								{teams.map((team) => (

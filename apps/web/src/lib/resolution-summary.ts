@@ -20,6 +20,8 @@ export function resolvedAnswerSummary(
 		.with(
 			"PLAYER_STAT_OVER_UNDER",
 			"TEAM_STAT_OVER_UNDER",
+			"PLAYER_SEASON_STAT_OVER_UNDER",
+			"TEAM_SEASON_STAT_OVER_UNDER",
 			"GAME_TOTAL_OVER_UNDER",
 			() => formatOverUnder(question),
 		)
@@ -31,6 +33,7 @@ export function resolvedAnswerSummary(
 		)
 		.with(
 			"PLAYER_VS_PLAYER",
+			"PLAYER_VS_PLAYER_SEASON",
 			"TEAM_VS_TEAM",
 			"YES_NO_PROP",
 			"PLAYER_AWARD_FINALISTS",

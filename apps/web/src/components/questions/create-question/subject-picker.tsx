@@ -24,11 +24,12 @@ type Props = {
 	// where the subject's kind (or lack of one) is a real per-question choice,
 	// not implied by the shape itself.
 	kind: "player" | "team" | "either"
-	// player_stat_over_under/team_stat_over_under and both numeric-guess
-	// shapes are always required - the stat has to resolve against someone.
-	// game_total_over_under is the actual subject-less over/under (a
-	// game-wide line has none) and never renders this component at all.
-	// yes_no_prop's is always optional. Only changes the hint copy below -
+	// player_stat_over_under/team_stat_over_under, their season-long
+	// counterparts, and both numeric-guess shapes are always required - the
+	// stat has to resolve against someone. game_total_over_under is the
+	// actual subject-less over/under (a game-wide line has none) and never
+	// renders this component at all. yes_no_prop's is always optional. Only
+	// changes the hint copy below -
 	// the schema itself is what actually enforces the requirement.
 	required?: boolean
 }

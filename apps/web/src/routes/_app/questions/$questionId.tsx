@@ -79,7 +79,7 @@ export const Route = createFileRoute("/_app/questions/$questionId")({
 		if (!question) return {}
 
 		const title = question.title
-		const description = `${question.league.abbreviation} · ${questionShapeLabel[question.shape]} — resolves via ${question.resolutionSource}.`
+		const description = `${question.league.abbreviation} · ${questionShapeLabel[question.shape]}: resolves via ${question.resolutionSource}.`
 		const url = `https://calledmyshot.com/questions/${question.id}`
 
 		return {
@@ -256,7 +256,7 @@ function RouteComponent() {
 									color: "fg.muted",
 								})}
 							>
-								reported — thanks
+								reported, thanks
 							</span>
 						) : (
 							<button

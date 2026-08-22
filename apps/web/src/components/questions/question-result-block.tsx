@@ -79,7 +79,7 @@ export function QuestionResultBlock({ question, disputed }: Props) {
 				.with("PLAYER_STAT_NUMERIC_GUESS", "TEAM_STAT_NUMERIC_GUESS", () => (
 					<VStack gap="1.5" alignItems="stretch">
 						<span className={valueClass}>
-							{question.numericActualValue ?? "—"}
+							{question.numericActualValue ?? "-"}
 						</span>
 						<span className={subClass}>
 							{question.averageGuess !== null
@@ -91,13 +91,15 @@ export function QuestionResultBlock({ question, disputed }: Props) {
 				.with(
 					"PLAYER_STAT_OVER_UNDER",
 					"TEAM_STAT_OVER_UNDER",
+					"PLAYER_SEASON_STAT_OVER_UNDER",
+					"TEAM_SEASON_STAT_OVER_UNDER",
 					"GAME_TOTAL_OVER_UNDER",
 					() => (
 						<VStack gap="1.5" alignItems="stretch">
 							<span className={valueClass}>
 								{winner
 									? `${optionDisplayLabel(winner.label, question.shape, question.ouLine)}: total was ${question.numericActualValue}`
-									: "—"}
+									: "-"}
 							</span>
 							<span className={subClass}>{winnerSub}</span>
 						</VStack>
@@ -105,12 +107,13 @@ export function QuestionResultBlock({ question, disputed }: Props) {
 				)
 				.with(
 					"PLAYER_VS_PLAYER",
+					"PLAYER_VS_PLAYER_SEASON",
 					"TEAM_VS_TEAM",
 					"YES_NO_PROP",
 					"PLAYER_AWARD_FINALISTS",
 					() => (
 						<VStack gap="1.5" alignItems="stretch">
-							<span className={valueClass}>{winner?.label ?? "—"}</span>
+							<span className={valueClass}>{winner?.label ?? "-"}</span>
 							<span className={subClass}>{winnerSub}</span>
 						</VStack>
 					),

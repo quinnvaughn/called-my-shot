@@ -23,16 +23,26 @@ import { users } from "./users"
 export const questionShape = pgEnum("question_shape", [
 	"player_stat_over_under",
 	"team_stat_over_under",
+	"player_season_stat_over_under",
+	"team_season_stat_over_under",
 	"game_total_over_under",
 	"player_stat_numeric_guess",
 	"team_stat_numeric_guess",
 	"player_vs_player",
+	"player_vs_player_season",
 	"team_vs_team",
 	"yes_no_prop",
 	"player_season_award",
 	"team_season_award",
 	"player_award_finalists",
 ])
+
+// player_season_stat_over_under/team_season_stat_over_under only - whether
+// ouLine is read as a season total ("over/under 334 3-Pointers Made") or a
+// per-game rate ("over/under 30 Points per game"). Nothing else in the shape
+// implies this either way, so it's its own required field rather than an
+// assumption baked into how the number's presented.
+export const statAggregation = pgEnum("stat_aggregation", ["total", "per_game"])
 
 export const questionStatus = pgEnum("question_status", [
 	"open",
@@ -112,6 +122,10 @@ export const questions = pgTable("questions", {
 
 	// *_over_under shapes only
 	ouLine: numeric("ou_line", { precision: 8, scale: 2, mode: "number" }),
+
+	// player_season_stat_over_under/team_season_stat_over_under only - see
+	// statAggregation above.
+	statAggregation: statAggregation("stat_aggregation"),
 
 	// player_stat_over_under/numeric_guess and team_stat_over_under/
 	// numeric_guess set exactly one of these (required); yes_no_prop sets at

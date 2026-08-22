@@ -50,10 +50,13 @@ export const FORM_ID = "cast-call-form"
 export type QuestionCallShape =
 	| "player_stat_over_under"
 	| "team_stat_over_under"
+	| "player_season_stat_over_under"
+	| "team_season_stat_over_under"
 	| "game_total_over_under"
 	| "player_stat_numeric_guess"
 	| "team_stat_numeric_guess"
 	| "player_vs_player"
+	| "player_vs_player_season"
 	| "team_vs_team"
 	| "yes_no_prop"
 	| "player_season_award"
@@ -87,8 +90,11 @@ export function castCallBucketFor(
 		.with(
 			"player_stat_over_under",
 			"team_stat_over_under",
+			"player_season_stat_over_under",
+			"team_season_stat_over_under",
 			"game_total_over_under",
 			"player_vs_player",
+			"player_vs_player_season",
 			"team_vs_team",
 			"yes_no_prop",
 			"player_award_finalists",
@@ -104,6 +110,8 @@ export function isOverUnderShape(shape: QuestionCallShape): boolean {
 	return (
 		shape === "player_stat_over_under" ||
 		shape === "team_stat_over_under" ||
+		shape === "player_season_stat_over_under" ||
+		shape === "team_season_stat_over_under" ||
 		shape === "game_total_over_under"
 	)
 }
@@ -159,7 +167,10 @@ export function useCastCallForm(
 	const caseTextRef = useRef<HTMLTextAreaElement>(null)
 	function focusCaseText() {
 		requestAnimationFrame(() => {
-			caseTextRef.current?.scrollIntoView({ block: "center", behavior: "smooth" })
+			caseTextRef.current?.scrollIntoView({
+				block: "center",
+				behavior: "smooth",
+			})
 			caseTextRef.current?.focus()
 		})
 	}

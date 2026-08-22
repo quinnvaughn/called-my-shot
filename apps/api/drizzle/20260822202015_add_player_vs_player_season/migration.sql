@@ -1,0 +1,1 @@
+ALTER TYPE "question_shape" ADD VALUE 'player_vs_player_season' BEFORE 'team_vs_team';

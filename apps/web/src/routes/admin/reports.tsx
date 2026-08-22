@@ -52,7 +52,7 @@ function RouteComponent() {
 			<PageHeader title="Reports" subtitle="Questions callers flagged as bad." />
 
 			{reports.length === 0 ? (
-				<EmptyState>No open reports — you're all caught up.</EmptyState>
+				<EmptyState>No open reports: you're all caught up.</EmptyState>
 			) : (
 				<VStack gap="3" alignItems="stretch">
 					{reports.map((report) => (

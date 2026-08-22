@@ -171,17 +171,17 @@ const QUESTION_TYPES = [
 	{
 		title: "Stat lines & props",
 		pts: "150 pts",
-		desc: "A player or team stat line, a game total, a head-to-head comparison, a yes/no proposition — one pick between two (or a few named) options.",
+		desc: "A player or team stat line, a game total, a head-to-head comparison, a yes/no proposition: one pick between two (or a few named) options.",
 	},
 	{
 		title: "Award finalists",
 		pts: "200 pts",
-		desc: "The real announced shortlist for an award — pick the winner once the field's narrowed to a handful of named people.",
+		desc: "The real announced shortlist for an award: pick the winner once the field's narrowed to a handful of named people.",
 	},
 	{
 		title: "Numeric guesses",
 		pts: "250 pts",
-		desc: "Guess an exact number for a player or team stat. Landing within the tolerance band still counts as a hit.",
+		desc: "Guess an exact number for a player or team stat, one game at a time. Landing within the tolerance band still counts as a hit.",
 	},
 	{
 		title: "Season-long awards",
@@ -270,20 +270,20 @@ export function HowItWorksSections() {
 				subtitle="No one's adjusting anything against you"
 			>
 				<P>
-					The line, the options, the award name — all of it set by whoever
+					The number, the options, the award name: all of it set by whoever
 					asked the question, not calculated by the platform to balance action
 					on both sides. Nobody's adjusting anything based on which way callers
 					are leaning.
 				</P>
 				<P>
 					Your multiplier comes from the <B>field</B> (the real percentage of
-					other callers who picked the same thing you did), not from odds set
-					ahead of time. It only exists after people have actually called.
+					other callers who picked the same thing you did), not from anything
+					set ahead of time. It only exists after people have actually called.
 				</P>
 				<P>
 					When you miss, those points aren't going anywhere: there's no other
 					side of the call collecting them. And every question resolves against
-					a real-world result, not a line anyone's trying to hedge.
+					a real-world result, not a number anyone's trying to manipulate.
 				</P>
 			</Accordion>
 
@@ -332,7 +332,7 @@ export function HowItWorksSections() {
 					many options the question even had (1-in-20 means something different
 					than 1-in-2). The rarer your pick, the higher the multiplier on a win,
 					scaling smoothly rather than in fixed steps. This applies to every
-					option-based shape — stat lines, props, head-to-head picks, award
+					option-based shape: stat lines, props, head-to-head picks, award
 					finalists, and each pick within a season-long award. The numeric-guess
 					shapes work differently (see below).
 				</P>

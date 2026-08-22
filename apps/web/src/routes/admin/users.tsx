@@ -104,7 +104,7 @@ function RouteComponent() {
 								{user.isVerifiedPundit ? (
 									<Tag variant="success">Verified</Tag>
 								) : (
-									"—"
+									"-"
 								)}
 							</Table.Cell>
 							<Table.Cell>

@@ -30,10 +30,14 @@ import { openModal } from "#/stores/modal-store"
 const BASE_POINTS_BY_GQL_SHAPE: Record<QuestionShape, number> = {
 	PLAYER_STAT_OVER_UNDER: BASE_POINTS_BY_SHAPE.player_stat_over_under,
 	TEAM_STAT_OVER_UNDER: BASE_POINTS_BY_SHAPE.team_stat_over_under,
+	PLAYER_SEASON_STAT_OVER_UNDER:
+		BASE_POINTS_BY_SHAPE.player_season_stat_over_under,
+	TEAM_SEASON_STAT_OVER_UNDER: BASE_POINTS_BY_SHAPE.team_season_stat_over_under,
 	GAME_TOTAL_OVER_UNDER: BASE_POINTS_BY_SHAPE.game_total_over_under,
 	PLAYER_STAT_NUMERIC_GUESS: BASE_POINTS_BY_SHAPE.player_stat_numeric_guess,
 	TEAM_STAT_NUMERIC_GUESS: BASE_POINTS_BY_SHAPE.team_stat_numeric_guess,
 	PLAYER_VS_PLAYER: BASE_POINTS_BY_SHAPE.player_vs_player,
+	PLAYER_VS_PLAYER_SEASON: BASE_POINTS_BY_SHAPE.player_vs_player_season,
 	TEAM_VS_TEAM: BASE_POINTS_BY_SHAPE.team_vs_team,
 	YES_NO_PROP: BASE_POINTS_BY_SHAPE.yes_no_prop,
 	PLAYER_SEASON_AWARD: BASE_POINTS_BY_SHAPE.player_season_award,
@@ -441,7 +445,7 @@ function ResultTitle({
 				color: disputed ? "warning.default" : "fg.default",
 			})}
 		>
-			{disputed && "Disputed — "}
+			{disputed && "Disputed: "}
 			{answer}
 		</span>
 	)
@@ -625,7 +629,7 @@ function DisputeRow({
 						})}
 					/>
 					<span>
-						UNDER REVIEW — you'll get a notification once it's settled
+						UNDER REVIEW: you'll get a notification once it's settled
 					</span>
 				</HStack>
 			) : (
@@ -664,7 +668,7 @@ function PendingContent({
 	return (
 		<Shell tone="primary">
 			<StatusPill tone="primary" live>
-				{isLocked ? "Awaiting resolution" : "Pending"} — your call is locked
+				{isLocked ? "Awaiting resolution" : "Pending"}: your call is locked
 			</StatusPill>
 
 			<VStack gap="1.5" alignItems="stretch">
@@ -936,7 +940,7 @@ function SelectionPickRow({
 	showName?: boolean
 }) {
 	if (fieldPct === null) {
-		return <PickRowShell name={label} note={null} breakdown={null} payout="—" />
+		return <PickRowShell name={label} note={null} breakdown={null} payout="-" />
 	}
 
 	if (result.kind === "resolved") {
@@ -999,7 +1003,7 @@ function SelectionPickRow({
 								) : (
 									<>
 										<span className={mathDefault}>
-											missed — you lose what you committed ={" "}
+											missed: you lose what you committed ={" "}
 										</span>
 										<span className={mathLose}>−{Math.abs(result.points)}</span>
 									</>
@@ -1137,7 +1141,7 @@ function NumericPickRow({
 								) : (
 									<>
 										<span className={mathDefault}>
-											missed — you lose what you committed ={" "}
+											missed: you lose what you committed ={" "}
 										</span>
 										<span className={mathLose}>
 											−{Math.abs(result.totalPoints)}
