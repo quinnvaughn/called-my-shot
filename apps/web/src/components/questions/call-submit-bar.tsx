@@ -15,13 +15,13 @@ import { openModal } from "#/stores/modal-store"
 // a short question. The page-level column is tall enough (see
 // $questionId.tsx's `minHeight`) for this to actually stick.
 export function CallSubmitBar({ callForm }: { callForm: CastCallFormState }) {
-	const { question, type, form, selections } = callForm
+	const { question, bucket, form, selections } = callForm
 
 	if (!question) return null
 
-	const label = match(type)
-		.with("numeric_guess", () => "Review your guess")
-		.with("multi_select", () =>
+	const label = match(bucket)
+		.with("numeric", () => "Review your guess")
+		.with("multi", () =>
 			selections.length === question.picksRequired
 				? `Review your ${question.picksRequired} picks`
 				: `${selections.length} of ${question.picksRequired} picked`,

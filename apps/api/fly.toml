@@ -7,7 +7,11 @@ primary_region = "iad"
   dockerfile = "Dockerfile"
 
 [deploy]
-  release_command = "pnpm exec drizzle-kit migrate"
+  # Runs migrations, then upserts the stat catalog (db/catalog/stats.ts) -
+  # both idempotent, so a deploy with no schema/catalog changes is a safe
+  # no-op here. Keeps "add a stat to the source file" the only step needed
+  # to get it into prod - no separate manual sync command to remember to run.
+  release_command = "pnpm run release"
 
 [http_service]
   internal_port = 4000

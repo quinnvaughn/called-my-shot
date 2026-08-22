@@ -16,6 +16,7 @@ import type {
 import { AdminQuestionsDocument } from "#/graphql/queries/admin"
 import { useAdminConnection } from "#/hooks/use-admin-connection"
 import { useDebouncedValue } from "#/hooks/use-debounced-value"
+import { questionShapeLabel } from "#/lib/question-labels"
 
 export const Route = createFileRoute("/admin/questions")({
 	component: RouteComponent,
@@ -30,25 +31,25 @@ const STATUS_FILTERS: { value: QuestionStatus | null; label: string }[] = [
 
 const columns = [
 	{ key: "title", label: "Question" },
-	{ key: "type", label: "Type" },
+	{ key: "shape", label: "Shape" },
 	{ key: "asker", label: "Asker" },
 	{ key: "calls", label: "Callers", numeric: true },
 	{ key: "status", label: "Status" },
 	{ key: "actions", label: "", sortable: false },
 ] as const
 
-type SortKey = "title" | "type" | "asker" | "calls" | "status"
+type SortKey = "title" | "shape" | "asker" | "calls" | "status"
 
 const SORT_KEY_TO_ENUM: Record<SortKey, AdminQuestionSort> = {
 	title: "TITLE",
-	type: "TYPE",
+	shape: "SHAPE",
 	asker: "ASKER",
 	calls: "CALLERS",
 	status: "STATUS",
 }
 const SORT_ENUM_TO_KEY: Record<AdminQuestionSort, SortKey> = {
 	TITLE: "title",
-	TYPE: "type",
+	SHAPE: "shape",
 	ASKER: "asker",
 	CALLERS: "calls",
 	STATUS: "status",
@@ -63,14 +64,6 @@ function questionDisplayStatus(status: QuestionStatus, locksAt: string) {
 	if (status === "DISPUTED")
 		return { label: "Disputed", variant: "primary" as const }
 	return { label: "Resolved", variant: "success" as const }
-}
-
-const typeLabel: Record<string, string> = {
-	MULTIPLE_CHOICE: "Multiple Choice",
-	YES_NO: "Yes/No",
-	OVER_UNDER: "Over/Under",
-	NUMERIC_GUESS: "Numeric Guess",
-	MULTI_SELECT: "Multi Select",
 }
 
 const filterPill = css({
@@ -96,7 +89,7 @@ const filterPillActive = css({
 type QuestionRow = {
 	id: string
 	title: string
-	type: string
+	shape: string
 	status: QuestionStatus
 	createdAt: string
 	locksAt: string
@@ -200,7 +193,9 @@ function RouteComponent() {
 									</Link>
 								</Table.Cell>
 								<Table.Cell>
-									{typeLabel[question.type] ?? question.type}
+									{questionShapeLabel[
+										question.shape as keyof typeof questionShapeLabel
+									] ?? question.shape}
 								</Table.Cell>
 								<Table.Cell>
 									{question.creator ? `@${question.creator.username}` : "—"}

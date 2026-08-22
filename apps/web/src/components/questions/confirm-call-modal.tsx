@@ -1,4 +1,4 @@
-import { BASE_POINTS_BY_TYPE, toleranceBand } from "@called-my-shot/scoring"
+import { BASE_POINTS_BY_SHAPE, toleranceBand } from "@called-my-shot/scoring"
 import { useRouteContext } from "@tanstack/react-router"
 import { css } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
@@ -6,6 +6,7 @@ import {
 	type CastCallFormState,
 	FORM_ID,
 } from "#/components/questions/cast-call-form"
+import { isOverUnderShape } from "#/components/questions/cast-call-form/use-cast-call-form"
 import { Button } from "#/components/ui/button"
 import { FormError } from "#/components/ui/form-error"
 import { Modal } from "#/components/ui/modal"
@@ -29,7 +30,8 @@ export function ConfirmCallModal({
 }) {
 	const {
 		question,
-		type,
+		shape,
+		bucket,
 		form,
 		convictionMode,
 		singleSelectConviction,
@@ -40,30 +42,27 @@ export function ConfirmCallModal({
 	const requireAuth = useRequireAuth()
 
 	const selections = form.useWatch("selections")
-	const newOption = form.useWatch("newOption")
 	const guessValue = form.useWatch("guessValue")
 	const caseText = form.useWatch("caseText")
 	const numericConviction = form.useWatch("conviction")
 
 	if (!question) return null
 
-	const basePoints = BASE_POINTS_BY_TYPE[type]
+	const basePoints = BASE_POINTS_BY_SHAPE[shape]
 
 	// Split mode already shows each pick's own conviction inline below - a
 	// single summary number above the list would just be misleading there.
-	const showConvictionRow = !(
-		type === "multi_select" && convictionMode === "split"
-	)
+	const showConvictionRow = !(bucket === "multi" && convictionMode === "split")
 	const convictionValue =
-		type === "numeric_guess"
+		bucket === "numeric"
 			? (numericConviction ?? 50)
-			: type === "multi_select"
+			: bucket === "multi"
 				? sharedConviction
 				: singleSelectConviction
 
 	const ouLine = question.ouLine
 	function optionLabel(option: { label: string }) {
-		return type === "over_under" && ouLine !== null
+		return isOverUnderShape(shape) && ouLine !== null
 			? `${option.label} ${ouLine}`
 			: option.label
 	}
@@ -79,56 +78,48 @@ export function ConfirmCallModal({
 			</Modal.Description>
 
 			<VStack gap="2" alignItems="stretch">
-				{type === "numeric_guess" ? (
-					guessValue !== undefined && (
-						<ConfirmPickRow
-							name={String(guessValue)}
-							meta={
-								question.numericTolerancePct !== null
-									? `within ±${toleranceBand(guessValue, question.numericTolerancePct)} counts as a hit`
-									: "counts as a hit within tolerance"
-							}
-							payout={previewNumericPoints(basePoints, convictionValue)}
-						/>
-					)
-				) : newOption ? (
-					<ConfirmPickRow
-						name={`${newOption.label} — new pick`}
-						meta="not picked by anyone yet"
-						payout={null}
-					/>
-				) : (
-					selections.map((selection) => {
-						const option = question.options.find(
-							(o) => o.id === selection.optionId,
-						)
-						if (!option) return null
-						const showConviction =
-							type === "multi_select" && convictionMode === "split"
-						// Simulated as if this call already went through (see
-						// previewFieldPct) so this matches what fieldPct will
-						// actually read the instant after Lock It In, not the
-						// before-me snapshot the option list was queried with.
-						const simulatedFieldPct = previewFieldPct(
-							option.callCount,
-							question.callCount,
-						)
-						const meta = `${tierFor(simulatedFieldPct, question.options.length).label} · ${Math.round(simulatedFieldPct)}% of the field${showConviction ? ` · ${selection.conviction}% conviction` : ""}`
-						return (
+				{bucket === "numeric"
+					? guessValue !== undefined && (
 							<ConfirmPickRow
-								key={selection.optionId}
-								name={optionLabel(option)}
-								meta={meta}
-								payout={previewSelectionPoints(
-									basePoints,
-									simulatedFieldPct,
-									question.options.length,
-									selection.conviction,
-								)}
+								name={String(guessValue)}
+								meta={
+									question.numericTolerancePct !== null
+										? `within ±${toleranceBand(guessValue, question.numericTolerancePct)} counts as a hit`
+										: "counts as a hit within tolerance"
+								}
+								payout={previewNumericPoints(basePoints, convictionValue)}
 							/>
 						)
-					})
-				)}
+					: selections.map((selection) => {
+							const option = question.options.find(
+								(o) => o.id === selection.optionId,
+							)
+							if (!option) return null
+							const showConviction =
+								bucket === "multi" && convictionMode === "split"
+							// Simulated as if this call already went through (see
+							// previewFieldPct) so this matches what fieldPct will
+							// actually read the instant after Lock It In, not the
+							// before-me snapshot the option list was queried with.
+							const simulatedFieldPct = previewFieldPct(
+								option.callCount,
+								question.callCount,
+							)
+							const meta = `${tierFor(simulatedFieldPct, question.options.length).label} · ${Math.round(simulatedFieldPct)}% of the field${showConviction ? ` · ${selection.conviction}% conviction` : ""}`
+							return (
+								<ConfirmPickRow
+									key={selection.optionId}
+									name={optionLabel(option)}
+									meta={meta}
+									payout={previewSelectionPoints(
+										basePoints,
+										simulatedFieldPct,
+										question.options.length,
+										selection.conviction,
+									)}
+								/>
+							)
+						})}
 			</VStack>
 
 			{showConvictionRow && (

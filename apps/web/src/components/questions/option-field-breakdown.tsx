@@ -2,7 +2,7 @@ import { useState } from "react"
 import { css } from "styled-system/css"
 import { VStack } from "styled-system/jsx"
 import { Button } from "#/components/ui/button"
-import type { QuestionType } from "#/graphql/generated/graphql"
+import type { QuestionShape } from "#/graphql/generated/graphql"
 import { callersText } from "#/lib/field-signal"
 import { optionDisplayLabel } from "#/lib/question-labels"
 import { OPTIONS_PAGE_STEP } from "./cast-call-form/option-picker-list"
@@ -17,11 +17,12 @@ type Option = {
 
 type Props = {
 	options: Option[]
-	type: QuestionType
+	shape: QuestionShape
 	ouLine: number | null
 	// The question's own total, not a sum of the option rows above - a
-	// multi_select caller shows up under several rows at once, so summing
-	// row counts would overcount them. Same number CallSubmitBar shows while
+	// player_season_award/team_season_award caller shows up under several
+	// rows at once, so summing row counts would overcount them. Same number
+	// CallSubmitBar shows while
 	// the call is still open, repeated here once it's gone (this card is what
 	// replaces the picker on the page, not something shown alongside it).
 	callCount: number
@@ -58,7 +59,7 @@ type Props = {
 // its own breakdown would read as broken, not as "nobody called it."
 export function OptionFieldBreakdown({
 	options,
-	type,
+	shape,
 	ouLine,
 	callCount,
 	highlightedOptionIds,
@@ -87,7 +88,7 @@ export function OptionFieldBreakdown({
 			{rankedOptions.slice(0, visibleCount).map((option) => (
 				<OptionRow
 					key={option.id}
-					label={optionDisplayLabel(option.label, type, ouLine)}
+					label={optionDisplayLabel(option.label, shape, ouLine)}
 					fieldPct={option.fieldPct}
 					count={option.callCount}
 					selected={highlightedOptionIds.includes(option.id)}

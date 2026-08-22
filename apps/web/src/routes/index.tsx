@@ -2,9 +2,9 @@ import { createFileRoute, Link, redirect } from "@tanstack/react-router"
 import {
 	FaArrowsUpDown,
 	FaHashtag,
-	FaListCheck,
-	FaListUl,
 	FaToggleOn,
+	FaTrophy,
+	FaUserGroup,
 } from "react-icons/fa6"
 import {
 	FiAward,
@@ -70,39 +70,39 @@ const howItWorksItems = [
 
 const questionTypeItems = [
 	{
-		icon: <FaListUl />,
-		title: "Multiple Choice",
+		icon: <FaArrowsUpDown />,
+		title: "Stat lines",
 		description:
-			"Pick from a field of named options. The less popular your pick, the more it's worth if you're right.",
-		example: "e.g. Who wins the 2027 NFL MVP?",
+			"Set a line on a player or team stat — over or under, your call.",
+		example: "e.g. Will Embiid grab over/under 10.5 rebounds?",
+	},
+	{
+		icon: <FaHashtag />,
+		title: "Exact guesses",
+		description:
+			"Call an exact number. A tolerance band decides if you're close enough; how close beats the field decides your score.",
+		example: "e.g. How many passing yards will Mahomes throw for?",
+	},
+	{
+		icon: <FaUserGroup />,
+		title: "Head-to-head",
+		description:
+			"Two named players or teams, one stat or one outcome. Straight up.",
+		example: "e.g. Who has more rebounds: Jokic or Embiid?",
 	},
 	{
 		icon: <FaToggleOn />,
 		title: "Yes / No",
 		description:
-			"A clean binary call. Same contrarian scoring as multiple choice, just two sides instead of a field.",
+			"A clean binary call on anything — a stat, an event, a transaction.",
 		example: "e.g. Will there be a triple-double tonight?",
 	},
 	{
-		icon: <FaArrowsUpDown />,
-		title: "Over / Under",
+		icon: <FaTrophy />,
+		title: "Season-long awards",
 		description:
-			"One line, two sides. Same contrarian scoring as multiple choice, just a coinflip's worth of options.",
-		example: "e.g. Total goals — over or under 2.5?",
-	},
-	{
-		icon: <FaHashtag />,
-		title: "Numeric Guess",
-		description:
-			"Call an exact number. A tolerance band decides if you're close enough; how close beats the field decides your score.",
-		example: "e.g. How many rebounds will Embiid grab?",
-	},
-	{
-		icon: <FaListCheck />,
-		title: "Multi-Select",
-		description:
-			"Pick several from a pool. Scored on how many of your picks land, not all-or-nothing.",
-		example: "e.g. Pick this year's All-NBA First Team.",
+			"MVP, a championship, an All-league team — decided at season's end, so calling it early is worth more.",
+		example: "e.g. Who wins NFL MVP this season?",
 	},
 ]
 

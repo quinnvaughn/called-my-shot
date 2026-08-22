@@ -5,8 +5,7 @@ export const QuestionDetailDocument = graphql(`
 		question(id: $id) {
 			id
 			title
-			type
-			category
+			shape
 			isOfficial
 			status
 			locksAt
@@ -69,7 +68,7 @@ export const QuestionDetailDocument = graphql(`
 				caseText
 				question {
 					id
-					type
+					shape
 					ouLine
 				}
 				selections {

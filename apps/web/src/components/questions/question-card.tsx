@@ -15,13 +15,14 @@ export const QuestionCardFragment = graphql(`
 	fragment QuestionCard_question on Question {
 		id
 		title
-		type
+		shape
 		status
 		isOfficial
 		locksAt
 		numericActualValue
 		callCount
 		averageGuess
+		ouLine
 		league {
 			id
 			abbreviation

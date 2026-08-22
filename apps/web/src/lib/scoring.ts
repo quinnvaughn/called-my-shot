@@ -40,12 +40,12 @@ export function previewFieldPct(
 	return ((optionCallCount + 1) / (totalCalls + 1)) * 100
 }
 
-// Preview for the option-based types (multiple_choice/yes_no/over_under/
-// multi_select) - both outcomes computed at once since which one applies
-// isn't known until resolution. earlyRank/earlyTotalCalls are optional
-// because this also runs before a call exists (no rank yet) - omitting them
-// just leaves the early multiplier at 1x rather than guessing. basePoints
-// comes from BASE_POINTS_BY_TYPE for this question's type.
+// Preview for every option-based shape - both outcomes computed at once
+// since which one applies isn't known until resolution. earlyRank/
+// earlyTotalCalls are optional because this also runs before a call exists
+// (no rank yet) - omitting them just leaves the early multiplier at 1x
+// rather than guessing. basePoints comes from BASE_POINTS_BY_SHAPE for this
+// question's shape.
 export function previewSelectionPoints(
 	basePoints: number,
 	fieldPct: number,
@@ -75,8 +75,9 @@ export type NumericPointsPreview = {
 	earlyTier: EarlyTier
 }
 
-// numeric_guess pays out on the same "how rare was being right" curve as
-// every other type (see numericGuessPoints in @called-my-shot/scoring) -
+// A numeric-guess shape pays out on the same "how rare was being right"
+// curve as every other shape (see numericGuessPoints in
+// @called-my-shot/scoring) -
 // rare here means few people, out of the whole field, landed at least as
 // close to the actual value as this guess did. Unlike an option pick, that
 // share genuinely can't be known before resolution (it depends on where

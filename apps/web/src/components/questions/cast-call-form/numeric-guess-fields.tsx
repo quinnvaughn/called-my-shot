@@ -1,4 +1,4 @@
-import { BASE_POINTS_BY_TYPE } from "@called-my-shot/scoring"
+import { BASE_POINTS_BY_SHAPE } from "@called-my-shot/scoring"
 import { FiMinus, FiPlus } from "react-icons/fi"
 import { css, cx } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
@@ -11,10 +11,10 @@ import { PointsPreview } from "../points-preview"
 import { CaseField } from "./case-field"
 import type { CastCallFormState } from "./use-cast-call-form"
 
-// Every stat numeric_guess is used for (rebounds, points, passing yards) tops
-// out in the low hundreds at most, so the stepper doesn't need anywhere near
-// the reach a truly unbounded number input would want - ±25 already covers a
-// full-field swing in one tap.
+// Every stat the numeric-guess shapes are used for (rebounds, points, passing
+// yards) tops out in the low hundreds at most, so the stepper doesn't need
+// anywhere near the reach a truly unbounded number input would want - ±25
+// already covers a full-field swing in one tap.
 const GUESS_STEP_SIZES = [1, 5, 10, 25]
 
 const stepButtonStyle = css({
@@ -75,6 +75,7 @@ type Props = {
 
 export function NumericGuessFields({ callForm }: Props) {
 	const {
+		shape,
 		form,
 		toleranceBand,
 		guessUnit,
@@ -262,7 +263,7 @@ export function NumericGuessFields({ callForm }: Props) {
 						<PointsPreview
 							kind="numeric"
 							conviction={numericConviction ?? 50}
-							basePoints={BASE_POINTS_BY_TYPE.numeric_guess}
+							basePoints={BASE_POINTS_BY_SHAPE[shape]}
 						/>
 					</VStack>
 				</Card.Body>

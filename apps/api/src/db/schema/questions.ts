@@ -14,19 +14,24 @@ import {
 import { games, leagues, players, sports, stats, teams } from "./sports"
 import { users } from "./users"
 
-export const questionType = pgEnum("question_type", [
-	"multiple_choice",
-	"yes_no",
-	"over_under",
-	"numeric_guess",
-	"multi_select",
-])
-
-export const questionCategory = pgEnum("question_category", [
-	"season_awards",
-	"game_stats",
-	"player_stats",
-	"other",
+// Replaces the old type + category + numericSubjectType + optionsOpenField/
+// openFieldKind combination - one value per concrete kind of question the
+// app supports, each fully determining its required fields, its
+// questionOptions/pool mechanism, and its generated title template (see
+// generateQuestionTitle in lib/question-title.ts). No generic axes left to
+// combine incorrectly.
+export const questionShape = pgEnum("question_shape", [
+	"player_stat_over_under",
+	"team_stat_over_under",
+	"game_total_over_under",
+	"player_stat_numeric_guess",
+	"team_stat_numeric_guess",
+	"player_vs_player",
+	"team_vs_team",
+	"yes_no_prop",
+	"player_season_award",
+	"team_season_award",
+	"player_award_finalists",
 ])
 
 export const questionStatus = pgEnum("question_status", [
@@ -54,15 +59,13 @@ export const voidReason = pgEnum("void_reason", [
 	"other",
 ])
 
-export const numericSubjectType = pgEnum("numeric_subject_type", [
-	"player",
-	"team",
-])
-
 export const questions = pgTable("questions", {
 	id: uuid("id").primaryKey().defaultRandom(),
-	type: questionType("type").notNull(),
-	category: questionCategory("category").notNull(),
+	shape: questionShape("shape").notNull(),
+	// Server-generated from shape's structured fields at creation time (see
+	// generateQuestionTitle in lib/question-title.ts) - never trusted from
+	// client input, so every question's title is consistent in format/voice
+	// and there's no freeform text to moderate.
 	title: text("title").notNull(),
 	// Nullable + set null on delete: deleting the account that created a
 	// question shouldn't take the question (and everyone else's calls on it)
@@ -96,21 +99,25 @@ export const questions = pgTable("questions", {
 	resolvedAt: timestamp("resolved_at"),
 	resolutionNote: text("resolution_note"),
 
-	// over_under and numeric_guess share this - the stat being checked. statId
-	// is the strong default (catalog-backed, consistent naming, groupable in a
-	// picker); customStat is the escape hatch for anything not in the catalog
-	// (e.g. RAPM, a season-long advanced metric) and is only used when statId
-	// is null. Custom stats are harder for us to verify, which is inferable
-	// from statId being null - no separate flag needed for that.
+	// The *_over_under and *_numeric_guess shapes share this - the stat being
+	// checked. statId is the strong default (catalog-backed, consistent
+	// naming, groupable in a picker); customStat is the escape hatch for
+	// anything not in the catalog (e.g. RAPM, a season-long advanced metric)
+	// and is only used when statId is null. Custom stats are harder for us to
+	// verify, which is inferable from statId being null - no separate flag
+	// needed for that. player_vs_player also uses statId (required, no
+	// customStat fallback - it's what the comparison is actually about).
 	statId: uuid("stat_id").references(() => stats.id, { onDelete: "restrict" }),
 	customStat: text("custom_stat"),
 
-	// over_under only
+	// *_over_under shapes only
 	ouLine: numeric("ou_line", { precision: 8, scale: 2, mode: "number" }),
 
-	// yes_no, over_under, and numeric_guess - optional subject, null for a
-	// game-wide over/under (or a yes_no with no single team/player it's about)
-	numericSubjectType: numericSubjectType("numeric_subject_type"),
+	// player_stat_over_under/numeric_guess and team_stat_over_under/
+	// numeric_guess set exactly one of these (required); yes_no_prop sets at
+	// most one (optional - null for a subject-less proposition). Which one is
+	// meaningful for a given row is implied by its shape, not stored
+	// separately.
 	subjectTeamId: uuid("subject_team_id").references(() => teams.id, {
 		onDelete: "restrict",
 	}),
@@ -128,29 +135,33 @@ export const questions = pgTable("questions", {
 		mode: "number",
 	}),
 
-	// multi_select only
+	// player_season_award/team_season_award only - how many winners the award
+	// has (1 for MVP, 5 for an All-NBA team). Pool is always the full league
+	// roster regardless of this number (see questionOptions) - there's no
+	// "unknown candidate list" case, so nothing here ever grows on demand.
 	picksRequired: integer("picks_required"),
 
-	// multiple_choice only. When true, this question doesn't start from a
-	// fixed option pool - questionOptions rows for it get created on demand by
-	// castCall itself (see the resolver) as callers pick real teams/players not
-	// already in the pool, instead of all being pre-listed by the creator at
-	// question-creation time. openFieldKind says which kind of entity backs
-	// that pool; only meaningful (and set) when this is true.
-	optionsOpenField: boolean("options_open_field").notNull().default(false),
-	openFieldKind: numericSubjectType("open_field_kind"),
+	// yes_no_prop only - the proposition itself (e.g. "signs a contract
+	// extension by March 1"), combined with the optional subject above into
+	// the generated title ("Will {subject} {eventClause}?"). The one piece of
+	// a yes/no question that genuinely can't be enumerated from catalog data.
+	eventClause: text("event_clause"),
+
+	// player_season_award/team_season_award/player_award_finalists only - the
+	// award's name (e.g. "MVP"), same "can't be enumerated" reasoning as
+	// eventClause above.
+	awardName: text("award_name"),
 
 	createdAt: timestamp("created_at").notNull().defaultNow(),
 })
 export type Question = typeof questions.$inferSelect
 
-// The option pool for multiple_choice, yes_no (fixed Yes/No pair), over_under
-// (its two sides), and multi_select (the full candidate pool). teamId/playerId
-// are set when the option actually is a real team or player (a championship
-// field, an All-NBA ballot) - that's what backs search/autofill. Freeform
-// options (Yes/No, an "other" category pick) leave both null and rely on label.
-// For an optionsOpenField question, rows here are seeded incrementally by
-// castCall rather than all inserted up front by the creator.
+// The option pool for every option-based shape: the two sides of an
+// over_under/vs_player/vs_team, the fixed Yes/No pair, or an award's full
+// candidate pool. teamId/playerId are set when the option actually is a real
+// team or player (a championship field, an All-NBA ballot) - that's what
+// backs search/autofill. The Yes/No pair leaves both null and relies on
+// label alone.
 export const questionOptions = pgTable("question_options", {
 	id: uuid("id").primaryKey().defaultRandom(),
 	questionId: uuid("question_id")
@@ -167,8 +178,9 @@ export const questionOptions = pgTable("question_options", {
 })
 export type QuestionOption = typeof questionOptions.$inferSelect
 
-// One row per user per question. numeric_guess scores entirely off the columns
-// here (no options involved); every other type scores through callSelections.
+// One row per user per question. The two numeric_guess shapes score entirely
+// off the columns here (no options involved); every other shape scores
+// through callSelections.
 export const calls = pgTable(
 	"calls",
 	{
@@ -228,12 +240,13 @@ export const calls = pgTable(
 )
 export type Call = typeof calls.$inferSelect
 
-// A call's picks for option-based types: exactly one row for multiple_choice /
-// yes_no / over_under, up to picksRequired rows for multi_select. Conviction is
-// tracked per selection since multi_select lets a caller set it independently
-// per pick. The contrarian tier isn't stored here at all - it's computed once
-// per option from the final field at resolution (see fieldPct/tierFor in
-// lib/calls.ts), not snapshotted per selection at call time.
+// A call's picks for option-based shapes: exactly one row for every shape
+// except player_season_award/team_season_award, which allow up to
+// picksRequired rows. Conviction is tracked per selection since those award
+// shapes let a caller set it independently per pick. The contrarian tier
+// isn't stored here at all - it's computed once per option from the final
+// field at resolution (see fieldPct/tierFor in lib/calls.ts), not
+// snapshotted per selection at call time.
 export const callSelections = pgTable(
 	"call_selections",
 	{

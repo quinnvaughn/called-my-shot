@@ -1,4 +1,4 @@
-import { BASE_POINTS_BY_TYPE } from "@called-my-shot/scoring"
+import { BASE_POINTS_BY_SHAPE } from "@called-my-shot/scoring"
 import { useState } from "react"
 import { css } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
@@ -8,13 +8,12 @@ import { Card } from "#/components/ui/card"
 import { FieldLabel } from "#/components/ui/field-label"
 import { Slider } from "#/components/ui/slider"
 import { previewFieldPct } from "#/lib/scoring"
-import { OptionRow } from "../option-row"
 import { PointsPreview } from "../points-preview"
 import { CaseField } from "./case-field"
 import {
 	OPTIONS_PAGE_STEP,
-	optionDisplayLabel,
 	OptionPickerList,
+	optionDisplayLabel,
 } from "./option-picker-list"
 import type { CastCallFormState } from "./use-cast-call-form"
 
@@ -22,24 +21,17 @@ type Props = {
 	callForm: CastCallFormState
 }
 
-// multiple_choice / yes_no / over_under - exactly one pick from a row list,
-// plus (multiple_choice on an optionsOpenField question only) search against
-// the real league catalog instead of the question's own possibly-empty pool.
+// Every single-pick shape (the seven that resolve to bucket "single" - see
+// castCallBucketFor) - exactly one pick from a fixed row list.
 export function OptionFields({ callForm }: Props) {
 	const {
 		question,
-		type,
+		shape,
 		form,
 		selections,
-		newOption,
 		singleSelectConviction,
 		setSingleSelectConviction,
 		selectSingle,
-		isOpenField,
-		openFieldSearch,
-		setOpenFieldSearch,
-		openFieldCatalogItems,
-		selectNewOption,
 	} = callForm
 
 	const [optionSearch, setOptionSearch] = useState("")
@@ -50,15 +42,13 @@ export function OptionFields({ callForm }: Props) {
 	// through (see previewFieldPct) so the number shown here matches what
 	// fieldPct will actually read the instant after submitting, rather than
 	// a before-me snapshot that jumps once the real call is counted.
-	const selectedFieldPct = newOption
-		? previewFieldPct(0, question.callCount)
-		: selections[0]
-			? previewFieldPct(
-					question.options.find((o) => o.id === selections[0].optionId)
-						?.callCount ?? 0,
-					question.callCount,
-				)
-			: null
+	const selectedFieldPct = selections[0]
+		? previewFieldPct(
+				question.options.find((o) => o.id === selections[0].optionId)
+					?.callCount ?? 0,
+				question.callCount,
+			)
+		: null
 
 	return (
 		<VStack gap="5" alignItems="stretch">
@@ -66,33 +56,23 @@ export function OptionFields({ callForm }: Props) {
 				<FieldLabel required>Make your call</FieldLabel>
 				<OptionPickerList
 					options={question.options}
-					type={type}
+					shape={shape}
 					ouLine={question.ouLine}
 					callCount={question.callCount}
 					isSelected={(optionId) =>
 						selections.some((s) => s.optionId === optionId)
 					}
 					onSelect={selectSingle}
-					extraRow={
-						newOption && (
-							<OptionRow
-								label={`${newOption.label} — new pick`}
-								fieldPct={null}
-								selected
-								onClick={() => {}}
-							/>
-						)
-					}
 				/>
 			</VStack>
-			{!isOpenField && question.options.length > OPTIONS_PAGE_STEP && (
+			{question.options.length > OPTIONS_PAGE_STEP && (
 				<EntitySearchField
 					value={optionSearch}
 					onValueChange={setOptionSearch}
 					items={question.options.map(
 						(option): EntitySearchItem => ({
 							id: option.id,
-							label: optionDisplayLabel(option, type, question.ouLine),
+							label: optionDisplayLabel(option, shape, question.ouLine),
 							kind: "team",
 							meta:
 								option.fieldPct !== null
@@ -103,27 +83,6 @@ export function OptionFields({ callForm }: Props) {
 					placeholder="Search…"
 					clearOnSelect
 					onSelectItem={(item) => selectSingle(item.id)}
-				/>
-			)}
-			{isOpenField && (
-				<EntitySearchField
-					value={openFieldSearch}
-					onValueChange={setOpenFieldSearch}
-					items={openFieldCatalogItems}
-					placeholder={
-						question.openFieldKind === "TEAM"
-							? "Search any team to make your call…"
-							: "Search any player to make your call…"
-					}
-					clearOnSelect
-					onSelectItem={(item) => {
-						const existing = question.options.find(
-							(option) =>
-								option.team?.id === item.id || option.player?.id === item.id,
-						)
-						if (existing) selectSingle(existing.id)
-						else selectNewOption(item)
-					}}
 				/>
 			)}
 			<Card>
@@ -143,9 +102,6 @@ export function OptionFields({ callForm }: Props) {
 									if (selections[0]) {
 										form.setValue("selections.0.conviction", v)
 									}
-									if (newOption) {
-										form.setValue("newOption", { ...newOption, conviction: v })
-									}
 								}}
 								aria-label="Conviction"
 							/>
@@ -155,7 +111,7 @@ export function OptionFields({ callForm }: Props) {
 							fieldPct={selectedFieldPct}
 							totalOptions={question.options.length}
 							conviction={singleSelectConviction}
-							basePoints={BASE_POINTS_BY_TYPE[type]}
+							basePoints={BASE_POINTS_BY_SHAPE[shape]}
 						/>
 					</VStack>
 				</Card.Body>

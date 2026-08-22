@@ -9,11 +9,7 @@ import {
 import { eq } from "drizzle-orm"
 import { db } from "../../db"
 import type { League } from "../../db/schema"
-import {
-	pendingEmailChanges,
-	type questionCategory,
-	users,
-} from "../../db/schema"
+import { pendingEmailChanges, type questionShape, users } from "../../db/schema"
 import { env } from "../../env"
 import { SortDirection } from "../../lib/admin-pagination"
 import { requireAdmin, requireUser } from "../../lib/auth"
@@ -33,7 +29,7 @@ import { accuracyFrom, scoreCalls } from "../../lib/scoring"
 import { clearSessionCookie } from "../../lib/session"
 import { randomToken } from "../../lib/tokens"
 import { builder } from "../builder"
-import { CallRef, QuestionCategory, VoidReason } from "./question"
+import { CallRef, QuestionShape, VoidReason } from "./question"
 import { LeagueRef } from "./sports"
 
 // Deliberately doesn't reuse LeaderboardEntryRef from ./leaderboard: that
@@ -136,17 +132,17 @@ export const QuestionVoidRef = builder.drizzleObject("questionVoids", {
 	}),
 })
 
-type CategoryAccuracyData = {
-	category: (typeof questionCategory.enumValues)[number]
+type ShapeAccuracyData = {
+	shape: (typeof questionShape.enumValues)[number]
 	accuracy: number | null
 	callCount: number
 }
 
-const CategoryAccuracyRef = builder
-	.objectRef<CategoryAccuracyData>("CategoryAccuracy")
+const ShapeAccuracyRef = builder
+	.objectRef<ShapeAccuracyData>("ShapeAccuracy")
 	.implement({
 		fields: (t) => ({
-			category: t.field({ type: QuestionCategory, resolve: (c) => c.category }),
+			shape: t.field({ type: QuestionShape, resolve: (s) => s.shape }),
 			accuracy: t.exposeFloat("accuracy", { nullable: true }),
 			callCount: t.exposeInt("callCount"),
 		}),
@@ -158,7 +154,7 @@ type UserLeagueStatsData = {
 	rank: number
 	accuracy: number | null
 	callCount: number
-	categoryBreakdown: CategoryAccuracyData[]
+	shapeBreakdown: ShapeAccuracyData[]
 }
 
 const UserLeagueStatsRef = builder
@@ -170,17 +166,17 @@ const UserLeagueStatsRef = builder
 			rank: t.exposeInt("rank"),
 			accuracy: t.exposeFloat("accuracy", { nullable: true }),
 			callCount: t.exposeInt("callCount"),
-			categoryBreakdown: t.field({
-				type: [CategoryAccuracyRef],
-				resolve: (row) => row.categoryBreakdown,
+			shapeBreakdown: t.field({
+				type: [ShapeAccuracyRef],
+				resolve: (row) => row.shapeBreakdown,
 			}),
 		}),
 	})
 
 // One entry per league this user has ever called a question in. Rank/points/
 // accuracy/callCount reuse buildGlobalLeaderboard (same board the site-wide
-// leaderboard renders) scoped to that league; category breakdown is new,
-// computed the same way but grouped by question.category instead of by user.
+// leaderboard renders) scoped to that league; shape breakdown is new,
+// computed the same way but grouped by question.shape instead of by user.
 async function buildUserLeagueStats(
 	userId: string,
 ): Promise<UserLeagueStatsData[]> {
@@ -188,7 +184,7 @@ async function buildUserLeagueStats(
 		where: { userId },
 		with: {
 			selections: { with: { option: true } },
-			question: { columns: { leagueId: true, category: true } },
+			question: { columns: { leagueId: true, shape: true } },
 		},
 	})
 
@@ -221,28 +217,25 @@ async function buildUserLeagueStats(
 		const entry = boardEntries.find((e) => e.user.id === userId)
 		if (!entry) continue
 
-		const callsByCategory = new Map<
-			CategoryAccuracyData["category"],
-			typeof calls
-		>()
+		const callsByShape = new Map<ShapeAccuracyData["shape"], typeof calls>()
 		for (const call of calls) {
-			const category = call.question?.category
-			if (!category) continue
-			const existing = callsByCategory.get(category)
+			const shape = call.question?.shape
+			if (!shape) continue
+			const existing = callsByShape.get(shape)
 			if (existing) existing.push(call)
-			else callsByCategory.set(category, [call])
+			else callsByShape.set(shape, [call])
 		}
 
-		const categoryBreakdown: CategoryAccuracyData[] = [
-			...callsByCategory.entries(),
-		].map(([category, categoryCalls]) => {
-			const summary = scoreCalls(categoryCalls)
-			return {
-				category,
-				accuracy: accuracyFrom(summary),
-				callCount: categoryCalls.length,
-			}
-		})
+		const shapeBreakdown: ShapeAccuracyData[] = [...callsByShape.entries()].map(
+			([shape, shapeCalls]) => {
+				const summary = scoreCalls(shapeCalls)
+				return {
+					shape,
+					accuracy: accuracyFrom(summary),
+					callCount: shapeCalls.length,
+				}
+			},
+		)
 
 		results.push({
 			league,
@@ -250,7 +243,7 @@ async function buildUserLeagueStats(
 			rank: entry.rank,
 			accuracy: entry.accuracy,
 			callCount: entry.callCount,
-			categoryBreakdown,
+			shapeBreakdown,
 		})
 	}
 

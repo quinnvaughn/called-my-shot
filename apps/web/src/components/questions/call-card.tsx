@@ -30,7 +30,7 @@ export const CallCardFragment = graphql(`
 		question {
 			id
 			title
-			type
+			shape
 			status
 			isOfficial
 			ouLine

@@ -1,8 +1,8 @@
 import { match } from "ts-pattern"
-import type { QuestionType } from "#/graphql/generated/graphql"
+import type { QuestionShape } from "#/graphql/generated/graphql"
 
 export type FieldSignalData = {
-	type: QuestionType
+	shape: QuestionShape
 	callCount: number
 	averageGuess: number | null
 	options: {
@@ -19,7 +19,7 @@ export type FieldSignal = { before: string; emphasis: string; after: string }
 
 // "At a glance" summary of what the field is doing on a question, shown next
 // to the caller count on QuestionCard - what's actually informative differs
-// by type. Same computation whether the question is still open or already
+// by shape. Same computation whether the question is still open or already
 // locked awaiting resolution - locked just freezes it at whatever it was.
 export function fieldSignal(question: FieldSignalData): FieldSignal {
 	const callers = callersText(question.callCount)
@@ -31,8 +31,8 @@ export function fieldSignal(question: FieldSignalData): FieldSignal {
 
 	if (question.callCount === 0) return plain("No callers yet")
 
-	return match(question.type)
-		.with("YES_NO", () => {
+	return match(question.shape)
+		.with("YES_NO_PROP", () => {
 			const yes = question.options.find((o) => o.label === "Yes")
 			if (!yes || yes.fieldPct === null) return plain(callers)
 			return {
@@ -41,7 +41,7 @@ export function fieldSignal(question: FieldSignalData): FieldSignal {
 				after: ` say yes · ${callers}`,
 			}
 		})
-		.with("NUMERIC_GUESS", () => {
+		.with("PLAYER_STAT_NUMERIC_GUESS", "TEAM_STAT_NUMERIC_GUESS", () => {
 			if (question.averageGuess === null) return plain(callers)
 			return {
 				before: "avg guess ",
@@ -49,7 +49,7 @@ export function fieldSignal(question: FieldSignalData): FieldSignal {
 				after: ` · ${callers}`,
 			}
 		})
-		.with("MULTIPLE_CHOICE", () => {
+		.with("PLAYER_VS_PLAYER", "TEAM_VS_TEAM", "PLAYER_AWARD_FINALISTS", () => {
 			const leader = leadingOption(question.options)
 			if (!leader) return plain(callers)
 			return {
@@ -58,16 +58,21 @@ export function fieldSignal(question: FieldSignalData): FieldSignal {
 				after: ` leading · ${Math.round(leader.fieldPct)}% · ${callers}`,
 			}
 		})
-		.with("OVER_UNDER", () => {
-			const leader = leadingOption(question.options)
-			if (!leader) return plain(callers)
-			return {
-				before: "",
-				emphasis: `${Math.round(leader.fieldPct)}%`,
-				after: ` said ${leader.label.toLowerCase()} · ${callers}`,
-			}
-		})
-		.with("MULTI_SELECT", () => plain(callers))
+		.with(
+			"PLAYER_STAT_OVER_UNDER",
+			"TEAM_STAT_OVER_UNDER",
+			"GAME_TOTAL_OVER_UNDER",
+			() => {
+				const leader = leadingOption(question.options)
+				if (!leader) return plain(callers)
+				return {
+					before: "",
+					emphasis: `${Math.round(leader.fieldPct)}%`,
+					after: ` said ${leader.label.toLowerCase()} · ${callers}`,
+				}
+			},
+		)
+		.with("PLAYER_SEASON_AWARD", "TEAM_SEASON_AWARD", () => plain(callers))
 		.exhaustive()
 }
 

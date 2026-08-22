@@ -33,7 +33,7 @@ import {
 	QuestionDetailDocument,
 } from "#/graphql/queries/question"
 import { questionDetailState } from "#/lib/question-detail-state"
-import { questionCategoryLabel } from "#/lib/question-labels"
+import { questionShapeLabel } from "#/lib/question-labels"
 import { resolvedAnswerSummary } from "#/lib/resolution-summary"
 import { openModal } from "#/stores/modal-store"
 
@@ -79,7 +79,7 @@ export const Route = createFileRoute("/_app/questions/$questionId")({
 		if (!question) return {}
 
 		const title = question.title
-		const description = `${question.league.abbreviation} · ${questionCategoryLabel[question.category]} — resolves via ${question.resolutionSource}.`
+		const description = `${question.league.abbreviation} · ${questionShapeLabel[question.shape]} — resolves via ${question.resolutionSource}.`
 		const url = `https://calledmyshot.com/questions/${question.id}`
 
 		return {
@@ -125,7 +125,8 @@ function RouteComponent() {
 	// everything option-based, numericHitRatePct (computed across every
 	// scored guess) for the one type that isn't a discrete option.
 	const fieldAccuracyPct = state.isSettled
-		? question.type === "NUMERIC_GUESS"
+		? question.shape === "PLAYER_STAT_NUMERIC_GUESS" ||
+			question.shape === "TEAM_STAT_NUMERIC_GUESS"
 			? question.numericHitRatePct
 			: (question.options.find((option) => option.isCorrect)?.fieldPct ?? null)
 		: null
@@ -168,7 +169,7 @@ function RouteComponent() {
 				<HStack gap="2" flexWrap="wrap">
 					{question.isOfficial && <Tag variant="primary">Official</Tag>}
 					<Tag>{question.league.abbreviation}</Tag>
-					<Tag>{questionCategoryLabel[question.category]}</Tag>
+					<Tag>{questionShapeLabel[question.shape]}</Tag>
 				</HStack>
 				<h1 className={css({ fontSize: "2xl", fontFamily: "heading" })}>
 					{question.title}
@@ -294,7 +295,7 @@ function RouteComponent() {
 				fieldAccuracyPct={fieldAccuracyPct}
 				questionTitle={question.title}
 				leagueAbbr={question.league.abbreviation}
-				category={question.category}
+				shape={question.shape}
 				viewerName={me?.name ?? ""}
 				viewerUsername={me?.username ?? ""}
 			/>
@@ -308,7 +309,8 @@ function RouteComponent() {
 			regardless of which status - pending, won, either loss - is active). */}
 			{!(state.canCall && !viewerCall) && (
 				<FieldBreakdownCard>
-					{question.type === "NUMERIC_GUESS" ? (
+					{question.shape === "PLAYER_STAT_NUMERIC_GUESS" ||
+					question.shape === "TEAM_STAT_NUMERIC_GUESS" ? (
 						<GuessDistributionChart
 							buckets={question.guessDistribution}
 							averageGuess={question.averageGuess}
@@ -317,7 +319,7 @@ function RouteComponent() {
 					) : (
 						<OptionFieldBreakdown
 							options={question.options}
-							type={question.type}
+							shape={question.shape}
 							ouLine={question.ouLine}
 							callCount={question.callCount}
 							highlightedOptionIds={breakdownHighlightIds}

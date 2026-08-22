@@ -26,7 +26,7 @@ type Props = {
 const MIN_GUESSES_FOR_CHART = 5
 
 // A real stat display (count + label + nudge), not a generic <EmptyState>
-// line of text - a numeric_guess with 0-4 guesses still has a real number
+// line of text - a numeric-guess shape with 0-4 guesses still has a real number
 // worth putting on the page, it just isn't enough to plot as a chart yet.
 function LowVolumeGuesses({ totalGuesses }: { totalGuesses: number }) {
 	return (
@@ -74,7 +74,7 @@ function LowVolumeGuesses({ totalGuesses }: { totalGuesses: number }) {
 }
 
 // Hand-rolled bar chart, keyed by guess value rather than time - unlike the
-// question's overall call volume (see CallVolumeStats), a numeric_guess's
+// question's overall call volume (see CallVolumeStats), a numeric-guess shape's
 // spread of guesses is meaningful with just a handful of calls, so this one
 // keeps its bar row rather than collapsing to plain stats. Bin width is a
 // flat 1 (nearest integer) - see Question.guessDistribution for why, and its

@@ -1,5 +1,5 @@
 import {
-	BASE_POINTS_BY_TYPE,
+	BASE_POINTS_BY_SHAPE,
 	quipForCall,
 	TIER_MAX_MULT,
 	TIER_MIN_MULT,
@@ -16,29 +16,39 @@ import {
 } from "#/components/questions/call-share-card-preview"
 import { CaseBlock } from "#/components/questions/case-block"
 import { DisputeModal } from "#/components/questions/dispute-modal"
-import type {
-	QuestionCategory,
-	QuestionType,
-} from "#/graphql/generated/graphql"
+import type { QuestionShape } from "#/graphql/generated/graphql"
 import { pickSummary, resultState } from "#/lib/call-summary"
 import type { QuestionDetailState } from "#/lib/question-detail-state"
-import {
-	optionDisplayLabel,
-	questionCategoryLabel,
-} from "#/lib/question-labels"
+import { optionDisplayLabel, shareCardShapeLabel } from "#/lib/question-labels"
 import { previewNumericPoints, previewSelectionPoints } from "#/lib/scoring"
 import { openModal } from "#/stores/modal-store"
 
-// GraphQL's QuestionType is SCREAMING_SNAKE; BASE_POINTS_BY_TYPE (and the
+// GraphQL's QuestionShape is SCREAMING_SNAKE; BASE_POINTS_BY_SHAPE (and the
 // rest of @called-my-shot/scoring) key off the API's lower snake_case DB
 // enum instead - this is the one explicit place that bridges the two so a
 // typo can't silently fall back to the wrong base.
-const BASE_POINTS_BY_GQL_TYPE: Record<QuestionType, number> = {
-	MULTIPLE_CHOICE: BASE_POINTS_BY_TYPE.multiple_choice,
-	YES_NO: BASE_POINTS_BY_TYPE.yes_no,
-	OVER_UNDER: BASE_POINTS_BY_TYPE.over_under,
-	MULTI_SELECT: BASE_POINTS_BY_TYPE.multi_select,
-	NUMERIC_GUESS: BASE_POINTS_BY_TYPE.numeric_guess,
+const BASE_POINTS_BY_GQL_SHAPE: Record<QuestionShape, number> = {
+	PLAYER_STAT_OVER_UNDER: BASE_POINTS_BY_SHAPE.player_stat_over_under,
+	TEAM_STAT_OVER_UNDER: BASE_POINTS_BY_SHAPE.team_stat_over_under,
+	GAME_TOTAL_OVER_UNDER: BASE_POINTS_BY_SHAPE.game_total_over_under,
+	PLAYER_STAT_NUMERIC_GUESS: BASE_POINTS_BY_SHAPE.player_stat_numeric_guess,
+	TEAM_STAT_NUMERIC_GUESS: BASE_POINTS_BY_SHAPE.team_stat_numeric_guess,
+	PLAYER_VS_PLAYER: BASE_POINTS_BY_SHAPE.player_vs_player,
+	TEAM_VS_TEAM: BASE_POINTS_BY_SHAPE.team_vs_team,
+	YES_NO_PROP: BASE_POINTS_BY_SHAPE.yes_no_prop,
+	PLAYER_SEASON_AWARD: BASE_POINTS_BY_SHAPE.player_season_award,
+	TEAM_SEASON_AWARD: BASE_POINTS_BY_SHAPE.team_season_award,
+	PLAYER_AWARD_FINALISTS: BASE_POINTS_BY_SHAPE.player_award_finalists,
+}
+
+// Which cast-call layout a shape uses (see castCallBucketFor in
+// cast-call-form/use-cast-call-form.ts for the same split on the casting
+// side) - this file needs it for which per-pick row renders (numeric vs.
+// option) and whether a single field summarizes the whole call.
+function isNumericShape(shape: QuestionShape): boolean {
+	return (
+		shape === "PLAYER_STAT_NUMERIC_GUESS" || shape === "TEAM_STAT_NUMERIC_GUESS"
+	)
 }
 
 type ViewerCall = {
@@ -51,9 +61,9 @@ type ViewerCall = {
 	// share card the same way CaseBlock shows it elsewhere on this page.
 	caseText: string | null
 	// The real closeness multiplier (TIER_MIN_MULT-TIER_MAX_MULT range)
-	// applied at resolution (see calls.closeness_mult) - numeric_guess only,
-	// null until resolved and null forever on a miss. Persisted rather than
-	// reconstructed: unlike a
+	// applied at resolution (see calls.closeness_mult) - the numeric-guess
+	// shapes only, null until resolved and null forever on a miss. Persisted
+	// rather than reconstructed: unlike a
 	// selection's contrarian tier, closeness rank only exists once every
 	// other hit on the question is known.
 	closenessMult: number | null
@@ -62,7 +72,7 @@ type ViewerCall = {
 	// nullability as closenessMult. Exists purely so the resolved-state
 	// breakdown can explain "why this multiplier" with a real number.
 	closenessFieldPct: number | null
-	question: { type: QuestionType; ouLine: number | null }
+	question: { shape: QuestionShape; ouLine: number | null }
 	selections: {
 		conviction: number
 		// The authoritative per-pick score, set once at resolution (see
@@ -84,7 +94,8 @@ type Props = {
 	callCount: number
 	// The question's total option count, feeding tierFor's relative-rarity
 	// normalization (an option's share means something different in a 2-option
-	// vs. a 20-option field). Ignored for numeric_guess, which has no options.
+	// vs. a 20-option field). Ignored for the numeric-guess shapes, which have
+	// no options.
 	totalOptions: number
 	numericTolerancePct: number | null
 	viewerCall: ViewerCall | null
@@ -108,7 +119,7 @@ type Props = {
 	// above as the badge/title) plus who's sharing it.
 	questionTitle: string
 	leagueAbbr: string
-	category: QuestionCategory
+	shape: QuestionShape
 	viewerName: string
 	viewerUsername: string
 }
@@ -134,7 +145,7 @@ export function ViewerStatusCard({
 	fieldAccuracyPct,
 	questionTitle,
 	leagueAbbr,
-	category,
+	shape,
 	viewerName,
 	viewerUsername,
 }: Props) {
@@ -145,9 +156,11 @@ export function ViewerStatusCard({
 	// having already run its course once (hasSettledDispute) - a resolution
 	// that's already been upheld or overturned is final, further correction
 	// is an admin action, not another caller dispute.
-	const disputeRow = state.isSettled && !state.isDisputed && !hasSettledDispute && (
-		<DisputeRow questionId={questionId} hasDispute={hasViewerDispute} />
-	)
+	const disputeRow = state.isSettled &&
+		!state.isDisputed &&
+		!hasSettledDispute && (
+			<DisputeRow questionId={questionId} hasDispute={hasViewerDispute} />
+		)
 	const resultTitle = answer && (
 		<ResultTitle answer={answer} disputed={state.isDisputed} />
 	)
@@ -195,8 +208,8 @@ export function ViewerStatusCard({
 		)
 	}
 
-	const isNumeric = viewerCall.question.type === "NUMERIC_GUESS"
-	const basePoints = BASE_POINTS_BY_GQL_TYPE[viewerCall.question.type]
+	const isNumeric = isNumericShape(viewerCall.question.shape)
+	const basePoints = BASE_POINTS_BY_GQL_SHAPE[viewerCall.question.shape]
 	const result = resultState(viewerCall.totalPoints)
 	const tone =
 		result.status === "win"
@@ -252,7 +265,7 @@ export function ViewerStatusCard({
 								key={selection.option.label}
 								label={optionDisplayLabel(
 									selection.option.label,
-									viewerCall.question.type,
+									viewerCall.question.shape,
 									viewerCall.question.ouLine,
 								)}
 								fieldPct={selection.option.fieldPct}
@@ -262,8 +275,8 @@ export function ViewerStatusCard({
 								totalCalls={callCount}
 								basePoints={basePoints}
 								// A single pick's name is already up in the title - only
-								// multi_select (several picks, none of them named up top)
-								// needs each row to say what it is.
+								// player_season_award/team_season_award (several picks,
+								// none of them named up top) needs each row to say what it is.
 								showName={viewerCall.selections.length > 1}
 								result={
 									selection.option.isCorrect === null ||
@@ -285,7 +298,7 @@ export function ViewerStatusCard({
 					points={result.points}
 					questionTitle={questionTitle}
 					leagueAbbr={leagueAbbr}
-					categoryLabel={questionCategoryLabel[category]}
+					categoryLabel={shareCardShapeLabel[shape]}
 					viewerName={viewerName}
 					viewerUsername={viewerUsername}
 				/>
@@ -348,13 +361,13 @@ function ShareCallSection({
 	// nothing needing to be persisted or passed between the two.
 	const quip = quipForCall(viewerCall.id, isWin)
 
-	const isNumeric = viewerCall.question.type === "NUMERIC_GUESS"
+	const isNumeric = isNumericShape(viewerCall.question.shape)
 	const pickLabel = pickSummary({
 		guessValue: viewerCall.guessValue,
 		conviction: viewerCall.conviction,
 		totalPoints: viewerCall.totalPoints,
 		question: {
-			type: viewerCall.question.type,
+			shape: viewerCall.question.shape,
 			ouLine: viewerCall.question.ouLine,
 			// Not needed here - pickSummary only reads it via lossContext,
 			// which this card never calls.
@@ -366,10 +379,11 @@ function ShareCallSection({
 			option: { label: s.option.label, isCorrect: s.option.isCorrect },
 		})),
 	})
-	// A single number describes exactly one pick's rarity - numeric_guess
-	// (closenessFieldPct) or a lone selection both qualify, multi_select's
-	// several independent picks don't, so that case is left null rather than
-	// picking one pick's fieldPct to stand in for the whole call.
+	// A single number describes exactly one pick's rarity - a numeric-guess
+	// shape (closenessFieldPct) or a lone selection both qualify,
+	// player_season_award/team_season_award's several independent picks
+	// don't, so that case is left null rather than picking one pick's
+	// fieldPct to stand in for the whole call.
 	const fieldPct = isNumeric
 		? viewerCall.closenessFieldPct
 		: viewerCall.selections.length === 1
@@ -644,8 +658,8 @@ function PendingContent({
 	totalOptions: number
 	viewerCall: ViewerCall
 }) {
-	const isNumeric = viewerCall.question.type === "NUMERIC_GUESS"
-	const basePoints = BASE_POINTS_BY_GQL_TYPE[viewerCall.question.type]
+	const isNumeric = isNumericShape(viewerCall.question.shape)
+	const basePoints = BASE_POINTS_BY_GQL_SHAPE[viewerCall.question.shape]
 
 	return (
 		<Shell tone="primary">
@@ -672,7 +686,7 @@ function PendingContent({
 								key={selection.option.label}
 								label={optionDisplayLabel(
 									selection.option.label,
-									viewerCall.question.type,
+									viewerCall.question.shape,
 									viewerCall.question.ouLine,
 								)}
 								fieldPct={selection.option.fieldPct}

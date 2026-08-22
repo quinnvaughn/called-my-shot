@@ -20,7 +20,7 @@ export const CallRowFragment = graphql(`
 		}
 		question {
 			id
-			type
+			shape
 			ouLine
 			numericActualValue
 		}

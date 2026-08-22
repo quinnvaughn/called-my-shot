@@ -21,6 +21,12 @@ type Props = {
 	// so the parent needs this same data anyway. Passed down rather than
 	// queried twice so there's one source of truth for "what game is this".
 	selectedGame: GameByIdQuery["game"]
+	// game_total_over_under, team_vs_team, player_stat_numeric_guess, and
+	// team_stat_numeric_guess are inherently about one specific game (an
+	// exact-number guess has no season-total reading the way an over/under
+	// line does) - only changes the label/hint copy below, the schema itself
+	// is what actually enforces the requirement.
+	required?: boolean
 }
 
 const DEBOUNCE_MS = 250
@@ -31,7 +37,12 @@ const DEBOUNCE_MS = 250
 // full slate of games can run much larger than its roster. Picking a game
 // also fills and locks the Resolution section's locksAt field (see
 // resolution-fields.tsx) to that game's own kickoff.
-export function GameField({ form, leagueId, selectedGame }: Props) {
+export function GameField({
+	form,
+	leagueId,
+	selectedGame,
+	required,
+}: Props) {
 	const gameId = form.useWatch("gameId")
 	const [inputText, setInputText] = useState("")
 	const [open, setOpen] = useState(false)
@@ -86,7 +97,7 @@ export function GameField({ form, leagueId, selectedGame }: Props) {
 
 	return (
 		<VStack gap="1.5" alignItems="stretch">
-			<FieldLabel>Game</FieldLabel>
+			<FieldLabel required={required}>Game</FieldLabel>
 			{selectedGame ? (
 				<VStack gap="1.5" alignItems="stretch">
 					<GameBlock game={selectedGame} />
@@ -149,9 +160,9 @@ export function GameField({ form, leagueId, selectedGame }: Props) {
 				<FieldHint>Pick a league above to search its games.</FieldHint>
 			)}
 			<FieldHint>
-				Optional - pick the real-world game this is about and its kickoff
-				becomes the lock time below. Leave blank for anything not scoped to one
-				game (season awards, an MVP race).
+				{required
+					? "Required for this shape - its kickoff becomes the lock time below."
+					: "Optional - pick the real-world game this is about and its kickoff becomes the lock time below. Leave blank for anything not scoped to one game (season awards, an MVP race)."}
 			</FieldHint>
 		</VStack>
 	)

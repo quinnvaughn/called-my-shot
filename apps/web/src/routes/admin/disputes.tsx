@@ -16,12 +16,18 @@ export const Route = createFileRoute("/admin/disputes")({
 	component: RouteComponent,
 })
 
-type QuestionType =
-	| "multiple_choice"
-	| "yes_no"
-	| "over_under"
-	| "numeric_guess"
-	| "multi_select"
+type QuestionShape =
+	| "player_stat_over_under"
+	| "team_stat_over_under"
+	| "game_total_over_under"
+	| "player_stat_numeric_guess"
+	| "team_stat_numeric_guess"
+	| "player_vs_player"
+	| "team_vs_team"
+	| "yes_no_prop"
+	| "player_season_award"
+	| "team_season_award"
+	| "player_award_finalists"
 
 function UpholdButton({
 	disputeId,
@@ -155,7 +161,8 @@ function RouteComponent() {
 													question={{
 														id: dispute.question.id,
 														title: dispute.question.title,
-														type: dispute.question.type.toLowerCase() as QuestionType,
+														shape:
+															dispute.question.shape.toLowerCase() as QuestionShape,
 														ouLine: dispute.question.ouLine ?? null,
 														options: dispute.question.options,
 													}}

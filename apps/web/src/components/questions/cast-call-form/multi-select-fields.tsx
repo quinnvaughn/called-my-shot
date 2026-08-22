@@ -1,4 +1,4 @@
-import { BASE_POINTS_BY_TYPE } from "@called-my-shot/scoring"
+import { BASE_POINTS_BY_SHAPE } from "@called-my-shot/scoring"
 import { FiX } from "react-icons/fi"
 import { css, cx } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
@@ -23,7 +23,7 @@ type Props = {
 export function MultiSelectFields({ callForm }: Props) {
 	const {
 		question,
-		type,
+		shape,
 		form,
 		selections,
 		multiSelectSearch,
@@ -59,7 +59,7 @@ export function MultiSelectFields({ callForm }: Props) {
 
 				<OptionPickerList
 					options={question.options}
-					type={type}
+					shape={shape}
 					ouLine={null}
 					callCount={question.callCount}
 					isSelected={(optionId) =>
@@ -236,7 +236,7 @@ export function MultiSelectFields({ callForm }: Props) {
 												)}
 												totalOptions={question.options.length}
 												conviction={selection.conviction}
-												basePoints={BASE_POINTS_BY_TYPE.multi_select}
+												basePoints={BASE_POINTS_BY_SHAPE[shape]}
 											/>
 										</VStack>
 									)

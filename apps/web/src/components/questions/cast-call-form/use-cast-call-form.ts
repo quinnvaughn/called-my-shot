@@ -1,29 +1,22 @@
-import { useMutation, useQuery } from "@apollo/client/react"
+import { useMutation } from "@apollo/client/react"
 import { castCallSchema } from "@called-my-shot/schemas"
 import { toleranceBand as computeToleranceBand } from "@called-my-shot/scoring"
 import { useRouter } from "@tanstack/react-router"
 import { useMemo, useRef, useState } from "react"
 import { match } from "ts-pattern"
-import type { EntitySearchItem } from "#/components/questions/create-question/entity-search-field"
 import { type FragmentType, graphql, useFragment } from "#/graphql/generated"
 import { CastCallDocument } from "#/graphql/mutations/calls"
-import {
-	PlayersByLeagueDocument,
-	TeamsByLeagueDocument,
-} from "#/graphql/queries/sports"
 import { useForm } from "#/lib/form/use-form"
 import { closeModal } from "#/stores/modal-store"
 
 export const CastCallFormFragment = graphql(`
 	fragment CastCallForm_question on Question {
 		id
-		type
+		shape
 		ouLine
 		numericTolerancePct
 		picksRequired
 		callCount
-		optionsOpenField
-		openFieldKind
 		averageGuess
 		guessDistribution {
 			value
@@ -54,12 +47,80 @@ export const CastCallFormFragment = graphql(`
 
 export const FORM_ID = "cast-call-form"
 
-export type QuestionCallType =
-	| "multiple_choice"
-	| "yes_no"
-	| "over_under"
-	| "numeric_guess"
-	| "multi_select"
+export type QuestionCallShape =
+	| "player_stat_over_under"
+	| "team_stat_over_under"
+	| "game_total_over_under"
+	| "player_stat_numeric_guess"
+	| "team_stat_numeric_guess"
+	| "player_vs_player"
+	| "team_vs_team"
+	| "yes_no_prop"
+	| "player_season_award"
+	| "team_season_award"
+	| "player_award_finalists"
+
+// Which cast-call layout a shape renders as - a much smaller axis than the
+// 11 shapes themselves, since casting only cares about the pick mechanic
+// (one numeric guess, exactly one option, or several options), not what the
+// question is actually about. player_season_award/team_season_award only
+// need the "multi" layout (picks list, shared/split conviction toggle) when
+// picksRequired is actually >1 - a single-winner award ("MVP", picksRequired
+// 1) is mechanically the exact same "pick one from a list" as every other
+// single-pick shape, and OptionFields already handles a large option pool
+// via its own search field, so it gets that layout instead rather than a
+// "1/1 picks"-style UI built for picking several things at once.
+export type CastCallBucket = "single" | "multi" | "numeric"
+export function castCallBucketFor(
+	shape: QuestionCallShape,
+	picksRequired: number,
+): CastCallBucket {
+	return match(shape)
+		.with(
+			"player_stat_numeric_guess",
+			"team_stat_numeric_guess",
+			() => "numeric" as const,
+		)
+		.with("player_season_award", "team_season_award", () =>
+			picksRequired > 1 ? ("multi" as const) : ("single" as const),
+		)
+		.with(
+			"player_stat_over_under",
+			"team_stat_over_under",
+			"game_total_over_under",
+			"player_vs_player",
+			"team_vs_team",
+			"yes_no_prop",
+			"player_award_finalists",
+			() => "single" as const,
+		)
+		.exhaustive()
+}
+
+// A question's over/under-family shapes all show the option label with the
+// line appended ("Over 224.5") - every other shape's option label already
+// says everything it needs to on its own.
+export function isOverUnderShape(shape: QuestionCallShape): boolean {
+	return (
+		shape === "player_stat_over_under" ||
+		shape === "team_stat_over_under" ||
+		shape === "game_total_over_under"
+	)
+}
+
+// The three shapes where options are a pool of candidates/nominees rather
+// than a small fixed framing (Over/Under, Yes/No, Team A vs Team B) - those
+// other shapes want their two options in the order the question poses them,
+// not reordered by votes. A nominee pool has no such fixed framing, so
+// OptionPickerList defaults it to popularity instead of creation order (see
+// its own comment) to surface the obvious picks before someone's made one.
+export function isAwardShape(shape: QuestionCallShape): boolean {
+	return (
+		shape === "player_season_award" ||
+		shape === "team_season_award" ||
+		shape === "player_award_finalists"
+	)
+}
 
 // All of the state behind making a call, decoupled from where it renders.
 // The route ($questionId.tsx) calls this once and hands the result to both
@@ -74,15 +135,17 @@ export function useCastCallForm(
 	questionProp: FragmentType<typeof CastCallFormFragment> | null | undefined,
 ) {
 	const question = useFragment(CastCallFormFragment, questionProp)
-	const type = (question?.type.toLowerCase() ??
-		"multiple_choice") as QuestionCallType
+	const shape = (question?.shape.toLowerCase() ??
+		"yes_no_prop") as QuestionCallShape
+	const bucket = castCallBucketFor(shape, question?.picksRequired ?? 1)
 	const [castCall] = useMutation(CastCallDocument)
 	const router = useRouter()
 
-	// Only single-select types use this - conviction on the one-and-only
-	// selection they can make. multi_select tracks conviction per pick
-	// directly in form state instead (each pick's own slider), and
-	// numeric_guess uses the schema's own top-level `conviction` field.
+	// Only single-pick shapes use this - conviction on the one-and-only
+	// selection they can make. player_season_award/team_season_award track
+	// conviction per pick directly in form state instead (each pick's own
+	// slider), and the numeric-guess shapes use the schema's own top-level
+	// `conviction` field.
 	const [singleSelectConviction, setSingleSelectConviction] = useState(50)
 
 	// Lets ConfirmCallModal send the viewer back to the case textarea when
@@ -101,8 +164,8 @@ export function useCastCallForm(
 		})
 	}
 
-	// multi_select only. The pool can run into the dozens (an All-NBA ballot,
-	// a championship field), so unlike the other option-based types this
+	// player_season_award/team_season_award only. The pool can run into the
+	// dozens (a full league roster), so unlike the single-pick shapes this
 	// isn't a list of clickable rows - it's search-to-add, same pattern
 	// EntitySearchField already provides for create-question's option/pool
 	// pickers, just searching this question's fixed options instead of an
@@ -113,30 +176,26 @@ export function useCastCallForm(
 	)
 	const [sharedConviction, setSharedConviction] = useState(50)
 
-	// multiple_choice on an optionsOpenField question only - search-to-add
-	// against the real league catalog rather than this question's own (maybe
-	// still empty) option pool, since the whole point is picking someone not
-	// in it yet.
-	const [openFieldSearch, setOpenFieldSearch] = useState("")
-
-	// numeric_guess only - how far the stepper's +/- buttons move the guess
-	// per click. Typing directly into the field always takes the exact value
-	// regardless of which step size is selected here.
+	// The numeric-guess shapes only - how far the stepper's +/- buttons move
+	// the guess per click. Typing directly into the field always takes the
+	// exact value regardless of which step size is selected here.
 	const [guessStep, setGuessStep] = useState(1)
 
-	// castCallSchema itself only requires multi_select to have >=1 pick - the
-	// comment on its own multi_select branch is explicit that the exact count
-	// is "checked against the question's picksRequired in the resolver, which
-	// is the only place that number is known" server-side. But the client
-	// does know it too, from this same fragment (picksRequired above), so
-	// canSubmit can enforce the real count instead of going quiet past 1 pick
-	// and only failing once the server round-trips a ValidationError back.
+	// castCallSchema itself only requires player_season_award/
+	// team_season_award to have >=1 pick - the comment on its own branch for
+	// those shapes is explicit that the exact count is "checked against the
+	// question's picksRequired in the resolver, which is the only place that
+	// number is known" server-side. But the client does know it too, from
+	// this same fragment (picksRequired above), so canSubmit can enforce the
+	// real count instead of going quiet past 1 pick and only failing once the
+	// server round-trips a ValidationError back.
 	const picksRequired = question?.picksRequired ?? null
 	const schema = useMemo(() => {
 		if (picksRequired == null) return castCallSchema
 		return castCallSchema.superRefine((data, ctx) => {
 			if (
-				data.type === "multi_select" &&
+				(data.shape === "player_season_award" ||
+					data.shape === "team_season_award") &&
 				data.selections.length !== picksRequired
 			) {
 				ctx.addIssue({
@@ -151,7 +210,7 @@ export function useCastCallForm(
 	const form = useForm({
 		schema,
 		defaultValues: {
-			type,
+			shape,
 			questionId: question?.id ?? "",
 			caseText: "",
 			// The field's current average when there's enough data to have one -
@@ -166,7 +225,6 @@ export function useCastCallForm(
 				question?.averageGuess != null ? Math.round(question.averageGuess) : 0,
 			conviction: 50,
 			selections: [],
-			newOption: undefined,
 		},
 		onSubmit: async (values, helpers) => {
 			const { data } = await castCall({
@@ -180,14 +238,6 @@ export function useCastCallForm(
 							optionId: s.optionId,
 							conviction: s.conviction,
 						})),
-						newOption: values.newOption
-							? {
-									label: values.newOption.label,
-									teamId: values.newOption.teamId,
-									playerId: values.newOption.playerId,
-									conviction: values.newOption.conviction,
-								}
-							: undefined,
 					},
 				},
 			})
@@ -225,58 +275,12 @@ export function useCastCallForm(
 	})
 
 	const selections = form.useWatch("selections")
-	const newOption = form.useWatch("newOption")
 	const guessValue = form.useWatch("guessValue")
 
-	// multiple_choice on an optionsOpenField question only - the catalog a
-	// pick not yet in the pool gets searched against. Scoped to the question's
-	// own league, same as create-question's option/subject pickers.
-	const isOpenField = type === "multiple_choice" && !!question?.optionsOpenField
-	const openFieldLeagueId = question?.league.id
-	const { data: openFieldTeamsData } = useQuery(TeamsByLeagueDocument, {
-		variables: { leagueId: openFieldLeagueId },
-		skip:
-			!isOpenField || question?.openFieldKind !== "TEAM" || !openFieldLeagueId,
-	})
-	const { data: openFieldPlayersData } = useQuery(PlayersByLeagueDocument, {
-		variables: { leagueId: openFieldLeagueId },
-		skip:
-			!isOpenField ||
-			question?.openFieldKind !== "PLAYER" ||
-			!openFieldLeagueId,
-	})
-	const openFieldCatalogItems: EntitySearchItem[] =
-		question?.openFieldKind === "TEAM"
-			? (openFieldTeamsData?.teams ?? []).map((team) => ({
-					id: team.id,
-					label: team.name,
-					kind: "team" as const,
-					meta: team.abbreviation,
-				}))
-			: (openFieldPlayersData?.players ?? []).map((player) => ({
-					id: player.id,
-					label: player.name,
-					kind: "player" as const,
-					meta: player.currentTeam?.abbreviation,
-				}))
-
 	function selectSingle(optionId: string) {
-		form.setValue("newOption", undefined)
 		form.setValue("selections", [
 			{ optionId, conviction: singleSelectConviction },
 		])
-	}
-
-	// A catalog item with no existing option on this question yet - resolves
-	// through castCall's newOption instead of an optionId it doesn't have.
-	function selectNewOption(item: EntitySearchItem) {
-		form.setValue("selections", [])
-		form.setValue("newOption", {
-			label: item.label,
-			teamId: item.kind === "team" ? item.id : undefined,
-			playerId: item.kind === "player" ? item.id : undefined,
-			conviction: singleSelectConviction,
-		})
 	}
 
 	function addMultiSelectPick(optionId: string) {
@@ -337,10 +341,10 @@ export function useCastCallForm(
 
 	return {
 		question,
-		type,
+		shape,
+		bucket,
 		form,
 		selections,
-		newOption,
 		guessValue,
 		toleranceBand,
 		guessUnit,
@@ -358,11 +362,6 @@ export function useCastCallForm(
 		selectSingle,
 		addMultiSelectPick,
 		removeMultiSelectPick,
-		isOpenField,
-		openFieldSearch,
-		setOpenFieldSearch,
-		openFieldCatalogItems,
-		selectNewOption,
 		caseTextRef,
 		focusCaseText,
 		guessStep,

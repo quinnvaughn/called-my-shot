@@ -19,7 +19,7 @@ export const ResolveQuestionModalFragment = graphql(`
 	fragment ResolveQuestionModal_question on Question {
 		id
 		title
-		type
+		shape
 		ouLine
 		options {
 			id
@@ -34,19 +34,33 @@ type Props = {
 
 export function ResolveQuestionModal({ question: questionProp }: Props) {
 	const question = useFragment(ResolveQuestionModalFragment, questionProp)
-	const type = question.type.toLowerCase() as
-		| "multiple_choice"
-		| "yes_no"
-		| "over_under"
-		| "numeric_guess"
-		| "multi_select"
+	const shape = question.shape.toLowerCase() as
+		| "player_stat_over_under"
+		| "team_stat_over_under"
+		| "game_total_over_under"
+		| "player_stat_numeric_guess"
+		| "team_stat_numeric_guess"
+		| "player_vs_player"
+		| "team_vs_team"
+		| "yes_no_prop"
+		| "player_season_award"
+		| "team_season_award"
+		| "player_award_finalists"
+	const isNumeric =
+		shape === "player_stat_numeric_guess" || shape === "team_stat_numeric_guess"
+	const isMultiPick =
+		shape === "player_season_award" || shape === "team_season_award"
+	const isOverUnder =
+		shape === "player_stat_over_under" ||
+		shape === "team_stat_over_under" ||
+		shape === "game_total_over_under"
 	const [resolveQuestion] = useMutation(ResolveQuestionDocument)
 	const router = useRouter()
 
 	const form = useForm({
 		schema: resolveQuestionSchema,
 		defaultValues: {
-			type,
+			shape,
 			correctOptionIds: [],
 			actualValue: undefined,
 			resolutionNote: "",
@@ -131,20 +145,20 @@ export function ResolveQuestionModal({ question: questionProp }: Props) {
 
 			<form onSubmit={form.handleSubmit}>
 				<VStack gap="4" alignItems="stretch">
-					{type !== "numeric_guess" ? (
+					{!isNumeric ? (
 						<VStack gap="2" alignItems="stretch">
 							{question.options.map((option) => (
 								<OptionRow
 									key={option.id}
 									label={
-										type === "over_under" && question.ouLine !== null
+										isOverUnder && question.ouLine !== null
 											? `${option.label} ${question.ouLine}`
 											: option.label
 									}
 									fieldPct={null}
 									selected={correctOptionIds.includes(option.id)}
 									onClick={() =>
-										type === "multi_select"
+										isMultiPick
 											? toggleMultiCorrect(option.id)
 											: selectSingleCorrect(option.id)
 									}

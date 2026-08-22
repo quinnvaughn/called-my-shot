@@ -6,13 +6,7 @@ import { BreakdownBar } from "#/components/profile/breakdown-bar"
 import { ShareCardPreview } from "#/components/profile/share-card-preview"
 import { ShareImagePanel } from "#/components/profile/share-image-panel"
 import { StatGrid, statGridItems } from "#/components/profile/stat-grid"
-
-const CATEGORY_LABELS: Record<string, string> = {
-	SEASON_AWARDS: "Season Awards",
-	GAME_STATS: "Game Stats",
-	PLAYER_STATS: "Player Stats",
-	OTHER: "Other",
-}
+import { questionShapeLabel } from "#/lib/question-labels"
 
 type LeagueStats = {
 	league: { id: string; name: string; abbreviation: string }
@@ -20,8 +14,8 @@ type LeagueStats = {
 	rank: number
 	accuracy: number | null
 	callCount: number
-	categoryBreakdown: Array<{
-		category: string
+	shapeBreakdown: Array<{
+		shape: string
 		accuracy: number | null
 		callCount: number
 	}>
@@ -103,14 +97,18 @@ export function LeagueAccordion({ stats, user }: Props) {
 							/>
 						)}
 					/>
-					{stats.categoryBreakdown.length > 0 && (
+					{stats.shapeBreakdown.length > 0 && (
 						<VStack alignItems="stretch" gap="2">
-							{stats.categoryBreakdown.map((c) => (
+							{stats.shapeBreakdown.map((s) => (
 								<BreakdownBar
-									key={c.category}
-									label={CATEGORY_LABELS[c.category] ?? c.category}
-									accuracy={c.accuracy}
-									callCount={c.callCount}
+									key={s.shape}
+									label={
+										questionShapeLabel[
+											s.shape as keyof typeof questionShapeLabel
+										] ?? s.shape
+									}
+									accuracy={s.accuracy}
+									callCount={s.callCount}
 								/>
 							))}
 						</VStack>

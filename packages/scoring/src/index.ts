@@ -6,28 +6,44 @@
 // shared workspace package exists to remove - both apps depend on this one
 // instead of maintaining their own copy.
 
-export type QuestionType =
-	| "multiple_choice"
-	| "yes_no"
-	| "over_under"
-	| "multi_select"
-	| "numeric_guess"
+export type QuestionShape =
+	| "player_stat_over_under"
+	| "team_stat_over_under"
+	| "game_total_over_under"
+	| "player_stat_numeric_guess"
+	| "team_stat_numeric_guess"
+	| "player_vs_player"
+	| "team_vs_team"
+	| "yes_no_prop"
+	| "player_season_award"
+	| "team_season_award"
+	| "player_award_finalists"
 
-// Difficulty varies by format, not by any individual pick - a binary yes/no
+// Difficulty varies by format, not by any individual pick - a binary pick
 // needs less signal to call correctly than a continuous numeric guess, so
 // the pool of points at stake scales with the format itself. This is
 // independent of the contrarian tier and earliness bonus below, which are
-// per-call and layer on top of whichever base a question's type starts from.
-export const BASE_POINTS_BY_TYPE: Record<QuestionType, number> = {
-	yes_no: 150,
-	over_under: 150,
-	multiple_choice: 200,
-	multi_select: 250,
-	// Was 300 - highest of every type. Trimmed toward multi_select rather
+// per-call and layer on top of whichever base a question's shape starts
+// from. Grouped by structural mechanism, not by subject - every shape that's
+// functionally an exactly-2-option pick (yes_no_prop, player_vs_player,
+// team_vs_team) shares one rate regardless of whether it has a player, team,
+// or no subject at all.
+export const BASE_POINTS_BY_SHAPE: Record<QuestionShape, number> = {
+	yes_no_prop: 150,
+	player_vs_player: 150,
+	team_vs_team: 150,
+	player_stat_over_under: 150,
+	team_stat_over_under: 150,
+	game_total_over_under: 150,
+	player_award_finalists: 200,
+	player_season_award: 250,
+	team_season_award: 250,
+	// Was 300 - highest of every shape. Trimmed toward the award shapes rather
 	// than left the clear outlier (see numericGuessPoints below for how a
 	// hit's multiplier is earned - same "how rare was being right" question
-	// as every other type now, not an easier one).
-	numeric_guess: 250,
+	// as every other shape now, not an easier one).
+	player_stat_numeric_guess: 250,
+	team_stat_numeric_guess: 250,
 }
 
 // An option's share of the field, as of however many calls exist right now.
@@ -145,11 +161,11 @@ function earlyLabel(mult: number): string {
 }
 
 // conviction is 1-100, how much of the tier's payout is actually in play.
-// basePoints comes from BASE_POINTS_BY_TYPE for this question's type.
+// basePoints comes from BASE_POINTS_BY_SHAPE for this question's shape.
 // earlyMult comes from earlyTierFor, computed by the caller from the call's
-// (not the selection's) position in the field - a multi_select call has
-// several selections made at the same instant, so earliness is a property of
-// the call, not of any one pick within it.
+// (not the selection's) position in the field - a player_season_award/
+// team_season_award call has several selections made at the same instant, so
+// earliness is a property of the call, not of any one pick within it.
 export function selectionPoints(
 	basePoints: number,
 	optionFieldPct: number,
@@ -192,15 +208,16 @@ export function hitTolerance(
 }
 
 // The tolerance band is the real win/loss line, same as picking the correct
-// option elsewhere - without a genuine downside for missing it, numeric_guess
-// would be a strictly better bet than every other type (upside with none of
-// the risk), and callers would only ever answer these. A miss loses the full
-// stake, flat, same as a wrong option pick. That line stays a hard binary on
-// purpose - every other type's win/loss is binary too (you picked the
-// correct option or you didn't), and softening it into a decaying "almost
-// right still counts a little" would make numeric_guess the one type where
-// wrong is negotiable, undermining the same "being wrong has to actually show
-// up" principle the rest of the scoring model leans on.
+// option elsewhere - without a genuine downside for missing it, the two
+// numeric-guess shapes would be a strictly better bet than every other shape
+// (upside with none of the risk), and callers would only ever answer these.
+// A miss loses the full stake, flat, same as a wrong option pick. That line
+// stays a hard binary on purpose - every other shape's win/loss is binary too
+// (you picked the correct option or you didn't), and softening it into a
+// decaying "almost right still counts a little" would make numeric-guess
+// shapes the one place wrong is negotiable, undermining the same "being
+// wrong has to actually show up" principle the rest of the scoring model
+// leans on.
 //
 // A hit's multiplier reuses tierFor - "hit" vs "miss" is a binary outcome
 // (totalOptions=2), the same shape as a yes_no pick - fed a share computed
@@ -221,7 +238,8 @@ export function hitTolerance(
 // regardless of the total field size, and there was no way for an "everyone
 // guessed the obvious number" hit to score any differently than a genuinely
 // rare exact guess.
-// basePoints comes from BASE_POINTS_BY_TYPE.numeric_guess.
+// basePoints comes from BASE_POINTS_BY_SHAPE for whichever numeric-guess
+// shape this is.
 export function numericGuessPoints(
 	basePoints: number,
 	guesses: {
@@ -245,9 +263,9 @@ export function numericGuessPoints(
 		distance: Math.abs(guess.guessValue - actualValue),
 	}))
 
-	// Same rank/totalCalls earliness as the option-based types - see
+	// Same rank/totalCalls earliness as the option-based shapes - see
 	// earlyTierFor above - just computed off createdAt directly since every
-	// numeric_guess call is its own single guess (no separate selections).
+	// numeric-guess call is its own single guess (no separate selections).
 	const totalCalls = guesses.length
 	const orderedByTime = [...guesses].sort(
 		(a, b) => a.createdAt.getTime() - b.createdAt.getTime(),

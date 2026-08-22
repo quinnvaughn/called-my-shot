@@ -19,7 +19,7 @@ export type CallShareCardPreviewData = {
 	pickLabel: string
 	isWin: boolean
 	points: number
-	// % of the field that also picked this - null for multi_select (no
+	// % of the field that also picked this - null for player_season_award/team_season_award (no
 	// single number describes several independent picks at once).
 	fieldPct: number | null
 	conviction: number

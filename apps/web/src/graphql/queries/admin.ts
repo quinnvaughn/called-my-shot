@@ -174,7 +174,7 @@ export const AdminQueueSummaryDocument = graphql(`
 					needsResolution {
 						id
 						title
-						type
+						shape
 						locksAt
 						callCount
 						creator {
@@ -254,7 +254,7 @@ export const AdminQuestionsDocument = graphql(`
 					items {
 						id
 						title
-						type
+						shape
 						status
 						createdAt
 						locksAt
@@ -295,7 +295,7 @@ export const AdminDisputesDocument = graphql(`
 						question {
 							id
 							title
-							type
+							shape
 							ouLine
 							numericActualValue
 							status

@@ -1,13 +1,13 @@
 import { css } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
-import type { GameStatus, QuestionType } from "#/graphql/generated/graphql"
-import { questionTypeLabel } from "#/lib/question-labels"
+import type { GameStatus, QuestionShape } from "#/graphql/generated/graphql"
+import { questionShapeLabel } from "#/lib/question-labels"
 import { GameBlock } from "./game-block"
 import { PickStateIcon } from "./pick-state-icon"
 
 type QuestionSummaryData = {
 	title: string
-	type: QuestionType
+	shape: QuestionShape
 	isOfficial: boolean
 	league: { abbreviation: string }
 	// The single real-world matchup this question is about - null for
@@ -65,7 +65,7 @@ export function QuestionSummaryHeader({
 						})}
 					>
 						{question.league.abbreviation}
-						{showTypeTag && ` · ${questionTypeLabel[question.type]}`}
+						{showTypeTag && ` · ${questionShapeLabel[question.shape]}`}
 					</span>
 					{question.isOfficial && (
 						<span

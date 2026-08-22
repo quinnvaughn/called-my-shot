@@ -1,4 +1,6 @@
+import { match } from "ts-pattern"
 import { z } from "zod"
+import { questionShapeSchema } from "./questions"
 
 // Admin-only input shapes - kept in their own file, separate from the
 // public-facing ones in questions.ts/users.ts, since these are only ever
@@ -42,13 +44,7 @@ export type VoidQuestionInput = z.infer<typeof voidQuestionSchema>
 // set once at question creation and left alone.
 export const adminResolveQuestionSchema = z
 	.object({
-		type: z.enum([
-			"multiple_choice",
-			"yes_no",
-			"over_under",
-			"numeric_guess",
-			"multi_select",
-		]),
+		shape: questionShapeSchema,
 		correctOptionIds: z.array(z.string().uuid()).default([]),
 		actualValue: z.number().optional(),
 		resolutionNote: z.string().trim().max(500, "Keep it under 500 characters").default(""),
@@ -63,30 +59,8 @@ export const adminResolveQuestionSchema = z
 			),
 	})
 	.superRefine((data, ctx) => {
-		switch (data.type) {
-			case "multiple_choice":
-			case "yes_no":
-			case "over_under": {
-				if (data.correctOptionIds.length !== 1) {
-					ctx.addIssue({
-						code: "custom",
-						path: ["correctOptionIds"],
-						message: "Pick exactly one correct option",
-					})
-				}
-				break
-			}
-			case "multi_select": {
-				if (data.correctOptionIds.length < 1) {
-					ctx.addIssue({
-						code: "custom",
-						path: ["correctOptionIds"],
-						message: "Pick at least one correct option",
-					})
-				}
-				break
-			}
-			case "numeric_guess": {
+		match(data.shape)
+			.with("player_stat_numeric_guess", "team_stat_numeric_guess", () => {
 				if (data.actualValue === undefined || Number.isNaN(data.actualValue)) {
 					ctx.addIssue({
 						code: "custom",
@@ -94,9 +68,35 @@ export const adminResolveQuestionSchema = z
 						message: "Enter the actual value",
 					})
 				}
-				break
-			}
-		}
+			})
+			.with("player_season_award", "team_season_award", () => {
+				if (data.correctOptionIds.length < 1) {
+					ctx.addIssue({
+						code: "custom",
+						path: ["correctOptionIds"],
+						message: "Pick at least one correct option",
+					})
+				}
+			})
+			.with(
+				"player_stat_over_under",
+				"team_stat_over_under",
+				"game_total_over_under",
+				"player_vs_player",
+				"team_vs_team",
+				"yes_no_prop",
+				"player_award_finalists",
+				() => {
+					if (data.correctOptionIds.length !== 1) {
+						ctx.addIssue({
+							code: "custom",
+							path: ["correctOptionIds"],
+							message: "Pick exactly one correct option",
+						})
+					}
+				},
+			)
+			.exhaustive()
 	})
 export type AdminResolveQuestionInput = z.infer<typeof adminResolveQuestionSchema>
 

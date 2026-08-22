@@ -1,46 +1,61 @@
-import { questionTypeSchema } from "@called-my-shot/schemas"
+import { questionShapeSchema } from "@called-my-shot/schemas"
 import { css, cx } from "styled-system/css"
 import { Grid } from "styled-system/jsx"
-import type { QuestionType } from "#/graphql/generated/graphql"
+import type { QuestionShape } from "#/graphql/generated/graphql"
 import {
-	questionTypeDescription,
-	questionTypeIcon,
-	questionTypeLabel,
+	questionShapeDescription,
+	questionShapeIcon,
+	questionShapeLabel,
 } from "#/lib/question-labels"
 
-type QuestionTypeValue = (typeof questionTypeSchema.options)[number]
+type QuestionShapeValue = (typeof questionShapeSchema.options)[number]
 
-// questionTypeLabel/Icon/Description are keyed by the GraphQL enum's
+// questionShapeLabel/Icon/Description are keyed by the GraphQL enum's
 // SCREAMING_SNAKE_CASE names (matching every other consumer, e.g. question
 // cards); this form works in the lowercase values the schema/mutation
 // resolve to (see questions.ts in packages/schemas), so lookups convert at
 // the boundary rather than duplicating the maps in a second casing.
-function toEnumKey(value: QuestionTypeValue): QuestionType {
-	return value.toUpperCase() as QuestionType
+function toEnumKey(value: QuestionShapeValue): QuestionShape {
+	return value.toUpperCase() as QuestionShape
 }
+
+// player_season_award/team_season_award/player_award_finalists can only ever
+// be posted as official (see ADMIN_ONLY_SHAPES in packages/schemas/src/
+// questions.ts) - there's no fixed nominee list to curate from, so these are
+// always admin-authored. Hidden from the picker entirely for a non-admin
+// rather than shown and left to fail validation on submit.
+const ADMIN_ONLY_SHAPES: readonly QuestionShapeValue[] = [
+	"player_season_award",
+	"team_season_award",
+	"player_award_finalists",
+]
 
 type Props = {
-	value: QuestionTypeValue | null
-	onChange: (type: QuestionTypeValue) => void
+	value: QuestionShapeValue | null
+	onChange: (shape: QuestionShapeValue) => void
+	isAdmin: boolean
 }
 
-export function QuestionTypePicker({ value, onChange }: Props) {
+export function QuestionTypePicker({ value, onChange, isAdmin }: Props) {
+	const shapes = questionShapeSchema.options.filter(
+		(shape) => isAdmin || !ADMIN_ONLY_SHAPES.includes(shape),
+	)
 	return (
 		<Grid
 			gridTemplateColumns={{ base: "1fr", sm: "1fr 1fr", lg: "1fr 1fr 1fr" }}
 			gap="2.5"
-			aria-label="Question type"
+			aria-label="Question shape"
 		>
-			{questionTypeSchema.options.map((type) => {
-				const key = toEnumKey(type)
-				const Icon = questionTypeIcon[key]
-				const selected = value === type
+			{shapes.map((shape) => {
+				const key = toEnumKey(shape)
+				const Icon = questionShapeIcon[key]
+				const selected = value === shape
 				return (
 					<button
-						key={type}
+						key={shape}
 						type="button"
 						aria-pressed={selected}
-						onClick={() => onChange(type)}
+						onClick={() => onChange(shape)}
 						className={cx(
 							css({
 								display: "flex",
@@ -78,7 +93,7 @@ export function QuestionTypePicker({ value, onChange }: Props) {
 							<Icon size={15} />
 						</span>
 						<span className={css({ fontSize: "sm", fontWeight: "semibold" })}>
-							{questionTypeLabel[key]}
+							{questionShapeLabel[key]}
 						</span>
 						<span
 							className={css({
@@ -87,7 +102,7 @@ export function QuestionTypePicker({ value, onChange }: Props) {
 								color: "fg.subtle",
 							})}
 						>
-							{questionTypeDescription[key]}
+							{questionShapeDescription[key]}
 						</span>
 					</button>
 				)

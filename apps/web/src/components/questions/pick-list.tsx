@@ -14,14 +14,15 @@ type Props = {
 	call: CallSummaryData
 }
 
-// One row per pick - multi_select has up to 5 independent picks, each with
-// its own result and conviction, so it gets one PickStateIcon each. Every
-// other type only ever has the one pick, so it renders as a single row
-// mirroring the call's overall result (resultState), with conviction as a
-// separate line below rather than repeated per-row.
+// One row per pick - player_season_award/team_season_award have up to
+// picksRequired independent picks, each with its own result and conviction,
+// so those get one PickStateIcon each. Every other shape only ever has the
+// one pick, so it renders as a single row mirroring the call's overall
+// result (resultState), with conviction as a separate line below rather
+// than repeated per-row.
 export function PickList({ call }: Props) {
-	return match(call.question.type)
-		.with("MULTI_SELECT", () => (
+	return match(call.question.shape)
+		.with("PLAYER_SEASON_AWARD", "TEAM_SEASON_AWARD", () => (
 			<VStack gap="0" alignItems="stretch">
 				{call.selections.map((selection) => {
 					const state =
@@ -59,36 +60,47 @@ export function PickList({ call }: Props) {
 				})}
 			</VStack>
 		))
-		.with("OVER_UNDER", "NUMERIC_GUESS", "MULTIPLE_CHOICE", "YES_NO", () => {
-			const result = resultState(call.totalPoints)
-			const context = lossContext(call)
-			return (
-				<VStack gap="1.5" alignItems="stretch">
-					<PickRow state={result.status}>
+		.with(
+			"PLAYER_STAT_OVER_UNDER",
+			"TEAM_STAT_OVER_UNDER",
+			"GAME_TOTAL_OVER_UNDER",
+			"PLAYER_STAT_NUMERIC_GUESS",
+			"TEAM_STAT_NUMERIC_GUESS",
+			"PLAYER_VS_PLAYER",
+			"TEAM_VS_TEAM",
+			"YES_NO_PROP",
+			"PLAYER_AWARD_FINALISTS",
+			() => {
+				const result = resultState(call.totalPoints)
+				const context = lossContext(call)
+				return (
+					<VStack gap="1.5" alignItems="stretch">
+						<PickRow state={result.status}>
+							<span
+								className={css({
+									fontSize: "lg",
+									fontWeight: "bold",
+									color: "fg.default",
+								})}
+							>
+								{pickSummary(call)}
+							</span>
+						</PickRow>
 						<span
 							className={css({
-								fontSize: "lg",
-								fontWeight: "bold",
-								color: "fg.default",
+								fontFamily: "mono",
+								fontSize: "3xs",
+								color: "fg.subtle",
+								paddingLeft: "6",
 							})}
 						>
-							{pickSummary(call)}
+							{convictionSummary(call)} conviction
+							{context && ` · ${context}`}
 						</span>
-					</PickRow>
-					<span
-						className={css({
-							fontFamily: "mono",
-							fontSize: "3xs",
-							color: "fg.subtle",
-							paddingLeft: "6",
-						})}
-					>
-						{convictionSummary(call)} conviction
-						{context && ` · ${context}`}
-					</span>
-				</VStack>
-			)
-		})
+					</VStack>
+				)
+			},
+		)
 		.exhaustive()
 }
 

@@ -16,12 +16,18 @@ import { closeModal } from "#/stores/modal-store"
 type QuestionForResolve = {
 	id: string
 	title: string
-	type:
-		| "multiple_choice"
-		| "yes_no"
-		| "over_under"
-		| "numeric_guess"
-		| "multi_select"
+	shape:
+		| "player_stat_over_under"
+		| "team_stat_over_under"
+		| "game_total_over_under"
+		| "player_stat_numeric_guess"
+		| "team_stat_numeric_guess"
+		| "player_vs_player"
+		| "team_vs_team"
+		| "yes_no_prop"
+		| "player_season_award"
+		| "team_season_award"
+		| "player_award_finalists"
 	ouLine: number | null
 	options: { id: string; label: string }[]
 }
@@ -44,7 +50,10 @@ export function AdminResolveModal({
 	const [fieldError, setFieldError] = useState<string | null>(null)
 
 	function toggleOption(optionId: string) {
-		if (question.type === "multi_select") {
+		if (
+			question.shape === "player_season_award" ||
+			question.shape === "team_season_award"
+		) {
 			setCorrectOptionIds((prev) =>
 				prev.includes(optionId)
 					? prev.filter((id) => id !== optionId)
@@ -60,7 +69,7 @@ export function AdminResolveModal({
 		setFieldError(null)
 
 		const parsed = adminResolveQuestionSchema.safeParse({
-			type: question.type,
+			shape: question.shape,
 			correctOptionIds,
 			actualValue,
 			resolutionNote,
@@ -127,7 +136,7 @@ export function AdminResolveModal({
 			</span>
 			<VStack gap="4" alignItems="stretch">
 				<ResolveOutcomeFields
-					type={question.type}
+					shape={question.shape}
 					ouLine={question.ouLine}
 					options={question.options}
 					correctOptionIds={correctOptionIds}

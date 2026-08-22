@@ -1,21 +1,25 @@
-import { useState } from "react"
 import type { ReactNode } from "react"
+import { useState } from "react"
 import { css } from "styled-system/css"
 import { VStack } from "styled-system/jsx"
 import { Button } from "#/components/ui/button"
 import { callersText } from "#/lib/field-signal"
 import { OptionRow } from "../option-row"
-import type { QuestionCallType } from "./use-cast-call-form"
+import {
+	isAwardShape,
+	isOverUnderShape,
+	type QuestionCallShape,
+} from "./use-cast-call-form"
 
 // Shared by the visible option rows and the search dropdown below them, so
 // the O/U line suffix can't drift between the two renderings of the same
 // option.
 export function optionDisplayLabel(
 	option: { label: string },
-	type: QuestionCallType,
+	shape: QuestionCallShape,
 	ouLine: number | null,
 ): string {
-	return type === "over_under" && ouLine !== null
+	return isOverUnderShape(shape) && ouLine !== null
 		? `${option.label} ${ouLine}`
 		: option.label
 }
@@ -34,26 +38,23 @@ type PickerOption = {
 
 type Props = {
 	options: PickerOption[]
-	type: QuestionCallType
+	shape: QuestionCallShape
 	ouLine: number | null
 	callCount: number
 	isSelected: (optionId: string) => boolean
 	onSelect: (optionId: string) => void
-	// The single-select picker's in-progress "new option" pick (open-field
-	// only) has no id in `options` yet, so it can't be one of these rows -
-	// rendered after them instead, before "show more" and the count.
 	extraRow?: ReactNode
 }
 
-// The picker half of "how the field's calling it" - single-select
-// (OptionFields: multiple_choice/yes_no/over_under, exactly one pick) and
-// multi-select (MultiSelectFields, several picks) show the exact same rows
-// paginated the exact same way, differing only in what a click on a row
-// does and how many rows can be selected at once. That difference is the
-// caller's to own (isSelected/onSelect), not this component's.
+// The picker half of "how the field's calling it" - single-pick
+// (OptionFields, exactly one pick across 7 different shapes) and multi-pick
+// (MultiSelectFields, several picks) show the exact same rows paginated the
+// exact same way, differing only in what a click on a row does and how many
+// rows can be selected at once. That difference is the caller's to own
+// (isSelected/onSelect), not this component's.
 export function OptionPickerList({
 	options,
-	type,
+	shape,
 	ouLine,
 	callCount,
 	isSelected,
@@ -63,13 +64,22 @@ export function OptionPickerList({
 	const [visibleOptionCount, setVisibleOptionCount] =
 		useState(OPTIONS_PAGE_STEP)
 
+	// Award shapes default to popularity (highest fieldPct first) instead of
+	// the API's sortOrder, so the obvious picks surface before anyone's made
+	// one - see isAwardShape. Sort is stable, so untouched options (fieldPct
+	// tied, usually 0 early on) keep falling back to sortOrder rather than
+	// jumping around arbitrarily.
+	const orderedOptions = isAwardShape(shape)
+		? [...options].sort((a, b) => (b.fieldPct ?? 0) - (a.fieldPct ?? 0))
+		: options
+
 	return (
 		<VStack gap="2.5" alignItems="stretch">
 			<VStack gap="2.5" alignItems="stretch">
-				{options.slice(0, visibleOptionCount).map((option) => (
+				{orderedOptions.slice(0, visibleOptionCount).map((option) => (
 					<OptionRow
 						key={option.id}
-						label={optionDisplayLabel(option, type, ouLine)}
+						label={optionDisplayLabel(option, shape, ouLine)}
 						fieldPct={option.fieldPct}
 						count={option.callCount}
 						selected={isSelected(option.id)}

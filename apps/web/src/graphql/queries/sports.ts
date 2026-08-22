@@ -54,6 +54,7 @@ export const StatsBySportDocument = graphql(`
 			name
 			category
 			sortOrder
+			appliesTo
 		}
 	}
 `)
@@ -73,11 +74,13 @@ export const GameByIdDocument = graphql(`
 			awayScore
 			homeTeam {
 				id
+				name
 				abbreviation
 				color
 			}
 			awayTeam {
 				id
+				name
 				abbreviation
 				color
 			}

@@ -2,15 +2,21 @@ import { VStack } from "styled-system/jsx"
 import { TextInput } from "#/components/ui/text-input"
 import { OptionRow } from "./option-row"
 
-type QuestionType =
-	| "multiple_choice"
-	| "yes_no"
-	| "over_under"
-	| "numeric_guess"
-	| "multi_select"
+type QuestionShape =
+	| "player_stat_over_under"
+	| "team_stat_over_under"
+	| "game_total_over_under"
+	| "player_stat_numeric_guess"
+	| "team_stat_numeric_guess"
+	| "player_vs_player"
+	| "team_vs_team"
+	| "yes_no_prop"
+	| "player_season_award"
+	| "team_season_award"
+	| "player_award_finalists"
 
 type Props = {
-	type: QuestionType
+	shape: QuestionShape
 	ouLine: number | null
 	options: { id: string; label: string }[]
 	correctOptionIds: string[]
@@ -21,11 +27,11 @@ type Props = {
 }
 
 // The outcome-picking half of a resolve form (option pool vs. number input,
-// branched by question type) - shared by the creator's ResolveQuestionModal
+// branched by question shape) - shared by the creator's ResolveQuestionModal
 // and the admin resolve/overturn modals, since the scoring-outcome UI is
 // identical across all three; only the mutation and surrounding copy differ.
 export function ResolveOutcomeFields({
-	type,
+	shape,
 	ouLine,
 	options,
 	correctOptionIds,
@@ -34,7 +40,10 @@ export function ResolveOutcomeFields({
 	onActualValueChange,
 	actualValueError,
 }: Props) {
-	if (type === "numeric_guess") {
+	if (
+		shape === "player_stat_numeric_guess" ||
+		shape === "team_stat_numeric_guess"
+	) {
 		return (
 			<TextInput error={actualValueError}>
 				<TextInput.Label required>Actual value</TextInput.Label>
@@ -59,7 +68,10 @@ export function ResolveOutcomeFields({
 				<OptionRow
 					key={option.id}
 					label={
-						type === "over_under" && ouLine !== null
+						(shape === "player_stat_over_under" ||
+							shape === "team_stat_over_under" ||
+							shape === "game_total_over_under") &&
+						ouLine !== null
 							? `${option.label} ${ouLine}`
 							: option.label
 					}

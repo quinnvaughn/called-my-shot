@@ -1,7 +1,7 @@
 import { useMutation, useQuery } from "@apollo/client/react"
 import {
 	createQuestionSchema,
-	questionCategorySchema,
+	generateQuestionTitle,
 } from "@called-my-shot/schemas"
 import { useNavigate, useRouter } from "@tanstack/react-router"
 import type { ReactNode } from "react"
@@ -12,17 +12,9 @@ import { match } from "ts-pattern"
 import { Button } from "#/components/ui/button"
 import { Card } from "#/components/ui/card"
 import { FieldHint } from "#/components/ui/field-hint"
-import { FieldLabel } from "#/components/ui/field-label"
 import { FormError } from "#/components/ui/form-error"
-import { Select } from "#/components/ui/select"
 import { TextInput } from "#/components/ui/text-input"
-import { Textarea } from "#/components/ui/textarea"
-import type {
-	NumericSubjectType,
-	QuestionCategory,
-	QuestionType,
-	SportsQuery,
-} from "#/graphql/generated/graphql"
+import type { QuestionShape, SportsQuery } from "#/graphql/generated/graphql"
 import { CreateQuestionDocument } from "#/graphql/mutations/questions"
 import {
 	GameByIdDocument,
@@ -31,14 +23,10 @@ import {
 	TeamsByLeagueDocument,
 } from "#/graphql/queries/sports"
 import { useForm } from "#/lib/form/use-form"
-import { questionCategoryLabel } from "#/lib/question-labels"
-import { ChipButton } from "./chip-button"
 import type { EntitySearchItem } from "./entity-search-field"
 import { GameField } from "./game-field"
 import { LeagueField } from "./league-field"
 import { OfficialToggle } from "./official-toggle"
-import { OpenFieldNudge } from "./open-field-nudge"
-import { OpenFieldToggle } from "./open-field-toggle"
 import { OptionList } from "./option-list"
 import { PoolSummary } from "./pool-summary"
 import { QuestionTypePicker } from "./question-type-picker"
@@ -46,10 +34,17 @@ import { ResolutionFields } from "./resolution-fields"
 import { StatPicker } from "./stat-picker"
 import { SubjectPicker } from "./subject-picker"
 
-function categoryLabel(value: string) {
-	if (!value) return "Select a category…"
-	return questionCategoryLabel[value.toUpperCase() as QuestionCategory]
-}
+// player_season_award/team_season_award/player_award_finalists can only ever
+// be posted as official - see questionShapeSchema's ADMIN_ONLY_SHAPES in
+// packages/schemas/src/questions.ts. Kept as its own small list here (rather
+// than imported) since QuestionTypePicker already filters these out of the
+// picker for non-admins - by the time one of these three is selected, the
+// viewer is guaranteed to be an admin.
+const ADMIN_ONLY_SHAPES = [
+	"player_season_award",
+	"team_season_award",
+	"player_award_finalists",
+] as const
 
 function Section({
 	label,
@@ -96,9 +91,7 @@ export function CreateQuestionForm({ sports, isAdmin }: Props) {
 	const form = useForm({
 		schema: createQuestionSchema,
 		defaultValues: {
-			type: "multiple_choice",
-			category: "",
-			title: "",
+			shape: "player_stat_over_under",
 			sportId: "",
 			leagueId: "",
 			gameId: undefined,
@@ -107,26 +100,20 @@ export function CreateQuestionForm({ sports, isAdmin }: Props) {
 			locksAt: "",
 			isOfficial: false,
 			options: [],
-			optionsOpenField: false,
-			openFieldKind: undefined,
 			statId: undefined,
 			customStat: "",
 			ouLine: undefined,
-			// Matches SubjectPicker's default chip state - it always shows PLAYER
-			// pre-selected, so the underlying value should actually start there
-			// too instead of leaving the chips visually ahead of the form state.
-			numericSubjectType: "player",
 			subjectTeamId: undefined,
 			subjectPlayerId: undefined,
-			picksRequired: 5,
+			picksRequired: 1,
+			eventClause: "",
+			awardName: "",
 		},
 		onSubmit: async (values, helpers) => {
 			const { data } = await createQuestion({
 				variables: {
 					input: {
-						type: values.type.toUpperCase() as QuestionType,
-						category: values.category.toUpperCase() as QuestionCategory,
-						title: values.title,
+						shape: values.shape.toUpperCase() as QuestionShape,
 						sportId: values.sportId,
 						leagueId: values.leagueId,
 						gameId: values.gameId,
@@ -139,28 +126,14 @@ export function CreateQuestionForm({ sports, isAdmin }: Props) {
 							teamId: option.teamId,
 							playerId: option.playerId,
 						})),
-						optionsOpenField:
-							values.type === "multiple_choice"
-								? values.optionsOpenField
-								: undefined,
-						openFieldKind:
-							values.type === "multiple_choice" && values.optionsOpenField
-								? (values.openFieldKind?.toUpperCase() as NumericSubjectType)
-								: undefined,
 						statId: values.statId,
 						customStat: values.customStat || undefined,
 						ouLine: values.ouLine,
-						// numericSubjectType defaults to "player" in the picker's chip
-						// state even when over_under's subject is left blank (it's
-						// optional there) - only worth sending once an actual team/
-						// player has been picked, not just because a chip is pre-lit.
-						numericSubjectType:
-							values.subjectTeamId || values.subjectPlayerId
-								? (values.numericSubjectType?.toUpperCase() as NumericSubjectType)
-								: undefined,
 						subjectTeamId: values.subjectTeamId,
 						subjectPlayerId: values.subjectPlayerId,
 						picksRequired: values.picksRequired,
+						eventClause: values.eventClause || undefined,
+						awardName: values.awardName || undefined,
 					},
 				},
 			})
@@ -197,16 +170,19 @@ export function CreateQuestionForm({ sports, isAdmin }: Props) {
 		},
 	})
 
-	const type = form.useWatch("type")
-	const category = form.useWatch("category")
+	const shape = form.useWatch("shape")
 	const sportId = form.useWatch("sportId")
 	const leagueId = form.useWatch("leagueId")
 	const gameId = form.useWatch("gameId")
-	const optionsOpenField = form.useWatch("optionsOpenField")
-	const openFieldKind = form.useWatch("openFieldKind")
 	const options = form.useWatch("options")
 	const subjectTeamId = form.useWatch("subjectTeamId")
 	const subjectPlayerId = form.useWatch("subjectPlayerId")
+	const statId = form.useWatch("statId")
+	const customStat = form.useWatch("customStat")
+	const ouLine = form.useWatch("ouLine")
+	const awardName = form.useWatch("awardName")
+	const eventClause = form.useWatch("eventClause")
+	const picksRequired = form.useWatch("picksRequired")
 
 	const { data: teamsData } = useQuery(TeamsByLeagueDocument, {
 		variables: { leagueId },
@@ -282,104 +258,198 @@ export function CreateQuestionForm({ sports, isAdmin }: Props) {
 		)
 	}, [gameTeamIds, subjectTeamId, subjectPlayerId, players, form])
 
-	const optionItems: EntitySearchItem[] | null =
-		category === "season_awards" || category === "game_stats"
-			? scopedTeams.map((team) => ({
+	const isPlayerStatOU = shape === "player_stat_over_under"
+	const isTeamStatOU = shape === "team_stat_over_under"
+	const isGameTotalOU = shape === "game_total_over_under"
+	const isAnyOU = isPlayerStatOU || isTeamStatOU || isGameTotalOU
+	const isPlayerNumeric = shape === "player_stat_numeric_guess"
+	const isTeamNumeric = shape === "team_stat_numeric_guess"
+	const isPlayerVsPlayer = shape === "player_vs_player"
+	const isTeamVsTeam = shape === "team_vs_team"
+	const isYesNo = shape === "yes_no_prop"
+	const isPlayerAward = shape === "player_season_award"
+	const isTeamAward = shape === "team_season_award"
+	const isAnyAward = isPlayerAward || isTeamAward
+	const isFinalists = shape === "player_award_finalists"
+	const isAdminOnlyShape = (ADMIN_ONLY_SHAPES as readonly string[]).includes(
+		shape,
+	)
+
+	// player_season_award/team_season_award's pool is always the full league
+	// roster (see pool-summary.tsx) - player_award_finalists' is a small,
+	// admin-curated shortlist of real announced finalists instead (see
+	// option-list.tsx). Neither is scoped to a picked game since none of
+	// these three shapes are game-scoped in the first place.
+	const awardPoolItems: EntitySearchItem[] | null = isPlayerAward
+		? players.map((player) => ({
+				id: player.id,
+				label: player.name,
+				kind: "player" as const,
+				meta: player.currentTeam?.abbreviation,
+			}))
+		: isTeamAward
+			? teams.map((team) => ({
 					id: team.id,
 					label: team.name,
 					kind: "team" as const,
 					meta: team.abbreviation,
 				}))
-			: category === "player_stats"
-				? scopedPlayers.map((player) => ({
-						id: player.id,
-						label: player.name,
-						kind: "player" as const,
-						meta: player.currentTeam?.abbreviation,
-					}))
-				: null
+			: null
+	const finalistItems: EntitySearchItem[] | null = isFinalists
+		? players.map((player) => ({
+				id: player.id,
+				label: player.name,
+				kind: "player" as const,
+				meta: player.currentTeam?.abbreviation,
+			}))
+		: null
 
-	function selectType(next: typeof type) {
-		form.setValue("type", next)
+	function selectType(next: typeof shape) {
+		form.setValue("shape", next)
 		setHasSelectedType(true)
-		// Type-specific fields from whatever was previously selected shouldn't
-		// leak into the newly chosen type's submission.
-		form.setValue("options", [])
-		form.setValue("optionsOpenField", false)
-		form.setValue("openFieldKind", undefined)
+		// Shape-specific fields from whatever was previously selected shouldn't
+		// leak into the newly chosen shape's submission. player_vs_player gets
+		// its 2 fixed slots pre-seeded here rather than grown/shrunk by
+		// OptionList itself (see its exactCount prop) - there's never a valid
+		// state with anything other than exactly 2 for this shape.
+		form.setValue(
+			"options",
+			next === "player_vs_player" ? [{ label: "" }, { label: "" }] : [],
+		)
 		form.setValue("statId", undefined)
 		form.setValue("customStat", "")
 		form.setValue("ouLine", undefined)
-		form.setValue("numericSubjectType", "player")
 		form.setValue("subjectTeamId", undefined)
 		form.setValue("subjectPlayerId", undefined)
-		form.setValue("picksRequired", 5)
+		form.setValue("picksRequired", 1)
+		form.setValue("eventClause", "")
+		form.setValue("awardName", "")
+		if ((ADMIN_ONLY_SHAPES as readonly string[]).includes(next)) {
+			form.setValue("isOfficial", true)
+		}
 	}
+
+	// Mirrors generateQuestionTitle's own server-side call (see createQuestion
+	// in apps/api's resolver) against whatever's filled in so far - null once
+	// any piece it needs is still missing, rather than a half-built string.
+	const selectedStatName = statId
+		? stats.find((stat) => stat.id === statId)?.name
+		: undefined
+	const statName = selectedStatName ?? customStat
+	const selectedPlayerName = subjectPlayerId
+		? players.find((player) => player.id === subjectPlayerId)?.name
+		: undefined
+	const selectedTeamName = subjectTeamId
+		? teams.find((team) => team.id === subjectTeamId)?.name
+		: undefined
+	const subjectName = selectedPlayerName ?? selectedTeamName ?? null
+
+	const titlePreview: string | null = match(shape)
+		.with("player_stat_over_under", (s) =>
+			selectedPlayerName && statName && ouLine !== undefined
+				? generateQuestionTitle({
+						shape: s,
+						playerName: selectedPlayerName,
+						statName,
+						ouLine,
+					})
+				: null,
+		)
+		.with("team_stat_over_under", (s) =>
+			selectedTeamName && statName && ouLine !== undefined
+				? generateQuestionTitle({
+						shape: s,
+						teamName: selectedTeamName,
+						statName,
+						ouLine,
+					})
+				: null,
+		)
+		.with("game_total_over_under", (s) =>
+			selectedGame && statName && ouLine !== undefined
+				? generateQuestionTitle({
+						shape: s,
+						awayTeamName: selectedGame.awayTeam.name,
+						homeTeamName: selectedGame.homeTeam.name,
+						statName,
+						ouLine,
+					})
+				: null,
+		)
+		.with("player_stat_numeric_guess", (s) =>
+			selectedPlayerName && statName
+				? generateQuestionTitle({
+						shape: s,
+						playerName: selectedPlayerName,
+						statName,
+					})
+				: null,
+		)
+		.with("team_stat_numeric_guess", (s) =>
+			selectedTeamName && statName
+				? generateQuestionTitle({
+						shape: s,
+						teamName: selectedTeamName,
+						statName,
+					})
+				: null,
+		)
+		.with("player_vs_player", (s) => {
+			const [a, b] = options
+			return a?.label && b?.label && statName
+				? generateQuestionTitle({
+						shape: s,
+						playerAName: a.label,
+						playerBName: b.label,
+						statName,
+					})
+				: null
+		})
+		.with("team_vs_team", (s) =>
+			selectedGame
+				? generateQuestionTitle({
+						shape: s,
+						awayTeamName: selectedGame.awayTeam.name,
+						homeTeamName: selectedGame.homeTeam.name,
+					})
+				: null,
+		)
+		.with("yes_no_prop", (s) =>
+			eventClause.trim()
+				? generateQuestionTitle({ shape: s, subjectName, eventClause })
+				: null,
+		)
+		.with("player_season_award", "team_season_award", (s) =>
+			awardName.trim() && picksRequired
+				? generateQuestionTitle({ shape: s, awardName, picksRequired })
+				: null,
+		)
+		.with("player_award_finalists", (s) =>
+			awardName.trim() && options.length >= 2
+				? generateQuestionTitle({
+						shape: s,
+						awardName,
+						finalistNames: options.map((option) => option.label),
+					})
+				: null,
+		)
+		.exhaustive()
 
 	return (
 		<form onSubmit={form.handleSubmit}>
 			<VStack gap="6" alignItems="stretch">
 				<Section label="What kind of call is this?" required>
 					<QuestionTypePicker
-						value={hasSelectedType ? type : null}
+						value={hasSelectedType ? shape : null}
 						onChange={selectType}
+						isAdmin={isAdmin}
 					/>
 				</Section>
 
 				{hasSelectedType && (
 					<>
-						<Section label="The question" required>
-							<Card>
-								<Card.Body>
-									<VStack gap="3.5" alignItems="stretch">
-										<form.Field name="title">
-											{(field) => (
-												<Textarea error={field.meta.error ?? undefined}>
-													<Textarea.Label required>
-														Question text
-													</Textarea.Label>
-													<Textarea.Field
-														placeholder="e.g. Who wins the 2027 championship?"
-														maxLength={140}
-														aria-required
-														value={field.value}
-														onChange={field.onChange}
-														onBlur={field.onBlur}
-													/>
-												</Textarea>
-											)}
-										</form.Field>
-										<VStack gap="1.5" alignItems="stretch">
-											<FieldLabel required>Category</FieldLabel>
-											<form.Field name="category">
-												{(field) => (
-													<Select
-														value={field.value}
-														onValueChange={field.onChange}
-														error={field.meta.error ?? undefined}
-														description="Determines which real teams or players the options below can pull from."
-													>
-														<Select.Trigger>
-															{categoryLabel(field.value)}
-														</Select.Trigger>
-														<Select.Content>
-															{questionCategorySchema.options.map((c) => (
-																<Select.Option key={c} value={c}>
-																	{categoryLabel(c)}
-																</Select.Option>
-															))}
-														</Select.Content>
-													</Select>
-												)}
-											</form.Field>
-										</VStack>
-									</VStack>
-								</Card.Body>
-							</Card>
-						</Section>
-
-						{type === "multiple_choice" && (
-							<Section label="Options" required>
+						{(isAnyOU || isPlayerNumeric || isTeamNumeric) && (
+							<Section label={isAnyOU ? "The line" : "The stat"} required>
 								<Card>
 									<Card.Body>
 										<VStack gap="3.5" alignItems="stretch">
@@ -388,165 +458,77 @@ export function CreateQuestionForm({ sports, isAdmin }: Props) {
 												form={form}
 												leagueId={leagueId}
 												selectedGame={selectedGame}
-											/>
-											<form.Field name="optionsOpenField">
-												{(field) => (
-													<OpenFieldToggle
-														checked={!!field.value}
-														onChange={(checked) => {
-															field.onChange(checked)
-															form.setValue("options", [])
-															form.setValue("openFieldKind", undefined)
-														}}
-													/>
-												)}
-											</form.Field>
-											{optionsOpenField ? (
-												<VStack gap="2" alignItems="stretch">
-													<FieldLabel required>What fills the field</FieldLabel>
-													<HStack gap="1.5">
-														{(["player", "team"] as const).map((kind) => (
-															<ChipButton
-																key={kind}
-																selected={openFieldKind === kind}
-																onClick={() =>
-																	form.setValue("openFieldKind", kind)
-																}
-															>
-																{kind.toUpperCase()}
-															</ChipButton>
-														))}
-													</HStack>
-												</VStack>
-											) : (
-												<>
-													{(category === "season_awards" ||
-														category === "player_stats") &&
-														options.length > 0 && (
-															<OpenFieldNudge
-																onSwitchToOpenField={() => {
-																	form.setValue("optionsOpenField", true)
-																	form.setValue("options", [])
-																	form.setValue("openFieldKind", undefined)
-																}}
-															/>
-														)}
-													<OptionList
-														form={form}
-														items={optionItems}
-														rowPlaceholder="Option name"
-														addLabel="+ Add option"
-													/>
-												</>
-											)}
-										</VStack>
-									</Card.Body>
-								</Card>
-							</Section>
-						)}
-
-						{type === "yes_no" && (
-							<Section label="Options">
-								<Card>
-									<Card.Body>
-										<VStack gap="3.5" alignItems="stretch">
-											<LeagueField form={form} sports={sports} />
-											<GameField
-												form={form}
-												leagueId={leagueId}
-												selectedGame={selectedGame}
-											/>
-											<p
-												className={css({ fontSize: "xs", color: "fg.subtle" })}
-											>
-												Fixed at exactly two options — nothing to type, nothing
-												to configure.
-											</p>
-										</VStack>
-									</Card.Body>
-								</Card>
-							</Section>
-						)}
-
-						{type === "over_under" && (
-							<Section label="The line" required>
-								<Card>
-									<Card.Body>
-										<VStack gap="3.5" alignItems="stretch">
-											<LeagueField form={form} sports={sports} />
-											<GameField
-												form={form}
-												leagueId={leagueId}
-												selectedGame={selectedGame}
-											/>
-											<StatPicker form={form} stats={stats} />
-											<div className={css({ width: "64" })}>
-												<form.Field name="ouLine">
-													{(field) => (
-														<TextInput
-															error={field.meta.error ?? undefined}
-															description="Can't be a whole number - the result has to be able to land on one side or the other, never exactly on it."
-														>
-															<TextInput.Label required>
-																Line value
-															</TextInput.Label>
-															<TextInput.Group>
-																<TextInput.Field
-																	type="number"
-																	step="0.5"
-																	placeholder="224.5"
-																	aria-required
-																	value={field.value ?? ""}
-																	onChange={(e) =>
-																		field.onChange(
-																			e.target.value === ""
-																				? undefined
-																				: Number(e.target.value),
-																		)
-																	}
-																	onBlur={field.onBlur}
-																/>
-															</TextInput.Group>
-														</TextInput>
-													)}
-												</form.Field>
-											</div>
-											<SubjectPicker
-												form={form}
-												teams={scopedTeams}
-												players={scopedPlayers}
-											/>
-										</VStack>
-									</Card.Body>
-								</Card>
-							</Section>
-						)}
-
-						{type === "numeric_guess" && (
-							<Section label="The stat" required>
-								<Card>
-									<Card.Body>
-										<VStack gap="3.5" alignItems="stretch">
-											<LeagueField form={form} sports={sports} />
-											<GameField
-												form={form}
-												leagueId={leagueId}
-												selectedGame={selectedGame}
+												required={isGameTotalOU || isPlayerNumeric || isTeamNumeric}
 											/>
 											{leagueId ? (
 												<>
-													<StatPicker form={form} stats={stats} catalogOnly />
-													<SubjectPicker
+													<StatPicker
 														form={form}
-														teams={scopedTeams}
-														players={scopedPlayers}
-														required
+														stats={stats.filter(
+															(s) =>
+																s.appliesTo === "BOTH" ||
+																s.appliesTo ===
+																	(isPlayerStatOU || isPlayerNumeric
+																		? "PLAYER"
+																		: "TEAM"),
+														)}
+														catalogOnly={isPlayerNumeric || isTeamNumeric}
 													/>
+													{isAnyOU && (
+														<div className={css({ width: "64" })}>
+															<form.Field name="ouLine">
+																{(field) => (
+																	<TextInput
+																		error={field.meta.error ?? undefined}
+																		description="Can't be a whole number - the result has to be able to land on one side or the other, never exactly on it."
+																	>
+																		<TextInput.Label required>
+																			Line value
+																		</TextInput.Label>
+																		<TextInput.Group>
+																			<TextInput.Field
+																				type="number"
+																				step="0.5"
+																				placeholder="224.5"
+																				aria-required
+																				value={field.value ?? ""}
+																				onChange={(e) =>
+																					field.onChange(
+																						e.target.value === ""
+																							? undefined
+																							: Number(e.target.value),
+																					)
+																				}
+																				onBlur={field.onBlur}
+																			/>
+																		</TextInput.Group>
+																	</TextInput>
+																)}
+															</form.Field>
+														</div>
+													)}
+													{(isPlayerStatOU ||
+														isTeamStatOU ||
+														isPlayerNumeric ||
+														isTeamNumeric) && (
+														<SubjectPicker
+															form={form}
+															teams={scopedTeams}
+															players={scopedPlayers}
+															kind={
+																isPlayerStatOU || isPlayerNumeric
+																	? "player"
+																	: "team"
+															}
+															required
+														/>
+													)}
 												</>
 											) : (
 												<FieldHint>
-													Pick a league above to choose the stat and subject -
-													both pull from that league's catalog.
+													Pick a league above to choose the stat{" "}
+													{isAnyOU ? "and subject" : "and subject"} - both pull
+													from that league's catalog.
 												</FieldHint>
 											)}
 										</VStack>
@@ -555,8 +537,8 @@ export function CreateQuestionForm({ sports, isAdmin }: Props) {
 							</Section>
 						)}
 
-						{type === "multi_select" && (
-							<Section label="Pool & picks" required>
+						{isPlayerVsPlayer && (
+							<Section label="The comparison" required>
 								<Card>
 									<Card.Body>
 										<VStack gap="3.5" alignItems="stretch">
@@ -566,21 +548,148 @@ export function CreateQuestionForm({ sports, isAdmin }: Props) {
 												leagueId={leagueId}
 												selectedGame={selectedGame}
 											/>
+											<StatPicker
+												form={form}
+												stats={stats.filter(
+													(s) => s.appliesTo === "BOTH" || s.appliesTo === "PLAYER",
+												)}
+											/>
+											<OptionList
+												form={form}
+												items={scopedPlayers.map((player) => ({
+													id: player.id,
+													label: player.name,
+													kind: "player" as const,
+													meta: player.currentTeam?.abbreviation,
+												}))}
+												rowPlaceholder="Player name"
+												addLabel="+ Add player"
+												exactCount={2}
+											/>
+										</VStack>
+									</Card.Body>
+								</Card>
+							</Section>
+						)}
+
+						{isTeamVsTeam && (
+							<Section label="The matchup" required>
+								<Card>
+									<Card.Body>
+										<VStack gap="3.5" alignItems="stretch">
+											<LeagueField form={form} sports={sports} />
+											<GameField
+												form={form}
+												leagueId={leagueId}
+												selectedGame={selectedGame}
+												required
+											/>
+											<p
+												className={css({ fontSize: "xs", color: "fg.subtle" })}
+											>
+												The two options are the game's own home and away teams -
+												nothing to configure once a game's picked.
+											</p>
+										</VStack>
+									</Card.Body>
+								</Card>
+							</Section>
+						)}
+
+						{isYesNo && (
+							<Section label="The proposition" required>
+								<Card>
+									<Card.Body>
+										<VStack gap="3.5" alignItems="stretch">
+											<LeagueField form={form} sports={sports} />
+											<GameField
+												form={form}
+												leagueId={leagueId}
+												selectedGame={selectedGame}
+											/>
+											<form.Field name="eventClause">
+												{(field) => (
+													<TextInput
+														error={field.meta.error ?? undefined}
+														description={
+															'What follows "Will {subject}…" - e.g. "signs a contract extension by March 1."'
+														}
+													>
+														<TextInput.Label required>
+															What's being predicted
+														</TextInput.Label>
+														<TextInput.Group>
+															<TextInput.Field
+																placeholder="records a triple-double tonight"
+																aria-required
+																value={field.value}
+																onChange={field.onChange}
+																onBlur={field.onBlur}
+															/>
+														</TextInput.Group>
+													</TextInput>
+												)}
+											</form.Field>
+											<SubjectPicker
+												form={form}
+												teams={scopedTeams}
+												players={scopedPlayers}
+												kind="either"
+											/>
+											<p
+												className={css({ fontSize: "xs", color: "fg.subtle" })}
+											>
+												Fixed at exactly two options — nothing else to
+												configure.
+											</p>
+										</VStack>
+									</Card.Body>
+								</Card>
+							</Section>
+						)}
+
+						{isAnyAward && (
+							<Section label="The award" required>
+								<Card>
+									<Card.Body>
+										<VStack gap="3.5" alignItems="stretch">
+											<LeagueField form={form} sports={sports} />
+											<form.Field name="awardName">
+												{(field) => (
+													<TextInput
+														error={field.meta.error ?? undefined}
+														description={`The award's real name, e.g. "MVP" or "Rookie of the Year."`}
+													>
+														<TextInput.Label required>
+															Award name
+														</TextInput.Label>
+														<TextInput.Group>
+															<TextInput.Field
+																placeholder="MVP"
+																aria-required
+																value={field.value}
+																onChange={field.onChange}
+																onBlur={field.onBlur}
+															/>
+														</TextInput.Group>
+													</TextInput>
+												)}
+											</form.Field>
 											<div className={css({ width: "64" })}>
 												<form.Field name="picksRequired">
 													{(field) => (
 														<TextInput
 															error={field.meta.error ?? undefined}
-															description="Only works if the real result is guaranteed to be exactly this many - not for anything where the actual count could vary."
+															description="1 for a single-winner award (MVP). Higher for a fixed-size group award (an All-NBA team)."
 														>
 															<TextInput.Label required>
-																Picks required
+																Winners
 															</TextInput.Label>
 															<TextInput.Group>
 																<TextInput.Field
 																	type="number"
 																	aria-required
-																	min={2}
+																	min={1}
 																	max={15}
 																	value={field.value ?? ""}
 																	onChange={(e) =>
@@ -597,21 +706,85 @@ export function CreateQuestionForm({ sports, isAdmin }: Props) {
 													)}
 												</form.Field>
 											</div>
-											{optionItems === null ? (
-												<OptionList
-													form={form}
-													items={optionItems}
-													rowPlaceholder="Candidate name"
-													addLabel="+ Add candidate"
-												/>
+											{awardPoolItems === null ? (
+												<FieldHint>Pick a league to see the pool.</FieldHint>
 											) : (
-												<PoolSummary form={form} items={optionItems} />
+												<PoolSummary form={form} items={awardPoolItems} />
 											)}
 										</VStack>
 									</Card.Body>
 								</Card>
 							</Section>
 						)}
+
+						{isFinalists && (
+							<Section label="The award" required>
+								<Card>
+									<Card.Body>
+										<VStack gap="3.5" alignItems="stretch">
+											<LeagueField form={form} sports={sports} />
+											<form.Field name="awardName">
+												{(field) => (
+													<TextInput
+														error={field.meta.error ?? undefined}
+														description={`The award's real name, e.g. "Defensive Player of the Year."`}
+													>
+														<TextInput.Label required>
+															Award name
+														</TextInput.Label>
+														<TextInput.Group>
+															<TextInput.Field
+																placeholder="Defensive Player of the Year"
+																aria-required
+																value={field.value}
+																onChange={field.onChange}
+																onBlur={field.onBlur}
+															/>
+														</TextInput.Group>
+													</TextInput>
+												)}
+											</form.Field>
+											<OptionList
+												form={form}
+												items={finalistItems}
+												rowPlaceholder="Finalist name"
+												addLabel="+ Add finalist"
+											/>
+										</VStack>
+									</Card.Body>
+								</Card>
+							</Section>
+						)}
+
+						<Section label="Title">
+							<Card>
+								<Card.Body>
+									<VStack gap="1.5" alignItems="stretch">
+										<span
+											className={css({
+												fontFamily: "mono",
+												fontSize: "2xs",
+												letterSpacing: "wide",
+												color: "fg.subtle",
+												textTransform: "uppercase",
+											})}
+										>
+											Generated automatically
+										</span>
+										<span
+											className={css({
+												fontSize: "md",
+												fontWeight: "semibold",
+												color: titlePreview ? "fg.default" : "fg.subtle",
+											})}
+										>
+											{titlePreview ??
+												"Fill in the fields above to preview your title."}
+										</span>
+									</VStack>
+								</Card.Body>
+							</Card>
+						</Section>
 
 						<Section label="Resolution" required>
 							<Card>
@@ -630,6 +803,7 @@ export function CreateQuestionForm({ sports, isAdmin }: Props) {
 												<OfficialToggle
 													checked={!!field.value}
 													onChange={(checked) => field.onChange(checked)}
+													disabled={isAdminOnlyShape}
 												/>
 											)}
 										</form.Field>

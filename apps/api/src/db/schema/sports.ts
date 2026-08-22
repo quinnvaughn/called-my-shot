@@ -108,6 +108,16 @@ export const statToleranceTiers = pgTable("stat_tolerance_tiers", {
 })
 export type StatToleranceTier = typeof statToleranceTiers.$inferSelect
 
+// Which subject kind(s) a stat can resolve against - "both" covers most
+// counting stats (a team's total rebounds is as real a number as a player's),
+// "player"/"team" are for the genuine outliers where only one level makes
+// sense (an NFL player has no individual "Points" line the way a team's
+// final score does; "Wins" is a team/season concept no player personally
+// has). Lets the create-question form and the resolver both reject a stat
+// picked against a subject kind it was never meant for, instead of only the
+// UI's own convention keeping that straight.
+export const statAppliesTo = pgEnum("stat_applies_to", ["player", "team", "both"])
+
 // Scoped to sport, not league - NBA and NCAAB share a stat vocabulary even
 // though they're different leagues. category groups a long list for display
 // (e.g. "Scoring", "Rebounding", "Passing") rather than one flat wall of options.
@@ -121,6 +131,10 @@ export const stats = pgTable(
 		name: text("name").notNull(), // "Points", "Passing Yards"
 		category: text("category").notNull(),
 		sortOrder: integer("sort_order").notNull().default(0),
+		// Defaults "both" so an existing catalog row (or a migration backfill)
+		// isn't wrongly narrowed without a human classifying it - see
+		// statAppliesTo above.
+		appliesTo: statAppliesTo("applies_to").notNull().default("both"),
 		// Every stat gets one, even stats only ever used for over_under (which
 		// has no tolerance concept and ignores this) - assigning it costs
 		// nothing and means numeric_guess never has to handle "this catalog

@@ -1,8 +1,8 @@
 import { match } from "ts-pattern"
-import type { QuestionType } from "#/graphql/generated/graphql"
+import type { QuestionShape } from "#/graphql/generated/graphql"
 
 export type ResolvedAnswerData = {
-	type: QuestionType
+	shape: QuestionShape
 	ouLine: number | null
 	numericActualValue: number | null
 	options: { label: string; isCorrect: boolean | null }[]
@@ -16,11 +16,26 @@ export type ResolvedAnswerData = {
 export function resolvedAnswerSummary(
 	question: ResolvedAnswerData,
 ): string | null {
-	return match(question.type)
-		.with("OVER_UNDER", () => formatOverUnder(question))
-		.with("MULTI_SELECT", () => formatMultiSelect(question))
-		.with("NUMERIC_GUESS", () => formatNumeric(question))
-		.with("MULTIPLE_CHOICE", "YES_NO", () => formatSingleSelection(question))
+	return match(question.shape)
+		.with(
+			"PLAYER_STAT_OVER_UNDER",
+			"TEAM_STAT_OVER_UNDER",
+			"GAME_TOTAL_OVER_UNDER",
+			() => formatOverUnder(question),
+		)
+		.with("PLAYER_SEASON_AWARD", "TEAM_SEASON_AWARD", () =>
+			formatMultiSelect(question),
+		)
+		.with("PLAYER_STAT_NUMERIC_GUESS", "TEAM_STAT_NUMERIC_GUESS", () =>
+			formatNumeric(question),
+		)
+		.with(
+			"PLAYER_VS_PLAYER",
+			"TEAM_VS_TEAM",
+			"YES_NO_PROP",
+			"PLAYER_AWARD_FINALISTS",
+			() => formatSingleSelection(question),
+		)
 		.exhaustive()
 }
 

@@ -23,8 +23,8 @@ export const UserProfileDocument = graphql(`
 				rank
 				accuracy
 				callCount
-				categoryBreakdown {
-					category
+				shapeBreakdown {
+					shape
 					accuracy
 					callCount
 				}

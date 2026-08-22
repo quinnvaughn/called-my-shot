@@ -10,13 +10,12 @@ type Props = {
 	items: EntitySearchItem[]
 }
 
-// Multi-select's pool, when the category has a fixed vocabulary (teams or
-// players) - the pool just *is* the whole vocabulary, not something worth
-// curating row by row (an All-League-Team pick draws from every player in
-// the league; nobody's hand-searching and adding hundreds of them one at a
-// time). Syncs the full list into `options` automatically. OptionList only
-// takes over for category "Other", which has no vocabulary to derive a
-// pool from in the first place.
+// player_season_award/team_season_award's pool - always the full league
+// roster, not something worth curating row by row (an All-League-Team pick
+// draws from every player in the league; nobody's hand-searching and adding
+// hundreds of them one at a time - see the shape's own comment on
+// questions.ts for why there's no curated-shortlist mode). Syncs the full
+// list into `options` automatically.
 export function PoolSummary({ form, items }: Props) {
 	useEffect(() => {
 		form.setValue(

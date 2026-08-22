@@ -1,5 +1,5 @@
 import {
-	BASE_POINTS_BY_TYPE,
+	BASE_POINTS_BY_SHAPE,
 	earlyTierFor,
 	fieldPct,
 	numericGuessPoints,
@@ -14,6 +14,7 @@ import {
 	insertGroupInvite,
 } from "../lib/groups"
 import { hashPassword } from "../lib/password"
+import { syncStatCatalog } from "./catalog/stats"
 import { db } from "./index"
 import {
 	callSelections,
@@ -29,9 +30,6 @@ import {
 	questions,
 	questionVoids,
 	resolutionDisputes,
-	type StatToleranceTier,
-	stats,
-	statToleranceTiers,
 	type Team,
 	users,
 } from "./schema"
@@ -132,6 +130,27 @@ async function addPlayerOptions(questionId: string, playerRows: Player[]) {
 		.returning()
 }
 
+// player_season_award/team_season_award seed a full-roster pool (see
+// addTeamOptions/addPlayerOptions calls below) rather than a curated
+// shortlist - these look up the specific option a call needs to reference
+// out of that full pool by the real team/player's id.
+function optionByTeamId(
+	pool: QuestionOption[],
+	teamId: string,
+): QuestionOption {
+	const option = pool.find((o) => o.teamId === teamId)
+	if (!option) throw new Error(`Missing option for team ${teamId}`)
+	return option
+}
+function optionByPlayerId(
+	pool: QuestionOption[],
+	playerId: string,
+): QuestionOption {
+	const option = pool.find((o) => o.playerId === playerId)
+	if (!option) throw new Error(`Missing option for player ${playerId}`)
+	return option
+}
+
 async function callOnOptions(
 	questionId: string,
 	userId: string,
@@ -166,43 +185,6 @@ async function callWithGuess(
 	return call
 }
 
-// multiple_choice on an optionsOpenField question only - mirrors what
-// castCall's resolver does when a caller picks someone not in the pool yet:
-// find their existing option on this question, or create it now. Lets the
-// seed model an open-field question's pool as genuinely caller-sourced
-// instead of pre-listed by addPlayerOptions like a normal multiple_choice.
-async function callOnOpenField(
-	questionId: string,
-	userId: string,
-	player: Player,
-	conviction: number,
-	caseText?: string,
-) {
-	const existingOptions = await db.query.questionOptions.findMany({
-		where: { questionId },
-	})
-	const existing = existingOptions.find((o) => o.playerId === player.id)
-	const option =
-		existing ??
-		(
-			await db
-				.insert(questionOptions)
-				.values({
-					questionId,
-					label: player.name,
-					playerId: player.id,
-					sortOrder: existingOptions.length,
-				})
-				.returning()
-		)[0]
-	return callOnOptions(
-		questionId,
-		userId,
-		[{ optionId: option.id, conviction }],
-		caseText,
-	)
-}
-
 // Marks the winning option(s) and scores every selection made on this
 // question via the same tierFor/selectionPoints math the live app will use.
 // Each option's field share is computed once here, off the final tally, and
@@ -216,10 +198,10 @@ async function resolveOptionQuestion(
 ) {
 	const question = await db.query.questions.findFirst({
 		where: { id: questionId },
-		columns: { type: true },
+		columns: { shape: true },
 	})
 	if (!question) throw new Error(`Question ${questionId} not found`)
-	const basePoints = BASE_POINTS_BY_TYPE[question.type]
+	const basePoints = BASE_POINTS_BY_SHAPE[question.shape]
 
 	const questionCalls = await db.query.calls.findMany({
 		where: { questionId },
@@ -292,9 +274,14 @@ async function resolveNumericQuestion(
 			conviction: call.conviction,
 			createdAt: call.createdAt,
 		}))
+	const question = await db.query.questions.findFirst({
+		where: { id: questionId },
+		columns: { shape: true },
+	})
+	if (!question) throw new Error(`Question ${questionId} not found`)
 	const resultByCallId = new Map(
 		numericGuessPoints(
-			BASE_POINTS_BY_TYPE.numeric_guess,
+			BASE_POINTS_BY_SHAPE[question.shape],
 			guesses,
 			actualValue,
 			tolerancePct,
@@ -359,7 +346,7 @@ async function backfillUserLeagueStats() {
 			join calls on calls.id = cs.call_id
 			join question_options qo on qo.id = cs.option_id
 			join questions q on q.id = calls.question_id
-			where q.type != 'numeric_guess'
+			where q.shape not in ('player_stat_numeric_guess', 'team_stat_numeric_guess')
 			union all
 			select
 				calls.user_id as user_id,
@@ -370,7 +357,7 @@ async function backfillUserLeagueStats() {
 				calls.id as call_id
 			from calls
 			join questions q on q.id = calls.question_id
-			where q.type = 'numeric_guess'
+			where q.shape in ('player_stat_numeric_guess', 'team_stat_numeric_guess')
 		)
 		select
 			user_id,
@@ -399,6 +386,7 @@ async function main() {
 	const restPasswordHash = await hashPassword("password")
 
 	const [
+		calledMyShot,
 		quinn,
 		mpwolves,
 		tswish,
@@ -415,6 +403,18 @@ async function main() {
 	] = await db
 		.insert(users)
 		.values([
+			{
+				// The account every isOfficial question is attributed to (see
+				// getOfficialAccountId in lib/official-account.ts) - not a real
+				// hash, on purpose, so this account can never actually be signed
+				// into. Matches the 20260822022433_official_account migration's
+				// row exactly (same username), since that's what production runs
+				// instead of this file.
+				name: "Called My Shot",
+				username: "calledmyshot",
+				email: "official@calledmyshot.com",
+				passwordHash: "NO_LOGIN_OFFICIAL_ACCOUNT",
+			},
 			{
 				name: "Quinn Vaughn",
 				username: "quinn",
@@ -541,7 +541,9 @@ async function main() {
 	const basketball = await db.query.sports.findFirst({
 		where: { slug: "basketball" },
 	})
-	const football = await db.query.sports.findFirst({ where: { slug: "football" } })
+	const football = await db.query.sports.findFirst({
+		where: { slug: "football" },
+	})
 	if (!basketball || !football) {
 		throw new Error("Missing synced sports - run `pnpm sync:sports` first")
 	}
@@ -603,67 +605,16 @@ async function main() {
 		return player
 	}
 
-	// Two tolerance tiers, not one row per stat - a low-count box-score stat
-	// (rebounds, a touchdown count) needs a looser percentage than a
-	// high-volume one (passing yards, points) or rounding to the nearest whole
-	// number eats most of the band. Every stat below points at one of these;
-	// adding a new stat later means classifying it into an existing tier, not
-	// inventing a new percentage.
-	const [lowCountTier, highVolumeTier] = await db
-		.insert(statToleranceTiers)
-		.values([
-			{ name: "Low-Count Box Stat", tolerancePct: 0.15 },
-			{ name: "High-Volume", tolerancePct: 0.1 },
-		])
-		.returning()
-
-	// Scoped to sport, not league - NBA and NCAAB (once we have it) share this
-	// same catalog. category groups the list for display instead of one flat
-	// wall of chips.
-	const basketballStatRows = await db
-		.insert(stats)
-		.values(
-			[
-				["Points", "Scoring", highVolumeTier],
-				["3-Pointers Made", "Scoring", lowCountTier],
-				["Rebounds", "Rebounding", lowCountTier],
-				["Assists", "Playmaking", lowCountTier],
-				["Turnovers", "Playmaking", lowCountTier],
-				["Steals", "Defense", lowCountTier],
-				["Blocks", "Defense", lowCountTier],
-			].map(([name, category, tier], sortOrder) => ({
-				sportId: basketball.id,
-				name: name as string,
-				category: category as string,
-				toleranceTierId: (tier as StatToleranceTier).id,
-				sortOrder,
-			})),
-		)
-		.returning()
-
-	const footballStatRows = await db
-		.insert(stats)
-		.values(
-			[
-				["Points", "Scoring", highVolumeTier],
-				["Passing Yards", "Passing", highVolumeTier],
-				["Passing Touchdowns", "Passing", lowCountTier],
-				["Rushing Yards", "Rushing", highVolumeTier],
-				["Rushing Touchdowns", "Rushing", lowCountTier],
-				["Receiving Yards", "Receiving", highVolumeTier],
-				["Receptions", "Receiving", lowCountTier],
-				["Receiving Touchdowns", "Receiving", lowCountTier],
-				["Sacks", "Defense", lowCountTier],
-				["Interceptions", "Defense", lowCountTier],
-			].map(([name, category, tier], sortOrder) => ({
-				sportId: football.id,
-				name: name as string,
-				category: category as string,
-				toleranceTierId: (tier as StatToleranceTier).id,
-				sortOrder,
-			})),
-		)
-		.returning()
+	// The real stat catalog (tolerance tiers + every player/team stat) lives in
+	// db/catalog/stats.ts, not here - it's upserted, not inserted, so the exact
+	// same call is also what the standalone `db:sync-catalog` script runs
+	// against prod. Keeps this file to what it's actually for: fake demo data,
+	// not reference data a real environment needs too.
+	const {
+		basketballStats: basketballStatRows,
+		footballStats: footballStatRows,
+		toleranceTiers,
+	} = await syncStatCatalog()
 
 	const basketballStat = (name: string) => {
 		const stat = basketballStatRows.find((s) => s.name === name)
@@ -677,7 +628,7 @@ async function main() {
 	}
 
 	const tierPctById = new Map(
-		[lowCountTier, highVolumeTier].map((tier) => [tier.id, tier.tolerancePct]),
+		toleranceTiers.map((tier) => [tier.id, tier.tolerancePct]),
 	)
 	// Mirrors what createQuestion's resolver derives server-side from a stat's
 	// toleranceTier - seed data inserts questions directly, bypassing that
@@ -774,27 +725,32 @@ async function main() {
 
 	console.log("Seeding NBA questions and calls...")
 
-	// 1. Multiple choice, still open
+	// 1. Player/team season award (team), still open. Pool is every NBA team,
+	// not just the usual contenders - player_season_award/team_season_award
+	// have no curated-shortlist mode anymore (see OpenFieldNudge's old
+	// reasoning, now baked into the shape itself: the eventual winner has to
+	// be a legal pick for everyone, always).
 	const championship2027 = await createQuestion({
-		type: "multiple_choice",
-		category: "season_awards",
+		shape: "team_season_award",
 		title: "Who wins the 2027 NBA championship?",
-		creatorId: quinn.id,
+		awardName: "2027 NBA Championship",
+		picksRequired: 1,
+		creatorId: calledMyShot.id,
 		isOfficial: true,
 		sportId: basketball.id,
 		leagueId: nba.id,
 		resolutionSource: "Official NBA Finals result",
 		locksAt: daysFromNow(70),
 	})
-	const [celtics27, nuggets27, thunder27, wolves27, magic27] =
-		await addTeamOptions(championship2027.id, [
-			nbaTeam("BOS"),
-			nbaTeam("DEN"),
-			nbaTeam("OKC"),
-			nbaTeam("MIN"),
-			nbaTeam("ORL"),
-			nbaTeam("MIL"),
-		])
+	const championship2027Pool = await addTeamOptions(
+		championship2027.id,
+		nbaTeamRows,
+	)
+	const celtics27 = optionByTeamId(championship2027Pool, nbaTeam("BOS").id)
+	const nuggets27 = optionByTeamId(championship2027Pool, nbaTeam("DEN").id)
+	const thunder27 = optionByTeamId(championship2027Pool, nbaTeam("OKC").id)
+	const wolves27 = optionByTeamId(championship2027Pool, nbaTeam("MIN").id)
+	const magic27 = optionByTeamId(championship2027Pool, nbaTeam("ORL").id)
 	await callOnOptions(championship2027.id, mpwolves.id, [
 		{ optionId: celtics27.id, conviction: 55 },
 	])
@@ -817,22 +773,26 @@ async function main() {
 		"Two conference finals runs already - continuity matters more than people give it credit for.",
 	)
 
-	// 2. Multiple choice, resolved - quinn called it right
+	// 2. Team season award, resolved - quinn called it right
 	const championship2026 = await createQuestion({
-		type: "multiple_choice",
-		category: "season_awards",
+		shape: "team_season_award",
 		title: "Who will win the 2026 NBA championship?",
-		creatorId: quinn.id,
+		awardName: "2026 NBA Championship",
+		picksRequired: 1,
+		creatorId: calledMyShot.id,
 		isOfficial: true,
 		sportId: basketball.id,
 		leagueId: nba.id,
 		resolutionSource: "Official NBA Finals result",
 		locksAt: daysAgo(220),
 	})
-	const [nuggets26, celtics26, , suns26] = await addTeamOptions(
+	const championship2026Pool = await addTeamOptions(
 		championship2026.id,
-		[nbaTeam("DEN"), nbaTeam("BOS"), nbaTeam("MIL"), nbaTeam("PHX")],
+		nbaTeamRows,
 	)
+	const nuggets26 = optionByTeamId(championship2026Pool, nbaTeam("DEN").id)
+	const celtics26 = optionByTeamId(championship2026Pool, nbaTeam("BOS").id)
+	const suns26 = optionByTeamId(championship2026Pool, nbaTeam("PHX").id)
 	await callOnOptions(
 		championship2026.id,
 		quinn.id,
@@ -857,25 +817,30 @@ async function main() {
 		"Denver Nuggets won the 2026 NBA Finals.",
 	)
 
-	// 3. Multiple choice, resolved - quinn called it wrong. Options are players,
-	// not teams, so this exercises playerId-backed options.
+	// 3. Player season award, resolved - quinn called it wrong. Options are
+	// players, not teams, so this exercises playerId-backed options.
 	const rookieOfYear = await createQuestion({
-		type: "multiple_choice",
-		category: "season_awards",
+		shape: "player_season_award",
 		title: "Who will win 2025-26 Rookie of the Year?",
-		creatorId: quinn.id,
+		awardName: "2025-26 Rookie of the Year",
+		picksRequired: 1,
+		creatorId: calledMyShot.id,
 		isOfficial: true,
 		sportId: basketball.id,
 		leagueId: nba.id,
 		resolutionSource: "Official NBA Rookie of the Year announcement",
 		locksAt: daysAgo(150),
 	})
-	const [flagg, bailey, harper] = await addPlayerOptions(rookieOfYear.id, [
-		nbaPlayer("Cooper Flagg"),
-		nbaPlayer("Ace Bailey"),
-		nbaPlayer("Dylan Harper"),
-		nbaPlayer("Kon Knueppel"),
-	])
+	const rookieOfYearPool = await addPlayerOptions(
+		rookieOfYear.id,
+		nbaPlayerRows,
+	)
+	const flagg = optionByPlayerId(rookieOfYearPool, nbaPlayer("Cooper Flagg").id)
+	const bailey = optionByPlayerId(rookieOfYearPool, nbaPlayer("Ace Bailey").id)
+	const harper = optionByPlayerId(
+		rookieOfYearPool,
+		nbaPlayer("Dylan Harper").id,
+	)
 	await callOnOptions(
 		rookieOfYear.id,
 		quinn.id,
@@ -897,13 +862,14 @@ async function main() {
 		"Cooper Flagg won 2025-26 Rookie of the Year.",
 	)
 
-	// 4. Yes/No, still open, quinn hasn't called - not every question has a
-	// clean stat/subject shape, so this stays a plain title with no
-	// statId/subject reference.
+	// 4. Yes/No prop, still open, quinn hasn't called - not every question has
+	// a clean subject (this one's about a specific game moment, not a single
+	// tracked entity), so this exercises the subject-less path (eventClause
+	// alone carries the whole proposition).
 	const jokicTripleDouble = await createQuestion({
-		type: "yes_no",
-		category: "game_stats",
+		shape: "yes_no_prop",
 		title: "Will Jokic record a triple-double tonight?",
+		eventClause: "Jokic records a triple-double tonight",
 		creatorId: jrhoops.id,
 		sportId: basketball.id,
 		leagueId: nba.id,
@@ -919,19 +885,19 @@ async function main() {
 		{ optionId: tdNo.id, conviction: 50 },
 	])
 
-	// 5. Yes/No, resolved - quinn called it wrong. Also the seed's one example
-	// of a yes_no with a subjectTeam set, for the team-color card accent/badge.
+	// 5. Yes/No prop, resolved - quinn called it wrong. Also the seed's one
+	// example of a yes_no_prop with a subjectTeam set, for the team-color card
+	// accent/badge.
 	const lakersMargin = await createQuestion({
-		type: "yes_no",
-		category: "game_stats",
+		shape: "yes_no_prop",
 		title: "Will the Lakers win by 10 or more?",
+		eventClause: "win by 10 or more",
 		creatorId: mpwolves.id,
 		sportId: basketball.id,
 		leagueId: nba.id,
 		gameId: lakersWarriorsGame.id,
 		resolutionSource: "ESPN box score",
 		locksAt: daysAgo(3),
-		numericSubjectType: "team",
 		subjectTeamId: nbaTeam("LAL").id,
 	})
 	const [marginYes, marginNo] = await addOptions(lakersMargin.id, ["Yes", "No"])
@@ -950,11 +916,9 @@ async function main() {
 		"Lakers won by 6 - final margin fell short of 10.",
 	)
 
-	// 6. Over/under, locked (game underway, not resolved yet). Game-wide total,
-	// so no subject team/player - just the stat and the line.
+	// 6. Game total over/under, locked (game underway, not resolved yet).
 	const totalPointsOU = await createQuestion({
-		type: "over_under",
-		category: "game_stats",
+		shape: "game_total_over_under",
 		title: "76ers @ Nuggets - combined total over or under 224.5?",
 		creatorId: dkanalytics.id,
 		sportId: basketball.id,
@@ -984,8 +948,7 @@ async function main() {
 	// the distribution chart clears MIN_GUESSES_FOR_CHART and actually renders
 	// as a spread of bars instead of the low-volume empty state.
 	const embiidRebounds = await createQuestion({
-		type: "numeric_guess",
-		category: "player_stats",
+		shape: "player_stat_numeric_guess",
 		title: "How many rebounds will Embiid grab tonight?",
 		creatorId: ballknower.id,
 		sportId: basketball.id,
@@ -994,7 +957,6 @@ async function main() {
 		resolutionSource: "ESPN box score",
 		locksAt: hoursFromNow(6),
 		statId: basketballStat("Rebounds").id,
-		numericSubjectType: "player",
 		subjectPlayerId: nbaPlayer("Joel Embiid").id,
 		numericTolerancePct: tolerancePctForStat(basketballStat("Rebounds")),
 	})
@@ -1017,8 +979,7 @@ async function main() {
 
 	// 8. Numeric guess, resolved - ranked by distance from the actual value
 	const tatumPoints = await createQuestion({
-		type: "numeric_guess",
-		category: "player_stats",
+		shape: "player_stat_numeric_guess",
 		title: "How many points will Tatum score?",
 		creatorId: statlinesteve.id,
 		sportId: basketball.id,
@@ -1027,7 +988,6 @@ async function main() {
 		resolutionSource: "ESPN box score",
 		locksAt: daysAgo(1),
 		statId: basketballStat("Points").id,
-		numericSubjectType: "player",
 		subjectPlayerId: nbaPlayer("Jayson Tatum").id,
 		numericTolerancePct: tolerancePctForStat(basketballStat("Points")),
 	})
@@ -1048,33 +1008,22 @@ async function main() {
 		"Jayson Tatum finished with 27 points.",
 	)
 
-	// 9. Multi-select, still open - quinn hasn't picked yet
+	// 9. Player season award, pick 5, still open - quinn hasn't picked yet.
+	// Pool is every NBA player (see rookieOfYear's comment on why), but the
+	// calls below only reach for the usual All-NBA-caliber names.
 	const allNbaFirstTeam = await createQuestion({
-		type: "multi_select",
-		category: "season_awards",
+		shape: "player_season_award",
 		title: "Predict the 2027 All-NBA First Team",
-		creatorId: quinn.id,
+		awardName: "2027 All-NBA First Team",
+		picksRequired: 5,
+		creatorId: calledMyShot.id,
 		isOfficial: true,
 		sportId: basketball.id,
 		leagueId: nba.id,
 		resolutionSource: "Official NBA All-NBA voting result",
 		locksAt: daysFromNow(70),
-		picksRequired: 5,
 	})
-	const allNbaPool = await addPlayerOptions(allNbaFirstTeam.id, [
-		nbaPlayer("Nikola Jokic"),
-		nbaPlayer("Shai Gilgeous-Alexander"),
-		nbaPlayer("Giannis Antetokounmpo"),
-		nbaPlayer("Luka Doncic"),
-		nbaPlayer("Jayson Tatum"),
-		nbaPlayer("Victor Wembanyama"),
-		nbaPlayer("LeBron James"),
-		nbaPlayer("Anthony Edwards"),
-		nbaPlayer("Stephen Curry"),
-		nbaPlayer("Kevin Durant"),
-		nbaPlayer("Anthony Davis"),
-		nbaPlayer("Tyrese Haliburton"),
-	])
+	const allNbaPool = await addPlayerOptions(allNbaFirstTeam.id, nbaPlayerRows)
 	const byName = (name: string) => {
 		const option = allNbaPool.find((o) => o.label === name)
 		if (!option) throw new Error(`Missing All-NBA option: ${name}`)
@@ -1125,25 +1074,24 @@ async function main() {
 
 	console.log("Seeding NFL questions and calls...")
 
-	// 10. Multiple choice, still open
+	// 10. Team season award, still open
 	const superBowl = await createQuestion({
-		type: "multiple_choice",
-		category: "season_awards",
+		shape: "team_season_award",
 		title: "Who wins Super Bowl LXI?",
-		creatorId: quinn.id,
+		awardName: "Super Bowl LXI",
+		picksRequired: 1,
+		creatorId: calledMyShot.id,
 		isOfficial: true,
 		sportId: football.id,
 		leagueId: nfl.id,
 		resolutionSource: "Official NFL Super Bowl result",
 		locksAt: daysFromNow(150),
 	})
-	const [chiefs, bills, ravens, eagles] = await addTeamOptions(superBowl.id, [
-		nflTeam("KC"),
-		nflTeam("BUF"),
-		nflTeam("BAL"),
-		nflTeam("PHI"),
-		nflTeam("SF"),
-	])
+	const superBowlPool = await addTeamOptions(superBowl.id, nflTeamRows)
+	const chiefs = optionByTeamId(superBowlPool, nflTeam("KC").id)
+	const bills = optionByTeamId(superBowlPool, nflTeam("BUF").id)
+	const ravens = optionByTeamId(superBowlPool, nflTeam("BAL").id)
+	const eagles = optionByTeamId(superBowlPool, nflTeam("PHI").id)
 	await callOnOptions(superBowl.id, quinn.id, [
 		{ optionId: bills.id, conviction: 60 },
 	])
@@ -1161,8 +1109,7 @@ async function main() {
 	// in, below MIN_GUESSES_FOR_CHART, so the distribution renders its
 	// low-volume state rather than a full chart.
 	const mahomesYards = await createQuestion({
-		type: "numeric_guess",
-		category: "player_stats",
+		shape: "player_stat_numeric_guess",
 		title: "How many passing yards will Mahomes throw for?",
 		creatorId: dannyRinger.id,
 		sportId: football.id,
@@ -1171,7 +1118,6 @@ async function main() {
 		resolutionSource: "ESPN box score",
 		locksAt: hoursFromNow(30),
 		statId: footballStat("Passing Yards").id,
-		numericSubjectType: "player",
 		subjectPlayerId: nflPlayer("Patrick Mahomes").id,
 		numericTolerancePct: tolerancePctForStat(footballStat("Passing Yards")),
 	})
@@ -1184,10 +1130,9 @@ async function main() {
 	)
 	await callWithGuess(mahomesYards.id, courtvision.id, 300, 50)
 
-	// 12. Over/under, locked - game-wide total, no subject
+	// 12. Game total over/under, locked
 	const chiefsBillsOU = await createQuestion({
-		type: "over_under",
-		category: "game_stats",
+		shape: "game_total_over_under",
 		title: "Chiefs @ Bills - combined total over or under 47.5?",
 		creatorId: statlinesteve.id,
 		sportId: football.id,
@@ -1210,14 +1155,14 @@ async function main() {
 		{ optionId: under475.id, conviction: 45 },
 	])
 
-	// 13. Over/under, still open - quinn hasn't called. The other two
-	// over/unders above (6, 12) are both locked with a quinn call already on
-	// them, so on their own over_under never exercised the "still open, quinn
-	// hasn't called" state every other type gets elsewhere in this file (see
-	// nflMvp, allenYards, allNbaFirstTeam). This is the one over_under that does.
+	// 13. Game total over/under, still open - quinn hasn't called. The other
+	// two over/unders above (6, 12) are both locked with a quinn call already
+	// on them, so on their own this shape family never exercised the "still
+	// open, quinn hasn't called" state every other shape gets elsewhere in
+	// this file (see nflMvp, allenYards, allNbaFirstTeam). This is the one
+	// that does.
 	const nuggetsCelticsOU = await createQuestion({
-		type: "over_under",
-		category: "game_stats",
+		shape: "game_total_over_under",
 		title: "Nuggets @ Celtics - combined total over or under 231.5?",
 		creatorId: rcourtside.id,
 		sportId: basketball.id,
@@ -1239,22 +1184,28 @@ async function main() {
 		{ optionId: under2315.id, conviction: 50 },
 	])
 
-	// 14. Multiple choice, resolved - jrhoops hits a big underdog pick here so
-	// Fantasy League Chat's leaderboard isn't just quinn at #1 in every group.
+	// 14. Team season award, resolved - jrhoops hits a big underdog pick here
+	// so Fantasy League Chat's leaderboard isn't just quinn at #1 in every
+	// group.
 	const inSeasonTournament = await createQuestion({
-		type: "multiple_choice",
-		category: "season_awards",
+		shape: "team_season_award",
 		title: "Who will win the 2025 NBA In-Season Tournament?",
-		creatorId: jrhoops.id,
+		awardName: "2025 NBA In-Season Tournament",
+		picksRequired: 1,
+		isOfficial: true,
+		creatorId: calledMyShot.id,
 		sportId: basketball.id,
 		leagueId: nba.id,
 		resolutionSource: "Official NBA In-Season Tournament result",
 		locksAt: daysAgo(30),
 	})
-	const [thunderIST, celticsIST, , bucksIST] = await addTeamOptions(
+	const inSeasonTournamentPool = await addTeamOptions(
 		inSeasonTournament.id,
-		[nbaTeam("OKC"), nbaTeam("BOS"), nbaTeam("DEN"), nbaTeam("MIL")],
+		nbaTeamRows,
 	)
+	const thunderIST = optionByTeamId(inSeasonTournamentPool, nbaTeam("OKC").id)
+	const celticsIST = optionByTeamId(inSeasonTournamentPool, nbaTeam("BOS").id)
+	const bucksIST = optionByTeamId(inSeasonTournamentPool, nbaTeam("MIL").id)
 	await callOnOptions(
 		inSeasonTournament.id,
 		jrhoops.id,
@@ -1283,20 +1234,24 @@ async function main() {
 	// the disputed treatment (ResolutionBanner's amber state, QuestionCard's
 	// resolved field signal) has a real question to render against.
 	const mvpRace = await createQuestion({
-		type: "multiple_choice",
-		category: "season_awards",
+		shape: "player_season_award",
 		title: "Who wins 2025-26 NBA MVP?",
-		creatorId: courtvision.id,
+		awardName: "2025-26 NBA MVP",
+		picksRequired: 1,
+		isOfficial: true,
+		creatorId: calledMyShot.id,
 		sportId: basketball.id,
 		leagueId: nba.id,
 		resolutionSource: "Official NBA MVP announcement",
 		locksAt: daysAgo(5),
 	})
-	const [jokicMvp, sgaMvp, lukaMvp] = await addPlayerOptions(mvpRace.id, [
-		nbaPlayer("Nikola Jokic"),
-		nbaPlayer("Shai Gilgeous-Alexander"),
-		nbaPlayer("Luka Doncic"),
-	])
+	const mvpRacePool = await addPlayerOptions(mvpRace.id, nbaPlayerRows)
+	const jokicMvp = optionByPlayerId(mvpRacePool, nbaPlayer("Nikola Jokic").id)
+	const sgaMvp = optionByPlayerId(
+		mvpRacePool,
+		nbaPlayer("Shai Gilgeous-Alexander").id,
+	)
+	const lukaMvp = optionByPlayerId(mvpRacePool, nbaPlayer("Luka Doncic").id)
 	await callOnOptions(mvpRace.id, quinn.id, [
 		{ optionId: sgaMvp.id, conviction: 55 },
 	])
@@ -1323,69 +1278,64 @@ async function main() {
 		"The media panel's own ballots leaked and three of them had Jokic first - this doesn't match the announced result.",
 	)
 
-	// 16. Multiple choice, open field - no preset shortlist. Any NFL player is
-	// a legal pick, not just the usual QB contenders (see callOnOpenField's
-	// comment), so the option pool here is entirely sourced by the calls
-	// below rather than pre-listed by addPlayerOptions like every other
-	// multiple_choice in this file. Eight distinct picks so the option list
-	// actually exercises CastCallForm's "Show more" paging (OPTIONS_PAGE_STEP
-	// is 5), not just a short list that fits on one screen. Also still open,
-	// quinn hasn't picked yet - alongside allNbaFirstTeam above, gives the
-	// "can still call, hasn't called" state a second question type to render
-	// against.
+	// 16. Player season award - pool is every NFL player, not just the usual
+	// QB contenders (this is the shape that used to need the open-field
+	// mechanism before award pools were always the full roster - see
+	// player_season_award's own comment on questions.ts). Eight distinct
+	// picks so the option list actually exercises CastCallForm's "Show more"
+	// paging (OPTIONS_PAGE_STEP is 5), not just a short list that fits on one
+	// screen. Also still open, quinn hasn't picked yet - alongside
+	// allNbaFirstTeam above, gives the "can still call, hasn't called" state
+	// a second shape to render against.
 	const nflMvp = await createQuestion({
-		type: "multiple_choice",
-		category: "season_awards",
+		shape: "player_season_award",
 		title: "Who wins NFL MVP this season?",
-		creatorId: dannyRinger.id,
+		awardName: "NFL MVP",
+		picksRequired: 1,
+		creatorId: calledMyShot.id,
 		isOfficial: true,
 		sportId: football.id,
 		leagueId: nfl.id,
 		resolutionSource: "Official NFL MVP announcement",
 		locksAt: daysFromNow(140),
-		optionsOpenField: true,
-		openFieldKind: "player",
 	})
-	await callOnOpenField(nflMvp.id, mattfantasy.id, nflPlayer("Josh Allen"), 55)
-	await callOnOpenField(
-		nflMvp.id,
-		statlinesteve.id,
-		nflPlayer("Patrick Mahomes"),
-		45,
-	)
-	await callOnOpenField(
+	const nflMvpPool = await addPlayerOptions(nflMvp.id, nflPlayerRows)
+	const nflMvpOption = (name: string) =>
+		optionByPlayerId(nflMvpPool, nflPlayer(name).id)
+	await callOnOptions(nflMvp.id, mattfantasy.id, [
+		{ optionId: nflMvpOption("Josh Allen").id, conviction: 55 },
+	])
+	await callOnOptions(nflMvp.id, statlinesteve.id, [
+		{ optionId: nflMvpOption("Patrick Mahomes").id, conviction: 45 },
+	])
+	await callOnOptions(
 		nflMvp.id,
 		courtvision.id,
-		nflPlayer("Lamar Jackson"),
-		40,
+		[{ optionId: nflMvpOption("Lamar Jackson").id, conviction: 40 }],
 		"Ravens' offense runs through him more than any other frontrunner's team runs through them.",
 	)
-	await callOnOpenField(
+	await callOnOptions(
 		nflMvp.id,
 		dannyRinger.id,
-		nflPlayer("Ja'Marr Chase"),
-		30,
+		[{ optionId: nflMvpOption("Ja'Marr Chase").id, conviction: 30 }],
 		"Nobody's taking a receiver seriously yet, which is exactly why I'm early on it.",
 	)
-	await callOnOpenField(nflMvp.id, mpwolves.id, nflPlayer("Joe Burrow"), 50)
-	await callOnOpenField(nflMvp.id, tswish.id, nflPlayer("Justin Jefferson"), 35)
-	await callOnOpenField(
-		nflMvp.id,
-		rcourtside.id,
-		nflPlayer("Christian McCaffrey"),
-		45,
-	)
-	await callOnOpenField(
-		nflMvp.id,
-		ballknower.id,
-		nflPlayer("Saquon Barkley"),
-		38,
-	)
+	await callOnOptions(nflMvp.id, mpwolves.id, [
+		{ optionId: nflMvpOption("Joe Burrow").id, conviction: 50 },
+	])
+	await callOnOptions(nflMvp.id, tswish.id, [
+		{ optionId: nflMvpOption("Justin Jefferson").id, conviction: 35 },
+	])
+	await callOnOptions(nflMvp.id, rcourtside.id, [
+		{ optionId: nflMvpOption("Christian McCaffrey").id, conviction: 45 },
+	])
+	await callOnOptions(nflMvp.id, ballknower.id, [
+		{ optionId: nflMvpOption("Saquon Barkley").id, conviction: 38 },
+	])
 
 	// 17. Numeric guess, still open - quinn hasn't picked yet
 	const allenYards = await createQuestion({
-		type: "numeric_guess",
-		category: "player_stats",
+		shape: "player_stat_numeric_guess",
 		title: "How many passing yards will Josh Allen throw for?",
 		creatorId: mattfantasy.id,
 		sportId: football.id,
@@ -1394,7 +1344,6 @@ async function main() {
 		resolutionSource: "ESPN box score",
 		locksAt: hoursFromNow(20),
 		statId: footballStat("Passing Yards").id,
-		numericSubjectType: "player",
 		subjectPlayerId: nflPlayer("Josh Allen").id,
 		numericTolerancePct: tolerancePctForStat(footballStat("Passing Yards")),
 	})
@@ -1406,8 +1355,7 @@ async function main() {
 	// none of them shows what the picker/distribution actually look like on a
 	// genuinely untouched question. This is that one.
 	await createQuestion({
-		type: "numeric_guess",
-		category: "player_stats",
+		shape: "player_stat_numeric_guess",
 		title: "How many assists will Haliburton dish out tonight?",
 		creatorId: slballer.id,
 		sportId: basketball.id,
@@ -1416,20 +1364,23 @@ async function main() {
 		resolutionSource: "ESPN box score",
 		locksAt: hoursFromNow(7),
 		statId: basketballStat("Assists").id,
-		numericSubjectType: "player",
 		subjectPlayerId: nbaPlayer("Tyrese Haliburton").id,
 		numericTolerancePct: tolerancePctForStat(basketballStat("Assists")),
 	})
 
-	// 18. Yes/No, locked (game underway) but not yet resolved - quinn hasn't
-	// called. The other two locked-and-unresolved questions above (6, 12) both
-	// have a quinn call, so on their own the route's "Locked - you didn't call
-	// this one" empty state (see $questionId.tsx) never rendered anywhere in
-	// seed data. This is the one question that exercises it.
+	// 18. Yes/No prop, locked (game underway) but not yet resolved - quinn
+	// hasn't called. The other two locked-and-unresolved questions above (6,
+	// 12) both have a quinn call, so on their own the route's "Locked - you
+	// didn't call this one" empty state (see $questionId.tsx) never rendered
+	// anywhere in seed data. This is the one question that exercises it. Also
+	// the seed's one example of a yes_no_prop with a subjectPlayer set
+	// (jokicTripleDouble has none, lakersMargin has a team) - fills out all
+	// three subject combinations.
 	const giannisTripleDouble = await createQuestion({
-		type: "yes_no",
-		category: "game_stats",
+		shape: "yes_no_prop",
 		title: "Will Giannis record a 30-point triple-double tonight?",
+		eventClause: "records a 30-point triple-double tonight",
+		subjectPlayerId: nbaPlayer("Giannis Antetokounmpo").id,
 		creatorId: jrhoops.id,
 		sportId: basketball.id,
 		leagueId: nba.id,
@@ -1447,6 +1398,85 @@ async function main() {
 	])
 	await callOnOptions(giannisTripleDouble.id, slballer.id, [
 		{ optionId: giannisNo.id, conviction: 40 },
+	])
+
+	// 20. Player vs player - new shape, no prior analog among the types this
+	// file used to seed. Exactly 2 named real players plus the stat being
+	// compared, not a general pool.
+	const jokicVsEmbiid = await createQuestion({
+		shape: "player_vs_player",
+		title: "Rebounds: Nikola Jokic vs Joel Embiid",
+		statId: basketballStat("Rebounds").id,
+		creatorId: dkanalytics.id,
+		sportId: basketball.id,
+		leagueId: nba.id,
+		gameId: sixersNuggetsGame.id,
+		resolutionSource: "ESPN box score",
+		locksAt: hoursAgo(2),
+		status: "locked",
+	})
+	const [jokicRebOption, embiidRebOption] = await addPlayerOptions(
+		jokicVsEmbiid.id,
+		[nbaPlayer("Nikola Jokic"), nbaPlayer("Joel Embiid")],
+	)
+	await callOnOptions(jokicVsEmbiid.id, rcourtside.id, [
+		{ optionId: jokicRebOption.id, conviction: 55 },
+	])
+	await callOnOptions(jokicVsEmbiid.id, ballknower.id, [
+		{ optionId: embiidRebOption.id, conviction: 50 },
+	])
+
+	// 21. Team vs team / game outcome - the real resolver auto-derives its two
+	// options from the picked game's home/away teams rather than a creator-
+	// submitted pool; mirrored here by seeding them straight from the game's
+	// own teams, away side first.
+	const pacersBullsOutcome = await createQuestion({
+		shape: "team_vs_team",
+		title: "Bulls @ Pacers - who wins?",
+		creatorId: hoopqueen.id,
+		sportId: basketball.id,
+		leagueId: nba.id,
+		gameId: pacersBullsGame.id,
+		resolutionSource: "ESPN box score",
+		locksAt: hoursFromNow(7),
+	})
+	const [pacersBullsAway, pacersBullsHome] = await addTeamOptions(
+		pacersBullsOutcome.id,
+		[nbaTeam("CHI"), nbaTeam("IND")],
+	)
+	await callOnOptions(pacersBullsOutcome.id, dannyRinger.id, [
+		{ optionId: pacersBullsHome.id, conviction: 50 },
+	])
+	await callOnOptions(pacersBullsOutcome.id, mattfantasy.id, [
+		{ optionId: pacersBullsAway.id, conviction: 45 },
+	])
+
+	// 22. Player award finalists - a small, fixed, admin-entered shortlist of
+	// real announced finalists, unlike player_season_award's full-roster pool
+	// above (mvpRace, nflMvp) - the field has already narrowed to these three
+	// by the time a question like this gets posted. Admin/official only.
+	const dpoyFinalists = await createQuestion({
+		shape: "player_award_finalists",
+		title:
+			"Who wins Defensive Player of the Year: Victor Wembanyama, Giannis Antetokounmpo, or Anthony Davis?",
+		awardName: "Defensive Player of the Year",
+		isOfficial: true,
+		creatorId: calledMyShot.id,
+		sportId: basketball.id,
+		leagueId: nba.id,
+		resolutionSource: "Official NBA Defensive Player of the Year announcement",
+		locksAt: daysFromNow(60),
+	})
+	const [wembyDpoy, giannisDpoy] = await addPlayerOptions(dpoyFinalists.id, [
+		nbaPlayer("Victor Wembanyama"),
+		nbaPlayer("Giannis Antetokounmpo"),
+		nbaPlayer("Anthony Davis"),
+	])
+	await callOnOptions(dpoyFinalists.id, statlinesteve.id, [
+		{ optionId: wembyDpoy.id, conviction: 60 },
+	])
+	await callOnOptions(dpoyFinalists.id, courtvision.id, [
+		{ optionId: giannisDpoy.id, conviction: 40 },
 	])
 
 	console.log("Seeding shared questions...")
@@ -1552,10 +1582,11 @@ async function main() {
 	// A throwaway duplicate of championship2027, voided by an admin - gives
 	// quinn a question_voided notification (and the strike that comes with it).
 	const duplicateChampionship = await createQuestion({
-		type: "multiple_choice",
-		category: "season_awards",
+		shape: "team_season_award",
 		title: "Who wins the 2027 NBA title?",
-		creatorId: quinn.id,
+		awardName: "2027 NBA Championship",
+		picksRequired: 1,
+		creatorId: calledMyShot.id,
 		isOfficial: true,
 		sportId: basketball.id,
 		leagueId: nba.id,
@@ -1753,58 +1784,71 @@ async function main() {
 	console.log("\nWolfpack shared tab: 3 questions (1 shared by quinn)")
 	console.log("Fantasy League Chat shared tab: 3 questions (1 shared by quinn)")
 	console.log("\nQuestions seeded:")
-	console.log("  NBA 1. 2027 championship        multiple_choice  open")
 	console.log(
-		"  NBA 2. 2026 championship        multiple_choice  disputed - quinn won, mpwolves' dispute pending",
+		"  NBA 1. 2027 championship        team_season_award          open",
 	)
 	console.log(
-		"  NBA 3. 2025-26 Rookie of Year   multiple_choice  resolved - quinn's dispute overturned it in his favor",
+		"  NBA 2. 2026 championship        team_season_award          disputed - quinn won, mpwolves' dispute pending",
 	)
 	console.log(
-		"  NBA 4. Jokic triple-double      yes_no           open, quinn hasn't called",
+		"  NBA 3. 2025-26 Rookie of Year   player_season_award         resolved - quinn's dispute overturned it in his favor",
 	)
 	console.log(
-		"  NBA 5. Lakers win by 10+        yes_no           resolved - quinn lost",
+		"  NBA 4. Jokic triple-double      yes_no_prop                 open, quinn hasn't called",
 	)
 	console.log(
-		"  NBA 6. 76ers @ Nuggets total    over_under       locked, unresolved",
+		"  NBA 5. Lakers win by 10+        yes_no_prop                 resolved - quinn lost",
 	)
 	console.log(
-		"  NBA 7. Embiid rebounds          numeric_guess    open, quinn hasn't called, 10 guesses (full chart)",
+		"  NBA 6. 76ers @ Nuggets total    game_total_over_under       locked, unresolved",
 	)
 	console.log(
-		"  NBA 8. Tatum points             numeric_guess    resolved - quinn won",
+		"  NBA 7. Embiid rebounds          player_stat_numeric_guess   open, quinn hasn't called, 10 guesses (full chart)",
 	)
 	console.log(
-		"  NBA 9. All-NBA First Team       multi_select     open, quinn hasn't called",
-	)
-	console.log("  NFL 10. Super Bowl LXI winner    multiple_choice  open")
-	console.log(
-		"  NFL 11. Mahomes passing yards    numeric_guess    open, quinn hasn't called, 2 guesses (low-volume)",
+		"  NBA 8. Tatum points             player_stat_numeric_guess   resolved - quinn won",
 	)
 	console.log(
-		"  NFL 12. Chiefs @ Bills total     over_under       locked, unresolved",
+		"  NBA 9. All-NBA First Team       player_season_award (x5)    open, quinn hasn't called",
 	)
 	console.log(
-		"  NBA 13. Nuggets @ Celtics total  over_under       open, quinn hasn't called",
+		"  NFL 10. Super Bowl LXI winner    team_season_award          open",
 	)
 	console.log(
-		"  NBA 14. 2025 In-Season Tournament multiple_choice resolved - jrhoops won big",
+		"  NFL 11. Mahomes passing yards    player_stat_numeric_guess   open, quinn hasn't called, 2 guesses (low-volume)",
 	)
 	console.log(
-		"  NBA 15. 2025-26 MVP             multiple_choice  disputed - quinn's pick contested",
+		"  NFL 12. Chiefs @ Bills total     game_total_over_under       locked, unresolved",
 	)
 	console.log(
-		"  NFL 16. NFL MVP                 multiple_choice  open field, open, quinn hasn't called",
+		"  NBA 13. Nuggets @ Celtics total  game_total_over_under       open, quinn hasn't called",
 	)
 	console.log(
-		"  NFL 17. Josh Allen passing yards numeric_guess    open, quinn hasn't called",
+		"  NBA 14. 2025 In-Season Tournament team_season_award          resolved - jrhoops won big",
 	)
 	console.log(
-		"  NBA 18. Giannis 30pt triple-dbl yes_no           locked, unresolved, quinn hasn't called",
+		"  NBA 15. 2025-26 MVP             player_season_award         disputed - quinn's pick contested",
 	)
 	console.log(
-		"  NBA 19. Haliburton assists      numeric_guess    open, quinn hasn't called, 0 guesses (empty)",
+		"  NFL 16. NFL MVP                 player_season_award         open, quinn hasn't called",
+	)
+	console.log(
+		"  NFL 17. Josh Allen passing yards player_stat_numeric_guess   open, quinn hasn't called",
+	)
+	console.log(
+		"  NBA 18. Giannis 30pt triple-dbl yes_no_prop                 locked, unresolved, quinn hasn't called",
+	)
+	console.log(
+		"  NBA 19. Haliburton assists      player_stat_numeric_guess   open, quinn hasn't called, 0 guesses (empty)",
+	)
+	console.log(
+		"  NBA 20. Jokic vs Embiid rebounds player_vs_player            locked, unresolved",
+	)
+	console.log(
+		"  NBA 21. Bulls @ Pacers winner    team_vs_team                open",
+	)
+	console.log(
+		"  NBA 22. DPOY finalists           player_award_finalists      open",
 	)
 	console.log("\nquinn's notifications: 14 total, 5 unread")
 

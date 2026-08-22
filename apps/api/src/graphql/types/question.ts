@@ -3,13 +3,13 @@ import {
 	castCallSchema,
 	createQuestionSchema,
 	fileDisputeSchema,
-	type questionCategorySchema,
+	generateQuestionTitle,
 	reportQuestionSchema,
 	resolveQuestionSchema,
 	voidQuestionSchema,
 } from "@called-my-shot/schemas"
 import {
-	BASE_POINTS_BY_TYPE,
+	BASE_POINTS_BY_SHAPE,
 	earlyTierFor,
 	fieldPct,
 	numericGuessPoints,
@@ -32,6 +32,7 @@ import {
 	sql,
 } from "drizzle-orm"
 import { DateTime } from "luxon"
+import { match } from "ts-pattern"
 import { db } from "../../db"
 import {
 	type Call,
@@ -67,6 +68,7 @@ import {
 	createNotification,
 	createNotifications,
 } from "../../lib/notifications"
+import { getOfficialAccountId } from "../../lib/official-account"
 import {
 	clampPageSize,
 	cursorWhere,
@@ -91,22 +93,23 @@ type Connection<T> = {
 	pageInfo: { hasNextPage: boolean; endCursor: string | null }
 }
 
-const QuestionType = builder.enumType("QuestionType", {
+// One value per concrete kind of question the app supports - replaces the
+// old QuestionType + QuestionCategory + NumericSubjectType + open-field-
+// toggle combination. Each shape fully determines its required fields and
+// its generated title (see generateQuestionTitle in lib/question-title.ts).
+export const QuestionShape = builder.enumType("QuestionShape", {
 	values: {
-		MULTIPLE_CHOICE: { value: "multiple_choice" },
-		YES_NO: { value: "yes_no" },
-		OVER_UNDER: { value: "over_under" },
-		NUMERIC_GUESS: { value: "numeric_guess" },
-		MULTI_SELECT: { value: "multi_select" },
-	},
-})
-
-export const QuestionCategory = builder.enumType("QuestionCategory", {
-	values: {
-		SEASON_AWARDS: { value: "season_awards" },
-		GAME_STATS: { value: "game_stats" },
-		PLAYER_STATS: { value: "player_stats" },
-		OTHER: { value: "other" },
+		PLAYER_STAT_OVER_UNDER: { value: "player_stat_over_under" },
+		TEAM_STAT_OVER_UNDER: { value: "team_stat_over_under" },
+		GAME_TOTAL_OVER_UNDER: { value: "game_total_over_under" },
+		PLAYER_STAT_NUMERIC_GUESS: { value: "player_stat_numeric_guess" },
+		TEAM_STAT_NUMERIC_GUESS: { value: "team_stat_numeric_guess" },
+		PLAYER_VS_PLAYER: { value: "player_vs_player" },
+		TEAM_VS_TEAM: { value: "team_vs_team" },
+		YES_NO_PROP: { value: "yes_no_prop" },
+		PLAYER_SEASON_AWARD: { value: "player_season_award" },
+		TEAM_SEASON_AWARD: { value: "team_season_award" },
+		PLAYER_AWARD_FINALISTS: { value: "player_award_finalists" },
 	},
 })
 
@@ -137,7 +140,7 @@ const QuestionSortOrder = builder.enumType("QuestionSortOrder", {
 const AdminQuestionSort = builder.enumType("AdminQuestionSort", {
 	values: {
 		TITLE: { value: "title" },
-		TYPE: { value: "type" },
+		SHAPE: { value: "shape" },
 		ASKER: { value: "asker" },
 		CALLERS: { value: "callers" },
 		STATUS: { value: "status" },
@@ -170,13 +173,6 @@ export const VoidReason = builder.enumType("VoidReason", {
 		UNSUPPORTED_SPORT: { value: "unsupported_sport" },
 		DUPLICATE: { value: "duplicate" },
 		OTHER: { value: "other" },
-	},
-})
-
-const NumericSubjectType = builder.enumType("NumericSubjectType", {
-	values: {
-		PLAYER: { value: "player" },
-		TEAM: { value: "team" },
 	},
 })
 
@@ -496,8 +492,7 @@ export const QuestionRef = builder.drizzleObject("questions", {
 	name: "Question",
 	fields: (t) => ({
 		id: t.exposeID("id"),
-		type: t.field({ type: QuestionType, resolve: (q) => q.type }),
-		category: t.field({ type: QuestionCategory, resolve: (q) => q.category }),
+		shape: t.field({ type: QuestionShape, resolve: (q) => q.shape }),
 		title: t.exposeString("title"),
 		isOfficial: t.exposeBoolean("isOfficial"),
 
@@ -524,31 +519,35 @@ export const QuestionRef = builder.drizzleObject("questions", {
 		// anything not scoped to one game (season awards, an MVP race).
 		game: t.relation("game", { nullable: true }),
 
-		// over_under and numeric_guess only - stat is the catalog-backed default,
-		// customStat is the escape hatch used when stat is null
+		// *_over_under, *_numeric_guess, and player_vs_player only - stat is the
+		// catalog-backed default, customStat is the escape hatch used when stat
+		// is null (never set for the two numeric-guess shapes, which require a
+		// catalog stat)
 		stat: t.relation("stat", { nullable: true }),
 		customStat: t.exposeString("customStat", { nullable: true }),
 
-		// over_under only
+		// *_over_under shapes only
 		ouLine: t.exposeFloat("ouLine", { nullable: true }),
 
-		// yes_no, over_under, and numeric_guess - optional subject, null for a
-		// game-wide over/under (or a yes_no with no single team/player it's about)
-		numericSubjectType: t.field({
-			type: NumericSubjectType,
-			nullable: true,
-			resolve: (q) => q.numericSubjectType,
-		}),
+		// player_stat_over_under/numeric_guess, team_stat_over_under/
+		// numeric_guess (required), yes_no_prop (optional - null for a
+		// subject-less proposition)
 		subjectTeam: t.relation("subjectTeam", { nullable: true }),
 		subjectPlayer: t.relation("subjectPlayer", { nullable: true }),
 
-		// numeric_guess only
+		// yes_no_prop only
+		eventClause: t.exposeString("eventClause", { nullable: true }),
+
+		// player_season_award/team_season_award/player_award_finalists only
+		awardName: t.exposeString("awardName", { nullable: true }),
+
+		// The two numeric-guess shapes only
 		numericTolerancePct: t.exposeFloat("numericTolerancePct", {
 			nullable: true,
 		}),
 		numericActualValue: t.exposeFloat("numericActualValue", { nullable: true }),
-		// live average of every guessValue submitted so far - numeric_guess only,
-		// null until at least one call exists
+		// live average of every guessValue submitted so far - numeric-guess
+		// shapes only, null until at least one call exists
 		averageGuess: t.field({
 			type: "Float",
 			nullable: true,
@@ -588,18 +587,8 @@ export const QuestionRef = builder.drizzleObject("questions", {
 			},
 		}),
 
-		// multi_select only
+		// player_season_award/team_season_award only
 		picksRequired: t.exposeInt("picksRequired", { nullable: true }),
-
-		// multiple_choice only - true means the option pool below isn't fixed,
-		// it grows as castCall itself creates new options (see the resolver).
-		// openFieldKind says what kind of entity fills it.
-		optionsOpenField: t.exposeBoolean("optionsOpenField"),
-		openFieldKind: t.field({
-			type: NumericSubjectType,
-			nullable: true,
-			resolve: (q) => q.openFieldKind,
-		}),
 
 		createdAt: t.field({
 			type: "String",
@@ -659,18 +648,23 @@ export const QuestionRef = builder.drizzleObject("questions", {
 			},
 		}),
 
-		// Binned guess values for the guess-distribution chart - numeric_guess
-		// only, empty for every other type. Bin width is a flat 1 (nearest
-		// integer), which fits typical counting stats (points/rebounds/assists)
-		// but under-resolves a fractional-scale stat like shooting % - a real
-		// fix would derive bin width from numericTolerancePct instead; not
-		// needed for v1. Same "aggregate bypasses the per-caller pick-visibility
-		// gate" precedent averageGuess/numericHitRatePct already establish -
-		// individual bucket counts aren't attributed to any one caller.
+		// Binned guess values for the guess-distribution chart - the two
+		// numeric-guess shapes only, empty for every other shape. Bin width is a
+		// flat 1 (nearest integer), which fits typical counting stats (points/
+		// rebounds/assists) but under-resolves a fractional-scale stat like
+		// shooting % - a real fix would derive bin width from
+		// numericTolerancePct instead; not needed for v1. Same "aggregate
+		// bypasses the per-caller pick-visibility gate" precedent
+		// averageGuess/numericHitRatePct already establish - individual bucket
+		// counts aren't attributed to any one caller.
 		guessDistribution: t.field({
 			type: [GuessBucketRef],
 			resolve: async (question) => {
-				if (question.type !== "numeric_guess") return []
+				if (
+					question.shape !== "player_stat_numeric_guess" &&
+					question.shape !== "team_stat_numeric_guess"
+				)
+					return []
 				const guessCalls = await db.query.calls.findMany({
 					where: { questionId: question.id },
 					columns: { guessValue: true },
@@ -704,7 +698,11 @@ export const QuestionRef = builder.drizzleObject("questions", {
 			resolve: (question, _args, ctx) => {
 				if (!ctx.user) return null
 				return db.query.resolutionDisputes.findFirst({
-					where: { questionId: question.id, userId: ctx.user.id, status: "open" },
+					where: {
+						questionId: question.id,
+						userId: ctx.user.id,
+						status: "open",
+					},
 				})
 			},
 		}),
@@ -953,8 +951,8 @@ builder.queryFields((t) => ({
 						: query.orderBy(
 								sortColumn(
 									sortDir,
-									sortBy === "type"
-										? questions.type
+									sortBy === "shape"
+										? questions.shape
 										: sortBy === "status"
 											? questions.status
 											: questions.title,
@@ -1137,9 +1135,7 @@ const CreateQuestionOptionInput = builder.inputType(
 
 const CreateQuestionInput = builder.inputType("CreateQuestionInput", {
 	fields: (t) => ({
-		type: t.field({ type: QuestionType, required: true }),
-		category: t.field({ type: QuestionCategory, required: true }),
-		title: t.string({ required: true }),
+		shape: t.field({ type: QuestionShape, required: true }),
 		sportId: t.id({ required: true }),
 		leagueId: t.id({ required: true }),
 		gameId: t.id({ required: false }),
@@ -1149,33 +1145,34 @@ const CreateQuestionInput = builder.inputType("CreateQuestionInput", {
 		locksAt: t.string({ required: true }),
 		isOfficial: t.boolean({ required: false }),
 
-		// multiple_choice options / multi_select pool
+		// player_vs_player (exactly 2), award pools (player_season_award/
+		// team_season_award), player_award_finalists (2+) - not sent for
+		// team_vs_team, which the resolver derives from the picked game
 		options: t.field({
 			type: [CreateQuestionOptionInput],
 			required: false,
 		}),
 
-		// over_under, numeric_guess
+		// *_over_under, *_numeric_guess, player_vs_player
 		statId: t.id({ required: false }),
 		customStat: t.string({ required: false }),
 
-		// over_under
+		// *_over_under
 		ouLine: t.float({ required: false }),
 
-		// yes_no, over_under, numeric_guess
-		numericSubjectType: t.field({
-			type: NumericSubjectType,
-			required: false,
-		}),
+		// player/team_stat_over_under, player/team_stat_numeric_guess
+		// (required), yes_no_prop (optional)
 		subjectTeamId: t.id({ required: false }),
 		subjectPlayerId: t.id({ required: false }),
 
-		// multi_select
+		// player_season_award/team_season_award
 		picksRequired: t.int({ required: false }),
 
-		// multiple_choice only
-		optionsOpenField: t.boolean({ required: false }),
-		openFieldKind: t.field({ type: NumericSubjectType, required: false }),
+		// yes_no_prop only
+		eventClause: t.string({ required: false }),
+
+		// player_season_award/team_season_award/player_award_finalists
+		awardName: t.string({ required: false }),
 	}),
 })
 
@@ -1186,35 +1183,18 @@ const CastCallSelectionInput = builder.inputType("CastCallSelectionInput", {
 	}),
 })
 
-// multiple_choice on an optionsOpenField question only - a pick not yet among
-// the question's existing options. teamId/playerId (whichever openFieldKind
-// calls for) is what the resolver actually trusts to find-or-create the
-// matching questionOptions row; label is just what gets stored on it.
-const CastCallNewOptionInput = builder.inputType("CastCallNewOptionInput", {
-	fields: (t) => ({
-		label: t.string({ required: true }),
-		teamId: t.id({ required: false }),
-		playerId: t.id({ required: false }),
-		conviction: t.int({ required: true }),
-	}),
-})
-
 const CastCallInput = builder.inputType("CastCallInput", {
 	fields: (t) => ({
 		questionId: t.id({ required: true }),
 		caseText: t.string({ required: false }),
 
-		// numeric_guess
+		// player_stat_numeric_guess, team_stat_numeric_guess
 		guessValue: t.float({ required: false }),
 		conviction: t.int({ required: false }),
 
-		// multiple_choice/yes_no/over_under (exactly 1) / multi_select (a
-		// question's picksRequired worth)
+		// Every other shape: exactly 1, except player_season_award/
+		// team_season_award (a question's picksRequired worth)
 		selections: t.field({ type: [CastCallSelectionInput], required: false }),
-
-		// multiple_choice on an optionsOpenField question only - alternative to
-		// selections when the caller's pick isn't in the pool yet
-		newOption: t.field({ type: CastCallNewOptionInput, required: false }),
 	}),
 })
 
@@ -1229,10 +1209,10 @@ const CastCallPayload = builder
 const ResolveQuestionInput = builder.inputType("ResolveQuestionInput", {
 	fields: (t) => ({
 		questionId: t.id({ required: true }),
-		// multiple_choice/yes_no/over_under (exactly 1) / multi_select (the
-		// actual winners, not necessarily matching picksRequired)
+		// Every other shape: exactly 1. player_season_award/team_season_award:
+		// the actual winners, not necessarily matching picksRequired
 		correctOptionIds: t.field({ type: ["ID"], required: false }),
-		// numeric_guess
+		// player_stat_numeric_guess, team_stat_numeric_guess
 		actualValue: t.float({ required: false }),
 		resolutionNote: t.string({ required: false }),
 	}),
@@ -1290,7 +1270,11 @@ async function resolveQuestionInternal(
 	// never touched here - it only changes at castCall/voidQuestion time.
 	const statDeltas = new Map<string, LeagueStatDelta>()
 
-	if (question.type === "numeric_guess") {
+	const isNumericGuess =
+		question.shape === "player_stat_numeric_guess" ||
+		question.shape === "team_stat_numeric_guess"
+
+	if (isNumericGuess) {
 		const guessCalls = await tx.query.calls.findMany({
 			where: { questionId: question.id },
 			columns: {
@@ -1316,10 +1300,10 @@ async function resolveQuestionInternal(
 			}))
 
 		// resolveQuestionSchema/adminResolveQuestionSchema guarantee actualValue
-		// is set for numeric_guess, and createQuestionSchema guarantees
-		// numericTolerancePct was set at creation for this type.
+		// is set for the two numeric-guess shapes, and createQuestionSchema
+		// guarantees numericTolerancePct was set at creation for them.
 		const scored = numericGuessPoints(
-			BASE_POINTS_BY_TYPE[question.type],
+			BASE_POINTS_BY_SHAPE[question.shape],
 			guesses,
 			data.actualValue as number,
 			question.numericTolerancePct as number,
@@ -1420,8 +1404,9 @@ async function resolveQuestionInternal(
 		)
 
 		// Earliness is a property of the call, not any one selection in it - a
-		// multi_select call's picks all share the same createdAt, so this ranks
-		// distinct calls, not selections, before mapping back.
+		// player_season_award/team_season_award call's picks all share the same
+		// createdAt, so this ranks distinct calls, not selections, before
+		// mapping back.
 		const callsById = new Map(selections.map((s) => [s.call.id, s.call]))
 		const orderedCalls = [...callsById.values()].sort(
 			(a, b) => a.createdAt.getTime() - b.createdAt.getTime(),
@@ -1438,7 +1423,7 @@ async function resolveQuestionInternal(
 			const isCorrect = correctOptionIds.has(s.optionId)
 			const earlyMult = earlyMultByCallId.get(s.call.id) ?? 1
 			const points = selectionPoints(
-				BASE_POINTS_BY_TYPE[question.type],
+				BASE_POINTS_BY_SHAPE[question.shape],
 				pct,
 				options.length,
 				s.conviction,
@@ -1482,9 +1467,7 @@ async function resolveQuestionInternal(
 			status: "resolved",
 			resolvedAt: new Date(),
 			resolutionNote: data.resolutionNote || null,
-			...(question.type === "numeric_guess"
-				? { numericActualValue: data.actualValue }
-				: {}),
+			...(isNumericGuess ? { numericActualValue: data.actualValue } : {}),
 			...(sourceOverride?.resolutionSource
 				? { resolutionSource: sourceOverride.resolutionSource }
 				: {}),
@@ -1655,17 +1638,34 @@ builder.mutationFields((t) => ({
 				throw new AuthorizationError("Only admins can post official questions.")
 			}
 
+			// Official questions are attributed to the Called My Shot account
+			// itself, never the admin who happened to click "post" - the byline
+			// should read the same no matter which admin posted it.
+			const creatorId = data.isOfficial ? await getOfficialAccountId() : user.id
+
 			// When a game is picked, its own startsAt is what actually gets
 			// stored as locksAt below - the create-question form disables that
 			// field and fills it from the game client-side, but the server
 			// re-derives it from the game row rather than trusting the
 			// submitted string, so a stale or tampered locksAt can't desync
-			// the two.
-			let gameLocksAt: Date | null = null
-			if (data.gameId) {
-				const game = await db.query.games.findFirst({
-					where: { id: data.gameId },
+			// the two. homeTeam/awayTeam are loaded alongside it since
+			// game_total_over_under and team_vs_team both need the real team
+			// names for their generated title. Both relations are typed
+			// nullable purely because drizzle types every `one` relation that
+			// way regardless of the FK's own nullability (homeTeamId/
+			// awayTeamId are NOT NULL) - same non-issue documented at length
+			// elsewhere in this file (see resolveQuestionInternal).
+			async function loadGameWithTeams(gameId: string) {
+				return db.query.games.findFirst({
+					where: { id: gameId },
+					with: { homeTeam: true, awayTeam: true },
 				})
+			}
+			let game: Awaited<ReturnType<typeof loadGameWithTeams>> | null = null
+			let homeTeamName: string | null = null
+			let awayTeamName: string | null = null
+			if (data.gameId) {
+				game = (await loadGameWithTeams(data.gameId)) ?? null
 				if (!game) throw ValidationError.field("gameId", "Game not found")
 				if (game.leagueId !== data.leagueId) {
 					throw ValidationError.field(
@@ -1673,15 +1673,22 @@ builder.mutationFields((t) => ({
 						"Game must belong to the selected league",
 					)
 				}
-				gameLocksAt = game.startsAt
+				if (!game.homeTeam || !game.awayTeam) {
+					throw new Error("Game is missing its home/away team")
+				}
+				homeTeamName = game.homeTeam.name
+				awayTeamName = game.awayTeam.name
 			}
 
-			// numeric_guess's tolerance band comes from the stat's own tolerance
-			// tier, not the creator - createQuestionSchema guarantees statId is
-			// set (no customStat fallback) for this type specifically, so a
+			// The tolerance band comes from the stat's own tolerance tier, not
+			// the creator - createQuestionSchema guarantees statId is set (no
+			// customStat fallback) for these two shapes specifically, so a
 			// creator can't set an unhittable or trivial-to-hit band by hand.
 			let numericTolerancePct: number | null = null
-			if (data.type === "numeric_guess") {
+			if (
+				data.shape === "player_stat_numeric_guess" ||
+				data.shape === "team_stat_numeric_guess"
+			) {
 				const stat = await db.query.stats.findFirst({
 					where: { id: data.statId },
 					with: { toleranceTier: true },
@@ -1692,73 +1699,257 @@ builder.mutationFields((t) => ({
 				numericTolerancePct = stat.toleranceTier.tolerancePct
 			}
 
+			// Resolved once up front for title generation - only the fields a
+			// given shape actually uses end up set.
+			const [stat, subjectPlayer, subjectTeam] = await Promise.all([
+				data.statId
+					? db.query.stats.findFirst({ where: { id: data.statId } })
+					: null,
+				data.subjectPlayerId
+					? db.query.players.findFirst({ where: { id: data.subjectPlayerId } })
+					: null,
+				data.subjectTeamId
+					? db.query.teams.findFirst({ where: { id: data.subjectTeamId } })
+					: null,
+			])
+			const statName = stat?.name ?? data.customStat
+			const subjectName = subjectPlayer?.name ?? subjectTeam?.name ?? null
+
+			// Only meaningful for a catalog stat - a freeform customStat (over_under
+			// and player_vs_player both allow one, see requireStat vs
+			// requireCatalogStat in the shared schema) has no appliesTo to check
+			// against, so it's left alone rather than rejected.
+			function requireStatAppliesTo(kind: "player" | "team") {
+				if (stat && stat.appliesTo !== "both" && stat.appliesTo !== kind) {
+					throw ValidationError.field(
+						"statId",
+						`"${stat.name}" isn't tracked as a ${kind} stat`,
+					)
+				}
+			}
+
+			const title = match(data.shape)
+				.with("player_stat_over_under", (shape) => {
+					if (!subjectPlayer) {
+						throw ValidationError.field("subjectPlayerId", "Player not found")
+					}
+					if (data.ouLine === undefined) {
+						throw ValidationError.field("ouLine", "Set the line")
+					}
+					requireStatAppliesTo("player")
+					return generateQuestionTitle({
+						shape,
+						playerName: subjectPlayer.name,
+						statName,
+						ouLine: data.ouLine,
+					})
+				})
+				.with("team_stat_over_under", (shape) => {
+					if (!subjectTeam) {
+						throw ValidationError.field("subjectTeamId", "Team not found")
+					}
+					if (data.ouLine === undefined) {
+						throw ValidationError.field("ouLine", "Set the line")
+					}
+					requireStatAppliesTo("team")
+					return generateQuestionTitle({
+						shape,
+						teamName: subjectTeam.name,
+						statName,
+						ouLine: data.ouLine,
+					})
+				})
+				.with("game_total_over_under", (shape) => {
+					if (!homeTeamName || !awayTeamName) {
+						throw ValidationError.field("gameId", "Pick a game")
+					}
+					if (data.ouLine === undefined) {
+						throw ValidationError.field("ouLine", "Set the line")
+					}
+					// A game-wide total is never about one specific player, same
+					// subject kind as a team stat for this check's purposes.
+					requireStatAppliesTo("team")
+					return generateQuestionTitle({
+						shape,
+						awayTeamName,
+						homeTeamName,
+						statName,
+						ouLine: data.ouLine,
+					})
+				})
+				.with("player_stat_numeric_guess", (shape) => {
+					if (!subjectPlayer) {
+						throw ValidationError.field("subjectPlayerId", "Player not found")
+					}
+					if (!data.gameId) {
+						throw ValidationError.field("gameId", "Pick a game")
+					}
+					requireStatAppliesTo("player")
+					return generateQuestionTitle({
+						shape,
+						playerName: subjectPlayer.name,
+						statName,
+					})
+				})
+				.with("team_stat_numeric_guess", (shape) => {
+					if (!subjectTeam) {
+						throw ValidationError.field("subjectTeamId", "Team not found")
+					}
+					if (!data.gameId) {
+						throw ValidationError.field("gameId", "Pick a game")
+					}
+					requireStatAppliesTo("team")
+					return generateQuestionTitle({
+						shape,
+						teamName: subjectTeam.name,
+						statName,
+					})
+				})
+				.with("player_vs_player", (shape) => {
+					const [a, b] = data.options ?? []
+					if (!a?.label || !b?.label) {
+						throw ValidationError.field("options", "Pick two players")
+					}
+					requireStatAppliesTo("player")
+					return generateQuestionTitle({
+						shape,
+						playerAName: a.label,
+						playerBName: b.label,
+						statName,
+					})
+				})
+				.with("team_vs_team", (shape) => {
+					if (!homeTeamName || !awayTeamName) {
+						throw ValidationError.field("gameId", "Pick a game")
+					}
+					return generateQuestionTitle({ shape, awayTeamName, homeTeamName })
+				})
+				.with("yes_no_prop", (shape) =>
+					generateQuestionTitle({
+						shape,
+						subjectName,
+						eventClause: data.eventClause,
+					}),
+				)
+				.with("player_season_award", "team_season_award", (shape) =>
+					generateQuestionTitle({
+						shape,
+						awardName: data.awardName,
+						picksRequired: data.picksRequired ?? 1,
+					}),
+				)
+				.with("player_award_finalists", (shape) =>
+					generateQuestionTitle({
+						shape,
+						awardName: data.awardName,
+						finalistNames: (data.options ?? []).map((option) => option.label),
+					}),
+				)
+				.exhaustive()
+
 			const question = await db.transaction(async (tx) => {
 				const [question] = await tx
 					.insert(questions)
 					.values({
-						type: data.type,
-						// createQuestionSchema validates category is a member of this
-						// enum at runtime (see packages/schemas/src/questions.ts) but
-						// keeps its output type as a plain string - the frontend form
-						// needs that to represent "no category chosen yet" - so it's
-						// narrowed back here for the insert.
-						category:
-							data.category as (typeof questionCategorySchema.options)[number],
-						title: data.title,
-						creatorId: user.id,
+						shape: data.shape,
+						title,
+						creatorId,
 						isOfficial: data.isOfficial ?? false,
 						sportId: data.sportId,
 						leagueId: data.leagueId,
 						gameId: data.gameId ?? null,
 						resolutionSource: data.resolutionSource,
 						resolutionSourceUrl: data.resolutionSourceUrl || null,
-						locksAt: gameLocksAt ?? new Date(data.locksAt),
+						locksAt: game?.startsAt ?? new Date(data.locksAt),
 						statId: data.statId ?? null,
 						customStat: data.customStat || null,
 						ouLine: data.ouLine ?? null,
-						numericSubjectType: data.numericSubjectType ?? null,
 						subjectTeamId: data.subjectTeamId ?? null,
 						subjectPlayerId: data.subjectPlayerId ?? null,
 						numericTolerancePct,
 						picksRequired: data.picksRequired ?? null,
-						optionsOpenField: data.optionsOpenField ?? false,
-						openFieldKind: data.optionsOpenField
-							? (data.openFieldKind ?? null)
-							: null,
+						eventClause: data.eventClause || null,
+						awardName: data.awardName || null,
 					})
 					.returning()
 
-				if (data.type === "multiple_choice" || data.type === "multi_select") {
-					const options = data.options ?? []
-					await tx.insert(questionOptions).values(
-						options.map((option, index) => ({
-							questionId: question.id,
-							label: option.label,
-							sortOrder: index,
-							teamId: option.teamId ?? null,
-							playerId: option.playerId ?? null,
-						})),
+				await match(data.shape)
+					.with(
+						"player_vs_player",
+						"player_award_finalists",
+						"player_season_award",
+						"team_season_award",
+						async () => {
+							const options = data.options ?? []
+							await tx.insert(questionOptions).values(
+								options.map((option, index) => ({
+									questionId: question.id,
+									label: option.label,
+									sortOrder: index,
+									teamId: option.teamId ?? null,
+									playerId: option.playerId ?? null,
+								})),
+							)
+						},
 					)
-				} else if (data.type === "yes_no") {
-					await tx.insert(questionOptions).values([
-						{ questionId: question.id, label: "Yes", sortOrder: 0 },
-						{ questionId: question.id, label: "No", sortOrder: 1 },
-					])
-				} else if (data.type === "over_under") {
-					// createQuestionSchema guarantees ouLine is set for over_under.
-					await tx.insert(questionOptions).values([
-						{
-							questionId: question.id,
-							label: `Over ${data.ouLine}`,
-							sortOrder: 0,
+					.with("yes_no_prop", async () => {
+						await tx.insert(questionOptions).values([
+							{ questionId: question.id, label: "Yes", sortOrder: 0 },
+							{ questionId: question.id, label: "No", sortOrder: 1 },
+						])
+					})
+					.with(
+						"player_stat_over_under",
+						"team_stat_over_under",
+						"game_total_over_under",
+						async () => {
+							// Bare "Over"/"Under" - the line itself isn't part of the
+							// stored label, it's appended for display by
+							// optionDisplayLabel (web) wherever an over/under option
+							// renders, same as "Yes"/"No" above needs no line at all.
+							// Baking ouLine in here too would double it up on every
+							// render.
+							await tx.insert(questionOptions).values([
+								{
+									questionId: question.id,
+									label: "Over",
+									sortOrder: 0,
+								},
+								{
+									questionId: question.id,
+									label: "Under",
+									sortOrder: 1,
+								},
+							])
 						},
-						{
-							questionId: question.id,
-							label: `Under ${data.ouLine}`,
-							sortOrder: 1,
+					)
+					.with("team_vs_team", async () => {
+						if (!game || !homeTeamName || !awayTeamName) {
+							throw ValidationError.field("gameId", "Pick a game")
+						}
+						await tx.insert(questionOptions).values([
+							{
+								questionId: question.id,
+								label: awayTeamName,
+								sortOrder: 0,
+								teamId: game.awayTeamId,
+							},
+							{
+								questionId: question.id,
+								label: homeTeamName,
+								sortOrder: 1,
+								teamId: game.homeTeamId,
+							},
+						])
+					})
+					.with(
+						"player_stat_numeric_guess",
+						"team_stat_numeric_guess",
+						async () => {
+							// No options row - scored via calls.guessValue directly.
 						},
-					])
-				}
+					)
+					.exhaustive()
 
 				return question
 			})
@@ -1806,7 +1997,7 @@ builder.mutationFields((t) => ({
 
 			const parsed = castCallSchema.safeParse({
 				...args.input,
-				type: question.type,
+				shape: question.shape,
 			})
 			if (!parsed.success) {
 				throw ValidationError.fromZodIssues(parsed.error.issues)
@@ -1814,7 +2005,8 @@ builder.mutationFields((t) => ({
 			const data = parsed.data
 
 			if (
-				data.type === "multi_select" &&
+				(data.shape === "player_season_award" ||
+					data.shape === "team_season_award") &&
 				data.selections.length !== question.picksRequired
 			) {
 				throw ValidationError.field(
@@ -1837,65 +2029,10 @@ builder.mutationFields((t) => ({
 				}
 			}
 
-			const newOption = data.newOption
-			if (newOption) {
-				if (question.type !== "multiple_choice" || !question.optionsOpenField) {
-					throw ValidationError.field(
-						"newOption",
-						"This question's options are fixed.",
-					)
-				}
-				const wantsTeam = question.openFieldKind === "team"
-				if (wantsTeam && !newOption.teamId) {
-					throw ValidationError.field("newOption", "Pick a real team.")
-				}
-				if (!wantsTeam && !newOption.playerId) {
-					throw ValidationError.field("newOption", "Pick a real player.")
-				}
-			}
-
 			const call = await db.transaction(async (tx) => {
-				let selections: { optionId: string; conviction: number }[] =
-					data.selections
-
-				// An optionsOpenField pick not yet in the pool - find the matching
-				// team/player's existing option (someone else may have already
-				// called them) or create one now, the same way the creator's own
-				// options get inserted at question-creation time.
-				if (newOption) {
-					const matchCondition = newOption.teamId
-						? eq(questionOptions.teamId, newOption.teamId)
-						: eq(questionOptions.playerId, newOption.playerId as string)
-					const [existingOption] = await tx
-						.select()
-						.from(questionOptions)
-						.where(
-							and(eq(questionOptions.questionId, question.id), matchCondition),
-						)
-						.limit(1)
-
-					let optionId: string
-					if (existingOption) {
-						optionId = existingOption.id
-					} else {
-						const [{ n: sortOrder }] = await tx
-							.select({ n: count() })
-							.from(questionOptions)
-							.where(eq(questionOptions.questionId, question.id))
-						const [created] = await tx
-							.insert(questionOptions)
-							.values({
-								questionId: question.id,
-								label: newOption.label,
-								sortOrder,
-								teamId: newOption.teamId ?? null,
-								playerId: newOption.playerId ?? null,
-							})
-							.returning()
-						optionId = created.id
-					}
-					selections = [{ optionId, conviction: newOption.conviction }]
-				}
+				const isNumericGuess =
+					data.shape === "player_stat_numeric_guess" ||
+					data.shape === "team_stat_numeric_guess"
 
 				const [call] = await tx
 					.insert(calls)
@@ -1903,16 +2040,14 @@ builder.mutationFields((t) => ({
 						questionId: question.id,
 						userId: user.id,
 						caseText: data.caseText || null,
-						guessValue:
-							data.type === "numeric_guess" ? (data.guessValue ?? null) : null,
-						conviction:
-							data.type === "numeric_guess" ? (data.conviction ?? null) : null,
+						guessValue: isNumericGuess ? (data.guessValue ?? null) : null,
+						conviction: isNumericGuess ? (data.conviction ?? null) : null,
 					})
 					.returning()
 
-				if (selections.length > 0) {
+				if (data.selections.length > 0) {
 					await tx.insert(callSelections).values(
-						selections.map((s) => ({
+						data.selections.map((s) => ({
 							callId: call.id,
 							optionId: s.optionId,
 							conviction: s.conviction,
@@ -1985,7 +2120,7 @@ builder.mutationFields((t) => ({
 
 				const parsed = resolveQuestionSchema.safeParse({
 					...args.input,
-					type: question.type,
+					shape: question.shape,
 				})
 				if (!parsed.success) {
 					throw ValidationError.fromZodIssues(parsed.error.issues)
@@ -2040,7 +2175,7 @@ builder.mutationFields((t) => ({
 
 				const parsed = adminResolveQuestionSchema.safeParse({
 					...args.input,
-					type: question.type,
+					shape: question.shape,
 				})
 				if (!parsed.success) {
 					throw ValidationError.fromZodIssues(parsed.error.issues)
@@ -2100,7 +2235,7 @@ builder.mutationFields((t) => ({
 
 				const parsed = adminResolveQuestionSchema.safeParse({
 					...args.input.resolution,
-					type: question.type,
+					shape: question.shape,
 				})
 				if (!parsed.success) {
 					throw ValidationError.fromZodIssues(parsed.error.issues)
@@ -2206,7 +2341,12 @@ builder.mutationFields((t) => ({
 	dismissReport: t.field({
 		type: QuestionReportRef,
 		errors: {
-			types: [AuthenticationError, AuthorizationError, NotFoundError, ValidationError],
+			types: [
+				AuthenticationError,
+				AuthorizationError,
+				NotFoundError,
+				ValidationError,
+			],
 			directResult: true,
 			union: { name: "DismissReportResult" },
 		},

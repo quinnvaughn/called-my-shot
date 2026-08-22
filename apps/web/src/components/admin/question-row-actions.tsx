@@ -7,12 +7,18 @@ import { openModal } from "#/stores/modal-store"
 import { AdminResolveModal } from "./admin-resolve-modal"
 import { VoidQuestionModal } from "./void-question-modal"
 
-type QuestionType =
-	| "multiple_choice"
-	| "yes_no"
-	| "over_under"
-	| "numeric_guess"
-	| "multi_select"
+type QuestionShape =
+	| "player_stat_over_under"
+	| "team_stat_over_under"
+	| "game_total_over_under"
+	| "player_stat_numeric_guess"
+	| "team_stat_numeric_guess"
+	| "player_vs_player"
+	| "team_vs_team"
+	| "yes_no_prop"
+	| "player_season_award"
+	| "team_season_award"
+	| "player_award_finalists"
 
 // Loads the option pool on demand rather than requiring every caller (the
 // Questions page's full list, the Queue page's needs-resolution list) to
@@ -35,7 +41,7 @@ export function ResolveButton({
 				question={{
 					id: data.question.id,
 					title: data.question.title,
-					type: data.question.type.toLowerCase() as QuestionType,
+					shape: data.question.shape.toLowerCase() as QuestionShape,
 					ouLine: data.question.ouLine ?? null,
 					options: data.question.options,
 				}}

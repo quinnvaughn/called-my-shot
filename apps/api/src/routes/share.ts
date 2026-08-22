@@ -32,35 +32,53 @@ export function registerShareRoutes(app: Express) {
 	})
 }
 
-const CATEGORY_LABEL: Record<string, string> = {
-	season_awards: "Season Awards",
-	game_stats: "Game Stats",
-	player_stats: "Player Stats",
-	other: "Other",
+const SHAPE_LABEL: Record<string, string> = {
+	player_stat_over_under: "Player Prop",
+	team_stat_over_under: "Team Prop",
+	game_total_over_under: "Game Total",
+	player_stat_numeric_guess: "Player Prop",
+	team_stat_numeric_guess: "Team Prop",
+	player_vs_player: "Head-to-Head",
+	team_vs_team: "Game Outcome",
+	yes_no_prop: "Yes/No",
+	player_season_award: "Season Award",
+	team_season_award: "Season Award",
+	player_award_finalists: "Season Award",
 }
 
 // Mirrors lib/call-summary.ts's pickSummary on the frontend, against this
 // route's own DB-shaped call rather than the GraphQL Call type - no shared
 // module between the two given the enum casing they each work off already
 // differs (GraphQL's SCREAMING_SNAKE vs. this table's snake_case), same
-// reasoning viewer-status-card.tsx's BASE_POINTS_BY_GQL_TYPE bridge already
+// reasoning viewer-status-card.tsx's BASE_POINTS_BY_GQL_SHAPE bridge already
 // documents.
 function buildPickLabel(call: {
 	guessValue: number | null
-	question: { type: string; ouLine: number | null }
+	question: { shape: string; ouLine: number | null }
 	selections: { option: { label: string; isCorrect: boolean | null } }[]
 }): string {
-	if (call.question.type === "numeric_guess") {
+	if (
+		call.question.shape === "player_stat_numeric_guess" ||
+		call.question.shape === "team_stat_numeric_guess"
+	) {
 		return call.guessValue !== null ? String(call.guessValue) : "—"
 	}
-	if (call.question.type === "multi_select") {
+	if (
+		call.question.shape === "player_season_award" ||
+		call.question.shape === "team_season_award"
+	) {
 		if (call.selections.length === 0) return "—"
 		const hits = call.selections.filter((s) => s.option.isCorrect).length
 		return `${hits} of ${call.selections.length} hit`
 	}
 	const selection = call.selections[0]
 	if (!selection) return "—"
-	if (call.question.type === "over_under" && call.question.ouLine !== null) {
+	if (
+		(call.question.shape === "player_stat_over_under" ||
+			call.question.shape === "team_stat_over_under" ||
+			call.question.shape === "game_total_over_under") &&
+		call.question.ouLine !== null
+	) {
 		return `${selection.option.label} ${call.question.ouLine}`
 	}
 	return selection.option.label
@@ -136,9 +154,8 @@ async function sendCallShareCard(res: Response, callId: string) {
 				columns: {
 					id: true,
 					title: true,
-					type: true,
+					shape: true,
 					status: true,
-					category: true,
 					ouLine: true,
 				},
 				with: { league: { columns: { abbreviation: true } } },
@@ -167,7 +184,9 @@ async function sendCallShareCard(res: Response, callId: string) {
 			s.option !== null,
 	)
 
-	const isNumeric = call.question.type === "numeric_guess"
+	const isNumeric =
+		call.question.shape === "player_stat_numeric_guess" ||
+		call.question.shape === "team_stat_numeric_guess"
 	const totalPoints = isNumeric
 		? call.resultPoints
 		: selections.length > 0 && selections.every((s) => s.resultPoints !== null)
@@ -194,8 +213,9 @@ async function sendCallShareCard(res: Response, callId: string) {
 
 	// Same "one number only means something for exactly one pick" rule as
 	// the frontend preview (see viewer-status-card.tsx's ShareCallSection) -
-	// numeric_guess and a lone selection both have one, multi_select's
-	// several independent picks don't.
+	// a numeric-guess shape and a lone selection both have one,
+	// player_season_award/team_season_award's several independent picks
+	// don't.
 	let fieldPctValue: number | null = null
 	if (isNumeric) {
 		fieldPctValue = call.closenessFieldPct
@@ -220,12 +240,12 @@ async function sendCallShareCard(res: Response, callId: string) {
 	const node = buildCallShareCard({
 		questionTitle: call.question.title,
 		leagueAbbr: call.question.league.abbreviation.toUpperCase(),
-		categoryLabel: CATEGORY_LABEL[call.question.category] ?? "Other",
+		categoryLabel: SHAPE_LABEL[call.question.shape] ?? "Other",
 		name: call.user.name,
 		username: call.user.username,
 		pickLabel: buildPickLabel({
 			guessValue: call.guessValue,
-			question: { type: call.question.type, ouLine: call.question.ouLine },
+			question: { shape: call.question.shape, ouLine: call.question.ouLine },
 			selections,
 		}),
 		isWin,

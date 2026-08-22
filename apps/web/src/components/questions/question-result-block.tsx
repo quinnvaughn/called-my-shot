@@ -2,8 +2,9 @@ import { css } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
 import { match } from "ts-pattern"
 import { Tag } from "#/components/ui/tag"
-import type { QuestionType } from "#/graphql/generated/graphql"
+import type { QuestionShape } from "#/graphql/generated/graphql"
 import { callersText, formatGuess } from "#/lib/field-signal"
+import { optionDisplayLabel } from "#/lib/question-labels"
 import { DisputedFlag } from "./disputed-flag"
 
 type Option = {
@@ -15,10 +16,11 @@ type Option = {
 
 type Props = {
 	question: {
-		type: QuestionType
+		shape: QuestionShape
 		numericActualValue: number | null
 		callCount: number
 		averageGuess: number | null
+		ouLine: number | null
 		options: Option[]
 	}
 	// A dispute still carries the prior resolution's value/sub-line - the
@@ -73,8 +75,8 @@ export function QuestionResultBlock({ question, disputed }: Props) {
 					</Tag>
 				)}
 			</HStack>
-			{match(question.type)
-				.with("NUMERIC_GUESS", () => (
+			{match(question.shape)
+				.with("PLAYER_STAT_NUMERIC_GUESS", "TEAM_STAT_NUMERIC_GUESS", () => (
 					<VStack gap="1.5" alignItems="stretch">
 						<span className={valueClass}>
 							{question.numericActualValue ?? "—"}
@@ -86,23 +88,34 @@ export function QuestionResultBlock({ question, disputed }: Props) {
 						</span>
 					</VStack>
 				))
-				.with("OVER_UNDER", () => (
-					<VStack gap="1.5" alignItems="stretch">
-						<span className={valueClass}>
-							{winner
-								? `${winner.label} — total was ${question.numericActualValue}`
-								: "—"}
-						</span>
-						<span className={subClass}>{winnerSub}</span>
-					</VStack>
-				))
-				.with("MULTIPLE_CHOICE", "YES_NO", () => (
-					<VStack gap="1.5" alignItems="stretch">
-						<span className={valueClass}>{winner?.label ?? "—"}</span>
-						<span className={subClass}>{winnerSub}</span>
-					</VStack>
-				))
-				.with("MULTI_SELECT", () => (
+				.with(
+					"PLAYER_STAT_OVER_UNDER",
+					"TEAM_STAT_OVER_UNDER",
+					"GAME_TOTAL_OVER_UNDER",
+					() => (
+						<VStack gap="1.5" alignItems="stretch">
+							<span className={valueClass}>
+								{winner
+									? `${optionDisplayLabel(winner.label, question.shape, question.ouLine)}: total was ${question.numericActualValue}`
+									: "—"}
+							</span>
+							<span className={subClass}>{winnerSub}</span>
+						</VStack>
+					),
+				)
+				.with(
+					"PLAYER_VS_PLAYER",
+					"TEAM_VS_TEAM",
+					"YES_NO_PROP",
+					"PLAYER_AWARD_FINALISTS",
+					() => (
+						<VStack gap="1.5" alignItems="stretch">
+							<span className={valueClass}>{winner?.label ?? "—"}</span>
+							<span className={subClass}>{winnerSub}</span>
+						</VStack>
+					),
+				)
+				.with("PLAYER_SEASON_AWARD", "TEAM_SEASON_AWARD", () => (
 					<VStack gap="1.5" alignItems="stretch">
 						<VStack gap="0" alignItems="stretch">
 							{winners.map((option) => (

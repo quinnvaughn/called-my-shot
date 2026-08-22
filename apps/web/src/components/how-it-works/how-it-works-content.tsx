@@ -169,29 +169,24 @@ function CurveScale({
 
 const QUESTION_TYPES = [
 	{
-		title: "Multiple Choice",
+		title: "Stat lines & props",
+		pts: "150 pts",
+		desc: "A player or team stat line, a game total, a head-to-head comparison, a yes/no proposition — one pick between two (or a few named) options.",
+	},
+	{
+		title: "Award finalists",
 		pts: "200 pts",
-		desc: "Pick one option from a list the asker set: MVP, series winner, that kind of thing.",
+		desc: "The real announced shortlist for an award — pick the winner once the field's narrowed to a handful of named people.",
 	},
 	{
-		title: "Yes/No",
-		pts: "150 pts",
-		desc: "Two fixed options, always. Nothing to configure: it's yes or no.",
-	},
-	{
-		title: "Over/Under",
-		pts: "150 pts",
-		desc: "Call whether the real result lands above or below a set line.",
-	},
-	{
-		title: "Numeric Guess",
+		title: "Numeric guesses",
 		pts: "250 pts",
-		desc: "Guess an exact number. Landing within the tolerance band still counts as a hit.",
+		desc: "Guess an exact number for a player or team stat. Landing within the tolerance band still counts as a hit.",
 	},
 	{
-		title: "Multi-Select",
+		title: "Season-long awards",
 		pts: "250 pts / pick",
-		desc: "Fixed-slot predictions like First Team All-NBA: pick a set number of players, and each pick is scored at full value on its own, not a split pool.",
+		desc: "MVP, a championship, an All-league team: pick from the full league before the field's known, and each pick is scored at full value on its own, not a split pool.",
 	},
 ]
 
@@ -275,10 +270,10 @@ export function HowItWorksSections() {
 				subtitle="No one's adjusting anything against you"
 			>
 				<P>
-					The Over/Under line, the Multiple Choice options, all of it: set by
-					whoever asked the question, not calculated by the platform to balance
-					action on both sides. Nobody's adjusting anything based on which way
-					callers are leaning.
+					The line, the options, the award name — all of it set by whoever
+					asked the question, not calculated by the platform to balance action
+					on both sides. Nobody's adjusting anything based on which way callers
+					are leaning.
 				</P>
 				<P>
 					Your multiplier comes from the <B>field</B> (the real percentage of
@@ -294,9 +289,9 @@ export function HowItWorksSections() {
 
 			<Accordion
 				title="Question types"
-				subtitle="Five formats, different base points"
+				subtitle="Different formats, different base points"
 			>
-				<P>Base points vary by type: harder-to-call formats are worth more.</P>
+				<P>Base points vary by shape: harder-to-call formats are worth more.</P>
 				<TypeGrid />
 			</Accordion>
 
@@ -336,9 +331,10 @@ export function HowItWorksSections() {
 					field's final makeup once the question resolves, and relative to how
 					many options the question even had (1-in-20 means something different
 					than 1-in-2). The rarer your pick, the higher the multiplier on a win,
-					scaling smoothly rather than in fixed steps. This applies to Multiple
-					Choice, Yes/No, Over/Under, and each pick within a Multi-Select.
-					Numeric Guess works differently (see below).
+					scaling smoothly rather than in fixed steps. This applies to every
+					option-based shape — stat lines, props, head-to-head picks, award
+					finalists, and each pick within a season-long award. The numeric-guess
+					shapes work differently (see below).
 				</P>
 				<CurveScale
 					labels={["SAFE", "STEADY", "BOLD", "DARING", "FEARLESS"]}
@@ -399,12 +395,12 @@ export function HowItWorksSections() {
 			</Accordion>
 
 			<Accordion
-				title="Numeric Guess scoring"
+				title="Numeric guess scoring"
 				subtitle="The same rarity idea, applied to how close you were"
 			>
 				<P>
-					Numeric Guess doesn't have a discrete field to compare against the way
-					Multiple Choice or Yes/No does, so it can't use field share directly.
+					A numeric guess doesn't have a discrete field to compare against the
+					way an option-based shape does, so it can't use field share directly.
 					It asks the same underlying question a different way instead: once a
 					question resolves, how much of the <B>whole field</B> (not just the
 					people who also hit) guessed at least as close to the actual result as
@@ -423,7 +419,7 @@ export function HowItWorksSections() {
 					other type.
 				</P>
 				<ExampleCard
-					label="Formula: Numeric Guess"
+					label="Formula: numeric guess"
 					rows={[
 						{ term: "COMMITTED", expr: "250 × conviction% = committed points" },
 						{
@@ -445,12 +441,12 @@ export function HowItWorksSections() {
 			</Accordion>
 
 			<Accordion
-				title="Multi-Select scoring"
+				title="Season award scoring"
 				subtitle="Each pick scored on its own"
 			>
 				<P>
-					Each pick in a Multi-Select question (like First Team All-NBA) is
-					scored independently, using the same contrarian-tier math as
+					Each pick in a season-long award question (like First Team All-NBA)
+					is scored independently, using the same contrarian-tier math as
 					everything else, off the same 250-point base as any other pick: one
 					player might land in FEARLESS while another lands in SAFE, and each
 					scores on its own rather than splitting a shared pool.

@@ -45,6 +45,14 @@ const GameStatus = builder.enumType("GameStatus", {
 	},
 })
 
+const StatAppliesTo = builder.enumType("StatAppliesTo", {
+	values: {
+		PLAYER: { value: "player" },
+		TEAM: { value: "team" },
+		BOTH: { value: "both" },
+	},
+})
+
 const AdminLeagueSort = builder.enumType("AdminLeagueSort", {
 	values: { NAME: { value: "name" }, STATUS: { value: "status" } },
 })
@@ -139,6 +147,7 @@ export const StatRef = builder.drizzleObject("stats", {
 		name: t.exposeString("name"),
 		category: t.exposeString("category"),
 		sortOrder: t.exposeInt("sortOrder"),
+		appliesTo: t.field({ type: StatAppliesTo, resolve: (s) => s.appliesTo }),
 		sport: t.relation("sport"),
 		toleranceTier: t.relation("toleranceTier"),
 	}),

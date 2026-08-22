@@ -1,12 +1,12 @@
 import { match } from "ts-pattern"
-import type { QuestionType } from "#/graphql/generated/graphql"
+import type { QuestionShape } from "#/graphql/generated/graphql"
 
 export type CallSummaryData = {
 	guessValue: number | null
 	conviction: number | null
 	totalPoints: number | null
 	question: {
-		type: QuestionType
+		shape: QuestionShape
 		ouLine: number | null
 		numericActualValue: number | null
 	}
@@ -17,16 +17,31 @@ export type CallSummaryData = {
 	}[]
 }
 
-// Every question type scores differently, so each needs its own formatting
-// here - an over/under selection's label alone ("Over") loses the line the
-// call was actually made against, and a multi_select call reads better as a
-// hit count than a wall of every pick once it's resolved.
+// Every shape scores differently, so each needs its own formatting here - an
+// over/under selection's label alone ("Over") loses the line the call was
+// actually made against, and a player_season_award/team_season_award call
+// reads better as a hit count than a wall of every pick once it's resolved.
 export function pickSummary(call: CallSummaryData): string {
-	return match(call.question.type)
-		.with("OVER_UNDER", () => formatOverUnder(call))
-		.with("MULTI_SELECT", () => formatMultiSelect(call))
-		.with("NUMERIC_GUESS", () => formatGuess(call))
-		.with("MULTIPLE_CHOICE", "YES_NO", () => formatSingleSelection(call))
+	return match(call.question.shape)
+		.with(
+			"PLAYER_STAT_OVER_UNDER",
+			"TEAM_STAT_OVER_UNDER",
+			"GAME_TOTAL_OVER_UNDER",
+			() => formatOverUnder(call),
+		)
+		.with("PLAYER_SEASON_AWARD", "TEAM_SEASON_AWARD", () =>
+			formatMultiSelect(call),
+		)
+		.with("PLAYER_STAT_NUMERIC_GUESS", "TEAM_STAT_NUMERIC_GUESS", () =>
+			formatGuess(call),
+		)
+		.with(
+			"PLAYER_VS_PLAYER",
+			"TEAM_VS_TEAM",
+			"YES_NO_PROP",
+			"PLAYER_AWARD_FINALISTS",
+			() => formatSingleSelection(call),
+		)
 		.exhaustive()
 }
 
@@ -57,21 +72,31 @@ function formatSingleSelection(call: CallSummaryData): string {
 	return selection ? selection.option.label : "—"
 }
 
-// Conviction lives in different places depending on type: numeric_guess sets
-// it once on the call itself, single-selection types set it on their one
-// selection. multi_select is the one case with no single number - up to 5
-// picks, each with independent conviction - so that one is averaged and
-// labeled "avg" rather than pretending it's one real value.
+// Conviction lives in different places depending on shape: the numeric-guess
+// shapes set it once on the call itself, single-pick shapes set it on their
+// one selection. player_season_award/team_season_award are the one case with
+// no single number - up to picksRequired picks, each with independent
+// conviction - so that one is averaged and labeled "avg" rather than
+// pretending it's one real value.
 export function convictionSummary(call: CallSummaryData): string {
-	return match(call.question.type)
-		.with("NUMERIC_GUESS", () =>
+	return match(call.question.shape)
+		.with("PLAYER_STAT_NUMERIC_GUESS", "TEAM_STAT_NUMERIC_GUESS", () =>
 			call.conviction !== null ? `${call.conviction}%` : "—",
 		)
-		.with("OVER_UNDER", "MULTIPLE_CHOICE", "YES_NO", () => {
-			const selection = call.selections[0]
-			return selection ? `${selection.conviction}%` : "—"
-		})
-		.with("MULTI_SELECT", () => {
+		.with(
+			"PLAYER_STAT_OVER_UNDER",
+			"TEAM_STAT_OVER_UNDER",
+			"GAME_TOTAL_OVER_UNDER",
+			"PLAYER_VS_PLAYER",
+			"TEAM_VS_TEAM",
+			"YES_NO_PROP",
+			"PLAYER_AWARD_FINALISTS",
+			() => {
+				const selection = call.selections[0]
+				return selection ? `${selection.conviction}%` : "—"
+			},
+		)
+		.with("PLAYER_SEASON_AWARD", "TEAM_SEASON_AWARD", () => {
 			if (call.selections.length === 0) return "—"
 			const avg =
 				call.selections.reduce((sum, s) => sum + s.conviction, 0) /
@@ -82,24 +107,29 @@ export function convictionSummary(call: CallSummaryData): string {
 }
 
 // A numeric guess's own resultState comes purely from closeness scoring, not
-// a right/wrong answer - so on a loss, showing the actual final value next
-// to the conviction is what explains why it lost. A win's own points already
-// tell that story, so this is loss-only, and numeric_guess-only (every other
-// type's pick text already states what happened - "Over 47.5" either hit or
-// it didn't).
+// a right/wrong answer - so on a loss, showing the actual final value next to
+// the conviction is what explains why it lost. A win's own points already
+// tell that story, so this is loss-only, and numeric-guess-shape-only (every
+// other shape's pick text already states what happened - "Over 47.5" either
+// hit or it didn't).
 export function lossContext(call: CallSummaryData): string | null {
-	if (call.question.type !== "NUMERIC_GUESS") return null
+	if (
+		call.question.shape !== "PLAYER_STAT_NUMERIC_GUESS" &&
+		call.question.shape !== "TEAM_STAT_NUMERIC_GUESS"
+	)
+		return null
 	if (resultState(call.totalPoints).status !== "loss") return null
 	if (call.question.numericActualValue === null) return null
 	return `actual was ${call.question.numericActualValue}`
 }
 
-// The points sign is authoritative for win/loss across every type, not a
-// heuristic: selectionPoints (multiple_choice/yes_no/over_under, and each
-// multi_select pick) is negative iff the pick was wrong, and numericGuessPoints
-// is never negative at all - a numeric guess is scored purely by closeness to
-// the field, so accuracy (hitTolerance) is a genuinely separate stat that can
-// disagree with points and shouldn't drive this badge (see @called-my-shot/scoring).
+// The points sign is authoritative for win/loss across every shape, not a
+// heuristic: selectionPoints (every option-based shape, and each
+// player_season_award/team_season_award pick) is negative iff the pick was
+// wrong, and numericGuessPoints is never negative at all - a numeric guess is
+// scored purely by closeness to the field, so accuracy (hitTolerance) is a
+// genuinely separate stat that can disagree with points and shouldn't drive
+// this badge (see @called-my-shot/scoring).
 export function resultState(
 	totalPoints: number | null,
 ): { status: "pending" } | { status: "win" | "loss"; points: number } {
