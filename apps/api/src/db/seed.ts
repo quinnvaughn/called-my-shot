@@ -82,12 +82,21 @@ async function createGroup(
 // (league's current season at creation time) since seed questions are
 // inserted directly rather than through that resolver. Without this, every
 // seeded question/call would sit under a null seasonId and never show up on
-// any leaderboard (see backfillUserSeasonStats below).
-async function createQuestion(input: typeof questions.$inferInsert) {
-	const season = await getCurrentSeason(input.leagueId)
+// any leaderboard (see backfillUserSeasonStats below). questions.seasonId is
+// NOT NULL, so a missing season is a hard error here, same as the other
+// "run sync:sports first" checks in this file.
+async function createQuestion(
+	input: Omit<typeof questions.$inferInsert, "seasonId">,
+) {
+	const seasonId = (await getCurrentSeason(input.leagueId))?.id
+	if (!seasonId) {
+		throw new Error(
+			`No synced season for league ${input.leagueId} - run \`pnpm sync:sports\` first`,
+		)
+	}
 	const [question] = await db
 		.insert(questions)
-		.values({ ...input, seasonId: input.seasonId ?? season?.id ?? null })
+		.values({ ...input, seasonId })
 		.returning()
 	return question
 }
@@ -344,10 +353,6 @@ async function fileDispute(questionId: string, userId: string, reason: string) {
 // backfill (drizzle/20260820041840_backfill_user_league_stats, since renamed
 // to user_season_stats) in spirit.
 //
-// Excludes any question with no season_id - this file's own createQuestion
-// helper always derives one (see above), so in practice that's just leagues
-// with nothing synced in `seasons` yet; mirrors the real write path's own
-// seasonId-null guard in graphql/types/question.ts.
 async function backfillUserSeasonStats() {
 	await db.execute(sql`
 		insert into user_season_stats (user_id, league_id, season_id, points, resolved_call_count, correct_count, call_count)
@@ -387,7 +392,6 @@ async function backfillUserSeasonStats() {
 			count(*) filter (where correct) as correct_count,
 			count(distinct call_id) as call_count
 		from scored
-		where season_id is not null
 		group by user_id, league_id, season_id
 	`)
 }
@@ -676,12 +680,15 @@ async function main() {
 		// Real games get seasonId from sync-games.ts matching startsAt against a
 		// synced season's date range - these are fake demo matchups (see the
 		// comment above), so just use the league's current season directly,
-		// same as createQuestion above.
-		const season = await getCurrentSeason(input.leagueId)
-		const [game] = await db
-			.insert(games)
-			.values({ ...input, seasonId: season?.id ?? null })
-			.returning()
+		// same as createQuestion above. games.seasonId is NOT NULL, same hard
+		// error as createQuestion if nothing's synced yet.
+		const seasonId = (await getCurrentSeason(input.leagueId))?.id
+		if (!seasonId) {
+			throw new Error(
+				`No synced season for league ${input.leagueId} - run \`pnpm sync:sports\` first`,
+			)
+		}
+		const [game] = await db.insert(games).values({ ...input, seasonId }).returning()
 		return game
 	}
 

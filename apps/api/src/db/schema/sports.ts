@@ -91,14 +91,12 @@ export const games = pgTable("games", {
 		.notNull()
 		.references(() => leagues.id, { onDelete: "cascade" }),
 	// Which real-world season this game belongs to, resolved by the sync
-	// against seasons' date ranges (see db/sync/sync-games.ts). Nullable for
-	// now - a game synced before its season row existed, or before this
-	// column existed, just gets backfilled on the next sync run rather than
-	// blocking. A later migration flips this to NOT NULL once production data
-	// is confirmed backfilled - not this pass.
-	seasonId: uuid("season_id").references(() => seasons.id, {
-		onDelete: "set null",
-	}),
+	// against seasons' date ranges (see db/sync/sync-games.ts). Restrict, not
+	// cascade/set null - a season with games synced under it shouldn't be
+	// deletable out from under them.
+	seasonId: uuid("season_id")
+		.notNull()
+		.references(() => seasons.id, { onDelete: "restrict" }),
 	homeTeamId: uuid("home_team_id")
 		.notNull()
 		.references(() => teams.id, { onDelete: "restrict" }),

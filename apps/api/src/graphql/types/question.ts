@@ -1490,9 +1490,7 @@ async function resolveQuestionInternal(
 		}
 	}
 
-	if (question.seasonId) {
-		await applySeasonStatDeltas(tx, question.leagueId, question.seasonId, statDeltas)
-	}
+	await applySeasonStatDeltas(tx, question.leagueId, question.seasonId, statDeltas)
 
 	await createNotifications(
 		tx,
@@ -1577,9 +1575,7 @@ async function reverseQuestionLeagueStats(tx: Tx, question: Question) {
 		})
 	}
 
-	if (question.seasonId) {
-		await applySeasonStatDeltas(tx, question.leagueId, question.seasonId, deltas)
-	}
+	await applySeasonStatDeltas(tx, question.leagueId, question.seasonId, deltas)
 }
 
 const AdminResolveQuestionInput = builder.inputType(
@@ -1905,10 +1901,18 @@ builder.mutationFields((t) => ({
 
 			// Game-scoped: copied straight off the picked game. Game-less: the
 			// league's current season at creation time. Never client-supplied -
-			// there's no seasonId field in createQuestionSchema. null is a valid,
-			// non-blocking outcome if nothing's synced yet for the league.
+			// there's no seasonId field in createQuestionSchema. questions.seasonId
+			// is NOT NULL, so a league with nothing synced yet can't have
+			// questions created against it at all - that's a real "this league
+			// isn't ready" state, not something to paper over with a null.
 			const seasonId =
-				game?.seasonId ?? (await getCurrentSeason(data.leagueId))?.id ?? null
+				game?.seasonId ?? (await getCurrentSeason(data.leagueId))?.id
+			if (!seasonId) {
+				throw ValidationError.field(
+					"leagueId",
+					"This league isn't set up yet - no season data has synced for it.",
+				)
+			}
 
 			const question = await db.transaction(async (tx) => {
 				const [question] = await tx
@@ -2123,24 +2127,22 @@ builder.mutationFields((t) => ({
 					)
 				}
 
-				if (question.seasonId) {
-					await applySeasonStatDeltas(
-						tx,
-						question.leagueId,
-						question.seasonId,
-						new Map([
-							[
-								user.id,
-								{
-									points: 0,
-									resolvedCallCount: 0,
-									correctCount: 0,
-									callCount: 1,
-								},
-							],
-						]),
-					)
-				}
+				await applySeasonStatDeltas(
+					tx,
+					question.leagueId,
+					question.seasonId,
+					new Map([
+						[
+							user.id,
+							{
+								points: 0,
+								resolvedCallCount: 0,
+								correctCount: 0,
+								callCount: 1,
+							},
+						],
+					]),
+				)
 
 				return call
 			})

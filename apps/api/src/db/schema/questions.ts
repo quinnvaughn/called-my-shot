@@ -103,11 +103,14 @@ export const questions = pgTable("questions", {
 	// createQuestionSchema). Game-scoped: copied from the picked game's own
 	// seasonId. Game-less (season awards, an MVP race, the season-scoped
 	// over/under and player-vs-player shapes): the league's current season at
-	// creation time, resolved via getCurrentSeason (lib/seasons.ts). Nullable
-	// + set null on delete for the same reasons as gameId above.
-	seasonId: uuid("season_id").references(() => seasons.id, {
-		onDelete: "set null",
-	}),
+	// creation time, resolved via getCurrentSeason (lib/seasons.ts) -
+	// createQuestion refuses to create a question at all if that comes back
+	// null (a league with nothing synced yet). Restrict, not cascade/set null
+	// - a season with questions under it shouldn't be deletable out from under
+	// them, same reasoning as games.seasonId.
+	seasonId: uuid("season_id")
+		.notNull()
+		.references(() => seasons.id, { onDelete: "restrict" }),
 
 	// Resolution is manual - a human states where they checked, in their own
 	// words. There's no fixed source list that actually fits every league, so

@@ -773,9 +773,20 @@ builder.mutationFields((t) => ({
 				throw ValidationError.fromZodIssues(parsed.error.issues)
 			const { startsAt, ...rest } = parsed.data
 
+			// Manually-entered games (no ESPN event backing them) get the same
+			// current-season derivation as everything else - see createQuestion's
+			// own seasonId comment in graphql/types/question.ts.
+			const seasonId = (await getCurrentSeason(rest.leagueId))?.id
+			if (!seasonId) {
+				throw ValidationError.field(
+					"leagueId",
+					"This league isn't set up yet - no season data has synced for it.",
+				)
+			}
+
 			const [created] = await db
 				.insert(games)
-				.values({ ...rest, startsAt: new Date(startsAt) })
+				.values({ ...rest, seasonId, startsAt: new Date(startsAt) })
 				.returning()
 			if (!created) throw new Error("createGame: insert returned nothing")
 			return created

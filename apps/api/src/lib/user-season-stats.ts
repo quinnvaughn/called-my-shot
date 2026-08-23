@@ -38,11 +38,10 @@ export function addLeagueStatDelta(
 
 // Applies accumulated deltas to user_season_stats for one season - every
 // delta here shares the same leagueId/seasonId because a question (and
-// therefore every call on it) belongs to exactly one season. Upserts rather
-// than updates: the first time a user has any activity in a season there's
-// no row yet, so `points = points + delta` alone would silently no-op
-// instead of creating one. Callers guard on seasonId being non-null before
-// calling this at all - see the call sites in graphql/types/question.ts.
+// therefore every call on it) belongs to exactly one season (questions.
+// seasonId is NOT NULL). Upserts rather than updates: the first time a user
+// has any activity in a season there's no row yet, so `points = points +
+// delta` alone would silently no-op instead of creating one.
 export async function applySeasonStatDeltas(
 	tx: Tx,
 	leagueId: string,

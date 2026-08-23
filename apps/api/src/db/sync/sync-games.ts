@@ -8,9 +8,10 @@ import { findRefEntityId, linkRef, scopedSourceId, type Tx } from "./sync-refs"
 
 // Matched by date range against whatever's synced for this league (see
 // sync-seasons.ts, which must run before this file per run.ts's ordering) -
-// a game's season is never known some other way. null just leaves
-// games.seasonId null for now (nullable this pass - see its own schema
-// comment); the next sync run picks it up once the season exists.
+// a game's season is never known some other way. games.seasonId is NOT
+// NULL, so a miss here means syncEvent skips the game entirely rather than
+// writing it with no season - the next run picks it up once seasons catch up
+// (a brand-new season year not synced yet, or a date right at a boundary).
 async function findSeasonId(
 	tx: Tx,
 	leagueId: string,
@@ -40,6 +41,12 @@ async function syncEvent(
 
 	const startsAt = new Date(event.date)
 	const seasonId = await findSeasonId(tx, leagueId, startsAt)
+	if (!seasonId) {
+		console.warn(
+			`syncGames: no synced season covers ${startsAt.toISOString()} for league ${leagueId} (event ${event.id}) - skipping until seasons catch up`,
+		)
+		return
+	}
 	const sourceId = scopedSourceId(leagueSlug, event.id)
 	const existingId = await findRefEntityId(tx, "game", sourceId)
 	if (existingId) {
