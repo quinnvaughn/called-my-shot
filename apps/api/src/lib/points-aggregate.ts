@@ -8,17 +8,21 @@ export type PointsAggregate = {
 	callCount: number
 }
 
-// Reads the denormalized per-(user, league) rollup (db/schema/questions.ts's
-// userLeagueStats) rather than aggregating live over calls/call_selections -
+// Reads the denormalized per-(user, season) rollup (db/schema/questions.ts's
+// userSeasonStats) rather than aggregating live over calls/call_selections -
 // a leaderboard-sized user set never touches the calls table at all here.
-// leagueId narrows to that league's rows directly (already the right grain,
-// no GROUP BY needed); omitting it sums across every league a user has
-// played in - cheap regardless of a user's call count, since userLeagueStats'
-// size is bounded by leagues (a small admin-curated catalog), not by calls.
+// Always a GROUP BY: a season-keyed table has many rows per (user, league)
+// over time, unlike the old per-(user, league) table this replaced, so
+// there's no "narrow to exactly one row" shortcut anymore even when leagueId
+// is given - just a WHERE clause on top of the same aggregate. Cheap
+// regardless of a user's call count either way, since this table's size is
+// bounded by leagues x seasons (a small admin-curated catalog x a handful of
+// seasons each), not by calls.
 //
 // userIds narrows to that set of users (group leaderboard, single-user
 // stats); omit it to aggregate every user with activity in scope (site-wide
-// leaderboard).
+// leaderboard). leagueId narrows to one league's rows; omit it to sum across
+// every league a user has played in.
 export async function aggregatePointsByUser(options: {
 	userIds?: string[]
 	leagueId?: string | null
@@ -29,41 +33,25 @@ export async function aggregatePointsByUser(options: {
 	if (userIds && userIds.length === 0) return new Map()
 
 	const userFilter = userIds ? sql`and user_id in ${userIds}` : sql``
+	const leagueFilter = leagueId ? sql`and league_id = ${leagueId}` : sql``
 
-	const result = leagueId
-		? await db.execute<{
-				user_id: string
-				total_points: number
-				resolved_call_count: number
-				correct_count: number
-				call_count: number
-			}>(sql`
-				select
-					user_id,
-					points as total_points,
-					resolved_call_count,
-					correct_count,
-					call_count
-				from user_league_stats
-				where league_id = ${leagueId} ${userFilter}
-			`)
-		: await db.execute<{
-				user_id: string
-				total_points: number
-				resolved_call_count: number
-				correct_count: number
-				call_count: number
-			}>(sql`
-				select
-					user_id,
-					coalesce(sum(points), 0)::int as total_points,
-					coalesce(sum(resolved_call_count), 0)::int as resolved_call_count,
-					coalesce(sum(correct_count), 0)::int as correct_count,
-					coalesce(sum(call_count), 0)::int as call_count
-				from user_league_stats
-				where true ${userFilter}
-				group by user_id
-			`)
+	const result = await db.execute<{
+		user_id: string
+		total_points: number
+		resolved_call_count: number
+		correct_count: number
+		call_count: number
+	}>(sql`
+		select
+			user_id,
+			coalesce(sum(points), 0)::int as total_points,
+			coalesce(sum(resolved_call_count), 0)::int as resolved_call_count,
+			coalesce(sum(correct_count), 0)::int as correct_count,
+			coalesce(sum(call_count), 0)::int as call_count
+		from user_season_stats
+		where true ${leagueFilter} ${userFilter}
+		group by user_id
+	`)
 
 	const map = new Map<string, PointsAggregate>()
 	for (const row of result.rows) {

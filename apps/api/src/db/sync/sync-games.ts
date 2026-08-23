@@ -6,6 +6,25 @@ import { type EspnEvent, fetchSchedule, fetchTeams } from "./espn-client"
 import type { SyncLeagueConfig } from "./leagues"
 import { findRefEntityId, linkRef, scopedSourceId, type Tx } from "./sync-refs"
 
+// Matched by date range against whatever's synced for this league (see
+// sync-seasons.ts, which must run before this file per run.ts's ordering) -
+// a game's season is never known some other way. null just leaves
+// games.seasonId null for now (nullable this pass - see its own schema
+// comment); the next sync run picks it up once the season exists.
+async function findSeasonId(
+	tx: Tx,
+	leagueId: string,
+	startsAt: Date,
+): Promise<string | null> {
+	const leagueSeasons = await tx.query.seasons.findMany({ where: { leagueId } })
+	const match = leagueSeasons.find(
+		(s) =>
+			s.regularSeasonStartsAt <= startsAt &&
+			startsAt <= (s.postseasonEndsAt ?? s.regularSeasonEndsAt),
+	)
+	return match?.id ?? null
+}
+
 async function syncEvent(
 	tx: Tx,
 	leagueSlug: string,
@@ -20,15 +39,19 @@ async function syncEvent(
 	}
 
 	const startsAt = new Date(event.date)
+	const seasonId = await findSeasonId(tx, leagueId, startsAt)
 	const sourceId = scopedSourceId(leagueSlug, event.id)
 	const existingId = await findRefEntityId(tx, "game", sourceId)
 	if (existingId) {
-		await tx.update(games).set({ homeTeamId, awayTeamId, startsAt }).where(eq(games.id, existingId))
+		await tx
+			.update(games)
+			.set({ homeTeamId, awayTeamId, startsAt, seasonId })
+			.where(eq(games.id, existingId))
 		return
 	}
 	const [row] = await tx
 		.insert(games)
-		.values({ leagueId, homeTeamId, awayTeamId, startsAt })
+		.values({ leagueId, homeTeamId, awayTeamId, startsAt, seasonId })
 		.returning()
 	if (!row) throw new Error(`syncGames: insert returned nothing for ${event.id}`)
 	await linkRef(tx, "game", sourceId, row.id)

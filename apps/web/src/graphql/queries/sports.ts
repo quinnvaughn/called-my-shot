@@ -114,3 +114,18 @@ export const GamesByLeagueDocument = graphql(`
 		}
 	}
 `)
+
+// Powers the "End of regular season"/"End of playoffs" locksAt quick-fill
+// chips in resolution-fields.tsx - only fetched once a league is picked and
+// only relevant while locksAt is still manual (no game picked), same gating
+// as GameField's league-scoped fetch above.
+export const CurrentSeasonByLeagueDocument = graphql(`
+	query CurrentSeasonByLeague($leagueId: ID!) {
+		currentSeason(leagueId: $leagueId) {
+			id
+			displayName
+			regularSeasonEndsAt
+			postseasonEndsAt
+		}
+	}
+`)

@@ -1,7 +1,10 @@
+import { useQuery } from "@apollo/client/react"
+import { DateTime } from "luxon"
 import { HStack, VStack } from "styled-system/jsx"
-import { DateTimePicker } from "#/components/ui/date-time-picker"
+import { DATE_TIME_PICKER_VALUE_FORMAT, DateTimePicker } from "#/components/ui/date-time-picker"
 import { FieldLabel } from "#/components/ui/field-label"
 import { TextInput } from "#/components/ui/text-input"
+import { CurrentSeasonByLeagueDocument } from "#/graphql/queries/sports"
 import { ChipButton } from "./chip-button"
 import type { CreateQuestionFormApi } from "./form-types"
 
@@ -13,10 +16,20 @@ const SOURCE_SUGGESTIONS = [
 
 type Props = {
 	form: CreateQuestionFormApi
+	leagueId: string
 }
 
-export function ResolutionFields({ form }: Props) {
+export function ResolutionFields({ form, leagueId }: Props) {
 	const gameId = form.useWatch("gameId")
+
+	// Only relevant while locksAt is still manual (no game picked, which
+	// otherwise drives it directly off the game's own kickoff - see
+	// game-field.tsx's selectGame()).
+	const { data: seasonData } = useQuery(CurrentSeasonByLeagueDocument, {
+		variables: { leagueId },
+		skip: !leagueId || !!gameId,
+	})
+	const season = seasonData?.currentSeason ?? null
 
 	return (
 		<VStack gap="3.5" alignItems="stretch">
@@ -80,6 +93,34 @@ export function ResolutionFields({ form }: Props) {
 									: "No one can make a call after this time."
 							}
 						/>
+						{!gameId && season && (
+							<HStack gap="1.5" flexWrap="wrap">
+								<ChipButton
+									onClick={() =>
+										field.onChange(
+											DateTime.fromISO(season.regularSeasonEndsAt).toFormat(
+												DATE_TIME_PICKER_VALUE_FORMAT,
+											),
+										)
+									}
+								>
+									End of regular season
+								</ChipButton>
+								{season.postseasonEndsAt && (
+									<ChipButton
+										onClick={() =>
+											field.onChange(
+												DateTime.fromISO(
+													season.postseasonEndsAt as string,
+												).toFormat(DATE_TIME_PICKER_VALUE_FORMAT),
+											)
+										}
+									>
+										End of playoffs
+									</ChipButton>
+								)}
+							</HStack>
+						)}
 					</VStack>
 				)}
 			</form.Field>

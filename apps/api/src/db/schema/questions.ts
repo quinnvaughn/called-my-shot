@@ -11,7 +11,7 @@ import {
 	unique,
 	uuid,
 } from "drizzle-orm/pg-core"
-import { games, leagues, players, sports, stats, teams } from "./sports"
+import { games, leagues, players, seasons, sports, stats, teams } from "./sports"
 import { users } from "./users"
 
 // Replaces the old type + category + numericSubjectType + optionsOpenField/
@@ -97,6 +97,17 @@ export const questions = pgTable("questions", {
 	// MVP race). set null on delete rather than restrict: a game going away
 	// shouldn't take its questions down with it.
 	gameId: uuid("game_id").references(() => games.id, { onDelete: "set null" }),
+
+	// Which real-world season this question belongs to - always server-
+	// derived, never creator-supplied (there's no seasonId field in
+	// createQuestionSchema). Game-scoped: copied from the picked game's own
+	// seasonId. Game-less (season awards, an MVP race, the season-scoped
+	// over/under and player-vs-player shapes): the league's current season at
+	// creation time, resolved via getCurrentSeason (lib/seasons.ts). Nullable
+	// + set null on delete for the same reasons as gameId above.
+	seasonId: uuid("season_id").references(() => seasons.id, {
+		onDelete: "set null",
+	}),
 
 	// Resolution is manual - a human states where they checked, in their own
 	// words. There's no fixed source list that actually fits every league, so
@@ -277,10 +288,10 @@ export const callSelections = pgTable(
 	(t) => [unique().on(t.callId, t.optionId)],
 )
 
-// Denormalized per-(user, league) rollup - the only source leaderboards/
+// Denormalized per-(user, season) rollup - the only source leaderboards/
 // career stats read from (see lib/points-aggregate.ts), rather than
 // aggregating live over calls/callSelections on every read. One row per
-// league a user has ever cast a call in; kept in sync transactionally by
+// season a user has ever cast a call in; kept in sync transactionally by
 // castCall (callCount +1 on cast), resolveQuestionInternal (points/
 // resolvedCallCount/correctCount deltas on resolve, delta not overwrite, so
 // a dispute overturn re-resolving a question doesn't double-count), and
@@ -289,15 +300,28 @@ export const callSelections = pgTable(
 // scored, i.e. a disputed question being voided).
 //
 // Deliberately NOT a `points` column on `users` for the site-wide total -
-// that would mean two independently-updated running totals (one here, one
-// on users) that could drift if some future write path updates one and
-// forgets the other. Instead the site-wide/all-leagues total is just
-// sum(points) grouped by user_id over this table - cheap regardless of a
-// user's call count because this table's size is bounded by leagues (an
-// admin-curated catalog, realistically a couple dozen at most - see
-// sports.ts's createLeague), not by call volume.
-export const userLeagueStats = pgTable(
-	"user_league_stats",
+// that would mean an independently-updated running total that could drift
+// from this table if some future write path updates one and forgets the
+// other. All-time and per-league totals are both just sum(points) grouped by
+// user_id over this table (all-time: no league_id filter; one league: filter
+// it) - cheap regardless of a user's call count because this table's size is
+// bounded by leagues x seasons (an admin-curated catalog, realistically a
+// couple dozen leagues x a handful of seasons each at most - see sports.ts's
+// createLeague), not by call volume. leagueId is denormalized directly
+// rather than derived via a join through seasons, matching how
+// questions.leagueId itself is stored directly rather than derived via
+// game.leagueId - keeps the common "all-time within one league" query a
+// plain WHERE, no join.
+//
+// seasonId is NOT NULL: every league this app supports is ESPN-covered, and
+// run.ts's sync loop syncs a league's seasons before its games/before it's
+// usable for question creation at all, so a resolvable season is as
+// reliable as leagueId already is in practice. The rare case a question's
+// seasonId can't be resolved (a brief sync-lag window right at a season
+// boundary) simply isn't written here at all - see the seasonId-guarded call
+// sites in graphql/types/question.ts.
+export const userSeasonStats = pgTable(
+	"user_season_stats",
 	{
 		userId: uuid("user_id")
 			.notNull()
@@ -305,6 +329,9 @@ export const userLeagueStats = pgTable(
 		leagueId: uuid("league_id")
 			.notNull()
 			.references(() => leagues.id, { onDelete: "cascade" }),
+		seasonId: uuid("season_id")
+			.notNull()
+			.references(() => seasons.id, { onDelete: "cascade" }),
 		points: integer("points").notNull().default(0),
 		// Counts picks, not calls, for multi_select (matches scoreCalls'
 		// pre-existing semantics) - one multi_select call with 3 resolved
@@ -316,11 +343,11 @@ export const userLeagueStats = pgTable(
 		callCount: integer("call_count").notNull().default(0),
 	},
 	(t) => [
-		primaryKey({ columns: [t.userId, t.leagueId] }),
-		index("user_league_stats_league_points_idx").on(t.leagueId, t.points),
+		primaryKey({ columns: [t.userId, t.seasonId] }),
+		index("user_season_stats_league_points_idx").on(t.leagueId, t.points),
 	],
 )
-export type UserLeagueStats = typeof userLeagueStats.$inferSelect
+export type UserSeasonStats = typeof userSeasonStats.$inferSelect
 
 // Filed against a resolved question when a caller thinks the stated result is
 // wrong. One per user per question. Filing one moves the question to

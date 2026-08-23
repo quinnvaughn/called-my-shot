@@ -1,6 +1,6 @@
 import { sql } from "drizzle-orm"
 import type { db } from "../db"
-import { userLeagueStats } from "../db/schema"
+import { userSeasonStats } from "../db/schema"
 
 export type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0]
 
@@ -36,15 +36,17 @@ export function addLeagueStatDelta(
 	})
 }
 
-// Applies accumulated deltas to user_league_stats for one league - every
-// delta here shares the same leagueId because a question (and therefore
-// every call on it) belongs to exactly one league. Upserts rather than
-// updates: the first time a user has any activity in a league there's no
-// row yet, so `points = points + delta` alone would silently no-op instead
-// of creating one.
-export async function applyLeagueStatDeltas(
+// Applies accumulated deltas to user_season_stats for one season - every
+// delta here shares the same leagueId/seasonId because a question (and
+// therefore every call on it) belongs to exactly one season. Upserts rather
+// than updates: the first time a user has any activity in a season there's
+// no row yet, so `points = points + delta` alone would silently no-op
+// instead of creating one. Callers guard on seasonId being non-null before
+// calling this at all - see the call sites in graphql/types/question.ts.
+export async function applySeasonStatDeltas(
 	tx: Tx,
 	leagueId: string,
+	seasonId: string,
 	deltas: Map<string, LeagueStatDelta>,
 ) {
 	for (const [userId, delta] of deltas) {
@@ -57,22 +59,23 @@ export async function applyLeagueStatDeltas(
 			continue
 		}
 		await tx
-			.insert(userLeagueStats)
+			.insert(userSeasonStats)
 			.values({
 				userId,
 				leagueId,
+				seasonId,
 				points: delta.points,
 				resolvedCallCount: delta.resolvedCallCount,
 				correctCount: delta.correctCount,
 				callCount: delta.callCount,
 			})
 			.onConflictDoUpdate({
-				target: [userLeagueStats.userId, userLeagueStats.leagueId],
+				target: [userSeasonStats.userId, userSeasonStats.seasonId],
 				set: {
-					points: sql`${userLeagueStats.points} + ${delta.points}`,
-					resolvedCallCount: sql`${userLeagueStats.resolvedCallCount} + ${delta.resolvedCallCount}`,
-					correctCount: sql`${userLeagueStats.correctCount} + ${delta.correctCount}`,
-					callCount: sql`${userLeagueStats.callCount} + ${delta.callCount}`,
+					points: sql`${userSeasonStats.points} + ${delta.points}`,
+					resolvedCallCount: sql`${userSeasonStats.resolvedCallCount} + ${delta.resolvedCallCount}`,
+					correctCount: sql`${userSeasonStats.correctCount} + ${delta.correctCount}`,
+					callCount: sql`${userSeasonStats.callCount} + ${delta.callCount}`,
 				},
 			})
 	}

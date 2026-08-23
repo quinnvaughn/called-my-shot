@@ -92,3 +92,55 @@ export async function fetchSchedule(
 	)
 	return results.flatMap((r) => r.events)
 }
+
+// Season boundary dates live on a different ESPN host entirely (the "core"
+// API, not the "site" API everything above wraps) - verified live: e.g.
+// sports.core.api.espn.com/v2/sports/basketball/leagues/nba/seasons/2026
+// returns { year: 2026, displayName: "2025-26", ... }, and .../types/2 /
+// .../types/3 give the regular-season/postseason startDate+endDate.
+const CORE_BASE_URL = "https://sports.core.api.espn.com/v2/sports"
+
+// "basketball/nba" -> "basketball/leagues/nba" - the core API nests league
+// under an explicit /leagues/ segment the site API doesn't use.
+function toLeaguesPath(sportPath: EspnSportPath): string {
+	const [sport, league] = sportPath.split("/")
+	return `${sport}/leagues/${league}`
+}
+
+// Returns null on a non-ok response rather than throwing, unlike espnGet
+// above - an unpublished future postseason (or a season ESPN hasn't set up
+// yet) is an expected, non-error case here, unlike a failed teams/roster/
+// schedule fetch.
+async function coreEspnGet<T>(path: string): Promise<T | null> {
+	const res = await fetch(`${CORE_BASE_URL}/${path}`)
+	if (!res.ok) return null
+	return res.json() as Promise<T>
+}
+
+export type EspnSeason = {
+	year: number
+	displayName: string
+}
+
+export async function fetchSeason(
+	sportPath: EspnSportPath,
+	year: number,
+): Promise<EspnSeason | null> {
+	return coreEspnGet<EspnSeason>(`${toLeaguesPath(sportPath)}/seasons/${year}`)
+}
+
+export type EspnSeasonType = {
+	type: number
+	startDate: string
+	endDate: string
+}
+
+export async function fetchSeasonType(
+	sportPath: EspnSportPath,
+	year: number,
+	type: 2 | 3,
+): Promise<EspnSeasonType | null> {
+	return coreEspnGet<EspnSeasonType>(
+		`${toLeaguesPath(sportPath)}/seasons/${year}/types/${type}`,
+	)
+}

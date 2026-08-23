@@ -90,6 +90,10 @@ export const relations = defineRelations(schema, (r) => ({
 			from: r.questions.gameId,
 			to: r.games.id,
 		}),
+		season: r.one.seasons({
+			from: r.questions.seasonId,
+			to: r.seasons.id,
+		}),
 		stat: r.one.stats({
 			from: r.questions.statId,
 			to: r.stats.id,
@@ -134,6 +138,14 @@ export const relations = defineRelations(schema, (r) => ({
 		}),
 		teams: r.many.teams(),
 		games: r.many.games(),
+		seasons: r.many.seasons(),
+	},
+	seasons: {
+		league: r.one.leagues({
+			from: r.seasons.leagueId,
+			to: r.leagues.id,
+		}),
+		games: r.many.games(),
 	},
 	teams: {
 		league: r.one.leagues({
@@ -155,6 +167,10 @@ export const relations = defineRelations(schema, (r) => ({
 		league: r.one.leagues({
 			from: r.games.leagueId,
 			to: r.leagues.id,
+		}),
+		season: r.one.seasons({
+			from: r.games.seasonId,
+			to: r.seasons.id,
 		}),
 		homeTeam: r.one.teams({
 			from: r.games.homeTeamId,

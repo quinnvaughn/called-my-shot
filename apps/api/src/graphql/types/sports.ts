@@ -27,6 +27,7 @@ import {
 	ValidationError,
 } from "../../lib/errors"
 import { decodeOffsetCursor } from "../../lib/pagination"
+import { getCurrentSeason } from "../../lib/seasons"
 import { builder } from "../builder"
 import { PageInfoRef } from "./pagination"
 
@@ -114,6 +115,34 @@ export const GameRef = builder.drizzleObject("games", {
 		league: t.relation("league"),
 		homeTeam: t.relation("homeTeam"),
 		awayTeam: t.relation("awayTeam"),
+	}),
+})
+
+export const SeasonRef = builder.drizzleObject("seasons", {
+	name: "Season",
+	fields: (t) => ({
+		id: t.exposeID("id"),
+		year: t.exposeInt("year"),
+		displayName: t.exposeString("displayName"),
+		regularSeasonStartsAt: t.field({
+			type: "String",
+			resolve: (s) => s.regularSeasonStartsAt.toISOString(),
+		}),
+		regularSeasonEndsAt: t.field({
+			type: "String",
+			resolve: (s) => s.regularSeasonEndsAt.toISOString(),
+		}),
+		postseasonStartsAt: t.field({
+			type: "String",
+			nullable: true,
+			resolve: (s) => s.postseasonStartsAt?.toISOString() ?? null,
+		}),
+		postseasonEndsAt: t.field({
+			type: "String",
+			nullable: true,
+			resolve: (s) => s.postseasonEndsAt?.toISOString() ?? null,
+		}),
+		league: t.relation("league"),
 	}),
 })
 
@@ -226,6 +255,20 @@ builder.queryFields((t) => ({
 		args: { id: t.arg.id({ required: true }) },
 		resolve: (_root, args) =>
 			db.query.games.findFirst({ where: { id: args.id } }),
+	}),
+
+	// Public, not admin-gated - powers the create-question form's "end of
+	// regular season"/"end of playoffs" locksAt quick-fill chips (only
+	// relevant once a league is picked, so a dedicated on-demand query rather
+	// than bulk-loaded onto every League row alongside the sport/league
+	// pickers). Server-derived, same getCurrentSeason used to auto-set a
+	// game-less question's own seasonId at creation time - see
+	// lib/seasons.ts.
+	currentSeason: t.field({
+		type: SeasonRef,
+		nullable: true,
+		args: { leagueId: t.arg.id({ required: true }) },
+		resolve: (_root, args) => getCurrentSeason(args.leagueId),
 	}),
 
 	teams: t.field({

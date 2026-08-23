@@ -1053,7 +1053,7 @@ export function CreateQuestionForm({ sports, isAdmin }: Props) {
 						<Section label="Resolution" required>
 							<Card>
 								<Card.Body>
-									<ResolutionFields form={form} />
+									<ResolutionFields form={form} leagueId={leagueId} />
 								</Card.Body>
 							</Card>
 						</Section>

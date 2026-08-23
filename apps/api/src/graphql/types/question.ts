@@ -78,12 +78,13 @@ import {
 } from "../../lib/pagination"
 import { aggregatePointsByUser } from "../../lib/points-aggregate"
 import { accuracyFrom } from "../../lib/scoring"
+import { getCurrentSeason } from "../../lib/seasons"
 import { STRIKE_LOCK_THRESHOLD } from "../../lib/strikes"
 import {
 	addLeagueStatDelta,
-	applyLeagueStatDeltas,
+	applySeasonStatDeltas,
 	type LeagueStatDelta,
-} from "../../lib/user-league-stats"
+} from "../../lib/user-season-stats"
 import { builder } from "../builder"
 import { PageInfoRef } from "./pagination"
 
@@ -1297,6 +1298,16 @@ async function resolveQuestionInternal(
 	// re-resolve instead of double-counting the prior award. callCount is
 	// never touched here - it only changes at castCall/voidQuestion time.
 	const statDeltas = new Map<string, LeagueStatDelta>()
+	// What each user's call is actually worth after this resolution (summed
+	// across every selection on a multi-pick award) - deliberately NOT the
+	// same number as statDeltas' points above. On a first-time resolution the
+	// two are equal (there was nothing to claw back), but on a re-resolve
+	// (overturnDispute) statDeltas' delta also nets out the prior, now-wrong
+	// award, which is correct for the season-stats total but reads as a wildly
+	// overstated loss in a "your call on X missed" notification - a caller
+	// only cares what their call is worth now, not the size of the portfolio
+	// swing that got them there.
+	const newPointsByUserId = new Map<string, number>()
 
 	const isNumericGuess =
 		question.shape === "player_stat_numeric_guess" ||
@@ -1358,6 +1369,7 @@ async function resolveQuestionInternal(
 					resolvedCallCount: wasResolved ? 0 : 1,
 					correctCount: (isCorrect ? 1 : 0) - (wasCorrect ? 1 : 0),
 				})
+				newPointsByUserId.set(prior.userId, r.points)
 			}
 		}
 	} else {
@@ -1471,10 +1483,16 @@ async function resolveQuestionInternal(
 				resolvedCallCount: wasResolved ? 0 : 1,
 				correctCount: (isCorrect ? 1 : 0) - (wasCorrect ? 1 : 0),
 			})
+			newPointsByUserId.set(
+				s.call.userId,
+				(newPointsByUserId.get(s.call.userId) ?? 0) + points,
+			)
 		}
 	}
 
-	await applyLeagueStatDeltas(tx, question.leagueId, statDeltas)
+	if (question.seasonId) {
+		await applySeasonStatDeltas(tx, question.leagueId, question.seasonId, statDeltas)
+	}
 
 	await createNotifications(
 		tx,
@@ -1485,7 +1503,7 @@ async function resolveQuestionInternal(
 				userId,
 				questionId: question.id,
 				questionTitle: question.title,
-				pointsDelta: d.points,
+				pointsDelta: newPointsByUserId.get(userId) ?? d.points,
 			})),
 	)
 
@@ -1559,7 +1577,9 @@ async function reverseQuestionLeagueStats(tx: Tx, question: Question) {
 		})
 	}
 
-	await applyLeagueStatDeltas(tx, question.leagueId, deltas)
+	if (question.seasonId) {
+		await applySeasonStatDeltas(tx, question.leagueId, question.seasonId, deltas)
+	}
 }
 
 const AdminResolveQuestionInput = builder.inputType(
@@ -1883,6 +1903,13 @@ builder.mutationFields((t) => ({
 
 			const title = data.title
 
+			// Game-scoped: copied straight off the picked game. Game-less: the
+			// league's current season at creation time. Never client-supplied -
+			// there's no seasonId field in createQuestionSchema. null is a valid,
+			// non-blocking outcome if nothing's synced yet for the league.
+			const seasonId =
+				game?.seasonId ?? (await getCurrentSeason(data.leagueId))?.id ?? null
+
 			const question = await db.transaction(async (tx) => {
 				const [question] = await tx
 					.insert(questions)
@@ -1894,6 +1921,7 @@ builder.mutationFields((t) => ({
 						sportId: data.sportId,
 						leagueId: data.leagueId,
 						gameId: data.gameId ?? null,
+						seasonId,
 						resolutionSource: data.resolutionSource,
 						resolutionSourceUrl: data.resolutionSourceUrl || null,
 						locksAt: game?.startsAt ?? new Date(data.locksAt),
@@ -2095,21 +2123,24 @@ builder.mutationFields((t) => ({
 					)
 				}
 
-				await applyLeagueStatDeltas(
-					tx,
-					question.leagueId,
-					new Map([
-						[
-							user.id,
-							{
-								points: 0,
-								resolvedCallCount: 0,
-								correctCount: 0,
-								callCount: 1,
-							},
-						],
-					]),
-				)
+				if (question.seasonId) {
+					await applySeasonStatDeltas(
+						tx,
+						question.leagueId,
+						question.seasonId,
+						new Map([
+							[
+								user.id,
+								{
+									points: 0,
+									resolvedCallCount: 0,
+									correctCount: 0,
+									callCount: 1,
+								},
+							],
+						]),
+					)
+				}
 
 				return call
 			})

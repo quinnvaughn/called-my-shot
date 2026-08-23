@@ -32,6 +32,34 @@ export const leagues = pgTable("leagues", {
 })
 export type League = typeof leagues.$inferSelect
 
+// One row per real-world season a league has played, synced from ESPN (see
+// db/sync/sync-seasons.ts) - never hand-entered. year is ESPN's own
+// season-year label, which means different things per league by ESPN's own
+// convention (NBA labels a season by the year it ENDS in, NFL by the year it
+// STARTS in) - kept opaque here rather than interpreted, only meaningful
+// paired with leagueId. displayName is ESPN's own human label ("2025-26"),
+// also taken as-is rather than formatted by us. postseasonStartsAt/EndsAt are
+// nullable - ESPN doesn't publish the bracket/dates until the postseason
+// field is actually set, same reasoning as SYNCED_SEASON_TYPES in
+// espn-client.ts.
+export const seasons = pgTable(
+	"seasons",
+	{
+		id: uuid("id").primaryKey().defaultRandom(),
+		leagueId: uuid("league_id")
+			.notNull()
+			.references(() => leagues.id, { onDelete: "cascade" }),
+		year: integer("year").notNull(),
+		displayName: text("display_name").notNull(),
+		regularSeasonStartsAt: timestamp("regular_season_starts_at").notNull(),
+		regularSeasonEndsAt: timestamp("regular_season_ends_at").notNull(),
+		postseasonStartsAt: timestamp("postseason_starts_at"),
+		postseasonEndsAt: timestamp("postseason_ends_at"),
+	},
+	(t) => [unique().on(t.leagueId, t.year)],
+)
+export type Season = typeof seasons.$inferSelect
+
 export const teams = pgTable(
 	"teams",
 	{
@@ -62,6 +90,15 @@ export const games = pgTable("games", {
 	leagueId: uuid("league_id")
 		.notNull()
 		.references(() => leagues.id, { onDelete: "cascade" }),
+	// Which real-world season this game belongs to, resolved by the sync
+	// against seasons' date ranges (see db/sync/sync-games.ts). Nullable for
+	// now - a game synced before its season row existed, or before this
+	// column existed, just gets backfilled on the next sync run rather than
+	// blocking. A later migration flips this to NOT NULL once production data
+	// is confirmed backfilled - not this pass.
+	seasonId: uuid("season_id").references(() => seasons.id, {
+		onDelete: "set null",
+	}),
 	homeTeamId: uuid("home_team_id")
 		.notNull()
 		.references(() => teams.id, { onDelete: "restrict" }),

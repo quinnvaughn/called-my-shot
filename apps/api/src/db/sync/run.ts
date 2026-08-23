@@ -1,6 +1,7 @@
 import { SYNCED_LEAGUES } from "./leagues"
 import { syncGames } from "./sync-games"
 import { syncPlayers } from "./sync-players"
+import { syncSeasons } from "./sync-seasons"
 import { syncTeams } from "./sync-teams"
 
 async function main() {
@@ -10,6 +11,9 @@ async function main() {
 
 		console.log(`[sync] ${config.leagueName} players...`)
 		await syncPlayers(config)
+
+		console.log(`[sync] ${config.leagueName} seasons...`)
+		await syncSeasons(config, league)
 
 		console.log(`[sync] ${config.leagueName} games...`)
 		await syncGames(config, league)

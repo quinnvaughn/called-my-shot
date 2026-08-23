@@ -14,6 +14,7 @@ import {
 	insertGroupInvite,
 } from "../lib/groups"
 import { hashPassword } from "../lib/password"
+import { getCurrentSeason } from "../lib/seasons"
 import { syncStatCatalog } from "./catalog/stats"
 import { db } from "./index"
 import {
@@ -76,8 +77,18 @@ async function createGroup(
 	return { group, invite }
 }
 
+// Mirrors createQuestion's real resolver: seasonId is always server-derived,
+// never part of the caller's input here either - resolved the same way
+// (league's current season at creation time) since seed questions are
+// inserted directly rather than through that resolver. Without this, every
+// seeded question/call would sit under a null seasonId and never show up on
+// any leaderboard (see backfillUserSeasonStats below).
 async function createQuestion(input: typeof questions.$inferInsert) {
-	const [question] = await db.insert(questions).values(input).returning()
+	const season = await getCurrentSeason(input.leagueId)
+	const [question] = await db
+		.insert(questions)
+		.values({ ...input, seasonId: input.seasonId ?? season?.id ?? null })
+		.returning()
 	return question
 }
 
@@ -325,19 +336,26 @@ async function fileDispute(questionId: string, userId: string, reason: string) {
 
 // This seed script sets calls/callSelections.resultPoints directly (it
 // computes scoring itself, above, rather than routing through castCall/
-// resolveQuestionInternal), so nothing ever populates user_league_stats the
+// resolveQuestionInternal), so nothing ever populates user_season_stats the
 // way the real app's write path does. Every leaderboard/career-stats read
 // comes from that table now (see lib/points-aggregate.ts), so without this
 // step a fresh seed looks like every call vanished - the rows are all still
-// there, user_league_stats is just empty. Mirrors the one-time migration
-// backfill (drizzle/20260820041840_backfill_user_league_stats) exactly.
-async function backfillUserLeagueStats() {
+// there, user_season_stats is just empty. Mirrors the one-time migration
+// backfill (drizzle/20260820041840_backfill_user_league_stats, since renamed
+// to user_season_stats) in spirit.
+//
+// Excludes any question with no season_id - this file's own createQuestion
+// helper always derives one (see above), so in practice that's just leagues
+// with nothing synced in `seasons` yet; mirrors the real write path's own
+// seasonId-null guard in graphql/types/question.ts.
+async function backfillUserSeasonStats() {
 	await db.execute(sql`
-		insert into user_league_stats (user_id, league_id, points, resolved_call_count, correct_count, call_count)
+		insert into user_season_stats (user_id, league_id, season_id, points, resolved_call_count, correct_count, call_count)
 		with scored as (
 			select
 				calls.user_id as user_id,
 				q.league_id as league_id,
+				q.season_id as season_id,
 				cs.result_points as points,
 				(cs.result_points is not null) as resolved,
 				(cs.result_points is not null and qo.is_correct) as correct,
@@ -351,6 +369,7 @@ async function backfillUserLeagueStats() {
 			select
 				calls.user_id as user_id,
 				q.league_id as league_id,
+				q.season_id as season_id,
 				calls.result_points as points,
 				(calls.result_points is not null) as resolved,
 				(calls.result_points is not null and calls.hit_tolerance) as correct,
@@ -362,12 +381,14 @@ async function backfillUserLeagueStats() {
 		select
 			user_id,
 			league_id,
+			season_id,
 			coalesce(sum(points) filter (where resolved), 0) as points,
 			count(*) filter (where resolved) as resolved_call_count,
 			count(*) filter (where correct) as correct_count,
 			count(distinct call_id) as call_count
 		from scored
-		group by user_id, league_id
+		where season_id is not null
+		group by user_id, league_id, season_id
 	`)
 }
 
@@ -652,7 +673,15 @@ async function main() {
 		awayTeamId: string
 		startsAt: Date
 	}) {
-		const [game] = await db.insert(games).values(input).returning()
+		// Real games get seasonId from sync-games.ts matching startsAt against a
+		// synced season's date range - these are fake demo matchups (see the
+		// comment above), so just use the league's current season directly,
+		// same as createQuestion above.
+		const season = await getCurrentSeason(input.leagueId)
+		const [game] = await db
+			.insert(games)
+			.values({ ...input, seasonId: season?.id ?? null })
+			.returning()
 		return game
 	}
 
@@ -1767,7 +1796,7 @@ async function main() {
 		},
 	])
 
-	await backfillUserLeagueStats()
+	await backfillUserSeasonStats()
 
 	console.log("\nDone.\n")
 	console.log("Log in as quinn: qvaughn3@gmail.com / password")

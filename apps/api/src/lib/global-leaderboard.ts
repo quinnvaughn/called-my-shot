@@ -21,11 +21,11 @@ export type LeaderboardEntry = {
 // signal.
 //
 // Every field here comes from aggregatePointsByUser, which reads the
-// denormalized user_league_stats rollup rather than fetching every call/
+// denormalized user_season_stats rollup rather than fetching every call/
 // selection row into JS - cheap regardless of leagueId, since that table's
-// size is bounded by leagues (a small admin-curated catalog), not by call
-// count. See db/schema/questions.ts's userLeagueStats for how it's kept in
-// sync.
+// size is bounded by leagues x seasons (a small admin-curated catalog x a
+// handful of seasons each), not by call count. See db/schema/questions.ts's
+// userSeasonStats for how it's kept in sync.
 //
 // Plain function (no Pothos/GraphQL dependency) so it can be shared by both
 // graphql/types/leaderboard.ts and graphql/types/user.ts without those two
