@@ -2,6 +2,7 @@ import { FiZap } from "react-icons/fi"
 import { css } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
 import { formatGuess } from "#/lib/field-signal"
+import { pluralize } from "#/lib/pluralize"
 
 type Bucket = { value: number; count: number }
 
@@ -145,7 +146,7 @@ export function GuessDistributionChart({
 					{buckets.map((bucket) => (
 						<div
 							key={bucket.value}
-							title={`${bucket.value} · ${bucket.count} guess${bucket.count === 1 ? "" : "es"}`}
+							title={`${bucket.value} · ${bucket.count} ${pluralize(bucket.count, "guess", "guesses")}`}
 							className={css({
 								position: "relative",
 								flex: "1",
@@ -198,7 +199,7 @@ export function GuessDistributionChart({
 					textAlign: "center",
 				})}
 			>
-				{totalGuesses} guess{totalGuesses === 1 ? "" : "es"}
+				{totalGuesses} {pluralize(totalGuesses, "guess", "guesses")}
 				{averageGuess !== null && ` · avg ${formatGuess(averageGuess)}`}
 			</span>
 		</VStack>

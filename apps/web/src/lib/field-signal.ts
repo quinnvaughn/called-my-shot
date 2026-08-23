@@ -1,5 +1,6 @@
 import { match } from "ts-pattern"
 import type { QuestionShape } from "#/graphql/generated/graphql"
+import { pluralize } from "#/lib/pluralize"
 
 export type FieldSignalData = {
 	shape: QuestionShape
@@ -94,12 +95,11 @@ function leadingOption(
 	return withPct.reduce((a, b) => (b.fieldPct > a.fieldPct ? b : a))
 }
 
-// "1 caller" / "412 callers" - the plural check is repeated everywhere a raw
-// callCount needs to read as a sentence (this file's own summary, the sticky
-// submit bar, the field breakdown card), not just each of them re-checking
-// count === 1 inline.
+// "1 caller" / "412 callers" - shared everywhere a raw callCount needs to
+// read as a sentence (this file's own summary, the sticky submit bar, the
+// field breakdown card).
 export function callersText(count: number): string {
-	return `${count} ${count === 1 ? "caller" : "callers"}`
+	return `${count} ${pluralize(count, "caller")}`
 }
 
 export function formatGuess(value: number): string {

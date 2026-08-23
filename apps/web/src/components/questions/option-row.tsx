@@ -1,5 +1,6 @@
 import { css } from "styled-system/css"
 import { HStack } from "styled-system/jsx"
+import { pluralize } from "#/lib/pluralize"
 
 type Props = {
 	label: string
@@ -102,7 +103,7 @@ export function OptionRow({
 									color: selected ? "primary.default" : "fg.subtle",
 								})}
 							>
-								{compactCount.format(count)} {count === 1 ? "call" : "calls"}
+								{compactCount.format(count)} {pluralize(count, "call")}
 							</span>
 						</>
 					)}

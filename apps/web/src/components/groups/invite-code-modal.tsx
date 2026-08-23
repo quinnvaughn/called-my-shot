@@ -2,6 +2,7 @@ import { useState } from "react"
 import { css } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
 import { InviteSettingsModal } from "#/components/groups/invite-settings-modal"
+import { pluralize } from "#/lib/pluralize"
 import { openModal } from "#/stores/modal-store"
 import { Button } from "../ui/button"
 import { Modal } from "../ui/modal"
@@ -19,9 +20,9 @@ function formatExpiry(expirationDate: string | null) {
 	const msRemaining = new Date(expirationDate).getTime() - Date.now()
 	if (msRemaining <= 0) return "Link has expired"
 	const hours = Math.round(msRemaining / (1000 * 60 * 60))
-	if (hours < 24) return `Expires in ${hours} hour${hours === 1 ? "" : "s"}`
+	if (hours < 24) return `Expires in ${hours} ${pluralize(hours, "hour")}`
 	const days = Math.round(hours / 24)
-	return `Expires in ${days} day${days === 1 ? "" : "s"}`
+	return `Expires in ${days} ${pluralize(days, "day")}`
 }
 
 export function InviteCodeModal({

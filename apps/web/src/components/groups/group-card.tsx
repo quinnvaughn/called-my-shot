@@ -4,6 +4,7 @@ import { HStack, VStack } from "styled-system/jsx"
 import { AvatarStack } from "#/components/ui/avatar-stack"
 import { Card } from "#/components/ui/card"
 import { type FragmentType, graphql, useFragment } from "#/graphql/generated"
+import { pluralize } from "#/lib/pluralize"
 import { Eyebrow } from "../ui/eyebrow"
 
 export const GroupCardFragment = graphql(`
@@ -54,7 +55,7 @@ export function GroupCard(props: GroupCardProps) {
 									})}
 								>
 									{group.memberCount}{" "}
-									{group.memberCount === 1 ? "member" : "members"}
+									{pluralize(group.memberCount, "member")}
 								</span>
 							</VStack>
 							<Eyebrow variant={"primary"}>You're #{group.viewerRank}</Eyebrow>
