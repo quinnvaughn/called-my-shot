@@ -35,6 +35,14 @@ export const CallCardFragment = graphql(`
 			isOfficial
 			ouLine
 			numericActualValue
+			numericToleranceAbsolute
+			stat {
+				id
+				toleranceTier {
+					id
+					toleranceMode
+				}
+			}
 			locksAt
 			league {
 				id

@@ -1,6 +1,9 @@
 import { useMutation } from "@apollo/client/react"
 import { castCallSchema } from "@called-my-shot/schemas"
-import { toleranceBand as computeToleranceBand } from "@called-my-shot/scoring"
+import {
+	toleranceBand as computeToleranceBand,
+	type ToleranceSpec,
+} from "@called-my-shot/scoring"
 import { useRouter } from "@tanstack/react-router"
 import { useMemo, useRef, useState } from "react"
 import { match } from "ts-pattern"
@@ -15,6 +18,7 @@ export const CastCallFormFragment = graphql(`
 		shape
 		ouLine
 		numericTolerancePct
+		numericToleranceAbsolute
 		picksRequired
 		callCount
 		averageGuess
@@ -25,6 +29,10 @@ export const CastCallFormFragment = graphql(`
 		stat {
 			id
 			name
+			toleranceTier {
+				id
+				toleranceMode
+			}
 		}
 		customStat
 		league {
@@ -145,6 +153,16 @@ export function useCastCallForm(
 	const question = useFragment(CastCallFormFragment, questionProp)
 	const shape = (question?.shape.toLowerCase() ??
 		"yes_no_prop") as QuestionCallShape
+	// True for a rate stat (batting average, ERA) - see ToleranceSpec in
+	// @called-my-shot/scoring. numericToleranceAbsolute is only ever set for
+	// the two numeric_guess shapes (drives whether the guess input/stepper
+	// below work in whole numbers or decimals); an over/under shape has no
+	// tolerance snapshot at all, so it falls back to the picked stat's own
+	// tolerance tier mode instead - same signal, different source depending
+	// on shape.
+	const isRateStat =
+		question?.numericToleranceAbsolute != null ||
+		question?.stat?.toleranceTier?.toleranceMode === "ABSOLUTE"
 	const bucket = castCallBucketFor(shape, question?.picksRequired ?? 1)
 	const [castCall] = useMutation(CastCallDocument)
 	const router = useRouter()
@@ -189,8 +207,10 @@ export function useCastCallForm(
 
 	// The numeric-guess shapes only - how far the stepper's +/- buttons move
 	// the guess per click. Typing directly into the field always takes the
-	// exact value regardless of which step size is selected here.
-	const [guessStep, setGuessStep] = useState(1)
+	// exact value regardless of which step size is selected here. A rate stat
+	// (batting average, ERA) starts on a small decimal step instead of the
+	// whole-number default a counting stat uses.
+	const [guessStep, setGuessStep] = useState(isRateStat ? 0.01 : 1)
 
 	// castCallSchema itself only requires player_season_award/
 	// team_season_award to have >=1 pick - the comment on its own branch for
@@ -233,7 +253,11 @@ export function useCastCallForm(
 			// increment from the moment it mounts, and an empty control with no
 			// visible value reads as broken rather than "not yet answered".
 			guessValue:
-				question?.averageGuess != null ? Math.round(question.averageGuess) : 0,
+				question?.averageGuess != null
+					? isRateStat
+						? Math.round(question.averageGuess * 1000) / 1000
+						: Math.round(question.averageGuess)
+					: 0,
 			conviction: 50,
 			selections: [],
 		},
@@ -339,9 +363,15 @@ export function useCastCallForm(
 		)
 	}
 
+	const toleranceSpec: ToleranceSpec | null =
+		question?.numericToleranceAbsolute != null
+			? { mode: "absolute", amount: question.numericToleranceAbsolute }
+			: question?.numericTolerancePct != null
+				? { mode: "percentage", pct: question.numericTolerancePct }
+				: null
 	const toleranceBand =
-		question?.numericTolerancePct != null && guessValue != null
-			? computeToleranceBand(guessValue, question.numericTolerancePct)
+		toleranceSpec != null && guessValue != null
+			? computeToleranceBand(guessValue, toleranceSpec)
 			: null
 
 	// "Rebounds", "Passing Yards" - the stat this question is actually asking
@@ -358,6 +388,7 @@ export function useCastCallForm(
 		selections,
 		guessValue,
 		toleranceBand,
+		isRateStat,
 		guessUnit,
 		guessBuckets: question?.guessDistribution ?? [],
 		averageGuess: question?.averageGuess ?? null,

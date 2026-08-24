@@ -162,7 +162,7 @@ function Home() {
 					})}
 				>
 					<div>
-						<Badge dot>NFL · NBA · More sports coming</Badge>
+						<Badge dot>NFL · NBA · MLB · More sports coming</Badge>
 						<VStack alignItems="flex-start" gap="8">
 							<VStack alignItems="flex-start" gap="5">
 								<h1

@@ -26,4 +26,12 @@ export const SYNCED_LEAGUES: SyncLeagueConfig[] = [
 		leagueSlug: "nfl",
 		espnPath: "football/nfl",
 	},
+	{
+		sportName: "Baseball",
+		sportSlug: "baseball",
+		leagueName: "MLB",
+		leagueAbbreviation: "MLB",
+		leagueSlug: "mlb",
+		espnPath: "baseball/mlb",
+	},
 ]

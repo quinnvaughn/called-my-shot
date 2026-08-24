@@ -1,5 +1,10 @@
 import { match } from "ts-pattern"
 import type { QuestionShape } from "#/graphql/generated/graphql"
+import { formatGuess as formatGuessValue } from "#/lib/field-signal"
+import {
+	isOverUnderQuestionShape,
+	optionDisplayLabel,
+} from "#/lib/question-labels"
 
 export type CallSummaryData = {
 	guessValue: number | null
@@ -9,12 +14,27 @@ export type CallSummaryData = {
 		shape: QuestionShape
 		ouLine: number | null
 		numericActualValue: number | null
+		// Non-null only for a rate stat, and only ever set on the two
+		// numeric_guess shapes - see formatGuess in #/lib/field-signal.
+		numericToleranceAbsolute: number | null
+		// The over/under shapes have no tolerance snapshot of their own, so
+		// isRateStat below falls back to the picked stat's own tolerance tier
+		// mode for those - same "two sources depending on shape" signal used
+		// in use-cast-call-form.ts's own isRateStat.
+		stat: { toleranceTier: { toleranceMode: string } | null } | null
 	}
 	selections: {
 		id: string
 		conviction: number
 		option: { label: string; isCorrect: boolean | null }
 	}[]
+}
+
+function isRateStat(question: CallSummaryData["question"]): boolean {
+	return (
+		question.numericToleranceAbsolute !== null ||
+		question.stat?.toleranceTier?.toleranceMode === "ABSOLUTE"
+	)
 }
 
 // Every shape scores differently, so each needs its own formatting here - an
@@ -51,9 +71,12 @@ export function pickSummary(call: CallSummaryData): string {
 function formatOverUnder(call: CallSummaryData): string {
 	const selection = call.selections[0]
 	if (!selection) return "-"
-	return call.question.ouLine !== null
-		? `${selection.option.label} ${call.question.ouLine}`
-		: selection.option.label
+	return optionDisplayLabel(
+		selection.option.label,
+		isOverUnderQuestionShape(call.question.shape),
+		call.question.ouLine,
+		isRateStat(call.question),
+	)
 }
 
 function formatMultiSelect(call: CallSummaryData): string {
@@ -67,7 +90,12 @@ function formatMultiSelect(call: CallSummaryData): string {
 }
 
 function formatGuess(call: CallSummaryData): string {
-	return call.guessValue !== null ? String(call.guessValue) : "-"
+	return call.guessValue !== null
+		? formatGuessValue(
+				call.guessValue,
+				call.question.numericToleranceAbsolute !== null,
+			)
+		: "-"
 }
 
 function formatSingleSelection(call: CallSummaryData): string {
@@ -126,7 +154,7 @@ export function lossContext(call: CallSummaryData): string | null {
 		return null
 	if (resultState(call.totalPoints).status !== "loss") return null
 	if (call.question.numericActualValue === null) return null
-	return `actual was ${call.question.numericActualValue}`
+	return `actual was ${formatGuessValue(call.question.numericActualValue, call.question.numericToleranceAbsolute !== null)}`
 }
 
 // The points sign is authoritative for win/loss across every shape, not a

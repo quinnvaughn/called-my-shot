@@ -4,6 +4,7 @@ import { useState } from "react"
 import { css } from "styled-system/css"
 import { VStack } from "styled-system/jsx"
 import { match } from "ts-pattern"
+import type { QuestionCallShape } from "#/components/questions/cast-call-form/use-cast-call-form"
 import { ResolveOutcomeFields } from "#/components/questions/resolve-outcome-fields"
 import { Button } from "#/components/ui/button"
 import { FormError } from "#/components/ui/form-error"
@@ -16,23 +17,12 @@ import { closeModal } from "#/stores/modal-store"
 type QuestionForResolve = {
 	id: string
 	title: string
-	shape:
-		| "player_stat_over_under"
-		| "team_stat_over_under"
-		| "player_season_stat_over_under"
-		| "team_season_stat_over_under"
-		| "game_total_over_under"
-		| "player_stat_numeric_guess"
-		| "team_stat_numeric_guess"
-		| "player_vs_player"
-		| "player_vs_player_season"
-		| "team_vs_team"
-		| "yes_no_prop"
-		| "player_season_award"
-		| "team_season_award"
-		| "player_award_finalists"
+	shape: QuestionCallShape
 	ouLine: number | null
 	options: { id: string; label: string }[]
+	// True only for a rate stat (batting average, ERA) - see formatGuess in
+	// #/lib/field-signal.
+	isRateStat: boolean
 }
 
 export function OverturnDisputeModal({
@@ -161,6 +151,7 @@ export function OverturnDisputeModal({
 					onToggleOption={toggleOption}
 					actualValue={actualValue}
 					onActualValueChange={setActualValue}
+					isRateStat={question.isRateStat}
 				/>
 
 				<TextInput>

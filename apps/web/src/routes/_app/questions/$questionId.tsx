@@ -32,6 +32,7 @@ import {
 	QuestionCallsDocument,
 	QuestionDetailDocument,
 } from "#/graphql/queries/question"
+import { formatGuess } from "#/lib/field-signal"
 import { questionDetailState } from "#/lib/question-detail-state"
 import { questionShapeLabel } from "#/lib/question-labels"
 import { resolvedAnswerSummary } from "#/lib/resolution-summary"
@@ -215,11 +216,18 @@ function RouteComponent() {
 								"MMM d, h:mm a",
 							)}
 						/>
-						{question.numericTolerancePct !== null && (
+						{question.numericToleranceAbsolute !== null ? (
 							<PanelRow
 								label="TOLERANCE"
-								value={`±${Math.round(question.numericTolerancePct * 100)}% of actual`}
+								value={`±${formatGuess(question.numericToleranceAbsolute, true)}`}
 							/>
+						) : (
+							question.numericTolerancePct !== null && (
+								<PanelRow
+									label="TOLERANCE"
+									value={`±${Math.round(question.numericTolerancePct * 100)}% of actual`}
+								/>
+							)
 						)}
 					</VStack>
 				</Card.Body>
@@ -287,6 +295,8 @@ function RouteComponent() {
 				callCount={question.callCount}
 				totalOptions={question.options.length}
 				numericTolerancePct={question.numericTolerancePct}
+				numericToleranceAbsolute={question.numericToleranceAbsolute}
+				isRateStat={callForm.isRateStat}
 				viewerCall={viewerCall}
 				hasViewerDispute={question.viewerDispute !== null}
 				hasSettledDispute={question.hasSettledDispute}
@@ -315,12 +325,14 @@ function RouteComponent() {
 							buckets={question.guessDistribution}
 							averageGuess={question.averageGuess}
 							myGuess={viewerCall?.guessValue ?? null}
+							isRateStat={callForm.isRateStat}
 						/>
 					) : (
 						<OptionFieldBreakdown
 							options={question.options}
 							shape={question.shape}
 							ouLine={question.ouLine}
+							isRateStat={callForm.isRateStat}
 							callCount={question.callCount}
 							highlightedOptionIds={breakdownHighlightIds}
 						/>

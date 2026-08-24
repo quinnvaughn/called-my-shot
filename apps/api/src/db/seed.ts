@@ -4,6 +4,7 @@ import {
 	fieldPct,
 	numericGuessPoints,
 	selectionPoints,
+	type ToleranceSpec,
 } from "@called-my-shot/scoring"
 import { eq, sql } from "drizzle-orm"
 import { DateTime } from "luxon"
@@ -277,7 +278,7 @@ async function resolveOptionQuestion(
 async function resolveNumericQuestion(
 	questionId: string,
 	actualValue: number,
-	tolerancePct: number,
+	tolerance: ToleranceSpec,
 	resolutionNote: string,
 ) {
 	const questionCalls = await db.query.calls.findMany({ where: { questionId } })
@@ -304,7 +305,7 @@ async function resolveNumericQuestion(
 			BASE_POINTS_BY_SHAPE[question.shape],
 			guesses,
 			actualValue,
-			tolerancePct,
+			tolerance,
 		).map((r) => [r.callId, r]),
 	)
 
@@ -569,13 +570,17 @@ async function main() {
 	const football = await db.query.sports.findFirst({
 		where: { slug: "football" },
 	})
-	if (!basketball || !football) {
+	const baseball = await db.query.sports.findFirst({
+		where: { slug: "baseball" },
+	})
+	if (!basketball || !football || !baseball) {
 		throw new Error("Missing synced sports - run `pnpm sync:sports` first")
 	}
 
 	const nba = await db.query.leagues.findFirst({ where: { slug: "nba" } })
 	const nfl = await db.query.leagues.findFirst({ where: { slug: "nfl" } })
-	if (!nba || !nfl) {
+	const mlb = await db.query.leagues.findFirst({ where: { slug: "mlb" } })
+	if (!nba || !nfl || !mlb) {
 		throw new Error("Missing synced leagues - run `pnpm sync:sports` first")
 	}
 
@@ -585,7 +590,14 @@ async function main() {
 	const nflTeamRows = await db.query.teams.findMany({
 		where: { leagueId: nfl.id },
 	})
-	if (nbaTeamRows.length === 0 || nflTeamRows.length === 0) {
+	const mlbTeamRows = await db.query.teams.findMany({
+		where: { leagueId: mlb.id },
+	})
+	if (
+		nbaTeamRows.length === 0 ||
+		nflTeamRows.length === 0 ||
+		mlbTeamRows.length === 0
+	) {
 		throw new Error("Missing synced teams - run `pnpm sync:sports` first")
 	}
 
@@ -599,12 +611,20 @@ async function main() {
 		if (!team) throw new Error(`Missing synced NFL team: ${abbr}`)
 		return team
 	}
+	const mlbTeam = (abbr: string) => {
+		const team = mlbTeamRows.find((t) => t.abbreviation === abbr)
+		if (!team) throw new Error(`Missing synced MLB team: ${abbr}`)
+		return team
+	}
 
 	const nbaPlayerRows = await db.query.players.findMany({
 		where: { currentTeamId: { in: nbaTeamRows.map((t) => t.id) } },
 	})
 	const nflPlayerRows = await db.query.players.findMany({
 		where: { currentTeamId: { in: nflTeamRows.map((t) => t.id) } },
+	})
+	const mlbPlayerRows = await db.query.players.findMany({
+		where: { currentTeamId: { in: mlbTeamRows.map((t) => t.id) } },
 	})
 
 	// Below reaches for specific named stars by exact synced full name - real
@@ -629,6 +649,15 @@ async function main() {
 		}
 		return player
 	}
+	const mlbPlayer = (name: string) => {
+		const player = mlbPlayerRows.find((p) => p.name === name)
+		if (!player) {
+			throw new Error(
+				`Missing synced MLB player: ${name} - they may have moved teams or retired, pick another synced player`,
+			)
+		}
+		return player
+	}
 
 	// The real stat catalog (tolerance tiers + every player/team stat) lives in
 	// db/catalog/stats.ts, not here - it's upserted, not inserted, so the exact
@@ -638,6 +667,7 @@ async function main() {
 	const {
 		basketballStats: basketballStatRows,
 		footballStats: footballStatRows,
+		baseballStats: baseballStatRows,
 		toleranceTiers,
 	} = await syncStatCatalog()
 
@@ -651,20 +681,38 @@ async function main() {
 		if (!stat) throw new Error(`Missing football stat: ${name}`)
 		return stat
 	}
+	const baseballStat = (name: string) => {
+		const stat = baseballStatRows.find((s) => s.name === name)
+		if (!stat) throw new Error(`Missing baseball stat: ${name}`)
+		return stat
+	}
 
-	const tierPctById = new Map(
-		toleranceTiers.map((tier) => [tier.id, tier.tolerancePct]),
-	)
+	const tierById = new Map(toleranceTiers.map((tier) => [tier.id, tier]))
 	// Mirrors what createQuestion's resolver derives server-side from a stat's
 	// toleranceTier - seed data inserts questions directly, bypassing that
 	// resolver, so this keeps the two in sync by construction instead of by
-	// hand-copied percentages.
-	function tolerancePctForStat(stat: { toleranceTierId: string }): number {
-		const pct = tierPctById.get(stat.toleranceTierId)
-		if (pct === undefined) {
+	// hand-copied values.
+	function toleranceSpecForStat(stat: {
+		toleranceTierId: string
+	}): ToleranceSpec {
+		const tier = tierById.get(stat.toleranceTierId)
+		if (!tier) {
 			throw new Error(`Missing tolerance tier for stat ${stat.toleranceTierId}`)
 		}
-		return pct
+		return tier.toleranceMode === "absolute"
+			? { mode: "absolute", amount: tier.toleranceValue }
+			: { mode: "percentage", pct: tier.toleranceValue }
+	}
+	// Snapshot columns for a numeric_guess question row - exactly one of the
+	// two is set, same as createQuestion's resolver.
+	function toleranceColumnsForStat(stat: { toleranceTierId: string }): {
+		numericTolerancePct: number | null
+		numericToleranceAbsolute: number | null
+	} {
+		const spec = toleranceSpecForStat(stat)
+		return spec.mode === "absolute"
+			? { numericTolerancePct: null, numericToleranceAbsolute: spec.amount }
+			: { numericTolerancePct: spec.pct, numericToleranceAbsolute: null }
 	}
 
 	console.log("Seeding games...")
@@ -994,7 +1042,7 @@ async function main() {
 		locksAt: hoursFromNow(6),
 		statId: basketballStat("Rebounds").id,
 		subjectPlayerId: nbaPlayer("Joel Embiid").id,
-		numericTolerancePct: tolerancePctForStat(basketballStat("Rebounds")),
+		...toleranceColumnsForStat(basketballStat("Rebounds")),
 	})
 	await callWithGuess(
 		embiidRebounds.id,
@@ -1025,7 +1073,7 @@ async function main() {
 		locksAt: daysAgo(1),
 		statId: basketballStat("Points").id,
 		subjectPlayerId: nbaPlayer("Jayson Tatum").id,
-		numericTolerancePct: tolerancePctForStat(basketballStat("Points")),
+		...toleranceColumnsForStat(basketballStat("Points")),
 	})
 	await callWithGuess(
 		tatumPoints.id,
@@ -1040,7 +1088,7 @@ async function main() {
 	await resolveNumericQuestion(
 		tatumPoints.id,
 		27,
-		0.15,
+		{ mode: "percentage", pct: 0.15 },
 		"Jayson Tatum finished with 27 points.",
 	)
 
@@ -1155,7 +1203,7 @@ async function main() {
 		locksAt: hoursFromNow(30),
 		statId: footballStat("Passing Yards").id,
 		subjectPlayerId: nflPlayer("Patrick Mahomes").id,
-		numericTolerancePct: tolerancePctForStat(footballStat("Passing Yards")),
+		...toleranceColumnsForStat(footballStat("Passing Yards")),
 	})
 	await callWithGuess(
 		mahomesYards.id,
@@ -1381,7 +1429,7 @@ async function main() {
 		locksAt: hoursFromNow(20),
 		statId: footballStat("Passing Yards").id,
 		subjectPlayerId: nflPlayer("Josh Allen").id,
-		numericTolerancePct: tolerancePctForStat(footballStat("Passing Yards")),
+		...toleranceColumnsForStat(footballStat("Passing Yards")),
 	})
 	await callWithGuess(allenYards.id, dannyRinger.id, 265, 50)
 	await callWithGuess(allenYards.id, courtvision.id, 240, 45)
@@ -1401,7 +1449,7 @@ async function main() {
 		locksAt: hoursFromNow(7),
 		statId: basketballStat("Assists").id,
 		subjectPlayerId: nbaPlayer("Tyrese Haliburton").id,
-		numericTolerancePct: tolerancePctForStat(basketballStat("Assists")),
+		...toleranceColumnsForStat(basketballStat("Assists")),
 	})
 
 	// 18. Yes/No prop, locked (game underway) but not yet resolved - quinn
@@ -1514,6 +1562,122 @@ async function main() {
 	await callOnOptions(dpoyFinalists.id, courtvision.id, [
 		{ optionId: giannisDpoy.id, conviction: 40 },
 	])
+
+	console.log("Seeding baseball questions...")
+
+	// Fake demo games, same as every other sport's above - real teams, made-up
+	// matchup/date.
+	const yankeesDodgersGame = await createGame({
+		leagueId: mlb.id,
+		homeTeamId: mlbTeam("LAD").id,
+		awayTeamId: mlbTeam("NYY").id,
+		startsAt: hoursFromNow(4),
+	})
+	const philliesBravesGame = await createGame({
+		leagueId: mlb.id,
+		homeTeamId: mlbTeam("ATL").id,
+		awayTeamId: mlbTeam("PHI").id,
+		startsAt: daysAgo(1),
+	})
+	const dodgersBravesGame = await createGame({
+		leagueId: mlb.id,
+		homeTeamId: mlbTeam("ATL").id,
+		awayTeamId: mlbTeam("LAD").id,
+		startsAt: daysAgo(1),
+	})
+
+	// 23. Counting-stat over/under, still open - baseball's counting stats
+	// (hits, home runs, strikeouts) work exactly like every other sport's,
+	// no scoring changes needed for these.
+	const bellingerHomeRuns = await createQuestion({
+		shape: "player_stat_over_under",
+		title: "Cody Bellinger - over or under 1.5 home runs?",
+		creatorId: dkanalytics.id,
+		sportId: baseball.id,
+		leagueId: mlb.id,
+		gameId: yankeesDodgersGame.id,
+		resolutionSource: "ESPN box score",
+		locksAt: hoursFromNow(4),
+		statId: baseballStat("Home Runs").id,
+		subjectPlayerId: mlbPlayer("Cody Bellinger").id,
+		ouLine: 1.5,
+	})
+	const [bellingerOver, bellingerUnder] = await addOptions(
+		bellingerHomeRuns.id,
+		["Over", "Under"],
+	)
+	await callOnOptions(bellingerHomeRuns.id, jrhoops.id, [
+		{ optionId: bellingerOver.id, conviction: 55 },
+	])
+	await callOnOptions(bellingerHomeRuns.id, rcourtside.id, [
+		{ optionId: bellingerUnder.id, conviction: 60 },
+	])
+
+	// 24. Rate-stat over/under, still open - the line itself (3.25) is a
+	// decimal a counting-stat question would never need, made possible by
+	// ouLine's widened scale (see 20260823224331_add_rate_stat_tolerance).
+	// Resolution is still just an admin picking a side, same as every other
+	// over/under - no tolerance math involved, rate or not.
+	const wheelerEra = await createQuestion({
+		shape: "player_stat_over_under",
+		title: "Zack Wheeler - ERA over or under 3.25 entering tonight's start?",
+		creatorId: statlinesteve.id,
+		sportId: baseball.id,
+		leagueId: mlb.id,
+		gameId: philliesBravesGame.id,
+		resolutionSource: "ESPN box score",
+		locksAt: daysAgo(1),
+		statId: baseballStat("ERA").id,
+		subjectPlayerId: mlbPlayer("Zack Wheeler").id,
+		ouLine: 3.25,
+	})
+	const [wheelerOver, wheelerUnder] = await addOptions(wheelerEra.id, [
+		"Over",
+		"Under",
+	])
+	await callOnOptions(wheelerEra.id, courtvision.id, [
+		{ optionId: wheelerUnder.id, conviction: 50 },
+	])
+	await callOnOptions(wheelerEra.id, hoopqueen.id, [
+		{ optionId: wheelerOver.id, conviction: 35 },
+	])
+
+	// 25. Rate-stat numeric guess, resolved - the actual point of the whole
+	// rate-stat migration. Batting Average's tolerance tier is absolute-mode
+	// (+/-0.02, not a percentage of the actual value), so guesses and the
+	// final result are all real decimals, and hit/miss comes out sane instead
+	// of "any guess counts" (which is what the old percentage-only tolerance
+	// math would have done on a 0-.400ish scale).
+	const bettsAvg = await createQuestion({
+		shape: "player_stat_numeric_guess",
+		title: "What will Mookie Betts' batting average be after tonight's game?",
+		creatorId: mattfantasy.id,
+		sportId: baseball.id,
+		leagueId: mlb.id,
+		gameId: dodgersBravesGame.id,
+		resolutionSource: "ESPN box score",
+		locksAt: daysAgo(1),
+		statId: baseballStat("Batting Average").id,
+		subjectPlayerId: mlbPlayer("Mookie Betts").id,
+		...toleranceColumnsForStat(baseballStat("Batting Average")),
+	})
+	await callWithGuess(
+		bettsAvg.id,
+		quinn.id,
+		0.281,
+		55,
+		"He's been locked in against righties all week.",
+	)
+	await callWithGuess(bettsAvg.id, tswish.id, 0.275, 50)
+	await callWithGuess(bettsAvg.id, ballknower.id, 0.29, 40)
+	await callWithGuess(bettsAvg.id, dannyRinger.id, 0.265, 45)
+	await callWithGuess(bettsAvg.id, slballer.id, 0.3, 35)
+	await resolveNumericQuestion(
+		bettsAvg.id,
+		0.283,
+		{ mode: "absolute", amount: 0.02 },
+		"Mookie Betts finished the game at .283.",
+	)
 
 	console.log("Seeding shared questions...")
 

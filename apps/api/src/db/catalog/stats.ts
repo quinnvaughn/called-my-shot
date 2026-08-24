@@ -19,11 +19,25 @@ async function findOrCreateSport(
 
 // One row per tolerance band a numeric_guess stat can point at - see
 // statToleranceTiers' own doc comment in db/schema/sports.ts. Upserted by
-// name, so tweaking a tolerancePct here and re-running the sync updates the
-// live row instead of erroring on the unique constraint.
+// name, so tweaking a toleranceValue here and re-running the sync updates the
+// live row instead of erroring on the unique constraint. The three "Rate
+// Stat" tiers are absolute-mode (a fixed amount in the stat's own unit, not
+// a fraction of it) - starting points for AVG/OBP/SLG/ERA/WHIP, tunable like
+// any other tier.
 const TOLERANCE_TIERS = [
-	{ name: "Low-Count Box Stat", tolerancePct: 0.15 },
-	{ name: "High-Volume", tolerancePct: 0.1 },
+	{
+		name: "Low-Count Box Stat",
+		toleranceMode: "percentage",
+		toleranceValue: 0.15,
+	},
+	{ name: "High-Volume", toleranceMode: "percentage", toleranceValue: 0.1 },
+	{
+		name: "Rate Stat - Batting",
+		toleranceMode: "absolute",
+		toleranceValue: 0.02,
+	},
+	{ name: "Rate Stat - ERA", toleranceMode: "absolute", toleranceValue: 0.5 },
+	{ name: "Rate Stat - WHIP", toleranceMode: "absolute", toleranceValue: 0.15 },
 ] as const
 
 type AppliesTo = "player" | "team" | "both"
@@ -71,13 +85,35 @@ const FOOTBALL_STATS: StatEntry[] = [
 	["Wins", "Record", "High-Volume", "team"],
 ]
 
+const BASEBALL_STATS: StatEntry[] = [
+	["Hits", "Batting", "Low-Count Box Stat", "both"],
+	["Home Runs", "Batting", "Low-Count Box Stat", "both"],
+	["RBIs", "Batting", "Low-Count Box Stat", "both"],
+	["Runs", "Batting", "Low-Count Box Stat", "both"],
+	["Stolen Bases", "Batting", "Low-Count Box Stat", "both"],
+	["Strikeouts (Batting)", "Batting", "Low-Count Box Stat", "both"],
+	["Walks (Batting)", "Batting", "Low-Count Box Stat", "both"],
+	["Batting Average", "Batting", "Rate Stat - Batting", "both"],
+	["On-Base Percentage", "Batting", "Rate Stat - Batting", "both"],
+	["Slugging Percentage", "Batting", "Rate Stat - Batting", "both"],
+	["Saves", "Pitching", "Low-Count Box Stat", "both"],
+	["Strikeouts (Pitching)", "Pitching", "High-Volume", "both"],
+	["Earned Runs Allowed", "Pitching", "Low-Count Box Stat", "both"],
+	["ERA", "Pitching", "Rate Stat - ERA", "both"],
+	["WHIP", "Pitching", "Rate Stat - WHIP", "both"],
+	// Season-long, team-only in practice - see BASKETBALL_STATS' "Wins" entry.
+	["Wins", "Record", "High-Volume", "team"],
+]
+
 type TierRow = typeof statToleranceTiers.$inferSelect
 
 export type StatCatalog = {
 	basketball: SportRow
 	football: SportRow
+	baseball: SportRow
 	basketballStats: StatRow[]
 	footballStats: StatRow[]
+	baseballStats: StatRow[]
 	toleranceTiers: TierRow[]
 }
 
@@ -128,6 +164,7 @@ async function upsertStats(
 export async function syncStatCatalog(): Promise<StatCatalog> {
 	const basketball = await findOrCreateSport("Basketball", "basketball")
 	const football = await findOrCreateSport("Football", "football")
+	const baseball = await findOrCreateSport("Baseball", "baseball")
 
 	const tierIdByName = new Map<string, string>()
 	const tierRows: TierRow[] = []
@@ -137,7 +174,10 @@ export async function syncStatCatalog(): Promise<StatCatalog> {
 			.values(tier)
 			.onConflictDoUpdate({
 				target: [statToleranceTiers.name],
-				set: { tolerancePct: tier.tolerancePct },
+				set: {
+					toleranceMode: tier.toleranceMode,
+					toleranceValue: tier.toleranceValue,
+				},
 			})
 			.returning()
 		if (!row) {
@@ -159,12 +199,19 @@ export async function syncStatCatalog(): Promise<StatCatalog> {
 		FOOTBALL_STATS,
 		tierIdByName,
 	)
+	const baseballStats = await upsertStats(
+		baseball,
+		BASEBALL_STATS,
+		tierIdByName,
+	)
 
 	return {
 		basketball,
 		football,
+		baseball,
 		basketballStats,
 		footballStats,
+		baseballStats,
 		toleranceTiers: tierRows,
 	}
 }

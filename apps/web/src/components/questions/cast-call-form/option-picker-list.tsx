@@ -4,25 +4,13 @@ import { css } from "styled-system/css"
 import { VStack } from "styled-system/jsx"
 import { Button } from "#/components/ui/button"
 import { callersText } from "#/lib/field-signal"
+import { optionDisplayLabel } from "#/lib/question-labels"
 import { OptionRow } from "../option-row"
 import {
 	isAwardShape,
 	isOverUnderShape,
 	type QuestionCallShape,
 } from "./use-cast-call-form"
-
-// Shared by the visible option rows and the search dropdown below them, so
-// the O/U line suffix can't drift between the two renderings of the same
-// option.
-export function optionDisplayLabel(
-	option: { label: string },
-	shape: QuestionCallShape,
-	ouLine: number | null,
-): string {
-	return isOverUnderShape(shape) && ouLine !== null
-		? `${option.label} ${ouLine}`
-		: option.label
-}
 
 // Options paginate 5 at a time rather than dumping the whole pool (a
 // championship field runs to 30 rows) - same step the field breakdown card
@@ -40,6 +28,8 @@ type Props = {
 	options: PickerOption[]
 	shape: QuestionCallShape
 	ouLine: number | null
+	// True only for a rate stat - see optionDisplayLabel above.
+	isRateStat?: boolean
 	callCount: number
 	isSelected: (optionId: string) => boolean
 	onSelect: (optionId: string) => void
@@ -56,6 +46,7 @@ export function OptionPickerList({
 	options,
 	shape,
 	ouLine,
+	isRateStat = false,
 	callCount,
 	isSelected,
 	onSelect,
@@ -79,7 +70,12 @@ export function OptionPickerList({
 				{orderedOptions.slice(0, visibleOptionCount).map((option) => (
 					<OptionRow
 						key={option.id}
-						label={optionDisplayLabel(option, shape, ouLine)}
+						label={optionDisplayLabel(
+							option.label,
+							isOverUnderShape(shape),
+							ouLine,
+							isRateStat,
+						)}
 						fieldPct={option.fieldPct}
 						count={option.callCount}
 						selected={isSelected(option.id)}

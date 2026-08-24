@@ -22,6 +22,14 @@ export const QuestionCardFragment = graphql(`
 		numericActualValue
 		callCount
 		averageGuess
+		numericToleranceAbsolute
+		stat {
+			id
+			toleranceTier {
+				id
+				toleranceMode
+			}
+		}
 		ouLine
 		league {
 			id

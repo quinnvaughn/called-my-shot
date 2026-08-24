@@ -298,6 +298,14 @@ export const AdminDisputesDocument = graphql(`
 							shape
 							ouLine
 							numericActualValue
+							numericToleranceAbsolute
+							stat {
+								id
+								toleranceTier {
+									id
+									toleranceMode
+								}
+							}
 							status
 							resolutionNote
 							resolutionSource

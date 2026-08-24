@@ -16,28 +16,32 @@ export type TitleInput = WithGameDate &
 				shape: "player_stat_over_under"
 				playerName: string
 				statName: string
-				ouLine: number
+				// Pre-formatted by the caller, not a bare number - a rate-stat
+				// line (batting average) needs a fixed decimal count a plain
+				// number interpolated into the title would silently drop
+				// trailing zeros from (".300" reading as ".3").
+				ouLine: string
 				opponentTeamName: string
 		  }
 		| {
 				shape: "team_stat_over_under"
 				teamName: string
 				statName: string
-				ouLine: number
+				ouLine: string
 				opponentTeamName: string
 		  }
 		| {
 				shape: "player_season_stat_over_under"
 				playerName: string
 				statName: string
-				ouLine: number
+				ouLine: string
 				statAggregation: StatAggregation
 		  }
 		| {
 				shape: "team_season_stat_over_under"
 				teamName: string
 				statName: string
-				ouLine: number
+				ouLine: string
 				statAggregation: StatAggregation
 		  }
 		| {
@@ -45,7 +49,7 @@ export type TitleInput = WithGameDate &
 				awayTeamName: string
 				homeTeamName: string
 				statName: string
-				ouLine: number
+				ouLine: string
 		  }
 		| {
 				shape: "player_stat_numeric_guess"

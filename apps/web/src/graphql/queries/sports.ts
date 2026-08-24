@@ -55,6 +55,10 @@ export const StatsBySportDocument = graphql(`
 			category
 			sortOrder
 			appliesTo
+			toleranceTier {
+				id
+				toleranceMode
+			}
 		}
 	}
 `)

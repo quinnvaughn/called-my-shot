@@ -7,15 +7,12 @@ import { EntitySearchField } from "#/components/questions/create-question/entity
 import { Card } from "#/components/ui/card"
 import { FieldLabel } from "#/components/ui/field-label"
 import { Slider } from "#/components/ui/slider"
+import { optionDisplayLabel } from "#/lib/question-labels"
 import { previewFieldPct } from "#/lib/scoring"
 import { PointsPreview } from "../points-preview"
 import { CaseField } from "./case-field"
-import {
-	OPTIONS_PAGE_STEP,
-	OptionPickerList,
-	optionDisplayLabel,
-} from "./option-picker-list"
-import type { CastCallFormState } from "./use-cast-call-form"
+import { OPTIONS_PAGE_STEP, OptionPickerList } from "./option-picker-list"
+import { type CastCallFormState, isOverUnderShape } from "./use-cast-call-form"
 
 type Props = {
 	callForm: CastCallFormState
@@ -32,6 +29,7 @@ export function OptionFields({ callForm }: Props) {
 		singleSelectConviction,
 		setSingleSelectConviction,
 		selectSingle,
+		isRateStat,
 	} = callForm
 
 	const [optionSearch, setOptionSearch] = useState("")
@@ -58,6 +56,7 @@ export function OptionFields({ callForm }: Props) {
 					options={question.options}
 					shape={shape}
 					ouLine={question.ouLine}
+					isRateStat={isRateStat}
 					callCount={question.callCount}
 					isSelected={(optionId) =>
 						selections.some((s) => s.optionId === optionId)
@@ -72,7 +71,12 @@ export function OptionFields({ callForm }: Props) {
 					items={question.options.map(
 						(option): EntitySearchItem => ({
 							id: option.id,
-							label: optionDisplayLabel(option, shape, question.ouLine),
+							label: optionDisplayLabel(
+								option.label,
+								isOverUnderShape(shape),
+								question.ouLine,
+								isRateStat,
+							),
 							kind: "team",
 							meta:
 								option.fieldPct !== null

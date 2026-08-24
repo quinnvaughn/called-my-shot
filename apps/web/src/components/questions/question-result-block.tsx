@@ -4,7 +4,10 @@ import { match } from "ts-pattern"
 import { Tag } from "#/components/ui/tag"
 import type { QuestionShape } from "#/graphql/generated/graphql"
 import { callersText, formatGuess } from "#/lib/field-signal"
-import { optionDisplayLabel } from "#/lib/question-labels"
+import {
+	isOverUnderQuestionShape,
+	optionDisplayLabel,
+} from "#/lib/question-labels"
 import { DisputedFlag } from "./disputed-flag"
 
 type Option = {
@@ -20,6 +23,13 @@ type Props = {
 		numericActualValue: number | null
 		callCount: number
 		averageGuess: number | null
+		// Non-null only for a rate stat, numeric_guess shapes only - see
+		// formatGuess in #/lib/field-signal.
+		numericToleranceAbsolute: number | null
+		// An over/under shape has no tolerance snapshot at all, so rate-ness
+		// there is read off the picked stat's own tolerance tier instead - see
+		// isRateStat below.
+		stat: { toleranceTier: { toleranceMode: string } | null } | null
 		ouLine: number | null
 		options: Option[]
 	}
@@ -49,6 +59,9 @@ export function QuestionResultBlock({ question, disputed }: Props) {
 	const winner = question.options.find((o) => o.isCorrect)
 	const winners = question.options.filter((o) => o.isCorrect)
 	const callers = callersText(question.callCount)
+	const isRateStat =
+		question.numericToleranceAbsolute !== null ||
+		question.stat?.toleranceTier?.toleranceMode === "ABSOLUTE"
 	const winnerSub =
 		winner?.fieldPct !== undefined && winner.fieldPct !== null
 			? `${Math.round(winner.fieldPct)}% of the field called it right · ${callers}`
@@ -79,11 +92,13 @@ export function QuestionResultBlock({ question, disputed }: Props) {
 				.with("PLAYER_STAT_NUMERIC_GUESS", "TEAM_STAT_NUMERIC_GUESS", () => (
 					<VStack gap="1.5" alignItems="stretch">
 						<span className={valueClass}>
-							{question.numericActualValue ?? "-"}
+							{question.numericActualValue !== null
+								? formatGuess(question.numericActualValue, isRateStat)
+								: "-"}
 						</span>
 						<span className={subClass}>
 							{question.averageGuess !== null
-								? `avg guess was ${formatGuess(question.averageGuess)} · ${callers}`
+								? `avg guess was ${formatGuess(question.averageGuess, isRateStat)} · ${callers}`
 								: callers}
 						</span>
 					</VStack>
@@ -98,7 +113,11 @@ export function QuestionResultBlock({ question, disputed }: Props) {
 						<VStack gap="1.5" alignItems="stretch">
 							<span className={valueClass}>
 								{winner
-									? `${optionDisplayLabel(winner.label, question.shape, question.ouLine)}: total was ${question.numericActualValue}`
+									? `${optionDisplayLabel(winner.label, isOverUnderQuestionShape(question.shape), question.ouLine, isRateStat)}: total was ${
+											question.numericActualValue !== null
+												? formatGuess(question.numericActualValue, isRateStat)
+												: "-"
+										}`
 									: "-"}
 							</span>
 							<span className={subClass}>{winnerSub}</span>

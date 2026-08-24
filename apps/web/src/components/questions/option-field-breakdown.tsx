@@ -4,7 +4,10 @@ import { VStack } from "styled-system/jsx"
 import { Button } from "#/components/ui/button"
 import type { QuestionShape } from "#/graphql/generated/graphql"
 import { callersText } from "#/lib/field-signal"
-import { optionDisplayLabel } from "#/lib/question-labels"
+import {
+	isOverUnderQuestionShape,
+	optionDisplayLabel,
+} from "#/lib/question-labels"
 import { OPTIONS_PAGE_STEP } from "./cast-call-form/option-picker-list"
 import { OptionRow } from "./option-row"
 
@@ -19,6 +22,9 @@ type Props = {
 	options: Option[]
 	shape: QuestionShape
 	ouLine: number | null
+	// True only for a rate stat - see optionDisplayLabel in
+	// #/lib/question-labels.
+	isRateStat?: boolean
 	// The question's own total, not a sum of the option rows above - a
 	// player_season_award/team_season_award caller shows up under several
 	// rows at once, so summing row counts would overcount them. Same number
@@ -61,6 +67,7 @@ export function OptionFieldBreakdown({
 	options,
 	shape,
 	ouLine,
+	isRateStat = false,
 	callCount,
 	highlightedOptionIds,
 }: Props) {
@@ -88,7 +95,12 @@ export function OptionFieldBreakdown({
 			{rankedOptions.slice(0, visibleCount).map((option) => (
 				<OptionRow
 					key={option.id}
-					label={optionDisplayLabel(option.label, shape, ouLine)}
+					label={optionDisplayLabel(
+						option.label,
+						isOverUnderQuestionShape(shape),
+						ouLine,
+						isRateStat,
+					)}
 					fieldPct={option.fieldPct}
 					count={option.callCount}
 					selected={highlightedOptionIds.includes(option.id)}

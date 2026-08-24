@@ -1,25 +1,14 @@
 import { VStack } from "styled-system/jsx"
 import { TextInput } from "#/components/ui/text-input"
+import { optionDisplayLabel } from "#/lib/question-labels"
+import {
+	isOverUnderShape,
+	type QuestionCallShape,
+} from "./cast-call-form/use-cast-call-form"
 import { OptionRow } from "./option-row"
 
-type QuestionShape =
-	| "player_stat_over_under"
-	| "team_stat_over_under"
-	| "player_season_stat_over_under"
-	| "team_season_stat_over_under"
-	| "game_total_over_under"
-	| "player_stat_numeric_guess"
-	| "team_stat_numeric_guess"
-	| "player_vs_player"
-	| "player_vs_player_season"
-	| "team_vs_team"
-	| "yes_no_prop"
-	| "player_season_award"
-	| "team_season_award"
-	| "player_award_finalists"
-
 type Props = {
-	shape: QuestionShape
+	shape: QuestionCallShape
 	ouLine: number | null
 	options: { id: string; label: string }[]
 	correctOptionIds: string[]
@@ -27,6 +16,9 @@ type Props = {
 	actualValue: number | undefined
 	onActualValueChange: (value: number | undefined) => void
 	actualValueError?: string
+	// True only for a rate stat (batting average, ERA) - see formatGuess in
+	// #/lib/field-signal.
+	isRateStat?: boolean
 }
 
 // The outcome-picking half of a resolve form (option pool vs. number input,
@@ -42,6 +34,7 @@ export function ResolveOutcomeFields({
 	actualValue,
 	onActualValueChange,
 	actualValueError,
+	isRateStat = false,
 }: Props) {
 	if (
 		shape === "player_stat_numeric_guess" ||
@@ -53,6 +46,10 @@ export function ResolveOutcomeFields({
 				<TextInput.Group>
 					<TextInput.Field
 						type="number"
+						// "any" rather than a fixed step - a rate stat's actual value
+						// (batting average, ERA) needs decimals a step of 1 would
+						// otherwise reject via native constraint validation.
+						step="any"
 						value={actualValue ?? ""}
 						onChange={(e) =>
 							onActualValueChange(
@@ -70,16 +67,12 @@ export function ResolveOutcomeFields({
 			{options.map((option) => (
 				<OptionRow
 					key={option.id}
-					label={
-						(shape === "player_stat_over_under" ||
-							shape === "team_stat_over_under" ||
-							shape === "player_season_stat_over_under" ||
-							shape === "team_season_stat_over_under" ||
-							shape === "game_total_over_under") &&
-						ouLine !== null
-							? `${option.label} ${ouLine}`
-							: option.label
-					}
+					label={optionDisplayLabel(
+						option.label,
+						isOverUnderShape(shape),
+						ouLine,
+						isRateStat,
+					)}
 					fieldPct={null}
 					selected={correctOptionIds.includes(option.id)}
 					onClick={() => onToggleOption(option.id)}

@@ -189,29 +189,43 @@ export function selectionPoints(
 	)
 }
 
+// Which of a stat's two tolerance interpretations applies - see
+// toleranceMode in db/schema/sports.ts. "percentage" is a counting stat
+// (rebounds, yards): the band is a fraction of the actual result. "absolute"
+// is a rate stat (batting average, ERA): a percentage-of-value band makes no
+// sense on a 0-1ish scale, so the band is a fixed amount in the stat's own
+// unit instead.
+export type ToleranceSpec =
+	| { mode: "percentage"; pct: number }
+	| { mode: "absolute"; amount: number }
+
 // Floored, not rounded to nearest - nearest would sometimes make the actual
 // band more forgiving than the percentage it came from (1.8 rounding up to
 // 2 is a quietly better deal than the 15% that was promised). Floor can only
 // match or undercut the raw percentage, never inflate it. Floored to a
 // minimum of 1 rather than 0 - a low-count stat (blocks, steals) shouldn't
 // require an exact guess just because the percentage math rounds a small
-// number down to nothing.
+// number down to nothing. Neither the flooring nor the min-1 applies in
+// absolute mode - the configured amount is already in the stat's real unit
+// (and may legitimately be under 1, e.g. +/-0.02 for batting average), not a
+// percentage that needs converting into one.
 //
 // Exported (not module-local) and used for both sides of a guess - the real
 // hit/miss check below (off the actual result) and the client's live preview
 // while picking (off the guess itself, since the actual isn't known yet) -
 // so the two can't silently drift into different formulas the way they once
 // did.
-export function toleranceBand(value: number, tolerancePct: number): number {
-	return Math.max(1, Math.floor(Math.abs(value * tolerancePct)))
+export function toleranceBand(value: number, spec: ToleranceSpec): number {
+	if (spec.mode === "absolute") return spec.amount
+	return Math.max(1, Math.floor(Math.abs(value * spec.pct)))
 }
 
 export function hitTolerance(
 	guessValue: number,
 	actualValue: number,
-	tolerancePct: number,
+	spec: ToleranceSpec,
 ): boolean {
-	const band = toleranceBand(actualValue, tolerancePct)
+	const band = toleranceBand(actualValue, spec)
 	return Math.abs(guessValue - actualValue) <= band
 }
 
@@ -257,7 +271,7 @@ export function numericGuessPoints(
 		createdAt: Date
 	}[],
 	actualValue: number,
-	tolerancePct: number,
+	spec: ToleranceSpec,
 ): {
 	callId: string
 	points: number
@@ -267,7 +281,7 @@ export function numericGuessPoints(
 }[] {
 	const withHit = guesses.map((guess) => ({
 		...guess,
-		hit: hitTolerance(guess.guessValue, actualValue, tolerancePct),
+		hit: hitTolerance(guess.guessValue, actualValue, spec),
 		distance: Math.abs(guess.guessValue - actualValue),
 	}))
 

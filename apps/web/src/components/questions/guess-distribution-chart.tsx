@@ -18,6 +18,10 @@ type Props = {
 	// doesn't match any bucket, so nothing lights up - it isn't a bug, there's
 	// nothing on the chart to point at.
 	myGuess?: number | null
+	// True only for a rate stat (batting average, ERA) - every value below
+	// displays padded to a fixed 3 decimals when set, since a trailing zero
+	// is meaningful there (".300", never ".3") - see formatGuess.
+	isRateStat?: boolean
 }
 
 // Below this many guesses, the bar chart is just 1-2 bars at full height -
@@ -77,13 +81,14 @@ function LowVolumeGuesses({ totalGuesses }: { totalGuesses: number }) {
 // Hand-rolled bar chart, keyed by guess value rather than time - unlike the
 // question's overall call volume (see CallVolumeStats), a numeric-guess shape's
 // spread of guesses is meaningful with just a handful of calls, so this one
-// keeps its bar row rather than collapsing to plain stats. Bin width is a
-// flat 1 (nearest integer) - see Question.guessDistribution for why, and its
-// known limitation for fractional-scale stats.
+// keeps its bar row rather than collapsing to plain stats. Bin width matches
+// whatever the server bucketed by (a flat 1 for a counting stat, a small
+// decimal amount for a rate stat) - see Question.guessDistribution.
 export function GuessDistributionChart({
 	buckets,
 	averageGuess,
 	myGuess = null,
+	isRateStat = false,
 }: Props) {
 	const totalGuesses = buckets.reduce((sum, bucket) => sum + bucket.count, 0)
 
@@ -102,12 +107,20 @@ export function GuessDistributionChart({
 			? ((averageGuess - lo) / (hi - lo)) * 100
 			: null
 	// Which bucket the average line actually lands on, so that bar can be
-	// picked out too - not just the thin line above it. Buckets are always
-	// whole numbers (bin width 1, see the class comment), so round to match.
-	// Same "no match, no highlight" rule as myGuess below: an average that
-	// rounds to a value with zero guesses has no bar to point at, which is
-	// correct, not a bug.
-	const avgBucketValue = averageGuess !== null ? Math.round(averageGuess) : null
+	// picked out too - not just the thin line above it. Snapped to whichever
+	// existing bucket is nearest, rather than re-deriving the server's bin
+	// width here - works the same whether that width is a flat 1 (a counting
+	// stat) or a small decimal amount (a rate stat) without this component
+	// needing to know it.
+	const avgBucketValue =
+		averageGuess !== null && buckets.length > 0
+			? buckets.reduce((closest, bucket) =>
+					Math.abs(bucket.value - averageGuess) <
+					Math.abs(closest.value - averageGuess)
+						? bucket
+						: closest,
+				).value
+			: null
 
 	return (
 		<VStack gap="1.5" alignItems="stretch">
@@ -146,7 +159,7 @@ export function GuessDistributionChart({
 					{buckets.map((bucket) => (
 						<div
 							key={bucket.value}
-							title={`${bucket.value} · ${bucket.count} ${pluralize(bucket.count, "guess", "guesses")}`}
+							title={`${formatGuess(bucket.value, isRateStat)} · ${bucket.count} ${pluralize(bucket.count, "guess", "guesses")}`}
 							className={css({
 								position: "relative",
 								flex: "1",
@@ -185,7 +198,7 @@ export function GuessDistributionChart({
 							color: "fg.subtle",
 						})}
 					>
-						{bucket.value}
+						{formatGuess(bucket.value, isRateStat)}
 					</span>
 				))}
 			</HStack>
@@ -200,7 +213,8 @@ export function GuessDistributionChart({
 				})}
 			>
 				{totalGuesses} {pluralize(totalGuesses, "guess", "guesses")}
-				{averageGuess !== null && ` · avg ${formatGuess(averageGuess)}`}
+				{averageGuess !== null &&
+					` · avg ${formatGuess(averageGuess, isRateStat)}`}
 			</span>
 		</VStack>
 	)

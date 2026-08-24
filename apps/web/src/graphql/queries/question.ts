@@ -15,6 +15,14 @@ export const QuestionDetailDocument = graphql(`
 			ouLine
 			numericActualValue
 			numericTolerancePct
+			numericToleranceAbsolute
+			stat {
+				id
+				toleranceTier {
+					id
+					toleranceMode
+				}
+			}
 			numericHitRatePct
 			averageGuess
 			callCount

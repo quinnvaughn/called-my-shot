@@ -7,13 +7,13 @@ import { match } from "ts-pattern"
 import { Button } from "#/components/ui/button"
 import { FormError } from "#/components/ui/form-error"
 import { Modal } from "#/components/ui/modal"
-import { TextInput } from "#/components/ui/text-input"
 import { Textarea } from "#/components/ui/textarea"
 import { type FragmentType, graphql, useFragment } from "#/graphql/generated"
 import { ResolveQuestionDocument } from "#/graphql/mutations/questions"
 import { useForm } from "#/lib/form/use-form"
 import { closeModal } from "#/stores/modal-store"
-import { OptionRow } from "./option-row"
+import type { QuestionCallShape } from "./cast-call-form/use-cast-call-form"
+import { ResolveOutcomeFields } from "./resolve-outcome-fields"
 
 export const ResolveQuestionModalFragment = graphql(`
 	fragment ResolveQuestionModal_question on Question {
@@ -21,6 +21,14 @@ export const ResolveQuestionModalFragment = graphql(`
 		title
 		shape
 		ouLine
+		numericToleranceAbsolute
+		stat {
+			id
+			toleranceTier {
+				id
+				toleranceMode
+			}
+		}
 		options {
 			id
 			label
@@ -34,31 +42,12 @@ type Props = {
 
 export function ResolveQuestionModal({ question: questionProp }: Props) {
 	const question = useFragment(ResolveQuestionModalFragment, questionProp)
-	const shape = question.shape.toLowerCase() as
-		| "player_stat_over_under"
-		| "team_stat_over_under"
-		| "player_season_stat_over_under"
-		| "team_season_stat_over_under"
-		| "game_total_over_under"
-		| "player_stat_numeric_guess"
-		| "team_stat_numeric_guess"
-		| "player_vs_player"
-		| "player_vs_player_season"
-		| "team_vs_team"
-		| "yes_no_prop"
-		| "player_season_award"
-		| "team_season_award"
-		| "player_award_finalists"
-	const isNumeric =
-		shape === "player_stat_numeric_guess" || shape === "team_stat_numeric_guess"
+	const shape = question.shape.toLowerCase() as QuestionCallShape
 	const isMultiPick =
 		shape === "player_season_award" || shape === "team_season_award"
-	const isOverUnder =
-		shape === "player_stat_over_under" ||
-		shape === "team_stat_over_under" ||
-		shape === "player_season_stat_over_under" ||
-		shape === "team_season_stat_over_under" ||
-		shape === "game_total_over_under"
+	const isRateStat =
+		question.numericToleranceAbsolute !== null ||
+		question.stat?.toleranceTier?.toleranceMode === "ABSOLUTE"
 	const [resolveQuestion] = useMutation(ResolveQuestionDocument)
 	const router = useRouter()
 
@@ -150,49 +139,25 @@ export function ResolveQuestionModal({ question: questionProp }: Props) {
 
 			<form onSubmit={form.handleSubmit}>
 				<VStack gap="4" alignItems="stretch">
-					{!isNumeric ? (
-						<VStack gap="2" alignItems="stretch">
-							{question.options.map((option) => (
-								<OptionRow
-									key={option.id}
-									label={
-										isOverUnder && question.ouLine !== null
-											? `${option.label} ${question.ouLine}`
-											: option.label
-									}
-									fieldPct={null}
-									selected={correctOptionIds.includes(option.id)}
-									onClick={() =>
-										isMultiPick
-											? toggleMultiCorrect(option.id)
-											: selectSingleCorrect(option.id)
-									}
-								/>
-							))}
-						</VStack>
-					) : (
-						<form.Field name="actualValue">
-							{(field) => (
-								<TextInput error={field.meta.error ?? undefined}>
-									<TextInput.Label required>Actual value</TextInput.Label>
-									<TextInput.Group>
-										<TextInput.Field
-											type="number"
-											value={field.value ?? ""}
-											onChange={(e) =>
-												field.onChange(
-													e.target.value === ""
-														? undefined
-														: Number(e.target.value),
-												)
-											}
-											onBlur={field.onBlur}
-										/>
-									</TextInput.Group>
-								</TextInput>
-							)}
-						</form.Field>
-					)}
+					<form.Field name="actualValue">
+						{(field) => (
+							<ResolveOutcomeFields
+								shape={shape}
+								ouLine={question.ouLine}
+								options={question.options}
+								correctOptionIds={correctOptionIds}
+								onToggleOption={(optionId) =>
+									isMultiPick
+										? toggleMultiCorrect(optionId)
+										: selectSingleCorrect(optionId)
+								}
+								actualValue={field.value}
+								onActualValueChange={field.onChange}
+								actualValueError={field.meta.error ?? undefined}
+								isRateStat={isRateStat}
+							/>
+						)}
+					</form.Field>
 
 					<form.Field name="resolutionNote">
 						{(field) => (

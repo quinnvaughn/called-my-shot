@@ -27,6 +27,7 @@ import {
 	StatsBySportDocument,
 	TeamsByLeagueDocument,
 } from "#/graphql/queries/sports"
+import { formatGuess } from "#/lib/field-signal"
 import { useForm } from "#/lib/form/use-form"
 import type { EntitySearchItem } from "./entity-search-field"
 import type { CreateQuestionFormApi } from "./form-types"
@@ -462,10 +463,17 @@ export function CreateQuestionForm({ sports, isAdmin }: Props) {
 	// Mirrors generateQuestionTitle's own server-side call (see createQuestion
 	// in apps/api's resolver) against whatever's filled in so far - null once
 	// any piece it needs is still missing, rather than a half-built string.
-	const selectedStatName = statId
-		? stats.find((stat) => stat.id === statId)?.name
+	const selectedStat = statId
+		? stats.find((stat) => stat.id === statId)
 		: undefined
+	const selectedStatName = selectedStat?.name
 	const statName = selectedStatName ?? customStat
+	// A rate stat (batting average, ERA) always displays its line/guess padded
+	// to a fixed 3 decimals - a trailing zero is meaningful there (".300" is a
+	// real, distinct value from ".3"), so a bare number embedded straight into
+	// the title/option labels would silently misrepresent it. See formatGuess
+	// in #/lib/field-signal.
+	const isRateStat = selectedStat?.toleranceTier?.toleranceMode === "ABSOLUTE"
 	const selectedPlayerName = subjectPlayerId
 		? players.find((player) => player.id === subjectPlayerId)?.name
 		: undefined
@@ -502,7 +510,7 @@ export function CreateQuestionForm({ sports, isAdmin }: Props) {
 						shape: s,
 						playerName: selectedPlayerName,
 						statName,
-						ouLine,
+						ouLine: formatGuess(ouLine, isRateStat),
 						opponentTeamName,
 						gameDate: selectedGame?.startsAt,
 					})
@@ -514,7 +522,7 @@ export function CreateQuestionForm({ sports, isAdmin }: Props) {
 						shape: s,
 						teamName: selectedTeamName,
 						statName,
-						ouLine,
+						ouLine: formatGuess(ouLine, isRateStat),
 						opponentTeamName,
 						gameDate: selectedGame?.startsAt,
 					})
@@ -526,7 +534,7 @@ export function CreateQuestionForm({ sports, isAdmin }: Props) {
 						shape: s,
 						playerName: selectedPlayerName,
 						statName,
-						ouLine,
+						ouLine: formatGuess(ouLine, isRateStat),
 						statAggregation,
 					})
 				: null,
@@ -537,7 +545,7 @@ export function CreateQuestionForm({ sports, isAdmin }: Props) {
 						shape: s,
 						teamName: selectedTeamName,
 						statName,
-						ouLine,
+						ouLine: formatGuess(ouLine, isRateStat),
 						statAggregation,
 					})
 				: null,
@@ -549,7 +557,7 @@ export function CreateQuestionForm({ sports, isAdmin }: Props) {
 						awayTeamName: selectedGame.awayTeam.name,
 						homeTeamName: selectedGame.homeTeam.name,
 						statName,
-						ouLine,
+						ouLine: formatGuess(ouLine, isRateStat),
 						gameDate: selectedGame.startsAt,
 					})
 				: null,
@@ -706,7 +714,10 @@ export function CreateQuestionForm({ sports, isAdmin }: Props) {
 																		<TextInput.Group>
 																			<TextInput.Field
 																				type="number"
-																				step="0.5"
+																				// "any", not a fixed 0.5 - a rate-stat line
+																				// (batting average, ERA) needs finer-grained
+																				// decimals than a counting-stat one.
+																				step="any"
 																				placeholder="224.5"
 																				aria-required
 																				value={field.value ?? ""}

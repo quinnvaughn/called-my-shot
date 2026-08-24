@@ -168,6 +168,11 @@ function RouteComponent() {
 															dispute.question.shape.toLowerCase() as QuestionShape,
 														ouLine: dispute.question.ouLine ?? null,
 														options: dispute.question.options,
+														isRateStat:
+															dispute.question.numericToleranceAbsolute !==
+																null ||
+															dispute.question.stat?.toleranceTier
+																?.toleranceMode === "ABSOLUTE",
 													}}
 													onOverturned={() => refetch()}
 												/>,

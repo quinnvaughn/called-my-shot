@@ -46,6 +46,13 @@ const GameStatus = builder.enumType("GameStatus", {
 	},
 })
 
+const ToleranceMode = builder.enumType("ToleranceMode", {
+	values: {
+		PERCENTAGE: { value: "percentage" },
+		ABSOLUTE: { value: "absolute" },
+	},
+})
+
 const StatAppliesTo = builder.enumType("StatAppliesTo", {
 	values: {
 		PLAYER: { value: "player" },
@@ -164,7 +171,11 @@ export const StatToleranceTierRef = builder.drizzleObject(
 		fields: (t) => ({
 			id: t.exposeID("id"),
 			name: t.exposeString("name"),
-			tolerancePct: t.exposeFloat("tolerancePct"),
+			toleranceMode: t.field({
+				type: ToleranceMode,
+				resolve: (tier) => tier.toleranceMode,
+			}),
+			toleranceValue: t.exposeFloat("toleranceValue"),
 		}),
 	},
 )

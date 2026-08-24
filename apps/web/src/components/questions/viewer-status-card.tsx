@@ -3,6 +3,7 @@ import {
 	quipForCall,
 	TIER_MAX_MULT,
 	TIER_MIN_MULT,
+	type ToleranceSpec,
 	tierFor,
 	toleranceBand,
 } from "@called-my-shot/scoring"
@@ -18,8 +19,13 @@ import { CaseBlock } from "#/components/questions/case-block"
 import { DisputeModal } from "#/components/questions/dispute-modal"
 import type { QuestionShape } from "#/graphql/generated/graphql"
 import { pickSummary, resultState } from "#/lib/call-summary"
+import { formatGuess } from "#/lib/field-signal"
 import type { QuestionDetailState } from "#/lib/question-detail-state"
-import { optionDisplayLabel, shareCardShapeLabel } from "#/lib/question-labels"
+import {
+	isOverUnderQuestionShape,
+	optionDisplayLabel,
+	shareCardShapeLabel,
+} from "#/lib/question-labels"
 import { previewNumericPoints, previewSelectionPoints } from "#/lib/scoring"
 import { openModal } from "#/stores/modal-store"
 
@@ -102,6 +108,12 @@ type Props = {
 	// no options.
 	totalOptions: number
 	numericTolerancePct: number | null
+	numericToleranceAbsolute: number | null
+	// True for a rate stat (batting average, ERA) on ANY shape, including an
+	// over/under with no tolerance snapshot of its own - see optionDisplayLabel
+	// in #/lib/question-labels. numericToleranceAbsolute above only ever
+	// covers the two numeric_guess shapes.
+	isRateStat: boolean
 	viewerCall: ViewerCall | null
 	hasViewerDispute: boolean
 	// Once any dispute on this question has been closed (upheld or
@@ -141,6 +153,8 @@ export function ViewerStatusCard({
 	callCount,
 	totalOptions,
 	numericTolerancePct,
+	numericToleranceAbsolute,
+	isRateStat,
 	viewerCall,
 	hasViewerDispute,
 	hasSettledDispute,
@@ -205,6 +219,8 @@ export function ViewerStatusCard({
 			<PendingContent
 				isLocked={state.isLocked}
 				numericTolerancePct={numericTolerancePct}
+				numericToleranceAbsolute={numericToleranceAbsolute}
+				isRateStat={isRateStat}
 				callCount={callCount}
 				totalOptions={totalOptions}
 				viewerCall={viewerCall}
@@ -248,7 +264,10 @@ export function ViewerStatusCard({
 							<NumericPickRow
 								guessValue={viewerCall.guessValue}
 								conviction={viewerCall.conviction}
-								tolerancePct={numericTolerancePct}
+								tolerance={toleranceSpecFrom(
+									numericTolerancePct,
+									numericToleranceAbsolute,
+								)}
 								rank={viewerCall.currentRank}
 								totalCalls={callCount}
 								basePoints={basePoints}
@@ -269,8 +288,9 @@ export function ViewerStatusCard({
 								key={selection.option.label}
 								label={optionDisplayLabel(
 									selection.option.label,
-									viewerCall.question.shape,
+									isOverUnderQuestionShape(viewerCall.question.shape),
 									viewerCall.question.ouLine,
+									isRateStat,
 								)}
 								fieldPct={selection.option.fieldPct}
 								totalOptions={totalOptions}
@@ -305,6 +325,8 @@ export function ViewerStatusCard({
 					categoryLabel={shareCardShapeLabel[shape]}
 					viewerName={viewerName}
 					viewerUsername={viewerUsername}
+					numericToleranceAbsolute={numericToleranceAbsolute}
+					isRateStat={isRateStat}
 				/>
 			)}
 			{disputeRow}
@@ -348,6 +370,8 @@ function ShareCallSection({
 	categoryLabel,
 	viewerName,
 	viewerUsername,
+	numericToleranceAbsolute,
+	isRateStat,
 }: {
 	viewerCall: ViewerCall
 	isWin: boolean
@@ -357,6 +381,8 @@ function ShareCallSection({
 	categoryLabel: string
 	viewerName: string
 	viewerUsername: string
+	numericToleranceAbsolute: number | null
+	isRateStat: boolean
 }) {
 	// Deterministic off the call's own id (see quipForCall) rather than
 	// random - the same call always shows the same line, every time it's
@@ -376,6 +402,14 @@ function ShareCallSection({
 			// Not needed here - pickSummary only reads it via lossContext,
 			// which this card never calls.
 			numericActualValue: null,
+			numericToleranceAbsolute,
+			// Only pickSummary's over/under branch reads this (falls back to it
+			// when numericToleranceAbsolute isn't set - see isRateStat in
+			// #/lib/call-summary) - no real stat/tier data needed here, just
+			// enough shape to carry the already-computed isRateStat signal.
+			stat: isRateStat
+				? { toleranceTier: { toleranceMode: "ABSOLUTE" } }
+				: null,
 		},
 		selections: viewerCall.selections.map((s) => ({
 			id: s.option.label,
@@ -652,12 +686,16 @@ function DisputeRow({
 function PendingContent({
 	isLocked,
 	numericTolerancePct,
+	numericToleranceAbsolute,
+	isRateStat,
 	callCount,
 	totalOptions,
 	viewerCall,
 }: {
 	isLocked: boolean
 	numericTolerancePct: number | null
+	numericToleranceAbsolute: number | null
+	isRateStat: boolean
 	callCount: number
 	totalOptions: number
 	viewerCall: ViewerCall
@@ -678,7 +716,10 @@ function PendingContent({
 							<NumericPickRow
 								guessValue={viewerCall.guessValue}
 								conviction={viewerCall.conviction}
-								tolerancePct={numericTolerancePct}
+								tolerance={toleranceSpecFrom(
+									numericTolerancePct,
+									numericToleranceAbsolute,
+								)}
 								rank={viewerCall.currentRank}
 								totalCalls={callCount}
 								basePoints={basePoints}
@@ -690,8 +731,9 @@ function PendingContent({
 								key={selection.option.label}
 								label={optionDisplayLabel(
 									selection.option.label,
-									viewerCall.question.shape,
+									isOverUnderQuestionShape(viewerCall.question.shape),
 									viewerCall.question.ouLine,
+									isRateStat,
 								)}
 								fieldPct={selection.option.fieldPct}
 								totalOptions={totalOptions}
@@ -1070,10 +1112,22 @@ function SelectionPickRow({
 	)
 }
 
+// Exactly one of numericTolerancePct/numericToleranceAbsolute is ever
+// non-null for a given question - see ToleranceSpec in
+// @called-my-shot/scoring.
+function toleranceSpecFrom(
+	pct: number | null,
+	absolute: number | null,
+): ToleranceSpec | null {
+	if (absolute !== null) return { mode: "absolute", amount: absolute }
+	if (pct !== null) return { mode: "percentage", pct }
+	return null
+}
+
 function NumericPickRow({
 	guessValue,
 	conviction,
-	tolerancePct,
+	tolerance,
 	rank,
 	totalCalls,
 	basePoints,
@@ -1081,14 +1135,14 @@ function NumericPickRow({
 }: {
 	guessValue: number
 	conviction: number
-	tolerancePct: number | null
+	tolerance: ToleranceSpec | null
 	rank: number
 	totalCalls: number
 	basePoints: number
 	result: NumericRowResult
 }) {
-	const band =
-		tolerancePct !== null ? toleranceBand(guessValue, tolerancePct) : null
+	const band = tolerance !== null ? toleranceBand(guessValue, tolerance) : null
+	const isRateStat = tolerance?.mode === "absolute"
 
 	if (result.kind === "resolved") {
 		const win = result.totalPoints >= 0
@@ -1110,7 +1164,11 @@ function NumericPickRow({
 				// A numeric guess is always exactly one pick, and that value is
 				// already the whole title up top - never worth a second header.
 				name={null}
-				note={band !== null ? `within ±${band} counts as a hit` : null}
+				note={
+					band !== null
+						? `within ±${formatGuess(band, isRateStat)} counts as a hit`
+						: null
+				}
 				breakdown={{
 					ledger: [
 						{
@@ -1169,7 +1227,7 @@ function NumericPickRow({
 	const stake = preview.lose // the loss is always the flat, un-multiplied stake
 	return (
 		<PickRowShell
-			name={String(guessValue)}
+			name={formatGuess(guessValue, isRateStat)}
 			note={band !== null ? `within ±${band} counts as a hit` : null}
 			breakdown={{
 				ledger: [

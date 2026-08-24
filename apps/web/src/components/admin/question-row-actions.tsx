@@ -47,6 +47,9 @@ export function ResolveButton({
 					shape: data.question.shape.toLowerCase() as QuestionShape,
 					ouLine: data.question.ouLine ?? null,
 					options: data.question.options,
+					isRateStat:
+						data.question.numericToleranceAbsolute !== null ||
+						data.question.stat?.toleranceTier?.toleranceMode === "ABSOLUTE",
 				}}
 				onResolved={onResolved}
 			/>,

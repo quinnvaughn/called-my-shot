@@ -23,6 +23,14 @@ export const CallRowFragment = graphql(`
 			shape
 			ouLine
 			numericActualValue
+			numericToleranceAbsolute
+			stat {
+				id
+				toleranceTier {
+					id
+					toleranceMode
+				}
+			}
 		}
 		selections {
 			id

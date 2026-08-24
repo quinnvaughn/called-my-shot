@@ -49,6 +49,18 @@ const SHAPE_LABEL: Record<string, string> = {
 	player_award_finalists: "Season Award",
 }
 
+// Mirrors formatGuess in apps/web/src/lib/field-signal.ts - pads a rate
+// stat (batting average, ERA) to a fixed 3 decimals so a value like 0.3
+// doesn't silently read as ".3" instead of ".300" on the exported PNG. No
+// shared module across the API/web boundary for this one either, same
+// reasoning as SHAPE_LABEL/brandWordmark above.
+function formatGuess(value: number, isRateStat: boolean): string {
+	if (isRateStat) return value.toFixed(3)
+	return Number.isInteger(value)
+		? String(value)
+		: String(Math.round(value * 1000) / 1000)
+}
+
 // Mirrors lib/call-summary.ts's pickSummary on the frontend, against this
 // route's own DB-shaped call rather than the GraphQL Call type - no shared
 // module between the two given the enum casing they each work off already
@@ -57,14 +69,24 @@ const SHAPE_LABEL: Record<string, string> = {
 // documents.
 function buildPickLabel(call: {
 	guessValue: number | null
-	question: { shape: string; ouLine: number | null }
+	question: {
+		shape: string
+		ouLine: number | null
+		numericToleranceAbsolute: number | null
+		stat: { toleranceTier: { toleranceMode: string } | null } | null
+	}
 	selections: { option: { label: string; isCorrect: boolean | null } }[]
 }): string {
+	const isRateStat =
+		call.question.numericToleranceAbsolute !== null ||
+		call.question.stat?.toleranceTier?.toleranceMode === "absolute"
 	if (
 		call.question.shape === "player_stat_numeric_guess" ||
 		call.question.shape === "team_stat_numeric_guess"
 	) {
-		return call.guessValue !== null ? String(call.guessValue) : "-"
+		return call.guessValue !== null
+			? formatGuess(call.guessValue, isRateStat)
+			: "-"
 	}
 	if (
 		call.question.shape === "player_season_award" ||
@@ -84,7 +106,7 @@ function buildPickLabel(call: {
 			call.question.shape === "game_total_over_under") &&
 		call.question.ouLine !== null
 	) {
-		return `${selection.option.label} ${call.question.ouLine}`
+		return `${selection.option.label} ${formatGuess(call.question.ouLine, isRateStat)}`
 	}
 	return selection.option.label
 }
@@ -162,8 +184,15 @@ async function sendCallShareCard(res: Response, callId: string) {
 					shape: true,
 					status: true,
 					ouLine: true,
+					numericToleranceAbsolute: true,
 				},
-				with: { league: { columns: { abbreviation: true } } },
+				with: {
+					league: { columns: { abbreviation: true } },
+					stat: {
+						columns: {},
+						with: { toleranceTier: { columns: { toleranceMode: true } } },
+					},
+				},
 			},
 			selections: {
 				with: { option: { columns: { label: true, isCorrect: true } } },
@@ -250,7 +279,12 @@ async function sendCallShareCard(res: Response, callId: string) {
 		username: call.user.username,
 		pickLabel: buildPickLabel({
 			guessValue: call.guessValue,
-			question: { shape: call.question.shape, ouLine: call.question.ouLine },
+			question: {
+				shape: call.question.shape,
+				ouLine: call.question.ouLine,
+				numericToleranceAbsolute: call.question.numericToleranceAbsolute,
+				stat: call.question.stat,
+			},
 			selections,
 		}),
 		isWin,

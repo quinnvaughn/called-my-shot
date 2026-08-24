@@ -1,11 +1,30 @@
 import { match } from "ts-pattern"
 import type { QuestionShape } from "#/graphql/generated/graphql"
+import { formatGuess } from "#/lib/field-signal"
+import {
+	isOverUnderQuestionShape,
+	optionDisplayLabel,
+} from "#/lib/question-labels"
 
 export type ResolvedAnswerData = {
 	shape: QuestionShape
 	ouLine: number | null
 	numericActualValue: number | null
+	// Non-null only for a rate stat, and only ever set on the two
+	// numeric_guess shapes - see formatGuess in #/lib/field-signal.
+	numericToleranceAbsolute: number | null
+	// The over/under shapes have no tolerance snapshot of their own, so
+	// isRateStat below falls back to the picked stat's own tolerance tier
+	// mode for those - same signal used in call-summary.ts.
+	stat: { toleranceTier: { toleranceMode: string } | null } | null
 	options: { label: string; isCorrect: boolean | null }[]
+}
+
+function isRateStat(question: ResolvedAnswerData): boolean {
+	return (
+		question.numericToleranceAbsolute !== null ||
+		question.stat?.toleranceTier?.toleranceMode === "ABSOLUTE"
+	)
 }
 
 // The actual answer a question resolved to, independent of any one caller's
@@ -49,9 +68,12 @@ function correctOptions(question: ResolvedAnswerData) {
 function formatOverUnder(question: ResolvedAnswerData): string | null {
 	const winner = correctOptions(question)[0]
 	if (!winner) return null
-	return question.ouLine !== null
-		? `${winner.label} ${question.ouLine}`
-		: winner.label
+	return optionDisplayLabel(
+		winner.label,
+		isOverUnderQuestionShape(question.shape),
+		question.ouLine,
+		isRateStat(question),
+	)
 }
 
 function formatMultiSelect(question: ResolvedAnswerData): string | null {
@@ -62,7 +84,7 @@ function formatMultiSelect(question: ResolvedAnswerData): string | null {
 
 function formatNumeric(question: ResolvedAnswerData): string | null {
 	return question.numericActualValue !== null
-		? String(question.numericActualValue)
+		? formatGuess(question.numericActualValue, isRateStat(question))
 		: null
 }
 

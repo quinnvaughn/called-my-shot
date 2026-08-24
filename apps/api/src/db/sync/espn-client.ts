@@ -2,7 +2,7 @@
 // no official support either - if a shape here breaks, that's ESPN, not us.
 const BASE_URL = "https://site.api.espn.com/apis/site/v2/sports"
 
-export type EspnSportPath = "basketball/nba" | "football/nfl"
+export type EspnSportPath = "basketball/nba" | "football/nfl" | "baseball/mlb"
 
 export type EspnTeam = {
 	id: string
@@ -15,6 +15,7 @@ export type EspnAthlete = {
 	id: string
 	fullName: string
 	position?: { abbreviation: string }
+	status?: { abbreviation: string }
 }
 
 export type EspnEvent = {
@@ -46,28 +47,33 @@ export async function fetchTeams(sportPath: EspnSportPath): Promise<EspnTeam[]> 
 	return data.sports[0].leagues[0].teams.map((t) => t.team)
 }
 
-// NBA's roster response is a flat athletes array. NFL's groups athletes by
-// position instead ({ position: "offense", items: [athlete, ...] }), with no
-// bare athlete objects at the top level at all - flatten both shapes here so
-// callers only ever see a flat athlete list either way.
-type EspnRosterEntry = EspnAthlete | { position?: string; items?: EspnAthlete[] }
+// The plain .../teams/{id}/roster endpoint only returns the 26-man ACTIVE
+// roster (NBA/NFL/MLB alike) - anyone on the injured list drops off it
+// entirely, not just out of the active lineup, which silently makes an
+// injured star unfindable in the app the moment they go on the IL. team
+// detail with ?enable=roster returns the fuller roster instead (its
+// `athletes` is already a flat array for every sport, unlike the grouped-by-
+// position shape .../roster uses for some leagues), each entry carrying a
+// status.abbreviation that distinguishes "genuinely not on this team's
+// active organization" (a call-up/farm-system player, a non-roster spring
+// invite) from every real reason a rostered player might be sidelined
+// (day-to-day, any IL stint) - only the former should ever be excluded.
+const NON_ROSTER_STATUSES = ["minors", "non-roster"]
 
-function isRosterGroup(
-	entry: EspnRosterEntry,
-): entry is { position?: string; items?: EspnAthlete[] } {
-	return "items" in entry
+function isOnRoster(athlete: EspnAthlete): boolean {
+	const status = athlete.status?.abbreviation.toLowerCase()
+	if (!status) return true
+	return !NON_ROSTER_STATUSES.some((excluded) => status.includes(excluded))
 }
 
 export async function fetchRoster(
 	sportPath: EspnSportPath,
 	espnTeamId: string,
 ): Promise<EspnAthlete[]> {
-	const data = await espnGet<{ athletes: EspnRosterEntry[] }>(
-		`${sportPath}/teams/${espnTeamId}/roster`,
+	const data = await espnGet<{ team: { athletes: EspnAthlete[] } }>(
+		`${sportPath}/teams/${espnTeamId}?enable=roster`,
 	)
-	return data.athletes.flatMap((entry) =>
-		isRosterGroup(entry) ? (entry.items ?? []) : [entry],
-	)
+	return data.team.athletes.filter(isOnRoster)
 }
 
 // Regular season (2) and postseason (3) only - preseason (1) games are noise

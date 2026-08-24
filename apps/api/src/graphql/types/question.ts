@@ -13,6 +13,7 @@ import {
 	fieldPct,
 	numericGuessPoints,
 	selectionPoints,
+	type ToleranceSpec,
 } from "@called-my-shot/scoring"
 import {
 	and,
@@ -560,8 +561,13 @@ export const QuestionRef = builder.drizzleObject("questions", {
 		// player_season_award/team_season_award/player_award_finalists only
 		awardName: t.exposeString("awardName", { nullable: true }),
 
-		// The two numeric-guess shapes only
+		// The two numeric-guess shapes only. Exactly one of numericTolerancePct/
+		// numericToleranceAbsolute is set, depending on the picked stat's
+		// tolerance tier mode (see ToleranceSpec in @called-my-shot/scoring).
 		numericTolerancePct: t.exposeFloat("numericTolerancePct", {
+			nullable: true,
+		}),
+		numericToleranceAbsolute: t.exposeFloat("numericToleranceAbsolute", {
 			nullable: true,
 		}),
 		numericActualValue: t.exposeFloat("numericActualValue", { nullable: true }),
@@ -668,14 +674,17 @@ export const QuestionRef = builder.drizzleObject("questions", {
 		}),
 
 		// Binned guess values for the guess-distribution chart - the two
-		// numeric-guess shapes only, empty for every other shape. Bin width is a
-		// flat 1 (nearest integer), which fits typical counting stats (points/
-		// rebounds/assists) but under-resolves a fractional-scale stat like
-		// shooting % - a real fix would derive bin width from
-		// numericTolerancePct instead; not needed for v1. Same "aggregate
-		// bypasses the per-caller pick-visibility gate" precedent
-		// averageGuess/numericHitRatePct already establish - individual bucket
-		// counts aren't attributed to any one caller.
+		// numeric-guess shapes only, empty for every other shape. Bin width
+		// matches the question's own tolerance band (numericToleranceAbsolute
+		// when the stat is a rate stat, else a flat 1) - a guess within one
+		// tolerance band of another is "close enough" to group together, which
+		// generalizes correctly whether the band is a whole-number counting-stat
+		// amount or a small fixed rate-stat amount like +/-0.02. Rounded to 3
+		// decimal places (matching guessValue's own column scale) to avoid
+		// floating-point bucket-key drift. Same "aggregate bypasses the
+		// per-caller pick-visibility gate" precedent averageGuess/
+		// numericHitRatePct already establish - individual bucket counts aren't
+		// attributed to any one caller.
 		guessDistribution: t.field({
 			type: [GuessBucketRef],
 			resolve: async (question) => {
@@ -688,10 +697,14 @@ export const QuestionRef = builder.drizzleObject("questions", {
 					where: { questionId: question.id },
 					columns: { guessValue: true },
 				})
+				const bucketWidth = question.numericToleranceAbsolute ?? 1
 				const counts = new Map<number, number>()
 				for (const call of guessCalls) {
 					if (call.guessValue === null) continue
-					const bucket = Math.round(call.guessValue)
+					const bucket =
+						Math.round(
+							Math.round(call.guessValue / bucketWidth) * bucketWidth * 1000,
+						) / 1000
 					counts.set(bucket, (counts.get(bucket) ?? 0) + 1)
 				}
 				return [...counts.entries()]
@@ -1340,12 +1353,18 @@ async function resolveQuestionInternal(
 
 		// resolveQuestionSchema/adminResolveQuestionSchema guarantee actualValue
 		// is set for the two numeric-guess shapes, and createQuestionSchema
-		// guarantees numericTolerancePct was set at creation for them.
+		// guarantees exactly one of numericTolerancePct/numericToleranceAbsolute
+		// was set at creation for them, matching the picked stat's tolerance
+		// tier mode.
+		const toleranceSpec: ToleranceSpec =
+			question.numericToleranceAbsolute !== null
+				? { mode: "absolute", amount: question.numericToleranceAbsolute }
+				: { mode: "percentage", pct: question.numericTolerancePct as number }
 		const scored = numericGuessPoints(
 			BASE_POINTS_BY_SHAPE[question.shape],
 			guesses,
 			data.actualValue as number,
-			question.numericTolerancePct as number,
+			toleranceSpec,
 		)
 		const oldByCallId = new Map(guessCalls.map((c) => [c.id, c]))
 		for (const r of scored) {
@@ -1724,30 +1743,16 @@ builder.mutationFields((t) => ({
 				awayTeamName = game.awayTeam.name
 			}
 
-			// The tolerance band comes from the stat's own tolerance tier, not
-			// the creator - createQuestionSchema guarantees statId is set (no
-			// customStat fallback) for these two shapes specifically, so a
-			// creator can't set an unhittable or trivial-to-hit band by hand.
-			let numericTolerancePct: number | null = null
-			if (
-				data.shape === "player_stat_numeric_guess" ||
-				data.shape === "team_stat_numeric_guess"
-			) {
-				const stat = await db.query.stats.findFirst({
-					where: { id: data.statId },
-					with: { toleranceTier: true },
-				})
-				if (!stat?.toleranceTier) {
-					throw ValidationError.field("statId", "Pick a stat from the list")
-				}
-				numericTolerancePct = stat.toleranceTier.tolerancePct
-			}
-
 			// Resolved once up front for the structured-field validation below -
-			// only the fields a given shape actually uses end up set.
+			// only the fields a given shape actually uses end up set. Includes
+			// toleranceTier so the numeric_guess tolerance snapshot below can
+			// read off this one fetch instead of querying stats twice.
 			const [stat, subjectPlayer, subjectTeam] = await Promise.all([
 				data.statId
-					? db.query.stats.findFirst({ where: { id: data.statId } })
+					? db.query.stats.findFirst({
+							where: { id: data.statId },
+							with: { toleranceTier: true },
+						})
 					: null,
 				data.subjectPlayerId
 					? db.query.players.findFirst({ where: { id: data.subjectPlayerId } })
@@ -1756,6 +1761,28 @@ builder.mutationFields((t) => ({
 					? db.query.teams.findFirst({ where: { id: data.subjectTeamId } })
 					: null,
 			])
+
+			// The tolerance band comes from the stat's own tolerance tier, not
+			// the creator - createQuestionSchema guarantees statId is set (no
+			// customStat fallback) for these two shapes specifically, so a
+			// creator can't set an unhittable or trivial-to-hit band by hand.
+			// Which column gets set depends on the tier's mode - see
+			// ToleranceSpec in @called-my-shot/scoring.
+			let numericTolerancePct: number | null = null
+			let numericToleranceAbsolute: number | null = null
+			if (
+				data.shape === "player_stat_numeric_guess" ||
+				data.shape === "team_stat_numeric_guess"
+			) {
+				if (!stat?.toleranceTier) {
+					throw ValidationError.field("statId", "Pick a stat from the list")
+				}
+				if (stat.toleranceTier.toleranceMode === "absolute") {
+					numericToleranceAbsolute = stat.toleranceTier.toleranceValue
+				} else {
+					numericTolerancePct = stat.toleranceTier.toleranceValue
+				}
+			}
 
 			// Only meaningful for a catalog stat - a freeform customStat (over_under
 			// and player_vs_player both allow one, see requireStat vs
@@ -1936,6 +1963,7 @@ builder.mutationFields((t) => ({
 						subjectTeamId: data.subjectTeamId ?? null,
 						subjectPlayerId: data.subjectPlayerId ?? null,
 						numericTolerancePct,
+						numericToleranceAbsolute,
 						picksRequired: data.picksRequired ?? null,
 						eventClause: data.eventClause || null,
 						awardName: data.awardName || null,

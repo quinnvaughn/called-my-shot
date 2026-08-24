@@ -134,8 +134,10 @@ export const questions = pgTable("questions", {
 	statId: uuid("stat_id").references(() => stats.id, { onDelete: "restrict" }),
 	customStat: text("custom_stat"),
 
-	// *_over_under shapes only
-	ouLine: numeric("ou_line", { precision: 8, scale: 2, mode: "number" }),
+	// *_over_under shapes only. scale 3, not 2 - a rate-stat line (batting
+	// average, e.g. .275) needs a third decimal place a counting-stat line
+	// (yards, points) never uses.
+	ouLine: numeric("ou_line", { precision: 8, scale: 3, mode: "number" }),
 
 	// player_season_stat_over_under/team_season_stat_over_under only - see
 	// statAggregation above.
@@ -157,9 +159,21 @@ export const questions = pgTable("questions", {
 		scale: 3,
 		mode: "number",
 	}),
+	// Set instead of numericTolerancePct when the picked stat's tolerance tier
+	// is "absolute" mode (a rate stat) rather than "percentage" - exactly one
+	// of the two is non-null for a numeric_guess question, mirroring which of
+	// the tier's own two interpretations of toleranceValue applies. See
+	// ToleranceSpec in @called-my-shot/scoring for how resolution reads
+	// whichever one is set.
+	numericToleranceAbsolute: numeric("numeric_tolerance_absolute", {
+		precision: 4,
+		scale: 3,
+		mode: "number",
+	}),
+	// scale 3, not 2 - see ouLine above.
 	numericActualValue: numeric("numeric_actual_value", {
 		precision: 8,
-		scale: 2,
+		scale: 3,
 		mode: "number",
 	}),
 
@@ -221,10 +235,10 @@ export const calls = pgTable(
 			.references(() => users.id, { onDelete: "cascade" }),
 		caseText: text("case_text"),
 
-		// numeric_guess only
+		// numeric_guess only. scale 3, not 2 - see questions.ouLine above.
 		guessValue: numeric("guess_value", {
 			precision: 8,
-			scale: 2,
+			scale: 3,
 			mode: "number",
 		}),
 		conviction: integer("conviction"), // 1-100

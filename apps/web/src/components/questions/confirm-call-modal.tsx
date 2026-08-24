@@ -1,4 +1,4 @@
-import { BASE_POINTS_BY_SHAPE, toleranceBand } from "@called-my-shot/scoring"
+import { BASE_POINTS_BY_SHAPE } from "@called-my-shot/scoring"
 import { useRouteContext } from "@tanstack/react-router"
 import { css } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
@@ -11,6 +11,8 @@ import { Button } from "#/components/ui/button"
 import { FormError } from "#/components/ui/form-error"
 import { Modal } from "#/components/ui/modal"
 import { useRequireAuth } from "#/hooks/use-require-auth"
+import { formatGuess } from "#/lib/field-signal"
+import { optionDisplayLabel } from "#/lib/question-labels"
 import {
 	previewFieldPct,
 	previewNumericPoints,
@@ -37,6 +39,8 @@ export function ConfirmCallModal({
 		singleSelectConviction,
 		sharedConviction,
 		focusCaseText,
+		toleranceBand,
+		isRateStat,
 	} = callForm
 	const { me } = useRouteContext({ from: "__root__" })
 	const requireAuth = useRequireAuth()
@@ -61,10 +65,9 @@ export function ConfirmCallModal({
 				: singleSelectConviction
 
 	const ouLine = question.ouLine
+	const isOverUnder = isOverUnderShape(shape)
 	function optionLabel(option: { label: string }) {
-		return isOverUnderShape(shape) && ouLine !== null
-			? `${option.label} ${ouLine}`
-			: option.label
+		return optionDisplayLabel(option.label, isOverUnder, ouLine, isRateStat)
 	}
 
 	const trimmedCaseText = caseText.trim()
@@ -81,10 +84,10 @@ export function ConfirmCallModal({
 				{bucket === "numeric"
 					? guessValue !== undefined && (
 							<ConfirmPickRow
-								name={String(guessValue)}
+								name={formatGuess(guessValue, isRateStat)}
 								meta={
-									question.numericTolerancePct !== null
-										? `within ±${toleranceBand(guessValue, question.numericTolerancePct)} counts as a hit`
+									toleranceBand !== null
+										? `within ±${formatGuess(toleranceBand, isRateStat)} counts as a hit`
 										: "counts as a hit within tolerance"
 								}
 								payout={previewNumericPoints(basePoints, convictionValue)}

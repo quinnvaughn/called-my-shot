@@ -9,6 +9,7 @@ import {
 } from "react-icons/fa6"
 import type { IconType } from "react-icons/lib"
 import type { QuestionShape } from "#/graphql/generated/graphql"
+import { formatGuess } from "#/lib/field-signal"
 
 const OVER_UNDER_SHAPES: readonly QuestionShape[] = [
 	"PLAYER_STAT_OVER_UNDER",
@@ -56,18 +57,32 @@ export const questionShapeIcon: Record<QuestionShape, IconType> = {
 	PLAYER_AWARD_FINALISTS: FaMedal,
 }
 
+export function isOverUnderQuestionShape(shape: QuestionShape): boolean {
+	return OVER_UNDER_SHAPES.includes(shape)
+}
+
 // The *_over_under shapes' line is part of the option's identity, not shown
 // anywhere else on its own - every place an option label renders (the live
 // picker, the viewer's own pick, the field breakdown) needs the same
 // "Over 47.5" / "Under 47.5" suffix, so it lives here once instead of as a
-// repeated inline ternary at each call site.
+// repeated inline ternary at each call site. Takes the already-resolved
+// "is this an over/under shape" boolean rather than a shape value directly,
+// since callers in the cast-call-form world use a different (lowercase)
+// shape type than the raw GraphQL QuestionShape enum used elsewhere - see
+// isOverUnderQuestionShape above and isOverUnderShape in
+// cast-call-form/use-cast-call-form.ts, the two ways of producing it.
 export function optionDisplayLabel(
 	label: string,
-	shape: QuestionShape,
+	isOverUnder: boolean,
 	ouLine: number | null,
+	// True only when the question's stat is a rate stat (batting average,
+	// ERA) - pads ouLine to a fixed 3 decimals instead of a bare number
+	// silently dropping a meaningful trailing zero (".300" reading as ".3").
+	// See formatGuess in #/lib/field-signal.
+	isRateStat = false,
 ): string {
-	return OVER_UNDER_SHAPES.includes(shape) && ouLine !== null
-		? `${label} ${ouLine}`
+	return isOverUnder && ouLine !== null
+		? `${label} ${formatGuess(ouLine, isRateStat)}`
 		: label
 }
 

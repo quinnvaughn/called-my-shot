@@ -6,6 +6,10 @@ export type FieldSignalData = {
 	shape: QuestionShape
 	callCount: number
 	averageGuess: number | null
+	// Non-null only for a rate stat (batting average, ERA) - see
+	// ToleranceSpec in @called-my-shot/scoring. Drives whether averageGuess
+	// below displays padded to a fixed 3 decimals (".300", never ".3").
+	numericToleranceAbsolute: number | null
 	options: {
 		label: string
 		fieldPct: number | null
@@ -46,7 +50,10 @@ export function fieldSignal(question: FieldSignalData): FieldSignal {
 			if (question.averageGuess === null) return plain(callers)
 			return {
 				before: "avg guess ",
-				emphasis: formatGuess(question.averageGuess),
+				emphasis: formatGuess(
+					question.averageGuess,
+					question.numericToleranceAbsolute !== null,
+				),
 				after: ` · ${callers}`,
 			}
 		})
@@ -102,6 +109,14 @@ export function callersText(count: number): string {
 	return `${count} ${pluralize(count, "caller")}`
 }
 
-export function formatGuess(value: number): string {
-	return Number.isInteger(value) ? String(value) : value.toFixed(1)
+// A rate stat (batting average, ERA) always displays padded to a fixed 3
+// decimals - a trailing zero is meaningful there (".300" is a real, distinct
+// value from ".3" read as "point three"), so trimming it the way a plain
+// String()/toFixed would is actively wrong, not just imprecise. Every other
+// stat keeps its natural precision instead (a counting-stat average like
+// 27.4 never gets padded out to "27.400").
+export function formatGuess(value: number, isRateStat = false): string {
+	if (isRateStat) return value.toFixed(3)
+	if (Number.isInteger(value)) return String(value)
+	return String(Math.round(value * 1000) / 1000)
 }

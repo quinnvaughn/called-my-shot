@@ -127,15 +127,29 @@ export type Player = typeof players.$inferSelect
 // A small, hand-picked set of tolerance bands - not one row per stat. Every
 // stat in the catalog points at one of these; adding a new stat means
 // classifying it into an existing tier, not inventing a new percentage.
-// Scoped to counting stats only (rebounds, points, yards) - a rate stat
-// (batting average) needs an absolute tolerance in its own units instead of
-// a percentage, and guessDistribution's bucketing is hardcoded to the
-// nearest whole number besides, so rate stats aren't wired up as numeric_guess
-// subjects yet at all. That's a deliberate follow-up, not an oversight.
+// toleranceMode says how toleranceValue is read: "percentage" (the original
+// behavior - a counting stat like rebounds or yards, banded as a fraction of
+// the actual result) or "absolute" (a rate stat like batting average or ERA,
+// where a percentage-of-value band makes no sense on a 0-1ish scale - the
+// value itself is a fixed amount in the stat's own unit, e.g. +/-0.02 for
+// AVG). A stat's rate-vs-counting-ness is read off its tier's mode rather
+// than stored again on the stat - one source of truth instead of two that
+// could drift apart.
+export const toleranceMode = pgEnum("tolerance_mode", [
+	"percentage",
+	"absolute",
+])
+
 export const statToleranceTiers = pgTable("stat_tolerance_tiers", {
 	id: uuid("id").primaryKey().defaultRandom(),
 	name: text("name").notNull().unique(), // "Low-Count Box Stat", "High-Volume"
-	tolerancePct: numeric("tolerance_pct", {
+	toleranceMode: toleranceMode("tolerance_mode")
+		.notNull()
+		.default("percentage"),
+	// A fraction (0-1) of the actual value when mode is "percentage", or a
+	// fixed amount in the stat's own unit when mode is "absolute" - see
+	// toleranceMode above.
+	toleranceValue: numeric("tolerance_value", {
 		precision: 4,
 		scale: 3,
 		mode: "number",
