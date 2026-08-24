@@ -81,7 +81,7 @@ export const createQuestionSchema = z
 		// moment there's enough filled in to generate one, so a creator only
 		// ever has to type it by hand when the generated phrasing reads
 		// awkwardly (an unusual stat/award name especially, e.g. "Who will win
-		// Offensive Rating?"). Not a fallback-to-generated-if-blank field -
+		// the Offensive Rating?"). Not a fallback-to-generated-if-blank field -
 		// the server trusts this value as-is.
 		title: z.string().trim().min(1, "Give it a title"),
 		sportId: z.string().uuid("Pick a sport"),

@@ -209,7 +209,7 @@ export function generateQuestionTitle(input: TitleInput): string {
 				const name = qualifiedAwardName(awardName, awardConferences, awardDivisions)
 				return picksRequired > 1
 					? `Pick the ${name} (${picksRequired})`
-					: `Who will win ${name}?`
+					: `Who will win the ${name}?`
 			},
 		)
 		.with(
@@ -218,13 +218,13 @@ export function generateQuestionTitle(input: TitleInput): string {
 				const name = qualifiedAwardName(awardName, awardConferences, awardDivisions)
 				return picksRequired > 1
 					? `Pick the ${name} (${picksRequired})`
-					: `Who will win ${name}?`
+					: `Who will win the ${name}?`
 			},
 		)
 		.with(
 			{ shape: "player_award_finalists" },
 			({ awardName, finalistNames }) =>
-				`Who will win ${awardName}: ${joinWithOr(finalistNames)}?`,
+				`Who will win the ${awardName}: ${joinWithOr(finalistNames)}?`,
 		)
 		.exhaustive()
 
