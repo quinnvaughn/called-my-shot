@@ -4,7 +4,7 @@
     "build": {
       "dependsOn": ["^build", "codegen"],
       "outputs": ["dist/**", ".output/**"],
-      "env": ["VITE_GRAPHQL_URL"]
+      "env": ["VITE_GRAPHQL_URL", "VITE_PUBLIC_POSTHOG_KEY"]
     },
     "dev": {
       "cache": false,
