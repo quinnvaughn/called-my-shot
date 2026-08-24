@@ -635,6 +635,11 @@ export const QuestionRef = builder.drizzleObject("questions", {
 			nullable: true,
 			resolve: (q) => q.awardPositions,
 		}),
+		awardSeasonsInLeague: t.field({
+			type: ["Int"],
+			nullable: true,
+			resolve: (q) => q.awardSeasonsInLeague,
+		}),
 
 		// The two numeric-guess shapes only. Exactly one of numericTolerancePct/
 		// numericToleranceAbsolute is set, depending on the picked stat's
@@ -1348,6 +1353,8 @@ const CreateQuestionInput = builder.inputType("CreateQuestionInput", {
 		awardDivisions: t.field({ type: ["String"], required: false }),
 		// player_season_award only
 		awardPositions: t.field({ type: ["String"], required: false }),
+		// player_season_award only - e.g. [0] for Rookie of the Year.
+		awardSeasonsInLeague: t.field({ type: ["Int"], required: false }),
 	}),
 })
 
@@ -1948,6 +1955,9 @@ builder.mutationFields((t) => ({
 								...(data.awardPositions?.length
 									? { position: { in: data.awardPositions } }
 									: {}),
+								...(data.awardSeasonsInLeague?.length
+									? { seasonsInLeague: { in: data.awardSeasonsInLeague } }
+									: {}),
 							},
 						})
 					: null
@@ -2200,6 +2210,9 @@ builder.mutationFields((t) => ({
 							: null,
 						awardPositions: data.awardPositions?.length
 							? data.awardPositions
+							: null,
+						awardSeasonsInLeague: data.awardSeasonsInLeague?.length
+							? data.awardSeasonsInLeague
 							: null,
 					})
 					.returning()

@@ -16,6 +16,9 @@ export type EspnAthlete = {
 	fullName: string
 	position?: { abbreviation: string }
 	status?: { abbreviation: string }
+	// Whole seasons of experience, 0 for a rookie. Missing on the rare roster
+	// entry ESPN hasn't backfilled it for.
+	experience?: { years: number }
 }
 
 export type EspnEvent = {

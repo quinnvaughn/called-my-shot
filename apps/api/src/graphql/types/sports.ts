@@ -163,6 +163,7 @@ export const PlayerRef = builder.drizzleObject("players", {
 		position: t.exposeString("position", { nullable: true }),
 		// null for free agents/retired players, not every player is on a team
 		currentTeam: t.relation("currentTeam", { nullable: true }),
+		seasonsInLeague: t.exposeInt("seasonsInLeague"),
 	}),
 })
 

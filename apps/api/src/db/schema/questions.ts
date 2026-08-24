@@ -213,6 +213,12 @@ export const questions = pgTable("questions", {
 	// for Gold-Glove/Silver-Slugger-style awards with one winner per position
 	// per league-half, or a multi-position race like Cy Young (SP + RP).
 	awardPositions: text("award_positions").array(),
+	// player_season_award only - narrows further to players.seasonsInLeague IN
+	// (...). The main case is Rookie of the Year ([0]), but any exact-years
+	// race works the same way (e.g. [1] for a "best second-year player" poll).
+	// An array, not a min/max range, for the same reason awardPositions is one -
+	// most of these races pick out a single exact value, not a band.
+	awardSeasonsInLeague: integer("award_seasons_in_league").array(),
 
 	createdAt: timestamp("created_at").notNull().defaultNow(),
 })

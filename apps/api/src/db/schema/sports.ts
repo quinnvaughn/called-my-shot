@@ -130,6 +130,14 @@ export const players = pgTable("players", {
 	}),
 	name: text("name").notNull(),
 	position: text("position"), // free text - positions vary too much by sport for an enum
+	// Whole seasons of NBA (etc.) experience, synced from ESPN's roster
+	// `experience.years` (0 for a rookie) - see db/sync/sync-players.ts. Not
+	// null/default 0 rather than nullable: every existing row predates this
+	// column and needs a re-sync to get a real value, and 0 (read as "rookie")
+	// is a safer stand-in than an unknown/null state a filter would have to
+	// special-case. Powers awardSeasonsInLeague on questions (see
+	// db/schema/questions.ts) - e.g. Rookie of the Year narrows to [0].
+	seasonsInLeague: integer("seasons_in_league").notNull().default(0),
 })
 export type Player = typeof players.$inferSelect
 

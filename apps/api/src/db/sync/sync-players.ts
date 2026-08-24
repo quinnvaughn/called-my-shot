@@ -20,6 +20,7 @@ async function syncAthlete(
 					name: athlete.fullName,
 					position: athlete.position?.abbreviation ?? null,
 					currentTeamId: teamId,
+					seasonsInLeague: athlete.experience?.years ?? 0,
 				})
 				.where(eq(players.id, existingId))
 			return
@@ -30,6 +31,7 @@ async function syncAthlete(
 				name: athlete.fullName,
 				position: athlete.position?.abbreviation ?? null,
 				currentTeamId: teamId,
+				seasonsInLeague: athlete.experience?.years ?? 0,
 			})
 			.returning()
 		if (!row) throw new Error(`syncPlayers: insert returned nothing for ${athlete.id}`)

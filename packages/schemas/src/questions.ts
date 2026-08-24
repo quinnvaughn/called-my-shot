@@ -174,6 +174,10 @@ export const createQuestionSchema = z
 		// (...), for Gold-Glove/Silver-Slugger-style one-winner-per-position
 		// awards, or a multi-position race like Cy Young (SP + RP).
 		awardPositions: z.array(z.string()).default([]),
+		// player_season_award only - narrows further to players.seasonsInLeague
+		// IN (...), e.g. [0] for Rookie of the Year. Empty array means no
+		// experience narrowing, same convention as every other award filter here.
+		awardSeasonsInLeague: z.array(z.number().int().nonnegative()).default([]),
 	})
 	.superRefine((data, ctx) => {
 		if (

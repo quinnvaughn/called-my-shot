@@ -73,6 +73,13 @@ function multiSelectSummary(values: string[], emptyLabel: string): string {
 	return `${values.length} selected`
 }
 
+// "Rookie (0)" / "1 year" / "2 years" - shared between the option labels in
+// the years-in-league MultiSelect below and the pool summary's scopeLabel, so
+// the two can't drift.
+function yearsInLeagueLabel(years: number): string {
+	return years === 0 ? "Rookie (0)" : `${years} ${years === 1 ? "year" : "years"}`
+}
+
 function Section({
 	label,
 	required,
@@ -197,6 +204,7 @@ export function CreateQuestionForm({ sports, isAdmin }: Props) {
 			awardConferences: [],
 			awardDivisions: [],
 			awardPositions: [],
+			awardSeasonsInLeague: [],
 		},
 		onSubmit: async (values, helpers) => {
 			const { data } = await createQuestion({
@@ -230,6 +238,7 @@ export function CreateQuestionForm({ sports, isAdmin }: Props) {
 						awardConferences: values.awardConferences,
 						awardDivisions: values.awardDivisions,
 						awardPositions: values.awardPositions,
+						awardSeasonsInLeague: values.awardSeasonsInLeague,
 					},
 				},
 			})
@@ -288,6 +297,7 @@ export function CreateQuestionForm({ sports, isAdmin }: Props) {
 	const awardConferences = form.useWatch("awardConferences")
 	const awardDivisions = form.useWatch("awardDivisions")
 	const awardPositions = form.useWatch("awardPositions")
+	const awardSeasonsInLeague = form.useWatch("awardSeasonsInLeague")
 	const eventClause = form.useWatch("eventClause")
 	const picksRequired = form.useWatch("picksRequired")
 
@@ -426,6 +436,12 @@ export function CreateQuestionForm({ sports, isAdmin }: Props) {
 					) {
 						return false
 					}
+					if (
+						awardSeasonsInLeague.length &&
+						!awardSeasonsInLeague.includes(player.seasonsInLeague)
+					) {
+						return false
+					}
 					return true
 				})
 				.map((player) => ({
@@ -468,6 +484,7 @@ export function CreateQuestionForm({ sports, isAdmin }: Props) {
 		awardConferences,
 		awardDivisions,
 		awardPositions,
+		awardSeasonsInLeague,
 	])
 
 	// Distinct conference/division/position values actually present in the
@@ -512,6 +529,14 @@ export function CreateQuestionForm({ sports, isAdmin }: Props) {
 		for (const player of players)
 			if (player.position) values.add(player.position)
 		return Array.from(values).sort()
+	}, [players])
+	// Distinct seasonsInLeague values actually present in the roster, same
+	// "real options only" reasoning as positionOptions above - numeric, so
+	// sorted ascending rather than alphabetically.
+	const yearsInLeagueOptions = useMemo(() => {
+		const values = new Set<number>()
+		for (const player of players) values.add(player.seasonsInLeague)
+		return Array.from(values).sort((a, b) => a - b)
 	}, [players])
 	const finalistItems: EntitySearchItem[] | null = isFinalists
 		? players.map((player) => ({
@@ -577,6 +602,7 @@ export function CreateQuestionForm({ sports, isAdmin }: Props) {
 		form.setValue("awardConferences", [])
 		form.setValue("awardDivisions", [])
 		form.setValue("awardPositions", [])
+		form.setValue("awardSeasonsInLeague", [])
 		if ((ADMIN_ONLY_SHAPES as readonly string[]).includes(next)) {
 			form.setValue("isOfficial", true)
 		}
@@ -1152,6 +1178,42 @@ export function CreateQuestionForm({ sports, isAdmin }: Props) {
 													)}
 												</form.Field>
 											)}
+											{isPlayerAward && (
+												<form.Field name="awardSeasonsInLeague">
+													{(field) => (
+														<VStack gap="1.5" alignItems="stretch">
+															<FieldLabel>Years in the league</FieldLabel>
+															<MultiSelect
+																value={field.value.map(String)}
+																onValueChange={(next) =>
+																	field.onChange(next.map(Number))
+																}
+															>
+																<MultiSelect.Trigger>
+																	{multiSelectSummary(
+																		field.value.map(String),
+																		"Any experience",
+																	)}
+																</MultiSelect.Trigger>
+																<MultiSelect.Content>
+																	{yearsInLeagueOptions.map((years) => (
+																		<MultiSelect.Option
+																			key={years}
+																			value={String(years)}
+																		>
+																			{yearsInLeagueLabel(years)}
+																		</MultiSelect.Option>
+																	))}
+																</MultiSelect.Content>
+															</MultiSelect>
+															<FieldHint>
+																Pick one or more exact years - e.g. "Rookie (0)"
+																for Rookie of the Year.
+															</FieldHint>
+														</VStack>
+													)}
+												</form.Field>
+											)}
 											<form.Field name="awardName">
 												{(field) => (
 													<TextInput
@@ -1214,6 +1276,9 @@ export function CreateQuestionForm({ sports, isAdmin }: Props) {
 														awardConferences.join("/"),
 														awardDivisions.join("/"),
 														awardPositions.join("/"),
+														awardSeasonsInLeague
+															.map(yearsInLeagueLabel)
+															.join("/"),
 													]
 														.filter(Boolean)
 														.join(" ")}
