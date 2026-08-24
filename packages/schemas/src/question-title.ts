@@ -82,18 +82,18 @@ export type TitleInput = WithGameDate &
 				shape: "player_season_award"
 				awardName: string
 				picksRequired: number
-				// Prepended to awardName when set - "AL" + "MVP" -> "AL MVP". Not
-				// required - most awards (NBA MVP, NFL MVP) are genuinely
-				// league-wide and leave both unset.
-				awardConference?: string
-				awardDivision?: string
+				// Prepended to awardName when set - ["AL"] + "MVP" -> "AL MVP",
+				// ["AL", "NL"] + "MVP" -> "AL/NL MVP". Not required - most awards
+				// (NBA MVP, NFL MVP) are genuinely league-wide and leave both unset.
+				awardConferences?: string[]
+				awardDivisions?: string[]
 		  }
 		| {
 				shape: "team_season_award"
 				awardName: string
 				picksRequired: number
-				awardConference?: string
-				awardDivision?: string
+				awardConferences?: string[]
+				awardDivisions?: string[]
 		  }
 		| {
 				shape: "player_award_finalists"
@@ -112,14 +112,17 @@ function formatGameDate(iso: string): string {
 	}).format(new Date(iso))
 }
 
-// "AL" + "MVP" -> "AL MVP" - the conference/division qualifier reads in
-// front of the award's own name, same order people actually say it in.
+// ["AL"] + "MVP" -> "AL MVP", ["AL", "NL"] + "MVP" -> "AL/NL MVP" - the
+// conference/division qualifier reads in front of the award's own name, same
+// order people actually say it in.
 function qualifiedAwardName(
 	awardName: string,
-	awardConference?: string,
-	awardDivision?: string,
+	awardConferences?: string[],
+	awardDivisions?: string[],
 ): string {
-	const qualifier = [awardConference, awardDivision].filter(Boolean).join(" ")
+	const qualifier = [awardConferences?.join("/"), awardDivisions?.join("/")]
+		.filter(Boolean)
+		.join(" ")
 	return qualifier ? `${qualifier} ${awardName}` : awardName
 }
 
@@ -202,8 +205,8 @@ export function generateQuestionTitle(input: TitleInput): string {
 		)
 		.with(
 			{ shape: "player_season_award" },
-			({ awardName, picksRequired, awardConference, awardDivision }) => {
-				const name = qualifiedAwardName(awardName, awardConference, awardDivision)
+			({ awardName, picksRequired, awardConferences, awardDivisions }) => {
+				const name = qualifiedAwardName(awardName, awardConferences, awardDivisions)
 				return picksRequired > 1
 					? `Pick the ${name} (${picksRequired})`
 					: `Who will win ${name}?`
@@ -211,8 +214,8 @@ export function generateQuestionTitle(input: TitleInput): string {
 		)
 		.with(
 			{ shape: "team_season_award" },
-			({ awardName, picksRequired, awardConference, awardDivision }) => {
-				const name = qualifiedAwardName(awardName, awardConference, awardDivision)
+			({ awardName, picksRequired, awardConferences, awardDivisions }) => {
+				const name = qualifiedAwardName(awardName, awardConferences, awardDivisions)
 				return picksRequired > 1
 					? `Pick the ${name} (${picksRequired})`
 					: `Who will win ${name}?`

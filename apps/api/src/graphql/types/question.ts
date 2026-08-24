@@ -618,10 +618,23 @@ export const QuestionRef = builder.drizzleObject("questions", {
 		awardName: t.exposeString("awardName", { nullable: true }),
 
 		// player_season_award/team_season_award only - the conference/division/
-		// position the pool was narrowed to at creation time, if any.
-		awardConference: t.exposeString("awardConference", { nullable: true }),
-		awardDivision: t.exposeString("awardDivision", { nullable: true }),
-		awardPosition: t.exposeString("awardPosition", { nullable: true }),
+		// position values the pool was narrowed to (IN filtering) at creation
+		// time, if any.
+		awardConferences: t.field({
+			type: ["String"],
+			nullable: true,
+			resolve: (q) => q.awardConferences,
+		}),
+		awardDivisions: t.field({
+			type: ["String"],
+			nullable: true,
+			resolve: (q) => q.awardDivisions,
+		}),
+		awardPositions: t.field({
+			type: ["String"],
+			nullable: true,
+			resolve: (q) => q.awardPositions,
+		}),
 
 		// The two numeric-guess shapes only. Exactly one of numericTolerancePct/
 		// numericToleranceAbsolute is set, depending on the picked stat's
@@ -1329,11 +1342,12 @@ const CreateQuestionInput = builder.inputType("CreateQuestionInput", {
 
 		// player_season_award/team_season_award only - narrows the pool the
 		// resolver derives server-side (see createQuestion below) instead of
-		// the whole league.
-		awardConference: t.string({ required: false }),
-		awardDivision: t.string({ required: false }),
+		// the whole league. IN filtering - e.g. ["SP", "RP"] for a Cy Young race
+		// that spans both starters and relievers.
+		awardConferences: t.field({ type: ["String"], required: false }),
+		awardDivisions: t.field({ type: ["String"], required: false }),
 		// player_season_award only
-		awardPosition: t.string({ required: false }),
+		awardPositions: t.field({ type: ["String"], required: false }),
 	}),
 })
 
@@ -1924,14 +1938,16 @@ builder.mutationFields((t) => ({
 							where: {
 								currentTeam: {
 									leagueId: data.leagueId,
-									...(data.awardConference
-										? { conference: data.awardConference }
+									...(data.awardConferences?.length
+										? { conference: { in: data.awardConferences } }
 										: {}),
-									...(data.awardDivision
-										? { division: data.awardDivision }
+									...(data.awardDivisions?.length
+										? { division: { in: data.awardDivisions } }
 										: {}),
 								},
-								...(data.awardPosition ? { position: data.awardPosition } : {}),
+								...(data.awardPositions?.length
+									? { position: { in: data.awardPositions } }
+									: {}),
 							},
 						})
 					: null
@@ -1940,10 +1956,12 @@ builder.mutationFields((t) => ({
 					? await db.query.teams.findMany({
 							where: {
 								leagueId: data.leagueId,
-								...(data.awardConference
-									? { conference: data.awardConference }
+								...(data.awardConferences?.length
+									? { conference: { in: data.awardConferences } }
 									: {}),
-								...(data.awardDivision ? { division: data.awardDivision } : {}),
+								...(data.awardDivisions?.length
+									? { division: { in: data.awardDivisions } }
+									: {}),
 							},
 						})
 					: null
@@ -2112,7 +2130,7 @@ builder.mutationFields((t) => ({
 						awardPlayerPool.length < (data.picksRequired ?? 1)
 					) {
 						throw ValidationError.field(
-							"awardConference",
+							"awardConferences",
 							"No players match that conference/division/position - check the values",
 						)
 					}
@@ -2123,7 +2141,7 @@ builder.mutationFields((t) => ({
 						awardTeamPool.length < (data.picksRequired ?? 1)
 					) {
 						throw ValidationError.field(
-							"awardConference",
+							"awardConferences",
 							"No teams match that conference/division - check the values",
 						)
 					}
@@ -2174,9 +2192,15 @@ builder.mutationFields((t) => ({
 						picksRequired: data.picksRequired ?? null,
 						eventClause: data.eventClause || null,
 						awardName: data.awardName || null,
-						awardConference: data.awardConference || null,
-						awardDivision: data.awardDivision || null,
-						awardPosition: data.awardPosition || null,
+						awardConferences: data.awardConferences?.length
+							? data.awardConferences
+							: null,
+						awardDivisions: data.awardDivisions?.length
+							? data.awardDivisions
+							: null,
+						awardPositions: data.awardPositions?.length
+							? data.awardPositions
+							: null,
 					})
 					.returning()
 

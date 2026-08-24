@@ -161,17 +161,19 @@ export const createQuestionSchema = z
 		// player_season_award/team_season_award only - narrows the pool the
 		// resolver derives (see requirePool below and createQuestion's own
 		// server-side derivation) from the whole league down to a
-		// teams.conference match, e.g. "AL" for an AL-only MVP race. Empty
-		// string (not a real conference) means whole-league, matching every
-		// other optional freetext field's convention here.
-		awardConference: z.string().trim().default(""),
-		// Narrows further to teams.division - requires awardConference also be
-		// set (see requireConferenceBeforeDivision below), since a division name
-		// like "South" repeats across conferences.
-		awardDivision: z.string().trim().default(""),
-		// player_season_award only - narrows further to players.position, for
-		// Gold-Glove/Silver-Slugger-style one-winner-per-position awards.
-		awardPosition: z.string().trim().default(""),
+		// teams.conference IN (...) match, e.g. ["AL"] for an AL-only MVP race,
+		// or ["AL", "NL"] to cover both leagues' award races as one pool. An
+		// empty array (not any real conference) means whole-league, matching
+		// every other optional filter field's convention here.
+		awardConferences: z.array(z.string()).default([]),
+		// Narrows further to teams.division IN (...) - requires awardConferences
+		// also be non-empty (see requireConferenceBeforeDivision below), since a
+		// division name like "South" repeats across conferences.
+		awardDivisions: z.array(z.string()).default([]),
+		// player_season_award only - narrows further to players.position IN
+		// (...), for Gold-Glove/Silver-Slugger-style one-winner-per-position
+		// awards, or a multi-position race like Cy Young (SP + RP).
+		awardPositions: z.array(z.string()).default([]),
 	})
 	.superRefine((data, ctx) => {
 		if (
@@ -261,10 +263,10 @@ export const createQuestionSchema = z
 		}
 
 		function requireConferenceBeforeDivision() {
-			if (data.awardDivision.trim() && !data.awardConference.trim()) {
+			if (data.awardDivisions.length > 0 && data.awardConferences.length === 0) {
 				ctx.addIssue({
 					code: "custom",
-					path: ["awardConference"],
+					path: ["awardConferences"],
 					message: "Pick a conference before narrowing to a division",
 				})
 			}

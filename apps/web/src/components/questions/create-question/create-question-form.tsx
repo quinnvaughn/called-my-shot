@@ -14,7 +14,7 @@ import { Card } from "#/components/ui/card"
 import { FieldHint } from "#/components/ui/field-hint"
 import { FieldLabel } from "#/components/ui/field-label"
 import { FormError } from "#/components/ui/form-error"
-import { Select } from "#/components/ui/select"
+import { MultiSelect } from "#/components/ui/select"
 import { TextInput } from "#/components/ui/text-input"
 import type {
 	QuestionShape,
@@ -63,6 +63,15 @@ const ADMIN_ONLY_SHAPES = [
 	"team_season_award",
 	"player_award_finalists",
 ] as const
+
+// A MultiSelect.Trigger's label - lists the picks by name up to a point,
+// then falls back to a count once that'd make the trigger unreadably wide
+// (an NFL position list, a many-division race).
+function multiSelectSummary(values: string[], emptyLabel: string): string {
+	if (values.length === 0) return emptyLabel
+	if (values.length <= 3) return values.join(", ")
+	return `${values.length} selected`
+}
 
 function Section({
 	label,
@@ -185,9 +194,9 @@ export function CreateQuestionForm({ sports, isAdmin }: Props) {
 			picksRequired: 1,
 			eventClause: "",
 			awardName: "",
-			awardConference: "",
-			awardDivision: "",
-			awardPosition: "",
+			awardConferences: [],
+			awardDivisions: [],
+			awardPositions: [],
 		},
 		onSubmit: async (values, helpers) => {
 			const { data } = await createQuestion({
@@ -218,9 +227,9 @@ export function CreateQuestionForm({ sports, isAdmin }: Props) {
 						picksRequired: values.picksRequired,
 						eventClause: values.eventClause || undefined,
 						awardName: values.awardName || undefined,
-						awardConference: values.awardConference || undefined,
-						awardDivision: values.awardDivision || undefined,
-						awardPosition: values.awardPosition || undefined,
+						awardConferences: values.awardConferences,
+						awardDivisions: values.awardDivisions,
+						awardPositions: values.awardPositions,
 					},
 				},
 			})
@@ -276,9 +285,9 @@ export function CreateQuestionForm({ sports, isAdmin }: Props) {
 	const ouLine = form.useWatch("ouLine")
 	const statAggregation = form.useWatch("statAggregation")
 	const awardName = form.useWatch("awardName")
-	const awardConference = form.useWatch("awardConference")
-	const awardDivision = form.useWatch("awardDivision")
-	const awardPosition = form.useWatch("awardPosition")
+	const awardConferences = form.useWatch("awardConferences")
+	const awardDivisions = form.useWatch("awardDivisions")
+	const awardPositions = form.useWatch("awardPositions")
 	const eventClause = form.useWatch("eventClause")
 	const picksRequired = form.useWatch("picksRequired")
 
@@ -398,15 +407,25 @@ export function CreateQuestionForm({ sports, isAdmin }: Props) {
 			return players
 				.filter((player) => {
 					if (
-						awardConference &&
-						player.currentTeam?.conference !== awardConference
+						awardConferences.length &&
+						(!player.currentTeam?.conference ||
+							!awardConferences.includes(player.currentTeam.conference))
 					) {
 						return false
 					}
-					if (awardDivision && player.currentTeam?.division !== awardDivision) {
+					if (
+						awardDivisions.length &&
+						(!player.currentTeam?.division ||
+							!awardDivisions.includes(player.currentTeam.division))
+					) {
 						return false
 					}
-					if (awardPosition && player.position !== awardPosition) return false
+					if (
+						awardPositions.length &&
+						(!player.position || !awardPositions.includes(player.position))
+					) {
+						return false
+					}
 					return true
 				})
 				.map((player) => ({
@@ -419,9 +438,18 @@ export function CreateQuestionForm({ sports, isAdmin }: Props) {
 		if (isTeamAward) {
 			return teams
 				.filter((team) => {
-					if (awardConference && team.conference !== awardConference)
+					if (
+						awardConferences.length &&
+						(!team.conference || !awardConferences.includes(team.conference))
+					) {
 						return false
-					if (awardDivision && team.division !== awardDivision) return false
+					}
+					if (
+						awardDivisions.length &&
+						(!team.division || !awardDivisions.includes(team.division))
+					) {
+						return false
+					}
 					return true
 				})
 				.map((team) => ({
@@ -437,9 +465,9 @@ export function CreateQuestionForm({ sports, isAdmin }: Props) {
 		isTeamAward,
 		players,
 		teams,
-		awardConference,
-		awardDivision,
-		awardPosition,
+		awardConferences,
+		awardDivisions,
+		awardPositions,
 	])
 
 	// Distinct conference/division/position values actually present in the
@@ -454,15 +482,31 @@ export function CreateQuestionForm({ sports, isAdmin }: Props) {
 		return Array.from(values).sort()
 	}, [teams])
 	const divisionOptions = useMemo(() => {
-		if (!awardConference) return []
+		if (awardConferences.length === 0) return []
 		const values = new Set<string>()
 		for (const team of teams) {
-			if (team.conference === awardConference && team.division) {
+			if (
+				team.conference &&
+				awardConferences.includes(team.conference) &&
+				team.division
+			) {
 				values.add(team.division)
 			}
 		}
 		return Array.from(values).sort()
-	}, [teams, awardConference])
+	}, [teams, awardConferences])
+	// Picking divisions is gated on having a conference selected (see
+	// requireConferenceBeforeDivision in packages/schemas/src/questions.ts) -
+	// deselecting a conference here has to prune any already-picked divisions
+	// that no longer belong to a still-selected conference, rather than
+	// leaving a stale division picked with nothing left backing it.
+	useEffect(() => {
+		const allowed = new Set(divisionOptions)
+		const next = awardDivisions.filter((division) => allowed.has(division))
+		if (next.length !== awardDivisions.length) {
+			form.setValue("awardDivisions", next)
+		}
+	}, [divisionOptions, awardDivisions, form])
 	const positionOptions = useMemo(() => {
 		const values = new Set<string>()
 		for (const player of players)
@@ -530,9 +574,9 @@ export function CreateQuestionForm({ sports, isAdmin }: Props) {
 		form.setValue("picksRequired", 1)
 		form.setValue("eventClause", "")
 		form.setValue("awardName", "")
-		form.setValue("awardConference", "")
-		form.setValue("awardDivision", "")
-		form.setValue("awardPosition", "")
+		form.setValue("awardConferences", [])
+		form.setValue("awardDivisions", [])
+		form.setValue("awardPositions", [])
 		if ((ADMIN_ONLY_SHAPES as readonly string[]).includes(next)) {
 			form.setValue("isOfficial", true)
 		}
@@ -712,8 +756,8 @@ export function CreateQuestionForm({ sports, isAdmin }: Props) {
 						shape: s,
 						awardName,
 						picksRequired,
-						awardConference: awardConference || undefined,
-						awardDivision: awardDivision || undefined,
+						awardConferences,
+						awardDivisions,
 					})
 				: null,
 		)
@@ -1016,100 +1060,94 @@ export function CreateQuestionForm({ sports, isAdmin }: Props) {
 											<LeagueField form={form} sports={sports} />
 											<HStack gap="3.5">
 												<div className={css({ flex: "1" })}>
-													<form.Field name="awardConference">
+													<form.Field name="awardConferences">
 														{(field) => (
 															<VStack gap="1.5" alignItems="stretch">
 																<FieldLabel>Conference</FieldLabel>
-																<Select
+																<MultiSelect
 																	value={field.value}
-																	onValueChange={(value) => {
-																		field.onChange(value)
-																		form.setValue("awardDivision", "")
-																	}}
+																	onValueChange={field.onChange}
 																>
-																	<Select.Trigger>
-																		{field.value || "Whole league"}
-																	</Select.Trigger>
-																	<Select.Content>
-																		<Select.Option value="">
-																			Whole league
-																		</Select.Option>
+																	<MultiSelect.Trigger>
+																		{multiSelectSummary(
+																			field.value,
+																			"Whole league",
+																		)}
+																	</MultiSelect.Trigger>
+																	<MultiSelect.Content>
 																		{conferenceOptions.map((conference) => (
-																			<Select.Option
+																			<MultiSelect.Option
 																				key={conference}
 																				value={conference}
 																			>
 																				{conference}
-																			</Select.Option>
+																			</MultiSelect.Option>
 																		))}
-																	</Select.Content>
-																</Select>
+																	</MultiSelect.Content>
+																</MultiSelect>
 															</VStack>
 														)}
 													</form.Field>
 												</div>
 												<div className={css({ flex: "1" })}>
-													<form.Field name="awardDivision">
+													<form.Field name="awardDivisions">
 														{(field) => (
 															<VStack gap="1.5" alignItems="stretch">
 																<FieldLabel>Division</FieldLabel>
-																<Select
+																<MultiSelect
 																	value={field.value}
 																	onValueChange={field.onChange}
 																>
-																	<Select.Trigger>
-																		{field.value ||
-																			(awardConference
+																	<MultiSelect.Trigger>
+																		{multiSelectSummary(
+																			field.value,
+																			awardConferences.length
 																				? "Whole conference"
-																				: "Pick a conference first")}
-																	</Select.Trigger>
-																	<Select.Content>
-																		<Select.Option value="">
-																			{awardConference
-																				? "Whole conference"
-																				: "Pick a conference first"}
-																		</Select.Option>
+																				: "Pick a conference first",
+																		)}
+																	</MultiSelect.Trigger>
+																	<MultiSelect.Content>
 																		{divisionOptions.map((division) => (
-																			<Select.Option
+																			<MultiSelect.Option
 																				key={division}
 																				value={division}
 																			>
 																				{division}
-																			</Select.Option>
+																			</MultiSelect.Option>
 																		))}
-																	</Select.Content>
-																</Select>
+																	</MultiSelect.Content>
+																</MultiSelect>
 															</VStack>
 														)}
 													</form.Field>
 												</div>
 											</HStack>
 											{isPlayerAward && (
-												<form.Field name="awardPosition">
+												<form.Field name="awardPositions">
 													{(field) => (
 														<VStack gap="1.5" alignItems="stretch">
 															<FieldLabel>Position</FieldLabel>
-															<Select
+															<MultiSelect
 																value={field.value}
 																onValueChange={field.onChange}
 															>
-																<Select.Trigger>
-																	{field.value || "Every position"}
-																</Select.Trigger>
-																<Select.Content>
-																	<Select.Option value="">
-																		Every position
-																	</Select.Option>
+																<MultiSelect.Trigger>
+																	{multiSelectSummary(
+																		field.value,
+																		"Every position",
+																	)}
+																</MultiSelect.Trigger>
+																<MultiSelect.Content>
 																	{positionOptions.map((position) => (
-																		<Select.Option
+																		<MultiSelect.Option
 																			key={position}
 																			value={position}
 																		>
 																			{position}
-																		</Select.Option>
+																		</MultiSelect.Option>
 																	))}
-																</Select.Content>
-															</Select>
+																</MultiSelect.Content>
+															</MultiSelect>
 														</VStack>
 													)}
 												</form.Field>
@@ -1173,9 +1211,9 @@ export function CreateQuestionForm({ sports, isAdmin }: Props) {
 													form={form}
 													items={awardPoolItems}
 													scopeLabel={[
-														awardConference,
-														awardDivision,
-														awardPosition,
+														awardConferences.join("/"),
+														awardDivisions.join("/"),
+														awardPositions.join("/"),
 													]
 														.filter(Boolean)
 														.join(" ")}
