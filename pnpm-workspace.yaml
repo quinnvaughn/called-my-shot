@@ -3,6 +3,7 @@ packages:
   - "packages/*"
 allowBuilds:
   '@apollo/protobufjs': true
+  core-js: set this to true or false
   esbuild: true
 minimumReleaseAgeExclude:
   - pg-protocol@1.16.0

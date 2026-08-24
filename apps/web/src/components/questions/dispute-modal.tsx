@@ -8,6 +8,7 @@ import { FormError } from "#/components/ui/form-error"
 import { Modal } from "#/components/ui/modal"
 import { Textarea } from "#/components/ui/textarea"
 import { FileDisputeDocument } from "#/graphql/mutations/questions"
+import { track } from "#/lib/analytics"
 import { useForm } from "#/lib/form/use-form"
 import { closeModal } from "#/stores/modal-store"
 
@@ -54,6 +55,10 @@ export function DisputeModal({ questionId }: Props) {
 					helpers.setFormError(r.message)
 				})
 				.with({ __typename: "FileDisputePayload" }, async () => {
+					track("question_disputed", {
+						questionId: values.questionId,
+						reason: values.reason,
+					})
 					await router.invalidate()
 					closeModal()
 				})

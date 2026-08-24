@@ -11,6 +11,7 @@ import { NotFound } from "#/components/ui/not-found"
 import { JoinGroupByCodeDocument } from "#/graphql/generated/graphql"
 import { GroupPreviewDocument } from "#/graphql/queries/groups"
 import { useRequireAuth } from "#/hooks/use-require-auth"
+import { track } from "#/lib/analytics"
 
 // Public - unauthed visitors land here from an invite link and need to see
 // the group before we ask them to sign up, so this route sits outside
@@ -44,6 +45,10 @@ function RouteComponent() {
 				const result = data?.joinGroupByCode
 
 				if (result?.__typename === "GroupPayload") {
+					track("group_joined", {
+						groupId: result.group.id,
+						source: "invite_link",
+					})
 					await router.invalidate()
 					await navigate({
 						to: "/groups/$groupId",

@@ -10,6 +10,7 @@ import { Modal } from "#/components/ui/modal"
 import { TextInput } from "#/components/ui/text-input"
 import { DeleteAccountDocument } from "#/graphql/queries/user"
 import { useSignOut } from "#/hooks/use-sign-out"
+import { track } from "#/lib/analytics"
 import { useForm } from "#/lib/form/use-form"
 import { closeModal } from "#/stores/modal-store"
 
@@ -47,6 +48,7 @@ export function DeleteAccountModal({ username }: Props) {
 					helpers.setFormError("You need to sign in to do that.")
 				})
 				.with({ __typename: "MutationDeleteAccountSuccess" }, async () => {
+					track("account_deleted", {})
 					closeModal()
 					await signOut()
 				})

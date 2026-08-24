@@ -9,6 +9,7 @@ import { useMemo, useRef, useState } from "react"
 import { match } from "ts-pattern"
 import { type FragmentType, graphql, useFragment } from "#/graphql/generated"
 import { CastCallDocument } from "#/graphql/mutations/calls"
+import { track } from "#/lib/analytics"
 import { useForm } from "#/lib/form/use-form"
 import { closeModal } from "#/stores/modal-store"
 
@@ -299,6 +300,18 @@ export function useCastCallForm(
 					helpers.setFormError(r.message)
 				})
 				.with({ __typename: "CastCallPayload" }, async () => {
+					const convictions = values.selections.length
+						? values.selections.map((s) => s.conviction)
+						: [values.conviction ?? 0]
+					track("call_submitted", {
+						questionId: values.questionId,
+						questionShape: shape,
+						pickCount: values.selections.length || 1,
+						hasCase: values.caseText.length > 0,
+						avgConviction:
+							convictions.reduce((sum, c) => sum + c, 0) / convictions.length,
+					})
+
 					// This page is the destination - refresh in place rather than
 					// navigating away, so the pending banner/locked calls list pick
 					// up the new viewerCall immediately.

@@ -27,6 +27,7 @@ import {
 	StatsBySportDocument,
 	TeamsByLeagueDocument,
 } from "#/graphql/queries/sports"
+import { track } from "#/lib/analytics"
 import { formatGuess } from "#/lib/field-signal"
 import { useForm } from "#/lib/form/use-form"
 import type { EntitySearchItem } from "./entity-search-field"
@@ -239,6 +240,13 @@ export function CreateQuestionForm({ sports, isAdmin }: Props) {
 					helpers.setFormError("Only admins can post official questions.")
 				})
 				.with({ __typename: "QuestionPayload" }, async (r) => {
+					track("question_created", {
+						questionId: r.question.id,
+						shape: values.shape,
+						sportId: values.sportId,
+						leagueId: values.leagueId,
+						isOfficial: values.isOfficial ?? false,
+					})
 					await router.invalidate()
 					await navigate({
 						to: "/questions/$questionId",

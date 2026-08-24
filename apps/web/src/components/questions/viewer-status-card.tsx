@@ -456,6 +456,7 @@ function ShareCallSection({
 			src={`/share/calls/${viewerCall.id}`}
 			filename={`${viewerUsername}-call-${viewerCall.id}.png`}
 			label="Share this call"
+			shareType="call_result"
 			renderPreview={(previewProps) => (
 				<CallShareCardPreview {...previewProps} data={data} />
 			)}

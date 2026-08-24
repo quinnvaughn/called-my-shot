@@ -6,6 +6,12 @@ primary_region = "iad"
 [build]
   dockerfile = "Dockerfile"
 
+  [build.args]
+    # PostHog project API key - public by design, safe to commit. Get it
+    # from PostHog project settings after creating a project.
+    VITE_PUBLIC_POSTHOG_KEY = "phc_n5qRAw6zpz8iQy49tLcNdfYC3Y9eSA5rS7JAeFZUm5Vj"
+    VITE_PUBLIC_POSTHOG_HOST = "https://us.i.posthog.com"
+
 [env]
   # Reaches the api over Fly's private network (6PN) - never the public internet.
   API_INTERNAL_URL = "http://called-my-shot-api.internal:4000/"

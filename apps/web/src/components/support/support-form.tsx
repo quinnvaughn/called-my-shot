@@ -16,6 +16,7 @@ import { TextInput } from "#/components/ui/text-input"
 import { Textarea } from "#/components/ui/textarea"
 import type { SupportCategory } from "#/graphql/generated/graphql"
 import { FileSupportTicketDocument } from "#/graphql/mutations/support"
+import { track } from "#/lib/analytics"
 import { useForm } from "#/lib/form/use-form"
 
 const supportCategoryLabel: Record<SupportCategory, string> = {
@@ -76,6 +77,7 @@ export function SupportForm() {
 					helpers.setFormError(r.message)
 				})
 				.with({ __typename: "FileSupportTicketPayload" }, async (r) => {
+					track("support_ticket_filed", { category: values.category })
 					setTicket({ id: r.id, createdAt: r.createdAt })
 					helpers.reset()
 				})

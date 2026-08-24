@@ -61,6 +61,7 @@ function RouteComponent() {
 						onClick={() =>
 							openModal(
 								<InviteCodeModal
+									groupId={group.id}
 									groupName={group.name}
 									inviteId={group.myInvite.id}
 									inviteCode={group.myInvite.code}

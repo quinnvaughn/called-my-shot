@@ -81,6 +81,7 @@ export function LeagueAccordion({ stats, user }: Props) {
 						src={`/share/leagues/${stats.league.id}/users/${user.username}`}
 						filename={`${user.username}-${stats.league.abbreviation.toLowerCase()}-stats.png`}
 						label={`Share my ${stats.league.abbreviation} stats`}
+						shareType="league"
 						renderPreview={(previewProps) => (
 							<ShareCardPreview
 								{...previewProps}

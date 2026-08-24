@@ -5,6 +5,7 @@ import { css } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
 import { match } from "ts-pattern"
 import { JoinGroupByCodeDocument } from "#/graphql/generated/graphql"
+import { track } from "#/lib/analytics"
 import { useForm } from "#/lib/form/use-form"
 import { Button } from "../ui/button"
 import { FormError } from "../ui/form-error"
@@ -45,6 +46,7 @@ export function JoinCode() {
 					helpers.setFormError("This invite code is invalid or has expired.")
 				})
 				.with({ __typename: "GroupPayload" }, async (r) => {
+					track("group_joined", { groupId: r.group.id, source: "code_form" })
 					await router.invalidate()
 					await navigate({
 						to: "/groups/$groupId",

@@ -6,9 +6,15 @@ import {
 	Scripts,
 } from "@tanstack/react-router"
 import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools"
+import { useEffect } from "react"
 
 import { ModalHost } from "#/components/ui/modal"
 import { MeDocument } from "#/graphql/queries/me"
+import {
+	identifyUser,
+	initAnalytics,
+	resetAnalytics,
+} from "#/lib/analytics"
 import type { RouterContext } from "../router-context"
 import appCss from "../styles.css?url"
 
@@ -128,7 +134,19 @@ export const Route = createRootRouteWithContext<RouterContext>()({
 })
 
 function RootDocument({ children }: { children: React.ReactNode }) {
-	const { apolloClient } = Route.useRouteContext()
+	const { apolloClient, me } = Route.useRouteContext()
+
+	useEffect(() => {
+		initAnalytics()
+	}, [])
+
+	useEffect(() => {
+		if (me) {
+			identifyUser(me)
+		} else {
+			resetAnalytics()
+		}
+	}, [me])
 
 	return (
 		<html lang="en">

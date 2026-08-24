@@ -4,6 +4,7 @@ import { useNavigate, useRouter } from "@tanstack/react-router"
 import { VStack } from "styled-system/jsx"
 import { match } from "ts-pattern"
 import { CreateGroupDocument } from "#/graphql/generated/graphql"
+import { track } from "#/lib/analytics"
 import { useForm } from "#/lib/form/use-form"
 import { closeModal } from "#/stores/modal-store"
 import { Button } from "../ui/button"
@@ -43,6 +44,7 @@ export function NewGroupModal() {
 					helpers.setFormError("You need to sign in to create a group.")
 				})
 				.with({ __typename: "GroupPayload" }, async (r) => {
+					track("group_created", { groupId: r.group.id })
 					await router.invalidate()
 					await navigate({
 						to: "/groups/$groupId",

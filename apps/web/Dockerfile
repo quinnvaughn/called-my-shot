@@ -24,6 +24,15 @@ RUN pnpm --filter web run prepare
 # opens a database connection.
 RUN printf 'DATABASE_URL=postgres://user:pass@localhost:5432/db\nPORT=4000\nCLIENT_ORIGIN=http://localhost:3000\nNODE_ENV=production\n' > apps/api/.env
 
+# Vite inlines VITE_* vars into the client bundle at build time, so they have
+# to be build args here rather than fly.toml's [env] (which only sets
+# runtime env vars, after the image is already built). PostHog's project API
+# key is meant to be public/embedded in client code, not a secret.
+ARG VITE_PUBLIC_POSTHOG_KEY
+ARG VITE_PUBLIC_POSTHOG_HOST
+ENV VITE_PUBLIC_POSTHOG_KEY=$VITE_PUBLIC_POSTHOG_KEY
+ENV VITE_PUBLIC_POSTHOG_HOST=$VITE_PUBLIC_POSTHOG_HOST
+
 RUN pnpm exec turbo run build --filter=web
 
 FROM base AS runner

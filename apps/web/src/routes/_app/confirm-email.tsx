@@ -6,6 +6,7 @@ import { VStack } from "styled-system/jsx"
 import { button } from "#/components/ui/button"
 import { Card } from "#/components/ui/card"
 import { ConfirmEmailChangeDocument } from "#/graphql/queries/user"
+import { track } from "#/lib/analytics"
 
 export const Route = createFileRoute("/_app/confirm-email")({
 	component: RouteComponent,
@@ -39,6 +40,7 @@ function RouteComponent() {
 			.then(({ data }) => {
 				const result = data?.confirmEmailChange
 				if (result?.__typename === "User") {
+					track("email_confirmed", {})
 					setStatus("success")
 					setMessage(`Your email is now ${result.email}.`)
 				} else if (result?.__typename === "ValidationError") {

@@ -10,6 +10,7 @@ import { Modal } from "#/components/ui/modal"
 import { Tabs } from "#/components/ui/tabs"
 import { TextInput } from "#/components/ui/text-input"
 import { SignInDocument, SignUpDocument } from "#/graphql/mutations/auth"
+import { track } from "#/lib/analytics"
 import { useForm } from "#/lib/form/use-form"
 import { closeModal } from "#/stores/modal-store"
 import { Brand } from "../ui/brand"
@@ -113,6 +114,7 @@ function SignInFields({ onSuccess }: { onSuccess?: () => void }) {
 					helpers.setErrors(errors)
 				})
 				.with({ __typename: "AuthPayload" }, async () => {
+					track("user_signed_in", { method: "email" })
 					await router.invalidate()
 					closeModal()
 					if (onSuccess) onSuccess()
@@ -208,6 +210,7 @@ function SignUpFields({ onSuccess }: { onSuccess?: () => void }) {
 					helpers.setErrors(errors)
 				})
 				.with({ __typename: "AuthPayload" }, async () => {
+					track("user_signed_up", { method: "email" })
 					await router.invalidate()
 					closeModal()
 					if (onSuccess) onSuccess()

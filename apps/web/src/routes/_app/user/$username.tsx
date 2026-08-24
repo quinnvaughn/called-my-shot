@@ -72,6 +72,7 @@ function RouteComponent() {
 					src={`/share/users/${user.username}`}
 					filename={`${user.username}-career-stats.png`}
 					label="Share my career stats"
+					shareType="profile"
 					renderPreview={(previewProps) => (
 						<ShareCardPreview
 							{...previewProps}

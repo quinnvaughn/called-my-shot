@@ -2,6 +2,7 @@ import { useState } from "react"
 import { css } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
 import { InviteSettingsModal } from "#/components/groups/invite-settings-modal"
+import { track } from "#/lib/analytics"
 import { pluralize } from "#/lib/pluralize"
 import { openModal } from "#/stores/modal-store"
 import { Button } from "../ui/button"
@@ -9,6 +10,7 @@ import { Modal } from "../ui/modal"
 import { TextInput } from "../ui/text-input"
 
 type Props = {
+	groupId: string
 	groupName: string
 	inviteId: string
 	inviteCode: string
@@ -26,6 +28,7 @@ function formatExpiry(expirationDate: string | null) {
 }
 
 export function InviteCodeModal({
+	groupId,
 	groupName,
 	inviteId,
 	inviteCode,
@@ -37,6 +40,7 @@ export function InviteCodeModal({
 
 	function handleCopy() {
 		navigator.clipboard.writeText(inviteUrl)
+		track("group_invite_copied", { groupId })
 		setCopied(true)
 		setTimeout(() => setCopied(false), 1200)
 	}
@@ -78,6 +82,7 @@ export function InviteCodeModal({
 						onClick={() =>
 							openModal(
 								<InviteSettingsModal
+									groupId={groupId}
 									groupName={groupName}
 									inviteId={inviteId}
 									expirationDate={expirationDate}

@@ -12,6 +12,7 @@ import { Modal } from "#/components/ui/modal"
 import { Textarea } from "#/components/ui/textarea"
 import type { VoidReason } from "#/graphql/generated/graphql"
 import { ReportQuestionDocument } from "#/graphql/mutations/questions"
+import { track } from "#/lib/analytics"
 import { REPORT_REASON_LABELS } from "#/lib/report-defaults"
 import { closeModal } from "#/stores/modal-store"
 
@@ -78,6 +79,7 @@ export function ReportQuestionModal({ questionId }: Props) {
 					setFormError(r.message)
 				})
 				.with({ __typename: "ReportQuestionPayload" }, async () => {
+					track("question_reported", { questionId, reason })
 					await router.invalidate()
 					closeModal()
 				})

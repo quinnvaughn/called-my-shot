@@ -11,6 +11,7 @@ import { FormError } from "../ui/form-error"
 import { Modal } from "../ui/modal"
 
 type Props = {
+	groupId: string
 	groupName: string
 	inviteId: string
 	expirationDate: string | null
@@ -31,6 +32,7 @@ function defaultExpiry(expirationDate: string | null): InviteExpiry {
 }
 
 export function InviteSettingsModal({
+	groupId,
 	groupName,
 	inviteId,
 	expirationDate,
@@ -51,6 +53,7 @@ export function InviteSettingsModal({
 		if (result?.__typename === "GroupInvite") {
 			replaceModalStack(
 				<InviteCodeModal
+					groupId={groupId}
 					groupName={groupName}
 					inviteId={result.id}
 					inviteCode={result.code}

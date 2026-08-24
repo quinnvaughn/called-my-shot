@@ -10,6 +10,7 @@ import { Modal } from "#/components/ui/modal"
 import { Textarea } from "#/components/ui/textarea"
 import { type FragmentType, graphql, useFragment } from "#/graphql/generated"
 import { ResolveQuestionDocument } from "#/graphql/mutations/questions"
+import { track } from "#/lib/analytics"
 import { useForm } from "#/lib/form/use-form"
 import { closeModal } from "#/stores/modal-store"
 import type { QuestionCallShape } from "./cast-call-form/use-cast-call-form"
@@ -96,6 +97,7 @@ export function ResolveQuestionModal({ question: questionProp }: Props) {
 					helpers.setFormError(r.message)
 				})
 				.with({ __typename: "QuestionPayload" }, async () => {
+					track("question_resolved", { questionId: question.id, shape })
 					await router.invalidate()
 					closeModal()
 				})

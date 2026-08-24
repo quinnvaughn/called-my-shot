@@ -3,6 +3,7 @@ import { useState } from "react"
 import { css } from "styled-system/css"
 import { VStack } from "styled-system/jsx"
 import { Button } from "#/components/ui/button"
+import { track } from "#/lib/analytics"
 
 // What a preview component (ShareCardPreview, CallShareCardPreview, ...)
 // needs wired up to actually do the Copy/Save work this panel owns.
@@ -21,6 +22,8 @@ type Props = {
 	filename: string
 	// Toggle button label when the panel is closed, e.g. "Share my career stats"
 	label: string
+	// Which share surface this is - analytics property on copy/save events.
+	shareType: "profile" | "call_result" | "league"
 	// Renders the actual preview card - ShareCardPreview for a user's stats,
 	// CallShareCardPreview for a call's result, anything else later. Kept as
 	// a render prop rather than this panel hardcoding one preview component:
@@ -46,7 +49,13 @@ type BlobState =
 // proxy route. Routing everything through explicit fetch() calls (which
 // send `Sec-Fetch-Dest: empty`) sidesteps that entirely, on top of being
 // what the user actually asked for here.
-export function ShareImagePanel({ src, filename, label, renderPreview }: Props) {
+export function ShareImagePanel({
+	src,
+	filename,
+	label,
+	shareType,
+	renderPreview,
+}: Props) {
 	const [open, setOpen] = useState(false)
 	const [copied, setCopied] = useState(false)
 	const [blobState, setBlobState] = useState<BlobState>({ status: "idle" })
@@ -73,6 +82,7 @@ export function ShareImagePanel({ src, filename, label, renderPreview }: Props) 
 			await navigator.clipboard.write([
 				new ClipboardItem({ [blob.type]: blob }),
 			])
+			track("share_image_copied", { type: shareType })
 			setCopied(true)
 			setTimeout(() => setCopied(false), 1200)
 		} catch {
@@ -90,6 +100,7 @@ export function ShareImagePanel({ src, filename, label, renderPreview }: Props) 
 		link.download = filename
 		link.click()
 		URL.revokeObjectURL(objectUrl)
+		track("share_image_saved", { type: shareType })
 	}
 
 	const loading = blobState.status === "loading"
