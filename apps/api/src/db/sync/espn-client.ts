@@ -15,6 +15,11 @@ export type EspnAthlete = {
 	id: string
 	fullName: string
 	position?: { abbreviation: string }
+	// Every position ESPN considers this athlete eligible at, not just their
+	// current/primary tag above - e.g. a 1B/DH bat carries both "1B" and "DH"
+	// here even when `position` itself reads "DH". Same `?enable=roster`
+	// response as `position`, verified live - no separate endpoint needed.
+	positions?: { abbreviation: string }[]
 	status?: { abbreviation: string }
 	// Whole seasons of experience, 0 for a rookie. Missing on the rare roster
 	// entry ESPN hasn't backfilled it for.

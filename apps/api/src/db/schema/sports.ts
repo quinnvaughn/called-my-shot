@@ -130,6 +130,18 @@ export const players = pgTable("players", {
 	}),
 	name: text("name").notNull(),
 	position: text("position"), // free text - positions vary too much by sport for an enum
+	// Every position ESPN considers this player eligible at (e.g. a 1B/DH
+	// bench bat gets ["1B", "DH"]), synced from ESPN's roster `positions`
+	// array - see db/sync/sync-players.ts. Distinct from `position` above,
+	// which is just ESPN's single current/primary tag and stays around
+	// unchanged for admin display/sorting/editing. This is what award pools
+	// (Gold Glove/Silver Slugger-style questions.awardPositions filters -
+	// see graphql/types/question.ts) match against, since a player's primary
+	// tag alone (e.g. "DH") would wrongly exclude them from a position
+	// they're genuinely eligible for (e.g. "1B"). notNull/default [] rather
+	// than nullable, same reasoning as seasonsInLeague below - existing rows
+	// predate this column and need a re-sync for a real value.
+	positions: text("positions").array().notNull().default([]),
 	// Whole seasons of NBA (etc.) experience, synced from ESPN's roster
 	// `experience.years` (0 for a rookie) - see db/sync/sync-players.ts. Not
 	// null/default 0 rather than nullable: every existing row predates this

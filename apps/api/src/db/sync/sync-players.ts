@@ -19,6 +19,7 @@ async function syncAthlete(
 				.set({
 					name: athlete.fullName,
 					position: athlete.position?.abbreviation ?? null,
+					positions: athlete.positions?.map((p) => p.abbreviation) ?? [],
 					currentTeamId: teamId,
 					seasonsInLeague: athlete.experience?.years ?? 0,
 				})
@@ -30,6 +31,7 @@ async function syncAthlete(
 			.values({
 				name: athlete.fullName,
 				position: athlete.position?.abbreviation ?? null,
+				positions: athlete.positions?.map((p) => p.abbreviation) ?? [],
 				currentTeamId: teamId,
 				seasonsInLeague: athlete.experience?.years ?? 0,
 			})

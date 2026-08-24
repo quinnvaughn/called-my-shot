@@ -432,7 +432,9 @@ export function CreateQuestionForm({ sports, isAdmin }: Props) {
 					}
 					if (
 						awardPositions.length &&
-						(!player.position || !awardPositions.includes(player.position))
+						!player.positions.some((position) =>
+							awardPositions.includes(position),
+						)
 					) {
 						return false
 					}
@@ -490,7 +492,7 @@ export function CreateQuestionForm({ sports, isAdmin }: Props) {
 	// Distinct conference/division/position values actually present in the
 	// picked league's own roster - a plain dropdown of real options rather
 	// than a freeform text field, even though the underlying columns are
-	// freetext (see teams.conference/division, players.position). Division
+	// freetext (see teams.conference/division, players.positions). Division
 	// options are conference-scoped (empty until a conference is picked) since
 	// a division name like "South" repeats across conferences.
 	const conferenceOptions = useMemo(() => {
@@ -527,7 +529,7 @@ export function CreateQuestionForm({ sports, isAdmin }: Props) {
 	const positionOptions = useMemo(() => {
 		const values = new Set<string>()
 		for (const player of players)
-			if (player.position) values.add(player.position)
+			for (const position of player.positions) values.add(position)
 		return Array.from(values).sort()
 	}, [players])
 	// Distinct seasonsInLeague values actually present in the roster, same

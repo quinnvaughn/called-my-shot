@@ -41,6 +41,7 @@ export const PlayersByLeagueDocument = graphql(`
 			id
 			name
 			position
+			positions
 			seasonsInLeague
 			currentTeam {
 				id

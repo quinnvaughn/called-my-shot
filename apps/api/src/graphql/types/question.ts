@@ -1953,7 +1953,7 @@ builder.mutationFields((t) => ({
 										: {}),
 								},
 								...(data.awardPositions?.length
-									? { position: { in: data.awardPositions } }
+									? { positions: { arrayOverlaps: data.awardPositions } }
 									: {}),
 								...(data.awardSeasonsInLeague?.length
 									? { seasonsInLeague: { in: data.awardSeasonsInLeague } }

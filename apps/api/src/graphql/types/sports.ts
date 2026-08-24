@@ -161,6 +161,10 @@ export const PlayerRef = builder.drizzleObject("players", {
 		id: t.exposeID("id"),
 		name: t.exposeString("name"),
 		position: t.exposeString("position", { nullable: true }),
+		// Every position this player is ESPN-eligible at, used for award-pool
+		// eligibility (see questions.awardPositions) - distinct from `position`
+		// above, which is just their single current/primary tag.
+		positions: t.field({ type: ["String"], resolve: (p) => p.positions }),
 		// null for free agents/retired players, not every player is on a team
 		currentTeam: t.relation("currentTeam", { nullable: true }),
 		seasonsInLeague: t.exposeInt("seasonsInLeague"),

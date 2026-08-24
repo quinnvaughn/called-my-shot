@@ -1,0 +1,1 @@
+ALTER TABLE "players" ADD COLUMN "positions" text[] DEFAULT '{}'::text[] NOT NULL;
