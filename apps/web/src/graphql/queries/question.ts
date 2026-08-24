@@ -71,6 +71,8 @@ export const QuestionDetailDocument = graphql(`
 				conviction
 				totalPoints
 				currentRank
+				seasonGamesPlayed
+				seasonTotalGames
 				closenessMult
 				closenessFieldPct
 				caseText

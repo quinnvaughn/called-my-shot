@@ -54,6 +54,30 @@ export const BASE_POINTS_BY_SHAPE: Record<QuestionShape, number> = {
 	team_stat_numeric_guess: 250,
 }
 
+// Season-long shapes (no gameId, open across the whole season) score
+// earliness off how much of the season had actually happened when the call
+// was made (seasonEarlyTierFor, below) instead of rank-among-callers - call
+// volume doesn't track season progress evenly, so "3rd call out of 40" means
+// wildly different things depending on whether that happened in week one or
+// week ten. Game-scoped shapes (locksAt = game.startsAt) keep rank-based
+// earlyTierFor - a single game's field converges over hours, not months,
+// where rank-among-callers is still the right proxy (see earlyTierFor).
+// yes_no_prop is deliberately NOT here even though it has no gameId - its
+// locksAt is an arbitrary creator-chosen window (could be three days), not
+// tied to season length, so rank-based earliness stays the right fit for it.
+export const SEASON_LONG_SHAPES = new Set<QuestionShape>([
+	"player_season_stat_over_under",
+	"team_season_stat_over_under",
+	"player_vs_player_season",
+	"player_season_award",
+	"team_season_award",
+	"player_award_finalists",
+])
+
+export function isSeasonLongShape(shape: QuestionShape): boolean {
+	return SEASON_LONG_SHAPES.has(shape)
+}
+
 // An option's share of the field, as of however many calls exist right now.
 // Used both for the live "X% of the field agrees" preview and, once a
 // question resolves, for scoring - same formula either way, so the number
@@ -166,6 +190,55 @@ function earlyLabel(mult: number): string {
 	if (mult < 1.35) return "AHEAD OF THE CURVE"
 	if (mult < 1.75) return "EARLY"
 	return "FIRST MOVER"
+}
+
+// Season-long replacement for earlyTierFor above - same "how little real
+// signal existed when this call was made" question, but for season-long
+// shapes rank-among-callers is a poor proxy (call volume doesn't track
+// season progress evenly - a slow trickle of calls across a whole season
+// doesn't mean caller #3 knew as little as caller #3 on a game that fills up
+// in an hour). elapsedPct here is games actually played so far divided by
+// total games scheduled in the window this question was open for (season
+// start through this question's own locksAt - see the caller in
+// resolveQuestionInternal for how that window is built) - not calendar
+// days, which don't track how much real on-field information exists.
+//
+// mult = clamp(elapsedPct^-0.477, 1, 3): continuous power curve, same family
+// as tierFor/earlyTierFor above, fit against two anchor points - 10% of the
+// window played -> 3.0 (the ceiling; mirrors earlyTierFor's own use of the
+// 10th percentile as its saturation point) and 100% played -> 1.0 (the
+// floor, exact by construction: 1^-k = 1 for any k). Some other points this
+// produces: 25%->1.94, 50%->1.39, 75%->1.15.
+//
+// Deliberately a smaller range than the contrarian tier but slightly wider
+// than rank-based earliness (1x-3x vs 1x-2x) - being early in a season is a
+// bigger informational gap than being early among same-day callers on one
+// game (a whole season's worth of injuries/form/matchups is still unknown
+// at 10%, not just a few hours of other people's opinions), but it still
+// shouldn't stack with the contrarian tier's 1x-6x range to swing the total
+// past what earlyTierFor already caps out at for game-scoped shapes.
+//
+// totalGames guarded against 0 (nothing synced yet for this window) -
+// treated as elapsedPct 0 (fully preseason) rather than NaN, same spirit as
+// fieldPct's totalCalls===0 guard.
+export function seasonEarlyTierFor(
+	gamesPlayed: number,
+	totalGames: number,
+): EarlyTier {
+	const elapsedPct = totalGames === 0 ? 0 : gamesPlayed / totalGames
+	const mult =
+		elapsedPct === 0 ? 3 : Math.min(3, Math.max(1, elapsedPct ** -0.477))
+	return { mult, label: seasonEarlyLabel(mult) }
+}
+
+// Bucketed purely for display, same reasoning as earlyLabel above -
+// thresholds sit at the midpoints between the curve's own anchor values (1,
+// 1.39, 1.94, 3).
+function seasonEarlyLabel(mult: number): string {
+	if (mult < 1.2) return "STANDARD"
+	if (mult < 1.65) return "EARLY SEASON"
+	if (mult < 2.5) return "FIRST QUARTER"
+	return "PRESEASON"
 }
 
 // conviction is 1-100, how much of the tier's payout is actually in play.

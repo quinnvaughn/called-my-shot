@@ -1,3 +1,4 @@
+import type { EarlyTier } from "@called-my-shot/scoring"
 import { css } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
 import { previewNumericPoints, previewSelectionPoints } from "#/lib/scoring"
@@ -16,18 +17,27 @@ type Props =
 			totalOptions: number
 			conviction: number
 			basePoints: number
+			// Season-long shapes only (see isSeasonLongShape in
+			// @called-my-shot/scoring) - the caller computes this from the
+			// question's live seasonGamesPlayed/seasonTotalGames via
+			// seasonEarlyTierFor, since unlike rank it's well-defined even before
+			// a call exists. Omitted defaults to 1x/STANDARD in
+			// previewSelectionPoints, same as every game-scoped shape.
+			earlyTier?: EarlyTier
 	  }
 
 // Live "what would this actually pay" preview, shown right where the
 // conviction slider is while still picking - not just at the confirm step or
 // after locking in. Same math PendingCallCard shows once a call is real
-// (previewSelectionPoints/previewNumericPoints in #/lib/scoring). No early-
-// caller bonus here on purpose: that multiplier only rewards calling before
-// other people do, and a pick that doesn't exist yet is definitionally the
-// last one made so far - rank would always equal totalCalls, i.e. always
+// (previewSelectionPoints/previewNumericPoints in #/lib/scoring). No rank-
+// based early bonus here on purpose: that multiplier only rewards calling
+// before other people do, and a pick that doesn't exist yet is definitionally
+// the last one made so far - rank would always equal totalCalls, i.e. always
 // STANDARD (1x). It only becomes meaningful once the call is real and later
 // callers can actually land after it, which is what PendingCallCard's early
-// tier is for.
+// tier is for. Season-long shapes are the exception - games played so far
+// isn't rank-based, so earlyTier above can (and should) be passed in even
+// here, before a call exists.
 export function PointsPreview(props: Props) {
 	if (props.kind === "numeric") {
 		const preview = previewNumericPoints(props.basePoints, props.conviction)
@@ -55,11 +65,14 @@ export function PointsPreview(props: Props) {
 		props.fieldPct,
 		props.totalOptions,
 		props.conviction,
+		props.earlyTier,
 	)
+	const earlyText =
+		preview.earlyTier.mult > 1 ? ` · ×${preview.earlyTier.mult} early` : ""
 	return (
 		<PointsPreviewShell
 			tierText={`${preview.tier.label} · ${Math.round(props.fieldPct)}% of the field agrees`}
-			tierVal={`×${preview.tier.mult} boldness bonus`}
+			tierVal={`×${preview.tier.mult} boldness${earlyText} bonus`}
 			winText={`+${preview.win}`}
 			loseText={`−${preview.lose}`}
 		/>

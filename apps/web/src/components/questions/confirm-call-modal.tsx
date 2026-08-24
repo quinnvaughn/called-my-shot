@@ -1,4 +1,8 @@
-import { BASE_POINTS_BY_SHAPE } from "@called-my-shot/scoring"
+import {
+	BASE_POINTS_BY_SHAPE,
+	isSeasonLongShape,
+	seasonEarlyTierFor,
+} from "@called-my-shot/scoring"
 import { useRouteContext } from "@tanstack/react-router"
 import { css } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
@@ -53,6 +57,17 @@ export function ConfirmCallModal({
 	if (!question) return null
 
 	const basePoints = BASE_POINTS_BY_SHAPE[shape]
+	// Season-long shapes preview off games played so far, not rank - see
+	// PointsPreview's own comment on the same distinction. Null for a
+	// game-scoped shape (or a season-long one with no games synced yet, where
+	// seasonEarlyTierFor's own zero-games guard lands on the same preseason
+	// ceiling either way).
+	const earlyTier =
+		isSeasonLongShape(shape) &&
+		question.seasonGamesPlayed !== null &&
+		question.seasonTotalGames !== null
+			? seasonEarlyTierFor(question.seasonGamesPlayed, question.seasonTotalGames)
+			: undefined
 
 	// Split mode already shows each pick's own conviction inline below - a
 	// single summary number above the list would just be misleading there.
@@ -119,6 +134,7 @@ export function ConfirmCallModal({
 										simulatedFieldPct,
 										question.options.length,
 										selection.conviction,
+										earlyTier,
 									)}
 								/>
 							)

@@ -22,6 +22,8 @@ export const CastCallFormFragment = graphql(`
 		numericToleranceAbsolute
 		picksRequired
 		callCount
+		seasonGamesPlayed
+		seasonTotalGames
 		averageGuess
 		guessDistribution {
 			value

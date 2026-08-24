@@ -8,13 +8,15 @@ import {
 	type ContrarianTier,
 	type EarlyTier,
 	earlyTierFor,
+	isSeasonLongShape,
+	seasonEarlyTierFor,
 	TIER_MAX_MULT,
 	TIER_MIN_MULT,
 	tierFor,
 } from "@called-my-shot/scoring"
 
 export type { ContrarianTier, EarlyTier }
-export { earlyTierFor, tierFor }
+export { earlyTierFor, isSeasonLongShape, seasonEarlyTierFor, tierFor }
 
 export type PointsPreview = {
 	win: number
@@ -41,25 +43,25 @@ export function previewFieldPct(
 }
 
 // Preview for every option-based shape - both outcomes computed at once
-// since which one applies isn't known until resolution. earlyRank/
-// earlyTotalCalls are optional because this also runs before a call exists
-// (no rank yet) - omitting them just leaves the early multiplier at 1x
-// rather than guessing. basePoints comes from BASE_POINTS_BY_SHAPE for this
-// question's shape.
+// since which one applies isn't known until resolution. earlyTier is
+// optional and caller-computed (via earlyTierFor for game-scoped shapes or
+// seasonEarlyTierFor for season-long ones - see isSeasonLongShape) rather
+// than raw rank/totalCalls, since which formula applies depends on the
+// question's shape, which this function has no way to know. Omitting it
+// just leaves the early multiplier at 1x rather than guessing - this also
+// runs before a call exists (no rank, and no meaningful "as of my own
+// createdAt" games-played reading either), where 1x is the correct read
+// either way. basePoints comes from BASE_POINTS_BY_SHAPE for this question's
+// shape.
 export function previewSelectionPoints(
 	basePoints: number,
 	fieldPct: number,
 	totalOptions: number,
 	conviction: number,
-	earlyRank?: number,
-	earlyTotalCalls?: number,
+	earlyTier: EarlyTier = { mult: 1, label: "STANDARD" },
 ): PointsPreview {
 	const stake = conviction / 100
 	const tier = tierFor(fieldPct, totalOptions)
-	const earlyTier =
-		earlyRank !== undefined && earlyTotalCalls !== undefined
-			? earlyTierFor(earlyRank, earlyTotalCalls)
-			: { mult: 1, label: "STANDARD" }
 	return {
 		win: Math.round(basePoints * stake * tier.mult * earlyTier.mult),
 		lose: Math.round(basePoints * stake),

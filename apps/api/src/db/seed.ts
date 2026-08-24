@@ -2,11 +2,13 @@ import {
 	BASE_POINTS_BY_SHAPE,
 	earlyTierFor,
 	fieldPct,
+	isSeasonLongShape,
 	numericGuessPoints,
+	seasonEarlyTierFor,
 	selectionPoints,
 	type ToleranceSpec,
 } from "@called-my-shot/scoring"
-import { eq, sql } from "drizzle-orm"
+import { and, eq, lte, sql } from "drizzle-orm"
 import { DateTime } from "luxon"
 import { env } from "../env"
 import {
@@ -219,7 +221,7 @@ async function resolveOptionQuestion(
 ) {
 	const question = await db.query.questions.findFirst({
 		where: { id: questionId },
-		columns: { shape: true },
+		columns: { shape: true, seasonId: true, locksAt: true },
 	})
 	if (!question) throw new Error(`Question ${questionId} not found`)
 	const basePoints = BASE_POINTS_BY_SHAPE[question.shape]
@@ -231,12 +233,37 @@ async function resolveOptionQuestion(
 	const orderedCalls = [...questionCalls].sort(
 		(a, b) => a.createdAt.getTime() - b.createdAt.getTime(),
 	)
-	const earlyMultByCallId = new Map(
-		orderedCalls.map((c, index) => [
-			c.id,
-			earlyTierFor(index + 1, orderedCalls.length).mult,
-		]),
-	)
+	// Mirrors the branch in resolveQuestionInternal (apps/api/src/graphql/types/
+	// question.ts) - season-long shapes (team_season_award/player_season_award
+	// here) score earliness off games played so far, not rank among callers.
+	let earlyMultByCallId: Map<string, number>
+	if (isSeasonLongShape(question.shape)) {
+		const seasonGames = await db
+			.select({ startsAt: games.startsAt, status: games.status })
+			.from(games)
+			.where(
+				and(
+					eq(games.seasonId, question.seasonId),
+					lte(games.startsAt, question.locksAt),
+				),
+			)
+		const totalGames = seasonGames.length
+		earlyMultByCallId = new Map(
+			orderedCalls.map((c) => {
+				const gamesPlayed = seasonGames.filter(
+					(g) => g.status === "final" && g.startsAt <= c.createdAt,
+				).length
+				return [c.id, seasonEarlyTierFor(gamesPlayed, totalGames).mult]
+			}),
+		)
+	} else {
+		earlyMultByCallId = new Map(
+			orderedCalls.map((c, index) => [
+				c.id,
+				earlyTierFor(index + 1, orderedCalls.length).mult,
+			]),
+		)
+	}
 
 	for (const option of options) {
 		await db
@@ -447,6 +474,12 @@ async function main() {
 				email: "qvaughn3@gmail.com",
 				passwordHash: quinnPasswordHash,
 				isAdmin: true,
+				// Pre-verified in seed data only - real signups still start
+				// unverified (see emailVerified's own comment on the users table)
+				// and go through the actual change-email confirm flow. This just
+				// skips re-doing that flow by hand every time local dev data gets
+				// reseeded.
+				emailVerified: true,
 			},
 			{
 				name: "Marcus Pierce",

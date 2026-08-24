@@ -1,4 +1,8 @@
-import { BASE_POINTS_BY_SHAPE } from "@called-my-shot/scoring"
+import {
+	BASE_POINTS_BY_SHAPE,
+	isSeasonLongShape,
+	seasonEarlyTierFor,
+} from "@called-my-shot/scoring"
 import { FiX } from "react-icons/fi"
 import { css, cx } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
@@ -38,6 +42,17 @@ export function MultiSelectFields({ callForm }: Props) {
 	} = callForm
 
 	if (!question) return null
+
+	// Season-long shapes preview off games played so far, not rank - see
+	// PointsPreview's own comment. Null for a game-scoped shape (or a
+	// season-long one with no games synced yet, where seasonEarlyTierFor's own
+	// zero-games guard lands on the same preseason ceiling either way).
+	const earlyTier =
+		isSeasonLongShape(shape) &&
+		question.seasonGamesPlayed !== null &&
+		question.seasonTotalGames !== null
+			? seasonEarlyTierFor(question.seasonGamesPlayed, question.seasonTotalGames)
+			: undefined
 
 	return (
 		<VStack gap="5" alignItems="stretch">
@@ -237,6 +252,7 @@ export function MultiSelectFields({ callForm }: Props) {
 												totalOptions={question.options.length}
 												conviction={selection.conviction}
 												basePoints={BASE_POINTS_BY_SHAPE[shape]}
+												earlyTier={earlyTier}
 											/>
 										</VStack>
 									)

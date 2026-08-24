@@ -1,6 +1,8 @@
 import {
 	BASE_POINTS_BY_SHAPE,
+	earlyTierFor,
 	quipForCall,
+	seasonEarlyTierFor,
 	TIER_MAX_MULT,
 	TIER_MIN_MULT,
 	type ToleranceSpec,
@@ -61,12 +63,37 @@ function isNumericShape(shape: QuestionShape): boolean {
 	)
 }
 
+// Mirrors SEASON_LONG_SHAPES/isSeasonLongShape in @called-my-shot/scoring -
+// same GQL/DB casing bridge as BASE_POINTS_BY_GQL_SHAPE above, kept as an
+// explicit list rather than derived so a shape added on one side isn't
+// silently assumed to match the other. Determines which earliness preview a
+// pending pick's row shows: seasonEarlyTierFor (games played so far) for
+// these, earlyTierFor (rank among callers) for everything else.
+function isSeasonLongShape(shape: QuestionShape): boolean {
+	return (
+		shape === "PLAYER_SEASON_STAT_OVER_UNDER" ||
+		shape === "TEAM_SEASON_STAT_OVER_UNDER" ||
+		shape === "PLAYER_VS_PLAYER_SEASON" ||
+		shape === "PLAYER_SEASON_AWARD" ||
+		shape === "TEAM_SEASON_AWARD" ||
+		shape === "PLAYER_AWARD_FINALISTS"
+	)
+}
+
 type ViewerCall = {
 	id: string
 	guessValue: number | null
 	conviction: number | null
 	totalPoints: number | null
 	currentRank: number
+	// Season-long shapes only (null for a game-scoped question) - games
+	// already final as of this call's own createdAt, and the total games in
+	// the window this question was open for. Paired with seasonTotalGames to
+	// preview seasonEarlyTierFor instead of currentRank/callCount's
+	// earlyTierFor - see isSeasonLongShape below for which shapes this
+	// applies to.
+	seasonGamesPlayed: number | null
+	seasonTotalGames: number | null
 	// The caller's own written reasoning, if they left one - shown on the
 	// share card the same way CaseBlock shows it elsewhere on this page.
 	caseText: string | null
@@ -297,6 +324,9 @@ export function ViewerStatusCard({
 								conviction={selection.conviction}
 								rank={viewerCall.currentRank}
 								totalCalls={callCount}
+								shape={viewerCall.question.shape}
+								seasonGamesPlayed={viewerCall.seasonGamesPlayed}
+								seasonTotalGames={viewerCall.seasonTotalGames}
 								basePoints={basePoints}
 								// A single pick's name is already up in the title - only
 								// player_season_award/team_season_award (several picks,
@@ -741,6 +771,9 @@ function PendingContent({
 								conviction={selection.conviction}
 								rank={viewerCall.currentRank}
 								totalCalls={callCount}
+								shape={viewerCall.question.shape}
+								seasonGamesPlayed={viewerCall.seasonGamesPlayed}
+								seasonTotalGames={viewerCall.seasonTotalGames}
 								basePoints={basePoints}
 								result={{ kind: "preview" }}
 							/>
@@ -966,6 +999,9 @@ function SelectionPickRow({
 	conviction,
 	rank,
 	totalCalls,
+	shape,
+	seasonGamesPlayed,
+	seasonTotalGames,
 	basePoints,
 	result,
 	// Only matters once resolved - the pending preview has nothing else
@@ -978,6 +1014,9 @@ function SelectionPickRow({
 	conviction: number
 	rank: number
 	totalCalls: number
+	shape: QuestionShape
+	seasonGamesPlayed: number | null
+	seasonTotalGames: number | null
 	basePoints: number
 	result: SelectionRowResult
 	showName?: boolean
@@ -1066,13 +1105,25 @@ function SelectionPickRow({
 		)
 	}
 
+	// Season-long shapes preview off games played so far, not rank among
+	// callers - see isSeasonLongShape's comment. seasonGamesPlayed/
+	// seasonTotalGames are only ever null for a game-scoped question (or a
+	// season-long one with no games synced yet, where seasonEarlyTierFor's own
+	// zero-games guard already lands on the same preseason ceiling), so
+	// falling back to earlyTierFor(rank, totalCalls) there is correct either
+	// way.
+	const earlyTier =
+		isSeasonLongShape(shape) &&
+		seasonGamesPlayed !== null &&
+		seasonTotalGames !== null
+			? seasonEarlyTierFor(seasonGamesPlayed, seasonTotalGames)
+			: earlyTierFor(rank, totalCalls)
 	const preview = previewSelectionPoints(
 		basePoints,
 		fieldPct,
 		totalOptions,
 		conviction,
-		rank,
-		totalCalls,
+		earlyTier,
 	)
 	const stake = preview.lose // the loss is always the flat, un-multiplied stake
 	return (

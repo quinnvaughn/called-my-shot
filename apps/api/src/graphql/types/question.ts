@@ -11,7 +11,9 @@ import {
 	BASE_POINTS_BY_SHAPE,
 	earlyTierFor,
 	fieldPct,
+	isSeasonLongShape,
 	numericGuessPoints,
+	seasonEarlyTierFor,
 	selectionPoints,
 	type ToleranceSpec,
 } from "@called-my-shot/scoring"
@@ -38,6 +40,7 @@ import {
 	type Call,
 	callSelections,
 	calls,
+	games,
 	leagues,
 	players,
 	type Question,
@@ -248,6 +251,30 @@ export const CallSelectionRef = builder.drizzleObject("callSelections", {
 	}),
 })
 
+// Shared by seasonGamesPlayed/seasonTotalGames on CallRef below - both need
+// the same season-long gate and the same games list (games between season
+// start and this question's own locksAt, matching the window
+// resolveQuestionInternal bounds by at real resolution time - see that
+// function for why locksAt, not a fixed regular-season cutoff, is the right
+// boundary). Returns null for a game-scoped question, where neither field is
+// meaningful.
+async function seasonGamesInWindow(call: Call) {
+	const question = await db.query.questions.findFirst({
+		where: { id: call.questionId },
+		columns: { shape: true, seasonId: true, locksAt: true },
+	})
+	if (!question || !isSeasonLongShape(question.shape)) return null
+	return db
+		.select({ startsAt: games.startsAt, status: games.status })
+		.from(games)
+		.where(
+			and(
+				eq(games.seasonId, question.seasonId),
+				lte(games.startsAt, question.locksAt),
+			),
+		)
+}
+
 export const CallRef = builder.drizzleObject("calls", {
 	name: "Call",
 	fields: (t) => ({
@@ -354,6 +381,35 @@ export const CallRef = builder.drizzleObject("calls", {
 						),
 					)
 				return n
+			},
+		}),
+		// Season-long shapes only (see SEASON_LONG_SHAPES/isSeasonLongShape in
+		// @called-my-shot/scoring) - null for a game-scoped question, where
+		// seasonEarlyTierFor doesn't apply. Paired with seasonTotalGames below to
+		// preview seasonEarlyTierFor client-side before resolution, the
+		// season-long counterpart to currentRank/callCount above. Unlike rank,
+		// this doesn't shift as more calls come in - it's fixed the moment this
+		// call's createdAt happens, since gamesPlayed only depends on which games
+		// in the window were already final by then, not on other callers.
+		seasonGamesPlayed: t.field({
+			type: "Int",
+			nullable: true,
+			resolve: async (call) => {
+				const seasonGames = await seasonGamesInWindow(call)
+				if (!seasonGames) return null
+				return seasonGames.filter(
+					(g) => g.status === "final" && g.startsAt <= call.createdAt,
+				).length
+			},
+		}),
+		// Total games in the same window seasonGamesPlayed counts against - see
+		// seasonGamesInWindow above for how that window is bounded.
+		seasonTotalGames: t.field({
+			type: "Int",
+			nullable: true,
+			resolve: async (call) => {
+				const seasonGames = await seasonGamesInWindow(call)
+				return seasonGames?.length ?? null
 			},
 		}),
 		user: t.relation("user"),
@@ -609,6 +665,55 @@ export const QuestionRef = builder.drizzleObject("questions", {
 				if (scored.length === 0) return null
 				const hits = scored.filter((call) => call.hitTolerance).length
 				return (hits / scored.length) * 100
+			},
+		}),
+
+		// Season-long shapes only (see SEASON_LONG_SHAPES/isSeasonLongShape in
+		// @called-my-shot/scoring) - games already final as of right now (not any
+		// particular call's createdAt, since this is the live preview shown
+		// while still picking, before a call necessarily exists - see
+		// CallRef.seasonGamesPlayed for the per-call, frozen-at-createdAt
+		// counterpart used once a call is real). Bounded by both "now" and this
+		// question's own locksAt so a query that lands after lock (but before
+		// resolution) can't overcount games that happened after the real cutoff
+		// any eventual call would have been scored against.
+		seasonGamesPlayed: t.field({
+			type: "Int",
+			nullable: true,
+			resolve: async (question) => {
+				if (!isSeasonLongShape(question.shape)) return null
+				const [{ n }] = await db
+					.select({ n: count() })
+					.from(games)
+					.where(
+						and(
+							eq(games.seasonId, question.seasonId),
+							eq(games.status, "final"),
+							lte(games.startsAt, new Date()),
+							lte(games.startsAt, question.locksAt),
+						),
+					)
+				return n
+			},
+		}),
+		// Total games in the same window seasonGamesPlayed counts against -
+		// games scheduled between season start and this question's own locksAt,
+		// matching CallRef.seasonTotalGames's window exactly.
+		seasonTotalGames: t.field({
+			type: "Int",
+			nullable: true,
+			resolve: async (question) => {
+				if (!isSeasonLongShape(question.shape)) return null
+				const [{ n }] = await db
+					.select({ n: count() })
+					.from(games)
+					.where(
+						and(
+							eq(games.seasonId, question.seasonId),
+							lte(games.startsAt, question.locksAt),
+						),
+					)
+				return n
 			},
 		}),
 
@@ -1470,12 +1575,41 @@ async function resolveQuestionInternal(
 		const orderedCalls = [...callsById.values()].sort(
 			(a, b) => a.createdAt.getTime() - b.createdAt.getTime(),
 		)
-		const earlyMultByCallId = new Map(
-			orderedCalls.map((c, index) => [
-				c.id,
-				earlyTierFor(index + 1, totalCalls).mult,
-			]),
-		)
+		let earlyMultByCallId: Map<string, number>
+		if (isSeasonLongShape(question.shape)) {
+			// Season-long: earliness is games-played-so-far / total games in the
+			// window this question was actually open for, not rank among callers
+			// - see seasonEarlyTierFor's doc comment. The window is bounded by
+			// this question's own locksAt (not a fixed regular-season cutoff), so
+			// it naturally includes postseason games when a creator leaves a
+			// question open that far and excludes them when they don't - no
+			// regular-vs-postseason branching needed here.
+			const seasonGames = await tx
+				.select({ startsAt: games.startsAt, status: games.status })
+				.from(games)
+				.where(
+					and(
+						eq(games.seasonId, question.seasonId),
+						lte(games.startsAt, question.locksAt),
+					),
+				)
+			const totalGames = seasonGames.length
+			earlyMultByCallId = new Map(
+				orderedCalls.map((c) => {
+					const gamesPlayed = seasonGames.filter(
+						(g) => g.status === "final" && g.startsAt <= c.createdAt,
+					).length
+					return [c.id, seasonEarlyTierFor(gamesPlayed, totalGames).mult]
+				}),
+			)
+		} else {
+			earlyMultByCallId = new Map(
+				orderedCalls.map((c, index) => [
+					c.id,
+					earlyTierFor(index + 1, totalCalls).mult,
+				]),
+			)
+		}
 
 		for (const s of selections) {
 			const pct = fieldPct(countByOption.get(s.optionId) ?? 0, totalCalls)

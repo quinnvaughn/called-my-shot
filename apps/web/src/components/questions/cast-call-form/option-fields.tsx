@@ -1,4 +1,8 @@
-import { BASE_POINTS_BY_SHAPE } from "@called-my-shot/scoring"
+import {
+	BASE_POINTS_BY_SHAPE,
+	isSeasonLongShape,
+	seasonEarlyTierFor,
+} from "@called-my-shot/scoring"
 import { useState } from "react"
 import { css } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
@@ -47,6 +51,19 @@ export function OptionFields({ callForm }: Props) {
 				question.callCount,
 			)
 		: null
+
+	// Season-long shapes preview off games played so far, not rank - see
+	// PointsPreview's own comment. question.seasonGamesPlayed/seasonTotalGames
+	// are only ever null for a game-scoped shape (or a season-long one with no
+	// games synced yet, where seasonEarlyTierFor's own zero-games guard lands
+	// on the same preseason ceiling), so leaving earlyTier undefined there is
+	// correct either way.
+	const earlyTier =
+		isSeasonLongShape(shape) &&
+		question.seasonGamesPlayed !== null &&
+		question.seasonTotalGames !== null
+			? seasonEarlyTierFor(question.seasonGamesPlayed, question.seasonTotalGames)
+			: undefined
 
 	return (
 		<VStack gap="5" alignItems="stretch">
@@ -116,6 +133,7 @@ export function OptionFields({ callForm }: Props) {
 							totalOptions={question.options.length}
 							conviction={singleSelectConviction}
 							basePoints={BASE_POINTS_BY_SHAPE[shape]}
+							earlyTier={earlyTier}
 						/>
 					</VStack>
 				</Card.Body>
