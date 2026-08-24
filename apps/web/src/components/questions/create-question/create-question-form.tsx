@@ -14,6 +14,7 @@ import { Card } from "#/components/ui/card"
 import { FieldHint } from "#/components/ui/field-hint"
 import { FieldLabel } from "#/components/ui/field-label"
 import { FormError } from "#/components/ui/form-error"
+import { Select } from "#/components/ui/select"
 import { TextInput } from "#/components/ui/text-input"
 import type {
 	QuestionShape,
@@ -184,6 +185,9 @@ export function CreateQuestionForm({ sports, isAdmin }: Props) {
 			picksRequired: 1,
 			eventClause: "",
 			awardName: "",
+			awardConference: "",
+			awardDivision: "",
+			awardPosition: "",
 		},
 		onSubmit: async (values, helpers) => {
 			const { data } = await createQuestion({
@@ -214,6 +218,9 @@ export function CreateQuestionForm({ sports, isAdmin }: Props) {
 						picksRequired: values.picksRequired,
 						eventClause: values.eventClause || undefined,
 						awardName: values.awardName || undefined,
+						awardConference: values.awardConference || undefined,
+						awardDivision: values.awardDivision || undefined,
+						awardPosition: values.awardPosition || undefined,
 					},
 				},
 			})
@@ -269,6 +276,9 @@ export function CreateQuestionForm({ sports, isAdmin }: Props) {
 	const ouLine = form.useWatch("ouLine")
 	const statAggregation = form.useWatch("statAggregation")
 	const awardName = form.useWatch("awardName")
+	const awardConference = form.useWatch("awardConference")
+	const awardDivision = form.useWatch("awardDivision")
+	const awardPosition = form.useWatch("awardPosition")
 	const eventClause = form.useWatch("eventClause")
 	const picksRequired = form.useWatch("picksRequired")
 
@@ -385,23 +395,80 @@ export function CreateQuestionForm({ sports, isAdmin }: Props) {
 	// Stable across renders unless the underlying roster actually changes.
 	const awardPoolItems: EntitySearchItem[] | null = useMemo(() => {
 		if (isPlayerAward) {
-			return players.map((player) => ({
-				id: player.id,
-				label: player.name,
-				kind: "player" as const,
-				meta: player.currentTeam?.abbreviation,
-			}))
+			return players
+				.filter((player) => {
+					if (
+						awardConference &&
+						player.currentTeam?.conference !== awardConference
+					) {
+						return false
+					}
+					if (awardDivision && player.currentTeam?.division !== awardDivision) {
+						return false
+					}
+					if (awardPosition && player.position !== awardPosition) return false
+					return true
+				})
+				.map((player) => ({
+					id: player.id,
+					label: player.name,
+					kind: "player" as const,
+					meta: player.currentTeam?.abbreviation,
+				}))
 		}
 		if (isTeamAward) {
-			return teams.map((team) => ({
-				id: team.id,
-				label: team.name,
-				kind: "team" as const,
-				meta: team.abbreviation,
-			}))
+			return teams
+				.filter((team) => {
+					if (awardConference && team.conference !== awardConference)
+						return false
+					if (awardDivision && team.division !== awardDivision) return false
+					return true
+				})
+				.map((team) => ({
+					id: team.id,
+					label: team.name,
+					kind: "team" as const,
+					meta: team.abbreviation,
+				}))
 		}
 		return null
-	}, [isPlayerAward, isTeamAward, players, teams])
+	}, [
+		isPlayerAward,
+		isTeamAward,
+		players,
+		teams,
+		awardConference,
+		awardDivision,
+		awardPosition,
+	])
+
+	// Distinct conference/division/position values actually present in the
+	// picked league's own roster - a plain dropdown of real options rather
+	// than a freeform text field, even though the underlying columns are
+	// freetext (see teams.conference/division, players.position). Division
+	// options are conference-scoped (empty until a conference is picked) since
+	// a division name like "South" repeats across conferences.
+	const conferenceOptions = useMemo(() => {
+		const values = new Set<string>()
+		for (const team of teams) if (team.conference) values.add(team.conference)
+		return Array.from(values).sort()
+	}, [teams])
+	const divisionOptions = useMemo(() => {
+		if (!awardConference) return []
+		const values = new Set<string>()
+		for (const team of teams) {
+			if (team.conference === awardConference && team.division) {
+				values.add(team.division)
+			}
+		}
+		return Array.from(values).sort()
+	}, [teams, awardConference])
+	const positionOptions = useMemo(() => {
+		const values = new Set<string>()
+		for (const player of players)
+			if (player.position) values.add(player.position)
+		return Array.from(values).sort()
+	}, [players])
 	const finalistItems: EntitySearchItem[] | null = isFinalists
 		? players.map((player) => ({
 				id: player.id,
@@ -463,6 +530,9 @@ export function CreateQuestionForm({ sports, isAdmin }: Props) {
 		form.setValue("picksRequired", 1)
 		form.setValue("eventClause", "")
 		form.setValue("awardName", "")
+		form.setValue("awardConference", "")
+		form.setValue("awardDivision", "")
+		form.setValue("awardPosition", "")
 		if ((ADMIN_ONLY_SHAPES as readonly string[]).includes(next)) {
 			form.setValue("isOfficial", true)
 		}
@@ -638,7 +708,13 @@ export function CreateQuestionForm({ sports, isAdmin }: Props) {
 		)
 		.with("player_season_award", "team_season_award", (s) =>
 			awardName.trim() && picksRequired
-				? generateQuestionTitle({ shape: s, awardName, picksRequired })
+				? generateQuestionTitle({
+						shape: s,
+						awardName,
+						picksRequired,
+						awardConference: awardConference || undefined,
+						awardDivision: awardDivision || undefined,
+					})
 				: null,
 		)
 		.with("player_award_finalists", (s) =>
@@ -938,6 +1014,106 @@ export function CreateQuestionForm({ sports, isAdmin }: Props) {
 									<Card.Body>
 										<VStack gap="3.5" alignItems="stretch">
 											<LeagueField form={form} sports={sports} />
+											<HStack gap="3.5">
+												<div className={css({ flex: "1" })}>
+													<form.Field name="awardConference">
+														{(field) => (
+															<VStack gap="1.5" alignItems="stretch">
+																<FieldLabel>Conference</FieldLabel>
+																<Select
+																	value={field.value}
+																	onValueChange={(value) => {
+																		field.onChange(value)
+																		form.setValue("awardDivision", "")
+																	}}
+																>
+																	<Select.Trigger>
+																		{field.value || "Whole league"}
+																	</Select.Trigger>
+																	<Select.Content>
+																		<Select.Option value="">
+																			Whole league
+																		</Select.Option>
+																		{conferenceOptions.map((conference) => (
+																			<Select.Option
+																				key={conference}
+																				value={conference}
+																			>
+																				{conference}
+																			</Select.Option>
+																		))}
+																	</Select.Content>
+																</Select>
+															</VStack>
+														)}
+													</form.Field>
+												</div>
+												<div className={css({ flex: "1" })}>
+													<form.Field name="awardDivision">
+														{(field) => (
+															<VStack gap="1.5" alignItems="stretch">
+																<FieldLabel>Division</FieldLabel>
+																<Select
+																	value={field.value}
+																	onValueChange={field.onChange}
+																>
+																	<Select.Trigger>
+																		{field.value ||
+																			(awardConference
+																				? "Whole conference"
+																				: "Pick a conference first")}
+																	</Select.Trigger>
+																	<Select.Content>
+																		<Select.Option value="">
+																			{awardConference
+																				? "Whole conference"
+																				: "Pick a conference first"}
+																		</Select.Option>
+																		{divisionOptions.map((division) => (
+																			<Select.Option
+																				key={division}
+																				value={division}
+																			>
+																				{division}
+																			</Select.Option>
+																		))}
+																	</Select.Content>
+																</Select>
+															</VStack>
+														)}
+													</form.Field>
+												</div>
+											</HStack>
+											{isPlayerAward && (
+												<form.Field name="awardPosition">
+													{(field) => (
+														<VStack gap="1.5" alignItems="stretch">
+															<FieldLabel>Position</FieldLabel>
+															<Select
+																value={field.value}
+																onValueChange={field.onChange}
+															>
+																<Select.Trigger>
+																	{field.value || "Every position"}
+																</Select.Trigger>
+																<Select.Content>
+																	<Select.Option value="">
+																		Every position
+																	</Select.Option>
+																	{positionOptions.map((position) => (
+																		<Select.Option
+																			key={position}
+																			value={position}
+																		>
+																			{position}
+																		</Select.Option>
+																	))}
+																</Select.Content>
+															</Select>
+														</VStack>
+													)}
+												</form.Field>
+											)}
 											<form.Field name="awardName">
 												{(field) => (
 													<TextInput
@@ -993,7 +1169,17 @@ export function CreateQuestionForm({ sports, isAdmin }: Props) {
 											{awardPoolItems === null ? (
 												<FieldHint>Pick a league to see the pool.</FieldHint>
 											) : (
-												<PoolSummary form={form} items={awardPoolItems} />
+												<PoolSummary
+													form={form}
+													items={awardPoolItems}
+													scopeLabel={[
+														awardConference,
+														awardDivision,
+														awardPosition,
+													]
+														.filter(Boolean)
+														.join(" ")}
+												/>
 											)}
 										</VStack>
 									</Card.Body>

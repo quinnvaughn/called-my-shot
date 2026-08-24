@@ -30,6 +30,12 @@ const teamFieldsSchema = z.object({
 		.string()
 		.trim()
 		.regex(/^#[0-9a-fA-F]{6}$/, "Enter a hex color like #007A33"),
+	// Free text, same reasoning as players.position - conferences/divisions
+	// vary too much by sport for an enum. Usually sync-populated (see
+	// db/sync/sync-teams.ts), hand-editable here for leagues/teams sync
+	// doesn't cover.
+	conference: z.string().trim().default(""),
+	division: z.string().trim().default(""),
 })
 export const createTeamSchema = teamFieldsSchema
 export type CreateTeamInput = z.infer<typeof createTeamSchema>

@@ -617,6 +617,12 @@ export const QuestionRef = builder.drizzleObject("questions", {
 		// player_season_award/team_season_award/player_award_finalists only
 		awardName: t.exposeString("awardName", { nullable: true }),
 
+		// player_season_award/team_season_award only - the conference/division/
+		// position the pool was narrowed to at creation time, if any.
+		awardConference: t.exposeString("awardConference", { nullable: true }),
+		awardDivision: t.exposeString("awardDivision", { nullable: true }),
+		awardPosition: t.exposeString("awardPosition", { nullable: true }),
+
 		// The two numeric-guess shapes only. Exactly one of numericTolerancePct/
 		// numericToleranceAbsolute is set, depending on the picked stat's
 		// tolerance tier mode (see ToleranceSpec in @called-my-shot/scoring).
@@ -1320,6 +1326,14 @@ const CreateQuestionInput = builder.inputType("CreateQuestionInput", {
 
 		// player_season_award/team_season_award/player_award_finalists
 		awardName: t.string({ required: false }),
+
+		// player_season_award/team_season_award only - narrows the pool the
+		// resolver derives server-side (see createQuestion below) instead of
+		// the whole league.
+		awardConference: t.string({ required: false }),
+		awardDivision: t.string({ required: false }),
+		// player_season_award only
+		awardPosition: t.string({ required: false }),
 	}),
 })
 
@@ -1896,6 +1910,44 @@ builder.mutationFields((t) => ({
 					: null,
 			])
 
+			// player_season_award/team_season_award only - the pool is always
+			// fully determined by leagueId (+ these optional scoping fields), so
+			// the server derives its own authoritative copy here rather than
+			// trusting whatever data.options the client happened to submit (which
+			// the create-question form only ever builds for the live preview -
+			// see PoolSummary on the frontend). Fetched here, alongside the other
+			// pre-transaction lookups, so it can both drive the structural
+			// validation below and be inserted as-is inside the transaction.
+			const awardPlayerPool =
+				data.shape === "player_season_award"
+					? await db.query.players.findMany({
+							where: {
+								currentTeam: {
+									leagueId: data.leagueId,
+									...(data.awardConference
+										? { conference: data.awardConference }
+										: {}),
+									...(data.awardDivision
+										? { division: data.awardDivision }
+										: {}),
+								},
+								...(data.awardPosition ? { position: data.awardPosition } : {}),
+							},
+						})
+					: null
+			const awardTeamPool =
+				data.shape === "team_season_award"
+					? await db.query.teams.findMany({
+							where: {
+								leagueId: data.leagueId,
+								...(data.awardConference
+									? { conference: data.awardConference }
+									: {}),
+								...(data.awardDivision ? { division: data.awardDivision } : {}),
+							},
+						})
+					: null
+
 			// The tolerance band comes from the stat's own tolerance tier, not
 			// the creator - createQuestionSchema guarantees statId is set (no
 			// customStat fallback) for these two shapes specifically, so a
@@ -2049,12 +2101,33 @@ builder.mutationFields((t) => ({
 						throw ValidationError.field("gameId", "Pick a game")
 					}
 				})
-				// yes_no_prop, the award shapes, and player_award_finalists have
-				// nothing left to check here - createQuestionSchema's own
-				// superRefine (requireAwardName, the eventClause check) already
-				// guarantees their required fields by the time data exists.
+				// yes_no_prop and player_award_finalists have nothing left to check
+				// here - createQuestionSchema's own superRefine (requireAwardName,
+				// the eventClause check) already guarantees their required fields
+				// by the time data exists.
 				.with("yes_no_prop", () => {})
-				.with("player_season_award", "team_season_award", () => {})
+				.with("player_season_award", () => {
+					if (
+						!awardPlayerPool ||
+						awardPlayerPool.length < (data.picksRequired ?? 1)
+					) {
+						throw ValidationError.field(
+							"awardConference",
+							"No players match that conference/division/position - check the values",
+						)
+					}
+				})
+				.with("team_season_award", () => {
+					if (
+						!awardTeamPool ||
+						awardTeamPool.length < (data.picksRequired ?? 1)
+					) {
+						throw ValidationError.field(
+							"awardConference",
+							"No teams match that conference/division - check the values",
+						)
+					}
+				})
 				.with("player_award_finalists", () => {})
 				.exhaustive()
 
@@ -2101,6 +2174,9 @@ builder.mutationFields((t) => ({
 						picksRequired: data.picksRequired ?? null,
 						eventClause: data.eventClause || null,
 						awardName: data.awardName || null,
+						awardConference: data.awardConference || null,
+						awardDivision: data.awardDivision || null,
+						awardPosition: data.awardPosition || null,
 					})
 					.returning()
 
@@ -2109,8 +2185,6 @@ builder.mutationFields((t) => ({
 						"player_vs_player",
 						"player_vs_player_season",
 						"player_award_finalists",
-						"player_season_award",
-						"team_season_award",
 						async () => {
 							const options = data.options ?? []
 							await tx.insert(questionOptions).values(
@@ -2124,6 +2198,26 @@ builder.mutationFields((t) => ({
 							)
 						},
 					)
+					.with("player_season_award", async () => {
+						await tx.insert(questionOptions).values(
+							(awardPlayerPool ?? []).map((player, index) => ({
+								questionId: question.id,
+								label: player.name,
+								sortOrder: index,
+								playerId: player.id,
+							})),
+						)
+					})
+					.with("team_season_award", async () => {
+						await tx.insert(questionOptions).values(
+							(awardTeamPool ?? []).map((team, index) => ({
+								questionId: question.id,
+								label: team.name,
+								sortOrder: index,
+								teamId: team.id,
+							})),
+						)
+					})
 					.with("yes_no_prop", async () => {
 						await tx.insert(questionOptions).values([
 							{ questionId: question.id, label: "Yes", sortOrder: 0 },

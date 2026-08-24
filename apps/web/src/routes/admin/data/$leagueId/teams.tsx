@@ -13,7 +13,14 @@ export const Route = createFileRoute("/admin/data/$leagueId/teams")({
 	component: RouteComponent,
 })
 
-type TeamRow = { id: string; name: string; abbreviation: string; color: string }
+type TeamRow = {
+	id: string
+	name: string
+	abbreviation: string
+	color: string
+	conference: string | null
+	division: string | null
+}
 
 function RouteComponent() {
 	const { leagueId } = Route.useParams()

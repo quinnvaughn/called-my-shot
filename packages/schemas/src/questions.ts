@@ -157,6 +157,21 @@ export const createQuestionSchema = z
 		// player_season_award/team_season_award/player_award_finalists only -
 		// the award's real name, e.g. "MVP".
 		awardName: z.string().trim().default(""),
+
+		// player_season_award/team_season_award only - narrows the pool the
+		// resolver derives (see requirePool below and createQuestion's own
+		// server-side derivation) from the whole league down to a
+		// teams.conference match, e.g. "AL" for an AL-only MVP race. Empty
+		// string (not a real conference) means whole-league, matching every
+		// other optional freetext field's convention here.
+		awardConference: z.string().trim().default(""),
+		// Narrows further to teams.division - requires awardConference also be
+		// set (see requireConferenceBeforeDivision below), since a division name
+		// like "South" repeats across conferences.
+		awardDivision: z.string().trim().default(""),
+		// player_season_award only - narrows further to players.position, for
+		// Gold-Glove/Silver-Slugger-style one-winner-per-position awards.
+		awardPosition: z.string().trim().default(""),
 	})
 	.superRefine((data, ctx) => {
 		if (
@@ -243,6 +258,16 @@ export const createQuestionSchema = z
 					})
 				}
 			})
+		}
+
+		function requireConferenceBeforeDivision() {
+			if (data.awardDivision.trim() && !data.awardConference.trim()) {
+				ctx.addIssue({
+					code: "custom",
+					path: ["awardConference"],
+					message: "Pick a conference before narrowing to a division",
+				})
+			}
 		}
 
 		function requireGame() {
@@ -404,6 +429,7 @@ export const createQuestionSchema = z
 						message: "Picks required must be at least 1",
 					})
 				}
+				requireConferenceBeforeDivision()
 				requirePool("player", data.picksRequired ?? 1)
 			})
 			.with("team_season_award", () => {
@@ -415,6 +441,7 @@ export const createQuestionSchema = z
 						message: "Picks required must be at least 1",
 					})
 				}
+				requireConferenceBeforeDivision()
 				requirePool("team", data.picksRequired ?? 1)
 			})
 			.with("player_award_finalists", () => {

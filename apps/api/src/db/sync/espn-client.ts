@@ -47,6 +47,27 @@ export async function fetchTeams(sportPath: EspnSportPath): Promise<EspnTeam[]> 
 	return data.sports[0].leagues[0].teams.map((t) => t.team)
 }
 
+// Conference/division tree - verified live against basketball/nba,
+// football/nfl, and baseball/mlb: two levels, top-level groups are
+// conferences, each with a `children` array of divisions, each division
+// carrying its own `teams`. A league with conferences but no further split
+// would have `teams` directly on the top-level group instead of `children` -
+// not seen in the three leagues checked, handled defensively in sync-teams.ts
+// anyway since this is unofficial and could vary by league.
+export type EspnGroupTeam = { id: string }
+
+export type EspnGroup = {
+	name: string
+	abbreviation: string
+	teams?: EspnGroupTeam[]
+	children?: EspnGroup[]
+}
+
+export async function fetchGroups(sportPath: EspnSportPath): Promise<EspnGroup[]> {
+	const data = await espnGet<{ groups: EspnGroup[] }>(`${sportPath}/groups`)
+	return data.groups
+}
+
 // The plain .../teams/{id}/roster endpoint only returns the 26-man ACTIVE
 // roster (NBA/NFL/MLB alike) - anyone on the injured list drops off it
 // entirely, not just out of the active lineup, which silently makes an

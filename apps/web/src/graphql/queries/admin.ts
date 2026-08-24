@@ -99,6 +99,8 @@ export const AdminTeamsDocument = graphql(`
 						name
 						abbreviation
 						color
+						conference
+						division
 					}
 					pageInfo {
 						hasNextPage

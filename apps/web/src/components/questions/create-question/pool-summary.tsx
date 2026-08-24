@@ -8,15 +8,19 @@ import type { CreateQuestionFormApi } from "./form-types"
 type Props = {
 	form: CreateQuestionFormApi
 	items: EntitySearchItem[]
+	// The conference/division (and, for player awards, position) the pool's
+	// been narrowed to, joined for display - "AL East", "AL" - empty for the
+	// unscoped whole-league default.
+	scopeLabel?: string
 }
 
-// player_season_award/team_season_award's pool - always the full league
-// roster, not something worth curating row by row (an All-League-Team pick
-// draws from every player in the league; nobody's hand-searching and adding
-// hundreds of them one at a time - see the shape's own comment on
-// questions.ts for why there's no curated-shortlist mode). Syncs the full
-// list into `options` automatically.
-export function PoolSummary({ form, items }: Props) {
+// player_season_award/team_season_award's pool - the full league roster by
+// default, optionally narrowed to a conference/division/position (see the
+// picker fields above this in create-question-form.tsx) for awards that are
+// genuinely scoped in reality (AL MVP vs NL MVP) rather than hand-curated row
+// by row - nobody's hand-searching and adding hundreds of players one at a
+// time. Syncs the list into `options` automatically.
+export function PoolSummary({ form, items, scopeLabel }: Props) {
 	useEffect(() => {
 		form.setValue(
 			"options",
@@ -64,7 +68,8 @@ export function PoolSummary({ form, items }: Props) {
 					color: "primary.default",
 				})}
 			>
-				every {noun.slice(0, -1)} in the league ({items.length})
+				every {noun.slice(0, -1)} in {scopeLabel || "the league"} (
+				{items.length})
 			</span>
 		</HStack>
 	)

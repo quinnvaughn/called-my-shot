@@ -29,6 +29,8 @@ export const TeamsByLeagueDocument = graphql(`
 			name
 			abbreviation
 			color
+			conference
+			division
 		}
 	}
 `)
@@ -38,10 +40,13 @@ export const PlayersByLeagueDocument = graphql(`
 		players(leagueId: $leagueId) {
 			id
 			name
+			position
 			currentTeam {
 				id
 				abbreviation
 				color
+				conference
+				division
 			}
 		}
 	}

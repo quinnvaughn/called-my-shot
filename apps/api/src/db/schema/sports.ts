@@ -70,6 +70,15 @@ export const teams = pgTable(
 		name: text("name").notNull(), // "Boston Celtics"
 		abbreviation: text("abbreviation").notNull(), // "BOS"
 		color: text("color").notNull(), // primary brand color, hex - powers badges/borders in the UI
+		// "AL"/"NL", "AFC"/"NFC", "Eastern"/"Western" - freetext, varies too much
+		// by sport for an enum (same reasoning as players.position below). Synced
+		// from ESPN's groups endpoint (see db/sync/sync-teams.ts), hand-editable
+		// after that the same way color is. Null for a league with no split.
+		conference: text("conference"),
+		// Nested under conference - "AFC South", "Atlantic". Same sync/edit story
+		// as conference. Null for a league with conferences but no further split,
+		// or no split at all.
+		division: text("division"),
 	},
 	(t) => [unique().on(t.leagueId, t.abbreviation)],
 )

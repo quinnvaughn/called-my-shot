@@ -38,7 +38,14 @@ type LeagueRow = {
 	status: string
 	sport: { id: string; name: string }
 }
-type TeamRow = { id: string; name: string; abbreviation: string; color: string }
+type TeamRow = {
+	id: string
+	name: string
+	abbreviation: string
+	color: string
+	conference: string | null
+	division: string | null
+}
 type PlayerRow = {
 	id: string
 	name: string
@@ -296,6 +303,8 @@ export function AddEditTeamModal({
 			name: team?.name ?? "",
 			abbreviation: team?.abbreviation ?? "",
 			color: team?.color ?? "",
+			conference: team?.conference ?? "",
+			division: team?.division ?? "",
 		},
 		onSubmit: async (values, helpers) => {
 			const result = isEdit
@@ -418,6 +427,36 @@ export function AddEditTeamModal({
 									</TextInput>
 								)
 							}}
+						</form.Field>
+						<form.Field name="conference">
+							{(field) => (
+								<TextInput error={field.meta.error ?? undefined}>
+									<TextInput.Label>Conference</TextInput.Label>
+									<TextInput.Group>
+										<TextInput.Field
+											value={field.value}
+											onChange={field.onChange}
+											onBlur={field.onBlur}
+											placeholder="AL, AFC, Eastern - sync-populated, hand-edit if wrong"
+										/>
+									</TextInput.Group>
+								</TextInput>
+							)}
+						</form.Field>
+						<form.Field name="division">
+							{(field) => (
+								<TextInput error={field.meta.error ?? undefined}>
+									<TextInput.Label>Division</TextInput.Label>
+									<TextInput.Group>
+										<TextInput.Field
+											value={field.value}
+											onChange={field.onChange}
+											onBlur={field.onBlur}
+											placeholder="East, Atlantic - sync-populated, hand-edit if wrong"
+										/>
+									</TextInput.Group>
+								</TextInput>
+							)}
 						</form.Field>
 					</EntityModalShell>
 				)}

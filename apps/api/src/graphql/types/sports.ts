@@ -104,6 +104,8 @@ export const TeamRef = builder.drizzleObject("teams", {
 		name: t.exposeString("name"),
 		abbreviation: t.exposeString("abbreviation"),
 		color: t.exposeString("color"),
+		conference: t.exposeString("conference", { nullable: true }),
+		division: t.exposeString("division", { nullable: true }),
 		league: t.relation("league"),
 	}),
 })
@@ -526,6 +528,8 @@ const CreateTeamInput = builder.inputType("CreateTeamInput", {
 		name: t.string({ required: true }),
 		abbreviation: t.string({ required: true }),
 		color: t.string({ required: true }),
+		conference: t.string({ required: false }),
+		division: t.string({ required: false }),
 	}),
 })
 const UpdateTeamInput = builder.inputType("UpdateTeamInput", {
@@ -535,6 +539,8 @@ const UpdateTeamInput = builder.inputType("UpdateTeamInput", {
 		name: t.string({ required: true }),
 		abbreviation: t.string({ required: true }),
 		color: t.string({ required: true }),
+		conference: t.string({ required: false }),
+		division: t.string({ required: false }),
 	}),
 })
 
@@ -665,7 +671,14 @@ builder.mutationFields((t) => ({
 				)
 			}
 
-			const [created] = await db.insert(teams).values(data).returning()
+			const [created] = await db
+				.insert(teams)
+				.values({
+					...data,
+					conference: data.conference || null,
+					division: data.division || null,
+				})
+				.returning()
 			if (!created) throw new Error("createTeam: insert returned nothing")
 			return created
 		},
@@ -707,7 +720,11 @@ builder.mutationFields((t) => ({
 
 			const [updated] = await db
 				.update(teams)
-				.set(data)
+				.set({
+					...data,
+					conference: data.conference || null,
+					division: data.division || null,
+				})
 				.where(eq(teams.id, id))
 				.returning()
 			if (!updated) throw new NotFoundError("Team not found")

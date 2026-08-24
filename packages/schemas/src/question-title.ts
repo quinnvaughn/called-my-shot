@@ -78,8 +78,23 @@ export type TitleInput = WithGameDate &
 		  }
 		| { shape: "team_vs_team"; awayTeamName: string; homeTeamName: string }
 		| { shape: "yes_no_prop"; subjectName: string | null; eventClause: string }
-		| { shape: "player_season_award"; awardName: string; picksRequired: number }
-		| { shape: "team_season_award"; awardName: string; picksRequired: number }
+		| {
+				shape: "player_season_award"
+				awardName: string
+				picksRequired: number
+				// Prepended to awardName when set - "AL" + "MVP" -> "AL MVP". Not
+				// required - most awards (NBA MVP, NFL MVP) are genuinely
+				// league-wide and leave both unset.
+				awardConference?: string
+				awardDivision?: string
+		  }
+		| {
+				shape: "team_season_award"
+				awardName: string
+				picksRequired: number
+				awardConference?: string
+				awardDivision?: string
+		  }
 		| {
 				shape: "player_award_finalists"
 				awardName: string
@@ -95,6 +110,17 @@ function formatGameDate(iso: string): string {
 		month: "short",
 		day: "numeric",
 	}).format(new Date(iso))
+}
+
+// "AL" + "MVP" -> "AL MVP" - the conference/division qualifier reads in
+// front of the award's own name, same order people actually say it in.
+function qualifiedAwardName(
+	awardName: string,
+	awardConference?: string,
+	awardDivision?: string,
+): string {
+	const qualifier = [awardConference, awardDivision].filter(Boolean).join(" ")
+	return qualifier ? `${qualifier} ${awardName}` : awardName
 }
 
 // "A or B" / "A, B, or C" - a finalist list is a real either/or question, not
@@ -174,15 +200,23 @@ export function generateQuestionTitle(input: TitleInput): string {
 				? `Will ${subjectName} ${eventClause}?`
 				: `Will ${eventClause}?`,
 		)
-		.with({ shape: "player_season_award" }, ({ awardName, picksRequired }) =>
-			picksRequired > 1
-				? `Pick the ${awardName} (${picksRequired})`
-				: `Who will win ${awardName}?`,
+		.with(
+			{ shape: "player_season_award" },
+			({ awardName, picksRequired, awardConference, awardDivision }) => {
+				const name = qualifiedAwardName(awardName, awardConference, awardDivision)
+				return picksRequired > 1
+					? `Pick the ${name} (${picksRequired})`
+					: `Who will win ${name}?`
+			},
 		)
-		.with({ shape: "team_season_award" }, ({ awardName, picksRequired }) =>
-			picksRequired > 1
-				? `Pick the ${awardName} (${picksRequired})`
-				: `Who will win ${awardName}?`,
+		.with(
+			{ shape: "team_season_award" },
+			({ awardName, picksRequired, awardConference, awardDivision }) => {
+				const name = qualifiedAwardName(awardName, awardConference, awardDivision)
+				return picksRequired > 1
+					? `Pick the ${name} (${picksRequired})`
+					: `Who will win ${name}?`
+			},
 		)
 		.with(
 			{ shape: "player_award_finalists" },

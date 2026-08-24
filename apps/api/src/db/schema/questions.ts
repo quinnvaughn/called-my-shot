@@ -194,6 +194,22 @@ export const questions = pgTable("questions", {
 	// eventClause above.
 	awardName: text("award_name"),
 
+	// player_season_award/team_season_award only - narrows the auto-built pool
+	// (see questionOptions) from the whole league down to teams.conference =
+	// this value. Null keeps today's whole-league pool. Needed for awards that
+	// are genuinely scoped to half a league in reality (AL MVP vs NL MVP are
+	// two separate real awards, not one merged field) rather than a real
+	// league-wide award that just happens to have conferences (NBA/NFL MVP,
+	// which stay null/whole-league).
+	awardConference: text("award_conference"),
+	// Narrows further to teams.division - requires awardConference also be set,
+	// since a division name like "South" repeats across conferences.
+	awardDivision: text("award_division"),
+	// player_season_award only - narrows further to players.position, for
+	// Gold-Glove/Silver-Slugger-style awards with one winner per position per
+	// league-half.
+	awardPosition: text("award_position"),
+
 	createdAt: timestamp("created_at").notNull().defaultNow(),
 })
 export type Question = typeof questions.$inferSelect

@@ -5,7 +5,14 @@ import { Table } from "#/components/ui/table"
 import { openModal } from "#/stores/modal-store"
 import { AddEditTeamModal } from "./data-entity-modal"
 
-type Team = { id: string; name: string; abbreviation: string; color: string }
+type Team = {
+	id: string
+	name: string
+	abbreviation: string
+	color: string
+	conference: string | null
+	division: string | null
+}
 type SortKey = "NAME" | "ABBREVIATION"
 
 const columns = [
