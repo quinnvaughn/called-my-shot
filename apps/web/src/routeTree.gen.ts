@@ -23,6 +23,7 @@ import { Route as AdminQuestionsRouteImport } from './routes/admin/questions'
 import { Route as AdminQueueRouteImport } from './routes/admin/queue'
 import { Route as AdminReportsRouteImport } from './routes/admin/reports'
 import { Route as AdminUsersRouteImport } from './routes/admin/users'
+import { Route as IngestSplatRouteImport } from './routes/ingest/$'
 import { Route as AppAuthedHomeRouteImport } from './routes/_app/_authed/home'
 import { Route as AppAuthedMyCallsRouteImport } from './routes/_app/_authed/my-calls'
 import { Route as AppAuthedMyQuestionsRouteImport } from './routes/_app/_authed/my-questions'
@@ -112,6 +113,11 @@ const AdminUsersRoute = AdminUsersRouteImport.update({
   id: '/users',
   path: '/users',
   getParentRoute: () => AdminRoute,
+} as any)
+const IngestSplatRoute = IngestSplatRouteImport.update({
+  id: '/ingest/$',
+  path: '/ingest/$',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const AppAuthedHomeRoute = AppAuthedHomeRouteImport.update({
   id: '/home',
@@ -233,6 +239,7 @@ export interface FileRoutesByFullPath {
   '/admin/queue': typeof AdminQueueRoute
   '/admin/reports': typeof AdminReportsRoute
   '/admin/users': typeof AdminUsersRoute
+  '/ingest/$': typeof IngestSplatRoute
   '/admin/': typeof AdminIndexRoute
   '/home': typeof AppAuthedHomeRoute
   '/my-calls': typeof AppAuthedMyCallsRoute
@@ -267,6 +274,7 @@ export interface FileRoutesByTo {
   '/admin/queue': typeof AdminQueueRoute
   '/admin/reports': typeof AdminReportsRoute
   '/admin/users': typeof AdminUsersRoute
+  '/ingest/$': typeof IngestSplatRoute
   '/admin': typeof AdminIndexRoute
   '/home': typeof AppAuthedHomeRoute
   '/my-calls': typeof AppAuthedMyCallsRoute
@@ -304,6 +312,7 @@ export interface FileRoutesById {
   '/admin/queue': typeof AdminQueueRoute
   '/admin/reports': typeof AdminReportsRoute
   '/admin/users': typeof AdminUsersRoute
+  '/ingest/$': typeof IngestSplatRoute
   '/admin/': typeof AdminIndexRoute
   '/_app/_authed/home': typeof AppAuthedHomeRoute
   '/_app/_authed/my-calls': typeof AppAuthedMyCallsRoute
@@ -341,6 +350,7 @@ export interface FileRouteTypes {
     | '/admin/queue'
     | '/admin/reports'
     | '/admin/users'
+    | '/ingest/$'
     | '/admin/'
     | '/home'
     | '/my-calls'
@@ -375,6 +385,7 @@ export interface FileRouteTypes {
     | '/admin/queue'
     | '/admin/reports'
     | '/admin/users'
+    | '/ingest/$'
     | '/admin'
     | '/home'
     | '/my-calls'
@@ -411,6 +422,7 @@ export interface FileRouteTypes {
     | '/admin/queue'
     | '/admin/reports'
     | '/admin/users'
+    | '/ingest/$'
     | '/admin/'
     | '/_app/_authed/home'
     | '/_app/_authed/my-calls'
@@ -440,6 +452,7 @@ export interface RootRouteChildren {
   AppRoute: typeof AppRouteWithChildren
   AdminRoute: typeof AdminRouteWithChildren
   GraphqlRoute: typeof GraphqlRoute
+  IngestSplatRoute: typeof IngestSplatRoute
   ShareCallsCallIdRoute: typeof ShareCallsCallIdRoute
   ShareUsersUsernameRoute: typeof ShareUsersUsernameRoute
   ShareLeaguesLeagueIdUsersUsernameRoute: typeof ShareLeaguesLeagueIdUsersUsernameRoute
@@ -544,6 +557,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/admin/users'
       preLoaderRoute: typeof AdminUsersRouteImport
       parentRoute: typeof AdminRoute
+    }
+    '/ingest/$': {
+      id: '/ingest/$'
+      path: '/ingest/$'
+      fullPath: '/ingest/$'
+      preLoaderRoute: typeof IngestSplatRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/_app/_authed/home': {
       id: '/_app/_authed/home'
@@ -791,6 +811,7 @@ const rootRouteChildren: RootRouteChildren = {
   AppRoute: AppRouteWithChildren,
   AdminRoute: AdminRouteWithChildren,
   GraphqlRoute: GraphqlRoute,
+  IngestSplatRoute: IngestSplatRoute,
   ShareCallsCallIdRoute: ShareCallsCallIdRoute,
   ShareUsersUsernameRoute: ShareUsersUsernameRoute,
   ShareLeaguesLeagueIdUsersUsernameRoute:
@@ -799,12 +820,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { createStart } from '@tanstack/react-start'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-  }
-}

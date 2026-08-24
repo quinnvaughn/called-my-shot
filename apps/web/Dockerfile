@@ -29,9 +29,7 @@ RUN printf 'DATABASE_URL=postgres://user:pass@localhost:5432/db\nPORT=4000\nCLIE
 # runtime env vars, after the image is already built). PostHog's project API
 # key is meant to be public/embedded in client code, not a secret.
 ARG VITE_PUBLIC_POSTHOG_KEY
-ARG VITE_PUBLIC_POSTHOG_HOST
 ENV VITE_PUBLIC_POSTHOG_KEY=$VITE_PUBLIC_POSTHOG_KEY
-ENV VITE_PUBLIC_POSTHOG_HOST=$VITE_PUBLIC_POSTHOG_HOST
 
 RUN pnpm exec turbo run build --filter=web
 

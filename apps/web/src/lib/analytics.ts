@@ -47,15 +47,30 @@ const POSTHOG_KEY = import.meta.env.VITE_PUBLIC_POSTHOG_KEY as
 let initialized = false
 
 export function initAnalytics() {
-	if (initialized || typeof window === "undefined" || !POSTHOG_KEY) return
+	// import.meta.env.PROD is only true in the client bundle `vite build`
+	// produces (what the Docker image actually ships) - false under `vite
+	// dev`, so running the app locally never sends events into production
+	// analytics.
+	if (
+		initialized ||
+		typeof window === "undefined" ||
+		!POSTHOG_KEY ||
+		!import.meta.env.PROD
+	) {
+		return
+	}
 	posthog.init(POSTHOG_KEY, {
-		api_host:
-			(import.meta.env.VITE_PUBLIC_POSTHOG_HOST as string | undefined) ??
-			"https://us.i.posthog.com",
+		// Same-origin path, proxied to PostHog server-side (see
+		// routes/ingest/$.ts) - not PostHog's own domain directly, since
+		// that's commonly ad-blocked (EasyPrivacy lists posthog.com).
+		api_host: "/ingest",
 		person_profiles: "identified_only",
 		autocapture: false,
 		capture_pageview: false,
 		capture_pageleave: false,
+		// No feature flags in use - skips the extra remote-config request
+		// this would otherwise make on every init.
+		advanced_disable_flags: true,
 	})
 	initialized = true
 }
