@@ -365,6 +365,20 @@ export function HowItWorksSections() {
 					ceilingMult="×2"
 				/>
 				<P>
+					That call-order version is for single-game questions. A question
+					that spans a season (a season-long stat line, award finalists, or a
+					season-long award) can't use call order the same way, since calls
+					trickle in unevenly over months rather than filling up in an hour;
+					instead it's based on <B>how much of the season had been played</B>{" "}
+					when you called, on a wider range since a whole season's worth of
+					unknowns is a bigger gap than a few hours of other people's takes:
+				</P>
+				<CurveScale
+					labels={["STANDARD", "EARLY SEASON", "FIRST QUARTER", "PRESEASON"]}
+					floorMult="×1"
+					ceilingMult="×3"
+				/>
+				<P>
 					A miss is just <B>−committed points</B>, flat, regardless of either
 					multiplier.
 				</P>
@@ -488,17 +502,18 @@ export function HowItWorksSections() {
 
 			<Accordion
 				title="Leaderboard"
-				subtitle="Points globally, accuracy per league"
+				subtitle="Global by default, narrows to one league"
 			>
 				<P>
-					The leaderboard ranks by <B>total points</B>, globally, across every
-					league you call. Points sum cleanly no matter what you're calling, so
-					they're the fair way to rank all-time.
+					The leaderboard ranks by <B>total points</B>. The default view sums
+					points across every league you've called in; narrow to a single
+					league and it re-ranks using points earned in that league alone, not
+					your global total.
 				</P>
 				<P>
-					Accuracy shows up on both views: a blended number across every league
-					on the global leaderboard, and a per-league number once you narrow to
-					one league.
+					Accuracy follows the same scope: a blended number across every league
+					on the global view, and a per-league number once you narrow to one
+					league.
 				</P>
 			</Accordion>
 		</VStack>
