@@ -7,10 +7,27 @@ import type { ApolloServerPlugin } from "@apollo/server"
 // in once the remaining home-query latency is actually explained.
 export const timingPlugin: ApolloServerPlugin = {
 	async requestDidStart({ request }) {
+		const requestStart = performance.now()
 		const maxDurationByField = new Map<string, number>()
+		let parsingMs = 0
+		let validationMs = 0
+		let executionMs = 0
 
 		return {
+			async parsingDidStart() {
+				const start = performance.now()
+				return async () => {
+					parsingMs = performance.now() - start
+				}
+			},
+			async validationDidStart() {
+				const start = performance.now()
+				return async () => {
+					validationMs = performance.now() - start
+				}
+			},
 			async executionDidStart() {
+				const executionStart = performance.now()
 				return {
 					willResolveField({ info }) {
 						const start = performance.now()
@@ -23,13 +40,15 @@ export const timingPlugin: ApolloServerPlugin = {
 							}
 						}
 					},
+					async executionDidEnd() {
+						executionMs = performance.now() - executionStart
+					},
 				}
 			},
 			async willSendResponse() {
 				const sorted = [...maxDurationByField.entries()]
 					.sort((a, b) => b[1] - a[1])
 					.slice(0, 15)
-				if (sorted.length === 0) return
 				const summary = sorted
 					.map(([field, ms]) => `${field}=${ms.toFixed(1)}ms`)
 					.join(" ")
@@ -46,8 +65,16 @@ export const timingPlugin: ApolloServerPlugin = {
 				const timerStart = performance.now()
 				await new Promise<void>((resolve) => setTimeout(resolve, 0))
 				const timerDelay = performance.now() - timerStart
+				// Field-level timing above only covers execution - it can't explain
+				// a gap between the sum of field durations and the total request
+				// time, because that gap could be parsing/validation (measured
+				// above), or Express/cors/json-body-parser middleware and response
+				// serialization, which run entirely outside Apollo's own plugin
+				// hooks and so never show up in field-timing no matter how deep
+				// this instrumentation goes.
+				const totalMs = performance.now() - requestStart
 				console.log(
-					`[field-timing] ${request.operationName ?? "anonymous"}: setTimeout0Delay=${timerDelay.toFixed(1)}ms ${summary}`,
+					`[field-timing] ${request.operationName ?? "anonymous"}: total=${totalMs.toFixed(1)}ms parsing=${parsingMs.toFixed(1)}ms validation=${validationMs.toFixed(1)}ms execution=${executionMs.toFixed(1)}ms setTimeout0Delay=${timerDelay.toFixed(1)}ms ${summary}`,
 				)
 			},
 		}
