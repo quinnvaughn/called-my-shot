@@ -42,6 +42,14 @@ export const db = drizzle({
 		idleTimeoutMillis: 0,
 	},
 	relations,
+	// Diagnostic only, temporary: field-timing (graphql/timing-plugin.ts) shows
+	// every scalar AND relation field on Question pinned at the same ~70-90ms
+	// once connection warmth and event-loop scheduling were both ruled out as
+	// the cause - meaning it's one real query, and this is to see what that
+	// query actually looks like (a heavy relational fetch with nested JSON
+	// aggregation, a missing index causing a seq scan, something else) instead
+	// of guessing further.
+	logger: true,
 })
 
 // See idleTimeoutMillis's comment above: left alone, the pool starts at zero
