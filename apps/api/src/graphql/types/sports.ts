@@ -168,6 +168,10 @@ export const PlayerRef = builder.drizzleObject("players", {
 		// null for free agents/retired players, not every player is on a team
 		currentTeam: t.relation("currentTeam", { nullable: true }),
 		seasonsInLeague: t.exposeInt("seasonsInLeague"),
+		// Real rookie-of-the-year eligibility for the current season, per this
+		// player's sport's own rule - see players.rookieEligible's comment in
+		// db/schema/sports.ts for why this isn't just seasonsInLeague === 0.
+		rookieEligible: t.exposeBoolean("rookieEligible"),
 	}),
 })
 

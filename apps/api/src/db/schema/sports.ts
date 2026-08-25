@@ -1,4 +1,5 @@
 import {
+	boolean,
 	integer,
 	numeric,
 	pgEnum,
@@ -148,8 +149,19 @@ export const players = pgTable("players", {
 	// column and needs a re-sync to get a real value, and 0 (read as "rookie")
 	// is a safer stand-in than an unknown/null state a filter would have to
 	// special-case. Powers awardSeasonsInLeague on questions (see
-	// db/schema/questions.ts) - e.g. Rookie of the Year narrows to [0].
+	// db/schema/questions.ts) - e.g. a "best sophomore" poll narrows to [1].
 	seasonsInLeague: integer("seasons_in_league").notNull().default(0),
+	// Whether this player is rookie-eligible for the *current* season, per
+	// their sport's own real definition - NOT derived from seasonsInLeague.
+	// Computed per-league at sync time (see SyncLeagueConfig.resolveRookieEligible
+	// in db/sync/leagues.ts): NBA/NFL default to seasonsInLeague === 0, MLB
+	// applies its own cumulative AB/IP rule (db/sync/mlb-rookie-eligibility.ts)
+	// since a brief prior-season call-up doesn't cost MLB rookie status the way
+	// it would trip seasonsInLeague to 1. Powers awardRookieOnly on questions -
+	// the mechanism for every real Rookie of the Year question regardless of
+	// sport. Not null/default false, same reasoning as seasonsInLeague -
+	// existing rows predate this column and need a re-sync to get a real value.
+	rookieEligible: boolean("rookie_eligible").notNull().default(false),
 })
 export type Player = typeof players.$inferSelect
 

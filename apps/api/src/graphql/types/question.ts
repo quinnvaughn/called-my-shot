@@ -735,6 +735,11 @@ export const QuestionRef = builder.drizzleObject("questions", {
 			nullable: true,
 			resolve: (q) => q.awardSeasonsInLeague,
 		}),
+		awardRookieOnly: t.field({
+			type: "Boolean",
+			nullable: true,
+			resolve: (q) => q.awardRookieOnly,
+		}),
 
 		// The two numeric-guess shapes only. Exactly one of numericTolerancePct/
 		// numericToleranceAbsolute is set, depending on the picked stat's
@@ -1456,8 +1461,14 @@ const CreateQuestionInput = builder.inputType("CreateQuestionInput", {
 		awardDivisions: t.field({ type: ["String"], required: false }),
 		// player_season_award only
 		awardPositions: t.field({ type: ["String"], required: false }),
-		// player_season_award only - e.g. [0] for Rookie of the Year.
+		// player_season_award only - a genuine exact-experience-year race (e.g.
+		// [1] for a "best second-year player" poll). NOT used for Rookie of the
+		// Year - see awardRookieOnly below.
 		awardSeasonsInLeague: t.field({ type: ["Int"], required: false }),
+		// player_season_award only - narrows the pool to rookie-eligible players
+		// per that sport's own real rookie rule. The mechanism for every real
+		// Rookie of the Year question regardless of sport.
+		awardRookieOnly: t.field({ type: "Boolean", required: false }),
 	}),
 })
 
@@ -2061,6 +2072,7 @@ builder.mutationFields((t) => ({
 								...(data.awardSeasonsInLeague?.length
 									? { seasonsInLeague: { in: data.awardSeasonsInLeague } }
 									: {}),
+								...(data.awardRookieOnly ? { rookieEligible: true } : {}),
 							},
 						})
 					: null
@@ -2317,6 +2329,7 @@ builder.mutationFields((t) => ({
 						awardSeasonsInLeague: data.awardSeasonsInLeague?.length
 							? data.awardSeasonsInLeague
 							: null,
+						awardRookieOnly: data.awardRookieOnly || null,
 					})
 					.returning()
 

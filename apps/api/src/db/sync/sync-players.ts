@@ -9,6 +9,7 @@ async function syncAthlete(
 	leagueSlug: string,
 	teamId: string,
 	athlete: EspnAthlete,
+	rookieEligible: boolean,
 ): Promise<void> {
 	const sourceId = scopedSourceId(leagueSlug, athlete.id)
 	await db.transaction(async (tx) => {
@@ -22,6 +23,7 @@ async function syncAthlete(
 					positions: athlete.positions?.map((p) => p.abbreviation) ?? [],
 					currentTeamId: teamId,
 					seasonsInLeague: athlete.experience?.years ?? 0,
+					rookieEligible,
 				})
 				.where(eq(players.id, existingId))
 			return
@@ -34,6 +36,7 @@ async function syncAthlete(
 				positions: athlete.positions?.map((p) => p.abbreviation) ?? [],
 				currentTeamId: teamId,
 				seasonsInLeague: athlete.experience?.years ?? 0,
+				rookieEligible,
 			})
 			.returning()
 		if (!row) throw new Error(`syncPlayers: insert returned nothing for ${athlete.id}`)
@@ -42,8 +45,14 @@ async function syncAthlete(
 }
 
 // Requires syncTeams(config) to have already run for this league - each ESPN
-// team's synced row is looked up via its externalRefs mapping.
-export async function syncPlayers(config: SyncLeagueConfig): Promise<void> {
+// team's synced row is looked up via its externalRefs mapping. currentSeasonYear
+// comes from syncSeasons having already run too (see run.ts) - only needed by
+// leagues with a resolveRookieEligible hook (MLB), which needs to know which
+// prior seasons' stats actually count as "before this season."
+export async function syncPlayers(
+	config: SyncLeagueConfig,
+	currentSeasonYear: number,
+): Promise<void> {
 	const espnTeams = await fetchTeams(config.espnPath)
 
 	for (const espnTeam of espnTeams) {
@@ -60,7 +69,14 @@ export async function syncPlayers(config: SyncLeagueConfig): Promise<void> {
 			// A handful of roster entries (two-way/practice squad placeholders)
 			// come back with no name - nothing useful to store, skip them.
 			if (!athlete.fullName) continue
-			await syncAthlete(config.leagueSlug, teamId, athlete)
+			const rookieEligible = config.resolveRookieEligible
+				? await config.resolveRookieEligible(
+						athlete,
+						espnTeam.abbreviation,
+						currentSeasonYear,
+					)
+				: (athlete.experience?.years ?? 0) === 0
+			await syncAthlete(config.leagueSlug, teamId, athlete, rookieEligible)
 		}
 	}
 }

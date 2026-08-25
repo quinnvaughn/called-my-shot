@@ -214,11 +214,20 @@ export const questions = pgTable("questions", {
 	// per league-half, or a multi-position race like Cy Young (SP + RP).
 	awardPositions: text("award_positions").array(),
 	// player_season_award only - narrows further to players.seasonsInLeague IN
-	// (...). The main case is Rookie of the Year ([0]), but any exact-years
-	// race works the same way (e.g. [1] for a "best second-year player" poll).
-	// An array, not a min/max range, for the same reason awardPositions is one -
-	// most of these races pick out a single exact value, not a band.
+	// (...), for a genuine exact-experience-year race (e.g. [1] for a "best
+	// second-year player" poll). An array, not a min/max range, for the same
+	// reason awardPositions is one - most of these races pick out a single
+	// exact value, not a band. NOT used for Rookie of the Year - see
+	// awardRookieOnly below.
 	awardSeasonsInLeague: integer("award_seasons_in_league").array(),
+	// player_season_award only - when true, narrows the pool to
+	// players.rookieEligible = true. This is the mechanism for every real
+	// Rookie of the Year question regardless of sport - unlike
+	// awardSeasonsInLeague, it isn't "zero prior seasons in the league" (wrong
+	// for e.g. MLB, where a brief prior-season call-up doesn't cost rookie
+	// status) but whatever that sport's own rookie rule actually is, computed
+	// at sync time (see players.rookieEligible in db/schema/sports.ts).
+	awardRookieOnly: boolean("award_rookie_only"),
 
 	createdAt: timestamp("created_at").notNull().defaultNow(),
 })

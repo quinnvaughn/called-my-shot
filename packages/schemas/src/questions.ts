@@ -175,9 +175,17 @@ export const createQuestionSchema = z
 		// awards, or a multi-position race like Cy Young (SP + RP).
 		awardPositions: z.array(z.string()).default([]),
 		// player_season_award only - narrows further to players.seasonsInLeague
-		// IN (...), e.g. [0] for Rookie of the Year. Empty array means no
-		// experience narrowing, same convention as every other award filter here.
+		// IN (...), for a genuine exact-experience-year race (e.g. [1] for a
+		// "best second-year player" poll). Empty array means no experience
+		// narrowing, same convention as every other award filter here. NOT used
+		// for Rookie of the Year - see awardRookieOnly below.
 		awardSeasonsInLeague: z.array(z.number().int().nonnegative()).default([]),
+		// player_season_award only - when true, narrows the pool to
+		// players.rookieEligible = true. The mechanism for every real Rookie of
+		// the Year question regardless of sport - see players.rookieEligible's
+		// comment in db/schema/sports.ts for why this isn't just
+		// awardSeasonsInLeague: [0].
+		awardRookieOnly: z.boolean().default(false),
 	})
 	.superRefine((data, ctx) => {
 		if (

@@ -1,4 +1,5 @@
-import type { EspnSportPath } from "./espn-client"
+import type { EspnAthlete, EspnSportPath } from "./espn-client"
+import { resolveMlbRookieEligible } from "./mlb-rookie-eligibility"
 
 export type SyncLeagueConfig = {
 	sportName: string
@@ -7,6 +8,17 @@ export type SyncLeagueConfig = {
 	leagueAbbreviation: string
 	leagueSlug: string
 	espnPath: EspnSportPath
+	// Decides players.rookieEligible for this league (see its comment in
+	// db/schema/sports.ts) - omitted for leagues where "zero prior seasons in
+	// the league" (syncPlayers' own default) is an accurate enough proxy for
+	// real rookie status. MLB overrides it because that's not true there - a
+	// brief prior-season call-up trips seasonsInLeague to 1 without costing
+	// real MLB rookie status.
+	resolveRookieEligible?: (
+		athlete: EspnAthlete,
+		teamAbbreviation: string,
+		currentSeasonYear: number,
+	) => Promise<boolean>
 }
 
 export const SYNCED_LEAGUES: SyncLeagueConfig[] = [
@@ -33,5 +45,6 @@ export const SYNCED_LEAGUES: SyncLeagueConfig[] = [
 		leagueAbbreviation: "MLB",
 		leagueSlug: "mlb",
 		espnPath: "baseball/mlb",
+		resolveRookieEligible: resolveMlbRookieEligible,
 	},
 ]

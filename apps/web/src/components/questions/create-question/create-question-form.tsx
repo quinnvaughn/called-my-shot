@@ -207,6 +207,7 @@ export function CreateQuestionForm({ sports, isAdmin }: Props) {
 			awardDivisions: [],
 			awardPositions: [],
 			awardSeasonsInLeague: [],
+			awardRookieOnly: false,
 		},
 		onSubmit: async (values, helpers) => {
 			const { data } = await createQuestion({
@@ -250,6 +251,7 @@ export function CreateQuestionForm({ sports, isAdmin }: Props) {
 						awardDivisions: values.awardDivisions,
 						awardPositions: values.awardPositions,
 						awardSeasonsInLeague: values.awardSeasonsInLeague,
+						awardRookieOnly: values.awardRookieOnly,
 					},
 				},
 			})
@@ -309,6 +311,7 @@ export function CreateQuestionForm({ sports, isAdmin }: Props) {
 	const awardDivisions = form.useWatch("awardDivisions")
 	const awardPositions = form.useWatch("awardPositions")
 	const awardSeasonsInLeague = form.useWatch("awardSeasonsInLeague")
+	const awardRookieOnly = form.useWatch("awardRookieOnly")
 	const eventClause = form.useWatch("eventClause")
 	const picksRequired = form.useWatch("picksRequired")
 
@@ -455,6 +458,9 @@ export function CreateQuestionForm({ sports, isAdmin }: Props) {
 					) {
 						return false
 					}
+					if (awardRookieOnly && !player.rookieEligible) {
+						return false
+					}
 					return true
 				})
 				.map((player) => ({
@@ -498,6 +504,7 @@ export function CreateQuestionForm({ sports, isAdmin }: Props) {
 		awardDivisions,
 		awardPositions,
 		awardSeasonsInLeague,
+		awardRookieOnly,
 	])
 
 	// Distinct conference/division/position values actually present in the
@@ -616,6 +623,7 @@ export function CreateQuestionForm({ sports, isAdmin }: Props) {
 		form.setValue("awardDivisions", [])
 		form.setValue("awardPositions", [])
 		form.setValue("awardSeasonsInLeague", [])
+		form.setValue("awardRookieOnly", false)
 		if ((ADMIN_ONLY_SHAPES as readonly string[]).includes(next)) {
 			form.setValue("isOfficial", true)
 		}
@@ -1227,6 +1235,95 @@ export function CreateQuestionForm({ sports, isAdmin }: Props) {
 													)}
 												</form.Field>
 											)}
+											{isPlayerAward && (
+												<form.Field name="awardRookieOnly">
+													{(field) => (
+														<HStack
+															justify="space-between"
+															alignItems="center"
+															gap="4"
+														>
+															<VStack gap="0.5" alignItems="flex-start">
+																<span
+																	className={css({
+																		fontSize: "sm",
+																		fontWeight: "semibold",
+																	})}
+																>
+																	Rookie of the Year only
+																</span>
+																<span
+																	className={css({
+																		fontSize: "xs",
+																		color: "fg.subtle",
+																	})}
+																>
+																	Narrows the pool to players who are actually
+																	rookie-eligible this season, per this sport's
+																	own real rule - not just "Years in the league"
+																	= 0.
+																</span>
+															</VStack>
+															<button
+																type="button"
+																role="switch"
+																aria-checked={field.value}
+																aria-label="Rookie of the Year only"
+																onClick={() => {
+																	const next = !field.value
+																	field.onChange(next)
+																	// Flipping this on always means the award is
+																	// Rookie of the Year - only backfill the name
+																	// when it's still blank so it doesn't clobber
+																	// something the admin already typed (e.g. a
+																	// per-position variant).
+																	if (next && !awardName) {
+																		form.setValue(
+																			"awardName",
+																			"Rookie of the Year",
+																		)
+																	}
+																}}
+																className={cx(
+																	css({
+																		position: "relative",
+																		width: "42px",
+																		height: "24px",
+																		flexShrink: 0,
+																		borderRadius: "full",
+																		bg: "bg.subtle",
+																		border: "1px solid",
+																		borderColor: "border.default",
+																		transition:
+																			"background-color 0.15s ease, border-color 0.15s ease",
+																		_after: {
+																			content: '""',
+																			position: "absolute",
+																			top: "1px",
+																			left: "1px",
+																			width: "18px",
+																			height: "18px",
+																			borderRadius: "full",
+																			bg: "fg.subtle",
+																			transition:
+																				"transform 0.15s ease, background-color 0.15s ease",
+																		},
+																	}),
+																	field.value &&
+																		css({
+																			bg: "primary.subtle",
+																			borderColor: "primary.default",
+																			_after: {
+																				transform: "translateX(18px)",
+																				bg: "primary.default",
+																			},
+																		}),
+																)}
+															/>
+														</HStack>
+													)}
+												</form.Field>
+											)}
 											<form.Field name="awardName">
 												{(field) => (
 													<TextInput
@@ -1295,6 +1392,7 @@ export function CreateQuestionForm({ sports, isAdmin }: Props) {
 													]
 														.filter(Boolean)
 														.join(" ")}
+													rookieOnly={awardRookieOnly}
 												/>
 											)}
 										</VStack>
