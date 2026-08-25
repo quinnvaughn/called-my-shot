@@ -49,6 +49,16 @@ export const db = drizzle({
 // handshake cost for each connection it needs. Opening WARM_CONNECTIONS
 // connections here, before any real request arrives, moves that cost to boot
 // time instead of the first user's page load.
+//
+// Must never let a failed connection attempt escape as an unhandled
+// rejection - `db` gets imported (transitively, via builder/schema) by
+// build-time scripts too, like schema:print, which run against a throwaway
+// placeholder DATABASE_URL that nothing is listening on. An unhandled
+// rejection there crashes the script with ECONNREFUSED, which took down
+// the web app's entire deploy pipeline (web's build depends on api's
+// printed schema for codegen) even though nothing was actually wrong at
+// runtime. Warming the pool is a nice-to-have either way - worth trying,
+// never worth crashing the process over.
 async function warmPool() {
 	const client = db.$client
 	await Promise.all(
@@ -57,4 +67,6 @@ async function warmPool() {
 		),
 	)
 }
-void warmPool()
+warmPool().catch((error) => {
+	console.error("warmPool failed, continuing without a warm pool:", error)
+})
