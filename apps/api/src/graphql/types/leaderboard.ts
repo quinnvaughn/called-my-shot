@@ -8,8 +8,23 @@ import {
 	encodeOffsetCursor,
 } from "../../lib/pagination"
 import { builder } from "../builder"
+import type { Context } from "../context"
 import { PageInfoRef } from "./pagination"
 import { UserRef } from "./user"
+
+// leaderboard and viewerLeaderboardEntry both need the full ranking for the
+// same leagueId on the same request (a LeaderboardPage load fires both) -
+// this shares one in-flight buildGlobalLeaderboard call between them instead
+// of each independently re-aggregating and re-sorting from scratch.
+function getGlobalLeaderboard(ctx: Context, leagueId?: string | null) {
+	const key = leagueId ?? ""
+	let cached = ctx.globalLeaderboardCache.get(key)
+	if (!cached) {
+		cached = buildGlobalLeaderboard(leagueId)
+		ctx.globalLeaderboardCache.set(key, cached)
+	}
+	return cached
+}
 
 type Connection<T> = {
 	items: T[]
@@ -50,8 +65,8 @@ builder.queryFields((t) => ({
 			after: t.arg.string(),
 			leagueId: t.arg.id(),
 		},
-		resolve: async (_root, args) => {
-			const entries = await buildGlobalLeaderboard(args.leagueId)
+		resolve: async (_root, args, ctx) => {
+			const entries = await getGlobalLeaderboard(ctx, args.leagueId)
 			const limit = clampPageSize(args.first)
 			const afterRank = args.after ? decodeOffsetCursor(args.after) : 0
 			const items = entries.slice(afterRank, afterRank + limit)
@@ -78,7 +93,7 @@ builder.queryFields((t) => ({
 		args: { leagueId: t.arg.id() },
 		resolve: async (_root, args, ctx) => {
 			if (!ctx.user) return null
-			const entries = await buildGlobalLeaderboard(args.leagueId)
+			const entries = await getGlobalLeaderboard(ctx, args.leagueId)
 			return entries.find((e) => e.user.id === ctx.user?.id) ?? null
 		},
 	}),

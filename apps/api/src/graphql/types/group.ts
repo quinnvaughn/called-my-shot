@@ -38,6 +38,7 @@ import { aggregatePointsByUser } from "../../lib/points-aggregate"
 import { accuracyFrom, compareRankableEntries } from "../../lib/scoring"
 import { isUuid } from "../../lib/uuid"
 import { builder } from "../builder"
+import type { Context } from "../context"
 import { PageInfoRef } from "./pagination"
 import { CallConnectionRef, QuestionConnectionRef } from "./question"
 import { UserRef } from "./user"
@@ -85,7 +86,7 @@ export const GroupMemberRef = builder.drizzleObject("groupMembers", {
 	}),
 })
 
-type LeaderboardEntry = {
+export type GroupLeaderboardEntry = {
 	rank: number
 	user: User
 	totalPoints: number
@@ -96,7 +97,7 @@ type LeaderboardEntry = {
 }
 
 const GroupLeaderboardEntryRef = builder
-	.objectRef<LeaderboardEntry>("GroupLeaderboardEntry")
+	.objectRef<GroupLeaderboardEntry>("GroupLeaderboardEntry")
 	.implement({
 		fields: (t) => ({
 			rank: t.exposeInt("rank"),
@@ -111,7 +112,7 @@ const GroupLeaderboardEntryRef = builder
 	})
 
 const GroupLeaderboardConnectionRef = builder
-	.objectRef<Connection<LeaderboardEntry>>("GroupLeaderboardConnection")
+	.objectRef<Connection<GroupLeaderboardEntry>>("GroupLeaderboardConnection")
 	.implement({
 		fields: (t) => ({
 			items: t.field({
@@ -136,7 +137,7 @@ const GroupLeaderboardConnectionRef = builder
 async function buildLeaderboard(
 	groupId: string,
 	leagueId?: string | null,
-): Promise<LeaderboardEntry[]> {
+): Promise<GroupLeaderboardEntry[]> {
 	const memberships = await db.query.groupMembers.findMany({
 		where: { groupId },
 		with: { user: true },
@@ -162,6 +163,25 @@ async function buildLeaderboard(
 
 	entries.sort(compareRankableEntries)
 	return entries.map((entry, index) => ({ ...entry, rank: index + 1 }))
+}
+
+// leaderboard, viewerRank, and viewerLeaderboardEntry below can all fire on
+// the same group page load, each needing the same ranking for the same
+// (groupId, leagueId) - this shares one in-flight buildLeaderboard call
+// between them instead of each re-aggregating and re-sorting from scratch.
+// Same pattern as getGlobalLeaderboard in graphql/types/leaderboard.ts.
+function getGroupLeaderboard(
+	ctx: Context,
+	groupId: string,
+	leagueId?: string | null,
+) {
+	const key = `${groupId}:${leagueId ?? ""}`
+	let cached = ctx.groupLeaderboardCache.get(key)
+	if (!cached) {
+		cached = buildLeaderboard(groupId, leagueId)
+		ctx.groupLeaderboardCache.set(key, cached)
+	}
+	return cached
 }
 
 // Cheaper than buildLeaderboard for callers that only need the #1 name and
@@ -283,8 +303,8 @@ export const GroupRef = builder.drizzleObject("groups", {
 				after: t.arg.string(),
 				leagueId: t.arg.id(),
 			},
-			resolve: async (group, args) => {
-				const entries = await buildLeaderboard(group.id, args.leagueId)
+			resolve: async (group, args, ctx) => {
+				const entries = await getGroupLeaderboard(ctx, group.id, args.leagueId)
 				const limit = clampPageSize(args.first)
 				const afterRank = args.after ? decodeOffsetCursor(args.after) : 0
 				const items = entries.slice(afterRank, afterRank + limit)
@@ -306,7 +326,7 @@ export const GroupRef = builder.drizzleObject("groups", {
 			type: "Int",
 			resolve: async (group, _args, ctx) => {
 				const user = requireUser(ctx)
-				const leaderboard = await buildLeaderboard(group.id)
+				const leaderboard = await getGroupLeaderboard(ctx, group.id)
 				const entry = leaderboard.find((e) => e.user.id === user.id)
 				// group/myGroups already gate on the viewer being a member, so this
 				// should always be found
@@ -325,7 +345,11 @@ export const GroupRef = builder.drizzleObject("groups", {
 			args: { leagueId: t.arg.id() },
 			resolve: async (group, args, ctx) => {
 				const user = requireUser(ctx)
-				const leaderboard = await buildLeaderboard(group.id, args.leagueId)
+				const leaderboard = await getGroupLeaderboard(
+					ctx,
+					group.id,
+					args.leagueId,
+				)
 				// group/myGroups already gate on the viewer being a member, so this
 				// should always be found
 				return leaderboard.find((e) => e.user.id === user.id) ?? null

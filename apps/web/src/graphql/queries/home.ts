@@ -1,13 +1,15 @@
 import { graphql } from "#/graphql/generated"
 
-// Initial page load - league tabs, the first page of the feed (HOT, no
-// filters), and the full team/player list the search autocomplete filters
-// client-side, all in one round trip. Filter/sort/league changes after that
-// go through HomeFeedDocument instead, same split as LeaderboardPageDocument
-// / LeaderboardDocument. teams/players are deliberately NOT scoped to any one
-// league - picking a team from search can (and should) jump the league tabs
-// to match it, e.g. searching "Celtics" while the NFL tab is active, so the
-// suggestion list itself has to span every league up front.
+// Initial page load - just the league tabs (rendered unconditionally, so
+// they can't be lazy) and the first page of the feed (HOT, no filters).
+// Filter/sort/league changes after that go through HomeFeedDocument instead,
+// same split as LeaderboardPageDocument / LeaderboardDocument. teams and
+// players used to be fetched here too - the full catalog of each, 92 and
+// 4,776 rows respectively - purely so the search autocomplete could filter
+// them client-side. players alone was what was pegging prod's CPU on every
+// /home visit. HomeSearchDocument below replaces both with a single
+// server-side, per-keystroke, bounded lookup instead - nothing search-related
+// loads until someone actually opens the search box.
 export const HomePageDocument = graphql(`
     query HomePage {
         leagues {
@@ -16,7 +18,27 @@ export const HomePageDocument = graphql(`
             abbreviation
             slug
         }
-        teams {
+        questions(first: 10) {
+            items {
+                id
+                ...QuestionCard_question
+            }
+            pageInfo {
+                hasNextPage
+                endCursor
+            }
+        }
+    }
+`)
+
+// Fired on keystroke (debounced) from the home search box instead of
+// filtering client-side copies of the whole teams/players tables. Bounded to
+// 5 each, matching MAX_SUGGESTIONS in home-search-bar.tsx. Both in one round
+// trip rather than two parallel queries, since they're needed together every
+// time the box's contents change.
+export const HomeSearchDocument = graphql(`
+    query HomeSearch($search: String!) {
+        teams(search: $search, first: 5) {
             id
             name
             abbreviation
@@ -26,7 +48,7 @@ export const HomePageDocument = graphql(`
                 abbreviation
             }
         }
-        players {
+        players(search: $search, first: 5) {
             id
             name
             currentTeam {
@@ -37,16 +59,6 @@ export const HomePageDocument = graphql(`
                     id
                     abbreviation
                 }
-            }
-        }
-        questions(first: 10) {
-            items {
-                id
-                ...QuestionCard_question
-            }
-            pageInfo {
-                hasNextPage
-                endCursor
             }
         }
     }

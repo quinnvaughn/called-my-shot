@@ -291,12 +291,34 @@ builder.queryFields((t) => ({
 
 	teams: t.field({
 		type: [TeamRef],
-		args: { leagueId: t.arg.id({ required: false }) },
-		resolve: (_root, args) =>
-			db.query.teams.findMany({
-				where: args.leagueId ? { leagueId: args.leagueId } : undefined,
+		args: {
+			leagueId: t.arg.id({ required: false }),
+			// Typeahead mode - see players below. Only applies a limit when
+			// search is given, so existing unbounded callers (a league's full
+			// team list) are untouched.
+			search: t.arg.string({ required: false }),
+			first: t.arg.int({ required: false }),
+		},
+		resolve: (_root, args) => {
+			const search = args.search?.trim()
+			return db.query.teams.findMany({
+				where: {
+					...(args.leagueId ? { leagueId: args.leagueId } : {}),
+					...(search
+						? {
+								OR: [
+									{ name: { ilike: `%${search}%` } },
+									{ abbreviation: { ilike: `%${search}%` } },
+								],
+							}
+						: {}),
+				},
 				orderBy: { name: "asc" },
-			}),
+				...(search
+					? { limit: Math.min(Math.max(args.first ?? 5, 1), 20) }
+					: {}),
+			})
+		},
 	}),
 
 	players: t.field({
@@ -304,17 +326,28 @@ builder.queryFields((t) => ({
 		args: {
 			teamId: t.arg.id({ required: false }),
 			leagueId: t.arg.id({ required: false }),
+			// Typeahead mode - same shape as games' query/first below. Only
+			// applies a limit when search is actually given, so the existing
+			// unbounded roster callers (PlayersByLeague etc.) are untouched.
+			search: t.arg.string({ required: false }),
+			first: t.arg.int({ required: false }),
 		},
-		resolve: (_root, args) =>
-			db.query.players.findMany({
+		resolve: (_root, args) => {
+			const search = args.search?.trim()
+			return db.query.players.findMany({
 				where: {
 					...(args.teamId ? { currentTeamId: args.teamId } : {}),
 					...(args.leagueId
 						? { currentTeam: { leagueId: args.leagueId } }
 						: {}),
+					...(search ? { name: { ilike: `%${search}%` } } : {}),
 				},
 				orderBy: { name: "asc" },
-			}),
+				...(search
+					? { limit: Math.min(Math.max(args.first ?? 8, 1), 20) }
+					: {}),
+			})
+		},
 	}),
 
 	// Public, not admin-gated - same reasoning as teams/players above. Backs

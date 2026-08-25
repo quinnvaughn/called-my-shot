@@ -12,8 +12,6 @@ export const Route = createFileRoute("/_app/_authed/home")({
 		})
 		return {
 			leagues: data?.leagues ?? [],
-			teams: data?.teams ?? [],
-			players: data?.players ?? [],
 			items: data?.questions.items ?? [],
 			pageInfo: data?.questions.pageInfo ?? {
 				hasNextPage: false,
@@ -24,7 +22,7 @@ export const Route = createFileRoute("/_app/_authed/home")({
 })
 
 function RouteComponent() {
-	const { leagues, teams, players, items, pageInfo } = Route.useLoaderData()
+	const { leagues, items, pageInfo } = Route.useLoaderData()
 
 	return (
 		<VStack gap="6" alignItems="stretch">
@@ -34,8 +32,6 @@ function RouteComponent() {
 			/>
 			<HomeFeed
 				leagues={leagues}
-				teams={teams}
-				players={players}
 				initialItems={items}
 				initialPageInfo={pageInfo}
 			/>

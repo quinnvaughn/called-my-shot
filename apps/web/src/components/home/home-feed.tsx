@@ -8,7 +8,7 @@ import { InfiniteScroll } from "#/components/ui/infinite-scroll"
 import { Tabs } from "#/components/ui/tabs"
 import type { FragmentType } from "#/graphql/generated"
 import type {
-	HomePageQuery,
+	HomeSearchQuery,
 	QuestionSortOrder,
 } from "#/graphql/generated/graphql"
 import { HomeFeedDocument } from "#/graphql/queries/home"
@@ -17,16 +17,10 @@ import { HomeSearchBar } from "./home-search-bar"
 type League = { id: string; name: string; abbreviation: string; slug: string }
 type PageInfo = { hasNextPage: boolean; endCursor: string | null }
 type QuestionItem = { id: string } & FragmentType<typeof QuestionCardFragment>
-type TeamOption = HomePageQuery["teams"][number]
-type PlayerOption = HomePageQuery["players"][number]
+type TeamOption = HomeSearchQuery["teams"][number]
 
 type HomeFeedProps = {
 	leagues: League[]
-	// Global, not scoped to any one league - a team suggestion can (and should)
-	// jump the league tabs to match it, so the pool has to span every league
-	// up front. See handleSelectTeam below.
-	teams: TeamOption[]
-	players: PlayerOption[]
 	initialItems: QuestionItem[]
 	initialPageInfo: PageInfo
 }
@@ -44,8 +38,6 @@ const PAGE_SIZE = 10
 
 export function HomeFeed({
 	leagues,
-	teams,
-	players,
 	initialItems,
 	initialPageInfo,
 }: HomeFeedProps) {
@@ -146,8 +138,6 @@ export function HomeFeed({
 	return (
 		<VStack alignItems="stretch" gap="4">
 			<HomeSearchBar
-				teams={teams}
-				players={players}
 				onCommitSearch={handleCommitSearch}
 				onSelectTeam={handleSelectTeam}
 			/>

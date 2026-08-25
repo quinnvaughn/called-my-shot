@@ -1,18 +1,17 @@
+import { useApolloClient } from "@apollo/client/react"
 import { type KeyboardEvent, useEffect, useMemo, useRef, useState } from "react"
 import { FiClock, FiSearch, FiX } from "react-icons/fi"
 import { css } from "styled-system/css"
 import { Combobox } from "#/components/ui/combobox"
 import { TeamBadge } from "#/components/ui/team-badge"
 import { TextInput } from "#/components/ui/text-input"
-import type { HomePageQuery } from "#/graphql/generated/graphql"
+import type { HomeSearchQuery } from "#/graphql/generated/graphql"
+import { HomeSearchDocument } from "#/graphql/queries/home"
 
-type TeamOption = HomePageQuery["teams"][number]
-type PlayerOption = HomePageQuery["players"][number]
+type TeamOption = HomeSearchQuery["teams"][number]
+type PlayerOption = HomeSearchQuery["players"][number]
 
 type HomeSearchBarProps = {
-	// Global, not scoped to any league - see HomeFeed.
-	teams: TeamOption[]
-	players: PlayerOption[]
 	onCommitSearch: (term: string) => void
 	// A team suggestion sets the real teamId filter (exact - also matches
 	// field-style questions the team is an option in, not just its subject),
@@ -27,7 +26,6 @@ type FlatOption =
 	| { kind: "player"; key: string; term: string }
 	| { kind: "recent"; key: string; term: string }
 
-const MAX_SUGGESTIONS = 5
 const MAX_RECENT = 5
 
 // Twitter/Reddit-style: typing only drives the suggestion dropdown, the feed
@@ -35,43 +33,52 @@ const MAX_RECENT = 5
 // committed (Enter, or clicking the pinned "search for" option) - see
 // selectOption below, which routes to either onSelectTeam or onCommitSearch.
 export function HomeSearchBar({
-	teams,
-	players,
 	onCommitSearch,
 	onSelectTeam,
 }: HomeSearchBarProps) {
+	const client = useApolloClient()
 	const [inputValue, setInputValue] = useState("")
 	const [open, setOpen] = useState(false)
 	const [highlightedKey, setHighlightedKey] = useState<string | null>(null)
 	// In-memory for this session only, same as the mock's recentSearches.
 	const [recentSearches, setRecentSearches] = useState<string[]>([])
+	const [teamMatches, setTeamMatches] = useState<TeamOption[]>([])
+	const [playerMatches, setPlayerMatches] = useState<PlayerOption[]>([])
 	const wrapRef = useRef<HTMLDivElement>(null)
 
 	const query = inputValue.trim().toLowerCase()
 
-	const teamMatches = useMemo(
-		() =>
-			query === ""
-				? []
-				: teams
-						.filter(
-							(team) =>
-								team.name.toLowerCase().includes(query) ||
-								team.abbreviation.toLowerCase().includes(query),
-						)
-						.slice(0, MAX_SUGGESTIONS),
-		[teams, query],
-	)
-
-	const playerMatches = useMemo(
-		() =>
-			query === ""
-				? []
-				: players
-						.filter((player) => player.name.toLowerCase().includes(query))
-						.slice(0, MAX_SUGGESTIONS),
-		[players, query],
-	)
+	// Neither list is fetched up front anymore - that used to mean shipping
+	// the entire teams and players tables (92 and 4,776 rows) to every /home
+	// visit just to filter them in the browser; players alone was what was
+	// pegging prod's CPU on every visit. This debounces a bounded server-side
+	// search instead, same typeahead shape as the game picker on the
+	// create-question form, and only runs once someone actually types.
+	useEffect(() => {
+		if (query === "") {
+			setTeamMatches([])
+			setPlayerMatches([])
+			return
+		}
+		let cancelled = false
+		const timer = setTimeout(() => {
+			client
+				.query({
+					query: HomeSearchDocument,
+					variables: { search: query },
+					fetchPolicy: "network-only",
+				})
+				.then(({ data }) => {
+					if (cancelled) return
+					setTeamMatches(data?.teams ?? [])
+					setPlayerMatches(data?.players ?? [])
+				})
+		}, 200)
+		return () => {
+			cancelled = true
+			clearTimeout(timer)
+		}
+	}, [client, query])
 
 	// Keyboard-navigable order: pinned free-text option first, then teams, then
 	// players, when there's a query - just the recent list otherwise.
