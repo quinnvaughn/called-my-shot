@@ -17,6 +17,7 @@ import {
 	resetAnalytics,
 	trackPageview,
 } from "#/lib/analytics"
+import fontsCss from "../fonts.css?url"
 import type { RouterContext } from "../router-context"
 import appCss from "../styles.css?url"
 
@@ -102,13 +103,13 @@ export const Route = createRootRouteWithContext<RouterContext>()({
 			},
 		],
 		links: [
-			{
-				rel: "preconnect",
-				href: "https://fonts.googleapis.com",
-			},
+			// Archivo Black / Space Mono / Inter, self-hosted from public/fonts/
+			// (see src/fonts.css) instead of fonts.googleapis.com - removes two
+			// cross-origin round trips (CSS host + font-file host) from the
+			// render-blocking path on first paint.
 			{
 				rel: "stylesheet",
-				href: "https://fonts.googleapis.com/css2?family=Archivo+Black&family=Space+Mono:wght@400;700&family=Inter:wght@400;500;600;700&display=swap",
+				href: fontsCss,
 			},
 			{
 				rel: "stylesheet",

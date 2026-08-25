@@ -1,6 +1,7 @@
 import type { ImgHTMLAttributes } from "react"
 import { cva, cx } from "styled-system/css"
 import type { RecipeVariantProps } from "styled-system/types"
+import logoUrl from "#/assets/logo.svg?url"
 
 const brandRecipe = cva({
 	base: {
@@ -26,7 +27,7 @@ type BrandProps = Omit<ImgHTMLAttributes<HTMLImageElement>, "src" | "alt"> &
 export function Brand({ size, className, ...props }: BrandProps) {
 	return (
 		<img
-			src="/logo.svg"
+			src={logoUrl}
 			alt="Called My Shot"
 			className={cx(brandRecipe({ size }), className)}
 			{...props}
