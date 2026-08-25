@@ -2,6 +2,9 @@ import { drizzle } from "drizzle-orm/node-postgres"
 import { env } from "../env"
 import { relations } from "./relations"
 
+// How many connections warmPool() opens at boot - see its own comment below.
+const WARM_CONNECTIONS = 5
+
 export const db = drizzle({
 	connection: {
 		connectionString: env.DATABASE_URL,
@@ -19,22 +22,39 @@ export const db = drizzle({
 		// up to 10,000 client connections and was sitting near-idle, so
 		// there's plenty of headroom to raise this.
 		max: 30,
-		// node-postgres's pg-pool defaults to min: 0 and idleTimeoutMillis:
-		// 10_000 - every connection gets torn down 10s after going idle, and
-		// the pool only opens new ones on demand. A single page load fans out
-		// into ~8-10 concurrent queries (see max's comment above); with zero
-		// warm connections between requests, every one of those has to pay a
-		// fresh TCP+TLS handshake to Neon (full cert-chain verification, per
-		// the verify-full SSL mode) before it can even run. That cost showed
-		// up as ~70-250ms per field in Apollo's own field-timing trace despite
+		// node-postgres's pg-pool defaults to idleTimeoutMillis: 10_000 - every
+		// connection gets torn down 10s after going idle, and the pool only
+		// opens new ones on demand. A single page load fans out into ~8-10
+		// concurrent queries (see max's comment above); with zero warm
+		// connections between requests, every one of those has to pay a fresh
+		// TCP+TLS handshake to Neon (full cert-chain verification, per the
+		// verify-full SSL mode) before it can even run. That cost showed up as
+		// ~70-250ms per field in Apollo's own field-timing trace despite
 		// Query.questions - the actual query - taking under 10ms, and doesn't
 		// show up anywhere in Neon's query monitoring since it's a connection-
-		// level cost, not a query-level one. Keeping a handful of connections
-		// permanently warm (min) and giving idle ones much longer to live
-		// (idleTimeoutMillis) means most requests reuse an already-established
-		// connection instead of paying handshake cost on the hot path.
-		min: 5,
-		idleTimeoutMillis: 300_000,
+		// level cost, not a query-level one. 0 disables the idle timeout so a
+		// connection, once opened, stays in the pool rather than getting
+		// closed and having to be renegotiated on the next request. pg-pool
+		// has a `min` option, but it only protects already-open idle
+		// connections from eviction - it never opens any itself - so it's
+		// useless without something to actually open them eagerly. See
+		// warmPool() below for that part.
+		idleTimeoutMillis: 0,
 	},
 	relations,
 })
+
+// See idleTimeoutMillis's comment above: left alone, the pool starts at zero
+// and the first burst of traffic after every deploy/restart pays full TCP+TLS
+// handshake cost for each connection it needs. Opening WARM_CONNECTIONS
+// connections here, before any real request arrives, moves that cost to boot
+// time instead of the first user's page load.
+async function warmPool() {
+	const client = db.$client
+	await Promise.all(
+		Array.from({ length: WARM_CONNECTIONS }, () =>
+			client.connect().then((c) => c.release()),
+		),
+	)
+}
+void warmPool()
