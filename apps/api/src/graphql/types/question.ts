@@ -205,6 +205,92 @@ const CallResolutionStatus = builder.enumType("CallResolutionStatus", {
 	},
 })
 
+// fieldPct below used to run two unbatched findMany calls per option (its own
+// selection count, its question's total call count) - a feed page of ~10
+// questions with a few options apiece turns that into dozens of sequential
+// round trips for one field, the same shape of bug as questionLeagueIdLoaders
+// further down. Grouped COUNT queries, one per request per side, instead.
+const optionSelectionCountLoaders = new WeakMap<
+	Context,
+	DataLoader<string, number>
+>()
+function getOptionSelectionCountLoader(ctx: Context) {
+	let loader = optionSelectionCountLoaders.get(ctx)
+	if (!loader) {
+		loader = new DataLoader<string, number>(async (optionIds) => {
+			const ids = [...optionIds]
+			const rows = await db
+				.select({ optionId: callSelections.optionId, n: count() })
+				.from(callSelections)
+				.where(inArray(callSelections.optionId, ids))
+				.groupBy(callSelections.optionId)
+			const countByOption = new Map(rows.map((r) => [r.optionId, r.n]))
+			return ids.map((id) => countByOption.get(id) ?? 0)
+		})
+		optionSelectionCountLoaders.set(ctx, loader)
+	}
+	return loader
+}
+
+const questionCallCountLoaders = new WeakMap<
+	Context,
+	DataLoader<string, number>
+>()
+function getQuestionCallCountLoader(ctx: Context) {
+	let loader = questionCallCountLoaders.get(ctx)
+	if (!loader) {
+		loader = new DataLoader<string, number>(async (questionIds) => {
+			const ids = [...questionIds]
+			const rows = await db
+				.select({ questionId: calls.questionId, n: count() })
+				.from(calls)
+				.where(inArray(calls.questionId, ids))
+				.groupBy(calls.questionId)
+			const countByQuestion = new Map(rows.map((r) => [r.questionId, r.n]))
+			return ids.map((id) => countByQuestion.get(id) ?? 0)
+		})
+		questionCallCountLoaders.set(ctx, loader)
+	}
+	return loader
+}
+
+// averageGuess/numericHitRatePct/guessDistribution below all used to run
+// their own unbatched db.query.calls.findMany per question (every one of
+// them, unconditionally - even for shapes where the fields end up null),
+// each a duplicate fetch of the same rows. One batched, grouped query per
+// request instead, shared by all three.
+const questionGuessCallsLoaders = new WeakMap<
+	Context,
+	DataLoader<
+		string,
+		{ guessValue: number | null; hitTolerance: boolean | null }[]
+	>
+>()
+function getQuestionGuessCallsLoader(ctx: Context) {
+	let loader = questionGuessCallsLoaders.get(ctx)
+	if (!loader) {
+		loader = new DataLoader(async (questionIds) => {
+			const ids = [...questionIds]
+			const rows = await db.query.calls.findMany({
+				where: { questionId: { in: ids } },
+				columns: { questionId: true, guessValue: true, hitTolerance: true },
+			})
+			const byQuestion = new Map<string, typeof rows>()
+			for (const row of rows) {
+				const list = byQuestion.get(row.questionId)
+				if (list) {
+					list.push(row)
+				} else {
+					byQuestion.set(row.questionId, [row])
+				}
+			}
+			return ids.map((id) => byQuestion.get(id) ?? [])
+		})
+		questionGuessCallsLoaders.set(ctx, loader)
+	}
+	return loader
+}
+
 export const QuestionOptionRef = builder.drizzleObject("questionOptions", {
 	name: "QuestionOption",
 	fields: (t) => ({
@@ -224,19 +310,13 @@ export const QuestionOptionRef = builder.drizzleObject("questionOptions", {
 		fieldPct: t.field({
 			type: "Float",
 			nullable: true,
-			resolve: async (option) => {
-				const [selections, questionCalls] = await Promise.all([
-					db.query.callSelections.findMany({
-						where: { optionId: option.id },
-						columns: { id: true },
-					}),
-					db.query.calls.findMany({
-						where: { questionId: option.questionId },
-						columns: { id: true },
-					}),
+			resolve: async (option, _args, ctx) => {
+				const [selectionCount, questionCallCount] = await Promise.all([
+					getOptionSelectionCountLoader(ctx).load(option.id),
+					getQuestionCallCountLoader(ctx).load(option.questionId),
 				])
-				if (questionCalls.length === 0) return null
-				return fieldPct(selections.length, questionCalls.length)
+				if (questionCallCount === 0) return null
+				return fieldPct(selectionCount, questionCallCount)
 			},
 		}),
 	}),
@@ -671,11 +751,8 @@ export const QuestionRef = builder.drizzleObject("questions", {
 		averageGuess: t.field({
 			type: "Float",
 			nullable: true,
-			resolve: async (question) => {
-				const calls = await db.query.calls.findMany({
-					where: { questionId: question.id },
-					columns: { guessValue: true },
-				})
+			resolve: async (question, _args, ctx) => {
+				const calls = await getQuestionGuessCallsLoader(ctx).load(question.id)
 				const guesses = calls
 					.map((call) => call.guessValue)
 					.filter((value): value is number => value !== null)
@@ -692,11 +769,8 @@ export const QuestionRef = builder.drizzleObject("questions", {
 		numericHitRatePct: t.field({
 			type: "Float",
 			nullable: true,
-			resolve: async (question) => {
-				const calls = await db.query.calls.findMany({
-					where: { questionId: question.id },
-					columns: { hitTolerance: true },
-				})
+			resolve: async (question, _args, ctx) => {
+				const calls = await getQuestionGuessCallsLoader(ctx).load(question.id)
 				const scored = calls.filter(
 					(call): call is typeof call & { hitTolerance: boolean } =>
 						call.hitTolerance !== null,
@@ -831,16 +905,15 @@ export const QuestionRef = builder.drizzleObject("questions", {
 		// attributed to any one caller.
 		guessDistribution: t.field({
 			type: [GuessBucketRef],
-			resolve: async (question) => {
+			resolve: async (question, _args, ctx) => {
 				if (
 					question.shape !== "player_stat_numeric_guess" &&
 					question.shape !== "team_stat_numeric_guess"
 				)
 					return []
-				const guessCalls = await db.query.calls.findMany({
-					where: { questionId: question.id },
-					columns: { guessValue: true },
-				})
+				const guessCalls = await getQuestionGuessCallsLoader(ctx).load(
+					question.id,
+				)
 				const bucketWidth = question.numericToleranceAbsolute ?? 1
 				const counts = new Map<number, number>()
 				for (const call of guessCalls) {
