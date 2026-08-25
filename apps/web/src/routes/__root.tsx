@@ -17,13 +17,16 @@ import {
 	resetAnalytics,
 	trackPageview,
 } from "#/lib/analytics"
+import { timed } from "#/lib/server-timing"
 import fontsCss from "../fonts.css?url"
 import type { RouterContext } from "../router-context"
 import appCss from "../styles.css?url"
 
 export const Route = createRootRouteWithContext<RouterContext>()({
 	beforeLoad: async ({ context }) => {
-		const { data } = await context.apolloClient.query({ query: MeDocument })
+		const { data } = await timed("me", "Me query (root beforeLoad)", () =>
+			context.apolloClient.query({ query: MeDocument }),
+		)
 		return { me: data?.me ?? null }
 	},
 	head: () => ({
