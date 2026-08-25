@@ -3,14 +3,13 @@ import { VStack } from "styled-system/jsx"
 import { HomeFeed } from "#/components/home/home-feed"
 import { PageHeader } from "#/components/ui/page-header"
 import { HomePageDocument } from "#/graphql/queries/home"
-import { timed } from "#/lib/server-timing"
 
 export const Route = createFileRoute("/_app/_authed/home")({
 	component: RouteComponent,
 	loader: async ({ context }) => {
-		const { data } = await timed("home-query", "HomePage query (loader)", () =>
-			context.apolloClient.query({ query: HomePageDocument }),
-		)
+		const { data } = await context.apolloClient.query({
+			query: HomePageDocument,
+		})
 		return {
 			leagues: data?.leagues ?? [],
 			items: data?.questions.items ?? [],

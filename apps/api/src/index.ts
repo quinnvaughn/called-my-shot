@@ -8,7 +8,6 @@ import express from "express"
 import { env } from "./env"
 import { createContext } from "./graphql/context"
 import { schema } from "./graphql/schema"
-import { timingPlugin } from "./graphql/timing-plugin"
 import { registerShareRoutes } from "./routes/share"
 
 const app = express()
@@ -16,7 +15,7 @@ const httpServer = http.createServer(app)
 
 const server = new ApolloServer({
 	schema,
-	plugins: [ApolloServerPluginDrainHttpServer({ httpServer }), timingPlugin],
+	plugins: [ApolloServerPluginDrainHttpServer({ httpServer })],
 })
 
 await server.start()
