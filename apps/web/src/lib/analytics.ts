@@ -85,6 +85,13 @@ export function track<E extends keyof AnalyticsEvents>(
 	posthog.capture(event as string, properties)
 }
 
+export function trackPageview(path: string) {
+	if (!initialized) return
+	posthog.capture("$pageview", {
+		$current_url: `${window.location.origin}${path}`,
+	})
+}
+
 export function identifyUser(user: { id: string; email?: string | null }) {
 	if (!initialized) return
 	posthog.identify(user.id, user.email ? { email: user.email } : undefined)

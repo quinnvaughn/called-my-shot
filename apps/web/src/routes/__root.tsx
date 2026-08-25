@@ -4,6 +4,7 @@ import {
 	createRootRouteWithContext,
 	HeadContent,
 	Scripts,
+	useRouterState,
 } from "@tanstack/react-router"
 import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools"
 import { useEffect } from "react"
@@ -14,6 +15,7 @@ import {
 	identifyUser,
 	initAnalytics,
 	resetAnalytics,
+	trackPageview,
 } from "#/lib/analytics"
 import type { RouterContext } from "../router-context"
 import appCss from "../styles.css?url"
@@ -147,6 +149,14 @@ function RootDocument({ children }: { children: React.ReactNode }) {
 			resetAnalytics()
 		}
 	}, [me])
+
+	const pathname = useRouterState({
+		select: (state) => state.location.pathname + state.location.search,
+	})
+
+	useEffect(() => {
+		trackPageview(pathname)
+	}, [pathname])
 
 	return (
 		<html lang="en">
