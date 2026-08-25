@@ -4,6 +4,7 @@ import {
 	generateQuestionTitle,
 } from "@called-my-shot/schemas"
 import { useNavigate, useRouter } from "@tanstack/react-router"
+import { DateTime } from "luxon"
 import type { ReactNode } from "react"
 import { useEffect, useMemo, useState } from "react"
 import { css, cx } from "styled-system/css"
@@ -11,6 +12,7 @@ import { HStack, VStack } from "styled-system/jsx"
 import { match } from "ts-pattern"
 import { Button } from "#/components/ui/button"
 import { Card } from "#/components/ui/card"
+import { DATE_TIME_PICKER_VALUE_FORMAT } from "#/components/ui/date-time-picker"
 import { FieldHint } from "#/components/ui/field-hint"
 import { FieldLabel } from "#/components/ui/field-label"
 import { FormError } from "#/components/ui/form-error"
@@ -217,7 +219,16 @@ export function CreateQuestionForm({ sports, isAdmin }: Props) {
 						gameId: values.gameId,
 						resolutionSource: values.resolutionSource,
 						resolutionSourceUrl: values.resolutionSourceUrl || undefined,
-						locksAt: values.locksAt,
+						// values.locksAt is a naive "yyyy-MM-dd'T'HH:mm" string with no
+						// offset - the picker's clock is always the browser's own, so
+						// converting it to UTC has to happen here, in that same
+						// timezone, rather than trusting the API to guess (it can't -
+						// it has no idea what timezone the creator meant).
+						locksAt:
+							DateTime.fromFormat(
+								values.locksAt,
+								DATE_TIME_PICKER_VALUE_FORMAT,
+							).toUTC().toISO() ?? values.locksAt,
 						isOfficial: values.isOfficial,
 						options: values.options.map((option) => ({
 							label: option.label,
