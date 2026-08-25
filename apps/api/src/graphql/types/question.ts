@@ -17,6 +17,7 @@ import {
 	selectionPoints,
 	type ToleranceSpec,
 } from "@called-my-shot/scoring"
+import DataLoader from "dataloader"
 import {
 	and,
 	asc,
@@ -90,6 +91,7 @@ import {
 	type LeagueStatDelta,
 } from "../../lib/user-season-stats"
 import { builder } from "../builder"
+import type { Context } from "../context"
 import { PageInfoRef } from "./pagination"
 
 type Connection<T> = {
@@ -275,6 +277,33 @@ async function seasonGamesInWindow(call: Call) {
 		)
 }
 
+// callerLeagueAccuracy below used to run its own db.query.questions.findFirst
+// per call just to read that call's question's leagueId - unbatched, same
+// shape as the canViewerSeePick N+1 (lib/call-visibility.ts), just simpler:
+// this fact has no viewer dependency at all, so it's a plain per-request
+// batch keyed by questionId rather than needing a viewer-scoped cache.
+const questionLeagueIdLoaders = new WeakMap<
+	Context,
+	DataLoader<string, string | undefined>
+>()
+
+function getQuestionLeagueIdLoader(ctx: Context) {
+	let loader = questionLeagueIdLoaders.get(ctx)
+	if (!loader) {
+		loader = new DataLoader<string, string | undefined>(async (questionIds) => {
+			const ids = [...questionIds]
+			const rows = await db.query.questions.findMany({
+				where: { id: { in: ids } },
+				columns: { id: true, leagueId: true },
+			})
+			const leagueIdById = new Map(rows.map((q) => [q.id, q.leagueId]))
+			return ids.map((id) => leagueIdById.get(id))
+		})
+		questionLeagueIdLoaders.set(ctx, loader)
+	}
+	return loader
+}
+
 export const CallRef = builder.drizzleObject("calls", {
 	name: "Call",
 	fields: (t) => ({
@@ -288,34 +317,26 @@ export const CallRef = builder.drizzleObject("calls", {
 			type: "String",
 			nullable: true,
 			resolve: async (call, _args, ctx) =>
-				(await canViewerSeePick(call, ctx.user?.id ?? null))
-					? call.caseText
-					: null,
+				(await canViewerSeePick(call, ctx)) ? call.caseText : null,
 		}),
 		// numeric_guess only - everything else scores through selections
 		guessValue: t.field({
 			type: "Float",
 			nullable: true,
 			resolve: async (call, _args, ctx) =>
-				(await canViewerSeePick(call, ctx.user?.id ?? null))
-					? call.guessValue
-					: null,
+				(await canViewerSeePick(call, ctx)) ? call.guessValue : null,
 		}),
 		conviction: t.field({
 			type: "Int",
 			nullable: true,
 			resolve: async (call, _args, ctx) =>
-				(await canViewerSeePick(call, ctx.user?.id ?? null))
-					? call.conviction
-					: null,
+				(await canViewerSeePick(call, ctx)) ? call.conviction : null,
 		}),
 		hitTolerance: t.field({
 			type: "Boolean",
 			nullable: true,
 			resolve: async (call, _args, ctx) =>
-				(await canViewerSeePick(call, ctx.user?.id ?? null))
-					? call.hitTolerance
-					: null,
+				(await canViewerSeePick(call, ctx)) ? call.hitTolerance : null,
 		}),
 		// numeric_guess only - the actual closeness multiplier (see
 		// numericGuessPoints/TIER_MIN_MULT/TIER_MAX_MULT in
@@ -325,9 +346,7 @@ export const CallRef = builder.drizzleObject("calls", {
 			type: "Float",
 			nullable: true,
 			resolve: async (call, _args, ctx) =>
-				(await canViewerSeePick(call, ctx.user?.id ?? null))
-					? call.closenessMult
-					: null,
+				(await canViewerSeePick(call, ctx)) ? call.closenessMult : null,
 		}),
 		// numeric_guess only - what % of the whole field (not just other
 		// hitters) guessed at least as close to the actual value as this call
@@ -339,9 +358,7 @@ export const CallRef = builder.drizzleObject("calls", {
 			type: "Float",
 			nullable: true,
 			resolve: async (call, _args, ctx) =>
-				(await canViewerSeePick(call, ctx.user?.id ?? null))
-					? call.closenessFieldPct
-					: null,
+				(await canViewerSeePick(call, ctx)) ? call.closenessFieldPct : null,
 		}),
 		createdAt: t.field({
 			type: "String",
@@ -424,15 +441,14 @@ export const CallRef = builder.drizzleObject("calls", {
 		callerLeagueAccuracy: t.field({
 			type: "Float",
 			nullable: true,
-			resolve: async (call) => {
-				const question = await db.query.questions.findFirst({
-					where: { id: call.questionId },
-					columns: { leagueId: true },
-				})
-				if (!question) return null
+			resolve: async (call, _args, ctx) => {
+				const leagueId = await getQuestionLeagueIdLoader(ctx).load(
+					call.questionId,
+				)
+				if (!leagueId) return null
 				const agg = await aggregatePointsByUser({
 					userIds: [call.userId],
-					leagueId: question.leagueId,
+					leagueId,
 				})
 				const summary = agg.get(call.userId)
 				return summary ? accuracyFrom(summary) : null
@@ -441,7 +457,7 @@ export const CallRef = builder.drizzleObject("calls", {
 		selections: t.field({
 			type: [CallSelectionRef],
 			resolve: async (call, _args, ctx) => {
-				if (!(await canViewerSeePick(call, ctx.user?.id ?? null))) return []
+				if (!(await canViewerSeePick(call, ctx))) return []
 				return db.query.callSelections.findMany({ where: { callId: call.id } })
 			},
 		}),
@@ -452,8 +468,7 @@ export const CallRef = builder.drizzleObject("calls", {
 		// shape for an unresolved call).
 		viewerCanSeePick: t.field({
 			type: "Boolean",
-			resolve: (call, _args, ctx) =>
-				canViewerSeePick(call, ctx.user?.id ?? null),
+			resolve: (call, _args, ctx) => canViewerSeePick(call, ctx),
 		}),
 		// numeric_guess scores off its own resultPoints column above; every other
 		// type sums across its selections. Null while any of those are pending.
@@ -842,15 +857,30 @@ export const QuestionRef = builder.drizzleObject("questions", {
 			},
 		}),
 
-		viewerCall: t.field({
+		// Dataloader-backed rather than a plain findFirst per question - a list
+		// of N questions (the home feed, my-calls, group tabs, ...) used to
+		// fire N separate queries for this one field alone. Invisible when
+		// signed out (ctx.user null short-circuits before any query), which is
+		// exactly why it went unnoticed - every anonymous/dev-scale test of
+		// these lists looked fine. load() batches the whole page's questionIds
+		// into a single `IN (...)` query per request.
+		viewerCall: t.loadable({
 			type: CallRef,
 			nullable: true,
-			resolve: (question, _args, ctx) => {
-				if (!ctx.user) return null
-				return db.query.calls.findFirst({
-					where: { questionId: question.id, userId: ctx.user.id },
+			load: async (questionIds: string[], ctx) => {
+				if (!ctx.user) return questionIds.map(() => null)
+				const found = await db.query.calls.findMany({
+					where: {
+						questionId: { in: questionIds },
+						userId: ctx.user.id,
+					},
 				})
+				const byQuestionId = new Map(
+					found.map((call) => [call.questionId, call]),
+				)
+				return questionIds.map((id) => byQuestionId.get(id) ?? null)
 			},
+			resolve: (question) => question.id,
 		}),
 
 		viewerDispute: t.field({

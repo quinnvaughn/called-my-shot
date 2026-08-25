@@ -1,4 +1,5 @@
 import SchemaBuilder from "@pothos/core"
+import DataloaderPlugin from "@pothos/plugin-dataloader"
 import DrizzlePlugin from "@pothos/plugin-drizzle"
 import ErrorsPlugin from "@pothos/plugin-errors"
 import { getTableConfig } from "drizzle-orm/pg-core"
@@ -14,7 +15,7 @@ export interface PothosTypes {
 }
 
 export const builder = new SchemaBuilder<PothosTypes>({
-	plugins: [DrizzlePlugin, ErrorsPlugin],
+	plugins: [DrizzlePlugin, ErrorsPlugin, DataloaderPlugin],
 	defaultFieldNullability: false,
 	drizzle: {
 		client: db,
