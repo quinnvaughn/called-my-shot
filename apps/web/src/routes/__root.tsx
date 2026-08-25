@@ -150,13 +150,13 @@ function RootDocument({ children }: { children: React.ReactNode }) {
 		}
 	}, [me])
 
-	const pathname = useRouterState({
-		select: (state) => state.location.pathname + state.location.search,
+	const locationHref = useRouterState({
+		select: (state) => state.location.href,
 	})
 
 	useEffect(() => {
-		trackPageview(pathname)
-	}, [pathname])
+		trackPageview(locationHref)
+	}, [locationHref])
 
 	return (
 		<html lang="en">
