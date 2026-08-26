@@ -14,6 +14,7 @@ import { NotFound } from "#/components/ui/not-found"
 import { PageHeader } from "#/components/ui/page-header"
 import { Tabs } from "#/components/ui/tabs"
 import { GroupDetailDocument } from "#/graphql/generated/graphql"
+import { pluralize } from "#/lib/pluralize"
 import { openModal } from "#/stores/modal-store"
 
 export const Route = createFileRoute("/_app/_authed/groups/$groupId")({
@@ -53,7 +54,7 @@ function RouteComponent() {
 		<VStack alignItems="stretch" gap="6">
 			<PageHeader
 				title={group.name}
-				subtitle={`${group.memberCount} members`}
+				subtitle={`${group.memberCount} ${pluralize(group.memberCount, "member")}`}
 				action={
 					<Button
 						size="sm"

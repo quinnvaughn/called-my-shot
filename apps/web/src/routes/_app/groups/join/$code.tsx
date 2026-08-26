@@ -12,6 +12,7 @@ import { JoinGroupByCodeDocument } from "#/graphql/generated/graphql"
 import { GroupPreviewDocument } from "#/graphql/queries/groups"
 import { useRequireAuth } from "#/hooks/use-require-auth"
 import { track } from "#/lib/analytics"
+import { pluralize } from "#/lib/pluralize"
 
 // Public - unauthed visitors land here from an invite link and need to see
 // the group before we ask them to sign up, so this route sits outside
@@ -98,7 +99,8 @@ function RouteComponent() {
 					color: "fg.muted",
 				})}
 			>
-				{preview.memberCount} members · invited by {preview.invitedBy.name} (@
+				{preview.memberCount} {pluralize(preview.memberCount, "member")} · invited by{" "}
+				{preview.invitedBy.name} (@
 				{preview.invitedBy.username})
 			</p>
 			<Card size="sm">
