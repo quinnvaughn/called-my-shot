@@ -27,6 +27,27 @@ export const Route = createFileRoute("/_app/groups/join/$code")({
 
 		return { preview: data?.groupPreview ?? null }
 	},
+	head: ({ loaderData, params }) => {
+		const preview = loaderData?.preview
+		if (!preview) return {}
+
+		const title = `Join ${preview.name} on Called My Shot`
+		const description = `${preview.invitedBy.name} invited you to join ${preview.name} - ${preview.memberCount} ${pluralize(preview.memberCount, "member")} already calling their shots.`
+		const url = `https://calledmyshot.com/groups/join/${params.code}`
+
+		return {
+			meta: [
+				{ title },
+				{ name: "description", content: description },
+				{ property: "og:title", content: title },
+				{ property: "og:description", content: description },
+				{ property: "og:url", content: url },
+				{ name: "twitter:title", content: title },
+				{ name: "twitter:description", content: description },
+				{ name: "twitter:url", content: url },
+			],
+		}
+	},
 })
 
 function RouteComponent() {
