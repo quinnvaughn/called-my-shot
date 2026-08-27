@@ -97,6 +97,20 @@ export async function syncTeams(config: SyncLeagueConfig): Promise<League> {
 	const conferenceDivisionByEspnId = buildConferenceDivisionMap(groups)
 
 	for (const espnTeam of espnTeams) {
+		// ESPN's teams list isn't always just the real franchises - verified
+		// live, it can include a non-league entry (e.g. an exhibition
+		// opponent like a EuroLeague club playing an NBA preseason game
+		// abroad) with no color, which the app has nothing sane to render.
+		// Skipped rather than crashing the whole run (which would also take
+		// down every league queued after this one in run.ts) - EspnTeam types
+		// color as required because every genuine franchise really does have
+		// one; this is ESPN's list being wrong, not our types being lax.
+		if (!espnTeam.color) {
+			console.warn(
+				`syncTeams: skipping ${espnTeam.id} (${espnTeam.displayName}) - no color, doesn't look like a real ${config.leagueName} team`,
+			)
+			continue
+		}
 		const conferenceDivision = conferenceDivisionByEspnId.get(espnTeam.id)
 		await db.transaction(async (tx) => {
 			const [row] = await tx

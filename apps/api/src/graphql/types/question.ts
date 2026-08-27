@@ -117,8 +117,8 @@ export const QuestionShape = builder.enumType("QuestionShape", {
 		TEAM_STAT_NUMERIC_GUESS: { value: "team_stat_numeric_guess" },
 		PLAYER_VS_PLAYER: { value: "player_vs_player" },
 		PLAYER_VS_PLAYER_SEASON: { value: "player_vs_player_season" },
-		TEAM_VS_TEAM: { value: "team_vs_team" },
 		YES_NO_PROP: { value: "yes_no_prop" },
+		TEAM_VS_TEAM: { value: "team_vs_team" },
 		PLAYER_SEASON_AWARD: { value: "player_season_award" },
 		TEAM_SEASON_AWARD: { value: "team_season_award" },
 		PLAYER_AWARD_FINALISTS: { value: "player_award_finalists" },
@@ -1055,11 +1055,12 @@ const AdminQueueSummaryRef = builder
 	})
 
 builder.queryFields((t) => ({
-	// The home feed. leagueId/teamId/search narrow the pool, sort picks the
-	// ordering - HOT (live call count, the default), NEW (createdAt), or
-	// CLOSING_SOON (soonest locksAt among still-open questions). teamId
-	// matches either the question's own subjectTeam or any team entered as one
-	// of its options (a championship field a team is competing in).
+	// The home feed. leagueId/teamId/search/isOfficial narrow the pool, sort
+	// picks the ordering - HOT (live call count, the default), NEW
+	// (createdAt), or CLOSING_SOON (soonest locksAt among still-open
+	// questions). teamId matches either the question's own subjectTeam or any
+	// team entered as one of its options (a championship field a team is
+	// competing in).
 	questions: t.field({
 		type: QuestionConnectionRef,
 		args: {
@@ -1071,6 +1072,12 @@ builder.queryFields((t) => ({
 			// Admin Questions tab only - every other caller of this field leaves it
 			// unset and gets every status, same as before this arg existed.
 			status: t.arg({ type: QuestionStatus, required: false }),
+			// Lets the home feed narrow to admin-curated content (synced
+			// team_vs_team questions, season awards) or exclude it - a plain
+			// boolean check (`args.isOfficial ?`) would treat isOfficial: false
+			// the same as "unset" and silently drop the "community only" half of
+			// the filter, so this checks for the arg actually being present.
+			isOfficial: t.arg.boolean({ required: false }),
 			sort: t.arg({ type: QuestionSortOrder, required: false }),
 		},
 		resolve: async (_root, args) => {
@@ -1081,6 +1088,9 @@ builder.queryFields((t) => ({
 			const conditions = [
 				args.leagueId ? eq(questions.leagueId, args.leagueId) : undefined,
 				args.status ? eq(questions.status, args.status) : undefined,
+				typeof args.isOfficial === "boolean"
+					? eq(questions.isOfficial, args.isOfficial)
+					: undefined,
 				args.teamId
 					? or(
 							eq(questions.subjectTeamId, args.teamId),
@@ -1152,7 +1162,20 @@ builder.queryFields((t) => ({
 
 			query =
 				sort === "new"
-					? query.orderBy(desc(questions.createdAt), desc(questions.id))
+					? // Second key is locksAt, not just id - a sync run can insert a
+						// whole batch (e.g. every game entering syncGameQuestions'
+						// creation window in one run - see apps/api/src/db/sync/
+						// sync-game-questions.ts) with createdAt values only
+						// microseconds apart, and id (random per row) wouldn't
+						// resolve that into anything sensible. locksAt ascending
+						// means a same-instant batch still reads soonest-first
+						// within itself, same "what's actually coming up" ordering
+						// CLOSING_SOON uses on its own.
+						query.orderBy(
+							desc(questions.createdAt),
+							asc(questions.locksAt),
+							desc(questions.id),
+						)
 					: sort === "closing_soon"
 						? query.orderBy(asc(questions.locksAt), desc(questions.id))
 						: query.orderBy(

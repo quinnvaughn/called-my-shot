@@ -24,8 +24,9 @@ export const questionShapeSchema = z.enum([
 	"team_stat_numeric_guess",
 	"player_vs_player",
 	"player_vs_player_season",
-	"team_vs_team",
 	"yes_no_prop",
+	// Admin-only shapes grouped at the end - see ADMIN_ONLY_SHAPES below.
+	"team_vs_team",
 	"player_season_award",
 	"team_season_award",
 	"player_award_finalists",
@@ -58,9 +59,13 @@ const AWARD_SHAPES = [
 // player_season_award/team_season_award/player_award_finalists only run -
 // there's no fixed nominee list to curate from (nobody knows next year's MVP
 // finalists yet), so these are always admin-authored, never a regular
-// creator's call. Enforced here (isOfficial must be true) and again by the
-// resolver's own admin-only authorization check on top.
-const ADMIN_ONLY_SHAPES = AWARD_SHAPES
+// creator's call. team_vs_team joins them for a different reason: it's
+// derived 1:1 from a synced game (see apps/api/src/db/sync/sync-games.ts),
+// so letting any creator post one risks duplicate matchup questions for the
+// same game - the sync job is what should create these, not creators.
+// Enforced here (isOfficial must be true) and again by the resolver's own
+// admin-only authorization check on top.
+const ADMIN_ONLY_SHAPES = [...AWARD_SHAPES, "team_vs_team"] as const
 
 // One flat object rather than a discriminated union on `shape` - a single
 // stable shape is what the create-question form's field bindings need, and

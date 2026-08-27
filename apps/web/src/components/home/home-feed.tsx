@@ -46,6 +46,10 @@ export function HomeFeed({
 	const [leagueId, setLeagueId] = useState<string | null>(null)
 	const [activeFilter, setActiveFilter] = useState<ActiveFilter | null>(null)
 	const [sort, setSort] = useState<QuestionSortOrder>("HOT")
+	// Off by default (shows everything) - flipping it filters down to
+	// admin-curated content only (synced team_vs_team questions, season
+	// awards), same isOfficial the create-question form gates to admins.
+	const [officialOnly, setOfficialOnly] = useState(false)
 
 	const search = activeFilter?.kind === "search" ? activeFilter.term : null
 	const teamId = activeFilter?.kind === "team" ? activeFilter.team.id : null
@@ -71,6 +75,7 @@ export function HomeFeed({
 					leagueId,
 					teamId,
 					search,
+					isOfficial: officialOnly ? true : null,
 					sort,
 				},
 				fetchPolicy: "network-only",
@@ -88,7 +93,7 @@ export function HomeFeed({
 		return () => {
 			cancelled = true
 		}
-	}, [client, leagueId, teamId, search, sort])
+	}, [client, leagueId, teamId, search, officialOnly, sort])
 
 	async function loadMore() {
 		if (loading || !pageInfo.hasNextPage || !pageInfo.endCursor) return
@@ -102,6 +107,7 @@ export function HomeFeed({
 					leagueId,
 					teamId,
 					search,
+					isOfficial: officialOnly ? true : null,
 					sort,
 				},
 				fetchPolicy: "network-only",
@@ -158,6 +164,16 @@ export function HomeFeed({
 					<Tabs.Trigger value="HOT">Hot</Tabs.Trigger>
 					<Tabs.Trigger value="NEW">New</Tabs.Trigger>
 					<Tabs.Trigger value="CLOSING_SOON">Closing Soon</Tabs.Trigger>
+				</Tabs.List>
+			</Tabs>
+
+			<Tabs
+				value={officialOnly ? "official" : "all"}
+				onValueChange={(v) => setOfficialOnly(v === "official")}
+			>
+				<Tabs.List>
+					<Tabs.Trigger value="all">All</Tabs.Trigger>
+					<Tabs.Trigger value="official">Official</Tabs.Trigger>
 				</Tabs.List>
 			</Tabs>
 

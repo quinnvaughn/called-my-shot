@@ -60,9 +60,14 @@ export async function syncPlayers(
 			findRefEntityId(tx, "team", scopedSourceId(config.leagueSlug, espnTeam.id)),
 		)
 		if (!teamId) {
-			throw new Error(
-				`syncPlayers: no synced team found for ESPN team ${espnTeam.id} (${espnTeam.abbreviation}) - run syncTeams first`,
+			// Usually means syncTeams hasn't run yet for this league, but can
+			// also mean it ran and deliberately skipped this entry (e.g. a
+			// non-franchise team ESPN's list included with no color - see
+			// sync-teams.ts) - either way, nothing to attach a roster to.
+			console.warn(
+				`syncPlayers: no synced team found for ESPN team ${espnTeam.id} (${espnTeam.abbreviation}) - skipping its roster`,
 			)
+			continue
 		}
 		const roster = await fetchRoster(config.espnPath, espnTeam.id)
 		for (const athlete of roster) {

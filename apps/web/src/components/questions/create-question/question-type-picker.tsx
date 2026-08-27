@@ -19,12 +19,15 @@ function toEnumKey(value: QuestionShapeValue): QuestionShape {
 	return value.toUpperCase() as QuestionShape
 }
 
-// player_season_award/team_season_award/player_award_finalists can only ever
-// be posted as official (see ADMIN_ONLY_SHAPES in packages/schemas/src/
-// questions.ts) - there's no fixed nominee list to curate from, so these are
-// always admin-authored. Hidden from the picker entirely for a non-admin
-// rather than shown and left to fail validation on submit.
+// player_season_award/team_season_award/player_award_finalists/team_vs_team
+// can only ever be posted as official (see ADMIN_ONLY_SHAPES in
+// packages/schemas/src/questions.ts) - the award shapes have no fixed
+// nominee list to curate from, and team_vs_team is derived 1:1 from a synced
+// game, so a regular creator posting one risks a duplicate matchup question.
+// Hidden from the picker entirely for a non-admin rather than shown and left
+// to fail validation on submit.
 const ADMIN_ONLY_SHAPES: readonly QuestionShapeValue[] = [
+	"team_vs_team",
 	"player_season_award",
 	"team_season_award",
 	"player_award_finalists",

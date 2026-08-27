@@ -71,6 +71,7 @@ export const HomeFeedDocument = graphql(`
         $leagueId: ID
         $teamId: ID
         $search: String
+        $isOfficial: Boolean
         $sort: QuestionSortOrder
     ) {
         questions(
@@ -79,6 +80,7 @@ export const HomeFeedDocument = graphql(`
             leagueId: $leagueId
             teamId: $teamId
             search: $search
+            isOfficial: $isOfficial
             sort: $sort
         ) {
             items {

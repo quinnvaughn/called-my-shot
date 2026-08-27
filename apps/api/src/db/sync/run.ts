@@ -5,6 +5,12 @@ import { syncPlayers } from "./sync-players"
 import { syncSeasons } from "./sync-seasons"
 import { syncTeams } from "./sync-teams"
 
+// syncGameQuestions (./sync-game-questions.ts) intentionally isn't called
+// here - it auto-creates a team_vs_team question per synced game, but how
+// "games" work is being redesigned right now, so it's disconnected from the
+// pipeline until that lands. The module's still there, just not wired up -
+// see run.ts's git history for how it used to be called.
+
 async function main() {
 	for (const config of SYNCED_LEAGUES) {
 		console.log(`[sync] ${config.leagueName} teams...`)
