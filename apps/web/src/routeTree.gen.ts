@@ -35,6 +35,8 @@ import { Route as AppQuestionsQuestionIdRouteImport } from './routes/_app/questi
 import { Route as AppUserUsernameRouteImport } from './routes/_app/user/$username'
 import { Route as AdminDataIndexRouteImport } from './routes/admin/data/index'
 import { Route as AdminDataLeagueIdRouteImport } from './routes/admin/data/$leagueId'
+import { Route as AdminSlatesIndexRouteImport } from './routes/admin/slates/index'
+import { Route as AdminSlatesSlateIdRouteImport } from './routes/admin/slates/$slateId'
 import { Route as ShareCallsCallIdRouteImport } from './routes/share/calls/$callId'
 import { Route as ShareUsersUsernameRouteImport } from './routes/share/users/$username'
 import { Route as AppAuthedGroupsIndexRouteImport } from './routes/_app/_authed/groups/index'
@@ -174,6 +176,16 @@ const AdminDataLeagueIdRoute = AdminDataLeagueIdRouteImport.update({
   path: '/data/$leagueId',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminSlatesIndexRoute = AdminSlatesIndexRouteImport.update({
+  id: '/slates/',
+  path: '/slates/',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminSlatesSlateIdRoute = AdminSlatesSlateIdRouteImport.update({
+  id: '/slates/$slateId',
+  path: '/slates/$slateId',
+  getParentRoute: () => AdminRoute,
+} as any)
 const ShareCallsCallIdRoute = ShareCallsCallIdRouteImport.update({
   id: '/share/calls/$callId',
   path: '/share/calls/$callId',
@@ -251,9 +263,11 @@ export interface FileRoutesByFullPath {
   '/questions/$questionId': typeof AppQuestionsQuestionIdRoute
   '/user/$username': typeof AppUserUsernameRoute
   '/admin/data/$leagueId': typeof AdminDataLeagueIdRouteWithChildren
+  '/admin/slates/$slateId': typeof AdminSlatesSlateIdRoute
   '/share/calls/$callId': typeof ShareCallsCallIdRoute
   '/share/users/$username': typeof ShareUsersUsernameRoute
   '/admin/data/': typeof AdminDataIndexRoute
+  '/admin/slates/': typeof AdminSlatesIndexRoute
   '/groups/$groupId': typeof AppAuthedGroupsGroupIdRoute
   '/groups/join/$code': typeof AppGroupsJoinCodeRoute
   '/admin/data/$leagueId/games': typeof AdminDataLeagueIdGamesRoute
@@ -285,9 +299,11 @@ export interface FileRoutesByTo {
   '/support': typeof AppAuthedSupportRoute
   '/questions/$questionId': typeof AppQuestionsQuestionIdRoute
   '/user/$username': typeof AppUserUsernameRoute
+  '/admin/slates/$slateId': typeof AdminSlatesSlateIdRoute
   '/share/calls/$callId': typeof ShareCallsCallIdRoute
   '/share/users/$username': typeof ShareUsersUsernameRoute
   '/admin/data': typeof AdminDataIndexRoute
+  '/admin/slates': typeof AdminSlatesIndexRoute
   '/groups/$groupId': typeof AppAuthedGroupsGroupIdRoute
   '/groups/join/$code': typeof AppGroupsJoinCodeRoute
   '/admin/data/$leagueId/games': typeof AdminDataLeagueIdGamesRoute
@@ -324,9 +340,11 @@ export interface FileRoutesById {
   '/_app/questions/$questionId': typeof AppQuestionsQuestionIdRoute
   '/_app/user/$username': typeof AppUserUsernameRoute
   '/admin/data/$leagueId': typeof AdminDataLeagueIdRouteWithChildren
+  '/admin/slates/$slateId': typeof AdminSlatesSlateIdRoute
   '/share/calls/$callId': typeof ShareCallsCallIdRoute
   '/share/users/$username': typeof ShareUsersUsernameRoute
   '/admin/data/': typeof AdminDataIndexRoute
+  '/admin/slates/': typeof AdminSlatesIndexRoute
   '/_app/_authed/groups/$groupId': typeof AppAuthedGroupsGroupIdRoute
   '/_app/groups/join/$code': typeof AppGroupsJoinCodeRoute
   '/admin/data/$leagueId/games': typeof AdminDataLeagueIdGamesRoute
@@ -362,9 +380,11 @@ export interface FileRouteTypes {
     | '/questions/$questionId'
     | '/user/$username'
     | '/admin/data/$leagueId'
+    | '/admin/slates/$slateId'
     | '/share/calls/$callId'
     | '/share/users/$username'
     | '/admin/data/'
+    | '/admin/slates/'
     | '/groups/$groupId'
     | '/groups/join/$code'
     | '/admin/data/$leagueId/games'
@@ -396,9 +416,11 @@ export interface FileRouteTypes {
     | '/support'
     | '/questions/$questionId'
     | '/user/$username'
+    | '/admin/slates/$slateId'
     | '/share/calls/$callId'
     | '/share/users/$username'
     | '/admin/data'
+    | '/admin/slates'
     | '/groups/$groupId'
     | '/groups/join/$code'
     | '/admin/data/$leagueId/games'
@@ -434,9 +456,11 @@ export interface FileRouteTypes {
     | '/_app/questions/$questionId'
     | '/_app/user/$username'
     | '/admin/data/$leagueId'
+    | '/admin/slates/$slateId'
     | '/share/calls/$callId'
     | '/share/users/$username'
     | '/admin/data/'
+    | '/admin/slates/'
     | '/_app/_authed/groups/$groupId'
     | '/_app/groups/join/$code'
     | '/admin/data/$leagueId/games'
@@ -642,6 +666,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminDataLeagueIdRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/slates/': {
+      id: '/admin/slates/'
+      path: '/slates'
+      fullPath: '/admin/slates/'
+      preLoaderRoute: typeof AdminSlatesIndexRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/slates/$slateId': {
+      id: '/admin/slates/$slateId'
+      path: '/slates/$slateId'
+      fullPath: '/admin/slates/$slateId'
+      preLoaderRoute: typeof AdminSlatesSlateIdRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/share/calls/$callId': {
       id: '/share/calls/$callId'
       path: '/share/calls/$callId'
@@ -790,7 +828,9 @@ interface AdminRouteChildren {
   AdminUsersRoute: typeof AdminUsersRoute
   AdminIndexRoute: typeof AdminIndexRoute
   AdminDataLeagueIdRoute: typeof AdminDataLeagueIdRouteWithChildren
+  AdminSlatesSlateIdRoute: typeof AdminSlatesSlateIdRoute
   AdminDataIndexRoute: typeof AdminDataIndexRoute
+  AdminSlatesIndexRoute: typeof AdminSlatesIndexRoute
 }
 
 const AdminRouteChildren: AdminRouteChildren = {
@@ -801,7 +841,9 @@ const AdminRouteChildren: AdminRouteChildren = {
   AdminUsersRoute: AdminUsersRoute,
   AdminIndexRoute: AdminIndexRoute,
   AdminDataLeagueIdRoute: AdminDataLeagueIdRouteWithChildren,
+  AdminSlatesSlateIdRoute: AdminSlatesSlateIdRoute,
   AdminDataIndexRoute: AdminDataIndexRoute,
+  AdminSlatesIndexRoute: AdminSlatesIndexRoute,
 }
 
 const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)

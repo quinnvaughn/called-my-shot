@@ -102,6 +102,7 @@ export const QuestionDetailDocument = graphql(`
 			}
 			...CastCallForm_question
 			...ResolveQuestionModal_question
+			...SlateStrip_question
 		}
 	}
 `)

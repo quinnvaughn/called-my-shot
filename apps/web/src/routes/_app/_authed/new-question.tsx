@@ -12,6 +12,12 @@ import { ResendEmailChangeDocument } from "#/graphql/queries/user"
 
 export const Route = createFileRoute("/_app/_authed/new-question")({
 	component: RouteComponent,
+	// Set when arriving from the admin Slates builder's "+ New Question"
+	// button - locks the create-question form's slate field to this one
+	// rather than making the admin re-search for it (see slate-field.tsx).
+	validateSearch: (search: Record<string, unknown>): { slateId?: string } => ({
+		...(typeof search.slateId === "string" ? { slateId: search.slateId } : {}),
+	}),
 	loader: async ({ context }) => {
 		const { data } = await context.apolloClient.query({ query: SportsDocument })
 		return { sports: data?.sports ?? [] }
@@ -88,6 +94,7 @@ function SuspendedGate() {
 
 function RouteComponent() {
 	const { sports } = Route.useLoaderData()
+	const { slateId } = Route.useSearch()
 	const { me } = useRouteContext({ from: "__root__" })
 
 	return (
@@ -101,7 +108,11 @@ function RouteComponent() {
 			) : me && !me.questionCreationEnabled ? (
 				<SuspendedGate />
 			) : (
-				<CreateQuestionForm sports={sports} isAdmin={me?.isAdmin ?? false} />
+				<CreateQuestionForm
+					sports={sports}
+					isAdmin={me?.isAdmin ?? false}
+					lockedSlateId={slateId}
+				/>
 			)}
 		</VStack>
 	)

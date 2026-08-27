@@ -1,6 +1,7 @@
 export * from "./groups"
 export * from "./notifications"
 export * from "./questions"
+export * from "./slates"
 export * from "./sports"
 export * from "./support"
 export * from "./sync"

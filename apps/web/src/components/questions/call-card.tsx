@@ -65,6 +65,15 @@ export const CallCardFragment = graphql(`
 					color
 				}
 			}
+			slateMembership {
+				id
+				slate {
+					id
+					name
+					memberCount
+					viewerCalledCount
+				}
+			}
 		}
 		selections {
 			id
@@ -104,7 +113,10 @@ export function CallCard({ call: callProp }: CallCardProps) {
 				})}
 			>
 				<VStack gap="2.5" alignItems="stretch">
-					<QuestionSummaryHeader question={call.question} />
+					<QuestionSummaryHeader
+						question={call.question}
+						slateMembership={call.question.slateMembership}
+					/>
 					<CardRule />
 					{call.question.status === "DISPUTED" && <DisputedFlag />}
 					<PersonLine

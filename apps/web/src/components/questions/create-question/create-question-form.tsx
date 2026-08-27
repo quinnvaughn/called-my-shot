@@ -42,6 +42,7 @@ import { OptionList } from "./option-list"
 import { PoolSummary } from "./pool-summary"
 import { QuestionTypePicker } from "./question-type-picker"
 import { ResolutionFields } from "./resolution-fields"
+import { SlateField } from "./slate-field"
 import { StatPicker } from "./stat-picker"
 import { SubjectPicker } from "./subject-picker"
 
@@ -79,7 +80,9 @@ function multiSelectSummary(values: string[], emptyLabel: string): string {
 // the years-in-league MultiSelect below and the pool summary's scopeLabel, so
 // the two can't drift.
 function yearsInLeagueLabel(years: number): string {
-	return years === 0 ? "Rookie (0)" : `${years} ${years === 1 ? "year" : "years"}`
+	return years === 0
+		? "Rookie (0)"
+		: `${years} ${years === 1 ? "year" : "years"}`
 }
 
 function Section({
@@ -172,9 +175,12 @@ function StatAggregationField({ form }: { form: CreateQuestionFormApi }) {
 type Props = {
 	sports: SportsQuery["sports"]
 	isAdmin: boolean
+	// Set when arriving from the admin Slates builder's "+ New Question"
+	// button - see new-question.tsx's validateSearch.
+	lockedSlateId?: string
 }
 
-export function CreateQuestionForm({ sports, isAdmin }: Props) {
+export function CreateQuestionForm({ sports, isAdmin, lockedSlateId }: Props) {
 	const [hasSelectedType, setHasSelectedType] = useState(false)
 	const [titleEdited, setTitleEdited] = useState(false)
 	const [createQuestion] = useMutation(CreateQuestionDocument)
@@ -208,6 +214,7 @@ export function CreateQuestionForm({ sports, isAdmin }: Props) {
 			awardPositions: [],
 			awardSeasonsInLeague: [],
 			awardRookieOnly: false,
+			slate: undefined,
 		},
 		onSubmit: async (values, helpers) => {
 			const { data } = await createQuestion({
@@ -226,10 +233,9 @@ export function CreateQuestionForm({ sports, isAdmin }: Props) {
 						// timezone, rather than trusting the API to guess (it can't -
 						// it has no idea what timezone the creator meant).
 						locksAt:
-							DateTime.fromFormat(
-								values.locksAt,
-								DATE_TIME_PICKER_VALUE_FORMAT,
-							).toUTC().toISO() ?? values.locksAt,
+							DateTime.fromFormat(values.locksAt, DATE_TIME_PICKER_VALUE_FORMAT)
+								.toUTC()
+								.toISO() ?? values.locksAt,
 						isOfficial: values.isOfficial,
 						options: values.options.map((option) => ({
 							label: option.label,
@@ -252,6 +258,13 @@ export function CreateQuestionForm({ sports, isAdmin }: Props) {
 						awardPositions: values.awardPositions,
 						awardSeasonsInLeague: values.awardSeasonsInLeague,
 						awardRookieOnly: values.awardRookieOnly,
+						slate: values.slate
+							? {
+									slateId: values.slate.slateId,
+									label: values.slate.label,
+									slot: values.slate.slot || undefined,
+								}
+							: undefined,
 					},
 				},
 			})
@@ -314,6 +327,17 @@ export function CreateQuestionForm({ sports, isAdmin }: Props) {
 	const awardRookieOnly = form.useWatch("awardRookieOnly")
 	const eventClause = form.useWatch("eventClause")
 	const picksRequired = form.useWatch("picksRequired")
+	// Reads the whole `slate` value rather than a dotted "slate.slateId" path -
+	// see slate-field.tsx's comment on why nested paths under this optional
+	// object don't type-check correctly with this form hook.
+	const slateId = form.useWatch("slate")?.slateId
+
+	// A slate question is always official (see createQuestionSchema's
+	// superRefine) - forced the moment a slate is picked rather than left for
+	// the admin to remember to also flip the toggle.
+	useEffect(() => {
+		if (slateId) form.setValue("isOfficial", true)
+	}, [slateId, form])
 
 	const { data: teamsData } = useQuery(TeamsByLeagueDocument, {
 		variables: { leagueId },
@@ -671,10 +695,7 @@ export function CreateQuestionForm({ sports, isAdmin }: Props) {
 
 	const titlePreview: string | null = match(shape)
 		.with("player_stat_over_under", (s) =>
-			selectedPlayerName &&
-			statName &&
-			ouLine !== undefined &&
-			opponentTeamName
+			selectedPlayerName && statName && ouLine !== undefined && opponentTeamName
 				? generateQuestionTitle({
 						shape: s,
 						playerName: selectedPlayerName,
@@ -980,7 +1001,9 @@ export function CreateQuestionForm({ sports, isAdmin }: Props) {
 												exactCount={2}
 												rowLabels={["Player A", "Player B"]}
 											/>
-											<p className={css({ fontSize: "xs", color: "fg.subtle" })}>
+											<p
+												className={css({ fontSize: "xs", color: "fg.subtle" })}
+											>
 												Both from this game - teammates or opponents, either
 												works.
 											</p>
@@ -1486,10 +1509,24 @@ export function CreateQuestionForm({ sports, isAdmin }: Props) {
 												<OfficialToggle
 													checked={!!field.value}
 													onChange={(checked) => field.onChange(checked)}
-													disabled={isAdminOnlyShape}
+													disabled={isAdminOnlyShape || !!slateId}
 												/>
 											)}
 										</form.Field>
+									</Card.Body>
+								</Card>
+							</Section>
+						)}
+
+						{isAdmin && (
+							<Section label="Slate">
+								<Card>
+									<Card.Body>
+										<SlateField
+											form={form}
+											leagueId={leagueId}
+											lockedSlateId={lockedSlateId}
+										/>
 									</Card.Body>
 								</Card>
 							</Section>

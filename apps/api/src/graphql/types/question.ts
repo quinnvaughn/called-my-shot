@@ -30,6 +30,7 @@ import {
 	inArray,
 	isNotNull,
 	lte,
+	notExists,
 	notInArray,
 	or,
 	sql,
@@ -50,6 +51,7 @@ import {
 	questions,
 	questionVoids,
 	resolutionDisputes,
+	slateQuestions,
 	teams,
 	users,
 } from "../../db/schema"
@@ -93,6 +95,7 @@ import {
 import { builder } from "../builder"
 import type { Context } from "../context"
 import { PageInfoRef } from "./pagination"
+import { SlateQuestionInput, SlateQuestionRef } from "./slate"
 
 type Connection<T> = {
 	items: T[]
@@ -985,6 +988,29 @@ export const QuestionRef = builder.drizzleObject("questions", {
 				})
 			},
 		}),
+
+		// Batched by questionId, same pattern as viewerCall above - a feed page
+		// of N questions fires one IN (...) query for this field, not N. Only
+		// surfaces a membership row when its slate is actually published - a
+		// draft slate's members render as fully standalone questions, same as
+		// if they weren't in any slate at all.
+		slateMembership: t.loadable({
+			type: SlateQuestionRef,
+			nullable: true,
+			load: async (questionIds: string[]) => {
+				const found = await db.query.slateQuestions.findMany({
+					where: { questionId: { in: questionIds } },
+					with: { slate: true },
+				})
+				const byQuestionId = new Map(
+					found
+						.filter((row) => row.slate?.status === "published")
+						.map((row) => [row.questionId, row]),
+				)
+				return questionIds.map((id) => byQuestionId.get(id) ?? null)
+			},
+			resolve: (question) => question.id,
+		}),
 	}),
 })
 
@@ -1163,6 +1189,11 @@ builder.queryFields((t) => ({
 			status: t.arg({ type: QuestionStatus, required: false }),
 			sortBy: t.arg({ type: AdminQuestionSort, required: false }),
 			sortDir: t.arg({ type: SortDirection, required: false }),
+			leagueId: t.arg.id({ required: false }),
+			// The Slates builder's "attach existing" picker - questions that
+			// don't already belong to a slate (a question can only ever be in
+			// one, see slateQuestions.questionId's unique constraint).
+			unassignedToSlate: t.arg.boolean({ required: false }),
 		},
 		resolve: async (_root, args, ctx) => {
 			requireAdmin(ctx)
@@ -1173,6 +1204,15 @@ builder.queryFields((t) => ({
 
 			const conditions = [
 				args.status ? eq(questions.status, args.status) : undefined,
+				args.leagueId ? eq(questions.leagueId, args.leagueId) : undefined,
+				args.unassignedToSlate
+					? notExists(
+							db
+								.select()
+								.from(slateQuestions)
+								.where(eq(slateQuestions.questionId, questions.id)),
+						)
+					: undefined,
 				args.search
 					? or(
 							ilike(questions.title, `%${args.search}%`),
@@ -1469,6 +1509,11 @@ const CreateQuestionInput = builder.inputType("CreateQuestionInput", {
 		// per that sport's own real rookie rule. The mechanism for every real
 		// Rookie of the Year question regardless of sport.
 		awardRookieOnly: t.field({ type: "Boolean", required: false }),
+
+		// Admin-only placement into a Slate - absent for the overwhelming
+		// majority of questions, which aren't part of any slate. Forces
+		// isOfficial (see createQuestionSchema's superRefine).
+		slate: t.field({ type: SlateQuestionInput, required: false }),
 	}),
 })
 
@@ -1792,7 +1837,12 @@ async function resolveQuestionInternal(
 		}
 	}
 
-	await applySeasonStatDeltas(tx, question.leagueId, question.seasonId, statDeltas)
+	await applySeasonStatDeltas(
+		tx,
+		question.leagueId,
+		question.seasonId,
+		statDeltas,
+	)
 
 	await createNotifications(
 		tx,
@@ -1982,6 +2032,14 @@ builder.mutationFields((t) => ({
 
 			if (data.isOfficial && !user.isAdmin) {
 				throw new AuthorizationError("Only admins can post official questions.")
+			}
+			// The create-question form only shows the slate field to admins, but
+			// that's a UI decision, not a security boundary - never trust the
+			// client omitted this only because it hid the control.
+			if (data.slate && !user.isAdmin) {
+				throw new AuthorizationError(
+					"Only admins can add a question to a slate.",
+				)
 			}
 
 			// Official questions are attributed to the Called My Shot account
@@ -2274,6 +2332,24 @@ builder.mutationFields((t) => ({
 				.with("player_award_finalists", () => {})
 				.exhaustive()
 
+			// Loaded up front (same spot as the game/stat/award-pool lookups
+			// above) so a bad slate placement fails before the transaction opens,
+			// not partway through it.
+			const slate = data.slate
+				? await db.query.slates.findFirst({ where: { id: data.slate.slateId } })
+				: null
+			if (data.slate) {
+				if (!slate) {
+					throw ValidationError.field("slate", "Slate not found")
+				}
+				if (slate.leagueId !== data.leagueId) {
+					throw ValidationError.field(
+						"slate",
+						"Question must be in the same league as the slate",
+					)
+				}
+			}
+
 			const title = data.title
 
 			// Game-scoped: copied straight off the picked game. Game-less: the
@@ -2431,6 +2507,22 @@ builder.mutationFields((t) => ({
 						},
 					)
 					.exhaustive()
+
+				if (data.slate) {
+					const [{ maxSortOrder }] = await tx
+						.select({
+							maxSortOrder: sql<number>`coalesce(max(${slateQuestions.sortOrder}), -1)`,
+						})
+						.from(slateQuestions)
+						.where(eq(slateQuestions.slateId, data.slate.slateId))
+					await tx.insert(slateQuestions).values({
+						slateId: data.slate.slateId,
+						questionId: question.id,
+						label: data.slate.label,
+						slot: data.slate.slot ?? null,
+						sortOrder: maxSortOrder + 1,
+					})
+				}
 
 				return question
 			})

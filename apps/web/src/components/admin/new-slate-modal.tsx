@@ -1,0 +1,141 @@
+import { useMutation, useQuery } from "@apollo/client/react"
+import { createSlateSchema } from "@called-my-shot/schemas"
+import { useNavigate } from "@tanstack/react-router"
+import { useState } from "react"
+import { VStack } from "styled-system/jsx"
+import { match } from "ts-pattern"
+import {
+	EntitySearchField,
+	type EntitySearchItem,
+} from "#/components/questions/create-question/entity-search-field"
+import { Button } from "#/components/ui/button"
+import { FieldLabel } from "#/components/ui/field-label"
+import { FormError } from "#/components/ui/form-error"
+import { Modal } from "#/components/ui/modal"
+import { TextInput } from "#/components/ui/text-input"
+import { CreateSlateDocument } from "#/graphql/mutations/slates"
+import { SportsDocument } from "#/graphql/queries/sports"
+import { useForm } from "#/lib/form/use-form"
+import { closeModal } from "#/stores/modal-store"
+
+export function NewSlateModal() {
+	const { data: sportsData } = useQuery(SportsDocument)
+	const [createSlate] = useMutation(CreateSlateDocument)
+	const navigate = useNavigate()
+	const [leagueInputText, setLeagueInputText] = useState("")
+
+	const leagues = (sportsData?.sports ?? []).flatMap((sport) => sport.leagues)
+
+	const form = useForm({
+		schema: createSlateSchema,
+		defaultValues: { name: "", leagueId: "" },
+		onSubmit: async (values, helpers) => {
+			const { data } = await createSlate({ variables: { input: values } })
+			const result = data?.createSlate
+
+			if (!result) {
+				helpers.setFormError("Something went wrong. Try again.")
+				return
+			}
+
+			await match(result)
+				.with({ __typename: "ValidationError" }, async (r) => {
+					const errors: Record<string, string | null> = {}
+					for (const fieldError of r.fieldErrors ?? []) {
+						if (fieldError.field) errors[fieldError.field] = fieldError.message
+						else helpers.setFormError(fieldError.message)
+					}
+					helpers.setErrors(errors)
+				})
+				.with({ __typename: "AuthenticationError" }, async () => {
+					helpers.setFormError("You need to sign in.")
+				})
+				.with({ __typename: "AuthorizationError" }, async (r) => {
+					helpers.setFormError(r.message)
+				})
+				.with({ __typename: "SlatePayload" }, async (r) => {
+					closeModal()
+					await navigate({
+						to: "/admin/slates/$slateId",
+						params: { slateId: r.slate.id },
+					})
+				})
+				.exhaustive()
+		},
+	})
+
+	const leagueId = form.useWatch("leagueId")
+	const selectedLeague = leagues.find((l) => l.id === leagueId)
+	const leagueItems: EntitySearchItem[] = leagues.map((league) => ({
+		id: league.id,
+		label: league.name,
+		kind: "league" as const,
+		meta: league.abbreviation,
+	}))
+
+	return (
+		<Modal>
+			<Modal.CloseButton />
+			<VStack gap="1" alignItems="flex-start">
+				<Modal.Title>New slate</Modal.Title>
+				<Modal.Description>
+					A named bundle of related questions - a Gold Glove race's positions, a
+					week of games. Sport and season are derived from the league.
+				</Modal.Description>
+			</VStack>
+			<form onSubmit={form.handleSubmit}>
+				<VStack gap="3.5" alignItems="stretch">
+					<form.Field name="name">
+						{(field) => (
+							<TextInput error={field.meta.error ?? undefined}>
+								<TextInput.Label required>Name</TextInput.Label>
+								<TextInput.Group>
+									<TextInput.Field
+										placeholder="2026 AL Gold Gloves"
+										value={field.value}
+										onChange={field.onChange}
+										onBlur={field.onBlur}
+									/>
+								</TextInput.Group>
+							</TextInput>
+						)}
+					</form.Field>
+					<VStack gap="1.5" alignItems="stretch">
+						<FieldLabel required>League</FieldLabel>
+						<EntitySearchField
+							value={leagueInputText || (selectedLeague?.name ?? "")}
+							onValueChange={(text) => {
+								setLeagueInputText(text)
+								form.setValue("leagueId", "")
+							}}
+							items={leagueItems}
+							placeholder="Search leagues…"
+							required
+							onSelectItem={(item) => {
+								setLeagueInputText(item.label)
+								form.setValue("leagueId", item.id)
+							}}
+						/>
+					</VStack>
+					<form.Subscribe selector={(s) => s.meta}>
+						{(meta) => (
+							<VStack gap="3.5" alignItems="stretch">
+								<Button
+									type="submit"
+									variant="solid"
+									size="md"
+									fullWidth
+									loading={meta.isSubmitting}
+									disabled={meta.isSubmitting || !meta.canSubmit}
+								>
+									Create slate
+								</Button>
+								<FormError message={meta.formError} />
+							</VStack>
+						)}
+					</form.Subscribe>
+				</VStack>
+			</form>
+		</Modal>
+	)
+}

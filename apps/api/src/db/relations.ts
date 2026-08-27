@@ -111,6 +111,10 @@ export const relations = defineRelations(schema, (r) => ({
 		disputes: r.many.resolutionDisputes(),
 		reports: r.many.questionReports(),
 		shares: r.many.questionShares(),
+		slateMembership: r.one.slateQuestions({
+			from: r.questions.id,
+			to: r.slateQuestions.questionId,
+		}),
 	},
 	questionOptions: {
 		question: r.one.questions({
@@ -238,6 +242,35 @@ export const relations = defineRelations(schema, (r) => ({
 		sharedByUser: r.one.users({
 			from: r.questionShares.sharedBy,
 			to: r.users.id,
+		}),
+	},
+	slates: {
+		sport: r.one.sports({
+			from: r.slates.sportId,
+			to: r.sports.id,
+		}),
+		league: r.one.leagues({
+			from: r.slates.leagueId,
+			to: r.leagues.id,
+		}),
+		season: r.one.seasons({
+			from: r.slates.seasonId,
+			to: r.seasons.id,
+		}),
+		creator: r.one.users({
+			from: r.slates.createdBy,
+			to: r.users.id,
+		}),
+		members: r.many.slateQuestions(),
+	},
+	slateQuestions: {
+		slate: r.one.slates({
+			from: r.slateQuestions.slateId,
+			to: r.slates.id,
+		}),
+		question: r.one.questions({
+			from: r.slateQuestions.questionId,
+			to: r.questions.id,
 		}),
 	},
 	supportTickets: {

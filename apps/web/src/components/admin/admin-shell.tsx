@@ -8,6 +8,7 @@ import { Brand } from "#/components/ui/brand"
 const NAV_ITEMS = [
 	{ to: "/admin/queue", label: "Queue" },
 	{ to: "/admin/questions", label: "Questions" },
+	{ to: "/admin/slates", label: "Slates" },
 	{ to: "/admin/disputes", label: "Disputes" },
 	{ to: "/admin/reports", label: "Reports" },
 	{ to: "/admin/users", label: "Users" },

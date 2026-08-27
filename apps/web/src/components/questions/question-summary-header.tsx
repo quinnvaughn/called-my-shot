@@ -4,6 +4,7 @@ import type { GameStatus, QuestionShape } from "#/graphql/generated/graphql"
 import { questionShapeLabel } from "#/lib/question-labels"
 import { GameBlock } from "./game-block"
 import { PickStateIcon } from "./pick-state-icon"
+import { SlateKicker, type SlateMembership } from "./slate-kicker"
 
 type QuestionSummaryData = {
 	title: string
@@ -37,6 +38,10 @@ type Props = {
 	// question. CallCard is always about someone else's pick, so there's no
 	// "did I call this" to show there.
 	viewerCalled?: boolean
+	// Null for the overwhelming majority of questions, which aren't part of
+	// any (published) slate. QuestionCard and CallCard each pass their own
+	// colocated fragment's slateMembership straight through - see SlateKicker.
+	slateMembership?: SlateMembership
 }
 
 // Shared between QuestionCard and CallCard - both lead with "what is this
@@ -50,6 +55,7 @@ export function QuestionSummaryHeader({
 	sharedBy,
 	showTypeTag,
 	viewerCalled,
+	slateMembership,
 }: Props) {
 	return (
 		<VStack gap="3" alignItems="stretch">
@@ -98,6 +104,7 @@ export function QuestionSummaryHeader({
 					Shared by {sharedBy.name}
 				</span>
 			)}
+			<SlateKicker membership={slateMembership ?? null} />
 			<span
 				className={css({
 					fontWeight: "bold",

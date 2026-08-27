@@ -22,6 +22,7 @@ import { PanelRow } from "#/components/questions/panel-row"
 import { QuestionCallsList } from "#/components/questions/question-calls-list"
 import { ReportQuestionModal } from "#/components/questions/report-question-modal"
 import { ResolveQuestionModal } from "#/components/questions/resolve-question-modal"
+import { SlateStrip } from "#/components/questions/slate-strip"
 import { ViewerStatusCard } from "#/components/questions/viewer-status-card"
 import { Button } from "#/components/ui/button"
 import { Card } from "#/components/ui/card"
@@ -56,6 +57,15 @@ function sectionLabel(text: string) {
 
 export const Route = createFileRoute("/_app/questions/$questionId")({
 	component: RouteComponent,
+	// Without this, navigating between two questions on this same route (e.g.
+	// a SlateStrip link) doesn't remount RouteComponent - only the loader data
+	// updates. useCastCallForm's internal useForm store (and its own
+	// useState calls for conviction/search/step) are all created once via
+	// useState(() => ...), so they'd keep the PREVIOUS question's form state
+	// - including questionId - alive across the navigation. A call made after
+	// switching questions that way would submit against the question you
+	// were on when the component first mounted, not the one on screen.
+	remountDeps: ({ params }) => params.questionId,
 	loader: async ({ context, params }) => {
 		const [detail, calls] = await Promise.all([
 			context.apolloClient.query({
@@ -166,6 +176,7 @@ function RouteComponent() {
 					← Back
 				</button>
 			)}
+			<SlateStrip question={question} />
 			<VStack gap="3" alignItems="stretch">
 				<HStack gap="2" flexWrap="wrap">
 					{question.isOfficial && <Tag variant="primary">Official</Tag>}
@@ -271,7 +282,9 @@ function RouteComponent() {
 								type="button"
 								onClick={() =>
 									me
-										? openModal(<ReportQuestionModal questionId={question.id} />)
+										? openModal(
+												<ReportQuestionModal questionId={question.id} />,
+											)
 										: openModal(<AuthModal defaultView="signin" />)
 								}
 								className={css({
