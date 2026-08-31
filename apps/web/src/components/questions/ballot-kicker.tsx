@@ -3,8 +3,8 @@ import { css } from "styled-system/css"
 import { HStack } from "styled-system/jsx"
 import { match, P } from "ts-pattern"
 
-export type SlateMembership = {
-	slate: {
+export type BallotMembership = {
+	ballot: {
 		name: string
 		memberCount: number
 		viewerCalledCount: number | null
@@ -12,18 +12,18 @@ export type SlateMembership = {
 } | null
 
 type Props = {
-	membership: SlateMembership
+	membership: BallotMembership
 }
 
 // Renders nothing for the overwhelming majority of questions, which aren't
-// part of any (published) slate - QuestionCard and CallCard both pass their
-// own colocated fragment's slateMembership straight through, no mapping
-// needed. viewerCalledCount null/0 reads as "hasn't started this slate yet"
+// part of any (published) ballot - QuestionCard and CallCard both pass their
+// own colocated fragment's ballotMembership straight through, no mapping
+// needed. viewerCalledCount null/0 reads as "hasn't started this ballot yet"
 // (shows the plain count instead of a progress fraction) - matches the
-// Slate type's own null-or-zero convention.
-export function SlateKicker({ membership }: Props) {
+// Ballot type's own null-or-zero convention.
+export function BallotKicker({ membership }: Props) {
 	if (!membership) return null
-	const { slate } = membership
+	const { ballot } = membership
 
 	return (
 		<HStack
@@ -44,16 +44,16 @@ export function SlateKicker({ membership }: Props) {
 					whiteSpace: "nowrap",
 				})}
 			>
-				{slate.name} ·{" "}
-				{match(slate.viewerCalledCount)
+				{ballot.name} ·{" "}
+				{match(ballot.viewerCalledCount)
 					.with(P.union(null, 0), () =>
-						slate.memberCount === 1
+						ballot.memberCount === 1
 							? "1 question"
-							: `${slate.memberCount} questions`,
+							: `${ballot.memberCount} questions`,
 					)
-					.with(slate.memberCount, () => "All called")
+					.with(ballot.memberCount, () => "All called")
 					.otherwise(
-						(calledCount) => `${calledCount} of ${slate.memberCount} called`,
+						(calledCount) => `${calledCount} of ${ballot.memberCount} called`,
 					)}
 			</span>
 		</HStack>

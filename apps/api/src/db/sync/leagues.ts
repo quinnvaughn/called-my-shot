@@ -8,6 +8,10 @@ export type SyncLeagueConfig = {
 	leagueAbbreviation: string
 	leagueSlug: string
 	espnPath: EspnSportPath
+	// How this league's Games tab pages through its schedule - "week" for a
+	// league whose real scheduling unit is a week (NFL), omitted (defaults to
+	// "date" in the schema) for a league browsed one day at a time (NBA, MLB).
+	windowType?: "date" | "week"
 	// Decides players.rookieEligible for this league (see its comment in
 	// db/schema/sports.ts) - omitted for leagues where "zero prior seasons in
 	// the league" (syncPlayers' own default) is an accurate enough proxy for
@@ -37,6 +41,7 @@ export const SYNCED_LEAGUES: SyncLeagueConfig[] = [
 		leagueAbbreviation: "NFL",
 		leagueSlug: "nfl",
 		espnPath: "football/nfl",
+		windowType: "week",
 	},
 	{
 		sportName: "Baseball",

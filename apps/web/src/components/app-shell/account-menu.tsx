@@ -1,4 +1,5 @@
 import { useNavigate } from "@tanstack/react-router"
+import { FaQuestion, FaRegCheckSquare } from "react-icons/fa"
 import {
 	FiHelpCircle,
 	FiLifeBuoy,
@@ -113,6 +114,22 @@ export function AccountMenu({
 						/>
 					</>
 				)}
+				<Dropdown.Item onClick={() => navigate({ to: "/my-calls" })}>
+					<span
+						className={css({ display: "flex", alignItems: "center", gap: "2" })}
+					>
+						<FaRegCheckSquare size={14} />
+						My Calls
+					</span>
+				</Dropdown.Item>
+				<Dropdown.Item onClick={() => navigate({ to: "/my-questions" })}>
+					<span
+						className={css({ display: "flex", alignItems: "center", gap: "2" })}
+					>
+						<FaQuestion size={14} />
+						My Questions
+					</span>
+				</Dropdown.Item>
 				{isAdmin && (
 					<Dropdown.Item onClick={() => navigate({ to: "/admin" })}>
 						<span

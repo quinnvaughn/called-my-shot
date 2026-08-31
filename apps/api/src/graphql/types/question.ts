@@ -39,6 +39,7 @@ import { DateTime } from "luxon"
 import { match } from "ts-pattern"
 import { db } from "../../db"
 import {
+	ballotQuestions,
 	type Call,
 	callSelections,
 	calls,
@@ -51,7 +52,6 @@ import {
 	questions,
 	questionVoids,
 	resolutionDisputes,
-	slateQuestions,
 	teams,
 	users,
 } from "../../db/schema"
@@ -94,8 +94,8 @@ import {
 } from "../../lib/user-season-stats"
 import { builder } from "../builder"
 import type { Context } from "../context"
+import { BallotQuestionInput, BallotQuestionRef } from "./ballot"
 import { PageInfoRef } from "./pagination"
-import { SlateQuestionInput, SlateQuestionRef } from "./slate"
 
 type Connection<T> = {
 	items: T[]
@@ -991,20 +991,20 @@ export const QuestionRef = builder.drizzleObject("questions", {
 
 		// Batched by questionId, same pattern as viewerCall above - a feed page
 		// of N questions fires one IN (...) query for this field, not N. Only
-		// surfaces a membership row when its slate is actually published - a
-		// draft slate's members render as fully standalone questions, same as
-		// if they weren't in any slate at all.
-		slateMembership: t.loadable({
-			type: SlateQuestionRef,
+		// surfaces a membership row when its ballot is actually published - a
+		// draft ballot's members render as fully standalone questions, same as
+		// if they weren't in any ballot at all.
+		ballotMembership: t.loadable({
+			type: BallotQuestionRef,
 			nullable: true,
 			load: async (questionIds: string[]) => {
-				const found = await db.query.slateQuestions.findMany({
+				const found = await db.query.ballotQuestions.findMany({
 					where: { questionId: { in: questionIds } },
-					with: { slate: true },
+					with: { ballot: true },
 				})
 				const byQuestionId = new Map(
 					found
-						.filter((row) => row.slate?.status === "published")
+						.filter((row) => row.ballot?.status === "published")
 						.map((row) => [row.questionId, row]),
 				)
 				return questionIds.map((id) => byQuestionId.get(id) ?? null)
@@ -1068,6 +1068,9 @@ builder.queryFields((t) => ({
 			after: t.arg.string(),
 			leagueId: t.arg.id(),
 			teamId: t.arg.id(),
+			// The game detail page's question list - every question tied to one
+			// game, hero (team_vs_team) included. Nothing else passes this today.
+			gameId: t.arg.id(),
 			search: t.arg.string(),
 			// Admin Questions tab only - every other caller of this field leaves it
 			// unset and gets every status, same as before this arg existed.
@@ -1079,6 +1082,16 @@ builder.queryFields((t) => ({
 			// the filter, so this checks for the arg actually being present.
 			isOfficial: t.arg.boolean({ required: false }),
 			sort: t.arg({ type: QuestionSortOrder, required: false }),
+			// The league room's Feed tab only - season award singles and ballot
+			// positions get their own Season tab there, so the feed excludes
+			// anything already in a ballot to avoid showing it twice. Every other
+			// caller (home, groups) leaves this unset and sees everything, same as
+			// before this arg existed.
+			excludeBallotMembers: t.arg.boolean({ required: false }),
+			// The league room's Season tab, narrowed to standalone award races
+			// (player_season_award/team_season_award/player_award_finalists) -
+			// every other caller leaves this unset and gets every shape.
+			shapes: t.arg({ type: [QuestionShape], required: false }),
 		},
 		resolve: async (_root, args) => {
 			const limit = clampPageSize(args.first)
@@ -1087,9 +1100,21 @@ builder.queryFields((t) => ({
 
 			const conditions = [
 				args.leagueId ? eq(questions.leagueId, args.leagueId) : undefined,
+				args.gameId ? eq(questions.gameId, args.gameId) : undefined,
 				args.status ? eq(questions.status, args.status) : undefined,
 				typeof args.isOfficial === "boolean"
 					? eq(questions.isOfficial, args.isOfficial)
+					: undefined,
+				args.shapes && args.shapes.length > 0
+					? inArray(questions.shape, args.shapes)
+					: undefined,
+				args.excludeBallotMembers
+					? notExists(
+							db
+								.select({ one: sql`1` })
+								.from(ballotQuestions)
+								.where(eq(ballotQuestions.questionId, questions.id)),
+						)
 					: undefined,
 				args.teamId
 					? or(
@@ -1213,10 +1238,10 @@ builder.queryFields((t) => ({
 			sortBy: t.arg({ type: AdminQuestionSort, required: false }),
 			sortDir: t.arg({ type: SortDirection, required: false }),
 			leagueId: t.arg.id({ required: false }),
-			// The Slates builder's "attach existing" picker - questions that
-			// don't already belong to a slate (a question can only ever be in
-			// one, see slateQuestions.questionId's unique constraint).
-			unassignedToSlate: t.arg.boolean({ required: false }),
+			// The Ballots builder's "attach existing" picker - questions that
+			// don't already belong to a ballot (a question can only ever be in
+			// one, see ballotQuestions.questionId's unique constraint).
+			unassignedToBallot: t.arg.boolean({ required: false }),
 		},
 		resolve: async (_root, args, ctx) => {
 			requireAdmin(ctx)
@@ -1228,12 +1253,12 @@ builder.queryFields((t) => ({
 			const conditions = [
 				args.status ? eq(questions.status, args.status) : undefined,
 				args.leagueId ? eq(questions.leagueId, args.leagueId) : undefined,
-				args.unassignedToSlate
+				args.unassignedToBallot
 					? notExists(
 							db
 								.select()
-								.from(slateQuestions)
-								.where(eq(slateQuestions.questionId, questions.id)),
+								.from(ballotQuestions)
+								.where(eq(ballotQuestions.questionId, questions.id)),
 						)
 					: undefined,
 				args.search
@@ -1333,6 +1358,37 @@ builder.queryFields((t) => ({
 				limit: limit + 1,
 			})
 			return paginate(rows, limit)
+		},
+	}),
+
+	// Home's "Just resolved" - bounded to a handful, ordered by when the
+	// question actually resolved (not when the call was made, unlike myCalls'
+	// createdAt-desc order) so this reads as "recently decided," not "recently
+	// picked." Not paginated - a small fixed list, not a page of My Calls.
+	myRecentResolvedCalls: t.field({
+		type: [CallRef],
+		args: { first: t.arg.int({ required: false }) },
+		resolve: async (_root, args, ctx) => {
+			const user = requireUser(ctx)
+			const limit = Math.min(Math.max(args.first ?? 5, 1), 20)
+			// RQBv2's orderBy can't sort by a relation's column, and a resolved
+			// call's own createdAt (when it was MADE) isn't what "recently
+			// resolved" means - so this fetches with the question attached and
+			// sorts on resolvedAt in application code instead of the DB. A
+			// viewer's lifetime resolved-call count is small enough that this
+			// isn't a real cost, unlike a site-wide query would be.
+			const rows = await db.query.calls.findMany({
+				where: { userId: user.id, question: { status: "resolved" } },
+				with: { question: { columns: { resolvedAt: true } } },
+			})
+			return rows
+				.filter((row) => row.question?.resolvedAt)
+				.sort(
+					(a, b) =>
+						(b.question?.resolvedAt?.getTime() ?? 0) -
+						(a.question?.resolvedAt?.getTime() ?? 0),
+				)
+				.slice(0, limit)
 		},
 	}),
 
@@ -1533,10 +1589,10 @@ const CreateQuestionInput = builder.inputType("CreateQuestionInput", {
 		// Rookie of the Year question regardless of sport.
 		awardRookieOnly: t.field({ type: "Boolean", required: false }),
 
-		// Admin-only placement into a Slate - absent for the overwhelming
-		// majority of questions, which aren't part of any slate. Forces
+		// Admin-only placement into a Ballot - absent for the overwhelming
+		// majority of questions, which aren't part of any ballot. Forces
 		// isOfficial (see createQuestionSchema's superRefine).
-		slate: t.field({ type: SlateQuestionInput, required: false }),
+		ballot: t.field({ type: BallotQuestionInput, required: false }),
 	}),
 })
 
@@ -2056,12 +2112,12 @@ builder.mutationFields((t) => ({
 			if (data.isOfficial && !user.isAdmin) {
 				throw new AuthorizationError("Only admins can post official questions.")
 			}
-			// The create-question form only shows the slate field to admins, but
+			// The create-question form only shows the ballot field to admins, but
 			// that's a UI decision, not a security boundary - never trust the
 			// client omitted this only because it hid the control.
-			if (data.slate && !user.isAdmin) {
+			if (data.ballot && !user.isAdmin) {
 				throw new AuthorizationError(
-					"Only admins can add a question to a slate.",
+					"Only admins can add a question to a ballot.",
 				)
 			}
 
@@ -2356,19 +2412,21 @@ builder.mutationFields((t) => ({
 				.exhaustive()
 
 			// Loaded up front (same spot as the game/stat/award-pool lookups
-			// above) so a bad slate placement fails before the transaction opens,
+			// above) so a bad ballot placement fails before the transaction opens,
 			// not partway through it.
-			const slate = data.slate
-				? await db.query.slates.findFirst({ where: { id: data.slate.slateId } })
+			const ballot = data.ballot
+				? await db.query.ballots.findFirst({
+						where: { id: data.ballot.ballotId },
+					})
 				: null
-			if (data.slate) {
-				if (!slate) {
-					throw ValidationError.field("slate", "Slate not found")
+			if (data.ballot) {
+				if (!ballot) {
+					throw ValidationError.field("ballot", "Ballot not found")
 				}
-				if (slate.leagueId !== data.leagueId) {
+				if (ballot.leagueId !== data.leagueId) {
 					throw ValidationError.field(
-						"slate",
-						"Question must be in the same league as the slate",
+						"ballot",
+						"Question must be in the same league as the ballot",
 					)
 				}
 			}
@@ -2531,18 +2589,18 @@ builder.mutationFields((t) => ({
 					)
 					.exhaustive()
 
-				if (data.slate) {
+				if (data.ballot) {
 					const [{ maxSortOrder }] = await tx
 						.select({
-							maxSortOrder: sql<number>`coalesce(max(${slateQuestions.sortOrder}), -1)`,
+							maxSortOrder: sql<number>`coalesce(max(${ballotQuestions.sortOrder}), -1)`,
 						})
-						.from(slateQuestions)
-						.where(eq(slateQuestions.slateId, data.slate.slateId))
-					await tx.insert(slateQuestions).values({
-						slateId: data.slate.slateId,
+						.from(ballotQuestions)
+						.where(eq(ballotQuestions.ballotId, data.ballot.ballotId))
+					await tx.insert(ballotQuestions).values({
+						ballotId: data.ballot.ballotId,
 						questionId: question.id,
-						label: data.slate.label,
-						slot: data.slate.slot ?? null,
+						label: data.ballot.label,
+						slot: data.ballot.slot ?? null,
 						sortOrder: maxSortOrder + 1,
 					})
 				}

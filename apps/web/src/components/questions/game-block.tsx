@@ -1,9 +1,8 @@
-import { DateTime } from "luxon"
 import { css } from "styled-system/css"
 import { HStack } from "styled-system/jsx"
-import { match } from "ts-pattern"
 import { TeamBadge } from "#/components/ui/team-badge"
 import type { GameStatus } from "#/graphql/generated/graphql"
+import { gameStatusLabel } from "#/lib/game-status"
 
 type Props = {
 	game: {
@@ -62,19 +61,7 @@ export function GameBlock({ game }: Props) {
 					whiteSpace: "nowrap",
 				})}
 			>
-				{match(game.status)
-					.with(
-						"FINAL",
-						() => `FINAL · ${game.awayScore ?? "-"}–${game.homeScore ?? "-"}`,
-					)
-					.with(
-						"LIVE",
-						() => `LIVE · ${game.awayScore ?? "-"}–${game.homeScore ?? "-"}`,
-					)
-					.with("SCHEDULED", () =>
-						DateTime.fromISO(game.startsAt).toFormat("MMM d, h:mm a"),
-					)
-					.exhaustive()}
+				{gameStatusLabel(game)}
 			</span>
 		</HStack>
 	)

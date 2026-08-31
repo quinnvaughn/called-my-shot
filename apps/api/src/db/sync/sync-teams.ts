@@ -6,11 +6,15 @@ import { linkRef, scopedSourceId } from "./sync-refs"
 
 type SportRow = typeof sports.$inferSelect
 
-async function findOrCreateSport(name: string, slug: string): Promise<SportRow> {
+async function findOrCreateSport(
+	name: string,
+	slug: string,
+): Promise<SportRow> {
 	const existing = await db.query.sports.findFirst({ where: { slug } })
 	if (existing) return existing
 	const [row] = await db.insert(sports).values({ name, slug }).returning()
-	if (!row) throw new Error(`findOrCreateSport: insert returned nothing for ${slug}`)
+	if (!row)
+		throw new Error(`findOrCreateSport: insert returned nothing for ${slug}`)
 	return row
 }
 
@@ -29,9 +33,13 @@ async function findOrCreateLeague(
 			name: config.leagueName,
 			abbreviation: config.leagueAbbreviation,
 			slug: config.leagueSlug,
+			windowType: config.windowType ?? "date",
 		})
 		.returning()
-	if (!row) throw new Error(`findOrCreateLeague: insert returned nothing for ${config.leagueSlug}`)
+	if (!row)
+		throw new Error(
+			`findOrCreateLeague: insert returned nothing for ${config.leagueSlug}`,
+		)
 	return row
 }
 
@@ -133,8 +141,14 @@ export async function syncTeams(config: SyncLeagueConfig): Promise<League> {
 					},
 				})
 				.returning()
-			if (!row) throw new Error(`syncTeams: upsert returned nothing for ${espnTeam.id}`)
-			await linkRef(tx, "team", scopedSourceId(config.leagueSlug, espnTeam.id), row.id)
+			if (!row)
+				throw new Error(`syncTeams: upsert returned nothing for ${espnTeam.id}`)
+			await linkRef(
+				tx,
+				"team",
+				scopedSourceId(config.leagueSlug, espnTeam.id),
+				row.id,
+			)
 		})
 	}
 

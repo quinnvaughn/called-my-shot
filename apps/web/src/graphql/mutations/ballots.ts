@@ -1,11 +1,11 @@
 import { graphql } from "#/graphql/generated"
 
-export const CreateSlateDocument = graphql(`
-	mutation CreateSlate($input: CreateSlateInput!) {
-		createSlate(input: $input) {
+export const CreateBallotDocument = graphql(`
+	mutation CreateBallot($input: CreateBallotInput!) {
+		createBallot(input: $input) {
 			__typename
-			... on SlatePayload {
-				slate {
+			... on BallotPayload {
+				ballot {
 					id
 					name
 					status
@@ -31,12 +31,12 @@ export const CreateSlateDocument = graphql(`
 	}
 `)
 
-export const RenameSlateDocument = graphql(`
-	mutation RenameSlate($id: ID!, $name: String!) {
-		renameSlate(id: $id, name: $name) {
+export const RenameBallotDocument = graphql(`
+	mutation RenameBallot($id: ID!, $name: String!) {
+		renameBallot(id: $id, name: $name) {
 			__typename
-			... on SlatePayload {
-				slate {
+			... on BallotPayload {
+				ballot {
 					id
 					name
 				}
@@ -60,12 +60,12 @@ export const RenameSlateDocument = graphql(`
 	}
 `)
 
-export const SetSlatePublishedDocument = graphql(`
-	mutation SetSlatePublished($id: ID!, $published: Boolean!) {
-		setSlatePublished(id: $id, published: $published) {
+export const SetBallotPublishedDocument = graphql(`
+	mutation SetBallotPublished($id: ID!, $published: Boolean!) {
+		setBallotPublished(id: $id, published: $published) {
 			__typename
-			... on SlatePayload {
-				slate {
+			... on BallotPayload {
+				ballot {
 					id
 					status
 					publishedAt
@@ -84,11 +84,11 @@ export const SetSlatePublishedDocument = graphql(`
 	}
 `)
 
-export const DeleteSlateDocument = graphql(`
-	mutation DeleteSlate($id: ID!) {
-		deleteSlate(id: $id) {
+export const DeleteBallotDocument = graphql(`
+	mutation DeleteBallot($id: ID!) {
+		deleteBallot(id: $id) {
 			__typename
-			... on MutationDeleteSlateSuccess {
+			... on MutationDeleteBallotSuccess {
 				data
 			}
 			... on AuthenticationError {
@@ -101,12 +101,12 @@ export const DeleteSlateDocument = graphql(`
 	}
 `)
 
-export const AttachQuestionToSlateDocument = graphql(`
-	mutation AttachQuestionToSlate($input: AttachQuestionToSlateInput!) {
-		attachQuestionToSlate(input: $input) {
+export const AttachQuestionToBallotDocument = graphql(`
+	mutation AttachQuestionToBallot($input: AttachQuestionToBallotInput!) {
+		attachQuestionToBallot(input: $input) {
 			__typename
-			... on SlateQuestionPayload {
-				slateQuestion {
+			... on BallotQuestionPayload {
+				ballotQuestion {
 					id
 					label
 					slot
@@ -135,11 +135,11 @@ export const AttachQuestionToSlateDocument = graphql(`
 	}
 `)
 
-export const RemoveQuestionFromSlateDocument = graphql(`
-	mutation RemoveQuestionFromSlate($questionId: ID!) {
-		removeQuestionFromSlate(questionId: $questionId) {
+export const RemoveQuestionFromBallotDocument = graphql(`
+	mutation RemoveQuestionFromBallot($questionId: ID!) {
+		removeQuestionFromBallot(questionId: $questionId) {
 			__typename
-			... on MutationRemoveQuestionFromSlateSuccess {
+			... on MutationRemoveQuestionFromBallotSuccess {
 				data
 			}
 			... on AuthenticationError {
@@ -152,12 +152,12 @@ export const RemoveQuestionFromSlateDocument = graphql(`
 	}
 `)
 
-export const UpdateSlateQuestionDocument = graphql(`
-	mutation UpdateSlateQuestion($input: UpdateSlateQuestionInput!) {
-		updateSlateQuestion(input: $input) {
+export const UpdateBallotQuestionDocument = graphql(`
+	mutation UpdateBallotQuestion($input: UpdateBallotQuestionInput!) {
+		updateBallotQuestion(input: $input) {
 			__typename
-			... on SlateQuestionPayload {
-				slateQuestion {
+			... on BallotQuestionPayload {
+				ballotQuestion {
 					id
 					label
 					slot
@@ -182,14 +182,14 @@ export const UpdateSlateQuestionDocument = graphql(`
 	}
 `)
 
-export const ReorderSlateQuestionsDocument = graphql(`
-	mutation ReorderSlateQuestions($slateId: ID!, $orderedQuestionIds: [ID!]!) {
-		reorderSlateQuestions(
-			slateId: $slateId
+export const ReorderBallotQuestionsDocument = graphql(`
+	mutation ReorderBallotQuestions($ballotId: ID!, $orderedQuestionIds: [ID!]!) {
+		reorderBallotQuestions(
+			ballotId: $ballotId
 			orderedQuestionIds: $orderedQuestionIds
 		) {
 			__typename
-			... on MutationReorderSlateQuestionsSuccess {
+			... on MutationReorderBallotQuestionsSuccess {
 				data
 			}
 			... on AuthenticationError {

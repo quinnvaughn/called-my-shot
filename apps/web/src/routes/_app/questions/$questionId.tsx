@@ -9,6 +9,7 @@ import { FaRegTimesCircle } from "react-icons/fa"
 import { css } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
 import { AuthModal } from "#/components/auth/auth-modal"
+import { BallotStrip } from "#/components/questions/ballot-strip"
 import { CallSubmitBar } from "#/components/questions/call-submit-bar"
 import {
 	CastCallForm,
@@ -22,7 +23,6 @@ import { PanelRow } from "#/components/questions/panel-row"
 import { QuestionCallsList } from "#/components/questions/question-calls-list"
 import { ReportQuestionModal } from "#/components/questions/report-question-modal"
 import { ResolveQuestionModal } from "#/components/questions/resolve-question-modal"
-import { SlateStrip } from "#/components/questions/slate-strip"
 import { ViewerStatusCard } from "#/components/questions/viewer-status-card"
 import { Button } from "#/components/ui/button"
 import { Card } from "#/components/ui/card"
@@ -58,7 +58,7 @@ function sectionLabel(text: string) {
 export const Route = createFileRoute("/_app/questions/$questionId")({
 	component: RouteComponent,
 	// Without this, navigating between two questions on this same route (e.g.
-	// a SlateStrip link) doesn't remount RouteComponent - only the loader data
+	// a BallotStrip link) doesn't remount RouteComponent - only the loader data
 	// updates. useCastCallForm's internal useForm store (and its own
 	// useState calls for conviction/search/step) are all created once via
 	// useState(() => ...), so they'd keep the PREVIOUS question's form state
@@ -176,7 +176,7 @@ function RouteComponent() {
 					← Back
 				</button>
 			)}
-			<SlateStrip question={question} />
+			<BallotStrip question={question} />
 			<VStack gap="3" alignItems="stretch">
 				<HStack gap="2" flexWrap="wrap">
 					{question.isOfficial && <Tag variant="primary">Official</Tag>}

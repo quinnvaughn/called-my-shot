@@ -3,31 +3,31 @@ import { createFileRoute, Link } from "@tanstack/react-router"
 import { useEffect, useState } from "react"
 import { css, cx } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
-import { NewSlateModal } from "#/components/admin/new-slate-modal"
+import { NewBallotModal } from "#/components/admin/new-ballot-modal"
 import { Button } from "#/components/ui/button"
 import { PageHeader } from "#/components/ui/page-header"
 import { Table } from "#/components/ui/table"
 import { Tag } from "#/components/ui/tag"
 import { TextInput } from "#/components/ui/text-input"
-import type { AdminSlateSort, SlateStatus } from "#/graphql/generated/graphql"
-import { DeleteSlateDocument } from "#/graphql/mutations/slates"
-import { AdminSlatesDocument } from "#/graphql/queries/slates"
+import type { AdminBallotSort, BallotStatus } from "#/graphql/generated/graphql"
+import { DeleteBallotDocument } from "#/graphql/mutations/ballots"
+import { AdminBallotsDocument } from "#/graphql/queries/ballots"
 import { useAdminConnection } from "#/hooks/use-admin-connection"
 import { useDebouncedValue } from "#/hooks/use-debounced-value"
 import { openModal } from "#/stores/modal-store"
 
-export const Route = createFileRoute("/admin/slates/")({
+export const Route = createFileRoute("/admin/ballots/")({
 	component: RouteComponent,
 })
 
-const STATUS_FILTERS: { value: SlateStatus | null; label: string }[] = [
+const STATUS_FILTERS: { value: BallotStatus | null; label: string }[] = [
 	{ value: null, label: "All" },
 	{ value: "DRAFT", label: "Draft" },
 	{ value: "PUBLISHED", label: "Published" },
 ]
 
 const columns = [
-	{ key: "name", label: "Slate" },
+	{ key: "name", label: "Ballot" },
 	{ key: "league", label: "League", sortable: false },
 	{ key: "members", label: "Members", numeric: true, sortable: false },
 	{ key: "status", label: "Status" },
@@ -36,11 +36,11 @@ const columns = [
 
 type SortKey = "name" | "status"
 
-const SORT_KEY_TO_ENUM: Record<SortKey, AdminSlateSort> = {
+const SORT_KEY_TO_ENUM: Record<SortKey, AdminBallotSort> = {
 	name: "NAME",
 	status: "STATUS",
 }
-const SORT_ENUM_TO_KEY: Record<AdminSlateSort, SortKey> = {
+const SORT_ENUM_TO_KEY: Record<AdminBallotSort, SortKey> = {
 	NAME: "name",
 	STATUS: "status",
 	CREATED_AT: "name",
@@ -66,10 +66,10 @@ const filterPillActive = css({
 	_hover: { borderColor: "fg.default", color: "bg.canvas" },
 })
 
-type SlateRow = {
+type BallotRow = {
 	id: string
 	name: string
-	status: SlateStatus
+	status: BallotStatus
 	memberCount: number
 	league: { id: string; name: string; abbreviation: string }
 }
@@ -77,9 +77,9 @@ type SlateRow = {
 function RouteComponent() {
 	const client = useApolloClient()
 	const [search, setSearch] = useState("")
-	const [status, setStatus] = useState<SlateStatus | null>(null)
+	const [status, setStatus] = useState<BallotStatus | null>(null)
 	const debouncedSearch = useDebouncedValue(search, 300)
-	const [deleteSlate] = useMutation(DeleteSlateDocument)
+	const [deleteBallot] = useMutation(DeleteBallotDocument)
 
 	const {
 		items,
@@ -90,11 +90,11 @@ function RouteComponent() {
 		onSort,
 		loadMore,
 		reload,
-	} = useAdminConnection<SlateRow, AdminSlateSort>({
+	} = useAdminConnection<BallotRow, AdminBallotSort>({
 		defaultSort: "NAME",
 		fetchPage: async ({ sortBy: sb, sortDir: sd, after }) => {
 			const { data } = await client.query({
-				query: AdminSlatesDocument,
+				query: AdminBallotsDocument,
 				variables: {
 					search: debouncedSearch || undefined,
 					status: status ?? undefined,
@@ -104,9 +104,9 @@ function RouteComponent() {
 				},
 				fetchPolicy: "network-only",
 			})
-			if (data?.adminSlates.__typename !== "QueryAdminSlatesSuccess")
+			if (data?.adminBallots.__typename !== "QueryAdminBallotsSuccess")
 				return null
-			return data.adminSlates.data
+			return data.adminBallots.data
 		},
 	})
 
@@ -115,15 +115,15 @@ function RouteComponent() {
 		reload()
 	}, [debouncedSearch, status])
 
-	async function handleDelete(slate: SlateRow) {
+	async function handleDelete(ballot: BallotRow) {
 		if (
 			!window.confirm(
-				`Delete "${slate.name}"? Its questions stay exactly as they are - only the grouping goes away.`,
+				`Delete "${ballot.name}"? Its questions stay exactly as they are - only the grouping goes away.`,
 			)
 		) {
 			return
 		}
-		await deleteSlate({ variables: { id: slate.id } })
+		await deleteBallot({ variables: { id: ballot.id } })
 		reload()
 	}
 
@@ -131,21 +131,21 @@ function RouteComponent() {
 		<VStack gap="6" alignItems="stretch">
 			<HStack justify="space-between" alignItems="flex-start" gap="4">
 				<PageHeader
-					title="Slates"
+					title="Ballots"
 					subtitle="Award ballots, a week of games - a set of questions people answer at their own pace."
 				/>
 				<Button
 					variant="solid"
 					size="sm"
-					onClick={() => openModal(<NewSlateModal />)}
+					onClick={() => openModal(<NewBallotModal />)}
 				>
-					+ New slate
+					+ New ballot
 				</Button>
 			</HStack>
 			<TextInput>
 				<TextInput.Group>
 					<TextInput.Field
-						placeholder="Search slates…"
+						placeholder="Search ballots…"
 						value={search}
 						onChange={(e) => setSearch(e.target.value)}
 					/>
@@ -174,31 +174,33 @@ function RouteComponent() {
 			>
 				<Table.Head columns={[...columns]} />
 				<Table.Body>
-					{items.map((slate) => (
-						<Table.Row key={slate.id}>
+					{items.map((ballot) => (
+						<Table.Row key={ballot.id}>
 							<Table.Cell>
 								<Link
 									className={css({ _hover: { textDecoration: "underline" } })}
-									to="/admin/slates/$slateId"
-									params={{ slateId: slate.id }}
+									to="/admin/ballots/$ballotId"
+									params={{ ballotId: ballot.id }}
 								>
-									{slate.name}
+									{ballot.name}
 								</Link>
 							</Table.Cell>
-							<Table.Cell>{slate.league.abbreviation}</Table.Cell>
-							<Table.Cell numeric>{slate.memberCount}</Table.Cell>
+							<Table.Cell>{ballot.league.abbreviation}</Table.Cell>
+							<Table.Cell numeric>{ballot.memberCount}</Table.Cell>
 							<Table.Cell>
 								<Tag
-									variant={slate.status === "PUBLISHED" ? "primary" : undefined}
+									variant={
+										ballot.status === "PUBLISHED" ? "primary" : undefined
+									}
 								>
-									{slate.status === "PUBLISHED" ? "Published" : "Draft"}
+									{ballot.status === "PUBLISHED" ? "Published" : "Draft"}
 								</Tag>
 							</Table.Cell>
 							<Table.Cell numeric>
 								<Button
 									variant="ghost"
 									size="sm"
-									onClick={() => handleDelete(slate)}
+									onClick={() => handleDelete(ballot)}
 								>
 									Delete
 								</Button>

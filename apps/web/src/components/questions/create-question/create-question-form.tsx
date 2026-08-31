@@ -33,6 +33,7 @@ import {
 import { track } from "#/lib/analytics"
 import { formatGuess } from "#/lib/field-signal"
 import { useForm } from "#/lib/form/use-form"
+import { BallotField } from "./ballot-field"
 import type { EntitySearchItem } from "./entity-search-field"
 import type { CreateQuestionFormApi } from "./form-types"
 import { GameField } from "./game-field"
@@ -42,7 +43,6 @@ import { OptionList } from "./option-list"
 import { PoolSummary } from "./pool-summary"
 import { QuestionTypePicker } from "./question-type-picker"
 import { ResolutionFields } from "./resolution-fields"
-import { SlateField } from "./slate-field"
 import { StatPicker } from "./stat-picker"
 import { SubjectPicker } from "./subject-picker"
 
@@ -175,12 +175,12 @@ function StatAggregationField({ form }: { form: CreateQuestionFormApi }) {
 type Props = {
 	sports: SportsQuery["sports"]
 	isAdmin: boolean
-	// Set when arriving from the admin Slates builder's "+ New Question"
+	// Set when arriving from the admin Ballots builder's "+ New Question"
 	// button - see new-question.tsx's validateSearch.
-	lockedSlateId?: string
+	lockedBallotId?: string
 }
 
-export function CreateQuestionForm({ sports, isAdmin, lockedSlateId }: Props) {
+export function CreateQuestionForm({ sports, isAdmin, lockedBallotId }: Props) {
 	const [hasSelectedType, setHasSelectedType] = useState(false)
 	const [titleEdited, setTitleEdited] = useState(false)
 	const [createQuestion] = useMutation(CreateQuestionDocument)
@@ -214,7 +214,7 @@ export function CreateQuestionForm({ sports, isAdmin, lockedSlateId }: Props) {
 			awardPositions: [],
 			awardSeasonsInLeague: [],
 			awardRookieOnly: false,
-			slate: undefined,
+			ballot: undefined,
 		},
 		onSubmit: async (values, helpers) => {
 			const { data } = await createQuestion({
@@ -258,11 +258,11 @@ export function CreateQuestionForm({ sports, isAdmin, lockedSlateId }: Props) {
 						awardPositions: values.awardPositions,
 						awardSeasonsInLeague: values.awardSeasonsInLeague,
 						awardRookieOnly: values.awardRookieOnly,
-						slate: values.slate
+						ballot: values.ballot
 							? {
-									slateId: values.slate.slateId,
-									label: values.slate.label,
-									slot: values.slate.slot || undefined,
+									ballotId: values.ballot.ballotId,
+									label: values.ballot.label,
+									slot: values.ballot.slot || undefined,
 								}
 							: undefined,
 					},
@@ -327,17 +327,17 @@ export function CreateQuestionForm({ sports, isAdmin, lockedSlateId }: Props) {
 	const awardRookieOnly = form.useWatch("awardRookieOnly")
 	const eventClause = form.useWatch("eventClause")
 	const picksRequired = form.useWatch("picksRequired")
-	// Reads the whole `slate` value rather than a dotted "slate.slateId" path -
-	// see slate-field.tsx's comment on why nested paths under this optional
+	// Reads the whole `ballot` value rather than a dotted "ballot.ballotId" path
+	// - see ballot-field.tsx's comment on why nested paths under this optional
 	// object don't type-check correctly with this form hook.
-	const slateId = form.useWatch("slate")?.slateId
+	const ballotId = form.useWatch("ballot")?.ballotId
 
-	// A slate question is always official (see createQuestionSchema's
-	// superRefine) - forced the moment a slate is picked rather than left for
+	// A ballot question is always official (see createQuestionSchema's
+	// superRefine) - forced the moment a ballot is picked rather than left for
 	// the admin to remember to also flip the toggle.
 	useEffect(() => {
-		if (slateId) form.setValue("isOfficial", true)
-	}, [slateId, form])
+		if (ballotId) form.setValue("isOfficial", true)
+	}, [ballotId, form])
 
 	const { data: teamsData } = useQuery(TeamsByLeagueDocument, {
 		variables: { leagueId },
@@ -1509,7 +1509,7 @@ export function CreateQuestionForm({ sports, isAdmin, lockedSlateId }: Props) {
 												<OfficialToggle
 													checked={!!field.value}
 													onChange={(checked) => field.onChange(checked)}
-													disabled={isAdminOnlyShape || !!slateId}
+													disabled={isAdminOnlyShape || !!ballotId}
 												/>
 											)}
 										</form.Field>
@@ -1519,13 +1519,13 @@ export function CreateQuestionForm({ sports, isAdmin, lockedSlateId }: Props) {
 						)}
 
 						{isAdmin && (
-							<Section label="Slate">
+							<Section label="Ballot">
 								<Card>
 									<Card.Body>
-										<SlateField
+										<BallotField
 											form={form}
 											leagueId={leagueId}
-											lockedSlateId={lockedSlateId}
+											lockedBallotId={lockedBallotId}
 										/>
 									</Card.Body>
 								</Card>

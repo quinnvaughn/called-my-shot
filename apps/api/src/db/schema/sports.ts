@@ -21,6 +21,14 @@ export const sports = pgTable("sports", {
 // needs (e.g. a league announced but not live yet, like MLB at launch).
 export const leagueStatus = pgEnum("league_status", ["active", "inactive"])
 
+// How this league's Games tab is browsed one page at a time: "date" steps a
+// single calendar day (MLB, NBA - there's no wider grouping above a day's
+// slate), "week" steps a whole season week (NFL - a single day is the wrong
+// grain, a week is the real scheduling unit). Genuinely just these two shapes
+// exist across sports, unlike game_slot below which is one league's own
+// vocabulary, not a shared concept - see games.slot.
+export const leagueWindowType = pgEnum("league_window_type", ["date", "week"])
+
 export const leagues = pgTable("leagues", {
 	id: uuid("id").primaryKey().defaultRandom(),
 	sportId: uuid("sport_id")
@@ -30,6 +38,7 @@ export const leagues = pgTable("leagues", {
 	abbreviation: text("abbreviation").notNull(),
 	slug: text("slug").notNull().unique(), // "nba"
 	status: leagueStatus("status").notNull().default("active"),
+	windowType: leagueWindowType("window_type").notNull().default("date"),
 })
 export type League = typeof leagues.$inferSelect
 
@@ -95,6 +104,15 @@ export type Team = typeof teams.$inferSelect
 // on the Data tab. homeScore/awayScore are only meaningful once "final".
 export const gameStatus = pgEnum("game_status", ["scheduled", "live", "final"])
 
+// Regular season vs. postseason - not derivable from seasonId alone at query
+// time without a join back to seasons' date ranges, and needed on the game
+// row itself so a week-window league's window key (seasonType + weekNumber)
+// can't collide a week-1 regular-season game with a week-1 playoff game.
+export const gameSeasonType = pgEnum("game_season_type", [
+	"regular",
+	"postseason",
+])
+
 export const games = pgTable("games", {
 	id: uuid("id").primaryKey().defaultRandom(),
 	leagueId: uuid("league_id")
@@ -117,6 +135,21 @@ export const games = pgTable("games", {
 	status: gameStatus("status").notNull().default("scheduled"),
 	homeScore: integer("home_score"),
 	awayScore: integer("away_score"),
+	seasonType: gameSeasonType("season_type").notNull().default("regular"),
+	// ESPN's own week number, stored verbatim - never derived, so leagues that
+	// carve up their season into byes/playoff rounds stay correct with zero
+	// date-arithmetic on our side. Null for date-window leagues (MLB/NBA),
+	// which don't have a week concept at all.
+	weekNumber: integer("week_number"),
+	// A raw, league-owned machine key ("THU", "SUN_EARLY", ...) - deliberately
+	// plain text, not an enum. This is NFL's own broadcast-window vocabulary,
+	// not a shared cross-league concept the way windowType/seasonType above
+	// are; a pg enum here would force every future week-window league to
+	// share NFL's slot values or fight the type. The valid keys and their
+	// display labels are owned by each league's own sync module (see
+	// db/sync/nfl-slot.ts), never by the schema. Null for any league/game with
+	// no slot concept.
+	slot: text("slot"),
 })
 export type Game = typeof games.$inferSelect
 
@@ -206,7 +239,11 @@ export type StatToleranceTier = typeof statToleranceTiers.$inferSelect
 // has). Lets the create-question form and the resolver both reject a stat
 // picked against a subject kind it was never meant for, instead of only the
 // UI's own convention keeping that straight.
-export const statAppliesTo = pgEnum("stat_applies_to", ["player", "team", "both"])
+export const statAppliesTo = pgEnum("stat_applies_to", [
+	"player",
+	"team",
+	"both",
+])
 
 // Scoped to sport, not league - NBA and NCAAB share a stat vocabulary even
 // though they're different leagues. category groups a long list for display

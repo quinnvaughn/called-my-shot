@@ -1,0 +1,194 @@
+import { graphql } from "#/graphql/generated"
+
+// The public ballot detail page - anyone can view it (signed out, a shared
+// link, a scraper), same visibility rule the `ballot` query already enforces
+// server-side (resolves to null for anything not published). No __typename
+// union to match here since the field itself is plain-nullable, not
+// errors-wrapped, matching `league`/`game`.
+export const BallotByIdDocument = graphql(`
+	query BallotById($id: ID!) {
+		ballot(id: $id) {
+			id
+			name
+			league {
+				id
+				name
+				abbreviation
+			}
+			memberCount
+			viewerCalledCount
+			members {
+				id
+				slot
+				label
+				sortOrder
+				question {
+					id
+					title
+					status
+					locksAt
+					viewerCall {
+						id
+						hitTolerance
+						selections {
+							id
+							option {
+								id
+								isCorrect
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+`)
+
+// Backs the create-question form's "add to ballot" autocomplete - a bounded
+// typeahead result set scoped to the question's own league, same shape as
+// GamesByLeagueDocument (queries/sports.ts).
+export const AdminBallotSearchDocument = graphql(`
+	query AdminBallotSearch($leagueId: ID!, $query: String, $first: Int) {
+		adminBallotSearch(leagueId: $leagueId, query: $query, first: $first) {
+			__typename
+			... on QueryAdminBallotSearchSuccess {
+				data {
+					id
+					name
+					memberCount
+				}
+			}
+			... on AuthenticationError {
+				message
+			}
+			... on AuthorizationError {
+				message
+			}
+		}
+	}
+`)
+
+// Admin Ballots list page.
+export const AdminBallotsDocument = graphql(`
+	query AdminBallots(
+		$search: String
+		$status: BallotStatus
+		$leagueId: ID
+		$sortBy: AdminBallotSort
+		$sortDir: SortDirection
+		$after: String
+	) {
+		adminBallots(
+			search: $search
+			status: $status
+			leagueId: $leagueId
+			sortBy: $sortBy
+			sortDir: $sortDir
+			after: $after
+		) {
+			__typename
+			... on QueryAdminBallotsSuccess {
+				data {
+					items {
+						id
+						name
+						status
+						memberCount
+						league {
+							id
+							name
+							abbreviation
+						}
+					}
+					pageInfo {
+						hasNextPage
+						endCursor
+					}
+				}
+			}
+			... on AuthenticationError {
+				message
+			}
+			... on AuthorizationError {
+				message
+			}
+		}
+	}
+`)
+
+// Ballot builder's "attach existing" modal - questions in the ballot's own
+// league that don't already belong to a ballot (a question can only ever be
+// in one). Reuses adminQuestions rather than a bespoke query.
+export const BallotAttachableQuestionsDocument = graphql(`
+	query BallotAttachableQuestions($leagueId: ID!, $search: String) {
+		adminQuestions(
+			leagueId: $leagueId
+			unassignedToBallot: true
+			search: $search
+			first: 30
+		) {
+			__typename
+			... on QueryAdminQuestionsSuccess {
+				data {
+					items {
+						id
+						title
+						shape
+						status
+					}
+				}
+			}
+			... on AuthenticationError {
+				message
+			}
+			... on AuthorizationError {
+				message
+			}
+		}
+	}
+`)
+
+// Ballot builder page - includes draft ballots and the full unfiltered member
+// list (unlike the public `ballot` query, which only ever resolves once
+// published). Also used to resolve a ballot's display name when the
+// create-question form arrives locked to one via ?ballotId=.
+export const AdminBallotDocument = graphql(`
+	query AdminBallot($id: ID!) {
+		adminBallot(id: $id) {
+			__typename
+			... on QueryAdminBallotSuccess {
+				data {
+					id
+					name
+					status
+					publishedAt
+					memberCount
+					league {
+						id
+						name
+						abbreviation
+					}
+					members {
+						id
+						label
+						slot
+						sortOrder
+						question {
+							id
+							title
+							shape
+							status
+							locksAt
+						}
+					}
+				}
+			}
+			... on AuthenticationError {
+				message
+			}
+			... on AuthorizationError {
+				message
+			}
+		}
+	}
+`)

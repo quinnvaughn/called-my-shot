@@ -2,9 +2,9 @@ import { css } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
 import type { GameStatus, QuestionShape } from "#/graphql/generated/graphql"
 import { questionShapeLabel } from "#/lib/question-labels"
+import { BallotKicker, type BallotMembership } from "./ballot-kicker"
 import { GameBlock } from "./game-block"
 import { PickStateIcon } from "./pick-state-icon"
-import { SlateKicker, type SlateMembership } from "./slate-kicker"
 
 type QuestionSummaryData = {
 	title: string
@@ -39,9 +39,9 @@ type Props = {
 	// "did I call this" to show there.
 	viewerCalled?: boolean
 	// Null for the overwhelming majority of questions, which aren't part of
-	// any (published) slate. QuestionCard and CallCard each pass their own
-	// colocated fragment's slateMembership straight through - see SlateKicker.
-	slateMembership?: SlateMembership
+	// any (published) ballot. QuestionCard and CallCard each pass their own
+	// colocated fragment's ballotMembership straight through - see BallotKicker.
+	ballotMembership?: BallotMembership
 }
 
 // Shared between QuestionCard and CallCard - both lead with "what is this
@@ -55,7 +55,7 @@ export function QuestionSummaryHeader({
 	sharedBy,
 	showTypeTag,
 	viewerCalled,
-	slateMembership,
+	ballotMembership,
 }: Props) {
 	return (
 		<VStack gap="3" alignItems="stretch">
@@ -104,7 +104,7 @@ export function QuestionSummaryHeader({
 					Shared by {sharedBy.name}
 				</span>
 			)}
-			<SlateKicker membership={slateMembership ?? null} />
+			<BallotKicker membership={ballotMembership ?? null} />
 			<span
 				className={css({
 					fontWeight: "bold",

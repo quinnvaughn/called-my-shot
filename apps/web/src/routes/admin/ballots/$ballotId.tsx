@@ -12,17 +12,17 @@ import { NotFound } from "#/components/ui/not-found"
 import { Tag } from "#/components/ui/tag"
 import { TextInput } from "#/components/ui/text-input"
 import {
-	RemoveQuestionFromSlateDocument,
-	RenameSlateDocument,
-	ReorderSlateQuestionsDocument,
-	SetSlatePublishedDocument,
-	UpdateSlateQuestionDocument,
-} from "#/graphql/mutations/slates"
-import { AdminSlateDocument } from "#/graphql/queries/slates"
+	RemoveQuestionFromBallotDocument,
+	RenameBallotDocument,
+	ReorderBallotQuestionsDocument,
+	SetBallotPublishedDocument,
+	UpdateBallotQuestionDocument,
+} from "#/graphql/mutations/ballots"
+import { AdminBallotDocument } from "#/graphql/queries/ballots"
 import { questionShapeLabel } from "#/lib/question-labels"
 import { openModal } from "#/stores/modal-store"
 
-export const Route = createFileRoute("/admin/slates/$slateId")({
+export const Route = createFileRoute("/admin/ballots/$ballotId")({
 	component: RouteComponent,
 })
 
@@ -144,36 +144,38 @@ function MemberRow({
 }
 
 function RouteComponent() {
-	const { slateId } = Route.useParams()
-	const { data, loading, refetch } = useQuery(AdminSlateDocument, {
-		variables: { id: slateId },
+	const { ballotId } = Route.useParams()
+	const { data, loading, refetch } = useQuery(AdminBallotDocument, {
+		variables: { id: ballotId },
 	})
-	const [renameSlate] = useMutation(RenameSlateDocument)
-	const [setSlatePublished] = useMutation(SetSlatePublishedDocument)
-	const [updateSlateQuestion] = useMutation(UpdateSlateQuestionDocument)
-	const [removeQuestionFromSlate] = useMutation(RemoveQuestionFromSlateDocument)
-	const [reorderSlateQuestions] = useMutation(ReorderSlateQuestionsDocument)
+	const [renameBallot] = useMutation(RenameBallotDocument)
+	const [setBallotPublished] = useMutation(SetBallotPublishedDocument)
+	const [updateBallotQuestion] = useMutation(UpdateBallotQuestionDocument)
+	const [removeQuestionFromBallot] = useMutation(
+		RemoveQuestionFromBallotDocument,
+	)
+	const [reorderBallotQuestions] = useMutation(ReorderBallotQuestionsDocument)
 	const [name, setName] = useState<string | null>(null)
 
-	const slate =
-		data?.adminSlate?.__typename === "QueryAdminSlateSuccess"
-			? data.adminSlate.data
+	const ballot =
+		data?.adminBallot?.__typename === "QueryAdminBallotSuccess"
+			? data.adminBallot.data
 			: null
 
-	if (!loading && !slate) {
+	if (!loading && !ballot) {
 		return (
 			<NotFound
 				icon={<FaRegTimesCircle size={24} />}
-				eyebrowText="Slate"
-				heading="This slate doesn't exist"
+				eyebrowText="Ballot"
+				heading="This ballot doesn't exist"
 				subtitle="It may have been deleted."
-				link={{ text: "Back to Slates", url: "/admin/slates" }}
+				link={{ text: "Back to Ballots", url: "/admin/ballots" }}
 			/>
 		)
 	}
-	if (!slate) return null
+	if (!ballot) return null
 
-	const members = [...slate.members].sort((a, b) => a.sortOrder - b.sortOrder)
+	const members = [...ballot.members].sort((a, b) => a.sortOrder - b.sortOrder)
 
 	async function move(index: number, direction: "up" | "down") {
 		const target = direction === "up" ? index - 1 : index + 1
@@ -183,9 +185,9 @@ function RouteComponent() {
 			reordered[target],
 			reordered[index],
 		]
-		await reorderSlateQuestions({
+		await reorderBallotQuestions({
 			variables: {
-				slateId,
+				ballotId,
 				orderedQuestionIds: reordered.map((m) => m.question.id),
 			},
 		})
@@ -194,7 +196,7 @@ function RouteComponent() {
 
 	async function saveMember(questionId: string, label: string, slot: string) {
 		if (!label.trim()) return
-		await updateSlateQuestion({
+		await updateBallotQuestion({
 			variables: { input: { questionId, label, slot: slot || undefined } },
 		})
 	}
@@ -202,38 +204,38 @@ function RouteComponent() {
 	async function removeMember(questionId: string, title: string) {
 		if (
 			!window.confirm(
-				`Remove "${title}" from this slate? The question itself stays.`,
+				`Remove "${title}" from this ballot? The question itself stays.`,
 			)
 		) {
 			return
 		}
-		await removeQuestionFromSlate({ variables: { questionId } })
+		await removeQuestionFromBallot({ variables: { questionId } })
 		refetch()
 	}
 
 	return (
 		<VStack gap="6" alignItems="stretch">
 			<Link
-				to="/admin/slates"
+				to="/admin/ballots"
 				className={css({
 					fontFamily: "mono",
 					fontSize: "2xs",
 					color: "fg.subtle",
 				})}
 			>
-				← All slates
+				← All ballots
 			</Link>
 			<HStack justify="space-between" alignItems="flex-start" gap="4">
 				<VStack gap="2" alignItems="flex-start" flex="1">
 					<TextInput className={css({ maxWidth: "sm", width: "100%" })}>
 						<TextInput.Group>
 							<TextInput.Field
-								value={name ?? slate.name}
+								value={name ?? ballot.name}
 								onChange={(e) => setName(e.target.value)}
 								onBlur={() => {
-									if (name?.trim() && name !== slate.name) {
-										renameSlate({
-											variables: { id: slateId, name: name.trim() },
+									if (name?.trim() && name !== ballot.name) {
+										renameBallot({
+											variables: { id: ballotId, name: name.trim() },
 										})
 									}
 								}}
@@ -241,9 +243,11 @@ function RouteComponent() {
 						</TextInput.Group>
 					</TextInput>
 					<HStack gap="2">
-						<Tag>{slate.league.abbreviation}</Tag>
-						<Tag variant={slate.status === "PUBLISHED" ? "primary" : undefined}>
-							{slate.status === "PUBLISHED" ? "Published" : "Draft"}
+						<Tag>{ballot.league.abbreviation}</Tag>
+						<Tag
+							variant={ballot.status === "PUBLISHED" ? "primary" : undefined}
+						>
+							{ballot.status === "PUBLISHED" ? "Published" : "Draft"}
 						</Tag>
 					</HStack>
 				</VStack>
@@ -251,16 +255,16 @@ function RouteComponent() {
 					variant="solid"
 					size="sm"
 					onClick={async () => {
-						await setSlatePublished({
+						await setBallotPublished({
 							variables: {
-								id: slateId,
-								published: slate.status !== "PUBLISHED",
+								id: ballotId,
+								published: ballot.status !== "PUBLISHED",
 							},
 						})
 						refetch()
 					}}
 				>
-					{slate.status === "PUBLISHED" ? "Unpublish" : "Publish"}
+					{ballot.status === "PUBLISHED" ? "Unpublish" : "Publish"}
 				</Button>
 			</HStack>
 
@@ -295,7 +299,7 @@ function RouteComponent() {
 			<HStack gap="3">
 				<Link
 					to="/new-question"
-					search={{ slateId }}
+					search={{ ballotId }}
 					className={button({ variant: "outline", size: "sm" })}
 				>
 					+ New question
@@ -306,8 +310,8 @@ function RouteComponent() {
 					onClick={() =>
 						openModal(
 							<AttachQuestionModal
-								slateId={slateId}
-								leagueId={slate.league.id}
+								ballotId={ballotId}
+								leagueId={ballot.league.id}
 								onAttached={() => refetch()}
 							/>,
 						)

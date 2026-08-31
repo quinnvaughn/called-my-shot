@@ -1,16 +1,16 @@
 import {
-	attachQuestionToSlateSchema,
-	createSlateSchema,
-	updateSlateQuestionSchema,
+	attachQuestionToBallotSchema,
+	createBallotSchema,
+	updateBallotQuestionSchema,
 } from "@called-my-shot/schemas"
 import { and, count, eq, inArray, sql } from "drizzle-orm"
 import { db } from "../../db"
 import {
+	type Ballot,
+	type BallotQuestion,
+	ballotQuestions,
+	ballots,
 	calls,
-	type Slate,
-	type SlateQuestion,
-	slateQuestions,
-	slates,
 } from "../../db/schema"
 import {
 	buildAdminConnection,
@@ -36,16 +36,16 @@ type Connection<T> = {
 }
 
 // draft: fully editable, invisible everywhere public. published: shows up on
-// every member's detail page and feed card. See slateStatus on the slates
-// table (db/schema/slates.ts) for the full reasoning.
-export const SlateStatus = builder.enumType("SlateStatus", {
+// every member's detail page and feed card. See ballotStatus on the ballots
+// table (db/schema/ballots.ts) for the full reasoning.
+export const BallotStatus = builder.enumType("BallotStatus", {
 	values: {
 		DRAFT: { value: "draft" },
 		PUBLISHED: { value: "published" },
 	},
 })
 
-const AdminSlateSort = builder.enumType("AdminSlateSort", {
+const AdminBallotSort = builder.enumType("AdminBallotSort", {
 	values: {
 		NAME: { value: "name" },
 		STATUS: { value: "status" },
@@ -54,34 +54,37 @@ const AdminSlateSort = builder.enumType("AdminSlateSort", {
 })
 
 // Exposes both directions of the join row (question, for the builder/member
-// list; slate, for QuestionRef.slateMembership below) - one type covers both
-// call sites rather than two near-identical ones.
-export const SlateQuestionRef = builder.drizzleObject("slateQuestions", {
-	name: "SlateQuestion",
+// list; ballot, for QuestionRef.ballotMembership below) - one type covers
+// both call sites rather than two near-identical ones.
+export const BallotQuestionRef = builder.drizzleObject("ballotQuestions", {
+	name: "BallotQuestion",
 	fields: (t) => ({
 		id: t.exposeID("id"),
 		label: t.exposeString("label"),
 		slot: t.exposeString("slot", { nullable: true }),
 		sortOrder: t.exposeInt("sortOrder"),
 		question: t.relation("question"),
-		slate: t.relation("slate"),
+		ballot: t.relation("ballot"),
 	}),
 })
 
-export const SlateRef = builder.drizzleObject("slates", {
-	name: "Slate",
+export const BallotRef = builder.drizzleObject("ballots", {
+	name: "Ballot",
 	fields: (t) => ({
 		id: t.exposeID("id"),
 		name: t.exposeString("name"),
-		status: t.field({ type: SlateStatus, resolve: (slate) => slate.status }),
+		status: t.field({
+			type: BallotStatus,
+			resolve: (ballot) => ballot.status,
+		}),
 		publishedAt: t.field({
 			type: "String",
 			nullable: true,
-			resolve: (slate) => slate.publishedAt?.toISOString() ?? null,
+			resolve: (ballot) => ballot.publishedAt?.toISOString() ?? null,
 		}),
 		createdAt: t.field({
 			type: "String",
-			resolve: (slate) => slate.createdAt.toISOString(),
+			resolve: (ballot) => ballot.createdAt.toISOString(),
 		}),
 		sport: t.relation("sport"),
 		league: t.relation("league"),
@@ -93,90 +96,93 @@ export const SlateRef = builder.drizzleObject("slates", {
 				with: { question: true },
 			}),
 		}),
-		// How many of this slate's questions the viewer has already called -
-		// batched by slateId (not questionId) so several feed cards belonging to
-		// the same slate on one page collapse into a single query. Null when
+		// How many of this ballot's questions the viewer has already called -
+		// batched by ballotId (not questionId) so several feed cards belonging to
+		// the same ballot on one page collapse into a single query. Null when
 		// signed out; the frontend reads null-or-zero as "hasn't started this
-		// slate yet" either way.
+		// ballot yet" either way.
 		viewerCalledCount: t.loadable({
 			type: "Int",
 			nullable: true,
-			load: async (slateIds: string[], ctx) => {
-				if (!ctx.user) return slateIds.map(() => null)
+			load: async (ballotIds: string[], ctx) => {
+				if (!ctx.user) return ballotIds.map(() => null)
 				const rows = await db
 					.select({
-						slateId: slateQuestions.slateId,
+						ballotId: ballotQuestions.ballotId,
 						cnt: count(calls.id),
 					})
-					.from(slateQuestions)
+					.from(ballotQuestions)
 					.innerJoin(
 						calls,
 						and(
-							eq(calls.questionId, slateQuestions.questionId),
+							eq(calls.questionId, ballotQuestions.questionId),
 							eq(calls.userId, ctx.user.id),
 						),
 					)
-					.where(inArray(slateQuestions.slateId, slateIds))
-					.groupBy(slateQuestions.slateId)
-				const byId = new Map(rows.map((r) => [r.slateId, Number(r.cnt)]))
-				return slateIds.map((id) => byId.get(id) ?? 0)
+					.where(inArray(ballotQuestions.ballotId, ballotIds))
+					.groupBy(ballotQuestions.ballotId)
+				const byId = new Map(rows.map((r) => [r.ballotId, Number(r.cnt)]))
+				return ballotIds.map((id) => byId.get(id) ?? 0)
 			},
-			resolve: (slate) => slate.id,
+			resolve: (ballot) => ballot.id,
 		}),
 	}),
 })
 
-const AdminSlateConnectionRef = builder
-	.objectRef<Connection<Slate>>("AdminSlateConnection")
+const AdminBallotConnectionRef = builder
+	.objectRef<Connection<Ballot>>("AdminBallotConnection")
 	.implement({
 		fields: (t) => ({
-			items: t.field({ type: [SlateRef], resolve: (c) => c.items }),
+			items: t.field({ type: [BallotRef], resolve: (c) => c.items }),
 			pageInfo: t.field({ type: PageInfoRef, resolve: (c) => c.pageInfo }),
 		}),
 	})
 
-const SlatePayload = builder
-	.objectRef<{ slate: Slate }>("SlatePayload")
+const BallotPayload = builder
+	.objectRef<{ ballot: Ballot }>("BallotPayload")
 	.implement({
 		fields: (t) => ({
-			slate: t.field({ type: SlateRef, resolve: (payload) => payload.slate }),
-		}),
-	})
-
-const SlateQuestionPayload = builder
-	.objectRef<{ slateQuestion: SlateQuestion }>("SlateQuestionPayload")
-	.implement({
-		fields: (t) => ({
-			slateQuestion: t.field({
-				type: SlateQuestionRef,
-				resolve: (payload) => payload.slateQuestion,
+			ballot: t.field({
+				type: BallotRef,
+				resolve: (payload) => payload.ballot,
 			}),
 		}),
 	})
 
-const CreateSlateInput = builder.inputType("CreateSlateInput", {
+const BallotQuestionPayload = builder
+	.objectRef<{ ballotQuestion: BallotQuestion }>("BallotQuestionPayload")
+	.implement({
+		fields: (t) => ({
+			ballotQuestion: t.field({
+				type: BallotQuestionRef,
+				resolve: (payload) => payload.ballotQuestion,
+			}),
+		}),
+	})
+
+const CreateBallotInput = builder.inputType("CreateBallotInput", {
 	fields: (t) => ({
 		name: t.string({ required: true }),
 		leagueId: t.id({ required: true }),
 	}),
 })
 
-// Also used as createQuestion's optional `slate` param (see CreateQuestionInput
-// in question.ts) - a question being created has no id yet, so this never
-// carries a questionId itself.
-export const SlateQuestionInput = builder.inputType("SlateQuestionInput", {
+// Also used as createQuestion's optional `ballot` param (see
+// CreateQuestionInput in question.ts) - a question being created has no id
+// yet, so this never carries a questionId itself.
+export const BallotQuestionInput = builder.inputType("BallotQuestionInput", {
 	fields: (t) => ({
-		slateId: t.id({ required: true }),
+		ballotId: t.id({ required: true }),
 		label: t.string({ required: true }),
 		slot: t.string({ required: false }),
 	}),
 })
 
-const AttachQuestionToSlateInput = builder.inputType(
-	"AttachQuestionToSlateInput",
+const AttachQuestionToBallotInput = builder.inputType(
+	"AttachQuestionToBallotInput",
 	{
 		fields: (t) => ({
-			slateId: t.id({ required: true }),
+			ballotId: t.id({ required: true }),
 			questionId: t.id({ required: true }),
 			label: t.string({ required: true }),
 			slot: t.string({ required: false }),
@@ -184,42 +190,59 @@ const AttachQuestionToSlateInput = builder.inputType(
 	},
 )
 
-const UpdateSlateQuestionInput = builder.inputType("UpdateSlateQuestionInput", {
-	fields: (t) => ({
-		questionId: t.id({ required: true }),
-		label: t.string({ required: true }),
-		slot: t.string({ required: false }),
-	}),
-})
+const UpdateBallotQuestionInput = builder.inputType(
+	"UpdateBallotQuestionInput",
+	{
+		fields: (t) => ({
+			questionId: t.id({ required: true }),
+			label: t.string({ required: true }),
+			slot: t.string({ required: false }),
+		}),
+	},
+)
 
 builder.queryFields((t) => ({
-	// Public - but only ever resolves for a published slate. A draft slate's
+	// Public - but only ever resolves for a published ballot. A draft ballot's
 	// existence isn't exposed to non-admins at all, same as its members show
-	// no slate UI anywhere until published (see QuestionRef.slateMembership).
-	slate: t.field({
-		type: SlateRef,
+	// no ballot UI anywhere until published (see QuestionRef.ballotMembership).
+	ballot: t.field({
+		type: BallotRef,
 		nullable: true,
 		args: { id: t.arg.id({ required: true }) },
 		resolve: async (_root, args) => {
 			if (!isUuid(args.id)) return null
-			const slate = await db.query.slates.findFirst({
+			const ballot = await db.query.ballots.findFirst({
 				where: { id: args.id },
 			})
-			if (!slate || slate.status !== "published") return null
-			return slate
+			if (!ballot || ballot.status !== "published") return null
+			return ballot
 		},
 	}),
 
-	adminSlates: t.field({
-		type: AdminSlateConnectionRef,
+	// The league room's Season tab - published ballots for one league, plain
+	// array like `leagues`/`sports` rather than a connection: a season's worth
+	// of award ballots for a single league is a handful of rows, not something
+	// worth paginating.
+	leagueBallots: t.field({
+		type: [BallotRef],
+		args: { leagueId: t.arg.id({ required: true }) },
+		resolve: (_root, args) =>
+			db.query.ballots.findMany({
+				where: { leagueId: args.leagueId, status: "published" },
+				orderBy: { name: "asc" },
+			}),
+	}),
+
+	adminBallots: t.field({
+		type: AdminBallotConnectionRef,
 		errors: { types: [AuthenticationError, AuthorizationError] },
 		args: {
 			first: t.arg.int(),
 			after: t.arg.string(),
 			search: t.arg.string(),
-			status: t.arg({ type: SlateStatus, required: false }),
+			status: t.arg({ type: BallotStatus, required: false }),
 			leagueId: t.arg.id({ required: false }),
-			sortBy: t.arg({ type: AdminSlateSort, required: false }),
+			sortBy: t.arg({ type: AdminBallotSort, required: false }),
 			sortDir: t.arg({ type: SortDirection, required: false }),
 		},
 		resolve: async (_root, args, ctx) => {
@@ -229,7 +252,7 @@ builder.queryFields((t) => ({
 			const sortBy = args.sortBy ?? "name"
 			const sortDir = args.sortDir ?? "asc"
 
-			const rows = await db.query.slates.findMany({
+			const rows = await db.query.ballots.findMany({
 				where: {
 					...(args.status ? { status: args.status } : {}),
 					...(args.leagueId ? { leagueId: args.leagueId } : {}),
@@ -248,26 +271,26 @@ builder.queryFields((t) => ({
 		},
 	}),
 
-	// Admin builder's own load - includes draft slates and doesn't filter the
-	// member list the way the public `slate` query does.
-	adminSlate: t.field({
-		type: SlateRef,
+	// Admin builder's own load - includes draft ballots and doesn't filter the
+	// member list the way the public `ballot` query does.
+	adminBallot: t.field({
+		type: BallotRef,
 		nullable: true,
 		errors: { types: [AuthenticationError, AuthorizationError] },
 		args: { id: t.arg.id({ required: true }) },
 		resolve: async (_root, args, ctx) => {
 			requireAdmin(ctx)
 			if (!isUuid(args.id)) return null
-			return db.query.slates.findFirst({ where: { id: args.id } })
+			return db.query.ballots.findFirst({ where: { id: args.id } })
 		},
 	}),
 
-	// Backs the create-question form's "add to slate" autocomplete - a
+	// Backs the create-question form's "add to ballot" autocomplete - a
 	// bounded typeahead result set scoped to the question's own league, not
 	// something a caller pages through. Same shape as the `games` query this
 	// mirrors (sports.ts).
-	adminSlateSearch: t.field({
-		type: [SlateRef],
+	adminBallotSearch: t.field({
+		type: [BallotRef],
 		errors: { types: [AuthenticationError, AuthorizationError] },
 		args: {
 			leagueId: t.arg.id({ required: true }),
@@ -277,7 +300,7 @@ builder.queryFields((t) => ({
 		resolve: async (_root, args, ctx) => {
 			requireAdmin(ctx)
 			const limit = Math.min(Math.max(args.first ?? 8, 1), 20)
-			return db.query.slates.findMany({
+			return db.query.ballots.findMany({
 				where: {
 					leagueId: args.leagueId,
 					...(args.query ? { name: { ilike: `%${args.query}%` } } : {}),
@@ -290,17 +313,17 @@ builder.queryFields((t) => ({
 }))
 
 builder.mutationFields((t) => ({
-	createSlate: t.field({
-		type: SlatePayload,
+	createBallot: t.field({
+		type: BallotPayload,
 		errors: {
 			types: [AuthenticationError, AuthorizationError, ValidationError],
 			directResult: true,
-			union: { name: "CreateSlateResult" },
+			union: { name: "CreateBallotResult" },
 		},
-		args: { input: t.arg({ type: CreateSlateInput, required: true }) },
+		args: { input: t.arg({ type: CreateBallotInput, required: true }) },
 		resolve: async (_root, args, ctx) => {
 			const user = requireAdmin(ctx)
-			const parsed = createSlateSchema.safeParse(args.input)
+			const parsed = createBallotSchema.safeParse(args.input)
 			if (!parsed.success)
 				throw ValidationError.fromZodIssues(parsed.error.issues)
 
@@ -310,7 +333,7 @@ builder.mutationFields((t) => ({
 			if (!league) throw ValidationError.field("leagueId", "League not found")
 
 			// sportId/seasonId are always derived, never asked of the admin - see
-			// slates.sportId/seasonId in db/schema/slates.ts.
+			// ballots.sportId/seasonId in db/schema/ballots.ts.
 			const season = await getCurrentSeason(league.id)
 			if (!season) {
 				throw ValidationError.field(
@@ -319,8 +342,8 @@ builder.mutationFields((t) => ({
 				)
 			}
 
-			const [slate] = await db
-				.insert(slates)
+			const [ballot] = await db
+				.insert(ballots)
 				.values({
 					name: parsed.data.name,
 					sportId: league.sportId,
@@ -330,12 +353,12 @@ builder.mutationFields((t) => ({
 				})
 				.returning()
 
-			return { slate }
+			return { ballot }
 		},
 	}),
 
-	renameSlate: t.field({
-		type: SlatePayload,
+	renameBallot: t.field({
+		type: BallotPayload,
 		errors: {
 			types: [
 				AuthenticationError,
@@ -344,7 +367,7 @@ builder.mutationFields((t) => ({
 				ValidationError,
 			],
 			directResult: true,
-			union: { name: "RenameSlateResult" },
+			union: { name: "RenameBallotResult" },
 		},
 		args: {
 			id: t.arg.id({ required: true }),
@@ -353,24 +376,24 @@ builder.mutationFields((t) => ({
 		resolve: async (_root, args, ctx) => {
 			requireAdmin(ctx)
 			const name = args.name.trim()
-			if (!name) throw ValidationError.field("name", "Name this slate")
+			if (!name) throw ValidationError.field("name", "Name this ballot")
 
-			const [slate] = await db
-				.update(slates)
+			const [ballot] = await db
+				.update(ballots)
 				.set({ name })
-				.where(eq(slates.id, args.id))
+				.where(eq(ballots.id, args.id))
 				.returning()
-			if (!slate) throw new NotFoundError("Slate not found")
-			return { slate }
+			if (!ballot) throw new NotFoundError("Ballot not found")
+			return { ballot }
 		},
 	}),
 
-	setSlatePublished: t.field({
-		type: SlatePayload,
+	setBallotPublished: t.field({
+		type: BallotPayload,
 		errors: {
 			types: [AuthenticationError, AuthorizationError, NotFoundError],
 			directResult: true,
-			union: { name: "SetSlatePublishedResult" },
+			union: { name: "SetBallotPublishedResult" },
 		},
 		args: {
 			id: t.arg.id({ required: true }),
@@ -378,37 +401,37 @@ builder.mutationFields((t) => ({
 		},
 		resolve: async (_root, args, ctx) => {
 			requireAdmin(ctx)
-			const [slate] = await db
-				.update(slates)
+			const [ballot] = await db
+				.update(ballots)
 				.set({
 					status: args.published ? "published" : "draft",
 					publishedAt: args.published ? new Date() : null,
 				})
-				.where(eq(slates.id, args.id))
+				.where(eq(ballots.id, args.id))
 				.returning()
-			if (!slate) throw new NotFoundError("Slate not found")
-			return { slate }
+			if (!ballot) throw new NotFoundError("Ballot not found")
+			return { ballot }
 		},
 	}),
 
-	// Cascades slateQuestions rows (onDelete: cascade) - the questions
-	// themselves are never touched, same as removeQuestionFromSlate below.
-	deleteSlate: t.field({
+	// Cascades ballotQuestions rows (onDelete: cascade) - the questions
+	// themselves are never touched, same as removeQuestionFromBallot below.
+	deleteBallot: t.field({
 		type: "Boolean",
 		errors: {
 			types: [AuthenticationError, AuthorizationError],
-			union: { name: "DeleteSlateResult" },
+			union: { name: "DeleteBallotResult" },
 		},
 		args: { id: t.arg.id({ required: true }) },
 		resolve: async (_root, args, ctx) => {
 			requireAdmin(ctx)
-			await db.delete(slates).where(eq(slates.id, args.id))
+			await db.delete(ballots).where(eq(ballots.id, args.id))
 			return true
 		},
 	}),
 
-	attachQuestionToSlate: t.field({
-		type: SlateQuestionPayload,
+	attachQuestionToBallot: t.field({
+		type: BallotQuestionPayload,
 		errors: {
 			types: [
 				AuthenticationError,
@@ -417,49 +440,49 @@ builder.mutationFields((t) => ({
 				ValidationError,
 			],
 			directResult: true,
-			union: { name: "AttachQuestionToSlateResult" },
+			union: { name: "AttachQuestionToBallotResult" },
 		},
 		args: {
-			input: t.arg({ type: AttachQuestionToSlateInput, required: true }),
+			input: t.arg({ type: AttachQuestionToBallotInput, required: true }),
 		},
 		resolve: async (_root, args, ctx) => {
 			requireAdmin(ctx)
-			const parsed = attachQuestionToSlateSchema.safeParse(args.input)
+			const parsed = attachQuestionToBallotSchema.safeParse(args.input)
 			if (!parsed.success)
 				throw ValidationError.fromZodIssues(parsed.error.issues)
-			const { slateId, questionId, label, slot } = parsed.data
+			const { ballotId, questionId, label, slot } = parsed.data
 
-			const [slate, question, existing] = await Promise.all([
-				db.query.slates.findFirst({ where: { id: slateId } }),
+			const [ballot, question, existing] = await Promise.all([
+				db.query.ballots.findFirst({ where: { id: ballotId } }),
 				db.query.questions.findFirst({ where: { id: questionId } }),
-				db.query.slateQuestions.findFirst({ where: { questionId } }),
+				db.query.ballotQuestions.findFirst({ where: { questionId } }),
 			])
-			if (!slate) throw new NotFoundError("Slate not found")
+			if (!ballot) throw new NotFoundError("Ballot not found")
 			if (!question) throw new NotFoundError("Question not found")
 			if (existing) {
 				throw ValidationError.field(
 					"questionId",
-					"This question is already in a slate",
+					"This question is already in a ballot",
 				)
 			}
-			if (question.leagueId !== slate.leagueId) {
+			if (question.leagueId !== ballot.leagueId) {
 				throw ValidationError.field(
 					"questionId",
-					"Question must be in the same league as the slate",
+					"Question must be in the same league as the ballot",
 				)
 			}
 
-			const slateQuestion = await db.transaction(async (tx) => {
+			const ballotQuestion = await db.transaction(async (tx) => {
 				const [{ maxSortOrder }] = await tx
 					.select({
-						maxSortOrder: sql<number>`coalesce(max(${slateQuestions.sortOrder}), -1)`,
+						maxSortOrder: sql<number>`coalesce(max(${ballotQuestions.sortOrder}), -1)`,
 					})
-					.from(slateQuestions)
-					.where(eq(slateQuestions.slateId, slateId))
+					.from(ballotQuestions)
+					.where(eq(ballotQuestions.ballotId, ballotId))
 				const [inserted] = await tx
-					.insert(slateQuestions)
+					.insert(ballotQuestions)
 					.values({
-						slateId,
+						ballotId,
 						questionId,
 						label,
 						slot: slot ?? null,
@@ -469,32 +492,32 @@ builder.mutationFields((t) => ({
 				return inserted
 			})
 
-			return { slateQuestion }
+			return { ballotQuestion }
 		},
 	}),
 
-	// Removes the question from the slate only - the question itself is
+	// Removes the question from the ballot only - the question itself is
 	// never deleted, same "unlink != delete" precedent as removeGroupMember.
-	removeQuestionFromSlate: t.field({
+	removeQuestionFromBallot: t.field({
 		type: "Boolean",
 		errors: {
 			types: [AuthenticationError, AuthorizationError],
-			union: { name: "RemoveQuestionFromSlateResult" },
+			union: { name: "RemoveQuestionFromBallotResult" },
 		},
 		args: { questionId: t.arg.id({ required: true }) },
 		resolve: async (_root, args, ctx) => {
 			requireAdmin(ctx)
 			await db
-				.delete(slateQuestions)
-				.where(eq(slateQuestions.questionId, args.questionId))
+				.delete(ballotQuestions)
+				.where(eq(ballotQuestions.questionId, args.questionId))
 			return true
 		},
 	}),
 
 	// Always sends both fields (the builder's row inputs are bound to current
 	// state) - a full replace, not a partial patch.
-	updateSlateQuestion: t.field({
-		type: SlateQuestionPayload,
+	updateBallotQuestion: t.field({
+		type: BallotQuestionPayload,
 		errors: {
 			types: [
 				AuthenticationError,
@@ -503,43 +526,45 @@ builder.mutationFields((t) => ({
 				ValidationError,
 			],
 			directResult: true,
-			union: { name: "UpdateSlateQuestionResult" },
+			union: { name: "UpdateBallotQuestionResult" },
 		},
-		args: { input: t.arg({ type: UpdateSlateQuestionInput, required: true }) },
+		args: {
+			input: t.arg({ type: UpdateBallotQuestionInput, required: true }),
+		},
 		resolve: async (_root, args, ctx) => {
 			requireAdmin(ctx)
-			const parsed = updateSlateQuestionSchema.safeParse(args.input)
+			const parsed = updateBallotQuestionSchema.safeParse(args.input)
 			if (!parsed.success)
 				throw ValidationError.fromZodIssues(parsed.error.issues)
 
-			const [slateQuestion] = await db
-				.update(slateQuestions)
+			const [ballotQuestion] = await db
+				.update(ballotQuestions)
 				.set({ label: parsed.data.label, slot: parsed.data.slot ?? null })
-				.where(eq(slateQuestions.questionId, parsed.data.questionId))
+				.where(eq(ballotQuestions.questionId, parsed.data.questionId))
 				.returning()
-			if (!slateQuestion)
-				throw new NotFoundError("This question isn't in a slate")
-			return { slateQuestion }
+			if (!ballotQuestion)
+				throw new NotFoundError("This question isn't in a ballot")
+			return { ballotQuestion }
 		},
 	}),
 
 	// New questions always append to the end (see the sortOrder derivation in
-	// attachQuestionToSlate/createQuestion) - this is the only way membership
+	// attachQuestionToBallot/createQuestion) - this is the only way membership
 	// order actually changes, driven by the builder's up/down controls.
-	reorderSlateQuestions: t.field({
+	reorderBallotQuestions: t.field({
 		type: "Boolean",
 		errors: {
 			types: [AuthenticationError, AuthorizationError, ValidationError],
-			union: { name: "ReorderSlateQuestionsResult" },
+			union: { name: "ReorderBallotQuestionsResult" },
 		},
 		args: {
-			slateId: t.arg.id({ required: true }),
+			ballotId: t.arg.id({ required: true }),
 			orderedQuestionIds: t.arg({ type: ["ID"], required: true }),
 		},
 		resolve: async (_root, args, ctx) => {
 			requireAdmin(ctx)
-			const current = await db.query.slateQuestions.findMany({
-				where: { slateId: args.slateId },
+			const current = await db.query.ballotQuestions.findMany({
+				where: { ballotId: args.ballotId },
 				columns: { questionId: true },
 			})
 			const currentIds = new Set(current.map((r) => r.questionId))
@@ -550,7 +575,7 @@ builder.mutationFields((t) => ({
 			if (!sameSet) {
 				throw ValidationError.field(
 					"orderedQuestionIds",
-					"That doesn't match this slate's current members",
+					"That doesn't match this ballot's current members",
 				)
 			}
 
@@ -558,12 +583,12 @@ builder.mutationFields((t) => ({
 				await Promise.all(
 					incoming.map((questionId, index) =>
 						tx
-							.update(slateQuestions)
+							.update(ballotQuestions)
 							.set({ sortOrder: index })
 							.where(
 								and(
-									eq(slateQuestions.slateId, args.slateId),
-									eq(slateQuestions.questionId, questionId),
+									eq(ballotQuestions.ballotId, args.ballotId),
+									eq(ballotQuestions.questionId, questionId),
 								),
 							),
 					),

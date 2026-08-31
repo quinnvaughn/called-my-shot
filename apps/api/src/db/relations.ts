@@ -111,9 +111,9 @@ export const relations = defineRelations(schema, (r) => ({
 		disputes: r.many.resolutionDisputes(),
 		reports: r.many.questionReports(),
 		shares: r.many.questionShares(),
-		slateMembership: r.one.slateQuestions({
+		ballotMembership: r.one.ballotQuestions({
 			from: r.questions.id,
-			to: r.slateQuestions.questionId,
+			to: r.ballotQuestions.questionId,
 		}),
 	},
 	questionOptions: {
@@ -244,32 +244,32 @@ export const relations = defineRelations(schema, (r) => ({
 			to: r.users.id,
 		}),
 	},
-	slates: {
+	ballots: {
 		sport: r.one.sports({
-			from: r.slates.sportId,
+			from: r.ballots.sportId,
 			to: r.sports.id,
 		}),
 		league: r.one.leagues({
-			from: r.slates.leagueId,
+			from: r.ballots.leagueId,
 			to: r.leagues.id,
 		}),
 		season: r.one.seasons({
-			from: r.slates.seasonId,
+			from: r.ballots.seasonId,
 			to: r.seasons.id,
 		}),
 		creator: r.one.users({
-			from: r.slates.createdBy,
+			from: r.ballots.createdBy,
 			to: r.users.id,
 		}),
-		members: r.many.slateQuestions(),
+		members: r.many.ballotQuestions(),
 	},
-	slateQuestions: {
-		slate: r.one.slates({
-			from: r.slateQuestions.slateId,
-			to: r.slates.id,
+	ballotQuestions: {
+		ballot: r.one.ballots({
+			from: r.ballotQuestions.ballotId,
+			to: r.ballots.id,
 		}),
 		question: r.one.questions({
-			from: r.slateQuestions.questionId,
+			from: r.ballotQuestions.questionId,
 			to: r.questions.id,
 		}),
 	},

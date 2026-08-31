@@ -1,6 +1,6 @@
 import { match } from "ts-pattern"
 import { z } from "zod"
-import { slateQuestionSchema } from "./slates"
+import { ballotQuestionSchema } from "./ballots"
 
 // Lowercase to match the values the GraphQL layer resolves these enums to
 // server-side (see builder.enumType in apps/api/src/graphql/types/question.ts
@@ -128,11 +128,11 @@ export const createQuestionSchema = z
 			),
 		isOfficial: z.boolean().optional(),
 
-		// Admin-only placement into a Slate (a Gold Glove race's 9 positions, a
+		// Admin-only placement into a Ballot (a Gold Glove race's 9 positions, a
 		// week of games) - see the isOfficial requirement in the superRefine
 		// below. Absent entirely for the overwhelming majority of questions,
-		// which aren't part of any slate.
-		slate: slateQuestionSchema.optional(),
+		// which aren't part of any ballot.
+		ballot: ballotQuestionSchema.optional(),
 
 		// player_vs_player (exactly 2, playerId required on each), award pools
 		// (player_season_award/team_season_award, auto-derived client-side from
@@ -213,14 +213,14 @@ export const createQuestionSchema = z
 			})
 		}
 
-		// A slate is always an admin-curated grouping - a question placed into
+		// A ballot is always an admin-curated grouping - a question placed into
 		// one is always attributed to the platform account, never a regular
 		// creator's own byline, same as the award shapes above.
-		if (data.slate && !data.isOfficial) {
+		if (data.ballot && !data.isOfficial) {
 			ctx.addIssue({
 				code: "custom",
 				path: ["isOfficial"],
-				message: "Slate questions must be posted as official",
+				message: "Ballot questions must be posted as official",
 			})
 		}
 

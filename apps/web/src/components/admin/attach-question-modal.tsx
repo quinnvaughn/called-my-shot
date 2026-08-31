@@ -6,29 +6,29 @@ import { Button } from "#/components/ui/button"
 import { FormError } from "#/components/ui/form-error"
 import { Modal } from "#/components/ui/modal"
 import { TextInput } from "#/components/ui/text-input"
-import { AttachQuestionToSlateDocument } from "#/graphql/mutations/slates"
-import { SlateAttachableQuestionsDocument } from "#/graphql/queries/slates"
+import { AttachQuestionToBallotDocument } from "#/graphql/mutations/ballots"
+import { BallotAttachableQuestionsDocument } from "#/graphql/queries/ballots"
 import { useDebouncedValue } from "#/hooks/use-debounced-value"
 import { questionShapeLabel } from "#/lib/question-labels"
 import { closeModal } from "#/stores/modal-store"
 
 type Props = {
-	slateId: string
+	ballotId: string
 	leagueId: string
 	onAttached: () => void
 }
 
 // A question attached here needs a label too (required, same as one created
-// straight into the slate) - collected inline per row rather than a second
+// straight into the ballot) - collected inline per row rather than a second
 // step, since there's exactly one field to fill in.
-export function AttachQuestionModal({ slateId, leagueId, onAttached }: Props) {
+export function AttachQuestionModal({ ballotId, leagueId, onAttached }: Props) {
 	const [search, setSearch] = useState("")
 	const debouncedSearch = useDebouncedValue(search, 300)
-	const { data, loading } = useQuery(SlateAttachableQuestionsDocument, {
+	const { data, loading } = useQuery(BallotAttachableQuestionsDocument, {
 		variables: { leagueId, search: debouncedSearch || undefined },
 	})
 	const [attach, { error: mutationError }] = useMutation(
-		AttachQuestionToSlateDocument,
+		AttachQuestionToBallotDocument,
 	)
 	const [labels, setLabels] = useState<Record<string, string>>({})
 	const [attachingId, setAttachingId] = useState<string | null>(null)
@@ -48,11 +48,11 @@ export function AttachQuestionModal({ slateId, leagueId, onAttached }: Props) {
 		setRowError(null)
 		setAttachingId(questionId)
 		const { data } = await attach({
-			variables: { input: { slateId, questionId, label } },
+			variables: { input: { ballotId, questionId, label } },
 		})
 		setAttachingId(null)
-		const result = data?.attachQuestionToSlate
-		if (result?.__typename === "SlateQuestionPayload") {
+		const result = data?.attachQuestionToBallot
+		if (result?.__typename === "BallotQuestionPayload") {
 			onAttached()
 		} else if (result?.__typename === "ValidationError") {
 			setRowError(
@@ -67,8 +67,8 @@ export function AttachQuestionModal({ slateId, leagueId, onAttached }: Props) {
 			<VStack gap="1" alignItems="flex-start">
 				<Modal.Title>Attach existing question</Modal.Title>
 				<Modal.Description>
-					Only questions in this slate's league that aren't already in another
-					slate show up here.
+					Only questions in this ballot's league that aren't already in another
+					ballot show up here.
 				</Modal.Description>
 			</VStack>
 			<VStack gap="3" alignItems="stretch">

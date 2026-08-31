@@ -1,5 +1,5 @@
 import { useMutation, useQuery } from "@apollo/client/react"
-import { createSlateSchema } from "@called-my-shot/schemas"
+import { createBallotSchema } from "@called-my-shot/schemas"
 import { useNavigate } from "@tanstack/react-router"
 import { useState } from "react"
 import { VStack } from "styled-system/jsx"
@@ -13,25 +13,25 @@ import { FieldLabel } from "#/components/ui/field-label"
 import { FormError } from "#/components/ui/form-error"
 import { Modal } from "#/components/ui/modal"
 import { TextInput } from "#/components/ui/text-input"
-import { CreateSlateDocument } from "#/graphql/mutations/slates"
+import { CreateBallotDocument } from "#/graphql/mutations/ballots"
 import { SportsDocument } from "#/graphql/queries/sports"
 import { useForm } from "#/lib/form/use-form"
 import { closeModal } from "#/stores/modal-store"
 
-export function NewSlateModal() {
+export function NewBallotModal() {
 	const { data: sportsData } = useQuery(SportsDocument)
-	const [createSlate] = useMutation(CreateSlateDocument)
+	const [createBallot] = useMutation(CreateBallotDocument)
 	const navigate = useNavigate()
 	const [leagueInputText, setLeagueInputText] = useState("")
 
 	const leagues = (sportsData?.sports ?? []).flatMap((sport) => sport.leagues)
 
 	const form = useForm({
-		schema: createSlateSchema,
+		schema: createBallotSchema,
 		defaultValues: { name: "", leagueId: "" },
 		onSubmit: async (values, helpers) => {
-			const { data } = await createSlate({ variables: { input: values } })
-			const result = data?.createSlate
+			const { data } = await createBallot({ variables: { input: values } })
+			const result = data?.createBallot
 
 			if (!result) {
 				helpers.setFormError("Something went wrong. Try again.")
@@ -53,11 +53,11 @@ export function NewSlateModal() {
 				.with({ __typename: "AuthorizationError" }, async (r) => {
 					helpers.setFormError(r.message)
 				})
-				.with({ __typename: "SlatePayload" }, async (r) => {
+				.with({ __typename: "BallotPayload" }, async (r) => {
 					closeModal()
 					await navigate({
-						to: "/admin/slates/$slateId",
-						params: { slateId: r.slate.id },
+						to: "/admin/ballots/$ballotId",
+						params: { ballotId: r.ballot.id },
 					})
 				})
 				.exhaustive()
@@ -77,7 +77,7 @@ export function NewSlateModal() {
 		<Modal>
 			<Modal.CloseButton />
 			<VStack gap="1" alignItems="flex-start">
-				<Modal.Title>New slate</Modal.Title>
+				<Modal.Title>New ballot</Modal.Title>
 				<Modal.Description>
 					A named bundle of related questions - a Gold Glove race's positions, a
 					week of games. Sport and season are derived from the league.
@@ -128,7 +128,7 @@ export function NewSlateModal() {
 									loading={meta.isSubmitting}
 									disabled={meta.isSubmitting || !meta.canSubmit}
 								>
-									Create slate
+									Create ballot
 								</Button>
 								<FormError message={meta.formError} />
 							</VStack>

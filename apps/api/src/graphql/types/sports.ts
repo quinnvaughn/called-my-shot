@@ -8,10 +8,30 @@ import {
 	updatePlayerSchema,
 	updateTeamSchema,
 } from "@called-my-shot/schemas"
-import { asc, eq, getColumns } from "drizzle-orm"
+import {
+	and,
+	asc,
+	count,
+	eq,
+	getColumns,
+	gte,
+	lt,
+	min,
+	ne,
+	sql,
+} from "drizzle-orm"
+import { DateTime } from "luxon"
 import { db } from "../../db"
 import type { Game, League, Player, Team } from "../../db/schema"
-import { games, leagues, players, teams } from "../../db/schema"
+import {
+	calls,
+	games,
+	leagues,
+	players,
+	questions,
+	teams,
+} from "../../db/schema"
+import { NFL_SLOT_LABELS, NFL_SLOT_ORDER } from "../../db/sync/nfl-slot"
 import {
 	type AdminConnection,
 	buildAdminConnection,
@@ -43,6 +63,15 @@ const GameStatus = builder.enumType("GameStatus", {
 		SCHEDULED: { value: "scheduled" },
 		LIVE: { value: "live" },
 		FINAL: { value: "final" },
+	},
+})
+
+// How a league's Games tab pages through its schedule - see
+// leagues.windowType's comment in db/schema/sports.ts.
+const LeagueWindowType = builder.enumType("LeagueWindowType", {
+	values: {
+		DATE: { value: "date" },
+		WEEK: { value: "week" },
 	},
 })
 
@@ -92,8 +121,83 @@ export const LeagueRef = builder.drizzleObject("leagues", {
 		abbreviation: t.exposeString("abbreviation"),
 		slug: t.exposeString("slug"),
 		status: t.field({ type: LeagueStatus, resolve: (l) => l.status }),
+		windowType: t.field({
+			type: LeagueWindowType,
+			resolve: (l) => l.windowType,
+		}),
 		sport: t.relation("sport"),
 		teams: t.relation("teams"),
+		// Home's room cards below - a plain per-row resolve rather than a
+		// batched loadable, since there are only ever a handful of leagues on
+		// one page (no N+1 risk worth guarding against here).
+		gamesTodayCount: t.field({
+			type: "Int",
+			resolve: async (league) => {
+				const now = DateTime.now()
+				const [{ n }] = await db
+					.select({ n: count() })
+					.from(games)
+					.where(
+						and(
+							eq(games.leagueId, league.id),
+							gte(games.startsAt, now.startOf("day").toJSDate()),
+							lt(games.startsAt, now.endOf("day").toJSDate()),
+						),
+					)
+				return n
+			},
+		}),
+		liveGameCount: t.field({
+			type: "Int",
+			resolve: async (league) => {
+				const [{ n }] = await db
+					.select({ n: count() })
+					.from(games)
+					.where(and(eq(games.leagueId, league.id), eq(games.status, "live")))
+				return n
+			},
+		}),
+		// Soonest lock among this league's still-open questions - null once
+		// nothing's open (offseason, or between the day's games and tomorrow's).
+		nextLockAt: t.field({
+			type: "String",
+			nullable: true,
+			resolve: async (league) => {
+				const [row] = await db
+					.select({ locksAt: min(questions.locksAt) })
+					.from(questions)
+					.where(
+						and(
+							eq(questions.leagueId, league.id),
+							eq(questions.status, "open"),
+						),
+					)
+				return row?.locksAt ? new Date(row.locksAt).toISOString() : null
+			},
+		}),
+		// Null when signed out - Home (the only caller) is authed-only, but this
+		// field itself doesn't assume that. Calls, not uncalled questions: this
+		// is "how much of what you've already picked in this league is still
+		// live," not "how much is left to call."
+		myOpenCallCount: t.field({
+			type: "Int",
+			nullable: true,
+			resolve: async (league, _args, ctx) => {
+				if (!ctx.user) return null
+				const [{ n }] = await db
+					.select({ n: count() })
+					.from(calls)
+					.innerJoin(questions, eq(questions.id, calls.questionId))
+					.where(
+						and(
+							eq(calls.userId, ctx.user.id),
+							eq(questions.leagueId, league.id),
+							ne(questions.status, "resolved"),
+						),
+					)
+				return n
+			},
+		}),
 	}),
 })
 
@@ -124,6 +228,35 @@ export const GameRef = builder.drizzleObject("games", {
 		league: t.relation("league"),
 		homeTeam: t.relation("homeTeam"),
 		awayTeam: t.relation("awayTeam"),
+		// Plain per-row resolves, not batched loadables - a games list is one
+		// window's worth of games (a day or a week), never large enough to worry
+		// about N+1 the way a long feed would.
+		questionCount: t.field({
+			type: "Int",
+			resolve: async (game) => {
+				const [{ n }] = await db
+					.select({ n: count() })
+					.from(questions)
+					.where(eq(questions.gameId, game.id))
+				return n
+			},
+		}),
+		// Null when signed out - same reasoning as League.myOpenCallCount above.
+		viewerCalledCount: t.field({
+			type: "Int",
+			nullable: true,
+			resolve: async (game, _args, ctx) => {
+				if (!ctx.user) return null
+				const [{ n }] = await db
+					.select({ n: count() })
+					.from(calls)
+					.innerJoin(questions, eq(questions.id, calls.questionId))
+					.where(
+						and(eq(calls.userId, ctx.user.id), eq(questions.gameId, game.id)),
+					)
+				return n
+			},
+		}),
 	}),
 })
 
@@ -239,6 +372,150 @@ const AdminGameConnectionRef = builder
 			pageInfo: t.field({ type: PageInfoRef, resolve: (c) => c.pageInfo }),
 		}),
 	})
+
+// One page of a league's Games tab, in the shape the league's own windowType
+// dictates - a single day (MLB/NBA) or a single week (NFL). Bounded to what's
+// actually synced (see getLeagueWindows below), never an infinite-future
+// list.
+type WindowDescriptor = {
+	key: string
+	label: string
+	sublabel: string | null
+	gameCount: number
+	rangeStart: Date
+	rangeEnd: Date
+}
+
+const GameWindowRef = builder
+	.objectRef<WindowDescriptor>("GameWindow")
+	.implement({
+		fields: (t) => ({
+			key: t.exposeString("key"),
+			label: t.exposeString("label"),
+			sublabel: t.exposeString("sublabel", { nullable: true }),
+			gameCount: t.exposeInt("gameCount"),
+		}),
+	})
+
+type SlotGroup = { slotLabel: string | null; games: Game[] }
+
+const GameSlotGroupRef = builder
+	.objectRef<SlotGroup>("GameSlotGroup")
+	.implement({
+		fields: (t) => ({
+			slotLabel: t.exposeString("slotLabel", { nullable: true }),
+			games: t.field({ type: [GameRef], resolve: (g) => g.games }),
+		}),
+	})
+
+type LeagueGamesForWindowResult = {
+	window: WindowDescriptor
+	prevKey: string | null
+	nextKey: string | null
+	groups: SlotGroup[]
+}
+
+const LeagueGamesForWindowResultRef = builder
+	.objectRef<LeagueGamesForWindowResult>("LeagueGamesForWindowResult")
+	.implement({
+		fields: (t) => ({
+			window: t.field({ type: GameWindowRef, resolve: (r) => r.window }),
+			prevKey: t.exposeString("prevKey", { nullable: true }),
+			nextKey: t.exposeString("nextKey", { nullable: true }),
+			groups: t.field({ type: [GameSlotGroupRef], resolve: (r) => r.groups }),
+		}),
+	})
+
+// Slot vocabulary is owned entirely by each week-window league's own sync
+// module (see games.slot's comment in db/schema/sports.ts) - this is just the
+// lookup from league slug to that module's maps, not a generic mechanism.
+const SLOT_LABELS_BY_LEAGUE: Record<string, Record<string, string>> = {
+	nfl: NFL_SLOT_LABELS,
+}
+const SLOT_ORDER_BY_LEAGUE: Record<string, string[]> = {
+	nfl: NFL_SLOT_ORDER,
+}
+
+const ET_ZONE = "America/New_York"
+
+// Every window this league has synced games for, oldest first. Date-window
+// leagues (MLB/NBA) get one window per ET calendar date; week-window leagues
+// (NFL) get one per (season, seasonType, weekNumber). Both are computed
+// on read, grouped straight off `games` - there's no separate "windows"
+// table, so a window only ever exists because a real game does.
+async function getLeagueWindows(league: League): Promise<WindowDescriptor[]> {
+	if (league.windowType === "week") {
+		const result = await db.execute<{
+			season_id: string
+			season_type: "regular" | "postseason"
+			week_number: number
+			min_starts: string
+			max_starts: string
+			n: number
+		}>(sql`
+			select season_id, season_type, week_number,
+				min(starts_at) as min_starts, max(starts_at) as max_starts,
+				count(*)::int as n
+			from games
+			where league_id = ${league.id} and week_number is not null
+			group by season_id, season_type, week_number
+			order by min_starts asc
+		`)
+		return result.rows.map((row) => {
+			const start = DateTime.fromJSDate(new Date(row.min_starts), {
+				zone: ET_ZONE,
+			})
+			const end = DateTime.fromJSDate(new Date(row.max_starts), {
+				zone: ET_ZONE,
+			})
+			const label =
+				row.season_type === "postseason"
+					? `POSTSEASON WEEK ${row.week_number}`
+					: `WEEK ${row.week_number}`
+			return {
+				key: `${row.season_id}:${row.season_type}:${row.week_number}`,
+				label,
+				sublabel: `${start.toFormat("LLL d").toUpperCase()} – ${end.toFormat("LLL d").toUpperCase()}`,
+				gameCount: row.n,
+				rangeStart: start.startOf("day").toJSDate(),
+				rangeEnd: end.endOf("day").toJSDate(),
+			}
+		})
+	}
+
+	const result = await db.execute<{ d: string; n: number }>(sql`
+		select (starts_at at time zone 'UTC' at time zone ${ET_ZONE})::date as d,
+			count(*)::int as n
+		from games
+		where league_id = ${league.id}
+		group by d
+		order by d asc
+	`)
+	return result.rows.map((row) => {
+		const day = DateTime.fromISO(row.d, { zone: ET_ZONE })
+		return {
+			key: day.toFormat("yyyy-LL-dd"),
+			label: day.toFormat("ccc LLL d").toUpperCase(),
+			sublabel: null,
+			gameCount: row.n,
+			rangeStart: day.startOf("day").toJSDate(),
+			rangeEnd: day.endOf("day").toJSDate(),
+		}
+	})
+}
+
+// windowKey omitted -> "today"/"this week" if it has synced games, else the
+// nearest upcoming window, else the most recent past one.
+function pickDefaultWindowIndex(windows: WindowDescriptor[]): number {
+	const now = new Date()
+	const currentIdx = windows.findIndex(
+		(w) => w.rangeStart <= now && now <= w.rangeEnd,
+	)
+	if (currentIdx !== -1) return currentIdx
+	const upcomingIdx = windows.findIndex((w) => w.rangeStart > now)
+	if (upcomingIdx !== -1) return upcomingIdx
+	return windows.length - 1
+}
 
 builder.queryFields((t) => ({
 	sports: t.field({
@@ -405,6 +682,107 @@ builder.queryFields((t) => ({
 				orderBy: { startsAt: "asc" },
 				limit,
 			})
+		},
+	}),
+
+	// The league room's Games tab (public, not admin-gated - same reasoning as
+	// `league`/`game` above). The bounds of what's steppable through at all -
+	// the stepper UI walks this list rather than computing prev/next by date
+	// arithmetic itself.
+	leagueGameWindows: t.field({
+		type: [GameWindowRef],
+		args: { leagueId: t.arg.id({ required: true }) },
+		resolve: async (_root, args) => {
+			const league = await db.query.leagues.findFirst({
+				where: { id: args.leagueId },
+			})
+			if (!league) return []
+			return getLeagueWindows(league)
+		},
+	}),
+
+	// One window's worth of games - a single day for a date-window league
+	// (MLB/NBA) or a single week for a week-window league (NFL), grouped by
+	// broadcast slot where the league has one. windowKey omitted -> the
+	// server's own default (today/this week if it has games, else nearest
+	// upcoming, else most recent past - see pickDefaultWindowIndex).
+	leagueGamesForWindow: t.field({
+		type: LeagueGamesForWindowResultRef,
+		args: {
+			leagueId: t.arg.id({ required: true }),
+			windowKey: t.arg.string({ required: false }),
+		},
+		resolve: async (_root, args) => {
+			const league = await db.query.leagues.findFirst({
+				where: { id: args.leagueId },
+			})
+			if (!league) throw new NotFoundError("League not found")
+
+			const windows = await getLeagueWindows(league)
+			if (windows.length === 0) {
+				return {
+					window: {
+						key: "",
+						label: "No games scheduled",
+						sublabel: null,
+						gameCount: 0,
+						rangeStart: new Date(),
+						rangeEnd: new Date(),
+					},
+					prevKey: null,
+					nextKey: null,
+					groups: [],
+				}
+			}
+
+			const requestedIndex = args.windowKey
+				? windows.findIndex((w) => w.key === args.windowKey)
+				: -1
+			const index =
+				requestedIndex !== -1 ? requestedIndex : pickDefaultWindowIndex(windows)
+			const selected = windows[index]
+			const prevKey = index > 0 ? windows[index - 1].key : null
+			const nextKey = index < windows.length - 1 ? windows[index + 1].key : null
+
+			if (league.windowType === "week") {
+				const [seasonId, seasonType, weekNumberRaw] = selected.key.split(":")
+				const rows = await db.query.games.findMany({
+					where: {
+						leagueId: league.id,
+						seasonId,
+						seasonType: seasonType as "regular" | "postseason",
+						weekNumber: Number(weekNumberRaw),
+					},
+					orderBy: { startsAt: "asc" },
+				})
+				const order = SLOT_ORDER_BY_LEAGUE[league.slug] ?? []
+				const labels = SLOT_LABELS_BY_LEAGUE[league.slug] ?? {}
+				const knownSlots = new Set(order)
+				const groups: SlotGroup[] = order
+					.map((slotKey) => ({
+						slotLabel: labels[slotKey] ?? slotKey,
+						games: rows.filter((g) => g.slot === slotKey),
+					}))
+					.filter((g) => g.games.length > 0)
+				const leftover = rows.filter((g) => !g.slot || !knownSlots.has(g.slot))
+				if (leftover.length > 0)
+					groups.push({ slotLabel: null, games: leftover })
+				return { window: selected, prevKey, nextKey, groups }
+			}
+
+			const rows = await db.query.games.findMany({
+				where: {
+					leagueId: league.id,
+					startsAt: { gte: selected.rangeStart, lte: selected.rangeEnd },
+				},
+				orderBy: { startsAt: "asc" },
+			})
+			return {
+				window: selected,
+				prevKey,
+				nextKey,
+				groups: rows.length > 0 ? [{ slotLabel: null, games: rows }] : [],
+			}
 		},
 	}),
 

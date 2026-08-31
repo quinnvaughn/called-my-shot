@@ -30,6 +30,10 @@ export type EspnEvent = {
 	id: string
 	date: string
 	seasonType: { type: number }
+	// NFL-only in practice (verified live against the site API) - ESPN's own
+	// authoritative week number, never recomputed from dates on our side.
+	// Absent for leagues with no week concept.
+	week?: { number: number }
 	competitions: [
 		{
 			competitors: [

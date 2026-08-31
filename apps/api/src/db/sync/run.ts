@@ -1,15 +1,10 @@
 import { getCurrentSeason } from "../../lib/seasons"
 import { SYNCED_LEAGUES } from "./leagues"
+import { syncGameQuestions } from "./sync-game-questions"
 import { syncGames } from "./sync-games"
 import { syncPlayers } from "./sync-players"
 import { syncSeasons } from "./sync-seasons"
 import { syncTeams } from "./sync-teams"
-
-// syncGameQuestions (./sync-game-questions.ts) intentionally isn't called
-// here - it auto-creates a team_vs_team question per synced game, but how
-// "games" work is being redesigned right now, so it's disconnected from the
-// pipeline until that lands. The module's still there, just not wired up -
-// see run.ts's git history for how it used to be called.
 
 async function main() {
 	for (const config of SYNCED_LEAGUES) {
@@ -28,6 +23,12 @@ async function main() {
 
 		console.log(`[sync] ${config.leagueName} games...`)
 		await syncGames(config, league)
+
+		// After syncGames, per its own doc comment - each synced game gets its
+		// team_vs_team "who will win?" question, which is what the game detail
+		// page (/games/$gameId) surfaces as its hero question.
+		console.log(`[sync] ${config.leagueName} game questions...`)
+		await syncGameQuestions(league)
 	}
 	console.log("[sync] done")
 }

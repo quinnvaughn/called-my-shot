@@ -2,7 +2,6 @@ import { useQuery } from "@apollo/client/react"
 import { Link, useMatches, useRouteContext } from "@tanstack/react-router"
 import { type ReactNode, useEffect, useState } from "react"
 import { BsBarChartFill } from "react-icons/bs"
-import { FaQuestion, FaRegCheckSquare } from "react-icons/fa"
 import { FaUser, FaUserGroup } from "react-icons/fa6"
 import { FiBell, FiMenu, FiX } from "react-icons/fi"
 import { GoHomeFill } from "react-icons/go"
@@ -31,24 +30,19 @@ const NAV_ITEMS: NavItem[] = [
 		authRequired: true,
 	},
 	{ to: "/leaderboard", label: "Leaderboard", icon: BsBarChartFill },
-	{
-		to: "/my-calls",
-		label: "My Calls",
-		icon: FaRegCheckSquare,
-		authRequired: true,
-	},
-	{
-		to: "/my-questions",
-		label: "My Questions",
-		icon: FaQuestion,
-		authRequired: true,
-	},
 	{ to: "/groups", label: "Groups", icon: FaUserGroup, authRequired: true },
 ]
 
 type Me = { name: string; username: string; isAdmin: boolean } | null
+type League = { id: string; name: string; abbreviation: string; slug: string }
 
-export function AppShell({ children }: { children: ReactNode }) {
+export function AppShell({
+	children,
+	leagues,
+}: {
+	children: ReactNode
+	leagues: League[]
+}) {
 	const { me: rawMe } = useRouteContext({ from: "__root__" })
 	const me: Me = rawMe
 		? {
@@ -114,6 +108,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 				<SidebarNav
 					me={me}
 					unreadCount={unreadCount}
+					leagues={leagues}
 					drawerOpen={drawerOpen}
 					onNavigate={() => setDrawerOpen(false)}
 				/>
@@ -220,11 +215,13 @@ function MobileTopbar({
 function SidebarNav({
 	me,
 	unreadCount,
+	leagues,
 	drawerOpen,
 	onNavigate,
 }: {
 	me: Me
 	unreadCount: number
+	leagues: League[]
 	drawerOpen: boolean
 	onNavigate: () => void
 }) {
@@ -335,6 +332,67 @@ function SidebarNav({
 							)}
 						</Link>
 					))}
+
+					{leagues.length > 0 && (
+						<VStack alignItems="stretch" gap="1.5">
+							<span
+								className={css({
+									fontFamily: "mono",
+									fontSize: "2xs",
+									letterSpacing: "wide",
+									color: "fg.subtle",
+									paddingInline: "3",
+								})}
+							>
+								LEAGUES
+							</span>
+							{leagues.map((league) => (
+								<Link
+									key={league.id}
+									to="/leagues/$leagueId"
+									params={{ leagueId: league.id }}
+									onClick={onNavigate}
+									activeProps={{
+										className: css({
+											bg: "bg.subtle",
+											color: "fg.default",
+										}),
+									}}
+									className={css({
+										display: "flex",
+										alignItems: "center",
+										gap: "2.5",
+										padding: "{spacing.2} {spacing.3}",
+										borderRadius: "lg",
+										fontSize: "sm",
+										fontWeight: "medium",
+										color: "fg.subtle",
+										_hover: { bg: "fg.default/10", color: "fg.default" },
+									})}
+								>
+									<span
+										className={css({
+											display: "flex",
+											alignItems: "center",
+											justifyContent: "center",
+											width: "6",
+											height: "6",
+											flexShrink: 0,
+											borderRadius: "md",
+											bg: "bg.subtle",
+											border: "1px solid {colors.border.default}",
+											fontFamily: "mono",
+											fontSize: "3xs",
+											fontWeight: "bold",
+										})}
+									>
+										{league.abbreviation}
+									</span>
+									{league.name}
+								</Link>
+							))}
+						</VStack>
+					)}
 					{me && (
 						<HStack paddingTop="6" width="full">
 							<Link

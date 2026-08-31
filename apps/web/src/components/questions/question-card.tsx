@@ -61,9 +61,9 @@ export const QuestionCardFragment = graphql(`
 		viewerCall {
 			id
 		}
-		slateMembership {
+		ballotMembership {
 			id
-			slate {
+			ballot {
 				id
 				name
 				memberCount
@@ -115,7 +115,7 @@ export function QuestionCard({
 						sharedBy={sharedBy}
 						showTypeTag
 						viewerCalled={question.viewerCall !== null}
-						slateMembership={question.slateMembership}
+						ballotMembership={question.ballotMembership}
 					/>
 					<CardRule />
 					{isSettled ? (

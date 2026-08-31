@@ -7,16 +7,19 @@ import { HStack, VStack } from "styled-system/jsx"
 import type { SystemStyleObject } from "styled-system/types"
 import { Card } from "#/components/ui/card"
 import { type FragmentType, graphql, useFragment } from "#/graphql/generated"
-import { questionDetailState } from "#/lib/question-detail-state"
+import {
+	type BallotMemberState,
+	ballotMemberState,
+} from "#/lib/ballot-member-state"
 
-export const SlateStripFragment = graphql(`
-	fragment SlateStrip_question on Question {
+export const BallotStripFragment = graphql(`
+	fragment BallotStrip_question on Question {
 		id
-		slateMembership {
+		ballotMembership {
 			id
 			slot
 			label
-			slate {
+			ballot {
 				id
 				name
 				members {
@@ -47,41 +50,13 @@ export const SlateStripFragment = graphql(`
 	}
 `)
 
-type MemberState = "uncalled" | "pending" | "won" | "lost" | "missed"
-
-function memberState(member: {
-	question: {
-		status: "OPEN" | "LOCKED" | "RESOLVED" | "DISPUTED"
-		locksAt: string
-		viewerCall: {
-			hitTolerance: boolean | null
-			selections: { option: { isCorrect: boolean | null } }[]
-		} | null
-	}
-}): MemberState {
-	const { question } = member
-	const state = questionDetailState(question)
-	const call = question.viewerCall
-
-	if (!state.isSettled) {
-		if (call) return "pending"
-		return state.isLocked ? "missed" : "uncalled"
-	}
-	if (!call) return "missed"
-
-	const correct =
-		call.hitTolerance ??
-		call.selections.some((s) => s.option.isCorrect === true)
-	return correct ? "won" : "lost"
-}
-
 // Plain style objects, not pre-generated classes - the "current" dot needs
 // to swap the border itself (not ring it with an outline), and merging two
 // already-atomized classes that both set `border` via cx() is unreliable
 // (atomic CSS ordering isn't guaranteed to follow JSX order). Passing both
 // objects into one css() call merges them before atomizing, so only one
 // `border` declaration ever comes out the other side.
-const dotStateStyle: Record<MemberState, SystemStyleObject> = {
+const dotStateStyle: Record<BallotMemberState, SystemStyleObject> = {
 	uncalled: {
 		color: "fg.subtle",
 		backgroundColor: "transparent",
@@ -179,7 +154,7 @@ const listSlotClass = css({
 	flexShrink: "0",
 })
 
-const stateIconClass: Record<MemberState, string> = {
+const stateIconClass: Record<BallotMemberState, string> = {
 	uncalled: css({ border: "1px solid {colors.fg.subtle}" }),
 	// Filled but neutral (not primary-colored) - the tone that carries
 	// meaning here is won/lost, not "in progress", so pending stays gray.
@@ -197,14 +172,13 @@ const stateIconClass: Record<MemberState, string> = {
 		border: "1px solid {colors.danger.default/50}",
 		color: "danger.default",
 	}),
-	// .slate-list-state.missed{border-style:dashed;border-color:var(--steel);opacity:0.5;}
 	missed: css({
 		border: "1px dashed {colors.fg.subtle}",
 		opacity: 0.5,
 	}),
 }
 
-function MemberStateIcon({ state }: { state: MemberState }) {
+function MemberStateIcon({ state }: { state: BallotMemberState }) {
 	return (
 		<div
 			className={cx(
@@ -231,24 +205,24 @@ function MemberStateIcon({ state }: { state: MemberState }) {
 }
 
 type Props = {
-	question: FragmentType<typeof SlateStripFragment>
+	question: FragmentType<typeof BallotStripFragment>
 }
 
 // Pure navigation/discovery over a set of independently-resolving questions
-// - renders nothing if this question isn't part of a (published) slate. Each
+// - renders nothing if this question isn't part of a (published) ballot. Each
 // member's state is derived from the exact same fields the rest of the app
 // already uses for won/lost (see question-result-block.tsx/viewer-status-card.tsx),
 // not a parallel state machine - only the "which of the 5 faces is this"
 // bucketing is new here.
-export function SlateStrip({ question: questionProp }: Props) {
+export function BallotStrip({ question: questionProp }: Props) {
 	const [expanded, setExpanded] = useState(false)
-	const question = useFragment(SlateStripFragment, questionProp)
-	const membership = question.slateMembership
+	const question = useFragment(BallotStripFragment, questionProp)
+	const membership = question.ballotMembership
 	if (!membership) return null
 
-	// Already server-ordered by sortOrder (see SlateRef.members in slate.ts) -
+	// Already server-ordered by sortOrder (see BallotRef.members in ballot.ts) -
 	// no client-side reordering needed, just locate this question's position.
-	const members = membership.slate.members
+	const members = membership.ballot.members
 	const currentIndex = members.findIndex((m) => m.question.id === question.id)
 	const prev = currentIndex > 0 ? members[currentIndex - 1] : null
 	const next =
@@ -256,7 +230,7 @@ export function SlateStrip({ question: questionProp }: Props) {
 			? members[currentIndex + 1]
 			: null
 
-	const states = members.map(memberState)
+	const states = members.map(ballotMemberState)
 	const resolvedCount = states.filter((s) => s === "won" || s === "lost").length
 	const pendingCount = states.filter((s) => s === "pending").length
 	const calledCount = resolvedCount + pendingCount
@@ -306,7 +280,7 @@ export function SlateStrip({ question: questionProp }: Props) {
 									whiteSpace: "nowrap",
 								})}
 							>
-								{membership.slate.name}
+								{membership.ballot.name}
 							</span>
 						</span>
 						<button
@@ -473,7 +447,7 @@ export function SlateStrip({ question: questionProp }: Props) {
 							</Link>
 						) : (
 							<div className={cx(navBoxClass, navBoxEmptyClass)}>
-								<span className={emptyNavTextClass}>start of slate</span>
+								<span className={emptyNavTextClass}>start of ballot</span>
 							</div>
 						)}
 						{next ? (
@@ -496,7 +470,7 @@ export function SlateStrip({ question: questionProp }: Props) {
 							</Link>
 						) : (
 							<div className={cx(navBoxClass, navBoxEmptyClass)}>
-								<span className={emptyNavTextClass}>end of slate</span>
+								<span className={emptyNavTextClass}>end of ballot</span>
 							</div>
 						)}
 					</HStack>

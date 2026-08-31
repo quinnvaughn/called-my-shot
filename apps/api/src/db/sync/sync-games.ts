@@ -4,7 +4,14 @@ import type { League } from "../schema"
 import { games } from "../schema"
 import { type EspnEvent, fetchSchedule, fetchTeams } from "./espn-client"
 import type { SyncLeagueConfig } from "./leagues"
+import { deriveNflSlot } from "./nfl-slot"
 import { findRefEntityId, linkRef, scopedSourceId, type Tx } from "./sync-refs"
+
+// 2 = regular season, 3 = postseason - matches SYNCED_SEASON_TYPES in
+// espn-client.ts, the only two types this app ever syncs.
+function toGameSeasonType(espnSeasonType: number): "regular" | "postseason" {
+	return espnSeasonType === 3 ? "postseason" : "regular"
+}
 
 // Matched by date range against whatever's synced for this league (see
 // sync-seasons.ts, which must run before this file per run.ts's ordering) -
@@ -33,10 +40,20 @@ async function syncEvent(
 	event: EspnEvent,
 ): Promise<void> {
 	const [home, away] = event.competitions[0].competitors
-	const homeTeamId = await findRefEntityId(tx, "team", scopedSourceId(leagueSlug, home.team.id))
-	const awayTeamId = await findRefEntityId(tx, "team", scopedSourceId(leagueSlug, away.team.id))
+	const homeTeamId = await findRefEntityId(
+		tx,
+		"team",
+		scopedSourceId(leagueSlug, home.team.id),
+	)
+	const awayTeamId = await findRefEntityId(
+		tx,
+		"team",
+		scopedSourceId(leagueSlug, away.team.id),
+	)
 	if (!homeTeamId || !awayTeamId) {
-		throw new Error(`syncGames: missing synced team for event ${event.id} - run syncTeams first`)
+		throw new Error(
+			`syncGames: missing synced team for event ${event.id} - run syncTeams first`,
+		)
 	}
 
 	const startsAt = new Date(event.date)
@@ -47,20 +64,50 @@ async function syncEvent(
 		)
 		return
 	}
+	const seasonType = toGameSeasonType(event.seasonType.type)
+	// week/slot only mean anything for a week-window league (NFL, for now) -
+	// gated on leagueSlug rather than trusting event.week's mere presence,
+	// since ESPN's schedule responses carry a week number for every sport
+	// (a generic "week of the season" grouping), not just the ones where a
+	// week is the real scheduling unit MLB/NBA are browsed by day, not week,
+	// so storing it there would just be stray, unused data contradicting the
+	// "null for date-window leagues" invariant on games.weekNumber.
+	const isWeekWindowLeague = leagueSlug === "nfl"
+	const weekNumber = isWeekWindowLeague ? (event.week?.number ?? null) : null
+	const slot = isWeekWindowLeague ? deriveNflSlot(startsAt) : null
+
 	const sourceId = scopedSourceId(leagueSlug, event.id)
 	const existingId = await findRefEntityId(tx, "game", sourceId)
 	if (existingId) {
 		await tx
 			.update(games)
-			.set({ homeTeamId, awayTeamId, startsAt, seasonId })
+			.set({
+				homeTeamId,
+				awayTeamId,
+				startsAt,
+				seasonId,
+				seasonType,
+				weekNumber,
+				slot,
+			})
 			.where(eq(games.id, existingId))
 		return
 	}
 	const [row] = await tx
 		.insert(games)
-		.values({ leagueId, homeTeamId, awayTeamId, startsAt, seasonId })
+		.values({
+			leagueId,
+			homeTeamId,
+			awayTeamId,
+			startsAt,
+			seasonId,
+			seasonType,
+			weekNumber,
+			slot,
+		})
 		.returning()
-	if (!row) throw new Error(`syncGames: insert returned nothing for ${event.id}`)
+	if (!row)
+		throw new Error(`syncGames: insert returned nothing for ${event.id}`)
 	await linkRef(tx, "game", sourceId, row.id)
 }
 
@@ -68,13 +115,18 @@ async function syncEvent(
 // event's home/away teams are looked up via their externalRefs mappings.
 // Each event shows up in both teams' schedules; the ESPN event id (via
 // externalRefs) is what dedupes it down to one row.
-export async function syncGames(config: SyncLeagueConfig, league: League): Promise<void> {
+export async function syncGames(
+	config: SyncLeagueConfig,
+	league: League,
+): Promise<void> {
 	const espnTeams = await fetchTeams(config.espnPath)
 
 	for (const espnTeam of espnTeams) {
 		const schedule = await fetchSchedule(config.espnPath, espnTeam.id)
 		for (const event of schedule) {
-			await db.transaction((tx) => syncEvent(tx, config.leagueSlug, league.id, event))
+			await db.transaction((tx) =>
+				syncEvent(tx, config.leagueSlug, league.id, event),
+			)
 		}
 	}
 }
