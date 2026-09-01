@@ -27,10 +27,12 @@ import { computeBallotProgressStats } from "#/lib/ballot-progress-stats"
 // separate, admin-only page for assembling one.
 export const Route = createFileRoute("/_app/ballots/$ballotId")({
 	component: RouteComponent,
+	staleTime: 0,
 	loader: async ({ context, params }) => {
 		const { data } = await context.apolloClient.query({
 			query: BallotByIdDocument,
 			variables: { id: params.ballotId },
+			fetchPolicy: "network-only",
 		})
 		return { ballot: data?.ballot ?? null }
 	},

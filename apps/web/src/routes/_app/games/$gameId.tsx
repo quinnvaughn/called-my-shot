@@ -26,11 +26,13 @@ const SORTS: { value: QuestionSortOrder; label: string }[] = [
 
 export const Route = createFileRoute("/_app/games/$gameId")({
 	component: RouteComponent,
+	staleTime: 0,
 	loader: async ({ context, params }) => {
 		const [{ data: gameData }, { data: questionsData }] = await Promise.all([
 			context.apolloClient.query({
 				query: GameByIdDocument,
 				variables: { id: params.gameId },
+				fetchPolicy: "network-only",
 			}),
 			context.apolloClient.query({
 				query: GameQuestionsDocument,
@@ -40,6 +42,7 @@ export const Route = createFileRoute("/_app/games/$gameId")({
 					after: null,
 					sort: "MOST_CALLED",
 				},
+				fetchPolicy: "network-only",
 			}),
 		])
 		return {
