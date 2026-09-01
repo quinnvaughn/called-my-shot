@@ -2,6 +2,8 @@ import {
 	adminResolveQuestionSchema,
 	castCallSchema,
 	createQuestionSchema,
+	deleteQuestionSchema,
+	editQuestionTitleSchema,
 	fileDisputeSchema,
 	reportQuestionSchema,
 	resolveQuestionSchema,
@@ -1730,8 +1732,11 @@ type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0]
 // adminResolveQuestion is admin-only, overturnDispute specifically requires
 // disputed), so re-checking here would just be redundant with all of them.
 // sourceOverride is only ever passed by the admin callers - regular creator
-// resolution never touches resolutionSource/resolutionSourceUrl.
-async function resolveQuestionInternal(
+// resolution never touches resolutionSource/resolutionSourceUrl. Exported for
+// db/sync/sync-live-scores.ts, which resolves a game's team_vs_team question
+// straight off ESPN's final score the same way - same "caller already
+// validated eligibility" contract applies there too.
+export async function resolveQuestionInternal(
 	tx: Tx,
 	question: Question,
 	data: {
@@ -2098,6 +2103,13 @@ const UpholdDisputeInput = builder.inputType("UpholdDisputeInput", {
 	}),
 })
 
+const EditQuestionTitleInput = builder.inputType("EditQuestionTitleInput", {
+	fields: (t) => ({
+		questionId: t.id({ required: true }),
+		title: t.string({ required: true }),
+	}),
+})
+
 const VoidQuestionInput = builder.inputType("VoidQuestionInput", {
 	fields: (t) => ({
 		questionId: t.id({ required: true }),
@@ -2110,6 +2122,20 @@ const VoidQuestionInput = builder.inputType("VoidQuestionInput", {
 
 const VoidQuestionPayload = builder
 	.objectRef<{ questionId: string }>("VoidQuestionPayload")
+	.implement({
+		fields: (t) => ({
+			questionId: t.exposeID("questionId"),
+		}),
+	})
+
+const DeleteQuestionInput = builder.inputType("DeleteQuestionInput", {
+	fields: (t) => ({
+		questionId: t.id({ required: true }),
+	}),
+})
+
+const DeleteQuestionPayload = builder
+	.objectRef<{ questionId: string }>("DeleteQuestionPayload")
 	.implement({
 		fields: (t) => ({
 			questionId: t.exposeID("questionId"),
@@ -3091,6 +3117,90 @@ builder.mutationFields((t) => ({
 
 				return updatedReport
 			})
+		},
+	}),
+
+	// title is always creator-supplied free text (generateQuestionTitle only
+	// prefills a suggestion client-side - see the comment on title in
+	// createQuestionSchema) - this just lets an admin fix a typo or awkward
+	// wording after the fact, without having to void and recreate the whole
+	// question.
+	editQuestionTitle: t.field({
+		type: QuestionPayload,
+		errors: {
+			types: [
+				AuthenticationError,
+				AuthorizationError,
+				NotFoundError,
+				ValidationError,
+			],
+			directResult: true,
+			union: { name: "EditQuestionTitleResult" },
+		},
+		args: { input: t.arg({ type: EditQuestionTitleInput, required: true }) },
+		resolve: async (_root, args, ctx) => {
+			requireAdmin(ctx)
+			const parsed = editQuestionTitleSchema.safeParse(args.input)
+			if (!parsed.success)
+				throw ValidationError.fromZodIssues(parsed.error.issues)
+			const { questionId, title } = parsed.data
+
+			const [updated] = await db
+				.update(questions)
+				.set({ title })
+				.where(eq(questions.id, questionId))
+				.returning()
+			if (!updated) throw new NotFoundError("Question not found")
+			return { question: updated }
+		},
+	}),
+
+	// Official-only counterpart to voidQuestion - a user-generated question
+	// always goes through Void instead, since that's what preserves the audit
+	// trail and strike bookkeeping a real asker's question needs (see
+	// questionVoids and the comment above voidQuestion below). An official
+	// question has no asker to strike and no dispute-worthy audit trail, so a
+	// hard delete is the right tool when one was posted in error (wrong game,
+	// duplicate sync, bad award setup).
+	deleteQuestion: t.field({
+		type: DeleteQuestionPayload,
+		errors: {
+			types: [
+				AuthenticationError,
+				AuthorizationError,
+				NotFoundError,
+				ValidationError,
+			],
+			directResult: true,
+			union: { name: "DeleteQuestionResult" },
+		},
+		args: { input: t.arg({ type: DeleteQuestionInput, required: true }) },
+		resolve: async (_root, args, ctx) => {
+			requireAdmin(ctx)
+			const parsed = deleteQuestionSchema.safeParse(args.input)
+			if (!parsed.success)
+				throw ValidationError.fromZodIssues(parsed.error.issues)
+			const { questionId } = parsed.data
+
+			await db.transaction(async (tx) => {
+				const [question] = await tx
+					.select()
+					.from(questions)
+					.where(eq(questions.id, questionId))
+					.for("update")
+				if (!question) throw new NotFoundError("Question not found")
+				if (!question.isOfficial) {
+					throw ValidationError.field(
+						null,
+						"Only official questions can be deleted this way - void a user-generated question instead.",
+					)
+				}
+
+				await reverseQuestionLeagueStats(tx, question)
+				await tx.delete(questions).where(eq(questions.id, question.id))
+			})
+
+			return { questionId }
 		},
 	}),
 

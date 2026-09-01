@@ -258,6 +258,7 @@ export const AdminQuestionsDocument = graphql(`
 						title
 						shape
 						status
+						isOfficial
 						createdAt
 						locksAt
 						callCount

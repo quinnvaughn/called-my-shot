@@ -5,6 +5,8 @@ import { Button, button } from "#/components/ui/button"
 import { QuestionDetailDocument } from "#/graphql/queries/question"
 import { openModal } from "#/stores/modal-store"
 import { AdminResolveModal } from "./admin-resolve-modal"
+import { DeleteQuestionModal } from "./delete-question-modal"
+import { EditQuestionTitleModal } from "./edit-question-title-modal"
 import { VoidQuestionModal } from "./void-question-modal"
 
 type QuestionShape =
@@ -71,23 +73,63 @@ export function QuestionRowActions({
 		id: string
 		title: string
 		status: "OPEN" | "LOCKED" | "RESOLVED" | "DISPUTED"
+		isOfficial: boolean
 		creator: { username: string } | null
 	}
 	onChanged: () => void
 }) {
+	const editTitleButton = (
+		<Button
+			variant="outline"
+			size="sm"
+			onClick={() =>
+				openModal(
+					<EditQuestionTitleModal question={question} onEdited={onChanged} />,
+				)
+			}
+		>
+			Edit title
+		</Button>
+	)
+
+	// Only official questions can be hard-deleted - a user-generated question
+	// goes through Void instead, which preserves the asker's audit trail and
+	// strike bookkeeping (see deleteQuestion's own isOfficial check).
+	const deleteButton = question.isOfficial ? (
+		<Button
+			variant="outline"
+			size="sm"
+			onClick={() =>
+				openModal(
+					<DeleteQuestionModal question={question} onDeleted={onChanged} />,
+				)
+			}
+		>
+			Delete
+		</Button>
+	) : null
+
 	if (question.status === "DISPUTED") {
 		return (
-			<Link
-				to="/admin/disputes"
-				className={button({ variant: "outline", size: "sm" })}
-			>
-				Review
-			</Link>
+			<HStack gap="1.5" justify="flex-end">
+				{editTitleButton}
+				<Link
+					to="/admin/disputes"
+					className={button({ variant: "outline", size: "sm" })}
+				>
+					Review
+				</Link>
+			</HStack>
 		)
 	}
 
 	if (question.status === "RESOLVED") {
-		return null
+		return (
+			<HStack gap="1.5" justify="flex-end">
+				{editTitleButton}
+				{deleteButton}
+			</HStack>
+		)
 	}
 
 	return (
@@ -104,6 +146,8 @@ export function QuestionRowActions({
 			>
 				Void
 			</Button>
+			{editTitleButton}
+			{deleteButton}
 		</HStack>
 	)
 }

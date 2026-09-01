@@ -108,3 +108,22 @@ export const upholdDisputeSchema = z.object({
 	note: z.string().trim().max(500, "Keep it under 500 characters").default(""),
 })
 export type UpholdDisputeInput = z.infer<typeof upholdDisputeSchema>
+
+// title is always creator-supplied (generateQuestionTitle only prefills a
+// suggestion client-side at creation - see the comment on title in
+// createQuestionSchema in questions.ts), so this isn't overriding any
+// server-generated value - just letting an admin fix a typo or awkward
+// wording after the fact, on anyone's question.
+export const editQuestionTitleSchema = z.object({
+	questionId: z.string().uuid(),
+	title: z.string().trim().min(1, "Give it a title"),
+})
+export type EditQuestionTitleInput = z.infer<typeof editQuestionTitleSchema>
+
+// Official-only counterpart to voidQuestionSchema above - see deleteQuestion's
+// own isOfficial check for why a user-generated question can't go through
+// this path.
+export const deleteQuestionSchema = z.object({
+	questionId: z.string().uuid(),
+})
+export type DeleteQuestionInput = z.infer<typeof deleteQuestionSchema>

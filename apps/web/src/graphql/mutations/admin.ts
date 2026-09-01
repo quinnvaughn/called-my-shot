@@ -26,6 +26,61 @@ export const VoidQuestionDocument = graphql(`
 	}
 `)
 
+export const EditQuestionTitleDocument = graphql(`
+	mutation EditQuestionTitle($input: EditQuestionTitleInput!) {
+		editQuestionTitle(input: $input) {
+			__typename
+			... on QuestionPayload {
+				question {
+					id
+					title
+				}
+			}
+			... on ValidationError {
+				fieldErrors {
+					field
+					message
+				}
+			}
+			... on AuthenticationError {
+				message
+			}
+			... on AuthorizationError {
+				message
+			}
+			... on NotFoundError {
+				message
+			}
+		}
+	}
+`)
+
+export const DeleteQuestionDocument = graphql(`
+	mutation DeleteQuestion($input: DeleteQuestionInput!) {
+		deleteQuestion(input: $input) {
+			__typename
+			... on DeleteQuestionPayload {
+				questionId
+			}
+			... on ValidationError {
+				fieldErrors {
+					field
+					message
+				}
+			}
+			... on AuthenticationError {
+				message
+			}
+			... on AuthorizationError {
+				message
+			}
+			... on NotFoundError {
+				message
+			}
+		}
+	}
+`)
+
 export const AdminResolveQuestionDocument = graphql(`
 	mutation AdminResolveQuestion($input: AdminResolveQuestionInput!) {
 		adminResolveQuestion(input: $input) {

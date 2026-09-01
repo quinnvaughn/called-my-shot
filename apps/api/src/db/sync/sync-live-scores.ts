@@ -1,10 +1,11 @@
-import { eq } from "drizzle-orm"
+import { and, eq } from "drizzle-orm"
+import { resolveQuestionInternal } from "../../graphql/types/question"
 import { db } from "../index"
-import { games } from "../schema"
+import { games, questions } from "../schema"
 import { type EspnEvent, fetchSchedule } from "./espn-client"
 import { SYNCED_LEAGUES } from "./leagues"
 import { toGameStatus } from "./sync-games"
-import { findSourceId } from "./sync-refs"
+import { findSourceId, type Tx } from "./sync-refs"
 
 // How far back/forward from "now" a game counts as "plausibly in flight" -
 // wide enough to catch a game that started a while ago and is still going
@@ -15,11 +16,80 @@ import { findSourceId } from "./sync-refs"
 const LOOKBACK_MS = 6 * 60 * 60 * 1000
 const LOOKAHEAD_MS = 10 * 60 * 1000
 
+// Resolves this game's team_vs_team ("who wins?") question off the final
+// score it was just synced with - the whole reason this job exists to admins
+// is so nobody has to do this by hand once ESPN calls it. Mirrors the
+// eligibility checks resolveQuestion/adminResolveQuestion each do before
+// calling resolveQuestionInternal (that function has none of its own by
+// design - see its own comment) plus a row lock, since this can now run
+// again on a game already marked final without excluding it from the next
+// query (see the status filter below) - if a prior run's resolution attempt
+// failed partway, this is what lets a later run pick it back up rather than
+// leaving it stuck open forever.
+async function resolveGameWinner(
+	tx: Tx,
+	gameId: string,
+	homeTeamId: string,
+	awayTeamId: string,
+	homeScore: number | null,
+	awayScore: number | null,
+): Promise<void> {
+	// A tie has no winning option to mark (team_vs_team has no tie option -
+	// see sync-game-questions.ts) - leave it for manual resolution rather
+	// than guessing. Rare (NFL only), but a real possibility.
+	if (homeScore === null || awayScore === null || homeScore === awayScore) {
+		return
+	}
+
+	const [question] = await tx
+		.select()
+		.from(questions)
+		.where(
+			and(eq(questions.gameId, gameId), eq(questions.shape, "team_vs_team")),
+		)
+		.for("update")
+	// No question yet (outside syncGameQuestions' create window at the time,
+	// or a game predating that sync), or already handled (resolved by an
+	// admin by hand, or disputed) - never touch it once it's past "open"/
+	// "locked", same as every other resolution path in this app.
+	if (
+		!question ||
+		question.status === "resolved" ||
+		question.status === "disputed"
+	) {
+		return
+	}
+
+	const options = await tx.query.questionOptions.findMany({
+		where: { questionId: question.id },
+	})
+	const winningTeamId = homeScore > awayScore ? homeTeamId : awayTeamId
+	const winningOption = options.find((o) => o.teamId === winningTeamId)
+	if (!winningOption) {
+		console.error(
+			`[sync-live-scores] question ${question.id}: no option matches winning team ${winningTeamId} - skipping`,
+		)
+		return
+	}
+
+	await resolveQuestionInternal(tx, question, {
+		correctOptionIds: [winningOption.id],
+		resolutionNote: "Resolved automatically from ESPN's final score.",
+	})
+	console.log(`[sync-live-scores] resolved question ${question.id}`)
+}
+
 async function main() {
 	const now = new Date()
 	const candidates = await db.query.games.findMany({
 		where: {
-			status: { in: ["scheduled", "live"] },
+			// "final" stays in the window (not just scheduled/live) so a game
+			// that just flipped final gets a chance at auto-resolution above
+			// even after this same run's own write below takes it out of
+			// scheduled/live - and so a prior run's failed resolution attempt
+			// gets retried by the next one instead of being silently excluded
+			// forever once status has already landed on "final".
+			status: { in: ["scheduled", "live", "final"] },
 			startsAt: {
 				gte: new Date(now.getTime() - LOOKBACK_MS),
 				lte: new Date(now.getTime() + LOOKAHEAD_MS),
@@ -74,6 +144,17 @@ async function main() {
 			console.log(
 				`[sync-live-scores] ${game.id}: ${status} ${awayScore ?? "-"}-${homeScore ?? "-"}`,
 			)
+
+			if (status === "final") {
+				await resolveGameWinner(
+					tx,
+					game.id,
+					game.homeTeamId,
+					game.awayTeamId,
+					homeScore,
+					awayScore,
+				)
+			}
 		})
 	}
 }

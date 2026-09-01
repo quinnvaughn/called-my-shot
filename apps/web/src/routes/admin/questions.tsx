@@ -91,6 +91,7 @@ type QuestionRow = {
 	title: string
 	shape: string
 	status: QuestionStatus
+	isOfficial: boolean
 	createdAt: string
 	locksAt: string
 	callCount: number
