@@ -1,14 +1,23 @@
 import { useApolloClient } from "@apollo/client/react"
-import { createFileRoute } from "@tanstack/react-router"
+import { createFileRoute, useLoaderData } from "@tanstack/react-router"
 import { useEffect, useRef, useState } from "react"
-import { VStack } from "styled-system/jsx"
+import { css } from "styled-system/css"
+import { HStack, VStack } from "styled-system/jsx"
+import {
+	FeedSearchField,
+	type SelectedTeam,
+} from "#/components/leagues/feed-search-field"
 import { QuestionCard } from "#/components/questions/question-card"
 import { EmptyState } from "#/components/ui/empty-state"
 import { InfiniteScroll } from "#/components/ui/infinite-scroll"
-import { Tabs } from "#/components/ui/tabs"
-import { TextInput } from "#/components/ui/text-input"
 import type { QuestionSortOrder } from "#/graphql/generated/graphql"
 import { LeagueFeedDocument } from "#/graphql/queries/sports"
+
+const SORTS: { value: QuestionSortOrder; label: string }[] = [
+	{ value: "CLOSING_SOON", label: "Closing Soon" },
+	{ value: "MOST_CALLED", label: "Most Called" },
+	{ value: "NEW", label: "New" },
+]
 
 export const Route = createFileRoute("/_app/leagues/$leagueId/feed")({
 	component: RouteComponent,
@@ -20,7 +29,7 @@ export const Route = createFileRoute("/_app/leagues/$leagueId/feed")({
 				leagueId: params.leagueId,
 				first: PAGE_SIZE,
 				after: null,
-				sort: "HOT",
+				sort: "CLOSING_SOON",
 			},
 			fetchPolicy: "network-only",
 		})
@@ -38,19 +47,20 @@ const PAGE_SIZE = 10
 
 // Everything in this league that isn't a season award single or a ballot
 // member - those live on the Season tab instead (see excludeBallotMembers on
-// LeagueFeedDocument). Same search/sort/official-toggle as the old
-// cross-league home feed, minus the league-selector tab: you're already in
-// this league's room, so there's nothing left to pick.
+// LeagueFeedDocument). Search/autocomplete is the same shape the old
+// cross-league home feed used, scoped to one league instead of site-wide -
+// no league-selector tab here, you're already in this league's room.
 function RouteComponent() {
 	const { leagueId } = Route.useParams()
 	const { items: initialItems, pageInfo: initialPageInfo } =
 		Route.useLoaderData()
+	const { league } = useLoaderData({ from: "/_app/leagues/$leagueId" })
 	const client = useApolloClient()
 
 	const [search, setSearch] = useState("")
 	const [debouncedSearch, setDebouncedSearch] = useState("")
-	const [sort, setSort] = useState<QuestionSortOrder>("HOT")
-	const [officialOnly, setOfficialOnly] = useState(false)
+	const [teamId, setTeamId] = useState<string | null>(null)
+	const [sort, setSort] = useState<QuestionSortOrder>("CLOSING_SOON")
 
 	const [items, setItems] = useState(initialItems)
 	const [pageInfo, setPageInfo] = useState(initialPageInfo)
@@ -61,6 +71,19 @@ function RouteComponent() {
 		const id = setTimeout(() => setDebouncedSearch(search.trim()), 300)
 		return () => clearTimeout(id)
 	}, [search])
+
+	// Typing (as opposed to picking a suggestion) always means "go back to a
+	// plain text search" - drops whatever precise teamId a prior suggestion
+	// pick set, same as clearing a filter chip would.
+	function handleSearchChange(text: string) {
+		setSearch(text)
+		setTeamId(null)
+	}
+
+	function handleSelectTeam(team: SelectedTeam) {
+		setSearch(team.name)
+		setTeamId(team.id)
+	}
 
 	useEffect(() => {
 		if (skipNextFetch.current) {
@@ -76,8 +99,11 @@ function RouteComponent() {
 					leagueId,
 					first: PAGE_SIZE,
 					after: null,
-					search: debouncedSearch || undefined,
-					isOfficial: officialOnly ? true : null,
+					// A selected team is a precise filter on its own - pairing it
+					// with the substring `search` (now just that team's own name)
+					// would needlessly AND the two together, so teamId wins
+					// outright when set.
+					...(teamId ? { teamId } : { search: debouncedSearch || undefined }),
 					sort,
 				},
 				fetchPolicy: "network-only",
@@ -95,7 +121,7 @@ function RouteComponent() {
 		return () => {
 			cancelled = true
 		}
-	}, [client, leagueId, debouncedSearch, officialOnly, sort])
+	}, [client, leagueId, debouncedSearch, teamId, sort])
 
 	async function loadMore() {
 		if (loading || !pageInfo.hasNextPage || !pageInfo.endCursor) return
@@ -107,8 +133,7 @@ function RouteComponent() {
 					leagueId,
 					first: PAGE_SIZE,
 					after: pageInfo.endCursor,
-					search: debouncedSearch || undefined,
-					isOfficial: officialOnly ? true : null,
+					...(teamId ? { teamId } : { search: debouncedSearch || undefined }),
 					sort,
 				},
 				fetchPolicy: "network-only",
@@ -124,33 +149,58 @@ function RouteComponent() {
 
 	return (
 		<VStack alignItems="stretch" gap="4">
-			<TextInput>
-				<TextInput.Group>
-					<TextInput.Field
-						placeholder="Search this league's questions…"
-						value={search}
-						onChange={(e) => setSearch(e.target.value)}
-					/>
-				</TextInput.Group>
-			</TextInput>
+			<FeedSearchField
+				leagueId={leagueId}
+				value={search}
+				onValueChange={handleSearchChange}
+				onSelectTeam={handleSelectTeam}
+				placeholder={`Search${league?.name ? ` ${league.name}` : ""} questions…`}
+			/>
 
-			<Tabs value={sort} onValueChange={setSort}>
-				<Tabs.List>
-					<Tabs.Trigger value="HOT">Hot</Tabs.Trigger>
-					<Tabs.Trigger value="NEW">New</Tabs.Trigger>
-					<Tabs.Trigger value="CLOSING_SOON">Closing Soon</Tabs.Trigger>
-				</Tabs.List>
-			</Tabs>
-
-			<Tabs
-				value={officialOnly ? "official" : "all"}
-				onValueChange={(v) => setOfficialOnly(v === "official")}
-			>
-				<Tabs.List>
-					<Tabs.Trigger value="all">All</Tabs.Trigger>
-					<Tabs.Trigger value="official">Official</Tabs.Trigger>
-				</Tabs.List>
-			</Tabs>
+			<HStack gap="2" alignItems="center" flexWrap="wrap">
+				<span
+					className={css({
+						fontFamily: "mono",
+						fontSize: "2xs",
+						letterSpacing: "wide",
+						textTransform: "uppercase",
+						color: "fg.subtle",
+					})}
+				>
+					Sort
+				</span>
+				{SORTS.map((s) => {
+					const active = sort === s.value
+					return (
+						<button
+							key={s.value}
+							type="button"
+							onClick={() => setSort(s.value)}
+							className={css({
+								fontFamily: "mono",
+								fontSize: "2xs",
+								letterSpacing: "wide",
+								padding: "{spacing.1.5} {spacing.2.5}",
+								borderRadius: "md",
+								border: active
+									? "1px solid {colors.border.emphasized}"
+									: "1px solid {colors.border.default}",
+								color: active ? "fg.default" : "fg.subtle",
+								bg: active ? "bg.subtle" : "transparent",
+								cursor: "pointer",
+								transition:
+									"color 0.15s ease, border-color 0.15s ease, background-color 0.15s ease",
+								_hover: {
+									color: "fg.default",
+									borderColor: "border.emphasized",
+								},
+							})}
+						>
+							{s.label}
+						</button>
+					)
+				})}
+			</HStack>
 
 			<InfiniteScroll
 				items={items}

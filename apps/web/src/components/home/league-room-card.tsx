@@ -3,6 +3,7 @@ import { DateTime } from "luxon"
 import { css } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
 import { Card } from "#/components/ui/card"
+import { gamesTodayLabel } from "#/lib/game-status"
 
 type Props = {
 	league: {
@@ -23,10 +24,7 @@ type Props = {
 export function LeagueRoomCard({ league }: Props) {
 	const live = league.liveGameCount > 0
 
-	const state =
-		league.gamesTodayCount === 0
-			? "No games today"
-			: `${league.gamesTodayCount} game${league.gamesTodayCount === 1 ? "" : "s"} today`
+	const state = gamesTodayLabel(league.gamesTodayCount)
 
 	const detail = live
 		? `${league.liveGameCount} live now`

@@ -1,0 +1,26 @@
+name: Lock overdue questions
+
+on:
+  schedule:
+    # Every 15 minutes - cheap indexed update, and nothing correctness-
+    # critical depends on this cadence (call submission already re-checks
+    # locksAt directly, see question.ts). This only keeps the status column
+    # itself honest for anything that reads it without also checking the
+    # clock.
+    - cron: "*/15 * * * *"
+  workflow_dispatch: {}
+
+jobs:
+  lock-overdue-questions:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: superfly/flyctl-actions/setup-flyctl@master
+
+      # Same reasoning as sync-sports-data.yml - runs on the already-deployed
+      # API machine (DATABASE_URL already set, code already shipped) rather
+      # than connecting out to Postgres from the runner.
+      - name: Lock overdue questions on the API machine
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: |
+          flyctl ssh console -a called-my-shot-api -C "pnpm exec tsx src/db/lock-overdue-questions.ts"

@@ -1244,14 +1244,20 @@ export default defineConfig({
             size: "sm",
           },
         }),
+        // Underlined tabs, not bordered pill buttons - a shared baseline rule
+        // (each trigger's bottom border) plus one accent-colored border per
+        // active tab is what actually reads as "tabs" rather than "a row of
+        // buttons." Only the border's color changes between states, so it's
+        // one literal `borderBottom` string per state rather than splitting
+        // border/borderColor.
         tabs: defineSlotRecipe({
           className: "tabs",
           slots: ["list", "trigger"],
           base: {
             list: {
               display: "flex",
-              gap: "1.5",
-              padding: "1",
+              gap: "5",
+              borderBottom: "1px solid {colors.border.default}",
             },
             trigger: {
               textAlign: "center",
@@ -1261,14 +1267,12 @@ export default defineConfig({
               letterSpacing: "wide",
               color: "fg.subtle",
               backgroundColor: "transparent",
-              border: "1px solid",
-              borderColor: "border.emphasized",
-              borderRadius: "md",
               textTransform: "uppercase",
-              padding: "{spacing.2} {spacing.3.5}",
+              padding: "{spacing.2.5} {spacing.0.5}",
+              marginBottom: "-1px",
+              borderBottom: "2px solid transparent",
               cursor: "pointer",
-              transition:
-                "background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease",
+              transition: "color 0.15s ease, border-color 0.15s ease",
               _hover: {
                 color: "fg.default",
               },
@@ -1278,14 +1282,8 @@ export default defineConfig({
             active: {
               true: {
                 trigger: {
-                  backgroundColor: "fg.default",
-                  color: "bg.canvas",
-                  borderColor: "fg.default",
-                  // Base's _hover color would otherwise win here (same specificity,
-                  // applied after) and turn this into white-on-white.
-                  _hover: {
-                    color: "bg.canvas",
-                  },
+                  color: "fg.default",
+                  borderBottom: "2px solid {colors.primary.default}",
                 },
               },
             },

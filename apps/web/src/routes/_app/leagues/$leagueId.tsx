@@ -1,10 +1,12 @@
 import { createFileRoute, Outlet } from "@tanstack/react-router"
 import { FaRegTimesCircle } from "react-icons/fa"
+import { css } from "styled-system/css"
 import { VStack } from "styled-system/jsx"
 import { NotFound } from "#/components/ui/not-found"
 import { PageHeader } from "#/components/ui/page-header"
 import { Tabs } from "#/components/ui/tabs"
 import { LeagueByIdDocument } from "#/graphql/queries/sports"
+import { gamesTodayLabel } from "#/lib/game-status"
 
 export const Route = createFileRoute("/_app/leagues/$leagueId")({
 	component: RouteComponent,
@@ -15,7 +17,7 @@ export const Route = createFileRoute("/_app/leagues/$leagueId")({
 			variables: { id: params.leagueId },
 			fetchPolicy: "network-only",
 		})
-		return { league: data?.league ?? null }
+		return { league: data?.league ?? null, currentSeason: data?.currentSeason ?? null }
 	},
 	head: ({ loaderData }) => {
 		const league = loaderData?.league
@@ -31,7 +33,7 @@ const TAB_ITEMS = [
 ] as const
 
 function RouteComponent() {
-	const { league } = Route.useLoaderData()
+	const { league, currentSeason } = Route.useLoaderData()
 	const { leagueId } = Route.useParams()
 
 	if (!league) {
@@ -47,8 +49,20 @@ function RouteComponent() {
 	}
 
 	return (
-		<VStack gap="6" alignItems="stretch">
-			<PageHeader title={league.name} subtitle={league.abbreviation} />
+		<VStack
+			gap="6"
+			alignItems="stretch"
+			className={css({ maxWidth: "3xl" })}
+		>
+			<PageHeader
+				title={league.name}
+				subtitle={[
+					currentSeason
+						? `${league.abbreviation} · ${currentSeason.displayName}`
+						: league.abbreviation,
+					gamesTodayLabel(league.gamesTodayCount),
+				].join(" · ")}
+			/>
 			<Tabs.List>
 				{TAB_ITEMS.map((item) => (
 					<Tabs.LinkTrigger key={item.to} to={item.to} params={{ leagueId }}>

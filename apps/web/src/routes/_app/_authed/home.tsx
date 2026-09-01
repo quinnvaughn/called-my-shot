@@ -38,7 +38,7 @@ export const Route = createFileRoute("/_app/_authed/home")({
 	},
 })
 
-// Deliberately ranks nothing and grows with nothing - no HOT/NEW sort, no
+// Deliberately ranks nothing and grows with nothing - no MOST_CALLED/NEW sort, no
 // question list that scales with the catalogue. League cards are counts;
 // the two lists below are bounded by a time horizon, not by how many
 // questions exist (see HomeDashboardDocument). This is a checklist of what's

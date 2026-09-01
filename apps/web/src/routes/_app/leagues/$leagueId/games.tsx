@@ -1,10 +1,14 @@
-import { createFileRoute } from "@tanstack/react-router"
+import { createFileRoute, useLoaderData } from "@tanstack/react-router"
 import { FiChevronLeft, FiChevronRight } from "react-icons/fi"
 import { css } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
 import { GameRow } from "#/components/leagues/game-row"
 import { EmptyState } from "#/components/ui/empty-state"
-import { LeagueGamesForWindowDocument } from "#/graphql/queries/sports"
+import { Select } from "#/components/ui/select"
+import {
+	LeagueGamesForWindowDocument,
+	LeagueGameWindowsDocument,
+} from "#/graphql/queries/sports"
 
 export const Route = createFileRoute("/_app/leagues/$leagueId/games")({
 	component: RouteComponent,
@@ -17,11 +21,21 @@ export const Route = createFileRoute("/_app/leagues/$leagueId/games")({
 	}),
 	loaderDeps: ({ search }) => ({ windowKey: search.windowKey }),
 	loader: async ({ context, params, deps }) => {
-		const { data } = await context.apolloClient.query({
-			query: LeagueGamesForWindowDocument,
-			variables: { leagueId: params.leagueId, windowKey: deps.windowKey ?? null },
-			fetchPolicy: "network-only",
-		})
+		const [{ data }, { data: windowsData }] = await Promise.all([
+			context.apolloClient.query({
+				query: LeagueGamesForWindowDocument,
+				variables: {
+					leagueId: params.leagueId,
+					windowKey: deps.windowKey ?? null,
+				},
+				fetchPolicy: "network-only",
+			}),
+			context.apolloClient.query({
+				query: LeagueGameWindowsDocument,
+				variables: { leagueId: params.leagueId },
+				fetchPolicy: "network-only",
+			}),
+		])
 		return {
 			result: data?.leagueGamesForWindow ?? {
 				window: { key: "", label: "No games scheduled", sublabel: null },
@@ -29,12 +43,14 @@ export const Route = createFileRoute("/_app/leagues/$leagueId/games")({
 				nextKey: null,
 				groups: [],
 			},
+			windows: windowsData?.leagueGameWindows ?? [],
 		}
 	},
 })
 
 function RouteComponent() {
-	const { result } = Route.useLoaderData()
+	const { result, windows } = Route.useLoaderData()
+	const { league } = useLoaderData({ from: "/_app/leagues/$leagueId" })
 	const navigate = Route.useNavigate()
 
 	const hasGames = result.groups.some((group) => group.games.length > 0)
@@ -44,19 +60,34 @@ function RouteComponent() {
 		navigate({ search: { windowKey: key } })
 	}
 
+	// windowKey omitted -> the server's own default (today/this week if it
+	// has games, else nearest upcoming, else most recent past - see
+	// pickDefaultWindowIndex). Safe to hit even when already there.
+	function jumpToDefault() {
+		navigate({ search: {} })
+	}
+
 	return (
 		<VStack gap="4" alignItems="stretch">
-			<HStack
-				justify="space-between"
-				alignItems="center"
-				gap="3"
-				className={css({
-					border: "1px solid {colors.border.default}",
-					borderRadius: "xl",
-					bg: "bg.subtle",
-					padding: "2.5",
-				})}
-			>
+			<HStack justify="flex-end">
+				<button
+					type="button"
+					onClick={jumpToDefault}
+					className={css({
+						fontFamily: "mono",
+						fontSize: "2xs",
+						letterSpacing: "wide",
+						textTransform: "uppercase",
+						color: "fg.subtle",
+						cursor: "pointer",
+						_hover: { color: "fg.default", textDecoration: "underline" },
+					})}
+				>
+					{league?.windowType === "WEEK" ? "Current Week" : "Today"}
+				</button>
+			</HStack>
+
+			<HStack gap="2" alignItems="flex-start">
 				<button
 					type="button"
 					aria-label="Previous"
@@ -66,30 +97,35 @@ function RouteComponent() {
 						display: "flex",
 						alignItems: "center",
 						justifyContent: "center",
-						width: "8",
-						height: "8",
+						width: "10",
+						height: "10",
+						flexShrink: 0,
 						borderRadius: "lg",
 						border: "1px solid {colors.border.default}",
 						color: "fg.subtle",
 						cursor: "pointer",
 						_disabled: { opacity: 0.3, cursor: "default" },
-						_hover: { color: "fg.default" },
+						_hover: { color: "fg.default", borderColor: "border.emphasized" },
 					})}
 				>
 					<FiChevronLeft />
 				</button>
-				<VStack gap="0.5" flex="1" minWidth="0">
-					<span
-						className={css({
-							fontFamily: "mono",
-							fontSize: "sm",
-							fontWeight: "bold",
-							letterSpacing: "wide",
-							textAlign: "center",
-						})}
-					>
-						{result.window.label}
-					</span>
+
+				<VStack gap="1.5" flex="1" minWidth="0" alignItems="stretch">
+					<Select value={result.window.key} onValueChange={stepTo}>
+						<Select.Trigger
+							className={css({ "& > span": { textAlign: "center" } })}
+						>
+							{result.window.label}
+						</Select.Trigger>
+						<Select.Content>
+							{windows.map((w) => (
+								<Select.Option key={w.key} value={w.key}>
+									{w.label}
+								</Select.Option>
+							))}
+						</Select.Content>
+					</Select>
 					{result.window.sublabel && (
 						<span
 							className={css({
@@ -103,6 +139,7 @@ function RouteComponent() {
 						</span>
 					)}
 				</VStack>
+
 				<button
 					type="button"
 					aria-label="Next"
@@ -112,14 +149,15 @@ function RouteComponent() {
 						display: "flex",
 						alignItems: "center",
 						justifyContent: "center",
-						width: "8",
-						height: "8",
+						width: "10",
+						height: "10",
+						flexShrink: 0,
 						borderRadius: "lg",
 						border: "1px solid {colors.border.default}",
 						color: "fg.subtle",
 						cursor: "pointer",
 						_disabled: { opacity: 0.3, cursor: "default" },
-						_hover: { color: "fg.default" },
+						_hover: { color: "fg.default", borderColor: "border.emphasized" },
 					})}
 				>
 					<FiChevronRight />

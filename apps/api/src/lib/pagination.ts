@@ -59,7 +59,7 @@ export function paginate<T extends { createdAt: Date; id: string }>(
 
 // Offset-based cursor for connections whose ordering isn't over a stable
 // keyset column - a fully-recomputed-per-call ranking (leaderboards) or a
-// live aggregate (hot sort). Just the number of rows already returned, not
+// live aggregate (most-called sort). Just the number of rows already returned, not
 // tied to any particular row's identity, so it can't use cursorWhere above.
 export function encodeOffsetCursor(offset: number): string {
 	return Buffer.from(String(offset)).toString("base64url")

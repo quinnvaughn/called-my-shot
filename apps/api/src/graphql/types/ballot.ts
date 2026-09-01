@@ -11,6 +11,7 @@ import {
 	ballotQuestions,
 	ballots,
 	calls,
+	type User,
 } from "../../db/schema"
 import {
 	buildAdminConnection,
@@ -29,6 +30,7 @@ import { getCurrentSeason } from "../../lib/seasons"
 import { isUuid } from "../../lib/uuid"
 import { builder } from "../builder"
 import { PageInfoRef } from "./pagination"
+import { UserRef } from "./user"
 
 type Connection<T> = {
 	items: T[]
@@ -68,6 +70,32 @@ export const BallotQuestionRef = builder.drizzleObject("ballotQuestions", {
 	}),
 })
 
+// One user who has called every member question of a ballot.
+const BallotCompletionRef = builder
+	.objectRef<{ user: User; completedAt: Date }>("BallotCompletion")
+	.implement({
+		fields: (t) => ({
+			user: t.field({ type: UserRef, resolve: (c) => c.user }),
+			completedAt: t.field({
+				type: "String",
+				resolve: (c) => c.completedAt.toISOString(),
+			}),
+		}),
+	})
+
+// count excludes the viewer (see BallotRef.completions below); recent is the
+// most-recently-finished handful of those, newest first.
+const BallotCompletionSummaryRef = builder
+	.objectRef<{ count: number; recent: { user: User; completedAt: Date }[] }>(
+		"BallotCompletionSummary",
+	)
+	.implement({
+		fields: (t) => ({
+			count: t.field({ type: "Int", resolve: (s) => s.count }),
+			recent: t.field({ type: [BallotCompletionRef], resolve: (s) => s.recent }),
+		}),
+	})
+
 export const BallotRef = builder.drizzleObject("ballots", {
 	name: "Ballot",
 	fields: (t) => ({
@@ -90,10 +118,18 @@ export const BallotRef = builder.drizzleObject("ballots", {
 		league: t.relation("league"),
 		season: t.relation("season"),
 		memberCount: t.relatedCount("members"),
+		// No manual `with: { question: true }` here - pothos-drizzle derives the
+		// nested `with`/`extras` tree itself from whatever's actually selected
+		// under `question` (see BallotQuestionRef.question below). A literal
+		// `with` on this query would shallow-clobber that auto-computed one
+		// (t.relation spreads the auto hints, then this object, over them) and
+		// silently drop things like Question.callCount's count subquery -
+		// exactly the "cannot return null for non-nullable field
+		// Question.callCount" bug this used to cause once a nested relatedCount
+		// was ever requested through this path.
 		members: t.relation("members", {
 			query: () => ({
 				orderBy: { sortOrder: "asc" },
-				with: { question: true },
 			}),
 		}),
 		// How many of this ballot's questions the viewer has already called -
@@ -123,6 +159,85 @@ export const BallotRef = builder.drizzleObject("ballots", {
 					.groupBy(ballotQuestions.ballotId)
 				const byId = new Map(rows.map((r) => [r.ballotId, Number(r.cnt)]))
 				return ballotIds.map((id) => byId.get(id) ?? 0)
+			},
+			resolve: (ballot) => ballot.id,
+		}),
+		// Who has called EVERY member question of this ballot, and when they
+		// finished - powers the public "FULL BALLOTS" stat + completions list.
+		// Excludes the viewer (this is "who else finished", not "did I finish" -
+		// that's viewerCalledCount above). No DB table tracks this - computed as
+		// a straight aggregate, same "raw SQL where the relational builder can't
+		// express it cleanly" call as aggregatePointsByUser
+		// (lib/points-aggregate.ts).
+		completions: t.loadable({
+			type: BallotCompletionSummaryRef,
+			load: async (ballotIds: readonly string[], ctx) => {
+				const ids = [...ballotIds]
+				const rows = await db.execute<{
+					ballot_id: string
+					user_id: string
+					completed_at: string
+				}>(sql`
+					with member_counts as (
+						select ballot_id, count(*)::int as total_members
+						from ballot_questions
+						where ballot_id in ${ids}
+						group by ballot_id
+					),
+					completions as (
+						select bq.ballot_id, c.user_id,
+							max(c.created_at) as completed_at,
+							count(distinct c.question_id) as answered
+						from calls c
+						join ballot_questions bq on bq.question_id = c.question_id
+						where bq.ballot_id in ${ids}
+						group by bq.ballot_id, c.user_id
+					)
+					select completions.ballot_id, completions.user_id, completions.completed_at
+					from completions
+					join member_counts on member_counts.ballot_id = completions.ballot_id
+					where completions.answered = member_counts.total_members
+					order by completions.completed_at desc
+				`)
+
+				const viewerId = ctx.user?.id ?? null
+				const byBallot = new Map<
+					string,
+					{ user_id: string; completed_at: string }[]
+				>()
+				for (const row of rows.rows) {
+					if (viewerId && row.user_id === viewerId) continue
+					const list = byBallot.get(row.ballot_id) ?? []
+					list.push(row)
+					byBallot.set(row.ballot_id, list)
+				}
+
+				// Full user rows only fetched for whoever actually makes a
+				// "recent" slice (top 6/ballot), not every completer - the count
+				// itself never needs a user row.
+				const recentUserIds = [...byBallot.values()]
+					.flatMap((list) => list.slice(0, 6))
+					.map((r) => r.user_id)
+				const userRows =
+					recentUserIds.length === 0
+						? []
+						: await db.query.users.findMany({
+								where: { id: { in: recentUserIds } },
+							})
+				const userById = new Map(userRows.map((u) => [u.id, u]))
+
+				return ids.map((id) => {
+					const list = byBallot.get(id) ?? []
+					return {
+						count: list.length,
+						recent: list.slice(0, 6).flatMap((r) => {
+							const user = userById.get(r.user_id)
+							return user
+								? [{ user, completedAt: new Date(r.completed_at) }]
+								: []
+						}),
+					}
+				})
 			},
 			resolve: (ballot) => ballot.id,
 		}),
@@ -223,14 +338,24 @@ builder.queryFields((t) => ({
 	// array like `leagues`/`sports` rather than a connection: a season's worth
 	// of award ballots for a single league is a handful of rows, not something
 	// worth paginating.
+	// The league room's Season tab - scoped to the current season (in
+	// progress, else soonest upcoming, else most recently completed - see
+	// getCurrentSeason) so a prior year's award ballots don't linger
+	// alongside this year's once a new season starts.
 	leagueBallots: t.field({
 		type: [BallotRef],
 		args: { leagueId: t.arg.id({ required: true }) },
-		resolve: (_root, args) =>
-			db.query.ballots.findMany({
-				where: { leagueId: args.leagueId, status: "published" },
+		resolve: async (_root, args) => {
+			const currentSeason = await getCurrentSeason(args.leagueId)
+			return db.query.ballots.findMany({
+				where: {
+					leagueId: args.leagueId,
+					status: "published",
+					...(currentSeason ? { seasonId: currentSeason.id } : {}),
+				},
 				orderBy: { name: "asc" },
-			}),
+			})
+		},
 	}),
 
 	adminBallots: t.field({

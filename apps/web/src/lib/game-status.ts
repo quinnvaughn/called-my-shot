@@ -34,3 +34,11 @@ export function gameStatusLabel(game: StatusGame): string {
 		.with("SCHEDULED", () => gameStartLabel(game))
 		.exhaustive()
 }
+
+// Shared by the league room's header and Home's LeagueRoomCard - no "live"
+// count folded in here, that data isn't reliable enough yet to surface.
+export function gamesTodayLabel(gamesTodayCount: number): string {
+	return gamesTodayCount === 0
+		? "No games today"
+		: `${gamesTodayCount} game${gamesTodayCount === 1 ? "" : "s"} today`
+}

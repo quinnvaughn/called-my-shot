@@ -17,28 +17,11 @@ export const BallotByIdDocument = graphql(`
 			}
 			memberCount
 			viewerCalledCount
+			completions {
+				...BallotCompletionsList_summary
+			}
 			members {
-				id
-				slot
-				label
-				sortOrder
-				question {
-					id
-					title
-					status
-					locksAt
-					viewerCall {
-						id
-						hitTolerance
-						selections {
-							id
-							option {
-								id
-								isCorrect
-							}
-						}
-					}
-				}
+				...BallotPositionRow_member
 			}
 		}
 	}

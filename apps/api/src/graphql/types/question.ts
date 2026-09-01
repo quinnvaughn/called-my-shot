@@ -26,10 +26,12 @@ import {
 	eq,
 	exists,
 	getColumns,
+	gt,
 	ilike,
 	inArray,
 	isNotNull,
 	lte,
+	ne,
 	notExists,
 	notInArray,
 	or,
@@ -143,13 +145,13 @@ const QuestionStatus = builder.enumType("QuestionStatus", {
 	},
 })
 
-// Drives ordering for the questions feed. HOT ranks by live call count (see
-// call_counts CTE in the questions resolver below) - not a stored column, so
-// its pagination uses an offset cursor rather than the (createdAt, id)
-// keyset NEW/CLOSING_SOON can use.
+// Drives ordering for the questions feed. MOST_CALLED ranks by literal call
+// count (see call_counts CTE in the questions resolver below) - not a
+// stored column, so its pagination uses an offset cursor rather than the
+// (createdAt, id) keyset NEW/CLOSING_SOON can use.
 const QuestionSortOrder = builder.enumType("QuestionSortOrder", {
 	values: {
-		HOT: { value: "hot" },
+		MOST_CALLED: { value: "most_called" },
 		NEW: { value: "new" },
 		CLOSING_SOON: { value: "closing_soon" },
 	},
@@ -1056,7 +1058,7 @@ const AdminQueueSummaryRef = builder
 
 builder.queryFields((t) => ({
 	// The home feed. leagueId/teamId/search/isOfficial narrow the pool, sort
-	// picks the ordering - HOT (live call count, the default), NEW
+	// picks the ordering - MOST_CALLED (literal call count, the default), NEW
 	// (createdAt), or CLOSING_SOON (soonest locksAt among still-open
 	// questions). teamId matches either the question's own subjectTeam or any
 	// team entered as one of its options (a championship field a team is
@@ -1088,15 +1090,31 @@ builder.queryFields((t) => ({
 			// caller (home, groups) leaves this unset and sees everything, same as
 			// before this arg existed.
 			excludeBallotMembers: t.arg.boolean({ required: false }),
+			// The league room's Feed tab only - a locked-but-unresolved question
+			// has nothing left to do with it from a browse list (can't call it,
+			// no outcome to see yet either), unlike resolved (still has an
+			// outcome worth seeing) or disputed. Every other caller leaves this
+			// unset and sees every status, same as before this arg existed.
+			excludeLocked: t.arg.boolean({ required: false }),
 			// The league room's Season tab, narrowed to standalone award races
 			// (player_season_award/team_season_award/player_award_finalists) -
 			// every other caller leaves this unset and gets every shape.
 			shapes: t.arg({ type: [QuestionShape], required: false }),
+			// The league room's Season tab only - scoped to the current season
+			// (in progress, else soonest upcoming, else most recently completed -
+			// see getCurrentSeason) so a prior year's award questions don't
+			// linger alongside this year's. Requires leagueId; every other
+			// caller leaves this unset and gets every season.
+			currentSeasonOnly: t.arg.boolean({ required: false }),
 		},
 		resolve: async (_root, args) => {
 			const limit = clampPageSize(args.first)
 			const offset = args.after ? decodeOffsetCursor(args.after) : 0
-			const sort = args.sort ?? "hot"
+			const sort = args.sort ?? "most_called"
+			const currentSeason =
+				args.currentSeasonOnly && args.leagueId
+					? await getCurrentSeason(args.leagueId)
+					: null
 
 			const conditions = [
 				args.leagueId ? eq(questions.leagueId, args.leagueId) : undefined,
@@ -1108,6 +1126,7 @@ builder.queryFields((t) => ({
 				args.shapes && args.shapes.length > 0
 					? inArray(questions.shape, args.shapes)
 					: undefined,
+				currentSeason ? eq(questions.seasonId, currentSeason.id) : undefined,
 				args.excludeBallotMembers
 					? notExists(
 							db
@@ -1116,6 +1135,7 @@ builder.queryFields((t) => ({
 								.where(eq(ballotQuestions.questionId, questions.id)),
 						)
 					: undefined,
+				args.excludeLocked ? ne(questions.status, "locked") : undefined,
 				args.teamId
 					? or(
 							eq(questions.subjectTeamId, args.teamId),
@@ -1143,24 +1163,31 @@ builder.queryFields((t) => ({
 						)
 					: undefined,
 				// Locked/resolved/disputed questions have nothing left to "close" -
-				// closing-soon only makes sense among questions still open. Also
-				// bounded to a week out - without this, a sparse feed would pad
-				// itself out with questions locking months from now just to fill
-				// the page, which doesn't read as "soon" no matter where they rank.
+				// closing-soon only makes sense among questions still open. status
+				// alone isn't enough, though: nothing flips it off "open" the
+				// instant locksAt passes (no cron/worker - see the comment on
+				// resolveQuestion below), so a game-linked question can sit
+				// "open" for days after its game already started. Excluding
+				// anything whose locksAt is already in the past keeps those out
+				// of "soon". Also bounded to 48 hours out - a week doesn't read
+				// as "soon", and without some bound a sparse feed would pad
+				// itself out with questions locking days from now just to fill
+				// the page.
 				sort === "closing_soon"
 					? and(
 							eq(questions.status, "open"),
+							gt(questions.locksAt, new Date()),
 							lte(
 								questions.locksAt,
-								DateTime.now().plus({ days: 7 }).toJSDate(),
+								DateTime.now().plus({ hours: 48 }).toJSDate(),
 							),
 						)
 					: undefined,
 			].filter((c) => c !== undefined)
 
 			// Live call count per question, joined in rather than computed with
-			// t.relatedCount (as QuestionRef.callCount does) so HOT can ORDER BY
-			// it directly instead of sorting the page in application code.
+			// t.relatedCount (as QuestionRef.callCount does) so MOST_CALLED can
+			// ORDER BY it directly instead of sorting the page in application code.
 			const callCounts = db.$with("call_counts").as(
 				db
 					.select({
@@ -1225,7 +1252,7 @@ builder.queryFields((t) => ({
 
 	// Admin Questions table - every question regardless of status, with real
 	// column sort (unlike the public `questions` field above, which only ever
-	// ranks by HOT/NEW/CLOSING_SOON). Its own call-count CTE rather than
+	// ranks by MOST_CALLED/NEW/CLOSING_SOON). Its own call-count CTE rather than
 	// reusing the one above - separate queries, no reason to share a `WITH`.
 	adminQuestions: t.field({
 		type: QuestionConnectionRef,

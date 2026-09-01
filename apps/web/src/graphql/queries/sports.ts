@@ -14,7 +14,11 @@ export const LeaguesDocument = graphql(`
 	}
 `)
 
-// The league room's own header (name/abbreviation) - see routes/_app/leagues.
+// The league room's own header (name/abbreviation/current season/today's
+// game count) - see routes/_app/leagues. currentSeason and gamesTodayCount
+// are fetched here, not per-tab, since the header shows them on every tab
+// (Games/Season/Feed), not just Season/Games. No live count yet - that data
+// isn't reliable enough to surface.
 export const LeagueByIdDocument = graphql(`
 	query LeagueById($id: ID!) {
 		league(id: $id) {
@@ -22,6 +26,12 @@ export const LeagueByIdDocument = graphql(`
 			name
 			abbreviation
 			slug
+			windowType
+			gamesTodayCount
+		}
+		currentSeason(leagueId: $id) {
+			id
+			displayName
 		}
 	}
 `)
@@ -128,10 +138,10 @@ export const GameByIdDocument = graphql(`
 // The game detail page - every question tied to this game, hero
 // (team_vs_team, the "who will win?" question synced onto the game by
 // syncGameQuestions) included. No team-subject bucketing here - flat list,
-// paginated newest-relevant first via the same HOT sort the home feed uses.
+// ranked most-called first.
 export const GameQuestionsDocument = graphql(`
 	query GameQuestions($gameId: ID!, $first: Int, $after: String) {
-		questions(gameId: $gameId, first: $first, after: $after, sort: HOT) {
+		questions(gameId: $gameId, first: $first, after: $after, sort: MOST_CALLED) {
 			items {
 				id
 				shape
@@ -172,14 +182,27 @@ export const GamesByLeagueDocument = graphql(`
 	}
 `)
 
+// The league room's Games tab's jump-to-window dropdown - the full bounded
+// list of windows that actually have synced games (a day at a time for
+// MLB/NBA, a week at a time for NFL), so a jump can never land on an empty
+// date. gameCount isn't shown (no per-option counts in the dropdown), so it
+// isn't fetched.
+export const LeagueGameWindowsDocument = graphql(`
+	query LeagueGameWindows($leagueId: ID!) {
+		leagueGameWindows(leagueId: $leagueId) {
+			key
+			label
+		}
+	}
+`)
+
 // The league room's Games tab - unlike GamesByLeagueDocument above (a bounded
 // upcoming-only typeahead for the create-question form), this pages through
 // the real schedule one window at a time (a day for MLB/NBA, a week for
 // NFL - see leagues.windowType). Each response carries its own prevKey/
-// nextKey, which is all a prev/next stepper needs - no separate call for the
-// full list of windows (that's `leagueGameWindows` on the API, exposed for
-// callers that need the whole steppable range, e.g. a future jump-to-window
-// picker; this tab doesn't have one yet).
+// nextKey for the prev/next steppers; LeagueGameWindowsDocument above backs
+// the jump-to-window dropdown and the "Today"/"Current" reset (windowKey
+// omitted -> the server's own default, see pickDefaultWindowIndex).
 export const LeagueGamesForWindowDocument = graphql(`
 	query LeagueGamesForWindow($leagueId: ID!, $windowKey: String) {
 		leagueGamesForWindow(leagueId: $leagueId, windowKey: $windowKey) {
@@ -219,7 +242,14 @@ export const LeagueGamesForWindowDocument = graphql(`
 `)
 
 // The league room's Season tab - published ballots plus standalone award
-// races (player_season_award/team_season_award/player_award_finalists).
+// races (player_season_award/team_season_award/player_award_finalists),
+// both scoped server-side to the current season (see currentSeasonOnly/
+// leagueBallots' own season filter) so a prior year's awards don't linger
+// once a new season starts - the current-season display itself lives in the
+// room's shared header instead (LeagueByIdDocument), not per-tab.
+// excludeBallotMembers keeps a question that's already grouped inside one of
+// those ballots from also showing again as a standalone card below it - the
+// ballot card is where it's meant to be called from.
 // Bounded to 50: a season's worth of award singles for one league is never
 // close to that, so no pagination UI is built for this tab.
 export const LeagueSeasonDocument = graphql(`
@@ -233,6 +263,8 @@ export const LeagueSeasonDocument = graphql(`
 		questions(
 			leagueId: $leagueId
 			shapes: [PLAYER_SEASON_AWARD, TEAM_SEASON_AWARD, PLAYER_AWARD_FINALISTS]
+			currentSeasonOnly: true
+			excludeBallotMembers: true
 			first: 50
 		) {
 			items {
@@ -243,10 +275,40 @@ export const LeagueSeasonDocument = graphql(`
 	}
 `)
 
-// The league room's Feed tab - the old cross-league home feed's search/sort/
-// official-toggle logic, scoped to one fixed league (no league-selector tab
-// here, you're already in the room) and with ballot members excluded, since
-// those already show grouped under the Season tab.
+// Fired on keystroke (debounced) from the league Feed tab's search box - a
+// bounded, server-side team/player autocomplete scoped to this league, same
+// shape the old cross-league home feed's search bar used before it was
+// rebuilt away (HomeSearchDocument, now deleted) - client-filtering the full
+// teams/players tables client-side is what that was replaced to avoid, not
+// autocomplete itself.
+export const LeagueSearchDocument = graphql(`
+	query LeagueSearch($leagueId: ID!, $search: String!) {
+		teams(leagueId: $leagueId, search: $search, first: 5) {
+			id
+			name
+			abbreviation
+			color
+		}
+		players(leagueId: $leagueId, search: $search, first: 5) {
+			id
+			name
+			currentTeam {
+				id
+				abbreviation
+				color
+			}
+		}
+	}
+`)
+
+// The league room's Feed tab - search/sort, scoped to one fixed league (no
+// league-selector tab here, you're already in the room) and with ballot
+// members excluded, since those already show grouped under the Season tab.
+// No official-only toggle: official questions already surface separately on
+// the Season tab, so filtering for them here would be redundant. Locked
+// questions are excluded too - can't call them, and (no comments yet) there's
+// nothing else to do with one from a browse list either; resolved ones stay
+// visible since an outcome is still worth seeing.
 export const LeagueFeedDocument = graphql(`
 	query LeagueFeed(
 		$leagueId: ID!
@@ -254,7 +316,6 @@ export const LeagueFeedDocument = graphql(`
 		$after: String
 		$teamId: ID
 		$search: String
-		$isOfficial: Boolean
 		$sort: QuestionSortOrder
 	) {
 		questions(
@@ -263,9 +324,9 @@ export const LeagueFeedDocument = graphql(`
 			after: $after
 			teamId: $teamId
 			search: $search
-			isOfficial: $isOfficial
 			sort: $sort
 			excludeBallotMembers: true
+			excludeLocked: true
 		) {
 			items {
 				id
