@@ -26,6 +26,34 @@ export type EspnAthlete = {
 	experience?: { years: number }
 }
 
+// ESPN's own status vocabulary - verified live against a real schedule
+// response. STATUS_IN_PROGRESS is the documented value for a live game
+// (not seen in the sample pulled, which had no in-progress game in it, but
+// it's ESPN's standard live status across their site API). Anything else
+// (weather delays, etc.) falls back to "scheduled" - see toGameStatus in
+// sync-live-scores.ts.
+export type EspnEventStatus = {
+	type: {
+		name:
+			| "STATUS_SCHEDULED"
+			| "STATUS_IN_PROGRESS"
+			| "STATUS_FINAL"
+			| "STATUS_POSTPONED"
+			| (string & {})
+		completed: boolean
+	}
+}
+
+// A competitor's record entries, one per split ("total" is the one this app
+// cares about - overall W-L(-T), same number a broadcast graphic would show
+// - "home"/"road" are ESPN splits this app doesn't surface). displayValue is
+// a plain "W-L" or "W-L-T" string - parsed, not derived, since this app has
+// no independent source of truth for a team's record.
+export type EspnRecord = {
+	type: "total" | "home" | "road" | (string & {})
+	displayValue: string
+}
+
 export type EspnEvent = {
 	id: string
 	date: string
@@ -36,9 +64,23 @@ export type EspnEvent = {
 	week?: { number: number }
 	competitions: [
 		{
+			// Absent on some historical/edge events per ESPN, hence optional -
+			// treated as "nothing to capture" rather than an error.
+			venue?: { fullName: string }
+			status: EspnEventStatus
 			competitors: [
-				{ homeAway: "home" | "away"; team: { id: string } },
-				{ homeAway: "home" | "away"; team: { id: string } },
+				{
+					homeAway: "home" | "away"
+					team: { id: string }
+					score?: { value: number; displayValue: string }
+					record?: EspnRecord[]
+				},
+				{
+					homeAway: "home" | "away"
+					team: { id: string }
+					score?: { value: number; displayValue: string }
+					record?: EspnRecord[]
+				},
 			]
 		},
 	]
@@ -52,7 +94,9 @@ async function espnGet<T>(path: string): Promise<T> {
 	return res.json() as Promise<T>
 }
 
-export async function fetchTeams(sportPath: EspnSportPath): Promise<EspnTeam[]> {
+export async function fetchTeams(
+	sportPath: EspnSportPath,
+): Promise<EspnTeam[]> {
 	const data = await espnGet<{
 		sports: [{ leagues: [{ teams: { team: EspnTeam }[] }] }]
 	}>(`${sportPath}/teams?limit=200`)
@@ -75,7 +119,9 @@ export type EspnGroup = {
 	children?: EspnGroup[]
 }
 
-export async function fetchGroups(sportPath: EspnSportPath): Promise<EspnGroup[]> {
+export async function fetchGroups(
+	sportPath: EspnSportPath,
+): Promise<EspnGroup[]> {
 	const data = await espnGet<{ groups: EspnGroup[] }>(`${sportPath}/groups`)
 	return data.groups
 }

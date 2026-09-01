@@ -1096,6 +1096,27 @@ builder.queryFields((t) => ({
 			// outcome worth seeing) or disputed. Every other caller leaves this
 			// unset and sees every status, same as before this arg existed.
 			excludeLocked: t.arg.boolean({ required: false }),
+			// The league room's Feed tab only - team_vs_team questions are synced
+			// onto every upcoming game of the current season now (see
+			// syncGameQuestions), which would otherwise flood this browse list;
+			// each one already has its own home as the game detail page's hero
+			// card, reached via the Games tab. Every other caller leaves this
+			// unset and sees every shape.
+			excludeGameWinners: t.arg.boolean({ required: false }),
+			// The league room's Feed tab only - standalone season award races
+			// (player_season_award/team_season_award/player_award_finalists)
+			// already have their own dedicated home on the Season tab, same
+			// reasoning as excludeGameWinners above. Every other caller leaves
+			// this unset and sees every shape.
+			excludeSeasonAwards: t.arg.boolean({ required: false }),
+			// The league room's Feed tab's New sort only - a resolved/disputed
+			// question has nothing left to act on, which is the whole point of
+			// browsing by "New" (contrast excludeLocked above: that arg keeps
+			// resolved/disputed around deliberately, since they still have an
+			// outcome worth seeing under Most Called/Closing Soon - New is the
+			// one sort where "already decided" doesn't belong). Every other
+			// caller leaves this unset and sees every status.
+			excludeSettled: t.arg.boolean({ required: false }),
 			// The league room's Season tab, narrowed to standalone award races
 			// (player_season_award/team_season_award/player_award_finalists) -
 			// every other caller leaves this unset and gets every shape.
@@ -1136,6 +1157,19 @@ builder.queryFields((t) => ({
 						)
 					: undefined,
 				args.excludeLocked ? ne(questions.status, "locked") : undefined,
+				args.excludeGameWinners
+					? ne(questions.shape, "team_vs_team")
+					: undefined,
+				args.excludeSeasonAwards
+					? notInArray(questions.shape, [
+							"player_season_award",
+							"team_season_award",
+							"player_award_finalists",
+						])
+					: undefined,
+				args.excludeSettled
+					? notInArray(questions.status, ["resolved", "disputed"])
+					: undefined,
 				args.teamId
 					? or(
 							eq(questions.subjectTeamId, args.teamId),

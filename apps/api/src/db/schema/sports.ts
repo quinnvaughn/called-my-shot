@@ -100,8 +100,10 @@ export type Team = typeof teams.$inferSelect
 // has one - season-long questions (a championship, an MVP race) leave
 // questions.gameId null. home/away, not a symmetric "teamA/teamB" pair - the
 // "@" convention (away @ home) is what the title text and UI both read off.
-// Manual for now - no live stats feed exists, so an admin sets this by hand
-// on the Data tab. homeScore/awayScore are only meaningful once "final".
+// Kept current by db/sync/sync-live-scores.ts (see that file) for any game
+// ESPN is tracking; an admin can still set this by hand on the Data tab via
+// UpdateGameInput for anything outside that (a manually-entered game, or a
+// correction). homeScore/awayScore are only meaningful once "final".
 export const gameStatus = pgEnum("game_status", ["scheduled", "live", "final"])
 
 // Regular season vs. postseason - not derivable from seasonId alone at query
@@ -150,8 +152,41 @@ export const games = pgTable("games", {
 	// db/sync/nfl-slot.ts), never by the schema. Null for any league/game with
 	// no slot concept.
 	slot: text("slot"),
+	// The specific game's location, not the home team's usual park - a team's
+	// normal venue and this game's actual one aren't always the same thing
+	// (neutral-site games, international series), so this lives on the game,
+	// not on teams. Synced from ESPN's per-event venue - see db/sync/sync-games.ts.
+	// Nullable: games synced before this column existed have no value until
+	// their next sync pass.
+	venue: text("venue"),
 })
 export type Game = typeof games.$inferSelect
+
+// A team's win-loss(-tie) record as of the most recent game syncGames has
+// seen for that team/season - not a standings table computed from this app's
+// own resolved questions, ESPN's own number instead (same "trust the
+// upstream source, don't recompute it" call as games.weekNumber above).
+// Ties default to 0 rather than nullable - every sport this app syncs is
+// representable as wins/losses/ties, NFL's the only one that ever needs a
+// non-zero tie.
+export const teamRecords = pgTable(
+	"team_records",
+	{
+		id: uuid("id").primaryKey().defaultRandom(),
+		teamId: uuid("team_id")
+			.notNull()
+			.references(() => teams.id, { onDelete: "cascade" }),
+		seasonId: uuid("season_id")
+			.notNull()
+			.references(() => seasons.id, { onDelete: "cascade" }),
+		wins: integer("wins").notNull().default(0),
+		losses: integer("losses").notNull().default(0),
+		ties: integer("ties").notNull().default(0),
+		updatedAt: timestamp("updated_at").notNull().defaultNow(),
+	},
+	(t) => [unique().on(t.teamId, t.seasonId)],
+)
+export type TeamRecord = typeof teamRecords.$inferSelect
 
 // currentTeamId is a plain "who they play for right now" pointer, kept up to
 // date by hand as trades happen - not a historical roster log. A question

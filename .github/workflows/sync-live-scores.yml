@@ -1,0 +1,27 @@
+name: Sync live scores
+
+on:
+  schedule:
+    # Every 5 minutes - the practical minimum GitHub Actions cron supports.
+    # Nothing correctness-critical depends on this cadence (a score/status
+    # being a few minutes stale is fine), and the job itself only touches
+    # games plausibly in flight (see sync-live-scores.ts's own window), so
+    # this cadence is cheap even though it's tight.
+    - cron: "*/5 * * * *"
+  workflow_dispatch: {}
+
+jobs:
+  sync-live-scores:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: superfly/flyctl-actions/setup-flyctl@master
+
+      # Same reasoning as sync-sports-data.yml/lock-overdue-questions.yml -
+      # runs on the already-deployed API machine (DATABASE_URL already set,
+      # code already shipped) rather than connecting out to Postgres from
+      # the runner.
+      - name: Sync live scores on the API machine
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: |
+          flyctl ssh console -a called-my-shot-api -C "pnpm exec tsx src/db/sync/sync-live-scores.ts"

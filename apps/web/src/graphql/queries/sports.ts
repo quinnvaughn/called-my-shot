@@ -119,6 +119,12 @@ export const GameByIdDocument = graphql(`
 			status
 			homeScore
 			awayScore
+			venue
+			windowKey
+			league {
+				id
+				abbreviation
+			}
 			homeTeam {
 				id
 				name
@@ -131,6 +137,16 @@ export const GameByIdDocument = graphql(`
 				abbreviation
 				color
 			}
+			homeTeamRecord {
+				wins
+				losses
+				ties
+			}
+			awayTeamRecord {
+				wins
+				losses
+				ties
+			}
 		}
 	}
 `)
@@ -138,14 +154,17 @@ export const GameByIdDocument = graphql(`
 // The game detail page - every question tied to this game, hero
 // (team_vs_team, the "who will win?" question synced onto the game by
 // syncGameQuestions) included. No team-subject bucketing here - flat list,
-// ranked most-called first.
+// sortable Most Called/New (see SortSwitcher) since every question on one
+// game shares the same locksAt, so a Closing Soon sort would never do
+// anything here.
 export const GameQuestionsDocument = graphql(`
-	query GameQuestions($gameId: ID!, $first: Int, $after: String) {
-		questions(gameId: $gameId, first: $first, after: $after, sort: MOST_CALLED) {
+	query GameQuestions($gameId: ID!, $first: Int, $after: String, $sort: QuestionSortOrder) {
+		questions(gameId: $gameId, first: $first, after: $after, sort: $sort) {
 			items {
 				id
 				shape
 				...QuestionCard_question
+				...GameWinnerCard_question
 			}
 			pageInfo {
 				hasNextPage
@@ -256,9 +275,7 @@ export const LeagueSeasonDocument = graphql(`
 	query LeagueSeason($leagueId: ID!) {
 		leagueBallots(leagueId: $leagueId) {
 			id
-			name
-			memberCount
-			viewerCalledCount
+			...BallotCard_ballot
 		}
 		questions(
 			leagueId: $leagueId
@@ -317,6 +334,10 @@ export const LeagueFeedDocument = graphql(`
 		$teamId: ID
 		$search: String
 		$sort: QuestionSortOrder
+		$excludeGameWinners: Boolean
+		$excludeSeasonAwards: Boolean
+		$excludeSettled: Boolean
+		$currentSeasonOnly: Boolean
 	) {
 		questions(
 			leagueId: $leagueId
@@ -327,6 +348,10 @@ export const LeagueFeedDocument = graphql(`
 			sort: $sort
 			excludeBallotMembers: true
 			excludeLocked: true
+			excludeGameWinners: $excludeGameWinners
+			excludeSeasonAwards: $excludeSeasonAwards
+			excludeSettled: $excludeSettled
+			currentSeasonOnly: $currentSeasonOnly
 		) {
 			items {
 				id

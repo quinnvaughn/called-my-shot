@@ -1,6 +1,6 @@
 import { DateTime } from "luxon"
 import { css } from "styled-system/css"
-import { VStack } from "styled-system/jsx"
+import { HStack, VStack } from "styled-system/jsx"
 import { Card } from "#/components/ui/card"
 import { Identity } from "#/components/ui/identity"
 import { type FragmentType, graphql, useFragment } from "#/graphql/generated"
@@ -55,23 +55,33 @@ export function BallotCompletionsList({ summary: summaryProp }: Props) {
 		<Card>
 			<VStack gap="0" alignItems="stretch">
 				{summary.recent.map((completion) => (
-					<div
+					<HStack
 						key={completion.user.id}
+						justify="space-between"
+						gap="2"
 						className={css({
 							padding: "3",
 							borderBottom: "1px solid {colors.border.default}",
 							_last: { borderBottom: others > 0 ? undefined : "none" },
 						})}
 					>
-						<Identity
-							name={completion.user.name}
-							username={completion.user.username}
-							trailing={
-								DateTime.fromISO(completion.completedAt).toRelative() ??
-								undefined
-							}
-						/>
-					</div>
+						<div className={css({ flex: "1", minWidth: "0" })}>
+							<Identity
+								name={completion.user.name}
+								username={completion.user.username}
+							/>
+						</div>
+						<span
+							className={css({
+								fontFamily: "mono",
+								fontSize: "2xs",
+								color: "fg.subtle",
+								flexShrink: "0",
+							})}
+						>
+							{DateTime.fromISO(completion.completedAt).toRelative()}
+						</span>
+					</HStack>
 				))}
 				{others > 0 && (
 					<span

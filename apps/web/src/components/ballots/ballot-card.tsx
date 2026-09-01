@@ -1,18 +1,24 @@
 import { Link } from "@tanstack/react-router"
-import { FiLayers } from "react-icons/fi"
+import { DateTime } from "luxon"
+import { MdBallot } from "react-icons/md"
 import { css } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
-import { match, P } from "ts-pattern"
 import { Card } from "#/components/ui/card"
 import { Tag } from "#/components/ui/tag"
+import { type FragmentType, graphql, useFragment } from "#/graphql/generated"
+
+export const BallotCardFragment = graphql(`
+	fragment BallotCard_ballot on Ballot {
+		id
+		name
+		memberCount
+		viewerCalledCount
+		nextLocksAt
+	}
+`)
 
 type Props = {
-	ballot: {
-		id: string
-		name: string
-		memberCount: number
-		viewerCalledCount: number | null
-	}
+	ballot: FragmentType<typeof BallotCardFragment>
 }
 
 // The league room's Season tab list item - a compact stand-in for however
@@ -22,11 +28,13 @@ type Props = {
 // Official - ballots have no isOfficial column of their own (admin-only to
 // create in the first place, see db/schema/ballots.ts), so it's a constant
 // here rather than a field read off the data.
-export function BallotCard({ ballot }: Props) {
+export function BallotCard({ ballot: ballotProp }: Props) {
+	const ballot = useFragment(BallotCardFragment, ballotProp)
+	const calledCount = ballot.viewerCalledCount ?? 0
 	const pct =
 		ballot.memberCount === 0
 			? 0
-			: Math.round(((ballot.viewerCalledCount ?? 0) / ballot.memberCount) * 100)
+			: Math.round((calledCount / ballot.memberCount) * 100)
 
 	return (
 		<Link to="/ballots/$ballotId" params={{ ballotId: ballot.id }}>
@@ -35,8 +43,8 @@ export function BallotCard({ ballot }: Props) {
 					<VStack gap="3" alignItems="stretch">
 						<HStack justify="space-between" alignItems="center" gap="2">
 							<HStack gap="2" alignItems="center" minWidth="0">
-								<FiLayers
-									size={13}
+								<MdBallot
+									size={16}
 									className={css({ color: "fg.subtle", flexShrink: "0" })}
 								/>
 								<span
@@ -55,9 +63,10 @@ export function BallotCard({ ballot }: Props) {
 						</HStack>
 						<div
 							className={css({
-								height: "1",
+								height: "1.5",
 								borderRadius: "full",
 								bg: "bg.subtle",
+								border: "1px solid {colors.border.default}",
 								overflow: "hidden",
 							})}
 						>
@@ -70,25 +79,26 @@ export function BallotCard({ ballot }: Props) {
 								style={{ width: `${pct}%` }}
 							/>
 						</div>
-						<span
+						<HStack
+							justify="space-between"
+							gap="2"
 							className={css({
 								fontFamily: "mono",
 								fontSize: "2xs",
 								color: "fg.subtle",
 							})}
 						>
-							{match(ballot.viewerCalledCount)
-								.with(P.union(null, 0), () =>
-									ballot.memberCount === 1
-										? "1 question"
-										: `${ballot.memberCount} questions`,
-								)
-								.with(ballot.memberCount, () => "All called")
-								.otherwise(
-									(calledCount) =>
-										`${calledCount} of ${ballot.memberCount} called`,
-								)}
-						</span>
+							<span>
+								{calledCount === ballot.memberCount && ballot.memberCount > 0
+									? "All called"
+									: `${calledCount} of ${ballot.memberCount} called`}
+							</span>
+							<span>
+								{ballot.nextLocksAt
+									? `Locks ${DateTime.fromISO(ballot.nextLocksAt).toRelative()}`
+									: "Locked"}
+							</span>
+						</HStack>
 					</VStack>
 				</Card.Body>
 			</Card>

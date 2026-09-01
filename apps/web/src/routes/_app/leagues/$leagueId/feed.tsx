@@ -1,13 +1,13 @@
 import { useApolloClient } from "@apollo/client/react"
 import { createFileRoute, useLoaderData } from "@tanstack/react-router"
 import { useEffect, useRef, useState } from "react"
-import { css } from "styled-system/css"
-import { HStack, VStack } from "styled-system/jsx"
+import { VStack } from "styled-system/jsx"
 import {
 	FeedSearchField,
 	type SelectedTeam,
 } from "#/components/leagues/feed-search-field"
 import { QuestionCard } from "#/components/questions/question-card"
+import { SortSwitcher } from "#/components/questions/sort-switcher"
 import { EmptyState } from "#/components/ui/empty-state"
 import { InfiniteScroll } from "#/components/ui/infinite-scroll"
 import type { QuestionSortOrder } from "#/graphql/generated/graphql"
@@ -18,6 +18,45 @@ const SORTS: { value: QuestionSortOrder; label: string }[] = [
 	{ value: "MOST_CALLED", label: "Most Called" },
 	{ value: "NEW", label: "New" },
 ]
+
+// team_vs_team questions are synced onto every upcoming game of the current
+// season now (see syncGameQuestions) - under New/Most Called that would
+// dominate the feed with the whole season's matchups, but Closing Soon
+// already spreads them out by locksAt (each one only shows up once its own
+// game is actually imminent), so there's nothing to exclude there.
+function excludeGameWinners(sort: QuestionSortOrder): boolean {
+	return sort !== "CLOSING_SOON"
+}
+
+// Same call as excludeGameWinners above, for the same reason - standalone
+// season award races (player_season_award/team_season_award/
+// player_award_finalists) already have their own dedicated home on the
+// Season tab, so New/Most Called exclude them too. Closing Soon is left
+// alone here as well.
+function excludeSeasonAwards(sort: QuestionSortOrder): boolean {
+	return sort !== "CLOSING_SOON"
+}
+
+// Most Called has no time decay at all - an old season's runaway-popular
+// question would otherwise rank at the top forever. New already self-limits
+// (an old question has an old createdAt, so it never surfaces there), and
+// Closing Soon already requires status "open" with a future locksAt, which a
+// past-season question essentially never satisfies - so only Most Called
+// actually needs this.
+function isCurrentSeasonOnly(sort: QuestionSortOrder): boolean {
+	return sort === "MOST_CALLED"
+}
+
+// This feed's job is sourcing things to call - a resolved/disputed question
+// has nothing left to do, so it doesn't belong under New or Most Called
+// (same no-time-decay problem as excludeGameWinners/excludeSeasonAwards:
+// without this, a settled question that went viral once could camp the top
+// of Most Called forever). Closing Soon is a no-op here either way - its own
+// condition already requires status "open" with a future locksAt, so a
+// settled question can never appear there regardless of this flag.
+function excludeSettled(sort: QuestionSortOrder): boolean {
+	return sort !== "CLOSING_SOON"
+}
 
 export const Route = createFileRoute("/_app/leagues/$leagueId/feed")({
 	component: RouteComponent,
@@ -30,6 +69,10 @@ export const Route = createFileRoute("/_app/leagues/$leagueId/feed")({
 				first: PAGE_SIZE,
 				after: null,
 				sort: "CLOSING_SOON",
+				excludeGameWinners: excludeGameWinners("CLOSING_SOON"),
+				excludeSeasonAwards: excludeSeasonAwards("CLOSING_SOON"),
+				excludeSettled: excludeSettled("CLOSING_SOON"),
+				currentSeasonOnly: isCurrentSeasonOnly("CLOSING_SOON"),
 			},
 			fetchPolicy: "network-only",
 		})
@@ -105,6 +148,10 @@ function RouteComponent() {
 					// outright when set.
 					...(teamId ? { teamId } : { search: debouncedSearch || undefined }),
 					sort,
+					excludeGameWinners: excludeGameWinners(sort),
+					excludeSeasonAwards: excludeSeasonAwards(sort),
+					excludeSettled: excludeSettled(sort),
+					currentSeasonOnly: isCurrentSeasonOnly(sort),
 				},
 				fetchPolicy: "network-only",
 			})
@@ -135,6 +182,10 @@ function RouteComponent() {
 					after: pageInfo.endCursor,
 					...(teamId ? { teamId } : { search: debouncedSearch || undefined }),
 					sort,
+					excludeGameWinners: excludeGameWinners(sort),
+					excludeSeasonAwards: excludeSeasonAwards(sort),
+					excludeSettled: excludeSettled(sort),
+					currentSeasonOnly: isCurrentSeasonOnly(sort),
 				},
 				fetchPolicy: "network-only",
 			})
@@ -157,50 +208,7 @@ function RouteComponent() {
 				placeholder={`Search${league?.name ? ` ${league.name}` : ""} questions…`}
 			/>
 
-			<HStack gap="2" alignItems="center" flexWrap="wrap">
-				<span
-					className={css({
-						fontFamily: "mono",
-						fontSize: "2xs",
-						letterSpacing: "wide",
-						textTransform: "uppercase",
-						color: "fg.subtle",
-					})}
-				>
-					Sort
-				</span>
-				{SORTS.map((s) => {
-					const active = sort === s.value
-					return (
-						<button
-							key={s.value}
-							type="button"
-							onClick={() => setSort(s.value)}
-							className={css({
-								fontFamily: "mono",
-								fontSize: "2xs",
-								letterSpacing: "wide",
-								padding: "{spacing.1.5} {spacing.2.5}",
-								borderRadius: "md",
-								border: active
-									? "1px solid {colors.border.emphasized}"
-									: "1px solid {colors.border.default}",
-								color: active ? "fg.default" : "fg.subtle",
-								bg: active ? "bg.subtle" : "transparent",
-								cursor: "pointer",
-								transition:
-									"color 0.15s ease, border-color 0.15s ease, background-color 0.15s ease",
-								_hover: {
-									color: "fg.default",
-									borderColor: "border.emphasized",
-								},
-							})}
-						>
-							{s.label}
-						</button>
-					)
-				})}
-			</HStack>
+			<SortSwitcher sorts={SORTS} active={sort} onChange={setSort} />
 
 			<InfiniteScroll
 				items={items}

@@ -3,7 +3,7 @@ import {
 	createBallotSchema,
 	updateBallotQuestionSchema,
 } from "@called-my-shot/schemas"
-import { and, count, eq, inArray, sql } from "drizzle-orm"
+import { and, count, eq, gt, inArray, sql } from "drizzle-orm"
 import { db } from "../../db"
 import {
 	type Ballot,
@@ -11,6 +11,7 @@ import {
 	ballotQuestions,
 	ballots,
 	calls,
+	questions,
 	type User,
 } from "../../db/schema"
 import {
@@ -26,6 +27,7 @@ import {
 	ValidationError,
 } from "../../lib/errors"
 import { decodeOffsetCursor } from "../../lib/pagination"
+import { parsePgTimestamp } from "../../lib/pg-timestamp"
 import { getCurrentSeason } from "../../lib/seasons"
 import { isUuid } from "../../lib/uuid"
 import { builder } from "../builder"
@@ -92,7 +94,10 @@ const BallotCompletionSummaryRef = builder
 	.implement({
 		fields: (t) => ({
 			count: t.field({ type: "Int", resolve: (s) => s.count }),
-			recent: t.field({ type: [BallotCompletionRef], resolve: (s) => s.recent }),
+			recent: t.field({
+				type: [BallotCompletionRef],
+				resolve: (s) => s.recent,
+			}),
 		}),
 	})
 
@@ -159,6 +164,41 @@ export const BallotRef = builder.drizzleObject("ballots", {
 					.groupBy(ballotQuestions.ballotId)
 				const byId = new Map(rows.map((r) => [r.ballotId, Number(r.cnt)]))
 				return ballotIds.map((id) => byId.get(id) ?? 0)
+			},
+			resolve: (ballot) => ballot.id,
+		}),
+		// Soonest still-upcoming lock among this ballot's member questions -
+		// null once every member has already locked. The ballot itself has no
+		// locksAt of its own (it's an editorial container, not a scoring unit -
+		// see BallotQuestionRef above), so this is derived live off the member
+		// questions, same definition the ballot detail page's own soonest-lock
+		// line uses. Powers the ballot card's "Locks in X" line.
+		nextLocksAt: t.loadable({
+			type: "String",
+			nullable: true,
+			load: async (ballotIds: string[]) => {
+				const rows = await db
+					.select({
+						ballotId: ballotQuestions.ballotId,
+						// The driver hands back a raw timestamp string here, not an
+						// actual Date, regardless of this sql<> type annotation - see
+						// parsePgTimestamp for why it needs explicit UTC parsing.
+						nextLocksAt: sql<string>`min(${questions.locksAt})`,
+					})
+					.from(ballotQuestions)
+					.innerJoin(questions, eq(questions.id, ballotQuestions.questionId))
+					.where(
+						and(
+							inArray(ballotQuestions.ballotId, ballotIds),
+							gt(questions.locksAt, new Date()),
+						),
+					)
+					.groupBy(ballotQuestions.ballotId)
+				const byId = new Map(rows.map((r) => [r.ballotId, r.nextLocksAt]))
+				return ballotIds.map((id) => {
+					const value = byId.get(id)
+					return value ? parsePgTimestamp(value).toISOString() : null
+				})
 			},
 			resolve: (ballot) => ballot.id,
 		}),
@@ -233,7 +273,7 @@ export const BallotRef = builder.drizzleObject("ballots", {
 						recent: list.slice(0, 6).flatMap((r) => {
 							const user = userById.get(r.user_id)
 							return user
-								? [{ user, completedAt: new Date(r.completed_at) }]
+								? [{ user, completedAt: parsePgTimestamp(r.completed_at) }]
 								: []
 						}),
 					}
@@ -329,7 +369,7 @@ builder.queryFields((t) => ({
 			const ballot = await db.query.ballots.findFirst({
 				where: { id: args.id },
 			})
-			if (!ballot || ballot.status !== "published") return null
+			if (ballot?.status !== "published") return null
 			return ballot
 		},
 	}),

@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router"
+import { css } from "styled-system/css"
 import { VStack } from "styled-system/jsx"
 import { BallotCard } from "#/components/ballots/ballot-card"
 import { QuestionCard } from "#/components/questions/question-card"
@@ -21,6 +22,14 @@ export const Route = createFileRoute("/_app/leagues/$leagueId/season")({
 	},
 })
 
+const subHeadClass = css({
+	fontFamily: "mono",
+	fontSize: "2xs",
+	letterSpacing: "wide",
+	color: "fg.subtle",
+	textTransform: "uppercase",
+})
+
 function RouteComponent() {
 	const { ballots, singles } = Route.useLoaderData()
 
@@ -33,13 +42,27 @@ function RouteComponent() {
 	}
 
 	return (
-		<VStack gap="3" alignItems="stretch">
-			{ballots.map((ballot) => (
-				<BallotCard key={ballot.id} ballot={ballot} />
-			))}
-			{singles.map((question) => (
-				<QuestionCard key={question.id} question={question} />
-			))}
+		<VStack gap="6" alignItems="stretch">
+			{ballots.length > 0 && (
+				<VStack gap="3" alignItems="stretch">
+					<span className={subHeadClass}>Ballots</span>
+					<VStack gap="3" alignItems="stretch">
+						{ballots.map((ballot) => (
+							<BallotCard key={ballot.id} ballot={ballot} />
+						))}
+					</VStack>
+				</VStack>
+			)}
+			{singles.length > 0 && (
+				<VStack gap="3" alignItems="stretch">
+					<span className={subHeadClass}>Awards &amp; Championships</span>
+					<VStack gap="3" alignItems="stretch">
+						{singles.map((question) => (
+							<QuestionCard key={question.id} question={question} />
+						))}
+					</VStack>
+				</VStack>
+			)}
 		</VStack>
 	)
 }

@@ -1,4 +1,4 @@
-import { FiLayers } from "react-icons/fi"
+import { MdBallot } from "react-icons/md"
 import { css } from "styled-system/css"
 import { HStack } from "styled-system/jsx"
 import { match, P } from "ts-pattern"
@@ -32,7 +32,7 @@ export function BallotKicker({ membership }: Props) {
 			minWidth="0"
 			className={css({ color: "fg.subtle" })}
 		>
-			<FiLayers size={11} className={css({ flexShrink: "0" })} />
+			<MdBallot size={14} className={css({ flexShrink: "0" })} />
 			<span
 				className={css({
 					fontFamily: "mono",

@@ -16,6 +16,7 @@
     "db:studio": "drizzle-kit studio",
     "db:seed": "tsx --env-file=.env src/db/seed.ts",
     "sync:sports": "tsx --env-file=.env src/db/sync/run.ts",
+    "sync:live-scores": "tsx --env-file=.env src/db/sync/sync-live-scores.ts",
     "lock:overdue-questions": "tsx --env-file=.env src/db/lock-overdue-questions.ts",
     "db:sync-catalog": "tsx --env-file=.env src/db/catalog/run.ts",
     "release": "drizzle-kit migrate && tsx src/db/catalog/run.ts"

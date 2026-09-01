@@ -11,6 +11,7 @@ import {
 } from "#/lib/ballot-member-state"
 import { isContested } from "#/lib/contested"
 import { callersText, formatGuess } from "#/lib/field-signal"
+import { questionDetailState } from "#/lib/question-detail-state"
 import { tierFor } from "#/lib/scoring"
 
 export const BallotPositionRowFragment = graphql(`
@@ -133,6 +134,29 @@ function PickTierBadge({
 	)
 }
 
+function NotCalledYet({ state }: { state: BallotMemberState }) {
+	return (
+		<HStack gap="2" alignItems="center">
+			<PickStateDot state={state} />
+			<span className={css({ fontSize: "xs", color: "fg.subtle" })}>
+				Not called yet
+			</span>
+		</HStack>
+	)
+}
+
+// A multi-pick member (player_season_award/team_season_award with more than
+// one slot, e.g. "OF (3)") scores each selection independently - one pick
+// can win while another loses on the very same call - so each gets its own
+// dot rather than one shared dot standing in for the whole member.
+function selectionDotState(
+	isCorrect: boolean | null,
+	isSettled: boolean,
+): BallotMemberState {
+	if (!isSettled) return "pending"
+	return isCorrect ? "won" : "lost"
+}
+
 // Leading option by live fieldPct, dropping options nobody's called yet -
 // same "what is the field actually saying" question isContested/rankByField
 // answer, just keeping the label alongside the number for display.
@@ -182,45 +206,30 @@ export function BallotPositionRow({ member: memberProp }: Props) {
 				flexShrink="0"
 				paddingTop="0.5"
 			>
-				{member.slot ? (
-					<>
-						<span
-							className={css({
-								fontFamily: "mono",
-								fontSize: "xs",
-								fontWeight: "bold",
-								textTransform: "uppercase",
-							})}
-						>
-							{member.slot}
-						</span>
-						<span
-							className={css({
-								fontFamily: "mono",
-								fontSize: "3xs",
-								letterSpacing: "wide",
-								textTransform: "uppercase",
-								color: "fg.subtle",
-								whiteSpace: "normal",
-							})}
-						>
-							{member.label}
-						</span>
-					</>
-				) : (
+				{member.slot && (
 					<span
 						className={css({
 							fontFamily: "mono",
-							fontSize: "3xs",
-							letterSpacing: "wide",
+							fontSize: "xs",
+							fontWeight: "bold",
 							textTransform: "uppercase",
-							color: "fg.subtle",
-							whiteSpace: "normal",
 						})}
 					>
-						{member.label}
+						{member.slot}
 					</span>
 				)}
+				<span
+					className={css({
+						fontFamily: "mono",
+						fontSize: "3xs",
+						letterSpacing: "wide",
+						textTransform: "uppercase",
+						color: "fg.subtle",
+						whiteSpace: "normal",
+					})}
+				>
+					{member.label}
+				</span>
 			</VStack>
 
 			<VStack gap="2" alignItems="flex-start" flex="1" minWidth="0">
@@ -235,14 +244,7 @@ export function BallotPositionRow({ member: memberProp }: Props) {
 				</span>
 
 				{match({ isNumericGuess, viewerCall: question.viewerCall })
-					.with({ viewerCall: null }, () => (
-						<HStack gap="2" alignItems="center">
-							<PickStateDot state={state} />
-							<span className={css({ fontSize: "xs", color: "fg.subtle" })}>
-								Not called yet
-							</span>
-						</HStack>
-					))
+					.with({ viewerCall: null }, () => <NotCalledYet state={state} />)
 					.with({ isNumericGuess: true }, ({ viewerCall }) => (
 						<HStack gap="2" alignItems="center" flexWrap="wrap">
 							<PickStateDot state={state} />
@@ -259,50 +261,49 @@ export function BallotPositionRow({ member: memberProp }: Props) {
 						</HStack>
 					))
 					.with(P._, ({ viewerCall }) => {
+						// viewerCall is guaranteed non-null here (the {viewerCall: null}
+						// branch above already caught that case), and any non-null call
+						// on a non-numeric shape always carries at least one selection
+						// - that's how an option-based pick is recorded in the first
+						// place. The ?? [] is just for TS, not a real fallback path.
 						const selections = viewerCall?.selections ?? []
-						if (selections.length === 0) {
-							return (
-								<HStack gap="2" alignItems="center">
-									<PickStateDot state={state} />
-									<span className={css({ fontSize: "xs", color: "fg.subtle" })}>
-										Not called yet
-									</span>
-								</HStack>
-							)
-						}
+						const isSettled = questionDetailState(question).isSettled
 						return (
-							<HStack gap="2" alignItems="flex-start">
-								<PickStateDot state={state} />
-								<VStack gap="1" alignItems="flex-start">
-									{selections.map((selection) => (
-										<HStack key={selection.id} gap="2" alignItems="center">
-											<span
-												className={css({ fontSize: "sm", fontWeight: "bold" })}
-											>
-												{selection.option.label}
-											</span>
-											{selection.option.fieldPct !== null && (
-												<PickTierBadge
-													fieldPct={selection.option.fieldPct}
-													totalOptions={question.options.length}
-												/>
+							<VStack gap="1" alignItems="flex-start">
+								{selections.map((selection) => (
+									<HStack key={selection.id} gap="2" alignItems="center">
+										<PickStateDot
+											state={selectionDotState(
+												selection.option.isCorrect,
+												isSettled,
 											)}
-										</HStack>
-									))}
-									{selections.length > 1 && (
+										/>
 										<span
-											className={css({
-												fontFamily: "mono",
-												fontSize: "3xs",
-												letterSpacing: "wide",
-												color: "fg.subtle",
-											})}
+											className={css({ fontSize: "sm", fontWeight: "bold" })}
 										>
-											EACH PICK SCORES INDEPENDENTLY
+											{selection.option.label}
 										</span>
-									)}
-								</VStack>
-							</HStack>
+										{selection.option.fieldPct !== null && (
+											<PickTierBadge
+												fieldPct={selection.option.fieldPct}
+												totalOptions={question.options.length}
+											/>
+										)}
+									</HStack>
+								))}
+								{selections.length > 1 && (
+									<span
+										className={css({
+											fontFamily: "mono",
+											fontSize: "3xs",
+											letterSpacing: "wide",
+											color: "fg.subtle",
+										})}
+									>
+										EACH PICK SCORES INDEPENDENTLY
+									</span>
+								)}
+							</VStack>
 						)
 					})
 					.exhaustive()}

@@ -60,7 +60,10 @@ function RouteComponent() {
 	// lint, so both calls happen unconditionally before the not-found branch
 	// below rather than after it.
 	const members = useFragment(BallotPositionRowFragment, ballot?.members ?? [])
-	const completions = useFragment(BallotCompletionsListFragment, ballot?.completions)
+	const completions = useFragment(
+		BallotCompletionsListFragment,
+		ballot?.completions,
+	)
 
 	if (!ballot) {
 		return (
@@ -90,7 +93,7 @@ function RouteComponent() {
 			: null
 
 	return (
-		<VStack gap="6" alignItems="stretch">
+		<VStack gap="6" alignItems="stretch" className={css({ maxWidth: "2xl" })}>
 			<Link
 				to="/leagues/$leagueId/season"
 				params={{ leagueId: ballot.league.id }}
@@ -175,37 +178,8 @@ function RouteComponent() {
 					<FiChevronRight />
 				</Link>
 			)}
-			{!stats.nextUncalled && stats.isComplete && (
-				<a
-					href="#positions"
-					className={css({
-						display: "flex",
-						alignItems: "center",
-						justifyContent: "center",
-						gap: "1.5",
-						width: "full",
-						backgroundColor: "bg.subtle",
-						border: "1px solid {colors.border.default}",
-						borderRadius: "lg",
-						paddingBlock: "3",
-						fontFamily: "mono",
-						fontSize: "xs",
-						fontWeight: "bold",
-						letterSpacing: "wide",
-						color: "fg.subtle",
-						_hover: { color: "fg.default" },
-					})}
-				>
-					<span className={css({ textTransform: "uppercase" })}>
-						Review your ballot
-					</span>
-					<FiChevronRight />
-				</a>
-			)}
-
 			<VStack gap="3" alignItems="stretch">
 				<span
-					id="positions"
 					className={css({
 						fontFamily: "mono",
 						fontSize: "2xs",

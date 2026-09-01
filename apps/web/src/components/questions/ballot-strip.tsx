@@ -1,7 +1,8 @@
 import { Link } from "@tanstack/react-router"
 import { useState } from "react"
 import { FaCheck, FaChevronDown, FaXmark } from "react-icons/fa6"
-import { FiChevronLeft, FiChevronRight, FiLayers } from "react-icons/fi"
+import { FiChevronLeft, FiChevronRight } from "react-icons/fi"
+import { MdBallot } from "react-icons/md"
 import { css, cx } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
 import type { SystemStyleObject } from "styled-system/types"
@@ -268,7 +269,7 @@ export function BallotStrip({ question: questionProp }: Props) {
 								color: "fg.muted",
 							})}
 						>
-							<FiLayers size={12} className={css({ flexShrink: "0" })} />
+							<MdBallot size={15} className={css({ flexShrink: "0" })} />
 							<span
 								className={css({
 									fontFamily: "mono",

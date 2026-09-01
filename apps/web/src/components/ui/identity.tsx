@@ -22,9 +22,18 @@ export function Identity({
 	trailing,
 }: IdentityProps) {
 	return (
-		<HStack gap="2">
+		<HStack gap="2" minWidth="0">
 			<Avatar size={size} name={name} />
-			<span className={css({ fontSize: "xs", fontWeight: "medium" })}>
+			<span
+				className={css({
+					fontSize: "xs",
+					fontWeight: "medium",
+					minWidth: "0",
+					overflow: "hidden",
+					textOverflow: "ellipsis",
+					whiteSpace: "nowrap",
+				})}
+			>
 				{name}
 			</span>
 			<span
@@ -32,12 +41,22 @@ export function Identity({
 					fontSize: "xs",
 					color: "fg.muted",
 					fontFamily: "mono",
+					minWidth: "0",
+					overflow: "hidden",
+					textOverflow: "ellipsis",
+					whiteSpace: "nowrap",
 				})}
 			>
 				@{username}
 			</span>
 			{trailing && (
-				<span className={css({ fontSize: "xs", color: "fg.subtle" })}>
+				<span
+					className={css({
+						fontSize: "xs",
+						color: "fg.subtle",
+						flexShrink: "0",
+					})}
+				>
 					{trailing}
 				</span>
 			)}

@@ -22,7 +22,7 @@ import {
 } from "drizzle-orm"
 import { DateTime } from "luxon"
 import { db } from "../../db"
-import type { Game, League, Player, Team } from "../../db/schema"
+import type { Game, League, Player, Team, TeamRecord } from "../../db/schema"
 import {
 	calls,
 	games,
@@ -47,6 +47,7 @@ import {
 	ValidationError,
 } from "../../lib/errors"
 import { decodeOffsetCursor } from "../../lib/pagination"
+import { parsePgTimestamp } from "../../lib/pg-timestamp"
 import { getCurrentSeason } from "../../lib/seasons"
 import { builder } from "../builder"
 import { PageInfoRef } from "./pagination"
@@ -214,6 +215,36 @@ export const TeamRef = builder.drizzleObject("teams", {
 	}),
 })
 
+// A team's win-loss(-tie) record as of the specific game it's attached to -
+// see teamRecords in db/schema/sports.ts for why this lives keyed off a game
+// rather than as a plain field on Team (a team has no single "current"
+// record independent of which season/point in the season you're asking
+// about).
+const TeamRecordRef = builder
+	.objectRef<{ wins: number; losses: number; ties: number }>("TeamRecord")
+	.implement({
+		fields: (t) => ({
+			wins: t.exposeInt("wins"),
+			losses: t.exposeInt("losses"),
+			ties: t.exposeInt("ties"),
+		}),
+	})
+
+// Shared load function behind GameRef.homeTeamRecord/awayTeamRecord below -
+// each field still gets its own t.loadable (and so its own dataloader
+// instance/cache), this just keeps the two batch queries from being two
+// copies of the same code.
+async function loadTeamRecordsByKey(
+	keys: readonly string[],
+): Promise<(TeamRecord | null)[]> {
+	const teamIds = [...new Set(keys.map((k) => k.split("|")[0]))]
+	const rows = await db.query.teamRecords.findMany({
+		where: { teamId: { in: teamIds } },
+	})
+	const byKey = new Map(rows.map((r) => [`${r.teamId}|${r.seasonId}`, r]))
+	return keys.map((k) => byKey.get(k) ?? null)
+}
+
 export const GameRef = builder.drizzleObject("games", {
 	name: "Game",
 	fields: (t) => ({
@@ -225,9 +256,52 @@ export const GameRef = builder.drizzleObject("games", {
 		status: t.field({ type: GameStatus, resolve: (g) => g.status }),
 		homeScore: t.exposeInt("homeScore", { nullable: true }),
 		awayScore: t.exposeInt("awayScore", { nullable: true }),
+		// The specific game's location, not necessarily the home team's usual
+		// park - see games.venue in db/schema/sports.ts. Null for a game synced
+		// before this column existed, until its next sync pass.
+		venue: t.exposeString("venue", { nullable: true }),
 		league: t.relation("league"),
 		homeTeam: t.relation("homeTeam"),
 		awayTeam: t.relation("awayTeam"),
+		// Batched by "teamId|seasonId" rather than by game id directly - two
+		// games between the same teams in the same season (a rematch) would
+		// otherwise issue two identical lookups instead of sharing one, and the
+		// dataloader cache key needs to be a single primitive, not the pair
+		// t.loadable would otherwise want to pass through untouched.
+		homeTeamRecord: t.loadable({
+			type: TeamRecordRef,
+			nullable: true,
+			load: loadTeamRecordsByKey,
+			resolve: (game) => `${game.homeTeamId}|${game.seasonId}`,
+		}),
+		awayTeamRecord: t.loadable({
+			type: TeamRecordRef,
+			nullable: true,
+			load: loadTeamRecordsByKey,
+			resolve: (game) => `${game.awayTeamId}|${game.seasonId}`,
+		}),
+		// The Games tab window (a date, or a season/seasonType/week for a
+		// week-window league) this specific game falls in - same key format
+		// getLeagueWindows computes in bulk for that tab, re-derived here for
+		// one game so a "back to Games" link can jump straight to the window
+		// this game is actually in instead of always landing on
+		// today/this week. Plain per-row resolve, not batched - only ever
+		// queried for the one game a game detail page loads.
+		windowKey: t.field({
+			type: "String",
+			resolve: async (game) => {
+				const league = await db.query.leagues.findFirst({
+					where: { id: game.leagueId },
+					columns: { windowType: true },
+				})
+				if (league?.windowType === "week") {
+					return `${game.seasonId}:${game.seasonType}:${game.weekNumber}`
+				}
+				return DateTime.fromJSDate(game.startsAt, { zone: ET_ZONE }).toFormat(
+					"yyyy-LL-dd",
+				)
+			},
+		}),
 		// Plain per-row resolves, not batched loadables - a games list is one
 		// window's worth of games (a day or a week), never large enough to worry
 		// about N+1 the way a long feed would.
@@ -462,10 +536,10 @@ async function getLeagueWindows(league: League): Promise<WindowDescriptor[]> {
 			order by min_starts asc
 		`)
 		return result.rows.map((row) => {
-			const start = DateTime.fromJSDate(new Date(row.min_starts), {
+			const start = DateTime.fromJSDate(parsePgTimestamp(row.min_starts), {
 				zone: ET_ZONE,
 			})
-			const end = DateTime.fromJSDate(new Date(row.max_starts), {
+			const end = DateTime.fromJSDate(parsePgTimestamp(row.max_starts), {
 				zone: ET_ZONE,
 			})
 			const label =

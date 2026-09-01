@@ -92,6 +92,7 @@ export function BallotProgressCard({
 							height: "1.5",
 							borderRadius: "full",
 							bg: "bg.subtle",
+							border: "1px solid {colors.border.default}",
 							overflow: "hidden",
 						})}
 					>

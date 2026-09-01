@@ -1,19 +1,9 @@
 import { generateQuestionTitle } from "@called-my-shot/schemas"
 import { eq } from "drizzle-orm"
-import { DateTime } from "luxon"
 import { getOfficialAccountId } from "../../lib/official-account"
+import { getCurrentSeason } from "../../lib/seasons"
 import { db } from "../index"
 import { type League, questionOptions, questions } from "../schema"
-
-// How far out a game's question gets created ahead of the game itself.
-// ESPN publishes a full season's schedule (~1,230 games for the NBA) the
-// moment it's set, so without a cap every game would get its question the
-// same day the schedule drops - flooding the "New" feed sort with months of
-// far-future games all sharing one createdAt, burying the ones that
-// actually matter right now under ones nobody can act on yet. Paced instead:
-// a game only gets its question once it's within this window, so creation
-// spreads out day by day as the cron keeps running and games enter it.
-const CREATE_WINDOW = { weeks: 3 }
 
 // One team_vs_team question per synced game, created official (see
 // ADMIN_ONLY_SHAPES in packages/schemas/src/questions.ts - team_vs_team is
@@ -33,19 +23,25 @@ export async function syncGameQuestions(league: League): Promise<void> {
 		with: { homeTeam: true, awayTeam: true },
 	})
 
-	// Bounded both directions. Lower: skip anything that's already tipped
-	// off - there was never a window to call it, so a question for it would
-	// only ever be poseable after the fact. Ordinarily this is a non-issue (a
-	// game's question gets created while the game is still upcoming, well
-	// before this job would ever see it as past), but it matters a lot on a
-	// league's very first sync: ESPN's regular-season schedule endpoint
-	// returns whichever season it currently considers "current," which
-	// during the off-season before the new season's schedule is published is
-	// still last season's full slate - hundreds of already-finished games
-	// syncGames just backfilled that have no business getting a question
-	// now. Upper: see CREATE_WINDOW above.
+	// Every upcoming game of the current season gets its question in one
+	// pass now, not paced out day by day - that pacing existed only to avoid
+	// flooding the old "New" feed sort with months of far-future games
+	// sharing one createdAt, and there's a real per-game destination (the
+	// game detail page, reached via the Games tab) for discovery now, so
+	// that concern is gone.
+	//
+	// Still bounded both directions. Lower: skip anything that's already
+	// tipped off - there was never a window to call it, so a question for it
+	// would only ever be poseable after the fact. Upper: scoped to the
+	// current season (see getCurrentSeason) rather than every game ever
+	// synced - this matters a lot on a league's very first sync, or in the
+	// off-season before the new season's schedule is published: ESPN's
+	// regular-season schedule endpoint returns whichever season it currently
+	// considers "current," which in the gap between seasons is still last
+	// season's full slate - hundreds of already-finished games syncGames
+	// just backfilled that have no business getting a question now.
 	const now = new Date()
-	const horizon = DateTime.now().plus(CREATE_WINDOW).toJSDate()
+	const season = await getCurrentSeason(league.id)
 	// Descending: within a batch, each insert's createdAt lands a little
 	// later than the previous one (sequential round trips, same as any
 	// other loop of individual writes), and the NEW feed sort is createdAt
@@ -54,7 +50,10 @@ export async function syncGameQuestions(league: League): Promise<void> {
 	// newest createdAt and lands at the top, with the rest of the batch
 	// falling in behind it in the same order they actually kick off.
 	const leagueGames = allLeagueGames
-		.filter((game) => game.startsAt >= now && game.startsAt <= horizon)
+		.filter(
+			(game) =>
+				game.startsAt >= now && (!season || game.seasonId === season.id),
+		)
 		.sort((a, b) => b.startsAt.getTime() - a.startsAt.getTime())
 
 	for (const game of leagueGames) {
