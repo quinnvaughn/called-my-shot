@@ -27,15 +27,27 @@ import { LandingPageGetStartedSection } from "#/components/landing-page/landing-
 import { LandingPageLeaderboardSection } from "#/components/landing-page/landing-page-leaderboard-section"
 import { LandingPageMockCard } from "#/components/landing-page/landing-page-mock-card"
 import { LandingPageNav } from "#/components/landing-page/landing-page-nav"
+import { LandingPageOpenQuestionsSection } from "#/components/landing-page/landing-page-open-questions-section"
 import { LandingPageWrap } from "#/components/landing-page/landing-page-wrap"
 import { Badge } from "#/components/ui/badge"
 import { Button, button } from "#/components/ui/button"
+import { LandingPageDocument } from "#/graphql/queries/landing-page"
 import { openModal } from "#/stores/modal-store"
 
 export const Route = createFileRoute("/")({
 	beforeLoad: ({ context }) => {
 		if (context.me) {
 			throw redirect({ to: "/home" })
+		}
+	},
+	loader: async ({ context }) => {
+		const { data } = await context.apolloClient.query({
+			query: LandingPageDocument,
+		})
+		return {
+			leagues: data?.leagues ?? [],
+			questions: data?.questions.items ?? [],
+			leaderboardEntries: data?.leaderboard.items ?? [],
 		}
 	},
 	component: Home,
@@ -121,9 +133,9 @@ const noHouseItems = [
 	},
 	{
 		icon: <FiHelpCircle />,
-		title: "Nothing needs our approval",
+		title: "Anyone can create one",
 		description:
-			"Pick a shape, fill in the real players, teams, and stats, and it's live: no license to chase, no real-money market to manage.",
+			"Pick a shape, fill in the real players, teams, and stats, and it's live: no license to chase, no real-money market to manage, no approval to wait on.",
 	},
 	{
 		icon: <FiCheckCircle />,
@@ -149,9 +161,11 @@ const communityItems = [
 ]
 
 function Home() {
+	const { leagues, questions, leaderboardEntries } = Route.useLoaderData()
+
 	return (
 		<div>
-			<LandingPageNav />
+			<LandingPageNav leagues={leagues} />
 			<header className={css({ paddingBlock: { base: "8", sm: "16" } })}>
 				<LandingPageWrap
 					className={css({
@@ -182,10 +196,10 @@ function Home() {
 										maxWidth: "lg",
 									})}
 								>
-									Call your shot on real outcomes across every sport you follow,
-									defend it in the comments, and run your own leaderboard
-									against your group chat. Bold, correct calls score more than
-									safe ones: that's the whole game.
+									Call your shot on real games and season awards across every
+									sport you follow, defend it in the comments, and run your own
+									leaderboard against your group chat. Bold, correct calls score
+									more than safe ones: that's the whole game.
 								</p>
 							</VStack>
 							<VStack alignItems="flex-start" gap="7">
@@ -222,6 +236,7 @@ function Home() {
 					<LandingPageMockCard />
 				</LandingPageWrap>
 			</header>
+			<LandingPageOpenQuestionsSection questions={questions} />
 			<LandingPageFeatureSection
 				id="how-it-works"
 				alt
@@ -253,7 +268,7 @@ function Home() {
 				items={communityItems}
 				columns={2}
 			/>
-			<LandingPageLeaderboardSection />
+			<LandingPageLeaderboardSection entries={leaderboardEntries} />
 			<LandingPageGetStartedSection />
 			<LandingPageFooter />
 		</div>

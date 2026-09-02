@@ -1,14 +1,23 @@
 import { Link } from "@tanstack/react-router"
-import { FiMenu, FiX } from "react-icons/fi"
-import { css } from "styled-system/css"
+import { FiChevronDown, FiMenu, FiX } from "react-icons/fi"
+import { css, cx } from "styled-system/css"
 import { HStack } from "styled-system/jsx"
+import { dropdown as dropdownRecipe } from "styled-system/recipes"
 import { AuthModal } from "#/components/auth/auth-modal"
 import { openModal } from "#/stores/modal-store"
 import { Brand } from "../ui/brand"
 import { Button } from "../ui/button"
 import { Dropdown } from "../ui/dropdown"
 
-export function LandingPageNav() {
+type League = { id: string; name: string; abbreviation: string }
+
+type Props = {
+	leagues: League[]
+}
+
+export function LandingPageNav({ leagues }: Props) {
+	const { item: dropdownItem } = dropdownRecipe()
+
 	return (
 		<nav
 			className={css({
@@ -49,9 +58,43 @@ export function LandingPageNav() {
 					<Link to="/" hash="question-types">
 						Question Types
 					</Link>
-					<Link to="/" hash="leaderboard">
-						Leaderboard
-					</Link>
+					{leagues.length > 0 && (
+						<Dropdown>
+							<Dropdown.Trigger
+								className={css({
+									display: "flex",
+									alignItems: "center",
+									gap: "1",
+								})}
+							>
+								{({ open }) => (
+									<>
+										Leagues
+										<FiChevronDown
+											size={12}
+											className={css({
+												transition: "transform 0.15s ease",
+												transform: open ? "rotate(180deg)" : "rotate(0deg)",
+											})}
+										/>
+									</>
+								)}
+							</Dropdown.Trigger>
+							<Dropdown.Content>
+								{leagues.map((league) => (
+									<Link
+										key={league.id}
+										to="/leagues/$leagueId"
+										params={{ leagueId: league.id }}
+										className={cx(dropdownItem, css({ display: "block" }))}
+									>
+										{league.name}
+									</Link>
+								))}
+							</Dropdown.Content>
+						</Dropdown>
+					)}
+					<Link to="/leaderboard">Leaderboard</Link>
 				</HStack>
 				<HStack
 					alignItems="center"
@@ -127,6 +170,16 @@ export function LandingPageNav() {
 						)}
 					</Dropdown.Trigger>
 					<Dropdown.Content>
+						{leagues.map((league) => (
+							<Link
+								key={league.id}
+								to="/leagues/$leagueId"
+								params={{ leagueId: league.id }}
+								className={cx(dropdownItem, css({ display: "block" }))}
+							>
+								{league.name}
+							</Link>
+						))}
 						<Dropdown.Item
 							onClick={() => openModal(<AuthModal defaultView="signin" />)}
 						>

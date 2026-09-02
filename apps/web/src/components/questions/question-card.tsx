@@ -97,6 +97,7 @@ export function QuestionCard({
 			params={{ questionId: question.id }}
 			className={css({
 				display: "block",
+				height: "full",
 				textDecoration: "none",
 				color: "inherit",
 			})}
@@ -104,12 +105,13 @@ export function QuestionCard({
 			<Card
 				interactive
 				className={css({
+					height: "full",
 					borderRadius: "10px",
 					paddingBlock: "1.15rem",
 					paddingInline: "1.3rem",
 				})}
 			>
-				<VStack gap="2.5" alignItems="stretch">
+				<VStack gap="2.5" alignItems="stretch" height="full">
 					<QuestionSummaryHeader
 						question={question}
 						sharedBy={sharedBy}

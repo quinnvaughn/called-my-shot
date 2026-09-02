@@ -37,9 +37,7 @@ export function LandingPageFooter() {
 					<Link to="/" hash="question-types">
 						Question Types
 					</Link>
-					<Link to="/" hash="leaderboard">
-						Leaderboard
-					</Link>
+					<Link to="/leaderboard">Leaderboard</Link>
 				</div>
 				<div
 					className={css({

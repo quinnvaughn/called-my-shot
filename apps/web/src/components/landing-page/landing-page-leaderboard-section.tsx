@@ -1,5 +1,9 @@
+import { Link } from "@tanstack/react-router"
 import { css, cx } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
+import { button } from "#/components/ui/button"
+import { type FragmentType, useFragment } from "#/graphql/generated"
+import { LeaderboardEntryFragment } from "#/graphql/queries/leaderboard"
 import { LandingPageContentSection } from "./landing-page-content-section"
 
 type LeaderboardRow = {
@@ -9,15 +13,35 @@ type LeaderboardRow = {
 	points: number
 }
 
-const rows: LeaderboardRow[] = [
-	{ initials: "DK", username: "@dkanalytics", accuracy: 64, points: 28110 },
-	{ initials: "MP", username: "@mpendzone", accuracy: 52, points: 24200 },
-	{ initials: "JR", username: "@jrhoops", accuracy: 68, points: 21940 },
-	{ initials: "SL", username: "@statlord", accuracy: 61, points: 19655 },
-	{ initials: "RS", username: "@rsidelines", accuracy: 57, points: 17310 },
-]
+type Props = {
+	entries: FragmentType<typeof LeaderboardEntryFragment>[]
+}
 
-export function LandingPageLeaderboardSection() {
+function initialsFor(name: string, username: string) {
+	const source = name.trim() || username
+	const parts = source.split(/\s+/).filter(Boolean)
+	const letters =
+		parts.length > 1
+			? `${parts[0][0]}${parts[parts.length - 1][0]}`
+			: source.slice(0, 2)
+	return letters.toUpperCase()
+}
+
+export function LandingPageLeaderboardSection({ entries: entriesProp }: Props) {
+	const entries = useFragment(LeaderboardEntryFragment, entriesProp)
+
+	if (entries.length === 0) {
+		return null
+	}
+
+	const rows: (LeaderboardRow & { rank: number })[] = entries.map((entry) => ({
+		rank: entry.rank,
+		initials: initialsFor(entry.user.name, entry.user.username),
+		username: `@${entry.user.username}`,
+		accuracy: Math.round(entry.accuracy ?? 0),
+		points: entry.totalPoints,
+	}))
+
 	return (
 		<LandingPageContentSection
 			id="leaderboard"
@@ -26,22 +50,34 @@ export function LandingPageLeaderboardSection() {
 			title="Being right, on the record."
 			description="Points and accuracy are tracked in the open. This is what actually being good at this looks like: no way to fake it."
 		>
-			<div
-				className={css({
-					display: "flex",
-					flexDirection: "column",
-					width: "full",
-					borderRadius: "2xl",
-					border: "1px solid",
-					borderColor: "border.default",
-					overflow: "hidden",
-					bg: "bg.surface",
-				})}
+			<VStack
+				gap="6"
+				alignItems={{ base: "stretch", sm: "flex-start" }}
+				width="full"
 			>
-				{rows.map((row, index) => (
-					<LeaderboardRowItem {...row} rank={index + 1} key={row.username} />
-				))}
-			</div>
+				<div
+					className={css({
+						display: "flex",
+						flexDirection: "column",
+						width: "full",
+						borderRadius: "2xl",
+						border: "1px solid",
+						borderColor: "border.default",
+						overflow: "hidden",
+						bg: "bg.surface",
+					})}
+				>
+					{rows.map((row) => (
+						<LeaderboardRowItem {...row} key={row.username} />
+					))}
+				</div>
+				<Link
+					to="/leaderboard"
+					className={button({ variant: "ghost", size: "md" })}
+				>
+					See the live leaderboard →
+				</Link>
+			</VStack>
 		</LandingPageContentSection>
 	)
 }
