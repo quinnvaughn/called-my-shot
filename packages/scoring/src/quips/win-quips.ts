@@ -3,7 +3,7 @@
 // list is expected to keep growing - no reason either one should bloat the
 // scoring math in ../index.ts, or each other.
 export const WIN_QUIPS = [
-	"I'm kind of a big deal. People know me.",
+	"I don't know how to put this, but... I'm kind of a big deal. People know me.",
 	"Well, that just happened.",
 	"60% of the time, it works every time.",
 	"I'm not lucky. I'm just built different, apparently.",
