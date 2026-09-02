@@ -1,10 +1,11 @@
 name: Sync sports data
 
 on:
-  schedule:
-    # Daily, 9am UTC - teams/colors barely change, rosters and the schedule
-    # (still-TBD games, postseason once brackets are set) do.
-    - cron: "0 9 * * *"
+  # Runs in-process on the API machine now (src/scheduler.ts, daily 09:00
+  # UTC) instead of on GitHub's cron - GitHub Actions schedules queue and can
+  # lag by hours under load, which this job could tolerate but
+  # sync-live-scores.yml's could not. Kept here as a manual-only trigger for
+  # ad-hoc reruns.
   workflow_dispatch: {}
 
 jobs:

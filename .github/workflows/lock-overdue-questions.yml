@@ -1,13 +1,8 @@
 name: Lock overdue questions
 
 on:
-  schedule:
-    # Every 15 minutes - cheap indexed update, and nothing correctness-
-    # critical depends on this cadence (call submission already re-checks
-    # locksAt directly, see question.ts). This only keeps the status column
-    # itself honest for anything that reads it without also checking the
-    # clock.
-    - cron: "*/15 * * * *"
+  # Scheduled run lives in src/scheduler.ts (every 15 minutes), not here -
+  # kept as a manual-only trigger for ad-hoc reruns.
   workflow_dispatch: {}
 
 jobs:

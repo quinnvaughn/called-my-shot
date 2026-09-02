@@ -1,4 +1,5 @@
 import { and, eq, lte } from "drizzle-orm"
+import { isMainModule } from "../lib/is-main-module"
 import { db } from "./index"
 import { questions } from "./schema"
 
@@ -10,7 +11,7 @@ import { questions } from "./schema"
 // anything that reads it without also checking locksAt - admin views,
 // future features - so "open" doesn't silently mean "open, unless you
 // happen to check the clock too."
-async function main() {
+export async function lockOverdueQuestions(): Promise<void> {
 	const rows = await db
 		.update(questions)
 		.set({ status: "locked" })
@@ -19,9 +20,15 @@ async function main() {
 	console.log(`[lock-overdue-questions] locked ${rows.length} question(s)`)
 }
 
-main()
-	.then(() => process.exit(0))
-	.catch((err) => {
-		console.error(err)
-		process.exit(1)
-	})
+// Runs standalone when invoked directly (pnpm run lock:overdue-questions),
+// but not when imported - the in-process scheduler (see scheduler.ts)
+// imports lockOverdueQuestions itself and drives the process's own
+// lifecycle, so this file must not exit it out from under that.
+if (isMainModule(import.meta.url)) {
+	lockOverdueQuestions()
+		.then(() => process.exit(0))
+		.catch((err) => {
+			console.error(err)
+			process.exit(1)
+		})
+}

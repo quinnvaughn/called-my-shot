@@ -9,6 +9,7 @@ import { env } from "./env"
 import { createContext } from "./graphql/context"
 import { schema } from "./graphql/schema"
 import { registerShareRoutes } from "./routes/share"
+import { startScheduler } from "./scheduler"
 
 const app = express()
 const httpServer = http.createServer(app)
@@ -39,3 +40,5 @@ await new Promise<void>((resolve) => {
 })
 
 console.log(`API ready at http://localhost:${env.PORT}`)
+
+startScheduler()

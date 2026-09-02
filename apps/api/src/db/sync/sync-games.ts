@@ -1,7 +1,8 @@
-import { eq } from "drizzle-orm"
+import { and, eq } from "drizzle-orm"
+import { resolveQuestionInternal } from "../../graphql/types/question"
 import { db } from "../index"
 import type { League } from "../schema"
-import { games, teamRecords } from "../schema"
+import { games, questions, teamRecords } from "../schema"
 import {
 	type EspnEvent,
 	type EspnEventStatus,
@@ -64,6 +65,75 @@ async function findSeasonId(
 			startsAt <= (s.postseasonEndsAt ?? s.regularSeasonEndsAt),
 	)
 	return match?.id ?? null
+}
+
+// Resolves this game's team_vs_team ("who wins?") question off the final
+// score it was just synced with. Lives here (not sync-live-scores.ts alone)
+// and is called from both syncEvent below and sync-live-scores.ts's own
+// loop, because either sync path can be the one that observes a game go
+// final first - sync-live-scores.ts's window is narrow (games plausibly
+// still in flight) and can miss a game if that job's cron run gets delayed,
+// while this full sweep runs daily and touches every game regardless of
+// timing. Without this living in both places, a game finalizing outside
+// sync-live-scores.ts's window would get its score written by this file's
+// syncEvent but never get its question resolved. Mirrors the eligibility
+// checks resolveQuestion/adminResolveQuestion each do before calling
+// resolveQuestionInternal (that function has none of its own by design -
+// see its own comment) plus a row lock, since this can run again on a game
+// already marked final without excluding it from the next query - if a
+// prior run's resolution attempt failed partway, this is what lets a later
+// run pick it back up rather than leaving it stuck open forever.
+export async function resolveGameWinner(
+	tx: Tx,
+	gameId: string,
+	homeTeamId: string,
+	awayTeamId: string,
+	homeScore: number | null,
+	awayScore: number | null,
+): Promise<void> {
+	// A tie has no winning option to mark (team_vs_team has no tie option -
+	// see sync-game-questions.ts) - leave it for manual resolution rather
+	// than guessing. Rare (NFL only), but a real possibility.
+	if (homeScore === null || awayScore === null || homeScore === awayScore) {
+		return
+	}
+
+	const [question] = await tx
+		.select()
+		.from(questions)
+		.where(
+			and(eq(questions.gameId, gameId), eq(questions.shape, "team_vs_team")),
+		)
+		.for("update")
+	// No question yet (outside syncGameQuestions' create window at the time,
+	// or a game predating that sync), or already handled (resolved by an
+	// admin by hand, or disputed) - never touch it once it's past "open"/
+	// "locked", same as every other resolution path in this app.
+	if (
+		!question ||
+		question.status === "resolved" ||
+		question.status === "disputed"
+	) {
+		return
+	}
+
+	const options = await tx.query.questionOptions.findMany({
+		where: { questionId: question.id },
+	})
+	const winningTeamId = homeScore > awayScore ? homeTeamId : awayTeamId
+	const winningOption = options.find((o) => o.teamId === winningTeamId)
+	if (!winningOption) {
+		console.error(
+			`[sync-games] question ${question.id}: no option matches winning team ${winningTeamId} - skipping`,
+		)
+		return
+	}
+
+	await resolveQuestionInternal(tx, question, {
+		correctOptionIds: [winningOption.id],
+		resolutionNote: "Resolved automatically from ESPN's final score.",
+	})
+	console.log(`[sync-games] resolved question ${question.id}`)
 }
 
 async function syncEvent(
@@ -134,6 +204,16 @@ async function syncEvent(
 				awayScore,
 			})
 			.where(eq(games.id, existingId))
+		if (status === "final") {
+			await resolveGameWinner(
+				tx,
+				existingId,
+				homeTeamId,
+				awayTeamId,
+				homeScore,
+				awayScore,
+			)
+		}
 		return
 	}
 	const [row] = await tx
@@ -156,6 +236,10 @@ async function syncEvent(
 	if (!row)
 		throw new Error(`syncGames: insert returned nothing for ${event.id}`)
 	await linkRef(tx, "game", sourceId, row.id)
+	// A brand-new row can't already have a team_vs_team question (that's
+	// created by a later step in run.ts's pipeline), so nothing to resolve
+	// on this branch yet - a final score on first sight is only possible for
+	// backfilled historical games, which this app doesn't otherwise handle.
 }
 
 // The record on the most recently COMPLETED event is this team's current

@@ -1,3 +1,4 @@
+import { isMainModule } from "../../lib/is-main-module"
 import { getCurrentSeason } from "../../lib/seasons"
 import { SYNCED_LEAGUES } from "./leagues"
 import { syncGameQuestions } from "./sync-game-questions"
@@ -6,7 +7,7 @@ import { syncPlayers } from "./sync-players"
 import { syncSeasons } from "./sync-seasons"
 import { syncTeams } from "./sync-teams"
 
-async function main() {
+export async function syncSportsData(): Promise<void> {
 	for (const config of SYNCED_LEAGUES) {
 		console.log(`[sync] ${config.leagueName} teams...`)
 		const league = await syncTeams(config)
@@ -33,9 +34,11 @@ async function main() {
 	console.log("[sync] done")
 }
 
-main()
-	.then(() => process.exit(0))
-	.catch((err) => {
-		console.error(err)
-		process.exit(1)
-	})
+if (isMainModule(import.meta.url)) {
+	syncSportsData()
+		.then(() => process.exit(0))
+		.catch((err) => {
+			console.error(err)
+			process.exit(1)
+		})
+}

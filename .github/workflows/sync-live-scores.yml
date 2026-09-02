@@ -1,13 +1,8 @@
 name: Sync live scores
 
 on:
-  schedule:
-    # Every 5 minutes - the practical minimum GitHub Actions cron supports.
-    # Nothing correctness-critical depends on this cadence (a score/status
-    # being a few minutes stale is fine), and the job itself only touches
-    # games plausibly in flight (see sync-live-scores.ts's own window), so
-    # this cadence is cheap even though it's tight.
-    - cron: "*/5 * * * *"
+  # Scheduled run lives in src/scheduler.ts (every 5 minutes), not here -
+  # kept as a manual-only trigger for ad-hoc reruns.
   workflow_dispatch: {}
 
 jobs:

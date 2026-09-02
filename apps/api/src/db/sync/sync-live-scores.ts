@@ -1,11 +1,11 @@
-import { and, eq } from "drizzle-orm"
-import { resolveQuestionInternal } from "../../graphql/types/question"
+import { eq } from "drizzle-orm"
+import { isMainModule } from "../../lib/is-main-module"
 import { db } from "../index"
-import { games, questions } from "../schema"
+import { games } from "../schema"
 import { type EspnEvent, fetchSchedule } from "./espn-client"
 import { SYNCED_LEAGUES } from "./leagues"
-import { toGameStatus } from "./sync-games"
-import { findSourceId, type Tx } from "./sync-refs"
+import { resolveGameWinner, toGameStatus } from "./sync-games"
+import { findSourceId } from "./sync-refs"
 
 // How far back/forward from "now" a game counts as "plausibly in flight" -
 // wide enough to catch a game that started a while ago and is still going
@@ -16,70 +16,7 @@ import { findSourceId, type Tx } from "./sync-refs"
 const LOOKBACK_MS = 6 * 60 * 60 * 1000
 const LOOKAHEAD_MS = 10 * 60 * 1000
 
-// Resolves this game's team_vs_team ("who wins?") question off the final
-// score it was just synced with - the whole reason this job exists to admins
-// is so nobody has to do this by hand once ESPN calls it. Mirrors the
-// eligibility checks resolveQuestion/adminResolveQuestion each do before
-// calling resolveQuestionInternal (that function has none of its own by
-// design - see its own comment) plus a row lock, since this can now run
-// again on a game already marked final without excluding it from the next
-// query (see the status filter below) - if a prior run's resolution attempt
-// failed partway, this is what lets a later run pick it back up rather than
-// leaving it stuck open forever.
-async function resolveGameWinner(
-	tx: Tx,
-	gameId: string,
-	homeTeamId: string,
-	awayTeamId: string,
-	homeScore: number | null,
-	awayScore: number | null,
-): Promise<void> {
-	// A tie has no winning option to mark (team_vs_team has no tie option -
-	// see sync-game-questions.ts) - leave it for manual resolution rather
-	// than guessing. Rare (NFL only), but a real possibility.
-	if (homeScore === null || awayScore === null || homeScore === awayScore) {
-		return
-	}
-
-	const [question] = await tx
-		.select()
-		.from(questions)
-		.where(
-			and(eq(questions.gameId, gameId), eq(questions.shape, "team_vs_team")),
-		)
-		.for("update")
-	// No question yet (outside syncGameQuestions' create window at the time,
-	// or a game predating that sync), or already handled (resolved by an
-	// admin by hand, or disputed) - never touch it once it's past "open"/
-	// "locked", same as every other resolution path in this app.
-	if (
-		!question ||
-		question.status === "resolved" ||
-		question.status === "disputed"
-	) {
-		return
-	}
-
-	const options = await tx.query.questionOptions.findMany({
-		where: { questionId: question.id },
-	})
-	const winningTeamId = homeScore > awayScore ? homeTeamId : awayTeamId
-	const winningOption = options.find((o) => o.teamId === winningTeamId)
-	if (!winningOption) {
-		console.error(
-			`[sync-live-scores] question ${question.id}: no option matches winning team ${winningTeamId} - skipping`,
-		)
-		return
-	}
-
-	await resolveQuestionInternal(tx, question, {
-		correctOptionIds: [winningOption.id],
-		resolutionNote: "Resolved automatically from ESPN's final score.",
-	})
-	console.log(`[sync-live-scores] resolved question ${question.id}`)
-}
-
-async function main() {
+export async function syncLiveScores(): Promise<void> {
 	const now = new Date()
 	const candidates = await db.query.games.findMany({
 		where: {
@@ -159,9 +96,11 @@ async function main() {
 	}
 }
 
-main()
-	.then(() => process.exit(0))
-	.catch((err) => {
-		console.error(err)
-		process.exit(1)
-	})
+if (isMainModule(import.meta.url)) {
+	syncLiveScores()
+		.then(() => process.exit(0))
+		.catch((err) => {
+			console.error(err)
+			process.exit(1)
+		})
+}
