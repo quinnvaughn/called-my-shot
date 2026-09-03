@@ -26,6 +26,7 @@ export const GameWinnerCardFragment = graphql(`
 			toleranceTier {
 				id
 				toleranceMode
+				toleranceValue
 			}
 		}
 		ouLine

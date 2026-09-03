@@ -6,9 +6,6 @@ export type FieldSignalData = {
 	shape: QuestionShape
 	callCount: number
 	averageGuess: number | null
-	// Non-null only for a rate stat (batting average, ERA) - see
-	// ToleranceSpec in @called-my-shot/scoring. Drives whether averageGuess
-	// below displays padded to a fixed 3 decimals (".300", never ".3").
 	numericToleranceAbsolute: number | null
 	options: {
 		label: string
@@ -46,31 +43,35 @@ export function fieldSignal(question: FieldSignalData): FieldSignal {
 				after: ` say yes · ${callers}`,
 			}
 		})
-		.with("PLAYER_STAT_NUMERIC_GUESS", "TEAM_STAT_NUMERIC_GUESS", () => {
-			if (question.averageGuess === null) return plain(callers)
-			return {
-				before: "avg guess ",
-				emphasis: formatGuess(
-					question.averageGuess,
-					question.numericToleranceAbsolute !== null,
-				),
-				after: ` · ${callers}`,
-			}
-		})
 		.with(
-		"PLAYER_VS_PLAYER",
-		"PLAYER_VS_PLAYER_SEASON",
-		"TEAM_VS_TEAM",
-		"PLAYER_AWARD_FINALISTS",
-		() => {
-			const leader = leadingOption(question.options)
-			if (!leader) return plain(callers)
-			return {
-				before: "",
-				emphasis: leader.label,
-				after: ` leading · ${Math.round(leader.fieldPct)}% · ${callers}`,
-			}
-		})
+			"PLAYER_STAT_NUMERIC_GUESS",
+			"TEAM_STAT_NUMERIC_GUESS",
+			"TEAM_SEASON_STAT_NUMERIC_GUESS",
+			() => {
+				if (question.averageGuess === null) return plain(callers)
+				return {
+					before: "avg guess ",
+					emphasis: formatGuess(question.averageGuess, isRateStat(question)),
+					after: ` · ${callers}`,
+				}
+			},
+		)
+		.with(
+			"PLAYER_VS_PLAYER",
+			"PLAYER_VS_PLAYER_SEASON",
+			"TEAM_VS_TEAM",
+			"PLAYER_GAME_STAT_LEADER",
+			"PLAYER_AWARD_FINALISTS",
+			() => {
+				const leader = leadingOption(question.options)
+				if (!leader) return plain(callers)
+				return {
+					before: "",
+					emphasis: leader.label,
+					after: ` leading · ${Math.round(leader.fieldPct)}% · ${callers}`,
+				}
+			},
+		)
 		.with(
 			"PLAYER_STAT_OVER_UNDER",
 			"TEAM_STAT_OVER_UNDER",
@@ -107,6 +108,38 @@ function leadingOption(
 // field breakdown card).
 export function callersText(count: number): string {
 	return `${count} ${pluralize(count, "caller")}`
+}
+
+// True for a genuine rate stat (batting average, ERA) - see ToleranceSpec in
+// @called-my-shot/scoring. Absolute-mode tolerance alone doesn't mean rate
+// stat anymore: team_season_stat_numeric_guess (win totals) also snapshots
+// an absolute-mode band, for a fixed-size tolerance, but a win total is
+// still a whole number - the real "does this need a decimal point" signal is
+// whether the tolerance amount itself is fractional (0.02 for batting
+// average vs 5 for an NBA win total). numericToleranceAbsolute is checked
+// first (set for every numeric_guess-family shape); an over/under shape has
+// no tolerance snapshot on the question at all, so it falls back to the
+// picked stat's own tolerance tier value instead - same signal, different
+// source depending on shape. This one function is the single source of truth
+// for that check - every call site below (and in call-summary.ts,
+// resolution-summary.ts, question-result-block.tsx, resolve-question-modal.tsx,
+// question-row-actions.tsx, use-cast-call-form.ts, $questionId.tsx) uses it
+// rather than re-deriving the same logic, after exactly that duplication let
+// win totals silently render as "5.000" instead of "5" in some of them and
+// not others.
+export function isRateStat(question: {
+	numericToleranceAbsolute: number | null
+	stat?: {
+		toleranceTier?: { toleranceMode: string; toleranceValue: number } | null
+	} | null
+}): boolean {
+	if (question.numericToleranceAbsolute != null) {
+		return !Number.isInteger(question.numericToleranceAbsolute)
+	}
+	return (
+		question.stat?.toleranceTier?.toleranceMode === "ABSOLUTE" &&
+		!Number.isInteger(question.stat.toleranceTier.toleranceValue)
+	)
 }
 
 // A rate stat (batting average, ERA) always displays padded to a fixed 3

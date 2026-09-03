@@ -22,6 +22,7 @@ import {
 } from "drizzle-orm"
 import { DateTime } from "luxon"
 import { db } from "../../db"
+import { LEAGUE_SEASON_FORMAT } from "../../db/catalog/league-season-format"
 import type { Game, League, Player, Team, TeamRecord } from "../../db/schema"
 import {
 	calls,
@@ -114,6 +115,18 @@ export const SportRef = builder.drizzleObject("sports", {
 	}),
 })
 
+// Static reference data (db/catalog/league-season-format.ts), not a synced
+// column - exposed on League so the win-total guess input can bound/default
+// itself (min 0, max gamesPerSeason) without duplicating this table on the
+// frontend.
+const LeagueSeasonFormatRef = builder
+	.objectRef<{ gamesPerSeason: number }>("LeagueSeasonFormat")
+	.implement({
+		fields: (t) => ({
+			gamesPerSeason: t.exposeInt("gamesPerSeason"),
+		}),
+	})
+
 export const LeagueRef = builder.drizzleObject("leagues", {
 	name: "League",
 	fields: (t) => ({
@@ -125,6 +138,13 @@ export const LeagueRef = builder.drizzleObject("leagues", {
 		windowType: t.field({
 			type: LeagueWindowType,
 			resolve: (l) => l.windowType,
+		}),
+		// Null for a league with nothing in LEAGUE_SEASON_FORMAT yet - not every
+		// league is guaranteed an entry the moment it's added to SYNCED_LEAGUES.
+		seasonFormat: t.field({
+			type: LeagueSeasonFormatRef,
+			nullable: true,
+			resolve: (l) => LEAGUE_SEASON_FORMAT[l.slug] ?? null,
 		}),
 		sport: t.relation("sport"),
 		teams: t.relation("teams"),

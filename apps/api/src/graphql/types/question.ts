@@ -65,6 +65,7 @@ import {
 	SortDirection,
 	sortColumn,
 } from "../../lib/admin-pagination"
+import { buildPlayerPool, buildTeamPool } from "../../lib/award-pool"
 import { requireAdmin, requireUser } from "../../lib/auth"
 import { canViewerSeePick } from "../../lib/call-visibility"
 import {
@@ -126,6 +127,17 @@ export const QuestionShape = builder.enumType("QuestionShape", {
 		PLAYER_SEASON_AWARD: { value: "player_season_award" },
 		TEAM_SEASON_AWARD: { value: "team_season_award" },
 		PLAYER_AWARD_FINALISTS: { value: "player_award_finalists" },
+		TEAM_SEASON_STAT_NUMERIC_GUESS: { value: "team_season_stat_numeric_guess" },
+		PLAYER_GAME_STAT_LEADER: { value: "player_game_stat_leader" },
+	},
+})
+
+// player_season_award/team_season_award only - see awardVerb on the
+// questions table.
+export const AwardVerb = builder.enumType("AwardVerb", {
+	values: {
+		WIN: { value: "win" },
+		BE: { value: "be" },
 	},
 })
 
@@ -718,6 +730,13 @@ export const QuestionRef = builder.drizzleObject("questions", {
 
 		// player_season_award/team_season_award/player_award_finalists only
 		awardName: t.exposeString("awardName", { nullable: true }),
+
+		// player_season_award/team_season_award only - see AwardVerb above.
+		awardVerb: t.field({
+			type: AwardVerb,
+			nullable: true,
+			resolve: (q) => q.awardVerb,
+		}),
 
 		// player_season_award/team_season_award only - the conference/division/
 		// position values the pool was narrowed to (IN filtering) at creation
@@ -1628,6 +1647,8 @@ const CreateQuestionInput = builder.inputType("CreateQuestionInput", {
 
 		// player_season_award/team_season_award
 		picksRequired: t.int({ required: false }),
+		// player_season_award/team_season_award only - see AwardVerb above.
+		awardVerb: t.field({ type: AwardVerb, required: false }),
 
 		// yes_no_prop only
 		eventClause: t.string({ required: false }),
@@ -1768,7 +1789,8 @@ export async function resolveQuestionInternal(
 
 	const isNumericGuess =
 		question.shape === "player_stat_numeric_guess" ||
-		question.shape === "team_stat_numeric_guess"
+		question.shape === "team_stat_numeric_guess" ||
+		question.shape === "team_season_stat_numeric_guess"
 
 	if (isNumericGuess) {
 		const guessCalls = await tx.query.calls.findMany({
@@ -2276,43 +2298,42 @@ builder.mutationFields((t) => ({
 			// the create-question form only ever builds for the live preview -
 			// see PoolSummary on the frontend). Fetched here, alongside the other
 			// pre-transaction lookups, so it can both drive the structural
-			// validation below and be inserted as-is inside the transaction.
+			// validation below and be inserted as-is inside the transaction. See
+			// lib/award-pool.ts for the shared query logic (also used by
+			// player_game_stat_leader below and by the recurring season-question
+			// engine).
 			const awardPlayerPool =
 				data.shape === "player_season_award"
-					? await db.query.players.findMany({
-							where: {
-								currentTeam: {
-									leagueId: data.leagueId,
-									...(data.awardConferences?.length
-										? { conference: { in: data.awardConferences } }
-										: {}),
-									...(data.awardDivisions?.length
-										? { division: { in: data.awardDivisions } }
-										: {}),
-								},
-								...(data.awardPositions?.length
-									? { positions: { arrayOverlaps: data.awardPositions } }
-									: {}),
-								...(data.awardSeasonsInLeague?.length
-									? { seasonsInLeague: { in: data.awardSeasonsInLeague } }
-									: {}),
-								...(data.awardRookieOnly ? { rookieEligible: true } : {}),
+					? await buildPlayerPool(
+							{ leagueId: data.leagueId },
+							{
+								conferences: data.awardConferences,
+								divisions: data.awardDivisions,
+								positions: data.awardPositions,
+								seasonsInLeague: data.awardSeasonsInLeague,
+								rookieOnly: data.awardRookieOnly,
 							},
-						})
+						)
 					: null
 			const awardTeamPool =
 				data.shape === "team_season_award"
-					? await db.query.teams.findMany({
-							where: {
-								leagueId: data.leagueId,
-								...(data.awardConferences?.length
-									? { conference: { in: data.awardConferences } }
-									: {}),
-								...(data.awardDivisions?.length
-									? { division: { in: data.awardDivisions } }
-									: {}),
-							},
-						})
+					? await buildTeamPool(
+							{ leagueId: data.leagueId },
+							{ conferences: data.awardConferences, divisions: data.awardDivisions },
+						)
+					: null
+
+			// player_game_stat_leader only - pool is just the active rosters of
+			// the two teams in the picked game, not the whole league (that's the
+			// whole point of this shape vs. player_season_award). gameId is
+			// validated to exist below (requireStatAppliesTo/gameId checks in the
+			// structural-validation match) - here it's read optimistically since
+			// `game` may not be loaded yet the first time this runs if gameId is
+			// missing, in which case the pool is simply empty and the validation
+			// match below rejects it.
+			const gameLeaderPool =
+				data.shape === "player_game_stat_leader" && game
+					? await buildPlayerPool({ teamIds: [game.homeTeamId, game.awayTeamId] })
 					: null
 
 			// The tolerance band comes from the stat's own tolerance tier, not
@@ -2325,7 +2346,8 @@ builder.mutationFields((t) => ({
 			let numericToleranceAbsolute: number | null = null
 			if (
 				data.shape === "player_stat_numeric_guess" ||
-				data.shape === "team_stat_numeric_guess"
+				data.shape === "team_stat_numeric_guess" ||
+				data.shape === "team_season_stat_numeric_guess"
 			) {
 				if (!stat?.toleranceTier) {
 					throw ValidationError.field("statId", "Pick a stat from the list")
@@ -2440,6 +2462,12 @@ builder.mutationFields((t) => ({
 					}
 					requireStatAppliesTo("team")
 				})
+				.with("team_season_stat_numeric_guess", () => {
+					if (!subjectTeam) {
+						throw ValidationError.field("subjectTeamId", "Team not found")
+					}
+					requireStatAppliesTo("team")
+				})
 				.with("player_vs_player", () => {
 					const [a, b] = data.options ?? []
 					if (!a?.label || !b?.label) {
@@ -2496,6 +2524,18 @@ builder.mutationFields((t) => ({
 					}
 				})
 				.with("player_award_finalists", () => {})
+				.with("player_game_stat_leader", () => {
+					if (!game || !homeTeamName || !awayTeamName) {
+						throw ValidationError.field("gameId", "Pick a game")
+					}
+					requireStatAppliesTo("player")
+					if (!gameLeaderPool || gameLeaderPool.length < 2) {
+						throw ValidationError.field(
+							"statId",
+							"Not enough players on either roster for this game yet",
+						)
+					}
+				})
 				.exhaustive()
 
 			// Loaded up front (same spot as the game/stat/award-pool lookups
@@ -2561,6 +2601,7 @@ builder.mutationFields((t) => ({
 						picksRequired: data.picksRequired ?? null,
 						eventClause: data.eventClause || null,
 						awardName: data.awardName || null,
+						awardVerb: data.awardVerb ?? null,
 						awardConferences: data.awardConferences?.length
 							? data.awardConferences
 							: null,
@@ -2612,6 +2653,16 @@ builder.mutationFields((t) => ({
 								label: team.name,
 								sortOrder: index,
 								teamId: team.id,
+							})),
+						)
+					})
+					.with("player_game_stat_leader", async () => {
+						await tx.insert(questionOptions).values(
+							(gameLeaderPool ?? []).map((player, index) => ({
+								questionId: question.id,
+								label: player.name,
+								sortOrder: index,
+								playerId: player.id,
 							})),
 						)
 					})
@@ -2670,6 +2721,7 @@ builder.mutationFields((t) => ({
 					.with(
 						"player_stat_numeric_guess",
 						"team_stat_numeric_guess",
+						"team_season_stat_numeric_guess",
 						async () => {
 							// No options row - scored via calls.guessValue directly.
 						},
@@ -2773,7 +2825,8 @@ builder.mutationFields((t) => ({
 			const call = await db.transaction(async (tx) => {
 				const isNumericGuess =
 					data.shape === "player_stat_numeric_guess" ||
-					data.shape === "team_stat_numeric_guess"
+					data.shape === "team_stat_numeric_guess" ||
+					data.shape === "team_season_stat_numeric_guess"
 
 				const [call] = await tx
 					.insert(calls)

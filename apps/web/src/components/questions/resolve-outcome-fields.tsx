@@ -38,7 +38,8 @@ export function ResolveOutcomeFields({
 }: Props) {
 	if (
 		shape === "player_stat_numeric_guess" ||
-		shape === "team_stat_numeric_guess"
+		shape === "team_stat_numeric_guess" ||
+		shape === "team_season_stat_numeric_guess"
 	) {
 		return (
 			<TextInput error={actualValueError}>

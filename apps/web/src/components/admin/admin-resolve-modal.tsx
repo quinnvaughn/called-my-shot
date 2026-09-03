@@ -45,7 +45,8 @@ export function AdminResolveModal({
 	function toggleOption(optionId: string) {
 		if (
 			question.shape === "player_season_award" ||
-			question.shape === "team_season_award"
+			question.shape === "team_season_award" ||
+			question.shape === "player_game_stat_leader"
 		) {
 			setCorrectOptionIds((prev) =>
 				prev.includes(optionId)

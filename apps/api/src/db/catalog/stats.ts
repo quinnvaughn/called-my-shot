@@ -38,6 +38,26 @@ const TOLERANCE_TIERS = [
 	},
 	{ name: "Rate Stat - ERA", toleranceMode: "absolute", toleranceValue: 0.5 },
 	{ name: "Rate Stat - WHIP", toleranceMode: "absolute", toleranceValue: 0.15 },
+	// Season win-total guesses (team_season_stat_numeric_guess, statName
+	// "Wins") - absolute-mode and sport-specific rather than the generic
+	// "High-Volume" percentage tier, since a fixed win-count band scales with
+	// how many games a season actually has (a 17-game NFL season can't take
+	// the same ~10% band an 82-game NBA season can).
+	{
+		name: "Season Win Total - NBA",
+		toleranceMode: "absolute",
+		toleranceValue: 5,
+	},
+	{
+		name: "Season Win Total - NFL",
+		toleranceMode: "absolute",
+		toleranceValue: 1,
+	},
+	{
+		name: "Season Win Total - MLB",
+		toleranceMode: "absolute",
+		toleranceValue: 6,
+	},
 ] as const
 
 type AppliesTo = "player" | "team" | "both"
@@ -64,7 +84,7 @@ const BASKETBALL_STATS: StatEntry[] = [
 	["Steals", "Defense", "Low-Count Box Stat", "both"],
 	["Blocks", "Defense", "Low-Count Box Stat", "both"],
 	// Season-long, team-only in practice (no player "wins" a box score).
-	["Wins", "Record", "High-Volume", "team"],
+	["Wins", "Record", "Season Win Total - NBA", "team"],
 ]
 
 const FOOTBALL_STATS: StatEntry[] = [
@@ -82,7 +102,7 @@ const FOOTBALL_STATS: StatEntry[] = [
 	["Sacks", "Defense", "Low-Count Box Stat", "both"],
 	["Interceptions", "Defense", "Low-Count Box Stat", "both"],
 	// See BASKETBALL_STATS' "Wins" entry above - same reasoning.
-	["Wins", "Record", "High-Volume", "team"],
+	["Wins", "Record", "Season Win Total - NFL", "team"],
 ]
 
 const BASEBALL_STATS: StatEntry[] = [
@@ -102,7 +122,7 @@ const BASEBALL_STATS: StatEntry[] = [
 	["ERA", "Pitching", "Rate Stat - ERA", "both"],
 	["WHIP", "Pitching", "Rate Stat - WHIP", "both"],
 	// Season-long, team-only in practice - see BASKETBALL_STATS' "Wins" entry.
-	["Wins", "Record", "High-Volume", "team"],
+	["Wins", "Record", "Season Win Total - MLB", "team"],
 ]
 
 type TierRow = typeof statToleranceTiers.$inferSelect

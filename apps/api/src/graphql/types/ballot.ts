@@ -5,6 +5,7 @@ import {
 } from "@called-my-shot/schemas"
 import { and, count, eq, gt, inArray, sql } from "drizzle-orm"
 import { db } from "../../db"
+import { RECURRING_QUESTION_CATALOG } from "../../db/catalog/recurring-question-catalog"
 import {
 	type Ballot,
 	type BallotQuestion,
@@ -26,8 +27,10 @@ import {
 	NotFoundError,
 	ValidationError,
 } from "../../lib/errors"
+import { getOfficialAccountId } from "../../lib/official-account"
 import { decodeOffsetCursor } from "../../lib/pagination"
 import { parsePgTimestamp } from "../../lib/pg-timestamp"
+import { generateSeasonQuestions } from "../../lib/season-questions"
 import { getCurrentSeason } from "../../lib/seasons"
 import { isUuid } from "../../lib/uuid"
 import { builder } from "../builder"
@@ -301,6 +304,17 @@ const BallotPayload = builder
 				type: BallotRef,
 				resolve: (payload) => payload.ballot,
 			}),
+		}),
+	})
+
+const RegenerateSeasonQuestionsPayload = builder
+	.objectRef<{ created: number; skipped: number }>(
+		"RegenerateSeasonQuestionsPayload",
+	)
+	.implement({
+		fields: (t) => ({
+			created: t.exposeInt("created"),
+			skipped: t.exposeInt("skipped"),
 		}),
 	})
 
@@ -760,6 +774,48 @@ builder.mutationFields((t) => ({
 				)
 			})
 			return true
+		},
+	}),
+
+	// On-demand run of the same recurring-question generation
+	// syncSeasonQuestions runs daily in the cron (db/sync/sync-season-questions
+	// .ts) - useful right after a catalog entry is added mid-season, or for
+	// testing, rather than waiting for tomorrow's run. Fully idempotent, same
+	// as the cron path: safe to call repeatedly, only ever creates what's
+	// missing. Attributed to the official account, not the clicking admin -
+	// same "byline reads the same no matter who posted it" rule as every other
+	// official question (see createQuestion in graphql/types/question.ts).
+	regenerateSeasonQuestions: t.field({
+		type: RegenerateSeasonQuestionsPayload,
+		errors: {
+			types: [AuthenticationError, AuthorizationError, NotFoundError],
+			directResult: true,
+			union: { name: "RegenerateSeasonQuestionsResult" },
+		},
+		args: { leagueId: t.arg.id({ required: true }) },
+		resolve: async (_root, args, ctx) => {
+			requireAdmin(ctx)
+
+			const league = await db.query.leagues.findFirst({
+				where: { id: args.leagueId },
+			})
+			if (!league) throw new NotFoundError("League not found")
+
+			const templates = RECURRING_QUESTION_CATALOG[league.slug] ?? []
+			if (templates.length === 0) return { created: 0, skipped: 0 }
+
+			const season = await getCurrentSeason(league.id)
+			if (!season) return { created: 0, skipped: 0 }
+
+			const officialAccountId = await getOfficialAccountId()
+			const result = await generateSeasonQuestions({
+				leagueId: league.id,
+				resolutionSource: "ESPN / league official sources",
+				locksAt: season.regularSeasonStartsAt,
+				templates,
+				createdBy: officialAccountId,
+			})
+			return result
 		},
 	}),
 }))

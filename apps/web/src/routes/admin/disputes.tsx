@@ -4,33 +4,19 @@ import { css } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
 import { OverturnDisputeModal } from "#/components/admin/overturn-dispute-modal"
 import { VoidQuestionModal } from "#/components/admin/void-question-modal"
+import type { QuestionCallShape } from "#/components/questions/cast-call-form/use-cast-call-form"
 import { Button } from "#/components/ui/button"
 import { EmptyState } from "#/components/ui/empty-state"
 import { PageHeader } from "#/components/ui/page-header"
 import { UpholdDisputeDocument } from "#/graphql/mutations/admin"
 import { AdminDisputesDocument } from "#/graphql/queries/admin"
+import { isRateStat } from "#/lib/field-signal"
 import { resolvedAnswerSummary } from "#/lib/resolution-summary"
 import { openModal } from "#/stores/modal-store"
 
 export const Route = createFileRoute("/admin/disputes")({
 	component: RouteComponent,
 })
-
-type QuestionShape =
-	| "player_stat_over_under"
-	| "team_stat_over_under"
-	| "player_season_stat_over_under"
-	| "team_season_stat_over_under"
-	| "game_total_over_under"
-	| "player_stat_numeric_guess"
-	| "team_stat_numeric_guess"
-	| "player_vs_player"
-	| "player_vs_player_season"
-	| "team_vs_team"
-	| "yes_no_prop"
-	| "player_season_award"
-	| "team_season_award"
-	| "player_award_finalists"
 
 function UpholdButton({
 	disputeId,
@@ -165,14 +151,10 @@ function RouteComponent() {
 														id: dispute.question.id,
 														title: dispute.question.title,
 														shape:
-															dispute.question.shape.toLowerCase() as QuestionShape,
+															dispute.question.shape.toLowerCase() as QuestionCallShape,
 														ouLine: dispute.question.ouLine ?? null,
 														options: dispute.question.options,
-														isRateStat:
-															dispute.question.numericToleranceAbsolute !==
-																null ||
-															dispute.question.stat?.toleranceTier
-																?.toleranceMode === "ABSOLUTE",
+														isRateStat: isRateStat(dispute.question),
 													}}
 													onOverturned={() => refetch()}
 												/>,

@@ -1,6 +1,9 @@
 import { match } from "ts-pattern"
 import type { QuestionShape } from "#/graphql/generated/graphql"
-import { formatGuess as formatGuessValue } from "#/lib/field-signal"
+import {
+	isRateStat as computeIsRateStat,
+	formatGuess as formatGuessValue,
+} from "#/lib/field-signal"
 import {
 	isOverUnderQuestionShape,
 	optionDisplayLabel,
@@ -14,14 +17,13 @@ export type CallSummaryData = {
 		shape: QuestionShape
 		ouLine: number | null
 		numericActualValue: number | null
-		// Non-null only for a rate stat, and only ever set on the two
-		// numeric_guess shapes - see formatGuess in #/lib/field-signal.
 		numericToleranceAbsolute: number | null
 		// The over/under shapes have no tolerance snapshot of their own, so
 		// isRateStat below falls back to the picked stat's own tolerance tier
-		// mode for those - same "two sources depending on shape" signal used
-		// in use-cast-call-form.ts's own isRateStat.
-		stat: { toleranceTier: { toleranceMode: string } | null } | null
+		// value instead - see isRateStat in #/lib/field-signal.
+		stat: {
+			toleranceTier: { toleranceMode: string; toleranceValue: number } | null
+		} | null
 	}
 	selections: {
 		id: string
@@ -31,10 +33,7 @@ export type CallSummaryData = {
 }
 
 function isRateStat(question: CallSummaryData["question"]): boolean {
-	return (
-		question.numericToleranceAbsolute !== null ||
-		question.stat?.toleranceTier?.toleranceMode === "ABSOLUTE"
-	)
+	return computeIsRateStat(question)
 }
 
 // Every shape scores differently, so each needs its own formatting here - an
@@ -54,13 +53,17 @@ export function pickSummary(call: CallSummaryData): string {
 		.with("PLAYER_SEASON_AWARD", "TEAM_SEASON_AWARD", () =>
 			formatMultiSelect(call),
 		)
-		.with("PLAYER_STAT_NUMERIC_GUESS", "TEAM_STAT_NUMERIC_GUESS", () =>
-			formatGuess(call),
+		.with(
+			"PLAYER_STAT_NUMERIC_GUESS",
+			"TEAM_STAT_NUMERIC_GUESS",
+			"TEAM_SEASON_STAT_NUMERIC_GUESS",
+			() => formatGuess(call),
 		)
 		.with(
 			"PLAYER_VS_PLAYER",
 			"PLAYER_VS_PLAYER_SEASON",
 			"TEAM_VS_TEAM",
+			"PLAYER_GAME_STAT_LEADER",
 			"YES_NO_PROP",
 			"PLAYER_AWARD_FINALISTS",
 			() => formatSingleSelection(call),
@@ -91,10 +94,7 @@ function formatMultiSelect(call: CallSummaryData): string {
 
 function formatGuess(call: CallSummaryData): string {
 	return call.guessValue !== null
-		? formatGuessValue(
-				call.guessValue,
-				call.question.numericToleranceAbsolute !== null,
-			)
+		? formatGuessValue(call.guessValue, isRateStat(call.question))
 		: "-"
 }
 
@@ -111,8 +111,11 @@ function formatSingleSelection(call: CallSummaryData): string {
 // pretending it's one real value.
 export function convictionSummary(call: CallSummaryData): string {
 	return match(call.question.shape)
-		.with("PLAYER_STAT_NUMERIC_GUESS", "TEAM_STAT_NUMERIC_GUESS", () =>
-			call.conviction !== null ? `${call.conviction}%` : "-",
+		.with(
+			"PLAYER_STAT_NUMERIC_GUESS",
+			"TEAM_STAT_NUMERIC_GUESS",
+			"TEAM_SEASON_STAT_NUMERIC_GUESS",
+			() => (call.conviction !== null ? `${call.conviction}%` : "-"),
 		)
 		.with(
 			"PLAYER_STAT_OVER_UNDER",
@@ -123,6 +126,7 @@ export function convictionSummary(call: CallSummaryData): string {
 			"PLAYER_VS_PLAYER",
 			"PLAYER_VS_PLAYER_SEASON",
 			"TEAM_VS_TEAM",
+			"PLAYER_GAME_STAT_LEADER",
 			"YES_NO_PROP",
 			"PLAYER_AWARD_FINALISTS",
 			() => {
@@ -149,12 +153,13 @@ export function convictionSummary(call: CallSummaryData): string {
 export function lossContext(call: CallSummaryData): string | null {
 	if (
 		call.question.shape !== "PLAYER_STAT_NUMERIC_GUESS" &&
-		call.question.shape !== "TEAM_STAT_NUMERIC_GUESS"
+		call.question.shape !== "TEAM_STAT_NUMERIC_GUESS" &&
+		call.question.shape !== "TEAM_SEASON_STAT_NUMERIC_GUESS"
 	)
 		return null
 	if (resultState(call.totalPoints).status !== "loss") return null
 	if (call.question.numericActualValue === null) return null
-	return `actual was ${formatGuessValue(call.question.numericActualValue, call.question.numericToleranceAbsolute !== null)}`
+	return `actual was ${formatGuessValue(call.question.numericActualValue, isRateStat(call.question))}`
 }
 
 // The points sign is authoritative for win/loss across every shape, not a

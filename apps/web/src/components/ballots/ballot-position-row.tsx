@@ -184,7 +184,8 @@ export function BallotPositionRow({ member: memberProp }: Props) {
 	const contested = isContested(question.options, question.callCount)
 	const isNumericGuess =
 		question.shape === "PLAYER_STAT_NUMERIC_GUESS" ||
-		question.shape === "TEAM_STAT_NUMERIC_GUESS"
+		question.shape === "TEAM_STAT_NUMERIC_GUESS" ||
+		question.shape === "TEAM_SEASON_STAT_NUMERIC_GUESS"
 
 	return (
 		<Link
@@ -226,6 +227,8 @@ export function BallotPositionRow({ member: memberProp }: Props) {
 						textTransform: "uppercase",
 						color: "fg.subtle",
 						whiteSpace: "normal",
+						lineClamp: 2,
+						wordBreak: "break-word",
 					})}
 				>
 					{member.label}

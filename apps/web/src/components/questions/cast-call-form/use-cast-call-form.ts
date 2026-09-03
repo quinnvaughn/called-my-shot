@@ -10,6 +10,7 @@ import { match } from "ts-pattern"
 import { type FragmentType, graphql, useFragment } from "#/graphql/generated"
 import { CastCallDocument } from "#/graphql/mutations/calls"
 import { track } from "#/lib/analytics"
+import { isRateStat as computeIsRateStat } from "#/lib/field-signal"
 import { useForm } from "#/lib/form/use-form"
 import { closeModal } from "#/stores/modal-store"
 
@@ -35,11 +36,15 @@ export const CastCallFormFragment = graphql(`
 			toleranceTier {
 				id
 				toleranceMode
+				toleranceValue
 			}
 		}
 		customStat
 		league {
 			id
+			seasonFormat {
+				gamesPerSeason
+			}
 		}
 		options {
 			id
@@ -66,9 +71,11 @@ export type QuestionCallShape =
 	| "game_total_over_under"
 	| "player_stat_numeric_guess"
 	| "team_stat_numeric_guess"
+	| "team_season_stat_numeric_guess"
 	| "player_vs_player"
 	| "player_vs_player_season"
 	| "team_vs_team"
+	| "player_game_stat_leader"
 	| "yes_no_prop"
 	| "player_season_award"
 	| "team_season_award"
@@ -93,6 +100,7 @@ export function castCallBucketFor(
 		.with(
 			"player_stat_numeric_guess",
 			"team_stat_numeric_guess",
+			"team_season_stat_numeric_guess",
 			() => "numeric" as const,
 		)
 		.with("player_season_award", "team_season_award", () =>
@@ -107,6 +115,7 @@ export function castCallBucketFor(
 			"player_vs_player",
 			"player_vs_player_season",
 			"team_vs_team",
+			"player_game_stat_leader",
 			"yes_no_prop",
 			"player_award_finalists",
 			() => "single" as const,
@@ -127,17 +136,19 @@ export function isOverUnderShape(shape: QuestionCallShape): boolean {
 	)
 }
 
-// The three shapes where options are a pool of candidates/nominees rather
-// than a small fixed framing (Over/Under, Yes/No, Team A vs Team B) - those
-// other shapes want their two options in the order the question poses them,
-// not reordered by votes. A nominee pool has no such fixed framing, so
+// The shapes where options are a pool of candidates/nominees rather than a
+// small fixed framing (Over/Under, Yes/No, Team A vs Team B) - those other
+// shapes want their two options in the order the question poses them, not
+// reordered by votes. A nominee pool has no such fixed framing (including
+// player_game_stat_leader's server-derived both-rosters pool), so
 // OptionPickerList defaults it to popularity instead of creation order (see
 // its own comment) to surface the obvious picks before someone's made one.
 export function isAwardShape(shape: QuestionCallShape): boolean {
 	return (
 		shape === "player_season_award" ||
 		shape === "team_season_award" ||
-		shape === "player_award_finalists"
+		shape === "player_award_finalists" ||
+		shape === "player_game_stat_leader"
 	)
 }
 
@@ -156,16 +167,9 @@ export function useCastCallForm(
 	const question = useFragment(CastCallFormFragment, questionProp)
 	const shape = (question?.shape.toLowerCase() ??
 		"yes_no_prop") as QuestionCallShape
-	// True for a rate stat (batting average, ERA) - see ToleranceSpec in
-	// @called-my-shot/scoring. numericToleranceAbsolute is only ever set for
-	// the two numeric_guess shapes (drives whether the guess input/stepper
-	// below work in whole numbers or decimals); an over/under shape has no
-	// tolerance snapshot at all, so it falls back to the picked stat's own
-	// tolerance tier mode instead - same signal, different source depending
-	// on shape.
-	const isRateStat =
-		question?.numericToleranceAbsolute != null ||
-		question?.stat?.toleranceTier?.toleranceMode === "ABSOLUTE"
+	// See isRateStat's own comment in #/lib/field-signal.ts - the single
+	// shared source for this check, not re-derived here.
+	const isRateStat = question != null && computeIsRateStat(question)
 	const bucket = castCallBucketFor(shape, question?.picksRequired ?? 1)
 	const [castCall] = useMutation(CastCallDocument)
 	const router = useRouter()
@@ -215,6 +219,16 @@ export function useCastCallForm(
 	// whole-number default a counting stat uses.
 	const [guessStep, setGuessStep] = useState(isRateStat ? 0.01 : 1)
 
+	// A win-total guess ("Wins", statName check matches the one
+	// generateQuestionTitle uses for the same "is this actually a win total"
+	// question - see packages/schemas/src/question-title.ts) starting from 0
+	// means clicking "+" up to 40+ times before landing anywhere plausible.
+	// The season's own halfway point is a far better starting guess, same
+	// spirit as falling back to the crowd's averageGuess below once real
+	// guesses exist - this just covers the gap before any do.
+	const isWinTotalGuess = question?.stat?.name === "Wins"
+	const gamesPerSeason = question?.league?.seasonFormat?.gamesPerSeason ?? null
+
 	// castCallSchema itself only requires player_season_award/
 	// team_season_award to have >=1 pick - the comment on its own branch for
 	// those shapes is explicit that the exact count is "checked against the
@@ -250,17 +264,21 @@ export function useCastCallForm(
 			// The field's current average when there's enough data to have one -
 			// starting the stepper wherever the crowd already sits is a far more
 			// useful default than an arbitrary constant, and it's already computed
-			// server-side for the distribution chart. Falls back to 0 on a
-			// question with no guesses yet. Either way this needs to be a real
-			// number, not undefined - the stepper's +/- buttons need something to
-			// increment from the moment it mounts, and an empty control with no
-			// visible value reads as broken rather than "not yet answered".
+			// server-side for the distribution chart. Before any real guesses
+			// exist, a win-total question starts at the season's halfway point
+			// instead of 0 (see isWinTotalGuess above) - everything else still
+			// falls back to 0. Either way this needs to be a real number, not
+			// undefined - the stepper's +/- buttons need something to increment
+			// from the moment it mounts, and an empty control with no visible
+			// value reads as broken rather than "not yet answered".
 			guessValue:
 				question?.averageGuess != null
 					? isRateStat
 						? Math.round(question.averageGuess * 1000) / 1000
 						: Math.round(question.averageGuess)
-					: 0,
+					: isWinTotalGuess && gamesPerSeason != null
+						? Math.round(gamesPerSeason / 2)
+						: 0,
 			conviction: 50,
 			selections: [],
 		},

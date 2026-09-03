@@ -28,6 +28,7 @@ export const QuestionCardFragment = graphql(`
 			toleranceTier {
 				id
 				toleranceMode
+				toleranceValue
 			}
 		}
 		ouLine

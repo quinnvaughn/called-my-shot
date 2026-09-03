@@ -11,6 +11,7 @@ import { Textarea } from "#/components/ui/textarea"
 import { type FragmentType, graphql, useFragment } from "#/graphql/generated"
 import { ResolveQuestionDocument } from "#/graphql/mutations/questions"
 import { track } from "#/lib/analytics"
+import { isRateStat as computeIsRateStat } from "#/lib/field-signal"
 import { useForm } from "#/lib/form/use-form"
 import { closeModal } from "#/stores/modal-store"
 import type { QuestionCallShape } from "./cast-call-form/use-cast-call-form"
@@ -28,6 +29,7 @@ export const ResolveQuestionModalFragment = graphql(`
 			toleranceTier {
 				id
 				toleranceMode
+				toleranceValue
 			}
 		}
 		options {
@@ -45,10 +47,10 @@ export function ResolveQuestionModal({ question: questionProp }: Props) {
 	const question = useFragment(ResolveQuestionModalFragment, questionProp)
 	const shape = question.shape.toLowerCase() as QuestionCallShape
 	const isMultiPick =
-		shape === "player_season_award" || shape === "team_season_award"
-	const isRateStat =
-		question.numericToleranceAbsolute !== null ||
-		question.stat?.toleranceTier?.toleranceMode === "ABSOLUTE"
+		shape === "player_season_award" ||
+		shape === "team_season_award" ||
+		shape === "player_game_stat_leader"
+	const isRateStat = computeIsRateStat(question)
 	const [resolveQuestion] = useMutation(ResolveQuestionDocument)
 	const router = useRouter()
 

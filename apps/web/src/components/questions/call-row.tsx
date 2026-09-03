@@ -29,6 +29,7 @@ export const CallRowFragment = graphql(`
 				toleranceTier {
 					id
 					toleranceMode
+					toleranceValue
 				}
 			}
 		}

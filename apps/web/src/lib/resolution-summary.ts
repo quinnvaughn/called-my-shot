@@ -1,6 +1,9 @@
 import { match } from "ts-pattern"
 import type { QuestionShape } from "#/graphql/generated/graphql"
-import { formatGuess } from "#/lib/field-signal"
+import {
+	isRateStat as computeIsRateStat,
+	formatGuess,
+} from "#/lib/field-signal"
 import {
 	isOverUnderQuestionShape,
 	optionDisplayLabel,
@@ -10,21 +13,18 @@ export type ResolvedAnswerData = {
 	shape: QuestionShape
 	ouLine: number | null
 	numericActualValue: number | null
-	// Non-null only for a rate stat, and only ever set on the two
-	// numeric_guess shapes - see formatGuess in #/lib/field-signal.
 	numericToleranceAbsolute: number | null
 	// The over/under shapes have no tolerance snapshot of their own, so
 	// isRateStat below falls back to the picked stat's own tolerance tier
-	// mode for those - same signal used in call-summary.ts.
-	stat: { toleranceTier: { toleranceMode: string } | null } | null
+	// value instead - see isRateStat in #/lib/field-signal.
+	stat: {
+		toleranceTier: { toleranceMode: string; toleranceValue: number } | null
+	} | null
 	options: { label: string; isCorrect: boolean | null }[]
 }
 
 function isRateStat(question: ResolvedAnswerData): boolean {
-	return (
-		question.numericToleranceAbsolute !== null ||
-		question.stat?.toleranceTier?.toleranceMode === "ABSOLUTE"
-	)
+	return computeIsRateStat(question)
 }
 
 // The actual answer a question resolved to, independent of any one caller's
@@ -44,11 +44,17 @@ export function resolvedAnswerSummary(
 			"GAME_TOTAL_OVER_UNDER",
 			() => formatOverUnder(question),
 		)
-		.with("PLAYER_SEASON_AWARD", "TEAM_SEASON_AWARD", () =>
-			formatMultiSelect(question),
+		.with(
+			"PLAYER_SEASON_AWARD",
+			"TEAM_SEASON_AWARD",
+			"PLAYER_GAME_STAT_LEADER",
+			() => formatMultiSelect(question),
 		)
-		.with("PLAYER_STAT_NUMERIC_GUESS", "TEAM_STAT_NUMERIC_GUESS", () =>
-			formatNumeric(question),
+		.with(
+			"PLAYER_STAT_NUMERIC_GUESS",
+			"TEAM_STAT_NUMERIC_GUESS",
+			"TEAM_SEASON_STAT_NUMERIC_GUESS",
+			() => formatNumeric(question),
 		)
 		.with(
 			"PLAYER_VS_PLAYER",

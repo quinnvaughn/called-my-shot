@@ -14,6 +14,14 @@ import { ballotQuestionSchema } from "./ballots"
 // generated title template (see generateQuestionTitle in
 // apps/api/src/lib/question-title.ts) - there's no generic axis left that
 // could combine into an invalid or nonsensical question.
+// Display order matters here - QuestionTypePicker (apps/web/src/components/
+// questions/create-question/question-type-picker.tsx) renders the shape
+// grid straight off this array's order, not a separately curated list. Kept
+// grouped by family (over/unders, numeric guesses, vs-shapes, yes/no) so a
+// new shape lands next to its siblings, not tacked on wherever it happened
+// to be added to this enum - team_season_stat_numeric_guess/
+// player_game_stat_leader previously sat after the admin-only cluster below
+// purely because they were appended last, even though neither is admin-only.
 export const questionShapeSchema = z.enum([
 	"player_stat_over_under",
 	"team_stat_over_under",
@@ -22,8 +30,10 @@ export const questionShapeSchema = z.enum([
 	"game_total_over_under",
 	"player_stat_numeric_guess",
 	"team_stat_numeric_guess",
+	"team_season_stat_numeric_guess",
 	"player_vs_player",
 	"player_vs_player_season",
+	"player_game_stat_leader",
 	"yes_no_prop",
 	// Admin-only shapes grouped at the end - see ADMIN_ONLY_SHAPES below.
 	"team_vs_team",
@@ -32,6 +42,12 @@ export const questionShapeSchema = z.enum([
 	"player_award_finalists",
 ])
 export type QuestionShape = z.infer<typeof questionShapeSchema>
+
+// player_season_award/team_season_award only - see awardVerb on the
+// questions table (apps/api/src/db/schema/questions.ts) for why this is its
+// own explicit field rather than inferred from awardName.
+export const awardVerbSchema = z.enum(["win", "be"])
+export type AwardVerb = z.infer<typeof awardVerbSchema>
 
 // player_season_stat_over_under/team_season_stat_over_under only - see
 // statAggregation on the questions table (apps/api/src/db/schema/
@@ -160,6 +176,9 @@ export const createQuestionSchema = z
 		// player_season_award/team_season_award only - how many winners the
 		// award has (1 for MVP, 5 for an All-NBA team).
 		picksRequired: z.number().int().optional(),
+
+		// player_season_award/team_season_award only - see awardVerbSchema above.
+		awardVerb: awardVerbSchema.optional(),
 
 		// yes_no_prop only - the proposition itself, e.g. "signs a contract
 		// extension by March 1". Combines with the optional subject above into
@@ -327,6 +346,16 @@ export const createQuestionSchema = z
 			}
 		}
 
+		function requireAwardVerb() {
+			if (!data.awardVerb) {
+				ctx.addIssue({
+					code: "custom",
+					path: ["awardVerb"],
+					message: "Say whether callers win it or be it",
+				})
+			}
+		}
+
 		match(data.shape)
 			.with("player_stat_over_under", () => {
 				if (!data.subjectPlayerId) {
@@ -459,6 +488,7 @@ export const createQuestionSchema = z
 			})
 			.with("player_season_award", () => {
 				requireAwardName()
+				requireAwardVerb()
 				if (!data.picksRequired || data.picksRequired < 1) {
 					ctx.addIssue({
 						code: "custom",
@@ -471,6 +501,7 @@ export const createQuestionSchema = z
 			})
 			.with("team_season_award", () => {
 				requireAwardName()
+				requireAwardVerb()
 				if (!data.picksRequired || data.picksRequired < 1) {
 					ctx.addIssue({
 						code: "custom",
@@ -483,6 +514,21 @@ export const createQuestionSchema = z
 			})
 			.with("player_award_finalists", () => {
 				requireAwardName()
+				requirePool("player", 2)
+			})
+			.with("team_season_stat_numeric_guess", () => {
+				if (!data.subjectTeamId) {
+					ctx.addIssue({
+						code: "custom",
+						path: ["subjectTeamId"],
+						message: "Pick a team",
+					})
+				}
+				requireCatalogStat()
+			})
+			.with("player_game_stat_leader", () => {
+				requireGame()
+				requireCatalogStat()
 				requirePool("player", 2)
 			})
 			.exhaustive()
@@ -528,22 +574,27 @@ export const castCallSchema = z
 	})
 	.superRefine((data, ctx) => {
 		match(data.shape)
-			.with("player_stat_numeric_guess", "team_stat_numeric_guess", () => {
-				if (data.guessValue === undefined || Number.isNaN(data.guessValue)) {
-					ctx.addIssue({
-						code: "custom",
-						path: ["guessValue"],
-						message: "Enter your guess",
-					})
-				}
-				if (data.conviction === undefined) {
-					ctx.addIssue({
-						code: "custom",
-						path: ["conviction"],
-						message: "Set your conviction",
-					})
-				}
-			})
+			.with(
+				"player_stat_numeric_guess",
+				"team_stat_numeric_guess",
+				"team_season_stat_numeric_guess",
+				() => {
+					if (data.guessValue === undefined || Number.isNaN(data.guessValue)) {
+						ctx.addIssue({
+							code: "custom",
+							path: ["guessValue"],
+							message: "Enter your guess",
+						})
+					}
+					if (data.conviction === undefined) {
+						ctx.addIssue({
+							code: "custom",
+							path: ["conviction"],
+							message: "Set your conviction",
+						})
+					}
+				},
+			)
 			.with("player_season_award", "team_season_award", () => {
 				if (data.selections.length < 1) {
 					ctx.addIssue({
@@ -564,6 +615,7 @@ export const castCallSchema = z
 				"team_vs_team",
 				"yes_no_prop",
 				"player_award_finalists",
+				"player_game_stat_leader",
 				() => {
 					if (data.selections.length !== 1) {
 						ctx.addIssue({
@@ -590,27 +642,41 @@ export const resolveQuestionSchema = z
 	})
 	.superRefine((data, ctx) => {
 		match(data.shape)
-			.with("player_stat_numeric_guess", "team_stat_numeric_guess", () => {
-				if (data.actualValue === undefined || Number.isNaN(data.actualValue)) {
-					ctx.addIssue({
-						code: "custom",
-						path: ["actualValue"],
-						message: "Enter the actual value",
-					})
-				}
-			})
-			.with("player_season_award", "team_season_award", () => {
-				// Deliberately not compared against picksRequired - a real outcome
-				// can produce fewer genuine winners than the number of picks callers
-				// were asked to make, and that's a valid result, not an error.
-				if (data.correctOptionIds.length < 1) {
-					ctx.addIssue({
-						code: "custom",
-						path: ["correctOptionIds"],
-						message: "Pick at least one correct option",
-					})
-				}
-			})
+			.with(
+				"player_stat_numeric_guess",
+				"team_stat_numeric_guess",
+				"team_season_stat_numeric_guess",
+				() => {
+					if (data.actualValue === undefined || Number.isNaN(data.actualValue)) {
+						ctx.addIssue({
+							code: "custom",
+							path: ["actualValue"],
+							message: "Enter the actual value",
+						})
+					}
+				},
+			)
+			.with(
+				"player_season_award",
+				"team_season_award",
+				// Joins the award shapes, not the exactly-1 bucket below - a
+				// real-world tie for "most points in this game" is exactly as
+				// valid an outcome as a tie for an award race, and resolution
+				// should be able to mark both options correct the same way.
+				"player_game_stat_leader",
+				() => {
+					// Deliberately not compared against picksRequired - a real outcome
+					// can produce fewer genuine winners than the number of picks callers
+					// were asked to make, and that's a valid result, not an error.
+					if (data.correctOptionIds.length < 1) {
+						ctx.addIssue({
+							code: "custom",
+							path: ["correctOptionIds"],
+							message: "Pick at least one correct option",
+						})
+					}
+				},
+			)
 			.with(
 				"player_stat_over_under",
 				"team_stat_over_under",

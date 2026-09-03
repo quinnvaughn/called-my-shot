@@ -1,5 +1,5 @@
 import { match } from "ts-pattern"
-import type { StatAggregation } from "./questions"
+import type { AwardVerb, StatAggregation } from "./questions"
 
 // gameDate is optional on every shape (even the three award ones, where it's
 // never actually set) rather than a separate per-shape concern - whether a
@@ -64,6 +64,18 @@ export type TitleInput = WithGameDate &
 				opponentTeamName: string
 		  }
 		| {
+				shape: "team_season_stat_numeric_guess"
+				teamName: string
+				statName: string
+				// The real calendar year this season's guess resolves in (e.g.
+				// 2026) - unlike every other season-scoped shape, this one names
+				// the year directly in its title ("...in 2026") rather than relying
+				// on "this season," since a caller reading a win-total question
+				// outside its own season context (a feed, a notification) still
+				// needs to know which year it's about.
+				year: number
+		  }
+		| {
 				shape: "player_vs_player"
 				playerAName: string
 				playerBName: string
@@ -77,10 +89,17 @@ export type TitleInput = WithGameDate &
 				statAggregation: StatAggregation
 		  }
 		| { shape: "team_vs_team"; awayTeamName: string; homeTeamName: string }
+		| {
+				shape: "player_game_stat_leader"
+				awayTeamName: string
+				homeTeamName: string
+				statName: string
+		  }
 		| { shape: "yes_no_prop"; subjectName: string | null; eventClause: string }
 		| {
 				shape: "player_season_award"
 				awardName: string
+				verb: AwardVerb
 				picksRequired: number
 				// Prepended to awardName when set - ["AL"] + "MVP" -> "AL MVP",
 				// ["AL", "NL"] + "MVP" -> "AL/NL MVP". Not required - most awards
@@ -91,6 +110,7 @@ export type TitleInput = WithGameDate &
 		| {
 				shape: "team_season_award"
 				awardName: string
+				verb: AwardVerb
 				picksRequired: number
 				awardConferences?: string[]
 				awardDivisions?: string[]
@@ -134,6 +154,148 @@ function joinWithOr(items: string[]): string {
 	return `${items.slice(0, -1).join(", ")}, or ${items[items.length - 1]}`
 }
 
+// Team names are virtually always already plural ("Twins," "Heat" being the
+// rare exception) - "Twins's" reads wrong where "Twins'" is correct, so this
+// only appends the bare apostrophe when the name already ends in "s".
+function possessive(name: string): string {
+	return name.endsWith("s") ? `${name}'` : `${name}'s`
+}
+
+// --- Over/unders ---
+
+function titlePlayerStatOverUnder(
+	input: Extract<TitleInput, { shape: "player_stat_over_under" }>,
+): string {
+	return `${input.playerName}: over/under ${input.ouLine} ${input.statName} vs ${input.opponentTeamName}`
+}
+
+function titleTeamStatOverUnder(
+	input: Extract<TitleInput, { shape: "team_stat_over_under" }>,
+): string {
+	return `${input.teamName}: over/under ${input.ouLine} ${input.statName} vs ${input.opponentTeamName}`
+}
+
+function titlePlayerSeasonStatOverUnder(
+	input: Extract<TitleInput, { shape: "player_season_stat_over_under" }>,
+): string {
+	return input.statAggregation === "per_game"
+		? `${input.playerName}: over/under ${input.ouLine} ${input.statName} per game this season`
+		: `${input.playerName}: over/under ${input.ouLine} ${input.statName} this season`
+}
+
+function titleTeamSeasonStatOverUnder(
+	input: Extract<TitleInput, { shape: "team_season_stat_over_under" }>,
+): string {
+	return input.statAggregation === "per_game"
+		? `${input.teamName}: over/under ${input.ouLine} ${input.statName} per game this season`
+		: `${input.teamName}: over/under ${input.ouLine} ${input.statName} this season`
+}
+
+function titleGameTotalOverUnder(
+	input: Extract<TitleInput, { shape: "game_total_over_under" }>,
+): string {
+	return `${input.awayTeamName} @ ${input.homeTeamName}: over/under ${input.ouLine} ${input.statName}`
+}
+
+// --- Numeric guesses ---
+
+function titlePlayerStatNumericGuess(
+	input: Extract<TitleInput, { shape: "player_stat_numeric_guess" }>,
+): string {
+	return `Guess ${input.playerName}'s ${input.statName} vs ${input.opponentTeamName}`
+}
+
+function titleTeamStatNumericGuess(
+	input: Extract<TitleInput, { shape: "team_stat_numeric_guess" }>,
+): string {
+	return `Guess ${input.teamName}'s ${input.statName} vs ${input.opponentTeamName}`
+}
+
+// "Wins" (the stat catalog's own lookup name, capitalized) reads wrong in a
+// sentence ("...Wins for 2026") - "win total" is what every league's actual
+// win-total guess says, so that translation lives here once, not repeated
+// per league in the catalog (see RECURRING_QUESTION_CATALOG - a prior version
+// asked each league's catalog entry to opt into this phrasing separately,
+// which is exactly how NBA/NFL ended up saying "Wins" while MLB said "win
+// total"). Any other statName (a future non-win-total use of this general
+// shape, e.g. "Net Rating") passes through unchanged.
+function titleTeamSeasonStatNumericGuess(
+	input: Extract<TitleInput, { shape: "team_season_stat_numeric_guess" }>,
+): string {
+	const displayStatName = input.statName === "Wins" ? "win total" : input.statName
+	return `Guess the ${possessive(input.teamName)} ${displayStatName} for ${input.year}`
+}
+
+// --- Vs-shapes ---
+
+function titlePlayerVsPlayer(
+	input: Extract<TitleInput, { shape: "player_vs_player" }>,
+): string {
+	return `${input.statName}: ${input.playerAName} vs ${input.playerBName}`
+}
+
+function titlePlayerVsPlayerSeason(
+	input: Extract<TitleInput, { shape: "player_vs_player_season" }>,
+): string {
+	return input.statAggregation === "per_game"
+		? `${input.statName}: ${input.playerAName} vs ${input.playerBName} per game this season`
+		: `${input.statName}: ${input.playerAName} vs ${input.playerBName} this season`
+}
+
+function titleTeamVsTeam(
+	input: Extract<TitleInput, { shape: "team_vs_team" }>,
+): string {
+	return `${input.awayTeamName} @ ${input.homeTeamName}: who will win?`
+}
+
+function titlePlayerGameStatLeader(
+	input: Extract<TitleInput, { shape: "player_game_stat_leader" }>,
+): string {
+	return `${input.awayTeamName} @ ${input.homeTeamName}: who leads in ${input.statName}?`
+}
+
+// --- Yes/no ---
+
+function titleYesNoProp(
+	input: Extract<TitleInput, { shape: "yes_no_prop" }>,
+): string {
+	return input.subjectName
+		? `Will ${input.subjectName} ${input.eventClause}?`
+		: `Will ${input.eventClause}?`
+}
+
+// --- Awards ---
+
+function titlePlayerSeasonAward(
+	input: Extract<TitleInput, { shape: "player_season_award" }>,
+): string {
+	const name = qualifiedAwardName(
+		input.awardName,
+		input.awardConferences,
+		input.awardDivisions,
+	)
+	if (input.picksRequired > 1) return `Pick the ${name} (${input.picksRequired})`
+	return input.verb === "be" ? `Who will be the ${name}?` : `Who will win the ${name}?`
+}
+
+function titleTeamSeasonAward(
+	input: Extract<TitleInput, { shape: "team_season_award" }>,
+): string {
+	const name = qualifiedAwardName(
+		input.awardName,
+		input.awardConferences,
+		input.awardDivisions,
+	)
+	if (input.picksRequired > 1) return `Pick the ${name} (${input.picksRequired})`
+	return input.verb === "be" ? `Who will be the ${name}?` : `Who will win the ${name}?`
+}
+
+function titlePlayerAwardFinalists(
+	input: Extract<TitleInput, { shape: "player_award_finalists" }>,
+): string {
+	return `Who will win the ${input.awardName}: ${joinWithOr(input.finalistNames)}?`
+}
+
 // The one place a question's title is decided - generated from the shape's
 // own validated structured fields at creation time. The create-question form
 // prefills the creator's title field from this rather than trusting it as
@@ -142,90 +304,28 @@ function joinWithOr(items: string[]): string {
 // createQuestionSchema).
 export function generateQuestionTitle(input: TitleInput): string {
 	const base = match(input)
-		.with(
-			{ shape: "player_stat_over_under" },
-			({ playerName, statName, ouLine, opponentTeamName }) =>
-				`${playerName}: over/under ${ouLine} ${statName} vs ${opponentTeamName}`,
-		)
-		.with(
-			{ shape: "team_stat_over_under" },
-			({ teamName, statName, ouLine, opponentTeamName }) =>
-				`${teamName}: over/under ${ouLine} ${statName} vs ${opponentTeamName}`,
-		)
+		.with({ shape: "player_stat_over_under" }, titlePlayerStatOverUnder)
+		.with({ shape: "team_stat_over_under" }, titleTeamStatOverUnder)
 		.with(
 			{ shape: "player_season_stat_over_under" },
-			({ playerName, statName, ouLine, statAggregation }) =>
-				statAggregation === "per_game"
-					? `${playerName}: over/under ${ouLine} ${statName} per game this season`
-					: `${playerName}: over/under ${ouLine} ${statName} this season`,
+			titlePlayerSeasonStatOverUnder,
 		)
+		.with({ shape: "team_season_stat_over_under" }, titleTeamSeasonStatOverUnder)
+		.with({ shape: "game_total_over_under" }, titleGameTotalOverUnder)
+		.with({ shape: "player_stat_numeric_guess" }, titlePlayerStatNumericGuess)
+		.with({ shape: "team_stat_numeric_guess" }, titleTeamStatNumericGuess)
 		.with(
-			{ shape: "team_season_stat_over_under" },
-			({ teamName, statName, ouLine, statAggregation }) =>
-				statAggregation === "per_game"
-					? `${teamName}: over/under ${ouLine} ${statName} per game this season`
-					: `${teamName}: over/under ${ouLine} ${statName} this season`,
+			{ shape: "team_season_stat_numeric_guess" },
+			titleTeamSeasonStatNumericGuess,
 		)
-		.with(
-			{ shape: "game_total_over_under" },
-			({ awayTeamName, homeTeamName, statName, ouLine }) =>
-				`${awayTeamName} @ ${homeTeamName}: over/under ${ouLine} ${statName}`,
-		)
-		.with(
-			{ shape: "player_stat_numeric_guess" },
-			({ playerName, statName, opponentTeamName }) =>
-				`Guess ${playerName}'s ${statName} vs ${opponentTeamName}`,
-		)
-		.with(
-			{ shape: "team_stat_numeric_guess" },
-			({ teamName, statName, opponentTeamName }) =>
-				`Guess ${teamName}'s ${statName} vs ${opponentTeamName}`,
-		)
-		.with(
-			{ shape: "player_vs_player" },
-			({ playerAName, playerBName, statName }) =>
-				`${statName}: ${playerAName} vs ${playerBName}`,
-		)
-		.with(
-			{ shape: "player_vs_player_season" },
-			({ playerAName, playerBName, statName, statAggregation }) =>
-				statAggregation === "per_game"
-					? `${statName}: ${playerAName} vs ${playerBName} per game this season`
-					: `${statName}: ${playerAName} vs ${playerBName} this season`,
-		)
-		.with(
-			{ shape: "team_vs_team" },
-			({ awayTeamName, homeTeamName }) =>
-				`${awayTeamName} @ ${homeTeamName}: who will win?`,
-		)
-		.with({ shape: "yes_no_prop" }, ({ subjectName, eventClause }) =>
-			subjectName
-				? `Will ${subjectName} ${eventClause}?`
-				: `Will ${eventClause}?`,
-		)
-		.with(
-			{ shape: "player_season_award" },
-			({ awardName, picksRequired, awardConferences, awardDivisions }) => {
-				const name = qualifiedAwardName(awardName, awardConferences, awardDivisions)
-				return picksRequired > 1
-					? `Pick the ${name} (${picksRequired})`
-					: `Who will win the ${name}?`
-			},
-		)
-		.with(
-			{ shape: "team_season_award" },
-			({ awardName, picksRequired, awardConferences, awardDivisions }) => {
-				const name = qualifiedAwardName(awardName, awardConferences, awardDivisions)
-				return picksRequired > 1
-					? `Pick the ${name} (${picksRequired})`
-					: `Who will win the ${name}?`
-			},
-		)
-		.with(
-			{ shape: "player_award_finalists" },
-			({ awardName, finalistNames }) =>
-				`Who will win the ${awardName}: ${joinWithOr(finalistNames)}?`,
-		)
+		.with({ shape: "player_vs_player" }, titlePlayerVsPlayer)
+		.with({ shape: "player_vs_player_season" }, titlePlayerVsPlayerSeason)
+		.with({ shape: "team_vs_team" }, titleTeamVsTeam)
+		.with({ shape: "player_game_stat_leader" }, titlePlayerGameStatLeader)
+		.with({ shape: "yes_no_prop" }, titleYesNoProp)
+		.with({ shape: "player_season_award" }, titlePlayerSeasonAward)
+		.with({ shape: "team_season_award" }, titleTeamSeasonAward)
+		.with({ shape: "player_award_finalists" }, titlePlayerAwardFinalists)
 		.exhaustive()
 
 	return input.gameDate ? `${base} (${formatGameDate(input.gameDate)})` : base

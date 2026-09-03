@@ -178,6 +178,39 @@ export async function fetchSchedule(
 	return results.flatMap((r) => r.events)
 }
 
+// The team-schedule endpoint above (fetchSchedule) never carries a live,
+// in-progress score - verified live: its competitors[].score is simply
+// absent from the JSON entirely while a game is in progress, and only shows
+// up once the game goes final. The scoreboard endpoint is ESPN's actual live
+// feed (what espn.com's own scoreboard/gamecast reads from) and DOES carry
+// live scores - but shapes them differently: score comes back as a bare
+// numeric string ("6"), not the {value, displayValue} object the schedule
+// endpoint uses, hence the separate type here rather than reusing EspnEvent.
+// No seasontype/date filtering - the default (unparameterized) call returns
+// "today's" full slate for the league, which is all sync-live-scores.ts ever
+// needs (it only polls games already known to be in-flight).
+export type EspnScoreboardEvent = {
+	id: string
+	competitions: [
+		{
+			status: EspnEventStatus
+			competitors: [
+				{ homeAway: "home" | "away"; team: { id: string }; score?: string },
+				{ homeAway: "home" | "away"; team: { id: string }; score?: string },
+			]
+		},
+	]
+}
+
+export async function fetchScoreboard(
+	sportPath: EspnSportPath,
+): Promise<EspnScoreboardEvent[]> {
+	const data = await espnGet<{ events: EspnScoreboardEvent[] }>(
+		`${sportPath}/scoreboard`,
+	)
+	return data.events
+}
+
 // Season boundary dates live on a different ESPN host entirely (the "core"
 // API, not the "site" API everything above wraps) - verified live: e.g.
 // sports.core.api.espn.com/v2/sports/basketball/leagues/nba/seasons/2026

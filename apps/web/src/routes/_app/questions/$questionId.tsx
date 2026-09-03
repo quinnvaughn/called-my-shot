@@ -230,7 +230,10 @@ function RouteComponent() {
 						{question.numericToleranceAbsolute !== null ? (
 							<PanelRow
 								label="TOLERANCE"
-								value={`±${formatGuess(question.numericToleranceAbsolute, true)}`}
+								value={`±${formatGuess(
+									question.numericToleranceAbsolute,
+									!Number.isInteger(question.numericToleranceAbsolute),
+								)}`}
 							/>
 						) : (
 							question.numericTolerancePct !== null && (

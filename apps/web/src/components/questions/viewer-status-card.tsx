@@ -44,9 +44,12 @@ const BASE_POINTS_BY_GQL_SHAPE: Record<QuestionShape, number> = {
 	GAME_TOTAL_OVER_UNDER: BASE_POINTS_BY_SHAPE.game_total_over_under,
 	PLAYER_STAT_NUMERIC_GUESS: BASE_POINTS_BY_SHAPE.player_stat_numeric_guess,
 	TEAM_STAT_NUMERIC_GUESS: BASE_POINTS_BY_SHAPE.team_stat_numeric_guess,
+	TEAM_SEASON_STAT_NUMERIC_GUESS:
+		BASE_POINTS_BY_SHAPE.team_season_stat_numeric_guess,
 	PLAYER_VS_PLAYER: BASE_POINTS_BY_SHAPE.player_vs_player,
 	PLAYER_VS_PLAYER_SEASON: BASE_POINTS_BY_SHAPE.player_vs_player_season,
 	TEAM_VS_TEAM: BASE_POINTS_BY_SHAPE.team_vs_team,
+	PLAYER_GAME_STAT_LEADER: BASE_POINTS_BY_SHAPE.player_game_stat_leader,
 	YES_NO_PROP: BASE_POINTS_BY_SHAPE.yes_no_prop,
 	PLAYER_SEASON_AWARD: BASE_POINTS_BY_SHAPE.player_season_award,
 	TEAM_SEASON_AWARD: BASE_POINTS_BY_SHAPE.team_season_award,
@@ -59,7 +62,9 @@ const BASE_POINTS_BY_GQL_SHAPE: Record<QuestionShape, number> = {
 // option) and whether a single field summarizes the whole call.
 function isNumericShape(shape: QuestionShape): boolean {
 	return (
-		shape === "PLAYER_STAT_NUMERIC_GUESS" || shape === "TEAM_STAT_NUMERIC_GUESS"
+		shape === "PLAYER_STAT_NUMERIC_GUESS" ||
+		shape === "TEAM_STAT_NUMERIC_GUESS" ||
+		shape === "TEAM_SEASON_STAT_NUMERIC_GUESS"
 	)
 }
 
@@ -76,7 +81,8 @@ function isSeasonLongShape(shape: QuestionShape): boolean {
 		shape === "PLAYER_VS_PLAYER_SEASON" ||
 		shape === "PLAYER_SEASON_AWARD" ||
 		shape === "TEAM_SEASON_AWARD" ||
-		shape === "PLAYER_AWARD_FINALISTS"
+		shape === "PLAYER_AWARD_FINALISTS" ||
+		shape === "TEAM_SEASON_STAT_NUMERIC_GUESS"
 	)
 }
 
@@ -437,8 +443,11 @@ function ShareCallSection({
 			// when numericToleranceAbsolute isn't set - see isRateStat in
 			// #/lib/call-summary) - no real stat/tier data needed here, just
 			// enough shape to carry the already-computed isRateStat signal.
+			// toleranceValue is a non-integer placeholder, never actually
+			// displayed - isRateStat only reads whether it's fractional, not its
+			// real magnitude.
 			stat: isRateStat
-				? { toleranceTier: { toleranceMode: "ABSOLUTE" } }
+				? { toleranceTier: { toleranceMode: "ABSOLUTE", toleranceValue: 0.5 } }
 				: null,
 		},
 		selections: viewerCall.selections.map((s) => ({
@@ -693,9 +702,7 @@ function DisputeRow({
 							animation: "pulse 1.6s ease-in-out infinite",
 						})}
 					/>
-					<span>
-						UNDER REVIEW: you'll get a notification once it's settled
-					</span>
+					<span>UNDER REVIEW: you'll get a notification once it's settled</span>
 				</HStack>
 			) : (
 				<button
@@ -1194,7 +1201,14 @@ function NumericPickRow({
 	result: NumericRowResult
 }) {
 	const band = tolerance !== null ? toleranceBand(guessValue, tolerance) : null
-	const isRateStat = tolerance?.mode === "absolute"
+	// Absolute mode alone doesn't mean rate stat (a win-total's band is
+	// absolute too, e.g. 5) - see isRateStat's own comment in
+	// #/lib/field-signal for the full reasoning. tolerance.amount is the real
+	// snapshotted value here, not a stand-in, so this checks it directly
+	// rather than going through that shared helper (which takes a GraphQL
+	// question shape this component doesn't have).
+	const isRateStat =
+		tolerance?.mode === "absolute" && !Number.isInteger(tolerance.amount)
 
 	if (result.kind === "resolved") {
 		const win = result.totalPoints >= 0

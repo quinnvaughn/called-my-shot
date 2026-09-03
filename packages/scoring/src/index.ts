@@ -21,6 +21,8 @@ export type QuestionShape =
 	| "player_season_award"
 	| "team_season_award"
 	| "player_award_finalists"
+	| "team_season_stat_numeric_guess"
+	| "player_game_stat_leader"
 
 // Difficulty varies by format, not by any individual pick - a binary pick
 // needs less signal to call correctly than a continuous numeric guess, so
@@ -52,6 +54,11 @@ export const BASE_POINTS_BY_SHAPE: Record<QuestionShape, number> = {
 	// as every other shape now, not an easier one).
 	player_stat_numeric_guess: 250,
 	team_stat_numeric_guess: 250,
+	// Season-scoped sibling of the numeric-guess pair above - same rate.
+	team_season_stat_numeric_guess: 250,
+	// Pool-based single pick, same mechanism as player_season_award with
+	// picksRequired 1 - not the exactly-2-option family above.
+	player_game_stat_leader: 250,
 }
 
 // Season-long shapes (no gameId, open across the whole season) score
@@ -72,6 +79,8 @@ export const SEASON_LONG_SHAPES = new Set<QuestionShape>([
 	"player_season_award",
 	"team_season_award",
 	"player_award_finalists",
+	// No gameId, same as the season-scoped over/under pair above.
+	"team_season_stat_numeric_guess",
 ])
 
 export function isSeasonLongShape(shape: QuestionShape): boolean {

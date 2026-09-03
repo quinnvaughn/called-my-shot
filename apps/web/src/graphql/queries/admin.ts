@@ -307,6 +307,7 @@ export const AdminDisputesDocument = graphql(`
 								toleranceTier {
 									id
 									toleranceMode
+									toleranceValue
 								}
 							}
 							status

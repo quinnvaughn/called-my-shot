@@ -1,29 +1,15 @@
 import { useLazyQuery } from "@apollo/client/react"
 import { Link } from "@tanstack/react-router"
 import { HStack } from "styled-system/jsx"
+import type { QuestionCallShape } from "#/components/questions/cast-call-form/use-cast-call-form"
 import { Button, button } from "#/components/ui/button"
 import { QuestionDetailDocument } from "#/graphql/queries/question"
+import { isRateStat } from "#/lib/field-signal"
 import { openModal } from "#/stores/modal-store"
 import { AdminResolveModal } from "./admin-resolve-modal"
 import { DeleteQuestionModal } from "./delete-question-modal"
 import { EditQuestionTitleModal } from "./edit-question-title-modal"
 import { VoidQuestionModal } from "./void-question-modal"
-
-type QuestionShape =
-	| "player_stat_over_under"
-	| "team_stat_over_under"
-	| "player_season_stat_over_under"
-	| "team_season_stat_over_under"
-	| "game_total_over_under"
-	| "player_stat_numeric_guess"
-	| "team_stat_numeric_guess"
-	| "player_vs_player"
-	| "player_vs_player_season"
-	| "team_vs_team"
-	| "yes_no_prop"
-	| "player_season_award"
-	| "team_season_award"
-	| "player_award_finalists"
 
 // Loads the option pool on demand rather than requiring every caller (the
 // Questions page's full list, the Queue page's needs-resolution list) to
@@ -46,12 +32,10 @@ export function ResolveButton({
 				question={{
 					id: data.question.id,
 					title: data.question.title,
-					shape: data.question.shape.toLowerCase() as QuestionShape,
+					shape: data.question.shape.toLowerCase() as QuestionCallShape,
 					ouLine: data.question.ouLine ?? null,
 					options: data.question.options,
-					isRateStat:
-						data.question.numericToleranceAbsolute !== null ||
-						data.question.stat?.toleranceTier?.toleranceMode === "ABSOLUTE",
+					isRateStat: isRateStat(data.question),
 				}}
 				onResolved={onResolved}
 			/>,

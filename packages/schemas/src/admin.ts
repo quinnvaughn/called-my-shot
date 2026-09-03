@@ -60,24 +60,34 @@ export const adminResolveQuestionSchema = z
 	})
 	.superRefine((data, ctx) => {
 		match(data.shape)
-			.with("player_stat_numeric_guess", "team_stat_numeric_guess", () => {
-				if (data.actualValue === undefined || Number.isNaN(data.actualValue)) {
-					ctx.addIssue({
-						code: "custom",
-						path: ["actualValue"],
-						message: "Enter the actual value",
-					})
-				}
-			})
-			.with("player_season_award", "team_season_award", () => {
-				if (data.correctOptionIds.length < 1) {
-					ctx.addIssue({
-						code: "custom",
-						path: ["correctOptionIds"],
-						message: "Pick at least one correct option",
-					})
-				}
-			})
+			.with(
+				"player_stat_numeric_guess",
+				"team_stat_numeric_guess",
+				"team_season_stat_numeric_guess",
+				() => {
+					if (data.actualValue === undefined || Number.isNaN(data.actualValue)) {
+						ctx.addIssue({
+							code: "custom",
+							path: ["actualValue"],
+							message: "Enter the actual value",
+						})
+					}
+				},
+			)
+			.with(
+				"player_season_award",
+				"team_season_award",
+				"player_game_stat_leader",
+				() => {
+					if (data.correctOptionIds.length < 1) {
+						ctx.addIssue({
+							code: "custom",
+							path: ["correctOptionIds"],
+							message: "Pick at least one correct option",
+						})
+					}
+				},
+			)
 			.with(
 				"player_stat_over_under",
 				"team_stat_over_under",

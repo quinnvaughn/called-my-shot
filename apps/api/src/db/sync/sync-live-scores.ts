@@ -2,7 +2,7 @@ import { eq } from "drizzle-orm"
 import { isMainModule } from "../../lib/is-main-module"
 import { db } from "../index"
 import { games } from "../schema"
-import { type EspnEvent, fetchSchedule } from "./espn-client"
+import { type EspnScoreboardEvent, fetchScoreboard } from "./espn-client"
 import { SYNCED_LEAGUES } from "./leagues"
 import { resolveGameWinner, toGameStatus } from "./sync-games"
 import { findSourceId } from "./sync-refs"
@@ -40,10 +40,13 @@ export async function syncLiveScores(): Promise<void> {
 		return
 	}
 
-	// One fetchSchedule call per home team covers every candidate game that
-	// team is playing in this window - same response syncGames trusts, just
-	// for a handful of teams instead of a whole league's roster.
-	const scheduleCache = new Map<string, EspnEvent[]>()
+	// One scoreboard call per league covers every candidate game in that
+	// league at once. Not fetchSchedule (the daily full sync's source, see
+	// sync-games.ts) - that endpoint's score field is only ever populated
+	// once a game goes final, never while it's actually in progress (verified
+	// live), which is exactly why a live game sat at "LIVE ---" forever. The
+	// scoreboard endpoint is ESPN's real live feed instead.
+	const scoreboardCache = new Map<string, EspnScoreboardEvent[]>()
 
 	for (const game of candidates) {
 		const league = game.league
@@ -52,26 +55,22 @@ export async function syncLiveScores(): Promise<void> {
 		if (!config) continue
 
 		await db.transaction(async (tx) => {
-			const homeSourceId = await findSourceId(tx, "team", game.homeTeamId)
-			const homeEspnId = homeSourceId?.split(":")[1]
-			if (!homeEspnId) return
-
-			let schedule = scheduleCache.get(homeSourceId)
-			if (!schedule) {
-				schedule = await fetchSchedule(config.espnPath, homeEspnId)
-				scheduleCache.set(homeSourceId, schedule)
+			let scoreboard = scoreboardCache.get(config.espnPath)
+			if (!scoreboard) {
+				scoreboard = await fetchScoreboard(config.espnPath)
+				scoreboardCache.set(config.espnPath, scoreboard)
 			}
 
 			const gameSourceId = await findSourceId(tx, "game", game.id)
 			const espnEventId = gameSourceId?.split(":")[1]
-			const event = schedule?.find((e) => e.id === espnEventId)
+			const event = scoreboard.find((e) => e.id === espnEventId)
 			if (!event) return
 
 			const competition = event.competitions[0]
 			const [home, away] = competition.competitors
 			const status = toGameStatus(competition.status)
-			const homeScore = home.score ? Math.round(home.score.value) : null
-			const awayScore = away.score ? Math.round(away.score.value) : null
+			const homeScore = home.score !== undefined ? Math.round(Number(home.score)) : null
+			const awayScore = away.score !== undefined ? Math.round(Number(away.score)) : null
 
 			await tx
 				.update(games)

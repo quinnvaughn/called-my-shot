@@ -3,6 +3,7 @@ import {
 	FaHashtag,
 	FaMedal,
 	FaPeopleGroup,
+	FaRankingStar,
 	FaToggleOn,
 	FaTrophy,
 	FaUserGroup,
@@ -31,9 +32,11 @@ export const questionShapeLabel: Record<QuestionShape, string> = {
 	GAME_TOTAL_OVER_UNDER: "Game Total",
 	PLAYER_STAT_NUMERIC_GUESS: "Player Game Numeric Guess",
 	TEAM_STAT_NUMERIC_GUESS: "Team Game Numeric Guess",
+	TEAM_SEASON_STAT_NUMERIC_GUESS: "Team Season Numeric Guess",
 	PLAYER_VS_PLAYER: "Player Game Head-to-Head",
 	PLAYER_VS_PLAYER_SEASON: "Player Season Head-to-Head",
 	TEAM_VS_TEAM: "Team vs Team",
+	PLAYER_GAME_STAT_LEADER: "Game Stat Leader",
 	YES_NO_PROP: "Yes/No",
 	PLAYER_SEASON_AWARD: "Player Season Award",
 	TEAM_SEASON_AWARD: "Team Season Award",
@@ -48,9 +51,11 @@ export const questionShapeIcon: Record<QuestionShape, IconType> = {
 	GAME_TOTAL_OVER_UNDER: FaArrowsUpDown,
 	PLAYER_STAT_NUMERIC_GUESS: FaHashtag,
 	TEAM_STAT_NUMERIC_GUESS: FaHashtag,
+	TEAM_SEASON_STAT_NUMERIC_GUESS: FaHashtag,
 	PLAYER_VS_PLAYER: FaUserGroup,
 	PLAYER_VS_PLAYER_SEASON: FaUserGroup,
 	TEAM_VS_TEAM: FaPeopleGroup,
+	PLAYER_GAME_STAT_LEADER: FaRankingStar,
 	YES_NO_PROP: FaToggleOn,
 	PLAYER_SEASON_AWARD: FaTrophy,
 	TEAM_SEASON_AWARD: FaTrophy,
@@ -101,9 +106,11 @@ export const shareCardShapeLabel: Record<QuestionShape, string> = {
 	GAME_TOTAL_OVER_UNDER: "Game Total",
 	PLAYER_STAT_NUMERIC_GUESS: "Player Prop",
 	TEAM_STAT_NUMERIC_GUESS: "Team Prop",
+	TEAM_SEASON_STAT_NUMERIC_GUESS: "Season Prop",
 	PLAYER_VS_PLAYER: "Head-to-Head",
 	PLAYER_VS_PLAYER_SEASON: "Head-to-Head",
 	TEAM_VS_TEAM: "Game Outcome",
+	PLAYER_GAME_STAT_LEADER: "Stat Leader",
 	YES_NO_PROP: "Yes/No",
 	PLAYER_SEASON_AWARD: "Season Award",
 	TEAM_SEASON_AWARD: "Season Award",
@@ -131,11 +138,15 @@ export const questionShapeDescription: Record<QuestionShape, string> = {
 		"An exact number for one player, one game: rebounds, points, anything scored by closeness, not just right or wrong.",
 	TEAM_STAT_NUMERIC_GUESS:
 		"An exact number for one team, one game: anything scored by closeness, not just right or wrong.",
+	TEAM_SEASON_STAT_NUMERIC_GUESS:
+		"An exact number for one team, the whole season: a win total, anything scored by closeness, not just right or wrong.",
 	PLAYER_VS_PLAYER:
 		"Two named players, one stat, same game: who comes out ahead. Teammates or opponents, either works.",
 	PLAYER_VS_PLAYER_SEASON:
 		"Two named players, one stat, the whole season: who comes out ahead.",
 	TEAM_VS_TEAM: "A real matchup: who will win.",
+	PLAYER_GAME_STAT_LEADER:
+		"One stat, one game, both rosters: who leads it. Resolution can mark more than one player correct on a real tie.",
 	YES_NO_PROP:
 		"Will it happen or not: a triple-double, a buzzer-beater, anything with a clean yes or no.",
 	PLAYER_SEASON_AWARD:

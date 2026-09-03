@@ -35,6 +35,16 @@ export const questionShape = pgEnum("question_shape", [
 	"player_season_award",
 	"team_season_award",
 	"player_award_finalists",
+	// Season-scoped sibling of team_stat_numeric_guess - guess a team's total
+	// for the season (win totals: statId "Wins") rather than a single game.
+	// gameId stays null, same as team_season_stat_over_under.
+	"team_season_stat_numeric_guess",
+	// "Who gets the most X in this game" - pool is auto-built from just the
+	// two teams in gameId (required), not the whole league the way
+	// player_season_award's pool is. Caller picks exactly 1; resolution can
+	// still mark >1 questionOptions.isCorrect on a real-world tie, same
+	// mechanism the award shapes already use.
+	"player_game_stat_leader",
 ])
 
 // player_season_stat_over_under/team_season_stat_over_under only - whether
@@ -68,6 +78,16 @@ export const voidReason = pgEnum("void_reason", [
 	"duplicate",
 	"other",
 ])
+
+// player_season_award/team_season_award only - which verb the single-winner
+// title reads with ("Who will WIN the MVP?" vs "Who will BE the AL Gold
+// Glove - 1B?"). Explicit rather than inferred from awardName text, same
+// reasoning as every other award field below: a trophy-style award (MVP,
+// Cy Young) and a role/selection-style award (an All-NBA slot, a
+// per-position Gold Glove) aren't distinguishable from picksRequired or the
+// name alone. Not used when picksRequired > 1 - "Pick the X (5)" already
+// reads fine for both kinds.
+export const awardVerb = pgEnum("award_verb", ["win", "be"])
 
 export const questions = pgTable("questions", {
 	id: uuid("id").primaryKey().defaultRandom(),
@@ -193,6 +213,9 @@ export const questions = pgTable("questions", {
 	// award's name (e.g. "MVP"), same "can't be enumerated" reasoning as
 	// eventClause above.
 	awardName: text("award_name"),
+
+	// player_season_award/team_season_award only - see awardVerb pgEnum above.
+	awardVerb: awardVerb("award_verb"),
 
 	// player_season_award/team_season_award only - narrows the auto-built pool
 	// (see questionOptions) from the whole league down to teams.conference IN

@@ -41,6 +41,7 @@ export const CallCardFragment = graphql(`
 				toleranceTier {
 					id
 					toleranceMode
+					toleranceValue
 				}
 			}
 			locksAt

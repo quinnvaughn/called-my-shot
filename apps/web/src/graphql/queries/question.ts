@@ -21,6 +21,7 @@ export const QuestionDetailDocument = graphql(`
 				toleranceTier {
 					id
 					toleranceMode
+					toleranceValue
 				}
 			}
 			numericHitRatePct

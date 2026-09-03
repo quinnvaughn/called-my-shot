@@ -3,7 +3,11 @@ import { HStack, VStack } from "styled-system/jsx"
 import { match } from "ts-pattern"
 import { Tag } from "#/components/ui/tag"
 import type { QuestionShape } from "#/graphql/generated/graphql"
-import { callersText, formatGuess } from "#/lib/field-signal"
+import {
+	callersText,
+	isRateStat as computeIsRateStat,
+	formatGuess,
+} from "#/lib/field-signal"
 import {
 	isOverUnderQuestionShape,
 	optionDisplayLabel,
@@ -23,13 +27,13 @@ type Props = {
 		numericActualValue: number | null
 		callCount: number
 		averageGuess: number | null
-		// Non-null only for a rate stat, numeric_guess shapes only - see
-		// formatGuess in #/lib/field-signal.
 		numericToleranceAbsolute: number | null
 		// An over/under shape has no tolerance snapshot at all, so rate-ness
 		// there is read off the picked stat's own tolerance tier instead - see
-		// isRateStat below.
-		stat: { toleranceTier: { toleranceMode: string } | null } | null
+		// isRateStat in #/lib/field-signal.
+		stat: {
+			toleranceTier: { toleranceMode: string; toleranceValue: number } | null
+		} | null
 		ouLine: number | null
 		options: Option[]
 	}
@@ -59,9 +63,7 @@ export function QuestionResultBlock({ question, disputed }: Props) {
 	const winner = question.options.find((o) => o.isCorrect)
 	const winners = question.options.filter((o) => o.isCorrect)
 	const callers = callersText(question.callCount)
-	const isRateStat =
-		question.numericToleranceAbsolute !== null ||
-		question.stat?.toleranceTier?.toleranceMode === "ABSOLUTE"
+	const isRateStat = computeIsRateStat(question)
 	const winnerSub =
 		winner?.fieldPct !== undefined && winner.fieldPct !== null
 			? `${Math.round(winner.fieldPct)}% of the field called it right · ${callers}`
@@ -89,20 +91,25 @@ export function QuestionResultBlock({ question, disputed }: Props) {
 				)}
 			</HStack>
 			{match(question.shape)
-				.with("PLAYER_STAT_NUMERIC_GUESS", "TEAM_STAT_NUMERIC_GUESS", () => (
-					<VStack gap="1.5" alignItems="stretch">
-						<span className={valueClass}>
-							{question.numericActualValue !== null
-								? formatGuess(question.numericActualValue, isRateStat)
-								: "-"}
-						</span>
-						<span className={subClass}>
-							{question.averageGuess !== null
-								? `avg guess was ${formatGuess(question.averageGuess, isRateStat)} · ${callers}`
-								: callers}
-						</span>
-					</VStack>
-				))
+				.with(
+					"PLAYER_STAT_NUMERIC_GUESS",
+					"TEAM_STAT_NUMERIC_GUESS",
+					"TEAM_SEASON_STAT_NUMERIC_GUESS",
+					() => (
+						<VStack gap="1.5" alignItems="stretch">
+							<span className={valueClass}>
+								{question.numericActualValue !== null
+									? formatGuess(question.numericActualValue, isRateStat)
+									: "-"}
+							</span>
+							<span className={subClass}>
+								{question.averageGuess !== null
+									? `avg guess was ${formatGuess(question.averageGuess, isRateStat)} · ${callers}`
+									: callers}
+							</span>
+						</VStack>
+					),
+				)
 				.with(
 					"PLAYER_STAT_OVER_UNDER",
 					"TEAM_STAT_OVER_UNDER",
@@ -137,40 +144,45 @@ export function QuestionResultBlock({ question, disputed }: Props) {
 						</VStack>
 					),
 				)
-				.with("PLAYER_SEASON_AWARD", "TEAM_SEASON_AWARD", () => (
-					<VStack gap="1.5" alignItems="stretch">
-						<VStack gap="0" alignItems="stretch">
-							{winners.map((option) => (
-								<HStack
-									key={option.id}
-									gap="2"
-									alignItems="center"
-									paddingBlock="0.5"
-								>
-									<span
-										className={css({
-											width: "1",
-											height: "1",
-											borderRadius: "full",
-											backgroundColor: "fg.subtle",
-											flexShrink: "0",
-										})}
-									/>
-									<span
-										className={css({
-											fontSize: "md",
-											fontWeight: "bold",
-											color: "fg.default",
-										})}
+				.with(
+					"PLAYER_SEASON_AWARD",
+					"TEAM_SEASON_AWARD",
+					"PLAYER_GAME_STAT_LEADER",
+					() => (
+						<VStack gap="1.5" alignItems="stretch">
+							<VStack gap="0" alignItems="stretch">
+								{winners.map((option) => (
+									<HStack
+										key={option.id}
+										gap="2"
+										alignItems="center"
+										paddingBlock="0.5"
 									>
-										{option.label}
-									</span>
-								</HStack>
-							))}
+										<span
+											className={css({
+												width: "1",
+												height: "1",
+												borderRadius: "full",
+												backgroundColor: "fg.subtle",
+												flexShrink: "0",
+											})}
+										/>
+										<span
+											className={css({
+												fontSize: "md",
+												fontWeight: "bold",
+												color: "fg.default",
+											})}
+										>
+											{option.label}
+										</span>
+									</HStack>
+								))}
+							</VStack>
+							<span className={subClass}>{callers}</span>
 						</VStack>
-						<span className={subClass}>{callers}</span>
-					</VStack>
-				))
+					),
+				)
 				.exhaustive()}
 		</VStack>
 	)

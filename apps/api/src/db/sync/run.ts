@@ -4,6 +4,7 @@ import { SYNCED_LEAGUES } from "./leagues"
 import { syncGameQuestions } from "./sync-game-questions"
 import { syncGames } from "./sync-games"
 import { syncPlayers } from "./sync-players"
+import { syncSeasonQuestions } from "./sync-season-questions"
 import { syncSeasons } from "./sync-seasons"
 import { syncTeams } from "./sync-teams"
 
@@ -30,6 +31,12 @@ export async function syncSportsData(): Promise<void> {
 		// page (/games/$gameId) surfaces as its hero question.
 		console.log(`[sync] ${config.leagueName} game questions...`)
 		await syncGameQuestions(league)
+
+		// Idempotent per question (see syncSeasonQuestions) - safe to run
+		// daily alongside everything above rather than needing its own
+		// season-boundary-detection logic.
+		console.log(`[sync] ${config.leagueName} season questions...`)
+		await syncSeasonQuestions(league)
 	}
 	console.log("[sync] done")
 }

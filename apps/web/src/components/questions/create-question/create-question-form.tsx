@@ -19,6 +19,7 @@ import { FormError } from "#/components/ui/form-error"
 import { MultiSelect } from "#/components/ui/select"
 import { TextInput } from "#/components/ui/text-input"
 import type {
+	AwardVerb,
 	QuestionShape,
 	SportsQuery,
 	StatAggregation,
@@ -172,6 +173,66 @@ function StatAggregationField({ form }: { form: CreateQuestionFormApi }) {
 	)
 }
 
+// player_season_award/team_season_award only - "win" for a genuine
+// single-winner race (MVP), "be" for a role/slot award (an All-NBA First
+// Team spot, a positional Gold Glove) where "who will win the AL Gold Glove
+// - 1B?" reads wrong and "who will be the AL Gold Glove - 1B?" is the
+// actually-correct phrasing - see AwardVerb on the questions table.
+function AwardVerbField({ form }: { form: CreateQuestionFormApi }) {
+	return (
+		<form.Field name="awardVerb">
+			{(field) => (
+				<VStack gap="1.5" alignItems="stretch">
+					<FieldLabel required>Win or be</FieldLabel>
+					<HStack gap="1.5">
+						{(
+							[
+								["win", "Win"],
+								["be", "Be"],
+							] as const
+						).map(([value, label]) => (
+							<button
+								key={value}
+								type="button"
+								aria-pressed={field.value === value}
+								onClick={() => field.onChange(value)}
+								className={cx(
+									css({
+										fontFamily: "mono",
+										fontSize: "2xs",
+										letterSpacing: "wide",
+										color: "fg.subtle",
+										border: "1px solid {colors.border.default}",
+										borderRadius: "sm",
+										padding: "{spacing.1} {spacing.2}",
+										cursor: "pointer",
+									}),
+									field.value === value &&
+										css({
+											color: "fg.default",
+											border: "1px solid {colors.border.emphasized}",
+										}),
+								)}
+							>
+								{label}
+							</button>
+						))}
+					</HStack>
+					<FieldHint>
+						"Win" for a single-winner race (MVP). "Be" for a role or slot (an
+						All-NBA First Team spot, a positional Gold Glove).
+					</FieldHint>
+					{field.meta.error && (
+						<span className={css({ fontSize: "xs", color: "fg.error" })}>
+							{field.meta.error}
+						</span>
+					)}
+				</VStack>
+			)}
+		</form.Field>
+	)
+}
+
 type Props = {
 	sports: SportsQuery["sports"]
 	isAdmin: boolean
@@ -207,6 +268,7 @@ export function CreateQuestionForm({ sports, isAdmin, lockedBallotId }: Props) {
 			subjectTeamId: undefined,
 			subjectPlayerId: undefined,
 			picksRequired: 1,
+			awardVerb: undefined,
 			eventClause: "",
 			awardName: "",
 			awardConferences: [],
@@ -251,6 +313,9 @@ export function CreateQuestionForm({ sports, isAdmin, lockedBallotId }: Props) {
 						subjectTeamId: values.subjectTeamId,
 						subjectPlayerId: values.subjectPlayerId,
 						picksRequired: values.picksRequired,
+						awardVerb: values.awardVerb
+							? (values.awardVerb.toUpperCase() as AwardVerb)
+							: undefined,
 						eventClause: values.eventClause || undefined,
 						awardName: values.awardName || undefined,
 						awardConferences: values.awardConferences,
@@ -327,6 +392,7 @@ export function CreateQuestionForm({ sports, isAdmin, lockedBallotId }: Props) {
 	const awardRookieOnly = form.useWatch("awardRookieOnly")
 	const eventClause = form.useWatch("eventClause")
 	const picksRequired = form.useWatch("picksRequired")
+	const awardVerb = form.useWatch("awardVerb")
 	// Reads the whole `ballot` value rather than a dotted "ballot.ballotId" path
 	// - see ballot-field.tsx's comment on why nested paths under this optional
 	// object don't type-check correctly with this form hook.
@@ -426,9 +492,11 @@ export function CreateQuestionForm({ sports, isAdmin, lockedBallotId }: Props) {
 		isGameTotalOU
 	const isPlayerNumeric = shape === "player_stat_numeric_guess"
 	const isTeamNumeric = shape === "team_stat_numeric_guess"
+	const isTeamSeasonNumeric = shape === "team_season_stat_numeric_guess"
 	const isPlayerVsPlayer = shape === "player_vs_player"
 	const isPlayerVsPlayerSeason = shape === "player_vs_player_season"
 	const isTeamVsTeam = shape === "team_vs_team"
+	const isGameStatLeader = shape === "player_game_stat_leader"
 	const isYesNo = shape === "yes_no_prop"
 	const isPlayerAward = shape === "player_season_award"
 	const isTeamAward = shape === "team_season_award"
@@ -531,6 +599,28 @@ export function CreateQuestionForm({ sports, isAdmin, lockedBallotId }: Props) {
 		awardRookieOnly,
 	])
 
+	// player_game_stat_leader's pool - both rosters of the picked game, no
+	// filters to narrow it further (unlike the award pool above, there's no
+	// real-world conference/division/position split a game-scoped stat leader
+	// could be narrowed by). Same auto-sync-into-options mechanism as
+	// PoolSummary/awardPoolItems above, so it needs the same stable-reference
+	// memoization to avoid retriggering PoolSummary's own sync effect every
+	// render.
+	const gameStatLeaderPoolItems: EntitySearchItem[] | null = useMemo(() => {
+		if (!isGameStatLeader || !gameTeamIds) return null
+		return players
+			.filter(
+				(player) =>
+					player.currentTeam && gameTeamIds.has(player.currentTeam.id),
+			)
+			.map((player) => ({
+				id: player.id,
+				label: player.name,
+				kind: "player" as const,
+				meta: player.currentTeam?.abbreviation,
+			}))
+	}, [isGameStatLeader, gameTeamIds, players])
+
 	// Distinct conference/division/position values actually present in the
 	// picked league's own roster - a plain dropdown of real options rather
 	// than a freeform text field, even though the underlying columns are
@@ -629,7 +719,8 @@ export function CreateQuestionForm({ sports, isAdmin, lockedBallotId }: Props) {
 		if (
 			next === "player_season_stat_over_under" ||
 			next === "team_season_stat_over_under" ||
-			next === "player_vs_player_season"
+			next === "player_vs_player_season" ||
+			next === "team_season_stat_numeric_guess"
 		) {
 			form.setValue("gameId", undefined)
 			form.setValue("locksAt", "")
@@ -641,6 +732,7 @@ export function CreateQuestionForm({ sports, isAdmin, lockedBallotId }: Props) {
 		form.setValue("subjectTeamId", undefined)
 		form.setValue("subjectPlayerId", undefined)
 		form.setValue("picksRequired", 1)
+		form.setValue("awardVerb", undefined)
 		form.setValue("eventClause", "")
 		form.setValue("awardName", "")
 		form.setValue("awardConferences", [])
@@ -774,6 +866,20 @@ export function CreateQuestionForm({ sports, isAdmin, lockedBallotId }: Props) {
 					})
 				: null,
 		)
+		.with("team_season_stat_numeric_guess", (s) =>
+			selectedTeamName && statName
+				? generateQuestionTitle({
+						shape: s,
+						teamName: selectedTeamName,
+						statName,
+						// Preview-only approximation - this form has no season-year
+						// fetch of its own (nothing else here needs one), and the
+						// generated text is a prefill the creator can still edit, same
+						// as every other shape's title here.
+						year: new Date().getFullYear(),
+					})
+				: null,
+		)
 		.with("player_vs_player", (s) => {
 			const [a, b] = options
 			return a?.label && b?.label && statName
@@ -808,6 +914,17 @@ export function CreateQuestionForm({ sports, isAdmin, lockedBallotId }: Props) {
 					})
 				: null,
 		)
+		.with("player_game_stat_leader", (s) =>
+			selectedGame && statName
+				? generateQuestionTitle({
+						shape: s,
+						awayTeamName: selectedGame.awayTeam.name,
+						homeTeamName: selectedGame.homeTeam.name,
+						statName,
+						gameDate: selectedGame.startsAt,
+					})
+				: null,
+		)
 		.with("yes_no_prop", (s) =>
 			eventClause.trim()
 				? generateQuestionTitle({
@@ -819,10 +936,11 @@ export function CreateQuestionForm({ sports, isAdmin, lockedBallotId }: Props) {
 				: null,
 		)
 		.with("player_season_award", "team_season_award", (s) =>
-			awardName.trim() && picksRequired
+			awardName.trim() && picksRequired && awardVerb
 				? generateQuestionTitle({
 						shape: s,
 						awardName,
+						verb: awardVerb,
 						picksRequired,
 						awardConferences,
 						awardDivisions,
@@ -866,20 +984,25 @@ export function CreateQuestionForm({ sports, isAdmin, lockedBallotId }: Props) {
 
 				{hasSelectedType && (
 					<>
-						{(isAnyOU || isPlayerNumeric || isTeamNumeric) && (
+						{(isAnyOU ||
+							isPlayerNumeric ||
+							isTeamNumeric ||
+							isTeamSeasonNumeric) && (
 							<Section label={isAnyOU ? "The number" : "The stat"} required>
 								<Card>
 									<Card.Body>
 										<VStack gap="3.5" alignItems="stretch">
 											<LeagueField form={form} sports={sports} />
-											{!isPlayerSeasonOU && !isTeamSeasonOU && (
-												<GameField
-													form={form}
-													leagueId={leagueId}
-													selectedGame={selectedGame}
-													required
-												/>
-											)}
+											{!isPlayerSeasonOU &&
+												!isTeamSeasonOU &&
+												!isTeamSeasonNumeric && (
+													<GameField
+														form={form}
+														leagueId={leagueId}
+														selectedGame={selectedGame}
+														required
+													/>
+												)}
 											{leagueId ? (
 												<>
 													<StatPicker
@@ -894,7 +1017,11 @@ export function CreateQuestionForm({ sports, isAdmin, lockedBallotId }: Props) {
 																		? "PLAYER"
 																		: "TEAM"),
 														)}
-														catalogOnly={isPlayerNumeric || isTeamNumeric}
+														catalogOnly={
+															isPlayerNumeric ||
+															isTeamNumeric ||
+															isTeamSeasonNumeric
+														}
 													/>
 													{isAnyOU && (
 														<div className={css({ width: "64" })}>
@@ -940,7 +1067,8 @@ export function CreateQuestionForm({ sports, isAdmin, lockedBallotId }: Props) {
 														isPlayerSeasonOU ||
 														isTeamSeasonOU ||
 														isPlayerNumeric ||
-														isTeamNumeric) && (
+														isTeamNumeric ||
+														isTeamSeasonNumeric) && (
 														<SubjectPicker
 															form={form}
 															teams={scopedTeams}
@@ -1063,6 +1191,51 @@ export function CreateQuestionForm({ sports, isAdmin, lockedBallotId }: Props) {
 											>
 												The two options are the game's own home and away teams -
 												nothing to configure once a game's picked.
+											</p>
+										</VStack>
+									</Card.Body>
+								</Card>
+							</Section>
+						)}
+
+						{isGameStatLeader && (
+							<Section label="The stat leader" required>
+								<Card>
+									<Card.Body>
+										<VStack gap="3.5" alignItems="stretch">
+											<LeagueField form={form} sports={sports} />
+											<GameField
+												form={form}
+												leagueId={leagueId}
+												selectedGame={selectedGame}
+												required
+											/>
+											<StatPicker
+												form={form}
+												stats={stats.filter(
+													(s) =>
+														s.appliesTo === "BOTH" || s.appliesTo === "PLAYER",
+												)}
+												catalogOnly
+											/>
+											{gameStatLeaderPoolItems === null ? (
+												<FieldHint>Pick a game to see the pool.</FieldHint>
+											) : (
+												<PoolSummary
+													form={form}
+													items={gameStatLeaderPoolItems}
+													scopeLabel={
+														selectedGame
+															? `${selectedGame.awayTeam.name} @ ${selectedGame.homeTeam.name}`
+															: ""
+													}
+												/>
+											)}
+											<p
+												className={css({ fontSize: "xs", color: "fg.subtle" })}
+											>
+												The pool is both teams' rosters - nothing to curate once
+												a game's picked.
 											</p>
 										</VStack>
 									</Card.Body>
@@ -1368,6 +1541,7 @@ export function CreateQuestionForm({ sports, isAdmin, lockedBallotId }: Props) {
 													</TextInput>
 												)}
 											</form.Field>
+											<AwardVerbField form={form} />
 											<div className={css({ width: "64" })}>
 												<form.Field name="picksRequired">
 													{(field) => (
