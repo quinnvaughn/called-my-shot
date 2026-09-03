@@ -110,7 +110,8 @@ type Connection<T> = {
 // One value per concrete kind of question the app supports - replaces the
 // old QuestionType + QuestionCategory + NumericSubjectType + open-field-
 // toggle combination. Each shape fully determines its required fields and
-// its generated title (see generateQuestionTitle in lib/question-title.ts).
+// its suggested title (see generateQuestionTitle in
+// packages/schemas/src/question-title.ts).
 export const QuestionShape = builder.enumType("QuestionShape", {
 	values: {
 		PLAYER_STAT_OVER_UNDER: { value: "player_stat_over_under" },

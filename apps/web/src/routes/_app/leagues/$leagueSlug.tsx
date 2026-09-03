@@ -1,0 +1,130 @@
+import {
+	createFileRoute,
+	notFound,
+	Outlet,
+	redirect,
+} from "@tanstack/react-router"
+import { FaRegTimesCircle } from "react-icons/fa"
+import { css } from "styled-system/css"
+import { VStack } from "styled-system/jsx"
+import { NotFound } from "#/components/ui/not-found"
+import { PageHeader } from "#/components/ui/page-header"
+import { Tabs } from "#/components/ui/tabs"
+import { LeagueByIdDocument } from "#/graphql/queries/sports"
+import { gamesTodayLabel } from "#/lib/game-status"
+import { isUuid } from "#/lib/uuid"
+
+export const Route = createFileRoute("/_app/leagues/$leagueSlug")({
+	component: RouteComponent,
+	notFoundComponent: LeagueNotFound,
+	staleTime: 0,
+	// Resolves the room's slug against the league list _app already put in
+	// context, so the id every league-scoped query underneath still wants
+	// costs no extra request. Runs in beforeLoad rather than the loader
+	// because the tab loaders below need that id and would otherwise race
+	// this one.
+	beforeLoad: ({ context, params, location }) => {
+		const bySlug = context.leagues.find((l) => l.slug === params.leagueSlug)
+		if (bySlug) return { league: bySlug }
+
+		// Rooms were addressed by uuid before they moved to slugs, so links
+		// shared back then still land here. Rewriting the pathname rather than
+		// redirecting to the bare room preserves the tab and its search params,
+		// and a 301 from the server (thrown here, before any html renders) is
+		// what lets a crawler follow through to the meta tags below.
+		const byId = isUuid(params.leagueSlug)
+			? context.leagues.find((l) => l.id === params.leagueSlug)
+			: undefined
+		if (byId) {
+			throw redirect({
+				href:
+					location.pathname.replace(params.leagueSlug, byId.slug) +
+					location.searchStr,
+				statusCode: 301,
+			})
+		}
+
+		throw notFound()
+	},
+	loader: async ({ context }) => {
+		const { data } = await context.apolloClient.query({
+			query: LeagueByIdDocument,
+			variables: { id: context.league.id },
+			fetchPolicy: "network-only",
+		})
+		if (!data?.league) throw notFound()
+		return { league: data.league, currentSeason: data.currentSeason ?? null }
+	},
+	head: ({ loaderData }) => {
+		const league = loaderData?.league
+		if (!league) return {}
+
+		const title = `${league.name} · Called My Shot`
+		const description = `Every ${league.name} call on the board - game props, season awards, and where the crowd is wrong.`
+		// Canonical slug url even when the request arrived on a uuid, so the
+		// old links consolidate onto this one rather than being indexed twice.
+		const url = `https://calledmyshot.com/leagues/${league.slug}`
+
+		return {
+			meta: [
+				{ title },
+				{ name: "description", content: description },
+				{ property: "og:title", content: title },
+				{ property: "og:description", content: description },
+				{ property: "og:url", content: url },
+				{ name: "twitter:title", content: title },
+				{ name: "twitter:description", content: description },
+				{ name: "twitter:url", content: url },
+			],
+		}
+	},
+})
+
+const TAB_ITEMS = [
+	{ to: "/leagues/$leagueSlug/games", label: "Games" },
+	{ to: "/leagues/$leagueSlug/season", label: "Season" },
+	{ to: "/leagues/$leagueSlug/feed", label: "Feed" },
+] as const
+
+function LeagueNotFound() {
+	return (
+		<NotFound
+			icon={<FaRegTimesCircle size={24} />}
+			eyebrowText="League"
+			heading="This league doesn't exist"
+			subtitle="Double check the link, or pick a league from the sidebar."
+			link={{ text: "Back home", url: "/home" }}
+		/>
+	)
+}
+
+function RouteComponent() {
+	const { league, currentSeason } = Route.useLoaderData()
+	const { leagueSlug } = Route.useParams()
+
+	return (
+		<VStack
+			gap="6"
+			alignItems="stretch"
+			className={css({ maxWidth: "3xl" })}
+		>
+			<PageHeader
+				title={league.name}
+				subtitle={[
+					currentSeason
+						? `${league.abbreviation} · ${currentSeason.displayName}`
+						: league.abbreviation,
+					gamesTodayLabel(league.gamesTodayCount),
+				].join(" · ")}
+			/>
+			<Tabs.List>
+				{TAB_ITEMS.map((item) => (
+					<Tabs.LinkTrigger key={item.to} to={item.to} params={{ leagueSlug }}>
+						{item.label}
+					</Tabs.LinkTrigger>
+				))}
+			</Tabs.List>
+			<Outlet />
+		</VStack>
+	)
+}

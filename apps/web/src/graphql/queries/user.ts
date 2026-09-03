@@ -18,6 +18,7 @@ export const UserProfileDocument = graphql(`
 					id
 					name
 					abbreviation
+					slug
 				}
 				totalPoints
 				rank

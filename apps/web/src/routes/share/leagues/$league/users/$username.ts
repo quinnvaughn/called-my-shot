@@ -4,7 +4,7 @@ import { apiUrl } from "#/env.server"
 // League-scoped sibling of /share/users/$username - see that route for why
 // this proxies rather than pointing the browser at the api directly.
 export const Route = createFileRoute(
-	"/share/leagues/$leagueId/users/$username",
+	"/share/leagues/$league/users/$username",
 )({
 	server: {
 		handlers: {
@@ -13,7 +13,7 @@ export const Route = createFileRoute(
 				try {
 					upstream = await fetch(
 						apiUrl(
-							`/share/users/${params.username}/leagues/${params.leagueId}.png`,
+							`/share/users/${params.username}/leagues/${params.league}.png`,
 						),
 					)
 				} catch {

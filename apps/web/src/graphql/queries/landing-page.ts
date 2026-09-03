@@ -6,6 +6,7 @@ export const LandingPageDocument = graphql(`
 			id
 			name
 			abbreviation
+			slug
 		}
 		questions(sort: CLOSING_SOON, first: 6, isOfficial: true) {
 			items {

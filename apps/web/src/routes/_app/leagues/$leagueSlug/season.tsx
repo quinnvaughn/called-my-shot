@@ -6,13 +6,13 @@ import { QuestionCard } from "#/components/questions/question-card"
 import { EmptyState } from "#/components/ui/empty-state"
 import { LeagueSeasonDocument } from "#/graphql/queries/sports"
 
-export const Route = createFileRoute("/_app/leagues/$leagueId/season")({
+export const Route = createFileRoute("/_app/leagues/$leagueSlug/season")({
 	component: RouteComponent,
 	staleTime: 0,
-	loader: async ({ context, params }) => {
+	loader: async ({ context }) => {
 		const { data } = await context.apolloClient.query({
 			query: LeagueSeasonDocument,
-			variables: { leagueId: params.leagueId },
+			variables: { leagueId: context.league.id },
 			fetchPolicy: "network-only",
 		})
 		return {

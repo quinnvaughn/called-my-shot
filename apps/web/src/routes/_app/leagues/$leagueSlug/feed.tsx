@@ -1,5 +1,5 @@
 import { useApolloClient } from "@apollo/client/react"
-import { createFileRoute, useLoaderData } from "@tanstack/react-router"
+import { createFileRoute } from "@tanstack/react-router"
 import { useEffect, useRef, useState } from "react"
 import { VStack } from "styled-system/jsx"
 import {
@@ -58,14 +58,14 @@ function excludeSettled(sort: QuestionSortOrder): boolean {
 	return sort !== "CLOSING_SOON"
 }
 
-export const Route = createFileRoute("/_app/leagues/$leagueId/feed")({
+export const Route = createFileRoute("/_app/leagues/$leagueSlug/feed")({
 	component: RouteComponent,
 	staleTime: 0,
-	loader: async ({ context, params }) => {
+	loader: async ({ context }) => {
 		const { data } = await context.apolloClient.query({
 			query: LeagueFeedDocument,
 			variables: {
-				leagueId: params.leagueId,
+				leagueId: context.league.id,
 				first: PAGE_SIZE,
 				after: null,
 				sort: "CLOSING_SOON",
@@ -94,10 +94,12 @@ const PAGE_SIZE = 10
 // cross-league home feed used, scoped to one league instead of site-wide -
 // no league-selector tab here, you're already in this league's room.
 function RouteComponent() {
-	const { leagueId } = Route.useParams()
 	const { items: initialItems, pageInfo: initialPageInfo } =
 		Route.useLoaderData()
-	const { league } = useLoaderData({ from: "/_app/leagues/$leagueId" })
+	// The room's own row, resolved from the url slug one level up - the feed
+	// queries below are league-scoped by id, not slug.
+	const { league } = Route.useRouteContext()
+	const leagueId = league.id
 	const client = useApolloClient()
 
 	const [search, setSearch] = useState("")
@@ -205,7 +207,7 @@ function RouteComponent() {
 				value={search}
 				onValueChange={handleSearchChange}
 				onSelectTeam={handleSelectTeam}
-				placeholder={`Search${league?.name ? ` ${league.name}` : ""} questions…`}
+				placeholder={`Search ${league.name} questions…`}
 			/>
 
 			<SortSwitcher sorts={SORTS} active={sort} onChange={setSort} />

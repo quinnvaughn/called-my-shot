@@ -10,7 +10,16 @@ import {
 	LeagueGameWindowsDocument,
 } from "#/graphql/queries/sports"
 
-export const Route = createFileRoute("/_app/leagues/$leagueId/games")({
+// Stands in for a league with nothing synced yet - no window to step
+// through, so the stepper renders its own empty state instead.
+const EMPTY_RESULT = {
+	window: { key: "", label: "No games scheduled", sublabel: null },
+	prevKey: null,
+	nextKey: null,
+	groups: [],
+}
+
+export const Route = createFileRoute("/_app/leagues/$leagueSlug/games")({
 	component: RouteComponent,
 	staleTime: 0,
 	validateSearch: (
@@ -20,29 +29,25 @@ export const Route = createFileRoute("/_app/leagues/$leagueId/games")({
 			typeof search.windowKey === "string" ? search.windowKey : undefined,
 	}),
 	loaderDeps: ({ search }) => ({ windowKey: search.windowKey }),
-	loader: async ({ context, params, deps }) => {
+	loader: async ({ context, deps }) => {
+		const leagueId = context.league.id
 		const [{ data }, { data: windowsData }] = await Promise.all([
 			context.apolloClient.query({
 				query: LeagueGamesForWindowDocument,
 				variables: {
-					leagueId: params.leagueId,
+					leagueId,
 					windowKey: deps.windowKey ?? null,
 				},
 				fetchPolicy: "network-only",
 			}),
 			context.apolloClient.query({
 				query: LeagueGameWindowsDocument,
-				variables: { leagueId: params.leagueId },
+				variables: { leagueId },
 				fetchPolicy: "network-only",
 			}),
 		])
 		return {
-			result: data?.leagueGamesForWindow ?? {
-				window: { key: "", label: "No games scheduled", sublabel: null },
-				prevKey: null,
-				nextKey: null,
-				groups: [],
-			},
+			result: data?.leagueGamesForWindow ?? EMPTY_RESULT,
 			windows: windowsData?.leagueGameWindows ?? [],
 		}
 	},
@@ -50,7 +55,7 @@ export const Route = createFileRoute("/_app/leagues/$leagueId/games")({
 
 function RouteComponent() {
 	const { result, windows } = Route.useLoaderData()
-	const { league } = useLoaderData({ from: "/_app/leagues/$leagueId" })
+	const { league } = useLoaderData({ from: "/_app/leagues/$leagueSlug" })
 	const navigate = Route.useNavigate()
 
 	const hasGames = result.groups.some((group) => group.games.length > 0)

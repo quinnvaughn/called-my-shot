@@ -349,8 +349,8 @@ function SidebarNav({
 							{leagues.map((league) => (
 								<Link
 									key={league.id}
-									to="/leagues/$leagueId"
-									params={{ leagueId: league.id }}
+									to="/leagues/$leagueSlug"
+									params={{ leagueSlug: league.slug }}
 									onClick={onNavigate}
 									activeProps={{
 										className: css({

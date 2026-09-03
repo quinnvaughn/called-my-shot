@@ -11,8 +11,8 @@ import { ballotQuestionSchema } from "./ballots"
 // One value per concrete kind of question the app supports - replaces the
 // old type + category + numericSubjectType + optionsOpenField/openFieldKind
 // combination. Each shape fully determines its required fields below and its
-// generated title template (see generateQuestionTitle in
-// apps/api/src/lib/question-title.ts) - there's no generic axis left that
+// suggested title template (see generateQuestionTitle in
+// ./question-title.ts) - there's no generic axis left that
 // could combine into an invalid or nonsensical question.
 // Display order matters here - QuestionTypePicker (apps/web/src/components/
 // questions/create-question/question-type-picker.tsx) renders the shape

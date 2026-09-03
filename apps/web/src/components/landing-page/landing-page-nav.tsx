@@ -9,7 +9,7 @@ import { Brand } from "../ui/brand"
 import { Button } from "../ui/button"
 import { Dropdown } from "../ui/dropdown"
 
-type League = { id: string; name: string; abbreviation: string }
+type League = { id: string; name: string; abbreviation: string; slug: string }
 
 type Props = {
 	leagues: League[]
@@ -84,8 +84,8 @@ export function LandingPageNav({ leagues }: Props) {
 								{leagues.map((league) => (
 									<Link
 										key={league.id}
-										to="/leagues/$leagueId"
-										params={{ leagueId: league.id }}
+										to="/leagues/$leagueSlug"
+										params={{ leagueSlug: league.slug }}
 										className={cx(dropdownItem, css({ display: "block" }))}
 									>
 										{league.name}
@@ -173,8 +173,8 @@ export function LandingPageNav({ leagues }: Props) {
 						{leagues.map((league) => (
 							<Link
 								key={league.id}
-								to="/leagues/$leagueId"
-								params={{ leagueId: league.id }}
+								to="/leagues/$leagueSlug"
+								params={{ leagueSlug: league.slug }}
 								className={cx(dropdownItem, css({ display: "block" }))}
 							>
 								{league.name}

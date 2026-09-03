@@ -10,6 +10,7 @@ type Props = {
 		id: string
 		name: string
 		abbreviation: string
+		slug: string
 		gamesTodayCount: number
 		liveGameCount: number
 		nextLockAt: string | null
@@ -33,7 +34,7 @@ export function LeagueRoomCard({ league }: Props) {
 			: "Nothing open right now"
 
 	return (
-		<Link to="/leagues/$leagueId" params={{ leagueId: league.id }}>
+		<Link to="/leagues/$leagueSlug" params={{ leagueSlug: league.slug }}>
 			<Card interactive>
 				<Card.Body>
 					<VStack gap="3" alignItems="stretch">

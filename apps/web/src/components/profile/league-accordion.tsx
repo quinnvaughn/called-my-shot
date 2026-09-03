@@ -9,7 +9,7 @@ import { StatGrid, statGridItems } from "#/components/profile/stat-grid"
 import { questionShapeLabel } from "#/lib/question-labels"
 
 type LeagueStats = {
-	league: { id: string; name: string; abbreviation: string }
+	league: { id: string; name: string; abbreviation: string; slug: string }
 	totalPoints: number
 	rank: number
 	accuracy: number | null
@@ -78,7 +78,7 @@ export function LeagueAccordion({ stats, user }: Props) {
 				>
 					<StatGrid items={statGridItems(stats)} />
 					<ShareImagePanel
-						src={`/share/leagues/${stats.league.id}/users/${user.username}`}
+						src={`/share/leagues/${stats.league.slug}/users/${user.username}`}
 						filename={`${user.username}-${stats.league.abbreviation.toLowerCase()}-stats.png`}
 						label={`Share my ${stats.league.abbreviation} stats`}
 						shareType="league"

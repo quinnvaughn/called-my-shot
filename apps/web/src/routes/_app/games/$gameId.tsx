@@ -161,8 +161,8 @@ function RouteComponent() {
 	return (
 		<VStack gap="6" alignItems="stretch" className={css({ maxWidth: "2xl" })}>
 			<Link
-				to="/leagues/$leagueId/games"
-				params={{ leagueId: game.league.id }}
+				to="/leagues/$leagueSlug/games"
+				params={{ leagueSlug: game.league.slug }}
 				search={{ windowKey: game.windowKey }}
 				className={css({
 					display: "inline-flex",

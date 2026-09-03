@@ -125,6 +125,7 @@ export const GameByIdDocument = graphql(`
 			league {
 				id
 				abbreviation
+				slug
 			}
 			homeTeam {
 				id

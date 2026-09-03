@@ -97,8 +97,8 @@ function RouteComponent() {
 	return (
 		<VStack gap="6" alignItems="stretch" className={css({ maxWidth: "2xl" })}>
 			<Link
-				to="/leagues/$leagueId/season"
-				params={{ leagueId: ballot.league.id }}
+				to="/leagues/$leagueSlug/season"
+				params={{ leagueSlug: ballot.league.slug }}
 				className={css({
 					display: "inline-flex",
 					alignItems: "center",

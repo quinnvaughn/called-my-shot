@@ -18,7 +18,8 @@ import { users } from "./users"
 // openFieldKind combination - one value per concrete kind of question the
 // app supports, each fully determining its required fields, its
 // questionOptions/pool mechanism, and its generated title template (see
-// generateQuestionTitle in lib/question-title.ts). No generic axes left to
+// generateQuestionTitle in packages/schemas/src/question-title.ts). No
+// generic axes left to
 // combine incorrectly.
 export const questionShape = pgEnum("question_shape", [
 	"player_stat_over_under",
@@ -97,10 +98,12 @@ export const awardVerb = pgEnum("award_verb", ["win", "be"])
 export const questions = pgTable("questions", {
 	id: uuid("id").primaryKey().defaultRandom(),
 	shape: questionShape("shape").notNull(),
-	// Server-generated from shape's structured fields at creation time (see
-	// generateQuestionTitle in lib/question-title.ts) - never trusted from
-	// client input, so every question's title is consistent in format/voice
-	// and there's no freeform text to moderate.
+	// Creator-supplied free text. generateQuestionTitle
+	// (packages/schemas/src/question-title.ts) only prefills the create form's
+	// field from the shape's structured values - the creator can edit it from
+	// there and the server stores whatever it's sent, so this is the one
+	// moderatable string on a question. editQuestionTitle is how an admin
+	// revises it after the fact, without voiding and recreating the question.
 	title: text("title").notNull(),
 	// Nullable + set null on delete: deleting the account that created a
 	// question shouldn't take the question (and everyone else's calls on it)

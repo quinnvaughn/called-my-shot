@@ -17,6 +17,7 @@ import {
 	USER_SHARE_CARD_SIZE,
 } from "../lib/share-cards/user-card"
 import { renderShareImage } from "../lib/share-image"
+import { isUuid } from "../lib/uuid"
 
 // Plain REST, not GraphQL - these are consumed as <img src> and by the
 // frontend's copy-to-clipboard flow (a plain `fetch` for the PNG bytes),
@@ -27,8 +28,8 @@ export function registerShareRoutes(app: Express) {
 		await sendUserShareCard(res, req.params.username, null)
 	})
 
-	app.get("/share/users/:username/leagues/:leagueId.png", async (req, res) => {
-		await sendUserShareCard(res, req.params.username, req.params.leagueId)
+	app.get("/share/users/:username/leagues/:league.png", async (req, res) => {
+		await sendUserShareCard(res, req.params.username, req.params.league)
 	})
 
 	app.get("/share/calls/:callId.png", async (req, res) => {
@@ -123,10 +124,14 @@ function buildPickLabel(call: {
 	return selection.option.label
 }
 
+// league is a slug ("nfl") on links built today and a uuid on ones already
+// shared before the league room moved to slug urls. Both stay valid here
+// rather than being redirected - this endpoint is consumed as <img src>, so
+// there are no meta tags to preserve and nothing to gain from a round trip.
 async function sendUserShareCard(
 	res: Response,
 	username: string,
-	leagueId: string | null,
+	leagueRef: string | null,
 ) {
 	const user = await db.query.users.findFirst({ where: { username } })
 	if (!user) {
@@ -135,14 +140,16 @@ async function sendUserShareCard(
 	}
 
 	let scopeTag = "ALL-TIME TRACK RECORD"
-	if (leagueId) {
+	let leagueId: string | null = null
+	if (leagueRef) {
 		const league = await db.query.leagues.findFirst({
-			where: { id: leagueId },
+			where: isUuid(leagueRef) ? { id: leagueRef } : { slug: leagueRef },
 		})
 		if (!league) {
 			res.status(404).end()
 			return
 		}
+		leagueId = league.id
 		scopeTag = `${league.abbreviation.toUpperCase()} TRACK RECORD`
 	}
 

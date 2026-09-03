@@ -14,6 +14,7 @@ export const BallotByIdDocument = graphql(`
 				id
 				name
 				abbreviation
+				slug
 			}
 			memberCount
 			viewerCalledCount
