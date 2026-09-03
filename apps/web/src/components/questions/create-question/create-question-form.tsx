@@ -32,7 +32,7 @@ import {
 	TeamsByLeagueDocument,
 } from "#/graphql/queries/sports"
 import { track } from "#/lib/analytics"
-import { formatGuess } from "#/lib/field-signal"
+import { formatGuess, isRateToleranceTier } from "#/lib/field-signal"
 import { useForm } from "#/lib/form/use-form"
 import { BallotField } from "./ballot-field"
 import type { EntitySearchItem } from "./entity-search-field"
@@ -117,8 +117,8 @@ function Section({
 	)
 }
 
-// player_season_stat_over_under/team_season_stat_over_under/
-// player_vs_player_season only - none of these have an automatic reading of
+// The season-scoped stat shapes only (the two season over/unders and the
+// two season head-to-heads) - none of these have an automatic reading of
 // their number as a season total vs. a per-game rate, so it's its own
 // required choice rather than an assumption baked into the phrasing (same
 // "no fucking ambiguity" reasoning as the game/season shape split itself).
@@ -496,6 +496,7 @@ export function CreateQuestionForm({ sports, isAdmin, lockedBallotId }: Props) {
 	const isPlayerVsPlayer = shape === "player_vs_player"
 	const isPlayerVsPlayerSeason = shape === "player_vs_player_season"
 	const isTeamVsTeam = shape === "team_vs_team"
+	const isTeamVsTeamSeason = shape === "team_vs_team_season"
 	const isGameStatLeader = shape === "player_game_stat_leader"
 	const isYesNo = shape === "yes_no_prop"
 	const isPlayerAward = shape === "player_season_award"
@@ -697,18 +698,19 @@ export function CreateQuestionForm({ sports, isAdmin, lockedBallotId }: Props) {
 			input?.focus({ preventScroll: true })
 		})
 		// Shape-specific fields from whatever was previously selected shouldn't
-		// leak into the newly chosen shape's submission. player_vs_player gets
-		// its 2 fixed slots pre-seeded here rather than grown/shrunk by
-		// OptionList itself (see its exactCount prop) - there's never a valid
-		// state with anything other than exactly 2 for this shape.
+		// leak into the newly chosen shape's submission. The head-to-head
+		// shapes get their 2 fixed slots pre-seeded here rather than grown/
+		// shrunk by OptionList itself (see its exactCount prop) - there's never
+		// a valid state with anything other than exactly 2 for these.
 		form.setValue(
 			"options",
-			next === "player_vs_player" || next === "player_vs_player_season"
+			next === "player_vs_player" ||
+				next === "player_vs_player_season" ||
+				next === "team_vs_team_season"
 				? [{ label: "" }, { label: "" }]
 				: [],
 		)
-		// player_season_stat_over_under/team_season_stat_over_under/
-		// player_vs_player_season never take a game at all (that's the whole
+		// The season-scoped shapes never take a game at all (that's the whole
 		// reason they're separate shapes from their game-scoped counterparts) -
 		// GameField won't even render for them, so a stale gameId/locksAt from
 		// whatever was previously selected has to be cleared here instead of
@@ -720,6 +722,7 @@ export function CreateQuestionForm({ sports, isAdmin, lockedBallotId }: Props) {
 			next === "player_season_stat_over_under" ||
 			next === "team_season_stat_over_under" ||
 			next === "player_vs_player_season" ||
+			next === "team_vs_team_season" ||
 			next === "team_season_stat_numeric_guess"
 		) {
 			form.setValue("gameId", undefined)
@@ -757,8 +760,9 @@ export function CreateQuestionForm({ sports, isAdmin, lockedBallotId }: Props) {
 	// to a fixed 3 decimals - a trailing zero is meaningful there (".300" is a
 	// real, distinct value from ".3"), so a bare number embedded straight into
 	// the title/option labels would silently misrepresent it. See formatGuess
-	// in #/lib/field-signal.
-	const isRateStat = selectedStat?.toleranceTier?.toleranceMode === "ABSOLUTE"
+	// in #/lib/field-signal. Also picks "more" vs "a higher" for the season
+	// head-to-head titles below.
+	const isRateStat = isRateToleranceTier(selectedStat?.toleranceTier)
 	const selectedPlayerName = subjectPlayerId
 		? players.find((player) => player.id === subjectPlayerId)?.name
 		: undefined
@@ -888,6 +892,7 @@ export function CreateQuestionForm({ sports, isAdmin, lockedBallotId }: Props) {
 						playerAName: a.label,
 						playerBName: b.label,
 						statName,
+						isRateStat,
 						gameDate: selectedGame?.startsAt,
 					})
 				: null
@@ -901,6 +906,7 @@ export function CreateQuestionForm({ sports, isAdmin, lockedBallotId }: Props) {
 						playerBName: b.label,
 						statName,
 						statAggregation,
+						isRateStat,
 					})
 				: null
 		})
@@ -914,6 +920,19 @@ export function CreateQuestionForm({ sports, isAdmin, lockedBallotId }: Props) {
 					})
 				: null,
 		)
+		.with("team_vs_team_season", (s) => {
+			const [a, b] = options
+			return a?.label && b?.label && statName && statAggregation
+				? generateQuestionTitle({
+						shape: s,
+						teamAName: a.label,
+						teamBName: b.label,
+						statName,
+						statAggregation,
+						isRateStat,
+					})
+				: null
+		})
 		.with("player_game_stat_leader", (s) =>
 			selectedGame && statName
 				? generateQuestionTitle({
@@ -1168,6 +1187,45 @@ export function CreateQuestionForm({ sports, isAdmin, lockedBallotId }: Props) {
 												exactCount={2}
 												rowLabels={["Player A", "Player B"]}
 											/>
+										</VStack>
+									</Card.Body>
+								</Card>
+							</Section>
+						)}
+
+						{isTeamVsTeamSeason && (
+							<Section label="The comparison" required>
+								<Card>
+									<Card.Body>
+										<VStack gap="3.5" alignItems="stretch">
+											<LeagueField form={form} sports={sports} />
+											<StatPicker
+												form={form}
+												stats={stats.filter(
+													(s) =>
+														s.appliesTo === "BOTH" || s.appliesTo === "TEAM",
+												)}
+											/>
+											<StatAggregationField form={form} />
+											<OptionList
+												form={form}
+												items={teams.map((team) => ({
+													id: team.id,
+													label: team.name,
+													kind: "team" as const,
+													meta: team.abbreviation,
+												}))}
+												rowPlaceholder="Team name"
+												addLabel="+ Add team"
+												exactCount={2}
+												rowLabels={["Team A", "Team B"]}
+											/>
+											<p
+												className={css({ fontSize: "xs", color: "fg.subtle" })}
+											>
+												Season-long, no game attached - any two teams in the
+												league, division rivals or not.
+											</p>
 										</VStack>
 									</Card.Body>
 								</Card>

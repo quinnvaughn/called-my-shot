@@ -60,6 +60,7 @@ export function resolvedAnswerSummary(
 			"PLAYER_VS_PLAYER",
 			"PLAYER_VS_PLAYER_SEASON",
 			"TEAM_VS_TEAM",
+			"TEAM_VS_TEAM_SEASON",
 			"YES_NO_PROP",
 			"PLAYER_AWARD_FINALISTS",
 			() => formatSingleSelection(question),

@@ -49,6 +49,7 @@ const BASE_POINTS_BY_GQL_SHAPE: Record<QuestionShape, number> = {
 	PLAYER_VS_PLAYER: BASE_POINTS_BY_SHAPE.player_vs_player,
 	PLAYER_VS_PLAYER_SEASON: BASE_POINTS_BY_SHAPE.player_vs_player_season,
 	TEAM_VS_TEAM: BASE_POINTS_BY_SHAPE.team_vs_team,
+	TEAM_VS_TEAM_SEASON: BASE_POINTS_BY_SHAPE.team_vs_team_season,
 	PLAYER_GAME_STAT_LEADER: BASE_POINTS_BY_SHAPE.player_game_stat_leader,
 	YES_NO_PROP: BASE_POINTS_BY_SHAPE.yes_no_prop,
 	PLAYER_SEASON_AWARD: BASE_POINTS_BY_SHAPE.player_season_award,
@@ -79,6 +80,7 @@ function isSeasonLongShape(shape: QuestionShape): boolean {
 		shape === "PLAYER_SEASON_STAT_OVER_UNDER" ||
 		shape === "TEAM_SEASON_STAT_OVER_UNDER" ||
 		shape === "PLAYER_VS_PLAYER_SEASON" ||
+		shape === "TEAM_VS_TEAM_SEASON" ||
 		shape === "PLAYER_SEASON_AWARD" ||
 		shape === "TEAM_SEASON_AWARD" ||
 		shape === "PLAYER_AWARD_FINALISTS" ||

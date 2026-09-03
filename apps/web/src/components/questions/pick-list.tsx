@@ -72,6 +72,7 @@ export function PickList({ call }: Props) {
 			"PLAYER_VS_PLAYER",
 			"PLAYER_VS_PLAYER_SEASON",
 			"TEAM_VS_TEAM",
+			"TEAM_VS_TEAM_SEASON",
 			"PLAYER_GAME_STAT_LEADER",
 			"YES_NO_PROP",
 			"PLAYER_AWARD_FINALISTS",

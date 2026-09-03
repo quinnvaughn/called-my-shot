@@ -75,6 +75,7 @@ export type QuestionCallShape =
 	| "player_vs_player"
 	| "player_vs_player_season"
 	| "team_vs_team"
+	| "team_vs_team_season"
 	| "player_game_stat_leader"
 	| "yes_no_prop"
 	| "player_season_award"
@@ -82,7 +83,7 @@ export type QuestionCallShape =
 	| "player_award_finalists"
 
 // Which cast-call layout a shape renders as - a much smaller axis than the
-// 11 shapes themselves, since casting only cares about the pick mechanic
+// full shape list, since casting only cares about the pick mechanic
 // (one numeric guess, exactly one option, or several options), not what the
 // question is actually about. player_season_award/team_season_award only
 // need the "multi" layout (picks list, shared/split conviction toggle) when
@@ -115,6 +116,7 @@ export function castCallBucketFor(
 			"player_vs_player",
 			"player_vs_player_season",
 			"team_vs_team",
+			"team_vs_team_season",
 			"player_game_stat_leader",
 			"yes_no_prop",
 			"player_award_finalists",

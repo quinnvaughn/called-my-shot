@@ -36,6 +36,7 @@ export const questionShapeLabel: Record<QuestionShape, string> = {
 	PLAYER_VS_PLAYER: "Player Game Head-to-Head",
 	PLAYER_VS_PLAYER_SEASON: "Player Season Head-to-Head",
 	TEAM_VS_TEAM: "Team vs Team",
+	TEAM_VS_TEAM_SEASON: "Team Season Head-to-Head",
 	PLAYER_GAME_STAT_LEADER: "Game Stat Leader",
 	YES_NO_PROP: "Yes/No",
 	PLAYER_SEASON_AWARD: "Player Season Award",
@@ -55,6 +56,7 @@ export const questionShapeIcon: Record<QuestionShape, IconType> = {
 	PLAYER_VS_PLAYER: FaUserGroup,
 	PLAYER_VS_PLAYER_SEASON: FaUserGroup,
 	TEAM_VS_TEAM: FaPeopleGroup,
+	TEAM_VS_TEAM_SEASON: FaPeopleGroup,
 	PLAYER_GAME_STAT_LEADER: FaRankingStar,
 	YES_NO_PROP: FaToggleOn,
 	PLAYER_SEASON_AWARD: FaTrophy,
@@ -110,6 +112,7 @@ export const shareCardShapeLabel: Record<QuestionShape, string> = {
 	PLAYER_VS_PLAYER: "Head-to-Head",
 	PLAYER_VS_PLAYER_SEASON: "Head-to-Head",
 	TEAM_VS_TEAM: "Game Outcome",
+	TEAM_VS_TEAM_SEASON: "Head-to-Head",
 	PLAYER_GAME_STAT_LEADER: "Stat Leader",
 	YES_NO_PROP: "Yes/No",
 	PLAYER_SEASON_AWARD: "Season Award",
@@ -145,6 +148,8 @@ export const questionShapeDescription: Record<QuestionShape, string> = {
 	PLAYER_VS_PLAYER_SEASON:
 		"Two named players, one stat, the whole season: who comes out ahead.",
 	TEAM_VS_TEAM: "A real matchup: who will win.",
+	TEAM_VS_TEAM_SEASON:
+		"Two teams, one stat, the whole season: who finishes ahead. More wins, more points, either way.",
 	PLAYER_GAME_STAT_LEADER:
 		"One stat, one game, both rosters: who leads it. Resolution can mark more than one player correct on a real tie.",
 	YES_NO_PROP:

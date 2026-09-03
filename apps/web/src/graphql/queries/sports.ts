@@ -101,6 +101,7 @@ export const StatsBySportDocument = graphql(`
 			toleranceTier {
 				id
 				toleranceMode
+				toleranceValue
 			}
 		}
 	}

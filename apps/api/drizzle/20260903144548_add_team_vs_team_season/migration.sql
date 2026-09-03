@@ -1,0 +1,1 @@
+ALTER TYPE "question_shape" ADD VALUE 'team_vs_team_season' BEFORE 'yes_no_prop';

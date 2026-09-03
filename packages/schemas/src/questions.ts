@@ -33,6 +33,7 @@ export const questionShapeSchema = z.enum([
 	"team_season_stat_numeric_guess",
 	"player_vs_player",
 	"player_vs_player_season",
+	"team_vs_team_season",
 	"player_game_stat_leader",
 	"yes_no_prop",
 	// Admin-only shapes grouped at the end - see ADMIN_ONLY_SHAPES below.
@@ -316,6 +317,46 @@ export const createQuestionSchema = z
 			})
 		}
 
+		// The exactly-2-named-sides rule the vs-shapes share
+		// (player_vs_player, player_vs_player_season, team_vs_team_season).
+		// Distinct from requirePool above: a pool is a curated list of any size
+		// where duplicates just mean a sloppy pool, while these shapes are a
+		// head-to-head - two sides, and the same side twice isn't a matchup at
+		// all. team_vs_team is not one of these; it derives its two sides from
+		// the picked game instead of submitting options.
+		function requireTwoDistinct(kind: "team" | "player") {
+			const idOf = (option: { teamId?: string; playerId?: string }) =>
+				kind === "player" ? option.playerId : option.teamId
+			const sides = data.options ?? []
+			if (sides.length !== 2) {
+				ctx.addIssue({
+					code: "custom",
+					path: ["options"],
+					message: `Pick exactly 2 ${kind}s`,
+				})
+			}
+			sides.forEach((option, index) => {
+				if (!idOf(option)) {
+					ctx.addIssue({
+						code: "custom",
+						path: ["options", index, "label"],
+						message: `Pick a real ${kind} from the list`,
+					})
+				}
+			})
+			if (
+				sides.length === 2 &&
+				idOf(sides[0] ?? {}) &&
+				idOf(sides[0] ?? {}) === idOf(sides[1] ?? {})
+			) {
+				ctx.addIssue({
+					code: "custom",
+					path: ["options", 1, "label"],
+					message: `Pick two different ${kind}s`,
+				})
+			}
+		}
+
 		function requireConferenceBeforeDivision() {
 			if (data.awardDivisions.length > 0 && data.awardConferences.length === 0) {
 				ctx.addIssue({
@@ -438,34 +479,16 @@ export const createQuestionSchema = z
 				if (matchedShape === "player_vs_player_season") {
 					requireStatAggregation()
 				}
-				const players = data.options ?? []
-				if (players.length !== 2) {
-					ctx.addIssue({
-						code: "custom",
-						path: ["options"],
-						message: "Pick exactly 2 players",
-					})
-				}
-				players.forEach((option, index) => {
-					if (!option.playerId) {
-						ctx.addIssue({
-							code: "custom",
-							path: ["options", index, "label"],
-							message: "Pick a real player from the list",
-						})
-					}
-				})
-				if (
-					players.length === 2 &&
-					players[0]?.playerId &&
-					players[0].playerId === players[1]?.playerId
-				) {
-					ctx.addIssue({
-						code: "custom",
-						path: ["options", 1, "label"],
-						message: "Pick two different players",
-					})
-				}
+				requireTwoDistinct("player")
+			})
+			// Season-long team head-to-head ("more wins: Celtics or 76ers?").
+			// Never takes a gameId - it spans the whole season, so unlike
+			// team_vs_team there is no synced game to derive it from, which is
+			// also why it is not admin-only: nothing to duplicate.
+			.with("team_vs_team_season", () => {
+				requireStat()
+				requireStatAggregation()
+				requireTwoDistinct("team")
 			})
 			.with("team_vs_team", () => {
 				requireGame()
@@ -613,6 +636,7 @@ export const castCallSchema = z
 				"player_vs_player",
 				"player_vs_player_season",
 				"team_vs_team",
+				"team_vs_team_season",
 				"yes_no_prop",
 				"player_award_finalists",
 				"player_game_stat_leader",
@@ -686,6 +710,7 @@ export const resolveQuestionSchema = z
 				"player_vs_player",
 				"player_vs_player_season",
 				"team_vs_team",
+				"team_vs_team_season",
 				"yes_no_prop",
 				"player_award_finalists",
 				() => {

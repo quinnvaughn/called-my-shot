@@ -17,6 +17,7 @@ export type QuestionShape =
 	| "player_vs_player"
 	| "player_vs_player_season"
 	| "team_vs_team"
+	| "team_vs_team_season"
 	| "yes_no_prop"
 	| "player_season_award"
 	| "team_season_award"
@@ -38,6 +39,7 @@ export const BASE_POINTS_BY_SHAPE: Record<QuestionShape, number> = {
 	player_vs_player: 150,
 	player_vs_player_season: 150,
 	team_vs_team: 150,
+	team_vs_team_season: 150,
 	player_stat_over_under: 150,
 	team_stat_over_under: 150,
 	// Same rate as the game-scoped pair above - still a straight 2-option pick
@@ -76,6 +78,7 @@ export const SEASON_LONG_SHAPES = new Set<QuestionShape>([
 	"player_season_stat_over_under",
 	"team_season_stat_over_under",
 	"player_vs_player_season",
+	"team_vs_team_season",
 	"player_season_award",
 	"team_season_award",
 	"player_award_finalists",

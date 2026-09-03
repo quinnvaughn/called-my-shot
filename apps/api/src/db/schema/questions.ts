@@ -31,6 +31,11 @@ export const questionShape = pgEnum("question_shape", [
 	"player_vs_player",
 	"player_vs_player_season",
 	"team_vs_team",
+	// Season-long team head-to-head ("more wins: Celtics or 76ers?") - two
+	// teams, one team season stat, gameId stays null. Not admin-only the way
+	// team_vs_team is: that one is derived 1:1 from a synced game and so can
+	// duplicate, while this spans a whole season and has no game behind it.
+	"team_vs_team_season",
 	"yes_no_prop",
 	"player_season_award",
 	"team_season_award",

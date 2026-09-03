@@ -124,6 +124,7 @@ export const QuestionShape = builder.enumType("QuestionShape", {
 		PLAYER_VS_PLAYER_SEASON: { value: "player_vs_player_season" },
 		YES_NO_PROP: { value: "yes_no_prop" },
 		TEAM_VS_TEAM: { value: "team_vs_team" },
+		TEAM_VS_TEAM_SEASON: { value: "team_vs_team_season" },
 		PLAYER_SEASON_AWARD: { value: "player_season_award" },
 		TEAM_SEASON_AWARD: { value: "team_season_award" },
 		PLAYER_AWARD_FINALISTS: { value: "player_award_finalists" },
@@ -1622,9 +1623,10 @@ const CreateQuestionInput = builder.inputType("CreateQuestionInput", {
 		locksAt: t.string({ required: true }),
 		isOfficial: t.boolean({ required: false }),
 
-		// player_vs_player (exactly 2), award pools (player_season_award/
-		// team_season_award), player_award_finalists (2+) - not sent for
-		// team_vs_team, which the resolver derives from the picked game
+		// player_vs_player and team_vs_team_season (exactly 2), award pools
+		// (player_season_award/team_season_award), player_award_finalists (2+) -
+		// not sent for team_vs_team, which the resolver derives from the picked
+		// game
 		options: t.field({
 			type: [CreateQuestionOptionInput],
 			required: false,
@@ -1637,7 +1639,8 @@ const CreateQuestionInput = builder.inputType("CreateQuestionInput", {
 		// *_over_under
 		ouLine: t.float({ required: false }),
 
-		// player_season_stat_over_under/team_season_stat_over_under
+		// Every season-scoped stat shape: the two season over/unders and the
+		// two season head-to-heads (player_vs_player_season/team_vs_team_season)
 		statAggregation: t.field({ type: StatAggregation, required: false }),
 
 		// player/team_stat_over_under, player/team_stat_numeric_guess
@@ -2491,6 +2494,19 @@ builder.mutationFields((t) => ({
 					}
 					requireStatAppliesTo("player")
 				})
+				.with("team_vs_team_season", () => {
+					const [a, b] = data.options ?? []
+					if (!a?.label || !b?.label) {
+						throw ValidationError.field("options", "Pick two teams")
+					}
+					if (!data.statAggregation) {
+						throw ValidationError.field(
+							"statAggregation",
+							"Say whether that's a total or a per-game average",
+						)
+					}
+					requireStatAppliesTo("team")
+				})
 				.with("team_vs_team", () => {
 					if (!homeTeamName || !awayTeamName) {
 						throw ValidationError.field("gameId", "Pick a game")
@@ -2622,6 +2638,7 @@ builder.mutationFields((t) => ({
 					.with(
 						"player_vs_player",
 						"player_vs_player_season",
+						"team_vs_team_season",
 						"player_award_finalists",
 						async () => {
 							const options = data.options ?? []

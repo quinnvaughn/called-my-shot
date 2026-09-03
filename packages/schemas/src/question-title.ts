@@ -80,6 +80,9 @@ export type TitleInput = WithGameDate &
 				playerAName: string
 				playerBName: string
 				statName: string
+				// See isRateStat on player_vs_player_season below - same "more" vs
+				// "a higher" choice, just scoped to one game.
+				isRateStat: boolean
 		  }
 		| {
 				shape: "player_vs_player_season"
@@ -87,8 +90,22 @@ export type TitleInput = WithGameDate &
 				playerBName: string
 				statName: string
 				statAggregation: StatAggregation
+				// Picks "more" (a count) vs "a higher" (a rate) - see
+				// titleSeasonHeadToHead. Required, not optional-defaulting-to-false:
+				// silently getting this wrong produces a title that reads as broken
+				// English rather than anything a caller would report.
+				isRateStat: boolean
 		  }
 		| { shape: "team_vs_team"; awayTeamName: string; homeTeamName: string }
+		| {
+				shape: "team_vs_team_season"
+				teamAName: string
+				teamBName: string
+				statName: string
+				statAggregation: StatAggregation
+				// See isRateStat on player_vs_player_season above.
+				isRateStat: boolean
+		  }
 		| {
 				shape: "player_game_stat_leader"
 				awayTeamName: string
@@ -161,40 +178,58 @@ function possessive(name: string): string {
 	return name.endsWith("s") ? `${name}'` : `${name}'s`
 }
 
+// Catalog stat names are stored title-cased ("Passing Yards", "On-Base
+// Percentage") because they are written for label position - a picker row, a
+// column header, the old "Points: A vs B" title format. Dropped into the
+// middle of a sentence they read as shouting, so the sentence-shaped
+// templates lower-case them first.
+//
+// Not a plain toLowerCase(): "ERA", "WHIP" and "RBIs" have to survive intact.
+// A word carrying two or more capitals is taken as an acronym and left
+// exactly as it is; everything else lower-cases. Matching runs of letters
+// (rather than splitting on spaces) is what makes hyphenated names work -
+// "On-Base" is two one-capital words, so it becomes "on-base", while "RBIs"
+// is a single three-capital word and stays put.
+function statInSentence(statName: string): string {
+	return statName.replace(/[A-Za-z]+/g, (word) =>
+		(word.match(/[A-Z]/g) ?? []).length >= 2 ? word : word.toLowerCase(),
+	)
+}
+
 // --- Over/unders ---
 
 function titlePlayerStatOverUnder(
 	input: Extract<TitleInput, { shape: "player_stat_over_under" }>,
 ): string {
-	return `${input.playerName}: over/under ${input.ouLine} ${input.statName} vs ${input.opponentTeamName}`
+	return `${input.playerName}: over/under ${input.ouLine} ${statInSentence(input.statName)} vs the ${input.opponentTeamName}`
 }
 
 function titleTeamStatOverUnder(
 	input: Extract<TitleInput, { shape: "team_stat_over_under" }>,
 ): string {
-	return `${input.teamName}: over/under ${input.ouLine} ${input.statName} vs ${input.opponentTeamName}`
+	return `${input.teamName}: over/under ${input.ouLine} ${statInSentence(input.statName)} vs the ${input.opponentTeamName}`
 }
 
 function titlePlayerSeasonStatOverUnder(
 	input: Extract<TitleInput, { shape: "player_season_stat_over_under" }>,
 ): string {
 	return input.statAggregation === "per_game"
-		? `${input.playerName}: over/under ${input.ouLine} ${input.statName} per game this season`
-		: `${input.playerName}: over/under ${input.ouLine} ${input.statName} this season`
+		? `${input.playerName}: over/under ${input.ouLine} ${statInSentence(input.statName)} per game this season`
+		: `${input.playerName}: over/under ${input.ouLine} ${statInSentence(input.statName)} this season`
 }
 
 function titleTeamSeasonStatOverUnder(
 	input: Extract<TitleInput, { shape: "team_season_stat_over_under" }>,
 ): string {
 	return input.statAggregation === "per_game"
-		? `${input.teamName}: over/under ${input.ouLine} ${input.statName} per game this season`
-		: `${input.teamName}: over/under ${input.ouLine} ${input.statName} this season`
+		? `${input.teamName}: over/under ${input.ouLine} ${statInSentence(input.statName)} per game this season`
+		: `${input.teamName}: over/under ${input.ouLine} ${statInSentence(input.statName)} this season`
 }
 
 function titleGameTotalOverUnder(
 	input: Extract<TitleInput, { shape: "game_total_over_under" }>,
 ): string {
-	return `${input.awayTeamName} @ ${input.homeTeamName}: over/under ${input.ouLine} ${input.statName}`
+	return `${input.awayTeamName} @ ${input.homeTeamName}: over/under ${input.ouLine} ${statInSentence(input.statName)}`
 }
 
 // --- Numeric guesses ---
@@ -202,13 +237,13 @@ function titleGameTotalOverUnder(
 function titlePlayerStatNumericGuess(
 	input: Extract<TitleInput, { shape: "player_stat_numeric_guess" }>,
 ): string {
-	return `Guess ${input.playerName}'s ${input.statName} vs ${input.opponentTeamName}`
+	return `Guess ${input.playerName}'s ${statInSentence(input.statName)} vs the ${input.opponentTeamName}`
 }
 
 function titleTeamStatNumericGuess(
 	input: Extract<TitleInput, { shape: "team_stat_numeric_guess" }>,
 ): string {
-	return `Guess ${input.teamName}'s ${input.statName} vs ${input.opponentTeamName}`
+	return `Guess the ${possessive(input.teamName)} ${statInSentence(input.statName)} vs the ${input.opponentTeamName}`
 }
 
 // "Wins" (the stat catalog's own lookup name, capitalized) reads wrong in a
@@ -222,24 +257,76 @@ function titleTeamStatNumericGuess(
 function titleTeamSeasonStatNumericGuess(
 	input: Extract<TitleInput, { shape: "team_season_stat_numeric_guess" }>,
 ): string {
-	const displayStatName = input.statName === "Wins" ? "win total" : input.statName
+	const displayStatName =
+		input.statName === "Wins" ? "win total" : statInSentence(input.statName)
 	return `Guess the ${possessive(input.teamName)} ${displayStatName} for ${input.year}`
 }
 
 // --- Vs-shapes ---
 
+// The one template behind all three head-to-heads. They are the same
+// question structurally - two named sides, one stat, who comes out ahead -
+// and differ only in what scopes them: player_vs_player is bounded by a game
+// (whose date generateQuestionTitle appends, "... more points? (Mar 3)"),
+// the two season shapes by a season. So scope is a parameter here rather
+// than a reason to keep three near-identical templates that drift apart the
+// next time the wording changes.
+//
+// They read as one question rather than a label-prefixed fragment ("Points:
+// A vs B this season"), so the two sides lead and the thing being compared
+// lands where a reader is already expecting it.
+//
+// "more" vs "a higher" tracks whether the stat is a count or a rate: "more
+// batting average" is not English, and the catalog has five genuine rate
+// stats (Batting Average, On-Base Percentage, Slugging Percentage, ERA,
+// WHIP). Both wordings mean the same unambiguous thing - the bigger number
+// wins - which is what resolution needs, since a human marks one side
+// correct. Deliberately NOT "who leads in ERA", which every baseball reader
+// would take as the lower number, inverting the question against a
+// lower-is-better stat.
+function titleHeadToHead(input: {
+	// Both sides bare, teams included ("Boston Celtics vs Philadelphia
+	// 76ers"), unlike the prepositional tails elsewhere in this file that do
+	// take an article ("... 3-pointers made vs the 76ers"). A matchup opener
+	// is the one place the article is genuinely not spoken - every scoreboard
+	// and schedule drops it - so it reads as the normal form rather than as a
+	// missing word, and it keeps the two sides symmetric.
+	sideAName: string
+	sideBName: string
+	statName: string
+	isRateStat: boolean
+	// null for the game-scoped shape, which has no aggregation to state and
+	// takes no "this season" suffix - its game date is what scopes it instead.
+	statAggregation: StatAggregation | null
+}): string {
+	const comparison = input.isRateStat ? "a higher" : "more"
+	const perGame = input.statAggregation === "per_game" ? " per game" : ""
+	const season = input.statAggregation === null ? "" : " this season"
+	return `${input.sideAName} vs ${input.sideBName}: who has ${comparison} ${statInSentence(input.statName)}${perGame}${season}?`
+}
+
 function titlePlayerVsPlayer(
 	input: Extract<TitleInput, { shape: "player_vs_player" }>,
 ): string {
-	return `${input.statName}: ${input.playerAName} vs ${input.playerBName}`
+	return titleHeadToHead({
+		sideAName: input.playerAName,
+		sideBName: input.playerBName,
+		statName: input.statName,
+		isRateStat: input.isRateStat,
+		statAggregation: null,
+	})
 }
 
 function titlePlayerVsPlayerSeason(
 	input: Extract<TitleInput, { shape: "player_vs_player_season" }>,
 ): string {
-	return input.statAggregation === "per_game"
-		? `${input.statName}: ${input.playerAName} vs ${input.playerBName} per game this season`
-		: `${input.statName}: ${input.playerAName} vs ${input.playerBName} this season`
+	return titleHeadToHead({
+		sideAName: input.playerAName,
+		sideBName: input.playerBName,
+		statName: input.statName,
+		isRateStat: input.isRateStat,
+		statAggregation: input.statAggregation,
+	})
 }
 
 function titleTeamVsTeam(
@@ -248,10 +335,26 @@ function titleTeamVsTeam(
 	return `${input.awayTeamName} @ ${input.homeTeamName}: who will win?`
 }
 
+// Needs no "Wins" -> "win total" translation, unlike
+// titleTeamSeasonStatNumericGuess above, where the stat sits in possessive
+// position ("the Celtics' win total for 2026"). Here the plain lower-cased
+// name already reads right: "who has more wins this season".
+function titleTeamVsTeamSeason(
+	input: Extract<TitleInput, { shape: "team_vs_team_season" }>,
+): string {
+	return titleHeadToHead({
+		sideAName: input.teamAName,
+		sideBName: input.teamBName,
+		statName: input.statName,
+		isRateStat: input.isRateStat,
+		statAggregation: input.statAggregation,
+	})
+}
+
 function titlePlayerGameStatLeader(
 	input: Extract<TitleInput, { shape: "player_game_stat_leader" }>,
 ): string {
-	return `${input.awayTeamName} @ ${input.homeTeamName}: who leads in ${input.statName}?`
+	return `${input.awayTeamName} @ ${input.homeTeamName}: who leads in ${statInSentence(input.statName)}?`
 }
 
 // --- Yes/no ---
@@ -321,6 +424,7 @@ export function generateQuestionTitle(input: TitleInput): string {
 		.with({ shape: "player_vs_player" }, titlePlayerVsPlayer)
 		.with({ shape: "player_vs_player_season" }, titlePlayerVsPlayerSeason)
 		.with({ shape: "team_vs_team" }, titleTeamVsTeam)
+		.with({ shape: "team_vs_team_season" }, titleTeamVsTeamSeason)
 		.with({ shape: "player_game_stat_leader" }, titlePlayerGameStatLeader)
 		.with({ shape: "yes_no_prop" }, titleYesNoProp)
 		.with({ shape: "player_season_award" }, titlePlayerSeasonAward)

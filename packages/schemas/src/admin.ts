@@ -97,6 +97,7 @@ export const adminResolveQuestionSchema = z
 				"player_vs_player",
 				"player_vs_player_season",
 				"team_vs_team",
+				"team_vs_team_season",
 				"yes_no_prop",
 				"player_award_finalists",
 				() => {

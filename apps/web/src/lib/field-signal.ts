@@ -60,6 +60,7 @@ export function fieldSignal(question: FieldSignalData): FieldSignal {
 			"PLAYER_VS_PLAYER",
 			"PLAYER_VS_PLAYER_SEASON",
 			"TEAM_VS_TEAM",
+			"TEAM_VS_TEAM_SEASON",
 			"PLAYER_GAME_STAT_LEADER",
 			"PLAYER_AWARD_FINALISTS",
 			() => {
@@ -110,6 +111,19 @@ export function callersText(count: number): string {
 	return `${count} ${pluralize(count, "caller")}`
 }
 
+// The same check against a bare tolerance tier, for callers holding a picked
+// stat rather than a whole question (the create-question form, which has no
+// question yet). Both halves matter: the win-total tiers are ABSOLUTE too (5
+// wins for the NBA, 1 for the NFL), so mode alone would classify "Wins" as a
+// rate stat - it is the non-integer band that actually marks one.
+export function isRateToleranceTier(
+	tier: { toleranceMode: string; toleranceValue: number } | null | undefined,
+): boolean {
+	return (
+		tier?.toleranceMode === "ABSOLUTE" && !Number.isInteger(tier.toleranceValue)
+	)
+}
+
 // True for a genuine rate stat (batting average, ERA) - see ToleranceSpec in
 // @called-my-shot/scoring. Absolute-mode tolerance alone doesn't mean rate
 // stat anymore: team_season_stat_numeric_guess (win totals) also snapshots
@@ -136,10 +150,7 @@ export function isRateStat(question: {
 	if (question.numericToleranceAbsolute != null) {
 		return !Number.isInteger(question.numericToleranceAbsolute)
 	}
-	return (
-		question.stat?.toleranceTier?.toleranceMode === "ABSOLUTE" &&
-		!Number.isInteger(question.stat.toleranceTier.toleranceValue)
-	)
+	return isRateToleranceTier(question.stat?.toleranceTier)
 }
 
 // A rate stat (batting average, ERA) always displays padded to a fixed 3

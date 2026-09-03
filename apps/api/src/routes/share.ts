@@ -1,4 +1,8 @@
-import { fieldPct, quipForCall } from "@called-my-shot/scoring"
+import {
+	fieldPct,
+	type QuestionShape,
+	quipForCall,
+} from "@called-my-shot/scoring"
 import { and, count, eq } from "drizzle-orm"
 import type { Express, Response } from "express"
 import { db } from "../db"
@@ -32,7 +36,12 @@ export function registerShareRoutes(app: Express) {
 	})
 }
 
-const SHAPE_LABEL: Record<string, string> = {
+// Keyed by QuestionShape rather than a loose string so a newly added shape
+// fails the build here instead of silently falling back to "Other" on every
+// share card - which is exactly what team_season_stat_numeric_guess and
+// player_game_stat_leader had been doing. Mirrors shareCardShapeLabel in
+// apps/web/src/lib/question-labels.ts.
+const SHAPE_LABEL: Record<QuestionShape, string> = {
 	player_stat_over_under: "Player Prop",
 	team_stat_over_under: "Team Prop",
 	player_season_stat_over_under: "Season Prop",
@@ -40,9 +49,12 @@ const SHAPE_LABEL: Record<string, string> = {
 	game_total_over_under: "Game Total",
 	player_stat_numeric_guess: "Player Prop",
 	team_stat_numeric_guess: "Team Prop",
+	team_season_stat_numeric_guess: "Season Prop",
 	player_vs_player: "Head-to-Head",
 	player_vs_player_season: "Head-to-Head",
 	team_vs_team: "Game Outcome",
+	team_vs_team_season: "Head-to-Head",
+	player_game_stat_leader: "Stat Leader",
 	yes_no_prop: "Yes/No",
 	player_season_award: "Season Award",
 	team_season_award: "Season Award",
