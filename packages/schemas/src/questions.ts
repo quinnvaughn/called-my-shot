@@ -84,6 +84,33 @@ const AWARD_SHAPES = [
 // admin-only authorization check on top.
 const ADMIN_ONLY_SHAPES = [...AWARD_SHAPES, "team_vs_team"] as const
 
+// A resolution source URL is rendered as a real, clickable link on the
+// question page, so it can only ever be http/https - z.url() on its own
+// accepts any scheme, `javascript:` and `data:` included. The host has to
+// look like a host too (dotted, no whitespace): a bare typo should fail here
+// rather than turn into a dead link nobody can tell apart from a real source.
+// Matched by pattern rather than the URL constructor, which this package has
+// no ambient types for - it deliberately builds against the bare ES lib so
+// the same schemas run in the browser and on the server.
+const HTTP_URL_PATTERN =
+	/^https?:\/\/[^\s/?#@:]+(?:\.[^\s/?#@:]+)+(?::\d+)?(?:[/?#]\S*)?$/i
+
+// A scheme-less "databallr.com/stats" is the shape people actually paste, so
+// it's normalized to https:// instead of rejected. Empty stays empty - the
+// field is optional everywhere it's used.
+export const resolutionSourceUrlSchema = z
+	.string()
+	.trim()
+	.transform((value) =>
+		value === "" || /^[a-z][a-z0-9+.-]*:/i.test(value)
+			? value
+			: `https://${value.replace(/^\/+/, "")}`,
+	)
+	.refine(
+		(value) => value === "" || HTTP_URL_PATTERN.test(value),
+		"Enter a valid URL",
+	)
+
 // One flat object rather than a discriminated union on `shape` - a single
 // stable shape is what the create-question form's field bindings need, and
 // the per-shape requirements below are cross-field concerns anyway (an
@@ -124,14 +151,7 @@ export const createQuestionSchema = z
 		gameId: z.string().uuid().optional(),
 
 		resolutionSource: z.string().trim().min(1, "Say where you'll check this"),
-		resolutionSourceUrl: z
-			.string()
-			.trim()
-			.default("")
-			.refine(
-				(value) => value === "" || z.string().url().safeParse(value).success,
-				"Enter a valid URL",
-			),
+		resolutionSourceUrl: resolutionSourceUrlSchema.default(""),
 		locksAt: z
 			.string()
 			.min(1, "Pick a lock time")

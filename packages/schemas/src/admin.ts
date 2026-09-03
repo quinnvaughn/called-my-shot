@@ -1,6 +1,6 @@
 import { match } from "ts-pattern"
 import { z } from "zod"
-import { questionShapeSchema } from "./questions"
+import { questionShapeSchema, resolutionSourceUrlSchema } from "./questions"
 
 // Admin-only input shapes - kept in their own file, separate from the
 // public-facing ones in questions.ts/users.ts, since these are only ever
@@ -49,14 +49,7 @@ export const adminResolveQuestionSchema = z
 		actualValue: z.number().optional(),
 		resolutionNote: z.string().trim().max(500, "Keep it under 500 characters").default(""),
 		resolutionSource: z.string().trim().optional(),
-		resolutionSourceUrl: z
-			.string()
-			.trim()
-			.optional()
-			.refine(
-				(value) => !value || z.string().url().safeParse(value).success,
-				"Enter a valid URL",
-			),
+		resolutionSourceUrl: resolutionSourceUrlSchema.optional(),
 	})
 	.superRefine((data, ctx) => {
 		match(data.shape)

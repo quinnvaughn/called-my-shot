@@ -33,6 +33,7 @@ import {
 	QuestionCallsDocument,
 	QuestionDetailDocument,
 } from "#/graphql/queries/question"
+import { safeExternalUrl } from "#/lib/external-url"
 import { formatGuess } from "#/lib/field-signal"
 import { questionDetailState } from "#/lib/question-detail-state"
 import { questionShapeLabel } from "#/lib/question-labels"
@@ -131,6 +132,7 @@ function RouteComponent() {
 
 	const state = questionDetailState(question)
 	const isCreator = me?.id === question.creator?.id
+	const resolutionSourceUrl = safeExternalUrl(question.resolutionSourceUrl)
 	const answer = state.isSettled ? resolvedAnswerSummary(question) : null
 	// "How rare was being right" - the correct option's own fieldPct for
 	// everything option-based, numericHitRatePct (computed across every
@@ -220,7 +222,27 @@ function RouteComponent() {
 								)
 							}
 						/>
-						<PanelRow label="RESOLVES" value={question.resolutionSource} />
+						<PanelRow
+							label="RESOLVES"
+							value={
+								resolutionSourceUrl ? (
+									<a
+										href={resolutionSourceUrl}
+										target="_blank"
+										rel="noreferrer"
+										className={css({
+											textDecoration: "underline",
+											textUnderlineOffset: "2px",
+											_hover: { color: "primary.default" },
+										})}
+									>
+										{question.resolutionSource} ↗
+									</a>
+								) : (
+									question.resolutionSource
+								)
+							}
+						/>
 						<PanelRow
 							label="LOCKS"
 							value={DateTime.fromISO(question.locksAt).toFormat(

@@ -10,6 +10,7 @@ import { EmptyState } from "#/components/ui/empty-state"
 import { PageHeader } from "#/components/ui/page-header"
 import { UpholdDisputeDocument } from "#/graphql/mutations/admin"
 import { AdminDisputesDocument } from "#/graphql/queries/admin"
+import { safeExternalUrl } from "#/lib/external-url"
 import { isRateStat } from "#/lib/field-signal"
 import { resolvedAnswerSummary } from "#/lib/resolution-summary"
 import { openModal } from "#/stores/modal-store"
@@ -63,129 +64,137 @@ function RouteComponent() {
 				<EmptyState>No open disputes: you're all caught up.</EmptyState>
 			) : (
 				<VStack gap="3" alignItems="stretch">
-					{disputes.map((dispute) => (
-						<VStack
-							key={dispute.id}
-							gap="2"
-							alignItems="stretch"
-							className={css({
-								bg: "bg.surface",
-								border: "1px solid {colors.border.default}",
-								borderRadius: "xl",
-								padding: "4",
-							})}
-						>
-							<HStack justify="space-between" gap="4" alignItems="flex-start">
-								<VStack
-									gap="2"
-									alignItems="flex-start"
-									className={css({ minWidth: 0 })}
-								>
-									<Link
-										to="/questions/$questionId"
-										params={{ questionId: dispute.question.id }}
-										className={css({
-											fontSize: "sm",
-											fontWeight: "medium",
-											color: "fg.default",
-											textDecoration: "underline",
-										})}
+					{disputes.map((dispute) => {
+						const sourceUrl = safeExternalUrl(
+							dispute.question.resolutionSourceUrl,
+						)
+						return (
+							<VStack
+								key={dispute.id}
+								gap="2"
+								alignItems="stretch"
+								className={css({
+									bg: "bg.surface",
+									border: "1px solid {colors.border.default}",
+									borderRadius: "xl",
+									padding: "4",
+								})}
+							>
+								<HStack justify="space-between" gap="4" alignItems="flex-start">
+									<VStack
+										gap="2"
+										alignItems="flex-start"
+										className={css({ minWidth: 0 })}
 									>
-										{dispute.question.title}
-									</Link>
-									<span
-										className={css({ fontSize: "sm", fontWeight: "semibold" })}
-									>
-										{resolvedAnswerSummary(dispute.question) ??
-											"No recorded outcome"}
-									</span>
-									{dispute.question.resolutionNote && (
-										<p className={css({ fontSize: "xs", color: "fg.muted" })}>
-											{dispute.question.resolutionNote}
-										</p>
-									)}
-									{dispute.question.resolutionSourceUrl ? (
-										<a
-											href={dispute.question.resolutionSourceUrl}
-											target="_blank"
-											rel="noreferrer"
+										<Link
+											to="/questions/$questionId"
+											params={{ questionId: dispute.question.id }}
 											className={css({
-												fontFamily: "mono",
-												fontSize: "2xs",
-												color: "fg.subtle",
+												fontSize: "sm",
+												fontWeight: "medium",
+												color: "fg.default",
 												textDecoration: "underline",
 											})}
 										>
-											{dispute.question.resolutionSource || "Source"}
-										</a>
-									) : (
-										dispute.question.resolutionSource && (
-											<span
+											{dispute.question.title}
+										</Link>
+										<span
+											className={css({
+												fontSize: "sm",
+												fontWeight: "semibold",
+											})}
+										>
+											{resolvedAnswerSummary(dispute.question) ??
+												"No recorded outcome"}
+										</span>
+										{dispute.question.resolutionNote && (
+											<p className={css({ fontSize: "xs", color: "fg.muted" })}>
+												{dispute.question.resolutionNote}
+											</p>
+										)}
+										{sourceUrl ? (
+											<a
+												href={sourceUrl}
+												target="_blank"
+												rel="noreferrer"
 												className={css({
 													fontFamily: "mono",
 													fontSize: "2xs",
 													color: "fg.subtle",
+													textDecoration: "underline",
 												})}
 											>
-												{dispute.question.resolutionSource}
-											</span>
-										)
-									)}
-									<p className={css({ fontSize: "xs", color: "fg.muted" })}>
-										"{dispute.reason}" · @{dispute.user.username}
-									</p>
-								</VStack>
-								<HStack gap="1.5" flexShrink={0}>
-									<UpholdButton
-										disputeId={dispute.id}
-										onUpheld={() => refetch()}
-									/>
-									<Button
-										variant="outline"
-										size="sm"
-										onClick={() =>
-											openModal(
-												<OverturnDisputeModal
-													disputeId={dispute.id}
-													question={{
-														id: dispute.question.id,
-														title: dispute.question.title,
-														shape:
-															dispute.question.shape.toLowerCase() as QuestionCallShape,
-														ouLine: dispute.question.ouLine ?? null,
-														options: dispute.question.options,
-														isRateStat: isRateStat(dispute.question),
-													}}
-													onOverturned={() => refetch()}
-												/>,
+												{dispute.question.resolutionSource || "Source"}
+											</a>
+										) : (
+											dispute.question.resolutionSource && (
+												<span
+													className={css({
+														fontFamily: "mono",
+														fontSize: "2xs",
+														color: "fg.subtle",
+													})}
+												>
+													{dispute.question.resolutionSource}
+												</span>
 											)
-										}
-									>
-										Overturn
-									</Button>
-									<Button
-										variant="outline"
-										size="sm"
-										className={css({ color: "danger.default" })}
-										onClick={() =>
-											openModal(
-												<VoidQuestionModal
-													question={{
-														id: dispute.question.id,
-														title: dispute.question.title,
-														creator: { username: dispute.user.username },
-													}}
-													onVoided={() => refetch()}
-												/>,
-											)
-										}
-									>
-										Void
-									</Button>
+										)}
+										<p className={css({ fontSize: "xs", color: "fg.muted" })}>
+											"{dispute.reason}" · @{dispute.user.username}
+										</p>
+									</VStack>
+									<HStack gap="1.5" flexShrink={0}>
+										<UpholdButton
+											disputeId={dispute.id}
+											onUpheld={() => refetch()}
+										/>
+										<Button
+											variant="outline"
+											size="sm"
+											onClick={() =>
+												openModal(
+													<OverturnDisputeModal
+														disputeId={dispute.id}
+														question={{
+															id: dispute.question.id,
+															title: dispute.question.title,
+															shape:
+																dispute.question.shape.toLowerCase() as QuestionCallShape,
+															ouLine: dispute.question.ouLine ?? null,
+															options: dispute.question.options,
+															isRateStat: isRateStat(dispute.question),
+														}}
+														onOverturned={() => refetch()}
+													/>,
+												)
+											}
+										>
+											Overturn
+										</Button>
+										<Button
+											variant="outline"
+											size="sm"
+											className={css({ color: "danger.default" })}
+											onClick={() =>
+												openModal(
+													<VoidQuestionModal
+														question={{
+															id: dispute.question.id,
+															title: dispute.question.title,
+															creator: { username: dispute.user.username },
+														}}
+														onVoided={() => refetch()}
+													/>,
+												)
+											}
+										>
+											Void
+										</Button>
+									</HStack>
 								</HStack>
-							</HStack>
-						</VStack>
-					))}
+							</VStack>
+						)
+					})}
 				</VStack>
 			)}
 		</VStack>
