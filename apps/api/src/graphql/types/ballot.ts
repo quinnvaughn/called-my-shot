@@ -811,7 +811,6 @@ builder.mutationFields((t) => ({
 			const result = await generateSeasonQuestions({
 				leagueId: league.id,
 				resolutionSource: "ESPN / league official sources",
-				locksAt: season.regularSeasonStartsAt,
 				templates,
 				createdBy: officialAccountId,
 			})

@@ -3,7 +3,12 @@ import { sql } from "drizzle-orm"
 import { match } from "ts-pattern"
 import { db } from "../db"
 import type { RecurringQuestionTemplate } from "../db/catalog/recurring-question-catalog"
-import { ballotQuestions, ballots, questionOptions, questions } from "../db/schema"
+import {
+	ballotQuestions,
+	ballots,
+	questionOptions,
+	questions,
+} from "../db/schema"
 import { buildPlayerPool, buildTeamPool } from "./award-pool"
 import { getCurrentSeason } from "./seasons"
 
@@ -50,7 +55,9 @@ async function findOrCreateBallot(params: {
 		})
 		.returning()
 	if (!inserted) {
-		throw new Error(`findOrCreateBallot: insert returned nothing for "${params.name}"`)
+		throw new Error(
+			`findOrCreateBallot: insert returned nothing for "${params.name}"`,
+		)
 	}
 	return inserted
 }
@@ -103,7 +110,10 @@ async function attachToBallot(
 // has already started (win totals stop being a real guess once it has) is
 // decided by the caller, before this even runs - see generateSeasonQuestions.
 async function generatePerTeamNumericGuess(params: {
-	template: Extract<RecurringQuestionTemplate, { shape: "team_season_stat_numeric_guess" }>
+	template: Extract<
+		RecurringQuestionTemplate,
+		{ shape: "team_season_stat_numeric_guess" }
+	>
 	leagueId: string
 	sportId: string
 	seasonId: string
@@ -126,9 +136,13 @@ async function generatePerTeamNumericGuess(params: {
 		)
 	}
 	const numericTolerancePct =
-		stat.toleranceTier.toleranceMode === "absolute" ? null : stat.toleranceTier.toleranceValue
+		stat.toleranceTier.toleranceMode === "absolute"
+			? null
+			: stat.toleranceTier.toleranceValue
 	const numericToleranceAbsolute =
-		stat.toleranceTier.toleranceMode === "absolute" ? stat.toleranceTier.toleranceValue : null
+		stat.toleranceTier.toleranceMode === "absolute"
+			? stat.toleranceTier.toleranceValue
+			: null
 
 	let created = 0
 	let skipped = 0
@@ -174,7 +188,9 @@ async function generatePerTeamNumericGuess(params: {
 				})
 				.returning()
 			if (!question) {
-				throw new Error("generatePerTeamNumericGuess: question insert returned nothing")
+				throw new Error(
+					"generatePerTeamNumericGuess: question insert returned nothing",
+				)
 			}
 			await attachToBallot(tx, {
 				ballotId: params.ballotId,
@@ -278,7 +294,9 @@ async function generatePlayerSeasonAward(params: {
 			})
 			.returning()
 		if (!question) {
-			throw new Error("generatePlayerSeasonAward: question insert returned nothing")
+			throw new Error(
+				"generatePlayerSeasonAward: question insert returned nothing",
+			)
 		}
 		await tx.insert(questionOptions).values(
 			pool.map((player, index) => ({
@@ -328,7 +346,10 @@ async function generateTeamSeasonAward(params: {
 
 	const pool = await buildTeamPool(
 		{ leagueId: params.leagueId },
-		{ conferences: params.template.awardConferences, divisions: params.template.awardDivisions },
+		{
+			conferences: params.template.awardConferences,
+			divisions: params.template.awardDivisions,
+		},
 	)
 	if (pool.length < params.template.picksRequired) {
 		throw new Error(
@@ -370,7 +391,9 @@ async function generateTeamSeasonAward(params: {
 			})
 			.returning()
 		if (!question) {
-			throw new Error("generateTeamSeasonAward: question insert returned nothing")
+			throw new Error(
+				"generateTeamSeasonAward: question insert returned nothing",
+			)
 		}
 		await tx.insert(questionOptions).values(
 			pool.map((team, index) => ({
@@ -402,16 +425,30 @@ async function generateTeamSeasonAward(params: {
 export async function generateSeasonQuestions(params: {
 	leagueId: string
 	resolutionSource: string
-	locksAt: Date
 	templates: RecurringQuestionTemplate[]
 	createdBy: string
 }): Promise<{ created: number; skipped: number }> {
-	const league = await db.query.leagues.findFirst({ where: { id: params.leagueId } })
+	const league = await db.query.leagues.findFirst({
+		where: { id: params.leagueId },
+	})
 	if (!league) {
-		throw new Error(`generateSeasonQuestions: league ${params.leagueId} not found`)
+		throw new Error(
+			`generateSeasonQuestions: league ${params.leagueId} not found`,
+		)
 	}
 	const season = await getCurrentSeason(params.leagueId)
 	if (!season) return { created: 0, skipped: 0 }
+
+	// Two different lock times, not one shared locksAt - a win-total guess
+	// stops being a real prediction once the season starts (see the filter
+	// below), so it locks then. An award race is still genuinely open all
+	// season - callers can call an MVP/DPOY/etc. pick any time up to the
+	// season's end, they just score worse the later they call (the early-tier
+	// multiplier in packages/scoring, which is exactly why player_season_award/
+	// team_season_award are season-long shapes there). Locking an award at
+	// season start would make that whole mechanic pointless.
+	const winTotalLocksAt = season.regularSeasonStartsAt
+	const awardLocksAt = season.regularSeasonEndsAt
 
 	// A win-total-style guess stops being a real prediction once the season
 	// it's about has already started (by September, an MLB win total isn't a
@@ -462,7 +499,7 @@ export async function generateSeasonQuestions(params: {
 						seasonId: season.id,
 						seasonYear: season.year,
 						resolutionSource: params.resolutionSource,
-						locksAt: params.locksAt,
+						locksAt: winTotalLocksAt,
 						createdBy: params.createdBy,
 						ballotId: ballot.id,
 					}),
@@ -474,7 +511,7 @@ export async function generateSeasonQuestions(params: {
 						sportId: league.sportId,
 						seasonId: season.id,
 						resolutionSource: params.resolutionSource,
-						locksAt: params.locksAt,
+						locksAt: awardLocksAt,
 						createdBy: params.createdBy,
 						ballotId: ballot.id,
 					}),
@@ -486,7 +523,7 @@ export async function generateSeasonQuestions(params: {
 						sportId: league.sportId,
 						seasonId: season.id,
 						resolutionSource: params.resolutionSource,
-						locksAt: params.locksAt,
+						locksAt: awardLocksAt,
 						createdBy: params.createdBy,
 						ballotId: ballot.id,
 					}),
