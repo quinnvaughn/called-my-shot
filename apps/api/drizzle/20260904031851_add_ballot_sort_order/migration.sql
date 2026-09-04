@@ -1,0 +1,2 @@
+ALTER TABLE "ballots" ADD COLUMN "sort_order" integer DEFAULT 1 NOT NULL;--> statement-breakpoint
+CREATE INDEX "ballots_league_id_season_id_sort_order_idx" ON "ballots" ("league_id","season_id","sort_order");

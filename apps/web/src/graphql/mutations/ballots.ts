@@ -182,6 +182,39 @@ export const UpdateBallotQuestionDocument = graphql(`
 	}
 `)
 
+// Ordering the ballots of one league and season against each other, the same
+// whole-set way ReorderBallotQuestions orders the questions inside one.
+export const ReorderBallotsDocument = graphql(`
+	mutation ReorderBallots(
+		$leagueId: ID!
+		$seasonId: ID!
+		$orderedBallotIds: [ID!]!
+	) {
+		reorderBallots(
+			leagueId: $leagueId
+			seasonId: $seasonId
+			orderedBallotIds: $orderedBallotIds
+		) {
+			__typename
+			... on MutationReorderBallotsSuccess {
+				data
+			}
+			... on AuthenticationError {
+				message
+			}
+			... on AuthorizationError {
+				message
+			}
+			... on ValidationError {
+				fieldErrors {
+					field
+					message
+				}
+			}
+		}
+	}
+`)
+
 export const ReorderBallotQuestionsDocument = graphql(`
 	mutation ReorderBallotQuestions($ballotId: ID!, $orderedQuestionIds: [ID!]!) {
 		reorderBallotQuestions(

@@ -664,6 +664,23 @@ builder.queryFields((t) => ({
 		resolve: (_root, args) => getCurrentSeason(args.leagueId),
 	}),
 
+	// Every season a league has synced rows for, newest first - backs the admin
+	// ballot list's season picker, which needs the full set rather than just
+	// the current one (ordering last year's ballots is a real thing to want).
+	// Public for the same reason currentSeason is: it's ESPN calendar data.
+	// Note that the newest year isn't necessarily the current season - the sync
+	// pulls [thisYear, thisYear + 1], so callers wanting a sensible default
+	// should ask currentSeason rather than take the first row here.
+	leagueSeasons: t.field({
+		type: [SeasonRef],
+		args: { leagueId: t.arg.id({ required: true }) },
+		resolve: (_root, args) =>
+			db.query.seasons.findMany({
+				where: { leagueId: args.leagueId },
+				orderBy: { year: "desc" },
+			}),
+	}),
+
 	teams: t.field({
 		type: [TeamRef],
 		args: {

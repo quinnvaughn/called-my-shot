@@ -4,6 +4,7 @@ import {
 	updateBallotQuestionSchema,
 } from "@called-my-shot/schemas"
 import { and, count, eq, gt, inArray, sql } from "drizzle-orm"
+import { match } from "ts-pattern"
 import { db } from "../../db"
 import { RECURRING_QUESTION_CATALOG } from "../../db/catalog/recurring-question-catalog"
 import {
@@ -57,6 +58,10 @@ const AdminBallotSort = builder.enumType("AdminBallotSort", {
 		NAME: { value: "name" },
 		STATUS: { value: "status" },
 		CREATED_AT: { value: "createdAt" },
+		// Only meaningful once the list is scoped to one league and season -
+		// sortOrder is positional within that pair, so an unscoped list sorted
+		// on it is just every league's position-1 ballot bunched together.
+		SORT_ORDER: { value: "sortOrder" },
 	},
 })
 
@@ -122,6 +127,7 @@ export const BallotRef = builder.drizzleObject("ballots", {
 			type: "String",
 			resolve: (ballot) => ballot.createdAt.toISOString(),
 		}),
+		sortOrder: t.exposeInt("sortOrder"),
 		sport: t.relation("sport"),
 		league: t.relation("league"),
 		season: t.relation("season"),
@@ -396,6 +402,10 @@ builder.queryFields((t) => ({
 	// progress, else soonest upcoming, else most recently completed - see
 	// getCurrentSeason) so a prior year's award ballots don't linger
 	// alongside this year's once a new season starts.
+	// Editorial order first (ballots.sortOrder, seeded from the recurring
+	// catalog and adjustable in admin), name only as the tiebreak - which is
+	// what an untouched set of ballots all sitting on the default 1 falls back
+	// to, i.e. exactly the alphabetical order this used to have.
 	leagueBallots: t.field({
 		type: [BallotRef],
 		args: { leagueId: t.arg.id({ required: true }) },
@@ -407,7 +417,7 @@ builder.queryFields((t) => ({
 					status: "published",
 					...(currentSeason ? { seasonId: currentSeason.id } : {}),
 				},
-				orderBy: { name: "asc" },
+				orderBy: { sortOrder: "asc", name: "asc" },
 			})
 		},
 	}),
@@ -421,6 +431,10 @@ builder.queryFields((t) => ({
 			search: t.arg.string(),
 			status: t.arg({ type: BallotStatus, required: false }),
 			leagueId: t.arg.id({ required: false }),
+			// Pairs with leagueId to scope the list down to the one (league,
+			// season) that sortOrder is positional within - what the admin list's
+			// ordering mode selects on.
+			seasonId: t.arg.id({ required: false }),
 			sortBy: t.arg({ type: AdminBallotSort, required: false }),
 			sortDir: t.arg({ type: SortDirection, required: false }),
 		},
@@ -435,14 +449,20 @@ builder.queryFields((t) => ({
 				where: {
 					...(args.status ? { status: args.status } : {}),
 					...(args.leagueId ? { leagueId: args.leagueId } : {}),
+					...(args.seasonId ? { seasonId: args.seasonId } : {}),
 					...(args.search ? { name: { ilike: `%${args.search}%` } } : {}),
 				},
-				orderBy:
-					sortBy === "status"
-						? { status: sortDir }
-						: sortBy === "createdAt"
-							? { createdAt: sortDir }
-							: { name: sortDir },
+				orderBy: match(sortBy)
+					.with("status", () => ({ status: sortDir }))
+					.with("createdAt", () => ({ createdAt: sortDir }))
+					// Same name tiebreak leagueBallots uses, so a scope nobody has
+					// ordered yet still reads alphabetically rather than by insert order.
+					.with("sortOrder", () => ({
+						sortOrder: sortDir,
+						name: "asc" as const,
+					}))
+					.with("name", () => ({ name: sortDir }))
+					.exhaustive(),
 				limit: limit + 1,
 				offset,
 			})
@@ -521,6 +541,22 @@ builder.mutationFields((t) => ({
 				)
 			}
 
+			// Appends to the end of its (league, season) rather than taking the
+			// column default, same derivation attachQuestionToBallot uses for a
+			// new member - a ballot made by hand mid-season shouldn't jump ahead
+			// of the ones already sitting there.
+			const [{ maxSortOrder }] = await db
+				.select({
+					maxSortOrder: sql<number>`coalesce(max(${ballots.sortOrder}), 0)`,
+				})
+				.from(ballots)
+				.where(
+					and(
+						eq(ballots.leagueId, league.id),
+						eq(ballots.seasonId, season.id),
+					),
+				)
+
 			const [ballot] = await db
 				.insert(ballots)
 				.values({
@@ -529,6 +565,7 @@ builder.mutationFields((t) => ({
 					leagueId: league.id,
 					seasonId: season.id,
 					createdBy: user.id,
+					sortOrder: maxSortOrder + 1,
 				})
 				.returning()
 
@@ -770,6 +807,55 @@ builder.mutationFields((t) => ({
 									eq(ballotQuestions.questionId, questionId),
 								),
 							),
+					),
+				)
+			})
+			return true
+		},
+	}),
+
+	// The ballot-level twin of reorderBallotQuestions above, scoped to one
+	// (league, season) because that's the only scope ballots.sortOrder is
+	// positional within. Takes the full ordered set rather than a single
+	// moved id for the same reason that one does: a whole-set write is
+	// unambiguous about the result and can't leave gaps or duplicate
+	// positions behind. 1-based to match the column default.
+	reorderBallots: t.field({
+		type: "Boolean",
+		errors: {
+			types: [AuthenticationError, AuthorizationError, ValidationError],
+			union: { name: "ReorderBallotsResult" },
+		},
+		args: {
+			leagueId: t.arg.id({ required: true }),
+			seasonId: t.arg.id({ required: true }),
+			orderedBallotIds: t.arg({ type: ["ID"], required: true }),
+		},
+		resolve: async (_root, args, ctx) => {
+			requireAdmin(ctx)
+			const current = await db.query.ballots.findMany({
+				where: { leagueId: args.leagueId, seasonId: args.seasonId },
+				columns: { id: true },
+			})
+			const currentIds = new Set(current.map((r) => r.id))
+			const incoming = args.orderedBallotIds as string[]
+			const sameSet =
+				incoming.length === currentIds.size &&
+				incoming.every((id) => currentIds.has(id))
+			if (!sameSet) {
+				throw ValidationError.field(
+					"orderedBallotIds",
+					"That doesn't match this league and season's current ballots",
+				)
+			}
+
+			await db.transaction(async (tx) => {
+				await Promise.all(
+					incoming.map((ballotId, index) =>
+						tx
+							.update(ballots)
+							.set({ sortOrder: index + 1 })
+							.where(eq(ballots.id, ballotId)),
 					),
 				)
 			})

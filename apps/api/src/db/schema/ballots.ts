@@ -26,34 +26,53 @@ export const ballotStatus = pgEnum("ballot_status", ["draft", "published"])
 // lock time, and resolution exactly as an unbundled question would.
 // Admin-only to create or populate (see requireAdmin in every ballot
 // resolver) - mirrors how award-shape questions are already forced official.
-export const ballots = pgTable("ballots", {
-	id: uuid("id").primaryKey().defaultRandom(),
-	name: text("name").notNull(),
-	// Derived server-side from the picked league at creation time, never
-	// asked of the admin directly (leagues already carry their own sportId) -
-	// same "don't ask for what's derivable" reasoning as questions.sportId
-	// alongside questions.leagueId.
-	sportId: uuid("sport_id")
-		.notNull()
-		.references(() => sports.id, { onDelete: "restrict" }),
-	leagueId: uuid("league_id")
-		.notNull()
-		.references(() => leagues.id, { onDelete: "restrict" }),
-	// Server-derived via getCurrentSeason at creation time, same pattern as
-	// questions.seasonId - never client-supplied.
-	seasonId: uuid("season_id")
-		.notNull()
-		.references(() => seasons.id, { onDelete: "restrict" }),
-	status: ballotStatus("status").notNull().default("draft"),
-	publishedAt: timestamp("published_at"),
-	// Nullable + set null on delete: deleting the admin who created a ballot
-	// shouldn't take the ballot (and its members) down with it - same
-	// reasoning as groups.createdBy.
-	createdBy: uuid("created_by").references(() => users.id, {
-		onDelete: "set null",
-	}),
-	createdAt: timestamp("created_at").notNull().defaultNow(),
-})
+export const ballots = pgTable(
+	"ballots",
+	{
+		id: uuid("id").primaryKey().defaultRandom(),
+		name: text("name").notNull(),
+		// Derived server-side from the picked league at creation time, never
+		// asked of the admin directly (leagues already carry their own sportId) -
+		// same "don't ask for what's derivable" reasoning as questions.sportId
+		// alongside questions.leagueId.
+		sportId: uuid("sport_id")
+			.notNull()
+			.references(() => sports.id, { onDelete: "restrict" }),
+		leagueId: uuid("league_id")
+			.notNull()
+			.references(() => leagues.id, { onDelete: "restrict" }),
+		// Server-derived via getCurrentSeason at creation time, same pattern as
+		// questions.seasonId - never client-supplied.
+		seasonId: uuid("season_id")
+			.notNull()
+			.references(() => seasons.id, { onDelete: "restrict" }),
+		status: ballotStatus("status").notNull().default("draft"),
+		publishedAt: timestamp("published_at"),
+		// Nullable + set null on delete: deleting the admin who created a ballot
+		// shouldn't take the ballot (and its members) down with it - same
+		// reasoning as groups.createdBy.
+		createdBy: uuid("created_by").references(() => users.id, {
+			onDelete: "set null",
+		}),
+		// Display position among the ballots of one (league, season) - the pair
+		// is the only scope a position means anything in, since that's all a
+		// league room's Season tab ever shows at once. Every list that renders
+		// ballots orders on this with name as the tiebreak, so the default of 1
+		// leaves an untouched set reading exactly as alphabetical did.
+		// Auto-generated ballots get theirs from the recurring catalog's own
+		// group order (lib/season-questions.ts), hand-made ones append to the
+		// end, and reorderBallots is the only thing that rewrites them after.
+		sortOrder: integer("sort_order").notNull().default(1),
+		createdAt: timestamp("created_at").notNull().defaultNow(),
+	},
+	(t) => [
+		index("ballots_league_id_season_id_sort_order_idx").on(
+			t.leagueId,
+			t.seasonId,
+			t.sortOrder,
+		),
+	],
+)
 export type Ballot = typeof ballots.$inferSelect
 
 // One row per question that's been placed into a ballot. questionId is

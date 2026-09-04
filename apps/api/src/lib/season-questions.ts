@@ -19,11 +19,18 @@ import { getCurrentSeason } from "./seasons"
 // comment in db/schema/ballots.ts). Also flips an already-existing ballot
 // from draft to published if it's somehow still draft (e.g. left over from
 // before this behavior existed), so a rerun heals that too.
+//
+// sortOrder applies on insert only - an existing ballot keeps whatever
+// position it has, including one an admin set by hand in the ballot list.
+// So the catalog seeds each new season's order and every later sync leaves
+// it alone; editing the catalog's group order only moves ballots that
+// haven't been created yet.
 async function findOrCreateBallot(params: {
 	leagueId: string
 	sportId: string
 	seasonId: string
 	name: string
+	sortOrder: number
 	createdBy: string
 }): Promise<typeof ballots.$inferSelect> {
 	const existing = await db.query.ballots.findFirst({
@@ -50,6 +57,7 @@ async function findOrCreateBallot(params: {
 			leagueId: params.leagueId,
 			seasonId: params.seasonId,
 			createdBy: params.createdBy,
+			sortOrder: params.sortOrder,
 			status: "published",
 			publishedAt: new Date(),
 		})
@@ -467,6 +475,19 @@ export async function generateSeasonQuestions(params: {
 		return true
 	})
 
+	// A group's ballot position is the order it first appears in the league's
+	// catalog array - no separate ordering config to keep in sync with the
+	// group names, the array is already written group-adjacent. Built off the
+	// unfiltered params.templates, not the filtered list above, so a mid-season
+	// run assigns the same numbers a preseason one would: dropping Win Totals
+	// once the season starts shouldn't shift every award ballot up one.
+	const groupOrder = new Map<string, number>()
+	for (const template of params.templates) {
+		if (!groupOrder.has(template.ballotGroup)) {
+			groupOrder.set(template.ballotGroup, groupOrder.size + 1)
+		}
+	}
+
 	const templatesByGroup = new Map<string, RecurringQuestionTemplate[]>()
 	for (const template of templates) {
 		const list = templatesByGroup.get(template.ballotGroup) ?? []
@@ -486,6 +507,7 @@ export async function generateSeasonQuestions(params: {
 			sportId: league.sportId,
 			seasonId: season.id,
 			name: `${season.displayName} ${ballotGroup}`,
+			sortOrder: groupOrder.get(ballotGroup) ?? 1,
 			createdBy: params.createdBy,
 		})
 

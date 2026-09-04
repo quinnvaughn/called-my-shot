@@ -7,6 +7,14 @@ import type { AwardVerb } from "@called-my-shot/schemas"
 // Templates sharing a ballotGroup land in one ballot together (e.g. every
 // team's win-total question groups into one "Win Totals" ballot).
 //
+// The order groups first appear in a league's array below is the order their
+// ballots display in (ballots.sortOrder), which is why each league's entries
+// are written group-adjacent - moving a group's block moves its ballot. That
+// only ever applies to a ballot that doesn't exist yet: an already-generated
+// ballot keeps its position, so reordering here won't retroactively shuffle
+// a season already underway, and a hand-reorder in the admin ballot list
+// survives every later sync. See findOrCreateBallot in lib/season-questions.ts.
+//
 // player_award_finalists is deliberately not a template kind here: finalists
 // aren't knowable at season start (they're announced mid/late-season), so
 // that shape stays purely admin-authored through the ordinary createQuestion

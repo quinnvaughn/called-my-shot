@@ -52,22 +52,29 @@ export const AdminBallotSearchDocument = graphql(`
 	}
 `)
 
-// Admin Ballots list page.
+// Admin Ballots list page - both its modes. Browsing every league pages
+// through with `after`; scoped to one league and season it asks for the whole
+// scope at once (`first`) and sorts on SORT_ORDER, since reordering a list
+// you can only see one page of doesn't work.
 export const AdminBallotsDocument = graphql(`
 	query AdminBallots(
 		$search: String
 		$status: BallotStatus
 		$leagueId: ID
+		$seasonId: ID
 		$sortBy: AdminBallotSort
 		$sortDir: SortDirection
+		$first: Int
 		$after: String
 	) {
 		adminBallots(
 			search: $search
 			status: $status
 			leagueId: $leagueId
+			seasonId: $seasonId
 			sortBy: $sortBy
 			sortDir: $sortDir
+			first: $first
 			after: $after
 		) {
 			__typename
@@ -78,6 +85,7 @@ export const AdminBallotsDocument = graphql(`
 						name
 						status
 						memberCount
+						sortOrder
 						league {
 							id
 							name

@@ -381,3 +381,21 @@ export const CurrentSeasonByLeagueDocument = graphql(`
 		}
 	}
 `)
+
+// Fills the admin ballot list's season picker once a league is chosen. Both
+// fields in one round trip because the picker needs both: leagueSeasons for
+// the options, currentSeason for which one to land on - the newest year isn't
+// reliably the current season (the sync pulls this year and next), and
+// getCurrentSeason already encodes the real rule.
+export const AdminBallotScopeDocument = graphql(`
+	query AdminBallotScope($leagueId: ID!) {
+		leagueSeasons(leagueId: $leagueId) {
+			id
+			year
+			displayName
+		}
+		currentSeason(leagueId: $leagueId) {
+			id
+		}
+	}
+`)
