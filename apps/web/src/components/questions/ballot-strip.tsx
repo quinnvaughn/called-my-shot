@@ -1,7 +1,8 @@
 import { Link } from "@tanstack/react-router"
-import { Fragment, useState } from "react"
+import { Fragment, useEffect, useState } from "react"
+import { match } from "ts-pattern"
 import { FaCheck, FaChevronDown, FaXmark } from "react-icons/fa6"
-import { FiChevronLeft, FiChevronRight } from "react-icons/fi"
+import { FiChevronDown, FiChevronLeft, FiChevronRight } from "react-icons/fi"
 import { MdBallot } from "react-icons/md"
 import { css, cx } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
@@ -115,6 +116,32 @@ const navBoxEmptyClass = css({
 })
 
 const navArrowClass = css({ color: "fg.subtle", flexShrink: "0" })
+
+const stripNameClass = css({
+	display: "flex",
+	alignItems: "center",
+	gap: "1.5",
+	minWidth: "0",
+	color: "fg.muted",
+})
+
+const stripNameTextClass = css({
+	fontFamily: "mono",
+	fontSize: "2xs",
+	letterSpacing: "wide",
+	textTransform: "uppercase",
+	overflow: "hidden",
+	textOverflow: "ellipsis",
+	whiteSpace: "nowrap",
+})
+
+const stripCountClass = css({
+	fontFamily: "mono",
+	fontSize: "2xs",
+	color: "fg.subtle",
+	whiteSpace: "nowrap",
+	flexShrink: "0",
+})
 
 const navTextClass = css({
 	display: "flex",
@@ -308,6 +335,22 @@ function BallotChip({
 	)
 }
 
+// Resolved after mount, since matchMedia doesn't exist while server-
+// rendering. It drives only the label and aria state of the header control -
+// never the collapse itself, which is plain CSS below, so a phone never
+// renders the open strip and then jumps to closed once React takes over.
+function useIsCompactViewport(): boolean {
+	const [isCompact, setIsCompact] = useState(false)
+	useEffect(() => {
+		const query = window.matchMedia("(max-width: 639px)")
+		const sync = () => setIsCompact(query.matches)
+		sync()
+		query.addEventListener("change", sync)
+		return () => query.removeEventListener("change", sync)
+	}, [])
+	return isCompact
+}
+
 type Props = {
 	question: FragmentType<typeof BallotStripFragment>
 }
@@ -320,6 +363,14 @@ type Props = {
 // bucketing is new here.
 export function BallotStrip({ question: questionProp }: Props) {
 	const [expanded, setExpanded] = useState(false)
+	// null means "whatever this viewport defaults to" - closed on a phone,
+	// where the strip is most of the screen, open on anything wider. That
+	// default is expressed as CSS rather than as state so it survives server
+	// rendering; a reader who touches the control replaces it with an explicit
+	// true/false for the rest of the page's life.
+	const [collapsedOverride, setCollapsed] = useState<boolean | null>(null)
+	const isCompactViewport = useIsCompactViewport()
+	const isCollapsed = collapsedOverride ?? isCompactViewport
 	const question = useFragment(BallotStripFragment, questionProp)
 	const membership = question.ballotMembership
 	if (!membership) return null
@@ -359,63 +410,97 @@ export function BallotStrip({ question: questionProp }: Props) {
 	const nextUnanswered =
 		nextUnansweredIndex !== null ? members[nextUnansweredIndex] : null
 
+	// Written out per case rather than composed, so every rule Panda has to
+	// extract is a literal it can see at build time.
+	const bodyClass = match(collapsedOverride)
+		.with(null, () =>
+			css({
+				display: { base: "none", sm: "flex" },
+				flexDirection: "column",
+				gap: "3",
+				alignItems: "stretch",
+			}),
+		)
+		.with(true, () => css({ display: "none" }))
+		.with(false, () =>
+			css({
+				display: "flex",
+				flexDirection: "column",
+				gap: "3",
+				alignItems: "stretch",
+			}),
+		)
+		.exhaustive()
+
+	const chevronClass = match(collapsedOverride)
+		.with(null, () =>
+			css({ transform: { base: "rotate(0deg)", sm: "rotate(180deg)" } }),
+		)
+		.with(true, () => css({ transform: "rotate(0deg)" }))
+		.with(false, () => css({ transform: "rotate(180deg)" }))
+		.exhaustive()
+
 	return (
 		<Card>
 			<Card.Body>
 				<VStack gap="3" alignItems="stretch">
-					<HStack justify="space-between" alignItems="center" gap="2">
+					{/* The header is the only control up here, and the whole row is
+					    its target: a phone gets the strip closed by default, so the
+					    thing that opens it should be the easiest element on the card
+					    to hit. The member list has its own disclosure down inside the
+					    body - putting it up here too meant two chevrons side by side
+					    doing different things. */}
+					<button
+						type="button"
+						onClick={() => setCollapsed(!isCollapsed)}
+						aria-expanded={!isCollapsed}
+						aria-label={
+							isCollapsed ? "Show ballot navigation" : "Hide ballot navigation"
+						}
+						className={css({
+							display: "flex",
+							alignItems: "center",
+							justifyContent: "space-between",
+							gap: "2",
+							width: "full",
+							// Thumb-sized on a phone; natural height on a pointer device,
+							// where an oversized header is just dead space.
+							minHeight: { base: "44px", sm: "0" },
+							cursor: "pointer",
+							_hover: { "& [data-strip-name]": { color: "fg.default" } },
+						})}
+					>
+						<span className={stripNameClass} data-strip-name>
+							<MdBallot size={15} className={css({ flexShrink: "0" })} />
+							<span className={stripNameTextClass}>
+								{membership.ballot.name}
+							</span>
+						</span>
 						<span
 							className={css({
 								display: "flex",
 								alignItems: "center",
-								gap: "1.5",
-								minWidth: "0",
-								color: "fg.muted",
-							})}
-						>
-							<MdBallot size={15} className={css({ flexShrink: "0" })} />
-							<span
-								className={css({
-									fontFamily: "mono",
-									fontSize: "2xs",
-									letterSpacing: "wide",
-									textTransform: "uppercase",
-									overflow: "hidden",
-									textOverflow: "ellipsis",
-									whiteSpace: "nowrap",
-								})}
-							>
-								{membership.ballot.name}
-							</span>
-						</span>
-						<button
-							type="button"
-							onClick={() => setExpanded((v) => !v)}
-							aria-expanded={expanded}
-							className={css({
-								display: "flex",
-								alignItems: "center",
-								gap: "1.5",
-								fontFamily: "mono",
-								fontSize: "2xs",
-								color: "fg.subtle",
-								whiteSpace: "nowrap",
+								gap: "2",
 								flexShrink: "0",
-								cursor: "pointer",
-								_hover: { color: "fg.default" },
 							})}
 						>
-							{currentIndex + 1} of {members.length}
-							<FaChevronDown
-								size={9}
-								className={css({
-									transition: "transform 0.15s ease",
-									transform: expanded ? "rotate(180deg)" : undefined,
-								})}
+							<span className={stripCountClass}>
+								{currentIndex + 1} of {members.length}
+							</span>
+							<FiChevronDown
+								size={13}
+								className={cx(
+									css({
+										color: "fg.subtle",
+										transition: "transform 0.15s ease",
+									}),
+									chevronClass,
+								)}
 							/>
-						</button>
-					</HStack>
+						</span>
+					</button>
 
+					<div className={bodyClass}>
 					{/* The grid is at the section level, not the chip level: equal
 					    auto-fit columns, so clusters line up with each other and the
 					    column count follows the card width rather than the content.
@@ -458,6 +543,45 @@ export function BallotStrip({ question: questionProp }: Props) {
 							</VStack>
 						))}
 					</div>
+
+					{/* Named for what the rows are read for - call state,
+					    correctness, points - rather than for what the list contains,
+					    which the chip grid above already shows. The count stays
+					    alongside it: how big this ballot is is worth knowing before
+					    opening a scrolling list.
+
+					    Its disclosure lives down here, not in the header: the
+					    header's chevron collapses the whole strip, and two chevrons
+					    side by side doing different things is exactly what made that
+					    row confusing. */}
+					<button
+						type="button"
+						onClick={() => setExpanded((v) => !v)}
+						aria-expanded={expanded}
+						className={cx(
+							stripCountClass,
+							css({
+								display: "flex",
+								alignItems: "center",
+								gap: "1.5",
+								alignSelf: "flex-start",
+								letterSpacing: "wide",
+								textTransform: "uppercase",
+								minHeight: { base: "44px", sm: "0" },
+								cursor: "pointer",
+								_hover: { color: "fg.default" },
+							}),
+						)}
+					>
+						scorecard · {members.length}
+						<FaChevronDown
+							size={9}
+							className={css({
+								transition: "transform 0.15s ease",
+								transform: expanded ? "rotate(180deg)" : undefined,
+							})}
+						/>
+					</button>
 
 					{expanded && (
 						<VStack
@@ -667,6 +791,7 @@ export function BallotStrip({ question: questionProp }: Props) {
 							<FiChevronRight />
 						</Link>
 					)}
+					</div>
 				</VStack>
 			</Card.Body>
 		</Card>
