@@ -74,6 +74,7 @@ export const BallotQuestionRef = builder.drizzleObject("ballotQuestions", {
 		id: t.exposeID("id"),
 		label: t.exposeString("label"),
 		slot: t.exposeString("slot", { nullable: true }),
+		section: t.exposeString("section", { nullable: true }),
 		sortOrder: t.exposeInt("sortOrder"),
 		question: t.relation("question"),
 		ballot: t.relation("ballot"),
@@ -350,6 +351,7 @@ export const BallotQuestionInput = builder.inputType("BallotQuestionInput", {
 		ballotId: t.id({ required: true }),
 		label: t.string({ required: true }),
 		slot: t.string({ required: false }),
+		section: t.string({ required: false }),
 	}),
 })
 
@@ -361,6 +363,7 @@ const AttachQuestionToBallotInput = builder.inputType(
 			questionId: t.id({ required: true }),
 			label: t.string({ required: true }),
 			slot: t.string({ required: false }),
+			section: t.string({ required: false }),
 		}),
 	},
 )
@@ -372,6 +375,7 @@ const UpdateBallotQuestionInput = builder.inputType(
 			questionId: t.id({ required: true }),
 			label: t.string({ required: true }),
 			slot: t.string({ required: false }),
+			section: t.string({ required: false }),
 		}),
 	},
 )
@@ -551,10 +555,7 @@ builder.mutationFields((t) => ({
 				})
 				.from(ballots)
 				.where(
-					and(
-						eq(ballots.leagueId, league.id),
-						eq(ballots.seasonId, season.id),
-					),
+					and(eq(ballots.leagueId, league.id), eq(ballots.seasonId, season.id)),
 				)
 
 			const [ballot] = await db
@@ -666,7 +667,7 @@ builder.mutationFields((t) => ({
 			const parsed = attachQuestionToBallotSchema.safeParse(args.input)
 			if (!parsed.success)
 				throw ValidationError.fromZodIssues(parsed.error.issues)
-			const { ballotId, questionId, label, slot } = parsed.data
+			const { ballotId, questionId, label, slot, section } = parsed.data
 
 			const [ballot, question, existing] = await Promise.all([
 				db.query.ballots.findFirst({ where: { id: ballotId } }),
@@ -702,6 +703,7 @@ builder.mutationFields((t) => ({
 						questionId,
 						label,
 						slot: slot ?? null,
+						section: section ?? null,
 						sortOrder: maxSortOrder + 1,
 					})
 					.returning()
@@ -755,7 +757,11 @@ builder.mutationFields((t) => ({
 
 			const [ballotQuestion] = await db
 				.update(ballotQuestions)
-				.set({ label: parsed.data.label, slot: parsed.data.slot ?? null })
+				.set({
+					label: parsed.data.label,
+					slot: parsed.data.slot ?? null,
+					section: parsed.data.section ?? null,
+				})
 				.where(eq(ballotQuestions.questionId, parsed.data.questionId))
 				.returning()
 			if (!ballotQuestion)

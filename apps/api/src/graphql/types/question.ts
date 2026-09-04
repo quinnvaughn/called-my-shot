@@ -2758,6 +2758,7 @@ builder.mutationFields((t) => ({
 						questionId: question.id,
 						label: data.ballot.label,
 						slot: data.ballot.slot ?? null,
+						section: data.ballot.section ?? null,
 						sortOrder: maxSortOrder + 1,
 					})
 				}

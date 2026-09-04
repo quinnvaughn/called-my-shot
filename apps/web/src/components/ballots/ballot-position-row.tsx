@@ -19,6 +19,7 @@ export const BallotPositionRowFragment = graphql(`
 		id
 		slot
 		label
+		section
 		sortOrder
 		question {
 			id

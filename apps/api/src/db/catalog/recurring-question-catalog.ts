@@ -40,6 +40,14 @@ export type RecurringQuestionTemplate =
 			// Base" / "1B", not the whole award name).
 			label?: string
 			slot?: string
+			// Heading for the run of consecutive members this one belongs to
+			// (ballotQuestions.section) - "Offense"/"Defense"/"Special Teams" on
+			// an All-Pro ballot. Members are attached in the order they appear
+			// below, so a section's entries have to be written adjacent to each
+			// other here to come out as one run. Left unset for a ballot short
+			// enough to read without headings (every award ballot is, until it
+			// gets to All-Pro's twenty slots).
+			ballotSection?: string
 	  }
 	| {
 			shape: "team_season_award"
@@ -52,6 +60,7 @@ export type RecurringQuestionTemplate =
 			// See the matching fields on player_season_award above.
 			label?: string
 			slot?: string
+			ballotSection?: string
 	  }
 	| {
 			shape: "team_season_stat_numeric_guess"
@@ -324,6 +333,7 @@ export const RECURRING_QUESTION_CATALOG: Record<
 		{
 			shape: "player_season_award",
 			ballotGroup: "All-Pro First Team",
+			ballotSection: "Offense",
 			awardName: "All-Pro First Team QB",
 			awardVerb: "be",
 			picksRequired: 1,
@@ -334,6 +344,7 @@ export const RECURRING_QUESTION_CATALOG: Record<
 		{
 			shape: "player_season_award",
 			ballotGroup: "All-Pro First Team",
+			ballotSection: "Offense",
 			awardName: "All-Pro First Team RB",
 			awardVerb: "be",
 			picksRequired: 1,
@@ -344,6 +355,7 @@ export const RECURRING_QUESTION_CATALOG: Record<
 		{
 			shape: "player_season_award",
 			ballotGroup: "All-Pro First Team",
+			ballotSection: "Offense",
 			awardName: "All-Pro First Team FB",
 			awardVerb: "be",
 			picksRequired: 1,
@@ -354,6 +366,7 @@ export const RECURRING_QUESTION_CATALOG: Record<
 		{
 			shape: "player_season_award",
 			ballotGroup: "All-Pro First Team",
+			ballotSection: "Offense",
 			awardName: "All-Pro First Team All-Purpose",
 			awardVerb: "be",
 			picksRequired: 1,
@@ -364,6 +377,7 @@ export const RECURRING_QUESTION_CATALOG: Record<
 		{
 			shape: "player_season_award",
 			ballotGroup: "All-Pro First Team",
+			ballotSection: "Offense",
 			awardName: "All-Pro First Team WR",
 			awardVerb: "be",
 			picksRequired: 3,
@@ -374,6 +388,7 @@ export const RECURRING_QUESTION_CATALOG: Record<
 		{
 			shape: "player_season_award",
 			ballotGroup: "All-Pro First Team",
+			ballotSection: "Offense",
 			awardName: "All-Pro First Team TE",
 			awardVerb: "be",
 			picksRequired: 1,
@@ -388,6 +403,7 @@ export const RECURRING_QUESTION_CATALOG: Record<
 		{
 			shape: "player_season_award",
 			ballotGroup: "All-Pro First Team",
+			ballotSection: "Offense",
 			awardName: "All-Pro First Team OT",
 			awardVerb: "be",
 			picksRequired: 2,
@@ -398,6 +414,7 @@ export const RECURRING_QUESTION_CATALOG: Record<
 		{
 			shape: "player_season_award",
 			ballotGroup: "All-Pro First Team",
+			ballotSection: "Offense",
 			awardName: "All-Pro First Team G",
 			awardVerb: "be",
 			picksRequired: 2,
@@ -408,6 +425,7 @@ export const RECURRING_QUESTION_CATALOG: Record<
 		{
 			shape: "player_season_award",
 			ballotGroup: "All-Pro First Team",
+			ballotSection: "Offense",
 			awardName: "All-Pro First Team C",
 			awardVerb: "be",
 			picksRequired: 1,
@@ -424,6 +442,7 @@ export const RECURRING_QUESTION_CATALOG: Record<
 		{
 			shape: "player_season_award",
 			ballotGroup: "All-Pro First Team",
+			ballotSection: "Defense",
 			awardName: "All-Pro First Team EDGE",
 			awardVerb: "be",
 			picksRequired: 3,
@@ -434,6 +453,7 @@ export const RECURRING_QUESTION_CATALOG: Record<
 		{
 			shape: "player_season_award",
 			ballotGroup: "All-Pro First Team",
+			ballotSection: "Defense",
 			awardName: "All-Pro First Team IDL",
 			awardVerb: "be",
 			picksRequired: 2,
@@ -444,6 +464,7 @@ export const RECURRING_QUESTION_CATALOG: Record<
 		{
 			shape: "player_season_award",
 			ballotGroup: "All-Pro First Team",
+			ballotSection: "Defense",
 			awardName: "All-Pro First Team LB",
 			awardVerb: "be",
 			picksRequired: 2,
@@ -457,6 +478,7 @@ export const RECURRING_QUESTION_CATALOG: Record<
 		{
 			shape: "player_season_award",
 			ballotGroup: "All-Pro First Team",
+			ballotSection: "Defense",
 			awardName: "All-Pro First Team CB",
 			awardVerb: "be",
 			picksRequired: 3,
@@ -467,6 +489,7 @@ export const RECURRING_QUESTION_CATALOG: Record<
 		{
 			shape: "player_season_award",
 			ballotGroup: "All-Pro First Team",
+			ballotSection: "Defense",
 			awardName: "All-Pro First Team S",
 			awardVerb: "be",
 			picksRequired: 2,
@@ -477,6 +500,7 @@ export const RECURRING_QUESTION_CATALOG: Record<
 		{
 			shape: "player_season_award",
 			ballotGroup: "All-Pro First Team",
+			ballotSection: "Special Teams",
 			awardName: "All-Pro First Team K",
 			awardVerb: "be",
 			picksRequired: 1,
@@ -487,6 +511,7 @@ export const RECURRING_QUESTION_CATALOG: Record<
 		{
 			shape: "player_season_award",
 			ballotGroup: "All-Pro First Team",
+			ballotSection: "Special Teams",
 			awardName: "All-Pro First Team P",
 			awardVerb: "be",
 			picksRequired: 1,
@@ -497,6 +522,7 @@ export const RECURRING_QUESTION_CATALOG: Record<
 		{
 			shape: "player_season_award",
 			ballotGroup: "All-Pro First Team",
+			ballotSection: "Special Teams",
 			awardName: "All-Pro First Team LS",
 			awardVerb: "be",
 			picksRequired: 1,
@@ -510,6 +536,7 @@ export const RECURRING_QUESTION_CATALOG: Record<
 		{
 			shape: "player_season_award",
 			ballotGroup: "All-Pro First Team",
+			ballotSection: "Special Teams",
 			awardName: "All-Pro First Team KR",
 			awardVerb: "be",
 			picksRequired: 1,
@@ -519,6 +546,7 @@ export const RECURRING_QUESTION_CATALOG: Record<
 		{
 			shape: "player_season_award",
 			ballotGroup: "All-Pro First Team",
+			ballotSection: "Special Teams",
 			awardName: "All-Pro First Team PR",
 			awardVerb: "be",
 			picksRequired: 1,
@@ -528,6 +556,7 @@ export const RECURRING_QUESTION_CATALOG: Record<
 		{
 			shape: "player_season_award",
 			ballotGroup: "All-Pro First Team",
+			ballotSection: "Special Teams",
 			awardName: "All-Pro First Team ST",
 			awardVerb: "be",
 			picksRequired: 1,
@@ -537,6 +566,7 @@ export const RECURRING_QUESTION_CATALOG: Record<
 		{
 			shape: "player_season_award",
 			ballotGroup: "All-Pro Second Team",
+			ballotSection: "Offense",
 			awardName: "All-Pro Second Team QB",
 			awardVerb: "be",
 			picksRequired: 1,
@@ -547,6 +577,7 @@ export const RECURRING_QUESTION_CATALOG: Record<
 		{
 			shape: "player_season_award",
 			ballotGroup: "All-Pro Second Team",
+			ballotSection: "Offense",
 			awardName: "All-Pro Second Team RB",
 			awardVerb: "be",
 			picksRequired: 1,
@@ -557,6 +588,7 @@ export const RECURRING_QUESTION_CATALOG: Record<
 		{
 			shape: "player_season_award",
 			ballotGroup: "All-Pro Second Team",
+			ballotSection: "Offense",
 			awardName: "All-Pro Second Team FB",
 			awardVerb: "be",
 			picksRequired: 1,
@@ -567,6 +599,7 @@ export const RECURRING_QUESTION_CATALOG: Record<
 		{
 			shape: "player_season_award",
 			ballotGroup: "All-Pro Second Team",
+			ballotSection: "Offense",
 			awardName: "All-Pro Second Team All-Purpose",
 			awardVerb: "be",
 			picksRequired: 1,
@@ -577,6 +610,7 @@ export const RECURRING_QUESTION_CATALOG: Record<
 		{
 			shape: "player_season_award",
 			ballotGroup: "All-Pro Second Team",
+			ballotSection: "Offense",
 			awardName: "All-Pro Second Team WR",
 			awardVerb: "be",
 			picksRequired: 3,
@@ -587,6 +621,7 @@ export const RECURRING_QUESTION_CATALOG: Record<
 		{
 			shape: "player_season_award",
 			ballotGroup: "All-Pro Second Team",
+			ballotSection: "Offense",
 			awardName: "All-Pro Second Team TE",
 			awardVerb: "be",
 			picksRequired: 1,
@@ -597,6 +632,7 @@ export const RECURRING_QUESTION_CATALOG: Record<
 		{
 			shape: "player_season_award",
 			ballotGroup: "All-Pro Second Team",
+			ballotSection: "Offense",
 			awardName: "All-Pro Second Team OT",
 			awardVerb: "be",
 			picksRequired: 2,
@@ -607,6 +643,7 @@ export const RECURRING_QUESTION_CATALOG: Record<
 		{
 			shape: "player_season_award",
 			ballotGroup: "All-Pro Second Team",
+			ballotSection: "Offense",
 			awardName: "All-Pro Second Team G",
 			awardVerb: "be",
 			picksRequired: 2,
@@ -617,6 +654,7 @@ export const RECURRING_QUESTION_CATALOG: Record<
 		{
 			shape: "player_season_award",
 			ballotGroup: "All-Pro Second Team",
+			ballotSection: "Offense",
 			awardName: "All-Pro Second Team C",
 			awardVerb: "be",
 			picksRequired: 1,
@@ -627,6 +665,7 @@ export const RECURRING_QUESTION_CATALOG: Record<
 		{
 			shape: "player_season_award",
 			ballotGroup: "All-Pro Second Team",
+			ballotSection: "Defense",
 			awardName: "All-Pro Second Team EDGE",
 			awardVerb: "be",
 			picksRequired: 3,
@@ -637,6 +676,7 @@ export const RECURRING_QUESTION_CATALOG: Record<
 		{
 			shape: "player_season_award",
 			ballotGroup: "All-Pro Second Team",
+			ballotSection: "Defense",
 			awardName: "All-Pro Second Team IDL",
 			awardVerb: "be",
 			picksRequired: 2,
@@ -647,6 +687,7 @@ export const RECURRING_QUESTION_CATALOG: Record<
 		{
 			shape: "player_season_award",
 			ballotGroup: "All-Pro Second Team",
+			ballotSection: "Defense",
 			awardName: "All-Pro Second Team LB",
 			awardVerb: "be",
 			picksRequired: 2,
@@ -657,6 +698,7 @@ export const RECURRING_QUESTION_CATALOG: Record<
 		{
 			shape: "player_season_award",
 			ballotGroup: "All-Pro Second Team",
+			ballotSection: "Defense",
 			awardName: "All-Pro Second Team CB",
 			awardVerb: "be",
 			picksRequired: 3,
@@ -667,6 +709,7 @@ export const RECURRING_QUESTION_CATALOG: Record<
 		{
 			shape: "player_season_award",
 			ballotGroup: "All-Pro Second Team",
+			ballotSection: "Defense",
 			awardName: "All-Pro Second Team S",
 			awardVerb: "be",
 			picksRequired: 2,
@@ -677,6 +720,7 @@ export const RECURRING_QUESTION_CATALOG: Record<
 		{
 			shape: "player_season_award",
 			ballotGroup: "All-Pro Second Team",
+			ballotSection: "Special Teams",
 			awardName: "All-Pro Second Team K",
 			awardVerb: "be",
 			picksRequired: 1,
@@ -687,6 +731,7 @@ export const RECURRING_QUESTION_CATALOG: Record<
 		{
 			shape: "player_season_award",
 			ballotGroup: "All-Pro Second Team",
+			ballotSection: "Special Teams",
 			awardName: "All-Pro Second Team P",
 			awardVerb: "be",
 			picksRequired: 1,
@@ -697,6 +742,7 @@ export const RECURRING_QUESTION_CATALOG: Record<
 		{
 			shape: "player_season_award",
 			ballotGroup: "All-Pro Second Team",
+			ballotSection: "Special Teams",
 			awardName: "All-Pro Second Team LS",
 			awardVerb: "be",
 			picksRequired: 1,
@@ -707,6 +753,7 @@ export const RECURRING_QUESTION_CATALOG: Record<
 		{
 			shape: "player_season_award",
 			ballotGroup: "All-Pro Second Team",
+			ballotSection: "Special Teams",
 			awardName: "All-Pro Second Team KR",
 			awardVerb: "be",
 			picksRequired: 1,
@@ -716,6 +763,7 @@ export const RECURRING_QUESTION_CATALOG: Record<
 		{
 			shape: "player_season_award",
 			ballotGroup: "All-Pro Second Team",
+			ballotSection: "Special Teams",
 			awardName: "All-Pro Second Team PR",
 			awardVerb: "be",
 			picksRequired: 1,
@@ -725,6 +773,7 @@ export const RECURRING_QUESTION_CATALOG: Record<
 		{
 			shape: "player_season_award",
 			ballotGroup: "All-Pro Second Team",
+			ballotSection: "Special Teams",
 			awardName: "All-Pro Second Team ST",
 			awardVerb: "be",
 			picksRequired: 1,

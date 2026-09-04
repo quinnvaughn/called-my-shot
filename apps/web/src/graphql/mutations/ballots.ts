@@ -110,6 +110,7 @@ export const AttachQuestionToBallotDocument = graphql(`
 					id
 					label
 					slot
+					section
 					question {
 						id
 						title
@@ -161,6 +162,7 @@ export const UpdateBallotQuestionDocument = graphql(`
 					id
 					label
 					slot
+					section
 				}
 			}
 			... on ValidationError {

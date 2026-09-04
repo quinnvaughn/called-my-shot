@@ -38,16 +38,18 @@ function MemberRow({
 		id: string
 		label: string
 		slot: string | null
+		section: string | null
 		question: { id: string; title: string; shape: string; status: string }
 	}
 	position: number
 	total: number
 	onMove: (direction: "up" | "down") => void
-	onSave: (label: string, slot: string) => void
+	onSave: (label: string, slot: string, section: string) => void
 	onRemove: () => void
 }) {
 	const [label, setLabel] = useState(member.label)
 	const [slot, setSlot] = useState(member.slot ?? "")
+	const [section, setSection] = useState(member.section ?? "")
 
 	return (
 		<HStack
@@ -96,7 +98,7 @@ function MemberRow({
 						maxLength={8}
 						value={slot}
 						onChange={(e) => setSlot(e.target.value)}
-						onBlur={() => onSave(label, slot)}
+						onBlur={() => onSave(label, slot, section)}
 					/>
 				</TextInput.Group>
 			</TextInput>
@@ -106,7 +108,22 @@ function MemberRow({
 						placeholder="First base"
 						value={label}
 						onChange={(e) => setLabel(e.target.value)}
-						onBlur={() => onSave(label, slot)}
+						onBlur={() => onSave(label, slot, section)}
+					/>
+				</TextInput.Group>
+			</TextInput>
+			{/* Optional heading for a run of consecutive members - blank on
+			    every ungrouped ballot, which is most of them. The public list
+			    draws it once where it changes, so leaving it blank here is
+			    what keeps a ballot ungrouped. */}
+			<TextInput className={css({ flexShrink: 0, width: "36" })}>
+				<TextInput.Group>
+					<TextInput.Field
+						placeholder="Section"
+						maxLength={40}
+						value={section}
+						onChange={(e) => setSection(e.target.value)}
+						onBlur={() => onSave(label, slot, section)}
 					/>
 				</TextInput.Group>
 			</TextInput>
@@ -194,10 +211,22 @@ function RouteComponent() {
 		refetch()
 	}
 
-	async function saveMember(questionId: string, label: string, slot: string) {
+	async function saveMember(
+		questionId: string,
+		label: string,
+		slot: string,
+		section: string,
+	) {
 		if (!label.trim()) return
 		await updateBallotQuestion({
-			variables: { input: { questionId, label, slot: slot || undefined } },
+			variables: {
+				input: {
+					questionId,
+					label,
+					slot: slot || undefined,
+					section: section || undefined,
+				},
+			},
 		})
 	}
 
@@ -286,8 +315,8 @@ function RouteComponent() {
 						position={i}
 						total={members.length}
 						onMove={(direction) => move(i, direction)}
-						onSave={(label, slot) =>
-							saveMember(member.question.id, label, slot)
+						onSave={(label, slot, section) =>
+							saveMember(member.question.id, label, slot, section)
 						}
 						onRemove={() =>
 							removeMember(member.question.id, member.question.title)

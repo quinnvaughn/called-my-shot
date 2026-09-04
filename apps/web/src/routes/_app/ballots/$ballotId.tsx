@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router"
 import { DateTime } from "luxon"
+import { Fragment } from "react"
 import { FaRegTimesCircle } from "react-icons/fa"
 import { FiChevronLeft, FiChevronRight } from "react-icons/fi"
 import { css } from "styled-system/css"
@@ -51,6 +52,34 @@ export const Route = createFileRoute("/_app/ballots/$ballotId")({
 		}
 	},
 })
+
+// Heading for a run of members sharing a section ("AFC \u00b7 East" on a win
+// totals ballot). Drawn only where the value changes from the row above, so
+// a ballot whose members have no section (most of them - awards, a week of
+// games) renders exactly as it did before sections existed. Deliberately
+// not a container around its rows: members stay one flat list in sortOrder,
+// which is what keeps prev/next nav and the progress math indifferent to
+// whether a ballot is grouped at all.
+function BallotSectionHeading({ label }: { label: string }) {
+	return (
+		<span
+			className={css({
+				fontFamily: "mono",
+				fontSize: "2xs",
+				fontWeight: "bold",
+				letterSpacing: "wide",
+				textTransform: "uppercase",
+				color: "fg.subtle",
+				backgroundColor: "bg.subtle",
+				borderBottom: "1px solid {colors.border.default}",
+				paddingInline: "3",
+				paddingBlock: "2",
+			})}
+		>
+			{label}
+		</span>
+	)
+}
 
 function RouteComponent() {
 	const { ballot } = Route.useLoaderData()
@@ -194,13 +223,22 @@ function RouteComponent() {
 				</span>
 				<Card>
 					<VStack gap="0" alignItems="stretch">
-						{ballot.members.map((member, i) => (
+						{ballot.members.map((member, i) => {
 							// Rendered from the still-masked ballot.members (passed
 							// straight through, unmasked again inside
 							// BallotPositionRow) - members[i] is the same list
-							// already unmasked above for the id this needs as a key.
-							<BallotPositionRow key={members[i].id} member={member} />
-						))}
+							// already unmasked above for the id this needs as a key,
+							// and for the section heading below.
+							const section = members[i].section
+							return (
+								<Fragment key={members[i].id}>
+									{section && section !== members[i - 1]?.section && (
+										<BallotSectionHeading label={section} />
+									)}
+									<BallotPositionRow member={member} />
+								</Fragment>
+							)
+						})}
 					</VStack>
 				</Card>
 			</VStack>

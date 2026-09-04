@@ -98,6 +98,16 @@ export const ballotQuestions = pgTable(
 		// Optional short badge (e.g. "1B") - meaningless for non-positional
 		// ballots, so nothing here depends on it being set.
 		slot: text("slot"),
+		// Optional heading for a run of consecutive members ("AFC · East" on a
+		// win-totals ballot) - purely a display grouping, exactly like slot is
+		// purely a display badge. Membership stays one flat list ordered by
+		// sortOrder; every renderer draws a header only where this value
+		// differs from the previous member's, so an ungrouped ballot (every
+		// row null, which is most of them) looks exactly as it always has.
+		// Nothing keeps same-section members adjacent - a hand reorder that
+		// interleaves two sections just repeats the header, which is the
+		// honest rendering of the order an admin actually chose.
+		section: text("section"),
 		// Position within the ballot - new members append to the end
 		// (max(sortOrder)+1), reordering happens explicitly in the admin
 		// builder (reorderBallotQuestions), never inferred from anything else.

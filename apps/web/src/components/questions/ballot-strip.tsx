@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router"
-import { useState } from "react"
+import { Fragment, useState } from "react"
 import { FaCheck, FaChevronDown, FaXmark } from "react-icons/fa6"
 import { FiChevronLeft, FiChevronRight } from "react-icons/fi"
 import { MdBallot } from "react-icons/md"
@@ -27,6 +27,7 @@ export const BallotStripFragment = graphql(`
 					id
 					slot
 					label
+					section
 					question {
 						id
 						title
@@ -147,6 +148,62 @@ const emptyNavTextClass = css({
 	color: "fg.subtle",
 })
 
+// A chip is a bordered, filled, mono-3xs box; a caption set in the same mono
+// 3xs with no box of its own still reads as one more chip in the row, just an
+// unstyled one. So the caption gets a treatment of its own rather than the
+// absence of the chip's: widest tracking, and a hairline rule under it
+// spanning its cluster - a section marker, which nothing clickable in this
+// card has. Not dimmed any further to separate it: fg.subtle is already the
+// bottom of the fg scale (see panda.config.ts) and anything under it stops
+// being readable.
+const sectionCaptionClass = css({
+	fontFamily: "mono",
+	fontSize: "3xs",
+	letterSpacing: "widest",
+	textTransform: "uppercase",
+	color: "fg.subtle",
+	whiteSpace: "nowrap",
+	width: "full",
+	paddingBottom: "1",
+	borderBottom: "1px solid {colors.border.default}",
+})
+
+// The expanded list is a vertical run of rows, not a grid of clickable
+// chips, so its headings need no rule to separate them from anything - the
+// row layout already does that.
+const sectionHeadingClass = css({
+	fontFamily: "mono",
+	fontSize: "3xs",
+	letterSpacing: "widest",
+	textTransform: "uppercase",
+	color: "fg.subtle",
+	flexShrink: "0",
+	whiteSpace: "nowrap",
+})
+
+// Consecutive members sharing a section (a division, on a win-totals
+// ballot), which is what lets the chip grid start a new line at every group
+// boundary instead of wrapping wherever it happens to run out of room. Runs,
+// not a group-by: membership is one flat list in sortOrder and a section
+// that appears twice in it is drawn twice, matching the order actually
+// stored. A ballot with no sections at all comes back as one null-section
+// run, which renders exactly as the ungrouped grid always has.
+function sectionRuns<T extends { section?: string | null }>(
+	members: T[],
+): { section: string | null; entries: { member: T; index: number }[] }[] {
+	const runs: {
+		section: string | null
+		entries: { member: T; index: number }[]
+	}[] = []
+	members.forEach((member, index) => {
+		const section = member.section ?? null
+		const current = runs.at(-1)
+		if (current && current.section === section) current.entries.push({ member, index })
+		else runs.push({ section, entries: [{ member, index }] })
+	})
+	return runs
+}
+
 const listSlotClass = css({
 	fontFamily: "mono",
 	fontSize: "3xs",
@@ -205,6 +262,52 @@ function MemberStateIcon({ state }: { state: BallotMemberState }) {
 	)
 }
 
+// One abbreviation in the grid above the nav. Extracted only because the
+// grouped grid and the ungrouped wrapping row both render it - the rest of
+// this file still styles inline at its single call site.
+function BallotChip({
+	member,
+	index,
+	state,
+	isCurrent,
+}: {
+	member: { id: string; slot?: string | null; label: string; question: { id: string } }
+	index: number
+	state: BallotMemberState
+	isCurrent: boolean
+}) {
+	return (
+		<Link
+			to="/questions/$questionId"
+			params={{ questionId: member.question.id }}
+			title={`${member.label} — ${state}`}
+			className={cx(
+				css({
+					display: "flex",
+					alignItems: "center",
+					justifyContent: "center",
+					height: "26px",
+					minWidth: "26px",
+					paddingInline: "7px",
+					borderRadius: "7px",
+					fontFamily: "mono",
+					fontSize: "3xs",
+					letterSpacing: "wide",
+					// Only load-bearing in the ungrouped wrapping row; a grid cell
+					// sizes the chip either way.
+					flexShrink: "0",
+				}),
+				css(
+					dotStateStyle[state],
+					isCurrent && { border: "1.5px solid {colors.primary.default}" },
+				),
+			)}
+		>
+			{member.slot || index + 1}
+		</Link>
+	)
+}
+
 type Props = {
 	question: FragmentType<typeof BallotStripFragment>
 }
@@ -232,6 +335,7 @@ export function BallotStrip({ question: questionProp }: Props) {
 			: null
 
 	const states = members.map(ballotMemberState)
+	const runs = sectionRuns(members)
 	const resolvedCount = states.filter((s) => s === "won" || s === "lost").length
 	const pendingCount = states.filter((s) => s === "pending").length
 	const calledCount = resolvedCount + pendingCount
@@ -312,39 +416,48 @@ export function BallotStrip({ question: questionProp }: Props) {
 						</button>
 					</HStack>
 
-					<HStack gap="1.5" flexWrap="wrap">
-						{members.map((member, i) => (
-							<Link
-								key={member.id}
-								to="/questions/$questionId"
-								params={{ questionId: member.question.id }}
-								title={`${member.label} — ${states[i]}`}
-								className={cx(
-									css({
-										display: "flex",
-										alignItems: "center",
-										justifyContent: "center",
-										height: "26px",
-										minWidth: "26px",
-										paddingInline: "7px",
-										borderRadius: "7px",
-										fontFamily: "mono",
-										fontSize: "3xs",
-										letterSpacing: "wide",
-										flexShrink: "0",
-									}),
-									css(
-										dotStateStyle[states[i]],
-										i === currentIndex && {
-											border: "1.5px solid {colors.primary.default}",
-										},
-									),
-								)}
+					{/* The grid is at the section level, not the chip level: equal
+					    auto-fit columns, so clusters line up with each other and the
+					    column count follows the card width rather than the content.
+					    Chips inside a cluster keep their natural width - forcing them
+					    onto a shared column count sizes every cluster's cells to the
+					    widest section in the ballot, which on an All-Pro ballot
+					    (9/5/6) squeezed a four-character slot into a cell too narrow
+					    to hold it. An ungrouped ballot is one captionless run, which
+					    collapses to a single full-width cluster: the plain wrapping
+					    row it has always been. */}
+					<div
+						className={css({
+							display: "grid",
+							gridTemplateColumns: "repeat(auto-fit, minmax(11rem, 1fr))",
+							columnGap: "4",
+							rowGap: "3",
+							alignItems: "start",
+						})}
+					>
+						{runs.map((run) => (
+							<VStack
+								key={run.section ?? "ungrouped"}
+								gap="1"
+								alignItems="stretch"
 							>
-								{member.slot || i + 1}
-							</Link>
+								{run.section && (
+									<span className={sectionCaptionClass}>{run.section}</span>
+								)}
+								<HStack gap="1.5" flexWrap="wrap">
+									{run.entries.map(({ member, index }) => (
+										<BallotChip
+											key={member.id}
+											member={member}
+											index={index}
+											state={states[index]}
+											isCurrent={index === currentIndex}
+										/>
+									))}
+								</HStack>
+							</VStack>
 						))}
-					</HStack>
+					</div>
 
 					{expanded && (
 						<VStack
@@ -361,9 +474,29 @@ export function BallotStrip({ question: questionProp }: Props) {
 							{members.map((member, i) => {
 								const points = member.question.viewerCall?.totalPoints ?? null
 								const isCurrent = i === currentIndex
+								// Same run boundaries the chip grid above breaks its lines
+								// on, drawn here as a heading instead - the list is
+								// scrollable and a title alone ("Guess the Boston Celtics'
+								// win total") doesn't say which division it sits in.
+								const startsSection =
+									member.section && member.section !== members[i - 1]?.section
 								return (
+									<Fragment key={member.id}>
+										{startsSection && (
+											<span
+												className={cx(
+													sectionHeadingClass,
+													css({
+														paddingInline: "2",
+														paddingTop: "2",
+														paddingBottom: "1",
+													}),
+												)}
+											>
+												{member.section}
+											</span>
+										)}
 									<Link
-										key={member.id}
 										to="/questions/$questionId"
 										params={{ questionId: member.question.id }}
 										className={css({
@@ -426,6 +559,7 @@ export function BallotStrip({ question: questionProp }: Props) {
 											<span className={listSlotClass}>{member.slot}</span>
 										)}
 									</Link>
+									</Fragment>
 								)
 							})}
 						</VStack>

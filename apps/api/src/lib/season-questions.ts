@@ -11,6 +11,10 @@ import {
 } from "../db/schema"
 import { buildPlayerPool, buildTeamPool } from "./award-pool"
 import { getCurrentSeason } from "./seasons"
+import {
+	compareTeamsByGrouping,
+	teamSectionResolver,
+} from "./team-grouping"
 
 // Published immediately, not left in draft - these are auto-generated from
 // the catalog, not a hand-built set an admin needs to review before it goes
@@ -91,6 +95,7 @@ async function attachToBallot(
 		questionId: string
 		label: string
 		slot?: string | null
+		section?: string | null
 	},
 ): Promise<void> {
 	const [row] = await tx
@@ -104,6 +109,7 @@ async function attachToBallot(
 		questionId: params.questionId,
 		label: params.label,
 		slot: params.slot ?? null,
+		section: params.section ?? null,
 		sortOrder: (row?.maxSortOrder ?? -1) + 1,
 	})
 }
@@ -131,9 +137,17 @@ async function generatePerTeamNumericGuess(params: {
 	createdBy: string
 	ballotId: string
 }): Promise<{ created: number; skipped: number }> {
-	const teamsInLeague = await db.query.teams.findMany({
-		where: { leagueId: params.leagueId },
-	})
+	// Sorted here rather than in the query so the ballot's own order comes
+	// from the same comparator the section headings do (see team-grouping.ts)
+	// - attachToBallot appends at max(sortOrder)+1, so iteration order IS the
+	// rendered order, and a league's divisions come out as contiguous runs.
+	const teamsInLeague = (
+		await db.query.teams.findMany({ where: { leagueId: params.leagueId } })
+	).sort(compareTeamsByGrouping)
+	// Resolved against the whole league at once - whether a division name
+	// needs its conference spelled out in front of it is a league-level
+	// question (see teamSectionResolver).
+	const sectionFor = teamSectionResolver(teamsInLeague)
 	const stat = await db.query.stats.findFirst({
 		where: { sportId: params.sportId, name: params.template.statName },
 		with: { toleranceTier: true },
@@ -209,6 +223,7 @@ async function generatePerTeamNumericGuess(params: {
 				// Angeles Lakers") - not the other way around.
 				label: team.name,
 				slot: team.abbreviation,
+				section: sectionFor(team),
 			})
 		})
 		created++
@@ -319,6 +334,7 @@ async function generatePlayerSeasonAward(params: {
 			questionId: question.id,
 			label: params.template.label ?? params.template.awardName,
 			slot: params.template.slot,
+			section: params.template.ballotSection,
 		})
 	})
 	return { created: 1, skipped: 0 }
@@ -416,6 +432,7 @@ async function generateTeamSeasonAward(params: {
 			questionId: question.id,
 			label: params.template.label ?? params.template.awardName,
 			slot: params.template.slot,
+			section: params.template.ballotSection,
 		})
 	})
 	return { created: 1, skipped: 0 }

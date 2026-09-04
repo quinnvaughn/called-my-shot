@@ -12,11 +12,13 @@ export type CreateBallotInput = z.infer<typeof createBallotSchema>
 // Shared by createQuestion's optional `ballot` param and the standalone
 // attachQuestionToBallot mutation - same fields either way a question ends
 // up placed into a ballot. label is required (the nav-critical field); slot
-// is optional (meaningless for non-positional ballots like a week of games).
+// and section are optional (both meaningless for non-positional, ungrouped
+// ballots like a week of games).
 export const ballotQuestionSchema = z.object({
 	ballotId: z.string().uuid(),
 	label: z.string().trim().min(1, "Give this question a label"),
 	slot: z.string().trim().max(8, "Keep it short").optional(),
+	section: z.string().trim().max(40, "Keep it short").optional(),
 })
 export type BallotQuestionInput = z.infer<typeof ballotQuestionSchema>
 
@@ -30,13 +32,15 @@ export type AttachQuestionToBallotInput = z.infer<
 	typeof attachQuestionToBallotSchema
 >
 
-// The builder's inline label/slot edit - always resends both fields (the
-// row's inputs are bound to current state), so this is a full replace, not a
-// partial patch.
+// The builder's inline label/slot/section edit - always resends every field
+// (the row's inputs are bound to current state), so this is a full replace,
+// not a partial patch. An emptied input arrives as undefined and clears the
+// column, which is how a section gets removed.
 export const updateBallotQuestionSchema = z.object({
 	questionId: z.string().uuid(),
 	label: z.string().trim().min(1, "Give this question a label"),
 	slot: z.string().trim().max(8, "Keep it short").optional(),
+	section: z.string().trim().max(40, "Keep it short").optional(),
 })
 export type UpdateBallotQuestionInput = z.infer<
 	typeof updateBallotQuestionSchema

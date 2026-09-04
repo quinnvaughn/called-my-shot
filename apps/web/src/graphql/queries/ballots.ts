@@ -164,6 +164,7 @@ export const AdminBallotDocument = graphql(`
 						id
 						label
 						slot
+						section
 						sortOrder
 						question {
 							id

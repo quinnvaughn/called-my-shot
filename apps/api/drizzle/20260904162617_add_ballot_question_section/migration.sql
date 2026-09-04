@@ -1,0 +1,1 @@
+ALTER TABLE "ballot_questions" ADD COLUMN "section" text;
