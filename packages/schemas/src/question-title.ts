@@ -149,6 +149,17 @@ function formatGameDate(iso: string): string {
 	}).format(new Date(iso))
 }
 
+// teams.conference stores ESPN's abbreviation, which reads correctly in a
+// title for most leagues ("AL MVP", "AFC Championship") but not for the NBA,
+// whose conferences come back as "East"/"West" where the sentence wants the
+// adjective ("Eastern Conference Finals"). Conferences only, deliberately -
+// the division values collide with these same names, and "AFC East" / "NL
+// West" are already right as stored.
+const CONFERENCE_TITLE_NAMES: Record<string, string> = {
+	East: "Eastern",
+	West: "Western",
+}
+
 // ["AL"] + "MVP" -> "AL MVP", ["AL", "NL"] + "MVP" -> "AL/NL MVP" - the
 // conference/division qualifier reads in front of the award's own name, same
 // order people actually say it in.
@@ -157,7 +168,10 @@ function qualifiedAwardName(
 	awardConferences?: string[],
 	awardDivisions?: string[],
 ): string {
-	const qualifier = [awardConferences?.join("/"), awardDivisions?.join("/")]
+	const conferences = awardConferences
+		?.map((c) => CONFERENCE_TITLE_NAMES[c] ?? c)
+		.join("/")
+	const qualifier = [conferences, awardDivisions?.join("/")]
 		.filter(Boolean)
 		.join(" ")
 	return qualifier ? `${qualifier} ${awardName}` : awardName

@@ -5,6 +5,20 @@ import { type EspnAthlete, fetchRoster, fetchTeams } from "./espn-client"
 import type { SyncLeagueConfig } from "./leagues"
 import { findRefEntityId, linkRef, scopedSourceId } from "./sync-refs"
 
+// ESPN only returns the multi-position `positions` array for baseball, where
+// eligibility at several spots is a real thing. Football and basketball
+// athletes come back with the scalar `position` alone, so reading `positions`
+// straight through would store an empty array for every NFL and NBA player -
+// and buildPlayerPool (lib/award-pool.ts) filters awardPositions against this
+// column, not the scalar, so those players would drop out of every positional
+// award pool entirely. Falling back to the scalar keeps one column answering
+// "what can this player be picked for" across all three sports.
+function athletePositions(athlete: EspnAthlete): string[] {
+	const listed = athlete.positions?.map((p) => p.abbreviation) ?? []
+	if (listed.length > 0) return listed
+	return athlete.position?.abbreviation ? [athlete.position.abbreviation] : []
+}
+
 async function syncAthlete(
 	leagueSlug: string,
 	teamId: string,
@@ -20,7 +34,7 @@ async function syncAthlete(
 				.set({
 					name: athlete.fullName,
 					position: athlete.position?.abbreviation ?? null,
-					positions: athlete.positions?.map((p) => p.abbreviation) ?? [],
+					positions: athletePositions(athlete),
 					currentTeamId: teamId,
 					seasonsInLeague: athlete.experience?.years ?? 0,
 					rookieEligible,
@@ -33,7 +47,7 @@ async function syncAthlete(
 			.values({
 				name: athlete.fullName,
 				position: athlete.position?.abbreviation ?? null,
-				positions: athlete.positions?.map((p) => p.abbreviation) ?? [],
+				positions: athletePositions(athlete),
 				currentTeamId: teamId,
 				seasonsInLeague: athlete.experience?.years ?? 0,
 				rookieEligible,
