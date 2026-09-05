@@ -92,9 +92,39 @@ export function trackPageview(path: string) {
 	})
 }
 
-export function identifyUser(user: { id: string; email?: string | null }) {
+// Everything the Me query already has that's worth segmenting on in PostHog.
+// `name`/`username`/`email` are also what PostHog's person display name falls
+// back through, so a person reads as a human instead of a uuid.
+type IdentifiedUser = {
+	id: string
+	name: string
+	username: string
+	email: string
+	isAdmin: boolean
+	emailVerified: boolean
+	isVerifiedPundit: boolean
+	questionCreationEnabled: boolean
+	createdAt: string
+}
+
+export function identifyUser(user: IdentifiedUser) {
 	if (!initialized) return
-	posthog.identify(user.id, user.email ? { email: user.email } : undefined)
+	posthog.identify(
+		user.id,
+		{
+			name: user.name,
+			username: user.username,
+			email: user.email,
+			isAdmin: user.isAdmin,
+			emailVerified: user.emailVerified,
+			isVerifiedPundit: user.isVerifiedPundit,
+			questionCreationEnabled: user.questionCreationEnabled,
+		},
+		// Signup date is a fact about the account, not a mutable trait - $set_once
+		// keeps it as the value from the first identify, so cohorts built on it
+		// stay stable.
+		{ signupDate: user.createdAt },
+	)
 }
 
 export function resetAnalytics() {
