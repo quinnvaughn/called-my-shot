@@ -9,6 +9,7 @@ import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools"
 import { useEffect } from "react"
 
 import { ModalHost } from "#/components/ui/modal"
+import { RouteError } from "#/components/ui/route-error"
 import { MeDocument } from "#/graphql/queries/me"
 import { gqlQueryOptions } from "#/graphql/query-options"
 import {
@@ -28,6 +29,12 @@ export const Route = createRootRouteWithContext<RouterContext>()({
 		const data = await context.queryClient.query(meQuery)
 		return { me: data.me ?? null }
 	},
+	// The viewer query above runs before anything else renders, so a failure
+	// here (api down, network blip) has nothing below it to catch. Declared on
+	// the root specifically rather than relying on defaultErrorComponent so it
+	// renders inside shellComponent's <html>/<body> - an error page instead of
+	// a bare document shell.
+	errorComponent: RouteError,
 	head: () => ({
 		meta: [
 			{

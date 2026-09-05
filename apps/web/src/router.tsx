@@ -4,6 +4,8 @@ import { setupRouterSsrQueryIntegration } from "@tanstack/react-router-ssr-query
 import { createIsomorphicFn } from "@tanstack/react-start"
 import { getRequestHeader } from "@tanstack/react-start/server"
 import type { ReactNode } from "react"
+import { RouteError } from "./components/ui/route-error"
+import { RoutePending } from "./components/ui/route-pending"
 import { routeTree } from "./routeTree.gen"
 
 const getCookie = createIsomorphicFn()
@@ -41,6 +43,13 @@ export function getRouter() {
 		// touch, so it only affects how long another user's changes take to
 		// show up on a revisit.
 		defaultStaleTime: 30_000,
+		// These two options are what actually install the per-route boundaries:
+		// react-router only wraps a route in a CatchBoundary when it resolves an
+		// errorComponent, and only in Suspense when it resolves a pending one.
+		// Without them a useSuspenseQuery that throws or suspends escapes the
+		// route it belongs to and takes the whole app with it.
+		defaultErrorComponent: RouteError,
+		defaultPendingComponent: RoutePending,
 		context: { queryClient },
 	})
 
