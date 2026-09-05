@@ -1,10 +1,11 @@
-import { useMutation } from "@apollo/client/react"
 import { joinGroupSchema } from "@called-my-shot/schemas"
+import { useQueryClient } from "@tanstack/react-query"
 import { useNavigate, useRouter } from "@tanstack/react-router"
 import { css } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
 import { match } from "ts-pattern"
 import { JoinGroupByCodeDocument } from "#/graphql/generated/graphql"
+import { useGqlMutation } from "#/graphql/hooks"
 import { track } from "#/lib/analytics"
 import { useForm } from "#/lib/form/use-form"
 import { Button } from "../ui/button"
@@ -12,8 +13,9 @@ import { FormError } from "../ui/form-error"
 import { TextInput } from "../ui/text-input"
 
 export function JoinCode() {
-	const [joinGroupByCode] = useMutation(JoinGroupByCodeDocument)
+	const joinGroupByCode = useGqlMutation(JoinGroupByCodeDocument)
 	const router = useRouter()
+	const queryClient = useQueryClient()
 	const navigate = useNavigate()
 
 	const form = useForm({
@@ -22,7 +24,7 @@ export function JoinCode() {
 			code: "",
 		},
 		onSubmit: async (values, helpers) => {
-			const { data } = await joinGroupByCode({ variables: { input: values } })
+			const data = await joinGroupByCode.mutateAsync({ input: values })
 			const result = data?.joinGroupByCode
 
 			if (!result) {
@@ -47,6 +49,7 @@ export function JoinCode() {
 				})
 				.with({ __typename: "GroupPayload" }, async (r) => {
 					track("group_joined", { groupId: r.group.id, source: "code_form" })
+					await queryClient.invalidateQueries()
 					await router.invalidate()
 					await navigate({
 						to: "/groups/$groupId",

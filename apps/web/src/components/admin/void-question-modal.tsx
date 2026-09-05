@@ -1,4 +1,3 @@
-import { useMutation } from "@apollo/client/react"
 import { voidQuestionSchema } from "@called-my-shot/schemas"
 import { useState } from "react"
 import { css } from "styled-system/css"
@@ -12,6 +11,7 @@ import { TextInput } from "#/components/ui/text-input"
 import { Textarea } from "#/components/ui/textarea"
 import { ToggleRow } from "#/components/ui/toggle-row"
 import type { VoidReason } from "#/graphql/generated/graphql"
+import { useGqlMutation } from "#/graphql/hooks"
 import { VoidQuestionDocument } from "#/graphql/mutations/admin"
 import {
 	defaultCountsAsStrike,
@@ -37,7 +37,7 @@ type Props = {
 }
 
 export function VoidQuestionModal({ question, onVoided }: Props) {
-	const [voidQuestion] = useMutation(VoidQuestionDocument)
+	const voidQuestion = useGqlMutation(VoidQuestionDocument)
 	const [reason, setReason] = useState<VoidReason>("NONSENSICAL")
 	const [duplicateOfQuestionId, setDuplicateOfQuestionId] = useState("")
 	const [note, setNote] = useState("")
@@ -74,15 +74,13 @@ export function VoidQuestionModal({ question, onVoided }: Props) {
 
 		setSubmitting(true)
 		try {
-			const { data } = await voidQuestion({
-				variables: {
-					input: {
-						questionId: question.id,
-						reason,
-						duplicateOfQuestionId: duplicateOfQuestionId || undefined,
-						note: note || undefined,
-						countsAsStrike,
-					},
+			const data = await voidQuestion.mutateAsync({
+				input: {
+					questionId: question.id,
+					reason,
+					duplicateOfQuestionId: duplicateOfQuestionId || undefined,
+					note: note || undefined,
+					countsAsStrike,
 				},
 			})
 			const result = data?.voidQuestion

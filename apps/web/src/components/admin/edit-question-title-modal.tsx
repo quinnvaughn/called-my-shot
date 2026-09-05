@@ -1,4 +1,3 @@
-import { useMutation } from "@apollo/client/react"
 import { editQuestionTitleSchema } from "@called-my-shot/schemas"
 import { useState } from "react"
 import { HStack, VStack } from "styled-system/jsx"
@@ -7,6 +6,7 @@ import { Button } from "#/components/ui/button"
 import { FormError } from "#/components/ui/form-error"
 import { Modal } from "#/components/ui/modal"
 import { TextInput } from "#/components/ui/text-input"
+import { useGqlMutation } from "#/graphql/hooks"
 import { EditQuestionTitleDocument } from "#/graphql/mutations/admin"
 import { closeModal } from "#/stores/modal-store"
 
@@ -16,7 +16,7 @@ type Props = {
 }
 
 export function EditQuestionTitleModal({ question, onEdited }: Props) {
-	const [editQuestionTitle] = useMutation(EditQuestionTitleDocument)
+	const editQuestionTitle = useGqlMutation(EditQuestionTitleDocument)
 	const [title, setTitle] = useState(question.title)
 	const [submitting, setSubmitting] = useState(false)
 	const [formError, setFormError] = useState<string | null>(null)
@@ -39,8 +39,8 @@ export function EditQuestionTitleModal({ question, onEdited }: Props) {
 
 		setSubmitting(true)
 		try {
-			const { data } = await editQuestionTitle({
-				variables: { input: { questionId: question.id, title } },
+			const data = await editQuestionTitle.mutateAsync({
+				input: { questionId: question.id, title },
 			})
 			const result = data?.editQuestionTitle
 			if (!result) {

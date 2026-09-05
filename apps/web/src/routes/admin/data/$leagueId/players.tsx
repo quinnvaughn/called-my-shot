@@ -1,4 +1,4 @@
-import { useApolloClient, useQuery } from "@apollo/client/react"
+import { useQuery } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
 import { HStack, VStack } from "styled-system/jsx"
 import { AddEditPlayerModal } from "#/components/admin/data-entity-modal"
@@ -9,6 +9,7 @@ import {
 	AdminPlayersDocument,
 	AdminTeamOptionsDocument,
 } from "#/graphql/queries/admin"
+import { EMPTY_CONNECTION, gqlQueryOptions } from "#/graphql/query-options"
 import { useAdminConnection } from "#/hooks/use-admin-connection"
 import { openModal } from "#/stores/modal-store"
 
@@ -16,19 +17,11 @@ export const Route = createFileRoute("/admin/data/$leagueId/players")({
 	component: RouteComponent,
 })
 
-type PlayerRow = {
-	id: string
-	name: string
-	position: string | null
-	currentTeam: { id: string; name: string; abbreviation: string } | null
-}
-
 function RouteComponent() {
 	const { leagueId } = Route.useParams()
-	const client = useApolloClient()
-	const { data: teamsData } = useQuery(AdminTeamOptionsDocument, {
-		variables: { leagueId },
-	})
+	const { data: teamsData } = useQuery(
+		gqlQueryOptions(AdminTeamOptionsDocument, { leagueId }),
+	)
 	const teamOptions =
 		teamsData?.adminTeams.__typename === "QueryAdminTeamsSuccess"
 			? teamsData.adminTeams.data.items
@@ -43,23 +36,14 @@ function RouteComponent() {
 		onSort,
 		loadMore,
 		reload,
-	} = useAdminConnection<PlayerRow, AdminPlayerSort>({
-		defaultSort: "NAME",
-		fetchPage: async ({ sortBy: sb, sortDir: sd, after }) => {
-			const { data } = await client.query({
-				query: AdminPlayersDocument,
-				variables: {
-					leagueId,
-					sortBy: sb,
-					sortDir: sd === "asc" ? "ASC" : "DESC",
-					after,
-				},
-				fetchPolicy: "network-only",
-			})
-			if (data?.adminPlayers.__typename !== "QueryAdminPlayersSuccess")
-				return null
-			return data.adminPlayers.data
-		},
+	} = useAdminConnection({
+		defaultSort: "NAME" as AdminPlayerSort,
+		document: AdminPlayersDocument,
+		variables: ({ sortBy, sortDir }) => ({ leagueId, sortBy, sortDir }),
+		selectConnection: (data) =>
+			data.adminPlayers.__typename === "QueryAdminPlayersSuccess"
+				? data.adminPlayers.data
+				: EMPTY_CONNECTION,
 	})
 
 	return (

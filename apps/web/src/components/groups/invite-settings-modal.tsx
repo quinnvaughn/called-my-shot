@@ -1,10 +1,10 @@
-import { useMutation } from "@apollo/client/react"
 import { useState } from "react"
 import { css, cx } from "styled-system/css"
 import { VStack } from "styled-system/jsx"
 import { InviteCodeModal } from "#/components/groups/invite-code-modal"
 import type { InviteExpiry } from "#/graphql/generated/graphql"
 import { ResetGroupInviteCodeDocument } from "#/graphql/generated/graphql"
+import { useGqlMutation } from "#/graphql/hooks"
 import { closeModal, replaceModalStack } from "#/stores/modal-store"
 import { Button } from "../ui/button"
 import { FormError } from "../ui/form-error"
@@ -40,14 +40,12 @@ export function InviteSettingsModal({
 	const [expiry, setExpiry] = useState<InviteExpiry>(
 		defaultExpiry(expirationDate),
 	)
-	const [resetInviteCode, { loading }] = useMutation(
-		ResetGroupInviteCodeDocument,
-	)
+	const resetInviteCode = useGqlMutation(ResetGroupInviteCodeDocument)
 	const [error, setError] = useState<string | null>(null)
 
 	async function handleGenerate() {
 		setError(null)
-		const { data } = await resetInviteCode({ variables: { inviteId, expiry } })
+		const data = await resetInviteCode.mutateAsync({ inviteId, expiry })
 		const result = data?.resetGroupInviteCode
 
 		if (result?.__typename === "GroupInvite") {
@@ -122,8 +120,8 @@ export function InviteSettingsModal({
 					variant="solid"
 					size="md"
 					fullWidth
-					loading={loading}
-					disabled={loading}
+					loading={resetInviteCode.isPending}
+					disabled={resetInviteCode.isPending}
 					onClick={handleGenerate}
 				>
 					Generate a New Link

@@ -1,9 +1,10 @@
-import { useMutation } from "@apollo/client/react"
 import { updateNameSchema } from "@called-my-shot/schemas"
+import { useQueryClient } from "@tanstack/react-query"
 import { useRouter } from "@tanstack/react-router"
 import { VStack } from "styled-system/jsx"
 import { match } from "ts-pattern"
 import { UpdateMyNameDocument } from "#/graphql/generated/graphql"
+import { useGqlMutation } from "#/graphql/hooks"
 import { useForm } from "#/lib/form/use-form"
 import { closeModal } from "#/stores/modal-store"
 import { Button } from "../ui/button"
@@ -16,8 +17,9 @@ type Props = {
 }
 
 export function EditNameModal({ currentName }: Props) {
-	const [updateMyName] = useMutation(UpdateMyNameDocument)
+	const updateMyName = useGqlMutation(UpdateMyNameDocument)
 	const router = useRouter()
+	const queryClient = useQueryClient()
 
 	const form = useForm({
 		defaultValues: {
@@ -25,7 +27,7 @@ export function EditNameModal({ currentName }: Props) {
 		},
 		schema: updateNameSchema,
 		onSubmit: async (values, helpers) => {
-			const { data } = await updateMyName({ variables: { input: values } })
+			const data = await updateMyName.mutateAsync({ input: values })
 			const result = data?.updateMyName
 
 			if (!result) {
@@ -46,6 +48,7 @@ export function EditNameModal({ currentName }: Props) {
 					helpers.setFormError("You need to sign in to do that.")
 				})
 				.with({ __typename: "User" }, async () => {
+					await queryClient.invalidateQueries()
 					await router.invalidate()
 					closeModal()
 				})

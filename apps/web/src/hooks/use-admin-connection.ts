@@ -1,67 +1,47 @@
-import { useCallback, useEffect, useRef, useState } from "react"
+import type { TypedDocumentNode } from "@graphql-typed-document-node/core"
+import { keepPreviousData, useInfiniteQuery } from "@tanstack/react-query"
+import { useState } from "react"
+import {
+	type Connection,
+	gqlInfiniteQueryOptions,
+} from "#/graphql/query-options"
 
-type PageInfo = { hasNextPage: boolean; endCursor: string | null }
-type Page<T> = { items: T[]; pageInfo: PageInfo }
-
-// Self-fetching sort+cursor pagination for the admin Data page's tables
-// (leagues/teams/players/games) - unlike usePaginatedConnection (seeded from
-// a route loader, append-only), this owns its own initial fetch and resets
-// to page 1 whenever sort changes, since a new sort invalidates whatever
-// cursor position was mid-scroll under the old order. `fetchPage` is the only
-// entity-specific part - it wraps whichever GraphQL query/field/error-union
-// shape the caller actually has.
-export function useAdminConnection<T, Sort extends string>({
+// Sort+cursor pagination for the admin Data page's tables
+// (leagues/teams/players/games). The sort lives in the query key, so picking
+// a new one is a different cache entry and starts at page 1 on its own -
+// which is the right behavior anyway, since a new order invalidates whatever
+// cursor position was mid-scroll under the old one. `document`/`variables`/
+// `selectConnection` are the only entity-specific parts.
+export function useAdminConnection<TResult, TVariables, TItem, Sort extends string>({
 	defaultSort,
 	defaultDir = "asc",
-	fetchPage,
+	document,
+	variables,
+	selectConnection,
 }: {
 	defaultSort: Sort
 	defaultDir?: "asc" | "desc"
-	fetchPage: (args: {
+	document: TypedDocumentNode<TResult, TVariables>
+	variables: (args: {
 		sortBy: Sort
-		sortDir: "asc" | "desc"
-		after: string | null
-	}) => Promise<Page<T> | null>
+		sortDir: "ASC" | "DESC"
+	}) => Omit<TVariables, "after">
+	selectConnection: (result: TResult) => Connection<TItem>
 }) {
 	const [sortBy, setSortBy] = useState(defaultSort)
 	const [sortDir, setSortDir] = useState<"asc" | "desc">(defaultDir)
-	const [items, setItems] = useState<T[]>([])
-	const [pageInfo, setPageInfo] = useState<PageInfo>({
-		hasNextPage: false,
-		endCursor: null,
-	})
-	const [loading, setLoading] = useState(true)
-	const fetchPageRef = useRef(fetchPage)
-	fetchPageRef.current = fetchPage
 
-	const load = useCallback(
-		async (
-			reset: boolean,
-			sb: Sort,
-			sd: "asc" | "desc",
-			after: string | null,
-		) => {
-			setLoading(true)
-			const page = await fetchPageRef.current({
-				sortBy: sb,
-				sortDir: sd,
-				after,
-			})
-			setLoading(false)
-			if (!page) return
-			setItems((prev) => (reset ? page.items : [...prev, ...page.items]))
-			setPageInfo(page.pageInfo)
-		},
-		[],
-	)
-
-	// Deliberately keyed only on sort - `load` is stable (its one real
-	// dependency, fetchPage, is read via ref instead) and re-running this on
-	// every render would re-fetch page 1 constantly.
-	// biome-ignore lint/correctness/useExhaustiveDependencies: load is stable, see above
-	useEffect(() => {
-		load(true, sortBy, sortDir, null)
-	}, [sortBy, sortDir])
+	// keepPreviousData holds the current rows in place while the newly picked
+	// sort's first page loads, rather than emptying the table mid-click.
+	const { data, hasNextPage, isFetching, fetchNextPage, refetch } =
+		useInfiniteQuery({
+			...gqlInfiniteQueryOptions(
+				document,
+				variables({ sortBy, sortDir: sortDir === "asc" ? "ASC" : "DESC" }),
+				selectConnection,
+			),
+			placeholderData: keepPreviousData,
+		})
 
 	function onSort(key: Sort) {
 		if (key === sortBy) setSortDir((d) => (d === "asc" ? "desc" : "asc"))
@@ -71,23 +51,21 @@ export function useAdminConnection<T, Sort extends string>({
 		}
 	}
 
-	function loadMore() {
-		if (!pageInfo.hasNextPage || loading) return
-		load(false, sortBy, sortDir, pageInfo.endCursor)
-	}
-
-	function reload() {
-		load(true, sortBy, sortDir, null)
-	}
-
 	return {
-		items,
-		loading,
-		hasNextPage: pageInfo.hasNextPage,
+		items: data?.items ?? [],
+		loading: isFetching,
+		hasNextPage,
 		sortBy,
 		sortDir,
 		onSort,
-		loadMore,
-		reload,
+		// Zero-arg wrappers: these are wired straight to onClick/onSaved, and
+		// the query client's own options argument has nothing to do with a
+		// click event.
+		loadMore: () => {
+			fetchNextPage()
+		},
+		reload: () => {
+			refetch()
+		},
 	}
 }

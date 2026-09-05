@@ -1,4 +1,4 @@
-import { useMutation } from "@apollo/client/react"
+import { useQueryClient } from "@tanstack/react-query"
 import { requestEmailChangeSchema } from "@called-my-shot/schemas"
 import { useRouter } from "@tanstack/react-router"
 import { useState } from "react"
@@ -10,6 +10,7 @@ import { Card } from "#/components/ui/card"
 import { FormError } from "#/components/ui/form-error"
 import { Tag } from "#/components/ui/tag"
 import { TextInput } from "#/components/ui/text-input"
+import { useGqlMutation } from "#/graphql/hooks"
 import {
 	CancelEmailChangeDocument,
 	RequestEmailChangeDocument,
@@ -60,10 +61,11 @@ export function EmailSection({
 	emailVerified,
 	pendingEmailChange,
 }: Props) {
-	const [requestEmailChange] = useMutation(RequestEmailChangeDocument)
-	const [resendEmailChange] = useMutation(ResendEmailChangeDocument)
-	const [cancelEmailChange] = useMutation(CancelEmailChangeDocument)
+	const requestEmailChange = useGqlMutation(RequestEmailChangeDocument)
+	const resendEmailChange = useGqlMutation(ResendEmailChangeDocument)
+	const cancelEmailChange = useGqlMutation(CancelEmailChangeDocument)
 	const router = useRouter()
+	const queryClient = useQueryClient()
 	const [resent, setResent] = useState(false)
 	const [pendingActionError, setPendingActionError] = useState<string | null>(
 		null,
@@ -73,9 +75,7 @@ export function EmailSection({
 		defaultValues: { newEmail: "", password: "" },
 		schema: requestEmailChangeSchema,
 		onSubmit: async (values, helpers) => {
-			const { data } = await requestEmailChange({
-				variables: { input: values },
-			})
+			const data = await requestEmailChange.mutateAsync({ input: values })
 			const result = data?.requestEmailChange
 
 			if (!result) {
@@ -97,6 +97,7 @@ export function EmailSection({
 				})
 				.with({ __typename: "User" }, async () => {
 					helpers.reset()
+					await queryClient.invalidateQueries()
 					await router.invalidate()
 				})
 				.exhaustive()
@@ -105,13 +106,12 @@ export function EmailSection({
 
 	async function handleResend() {
 		setPendingActionError(null)
-		const { data } = await resendEmailChange({
-			variables: { redirectTo: "/settings" },
-		})
+		const data = await resendEmailChange.mutateAsync({ redirectTo: "/settings" })
 		if (data?.resendEmailChange?.__typename !== "User") {
 			setPendingActionError("Couldn't resend. Try again.")
 			return
 		}
+		await queryClient.invalidateQueries()
 		await router.invalidate()
 		setResent(true)
 		setTimeout(() => setResent(false), 1500)
@@ -119,7 +119,8 @@ export function EmailSection({
 
 	async function handleCancel() {
 		setPendingActionError(null)
-		await cancelEmailChange()
+		await cancelEmailChange.mutateAsync()
+		await queryClient.invalidateQueries()
 		await router.invalidate()
 	}
 

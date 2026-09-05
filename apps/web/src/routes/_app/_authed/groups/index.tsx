@@ -1,3 +1,4 @@
+import { useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
 import { Grid, VStack } from "styled-system/jsx"
 import { GroupCard } from "#/components/groups/group-card"
@@ -7,7 +8,10 @@ import { Button } from "#/components/ui/button"
 import { InfoCard } from "#/components/ui/info-card"
 import { PageHeader } from "#/components/ui/page-header"
 import { MyGroupsDocument } from "#/graphql/generated/graphql"
+import { gqlQueryOptions } from "#/graphql/query-options"
 import { openModal } from "#/stores/modal-store"
+
+const myGroupsQuery = gqlQueryOptions(MyGroupsDocument, {})
 
 export const Route = createFileRoute("/_app/_authed/groups/")({
 	component: RouteComponent,
@@ -25,17 +29,12 @@ export const Route = createFileRoute("/_app/_authed/groups/")({
 			</VStack>
 		),
 	},
-	loader: async ({ context }) => {
-		const { data } = await context.apolloClient.query({
-			query: MyGroupsDocument,
-		})
-
-		return { groups: data?.myGroups || [] }
-	},
+	loader: ({ context }) => context.queryClient.query(myGroupsQuery),
 })
 
 function RouteComponent() {
-	const { groups } = Route.useLoaderData()
+	const { data } = useSuspenseQuery(myGroupsQuery)
+	const groups = data.myGroups
 	return (
 		<VStack gap="6" alignItems="stretch">
 			<PageHeader

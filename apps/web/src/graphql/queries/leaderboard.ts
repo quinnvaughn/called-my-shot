@@ -1,4 +1,8 @@
 import { graphql } from "#/graphql/generated"
+import {
+	gqlInfiniteQueryOptions,
+	gqlQueryOptions,
+} from "#/graphql/query-options"
 
 export const LeaderboardEntryFragment = graphql(`
 	fragment Leaderboard_entry on LeaderboardEntry {
@@ -65,3 +69,12 @@ export const LeaderboardPageDocument = graphql(`
 		}
 	}
 `)
+
+export const leaderboardPageQuery = gqlQueryOptions(LeaderboardPageDocument, {})
+
+export const leaderboardQuery = (leagueId: string | null) =>
+	gqlInfiniteQueryOptions(
+		LeaderboardDocument,
+		{ leagueId },
+		(data) => data.leaderboard,
+	)

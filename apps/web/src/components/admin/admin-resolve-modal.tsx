@@ -1,4 +1,3 @@
-import { useMutation } from "@apollo/client/react"
 import { adminResolveQuestionSchema } from "@called-my-shot/schemas"
 import { useState } from "react"
 import { css } from "styled-system/css"
@@ -11,6 +10,7 @@ import { FormError } from "#/components/ui/form-error"
 import { Modal } from "#/components/ui/modal"
 import { TextInput } from "#/components/ui/text-input"
 import { Textarea } from "#/components/ui/textarea"
+import { useGqlMutation } from "#/graphql/hooks"
 import { AdminResolveQuestionDocument } from "#/graphql/mutations/admin"
 import { closeModal } from "#/stores/modal-store"
 
@@ -32,7 +32,7 @@ export function AdminResolveModal({
 	question: QuestionForResolve
 	onResolved: () => void
 }) {
-	const [adminResolveQuestion] = useMutation(AdminResolveQuestionDocument)
+	const adminResolveQuestion = useGqlMutation(AdminResolveQuestionDocument)
 	const [correctOptionIds, setCorrectOptionIds] = useState<string[]>([])
 	const [actualValue, setActualValue] = useState<number | undefined>()
 	const [resolutionNote, setResolutionNote] = useState("")
@@ -79,16 +79,14 @@ export function AdminResolveModal({
 
 		setSubmitting(true)
 		try {
-			const { data } = await adminResolveQuestion({
-				variables: {
-					input: {
-						questionId: question.id,
-						correctOptionIds,
-						actualValue,
-						resolutionNote: resolutionNote || undefined,
-						resolutionSource: resolutionSource || undefined,
-						resolutionSourceUrl: resolutionSourceUrl || undefined,
-					},
+			const data = await adminResolveQuestion.mutateAsync({
+				input: {
+					questionId: question.id,
+					correctOptionIds,
+					actualValue,
+					resolutionNote: resolutionNote || undefined,
+					resolutionSource: resolutionSource || undefined,
+					resolutionSourceUrl: resolutionSourceUrl || undefined,
 				},
 			})
 			const result = data?.adminResolveQuestion

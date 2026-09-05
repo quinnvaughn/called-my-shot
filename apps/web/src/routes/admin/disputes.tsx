@@ -1,4 +1,4 @@
-import { useMutation, useQuery } from "@apollo/client/react"
+import { useQuery } from "@tanstack/react-query"
 import { createFileRoute, Link } from "@tanstack/react-router"
 import { css } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
@@ -8,8 +8,10 @@ import type { QuestionCallShape } from "#/components/questions/cast-call-form/us
 import { Button } from "#/components/ui/button"
 import { EmptyState } from "#/components/ui/empty-state"
 import { PageHeader } from "#/components/ui/page-header"
+import { useGqlMutation } from "#/graphql/hooks"
 import { UpholdDisputeDocument } from "#/graphql/mutations/admin"
 import { AdminDisputesDocument } from "#/graphql/queries/admin"
+import { gqlQueryOptions } from "#/graphql/query-options"
 import { safeExternalUrl } from "#/lib/external-url"
 import { isRateStat } from "#/lib/field-signal"
 import { resolvedAnswerSummary } from "#/lib/resolution-summary"
@@ -26,17 +28,15 @@ function UpholdButton({
 	disputeId: string
 	onUpheld: () => void
 }) {
-	const [upholdDispute, { loading }] = useMutation(UpholdDisputeDocument)
+	const upholdDispute = useGqlMutation(UpholdDisputeDocument)
 
 	return (
 		<Button
 			variant="outline"
 			size="sm"
-			loading={loading}
+			loading={upholdDispute.isPending}
 			onClick={async () => {
-				const { data } = await upholdDispute({
-					variables: { input: { disputeId } },
-				})
+				const data = await upholdDispute.mutateAsync({ input: { disputeId } })
 				if (data?.upholdDispute.__typename === "ResolutionDispute") onUpheld()
 			}}
 		>
@@ -46,7 +46,7 @@ function UpholdButton({
 }
 
 function RouteComponent() {
-	const { data, refetch } = useQuery(AdminDisputesDocument)
+	const { data, refetch } = useQuery(gqlQueryOptions(AdminDisputesDocument, {}))
 
 	const disputes =
 		data?.adminQueueSummary.__typename === "QueryAdminQueueSummarySuccess"

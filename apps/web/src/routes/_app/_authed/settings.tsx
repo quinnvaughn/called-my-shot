@@ -1,3 +1,4 @@
+import { useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
 import { css } from "styled-system/css"
 import { VStack } from "styled-system/jsx"
@@ -7,15 +8,13 @@ import { PasswordSection } from "#/components/settings/password-section"
 import { UsernameSection } from "#/components/settings/username-section"
 import { PageHeader } from "#/components/ui/page-header"
 import { SettingsPageDocument } from "#/graphql/queries/user"
+import { gqlQueryOptions } from "#/graphql/query-options"
+
+const settingsQuery = gqlQueryOptions(SettingsPageDocument, {})
 
 export const Route = createFileRoute("/_app/_authed/settings")({
 	component: RouteComponent,
-	loader: async ({ context }) => {
-		const { data } = await context.apolloClient.query({
-			query: SettingsPageDocument,
-		})
-		return { me: data?.me ?? null }
-	},
+	loader: ({ context }) => context.queryClient.query(settingsQuery),
 })
 
 function sectionLabel(text: string) {
@@ -35,7 +34,8 @@ function sectionLabel(text: string) {
 }
 
 function RouteComponent() {
-	const { me } = Route.useLoaderData()
+	const { data } = useSuspenseQuery(settingsQuery)
+	const me = data.me
 	// _authed's beforeLoad already redirects guests to "/" before this ever
 	// renders - me is only null for an instant during that redirect.
 	if (!me) return null

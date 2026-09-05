@@ -1,5 +1,5 @@
-import { useMutation } from "@apollo/client/react"
 import { signInSchema, signUpSchema } from "@called-my-shot/schemas"
+import { useQueryClient } from "@tanstack/react-query"
 import { useNavigate, useRouter } from "@tanstack/react-router"
 import { useState } from "react"
 import { css } from "styled-system/css"
@@ -9,6 +9,7 @@ import { Button } from "#/components/ui/button"
 import { Modal } from "#/components/ui/modal"
 import { Tabs } from "#/components/ui/tabs"
 import { TextInput } from "#/components/ui/text-input"
+import { useGqlMutation } from "#/graphql/hooks"
 import { SignInDocument, SignUpDocument } from "#/graphql/mutations/auth"
 import { track } from "#/lib/analytics"
 import { useForm } from "#/lib/form/use-form"
@@ -88,15 +89,16 @@ export function AuthModal({
 }
 
 function SignInFields({ onSuccess }: { onSuccess?: () => void }) {
-	const [signIn] = useMutation(SignInDocument)
+	const signIn = useGqlMutation(SignInDocument)
 	const router = useRouter()
+	const queryClient = useQueryClient()
 	const navigate = useNavigate()
 
 	const form = useForm({
 		schema: signInSchema,
 		defaultValues: { identifier: "", password: "" },
 		onSubmit: async (values, helpers) => {
-			const { data } = await signIn({ variables: { input: values } })
+			const data = await signIn.mutateAsync({ input: values })
 			const result = data?.signIn
 
 			if (!result) {
@@ -115,6 +117,7 @@ function SignInFields({ onSuccess }: { onSuccess?: () => void }) {
 				})
 				.with({ __typename: "AuthPayload" }, async () => {
 					track("user_signed_in", { method: "email" })
+					queryClient.clear()
 					await router.invalidate()
 					closeModal()
 					if (onSuccess) onSuccess()
@@ -184,15 +187,16 @@ function SignInFields({ onSuccess }: { onSuccess?: () => void }) {
 }
 
 function SignUpFields({ onSuccess }: { onSuccess?: () => void }) {
-	const [signUp] = useMutation(SignUpDocument)
+	const signUp = useGqlMutation(SignUpDocument)
 	const router = useRouter()
+	const queryClient = useQueryClient()
 	const navigate = useNavigate()
 
 	const form = useForm({
 		schema: signUpSchema,
 		defaultValues: { name: "", username: "", email: "", password: "" },
 		onSubmit: async (values, helpers) => {
-			const { data } = await signUp({ variables: { input: values } })
+			const data = await signUp.mutateAsync({ input: values })
 			const result = data?.signUp
 
 			if (!result) {
@@ -211,6 +215,7 @@ function SignUpFields({ onSuccess }: { onSuccess?: () => void }) {
 				})
 				.with({ __typename: "AuthPayload" }, async () => {
 					track("user_signed_up", { method: "email" })
+					queryClient.clear()
 					await router.invalidate()
 					closeModal()
 					if (onSuccess) onSuccess()

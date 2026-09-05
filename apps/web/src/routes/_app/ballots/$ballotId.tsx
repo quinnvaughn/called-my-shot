@@ -1,3 +1,4 @@
+import { useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute, Link } from "@tanstack/react-router"
 import { DateTime } from "luxon"
 import { Fragment } from "react"
@@ -20,7 +21,10 @@ import { PageHeader } from "#/components/ui/page-header"
 import { Tag } from "#/components/ui/tag"
 import { useFragment } from "#/graphql/generated"
 import { BallotByIdDocument } from "#/graphql/queries/ballots"
+import { gqlQueryOptions } from "#/graphql/query-options"
 import { computeBallotProgressStats } from "#/lib/ballot-progress-stats"
+
+const ballotQuery = (id: string) => gqlQueryOptions(BallotByIdDocument, { id })
 
 // Public - a shared link or a scraper can land here signed out, same as the
 // `ballot` query itself (resolves null for anything not published). This is
@@ -29,13 +33,11 @@ import { computeBallotProgressStats } from "#/lib/ballot-progress-stats"
 export const Route = createFileRoute("/_app/ballots/$ballotId")({
 	component: RouteComponent,
 	staleTime: 0,
+	// head() can only read loaderData, so the meta-tag fields come back from
+	// here; the component reads the same cache entry via useSuspenseQuery.
 	loader: async ({ context, params }) => {
-		const { data } = await context.apolloClient.query({
-			query: BallotByIdDocument,
-			variables: { id: params.ballotId },
-			fetchPolicy: "network-only",
-		})
-		return { ballot: data?.ballot ?? null }
+		const data = await context.queryClient.query(ballotQuery(params.ballotId))
+		return { ballot: data.ballot ?? null }
 	},
 	head: ({ loaderData }) => {
 		const ballot = loaderData?.ballot
@@ -82,7 +84,9 @@ function BallotSectionHeading({ label }: { label: string }) {
 }
 
 function RouteComponent() {
-	const { ballot } = Route.useLoaderData()
+	const { ballotId } = Route.useParams()
+	const { data } = useSuspenseQuery(ballotQuery(ballotId))
+	const ballot = data.ballot
 
 	// Unmasked once here (not per-row) - the server already returns members
 	// in sortOrder (see BallotRef.members' orderBy), so no client-side sort

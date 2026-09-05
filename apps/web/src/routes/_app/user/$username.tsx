@@ -1,3 +1,4 @@
+import { useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute, useRouteContext } from "@tanstack/react-router"
 import { FiUserX } from "react-icons/fi"
 import { css } from "styled-system/css"
@@ -11,16 +12,15 @@ import { CallCard } from "#/components/questions/call-card"
 import { EmptyState } from "#/components/ui/empty-state"
 import { NotFound } from "#/components/ui/not-found"
 import { UserProfileDocument } from "#/graphql/generated/graphql"
+import { gqlQueryOptions } from "#/graphql/query-options"
+
+const userProfileQuery = (username: string) =>
+	gqlQueryOptions(UserProfileDocument, { username })
 
 export const Route = createFileRoute("/_app/user/$username")({
 	component: RouteComponent,
-	loader: async ({ context, params }) => {
-		const { data } = await context.apolloClient.query({
-			query: UserProfileDocument,
-			variables: { username: params.username },
-		})
-		return { user: data?.userByUsername ?? null }
-	},
+	loader: ({ context, params }) =>
+		context.queryClient.query(userProfileQuery(params.username)),
 })
 
 function sectionLabel(text: string) {
@@ -40,7 +40,9 @@ function sectionLabel(text: string) {
 }
 
 function RouteComponent() {
-	const { user } = Route.useLoaderData()
+	const { username } = Route.useParams()
+	const { data } = useSuspenseQuery(userProfileQuery(username))
+	const user = data.userByUsername
 	const { me } = useRouteContext({ from: "__root__" })
 
 	if (!user) {

@@ -1,4 +1,3 @@
-import { useMutation } from "@apollo/client/react"
 import { changePasswordFormSchema } from "@called-my-shot/schemas"
 import { useState } from "react"
 import { HStack, VStack } from "styled-system/jsx"
@@ -8,11 +7,12 @@ import { Card } from "#/components/ui/card"
 import { FormError } from "#/components/ui/form-error"
 import { SaveNote } from "#/components/ui/save-note"
 import { TextInput } from "#/components/ui/text-input"
+import { useGqlMutation } from "#/graphql/hooks"
 import { UpdatePasswordDocument } from "#/graphql/queries/user"
 import { useForm } from "#/lib/form/use-form"
 
 export function PasswordSection() {
-	const [updatePassword] = useMutation(UpdatePasswordDocument)
+	const updatePassword = useGqlMutation(UpdatePasswordDocument)
 	const [savedNote, setSavedNote] = useState<string | null>(null)
 
 	const form = useForm({
@@ -23,14 +23,12 @@ export function PasswordSection() {
 		},
 		schema: changePasswordFormSchema,
 		onSubmit: async (values, helpers) => {
-			const { data } = await updatePassword({
-				variables: {
+			const data = await updatePassword.mutateAsync({
 					input: {
 						currentPassword: values.currentPassword,
 						newPassword: values.newPassword,
 					},
-				},
-			})
+				})
 			const result = data?.updatePassword
 
 			if (!result) {

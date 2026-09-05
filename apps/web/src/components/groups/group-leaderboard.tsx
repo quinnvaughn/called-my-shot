@@ -1,11 +1,15 @@
-import { useApolloClient } from "@apollo/client/react"
-import { useEffect, useRef, useState } from "react"
+import { keepPreviousData, useInfiniteQuery } from "@tanstack/react-query"
+import { useState } from "react"
 import { FiChevronDown, FiChevronUp } from "react-icons/fi"
 import { css } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
 import { Button } from "#/components/ui/button"
 import { Tabs } from "#/components/ui/tabs"
-import { type FragmentType, graphql, useFragment } from "#/graphql/generated"
+import { graphql, useFragment } from "#/graphql/generated"
+import {
+	EMPTY_CONNECTION,
+	gqlInfiniteQueryOptions,
+} from "#/graphql/query-options"
 import {
 	Leaderboard,
 	type LeaderboardRowData,
@@ -55,14 +59,15 @@ export const GroupLeaderboardDocument = graphql(`
 	}
 `)
 
-type LeaderboardEntryItem = {
-	rank: number
-	user: { id: string }
-} & FragmentType<typeof GroupLeaderboardEntryFragment>
-
-type ViewerEntryItem = FragmentType<typeof GroupLeaderboardEntryFragment>
-
-type PageInfo = { hasNextPage: boolean; endCursor: string | null }
+export const groupLeaderboardQuery = (
+	groupId: string,
+	leagueId: string | null,
+) =>
+	gqlInfiniteQueryOptions(
+		GroupLeaderboardDocument,
+		{ groupId, leagueId },
+		(data) => data.group?.leaderboard ?? EMPTY_CONNECTION,
+	)
 
 // League, not sport - NBA and NCAAB shouldn't rank against each other even
 // though both are basketball.
@@ -70,9 +75,6 @@ type League = { id: string; name: string; abbreviation: string; slug: string }
 
 type GroupLeaderboardProps = {
 	groupId: string
-	initialItems: LeaderboardEntryItem[]
-	initialPageInfo: PageInfo
-	initialViewerEntry?: ViewerEntryItem | null
 	leagues: League[]
 	viewerId?: string
 }
@@ -102,73 +104,22 @@ function toRowData(entry: {
 // means a whole new ranking, not more of the same one.
 export function GroupLeaderboard({
 	groupId,
-	initialItems,
-	initialPageInfo,
-	initialViewerEntry,
 	leagues,
 	viewerId,
 }: GroupLeaderboardProps) {
-	const client = useApolloClient()
 	const [collapsed, setCollapsed] = useState(false)
 	const [leagueId, setLeagueId] = useState<string | null>(null)
-	const [items, setItems] = useState(initialItems)
-	const [pageInfo, setPageInfo] = useState(initialPageInfo)
-	const [viewerEntry, setViewerEntry] = useState(initialViewerEntry ?? null)
-	const [loading, setLoading] = useState(false)
-	const skipNextFetch = useRef(true)
 
-	useEffect(() => {
-		if (skipNextFetch.current) {
-			skipNextFetch.current = false
-			return
-		}
-		let cancelled = false
-		setLoading(true)
-		client
-			.query({
-				query: GroupLeaderboardDocument,
-				variables: { groupId, leagueId, after: null },
-				fetchPolicy: "network-only",
-			})
-			.then(({ data }) => {
-				if (cancelled) return
-				setItems(data?.group?.leaderboard.items ?? [])
-				setPageInfo(
-					data?.group?.leaderboard.pageInfo ?? {
-						hasNextPage: false,
-						endCursor: null,
-					},
-				)
-				setViewerEntry(data?.group?.viewerLeaderboardEntry ?? null)
-			})
-			.finally(() => {
-				if (!cancelled) setLoading(false)
-			})
-		return () => {
-			cancelled = true
-		}
-	}, [client, groupId, leagueId])
-
-	async function loadMore() {
-		if (loading || !pageInfo.hasNextPage || !pageInfo.endCursor) return
-		setLoading(true)
-		try {
-			const { data } = await client.query({
-				query: GroupLeaderboardDocument,
-				variables: { groupId, leagueId, after: pageInfo.endCursor },
-				fetchPolicy: "network-only",
-			})
-			setItems((prev) => [...prev, ...(data?.group?.leaderboard.items ?? [])])
-			setPageInfo(
-				data?.group?.leaderboard.pageInfo ?? {
-					hasNextPage: false,
-					endCursor: null,
-				},
-			)
-		} finally {
-			setLoading(false)
-		}
-	}
+	// leagueId is part of the key, so switching leagues starts a fresh
+	// ranking rather than appending to the previous one - no manual reset.
+	// keepPreviousData holds the outgoing league's rows in place while the
+	// new one loads, instead of collapsing the list to empty mid-switch.
+	const { data, hasNextPage, isFetching, fetchNextPage } = useInfiniteQuery({
+		...groupLeaderboardQuery(groupId, leagueId),
+		placeholderData: keepPreviousData,
+	})
+	const items = data?.items ?? []
+	const viewerEntry = data?.pages[0]?.group?.viewerLeaderboardEntry ?? null
 
 	const unwrappedItems = useFragment(GroupLeaderboardEntryFragment, items)
 	const rows = unwrappedItems.map(toRowData)
@@ -224,9 +175,9 @@ export function GroupLeaderboard({
 						items={rows}
 						viewerId={viewerId}
 						viewerEntry={viewerRow}
-						hasMore={pageInfo.hasNextPage}
-						loading={loading}
-						onLoadMore={loadMore}
+						hasMore={hasNextPage}
+						loading={isFetching}
+						onLoadMore={fetchNextPage}
 					/>
 				</>
 			)}

@@ -1,4 +1,4 @@
-import { useMutation, useQuery } from "@apollo/client/react"
+import { useQuery } from "@tanstack/react-query"
 import { useState } from "react"
 import { css } from "styled-system/css"
 import { VStack } from "styled-system/jsx"
@@ -6,8 +6,10 @@ import { Button } from "#/components/ui/button"
 import { FormError } from "#/components/ui/form-error"
 import { Modal } from "#/components/ui/modal"
 import { TextInput } from "#/components/ui/text-input"
+import { useGqlMutation } from "#/graphql/hooks"
 import { AttachQuestionToBallotDocument } from "#/graphql/mutations/ballots"
 import { BallotAttachableQuestionsDocument } from "#/graphql/queries/ballots"
+import { gqlQueryOptions } from "#/graphql/query-options"
 import { useDebouncedValue } from "#/hooks/use-debounced-value"
 import { questionShapeLabel } from "#/lib/question-labels"
 import { closeModal } from "#/stores/modal-store"
@@ -24,12 +26,13 @@ type Props = {
 export function AttachQuestionModal({ ballotId, leagueId, onAttached }: Props) {
 	const [search, setSearch] = useState("")
 	const debouncedSearch = useDebouncedValue(search, 300)
-	const { data, loading } = useQuery(BallotAttachableQuestionsDocument, {
-		variables: { leagueId, search: debouncedSearch || undefined },
-	})
-	const [attach, { error: mutationError }] = useMutation(
-		AttachQuestionToBallotDocument,
+	const { data, isPending } = useQuery(
+		gqlQueryOptions(BallotAttachableQuestionsDocument, {
+			leagueId,
+			search: debouncedSearch || undefined,
+		}),
 	)
+	const attach = useGqlMutation(AttachQuestionToBallotDocument)
 	const [labels, setLabels] = useState<Record<string, string>>({})
 	const [attachingId, setAttachingId] = useState<string | null>(null)
 	const [rowError, setRowError] = useState<string | null>(null)
@@ -47,8 +50,8 @@ export function AttachQuestionModal({ ballotId, leagueId, onAttached }: Props) {
 		}
 		setRowError(null)
 		setAttachingId(questionId)
-		const { data } = await attach({
-			variables: { input: { ballotId, questionId, label } },
+		const data = await attach.mutateAsync({
+			input: { ballotId, questionId, label },
 		})
 		setAttachingId(null)
 		const result = data?.attachQuestionToBallot
@@ -81,7 +84,7 @@ export function AttachQuestionModal({ ballotId, leagueId, onAttached }: Props) {
 						/>
 					</TextInput.Group>
 				</TextInput>
-				{!loading && questions.length === 0 && (
+				{!isPending && questions.length === 0 && (
 					<p className={css({ fontSize: "sm", color: "fg.subtle" })}>
 						Nothing available to attach.
 					</p>
@@ -129,7 +132,7 @@ export function AttachQuestionModal({ ballotId, leagueId, onAttached }: Props) {
 						</VStack>
 					))}
 				</VStack>
-				<FormError message={rowError ?? mutationError?.message ?? null} />
+				<FormError message={rowError ?? attach.error?.message ?? null} />
 				<Button variant="ghost" size="sm" onClick={closeModal}>
 					Done
 				</Button>

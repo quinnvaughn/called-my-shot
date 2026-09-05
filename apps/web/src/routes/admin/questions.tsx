@@ -1,6 +1,5 @@
-import { useApolloClient } from "@apollo/client/react"
 import { createFileRoute, Link } from "@tanstack/react-router"
-import { useEffect, useState } from "react"
+import { useState } from "react"
 import { css, cx } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
 import { QuestionRowActions } from "#/components/admin/question-row-actions"
@@ -14,6 +13,7 @@ import type {
 	QuestionStatus,
 } from "#/graphql/generated/graphql"
 import { AdminQuestionsDocument } from "#/graphql/queries/admin"
+import { EMPTY_CONNECTION } from "#/graphql/query-options"
 import { useAdminConnection } from "#/hooks/use-admin-connection"
 import { useDebouncedValue } from "#/hooks/use-debounced-value"
 import { questionShapeLabel } from "#/lib/question-labels"
@@ -86,20 +86,7 @@ const filterPillActive = css({
 	_hover: { borderColor: "fg.default", color: "bg.canvas" },
 })
 
-type QuestionRow = {
-	id: string
-	title: string
-	shape: string
-	status: QuestionStatus
-	isOfficial: boolean
-	createdAt: string
-	locksAt: string
-	callCount: number
-	creator: { id: string; username: string } | null
-}
-
 function RouteComponent() {
-	const client = useApolloClient()
 	const [search, setSearch] = useState("")
 	const [status, setStatus] = useState<QuestionStatus | null>(null)
 	const debouncedSearch = useDebouncedValue(search, 300)
@@ -113,30 +100,20 @@ function RouteComponent() {
 		onSort,
 		loadMore,
 		reload,
-	} = useAdminConnection<QuestionRow, AdminQuestionSort>({
-		defaultSort: "TITLE",
-		fetchPage: async ({ sortBy: sb, sortDir: sd, after }) => {
-			const { data } = await client.query({
-				query: AdminQuestionsDocument,
-				variables: {
-					search: debouncedSearch || undefined,
-					status: status ?? undefined,
-					sortBy: sb,
-					sortDir: sd === "asc" ? "ASC" : "DESC",
-					after,
-				},
-				fetchPolicy: "network-only",
-			})
-			if (data?.adminQuestions.__typename !== "QueryAdminQuestionsSuccess")
-				return null
-			return data.adminQuestions.data
-		},
+	} = useAdminConnection({
+		defaultSort: "TITLE" as AdminQuestionSort,
+		document: AdminQuestionsDocument,
+		variables: ({ sortBy, sortDir }) => ({
+			search: debouncedSearch || undefined,
+			status: status ?? undefined,
+			sortBy,
+			sortDir,
+		}),
+		selectConnection: (data) =>
+			data.adminQuestions.__typename === "QueryAdminQuestionsSuccess"
+				? data.adminQuestions.data
+				: EMPTY_CONNECTION,
 	})
-
-	// biome-ignore lint/correctness/useExhaustiveDependencies: reload is stable, see use-admin-connection.ts
-	useEffect(() => {
-		reload()
-	}, [debouncedSearch, status])
 
 	return (
 		<VStack gap="6" alignItems="stretch">

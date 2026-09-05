@@ -1,4 +1,5 @@
 import { graphql } from "#/graphql/generated"
+import { gqlQueryOptions } from "#/graphql/query-options"
 
 // The sidebar's persistent league rail (see app-shell.tsx) - fetched once in
 // the root route's beforeLoad alongside `me`, not re-queried per page, since
@@ -108,7 +109,7 @@ export const StatsBySportDocument = graphql(`
 `)
 
 // Redisplays the game field's current selection from just the stored gameId
-// - normally served straight from Apollo's cache (the game was already
+// - normally served straight from the query cache (the game was already
 // fetched via GamesByLeague), but a real network fallback if that cache
 // entry isn't there, e.g. the field's own component remounted with no local
 // memory of what it fetched before.
@@ -399,3 +400,8 @@ export const AdminBallotScopeDocument = graphql(`
 		}
 	}
 `)
+
+// Shared by the league room's own route and its Games tab, which needs
+// windowType off the same league - one cache entry rather than a query each.
+export const leagueQuery = (id: string) =>
+	gqlQueryOptions(LeagueByIdDocument, { id })

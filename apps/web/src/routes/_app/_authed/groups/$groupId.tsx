@@ -1,30 +1,72 @@
+import { useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute, useRouteContext } from "@tanstack/react-router"
 import { useState } from "react"
 import { HiMiniQuestionMarkCircle } from "react-icons/hi2"
 import { css } from "styled-system/css"
 import { VStack } from "styled-system/jsx"
 import { match } from "ts-pattern"
-import { AnsweredQuestionsTab } from "#/components/groups/answered-questions-tab"
-import { CreatedQuestionsTab } from "#/components/groups/created-questions-tab"
-import { GroupLeaderboard } from "#/components/groups/group-leaderboard"
+import {
+	AnsweredQuestionsTab,
+	answeredQuestionsQuery,
+} from "#/components/groups/answered-questions-tab"
+import {
+	CreatedQuestionsTab,
+	createdQuestionsQuery,
+} from "#/components/groups/created-questions-tab"
+import {
+	GroupLeaderboard,
+	groupLeaderboardQuery,
+} from "#/components/groups/group-leaderboard"
 import { InviteCodeModal } from "#/components/groups/invite-code-modal"
-import { SharedQuestionsTab } from "#/components/groups/shared-questions-tab"
+import {
+	SharedQuestionsTab,
+	sharedQuestionsQuery,
+} from "#/components/groups/shared-questions-tab"
 import { Button } from "#/components/ui/button"
 import { NotFound } from "#/components/ui/not-found"
 import { PageHeader } from "#/components/ui/page-header"
 import { Tabs } from "#/components/ui/tabs"
 import { GroupDetailDocument } from "#/graphql/generated/graphql"
+import { gqlQueryOptions, seedInfiniteQuery } from "#/graphql/query-options"
 import { pluralize } from "#/lib/pluralize"
 import { openModal } from "#/stores/modal-store"
 
+const groupDetailQuery = (groupId: string) =>
+	gqlQueryOptions(GroupDetailDocument, { groupId })
+
 export const Route = createFileRoute("/_app/_authed/groups/$groupId")({
 	component: RouteComponent,
+	// Every list on this page gets its first page as an aliased field of one
+	// query (see GroupDetailDocument), so those pages are handed to the
+	// infinite caches the lists paginate with rather than costing a request
+	// each. The leaderboard is seeded for the "All" league only - picking a
+	// league is a different key and fetches on its own.
 	loader: async ({ context, params }) => {
-		const { data } = await context.apolloClient.query({
-			query: GroupDetailDocument,
-			variables: { groupId: params.groupId },
+		const { groupId } = params
+		const data = await context.queryClient.query(groupDetailQuery(groupId))
+		const group = data.group
+		if (!group) return
+
+		seedInfiniteQuery(context.queryClient, answeredQuestionsQuery(groupId), {
+			group: { id: group.id, answeredQuestions: group.answeredQuestions },
 		})
-		return { group: data?.group ?? null, leagues: data?.leagues ?? [] }
+		seedInfiniteQuery(context.queryClient, createdQuestionsQuery(groupId), {
+			group: { id: group.id, createdQuestions: group.createdQuestions },
+		})
+		seedInfiniteQuery(context.queryClient, sharedQuestionsQuery(groupId), {
+			group: { id: group.id, sharedQuestions: group.sharedQuestions },
+		})
+		seedInfiniteQuery(
+			context.queryClient,
+			groupLeaderboardQuery(groupId, null),
+			{
+				group: {
+					id: group.id,
+					leaderboard: group.leaderboard,
+					viewerLeaderboardEntry: group.viewerLeaderboardEntry,
+				},
+			},
+		)
 	},
 })
 
@@ -32,7 +74,10 @@ function RouteComponent() {
 	const [activeTab, setActiveTab] = useState<"answered" | "created" | "shared">(
 		"answered",
 	)
-	const { group, leagues } = Route.useLoaderData()
+	const { groupId } = Route.useParams()
+	const { data } = useSuspenseQuery(groupDetailQuery(groupId))
+	const group = data.group
+	const leagues = data.leagues
 	const { me } = useRouteContext({ from: "__root__" })
 
 	if (!group) {
@@ -77,9 +122,6 @@ function RouteComponent() {
 			/>
 			<GroupLeaderboard
 				groupId={group.id}
-				initialItems={group.leaderboard.items}
-				initialPageInfo={group.leaderboard.pageInfo}
-				initialViewerEntry={group.viewerLeaderboardEntry}
 				leagues={leagues}
 				viewerId={me?.id}
 			/>
@@ -104,27 +146,9 @@ function RouteComponent() {
 				</Tabs>
 			</VStack>
 			{match(activeTab)
-				.with("answered", () => (
-					<AnsweredQuestionsTab
-						groupId={group.id}
-						initialItems={group.answeredQuestions.items}
-						initialPageInfo={group.answeredQuestions.pageInfo}
-					/>
-				))
-				.with("created", () => (
-					<CreatedQuestionsTab
-						groupId={group.id}
-						initialItems={group.createdQuestions.items}
-						initialPageInfo={group.createdQuestions.pageInfo}
-					/>
-				))
-				.with("shared", () => (
-					<SharedQuestionsTab
-						groupId={group.id}
-						initialItems={group.sharedQuestions.items}
-						initialPageInfo={group.sharedQuestions.pageInfo}
-					/>
-				))
+				.with("answered", () => <AnsweredQuestionsTab groupId={group.id} />)
+				.with("created", () => <CreatedQuestionsTab groupId={group.id} />)
+				.with("shared", () => <SharedQuestionsTab groupId={group.id} />)
 				.exhaustive()}
 		</VStack>
 	)

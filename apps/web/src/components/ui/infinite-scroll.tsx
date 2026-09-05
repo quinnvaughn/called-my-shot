@@ -14,8 +14,8 @@ type InfiniteScrollProps<T> = {
 
 // Generic vertical list with a sentinel at the bottom that triggers
 // onLoadMore when it scrolls into view. Data fetching/pagination state lives
-// with the caller (e.g. usePaginatedConnection) - this only knows how to
-// render items and ask for more.
+// with the caller (a useInfiniteQuery, see graphql/query-options.ts) - this
+// only knows how to render items and ask for more.
 export function InfiniteScroll<T>({
 	items,
 	getKey,

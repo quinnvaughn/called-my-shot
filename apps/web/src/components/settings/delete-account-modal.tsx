@@ -1,4 +1,3 @@
-import { useMutation } from "@apollo/client/react"
 import { deleteAccountSchema } from "@called-my-shot/schemas"
 import { useState } from "react"
 import { css } from "styled-system/css"
@@ -8,6 +7,7 @@ import { Button } from "#/components/ui/button"
 import { FormError } from "#/components/ui/form-error"
 import { Modal } from "#/components/ui/modal"
 import { TextInput } from "#/components/ui/text-input"
+import { useGqlMutation } from "#/graphql/hooks"
 import { DeleteAccountDocument } from "#/graphql/queries/user"
 import { useSignOut } from "#/hooks/use-sign-out"
 import { track } from "#/lib/analytics"
@@ -20,14 +20,14 @@ type Props = {
 
 export function DeleteAccountModal({ username }: Props) {
 	const { signOut } = useSignOut()
-	const [deleteAccount] = useMutation(DeleteAccountDocument)
+	const deleteAccount = useGqlMutation(DeleteAccountDocument)
 	const [confirmText, setConfirmText] = useState("")
 
 	const form = useForm({
 		defaultValues: { password: "" },
 		schema: deleteAccountSchema,
 		onSubmit: async (values, helpers) => {
-			const { data } = await deleteAccount({ variables: { input: values } })
+			const data = await deleteAccount.mutateAsync({ input: values })
 			const result = data?.deleteAccount
 
 			if (!result) {

@@ -1,34 +1,33 @@
+import { useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
 import { useState } from "react"
 import { VStack } from "styled-system/jsx"
 import { MyCallsTab } from "#/components/my-calls/my-calls-tab"
 import { PageHeader } from "#/components/ui/page-header"
 import { Tabs } from "#/components/ui/tabs"
-import { MyCallsPageDocument } from "#/graphql/queries/my-calls"
+import { myCallsPageQuery, myCallsQuery } from "#/graphql/queries/my-calls"
+import { seedInfiniteQuery } from "#/graphql/query-options"
 
 export const Route = createFileRoute("/_app/_authed/my-calls")({
 	component: RouteComponent,
+	// Both tabs' first pages arrive as aliased fields of one query (see
+	// MyCallsPageDocument), so they're handed straight to the infinite caches
+	// the tabs paginate with rather than costing a request each.
 	loader: async ({ context }) => {
-		const { data } = await context.apolloClient.query({
-			query: MyCallsPageDocument,
+		const data = await context.queryClient.query(myCallsPageQuery)
+		seedInfiniteQuery(context.queryClient, myCallsQuery("OPEN"), {
+			myCalls: data.open,
 		})
-		return {
-			counts: data?.myCallCounts ?? { open: 0, resolved: 0 },
-			open: data?.open ?? {
-				items: [],
-				pageInfo: { hasNextPage: false, endCursor: null },
-			},
-			resolved: data?.resolved ?? {
-				items: [],
-				pageInfo: { hasNextPage: false, endCursor: null },
-			},
-		}
+		seedInfiniteQuery(context.queryClient, myCallsQuery("RESOLVED"), {
+			myCalls: data.resolved,
+		})
 	},
 })
 
 function RouteComponent() {
 	const [activeTab, setActiveTab] = useState<"open" | "resolved">("open")
-	const { counts, open, resolved } = Route.useLoaderData()
+	const { data } = useSuspenseQuery(myCallsPageQuery)
+	const counts = data.myCallCounts
 	return (
 		<VStack alignItems="stretch" gap="6">
 			<PageHeader
@@ -44,19 +43,9 @@ function RouteComponent() {
 				</Tabs.List>
 			</Tabs>
 			{activeTab === "open" ? (
-				<MyCallsTab
-					key="open"
-					status="OPEN"
-					initialItems={open.items}
-					initialPageInfo={open.pageInfo}
-				/>
+				<MyCallsTab key="open" status="OPEN" />
 			) : (
-				<MyCallsTab
-					key="resolved"
-					status="RESOLVED"
-					initialItems={resolved.items}
-					initialPageInfo={resolved.pageInfo}
-				/>
+				<MyCallsTab key="resolved" status="RESOLVED" />
 			)}
 		</VStack>
 	)

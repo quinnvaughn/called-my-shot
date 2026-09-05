@@ -1,17 +1,11 @@
-import { useApolloClient } from "@apollo/client/react"
+import { useSuspenseInfiniteQuery } from "@tanstack/react-query"
 import { EmptyState } from "#/components/ui/empty-state"
 import { InfiniteScroll } from "#/components/ui/infinite-scroll"
-import type { FragmentType } from "#/graphql/generated"
-import { QuestionCallsDocument } from "#/graphql/queries/question"
-import { usePaginatedConnection } from "#/hooks/use-paginated-connection"
-import { CallRow, type CallRowFragment } from "./call-row"
-
-type CallItem = { id: string } & FragmentType<typeof CallRowFragment>
+import { questionCallsQuery } from "#/graphql/queries/question"
+import { CallRow } from "./call-row"
 
 type Props = {
 	questionId: string
-	initialItems: CallItem[]
-	initialPageInfo: { hasNextPage: boolean; endCursor: string | null }
 }
 
 // Every call on this question, paginated - always rendered, whether or not
@@ -21,37 +15,17 @@ type Props = {
 // the whole list until the viewer calls would hide the activity along with
 // the pick, which isn't the rule - see lib/call-visibility.ts on the API.
 
-export function QuestionCallsList({
-	questionId,
-	initialItems,
-	initialPageInfo,
-}: Props) {
-	const client = useApolloClient()
-	const { items, hasNextPage, loading, loadMore } =
-		usePaginatedConnection<CallItem>(
-			{ items: initialItems, pageInfo: initialPageInfo },
-			async (after) => {
-				const { data } = await client.query({
-					query: QuestionCallsDocument,
-					variables: { id: questionId, after },
-				})
-				return {
-					items: data?.question?.calls.items ?? [],
-					pageInfo: data?.question?.calls.pageInfo ?? {
-						hasNextPage: false,
-						endCursor: null,
-					},
-				}
-			},
-		)
+export function QuestionCallsList({ questionId }: Props) {
+	const { data, hasNextPage, isFetchingNextPage, fetchNextPage } =
+		useSuspenseInfiniteQuery(questionCallsQuery(questionId))
 
 	return (
 		<InfiniteScroll
-			items={items}
+			items={data.items}
 			getKey={(item) => item.id}
 			hasNextPage={hasNextPage}
-			loading={loading}
-			onLoadMore={loadMore}
+			loading={isFetchingNextPage}
+			onLoadMore={fetchNextPage}
 			emptyState={<EmptyState>No calls yet - be the first.</EmptyState>}
 			renderItem={(item) => <CallRow call={item} />}
 		/>

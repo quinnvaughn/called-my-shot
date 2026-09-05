@@ -1,4 +1,4 @@
-import { useMutation } from "@apollo/client/react"
+import { useQueryClient } from "@tanstack/react-query"
 import { resolveQuestionSchema } from "@called-my-shot/schemas"
 import { useRouter } from "@tanstack/react-router"
 import { css } from "styled-system/css"
@@ -9,6 +9,7 @@ import { FormError } from "#/components/ui/form-error"
 import { Modal } from "#/components/ui/modal"
 import { Textarea } from "#/components/ui/textarea"
 import { type FragmentType, graphql, useFragment } from "#/graphql/generated"
+import { useGqlMutation } from "#/graphql/hooks"
 import { ResolveQuestionDocument } from "#/graphql/mutations/questions"
 import { track } from "#/lib/analytics"
 import { isRateStat as computeIsRateStat } from "#/lib/field-signal"
@@ -51,8 +52,9 @@ export function ResolveQuestionModal({ question: questionProp }: Props) {
 		shape === "team_season_award" ||
 		shape === "player_game_stat_leader"
 	const isRateStat = computeIsRateStat(question)
-	const [resolveQuestion] = useMutation(ResolveQuestionDocument)
+	const resolveQuestion = useGqlMutation(ResolveQuestionDocument)
 	const router = useRouter()
+	const queryClient = useQueryClient()
 
 	const form = useForm({
 		schema: resolveQuestionSchema,
@@ -63,16 +65,14 @@ export function ResolveQuestionModal({ question: questionProp }: Props) {
 			resolutionNote: "",
 		},
 		onSubmit: async (values, helpers) => {
-			const { data } = await resolveQuestion({
-				variables: {
+			const data = await resolveQuestion.mutateAsync({
 					input: {
 						questionId: question.id,
 						correctOptionIds: values.correctOptionIds,
 						actualValue: values.actualValue,
 						resolutionNote: values.resolutionNote || undefined,
 					},
-				},
-			})
+				})
 			const result = data?.resolveQuestion
 
 			if (!result) {
@@ -100,6 +100,7 @@ export function ResolveQuestionModal({ question: questionProp }: Props) {
 				})
 				.with({ __typename: "QuestionPayload" }, async () => {
 					track("question_resolved", { questionId: question.id, shape })
+					await queryClient.invalidateQueries()
 					await router.invalidate()
 					closeModal()
 				})

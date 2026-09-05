@@ -1,4 +1,4 @@
-import { useMutation, useQuery } from "@apollo/client/react"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import {
 	createQuestionSchema,
 	generateQuestionTitle,
@@ -24,6 +24,7 @@ import type {
 	SportsQuery,
 	StatAggregation,
 } from "#/graphql/generated/graphql"
+import { useGqlMutation } from "#/graphql/hooks"
 import { CreateQuestionDocument } from "#/graphql/mutations/questions"
 import {
 	GameByIdDocument,
@@ -31,6 +32,7 @@ import {
 	StatsBySportDocument,
 	TeamsByLeagueDocument,
 } from "#/graphql/queries/sports"
+import { gqlQueryOptions } from "#/graphql/query-options"
 import { track } from "#/lib/analytics"
 import { formatGuess, isRateToleranceTier } from "#/lib/field-signal"
 import { useForm } from "#/lib/form/use-form"
@@ -244,8 +246,9 @@ type Props = {
 export function CreateQuestionForm({ sports, isAdmin, lockedBallotId }: Props) {
 	const [hasSelectedType, setHasSelectedType] = useState(false)
 	const [titleEdited, setTitleEdited] = useState(false)
-	const [createQuestion] = useMutation(CreateQuestionDocument)
+	const createQuestion = useGqlMutation(CreateQuestionDocument)
 	const router = useRouter()
+	const queryClient = useQueryClient()
 	const navigate = useNavigate()
 
 	const form = useForm({
@@ -279,58 +282,56 @@ export function CreateQuestionForm({ sports, isAdmin, lockedBallotId }: Props) {
 			ballot: undefined,
 		},
 		onSubmit: async (values, helpers) => {
-			const { data } = await createQuestion({
-				variables: {
-					input: {
-						shape: values.shape.toUpperCase() as QuestionShape,
-						title: values.title,
-						sportId: values.sportId,
-						leagueId: values.leagueId,
-						gameId: values.gameId,
-						resolutionSource: values.resolutionSource,
-						resolutionSourceUrl: values.resolutionSourceUrl || undefined,
-						// values.locksAt is a naive "yyyy-MM-dd'T'HH:mm" string with no
-						// offset - the picker's clock is always the browser's own, so
-						// converting it to UTC has to happen here, in that same
-						// timezone, rather than trusting the API to guess (it can't -
-						// it has no idea what timezone the creator meant).
-						locksAt:
-							DateTime.fromFormat(values.locksAt, DATE_TIME_PICKER_VALUE_FORMAT)
-								.toUTC()
-								.toISO() ?? values.locksAt,
-						isOfficial: values.isOfficial,
-						options: values.options.map((option) => ({
-							label: option.label,
-							teamId: option.teamId,
-							playerId: option.playerId,
-						})),
-						statId: values.statId,
-						customStat: values.customStat || undefined,
-						ouLine: values.ouLine,
-						statAggregation: values.statAggregation
-							? (values.statAggregation.toUpperCase() as StatAggregation)
-							: undefined,
-						subjectTeamId: values.subjectTeamId,
-						subjectPlayerId: values.subjectPlayerId,
-						picksRequired: values.picksRequired,
-						awardVerb: values.awardVerb
-							? (values.awardVerb.toUpperCase() as AwardVerb)
-							: undefined,
-						eventClause: values.eventClause || undefined,
-						awardName: values.awardName || undefined,
-						awardConferences: values.awardConferences,
-						awardDivisions: values.awardDivisions,
-						awardPositions: values.awardPositions,
-						awardSeasonsInLeague: values.awardSeasonsInLeague,
-						awardRookieOnly: values.awardRookieOnly,
-						ballot: values.ballot
-							? {
-									ballotId: values.ballot.ballotId,
-									label: values.ballot.label,
-									slot: values.ballot.slot || undefined,
-								}
-							: undefined,
-					},
+			const data = await createQuestion.mutateAsync({
+				input: {
+					shape: values.shape.toUpperCase() as QuestionShape,
+					title: values.title,
+					sportId: values.sportId,
+					leagueId: values.leagueId,
+					gameId: values.gameId,
+					resolutionSource: values.resolutionSource,
+					resolutionSourceUrl: values.resolutionSourceUrl || undefined,
+					// values.locksAt is a naive "yyyy-MM-dd'T'HH:mm" string with no
+					// offset - the picker's clock is always the browser's own, so
+					// converting it to UTC has to happen here, in that same
+					// timezone, rather than trusting the API to guess (it can't -
+					// it has no idea what timezone the creator meant).
+					locksAt:
+						DateTime.fromFormat(values.locksAt, DATE_TIME_PICKER_VALUE_FORMAT)
+							.toUTC()
+							.toISO() ?? values.locksAt,
+					isOfficial: values.isOfficial,
+					options: values.options.map((option) => ({
+						label: option.label,
+						teamId: option.teamId,
+						playerId: option.playerId,
+					})),
+					statId: values.statId,
+					customStat: values.customStat || undefined,
+					ouLine: values.ouLine,
+					statAggregation: values.statAggregation
+						? (values.statAggregation.toUpperCase() as StatAggregation)
+						: undefined,
+					subjectTeamId: values.subjectTeamId,
+					subjectPlayerId: values.subjectPlayerId,
+					picksRequired: values.picksRequired,
+					awardVerb: values.awardVerb
+						? (values.awardVerb.toUpperCase() as AwardVerb)
+						: undefined,
+					eventClause: values.eventClause || undefined,
+					awardName: values.awardName || undefined,
+					awardConferences: values.awardConferences,
+					awardDivisions: values.awardDivisions,
+					awardPositions: values.awardPositions,
+					awardSeasonsInLeague: values.awardSeasonsInLeague,
+					awardRookieOnly: values.awardRookieOnly,
+					ballot: values.ballot
+						? {
+								ballotId: values.ballot.ballotId,
+								label: values.ballot.label,
+								slot: values.ballot.slot || undefined,
+							}
+						: undefined,
 				},
 			})
 			const result = data?.createQuestion
@@ -363,6 +364,7 @@ export function CreateQuestionForm({ sports, isAdmin, lockedBallotId }: Props) {
 						leagueId: values.leagueId,
 						isOfficial: values.isOfficial ?? false,
 					})
+					await queryClient.invalidateQueries()
 					await router.invalidate()
 					await navigate({
 						to: "/questions/$questionId",
@@ -405,25 +407,25 @@ export function CreateQuestionForm({ sports, isAdmin, lockedBallotId }: Props) {
 		if (ballotId) form.setValue("isOfficial", true)
 	}, [ballotId, form])
 
-	const { data: teamsData } = useQuery(TeamsByLeagueDocument, {
-		variables: { leagueId },
-		skip: !leagueId,
-	})
-	const { data: playersData } = useQuery(PlayersByLeagueDocument, {
-		variables: { leagueId },
-		skip: !leagueId,
-	})
-	const { data: statsData } = useQuery(StatsBySportDocument, {
-		variables: { sportId },
-		skip: !sportId,
-	})
+	const { data: teamsData } = useQuery(
+		gqlQueryOptions(TeamsByLeagueDocument, { leagueId }, { enabled: !!leagueId }),
+	)
+	const { data: playersData } = useQuery(
+		gqlQueryOptions(
+			PlayersByLeagueDocument,
+			{ leagueId },
+			{ enabled: !!leagueId },
+		),
+	)
+	const { data: statsData } = useQuery(
+		gqlQueryOptions(StatsBySportDocument, { sportId }, { enabled: !!sportId }),
+	)
 	// Fetched here (not just inside GameField) because a picked game also
 	// narrows every team/player picker below to its own two sides - you can't
 	// pick the Cleveland Cavaliers as the subject of a Denver @ Boston game.
-	const { data: selectedGameData } = useQuery(GameByIdDocument, {
-		variables: { id: gameId ?? "" },
-		skip: !gameId,
-	})
+	const { data: selectedGameData } = useQuery(
+		gqlQueryOptions(GameByIdDocument, { id: gameId ?? "" }, { enabled: !!gameId }),
+	)
 	const selectedGame = selectedGameData?.game ?? null
 
 	const teams = teamsData?.teams ?? EMPTY_ARRAY

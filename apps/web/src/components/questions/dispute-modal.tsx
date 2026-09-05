@@ -1,5 +1,5 @@
-import { useMutation } from "@apollo/client/react"
 import { fileDisputeSchema } from "@called-my-shot/schemas"
+import { useQueryClient } from "@tanstack/react-query"
 import { useRouter } from "@tanstack/react-router"
 import { VStack } from "styled-system/jsx"
 import { match } from "ts-pattern"
@@ -7,6 +7,7 @@ import { Button } from "#/components/ui/button"
 import { FormError } from "#/components/ui/form-error"
 import { Modal } from "#/components/ui/modal"
 import { Textarea } from "#/components/ui/textarea"
+import { useGqlMutation } from "#/graphql/hooks"
 import { FileDisputeDocument } from "#/graphql/mutations/questions"
 import { track } from "#/lib/analytics"
 import { useForm } from "#/lib/form/use-form"
@@ -17,17 +18,16 @@ type Props = {
 }
 
 export function DisputeModal({ questionId }: Props) {
-	const [fileDispute] = useMutation(FileDisputeDocument)
+	const fileDispute = useGqlMutation(FileDisputeDocument)
 	const router = useRouter()
+	const queryClient = useQueryClient()
 
 	const form = useForm({
 		schema: fileDisputeSchema,
 		defaultValues: { questionId, reason: "" },
 		onSubmit: async (values, helpers) => {
-			const { data } = await fileDispute({
-				variables: {
-					input: { questionId: values.questionId, reason: values.reason },
-				},
+			const data = await fileDispute.mutateAsync({
+				input: { questionId: values.questionId, reason: values.reason },
 			})
 			const result = data?.fileDispute
 
@@ -59,6 +59,7 @@ export function DisputeModal({ questionId }: Props) {
 						questionId: values.questionId,
 						reason: values.reason,
 					})
+					await queryClient.invalidateQueries()
 					await router.invalidate()
 					closeModal()
 				})

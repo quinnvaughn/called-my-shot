@@ -1,4 +1,3 @@
-import { useMutation } from "@apollo/client/react"
 import { useState } from "react"
 import { css } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
@@ -6,6 +5,7 @@ import { match } from "ts-pattern"
 import { Button } from "#/components/ui/button"
 import { FormError } from "#/components/ui/form-error"
 import { Modal } from "#/components/ui/modal"
+import { useGqlMutation } from "#/graphql/hooks"
 import { DeleteQuestionDocument } from "#/graphql/mutations/admin"
 import { closeModal } from "#/stores/modal-store"
 
@@ -15,7 +15,7 @@ type Props = {
 }
 
 export function DeleteQuestionModal({ question, onDeleted }: Props) {
-	const [deleteQuestion] = useMutation(DeleteQuestionDocument)
+	const deleteQuestion = useGqlMutation(DeleteQuestionDocument)
 	const [submitting, setSubmitting] = useState(false)
 	const [formError, setFormError] = useState<string | null>(null)
 
@@ -23,8 +23,8 @@ export function DeleteQuestionModal({ question, onDeleted }: Props) {
 		setFormError(null)
 		setSubmitting(true)
 		try {
-			const { data } = await deleteQuestion({
-				variables: { input: { questionId: question.id } },
+			const data = await deleteQuestion.mutateAsync({
+				input: { questionId: question.id },
 			})
 			const result = data?.deleteQuestion
 			if (!result) {

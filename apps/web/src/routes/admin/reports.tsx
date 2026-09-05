@@ -1,4 +1,4 @@
-import { useMutation, useQuery } from "@apollo/client/react"
+import { useQuery } from "@tanstack/react-query"
 import { createFileRoute, Link } from "@tanstack/react-router"
 import { css } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
@@ -6,8 +6,10 @@ import { VoidQuestionModal } from "#/components/admin/void-question-modal"
 import { Button } from "#/components/ui/button"
 import { EmptyState } from "#/components/ui/empty-state"
 import { PageHeader } from "#/components/ui/page-header"
+import { useGqlMutation } from "#/graphql/hooks"
 import { DismissReportDocument } from "#/graphql/mutations/admin"
 import { AdminReportsDocument } from "#/graphql/queries/admin"
+import { gqlQueryOptions } from "#/graphql/query-options"
 import { VOID_REASON_LABELS } from "#/lib/admin/void-defaults"
 import { openModal } from "#/stores/modal-store"
 
@@ -22,15 +24,15 @@ function DismissButton({
 	reportId: string
 	onDismissed: () => void
 }) {
-	const [dismissReport, { loading }] = useMutation(DismissReportDocument)
+	const dismissReport = useGqlMutation(DismissReportDocument)
 
 	return (
 		<Button
 			variant="outline"
 			size="sm"
-			loading={loading}
+			loading={dismissReport.isPending}
 			onClick={async () => {
-				const { data } = await dismissReport({ variables: { input: { reportId } } })
+				const data = await dismissReport.mutateAsync({ input: { reportId } })
 				if (data?.dismissReport.__typename === "QuestionReport") onDismissed()
 			}}
 		>
@@ -40,7 +42,7 @@ function DismissButton({
 }
 
 function RouteComponent() {
-	const { data, refetch } = useQuery(AdminReportsDocument)
+	const { data, refetch } = useQuery(gqlQueryOptions(AdminReportsDocument, {}))
 
 	const reports =
 		data?.adminQueueSummary.__typename === "QueryAdminQueueSummarySuccess"

@@ -1,4 +1,9 @@
 import { graphql } from "#/graphql/generated"
+import type { CallResolutionStatus } from "#/graphql/generated/graphql"
+import {
+	gqlInfiniteQueryOptions,
+	gqlQueryOptions,
+} from "#/graphql/query-options"
 
 // open/resolved are fetched as aliased fields off the same myCalls connection
 // (see graphql/types/question.ts) so both tabs preload in one round trip -
@@ -46,3 +51,8 @@ export const MyCallsDocument = graphql(`
         }
     }
 `)
+
+export const myCallsPageQuery = gqlQueryOptions(MyCallsPageDocument, {})
+
+export const myCallsQuery = (status: CallResolutionStatus) =>
+	gqlInfiniteQueryOptions(MyCallsDocument, { status }, (data) => data.myCalls)

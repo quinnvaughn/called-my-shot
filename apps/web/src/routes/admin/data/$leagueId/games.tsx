@@ -1,4 +1,4 @@
-import { useApolloClient, useQuery } from "@apollo/client/react"
+import { useQuery } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
 import { HStack, VStack } from "styled-system/jsx"
 import { AddEditGameModal } from "#/components/admin/data-entity-modal"
@@ -9,6 +9,7 @@ import {
 	AdminGamesDocument,
 	AdminTeamOptionsDocument,
 } from "#/graphql/queries/admin"
+import { EMPTY_CONNECTION, gqlQueryOptions } from "#/graphql/query-options"
 import { useAdminConnection } from "#/hooks/use-admin-connection"
 import { openModal } from "#/stores/modal-store"
 
@@ -16,22 +17,11 @@ export const Route = createFileRoute("/admin/data/$leagueId/games")({
 	component: RouteComponent,
 })
 
-type GameRow = {
-	id: string
-	startsAt: string
-	status: "SCHEDULED" | "LIVE" | "FINAL"
-	homeScore: number | null
-	awayScore: number | null
-	homeTeam: { id: string; name: string; abbreviation: string }
-	awayTeam: { id: string; name: string; abbreviation: string }
-}
-
 function RouteComponent() {
 	const { leagueId } = Route.useParams()
-	const client = useApolloClient()
-	const { data: teamsData } = useQuery(AdminTeamOptionsDocument, {
-		variables: { leagueId },
-	})
+	const { data: teamsData } = useQuery(
+		gqlQueryOptions(AdminTeamOptionsDocument, { leagueId }),
+	)
 	const teamOptions =
 		teamsData?.adminTeams.__typename === "QueryAdminTeamsSuccess"
 			? teamsData.adminTeams.data.items
@@ -46,23 +36,15 @@ function RouteComponent() {
 		onSort,
 		loadMore,
 		reload,
-	} = useAdminConnection<GameRow, AdminGameSort>({
-		defaultSort: "STARTS_AT",
+	} = useAdminConnection({
+		defaultSort: "STARTS_AT" as AdminGameSort,
 		defaultDir: "desc",
-		fetchPage: async ({ sortBy: sb, sortDir: sd, after }) => {
-			const { data } = await client.query({
-				query: AdminGamesDocument,
-				variables: {
-					leagueId,
-					sortBy: sb,
-					sortDir: sd === "asc" ? "ASC" : "DESC",
-					after,
-				},
-				fetchPolicy: "network-only",
-			})
-			if (data?.adminGames.__typename !== "QueryAdminGamesSuccess") return null
-			return data.adminGames.data
-		},
+		document: AdminGamesDocument,
+		variables: ({ sortBy, sortDir }) => ({ leagueId, sortBy, sortDir }),
+		selectConnection: (data) =>
+			data.adminGames.__typename === "QueryAdminGamesSuccess"
+				? data.adminGames.data
+				: EMPTY_CONNECTION,
 	})
 
 	return (

@@ -1,13 +1,14 @@
-import { useMutation } from "@apollo/client/react"
 import { castCallSchema } from "@called-my-shot/schemas"
 import {
 	toleranceBand as computeToleranceBand,
 	type ToleranceSpec,
 } from "@called-my-shot/scoring"
+import { useQueryClient } from "@tanstack/react-query"
 import { useRouter } from "@tanstack/react-router"
 import { useMemo, useRef, useState } from "react"
 import { match } from "ts-pattern"
 import { type FragmentType, graphql, useFragment } from "#/graphql/generated"
+import { useGqlMutation } from "#/graphql/hooks"
 import { CastCallDocument } from "#/graphql/mutations/calls"
 import { track } from "#/lib/analytics"
 import { isRateStat as computeIsRateStat } from "#/lib/field-signal"
@@ -173,8 +174,9 @@ export function useCastCallForm(
 	// shared source for this check, not re-derived here.
 	const isRateStat = question != null && computeIsRateStat(question)
 	const bucket = castCallBucketFor(shape, question?.picksRequired ?? 1)
-	const [castCall] = useMutation(CastCallDocument)
+	const castCall = useGqlMutation(CastCallDocument)
 	const router = useRouter()
+	const queryClient = useQueryClient()
 
 	// Only single-pick shapes use this - conviction on the one-and-only
 	// selection they can make. player_season_award/team_season_award track
@@ -285,18 +287,16 @@ export function useCastCallForm(
 			selections: [],
 		},
 		onSubmit: async (values, helpers) => {
-			const { data } = await castCall({
-				variables: {
-					input: {
-						questionId: values.questionId,
-						caseText: values.caseText || undefined,
-						guessValue: values.guessValue,
-						conviction: values.conviction,
-						selections: values.selections.map((s) => ({
-							optionId: s.optionId,
-							conviction: s.conviction,
-						})),
-					},
+			const data = await castCall.mutateAsync({
+				input: {
+					questionId: values.questionId,
+					caseText: values.caseText || undefined,
+					guessValue: values.guessValue,
+					conviction: values.conviction,
+					selections: values.selections.map((s) => ({
+						optionId: s.optionId,
+						conviction: s.conviction,
+					})),
 				},
 			})
 			const result = data?.castCall
@@ -337,6 +337,7 @@ export function useCastCallForm(
 					// This page is the destination - refresh in place rather than
 					// navigating away, so the pending banner/locked calls list pick
 					// up the new viewerCall immediately.
+					await queryClient.invalidateQueries()
 					await router.invalidate()
 					closeModal()
 				})

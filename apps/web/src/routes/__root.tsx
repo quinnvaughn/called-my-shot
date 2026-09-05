@@ -1,4 +1,3 @@
-import { ApolloProvider } from "@apollo/client/react"
 import { TanStackDevtools } from "@tanstack/react-devtools"
 import {
 	createRootRouteWithContext,
@@ -11,6 +10,7 @@ import { useEffect } from "react"
 
 import { ModalHost } from "#/components/ui/modal"
 import { MeDocument } from "#/graphql/queries/me"
+import { gqlQueryOptions } from "#/graphql/query-options"
 import {
 	identifyUser,
 	initAnalytics,
@@ -21,10 +21,12 @@ import fontsCss from "../fonts.css?url"
 import type { RouterContext } from "../router-context"
 import appCss from "../styles.css?url"
 
+const meQuery = gqlQueryOptions(MeDocument, {})
+
 export const Route = createRootRouteWithContext<RouterContext>()({
 	beforeLoad: async ({ context }) => {
-		const { data } = await context.apolloClient.query({ query: MeDocument })
-		return { me: data?.me ?? null }
+		const data = await context.queryClient.query(meQuery)
+		return { me: data.me ?? null }
 	},
 	head: () => ({
 		meta: [
@@ -137,7 +139,7 @@ export const Route = createRootRouteWithContext<RouterContext>()({
 })
 
 function RootDocument({ children }: { children: React.ReactNode }) {
-	const { apolloClient, me } = Route.useRouteContext()
+	const { me } = Route.useRouteContext()
 
 	useEffect(() => {
 		initAnalytics()
@@ -165,21 +167,19 @@ function RootDocument({ children }: { children: React.ReactNode }) {
 				<HeadContent />
 			</head>
 			<body>
-				<ApolloProvider client={apolloClient}>
-					{children}
-					<ModalHost />
-					<TanStackDevtools
-						config={{
-							position: "bottom-right",
-						}}
-						plugins={[
-							{
-								name: "Tanstack Router",
-								render: <TanStackRouterDevtoolsPanel />,
-							},
-						]}
-					/>
-				</ApolloProvider>
+				{children}
+				<ModalHost />
+				<TanStackDevtools
+					config={{
+						position: "bottom-right",
+					}}
+					plugins={[
+						{
+							name: "Tanstack Router",
+							render: <TanStackRouterDevtoolsPanel />,
+						},
+					]}
+				/>
 				<Scripts />
 			</body>
 		</html>

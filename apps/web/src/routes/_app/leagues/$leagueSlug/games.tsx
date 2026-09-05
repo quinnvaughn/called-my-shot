@@ -1,4 +1,5 @@
-import { createFileRoute, useLoaderData } from "@tanstack/react-router"
+import { useSuspenseQuery } from "@tanstack/react-query"
+import { createFileRoute } from "@tanstack/react-router"
 import { FiChevronLeft, FiChevronRight } from "react-icons/fi"
 import { css } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
@@ -8,7 +9,9 @@ import { Select } from "#/components/ui/select"
 import {
 	LeagueGamesForWindowDocument,
 	LeagueGameWindowsDocument,
+	leagueQuery,
 } from "#/graphql/queries/sports"
+import { gqlQueryOptions } from "#/graphql/query-options"
 
 // Stands in for a league with nothing synced yet - no window to step
 // through, so the stepper renders its own empty state instead.
@@ -18,6 +21,12 @@ const EMPTY_RESULT = {
 	nextKey: null,
 	groups: [],
 }
+
+const gamesForWindowQuery = (leagueId: string, windowKey: string | null) =>
+	gqlQueryOptions(LeagueGamesForWindowDocument, { leagueId, windowKey })
+
+const gameWindowsQuery = (leagueId: string) =>
+	gqlQueryOptions(LeagueGameWindowsDocument, { leagueId })
 
 export const Route = createFileRoute("/_app/leagues/$leagueSlug/games")({
 	component: RouteComponent,
@@ -29,33 +38,30 @@ export const Route = createFileRoute("/_app/leagues/$leagueSlug/games")({
 			typeof search.windowKey === "string" ? search.windowKey : undefined,
 	}),
 	loaderDeps: ({ search }) => ({ windowKey: search.windowKey }),
-	loader: async ({ context, deps }) => {
+	loader: ({ context, deps }) => {
 		const leagueId = context.league.id
-		const [{ data }, { data: windowsData }] = await Promise.all([
-			context.apolloClient.query({
-				query: LeagueGamesForWindowDocument,
-				variables: {
-					leagueId,
-					windowKey: deps.windowKey ?? null,
-				},
-				fetchPolicy: "network-only",
-			}),
-			context.apolloClient.query({
-				query: LeagueGameWindowsDocument,
-				variables: { leagueId },
-				fetchPolicy: "network-only",
-			}),
+		return Promise.all([
+			context.queryClient.query(
+				gamesForWindowQuery(leagueId, deps.windowKey ?? null),
+			),
+			context.queryClient.query(gameWindowsQuery(leagueId)),
 		])
-		return {
-			result: data?.leagueGamesForWindow ?? EMPTY_RESULT,
-			windows: windowsData?.leagueGameWindows ?? [],
-		}
 	},
 })
 
 function RouteComponent() {
-	const { result, windows } = Route.useLoaderData()
-	const { league } = useLoaderData({ from: "/_app/leagues/$leagueSlug" })
+	const { windowKey } = Route.useSearch()
+	const { league: contextLeague } = Route.useRouteContext()
+	const { data: windowData } = useSuspenseQuery(
+		gamesForWindowQuery(contextLeague.id, windowKey ?? null),
+	)
+	const { data: windowsData } = useSuspenseQuery(
+		gameWindowsQuery(contextLeague.id),
+	)
+	const { data: leagueData } = useSuspenseQuery(leagueQuery(contextLeague.id))
+	const result = windowData.leagueGamesForWindow ?? EMPTY_RESULT
+	const windows = windowsData.leagueGameWindows
+	const league = leagueData.league
 	const navigate = Route.useNavigate()
 
 	const hasGames = result.groups.some((group) => group.games.length > 0)
@@ -171,8 +177,7 @@ function RouteComponent() {
 
 			{!hasGames ? (
 				<EmptyState>
-					Nothing scheduled. Season questions are still open in the Season
-					tab.
+					Nothing scheduled. Season questions are still open in the Season tab.
 				</EmptyState>
 			) : (
 				result.groups.map((group, i) => (

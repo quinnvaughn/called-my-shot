@@ -1,4 +1,4 @@
-import { useQuery } from "@apollo/client/react"
+import { useQuery } from "@tanstack/react-query"
 import { createFileRoute, Link } from "@tanstack/react-router"
 import { css } from "styled-system/css"
 import { Grid, HStack, VStack } from "styled-system/jsx"
@@ -8,6 +8,7 @@ import { Button, button } from "#/components/ui/button"
 import { EmptyState } from "#/components/ui/empty-state"
 import { PageHeader } from "#/components/ui/page-header"
 import { AdminQueueSummaryDocument } from "#/graphql/queries/admin"
+import { gqlQueryOptions } from "#/graphql/query-options"
 import { openModal } from "#/stores/modal-store"
 
 export const Route = createFileRoute("/admin/queue")({
@@ -51,7 +52,9 @@ function timeAgo(iso: string) {
 }
 
 function RouteComponent() {
-	const { data, refetch } = useQuery(AdminQueueSummaryDocument)
+	const { data, refetch } = useQuery(
+		gqlQueryOptions(AdminQueueSummaryDocument, {}),
+	)
 
 	const summary =
 		data?.adminQueueSummary.__typename === "QueryAdminQueueSummarySuccess"

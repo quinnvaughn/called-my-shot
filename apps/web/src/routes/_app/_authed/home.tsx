@@ -1,3 +1,4 @@
+import { useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
 import type { ReactNode } from "react"
 import { css } from "styled-system/css"
@@ -7,6 +8,7 @@ import { QuestionCard } from "#/components/questions/question-card"
 import { EmptyState } from "#/components/ui/empty-state"
 import { PageHeader } from "#/components/ui/page-header"
 import { HomeDashboardDocument } from "#/graphql/queries/home"
+import { gqlQueryOptions } from "#/graphql/query-options"
 
 function SectionLabel({ children }: { children: ReactNode }) {
 	return (
@@ -24,18 +26,11 @@ function SectionLabel({ children }: { children: ReactNode }) {
 	)
 }
 
+const homeDashboardQuery = gqlQueryOptions(HomeDashboardDocument, {})
+
 export const Route = createFileRoute("/_app/_authed/home")({
 	component: RouteComponent,
-	loader: async ({ context }) => {
-		const { data } = await context.apolloClient.query({
-			query: HomeDashboardDocument,
-		})
-		return {
-			leagues: data?.leagues ?? [],
-			lockingSoon: data?.questions.items ?? [],
-			justResolved: data?.myRecentResolvedCalls ?? [],
-		}
-	},
+	loader: ({ context }) => context.queryClient.query(homeDashboardQuery),
 })
 
 // Deliberately ranks nothing and grows with nothing - no MOST_CALLED/NEW sort, no
@@ -44,7 +39,10 @@ export const Route = createFileRoute("/_app/_authed/home")({
 // questions exist (see HomeDashboardDocument). This is a checklist of what's
 // actionable right now, not a feed - that lives in each league's Feed tab.
 function RouteComponent() {
-	const { leagues, lockingSoon, justResolved } = Route.useLoaderData()
+	const { data } = useSuspenseQuery(homeDashboardQuery)
+	const leagues = data.leagues
+	const lockingSoon = data.questions.items
+	const justResolved = data.myRecentResolvedCalls
 
 	return (
 		<VStack gap="8" alignItems="stretch">

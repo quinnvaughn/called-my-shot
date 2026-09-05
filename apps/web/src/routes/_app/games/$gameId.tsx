@@ -1,6 +1,10 @@
-import { useApolloClient } from "@apollo/client/react"
+import {
+	keepPreviousData,
+	useInfiniteQuery,
+	useSuspenseQuery,
+} from "@tanstack/react-query"
 import { createFileRoute, Link } from "@tanstack/react-router"
-import { useEffect, useRef, useState } from "react"
+import { useState } from "react"
 import { FaRegTimesCircle } from "react-icons/fa"
 import { FiChevronLeft } from "react-icons/fi"
 import { css } from "styled-system/css"
@@ -18,41 +22,42 @@ import {
 	GameByIdDocument,
 	GameQuestionsDocument,
 } from "#/graphql/queries/sports"
+import {
+	gqlInfiniteQueryOptions,
+	gqlQueryOptions,
+} from "#/graphql/query-options"
 
 const SORTS: { value: QuestionSortOrder; label: string }[] = [
 	{ value: "MOST_CALLED", label: "Most Called" },
 	{ value: "NEW", label: "New" },
 ]
 
+const PAGE_SIZE = 15
+
+const gameQuery = (id: string) => gqlQueryOptions(GameByIdDocument, { id })
+
+// sort is part of the key, so switching it starts a fresh list rather than
+// appending to the previous ordering.
+const gameQuestionsQuery = (gameId: string, sort: QuestionSortOrder) =>
+	gqlInfiniteQueryOptions(
+		GameQuestionsDocument,
+		{ gameId, first: PAGE_SIZE, sort },
+		(data) => data.questions,
+	)
+
 export const Route = createFileRoute("/_app/games/$gameId")({
 	component: RouteComponent,
 	staleTime: 0,
+	// head() can only read loaderData, so the meta-tag fields come back from
+	// here; the component reads the same cache entries via its own hooks.
 	loader: async ({ context, params }) => {
-		const [{ data: gameData }, { data: questionsData }] = await Promise.all([
-			context.apolloClient.query({
-				query: GameByIdDocument,
-				variables: { id: params.gameId },
-				fetchPolicy: "network-only",
-			}),
-			context.apolloClient.query({
-				query: GameQuestionsDocument,
-				variables: {
-					gameId: params.gameId,
-					first: PAGE_SIZE,
-					after: null,
-					sort: "MOST_CALLED",
-				},
-				fetchPolicy: "network-only",
-			}),
+		const [gameData] = await Promise.all([
+			context.queryClient.query(gameQuery(params.gameId)),
+			context.queryClient.infiniteQuery(
+				gameQuestionsQuery(params.gameId, "MOST_CALLED"),
+			),
 		])
-		return {
-			game: gameData?.game ?? null,
-			questions: questionsData?.questions.items ?? [],
-			pageInfo: questionsData?.questions.pageInfo ?? {
-				hasNextPage: false,
-				endCursor: null,
-			},
-		}
+		return { game: gameData.game ?? null }
 	},
 	head: ({ loaderData }) => {
 		const game = loaderData?.game
@@ -70,22 +75,19 @@ export const Route = createFileRoute("/_app/games/$gameId")({
 	},
 })
 
-const PAGE_SIZE = 15
-
 function RouteComponent() {
 	const { gameId } = Route.useParams()
-	const {
-		game,
-		questions: initialQuestions,
-		pageInfo: initialPageInfo,
-	} = Route.useLoaderData()
-	const client = useApolloClient()
-
 	const [sort, setSort] = useState<QuestionSortOrder>("MOST_CALLED")
-	const [questions, setQuestions] = useState(initialQuestions)
-	const [pageInfo, setPageInfo] = useState(initialPageInfo)
-	const [loading, setLoading] = useState(false)
-	const skipNextFetch = useRef(true)
+
+	const { data: gameData } = useSuspenseQuery(gameQuery(gameId))
+	const game = gameData.game
+	// keepPreviousData holds the current ordering on screen while the newly
+	// picked sort's first page loads.
+	const { data, hasNextPage, isFetching, fetchNextPage } = useInfiniteQuery({
+		...gameQuestionsQuery(gameId, sort),
+		placeholderData: keepPreviousData,
+	})
+	const questions = data?.items ?? []
 
 	// The "who will win?" question synced onto this game by syncGameQuestions
 	// (see apps/api/src/db/sync/sync-game-questions.ts) - surfaced prominently
@@ -94,34 +96,6 @@ function RouteComponent() {
 	// placeholder that implies something's broken.
 	const hero = questions.find((q) => q.shape === "TEAM_VS_TEAM")
 	const rest = questions.filter((q) => q.id !== hero?.id)
-
-	useEffect(() => {
-		if (skipNextFetch.current) {
-			skipNextFetch.current = false
-			return
-		}
-		let cancelled = false
-		setLoading(true)
-		client
-			.query({
-				query: GameQuestionsDocument,
-				variables: { gameId, first: PAGE_SIZE, after: null, sort },
-				fetchPolicy: "network-only",
-			})
-			.then(({ data }) => {
-				if (cancelled) return
-				setQuestions(data?.questions.items ?? [])
-				setPageInfo(
-					data?.questions.pageInfo ?? { hasNextPage: false, endCursor: null },
-				)
-			})
-			.finally(() => {
-				if (!cancelled) setLoading(false)
-			})
-		return () => {
-			cancelled = true
-		}
-	}, [client, gameId, sort])
 
 	if (!game) {
 		return (
@@ -133,29 +107,6 @@ function RouteComponent() {
 				link={{ text: "Back home", url: "/home" }}
 			/>
 		)
-	}
-
-	async function loadMore() {
-		if (loading || !pageInfo.hasNextPage || !pageInfo.endCursor) return
-		setLoading(true)
-		try {
-			const { data } = await client.query({
-				query: GameQuestionsDocument,
-				variables: {
-					gameId,
-					first: PAGE_SIZE,
-					after: pageInfo.endCursor,
-					sort,
-				},
-				fetchPolicy: "network-only",
-			})
-			setQuestions((prev) => [...prev, ...(data?.questions.items ?? [])])
-			setPageInfo(
-				data?.questions.pageInfo ?? { hasNextPage: false, endCursor: null },
-			)
-		} finally {
-			setLoading(false)
-		}
 	}
 
 	return (
@@ -204,9 +155,9 @@ function RouteComponent() {
 			<InfiniteScroll
 				items={rest}
 				getKey={(question) => question.id}
-				hasNextPage={pageInfo.hasNextPage}
-				loading={loading}
-				onLoadMore={loadMore}
+				hasNextPage={hasNextPage}
+				loading={isFetching}
+				onLoadMore={fetchNextPage}
 				emptyState={
 					<EmptyState
 						action={

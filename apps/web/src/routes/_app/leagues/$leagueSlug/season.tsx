@@ -1,3 +1,4 @@
+import { useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
 import { css } from "styled-system/css"
 import { VStack } from "styled-system/jsx"
@@ -5,21 +6,16 @@ import { BallotCard } from "#/components/ballots/ballot-card"
 import { QuestionCard } from "#/components/questions/question-card"
 import { EmptyState } from "#/components/ui/empty-state"
 import { LeagueSeasonDocument } from "#/graphql/queries/sports"
+import { gqlQueryOptions } from "#/graphql/query-options"
+
+const leagueSeasonQuery = (leagueId: string) =>
+	gqlQueryOptions(LeagueSeasonDocument, { leagueId })
 
 export const Route = createFileRoute("/_app/leagues/$leagueSlug/season")({
 	component: RouteComponent,
 	staleTime: 0,
-	loader: async ({ context }) => {
-		const { data } = await context.apolloClient.query({
-			query: LeagueSeasonDocument,
-			variables: { leagueId: context.league.id },
-			fetchPolicy: "network-only",
-		})
-		return {
-			ballots: data?.leagueBallots ?? [],
-			singles: data?.questions.items ?? [],
-		}
-	},
+	loader: ({ context }) =>
+		context.queryClient.query(leagueSeasonQuery(context.league.id)),
 })
 
 const subHeadClass = css({
@@ -31,7 +27,10 @@ const subHeadClass = css({
 })
 
 function RouteComponent() {
-	const { ballots, singles } = Route.useLoaderData()
+	const { league } = Route.useRouteContext()
+	const { data } = useSuspenseQuery(leagueSeasonQuery(league.id))
+	const ballots = data.leagueBallots
+	const singles = data.questions.items
 
 	if (ballots.length === 0 && singles.length === 0) {
 		return (

@@ -1,4 +1,4 @@
-import { useQuery } from "@apollo/client/react"
+import { useQuery } from "@tanstack/react-query"
 import { Link, useMatches, useRouteContext } from "@tanstack/react-router"
 import { type ReactNode, useEffect, useState } from "react"
 import { BsBarChartFill } from "react-icons/bs"
@@ -11,7 +11,7 @@ import { HStack, VStack } from "styled-system/jsx"
 import { AuthModal } from "#/components/auth/auth-modal"
 import { Brand } from "#/components/ui/brand"
 import { Button, button } from "#/components/ui/button"
-import { UnreadNotificationCountDocument } from "#/graphql/queries/notifications"
+import { unreadNotificationCountQuery } from "#/graphql/queries/notifications"
 import { openModal } from "#/stores/modal-store"
 import { AccountMenu } from "./account-menu"
 
@@ -57,9 +57,12 @@ export function AppShell({
 		.reverse()
 		.find((match) => match.staticData?.rightRail)?.staticData.rightRail
 
-	const { data: unreadData } = useQuery(UnreadNotificationCountDocument, {
-		skip: !me,
-		pollInterval: 30_000,
+	// Shares notifications-list.tsx's options object so the key it invalidates
+	// after marking rows read is exactly the key this reads.
+	const { data: unreadData } = useQuery({
+		...unreadNotificationCountQuery,
+		enabled: !!me,
+		refetchInterval: 30_000,
 	})
 	const unreadCount =
 		unreadData?.unreadNotificationCount.__typename ===

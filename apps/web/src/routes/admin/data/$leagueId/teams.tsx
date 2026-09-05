@@ -1,4 +1,3 @@
-import { useApolloClient } from "@apollo/client/react"
 import { createFileRoute } from "@tanstack/react-router"
 import { HStack, VStack } from "styled-system/jsx"
 import { AddEditTeamModal } from "#/components/admin/data-entity-modal"
@@ -6,6 +5,7 @@ import { DataTeamTable } from "#/components/admin/data-team-table"
 import { Button } from "#/components/ui/button"
 import type { AdminTeamSort } from "#/graphql/generated/graphql"
 import { AdminTeamsDocument } from "#/graphql/queries/admin"
+import { EMPTY_CONNECTION } from "#/graphql/query-options"
 import { useAdminConnection } from "#/hooks/use-admin-connection"
 import { openModal } from "#/stores/modal-store"
 
@@ -13,18 +13,8 @@ export const Route = createFileRoute("/admin/data/$leagueId/teams")({
 	component: RouteComponent,
 })
 
-type TeamRow = {
-	id: string
-	name: string
-	abbreviation: string
-	color: string
-	conference: string | null
-	division: string | null
-}
-
 function RouteComponent() {
 	const { leagueId } = Route.useParams()
-	const client = useApolloClient()
 	const {
 		items,
 		loading,
@@ -34,22 +24,14 @@ function RouteComponent() {
 		onSort,
 		loadMore,
 		reload,
-	} = useAdminConnection<TeamRow, AdminTeamSort>({
-		defaultSort: "NAME",
-		fetchPage: async ({ sortBy: sb, sortDir: sd, after }) => {
-			const { data } = await client.query({
-				query: AdminTeamsDocument,
-				variables: {
-					leagueId,
-					sortBy: sb,
-					sortDir: sd === "asc" ? "ASC" : "DESC",
-					after,
-				},
-				fetchPolicy: "network-only",
-			})
-			if (data?.adminTeams.__typename !== "QueryAdminTeamsSuccess") return null
-			return data.adminTeams.data
-		},
+	} = useAdminConnection({
+		defaultSort: "NAME" as AdminTeamSort,
+		document: AdminTeamsDocument,
+		variables: ({ sortBy, sortDir }) => ({ leagueId, sortBy, sortDir }),
+		selectConnection: (data) =>
+			data.adminTeams.__typename === "QueryAdminTeamsSuccess"
+				? data.adminTeams.data
+				: EMPTY_CONNECTION,
 	})
 
 	return (

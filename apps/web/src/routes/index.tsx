@@ -1,3 +1,4 @@
+import { useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute, Link, redirect } from "@tanstack/react-router"
 import {
 	FaArrowsUpDown,
@@ -32,7 +33,10 @@ import { LandingPageWrap } from "#/components/landing-page/landing-page-wrap"
 import { Badge } from "#/components/ui/badge"
 import { Button, button } from "#/components/ui/button"
 import { LandingPageDocument } from "#/graphql/queries/landing-page"
+import { gqlQueryOptions } from "#/graphql/query-options"
 import { openModal } from "#/stores/modal-store"
+
+const landingPageQuery = gqlQueryOptions(LandingPageDocument, {})
 
 export const Route = createFileRoute("/")({
 	beforeLoad: ({ context }) => {
@@ -40,16 +44,7 @@ export const Route = createFileRoute("/")({
 			throw redirect({ to: "/home" })
 		}
 	},
-	loader: async ({ context }) => {
-		const { data } = await context.apolloClient.query({
-			query: LandingPageDocument,
-		})
-		return {
-			leagues: data?.leagues ?? [],
-			questions: data?.questions.items ?? [],
-			leaderboardEntries: data?.leaderboard.items ?? [],
-		}
-	},
+	loader: ({ context }) => context.queryClient.query(landingPageQuery),
 	component: Home,
 })
 
@@ -161,7 +156,10 @@ const communityItems = [
 ]
 
 function Home() {
-	const { leagues, questions, leaderboardEntries } = Route.useLoaderData()
+	const { data } = useSuspenseQuery(landingPageQuery)
+	const leagues = data.leagues
+	const questions = data.questions.items
+	const leaderboardEntries = data.leaderboard.items
 
 	return (
 		<div>

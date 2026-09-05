@@ -1,13 +1,15 @@
-import { useMutation, useQuery } from "@apollo/client/react"
+import { useQuery } from "@tanstack/react-query"
 import { css } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
 import { Modal } from "#/components/ui/modal"
 import { ToggleRow } from "#/components/ui/toggle-row"
+import { useGqlMutation } from "#/graphql/hooks"
 import {
 	SetUserQuestionCreationEnabledDocument,
 	SetUserVerifiedDocument,
 } from "#/graphql/mutations/admin"
 import { AdminUserVoidHistoryDocument } from "#/graphql/queries/admin"
+import { gqlQueryOptions } from "#/graphql/query-options"
 import { VOID_REASON_LABELS } from "#/lib/admin/void-defaults"
 
 type Props = {
@@ -24,13 +26,13 @@ type Props = {
 }
 
 export function UserDetailModal({ user, onChanged }: Props) {
-	const { data } = useQuery(AdminUserVoidHistoryDocument, {
-		variables: { userId: user.id },
-	})
-	const [setCreationEnabled] = useMutation(
+	const { data } = useQuery(
+		gqlQueryOptions(AdminUserVoidHistoryDocument, { userId: user.id }),
+	)
+	const setCreationEnabled = useGqlMutation(
 		SetUserQuestionCreationEnabledDocument,
 	)
-	const [setVerified] = useMutation(SetUserVerifiedDocument)
+	const setVerified = useGqlMutation(SetUserVerifiedDocument)
 
 	const history =
 		data?.adminUserVoidHistory.__typename === "QueryAdminUserVoidHistorySuccess"
@@ -112,9 +114,9 @@ export function UserDetailModal({ user, onChanged }: Props) {
 				description="Auto-locks past the strike threshold: placeholder for now. Override anytime."
 				checked={user.questionCreationEnabled}
 				onChange={(enabled) => {
-					setCreationEnabled({ variables: { userId: user.id, enabled } }).then(
-						onChanged,
-					)
+					setCreationEnabled
+						.mutateAsync({ userId: user.id, enabled })
+						.then(onChanged)
 				}}
 			/>
 			<ToggleRow
@@ -122,9 +124,7 @@ export function UserDetailModal({ user, onChanged }: Props) {
 				description="Shows a verified badge: for media/pundit accounts."
 				checked={user.isVerifiedPundit}
 				onChange={(verified) => {
-					setVerified({ variables: { userId: user.id, verified } }).then(
-						onChanged,
-					)
+					setVerified.mutateAsync({ userId: user.id, verified }).then(onChanged)
 				}}
 			/>
 		</Modal>

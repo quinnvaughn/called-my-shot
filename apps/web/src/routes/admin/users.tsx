@@ -1,4 +1,4 @@
-import { useQuery } from "@apollo/client/react"
+import { useQuery } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
 import { useState } from "react"
 import { VStack } from "styled-system/jsx"
@@ -10,6 +10,7 @@ import { Tag } from "#/components/ui/tag"
 import { TextInput } from "#/components/ui/text-input"
 import type { AdminUserSort } from "#/graphql/generated/graphql"
 import { AdminUsersDocument } from "#/graphql/queries/admin"
+import { gqlQueryOptions } from "#/graphql/query-options"
 import { useDebouncedValue } from "#/hooks/use-debounced-value"
 import { openModal } from "#/stores/modal-store"
 
@@ -47,13 +48,13 @@ function RouteComponent() {
 	const [sortDir, setSortDir] = useState<"asc" | "desc">("asc")
 	const debouncedSearch = useDebouncedValue(search, 300)
 
-	const { data, refetch } = useQuery(AdminUsersDocument, {
-		variables: {
+	const { data, refetch } = useQuery(
+		gqlQueryOptions(AdminUsersDocument, {
 			search: debouncedSearch || undefined,
 			sortBy,
 			sortDir: sortDir === "asc" ? "ASC" : "DESC",
-		},
-	})
+		}),
+	)
 
 	function onSort(key: SortKey) {
 		const enumKey = SORT_KEY_TO_ENUM[key]

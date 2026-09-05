@@ -1,4 +1,3 @@
-import { useMutation } from "@apollo/client/react"
 import {
 	fileSupportTicketSchema,
 	supportCategorySchema,
@@ -15,6 +14,7 @@ import { Select } from "#/components/ui/select"
 import { TextInput } from "#/components/ui/text-input"
 import { Textarea } from "#/components/ui/textarea"
 import type { SupportCategory } from "#/graphql/generated/graphql"
+import { useGqlMutation } from "#/graphql/hooks"
 import { FileSupportTicketDocument } from "#/graphql/mutations/support"
 import { track } from "#/lib/analytics"
 import { useForm } from "#/lib/form/use-form"
@@ -35,7 +35,7 @@ const SHOW_RELATED_URL = ["feature_request", "call_question"]
 type SubmittedTicket = { id: string; createdAt: string }
 
 export function SupportForm() {
-	const [fileSupportTicket] = useMutation(FileSupportTicketDocument)
+	const fileSupportTicket = useGqlMutation(FileSupportTicketDocument)
 	const [ticket, setTicket] = useState<SubmittedTicket | null>(null)
 
 	const form = useForm({
@@ -47,16 +47,14 @@ export function SupportForm() {
 			relatedUrl: "",
 		},
 		onSubmit: async (values, helpers) => {
-			const { data } = await fileSupportTicket({
-				variables: {
+			const data = await fileSupportTicket.mutateAsync({
 					input: {
 						category: values.category.toUpperCase() as SupportCategory,
 						subject: values.subject,
 						message: values.message,
 						relatedUrl: values.relatedUrl || undefined,
 					},
-				},
-			})
+				})
 			const result = data?.fileSupportTicket
 
 			if (!result) {

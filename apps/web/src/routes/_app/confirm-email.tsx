@@ -1,10 +1,10 @@
-import { useMutation } from "@apollo/client/react"
 import { createFileRoute, Link } from "@tanstack/react-router"
 import { useEffect, useRef, useState } from "react"
 import { css } from "styled-system/css"
 import { VStack } from "styled-system/jsx"
 import { button } from "#/components/ui/button"
 import { Card } from "#/components/ui/card"
+import { useGqlMutation } from "#/graphql/hooks"
 import { ConfirmEmailChangeDocument } from "#/graphql/queries/user"
 import { track } from "#/lib/analytics"
 
@@ -21,7 +21,7 @@ type Status = "pending" | "success" | "error"
 
 function RouteComponent() {
 	const { token, redirect } = Route.useSearch()
-	const [confirmEmailChange] = useMutation(ConfirmEmailChangeDocument)
+	const confirmEmailChange = useGqlMutation(ConfirmEmailChangeDocument)
 	const [status, setStatus] = useState<Status>("pending")
 	const [message, setMessage] = useState<string | null>(null)
 	const ranRef = useRef(false)
@@ -36,8 +36,9 @@ function RouteComponent() {
 			return
 		}
 
-		confirmEmailChange({ variables: { token } })
-			.then(({ data }) => {
+		confirmEmailChange
+			.mutateAsync({ token })
+			.then((data) => {
 				const result = data?.confirmEmailChange
 				if (result?.__typename === "User") {
 					track("email_confirmed", {})

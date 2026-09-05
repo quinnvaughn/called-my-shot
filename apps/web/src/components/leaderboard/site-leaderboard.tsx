@@ -1,30 +1,18 @@
-import { useApolloClient } from "@apollo/client/react"
-import { useEffect, useRef, useState } from "react"
+import { keepPreviousData, useInfiniteQuery } from "@tanstack/react-query"
+import { useState } from "react"
 import { Tabs } from "#/components/ui/tabs"
-import { type FragmentType, useFragment } from "#/graphql/generated"
+import { useFragment } from "#/graphql/generated"
 import {
-	LeaderboardDocument,
 	LeaderboardEntryFragment,
+	leaderboardQuery,
 } from "#/graphql/queries/leaderboard"
 import { Leaderboard, type LeaderboardRowData } from "./leaderboard"
-
-type LeaderboardEntryItem = {
-	rank: number
-	user: { id: string }
-} & FragmentType<typeof LeaderboardEntryFragment>
-
-type ViewerEntryItem = FragmentType<typeof LeaderboardEntryFragment>
-
-type PageInfo = { hasNextPage: boolean; endCursor: string | null }
 
 // League, not sport - NBA and NCAAB shouldn't rank against each other even
 // though both are basketball.
 type League = { id: string; name: string; abbreviation: string; slug: string }
 
 type SiteLeaderboardProps = {
-	initialItems: LeaderboardEntryItem[]
-	initialPageInfo: PageInfo
-	initialViewerEntry?: ViewerEntryItem | null
 	leagues: League[]
 	viewerId?: string
 }
@@ -48,67 +36,19 @@ function toRowData(entry: {
 // Same shape as GroupLeaderboard (components/groups/group-leaderboard.tsx):
 // league tabs replace the page entirely on switch (a new league is a whole
 // new ranking, not more of the same one), "show more" appends.
-export function SiteLeaderboard({
-	initialItems,
-	initialPageInfo,
-	initialViewerEntry,
-	leagues,
-	viewerId,
-}: SiteLeaderboardProps) {
-	const client = useApolloClient()
+export function SiteLeaderboard({ leagues, viewerId }: SiteLeaderboardProps) {
 	const [leagueId, setLeagueId] = useState<string | null>(null)
-	const [items, setItems] = useState(initialItems)
-	const [pageInfo, setPageInfo] = useState(initialPageInfo)
-	const [viewerEntry, setViewerEntry] = useState(initialViewerEntry ?? null)
-	const [loading, setLoading] = useState(false)
-	const skipNextFetch = useRef(true)
 
-	useEffect(() => {
-		if (skipNextFetch.current) {
-			skipNextFetch.current = false
-			return
-		}
-		let cancelled = false
-		setLoading(true)
-		client
-			.query({
-				query: LeaderboardDocument,
-				variables: { leagueId, after: null },
-				fetchPolicy: "network-only",
-			})
-			.then(({ data }) => {
-				if (cancelled) return
-				setItems(data?.leaderboard.items ?? [])
-				setPageInfo(
-					data?.leaderboard.pageInfo ?? { hasNextPage: false, endCursor: null },
-				)
-				setViewerEntry(data?.viewerLeaderboardEntry ?? null)
-			})
-			.finally(() => {
-				if (!cancelled) setLoading(false)
-			})
-		return () => {
-			cancelled = true
-		}
-	}, [client, leagueId])
-
-	async function loadMore() {
-		if (loading || !pageInfo.hasNextPage || !pageInfo.endCursor) return
-		setLoading(true)
-		try {
-			const { data } = await client.query({
-				query: LeaderboardDocument,
-				variables: { leagueId, after: pageInfo.endCursor },
-				fetchPolicy: "network-only",
-			})
-			setItems((prev) => [...prev, ...(data?.leaderboard.items ?? [])])
-			setPageInfo(
-				data?.leaderboard.pageInfo ?? { hasNextPage: false, endCursor: null },
-			)
-		} finally {
-			setLoading(false)
-		}
-	}
+	// leagueId is part of the key, so switching leagues starts a fresh
+	// ranking rather than appending to the previous one - no manual reset.
+	// keepPreviousData holds the outgoing league's rows in place while the
+	// new one loads, instead of collapsing the list to empty mid-switch.
+	const { data, hasNextPage, isFetching, fetchNextPage } = useInfiniteQuery({
+		...leaderboardQuery(leagueId),
+		placeholderData: keepPreviousData,
+	})
+	const items = data?.items ?? []
+	const viewerEntry = data?.pages[0]?.viewerLeaderboardEntry ?? null
 
 	const unwrappedItems = useFragment(LeaderboardEntryFragment, items)
 	const rows = unwrappedItems.map(toRowData)
@@ -141,9 +81,9 @@ export function SiteLeaderboard({
 				items={rows}
 				viewerId={viewerId}
 				viewerEntry={viewerRow}
-				hasMore={pageInfo.hasNextPage}
-				loading={loading}
-				onLoadMore={loadMore}
+				hasMore={hasNextPage}
+				loading={isFetching}
+				onLoadMore={fetchNextPage}
 			/>
 		</>
 	)

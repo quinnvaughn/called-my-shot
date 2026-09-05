@@ -1,4 +1,4 @@
-import { useApolloClient, useQuery } from "@apollo/client/react"
+import { useQuery } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
 import { HStack, VStack } from "styled-system/jsx"
 import { AddEditLeagueModal } from "#/components/admin/data-entity-modal"
@@ -10,6 +10,7 @@ import {
 	AdminLeaguesDocument,
 	SportsForAdminDocument,
 } from "#/graphql/queries/admin"
+import { EMPTY_CONNECTION, gqlQueryOptions } from "#/graphql/query-options"
 import { useAdminConnection } from "#/hooks/use-admin-connection"
 import { openModal } from "#/stores/modal-store"
 
@@ -17,18 +18,10 @@ export const Route = createFileRoute("/admin/data/")({
 	component: RouteComponent,
 })
 
-type LeagueRow = {
-	id: string
-	name: string
-	abbreviation: string
-	slug: string
-	status: string
-	sport: { id: string; name: string }
-}
-
 function RouteComponent() {
-	const client = useApolloClient()
-	const { data: sportsData } = useQuery(SportsForAdminDocument)
+	const { data: sportsData } = useQuery(
+		gqlQueryOptions(SportsForAdminDocument, {}),
+	)
 	const sports = sportsData?.sports ?? []
 
 	const {
@@ -40,22 +33,14 @@ function RouteComponent() {
 		onSort,
 		loadMore,
 		reload,
-	} = useAdminConnection<LeagueRow, AdminLeagueSort>({
-		defaultSort: "NAME",
-		fetchPage: async ({ sortBy: sb, sortDir: sd, after }) => {
-			const { data } = await client.query({
-				query: AdminLeaguesDocument,
-				variables: {
-					sortBy: sb,
-					sortDir: sd === "asc" ? "ASC" : "DESC",
-					after,
-				},
-				fetchPolicy: "network-only",
-			})
-			if (data?.adminLeagues.__typename !== "QueryAdminLeaguesSuccess")
-				return null
-			return data.adminLeagues.data
-		},
+	} = useAdminConnection({
+		defaultSort: "NAME" as AdminLeagueSort,
+		document: AdminLeaguesDocument,
+		variables: ({ sortBy, sortDir }) => ({ sortBy, sortDir }),
+		selectConnection: (data) =>
+			data.adminLeagues.__typename === "QueryAdminLeaguesSuccess"
+				? data.adminLeagues.data
+				: EMPTY_CONNECTION,
 	})
 
 	return (

@@ -1,5 +1,5 @@
-import type { AppApolloClient } from "./graphql/apollo-client"
+import type { QueryClient } from "@tanstack/react-query"
 
 export interface RouterContext {
-	apolloClient: AppApolloClient
+	queryClient: QueryClient
 }

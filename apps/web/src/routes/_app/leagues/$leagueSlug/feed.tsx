@@ -1,6 +1,6 @@
-import { useApolloClient } from "@apollo/client/react"
+import { keepPreviousData, useInfiniteQuery } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useState } from "react"
 import { VStack } from "styled-system/jsx"
 import {
 	FeedSearchField,
@@ -12,6 +12,7 @@ import { EmptyState } from "#/components/ui/empty-state"
 import { InfiniteScroll } from "#/components/ui/infinite-scroll"
 import type { QuestionSortOrder } from "#/graphql/generated/graphql"
 import { LeagueFeedDocument } from "#/graphql/queries/sports"
+import { gqlInfiniteQueryOptions } from "#/graphql/query-options"
 
 const SORTS: { value: QuestionSortOrder; label: string }[] = [
 	{ value: "CLOSING_SOON", label: "Closing Soon" },
@@ -58,35 +59,45 @@ function excludeSettled(sort: QuestionSortOrder): boolean {
 	return sort !== "CLOSING_SOON"
 }
 
+const PAGE_SIZE = 10
+
+type FeedFilters = {
+	leagueId: string
+	sort: QuestionSortOrder
+	search?: string
+	teamId?: string
+}
+
+// Every filter is part of the key, so changing sort, search text or team
+// starts a fresh feed rather than appending to the previous one.
+function leagueFeedQuery({ leagueId, sort, search, teamId }: FeedFilters) {
+	return gqlInfiniteQueryOptions(
+		LeagueFeedDocument,
+		{
+			leagueId,
+			first: PAGE_SIZE,
+			// A selected team is a precise filter on its own - pairing it with
+			// the substring `search` (now just that team's own name) would
+			// needlessly AND the two together, so teamId wins outright when set.
+			...(teamId ? { teamId } : { search: search || undefined }),
+			sort,
+			excludeGameWinners: excludeGameWinners(sort),
+			excludeSeasonAwards: excludeSeasonAwards(sort),
+			excludeSettled: excludeSettled(sort),
+			currentSeasonOnly: isCurrentSeasonOnly(sort),
+		},
+		(data) => data.questions,
+	)
+}
+
 export const Route = createFileRoute("/_app/leagues/$leagueSlug/feed")({
 	component: RouteComponent,
 	staleTime: 0,
-	loader: async ({ context }) => {
-		const { data } = await context.apolloClient.query({
-			query: LeagueFeedDocument,
-			variables: {
-				leagueId: context.league.id,
-				first: PAGE_SIZE,
-				after: null,
-				sort: "CLOSING_SOON",
-				excludeGameWinners: excludeGameWinners("CLOSING_SOON"),
-				excludeSeasonAwards: excludeSeasonAwards("CLOSING_SOON"),
-				excludeSettled: excludeSettled("CLOSING_SOON"),
-				currentSeasonOnly: isCurrentSeasonOnly("CLOSING_SOON"),
-			},
-			fetchPolicy: "network-only",
-		})
-		return {
-			items: data?.questions.items ?? [],
-			pageInfo: data?.questions.pageInfo ?? {
-				hasNextPage: false,
-				endCursor: null,
-			},
-		}
-	},
+	loader: ({ context }) =>
+		context.queryClient.infiniteQuery(
+			leagueFeedQuery({ leagueId: context.league.id, sort: "CLOSING_SOON" }),
+		),
 })
-
-const PAGE_SIZE = 10
 
 // Everything in this league that isn't a season award single or a ballot
 // member - those live on the Season tab instead (see excludeBallotMembers on
@@ -94,23 +105,27 @@ const PAGE_SIZE = 10
 // cross-league home feed used, scoped to one league instead of site-wide -
 // no league-selector tab here, you're already in this league's room.
 function RouteComponent() {
-	const { items: initialItems, pageInfo: initialPageInfo } =
-		Route.useLoaderData()
 	// The room's own row, resolved from the url slug one level up - the feed
 	// queries below are league-scoped by id, not slug.
 	const { league } = Route.useRouteContext()
 	const leagueId = league.id
-	const client = useApolloClient()
 
 	const [search, setSearch] = useState("")
 	const [debouncedSearch, setDebouncedSearch] = useState("")
 	const [teamId, setTeamId] = useState<string | null>(null)
 	const [sort, setSort] = useState<QuestionSortOrder>("CLOSING_SOON")
 
-	const [items, setItems] = useState(initialItems)
-	const [pageInfo, setPageInfo] = useState(initialPageInfo)
-	const [loading, setLoading] = useState(false)
-	const skipNextFetch = useRef(true)
+	// keepPreviousData holds the current results in place while a new filter's
+	// first page loads, rather than blanking the list between keystrokes.
+	const { data, hasNextPage, isFetching, fetchNextPage } = useInfiniteQuery({
+		...leagueFeedQuery({
+			leagueId,
+			sort,
+			search: debouncedSearch,
+			teamId: teamId ?? undefined,
+		}),
+		placeholderData: keepPreviousData,
+	})
 
 	useEffect(() => {
 		const id = setTimeout(() => setDebouncedSearch(search.trim()), 300)
@@ -130,76 +145,6 @@ function RouteComponent() {
 		setTeamId(team.id)
 	}
 
-	useEffect(() => {
-		if (skipNextFetch.current) {
-			skipNextFetch.current = false
-			return
-		}
-		let cancelled = false
-		setLoading(true)
-		client
-			.query({
-				query: LeagueFeedDocument,
-				variables: {
-					leagueId,
-					first: PAGE_SIZE,
-					after: null,
-					// A selected team is a precise filter on its own - pairing it
-					// with the substring `search` (now just that team's own name)
-					// would needlessly AND the two together, so teamId wins
-					// outright when set.
-					...(teamId ? { teamId } : { search: debouncedSearch || undefined }),
-					sort,
-					excludeGameWinners: excludeGameWinners(sort),
-					excludeSeasonAwards: excludeSeasonAwards(sort),
-					excludeSettled: excludeSettled(sort),
-					currentSeasonOnly: isCurrentSeasonOnly(sort),
-				},
-				fetchPolicy: "network-only",
-			})
-			.then(({ data }) => {
-				if (cancelled) return
-				setItems(data?.questions.items ?? [])
-				setPageInfo(
-					data?.questions.pageInfo ?? { hasNextPage: false, endCursor: null },
-				)
-			})
-			.finally(() => {
-				if (!cancelled) setLoading(false)
-			})
-		return () => {
-			cancelled = true
-		}
-	}, [client, leagueId, debouncedSearch, teamId, sort])
-
-	async function loadMore() {
-		if (loading || !pageInfo.hasNextPage || !pageInfo.endCursor) return
-		setLoading(true)
-		try {
-			const { data } = await client.query({
-				query: LeagueFeedDocument,
-				variables: {
-					leagueId,
-					first: PAGE_SIZE,
-					after: pageInfo.endCursor,
-					...(teamId ? { teamId } : { search: debouncedSearch || undefined }),
-					sort,
-					excludeGameWinners: excludeGameWinners(sort),
-					excludeSeasonAwards: excludeSeasonAwards(sort),
-					excludeSettled: excludeSettled(sort),
-					currentSeasonOnly: isCurrentSeasonOnly(sort),
-				},
-				fetchPolicy: "network-only",
-			})
-			setItems((prev) => [...prev, ...(data?.questions.items ?? [])])
-			setPageInfo(
-				data?.questions.pageInfo ?? { hasNextPage: false, endCursor: null },
-			)
-		} finally {
-			setLoading(false)
-		}
-	}
-
 	return (
 		<VStack alignItems="stretch" gap="4">
 			<FeedSearchField
@@ -213,11 +158,11 @@ function RouteComponent() {
 			<SortSwitcher sorts={SORTS} active={sort} onChange={setSort} />
 
 			<InfiniteScroll
-				items={items}
+				items={data?.items ?? []}
 				getKey={(item) => item.id}
-				hasNextPage={pageInfo.hasNextPage}
-				loading={loading}
-				onLoadMore={loadMore}
+				hasNextPage={hasNextPage}
+				loading={isFetching}
+				onLoadMore={fetchNextPage}
 				emptyState={<EmptyState>No questions match that.</EmptyState>}
 				renderItem={(item) => <QuestionCard question={item} />}
 			/>

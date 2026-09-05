@@ -1,4 +1,4 @@
-import { useApolloClient, useMutation, useQuery } from "@apollo/client/react"
+import { useQuery } from "@tanstack/react-query"
 import { createFileRoute, Link } from "@tanstack/react-router"
 import { useEffect, useMemo, useState } from "react"
 import { css, cx } from "styled-system/css"
@@ -11,6 +11,7 @@ import { Table, type TableColumn } from "#/components/ui/table"
 import { Tag } from "#/components/ui/tag"
 import { TextInput } from "#/components/ui/text-input"
 import type { AdminBallotSort, BallotStatus } from "#/graphql/generated/graphql"
+import { useGqlMutation } from "#/graphql/hooks"
 import {
 	DeleteBallotDocument,
 	ReorderBallotsDocument,
@@ -20,6 +21,7 @@ import {
 	AdminBallotScopeDocument,
 	SportsDocument,
 } from "#/graphql/queries/sports"
+import { EMPTY_CONNECTION, gqlQueryOptions } from "#/graphql/query-options"
 import { useAdminConnection } from "#/hooks/use-admin-connection"
 import { useDebouncedValue } from "#/hooks/use-debounced-value"
 import { openModal } from "#/stores/modal-store"
@@ -111,25 +113,27 @@ type BallotRow = {
 }
 
 function RouteComponent() {
-	const client = useApolloClient()
 	const [search, setSearch] = useState("")
 	const [status, setStatus] = useState<BallotStatus | null>(null)
 	const [leagueId, setLeagueId] = useState(ALL_LEAGUES)
 	const [seasonId, setSeasonId] = useState<string | null>(null)
 	const debouncedSearch = useDebouncedValue(search, 300)
-	const [deleteBallot] = useMutation(DeleteBallotDocument)
-	const [reorderBallots] = useMutation(ReorderBallotsDocument)
+	const deleteBallot = useGqlMutation(DeleteBallotDocument)
+	const reorderBallots = useGqlMutation(ReorderBallotsDocument)
 
-	const { data: sportsData } = useQuery(SportsDocument)
+	const { data: sportsData } = useQuery(gqlQueryOptions(SportsDocument, {}))
 	const leagues = useMemo(
 		() => sportsData?.sports.flatMap((sport) => sport.leagues) ?? [],
 		[sportsData],
 	)
 
-	const { data: scopeData } = useQuery(AdminBallotScopeDocument, {
-		variables: { leagueId },
-		skip: !leagueId,
-	})
+	const { data: scopeData } = useQuery(
+		gqlQueryOptions(
+			AdminBallotScopeDocument,
+			{ leagueId },
+			{ enabled: !!leagueId },
+		),
+	)
 	const seasons = useMemo(
 		() => scopeData?.leagueSeasons ?? [],
 		[scopeData],
@@ -165,36 +169,26 @@ function RouteComponent() {
 		onSort,
 		loadMore,
 		reload,
-	} = useAdminConnection<BallotRow, AdminBallotSort>({
-		defaultSort: "NAME",
-		fetchPage: async ({ sortBy: sb, sortDir: sd, after }) => {
-			const { data } = await client.query({
-				query: AdminBallotsDocument,
-				variables: {
-					search: debouncedSearch || undefined,
-					status: status ?? undefined,
-					leagueId: leagueId || undefined,
-					// Ordering mode ignores the hook's own sort state and pages in
-					// one go: a position you can only see one page of isn't a
-					// position you can move a ballot to.
-					seasonId: isOrdering ? (seasonId ?? undefined) : undefined,
-					sortBy: isOrdering ? "SORT_ORDER" : sb,
-					sortDir: isOrdering || sd === "asc" ? "ASC" : "DESC",
-					first: isOrdering ? 100 : undefined,
-					after: isOrdering ? undefined : after,
-				},
-				fetchPolicy: "network-only",
-			})
-			if (data?.adminBallots.__typename !== "QueryAdminBallotsSuccess")
-				return null
-			return data.adminBallots.data
-		},
+	} = useAdminConnection({
+		defaultSort: "NAME" as AdminBallotSort,
+		document: AdminBallotsDocument,
+		variables: ({ sortBy, sortDir }) => ({
+			search: debouncedSearch || undefined,
+			status: status ?? undefined,
+			leagueId: leagueId || undefined,
+			// Ordering mode ignores the hook's own sort state and pages in one
+			// go: a position you can only see one page of isn't a position you
+			// can move a ballot to.
+			seasonId: isOrdering ? (seasonId ?? undefined) : undefined,
+			sortBy: isOrdering ? "SORT_ORDER" : sortBy,
+			sortDir: isOrdering ? "ASC" : sortDir,
+			first: isOrdering ? 100 : undefined,
+		}),
+		selectConnection: (data) =>
+			data.adminBallots.__typename === "QueryAdminBallotsSuccess"
+				? data.adminBallots.data
+				: EMPTY_CONNECTION,
 	})
-
-	// biome-ignore lint/correctness/useExhaustiveDependencies: reload is stable, see use-admin-connection.ts
-	useEffect(() => {
-		reload()
-	}, [debouncedSearch, status, leagueId, seasonId])
 
 	async function handleDelete(ballot: BallotRow) {
 		if (
@@ -204,7 +198,7 @@ function RouteComponent() {
 		) {
 			return
 		}
-		await deleteBallot({ variables: { id: ballot.id } })
+		await deleteBallot.mutateAsync({ id: ballot.id })
 		reload()
 	}
 
@@ -220,13 +214,11 @@ function RouteComponent() {
 			reordered[target],
 			reordered[index],
 		]
-		await reorderBallots({
-			variables: {
+		await reorderBallots.mutateAsync({
 				leagueId,
 				seasonId,
 				orderedBallotIds: reordered.map((ballot) => ballot.id),
-			},
-		})
+			})
 		reload()
 	}
 

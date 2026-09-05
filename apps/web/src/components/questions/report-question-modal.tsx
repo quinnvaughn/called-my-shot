@@ -1,4 +1,4 @@
-import { useMutation } from "@apollo/client/react"
+import { useQueryClient } from "@tanstack/react-query"
 import { reportQuestionSchema } from "@called-my-shot/schemas"
 import { useRouter } from "@tanstack/react-router"
 import { useState } from "react"
@@ -11,6 +11,7 @@ import { FormError } from "#/components/ui/form-error"
 import { Modal } from "#/components/ui/modal"
 import { Textarea } from "#/components/ui/textarea"
 import type { VoidReason } from "#/graphql/generated/graphql"
+import { useGqlMutation } from "#/graphql/hooks"
 import { ReportQuestionDocument } from "#/graphql/mutations/questions"
 import { track } from "#/lib/analytics"
 import { REPORT_REASON_LABELS } from "#/lib/report-defaults"
@@ -25,8 +26,9 @@ type Props = {
 }
 
 export function ReportQuestionModal({ questionId }: Props) {
-	const [reportQuestion] = useMutation(ReportQuestionDocument)
+	const reportQuestion = useGqlMutation(ReportQuestionDocument)
 	const router = useRouter()
+	const queryClient = useQueryClient()
 	const [reason, setReason] = useState<VoidReason | null>(null)
 	const [details, setDetails] = useState("")
 	const [submitting, setSubmitting] = useState(false)
@@ -56,11 +58,9 @@ export function ReportQuestionModal({ questionId }: Props) {
 
 		setSubmitting(true)
 		try {
-			const { data } = await reportQuestion({
-				variables: {
+			const data = await reportQuestion.mutateAsync({
 					input: { questionId, reason, details: details || undefined },
-				},
-			})
+				})
 			const result = data?.reportQuestion
 			if (!result) {
 				setFormError("Something went wrong. Try again.")
@@ -80,6 +80,7 @@ export function ReportQuestionModal({ questionId }: Props) {
 				})
 				.with({ __typename: "ReportQuestionPayload" }, async () => {
 					track("question_reported", { questionId, reason })
+					await queryClient.invalidateQueries()
 					await router.invalidate()
 					closeModal()
 				})

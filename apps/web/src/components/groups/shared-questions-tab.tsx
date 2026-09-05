@@ -1,9 +1,12 @@
-import { useApolloClient } from "@apollo/client/react"
+import { useSuspenseInfiniteQuery } from "@tanstack/react-query"
 import { QuestionCard } from "#/components/questions/question-card"
 import { EmptyState } from "#/components/ui/empty-state"
 import { InfiniteScroll } from "#/components/ui/infinite-scroll"
 import { type FragmentType, graphql, useFragment } from "#/graphql/generated"
-import { usePaginatedConnection } from "#/hooks/use-paginated-connection"
+import {
+	EMPTY_CONNECTION,
+	gqlInfiniteQueryOptions,
+} from "#/graphql/query-options"
 
 export const SharedQuestionsTabFragment = graphql(`
 	fragment SharedQuestionsTab_questionShare on QuestionShare {
@@ -35,47 +38,32 @@ export const SharedQuestionsDocument = graphql(`
 	}
 `)
 
+export const sharedQuestionsQuery = (groupId: string) =>
+	gqlInfiniteQueryOptions(
+		SharedQuestionsDocument,
+		{ groupId },
+		(data) => data.group?.sharedQuestions ?? EMPTY_CONNECTION,
+	)
+
 type SharedQuestionItem = { id: string } & FragmentType<
 	typeof SharedQuestionsTabFragment
 >
 
 type SharedQuestionsTabProps = {
 	groupId: string
-	initialItems: SharedQuestionItem[]
-	initialPageInfo: { hasNextPage: boolean; endCursor: string | null }
 }
 
-export function SharedQuestionsTab({
-	groupId,
-	initialItems,
-	initialPageInfo,
-}: SharedQuestionsTabProps) {
-	const client = useApolloClient()
-	const { items, hasNextPage, loading, loadMore } =
-		usePaginatedConnection<SharedQuestionItem>(
-			{ items: initialItems, pageInfo: initialPageInfo },
-			async (after) => {
-				const { data } = await client.query({
-					query: SharedQuestionsDocument,
-					variables: { groupId, after },
-				})
-				return {
-					items: data?.group?.sharedQuestions.items ?? [],
-					pageInfo: data?.group?.sharedQuestions.pageInfo ?? {
-						hasNextPage: false,
-						endCursor: null,
-					},
-				}
-			},
-		)
+export function SharedQuestionsTab({ groupId }: SharedQuestionsTabProps) {
+	const { data, hasNextPage, isFetchingNextPage, fetchNextPage } =
+		useSuspenseInfiniteQuery(sharedQuestionsQuery(groupId))
 
 	return (
 		<InfiniteScroll
-			items={items}
+			items={data.items}
 			getKey={(item) => item.id}
 			hasNextPage={hasNextPage}
-			loading={loading}
-			onLoadMore={loadMore}
+			loading={isFetchingNextPage}
+			onLoadMore={fetchNextPage}
 			emptyState={<EmptyState>No shared questions yet.</EmptyState>}
 			renderItem={(item) => <SharedQuestionCard share={item} />}
 		/>

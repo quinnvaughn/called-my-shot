@@ -1,4 +1,4 @@
-import { useMutation, useQuery } from "@apollo/client/react"
+import { useQuery } from "@tanstack/react-query"
 import { createFileRoute, Link } from "@tanstack/react-router"
 import { useState } from "react"
 import { FaRegTimesCircle } from "react-icons/fa"
@@ -11,6 +11,7 @@ import { FieldLabel } from "#/components/ui/field-label"
 import { NotFound } from "#/components/ui/not-found"
 import { Tag } from "#/components/ui/tag"
 import { TextInput } from "#/components/ui/text-input"
+import { useGqlMutation } from "#/graphql/hooks"
 import {
 	RemoveQuestionFromBallotDocument,
 	RenameBallotDocument,
@@ -19,6 +20,7 @@ import {
 	UpdateBallotQuestionDocument,
 } from "#/graphql/mutations/ballots"
 import { AdminBallotDocument } from "#/graphql/queries/ballots"
+import { gqlQueryOptions } from "#/graphql/query-options"
 import { questionShapeLabel } from "#/lib/question-labels"
 import { openModal } from "#/stores/modal-store"
 
@@ -162,16 +164,18 @@ function MemberRow({
 
 function RouteComponent() {
 	const { ballotId } = Route.useParams()
-	const { data, loading, refetch } = useQuery(AdminBallotDocument, {
-		variables: { id: ballotId },
-	})
-	const [renameBallot] = useMutation(RenameBallotDocument)
-	const [setBallotPublished] = useMutation(SetBallotPublishedDocument)
-	const [updateBallotQuestion] = useMutation(UpdateBallotQuestionDocument)
-	const [removeQuestionFromBallot] = useMutation(
+	const {
+		data,
+		isPending: loading,
+		refetch,
+	} = useQuery(gqlQueryOptions(AdminBallotDocument, { id: ballotId }))
+	const renameBallot = useGqlMutation(RenameBallotDocument)
+	const setBallotPublished = useGqlMutation(SetBallotPublishedDocument)
+	const updateBallotQuestion = useGqlMutation(UpdateBallotQuestionDocument)
+	const removeQuestionFromBallot = useGqlMutation(
 		RemoveQuestionFromBallotDocument,
 	)
-	const [reorderBallotQuestions] = useMutation(ReorderBallotQuestionsDocument)
+	const reorderBallotQuestions = useGqlMutation(ReorderBallotQuestionsDocument)
 	const [name, setName] = useState<string | null>(null)
 
 	const ballot =
@@ -202,12 +206,10 @@ function RouteComponent() {
 			reordered[target],
 			reordered[index],
 		]
-		await reorderBallotQuestions({
-			variables: {
+		await reorderBallotQuestions.mutateAsync({
 				ballotId,
 				orderedQuestionIds: reordered.map((m) => m.question.id),
-			},
-		})
+			})
 		refetch()
 	}
 
@@ -218,16 +220,14 @@ function RouteComponent() {
 		section: string,
 	) {
 		if (!label.trim()) return
-		await updateBallotQuestion({
-			variables: {
+		await updateBallotQuestion.mutateAsync({
 				input: {
 					questionId,
 					label,
 					slot: slot || undefined,
 					section: section || undefined,
 				},
-			},
-		})
+			})
 	}
 
 	async function removeMember(questionId: string, title: string) {
@@ -238,7 +238,7 @@ function RouteComponent() {
 		) {
 			return
 		}
-		await removeQuestionFromBallot({ variables: { questionId } })
+		await removeQuestionFromBallot.mutateAsync({ questionId })
 		refetch()
 	}
 
@@ -263,9 +263,7 @@ function RouteComponent() {
 								onChange={(e) => setName(e.target.value)}
 								onBlur={() => {
 									if (name?.trim() && name !== ballot.name) {
-										renameBallot({
-											variables: { id: ballotId, name: name.trim() },
-										})
+										renameBallot.mutateAsync({ id: ballotId, name: name.trim() })
 									}
 								}}
 							/>
@@ -284,12 +282,10 @@ function RouteComponent() {
 					variant="solid"
 					size="sm"
 					onClick={async () => {
-						await setBallotPublished({
-							variables: {
+						await setBallotPublished.mutateAsync({
 								id: ballotId,
 								published: ballot.status !== "PUBLISHED",
-							},
-						})
+							})
 						refetch()
 					}}
 				>

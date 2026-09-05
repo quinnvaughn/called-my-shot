@@ -1,4 +1,4 @@
-import { useMutation, useQuery } from "@apollo/client/react"
+import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query"
 import { updateUsernameSchema } from "@called-my-shot/schemas"
 import { useRouter } from "@tanstack/react-router"
 import { useState } from "react"
@@ -10,10 +10,12 @@ import { Card } from "#/components/ui/card"
 import { FormError } from "#/components/ui/form-error"
 import { SaveNote } from "#/components/ui/save-note"
 import { TextInput } from "#/components/ui/text-input"
+import { useGqlMutation } from "#/graphql/hooks"
 import {
 	UpdateUsernameDocument,
 	UsernameAvailableDocument,
 } from "#/graphql/queries/user"
+import { gqlQueryOptions } from "#/graphql/query-options"
 import { useDebouncedValue } from "#/hooks/use-debounced-value"
 import { useForm } from "#/lib/form/use-form"
 
@@ -22,15 +24,16 @@ type Props = {
 }
 
 export function UsernameSection({ username: currentUsername }: Props) {
-	const [updateUsername] = useMutation(UpdateUsernameDocument)
+	const updateUsername = useGqlMutation(UpdateUsernameDocument)
 	const router = useRouter()
+	const queryClient = useQueryClient()
 	const [savedNote, setSavedNote] = useState<string | null>(null)
 
 	const form = useForm({
 		defaultValues: { username: currentUsername },
 		schema: updateUsernameSchema,
 		onSubmit: async (values, helpers) => {
-			const { data } = await updateUsername({ variables: { input: values } })
+			const data = await updateUsername.mutateAsync({ input: values })
 			const result = data?.updateUsername
 
 			if (!result) {
@@ -51,6 +54,7 @@ export function UsernameSection({ username: currentUsername }: Props) {
 					helpers.setFormError("You need to sign in to do that.")
 				})
 				.with({ __typename: "User" }, async () => {
+					await queryClient.invalidateQueries()
 					await router.invalidate()
 					setSavedNote("Saved")
 					setTimeout(() => setSavedNote(null), 2000)
@@ -72,12 +76,14 @@ export function UsernameSection({ username: currentUsername }: Props) {
 	}).success
 	const showStatus = !isUnchanged && formatValid
 
-	const { data: availabilityData, loading: checking } = useQuery(
-		UsernameAvailableDocument,
-		{
-			variables: { username: normalized },
-			skip: !showStatus,
-		},
+	// isFetching rather than isPending: a disabled query reports isPending
+	// forever, which would leave canSave below permanently false.
+	const { data: availabilityData, isFetching: checking } = useQuery(
+		gqlQueryOptions(
+			UsernameAvailableDocument,
+			{ username: normalized },
+			{ enabled: showStatus, placeholderData: keepPreviousData },
+		),
 	)
 	const isAvailable = availabilityData?.usernameAvailable ?? null
 	const canSave = showStatus && !checking && isAvailable === true

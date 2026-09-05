@@ -1,4 +1,9 @@
 import { graphql } from "#/graphql/generated"
+import {
+	EMPTY_CONNECTION,
+	gqlInfiniteQueryOptions,
+	gqlQueryOptions,
+} from "#/graphql/query-options"
 
 // Each notification type on the wire is its own GraphQL type (see
 // NotificationNode in apps/api/src/graphql/types/notification.ts) - one
@@ -63,3 +68,15 @@ export const MarkNotificationsReadDocument = graphql(`
 		}
 	}
 `)
+
+export const notificationsQuery = () =>
+	gqlInfiniteQueryOptions(NotificationsPageDocument, {}, (data) =>
+		data.notifications.__typename === "QueryNotificationsSuccess"
+			? data.notifications.data
+			: EMPTY_CONNECTION,
+	)
+
+export const unreadNotificationCountQuery = gqlQueryOptions(
+	UnreadNotificationCountDocument,
+	{},
+)

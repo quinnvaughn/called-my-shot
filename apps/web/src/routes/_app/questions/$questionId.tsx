@@ -1,3 +1,4 @@
+import { useSuspenseQuery } from "@tanstack/react-query"
 import {
 	createFileRoute,
 	Link,
@@ -30,8 +31,8 @@ import { Identity } from "#/components/ui/identity"
 import { NotFound } from "#/components/ui/not-found"
 import { Tag } from "#/components/ui/tag"
 import {
-	QuestionCallsDocument,
-	QuestionDetailDocument,
+	questionCallsQuery,
+	questionDetailQuery,
 } from "#/graphql/queries/question"
 import { safeExternalUrl } from "#/lib/external-url"
 import { formatGuess } from "#/lib/field-signal"
@@ -67,24 +68,14 @@ export const Route = createFileRoute("/_app/questions/$questionId")({
 	// switching questions that way would submit against the question you
 	// were on when the component first mounted, not the one on screen.
 	remountDeps: ({ params }) => params.questionId,
+	// head() can only read loaderData, so the meta-tag fields come back from
+	// here; the component reads the same cache entries via useSuspenseQuery.
 	loader: async ({ context, params }) => {
-		const [detail, calls] = await Promise.all([
-			context.apolloClient.query({
-				query: QuestionDetailDocument,
-				variables: { id: params.questionId },
-			}),
-			context.apolloClient.query({
-				query: QuestionCallsDocument,
-				variables: { id: params.questionId },
-			}),
+		const [detail] = await Promise.all([
+			context.queryClient.query(questionDetailQuery(params.questionId)),
+			context.queryClient.infiniteQuery(questionCallsQuery(params.questionId)),
 		])
-		return {
-			question: detail.data?.question ?? null,
-			calls: calls.data?.question?.calls ?? {
-				items: [],
-				pageInfo: { hasNextPage: false, endCursor: null },
-			},
-		}
+		return { question: detail.question ?? null }
 	},
 	head: ({ loaderData }) => {
 		const question = loaderData?.question
@@ -110,7 +101,9 @@ export const Route = createFileRoute("/_app/questions/$questionId")({
 })
 
 function RouteComponent() {
-	const { question, calls } = Route.useLoaderData()
+	const { questionId } = Route.useParams()
+	const { data } = useSuspenseQuery(questionDetailQuery(questionId))
+	const question = data.question
 	const { me } = useRouteContext({ from: "__root__" })
 	const router = useRouter()
 	// Called unconditionally (hooks can't follow the early-return below) -
@@ -390,11 +383,7 @@ function RouteComponent() {
 			)}
 			<VStack gap="3" alignItems="stretch">
 				{sectionLabel("Calls")}
-				<QuestionCallsList
-					questionId={question.id}
-					initialItems={calls.items}
-					initialPageInfo={calls.pageInfo}
-				/>
+				<QuestionCallsList questionId={question.id} />
 			</VStack>
 			{state.canCall && !viewerCall && <CallSubmitBar callForm={callForm} />}
 		</VStack>

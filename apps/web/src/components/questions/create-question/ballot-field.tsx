@@ -1,4 +1,4 @@
-import { useQuery } from "@apollo/client/react"
+import { keepPreviousData, useQuery } from "@tanstack/react-query"
 import { Link } from "@tanstack/react-router"
 import { useEffect, useRef, useState } from "react"
 import { css } from "styled-system/css"
@@ -11,6 +11,7 @@ import {
 	AdminBallotDocument,
 	AdminBallotSearchDocument,
 } from "#/graphql/queries/ballots"
+import { gqlQueryOptions } from "#/graphql/query-options"
 import type { CreateQuestionFormApi } from "./form-types"
 
 type Props = {
@@ -73,10 +74,16 @@ export function BallotField({ form, leagueId, lockedBallotId }: Props) {
 		}
 	}, [leagueId, lockedBallotId, ballotId, form])
 
-	const { data: searchData } = useQuery(AdminBallotSearchDocument, {
-		variables: { leagueId, query: debouncedQuery || undefined },
-		skip: !leagueId || !!lockedBallotId || !!ballotId,
-	})
+	const { data: searchData } = useQuery(
+		gqlQueryOptions(
+			AdminBallotSearchDocument,
+			{ leagueId, query: debouncedQuery || undefined },
+			{
+				enabled: !!leagueId && !lockedBallotId && !ballotId,
+				placeholderData: keepPreviousData,
+			},
+		),
+	)
 	const results =
 		searchData?.adminBallotSearch.__typename === "QueryAdminBallotSearchSuccess"
 			? searchData.adminBallotSearch.data
@@ -84,10 +91,13 @@ export function BallotField({ form, leagueId, lockedBallotId }: Props) {
 
 	// Resolves the locked ballot's own display name/count - the create form
 	// never fetched it otherwise, since arriving here skips the search step.
-	const { data: lockedData } = useQuery(AdminBallotDocument, {
-		variables: { id: lockedBallotId ?? "" },
-		skip: !lockedBallotId,
-	})
+	const { data: lockedData } = useQuery(
+		gqlQueryOptions(
+			AdminBallotDocument,
+			{ id: lockedBallotId ?? "" },
+			{ enabled: !!lockedBallotId },
+		),
+	)
 	const lockedBallot =
 		lockedData?.adminBallot?.__typename === "QueryAdminBallotSuccess"
 			? lockedData.adminBallot.data

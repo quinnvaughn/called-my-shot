@@ -1,9 +1,10 @@
-import { useLazyQuery } from "@apollo/client/react"
+import { useQueryClient } from "@tanstack/react-query"
 import { Link } from "@tanstack/react-router"
 import { HStack } from "styled-system/jsx"
 import type { QuestionCallShape } from "#/components/questions/cast-call-form/use-cast-call-form"
 import { Button, button } from "#/components/ui/button"
 import { QuestionDetailDocument } from "#/graphql/queries/question"
+import { gqlQueryOptions } from "#/graphql/query-options"
 import { isRateStat } from "#/lib/field-signal"
 import { openModal } from "#/stores/modal-store"
 import { AdminResolveModal } from "./admin-resolve-modal"
@@ -22,10 +23,12 @@ export function ResolveButton({
 	questionId: string
 	onResolved: () => void
 }) {
-	const [loadQuestion] = useLazyQuery(QuestionDetailDocument)
+	const queryClient = useQueryClient()
 
 	async function openResolve() {
-		const { data } = await loadQuestion({ variables: { id: questionId } })
+		const data = await queryClient.query(
+			gqlQueryOptions(QuestionDetailDocument, { id: questionId }),
+		)
 		if (!data?.question) return
 		openModal(
 			<AdminResolveModal

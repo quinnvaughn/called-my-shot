@@ -1,9 +1,10 @@
-import { useQuery } from "@apollo/client/react"
+import { keepPreviousData, useQuery } from "@tanstack/react-query"
 import { useEffect, useState } from "react"
 import { Combobox } from "#/components/ui/combobox"
 import { TextInput } from "#/components/ui/text-input"
 import { TeamBadge } from "#/components/ui/team-badge"
 import { LeagueSearchDocument } from "#/graphql/queries/sports"
+import { gqlQueryOptions } from "#/graphql/query-options"
 
 type Team = { id: string; name: string; abbreviation: string; color: string }
 
@@ -42,10 +43,19 @@ export function FeedSearchField({
 		return () => clearTimeout(id)
 	}, [value])
 
-	const { data } = useQuery(LeagueSearchDocument, {
-		variables: { leagueId, search: debouncedQuery },
-		skip: !leagueId || debouncedQuery.length < MIN_QUERY_LENGTH,
-	})
+	const { data } = useQuery(
+		gqlQueryOptions(
+			LeagueSearchDocument,
+			{ leagueId, search: debouncedQuery },
+			{
+				enabled: !!leagueId && debouncedQuery.length >= MIN_QUERY_LENGTH,
+				// Hold the previous matches on screen while the next keystroke's
+				// query is in flight, rather than emptying the dropdown between
+				// every letter.
+				placeholderData: keepPreviousData,
+			},
+		),
+	)
 
 	const teams = data?.teams ?? []
 	const players = data?.players ?? []

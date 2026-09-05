@@ -1,9 +1,12 @@
-import { useApolloClient } from "@apollo/client/react"
+import { useSuspenseInfiniteQuery } from "@tanstack/react-query"
 import { CallCard } from "#/components/questions/call-card"
 import { EmptyState } from "#/components/ui/empty-state"
 import { InfiniteScroll } from "#/components/ui/infinite-scroll"
 import { type FragmentType, graphql, useFragment } from "#/graphql/generated"
-import { usePaginatedConnection } from "#/hooks/use-paginated-connection"
+import {
+	EMPTY_CONNECTION,
+	gqlInfiniteQueryOptions,
+} from "#/graphql/query-options"
 
 export const AnsweredQuestionsTabFragment = graphql(`
 	fragment AnsweredQuestionsTab_call on Call {
@@ -30,47 +33,32 @@ export const AnsweredQuestionsDocument = graphql(`
 	}
 `)
 
+export const answeredQuestionsQuery = (groupId: string) =>
+	gqlInfiniteQueryOptions(
+		AnsweredQuestionsDocument,
+		{ groupId },
+		(data) => data.group?.answeredQuestions ?? EMPTY_CONNECTION,
+	)
+
 type AnsweredQuestionItem = { id: string } & FragmentType<
 	typeof AnsweredQuestionsTabFragment
 >
 
 type AnsweredQuestionsTabProps = {
 	groupId: string
-	initialItems: AnsweredQuestionItem[]
-	initialPageInfo: { hasNextPage: boolean; endCursor: string | null }
 }
 
-export function AnsweredQuestionsTab({
-	groupId,
-	initialItems,
-	initialPageInfo,
-}: AnsweredQuestionsTabProps) {
-	const client = useApolloClient()
-	const { items, hasNextPage, loading, loadMore } =
-		usePaginatedConnection<AnsweredQuestionItem>(
-			{ items: initialItems, pageInfo: initialPageInfo },
-			async (after) => {
-				const { data } = await client.query({
-					query: AnsweredQuestionsDocument,
-					variables: { groupId, after },
-				})
-				return {
-					items: data?.group?.answeredQuestions.items ?? [],
-					pageInfo: data?.group?.answeredQuestions.pageInfo ?? {
-						hasNextPage: false,
-						endCursor: null,
-					},
-				}
-			},
-		)
+export function AnsweredQuestionsTab({ groupId }: AnsweredQuestionsTabProps) {
+	const { data, hasNextPage, isFetchingNextPage, fetchNextPage } =
+		useSuspenseInfiniteQuery(answeredQuestionsQuery(groupId))
 
 	return (
 		<InfiniteScroll
-			items={items}
+			items={data.items}
 			getKey={(item) => item.id}
 			hasNextPage={hasNextPage}
-			loading={loading}
-			onLoadMore={loadMore}
+			loading={isFetchingNextPage}
+			onLoadMore={fetchNextPage}
 			emptyState={<EmptyState>No answered questions yet.</EmptyState>}
 			renderItem={(item) => <AnsweredQuestionCard call={item} />}
 		/>

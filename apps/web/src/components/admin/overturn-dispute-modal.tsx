@@ -1,4 +1,3 @@
-import { useMutation } from "@apollo/client/react"
 import { adminResolveQuestionSchema } from "@called-my-shot/schemas"
 import { useState } from "react"
 import { css } from "styled-system/css"
@@ -11,6 +10,7 @@ import { FormError } from "#/components/ui/form-error"
 import { Modal } from "#/components/ui/modal"
 import { TextInput } from "#/components/ui/text-input"
 import { Textarea } from "#/components/ui/textarea"
+import { useGqlMutation } from "#/graphql/hooks"
 import { OverturnDisputeDocument } from "#/graphql/mutations/admin"
 import { closeModal } from "#/stores/modal-store"
 
@@ -34,7 +34,7 @@ export function OverturnDisputeModal({
 	question: QuestionForResolve
 	onOverturned: () => void
 }) {
-	const [overturnDispute] = useMutation(OverturnDisputeDocument)
+	const overturnDispute = useGqlMutation(OverturnDisputeDocument)
 	const [correctOptionIds, setCorrectOptionIds] = useState<string[]>([])
 	const [actualValue, setActualValue] = useState<number | undefined>()
 	const [resolutionNote, setResolutionNote] = useState("")
@@ -81,18 +81,16 @@ export function OverturnDisputeModal({
 
 		setSubmitting(true)
 		try {
-			const { data } = await overturnDispute({
-				variables: {
-					input: {
-						disputeId,
-						resolution: {
-							questionId: question.id,
-							correctOptionIds,
-							actualValue,
-							resolutionNote: resolutionNote || undefined,
-							resolutionSource: resolutionSource || undefined,
-							resolutionSourceUrl: resolutionSourceUrl || undefined,
-						},
+			const data = await overturnDispute.mutateAsync({
+				input: {
+					disputeId,
+					resolution: {
+						questionId: question.id,
+						correctOptionIds,
+						actualValue,
+						resolutionNote: resolutionNote || undefined,
+						resolutionSource: resolutionSource || undefined,
+						resolutionSourceUrl: resolutionSourceUrl || undefined,
 					},
 				},
 			})

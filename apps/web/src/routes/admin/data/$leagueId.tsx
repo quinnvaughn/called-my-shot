@@ -1,10 +1,11 @@
-import { useQuery } from "@apollo/client/react"
+import { useQuery } from "@tanstack/react-query"
 import { createFileRoute, Link, Outlet } from "@tanstack/react-router"
 import { css } from "styled-system/css"
 import { VStack } from "styled-system/jsx"
 import { PageHeader } from "#/components/ui/page-header"
 import { Tabs } from "#/components/ui/tabs"
 import { AdminLeagueDocument } from "#/graphql/queries/admin"
+import { gqlQueryOptions } from "#/graphql/query-options"
 
 export const Route = createFileRoute("/admin/data/$leagueId")({
 	component: RouteComponent,
@@ -18,7 +19,7 @@ const NAV_ITEMS = [
 
 function RouteComponent() {
 	const { leagueId } = Route.useParams()
-	const { data } = useQuery(AdminLeagueDocument, { variables: { leagueId } })
+	const { data } = useQuery(gqlQueryOptions(AdminLeagueDocument, { leagueId }))
 
 	return (
 		<VStack gap="6" alignItems="stretch">

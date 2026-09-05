@@ -1,6 +1,18 @@
 import { createFileRoute, Outlet } from "@tanstack/react-router"
 import { AppShell } from "#/components/app-shell/app-shell"
 import { LeaguesDocument } from "#/graphql/queries/sports"
+import { gqlQueryOptions } from "#/graphql/query-options"
+
+// staleTime: Infinity because beforeLoad isn't staleTime-gated the way a
+// loader is - without it every navigation inside the shell would refetch the
+// rail before any page could start loading. The league list turns over about
+// as often as the sport catalogue, so a league added in admin shows up on the
+// next full page load rather than needing an invalidation to surface it.
+const leaguesQuery = gqlQueryOptions(
+	LeaguesDocument,
+	{},
+	{ staleTime: Number.POSITIVE_INFINITY },
+)
 
 export const Route = createFileRoute("/_app")({
 	component: RouteComponent,
@@ -15,19 +27,9 @@ export const Route = createFileRoute("/_app")({
 	// every league-scoped query underneath it takes an id, and this list is
 	// what resolves one to the other (see leagues/$leagueSlug.tsx).
 	//
-	// cache-first overrides the client-wide network-only default (see
-	// apollo-client.ts) - beforeLoad isn't staleTime-gated the way a loader is,
-	// so without this every navigation inside the shell would refetch the rail
-	// before any page could start loading. This is the one query where that
-	// default is wrong: the league list turns over about as often as the sport
-	// catalogue, and a new league added in admin shows up on the next full page
-	// load rather than needing a router.invalidate() to surface it.
 	beforeLoad: async ({ context }) => {
-		const { data } = await context.apolloClient.query({
-			query: LeaguesDocument,
-			fetchPolicy: "cache-first",
-		})
-		return { leagues: data?.leagues ?? [] }
+		const data = await context.queryClient.query(leaguesQuery)
+		return { leagues: data.leagues }
 	},
 })
 

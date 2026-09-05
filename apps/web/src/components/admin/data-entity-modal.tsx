@@ -1,4 +1,3 @@
-import { useMutation } from "@apollo/client/react"
 import {
 	createGameSchema,
 	createLeagueSchema,
@@ -17,6 +16,7 @@ import { FormError } from "#/components/ui/form-error"
 import { Modal } from "#/components/ui/modal"
 import { Select } from "#/components/ui/select"
 import { TextInput } from "#/components/ui/text-input"
+import { useGqlMutation } from "#/graphql/hooks"
 import {
 	CreateGameDocument,
 	CreateLeagueDocument,
@@ -122,8 +122,8 @@ export function AddEditLeagueModal({
 	onSaved: () => void
 }) {
 	const isEdit = !!league
-	const [createLeague] = useMutation(CreateLeagueDocument)
-	const [updateLeague] = useMutation(UpdateLeagueDocument)
+	const createLeague = useGqlMutation(CreateLeagueDocument)
+	const updateLeague = useGqlMutation(UpdateLeagueDocument)
 
 	const form = useForm({
 		schema: createLeagueSchema,
@@ -143,12 +143,11 @@ export function AddEditLeagueModal({
 			}
 			const result = isEdit
 				? (
-						await updateLeague({
-							variables: { input: { id: league.id, ...wireValues } },
+						await updateLeague.mutateAsync({
+							input: { id: league.id, ...wireValues },
 						})
-					).data?.updateLeague
-				: (await createLeague({ variables: { input: wireValues } })).data
-						?.createLeague
+					)?.updateLeague
+				: (await createLeague.mutateAsync({ input: wireValues }))?.createLeague
 			if (!result) {
 				helpers.setFormError("Something went wrong. Try again.")
 				return
@@ -293,8 +292,8 @@ export function AddEditTeamModal({
 	onSaved: () => void
 }) {
 	const isEdit = !!team
-	const [createTeam] = useMutation(CreateTeamDocument)
-	const [updateTeam] = useMutation(UpdateTeamDocument)
+	const createTeam = useGqlMutation(CreateTeamDocument)
+	const updateTeam = useGqlMutation(UpdateTeamDocument)
 
 	const form = useForm({
 		schema: createTeamSchema,
@@ -308,12 +307,9 @@ export function AddEditTeamModal({
 		},
 		onSubmit: async (values, helpers) => {
 			const result = isEdit
-				? (
-						await updateTeam({
-							variables: { input: { id: team.id, ...values } },
-						})
-					).data?.updateTeam
-				: (await createTeam({ variables: { input: values } })).data?.createTeam
+				? (await updateTeam.mutateAsync({ input: { id: team.id, ...values } }))
+						?.updateTeam
+				: (await createTeam.mutateAsync({ input: values }))?.createTeam
 			if (!result) {
 				helpers.setFormError("Something went wrong. Try again.")
 				return
@@ -475,8 +471,8 @@ export function AddEditPlayerModal({
 	onSaved: () => void
 }) {
 	const isEdit = !!player
-	const [createPlayer] = useMutation(CreatePlayerDocument)
-	const [updatePlayer] = useMutation(UpdatePlayerDocument)
+	const createPlayer = useGqlMutation(CreatePlayerDocument)
+	const updatePlayer = useGqlMutation(UpdatePlayerDocument)
 
 	const form = useForm({
 		schema: createPlayerSchema,
@@ -488,12 +484,11 @@ export function AddEditPlayerModal({
 		onSubmit: async (values, helpers) => {
 			const result = isEdit
 				? (
-						await updatePlayer({
-							variables: { input: { id: player.id, ...values } },
+						await updatePlayer.mutateAsync({
+							input: { id: player.id, ...values },
 						})
-					).data?.updatePlayer
-				: (await createPlayer({ variables: { input: values } })).data
-						?.createPlayer
+					)?.updatePlayer
+				: (await createPlayer.mutateAsync({ input: values }))?.createPlayer
 			if (!result) {
 				helpers.setFormError("Something went wrong. Try again.")
 				return
@@ -620,8 +615,8 @@ export function AddEditGameModal({
 	onSaved: () => void
 }) {
 	const isEdit = !!game
-	const [createGame] = useMutation(CreateGameDocument)
-	const [updateGame] = useMutation(UpdateGameDocument)
+	const createGame = useGqlMutation(CreateGameDocument)
+	const updateGame = useGqlMutation(UpdateGameDocument)
 
 	const form = useForm({
 		schema: createGameSchema,
@@ -644,12 +639,11 @@ export function AddEditGameModal({
 			}
 			const result = isEdit
 				? (
-						await updateGame({
-							variables: { input: { id: game.id, ...wireValues } },
+						await updateGame.mutateAsync({
+							input: { id: game.id, ...wireValues },
 						})
-					).data?.updateGame
-				: (await createGame({ variables: { input: wireValues } })).data
-						?.createGame
+					)?.updateGame
+				: (await createGame.mutateAsync({ input: wireValues }))?.createGame
 			if (!result) {
 				helpers.setFormError("Something went wrong. Try again.")
 				return

@@ -1,4 +1,4 @@
-import { useMutation } from "@apollo/client/react"
+import { useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute, useRouteContext } from "@tanstack/react-router"
 import { useState } from "react"
 import { css } from "styled-system/css"
@@ -7,36 +7,35 @@ import { CreateQuestionForm } from "#/components/questions/create-question/creat
 import { Button } from "#/components/ui/button"
 import { Card } from "#/components/ui/card"
 import { PageHeader } from "#/components/ui/page-header"
+import { useGqlMutation } from "#/graphql/hooks"
 import { SportsDocument } from "#/graphql/queries/sports"
 import { ResendEmailChangeDocument } from "#/graphql/queries/user"
+import { gqlQueryOptions } from "#/graphql/query-options"
+
+const sportsQuery = gqlQueryOptions(SportsDocument, {})
 
 export const Route = createFileRoute("/_app/_authed/new-question")({
 	component: RouteComponent,
 	// Set when arriving from the admin Ballots builder's "+ New Question"
 	// button - locks the create-question form's ballot field to this one
 	// rather than making the admin re-search for it (see ballot-field.tsx).
-	validateSearch: (
-		search: Record<string, unknown>,
-	): { ballotId?: string } => ({
+	validateSearch: (search: Record<string, unknown>): { ballotId?: string } => ({
 		...(typeof search.ballotId === "string"
 			? { ballotId: search.ballotId }
 			: {}),
 	}),
-	loader: async ({ context }) => {
-		const { data } = await context.apolloClient.query({ query: SportsDocument })
-		return { sports: data?.sports ?? [] }
-	},
+	loader: ({ context }) => context.queryClient.query(sportsQuery),
 })
 
 function VerifyEmailGate() {
-	const [resendEmailChange] = useMutation(ResendEmailChangeDocument)
+	const resendEmailChange = useGqlMutation(ResendEmailChangeDocument)
 	const [sent, setSent] = useState(false)
 	const [error, setError] = useState<string | null>(null)
 
 	async function handleResend() {
 		setError(null)
-		const { data } = await resendEmailChange({
-			variables: { redirectTo: "/new-question" },
+		const data = await resendEmailChange.mutateAsync({
+			redirectTo: "/new-question",
 		})
 		if (data?.resendEmailChange?.__typename !== "User") {
 			setError("Couldn't resend. Try again.")
@@ -97,7 +96,8 @@ function SuspendedGate() {
 }
 
 function RouteComponent() {
-	const { sports } = Route.useLoaderData()
+	const { data } = useSuspenseQuery(sportsQuery)
+	const sports = data.sports
 	const { ballotId } = Route.useSearch()
 	const { me } = useRouteContext({ from: "__root__" })
 

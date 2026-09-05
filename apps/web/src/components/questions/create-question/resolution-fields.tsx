@@ -1,10 +1,11 @@
-import { useQuery } from "@apollo/client/react"
+import { useQuery } from "@tanstack/react-query"
 import { DateTime } from "luxon"
 import { HStack, VStack } from "styled-system/jsx"
 import { DATE_TIME_PICKER_VALUE_FORMAT, DateTimePicker } from "#/components/ui/date-time-picker"
 import { FieldLabel } from "#/components/ui/field-label"
 import { TextInput } from "#/components/ui/text-input"
 import { CurrentSeasonByLeagueDocument } from "#/graphql/queries/sports"
+import { gqlQueryOptions } from "#/graphql/query-options"
 import { ChipButton } from "./chip-button"
 import type { CreateQuestionFormApi } from "./form-types"
 
@@ -25,10 +26,13 @@ export function ResolutionFields({ form, leagueId }: Props) {
 	// Only relevant while locksAt is still manual (no game picked, which
 	// otherwise drives it directly off the game's own kickoff - see
 	// game-field.tsx's selectGame()).
-	const { data: seasonData } = useQuery(CurrentSeasonByLeagueDocument, {
-		variables: { leagueId },
-		skip: !leagueId || !!gameId,
-	})
+	const { data: seasonData } = useQuery(
+		gqlQueryOptions(
+			CurrentSeasonByLeagueDocument,
+			{ leagueId },
+			{ enabled: !!leagueId && !gameId },
+		),
+	)
 	const season = seasonData?.currentSeason ?? null
 
 	return (

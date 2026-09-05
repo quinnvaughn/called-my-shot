@@ -1,3 +1,4 @@
+import { useSuspenseQuery } from "@tanstack/react-query"
 import {
 	createFileRoute,
 	notFound,
@@ -10,7 +11,7 @@ import { VStack } from "styled-system/jsx"
 import { NotFound } from "#/components/ui/not-found"
 import { PageHeader } from "#/components/ui/page-header"
 import { Tabs } from "#/components/ui/tabs"
-import { LeagueByIdDocument } from "#/graphql/queries/sports"
+import { leagueQuery } from "#/graphql/queries/sports"
 import { gamesTodayLabel } from "#/lib/game-status"
 import { isUuid } from "#/lib/uuid"
 
@@ -46,14 +47,13 @@ export const Route = createFileRoute("/_app/leagues/$leagueSlug")({
 
 		throw notFound()
 	},
+	// head() can only read loaderData, never the query cache, so this returns
+	// the handful of fields the meta tags below need. The component reads the
+	// same cache entry through useSuspenseQuery rather than these.
 	loader: async ({ context }) => {
-		const { data } = await context.apolloClient.query({
-			query: LeagueByIdDocument,
-			variables: { id: context.league.id },
-			fetchPolicy: "network-only",
-		})
-		if (!data?.league) throw notFound()
-		return { league: data.league, currentSeason: data.currentSeason ?? null }
+		const data = await context.queryClient.query(leagueQuery(context.league.id))
+		if (!data.league) throw notFound()
+		return { league: { name: data.league.name, slug: data.league.slug } }
 	},
 	head: ({ loaderData }) => {
 		const league = loaderData?.league
@@ -99,15 +99,18 @@ function LeagueNotFound() {
 }
 
 function RouteComponent() {
-	const { league, currentSeason } = Route.useLoaderData()
+	const { league: contextLeague } = Route.useRouteContext()
+	const { data } = useSuspenseQuery(leagueQuery(contextLeague.id))
 	const { leagueSlug } = Route.useParams()
 
+	// The loader already threw notFound() for a missing league; this narrows
+	// the type for the render below.
+	if (!data.league) return null
+	const league = data.league
+	const currentSeason = data.currentSeason ?? null
+
 	return (
-		<VStack
-			gap="6"
-			alignItems="stretch"
-			className={css({ maxWidth: "3xl" })}
-		>
+		<VStack gap="6" alignItems="stretch" className={css({ maxWidth: "3xl" })}>
 			<PageHeader
 				title={league.name}
 				subtitle={[

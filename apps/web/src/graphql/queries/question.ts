@@ -1,4 +1,9 @@
 import { graphql } from "#/graphql/generated"
+import {
+	EMPTY_CONNECTION,
+	gqlInfiniteQueryOptions,
+	gqlQueryOptions,
+} from "#/graphql/query-options"
 
 export const QuestionDetailDocument = graphql(`
 	query QuestionDetail($id: ID!) {
@@ -125,3 +130,14 @@ export const QuestionCallsDocument = graphql(`
 		}
 	}
 `)
+
+export const questionDetailQuery = (id: string) =>
+	gqlQueryOptions(QuestionDetailDocument, { id })
+
+export const questionCallsQuery = (id: string) =>
+	gqlInfiniteQueryOptions(
+		QuestionCallsDocument,
+		{ id },
+		(data) =>
+			data.question?.calls ?? EMPTY_CONNECTION,
+	)

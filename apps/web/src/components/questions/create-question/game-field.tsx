@@ -1,4 +1,4 @@
-import { useQuery } from "@apollo/client/react"
+import { keepPreviousData, useQuery } from "@tanstack/react-query"
 import { DateTime } from "luxon"
 import { useEffect, useRef, useState } from "react"
 import { css } from "styled-system/css"
@@ -10,6 +10,7 @@ import { FieldLabel } from "#/components/ui/field-label"
 import { TextInput } from "#/components/ui/text-input"
 import type { GameByIdQuery } from "#/graphql/generated/graphql"
 import { GamesByLeagueDocument } from "#/graphql/queries/sports"
+import { gqlQueryOptions } from "#/graphql/query-options"
 import { GameBlock } from "../game-block"
 import type { CreateQuestionFormApi } from "./form-types"
 
@@ -71,10 +72,16 @@ export function GameField({
 		}
 	}, [leagueId, gameId, form])
 
-	const { data: searchData } = useQuery(GamesByLeagueDocument, {
-		variables: { leagueId, query: debouncedQuery || undefined },
-		skip: !leagueId || !!gameId,
-	})
+	const { data: searchData } = useQuery(
+		gqlQueryOptions(
+			GamesByLeagueDocument,
+			{ leagueId, query: debouncedQuery || undefined },
+			{
+				enabled: !!leagueId && !gameId,
+				placeholderData: keepPreviousData,
+			},
+		),
+	)
 
 	const games = searchData?.games ?? []
 
