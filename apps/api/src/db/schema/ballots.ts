@@ -31,6 +31,16 @@ export const ballots = pgTable(
 	{
 		id: uuid("id").primaryKey().defaultRandom(),
 		name: text("name").notNull(),
+		// What the public ballot page is addressed by
+		// ("mlb-2026-al-gold-gloves") - a shared ballot link is the most
+		// pasted url in the app, and a uuid in a group chat says nothing.
+		// Globally unique rather than unique per (league, season): the league
+		// and season are already baked into the string by
+		// lib/ballot-slug.ts, so a flat constraint costs nothing and keeps the
+		// route a single lookup. Never rewritten after insert, renames
+		// included (see renameBallot) - a live shared link changing out from
+		// under people is worse than a slug that no longer matches the name.
+		slug: text("slug").notNull().unique(),
 		// Derived server-side from the picked league at creation time, never
 		// asked of the admin directly (leagues already carry their own sportId) -
 		// same "don't ask for what's derivable" reasoning as questions.sportId

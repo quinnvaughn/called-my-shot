@@ -5,10 +5,14 @@ import { graphql } from "#/graphql/generated"
 // server-side (resolves to null for anything not published). No __typename
 // union to match here since the field itself is plain-nullable, not
 // errors-wrapped, matching `league`/`game`.
-export const BallotByIdDocument = graphql(`
-	query BallotById($id: ID!) {
-		ballot(id: $id) {
+// `ref` is the slug the page is addressed by today, or the uuid it used to
+// be - the resolver takes either, so a link shared before ballots had slugs
+// still lands (the route redirects it to the canonical slug url).
+export const BallotByRefDocument = graphql(`
+	query BallotByRef($ref: ID!) {
+		ballot(id: $ref) {
 			id
+			slug
 			name
 			league {
 				id

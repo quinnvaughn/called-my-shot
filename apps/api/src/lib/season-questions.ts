@@ -10,6 +10,7 @@ import {
 	questions,
 } from "../db/schema"
 import { buildPlayerPool, buildTeamPool } from "./award-pool"
+import { generateUniqueBallotSlug } from "./ballot-slug"
 import { getCurrentSeason } from "./seasons"
 import {
 	compareTeamsByGrouping,
@@ -31,8 +32,10 @@ import {
 // haven't been created yet.
 async function findOrCreateBallot(params: {
 	leagueId: string
+	leagueSlug: string
 	sportId: string
 	seasonId: string
+	seasonDisplayName: string
 	name: string
 	sortOrder: number
 	createdBy: string
@@ -57,6 +60,11 @@ async function findOrCreateBallot(params: {
 		.insert(ballots)
 		.values({
 			name: params.name,
+			slug: await generateUniqueBallotSlug({
+				leagueSlug: params.leagueSlug,
+				seasonDisplayName: params.seasonDisplayName,
+				name: params.name,
+			}),
 			sportId: params.sportId,
 			leagueId: params.leagueId,
 			seasonId: params.seasonId,
@@ -521,8 +529,10 @@ export async function generateSeasonQuestions(params: {
 		// "2026 AL Gold Gloves", not "2026 MLB AL Gold Gloves").
 		const ballot = await findOrCreateBallot({
 			leagueId: params.leagueId,
+			leagueSlug: league.slug,
 			sportId: league.sportId,
 			seasonId: season.id,
+			seasonDisplayName: season.displayName,
 			name: `${season.displayName} ${ballotGroup}`,
 			sortOrder: groupOrder.get(ballotGroup) ?? 1,
 			createdBy: params.createdBy,

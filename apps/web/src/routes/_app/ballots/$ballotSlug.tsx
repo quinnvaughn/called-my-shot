@@ -1,5 +1,5 @@
 import { useSuspenseQuery } from "@tanstack/react-query"
-import { createFileRoute, Link } from "@tanstack/react-router"
+import { createFileRoute, Link, redirect } from "@tanstack/react-router"
 import { DateTime } from "luxon"
 import { Fragment } from "react"
 import { FaRegTimesCircle } from "react-icons/fa"
@@ -20,36 +20,58 @@ import { NotFound } from "#/components/ui/not-found"
 import { PageHeader } from "#/components/ui/page-header"
 import { Tag } from "#/components/ui/tag"
 import { useFragment } from "#/graphql/generated"
-import { BallotByIdDocument } from "#/graphql/queries/ballots"
+import { BallotByRefDocument } from "#/graphql/queries/ballots"
 import { gqlQueryOptions } from "#/graphql/query-options"
 import { computeBallotProgressStats } from "#/lib/ballot-progress-stats"
+import { isUuid } from "#/lib/uuid"
 
-const ballotQuery = (id: string) => gqlQueryOptions(BallotByIdDocument, { id })
+const ballotQuery = (ref: string) =>
+	gqlQueryOptions(BallotByRefDocument, { ref })
 
 // Public - a shared link or a scraper can land here signed out, same as the
 // `ballot` query itself (resolves null for anything not published). This is
 // the ONLY public view of a ballot; the admin builder at /admin/ballots is a
 // separate, admin-only page for assembling one.
-export const Route = createFileRoute("/_app/ballots/$ballotId")({
+export const Route = createFileRoute("/_app/ballots/$ballotSlug")({
 	component: RouteComponent,
 	staleTime: 0,
 	// head() can only read loaderData, so the meta-tag fields come back from
 	// here; the component reads the same cache entry via useSuspenseQuery.
-	loader: async ({ context, params }) => {
-		const data = await context.queryClient.query(ballotQuery(params.ballotId))
-		return { ballot: data.ballot ?? null }
+	loader: async ({ context, params, location }) => {
+		const data = await context.queryClient.query(ballotQuery(params.ballotSlug))
+		const ballot = data.ballot ?? null
+
+		// Ballots were addressed by uuid before they had slugs, so links shared
+		// back then still land here. A 301 thrown from the loader, before any
+		// html renders, is what lets a crawler follow through to the meta tags
+		// below - same handling the league room gives its own old uuid urls.
+		if (ballot && isUuid(params.ballotSlug)) {
+			throw redirect({
+				href:
+					location.pathname.replace(params.ballotSlug, ballot.slug) +
+					location.searchStr,
+				statusCode: 301,
+			})
+		}
+
+		return { ballot }
 	},
 	head: ({ loaderData }) => {
 		const ballot = loaderData?.ballot
 		if (!ballot) return {}
 		const title = `${ballot.name} · Called My Shot`
 		const description = `${ballot.memberCount} question${ballot.memberCount === 1 ? "" : "s"} in the ${ballot.league.name} ${ballot.name}.`
+		// Always the slug url, never the uuid one a request may have arrived
+		// on, so the old links consolidate onto this one rather than being
+		// indexed twice.
+		const url = `https://calledmyshot.com/ballots/${ballot.slug}`
 		return {
 			meta: [
 				{ title },
 				{ name: "description", content: description },
 				{ property: "og:title", content: title },
 				{ property: "og:description", content: description },
+				{ property: "og:url", content: url },
 			],
 		}
 	},
@@ -84,8 +106,8 @@ function BallotSectionHeading({ label }: { label: string }) {
 }
 
 function RouteComponent() {
-	const { ballotId } = Route.useParams()
-	const { data } = useSuspenseQuery(ballotQuery(ballotId))
+	const { ballotSlug } = Route.useParams()
+	const { data } = useSuspenseQuery(ballotQuery(ballotSlug))
 	const ballot = data.ballot
 
 	// Unmasked once here (not per-row) - the server already returns members

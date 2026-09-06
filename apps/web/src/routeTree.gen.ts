@@ -31,7 +31,7 @@ import { Route as AppAuthedNewQuestionRouteImport } from './routes/_app/_authed/
 import { Route as AppAuthedNotificationsRouteImport } from './routes/_app/_authed/notifications'
 import { Route as AppAuthedSettingsRouteImport } from './routes/_app/_authed/settings'
 import { Route as AppAuthedSupportRouteImport } from './routes/_app/_authed/support'
-import { Route as AppBallotsBallotIdRouteImport } from './routes/_app/ballots/$ballotId'
+import { Route as AppBallotsBallotSlugRouteImport } from './routes/_app/ballots/$ballotSlug'
 import { Route as AppGamesGameIdRouteImport } from './routes/_app/games/$gameId'
 import { Route as AppLeaguesLeagueSlugRouteImport } from './routes/_app/leagues/$leagueSlug'
 import { Route as AppQuestionsQuestionIdRouteImport } from './routes/_app/questions/$questionId'
@@ -163,9 +163,9 @@ const AppAuthedSupportRoute = AppAuthedSupportRouteImport.update({
   path: '/support',
   getParentRoute: () => AppAuthedRoute,
 } as any)
-const AppBallotsBallotIdRoute = AppBallotsBallotIdRouteImport.update({
-  id: '/ballots/$ballotId',
-  path: '/ballots/$ballotId',
+const AppBallotsBallotSlugRoute = AppBallotsBallotSlugRouteImport.update({
+  id: '/ballots/$ballotSlug',
+  path: '/ballots/$ballotSlug',
   getParentRoute: () => AppRoute,
 } as any)
 const AppGamesGameIdRoute = AppGamesGameIdRouteImport.update({
@@ -306,7 +306,7 @@ export interface FileRoutesByFullPath {
   '/notifications': typeof AppAuthedNotificationsRoute
   '/settings': typeof AppAuthedSettingsRoute
   '/support': typeof AppAuthedSupportRoute
-  '/ballots/$ballotId': typeof AppBallotsBallotIdRoute
+  '/ballots/$ballotSlug': typeof AppBallotsBallotSlugRoute
   '/games/$gameId': typeof AppGamesGameIdRoute
   '/leagues/$leagueSlug': typeof AppLeaguesLeagueSlugRouteWithChildren
   '/questions/$questionId': typeof AppQuestionsQuestionIdRoute
@@ -350,7 +350,7 @@ export interface FileRoutesByTo {
   '/notifications': typeof AppAuthedNotificationsRoute
   '/settings': typeof AppAuthedSettingsRoute
   '/support': typeof AppAuthedSupportRoute
-  '/ballots/$ballotId': typeof AppBallotsBallotIdRoute
+  '/ballots/$ballotSlug': typeof AppBallotsBallotSlugRoute
   '/games/$gameId': typeof AppGamesGameIdRoute
   '/questions/$questionId': typeof AppQuestionsQuestionIdRoute
   '/user/$username': typeof AppUserUsernameRoute
@@ -396,7 +396,7 @@ export interface FileRoutesById {
   '/_app/_authed/notifications': typeof AppAuthedNotificationsRoute
   '/_app/_authed/settings': typeof AppAuthedSettingsRoute
   '/_app/_authed/support': typeof AppAuthedSupportRoute
-  '/_app/ballots/$ballotId': typeof AppBallotsBallotIdRoute
+  '/_app/ballots/$ballotSlug': typeof AppBallotsBallotSlugRoute
   '/_app/games/$gameId': typeof AppGamesGameIdRoute
   '/_app/leagues/$leagueSlug': typeof AppLeaguesLeagueSlugRouteWithChildren
   '/_app/questions/$questionId': typeof AppQuestionsQuestionIdRoute
@@ -443,7 +443,7 @@ export interface FileRouteTypes {
     | '/notifications'
     | '/settings'
     | '/support'
-    | '/ballots/$ballotId'
+    | '/ballots/$ballotSlug'
     | '/games/$gameId'
     | '/leagues/$leagueSlug'
     | '/questions/$questionId'
@@ -487,7 +487,7 @@ export interface FileRouteTypes {
     | '/notifications'
     | '/settings'
     | '/support'
-    | '/ballots/$ballotId'
+    | '/ballots/$ballotSlug'
     | '/games/$gameId'
     | '/questions/$questionId'
     | '/user/$username'
@@ -532,7 +532,7 @@ export interface FileRouteTypes {
     | '/_app/_authed/notifications'
     | '/_app/_authed/settings'
     | '/_app/_authed/support'
-    | '/_app/ballots/$ballotId'
+    | '/_app/ballots/$ballotSlug'
     | '/_app/games/$gameId'
     | '/_app/leagues/$leagueSlug'
     | '/_app/questions/$questionId'
@@ -724,11 +724,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppAuthedSupportRouteImport
       parentRoute: typeof AppAuthedRoute
     }
-    '/_app/ballots/$ballotId': {
-      id: '/_app/ballots/$ballotId'
-      path: '/ballots/$ballotId'
-      fullPath: '/ballots/$ballotId'
-      preLoaderRoute: typeof AppBallotsBallotIdRouteImport
+    '/_app/ballots/$ballotSlug': {
+      id: '/_app/ballots/$ballotSlug'
+      path: '/ballots/$ballotSlug'
+      fullPath: '/ballots/$ballotSlug'
+      preLoaderRoute: typeof AppBallotsBallotSlugRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/games/$gameId': {
@@ -938,7 +938,7 @@ interface AppRouteChildren {
   AppConfirmEmailRoute: typeof AppConfirmEmailRoute
   AppHowItWorksRoute: typeof AppHowItWorksRoute
   AppLeaderboardRoute: typeof AppLeaderboardRoute
-  AppBallotsBallotIdRoute: typeof AppBallotsBallotIdRoute
+  AppBallotsBallotSlugRoute: typeof AppBallotsBallotSlugRoute
   AppGamesGameIdRoute: typeof AppGamesGameIdRoute
   AppLeaguesLeagueSlugRoute: typeof AppLeaguesLeagueSlugRouteWithChildren
   AppQuestionsQuestionIdRoute: typeof AppQuestionsQuestionIdRoute
@@ -951,7 +951,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppConfirmEmailRoute: AppConfirmEmailRoute,
   AppHowItWorksRoute: AppHowItWorksRoute,
   AppLeaderboardRoute: AppLeaderboardRoute,
-  AppBallotsBallotIdRoute: AppBallotsBallotIdRoute,
+  AppBallotsBallotSlugRoute: AppBallotsBallotSlugRoute,
   AppGamesGameIdRoute: AppGamesGameIdRoute,
   AppLeaguesLeagueSlugRoute: AppLeaguesLeagueSlugRouteWithChildren,
   AppQuestionsQuestionIdRoute: AppQuestionsQuestionIdRoute,

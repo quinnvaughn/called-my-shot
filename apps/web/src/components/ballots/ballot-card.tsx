@@ -10,6 +10,7 @@ import { type FragmentType, graphql, useFragment } from "#/graphql/generated"
 export const BallotCardFragment = graphql(`
 	fragment BallotCard_ballot on Ballot {
 		id
+		slug
 		name
 		memberCount
 		viewerCalledCount
@@ -37,7 +38,7 @@ export function BallotCard({ ballot: ballotProp }: Props) {
 			: Math.round((calledCount / ballot.memberCount) * 100)
 
 	return (
-		<Link to="/ballots/$ballotId" params={{ ballotId: ballot.id }}>
+		<Link to="/ballots/$ballotSlug" params={{ ballotSlug: ballot.slug }}>
 			<Card interactive>
 				<Card.Body>
 					<VStack gap="3" alignItems="stretch">

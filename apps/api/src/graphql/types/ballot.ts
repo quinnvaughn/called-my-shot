@@ -22,6 +22,7 @@ import {
 	SortDirection,
 } from "../../lib/admin-pagination"
 import { requireAdmin } from "../../lib/auth"
+import { generateUniqueBallotSlug } from "../../lib/ballot-slug"
 import {
 	AuthenticationError,
 	AuthorizationError,
@@ -115,6 +116,8 @@ export const BallotRef = builder.drizzleObject("ballots", {
 	fields: (t) => ({
 		id: t.exposeID("id"),
 		name: t.exposeString("name"),
+		// What /ballots/<slug> is addressed by - see ballots.slug.
+		slug: t.exposeString("slug"),
 		status: t.field({
 			type: BallotStatus,
 			resolve: (ballot) => ballot.status,
@@ -387,11 +390,14 @@ builder.queryFields((t) => ({
 	ballot: t.field({
 		type: BallotRef,
 		nullable: true,
+		// Takes a slug ("mlb-2026-al-gold-gloves") or, for links shared before
+		// ballots had slugs, the uuid the page used to be addressed by - same
+		// dual acceptance the league room's share links already have (see
+		// routes/share.ts).
 		args: { id: t.arg.id({ required: true }) },
 		resolve: async (_root, args) => {
-			if (!isUuid(args.id)) return null
 			const ballot = await db.query.ballots.findFirst({
-				where: { id: args.id },
+				where: isUuid(args.id) ? { id: args.id } : { slug: args.id },
 			})
 			if (ballot?.status !== "published") return null
 			return ballot
@@ -562,6 +568,11 @@ builder.mutationFields((t) => ({
 				.insert(ballots)
 				.values({
 					name: parsed.data.name,
+					slug: await generateUniqueBallotSlug({
+						leagueSlug: league.slug,
+						seasonDisplayName: season.displayName,
+						name: parsed.data.name,
+					}),
 					sportId: league.sportId,
 					leagueId: league.id,
 					seasonId: season.id,
@@ -595,6 +606,8 @@ builder.mutationFields((t) => ({
 			const name = args.name.trim()
 			if (!name) throw ValidationError.field("name", "Name this ballot")
 
+			// Name only - the slug stays whatever it was set to at creation, so
+			// a link already shared keeps resolving (see ballots.slug).
 			const [ballot] = await db
 				.update(ballots)
 				.set({ name })
