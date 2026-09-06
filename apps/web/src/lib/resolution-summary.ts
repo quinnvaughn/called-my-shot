@@ -48,6 +48,7 @@ export function resolvedAnswerSummary(
 			"PLAYER_SEASON_AWARD",
 			"TEAM_SEASON_AWARD",
 			"PLAYER_GAME_STAT_LEADER",
+			"PLAYER_SEASON_STAT_LEADER",
 			() => formatMultiSelect(question),
 		)
 		.with(

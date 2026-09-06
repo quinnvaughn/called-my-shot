@@ -149,6 +149,7 @@ export function QuestionResultBlock({ question, disputed }: Props) {
 					"PLAYER_SEASON_AWARD",
 					"TEAM_SEASON_AWARD",
 					"PLAYER_GAME_STAT_LEADER",
+					"PLAYER_SEASON_STAT_LEADER",
 					() => (
 						<VStack gap="1.5" alignItems="stretch">
 							<VStack gap="0" alignItems="stretch">

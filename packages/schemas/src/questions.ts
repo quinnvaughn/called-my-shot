@@ -35,6 +35,7 @@ export const questionShapeSchema = z.enum([
 	"player_vs_player_season",
 	"team_vs_team_season",
 	"player_game_stat_leader",
+	"player_season_stat_leader",
 	"yes_no_prop",
 	// Admin-only shapes grouped at the end - see ADMIN_ONLY_SHAPES below.
 	"team_vs_team",
@@ -174,8 +175,10 @@ export const createQuestionSchema = z
 		// player_vs_player (exactly 2, playerId required on each), award pools
 		// (player_season_award/team_season_award, auto-derived client-side from
 		// the full league roster), player_award_finalists (2+, playerId
-		// required on each). team_vs_team submits none - the resolver derives
-		// its two sides from the picked game.
+		// required on each), player_season_stat_leader (2+, a hand-curated
+		// pool). team_vs_team submits none - the resolver derives its two sides
+		// from the picked game, and player_game_stat_leader's pool is derived
+		// server-side from that game's two rosters.
 		options: z.array(createQuestionOptionSchema).default([]),
 
 		// *_over_under, *_numeric_guess, player_vs_player
@@ -185,7 +188,8 @@ export const createQuestionSchema = z
 		// *_over_under only
 		ouLine: z.number().optional(),
 
-		// player_season_stat_over_under/team_season_stat_over_under only
+		// player_season_stat_over_under/team_season_stat_over_under (required),
+		// player_season_stat_leader (genuinely optional - see its arm below)
 		statAggregation: statAggregationSchema.optional(),
 
 		// player_stat_over_under/numeric_guess (required), team_stat_over_under/
@@ -574,6 +578,27 @@ export const createQuestionSchema = z
 				requireCatalogStat()
 				requirePool("player", 2)
 			})
+			// Season-scoped sibling of player_game_stat_leader - the same curated
+			// pool and single pick, with no game behind it. Two deliberate
+			// differences from that shape beyond the missing gameId:
+			//
+			// requireStat, not requireCatalogStat. The advanced full-season
+			// metrics this shape exists for (RAPM, EPA/play) aren't in the
+			// catalog, and unlike the numeric-guess shapes there's no tolerance
+			// tier that has to be looked up from a catalog row, so a freeform
+			// stat costs nothing here.
+			//
+			// No requireStatAggregation, unlike every other season shape. Those
+			// are all over/unders whose line is meaningless until you know
+			// whether it's a total or a per-game rate. Here the aggregation only
+			// ever disambiguates a counting stat ("most points this season" vs
+			// "highest points per game"); a stat that is already a rate measured
+			// across a full season is neither, and forcing one of the two onto it
+			// would put a wrong word in the generated title.
+			.with("player_season_stat_leader", () => {
+				requireStat()
+				requirePool("player", 2)
+			})
 			.exhaustive()
 	})
 export type CreateQuestionInput = z.infer<typeof createQuestionSchema>
@@ -660,6 +685,7 @@ export const castCallSchema = z
 				"yes_no_prop",
 				"player_award_finalists",
 				"player_game_stat_leader",
+				"player_season_stat_leader",
 				() => {
 					if (data.selections.length !== 1) {
 						ctx.addIssue({
@@ -703,11 +729,12 @@ export const resolveQuestionSchema = z
 			.with(
 				"player_season_award",
 				"team_season_award",
-				// Joins the award shapes, not the exactly-1 bucket below - a
+				// Join the award shapes, not the exactly-1 bucket below - a
 				// real-world tie for "most points in this game" is exactly as
 				// valid an outcome as a tie for an award race, and resolution
 				// should be able to mark both options correct the same way.
 				"player_game_stat_leader",
+				"player_season_stat_leader",
 				() => {
 					// Deliberately not compared against picksRequired - a real outcome
 					// can produce fewer genuine winners than the number of picks callers

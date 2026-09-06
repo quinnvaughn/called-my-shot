@@ -132,6 +132,7 @@ export function OptionList({
 									borderColor: "border.default",
 									borderRadius: "lg",
 									padding: "2.5",
+									cursor: "pointer",
 									_hover: {
 										borderColor: "border.emphasized",
 										color: "fg.body",

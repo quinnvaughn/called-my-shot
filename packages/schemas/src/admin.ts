@@ -71,6 +71,7 @@ export const adminResolveQuestionSchema = z
 				"player_season_award",
 				"team_season_award",
 				"player_game_stat_leader",
+				"player_season_stat_leader",
 				() => {
 					if (data.correctOptionIds.length < 1) {
 						ctx.addIssue({

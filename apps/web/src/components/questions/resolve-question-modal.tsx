@@ -50,7 +50,8 @@ export function ResolveQuestionModal({ question: questionProp }: Props) {
 	const isMultiPick =
 		shape === "player_season_award" ||
 		shape === "team_season_award" ||
-		shape === "player_game_stat_leader"
+		shape === "player_game_stat_leader" ||
+		shape === "player_season_stat_leader"
 	const isRateStat = computeIsRateStat(question)
 	const resolveQuestion = useGqlMutation(ResolveQuestionDocument)
 	const router = useRouter()

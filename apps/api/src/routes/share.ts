@@ -56,6 +56,7 @@ const SHAPE_LABEL: Record<QuestionShape, string> = {
 	team_vs_team: "Game Outcome",
 	team_vs_team_season: "Head-to-Head",
 	player_game_stat_leader: "Stat Leader",
+	player_season_stat_leader: "Stat Leader",
 	yes_no_prop: "Yes/No",
 	player_season_award: "Season Award",
 	team_season_award: "Season Award",

@@ -78,6 +78,7 @@ export type QuestionCallShape =
 	| "team_vs_team"
 	| "team_vs_team_season"
 	| "player_game_stat_leader"
+	| "player_season_stat_leader"
 	| "yes_no_prop"
 	| "player_season_award"
 	| "team_season_award"
@@ -119,6 +120,7 @@ export function castCallBucketFor(
 			"team_vs_team",
 			"team_vs_team_season",
 			"player_game_stat_leader",
+			"player_season_stat_leader",
 			"yes_no_prop",
 			"player_award_finalists",
 			() => "single" as const,
@@ -143,15 +145,18 @@ export function isOverUnderShape(shape: QuestionCallShape): boolean {
 // small fixed framing (Over/Under, Yes/No, Team A vs Team B) - those other
 // shapes want their two options in the order the question poses them, not
 // reordered by votes. A nominee pool has no such fixed framing (including
-// player_game_stat_leader's server-derived both-rosters pool), so
-// OptionPickerList defaults it to popularity instead of creation order (see
-// its own comment) to surface the obvious picks before someone's made one.
+// player_game_stat_leader's server-derived both-rosters pool, and
+// player_season_stat_leader's curated one, whose order is just the sequence
+// the creator happened to add names in), so OptionPickerList defaults it to
+// popularity instead of creation order (see its own comment) to surface the
+// obvious picks before someone's made one.
 export function isAwardShape(shape: QuestionCallShape): boolean {
 	return (
 		shape === "player_season_award" ||
 		shape === "team_season_award" ||
 		shape === "player_award_finalists" ||
-		shape === "player_game_stat_leader"
+		shape === "player_game_stat_leader" ||
+		shape === "player_season_stat_leader"
 	)
 }
 

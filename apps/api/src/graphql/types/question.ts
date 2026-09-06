@@ -133,6 +133,7 @@ export const QuestionShape = builder.enumType("QuestionShape", {
 		PLAYER_AWARD_FINALISTS: { value: "player_award_finalists" },
 		TEAM_SEASON_STAT_NUMERIC_GUESS: { value: "team_season_stat_numeric_guess" },
 		PLAYER_GAME_STAT_LEADER: { value: "player_game_stat_leader" },
+		PLAYER_SEASON_STAT_LEADER: { value: "player_season_stat_leader" },
 	},
 })
 
@@ -2590,6 +2591,15 @@ builder.mutationFields((t) => ({
 						)
 					}
 				})
+				// No pool check to mirror the game-scoped arm above - this pool is
+				// the creator's own curated list, already size- and
+				// playerId-validated by createQuestionSchema's requirePool, not
+				// something derived here that could come back empty. No
+				// statAggregation check either: it is genuinely optional on this
+				// shape (see its arm in createQuestionSchema).
+				.with("player_season_stat_leader", () => {
+					requireStatAppliesTo("player")
+				})
 				.exhaustive()
 
 			// Loaded up front (same spot as the game/stat/award-pool lookups
@@ -2678,6 +2688,7 @@ builder.mutationFields((t) => ({
 						"player_vs_player_season",
 						"team_vs_team_season",
 						"player_award_finalists",
+						"player_season_stat_leader",
 						async () => {
 							const options = data.options ?? []
 							await tx.insert(questionOptions).values(

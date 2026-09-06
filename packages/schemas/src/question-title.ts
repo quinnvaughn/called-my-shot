@@ -112,6 +112,23 @@ export type TitleInput = WithGameDate &
 				homeTeamName: string
 				statName: string
 		  }
+		| {
+				shape: "player_season_stat_leader"
+				// The curated pool, in the order the creator listed it.
+				playerNames: string[]
+				statName: string
+				// See isRateStat on player_vs_player_season above - the same
+				// count-vs-rate distinction, here picking "the most" vs "the
+				// highest".
+				isRateStat: boolean
+				// null when the stat is neither a season total nor a per-game
+				// rate - an advanced metric like RAPM is already a rate measured
+				// across a full season, so the creator is never asked to pick
+				// one and the title states no aggregation at all. Not optional on
+				// the season over/under shapes above, whose line means nothing
+				// without it.
+				statAggregation: StatAggregation | null
+		  }
 		| { shape: "yes_no_prop"; subjectName: string | null; eventClause: string }
 		| {
 				shape: "player_season_award"
@@ -316,7 +333,27 @@ function titleHeadToHead(input: {
 	const comparison = input.isRateStat ? "a higher" : "more"
 	const perGame = input.statAggregation === "per_game" ? " per game" : ""
 	const season = input.statAggregation === null ? "" : " this season"
-	return `${input.sideAName} vs ${input.sideBName}: who has ${comparison} ${statInSentence(input.statName)}${perGame}${season}?`
+	// Present tense for the game-scoped shape, future for the two season ones -
+	// same split, and the same reason, as titlePlayerSeasonStatLeader below. A
+	// game date already says when a game-scoped matchup gets measured, so "who
+	// has more points" can't be read as anything else. Nothing scopes a season
+	// shape that way, and "who has more wins this season" reads as a standings
+	// lookup that's true today rather than the end-of-season number resolution
+	// actually checks. statAggregation is what distinguishes them: it's null on
+	// exactly the game-scoped shape and set on both season ones.
+	//
+	// "will average" for a per-game season line, because "will have more points
+	// per game" is the stiff way to say the thing every box score and broadcast
+	// says as "averages 25 points per game". The verb also does the work
+	// isRateStat can't: a per-game number is a rate no matter what the
+	// underlying stat is, and "average more points per game" stays correct
+	// where the bare comparison would need reworking.
+	const verb = match(input.statAggregation)
+		.with(null, () => "has")
+		.with("per_game", () => "will average")
+		.with("total", () => "will have")
+		.exhaustive()
+	return `${input.sideAName} vs ${input.sideBName}: who ${verb} ${comparison} ${statInSentence(input.statName)}${perGame}${season}?`
 }
 
 function titlePlayerVsPlayer(
@@ -369,6 +406,32 @@ function titlePlayerGameStatLeader(
 	input: Extract<TitleInput, { shape: "player_game_stat_leader" }>,
 ): string {
 	return `${input.awayTeamName} @ ${input.homeTeamName}: who leads in ${statInSentence(input.statName)}?`
+}
+
+// Deliberately not "who leads in X" the way the game-scoped leader above is
+// phrased. That wording inverts on a lower-is-better stat - every baseball
+// reader takes "who leads in ERA" as the lower number - and this shape takes
+// a freeform stat, so the catalog can't be relied on to keep such stats out.
+// "the most"/"the highest" carry the same unambiguous bigger-number-wins
+// meaning the head-to-head templates already use, which is what resolution
+// needs, since a human marks the winning option correct.
+//
+// "will have" for the same reason the season head-to-heads use it (see the
+// verb comment in titleHeadToHead above) - unconditionally here, since this
+// shape is always season-scoped and has no game-scoped variant to share the
+// template with.
+function titlePlayerSeasonStatLeader(
+	input: Extract<TitleInput, { shape: "player_season_stat_leader" }>,
+): string {
+	const comparison = input.isRateStat ? "the highest" : "the most"
+	const perGame = input.statAggregation === "per_game" ? " per game" : ""
+	// Same "will average" for a per-game line as titleHeadToHead above, minus
+	// its present-tense case - this shape is always season-scoped.
+	const verb = match(input.statAggregation)
+		.with("per_game", () => "will average")
+		.with("total", null, () => "will have")
+		.exhaustive()
+	return `Who ${verb} ${comparison} ${statInSentence(input.statName)}${perGame} this season: ${joinWithOr(input.playerNames)}?`
 }
 
 // --- Yes/no ---
@@ -440,6 +503,7 @@ export function generateQuestionTitle(input: TitleInput): string {
 		.with({ shape: "team_vs_team" }, titleTeamVsTeam)
 		.with({ shape: "team_vs_team_season" }, titleTeamVsTeamSeason)
 		.with({ shape: "player_game_stat_leader" }, titlePlayerGameStatLeader)
+		.with({ shape: "player_season_stat_leader" }, titlePlayerSeasonStatLeader)
 		.with({ shape: "yes_no_prop" }, titleYesNoProp)
 		.with({ shape: "player_season_award" }, titlePlayerSeasonAward)
 		.with({ shape: "team_season_award" }, titleTeamSeasonAward)

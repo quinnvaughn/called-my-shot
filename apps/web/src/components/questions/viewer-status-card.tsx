@@ -51,6 +51,7 @@ const BASE_POINTS_BY_GQL_SHAPE: Record<QuestionShape, number> = {
 	TEAM_VS_TEAM: BASE_POINTS_BY_SHAPE.team_vs_team,
 	TEAM_VS_TEAM_SEASON: BASE_POINTS_BY_SHAPE.team_vs_team_season,
 	PLAYER_GAME_STAT_LEADER: BASE_POINTS_BY_SHAPE.player_game_stat_leader,
+	PLAYER_SEASON_STAT_LEADER: BASE_POINTS_BY_SHAPE.player_season_stat_leader,
 	YES_NO_PROP: BASE_POINTS_BY_SHAPE.yes_no_prop,
 	PLAYER_SEASON_AWARD: BASE_POINTS_BY_SHAPE.player_season_award,
 	TEAM_SEASON_AWARD: BASE_POINTS_BY_SHAPE.team_season_award,

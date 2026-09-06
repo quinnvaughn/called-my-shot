@@ -500,6 +500,7 @@ export function CreateQuestionForm({ sports, isAdmin, lockedBallotId }: Props) {
 	const isTeamVsTeam = shape === "team_vs_team"
 	const isTeamVsTeamSeason = shape === "team_vs_team_season"
 	const isGameStatLeader = shape === "player_game_stat_leader"
+	const isSeasonStatLeader = shape === "player_season_stat_leader"
 	const isYesNo = shape === "yes_no_prop"
 	const isPlayerAward = shape === "player_season_award"
 	const isTeamAward = shape === "team_season_award"
@@ -684,6 +685,22 @@ export function CreateQuestionForm({ sports, isAdmin, lockedBallotId }: Props) {
 			}))
 		: null
 
+	// player_season_stat_leader's pool - the whole league to pick from, since
+	// nothing scopes it the way gameStatLeaderPoolItems is scoped to a game's
+	// two rosters. Not memoized like awardPoolItems/gameStatLeaderPoolItems:
+	// those feed PoolSummary, which syncs them into options through an effect
+	// that a fresh array reference every render would retrigger forever. This
+	// one feeds OptionList, which only reads it for autocomplete and never
+	// writes back, same as finalistItems above.
+	const seasonStatLeaderItems: EntitySearchItem[] | null = isSeasonStatLeader
+		? players.map((player) => ({
+				id: player.id,
+				label: player.name,
+				kind: "player" as const,
+				meta: player.currentTeam?.abbreviation,
+			}))
+		: null
+
 	function selectType(next: typeof shape) {
 		form.setValue("shape", next)
 		setHasSelectedType(true)
@@ -725,7 +742,8 @@ export function CreateQuestionForm({ sports, isAdmin, lockedBallotId }: Props) {
 			next === "team_season_stat_over_under" ||
 			next === "player_vs_player_season" ||
 			next === "team_vs_team_season" ||
-			next === "team_season_stat_numeric_guess"
+			next === "team_season_stat_numeric_guess" ||
+			next === "player_season_stat_leader"
 		) {
 			form.setValue("gameId", undefined)
 			form.setValue("locksAt", "")
@@ -765,6 +783,25 @@ export function CreateQuestionForm({ sports, isAdmin, lockedBallotId }: Props) {
 	// in #/lib/field-signal. Also picks "more" vs "a higher" for the season
 	// head-to-head titles below.
 	const isRateStat = isRateToleranceTier(selectedStat?.toleranceTier)
+
+	// player_season_stat_leader only - the one shape where total-vs-per-game is
+	// genuinely optional rather than required. It disambiguates a counting stat
+	// ("the most points this season" vs "the most points per game") and nothing
+	// else: a rate stat is already a rate, and a freeform customStat can't be
+	// classified either way. So it's offered only for a catalog counting stat,
+	// and when it isn't offered statAggregation stays undefined and the title
+	// states no aggregation at all.
+	const offersStatAggregation =
+		isSeasonStatLeader && !!selectedStat && !isRateStat
+
+	// The stat can change after an aggregation was already picked (Points, "per
+	// game", then retyped as a freeform metric) - without this the abandoned
+	// value would still submit and still put "per game" in the title.
+	useEffect(() => {
+		if (isSeasonStatLeader && !offersStatAggregation && statAggregation) {
+			form.setValue("statAggregation", undefined)
+		}
+	}, [isSeasonStatLeader, offersStatAggregation, statAggregation, form])
 	const selectedPlayerName = subjectPlayerId
 		? players.find((player) => player.id === subjectPlayerId)?.name
 		: undefined
@@ -946,6 +983,28 @@ export function CreateQuestionForm({ sports, isAdmin, lockedBallotId }: Props) {
 					})
 				: null,
 		)
+		.with("player_season_stat_leader", (s) => {
+			const names = options
+				.map((option) => option.label)
+				.filter((label) => label.trim().length > 0)
+			return names.length >= 2 && statName
+				? generateQuestionTitle({
+						shape: s,
+						playerNames: names,
+						statName,
+						// A freeform stat counts as a rate here even though
+						// isRateStat can't know that it is one. "The most RAPM" is
+						// broken English where "the highest RAPM" is not, and "the
+						// highest points" still reads fine if the creator typed a
+						// counting stat by hand - so the rate wording is the safe
+						// default for anything off-catalog.
+						isRateStat: isRateStat || !selectedStat,
+						statAggregation: offersStatAggregation
+							? (statAggregation ?? null)
+							: null,
+					})
+				: null
+		})
 		.with("yes_no_prop", (s) =>
 			eventClause.trim()
 				? generateQuestionTitle({
@@ -1296,6 +1355,41 @@ export function CreateQuestionForm({ sports, isAdmin, lockedBallotId }: Props) {
 											>
 												The pool is both teams' rosters - nothing to curate once
 												a game's picked.
+											</p>
+										</VStack>
+									</Card.Body>
+								</Card>
+							</Section>
+						)}
+
+						{isSeasonStatLeader && (
+							<Section label="The stat leader" required>
+								<Card>
+									<Card.Body>
+										<VStack gap="3.5" alignItems="stretch">
+											<LeagueField form={form} sports={sports} />
+											<StatPicker
+												form={form}
+												stats={stats.filter(
+													(s) =>
+														s.appliesTo === "BOTH" || s.appliesTo === "PLAYER",
+												)}
+											/>
+											{offersStatAggregation && (
+												<StatAggregationField form={form} />
+											)}
+											<OptionList
+												form={form}
+												items={seasonStatLeaderItems}
+												rowPlaceholder="Player name"
+												addLabel="+ Add player"
+											/>
+											<p
+												className={css({ fontSize: "xs", color: "fg.subtle" })}
+											>
+												Season-long, no game attached - name the players
+												yourself, as many as the question needs. Off-catalog
+												stats are allowed here, so advanced metrics work.
 											</p>
 										</VStack>
 									</Card.Body>

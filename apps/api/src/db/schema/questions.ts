@@ -51,6 +51,12 @@ export const questionShape = pgEnum("question_shape", [
 	// still mark >1 questionOptions.isCorrect on a real-world tie, same
 	// mechanism the award shapes already use.
 	"player_game_stat_leader",
+	// Season-scoped sibling of player_game_stat_leader - "who puts up the most
+	// X this season" over a hand-curated pool of 2+ players, gameId null. The
+	// pool is the creator's own list rather than a derived roster (there's no
+	// game to derive one from) and the stat may be a customStat, since the
+	// advanced full-season metrics this exists for aren't in the catalog.
+	"player_season_stat_leader",
 ])
 
 // player_season_stat_over_under/team_season_stat_over_under only - whether
@@ -157,8 +163,12 @@ export const questions = pgTable("questions", {
 	// anything not in the catalog (e.g. RAPM, a season-long advanced metric)
 	// and is only used when statId is null. Custom stats are harder for us to
 	// verify, which is inferable from statId being null - no separate flag
-	// needed for that. player_vs_player also uses statId (required, no
-	// customStat fallback - it's what the comparison is actually about).
+	// needed for that. The vs-shapes and player_season_stat_leader take the
+	// same statId-or-customStat pair - player_season_stat_leader especially
+	// leans on the escape hatch, since it exists largely for those metrics.
+	// player_game_stat_leader is the one shape that requires a catalog statId
+	// with no fallback, because its pool is derived from synced rosters and
+	// resolution is expected to come off the same synced box score.
 	statId: uuid("stat_id").references(() => stats.id, { onDelete: "restrict" }),
 	customStat: text("custom_stat"),
 
@@ -167,8 +177,9 @@ export const questions = pgTable("questions", {
 	// (yards, points) never uses.
 	ouLine: numeric("ou_line", { precision: 8, scale: 3, mode: "number" }),
 
-	// player_season_stat_over_under/team_season_stat_over_under only - see
-	// statAggregation above.
+	// player_season_stat_over_under/team_season_stat_over_under (required) and
+	// player_season_stat_leader (nullable there, and null for most of them) -
+	// see statAggregation above.
 	statAggregation: statAggregation("stat_aggregation"),
 
 	// player_stat_over_under/numeric_guess and team_stat_over_under/
