@@ -12,6 +12,9 @@
     },
     "lint": {},
     "check": {},
+    "test": {
+      "env": ["TEST_DATABASE_URL"]
+    },
     "format": {
       "cache": false
     },

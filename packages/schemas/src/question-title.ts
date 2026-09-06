@@ -1,5 +1,6 @@
 import { match } from "ts-pattern"
 import type { AwardVerb, StatAggregation } from "./questions"
+import { SPORTS_TIME_ZONE } from "./time-zone"
 
 // gameDate is optional on every shape (even the three award ones, where it's
 // never actually set) rather than a separate per-shape concern - whether a
@@ -159,8 +160,16 @@ export type TitleInput = WithGameDate &
 // Short, no year - this is a scannability aid ("when's this happening"), not
 // a full timestamp; the game itself (with its real date/time) is always
 // shown alongside the question elsewhere in the app too.
+//
+// timeZone is pinned rather than left to the runtime's own: this function
+// runs both in the browser (the create-question form's live title preview)
+// and on the server (the season-question and game-sync jobs), so an implicit
+// zone would date the same kickoff differently depending on which one made
+// the question, and would disagree with the ET day the Games tab files that
+// game under. See SPORTS_TIME_ZONE.
 function formatGameDate(iso: string): string {
 	return new Intl.DateTimeFormat("en-US", {
+		timeZone: SPORTS_TIME_ZONE,
 		month: "short",
 		day: "numeric",
 	}).format(new Date(iso))
@@ -472,8 +481,11 @@ function titlePlayerSeasonAward(
 		input.awardConferences,
 		input.awardDivisions,
 	)
-	if (input.picksRequired > 1) return `Pick the ${name} (${input.picksRequired})`
-	return input.verb === "be" ? `Who will be the ${name}?` : `Who will win the ${name}?`
+	if (input.picksRequired > 1)
+		return `Pick the ${name} (${input.picksRequired})`
+	return input.verb === "be"
+		? `Who will be the ${name}?`
+		: `Who will win the ${name}?`
 }
 
 function titleTeamSeasonAward(
@@ -484,8 +496,11 @@ function titleTeamSeasonAward(
 		input.awardConferences,
 		input.awardDivisions,
 	)
-	if (input.picksRequired > 1) return `Pick the ${name} (${input.picksRequired})`
-	return input.verb === "be" ? `Who will be the ${name}?` : `Who will win the ${name}?`
+	if (input.picksRequired > 1)
+		return `Pick the ${name} (${input.picksRequired})`
+	return input.verb === "be"
+		? `Who will be the ${name}?`
+		: `Who will win the ${name}?`
 }
 
 function titlePlayerAwardFinalists(
@@ -508,7 +523,10 @@ export function generateQuestionTitle(input: TitleInput): string {
 			{ shape: "player_season_stat_over_under" },
 			titlePlayerSeasonStatOverUnder,
 		)
-		.with({ shape: "team_season_stat_over_under" }, titleTeamSeasonStatOverUnder)
+		.with(
+			{ shape: "team_season_stat_over_under" },
+			titleTeamSeasonStatOverUnder,
+		)
 		.with({ shape: "game_total_over_under" }, titleGameTotalOverUnder)
 		.with({ shape: "player_stat_numeric_guess" }, titlePlayerStatNumericGuess)
 		.with({ shape: "team_stat_numeric_guess" }, titleTeamStatNumericGuess)

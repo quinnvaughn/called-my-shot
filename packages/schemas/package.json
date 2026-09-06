@@ -7,13 +7,15 @@
 		".": "./src/index.ts"
 	},
 	"scripts": {
-		"check": "tsc --noEmit"
+		"check": "tsc --noEmit",
+		"test": "vitest run"
 	},
 	"dependencies": {
 		"ts-pattern": "^5.9.0",
 		"zod": "^4.4.3"
 	},
 	"devDependencies": {
-		"typescript": "^6.0.3"
+		"typescript": "^6.0.3",
+		"vitest": "^5.0.0"
 	}
 }

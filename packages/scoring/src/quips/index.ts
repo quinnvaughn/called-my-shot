@@ -1,8 +1,8 @@
 import { LOSS_QUIPS } from "./loss-quips"
 import { WIN_QUIPS } from "./win-quips"
 
-export { WIN_QUIPS } from "./win-quips"
 export { LOSS_QUIPS } from "./loss-quips"
+export { WIN_QUIPS } from "./win-quips"
 
 // A plain, fast string hash (djb2) - not cryptographic, doesn't need to be.
 // Just needs to spread a call's id evenly across a short quip list so two

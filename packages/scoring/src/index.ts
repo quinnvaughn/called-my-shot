@@ -165,7 +165,10 @@ export const TIER_MAX_MULT = 6
 // reflects a tiny, still-forming field rather than real consensus. There's
 // also no gaming risk in waiting: nothing in this app lets a caller resubmit
 // to chase a better number once it exists.
-export function tierFor(fieldPct: number, totalOptions: number): ContrarianTier {
+export function tierFor(
+	fieldPct: number,
+	totalOptions: number,
+): ContrarianTier {
 	const relativeRarity = (fieldPct / 100) * totalOptions
 	const mult = Math.min(
 		TIER_MAX_MULT,
@@ -300,7 +303,7 @@ export function selectionPoints(
 }
 
 // Which of a stat's two tolerance interpretations applies - see
-// toleranceMode in db/schema/sports.ts. "percentage" is a counting stat
+// toleranceMode in db/schema/stats.ts. "percentage" is a counting stat
 // (rebounds, yards): the band is a fraction of the actual result. "absolute"
 // is a rate stat (batting average, ERA): a percentage-of-value band makes no
 // sense on a 0-1ish scale, so the band is a fixed amount in the stat's own

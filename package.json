@@ -6,13 +6,15 @@
     "build": "turbo run build",
     "lint": "turbo run lint",
     "check": "turbo run check",
+    "test": "turbo run test",
     "format": "turbo run format",
     "deploy": "pnpm run deploy:api && pnpm run deploy:web",
-    "deploy:api": "fly deploy --config apps/api/fly.toml",
-    "deploy:web": "pnpm --filter web run check:schema && fly deploy --config apps/web/fly.toml"
+    "deploy:api": "pnpm run test && fly deploy --config apps/api/fly.toml",
+    "deploy:web": "pnpm run test && pnpm --filter web run check:schema && fly deploy --config apps/web/fly.toml"
   },
   "devDependencies": {
-    "turbo": "^2.5.4"
+    "turbo": "^2.5.4",
+    "vitest": "^5.0.0"
   },
   "packageManager": "pnpm@11.20.0"
 }

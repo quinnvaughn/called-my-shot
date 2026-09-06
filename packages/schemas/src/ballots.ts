@@ -1,7 +1,7 @@
 import { z } from "zod"
 
 // Name + league only - sportId and seasonId are always server-derived (see
-// createBallot in apps/api/src/graphql/types/ballot.ts), never asked of the
+// createBallot in apps/api/src/graphql/types/ballot/mutations/ballot.ts), never asked of the
 // admin directly.
 export const createBallotSchema = z.object({
 	name: z.string().trim().min(1, "Name this ballot"),

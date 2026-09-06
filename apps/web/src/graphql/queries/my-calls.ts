@@ -6,7 +6,7 @@ import {
 } from "#/graphql/query-options"
 
 // open/resolved are fetched as aliased fields off the same myCalls connection
-// (see graphql/types/question.ts) so both tabs preload in one round trip -
+// (see graphql/types/question/queries.ts) so both tabs preload in one round trip -
 // same pattern as GroupDetailDocument's per-tab connections.
 export const MyCallsPageDocument = graphql(`
     query MyCallsPage($openAfter: String, $resolvedAfter: String) {

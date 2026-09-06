@@ -3,7 +3,7 @@ import { z } from "zod"
 import { ballotQuestionSchema } from "./ballots"
 
 // Lowercase to match the values the GraphQL layer resolves these enums to
-// server-side (see builder.enumType in apps/api/src/graphql/types/question.ts
+// server-side (see builder.enumType in apps/api/src/graphql/types/question/enums.ts
 // - e.g. PLAYER_STAT_OVER_UNDER resolves to "player_stat_over_under"), not
 // the SCREAMING_SNAKE_CASE names used on the wire. The frontend form works in
 // this same lowercase form and only upper-cases at the GraphQL call boundary.
@@ -239,7 +239,7 @@ export const createQuestionSchema = z
 		// player_season_award only - when true, narrows the pool to
 		// players.rookieEligible = true. The mechanism for every real Rookie of
 		// the Year question regardless of sport - see players.rookieEligible's
-		// comment in db/schema/sports.ts for why this isn't just
+		// comment in db/schema/players.ts for why this isn't just
 		// awardSeasonsInLeague: [0].
 		awardRookieOnly: z.boolean().default(false),
 	})
@@ -293,7 +293,8 @@ export const createQuestionSchema = z
 				ctx.addIssue({
 					code: "custom",
 					path: ["ouLine"],
-					message: "Can't be a whole number - the result could land exactly on it",
+					message:
+						"Can't be a whole number - the result could land exactly on it",
 				})
 			}
 		}
@@ -382,7 +383,10 @@ export const createQuestionSchema = z
 		}
 
 		function requireConferenceBeforeDivision() {
-			if (data.awardDivisions.length > 0 && data.awardConferences.length === 0) {
+			if (
+				data.awardDivisions.length > 0 &&
+				data.awardConferences.length === 0
+			) {
 				ctx.addIssue({
 					code: "custom",
 					path: ["awardConferences"],
@@ -619,7 +623,11 @@ export type CreateQuestionInput = z.infer<typeof createQuestionSchema>
 // its own).
 const castCallSelectionSchema = z.object({
 	optionId: z.string().uuid(),
-	conviction: z.number().int().min(1, "Conviction must be 1-100").max(100, "Conviction must be 1-100"),
+	conviction: z
+		.number()
+		.int()
+		.min(1, "Conviction must be 1-100")
+		.max(100, "Conviction must be 1-100"),
 })
 
 // Same flat-object-plus-superRefine shape as createQuestionSchema. `shape` is
@@ -631,7 +639,11 @@ export const castCallSchema = z
 	.object({
 		shape: questionShapeSchema,
 		questionId: z.string().uuid(),
-		caseText: z.string().trim().max(600, "Keep it under 600 characters").default(""),
+		caseText: z
+			.string()
+			.trim()
+			.max(600, "Keep it under 600 characters")
+			.default(""),
 
 		// The numeric-guess shapes only - see the match below
 		guessValue: z.number().optional(),
@@ -716,7 +728,11 @@ export const resolveQuestionSchema = z
 		shape: questionShapeSchema,
 		correctOptionIds: z.array(z.string().uuid()).default([]),
 		actualValue: z.number().optional(),
-		resolutionNote: z.string().trim().max(500, "Keep it under 500 characters").default(""),
+		resolutionNote: z
+			.string()
+			.trim()
+			.max(500, "Keep it under 500 characters")
+			.default(""),
 	})
 	.superRefine((data, ctx) => {
 		match(data.shape)
@@ -725,7 +741,10 @@ export const resolveQuestionSchema = z
 				"team_stat_numeric_guess",
 				"team_season_stat_numeric_guess",
 				() => {
-					if (data.actualValue === undefined || Number.isNaN(data.actualValue)) {
+					if (
+						data.actualValue === undefined ||
+						Number.isNaN(data.actualValue)
+					) {
 						ctx.addIssue({
 							code: "custom",
 							path: ["actualValue"],

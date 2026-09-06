@@ -24,7 +24,11 @@ export const voidQuestionSchema = z
 		questionId: z.string().uuid(),
 		reason: voidReasonSchema,
 		duplicateOfQuestionId: z.string().uuid().optional(),
-		note: z.string().trim().max(500, "Keep it under 500 characters").default(""),
+		note: z
+			.string()
+			.trim()
+			.max(500, "Keep it under 500 characters")
+			.default(""),
 		countsAsStrike: z.boolean(),
 	})
 	.superRefine((data, ctx) => {
@@ -47,7 +51,11 @@ export const adminResolveQuestionSchema = z
 		shape: questionShapeSchema,
 		correctOptionIds: z.array(z.string().uuid()).default([]),
 		actualValue: z.number().optional(),
-		resolutionNote: z.string().trim().max(500, "Keep it under 500 characters").default(""),
+		resolutionNote: z
+			.string()
+			.trim()
+			.max(500, "Keep it under 500 characters")
+			.default(""),
 		resolutionSource: z.string().trim().optional(),
 		resolutionSourceUrl: resolutionSourceUrlSchema.optional(),
 	})
@@ -58,7 +66,10 @@ export const adminResolveQuestionSchema = z
 				"team_stat_numeric_guess",
 				"team_season_stat_numeric_guess",
 				() => {
-					if (data.actualValue === undefined || Number.isNaN(data.actualValue)) {
+					if (
+						data.actualValue === undefined ||
+						Number.isNaN(data.actualValue)
+					) {
 						ctx.addIssue({
 							code: "custom",
 							path: ["actualValue"],
@@ -106,7 +117,9 @@ export const adminResolveQuestionSchema = z
 			)
 			.exhaustive()
 	})
-export type AdminResolveQuestionInput = z.infer<typeof adminResolveQuestionSchema>
+export type AdminResolveQuestionInput = z.infer<
+	typeof adminResolveQuestionSchema
+>
 
 export const upholdDisputeSchema = z.object({
 	disputeId: z.string().uuid(),
