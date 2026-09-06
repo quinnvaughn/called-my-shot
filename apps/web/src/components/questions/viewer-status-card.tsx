@@ -24,6 +24,7 @@ import { pickSummary, resultState } from "#/lib/call-summary"
 import { formatGuess } from "#/lib/field-signal"
 import type { QuestionDetailState } from "#/lib/question-detail-state"
 import {
+	isNumericQuestionShape,
 	isOverUnderQuestionShape,
 	optionDisplayLabel,
 	shareCardShapeLabel,
@@ -58,35 +59,44 @@ const BASE_POINTS_BY_GQL_SHAPE: Record<QuestionShape, number> = {
 	PLAYER_AWARD_FINALISTS: BASE_POINTS_BY_SHAPE.player_award_finalists,
 }
 
-// Which cast-call layout a shape uses (see castCallBucketFor in
-// cast-call-form/use-cast-call-form.ts for the same split on the casting
-// side) - this file needs it for which per-pick row renders (numeric vs.
-// option) and whether a single field summarizes the whole call.
-function isNumericShape(shape: QuestionShape): boolean {
-	return (
-		shape === "PLAYER_STAT_NUMERIC_GUESS" ||
-		shape === "TEAM_STAT_NUMERIC_GUESS" ||
-		shape === "TEAM_SEASON_STAT_NUMERIC_GUESS"
-	)
-}
-
 // Mirrors SEASON_LONG_SHAPES/isSeasonLongShape in @called-my-shot/scoring -
 // same GQL/DB casing bridge as BASE_POINTS_BY_GQL_SHAPE above, kept as an
 // explicit list rather than derived so a shape added on one side isn't
 // silently assumed to match the other. Determines which earliness preview a
 // pending pick's row shows: seasonEarlyTierFor (games played so far) for
 // these, earlyTierFor (rank among callers) for everything else.
+//
+// A Record, not the boolean || chain this shape of check invites: an
+// omission from a chain just reads as false, quietly pricing a pending row
+// off rank-among-callers when it should be off season progress. A missing
+// key here fails the build instead - the same protection
+// BASE_POINTS_BY_GQL_SHAPE above already gets from being a Record.
+const SEASON_LONG_BY_GQL_SHAPE: Record<QuestionShape, boolean> = {
+	PLAYER_STAT_OVER_UNDER: false,
+	TEAM_STAT_OVER_UNDER: false,
+	PLAYER_SEASON_STAT_OVER_UNDER: true,
+	TEAM_SEASON_STAT_OVER_UNDER: true,
+	GAME_TOTAL_OVER_UNDER: false,
+	PLAYER_STAT_NUMERIC_GUESS: false,
+	TEAM_STAT_NUMERIC_GUESS: false,
+	TEAM_SEASON_STAT_NUMERIC_GUESS: true,
+	PLAYER_VS_PLAYER: false,
+	PLAYER_VS_PLAYER_SEASON: true,
+	TEAM_VS_TEAM: false,
+	TEAM_VS_TEAM_SEASON: true,
+	PLAYER_GAME_STAT_LEADER: false,
+	PLAYER_SEASON_STAT_LEADER: true,
+	// Not season-long despite having no game: its locksAt is an arbitrary
+	// creator-chosen window, not tied to season length - see the note on
+	// SEASON_LONG_SHAPES in @called-my-shot/scoring.
+	YES_NO_PROP: false,
+	PLAYER_SEASON_AWARD: true,
+	TEAM_SEASON_AWARD: true,
+	PLAYER_AWARD_FINALISTS: true,
+}
+
 function isSeasonLongShape(shape: QuestionShape): boolean {
-	return (
-		shape === "PLAYER_SEASON_STAT_OVER_UNDER" ||
-		shape === "TEAM_SEASON_STAT_OVER_UNDER" ||
-		shape === "PLAYER_VS_PLAYER_SEASON" ||
-		shape === "TEAM_VS_TEAM_SEASON" ||
-		shape === "PLAYER_SEASON_AWARD" ||
-		shape === "TEAM_SEASON_AWARD" ||
-		shape === "PLAYER_AWARD_FINALISTS" ||
-		shape === "TEAM_SEASON_STAT_NUMERIC_GUESS"
-	)
+	return SEASON_LONG_BY_GQL_SHAPE[shape]
 }
 
 type ViewerCall = {
@@ -264,7 +274,7 @@ export function ViewerStatusCard({
 		)
 	}
 
-	const isNumeric = isNumericShape(viewerCall.question.shape)
+	const isNumeric = isNumericQuestionShape(viewerCall.question.shape)
 	const basePoints = BASE_POINTS_BY_GQL_SHAPE[viewerCall.question.shape]
 	const result = resultState(viewerCall.totalPoints)
 	const tone =
@@ -430,7 +440,7 @@ function ShareCallSection({
 	// nothing needing to be persisted or passed between the two.
 	const quip = quipForCall(viewerCall.id, isWin)
 
-	const isNumeric = isNumericShape(viewerCall.question.shape)
+	const isNumeric = isNumericQuestionShape(viewerCall.question.shape)
 	const pickLabel = pickSummary({
 		guessValue: viewerCall.guessValue,
 		conviction: viewerCall.conviction,
@@ -741,7 +751,7 @@ function PendingContent({
 	totalOptions: number
 	viewerCall: ViewerCall
 }) {
-	const isNumeric = isNumericShape(viewerCall.question.shape)
+	const isNumeric = isNumericQuestionShape(viewerCall.question.shape)
 	const basePoints = BASE_POINTS_BY_GQL_SHAPE[viewerCall.question.shape]
 
 	return (

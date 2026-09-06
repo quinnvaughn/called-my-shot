@@ -70,6 +70,42 @@ export function isOverUnderQuestionShape(shape: QuestionShape): boolean {
 	return OVER_UNDER_SHAPES.includes(shape)
 }
 
+// The shapes scored off calls.guessValue with no questionOptions row at all
+// (mirrors castCallSchema's numeric-guess bucket in packages/schemas/src/
+// questions.ts). Anywhere a call renders has to branch on this: a numeric
+// guess shows one typed number where every other shape shows a picked
+// option.
+//
+// A Record, not the readonly array OVER_UNDER_SHAPES uses above or the
+// boolean || chain this check invites at a call site: both treat an omitted
+// shape as false, which here silently renders a numeric call as though it
+// had options. Every shape has to be answered, so a newly added one fails
+// the build rather than picking a default.
+const NUMERIC_GUESS_BY_SHAPE: Record<QuestionShape, boolean> = {
+	PLAYER_STAT_OVER_UNDER: false,
+	TEAM_STAT_OVER_UNDER: false,
+	PLAYER_SEASON_STAT_OVER_UNDER: false,
+	TEAM_SEASON_STAT_OVER_UNDER: false,
+	GAME_TOTAL_OVER_UNDER: false,
+	PLAYER_STAT_NUMERIC_GUESS: true,
+	TEAM_STAT_NUMERIC_GUESS: true,
+	TEAM_SEASON_STAT_NUMERIC_GUESS: true,
+	PLAYER_VS_PLAYER: false,
+	PLAYER_VS_PLAYER_SEASON: false,
+	TEAM_VS_TEAM: false,
+	TEAM_VS_TEAM_SEASON: false,
+	PLAYER_GAME_STAT_LEADER: false,
+	PLAYER_SEASON_STAT_LEADER: false,
+	YES_NO_PROP: false,
+	PLAYER_SEASON_AWARD: false,
+	TEAM_SEASON_AWARD: false,
+	PLAYER_AWARD_FINALISTS: false,
+}
+
+export function isNumericQuestionShape(shape: QuestionShape): boolean {
+	return NUMERIC_GUESS_BY_SHAPE[shape]
+}
+
 // The *_over_under shapes' line is part of the option's identity, not shown
 // anywhere else on its own - every place an option label renders (the live
 // picker, the viewer's own pick, the field breakdown) needs the same

@@ -12,6 +12,7 @@ import {
 import { isContested } from "#/lib/contested"
 import { callersText, formatGuess } from "#/lib/field-signal"
 import { questionDetailState } from "#/lib/question-detail-state"
+import { isNumericQuestionShape } from "#/lib/question-labels"
 import { tierFor } from "#/lib/scoring"
 
 export const BallotPositionRowFragment = graphql(`
@@ -183,10 +184,7 @@ export function BallotPositionRow({ member: memberProp }: Props) {
 	const state = ballotMemberState(member)
 	const leader = leadingOption(question.options)
 	const contested = isContested(question.options, question.callCount)
-	const isNumericGuess =
-		question.shape === "PLAYER_STAT_NUMERIC_GUESS" ||
-		question.shape === "TEAM_STAT_NUMERIC_GUESS" ||
-		question.shape === "TEAM_SEASON_STAT_NUMERIC_GUESS"
+	const isNumericGuess = isNumericQuestionShape(question.shape)
 
 	return (
 		<Link
