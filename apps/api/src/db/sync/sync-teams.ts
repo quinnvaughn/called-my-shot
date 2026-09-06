@@ -18,27 +18,31 @@ async function findOrCreateSport(
 	return row
 }
 
-async function findOrCreateLeague(
+// Upserted rather than created-once: every column here is derived from
+// SYNCED_LEAGUES, so a league that already exists has to pick up later edits
+// to its own config on the next sync run. windowType is the one that visibly
+// matters - a league created before it was set keeps the schema default
+// ("date"), which leaves the Games tab paging that league one day at a time
+// no matter what its config says. status is left alone, being operational
+// state rather than config.
+async function upsertLeague(
 	sportId: string,
 	config: SyncLeagueConfig,
 ): Promise<League> {
-	const existing = await db.query.leagues.findFirst({
-		where: { slug: config.leagueSlug },
-	})
-	if (existing) return existing
+	const fromConfig = {
+		sportId,
+		name: config.leagueName,
+		abbreviation: config.leagueAbbreviation,
+		windowType: config.windowType ?? "date",
+	}
 	const [row] = await db
 		.insert(leagues)
-		.values({
-			sportId,
-			name: config.leagueName,
-			abbreviation: config.leagueAbbreviation,
-			slug: config.leagueSlug,
-			windowType: config.windowType ?? "date",
-		})
+		.values({ ...fromConfig, slug: config.leagueSlug })
+		.onConflictDoUpdate({ target: leagues.slug, set: fromConfig })
 		.returning()
 	if (!row)
 		throw new Error(
-			`findOrCreateLeague: insert returned nothing for ${config.leagueSlug}`,
+			`upsertLeague: upsert returned nothing for ${config.leagueSlug}`,
 		)
 	return row
 }
@@ -99,7 +103,7 @@ function buildConferenceDivisionMap(
 // it - they run right after this for the same config.
 export async function syncTeams(config: SyncLeagueConfig): Promise<League> {
 	const sport = await findOrCreateSport(config.sportName, config.sportSlug)
-	const league = await findOrCreateLeague(sport.id, config)
+	const league = await upsertLeague(sport.id, config)
 	const espnTeams = await fetchTeams(config.espnPath)
 	const groups = await fetchGroups(config.espnPath)
 	const conferenceDivisionByEspnId = buildConferenceDivisionMap(groups)
