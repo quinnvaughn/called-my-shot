@@ -26,11 +26,11 @@ export type LeaderboardEntry = {
 // denormalized user_season_stats rollup rather than fetching every call/
 // selection row into JS - cheap regardless of leagueId, since that table's
 // size is bounded by leagues x seasons (a small admin-curated catalog x a
-// handful of seasons each), not by call count. See db/schema/questions.ts's
+// handful of seasons each), not by call count. See db/schema/season-stats.ts's
 // userSeasonStats for how it's kept in sync.
 //
 // Plain function (no Pothos/GraphQL dependency) so it can be shared by both
-// graphql/types/leaderboard.ts and graphql/types/user.ts without those two
+// graphql/types/leaderboard.ts and graphql/types/user/refs.ts without those two
 // importing from each other (they already each need a type the other
 // defines - User.careerStats returns a LeaderboardEntry, and
 // LeaderboardEntry.user returns a User - so a shared, dependency-free home

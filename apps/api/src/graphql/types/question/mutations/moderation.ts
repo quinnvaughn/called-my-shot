@@ -1,0 +1,315 @@
+import {
+	deleteQuestionSchema,
+	editQuestionTitleSchema,
+	reportQuestionSchema,
+	voidQuestionSchema,
+} from "@called-my-shot/schemas"
+import { eq, sql } from "drizzle-orm"
+import { db } from "../../../../db"
+import {
+	questionReports,
+	questions,
+	questionVoids,
+	users,
+} from "../../../../db/schema"
+import { requireAdmin, requireUser } from "../../../../lib/auth"
+import {
+	AuthenticationError,
+	AuthorizationError,
+	NotFoundError,
+	ValidationError,
+} from "../../../../lib/errors"
+import { createNotification } from "../../../../lib/notifications"
+import { reverseQuestionLeagueStats } from "../../../../lib/resolve-question"
+import { STRIKE_LOCK_THRESHOLD } from "../../../../lib/strikes"
+import { builder } from "../../../builder"
+import {
+	DeleteQuestionInput,
+	DeleteQuestionPayload,
+	DismissReportInput,
+	EditQuestionTitleInput,
+	QuestionPayload,
+	ReportQuestionInput,
+	ReportQuestionPayload,
+	VoidQuestionInput,
+	VoidQuestionPayload,
+} from "../inputs"
+import { QuestionReportRef } from "../moderation-objects"
+
+builder.mutationFields((t) => ({
+	// Dismiss = admin looked at the report and decided the question is fine as
+	// is. Doesn't touch the question itself - if it actually needs to come
+	// down, that's a separate Void action (same escalation path the Disputes
+	// page already offers), not something this mutation does on its own.
+	dismissReport: t.field({
+		type: QuestionReportRef,
+		errors: {
+			types: [
+				AuthenticationError,
+				AuthorizationError,
+				NotFoundError,
+				ValidationError,
+			],
+			directResult: true,
+			union: { name: "DismissReportResult" },
+		},
+		args: { input: t.arg({ type: DismissReportInput, required: true }) },
+		resolve: async (_root, args, ctx) => {
+			requireAdmin(ctx)
+
+			return db.transaction(async (tx) => {
+				const [report] = await tx
+					.select()
+					.from(questionReports)
+					.where(eq(questionReports.id, args.input.reportId))
+					.for("update")
+				if (!report) throw new NotFoundError("Report not found")
+				if (report.status !== "open") {
+					throw ValidationError.field(null, "This report is already settled.")
+				}
+
+				const [updatedReport] = await tx
+					.update(questionReports)
+					.set({ status: "dismissed", reviewedAt: new Date() })
+					.where(eq(questionReports.id, report.id))
+					.returning()
+				if (!updatedReport)
+					throw new Error("dismissReport: report vanished mid-transaction")
+
+				return updatedReport
+			})
+		},
+	}),
+
+	// title is always creator-supplied free text (generateQuestionTitle only
+	// prefills a suggestion client-side - see the comment on title in
+	// createQuestionSchema) - this just lets an admin fix a typo or awkward
+	// wording after the fact, without having to void and recreate the whole
+	// question.
+	editQuestionTitle: t.field({
+		type: QuestionPayload,
+		errors: {
+			types: [
+				AuthenticationError,
+				AuthorizationError,
+				NotFoundError,
+				ValidationError,
+			],
+			directResult: true,
+			union: { name: "EditQuestionTitleResult" },
+		},
+		args: { input: t.arg({ type: EditQuestionTitleInput, required: true }) },
+		resolve: async (_root, args, ctx) => {
+			requireAdmin(ctx)
+			const parsed = editQuestionTitleSchema.safeParse(args.input)
+			if (!parsed.success)
+				throw ValidationError.fromZodIssues(parsed.error.issues)
+			const { questionId, title } = parsed.data
+
+			const [updated] = await db
+				.update(questions)
+				.set({ title })
+				.where(eq(questions.id, questionId))
+				.returning()
+			if (!updated) throw new NotFoundError("Question not found")
+			return { question: updated }
+		},
+	}),
+
+	// Official-only counterpart to voidQuestion - a user-generated question
+	// always goes through Void instead, since that's what preserves the audit
+	// trail and strike bookkeeping a real asker's question needs (see
+	// questionVoids and the comment above voidQuestion below). An official
+	// question has no asker to strike and no dispute-worthy audit trail, so a
+	// hard delete is the right tool when one was posted in error (wrong game,
+	// duplicate sync, bad award setup).
+	deleteQuestion: t.field({
+		type: DeleteQuestionPayload,
+		errors: {
+			types: [
+				AuthenticationError,
+				AuthorizationError,
+				NotFoundError,
+				ValidationError,
+			],
+			directResult: true,
+			union: { name: "DeleteQuestionResult" },
+		},
+		args: { input: t.arg({ type: DeleteQuestionInput, required: true }) },
+		resolve: async (_root, args, ctx) => {
+			requireAdmin(ctx)
+			const parsed = deleteQuestionSchema.safeParse(args.input)
+			if (!parsed.success)
+				throw ValidationError.fromZodIssues(parsed.error.issues)
+			const { questionId } = parsed.data
+
+			await db.transaction(async (tx) => {
+				const [question] = await tx
+					.select()
+					.from(questions)
+					.where(eq(questions.id, questionId))
+					.for("update")
+				if (!question) throw new NotFoundError("Question not found")
+				if (!question.isOfficial) {
+					throw ValidationError.field(
+						null,
+						"Only official questions can be deleted this way - void a user-generated question instead.",
+					)
+				}
+
+				await reverseQuestionLeagueStats(tx, question)
+				await tx.delete(questions).where(eq(questions.id, question.id))
+			})
+
+			return { questionId }
+		},
+	}),
+
+	// Void = delete the question and everything on it (calls, options,
+	// disputes all cascade). reverseQuestionLeagueStats always runs first -
+	// callCount needs decrementing for every caller even on an open question
+	// (calls can already exist pre-resolution), while points/resolvedCallCount/
+	// correctCount only come out non-zero for a disputed question (the only
+	// status that already went through resolveQuestionInternal once) - before
+	// the cascade delete removes the only rows that recorded any of it.
+	// questionVoids keeps the audit trail (Users tab's void history, and the
+	// strike bookkeeping below) that the hard delete would otherwise erase.
+	voidQuestion: t.field({
+		type: VoidQuestionPayload,
+		errors: {
+			types: [
+				AuthenticationError,
+				AuthorizationError,
+				NotFoundError,
+				ValidationError,
+			],
+			directResult: true,
+			union: { name: "VoidQuestionResult" },
+		},
+		args: { input: t.arg({ type: VoidQuestionInput, required: true }) },
+		resolve: async (_root, args, ctx) => {
+			const admin = requireAdmin(ctx)
+			const parsed = voidQuestionSchema.safeParse(args.input)
+			if (!parsed.success)
+				throw ValidationError.fromZodIssues(parsed.error.issues)
+			const data = parsed.data
+
+			await db.transaction(async (tx) => {
+				const [question] = await tx
+					.select()
+					.from(questions)
+					.where(eq(questions.id, data.questionId))
+					.for("update")
+				if (!question) throw new NotFoundError("Question not found")
+				if (question.status !== "open" && question.status !== "disputed") {
+					throw ValidationError.field(
+						null,
+						"Only a live, locked, or disputed question can be voided.",
+					)
+				}
+
+				if (question.creatorId) {
+					await tx.insert(questionVoids).values({
+						questionId: question.id,
+						questionTitle: question.title,
+						targetUserId: question.creatorId,
+						voidedByAdminId: admin.id,
+						reason: data.reason,
+						duplicateOfQuestionId: data.duplicateOfQuestionId,
+						note: data.note || null,
+						countsAsStrike: data.countsAsStrike,
+					})
+
+					let strikeCount: number | undefined
+					if (data.countsAsStrike) {
+						const [updatedUser] = await tx
+							.update(users)
+							.set({ strikeCount: sql`${users.strikeCount} + 1` })
+							.where(eq(users.id, question.creatorId))
+							.returning()
+						if (updatedUser) {
+							strikeCount = updatedUser.strikeCount
+							if (
+								updatedUser.strikeCount >= STRIKE_LOCK_THRESHOLD &&
+								updatedUser.questionCreationEnabled
+							) {
+								await tx
+									.update(users)
+									.set({ questionCreationEnabled: false })
+									.where(eq(users.id, question.creatorId))
+							}
+						}
+					}
+
+					await createNotification(tx, {
+						type: "question_voided",
+						userId: question.creatorId,
+						questionId: question.id,
+						questionTitle: question.title,
+						strikeCount,
+					})
+				}
+
+				await reverseQuestionLeagueStats(tx, question)
+
+				await tx.delete(questions).where(eq(questions.id, question.id))
+			})
+
+			return { questionId: data.questionId }
+		},
+	}),
+
+	// Distinct from fileDispute above: a report flags the question itself as
+	// bad (nonsensical, off-topic, a duplicate, ...), not a resolution as
+	// wrong, so it's open to any signed-in caller regardless of question
+	// status, not just resolved ones a viewer actually called on.
+	reportQuestion: t.field({
+		type: ReportQuestionPayload,
+		errors: {
+			types: [AuthenticationError, NotFoundError, ValidationError],
+			directResult: true,
+			union: { name: "ReportQuestionResult" },
+		},
+		args: { input: t.arg({ type: ReportQuestionInput, required: true }) },
+		resolve: async (_root, args, ctx) => {
+			const user = requireUser(ctx)
+			const parsed = reportQuestionSchema.safeParse(args.input)
+			if (!parsed.success) {
+				throw ValidationError.fromZodIssues(parsed.error.issues)
+			}
+			const data = parsed.data
+
+			const question = await db.query.questions.findFirst({
+				where: { id: data.questionId },
+			})
+			if (!question) throw new NotFoundError("Question not found")
+
+			const existingReport = await db.query.questionReports.findFirst({
+				where: {
+					questionId: data.questionId,
+					reportedByUserId: user.id,
+				},
+			})
+			if (existingReport) {
+				throw ValidationError.field(
+					null,
+					"You've already reported this question.",
+				)
+			}
+
+			const [report] = await db
+				.insert(questionReports)
+				.values({
+					questionId: data.questionId,
+					reportedByUserId: user.id,
+					reason: data.reason,
+					details: data.details || null,
+					status: "open",
+				})
+				.returning()
+			if (!report) throw new Error("reportQuestion: insert returned no row")
+
+			return { report }
+		},
+	}),
+}))

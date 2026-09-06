@@ -69,8 +69,10 @@ export async function syncLiveScores(): Promise<void> {
 			const competition = event.competitions[0]
 			const [home, away] = competition.competitors
 			const status = toGameStatus(competition.status)
-			const homeScore = home.score !== undefined ? Math.round(Number(home.score)) : null
-			const awayScore = away.score !== undefined ? Math.round(Number(away.score)) : null
+			const homeScore =
+				home.score !== undefined ? Math.round(Number(home.score)) : null
+			const awayScore =
+				away.score !== undefined ? Math.round(Number(away.score)) : null
 
 			await tx
 				.update(games)

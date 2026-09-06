@@ -10,6 +10,7 @@
     "format": "biome format .",
     "lint": "biome lint .",
     "check": "biome check .",
+    "test": "vitest run",
     "db:generate": "drizzle-kit generate",
     "db:push": "drizzle-kit push",
     "db:migrate": "drizzle-kit migrate",
@@ -62,6 +63,7 @@
     "drizzle-kit": "1.0.0-rc.4",
     "react": "^19.2.8",
     "tsx": "^4.23.11",
-    "typescript": "^6.0.3"
+    "typescript": "^6.0.3",
+    "vitest": "^5.0.0"
   }
 }

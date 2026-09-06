@@ -20,7 +20,7 @@ export type Context = {
 	// request. Caching the in-flight promise, not just the resolved value,
 	// means whichever field resolves second reuses the first's DB round trip
 	// instead of recomputing it from scratch. See graphql/types/leaderboard.ts
-	// and graphql/types/group.ts.
+	// and graphql/types/group/leaderboard.ts.
 	globalLeaderboardCache: Map<string, Promise<LeaderboardEntry[]>>
 	groupLeaderboardCache: Map<string, Promise<GroupLeaderboardEntry[]>>
 }

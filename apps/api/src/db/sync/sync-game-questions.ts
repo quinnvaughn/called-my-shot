@@ -60,7 +60,7 @@ export async function syncGameQuestions(league: League): Promise<void> {
 		// homeTeamId/awayTeamId are NOT NULL - drizzle just types every `one`
 		// relation as nullable regardless of the FK's own nullability, same
 		// non-issue documented at length in loadGameWithTeams in
-		// graphql/types/question.ts.
+		// graphql/types/question/mutations/create-question.ts.
 		if (!game.homeTeam || !game.awayTeam) {
 			throw new Error(
 				`syncGameQuestions: game ${game.id} is missing its home/away team`,

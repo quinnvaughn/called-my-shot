@@ -12,10 +12,7 @@ import {
 import { buildPlayerPool, buildTeamPool } from "./award-pool"
 import { generateUniqueBallotSlug } from "./ballot-slug"
 import { getCurrentSeason } from "./seasons"
-import {
-	compareTeamsByGrouping,
-	teamSectionResolver,
-} from "./team-grouping"
+import { compareTeamsByGrouping, teamSectionResolver } from "./team-grouping"
 
 // Published immediately, not left in draft - these are auto-generated from
 // the catalog, not a hand-built set an admin needs to review before it goes

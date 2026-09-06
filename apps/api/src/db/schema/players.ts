@@ -1,0 +1,47 @@
+import { boolean, integer, pgTable, text, uuid } from "drizzle-orm/pg-core"
+import { teams } from "./teams"
+
+// currentTeamId is a plain "who they play for right now" pointer, kept up to
+// date by hand as trades happen - not a historical roster log. A question
+// about a past game is anchored to that question's own team reference, not
+// whatever team a player happens to be on today, so no time travel needed here.
+export const players = pgTable("players", {
+	id: uuid("id").primaryKey().defaultRandom(),
+	currentTeamId: uuid("current_team_id").references(() => teams.id, {
+		onDelete: "set null",
+	}),
+	name: text("name").notNull(),
+	position: text("position"), // free text - positions vary too much by sport for an enum
+	// Every position ESPN considers this player eligible at (e.g. a 1B/DH
+	// bench bat gets ["1B", "DH"]), synced from ESPN's roster `positions`
+	// array - see db/sync/sync-players.ts. Distinct from `position` above,
+	// which is just ESPN's single current/primary tag and stays around
+	// unchanged for admin display/sorting/editing. This is what award pools
+	// (Gold Glove/Silver Slugger-style questions.awardPositions filters - see
+	// lib/award-pool.ts) match against, since a player's primary tag alone
+	// (e.g. "DH") would wrongly exclude them from a position they're genuinely
+	// eligible for (e.g. "1B"). notNull/default [] rather than nullable, same
+	// reasoning as seasonsInLeague below - existing rows predate this column
+	// and need a re-sync for a real value.
+	positions: text("positions").array().notNull().default([]),
+	// Whole seasons of NBA (etc.) experience, synced from ESPN's roster
+	// `experience.years` (0 for a rookie) - see db/sync/sync-players.ts. Not
+	// null/default 0 rather than nullable: every existing row predates this
+	// column and needs a re-sync to get a real value, and 0 (read as "rookie")
+	// is a safer stand-in than an unknown/null state a filter would have to
+	// special-case. Powers awardSeasonsInLeague on questions (see
+	// db/schema/questions.ts) - e.g. a "best sophomore" poll narrows to [1].
+	seasonsInLeague: integer("seasons_in_league").notNull().default(0),
+	// Whether this player is rookie-eligible for the *current* season, per
+	// their sport's own real definition - NOT derived from seasonsInLeague.
+	// Computed per-league at sync time (see SyncLeagueConfig.resolveRookieEligible
+	// in db/sync/leagues.ts): NBA/NFL default to seasonsInLeague === 0, MLB
+	// applies its own cumulative AB/IP rule (db/sync/mlb-rookie-eligibility.ts)
+	// since a brief prior-season call-up doesn't cost MLB rookie status the way
+	// it would trip seasonsInLeague to 1. Powers awardRookieOnly on questions -
+	// the mechanism for every real Rookie of the Year question regardless of
+	// sport. Not null/default false, same reasoning as seasonsInLeague -
+	// existing rows predate this column and need a re-sync to get a real value.
+	rookieEligible: boolean("rookie_eligible").notNull().default(false),
+})
+export type Player = typeof players.$inferSelect

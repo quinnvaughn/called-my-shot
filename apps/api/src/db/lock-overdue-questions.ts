@@ -15,7 +15,9 @@ export async function lockOverdueQuestions(): Promise<void> {
 	const rows = await db
 		.update(questions)
 		.set({ status: "locked" })
-		.where(and(eq(questions.status, "open"), lte(questions.locksAt, new Date())))
+		.where(
+			and(eq(questions.status, "open"), lte(questions.locksAt, new Date())),
+		)
 		.returning({ id: questions.id })
 	console.log(`[lock-overdue-questions] locked ${rows.length} question(s)`)
 }

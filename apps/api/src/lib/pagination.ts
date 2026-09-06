@@ -44,7 +44,10 @@ export function cursorWhere(cursor: Cursor) {
 export function paginate<T extends { createdAt: Date; id: string }>(
 	rows: T[],
 	limit: number,
-): { items: T[]; pageInfo: { hasNextPage: boolean; endCursor: string | null } } {
+): {
+	items: T[]
+	pageInfo: { hasNextPage: boolean; endCursor: string | null }
+} {
 	const hasNextPage = rows.length > limit
 	const items = rows.slice(0, limit)
 	const last = items[items.length - 1]

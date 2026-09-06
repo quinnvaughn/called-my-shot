@@ -60,96 +60,102 @@ function resolveActor(row: { actorId: string | null }) {
 // has no way to ask for, say, pointsDelta - the schema itself enforces "this
 // field only makes sense for that kind of notification" instead of leaving
 // it to nullability + convention.
-const NotificationNode = builder.interfaceRef<NotificationRow>("NotificationNode").implement({
-	resolveType: (row) => GQL_TYPE_BY_ROW_TYPE[row.type],
+const NotificationNode = builder
+	.interfaceRef<NotificationRow>("NotificationNode")
+	.implement({
+		resolveType: (row) => GQL_TYPE_BY_ROW_TYPE[row.type],
+		fields: (t) => ({
+			id: t.exposeID("id"),
+			createdAt: t.field({
+				type: "String",
+				resolve: (row) => row.createdAt.toISOString(),
+			}),
+			readAt: t.field({
+				type: "String",
+				nullable: true,
+				resolve: (row) => row.readAt?.toISOString() ?? null,
+			}),
+		}),
+	})
+
+// Your call on a question got scored (won or lost) - see resolveQuestionInternal.
+builder.objectRef<NotificationRow>("CallResolvedNotification").implement({
+	interfaces: [NotificationNode],
 	fields: (t) => ({
-		id: t.exposeID("id"),
-		createdAt: t.field({
-			type: "String",
-			resolve: (row) => row.createdAt.toISOString(),
-		}),
-		readAt: t.field({
-			type: "String",
+		question: t.field({
+			type: QuestionRef,
 			nullable: true,
-			resolve: (row) => row.readAt?.toISOString() ?? null,
+			resolve: resolveQuestion,
 		}),
+		questionTitle: t.exposeString("questionTitle", { nullable: true }),
+		pointsDelta: t.exposeInt("pointsDelta", { nullable: true }),
 	}),
 })
 
-// Your call on a question got scored (won or lost) - see resolveQuestionInternal.
-builder
-	.objectRef<NotificationRow>("CallResolvedNotification")
-	.implement({
-		interfaces: [NotificationNode],
-		fields: (t) => ({
-			question: t.field({ type: QuestionRef, nullable: true, resolve: resolveQuestion }),
-			questionTitle: t.exposeString("questionTitle", { nullable: true }),
-			pointsDelta: t.exposeInt("pointsDelta", { nullable: true }),
-		}),
-	})
-
 // Someone disputed your resolution of a question you created - see fileDispute.
-builder
-	.objectRef<NotificationRow>("DisputeFiledNotification")
-	.implement({
-		interfaces: [NotificationNode],
-		fields: (t) => ({
-			question: t.field({ type: QuestionRef, nullable: true, resolve: resolveQuestion }),
-			questionTitle: t.exposeString("questionTitle", { nullable: true }),
-			actor: t.field({ type: UserRef, nullable: true, resolve: resolveActor }),
-			actorUsername: t.exposeString("actorUsername", { nullable: true }),
+builder.objectRef<NotificationRow>("DisputeFiledNotification").implement({
+	interfaces: [NotificationNode],
+	fields: (t) => ({
+		question: t.field({
+			type: QuestionRef,
+			nullable: true,
+			resolve: resolveQuestion,
 		}),
-	})
+		questionTitle: t.exposeString("questionTitle", { nullable: true }),
+		actor: t.field({ type: UserRef, nullable: true, resolve: resolveActor }),
+		actorUsername: t.exposeString("actorUsername", { nullable: true }),
+	}),
+})
 
 // A dispute you filed was upheld - the original resolution stands, your
 // challenge didn't succeed. See upholdDispute.
-builder
-	.objectRef<NotificationRow>("DisputeUpheldNotification")
-	.implement({
-		interfaces: [NotificationNode],
-		fields: (t) => ({
-			question: t.field({ type: QuestionRef, nullable: true, resolve: resolveQuestion }),
-			questionTitle: t.exposeString("questionTitle", { nullable: true }),
+builder.objectRef<NotificationRow>("DisputeUpheldNotification").implement({
+	interfaces: [NotificationNode],
+	fields: (t) => ({
+		question: t.field({
+			type: QuestionRef,
+			nullable: true,
+			resolve: resolveQuestion,
 		}),
-	})
+		questionTitle: t.exposeString("questionTitle", { nullable: true }),
+	}),
+})
 
 // A dispute you filed was overturned - the resolution was corrected in your
 // favor. See overturnDispute; a CallResolvedNotification for the corrected
 // points usually follows this one.
-builder
-	.objectRef<NotificationRow>("DisputeOverturnedNotification")
-	.implement({
-		interfaces: [NotificationNode],
-		fields: (t) => ({
-			question: t.field({ type: QuestionRef, nullable: true, resolve: resolveQuestion }),
-			questionTitle: t.exposeString("questionTitle", { nullable: true }),
+builder.objectRef<NotificationRow>("DisputeOverturnedNotification").implement({
+	interfaces: [NotificationNode],
+	fields: (t) => ({
+		question: t.field({
+			type: QuestionRef,
+			nullable: true,
+			resolve: resolveQuestion,
 		}),
-	})
+		questionTitle: t.exposeString("questionTitle", { nullable: true }),
+	}),
+})
 
 // A question you created was voided by an admin - see voidQuestion.
 // strikeCount is only set when the void counted as a strike.
-builder
-	.objectRef<NotificationRow>("QuestionVoidedNotification")
-	.implement({
-		interfaces: [NotificationNode],
-		fields: (t) => ({
-			questionTitle: t.exposeString("questionTitle", { nullable: true }),
-			strikeCount: t.exposeInt("strikeCount", { nullable: true }),
-		}),
-	})
+builder.objectRef<NotificationRow>("QuestionVoidedNotification").implement({
+	interfaces: [NotificationNode],
+	fields: (t) => ({
+		questionTitle: t.exposeString("questionTitle", { nullable: true }),
+		strikeCount: t.exposeInt("strikeCount", { nullable: true }),
+	}),
+})
 
 // Someone joined a group you're in - see joinGroupByCode.
-builder
-	.objectRef<NotificationRow>("GroupMemberJoinedNotification")
-	.implement({
-		interfaces: [NotificationNode],
-		fields: (t) => ({
-			group: t.field({ type: GroupRef, nullable: true, resolve: resolveGroup }),
-			groupName: t.exposeString("groupName", { nullable: true }),
-			actor: t.field({ type: UserRef, nullable: true, resolve: resolveActor }),
-			actorUsername: t.exposeString("actorUsername", { nullable: true }),
-		}),
-	})
+builder.objectRef<NotificationRow>("GroupMemberJoinedNotification").implement({
+	interfaces: [NotificationNode],
+	fields: (t) => ({
+		group: t.field({ type: GroupRef, nullable: true, resolve: resolveGroup }),
+		groupName: t.exposeString("groupName", { nullable: true }),
+		actor: t.field({ type: UserRef, nullable: true, resolve: resolveActor }),
+		actorUsername: t.exposeString("actorUsername", { nullable: true }),
+	}),
+})
 
 // Someone shared a question into a group you're in - see shareQuestionToGroup.
 builder
@@ -159,7 +165,11 @@ builder
 		fields: (t) => ({
 			group: t.field({ type: GroupRef, nullable: true, resolve: resolveGroup }),
 			groupName: t.exposeString("groupName", { nullable: true }),
-			question: t.field({ type: QuestionRef, nullable: true, resolve: resolveQuestion }),
+			question: t.field({
+				type: QuestionRef,
+				nullable: true,
+				resolve: resolveQuestion,
+			}),
 			questionTitle: t.exposeString("questionTitle", { nullable: true }),
 			actor: t.field({ type: UserRef, nullable: true, resolve: resolveActor }),
 			actorUsername: t.exposeString("actorUsername", { nullable: true }),

@@ -375,11 +375,7 @@ export function buildCallShareCard(data: CallShareCardData): SatoriNode {
 					color: COLOR.dim,
 				},
 				[
-					el(
-						"span",
-						{ display: "flex" },
-						`calledmyshot.com/${data.username}`,
-					),
+					el("span", { display: "flex" }, `calledmyshot.com/${data.username}`),
 					el(
 						"span",
 						{ display: "flex" },

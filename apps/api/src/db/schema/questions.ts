@@ -1,17 +1,18 @@
 import {
 	boolean,
-	index,
 	integer,
 	numeric,
 	pgEnum,
 	pgTable,
-	primaryKey,
 	text,
 	timestamp,
-	unique,
 	uuid,
 } from "drizzle-orm/pg-core"
-import { games, leagues, players, seasons, sports, stats, teams } from "./sports"
+import { games } from "./games"
+import { players } from "./players"
+import { leagues, seasons, sports } from "./sports"
+import { stats } from "./stats"
+import { teams } from "./teams"
 import { users } from "./users"
 
 // Replaces the old type + category + numericSubjectType + optionsOpenField/
@@ -73,24 +74,6 @@ export const questionStatus = pgEnum("question_status", [
 	"locked",
 	"resolved",
 	"disputed",
-])
-
-export const disputeStatus = pgEnum("dispute_status", [
-	"open",
-	"upheld",
-	"overturned",
-])
-
-// Reasons an admin can void a question. Not all of them strike the asker by
-// default (see questionVoids.countsAsStrike below) - nonsensical/off_topic/
-// unsupported_sport do by default, duplicate/other don't, but it's a per-void
-// toggle either way, never hardcoded to the reason.
-export const voidReason = pgEnum("void_reason", [
-	"nonsensical",
-	"off_topic",
-	"unsupported_sport",
-	"duplicate",
-	"other",
 ])
 
 // player_season_award/team_season_award only - which verb the single-winner
@@ -270,7 +253,7 @@ export const questions = pgTable("questions", {
 	// awardSeasonsInLeague, it isn't "zero prior seasons in the league" (wrong
 	// for e.g. MLB, where a brief prior-season call-up doesn't cost rookie
 	// status) but whatever that sport's own rookie rule actually is, computed
-	// at sync time (see players.rookieEligible in db/schema/sports.ts).
+	// at sync time (see players.rookieEligible in db/schema/players.ts).
 	awardRookieOnly: boolean("award_rookie_only"),
 
 	createdAt: timestamp("created_at").notNull().defaultNow(),
@@ -298,232 +281,3 @@ export const questionOptions = pgTable("question_options", {
 	isCorrect: boolean("is_correct"),
 })
 export type QuestionOption = typeof questionOptions.$inferSelect
-
-// One row per user per question. The two numeric_guess shapes score entirely
-// off the columns here (no options involved); every other shape scores
-// through callSelections.
-export const calls = pgTable(
-	"calls",
-	{
-		id: uuid("id").primaryKey().defaultRandom(),
-		questionId: uuid("question_id")
-			.notNull()
-			.references(() => questions.id, { onDelete: "cascade" }),
-		userId: uuid("user_id")
-			.notNull()
-			.references(() => users.id, { onDelete: "cascade" }),
-		caseText: text("case_text"),
-
-		// numeric_guess only. scale 3, not 2 - see questions.ouLine above.
-		guessValue: numeric("guess_value", {
-			precision: 8,
-			scale: 3,
-			mode: "number",
-		}),
-		conviction: integer("conviction"), // 1-100
-		hitTolerance: boolean("hit_tolerance"),
-		resultPoints: integer("result_points"),
-		// The closeness multiplier (1.00-6.00) actually applied at resolution -
-		// null until resolved, and null forever on a miss (see
-		// numericGuessPoints in @called-my-shot/scoring). Persisted rather than
-		// left for the client to reconstruct: unlike a selection's contrarian
-		// tier (derivable live from fieldPct), closeness rank only exists once
-		// every other hit on the question is known, which is resolve-time-only
-		// information with no live equivalent.
-		closenessMult: numeric("closeness_mult", {
-			precision: 4,
-			scale: 2,
-			mode: "number",
-		}),
-		// What % of the WHOLE field (not just other hitters) guessed at least as
-		// close to the actual value as this call did - the raw share
-		// closenessMult above was derived from (see numericGuessPoints). Exposed
-		// separately, not just left for the client to back out of the
-		// multiplier, so the UI can explain "why this multiplier" (e.g. "62% of
-		// the field guessed at least this close") with a real number instead of
-		// inverting a curve on the frontend. Same resolve-time-only reasoning as
-		// closenessMult - null until resolved, null forever on a miss.
-		closenessFieldPct: numeric("closeness_field_pct", {
-			precision: 5,
-			scale: 2,
-			mode: "number",
-		}),
-
-		createdAt: timestamp("created_at").notNull().defaultNow(),
-	},
-	(t) => [
-		unique().on(t.questionId, t.userId),
-		// The unique constraint above leads with question_id, so it can't serve
-		// a `where user_id = ...` lookup - every points/leaderboard/career-stats
-		// aggregate filters or groups by user_id alone.
-		index("calls_user_id_idx").on(t.userId),
-	],
-)
-export type Call = typeof calls.$inferSelect
-
-// A call's picks for option-based shapes: exactly one row for every shape
-// except player_season_award/team_season_award, which allow up to
-// picksRequired rows. Conviction is tracked per selection since those award
-// shapes let a caller set it independently per pick. The contrarian tier
-// isn't stored here at all - it's computed once per option from the final
-// field at resolution (see fieldPct/tierFor in lib/calls.ts), not
-// snapshotted per selection at call time.
-export const callSelections = pgTable(
-	"call_selections",
-	{
-		id: uuid("id").primaryKey().defaultRandom(),
-		callId: uuid("call_id")
-			.notNull()
-			.references(() => calls.id, { onDelete: "cascade" }),
-		optionId: uuid("option_id")
-			.notNull()
-			.references(() => questionOptions.id, { onDelete: "cascade" }),
-		conviction: integer("conviction").notNull(), // 1-100
-		resultPoints: integer("result_points"),
-	},
-	(t) => [unique().on(t.callId, t.optionId)],
-)
-
-// Denormalized per-(user, season) rollup - the only source leaderboards/
-// career stats read from (see lib/points-aggregate.ts), rather than
-// aggregating live over calls/callSelections on every read. One row per
-// season a user has ever cast a call in; kept in sync transactionally by
-// castCall (callCount +1 on cast), resolveQuestionInternal (points/
-// resolvedCallCount/correctCount deltas on resolve, delta not overwrite, so
-// a dispute overturn re-resolving a question doesn't double-count), and
-// voidQuestion (reverses all four fields for every call on the voided
-// question - callCount always, the others only when calls had already been
-// scored, i.e. a disputed question being voided).
-//
-// Deliberately NOT a `points` column on `users` for the site-wide total -
-// that would mean an independently-updated running total that could drift
-// from this table if some future write path updates one and forgets the
-// other. All-time and per-league totals are both just sum(points) grouped by
-// user_id over this table (all-time: no league_id filter; one league: filter
-// it) - cheap regardless of a user's call count because this table's size is
-// bounded by leagues x seasons (an admin-curated catalog, realistically a
-// couple dozen leagues x a handful of seasons each at most - see sports.ts's
-// createLeague), not by call volume. leagueId is denormalized directly
-// rather than derived via a join through seasons, matching how
-// questions.leagueId itself is stored directly rather than derived via
-// game.leagueId - keeps the common "all-time within one league" query a
-// plain WHERE, no join.
-//
-// seasonId is NOT NULL: every league this app supports is ESPN-covered, and
-// run.ts's sync loop syncs a league's seasons before its games/before it's
-// usable for question creation at all, so a resolvable season is as
-// reliable as leagueId already is in practice. The rare case a question's
-// seasonId can't be resolved (a brief sync-lag window right at a season
-// boundary) simply isn't written here at all - see the seasonId-guarded call
-// sites in graphql/types/question.ts.
-export const userSeasonStats = pgTable(
-	"user_season_stats",
-	{
-		userId: uuid("user_id")
-			.notNull()
-			.references(() => users.id, { onDelete: "cascade" }),
-		leagueId: uuid("league_id")
-			.notNull()
-			.references(() => leagues.id, { onDelete: "cascade" }),
-		seasonId: uuid("season_id")
-			.notNull()
-			.references(() => seasons.id, { onDelete: "cascade" }),
-		points: integer("points").notNull().default(0),
-		// Counts picks, not calls, for multi_select (matches scoreCalls'
-		// pre-existing semantics) - one multi_select call with 3 resolved
-		// selections adds 3 here, not 1.
-		resolvedCallCount: integer("resolved_call_count").notNull().default(0),
-		correctCount: integer("correct_count").notNull().default(0),
-		// Unlike the three fields above, this counts calls (one per cast),
-		// incremented at castCall time regardless of resolution status.
-		callCount: integer("call_count").notNull().default(0),
-	},
-	(t) => [
-		primaryKey({ columns: [t.userId, t.seasonId] }),
-		index("user_season_stats_league_points_idx").on(t.leagueId, t.points),
-	],
-)
-export type UserSeasonStats = typeof userSeasonStats.$inferSelect
-
-// Filed against a resolved question when a caller thinks the stated result is
-// wrong. One per user per question. Filing one moves the question to
-// "disputed"; an admin reviewing it either upholds the original resolution
-// (status back to resolved, dispute -> upheld) or overturns it (resolution
-// fields get corrected, status back to resolved, dispute -> overturned).
-export const resolutionDisputes = pgTable(
-	"resolution_disputes",
-	{
-		id: uuid("id").primaryKey().defaultRandom(),
-		questionId: uuid("question_id")
-			.notNull()
-			.references(() => questions.id, { onDelete: "cascade" }),
-		userId: uuid("user_id")
-			.notNull()
-			.references(() => users.id, { onDelete: "cascade" }),
-		reason: text("reason").notNull(),
-		status: disputeStatus("status").notNull().default("open"),
-		resolutionNote: text("resolution_note"),
-		createdAt: timestamp("created_at").notNull().defaultNow(),
-		resolvedAt: timestamp("resolved_at"),
-	},
-	(t) => [unique().on(t.questionId, t.userId)],
-)
-
-// One row per voided question, kept even though the question itself is
-// hard-deleted (see voidQuestion resolver) - deleting the question is safe
-// for scoring (every point total is computed live from calls, nothing
-// persisted per-user needs reversing), but without this table the Users tab's
-// void history and the strike count backing questionCreationEnabled would
-// have nothing to read. questionId/questionTitle are a snapshot, not a live
-// FK, since the row they'd point to is gone by the time this is queried.
-export const questionVoids = pgTable("question_voids", {
-	id: uuid("id").primaryKey().defaultRandom(),
-	questionId: uuid("question_id").notNull(),
-	questionTitle: text("question_title").notNull(),
-	targetUserId: uuid("target_user_id")
-		.notNull()
-		.references(() => users.id, { onDelete: "cascade" }),
-	voidedByAdminId: uuid("voided_by_admin_id").references(() => users.id, {
-		onDelete: "set null",
-	}),
-	reason: voidReason("reason").notNull(),
-	// Only set when reason = "duplicate".
-	duplicateOfQuestionId: uuid("duplicate_of_question_id").references(
-		() => questions.id,
-		{ onDelete: "set null" },
-	),
-	// Internal-only - never shown to the asker, unlike questions.resolutionNote.
-	note: text("note"),
-	countsAsStrike: boolean("counts_as_strike").notNull(),
-	createdAt: timestamp("created_at").notNull().defaultNow(),
-})
-export type QuestionVoid = typeof questionVoids.$inferSelect
-
-export const reportStatus = pgEnum("report_status", ["open", "dismissed"])
-
-// Filed by any signed-in caller who thinks a question itself is bad (not a
-// dispute over a resolution - see resolutionDisputes for that). Reuses
-// voidReason rather than its own enum: a report's reason is deliberately the
-// same set admin already voids questions for, just phrased for a caller who
-// doesn't know or care about admin's internal categories - the UI-facing
-// labels differ (see lib/report-defaults.ts on the frontend), the values
-// never do. One per user per question.
-export const questionReports = pgTable(
-	"question_reports",
-	{
-		id: uuid("id").primaryKey().defaultRandom(),
-		questionId: uuid("question_id")
-			.notNull()
-			.references(() => questions.id, { onDelete: "cascade" }),
-		reportedByUserId: uuid("reported_by_user_id")
-			.notNull()
-			.references(() => users.id, { onDelete: "cascade" }),
-		reason: voidReason("reason").notNull(),
-		details: text("details"),
-		status: reportStatus("status").notNull().default("open"),
-		createdAt: timestamp("created_at").notNull().defaultNow(),
-		reviewedAt: timestamp("reviewed_at"),
-	},
-	(t) => [unique().on(t.questionId, t.reportedByUserId)],
-)
-export type QuestionReport = typeof questionReports.$inferSelect

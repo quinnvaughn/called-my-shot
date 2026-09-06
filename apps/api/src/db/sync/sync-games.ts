@@ -1,5 +1,5 @@
 import { and, eq } from "drizzle-orm"
-import { resolveQuestionInternal } from "../../graphql/types/question"
+import { resolveQuestionInternal } from "../../lib/resolve-question"
 import { db } from "../index"
 import type { League } from "../schema"
 import { games, questions, teamRecords } from "../schema"

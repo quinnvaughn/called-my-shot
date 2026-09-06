@@ -2,7 +2,7 @@ import { db } from "../db"
 import type { Player, Team } from "../db/schema"
 
 // Extracted from createQuestion's inline awardPlayerPool/awardTeamPool
-// (graphql/types/question.ts) so the same pool-building logic can be reused
+// (graphql/types/question/mutations/create-question.ts) so the same pool-building logic can be reused
 // beyond player_season_award/team_season_award - specifically by
 // player_game_stat_leader (scoped to a game's two teams, not a whole league)
 // and by the recurring season-question engine (lib/season-questions.ts).

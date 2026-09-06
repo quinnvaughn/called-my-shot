@@ -18,7 +18,7 @@ async function findOrCreateSport(
 }
 
 // One row per tolerance band a numeric_guess stat can point at - see
-// statToleranceTiers' own doc comment in db/schema/sports.ts. Upserted by
+// statToleranceTiers' own doc comment in db/schema/stats.ts. Upserted by
 // name, so tweaking a toleranceValue here and re-running the sync updates the
 // live row instead of erroring on the unique constraint. The three "Rate
 // Stat" tiers are absolute-mode (a fixed amount in the stat's own unit, not
@@ -74,7 +74,7 @@ type StatEntry = readonly [
 // syncStatCatalog below rather than inserting rows themselves, so adding a
 // stat here is the only step needed to get it into dev and prod alike -
 // no hand-written SQL against prod each time the catalog grows. See
-// statAppliesTo in db/schema/sports.ts for what appliesTo means.
+// statAppliesTo in db/schema/stats.ts for what appliesTo means.
 const BASKETBALL_STATS: StatEntry[] = [
 	["Points", "Scoring", "High-Volume", "both"],
 	["3-Pointers Made", "Scoring", "Low-Count Box Stat", "both"],

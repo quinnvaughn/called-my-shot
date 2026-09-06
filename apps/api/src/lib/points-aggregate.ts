@@ -8,7 +8,7 @@ export type PointsAggregate = {
 	callCount: number
 }
 
-// Reads the denormalized per-(user, season) rollup (db/schema/questions.ts's
+// Reads the denormalized per-(user, season) rollup (db/schema/season-stats.ts's
 // userSeasonStats) rather than aggregating live over calls/call_selections -
 // a leaderboard-sized user set never touches the calls table at all here.
 // Always a GROUP BY: a season-keyed table has many rows per (user, league)

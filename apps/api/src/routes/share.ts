@@ -157,7 +157,7 @@ async function sendUserShareCard(
 	}
 
 	// Same board User.careerStats/User.leagues resolve from (see
-	// graphql/types/user.ts) - no separate query path to keep in sync with
+	// graphql/types/user/refs.ts) - no separate query path to keep in sync with
 	// those. No season scope: the card says "track record", and the scope tag
 	// above already commits to all-time.
 	const entries = await buildGlobalLeaderboard({ leagueId })
@@ -234,7 +234,7 @@ async function sendCallShareCard(res: Response, callId: string) {
 	// selections[].option is typed nullable purely because drizzle types
 	// every `one` relation that way regardless of the FK's own nullability
 	// (optionId is NOT NULL) - same non-issue documented at length in
-	// graphql/types/question.ts's resolveQuestionInternal. Narrowed once,
+	// lib/resolve-question.ts. Narrowed once,
 	// here, rather than re-guarded at every later read.
 	const selections = call.selections.filter(
 		(s): s is typeof s & { option: NonNullable<(typeof s)["option"]> } =>

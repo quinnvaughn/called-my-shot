@@ -1,8 +1,9 @@
+import { SPORTS_TIME_ZONE } from "@called-my-shot/schemas"
 import { DateTime } from "luxon"
 import { match } from "ts-pattern"
 
 // NFL's own broadcast-window vocabulary - not a shared cross-league concept
-// (see games.slot in db/schema/sports.ts), so this map and the derivation
+// (see games.slot in db/schema/games.ts), so this map and the derivation
 // below live entirely in this league's own sync module, not the schema.
 // Recomputed from `startsAt` on every sync run rather than snapshotted once
 // at ingest: this sync job already rewrites `startsAt` on every pass (see
@@ -41,7 +42,7 @@ const OFF_GRID_SLOTS: Record<number, string> = {
 // verified live, ESPN's schedule/scoreboard responses carry no explicit slot
 // field to read this off of directly.
 export function deriveNflSlot(startsAt: Date): string {
-	const et = DateTime.fromJSDate(startsAt, { zone: "America/New_York" })
+	const et = DateTime.fromJSDate(startsAt, { zone: SPORTS_TIME_ZONE })
 	return match(et.weekday)
 		.with(4, () => "THU")
 		.with(1, () => "MNF")

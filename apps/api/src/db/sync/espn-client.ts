@@ -270,7 +270,7 @@ export type EspnSeasonWeek = {
 }
 
 // Every week ESPN publishes for one season type, with the week boundaries
-// this app treats as authoritative (see seasonWeeks in db/schema/sports.ts).
+// this app treats as authoritative (see seasonWeeks in db/schema/games.ts).
 // The list endpoint hands back `$ref` URLs rather than the week objects
 // themselves, so each week is fetched by number - verified live, the refs
 // are always 1..count with no gaps (NFL 2026 regular season: 18; a

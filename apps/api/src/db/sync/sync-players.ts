@@ -53,7 +53,8 @@ async function syncAthlete(
 				rookieEligible,
 			})
 			.returning()
-		if (!row) throw new Error(`syncPlayers: insert returned nothing for ${athlete.id}`)
+		if (!row)
+			throw new Error(`syncPlayers: insert returned nothing for ${athlete.id}`)
 		await linkRef(tx, "player", sourceId, row.id)
 	})
 }
@@ -71,7 +72,11 @@ export async function syncPlayers(
 
 	for (const espnTeam of espnTeams) {
 		const teamId = await db.transaction((tx) =>
-			findRefEntityId(tx, "team", scopedSourceId(config.leagueSlug, espnTeam.id)),
+			findRefEntityId(
+				tx,
+				"team",
+				scopedSourceId(config.leagueSlug, espnTeam.id),
+			),
 		)
 		if (!teamId) {
 			// Usually means syncTeams hasn't run yet for this league, but can

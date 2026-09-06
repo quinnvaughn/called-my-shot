@@ -1,6 +1,6 @@
-import "dotenv/config";
-import { defineConfig } from "drizzle-kit";
-import { env } from "./src/env";
+import "dotenv/config"
+import { defineConfig } from "drizzle-kit"
+import { env } from "./src/env"
 
 export default defineConfig({
 	schema: "./src/db/schema/index.ts",
@@ -9,4 +9,4 @@ export default defineConfig({
 	dbCredentials: {
 		url: env.DATABASE_URL,
 	},
-});
+})

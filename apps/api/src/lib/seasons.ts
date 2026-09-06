@@ -28,7 +28,8 @@ export function pickCurrentSeason(rows: Season[]): Season | null {
 	const upcoming = rows
 		.filter((s) => s.regularSeasonStartsAt > now)
 		.sort(
-			(a, b) => a.regularSeasonStartsAt.getTime() - b.regularSeasonStartsAt.getTime(),
+			(a, b) =>
+				a.regularSeasonStartsAt.getTime() - b.regularSeasonStartsAt.getTime(),
 		)[0]
 	if (upcoming) return upcoming
 
@@ -37,12 +38,15 @@ export function pickCurrentSeason(rows: Season[]): Season | null {
 	// every game-less question without a season.
 	return (
 		rows.sort(
-			(a, b) => b.regularSeasonStartsAt.getTime() - a.regularSeasonStartsAt.getTime(),
+			(a, b) =>
+				b.regularSeasonStartsAt.getTime() - a.regularSeasonStartsAt.getTime(),
 		)[0] ?? null
 	)
 }
 
-export async function getCurrentSeason(leagueId: string): Promise<Season | null> {
+export async function getCurrentSeason(
+	leagueId: string,
+): Promise<Season | null> {
 	const rows = await db.query.seasons.findMany({ where: { leagueId } })
 	return pickCurrentSeason(rows)
 }

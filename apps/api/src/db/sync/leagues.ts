@@ -13,7 +13,7 @@ export type SyncLeagueConfig = {
 	// "date" in the schema) for a league browsed one day at a time (NBA, MLB).
 	windowType?: "date" | "week"
 	// Decides players.rookieEligible for this league (see its comment in
-	// db/schema/sports.ts) - omitted for leagues where "zero prior seasons in
+	// db/schema/players.ts) - omitted for leagues where "zero prior seasons in
 	// the league" (syncPlayers' own default) is an accurate enough proxy for
 	// real rookie status. MLB overrides it because that's not true there - a
 	// brief prior-season call-up trips seasonsInLeague to 1 without costing

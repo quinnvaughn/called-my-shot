@@ -60,7 +60,7 @@ async function syncSeasonYear(
 
 // Week boundaries for a week-window league, straight from ESPN's calendar -
 // what the Games tab's window stepper and the "N games this week" counts are
-// measured against (see seasonWeeks in db/schema/sports.ts for why these
+// measured against (see seasonWeeks in db/schema/games.ts for why these
 // can't be derived from the week's own games). Upsert-only: a week ESPN has
 // moved gets its new dates, and nothing is deleted, since a week that
 // vanishes from their calendar is far more likely a bad response than a real

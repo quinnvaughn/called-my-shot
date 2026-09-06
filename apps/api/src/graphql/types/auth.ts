@@ -1,6 +1,7 @@
 import { signInSchema, signUpSchema } from "@called-my-shot/schemas"
 import { db } from "../../db"
 import { type User, users } from "../../db/schema"
+import { issuePendingEmailChange } from "../../lib/email-change"
 import { ValidationError } from "../../lib/errors"
 import { hashPassword, verifyPassword } from "../../lib/password"
 import {
@@ -10,7 +11,7 @@ import {
 	setSessionCookie,
 } from "../../lib/session"
 import { builder } from "../builder"
-import { issuePendingEmailChange, UserRef } from "./user"
+import { UserRef } from "./user"
 
 type AuthPayloadShape = { user: User }
 

@@ -4,7 +4,7 @@ import { encodeOffsetCursor } from "./pagination"
 
 // Shared by every admin list query (Data tab's leagues/teams/players/games,
 // plus the Questions/Users tabs) - offset-based cursor, not the keyset
-// (createdAt, id) pagination question.ts's public feed uses elsewhere. Some
+// (createdAt, id) pagination question/queries.ts's public feed uses elsewhere. Some
 // of these tables (leagues/teams/players/games) have no createdAt column at
 // all, and even where one exists, these are low-write-rate admin catalogs
 // scanned in bulk, so offset's "reshuffles on insert" downside is a non-issue.

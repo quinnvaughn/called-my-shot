@@ -1,8 +1,19 @@
-import { pgEnum, pgTable, text, timestamp, unique, uuid } from "drizzle-orm/pg-core"
+import {
+	pgEnum,
+	pgTable,
+	text,
+	timestamp,
+	unique,
+	uuid,
+} from "drizzle-orm/pg-core"
 
 export const syncSource = pgEnum("sync_source", ["espn"])
 
-export const syncEntityType = pgEnum("sync_entity_type", ["team", "player", "game"])
+export const syncEntityType = pgEnum("sync_entity_type", [
+	"team",
+	"player",
+	"game",
+])
 
 // Bookkeeping for the ESPN sync only - maps a row in teams/players/games to
 // the id an external source uses for it, so re-syncing updates the existing

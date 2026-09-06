@@ -8,7 +8,8 @@ import {
 	uuid,
 } from "drizzle-orm/pg-core"
 import { groups } from "./groups"
-import { questions, resolutionDisputes } from "./questions"
+import { resolutionDisputes } from "./question-moderation"
+import { questions } from "./questions"
 import { users } from "./users"
 
 export const notificationType = pgEnum("notification_type", [
