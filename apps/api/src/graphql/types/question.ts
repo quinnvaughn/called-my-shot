@@ -48,12 +48,14 @@ import {
 	callSelections,
 	calls,
 	games,
+	groupMembers,
 	leagues,
 	players,
 	type Question,
 	questionOptions,
 	questionReports,
 	questions,
+	questionShares,
 	questionVoids,
 	resolutionDisputes,
 	teams,
@@ -1012,6 +1014,41 @@ export const QuestionRef = builder.drizzleObject("questions", {
 					where: { questionId: question.id, reportedByUserId: ctx.user.id },
 				})
 			},
+		}),
+
+		// Which of the viewer's OWN groups already have this question in their
+		// Shared tab - drives the "Shared" state per row in the share sheet.
+		// Scoped through groupMembers on purpose: a share row exists per
+		// group regardless of who created it, and leaking the ids of groups
+		// the viewer isn't in would say something about groups they can't see.
+		// Empty (not null) when signed out, so the frontend never branches.
+		viewerSharedGroupIds: t.loadableList({
+			type: "ID",
+			load: async (questionIds: string[], ctx) => {
+				if (!ctx.user) return questionIds.map(() => [])
+				const rows = await db
+					.select({
+						questionId: questionShares.questionId,
+						groupId: questionShares.groupId,
+					})
+					.from(questionShares)
+					.innerJoin(
+						groupMembers,
+						and(
+							eq(groupMembers.groupId, questionShares.groupId),
+							eq(groupMembers.userId, ctx.user.id),
+						),
+					)
+					.where(inArray(questionShares.questionId, questionIds))
+				const byQuestionId = new Map<string, string[]>()
+				for (const row of rows) {
+					const existing = byQuestionId.get(row.questionId)
+					if (existing) existing.push(row.groupId)
+					else byQuestionId.set(row.questionId, [row.groupId])
+				}
+				return questionIds.map((id) => byQuestionId.get(id) ?? [])
+			},
+			resolve: (question) => question.id,
 		}),
 
 		// Batched by questionId, same pattern as viewerCall above - a feed page

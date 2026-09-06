@@ -7,6 +7,7 @@ import {
 } from "@tanstack/react-router"
 import { DateTime } from "luxon"
 import { FaRegTimesCircle } from "react-icons/fa"
+import { FiShare } from "react-icons/fi"
 import { css } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
 import { AuthModal } from "#/components/auth/auth-modal"
@@ -24,6 +25,7 @@ import { PanelRow } from "#/components/questions/panel-row"
 import { QuestionCallsList } from "#/components/questions/question-calls-list"
 import { ReportQuestionModal } from "#/components/questions/report-question-modal"
 import { ResolveQuestionModal } from "#/components/questions/resolve-question-modal"
+import { ShareQuestionModal } from "#/components/questions/share-question-modal"
 import { ViewerStatusCard } from "#/components/questions/viewer-status-card"
 import { Button } from "#/components/ui/button"
 import { Card } from "#/components/ui/card"
@@ -34,6 +36,7 @@ import {
 	questionCallsQuery,
 	questionDetailQuery,
 } from "#/graphql/queries/question"
+import { track } from "#/lib/analytics"
 import { safeExternalUrl } from "#/lib/external-url"
 import { formatGuess } from "#/lib/field-signal"
 import { questionDetailState } from "#/lib/question-detail-state"
@@ -173,10 +176,39 @@ function RouteComponent() {
 			)}
 			<BallotStrip question={question} />
 			<VStack gap="3" alignItems="stretch">
-				<HStack gap="2" flexWrap="wrap">
-					{question.isOfficial && <Tag variant="primary">Official</Tag>}
-					<Tag>{question.league.abbreviation}</Tag>
-					<Tag>{questionShapeLabel[question.shape]}</Tag>
+				<HStack gap="2" justify="space-between" alignItems="flex-start">
+					<HStack gap="2" flexWrap="wrap">
+						{question.isOfficial && <Tag variant="primary">Official</Tag>}
+						<Tag>{question.league.abbreviation}</Tag>
+						<Tag>{questionShapeLabel[question.shape]}</Tag>
+					</HStack>
+					{/* Available on every question regardless of status or whether
+					you've called - an open question is the one most worth sending
+					someone, and that's exactly the case the PNG share card in
+					ViewerStatusCard can't cover (it needs a settled result). */}
+					<Button
+						variant="ghost"
+						size="sm"
+						aria-label="Share this question"
+						onClick={() => {
+							track("share_sheet_opened", {
+								questionId: question.id,
+								surface: "question_detail",
+							})
+							openModal(
+								<ShareQuestionModal
+									questionId={question.id}
+									questionTitle={question.title}
+									sharedGroupIds={question.viewerSharedGroupIds}
+									canShareToGroup={me !== null}
+								/>,
+							)
+						}}
+						className={css({ flexShrink: 0 })}
+					>
+						<FiShare size={14} />
+						Share
+					</Button>
 				</HStack>
 				<h1 className={css({ fontSize: "2xl", fontFamily: "heading" })}>
 					{question.title}

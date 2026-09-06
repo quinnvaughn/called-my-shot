@@ -66,3 +66,28 @@ export const ResetGroupInviteCodeDocument = graphql(`
 		}
 	}
 `)
+
+export const ShareQuestionToGroupDocument = graphql(`
+	mutation ShareQuestionToGroup($groupId: ID!, $questionId: ID!) {
+		shareQuestionToGroup(groupId: $groupId, questionId: $questionId) {
+			__typename
+			... on QuestionSharePayload {
+				share {
+					id
+				}
+			}
+			... on AuthenticationError {
+				message
+			}
+			... on AuthorizationError {
+				message
+			}
+			... on NotFoundError {
+				message
+			}
+			... on ValidationError {
+				message
+			}
+		}
+	}
+`)

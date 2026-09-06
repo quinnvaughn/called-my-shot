@@ -106,6 +106,7 @@ export const QuestionDetailDocument = graphql(`
 			viewerReport {
 				id
 			}
+			viewerSharedGroupIds
 			...CastCallForm_question
 			...ResolveQuestionModal_question
 			...BallotStrip_question

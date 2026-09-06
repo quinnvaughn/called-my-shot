@@ -23,8 +23,17 @@ export const Route = createFileRoute("/graphql")({
 							...(cookie ? { cookie } : {}),
 						},
 						body: await request.text(),
+						// Without this, a cancelled client request (react-query
+						// superseding an in-flight query, a router preload the
+						// pointer moved away from, a navigation mid-flight) leaves
+						// this fetch running against the api with nobody left to
+						// read it. Forwarding the signal ends both halves together.
+						signal: request.signal,
 					})
 				} catch {
+					// An abort lands here too, where there is no longer a client
+					// to receive whatever we return - 502 is for the genuine
+					// upstream failures, and harmless in the aborted case.
 					return new Response("Bad Gateway", { status: 502 })
 				}
 

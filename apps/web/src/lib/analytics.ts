@@ -37,6 +37,18 @@ type AnalyticsEvents = {
 	share_image_copied: { type: "profile" | "call_result" | "league" }
 	share_image_saved: { type: "profile" | "call_result" | "league" }
 
+	// The share sheet itself opening is worth its own event - an open with no
+	// link/group event after it is an abandoned share, which is invisible if
+	// only the completions are tracked.
+	share_sheet_opened: { questionId: string; surface: "question_detail" }
+	// `native` means the OS share sheet took over (navigator.share) - the
+	// destination is unknowable from there, unlike `clipboard`.
+	question_link_shared: {
+		questionId: string
+		method: "native" | "clipboard"
+	}
+	question_shared_to_group: { questionId: string; groupId: string }
+
 	support_ticket_filed: { category: string }
 }
 
