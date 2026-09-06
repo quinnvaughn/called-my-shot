@@ -1,0 +1,23 @@
+User-agent: *
+
+# Signed-in only (see routes/_app/_authed) - a crawler gets a redirect to the
+# landing page, so there is nothing here worth the crawl.
+Disallow: /home
+Disallow: /my-calls
+Disallow: /my-questions
+Disallow: /new-question
+Disallow: /notifications
+Disallow: /settings
+Disallow: /support
+
+# Group pages and their invite links - private by design.
+Disallow: /groups
+
+# Admin tooling.
+Disallow: /admin
+
+# One-shot links and endpoints, not pages.
+Disallow: /confirm-email
+Disallow: /graphql
+
+Sitemap: https://calledmyshot.com/sitemap.xml
