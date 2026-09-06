@@ -9,6 +9,7 @@ import {
 } from "#/lib/game-status"
 
 type TeamRecord = { wins: number; losses: number; ties: number } | null
+type Team = { name: string; abbreviation: string; color: string }
 
 type Props = {
 	game: {
@@ -17,16 +18,20 @@ type Props = {
 		homeScore: number | null
 		awayScore: number | null
 		venue: string | null
-		homeTeam: { name: string; abbreviation: string; color: string }
-		awayTeam: { name: string; abbreviation: string; color: string }
+		homeTeam: Team
+		awayTeam: Team
 		homeTeamRecord?: TeamRecord
 		awayTeamRecord?: TeamRecord
 	}
 }
 
+// maxWidth is what actually makes the ellipsis work: the name is a flex item
+// in a column stack, so on the cross axis it sizes to fit-content and would
+// otherwise overflow its column and collide with the score.
 const nameClass = css({
-	fontSize: "md",
+	fontSize: { base: "sm", sm: "md" },
 	fontWeight: "bold",
+	maxWidth: "100%",
 	overflow: "hidden",
 	textOverflow: "ellipsis",
 	whiteSpace: "nowrap",
@@ -38,6 +43,106 @@ const recordClass = css({
 	color: "fg.subtle",
 })
 
+// Narrow screens can't fit two full team names either side of a centered
+// score, so the matchup becomes one row per team - badge and name on the
+// left, that team's own score on the right - and only widens back into
+// away / score / home from sm up.
+const scoreboardClass = css({
+	display: "grid",
+	alignItems: "center",
+	columnGap: "3",
+	rowGap: "2.5",
+	gridTemplateColumns: {
+		base: "minmax(0, 1fr) auto",
+		sm: "minmax(0, 1fr) auto minmax(0, 1fr)",
+	},
+	gridTemplateAreas: {
+		base: '"away awayScore" "home homeScore"',
+		sm: '"away score home"',
+	},
+})
+
+// Both team lines read left-to-right on mobile; only the home line flips to
+// name-then-badge once it sits on the right of a centered score.
+const awayLineClass = css({
+	gridArea: "away",
+	justifyContent: "flex-start",
+})
+
+const homeLineClass = css({
+	gridArea: "home",
+	flexDirection: { base: "row", sm: "row-reverse" },
+	justifyContent: { base: "flex-start", sm: "flex-end" },
+})
+
+const awayTextClass = css({ alignItems: "flex-start" })
+const homeTextClass = css({
+	alignItems: { base: "flex-start", sm: "flex-end" },
+})
+
+const teamScoreClass = css({
+	display: { base: "block", sm: "none" },
+	fontFamily: "mono",
+	fontSize: "xl",
+	fontWeight: "bold",
+	fontVariantNumeric: "tabular-nums",
+	textAlign: "right",
+})
+
+const awayScoreClass = css({ gridArea: "awayScore" })
+const homeScoreClass = css({ gridArea: "homeScore" })
+
+const matchupScoreClass = css({
+	gridArea: "score",
+	display: { base: "none", sm: "block" },
+	fontFamily: "mono",
+	fontSize: "2xl",
+	fontWeight: "bold",
+	textAlign: "center",
+})
+
+const versusClass = css({
+	gridArea: "score",
+	display: { base: "none", sm: "block" },
+	fontFamily: "mono",
+	fontSize: "sm",
+	color: "fg.subtle",
+	textAlign: "center",
+})
+
+function TeamLine({
+	team,
+	record,
+	home,
+}: {
+	team: Team
+	record: TeamRecord
+	home: boolean
+}) {
+	const formattedRecord = formatTeamRecord(record)
+
+	return (
+		<HStack
+			gap="2.5"
+			alignItems="center"
+			minWidth="0"
+			className={home ? homeLineClass : awayLineClass}
+		>
+			<TeamBadge abbreviation={team.abbreviation} color={team.color} />
+			<VStack
+				gap="0"
+				minWidth="0"
+				className={home ? homeTextClass : awayTextClass}
+			>
+				<span className={nameClass}>{team.name}</span>
+				{formattedRecord && (
+					<span className={recordClass}>{formattedRecord}</span>
+				)}
+			</VStack>
+		</HStack>
+	)
+}
+
 // The game detail page's own bigger matchup header - not GameBlock
 // (components/questions/game-block.tsx), which stays the small inline badge
 // shared by QuestionCard/CallCard/QuestionSummaryHeader everywhere else.
@@ -46,6 +151,7 @@ const recordClass = css({
 export function GameMatchupHeader({ game }: Props) {
 	const live = game.status === "LIVE"
 	const final = game.status === "FINAL"
+	const scored = live || final
 
 	return (
 		<VStack
@@ -55,70 +161,35 @@ export function GameMatchupHeader({ game }: Props) {
 				border: "1px solid {colors.border.default}",
 				borderRadius: "xl",
 				bg: "bg.subtle",
-				padding: "4",
+				padding: { base: "3.5", sm: "4" },
 			})}
 		>
-			<HStack justify="space-between" alignItems="center" gap="3">
-				<HStack gap="2.5" alignItems="center" minWidth="0" flex="1">
-					<TeamBadge
-						abbreviation={game.awayTeam.abbreviation}
-						color={game.awayTeam.color}
-					/>
-					<VStack gap="0" alignItems="flex-start" minWidth="0">
-						<span className={nameClass}>{game.awayTeam.name}</span>
-						{formatTeamRecord(game.awayTeamRecord ?? null) && (
-							<span className={recordClass}>
-								{formatTeamRecord(game.awayTeamRecord ?? null)}
-							</span>
-						)}
-					</VStack>
-				</HStack>
+			<div className={scoreboardClass}>
+				<TeamLine
+					team={game.awayTeam}
+					record={game.awayTeamRecord ?? null}
+					home={false}
+				/>
+				<TeamLine
+					team={game.homeTeam}
+					record={game.homeTeamRecord ?? null}
+					home
+				/>
 
-				<VStack gap="0.5" alignItems="center" flexShrink="0">
-					{live || final ? (
-						<span
-							className={css({
-								fontFamily: "mono",
-								fontSize: "2xl",
-								fontWeight: "bold",
-							})}
-						>
-							{gameScoreLabel(game)}
+				{scored ? (
+					<>
+						<span className={`${teamScoreClass} ${awayScoreClass}`}>
+							{game.awayScore ?? "-"}
 						</span>
-					) : (
-						<span
-							className={css({
-								fontFamily: "mono",
-								fontSize: "sm",
-								color: "fg.subtle",
-							})}
-						>
-							@
+						<span className={`${teamScoreClass} ${homeScoreClass}`}>
+							{game.homeScore ?? "-"}
 						</span>
-					)}
-				</VStack>
-
-				<HStack
-					gap="2.5"
-					alignItems="center"
-					minWidth="0"
-					flex="1"
-					justify="flex-end"
-				>
-					<VStack gap="0" alignItems="flex-end" minWidth="0">
-						<span className={nameClass}>{game.homeTeam.name}</span>
-						{formatTeamRecord(game.homeTeamRecord ?? null) && (
-							<span className={recordClass}>
-								{formatTeamRecord(game.homeTeamRecord ?? null)}
-							</span>
-						)}
-					</VStack>
-					<TeamBadge
-						abbreviation={game.homeTeam.abbreviation}
-						color={game.homeTeam.color}
-					/>
-				</HStack>
-			</HStack>
+						<span className={matchupScoreClass}>{gameScoreLabel(game)}</span>
+					</>
+				) : (
+					<span className={versusClass}>@</span>
+				)}
+			</div>
 
 			<HStack
 				justify="center"
