@@ -106,3 +106,13 @@ export function previewNumericPoints(
 		earlyTier,
 	}
 }
+
+// Both multipliers come off continuous power curves (tierFor/earlyTierFor),
+// so an unrounded one renders as "1.517819252974054" in a math ledger. One
+// decimal is all a "why these points" line needs, and it matches the
+// precision the backed-out early multiplier on ViewerStatusCard already
+// showed. Display only - the full-precision value is what the point math
+// runs on, here and on the server.
+export function formatMult(mult: number): string {
+	return String(Math.round(mult * 10) / 10)
+}

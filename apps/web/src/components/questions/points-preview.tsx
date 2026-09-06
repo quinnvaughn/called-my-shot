@@ -1,7 +1,11 @@
 import type { EarlyTier } from "@called-my-shot/scoring"
 import { css } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
-import { previewNumericPoints, previewSelectionPoints } from "#/lib/scoring"
+import {
+	formatMult,
+	previewNumericPoints,
+	previewSelectionPoints,
+} from "#/lib/scoring"
 
 type Props =
 	| {
@@ -68,11 +72,13 @@ export function PointsPreview(props: Props) {
 		props.earlyTier,
 	)
 	const earlyText =
-		preview.earlyTier.mult > 1 ? ` · ×${preview.earlyTier.mult} early` : ""
+		preview.earlyTier.mult > 1
+			? ` · ×${formatMult(preview.earlyTier.mult)} early`
+			: ""
 	return (
 		<PointsPreviewShell
 			tierText={`${preview.tier.label} · ${Math.round(props.fieldPct)}% of the field agrees`}
-			tierVal={`×${preview.tier.mult} boldness${earlyText} bonus`}
+			tierVal={`×${formatMult(preview.tier.mult)} boldness${earlyText} bonus`}
 			winText={`+${preview.win}`}
 			loseText={`−${preview.lose}`}
 		/>

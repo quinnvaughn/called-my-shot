@@ -29,7 +29,11 @@ import {
 	optionDisplayLabel,
 	shareCardShapeLabel,
 } from "#/lib/question-labels"
-import { previewNumericPoints, previewSelectionPoints } from "#/lib/scoring"
+import {
+	formatMult,
+	previewNumericPoints,
+	previewSelectionPoints,
+} from "#/lib/scoring"
 import { openModal } from "#/stores/modal-store"
 
 // GraphQL's QuestionShape is SCREAMING_SNAKE; BASE_POINTS_BY_SHAPE (and the
@@ -1065,10 +1069,7 @@ function SelectionPickRow({
 		// reproduces result.points, it's never left as an unstated "rest."
 		const combinedMult =
 			result.isCorrect && committed !== 0 ? result.points / committed : null
-		const earlyMult =
-			combinedMult !== null
-				? Math.round((combinedMult / tier.mult) * 10) / 10
-				: null
+		const earlyMult = combinedMult !== null ? combinedMult / tier.mult : null
 		return (
 			<PickRowShell
 				name={showName ? label : null}
@@ -1098,7 +1099,8 @@ function SelectionPickRow({
 										<span className={mathDownside}>{committed}</span>
 										<span className={mathDefault}>
 											{" "}
-											× {tier.mult} boldness × {earlyMult} early ={" "}
+											× {formatMult(tier.mult)} boldness ×{" "}
+											{formatMult(earlyMult)} early ={" "}
 										</span>
 										<span className={mathUpside}>+{result.points}</span>
 									</>
@@ -1170,8 +1172,8 @@ function SelectionPickRow({
 								<span className={mathDownside}>{stake}</span>
 								<span className={mathDefault}>
 									{" "}
-									× {preview.tier.mult} boldness × {preview.earlyTier.mult}{" "}
-									early ={" "}
+									× {formatMult(preview.tier.mult)} boldness ×{" "}
+									{formatMult(preview.earlyTier.mult)} early ={" "}
 								</span>
 								<span className={mathUpside}>+{preview.win}</span>
 							</>
@@ -1234,9 +1236,7 @@ function NumericPickRow({
 		// × closenessMult).
 		const earlyMult =
 			win && committed !== 0 && result.closenessMult
-				? Math.round(
-						(result.totalPoints / (committed * result.closenessMult)) * 10,
-					) / 10
+				? result.totalPoints / (committed * result.closenessMult)
 				: null
 		return (
 			<PickRowShell
@@ -1269,7 +1269,8 @@ function NumericPickRow({
 										<span className={mathDownside}>{committed}</span>
 										<span className={mathDefault}>
 											{" "}
-											× {result.closenessMult} closeness × {earlyMult} early ={" "}
+											× {formatMult(result.closenessMult)} closeness ×{" "}
+											{formatMult(earlyMult)} early ={" "}
 										</span>
 										<span className={mathUpside}>+{result.totalPoints}</span>
 									</>
@@ -1307,7 +1308,11 @@ function NumericPickRow({
 	return (
 		<PickRowShell
 			name={formatGuess(guessValue, isRateStat)}
-			note={band !== null ? `within ±${band} counts as a hit` : null}
+			note={
+				band !== null
+					? `within ±${formatGuess(band, isRateStat)} counts as a hit`
+					: null
+			}
 			breakdown={{
 				ledger: [
 					{
@@ -1329,7 +1334,7 @@ function NumericPickRow({
 								<span className={mathDefault}>
 									{" "}
 									× {TIER_MIN_MULT}–{TIER_MAX_MULT} closeness ×{" "}
-									{preview.earlyTier.mult} early ={" "}
+									{formatMult(preview.earlyTier.mult)} early ={" "}
 								</span>
 								<span className={mathUpside}>
 									+{preview.winLow}–{preview.winHigh}
