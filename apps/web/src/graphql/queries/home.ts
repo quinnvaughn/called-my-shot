@@ -12,7 +12,8 @@ export const HomeDashboardDocument = graphql(`
 			name
 			abbreviation
 			slug
-			gamesTodayCount
+			windowType
+			currentWindowGameCount
 			liveGameCount
 			nextLockAt
 			myOpenCallCount

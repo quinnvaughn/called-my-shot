@@ -12,7 +12,7 @@ import { NotFound } from "#/components/ui/not-found"
 import { PageHeader } from "#/components/ui/page-header"
 import { Tabs } from "#/components/ui/tabs"
 import { leagueQuery } from "#/graphql/queries/sports"
-import { gamesTodayLabel } from "#/lib/game-status"
+import { gamesInWindowLabel } from "#/lib/game-status"
 import { isUuid } from "#/lib/uuid"
 
 export const Route = createFileRoute("/_app/leagues/$leagueSlug")({
@@ -117,7 +117,7 @@ function RouteComponent() {
 					currentSeason
 						? `${league.abbreviation} · ${currentSeason.displayName}`
 						: league.abbreviation,
-					gamesTodayLabel(league.gamesTodayCount),
+					gamesInWindowLabel(league.currentWindowGameCount, league.windowType),
 				].join(" · ")}
 			/>
 			<Tabs.List>

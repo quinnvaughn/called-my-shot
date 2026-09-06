@@ -3,7 +3,8 @@ import { DateTime } from "luxon"
 import { css } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
 import { Card } from "#/components/ui/card"
-import { gamesTodayLabel } from "#/lib/game-status"
+import type { LeagueWindowType } from "#/graphql/generated/graphql"
+import { gamesInWindowLabel } from "#/lib/game-status"
 
 type Props = {
 	league: {
@@ -11,7 +12,8 @@ type Props = {
 		name: string
 		abbreviation: string
 		slug: string
-		gamesTodayCount: number
+		windowType: LeagueWindowType
+		currentWindowGameCount: number
 		liveGameCount: number
 		nextLockAt: string | null
 		myOpenCallCount: number | null
@@ -25,7 +27,10 @@ type Props = {
 export function LeagueRoomCard({ league }: Props) {
 	const live = league.liveGameCount > 0
 
-	const state = gamesTodayLabel(league.gamesTodayCount)
+	const state = gamesInWindowLabel(
+		league.currentWindowGameCount,
+		league.windowType,
+	)
 
 	const detail = live
 		? `${league.liveGameCount} live now`

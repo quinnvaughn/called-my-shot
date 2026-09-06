@@ -1,6 +1,6 @@
 import { DateTime } from "luxon"
 import { match } from "ts-pattern"
-import type { GameStatus } from "#/graphql/generated/graphql"
+import type { GameStatus, LeagueWindowType } from "#/graphql/generated/graphql"
 
 type StatusGame = {
 	status: GameStatus
@@ -37,10 +37,22 @@ export function gameStatusLabel(game: StatusGame): string {
 
 // Shared by the league room's header and Home's LeagueRoomCard - no "live"
 // count folded in here, that data isn't reliable enough yet to surface.
-export function gamesTodayLabel(gamesTodayCount: number): string {
-	return gamesTodayCount === 0
-		? "No games today"
-		: `${gamesTodayCount} game${gamesTodayCount === 1 ? "" : "s"} today`
+// Phrased in the league's own scheduling unit (see leagues.windowType): "this
+// week" for a league whose slate is a week (NFL), "today" for one browsed a
+// day at a time (NBA/MLB). Counting a week's games but calling them today's
+// would read as broken on an NFL Tuesday, when the week has 16 games and the
+// day has none.
+export function gamesInWindowLabel(
+	count: number,
+	windowType: LeagueWindowType,
+): string {
+	const unit = match(windowType)
+		.with("WEEK", () => "this week")
+		.with("DATE", () => "today")
+		.exhaustive()
+	return count === 0
+		? `No games ${unit}`
+		: `${count} game${count === 1 ? "" : "s"} ${unit}`
 }
 
 // "W-L" for the overwhelming majority of sports, "W-L-T" only once a team

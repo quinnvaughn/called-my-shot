@@ -8,18 +8,7 @@ import {
 	updatePlayerSchema,
 	updateTeamSchema,
 } from "@called-my-shot/schemas"
-import {
-	and,
-	asc,
-	count,
-	eq,
-	getColumns,
-	gte,
-	lt,
-	min,
-	ne,
-	sql,
-} from "drizzle-orm"
+import { and, asc, count, eq, getColumns, min, ne, sql } from "drizzle-orm"
 import { DateTime } from "luxon"
 import { db } from "../../db"
 import { LEAGUE_SEASON_FORMAT } from "../../db/catalog/league-season-format"
@@ -168,21 +157,22 @@ export const LeagueRef = builder.drizzleObject("leagues", {
 		// Home's room cards below - a plain per-row resolve rather than a
 		// batched loadable, since there are only ever a handful of leagues on
 		// one page (no N+1 risk worth guarding against here).
-		gamesTodayCount: t.field({
+		// Games in the window this league is currently inside - a day for a
+		// date-window league, a week for a week-window one (see
+		// leagues.windowType). Read off the same getLeagueWindows the Games
+		// tab steps through rather than counting a calendar day directly, so
+		// the room header and the stepper below it can never describe the same
+		// league by two different units. 0 between windows (an NFL Tuesday, a
+		// dark night in an MLB week), where no window contains now at all.
+		currentWindowGameCount: t.field({
 			type: "Int",
 			resolve: async (league) => {
-				const now = DateTime.now()
-				const [{ n }] = await db
-					.select({ n: count() })
-					.from(games)
-					.where(
-						and(
-							eq(games.leagueId, league.id),
-							gte(games.startsAt, now.startOf("day").toJSDate()),
-							lt(games.startsAt, now.endOf("day").toJSDate()),
-						),
-					)
-				return n
+				const now = new Date()
+				const windows = await getLeagueWindows(league)
+				const current = windows.find(
+					(w) => w.rangeStart <= now && now <= w.rangeEnd,
+				)
+				return current?.gameCount ?? 0
 			},
 		}),
 		liveGameCount: t.field({

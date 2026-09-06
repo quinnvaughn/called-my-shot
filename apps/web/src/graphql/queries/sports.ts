@@ -31,11 +31,11 @@ export const LeaguesDocument = graphql(`
 	}
 `)
 
-// The league room's own header (name/abbreviation/current season/today's
-// game count) - see routes/_app/leagues. currentSeason and gamesTodayCount
-// are fetched here, not per-tab, since the header shows them on every tab
-// (Games/Season/Feed), not just Season/Games. No live count yet - that data
-// isn't reliable enough to surface.
+// The league room's own header (name/abbreviation/current season/current
+// window's game count) - see routes/_app/leagues. currentSeason and
+// currentWindowGameCount are fetched here, not per-tab, since the header
+// shows them on every tab (Games/Season/Feed), not just Season/Games. No live
+// count yet - that data isn't reliable enough to surface.
 export const LeagueByIdDocument = graphql(`
 	query LeagueById($id: ID!) {
 		league(id: $id) {
@@ -44,7 +44,7 @@ export const LeagueByIdDocument = graphql(`
 			abbreviation
 			slug
 			windowType
-			gamesTodayCount
+			currentWindowGameCount
 		}
 		currentSeason(leagueId: $id) {
 			id
