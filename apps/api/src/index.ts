@@ -8,6 +8,7 @@ import express from "express"
 import { env } from "./env"
 import { createContext } from "./graphql/context"
 import { schema } from "./graphql/schema"
+import { registerSchemaRoute } from "./routes/schema"
 import { registerShareRoutes } from "./routes/share"
 import { startScheduler } from "./scheduler"
 
@@ -26,6 +27,7 @@ await server.start()
 // of falling into Apollo's Express middleware.
 app.use("/share", cors({ origin: env.CLIENT_ORIGIN }))
 registerShareRoutes(app)
+registerSchemaRoute(app)
 
 app.use(
 	"/",
