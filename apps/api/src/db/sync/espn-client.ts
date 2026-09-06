@@ -262,3 +262,32 @@ export async function fetchSeasonType(
 		`${toLeaguesPath(sportPath)}/seasons/${year}/types/${type}`,
 	)
 }
+
+export type EspnSeasonWeek = {
+	number: number
+	startDate: string
+	endDate: string
+}
+
+// Every week ESPN publishes for one season type, with the week boundaries
+// this app treats as authoritative (see seasonWeeks in db/schema/sports.ts).
+// The list endpoint hands back `$ref` URLs rather than the week objects
+// themselves, so each week is fetched by number - verified live, the refs
+// are always 1..count with no gaps (NFL 2026 regular season: 18; a
+// postseason: 5, wild card through the Super Bowl). A week that 404s is
+// skipped rather than throwing, same as every other core-API read here.
+export async function fetchSeasonWeeks(
+	sportPath: EspnSportPath,
+	year: number,
+	type: 2 | 3,
+): Promise<EspnSeasonWeek[]> {
+	const basePath = `${toLeaguesPath(sportPath)}/seasons/${year}/types/${type}/weeks`
+	const list = await coreEspnGet<{ count: number }>(`${basePath}?limit=100`)
+	if (!list?.count) return []
+	const weeks = await Promise.all(
+		Array.from({ length: list.count }, (_, i) =>
+			coreEspnGet<EspnSeasonWeek>(`${basePath}/${i + 1}`),
+		),
+	)
+	return weeks.filter((week): week is EspnSeasonWeek => week !== null)
+}

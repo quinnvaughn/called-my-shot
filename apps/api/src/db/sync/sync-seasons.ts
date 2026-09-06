@@ -1,7 +1,8 @@
+import { sql } from "drizzle-orm"
 import { db } from "../index"
 import type { League } from "../schema"
-import { seasons } from "../schema"
-import { fetchSeason, fetchSeasonType } from "./espn-client"
+import { seasons, seasonWeeks } from "../schema"
+import { fetchSeason, fetchSeasonType, fetchSeasonWeeks } from "./espn-client"
 import type { SyncLeagueConfig } from "./leagues"
 
 // Which ESPN season years to pull each run. ESPN's year label means
@@ -29,7 +30,7 @@ async function syncSeasonYear(
 	])
 	if (!regular) return // no regular season dates - nothing usable to store yet
 
-	await db
+	const [row] = await db
 		.insert(seasons)
 		.values({
 			leagueId: league.id,
@@ -48,6 +49,55 @@ async function syncSeasonYear(
 				regularSeasonEndsAt: new Date(regular.endDate),
 				postseasonStartsAt: post ? new Date(post.startDate) : null,
 				postseasonEndsAt: post ? new Date(post.endDate) : null,
+			},
+		})
+		.returning({ id: seasons.id })
+
+	if (config.windowType === "week") {
+		await syncSeasonWeeks(config, row.id, year)
+	}
+}
+
+// Week boundaries for a week-window league, straight from ESPN's calendar -
+// what the Games tab's window stepper and the "N games this week" counts are
+// measured against (see seasonWeeks in db/schema/sports.ts for why these
+// can't be derived from the week's own games). Upsert-only: a week ESPN has
+// moved gets its new dates, and nothing is deleted, since a week that
+// vanishes from their calendar is far more likely a bad response than a real
+// schedule change.
+async function syncSeasonWeeks(
+	config: SyncLeagueConfig,
+	seasonId: string,
+	year: number,
+): Promise<void> {
+	const [regular, post] = await Promise.all([
+		fetchSeasonWeeks(config.espnPath, year, 2),
+		fetchSeasonWeeks(config.espnPath, year, 3),
+	])
+	const rows = [
+		...regular.map((week) => ({ week, seasonType: "regular" as const })),
+		...post.map((week) => ({ week, seasonType: "postseason" as const })),
+	].map(({ week, seasonType }) => ({
+		seasonId,
+		seasonType,
+		weekNumber: week.number,
+		startsAt: new Date(week.startDate),
+		endsAt: new Date(week.endDate),
+	}))
+	if (rows.length === 0) return
+
+	await db
+		.insert(seasonWeeks)
+		.values(rows)
+		.onConflictDoUpdate({
+			target: [
+				seasonWeeks.seasonId,
+				seasonWeeks.seasonType,
+				seasonWeeks.weekNumber,
+			],
+			set: {
+				startsAt: sql`excluded.starts_at`,
+				endsAt: sql`excluded.ends_at`,
 			},
 		})
 }

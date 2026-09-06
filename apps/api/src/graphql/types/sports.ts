@@ -21,7 +21,7 @@ import {
 	questions,
 	teams,
 } from "../../db/schema"
-import { NFL_SLOT_LABELS, NFL_SLOT_ORDER } from "../../db/sync/nfl-slot"
+import { NFL_SLOT_LABELS } from "../../db/sync/nfl-slot"
 import {
 	type AdminConnection,
 	buildAdminConnection,
@@ -533,9 +533,6 @@ const LeagueGamesForWindowResultRef = builder
 const SLOT_LABELS_BY_LEAGUE: Record<string, Record<string, string>> = {
 	nfl: NFL_SLOT_LABELS,
 }
-const SLOT_ORDER_BY_LEAGUE: Record<string, string[]> = {
-	nfl: NFL_SLOT_ORDER,
-}
 
 const ET_ZONE = "America/New_York"
 
@@ -552,14 +549,21 @@ async function getLeagueWindows(league: League): Promise<WindowDescriptor[]> {
 			week_number: number
 			min_starts: string
 			max_starts: string
+			week_starts: string | null
+			week_ends: string | null
 			n: number
 		}>(sql`
-			select season_id, season_type, week_number,
-				min(starts_at) as min_starts, max(starts_at) as max_starts,
+			select g.season_id, g.season_type, g.week_number,
+				min(g.starts_at) as min_starts, max(g.starts_at) as max_starts,
+				min(w.starts_at) as week_starts, min(w.ends_at) as week_ends,
 				count(*)::int as n
-			from games
-			where league_id = ${league.id} and week_number is not null
-			group by season_id, season_type, week_number
+			from games g
+			left join season_weeks w
+				on w.season_id = g.season_id
+				and w.season_type = g.season_type
+				and w.week_number = g.week_number
+			where g.league_id = ${league.id} and g.week_number is not null
+			group by g.season_id, g.season_type, g.week_number
 			order by min_starts asc
 		`)
 		return result.rows.map((row) => {
@@ -576,10 +580,25 @@ async function getLeagueWindows(league: League): Promise<WindowDescriptor[]> {
 			return {
 				key: `${row.season_id}:${row.season_type}:${row.week_number}`,
 				label,
+				// Dated by the games themselves, not by the window bounds below -
+				// "SEP 9 – SEP 14" is what's actually being played; ESPN's week 1
+				// runs from the Sunday the season type opens, days before its
+				// first kickoff.
 				sublabel: `${start.toFormat("LLL d").toUpperCase()} – ${end.toFormat("LLL d").toUpperCase()}`,
 				gameCount: row.n,
-				rangeStart: start.startOf("day").toJSDate(),
-				rangeEnd: end.endOf("day").toJSDate(),
+				// ESPN's own week boundaries where they're synced (see seasonWeeks
+				// in db/schema/sports.ts) - contiguous, so mid-season there's
+				// always exactly one window holding "now", including the Tuesday
+				// after Monday Night Football. Falls back to the span of the
+				// week's own games for a week ESPN hasn't published boundaries
+				// for, which does leave a gap between weeks - better than a
+				// window with no range at all.
+				rangeStart: row.week_starts
+					? parsePgTimestamp(row.week_starts)
+					: start.startOf("day").toJSDate(),
+				rangeEnd: row.week_ends
+					? parsePgTimestamp(row.week_ends)
+					: end.endOf("day").toJSDate(),
 			}
 		})
 	}
@@ -875,18 +894,32 @@ builder.queryFields((t) => ({
 					},
 					orderBy: { startsAt: "asc" },
 				})
-				const order = SLOT_ORDER_BY_LEAGUE[league.slug] ?? []
 				const labels = SLOT_LABELS_BY_LEAGUE[league.slug] ?? {}
-				const knownSlots = new Set(order)
-				const groups: SlotGroup[] = order
-					.map((slotKey) => ({
-						slotLabel: labels[slotKey] ?? slotKey,
-						games: rows.filter((g) => g.slot === slotKey),
-					}))
-					.filter((g) => g.games.length > 0)
-				const leftover = rows.filter((g) => !g.slot || !knownSlots.has(g.slot))
-				if (leftover.length > 0)
-					groups.push({ slotLabel: null, games: leftover })
+				// Groups come out in kickoff order rather than a fixed list of
+				// slots, because the league's week has no fixed shape - a
+				// Wednesday opener, a Saturday slate in December, a Friday game.
+				// `rows` is already sorted by startsAt, so a Map keyed by slot
+				// picks up each group in the order its first game is played.
+				const bySlot = new Map<string, Game[]>()
+				const unslotted: Game[] = []
+				for (const game of rows) {
+					if (!game.slot) {
+						unslotted.push(game)
+						continue
+					}
+					const group = bySlot.get(game.slot)
+					if (group) group.push(game)
+					else bySlot.set(game.slot, [game])
+				}
+				const groups: SlotGroup[] = [...bySlot].map(([slotKey, games]) => ({
+					// A slot with no label is one this league's sync module has
+					// since stopped producing - show the raw key rather than
+					// silently dropping the games.
+					slotLabel: labels[slotKey] ?? slotKey,
+					games,
+				}))
+				if (unslotted.length > 0)
+					groups.push({ slotLabel: null, games: unslotted })
 				return { window: selected, prevKey, nextKey, groups }
 			}
 

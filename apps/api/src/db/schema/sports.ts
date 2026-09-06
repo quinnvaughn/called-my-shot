@@ -115,6 +115,36 @@ export const gameSeasonType = pgEnum("game_season_type", [
 	"postseason",
 ])
 
+// One row per week of a week-window league's season (NFL), synced verbatim
+// from ESPN's own season calendar - the authoritative answer to "when does
+// week N start and end", which is NOT derivable from the week's games:
+// ESPN's NFL week runs Wednesday 3am ET to the following Wednesday 2:59am
+// ET, so the Tuesday after Monday Night Football is still the old week and
+// the Wednesday before Thursday Night Football is already the new one.
+// Deriving the range from the games instead (first kickoff to last kickoff)
+// leaves real gaps between weeks where no window contains "now" at all -
+// see getLeagueWindows in graphql/types/sports.ts, which reads these.
+// (seasonType, weekNumber) matches games.seasonType/games.weekNumber
+// exactly, since both come from the same ESPN response - a postseason week
+// 1 is a different row from a regular-season week 1, same as on games.
+// Only synced for leagues whose windowType is "week"; every other league
+// has no week concept to record.
+export const seasonWeeks = pgTable(
+	"season_weeks",
+	{
+		id: uuid("id").primaryKey().defaultRandom(),
+		seasonId: uuid("season_id")
+			.notNull()
+			.references(() => seasons.id, { onDelete: "cascade" }),
+		seasonType: gameSeasonType("season_type").notNull(),
+		weekNumber: integer("week_number").notNull(),
+		startsAt: timestamp("starts_at").notNull(),
+		endsAt: timestamp("ends_at").notNull(),
+	},
+	(t) => [unique().on(t.seasonId, t.seasonType, t.weekNumber)],
+)
+export type SeasonWeek = typeof seasonWeeks.$inferSelect
+
 export const games = pgTable("games", {
 	id: uuid("id").primaryKey().defaultRandom(),
 	leagueId: uuid("league_id")
