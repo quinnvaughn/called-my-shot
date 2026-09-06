@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router"
 import { gqlFetch } from "#/graphql/fetcher"
 import {
-	SitemapLeagueBallotsDocument,
+	SitemapLeagueContentDocument,
 	SitemapLeaguesDocument,
 } from "#/graphql/queries/sitemap"
 
@@ -45,18 +45,31 @@ async function collectPaths(): Promise<string[]> {
 		}
 	}
 
-	// `leagueBallots` takes one league at a time, and there are only ever a
-	// handful of leagues - cheaper to fan out over them than to add a batched
-	// field to the api for this one caller.
-	const ballotsByLeague = await Promise.all(
+	// Every league-scoped field takes one league at a time, and there are only
+	// ever a handful of leagues - cheaper to fan out over them than to add a
+	// batched field to the api for this one caller.
+	//
+	// This is the bulk of the file: a full season is on the order of a few
+	// thousand games across the synced leagues, plus the official question
+	// synced onto each one. Comfortably inside the 50,000-url limit for a
+	// single sitemap, but the season scoping in each resolver is what keeps it
+	// that way - if this ever outgrows one file it needs a sitemap index
+	// rather than a bigger file.
+	const contentByLeague = await Promise.all(
 		listed.map((league) =>
-			gqlFetch(SitemapLeagueBallotsDocument, { leagueId: league.id }),
+			gqlFetch(SitemapLeagueContentDocument, { leagueId: league.id }),
 		),
 	)
 
-	for (const { leagueBallots } of ballotsByLeague) {
-		for (const ballot of leagueBallots) {
+	for (const content of contentByLeague) {
+		for (const ballot of content.leagueBallots) {
 			paths.push(`/ballots/${ballot.slug}`)
+		}
+		for (const game of content.sitemapGames) {
+			paths.push(`/games/${game.id}`)
+		}
+		for (const question of content.sitemapQuestions) {
+			paths.push(`/questions/${question.id}`)
 		}
 	}
 

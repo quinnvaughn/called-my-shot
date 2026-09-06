@@ -293,6 +293,33 @@ builder.queryFields((t) => ({
 		},
 	}),
 
+	// Every official question in the league's current season, for /sitemap.xml
+	// only - unpaginated and filterless for the same reason as sitemapGames
+	// (see it), and scoped the same way.
+	//
+	// Official only, deliberately. Voided questions are hard-deleted (see
+	// questionVoids), so nothing here needs to exclude them - but a
+	// user-created question that simply hasn't been reported yet is still
+	// unreviewed text, and a sitemap entry is this app asking a crawler to
+	// index it. The synced team_vs_team questions and season awards are the
+	// ones worth finding in search anyway.
+	sitemapQuestions: t.field({
+		type: [QuestionRef],
+		args: { leagueId: t.arg.id({ required: true }) },
+		resolve: async (_root, args) => {
+			const currentSeason = await getCurrentSeason(args.leagueId)
+			if (!currentSeason) return []
+			return db.query.questions.findMany({
+				where: {
+					leagueId: args.leagueId,
+					seasonId: currentSeason.id,
+					isOfficial: true,
+				},
+				orderBy: { createdAt: "asc" },
+			})
+		},
+	}),
+
 	// Admin Questions table - every question regardless of status, with real
 	// column sort (unlike the public `questions` field above, which only ever
 	// ranks by MOST_CALLED/NEW/CLOSING_SOON). Its own call-count CTE rather than

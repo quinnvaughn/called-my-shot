@@ -23,6 +23,7 @@ import { useFragment } from "#/graphql/generated"
 import { BallotByRefDocument } from "#/graphql/queries/ballots"
 import { gqlQueryOptions } from "#/graphql/query-options"
 import { computeBallotProgressStats } from "#/lib/ballot-progress-stats"
+import { pageMeta } from "#/lib/meta"
 import { isUuid } from "#/lib/uuid"
 
 const ballotQuery = (ref: string) =>
@@ -59,21 +60,14 @@ export const Route = createFileRoute("/_app/ballots/$ballotSlug")({
 	head: ({ loaderData }) => {
 		const ballot = loaderData?.ballot
 		if (!ballot) return {}
-		const title = `${ballot.name} · Called My Shot`
-		const description = `${ballot.memberCount} question${ballot.memberCount === 1 ? "" : "s"} in the ${ballot.league.name} ${ballot.name}.`
 		// Always the slug url, never the uuid one a request may have arrived
 		// on, so the old links consolidate onto this one rather than being
 		// indexed twice.
-		const url = `https://calledmyshot.com/ballots/${ballot.slug}`
-		return {
-			meta: [
-				{ title },
-				{ name: "description", content: description },
-				{ property: "og:title", content: title },
-				{ property: "og:description", content: description },
-				{ property: "og:url", content: url },
-			],
-		}
+		return pageMeta({
+			title: `${ballot.name} · Called My Shot`,
+			description: `${ballot.memberCount} question${ballot.memberCount === 1 ? "" : "s"} in the ${ballot.league.name} ${ballot.name}.`,
+			path: `/ballots/${ballot.slug}`,
+		})
 	},
 })
 

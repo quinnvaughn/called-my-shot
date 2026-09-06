@@ -13,6 +13,7 @@ import { InfiniteScroll } from "#/components/ui/infinite-scroll"
 import type { QuestionSortOrder } from "#/graphql/generated/graphql"
 import { LeagueFeedDocument } from "#/graphql/queries/sports"
 import { gqlInfiniteQueryOptions } from "#/graphql/query-options"
+import { pageMeta } from "#/lib/meta"
 
 const SORTS: { value: QuestionSortOrder; label: string }[] = [
 	{ value: "CLOSING_SOON", label: "Closing Soon" },
@@ -97,6 +98,14 @@ export const Route = createFileRoute("/_app/leagues/$leagueSlug/feed")({
 		context.queryClient.infiniteQuery(
 			leagueFeedQuery({ leagueId: context.league.id, sort: "CLOSING_SOON" }),
 		),
+	head: ({ match }) => {
+		const league = match.context.league
+		return pageMeta({
+			title: `${league.name} · Feed · Called My Shot`,
+			description: `Every open ${league.name} question in one place - sorted by what's closing soon, what's most called, and what's new.`,
+			path: `/leagues/${league.slug}/feed`,
+		})
+	},
 })
 
 // Everything in this league that isn't a season award single or a ballot

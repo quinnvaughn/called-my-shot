@@ -229,6 +229,24 @@ builder.queryFields((t) => ({
 		},
 	}),
 
+	// Every game in the league's current season, for /sitemap.xml only - which
+	// is why it is unpaginated where `games` above is capped at 20, and why it
+	// takes no filters. A crawler needs the whole set at once; nothing in the
+	// UI should call this. Scoped to the current season rather than all time
+	// so the file doesn't grow without bound as seasons accumulate.
+	sitemapGames: t.field({
+		type: [GameRef],
+		args: { leagueId: t.arg.id({ required: true }) },
+		resolve: async (_root, args) => {
+			const currentSeason = await getCurrentSeason(args.leagueId)
+			if (!currentSeason) return []
+			return db.query.games.findMany({
+				where: { leagueId: args.leagueId, seasonId: currentSeason.id },
+				orderBy: { startsAt: "asc" },
+			})
+		},
+	}),
+
 	// The league room's Games tab (public, not admin-gated - same reasoning as
 	// `league`/`game` above). The bounds of what's steppable through at all -
 	// the stepper UI walks this list rather than computing prev/next by date

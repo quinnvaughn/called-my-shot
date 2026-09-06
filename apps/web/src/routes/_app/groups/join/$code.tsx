@@ -14,6 +14,7 @@ import { GroupPreviewDocument } from "#/graphql/queries/groups"
 import { gqlQueryOptions } from "#/graphql/query-options"
 import { useRequireAuth } from "#/hooks/use-require-auth"
 import { track } from "#/lib/analytics"
+import { pageMeta } from "#/lib/meta"
 import { pluralize } from "#/lib/pluralize"
 
 const groupPreviewQuery = (code: string) =>
@@ -34,22 +35,11 @@ export const Route = createFileRoute("/_app/groups/join/$code")({
 		const preview = loaderData?.preview
 		if (!preview) return {}
 
-		const title = `Join ${preview.name} on Called My Shot`
-		const description = `${preview.invitedBy.name} invited you to join ${preview.name} - ${preview.memberCount} ${pluralize(preview.memberCount, "member")} already calling their shots.`
-		const url = `https://calledmyshot.com/groups/join/${params.code}`
-
-		return {
-			meta: [
-				{ title },
-				{ name: "description", content: description },
-				{ property: "og:title", content: title },
-				{ property: "og:description", content: description },
-				{ property: "og:url", content: url },
-				{ name: "twitter:title", content: title },
-				{ name: "twitter:description", content: description },
-				{ name: "twitter:url", content: url },
-			],
-		}
+		return pageMeta({
+			title: `Join ${preview.name} on Called My Shot`,
+			description: `${preview.invitedBy.name} invited you to join ${preview.name} - ${preview.memberCount} ${pluralize(preview.memberCount, "member")} already calling their shots.`,
+			path: `/groups/join/${params.code}`,
+		})
 	},
 })
 

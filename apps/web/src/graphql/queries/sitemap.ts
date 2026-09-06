@@ -14,14 +14,25 @@ export const SitemapLeaguesDocument = graphql(`
 	}
 `)
 
-// One call per listed league. `leagueBallots` already narrows to published
-// ballots in the current season - the same set the league room's Season tab
-// links to, so the sitemap never advertises a draft or a prior year's award
-// ballot.
-export const SitemapLeagueBallotsDocument = graphql(`
-	query SitemapLeagueBallots($leagueId: ID!) {
+// One call per listed league, covering all three of that league's indexable
+// url families at once rather than a round trip each.
+//
+// Every field here is already scoped to the current season by its own
+// resolver: `leagueBallots` to published ballots (the same set the league
+// room's Season tab links to, so the sitemap never advertises a draft or a
+// prior year's award ballot), and the two sitemap* fields to that season's
+// games and official questions. Nothing but this file should use the
+// sitemap* fields - they are unpaginated by design.
+export const SitemapLeagueContentDocument = graphql(`
+	query SitemapLeagueContent($leagueId: ID!) {
 		leagueBallots(leagueId: $leagueId) {
 			slug
+		}
+		sitemapGames(leagueId: $leagueId) {
+			id
+		}
+		sitemapQuestions(leagueId: $leagueId) {
+			id
 		}
 	}
 `)

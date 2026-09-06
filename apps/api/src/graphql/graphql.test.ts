@@ -4,7 +4,10 @@ import { questions } from "../db/schema"
 import {
 	makeAdmin,
 	makeCall,
+	makeGame,
+	makeLeague,
 	makeQuestion,
+	makeSeason,
 	makeSelection,
 	makeUser,
 	pastDate,
@@ -616,5 +619,105 @@ describe("schema shape", () => {
 			}
 		}`)
 		expect(data.questions.items).toHaveLength(1)
+	})
+})
+
+const SITEMAP_GAMES = /* GraphQL */ `
+	query SitemapGames($leagueId: ID!) {
+		sitemapGames(leagueId: $leagueId) {
+			id
+		}
+	}
+`
+
+const SITEMAP_QUESTIONS = /* GraphQL */ `
+	query SitemapQuestions($leagueId: ID!) {
+		sitemapQuestions(leagueId: $leagueId) {
+			id
+		}
+	}
+`
+
+// A season that ended long ago, so pickCurrentSeason takes the in-progress
+// one the default makeSeason produces rather than this.
+async function makePriorSeason(leagueId: string) {
+	return makeSeason({
+		leagueId,
+		year: 1990,
+		displayName: "1990",
+		regularSeasonStartsAt: pastDate(24 * 800),
+		regularSeasonEndsAt: pastDate(24 * 700),
+	})
+}
+
+describe("Query.sitemapGames", () => {
+	it("lists the current season's games and skips a prior season's", async () => {
+		const league = await makeLeague()
+		const current = await makeSeason({ leagueId: league.id })
+		const prior = await makePriorSeason(league.id)
+		const listed = await makeGame({
+			leagueId: league.id,
+			seasonId: current.id,
+		})
+		await makeGame({ leagueId: league.id, seasonId: prior.id })
+
+		const data = await expectData<{ sitemapGames: { id: string }[] }>(
+			SITEMAP_GAMES,
+			{ variables: { leagueId: league.id } },
+		)
+		expect(data.sitemapGames.map((g) => g.id)).toEqual([listed.id])
+	})
+
+	it("returns nothing for a league with no seasons synced yet", async () => {
+		const league = await makeLeague()
+		const data = await expectData<{ sitemapGames: unknown[] }>(SITEMAP_GAMES, {
+			variables: { leagueId: league.id },
+		})
+		expect(data.sitemapGames).toEqual([])
+	})
+})
+
+describe("Query.sitemapQuestions", () => {
+	it("lists official questions only", async () => {
+		const league = await makeLeague()
+		const season = await makeSeason({ leagueId: league.id })
+		const official = await makeQuestion({
+			leagueId: league.id,
+			seasonId: season.id,
+			isOfficial: true,
+		})
+		await makeQuestion({
+			leagueId: league.id,
+			seasonId: season.id,
+			isOfficial: false,
+		})
+
+		const data = await expectData<{ sitemapQuestions: { id: string }[] }>(
+			SITEMAP_QUESTIONS,
+			{ variables: { leagueId: league.id } },
+		)
+		expect(data.sitemapQuestions.map((q) => q.id)).toEqual([official.id])
+	})
+
+	it("skips a prior season's official questions", async () => {
+		const league = await makeLeague()
+		const current = await makeSeason({ leagueId: league.id })
+		const prior = await makePriorSeason(league.id)
+		const listed = await makeQuestion({
+			leagueId: league.id,
+			seasonId: current.id,
+			isOfficial: true,
+		})
+		await makeQuestion({
+			leagueId: league.id,
+			seasonId: prior.id,
+			isOfficial: true,
+		})
+
+		const data = await expectData<{ sitemapQuestions: { id: string }[] }>(
+			SITEMAP_QUESTIONS,
+			{ variables: { leagueId: league.id } },
+		)
+		expect(data.sitemapQuestions.map((q) => q.id)).toEqual([listed.id])
 	})
 })

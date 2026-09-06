@@ -13,6 +13,7 @@ import { EmptyState } from "#/components/ui/empty-state"
 import { NotFound } from "#/components/ui/not-found"
 import { UserProfileDocument } from "#/graphql/generated/graphql"
 import { gqlQueryOptions } from "#/graphql/query-options"
+import { pageMeta } from "#/lib/meta"
 
 const userProfileQuery = (username: string) =>
 	gqlQueryOptions(UserProfileDocument, { username })
@@ -21,6 +22,37 @@ export const Route = createFileRoute("/_app/user/$username")({
 	component: RouteComponent,
 	loader: ({ context, params }) =>
 		context.queryClient.query(userProfileQuery(params.username)),
+	// A profile link is one of the most pasted urls in the app (there is a
+	// whole share-card flow built around it - see share-image-panel.tsx), and
+	// without this every one of them previewed as the root route's generic
+	// site copy, naming nobody.
+	head: ({ loaderData }) => {
+		const user = loaderData?.userByUsername
+		if (!user) return {}
+
+		// careerStats is null until someone has made a call, and accuracy stays
+		// null until one of those calls resolves - so a brand new profile falls
+		// back to naming the person rather than previewing as a row of zeroes.
+		const stats = user.careerStats
+		const summary = stats
+			? [
+					`${stats.callCount.toLocaleString()} call${stats.callCount === 1 ? "" : "s"}`,
+					stats.accuracy !== null
+						? `${Math.round(stats.accuracy)}% accuracy`
+						: null,
+					`${stats.totalPoints.toLocaleString()} points`,
+					`ranked #${stats.rank}`,
+				]
+					.filter((part) => part !== null)
+					.join(" · ")
+			: "No calls yet"
+
+		return pageMeta({
+			title: `${user.name} (@${user.username}) · Called My Shot`,
+			description: `${user.name} on Called My Shot - ${summary}.`,
+			path: `/user/${user.username}`,
+		})
+	},
 })
 
 function sectionLabel(text: string) {

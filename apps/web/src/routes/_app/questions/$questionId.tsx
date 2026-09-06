@@ -39,6 +39,7 @@ import {
 import { track } from "#/lib/analytics"
 import { safeExternalUrl } from "#/lib/external-url"
 import { formatGuess } from "#/lib/field-signal"
+import { pageMeta } from "#/lib/meta"
 import { questionDetailState } from "#/lib/question-detail-state"
 import { questionShapeLabel } from "#/lib/question-labels"
 import { resolvedAnswerSummary } from "#/lib/resolution-summary"
@@ -84,22 +85,15 @@ export const Route = createFileRoute("/_app/questions/$questionId")({
 		const question = loaderData?.question
 		if (!question) return {}
 
-		const title = question.title
-		const description = `${question.league.abbreviation} · ${questionShapeLabel[question.shape]}: resolves via ${question.resolutionSource}.`
-		const url = `https://calledmyshot.com/questions/${question.id}`
-
-		return {
-			meta: [
-				{ title },
-				{ name: "description", content: description },
-				{ property: "og:title", content: title },
-				{ property: "og:description", content: description },
-				{ property: "og:url", content: url },
-				{ name: "twitter:title", content: title },
-				{ name: "twitter:description", content: description },
-				{ name: "twitter:url", content: url },
-			],
-		}
+		// The bare question title, with no "· Called My Shot" suffix unlike
+		// every other page here - these titles already run long enough to hit
+		// the ~60 characters a search result shows, and the suffix would be the
+		// half that gets cut.
+		return pageMeta({
+			title: question.title,
+			description: `${question.league.abbreviation} · ${questionShapeLabel[question.shape]}: resolves via ${question.resolutionSource}.`,
+			path: `/questions/${question.id}`,
+		})
 	},
 })
 

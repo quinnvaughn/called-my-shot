@@ -12,6 +12,7 @@ import {
 	leagueQuery,
 } from "#/graphql/queries/sports"
 import { gqlQueryOptions } from "#/graphql/query-options"
+import { pageMeta } from "#/lib/meta"
 
 // Stands in for a league with nothing synced yet - no window to step
 // through, so the stepper renders its own empty state instead.
@@ -46,6 +47,17 @@ export const Route = createFileRoute("/_app/leagues/$leagueSlug/games")({
 			),
 			context.queryClient.query(gameWindowsQuery(leagueId)),
 		])
+	},
+	// Each tab is its own url in the sitemap, so without this all three
+	// inherit the league layout's single title/description and land in Search
+	// Console as duplicates of one another.
+	head: ({ match }) => {
+		const league = match.context.league
+		return pageMeta({
+			title: `${league.name} · Games · Called My Shot`,
+			description: `Every ${league.name} game on the board - call a winner, a total, or a player line on any matchup.`,
+			path: `/leagues/${league.slug}/games`,
+		})
 	},
 })
 

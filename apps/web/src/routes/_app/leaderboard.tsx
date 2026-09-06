@@ -11,6 +11,7 @@ import {
 	resolveLeaderboardFilter,
 	validateLeaderboardSearch,
 } from "#/lib/leaderboard-filter"
+import { pageMeta } from "#/lib/meta"
 
 export const Route = createFileRoute("/_app/leaderboard")({
 	component: RouteComponent,
@@ -39,6 +40,17 @@ export const Route = createFileRoute("/_app/leaderboard")({
 			data,
 		)
 	},
+	// No league/season in the title or the canonical url even though both are
+	// in the search params - every filtered board is the same page with a
+	// different scope selected, and pointing them all at the bare url is what
+	// keeps them from competing with each other in search.
+	head: () =>
+		pageMeta({
+			title: "Leaderboard · Called My Shot",
+			description:
+				"Who is actually calling their shots - ranked by points earned across every league, season and question shape.",
+			path: "/leaderboard",
+		}),
 })
 
 function RouteComponent() {

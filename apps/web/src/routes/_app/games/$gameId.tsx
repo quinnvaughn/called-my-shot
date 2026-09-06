@@ -26,6 +26,7 @@ import {
 	gqlInfiniteQueryOptions,
 	gqlQueryOptions,
 } from "#/graphql/query-options"
+import { pageMeta } from "#/lib/meta"
 
 const SORTS: { value: QuestionSortOrder; label: string }[] = [
 	{ value: "MOST_CALLED", label: "Most Called" },
@@ -62,16 +63,11 @@ export const Route = createFileRoute("/_app/games/$gameId")({
 	head: ({ loaderData }) => {
 		const game = loaderData?.game
 		if (!game) return {}
-		const title = `${game.awayTeam.name} @ ${game.homeTeam.name} · Called My Shot`
-		const description = `Call the questions on ${game.awayTeam.name} @ ${game.homeTeam.name}.`
-		return {
-			meta: [
-				{ title },
-				{ name: "description", content: description },
-				{ property: "og:title", content: title },
-				{ property: "og:description", content: description },
-			],
-		}
+		return pageMeta({
+			title: `${game.awayTeam.name} @ ${game.homeTeam.name} · Called My Shot`,
+			description: `Call the questions on ${game.awayTeam.name} @ ${game.homeTeam.name} - the winner, the total, and the player lines.`,
+			path: `/games/${game.id}`,
+		})
 	},
 })
 

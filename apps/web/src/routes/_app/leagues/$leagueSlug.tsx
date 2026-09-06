@@ -13,6 +13,7 @@ import { PageHeader } from "#/components/ui/page-header"
 import { Tabs } from "#/components/ui/tabs"
 import { leagueQuery } from "#/graphql/queries/sports"
 import { gamesInWindowLabel } from "#/lib/game-status"
+import { pageMeta } from "#/lib/meta"
 import { isUuid } from "#/lib/uuid"
 
 export const Route = createFileRoute("/_app/leagues/$leagueSlug")({
@@ -59,24 +60,16 @@ export const Route = createFileRoute("/_app/leagues/$leagueSlug")({
 		const league = loaderData?.league
 		if (!league) return {}
 
-		const title = `${league.name} · Called My Shot`
-		const description = `Every ${league.name} call on the board - game props, season awards, and where the crowd is wrong.`
+		// Only the tabs below are ever indexed (see the sitemap), but this
+		// still covers the bare /leagues/$slug url before its redirect and
+		// serves as the fallback any future tab inherits until it sets its own.
 		// Canonical slug url even when the request arrived on a uuid, so the
 		// old links consolidate onto this one rather than being indexed twice.
-		const url = `https://calledmyshot.com/leagues/${league.slug}`
-
-		return {
-			meta: [
-				{ title },
-				{ name: "description", content: description },
-				{ property: "og:title", content: title },
-				{ property: "og:description", content: description },
-				{ property: "og:url", content: url },
-				{ name: "twitter:title", content: title },
-				{ name: "twitter:description", content: description },
-				{ name: "twitter:url", content: url },
-			],
-		}
+		return pageMeta({
+			title: `${league.name} · Called My Shot`,
+			description: `Every ${league.name} call on the board - game props, season awards, and where the crowd is wrong.`,
+			path: `/leagues/${league.slug}`,
+		})
 	},
 })
 

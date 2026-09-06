@@ -7,6 +7,7 @@ import { QuestionCard } from "#/components/questions/question-card"
 import { EmptyState } from "#/components/ui/empty-state"
 import { LeagueSeasonDocument } from "#/graphql/queries/sports"
 import { gqlQueryOptions } from "#/graphql/query-options"
+import { pageMeta } from "#/lib/meta"
 
 const leagueSeasonQuery = (leagueId: string) =>
 	gqlQueryOptions(LeagueSeasonDocument, { leagueId })
@@ -16,6 +17,14 @@ export const Route = createFileRoute("/_app/leagues/$leagueSlug/season")({
 	staleTime: 0,
 	loader: ({ context }) =>
 		context.queryClient.query(leagueSeasonQuery(context.league.id)),
+	head: ({ match }) => {
+		const league = match.context.league
+		return pageMeta({
+			title: `${league.name} · Season · Called My Shot`,
+			description: `${league.name} season-long calls - award races, championship futures, and the ballots behind them.`,
+			path: `/leagues/${league.slug}/season`,
+		})
+	},
 })
 
 const subHeadClass = css({
