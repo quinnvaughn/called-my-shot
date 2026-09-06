@@ -175,7 +175,7 @@ export const createQuestionSchema = z
 		// player_vs_player (exactly 2, playerId required on each), award pools
 		// (player_season_award/team_season_award, auto-derived client-side from
 		// the full league roster), player_award_finalists (2+, playerId
-		// required on each), player_season_stat_leader (2+, a hand-curated
+		// required on each), player_season_stat_leader (3+, a hand-curated
 		// pool). team_vs_team submits none - the resolver derives its two sides
 		// from the picked game, and player_game_stat_leader's pool is derived
 		// server-side from that game's two rosters.
@@ -595,9 +595,17 @@ export const createQuestionSchema = z
 			// "highest points per game"); a stat that is already a rate measured
 			// across a full season is neither, and forcing one of the two onto it
 			// would put a wrong word in the generated title.
+			//
+			// A minimum of 3, not the 2 every other pool shape takes. A two-name
+			// pool is a head-to-head, and player_vs_player_season already is one
+			// - with a title template written for it ("A vs B: who will have
+			// more X this season?") that reads better than this shape's "among
+			// A and B" ever will, and a requireTwoDistinct check this shape's
+			// requirePool doesn't do. Letting 2 through here would just be a
+			// worse way to ask a question the app already has a shape for.
 			.with("player_season_stat_leader", () => {
 				requireStat()
-				requirePool("player", 2)
+				requirePool("player", 3)
 			})
 			.exhaustive()
 	})

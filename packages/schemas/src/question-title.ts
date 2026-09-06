@@ -196,6 +196,15 @@ function qualifiedAwardName(
 
 // "A or B" / "A, B, or C" - a finalist list is a real either/or question, not
 // a plain enumeration, so it reads as one the way a comma-only join wouldn't.
+// The counterpart to joinWithOr for a list that is being ranked rather than
+// chosen between - "among A, B, and C" takes "and", since the pool is one set
+// being compared, not a menu of alternatives.
+function joinWithAnd(items: string[]): string {
+	if (items.length <= 1) return items.join("")
+	if (items.length === 2) return `${items[0]} and ${items[1]}`
+	return `${items.slice(0, -1).join(", ")}, and ${items[items.length - 1]}`
+}
+
 function joinWithOr(items: string[]): string {
 	if (items.length <= 1) return items.join("")
 	if (items.length === 2) return `${items[0]} or ${items[1]}`
@@ -431,7 +440,16 @@ function titlePlayerSeasonStatLeader(
 		.with("per_game", () => "will average")
 		.with("total", null, () => "will have")
 		.exhaustive()
-	return `Who ${verb} ${comparison} ${statInSentence(input.statName)}${perGame} this season: ${joinWithOr(input.playerNames)}?`
+	// "among <pool>", not the colon-and-or-list that player_award_finalists
+	// uses. That template can pose an unscoped superlative ("who will win the
+	// MVP: A, B, or C?") because the real winner is guaranteed to be one of the
+	// named finalists. This pool carries no such guarantee - it is whoever the
+	// creator felt like naming - so an unscoped "who will have the highest RAPM
+	// this season" invites the league-wide reading, under which the honest
+	// answer can be "none of them". Resolution has no such outcome: it marks an
+	// option in the pool correct. "among" is what makes the title ask the
+	// question that actually gets resolved.
+	return `Who ${verb} ${comparison} ${statInSentence(input.statName)}${perGame} this season among ${joinWithAnd(input.playerNames)}?`
 }
 
 // --- Yes/no ---

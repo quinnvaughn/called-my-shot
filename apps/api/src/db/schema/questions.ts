@@ -52,7 +52,9 @@ export const questionShape = pgEnum("question_shape", [
 	// mechanism the award shapes already use.
 	"player_game_stat_leader",
 	// Season-scoped sibling of player_game_stat_leader - "who puts up the most
-	// X this season" over a hand-curated pool of 2+ players, gameId null. The
+	// X this season" over a hand-curated pool of 3+ players, gameId null (3,
+	// not 2: a two-name pool is a head-to-head, which player_vs_player_season
+	// already covers better). The
 	// pool is the creator's own list rather than a derived roster (there's no
 	// game to derive one from) and the stat may be a customStat, since the
 	// advanced full-season metrics this exists for aren't in the catalog.

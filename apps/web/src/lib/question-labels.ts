@@ -38,7 +38,7 @@ export const questionShapeLabel: Record<QuestionShape, string> = {
 	TEAM_VS_TEAM: "Team vs Team",
 	TEAM_VS_TEAM_SEASON: "Team Season Head-to-Head",
 	PLAYER_GAME_STAT_LEADER: "Game Stat Leader",
-	PLAYER_SEASON_STAT_LEADER: "Season Stat Leader",
+	PLAYER_SEASON_STAT_LEADER: "Player Season Multi-Way",
 	YES_NO_PROP: "Yes/No",
 	PLAYER_SEASON_AWARD: "Player Season Award",
 	TEAM_SEASON_AWARD: "Team Season Award",
@@ -116,7 +116,12 @@ export const shareCardShapeLabel: Record<QuestionShape, string> = {
 	TEAM_VS_TEAM: "Game Outcome",
 	TEAM_VS_TEAM_SEASON: "Head-to-Head",
 	PLAYER_GAME_STAT_LEADER: "Stat Leader",
-	PLAYER_SEASON_STAT_LEADER: "Stat Leader",
+	// Not "Stat Leader" like the game-scoped shape above, which really is a
+	// leaderboard over both full rosters. This one ranks a creator-named
+	// handful, and a badge reading "Stat Leader" on a share card - where
+	// there's no picker description to correct it - invites the league-wide
+	// reading the shape's title works to rule out.
+	PLAYER_SEASON_STAT_LEADER: "Multi-Way",
 	YES_NO_PROP: "Yes/No",
 	PLAYER_SEASON_AWARD: "Season Award",
 	TEAM_SEASON_AWARD: "Season Award",
@@ -156,7 +161,7 @@ export const questionShapeDescription: Record<QuestionShape, string> = {
 	PLAYER_GAME_STAT_LEADER:
 		"One stat, one game, both rosters: who leads it. Resolution can mark more than one player correct on a real tie.",
 	PLAYER_SEASON_STAT_LEADER:
-		"A handful of named players, one stat, the whole season: who finishes on top. Takes an off-catalog stat, so advanced metrics work here.",
+		"Three or more named players, one stat, the whole season: which of them finishes on top - always one of the names you pick, not the league leader. Off-catalog stats allowed, so advanced metrics work.",
 	YES_NO_PROP:
 		"Will it happen or not: a triple-double, a buzzer-beater, anything with a clean yes or no.",
 	PLAYER_SEASON_AWARD:

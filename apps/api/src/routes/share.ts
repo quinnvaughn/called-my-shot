@@ -56,7 +56,9 @@ const SHAPE_LABEL: Record<QuestionShape, string> = {
 	team_vs_team: "Game Outcome",
 	team_vs_team_season: "Head-to-Head",
 	player_game_stat_leader: "Stat Leader",
-	player_season_stat_leader: "Stat Leader",
+	// See the matching entry in shareCardShapeLabel (apps/web/src/lib/
+	// question-labels.ts) for why this one isn't "Stat Leader" too.
+	player_season_stat_leader: "Multi-Way",
 	yes_no_prop: "Yes/No",
 	player_season_award: "Season Award",
 	team_season_award: "Season Award",

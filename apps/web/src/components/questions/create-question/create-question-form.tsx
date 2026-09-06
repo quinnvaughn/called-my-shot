@@ -987,7 +987,7 @@ export function CreateQuestionForm({ sports, isAdmin, lockedBallotId }: Props) {
 			const names = options
 				.map((option) => option.label)
 				.filter((label) => label.trim().length > 0)
-			return names.length >= 2 && statName
+			return names.length >= 3 && statName
 				? generateQuestionTitle({
 						shape: s,
 						playerNames: names,
@@ -1388,8 +1388,9 @@ export function CreateQuestionForm({ sports, isAdmin, lockedBallotId }: Props) {
 												className={css({ fontSize: "xs", color: "fg.subtle" })}
 											>
 												Season-long, no game attached - name the players
-												yourself, as many as the question needs. Off-catalog
-												stats are allowed here, so advanced metrics work.
+												yourself, three or more. Off-catalog stats are allowed
+												here, so advanced metrics work. For just two, use Player
+												Season Head-to-Head instead.
 											</p>
 										</VStack>
 									</Card.Body>
