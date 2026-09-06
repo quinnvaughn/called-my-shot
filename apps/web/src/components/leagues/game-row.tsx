@@ -6,8 +6,12 @@ import { Card } from "#/components/ui/card"
 import { TeamBadge } from "#/components/ui/team-badge"
 import type { GameStatus } from "#/graphql/generated/graphql"
 import { gameScoreLabel, gameTimeLabel } from "#/lib/game-status"
+import { buildGameSlug } from "#/lib/slug"
 
 type Props = {
+	// The league room already knows which league it is rendering; the game
+	// rows themselves don't carry it, and buildGameSlug needs it.
+	leagueSlug: string
 	game: {
 		id: string
 		status: GameStatus
@@ -38,14 +42,17 @@ function questionsSubline(
 // tapping into. Not GameBlock (components/questions/game-block.tsx): that's a
 // compact inline badge built for sitting inside a question/call card, too
 // small to carry team names or the counts this tab needs.
-export function GameRow({ game }: Props) {
+export function GameRow({ game, leagueSlug }: Props) {
 	const live = game.status === "LIVE"
 	const final = game.status === "FINAL"
 
 	return (
 		<Link
-			to="/games/$gameId"
-			params={{ gameId: game.id }}
+			to="/games/$gameId/{-$slug}"
+			params={{
+				gameId: game.id,
+				slug: buildGameSlug({ ...game, league: { slug: leagueSlug } }),
+			}}
 			className={css({ display: "block" })}
 		>
 			<Card interactive size="sm">

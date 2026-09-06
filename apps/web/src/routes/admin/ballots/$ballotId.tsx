@@ -131,7 +131,7 @@ function MemberRow({
 			</TextInput>
 			<VStack gap="0.5" alignItems="flex-start" flex="1" minWidth="0">
 				<Link
-					to="/questions/$questionId"
+					to="/questions/$questionId/{-$slug}"
 					params={{ questionId: member.question.id }}
 					className={css({
 						fontSize: "sm",

@@ -77,7 +77,7 @@ export function GameWinnerCard({ question: questionProp }: Props) {
 
 	return (
 		<Link
-			to="/questions/$questionId"
+			to="/questions/$questionId/{-$slug}"
 			params={{ questionId: question.id }}
 			className={css({
 				display: "block",

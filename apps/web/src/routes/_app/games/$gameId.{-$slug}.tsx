@@ -3,7 +3,7 @@ import {
 	useInfiniteQuery,
 	useSuspenseQuery,
 } from "@tanstack/react-query"
-import { createFileRoute, Link } from "@tanstack/react-router"
+import { createFileRoute, Link, redirect } from "@tanstack/react-router"
 import { useState } from "react"
 import { FaRegTimesCircle } from "react-icons/fa"
 import { FiChevronLeft } from "react-icons/fi"
@@ -27,6 +27,7 @@ import {
 	gqlQueryOptions,
 } from "#/graphql/query-options"
 import { pageMeta } from "#/lib/meta"
+import { buildGameSlug } from "#/lib/slug"
 
 const SORTS: { value: QuestionSortOrder; label: string }[] = [
 	{ value: "MOST_CALLED", label: "Most Called" },
@@ -46,7 +47,7 @@ const gameQuestionsQuery = (gameId: string, sort: QuestionSortOrder) =>
 		(data) => data.questions,
 	)
 
-export const Route = createFileRoute("/_app/games/$gameId")({
+export const Route = createFileRoute("/_app/games/$gameId/{-$slug}")({
 	component: RouteComponent,
 	staleTime: 0,
 	// head() can only read loaderData, so the meta-tag fields come back from
@@ -58,6 +59,25 @@ export const Route = createFileRoute("/_app/games/$gameId")({
 				gameQuestionsQuery(params.gameId, "MOST_CALLED"),
 			),
 		])
+
+		// The slug is decorative - the id ahead of it is what identifies the
+		// game - so a missing or stale one is corrected here rather than 404ing.
+		// 302, deliberately not 301: startsAt is rewritten on every sync pass
+		// (a postponed game moves days), so this target genuinely changes, and a
+		// browser that cached a 301 would pin visitors to the old date forever.
+		// rel=canonical in the head below is what carries the consolidation to
+		// crawlers instead.
+		const game = gameData.game
+		if (game) {
+			const slug = buildGameSlug(game)
+			if (params.slug !== slug) {
+				throw redirect({
+					to: "/games/$gameId/{-$slug}",
+					params: { gameId: game.id, slug },
+					statusCode: 302,
+				})
+			}
+		}
 		return { game: gameData.game ?? null }
 	},
 	head: ({ loaderData }) => {
@@ -66,7 +86,7 @@ export const Route = createFileRoute("/_app/games/$gameId")({
 		return pageMeta({
 			title: `${game.awayTeam.name} @ ${game.homeTeam.name} · Called My Shot`,
 			description: `Call the questions on ${game.awayTeam.name} @ ${game.homeTeam.name} - the winner, the total, and the player lines.`,
-			path: `/games/${game.id}`,
+			path: `/games/${game.id}/${buildGameSlug(game)}`,
 		})
 	},
 })

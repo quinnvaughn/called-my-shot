@@ -17,6 +17,10 @@ export const SitemapLeaguesDocument = graphql(`
 // One call per listed league, covering all three of that league's indexable
 // url families at once rather than a round trip each.
 //
+// The extra fields beyond `id` are what buildGameSlug/buildQuestionSlug need
+// to reproduce each page's canonical url - the slug is derived, never stored,
+// so there is nothing to just read back.
+//
 // Every field here is already scoped to the current season by its own
 // resolver: `leagueBallots` to published ballots (the same set the league
 // room's Season tab links to, so the sitemap never advertises a draft or a
@@ -30,9 +34,20 @@ export const SitemapLeagueContentDocument = graphql(`
 		}
 		sitemapGames(leagueId: $leagueId) {
 			id
+			startsAt
+			league {
+				slug
+			}
+			homeTeam {
+				name
+			}
+			awayTeam {
+				name
+			}
 		}
 		sitemapQuestions(leagueId: $leagueId) {
 			id
+			title
 		}
 	}
 `)

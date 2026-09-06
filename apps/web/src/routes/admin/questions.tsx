@@ -164,7 +164,7 @@ function RouteComponent() {
 								<Table.Cell>
 									<Link
 										className={css({ _hover: { textDecoration: "underline" } })}
-										to="/questions/$questionId"
+										to="/questions/$questionId/{-$slug}"
 										params={{ questionId: question.id }}
 									>
 										{question.title}

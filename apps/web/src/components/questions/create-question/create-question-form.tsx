@@ -367,7 +367,7 @@ export function CreateQuestionForm({ sports, isAdmin, lockedBallotId }: Props) {
 					await queryClient.invalidateQueries()
 					await router.invalidate()
 					await navigate({
-						to: "/questions/$questionId",
+						to: "/questions/$questionId/{-$slug}",
 						params: { questionId: r.question.id },
 					})
 				})

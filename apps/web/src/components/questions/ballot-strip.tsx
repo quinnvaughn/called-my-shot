@@ -13,6 +13,7 @@ import {
 	type BallotMemberState,
 	ballotMemberState,
 } from "#/lib/ballot-member-state"
+import { buildQuestionSlug } from "#/lib/slug"
 
 export const BallotStripFragment = graphql(`
 	fragment BallotStrip_question on Question {
@@ -298,15 +299,23 @@ function BallotChip({
 	state,
 	isCurrent,
 }: {
-	member: { id: string; slot?: string | null; label: string; question: { id: string } }
+	member: {
+		id: string
+		slot?: string | null
+		label: string
+		question: { id: string; title: string }
+	}
 	index: number
 	state: BallotMemberState
 	isCurrent: boolean
 }) {
 	return (
 		<Link
-			to="/questions/$questionId"
-			params={{ questionId: member.question.id }}
+			to="/questions/$questionId/{-$slug}"
+			params={{
+				questionId: member.question.id,
+				slug: buildQuestionSlug(member.question.title),
+			}}
 			title={`${member.label} — ${state}`}
 			className={cx(
 				css({
@@ -621,8 +630,11 @@ export function BallotStrip({ question: questionProp }: Props) {
 											</span>
 										)}
 									<Link
-										to="/questions/$questionId"
-										params={{ questionId: member.question.id }}
+										to="/questions/$questionId/{-$slug}"
+										params={{
+											questionId: member.question.id,
+											slug: buildQuestionSlug(member.question.title),
+										}}
 										className={css({
 											display: "flex",
 											alignItems: "center",
@@ -692,8 +704,11 @@ export function BallotStrip({ question: questionProp }: Props) {
 					<HStack gap="2" alignItems="stretch">
 						{prev ? (
 							<Link
-								to="/questions/$questionId"
-								params={{ questionId: prev.question.id }}
+								to="/questions/$questionId/{-$slug}"
+								params={{
+									questionId: prev.question.id,
+									slug: buildQuestionSlug(prev.question.title),
+								}}
 								className={cx(navBoxClass, navBoxLinkClass)}
 							>
 								<FiChevronLeft className={navArrowClass} />
@@ -711,8 +726,11 @@ export function BallotStrip({ question: questionProp }: Props) {
 						)}
 						{next ? (
 							<Link
-								to="/questions/$questionId"
-								params={{ questionId: next.question.id }}
+								to="/questions/$questionId/{-$slug}"
+								params={{
+									questionId: next.question.id,
+									slug: buildQuestionSlug(next.question.title),
+								}}
 								className={cx(
 									navBoxClass,
 									navBoxLinkClass,
@@ -766,8 +784,11 @@ export function BallotStrip({ question: questionProp }: Props) {
 
 					{nextUnanswered && (
 						<Link
-							to="/questions/$questionId"
-							params={{ questionId: nextUnanswered.question.id }}
+							to="/questions/$questionId/{-$slug}"
+							params={{
+								questionId: nextUnanswered.question.id,
+								slug: buildQuestionSlug(nextUnanswered.question.title),
+							}}
 							className={css({
 								display: "flex",
 								alignItems: "center",

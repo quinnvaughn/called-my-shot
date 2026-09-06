@@ -87,7 +87,7 @@ function RouteComponent() {
 										className={css({ minWidth: 0 })}
 									>
 										<Link
-											to="/questions/$questionId"
+											to="/questions/$questionId/{-$slug}"
 											params={{ questionId: dispute.question.id }}
 											className={css({
 												fontSize: "sm",

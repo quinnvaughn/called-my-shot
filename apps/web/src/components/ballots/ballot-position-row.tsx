@@ -14,6 +14,7 @@ import { callersText, formatGuess } from "#/lib/field-signal"
 import { questionDetailState } from "#/lib/question-detail-state"
 import { isNumericQuestionShape } from "#/lib/question-labels"
 import { tierFor } from "#/lib/scoring"
+import { buildQuestionSlug } from "#/lib/slug"
 
 export const BallotPositionRowFragment = graphql(`
 	fragment BallotPositionRow_member on BallotQuestion {
@@ -188,8 +189,11 @@ export function BallotPositionRow({ member: memberProp }: Props) {
 
 	return (
 		<Link
-			to="/questions/$questionId"
-			params={{ questionId: question.id }}
+			to="/questions/$questionId/{-$slug}"
+			params={{
+				questionId: question.id,
+				slug: buildQuestionSlug(question.title),
+			}}
 			className={css({
 				display: "flex",
 				gap: "3",

@@ -30,7 +30,7 @@ export function CallResolvedRow({
 	const n = useFragment(CallResolvedRowFragment, notificationProp)
 	const result = n.pointsDelta !== null ? resultState(n.pointsDelta) : null
 	const target: Target = n.question
-		? { to: "/questions/$questionId", params: { questionId: n.question.id } }
+		? { to: "/questions/$questionId/{-$slug}", params: { questionId: n.question.id } }
 		: null
 
 	return (

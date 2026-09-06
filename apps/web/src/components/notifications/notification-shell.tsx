@@ -9,7 +9,7 @@ import { Card } from "#/components/ui/card"
 // spelled out rather than a bare `{ to: string }` so this stays assignable to
 // Link's strictly-typed `to` prop without a cast.
 export type Target =
-	| { to: "/questions/$questionId"; params: { questionId: string } }
+	| { to: "/questions/$questionId/{-$slug}"; params: { questionId: string } }
 	| { to: "/groups/$groupId"; params: { groupId: string } }
 	| null
 

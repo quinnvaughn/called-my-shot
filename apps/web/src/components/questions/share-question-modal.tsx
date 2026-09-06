@@ -15,6 +15,7 @@ import { questionDetailQuery } from "#/graphql/queries/question"
 import { gqlQueryKey } from "#/graphql/query-options"
 import { track } from "#/lib/analytics"
 import { pluralize } from "#/lib/pluralize"
+import { questionPath } from "#/lib/slug"
 
 // Deliberately not MyGroupsDocument - that one spreads GroupCard_group, which
 // pulls the whole card's worth of leaderboard/member data for a list that
@@ -88,8 +89,11 @@ export function ShareQuestionModal({
 	})
 	const groups = data?.myGroups ?? []
 
-	const shareUrl = `${window.location.origin}/questions/${questionId}`
-	const displayUrl = `${window.location.host}/questions/${questionId}`
+	// The slug form, since this is the url people actually paste - the bare
+	// id would just bounce the recipient through a redirect to get here.
+	const sharePath = questionPath({ id: questionId, title: questionTitle })
+	const shareUrl = `${window.location.origin}${sharePath}`
+	const displayUrl = `${window.location.host}${sharePath}`
 
 	function handleCopy() {
 		navigator.clipboard.writeText(shareUrl)

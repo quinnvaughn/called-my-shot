@@ -4,6 +4,7 @@ import { VStack } from "styled-system/jsx"
 import { match } from "ts-pattern"
 import { Card } from "#/components/ui/card"
 import { type FragmentType, graphql, useFragment } from "#/graphql/generated"
+import { buildQuestionSlug } from "#/lib/slug"
 import { CallLockedBox } from "./call-locked-box"
 import { CardRule } from "./card-rule"
 import { CaseBlock } from "./case-block"
@@ -97,8 +98,11 @@ export function CallCard({ call: callProp }: CallCardProps) {
 
 	return (
 		<Link
-			to="/questions/$questionId"
-			params={{ questionId: call.question.id }}
+			to="/questions/$questionId/{-$slug}"
+			params={{
+				questionId: call.question.id,
+				slug: buildQuestionSlug(call.question.title),
+			}}
 			className={css({
 				display: "block",
 				textDecoration: "none",

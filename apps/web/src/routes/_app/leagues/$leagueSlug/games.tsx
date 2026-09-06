@@ -63,6 +63,7 @@ export const Route = createFileRoute("/_app/leagues/$leagueSlug/games")({
 
 function RouteComponent() {
 	const { windowKey } = Route.useSearch()
+	const { leagueSlug } = Route.useParams()
 	const { league: contextLeague } = Route.useRouteContext()
 	const { data: windowData } = useSuspenseQuery(
 		gamesForWindowQuery(contextLeague.id, windowKey ?? null),
@@ -217,7 +218,7 @@ function RouteComponent() {
 							</HStack>
 						)}
 						{group.games.map((game) => (
-							<GameRow key={game.id} game={game} />
+							<GameRow key={game.id} game={game} leagueSlug={leagueSlug} />
 						))}
 					</VStack>
 				))

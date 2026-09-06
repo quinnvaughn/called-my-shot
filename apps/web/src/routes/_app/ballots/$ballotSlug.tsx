@@ -202,7 +202,7 @@ function RouteComponent() {
 
 			{stats.nextUncalled && (
 				<Link
-					to="/questions/$questionId"
+					to="/questions/$questionId/{-$slug}"
 					params={{ questionId: stats.nextUncalled.question.id }}
 					className={css({
 						display: "flex",

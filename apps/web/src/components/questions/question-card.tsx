@@ -5,6 +5,7 @@ import { Card } from "#/components/ui/card"
 import { type FragmentType, graphql, useFragment } from "#/graphql/generated"
 import { fieldSignal } from "#/lib/field-signal"
 import { AWAITING_RESULT_TEXT } from "#/lib/question-labels"
+import { buildQuestionSlug } from "#/lib/slug"
 import { CardRule } from "./card-rule"
 import { LockLine } from "./lock-line"
 import { LockedBadge } from "./locked-badge"
@@ -94,8 +95,11 @@ export function QuestionCard({
 
 	return (
 		<Link
-			to="/questions/$questionId"
-			params={{ questionId: question.id }}
+			to="/questions/$questionId/{-$slug}"
+			params={{
+				questionId: question.id,
+				slug: buildQuestionSlug(question.title),
+			}}
 			className={css({
 				display: "block",
 				height: "full",

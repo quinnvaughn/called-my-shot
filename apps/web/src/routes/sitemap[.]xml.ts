@@ -4,6 +4,7 @@ import {
 	SitemapLeagueContentDocument,
 	SitemapLeaguesDocument,
 } from "#/graphql/queries/sitemap"
+import { buildGameSlug, questionPath } from "#/lib/slug"
 
 // Sitemap entries have to be absolute, and the host a crawler asks on isn't
 // necessarily the one it should index (Fly's *.fly.dev name, a preview
@@ -65,11 +66,13 @@ async function collectPaths(): Promise<string[]> {
 		for (const ballot of content.leagueBallots) {
 			paths.push(`/ballots/${ballot.slug}`)
 		}
+		// The slug form, matching what each page declares as its canonical url -
+		// listing the bare id form instead would point every crawl at a redirect.
 		for (const game of content.sitemapGames) {
-			paths.push(`/games/${game.id}`)
+			paths.push(`/games/${game.id}/${buildGameSlug(game)}`)
 		}
 		for (const question of content.sitemapQuestions) {
-			paths.push(`/questions/${question.id}`)
+			paths.push(questionPath(question))
 		}
 	}
 

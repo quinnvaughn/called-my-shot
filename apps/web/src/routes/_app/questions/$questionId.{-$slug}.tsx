@@ -2,6 +2,7 @@ import { useSuspenseQuery } from "@tanstack/react-query"
 import {
 	createFileRoute,
 	Link,
+	redirect,
 	useRouteContext,
 	useRouter,
 } from "@tanstack/react-router"
@@ -43,6 +44,7 @@ import { pageMeta } from "#/lib/meta"
 import { questionDetailState } from "#/lib/question-detail-state"
 import { questionShapeLabel } from "#/lib/question-labels"
 import { resolvedAnswerSummary } from "#/lib/resolution-summary"
+import { buildQuestionSlug, questionPath } from "#/lib/slug"
 import { openModal } from "#/stores/modal-store"
 
 function sectionLabel(text: string) {
@@ -61,7 +63,7 @@ function sectionLabel(text: string) {
 	)
 }
 
-export const Route = createFileRoute("/_app/questions/$questionId")({
+export const Route = createFileRoute("/_app/questions/$questionId/{-$slug}")({
 	component: RouteComponent,
 	// Without this, navigating between two questions on this same route (e.g.
 	// a BallotStrip link) doesn't remount RouteComponent - only the loader data
@@ -79,6 +81,24 @@ export const Route = createFileRoute("/_app/questions/$questionId")({
 			context.queryClient.query(questionDetailQuery(params.questionId)),
 			context.queryClient.infiniteQuery(questionCallsQuery(params.questionId)),
 		])
+
+		// Same reasoning as the game route's redirect: the slug is decorative
+		// and the id identifies the question, so a missing or stale one is
+		// corrected rather than 404ing. 302 rather than 301 because the title
+		// this is built from is editable - editQuestionTitle exists precisely
+		// to revise a bad one - and a cached 301 would outlive the edit.
+		const question = detail.question
+		if (question) {
+			const slug = buildQuestionSlug(question.title)
+			if (params.slug !== slug) {
+				throw redirect({
+					to: "/questions/$questionId/{-$slug}",
+					params: { questionId: question.id, slug },
+					statusCode: 302,
+				})
+			}
+		}
+
 		return { question: detail.question ?? null }
 	},
 	head: ({ loaderData }) => {
@@ -92,7 +112,7 @@ export const Route = createFileRoute("/_app/questions/$questionId")({
 		return pageMeta({
 			title: question.title,
 			description: `${question.league.abbreviation} · ${questionShapeLabel[question.shape]}: resolves via ${question.resolutionSource}.`,
-			path: `/questions/${question.id}`,
+			path: questionPath(question),
 		})
 	},
 })
