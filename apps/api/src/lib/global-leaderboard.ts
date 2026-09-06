@@ -13,8 +13,10 @@ export type LeaderboardEntry = {
 }
 
 // Site-wide ranking across every registered user, not just one group's
-// members. leagueId narrows to calls on questions in that league only, same
-// as the group version (types/group.ts). Unlike the group leaderboard -
+// members. leagueId narrows to calls on questions in that league only, and
+// seasonIds to calls in those seasons, same as the group version
+// (types/group.ts) - omitting both ranks every league, all time, which is
+// what the career-stats callers want. Unlike the group leaderboard -
 // which seeds every member at 0 so a quiet member still shows up in their
 // own group - this only includes users with at least one call: a public
 // board listing every zero-point registered account would be noise, not
@@ -34,9 +36,9 @@ export type LeaderboardEntry = {
 // LeaderboardEntry.user returns a User - so a shared, dependency-free home
 // for the business logic avoids a circular module import).
 export async function buildGlobalLeaderboard(
-	leagueId?: string | null,
+	options: { leagueId?: string | null; seasonIds?: string[] | null } = {},
 ): Promise<LeaderboardEntry[]> {
-	const agg = await aggregatePointsByUser({ leagueId })
+	const agg = await aggregatePointsByUser(options)
 	if (agg.size === 0) return []
 
 	const userRows = await db.query.users.findMany({

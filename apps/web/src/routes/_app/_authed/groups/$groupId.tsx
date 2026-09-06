@@ -26,24 +26,44 @@ import { Button } from "#/components/ui/button"
 import { NotFound } from "#/components/ui/not-found"
 import { PageHeader } from "#/components/ui/page-header"
 import { Tabs } from "#/components/ui/tabs"
-import { GroupDetailDocument } from "#/graphql/generated/graphql"
+import {
+	GroupDetailDocument,
+	type SeasonFilterInput,
+} from "#/graphql/generated/graphql"
 import { gqlQueryOptions, seedInfiniteQuery } from "#/graphql/query-options"
+import {
+	resolveLeaderboardFilter,
+	validateLeaderboardSearch,
+} from "#/lib/leaderboard-filter"
 import { pluralize } from "#/lib/pluralize"
 import { openModal } from "#/stores/modal-store"
 
-const groupDetailQuery = (groupId: string) =>
-	gqlQueryOptions(GroupDetailDocument, { groupId })
+const groupDetailQuery = (
+	groupId: string,
+	leagueId: string | null,
+	season: SeasonFilterInput,
+) => gqlQueryOptions(GroupDetailDocument, { groupId, leagueId, season })
 
 export const Route = createFileRoute("/_app/_authed/groups/$groupId")({
 	component: RouteComponent,
+	validateSearch: validateLeaderboardSearch,
+	loaderDeps: ({ search }) => ({
+		league: search.league,
+		season: search.season,
+	}),
 	// Every list on this page gets its first page as an aliased field of one
 	// query (see GroupDetailDocument), so those pages are handed to the
 	// infinite caches the lists paginate with rather than costing a request
-	// each. The leaderboard is seeded for the "All" league only - picking a
-	// league is a different key and fetches on its own.
-	loader: async ({ context, params }) => {
+	// each. The leaderboard is seeded for whatever scope the URL asks for, so
+	// a shared link to a filtered board loads that board directly; the leagues
+	// (and their seasons) that turn the URL's slug/year into ids come from
+	// _app's router context - see lib/leaderboard-filter.ts.
+	loader: async ({ context, params, deps }) => {
 		const { groupId } = params
-		const data = await context.queryClient.query(groupDetailQuery(groupId))
+		const filter = resolveLeaderboardFilter(context.leagues, deps)
+		const data = await context.queryClient.query(
+			groupDetailQuery(groupId, filter.leagueId, filter.season),
+		)
 		const group = data.group
 		if (!group) return
 
@@ -58,7 +78,7 @@ export const Route = createFileRoute("/_app/_authed/groups/$groupId")({
 		})
 		seedInfiniteQuery(
 			context.queryClient,
-			groupLeaderboardQuery(groupId, null),
+			groupLeaderboardQuery(groupId, filter.leagueId, filter.season),
 			{
 				group: {
 					id: group.id,
@@ -75,9 +95,14 @@ function RouteComponent() {
 		"answered",
 	)
 	const { groupId } = Route.useParams()
-	const { data } = useSuspenseQuery(groupDetailQuery(groupId))
+	const search = Route.useSearch()
+	const navigate = Route.useNavigate()
+	const { leagues } = Route.useRouteContext()
+	const filter = resolveLeaderboardFilter(leagues, search)
+	const { data } = useSuspenseQuery(
+		groupDetailQuery(groupId, filter.leagueId, filter.season),
+	)
 	const group = data.group
-	const leagues = data.leagues
 	const { me } = useRouteContext({ from: "__root__" })
 
 	if (!group) {
@@ -123,6 +148,8 @@ function RouteComponent() {
 			<GroupLeaderboard
 				groupId={group.id}
 				leagues={leagues}
+				filter={filter}
+				onFilterChange={(next) => navigate({ search: next })}
 				viewerId={me?.id}
 			/>
 			<VStack alignItems="stretch" gap="3">

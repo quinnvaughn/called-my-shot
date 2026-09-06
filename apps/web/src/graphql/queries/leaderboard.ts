@@ -1,4 +1,5 @@
 import { graphql } from "#/graphql/generated"
+import type { SeasonFilterInput } from "#/graphql/generated/graphql"
 import {
 	gqlInfiniteQueryOptions,
 	gqlQueryOptions,
@@ -19,12 +20,17 @@ export const LeaderboardEntryFragment = graphql(`
 	}
 `)
 
-// Standalone from LeaderboardPageDocument - the league tabs and "show more"
+// Standalone from LeaderboardPageDocument - the filters and the "show more"
 // button both need to refetch this (and the viewer's own row, which moves
-// with the league too) on their own without touching the page's leagues list.
+// with the scope too) on their own without touching the page's leagues list.
 export const LeaderboardDocument = graphql(`
-	query Leaderboard($leagueId: ID, $after: String) {
-		leaderboard(first: 10, leagueId: $leagueId, after: $after) {
+	query Leaderboard($leagueId: ID, $season: SeasonFilterInput, $after: String) {
+		leaderboard(
+			first: 10
+			leagueId: $leagueId
+			season: $season
+			after: $after
+		) {
 			items {
 				rank
 				user {
@@ -37,21 +43,19 @@ export const LeaderboardDocument = graphql(`
 				endCursor
 			}
 		}
-		viewerLeaderboardEntry(leagueId: $leagueId) {
+		viewerLeaderboardEntry(leagueId: $leagueId, season: $season) {
 			...Leaderboard_entry
 		}
 	}
 `)
 
+// Takes the same scope as LeaderboardDocument so its embedded first page is
+// the one the route actually renders (the loader seeds the infinite cache
+// with it) - a link to a filtered board shouldn't have to fetch the default
+// board first.
 export const LeaderboardPageDocument = graphql(`
-	query LeaderboardPage {
-		leagues {
-			id
-			name
-			abbreviation
-			slug
-		}
-		leaderboard(first: 10) {
+	query LeaderboardPage($leagueId: ID, $season: SeasonFilterInput) {
+		leaderboard(first: 10, leagueId: $leagueId, season: $season) {
 			items {
 				rank
 				user {
@@ -64,17 +68,23 @@ export const LeaderboardPageDocument = graphql(`
 				endCursor
 			}
 		}
-		viewerLeaderboardEntry {
+		viewerLeaderboardEntry(leagueId: $leagueId, season: $season) {
 			...Leaderboard_entry
 		}
 	}
 `)
 
-export const leaderboardPageQuery = gqlQueryOptions(LeaderboardPageDocument, {})
+export const leaderboardPageQuery = (
+	leagueId: string | null,
+	season: SeasonFilterInput,
+) => gqlQueryOptions(LeaderboardPageDocument, { leagueId, season })
 
-export const leaderboardQuery = (leagueId: string | null) =>
+export const leaderboardQuery = (
+	leagueId: string | null,
+	season: SeasonFilterInput,
+) =>
 	gqlInfiniteQueryOptions(
 		LeaderboardDocument,
-		{ leagueId },
+		{ leagueId, season },
 		(data) => data.leaderboard,
 	)

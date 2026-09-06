@@ -7,20 +7,34 @@ import {
 	decodeOffsetCursor,
 	encodeOffsetCursor,
 } from "../../lib/pagination"
+import {
+	resolveSeasonIds,
+	type SeasonFilter,
+	seasonFilterKey,
+} from "../../lib/seasons"
 import { builder } from "../builder"
 import type { Context } from "../context"
 import { PageInfoRef } from "./pagination"
+import { SeasonFilterInput, toSeasonFilter } from "./season-filter"
 import { UserRef } from "./user"
 
 // leaderboard and viewerLeaderboardEntry both need the full ranking for the
-// same leagueId on the same request (a LeaderboardPage load fires both) -
-// this shares one in-flight buildGlobalLeaderboard call between them instead
-// of each independently re-aggregating and re-sorting from scratch.
-function getGlobalLeaderboard(ctx: Context, leagueId?: string | null) {
-	const key = leagueId ?? ""
+// same scope on the same request (a LeaderboardPage load fires both) - this
+// shares one in-flight buildGlobalLeaderboard call between them instead of
+// each independently re-aggregating and re-sorting from scratch. The season
+// filter is part of the key for the same reason leagueId is: two fields
+// asking for different scopes must not share one ranking.
+function getGlobalLeaderboard(
+	ctx: Context,
+	leagueId: string | null,
+	season: SeasonFilter,
+) {
+	const key = `${leagueId ?? ""}:${seasonFilterKey(season)}`
 	let cached = ctx.globalLeaderboardCache.get(key)
 	if (!cached) {
-		cached = buildGlobalLeaderboard(leagueId)
+		cached = resolveSeasonIds(season, leagueId).then((seasonIds) =>
+			buildGlobalLeaderboard({ leagueId, seasonIds }),
+		)
 		ctx.globalLeaderboardCache.set(key, cached)
 	}
 	return cached
@@ -64,9 +78,14 @@ builder.queryFields((t) => ({
 			first: t.arg.int(),
 			after: t.arg.string(),
 			leagueId: t.arg.id(),
+			season: t.arg({ type: SeasonFilterInput, required: false }),
 		},
 		resolve: async (_root, args, ctx) => {
-			const entries = await getGlobalLeaderboard(ctx, args.leagueId)
+			const entries = await getGlobalLeaderboard(
+				ctx,
+				args.leagueId ?? null,
+				toSeasonFilter(args.season),
+			)
 			const limit = clampPageSize(args.first)
 			const afterRank = args.after ? decodeOffsetCursor(args.after) : 0
 			const items = entries.slice(afterRank, afterRank + limit)
@@ -90,10 +109,17 @@ builder.queryFields((t) => ({
 	viewerLeaderboardEntry: t.field({
 		type: LeaderboardEntryRef,
 		nullable: true,
-		args: { leagueId: t.arg.id() },
+		args: {
+			leagueId: t.arg.id(),
+			season: t.arg({ type: SeasonFilterInput, required: false }),
+		},
 		resolve: async (_root, args, ctx) => {
 			if (!ctx.user) return null
-			const entries = await getGlobalLeaderboard(ctx, args.leagueId)
+			const entries = await getGlobalLeaderboard(
+				ctx,
+				args.leagueId ?? null,
+				toSeasonFilter(args.season),
+			)
 			return entries.find((e) => e.user.id === ctx.user?.id) ?? null
 		},
 	}),

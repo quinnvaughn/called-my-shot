@@ -93,7 +93,10 @@ export const UserRef = builder.drizzleObject("users", {
 			type: UserCareerStatsRef,
 			nullable: true,
 			resolve: async (user) => {
-				const entries = await buildGlobalLeaderboard(null)
+				// No league, no season scope - a career total is exactly the
+				// unfiltered board, and stays that way as the leaderboard itself
+				// moves to defaulting to the current season.
+				const entries = await buildGlobalLeaderboard()
 				return entries.find((entry) => entry.user.id === user.id) ?? null
 			},
 		}),
@@ -174,9 +177,11 @@ const UserLeagueStatsRef = builder
 	})
 
 // One entry per league this user has ever called a question in. Rank/points/
-// accuracy/callCount reuse buildGlobalLeaderboard (same board the site-wide
-// leaderboard renders) scoped to that league; shape breakdown is new,
-// computed the same way but grouped by question.shape instead of by user.
+// accuracy/callCount reuse buildGlobalLeaderboard scoped to that league and
+// to no season - a profile shows a career in each league, not this season's
+// standing in it (the leaderboard itself is where a season-scoped ranking
+// lives). Shape breakdown is new, computed the same way but grouped by
+// question.shape instead of by user.
 async function buildUserLeagueStats(
 	userId: string,
 ): Promise<UserLeagueStatsData[]> {
@@ -213,7 +218,7 @@ async function buildUserLeagueStats(
 		// user has at least one call in this league by construction above, and
 		// buildGlobalLeaderboard only excludes users with zero calls in scope,
 		// so this entry always exists.
-		const boardEntries = await buildGlobalLeaderboard(leagueId)
+		const boardEntries = await buildGlobalLeaderboard({ leagueId })
 		const entry = boardEntries.find((e) => e.user.id === userId)
 		if (!entry) continue
 

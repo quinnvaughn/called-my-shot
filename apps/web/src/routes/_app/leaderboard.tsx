@@ -1,4 +1,3 @@
-import { useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute, useRouteContext } from "@tanstack/react-router"
 import { VStack } from "styled-system/jsx"
 import { SiteLeaderboard } from "#/components/leaderboard/site-leaderboard"
@@ -8,33 +7,60 @@ import {
 	leaderboardQuery,
 } from "#/graphql/queries/leaderboard"
 import { seedInfiniteQuery } from "#/graphql/query-options"
+import {
+	resolveLeaderboardFilter,
+	validateLeaderboardSearch,
+} from "#/lib/leaderboard-filter"
 
 export const Route = createFileRoute("/_app/leaderboard")({
 	component: RouteComponent,
-	// The leagues list and the first page arrive together (see
-	// LeaderboardPageDocument), so that page is handed to the infinite cache
-	// the list paginates with - seeded for the "All" league only, since
-	// picking a league is a different key and fetches on its own.
-	loader: async ({ context }) => {
-		const data = await context.queryClient.query(leaderboardPageQuery)
-		seedInfiniteQuery(context.queryClient, leaderboardQuery(null), {
-			leaderboard: data.leaderboard,
-			viewerLeaderboardEntry: data.viewerLeaderboardEntry,
-		})
+	validateSearch: validateLeaderboardSearch,
+	loaderDeps: ({ search }) => ({
+		league: search.league,
+		season: search.season,
+	}),
+	// The first page arrives under LeaderboardPageDocument's shape, not the
+	// per-list one the infinite query paginates with, so it's handed to that
+	// cache directly rather than costing a second request. Seeded for whatever
+	// scope the URL asks for - a shared link to a filtered board loads that
+	// board, not the default one.
+	//
+	// The leagues (and their seasons) come from _app's router context, which
+	// is what turns the URL's slug/year into the ids this query takes - see
+	// lib/leaderboard-filter.ts.
+	loader: async ({ context, deps }) => {
+		const filter = resolveLeaderboardFilter(context.leagues, deps)
+		const data = await context.queryClient.query(
+			leaderboardPageQuery(filter.leagueId, filter.season),
+		)
+		seedInfiniteQuery(
+			context.queryClient,
+			leaderboardQuery(filter.leagueId, filter.season),
+			data,
+		)
 	},
 })
 
 function RouteComponent() {
-	const { data } = useSuspenseQuery(leaderboardPageQuery)
+	const search = Route.useSearch()
+	const navigate = Route.useNavigate()
+	const { leagues } = Route.useRouteContext()
 	const { me } = useRouteContext({ from: "__root__" })
+
+	const filter = resolveLeaderboardFilter(leagues, search)
 
 	return (
 		<VStack gap="6" alignItems="stretch">
 			<PageHeader
 				title="Leaderboard"
-				subtitle="Ranked by total points, across every league."
+				subtitle={`Ranked by total points. ${filter.scopeLabel}.`}
 			/>
-			<SiteLeaderboard leagues={data.leagues} viewerId={me?.id} />
+			<SiteLeaderboard
+				leagues={leagues}
+				filter={filter}
+				onFilterChange={(next) => navigate({ search: next })}
+				viewerId={me?.id}
+			/>
 		</VStack>
 	)
 }

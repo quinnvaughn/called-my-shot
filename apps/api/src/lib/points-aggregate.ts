@@ -22,18 +22,25 @@ export type PointsAggregate = {
 // userIds narrows to that set of users (group leaderboard, single-user
 // stats); omit it to aggregate every user with activity in scope (site-wide
 // leaderboard). leagueId narrows to one league's rows; omit it to sum across
-// every league a user has played in.
+// every league a user has played in. seasonIds narrows to those seasons
+// (lib/seasons.ts resolves a scope to them); omit it to sum a user's whole
+// career, every season they've played.
 export async function aggregatePointsByUser(options: {
 	userIds?: string[]
 	leagueId?: string | null
+	seasonIds?: string[] | null
 }): Promise<Map<string, PointsAggregate>> {
-	const { userIds, leagueId } = options
-	// `in ()` is invalid SQL - an empty userIds means "no one in scope", so
+	const { userIds, leagueId, seasonIds } = options
+	// `in ()` is invalid SQL - an empty list means "nothing in scope", so
 	// short-circuit rather than let it reach Postgres as a malformed filter.
+	// An empty seasonIds is a real case, not a caller bug: "current season"
+	// resolves to nothing for a league with no seasons synced yet.
 	if (userIds && userIds.length === 0) return new Map()
+	if (seasonIds && seasonIds.length === 0) return new Map()
 
 	const userFilter = userIds ? sql`and user_id in ${userIds}` : sql``
 	const leagueFilter = leagueId ? sql`and league_id = ${leagueId}` : sql``
+	const seasonFilter = seasonIds ? sql`and season_id in ${seasonIds}` : sql``
 
 	const result = await db.execute<{
 		user_id: string
@@ -49,7 +56,7 @@ export async function aggregatePointsByUser(options: {
 			coalesce(sum(correct_count), 0)::int as correct_count,
 			coalesce(sum(call_count), 0)::int as call_count
 		from user_season_stats
-		where true ${leagueFilter} ${userFilter}
+		where true ${leagueFilter} ${seasonFilter} ${userFilter}
 		group by user_id
 	`)
 

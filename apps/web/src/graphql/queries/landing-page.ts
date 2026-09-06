@@ -14,7 +14,10 @@ export const LandingPageDocument = graphql(`
 				...QuestionCard_question
 			}
 		}
-		leaderboard(first: 5) {
+		# Current season, matching /leaderboard's own default - "the
+		# leaderboard" should mean the same thing on the front page as it does
+		# on the page itself.
+		leaderboard(first: 5, season: { scope: CURRENT }) {
 			items {
 				...Leaderboard_entry
 			}

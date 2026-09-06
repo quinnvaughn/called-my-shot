@@ -4,16 +4,22 @@ import { FiChevronDown, FiChevronUp } from "react-icons/fi"
 import { css } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
 import { Button } from "#/components/ui/button"
-import { Tabs } from "#/components/ui/tabs"
 import { graphql, useFragment } from "#/graphql/generated"
+import type { SeasonFilterInput } from "#/graphql/generated/graphql"
 import {
 	EMPTY_CONNECTION,
 	gqlInfiniteQueryOptions,
 } from "#/graphql/query-options"
+import type {
+	FilterLeague,
+	LeaderboardFilter,
+	LeaderboardSearch,
+} from "#/lib/leaderboard-filter"
 import {
 	Leaderboard,
 	type LeaderboardRowData,
 } from "../leaderboard/leaderboard"
+import { LeaderboardFilters } from "../leaderboard/leaderboard-filters"
 
 export const GroupLeaderboardEntryFragment = graphql(`
 	fragment GroupLeaderboard_entry on GroupLeaderboardEntry {
@@ -31,15 +37,25 @@ export const GroupLeaderboardEntryFragment = graphql(`
 	}
 `)
 
-// Standalone from GroupDetailDocument - the league tabs and "show more"
+// Standalone from GroupDetailDocument - the filters and the "show more"
 // button both need to refetch this connection (and the viewer's own row,
-// which moves with the league too) on their own without touching the rest
+// which moves with the scope too) on their own without touching the rest
 // of the group page.
 export const GroupLeaderboardDocument = graphql(`
-	query GroupLeaderboard($groupId: ID!, $leagueId: ID, $after: String) {
+	query GroupLeaderboard(
+		$groupId: ID!
+		$leagueId: ID
+		$season: SeasonFilterInput
+		$after: String
+	) {
 		group(id: $groupId) {
 			id
-			leaderboard(first: 10, leagueId: $leagueId, after: $after) {
+			leaderboard(
+				first: 10
+				leagueId: $leagueId
+				season: $season
+				after: $after
+			) {
 				items {
 					rank
 					user {
@@ -52,7 +68,7 @@ export const GroupLeaderboardDocument = graphql(`
 					endCursor
 				}
 			}
-			viewerLeaderboardEntry(leagueId: $leagueId) {
+			viewerLeaderboardEntry(leagueId: $leagueId, season: $season) {
 				...GroupLeaderboard_entry
 			}
 		}
@@ -62,20 +78,19 @@ export const GroupLeaderboardDocument = graphql(`
 export const groupLeaderboardQuery = (
 	groupId: string,
 	leagueId: string | null,
+	season: SeasonFilterInput,
 ) =>
 	gqlInfiniteQueryOptions(
 		GroupLeaderboardDocument,
-		{ groupId, leagueId },
+		{ groupId, leagueId, season },
 		(data) => data.group?.leaderboard ?? EMPTY_CONNECTION,
 	)
 
-// League, not sport - NBA and NCAAB shouldn't rank against each other even
-// though both are basketball.
-type League = { id: string; name: string; abbreviation: string; slug: string }
-
 type GroupLeaderboardProps = {
 	groupId: string
-	leagues: League[]
+	leagues: FilterLeague[]
+	filter: LeaderboardFilter
+	onFilterChange: (search: LeaderboardSearch) => void
 	viewerId?: string
 }
 
@@ -99,23 +114,24 @@ function toRowData(entry: {
 
 // Rank-only pagination (see buildLeaderboard/leaderboard on GroupRef): a
 // "show more" button, not infinite scroll - most groups are small enough
-// that nobody needs the whole roster loaded by default. Switching leagues
-// replaces the page entirely rather than appending, since a new league
+// that nobody needs the whole roster loaded by default. Changing either
+// filter replaces the page entirely rather than appending, since a new scope
 // means a whole new ranking, not more of the same one.
 export function GroupLeaderboard({
 	groupId,
 	leagues,
+	filter,
+	onFilterChange,
 	viewerId,
 }: GroupLeaderboardProps) {
 	const [collapsed, setCollapsed] = useState(false)
-	const [leagueId, setLeagueId] = useState<string | null>(null)
 
-	// leagueId is part of the key, so switching leagues starts a fresh
+	// Both filters are part of the key, so changing either starts a fresh
 	// ranking rather than appending to the previous one - no manual reset.
-	// keepPreviousData holds the outgoing league's rows in place while the
+	// keepPreviousData holds the outgoing scope's rows in place while the
 	// new one loads, instead of collapsing the list to empty mid-switch.
 	const { data, hasNextPage, isFetching, fetchNextPage } = useInfiniteQuery({
-		...groupLeaderboardQuery(groupId, leagueId),
+		...groupLeaderboardQuery(groupId, filter.leagueId, filter.season),
 		placeholderData: keepPreviousData,
 	})
 	const items = data?.items ?? []
@@ -156,21 +172,11 @@ export function GroupLeaderboard({
 			</HStack>
 			{!collapsed && (
 				<>
-					{leagues.length > 0 && (
-						<Tabs
-							value={leagueId ?? "all"}
-							onValueChange={(v) => setLeagueId(v === "all" ? null : v)}
-						>
-							<Tabs.List>
-								<Tabs.Trigger value="all">All</Tabs.Trigger>
-								{leagues.map((league) => (
-									<Tabs.Trigger key={league.id} value={league.id}>
-										{league.abbreviation}
-									</Tabs.Trigger>
-								))}
-							</Tabs.List>
-						</Tabs>
-					)}
+					<LeaderboardFilters
+						leagues={leagues}
+						filter={filter}
+						onChange={onFilterChange}
+					/>
 					<Leaderboard
 						items={rows}
 						viewerId={viewerId}
@@ -178,6 +184,7 @@ export function GroupLeaderboard({
 						hasMore={hasNextPage}
 						loading={isFetching}
 						onLoadMore={fetchNextPage}
+						emptyMessage={`No calls yet — ${filter.scopeLabel}.`}
 					/>
 				</>
 			)}

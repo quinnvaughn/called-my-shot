@@ -36,11 +36,18 @@ import {
 } from "../../lib/pagination"
 import { aggregatePointsByUser } from "../../lib/points-aggregate"
 import { accuracyFrom, compareRankableEntries } from "../../lib/scoring"
+import {
+	ALL_TIME,
+	resolveSeasonIds,
+	type SeasonFilter,
+	seasonFilterKey,
+} from "../../lib/seasons"
 import { isUuid } from "../../lib/uuid"
 import { builder } from "../builder"
 import type { Context } from "../context"
 import { PageInfoRef } from "./pagination"
 import { CallConnectionRef, QuestionConnectionRef } from "./question"
+import { SeasonFilterInput, toSeasonFilter } from "./season-filter"
 import { UserRef } from "./user"
 
 type Connection<T> = {
@@ -124,10 +131,11 @@ const GroupLeaderboardConnectionRef = builder
 	})
 
 // leagueId narrows the ranking to calls made on questions in that league only
-// (points/accuracy recomputed from scratch, not a filter over the
-// all-league numbers) - null/undefined ranks across every league, same as
-// before this param existed. Scoped to league, not sport - NBA and NCAAB
-// calls shouldn't rank against each other even though both are basketball.
+// and seasonIds to calls in those seasons (points/accuracy recomputed from
+// scratch, not a filter over the all-league numbers) - null/undefined for
+// either ranks across every league/season, same as before these params
+// existed. Scoped to league, not sport - NBA and NCAAB calls shouldn't rank
+// against each other even though both are basketball.
 //
 // Points/accuracy/counts come from an indexed SQL GROUP BY
 // (aggregatePointsByUser), scoped to just this group's member ids, instead
@@ -136,14 +144,19 @@ const GroupLeaderboardConnectionRef = builder
 // without also reading the denormalized users.points column.
 async function buildLeaderboard(
 	groupId: string,
-	leagueId?: string | null,
+	leagueId: string | null,
+	seasonIds: string[] | null,
 ): Promise<GroupLeaderboardEntry[]> {
 	const memberships = await db.query.groupMembers.findMany({
 		where: { groupId },
 		with: { user: true },
 	})
 	const memberIds = memberships.flatMap((m) => (m.user ? [m.userId] : []))
-	const agg = await aggregatePointsByUser({ userIds: memberIds, leagueId })
+	const agg = await aggregatePointsByUser({
+		userIds: memberIds,
+		leagueId,
+		seasonIds,
+	})
 
 	const entries = memberships.flatMap((membership) => {
 		if (!membership.user) return []
@@ -167,18 +180,24 @@ async function buildLeaderboard(
 
 // leaderboard, viewerRank, and viewerLeaderboardEntry below can all fire on
 // the same group page load, each needing the same ranking for the same
-// (groupId, leagueId) - this shares one in-flight buildLeaderboard call
-// between them instead of each re-aggregating and re-sorting from scratch.
-// Same pattern as getGlobalLeaderboard in graphql/types/leaderboard.ts.
+// (groupId, leagueId, season) - this shares one in-flight buildLeaderboard
+// call between them instead of each re-aggregating and re-sorting from
+// scratch. Same pattern as getGlobalLeaderboard in
+// graphql/types/leaderboard.ts, season filter included in the key for the
+// same reason: two fields asking for different scopes must not share one
+// ranking.
 function getGroupLeaderboard(
 	ctx: Context,
 	groupId: string,
-	leagueId?: string | null,
+	leagueId: string | null,
+	season: SeasonFilter,
 ) {
-	const key = `${groupId}:${leagueId ?? ""}`
+	const key = `${groupId}:${leagueId ?? ""}:${seasonFilterKey(season)}`
 	let cached = ctx.groupLeaderboardCache.get(key)
 	if (!cached) {
-		cached = buildLeaderboard(groupId, leagueId)
+		cached = resolveSeasonIds(season, leagueId).then((seasonIds) =>
+			buildLeaderboard(groupId, leagueId, seasonIds),
+		)
 		ctx.groupLeaderboardCache.set(key, cached)
 	}
 	return cached
@@ -292,19 +311,26 @@ export const GroupRef = builder.drizzleObject("groups", {
 		// calls on questions created within this group - a group is just a set
 		// of people, there's no group-scoped question pool. Paginated (button-
 		// driven "show more" on the frontend, not infinite scroll - most groups
-		// are small, nobody needs the whole roster by default) and optionally
-		// scoped to one league via leagueId; omitting it ranks across every
-		// league. League, not sport, since e.g. NBA and NCAAB calls shouldn't
-		// rank against each other despite both being basketball.
+		// are small, nobody needs the whole roster by default), optionally
+		// scoped to one league via leagueId (omitting it ranks across every
+		// league) and to a season via season (omitting it ranks all-time).
+		// League, not sport, since e.g. NBA and NCAAB calls shouldn't rank
+		// against each other despite both being basketball.
 		leaderboard: t.field({
 			type: GroupLeaderboardConnectionRef,
 			args: {
 				first: t.arg.int(),
 				after: t.arg.string(),
 				leagueId: t.arg.id(),
+				season: t.arg({ type: SeasonFilterInput, required: false }),
 			},
 			resolve: async (group, args, ctx) => {
-				const entries = await getGroupLeaderboard(ctx, group.id, args.leagueId)
+				const entries = await getGroupLeaderboard(
+					ctx,
+					group.id,
+					args.leagueId ?? null,
+					toSeasonFilter(args.season),
+				)
 				const limit = clampPageSize(args.first)
 				const afterRank = args.after ? decodeOffsetCursor(args.after) : 0
 				const items = entries.slice(afterRank, afterRank + limit)
@@ -321,12 +347,20 @@ export const GroupRef = builder.drizzleObject("groups", {
 				}
 			},
 		}),
-		// convenience for group cards ("YOU'RE #2") that don't need the full list
+		// convenience for group cards ("YOU'RE #2") that don't need the full
+		// list. Deliberately all-league and all-time, unfiltered: it's a
+		// standing summary on a card with no filter UI of its own, not the
+		// leaderboard the group page renders.
 		viewerRank: t.field({
 			type: "Int",
 			resolve: async (group, _args, ctx) => {
 				const user = requireUser(ctx)
-				const leaderboard = await getGroupLeaderboard(ctx, group.id)
+				const leaderboard = await getGroupLeaderboard(
+					ctx,
+					group.id,
+					null,
+					ALL_TIME,
+				)
 				const entry = leaderboard.find((e) => e.user.id === user.id)
 				// group/myGroups already gate on the viewer being a member, so this
 				// should always be found
@@ -338,17 +372,22 @@ export const GroupRef = builder.drizzleObject("groups", {
 		// the viewer's full leaderboard row (rank + points/accuracy), for the
 		// pinned "your rank" summary above the leaderboard table - viewerRank
 		// above only exposes the rank int, which isn't enough for that card.
-		// leagueId keeps it in sync with whichever league tab is selected.
+		// leagueId and season keep it in sync with whichever league tab and
+		// season the table itself is showing.
 		viewerLeaderboardEntry: t.field({
 			type: GroupLeaderboardEntryRef,
 			nullable: true,
-			args: { leagueId: t.arg.id() },
+			args: {
+				leagueId: t.arg.id(),
+				season: t.arg({ type: SeasonFilterInput, required: false }),
+			},
 			resolve: async (group, args, ctx) => {
 				const user = requireUser(ctx)
 				const leaderboard = await getGroupLeaderboard(
 					ctx,
 					group.id,
-					args.leagueId,
+					args.leagueId ?? null,
+					toSeasonFilter(args.season),
 				)
 				// group/myGroups already gate on the viewer being a member, so this
 				// should always be found

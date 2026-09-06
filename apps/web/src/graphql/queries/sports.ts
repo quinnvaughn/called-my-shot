@@ -4,6 +4,12 @@ import { gqlQueryOptions } from "#/graphql/query-options"
 // The sidebar's persistent league rail (see app-shell.tsx) - fetched once in
 // the root route's beforeLoad alongside `me`, not re-queried per page, since
 // the league list changes about as often as the sport catalogue itself.
+//
+// Seasons ride along because the leaderboards' season picker needs them
+// before their loaders run, to turn a ?season= search param into a season id
+// (the same reason the league list itself lives in context - see _app.tsx).
+// startedOnly drops next season's always-synced row, which no call can belong
+// to yet. Cheap: a handful of leagues x a couple of seasons each.
 export const LeaguesDocument = graphql(`
 	query Leagues {
 		leagues {
@@ -11,6 +17,16 @@ export const LeaguesDocument = graphql(`
 			name
 			abbreviation
 			slug
+			currentSeason {
+				id
+				year
+				displayName
+			}
+			seasons(startedOnly: true) {
+				id
+				year
+				displayName
+			}
 		}
 	}
 `)

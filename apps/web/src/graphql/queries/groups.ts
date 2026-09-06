@@ -35,20 +35,22 @@ export const GroupPreviewDocument = graphql(`
 // Per-tab connections spread the same fragments their standalone paginated
 // queries use (AnsweredQuestionsTab_call, etc.) - see components/groups/
 // *-questions-tab.tsx, colocated with the components that render them.
-// leaderboard/leagues are colocated the same way with group-leaderboard.tsx.
+// leaderboard is colocated the same way with group-leaderboard.tsx.
+//
+// The leaderboard's scope comes in as variables so its embedded first page is
+// the one the route actually renders (the loader seeds the infinite cache
+// with it) - a link to a filtered board shouldn't have to fetch the default
+// board first. The leagues themselves come from _app's router context rather
+// than being selected here.
 export const GroupDetailDocument = graphql(`
     query GroupDetail(
         $groupId: ID!
+        $leagueId: ID
+        $season: SeasonFilterInput
         $answeredAfter: String
         $createdAfter: String
         $sharedAfter: String
     ) {
-        leagues {
-            id
-            name
-            abbreviation
-            slug
-        }
         group(id: $groupId) {
             id
             name
@@ -60,7 +62,7 @@ export const GroupDetailDocument = graphql(`
                 code
                 expiresAt
             }
-            leaderboard(first: 10) {
+            leaderboard(first: 10, leagueId: $leagueId, season: $season) {
                 items {
                     rank
                     user {
@@ -73,7 +75,7 @@ export const GroupDetailDocument = graphql(`
                     endCursor
                 }
             }
-            viewerLeaderboardEntry {
+            viewerLeaderboardEntry(leagueId: $leagueId, season: $season) {
                 ...GroupLeaderboard_entry
             }
             answeredQuestions(first: 10, after: $answeredAfter) {

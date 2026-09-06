@@ -1,19 +1,21 @@
 import { keepPreviousData, useInfiniteQuery } from "@tanstack/react-query"
-import { useState } from "react"
-import { Tabs } from "#/components/ui/tabs"
 import { useFragment } from "#/graphql/generated"
 import {
 	LeaderboardEntryFragment,
 	leaderboardQuery,
 } from "#/graphql/queries/leaderboard"
+import type {
+	FilterLeague,
+	LeaderboardFilter,
+	LeaderboardSearch,
+} from "#/lib/leaderboard-filter"
 import { Leaderboard, type LeaderboardRowData } from "./leaderboard"
-
-// League, not sport - NBA and NCAAB shouldn't rank against each other even
-// though both are basketball.
-type League = { id: string; name: string; abbreviation: string; slug: string }
+import { LeaderboardFilters } from "./leaderboard-filters"
 
 type SiteLeaderboardProps = {
-	leagues: League[]
+	leagues: FilterLeague[]
+	filter: LeaderboardFilter
+	onFilterChange: (search: LeaderboardSearch) => void
 	viewerId?: string
 }
 
@@ -34,17 +36,22 @@ function toRowData(entry: {
 }
 
 // Same shape as GroupLeaderboard (components/groups/group-leaderboard.tsx):
-// league tabs replace the page entirely on switch (a new league is a whole
-// new ranking, not more of the same one), "show more" appends.
-export function SiteLeaderboard({ leagues, viewerId }: SiteLeaderboardProps) {
-	const [leagueId, setLeagueId] = useState<string | null>(null)
-
-	// leagueId is part of the key, so switching leagues starts a fresh
+// changing either filter replaces the page entirely (a new scope is a whole
+// new ranking, not more of the same one), "show more" appends. The filter
+// lives in the URL rather than in state here, so a filtered board is
+// shareable and survives a refresh - see routes/_app/leaderboard.tsx.
+export function SiteLeaderboard({
+	leagues,
+	filter,
+	onFilterChange,
+	viewerId,
+}: SiteLeaderboardProps) {
+	// Both filters are part of the key, so changing either starts a fresh
 	// ranking rather than appending to the previous one - no manual reset.
-	// keepPreviousData holds the outgoing league's rows in place while the
-	// new one loads, instead of collapsing the list to empty mid-switch.
+	// keepPreviousData holds the outgoing scope's rows in place while the new
+	// one loads, instead of collapsing the list to empty mid-switch.
 	const { data, hasNextPage, isFetching, fetchNextPage } = useInfiniteQuery({
-		...leaderboardQuery(leagueId),
+		...leaderboardQuery(filter.leagueId, filter.season),
 		placeholderData: keepPreviousData,
 	})
 	const items = data?.items ?? []
@@ -62,21 +69,11 @@ export function SiteLeaderboard({ leagues, viewerId }: SiteLeaderboardProps) {
 
 	return (
 		<>
-			{leagues.length > 0 && (
-				<Tabs
-					value={leagueId ?? "all"}
-					onValueChange={(v) => setLeagueId(v === "all" ? null : v)}
-				>
-					<Tabs.List>
-						<Tabs.Trigger value="all">All</Tabs.Trigger>
-						{leagues.map((league) => (
-							<Tabs.Trigger key={league.id} value={league.id}>
-								{league.abbreviation}
-							</Tabs.Trigger>
-						))}
-					</Tabs.List>
-				</Tabs>
-			)}
+			<LeaderboardFilters
+				leagues={leagues}
+				filter={filter}
+				onChange={onFilterChange}
+			/>
 			<Leaderboard
 				items={rows}
 				viewerId={viewerId}
@@ -84,6 +81,7 @@ export function SiteLeaderboard({ leagues, viewerId }: SiteLeaderboardProps) {
 				hasMore={hasNextPage}
 				loading={isFetching}
 				onLoadMore={fetchNextPage}
+				emptyMessage={`No calls yet — ${filter.scopeLabel}.`}
 			/>
 		</>
 	)

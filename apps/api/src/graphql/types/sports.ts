@@ -49,7 +49,7 @@ import {
 } from "../../lib/errors"
 import { decodeOffsetCursor } from "../../lib/pagination"
 import { parsePgTimestamp } from "../../lib/pg-timestamp"
-import { getCurrentSeason } from "../../lib/seasons"
+import { getCurrentSeason, listLeagueSeasons } from "../../lib/seasons"
 import { builder } from "../builder"
 import { PageInfoRef } from "./pagination"
 
@@ -148,6 +148,23 @@ export const LeagueRef = builder.drizzleObject("leagues", {
 		}),
 		sport: t.relation("sport"),
 		teams: t.relation("teams"),
+		// Same data as the currentSeason/leagueSeasons root queries, exposed on
+		// the row so a caller already listing leagues (the app shell's league
+		// rail, which every page reads from router context) gets each league's
+		// season vocabulary in the same round trip rather than a query per
+		// league. startedOnly is what a season picker wants - see
+		// lib/seasons.ts's listLeagueSeasons.
+		currentSeason: t.field({
+			type: SeasonRef,
+			nullable: true,
+			resolve: (league) => getCurrentSeason(league.id),
+		}),
+		seasons: t.field({
+			type: [SeasonRef],
+			args: { startedOnly: t.arg.boolean({ required: false }) },
+			resolve: (league, args) =>
+				listLeagueSeasons(league.id, { startedOnly: !!args.startedOnly }),
+		}),
 		// Home's room cards below - a plain per-row resolve rather than a
 		// batched loadable, since there are only ever a handful of leagues on
 		// one page (no N+1 risk worth guarding against here).
@@ -670,15 +687,17 @@ builder.queryFields((t) => ({
 	// Public for the same reason currentSeason is: it's ESPN calendar data.
 	// Note that the newest year isn't necessarily the current season - the sync
 	// pulls [thisYear, thisYear + 1], so callers wanting a sensible default
-	// should ask currentSeason rather than take the first row here.
+	// should ask currentSeason rather than take the first row here, and callers
+	// building a picker over seasons that can actually have data should pass
+	// startedOnly.
 	leagueSeasons: t.field({
 		type: [SeasonRef],
-		args: { leagueId: t.arg.id({ required: true }) },
+		args: {
+			leagueId: t.arg.id({ required: true }),
+			startedOnly: t.arg.boolean({ required: false }),
+		},
 		resolve: (_root, args) =>
-			db.query.seasons.findMany({
-				where: { leagueId: args.leagueId },
-				orderBy: { year: "desc" },
-			}),
+			listLeagueSeasons(args.leagueId, { startedOnly: !!args.startedOnly }),
 	}),
 
 	teams: t.field({

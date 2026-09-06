@@ -153,10 +153,11 @@ async function sendUserShareCard(
 		scopeTag = `${league.abbreviation.toUpperCase()} TRACK RECORD`
 	}
 
-	// Same board Query.leaderboard/User.careerStats/User.leagues resolve from
-	// (see graphql/types/leaderboard.ts and user.ts) - no separate query path
-	// to keep in sync with those.
-	const entries = await buildGlobalLeaderboard(leagueId)
+	// Same board User.careerStats/User.leagues resolve from (see
+	// graphql/types/user.ts) - no separate query path to keep in sync with
+	// those. No season scope: the card says "track record", and the scope tag
+	// above already commits to all-time.
+	const entries = await buildGlobalLeaderboard({ leagueId })
 	const entry = entries.find((e) => e.user.id === user.id)
 	// No calls in this scope yet - nothing shareable, same as the frontend
 	// not offering a league accordion/share button for an empty scope.
