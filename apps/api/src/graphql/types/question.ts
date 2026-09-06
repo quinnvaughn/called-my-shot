@@ -13,6 +13,7 @@ import {
 	BASE_POINTS_BY_SHAPE,
 	earlyTierFor,
 	fieldPct,
+	isNumericGuessShape,
 	isSeasonLongShape,
 	numericGuessPoints,
 	seasonEarlyTierFor,
@@ -927,26 +928,22 @@ export const QuestionRef = builder.drizzleObject("questions", {
 			},
 		}),
 
-		// Binned guess values for the guess-distribution chart - the two
-		// numeric-guess shapes only, empty for every other shape. Bin width
-		// matches the question's own tolerance band (numericToleranceAbsolute
-		// when the stat is a rate stat, else a flat 1) - a guess within one
-		// tolerance band of another is "close enough" to group together, which
-		// generalizes correctly whether the band is a whole-number counting-stat
-		// amount or a small fixed rate-stat amount like +/-0.02. Rounded to 3
-		// decimal places (matching guessValue's own column scale) to avoid
-		// floating-point bucket-key drift. Same "aggregate bypasses the
-		// per-caller pick-visibility gate" precedent averageGuess/
-		// numericHitRatePct already establish - individual bucket counts aren't
-		// attributed to any one caller.
+		// Binned guess values for the guess-distribution chart - the
+		// numeric-guess shapes only (NUMERIC_GUESS_SHAPES), empty for every
+		// other shape. Bin width matches the question's own tolerance band
+		// (numericToleranceAbsolute when the stat is a rate stat, else a flat
+		// 1) - a guess within one tolerance band of another is "close enough"
+		// to group together, which generalizes correctly whether the band is a
+		// whole-number counting-stat amount or a small fixed rate-stat amount
+		// like +/-0.02. Rounded to 3 decimal places (matching guessValue's own
+		// column scale) to avoid floating-point bucket-key drift. Same
+		// "aggregate bypasses the per-caller pick-visibility gate" precedent
+		// averageGuess/numericHitRatePct already establish - individual bucket
+		// counts aren't attributed to any one caller.
 		guessDistribution: t.field({
 			type: [GuessBucketRef],
 			resolve: async (question, _args, ctx) => {
-				if (
-					question.shape !== "player_stat_numeric_guess" &&
-					question.shape !== "team_stat_numeric_guess"
-				)
-					return []
+				if (!isNumericGuessShape(question.shape)) return []
 				const guessCalls = await getQuestionGuessCallsLoader(ctx).load(
 					question.id,
 				)
@@ -1734,7 +1731,7 @@ const CastCallInput = builder.inputType("CastCallInput", {
 		questionId: t.id({ required: true }),
 		caseText: t.string({ required: false }),
 
-		// player_stat_numeric_guess, team_stat_numeric_guess
+		// The numeric-guess shapes only - see NUMERIC_GUESS_SHAPES
 		guessValue: t.float({ required: false }),
 		conviction: t.int({ required: false }),
 
@@ -1758,7 +1755,7 @@ const ResolveQuestionInput = builder.inputType("ResolveQuestionInput", {
 		// Every other shape: exactly 1. player_season_award/team_season_award:
 		// the actual winners, not necessarily matching picksRequired
 		correctOptionIds: t.field({ type: ["ID"], required: false }),
-		// player_stat_numeric_guess, team_stat_numeric_guess
+		// The numeric-guess shapes only - see NUMERIC_GUESS_SHAPES
 		actualValue: t.float({ required: false }),
 		resolutionNote: t.string({ required: false }),
 	}),
@@ -1829,10 +1826,7 @@ export async function resolveQuestionInternal(
 	// swing that got them there.
 	const newPointsByUserId = new Map<string, number>()
 
-	const isNumericGuess =
-		question.shape === "player_stat_numeric_guess" ||
-		question.shape === "team_stat_numeric_guess" ||
-		question.shape === "team_season_stat_numeric_guess"
+	const isNumericGuess = isNumericGuessShape(question.shape)
 
 	if (isNumericGuess) {
 		const guessCalls = await tx.query.calls.findMany({
@@ -2386,11 +2380,7 @@ builder.mutationFields((t) => ({
 			// ToleranceSpec in @called-my-shot/scoring.
 			let numericTolerancePct: number | null = null
 			let numericToleranceAbsolute: number | null = null
-			if (
-				data.shape === "player_stat_numeric_guess" ||
-				data.shape === "team_stat_numeric_guess" ||
-				data.shape === "team_season_stat_numeric_guess"
-			) {
+			if (isNumericGuessShape(data.shape)) {
 				if (!stat?.toleranceTier) {
 					throw ValidationError.field("statId", "Pick a stat from the list")
 				}
@@ -2890,10 +2880,7 @@ builder.mutationFields((t) => ({
 			}
 
 			const call = await db.transaction(async (tx) => {
-				const isNumericGuess =
-					data.shape === "player_stat_numeric_guess" ||
-					data.shape === "team_stat_numeric_guess" ||
-					data.shape === "team_season_stat_numeric_guess"
+				const isNumericGuess = isNumericGuessShape(data.shape)
 
 				const [call] = await tx
 					.insert(calls)

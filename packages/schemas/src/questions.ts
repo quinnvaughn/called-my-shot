@@ -633,7 +633,7 @@ export const castCallSchema = z
 		questionId: z.string().uuid(),
 		caseText: z.string().trim().max(600, "Keep it under 600 characters").default(""),
 
-		// player_stat_numeric_guess, team_stat_numeric_guess only
+		// The numeric-guess shapes only - see the match below
 		guessValue: z.number().optional(),
 		conviction: z
 			.number()

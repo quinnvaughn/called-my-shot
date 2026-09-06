@@ -97,6 +97,24 @@ export function isSeasonLongShape(shape: QuestionShape): boolean {
 	return SEASON_LONG_SHAPES.has(shape)
 }
 
+// The shapes scored off calls.guessValue rather than an options row - a
+// caller types a number and is scored on how close it lands, so they have no
+// options to select and every "does this question have a numeric guess on it"
+// branch keys off this. Lives here rather than as an inline shape comparison
+// at each site because the set has grown since the first two members
+// (team_season_stat_numeric_guess came later), and a hand-copied list is
+// exactly how one of those sites ended up still checking only the original
+// pair.
+export const NUMERIC_GUESS_SHAPES = new Set<QuestionShape>([
+	"player_stat_numeric_guess",
+	"team_stat_numeric_guess",
+	"team_season_stat_numeric_guess",
+])
+
+export function isNumericGuessShape(shape: QuestionShape): boolean {
+	return NUMERIC_GUESS_SHAPES.has(shape)
+}
+
 // An option's share of the field, as of however many calls exist right now.
 // Used both for the live "X% of the field agrees" preview and, once a
 // question resolves, for scoring - same formula either way, so the number
