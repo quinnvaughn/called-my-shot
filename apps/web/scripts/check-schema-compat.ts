@@ -50,8 +50,26 @@ const LOCAL_SCHEMA_PATH = resolve(
 	envString("LOCAL_SCHEMA_PATH", "../api/schema.graphql"),
 )
 
-const ATTEMPTS = envCount("SCHEMA_CHECK_ATTEMPTS", 6)
-const RETRY_DELAY_MS = envCount("SCHEMA_CHECK_RETRY_MS", 10_000)
+// Budgeted to outlast a full api deploy, because that is what this is
+// actually waiting for. Fly deploys both apps off the same push to main with
+// no ordering between them, so on any schema-changing commit the web image
+// reaches this check while the previous api is still serving. Waiting here is
+// what makes the two effectively sequential - api first, then web - without
+// any orchestration between them.
+//
+// 10 minutes covers the api's build, its release_command (drizzle-kit
+// migrate, which can be the slow part), machine start and health checks.
+// The old budget was ~55s, which only ever covered an api that was already
+// most of the way up.
+//
+// This costs nothing on a deploy that doesn't change the schema: the first
+// attempt validates against the live api and exits immediately. The price is
+// only paid when there is genuinely something to wait for - and if the api
+// deploy fails outright, this spends the full budget before failing, which is
+// the right outcome (shipping the frontend anyway would break production)
+// just not the fastest one.
+const ATTEMPTS = envCount("SCHEMA_CHECK_ATTEMPTS", 30)
+const RETRY_DELAY_MS = envCount("SCHEMA_CHECK_RETRY_MS", 20_000)
 
 // A fragment spread into nothing is dead code worth deleting, but it is not a
 // reason to block a deploy - the check should only fail for things that would
@@ -165,7 +183,7 @@ for (let attempt = 1; attempt <= ATTEMPTS; attempt++) {
 		)
 		report(errors)
 		console.error(
-			"\nThe api has not caught up. Deploy the api, then re-run this deploy.",
+			`\nWaited ${Math.round((ATTEMPTS * RETRY_DELAY_MS) / 60_000)} minute(s) and the api never caught up - its deploy has most likely failed. Check the api's logs, then re-push.`,
 		)
 		process.exit(1)
 	}
