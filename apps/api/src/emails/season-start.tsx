@@ -17,7 +17,12 @@ export type SeasonStartProps = {
 	// ESPN's own label for the season ("2026", "2025-26"), taken verbatim the
 	// way everything else that displays it does - see seasons.displayName.
 	seasonDisplayName: string
-	regularSeasonStartsAt: Date
+	// When the opening slate's first game actually kicks off. Deliberately not
+	// seasons.regularSeasonStartsAt, which is ESPN's calendar boundary for the
+	// season and can land days earlier (NFL 2026: boundary Sunday Sep 6, first
+	// game Wednesday Sep 10) - dating the email off that would announce a
+	// season as starting "today" most of a week before anyone played.
+	startsAt: Date
 	// Passed in rather than read off the clock inside, so the subject, the
 	// preheader and the body can't disagree about what day it is when a render
 	// straddles midnight - and so a test can pin it.
@@ -44,18 +49,13 @@ export type SeasonStartProps = {
 	logoUrl: string
 }
 
-type Timing = Pick<
-	SeasonStartProps,
-	"leagueName" | "regularSeasonStartsAt" | "now"
->
+type Timing = Pick<SeasonStartProps, "leagueName" | "startsAt" | "now">
 
 // Whole calendar days apart in Eastern, not elapsed hours - "tomorrow" is a
 // property of the date, so a Tuesday 11pm send about a Wednesday 1pm kickoff
 // is 14 hours out and still tomorrow.
-function daysUntil({ regularSeasonStartsAt, now }: Omit<Timing, "leagueName">) {
-	const start = DateTime.fromJSDate(regularSeasonStartsAt)
-		.setZone(TZ)
-		.startOf("day")
+function daysUntil({ startsAt, now }: Omit<Timing, "leagueName">) {
+	const start = DateTime.fromJSDate(startsAt).setZone(TZ).startOf("day")
 	const today = DateTime.fromJSDate(now).setZone(TZ).startOf("day")
 	return Math.round(start.diff(today, "days").days)
 }
@@ -67,7 +67,7 @@ function daysUntil({ regularSeasonStartsAt, now }: Omit<Timing, "leagueName">) {
 // read as "today" rather than as a weekday in the past if one ever does.
 export function kickoffPhrase(timing: Omit<Timing, "leagueName">): string {
 	const days = daysUntil(timing)
-	const start = DateTime.fromJSDate(timing.regularSeasonStartsAt).setZone(TZ)
+	const start = DateTime.fromJSDate(timing.startsAt).setZone(TZ)
 	return match(days)
 		.with(P.number.lte(0), () => "today")
 		.with(1, () => "tomorrow")
@@ -323,8 +323,9 @@ export function SeasonStart(props: SeasonStartProps) {
 SeasonStart.PreviewProps = {
 	leagueName: "NFL",
 	seasonDisplayName: "2026",
-	regularSeasonStartsAt: new Date("2026-09-09T16:00:00.000Z"),
-	now: new Date("2026-09-06T13:00:00.000Z"),
+	// The real NFL 2026 opener: Wednesday 8:20pm Eastern.
+	startsAt: new Date("2026-09-10T00:20:00.000Z"),
+	now: new Date("2026-09-07T21:00:00.000Z"),
 	openingLabel: "Week 1",
 	gameCount: 16,
 	ballotCount: 6,

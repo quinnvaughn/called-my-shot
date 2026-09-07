@@ -28,6 +28,22 @@ const envSchema = z.object({
 	EMAIL_FROM_NOTIFICATIONS: z
 		.string()
 		.default("Called My Shot <results@mail.calledmyshot.com>"),
+	// Mail that is neither an account action nor an answer to something this
+	// person did - the season announcements, and any broadcast after them.
+	// To a mailbox provider this is marketing, and it is judged as marketing:
+	// it is unsolicited from the reader's point of view, it goes to the whole
+	// list at once, and it is the only mail here anyone has a real reason to
+	// report as spam.
+	//
+	// On mail.calledmyshot.com like the other two, because that is the only
+	// domain verified in Resend and a default pointing anywhere else fails
+	// every send. Own subdomain eventually: reputation is scored per domain,
+	// so complaints on this stream currently land on the same domain that
+	// carries password resets. That is a DNS change plus this one default,
+	// no code, whenever the volume makes it worth doing.
+	EMAIL_FROM_ANNOUNCEMENTS: z
+		.string()
+		.default("Called My Shot <hello@mail.calledmyshot.com>"),
 	// Signs unsubscribe links. Optional here so local dev needs no setup;
 	// production is enforced by assertProductionConfig() at startup rather
 	// than in this schema - see there for why.

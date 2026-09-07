@@ -23,15 +23,23 @@ describe("assertProductionConfig", () => {
 })
 
 describe("mail defaults", () => {
-	// Both must sit on the one domain verified in Resend
+	// All three must sit on the one domain verified in Resend
 	// (mail.calledmyshot.com); a default pointing anywhere else fails every
 	// send with no local signal.
 	it("send from the verified domain", () => {
 		expect(env.EMAIL_FROM).toContain("@mail.calledmyshot.com")
 		expect(env.EMAIL_FROM_NOTIFICATIONS).toContain("@mail.calledmyshot.com")
+		expect(env.EMAIL_FROM_ANNOUNCEMENTS).toContain("@mail.calledmyshot.com")
 	})
 
-	it("keep notification mail on a separate From address from auth mail", () => {
-		expect(env.EMAIL_FROM_NOTIFICATIONS).not.toBe(env.EMAIL_FROM)
+	// Three streams, three senders: account mail, mail answering something
+	// this person did, and mail we decided to send them.
+	it("keep every mail stream on its own From address", () => {
+		const senders = [
+			env.EMAIL_FROM,
+			env.EMAIL_FROM_NOTIFICATIONS,
+			env.EMAIL_FROM_ANNOUNCEMENTS,
+		]
+		expect(new Set(senders).size).toBe(senders.length)
 	})
 })

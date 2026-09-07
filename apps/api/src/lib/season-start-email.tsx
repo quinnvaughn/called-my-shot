@@ -13,6 +13,7 @@ import { emailUrl, withUtm } from "./email-links"
 import { isMuted, mutedEmailTypesByUser } from "./email-prefs"
 import { oneClickUnsubscribeUrl, unsubscribePageUrl } from "./email-unsubscribe"
 import { sendMail } from "./mailer"
+import { parsePgTimestamp } from "./pg-timestamp"
 
 // How far ahead of the first game the announcement goes out. A window, not a
 // target date: the enqueue asks "does this season start within the next
@@ -28,19 +29,23 @@ export const LEAD_DAYS = 7
 const MAX_EMAILS_PER_RUN = 100
 const MAX_ATTEMPTS = 5
 
-// How far PAST a season's nominal start it can still be announced. The copy
-// is written for "starts today" at the latest, so anything older is announced
-// wrong rather than late.
+// What "starts" means here is the first game of the opening slate, NOT
+// seasons.regularSeasonStartsAt. That column is ESPN's calendar boundary for
+// the season and can sit days before anyone actually plays: NFL 2026's is
+// Sunday Sep 6 07:00 UTC while the first week 1 game is Wednesday Sep 10
+// 00:20 UTC. Keying on the boundary meant the announcement both missed its
+// window and would have told the entire list the season started "today" three
+// days before kickoff.
 //
-// One day rather than zero because seasons.regularSeasonStartsAt is ESPN's
-// own boundary for the season, not its first kickoff - NFL's is 3am Eastern
-// on the Wednesday before a Thursday opener - and because the enqueue only
-// runs once a day. Without the grace, a season whose boundary falls between
-// two enqueue runs is never announced at all, which is the one failure mode
-// this job has no way to notice or recover from. Applied at BOTH ends (the
-// enqueue's window and the drain's re-check) so the two can't disagree about
-// whether a season is still worth mailing about.
-const STALE_AFTER_DAYS = 1
+// Derived in SQL as min(games.starts_at) over the season's regular-season
+// games, which is the opening for both window types - a week league's week 1
+// and a date league's opening day both begin at that same first game. Falls
+// back to the boundary only when no games are synced at all, which is the
+// ballots-only case.
+//
+// No grace past it: a season is announceable while its first game is still
+// ahead, and not after. The lead window below is what makes a missed tick
+// survivable, and it no longer has to cover a boundary that passes at 3am.
 
 type SendFn = typeof sendMail
 
@@ -51,7 +56,10 @@ export type SeasonAnnouncement = {
 	leagueName: string
 	leagueSlug: string
 	seasonDisplayName: string
-	regularSeasonStartsAt: Date
+	// First game of the opening slate - see the comment above STALE_AFTER_DAYS'
+	// replacement at the top of this file for why this is not the season row's
+	// own regularSeasonStartsAt.
+	startsAt: Date
 	// "Week 1" / "opening day" - see SeasonStartProps.openingLabel.
 	openingLabel: string
 	gameCount: number
@@ -64,8 +72,32 @@ type SeasonRow = {
 	league_slug: string
 	window_type: "date" | "week"
 	display_name: string
-	regular_season_starts_at: Date
+	// A string, not a Date: node-postgres's per-column type parser never runs
+	// for a raw db.execute(), so this arrives as Postgres's own text form with
+	// no timezone marker. parsePgTimestamp is what turns it into a real UTC
+	// Date - see that function for what `new Date(raw)` does instead.
+	starts_at: string
 }
+
+// Both queries below select the same shape, and both have to agree on how
+// starts_at is derived - the enqueue decides who gets mailed and the drain
+// re-checks it at send time, so a difference between them would queue rows
+// the drain then throws away.
+const SEASON_COLUMNS = sql`
+	s.id as season_id,
+	l.name as league_name,
+	l.slug as league_slug,
+	l.window_type,
+	s.display_name,
+	coalesce(
+		(
+			select min(g.starts_at)
+			from games g
+			where g.season_id = s.id and g.season_type = 'regular'
+		),
+		s.regular_season_starts_at
+	) as starts_at
+`
 
 // The first slate of the regular season, in the league's own unit: a week for
 // a week-window league, a calendar day for a date-window one. Not "games in
@@ -136,7 +168,7 @@ async function describeSeason(row: SeasonRow): Promise<SeasonAnnouncement> {
 		leagueName: row.league_name,
 		leagueSlug: row.league_slug,
 		seasonDisplayName: row.display_name,
-		regularSeasonStartsAt: row.regular_season_starts_at,
+		startsAt: parsePgTimestamp(row.starts_at),
 		openingLabel: slate.openingLabel,
 		gameCount: slate.gameCount,
 		ballotCount,
@@ -155,20 +187,17 @@ export async function announceableSeasons({
 	leagueSlug?: string
 } = {}): Promise<SeasonAnnouncement[]> {
 	const { rows } = await db.execute<SeasonRow>(sql`
-		select
-			s.id as season_id,
-			l.name as league_name,
-			l.slug as league_slug,
-			l.window_type,
-			s.display_name,
-			s.regular_season_starts_at
-		from seasons s
-		join leagues l on l.id = s.league_id
-		where l.status = 'active'
-			and s.regular_season_starts_at > now() - ${`${STALE_AFTER_DAYS} days`}::interval
-			and s.regular_season_starts_at <= now() + ${`${leadDays} days`}::interval
-			${leagueSlug ? sql`and l.slug = ${leagueSlug}` : sql``}
-		order by s.regular_season_starts_at asc
+		with candidate as (
+			select ${SEASON_COLUMNS}
+			from seasons s
+			join leagues l on l.id = s.league_id
+			where l.status = 'active'
+				${leagueSlug ? sql`and l.slug = ${leagueSlug}` : sql``}
+		)
+		select * from candidate
+		where starts_at > now()
+			and starts_at <= now() + ${`${leadDays} days`}::interval
+		order by starts_at asc
 	`)
 
 	const described = await Promise.all(rows.map(describeSeason))
@@ -267,7 +296,7 @@ type Claimed = { user_id: string; season_id: string }
 // commits immediately and releases its row locks while the rows are still
 // `sent_at is null`, so a second concurrent drain selects them again. What
 // keeps two machines from mailing the same person is the job lock every
-// caller takes - see DRAIN_SEASON_START_LOCK in lib/advisory-lock.ts.
+// caller takes - see DRAIN_SEASON_START_LOCK in lib/job-lock.ts.
 async function claimBatch(limit: number): Promise<Claimed[]> {
 	const { rows } = await db.execute<Claimed>(sql`
 		update season_start_emails
@@ -285,7 +314,7 @@ async function claimBatch(limit: number): Promise<Claimed[]> {
 	return rows
 }
 
-// MUST be called under DRAIN_SEASON_START_LOCK (lib/advisory-lock.ts) -
+// MUST be called under DRAIN_SEASON_START_LOCK (lib/job-lock.ts) -
 // nothing in here is safe against a second concurrent drain, and this one
 // mails the whole list rather than one person, so a race duplicates a
 // broadcast. Both callers, the scheduler and the CLI script, take it by name.
@@ -308,27 +337,24 @@ export async function drainSeasonStartEmails({
 
 	// Every season still worth announcing, keyed by id - re-asking every
 	// question the enqueue asked, because up to a day passes between the two
-	// and the answers can change inside it. A season that has since started,
+	// and the answers can change inside it. A season whose opener has since
+	// kicked off,
 	// been deleted, had its league deactivated, or lost the games it was going
 	// to be announced for drops out here, and every row pointing at it is
 	// skipped rather than described wrongly.
 	const announcements = new Map<string, SeasonAnnouncement>()
 	const { rows: seasonRows } = await db.execute<SeasonRow>(sql`
-		select
-			s.id as season_id,
-			l.name as league_name,
-			l.slug as league_slug,
-			l.window_type,
-			s.display_name,
-			s.regular_season_starts_at
-		from seasons s
-		join leagues l on l.id = s.league_id
-		where s.id in (${sql.join(
-			seasonIds.map((id) => sql`${id}::uuid`),
-			sql`, `,
-		)})
-			and l.status = 'active'
-			and s.regular_season_starts_at > now() - ${`${STALE_AFTER_DAYS} days`}::interval
+		with candidate as (
+			select ${SEASON_COLUMNS}
+			from seasons s
+			join leagues l on l.id = s.league_id
+			where s.id in (${sql.join(
+				seasonIds.map((id) => sql`${id}::uuid`),
+				sql`, `,
+			)})
+				and l.status = 'active'
+		)
+		select * from candidate where starts_at > now()
 	`)
 	for (const row of seasonRows) {
 		const announcement = await describeSeason(row)
@@ -428,7 +454,7 @@ async function sendOne(
 	const props = {
 		leagueName: announcement.leagueName,
 		seasonDisplayName: announcement.seasonDisplayName,
-		regularSeasonStartsAt: announcement.regularSeasonStartsAt,
+		startsAt: announcement.startsAt,
 		now: new Date(),
 		openingLabel: announcement.openingLabel,
 		gameCount: announcement.gameCount,
@@ -448,7 +474,7 @@ async function sendOne(
 
 	const result = await send({
 		to,
-		from: env.EMAIL_FROM_NOTIFICATIONS,
+		from: env.EMAIL_FROM_ANNOUNCEMENTS,
 		subject: seasonStartSubject(props),
 		text,
 		html,

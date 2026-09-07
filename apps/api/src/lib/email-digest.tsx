@@ -72,7 +72,7 @@ async function markFailed(rowIds: string[], error: string): Promise<void> {
 // emailOutbox in db/schema/email.ts for why. `send` is injectable purely so
 // tests can assert on what would have gone out without a Resend key.
 //
-// MUST be called under DRAIN_DIGESTS_LOCK (lib/advisory-lock.ts). Nothing
+// MUST be called under DRAIN_DIGESTS_LOCK (lib/job-lock.ts). Nothing
 // inside here is safe against a second concurrent drain - the row claim below
 // says why - so both callers, the scheduler and the backfill script, take
 // that lock by name first.
@@ -121,7 +121,7 @@ async function drainOneUser(
 	// them again quite happily. That is exactly what shipped to production -
 	// startScheduler runs on every machine (see index.ts), Fly runs more than
 	// one, and the same digest went out twice. The mutual exclusion is the job
-	// lock every caller of this function takes; see lib/advisory-lock.ts.
+	// lease every caller of this function takes; see lib/job-lock.ts.
 	const { rows: claimed } = await db.execute<{ id: string; call_id: string }>(
 		sql`
 			update email_outbox

@@ -19,7 +19,7 @@ function props(overrides: Partial<SeasonStartProps> = {}): SeasonStartProps {
 	return {
 		leagueName: "NFL",
 		seasonDisplayName: "2026",
-		regularSeasonStartsAt: KICKOFF,
+		startsAt: KICKOFF,
 		now: NOW,
 		openingLabel: "Week 1",
 		gameCount: 16,
@@ -44,21 +44,15 @@ describe("kickoffPhrase", () => {
 	it("names the weekday inside the coming week and dates it past that", () => {
 		// KICKOFF is 8:20pm ET on Tuesday the 8th, not the UTC Wednesday the
 		// timestamp reads as - the whole reason this formats in Eastern.
-		expect(
-			kickoffPhrase({ regularSeasonStartsAt: KICKOFF, now: days(3) }),
-		).toBe("Tuesday")
-		expect(
-			kickoffPhrase({ regularSeasonStartsAt: KICKOFF, now: days(7) }),
-		).toBe("Tuesday, Sep 8")
+		expect(kickoffPhrase({ startsAt: KICKOFF, now: days(3) })).toBe("Tuesday")
+		expect(kickoffPhrase({ startsAt: KICKOFF, now: days(7) })).toBe(
+			"Tuesday, Sep 8",
+		)
 	})
 
 	it("says tomorrow and today rather than naming the day", () => {
-		expect(
-			kickoffPhrase({ regularSeasonStartsAt: KICKOFF, now: days(1) }),
-		).toBe("tomorrow")
-		expect(
-			kickoffPhrase({ regularSeasonStartsAt: KICKOFF, now: days(0) }),
-		).toBe("today")
+		expect(kickoffPhrase({ startsAt: KICKOFF, now: days(1) })).toBe("tomorrow")
+		expect(kickoffPhrase({ startsAt: KICKOFF, now: days(0) })).toBe("today")
 	})
 
 	// "tomorrow" is a property of the calendar date, not of elapsed hours -
@@ -68,7 +62,7 @@ describe("kickoffPhrase", () => {
 		expect(
 			kickoffPhrase({
 				// 1pm ET Wednesday, sent 11pm ET Tuesday - 14 hours apart.
-				regularSeasonStartsAt: new Date("2026-09-09T17:00:00.000Z"),
+				startsAt: new Date("2026-09-09T17:00:00.000Z"),
 				now: new Date("2026-09-09T03:00:00.000Z"),
 			}),
 		).toBe("tomorrow")

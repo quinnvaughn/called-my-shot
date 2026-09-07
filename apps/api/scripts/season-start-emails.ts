@@ -1,8 +1,8 @@
 import { env } from "../src/env"
 import {
 	DRAIN_SEASON_START_LOCK,
-	withAdvisoryLock,
-} from "../src/lib/advisory-lock"
+	withJobLock,
+} from "../src/lib/job-lock"
 import {
 	announceableSeasons,
 	drainSeasonStartEmails,
@@ -86,7 +86,7 @@ if (seasons.length === 0) {
 console.log(`${seasons.length} season(s) announceable within ${leadDays} days:`)
 for (const s of seasons) {
 	console.log(
-		`   ${s.leagueName} ${s.seasonDisplayName}  starts ${s.regularSeasonStartsAt.toISOString()}  ` +
+		`   ${s.leagueName} ${s.seasonDisplayName}  first game ${s.startsAt.toISOString()}  ` +
 			`${s.gameCount} game(s) on ${s.openingLabel}, ${s.ballotCount} ballot(s)`,
 	)
 }
@@ -111,10 +111,10 @@ if (send) {
 	console.log("Draining now...")
 	// The same lock the scheduler's drain tick takes - see the equivalent in
 	// backfill-resolution-emails.ts.
-	const { ran } = await withAdvisoryLock(DRAIN_SEASON_START_LOCK, async () => {
+	const { ran } = await withJobLock(DRAIN_SEASON_START_LOCK, async () => {
 		const drained = await drainSeasonStartEmails()
 		console.log(
-			`Sent ${drained.sent}, skipped ${drained.skipped}, failed ${drained.failed}, from ${env.EMAIL_FROM_NOTIFICATIONS}.`,
+			`Sent ${drained.sent}, skipped ${drained.skipped}, failed ${drained.failed}, from ${env.EMAIL_FROM_ANNOUNCEMENTS}.`,
 		)
 	})
 	if (!ran) {

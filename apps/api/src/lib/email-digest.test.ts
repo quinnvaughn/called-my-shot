@@ -9,7 +9,7 @@ import {
 	users,
 } from "../db/schema"
 import { makeCall, makeSelection, seedOptionQuestion } from "../test/factories"
-import { DRAIN_DIGESTS_LOCK, withAdvisoryLock } from "./advisory-lock"
+import { DRAIN_DIGESTS_LOCK, withJobLock } from "./job-lock"
 import { drainResolutionDigests } from "./email-digest"
 import type { MailMessage, MailResult } from "./mailer"
 import { resolveQuestionInternal } from "./resolve-question"
@@ -243,10 +243,10 @@ describe("drainResolutionDigests", () => {
 
 		const mail = recorder()
 		const runs = await Promise.all([
-			withAdvisoryLock(DRAIN_DIGESTS_LOCK, async () => {
+			withJobLock(DRAIN_DIGESTS_LOCK, async () => {
 				await drainResolutionDigests({ send: mail.send })
 			}),
-			withAdvisoryLock(DRAIN_DIGESTS_LOCK, async () => {
+			withJobLock(DRAIN_DIGESTS_LOCK, async () => {
 				await drainResolutionDigests({ send: mail.send })
 			}),
 		])

@@ -2,24 +2,24 @@ import cron from "node-cron"
 import { lockOverdueQuestions } from "./db/lock-overdue-questions"
 import { syncSportsData } from "./db/sync/run"
 import { syncLiveScores } from "./db/sync/sync-live-scores"
+import { drainResolutionDigests } from "./lib/email-digest"
 import {
 	DRAIN_DIGESTS_LOCK,
 	DRAIN_SEASON_START_LOCK,
-	withAdvisoryLock,
-} from "./lib/advisory-lock"
-import { drainResolutionDigests } from "./lib/email-digest"
+	withJobLock,
+} from "./lib/job-lock"
 // enqueueSeasonStartEmails is imported alongside this one when the enqueue
 // cron below is re-enabled.
 import { drainSeasonStartEmails } from "./lib/season-start-email"
 
-// Every job runs under a lock named after it, so a tick that fires on all
+// Every job runs under a lease named after it, so a tick that fires on all
 // machines at once still runs the job exactly once across the fleet - see
-// lib/advisory-lock.ts. The CLI scripts take the same locks by name, which is
+// lib/job-lock.ts. The CLI scripts take the same locks by name, which is
 // what keeps a drain run by hand from racing a tick.
 function runJob(name: string, fn: () => Promise<void>) {
 	return async () => {
 		try {
-			const { ran } = await withAdvisoryLock(name, fn)
+			const { ran } = await withJobLock(name, fn)
 			if (!ran) console.log(`[scheduler] ${name} skipped - held elsewhere`)
 		} catch (err) {
 			console.error(`[scheduler] ${name} failed:`, err)

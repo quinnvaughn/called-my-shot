@@ -8,6 +8,7 @@ import {
 	seasonStartEmails,
 	users,
 } from "../db/schema"
+import { env } from "../env"
 import {
 	futureDate,
 	makeGame,
@@ -45,32 +46,39 @@ async function seedUpcomingSeason({
 	windowType = "week" as "date" | "week",
 	games = 1,
 	slug,
+	// How far ESPN's season boundary sits before the first game. Defaults to
+	// the shape real data has: NFL 2026's boundary is the Sunday, its first
+	// game the Wednesday after. Nothing should read the boundary.
+	boundaryDaysBefore = 3,
 }: {
 	daysOut?: number
 	windowType?: "date" | "week"
 	games?: number
 	slug?: string
+	boundaryDaysBefore?: number
 } = {}) {
 	const league = await makeLeague({
 		windowType,
 		...(slug ? { slug, name: slug.toUpperCase() } : {}),
 	})
-	const startsAt = new Date(Date.now() + daysOut * DAY)
+	const firstGameAt = new Date(Date.now() + daysOut * DAY)
 	const season = await makeSeason({
 		leagueId: league.id,
-		regularSeasonStartsAt: startsAt,
-		regularSeasonEndsAt: new Date(startsAt.getTime() + 120 * DAY),
+		regularSeasonStartsAt: new Date(
+			firstGameAt.getTime() - boundaryDaysBefore * DAY,
+		),
+		regularSeasonEndsAt: new Date(firstGameAt.getTime() + 120 * DAY),
 	})
 	for (let i = 0; i < games; i++) {
 		await makeGame({
 			leagueId: league.id,
 			seasonId: season.id,
-			startsAt: new Date(startsAt.getTime() + i * 60_000),
+			startsAt: new Date(firstGameAt.getTime() + i * 60_000),
 			seasonType: "regular",
 			...(windowType === "week" ? { weekNumber: 1 } : {}),
 		})
 	}
-	return { league, season }
+	return { league, season, firstGameAt }
 }
 
 async function pendingCount(): Promise<number> {
@@ -97,32 +105,56 @@ describe("announceableSeasons", () => {
 			seasonId: startedSeason.id,
 			seasonType: "regular",
 			weekNumber: 1,
+			startsAt: new Date(Date.now() - 5 * DAY),
 		})
 
 		const found = await announceableSeasons()
 		expect(found.map((s) => s.leagueName)).toEqual([soon.name])
 	})
 
-	// seasons.regularSeasonStartsAt is ESPN's boundary for the season, not its
-	// first kickoff (NFL's is 3am Eastern on the Wednesday before a Thursday
-	// opener), and the enqueue only runs once a day - so a boundary that falls
-	// between two runs must not mean the season is never announced at all.
-	it("still announces a season whose start just passed", async () => {
+	// The shape that broke this in production. ESPN's regular-season boundary
+	// for NFL 2026 was Sunday Sep 6 while the first week 1 game was Wednesday
+	// Sep 10, so keying on the boundary rejected a season that was still three
+	// days from kickoff - and would have dated the email off it and told the
+	// list the season started "today".
+	it("keys on the first game, not ESPN's already-passed season boundary", async () => {
 		const league = await makeLeague({ windowType: "week" })
+		const firstGameAt = new Date(Date.now() + 3 * DAY)
 		const season = await makeSeason({
 			leagueId: league.id,
-			regularSeasonStartsAt: new Date(Date.now() - 6 * 60 * 60 * 1000),
+			// Two days in the PAST, like the real one was.
+			regularSeasonStartsAt: new Date(Date.now() - 2 * DAY),
 		})
 		await makeGame({
 			leagueId: league.id,
 			seasonId: season.id,
 			seasonType: "regular",
 			weekNumber: 1,
+			startsAt: firstGameAt,
 		})
 
-		expect((await announceableSeasons()).map((s) => s.seasonId)).toEqual([
-			season.id,
-		])
+		const [found] = await announceableSeasons()
+		expect(found?.seasonId).toBe(season.id)
+		expect(found?.startsAt.toISOString()).toBe(firstGameAt.toISOString())
+	})
+
+	// The mirror of the above: the boundary is still ahead, but the games have
+	// all been played, so there is nothing to announce.
+	it("drops a season whose opener has already kicked off", async () => {
+		const league = await makeLeague({ windowType: "week" })
+		const season = await makeSeason({
+			leagueId: league.id,
+			regularSeasonStartsAt: new Date(Date.now() + 2 * DAY),
+		})
+		await makeGame({
+			leagueId: league.id,
+			seasonId: season.id,
+			seasonType: "regular",
+			weekNumber: 1,
+			startsAt: new Date(Date.now() - 60 * 60 * 1000),
+		})
+
+		expect(await announceableSeasons()).toEqual([])
 	})
 
 	it("skips a league that isn't active", async () => {
@@ -190,17 +222,22 @@ describe("announceableSeasons", () => {
 			startsAt: futureDate(24 * 12),
 		})
 
-		const { league: daily, season: dailySeason } = await seedUpcomingSeason({
+		const {
+			league: daily,
+			season: dailySeason,
+			firstGameAt: dailyFirstGame,
+		} = await seedUpcomingSeason({
 			windowType: "date",
 			games: 3,
 			slug: "dy",
 		})
-		// The day after opening day - same reasoning as week 2 above.
+		// The day after opening day - same reasoning as week 2 above. Measured
+		// from the first game, not the season boundary, which sits days earlier.
 		await makeGame({
 			leagueId: daily.id,
 			seasonId: dailySeason.id,
 			seasonType: "regular",
-			startsAt: new Date(dailySeason.regularSeasonStartsAt.getTime() + 2 * DAY),
+			startsAt: new Date(dailyFirstGame.getTime() + 2 * DAY),
 		})
 
 		const found = await announceableSeasons()
@@ -290,7 +327,17 @@ describe("drainSeasonStartEmails", () => {
 			sent: 1,
 		})
 		expect(first.sent[0]?.to).toBe("caller@example.com")
-		expect(first.sent[0]?.subject).toContain("NFL is back")
+		// Not results@, which is the digest's sender - see
+		// EMAIL_FROM_ANNOUNCEMENTS in env.ts.
+		expect(first.sent[0]?.from).toBe(env.EMAIL_FROM_ANNOUNCEMENTS)
+		// The whole subject, not just the prefix. The date in it comes back from
+		// raw SQL as a Postgres timestamp string, and handing that straight to
+		// luxon (rather than through parsePgTimestamp) yields a perfectly
+		// well-formed "NFL is back Invalid DateTime." that every unit test here
+		// misses, because those build real Dates by hand.
+		expect(first.sent[0]?.subject).toMatch(
+			/^NFL is back (today|tomorrow|\w+day|\w+day, \w{3} \d{1,2})\.$/,
+		)
 		expect(first.sent[0]?.text).toContain("utm_campaign=season_start")
 		expect(first.sent[0]?.headers?.["List-Unsubscribe"]).toBeDefined()
 
@@ -323,13 +370,15 @@ describe("drainSeasonStartEmails", () => {
 	// The copy is written for "starts today" at the latest. A row still queued
 	// well after kickoff describes a season that is already underway, so it is
 	// retired rather than sent.
-	it("skips a row whose season has already started", async () => {
+	it("skips a row whose opener kicked off before the drain ran", async () => {
 		const { season } = await seedUpcomingSeason({ daysOut: 3 })
 		await makeUser()
 		await enqueueSeasonStartEmails({ commit: true })
+		// The games move, not the season boundary - the games are what the
+		// announcement is dated from.
 		await db.execute(sql`
-			update seasons set regular_season_starts_at = now() - interval '5 days'
-			where id = ${season.id}
+			update games set starts_at = now() - interval '2 hours'
+			where season_id = ${season.id}
 		`)
 
 		const mail = recorder()

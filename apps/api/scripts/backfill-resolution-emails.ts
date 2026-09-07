@@ -1,7 +1,4 @@
-import {
-	DRAIN_DIGESTS_LOCK,
-	withAdvisoryLock,
-} from "../src/lib/advisory-lock"
+import { DRAIN_DIGESTS_LOCK, withJobLock } from "../src/lib/job-lock"
 import { drainResolutionDigests } from "../src/lib/email-digest"
 import { backfillResolutionEmails } from "../src/lib/email-backfill"
 import { env } from "../src/env"
@@ -105,7 +102,7 @@ if (send) {
 	// alongside one and mail the same rows twice - which is precisely how the
 	// duplicate digests happened. Losing the race means the tick is already
 	// draining and will send these anyway.
-	const { ran } = await withAdvisoryLock(DRAIN_DIGESTS_LOCK, async () => {
+	const { ran } = await withJobLock(DRAIN_DIGESTS_LOCK, async () => {
 		const drained = await drainResolutionDigests()
 		console.log(
 			`Sent ${drained.sent} row(s), skipped ${drained.skipped}, from ${env.EMAIL_FROM_NOTIFICATIONS}.`,
