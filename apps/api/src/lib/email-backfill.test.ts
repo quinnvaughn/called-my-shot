@@ -142,6 +142,92 @@ describe("backfillResolutionEmails", () => {
 		expect(result.candidates).toBe(0)
 	})
 
+	it("restricts the run to one account by email or username", async () => {
+		const { question, options, callers } = await seedOptionQuestion({
+			callers: [{ optionIndex: 0 }, { optionIndex: 1 }],
+		})
+		await resolve(question, [options[0].id])
+		await backdate(question.id, 2)
+		await clearOutbox()
+
+		const me = callers[0].user
+		const byEmail = await backfillResolutionEmails({
+			days: 7,
+			onlyUser: me.email,
+			commit: true,
+		})
+		expect(byEmail.queued).toBe(1)
+		const rows = await db.select().from(emailOutbox)
+		expect(rows).toHaveLength(1)
+		expect(rows[0].userId).toBe(me.id)
+
+		await clearOutbox()
+		const byUsername = await backfillResolutionEmails({
+			days: 7,
+			onlyUser: me.username,
+			commit: true,
+		})
+		expect(byUsername.queued).toBe(1)
+	})
+
+	it("matches nothing for an unknown user", async () => {
+		const { question, options } = await seedOptionQuestion({
+			callers: [{ optionIndex: 0 }],
+		})
+		await resolve(question, [options[0].id])
+		await backdate(question.id, 2)
+		await clearOutbox()
+
+		const result = await backfillResolutionEmails({
+			days: 7,
+			onlyUser: "nobody@example.com",
+			commit: true,
+		})
+		expect(result.candidates).toBe(0)
+		expect(await db.select().from(emailOutbox)).toHaveLength(0)
+	})
+
+	// --immediate is what makes a production smoke test take one drain tick
+	// instead of twenty minutes.
+	it("sends on the next tick when immediate is set for one user", async () => {
+		const { question, options, callers } = await seedOptionQuestion({
+			callers: [{ optionIndex: 0 }],
+		})
+		await resolve(question, [options[0].id])
+		await backdate(question.id, 2)
+		await clearOutbox()
+
+		await backfillResolutionEmails({
+			days: 7,
+			onlyUser: callers[0].user.email,
+			immediate: true,
+			commit: true,
+		})
+
+		// No manual ageing here - that is the whole point.
+		const mail = recorder()
+		await drainResolutionDigests({ send: mail.send })
+		expect(mail.sent).toHaveLength(1)
+		expect(mail.sent[0].to).toBe(callers[0].user.email)
+	})
+
+	// The settling window is the abort window for a real backfill, so it is
+	// only given up for a single named account.
+	it("ignores immediate when no user is named", async () => {
+		const { question, options } = await seedOptionQuestion({
+			callers: [{ optionIndex: 0 }],
+		})
+		await resolve(question, [options[0].id])
+		await backdate(question.id, 2)
+		await clearOutbox()
+
+		await backfillResolutionEmails({ days: 7, immediate: true, commit: true })
+
+		const mail = recorder()
+		await drainResolutionDigests({ send: mail.send })
+		expect(mail.sent).toHaveLength(0)
+	})
+
 	// End to end: what the operator actually cares about is that a backfilled
 	// batch turns into one email per person, not one per call.
 	it("produces a single email per user once drained", async () => {

@@ -19,9 +19,6 @@ import { loadResolvedCallSummaries } from "./share-cards/call-summary"
 // burst of games finishing together into one email while still letting an
 // afternoon result go out without waiting on an evening one.
 const SETTLE_MINUTES = 15
-// Rows listed in the email body; the rest become "and N more". A 12-call
-// Sunday should read as a result, not a spreadsheet.
-const MAX_ROWS_PER_EMAIL = 8
 const MAX_USERS_PER_RUN = 200
 // A row that has failed this many times is left alone rather than retried
 // forever - by then it's a bad address or a template bug, and neither gets
@@ -169,7 +166,10 @@ async function drainOneUser(
 		})
 		.sort((a, b) => Math.abs(b.points) - Math.abs(a.points))
 
-	const calls: DigestCall[] = ordered.slice(0, MAX_ROWS_PER_EMAIL).map((s) => ({
+	// Every resolved call, not a page of them - the template applies its own
+	// display cap. Slicing here would have the record and net describe only
+	// the rows that fit.
+	const calls: DigestCall[] = ordered.map((s) => ({
 		questionTitle: s.questionTitle,
 		leagueAbbr: s.leagueAbbr,
 		shapeLabel: s.shapeLabel,
@@ -190,7 +190,6 @@ async function drainOneUser(
 	const { html, text } = await renderEmail(
 		<ResolutionDigest
 			calls={calls}
-			overflowCount={Math.max(0, ordered.length - MAX_ROWS_PER_EMAIL)}
 			primaryShareUrl={shareUrl(primary.questionId, primary.questionTitle)}
 			allCallsUrl={`${env.CLIENT_ORIGIN}/my-calls`}
 			manageUrl={`${env.CLIENT_ORIGIN}/settings`}

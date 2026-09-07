@@ -15,11 +15,18 @@ export type DigestCall = {
 	shareUrl: string
 }
 
+// Rows listed in the body; the rest become "and N more". A 12-call Sunday
+// should read as a result, not a spreadsheet. Lives here rather than in the
+// drain because it is purely about how much of the list fits on screen.
+const MAX_ROWS = 8
+
 export type ResolutionDigestProps = {
+	// EVERY resolved call, not just the ones that fit. The record, the net and
+	// the standout are all derived from this list, and the display cap is
+	// applied below - passing a pre-sliced list (as this used to) meant a
+	// 12-call batch reported the record of its first 8, so the subject line
+	// was simply wrong.
 	calls: DigestCall[]
-	// How many resolved calls didn't fit the list. The email shows a bounded
-	// number of rows so a heavy slate doesn't turn into a wall of text.
-	overflowCount: number
 	// The call worth leading with - biggest swing, wins preferred.
 	primaryShareUrl: string
 	allCallsUrl: string
@@ -41,17 +48,37 @@ function signed(points: number): string {
 	return `${points >= 0 ? "+" : "−"}${Math.abs(points)}`
 }
 
-// The subject carries the whole result, because for a lot of people it's the
-// only part they'll read. Record first, then the net - "You went 2-1" says
-// more at a glance than a points total does.
+// Deliberately does NOT say how they did. Answering the result in the
+// subject line gives someone every reason to read it and never open - and the
+// thing worth opening for (the card they can share) is inside. So the subject
+// is an invitation, and the count is the only number in it: concrete, honest
+// about scale, and no spoiler.
+//
+// Predictable on purpose. This is the same line every time apart from the
+// count, so it becomes recognisable in an inbox rather than another thing to
+// decode.
 export function digestSubject(calls: DigestCall[]): string {
-	const { wins, losses, net } = digestSummary(calls)
-	return match({ total: calls.length, wins, losses })
-		.with({ total: 1, wins: 1 }, () => `You called it. ${signed(net)}`)
-		.with({ total: 1 }, () => `That one didn't land. ${signed(net)}`)
-		.with({ losses: 0 }, ({ total }) => `${total} for ${total}. ${signed(net)}`)
-		.with({ wins: 0 }, ({ total }) => `0 for ${total}. ${signed(net)}`)
-		.otherwise(() => `You went ${wins}-${losses} · ${signed(net)}`)
+	return calls.length === 1
+		? "Your call is in."
+		: `Your ${calls.length} calls are in.`
+}
+
+// The standout call - same rule the drain uses to pick primaryShareUrl, so
+// the preheader names the call the button will hand over. `calls` arrives
+// sorted by absolute points, so the first win is the biggest one.
+function standout(calls: DigestCall[]): DigestCall | undefined {
+	return calls.find((c) => c.isWin) ?? calls[0]
+}
+
+// The preheader sits next to the subject in the inbox, so it can't give the
+// result away either - naming the standout call without its outcome adds
+// something specific and personal while leaving the answer inside.
+export function digestPreview(calls: DigestCall[]): string {
+	const best = standout(calls)
+	if (!best) return "Your results are ready."
+	return calls.length === 1
+		? `${best.questionTitle} — settled.`
+		: `Starting with ${best.questionTitle}.`
 }
 
 function headline(calls: DigestCall[]): string {
@@ -160,7 +187,6 @@ function CallRow({ call }: { call: DigestCall }) {
 
 export function ResolutionDigest({
 	calls,
-	overflowCount,
 	primaryShareUrl,
 	allCallsUrl,
 	manageUrl,
@@ -169,10 +195,12 @@ export function ResolutionDigest({
 }: ResolutionDigestProps) {
 	const { net } = digestSummary(calls)
 	const netTone = net >= 0 ? COLOR.success : COLOR.danger
+	const shown = calls.slice(0, MAX_ROWS)
+	const overflowCount = Math.max(0, calls.length - shown.length)
 
 	return (
 		<EmailLayout
-			preview={`${headline(calls)} ${signed(net)} points.`}
+			preview={digestPreview(calls)}
 			manageUrl={manageUrl}
 			unsubscribeUrl={unsubscribeUrl}
 			logoUrl={logoUrl}
@@ -214,7 +242,7 @@ export function ResolutionDigest({
 				{signed(net)} pts
 			</Text>
 
-			{calls.map((call) => (
+			{shown.map((call) => (
 				<CallRow key={call.shareUrl} call={call} />
 			))}
 
@@ -308,7 +336,6 @@ ResolutionDigest.PreviewProps = {
 			shareUrl: "https://calledmyshot.com/questions/3/kelce?share=1",
 		},
 	],
-	overflowCount: 0,
 	primaryShareUrl: "https://calledmyshot.com/questions/1/mahomes?share=1",
 	allCallsUrl: "https://calledmyshot.com/my-calls",
 	manageUrl: "https://calledmyshot.com/settings",

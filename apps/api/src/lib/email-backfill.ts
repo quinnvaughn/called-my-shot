@@ -1,5 +1,6 @@
-import { sql } from "drizzle-orm"
+import { and, inArray, isNull, sql } from "drizzle-orm"
 import { db } from "../db"
+import { emailOutbox } from "../db/schema"
 import { enqueueResolvedCallEmails } from "./email-outbox"
 import { loadResolvedCallSummaries } from "./share-cards/call-summary"
 
@@ -20,6 +21,14 @@ type Candidate = { call_id: string; user_id: string; question_id: string }
 
 export type BackfillOptions = {
 	days: number
+	// A username or email. Restricts the whole run to that one account, for
+	// smoke-testing the real thing in production before anyone else gets it.
+	onlyUser?: string
+	// Backdates the queued rows past the settling window so the next drain
+	// tick sends them, instead of waiting it out. Only honoured alongside
+	// onlyUser: the wait is the abort window for a real backfill, and giving
+	// that up for a one-person test is fine, for a whole cohort is not.
+	immediate?: boolean
 	// Scopes to accounts created inside the same window - the population this
 	// was written for. Without it, long-standing users also get a digest for
 	// results they already watched land in-app.
@@ -39,10 +48,13 @@ export type BackfillResult = {
 
 export async function backfillResolutionEmails({
 	days,
+	onlyUser,
+	immediate = false,
 	newUsersOnly = false,
 	commit = false,
 }: BackfillOptions): Promise<BackfillResult> {
 	const window = `${days} days`
+	const sendNow = immediate && Boolean(onlyUser)
 
 	const { rows: candidates } = await db.execute<Candidate>(sql`
 		select c.id as call_id, c.user_id, c.question_id
@@ -52,6 +64,7 @@ export async function backfillResolutionEmails({
 		where q.status = 'resolved'
 			and q.resolved_at >= now() - ${window}::interval
 			${newUsersOnly ? sql`and u.created_at >= now() - ${window}::interval` : sql``}
+			${onlyUser ? sql`and (u.username = ${onlyUser} or u.email = ${onlyUser})` : sql``}
 			-- Any existing row means this call was already queued or already
 			-- mailed. The partial unique index only guards the unsent case, so
 			-- a previously-sent row would otherwise let a second email through.
@@ -91,6 +104,21 @@ export async function backfillResolutionEmails({
 				})),
 			),
 		)
+	}
+
+	if (sendNow && sendable.length > 0) {
+		await db
+			.update(emailOutbox)
+			.set({ createdAt: sql`now() - interval '1 hour'` })
+			.where(
+				and(
+					isNull(emailOutbox.sentAt),
+					inArray(
+						emailOutbox.callId,
+						sendable.map((c) => c.call_id),
+					),
+				),
+			)
 	}
 	return result
 }

@@ -6,6 +6,9 @@ import { backfillResolutionEmails } from "../src/lib/email-backfill"
 //   pnpm --filter api backfill:emails -- --days=4                    # dry run
 //   pnpm --filter api backfill:emails -- --days=4 --new-users-only
 //   pnpm --filter api backfill:emails -- --days=4 --commit
+//
+// Smoke-test on yourself in production before anyone else gets one:
+//   pnpm --filter api backfill:emails -- --days=4 --user=you@example.com --commit --immediate
 function flag(name: string): string | undefined {
 	const hit = process.argv.find((a) => a.startsWith(`--${name}`))
 	if (!hit) return undefined
@@ -20,13 +23,28 @@ if (!Number.isFinite(days) || days <= 0 || days > 30) {
 
 const commit = flag("commit") === "true"
 const newUsersOnly = flag("new-users-only") === "true"
+const onlyUser = flag("user")
+const immediate = flag("immediate") === "true"
 
-const result = await backfillResolutionEmails({ days, newUsersOnly, commit })
+if (immediate && !onlyUser) {
+	console.error(
+		"--immediate only works with --user. The settling window is the abort window for a real backfill; skipping it for one test account is fine, for a whole cohort is not.",
+	)
+	process.exit(1)
+}
+
+const result = await backfillResolutionEmails({
+	days,
+	onlyUser,
+	immediate,
+	newUsersOnly,
+	commit,
+})
 
 console.log(
 	`${result.candidates} candidate call(s) resolved in the last ${days} days${
 		newUsersOnly ? " from accounts created in that window" : ""
-	}`,
+	}${onlyUser ? ` for ${onlyUser}` : ""}`,
 )
 console.log(
 	`${result.candidates - result.dropped} sendable, ${result.dropped} dropped (no final points or no longer resolved)`,
@@ -43,8 +61,14 @@ if (!commit) {
 	process.exit(0)
 }
 
-console.log(
-	`\nQueued ${result.queued} row(s). The drain sends them on its next run once they clear the settling window (~15 min).`,
-)
-console.log("To abort before anything sends:")
-console.log("  delete from email_outbox where sent_at is null;")
+if (immediate) {
+	console.log(
+		`\nQueued ${result.queued} row(s), backdated past the settling window - the next drain tick (runs every 5 min on the api machine) will send them.`,
+	)
+} else {
+	console.log(
+		`\nQueued ${result.queued} row(s). The drain sends them on its next run once they clear the settling window (~15 min).`,
+	)
+	console.log("To abort before anything sends:")
+	console.log("  delete from email_outbox where sent_at is null;")
+}

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest"
 import { renderEmail } from "./render"
 import {
 	type DigestCall,
+	digestPreview,
 	digestSubject,
 	ResolutionDigest,
 	type ResolutionDigestProps,
@@ -26,7 +27,6 @@ function props(
 ): ResolutionDigestProps {
 	return {
 		calls,
-		overflowCount: 0,
 		primaryShareUrl: calls[0]?.shareUrl ?? "",
 		allCallsUrl: "https://calledmyshot.com/my-calls",
 		manageUrl: "https://calledmyshot.com/settings",
@@ -36,47 +36,40 @@ function props(
 	}
 }
 
+// The subject deliberately withholds the result - answering it in the inbox
+// gives someone every reason to read and never open, and the card they can
+// share is inside. The body still leads with the record (asserted below).
 describe("digestSubject", () => {
-	it("names the result for a single win", () => {
-		expect(digestSubject([call()])).toBe("You called it. +210")
+	it("invites rather than answering", () => {
+		const win = digestSubject([call()])
+		const loss = digestSubject([call({ points: -40, isWin: false })])
+		expect(win).toBe("Your call is in.")
+		// A single call reads identically whether it hit or missed - nothing
+		// about the outcome leaks into the inbox.
+		expect(loss).toBe(win)
 	})
 
-	it("names the result for a single miss", () => {
-		expect(digestSubject([call({ points: -40, isWin: false })])).toBe(
-			"That one didn't land. −40",
-		)
+	it("counts the calls without scoring them", () => {
+		expect(digestSubject([call(), call(), call()])).toBe("Your 3 calls are in.")
 	})
 
-	it("uses a perfect record when nothing missed", () => {
-		expect(digestSubject([call(), call({ points: 130 })])).toBe("2 for 2. +340")
+	it("never leaks the outcome into subject or preheader", () => {
+		const rough = [
+			call({ points: -90, isWin: false }),
+			call({ points: -80, isWin: false }),
+		]
+		const inbox = `${digestSubject(rough)} ${digestPreview(rough)}`
+		for (const tell of ["-", "\u2212", "point", "went", "for 2", "miss"]) {
+			expect(inbox.toLowerCase()).not.toContain(tell.toLowerCase())
+		}
 	})
 
-	it("uses a shutout record when nothing hit", () => {
-		expect(
-			digestSubject([
-				call({ points: -40, isWin: false }),
-				call({ points: -60, isWin: false }),
-			]),
-		).toBe("0 for 2. −100")
-	})
-
-	it("uses win-loss for a mixed batch, netting the points", () => {
-		expect(
-			digestSubject([
-				call(),
-				call({ points: 130 }),
-				call({ points: -40, isWin: false }),
-			]),
-		).toBe("You went 2-1 · +300")
-	})
-
-	it("reports a net loss even when more calls hit than missed", () => {
-		expect(
-			digestSubject([
-				call({ points: 10 }),
-				call({ points: -90, isWin: false }),
-			]),
-		).toBe("You went 1-1 · −80")
+	it("names the standout call in the preheader", () => {
+		const calls = [
+			call({ questionTitle: "Bills to win outright", points: 200 }),
+			call({ questionTitle: "Jets ML", points: -10, isWin: false }),
+		]
+		expect(digestPreview(calls)).toBe("Starting with Bills to win outright.")
 	})
 })
 
@@ -109,16 +102,39 @@ describe("ResolutionDigest", () => {
 		expect(text).toContain("https://calledmyshot.com/my-calls")
 	})
 
-	it("mentions the calls it didn't list", async () => {
-		const { text } = await renderEmail(
-			ResolutionDigest(props([call()], { overflowCount: 4 })),
+	// The cap is a display concern only. Everything the email asserts - the
+	// record, the net, which call is the standout - has to describe the whole
+	// batch, or a 12-call Sunday reports the record of its first 8.
+	it("lists at most 8 calls and counts the rest", async () => {
+		const twelve = Array.from({ length: 12 }, (_, i) =>
+			call({ questionTitle: `Call number ${i + 1}`, points: 10 - i }),
 		)
+		const { text } = await renderEmail(ResolutionDigest(props(twelve)))
+		expect(text).toContain("Call number 8")
+		expect(text).not.toContain("Call number 9")
 		expect(text).toContain("and 4 more")
+	})
+
+	it("reports the record and net across every call, not just the listed ones", async () => {
+		const twelve = [
+			...Array.from({ length: 3 }, () => call({ points: 100 })),
+			...Array.from({ length: 9 }, () => call({ points: -50, isWin: false })),
+		]
+		const { text } = await renderEmail(ResolutionDigest(props(twelve)))
+		// 3-9 and -150 across all twelve - not the 3-5 that summing the list
+		// after slicing it to eight rows used to report.
+		expect(text).toContain("You went 3-9.")
+		expect(text).toContain("−150 pts")
 	})
 
 	it("omits the overflow line when everything fit", async () => {
 		const { text } = await renderEmail(ResolutionDigest(props([call()])))
 		expect(text).not.toContain("more.")
+	})
+
+	it("does not repeat the subject in the preheader", async () => {
+		const calls = [call(), call({ points: -40, isWin: false })]
+		expect(digestPreview(calls)).not.toContain(digestSubject(calls))
 	})
 
 	it("points the primary call-to-action at the share panel", async () => {
