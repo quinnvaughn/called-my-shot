@@ -96,7 +96,7 @@ export async function syncPlayers(
 			const rookieEligible = config.resolveRookieEligible
 				? await config.resolveRookieEligible(
 						athlete,
-						espnTeam.abbreviation,
+						espnTeam.displayName,
 						currentSeasonYear,
 					)
 				: (athlete.experience?.years ?? 0) === 0

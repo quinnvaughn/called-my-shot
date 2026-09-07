@@ -1,11 +1,12 @@
 import { generateQuestionTitle } from "@called-my-shot/schemas"
-import { sql } from "drizzle-orm"
+import { inArray, sql } from "drizzle-orm"
 import { match } from "ts-pattern"
 import { db } from "../db"
 import type { RecurringQuestionTemplate } from "../db/catalog/recurring-question-catalog"
 import {
 	ballotQuestions,
 	ballots,
+	type Player,
 	questionOptions,
 	questions,
 } from "../db/schema"
@@ -236,6 +237,78 @@ async function generatePerTeamNumericGuess(params: {
 	return { created, skipped }
 }
 
+// An award question's options are a snapshot of the pool at the moment it was
+// generated, but the pool it came from keeps moving all season: a player is
+// called up in August, a rookie's eligibility is corrected by a later sync,
+// somebody changes organizations. Left alone, the first sync of the season
+// decides who can ever win the award - the September call-up who actually
+// wins Rookie of the Year is simply not on the ballot.
+//
+// So every rerun re-derives the pool and reconciles:
+//   - a pool player with no option gets one, appended after the existing
+//     order so nobody's list reshuffles under them mid-season;
+//   - an option whose player has left the pool is dropped only if nobody has
+//     called it - a pick already made outranks a pool that has since moved,
+//     since deleting the option deletes the call selection with it.
+// Only while the question is still open: a locked or resolved question's
+// option set is part of what was already scored against.
+export async function reconcileAwardOptions(
+	question: typeof questions.$inferSelect,
+	pool: Player[],
+): Promise<void> {
+	if (question.status !== "open") return
+
+	const options = await db.query.questionOptions.findMany({
+		where: { questionId: question.id },
+	})
+	const optionByPlayerId = new Map(
+		options.flatMap((o) => (o.playerId ? [[o.playerId, o] as const] : [])),
+	)
+	const poolPlayerIds = new Set(pool.map((p) => p.id))
+
+	const missing = pool.filter((p) => !optionByPlayerId.has(p.id))
+	const stale = options.filter(
+		(o) => o.playerId && !poolPlayerIds.has(o.playerId),
+	)
+	if (missing.length === 0 && stale.length === 0) return
+
+	const calledOptionIds = new Set(
+		stale.length === 0
+			? []
+			: (
+					await db.query.callSelections.findMany({
+						where: { optionId: { in: stale.map((o) => o.id) } },
+					})
+				).map((s) => s.optionId),
+	)
+	const removable = stale.filter((o) => !calledOptionIds.has(o.id))
+
+	await db.transaction(async (tx) => {
+		if (removable.length > 0) {
+			await tx.delete(questionOptions).where(
+				inArray(
+					questionOptions.id,
+					removable.map((o) => o.id),
+				),
+			)
+		}
+		if (missing.length > 0) {
+			const nextSortOrder = Math.max(-1, ...options.map((o) => o.sortOrder)) + 1
+			await tx.insert(questionOptions).values(
+				missing.map((player, index) => ({
+					questionId: question.id,
+					label: player.name,
+					sortOrder: nextSortOrder + index,
+					playerId: player.id,
+				})),
+			)
+		}
+	})
+	console.log(
+		`[season-questions] "${question.title}": +${missing.length} option(s), -${removable.length} (${stale.length - removable.length} kept, already called)`,
+	)
+}
+
 async function generatePlayerSeasonAward(params: {
 	template: Extract<RecurringQuestionTemplate, { shape: "player_season_award" }>
 	leagueId: string
@@ -263,7 +336,6 @@ async function generatePlayerSeasonAward(params: {
 			sameFilterSet(q.awardConferences, params.template.awardConferences) &&
 			sameFilterSet(q.awardDivisions, params.template.awardDivisions),
 	)
-	if (existing) return { created: 0, skipped: 1 }
 
 	const pool = await buildPlayerPool(
 		{ leagueId: params.leagueId },
@@ -275,6 +347,12 @@ async function generatePlayerSeasonAward(params: {
 			rookieOnly: params.template.awardRookieOnly,
 		},
 	)
+
+	if (existing) {
+		await reconcileAwardOptions(existing, pool)
+		return { created: 0, skipped: 1 }
+	}
+
 	if (pool.length < params.template.picksRequired) {
 		throw new Error(
 			`generatePlayerSeasonAward: not enough players for "${params.template.awardName}" (need ${params.template.picksRequired}, found ${pool.length})`,
