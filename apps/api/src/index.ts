@@ -5,13 +5,15 @@ import { expressMiddleware } from "@as-integrations/express5"
 import cookieParser from "cookie-parser"
 import cors from "cors"
 import express from "express"
-import { env } from "./env"
+import { assertProductionConfig, env } from "./env"
 import { createContext } from "./graphql/context"
 import { schema } from "./graphql/schema"
 import { registerSchemaRoute } from "./routes/schema"
 import { registerShareRoutes } from "./routes/share"
 import { registerWebhookRoutes } from "./routes/webhooks"
 import { startScheduler } from "./scheduler"
+
+assertProductionConfig()
 
 const app = express()
 const httpServer = http.createServer(app)

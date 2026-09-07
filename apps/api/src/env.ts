@@ -28,8 +28,9 @@ const envSchema = z.object({
 	EMAIL_FROM_NOTIFICATIONS: z
 		.string()
 		.default("Called My Shot <results@mail.calledmyshot.com>"),
-	// Signs unsubscribe links. Optional so local dev needs no setup, but
-	// required in production - see the superRefine below.
+	// Signs unsubscribe links. Optional here so local dev needs no setup;
+	// production is enforced by assertProductionConfig() at startup rather
+	// than in this schema - see there for why.
 	EMAIL_UNSUBSCRIBE_SECRET: z.string().min(32).optional(),
 	// Resend's webhook signing secret ("whsec_..."), used to verify bounce and
 	// spam-complaint events. Without it routes/webhooks.ts refuses every
@@ -37,15 +38,26 @@ const envSchema = z.object({
 	RESEND_WEBHOOK_SECRET: z.string().optional(),
 })
 
-export const env = envSchema
-	.superRefine((value, ctx) => {
-		if (value.NODE_ENV === "production" && !value.EMAIL_UNSUBSCRIBE_SECRET) {
-			ctx.addIssue({
-				code: "custom",
-				path: ["EMAIL_UNSUBSCRIBE_SECRET"],
-				message:
-					"EMAIL_UNSUBSCRIBE_SECRET is required in production - every notification email has to carry a working one-click unsubscribe.",
-			})
-		}
-	})
-	.parse(process.env)
+export const env = envSchema.parse(process.env)
+
+// Checked when the server actually starts, NOT while parsing the schema
+// above. Plenty of things import this module without ever serving a request
+// or sending mail - notably `pnpm --filter api schema:print`, which the web
+// app's Dockerfile runs at build time against a stub .env that sets
+// NODE_ENV=production. Enforcing it at parse time failed that build, which is
+// the wrong place to discover a missing mail secret.
+//
+// Only EMAIL_UNSUBSCRIBE_SECRET is fatal. Without it the signing key silently
+// falls back to a constant that is committed to this repo, so every
+// unsubscribe link in production would be forgeable by anyone who read it.
+// The other mail settings degrade honestly instead: no RESEND_API_KEY logs
+// rather than sends, and no RESEND_WEBHOOK_SECRET makes the webhook refuse
+// unverified payloads.
+export function assertProductionConfig(): void {
+	if (env.NODE_ENV !== "production") return
+	if (!env.EMAIL_UNSUBSCRIBE_SECRET) {
+		throw new Error(
+			"EMAIL_UNSUBSCRIBE_SECRET is required in production - without it unsubscribe links are signed with a key committed to this repo.",
+		)
+	}
+}
