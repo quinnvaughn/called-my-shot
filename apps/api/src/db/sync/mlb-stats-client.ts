@@ -13,16 +13,19 @@ const MLB_SPORT_ID = 1
 
 export type MlbTeam = {
 	id: number
-	abbreviation: string
+	// Matched against ESPN's own team displayName rather than against
+	// abbreviations: all 30 teams agree on the full name, while the two
+	// feeds disagree on two abbreviations (ESPN's ARI/CHW vs MLB's AZ/CWS),
+	// and a team that fails to resolve takes its whole roster's eligibility
+	// with it.
+	name: string
 }
 
-export type MlbRosterEntry = {
-	person: { id: number; fullName: string }
-}
-
-// One season's worth of hitting or pitching totals. atBats only appears on
-// hitting splits, inningsPitched only on pitching splits - a given season row
-// is one or the other depending on which `group` it came from, never both.
+// One season's worth of hitting or pitching totals, under whichever group it
+// came back in. Both groups carry an `atBats` field and they mean opposite
+// things - in a hitting split it is the player's own at-bats, in a pitching
+// split it is at-bats against him - so a split is only ever read through the
+// group that produced it (see mlb-rookie-eligibility.ts).
 export type MlbSeasonStat = {
 	season: string // e.g. "2025" - MLB's own season labels are plain calendar years
 	stat: {
@@ -31,6 +34,21 @@ export type MlbSeasonStat = {
 		// inning (.1 = ⅓, .2 = ⅔), not a decimal fraction - e.g. "12.1" means 12⅓
 		// innings, not 12.1 innings. Parsed in mlb-rookie-eligibility.ts.
 		inningsPitched?: string
+	}
+}
+
+export type MlbStatGroup = {
+	group: { displayName: "hitting" | "pitching" | (string & {}) }
+	splits: MlbSeasonStat[]
+}
+
+export type MlbRosterEntry = {
+	person: {
+		id: number
+		fullName: string
+		// Absent for someone who has never appeared in an MLB game at all -
+		// a 40-man roster spot alone doesn't create a stat line.
+		stats?: MlbStatGroup[]
 	}
 }
 
@@ -57,23 +75,19 @@ export async function fetchAllMlbTeams(): Promise<MlbTeam[]> {
 // broader than just the active 26 - matching against the narrower default
 // here would silently fail to find almost every low-experience/recently-
 // optioned player, which is exactly the population this lookup exists for.
+//
+// The hydrate pulls each person's full year-by-year career line in with the
+// roster, so one request per team answers eligibility for that team's whole
+// roster - the alternative is a career-stats request per player, ~840 of
+// them across the league every sync.
 export async function fetchMlbTeamRoster(
 	mlbTeamId: number,
 ): Promise<MlbRosterEntry[]> {
+	const hydrate = encodeURIComponent(
+		`person(stats(type=yearByYear,group=[hitting,pitching],sportId=${MLB_SPORT_ID}))`,
+	)
 	const data = await mlbGet<{ roster: MlbRosterEntry[] }>(
-		`teams/${mlbTeamId}/roster?rosterType=40Man`,
+		`teams/${mlbTeamId}/roster?rosterType=40Man&hydrate=${hydrate}`,
 	)
 	return data.roster
-}
-
-// yearByYear covers every season a person has ever appeared in, hitting and
-// pitching together (a two-way player gets both) - exactly what's needed to
-// sum career-to-date at-bats/innings-pitched in mlb-rookie-eligibility.ts.
-export async function fetchMlbCareerStats(
-	personId: number,
-): Promise<MlbSeasonStat[]> {
-	const data = await mlbGet<{ stats: { splits: MlbSeasonStat[] }[] }>(
-		`people/${personId}/stats?stats=yearByYear&group=hitting,pitching&sportId=${MLB_SPORT_ID}`,
-	)
-	return data.stats.flatMap((s) => s.splits)
 }

@@ -18,9 +18,11 @@ export type SyncLeagueConfig = {
 	// real rookie status. MLB overrides it because that's not true there - a
 	// brief prior-season call-up trips seasonsInLeague to 1 without costing
 	// real MLB rookie status.
+	// teamName is ESPN's own team displayName, which is what MLB's Stats API
+	// is keyed on to find the player's roster entry (see MlbTeam.name).
 	resolveRookieEligible?: (
 		athlete: EspnAthlete,
-		teamAbbreviation: string,
+		teamName: string,
 		currentSeasonYear: number,
 	) => Promise<boolean>
 }
