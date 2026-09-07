@@ -8,10 +8,9 @@ import {
 	withAdvisoryLock,
 } from "./lib/advisory-lock"
 import { drainResolutionDigests } from "./lib/email-digest"
-import {
-	drainSeasonStartEmails,
-	enqueueSeasonStartEmails,
-} from "./lib/season-start-email"
+// enqueueSeasonStartEmails is imported alongside this one when the enqueue
+// cron below is re-enabled.
+import { drainSeasonStartEmails } from "./lib/season-start-email"
 
 // Every job runs under a lock named after it, so a tick that fires on all
 // machines at once still runs the job exactly once across the fleet - see
@@ -54,20 +53,32 @@ export function startScheduler(): void {
 		}),
 		{ name: DRAIN_DIGESTS_LOCK, timezone: "UTC", noOverlap: true },
 	)
-	// 13:00 UTC is 9am Eastern - the hour this list is most likely to be read,
-	// and the only reason the enqueue has a time of day at all: rows appear
-	// only when this runs, and the drain below sends them within five minutes.
-	// Runs daily rather than once per season because the announcement window
-	// is a range (see LEAD_DAYS) - each day re-asks which seasons are close
-	// enough, and the unique constraint makes every rerun after the first a
+	// DISABLED - the enqueue side only. Season-start announcements are being
+	// queued by hand for now (scripts/season-start-emails.ts --commit), so the
+	// send time of the first one can be picked deliberately rather than landing
+	// on whichever daily tick happens to follow a deploy. The drain below stays
+	// scheduled either way: it is what actually sends whatever is queued, by
+	// cron or by hand.
+	//
+	// Re-enabling means uncommenting this block AND the enqueueSeasonStartEmails
+	// import at the top of the file. Until then no season announces itself, NBA
+	// and MLB included.
+	//
+	// 13:00 UTC is 9am Eastern, the hour this list is most likely to be read,
+	// and the only reason the enqueue has a time of day at all: rows appear only
+	// when it runs, and the drain sends them within five minutes. Daily rather
+	// than once per season because the announcement window is a range (see
+	// LEAD_DAYS) - each day re-asks which seasons are close enough, and the
+	// (user_id, season_id) primary key makes every rerun after the first a
 	// no-op for the same people.
-	cron.schedule(
-		"0 13 * * *",
-		runJob("enqueue-season-start-emails", async () => {
-			await enqueueSeasonStartEmails({ commit: true })
-		}),
-		{ name: "enqueue-season-start-emails", timezone: "UTC", noOverlap: true },
-	)
+	//
+	// cron.schedule(
+	// 	"0 13 * * *",
+	// 	runJob("enqueue-season-start-emails", async () => {
+	// 		await enqueueSeasonStartEmails({ commit: true })
+	// 	}),
+	// 	{ name: "enqueue-season-start-emails", timezone: "UTC", noOverlap: true },
+	// )
 	// Separate from the enqueue so one pass doesn't have to hand Resend the
 	// whole user list in one go - each tick takes a capped batch, and a list
 	// bigger than the cap spreads over the following ticks instead of
@@ -80,6 +91,6 @@ export function startScheduler(): void {
 		{ name: DRAIN_SEASON_START_LOCK, timezone: "UTC", noOverlap: true },
 	)
 	console.log(
-		"[scheduler] started: sync-live-scores */5m, lock-overdue-questions */15m, sync-sports-data daily 09:00 UTC, drain-email-digests */5m, enqueue-season-start-emails daily 13:00 UTC, drain-season-start-emails */5m",
+		"[scheduler] started: sync-live-scores */5m, lock-overdue-questions */15m, sync-sports-data daily 09:00 UTC, drain-email-digests */5m, drain-season-start-emails */5m (enqueue-season-start-emails disabled, queued by hand)",
 	)
 }
