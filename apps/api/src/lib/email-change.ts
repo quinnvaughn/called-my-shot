@@ -51,18 +51,23 @@ export async function issuePendingEmailChange(
 	const confirmUrl = `${env.CLIENT_ORIGIN}/confirm-email?token=${token}${
 		redirectTo ? `&redirect=${encodeURIComponent(redirectTo)}` : ""
 	}`
-	await sendMail(
-		newEmail,
-		isInitialVerification ? "Verify your email" : "Confirm your new email",
-		isInitialVerification
+	// Never gated by email preferences (see lib/email-prefs.ts) - this is how
+	// someone proves or protects ownership of an inbox, so an opt-out must not
+	// be able to stop it.
+	await sendMail({
+		to: newEmail,
+		subject: isInitialVerification
+			? "Verify your email"
+			: "Confirm your new email",
+		text: isInitialVerification
 			? `Welcome to Called My Shot! Confirm your email: ${confirmUrl}`
 			: `Confirm this change to your Called My Shot email: ${confirmUrl}\n\nIf you didn't request this, you can ignore this email.`,
-	)
+	})
 	if (!isInitialVerification) {
-		await sendMail(
-			currentEmail,
-			"Email change requested",
-			`Someone requested to change the email on your Called My Shot account to ${newEmail}. Wasn't you? Secure your account - your current password can still sign in.`,
-		)
+		await sendMail({
+			to: currentEmail,
+			subject: "Email change requested",
+			text: `Someone requested to change the email on your Called My Shot account to ${newEmail}. Wasn't you? Secure your account - your current password can still sign in.`,
+		})
 	}
 }

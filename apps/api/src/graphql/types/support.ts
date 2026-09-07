@@ -69,14 +69,13 @@ builder.mutationFields((t) => ({
 				})
 				.returning()
 
-			// No email provider is wired up yet (sendMail just logs) - an outage
-			// there shouldn't fail the mutation, the ticket row is already the
-			// source of truth.
-			void sendMail(
-				env.SUPPORT_EMAIL,
-				`[Support] ${data.category}: ${data.subject}`,
-				`From: ${user.email} (@${user.username})\nCategory: ${data.category}\nRelated URL: ${data.relatedUrl || "-"}\n\n${data.message}\n\nTicket: ${ticket.id}`,
-			)
+			// Fire-and-forget: a mail outage shouldn't fail the mutation, the
+			// ticket row is already the source of truth.
+			void sendMail({
+				to: env.SUPPORT_EMAIL,
+				subject: `[Support] ${data.category}: ${data.subject}`,
+				text: `From: ${user.email} (@${user.username})\nCategory: ${data.category}\nRelated URL: ${data.relatedUrl || "-"}\n\n${data.message}\n\nTicket: ${ticket.id}`,
+			})
 
 			return ticket
 		},

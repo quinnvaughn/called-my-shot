@@ -10,6 +10,7 @@ import { createContext } from "./graphql/context"
 import { schema } from "./graphql/schema"
 import { registerSchemaRoute } from "./routes/schema"
 import { registerShareRoutes } from "./routes/share"
+import { registerWebhookRoutes } from "./routes/webhooks"
 import { startScheduler } from "./scheduler"
 
 const app = express()
@@ -28,6 +29,7 @@ await server.start()
 app.use("/share", cors({ origin: env.CLIENT_ORIGIN }))
 registerShareRoutes(app)
 registerSchemaRoute(app)
+registerWebhookRoutes(app)
 
 app.use(
 	"/",

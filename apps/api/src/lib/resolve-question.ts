@@ -18,6 +18,7 @@ import {
 	questionOptions,
 	questions,
 } from "../db/schema"
+import { enqueueResolvedCallEmails } from "./email-outbox"
 import { ValidationError } from "./errors"
 import { createNotifications } from "./notifications"
 import {
@@ -69,6 +70,11 @@ export async function resolveQuestionInternal(
 	// only cares what their call is worth now, not the size of the portfolio
 	// swing that got them there.
 	const newPointsByUserId = new Map<string, number>()
+	// Which call each affected user made on this question, for the email
+	// outbox rows below. One entry per user is enough - calls is unique on
+	// (questionId, userId), so a user has at most one call here regardless of
+	// how many selections it carries.
+	const callIdByUserId = new Map<string, string>()
 
 	const isNumericGuess = isNumericGuessShape(question.shape)
 
@@ -135,6 +141,7 @@ export async function resolveQuestionInternal(
 					correctCount: (isCorrect ? 1 : 0) - (wasCorrect ? 1 : 0),
 				})
 				newPointsByUserId.set(prior.userId, r.points)
+				callIdByUserId.set(prior.userId, r.callId)
 			}
 		}
 	} else {
@@ -281,6 +288,7 @@ export async function resolveQuestionInternal(
 				s.call.userId,
 				(newPointsByUserId.get(s.call.userId) ?? 0) + points,
 			)
+			callIdByUserId.set(s.call.userId, s.call.id)
 		}
 	}
 
@@ -291,17 +299,34 @@ export async function resolveQuestionInternal(
 		statDeltas,
 	)
 
+	const notified = [...statDeltas].filter(
+		([, d]) => d.points !== 0 || d.resolvedCallCount !== 0,
+	)
+
 	await createNotifications(
 		tx,
-		[...statDeltas]
-			.filter(([, d]) => d.points !== 0 || d.resolvedCallCount !== 0)
-			.map(([userId, d]) => ({
-				type: "call_resolved" as const,
-				userId,
-				questionId: question.id,
-				questionTitle: question.title,
-				pointsDelta: newPointsByUserId.get(userId) ?? d.points,
-			})),
+		notified.map(([userId, d]) => ({
+			type: "call_resolved" as const,
+			userId,
+			questionId: question.id,
+			questionTitle: question.title,
+			pointsDelta: newPointsByUserId.get(userId) ?? d.points,
+		})),
+	)
+
+	// Queued, not sent. This runs inside the caller's transaction, so an
+	// inline send would go out before commit and again on any retry; and
+	// sync-live-scores resolves a whole slate at once, which for one caller
+	// with several open calls would be several emails within the hour. The
+	// drain (lib/email-digest.ts) coalesces those into one and is where the
+	// opt-out check happens - enqueuing everyone and filtering later is what
+	// makes an unsubscribe during the settling window still count.
+	await enqueueResolvedCallEmails(
+		tx,
+		notified.flatMap(([userId]) => {
+			const callId = callIdByUserId.get(userId)
+			return callId ? [{ userId, questionId: question.id, callId }] : []
+		}),
 	)
 
 	const [updated] = await tx

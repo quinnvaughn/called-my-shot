@@ -25,6 +25,9 @@ import { Route as AdminQueueRouteImport } from './routes/admin/queue'
 import { Route as AdminReportsRouteImport } from './routes/admin/reports'
 import { Route as AdminUsersRouteImport } from './routes/admin/users'
 import { Route as IngestSplatRouteImport } from './routes/ingest/$'
+import { Route as UnsubscribeIndexRouteImport } from './routes/unsubscribe/index'
+import { Route as UnsubscribeOneClickRouteImport } from './routes/unsubscribe/one-click'
+import { Route as WebhooksResendRouteImport } from './routes/webhooks/resend'
 import { Route as AppAuthedHomeRouteImport } from './routes/_app/_authed/home'
 import { Route as AppAuthedMyCallsRouteImport } from './routes/_app/_authed/my-calls'
 import { Route as AppAuthedMyQuestionsRouteImport } from './routes/_app/_authed/my-questions'
@@ -132,6 +135,21 @@ const AdminUsersRoute = AdminUsersRouteImport.update({
 const IngestSplatRoute = IngestSplatRouteImport.update({
   id: '/ingest/$',
   path: '/ingest/$',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const UnsubscribeIndexRoute = UnsubscribeIndexRouteImport.update({
+  id: '/unsubscribe/',
+  path: '/unsubscribe/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const UnsubscribeOneClickRoute = UnsubscribeOneClickRouteImport.update({
+  id: '/unsubscribe/one-click',
+  path: '/unsubscribe/one-click',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const WebhooksResendRoute = WebhooksResendRouteImport.update({
+  id: '/webhooks/resend',
+  path: '/webhooks/resend',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AppAuthedHomeRoute = AppAuthedHomeRouteImport.update({
@@ -307,7 +325,10 @@ export interface FileRoutesByFullPath {
   '/admin/reports': typeof AdminReportsRoute
   '/admin/users': typeof AdminUsersRoute
   '/ingest/$': typeof IngestSplatRoute
+  '/unsubscribe/one-click': typeof UnsubscribeOneClickRoute
+  '/webhooks/resend': typeof WebhooksResendRoute
   '/admin/': typeof AdminIndexRoute
+  '/unsubscribe/': typeof UnsubscribeIndexRoute
   '/home': typeof AppAuthedHomeRoute
   '/my-calls': typeof AppAuthedMyCallsRoute
   '/my-questions': typeof AppAuthedMyQuestionsRoute
@@ -352,7 +373,10 @@ export interface FileRoutesByTo {
   '/admin/reports': typeof AdminReportsRoute
   '/admin/users': typeof AdminUsersRoute
   '/ingest/$': typeof IngestSplatRoute
+  '/unsubscribe/one-click': typeof UnsubscribeOneClickRoute
+  '/webhooks/resend': typeof WebhooksResendRoute
   '/admin': typeof AdminIndexRoute
+  '/unsubscribe': typeof UnsubscribeIndexRoute
   '/home': typeof AppAuthedHomeRoute
   '/my-calls': typeof AppAuthedMyCallsRoute
   '/my-questions': typeof AppAuthedMyQuestionsRoute
@@ -399,7 +423,10 @@ export interface FileRoutesById {
   '/admin/reports': typeof AdminReportsRoute
   '/admin/users': typeof AdminUsersRoute
   '/ingest/$': typeof IngestSplatRoute
+  '/unsubscribe/one-click': typeof UnsubscribeOneClickRoute
+  '/webhooks/resend': typeof WebhooksResendRoute
   '/admin/': typeof AdminIndexRoute
+  '/unsubscribe/': typeof UnsubscribeIndexRoute
   '/_app/_authed/home': typeof AppAuthedHomeRoute
   '/_app/_authed/my-calls': typeof AppAuthedMyCallsRoute
   '/_app/_authed/my-questions': typeof AppAuthedMyQuestionsRoute
@@ -447,7 +474,10 @@ export interface FileRouteTypes {
     | '/admin/reports'
     | '/admin/users'
     | '/ingest/$'
+    | '/unsubscribe/one-click'
+    | '/webhooks/resend'
     | '/admin/'
+    | '/unsubscribe/'
     | '/home'
     | '/my-calls'
     | '/my-questions'
@@ -492,7 +522,10 @@ export interface FileRouteTypes {
     | '/admin/reports'
     | '/admin/users'
     | '/ingest/$'
+    | '/unsubscribe/one-click'
+    | '/webhooks/resend'
     | '/admin'
+    | '/unsubscribe'
     | '/home'
     | '/my-calls'
     | '/my-questions'
@@ -538,7 +571,10 @@ export interface FileRouteTypes {
     | '/admin/reports'
     | '/admin/users'
     | '/ingest/$'
+    | '/unsubscribe/one-click'
+    | '/webhooks/resend'
     | '/admin/'
+    | '/unsubscribe/'
     | '/_app/_authed/home'
     | '/_app/_authed/my-calls'
     | '/_app/_authed/my-questions'
@@ -578,6 +614,9 @@ export interface RootRouteChildren {
   GraphqlRoute: typeof GraphqlRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   IngestSplatRoute: typeof IngestSplatRoute
+  UnsubscribeOneClickRoute: typeof UnsubscribeOneClickRoute
+  WebhooksResendRoute: typeof WebhooksResendRoute
+  UnsubscribeIndexRoute: typeof UnsubscribeIndexRoute
   ShareCallsCallIdRoute: typeof ShareCallsCallIdRoute
   ShareUsersUsernameRoute: typeof ShareUsersUsernameRoute
   ShareLeaguesLeagueUsersUsernameRoute: typeof ShareLeaguesLeagueUsersUsernameRoute
@@ -695,6 +734,27 @@ declare module '@tanstack/react-router' {
       path: '/ingest/$'
       fullPath: '/ingest/$'
       preLoaderRoute: typeof IngestSplatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/unsubscribe/': {
+      id: '/unsubscribe/'
+      path: '/unsubscribe'
+      fullPath: '/unsubscribe/'
+      preLoaderRoute: typeof UnsubscribeIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/unsubscribe/one-click': {
+      id: '/unsubscribe/one-click'
+      path: '/unsubscribe/one-click'
+      fullPath: '/unsubscribe/one-click'
+      preLoaderRoute: typeof UnsubscribeOneClickRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/webhooks/resend': {
+      id: '/webhooks/resend'
+      path: '/webhooks/resend'
+      fullPath: '/webhooks/resend'
+      preLoaderRoute: typeof WebhooksResendRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_app/_authed/home': {
@@ -1036,6 +1096,9 @@ const rootRouteChildren: RootRouteChildren = {
   GraphqlRoute: GraphqlRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   IngestSplatRoute: IngestSplatRoute,
+  UnsubscribeOneClickRoute: UnsubscribeOneClickRoute,
+  WebhooksResendRoute: WebhooksResendRoute,
+  UnsubscribeIndexRoute: UnsubscribeIndexRoute,
   ShareCallsCallIdRoute: ShareCallsCallIdRoute,
   ShareUsersUsernameRoute: ShareUsersUsernameRoute,
   ShareLeaguesLeagueUsersUsernameRoute: ShareLeaguesLeagueUsersUsernameRoute,

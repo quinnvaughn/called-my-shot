@@ -9,6 +9,7 @@ export const MeDocument = graphql(`
 			email
 			isAdmin
 			emailVerified
+			emailBouncedAt
 			isVerifiedPundit
 			questionCreationEnabled
 			createdAt

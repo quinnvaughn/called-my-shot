@@ -3,6 +3,7 @@ import { createFileRoute } from "@tanstack/react-router"
 import { css } from "styled-system/css"
 import { VStack } from "styled-system/jsx"
 import { DangerZone } from "#/components/settings/danger-zone"
+import { EmailNotificationsSection } from "#/components/settings/email-notifications-section"
 import { EmailSection } from "#/components/settings/email-section"
 import { PasswordSection } from "#/components/settings/password-section"
 import { UsernameSection } from "#/components/settings/username-section"
@@ -57,6 +58,10 @@ function RouteComponent() {
 					emailVerified={me.emailVerified}
 					pendingEmailChange={me.pendingEmailChange ?? null}
 				/>
+			</VStack>
+			<VStack alignItems="stretch" gap="3">
+				{sectionLabel("Email notifications")}
+				<EmailNotificationsSection mutedEmailTypes={me.mutedEmailTypes} />
 			</VStack>
 			<VStack alignItems="stretch" gap="3">
 				{sectionLabel("Password")}

@@ -14,6 +14,7 @@ import { Button, button } from "#/components/ui/button"
 import { unreadNotificationCountQuery } from "#/graphql/queries/notifications"
 import { openModal } from "#/stores/modal-store"
 import { AccountMenu } from "./account-menu"
+import { EmailBounceBanner } from "./email-bounce-banner"
 
 type NavItem = {
 	to: string
@@ -33,7 +34,12 @@ const NAV_ITEMS: NavItem[] = [
 	{ to: "/groups", label: "Groups", icon: FaUserGroup, authRequired: true },
 ]
 
-type Me = { name: string; username: string; isAdmin: boolean } | null
+type Me = {
+	name: string
+	username: string
+	isAdmin: boolean
+	emailBouncedAt?: string | null
+} | null
 type League = { id: string; name: string; abbreviation: string; slug: string }
 
 export function AppShell({
@@ -130,6 +136,11 @@ export function AppShell({
 						},
 					})}
 				>
+					{me?.emailBouncedAt && (
+						<div className={css({ marginBottom: "5" })}>
+							<EmailBounceBanner />
+						</div>
+					)}
 					{children}
 				</main>
 				{rightRail && (

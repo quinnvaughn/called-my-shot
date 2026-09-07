@@ -1,6 +1,8 @@
+import { eq } from "drizzle-orm"
 import { describe, expect, it } from "vitest"
 import { db } from "../db"
-import { questions } from "../db/schema"
+import { emailOptOuts, questions } from "../db/schema"
+import { unsubscribeToken } from "../lib/email-unsubscribe"
 import {
 	makeAdmin,
 	makeCall,
@@ -719,5 +721,135 @@ describe("Query.sitemapQuestions", () => {
 			{ variables: { leagueId: league.id } },
 		)
 		expect(data.sitemapQuestions.map((q) => q.id)).toEqual([listed.id])
+	})
+})
+
+const SET_EMAIL_PREFERENCE = /* GraphQL */ `
+	mutation SetEmailPreference($input: SetEmailPreferenceInput!) {
+		setEmailPreference(input: $input) {
+			__typename
+			... on User { id mutedEmailTypes }
+			... on AuthenticationError { message }
+		}
+	}
+`
+
+const UNSUBSCRIBE = /* GraphQL */ `
+	mutation UnsubscribeFromEmails($token: String!) {
+		unsubscribeFromEmails(token: $token) {
+			__typename
+			... on MutationUnsubscribeFromEmailsSuccess { data }
+			... on ValidationError { message }
+		}
+	}
+`
+
+type SetEmailPreferenceData = {
+	setEmailPreference: { __typename: string; mutedEmailTypes?: string[] }
+}
+type UnsubscribeData = {
+	unsubscribeFromEmails: { __typename: string }
+}
+
+describe("Mutation.setEmailPreference", () => {
+	it("requires a signed-in user", async () => {
+		const data = await expectData<SetEmailPreferenceData>(
+			SET_EMAIL_PREFERENCE,
+			{ variables: { input: { type: "CALL_RESOLVED", enabled: false } } },
+		)
+		expect(data.setEmailPreference.__typename).toBe("AuthenticationError")
+	})
+
+	it("mutes and un-mutes a type", async () => {
+		const user = await makeUser()
+
+		const muted = await expectData<SetEmailPreferenceData>(
+			SET_EMAIL_PREFERENCE,
+			{
+				as: user,
+				variables: { input: { type: "CALL_RESOLVED", enabled: false } },
+			},
+		)
+		expect(muted.setEmailPreference.mutedEmailTypes).toEqual(["CALL_RESOLVED"])
+
+		const unmuted = await expectData<SetEmailPreferenceData>(
+			SET_EMAIL_PREFERENCE,
+			{
+				as: user,
+				variables: { input: { type: "CALL_RESOLVED", enabled: true } },
+			},
+		)
+		expect(unmuted.setEmailPreference.mutedEmailTypes).toEqual([])
+	})
+
+	// No row means subscribed, so a fresh account has to come back empty
+	// rather than needing anything backfilled for it.
+	it("reports nothing muted for a new account", async () => {
+		const user = await makeUser()
+		const data = await expectData<SetEmailPreferenceData>(
+			SET_EMAIL_PREFERENCE,
+			{ as: user, variables: { input: { type: "ALL", enabled: true } } },
+		)
+		expect(data.setEmailPreference.mutedEmailTypes).toEqual([])
+	})
+
+	it("is idempotent when muting twice", async () => {
+		const user = await makeUser()
+		for (let i = 0; i < 2; i++) {
+			await expectData<SetEmailPreferenceData>(SET_EMAIL_PREFERENCE, {
+				as: user,
+				variables: { input: { type: "ALL", enabled: false } },
+			})
+		}
+		const data = await expectData<SetEmailPreferenceData>(
+			SET_EMAIL_PREFERENCE,
+			{
+				as: user,
+				variables: { input: { type: "CALL_RESOLVED", enabled: true } },
+			},
+		)
+		expect(data.setEmailPreference.mutedEmailTypes).toEqual(["ALL"])
+	})
+})
+
+describe("Mutation.unsubscribeFromEmails", () => {
+	// The token is the credential - a one-click unsubscribe arrives from a
+	// mail provider with no session at all, so requiring one would break it.
+	it("works with no session", async () => {
+		const user = await makeUser()
+		const token = unsubscribeToken(user.id, "call_resolved")
+
+		const data = await expectData<UnsubscribeData>(UNSUBSCRIBE, {
+			variables: { token },
+		})
+		expect(data.unsubscribeFromEmails.__typename).toBe(
+			"MutationUnsubscribeFromEmailsSuccess",
+		)
+
+		const rows = await db
+			.select()
+			.from(emailOptOuts)
+			.where(eq(emailOptOuts.userId, user.id))
+		expect(rows.map((r) => r.type)).toEqual(["call_resolved"])
+	})
+
+	it("rejects a token it didn't sign", async () => {
+		const data = await expectData<UnsubscribeData>(UNSUBSCRIBE, {
+			variables: { token: "made.up" },
+		})
+		expect(data.unsubscribeFromEmails.__typename).toBe("ValidationError")
+	})
+
+	it("is idempotent, so a second click doesn't error", async () => {
+		const user = await makeUser()
+		const token = unsubscribeToken(user.id, "all")
+		for (let i = 0; i < 2; i++) {
+			const data = await expectData<UnsubscribeData>(UNSUBSCRIBE, {
+				variables: { token },
+			})
+			expect(data.unsubscribeFromEmails.__typename).toBe(
+				"MutationUnsubscribeFromEmailsSuccess",
+			)
+		}
 	})
 })

@@ -3,8 +3,12 @@
   "compilerOptions": {
     "target": "ES2023",
     "module": "ESNext",
-    "lib": ["ES2023"],
+    /* DOM is here for @types/react, not because anything runs in a browser -
+       React 19's JSX intrinsics are typed against DOM element interfaces, and
+       the email templates in src/emails are real React components. */
+    "lib": ["ES2023", "DOM"],
     "types": ["node"],
+    "jsx": "react-jsx",
 
     /* Bundler mode */
     "moduleResolution": "bundler",

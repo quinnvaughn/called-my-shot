@@ -67,9 +67,48 @@ export const SettingsPageDocument = graphql(`
 			username
 			email
 			emailVerified
+			mutedEmailTypes
 			pendingEmailChange {
 				newEmail
 				expiresAt
+			}
+		}
+	}
+`)
+
+export const SetEmailPreferenceDocument = graphql(`
+	mutation SetEmailPreference($input: SetEmailPreferenceInput!) {
+		setEmailPreference(input: $input) {
+			__typename
+			... on User {
+				id
+				mutedEmailTypes
+			}
+			... on AuthenticationError {
+				message
+			}
+			... on ValidationError {
+				fieldErrors {
+					field
+					message
+				}
+			}
+		}
+	}
+`)
+
+export const UnsubscribeFromEmailsDocument = graphql(`
+	mutation UnsubscribeFromEmails($token: String!) {
+		unsubscribeFromEmails(token: $token) {
+			__typename
+			... on MutationUnsubscribeFromEmailsSuccess {
+				data
+			}
+			... on ValidationError {
+				fieldErrors {
+					field
+					message
+				}
 			}
 		}
 	}

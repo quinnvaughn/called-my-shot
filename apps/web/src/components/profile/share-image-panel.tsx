@@ -30,6 +30,11 @@ type Props = {
 	// the Copy/Save/blob-fetch machinery below is identical regardless of
 	// what the card looks like, only the preview markup and its data differ.
 	renderPreview: (props: SharePreviewRenderProps) => ReactNode
+	// Starts open instead of behind the toggle. Only the resolution digest
+	// uses this today (?share=1 on the question route) - the whole point of
+	// that email's CTA is the card, so landing on a collapsed button asks
+	// someone to click twice for something they already asked for.
+	defaultOpen?: boolean
 }
 
 type BlobState =
@@ -55,8 +60,9 @@ export function ShareImagePanel({
 	label,
 	shareType,
 	renderPreview,
+	defaultOpen = false,
 }: Props) {
-	const [open, setOpen] = useState(false)
+	const [open, setOpen] = useState(defaultOpen)
 	const [copied, setCopied] = useState(false)
 	const [blobState, setBlobState] = useState<BlobState>({ status: "idle" })
 

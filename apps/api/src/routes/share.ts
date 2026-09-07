@@ -1,8 +1,4 @@
-import {
-	fieldPct,
-	type QuestionShape,
-	quipForCall,
-} from "@called-my-shot/scoring"
+import { fieldPct, quipForCall } from "@called-my-shot/scoring"
 import { and, count, eq } from "drizzle-orm"
 import type { Express, Response } from "express"
 import { db } from "../db"
@@ -12,6 +8,7 @@ import {
 	buildCallShareCard,
 	CALL_SHARE_CARD_SIZE,
 } from "../lib/share-cards/call-card"
+import { loadResolvedCallSummaries } from "../lib/share-cards/call-summary"
 import {
 	buildUserShareCard,
 	USER_SHARE_CARD_SIZE,
@@ -35,96 +32,6 @@ export function registerShareRoutes(app: Express) {
 	app.get("/share/calls/:callId.png", async (req, res) => {
 		await sendCallShareCard(res, req.params.callId)
 	})
-}
-
-// Keyed by QuestionShape rather than a loose string so a newly added shape
-// fails the build here instead of silently falling back to "Other" on every
-// share card - which is exactly what team_season_stat_numeric_guess and
-// player_game_stat_leader had been doing. Mirrors shareCardShapeLabel in
-// apps/web/src/lib/question-labels.ts.
-const SHAPE_LABEL: Record<QuestionShape, string> = {
-	player_stat_over_under: "Player Prop",
-	team_stat_over_under: "Team Prop",
-	player_season_stat_over_under: "Season Prop",
-	team_season_stat_over_under: "Season Prop",
-	game_total_over_under: "Game Total",
-	player_stat_numeric_guess: "Player Prop",
-	team_stat_numeric_guess: "Team Prop",
-	team_season_stat_numeric_guess: "Season Prop",
-	player_vs_player: "Head-to-Head",
-	player_vs_player_season: "Head-to-Head",
-	team_vs_team: "Game Outcome",
-	team_vs_team_season: "Head-to-Head",
-	player_game_stat_leader: "Stat Leader",
-	// See the matching entry in shareCardShapeLabel (apps/web/src/lib/
-	// question-labels.ts) for why this one isn't "Stat Leader" too.
-	player_season_stat_leader: "Multi-Way",
-	yes_no_prop: "Yes/No",
-	player_season_award: "Season Award",
-	team_season_award: "Season Award",
-	player_award_finalists: "Season Award",
-}
-
-// Mirrors formatGuess in apps/web/src/lib/field-signal.ts - pads a rate
-// stat (batting average, ERA) to a fixed 3 decimals so a value like 0.3
-// doesn't silently read as ".3" instead of ".300" on the exported PNG. No
-// shared module across the API/web boundary for this one either, same
-// reasoning as SHAPE_LABEL/brandWordmark above.
-function formatGuess(value: number, isRateStat: boolean): string {
-	if (isRateStat) return value.toFixed(3)
-	return Number.isInteger(value)
-		? String(value)
-		: String(Math.round(value * 1000) / 1000)
-}
-
-// Mirrors lib/call-summary.ts's pickSummary on the frontend, against this
-// route's own DB-shaped call rather than the GraphQL Call type - no shared
-// module between the two given the enum casing they each work off already
-// differs (GraphQL's SCREAMING_SNAKE vs. this table's snake_case), same
-// reasoning viewer-status-card.tsx's BASE_POINTS_BY_GQL_SHAPE bridge already
-// documents.
-function buildPickLabel(call: {
-	guessValue: number | null
-	question: {
-		shape: string
-		ouLine: number | null
-		numericToleranceAbsolute: number | null
-		stat: { toleranceTier: { toleranceMode: string } | null } | null
-	}
-	selections: { option: { label: string; isCorrect: boolean | null } }[]
-}): string {
-	const isRateStat =
-		call.question.numericToleranceAbsolute !== null ||
-		call.question.stat?.toleranceTier?.toleranceMode === "absolute"
-	if (
-		call.question.shape === "player_stat_numeric_guess" ||
-		call.question.shape === "team_stat_numeric_guess"
-	) {
-		return call.guessValue !== null
-			? formatGuess(call.guessValue, isRateStat)
-			: "-"
-	}
-	if (
-		call.question.shape === "player_season_award" ||
-		call.question.shape === "team_season_award"
-	) {
-		if (call.selections.length === 0) return "-"
-		const hits = call.selections.filter((s) => s.option.isCorrect).length
-		return `${hits} of ${call.selections.length} hit`
-	}
-	const selection = call.selections[0]
-	if (!selection) return "-"
-	if (
-		(call.question.shape === "player_stat_over_under" ||
-			call.question.shape === "team_stat_over_under" ||
-			call.question.shape === "player_season_stat_over_under" ||
-			call.question.shape === "team_season_stat_over_under" ||
-			call.question.shape === "game_total_over_under") &&
-		call.question.ouLine !== null
-	) {
-		return `${selection.option.label} ${formatGuess(call.question.ouLine, isRateStat)}`
-	}
-	return selection.option.label
 }
 
 // league is a slug ("nfl") on links built today and a uuid on ones already
@@ -196,126 +103,55 @@ async function sendUserShareCard(
 // only renders once win/loss is known), so this mirrors that rather than
 // rendering a card with nothing to report.
 async function sendCallShareCard(res: Response, callId: string) {
-	const call = await db.query.calls.findFirst({
-		where: { id: callId },
-		with: {
-			user: { columns: { name: true, username: true } },
-			question: {
-				columns: {
-					id: true,
-					title: true,
-					shape: true,
-					status: true,
-					ouLine: true,
-					numericToleranceAbsolute: true,
-				},
-				with: {
-					league: { columns: { abbreviation: true } },
-					stat: {
-						columns: {},
-						with: { toleranceTier: { columns: { toleranceMode: true } } },
-					},
-				},
-			},
-			selections: {
-				with: { option: { columns: { label: true, isCorrect: true } } },
-			},
-		},
-	})
-	if (
-		!call?.user ||
-		!call?.question?.league ||
-		call.question.status !== "resolved"
-	) {
+	// Shared with the resolution digest (lib/email-digest.ts) - same query,
+	// same resolved-status gate, same pick label and points, so the card and
+	// the email can never disagree about a call.
+	const summary = (await loadResolvedCallSummaries([callId])).get(callId)
+	if (!summary) {
 		res.status(404).end()
 		return
 	}
-
-	// selections[].option is typed nullable purely because drizzle types
-	// every `one` relation that way regardless of the FK's own nullability
-	// (optionId is NOT NULL) - same non-issue documented at length in
-	// lib/resolve-question.ts. Narrowed once,
-	// here, rather than re-guarded at every later read.
-	const selections = call.selections.filter(
-		(s): s is typeof s & { option: NonNullable<(typeof s)["option"]> } =>
-			s.option !== null,
-	)
-
-	const isNumeric =
-		call.question.shape === "player_stat_numeric_guess" ||
-		call.question.shape === "team_stat_numeric_guess"
-	const totalPoints = isNumeric
-		? call.resultPoints
-		: selections.length > 0 && selections.every((s) => s.resultPoints !== null)
-			? selections.reduce((sum, s) => sum + (s.resultPoints ?? 0), 0)
-			: null
-	// Same "nothing to report yet" gate as above, per-call rather than
-	// per-question - a question can resolve while a specific call still has
-	// no final points (shouldn't happen once resolved, but nothing here
-	// should render a share card with a missing result either way).
-	if (totalPoints === null) {
-		res.status(404).end()
-		return
-	}
-	const isWin = totalPoints >= 0
-
-	const conviction = isNumeric
-		? (call.conviction ?? 0)
-		: selections.length > 0
-			? Math.round(
-					selections.reduce((sum, s) => sum + s.conviction, 0) /
-						selections.length,
-				)
-			: 0
 
 	// Same "one number only means something for exactly one pick" rule as
 	// the frontend preview (see viewer-status-card.tsx's ShareCallSection) -
 	// a numeric-guess shape and a lone selection both have one,
 	// player_season_award/team_season_award's several independent picks
-	// don't.
+	// don't. Left out of loadResolvedCallSummaries because it needs its own
+	// per-question aggregate queries and only this card shows it.
 	let fieldPctValue: number | null = null
-	if (isNumeric) {
-		fieldPctValue = call.closenessFieldPct
-	} else if (selections.length === 1) {
+	if (summary.isNumeric) {
+		fieldPctValue = summary.closenessFieldPct
+	} else if (summary.soleOptionId) {
 		const [{ n: totalCalls }] = await db
 			.select({ n: count() })
 			.from(calls)
-			.where(eq(calls.questionId, call.question.id))
+			.where(eq(calls.questionId, summary.questionId))
 		const [{ n: optionCallCount }] = await db
 			.select({ n: count() })
 			.from(callSelections)
 			.innerJoin(calls, eq(calls.id, callSelections.callId))
 			.where(
 				and(
-					eq(calls.questionId, call.question.id),
-					eq(callSelections.optionId, selections[0].optionId),
+					eq(calls.questionId, summary.questionId),
+					eq(callSelections.optionId, summary.soleOptionId),
 				),
 			)
 		fieldPctValue = fieldPct(optionCallCount, totalCalls)
 	}
 
 	const node = buildCallShareCard({
-		questionTitle: call.question.title,
-		leagueAbbr: call.question.league.abbreviation.toUpperCase(),
-		categoryLabel: SHAPE_LABEL[call.question.shape] ?? "Other",
-		name: call.user.name,
-		username: call.user.username,
-		pickLabel: buildPickLabel({
-			guessValue: call.guessValue,
-			question: {
-				shape: call.question.shape,
-				ouLine: call.question.ouLine,
-				numericToleranceAbsolute: call.question.numericToleranceAbsolute,
-				stat: call.question.stat,
-			},
-			selections,
-		}),
-		isWin,
-		points: totalPoints,
+		questionTitle: summary.questionTitle,
+		leagueAbbr: summary.leagueAbbr,
+		categoryLabel: summary.shapeLabel,
+		name: summary.userName,
+		username: summary.username,
+		pickLabel: summary.pickLabel,
+		isWin: summary.isWin,
+		points: summary.points,
 		fieldPct: fieldPctValue,
-		conviction,
-		caseText: call.caseText,
-		quip: quipForCall(call.id, isWin),
+		conviction: summary.conviction,
+		caseText: summary.caseText,
+		quip: quipForCall(summary.callId, summary.isWin),
 	})
 
 	const png = await renderShareImage(node, CALL_SHARE_CARD_SIZE)

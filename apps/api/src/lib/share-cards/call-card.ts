@@ -1,3 +1,9 @@
+// The app is dark-only today (panda.config.ts's "light theme: #..." comments
+// are leftover notes from an old flip-to-light experiment that was reverted,
+// not a live theme anyone can select), so this card renders the same dark
+// card-on-canvas look the in-app preview shows - not a separate light export
+// that'd look like a different product.
+import { COLOR } from "../brand-palette"
 import { el, type SatoriNode, svgEl } from "../share-image"
 
 // Same "fixed export resolution, independent of whatever the in-app preview
@@ -10,29 +16,6 @@ export const CALL_SHARE_CARD_SIZE = { width: TARGET_WIDTH }
 
 function px(n: number): string {
 	return `${Math.round(n * SCALE)}px`
-}
-
-// Real token values from apps/web/panda.config.ts's dark palette - not a
-// separate palette (satori can't read the app's actual CSS variables, so
-// this is hand-copied and needs to stay in sync by hand). The app is
-// dark-only today (panda.config.ts's "light theme: #..." comments are
-// leftover notes from an old flip-to-light experiment that was reverted,
-// not a live theme anyone can select), so this card renders the same dark
-// card-on-canvas look the in-app preview shows - not a separate light
-// export that'd look like a different product.
-const COLOR = {
-	ink: "#F5F1E8", // fg.default
-	dim: "#8A8A84", // fg.muted
-	steel: "#96938A", // fg.subtle
-	linen: "#D8D4C9", // fg.body
-	border: "#2A2A28", // border.default
-	borderEmphasized: "#3E3E3A", // border.emphasized
-	card: "#151513", // bg.surface
-	cardMuted: "#1B1B18", // bg.subtle (Avatar's fill)
-	primarySubtle: "#3A1E12", // primary.subtle
-	primaryDefault: "#FF5A1F", // primary.default
-	successText: "#34D399", // success.default
-	dangerText: "#E24B4A", // danger.default
 }
 
 export type CallShareCardData = {
@@ -175,7 +158,7 @@ function statRow(label: string, value: string): SatoriNode {
 
 export function buildCallShareCard(data: CallShareCardData): SatoriNode {
 	const initial = data.name.charAt(0).toUpperCase()
-	const resultColor = data.isWin ? COLOR.successText : COLOR.dangerText
+	const resultColor = data.isWin ? COLOR.success : COLOR.danger
 
 	const body: SatoriNode[] = []
 	if (data.caseText) {

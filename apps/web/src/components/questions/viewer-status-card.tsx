@@ -188,6 +188,9 @@ type Props = {
 	shape: QuestionShape
 	viewerName: string
 	viewerUsername: string
+	// Set from ?share=1, which the resolution digest's CTA links to - the
+	// card is what that email is sending people here for.
+	openShareCard?: boolean
 }
 
 // Pending / locked-no-call / resolved-no-call / won / lost are five faces of
@@ -216,6 +219,7 @@ export function ViewerStatusCard({
 	shape,
 	viewerName,
 	viewerUsername,
+	openShareCard,
 }: Props) {
 	// A resolution can be disputed by anyone who saw it, not just people who
 	// called - a spectator can just as easily notice a wrong result. Gated on
@@ -380,6 +384,7 @@ export function ViewerStatusCard({
 					viewerUsername={viewerUsername}
 					numericToleranceAbsolute={numericToleranceAbsolute}
 					isRateStat={isRateStat}
+					defaultOpen={openShareCard}
 				/>
 			)}
 			{disputeRow}
@@ -425,6 +430,7 @@ function ShareCallSection({
 	viewerUsername,
 	numericToleranceAbsolute,
 	isRateStat,
+	defaultOpen,
 }: {
 	viewerCall: ViewerCall
 	isWin: boolean
@@ -436,6 +442,7 @@ function ShareCallSection({
 	viewerUsername: string
 	numericToleranceAbsolute: number | null
 	isRateStat: boolean
+	defaultOpen?: boolean
 }) {
 	// Deterministic off the call's own id (see quipForCall) rather than
 	// random - the same call always shows the same line, every time it's
@@ -513,6 +520,7 @@ function ShareCallSection({
 			filename={`${viewerUsername}-call-${viewerCall.id}.png`}
 			label="Share this call"
 			shareType="call_result"
+			defaultOpen={defaultOpen}
 			renderPreview={(previewProps) => (
 				<CallShareCardPreview {...previewProps} data={data} />
 			)}

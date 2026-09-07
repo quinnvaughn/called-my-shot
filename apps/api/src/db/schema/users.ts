@@ -24,6 +24,15 @@ export const users = pgTable("users", {
 	// Media/pundit badge, set by an admin - unrelated to emailVerified above
 	// (that's "proved they own their inbox", this is "we recognize who they are").
 	isVerifiedPundit: boolean("is_verified_pundit").notNull().default(false),
+	// Set when Resend tells us mail to this address permanently bounced (see
+	// lib/email-bounce.ts). Distinct from emailVerified, which is about whether
+	// anyone ever confirmed the address: this is "we actually sent, and it came
+	// back". Nothing gates sending on it - it drives the banner asking them to
+	// fix their address, and confirmEmailChange clears it once they do.
+	// A timestamp rather than a boolean so support can see how long it's been
+	// broken without a second column.
+	emailBouncedAt: timestamp("email_bounced_at"),
+	emailBounceReason: text("email_bounce_reason"),
 	// Denormalized rather than computed live from question_voids at read time
 	// (unlike careerStats/leaderboard rank elsewhere in this schema) because
 	// it's read on createQuestion's hot path for every single question post,

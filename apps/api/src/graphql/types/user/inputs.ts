@@ -1,4 +1,5 @@
 import { builder } from "../../builder"
+import { EmailPreferenceType } from "./enums"
 
 export const UpdateMyNameInput = builder.inputType("UpdateMyNameInput", {
 	fields: (t) => ({
@@ -34,3 +35,16 @@ export const DeleteAccountInput = builder.inputType("DeleteAccountInput", {
 		password: t.string({ required: true }),
 	}),
 })
+
+export const SetEmailPreferenceInput = builder.inputType(
+	"SetEmailPreferenceInput",
+	{
+		fields: (t) => ({
+			type: t.field({ type: EmailPreferenceType, required: true }),
+			// true = send me this, false = mute it. Phrased as the thing the
+			// toggle in settings shows rather than as "muted", so the client
+			// isn't inverting a boolean on the way in and out.
+			enabled: t.boolean({ required: true }),
+		}),
+	},
+)

@@ -10,6 +10,8 @@ import { db } from "../../../db"
 import { pendingEmailChanges, users } from "../../../db/schema"
 import { requireAdmin, requireUser } from "../../../lib/auth"
 import { issuePendingEmailChange } from "../../../lib/email-change"
+import { setEmailPreference } from "../../../lib/email-prefs"
+import { verifyUnsubscribeToken } from "../../../lib/email-unsubscribe"
 import {
 	AuthenticationError,
 	AuthorizationError,
@@ -22,6 +24,7 @@ import { builder } from "../../builder"
 import {
 	DeleteAccountInput,
 	RequestEmailChangeInput,
+	SetEmailPreferenceInput,
 	UpdateMyNameInput,
 	UpdatePasswordInput,
 	UpdateUsernameInput,
@@ -195,7 +198,17 @@ builder.mutationFields((t) => ({
 
 			const [updated] = await db
 				.update(users)
-				.set({ email: pending.newEmail, emailVerified: true })
+				.set({
+					email: pending.newEmail,
+					emailVerified: true,
+					// The old address's bounce history says nothing about this one,
+					// and leaving the "your email is bouncing" banner up after
+					// someone did exactly what it asked is what would make it
+					// useless. Cleared here rather than through clearEmailBounce so
+					// it's part of the same single update.
+					emailBouncedAt: null,
+					emailBounceReason: null,
+				})
 				.where(eq(users.id, pending.userId))
 				.returning()
 			await db
@@ -333,6 +346,49 @@ builder.mutationFields((t) => ({
 				.returning()
 			if (!updated) throw new NotFoundError("User not found")
 			return updated
+		},
+	}),
+
+	setEmailPreference: t.field({
+		type: UserRef,
+		errors: {
+			types: [AuthenticationError],
+			directResult: true,
+			union: { name: "SetEmailPreferenceResult" },
+		},
+		args: { input: t.arg({ type: SetEmailPreferenceInput, required: true }) },
+		resolve: async (_root, args, ctx) => {
+			const user = requireUser(ctx)
+			await setEmailPreference(user.id, args.input.type, args.input.enabled)
+			// The user row itself is unchanged - preferences live in their own
+			// table - but returning it lets the client re-read mutedEmailTypes
+			// off the same result rather than firing a second query.
+			return user
+		},
+	}),
+
+	// Deliberately not auth-gated: the signed token IS the credential, the
+	// same way confirmEmailChange works. A one-click unsubscribe arrives as a
+	// bare POST from a mail provider with no session and no cookie, and an
+	// unsubscribe that only works while signed in is one people give up on and
+	// report as spam instead.
+	unsubscribeFromEmails: t.field({
+		type: "Boolean",
+		errors: {
+			types: [ValidationError],
+			union: { name: "UnsubscribeFromEmailsResult" },
+		},
+		args: { token: t.arg.string({ required: true }) },
+		resolve: async (_root, args) => {
+			const claim = verifyUnsubscribeToken(args.token)
+			if (!claim) {
+				throw ValidationError.field(
+					"token",
+					"That unsubscribe link isn't valid",
+				)
+			}
+			await setEmailPreference(claim.userId, claim.type, false)
+			return true
 		},
 	}),
 }))

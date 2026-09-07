@@ -1,10 +1,12 @@
 import { db } from "../../../db"
+import { mutedEmailTypes } from "../../../lib/email-prefs"
 import {
 	buildGlobalLeaderboard,
 	type LeaderboardEntry,
 } from "../../../lib/global-leaderboard"
 import { builder } from "../../builder"
 import { CallRef, VoidReason } from "../question"
+import { EmailPreferenceType } from "./enums"
 import { buildUserLeagueStats, UserLeagueStatsRef } from "./stats"
 
 // Deliberately doesn't reuse LeaderboardEntryRef from ./leaderboard: that
@@ -58,6 +60,22 @@ export const UserRef = builder.drizzleObject("users", {
 				db.query.pendingEmailChanges.findFirst({
 					where: { userId: user.id },
 				}),
+		}),
+		// Non-null means mail we sent to this address came back permanently
+		// (see lib/email-bounce.ts). Drives the site-wide banner asking them to
+		// fix it - unrelated to emailVerified, which is only about whether the
+		// address was ever confirmed.
+		emailBouncedAt: t.field({
+			type: "String",
+			nullable: true,
+			resolve: (user) => user.emailBouncedAt?.toISOString() ?? null,
+		}),
+		// The types this user has MUTED - absence of a row is the subscribed
+		// state (see db/schema/email.ts), so an empty list means "everything
+		// on", which is what a brand new account gets without any backfill.
+		mutedEmailTypes: t.field({
+			type: [EmailPreferenceType],
+			resolve: (user) => mutedEmailTypes(user.id),
 		}),
 		createdAt: t.field({
 			type: "String",

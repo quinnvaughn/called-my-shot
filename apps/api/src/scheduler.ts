@@ -2,6 +2,7 @@ import cron from "node-cron"
 import { lockOverdueQuestions } from "./db/lock-overdue-questions"
 import { syncSportsData } from "./db/sync/run"
 import { syncLiveScores } from "./db/sync/sync-live-scores"
+import { drainResolutionDigests } from "./lib/email-digest"
 
 function runJob(name: string, fn: () => Promise<void>) {
 	return async () => {
@@ -29,7 +30,17 @@ export function startScheduler(): void {
 		timezone: "UTC",
 		noOverlap: true,
 	})
+	// Every 5m, but each user's rows still have to clear the settling window
+	// inside the job (see SETTLE_MINUTES) - the frequency is how quickly a
+	// batch goes out once it's ripe, not how often anyone gets mailed.
+	cron.schedule(
+		"*/5 * * * *",
+		runJob("drain-email-digests", async () => {
+			await drainResolutionDigests()
+		}),
+		{ name: "drain-email-digests", timezone: "UTC", noOverlap: true },
+	)
 	console.log(
-		"[scheduler] started: sync-live-scores */5m, lock-overdue-questions */15m, sync-sports-data daily 09:00 UTC",
+		"[scheduler] started: sync-live-scores */5m, lock-overdue-questions */15m, sync-sports-data daily 09:00 UTC, drain-email-digests */5m",
 	)
 }

@@ -133,7 +133,11 @@ export function AccountMenu({
 				{isAdmin && (
 					<Dropdown.Item onClick={() => navigate({ to: "/admin" })}>
 						<span
-							className={css({ display: "flex", alignItems: "center", gap: "2" })}
+							className={css({
+								display: "flex",
+								alignItems: "center",
+								gap: "2",
+							})}
 						>
 							<FiShield size={14} />
 							Admin

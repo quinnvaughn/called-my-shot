@@ -1,4 +1,9 @@
 import { DateTime } from "luxon"
+// The dark values here are what the app actually renders - this card once
+// used panda.config.ts's "light theme: #..." notes, leftover from a reverted
+// flip-to-light experiment, and exported a white card while the app had been
+// dark-only for a while.
+import { COLOR } from "../brand-palette"
 import { el, type SatoriNode, svgEl } from "../share-image"
 
 // This PNG is never displayed in-app (see share-image-panel.tsx) - it's only
@@ -19,28 +24,6 @@ export const USER_SHARE_CARD_SIZE = { width: TARGET_WIDTH }
 
 function px(n: number): string {
 	return `${Math.round(n * SCALE)}px`
-}
-
-// Real token values from apps/web/panda.config.ts's dark palette and the
-// components this mirrors (Card, Avatar, Eyebrow) - not a separate palette.
-// Keep in sync by hand since satori can't read the actual CSS variables.
-// This used to hold the "light theme: #..." values panda.config.ts notes
-// per-token - leftover from an old flip-to-light experiment that was
-// reverted, not a live theme anyone can select today - so the exported PNG
-// was rendering as a white card while the app itself has been dark-only for
-// a while. Switched to the dark values so the export matches what's
-// actually on screen.
-const COLOR = {
-	ink: "#F5F1E8", // fg.default
-	dim: "#8A8A84", // fg.muted
-	steel: "#96938A", // fg.subtle
-	border: "#2A2A28", // border.default
-	card: "#151513", // bg.surface
-	cardMuted: "#1B1B18", // bg.subtle (Avatar's fill)
-	primarySubtle: "#3A1E12", // primary.subtle
-	primaryDefault: "#FF5A1F", // primary.default
-	successSubtle: "#112921", // success.subtle
-	verifiedVibrant: "#34D399",
 }
 
 export type UserShareCardData = {
@@ -188,7 +171,7 @@ function heroStat(
 					display: "flex",
 					fontFamily: "Archivo Black",
 					fontSize: px(30),
-					color: tone === "good" ? COLOR.verifiedVibrant : COLOR.primaryDefault,
+					color: tone === "good" ? COLOR.success : COLOR.primaryDefault,
 				},
 				value,
 			),
