@@ -25,6 +25,7 @@ export type ResolutionDigestProps = {
 	allCallsUrl: string
 	manageUrl: string
 	unsubscribeUrl: string
+	logoUrl: string
 }
 
 export function digestSummary(calls: DigestCall[]) {
@@ -61,14 +62,20 @@ function headline(calls: DigestCall[]): string {
 		.otherwise(() => `You went ${wins}-${losses}.`)
 }
 
-// Every call in the list carries its own card link, so the one button below
-// never has to stand in for all of them. Its label says which card it is
-// getting you, because "Grab your card" under three results doesn't.
+// Every call in the list carries its own share link, so the one button below
+// never has to stand in for all of them. Its label says which result it acts
+// on, because a single button under three of them doesn't.
+//
+// Deliberately avoids the word "card". That's what we call the image
+// internally, but someone reading their first result email has never opened
+// the share panel and has no idea what a card is - "Share this call" matches
+// the button they'll actually land on (see ShareImagePanel's label), and the
+// line underneath says what they get.
 function primaryLabel(calls: DigestCall[]): string {
 	return match({ total: calls.length, wins: digestSummary(calls).wins })
-		.with({ total: 1 }, () => "Grab your card")
-		.with({ wins: 0 }, () => "Grab your biggest miss")
-		.otherwise(() => "Grab your best card")
+		.with({ total: 1 }, () => "Share this call")
+		.with({ wins: 0 }, () => "Share your biggest miss")
+		.otherwise(() => "Share your best call")
 }
 
 function CallRow({ call }: { call: DigestCall }) {
@@ -129,7 +136,7 @@ function CallRow({ call }: { call: DigestCall }) {
 								textDecoration: "none",
 							}}
 						>
-							Get the card →
+							Share this →
 						</Link>
 					</Text>
 				</Column>
@@ -158,6 +165,7 @@ export function ResolutionDigest({
 	allCallsUrl,
 	manageUrl,
 	unsubscribeUrl,
+	logoUrl,
 }: ResolutionDigestProps) {
 	const { net } = digestSummary(calls)
 	const netTone = net >= 0 ? COLOR.success : COLOR.danger
@@ -167,6 +175,7 @@ export function ResolutionDigest({
 			preview={`${headline(calls)} ${signed(net)} points.`}
 			manageUrl={manageUrl}
 			unsubscribeUrl={unsubscribeUrl}
+			logoUrl={logoUrl}
 		>
 			<Text
 				style={{
@@ -242,6 +251,16 @@ export function ResolutionDigest({
 				<Text
 					style={{
 						fontFamily: FONT_BODY,
+						fontSize: "12px",
+						color: COLOR.steel,
+						margin: "10px 0 0",
+					}}
+				>
+					We'll make you an image of it you can post anywhere.
+				</Text>
+				<Text
+					style={{
+						fontFamily: FONT_BODY,
 						fontSize: "13px",
 						color: COLOR.dim,
 						margin: "14px 0 0",
@@ -294,6 +313,7 @@ ResolutionDigest.PreviewProps = {
 	allCallsUrl: "https://calledmyshot.com/my-calls",
 	manageUrl: "https://calledmyshot.com/settings",
 	unsubscribeUrl: "https://calledmyshot.com/unsubscribe?token=preview",
+	logoUrl: "https://calledmyshot.com/email-logo.png",
 } satisfies ResolutionDigestProps
 
 export default ResolutionDigest

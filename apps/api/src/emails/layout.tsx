@@ -5,6 +5,7 @@ import {
 	Head,
 	Hr,
 	Html,
+	Img,
 	Link,
 	Preview,
 	Section,
@@ -37,6 +38,10 @@ type Props = {
 	// Both are absolute urls built by lib/email-unsubscribe.ts.
 	manageUrl: string
 	unsubscribeUrl: string
+	// Absolute url to the wordmark PNG in apps/web/public. A raster because
+	// mail clients strip inline SVG - see scripts/render-email-logo.ts, which
+	// generates it from the same builder the share cards use.
+	logoUrl: string
 }
 
 export function EmailLayout({
@@ -44,6 +49,7 @@ export function EmailLayout({
 	children,
 	manageUrl,
 	unsubscribeUrl,
+	logoUrl,
 }: Props) {
 	return (
 		<Html lang="en">
@@ -68,19 +74,13 @@ export function EmailLayout({
 						padding: "24px",
 					}}
 				>
-					<Text
-						style={{
-							fontFamily: FONT_HEADING,
-							fontSize: "18px",
-							color: COLOR.ink,
-							margin: "0 0 20px",
-							textAlign: "center",
-							letterSpacing: "0.5px",
-						}}
-					>
-						CALLED MY SH
-						<span style={{ color: COLOR.primaryDefault }}>◎</span>T
-					</Text>
+					<Img
+						src={logoUrl}
+						alt="Called My Shot"
+						width="260"
+						height="34"
+						style={{ display: "block", margin: "0 auto 20px" }}
+					/>
 					{children}
 				</Container>
 

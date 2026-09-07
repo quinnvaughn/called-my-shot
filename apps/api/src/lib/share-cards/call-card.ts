@@ -4,7 +4,8 @@
 // card-on-canvas look the in-app preview shows - not a separate light export
 // that'd look like a different product.
 import { COLOR } from "../brand-palette"
-import { el, type SatoriNode, svgEl } from "../share-image"
+import { brandWordmark } from "./brand-wordmark"
+import { el, type SatoriNode } from "../share-image"
 
 // Same "fixed export resolution, independent of whatever the in-app preview
 // happens to render at" reasoning as user-card.ts - this PNG is only ever
@@ -48,86 +49,6 @@ function eyebrow(text: string, color = COLOR.dim): SatoriNode {
 		},
 		text,
 	)
-}
-
-// Identical to user-card.ts's brandWordmark - duplicated rather than shared
-// because these two files have no common module of their own yet, and this
-// is small enough that extracting one for a single reused function isn't
-// worth it over just keeping both PNG builders self-contained.
-function brandWordmark(): SatoriNode {
-	const fontSize = px(20)
-	const iconSize = Math.round(20 * SCALE)
-	const textStyle = {
-		display: "flex",
-		fontFamily: "Archivo Black",
-		fontSize,
-		color: COLOR.ink,
-	}
-	return el("div", { display: "flex", alignItems: "center", gap: px(4) }, [
-		el("span", textStyle, "CALLED MY SH"),
-		svgEl(
-			"svg",
-			{
-				viewBox: "0 0 80 80",
-				width: iconSize,
-				height: iconSize,
-				style: { display: "flex" },
-			},
-			[
-				svgEl("circle", {
-					cx: 40,
-					cy: 40,
-					r: 26,
-					fill: "none",
-					stroke: COLOR.primaryDefault,
-					strokeWidth: 6,
-				}),
-				svgEl("line", {
-					x1: 40,
-					y1: 4,
-					x2: 40,
-					y2: 17,
-					stroke: COLOR.primaryDefault,
-					strokeWidth: 6,
-					strokeLinecap: "square",
-				}),
-				svgEl("line", {
-					x1: 40,
-					y1: 63,
-					x2: 40,
-					y2: 76,
-					stroke: COLOR.primaryDefault,
-					strokeWidth: 6,
-					strokeLinecap: "square",
-				}),
-				svgEl("line", {
-					x1: 4,
-					y1: 40,
-					x2: 17,
-					y2: 40,
-					stroke: COLOR.primaryDefault,
-					strokeWidth: 6,
-					strokeLinecap: "square",
-				}),
-				svgEl("line", {
-					x1: 63,
-					y1: 40,
-					x2: 76,
-					y2: 40,
-					stroke: COLOR.primaryDefault,
-					strokeWidth: 6,
-					strokeLinecap: "square",
-				}),
-				svgEl("circle", {
-					cx: 40,
-					cy: 40,
-					r: 9,
-					fill: COLOR.primaryDefault,
-				}),
-			],
-		),
-		el("span", textStyle, "T"),
-	])
 }
 
 // Mirrors CallShareCardPreview's ShareStatRow.
@@ -255,7 +176,7 @@ export function buildCallShareCard(data: CallShareCardData): SatoriNode {
 					borderBottom: `${px(1)} solid ${COLOR.border}`,
 				},
 				[
-					brandWordmark(),
+					brandWordmark(px, SCALE),
 					el(
 						"div",
 						{

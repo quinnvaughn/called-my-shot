@@ -194,6 +194,7 @@ async function drainOneUser(
 			primaryShareUrl={shareUrl(primary.questionId, primary.questionTitle)}
 			allCallsUrl={`${env.CLIENT_ORIGIN}/my-calls`}
 			manageUrl={`${env.CLIENT_ORIGIN}/settings`}
+			logoUrl={`${env.CLIENT_ORIGIN}/email-logo.png`}
 			unsubscribeUrl={unsubscribePageUrl(userId, "call_resolved")}
 		/>,
 	)

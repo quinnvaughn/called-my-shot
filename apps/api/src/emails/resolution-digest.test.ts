@@ -31,6 +31,7 @@ function props(
 		allCallsUrl: "https://calledmyshot.com/my-calls",
 		manageUrl: "https://calledmyshot.com/settings",
 		unsubscribeUrl: "https://calledmyshot.com/unsubscribe?token=t",
+		logoUrl: "https://calledmyshot.com/email-logo.png",
 		...overrides,
 	}
 }
@@ -129,7 +130,21 @@ describe("ResolutionDigest", () => {
 			),
 		)
 		expect(html).toContain("https://calledmyshot.com/questions/9/x?share=1")
-		expect(html).toContain("Grab your card")
+		expect(html).toContain("Share this call")
+	})
+
+	// "Card" is what we call the image internally; someone reading their first
+	// result email has never opened the share panel and wouldn't know the word.
+	it("says what sharing gets you without calling it a card", async () => {
+		const { html, text } = await renderEmail(ResolutionDigest(props([call()])))
+		expect(text).toContain("an image of it you can post anywhere")
+		expect(html.toLowerCase()).not.toContain("your card")
+	})
+
+	it("shows the real wordmark rather than a text stand-in", async () => {
+		const { html } = await renderEmail(ResolutionDigest(props([call()])))
+		expect(html).toContain("https://calledmyshot.com/email-logo.png")
+		expect(html).toContain('alt="Called My Shot"')
 	})
 
 	// A digest lists several results but has one hero button, so the button
@@ -151,7 +166,7 @@ describe("ResolutionDigest", () => {
 		const mixed = await renderEmail(
 			ResolutionDigest(props([call(), call({ points: -40, isWin: false })])),
 		)
-		expect(mixed.text).toContain("Grab your best card")
+		expect(mixed.text).toContain("Share your best call")
 
 		const shutout = await renderEmail(
 			ResolutionDigest(
@@ -161,6 +176,6 @@ describe("ResolutionDigest", () => {
 				]),
 			),
 		)
-		expect(shutout.text).toContain("Grab your biggest miss")
+		expect(shutout.text).toContain("Share your biggest miss")
 	})
 })
