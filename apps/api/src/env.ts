@@ -8,18 +8,26 @@ const envSchema = z.object({
 		.enum(["development", "production", "test"])
 		.default("development"),
 	ALLOW_PROD_SEED: z.coerce.boolean().default(false),
-	SUPPORT_EMAIL: z.string().default("support@calledmyshot.local"),
+	// Where fileSupportTicket delivers to - a recipient, not a sender, so it
+	// needs a mailbox that can receive rather than a Resend-verified domain.
+	SUPPORT_EMAIL: z.string().default("support@calledmyshot.com"),
 	RESEND_API_KEY: z.string().optional(),
 	EMAIL_FROM: z
 		.string()
 		.default("Called My Shot <noreply@mail.calledmyshot.com>"),
-	// A separate sending subdomain from EMAIL_FROM on purpose. Digests are the
-	// only mail here someone can plausibly mark as spam, and sharing a domain
-	// with verification/email-change mail would let those complaints take the
-	// auth path's deliverability down with them.
+	// Defaults to the same verified domain as EMAIL_FROM, just a different
+	// From address, because mail.calledmyshot.com is the only domain verified
+	// in Resend - a default pointing at an unverified subdomain would fail
+	// every send.
+	//
+	// Worth splitting onto its own subdomain later: digests are the only mail
+	// here someone can plausibly mark as spam, and sharing a domain with
+	// verification/email-change mail lets those complaints drag the auth
+	// path's deliverability down with them. That's a DNS change plus this one
+	// env var, not a code change.
 	EMAIL_FROM_NOTIFICATIONS: z
 		.string()
-		.default("Called My Shot <results@notifications.calledmyshot.com>"),
+		.default("Called My Shot <results@mail.calledmyshot.com>"),
 	// Signs unsubscribe links. Optional so local dev needs no setup, but
 	// required in production - see the superRefine below.
 	EMAIL_UNSUBSCRIBE_SECRET: z.string().min(32).optional(),

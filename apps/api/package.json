@@ -9,6 +9,7 @@
     "schema:print": "tsx --env-file=.env src/graphql/print-schema.ts",
     "email:dev": "email dev --dir src/emails --port 3001",
     "email:logo": "tsx scripts/render-email-logo.ts",
+    "backfill:emails": "tsx --env-file=.env scripts/backfill-resolution-emails.ts",
     "format": "biome format .",
     "lint": "biome lint .",
     "check": "biome check .",
