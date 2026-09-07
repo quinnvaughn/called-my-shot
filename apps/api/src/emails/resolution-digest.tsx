@@ -77,7 +77,7 @@ export function digestPreview(calls: DigestCall[]): string {
 	const best = standout(calls)
 	if (!best) return "Your results are ready."
 	return calls.length === 1
-		? `${best.questionTitle} — settled.`
+		? `${best.questionTitle} is settled.`
 		: `Starting with ${best.questionTitle}.`
 }
 
@@ -201,6 +201,7 @@ export function ResolutionDigest({
 	return (
 		<EmailLayout
 			preview={digestPreview(calls)}
+			reason="a call of yours just resolved"
 			manageUrl={manageUrl}
 			unsubscribeUrl={unsubscribeUrl}
 			logoUrl={logoUrl}

@@ -9,6 +9,7 @@ import {
 	users,
 } from "../db/schema"
 import { makeCall, makeSelection, seedOptionQuestion } from "../test/factories"
+import { DRAIN_DIGESTS_LOCK, withAdvisoryLock } from "./advisory-lock"
 import { drainResolutionDigests } from "./email-digest"
 import type { MailMessage, MailResult } from "./mailer"
 import { resolveQuestionInternal } from "./resolve-question"
@@ -184,6 +185,29 @@ describe("drainResolutionDigests", () => {
 		expect(row.skippedReason).toBe("no_longer_resolved")
 	})
 
+	// Every link out of the email is attributed, so a visit that started in an
+	// inbox is distinguishable from one that started anywhere else - and the
+	// one-click header is deliberately left clean, because a mail client POSTs
+	// it rather than rendering a pageview off it.
+	it("tags every link it sends and leaves the one-click header untagged", async () => {
+		const { question, options } = await seedOptionQuestion({
+			callers: [{ optionIndex: 0 }],
+		})
+		await resolve(question, [options[0].id])
+		await ageOutbox()
+
+		const mail = recorder()
+		await drainResolutionDigests({ send: mail.send })
+
+		const [message] = mail.sent
+		for (const content of ["hero", "call_row", "all_calls", "unsubscribe"]) {
+			expect(message.text).toContain(
+				`utm_campaign=resolution_digest&utm_content=${content}`,
+			)
+		}
+		expect(message.headers?.["List-Unsubscribe"]).not.toContain("utm_")
+	})
+
 	it("carries a working one-click unsubscribe header", async () => {
 		const { question, options } = await seedOptionQuestion({
 			callers: [{ optionIndex: 0 }],
@@ -202,6 +226,34 @@ describe("drainResolutionDigests", () => {
 			"/unsubscribe/one-click?token=",
 		)
 		expect(message.tags).toEqual([{ name: "type", value: "resolution_digest" }])
+	})
+
+	// The production failure, reproduced: startScheduler runs on every Fly
+	// machine, so two drains hit the same ripe rows on the same tick and the
+	// same person got the same digest twice. Both callers of this function now
+	// go through DRAIN_DIGESTS_LOCK, which is what makes the second one a
+	// no-op - the row bookkeeping inside the drain does not and cannot do it
+	// on its own (see the claim's comment in email-digest.tsx).
+	it("sends once when two machines drain the same rows at the same time", async () => {
+		const { question, options } = await seedOptionQuestion({
+			callers: [{ optionIndex: 0 }],
+		})
+		await resolve(question, [options[0].id])
+		await ageOutbox()
+
+		const mail = recorder()
+		const runs = await Promise.all([
+			withAdvisoryLock(DRAIN_DIGESTS_LOCK, async () => {
+				await drainResolutionDigests({ send: mail.send })
+			}),
+			withAdvisoryLock(DRAIN_DIGESTS_LOCK, async () => {
+				await drainResolutionDigests({ send: mail.send })
+			}),
+		])
+
+		expect(mail.sent).toHaveLength(1)
+		// One machine ran it, the other skipped the tick rather than queueing.
+		expect(runs.filter((r) => r.ran)).toHaveLength(1)
 	})
 
 	it("leaves a failed send pending and counts the attempt", async () => {

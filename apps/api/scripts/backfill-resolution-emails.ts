@@ -1,3 +1,7 @@
+import {
+	DRAIN_DIGESTS_LOCK,
+	withAdvisoryLock,
+} from "../src/lib/advisory-lock"
 import { drainResolutionDigests } from "../src/lib/email-digest"
 import { backfillResolutionEmails } from "../src/lib/email-backfill"
 import { env } from "../src/env"
@@ -97,10 +101,21 @@ if (!commit) {
 
 if (send) {
 	console.log(`\nQueued ${result.queued} row(s). Draining now...`)
-	const drained = await drainResolutionDigests()
-	console.log(
-		`Sent ${drained.sent} row(s), skipped ${drained.skipped}, from ${env.EMAIL_FROM_NOTIFICATIONS}.`,
-	)
+	// The same lock the scheduler's drain tick takes, so this can't run
+	// alongside one and mail the same rows twice - which is precisely how the
+	// duplicate digests happened. Losing the race means the tick is already
+	// draining and will send these anyway.
+	const { ran } = await withAdvisoryLock(DRAIN_DIGESTS_LOCK, async () => {
+		const drained = await drainResolutionDigests()
+		console.log(
+			`Sent ${drained.sent} row(s), skipped ${drained.skipped}, from ${env.EMAIL_FROM_NOTIFICATIONS}.`,
+		)
+	})
+	if (!ran) {
+		console.log(
+			"A scheduler drain is already running - it will send these on its tick.",
+		)
+	}
 } else if (immediate) {
 	console.log(
 		`\nQueued ${result.queued} row(s), backdated past the settling window - the next drain tick (runs every 5 min on the api machine) will send them.`,

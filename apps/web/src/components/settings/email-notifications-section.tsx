@@ -29,6 +29,7 @@ export function EmailNotificationsSection({ mutedEmailTypes }: Props) {
 
 	const mutedAll = mutedEmailTypes.includes("ALL")
 	const mutedResults = mutedEmailTypes.includes("CALL_RESOLVED")
+	const mutedSeasonStarts = mutedEmailTypes.includes("SEASON_STARTING")
 
 	async function toggle(type: EmailPreferenceType, enabled: boolean) {
 		setFormError(null)
@@ -74,6 +75,20 @@ export function EmailNotificationsSection({ mutedEmailTypes }: Props) {
 						checked={!mutedAll && !mutedResults}
 						onChange={(checked) =>
 							!mutedAll && pending === null && toggle("CALL_RESOLVED", checked)
+						}
+					/>
+					<ToggleRow
+						label="Season kickoffs"
+						description={
+							mutedAll
+								? "Turn all email back on to change this."
+								: "One email a week before a season starts, per sport, with what's open to call."
+						}
+						checked={!mutedAll && !mutedSeasonStarts}
+						onChange={(checked) =>
+							!mutedAll &&
+							pending === null &&
+							toggle("SEASON_STARTING", checked)
 						}
 					/>
 					<ToggleRow

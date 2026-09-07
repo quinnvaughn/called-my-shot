@@ -12,15 +12,25 @@ import {
 } from "drizzle-orm/pg-core"
 import { calls } from "./calls"
 import { questions } from "./questions"
+import { seasons } from "./sports"
 import { users } from "./users"
 
-// Deliberately mirrors notificationType member-for-member, plus "all". The
-// two lists staying identical is what makes a future email type a toggle
+// Every member of notificationType, plus "all", plus the members below it.
+// Mirroring notificationType is what makes a future email type a toggle
 // rather than a migration - every in-app notification is a thing we might
 // eventually also send mail about, and a divergent second taxonomy would mean
-// mapping between them at every gate. Only "call_resolved" actually sends
-// today (see lib/email-digest.ts); the rest exist so the opt-out someone sets
-// now is still honored when its email ships.
+// mapping between them at every gate.
+//
+// The mirror only runs one way, though: a notification implies a possible
+// email, an email does not imply a notification. "season_starting" is the
+// first of the second kind - it is a broadcast on a calendar, not a reaction
+// to something that happened to this person, and telling someone in-app that
+// a season is about to start is worth nothing to someone who is already
+// in-app. Anything past this comment is email-only by the same test.
+//
+// "call_resolved" (lib/email-digest.ts) and "season_starting"
+// (lib/season-start-email.tsx) actually send today; the rest exist so the
+// opt-out someone sets now is still honored when its email ships.
 export const emailPreferenceType = pgEnum("email_preference_type", [
 	"all",
 	"call_resolved",
@@ -30,6 +40,8 @@ export const emailPreferenceType = pgEnum("email_preference_type", [
 	"question_voided",
 	"group_member_joined",
 	"question_shared_to_group",
+	// Email-only - see above.
+	"season_starting",
 ])
 export type EmailPreferenceType =
 	(typeof emailPreferenceType.enumValues)[number]
@@ -112,3 +124,46 @@ export const emailOutbox = pgTable(
 	],
 )
 export type EmailOutboxRow = typeof emailOutbox.$inferSelect
+
+// One row per (user, league season) for the "your sport is back" email -
+// both the send record and the dedupe key, the way emailOutbox is above.
+// Deliberately NOT a second use of emailOutbox: that table's questionId and
+// callId are non-null on purpose, and this email is about a season, not
+// about anything a particular person did. Widening those two columns to
+// nullable would cost every reader of the resolution path a null check to
+// save one table here.
+//
+// The unique constraint is the whole idempotency story. The enqueue pass
+// (lib/season-start-email.tsx) reruns daily for as long as a season sits
+// inside the lead window, so it tries to insert the same (user, season)
+// about seven times - onConflictDoNothing turns the other six into no-ops.
+// It also means a season a user was mailed about can never be mailed about
+// again, including after a re-enqueue years later.
+export const seasonStartEmails = pgTable(
+	"season_start_emails",
+	{
+		userId: uuid("user_id")
+			.notNull()
+			.references(() => users.id, { onDelete: "cascade" }),
+		// Cascade: a season row deleted by a sync correction takes its unsent
+		// announcements with it rather than leaving the drain to notice.
+		seasonId: uuid("season_id")
+			.notNull()
+			.references(() => seasons.id, { onDelete: "cascade" }),
+		sentAt: timestamp("sent_at"),
+		// Same meaning as emailOutbox.skippedReason - stamped alongside sentAt
+		// when the row was finished without mailing anything (muted, dead
+		// address, season no longer worth announcing).
+		skippedReason: text("skipped_reason"),
+		attempts: integer("attempts").notNull().default(0),
+		lastError: text("last_error"),
+		createdAt: timestamp("created_at").notNull().defaultNow(),
+	},
+	(t) => [
+		primaryKey({ columns: [t.userId, t.seasonId] }),
+		index("season_start_emails_pending_idx")
+			.on(t.seasonId, t.createdAt)
+			.where(sql`sent_at is null`),
+	],
+)
+export type SeasonStartEmail = typeof seasonStartEmails.$inferSelect

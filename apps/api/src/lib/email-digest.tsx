@@ -9,6 +9,7 @@ import {
 	ResolutionDigest,
 } from "../emails/resolution-digest"
 import { env } from "../env"
+import { emailUrl, withUtm } from "./email-links"
 import { isMuted, mutedEmailTypesByUser } from "./email-prefs"
 import { oneClickUnsubscribeUrl, unsubscribePageUrl } from "./email-unsubscribe"
 import { sendMail } from "./mailer"
@@ -27,13 +28,21 @@ const MAX_ATTEMPTS = 5
 
 type SendFn = typeof sendMail
 
-function shareUrl(questionId: string, questionTitle: string): string {
+// `content` separates the one hero button from the per-call links that point
+// at the same place - without it a click breakdown can't tell whether the
+// button is pulling its weight or people are picking a call out of the list.
+function shareUrl(
+	questionId: string,
+	questionTitle: string,
+	content: "hero" | "call_row",
+): string {
 	const path = questionPath({ id: questionId, title: questionTitle })
 	// share=1 opens the share panel on arrival instead of landing on a
-	// collapsed button (see the question route's validateSearch). The utm
-	// params are what PostHog attributes the visit to - no client code needed,
-	// it captures them on pageview.
-	return `${env.CLIENT_ORIGIN}${path}?share=1&utm_source=email&utm_medium=resolution_digest`
+	// collapsed button (see the question route's validateSearch).
+	return emailUrl(`${path}?share=1`, {
+		campaign: "resolution_digest",
+		content,
+	})
 }
 
 // Resolved without mailing anything. sentAt is stamped alongside the reason
@@ -49,18 +58,24 @@ async function markSkipped(rowIds: string[], reason: string): Promise<void> {
 }
 
 // Left unsent on purpose, so the next run picks it up again - until attempts
-// crosses MAX_ATTEMPTS and the claim query stops selecting it.
+// crosses MAX_ATTEMPTS and the claim query stops selecting it. The attempt
+// itself was already spent by the claim below, so this only records why.
 async function markFailed(rowIds: string[], error: string): Promise<void> {
 	if (rowIds.length === 0) return
 	await db
 		.update(emailOutbox)
-		.set({ attempts: sql`${emailOutbox.attempts} + 1`, lastError: error })
+		.set({ lastError: error })
 		.where(inArray(emailOutbox.id, rowIds))
 }
 
 // Drained on a cron rather than sent at resolve time - see the comment on
 // emailOutbox in db/schema/email.ts for why. `send` is injectable purely so
 // tests can assert on what would have gone out without a Resend key.
+//
+// MUST be called under DRAIN_DIGESTS_LOCK (lib/advisory-lock.ts). Nothing
+// inside here is safe against a second concurrent drain - the row claim below
+// says why - so both callers, the scheduler and the backfill script, take
+// that lock by name first.
 export async function drainResolutionDigests({
 	send = sendMail,
 }: {
@@ -96,21 +111,33 @@ async function drainOneUser(
 	userId: string,
 	send: SendFn,
 ): Promise<{ sent: number; skipped: number }> {
-	// SKIP LOCKED so two runs overlapping (the scheduler has no distributed
-	// lock, and Fly could run more than one machine later) can't both claim
-	// the same rows and mail the same person twice.
-	const claimed = await db.transaction(async (tx) => {
-		const rows = await tx.execute<{ id: string; call_id: string }>(sql`
-			select id, call_id
-			from email_outbox
-			where user_id = ${userId}
-				and sent_at is null
-				and attempts < ${MAX_ATTEMPTS}
-			order by created_at asc
-			for update skip locked
-		`)
-		return rows.rows
-	})
+	// Spends the attempt up front, in the same statement that reads the rows,
+	// so a run that dies between here and the send has still burned one - a
+	// row that kills the process can't be retried forever.
+	//
+	// This is NOT what stops two runs mailing the same person: the UPDATE
+	// commits immediately, which releases its row locks while the rows are
+	// still `sent_at is null`, so a second run started a moment later selects
+	// them again quite happily. That is exactly what shipped to production -
+	// startScheduler runs on every machine (see index.ts), Fly runs more than
+	// one, and the same digest went out twice. The mutual exclusion is the job
+	// lock every caller of this function takes; see lib/advisory-lock.ts.
+	const { rows: claimed } = await db.execute<{ id: string; call_id: string }>(
+		sql`
+			update email_outbox
+			set attempts = attempts + 1
+			where id in (
+				select id
+				from email_outbox
+				where user_id = ${userId}
+					and sent_at is null
+					and attempts < ${MAX_ATTEMPTS}
+				order by created_at asc
+				for update skip locked
+			)
+			returning id, call_id
+		`,
+	)
 	if (claimed.length === 0) return { sent: 0, skipped: 0 }
 
 	const rowIds = claimed.map((r) => r.id)
@@ -176,7 +203,7 @@ async function drainOneUser(
 		pickLabel: s.pickLabel,
 		points: s.points,
 		isWin: s.isWin,
-		shareUrl: shareUrl(s.questionId, s.questionTitle),
+		shareUrl: shareUrl(s.questionId, s.questionTitle, "call_row"),
 	}))
 
 	// The card worth leading with: the biggest win if there is one, otherwise
@@ -190,11 +217,24 @@ async function drainOneUser(
 	const { html, text } = await renderEmail(
 		<ResolutionDigest
 			calls={calls}
-			primaryShareUrl={shareUrl(primary.questionId, primary.questionTitle)}
-			allCallsUrl={`${env.CLIENT_ORIGIN}/my-calls`}
-			manageUrl={`${env.CLIENT_ORIGIN}/settings`}
+			primaryShareUrl={shareUrl(
+				primary.questionId,
+				primary.questionTitle,
+				"hero",
+			)}
+			allCallsUrl={emailUrl("/my-calls", {
+				campaign: "resolution_digest",
+				content: "all_calls",
+			})}
+			manageUrl={emailUrl("/settings", {
+				campaign: "resolution_digest",
+				content: "manage",
+			})}
 			logoUrl={`${env.CLIENT_ORIGIN}/email-logo.png`}
-			unsubscribeUrl={unsubscribePageUrl(userId, "call_resolved")}
+			unsubscribeUrl={withUtm(unsubscribePageUrl(userId, "call_resolved"), {
+				campaign: "resolution_digest",
+				content: "unsubscribe",
+			})}
 		/>,
 	)
 
@@ -207,7 +247,10 @@ async function drainOneUser(
 		headers: {
 			// Gmail and Yahoo's bulk-sender rules require one-click unsubscribe
 			// on mail like this, and an easy opt-out is cheaper than a spam
-			// complaint either way.
+			// complaint either way. Deliberately untagged, unlike the footer
+			// link: nothing renders a pageview here, the mail client POSTs it
+			// on the reader's behalf, so utm params would only add noise to a
+			// url that has to stay exactly parseable by someone else's code.
 			"List-Unsubscribe": `<${oneClickUnsubscribeUrl(userId, "call_resolved")}>`,
 			"List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
 		},

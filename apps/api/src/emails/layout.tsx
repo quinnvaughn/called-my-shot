@@ -35,7 +35,15 @@ type Props = {
 	// which here would be the wordmark.
 	preview: string
 	children: ReactNode
-	// Both are absolute urls built by lib/email-unsubscribe.ts.
+	// Why this person is getting this particular email, finishing the sentence
+	// "You're getting this because you have a Called My Shot account and ...".
+	// A prop rather than a constant because the footer has to name the actual
+	// trigger - a reader who is told a call resolved when the real reason was
+	// a season starting is being told the unsubscribe link does something
+	// other than what it does.
+	reason: string
+	// Both are absolute urls built by lib/email-unsubscribe.ts, then tagged by
+	// lib/email-links.ts.
 	manageUrl: string
 	unsubscribeUrl: string
 	// Absolute url to the wordmark PNG in apps/web/public. A raster because
@@ -47,6 +55,7 @@ type Props = {
 export function EmailLayout({
 	preview,
 	children,
+	reason,
 	manageUrl,
 	unsubscribeUrl,
 	logoUrl,
@@ -104,8 +113,8 @@ export function EmailLayout({
 							textAlign: "center",
 						}}
 					>
-						You're getting this because you have a Called My Shot account and a
-						call of yours just resolved.
+						You're getting this because you have a Called My Shot account and{" "}
+						{reason}.
 						<br />
 						<Link href={manageUrl} style={{ color: COLOR.steel }}>
 							Manage email settings

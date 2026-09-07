@@ -81,7 +81,7 @@ export function SiteLeaderboard({
 				hasMore={hasNextPage}
 				loading={isFetching}
 				onLoadMore={fetchNextPage}
-				emptyMessage={`No calls yet — ${filter.scopeLabel}.`}
+				emptyMessage={`No calls yet. ${filter.scopeLabel}.`}
 			/>
 		</>
 	)

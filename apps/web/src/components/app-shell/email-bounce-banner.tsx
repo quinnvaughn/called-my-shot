@@ -30,7 +30,7 @@ export function EmailBounceBanner() {
 				className={css({ color: "danger.default", flexShrink: 0 })}
 			/>
 			<span className={css({ fontSize: "sm", color: "fg.default" })}>
-				Your email is bouncing — we can't reach you. Results and account email
+				Your email is bouncing. We can't reach you. Results and account email
 				won't arrive until you update it.
 			</span>
 			<Link

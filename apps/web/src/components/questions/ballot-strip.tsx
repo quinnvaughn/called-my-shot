@@ -316,7 +316,7 @@ function BallotChip({
 				questionId: member.question.id,
 				slug: buildQuestionSlug(member.question.title),
 			}}
-			title={`${member.label} — ${state}`}
+			title={`${member.label}: ${state}`}
 			className={cx(
 				css({
 					display: "flex",
