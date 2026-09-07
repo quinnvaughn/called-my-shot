@@ -42,7 +42,10 @@ import { safeExternalUrl } from "#/lib/external-url"
 import { formatGuess } from "#/lib/field-signal"
 import { pageMeta } from "#/lib/meta"
 import { questionDetailState } from "#/lib/question-detail-state"
-import { questionShapeLabel } from "#/lib/question-labels"
+import {
+	isNumericQuestionShape,
+	questionShapeLabel,
+} from "#/lib/question-labels"
 import { resolvedAnswerSummary } from "#/lib/resolution-summary"
 import { buildQuestionSlug, questionPath } from "#/lib/slug"
 import { openModal } from "#/stores/modal-store"
@@ -158,10 +161,9 @@ function RouteComponent() {
 	const answer = state.isSettled ? resolvedAnswerSummary(question) : null
 	// "How rare was being right" - the correct option's own fieldPct for
 	// everything option-based, numericHitRatePct (computed across every
-	// scored guess) for the one type that isn't a discrete option.
+	// scored guess) for the numeric-guess shapes, which have no options at all.
 	const fieldAccuracyPct = state.isSettled
-		? question.shape === "PLAYER_STAT_NUMERIC_GUESS" ||
-			question.shape === "TEAM_STAT_NUMERIC_GUESS"
+		? isNumericQuestionShape(question.shape)
 			? question.numericHitRatePct
 			: (question.options.find((option) => option.isCorrect)?.fieldPct ?? null)
 		: null
@@ -409,8 +411,7 @@ function RouteComponent() {
 			regardless of which status - pending, won, either loss - is active). */}
 			{!(state.canCall && !viewerCall) && (
 				<FieldBreakdownCard>
-					{question.shape === "PLAYER_STAT_NUMERIC_GUESS" ||
-					question.shape === "TEAM_STAT_NUMERIC_GUESS" ? (
+					{isNumericQuestionShape(question.shape) ? (
 						<GuessDistributionChart
 							buckets={question.guessDistribution}
 							averageGuess={question.averageGuess}

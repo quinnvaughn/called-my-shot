@@ -58,7 +58,7 @@ function LowVolumeGuesses({ totalGuesses }: { totalGuesses: number }) {
 					textTransform: "uppercase",
 				})}
 			>
-				Guesses so far
+				{pluralize(totalGuesses, "guess", "guesses")} so far
 			</span>
 			<HStack gap="1.5" alignItems="center" className={css({ paddingTop: "2" })}>
 				<FiZap size={13} className={css({ color: "primary.default" })} />
