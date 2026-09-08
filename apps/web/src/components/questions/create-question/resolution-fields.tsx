@@ -1,13 +1,16 @@
 import { useQuery } from "@tanstack/react-query"
 import { DateTime } from "luxon"
 import { HStack, VStack } from "styled-system/jsx"
-import { DATE_TIME_PICKER_VALUE_FORMAT, DateTimePicker } from "#/components/ui/date-time-picker"
+import { ChipButton } from "#/components/ui/chip-button"
+import {
+	DATE_TIME_PICKER_VALUE_FORMAT,
+	DateTimePicker,
+} from "#/components/ui/date-time-picker"
 import { FieldLabel } from "#/components/ui/field-label"
 import { TextInput } from "#/components/ui/text-input"
 import { CurrentSeasonByLeagueDocument } from "#/graphql/queries/sports"
 import { gqlQueryOptions } from "#/graphql/query-options"
-import { ChipButton } from "#/components/ui/chip-button"
-import type { CreateQuestionFormApi } from "./form-types"
+import { Field, useWatch } from "./form-context"
 
 const SOURCE_SUGGESTIONS = [
 	"ESPN box score",
@@ -16,12 +19,11 @@ const SOURCE_SUGGESTIONS = [
 ]
 
 type Props = {
-	form: CreateQuestionFormApi
 	leagueId: string
 }
 
-export function ResolutionFields({ form, leagueId }: Props) {
-	const gameId = form.useWatch("gameId")
+export function ResolutionFields({ leagueId }: Props) {
+	const gameId = useWatch("gameId")
 
 	// Only relevant while locksAt is still manual (no game picked, which
 	// otherwise drives it directly off the game's own kickoff - see
@@ -37,7 +39,7 @@ export function ResolutionFields({ form, leagueId }: Props) {
 
 	return (
 		<VStack gap="3.5" alignItems="stretch">
-			<form.Field name="resolutionSource">
+			<Field name="resolutionSource">
 				{(field) => (
 					<VStack gap="2" alignItems="stretch">
 						<TextInput error={field.meta.error ?? undefined}>
@@ -64,9 +66,9 @@ export function ResolutionFields({ form, leagueId }: Props) {
 						</HStack>
 					</VStack>
 				)}
-			</form.Field>
+			</Field>
 
-			<form.Field name="resolutionSourceUrl">
+			<Field name="resolutionSourceUrl">
 				{(field) => (
 					<TextInput error={field.meta.error ?? undefined}>
 						<TextInput.Label>Source URL (optional)</TextInput.Label>
@@ -80,9 +82,9 @@ export function ResolutionFields({ form, leagueId }: Props) {
 						</TextInput.Group>
 					</TextInput>
 				)}
-			</form.Field>
+			</Field>
 
-			<form.Field name="locksAt">
+			<Field name="locksAt">
 				{(field) => (
 					<VStack gap="1.5" alignItems="stretch">
 						<FieldLabel required>Locks at</FieldLabel>
@@ -127,7 +129,7 @@ export function ResolutionFields({ form, leagueId }: Props) {
 						)}
 					</VStack>
 				)}
-			</form.Field>
+			</Field>
 		</VStack>
 	)
 }

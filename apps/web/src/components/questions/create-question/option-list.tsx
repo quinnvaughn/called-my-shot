@@ -6,10 +6,9 @@ import { FieldLabel } from "#/components/ui/field-label"
 import { FormError } from "#/components/ui/form-error"
 import type { EntitySearchItem } from "./entity-search-field"
 import { EntitySearchField } from "./entity-search-field"
-import type { CreateQuestionFormApi } from "./form-types"
+import { Field, FieldArray, useSetValue } from "./form-context"
 
 type Props = {
-	form: CreateQuestionFormApi
 	// null = no fixed vocabulary to search against - rows fall back to plain
 	// freeform labels with no suggestions.
 	items: EntitySearchItem[] | null
@@ -33,15 +32,15 @@ type Props = {
 // (the full league roster, auto-derived, no per-row editing) - see
 // create-question-form.tsx.
 export function OptionList({
-	form,
 	items,
 	rowPlaceholder,
 	addLabel,
 	exactCount,
 	rowLabels,
 }: Props) {
+	const setValue = useSetValue()
 	return (
-		<form.FieldArray name="options">
+		<FieldArray name="options">
 			{({ items: rows, helpers, meta }) => {
 				return (
 					<VStack gap="2" alignItems="stretch">
@@ -52,11 +51,15 @@ export function OptionList({
 						</FieldHint>
 						{rows.map((row) => (
 							<HStack key={row.id} gap="2" alignItems="flex-start">
-								<VStack gap="1.5" alignItems="stretch" className={css({ flex: "1" })}>
+								<VStack
+									gap="1.5"
+									alignItems="stretch"
+									className={css({ flex: "1" })}
+								>
 									{rowLabels?.[row.index] && (
 										<FieldLabel required>{rowLabels[row.index]}</FieldLabel>
 									)}
-									<form.Field name={`options.${row.index}.label`}>
+									<Field name={`options.${row.index}.label`}>
 										{(field) => (
 											<EntitySearchField
 												value={field.value ?? ""}
@@ -64,35 +67,26 @@ export function OptionList({
 													field.onChange(text)
 													// A hand-edited label no longer matches whatever
 													// team/player it might have been picked from.
-													form.setValue(
-														`options.${row.index}.teamId`,
-														undefined,
-													)
-													form.setValue(
-														`options.${row.index}.playerId`,
-														undefined,
-													)
+													setValue(`options.${row.index}.teamId`, undefined)
+													setValue(`options.${row.index}.playerId`, undefined)
 												}}
 												items={items}
 												placeholder={rowPlaceholder}
 												error={field.meta.error ?? undefined}
 												onSelectItem={(item) => {
-													form.setValue(
-														`options.${row.index}.label`,
-														item.label,
-													)
-													form.setValue(
+													setValue(`options.${row.index}.label`, item.label)
+													setValue(
 														`options.${row.index}.teamId`,
 														item.kind === "team" ? item.id : undefined,
 													)
-													form.setValue(
+													setValue(
 														`options.${row.index}.playerId`,
 														item.kind === "player" ? item.id : undefined,
 													)
 												}}
 											/>
 										)}
-									</form.Field>
+									</Field>
 								</VStack>
 								{exactCount === undefined && (
 									<button
@@ -145,6 +139,6 @@ export function OptionList({
 					</VStack>
 				)
 			}}
-		</form.FieldArray>
+		</FieldArray>
 	)
 }

@@ -3,10 +3,9 @@ import { css } from "styled-system/css"
 import { HStack } from "styled-system/jsx"
 import { FieldHint } from "#/components/ui/field-hint"
 import type { EntitySearchItem } from "./entity-search-field"
-import type { CreateQuestionFormApi } from "./form-types"
+import { useSetValue } from "./form-context"
 
 type Props = {
-	form: CreateQuestionFormApi
 	items: EntitySearchItem[]
 	// The conference/division (and, for player awards, position) the pool's
 	// been narrowed to, joined for display - "AL East", "AL" - empty for the
@@ -26,9 +25,10 @@ type Props = {
 // genuinely scoped in reality (AL MVP vs NL MVP) rather than hand-curated row
 // by row - nobody's hand-searching and adding hundreds of players one at a
 // time. Syncs the list into `options` automatically.
-export function PoolSummary({ form, items, scopeLabel, rookieOnly }: Props) {
+export function PoolSummary({ items, scopeLabel, rookieOnly }: Props) {
+	const setValue = useSetValue()
 	useEffect(() => {
-		form.setValue(
+		setValue(
 			"options",
 			items.map((item) => ({
 				label: item.label,
@@ -36,7 +36,7 @@ export function PoolSummary({ form, items, scopeLabel, rookieOnly }: Props) {
 				playerId: item.kind === "player" ? item.id : undefined,
 			})),
 		)
-	}, [items, form.setValue])
+	}, [items, setValue])
 
 	if (items.length === 0) {
 		return <FieldHint>Pick a league to see the pool.</FieldHint>

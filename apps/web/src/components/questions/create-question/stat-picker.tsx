@@ -1,18 +1,17 @@
 import { useState } from "react"
 import { css } from "styled-system/css"
 import { VStack } from "styled-system/jsx"
+import { ChipButton } from "#/components/ui/chip-button"
 import { FieldHint } from "#/components/ui/field-hint"
 import { FieldLabel } from "#/components/ui/field-label"
 import type { StatsBySportQuery } from "#/graphql/generated/graphql"
-import { ChipButton } from "#/components/ui/chip-button"
 import type { EntitySearchItem } from "./entity-search-field"
 import { EntitySearchField } from "./entity-search-field"
-import type { CreateQuestionFormApi } from "./form-types"
+import { Field, useSetValue, useWatch } from "./form-context"
 
 type Stat = StatsBySportQuery["stats"][number]
 
 type Props = {
-	form: CreateQuestionFormApi
 	stats: Stat[]
 	// numeric_guess only - its tolerance band comes from the picked stat's own
 	// tolerance tier (see create-question's resolver), so unlike over_under a
@@ -28,8 +27,9 @@ const QUICK_PICK_COUNT = 8
 // rest of the catalog. over_under also allows a freeform fallback
 // (customStat) for anything not in the catalog yet; numeric_guess doesn't
 // (see catalogOnly).
-export function StatPicker({ form, stats, catalogOnly }: Props) {
-	const statId = form.useWatch("statId")
+export function StatPicker({ stats, catalogOnly }: Props) {
+	const statId = useWatch("statId")
+	const setValue = useSetValue()
 	const [searchText, setSearchText] = useState("")
 	const quickPicks = stats.slice(0, QUICK_PICK_COUNT)
 	const items: EntitySearchItem[] = stats.map((stat) => ({
@@ -52,8 +52,8 @@ export function StatPicker({ form, stats, catalogOnly }: Props) {
 							key={stat.id}
 							selected={stat.id === statId}
 							onClick={() => {
-								form.setValue("statId", stat.id)
-								form.setValue("customStat", "")
+								setValue("statId", stat.id)
+								setValue("customStat", "")
 							}}
 						>
 							{stat.name}
@@ -62,7 +62,7 @@ export function StatPicker({ form, stats, catalogOnly }: Props) {
 				</div>
 			)}
 			{catalogOnly ? (
-				<form.Field name="statId">
+				<Field name="statId">
 					{(field) => (
 						<EntitySearchField
 							value={selectedStatName ?? searchText}
@@ -72,19 +72,19 @@ export function StatPicker({ form, stats, catalogOnly }: Props) {
 							required
 							error={field.meta.error ?? undefined}
 							onSelectItem={(item) => {
-								form.setValue("statId", item.id)
+								setValue("statId", item.id)
 								setSearchText("")
 							}}
 						/>
 					)}
-				</form.Field>
+				</Field>
 			) : (
-				<form.Field name="customStat">
+				<Field name="customStat">
 					{(field) => (
 						<EntitySearchField
 							value={selectedStatName ?? field.value}
 							onValueChange={(text) => {
-								form.setValue("statId", undefined)
+								setValue("statId", undefined)
 								field.onChange(text)
 							}}
 							items={items}
@@ -92,12 +92,12 @@ export function StatPicker({ form, stats, catalogOnly }: Props) {
 							required
 							error={field.meta.error ?? undefined}
 							onSelectItem={(item) => {
-								form.setValue("statId", item.id)
+								setValue("statId", item.id)
 								field.onChange("")
 							}}
 						/>
 					)}
-				</form.Field>
+				</Field>
 			)}
 			<FieldHint>
 				{catalogOnly

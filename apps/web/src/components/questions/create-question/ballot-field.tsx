@@ -12,10 +12,9 @@ import {
 	AdminBallotSearchDocument,
 } from "#/graphql/queries/ballots"
 import { gqlQueryOptions } from "#/graphql/query-options"
-import type { CreateQuestionFormApi } from "./form-types"
+import { Subscribe, useSetValue, useWatch } from "./form-context"
 
 type Props = {
-	form: CreateQuestionFormApi
 	leagueId: string
 	// Set when arriving from the admin Ballots builder's "+ New Question"
 	// button (?ballotId=... on /new-question) - the ballot is fixed context
@@ -39,8 +38,9 @@ type SelectedBallot = { id: string; name: string; memberCount: number }
 // correctly type a nested field under an optional object (keyof on a
 // `T | undefined` union collapses to never), so every update here goes
 // through the one top-level path that works.
-export function BallotField({ form, leagueId, lockedBallotId }: Props) {
-	const ballotValue = form.useWatch("ballot")
+export function BallotField({ leagueId, lockedBallotId }: Props) {
+	const ballotValue = useWatch("ballot")
+	const setValue = useSetValue()
 	const ballotId = ballotValue?.ballotId
 	const [inputText, setInputText] = useState("")
 	const [open, setOpen] = useState(false)
@@ -68,11 +68,11 @@ export function BallotField({ form, leagueId, lockedBallotId }: Props) {
 		if (prevLeagueId.current !== leagueId) {
 			prevLeagueId.current = leagueId
 			if (!lockedBallotId && ballotId) {
-				form.setValue("ballot", undefined)
+				setValue("ballot", undefined)
 				setSelectedBallot(null)
 			}
 		}
-	}, [leagueId, lockedBallotId, ballotId, form])
+	}, [leagueId, lockedBallotId, ballotId, setValue])
 
 	const { data: searchData } = useQuery(
 		gqlQueryOptions(
@@ -109,16 +109,16 @@ export function BallotField({ form, leagueId, lockedBallotId }: Props) {
 	useEffect(() => {
 		if (lockedBallotId && appliedLockedBallotId.current !== lockedBallotId) {
 			appliedLockedBallotId.current = lockedBallotId
-			form.setValue("ballot", {
+			setValue("ballot", {
 				ballotId: lockedBallotId,
 				label: "",
 				slot: undefined,
 			})
 		}
-	}, [lockedBallotId, form])
+	}, [lockedBallotId, setValue])
 
 	function selectBallot(ballot: SelectedBallot) {
-		form.setValue("ballot", {
+		setValue("ballot", {
 			ballotId: ballot.id,
 			label: "",
 			slot: undefined,
@@ -130,13 +130,13 @@ export function BallotField({ form, leagueId, lockedBallotId }: Props) {
 	}
 
 	function clearBallot() {
-		form.setValue("ballot", undefined)
+		setValue("ballot", undefined)
 		setSelectedBallot(null)
 		setInputText("")
 	}
 
 	function updateLabel(label: string) {
-		form.setValue("ballot", {
+		setValue("ballot", {
 			ballotId: ballotValue?.ballotId ?? "",
 			label,
 			slot: ballotValue?.slot,
@@ -144,7 +144,7 @@ export function BallotField({ form, leagueId, lockedBallotId }: Props) {
 	}
 
 	function updateSlot(slot: string) {
-		form.setValue("ballot", {
+		setValue("ballot", {
 			ballotId: ballotValue?.ballotId ?? "",
 			label: ballotValue?.label ?? "",
 			slot,
@@ -261,7 +261,7 @@ export function BallotField({ form, leagueId, lockedBallotId }: Props) {
 
 			{active && (
 				<HStack gap="3" alignItems="flex-start">
-					<form.Subscribe selector={(s) => s.errors["ballot.label"] ?? null}>
+					<Subscribe selector={(s) => s.errors["ballot.label"] ?? null}>
 						{(error) => (
 							<TextInput
 								error={error ?? undefined}
@@ -277,8 +277,8 @@ export function BallotField({ form, leagueId, lockedBallotId }: Props) {
 								</TextInput.Group>
 							</TextInput>
 						)}
-					</form.Subscribe>
-					<form.Subscribe selector={(s) => s.errors["ballot.slot"] ?? null}>
+					</Subscribe>
+					<Subscribe selector={(s) => s.errors["ballot.slot"] ?? null}>
 						{(error) => (
 							<TextInput
 								error={error ?? undefined}
@@ -295,7 +295,7 @@ export function BallotField({ form, leagueId, lockedBallotId }: Props) {
 								</TextInput.Group>
 							</TextInput>
 						)}
-					</form.Subscribe>
+					</Subscribe>
 				</HStack>
 			)}
 		</VStack>

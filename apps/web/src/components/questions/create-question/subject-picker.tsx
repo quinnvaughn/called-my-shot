@@ -1,21 +1,20 @@
 import { useState } from "react"
 import { HStack, VStack } from "styled-system/jsx"
+import { ChipButton } from "#/components/ui/chip-button"
 import { FieldHint } from "#/components/ui/field-hint"
 import { FieldLabel } from "#/components/ui/field-label"
 import type {
 	PlayersByLeagueQuery,
 	TeamsByLeagueQuery,
 } from "#/graphql/generated/graphql"
-import { ChipButton } from "#/components/ui/chip-button"
 import type { EntitySearchItem } from "./entity-search-field"
 import { EntitySearchField } from "./entity-search-field"
-import type { CreateQuestionFormApi } from "./form-types"
+import { useSetValue, useWatch } from "./form-context"
 
 type Team = TeamsByLeagueQuery["teams"][number]
 type Player = PlayersByLeagueQuery["players"][number]
 
 type Props = {
-	form: CreateQuestionFormApi
 	teams: Team[]
 	players: Player[]
 	// Fixed shapes (player_stat_*, team_stat_*) already know which kind of
@@ -37,13 +36,14 @@ type Props = {
 // who or what the stat (or the yes/no itself) is actually about. Must
 // resolve to a real team or player, no freeform fallback (unlike the stat
 // picker), since it's what resolution checks against.
-export function SubjectPicker({ form, teams, players, kind, required }: Props) {
+export function SubjectPicker({ teams, players, kind, required }: Props) {
 	const [chipKind, setChipKind] = useState<"player" | "team">(
 		kind === "team" ? "team" : "player",
 	)
 	const subjectType = kind === "either" ? chipKind : kind
-	const subjectTeamId = form.useWatch("subjectTeamId")
-	const subjectPlayerId = form.useWatch("subjectPlayerId")
+	const subjectTeamId = useWatch("subjectTeamId")
+	const subjectPlayerId = useWatch("subjectPlayerId")
+	const setValue = useSetValue()
 	const [inputText, setInputText] = useState("")
 
 	const items: EntitySearchItem[] =
@@ -77,8 +77,8 @@ export function SubjectPicker({ form, teams, players, kind, required }: Props) {
 							selected={chipKind === type}
 							onClick={() => {
 								setChipKind(type)
-								form.setValue("subjectTeamId", undefined)
-								form.setValue("subjectPlayerId", undefined)
+								setValue("subjectTeamId", undefined)
+								setValue("subjectPlayerId", undefined)
 								setInputText("")
 							}}
 						>
@@ -91,8 +91,8 @@ export function SubjectPicker({ form, teams, players, kind, required }: Props) {
 				value={inputText || selectedLabel}
 				onValueChange={(text) => {
 					setInputText(text)
-					form.setValue("subjectTeamId", undefined)
-					form.setValue("subjectPlayerId", undefined)
+					setValue("subjectTeamId", undefined)
+					setValue("subjectPlayerId", undefined)
 				}}
 				items={items}
 				placeholder={
@@ -102,11 +102,11 @@ export function SubjectPicker({ form, teams, players, kind, required }: Props) {
 				onSelectItem={(item) => {
 					setInputText(item.label)
 					if (item.kind === "team") {
-						form.setValue("subjectTeamId", item.id)
-						form.setValue("subjectPlayerId", undefined)
+						setValue("subjectTeamId", item.id)
+						setValue("subjectPlayerId", undefined)
 					} else {
-						form.setValue("subjectPlayerId", item.id)
-						form.setValue("subjectTeamId", undefined)
+						setValue("subjectPlayerId", item.id)
+						setValue("subjectTeamId", undefined)
 					}
 				}}
 			/>

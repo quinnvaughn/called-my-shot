@@ -12,10 +12,9 @@ import type { GameByIdQuery } from "#/graphql/generated/graphql"
 import { GamesByLeagueDocument } from "#/graphql/queries/sports"
 import { gqlQueryOptions } from "#/graphql/query-options"
 import { GameBlock } from "../game-block"
-import type { CreateQuestionFormApi } from "./form-types"
+import { useSetValue, useWatch } from "./form-context"
 
 type Props = {
-	form: CreateQuestionFormApi
 	leagueId: string
 	// Lifted to the parent form (not fetched here) - a picked game also
 	// narrows the subject/option team-player pickers elsewhere in the form,
@@ -38,13 +37,9 @@ const DEBOUNCE_MS = 250
 // full slate of games can run much larger than its roster. Picking a game
 // also fills and locks the Resolution section's locksAt field (see
 // resolution-fields.tsx) to that game's own kickoff.
-export function GameField({
-	form,
-	leagueId,
-	selectedGame,
-	required,
-}: Props) {
-	const gameId = form.useWatch("gameId")
+export function GameField({ leagueId, selectedGame, required }: Props) {
+	const gameId = useWatch("gameId")
+	const setValue = useSetValue()
 	const [inputText, setInputText] = useState("")
 	const [open, setOpen] = useState(false)
 	const [highlightedKey, setHighlightedKey] = useState<string | null>(null)
@@ -66,11 +61,11 @@ export function GameField({
 		if (prevLeagueId.current !== leagueId) {
 			prevLeagueId.current = leagueId
 			if (gameId) {
-				form.setValue("gameId", undefined)
-				form.setValue("locksAt", "")
+				setValue("gameId", undefined)
+				setValue("locksAt", "")
 			}
 		}
-	}, [leagueId, gameId, form])
+	}, [leagueId, gameId, setValue])
 
 	const { data: searchData } = useQuery(
 		gqlQueryOptions(
@@ -86,8 +81,8 @@ export function GameField({
 	const games = searchData?.games ?? []
 
 	function selectGame(game: (typeof games)[number]) {
-		form.setValue("gameId", game.id)
-		form.setValue(
+		setValue("gameId", game.id)
+		setValue(
 			"locksAt",
 			DateTime.fromISO(game.startsAt).toFormat(DATE_TIME_PICKER_VALUE_FORMAT),
 		)
@@ -97,8 +92,8 @@ export function GameField({
 	}
 
 	function clearGame() {
-		form.setValue("gameId", undefined)
-		form.setValue("locksAt", "")
+		setValue("gameId", undefined)
+		setValue("locksAt", "")
 		setInputText("")
 	}
 

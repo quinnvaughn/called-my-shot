@@ -38,8 +38,7 @@ import { formatGuess, isRateToleranceTier } from "#/lib/field-signal"
 import { useForm } from "#/lib/form/use-form"
 import { BallotField } from "./ballot-field"
 import type { EntitySearchItem } from "./entity-search-field"
-import { FormProvider } from "./form-context"
-import type { CreateQuestionFormApi } from "./form-types"
+import { ChipField, FormProvider } from "./form-context"
 import { GameField } from "./game-field"
 import { LeagueField } from "./league-field"
 import { OfficialToggle } from "./official-toggle"
@@ -117,122 +116,6 @@ function Section({
 			</HStack>
 			{children}
 		</VStack>
-	)
-}
-
-// The season-scoped stat shapes only (the two season over/unders and the
-// two season head-to-heads) - none of these have an automatic reading of
-// their number as a season total vs. a per-game rate, so it's its own
-// required choice rather than an assumption baked into the phrasing (same
-// "no fucking ambiguity" reasoning as the game/season shape split itself).
-function StatAggregationField({ form }: { form: CreateQuestionFormApi }) {
-	return (
-		<form.Field name="statAggregation">
-			{(field) => (
-				<VStack gap="1.5" alignItems="stretch">
-					<FieldLabel required>Total or per game</FieldLabel>
-					<HStack gap="1.5">
-						{(
-							[
-								["total", "Total"],
-								["per_game", "Per game"],
-							] as const
-						).map(([value, label]) => (
-							<button
-								key={value}
-								type="button"
-								aria-pressed={field.value === value}
-								onClick={() => field.onChange(value)}
-								className={cx(
-									css({
-										fontFamily: "mono",
-										fontSize: "2xs",
-										letterSpacing: "wide",
-										color: "fg.subtle",
-										border: "1px solid {colors.border.default}",
-										borderRadius: "sm",
-										padding: "{spacing.1} {spacing.2}",
-										cursor: "pointer",
-									}),
-									field.value === value &&
-										css({
-											color: "fg.default",
-											border: "1px solid {colors.border.emphasized}",
-										}),
-								)}
-							>
-								{label}
-							</button>
-						))}
-					</HStack>
-					{field.meta.error && (
-						<span className={css({ fontSize: "xs", color: "fg.error" })}>
-							{field.meta.error}
-						</span>
-					)}
-				</VStack>
-			)}
-		</form.Field>
-	)
-}
-
-// player_season_award/team_season_award only - "win" for a genuine
-// single-winner race (MVP), "be" for a role/slot award (an All-NBA First
-// Team spot, a positional Gold Glove) where "who will win the AL Gold Glove
-// - 1B?" reads wrong and "who will be the AL Gold Glove - 1B?" is the
-// actually-correct phrasing - see AwardVerb on the questions table.
-function AwardVerbField({ form }: { form: CreateQuestionFormApi }) {
-	return (
-		<form.Field name="awardVerb">
-			{(field) => (
-				<VStack gap="1.5" alignItems="stretch">
-					<FieldLabel required>Win or be</FieldLabel>
-					<HStack gap="1.5">
-						{(
-							[
-								["win", "Win"],
-								["be", "Be"],
-							] as const
-						).map(([value, label]) => (
-							<button
-								key={value}
-								type="button"
-								aria-pressed={field.value === value}
-								onClick={() => field.onChange(value)}
-								className={cx(
-									css({
-										fontFamily: "mono",
-										fontSize: "2xs",
-										letterSpacing: "wide",
-										color: "fg.subtle",
-										border: "1px solid {colors.border.default}",
-										borderRadius: "sm",
-										padding: "{spacing.1} {spacing.2}",
-										cursor: "pointer",
-									}),
-									field.value === value &&
-										css({
-											color: "fg.default",
-											border: "1px solid {colors.border.emphasized}",
-										}),
-								)}
-							>
-								{label}
-							</button>
-						))}
-					</HStack>
-					<FieldHint>
-						"Win" for a single-winner race (MVP). "Be" for a role or slot (an
-						All-NBA First Team spot, a positional Gold Glove).
-					</FieldHint>
-					{field.meta.error && (
-						<span className={css({ fontSize: "xs", color: "fg.error" })}>
-							{field.meta.error}
-						</span>
-					)}
-				</VStack>
-			)}
-		</form.Field>
 	)
 }
 
@@ -1082,12 +965,11 @@ export function CreateQuestionForm({ sports, isAdmin, lockedBallotId }: Props) {
 									<Card>
 										<Card.Body>
 											<VStack gap="3.5" alignItems="stretch">
-												<LeagueField form={form} sports={sports} />
+												<LeagueField sports={sports} />
 												{!isPlayerSeasonOU &&
 													!isTeamSeasonOU &&
 													!isTeamSeasonNumeric && (
 														<GameField
-															form={form}
 															leagueId={leagueId}
 															selectedGame={selectedGame}
 															required
@@ -1096,7 +978,6 @@ export function CreateQuestionForm({ sports, isAdmin, lockedBallotId }: Props) {
 												{leagueId ? (
 													<>
 														<StatPicker
-															form={form}
 															stats={stats.filter(
 																(s) =>
 																	s.appliesTo === "BOTH" ||
@@ -1150,7 +1031,15 @@ export function CreateQuestionForm({ sports, isAdmin, lockedBallotId }: Props) {
 															</div>
 														)}
 														{(isPlayerSeasonOU || isTeamSeasonOU) && (
-															<StatAggregationField form={form} />
+															<ChipField
+																name="statAggregation"
+																label="Total or per game"
+																required
+																options={[
+																	["total", "Total"],
+																	["per_game", "Per game"],
+																]}
+															/>
 														)}
 														{(isPlayerStatOU ||
 															isTeamStatOU ||
@@ -1160,7 +1049,6 @@ export function CreateQuestionForm({ sports, isAdmin, lockedBallotId }: Props) {
 															isTeamNumeric ||
 															isTeamSeasonNumeric) && (
 															<SubjectPicker
-																form={form}
 																teams={scopedTeams}
 																players={scopedPlayers}
 																kind={
@@ -1192,15 +1080,13 @@ export function CreateQuestionForm({ sports, isAdmin, lockedBallotId }: Props) {
 									<Card>
 										<Card.Body>
 											<VStack gap="3.5" alignItems="stretch">
-												<LeagueField form={form} sports={sports} />
+												<LeagueField sports={sports} />
 												<GameField
-													form={form}
 													leagueId={leagueId}
 													selectedGame={selectedGame}
 													required
 												/>
 												<StatPicker
-													form={form}
 													stats={stats.filter(
 														(s) =>
 															s.appliesTo === "BOTH" ||
@@ -1208,7 +1094,6 @@ export function CreateQuestionForm({ sports, isAdmin, lockedBallotId }: Props) {
 													)}
 												/>
 												<OptionList
-													form={form}
 													items={scopedPlayers.map((player) => ({
 														id: player.id,
 														label: player.name,
@@ -1240,18 +1125,24 @@ export function CreateQuestionForm({ sports, isAdmin, lockedBallotId }: Props) {
 									<Card>
 										<Card.Body>
 											<VStack gap="3.5" alignItems="stretch">
-												<LeagueField form={form} sports={sports} />
+												<LeagueField sports={sports} />
 												<StatPicker
-													form={form}
 													stats={stats.filter(
 														(s) =>
 															s.appliesTo === "BOTH" ||
 															s.appliesTo === "PLAYER",
 													)}
 												/>
-												<StatAggregationField form={form} />
+												<ChipField
+													name="statAggregation"
+													label="Total or per game"
+													required
+													options={[
+														["total", "Total"],
+														["per_game", "Per game"],
+													]}
+												/>
 												<OptionList
-													form={form}
 													items={players.map((player) => ({
 														id: player.id,
 														label: player.name,
@@ -1274,17 +1165,23 @@ export function CreateQuestionForm({ sports, isAdmin, lockedBallotId }: Props) {
 									<Card>
 										<Card.Body>
 											<VStack gap="3.5" alignItems="stretch">
-												<LeagueField form={form} sports={sports} />
+												<LeagueField sports={sports} />
 												<StatPicker
-													form={form}
 													stats={stats.filter(
 														(s) =>
 															s.appliesTo === "BOTH" || s.appliesTo === "TEAM",
 													)}
 												/>
-												<StatAggregationField form={form} />
+												<ChipField
+													name="statAggregation"
+													label="Total or per game"
+													required
+													options={[
+														["total", "Total"],
+														["per_game", "Per game"],
+													]}
+												/>
 												<OptionList
-													form={form}
 													items={teams.map((team) => ({
 														id: team.id,
 														label: team.name,
@@ -1316,9 +1213,8 @@ export function CreateQuestionForm({ sports, isAdmin, lockedBallotId }: Props) {
 									<Card>
 										<Card.Body>
 											<VStack gap="3.5" alignItems="stretch">
-												<LeagueField form={form} sports={sports} />
+												<LeagueField sports={sports} />
 												<GameField
-													form={form}
 													leagueId={leagueId}
 													selectedGame={selectedGame}
 													required
@@ -1343,15 +1239,13 @@ export function CreateQuestionForm({ sports, isAdmin, lockedBallotId }: Props) {
 									<Card>
 										<Card.Body>
 											<VStack gap="3.5" alignItems="stretch">
-												<LeagueField form={form} sports={sports} />
+												<LeagueField sports={sports} />
 												<GameField
-													form={form}
 													leagueId={leagueId}
 													selectedGame={selectedGame}
 													required
 												/>
 												<StatPicker
-													form={form}
 													stats={stats.filter(
 														(s) =>
 															s.appliesTo === "BOTH" ||
@@ -1363,7 +1257,6 @@ export function CreateQuestionForm({ sports, isAdmin, lockedBallotId }: Props) {
 													<FieldHint>Pick a game to see the pool.</FieldHint>
 												) : (
 													<PoolSummary
-														form={form}
 														items={gameStatLeaderPoolItems}
 														scopeLabel={
 															selectedGame
@@ -1392,9 +1285,8 @@ export function CreateQuestionForm({ sports, isAdmin, lockedBallotId }: Props) {
 									<Card>
 										<Card.Body>
 											<VStack gap="3.5" alignItems="stretch">
-												<LeagueField form={form} sports={sports} />
+												<LeagueField sports={sports} />
 												<StatPicker
-													form={form}
 													stats={stats.filter(
 														(s) =>
 															s.appliesTo === "BOTH" ||
@@ -1402,10 +1294,17 @@ export function CreateQuestionForm({ sports, isAdmin, lockedBallotId }: Props) {
 													)}
 												/>
 												{offersStatAggregation && (
-													<StatAggregationField form={form} />
+													<ChipField
+														name="statAggregation"
+														label="Total or per game"
+														required
+														options={[
+															["total", "Total"],
+															["per_game", "Per game"],
+														]}
+													/>
 												)}
 												<OptionList
-													form={form}
 													items={seasonStatLeaderItems}
 													rowPlaceholder="Player name"
 													addLabel="+ Add player"
@@ -1432,9 +1331,8 @@ export function CreateQuestionForm({ sports, isAdmin, lockedBallotId }: Props) {
 									<Card>
 										<Card.Body>
 											<VStack gap="3.5" alignItems="stretch">
-												<LeagueField form={form} sports={sports} />
+												<LeagueField sports={sports} />
 												<GameField
-													form={form}
 													leagueId={leagueId}
 													selectedGame={selectedGame}
 												/>
@@ -1462,7 +1360,6 @@ export function CreateQuestionForm({ sports, isAdmin, lockedBallotId }: Props) {
 													)}
 												</form.Field>
 												<SubjectPicker
-													form={form}
 													teams={scopedTeams}
 													players={scopedPlayers}
 													kind="either"
@@ -1487,7 +1384,7 @@ export function CreateQuestionForm({ sports, isAdmin, lockedBallotId }: Props) {
 									<Card>
 										<Card.Body>
 											<VStack gap="3.5" alignItems="stretch">
-												<LeagueField form={form} sports={sports} />
+												<LeagueField sports={sports} />
 												<HStack gap="3.5">
 													<div className={css({ flex: "1" })}>
 														<form.Field name="awardConferences">
@@ -1728,7 +1625,16 @@ export function CreateQuestionForm({ sports, isAdmin, lockedBallotId }: Props) {
 														</TextInput>
 													)}
 												</form.Field>
-												<AwardVerbField form={form} />
+												<ChipField
+													name="awardVerb"
+													label="Win or be"
+													required
+													hint={`"Win" for a single-winner race (MVP). "Be" for a role or slot (an All-NBA First Team spot, a positional Gold Glove).`}
+													options={[
+														["win", "Win"],
+														["be", "Be"],
+													]}
+												/>
 												<div className={css({ width: "64" })}>
 													<form.Field name="picksRequired">
 														{(field) => (
@@ -1764,7 +1670,6 @@ export function CreateQuestionForm({ sports, isAdmin, lockedBallotId }: Props) {
 													<FieldHint>Pick a league to see the pool.</FieldHint>
 												) : (
 													<PoolSummary
-														form={form}
 														items={awardPoolItems}
 														scopeLabel={[
 															awardConferences.join("/"),
@@ -1790,7 +1695,7 @@ export function CreateQuestionForm({ sports, isAdmin, lockedBallotId }: Props) {
 									<Card>
 										<Card.Body>
 											<VStack gap="3.5" alignItems="stretch">
-												<LeagueField form={form} sports={sports} />
+												<LeagueField sports={sports} />
 												<form.Field name="awardName">
 													{(field) => (
 														<TextInput
@@ -1813,7 +1718,6 @@ export function CreateQuestionForm({ sports, isAdmin, lockedBallotId }: Props) {
 													)}
 												</form.Field>
 												<OptionList
-													form={form}
 													items={finalistItems}
 													rowPlaceholder="Finalist name"
 													addLabel="+ Add finalist"
@@ -1856,7 +1760,7 @@ export function CreateQuestionForm({ sports, isAdmin, lockedBallotId }: Props) {
 							<Section label="Resolution" required>
 								<Card>
 									<Card.Body>
-										<ResolutionFields form={form} leagueId={leagueId} />
+										<ResolutionFields leagueId={leagueId} />
 									</Card.Body>
 								</Card>
 							</Section>
@@ -1884,7 +1788,6 @@ export function CreateQuestionForm({ sports, isAdmin, lockedBallotId }: Props) {
 									<Card>
 										<Card.Body>
 											<BallotField
-												form={form}
 												leagueId={leagueId}
 												lockedBallotId={lockedBallotId}
 											/>
