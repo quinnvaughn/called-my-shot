@@ -15,7 +15,7 @@ type Props = {
 	rowPlaceholder: string
 	addLabel: string
 	// player_vs_player only - exactly 2 slots, pre-seeded by the caller (see
-	// selectType in create-question-form.tsx) and neither addable nor
+	// selectType in use-create-question-form.ts) and neither addable nor
 	// removable here, unlike player_award_finalists' open-ended list.
 	exactCount?: number
 	// A fixed-size list (exactCount set) reads as "two named slots", not an
@@ -30,7 +30,7 @@ type Props = {
 // shortlist (2+ named players, admin-entered) and player_vs_player's fixed
 // 2 slots. player_season_award/team_season_award use PoolSummary instead
 // (the full league roster, auto-derived, no per-row editing) - see
-// create-question-form.tsx.
+// shape-panels/award-panel.tsx.
 export function OptionList({
 	items,
 	rowPlaceholder,

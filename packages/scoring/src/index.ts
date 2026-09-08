@@ -97,6 +97,60 @@ export function isSeasonLongShape(shape: QuestionShape): boolean {
 	return SEASON_LONG_SHAPES.has(shape)
 }
 
+// Whose performance a shape is actually about. Drives the stat catalog filter
+// (a team stat can't be asked of a player) and which picker the create form
+// shows.
+//
+// "none" is not "unknown": game_total_over_under's subject is the game itself,
+// and yes_no_prop's is whoever the creator names, so neither has a fixed side.
+//
+// A Record rather than a Set like the groups below, for the reason spelled out
+// on NUMERIC_GUESS_BY_SHAPE in apps/web's question-labels.ts: a set treats an
+// omitted shape as "not a player shape", which would silently show a new shape
+// the wrong picker. Every shape has to be answered, so a newly added one fails
+// the build instead.
+export const SHAPE_SUBJECT: Record<QuestionShape, "player" | "team" | "none"> =
+	{
+		player_stat_over_under: "player",
+		team_stat_over_under: "team",
+		player_season_stat_over_under: "player",
+		team_season_stat_over_under: "team",
+		game_total_over_under: "none",
+		player_stat_numeric_guess: "player",
+		team_stat_numeric_guess: "team",
+		team_season_stat_numeric_guess: "team",
+		player_vs_player: "player",
+		player_vs_player_season: "player",
+		team_vs_team: "team",
+		team_vs_team_season: "team",
+		player_game_stat_leader: "player",
+		player_season_stat_leader: "player",
+		yes_no_prop: "none",
+		player_season_award: "player",
+		team_season_award: "team",
+		player_award_finalists: "player",
+	}
+
+// The over/under family. Every one of these pairs a stat with a line the
+// result lands on one side of, which is what makes them share an option label
+// format ("Over 224.5") and a "set the number" field in the create form.
+//
+// Here rather than at each site for the same reason as the two sets around it:
+// this list is already duplicated in apps/web (question-labels.ts holds an
+// uppercase-GraphQL copy, use-cast-call-form.ts a lowercase one), which is
+// exactly the drift those comments warn about.
+export const OVER_UNDER_SHAPES = new Set<QuestionShape>([
+	"player_stat_over_under",
+	"team_stat_over_under",
+	"player_season_stat_over_under",
+	"team_season_stat_over_under",
+	"game_total_over_under",
+])
+
+export function isOverUnderShape(shape: QuestionShape): boolean {
+	return OVER_UNDER_SHAPES.has(shape)
+}
+
 // The shapes scored off calls.guessValue rather than an options row - a
 // caller types a number and is scored on how close it lands, so they have no
 // options to select and every "does this question have a numeric guess on it"

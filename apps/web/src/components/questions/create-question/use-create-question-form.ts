@@ -1,21 +1,15 @@
 import { createQuestionSchema } from "@called-my-shot/schemas"
 import { useQueryClient } from "@tanstack/react-query"
 import { useNavigate, useRouter } from "@tanstack/react-router"
-import { DateTime } from "luxon"
 import { useEffect, useState } from "react"
 import { match } from "ts-pattern"
-import { DATE_TIME_PICKER_VALUE_FORMAT } from "#/components/ui/date-time-picker"
-import type {
-	AwardVerb,
-	QuestionShape,
-	StatAggregation,
-} from "#/graphql/generated/graphql"
 import { useGqlMutation } from "#/graphql/hooks"
 import { CreateQuestionDocument } from "#/graphql/mutations/questions"
 import { track } from "#/lib/analytics"
 import { isRateToleranceTier } from "#/lib/field-signal"
 import { useForm } from "#/lib/form/use-form"
 import { buildTitlePreview } from "./build-title-preview"
+import { toCreateQuestionInput } from "./to-create-question-input"
 import { useEntityPools } from "./use-entity-pools"
 import { useQuestionCatalog } from "./use-question-catalog"
 
@@ -80,56 +74,7 @@ export function useCreateQuestionForm() {
 		},
 		onSubmit: async (values, helpers) => {
 			const data = await createQuestion.mutateAsync({
-				input: {
-					shape: values.shape.toUpperCase() as QuestionShape,
-					title: values.title,
-					sportId: values.sportId,
-					leagueId: values.leagueId,
-					gameId: values.gameId,
-					resolutionSource: values.resolutionSource,
-					resolutionSourceUrl: values.resolutionSourceUrl || undefined,
-					// values.locksAt is a naive "yyyy-MM-dd'T'HH:mm" string with no
-					// offset - the picker's clock is always the browser's own, so
-					// converting it to UTC has to happen here, in that same
-					// timezone, rather than trusting the API to guess (it can't -
-					// it has no idea what timezone the creator meant).
-					locksAt:
-						DateTime.fromFormat(values.locksAt, DATE_TIME_PICKER_VALUE_FORMAT)
-							.toUTC()
-							.toISO() ?? values.locksAt,
-					isOfficial: values.isOfficial,
-					options: values.options.map((option) => ({
-						label: option.label,
-						teamId: option.teamId,
-						playerId: option.playerId,
-					})),
-					statId: values.statId,
-					customStat: values.customStat || undefined,
-					ouLine: values.ouLine,
-					statAggregation: values.statAggregation
-						? (values.statAggregation.toUpperCase() as StatAggregation)
-						: undefined,
-					subjectTeamId: values.subjectTeamId,
-					subjectPlayerId: values.subjectPlayerId,
-					picksRequired: values.picksRequired,
-					awardVerb: values.awardVerb
-						? (values.awardVerb.toUpperCase() as AwardVerb)
-						: undefined,
-					eventClause: values.eventClause || undefined,
-					awardName: values.awardName || undefined,
-					awardConferences: values.awardConferences,
-					awardDivisions: values.awardDivisions,
-					awardPositions: values.awardPositions,
-					awardSeasonsInLeague: values.awardSeasonsInLeague,
-					awardRookieOnly: values.awardRookieOnly,
-					ballot: values.ballot
-						? {
-								ballotId: values.ballot.ballotId,
-								label: values.ballot.label,
-								slot: values.ballot.slot || undefined,
-							}
-						: undefined,
-				},
+				input: toCreateQuestionInput(values),
 			})
 			const result = data?.createQuestion
 
@@ -227,30 +172,10 @@ export function useCreateQuestionForm() {
 		awardDivisions,
 	})
 
-	const isPlayerStatOU = shape === "player_stat_over_under"
-	const isTeamStatOU = shape === "team_stat_over_under"
-	const isPlayerSeasonOU = shape === "player_season_stat_over_under"
-	const isTeamSeasonOU = shape === "team_season_stat_over_under"
-	const isGameTotalOU = shape === "game_total_over_under"
-	const isAnyOU =
-		isPlayerStatOU ||
-		isTeamStatOU ||
-		isPlayerSeasonOU ||
-		isTeamSeasonOU ||
-		isGameTotalOU
-	const isPlayerNumeric = shape === "player_stat_numeric_guess"
-	const isTeamNumeric = shape === "team_stat_numeric_guess"
-	const isTeamSeasonNumeric = shape === "team_season_stat_numeric_guess"
-	const isPlayerVsPlayer = shape === "player_vs_player"
-	const isPlayerVsPlayerSeason = shape === "player_vs_player_season"
-	const isTeamVsTeam = shape === "team_vs_team"
-	const isTeamVsTeamSeason = shape === "team_vs_team_season"
 	const isGameStatLeader = shape === "player_game_stat_leader"
 	const isSeasonStatLeader = shape === "player_season_stat_leader"
-	const isYesNo = shape === "yes_no_prop"
 	const isPlayerAward = shape === "player_season_award"
 	const isTeamAward = shape === "team_season_award"
-	const isAnyAward = isPlayerAward || isTeamAward
 	const isFinalists = shape === "player_award_finalists"
 	const isAdminOnlyShape = (ADMIN_ONLY_SHAPES as readonly string[]).includes(
 		shape,
@@ -443,52 +368,31 @@ export function useCreateQuestionForm() {
 		form,
 		shape,
 		leagueId,
-		options,
-		awardName,
-		awardConferences,
-		awardDivisions,
-		awardPositions,
-		awardSeasonsInLeague,
-		awardRookieOnly,
 		ballotId,
 		hasSelectedType,
 		selectType,
 		setTitleEdited,
 		titlePreview,
-		teams,
-		players,
-		stats,
-		selectedGame,
-		scopedTeams,
-		scopedPlayers,
-		conferenceOptions,
-		divisionOptions,
-		positionOptions,
-		yearsInLeagueOptions,
-		awardPoolItems,
-		gameStatLeaderPoolItems,
-		finalistItems,
-		seasonStatLeaderItems,
-		offersStatAggregation,
-		isPlayerStatOU,
-		isTeamStatOU,
-		isPlayerSeasonOU,
-		isTeamSeasonOU,
-		isAnyOU,
-		isPlayerNumeric,
-		isTeamNumeric,
-		isTeamSeasonNumeric,
-		isPlayerVsPlayer,
-		isPlayerVsPlayerSeason,
-		isTeamVsTeam,
-		isTeamVsTeamSeason,
-		isGameStatLeader,
-		isSeasonStatLeader,
-		isYesNo,
-		isPlayerAward,
-		isTeamAward,
-		isAnyAward,
-		isFinalists,
 		isAdminOnlyShape,
+		// Everything the shape panels read, shaped to go straight into
+		// QuestionDataProvider - see data-context.tsx for why none of it is a
+		// watched form scalar.
+		data: {
+			teams,
+			players,
+			stats,
+			selectedGame,
+			scopedTeams,
+			scopedPlayers,
+			conferenceOptions,
+			divisionOptions,
+			positionOptions,
+			yearsInLeagueOptions,
+			awardPoolItems,
+			gameStatLeaderPoolItems,
+			finalistItems,
+			seasonStatLeaderItems,
+			offersStatAggregation,
+		},
 	}
 }

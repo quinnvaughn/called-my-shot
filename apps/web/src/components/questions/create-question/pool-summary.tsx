@@ -21,7 +21,7 @@ type Props = {
 
 // player_season_award/team_season_award's pool - the full league roster by
 // default, optionally narrowed to a conference/division/position (see the
-// picker fields above this in create-question-form.tsx) for awards that are
+// picker fields above this in shape-panels/award-panel.tsx) for awards that are
 // genuinely scoped in reality (AL MVP vs NL MVP) rather than hand-curated row
 // by row - nobody's hand-searching and adding hundreds of players one at a
 // time. Syncs the list into `options` automatically.

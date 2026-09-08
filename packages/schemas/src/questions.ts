@@ -57,6 +57,26 @@ export type AwardVerb = z.infer<typeof awardVerbSchema>
 export const statAggregationSchema = z.enum(["total", "per_game"])
 export type StatAggregation = z.infer<typeof statAggregationSchema>
 
+// The season-scoped stat shapes whose number has no automatic reading as a
+// season total vs. a per-game rate, so it's a required choice rather than an
+// assumption baked into the phrasing. Kept here beside the enum because the
+// create form has to ask for exactly the set the superRefine below demands -
+// see the four requireStatAggregation() calls in its shape arms.
+//
+// player_season_stat_leader is deliberately absent: aggregation is genuinely
+// optional there (it only disambiguates a catalog counting stat), so it asks
+// on its own terms rather than through this.
+const STAT_AGGREGATION_SHAPES = [
+	"player_season_stat_over_under",
+	"team_season_stat_over_under",
+	"player_vs_player_season",
+	"team_vs_team_season",
+] as const
+
+export function requiresStatAggregation(shape: QuestionShape): boolean {
+	return (STAT_AGGREGATION_SHAPES as readonly QuestionShape[]).includes(shape)
+}
+
 const createQuestionOptionSchema = z.object({
 	label: z.string().trim().min(1, "Option can't be empty"),
 	teamId: z.string().uuid().optional(),
