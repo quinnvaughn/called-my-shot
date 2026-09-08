@@ -1,11 +1,7 @@
-import {
-	createQuestionSchema,
-	generateQuestionTitle,
-} from "@called-my-shot/schemas"
+import { createQuestionSchema } from "@called-my-shot/schemas"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { useNavigate, useRouter } from "@tanstack/react-router"
 import { DateTime } from "luxon"
-import type { ReactNode } from "react"
 import { useEffect, useMemo, useState } from "react"
 import { css, cx } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
@@ -34,9 +30,10 @@ import {
 } from "#/graphql/queries/sports"
 import { gqlQueryOptions } from "#/graphql/query-options"
 import { track } from "#/lib/analytics"
-import { formatGuess, isRateToleranceTier } from "#/lib/field-signal"
+import { isRateToleranceTier } from "#/lib/field-signal"
 import { useForm } from "#/lib/form/use-form"
 import { BallotField } from "./ballot-field"
+import { buildTitlePreview } from "./build-title-preview"
 import type { EntitySearchItem } from "./entity-search-field"
 import { ChipField, FormProvider } from "./form-context"
 import { GameField } from "./game-field"
@@ -46,6 +43,7 @@ import { OptionList } from "./option-list"
 import { PoolSummary } from "./pool-summary"
 import { QuestionTypePicker } from "./question-type-picker"
 import { ResolutionFields } from "./resolution-fields"
+import { Section } from "./section"
 import { StatPicker } from "./stat-picker"
 import { SubjectPicker } from "./subject-picker"
 
@@ -86,37 +84,6 @@ function yearsInLeagueLabel(years: number): string {
 	return years === 0
 		? "Rookie (0)"
 		: `${years} ${years === 1 ? "year" : "years"}`
-}
-
-function Section({
-	label,
-	required,
-	children,
-}: {
-	label: string
-	required?: boolean
-	children: ReactNode
-}) {
-	return (
-		<VStack gap="3" alignItems="stretch">
-			<HStack
-				justify="space-between"
-				className={css({
-					fontFamily: "mono",
-					fontSize: "2xs",
-					letterSpacing: "wide",
-					color: "fg.subtle",
-					textTransform: "uppercase",
-				})}
-			>
-				<span>{label}</span>
-				{required && (
-					<span className={css({ color: "fg.subtle" })}>required</span>
-				)}
-			</HStack>
-			{children}
-		</VStack>
-	)
 }
 
 type Props = {
@@ -720,215 +687,27 @@ export function CreateQuestionForm({ sports, isAdmin, lockedBallotId }: Props) {
 		return undefined
 	})()
 
-	const titlePreview: string | null = match(shape)
-		.with("player_stat_over_under", (s) =>
-			selectedPlayerName && statName && ouLine !== undefined && opponentTeamName
-				? generateQuestionTitle({
-						shape: s,
-						playerName: selectedPlayerName,
-						statName,
-						ouLine: formatGuess(ouLine, isRateStat),
-						opponentTeamName,
-						gameDate: selectedGame?.startsAt,
-					})
-				: null,
-		)
-		.with("team_stat_over_under", (s) =>
-			selectedTeamName && statName && ouLine !== undefined && opponentTeamName
-				? generateQuestionTitle({
-						shape: s,
-						teamName: selectedTeamName,
-						statName,
-						ouLine: formatGuess(ouLine, isRateStat),
-						opponentTeamName,
-						gameDate: selectedGame?.startsAt,
-					})
-				: null,
-		)
-		.with("player_season_stat_over_under", (s) =>
-			selectedPlayerName && statName && ouLine !== undefined && statAggregation
-				? generateQuestionTitle({
-						shape: s,
-						playerName: selectedPlayerName,
-						statName,
-						ouLine: formatGuess(ouLine, isRateStat),
-						statAggregation,
-					})
-				: null,
-		)
-		.with("team_season_stat_over_under", (s) =>
-			selectedTeamName && statName && ouLine !== undefined && statAggregation
-				? generateQuestionTitle({
-						shape: s,
-						teamName: selectedTeamName,
-						statName,
-						ouLine: formatGuess(ouLine, isRateStat),
-						statAggregation,
-					})
-				: null,
-		)
-		.with("game_total_over_under", (s) =>
-			selectedGame && statName && ouLine !== undefined
-				? generateQuestionTitle({
-						shape: s,
-						awayTeamName: selectedGame.awayTeam.name,
-						homeTeamName: selectedGame.homeTeam.name,
-						statName,
-						ouLine: formatGuess(ouLine, isRateStat),
-						gameDate: selectedGame.startsAt,
-					})
-				: null,
-		)
-		.with("player_stat_numeric_guess", (s) =>
-			selectedPlayerName && statName && opponentTeamName
-				? generateQuestionTitle({
-						shape: s,
-						playerName: selectedPlayerName,
-						statName,
-						opponentTeamName,
-						gameDate: selectedGame?.startsAt,
-					})
-				: null,
-		)
-		.with("team_stat_numeric_guess", (s) =>
-			selectedTeamName && statName && opponentTeamName
-				? generateQuestionTitle({
-						shape: s,
-						teamName: selectedTeamName,
-						statName,
-						opponentTeamName,
-						gameDate: selectedGame?.startsAt,
-					})
-				: null,
-		)
-		.with("team_season_stat_numeric_guess", (s) =>
-			selectedTeamName && statName
-				? generateQuestionTitle({
-						shape: s,
-						teamName: selectedTeamName,
-						statName,
-						// Preview-only approximation - this form has no season-year
-						// fetch of its own (nothing else here needs one), and the
-						// generated text is a prefill the creator can still edit, same
-						// as every other shape's title here.
-						year: new Date().getFullYear(),
-					})
-				: null,
-		)
-		.with("player_vs_player", (s) => {
-			const [a, b] = options
-			return a?.label && b?.label && statName
-				? generateQuestionTitle({
-						shape: s,
-						playerAName: a.label,
-						playerBName: b.label,
-						statName,
-						isRateStat,
-						gameDate: selectedGame?.startsAt,
-					})
-				: null
-		})
-		.with("player_vs_player_season", (s) => {
-			const [a, b] = options
-			return a?.label && b?.label && statName && statAggregation
-				? generateQuestionTitle({
-						shape: s,
-						playerAName: a.label,
-						playerBName: b.label,
-						statName,
-						statAggregation,
-						isRateStat,
-					})
-				: null
-		})
-		.with("team_vs_team", (s) =>
-			selectedGame
-				? generateQuestionTitle({
-						shape: s,
-						awayTeamName: selectedGame.awayTeam.name,
-						homeTeamName: selectedGame.homeTeam.name,
-						gameDate: selectedGame.startsAt,
-					})
-				: null,
-		)
-		.with("team_vs_team_season", (s) => {
-			const [a, b] = options
-			return a?.label && b?.label && statName && statAggregation
-				? generateQuestionTitle({
-						shape: s,
-						teamAName: a.label,
-						teamBName: b.label,
-						statName,
-						statAggregation,
-						isRateStat,
-					})
-				: null
-		})
-		.with("player_game_stat_leader", (s) =>
-			selectedGame && statName
-				? generateQuestionTitle({
-						shape: s,
-						awayTeamName: selectedGame.awayTeam.name,
-						homeTeamName: selectedGame.homeTeam.name,
-						statName,
-						gameDate: selectedGame.startsAt,
-					})
-				: null,
-		)
-		.with("player_season_stat_leader", (s) => {
-			const names = options
-				.map((option) => option.label)
-				.filter((label) => label.trim().length > 0)
-			return names.length >= 3 && statName
-				? generateQuestionTitle({
-						shape: s,
-						playerNames: names,
-						statName,
-						// A freeform stat counts as a rate here even though
-						// isRateStat can't know that it is one. "The most RAPM" is
-						// broken English where "the highest RAPM" is not, and "the
-						// highest points" still reads fine if the creator typed a
-						// counting stat by hand - so the rate wording is the safe
-						// default for anything off-catalog.
-						isRateStat: isRateStat || !selectedStat,
-						statAggregation: offersStatAggregation
-							? (statAggregation ?? null)
-							: null,
-					})
-				: null
-		})
-		.with("yes_no_prop", (s) =>
-			eventClause.trim()
-				? generateQuestionTitle({
-						shape: s,
-						subjectName,
-						eventClause,
-						gameDate: selectedGame?.startsAt,
-					})
-				: null,
-		)
-		.with("player_season_award", "team_season_award", (s) =>
-			awardName.trim() && picksRequired && awardVerb
-				? generateQuestionTitle({
-						shape: s,
-						awardName,
-						verb: awardVerb,
-						picksRequired,
-						awardConferences,
-						awardDivisions,
-					})
-				: null,
-		)
-		.with("player_award_finalists", (s) =>
-			awardName.trim() && options.length >= 2
-				? generateQuestionTitle({
-						shape: s,
-						awardName,
-						finalistNames: options.map((option) => option.label),
-					})
-				: null,
-		)
-		.exhaustive()
+	const titlePreview = buildTitlePreview({
+		shape,
+		options,
+		statAggregation,
+		awardVerb,
+		awardConferences,
+		awardDivisions,
+		awardName,
+		eventClause,
+		picksRequired,
+		ouLine,
+		selectedGame,
+		selectedPlayerName,
+		selectedTeamName,
+		subjectName,
+		opponentTeamName,
+		statName,
+		isRateStat,
+		hasCatalogStat: !!selectedStat,
+		offersStatAggregation,
+	})
 
 	const title = form.useWatch("title")
 	// Once the creator types into the title field directly, stop overwriting
