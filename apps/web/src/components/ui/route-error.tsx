@@ -55,7 +55,12 @@ export function RouteError({ error, reset }: ErrorComponentProps) {
 					})}
 				>
 					{import.meta.env.DEV
-						? error.message
+						? // A thrown value is genuinely unknown - a route can reject with
+							// a string or a plain object as easily as an Error, and reading
+							// .message off one of those renders a blank line in dev.
+							error instanceof Error
+							? error.message
+							: String(error)
 						: "That didn't load. Try again in a moment."}
 				</p>
 			</VStack>
