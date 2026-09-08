@@ -6,7 +6,7 @@ import type {
 	PlayersByLeagueQuery,
 	TeamsByLeagueQuery,
 } from "#/graphql/generated/graphql"
-import { ChipButton } from "./chip-button"
+import { ChipButton } from "#/components/ui/chip-button"
 import type { EntitySearchItem } from "./entity-search-field"
 import { EntitySearchField } from "./entity-search-field"
 import type { CreateQuestionFormApi } from "./form-types"

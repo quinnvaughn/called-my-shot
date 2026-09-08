@@ -190,7 +190,7 @@ function collectAllPaths(value: any, prefix = ""): string[] {
  * Public helpers types
  * ===================================================================================== */
 
-type ArrayHelpers<Item> = {
+export type ArrayHelpers<Item> = {
 	push: (item: Item) => void
 	insert: (index: number, item: Item) => void
 	remove: (index: number) => void
@@ -198,7 +198,7 @@ type ArrayHelpers<Item> = {
 	replace: (items: Item[]) => void
 }
 
-type FormState<Values> = {
+export type FormState<Values> = {
 	values: Values
 	errors: Record<string, string | null>
 	touched: Record<string, boolean>
@@ -237,6 +237,73 @@ type AnyObject = Record<string, any>
 
 export type FormHelpersFromSchema<S extends z.ZodType<AnyObject>> =
 	UseFormHelpers<z.infer<S>>
+
+/** ======================================================================================
+ * Public component prop types
+ *
+ * Named rather than inlined on Field/FieldArray/Subscribe below so a wrapper can
+ * declare the same props without restating them - see createFormContext in
+ * #/components/form/create-form-context, whose context-bound Field has to accept exactly
+ * what this one does.
+ * ===================================================================================== */
+
+export type FieldRenderProps<Values, P extends Path<Values>> = {
+	name: P
+	value: PathValue<Values, P>
+	onChange: (
+		next:
+			| PathValue<Values, P>
+			| React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
+	) => void
+	onBlur: () => void
+	meta: { error: string | null; touched: boolean }
+}
+
+export type FieldProps<Values, P extends Path<Values>> = {
+	name: P
+	children: (field: FieldRenderProps<Values, P>) => React.ReactNode
+}
+
+export type FieldArrayRenderProps<Values, P extends ArrayPath<Values>> = {
+	name: P
+	value: PathValue<Values, P>
+	items: {
+		index: number
+		value: ArrayItem<Values, P>
+		id: string
+	}[]
+	meta: { error: string | null; touched: boolean }
+	helpers: ArrayHelpers<ArrayItem<Values, P>>
+}
+
+export type FieldArrayProps<Values, P extends ArrayPath<Values>> = {
+	name: P
+	children: (arrayField: FieldArrayRenderProps<Values, P>) => React.ReactNode
+}
+
+export type SubscribeProps<Values, T> = {
+	selector: (s: FormState<Values>) => T
+	children: (sel: T) => React.ReactNode
+}
+
+// The shape useForm returns. Deliberately NOT used to annotate useForm itself -
+// leaving that inferred keeps every existing call site seeing exactly what it
+// saw before. This alias exists for the one place that needs to name the shape
+// without calling the hook: the React context in createFormContext.
+export type FormApi<Values> = UseFormHelpers<Values> & {
+	Field: <P extends Path<Values>>(
+		props: FieldProps<Values, P>,
+	) => React.ReactNode
+	FieldArray: <P extends ArrayPath<Values>>(
+		props: FieldArrayProps<Values, P>,
+	) => React.ReactNode
+	Subscribe: <T>(props: SubscribeProps<Values, T>) => React.ReactNode
+	useWatch: <P extends Path<Values>>(name: P) => PathValue<Values, P>
+	values: () => Values
+	errors: () => Record<string, string | null>
+	meta: () => FormState<Values>["meta"]
+	handleSubmit: (e: React.FormEvent<HTMLFormElement>) => Promise<void>
+}
 
 /** ======================================================================================
  * useForm
@@ -608,10 +675,7 @@ export function useForm<Schema extends z.ZodType<AnyObject>>(opts: {
 			}
 		}
 
-		function Subscribe<T>(props: {
-			selector: (s: FormState<Values>) => T
-			children: (sel: T) => React.ReactNode
-		}) {
+		function Subscribe<T>(props: SubscribeProps<Values, T>) {
 			const selected = useStore(store, (s) =>
 				props.selector({
 					values: s.values,
@@ -637,20 +701,7 @@ export function useForm<Schema extends z.ZodType<AnyObject>>(opts: {
 			)
 		}
 
-		function Field<P extends Path<Values>>(props: {
-			name: P
-			children: (field: {
-				name: P
-				value: PathValue<Values, P>
-				onChange: (
-					next:
-						| PathValue<Values, P>
-						| React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
-				) => void
-				onBlur: () => void
-				meta: { error: string | null; touched: boolean }
-			}) => React.ReactNode
-		}) {
+		function Field<P extends Path<Values>>(props: FieldProps<Values, P>) {
 			const { name, children } = props
 			const nameStr = name as string
 
@@ -690,20 +741,9 @@ export function useForm<Schema extends z.ZodType<AnyObject>>(opts: {
 			})
 		}
 
-		function FieldArray<P extends ArrayPath<Values>>(props: {
-			name: P
-			children: (arrayField: {
-				name: P
-				value: PathValue<Values, P>
-				items: {
-					index: number
-					value: ArrayItem<Values, P>
-					id: string
-				}[]
-				meta: { error: string | null; touched: boolean }
-				helpers: ArrayHelpers<ArrayItem<Values, P>>
-			}) => React.ReactNode
-		}) {
+		function FieldArray<P extends ArrayPath<Values>>(
+			props: FieldArrayProps<Values, P>,
+		) {
 			const { name, children } = props
 			const nameStr = name as string
 

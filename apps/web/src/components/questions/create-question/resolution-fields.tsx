@@ -6,7 +6,7 @@ import { FieldLabel } from "#/components/ui/field-label"
 import { TextInput } from "#/components/ui/text-input"
 import { CurrentSeasonByLeagueDocument } from "#/graphql/queries/sports"
 import { gqlQueryOptions } from "#/graphql/query-options"
-import { ChipButton } from "./chip-button"
+import { ChipButton } from "#/components/ui/chip-button"
 import type { CreateQuestionFormApi } from "./form-types"
 
 const SOURCE_SUGGESTIONS = [

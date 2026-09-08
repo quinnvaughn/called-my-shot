@@ -3,6 +3,12 @@ import { css, cx } from "styled-system/css"
 
 type Props = {
 	selected?: boolean
+	// Set only when the chip is one of a set of mutually exclusive choices
+	// bound to a value, where a screen reader needs to hear which one is
+	// currently picked. A chip that just fills a field (the resolution-source
+	// suggestions) is a plain button and leaves this off - announcing it as a
+	// toggle would claim a pressed/unpressed state it doesn't have.
+	pressed?: boolean
 	onClick: () => void
 	children: ReactNode
 }
@@ -10,10 +16,11 @@ type Props = {
 // Shared by the stat picker, subject picker, and resolution-source
 // suggestions - a small quick-pick pill that either toggles a value
 // (selected state) or just fills a field (no selected state needed).
-export function ChipButton({ selected, onClick, children }: Props) {
+export function ChipButton({ selected, pressed, onClick, children }: Props) {
 	return (
 		<button
 			type="button"
+			aria-pressed={pressed}
 			onClick={onClick}
 			className={cx(
 				css({
