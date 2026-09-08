@@ -51,7 +51,9 @@ describe("StatPanel: what each of its eight shapes asks for", () => {
 		"game_total_over_under",
 	] as const)("asks %s for a line", (shape) => {
 		renderShape(shape)
-		expect(screen.getByRole("spinbutton", { name: "Number" })).toBeInTheDocument()
+		expect(
+			screen.getByRole("spinbutton", { name: "Number" }),
+		).toBeInTheDocument()
 	})
 
 	it.each([

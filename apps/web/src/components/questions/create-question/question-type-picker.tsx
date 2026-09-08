@@ -1,4 +1,4 @@
-import { questionShapeSchema } from "@called-my-shot/schemas"
+import { isAdminOnlyShape, questionShapeSchema } from "@called-my-shot/schemas"
 import { css, cx } from "styled-system/css"
 import { Grid } from "styled-system/jsx"
 import type { QuestionShape } from "#/graphql/generated/graphql"
@@ -19,20 +19,6 @@ function toEnumKey(value: QuestionShapeValue): QuestionShape {
 	return value.toUpperCase() as QuestionShape
 }
 
-// player_season_award/team_season_award/player_award_finalists/team_vs_team
-// can only ever be posted as official (see ADMIN_ONLY_SHAPES in
-// packages/schemas/src/questions.ts) - the award shapes have no fixed
-// nominee list to curate from, and team_vs_team is derived 1:1 from a synced
-// game, so a regular creator posting one risks a duplicate matchup question.
-// Hidden from the picker entirely for a non-admin rather than shown and left
-// to fail validation on submit.
-const ADMIN_ONLY_SHAPES: readonly QuestionShapeValue[] = [
-	"team_vs_team",
-	"player_season_award",
-	"team_season_award",
-	"player_award_finalists",
-]
-
 type Props = {
 	value: QuestionShapeValue | null
 	onChange: (shape: QuestionShapeValue) => void
@@ -41,7 +27,9 @@ type Props = {
 
 export function QuestionTypePicker({ value, onChange, isAdmin }: Props) {
 	const shapes = questionShapeSchema.options.filter(
-		(shape) => isAdmin || !ADMIN_ONLY_SHAPES.includes(shape),
+		// Hidden from a non-admin's picker entirely rather than shown and left
+		// to fail validation on submit - these can only be posted as official.
+		(shape) => isAdmin || !isAdminOnlyShape(shape),
 	)
 	return (
 		<Grid

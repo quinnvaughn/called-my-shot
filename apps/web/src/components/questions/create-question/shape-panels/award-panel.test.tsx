@@ -42,7 +42,9 @@ describe("AwardPanel", () => {
 		const name = screen.getByRole("textbox", { name: "Award name" })
 		expect(name).toHaveValue("")
 
-		await user.click(screen.getByRole("switch", { name: "Rookie of the Year only" }))
+		await user.click(
+			screen.getByRole("switch", { name: "Rookie of the Year only" }),
+		)
 		expect(name).toHaveValue("Rookie of the Year")
 	})
 
@@ -55,7 +57,9 @@ describe("AwardPanel", () => {
 		const name = screen.getByRole("textbox", { name: "Award name" })
 		await user.type(name, "Rookie of the Year - C")
 
-		await user.click(screen.getByRole("switch", { name: "Rookie of the Year only" }))
+		await user.click(
+			screen.getByRole("switch", { name: "Rookie of the Year only" }),
+		)
 
 		// The guard has to read the *current* name, not one captured when the
 		// panel first rendered.
@@ -89,7 +93,9 @@ describe("AwardPanel", () => {
 			values: { shape: "player_season_award" },
 			data: { awardPoolItems: null },
 		})
-		expect(screen.getByText("Pick a league to see the pool.")).toBeInTheDocument()
+		expect(
+			screen.getByText("Pick a league to see the pool."),
+		).toBeInTheDocument()
 	})
 
 	it("summarises the pool once there is one", () => {
@@ -102,6 +108,8 @@ describe("AwardPanel", () => {
 				],
 			},
 		})
-		expect(screen.getByText(/every player in the league \(2\)/)).toBeInTheDocument()
+		expect(
+			screen.getByText(/every player in the league \(2\)/),
+		).toBeInTheDocument()
 	})
 })

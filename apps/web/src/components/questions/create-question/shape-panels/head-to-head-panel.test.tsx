@@ -37,7 +37,11 @@ function renderShape(shape: HeadToHeadShape) {
 			options: [{ label: "" }, { label: "" }],
 		},
 		// biome-ignore lint/suspicious/noExplicitAny: trimmed catalog rows - these panels read only id/name.
-		data: { players: PLAYERS as any, teams: TEAMS as any, scopedPlayers: PLAYERS as any },
+		data: {
+			players: PLAYERS as any,
+			teams: TEAMS as any,
+			scopedPlayers: PLAYERS as any,
+		},
 	})
 }
 
@@ -79,7 +83,9 @@ describe("HeadToHeadPanel", () => {
 		unmount()
 
 		renderShape("team_vs_team_season")
-		expect(screen.getByText(/Season-long, no game attached/)).toBeInTheDocument()
+		expect(
+			screen.getByText(/Season-long, no game attached/),
+		).toBeInTheDocument()
 	})
 
 	it("gives player_vs_player_season no closing note, as before the merge", () => {

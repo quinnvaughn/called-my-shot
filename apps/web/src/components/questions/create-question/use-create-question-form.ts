@@ -1,4 +1,5 @@
-import { createQuestionSchema } from "@called-my-shot/schemas"
+import { createQuestionSchema, isAdminOnlyShape } from "@called-my-shot/schemas"
+import { isSeasonLongShape } from "@called-my-shot/scoring"
 import { useQueryClient } from "@tanstack/react-query"
 import { useNavigate, useRouter } from "@tanstack/react-router"
 import { useEffect, useState } from "react"
@@ -12,18 +13,6 @@ import { buildTitlePreview } from "./build-title-preview"
 import { toCreateQuestionInput } from "./to-create-question-input"
 import { useEntityPools } from "./use-entity-pools"
 import { useQuestionCatalog } from "./use-question-catalog"
-
-// player_season_award/team_season_award/player_award_finalists can only ever
-// be posted as official - see questionShapeSchema's ADMIN_ONLY_SHAPES in
-// packages/schemas/src/questions.ts. Kept as its own small list here (rather
-// than imported) since QuestionTypePicker already filters these out of the
-// picker for non-admins - by the time one of these three is selected, the
-// viewer is guaranteed to be an admin.
-const ADMIN_ONLY_SHAPES = [
-	"player_season_award",
-	"team_season_award",
-	"player_award_finalists",
-] as const
 
 /**
  * Owns the create-question form: its state, its submit, and every value
@@ -177,9 +166,7 @@ export function useCreateQuestionForm() {
 	const isPlayerAward = shape === "player_season_award"
 	const isTeamAward = shape === "team_season_award"
 	const isFinalists = shape === "player_award_finalists"
-	const isAdminOnlyShape = (ADMIN_ONLY_SHAPES as readonly string[]).includes(
-		shape,
-	)
+	const isAdminOnly = isAdminOnlyShape(shape)
 
 	const {
 		awardPoolItems,
@@ -230,22 +217,25 @@ export function useCreateQuestionForm() {
 				? [{ label: "" }, { label: "" }]
 				: [],
 		)
-		// The season-scoped shapes never take a game at all (that's the whole
+		// The season-long shapes never take a game at all (that's the whole
 		// reason they're separate shapes from their game-scoped counterparts) -
-		// GameField won't even render for them, so a stale gameId/locksAt from
-		// whatever was previously selected has to be cleared here instead of
-		// leaving it for the creator to notice and clear themselves. Every other
-		// shape switch still carries a picked game forward as a convenience
-		// (e.g. switching from team_vs_team to game_total_over_under for that
-		// same matchup).
-		if (
-			next === "player_season_stat_over_under" ||
-			next === "team_season_stat_over_under" ||
-			next === "player_vs_player_season" ||
-			next === "team_vs_team_season" ||
-			next === "team_season_stat_numeric_guess" ||
-			next === "player_season_stat_leader"
-		) {
+		// no panel renders a GameField for them, so a stale gameId from whatever
+		// was previously selected has to be cleared here instead of riding along
+		// invisibly. It isn't cosmetic: the API derives locksAt from the game
+		// row whenever gameId is set (see create-question.ts), so a season-long
+		// award carrying a leftover game would lock at that single game's
+		// tip-off rather than the date the admin chose, with the field disabled
+		// and showing the game's time.
+		//
+		// isSeasonLongShape rather than a list written out here: the shapes with
+		// no game picker are exactly that set, so this can't drift from what the
+		// panels actually render. An earlier hand-written list here had already
+		// missed all three award shapes.
+		//
+		// Every other shape switch still carries a picked game forward as a
+		// convenience (e.g. team_vs_team to game_total_over_under for that same
+		// matchup).
+		if (isSeasonLongShape(next)) {
 			form.setValue("gameId", undefined)
 			form.setValue("locksAt", "")
 		}
@@ -264,7 +254,7 @@ export function useCreateQuestionForm() {
 		form.setValue("awardPositions", [])
 		form.setValue("awardSeasonsInLeague", [])
 		form.setValue("awardRookieOnly", false)
-		if ((ADMIN_ONLY_SHAPES as readonly string[]).includes(next)) {
+		if (isAdminOnlyShape(next)) {
 			form.setValue("isOfficial", true)
 		}
 	}
@@ -373,7 +363,7 @@ export function useCreateQuestionForm() {
 		selectType,
 		setTitleEdited,
 		titlePreview,
-		isAdminOnlyShape,
+		isAdminOnlyShape: isAdminOnly,
 		// Everything the shape panels read, shaped to go straight into
 		// QuestionDataProvider - see data-context.tsx for why none of it is a
 		// watched form scalar.

@@ -105,6 +105,16 @@ const AWARD_SHAPES = [
 // admin-only authorization check on top.
 const ADMIN_ONLY_SHAPES = [...AWARD_SHAPES, "team_vs_team"] as const
 
+// Exported so the create form asks for exactly the set the superRefine below
+// enforces. It has to agree in two places - hiding these shapes from a
+// non-admin's picker, and forcing isOfficial on once one is chosen - and a
+// hand-copied list in the app had already drifted from this one (it omitted
+// team_vs_team, which silently left the Official toggle enabled for a shape
+// that can't be posted any other way).
+export function isAdminOnlyShape(shape: QuestionShape): boolean {
+	return (ADMIN_ONLY_SHAPES as readonly QuestionShape[]).includes(shape)
+}
+
 // A resolution source URL is rendered as a real, clickable link on the
 // question page, so it can only ever be http/https - z.url() on its own
 // accepts any scheme, `javascript:` and `data:` included. The host has to

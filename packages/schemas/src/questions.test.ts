@@ -3,6 +3,7 @@ import {
 	castCallSchema,
 	createQuestionSchema,
 	fileDisputeSchema,
+	isAdminOnlyShape,
 	type QuestionShape,
 	questionShapeSchema,
 	resolutionSourceUrlSchema,
@@ -149,6 +150,20 @@ describe("createQuestionSchema - admin-only shapes", () => {
 			errorPaths(base({ shape: "yes_no_prop", eventClause: "wins MVP" })),
 		).not.toContain("isOfficial")
 	})
+
+	// isAdminOnlyShape is what the create form reads to hide these from a
+	// non-admin's picker and force the Official toggle on. It has to agree with
+	// the superRefine above for every shape, not just the ones spelled out in
+	// the case list - a hand-copied list in the web app had already drifted from
+	// this rule by omitting team_vs_team, which left the toggle enabled for a
+	// shape that can only be posted official and silently disabled Publish.
+	it.each(questionShapeSchema.options)(
+		"isAdminOnlyShape agrees with the schema's own rule for %s",
+		(shape) => {
+			const flaggedByRule = errorPaths(base({ shape })).includes("isOfficial")
+			expect(isAdminOnlyShape(shape)).toBe(flaggedByRule)
+		},
+	)
 
 	it("requires a ballot question to be official too", () => {
 		const paths = errorPaths(
