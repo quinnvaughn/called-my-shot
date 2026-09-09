@@ -34,8 +34,11 @@ type AnalyticsEvents = {
 	group_joined: { groupId: string; source: "invite_link" | "code_form" }
 	group_invite_copied: { groupId: string }
 
-	share_image_copied: { type: "profile" | "call_result" | "league" }
-	share_image_saved: { type: "profile" | "call_result" | "league" }
+	// Profile track-record cards only. A call used to have a downloadable
+	// image too; what gets shared now is a link to the call's own page, which
+	// is call_link_shared below.
+	share_image_copied: { type: "profile" | "league" }
+	share_image_saved: { type: "profile" | "league" }
 
 	// The share sheet itself opening is worth its own event - an open with no
 	// link/group event after it is an abandoned share, which is invisible if
@@ -48,6 +51,16 @@ type AnalyticsEvents = {
 		method: "native" | "clipboard"
 	}
 	question_shared_to_group: { questionId: string; groupId: string }
+	// The call's own page being handed to someone. `surface` separates a share
+	// from the call page itself (someone already looking at the record) from
+	// one off the resolution card (someone who just found out how they did) -
+	// they're different moments and worth telling apart. `x` fires on click,
+	// since an intent link's outcome is as unknowable as `native`'s.
+	call_link_shared: {
+		callId: string
+		method: "native" | "clipboard" | "x"
+		surface: "call_page" | "question_detail"
+	}
 
 	support_ticket_filed: { category: string }
 }

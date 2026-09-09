@@ -1,7 +1,9 @@
+import { SPORTS_TIME_ZONE } from "@called-my-shot/schemas"
 import {
 	isNumericGuessShape,
 	type QuestionShape,
 } from "@called-my-shot/scoring"
+import { DateTime } from "luxon"
 import { db } from "../../db"
 
 // The pick/shape vocabulary a resolved call gets described with. Extracted
@@ -49,6 +51,21 @@ export function formatGuess(value: number, isRateStat: boolean): string {
 		: String(Math.round(value * 1000) / 1000)
 }
 
+// Mirrors formatCallDate in apps/web/src/lib/format-date.ts - the og card and
+// the call page state the same date about the same call, so they can't be
+// allowed to disagree. No shared module across the API/web boundary for the
+// same reason as SHAPE_LABEL/formatGuess above.
+//
+// Zone and locale are both pinned. Left to the runtime, a call made at
+// 2026-01-01T02:00:00Z prints "Jan 1, 2026" from Fly (UTC) and "Dec 31, 2025"
+// in a browser in ET, and month names come out in whatever locale the process
+// happens to default to.
+export function formatCallDate(date: Date): string {
+	return DateTime.fromJSDate(date, { zone: SPORTS_TIME_ZONE })
+		.setLocale("en-US")
+		.toFormat("MMM d, yyyy")
+}
+
 // Mirrors lib/call-summary.ts's pickSummary on the frontend, against this
 // route's own DB-shaped call rather than the GraphQL Call type - no shared
 // module between the two given the enum casing they each work off already
@@ -82,6 +99,14 @@ export function buildPickLabel(call: {
 		call.question.shape === "team_season_award"
 	) {
 		if (call.selections.length === 0) return "-"
+		// isCorrect is set on every option at once, at resolution - so any one
+		// selection having it set means the question resolved and all of them
+		// do. Counting hits before that point returns 0 and prints "0 of 3 hit"
+		// on a call nobody has graded yet, which reads as a total whiff. Mirrors
+		// formatMultiSelect in apps/web/src/lib/call-summary.ts.
+		if (call.selections[0]?.option.isCorrect === null) {
+			return call.selections.map((s) => s.option.label).join(", ")
+		}
 		const hits = call.selections.filter((s) => s.option.isCorrect).length
 		return `${hits} of ${call.selections.length} hit`
 	}
@@ -100,24 +125,28 @@ export function buildPickLabel(call: {
 	return selection.option.label
 }
 
-// Everything both the exported PNG and the resolution digest need to describe
-// one resolved call, derived in a single batched query. Neither the aggregate
+// Everything the og:image card and the resolution digest need to describe one
+// call, derived in a single batched query. Neither the aggregate
 // field-percentage counts nor the quip are here: the first needs its own
 // per-question count queries and only the card shows it, the second is a pure
 // function of the call id (quipForCall) that either caller can apply.
 //
 // Batched by callIds because the digest resolves a whole email's worth at
 // once; routes/share.ts passes a single id.
-export type ResolvedCallSummary = {
+export type CallSummary = {
 	callId: string
 	questionId: string
 	questionTitle: string
 	questionShape: QuestionShape
+	questionStatus: "open" | "locked" | "resolved" | "disputed"
 	leagueAbbr: string
 	shapeLabel: string
 	pickLabel: string
-	points: number
-	isWin: boolean
+	// Null until the question resolves AND this call's points are final. The
+	// card renders a pending face for that; the digest refuses to describe it
+	// at all (see loadResolvedCallSummaries).
+	points: number | null
+	isWin: boolean | null
 	conviction: number
 	caseText: string | null
 	closenessFieldPct: number | null
@@ -127,12 +156,22 @@ export type ResolvedCallSummary = {
 	// Only meaningful for a single-selection call - routes/share.ts uses it to
 	// look up that option's share of the field.
 	soleOptionId: string | null
+	// The whole point of the call page: a call made a year before it resolves
+	// should read as one.
+	createdAt: Date
+	locksAt: Date
+	resolvedAt: Date | null
 }
 
-export async function loadResolvedCallSummaries(
+export type ResolvedCallSummary = CallSummary & {
+	points: number
+	isWin: boolean
+}
+
+export async function loadCallSummaries(
 	callIds: string[],
-): Promise<Map<string, ResolvedCallSummary>> {
-	const byCallId = new Map<string, ResolvedCallSummary>()
+): Promise<Map<string, CallSummary>> {
+	const byCallId = new Map<string, CallSummary>()
 	if (callIds.length === 0) return byCallId
 
 	const rows = await db.query.calls.findMany({
@@ -145,6 +184,8 @@ export async function loadResolvedCallSummaries(
 					title: true,
 					shape: true,
 					status: true,
+					locksAt: true,
+					resolvedAt: true,
 					ouLine: true,
 					numericToleranceAbsolute: true,
 				},
@@ -163,16 +204,11 @@ export async function loadResolvedCallSummaries(
 	})
 
 	for (const call of rows) {
-		// Same gate routes/share.ts applied before this was extracted: a call
-		// on a question that isn't resolved has no outcome to report, and a
-		// disputed one has an outcome nobody has agreed on yet.
-		if (
-			!call.user ||
-			!call.question?.league ||
-			call.question.status !== "resolved"
-		) {
-			continue
-		}
+		// A data-integrity drop, not a status gate - a call with no user or a
+		// question with no league can't be described at all. Status is carried
+		// through instead of filtered on, so an open call still gets a summary;
+		// loadResolvedCallSummaries below is what applies the outcome gate.
+		if (!call.user || !call.question?.league) continue
 
 		// selections[].option is typed nullable purely because drizzle types
 		// every `one` relation that way regardless of the FK's own nullability
@@ -191,16 +227,13 @@ export async function loadResolvedCallSummaries(
 					selections.every((s) => s.resultPoints !== null)
 				? selections.reduce((sum, s) => sum + (s.resultPoints ?? 0), 0)
 				: null
-		// A question can be resolved while a specific call still has no final
-		// points (it shouldn't, once resolved) - nothing should describe a
-		// result that isn't there.
-		if (points === null) continue
 
 		byCallId.set(call.id, {
 			callId: call.id,
 			questionId: call.question.id,
 			questionTitle: call.question.title,
 			questionShape: call.question.shape,
+			questionStatus: call.question.status,
 			leagueAbbr: call.question.league.abbreviation.toUpperCase(),
 			shapeLabel: SHAPE_LABEL[call.question.shape] ?? "Other",
 			pickLabel: buildPickLabel({
@@ -214,7 +247,7 @@ export async function loadResolvedCallSummaries(
 				selections,
 			}),
 			points,
-			isWin: points >= 0,
+			isWin: points === null ? null : points >= 0,
 			conviction: isNumeric
 				? (call.conviction ?? 0)
 				: selections.length > 0
@@ -230,8 +263,33 @@ export async function loadResolvedCallSummaries(
 			username: call.user.username,
 			soleOptionId:
 				selections.length === 1 ? (selections[0]?.optionId ?? null) : null,
+			createdAt: call.createdAt,
+			locksAt: call.question.locksAt,
+			resolvedAt: call.question.resolvedAt,
 		})
 	}
 
 	return byCallId
+}
+
+// The digest's view of the same data. A call on a question that isn't resolved
+// has no outcome to report, and a disputed one has an outcome nobody has
+// agreed on yet - the resolution email must never describe either. Kept as a
+// narrowing filter over loadCallSummaries rather than a flag on it, so that
+// gate is preserved by construction: a caller that wants outcomes has to ask
+// for this function by name, and one that forgets gets nullable points the
+// type system won't let it print.
+export async function loadResolvedCallSummaries(
+	callIds: string[],
+): Promise<Map<string, ResolvedCallSummary>> {
+	const resolved = new Map<string, ResolvedCallSummary>()
+	for (const [id, summary] of await loadCallSummaries(callIds)) {
+		if (summary.questionStatus !== "resolved") continue
+		// A question can be resolved while a specific call still has no final
+		// points (it shouldn't, once resolved) - nothing should describe a
+		// result that isn't there.
+		if (summary.points === null || summary.isWin === null) continue
+		resolved.set(id, { ...summary, points: summary.points, isWin: summary.isWin })
+	}
+	return resolved
 }

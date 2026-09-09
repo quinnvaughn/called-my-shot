@@ -1,0 +1,273 @@
+import { quipForCall } from "@called-my-shot/scoring"
+import { useSuspenseQuery } from "@tanstack/react-query"
+import {
+	createFileRoute,
+	Link,
+	useRouteContext,
+	useRouter,
+} from "@tanstack/react-router"
+import { FaRegTimesCircle } from "react-icons/fa"
+import { css } from "styled-system/css"
+import { VStack } from "styled-system/jsx"
+import {
+	CallRecordCard,
+	type CallRecordCardData,
+} from "#/components/questions/call-record-card"
+import {
+	buildCallTweet,
+	CallShareRow,
+} from "#/components/questions/call-share-row"
+import { NotFound } from "#/components/ui/not-found"
+import { PageHeader } from "#/components/ui/page-header"
+import type { CallRecordQuery } from "#/graphql/generated/graphql"
+import { callRecordQuery } from "#/graphql/queries/call"
+import { pickSummary } from "#/lib/call-summary"
+import { formatCallDate, formatCallLead } from "#/lib/format-date"
+import { pageMeta } from "#/lib/meta"
+import {
+	isNumericQuestionShape,
+	shareCardShapeLabel,
+} from "#/lib/question-labels"
+import { buildQuestionSlug } from "#/lib/slug"
+
+// No slug segment, unlike /questions/:id/:slug and /games/:id/:slug. A slug
+// there earns its keep with crawlers; nothing about a single person's call
+// wants indexing, and calls are deliberately left out of the sitemap for the
+// same reason. This url exists to be pasted, and it unfurls into the card
+// below rather than relying on its own text to say anything.
+export const Route = createFileRoute("/_app/calls/$callId")({
+	component: RouteComponent,
+	loader: async ({ context, params }) => {
+		const data = await context.queryClient.query(callRecordQuery(params.callId))
+		return { call: data.call ?? null }
+	},
+	head: ({ loaderData }) => {
+		const call = loaderData?.call
+		if (!call) return {}
+
+		const view = describeCall(call)
+		const dates = view.resolvedAt
+			? `called ${view.calledAt}, resolved ${formatCallDate(view.resolvedAt)}`
+			: view.questionStatus === "OPEN"
+				? `called ${view.calledAt}. Locks ${formatCallDate(view.locksAt)}.`
+				: `called ${view.calledAt}. Awaiting result.`
+		const outcome =
+			view.points !== null
+				? `${view.isWin ? "+" : "−"}${Math.abs(view.points)} pts · `
+				: ""
+
+		return pageMeta({
+			// The claim is the claim, settled or not - the description below is
+			// where the outcome goes.
+			title: `@${view.username} called ${view.pickLabel}`,
+			description: `${outcome}${view.leagueAbbr} · ${dates}`,
+			path: `/calls/${call.id}`,
+			image: {
+				// Third-party unfurl caches hold a scraped card for days, so a
+				// link shared while the call was pending would keep previewing
+				// "awaiting result" long after it settled. Resolution changes this
+				// url, which is a url they have never scraped. It can't fix links
+				// already posted; it does fix every share after. The proxy route
+				// ignores the param.
+				path: `/share/calls/${call.id}/card.png?v=${
+					view.resolvedAt ? Date.parse(view.resolvedAt) : "pending"
+				}`,
+				alt: `${view.username}'s call: ${view.pickLabel}`,
+			},
+		})
+	},
+})
+
+// Everything the page and its meta tags both need, derived once. Mirrors what
+// apps/api's share-cards/call-summary.ts derives for the og:image off the
+// same call, so the page and the picture of it state the same facts.
+function describeCall(call: NonNullable<CallRecordQuery["call"]>) {
+	const isNumeric = isNumericQuestionShape(call.question.shape)
+	const points = call.totalPoints
+	const isWin = points === null ? null : points >= 0
+
+	const pickLabel = pickSummary({
+		guessValue: call.guessValue,
+		conviction: call.conviction,
+		totalPoints: call.totalPoints,
+		question: {
+			shape: call.question.shape,
+			ouLine: call.question.ouLine,
+			numericActualValue: call.question.numericActualValue,
+			numericToleranceAbsolute: call.question.numericToleranceAbsolute,
+			stat: call.question.stat,
+		},
+		selections: call.selections.map((s) => ({
+			id: s.id,
+			conviction: s.conviction,
+			option: { label: s.option.label, isCorrect: s.option.isCorrect },
+		})),
+	})
+
+	// One number only describes one pick's rarity - a numeric-guess shape
+	// (closenessFieldPct) or a lone selection both qualify;
+	// player_season_award/team_season_award's several independent picks don't,
+	// so that case stays null rather than letting one pick stand in for the
+	// whole call.
+	const fieldPct = isNumeric
+		? call.closenessFieldPct
+		: call.selections.length === 1
+			? (call.selections[0]?.option.fieldPct ?? null)
+			: null
+
+	const conviction = isNumeric
+		? (call.conviction ?? 0)
+		: call.selections.length > 0
+			? Math.round(
+					call.selections.reduce((sum, s) => sum + s.conviction, 0) /
+						call.selections.length,
+				)
+			: 0
+
+	return {
+		pickLabel,
+		points,
+		isWin,
+		fieldPct,
+		conviction,
+		username: call.user.username,
+		name: call.user.name,
+		leagueAbbr: call.question.league.abbreviation.toUpperCase(),
+		calledAt: formatCallDate(call.createdAt),
+		questionStatus: call.question.status,
+		locksAt: call.question.locksAt,
+		resolvedAt: call.question.resolvedAt,
+	}
+}
+
+function RouteComponent() {
+	const { callId } = Route.useParams()
+	const { data } = useSuspenseQuery(callRecordQuery(callId))
+	const call = data.call
+	const { me } = useRouteContext({ from: "__root__" })
+	const router = useRouter()
+
+	if (!call) {
+		return (
+			<NotFound
+				icon={<FaRegTimesCircle size={24} />}
+				eyebrowText="Call"
+				heading="This call doesn't exist"
+				subtitle="It may have been removed, or the link's just wrong. Double check the URL."
+				link={{ text: "View the leaderboard", url: "/leaderboard" }}
+			/>
+		)
+	}
+
+	const view = describeCall(call)
+	const resolved = view.points !== null && view.isWin !== null
+
+	const cardData: CallRecordCardData = {
+		questionTitle: call.question.title,
+		leagueAbbr: view.leagueAbbr,
+		categoryLabel: shareCardShapeLabel[call.question.shape],
+		name: view.name,
+		username: view.username,
+		pickLabel: view.pickLabel,
+		calledAt: view.calledAt,
+		isWin: view.isWin,
+		points: view.points,
+		fieldPct: view.fieldPct,
+		conviction: view.conviction,
+		caseText: call.caseText,
+		// Deterministic off the call's own id, so the page and the og:image
+		// (which calls the same function against the same id) always show the
+		// same line, and neither has to persist it.
+		quip: resolved ? quipForCall(call.id, view.isWin === true) : null,
+		pendingLabel:
+			view.questionStatus === "OPEN"
+				? `Locks ${formatCallDate(view.locksAt)}`
+				: "Awaiting result",
+	}
+
+	const lead = view.resolvedAt
+		? formatCallLead(call.createdAt, view.resolvedAt)
+		: null
+
+	return (
+		<VStack gap="6" alignItems="stretch" className={css({ maxWidth: "2xl" })}>
+			{/* Gated on being signed in, same as the question page's. Plenty of
+			arrivals here are from a pasted link with nothing of ours behind
+			them, and history.back() would walk them out of the app. */}
+			{me && (
+				<button
+					type="button"
+					onClick={() => router.history.back()}
+					className={css({
+						fontFamily: "mono",
+						fontSize: "2xs",
+						color: "fg.subtle",
+						cursor: "pointer",
+						textAlign: "left",
+						_hover: { color: "fg.muted" },
+					})}
+				>
+					← Back
+				</button>
+			)}
+
+			{/* Names the page and nothing else. Who called it, when, in which
+			league, on what kind of question - the card below states all of it,
+			and a subtitle here would only say it twice. */}
+			<PageHeader title="The Call" />
+
+			<CallRecordCard data={cardData} />
+
+			{/* The gap between calling something and being right about it is the
+			claim this page exists to make, so it's stated in words rather than
+			left for the reader to subtract two dates. */}
+			{lead && (
+				<span
+					className={css({
+						fontFamily: "mono",
+						fontSize: "2xs",
+						letterSpacing: "wide",
+						textTransform: "uppercase",
+						color: "fg.subtle",
+					})}
+				>
+					{lead}
+				</span>
+			)}
+
+			<CallShareRow
+				callId={call.id}
+				shareTitle={call.question.title}
+				surface="call_page"
+				tweetText={buildCallTweet({
+					pickLabel: view.pickLabel,
+					points: view.points,
+					isWin: view.isWin,
+					calledAt: view.calledAt,
+					...(me?.id === call.user.id
+						? ({ isOwn: true } as const)
+						: ({ isOwn: false, username: view.username } as const)),
+				})}
+			/>
+
+			<Link
+				to="/questions/$questionId/{-$slug}"
+				params={{
+					questionId: call.question.id,
+					slug: buildQuestionSlug(call.question.title),
+				}}
+				className={css({
+					fontFamily: "mono",
+					fontSize: "2xs",
+					letterSpacing: "wide",
+					textTransform: "uppercase",
+					color: "primary.default",
+					textDecoration: "none",
+					_hover: { opacity: 0.8 },
+				})}
+			>
+				See the question and everyone else who called it →
+			</Link>
+		</VStack>
+	)
+}

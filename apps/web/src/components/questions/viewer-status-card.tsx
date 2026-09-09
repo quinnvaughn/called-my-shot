@@ -1,7 +1,6 @@
 import {
 	BASE_POINTS_BY_SHAPE,
 	earlyTierFor,
-	quipForCall,
 	seasonEarlyTierFor,
 	TIER_MAX_MULT,
 	TIER_MIN_MULT,
@@ -9,25 +8,25 @@ import {
 	tierFor,
 	toleranceBand,
 } from "@called-my-shot/scoring"
+import { Link } from "@tanstack/react-router"
 import { type ReactNode, useState } from "react"
 import { css, cx } from "styled-system/css"
 import { Flex, HStack, VStack } from "styled-system/jsx"
-import { ShareImagePanel } from "#/components/profile/share-image-panel"
 import {
-	CallShareCardPreview,
-	type CallShareCardPreviewData,
-} from "#/components/questions/call-share-card-preview"
+	buildCallTweet,
+	CallShareRow,
+} from "#/components/questions/call-share-row"
 import { CaseBlock } from "#/components/questions/case-block"
 import { DisputeModal } from "#/components/questions/dispute-modal"
 import type { QuestionShape } from "#/graphql/generated/graphql"
 import { pickSummary, resultState } from "#/lib/call-summary"
 import { formatGuess } from "#/lib/field-signal"
+import { formatCallDate } from "#/lib/format-date"
 import type { QuestionDetailState } from "#/lib/question-detail-state"
 import {
 	isNumericQuestionShape,
 	isOverUnderQuestionShape,
 	optionDisplayLabel,
-	shareCardShapeLabel,
 } from "#/lib/question-labels"
 import {
 	formatMult,
@@ -105,6 +104,8 @@ function isSeasonLongShape(shape: QuestionShape): boolean {
 
 type ViewerCall = {
 	id: string
+	// ISO. The date the call was made, which the tweet text states.
+	createdAt: string
 	guessValue: number | null
 	conviction: number | null
 	totalPoints: number | null
@@ -180,17 +181,10 @@ type Props = {
 	// until settled. "how rare was being right" belongs next to the outcome
 	// itself, not buried in the per-pick breakdown below.
 	fieldAccuracyPct: number | null
-	// Everything below feeds the win/loss share card only - the question's
-	// own identity (not the resolved answer, which is what's already shown
-	// above as the badge/title) plus who's sharing it.
+	// Names the thing being shared, in the OS share sheet and the tweet -
+	// the question itself, not the resolved answer, which is already shown
+	// above as the badge/title.
 	questionTitle: string
-	leagueAbbr: string
-	shape: QuestionShape
-	viewerName: string
-	viewerUsername: string
-	// Set from ?share=1, which the resolution digest's CTA links to - the
-	// card is what that email is sending people here for.
-	openShareCard?: boolean
 }
 
 // Pending / locked-no-call / resolved-no-call / won / lost are five faces of
@@ -215,11 +209,6 @@ export function ViewerStatusCard({
 	resolutionNote,
 	fieldAccuracyPct,
 	questionTitle,
-	leagueAbbr,
-	shape,
-	viewerName,
-	viewerUsername,
-	openShareCard,
 }: Props) {
 	// A resolution can be disputed by anyone who saw it, not just people who
 	// called - a spectator can just as easily notice a wrong result. Gated on
@@ -278,6 +267,7 @@ export function ViewerStatusCard({
 				callCount={callCount}
 				totalOptions={totalOptions}
 				viewerCall={viewerCall}
+				questionTitle={questionTitle}
 			/>
 		)
 	}
@@ -372,21 +362,14 @@ export function ViewerStatusCard({
 							/>
 						))}
 			</VStack>
-			{result.status !== "pending" && (
-				<ShareCallSection
-					viewerCall={viewerCall}
-					isWin={result.status === "win"}
-					points={result.points}
-					questionTitle={questionTitle}
-					leagueAbbr={leagueAbbr}
-					categoryLabel={shareCardShapeLabel[shape]}
-					viewerName={viewerName}
-					viewerUsername={viewerUsername}
-					numericToleranceAbsolute={numericToleranceAbsolute}
-					isRateStat={isRateStat}
-					defaultOpen={openShareCard}
-				/>
-			)}
+			<ShareCallSection
+				viewerCall={viewerCall}
+				isWin={result.status === "pending" ? null : result.status === "win"}
+				points={result.status === "pending" ? null : result.points}
+				questionTitle={questionTitle}
+				numericToleranceAbsolute={numericToleranceAbsolute}
+				isRateStat={isRateStat}
+			/>
 			{disputeRow}
 			{noteBlock}
 		</Shell>
@@ -414,44 +397,32 @@ function PointsFinal({ points, win }: { points: number; win: boolean }) {
 	)
 }
 
-// Assembles the win/loss share card and hands it to ShareImagePanel - same
-// Copy/Save machinery the profile stats card uses (see share-image-panel.tsx),
-// just fed a call's result instead of a career stat line. Only ever rendered
-// once the question has settled (see the win/loss branch above), so there's
-// always a real outcome to share.
+// A link to this call's own page - the record worth handing someone - plus
+// the ways of handing it over. This used to assemble a whole preview card and
+// offer the PNG behind it for copy/download; there is no downloadable call
+// image any more, and the image that remains is the og:image the link unfurls
+// with.
+//
+// Deliberately NOT gated on the question having settled. A call made a long
+// way ahead of its result is the one most worth putting on the record, and
+// gating this on an outcome left that call with no route to its own page at
+// all. The page renders a pending face for it, and so does the og card.
 function ShareCallSection({
 	viewerCall,
 	isWin,
 	points,
 	questionTitle,
-	leagueAbbr,
-	categoryLabel,
-	viewerName,
-	viewerUsername,
 	numericToleranceAbsolute,
 	isRateStat,
-	defaultOpen,
 }: {
 	viewerCall: ViewerCall
-	isWin: boolean
-	points: number
+	// Null until the question resolves.
+	isWin: boolean | null
+	points: number | null
 	questionTitle: string
-	leagueAbbr: string
-	categoryLabel: string
-	viewerName: string
-	viewerUsername: string
 	numericToleranceAbsolute: number | null
 	isRateStat: boolean
-	defaultOpen?: boolean
 }) {
-	// Deterministic off the call's own id (see quipForCall) rather than
-	// random - the same call always shows the same line, every time it's
-	// reopened, on both this preview and the exported PNG (apps/api's
-	// call-card.ts calls the same function against the same id), with
-	// nothing needing to be persisted or passed between the two.
-	const quip = quipForCall(viewerCall.id, isWin)
-
-	const isNumeric = isNumericQuestionShape(viewerCall.question.shape)
 	const pickLabel = pickSummary({
 		guessValue: viewerCall.guessValue,
 		conviction: viewerCall.conviction,
@@ -480,51 +451,37 @@ function ShareCallSection({
 			option: { label: s.option.label, isCorrect: s.option.isCorrect },
 		})),
 	})
-	// A single number describes exactly one pick's rarity - a numeric-guess
-	// shape (closenessFieldPct) or a lone selection both qualify,
-	// player_season_award/team_season_award's several independent picks
-	// don't, so that case is left null rather than picking one pick's
-	// fieldPct to stand in for the whole call.
-	const fieldPct = isNumeric
-		? viewerCall.closenessFieldPct
-		: viewerCall.selections.length === 1
-			? (viewerCall.selections[0]?.option.fieldPct ?? null)
-			: null
-	const conviction = isNumeric
-		? (viewerCall.conviction ?? 0)
-		: viewerCall.selections.length > 0
-			? Math.round(
-					viewerCall.selections.reduce((sum, s) => sum + s.conviction, 0) /
-						viewerCall.selections.length,
-				)
-			: 0
-
-	const data: CallShareCardPreviewData = {
-		questionTitle,
-		leagueAbbr,
-		categoryLabel,
-		name: viewerName,
-		username: viewerUsername,
-		pickLabel,
-		isWin,
-		points,
-		fieldPct,
-		conviction,
-		caseText: viewerCall.caseText,
-		quip,
-	}
-
 	return (
-		<ShareImagePanel
-			src={`/share/calls/${viewerCall.id}`}
-			filename={`${viewerUsername}-call-${viewerCall.id}.png`}
-			label="Share this call"
-			shareType="call_result"
-			defaultOpen={defaultOpen}
-			renderPreview={(previewProps) => (
-				<CallShareCardPreview {...previewProps} data={data} />
-			)}
-		/>
+		<VStack gap="3" alignItems="stretch">
+			<Link
+				to="/calls/$callId"
+				params={{ callId: viewerCall.id }}
+				className={css({
+					fontFamily: "mono",
+					fontSize: "2xs",
+					letterSpacing: "wide",
+					textTransform: "uppercase",
+					color: "primary.default",
+					textDecoration: "none",
+					_hover: { opacity: 0.8 },
+				})}
+			>
+				View this call →
+			</Link>
+			<CallShareRow
+				callId={viewerCall.id}
+				shareTitle={questionTitle}
+				surface="question_detail"
+				tweetText={buildCallTweet({
+					pickLabel,
+					points,
+					isWin,
+					calledAt: formatCallDate(viewerCall.createdAt),
+					// This card is only ever the viewer's own call.
+					isOwn: true,
+				})}
+			/>
+		</VStack>
 	)
 }
 
@@ -754,6 +711,7 @@ function PendingContent({
 	callCount,
 	totalOptions,
 	viewerCall,
+	questionTitle,
 }: {
 	isLocked: boolean
 	numericTolerancePct: number | null
@@ -762,6 +720,7 @@ function PendingContent({
 	callCount: number
 	totalOptions: number
 	viewerCall: ViewerCall
+	questionTitle: string
 }) {
 	const isNumeric = isNumericQuestionShape(viewerCall.question.shape)
 	const basePoints = BASE_POINTS_BY_GQL_SHAPE[viewerCall.question.shape]
@@ -811,6 +770,17 @@ function PendingContent({
 							/>
 						))}
 			</VStack>
+			{/* An unresolved call is the one most worth putting on the record -
+			calling something months before it happens is the whole claim - so
+			this is here rather than only on the settled face below. */}
+			<ShareCallSection
+				viewerCall={viewerCall}
+				isWin={null}
+				points={null}
+				questionTitle={questionTitle}
+				numericToleranceAbsolute={numericToleranceAbsolute}
+				isRateStat={isRateStat}
+			/>
 		</Shell>
 	)
 }

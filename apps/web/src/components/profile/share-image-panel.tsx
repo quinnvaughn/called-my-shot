@@ -23,18 +23,17 @@ type Props = {
 	// Toggle button label when the panel is closed, e.g. "Share my career stats"
 	label: string
 	// Which share surface this is - analytics property on copy/save events.
-	shareType: "profile" | "call_result" | "league"
+	// Profile track-record cards only. A call used to have a downloadable
+	// image too; a call is now shared as a link to its own page instead (see
+	// CallShareRow), and the PNG behind it exists only as that page's
+	// og:image.
+	shareType: "profile" | "league"
 	// Renders the actual preview card - ShareCardPreview for a user's stats,
 	// CallShareCardPreview for a call's result, anything else later. Kept as
 	// a render prop rather than this panel hardcoding one preview component:
 	// the Copy/Save/blob-fetch machinery below is identical regardless of
 	// what the card looks like, only the preview markup and its data differ.
 	renderPreview: (props: SharePreviewRenderProps) => ReactNode
-	// Starts open instead of behind the toggle. Only the resolution digest
-	// uses this today (?share=1 on the question route) - the whole point of
-	// that email's CTA is the card, so landing on a collapsed button asks
-	// someone to click twice for something they already asked for.
-	defaultOpen?: boolean
 }
 
 type BlobState =
@@ -43,8 +42,9 @@ type BlobState =
 	| { status: "ready"; blob: Blob }
 	| { status: "error" }
 
-// Generic on purpose - this works the same way for a call's share card
-// later as it does for a user's stats here: hand it a src/filename/preview.
+// Generic on purpose - hand it a src/filename/preview and it does the rest.
+// Both remaining callers are track-record cards (all-time and league-scoped),
+// but nothing here knows that.
 //
 // The PNG is only ever fetched lazily, on an actual Copy/Save click - not
 // for the preview (see ShareCardPreview) and not eagerly on open. Earlier
@@ -60,9 +60,8 @@ export function ShareImagePanel({
 	label,
 	shareType,
 	renderPreview,
-	defaultOpen = false,
 }: Props) {
-	const [open, setOpen] = useState(defaultOpen)
+	const [open, setOpen] = useState(false)
 	const [copied, setCopied] = useState(false)
 	const [blobState, setBlobState] = useState<BlobState>({ status: "idle" })
 

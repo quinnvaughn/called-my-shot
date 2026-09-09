@@ -30,7 +30,7 @@ export function withUtm(url: string, { campaign, content }: Tag): string {
 }
 
 // The common case: a path on the web app, tagged. `path` starts with "/" and
-// may carry its own query string ("/questions/1/x?share=1") - URL keeps those
+// may carry its own query string ("/leaderboard?league=nfl") - URL keeps those
 // params and the utm ones side by side rather than one clobbering the other.
 export function emailUrl(path: string, tag: Tag): string {
 	return withUtm(`${env.CLIENT_ORIGIN}${path}`, tag)

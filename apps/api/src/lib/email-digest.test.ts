@@ -208,6 +208,25 @@ describe("drainResolutionDigests", () => {
 		expect(message.headers?.["List-Unsubscribe"]).not.toContain("utm_")
 	})
 
+	// The digest used to send people to the question page with ?share=1, which
+	// existed only to pop open a panel offering a downloadable PNG. Both are
+	// gone: what there is to share is the call's own page.
+	it("points every call link at that call's own page", async () => {
+		const { question, options, callers } = await seedOptionQuestion({
+			callers: [{ optionIndex: 0 }],
+		})
+		await resolve(question, [options[0].id])
+		await ageOutbox()
+
+		const mail = recorder()
+		await drainResolutionDigests({ send: mail.send })
+
+		const [message] = mail.sent
+		expect(message.text).toContain(`/calls/${callers[0].call.id}`)
+		expect(message.text).not.toContain("share=1")
+		expect(message.text).not.toContain(`/questions/${question.id}`)
+	})
+
 	it("carries a working one-click unsubscribe header", async () => {
 		const { question, options } = await seedOptionQuestion({
 			callers: [{ optionIndex: 0 }],

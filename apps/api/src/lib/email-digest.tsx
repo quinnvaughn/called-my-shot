@@ -1,4 +1,3 @@
-import { questionPath } from "@called-my-shot/schemas"
 import { inArray, sql } from "drizzle-orm"
 import { db } from "../db"
 import { emailOutbox } from "../db/schema"
@@ -28,18 +27,16 @@ const MAX_ATTEMPTS = 5
 
 type SendFn = typeof sendMail
 
+// The call's own permanent page - the record of that one call, which is what
+// there is to share. This used to point at the question page with ?share=1 to
+// pop open a panel offering a downloadable PNG; there is no such panel now,
+// and the link itself is the thing worth sending.
+//
 // `content` separates the one hero button from the per-call links that point
 // at the same place - without it a click breakdown can't tell whether the
 // button is pulling its weight or people are picking a call out of the list.
-function shareUrl(
-	questionId: string,
-	questionTitle: string,
-	content: "hero" | "call_row",
-): string {
-	const path = questionPath({ id: questionId, title: questionTitle })
-	// share=1 opens the share panel on arrival instead of landing on a
-	// collapsed button (see the question route's validateSearch).
-	return emailUrl(`${path}?share=1`, {
+function callUrl(callId: string, content: "hero" | "call_row"): string {
+	return emailUrl(`/calls/${callId}`, {
 		campaign: "resolution_digest",
 		content,
 	})
@@ -168,9 +165,11 @@ async function drainOneUser(
 
 	// Re-checks that each question is still `resolved`. A dispute filed inside
 	// the settling window flips it to `disputed`, at which point the result is
-	// contested and the share card 404s - mailing "you called it" about it
-	// would be wrong twice over. loadResolvedCallSummaries applies that gate,
-	// so anything it drops is exactly what shouldn't be described.
+	// contested and mailing "you called it" about it would be wrong.
+	// loadResolvedCallSummaries applies that gate, so anything it drops is
+	// exactly what shouldn't be described. Note the call PAGE stays reachable
+	// for those - it just shows no outcome; it's the email's claim about an
+	// outcome that has to be withheld.
 	const summaries = await loadResolvedCallSummaries(
 		claimed.map((r) => r.call_id),
 	)
@@ -203,7 +202,7 @@ async function drainOneUser(
 		pickLabel: s.pickLabel,
 		points: s.points,
 		isWin: s.isWin,
-		shareUrl: shareUrl(s.questionId, s.questionTitle, "call_row"),
+		callUrl: callUrl(s.callId, "call_row"),
 	}))
 
 	// The card worth leading with: the biggest win if there is one, otherwise
@@ -217,11 +216,7 @@ async function drainOneUser(
 	const { html, text } = await renderEmail(
 		<ResolutionDigest
 			calls={calls}
-			primaryShareUrl={shareUrl(
-				primary.questionId,
-				primary.questionTitle,
-				"hero",
-			)}
+			primaryCallUrl={callUrl(primary.callId, "hero")}
 			allCallsUrl={emailUrl("/my-calls", {
 				campaign: "resolution_digest",
 				content: "all_calls",

@@ -37,6 +37,7 @@ import {
 	sortColumn,
 } from "../../../lib/admin-pagination"
 import { requireAdmin, requireUser } from "../../../lib/auth"
+import { markCallPubliclyAddressed } from "../../../lib/call-visibility"
 import { AuthenticationError, AuthorizationError } from "../../../lib/errors"
 import { typicalGameLengthHours } from "../../../lib/game-length"
 import {
@@ -431,6 +432,28 @@ builder.queryFields((t) => ({
 			isUuid(args.id)
 				? db.query.questions.findFirst({ where: { id: args.id } })
 				: null,
+	}),
+
+	// The permanent public record of one call - what /calls/:id renders and
+	// what every share link and the resolution digest point at. Deliberately
+	// not scoped to the viewer and not gated on the question's status: a call
+	// made a year before it resolves is exactly the thing worth linking to,
+	// and the person opening the link usually has no account.
+	//
+	// markCallPubliclyAddressed lifts the anti-copying gate for this one call
+	// so an open question's pick still renders here; see lib/call-visibility.ts
+	// for why holding the id is treated as authorization, and what that does
+	// and doesn't guarantee.
+	call: t.field({
+		type: CallRef,
+		nullable: true,
+		args: { id: t.arg.id({ required: true }) },
+		// Same uuid guard as Query.question above, same reason.
+		resolve: (_root, args, ctx) => {
+			if (!isUuid(args.id)) return null
+			markCallPubliclyAddressed(ctx, args.id)
+			return db.query.calls.findFirst({ where: { id: args.id } })
+		},
 	}),
 
 	// The "My Calls" page - every call the viewer has made, split into an

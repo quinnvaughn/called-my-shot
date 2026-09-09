@@ -16,7 +16,7 @@ function call(overrides: Partial<DigestCall> = {}): DigestCall {
 		pickLabel: "Over 275.5",
 		points: 210,
 		isWin: true,
-		shareUrl: "https://calledmyshot.com/questions/1/mahomes?share=1",
+		callUrl: "https://calledmyshot.com/calls/00000000-0000-4000-8000-000000000001",
 		...overrides,
 	}
 }
@@ -27,7 +27,7 @@ function props(
 ): ResolutionDigestProps {
 	return {
 		calls,
-		primaryShareUrl: calls[0]?.shareUrl ?? "",
+		primaryCallUrl: calls[0]?.callUrl ?? "",
 		allCallsUrl: "https://calledmyshot.com/my-calls",
 		manageUrl: "https://calledmyshot.com/settings",
 		unsubscribeUrl: "https://calledmyshot.com/unsubscribe?token=t",
@@ -137,24 +137,27 @@ describe("ResolutionDigest", () => {
 		expect(digestPreview(calls)).not.toContain(digestSubject(calls))
 	})
 
-	it("points the primary call-to-action at the share panel", async () => {
+	it("points the primary call-to-action at the call's own page", async () => {
 		const { html } = await renderEmail(
 			ResolutionDigest(
 				props([call()], {
-					primaryShareUrl: "https://calledmyshot.com/questions/9/x?share=1",
+					primaryCallUrl: "https://calledmyshot.com/calls/abc",
 				}),
 			),
 		)
-		expect(html).toContain("https://calledmyshot.com/questions/9/x?share=1")
+		expect(html).toContain("https://calledmyshot.com/calls/abc")
 		expect(html).toContain("Share this call")
 	})
 
-	// "Card" is what we call the image internally; someone reading their first
-	// result email has never opened the share panel and wouldn't know the word.
-	it("says what sharing gets you without calling it a card", async () => {
+	// Someone reading their first result email doesn't know what a "card" or a
+	// "record page" is, so the subcopy has to describe the destination in
+	// plain terms - and must not promise a downloadable image, which is a
+	// thing this no longer offers.
+	it("says what sharing gets you without jargon or a promised image", async () => {
 		const { html, text } = await renderEmail(ResolutionDigest(props([call()])))
-		expect(text).toContain("an image of it you can post anywhere")
+		expect(text).toContain("Send it anywhere")
 		expect(html.toLowerCase()).not.toContain("your card")
+		expect(html.toLowerCase()).not.toContain("an image of it")
 	})
 
 	it("shows the real wordmark rather than a text stand-in", async () => {
@@ -164,18 +167,18 @@ describe("ResolutionDigest", () => {
 	})
 
 	// A digest lists several results but has one hero button, so the button
-	// has to say which card it hands over and every row has to offer its own.
-	it("gives every call its own card link", async () => {
+	// has to say which call it hands over and every row has to offer its own.
+	it("gives every call its own link", async () => {
 		const { text } = await renderEmail(
 			ResolutionDigest(
 				props([
-					call({ shareUrl: "https://calledmyshot.com/questions/1/a?share=1" }),
-					call({ shareUrl: "https://calledmyshot.com/questions/2/b?share=1" }),
+					call({ callUrl: "https://calledmyshot.com/calls/aaa" }),
+					call({ callUrl: "https://calledmyshot.com/calls/bbb" }),
 				]),
 			),
 		)
-		expect(text).toContain("https://calledmyshot.com/questions/1/a?share=1")
-		expect(text).toContain("https://calledmyshot.com/questions/2/b?share=1")
+		expect(text).toContain("https://calledmyshot.com/calls/aaa")
+		expect(text).toContain("https://calledmyshot.com/calls/bbb")
 	})
 
 	it("names which card the hero button gets for a multi-call digest", async () => {

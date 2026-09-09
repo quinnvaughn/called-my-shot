@@ -2,7 +2,7 @@
 // arrives on isn't necessarily the one that should be indexed (Fly's
 // *.fly.dev name, a preview machine). Same literal the root route and the
 // sitemap already pin to.
-const ORIGIN = "https://calledmyshot.com"
+export const SITE_ORIGIN = "https://calledmyshot.com"
 
 type PageMeta = {
 	title: string
@@ -10,16 +10,26 @@ type PageMeta = {
 	// Origin-relative, leading slash. Canonical for the page, so search params
 	// that only vary the view (the games tab's windowKey) stay out of it.
 	path: string
+	// Origin-relative, leading slash. Overrides the root route's site-wide
+	// /og-image.png for this page alone. Must be 1200x630: that is what
+	// summary_large_image crops to, and the width/height hints below are what
+	// stop Slack and Discord reserving the wrong box before the bytes land.
+	image?: { path: string; alt: string }
 }
 
 // The same title/description have to be repeated across three vocabularies:
 // Facebook/iMessage/Slack/Discord read the og: tags, X reads twitter:, and
 // search engines read <title>/description. A page that sets only one set
 // inherits the root route's generic copy everywhere else, which is how every
-// league tab ended up sharing one title. og:image and og:type aren't here -
-// the root's apply to every page and nothing below it overrides them.
-export function pageMeta({ title, description, path }: PageMeta) {
-	const url = ORIGIN + path
+// league tab ended up sharing one title.
+//
+// og:image is optional here and unset on most pages, which leaves the root's
+// site-wide graphic in place. Passing one really does replace it rather than
+// adding a second: the router builds head tags by walking matches
+// deepest-first and keeping the first entry per name/property, so the child
+// route wins. og:type is still nobody's business but the root's.
+export function pageMeta({ title, description, path, image }: PageMeta) {
+	const url = SITE_ORIGIN + path
 	return {
 		// rel=canonical rather than only og:url, because they answer different
 		// questions: og:url is where a share card points back to, canonical is
@@ -37,6 +47,19 @@ export function pageMeta({ title, description, path }: PageMeta) {
 			{ name: "twitter:title", content: title },
 			{ name: "twitter:description", content: description },
 			{ name: "twitter:url", content: url },
+			...(image
+				? [
+						{ property: "og:image", content: SITE_ORIGIN + image.path },
+						{ property: "og:image:width", content: "1200" },
+						{ property: "og:image:height", content: "630" },
+						{ property: "og:image:alt", content: image.alt },
+						// The root already sets this, but a page that ships its own
+						// image shouldn't depend on that staying true.
+						{ name: "twitter:card", content: "summary_large_image" },
+						{ name: "twitter:image", content: SITE_ORIGIN + image.path },
+						{ name: "twitter:image:alt", content: image.alt },
+					]
+				: []),
 		],
 	}
 }

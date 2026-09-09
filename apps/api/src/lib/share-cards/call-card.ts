@@ -1,23 +1,59 @@
 // The app is dark-only today (panda.config.ts's "light theme: #..." comments
 // are leftover notes from an old flip-to-light experiment that was reverted,
 // not a live theme anyone can select), so this card renders the same dark
-// card-on-canvas look the in-app preview shows - not a separate light export
-// that'd look like a different product.
+// card-on-canvas look the app shows - not a separate light export that'd look
+// like a different product.
+//
+// This is now an og:image and nothing else. Nobody downloads it, nothing in
+// the app renders it: it exists so a /calls/:id link unfurls as the call
+// rather than as the house graphic. That's what fixes the dimensions below.
 import { COLOR } from "../brand-palette"
-import { brandWordmark } from "./brand-wordmark"
 import { el, type SatoriNode } from "../share-image"
+import { brandWordmark } from "./brand-wordmark"
 
-// Same "fixed export resolution, independent of whatever the in-app preview
-// happens to render at" reasoning as user-card.ts - this PNG is only ever
-// downloaded/copied elsewhere, never displayed in-app.
-const REFERENCE_WIDTH = 475
+// 1200x630 exactly, because that is what X's summary_large_image crops to.
+// The card used to render 1200 wide at whatever height its content needed
+// (~1060), and every unfurl of it lost the top and bottom 40% - the pick and
+// the points, i.e. all of it.
+//
+// Every size below is a real pixel at that resolution. The other share cards
+// are authored against a 475px reference and scaled up, because they mirror
+// an in-app React component that renders at that width; this one mirrors
+// nothing (see the file header), so the indirection would only be a way to
+// get the arithmetic wrong.
 const TARGET_WIDTH = 1200
-const SCALE = TARGET_WIDTH / REFERENCE_WIDTH
-export const CALL_SHARE_CARD_SIZE = { width: TARGET_WIDTH }
-
-function px(n: number): string {
-	return `${Math.round(n * SCALE)}px`
+const TARGET_HEIGHT = 630
+export const CALL_SHARE_CARD_SIZE = {
+	width: TARGET_WIDTH,
+	height: TARGET_HEIGHT,
 }
+
+// brandWordmark measures against its caller's own reference width, so it
+// takes a px()/scale pair. 1.7 puts the lockup at 34px, in scale with the
+// header rule beside it.
+const WORDMARK_SCALE = 1.7
+const wordmarkPx = (n: number) => `${Math.round(n * WORDMARK_SCALE)}px`
+
+// Given a fixed height, satori clips anything that doesn't fit the viewBox -
+// silently, with no warning and no scaling, and an overflowing flex child
+// paints straight over its siblings rather than pushing them. So every
+// free-text field on this card is capped in JS rather than trusted to wrap
+// into whatever space is left. caseText is the dangerous one: its column is
+// unbounded, and a paragraph-length case is enough to bury the whole footer.
+function clamp(text: string, max: number): string {
+	if (text.length <= max) return text
+	return `${text.slice(0, max - 1).trimEnd()}…`
+}
+
+// Measured against Archivo Black / Inter at the sizes used below, across the
+// card's ~1050px of inner width.
+const PICK_HERO_MAX = 22
+const PICK_MAX = 42
+const TITLE_MAX = 100
+const CASE_MAX = 150
+
+const HEADER_HEIGHT = 96
+const FOOTER_HEIGHT = 168
 
 export type CallShareCardData = {
 	questionTitle: string
@@ -26,15 +62,21 @@ export type CallShareCardData = {
 	name: string
 	username: string
 	pickLabel: string
-	isWin: boolean
-	points: number
+	// Pre-formatted by formatCallDate (call-summary.ts) - the date is the
+	// claim this card exists to make, so it's stated the same way here and on
+	// the page.
+	calledAt: string
 	fieldPct: number | null
 	conviction: number
 	caseText: string | null
-	quip: string
+	// Resolved only. Null on all three renders the pending face instead.
+	points: number | null
+	isWin: boolean | null
+	quip: string | null
+	// "Awaiting result" / "Locks Jun 2027" - pending only.
+	pendingLabel: string | null
 }
 
-// Mirrors eyebrow() in user-card.ts.
 function eyebrow(text: string, color = COLOR.dim): SatoriNode {
 	return el(
 		"span",
@@ -42,8 +84,8 @@ function eyebrow(text: string, color = COLOR.dim): SatoriNode {
 			display: "flex",
 			fontFamily: "Space Mono",
 			fontWeight: 500,
-			fontSize: px(11),
-			letterSpacing: px(0.5),
+			fontSize: "17px",
+			letterSpacing: "1px",
 			textTransform: "uppercase",
 			color,
 		},
@@ -51,37 +93,77 @@ function eyebrow(text: string, color = COLOR.dim): SatoriNode {
 	)
 }
 
-// Mirrors CallShareCardPreview's ShareStatRow.
-function statRow(label: string, value: string): SatoriNode {
-	return el(
-		"div",
-		{
-			display: "flex",
-			alignItems: "center",
-			justifyContent: "space-between",
-			width: "100%",
-		},
-		[
-			eyebrow(label),
-			el(
-				"span",
-				{
-					display: "flex",
-					fontFamily: "Inter",
-					fontWeight: 600,
-					fontSize: px(14),
-				},
-				value,
-			),
-		],
-	)
+// The footer's unit: a label stacked over a value. Horizontal, unlike the
+// full-width label/value rows the portrait card used - four of those stacked
+// vertically is precisely the height this layout doesn't have.
+function statCell(
+	label: string,
+	value: string,
+	{ color = COLOR.ink, big = false }: { color?: string; big?: boolean } = {},
+): SatoriNode {
+	return el("div", { display: "flex", flexDirection: "column", gap: "8px" }, [
+		eyebrow(label),
+		el(
+			"span",
+			{
+				display: "flex",
+				fontFamily: big ? "Archivo Black" : "Inter",
+				fontWeight: 600,
+				fontSize: big ? "40px" : "28px",
+				color,
+			},
+			value,
+		),
+	])
 }
 
 export function buildCallShareCard(data: CallShareCardData): SatoriNode {
-	const initial = data.name.charAt(0).toUpperCase()
-	const resultColor = data.isWin ? COLOR.success : COLOR.danger
+	const resolved = data.points !== null && data.isWin !== null
+	const win = data.isWin === true
 
-	const body: SatoriNode[] = []
+	const pick = clamp(data.pickLabel, PICK_MAX)
+	// Two sizes rather than one that fits the worst case: "Over 47.5" earns
+	// the hero treatment, and "Minnesota Timberwolves" still has to fit next
+	// to it without being set at a size only it needs.
+	const pickFontSize = pick.length <= PICK_HERO_MAX ? "68px" : "44px"
+
+	const body: SatoriNode[] = [
+		eyebrow(
+			resolved ? (win ? "Called it" : "Missed") : "On the record",
+			resolved
+				? win
+					? COLOR.primaryDefault
+					: COLOR.dim
+				: COLOR.primaryDefault,
+		),
+		el(
+			"span",
+			{
+				display: "flex",
+				fontFamily: "Archivo Black",
+				fontSize: pickFontSize,
+				lineHeight: 1.1,
+				textAlign: "center",
+				// A pending call is not a loss, so it never gets the muted
+				// treatment a miss does.
+				color: resolved && !win ? COLOR.dim : COLOR.ink,
+			},
+			pick,
+		),
+		el(
+			"span",
+			{
+				display: "flex",
+				fontFamily: "Inter",
+				fontSize: "22px",
+				lineHeight: 1.3,
+				color: COLOR.steel,
+				textAlign: "center",
+				lineClamp: 2,
+			},
+			clamp(data.questionTitle, TITLE_MAX),
+		),
+	]
 	if (data.caseText) {
 		body.push(
 			el(
@@ -90,200 +172,152 @@ export function buildCallShareCard(data: CallShareCardData): SatoriNode {
 					display: "flex",
 					fontFamily: "Inter",
 					fontStyle: "italic",
-					fontSize: px(12),
+					fontSize: "19px",
+					lineHeight: 1.4,
 					color: COLOR.linen,
-					borderLeft: `${px(2)} solid ${COLOR.borderEmphasized}`,
-					paddingLeft: px(12),
+					borderLeft: `3px solid ${COLOR.borderEmphasized}`,
+					paddingLeft: "16px",
+					marginTop: "6px",
+					lineClamp: 2,
 				},
-				`"${data.caseText}"`,
+				`"${clamp(data.caseText, CASE_MAX)}"`,
 			),
 		)
 	}
+
+	const cells: SatoriNode[] = [statCell("Called", data.calledAt)]
+	cells.push(statCell("Conviction", `${Math.round(data.conviction)}%`))
 	if (data.fieldPct !== null) {
-		body.push(statRow("Field agreed", `${Math.round(data.fieldPct)}%`))
+		cells.push(statCell("Field agreed", `${Math.round(data.fieldPct)}%`))
 	}
-	body.push(statRow("Conviction", `${Math.round(data.conviction)}%`))
-	body.push(
-		el(
-			"div",
-			{
-				display: "flex",
-				justifyContent: "space-between",
-				alignItems: "baseline",
-				width: "100%",
-				borderTop: `${px(1)} solid ${COLOR.border}`,
-				paddingTop: px(12),
-			},
-			[
-				eyebrow("Result"),
-				el(
-					"span",
-					{
-						display: "flex",
-						fontFamily: "Archivo Black",
-						fontSize: px(30),
-						color: resultColor,
-					},
-					`${data.isWin ? "+" : "−"}${Math.abs(data.points)} pts`,
-				),
-			],
-		),
-	)
-	body.push(
-		el(
-			"span",
-			{
-				display: "flex",
-				fontFamily: "Inter",
-				fontStyle: "italic",
-				fontSize: px(12),
-				color: COLOR.steel,
-				textAlign: "center",
-				width: "100%",
-				justifyContent: "center",
-			},
-			data.quip,
-		),
+	cells.push(
+		resolved
+			? statCell(
+					"Result",
+					`${win ? "+" : "−"}${Math.abs(data.points ?? 0)} pts`,
+					{ color: win ? COLOR.success : COLOR.danger, big: true },
+				)
+			: // Not Archivo Black like the points cell - it isn't a number and
+				// shouldn't shout as if it were one.
+				statCell("Status", data.pendingLabel ?? "Awaiting result", {
+					color: COLOR.dim,
+				}),
 	)
 
 	return el(
 		"div",
 		{
+			// Opaque and full-bleed. The rounded card is inset inside this
+			// instead of being the root itself: at a fixed size, a border-radius
+			// on the outermost node leaves transparent PNG corners, which X
+			// composites onto white and Discord onto near-black - the same file
+			// showing two different frames.
 			display: "flex",
-			flexDirection: "column",
-			width: `${CALL_SHARE_CARD_SIZE.width}px`,
-			backgroundColor: COLOR.card,
-			color: COLOR.ink,
-			border: `${px(1)} solid ${COLOR.border}`,
-			borderRadius: px(16),
+			width: `${TARGET_WIDTH}px`,
+			height: `${TARGET_HEIGHT}px`,
+			padding: "14px",
+			backgroundColor: COLOR.paper,
 			fontFamily: "Inter",
 		},
 		[
-			// Header
 			el(
 				"div",
 				{
 					display: "flex",
 					flexDirection: "column",
-					// Without this, brandWordmark's row stretches to the header's
-					// full width (column flex's default cross-axis stretch) and
-					// sits left-aligned inside it - the nested "pick/hero" div
-					// sets its own centering, but brandWordmark itself doesn't, so
-					// it needs the parent to center it instead.
-					alignItems: "center",
-					gap: px(16),
-					padding: px(16),
-					borderBottom: `${px(1)} solid ${COLOR.border}`,
+					flex: "1",
+					backgroundColor: COLOR.card,
+					color: COLOR.ink,
+					border: `1px solid ${COLOR.border}`,
+					borderRadius: "20px",
 				},
 				[
-					brandWordmark(px, SCALE),
+					// Header. Fixed height, like the footer - the hero between
+					// them is the only band allowed to absorb slack, so a long
+					// pick can never push either of them off the card.
+					el(
+						"div",
+						{
+							display: "flex",
+							height: `${HEADER_HEIGHT}px`,
+							flexShrink: 0,
+							alignItems: "center",
+							justifyContent: "space-between",
+							paddingLeft: "36px",
+							paddingRight: "36px",
+							borderBottom: `1px solid ${COLOR.border}`,
+						},
+						[
+							brandWordmark(wordmarkPx, WORDMARK_SCALE),
+							eyebrow(`${data.leagueAbbr} · ${data.categoryLabel}`),
+						],
+					),
+					// Hero - takes whatever vertical room the header and footer
+					// leave and centres its content in it. overflow: hidden so
+					// that a field which somehow beats its cap gets cut off at
+					// the band's edge instead of painting over the footer.
 					el(
 						"div",
 						{
 							display: "flex",
 							flexDirection: "column",
+							flex: "1",
+							overflow: "hidden",
 							alignItems: "center",
-							gap: px(6),
+							justifyContent: "center",
+							gap: "10px",
+							paddingLeft: "48px",
+							paddingRight: "48px",
 						},
-						[
-							eyebrow(
-								data.isWin ? "Called it" : "Missed",
-								data.isWin ? COLOR.primaryDefault : COLOR.dim,
-							),
-							el(
-								"span",
-								{
-									display: "flex",
-									fontFamily: "Archivo Black",
-									fontSize: px(24),
-									textAlign: "center",
-									color: data.isWin ? COLOR.ink : COLOR.dim,
-								},
-								data.pickLabel,
-							),
-							el(
-								"span",
-								{
-									display: "flex",
-									fontFamily: "Inter",
-									fontSize: px(12),
-									color: COLOR.steel,
-									textAlign: "center",
-								},
-								data.questionTitle,
-							),
-						],
+						body,
 					),
+					// Footer
 					el(
 						"div",
 						{
 							display: "flex",
-							alignItems: "center",
+							flexDirection: "column",
+							height: `${FOOTER_HEIGHT}px`,
+							flexShrink: 0,
 							justifyContent: "center",
-							gap: px(8),
+							gap: "18px",
+							paddingLeft: "36px",
+							paddingRight: "36px",
+							borderTop: `1px solid ${COLOR.border}`,
 						},
 						[
 							el(
 								"div",
 								{
 									display: "flex",
-									alignItems: "center",
-									justifyContent: "center",
-									width: px(20),
-									height: px(20),
-									borderRadius: px(10),
-									backgroundColor: COLOR.cardMuted,
-									border: `${px(1)} solid ${COLOR.border}`,
-									fontFamily: "Space Mono",
-									fontSize: px(9),
-									color: COLOR.ink,
+									alignItems: "flex-end",
+									justifyContent: "space-between",
+									width: "100%",
 								},
-								initial,
+								cells,
 							),
 							el(
-								"span",
+								"div",
 								{
 									display: "flex",
+									alignItems: "center",
+									justifyContent: "space-between",
+									width: "100%",
 									fontFamily: "Space Mono",
-									fontSize: px(12),
+									fontSize: "17px",
 									color: COLOR.dim,
 								},
-								`@${data.username}`,
+								[
+									el("span", { display: "flex" }, `@${data.username}`),
+									el(
+										"span",
+										{ display: "flex", fontStyle: "italic" },
+										data.quip ?? "",
+									),
+									el("span", { display: "flex" }, "calledmyshot.com"),
+								],
 							),
 						],
-					),
-				],
-			),
-			// Body
-			el(
-				"div",
-				{
-					display: "flex",
-					flexDirection: "column",
-					gap: px(12),
-					padding: px(16),
-				},
-				body,
-			),
-			// Footer
-			el(
-				"div",
-				{
-					display: "flex",
-					justifyContent: "space-between",
-					alignItems: "center",
-					padding: px(16),
-					borderTop: `${px(1)} solid ${COLOR.border}`,
-					fontFamily: "Space Mono",
-					fontSize: px(11),
-					color: COLOR.dim,
-				},
-				[
-					el("span", { display: "flex" }, `calledmyshot.com/${data.username}`),
-					el(
-						"span",
-						{ display: "flex" },
-						`${data.leagueAbbr} · ${data.categoryLabel}`,
 					),
 				],
 			),

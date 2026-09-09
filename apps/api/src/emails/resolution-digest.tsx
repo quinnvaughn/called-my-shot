@@ -10,9 +10,9 @@ export type DigestCall = {
 	pickLabel: string
 	points: number
 	isWin: boolean
-	// Question page with the share panel already open - see the `share` search
-	// param on the question route.
-	shareUrl: string
+	// The call's own permanent page (/calls/:id) - the record of this one
+	// call, and the thing there is to send someone.
+	callUrl: string
 }
 
 // Rows listed in the body; the rest become "and N more". A 12-call Sunday
@@ -28,7 +28,7 @@ export type ResolutionDigestProps = {
 	// was simply wrong.
 	calls: DigestCall[]
 	// The call worth leading with - biggest swing, wins preferred.
-	primaryShareUrl: string
+	primaryCallUrl: string
 	allCallsUrl: string
 	manageUrl: string
 	unsubscribeUrl: string
@@ -63,7 +63,7 @@ export function digestSubject(calls: DigestCall[]): string {
 		: `Your ${calls.length} calls are in.`
 }
 
-// The standout call - same rule the drain uses to pick primaryShareUrl, so
+// The standout call - same rule the drain uses to pick primaryCallUrl, so
 // the preheader names the call the button will hand over. `calls` arrives
 // sorted by absolute points, so the first win is the biggest one.
 function standout(calls: DigestCall[]): DigestCall | undefined {
@@ -89,15 +89,14 @@ function headline(calls: DigestCall[]): string {
 		.otherwise(() => `You went ${wins}-${losses}.`)
 }
 
-// Every call in the list carries its own share link, so the one button below
-// never has to stand in for all of them. Its label says which result it acts
-// on, because a single button under three of them doesn't.
+// Every call in the list carries its own link, so the one button below never
+// has to stand in for all of them. Its label says which result it acts on,
+// because a single button under three of them doesn't.
 //
-// Deliberately avoids the word "card". That's what we call the image
-// internally, but someone reading their first result email has never opened
-// the share panel and has no idea what a card is - "Share this call" matches
-// the button they'll actually land on (see ShareImagePanel's label), and the
-// line underneath says what they get.
+// Deliberately avoids naming the destination in jargon. Someone reading their
+// first result email has no idea what a "card" or a "record page" is - "Share
+// this call" says what they're doing, and the line underneath says what they
+// land on.
 function primaryLabel(calls: DigestCall[]): string {
 	return match({ total: calls.length, wins: digestSummary(calls).wins })
 		.with({ total: 1 }, () => "Share this call")
@@ -130,7 +129,7 @@ function CallRow({ call }: { call: DigestCall }) {
 			<Row>
 				<Column>
 					<Link
-						href={call.shareUrl}
+						href={call.callUrl}
 						style={{
 							fontFamily: FONT_BODY,
 							fontSize: "14px",
@@ -153,7 +152,7 @@ function CallRow({ call }: { call: DigestCall }) {
 					</Text>
 					<Text style={{ margin: "6px 0 0" }}>
 						<Link
-							href={call.shareUrl}
+							href={call.callUrl}
 							style={{
 								fontFamily: FONT_MONO,
 								fontSize: "11px",
@@ -187,7 +186,7 @@ function CallRow({ call }: { call: DigestCall }) {
 
 export function ResolutionDigest({
 	calls,
-	primaryShareUrl,
+	primaryCallUrl,
 	allCallsUrl,
 	manageUrl,
 	unsubscribeUrl,
@@ -244,7 +243,7 @@ export function ResolutionDigest({
 			</Text>
 
 			{shown.map((call) => (
-				<CallRow key={call.shareUrl} call={call} />
+				<CallRow key={call.callUrl} call={call} />
 			))}
 
 			{overflowCount > 0 && (
@@ -263,7 +262,7 @@ export function ResolutionDigest({
 
 			<Section style={{ textAlign: "center", padding: "8px 0 0" }}>
 				<Button
-					href={primaryShareUrl}
+					href={primaryCallUrl}
 					style={{
 						backgroundColor: COLOR.primaryDefault,
 						color: COLOR.paper,
@@ -285,7 +284,7 @@ export function ResolutionDigest({
 						margin: "10px 0 0",
 					}}
 				>
-					We'll make you an image of it you can post anywhere.
+					Its own page, with the date you called it. Send it anywhere.
 				</Text>
 				<Text
 					style={{
@@ -316,7 +315,7 @@ ResolutionDigest.PreviewProps = {
 			pickLabel: "Over 275.5",
 			points: 210,
 			isWin: true,
-			shareUrl: "https://calledmyshot.com/questions/1/mahomes?share=1",
+			callUrl: "https://calledmyshot.com/calls/9f2a3b1c-0000-4000-8000-000000000001",
 		},
 		{
 			questionTitle: "Bills to win outright",
@@ -325,7 +324,7 @@ ResolutionDigest.PreviewProps = {
 			pickLabel: "Buffalo Bills",
 			points: 130,
 			isWin: true,
-			shareUrl: "https://calledmyshot.com/questions/2/bills?share=1",
+			callUrl: "https://calledmyshot.com/calls/9f2a3b1c-0000-4000-8000-000000000002",
 		},
 		{
 			questionTitle: "Travis Kelce to score a touchdown",
@@ -334,10 +333,10 @@ ResolutionDigest.PreviewProps = {
 			pickLabel: "Yes",
 			points: -40,
 			isWin: false,
-			shareUrl: "https://calledmyshot.com/questions/3/kelce?share=1",
+			callUrl: "https://calledmyshot.com/calls/9f2a3b1c-0000-4000-8000-000000000003",
 		},
 	],
-	primaryShareUrl: "https://calledmyshot.com/questions/1/mahomes?share=1",
+	primaryCallUrl: "https://calledmyshot.com/calls/9f2a3b1c-0000-4000-8000-000000000001",
 	allCallsUrl: "https://calledmyshot.com/my-calls",
 	manageUrl: "https://calledmyshot.com/settings",
 	unsubscribeUrl: "https://calledmyshot.com/unsubscribe?token=preview",

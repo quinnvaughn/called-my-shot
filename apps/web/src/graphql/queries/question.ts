@@ -73,6 +73,7 @@ export const QuestionDetailDocument = graphql(`
 			}
 			viewerCall {
 				id
+				createdAt
 				guessValue
 				conviction
 				totalPoints
@@ -139,6 +140,5 @@ export const questionCallsQuery = (id: string) =>
 	gqlInfiniteQueryOptions(
 		QuestionCallsDocument,
 		{ id },
-		(data) =>
-			data.question?.calls ?? EMPTY_CONNECTION,
+		(data) => data.question?.calls ?? EMPTY_CONNECTION,
 	)

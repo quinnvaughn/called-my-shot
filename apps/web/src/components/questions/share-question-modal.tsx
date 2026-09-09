@@ -4,9 +4,9 @@ import { css } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
 import { match } from "ts-pattern"
 import { Button } from "#/components/ui/button"
+import { CopyLinkRow } from "#/components/ui/copy-link-row"
 import { FormError } from "#/components/ui/form-error"
 import { Modal } from "#/components/ui/modal"
-import { TextInput } from "#/components/ui/text-input"
 import { gqlFetch } from "#/graphql/fetcher"
 import { graphql } from "#/graphql/generated"
 import { useGqlMutation } from "#/graphql/hooks"
@@ -14,6 +14,7 @@ import { ShareQuestionToGroupDocument } from "#/graphql/mutations/groups"
 import { questionDetailQuery } from "#/graphql/queries/question"
 import { gqlQueryKey } from "#/graphql/query-options"
 import { track } from "#/lib/analytics"
+import { SITE_ORIGIN } from "#/lib/meta"
 import { pluralize } from "#/lib/pluralize"
 import { questionPath } from "#/lib/slug"
 
@@ -76,7 +77,6 @@ export function ShareQuestionModal({
 }: Props) {
 	const queryClient = useQueryClient()
 	const shareToGroup = useGqlMutation(ShareQuestionToGroupDocument)
-	const [copied, setCopied] = useState(false)
 	const [shared, setShared] = useState<Set<string>>(
 		() => new Set(sharedGroupIds),
 	)
@@ -92,25 +92,6 @@ export function ShareQuestionModal({
 	// The slug form, since this is the url people actually paste - the bare
 	// id would just bounce the recipient through a redirect to get here.
 	const sharePath = questionPath({ id: questionId, title: questionTitle })
-	const shareUrl = `${window.location.origin}${sharePath}`
-	const displayUrl = `${window.location.host}${sharePath}`
-
-	function handleCopy() {
-		navigator.clipboard.writeText(shareUrl)
-		track("question_link_shared", { questionId, method: "clipboard" })
-		setCopied(true)
-		setTimeout(() => setCopied(false), 1200)
-	}
-
-	async function handleNativeShare() {
-		try {
-			await navigator.share({ title: questionTitle, url: shareUrl })
-			track("question_link_shared", { questionId, method: "native" })
-		} catch {
-			// A dismissed OS share sheet rejects the same way a failure does,
-			// and neither is worth surfacing - the Copy button above still works.
-		}
-	}
 
 	async function handleShareToGroup(groupId: string) {
 		setError(null)
@@ -164,36 +145,17 @@ export function ShareQuestionModal({
 			<VStack gap="5" alignItems="stretch">
 				<VStack gap="2" alignItems="stretch">
 					<span className={labelClass}>Link</span>
-					<HStack justify="space-between" gap="3">
-						<TextInput className={css({ flex: 1, minWidth: 0 })}>
-							<TextInput.Group>
-								<TextInput.Field readOnly value={displayUrl} />
-							</TextInput.Group>
-						</TextInput>
-						<Button variant="dark" onClick={handleCopy}>
-							{copied ? "Copied" : "Copy"}
-						</Button>
-					</HStack>
-					{/* Only exists on mobile browsers (and Safari) - the Copy
-					button above is the universal path, this is the shortcut into
-					iMessage/WhatsApp/etc. where the OS offers one. */}
-					{typeof navigator !== "undefined" && "share" in navigator && (
-						<button
-							type="button"
-							onClick={handleNativeShare}
-							className={css({
-								alignSelf: "flex-start",
-								fontFamily: "mono",
-								fontSize: "2xs",
-								letterSpacing: "wide",
-								color: "primary.default",
-								cursor: "pointer",
-								_hover: { opacity: 0.8 },
-							})}
-						>
-							or open your device's share sheet →
-						</button>
-					)}
+					<CopyLinkRow
+						url={SITE_ORIGIN + sharePath}
+						displayUrl={`calledmyshot.com${sharePath}`}
+						shareTitle={questionTitle}
+						onCopied={() =>
+							track("question_link_shared", { questionId, method: "clipboard" })
+						}
+						onNativeShared={() =>
+							track("question_link_shared", { questionId, method: "native" })
+						}
+					/>
 				</VStack>
 
 				{canShareToGroup && (

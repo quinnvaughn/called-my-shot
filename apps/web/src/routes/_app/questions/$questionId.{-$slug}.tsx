@@ -68,17 +68,6 @@ function sectionLabel(text: string) {
 
 export const Route = createFileRoute("/_app/questions/$questionId/{-$slug}")({
 	component: RouteComponent,
-	// ?share=1 comes from the resolution digest's CTA and opens the viewer's
-	// share card on arrival instead of behind its toggle. Parsed loosely - a
-	// link that has been through a mail client, a redirect and a paste is not
-	// worth 404ing over a malformed param.
-	//
-	// The key is omitted rather than set false when absent, and the return
-	// type is optional, because a required search key makes `search` a
-	// required prop on every <Link> and navigate() pointing at this route -
-	// fifteen call sites that have nothing to do with sharing.
-	validateSearch: (search: Record<string, unknown>): { share?: true } =>
-		search.share === "1" || search.share === true ? { share: true } : {},
 	// Without this, navigating between two questions on this same route (e.g.
 	// a BallotStrip link) doesn't remount RouteComponent - only the loader data
 	// updates. useCastCallForm's internal useForm store (and its own
@@ -133,7 +122,6 @@ export const Route = createFileRoute("/_app/questions/$questionId/{-$slug}")({
 
 function RouteComponent() {
 	const { questionId } = Route.useParams()
-	const { share } = Route.useSearch()
 	const { data } = useSuspenseQuery(questionDetailQuery(questionId))
 	const question = data.question
 	const { me } = useRouteContext({ from: "__root__" })
@@ -210,10 +198,10 @@ function RouteComponent() {
 						<Tag>{question.league.abbreviation}</Tag>
 						<Tag>{questionShapeLabel[question.shape]}</Tag>
 					</HStack>
-					{/* Available on every question regardless of status or whether
-					you've called - an open question is the one most worth sending
-					someone, and that's exactly the case the PNG share card in
-					ViewerStatusCard can't cover (it needs a settled result). */}
+					{/* Shares the QUESTION - an invitation to call it. Distinct from
+					the link on a settled call below, which shares one person's own
+					record of it. Available regardless of status or whether you've
+					called: an open question is the one most worth sending someone. */}
 					<Button
 						variant="ghost"
 						size="sm"
@@ -395,11 +383,6 @@ function RouteComponent() {
 				resolutionNote={question.resolutionNote}
 				fieldAccuracyPct={fieldAccuracyPct}
 				questionTitle={question.title}
-				leagueAbbr={question.league.abbreviation}
-				shape={question.shape}
-				viewerName={me?.name ?? ""}
-				viewerUsername={me?.username ?? ""}
-				openShareCard={share}
 			/>
 			{/* While the call is still open, the picker itself (CastCallForm)
 			shows this same live breakdown inline - one card for "make your
