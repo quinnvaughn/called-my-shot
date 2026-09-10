@@ -37,6 +37,7 @@ export const QuestionDetailDocument = graphql(`
 			league {
 				id
 				abbreviation
+				slug
 			}
 			options {
 				id
@@ -58,11 +59,13 @@ export const QuestionDetailDocument = graphql(`
 				awayScore
 				homeTeam {
 					id
+					name
 					abbreviation
 					color
 				}
 				awayTeam {
 					id
+					name
 					abbreviation
 					color
 				}

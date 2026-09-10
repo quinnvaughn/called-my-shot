@@ -15,7 +15,8 @@ const breadcrumbRecipe = sva({
 		list: {
 			display: "flex",
 			alignItems: "center",
-			flexWrap: "wrap",
+			flexWrap: "nowrap",
+			minWidth: "0",
 			gap: "1.5",
 			fontFamily: "mono",
 			fontSize: "2xs",
@@ -32,8 +33,13 @@ const breadcrumbRecipe = sva({
 			_first: { _before: { display: "none" } },
 		},
 		link: {
+			display: "block",
+			minWidth: "0",
 			color: "fg.subtle",
 			textDecoration: "none",
+			overflow: "hidden",
+			textOverflow: "ellipsis",
+			whiteSpace: "nowrap",
 			_hover: { color: "fg.default" },
 		},
 		current: {
@@ -51,7 +57,9 @@ const slots = breadcrumbRecipe()
 // The trail above a page that sits under another one (Groups / Wolfpack), so
 // the way back names where it goes instead of relying on browser history.
 // Link and Current each render their own <li>, so a call site is just the
-// crumbs in order; the "/" between them comes from CSS, not markup.
+// crumbs in order; the "/" between them comes from CSS, not markup. The trail
+// stays on one line and every crumb truncates, so a long question title in the
+// middle of it shortens instead of wrapping.
 function Breadcrumb({ className, children, ...props }: HTMLAttributes<HTMLElement>) {
 	return (
 		<nav
@@ -80,8 +88,7 @@ const BreadcrumbLink: LinkComponent<typeof BreadcrumbLinkAnchor> = (props) => (
 	</li>
 )
 
-// The page you're on - not a link, and truncated so a long group or question
-// name can't push the trail onto several lines.
+// The page you're on - not a link.
 function BreadcrumbCurrent({
 	className,
 	...props

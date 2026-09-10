@@ -4,7 +4,6 @@ import {
 	Link,
 	redirect,
 	useRouteContext,
-	useRouter,
 } from "@tanstack/react-router"
 import { DateTime } from "luxon"
 import { FaRegTimesCircle } from "react-icons/fa"
@@ -30,6 +29,7 @@ import { ReportQuestionModal } from "#/components/questions/report-question-moda
 import { ResolveQuestionModal } from "#/components/questions/resolve-question-modal"
 import { ShareQuestionModal } from "#/components/questions/share-question-modal"
 import { ViewerStatusCard } from "#/components/questions/viewer-status-card"
+import { Breadcrumb } from "#/components/ui/breadcrumb"
 import { Button } from "#/components/ui/button"
 import { Card } from "#/components/ui/card"
 import { Identity } from "#/components/ui/identity"
@@ -49,7 +49,7 @@ import {
 	questionShapeLabel,
 } from "#/lib/question-labels"
 import { resolvedAnswerSummary } from "#/lib/resolution-summary"
-import { buildQuestionSlug, questionPath } from "#/lib/slug"
+import { buildGameSlug, buildQuestionSlug, questionPath } from "#/lib/slug"
 import { openModal } from "#/stores/modal-store"
 
 function sectionLabel(text: string) {
@@ -139,7 +139,6 @@ function RouteComponent() {
 	const { data } = useSuspenseQuery(questionDetailQuery(questionId))
 	const question = data.question
 	const { me } = useRouteContext({ from: "__root__" })
-	const router = useRouter()
 	// Called unconditionally (hooks can't follow the early-return below) -
 	// harmless when there's no question yet, since nothing renders CastCallForm
 	// or CallSubmitBar in that case either.
@@ -189,22 +188,32 @@ function RouteComponent() {
 				alignItems="stretch"
 				className={css({ maxWidth: "2xl", minHeight: "100%" })}
 			>
-				{me && (
-					<button
-						type="button"
-						onClick={() => router.history.back()}
-						className={css({
-							fontFamily: "mono",
-							fontSize: "2xs",
-							color: "fg.subtle",
-							cursor: "pointer",
-							textAlign: "left",
-							_hover: { color: "fg.muted" },
-						})}
+				<Breadcrumb>
+					<Breadcrumb.Link
+						to="/leagues/$leagueSlug"
+						params={{ leagueSlug: question.league.slug }}
 					>
-						← Back
-					</button>
-				)}
+						{question.league.abbreviation}
+					</Breadcrumb.Link>
+					{question.game && (
+						<Breadcrumb.Link
+							to="/games/$gameId/{-$slug}"
+							params={{
+								gameId: question.game.id,
+								slug: buildGameSlug({
+									league: question.league,
+									homeTeam: question.game.homeTeam,
+									awayTeam: question.game.awayTeam,
+									startsAt: question.game.startsAt,
+								}),
+							}}
+						>
+							{question.game.awayTeam.abbreviation} @{" "}
+							{question.game.homeTeam.abbreviation}
+						</Breadcrumb.Link>
+					)}
+					<Breadcrumb.Current>{question.title}</Breadcrumb.Current>
+				</Breadcrumb>
 				<BallotStrip question={question} />
 				<VStack gap="3" alignItems="stretch">
 					<HStack gap="2" justify="space-between" alignItems="flex-start">

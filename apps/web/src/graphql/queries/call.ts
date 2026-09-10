@@ -47,6 +47,7 @@ export const CallRecordDocument = graphql(`
 				league {
 					id
 					abbreviation
+					slug
 				}
 			}
 			selections {

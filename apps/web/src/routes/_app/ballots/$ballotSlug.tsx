@@ -3,7 +3,7 @@ import { createFileRoute, Link, redirect } from "@tanstack/react-router"
 import { DateTime } from "luxon"
 import { Fragment } from "react"
 import { FaRegTimesCircle } from "react-icons/fa"
-import { FiChevronLeft, FiChevronRight } from "react-icons/fi"
+import { FiChevronRight } from "react-icons/fi"
 import { css } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
 import {
@@ -15,6 +15,7 @@ import {
 	BallotPositionRowFragment,
 } from "#/components/ballots/ballot-position-row"
 import { BallotProgressCard } from "#/components/ballots/ballot-progress-card"
+import { Breadcrumb } from "#/components/ui/breadcrumb"
 import { Card } from "#/components/ui/card"
 import { NotFound } from "#/components/ui/not-found"
 import { PageHeader } from "#/components/ui/page-header"
@@ -145,24 +146,21 @@ function RouteComponent() {
 
 	return (
 		<VStack gap="6" alignItems="stretch" className={css({ maxWidth: "2xl" })}>
-			<Link
-				to="/leagues/$leagueSlug/season"
-				params={{ leagueSlug: ballot.league.slug }}
-				className={css({
-					display: "inline-flex",
-					alignItems: "center",
-					gap: "1.5",
-					fontFamily: "mono",
-					fontSize: "2xs",
-					letterSpacing: "wide",
-					textTransform: "uppercase",
-					color: "fg.subtle",
-					_hover: { color: "fg.default" },
-				})}
-			>
-				<FiChevronLeft size={11} />
-				{ballot.league.abbreviation} · Season
-			</Link>
+			<Breadcrumb>
+				<Breadcrumb.Link
+					to="/leagues/$leagueSlug"
+					params={{ leagueSlug: ballot.league.slug }}
+				>
+					{ballot.league.abbreviation}
+				</Breadcrumb.Link>
+				<Breadcrumb.Link
+					to="/leagues/$leagueSlug/season"
+					params={{ leagueSlug: ballot.league.slug }}
+				>
+					Season
+				</Breadcrumb.Link>
+				<Breadcrumb.Current>{ballot.name}</Breadcrumb.Current>
+			</Breadcrumb>
 
 			<VStack gap="2" alignItems="flex-start">
 				<HStack gap="2">

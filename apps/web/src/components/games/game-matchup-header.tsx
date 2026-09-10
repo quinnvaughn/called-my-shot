@@ -69,10 +69,13 @@ const awayLineClass = css({
 	justifyContent: "flex-start",
 })
 
+// flex-start at every breakpoint: row-reverse also flips the main axis, so
+// from sm up "start" is the right edge and flex-start is what pins the home
+// team there. flex-end would pack it left, against the score.
 const homeLineClass = css({
 	gridArea: "home",
 	flexDirection: { base: "row", sm: "row-reverse" },
-	justifyContent: { base: "flex-start", sm: "flex-end" },
+	justifyContent: "flex-start",
 })
 
 const awayTextClass = css({ alignItems: "flex-start" })

@@ -1,11 +1,6 @@
 import { quipForCall } from "@called-my-shot/scoring"
 import { useSuspenseQuery } from "@tanstack/react-query"
-import {
-	createFileRoute,
-	Link,
-	useRouteContext,
-	useRouter,
-} from "@tanstack/react-router"
+import { createFileRoute, Link, useRouteContext } from "@tanstack/react-router"
 import { FaRegTimesCircle } from "react-icons/fa"
 import { css } from "styled-system/css"
 import { VStack } from "styled-system/jsx"
@@ -17,6 +12,7 @@ import {
 	buildCallTweet,
 	CallShareRow,
 } from "#/components/questions/call-share-row"
+import { Breadcrumb } from "#/components/ui/breadcrumb"
 import { NotFound } from "#/components/ui/not-found"
 import { PageHeader } from "#/components/ui/page-header"
 import type { CallRecordQuery } from "#/graphql/generated/graphql"
@@ -145,7 +141,6 @@ function RouteComponent() {
 	const { data } = useSuspenseQuery(callRecordQuery(callId))
 	const call = data.call
 	const { me } = useRouteContext({ from: "__root__" })
-	const router = useRouter()
 
 	if (!call) {
 		return (
@@ -191,25 +186,24 @@ function RouteComponent() {
 
 	return (
 		<VStack gap="6" alignItems="stretch" className={css({ maxWidth: "2xl" })}>
-			{/* Gated on being signed in, same as the question page's. Plenty of
-			arrivals here are from a pasted link with nothing of ours behind
-			them, and history.back() would walk them out of the app. */}
-			{me && (
-				<button
-					type="button"
-					onClick={() => router.history.back()}
-					className={css({
-						fontFamily: "mono",
-						fontSize: "2xs",
-						color: "fg.subtle",
-						cursor: "pointer",
-						textAlign: "left",
-						_hover: { color: "fg.muted" },
-					})}
+			<Breadcrumb>
+				<Breadcrumb.Link
+					to="/leagues/$leagueSlug"
+					params={{ leagueSlug: call.question.league.slug }}
 				>
-					← Back
-				</button>
-			)}
+					{call.question.league.abbreviation}
+				</Breadcrumb.Link>
+				<Breadcrumb.Link
+					to="/questions/$questionId/{-$slug}"
+					params={{
+						questionId: call.question.id,
+						slug: buildQuestionSlug(call.question.title),
+					}}
+				>
+					{call.question.title}
+				</Breadcrumb.Link>
+				<Breadcrumb.Current>@{call.user.username}</Breadcrumb.Current>
+			</Breadcrumb>
 
 			{/* Names the page and nothing else. Who called it, when, in which
 			league, on what kind of question - the card below states all of it,

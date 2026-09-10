@@ -6,13 +6,13 @@ import {
 import { createFileRoute, Link, redirect } from "@tanstack/react-router"
 import { useState } from "react"
 import { FaRegTimesCircle } from "react-icons/fa"
-import { FiChevronLeft } from "react-icons/fi"
 import { css } from "styled-system/css"
 import { VStack } from "styled-system/jsx"
 import { GameMatchupHeader } from "#/components/games/game-matchup-header"
 import { GameWinnerCard } from "#/components/games/game-winner-card"
 import { QuestionCard } from "#/components/questions/question-card"
 import { SortSwitcher } from "#/components/questions/sort-switcher"
+import { Breadcrumb } from "#/components/ui/breadcrumb"
 import { button } from "#/components/ui/button"
 import { EmptyState } from "#/components/ui/empty-state"
 import { InfiniteScroll } from "#/components/ui/infinite-scroll"
@@ -127,25 +127,19 @@ function RouteComponent() {
 
 	return (
 		<VStack gap="6" alignItems="stretch" className={css({ maxWidth: "2xl" })}>
-			<Link
-				to="/leagues/$leagueSlug/games"
-				params={{ leagueSlug: game.league.slug }}
-				search={{ windowKey: game.windowKey }}
-				className={css({
-					display: "inline-flex",
-					alignItems: "center",
-					gap: "1.5",
-					fontFamily: "mono",
-					fontSize: "2xs",
-					letterSpacing: "wide",
-					textTransform: "uppercase",
-					color: "fg.subtle",
-					_hover: { color: "fg.default" },
-				})}
-			>
-				<FiChevronLeft size={11} />
-				{game.league.abbreviation} · Games
-			</Link>
+			<Breadcrumb>
+				{/* The Games tab on this game's own day/week, not today's. */}
+				<Breadcrumb.Link
+					to="/leagues/$leagueSlug/games"
+					params={{ leagueSlug: game.league.slug }}
+					search={{ windowKey: game.windowKey }}
+				>
+					{game.league.abbreviation}
+				</Breadcrumb.Link>
+				<Breadcrumb.Current>
+					{game.awayTeam.abbreviation} @ {game.homeTeam.abbreviation}
+				</Breadcrumb.Current>
+			</Breadcrumb>
 
 			<GameMatchupHeader game={game} />
 
