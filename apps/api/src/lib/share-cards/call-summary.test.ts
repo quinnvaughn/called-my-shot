@@ -150,3 +150,61 @@ describe("buildPickLabel on an award shape", () => {
 		).toBe("1 of 2 hit")
 	})
 })
+
+describe("buildPickLabel on a numeric guess", () => {
+	// A win total snapshots an absolute-mode tolerance band the same way a
+	// batting average does (5 wins for the NBA, 1 for the NFL), so treating
+	// absolute mode alone as "rate stat" printed a 13-win call as "13.000".
+	it("keeps a whole-number stat whole", () => {
+		expect(
+			buildPickLabel({
+				guessValue: 13,
+				question: {
+					shape: "team_season_stat_numeric_guess",
+					ouLine: null,
+					numericToleranceAbsolute: 5,
+					stat: {
+						toleranceTier: { toleranceMode: "absolute", toleranceValue: 5 },
+					},
+				},
+				selections: [],
+			}),
+		).toBe("13")
+	})
+
+	it("pads a rate stat to three decimals", () => {
+		expect(
+			buildPickLabel({
+				guessValue: 0.3,
+				question: {
+					shape: "player_stat_numeric_guess",
+					ouLine: null,
+					numericToleranceAbsolute: 0.02,
+					stat: {
+						toleranceTier: { toleranceMode: "absolute", toleranceValue: 0.02 },
+					},
+				},
+				selections: [],
+			}),
+		).toBe("0.300")
+	})
+
+	// An over/under question carries no tolerance snapshot of its own, so the
+	// picked stat's tier is the only signal for the line's formatting.
+	it("falls back to the stat's own tier for an over/under line", () => {
+		expect(
+			buildPickLabel({
+				guessValue: null,
+				question: {
+					shape: "team_season_stat_over_under",
+					ouLine: 41.5,
+					numericToleranceAbsolute: null,
+					stat: {
+						toleranceTier: { toleranceMode: "absolute", toleranceValue: 5 },
+					},
+				},
+				selections: [{ option: { label: "Over", isCorrect: null } }],
+			}),
+		).toBe("Over 41.5")
+	})
+})

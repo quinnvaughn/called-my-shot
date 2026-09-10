@@ -39,6 +39,29 @@ export const SHAPE_LABEL: Record<QuestionShape, string> = {
 	player_award_finalists: "Season Award",
 }
 
+// Mirrors isRateStat in apps/web/src/lib/field-signal.ts, against this
+// route's own DB row rather than the GraphQL question - note the tolerance
+// mode is the table's lowercase "absolute" here, not the GraphQL enum's
+// "ABSOLUTE". Absolute mode alone does not mean rate stat: a win total
+// snapshots an absolute band too (5 for the NBA, 1 for the NFL), so mode
+// alone renders 13 wins as "13.000". The fractional tolerance amount (0.02
+// for batting average vs 5 for a win total) is the signal that a decimal
+// point is wanted at all.
+export function isRateStat(question: {
+	numericToleranceAbsolute: number | null
+	stat?: {
+		toleranceTier?: { toleranceMode: string; toleranceValue: number } | null
+	} | null
+}): boolean {
+	if (question.numericToleranceAbsolute !== null) {
+		return !Number.isInteger(question.numericToleranceAbsolute)
+	}
+	const tier = question.stat?.toleranceTier
+	return (
+		tier?.toleranceMode === "absolute" && !Number.isInteger(tier.toleranceValue)
+	)
+}
+
 // Mirrors formatGuess in apps/web/src/lib/field-signal.ts - pads a rate
 // stat (batting average, ERA) to a fixed 3 decimals so a value like 0.3
 // doesn't silently read as ".3" instead of ".300" on the exported PNG. No
@@ -78,20 +101,20 @@ export function buildPickLabel(call: {
 		shape: QuestionShape
 		ouLine: number | null
 		numericToleranceAbsolute: number | null
-		stat: { toleranceTier: { toleranceMode: string } | null } | null
+		stat: {
+			toleranceTier: { toleranceMode: string; toleranceValue: number } | null
+		} | null
 	}
 	selections: { option: { label: string; isCorrect: boolean | null } }[]
 }): string {
-	const isRateStat =
-		call.question.numericToleranceAbsolute !== null ||
-		call.question.stat?.toleranceTier?.toleranceMode === "absolute"
+	const rateStat = isRateStat(call.question)
 	// isNumericGuessShape rather than a hand-listed pair - this used to check
 	// only player_/team_stat_numeric_guess and so labelled every
 	// team_season_stat_numeric_guess call "-", which is the exact drift
 	// NUMERIC_GUESS_SHAPES' own comment in @called-my-shot/scoring warns about.
 	if (isNumericGuessShape(call.question.shape)) {
 		return call.guessValue !== null
-			? formatGuess(call.guessValue, isRateStat)
+			? formatGuess(call.guessValue, rateStat)
 			: "-"
 	}
 	if (
@@ -120,7 +143,7 @@ export function buildPickLabel(call: {
 			call.question.shape === "game_total_over_under") &&
 		call.question.ouLine !== null
 	) {
-		return `${selection.option.label} ${formatGuess(call.question.ouLine, isRateStat)}`
+		return `${selection.option.label} ${formatGuess(call.question.ouLine, rateStat)}`
 	}
 	return selection.option.label
 }
@@ -193,7 +216,11 @@ export async function loadCallSummaries(
 					league: { columns: { abbreviation: true } },
 					stat: {
 						columns: {},
-						with: { toleranceTier: { columns: { toleranceMode: true } } },
+						with: {
+							toleranceTier: {
+								columns: { toleranceMode: true, toleranceValue: true },
+							},
+						},
 					},
 				},
 			},
