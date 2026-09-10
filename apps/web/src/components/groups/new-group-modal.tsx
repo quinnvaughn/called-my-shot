@@ -13,7 +13,22 @@ import { FormError } from "../ui/form-error"
 import { Modal } from "../ui/modal"
 import { TextInput } from "../ui/text-input"
 
-export function NewGroupModal() {
+type CreatedGroup = {
+	id: string
+	name: string
+	myInvite: { id: string; code: string; expiresAt?: string | null }
+}
+
+type Props = {
+	// Replaces the default "navigate to the new group and close" behavior.
+	// Onboarding uses it to hand straight into the invite modal instead, since
+	// a group with nobody in it is not much use and the link is what fixes
+	// that. A callback rather than a mode flag so this file stays unaware of
+	// who is calling it.
+	onCreated?: (group: CreatedGroup) => void
+}
+
+export function NewGroupModal({ onCreated }: Props = {}) {
 	const createGroup = useGqlMutation(CreateGroupDocument)
 	const router = useRouter()
 	const queryClient = useQueryClient()
@@ -46,9 +61,16 @@ export function NewGroupModal() {
 					helpers.setFormError("You need to sign in to create a group.")
 				})
 				.with({ __typename: "GroupPayload" }, async (r) => {
-					track("group_created", { groupId: r.group.id })
+					track("group_created", {
+						groupId: r.group.id,
+						surface: onCreated ? "onboarding" : "groups_page",
+					})
 					await queryClient.invalidateQueries()
 					await router.invalidate()
+					if (onCreated) {
+						onCreated(r.group)
+						return
+					}
 					await navigate({
 						to: "/groups/$groupId",
 						params: { groupId: r.group.id },

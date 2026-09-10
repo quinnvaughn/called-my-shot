@@ -9,6 +9,7 @@ import type { IconType } from "react-icons/lib"
 import { css, cx } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
 import { AuthModal } from "#/components/auth/auth-modal"
+import { WalkthroughLauncher } from "#/components/onboarding/walkthrough-launcher"
 import { Brand } from "#/components/ui/brand"
 import { Button, button } from "#/components/ui/button"
 import { unreadNotificationCountQuery } from "#/graphql/queries/notifications"
@@ -160,6 +161,11 @@ export function AppShell({
 					</div>
 				)}
 			</div>
+			{/* Fixed, so it belongs to the shell rather than to any one page -
+			    the offer follows the user around until they take it or close
+			    it. Outside the layout row above so the right rail's sticky
+			    column has no say in where it sits. */}
+			<WalkthroughLauncher />
 		</div>
 	)
 }

@@ -81,6 +81,22 @@ export const UserRef = builder.drizzleObject("users", {
 			type: "String",
 			resolve: (user) => user.createdAt.toISOString(),
 		}),
+		// Null on a brand new account, which is what makes the get-started
+		// checklist appear. Read straight off the Me query into router context,
+		// so any component can check it without a request of its own.
+		onboardingDismissedAt: t.field({
+			type: "String",
+			nullable: true,
+			resolve: (user) => user.onboardingDismissedAt?.toISOString() ?? null,
+		}),
+		// Set means the checklist renders as a single collapsed row instead of
+		// the full card. Independent of the dismissal above: collapsed is a
+		// display choice, dismissed is the card being gone.
+		onboardingCollapsedAt: t.field({
+			type: "String",
+			nullable: true,
+			resolve: (user) => user.onboardingCollapsedAt?.toISOString() ?? null,
+		}),
 		// null until this user has made a single call site-wide
 		careerStats: t.field({
 			type: UserCareerStatsRef,

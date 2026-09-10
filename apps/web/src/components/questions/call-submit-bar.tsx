@@ -1,6 +1,7 @@
 import { css } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
 import { match } from "ts-pattern"
+import { useTourAnchor } from "#/components/onboarding/tour-anchors"
 import type { CastCallFormState } from "#/components/questions/cast-call-form"
 import { ConfirmCallModal } from "#/components/questions/confirm-call-modal"
 import { Button } from "#/components/ui/button"
@@ -16,6 +17,9 @@ import { openModal } from "#/stores/modal-store"
 // $questionId.tsx's `minHeight`) for this to actually stick.
 export function CallSubmitBar({ callForm }: { callForm: CastCallFormState }) {
 	const { question, bucket, form, selections } = callForm
+
+	// No-op unless a first-call walkthrough is running on this page.
+	const submitAnchor = useTourAnchor("submit")
 
 	if (!question) return null
 
@@ -36,6 +40,7 @@ export function CallSubmitBar({ callForm }: { callForm: CastCallFormState }) {
 				<VStack
 					gap="3"
 					alignItems="stretch"
+					ref={submitAnchor}
 					className={css({
 						position: "sticky",
 						bottom: 0,

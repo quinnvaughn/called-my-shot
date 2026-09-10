@@ -12,6 +12,8 @@ import { FiShare } from "react-icons/fi"
 import { css } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
 import { AuthModal } from "#/components/auth/auth-modal"
+import { FirstCallTour } from "#/components/onboarding/first-call-tour"
+import { TourAnchorProvider } from "#/components/onboarding/tour-anchors"
 import { BallotStrip } from "#/components/questions/ballot-strip"
 import { CallSubmitBar } from "#/components/questions/call-submit-bar"
 import {
@@ -68,6 +70,16 @@ function sectionLabel(text: string) {
 
 export const Route = createFileRoute("/_app/questions/$questionId/{-$slug}")({
 	component: RouteComponent,
+	// The first-call walkthrough is addressed by the URL rather than by a
+	// store, so a reload (or a link someone was sent) resumes it instead of
+	// dropping the user into a form nobody explained. Anything else in `tour`
+	// is discarded rather than trusted.
+	// The return type keeps `tour` OPTIONAL rather than "first-call |
+	// undefined": a key that is always present, even valued undefined, makes
+	// `search` a required prop on every <Link> to this route, and there are a
+	// dozen of those that have nothing to do with onboarding.
+	validateSearch: (search: Record<string, unknown>): { tour?: "first-call" } =>
+		search.tour === "first-call" ? { tour: "first-call" } : {},
 	// Without this, navigating between two questions on this same route (e.g.
 	// a BallotStrip link) doesn't remount RouteComponent - only the loader data
 	// updates. useCastCallForm's internal useForm store (and its own
@@ -122,6 +134,8 @@ export const Route = createFileRoute("/_app/questions/$questionId/{-$slug}")({
 
 function RouteComponent() {
 	const { questionId } = Route.useParams()
+	const { tour } = Route.useSearch()
+	const navigate = Route.useNavigate()
 	const { data } = useSuspenseQuery(questionDetailQuery(questionId))
 	const question = data.question
 	const { me } = useRouteContext({ from: "__root__" })
@@ -169,222 +183,227 @@ function RouteComponent() {
 			: []
 
 	return (
-		<VStack
-			gap="6"
-			alignItems="stretch"
-			className={css({ maxWidth: "2xl", minHeight: "100%" })}
-		>
-			{me && (
-				<button
-					type="button"
-					onClick={() => router.history.back()}
-					className={css({
-						fontFamily: "mono",
-						fontSize: "2xs",
-						color: "fg.subtle",
-						cursor: "pointer",
-						textAlign: "left",
-						_hover: { color: "fg.muted" },
-					})}
-				>
-					← Back
-				</button>
-			)}
-			<BallotStrip question={question} />
-			<VStack gap="3" alignItems="stretch">
-				<HStack gap="2" justify="space-between" alignItems="flex-start">
-					<HStack gap="2" flexWrap="wrap">
-						{question.isOfficial && <Tag variant="primary">Official</Tag>}
-						<Tag>{question.league.abbreviation}</Tag>
-						<Tag>{questionShapeLabel[question.shape]}</Tag>
-					</HStack>
-					{/* Shares the QUESTION - an invitation to call it. Distinct from
+		<TourAnchorProvider>
+			<VStack
+				gap="6"
+				alignItems="stretch"
+				className={css({ maxWidth: "2xl", minHeight: "100%" })}
+			>
+				{me && (
+					<button
+						type="button"
+						onClick={() => router.history.back()}
+						className={css({
+							fontFamily: "mono",
+							fontSize: "2xs",
+							color: "fg.subtle",
+							cursor: "pointer",
+							textAlign: "left",
+							_hover: { color: "fg.muted" },
+						})}
+					>
+						← Back
+					</button>
+				)}
+				<BallotStrip question={question} />
+				<VStack gap="3" alignItems="stretch">
+					<HStack gap="2" justify="space-between" alignItems="flex-start">
+						<HStack gap="2" flexWrap="wrap">
+							{question.isOfficial && <Tag variant="primary">Official</Tag>}
+							<Tag>{question.league.abbreviation}</Tag>
+							<Tag>{questionShapeLabel[question.shape]}</Tag>
+						</HStack>
+						{/* Shares the QUESTION - an invitation to call it. Distinct from
 					the link on a settled call below, which shares one person's own
 					record of it. Available regardless of status or whether you've
 					called: an open question is the one most worth sending someone. */}
-					<Button
-						variant="ghost"
-						size="sm"
-						aria-label="Share this question"
-						onClick={() => {
-							track("share_sheet_opened", {
-								questionId: question.id,
-								surface: "question_detail",
-							})
-							openModal(
-								<ShareQuestionModal
-									questionId={question.id}
-									questionTitle={question.title}
-									sharedGroupIds={question.viewerSharedGroupIds}
-									canShareToGroup={me !== null}
-								/>,
-							)
-						}}
-						className={css({ flexShrink: 0 })}
-					>
-						<FiShare size={14} />
-						Share
-					</Button>
-				</HStack>
-				<h1 className={css({ fontSize: "2xl", fontFamily: "heading" })}>
-					{question.title}
-				</h1>
-			</VStack>
-			{/* Only rendered when this question is actually tied to a single
+						<Button
+							variant="ghost"
+							size="sm"
+							aria-label="Share this question"
+							onClick={() => {
+								track("share_sheet_opened", {
+									questionId: question.id,
+									surface: "question_detail",
+								})
+								openModal(
+									<ShareQuestionModal
+										questionId={question.id}
+										questionTitle={question.title}
+										sharedGroupIds={question.viewerSharedGroupIds}
+										canShareToGroup={me !== null}
+									/>,
+								)
+							}}
+							className={css({ flexShrink: 0 })}
+						>
+							<FiShare size={14} />
+							Share
+						</Button>
+					</HStack>
+					<h1 className={css({ fontSize: "2xl", fontFamily: "heading" })}>
+						{question.title}
+					</h1>
+				</VStack>
+				{/* Only rendered when this question is actually tied to a single
 			game - season-long questions (championship, MVP) have no game and
 			this stays hidden for those. */}
-			{question.game && <GameBlock game={question.game} />}
-			<Card>
-				<Card.Body>
-					<VStack gap="0" alignItems="stretch">
-						<PanelRow
-							label="CREATED BY"
-							value={
-								question.creator ? (
-									<Link
-										to="/user/$username"
-										params={{ username: question.creator.username }}
-										className={css({
-											display: "inline-flex",
-											_hover: {
-												"& span:first-of-type": { textDecoration: "underline" },
-											},
-										})}
-									>
-										<Identity
-											name={question.creator.name}
-											username={question.creator.username}
-										/>
-									</Link>
-								) : (
-									<span className={css({ fontSize: "sm", color: "fg.subtle" })}>
-										Deleted user
-									</span>
-								)
-							}
-						/>
-						<PanelRow
-							label="RESOLVES"
-							value={
-								resolutionSourceUrl ? (
-									<a
-										href={resolutionSourceUrl}
-										target="_blank"
-										rel="noreferrer"
-										className={css({
-											textDecoration: "underline",
-											textUnderlineOffset: "2px",
-											_hover: { color: "primary.default" },
-										})}
-									>
-										{question.resolutionSource} ↗
-									</a>
-								) : (
-									question.resolutionSource
-								)
-							}
-						/>
-						<PanelRow
-							label="LOCKS"
-							value={DateTime.fromISO(question.locksAt).toFormat(
-								"MMM d, h:mm a",
-							)}
-						/>
-						{question.numericToleranceAbsolute !== null ? (
+				{question.game && <GameBlock game={question.game} />}
+				<Card>
+					<Card.Body>
+						<VStack gap="0" alignItems="stretch">
 							<PanelRow
-								label="TOLERANCE"
-								value={`±${formatGuess(
-									question.numericToleranceAbsolute,
-									!Number.isInteger(question.numericToleranceAbsolute),
-								)}`}
+								label="CREATED BY"
+								value={
+									question.creator ? (
+										<Link
+											to="/user/$username"
+											params={{ username: question.creator.username }}
+											className={css({
+												display: "inline-flex",
+												_hover: {
+													"& span:first-of-type": {
+														textDecoration: "underline",
+													},
+												},
+											})}
+										>
+											<Identity
+												name={question.creator.name}
+												username={question.creator.username}
+											/>
+										</Link>
+									) : (
+										<span
+											className={css({ fontSize: "sm", color: "fg.subtle" })}
+										>
+											Deleted user
+										</span>
+									)
+								}
 							/>
-						) : (
-							question.numericTolerancePct !== null && (
+							<PanelRow
+								label="RESOLVES"
+								value={
+									resolutionSourceUrl ? (
+										<a
+											href={resolutionSourceUrl}
+											target="_blank"
+											rel="noreferrer"
+											className={css({
+												textDecoration: "underline",
+												textUnderlineOffset: "2px",
+												_hover: { color: "primary.default" },
+											})}
+										>
+											{question.resolutionSource} ↗
+										</a>
+									) : (
+										question.resolutionSource
+									)
+								}
+							/>
+							<PanelRow
+								label="LOCKS"
+								value={DateTime.fromISO(question.locksAt).toFormat(
+									"MMM d, h:mm a",
+								)}
+							/>
+							{question.numericToleranceAbsolute !== null ? (
 								<PanelRow
 									label="TOLERANCE"
-									value={`±${Math.round(question.numericTolerancePct * 100)}% of actual`}
+									value={`±${formatGuess(
+										question.numericToleranceAbsolute,
+										!Number.isInteger(question.numericToleranceAbsolute),
+									)}`}
 								/>
-							)
-						)}
-					</VStack>
-				</Card.Body>
-				<Card.Footer>
-					<HStack justify="center" gap="4" width="full">
-						<Link
-							to="/how-it-works"
-							hash="resolution"
-							className={css({
-								fontFamily: "mono",
-								fontSize: "2xs",
-								letterSpacing: "wide",
-								color: "fg.subtle",
-								_hover: { color: "fg.muted" },
-							})}
-						>
-							how resolution works →
-						</Link>
-						<span
-							className={css({
-								fontFamily: "mono",
-								fontSize: "2xs",
-								color: "fg.subtle",
-							})}
-						>
-							·
-						</span>
-						{question.viewerReport ? (
-							<span
-								className={css({
-									fontFamily: "mono",
-									fontSize: "2xs",
-									letterSpacing: "wide",
-									color: "fg.muted",
-								})}
-							>
-								reported, thanks
-							</span>
-						) : (
-							<button
-								type="button"
-								onClick={() =>
-									me
-										? openModal(
-												<ReportQuestionModal questionId={question.id} />,
-											)
-										: openModal(<AuthModal defaultView="signin" />)
-								}
+							) : (
+								question.numericTolerancePct !== null && (
+									<PanelRow
+										label="TOLERANCE"
+										value={`±${Math.round(question.numericTolerancePct * 100)}% of actual`}
+									/>
+								)
+							)}
+						</VStack>
+					</Card.Body>
+					<Card.Footer>
+						<HStack justify="center" gap="4" width="full">
+							<Link
+								to="/how-it-works"
+								hash="resolution"
 								className={css({
 									fontFamily: "mono",
 									fontSize: "2xs",
 									letterSpacing: "wide",
 									color: "fg.subtle",
-									cursor: "pointer",
-									_hover: { color: "primary.default" },
+									_hover: { color: "fg.muted" },
 								})}
 							>
-								report this question
-							</button>
-						)}
-					</HStack>
-				</Card.Footer>
-			</Card>
-			<ViewerStatusCard
-				questionId={question.id}
-				state={state}
-				callCount={question.callCount}
-				totalOptions={question.options.length}
-				numericTolerancePct={question.numericTolerancePct}
-				numericToleranceAbsolute={question.numericToleranceAbsolute}
-				isRateStat={callForm.isRateStat}
-				viewerCall={viewerCall}
-				hasViewerDispute={question.viewerDispute !== null}
-				hasSettledDispute={question.hasSettledDispute}
-				answer={answer}
-				resolutionNote={question.resolutionNote}
-				fieldAccuracyPct={fieldAccuracyPct}
-				questionTitle={question.title}
-			/>
-			{/* While the call is still open, the picker itself (CastCallForm)
+								how resolution works →
+							</Link>
+							<span
+								className={css({
+									fontFamily: "mono",
+									fontSize: "2xs",
+									color: "fg.subtle",
+								})}
+							>
+								·
+							</span>
+							{question.viewerReport ? (
+								<span
+									className={css({
+										fontFamily: "mono",
+										fontSize: "2xs",
+										letterSpacing: "wide",
+										color: "fg.muted",
+									})}
+								>
+									reported, thanks
+								</span>
+							) : (
+								<button
+									type="button"
+									onClick={() =>
+										me
+											? openModal(
+													<ReportQuestionModal questionId={question.id} />,
+												)
+											: openModal(<AuthModal defaultView="signin" />)
+									}
+									className={css({
+										fontFamily: "mono",
+										fontSize: "2xs",
+										letterSpacing: "wide",
+										color: "fg.subtle",
+										cursor: "pointer",
+										_hover: { color: "primary.default" },
+									})}
+								>
+									report this question
+								</button>
+							)}
+						</HStack>
+					</Card.Footer>
+				</Card>
+				<ViewerStatusCard
+					questionId={question.id}
+					state={state}
+					callCount={question.callCount}
+					totalOptions={question.options.length}
+					numericTolerancePct={question.numericTolerancePct}
+					numericToleranceAbsolute={question.numericToleranceAbsolute}
+					isRateStat={callForm.isRateStat}
+					viewerCall={viewerCall}
+					hasViewerDispute={question.viewerDispute !== null}
+					hasSettledDispute={question.hasSettledDispute}
+					answer={answer}
+					resolutionNote={question.resolutionNote}
+					fieldAccuracyPct={fieldAccuracyPct}
+					questionTitle={question.title}
+				/>
+				{/* While the call is still open, the picker itself (CastCallForm)
 			shows this same live breakdown inline - one card for "make your
 			call" and "how the field's calling it", not two on the same page.
 			Once there's nothing left to pick (called, locked, resolved), it
@@ -392,43 +411,58 @@ function RouteComponent() {
 			(your call/outcome vs. how the whole field called it are two
 			different concepts, but the order between them never flips
 			regardless of which status - pending, won, either loss - is active). */}
-			{!(state.canCall && !viewerCall) && (
-				<FieldBreakdownCard>
-					{isNumericQuestionShape(question.shape) ? (
-						<GuessDistributionChart
-							buckets={question.guessDistribution}
-							averageGuess={question.averageGuess}
-							myGuess={viewerCall?.guessValue ?? null}
-							isRateStat={callForm.isRateStat}
-						/>
-					) : (
-						<OptionFieldBreakdown
-							options={question.options}
-							shape={question.shape}
-							ouLine={question.ouLine}
-							isRateStat={callForm.isRateStat}
-							callCount={question.callCount}
-							highlightedOptionIds={breakdownHighlightIds}
-						/>
-					)}
-				</FieldBreakdownCard>
-			)}
-			{state.canCall && !viewerCall && <CastCallForm callForm={callForm} />}
-			{isCreator && state.isLocked && !state.isSettled && (
-				<Button
-					variant="outline"
-					onClick={() =>
-						openModal(<ResolveQuestionModal question={question} />)
-					}
-				>
-					Resolve this question
-				</Button>
-			)}
-			<VStack gap="3" alignItems="stretch">
-				{sectionLabel("Calls")}
-				<QuestionCallsList questionId={question.id} />
+				{!(state.canCall && !viewerCall) && (
+					<FieldBreakdownCard>
+						{isNumericQuestionShape(question.shape) ? (
+							<GuessDistributionChart
+								buckets={question.guessDistribution}
+								averageGuess={question.averageGuess}
+								myGuess={viewerCall?.guessValue ?? null}
+								isRateStat={callForm.isRateStat}
+							/>
+						) : (
+							<OptionFieldBreakdown
+								options={question.options}
+								shape={question.shape}
+								ouLine={question.ouLine}
+								isRateStat={callForm.isRateStat}
+								callCount={question.callCount}
+								highlightedOptionIds={breakdownHighlightIds}
+							/>
+						)}
+					</FieldBreakdownCard>
+				)}
+				{state.canCall && !viewerCall && <CastCallForm callForm={callForm} />}
+				{isCreator && state.isLocked && !state.isSettled && (
+					<Button
+						variant="outline"
+						onClick={() =>
+							openModal(<ResolveQuestionModal question={question} />)
+						}
+					>
+						Resolve this question
+					</Button>
+				)}
+				<VStack gap="3" alignItems="stretch">
+					{sectionLabel("Calls")}
+					<QuestionCallsList questionId={question.id} />
+				</VStack>
+				{state.canCall && !viewerCall && <CallSubmitBar callForm={callForm} />}
+				{/* Rendered last so its effects run after the anchors above have
+			    mounted and registered themselves. Gated on the same condition
+			    as the form itself: there is nothing to walk through on a
+			    question that is already called, locked or resolved. */}
+				{tour === "first-call" && state.canCall && !viewerCall && (
+					<FirstCallTour
+						hasSelection={callForm.selections.length > 0}
+						onFinish={() => {
+							// Drops the param so a refresh (or a back-navigation
+							// later) doesn't replay a tour they already finished.
+							void navigate({ search: {}, replace: true })
+						}}
+					/>
+				)}
 			</VStack>
-			{state.canCall && !viewerCall && <CallSubmitBar callForm={callForm} />}
-		</VStack>
+		</TourAnchorProvider>
 	)
 }

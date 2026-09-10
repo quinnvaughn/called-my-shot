@@ -5,15 +5,17 @@ import {
 } from "@called-my-shot/scoring"
 import { useQueryClient } from "@tanstack/react-query"
 import { useRouter } from "@tanstack/react-router"
-import { useMemo, useRef, useState } from "react"
+import { createElement, useMemo, useRef, useState } from "react"
 import { match } from "ts-pattern"
+import { FirstCallDoneModal } from "#/components/onboarding/first-call-done-modal"
 import { type FragmentType, graphql, useFragment } from "#/graphql/generated"
 import { useGqlMutation } from "#/graphql/hooks"
 import { CastCallDocument } from "#/graphql/mutations/calls"
 import { track } from "#/lib/analytics"
 import { isRateStat as computeIsRateStat } from "#/lib/field-signal"
 import { useForm } from "#/lib/form/use-form"
-import { closeModal } from "#/stores/modal-store"
+import { closeModal, openModal } from "#/stores/modal-store"
+import { consumeRanFirstCallTour } from "#/stores/tour-store"
 
 export const CastCallFormFragment = graphql(`
 	fragment CastCallForm_question on Question {
@@ -24,6 +26,9 @@ export const CastCallFormFragment = graphql(`
 		numericToleranceAbsolute
 		picksRequired
 		callCount
+		# Named in the walkthrough's closing modal, which tells a first-time
+		# caller where the result is going to come from.
+		resolutionSource
 		seasonGamesPlayed
 		seasonTotalGames
 		averageGuess
@@ -345,6 +350,20 @@ export function useCastCallForm(
 					await queryClient.invalidateQueries()
 					await router.invalidate()
 					closeModal()
+
+					// Closes out the walkthrough on the call it was built
+					// around. Asks the tour store rather than the ?tour param,
+					// which the tour clears as soon as it ends - well before
+					// the user gets around to actually submitting.
+					if (question && consumeRanFirstCallTour()) {
+						track("onboarding_completed", {})
+						// createElement rather than JSX: this hook is a .ts file.
+						openModal(
+							createElement(FirstCallDoneModal, {
+								resolutionSource: question.resolutionSource,
+							}),
+						)
+					}
 				})
 				.exhaustive()
 		},

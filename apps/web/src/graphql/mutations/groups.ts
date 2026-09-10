@@ -9,6 +9,15 @@ export const CreateGroupDocument = graphql(`
 					id
 					name
 					memberCount
+					# Selected here so a caller can hand straight into the
+					# invite modal without a second round trip. Group.myInvite
+					# is non-null: the creator's own link exists the moment the
+					# group does.
+					myInvite {
+						id
+						code
+						expiresAt
+					}
 				}
 			}
 			... on ValidationError {

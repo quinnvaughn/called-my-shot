@@ -13,6 +13,8 @@ export const MeDocument = graphql(`
 			isVerifiedPundit
 			questionCreationEnabled
 			createdAt
+			onboardingDismissedAt
+			onboardingCollapsedAt
 		}
 	}
 `)

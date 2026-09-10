@@ -391,4 +391,81 @@ builder.mutationFields((t) => ({
 			return true
 		},
 	}),
+
+	// Both onboarding mutations below write nothing but a timestamp, and return
+	// the user so the client can re-read onboardingDismissedAt off the result
+	// instead of refetching Me.
+
+	dismissOnboarding: t.field({
+		type: UserRef,
+		errors: {
+			types: [AuthenticationError],
+			directResult: true,
+			union: { name: "DismissOnboardingResult" },
+		},
+		resolve: async (_root, _args, ctx) => {
+			const user = requireUser(ctx)
+			const [updated] = await db
+				.update(users)
+				.set({ onboardingDismissedAt: new Date() })
+				.where(eq(users.id, user.id))
+				.returning()
+			if (!updated) {
+				throw new Error("dismissOnboarding: user vanished mid-request")
+			}
+			return updated
+		},
+	}),
+
+	// Collapsing is the reversible step in front of dismissing, so this takes
+	// the state to set rather than being a one-way door like the two either
+	// side of it.
+	setOnboardingCollapsed: t.field({
+		type: UserRef,
+		args: { collapsed: t.arg.boolean({ required: true }) },
+		errors: {
+			types: [AuthenticationError],
+			directResult: true,
+			union: { name: "SetOnboardingCollapsedResult" },
+		},
+		resolve: async (_root, args, ctx) => {
+			const user = requireUser(ctx)
+			const [updated] = await db
+				.update(users)
+				.set({ onboardingCollapsedAt: args.collapsed ? new Date() : null })
+				.where(eq(users.id, user.id))
+				.returning()
+			if (!updated) {
+				throw new Error("setOnboardingCollapsed: user vanished mid-request")
+			}
+			return updated
+		},
+	}),
+
+	// Powers "Replay walkthrough" in the account menu, which is what makes the
+	// whole thing genuinely optional rather than one-shot: dismissing it costs
+	// nothing, because it can always be brought back.
+	restartOnboarding: t.field({
+		type: UserRef,
+		errors: {
+			types: [AuthenticationError],
+			directResult: true,
+			union: { name: "RestartOnboardingResult" },
+		},
+		resolve: async (_root, _args, ctx) => {
+			const user = requireUser(ctx)
+			// Clears the collapse too. Replaying is a request to see the thing,
+			// and restoring it folded shut would be a menu item that appears to
+			// do nothing.
+			const [updated] = await db
+				.update(users)
+				.set({ onboardingDismissedAt: null, onboardingCollapsedAt: null })
+				.where(eq(users.id, user.id))
+				.returning()
+			if (!updated) {
+				throw new Error("restartOnboarding: user vanished mid-request")
+			}
+			return updated
+		},
+	}),
 }))

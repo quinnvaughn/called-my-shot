@@ -30,7 +30,9 @@ type AnalyticsEvents = {
 	question_disputed: { questionId: string; reason: string }
 	question_reported: { questionId: string; reason: string }
 
-	group_created: { groupId: string }
+	// `surface` keeps it visible how many groups the onboarding checklist is
+	// actually responsible for, versus people who went looking for one.
+	group_created: { groupId: string; surface: "groups_page" | "onboarding" }
 	group_joined: { groupId: string; source: "invite_link" | "code_form" }
 	group_invite_copied: { groupId: string }
 
@@ -63,6 +65,20 @@ type AnalyticsEvents = {
 	}
 
 	support_ticket_filed: { category: string }
+
+	// The onboarding walkthrough. `surface` separates the two places a user can
+	// enter it, since the intro modal and the checklist are independently
+	// skippable and it matters which one people actually act on.
+	onboarding_started: { surface: "launcher" | "checklist" | "first_call_tour" }
+	onboarding_step_completed: { step: string }
+	// stepsComplete is what makes a dismissal readable: bailing out at 0 of 2
+	// is a different signal from tidying away a list that's already done.
+	onboarding_dismissed: {
+		at: "launcher" | "checklist"
+		stepsComplete: number
+	}
+	onboarding_completed: Record<string, never>
+	first_call_tour_step: { step: number }
 }
 
 const POSTHOG_KEY = import.meta.env.VITE_PUBLIC_POSTHOG_KEY as

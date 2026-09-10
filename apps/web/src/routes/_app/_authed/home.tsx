@@ -4,6 +4,7 @@ import type { ReactNode } from "react"
 import { css } from "styled-system/css"
 import { Grid, VStack } from "styled-system/jsx"
 import { LeagueRoomCard } from "#/components/home/league-room-card"
+import { OnboardingChecklist } from "#/components/onboarding/onboarding-checklist"
 import { QuestionCard } from "#/components/questions/question-card"
 import { EmptyState } from "#/components/ui/empty-state"
 import { PageHeader } from "#/components/ui/page-header"
@@ -50,6 +51,11 @@ function RouteComponent() {
 				title="Home"
 				subtitle="Where things are and what's about to lock"
 			/>
+
+			{/* Renders nothing for an account that has already done everything on
+			    it, or dismissed it. This route's own comment calls itself a
+			    checklist of what's actionable right now, which is the same job. */}
+			<OnboardingChecklist />
 
 			<VStack gap="3" alignItems="stretch">
 				<SectionLabel>Leagues</SectionLabel>

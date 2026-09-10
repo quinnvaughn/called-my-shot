@@ -44,6 +44,23 @@ export const users = pgTable("users", {
 	questionCreationEnabled: boolean("question_creation_enabled")
 		.notNull()
 		.default(true),
+	// Null means the get-started checklist is still showing on /home. Together
+	// with onboardingCollapsedAt below, the only onboarding state stored at
+	// all: which steps are done is derived from the user's real calls and email
+	// status, so these record the one thing no other row can - what they chose
+	// to do with the card.
+	//
+	// Deliberately has no backfill. Every account that predates onboarding
+	// starts null and gets the checklist, which is intended rather than an
+	// oversight. A timestamp rather than a boolean so support can see when.
+	onboardingDismissedAt: timestamp("onboarding_dismissed_at"),
+	// Null means the card is expanded. Collapsed is the reversible middle
+	// ground between reading the checklist and destroying it: the card shrinks
+	// to a single row that still says how far along you are, and dismissing for
+	// good is only offered from there. Stored rather than kept in localStorage
+	// so the choice follows the account to a second device, the same as the
+	// dismissal it sits in front of.
+	onboardingCollapsedAt: timestamp("onboarding_collapsed_at"),
 	createdAt: timestamp("created_at").notNull().defaultNow(),
 })
 export type User = typeof users.$inferSelect

@@ -140,6 +140,19 @@ export default defineConfig({
           // a form inside a modal, and a popover that's behind the modal
           // that spawned it is unusable.
           popover: { value: "110" },
+          // The walkthrough launcher (onboarding/walkthrough-launcher.tsx) -
+          // a fixed pill floating over page content. Deliberately BELOW
+          // `overlay`: it is a standing offer, not something that should sit
+          // on top of a modal the user actually opened.
+          launcher: { value: "90" },
+          // The onboarding walkthrough's dimming layer (ui/coachmark.tsx) -
+          // a single box-shadow ring that darkens everything except the
+          // element being explained.
+          coachmarkSpotlight: { value: "119" },
+          // The coachmark bubble itself. Top of the stack on purpose: it can
+          // be pointing at a select or dropdown, and a tooltip explaining a
+          // control that renders behind that control explains nothing.
+          coachmark: { value: "120" },
         },
       },
       keyframes: {
