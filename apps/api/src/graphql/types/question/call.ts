@@ -188,7 +188,7 @@ export const CallRef = builder.drizzleObject("calls", {
 				if (!leagueId) return null
 				const agg = await aggregatePointsByUser({
 					userIds: [call.userId],
-					leagueId,
+					leagueIds: [leagueId],
 				})
 				const summary = agg.get(call.userId)
 				return summary ? accuracyFrom(summary) : null

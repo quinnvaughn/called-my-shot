@@ -1,4 +1,8 @@
-import { createGroupSchema, joinGroupSchema } from "@called-my-shot/schemas"
+import {
+	createGroupSchema,
+	joinGroupSchema,
+	updateGroupSchema,
+} from "@called-my-shot/schemas"
 import { and, eq } from "drizzle-orm"
 import { db } from "../../../db"
 import { groupMembers, groups, questionShares } from "../../../db/schema"
@@ -12,11 +16,14 @@ import {
 import {
 	expiryToDate,
 	getOrCreateMemberInvite,
+	getTrackedLeagueIds,
 	insertGroupInvite,
 	isInviteExpired,
 	regenerateInviteCode,
 	requireAdmin,
 	requireInviteOwnerOrAdmin,
+	requireKnownLeagueIds,
+	setTrackedLeagues,
 } from "../../../lib/groups"
 import { createNotifications } from "../../../lib/notifications"
 import { builder } from "../../builder"
@@ -26,6 +33,7 @@ import {
 	GroupPayload,
 	JoinGroupInput,
 	QuestionSharePayload,
+	UpdateGroupInput,
 } from "./inputs"
 import { GroupInviteRef } from "./refs"
 
@@ -40,10 +48,14 @@ builder.mutationFields((t) => ({
 		args: { input: t.arg({ type: CreateGroupInput, required: true }) },
 		resolve: async (_root, args, ctx) => {
 			const user = requireUser(ctx)
-			const parsed = createGroupSchema.safeParse(args.input)
+			const parsed = createGroupSchema.safeParse({
+				name: args.input.name,
+				leagueIds: args.input.leagueIds ?? undefined,
+			})
 			if (!parsed.success) {
 				throw ValidationError.fromZodIssues(parsed.error.issues)
 			}
+			await requireKnownLeagueIds(parsed.data.leagueIds)
 
 			const [group] = await db
 				.insert(groups)
@@ -52,8 +64,42 @@ builder.mutationFields((t) => ({
 			await db
 				.insert(groupMembers)
 				.values({ groupId: group.id, userId: user.id, role: "admin" })
+			await setTrackedLeagues(db, group.id, parsed.data.leagueIds)
 			await insertGroupInvite(group.id, user.id, expiryToDate("SEVEN_DAYS"))
 
+			return { group }
+		},
+	}),
+
+	// The admin settings form - name and tracked leagues save together, so a
+	// rejected league can't leave the rename applied on its own.
+	updateGroup: t.field({
+		type: GroupPayload,
+		errors: {
+			types: [AuthenticationError, AuthorizationError, NotFoundError],
+			directResult: true,
+			union: { name: "UpdateGroupResult" },
+		},
+		args: { input: t.arg({ type: UpdateGroupInput, required: true }) },
+		resolve: async (_root, args, ctx) => {
+			const user = requireUser(ctx)
+			const parsed = updateGroupSchema.safeParse(args.input)
+			if (!parsed.success) {
+				throw ValidationError.fromZodIssues(parsed.error.issues)
+			}
+			await requireAdmin(parsed.data.groupId, user.id)
+			await requireKnownLeagueIds(parsed.data.leagueIds)
+
+			const group = await db.transaction(async (tx) => {
+				const [updated] = await tx
+					.update(groups)
+					.set({ name: parsed.data.name })
+					.where(eq(groups.id, parsed.data.groupId))
+					.returning()
+				if (!updated) throw new NotFoundError("Group not found")
+				await setTrackedLeagues(tx, updated.id, parsed.data.leagueIds)
+				return updated
+			})
 			return { group }
 		},
 	}),
@@ -272,6 +318,18 @@ builder.mutationFields((t) => ({
 				where: { id: args.questionId },
 			})
 			if (!question) throw new NotFoundError("Question not found")
+
+			const tracked = await getTrackedLeagueIds(args.groupId)
+			if (tracked && !tracked.includes(question.leagueId)) {
+				const league = await db.query.leagues.findFirst({
+					where: { id: question.leagueId },
+					columns: { abbreviation: true },
+				})
+				throw ValidationError.field(
+					null,
+					`${group.name} doesn't track ${league?.abbreviation ?? "this league's"} questions.`,
+				)
+			}
 
 			const existing = await db.query.questionShares.findFirst({
 				where: { groupId: args.groupId, questionId: args.questionId },

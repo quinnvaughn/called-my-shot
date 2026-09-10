@@ -76,6 +76,39 @@ export const ResetGroupInviteCodeDocument = graphql(`
 	}
 `)
 
+export const UpdateGroupDocument = graphql(`
+	mutation UpdateGroup($input: UpdateGroupInput!) {
+		updateGroup(input: $input) {
+			__typename
+			... on GroupPayload {
+				group {
+					id
+					name
+					trackedLeagues {
+						id
+						abbreviation
+					}
+				}
+			}
+			... on AuthenticationError {
+				message
+			}
+			... on AuthorizationError {
+				message
+			}
+			... on NotFoundError {
+				message
+			}
+			... on ValidationError {
+				fieldErrors {
+					field
+					message
+				}
+			}
+		}
+	}
+`)
+
 export const ShareQuestionToGroupDocument = graphql(`
 	mutation ShareQuestionToGroup($groupId: ID!, $questionId: ID!) {
 		shareQuestionToGroup(groupId: $groupId, questionId: $questionId) {

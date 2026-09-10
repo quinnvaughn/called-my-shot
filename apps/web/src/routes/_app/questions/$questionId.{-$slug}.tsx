@@ -230,6 +230,7 @@ function RouteComponent() {
 									<ShareQuestionModal
 										questionId={question.id}
 										questionTitle={question.title}
+										questionLeague={question.league}
 										sharedGroupIds={question.viewerSharedGroupIds}
 										canShareToGroup={me !== null}
 									/>,

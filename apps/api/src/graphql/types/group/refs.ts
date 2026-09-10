@@ -2,7 +2,10 @@ import { db } from "../../../db"
 import type { QuestionShare } from "../../../db/schema"
 import { requireUser } from "../../../lib/auth"
 import { NotFoundError } from "../../../lib/errors"
-import { getOrCreateMemberInvite } from "../../../lib/groups"
+import {
+	getOrCreateMemberInvite,
+	getTrackedLeagueIds,
+} from "../../../lib/groups"
 import {
 	clampPageSize,
 	cursorWhere,
@@ -16,6 +19,7 @@ import { builder } from "../../builder"
 import { type Connection, PageInfoRef } from "../pagination"
 import { CallConnectionRef, QuestionConnectionRef } from "../question"
 import { SeasonFilterInput, toSeasonFilter } from "../season-filter"
+import { LeagueRef } from "../sports"
 import { GroupRole } from "./enums"
 import {
 	GroupLeaderboardConnectionRef,
@@ -115,13 +119,27 @@ export const GroupRef = builder.drizzleObject("groups", {
 				return membership?.role === "admin"
 			},
 		}),
-		// ranked by total points across every call a member has made, not just
-		// calls on questions created within this group - a group is just a set
-		// of people, there's no group-scoped question pool. Paginated (button-
+		// The leagues this group counts on its leaderboard, activity feeds, and
+		// shares. Empty means every league.
+		trackedLeagues: t.field({
+			type: [LeagueRef],
+			resolve: async (group) => {
+				const rows = await db.query.groupLeagues.findMany({
+					where: { groupId: group.id },
+					with: { league: true },
+				})
+				return rows
+					.flatMap((row) => (row.league ? [row.league] : []))
+					.sort((a, b) => a.name.localeCompare(b.name))
+			},
+		}),
+		// ranked by total points across every call a member has made in the
+		// group's tracked leagues, not just calls on questions created within
+		// this group - there's no group-scoped question pool. Paginated (button-
 		// driven "show more" on the frontend, not infinite scroll - most groups
 		// are small, nobody needs the whole roster by default), optionally
-		// scoped to one league via leagueId (omitting it ranks across every
-		// league) and to a season via season (omitting it ranks all-time).
+		// scoped to one tracked league via leagueId (omitting it ranks across
+		// all of them) and to a season via season (omitting it ranks all-time).
 		// League, not sport, since e.g. NBA and NCAAB calls shouldn't rank
 		// against each other despite both being basketball.
 		leaderboard: t.field({
@@ -156,7 +174,7 @@ export const GroupRef = builder.drizzleObject("groups", {
 			},
 		}),
 		// convenience for group cards ("YOU'RE #2") that don't need the full
-		// list. Deliberately all-league and all-time, unfiltered: it's a
+		// list. Deliberately all-time across every tracked league: it's a
 		// standing summary on a card with no filter UI of its own, not the
 		// leaderboard the group page renders.
 		viewerRank: t.field({
@@ -215,13 +233,17 @@ export const GroupRef = builder.drizzleObject("groups", {
 			},
 			resolve: async (group, args, ctx) => {
 				const user = requireUser(ctx)
-				const memberIds = await getMemberUserIds(group.id)
+				const [memberIds, tracked] = await Promise.all([
+					getMemberUserIds(group.id),
+					getTrackedLeagueIds(group.id),
+				])
 				const otherMemberIds = memberIds.filter((id) => id !== user.id)
 				const limit = clampPageSize(args.first)
 				const cursor = args.after ? decodeCursor(args.after) : null
 				const rows = await db.query.calls.findMany({
 					where: {
 						userId: { in: otherMemberIds },
+						...(tracked ? { question: { leagueId: { in: tracked } } } : {}),
 						...(cursor ? cursorWhere(cursor) : {}),
 					},
 					orderBy: { createdAt: "desc", id: "desc" },
@@ -242,13 +264,17 @@ export const GroupRef = builder.drizzleObject("groups", {
 			},
 			resolve: async (group, args, ctx) => {
 				const user = requireUser(ctx)
-				const memberIds = await getMemberUserIds(group.id)
+				const [memberIds, tracked] = await Promise.all([
+					getMemberUserIds(group.id),
+					getTrackedLeagueIds(group.id),
+				])
 				const otherMemberIds = memberIds.filter((id) => id !== user.id)
 				const limit = clampPageSize(args.first)
 				const cursor = args.after ? decodeCursor(args.after) : null
 				const rows = await db.query.questions.findMany({
 					where: {
 						creatorId: { in: otherMemberIds },
+						...(tracked ? { leagueId: { in: tracked } } : {}),
 						...(cursor ? cursorWhere(cursor) : {}),
 					},
 					orderBy: { createdAt: "desc", id: "desc" },
@@ -271,10 +297,14 @@ export const GroupRef = builder.drizzleObject("groups", {
 				const user = requireUser(ctx)
 				const limit = clampPageSize(args.first)
 				const cursor = args.after ? decodeCursor(args.after) : null
+				// Shares made before an admin narrowed the tracked set drop out
+				// too, not just new ones (shareQuestionToGroup refuses those).
+				const tracked = await getTrackedLeagueIds(group.id)
 				const rows = await db.query.questionShares.findMany({
 					where: {
 						groupId: group.id,
 						sharedBy: { ne: user.id },
+						...(tracked ? { question: { leagueId: { in: tracked } } } : {}),
 						...(cursor ? cursorWhere(cursor) : {}),
 					},
 					orderBy: { createdAt: "desc", id: "desc" },

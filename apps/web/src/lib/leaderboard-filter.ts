@@ -60,11 +60,20 @@ export function validateLeaderboardSearch(
 // erroring: a link shared before a league was renamed, or pointing at a
 // season this viewer's synced data doesn't have, should land on a sensible
 // board instead of a blank one.
+//
+// A single league has no All tab (see LeaderboardFilters), so it's the
+// default instead of a scope nobody can pick. allLeaguesLabel names what the
+// All tab ranks, for a caller whose league list isn't every league (a group
+// tracking a subset).
 export function resolveLeaderboardFilter(
 	leagues: FilterLeague[],
 	search: LeaderboardSearch,
+	options: { allLeaguesLabel?: string } = {},
 ): LeaderboardFilter {
-	const league = leagues.find((l) => l.slug === search.league) ?? null
+	const league =
+		leagues.find((l) => l.slug === search.league) ??
+		(leagues.length === 1 ? leagues[0] : null)
+	const allLeaguesLabel = options.allLeaguesLabel ?? "every league"
 
 	const season = match(search.season)
 		.with(undefined, () => null)
@@ -85,7 +94,7 @@ export function resolveLeaderboardFilter(
 			season: { scope: "CURRENT" } as SeasonFilterInput,
 			league,
 			seasonValue: league?.currentSeason?.year.toString() ?? "current",
-			scopeLabel: currentLabel(league),
+			scopeLabel: currentLabel(league, allLeaguesLabel),
 		}))
 		.with(ALL_SEASONS, () => ({
 			leagueId: league?.id ?? null,
@@ -108,8 +117,11 @@ export function resolveLeaderboardFilter(
 		})
 }
 
-function currentLabel(league: FilterLeague | null): string {
-	if (!league) return "Current season, every league"
+function currentLabel(
+	league: FilterLeague | null,
+	allLeaguesLabel: string,
+): string {
+	if (!league) return `Current season, ${allLeaguesLabel}`
 	return league.currentSeason
 		? `${league.abbreviation} ${league.currentSeason.displayName}`
 		: `${league.abbreviation}, current season`

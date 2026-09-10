@@ -34,6 +34,7 @@ export const Route = createFileRoute("/_app/_authed/groups/")({
 
 function RouteComponent() {
 	const { data } = useSuspenseQuery(myGroupsQuery)
+	const { leagues } = Route.useRouteContext()
 	const groups = data.myGroups
 	return (
 		<VStack gap="6" alignItems="stretch">
@@ -44,7 +45,7 @@ function RouteComponent() {
 					<Button
 						variant="solid"
 						size="sm"
-						onClick={() => openModal(<NewGroupModal />)}
+						onClick={() => openModal(<NewGroupModal leagues={leagues} />)}
 					>
 						+ New Group
 					</Button>

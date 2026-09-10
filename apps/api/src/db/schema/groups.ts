@@ -1,12 +1,14 @@
 import {
 	pgEnum,
 	pgTable,
+	primaryKey,
 	text,
 	timestamp,
 	unique,
 	uuid,
 } from "drizzle-orm/pg-core"
 import { questions } from "./questions"
+import { leagues } from "./sports"
 import { users } from "./users"
 
 export const groupMemberRole = pgEnum("group_member_role", ["admin", "member"])
@@ -22,6 +24,22 @@ export const groups = pgTable("groups", {
 	createdAt: timestamp("created_at").notNull().defaultNow(),
 })
 export type Group = typeof groups.$inferSelect
+
+// The leagues a group counts on its leaderboard, activity feeds, and shares.
+// No rows means every league, including ones added to the catalog later.
+export const groupLeagues = pgTable(
+	"group_leagues",
+	{
+		groupId: uuid("group_id")
+			.notNull()
+			.references(() => groups.id, { onDelete: "cascade" }),
+		leagueId: uuid("league_id")
+			.notNull()
+			.references(() => leagues.id, { onDelete: "cascade" }),
+		createdAt: timestamp("created_at").notNull().defaultNow(),
+	},
+	(t) => [primaryKey({ columns: [t.groupId, t.leagueId] })],
+)
 
 export const groupMembers = pgTable(
 	"group_members",

@@ -38,7 +38,10 @@ export type LeaderboardEntry = {
 export async function buildGlobalLeaderboard(
 	options: { leagueId?: string | null; seasonIds?: string[] | null } = {},
 ): Promise<LeaderboardEntry[]> {
-	const agg = await aggregatePointsByUser(options)
+	const agg = await aggregatePointsByUser({
+		leagueIds: options.leagueId ? [options.leagueId] : null,
+		seasonIds: options.seasonIds,
+	})
 	if (agg.size === 0) return []
 
 	const userRows = await db.query.users.findMany({

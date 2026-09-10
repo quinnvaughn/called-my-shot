@@ -3,7 +3,7 @@ import { createFileRoute, useRouteContext } from "@tanstack/react-router"
 import { useState } from "react"
 import { HiMiniQuestionMarkCircle } from "react-icons/hi2"
 import { css } from "styled-system/css"
-import { VStack } from "styled-system/jsx"
+import { HStack, VStack } from "styled-system/jsx"
 import { match } from "ts-pattern"
 import {
 	AnsweredQuestionsTab,
@@ -17,21 +17,25 @@ import {
 	GroupLeaderboard,
 	groupLeaderboardQuery,
 } from "#/components/groups/group-leaderboard"
+import { GroupSettingsModal } from "#/components/groups/group-settings-modal"
 import { InviteCodeModal } from "#/components/groups/invite-code-modal"
 import {
 	SharedQuestionsTab,
 	sharedQuestionsQuery,
 } from "#/components/groups/shared-questions-tab"
+import { Breadcrumb } from "#/components/ui/breadcrumb"
 import { Button } from "#/components/ui/button"
 import { NotFound } from "#/components/ui/not-found"
 import { PageHeader } from "#/components/ui/page-header"
 import { Tabs } from "#/components/ui/tabs"
 import {
 	GroupDetailDocument,
+	GroupLeaguesDocument,
 	type SeasonFilterInput,
 } from "#/graphql/generated/graphql"
 import { gqlQueryOptions, seedInfiniteQuery } from "#/graphql/query-options"
 import {
+	type FilterLeague,
 	resolveLeaderboardFilter,
 	validateLeaderboardSearch,
 } from "#/lib/leaderboard-filter"
@@ -43,6 +47,26 @@ const groupDetailQuery = (
 	leagueId: string | null,
 	season: SeasonFilterInput,
 ) => gqlQueryOptions(GroupDetailDocument, { groupId, leagueId, season })
+
+const groupLeaguesQuery = (groupId: string) =>
+	gqlQueryOptions(GroupLeaguesDocument, { groupId })
+
+// The site's leagues narrowed to the ones this group tracks, and what the
+// leaderboard's All tab should call that set. A group tracking every league
+// (no tracked rows) keeps the full list and the default label.
+function groupLeagueScope(
+	leagues: FilterLeague[],
+	tracked: { id: string; abbreviation: string }[],
+): { leagues: FilterLeague[]; allLeaguesLabel?: string } {
+	if (tracked.length === 0) return { leagues }
+	const trackedIds = new Set(tracked.map((l) => l.id))
+	return {
+		leagues: leagues.filter((l) => trackedIds.has(l.id)),
+		allLeaguesLabel: new Intl.ListFormat("en", {
+			type: "conjunction",
+		}).format(tracked.map((l) => l.abbreviation)),
+	}
+}
 
 export const Route = createFileRoute("/_app/_authed/groups/$groupId")({
 	component: RouteComponent,
@@ -57,10 +81,18 @@ export const Route = createFileRoute("/_app/_authed/groups/$groupId")({
 	// each. The leaderboard is seeded for whatever scope the URL asks for, so
 	// a shared link to a filtered board loads that board directly; the leagues
 	// (and their seasons) that turn the URL's slug/year into ids come from
-	// _app's router context - see lib/leaderboard-filter.ts.
+	// _app's router context, narrowed to the ones this group tracks - see
+	// lib/leaderboard-filter.ts.
 	loader: async ({ context, params, deps }) => {
 		const { groupId } = params
-		const filter = resolveLeaderboardFilter(context.leagues, deps)
+		const tracked = await context.queryClient.query(groupLeaguesQuery(groupId))
+		const scope = groupLeagueScope(
+			context.leagues,
+			tracked.group?.trackedLeagues ?? [],
+		)
+		const filter = resolveLeaderboardFilter(scope.leagues, deps, {
+			allLeaguesLabel: scope.allLeaguesLabel,
+		})
 		const data = await context.queryClient.query(
 			groupDetailQuery(groupId, filter.leagueId, filter.season),
 		)
@@ -98,7 +130,12 @@ function RouteComponent() {
 	const search = Route.useSearch()
 	const navigate = Route.useNavigate()
 	const { leagues } = Route.useRouteContext()
-	const filter = resolveLeaderboardFilter(leagues, search)
+	const { data: trackedData } = useSuspenseQuery(groupLeaguesQuery(groupId))
+	const trackedLeagues = trackedData.group?.trackedLeagues ?? []
+	const scope = groupLeagueScope(leagues, trackedLeagues)
+	const filter = resolveLeaderboardFilter(scope.leagues, search, {
+		allLeaguesLabel: scope.allLeaguesLabel,
+	})
 	const { data } = useSuspenseQuery(
 		groupDetailQuery(groupId, filter.leagueId, filter.season),
 	)
@@ -122,32 +159,56 @@ function RouteComponent() {
 
 	return (
 		<VStack alignItems="stretch" gap="6">
+			<Breadcrumb>
+				<Breadcrumb.Link to="/groups">Groups</Breadcrumb.Link>
+				<Breadcrumb.Current>{group.name}</Breadcrumb.Current>
+			</Breadcrumb>
 			<PageHeader
 				title={group.name}
 				subtitle={`${group.memberCount} ${pluralize(group.memberCount, "member")}`}
 				action={
-					<Button
-						size="sm"
-						variant="dark"
-						onClick={() =>
-							openModal(
-								<InviteCodeModal
-									groupId={group.id}
-									groupName={group.name}
-									inviteId={group.myInvite.id}
-									inviteCode={group.myInvite.code}
-									expirationDate={group.myInvite.expiresAt}
-								/>,
-							)
-						}
-					>
-						Invite
-					</Button>
+					<HStack gap="2">
+						{group.viewerIsAdmin && (
+							<Button
+								size="sm"
+								variant="outline"
+								onClick={() =>
+									openModal(
+										<GroupSettingsModal
+											groupId={group.id}
+											groupName={group.name}
+											leagues={leagues}
+											trackedLeagueIds={trackedLeagues.map((l) => l.id)}
+										/>,
+									)
+								}
+							>
+								Settings
+							</Button>
+						)}
+						<Button
+							size="sm"
+							variant="dark"
+							onClick={() =>
+								openModal(
+									<InviteCodeModal
+										groupId={group.id}
+										groupName={group.name}
+										inviteId={group.myInvite.id}
+										inviteCode={group.myInvite.code}
+										expirationDate={group.myInvite.expiresAt}
+									/>,
+								)
+							}
+						>
+							Invite
+						</Button>
+					</HStack>
 				}
 			/>
 			<GroupLeaderboard
 				groupId={group.id}
-				leagues={leagues}
+				leagues={scope.leagues}
 				filter={filter}
 				onFilterChange={(next) => navigate({ search: next })}
 				viewerId={me?.id}

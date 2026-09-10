@@ -23,10 +23,28 @@ export const GroupPreviewDocument = graphql(`
                 id
                 name
             }
+            trackedLeagues {
+                abbreviation
+            }
             topScorer {
                 name
                 username
                 points
+            }
+        }
+    }
+`)
+
+// Fetched ahead of GroupDetail by the group route's loader: the leaderboard
+// filter resolves against the leagues this group tracks, and GroupDetail
+// needs that resolved scope as its variables.
+export const GroupLeaguesDocument = graphql(`
+    query GroupLeagues($groupId: ID!) {
+        group(id: $groupId) {
+            id
+            trackedLeagues {
+                id
+                abbreviation
             }
         }
     }

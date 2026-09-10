@@ -24,7 +24,9 @@ type LeaderboardFiltersProps = {
 // (one more option every year). The Select always renders, even on the All
 // tab where its only choices are Current and All time: a board whose header
 // doesn't say which season it covers is ambiguous the moment a second season
-// exists.
+// exists. A single league drops the All tab, since it would rank exactly what
+// that league's own tab does, but keeps its own tab so the board still says
+// which league it is.
 export function LeaderboardFilters({
 	leagues,
 	filter,
@@ -54,7 +56,7 @@ export function LeaderboardFilters({
 				onValueChange={selectLeague}
 			>
 				<Tabs.List>
-					<Tabs.Trigger value="all">All</Tabs.Trigger>
+					{leagues.length > 1 && <Tabs.Trigger value="all">All</Tabs.Trigger>}
 					{leagues.map((l) => (
 						<Tabs.Trigger key={l.id} value={l.slug}>
 							{l.abbreviation}

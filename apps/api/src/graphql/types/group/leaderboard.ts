@@ -1,5 +1,6 @@
 import { db } from "../../../db"
 import type { User } from "../../../db/schema"
+import { getTrackedLeagueIds } from "../../../lib/groups"
 import { aggregatePointsByUser } from "../../../lib/points-aggregate"
 import { accuracyFrom, compareRankableEntries } from "../../../lib/scoring"
 import {
@@ -50,12 +51,11 @@ export const GroupLeaderboardConnectionRef = builder
 		}),
 	})
 
-// leagueId narrows the ranking to calls made on questions in that league only
+// leagueIds narrows the ranking to calls made on questions in those leagues
 // and seasonIds to calls in those seasons (points/accuracy recomputed from
-// scratch, not a filter over the all-league numbers) - null/undefined for
-// either ranks across every league/season, same as before these params
-// existed. Scoped to league, not sport - NBA and NCAAB calls shouldn't rank
-// against each other even though both are basketball.
+// scratch, not a filter over the all-league numbers) - null for either ranks
+// across every league/season. Scoped to league, not sport - NBA and NCAAB
+// calls shouldn't rank against each other even though both are basketball.
 //
 // Points/accuracy/counts come from an indexed SQL GROUP BY
 // (aggregatePointsByUser), scoped to just this group's member ids, instead
@@ -64,7 +64,7 @@ export const GroupLeaderboardConnectionRef = builder
 // without also reading the denormalized users.points column.
 async function buildLeaderboard(
 	groupId: string,
-	leagueId: string | null,
+	leagueIds: string[] | null,
 	seasonIds: string[] | null,
 ): Promise<GroupLeaderboardEntry[]> {
 	const memberships = await db.query.groupMembers.findMany({
@@ -74,7 +74,7 @@ async function buildLeaderboard(
 	const memberIds = memberships.flatMap((m) => (m.user ? [m.userId] : []))
 	const agg = await aggregatePointsByUser({
 		userIds: memberIds,
-		leagueId,
+		leagueIds,
 		seasonIds,
 	})
 
@@ -98,6 +98,21 @@ async function buildLeaderboard(
 	return entries.map((entry, index) => ({ ...entry, rank: index + 1 }))
 }
 
+// A group's tracked leagues bound every ranking of it. A league tab inside
+// that set narrows to just that league; no tab, or a tab for a league the
+// group doesn't track (a link shared before an admin changed the set), ranks
+// across the whole set.
+async function leagueScope(
+	groupId: string,
+	leagueId: string | null,
+): Promise<string[] | null> {
+	const tracked = await getTrackedLeagueIds(groupId)
+	if (leagueId && (tracked === null || tracked.includes(leagueId))) {
+		return [leagueId]
+	}
+	return tracked
+}
+
 // leaderboard, viewerRank, and viewerLeaderboardEntry below can all fire on
 // the same group page load, each needing the same ranking for the same
 // (groupId, leagueId, season) - this shares one in-flight buildLeaderboard
@@ -115,44 +130,17 @@ export function getGroupLeaderboard(
 	const key = `${groupId}:${leagueId ?? ""}:${seasonFilterKey(season)}`
 	let cached = ctx.groupLeaderboardCache.get(key)
 	if (!cached) {
-		cached = resolveSeasonIds(season, leagueId).then((seasonIds) =>
-			buildLeaderboard(groupId, leagueId, seasonIds),
-		)
+		cached = leagueScope(groupId, leagueId).then(async (leagueIds) => {
+			// A season only resolves against one league (see resolveSeasonIds);
+			// with several in scope, CURRENT unions every league's current season
+			// and the league filter in the aggregate drops the untracked ones.
+			const seasonLeagueId = leagueIds?.length === 1 ? leagueIds[0] : null
+			const seasonIds = await resolveSeasonIds(season, seasonLeagueId)
+			return buildLeaderboard(groupId, leagueIds, seasonIds)
+		})
 		ctx.groupLeaderboardCache.set(key, cached)
 	}
 	return cached
-}
-
-// Cheaper than buildLeaderboard for callers that only need the #1 name and
-// point total (e.g. the invite preview teaser) - no accuracy join, no full
-// sort, just a single pass to find the max over one scoped aggregate query.
-export async function findTopScorer(
-	memberUsers: User[],
-): Promise<{ user: User; totalPoints: number }> {
-	// A group can't structurally have zero members - creation seeds the
-	// creator as a member, and leaveGroup deletes the group once the last
-	// member leaves. Callers should only ever pass the members of a group
-	// that exists.
-	if (memberUsers.length === 0) {
-		throw new Error("findTopScorer called with no members")
-	}
-
-	const agg = await aggregatePointsByUser({
-		userIds: memberUsers.map((u) => u.id),
-	})
-
-	// iterate memberUsers (not the aggregate map) so a member who hasn't
-	// called anything is still tied for the top spot, not absent from it, and
-	// ties break toward whoever comes first in that same order.
-	let top: { user: User; totalPoints: number } | null = null
-	for (const user of memberUsers) {
-		const totalPoints = agg.get(user.id)?.totalPoints ?? 0
-		if (top && totalPoints <= top.totalPoints) continue
-		top = { user, totalPoints }
-	}
-	if (!top)
-		throw new Error("findTopScorer found no top scorer despite having members")
-	return top
 }
 
 export async function getMemberUserIds(groupId: string): Promise<string[]> {

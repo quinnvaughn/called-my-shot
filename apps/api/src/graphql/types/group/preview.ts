@@ -32,6 +32,14 @@ const GroupPreviewTopScorerRef = builder
 		}),
 	})
 
+const GroupPreviewLeagueRef = builder
+	.objectRef<{ abbreviation: string }>("GroupPreviewLeague")
+	.implement({
+		fields: (t) => ({
+			abbreviation: t.exposeString("abbreviation"),
+		}),
+	})
+
 export const GroupPreviewRef = builder
 	.objectRef<{
 		id: string
@@ -39,7 +47,8 @@ export const GroupPreviewRef = builder
 		memberCount: number
 		members: { id: string; name: string }[]
 		invitedBy: { name: string; username: string }
-		topScorer: { name: string; username: string; points: number }
+		trackedLeagues: { abbreviation: string }[]
+		topScorer: { name: string; username: string; points: number } | null
 	}>("GroupPreview")
 	.implement({
 		fields: (t) => ({
@@ -56,10 +65,17 @@ export const GroupPreviewRef = builder
 				type: GroupPreviewInvitedByRef,
 				resolve: (preview) => preview.invitedBy,
 			}),
-			// ranked by total points across every sport a member has called, same
-			// as the real leaderboard - there's no "season" here, just points
+			// empty means the group tracks every league
+			trackedLeagues: t.field({
+				type: [GroupPreviewLeagueRef],
+				resolve: (preview) => preview.trackedLeagues,
+			}),
+			// #1 on the group's default board: current season, tracked leagues
+			// only. null until someone has points there, so an offseason group
+			// doesn't advertise a leader on 0.
 			topScorer: t.field({
 				type: GroupPreviewTopScorerRef,
+				nullable: true,
 				resolve: (preview) => preview.topScorer,
 			}),
 		}),

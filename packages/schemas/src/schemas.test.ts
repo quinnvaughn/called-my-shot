@@ -14,7 +14,11 @@ import {
 	createBallotSchema,
 	updateBallotQuestionSchema,
 } from "./ballots"
-import { createGroupSchema, joinGroupSchema } from "./groups"
+import {
+	createGroupSchema,
+	joinGroupSchema,
+	updateGroupSchema,
+} from "./groups"
 import { reportQuestionSchema } from "./report"
 import {
 	createGameSchema,
@@ -119,6 +123,23 @@ describe("group schemas", () => {
 		expect(ok(createGroupSchema, { name: "A" })).toBe(false)
 		expect(ok(createGroupSchema, { name: "The League" })).toBe(true)
 		expect(ok(createGroupSchema, { name: "x".repeat(61) })).toBe(false)
+	})
+
+	it("tracks every league unless leagues are picked, and dedupes picks", () => {
+		expect(createGroupSchema.parse({ name: "The League" }).leagueIds).toEqual(
+			[],
+		)
+		const update = { groupId: UUID, name: "The League" }
+		expect(
+			updateGroupSchema.parse({ ...update, leagueIds: [UUID, UUID] }).leagueIds,
+		).toEqual([UUID])
+		expect(ok(updateGroupSchema, { ...update, leagueIds: ["nba"] })).toBe(false)
+	})
+
+	it("holds a rename to the same name rules as creation", () => {
+		const update = { groupId: UUID, leagueIds: [] }
+		expect(ok(updateGroupSchema, { ...update, name: "A" })).toBe(false)
+		expect(ok(updateGroupSchema, { ...update, name: "  Wolfpack  " })).toBe(true)
 	})
 
 	it("upper-cases an invite code so it can be typed either way", () => {

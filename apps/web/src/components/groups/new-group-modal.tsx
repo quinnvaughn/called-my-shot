@@ -9,9 +9,12 @@ import { track } from "#/lib/analytics"
 import { useForm } from "#/lib/form/use-form"
 import { closeModal } from "#/stores/modal-store"
 import { Button } from "../ui/button"
+import { FieldHint } from "../ui/field-hint"
+import { FieldLabel } from "../ui/field-label"
 import { FormError } from "../ui/form-error"
 import { Modal } from "../ui/modal"
 import { TextInput } from "../ui/text-input"
+import { TrackedLeaguesPicker } from "./tracked-leagues-picker"
 
 type CreatedGroup = {
 	id: string
@@ -26,9 +29,12 @@ type Props = {
 	// that. A callback rather than a mode flag so this file stays unaware of
 	// who is calling it.
 	onCreated?: (group: CreatedGroup) => void
+	// From _app's router context, passed in because ModalHost renders at the
+	// root, outside the route that loads them.
+	leagues: { id: string; abbreviation: string }[]
 }
 
-export function NewGroupModal({ onCreated }: Props = {}) {
+export function NewGroupModal({ onCreated, leagues }: Props) {
 	const createGroup = useGqlMutation(CreateGroupDocument)
 	const router = useRouter()
 	const queryClient = useQueryClient()
@@ -37,6 +43,7 @@ export function NewGroupModal({ onCreated }: Props = {}) {
 	const form = useForm({
 		defaultValues: {
 			name: "",
+			leagueIds: [] as string[],
 		},
 		schema: createGroupSchema,
 		onSubmit: async (values, helpers) => {
@@ -106,6 +113,22 @@ export function NewGroupModal({ onCreated }: Props = {}) {
 									/>
 								</TextInput.Group>
 							</TextInput>
+						)}
+					</form.Field>
+					<form.Field name="leagueIds">
+						{(field) => (
+							<VStack gap="2" alignItems="stretch">
+								<FieldLabel>Tracked leagues</FieldLabel>
+								<TrackedLeaguesPicker
+									leagues={leagues}
+									value={field.value}
+									onChange={field.onChange}
+								/>
+								<FieldHint>
+									Only these leagues count toward the leaderboard and show up
+									in the group's activity.
+								</FieldHint>
+							</VStack>
 						)}
 					</form.Field>
 					<form.Subscribe selector={(s) => s.meta}>

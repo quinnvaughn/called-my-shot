@@ -6,10 +6,23 @@ export const groupNameSchema = z
 	.min(2, "Group name must be at least 2 characters")
 	.max(60, "Group name must be 60 characters or fewer")
 
+// Empty means the group tracks every league.
+export const trackedLeagueIdsSchema = z
+	.array(z.string().uuid("Pick leagues from the list"))
+	.transform((ids) => [...new Set(ids)])
+
 export const createGroupSchema = z.object({
 	name: groupNameSchema,
+	leagueIds: trackedLeagueIdsSchema.default([]),
 })
 export type CreateGroupInput = z.infer<typeof createGroupSchema>
+
+export const updateGroupSchema = z.object({
+	groupId: z.string().uuid(),
+	name: groupNameSchema,
+	leagueIds: trackedLeagueIdsSchema,
+})
+export type UpdateGroupInput = z.infer<typeof updateGroupSchema>
 
 export const inviteCodeSchema = z
 	.string()

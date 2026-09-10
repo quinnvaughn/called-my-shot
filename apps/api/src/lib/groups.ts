@@ -2,8 +2,9 @@ import { randomInt } from "node:crypto"
 import { eq } from "drizzle-orm"
 import { DateTime } from "luxon"
 import { db } from "../db"
-import { groupInvites } from "../db/schema"
-import { AuthorizationError, NotFoundError } from "./errors"
+import { groupInvites, groupLeagues } from "../db/schema"
+import { AuthorizationError, NotFoundError, ValidationError } from "./errors"
+import type { Tx } from "./user-season-stats"
 
 // Excludes 0/O and 1/I/L - easy to tell apart if someone reads or types it by hand.
 const INVITE_CODE_ALPHABET = "23456789ABCDEFGHJKMNPQRSTUVWXYZ"
@@ -119,6 +120,44 @@ export async function regenerateInviteCode(
 
 export function isInviteExpired(expiresAt: Date | null): boolean {
 	return expiresAt !== null && DateTime.fromJSDate(expiresAt) < DateTime.now()
+}
+
+// null means the group tracks every league (it has no group_leagues rows),
+// which is different from an empty list - callers pass this straight through
+// as a league filter, where null is "no filter".
+export async function getTrackedLeagueIds(
+	groupId: string,
+): Promise<string[] | null> {
+	const rows = await db.query.groupLeagues.findMany({
+		where: { groupId },
+		columns: { leagueId: true },
+	})
+	return rows.length > 0 ? rows.map((r) => r.leagueId) : null
+}
+
+export async function requireKnownLeagueIds(leagueIds: string[]) {
+	if (leagueIds.length === 0) return
+	const found = await db.query.leagues.findMany({
+		where: { id: { in: leagueIds } },
+		columns: { id: true },
+	})
+	if (found.length !== leagueIds.length) {
+		throw ValidationError.field("leagueIds", "Pick leagues from the list")
+	}
+}
+
+// Replaces the whole set rather than diffing it - a group tracks a handful of
+// leagues at most, and an empty list clears it back to every league.
+export async function setTrackedLeagues(
+	executor: typeof db | Tx,
+	groupId: string,
+	leagueIds: string[],
+) {
+	await executor.delete(groupLeagues).where(eq(groupLeagues.groupId, groupId))
+	if (leagueIds.length === 0) return
+	await executor
+		.insert(groupLeagues)
+		.values(leagueIds.map((leagueId) => ({ groupId, leagueId })))
 }
 
 export async function requireAdmin(groupId: string, userId: string) {

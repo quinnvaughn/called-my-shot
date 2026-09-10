@@ -43,6 +43,7 @@ const onboardingQuery = gqlQueryOptions(ViewerOnboardingDocument, {})
 // have finished should not be able to take that away.
 export function OnboardingChecklist() {
 	const { me } = useRouteContext({ from: "__root__" })
+	const { leagues } = useRouteContext({ from: "/_app" })
 	const navigate = useNavigate()
 	const dismiss = useGqlMutation(DismissOnboardingDocument)
 	const setCollapsed = useGqlMutation(SetOnboardingCollapsedDocument)
@@ -126,6 +127,7 @@ export function OnboardingChecklist() {
 	function startGroup() {
 		openModal(
 			<NewGroupModal
+				leagues={leagues}
 				onCreated={(group) =>
 					replaceModalStack(
 						<InviteCodeModal

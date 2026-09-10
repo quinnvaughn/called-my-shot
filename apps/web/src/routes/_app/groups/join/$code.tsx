@@ -100,6 +100,11 @@ function RouteComponent() {
 		)
 	}
 
+	const topScorerLabel =
+		preview.trackedLeagues.length === 1
+			? `${preview.trackedLeagues[0].abbreviation} top scorer this season:`
+			: "top scorer this season:"
+
 	return (
 		<VStack gap="4" alignItems="center" className={css({ padding: "8" })}>
 			<Eyebrow variant="neutral">You've been invited to a group</Eyebrow>
@@ -118,23 +123,25 @@ function RouteComponent() {
 				invited by {preview.invitedBy.name} (@
 				{preview.invitedBy.username})
 			</p>
-			<Card size="sm">
-				<Card.Body>
-					<p
-						className={css({
-							color: "fg.muted",
-							fontSize: "xs",
-							fontFamily: "mono",
-						})}
-					>
-						top scorer in this league:{" "}
-						<b className={css({ color: "fg.default" })}>
-							{preview.topScorer.name} (@{preview.topScorer.username}) ·{" "}
-							{preview.topScorer.points} pts
-						</b>
-					</p>
-				</Card.Body>
-			</Card>
+			{preview.topScorer && (
+				<Card size="sm">
+					<Card.Body>
+						<p
+							className={css({
+								color: "fg.muted",
+								fontSize: "xs",
+								fontFamily: "mono",
+							})}
+						>
+							{topScorerLabel}{" "}
+							<b className={css({ color: "fg.default" })}>
+								{preview.topScorer.name} (@{preview.topScorer.username}) ·{" "}
+								{preview.topScorer.points} pts
+							</b>
+						</p>
+					</Card.Body>
+				</Card>
+			)}
 			<Button
 				variant="solid"
 				size="md"

@@ -27,6 +27,9 @@ const ShareTargetGroupsDocument = graphql(`
 			id
 			name
 			memberCount
+			trackedLeagues {
+				id
+			}
 		}
 	}
 `)
@@ -59,6 +62,7 @@ const labelClass = css({
 type Props = {
 	questionId: string
 	questionTitle: string
+	questionLeague: { id: string; abbreviation: string }
 	// Group ids that already have this question in their Shared tab, from the
 	// question's own viewerSharedGroupIds. Seeded rather than derived so the
 	// list renders its "Shared" rows on first paint instead of after a
@@ -72,6 +76,7 @@ type Props = {
 export function ShareQuestionModal({
 	questionId,
 	questionTitle,
+	questionLeague,
 	sharedGroupIds,
 	canShareToGroup,
 }: Props) {
@@ -87,7 +92,14 @@ export function ShareQuestionModal({
 		...shareTargetGroupsQuery(),
 		enabled: canShareToGroup,
 	})
-	const groups = data?.myGroups ?? []
+	const allGroups = data?.myGroups ?? []
+	// shareQuestionToGroup refuses a group that doesn't track this question's
+	// league, so those aren't offered. An empty trackedLeagues tracks all.
+	const groups = allGroups.filter(
+		(group) =>
+			group.trackedLeagues.length === 0 ||
+			group.trackedLeagues.some((league) => league.id === questionLeague.id),
+	)
 
 	// The slug form, since this is the url people actually paste - the bare
 	// id would just bounce the recipient through a redirect to get here.
@@ -179,7 +191,9 @@ export function ShareQuestionModal({
 									color: "fg.subtle",
 								})}
 							>
-								You're not in any groups yet.
+								{allGroups.length === 0
+									? "You're not in any groups yet."
+									: `None of your groups track ${questionLeague.abbreviation} questions.`}
 							</span>
 						) : (
 							<VStack gap="0" alignItems="stretch">
