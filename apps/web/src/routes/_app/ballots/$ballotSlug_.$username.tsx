@@ -57,12 +57,15 @@ export const Route = createFileRoute("/_app/ballots/$ballotSlug_/$username")({
 					]
 				: []
 
+		// Ballot names don't carry their league ("2026 Win Totals"), so the
+		// title does.
+		const heading = `@${username}'s ${ballot.name} · ${ballot.league.abbreviation}`
+
 		return pageMeta({
-			title: `@${username}'s ${ballot.name} ballot`,
+			title: heading,
 			description: [
 				`${entry.calledCount} of ${ballot.memberCount} called`,
 				...outcome,
-				ballot.league.abbreviation,
 			].join(" · "),
 			path: ballotEntryPath(ballot.slug, username),
 			image: {
@@ -70,7 +73,7 @@ export const Route = createFileRoute("/_app/ballots/$ballotSlug_/$username")({
 				// holding an older card is handed a url it has never scraped. The
 				// proxy route ignores the param.
 				path: `/share/ballots/${ballot.slug}/users/${username}/card.png?v=${entry.calledCount}-${entry.wins}-${entry.losses}-${entry.points}`,
-				alt: `@${username}'s ${ballot.name} ballot`,
+				alt: heading,
 			},
 		})
 	},
