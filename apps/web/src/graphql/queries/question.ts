@@ -124,6 +124,17 @@ export const QuestionDetailDocument = graphql(`
 				id
 			}
 			viewerSharedGroupIds
+			# Read unmasked by the page's breadcrumb (BallotStrip selects its
+			# own copy of this membership for the strip itself) - a ballot
+			# question's trail names the ballot it was published as part of.
+			ballotMembership {
+				id
+				ballot {
+					id
+					name
+					slug
+				}
+			}
 			...CastCallForm_question
 			...ResolveQuestionModal_question
 			...BallotStrip_question
