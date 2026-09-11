@@ -71,7 +71,7 @@ builder.mutationFields((t) => ({
 				.insert(groupMembers)
 				.values({ groupId: group.id, userId: user.id, role: "admin" })
 			await setTrackedLeagues(db, group.id, parsed.data.leagueIds)
-			await insertGroupInvite(group.id, user.id, expiryToDate("SEVEN_DAYS"))
+			await insertGroupInvite(group.id, user.id, expiryToDate("NO_EXPIRY"))
 
 			return { group }
 		},

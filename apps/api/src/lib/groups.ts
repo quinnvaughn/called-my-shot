@@ -78,7 +78,7 @@ export async function getOrCreateMemberInvite(groupId: string, userId: string) {
 		where: { groupId, createdBy: userId },
 	})
 	if (existing) return existing
-	return insertGroupInvite(groupId, userId, expiryToDate("SEVEN_DAYS"))
+	return insertGroupInvite(groupId, userId, expiryToDate("NO_EXPIRY"))
 }
 
 export async function requireInviteOwnerOrAdmin(

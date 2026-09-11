@@ -13,6 +13,7 @@ import {
 	CreatedQuestionsTab,
 	createdQuestionsQuery,
 } from "#/components/groups/created-questions-tab"
+import { GroupInviteCard } from "#/components/groups/group-invite-card"
 import {
 	GroupLeaderboard,
 	groupLeaderboardQuery,
@@ -207,6 +208,12 @@ function RouteComponent() {
 						</Button>
 					</HStack>
 				}
+			/>
+			<GroupInviteCard
+				groupId={group.id}
+				groupName={group.name}
+				memberCount={group.memberCount}
+				inviteCode={group.myInvite.code}
 			/>
 			<GroupLeaderboard
 				groupId={group.id}

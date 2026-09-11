@@ -1,13 +1,12 @@
-import { useState } from "react"
 import { css } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
 import { InviteSettingsModal } from "#/components/groups/invite-settings-modal"
+import { CopyLinkRow } from "#/components/ui/copy-link-row"
 import { track } from "#/lib/analytics"
+import { SITE_HOST, SITE_ORIGIN } from "#/lib/meta"
 import { pluralize } from "#/lib/pluralize"
 import { openModal } from "#/stores/modal-store"
-import { Button } from "../ui/button"
 import { Modal } from "../ui/modal"
-import { TextInput } from "../ui/text-input"
 
 type Props = {
 	groupId: string
@@ -34,32 +33,32 @@ export function InviteCodeModal({
 	inviteCode,
 	expirationDate,
 }: Props) {
-	const [copied, setCopied] = useState(false)
-	const inviteUrl = `${window.location.origin}/groups/join/${inviteCode}`
-	const displayUrl = `${window.location.host}/groups/join/${inviteCode}`
-
-	function handleCopy() {
-		navigator.clipboard.writeText(inviteUrl)
-		track("group_invite_copied", { groupId })
-		setCopied(true)
-		setTimeout(() => setCopied(false), 1200)
-	}
+	const path = `/groups/join/${inviteCode}`
 
 	return (
 		<Modal size="md">
 			<Modal.CloseButton />
 			<Modal.Title>Invite to {groupName}</Modal.Title>
 			<VStack gap="2" alignItems="stretch">
-				<HStack justify="space-between" gap="4">
-					<TextInput className={css({ flex: 1, minWidth: 0 })}>
-						<TextInput.Group>
-							<TextInput.Field readOnly value={displayUrl} />
-						</TextInput.Group>
-					</TextInput>
-					<Button variant="dark" onClick={handleCopy}>
-						{copied ? "Copied" : "Copy"}
-					</Button>
-				</HStack>
+				<CopyLinkRow
+					url={`${SITE_ORIGIN}${path}`}
+					displayUrl={`${SITE_HOST}${path}`}
+					shareTitle={`Join ${groupName} on Called My Shot`}
+					onCopied={() =>
+						track("group_invite_shared", {
+							groupId,
+							method: "clipboard",
+							surface: "invite_modal",
+						})
+					}
+					onNativeShared={() =>
+						track("group_invite_shared", {
+							groupId,
+							method: "native",
+							surface: "invite_modal",
+						})
+					}
+				/>
 				<HStack justify="space-between" gap="4">
 					<span
 						className={css({

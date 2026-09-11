@@ -34,7 +34,13 @@ type AnalyticsEvents = {
 	// actually responsible for, versus people who went looking for one.
 	group_created: { groupId: string; surface: "groups_page" | "onboarding" }
 	group_joined: { groupId: string; source: "invite_link" | "code_form" }
-	group_invite_copied: { groupId: string }
+	// `surface` separates the header's Invite modal from the inline card small
+	// groups show, so it's visible which one actually gets links sent.
+	group_invite_shared: {
+		groupId: string
+		method: "native" | "clipboard"
+		surface: "invite_modal" | "group_card"
+	}
 
 	// Profile track-record cards only. A call used to have a downloadable
 	// image too; what gets shared now is a link to the call's own page, which

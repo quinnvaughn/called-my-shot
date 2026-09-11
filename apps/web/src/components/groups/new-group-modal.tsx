@@ -10,7 +10,7 @@ import { CreateGroupDocument } from "#/graphql/generated/graphql"
 import { useGqlMutation } from "#/graphql/hooks"
 import { track } from "#/lib/analytics"
 import { useForm } from "#/lib/form/use-form"
-import { closeModal } from "#/stores/modal-store"
+import { replaceModalStack } from "#/stores/modal-store"
 import { Button } from "../ui/button"
 import { FieldHint } from "../ui/field-hint"
 import { FieldLabel } from "../ui/field-label"
@@ -18,6 +18,7 @@ import { FormError } from "../ui/form-error"
 import { Modal } from "../ui/modal"
 import { TextInput } from "../ui/text-input"
 import { Textarea } from "../ui/textarea"
+import { InviteCodeModal } from "./invite-code-modal"
 import { TrackedLeaguesPicker } from "./tracked-leagues-picker"
 
 type CreatedGroup = {
@@ -87,7 +88,15 @@ export function NewGroupModal({ onCreated, leagues }: Props) {
 						to: "/groups/$groupId",
 						params: { groupId: r.group.id },
 					})
-					closeModal()
+					replaceModalStack(
+						<InviteCodeModal
+							groupId={r.group.id}
+							groupName={r.group.name}
+							inviteId={r.group.myInvite.id}
+							inviteCode={r.group.myInvite.code}
+							expirationDate={r.group.myInvite.expiresAt ?? null}
+						/>,
+					)
 				})
 				.exhaustive()
 		},
