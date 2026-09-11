@@ -145,19 +145,47 @@ function LeaderboardRow({
 				{item.rank}
 			</Table.Cell>
 			<Table.Cell>
-				<HStack gap="3">
+				{/* Name and handle stack so the tags sit on their own line and only
+				the text truncates - on a narrow screen the member column is what's
+				left of the table's min width, and a single line clipped the tags. */}
+				<HStack gap="3" minWidth="0">
 					<Avatar size="sm" name={item.user.name} />
-					<Link
-						to={"/user/$username"}
-						params={{ username: item.user.username }}
-						className={css({ _hover: { textDecoration: "underline" } })}
-					>
-						<span className={css({ fontSize: "sm", fontWeight: "medium" })}>
-							{item.user.name} (@{item.user.username})
-						</span>
-					</Link>
-					{item.user.id === viewerId && <Tag>You</Tag>}
-					{item.role === "ADMIN" && <Tag variant="primary">Admin</Tag>}
+					<VStack gap="0.5" alignItems="flex-start" minWidth="0" flex="1">
+						<Link
+							to={"/user/$username"}
+							params={{ username: item.user.username }}
+							className={css({
+								maxWidth: "full",
+								overflow: "hidden",
+								textOverflow: "ellipsis",
+								fontSize: "sm",
+								fontWeight: "medium",
+								_hover: { textDecoration: "underline" },
+							})}
+						>
+							{item.user.name}
+						</Link>
+						<HStack gap="1.5" minWidth="0" maxWidth="full">
+							<span
+								className={css({
+									minWidth: "0",
+									overflow: "hidden",
+									textOverflow: "ellipsis",
+									fontFamily: "mono",
+									fontSize: "xs",
+									color: "fg.muted",
+								})}
+							>
+								@{item.user.username}
+							</span>
+							{item.user.id === viewerId && <Tag size="sm">You</Tag>}
+							{item.role === "ADMIN" && (
+								<Tag size="sm" variant="primary">
+									Admin
+								</Tag>
+							)}
+						</HStack>
+					</VStack>
 				</HStack>
 			</Table.Cell>
 			<Table.Cell
