@@ -17,6 +17,7 @@ dist-ssr
 .DS_Store
 **/.DS_Store
 apps/api/.env
+apps/web/.env
 apps/api/schema.graphql
 apps/web/src/graphql/generated
 apps/web/styled-system
