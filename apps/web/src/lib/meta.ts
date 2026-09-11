@@ -1,8 +1,19 @@
 // Absolute, because og:url has to be - and the host a share/crawl request
 // arrives on isn't necessarily the one that should be indexed (Fly's
-// *.fly.dev name, a preview machine). Same literal the root route and the
-// sitemap already pin to.
-export const SITE_ORIGIN = "https://calledmyshot.com"
+// *.fly.dev name, a preview machine). Set VITE_SITE_ORIGIN locally
+// (http://localhost:3000) so copied share links open the dev server; unset,
+// it's the production origin the root route and the sitemap pin to. `||`
+// rather than `??` because a build arg that was never passed arrives as an
+// empty string.
+export const SITE_ORIGIN =
+	(import.meta.env.VITE_SITE_ORIGIN as string | undefined)?.replace(
+		/\/$/,
+		"",
+	) || "https://calledmyshot.com"
+
+// What a share row prints in place of the full url ("calledmyshot.com",
+// "localhost:3000").
+export const SITE_HOST = new URL(SITE_ORIGIN).host
 
 type PageMeta = {
 	title: string

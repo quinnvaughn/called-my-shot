@@ -37,21 +37,24 @@ export const BallotPositionRowFragment = graphql(`
 				isCorrect
 				fieldPct
 			}
-			viewerCall {
+		}
+	}
+`)
+
+export const BallotPositionRowCallFragment = graphql(`
+	fragment BallotPositionRow_call on Call {
+		id
+		hitTolerance
+		guessValue
+		closenessMult
+		closenessFieldPct
+		selections {
+			id
+			option {
 				id
-				hitTolerance
-				guessValue
-				closenessMult
-				closenessFieldPct
-				selections {
-					id
-					option {
-						id
-						label
-						fieldPct
-						isCorrect
-					}
-				}
+				label
+				fieldPct
+				isCorrect
 			}
 		}
 	}
@@ -61,6 +64,9 @@ type PositionOption = { label: string; fieldPct: number | null }
 
 type Props = {
 	member: FragmentType<typeof BallotPositionRowFragment>
+	// The viewer's own call on the ballot page, the entry owner's on
+	// /ballots/<slug>/<username>. Null when that person hasn't called it.
+	call: FragmentType<typeof BallotPositionRowCallFragment> | null
 }
 
 const stateDotStyle: Record<BallotMemberState, string> = {
@@ -179,10 +185,14 @@ function leadingOption<T extends PositionOption>(options: T[]): T | null {
 // that math is reused here, not reimplemented - see #/lib/scoring
 // (tierFor), #/lib/field-signal (callersText/formatGuess), #/lib/contested
 // (isContested).
-export function BallotPositionRow({ member: memberProp }: Props) {
+export function BallotPositionRow({
+	member: memberProp,
+	call: callProp,
+}: Props) {
 	const member = useFragment(BallotPositionRowFragment, memberProp)
+	const call = useFragment(BallotPositionRowCallFragment, callProp)
 	const { question } = member
-	const state = ballotMemberState(member)
+	const state = ballotMemberState(question, call)
 	const leader = leadingOption(question.options)
 	const contested = isContested(question.options, question.callCount)
 	const isNumericGuess = isNumericQuestionShape(question.shape)
@@ -249,30 +259,30 @@ export function BallotPositionRow({ member: memberProp }: Props) {
 					{question.title}
 				</span>
 
-				{match({ isNumericGuess, viewerCall: question.viewerCall })
-					.with({ viewerCall: null }, () => <NotCalledYet state={state} />)
-					.with({ isNumericGuess: true }, ({ viewerCall }) => (
+				{match({ isNumericGuess, call })
+					.with({ call: null }, () => <NotCalledYet state={state} />)
+					.with({ isNumericGuess: true }, ({ call }) => (
 						<HStack gap="2" alignItems="center" flexWrap="wrap">
 							<PickStateDot state={state} />
 							<span className={css({ fontSize: "sm", fontWeight: "bold" })}>
-								{formatGuess(viewerCall?.guessValue ?? 0)}
+								{formatGuess(call?.guessValue ?? 0)}
 							</span>
-							{viewerCall?.closenessFieldPct !== null &&
-								viewerCall?.closenessFieldPct !== undefined && (
+							{call?.closenessFieldPct !== null &&
+								call?.closenessFieldPct !== undefined && (
 									<PickTierBadge
-										fieldPct={viewerCall.closenessFieldPct}
+										fieldPct={call.closenessFieldPct}
 										totalOptions={2}
 									/>
 								)}
 						</HStack>
 					))
-					.with(P._, ({ viewerCall }) => {
-						// viewerCall is guaranteed non-null here (the {viewerCall: null}
-						// branch above already caught that case), and any non-null call
-						// on a non-numeric shape always carries at least one selection
-						// - that's how an option-based pick is recorded in the first
+					.with(P._, ({ call }) => {
+						// call is guaranteed non-null here (the {call: null} branch
+						// above already caught that case), and any call on a
+						// non-numeric shape always carries at least one selection -
+						// that's how an option-based pick is recorded in the first
 						// place. The ?? [] is just for TS, not a real fallback path.
-						const selections = viewerCall?.selections ?? []
+						const selections = call?.selections ?? []
 						const isSettled = questionDetailState(question).isSettled
 						return (
 							<VStack gap="1" alignItems="flex-start">

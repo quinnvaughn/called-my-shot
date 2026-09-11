@@ -2,7 +2,6 @@ import { Link } from "@tanstack/react-router"
 import { css } from "styled-system/css"
 import { VStack } from "styled-system/jsx"
 import { type FragmentType, graphql, useFragment } from "#/graphql/generated"
-import { CallLockedBox } from "./call-locked-box"
 import { CaseBlock } from "./case-block"
 import { PersonLine } from "./person-line"
 import { PickList } from "./pick-list"
@@ -14,7 +13,6 @@ export const CallRowFragment = graphql(`
 		conviction
 		totalPoints
 		caseText
-		viewerCanSeePick
 		user {
 			name
 			username
@@ -54,7 +52,7 @@ type Props = {
 // question's own detail page repeating the question's title/game/status on
 // every row would be redundant (shown once at the top of the page instead).
 // No status badge here either, for the same reason - just identity, then
-// either the pick + case or a locked placeholder.
+// the pick and case.
 //
 // Links to that call's own permanent page. This list is the one place every
 // call on a question is visible at once, so it's the one place each of them
@@ -86,12 +84,8 @@ export function CallRow({ call: callProp }: Props) {
 				})}
 			>
 				<PersonLine name={call.user.name} username={call.user.username} />
-				{call.viewerCanSeePick ? (
-					<PickList call={call} />
-				) : (
-					<CallLockedBox name={call.user.name} />
-				)}
-				{call.viewerCanSeePick && call.caseText && (
+				<PickList call={call} />
+				{call.caseText && (
 					<CaseBlock text={call.caseText} clampable />
 				)}
 			</VStack>

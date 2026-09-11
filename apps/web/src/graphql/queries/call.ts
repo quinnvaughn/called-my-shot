@@ -18,7 +18,6 @@ export const CallRecordDocument = graphql(`
 			guessValue
 			totalPoints
 			currentRank
-			viewerCanSeePick
 			user {
 				id
 				name

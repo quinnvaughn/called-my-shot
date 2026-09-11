@@ -9,11 +9,7 @@ type Props = {
 }
 
 // Every call on this question, paginated - always rendered, whether or not
-// the viewer has made their own call yet. That activity (who called, when,
-// their track record in this league) is never the thing being hidden; only
-// the pick itself is, per-row, via CallRow's viewerCanSeePick gate. Hiding
-// the whole list until the viewer calls would hide the activity along with
-// the pick, which isn't the rule - see lib/call-visibility.ts on the API.
+// the viewer has made their own call yet.
 
 export function QuestionCallsList({ questionId }: Props) {
 	const { data, hasNextPage, isFetchingNextPage, fetchNextPage } =

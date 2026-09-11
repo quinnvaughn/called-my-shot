@@ -1,11 +1,16 @@
 import { useSuspenseQuery } from "@tanstack/react-query"
-import { createFileRoute, Link, redirect } from "@tanstack/react-router"
+import {
+	createFileRoute,
+	Link,
+	redirect,
+	useRouteContext,
+} from "@tanstack/react-router"
 import { DateTime } from "luxon"
 import { Fragment } from "react"
 import { FaRegTimesCircle } from "react-icons/fa"
 import { FiChevronRight } from "react-icons/fi"
 import { css } from "styled-system/css"
-import { HStack, VStack } from "styled-system/jsx"
+import { VStack } from "styled-system/jsx"
 import {
 	BallotCompletionsList,
 	BallotCompletionsListFragment,
@@ -15,6 +20,11 @@ import {
 	BallotPositionRowFragment,
 } from "#/components/ballots/ballot-position-row"
 import { BallotProgressCard } from "#/components/ballots/ballot-progress-card"
+import { BallotSectionHeading } from "#/components/ballots/ballot-section-heading"
+import {
+	BallotShareRow,
+	buildBallotTweet,
+} from "#/components/ballots/ballot-share-row"
 import { Breadcrumb } from "#/components/ui/breadcrumb"
 import { Card } from "#/components/ui/card"
 import { NotFound } from "#/components/ui/not-found"
@@ -31,9 +41,9 @@ const ballotQuery = (ref: string) =>
 	gqlQueryOptions(BallotByRefDocument, { ref })
 
 // Public - a shared link or a scraper can land here signed out, same as the
-// `ballot` query itself (resolves null for anything not published). This is
-// the ONLY public view of a ballot; the admin builder at /admin/ballots is a
-// separate, admin-only page for assembling one.
+// `ballot` query itself (resolves null for anything not published). The
+// admin builder at /admin/ballots is a separate, admin-only page for
+// assembling one; one person's picks on it live at /ballots/<slug>/<username>.
 export const Route = createFileRoute("/_app/ballots/$ballotSlug")({
 	component: RouteComponent,
 	staleTime: 0,
@@ -72,37 +82,10 @@ export const Route = createFileRoute("/_app/ballots/$ballotSlug")({
 	},
 })
 
-// Heading for a run of members sharing a section ("AFC \u00b7 East" on a win
-// totals ballot). Drawn only where the value changes from the row above, so
-// a ballot whose members have no section (most of them - awards, a week of
-// games) renders exactly as it did before sections existed. Deliberately
-// not a container around its rows: members stay one flat list in sortOrder,
-// which is what keeps prev/next nav and the progress math indifferent to
-// whether a ballot is grouped at all.
-function BallotSectionHeading({ label }: { label: string }) {
-	return (
-		<span
-			className={css({
-				fontFamily: "mono",
-				fontSize: "2xs",
-				fontWeight: "bold",
-				letterSpacing: "wide",
-				textTransform: "uppercase",
-				color: "fg.subtle",
-				backgroundColor: "bg.subtle",
-				borderBottom: "1px solid {colors.border.default}",
-				paddingInline: "3",
-				paddingBlock: "2",
-			})}
-		>
-			{label}
-		</span>
-	)
-}
-
 function RouteComponent() {
 	const { ballotSlug } = Route.useParams()
 	const { data } = useSuspenseQuery(ballotQuery(ballotSlug))
+	const { me } = useRouteContext({ from: "__root__" })
 	const ballot = data.ballot
 
 	// Unmasked once here (not per-row) - the server already returns members
@@ -129,7 +112,12 @@ function RouteComponent() {
 		)
 	}
 
-	const stats = computeBallotProgressStats(members)
+	const stats = computeBallotProgressStats(
+		members.map((member, i) => ({
+			...member,
+			call: ballot.members[i].question.viewerCall,
+		})),
+	)
 
 	// The soonest still-upcoming lock across every member - a member already
 	// past its own locksAt (open-and-called, or resolved) has nothing left to
@@ -163,10 +151,7 @@ function RouteComponent() {
 			</Breadcrumb>
 
 			<VStack gap="2" alignItems="flex-start">
-				<HStack gap="2">
-					<Tag>{ballot.league.abbreviation}</Tag>
-					<Tag variant="primary">Official</Tag>
-				</HStack>
+				<Tag>{ballot.league.abbreviation}</Tag>
 				<PageHeader
 					title={ballot.name}
 					subtitle={
@@ -227,6 +212,42 @@ function RouteComponent() {
 					<FiChevronRight />
 				</Link>
 			)}
+
+			{me && stats.calledCount > 0 && (
+				<VStack gap="3" alignItems="stretch">
+					<span
+						className={css({
+							fontFamily: "mono",
+							fontSize: "2xs",
+							letterSpacing: "wide",
+							color: "fg.subtle",
+							textTransform: "uppercase",
+						})}
+					>
+						Share your ballot
+					</span>
+					<BallotShareRow
+						ballotId={ballot.id}
+						ballotSlug={ballot.slug}
+						username={me.username}
+						shareTitle={`@${me.username}'s ${ballot.name} ballot`}
+						surface="ballot_page"
+						tweetText={buildBallotTweet({
+							ballotName: ballot.name,
+							calledCount: stats.calledCount,
+							memberCount: ballot.memberCount,
+							wins: stats.states.filter((s) => s === "won").length,
+							losses: stats.states.filter((s) => s === "lost").length,
+							points: ballot.members.reduce(
+								(sum, m) => sum + (m.question.viewerCall?.totalPoints ?? 0),
+								0,
+							),
+							isOwn: true,
+						})}
+					/>
+				</VStack>
+			)}
+
 			<VStack gap="3" alignItems="stretch">
 				<span
 					className={css({
@@ -253,7 +274,10 @@ function RouteComponent() {
 									{section && section !== members[i - 1]?.section && (
 										<BallotSectionHeading label={section} />
 									)}
-									<BallotPositionRow member={member} />
+									<BallotPositionRow
+										member={member}
+										call={member.question.viewerCall}
+									/>
 								</Fragment>
 							)
 						})}
@@ -273,7 +297,10 @@ function RouteComponent() {
 				>
 					Completed ballots
 				</span>
-				<BallotCompletionsList summary={ballot.completions} />
+				<BallotCompletionsList
+					summary={ballot.completions}
+					ballotSlug={ballot.slug}
+				/>
 			</VStack>
 		</VStack>
 	)

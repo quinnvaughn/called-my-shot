@@ -324,9 +324,7 @@ export const QuestionRef = builder.drizzleObject("questions", {
 		}),
 
 		// Every caller's pick on this question, newest first - the detail page's
-		// activity list. Same keyset-cursor shape as myCalls; each item still
-		// self-gates its pick fields through canViewerSeePick, this connection
-		// just controls which calls are in scope, not what's visible on them.
+		// activity list. Same keyset-cursor shape as myCalls.
 		calls: t.field({
 			type: CallConnectionRef,
 			args: { first: t.arg.int(), after: t.arg.string() },

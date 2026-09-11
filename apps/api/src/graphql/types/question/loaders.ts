@@ -91,9 +91,8 @@ export function getQuestionGuessCallsLoader(ctx: Context) {
 }
 
 // callerLeagueAccuracy below used to run its own db.query.questions.findFirst
-// per call just to read that call's question's leagueId - unbatched, same
-// shape as the canViewerSeePick N+1 (lib/call-visibility.ts), just simpler:
-// this fact has no viewer dependency at all, so it's a plain per-request
+// per call just to read that call's question's leagueId - unbatched. This
+// fact has no viewer dependency at all, so it's a plain per-request
 // batch keyed by questionId rather than needing a viewer-scoped cache.
 const questionLeagueIdLoaders = new WeakMap<
 	Context,

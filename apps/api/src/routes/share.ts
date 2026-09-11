@@ -1,9 +1,19 @@
 import { fieldPct, quipForCall } from "@called-my-shot/scoring"
-import { and, count, eq } from "drizzle-orm"
+import { and, asc, count, eq, gt } from "drizzle-orm"
 import type { Express, Response } from "express"
 import { db } from "../db"
-import { callSelections, calls } from "../db/schema"
+import {
+	ballotQuestions,
+	callSelections,
+	calls,
+	questions,
+} from "../db/schema"
+import { loadBallotEntry } from "../lib/ballot-entry"
 import { buildGlobalLeaderboard } from "../lib/global-leaderboard"
+import {
+	BALLOT_SHARE_CARD_SIZE,
+	buildBallotShareCard,
+} from "../lib/share-cards/ballot-card"
 import {
 	buildCallShareCard,
 	CALL_SHARE_CARD_SIZE,
@@ -35,6 +45,68 @@ export function registerShareRoutes(app: Express) {
 	app.get("/share/calls/:callId.png", async (req, res) => {
 		await sendCallShareCard(res, req.params.callId)
 	})
+
+	app.get(
+		"/share/ballots/:ballotSlug/users/:username.png",
+		async (req, res) => {
+			await sendBallotShareCard(res, req.params.ballotSlug, req.params.username)
+		},
+	)
+}
+
+// The og:image behind /ballots/:slug/:username. See ballot-card.ts for what
+// it states.
+async function sendBallotShareCard(
+	res: Response,
+	ballotSlug: string,
+	username: string,
+) {
+	const [ballot, user] = await Promise.all([
+		db.query.ballots.findFirst({
+			where: { slug: ballotSlug, status: "published" },
+			with: { league: { columns: { abbreviation: true } } },
+		}),
+		db.query.users.findFirst({ where: { username } }),
+	])
+	const entry =
+		ballot && user ? await loadBallotEntry(ballot.id, user.id) : null
+	if (!ballot?.league || !user || !entry) {
+		res.status(404).end()
+		return
+	}
+
+	const [nextLock] = await db
+		.select({ locksAt: questions.locksAt })
+		.from(ballotQuestions)
+		.innerJoin(questions, eq(questions.id, ballotQuestions.questionId))
+		.where(
+			and(
+				eq(ballotQuestions.ballotId, ballot.id),
+				gt(questions.locksAt, new Date()),
+			),
+		)
+		.orderBy(asc(questions.locksAt))
+		.limit(1)
+
+	const node = buildBallotShareCard({
+		ballotName: ballot.name,
+		leagueAbbr: ballot.league.abbreviation.toUpperCase(),
+		name: user.name,
+		username: user.username,
+		calledCount: entry.calledCount,
+		memberCount: entry.members.length,
+		wins: entry.wins,
+		losses: entry.losses,
+		points: entry.points,
+		pendingLabel: nextLock
+			? `Locks ${formatCallDate(nextLock.locksAt)}`
+			: "Awaiting results",
+	})
+
+	const png = await renderShareImage(node, BALLOT_SHARE_CARD_SIZE)
+	res.setHeader("Content-Type", "image/png")
+	res.setHeader("Cache-Control", "public, max-age=300")
+	res.send(png)
 }
 
 // league is a slug ("nfl") on links built today and a uuid on ones already
@@ -97,10 +169,7 @@ async function sendUserShareCard(
 }
 
 // The og:image behind /calls/:id, and the only thing that still renders this
-// card. Not gated by canViewerSeePick (see lib/call-visibility.ts) - this
-// route has no viewer/session at all, and the page it illustrates is
-// deliberately public for the same reason: possession of the call id is the
-// authorization.
+// card. No session here, and none needed: the page it illustrates is public.
 //
 // Deliberately NOT gated on the question being resolved either, which it used
 // to be. A call made a year before it settles is exactly the one worth

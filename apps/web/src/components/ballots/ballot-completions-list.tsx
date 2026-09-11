@@ -1,6 +1,7 @@
+import { Link } from "@tanstack/react-router"
 import { DateTime } from "luxon"
 import { css } from "styled-system/css"
-import { HStack, VStack } from "styled-system/jsx"
+import { VStack } from "styled-system/jsx"
 import { Card } from "#/components/ui/card"
 import { Identity } from "#/components/ui/identity"
 import { type FragmentType, graphql, useFragment } from "#/graphql/generated"
@@ -22,12 +23,17 @@ export const BallotCompletionsListFragment = graphql(`
 
 type Props = {
 	summary: FragmentType<typeof BallotCompletionsListFragment>
+	ballotSlug: string
 }
 
 // The ballot detail page's "who else has finished this" list - recent
 // completers plus a total count, both from BallotRef.completions (the
-// viewer's own completion is already excluded server-side).
-export function BallotCompletionsList({ summary: summaryProp }: Props) {
+// viewer's own completion is already excluded server-side). Each row opens
+// that person's picks.
+export function BallotCompletionsList({
+	summary: summaryProp,
+	ballotSlug,
+}: Props) {
 	const summary = useFragment(BallotCompletionsListFragment, summaryProp)
 
 	if (summary.count === 0) {
@@ -55,13 +61,18 @@ export function BallotCompletionsList({ summary: summaryProp }: Props) {
 		<Card>
 			<VStack gap="0" alignItems="stretch">
 				{summary.recent.map((completion) => (
-					<HStack
+					<Link
 						key={completion.user.id}
-						justify="space-between"
-						gap="2"
+						to="/ballots/$ballotSlug/$username"
+						params={{ ballotSlug, username: completion.user.username }}
 						className={css({
+							display: "flex",
+							justifyContent: "space-between",
+							alignItems: "center",
+							gap: "2",
 							padding: "3",
 							borderBottom: "1px solid {colors.border.default}",
+							_hover: { backgroundColor: "bg.subtle" },
 							_last: { borderBottom: others > 0 ? undefined : "none" },
 						})}
 					>
@@ -81,7 +92,7 @@ export function BallotCompletionsList({ summary: summaryProp }: Props) {
 						>
 							{DateTime.fromISO(completion.completedAt).toRelative()}
 						</span>
-					</HStack>
+					</Link>
 				))}
 				{others > 0 && (
 					<span

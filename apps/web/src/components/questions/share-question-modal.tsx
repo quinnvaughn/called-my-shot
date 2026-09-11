@@ -14,7 +14,7 @@ import { ShareQuestionToGroupDocument } from "#/graphql/mutations/groups"
 import { questionDetailQuery } from "#/graphql/queries/question"
 import { gqlQueryKey } from "#/graphql/query-options"
 import { track } from "#/lib/analytics"
-import { SITE_ORIGIN } from "#/lib/meta"
+import { SITE_HOST, SITE_ORIGIN } from "#/lib/meta"
 import { pluralize } from "#/lib/pluralize"
 import { questionPath } from "#/lib/slug"
 
@@ -159,7 +159,7 @@ export function ShareQuestionModal({
 					<span className={labelClass}>Link</span>
 					<CopyLinkRow
 						url={SITE_ORIGIN + sharePath}
-						displayUrl={`calledmyshot.com${sharePath}`}
+						displayUrl={`${SITE_HOST}${sharePath}`}
 						shareTitle={questionTitle}
 						onCopied={() =>
 							track("question_link_shared", { questionId, method: "clipboard" })

@@ -27,6 +27,74 @@ export const BallotByRefDocument = graphql(`
 			}
 			members {
 				...BallotPositionRow_member
+				question {
+					id
+					# Read by the page itself (progress stats, share text), not
+					# just the row, so selected here rather than left masked.
+					viewerCall {
+						id
+						hitTolerance
+						totalPoints
+						selections {
+							id
+							option {
+								id
+								fieldPct
+								isCorrect
+							}
+						}
+						...BallotPositionRow_call
+					}
+				}
+			}
+		}
+	}
+`)
+
+// /ballots/<slug>/<username> - one user's picks on a ballot. Public like the
+// ballot page; `entry` is null for an unknown username or someone who hasn't
+// called anything on it.
+export const BallotEntryDocument = graphql(`
+	query BallotEntry($ref: ID!, $username: String!) {
+		ballot(id: $ref) {
+			id
+			slug
+			name
+			memberCount
+			league {
+				id
+				name
+				abbreviation
+				slug
+			}
+			entry(username: $username) {
+				calledCount
+				wins
+				losses
+				points
+				user {
+					id
+					name
+					username
+				}
+				members {
+					member {
+						id
+						section
+						slot
+						label
+						question {
+							id
+							status
+							locksAt
+						}
+						...BallotPositionRow_member
+					}
+					call {
+						id
+						...BallotPositionRow_call
+					}
+				}
 			}
 		}
 	}

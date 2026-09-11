@@ -7,9 +7,11 @@ import {
 	questions,
 	type User,
 } from "../../../db/schema"
+import { type BallotEntry, loadBallotEntry } from "../../../lib/ballot-entry"
 import { parsePgTimestamp } from "../../../lib/pg-timestamp"
 import { builder } from "../../builder"
 import { type Connection, PageInfoRef } from "../pagination"
+import { CallRef } from "../question/call"
 import { UserRef } from "../user"
 import { BallotStatus } from "./enums"
 
@@ -54,6 +56,32 @@ const BallotCompletionSummaryRef = builder
 			recent: t.field({
 				type: [BallotCompletionRef],
 				resolve: (s) => s.recent,
+			}),
+		}),
+	})
+
+// One member of someone's filled-out ballot.
+const BallotEntryMemberRef = builder
+	.objectRef<BallotEntry["members"][number]>("BallotEntryMember")
+	.implement({
+		fields: (t) => ({
+			member: t.field({ type: BallotQuestionRef, resolve: (m) => m.member }),
+			call: t.field({ type: CallRef, nullable: true, resolve: (m) => m.call }),
+		}),
+	})
+
+const BallotEntryRef = builder
+	.objectRef<BallotEntry & { user: User }>("BallotEntry")
+	.implement({
+		fields: (t) => ({
+			user: t.field({ type: UserRef, resolve: (e) => e.user }),
+			calledCount: t.exposeInt("calledCount"),
+			wins: t.exposeInt("wins"),
+			losses: t.exposeInt("losses"),
+			points: t.exposeInt("points"),
+			members: t.field({
+				type: [BallotEntryMemberRef],
+				resolve: (e) => e.members,
 			}),
 		}),
 	})
@@ -240,6 +268,21 @@ export const BallotRef = builder.drizzleObject("ballots", {
 				})
 			},
 			resolve: (ballot) => ballot.id,
+		}),
+		// One user's picks on this ballot - what /ballots/<slug>/<username>
+		// shows. Null for an unknown username or someone with no calls here.
+		entry: t.field({
+			type: BallotEntryRef,
+			nullable: true,
+			args: { username: t.arg.string({ required: true }) },
+			resolve: async (ballot, args) => {
+				const user = await db.query.users.findFirst({
+					where: { username: args.username },
+				})
+				if (!user) return null
+				const entry = await loadBallotEntry(ballot.id, user.id)
+				return entry ? { ...entry, user } : null
+			},
 		}),
 	}),
 })

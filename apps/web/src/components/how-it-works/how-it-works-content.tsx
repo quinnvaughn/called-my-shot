@@ -258,11 +258,6 @@ export function HowItWorksSections() {
 					question, made public under your handle. Every call you make is
 					attached to your track record, win or lose.
 				</P>
-				<P>
-					Once you've made a call on a question, the field's picks unlock for
-					you. You can see how everyone else called it, but only after you've
-					made your own.
-				</P>
 			</Accordion>
 
 			<Accordion

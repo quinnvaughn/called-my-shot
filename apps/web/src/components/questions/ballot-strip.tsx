@@ -394,7 +394,9 @@ export function BallotStrip({ question: questionProp }: Props) {
 			? members[currentIndex + 1]
 			: null
 
-	const states = members.map(ballotMemberState)
+	const states = members.map((m) =>
+		ballotMemberState(m.question, m.question.viewerCall),
+	)
 	const runs = sectionRuns(members)
 	const resolvedCount = states.filter((s) => s === "won" || s === "lost").length
 	const pendingCount = states.filter((s) => s === "pending").length

@@ -63,6 +63,14 @@ type AnalyticsEvents = {
 		method: "native" | "clipboard" | "x"
 		surface: "call_page" | "question_detail"
 	}
+	// A link to one person's filled-out ballot. `surface` separates sharing
+	// your own straight off the ballot you're filling in from sharing from the
+	// entry page itself, which anyone can do for anyone's.
+	ballot_link_shared: {
+		ballotId: string
+		method: "native" | "clipboard" | "x"
+		surface: "ballot_page" | "entry_page"
+	}
 
 	support_ticket_filed: { category: string }
 

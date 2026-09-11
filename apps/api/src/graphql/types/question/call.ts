@@ -2,7 +2,6 @@ import { isSeasonLongShape } from "@called-my-shot/scoring"
 import { and, count, eq, lte, sql } from "drizzle-orm"
 import { db } from "../../../db"
 import { type Call, calls, games } from "../../../db/schema"
-import { canViewerSeePick } from "../../../lib/call-visibility"
 import { aggregatePointsByUser } from "../../../lib/points-aggregate"
 import { accuracyFrom } from "../../../lib/scoring"
 import { builder } from "../../builder"
@@ -48,58 +47,25 @@ export const CallRef = builder.drizzleObject("calls", {
 	name: "Call",
 	fields: (t) => ({
 		id: t.exposeID("id"),
-		// caseText/guessValue/conviction/hitTolerance/selections all reveal what
-		// this call actually picked, so they're gated behind canViewerSeePick -
-		// see lib/call-visibility.ts for the anti-copying rule. Identity
-		// (user/question/createdAt) and totalPoints are not pick info and stay
-		// visible regardless.
-		caseText: t.field({
-			type: "String",
-			nullable: true,
-			resolve: async (call, _args, ctx) =>
-				(await canViewerSeePick(call, ctx)) ? call.caseText : null,
-		}),
+		// Every pick is public to every viewer, signed in or not, whether or not
+		// the question is still taking calls.
+		caseText: t.exposeString("caseText", { nullable: true }),
 		// numeric_guess only - everything else scores through selections
-		guessValue: t.field({
-			type: "Float",
-			nullable: true,
-			resolve: async (call, _args, ctx) =>
-				(await canViewerSeePick(call, ctx)) ? call.guessValue : null,
-		}),
-		conviction: t.field({
-			type: "Int",
-			nullable: true,
-			resolve: async (call, _args, ctx) =>
-				(await canViewerSeePick(call, ctx)) ? call.conviction : null,
-		}),
-		hitTolerance: t.field({
-			type: "Boolean",
-			nullable: true,
-			resolve: async (call, _args, ctx) =>
-				(await canViewerSeePick(call, ctx)) ? call.hitTolerance : null,
-		}),
+		guessValue: t.exposeFloat("guessValue", { nullable: true }),
+		conviction: t.exposeInt("conviction", { nullable: true }),
+		hitTolerance: t.exposeBoolean("hitTolerance", { nullable: true }),
 		// numeric_guess only - the actual closeness multiplier (see
 		// numericGuessPoints/TIER_MIN_MULT/TIER_MAX_MULT in
 		// @called-my-shot/scoring) applied at resolution, from closenessMult
 		// on the calls table. Null until resolved, and null forever on a miss.
-		closenessMult: t.field({
-			type: "Float",
-			nullable: true,
-			resolve: async (call, _args, ctx) =>
-				(await canViewerSeePick(call, ctx)) ? call.closenessMult : null,
-		}),
+		closenessMult: t.exposeFloat("closenessMult", { nullable: true }),
 		// numeric_guess only - what % of the whole field (not just other
 		// hitters) guessed at least as close to the actual value as this call
 		// did, the raw share closenessMult above was derived from. Exposed
 		// separately so the UI can explain the multiplier with a real number
 		// ("62% of the field guessed at least this close") instead of inverting
-		// the curve client-side. Same visibility/nullability as closenessMult.
-		closenessFieldPct: t.field({
-			type: "Float",
-			nullable: true,
-			resolve: async (call, _args, ctx) =>
-				(await canViewerSeePick(call, ctx)) ? call.closenessFieldPct : null,
-		}),
+		// the curve client-side. Same nullability as closenessMult.
+		closenessFieldPct: t.exposeFloat("closenessFieldPct", { nullable: true }),
 		createdAt: t.field({
 			type: "String",
 			resolve: (call) => call.createdAt.toISOString(),
@@ -196,19 +162,16 @@ export const CallRef = builder.drizzleObject("calls", {
 		}),
 		selections: t.field({
 			type: [CallSelectionRef],
-			resolve: async (call, _args, ctx) => {
-				if (!(await canViewerSeePick(call, ctx))) return []
-				return db.query.callSelections.findMany({ where: { callId: call.id } })
-			},
+			resolve: (call) =>
+				db.query.callSelections.findMany({ where: { callId: call.id } }),
 		}),
-		// Drives whether the client should render this call's pick or a
-		// "make your call to reveal" placeholder - same rule as the field
-		// gating above, exposed directly so the client doesn't have to infer it
-		// from null/empty values (which are also the legitimate "no pick yet"
-		// shape for an unresolved call).
+		// Always true, and no current web code selects it. It stays in the
+		// schema so a web build that still does keeps working while the api and
+		// web deploys overlap; delete it once that build is no longer serving.
 		viewerCanSeePick: t.field({
 			type: "Boolean",
-			resolve: (call, _args, ctx) => canViewerSeePick(call, ctx),
+			deprecationReason: "Every pick is visible to every viewer.",
+			resolve: () => true,
 		}),
 		// numeric_guess scores off its own resultPoints column above; every other
 		// type sums across its selections. Null while any of those are pending.

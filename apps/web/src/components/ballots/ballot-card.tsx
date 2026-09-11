@@ -4,7 +4,6 @@ import { MdBallot } from "react-icons/md"
 import { css } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
 import { Card } from "#/components/ui/card"
-import { Tag } from "#/components/ui/tag"
 import { type FragmentType, graphql, useFragment } from "#/graphql/generated"
 
 export const BallotCardFragment = graphql(`
@@ -25,10 +24,7 @@ type Props = {
 // The league room's Season tab list item - a compact stand-in for however
 // many member questions a ballot has, same reasoning as BallotStrip/
 // BallotKicker: the ballot itself never resolves, only its members do, so
-// this only ever shows a progress fraction, never a result. Always tagged
-// Official - ballots have no isOfficial column of their own (admin-only to
-// create in the first place, see db/schema/ballots.ts), so it's a constant
-// here rather than a field read off the data.
+// this only ever shows a progress fraction, never a result.
 export function BallotCard({ ballot: ballotProp }: Props) {
 	const ballot = useFragment(BallotCardFragment, ballotProp)
 	const calledCount = ballot.viewerCalledCount ?? 0
@@ -42,25 +38,22 @@ export function BallotCard({ ballot: ballotProp }: Props) {
 			<Card interactive>
 				<Card.Body>
 					<VStack gap="3" alignItems="stretch">
-						<HStack justify="space-between" alignItems="center" gap="2">
-							<HStack gap="2" alignItems="center" minWidth="0">
-								<MdBallot
-									size={16}
-									className={css({ color: "fg.subtle", flexShrink: "0" })}
-								/>
-								<span
-									className={css({
-										fontSize: "sm",
-										fontWeight: "semibold",
-										overflow: "hidden",
-										textOverflow: "ellipsis",
-										whiteSpace: "nowrap",
-									})}
-								>
-									{ballot.name}
-								</span>
-							</HStack>
-							<Tag variant="primary">Official</Tag>
+						<HStack gap="2" alignItems="center" minWidth="0">
+							<MdBallot
+								size={16}
+								className={css({ color: "fg.subtle", flexShrink: "0" })}
+							/>
+							<span
+								className={css({
+									fontSize: "sm",
+									fontWeight: "semibold",
+									overflow: "hidden",
+									textOverflow: "ellipsis",
+									whiteSpace: "nowrap",
+								})}
+							>
+								{ballot.name}
+							</span>
 						</HStack>
 						<div
 							className={css({

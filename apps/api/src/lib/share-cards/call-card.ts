@@ -40,7 +40,7 @@ const wordmarkPx = (n: number) => `${Math.round(n * WORDMARK_SCALE)}px`
 // free-text field on this card is capped in JS rather than trusted to wrap
 // into whatever space is left. caseText is the dangerous one: its column is
 // unbounded, and a paragraph-length case is enough to bury the whole footer.
-function clamp(text: string, max: number): string {
+export function clamp(text: string, max: number): string {
 	if (text.length <= max) return text
 	return `${text.slice(0, max - 1).trimEnd()}…`
 }
@@ -82,7 +82,7 @@ export type CallShareCardData = {
 	pendingLabel: string | null
 }
 
-function eyebrow(text: string, color = COLOR.dim): SatoriNode {
+export function eyebrow(text: string, color = COLOR.dim): SatoriNode {
 	return el(
 		"span",
 		{
@@ -101,7 +101,7 @@ function eyebrow(text: string, color = COLOR.dim): SatoriNode {
 // The footer's unit: a label stacked over a value. Horizontal, unlike the
 // full-width label/value rows the portrait card used - four of those stacked
 // vertically is precisely the height this layout doesn't have.
-function statCell(
+export function statCell(
 	label: string,
 	value: string,
 	{ color = COLOR.ink, big = false }: { color?: string; big?: boolean } = {},

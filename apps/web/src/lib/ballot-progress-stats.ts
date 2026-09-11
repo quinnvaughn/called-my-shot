@@ -1,19 +1,20 @@
 import { ballotMemberState } from "./ballot-member-state"
 import { isContested, rankByField } from "./contested"
 
+// `call` is the viewer's own call on the member's question.
 type BallotMember = {
 	question: {
 		status: "OPEN" | "LOCKED" | "RESOLVED" | "DISPUTED"
 		locksAt: string
 		callCount: number
 		options: { fieldPct: number | null }[]
-		viewerCall: {
-			hitTolerance: boolean | null
-			selections: {
-				option: { fieldPct: number | null; isCorrect: boolean | null }
-			}[]
-		} | null
 	}
+	call: {
+		hitTolerance: boolean | null
+		selections: {
+			option: { fieldPct: number | null; isCorrect: boolean | null }
+		}[]
+	} | null
 }
 
 // Consolidates the cross-member aggregate math the ballot detail page's
@@ -22,7 +23,7 @@ type BallotMember = {
 export function computeBallotProgressStats<T extends BallotMember>(
 	members: T[],
 ) {
-	const states = members.map((m) => ballotMemberState(m))
+	const states = members.map((m) => ballotMemberState(m.question, m.call))
 	const calledCount = states.filter(
 		(s) => s !== "uncalled" && s !== "missed",
 	).length
@@ -38,7 +39,7 @@ export function computeBallotProgressStats<T extends BallotMember>(
 	// option(s) is the field's current leader. Numeric-guess members (no
 	// options, no selections) are excluded, not counted either way.
 	const offFieldCount = members.filter((m) => {
-		const selections = m.question.viewerCall?.selections ?? []
+		const selections = m.call?.selections ?? []
 		if (selections.length === 0) return false
 		const leaderPct = rankByField(m.question.options)[0]
 		if (leaderPct === undefined) return false

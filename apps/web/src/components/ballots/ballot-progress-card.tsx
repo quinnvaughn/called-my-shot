@@ -13,7 +13,13 @@ type Props = {
 	fullBallotCount: number
 }
 
-function StatTile({ value, label }: { value: number; label: string }) {
+export function StatTile({
+	value,
+	label,
+}: {
+	value: number | string
+	label: string
+}) {
 	return (
 		<VStack gap="0.5" alignItems="flex-start">
 			<span

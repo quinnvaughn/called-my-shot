@@ -5,7 +5,6 @@ import { match } from "ts-pattern"
 import { Card } from "#/components/ui/card"
 import { type FragmentType, graphql, useFragment } from "#/graphql/generated"
 import { buildQuestionSlug } from "#/lib/slug"
-import { CallLockedBox } from "./call-locked-box"
 import { CardRule } from "./card-rule"
 import { CaseBlock } from "./case-block"
 import { DisputedFlag } from "./disputed-flag"
@@ -23,7 +22,6 @@ export const CallCardFragment = graphql(`
 		conviction
 		totalPoints
 		caseText
-		viewerCanSeePick
 		user {
 			name
 			username
@@ -121,42 +119,35 @@ export function CallCard({ call: callProp }: CallCardProps) {
 				<PersonLine
 					name={call.user.name}
 					username={call.user.username}
-					badge={
-						call.viewerCanSeePick &&
-						match(call.question.status)
-							.with("OPEN", () => (
-								<span
-									className={css({
-										fontFamily: "mono",
-										fontSize: "3xs",
-										color: "fg.subtle",
-										whiteSpace: "nowrap",
-									})}
-								>
-									<LockLine
-										status={call.question.status}
-										locksAt={call.question.locksAt}
-									/>
-								</span>
-							))
-							.with("LOCKED", () => <LockedBadge />)
-							.with("RESOLVED", "DISPUTED", () => (
-								<ResultBadge totalPoints={call.totalPoints} />
-							))
-							.exhaustive()
-					}
+					badge={match(call.question.status)
+						.with("OPEN", () => (
+							<span
+								className={css({
+									fontFamily: "mono",
+									fontSize: "3xs",
+									color: "fg.subtle",
+									whiteSpace: "nowrap",
+								})}
+							>
+								<LockLine
+									status={call.question.status}
+									locksAt={call.question.locksAt}
+								/>
+							</span>
+						))
+						.with("LOCKED", () => <LockedBadge />)
+						.with("RESOLVED", "DISPUTED", () => (
+							<ResultBadge totalPoints={call.totalPoints} />
+						))
+						.exhaustive()}
 				/>
-				{call.viewerCanSeePick ? (
-					<PickList call={call} />
-				) : (
-					<CallLockedBox name={call.user.name} />
-				)}
+				<PickList call={call} />
 				{/* CaseBlock renders a real "Show more" button when the case
 				overflows, so it has to sit above the overlay. It used to be
 				inside the anchor that wrapped this whole card - a button nested
 				in an <a>, where the click bubbled up and navigated instead of
 				expanding. */}
-				{call.viewerCanSeePick && call.caseText && (
+				{call.caseText && (
 					<div className={aboveOverlay}>
 						<CaseBlock text={call.caseText} clampable />
 					</div>

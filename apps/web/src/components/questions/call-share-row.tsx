@@ -1,9 +1,8 @@
-import { FaXTwitter } from "react-icons/fa6"
-import { css } from "styled-system/css"
-import { HStack, VStack } from "styled-system/jsx"
+import { VStack } from "styled-system/jsx"
 import { CopyLinkRow } from "#/components/ui/copy-link-row"
+import { PostOnXLink } from "#/components/ui/post-on-x-link"
 import { track } from "#/lib/analytics"
-import { SITE_ORIGIN } from "#/lib/meta"
+import { SITE_HOST, SITE_ORIGIN } from "#/lib/meta"
 
 type CallShareSurface = "call_page" | "question_detail"
 
@@ -62,15 +61,7 @@ export function CallShareRow({
 	surface,
 }: Props) {
 	const url = `${SITE_ORIGIN}/calls/${callId}`
-	const displayUrl = `calledmyshot.com/calls/${callId}`
-
-	// x.com/intent/post rather than twitter.com/intent/tweet: the old host
-	// still 302s, but that adds a hop to the path a share takes. text and url
-	// stay separate params so X joins them itself and doesn't count the url
-	// against the character budget.
-	const intentUrl = `https://x.com/intent/post?text=${encodeURIComponent(
-		tweetText,
-	)}&url=${encodeURIComponent(url)}`
+	const displayUrl = `${SITE_HOST}/calls/${callId}`
 
 	return (
 		<VStack gap="3" alignItems="stretch">
@@ -85,39 +76,13 @@ export function CallShareRow({
 					track("call_link_shared", { callId, method: "native", surface })
 				}
 			/>
-			<a
-				href={intentUrl}
-				// A real navigation to x.com, not a popup this app should try to
-				// manage.
-				target="_blank"
-				rel="noopener noreferrer"
+			<PostOnXLink
+				text={tweetText}
+				url={url}
 				onClick={() =>
 					track("call_link_shared", { callId, method: "x", surface })
 				}
-				className={css({
-					display: "flex",
-					alignItems: "center",
-					justifyContent: "center",
-					gap: "2",
-					paddingBlock: "2.5",
-					borderRadius: "md",
-					border: "1px solid {colors.border.default}",
-					fontFamily: "mono",
-					fontSize: "xs",
-					letterSpacing: "wide",
-					textTransform: "uppercase",
-					color: "fg.default",
-					textDecoration: "none",
-					cursor: "pointer",
-					transition: "background-color 0.15s ease",
-					_hover: { backgroundColor: "bg.subtle" },
-				})}
-			>
-				<HStack gap="2" alignItems="center">
-					<FaXTwitter size={14} />
-					Post on X
-				</HStack>
-			</a>
+			/>
 		</VStack>
 	)
 }
