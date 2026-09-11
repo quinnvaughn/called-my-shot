@@ -57,6 +57,7 @@ export const QuestionDetailDocument = graphql(`
 				startsAt
 				homeScore
 				awayScore
+				venue
 				homeTeam {
 					id
 					name
@@ -68,6 +69,16 @@ export const QuestionDetailDocument = graphql(`
 					name
 					abbreviation
 					color
+				}
+				homeTeamRecord {
+					wins
+					losses
+					ties
+				}
+				awayTeamRecord {
+					wins
+					losses
+					ties
 				}
 			}
 			guessDistribution {

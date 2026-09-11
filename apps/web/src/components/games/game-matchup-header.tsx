@@ -1,4 +1,4 @@
-import { css } from "styled-system/css"
+import { css, cx } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
 import { TeamBadge } from "#/components/ui/team-badge"
 import type { GameStatus } from "#/graphql/generated/graphql"
@@ -23,6 +23,8 @@ type Props = {
 		homeTeamRecord?: TeamRecord
 		awayTeamRecord?: TeamRecord
 	}
+	// Hover affordance for when a parent wraps this in a link to the game.
+	interactive?: boolean
 }
 
 // maxWidth is what actually makes the ellipsis work: the name is a flex item
@@ -146,12 +148,12 @@ function TeamLine({
 	)
 }
 
-// The game detail page's own bigger matchup header - not GameBlock
-// (components/questions/game-block.tsx), which stays the small inline badge
-// shared by QuestionCard/CallCard/QuestionSummaryHeader everywhere else.
-// This is the one place in the app prominent enough to warrant full team
-// names, a real score, and each team's record.
-export function GameMatchupHeader({ game }: Props) {
+// The full-size matchup header for the game detail page and a game-scoped
+// question's detail page - not GameBlock (components/questions/game-block.tsx),
+// which stays the small inline badge inside QuestionCard/CallCard list cards.
+// Detail pages are prominent enough to warrant full team names, a real score,
+// and each team's record.
+export function GameMatchupHeader({ game, interactive }: Props) {
 	const live = game.status === "LIVE"
 	const final = game.status === "FINAL"
 	const scored = live || final
@@ -160,12 +162,19 @@ export function GameMatchupHeader({ game }: Props) {
 		<VStack
 			gap="3"
 			alignItems="stretch"
-			className={css({
-				border: "1px solid {colors.border.default}",
-				borderRadius: "xl",
-				bg: "bg.subtle",
-				padding: { base: "3.5", sm: "4" },
-			})}
+			className={cx(
+				css({
+					border: "1px solid {colors.border.default}",
+					borderRadius: "xl",
+					bg: "bg.subtle",
+					padding: { base: "3.5", sm: "4" },
+				}),
+				interactive &&
+					css({
+						transition: "border-color 0.15s ease",
+						_hover: { border: "1px solid {colors.border.emphasized}" },
+					}),
+			)}
 		>
 			<div className={scoreboardClass}>
 				<TeamLine

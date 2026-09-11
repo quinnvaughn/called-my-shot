@@ -12,6 +12,7 @@ import { css } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
 import { match, P } from "ts-pattern"
 import { AuthModal } from "#/components/auth/auth-modal"
+import { GameMatchupHeader } from "#/components/games/game-matchup-header"
 import { FirstCallTour } from "#/components/onboarding/first-call-tour"
 import { TourAnchorProvider } from "#/components/onboarding/tour-anchors"
 import { BallotStrip } from "#/components/questions/ballot-strip"
@@ -21,7 +22,6 @@ import {
 	useCastCallForm,
 } from "#/components/questions/cast-call-form"
 import { FieldBreakdownCard } from "#/components/questions/field-breakdown-card"
-import { GameBlock } from "#/components/questions/game-block"
 import { GuessDistributionChart } from "#/components/questions/guess-distribution-chart"
 import { OptionFieldBreakdown } from "#/components/questions/option-field-breakdown"
 import { PanelRow } from "#/components/questions/panel-row"
@@ -192,6 +192,17 @@ function RouteComponent() {
 	const isCallable = status.kind === "canCall"
 	const isCreator = me?.id === question.creator?.id
 	const resolutionSourceUrl = safeExternalUrl(question.resolutionSourceUrl)
+	const gameLinkParams = question.game
+		? {
+				gameId: question.game.id,
+				slug: buildGameSlug({
+					league: question.league,
+					homeTeam: question.game.homeTeam,
+					awayTeam: question.game.awayTeam,
+					startsAt: question.game.startsAt,
+				}),
+			}
+		: null
 	const tolerance = toleranceSpecFrom(
 		question.numericTolerancePct,
 		question.numericToleranceAbsolute,
@@ -233,18 +244,10 @@ function RouteComponent() {
 					>
 						{question.league.abbreviation}
 					</Breadcrumb.Link>
-					{question.game && (
+					{question.game && gameLinkParams && (
 						<Breadcrumb.Link
 							to="/games/$gameId/{-$slug}"
-							params={{
-								gameId: question.game.id,
-								slug: buildGameSlug({
-									league: question.league,
-									homeTeam: question.game.homeTeam,
-									awayTeam: question.game.awayTeam,
-									startsAt: question.game.startsAt,
-								}),
-							}}
+							params={gameLinkParams}
 						>
 							{question.game.awayTeam.abbreviation} @{" "}
 							{question.game.homeTeam.abbreviation}
@@ -296,7 +299,19 @@ function RouteComponent() {
 				{/* Only rendered when this question is actually tied to a single
 			game - season-long questions (championship, MVP) have no game and
 			this stays hidden for those. */}
-				{question.game && <GameBlock game={question.game} />}
+				{question.game && gameLinkParams && (
+					<Link
+						to="/games/$gameId/{-$slug}"
+						params={gameLinkParams}
+						className={css({
+							display: "block",
+							textDecoration: "none",
+							color: "inherit",
+						})}
+					>
+						<GameMatchupHeader game={question.game} interactive />
+					</Link>
+				)}
 				<Card>
 					<Card.Body>
 						<VStack gap="0" alignItems="stretch">

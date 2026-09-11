@@ -17,8 +17,8 @@ type Props = {
 
 // The single real-world matchup a question is about - away @ home, plus
 // either when it starts (still to come) or the score (in progress/final).
-// Shared by QuestionCard, CallCard (both via QuestionSummaryHeader) and the
-// question's own detail page, which all show the same block.
+// Shared by QuestionCard and CallCard (both via QuestionSummaryHeader). Detail
+// pages use the larger GameMatchupHeader instead.
 export function GameBlock({ game }: Props) {
 	return (
 		<HStack
