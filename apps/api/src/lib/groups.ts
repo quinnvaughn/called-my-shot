@@ -72,13 +72,20 @@ export function insertGroupInvite(
 }
 
 // Every member gets one invite link per group - fetch theirs, creating it on
-// first request so opening the invite modal always has something to show.
+// first request so opening the invite modal always has something to show. An
+// expired one is swapped for a fresh code that never expires, so the invite
+// modal and the group page's invite card never hand out a dead link.
 export async function getOrCreateMemberInvite(groupId: string, userId: string) {
 	const existing = await db.query.groupInvites.findFirst({
 		where: { groupId, createdBy: userId },
 	})
-	if (existing) return existing
-	return insertGroupInvite(groupId, userId, expiryToDate("NO_EXPIRY"))
+	if (!existing) {
+		return insertGroupInvite(groupId, userId, expiryToDate("NO_EXPIRY"))
+	}
+	if (isInviteExpired(existing.expiresAt)) {
+		return regenerateInviteCode(existing.id, expiryToDate("NO_EXPIRY"))
+	}
+	return existing
 }
 
 export async function requireInviteOwnerOrAdmin(
