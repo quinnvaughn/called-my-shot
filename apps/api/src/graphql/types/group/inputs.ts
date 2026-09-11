@@ -24,6 +24,7 @@ export const QuestionSharePayload = builder
 export const CreateGroupInput = builder.inputType("CreateGroupInput", {
 	fields: (t) => ({
 		name: t.string({ required: true }),
+		description: t.string({ required: false }),
 		// omitted or empty tracks every league
 		leagueIds: t.idList({ required: false }),
 	}),
@@ -33,6 +34,8 @@ export const UpdateGroupInput = builder.inputType("UpdateGroupInput", {
 	fields: (t) => ({
 		groupId: t.id({ required: true }),
 		name: t.string({ required: true }),
+		// blank clears it
+		description: t.string({ required: true }),
 		// empty tracks every league
 		leagueIds: t.idList({ required: true }),
 	}),

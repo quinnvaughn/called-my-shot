@@ -16,6 +16,9 @@ export const groupMemberRole = pgEnum("group_member_role", ["admin", "member"])
 export const groups = pgTable("groups", {
 	id: uuid("id").primaryKey().defaultRandom(),
 	name: text("name").notNull(),
+	// Optional pitch shown on the invite page and its link preview. Blank is
+	// stored as null, never an empty string.
+	description: text("description"),
 	// Nullable + set null on delete: deleting the account that created a group
 	// shouldn't take the group (and its other members) down with it.
 	createdBy: uuid("created_by").references(() => users.id, {

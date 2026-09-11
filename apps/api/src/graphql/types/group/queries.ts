@@ -71,6 +71,7 @@ builder.queryFields((t) => ({
 			return {
 				id: group.id,
 				name: group.name,
+				description: group.description,
 				memberCount: memberUsers.length,
 				members: memberUsers
 					.slice(0, GROUP_PREVIEW_MEMBER_LIMIT)

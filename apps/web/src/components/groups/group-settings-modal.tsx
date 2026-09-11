@@ -1,4 +1,7 @@
-import { createGroupSchema } from "@called-my-shot/schemas"
+import {
+	createGroupSchema,
+	GROUP_DESCRIPTION_MAX,
+} from "@called-my-shot/schemas"
 import { useQueryClient } from "@tanstack/react-query"
 import { useRouter } from "@tanstack/react-router"
 import { VStack } from "styled-system/jsx"
@@ -13,11 +16,13 @@ import { FieldLabel } from "../ui/field-label"
 import { FormError } from "../ui/form-error"
 import { Modal } from "../ui/modal"
 import { TextInput } from "../ui/text-input"
+import { Textarea } from "../ui/textarea"
 import { TrackedLeaguesPicker } from "./tracked-leagues-picker"
 
 type Props = {
 	groupId: string
 	groupName: string
+	groupDescription: string | null
 	leagues: { id: string; abbreviation: string }[]
 	trackedLeagueIds: string[]
 }
@@ -28,6 +33,7 @@ type Props = {
 export function GroupSettingsModal({
 	groupId,
 	groupName,
+	groupDescription,
 	leagues,
 	trackedLeagueIds,
 }: Props) {
@@ -38,12 +44,15 @@ export function GroupSettingsModal({
 	const form = useForm({
 		defaultValues: {
 			name: groupName,
+			description: groupDescription ?? "",
 			leagueIds: trackedLeagueIds,
 		},
 		schema: createGroupSchema,
 		onSubmit: async (values, helpers) => {
 			const data = await updateGroup.mutateAsync({
-				input: { groupId, ...values },
+				// Always sent, even blank - updateGroup saves the whole form, and a
+				// blank description is how an admin clears it.
+				input: { groupId, ...values, description: values.description ?? "" },
 			})
 			const result = data?.updateGroup
 
@@ -97,6 +106,28 @@ export function GroupSettingsModal({
 									/>
 								</TextInput.Group>
 							</TextInput>
+						)}
+					</form.Field>
+					<form.Field name="description">
+						{(field) => (
+							<Textarea
+								error={field.meta.error ?? undefined}
+								description="Shows on your invite link, so people know what they're joining."
+							>
+								<Textarea.Label>Description</Textarea.Label>
+								<Textarea.Field
+									placeholder="e.g. Bragging rights for the group chat"
+									maxLength={GROUP_DESCRIPTION_MAX}
+									rows={2}
+									value={field.value}
+									onChange={field.onChange}
+									onBlur={field.onBlur}
+								/>
+								<Textarea.CharCount
+									value={field.value ?? ""}
+									max={GROUP_DESCRIPTION_MAX}
+								/>
+							</Textarea>
 						)}
 					</form.Field>
 					<form.Field name="leagueIds">

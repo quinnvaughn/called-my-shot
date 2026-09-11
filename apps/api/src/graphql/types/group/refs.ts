@@ -82,6 +82,7 @@ export const GroupRef = builder.drizzleObject("groups", {
 	fields: (t) => ({
 		id: t.exposeID("id"),
 		name: t.exposeString("name"),
+		description: t.exposeString("description", { nullable: true }),
 		createdAt: t.field({
 			type: "String",
 			resolve: (group) => group.createdAt.toISOString(),

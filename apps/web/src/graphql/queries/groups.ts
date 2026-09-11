@@ -14,6 +14,7 @@ export const GroupPreviewDocument = graphql(`
         groupPreview(code: $code) {
             id
             name
+            description
             memberCount
             invitedBy {
                 name
@@ -72,6 +73,7 @@ export const GroupDetailDocument = graphql(`
         group(id: $groupId) {
             id
             name
+            description
             memberCount
             viewerIsAdmin
             viewerRank

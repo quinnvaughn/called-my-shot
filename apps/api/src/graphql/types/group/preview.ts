@@ -44,6 +44,7 @@ export const GroupPreviewRef = builder
 	.objectRef<{
 		id: string
 		name: string
+		description: string | null
 		memberCount: number
 		members: { id: string; name: string }[]
 		invitedBy: { name: string; username: string }
@@ -54,6 +55,7 @@ export const GroupPreviewRef = builder
 		fields: (t) => ({
 			id: t.exposeID("id"),
 			name: t.exposeString("name"),
+			description: t.exposeString("description", { nullable: true }),
 			memberCount: t.exposeInt("memberCount"),
 			// capped preview for an avatar stack - not the full roster, this is
 			// visible to unauthenticated visitors

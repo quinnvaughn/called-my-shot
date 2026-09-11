@@ -318,7 +318,12 @@ describe("setting tracked leagues", () => {
 		const data = await expectData<{ updateGroup: UpdateResult }>(UPDATE_GROUP, {
 			as: member,
 			variables: {
-				input: { groupId: group.id, name: "Mine now", leagueIds: [nba.id] },
+				input: {
+					groupId: group.id,
+					name: "Mine now",
+					description: "",
+					leagueIds: [nba.id],
+				},
 			},
 		})
 
@@ -335,7 +340,12 @@ describe("setting tracked leagues", () => {
 			{
 				as: admin,
 				variables: {
-					input: { groupId: group.id, name: "Wolfpack", leagueIds: [nfl.id] },
+					input: {
+						groupId: group.id,
+						name: "Wolfpack",
+						description: "",
+						leagueIds: [nfl.id],
+					},
 				},
 			},
 		)
@@ -349,7 +359,12 @@ describe("setting tracked leagues", () => {
 			{
 				as: admin,
 				variables: {
-					input: { groupId: group.id, name: "Wolfpack", leagueIds: [] },
+					input: {
+						groupId: group.id,
+						name: "Wolfpack",
+						description: "",
+						leagueIds: [],
+					},
 				},
 			},
 		)
@@ -367,7 +382,12 @@ describe("setting tracked leagues", () => {
 		const data = await expectData<{ updateGroup: UpdateResult }>(UPDATE_GROUP, {
 			as: admin,
 			variables: {
-				input: { groupId: group.id, name: "A", leagueIds: [nfl.id] },
+				input: {
+					groupId: group.id,
+					name: "A",
+					description: "",
+					leagueIds: [nfl.id],
+				},
 			},
 		})
 

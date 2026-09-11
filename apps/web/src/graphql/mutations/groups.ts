@@ -84,6 +84,7 @@ export const UpdateGroupDocument = graphql(`
 				group {
 					id
 					name
+					description
 					trackedLeagues {
 						id
 						abbreviation

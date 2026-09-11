@@ -166,6 +166,7 @@ function RouteComponent() {
 			<PageHeader
 				title={group.name}
 				subtitle={`${group.memberCount} ${pluralize(group.memberCount, "member")}`}
+				description={group.description}
 				action={
 					<HStack gap="2">
 						{group.viewerIsAdmin && (
@@ -177,6 +178,7 @@ function RouteComponent() {
 										<GroupSettingsModal
 											groupId={group.id}
 											groupName={group.name}
+											groupDescription={group.description ?? null}
 											leagues={leagues}
 											trackedLeagueIds={trackedLeagues.map((l) => l.id)}
 										/>,

@@ -37,7 +37,11 @@ export const Route = createFileRoute("/_app/groups/join/$code")({
 
 		return pageMeta({
 			title: `Join ${preview.name} on Called My Shot`,
-			description: `${preview.invitedBy.name} invited you to join ${preview.name} - ${preview.memberCount} ${pluralize(preview.memberCount, "member")} already calling their shots.`,
+			// The group's own pitch, when it has one, says more to someone
+			// deciding from a link preview than the member count does.
+			description: preview.description
+				? `${preview.invitedBy.name} invited you to join ${preview.name}. ${preview.description}`
+				: `${preview.invitedBy.name} invited you to join ${preview.name} - ${preview.memberCount} ${pluralize(preview.memberCount, "member")} already calling their shots.`,
 			path: `/groups/join/${params.code}`,
 		})
 	},
@@ -111,6 +115,19 @@ function RouteComponent() {
 			<h1 className={css({ fontFamily: "heading", fontSize: "2xl" })}>
 				{preview.name}
 			</h1>
+			{preview.description && (
+				<p
+					className={css({
+						maxWidth: "md",
+						fontSize: "sm",
+						color: "fg.muted",
+						lineHeight: "relaxed",
+						textAlign: "center",
+					})}
+				>
+					{preview.description}
+				</p>
+			)}
 			<AvatarStack members={preview.members} />
 			<p
 				className={css({

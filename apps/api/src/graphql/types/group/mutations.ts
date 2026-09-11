@@ -50,6 +50,7 @@ builder.mutationFields((t) => ({
 			const user = requireUser(ctx)
 			const parsed = createGroupSchema.safeParse({
 				name: args.input.name,
+				description: args.input.description ?? undefined,
 				leagueIds: args.input.leagueIds ?? undefined,
 			})
 			if (!parsed.success) {
@@ -59,7 +60,12 @@ builder.mutationFields((t) => ({
 
 			const [group] = await db
 				.insert(groups)
-				.values({ name: parsed.data.name, createdBy: user.id })
+				.values({
+					name: parsed.data.name,
+					// || rather than ??: a blank description is no description
+					description: parsed.data.description || null,
+					createdBy: user.id,
+				})
 				.returning()
 			await db
 				.insert(groupMembers)
@@ -93,7 +99,10 @@ builder.mutationFields((t) => ({
 			const group = await db.transaction(async (tx) => {
 				const [updated] = await tx
 					.update(groups)
-					.set({ name: parsed.data.name })
+					.set({
+						name: parsed.data.name,
+						description: parsed.data.description || null,
+					})
 					.where(eq(groups.id, parsed.data.groupId))
 					.returning()
 				if (!updated) throw new NotFoundError("Group not found")

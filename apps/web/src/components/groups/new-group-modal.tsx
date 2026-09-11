@@ -1,4 +1,7 @@
-import { createGroupSchema } from "@called-my-shot/schemas"
+import {
+	createGroupSchema,
+	GROUP_DESCRIPTION_MAX,
+} from "@called-my-shot/schemas"
 import { useQueryClient } from "@tanstack/react-query"
 import { useNavigate, useRouter } from "@tanstack/react-router"
 import { VStack } from "styled-system/jsx"
@@ -14,6 +17,7 @@ import { FieldLabel } from "../ui/field-label"
 import { FormError } from "../ui/form-error"
 import { Modal } from "../ui/modal"
 import { TextInput } from "../ui/text-input"
+import { Textarea } from "../ui/textarea"
 import { TrackedLeaguesPicker } from "./tracked-leagues-picker"
 
 type CreatedGroup = {
@@ -43,6 +47,7 @@ export function NewGroupModal({ onCreated, leagues }: Props) {
 	const form = useForm({
 		defaultValues: {
 			name: "",
+			description: "",
 			leagueIds: [] as string[],
 		},
 		schema: createGroupSchema,
@@ -113,6 +118,28 @@ export function NewGroupModal({ onCreated, leagues }: Props) {
 									/>
 								</TextInput.Group>
 							</TextInput>
+						)}
+					</form.Field>
+					<form.Field name="description">
+						{(field) => (
+							<Textarea
+								error={field.meta.error ?? undefined}
+								description="Shows on your invite link, so people know what they're joining."
+							>
+								<Textarea.Label>Description</Textarea.Label>
+								<Textarea.Field
+									placeholder="e.g. Bragging rights for the group chat"
+									maxLength={GROUP_DESCRIPTION_MAX}
+									rows={2}
+									value={field.value}
+									onChange={field.onChange}
+									onBlur={field.onBlur}
+								/>
+								<Textarea.CharCount
+									value={field.value ?? ""}
+									max={GROUP_DESCRIPTION_MAX}
+								/>
+							</Textarea>
 						)}
 					</form.Field>
 					<form.Field name="leagueIds">

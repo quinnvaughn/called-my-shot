@@ -129,7 +129,7 @@ describe("group schemas", () => {
 		expect(createGroupSchema.parse({ name: "The League" }).leagueIds).toEqual(
 			[],
 		)
-		const update = { groupId: UUID, name: "The League" }
+		const update = { groupId: UUID, name: "The League", description: "" }
 		expect(
 			updateGroupSchema.parse({ ...update, leagueIds: [UUID, UUID] }).leagueIds,
 		).toEqual([UUID])
@@ -137,9 +137,19 @@ describe("group schemas", () => {
 	})
 
 	it("holds a rename to the same name rules as creation", () => {
-		const update = { groupId: UUID, leagueIds: [] }
+		const update = { groupId: UUID, description: "", leagueIds: [] }
 		expect(ok(updateGroupSchema, { ...update, name: "A" })).toBe(false)
 		expect(ok(updateGroupSchema, { ...update, name: "  Wolfpack  " })).toBe(true)
+	})
+
+	it("keeps the description optional and short", () => {
+		expect(ok(createGroupSchema, { name: "The League" })).toBe(true)
+		expect(
+			ok(createGroupSchema, { name: "The League", description: "x".repeat(200) }),
+		).toBe(true)
+		expect(
+			ok(createGroupSchema, { name: "The League", description: "x".repeat(201) }),
+		).toBe(false)
 	})
 
 	it("upper-cases an invite code so it can be typed either way", () => {
