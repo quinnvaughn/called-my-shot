@@ -25,6 +25,13 @@ export const GameRef = builder.drizzleObject("games", {
 		league: t.relation("league"),
 		homeTeam: t.relation("homeTeam"),
 		awayTeam: t.relation("awayTeam"),
+		// Both teams' starters, kept current by db/sync/sync-game-starters.ts.
+		// Empty for a game outside that job's window. Ordered by sortOrder,
+		// which is batting order or depth chart order within each team and
+		// role.
+		starters: t.relation("starters", {
+			query: () => ({ orderBy: { sortOrder: "asc" } }),
+		}),
 		// Batched by "teamId|seasonId" rather than by game id directly - two
 		// games between the same teams in the same season (a rematch) would
 		// otherwise issue two identical lookups instead of sharing one, and the

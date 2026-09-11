@@ -1,6 +1,7 @@
 import cron from "node-cron"
 import { lockOverdueQuestions } from "./db/lock-overdue-questions"
 import { syncSportsData } from "./db/sync/run"
+import { syncGameStarters } from "./db/sync/sync-game-starters"
 import { syncLiveScores } from "./db/sync/sync-live-scores"
 import { drainResolutionDigests } from "./lib/email-digest"
 import {
@@ -44,6 +45,13 @@ export function startScheduler(): void {
 		timezone: "UTC",
 		noOverlap: true,
 	})
+	// Every 30m, but most ticks fetch little or nothing: each game is only due
+	// again once its own refresh interval has passed (see isStartersRefreshDue).
+	cron.schedule(
+		"*/30 * * * *",
+		runJob("sync-game-starters", () => syncGameStarters()),
+		{ name: "sync-game-starters", timezone: "UTC", noOverlap: true },
+	)
 	// Every 5m, but each user's rows still have to clear the settling window
 	// inside the job (see SETTLE_MINUTES) - the frequency is how quickly a
 	// batch goes out once it's ripe, not how often anyone gets mailed.
@@ -80,6 +88,6 @@ export function startScheduler(): void {
 		{ name: DRAIN_SEASON_START_LOCK, timezone: "UTC", noOverlap: true },
 	)
 	console.log(
-		"[scheduler] started: sync-live-scores */5m, lock-overdue-questions */15m, sync-sports-data daily 09:00 UTC, drain-email-digests */5m, enqueue-season-start-emails daily 13:00 UTC, drain-season-start-emails */5m",
+		"[scheduler] started: sync-live-scores */5m, lock-overdue-questions */15m, sync-sports-data daily 09:00 UTC, sync-game-starters */30m, drain-email-digests */5m, enqueue-season-start-emails daily 13:00 UTC, drain-season-start-emails */5m",
 	)
 }

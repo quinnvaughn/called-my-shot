@@ -13,6 +13,7 @@ import { HStack, VStack } from "styled-system/jsx"
 import { match, P } from "ts-pattern"
 import { AuthModal } from "#/components/auth/auth-modal"
 import { GameMatchupHeader } from "#/components/games/game-matchup-header"
+import { GameStarters } from "#/components/games/game-starters"
 import { FirstCallTour } from "#/components/onboarding/first-call-tour"
 import { TourAnchorProvider } from "#/components/onboarding/tour-anchors"
 import { BallotStrip } from "#/components/questions/ballot-strip"
@@ -312,6 +313,9 @@ function RouteComponent() {
 						<GameMatchupHeader game={question.game} interactive />
 					</Link>
 				)}
+				{/* Outside the link above so its expand toggle isn't a control
+				nested inside a link. */}
+				{question.game && <GameStarters game={question.game} />}
 				<Card>
 					<Card.Body>
 						<VStack gap="0" alignItems="stretch">

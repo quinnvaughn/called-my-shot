@@ -133,6 +133,7 @@ export const GameByIdDocument = graphql(`
 	query GameById($id: ID!) {
 		game(id: $id) {
 			id
+			...GameStarters_game
 			startsAt
 			status
 			homeScore

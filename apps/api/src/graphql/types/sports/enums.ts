@@ -24,6 +24,18 @@ export const LeagueWindowType = builder.enumType("LeagueWindowType", {
 	},
 })
 
+// Which slice of a team's lineup a starter is - see gameStarterRole in
+// db/schema/game-starters.ts.
+export const GameStarterRole = builder.enumType("GameStarterRole", {
+	values: {
+		STARTING_PITCHER: { value: "starting_pitcher" },
+		BATTER: { value: "batter" },
+		OFFENSE: { value: "offense" },
+		DEFENSE: { value: "defense" },
+		STARTER: { value: "starter" },
+	},
+})
+
 export const ToleranceMode = builder.enumType("ToleranceMode", {
 	values: {
 		PERCENTAGE: { value: "percentage" },

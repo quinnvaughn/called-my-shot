@@ -53,6 +53,7 @@ export const QuestionDetailDocument = graphql(`
 			}
 			game {
 				id
+				...GameStarters_game
 				status
 				startsAt
 				homeScore

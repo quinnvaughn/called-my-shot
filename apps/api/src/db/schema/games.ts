@@ -105,5 +105,9 @@ export const games = pgTable("games", {
 	// Nullable: games synced before this column existed have no value until
 	// their next sync pass.
 	venue: text("venue"),
+	// When db/sync/sync-game-starters.ts last fully refreshed this game's
+	// starters - how that job tells a game is due again without re-fetching
+	// ESPN every tick. Null until the first successful refresh.
+	startersSyncedAt: timestamp("starters_synced_at"),
 })
 export type Game = typeof games.$inferSelect

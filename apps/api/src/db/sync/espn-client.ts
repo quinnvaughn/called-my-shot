@@ -86,10 +86,28 @@ export type EspnEvent = {
 	]
 }
 
+// Carries the HTTP status so a caller can tell ESPN refusing us (403/429) apart
+// from an ordinary failed request - see sync-game-starters.ts, which stops a
+// run on the former.
+export class EspnRequestError extends Error {
+	readonly status: number
+
+	constructor(path: string, status: number) {
+		super(`ESPN request failed: ${path} (${status})`)
+		this.status = status
+	}
+}
+
+// Without a timeout one hung response holds its job, and the job's lease, open
+// indefinitely.
+const REQUEST_TIMEOUT_MS = 10_000
+
 async function espnGet<T>(path: string): Promise<T> {
-	const res = await fetch(`${BASE_URL}/${path}`)
+	const res = await fetch(`${BASE_URL}/${path}`, {
+		signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+	})
 	if (!res.ok) {
-		throw new Error(`ESPN request failed: ${path} (${res.status})`)
+		throw new EspnRequestError(path, res.status)
 	}
 	return res.json() as Promise<T>
 }
@@ -209,6 +227,100 @@ export async function fetchScoreboard(
 		`${sportPath}/scoreboard`,
 	)
 	return data.events
+}
+
+export type EspnStatistic = { abbreviation: string; displayValue: string }
+
+// MLB only in practice: no other league's scoreboard carries probables
+// (verified live). `abbreviation` is "SP" for the probable starting pitcher.
+export type EspnProbable = {
+	name: string
+	abbreviation: string
+	athlete: { id: string; displayName: string }
+	statistics?: EspnStatistic[]
+}
+
+export type EspnProbablesEvent = {
+	id: string
+	competitions: [
+		{
+			competitors: {
+				homeAway: "home" | "away"
+				team: { id: string }
+				probables?: EspnProbable[]
+			}[]
+		},
+	]
+}
+
+// A date range (YYYYMMDD, ESPN's local US calendar dates) returns every game
+// in it from one call - verified live, a three-day MLB range came back with
+// all 40 games and their probables.
+export async function fetchScoreboardRange(
+	sportPath: EspnSportPath,
+	startDate: string,
+	endDate: string,
+): Promise<EspnProbablesEvent[]> {
+	const data = await espnGet<{ events: EspnProbablesEvent[] }>(
+		`${sportPath}/scoreboard?dates=${startDate}-${endDate}&limit=200`,
+	)
+	return data.events
+}
+
+export type EspnLineupEntry = {
+	starter?: boolean
+	batOrder?: number
+	position?: { abbreviation: string }
+	athlete: { id: string; displayName: string }
+}
+
+// Before a lineup is posted the team is still listed, just with an empty (or
+// missing) roster - verified live on an MLB game a few hours out.
+export type EspnSummaryRoster = {
+	homeAway: "home" | "away"
+	team: { id: string }
+	roster?: EspnLineupEntry[]
+}
+
+export async function fetchGameSummaryRosters(
+	sportPath: EspnSportPath,
+	espnEventId: string,
+): Promise<EspnSummaryRoster[]> {
+	const data = await espnGet<{ rosters?: EspnSummaryRoster[] }>(
+		`${sportPath}/summary?event=${espnEventId}`,
+	)
+	return data.rosters ?? []
+}
+
+export type EspnDepthChartAthlete = {
+	id: string
+	displayName: string
+	injuries?: { status: string }[]
+}
+
+export type EspnDepthChartPosition = {
+	position: { abbreviation: string }
+	// Ordered by depth - athletes[0] is the first-string player.
+	athletes: EspnDepthChartAthlete[]
+}
+
+// Keyed by ESPN's lowercase position slot ("qb", "wr1", "lde", "pg"), in the
+// order ESPN lists them.
+export type EspnDepthChart = {
+	name: string
+	positions: Record<string, EspnDepthChartPosition>
+}
+
+// NFL returns three charts (offense, defense, special teams), NBA one - both
+// verified live. Works any time of year, not only near a game.
+export async function fetchDepthChart(
+	sportPath: EspnSportPath,
+	espnTeamId: string,
+): Promise<EspnDepthChart[]> {
+	const data = await espnGet<{ depthchart?: EspnDepthChart[] }>(
+		`${sportPath}/teams/${espnTeamId}/depthcharts`,
+	)
+	return data.depthchart ?? []
 }
 
 // Season boundary dates live on a different ESPN host entirely (the "core"
