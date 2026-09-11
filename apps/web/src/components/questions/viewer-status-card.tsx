@@ -12,6 +12,7 @@ import { Link } from "@tanstack/react-router"
 import { type ReactNode, useState } from "react"
 import { css, cx } from "styled-system/css"
 import { Flex, HStack, VStack } from "styled-system/jsx"
+import { match, P } from "ts-pattern"
 import {
 	buildCallTweet,
 	CallShareRow,
@@ -19,10 +20,9 @@ import {
 import { CaseBlock } from "#/components/questions/case-block"
 import { DisputeModal } from "#/components/questions/dispute-modal"
 import type { QuestionShape } from "#/graphql/generated/graphql"
-import { pickSummary, resultState } from "#/lib/call-summary"
+import { pickSummary } from "#/lib/call-summary"
 import { formatGuess } from "#/lib/field-signal"
 import { formatCallDate } from "#/lib/format-date"
-import type { QuestionDetailState } from "#/lib/question-detail-state"
 import {
 	isNumericQuestionShape,
 	isOverUnderQuestionShape,
@@ -32,7 +32,13 @@ import {
 	formatMult,
 	previewNumericPoints,
 	previewSelectionPoints,
+	toleranceSpecFrom,
 } from "#/lib/scoring"
+import type {
+	CallResult,
+	DisputeAction,
+	ViewerStatus,
+} from "#/lib/viewer-status"
 import { openModal } from "#/stores/modal-store"
 
 // GraphQL's QuestionShape is SCREAMING_SNAKE; BASE_POINTS_BY_SHAPE (and the
@@ -151,7 +157,9 @@ type ViewerCall = {
 
 type Props = {
 	questionId: string
-	state: QuestionDetailState
+	status: ViewerStatus<ViewerCall>
+	// See disputeAction in #/lib/viewer-status.
+	disputeAction: DisputeAction
 	callCount: number
 	// The question's total option count, feeding tierFor's relative-rarity
 	// normalization (an option's share means something different in a 2-option
@@ -165,12 +173,6 @@ type Props = {
 	// in #/lib/question-labels. numericToleranceAbsolute above only ever
 	// covers the two numeric_guess shapes.
 	isRateStat: boolean
-	viewerCall: ViewerCall | null
-	hasViewerDispute: boolean
-	// Once any dispute on this question has been closed (upheld or
-	// overturned), the dispute process is done for good - no new "under
-	// review" banner, no new "Dispute this resolution" button.
-	hasSettledDispute: boolean
 	// The actual resolved outcome - null until settled. Lives inside this
 	// card (not as a separate banner up near the title) because it's the
 	// same information the badge/points above are about: what happened,
@@ -192,38 +194,31 @@ type Props = {
 // this question." Used to be a dedicated PendingCallCard plus three separate
 // inline blocks in the route - four near-identical card shells with the same
 // badge-then-content layout, diverging only in which badge and which content.
-// One component, one switch on state, instead of that hand-maintained
+// One component, one match on ViewerStatus, instead of that hand-maintained
 // duplication.
 export function ViewerStatusCard({
 	questionId,
-	state,
+	status,
+	disputeAction,
 	callCount,
 	totalOptions,
 	numericTolerancePct,
 	numericToleranceAbsolute,
 	isRateStat,
-	viewerCall,
-	hasViewerDispute,
-	hasSettledDispute,
 	answer,
 	resolutionNote,
 	fieldAccuracyPct,
 	questionTitle,
 }: Props) {
-	// A resolution can be disputed by anyone who saw it, not just people who
-	// called - a spectator can just as easily notice a wrong result. Gated on
-	// the question not already being under an active dispute (the banner
-	// above already communicates that state) and on the dispute process not
-	// having already run its course once (hasSettledDispute) - a resolution
-	// that's already been upheld or overturned is final, further correction
-	// is an admin action, not another caller dispute.
-	const disputeRow = state.isSettled &&
-		!state.isDisputed &&
-		!hasSettledDispute && (
-			<DisputeRow questionId={questionId} hasDispute={hasViewerDispute} />
-		)
-	const resultTitle = answer && (
-		<ResultTitle answer={answer} disputed={state.isDisputed} />
+	const pickRowsProps = {
+		callCount,
+		totalOptions,
+		numericTolerancePct,
+		numericToleranceAbsolute,
+		isRateStat,
+	}
+	const disputeRow = (
+		<DisputeRow questionId={questionId} action={disputeAction} />
 	)
 	// The resolver's free-text caption, not the answer itself - reads as a
 	// comment attached to the resolution, same "labeled quote" treatment
@@ -234,146 +229,110 @@ export function ViewerStatusCard({
 		<CaseBlock text={resolutionNote} label="Resolution note" />
 	)
 
-	if (!viewerCall) {
-		if (state.isLocked && !state.isSettled) {
-			return (
+	return (
+		match(status)
+			.returnType<ReactNode>()
+			// Open and never called - nothing to report yet, CastCallForm owns this state.
+			.with({ kind: "canCall" }, () => null)
+			.with({ kind: "lockedNoCall" }, () => (
 				<Shell tone="neutral">
 					<StatusPill tone="neutral">Locked</StatusPill>
 					<Sub>Check back once this resolves.</Sub>
 				</Shell>
-			)
-		}
-		if (state.isSettled) {
-			return (
+			))
+			.with({ kind: "resolvedNoCall" }, ({ disputed }) => (
 				<Shell tone="neutral">
 					<StatusPill tone="neutral">Resolved</StatusPill>
-					{resultTitle}
+					{answer && <ResultTitle answer={answer} disputed={disputed} />}
 					{disputeRow}
 					{noteBlock}
 				</Shell>
-			)
-		}
-		// Open and never called - nothing to report yet, CastCallForm owns this state.
-		return null
-	}
-
-	if (!state.isSettled) {
-		return (
-			<PendingContent
-				isLocked={state.isLocked}
-				numericTolerancePct={numericTolerancePct}
-				numericToleranceAbsolute={numericToleranceAbsolute}
-				isRateStat={isRateStat}
-				callCount={callCount}
-				totalOptions={totalOptions}
-				viewerCall={viewerCall}
-				questionTitle={questionTitle}
-			/>
-		)
-	}
-
-	const isNumeric = isNumericQuestionShape(viewerCall.question.shape)
-	const basePoints = BASE_POINTS_BY_GQL_SHAPE[viewerCall.question.shape]
-	const result = resultState(viewerCall.totalPoints)
-	const tone =
-		result.status === "win"
-			? "success"
-			: result.status === "loss"
-				? "danger"
-				: "neutral"
-	return (
-		<Shell tone={tone}>
-			<StatusPill tone={tone}>
-				{result.status === "pending"
-					? "Pending"
-					: result.status === "win"
-						? "You called it"
-						: "Missed"}
-			</StatusPill>
-			<VStack gap="1" alignItems="flex-start">
-				{resultTitle}
-				{fieldAccuracyPct !== null && (
-					<span className={crowdStatClass}>
-						{Math.round(fieldAccuracyPct)}% of the crowd nailed this
-					</span>
-				)}
-			</VStack>
-			{result.status !== "pending" && (
-				<PointsFinal points={result.points} win={result.status === "win"} />
-			)}
-			<VStack gap="1.5" alignItems="stretch">
-				{isNumeric
-					? viewerCall.guessValue !== null &&
-						viewerCall.conviction !== null && (
-							<NumericPickRow
-								guessValue={viewerCall.guessValue}
-								conviction={viewerCall.conviction}
-								tolerance={toleranceSpecFrom(
-									numericTolerancePct,
-									numericToleranceAbsolute,
-								)}
-								rank={viewerCall.currentRank}
-								totalCalls={callCount}
-								basePoints={basePoints}
-								result={
-									viewerCall.totalPoints === null
-										? { kind: "preview" }
-										: {
-												kind: "resolved",
-												totalPoints: viewerCall.totalPoints,
-												closenessMult: viewerCall.closenessMult,
-												closenessFieldPct: viewerCall.closenessFieldPct,
-											}
-								}
+			))
+			// The viewer's own call, locked in and awaiting a result - one row
+			// per pick with its live "if right / if wrong" payout preview, using
+			// the same scoring formula CastCallForm shows while picking (see
+			// #/lib/scoring) so the number never jumps between the two screens.
+			.with({ kind: "pending" }, ({ call, isLocked }) => (
+				<Shell tone="primary">
+					<StatusPill tone="primary" live>
+						{isLocked ? "Awaiting resolution" : "Pending"}: your call is locked
+					</StatusPill>
+					<PickRows call={call} settled={false} {...pickRowsProps} />
+					{/* An unresolved call is the one most worth putting on the record -
+					calling something months before it happens is the whole claim - so
+					this is here rather than only on the settled face below. */}
+					<ShareCallSection
+						viewerCall={call}
+						outcome={null}
+						questionTitle={questionTitle}
+						numericToleranceAbsolute={numericToleranceAbsolute}
+						isRateStat={isRateStat}
+					/>
+				</Shell>
+			))
+			.with({ kind: "resolved" }, ({ call, disputed, result }) => {
+				const face = resultFace(result)
+				return (
+					<Shell tone={face.tone}>
+						<StatusPill tone={face.tone}>{face.label}</StatusPill>
+						<VStack gap="1" alignItems="flex-start">
+							{answer && <ResultTitle answer={answer} disputed={disputed} />}
+							{fieldAccuracyPct !== null && (
+								<span className={crowdStatClass}>
+									{Math.round(fieldAccuracyPct)}% of the crowd nailed this
+								</span>
+							)}
+						</VStack>
+						{face.outcome && (
+							<PointsFinal
+								points={face.outcome.points}
+								win={face.outcome.isWin}
 							/>
-						)
-					: viewerCall.selections.map((selection) => (
-							<SelectionPickRow
-								key={selection.option.label}
-								label={optionDisplayLabel(
-									selection.option.label,
-									isOverUnderQuestionShape(viewerCall.question.shape),
-									viewerCall.question.ouLine,
-									isRateStat,
-								)}
-								fieldPct={selection.option.fieldPct}
-								totalOptions={totalOptions}
-								conviction={selection.conviction}
-								rank={viewerCall.currentRank}
-								totalCalls={callCount}
-								shape={viewerCall.question.shape}
-								seasonGamesPlayed={viewerCall.seasonGamesPlayed}
-								seasonTotalGames={viewerCall.seasonTotalGames}
-								basePoints={basePoints}
-								// A single pick's name is already up in the title - only
-								// player_season_award/team_season_award (several picks,
-								// none of them named up top) needs each row to say what it is.
-								showName={viewerCall.selections.length > 1}
-								result={
-									selection.option.isCorrect === null ||
-									selection.resultPoints === null
-										? { kind: "preview" }
-										: {
-												kind: "resolved",
-												isCorrect: selection.option.isCorrect,
-												points: selection.resultPoints,
-											}
-								}
-							/>
-						))}
-			</VStack>
-			<ShareCallSection
-				viewerCall={viewerCall}
-				isWin={result.status === "pending" ? null : result.status === "win"}
-				points={result.status === "pending" ? null : result.points}
-				questionTitle={questionTitle}
-				numericToleranceAbsolute={numericToleranceAbsolute}
-				isRateStat={isRateStat}
-			/>
-			{disputeRow}
-			{noteBlock}
-		</Shell>
+						)}
+						<PickRows call={call} settled {...pickRowsProps} />
+						<ShareCallSection
+							viewerCall={call}
+							outcome={face.outcome}
+							questionTitle={questionTitle}
+							numericToleranceAbsolute={numericToleranceAbsolute}
+							isRateStat={isRateStat}
+						/>
+						{disputeRow}
+						{noteBlock}
+					</Shell>
+				)
+			})
+			.exhaustive()
 	)
+}
+
+type ShareOutcome = { isWin: boolean; points: number }
+
+// A settled call's own result as the card presents it: the badge, plus the
+// win and points it's shared with (null until the call's points are written).
+function resultFace(result: CallResult): {
+	tone: Tone
+	label: string
+	outcome: ShareOutcome | null
+} {
+	return match(result)
+		.returnType<{ tone: Tone; label: string; outcome: ShareOutcome | null }>()
+		.with({ status: "pending" }, () => ({
+			tone: "neutral",
+			label: "Pending",
+			outcome: null,
+		}))
+		.with({ status: "win" }, ({ points }) => ({
+			tone: "success",
+			label: "You called it",
+			outcome: { isWin: true, points },
+		}))
+		.with({ status: "loss" }, ({ points }) => ({
+			tone: "danger",
+			label: "Missed",
+			outcome: { isWin: false, points },
+		}))
+		.exhaustive()
 }
 
 const crowdStatClass = css({
@@ -409,16 +368,14 @@ function PointsFinal({ points, win }: { points: number; win: boolean }) {
 // all. The page renders a pending face for it, and so does the og card.
 function ShareCallSection({
 	viewerCall,
-	isWin,
-	points,
+	outcome,
 	questionTitle,
 	numericToleranceAbsolute,
 	isRateStat,
 }: {
 	viewerCall: ViewerCall
-	// Null until the question resolves.
-	isWin: boolean | null
-	points: number | null
+	// Null until the question resolves and the call's points are written.
+	outcome: ShareOutcome | null
 	questionTitle: string
 	numericToleranceAbsolute: number | null
 	isRateStat: boolean
@@ -474,8 +431,8 @@ function ShareCallSection({
 				surface="question_detail"
 				tweetText={buildCallTweet({
 					pickLabel,
-					points,
-					isWin,
+					points: outcome?.points ?? null,
+					isWin: outcome?.isWin ?? null,
 					calledAt: formatCallDate(viewerCall.createdAt),
 					// This card is only ever the viewer's own call.
 					isOwn: true,
@@ -661,11 +618,13 @@ const disputeStatusClass = css({
 // resolution they hadn't personally bet on).
 function DisputeRow({
 	questionId,
-	hasDispute,
+	action,
 }: {
 	questionId: string
-	hasDispute: boolean
+	action: DisputeAction
 }) {
+	if (action === "hidden") return null
+
 	return (
 		<HStack
 			justify="space-between"
@@ -673,116 +632,134 @@ function DisputeRow({
 			flexWrap="wrap"
 			className={disputeRowClass}
 		>
-			{hasDispute ? (
-				<HStack gap="1.5" className={disputeStatusClass}>
-					<span
-						className={css({
-							width: "1.5",
-							height: "1.5",
-							borderRadius: "full",
-							backgroundColor: "currentColor",
-							animation: "pulse 1.6s ease-in-out infinite",
-						})}
-					/>
-					<span>UNDER REVIEW: you'll get a notification once it's settled</span>
-				</HStack>
-			) : (
-				<button
-					type="button"
-					onClick={() => openModal(<DisputeModal questionId={questionId} />)}
-					className={disputeLinkClass}
-				>
-					Dispute this resolution
-				</button>
-			)}
+			{match(action)
+				.with("underReview", () => (
+					<HStack gap="1.5" className={disputeStatusClass}>
+						<span
+							className={css({
+								width: "1.5",
+								height: "1.5",
+								borderRadius: "full",
+								backgroundColor: "currentColor",
+								animation: "pulse 1.6s ease-in-out infinite",
+							})}
+						/>
+						<span>UNDER REVIEW: you'll get a notification once it's settled</span>
+					</HStack>
+				))
+				.with("available", () => (
+					<button
+						type="button"
+						onClick={() => openModal(<DisputeModal questionId={questionId} />)}
+						className={disputeLinkClass}
+					>
+						Dispute this resolution
+					</button>
+				))
+				.exhaustive()}
 		</HStack>
 	)
 }
 
-// The card shown once the viewer's own call is locked in and awaiting a
-// result - one row per pick with its live "if right / if wrong" payout
-// preview, using the same scoring formula CastCallForm shows while picking
-// (see #/lib/scoring) so the number never jumps between the two screens.
-function PendingContent({
-	isLocked,
+// One row per pick: a single row for a numeric guess, one per selection
+// otherwise. Before the question settles every row previews its payout; once
+// settled, each row shows its real result as soon as that pick's points have
+// been written.
+function PickRows({
+	call,
+	settled,
+	callCount,
+	totalOptions,
 	numericTolerancePct,
 	numericToleranceAbsolute,
 	isRateStat,
-	callCount,
-	totalOptions,
-	viewerCall,
-	questionTitle,
 }: {
-	isLocked: boolean
+	call: ViewerCall
+	settled: boolean
+	callCount: number
+	totalOptions: number
 	numericTolerancePct: number | null
 	numericToleranceAbsolute: number | null
 	isRateStat: boolean
-	callCount: number
-	totalOptions: number
-	viewerCall: ViewerCall
-	questionTitle: string
 }) {
-	const isNumeric = isNumericQuestionShape(viewerCall.question.shape)
-	const basePoints = BASE_POINTS_BY_GQL_SHAPE[viewerCall.question.shape]
+	const { shape, ouLine } = call.question
+	const basePoints = BASE_POINTS_BY_GQL_SHAPE[shape]
+
+	if (isNumericQuestionShape(shape)) {
+		const { guessValue, conviction } = call
+		return (
+			<VStack gap="1.5" alignItems="stretch">
+				{guessValue !== null && conviction !== null && (
+					<NumericPickRow
+						guessValue={guessValue}
+						conviction={conviction}
+						tolerance={toleranceSpecFrom(
+							numericTolerancePct,
+							numericToleranceAbsolute,
+						)}
+						rank={call.currentRank}
+						totalCalls={callCount}
+						basePoints={basePoints}
+						result={numericRowResult(call, settled)}
+					/>
+				)}
+			</VStack>
+		)
+	}
 
 	return (
-		<Shell tone="primary">
-			<StatusPill tone="primary" live>
-				{isLocked ? "Awaiting resolution" : "Pending"}: your call is locked
-			</StatusPill>
-
-			<VStack gap="1.5" alignItems="stretch">
-				{isNumeric
-					? viewerCall.guessValue !== null &&
-						viewerCall.conviction !== null && (
-							<NumericPickRow
-								guessValue={viewerCall.guessValue}
-								conviction={viewerCall.conviction}
-								tolerance={toleranceSpecFrom(
-									numericTolerancePct,
-									numericToleranceAbsolute,
-								)}
-								rank={viewerCall.currentRank}
-								totalCalls={callCount}
-								basePoints={basePoints}
-								result={{ kind: "preview" }}
-							/>
-						)
-					: viewerCall.selections.map((selection) => (
-							<SelectionPickRow
-								key={selection.option.label}
-								label={optionDisplayLabel(
-									selection.option.label,
-									isOverUnderQuestionShape(viewerCall.question.shape),
-									viewerCall.question.ouLine,
-									isRateStat,
-								)}
-								fieldPct={selection.option.fieldPct}
-								totalOptions={totalOptions}
-								conviction={selection.conviction}
-								rank={viewerCall.currentRank}
-								totalCalls={callCount}
-								shape={viewerCall.question.shape}
-								seasonGamesPlayed={viewerCall.seasonGamesPlayed}
-								seasonTotalGames={viewerCall.seasonTotalGames}
-								basePoints={basePoints}
-								result={{ kind: "preview" }}
-							/>
-						))}
-			</VStack>
-			{/* An unresolved call is the one most worth putting on the record -
-			calling something months before it happens is the whole claim - so
-			this is here rather than only on the settled face below. */}
-			<ShareCallSection
-				viewerCall={viewerCall}
-				isWin={null}
-				points={null}
-				questionTitle={questionTitle}
-				numericToleranceAbsolute={numericToleranceAbsolute}
-				isRateStat={isRateStat}
-			/>
-		</Shell>
+		<VStack gap="1.5" alignItems="stretch">
+			{call.selections.map((selection) => (
+				<SelectionPickRow
+					key={selection.option.label}
+					label={optionDisplayLabel(
+						selection.option.label,
+						isOverUnderQuestionShape(shape),
+						ouLine,
+						isRateStat,
+					)}
+					fieldPct={selection.option.fieldPct}
+					totalOptions={totalOptions}
+					conviction={selection.conviction}
+					rank={call.currentRank}
+					totalCalls={callCount}
+					shape={shape}
+					seasonGamesPlayed={call.seasonGamesPlayed}
+					seasonTotalGames={call.seasonTotalGames}
+					basePoints={basePoints}
+					// A single pick's name is already up in the title - only
+					// player_season_award/team_season_award (several picks,
+					// none of them named up top) needs each row to say what it is.
+					showName={call.selections.length > 1}
+					result={selectionRowResult(selection, settled)}
+				/>
+			))}
+		</VStack>
 	)
+}
+
+function selectionRowResult(
+	selection: ViewerCall["selections"][number],
+	settled: boolean,
+): SelectionRowResult {
+	const { isCorrect } = selection.option
+	if (!settled || isCorrect === null || selection.resultPoints === null) {
+		return { kind: "preview" }
+	}
+	return { kind: "resolved", isCorrect, points: selection.resultPoints }
+}
+
+function numericRowResult(
+	call: ViewerCall,
+	settled: boolean,
+): NumericRowResult {
+	if (!settled || call.totalPoints === null) return { kind: "preview" }
+	return {
+		kind: "resolved",
+		totalPoints: call.totalPoints,
+		closenessMult: call.closenessMult,
+		closenessFieldPct: call.closenessFieldPct,
+	}
 }
 
 // A short ledger, not prose - two rows, each labeled with what it IS
@@ -794,6 +771,9 @@ function PendingContent({
 // just repeat it.
 type LedgerRow = { label: string; math: ReactNode }
 type Breakdown = { ledger: LedgerRow[]; note?: string }
+// A resolved pick's second ledger row plus the note under it - both depend on
+// whether the pick hit.
+type ResultLedger = LedgerRow & { note?: string }
 
 const mathDefault = css({
 	fontFamily: "mono",
@@ -818,6 +798,41 @@ const mathLose = css({
 	fontWeight: "bold",
 	color: "danger.default",
 })
+
+const missNote = "boldness and early bonuses only pay out on a hit"
+
+function committedRow(
+	basePoints: number,
+	conviction: number,
+	committed: number,
+): LedgerRow {
+	return {
+		label: "COMMITTED",
+		math: (
+			<>
+				<span className={mathDefault}>
+					{basePoints} × {conviction}% conviction ={" "}
+				</span>
+				<span className={mathDownside}>{committed}</span>
+			</>
+		),
+	}
+}
+
+function missedRow(points: number): ResultLedger {
+	return {
+		label: "RESULT",
+		math: (
+			<>
+				<span className={mathDefault}>
+					missed: you lose what you committed ={" "}
+				</span>
+				<span className={mathLose}>−{Math.abs(points)}</span>
+			</>
+		),
+		note: missNote,
+	}
+}
 
 // A pick's row renders one of two ways depending on whether the question has
 // resolved yet - "preview" (pending) shows the projected range if the pick
@@ -1045,60 +1060,51 @@ function SelectionPickRow({
 		// isolate what the early-caller bonus alone must have been. Both steps
 		// stay exact by construction - committed × tier.mult × earlyMult always
 		// reproduces result.points, it's never left as an unstated "rest."
-		const combinedMult =
-			result.isCorrect && committed !== 0 ? result.points / committed : null
-		const earlyMult = combinedMult !== null ? combinedMult / tier.mult : null
+		const multipliers =
+			result.isCorrect && committed !== 0
+				? { boldness: tier.mult, early: result.points / committed / tier.mult }
+				: null
+		// The raw number the multiplier came from, not a qualitative
+		// label - "33% of the field also picked this" stays true and
+		// legible no matter how small the field is, where a label like
+		// "ahead of the curve" would read strangely for, say, 1st of 3.
+		const fieldNote = `${Math.round(fieldPct)}% of the field also picked this`
+		// Matches the shipped mockup's own inconsistency on purpose: a hit
+		// still gets labeled "IF RIGHT" (it's explaining the formula, not
+		// narrating an event), a miss gets "RESULT" since there's no
+		// multiplier story left to tell.
+		const outcome = match({ isCorrect: result.isCorrect, multipliers })
+			.returnType<ResultLedger>()
+			.with({ isCorrect: true, multipliers: P.nonNullable }, ({ multipliers }) => ({
+				label: "IF RIGHT",
+				math: (
+					<>
+						<span className={mathDownside}>{committed}</span>
+						<span className={mathDefault}>
+							{" "}
+							× {formatMult(multipliers.boldness)} boldness ×{" "}
+							{formatMult(multipliers.early)} early ={" "}
+						</span>
+						<span className={mathUpside}>+{result.points}</span>
+					</>
+				),
+				note: fieldNote,
+			}))
+			// A zero stake leaves nothing to back the multipliers out of.
+			.with({ isCorrect: true }, () => ({
+				label: "IF RIGHT",
+				math: <span className={mathUpside}>+{result.points}</span>,
+				note: fieldNote,
+			}))
+			.with({ isCorrect: false }, () => missedRow(result.points))
+			.exhaustive()
 		return (
 			<PickRowShell
 				name={showName ? label : null}
 				note={null}
 				breakdown={{
-					ledger: [
-						{
-							label: "COMMITTED",
-							math: (
-								<>
-									<span className={mathDefault}>
-										{basePoints} × {conviction}% conviction ={" "}
-									</span>
-									<span className={mathDownside}>{committed}</span>
-								</>
-							),
-						},
-						{
-							// Matches the shipped mockup's own inconsistency on purpose:
-							// a hit still gets labeled "IF RIGHT" (it's explaining the
-							// formula, not narrating an event), a miss gets "RESULT"
-							// since there's no multiplier story left to tell.
-							label: result.isCorrect ? "IF RIGHT" : "RESULT",
-							math:
-								result.isCorrect && earlyMult !== null ? (
-									<>
-										<span className={mathDownside}>{committed}</span>
-										<span className={mathDefault}>
-											{" "}
-											× {formatMult(tier.mult)} boldness ×{" "}
-											{formatMult(earlyMult)} early ={" "}
-										</span>
-										<span className={mathUpside}>+{result.points}</span>
-									</>
-								) : (
-									<>
-										<span className={mathDefault}>
-											missed: you lose what you committed ={" "}
-										</span>
-										<span className={mathLose}>−{Math.abs(result.points)}</span>
-									</>
-								),
-						},
-					],
-					// The raw number the multiplier came from, not a qualitative
-					// label - "33% of the field also picked this" stays true and
-					// legible no matter how small the field is, where a label like
-					// "ahead of the curve" would read strangely for, say, 1st of 3.
-					note: result.isCorrect
-						? `${Math.round(fieldPct)}% of the field also picked this`
-						: "boldness and early bonuses only pay out on a hit",
+					ledger: [committedRow(basePoints, conviction, committed), outcome],
+					note: outcome.note,
 				}}
 				payout={null}
 			/>
@@ -1132,17 +1138,7 @@ function SelectionPickRow({
 			note={null}
 			breakdown={{
 				ledger: [
-					{
-						label: "COMMITTED",
-						math: (
-							<>
-								<span className={mathDefault}>
-									{basePoints} × {conviction}% conviction ={" "}
-								</span>
-								<span className={mathDownside}>{stake}</span>
-							</>
-						),
-					},
+					committedRow(basePoints, conviction, stake),
 					{
 						label: "IF RIGHT",
 						math: (
@@ -1162,18 +1158,6 @@ function SelectionPickRow({
 			payout={<Payout win={preview.win} lose={preview.lose} />}
 		/>
 	)
-}
-
-// Exactly one of numericTolerancePct/numericToleranceAbsolute is ever
-// non-null for a given question - see ToleranceSpec in
-// @called-my-shot/scoring.
-function toleranceSpecFrom(
-	pct: number | null,
-	absolute: number | null,
-): ToleranceSpec | null {
-	if (absolute !== null) return { mode: "absolute", amount: absolute }
-	if (pct !== null) return { mode: "percentage", pct }
-	return null
 }
 
 function NumericPickRow({
@@ -1202,6 +1186,10 @@ function NumericPickRow({
 	// question shape this component doesn't have).
 	const isRateStat =
 		tolerance?.mode === "absolute" && !Number.isInteger(tolerance.amount)
+	const bandNote =
+		band !== null
+			? `within ±${formatGuess(band, isRateStat)} counts as a hit`
+			: null
 
 	if (result.kind === "resolved") {
 		const win = result.totalPoints >= 0
@@ -1212,69 +1200,54 @@ function NumericPickRow({
 		// question to even define), it's exact arithmetic once closenessMult
 		// and totalPoints are both known: earlyMult = totalPoints / (committed
 		// × closenessMult).
-		const earlyMult =
+		const multipliers =
 			win && committed !== 0 && result.closenessMult
-				? result.totalPoints / (committed * result.closenessMult)
+				? {
+						closeness: result.closenessMult,
+						early: result.totalPoints / (committed * result.closenessMult),
+					}
 				: null
+		// The raw share the multiplier came from, same reasoning as
+		// SelectionPickRow's note - a real number ("62% of the field
+		// guessed at least this close") stays legible regardless of field
+		// size, where a qualitative label wouldn't.
+		const closenessNote =
+			result.closenessFieldPct !== null
+				? `${Math.round(result.closenessFieldPct)}% of the field guessed at least this close`
+				: undefined
+		const outcome = match({ win, multipliers })
+			.returnType<ResultLedger>()
+			.with({ win: true, multipliers: P.nonNullable }, ({ multipliers }) => ({
+				label: "IF RIGHT",
+				math: (
+					<>
+						<span className={mathDownside}>{committed}</span>
+						<span className={mathDefault}>
+							{" "}
+							× {formatMult(multipliers.closeness)} closeness ×{" "}
+							{formatMult(multipliers.early)} early ={" "}
+						</span>
+						<span className={mathUpside}>+{result.totalPoints}</span>
+					</>
+				),
+				note: closenessNote,
+			}))
+			.with({ win: true }, () => ({
+				label: "IF RIGHT",
+				math: <span className={mathUpside}>+{result.totalPoints}</span>,
+				note: closenessNote,
+			}))
+			.with({ win: false }, () => missedRow(result.totalPoints))
+			.exhaustive()
 		return (
 			<PickRowShell
 				// A numeric guess is always exactly one pick, and that value is
 				// already the whole title up top - never worth a second header.
 				name={null}
-				note={
-					band !== null
-						? `within ±${formatGuess(band, isRateStat)} counts as a hit`
-						: null
-				}
+				note={bandNote}
 				breakdown={{
-					ledger: [
-						{
-							label: "COMMITTED",
-							math: (
-								<>
-									<span className={mathDefault}>
-										{basePoints} × {conviction}% conviction ={" "}
-									</span>
-									<span className={mathDownside}>{committed}</span>
-								</>
-							),
-						},
-						{
-							label: win ? "IF RIGHT" : "RESULT",
-							math:
-								win && result.closenessMult && earlyMult !== null ? (
-									<>
-										<span className={mathDownside}>{committed}</span>
-										<span className={mathDefault}>
-											{" "}
-											× {formatMult(result.closenessMult)} closeness ×{" "}
-											{formatMult(earlyMult)} early ={" "}
-										</span>
-										<span className={mathUpside}>+{result.totalPoints}</span>
-									</>
-								) : win ? (
-									<span className={mathUpside}>+{result.totalPoints}</span>
-								) : (
-									<>
-										<span className={mathDefault}>
-											missed: you lose what you committed ={" "}
-										</span>
-										<span className={mathLose}>
-											−{Math.abs(result.totalPoints)}
-										</span>
-									</>
-								),
-						},
-					],
-					// The raw share the multiplier came from, same reasoning as
-					// SelectionPickRow's note - a real number ("62% of the field
-					// guessed at least this close") stays legible regardless of field
-					// size, where a qualitative label wouldn't.
-					note: win
-						? result.closenessFieldPct !== null
-							? `${Math.round(result.closenessFieldPct)}% of the field guessed at least this close`
-							: undefined
-						: "boldness and early bonuses only pay out on a hit",
+					ledger: [committedRow(basePoints, conviction, committed), outcome],
+					note: outcome.note,
 				}}
 				payout={null}
 			/>
@@ -1286,24 +1259,10 @@ function NumericPickRow({
 	return (
 		<PickRowShell
 			name={formatGuess(guessValue, isRateStat)}
-			note={
-				band !== null
-					? `within ±${formatGuess(band, isRateStat)} counts as a hit`
-					: null
-			}
+			note={bandNote}
 			breakdown={{
 				ledger: [
-					{
-						label: "COMMITTED",
-						math: (
-							<>
-								<span className={mathDefault}>
-									{basePoints} × {conviction}% conviction ={" "}
-								</span>
-								<span className={mathDownside}>{stake}</span>
-							</>
-						),
-					},
+					committedRow(basePoints, conviction, stake),
 					{
 						label: "IF RIGHT",
 						math: (

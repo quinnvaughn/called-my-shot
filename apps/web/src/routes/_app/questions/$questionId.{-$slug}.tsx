@@ -10,6 +10,7 @@ import { FaRegTimesCircle } from "react-icons/fa"
 import { FiShare } from "react-icons/fi"
 import { css } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
+import { match, P } from "ts-pattern"
 import { AuthModal } from "#/components/auth/auth-modal"
 import { FirstCallTour } from "#/components/onboarding/first-call-tour"
 import { TourAnchorProvider } from "#/components/onboarding/tour-anchors"
@@ -35,6 +36,7 @@ import { Card } from "#/components/ui/card"
 import { Identity } from "#/components/ui/identity"
 import { NotFound } from "#/components/ui/not-found"
 import { Tag } from "#/components/ui/tag"
+import type { QuestionShape } from "#/graphql/generated/graphql"
 import {
 	questionCallsQuery,
 	questionDetailQuery,
@@ -49,7 +51,9 @@ import {
 	questionShapeLabel,
 } from "#/lib/question-labels"
 import { resolvedAnswerSummary } from "#/lib/resolution-summary"
+import { type ToleranceSpec, toleranceSpecFrom } from "#/lib/scoring"
 import { buildGameSlug, buildQuestionSlug, questionPath } from "#/lib/slug"
+import { disputeAction, viewerStatus } from "#/lib/viewer-status"
 import { openModal } from "#/stores/modal-store"
 
 function sectionLabel(text: string) {
@@ -66,6 +70,31 @@ function sectionLabel(text: string) {
 			{text}
 		</h2>
 	)
+}
+
+function toleranceLabel(tolerance: ToleranceSpec): string {
+	return match(tolerance)
+		.with(
+			{ mode: "absolute" },
+			({ amount }) => `±${formatGuess(amount, !Number.isInteger(amount))}`,
+		)
+		.with(
+			{ mode: "percentage" },
+			({ pct }) => `±${Math.round(pct * 100)}% of actual`,
+		)
+		.exhaustive()
+}
+
+// "How rare was being right" - the correct option's own fieldPct for
+// everything option-based, numericHitRatePct (computed across every scored
+// guess) for the numeric-guess shapes, which have no options at all.
+function fieldAccuracyPctFor(question: {
+	shape: QuestionShape
+	numericHitRatePct: number | null
+	options: { isCorrect: boolean | null; fieldPct: number | null }[]
+}): number | null {
+	if (isNumericQuestionShape(question.shape)) return question.numericHitRatePct
+	return question.options.find((option) => option.isCorrect)?.fieldPct ?? null
 }
 
 export const Route = createFileRoute("/_app/questions/$questionId/{-$slug}")({
@@ -157,29 +186,38 @@ function RouteComponent() {
 	}
 
 	const state = questionDetailState(question)
+	const status = viewerStatus(state.phase, question.viewerCall)
+	// Open and not yet called: the page is the call form (picker, submit bar,
+	// first-call tour) rather than the status and field breakdown cards.
+	const isCallable = status.kind === "canCall"
 	const isCreator = me?.id === question.creator?.id
 	const resolutionSourceUrl = safeExternalUrl(question.resolutionSourceUrl)
+	const tolerance = toleranceSpecFrom(
+		question.numericTolerancePct,
+		question.numericToleranceAbsolute,
+	)
 	const answer = state.isSettled ? resolvedAnswerSummary(question) : null
-	// "How rare was being right" - the correct option's own fieldPct for
-	// everything option-based, numericHitRatePct (computed across every
-	// scored guess) for the numeric-guess shapes, which have no options at all.
 	const fieldAccuracyPct = state.isSettled
-		? isNumericQuestionShape(question.shape)
-			? question.numericHitRatePct
-			: (question.options.find((option) => option.isCorrect)?.fieldPct ?? null)
+		? fieldAccuracyPctFor(question)
 		: null
-	const viewerCall = question.viewerCall
 	// Which option row(s) read as "active" in the breakdown below: your own
 	// pick if you called (mirrors numeric's own myGuess highlight - it's your
 	// call being pointed at, not necessarily the right one), or the winning
 	// option(s) instead once resolved if you never called (nothing else on
 	// the row list is meaningful to a spectator on a settled question).
 	// Neither once locked-but-not-yet-resolved with no call of your own.
-	const breakdownHighlightIds = viewerCall
-		? viewerCall.selections.map((selection) => selection.option.id)
-		: state.isSettled
-			? question.options.filter((option) => option.isCorrect).map((o) => o.id)
-			: []
+	const breakdownHighlightIds = match(status)
+		.returnType<string[]>()
+		.with({ kind: P.union("pending", "resolved") }, ({ call }) =>
+			call.selections.map((selection) => selection.option.id),
+		)
+		.with({ kind: "resolvedNoCall" }, () =>
+			question.options
+				.filter((option) => option.isCorrect)
+				.map((option) => option.id),
+		)
+		.with({ kind: P.union("canCall", "lockedNoCall") }, () => [])
+		.exhaustive()
 
 	return (
 		<TourAnchorProvider>
@@ -321,21 +359,8 @@ function RouteComponent() {
 									"MMM d, h:mm a",
 								)}
 							/>
-							{question.numericToleranceAbsolute !== null ? (
-								<PanelRow
-									label="TOLERANCE"
-									value={`±${formatGuess(
-										question.numericToleranceAbsolute,
-										!Number.isInteger(question.numericToleranceAbsolute),
-									)}`}
-								/>
-							) : (
-								question.numericTolerancePct !== null && (
-									<PanelRow
-										label="TOLERANCE"
-										value={`±${Math.round(question.numericTolerancePct * 100)}% of actual`}
-									/>
-								)
+							{tolerance && (
+								<PanelRow label="TOLERANCE" value={toleranceLabel(tolerance)} />
 							)}
 						</VStack>
 					</Card.Body>
@@ -401,15 +426,16 @@ function RouteComponent() {
 				</Card>
 				<ViewerStatusCard
 					questionId={question.id}
-					state={state}
+					status={status}
+					disputeAction={disputeAction(status, {
+						hasSettledDispute: question.hasSettledDispute,
+						hasViewerDispute: question.viewerDispute !== null,
+					})}
 					callCount={question.callCount}
 					totalOptions={question.options.length}
 					numericTolerancePct={question.numericTolerancePct}
 					numericToleranceAbsolute={question.numericToleranceAbsolute}
 					isRateStat={callForm.isRateStat}
-					viewerCall={viewerCall}
-					hasViewerDispute={question.viewerDispute !== null}
-					hasSettledDispute={question.hasSettledDispute}
 					answer={answer}
 					resolutionNote={question.resolutionNote}
 					fieldAccuracyPct={fieldAccuracyPct}
@@ -423,13 +449,15 @@ function RouteComponent() {
 			(your call/outcome vs. how the whole field called it are two
 			different concepts, but the order between them never flips
 			regardless of which status - pending, won, either loss - is active). */}
-				{!(state.canCall && !viewerCall) && (
+				{isCallable ? (
+					<CastCallForm callForm={callForm} />
+				) : (
 					<FieldBreakdownCard>
 						{isNumericQuestionShape(question.shape) ? (
 							<GuessDistributionChart
 								buckets={question.guessDistribution}
 								averageGuess={question.averageGuess}
-								myGuess={viewerCall?.guessValue ?? null}
+								myGuess={question.viewerCall?.guessValue ?? null}
 								isRateStat={callForm.isRateStat}
 							/>
 						) : (
@@ -444,8 +472,7 @@ function RouteComponent() {
 						)}
 					</FieldBreakdownCard>
 				)}
-				{state.canCall && !viewerCall && <CastCallForm callForm={callForm} />}
-				{isCreator && state.isLocked && !state.isSettled && (
+				{isCreator && state.phase === "locked" && (
 					<Button
 						variant="outline"
 						onClick={() =>
@@ -459,12 +486,12 @@ function RouteComponent() {
 					{sectionLabel("Calls")}
 					<QuestionCallsList questionId={question.id} />
 				</VStack>
-				{state.canCall && !viewerCall && <CallSubmitBar callForm={callForm} />}
+				{isCallable && <CallSubmitBar callForm={callForm} />}
 				{/* Rendered last so its effects run after the anchors above have
 			    mounted and registered themselves. Gated on the same condition
 			    as the form itself: there is nothing to walk through on a
 			    question that is already called, locked or resolved. */}
-				{tour === "first-call" && state.canCall && !viewerCall && (
+				{tour === "first-call" && isCallable && (
 					<FirstCallTour
 						hasSelection={callForm.selections.length > 0}
 						onFinish={() => {

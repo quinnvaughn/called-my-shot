@@ -12,10 +12,11 @@ import {
 	seasonEarlyTierFor,
 	TIER_MAX_MULT,
 	TIER_MIN_MULT,
+	type ToleranceSpec,
 	tierFor,
 } from "@called-my-shot/scoring"
 
-export type { ContrarianTier, EarlyTier }
+export type { ContrarianTier, EarlyTier, ToleranceSpec }
 export { earlyTierFor, isSeasonLongShape, seasonEarlyTierFor, tierFor }
 
 export type PointsPreview = {
@@ -115,4 +116,16 @@ export function previewNumericPoints(
 // runs on, here and on the server.
 export function formatMult(mult: number): string {
 	return String(Math.round(mult * 10) / 10)
+}
+
+// Exactly one of numericTolerancePct/numericToleranceAbsolute is ever
+// non-null for a given question - see ToleranceSpec in
+// @called-my-shot/scoring.
+export function toleranceSpecFrom(
+	pct: number | null,
+	absolute: number | null,
+): ToleranceSpec | null {
+	if (absolute !== null) return { mode: "absolute", amount: absolute }
+	if (pct !== null) return { mode: "percentage", pct }
+	return null
 }
