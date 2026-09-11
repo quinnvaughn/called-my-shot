@@ -168,8 +168,8 @@ describe("compareRankableEntries", () => {
 	const entry = (
 		totalPoints: number,
 		accuracy: number | null,
-		callCount: number,
-	) => ({ totalPoints, accuracy, callCount })
+		resolvedCallCount: number,
+	) => ({ totalPoints, accuracy, resolvedCallCount })
 
 	it("sorts by points first", () => {
 		expect(
@@ -185,10 +185,10 @@ describe("compareRankableEntries", () => {
 		).toBe(90)
 	})
 
-	it("breaks a points-and-accuracy tie on fewer calls", () => {
+	it("breaks a points-and-accuracy tie on fewer resolved calls", () => {
 		expect(
 			[entry(50, 50, 9), entry(50, 50, 3)].sort(compareRankableEntries)[0]
-				.callCount,
+				.resolvedCallCount,
 		).toBe(3)
 	})
 

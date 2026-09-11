@@ -9,20 +9,27 @@ import { Eyebrow } from "#/components/ui/eyebrow"
 import { Table, type TableColumn } from "#/components/ui/table"
 import { Tag } from "#/components/ui/tag"
 
-type LeaderboardColumnKey = "rank" | "member" | "points" | "calls" | "accuracy"
+type LeaderboardColumnKey =
+	| "rank"
+	| "member"
+	| "points"
+	| "resolved"
+	| "accuracy"
 
 const COLUMNS: TableColumn<LeaderboardColumnKey>[] = [
 	{ key: "rank", label: "#", numeric: true, width: "56px" },
 	{ key: "member", label: "Member" },
 	{ key: "points", label: "Points", numeric: true, width: "120px" },
-	{ key: "calls", label: "Calls", numeric: true, width: "80px" },
+	{ key: "resolved", label: "Resolved", numeric: true, width: "90px" },
 	{ key: "accuracy", label: "Accuracy", numeric: true, width: "100px" },
 ]
 
 export type LeaderboardRowData = {
 	rank: number
 	totalPoints: number
-	callCount: number
+	// settled calls only - a pending call has no result to stand on, so the
+	// board never counts it (accuracy and the ranking tiebreak agree)
+	resolvedCallCount: number
 	accuracy: number | null
 	// group-only - absent (and never rendered) on the site-wide leaderboard
 	role?: "ADMIN" | "MEMBER"
@@ -84,7 +91,8 @@ export function Leaderboard({
 										color: "fg.muted",
 									})}
 								>
-									{viewerEntry.totalPoints} pts · {viewerEntry.callCount} calls
+									{viewerEntry.totalPoints} pts ·{" "}
+									{viewerEntry.resolvedCallCount} resolved
 									{viewerEntry.accuracy !== null &&
 										` · ${Math.round(viewerEntry.accuracy)}%`}
 								</span>
@@ -198,7 +206,7 @@ function LeaderboardRow({
 				numeric
 				className={css({ fontFamily: "mono", fontSize: "sm" })}
 			>
-				{item.callCount}
+				{item.resolvedCallCount}
 			</Table.Cell>
 			<Table.Cell
 				numeric

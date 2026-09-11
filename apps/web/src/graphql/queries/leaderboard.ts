@@ -10,7 +10,6 @@ export const LeaderboardEntryFragment = graphql(`
 		rank
 		totalPoints
 		accuracy
-		callCount
 		resolvedCallCount
 		user {
 			id

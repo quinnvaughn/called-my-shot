@@ -22,14 +22,14 @@ type SiteLeaderboardProps = {
 function toRowData(entry: {
 	rank: number
 	totalPoints: number
-	callCount: number
+	resolvedCallCount: number
 	accuracy: number | null
 	user: { id: string; name: string; username: string }
 }): LeaderboardRowData {
 	return {
 		rank: entry.rank,
 		totalPoints: entry.totalPoints,
-		callCount: entry.callCount,
+		resolvedCallCount: entry.resolvedCallCount,
 		accuracy: entry.accuracy,
 		user: entry.user,
 	}

@@ -27,7 +27,6 @@ export const GroupLeaderboardEntryFragment = graphql(`
 		role
 		totalPoints
 		accuracy
-		callCount
 		resolvedCallCount
 		user {
 			id
@@ -98,14 +97,14 @@ function toRowData(entry: {
 	rank: number
 	role: "ADMIN" | "MEMBER"
 	totalPoints: number
-	callCount: number
+	resolvedCallCount: number
 	accuracy: number | null
 	user: { id: string; name: string; username: string }
 }): LeaderboardRowData {
 	return {
 		rank: entry.rank,
 		totalPoints: entry.totalPoints,
-		callCount: entry.callCount,
+		resolvedCallCount: entry.resolvedCallCount,
 		accuracy: entry.accuracy,
 		role: entry.role,
 		user: entry.user,
