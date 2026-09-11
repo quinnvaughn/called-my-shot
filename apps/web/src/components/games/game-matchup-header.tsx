@@ -1,12 +1,16 @@
-import { css, cx } from "styled-system/css"
+import { Link } from "@tanstack/react-router"
+import { FiChevronRight } from "react-icons/fi"
+import { css } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
 import { TeamBadge } from "#/components/ui/team-badge"
+import type { FragmentType } from "#/graphql/generated"
 import type { GameStatus } from "#/graphql/generated/graphql"
 import {
 	formatTeamRecord,
 	gameScoreLabel,
 	gameStartLabel,
 } from "#/lib/game-status"
+import { GameStarters, type GameStartersFragment } from "./game-starters"
 
 type TeamRecord = { wins: number; losses: number; ties: number } | null
 type Team = { name: string; abbreviation: string; color: string }
@@ -23,8 +27,16 @@ type Props = {
 		homeTeamRecord?: TeamRecord
 		awayTeamRecord?: TeamRecord
 	}
-	// Hover affordance for when a parent wraps this in a link to the game.
-	interactive?: boolean
+	// The same game again, as the GameStarters fragment's reference: the
+	// matchup fields above are structural props, so one value can't be both.
+	// Omitted where starters shouldn't show at all.
+	starters?: FragmentType<typeof GameStartersFragment>
+	// The game page's own header leaves this off - that page already lists the
+	// questions this would link to.
+	questionsLink?: {
+		params: { gameId: string; slug: string }
+		count: number
+	}
 }
 
 // maxWidth is what actually makes the ellipsis work: the name is a flex item
@@ -115,6 +127,21 @@ const versusClass = css({
 	textAlign: "center",
 })
 
+// Sections below the matchup are separated by a rule rather than their own
+// card, so the whole thing reads as one object: this game.
+const sectionLinkClass = css({
+	display: "flex",
+	alignItems: "center",
+	justifyContent: "space-between",
+	gap: "2",
+	borderTop: "1px solid {colors.border.default}",
+	paddingTop: "3",
+	fontSize: "sm",
+	color: "fg.body",
+	textDecoration: "none",
+	_hover: { color: "fg.default", textDecoration: "underline" },
+})
+
 function TeamLine({
 	team,
 	record,
@@ -153,7 +180,7 @@ function TeamLine({
 // which stays the small inline badge inside QuestionCard/CallCard list cards.
 // Detail pages are prominent enough to warrant full team names, a real score,
 // and each team's record.
-export function GameMatchupHeader({ game, interactive }: Props) {
+export function GameMatchupHeader({ game, starters, questionsLink }: Props) {
 	const live = game.status === "LIVE"
 	const final = game.status === "FINAL"
 	const scored = live || final
@@ -162,19 +189,12 @@ export function GameMatchupHeader({ game, interactive }: Props) {
 		<VStack
 			gap="3"
 			alignItems="stretch"
-			className={cx(
-				css({
-					border: "1px solid {colors.border.default}",
-					borderRadius: "xl",
-					bg: "bg.subtle",
-					padding: { base: "3.5", sm: "4" },
-				}),
-				interactive &&
-					css({
-						transition: "border-color 0.15s ease",
-						_hover: { border: "1px solid {colors.border.emphasized}" },
-					}),
-			)}
+			className={css({
+				border: "1px solid {colors.border.default}",
+				borderRadius: "xl",
+				bg: "bg.subtle",
+				padding: { base: "3.5", sm: "4" },
+			})}
 		>
 			<div className={scoreboardClass}>
 				<TeamLine
@@ -240,6 +260,21 @@ export function GameMatchupHeader({ game, interactive }: Props) {
 					</>
 				)}
 			</HStack>
+
+			{starters && <GameStarters game={starters} />}
+
+			{/* Only worth a link when there's more than the question being read
+			right now. */}
+			{questionsLink && questionsLink.count > 1 && (
+				<Link
+					to="/games/$gameId/{-$slug}"
+					params={questionsLink.params}
+					className={sectionLinkClass}
+				>
+					<span>{questionsLink.count} questions on this game</span>
+					<FiChevronRight size={14} />
+				</Link>
+			)}
 		</VStack>
 	)
 }

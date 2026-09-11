@@ -201,10 +201,10 @@ function TeamStarters({
 	)
 }
 
-// Who's starting, under the matchup header on the game page and on every
-// game-scoped question page. Collapsed to one key line per team so the call
-// form below isn't pushed down, with the full lists a tap away. Renders
-// nothing for a game the starters sync hasn't reached.
+// Who's starting, as a section of GameMatchupHeader's card rather than a card
+// of its own - it's the same object, this game. Collapsed to one key line per
+// team so the call form below isn't pushed down, with the full lists a tap
+// away. Renders nothing for a game the starters sync hasn't reached.
 export function GameStarters(props: Props) {
 	const game = useFragment(GameStartersFragment, props.game)
 	const [open, setOpen] = useState(false)
@@ -222,10 +222,8 @@ export function GameStarters(props: Props) {
 			gap="3"
 			alignItems="stretch"
 			className={css({
-				border: "1px solid {colors.border.default}",
-				borderRadius: "xl",
-				bg: "bg.subtle",
-				padding: { base: "3.5", sm: "4" },
+				borderTop: "1px solid {colors.border.default}",
+				paddingTop: "3",
 			})}
 		>
 			<HStack justify="space-between" alignItems="center">

@@ -13,7 +13,6 @@ import { HStack, VStack } from "styled-system/jsx"
 import { match, P } from "ts-pattern"
 import { AuthModal } from "#/components/auth/auth-modal"
 import { GameMatchupHeader } from "#/components/games/game-matchup-header"
-import { GameStarters } from "#/components/games/game-starters"
 import { FirstCallTour } from "#/components/onboarding/first-call-tour"
 import { TourAnchorProvider } from "#/components/onboarding/tour-anchors"
 import { BallotStrip } from "#/components/questions/ballot-strip"
@@ -301,21 +300,15 @@ function RouteComponent() {
 			game - season-long questions (championship, MVP) have no game and
 			this stays hidden for those. */}
 				{question.game && gameLinkParams && (
-					<Link
-						to="/games/$gameId/{-$slug}"
-						params={gameLinkParams}
-						className={css({
-							display: "block",
-							textDecoration: "none",
-							color: "inherit",
-						})}
-					>
-						<GameMatchupHeader game={question.game} interactive />
-					</Link>
+					<GameMatchupHeader
+						game={question.game}
+						starters={question.game}
+						questionsLink={{
+							params: gameLinkParams,
+							count: question.game.questionCount,
+						}}
+					/>
 				)}
-				{/* Outside the link above so its expand toggle isn't a control
-				nested inside a link. */}
-				{question.game && <GameStarters game={question.game} />}
 				<Card>
 					<Card.Body>
 						<VStack gap="0" alignItems="stretch">

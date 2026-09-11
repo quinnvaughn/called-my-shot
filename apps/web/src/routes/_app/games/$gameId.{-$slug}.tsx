@@ -9,7 +9,6 @@ import { FaRegTimesCircle } from "react-icons/fa"
 import { css } from "styled-system/css"
 import { VStack } from "styled-system/jsx"
 import { GameMatchupHeader } from "#/components/games/game-matchup-header"
-import { GameStarters } from "#/components/games/game-starters"
 import { GameWinnerCard } from "#/components/games/game-winner-card"
 import { QuestionCard } from "#/components/questions/question-card"
 import { SortSwitcher } from "#/components/questions/sort-switcher"
@@ -142,8 +141,7 @@ function RouteComponent() {
 				</Breadcrumb.Current>
 			</Breadcrumb>
 
-			<GameMatchupHeader game={game} />
-			<GameStarters game={game} />
+			<GameMatchupHeader game={game} starters={game} />
 
 			{hero && (
 				<VStack gap="2" alignItems="stretch">
