@@ -214,6 +214,7 @@ function RouteComponent() {
 				groupName={group.name}
 				memberCount={group.memberCount}
 				inviteCode={group.myInvite.code}
+				dismissed={group.viewerDismissedInviteCard}
 			/>
 			<GroupLeaderboard
 				groupId={group.id}

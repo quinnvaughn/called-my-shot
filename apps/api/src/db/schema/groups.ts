@@ -56,6 +56,10 @@ export const groupMembers = pgTable(
 			.references(() => users.id, { onDelete: "cascade" }),
 		role: groupMemberRole("role").notNull().default("member"),
 		joinedAt: timestamp("joined_at").notNull().defaultNow(),
+		// Set when this member hides the invite card on the group's page. Per
+		// member rather than per group, so one person opting out doesn't stop
+		// the card asking everyone else.
+		inviteCardDismissedAt: timestamp("invite_card_dismissed_at"),
 	},
 	(t) => [unique().on(t.groupId, t.userId)],
 )

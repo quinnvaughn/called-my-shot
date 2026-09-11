@@ -9,15 +9,6 @@ export const CreateGroupDocument = graphql(`
 					id
 					name
 					memberCount
-					# Selected here so a caller can hand straight into the
-					# invite modal without a second round trip. Group.myInvite
-					# is non-null: the creator's own link exists the moment the
-					# group does.
-					myInvite {
-						id
-						code
-						expiresAt
-					}
 				}
 			}
 			... on ValidationError {
@@ -70,6 +61,25 @@ export const ResetGroupInviteCodeDocument = graphql(`
 				message
 			}
 			... on ValidationError {
+				message
+			}
+		}
+	}
+`)
+
+// Returns the group so the flag can be read off the result.
+export const DismissGroupInviteCardDocument = graphql(`
+	mutation DismissGroupInviteCard($groupId: ID!) {
+		dismissGroupInviteCard(groupId: $groupId) {
+			__typename
+			... on Group {
+				id
+				viewerDismissedInviteCard
+			}
+			... on AuthenticationError {
+				message
+			}
+			... on AuthorizationError {
 				message
 			}
 		}

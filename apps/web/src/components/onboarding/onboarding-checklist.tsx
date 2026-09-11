@@ -5,8 +5,6 @@ import { FiCheck, FiChevronDown, FiChevronUp, FiX } from "react-icons/fi"
 import { css } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
 import { match } from "ts-pattern"
-import { InviteCodeModal } from "#/components/groups/invite-code-modal"
-import { NewGroupModal } from "#/components/groups/new-group-modal"
 import { Button, button } from "#/components/ui/button"
 import { Card } from "#/components/ui/card"
 import { useGqlMutation } from "#/graphql/hooks"
@@ -18,7 +16,6 @@ import { ViewerOnboardingDocument } from "#/graphql/queries/onboarding"
 import { gqlQueryOptions } from "#/graphql/query-options"
 import { track } from "#/lib/analytics"
 import { buildQuestionSlug } from "#/lib/slug"
-import { openModal, replaceModalStack } from "#/stores/modal-store"
 import {
 	completedCount,
 	isOnboardingComplete,
@@ -43,7 +40,6 @@ const onboardingQuery = gqlQueryOptions(ViewerOnboardingDocument, {})
 // have finished should not be able to take that away.
 export function OnboardingChecklist() {
 	const { me } = useRouteContext({ from: "__root__" })
-	const { leagues } = useRouteContext({ from: "/_app" })
 	const navigate = useNavigate()
 	const dismiss = useGqlMutation(DismissOnboardingDocument)
 	const setCollapsed = useGqlMutation(SetOnboardingCollapsedDocument)
@@ -119,28 +115,6 @@ export function OnboardingChecklist() {
 			},
 			search: { tour: "first-call" },
 		})
-	}
-
-	// Straight into the invite link rather than the empty group page. A group
-	// with nobody in it is the one state a group cannot be useful in, and the
-	// link is the only thing that fixes it.
-	function startGroup() {
-		openModal(
-			<NewGroupModal
-				leagues={leagues}
-				onCreated={(group) =>
-					replaceModalStack(
-						<InviteCodeModal
-							groupId={group.id}
-							groupName={group.name}
-							inviteId={group.myInvite.id}
-							inviteCode={group.myInvite.code}
-							expirationDate={group.myInvite.expiresAt ?? null}
-						/>,
-					)
-				}
-			/>,
-		)
 	}
 
 	// Collapsed: one row that still reports progress, so it stays a reminder
@@ -287,9 +261,12 @@ export function OnboardingChecklist() {
 										</Link>
 									))
 									.with({ id: "group" }, () => (
-										<Button size="sm" variant="dark" onClick={startGroup}>
+										<Link
+											to="/groups"
+											className={button({ variant: "dark", size: "sm" })}
+										>
 											Start a group
-										</Button>
+										</Link>
 									))
 									// A link, not a button: this one hands off to a
 									// page where the real action lives, the same way

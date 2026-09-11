@@ -54,7 +54,7 @@ export function onboardingSteps(facts: OnboardingFacts): OnboardingStep[] {
 		{
 			id: "group",
 			title: "Start a group",
-			body: "A group is a private leaderboard for people you know. Same calls and the same scoring, ranked among your friends instead of everyone. Making one hands you the invite link straight away.",
+			body: "A group is a private leaderboard for people you know. Same calls and the same scoring, ranked among your friends instead of everyone.",
 			done: facts.hasGroup,
 		},
 	]

@@ -35,7 +35,7 @@ import {
 	QuestionSharePayload,
 	UpdateGroupInput,
 } from "./inputs"
-import { GroupInviteRef } from "./refs"
+import { GroupInviteRef, GroupRef } from "./refs"
 
 builder.mutationFields((t) => ({
 	createGroup: t.field({
@@ -276,6 +276,41 @@ builder.mutationFields((t) => ({
 				throw new AuthorizationError("You're not a member of this group.")
 			}
 			return getOrCreateMemberInvite(args.groupId, user.id)
+		},
+	}),
+
+	// Hides the invite card for this member only. There's no undo: the Invite
+	// button in the group header still does everything the card did.
+	dismissGroupInviteCard: t.field({
+		type: GroupRef,
+		errors: {
+			types: [AuthenticationError, AuthorizationError],
+			directResult: true,
+			union: { name: "DismissGroupInviteCardResult" },
+		},
+		args: { groupId: t.arg.id({ required: true }) },
+		resolve: async (_root, args, ctx) => {
+			const user = requireUser(ctx)
+			const [membership] = await db
+				.update(groupMembers)
+				.set({ inviteCardDismissedAt: new Date() })
+				.where(
+					and(
+						eq(groupMembers.groupId, args.groupId),
+						eq(groupMembers.userId, user.id),
+					),
+				)
+				.returning()
+			if (!membership) {
+				throw new AuthorizationError("You're not a member of this group.")
+			}
+			const group = await db.query.groups.findFirst({
+				where: { id: args.groupId },
+			})
+			if (!group) {
+				throw new Error("dismissGroupInviteCard: group vanished mid-request")
+			}
+			return group
 		},
 	}),
 

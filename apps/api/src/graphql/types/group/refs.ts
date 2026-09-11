@@ -120,6 +120,18 @@ export const GroupRef = builder.drizzleObject("groups", {
 				return membership?.role === "admin"
 			},
 		}),
+		// Whether the viewer hid the invite card on this group's page.
+		viewerDismissedInviteCard: t.field({
+			type: "Boolean",
+			resolve: async (group, _args, ctx) => {
+				if (!ctx.user) return false
+				const membership = await db.query.groupMembers.findFirst({
+					where: { groupId: group.id, userId: ctx.user.id },
+					columns: { inviteCardDismissedAt: true },
+				})
+				return !!membership?.inviteCardDismissedAt
+			},
+		}),
 		// The leagues this group counts on its leaderboard, activity feeds, and
 		// shares. Empty means every league.
 		trackedLeagues: t.field({

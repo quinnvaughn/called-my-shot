@@ -30,9 +30,7 @@ type AnalyticsEvents = {
 	question_disputed: { questionId: string; reason: string }
 	question_reported: { questionId: string; reason: string }
 
-	// `surface` keeps it visible how many groups the onboarding checklist is
-	// actually responsible for, versus people who went looking for one.
-	group_created: { groupId: string; surface: "groups_page" | "onboarding" }
+	group_created: { groupId: string }
 	group_joined: { groupId: string; source: "invite_link" | "code_form" }
 	// `surface` separates the header's Invite modal from the inline card small
 	// groups show, so it's visible which one actually gets links sent.
@@ -41,6 +39,9 @@ type AnalyticsEvents = {
 		method: "native" | "clipboard"
 		surface: "invite_modal" | "group_card"
 	}
+	// memberCount separates someone opting out of a two-person group from
+	// someone hiding the card on a group that has already grown.
+	group_invite_card_dismissed: { groupId: string; memberCount: number }
 
 	// Profile track-record cards only. A call used to have a downloadable
 	// image too; what gets shared now is a link to the call's own page, which

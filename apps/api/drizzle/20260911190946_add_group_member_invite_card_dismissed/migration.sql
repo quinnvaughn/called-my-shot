@@ -1,0 +1,1 @@
+ALTER TABLE "group_members" ADD COLUMN "invite_card_dismissed_at" timestamp;

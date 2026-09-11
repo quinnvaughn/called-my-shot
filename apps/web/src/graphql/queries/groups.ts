@@ -76,6 +76,7 @@ export const GroupDetailDocument = graphql(`
             description
             memberCount
             viewerIsAdmin
+            viewerDismissedInviteCard
             viewerRank
             myInvite {
                 id

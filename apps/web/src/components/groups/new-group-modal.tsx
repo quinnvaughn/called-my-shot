@@ -10,7 +10,7 @@ import { CreateGroupDocument } from "#/graphql/generated/graphql"
 import { useGqlMutation } from "#/graphql/hooks"
 import { track } from "#/lib/analytics"
 import { useForm } from "#/lib/form/use-form"
-import { replaceModalStack } from "#/stores/modal-store"
+import { closeModal } from "#/stores/modal-store"
 import { Button } from "../ui/button"
 import { FieldHint } from "../ui/field-hint"
 import { FieldLabel } from "../ui/field-label"
@@ -18,28 +18,15 @@ import { FormError } from "../ui/form-error"
 import { Modal } from "../ui/modal"
 import { TextInput } from "../ui/text-input"
 import { Textarea } from "../ui/textarea"
-import { InviteCodeModal } from "./invite-code-modal"
 import { TrackedLeaguesPicker } from "./tracked-leagues-picker"
 
-type CreatedGroup = {
-	id: string
-	name: string
-	myInvite: { id: string; code: string; expiresAt?: string | null }
-}
-
 type Props = {
-	// Replaces the default "navigate to the new group and close" behavior.
-	// Onboarding uses it to hand straight into the invite modal instead, since
-	// a group with nobody in it is not much use and the link is what fixes
-	// that. A callback rather than a mode flag so this file stays unaware of
-	// who is calling it.
-	onCreated?: (group: CreatedGroup) => void
 	// From _app's router context, passed in because ModalHost renders at the
 	// root, outside the route that loads them.
 	leagues: { id: string; abbreviation: string }[]
 }
 
-export function NewGroupModal({ onCreated, leagues }: Props) {
+export function NewGroupModal({ leagues }: Props) {
 	const createGroup = useGqlMutation(CreateGroupDocument)
 	const router = useRouter()
 	const queryClient = useQueryClient()
@@ -74,29 +61,14 @@ export function NewGroupModal({ onCreated, leagues }: Props) {
 					helpers.setFormError("You need to sign in to create a group.")
 				})
 				.with({ __typename: "GroupPayload" }, async (r) => {
-					track("group_created", {
-						groupId: r.group.id,
-						surface: onCreated ? "onboarding" : "groups_page",
-					})
+					track("group_created", { groupId: r.group.id })
 					await queryClient.invalidateQueries()
 					await router.invalidate()
-					if (onCreated) {
-						onCreated(r.group)
-						return
-					}
 					await navigate({
 						to: "/groups/$groupId",
 						params: { groupId: r.group.id },
 					})
-					replaceModalStack(
-						<InviteCodeModal
-							groupId={r.group.id}
-							groupName={r.group.name}
-							inviteId={r.group.myInvite.id}
-							inviteCode={r.group.myInvite.code}
-							expirationDate={r.group.myInvite.expiresAt ?? null}
-						/>,
-					)
+					closeModal()
 				})
 				.exhaustive()
 		},
