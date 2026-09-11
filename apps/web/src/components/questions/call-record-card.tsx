@@ -26,10 +26,15 @@ export type CallRecordCardData = {
 	// What to say in place of the result while it's pending: "Locks Jun 12,
 	// 2027" or "Awaiting result".
 	pendingLabel: string | null
-	// % of the field that also picked this - null for
+	// % of the field that also picked this - null for numeric guesses (too
+	// specific for anyone to share) and for
 	// player_season_award/team_season_award (no single number describes
 	// several independent picks at once).
 	fieldPct: number | null
+	// Numeric guesses only, once the actual value is in. An exact guess is its
+	// own kind, since "Off by 0" reads as still being off, and gets its own
+	// face. `by` is already formatted (see formatGuess).
+	closeness: { kind: "exact" } | { kind: "off"; by: string } | null
 	conviction: number
 	caseText: string | null
 }
@@ -49,8 +54,9 @@ type Props = { data: CallRecordCardData }
 export function CallRecordCard({ data }: Props) {
 	const resolved = data.points !== null && data.isWin !== null
 	const win = data.isWin === true
+	const nailed = data.closeness?.kind === "exact"
 	return (
-		<Card size="md">
+		<Card size="md" accent={nailed}>
 			<Card.Header>
 				<VStack gap="4" alignItems="center" width="full">
 					<Brand size="sm" />
@@ -59,7 +65,13 @@ export function CallRecordCard({ data }: Props) {
 							size="sm"
 							variant={!resolved || win ? "primary" : "neutral"}
 						>
-							{resolved ? (win ? "Called it" : "Missed") : "On the record"}
+							{resolved
+								? nailed
+									? "Nailed it"
+									: win
+										? "Called it"
+										: "Missed"
+								: "On the record"}
 						</Eyebrow>
 						<span
 							className={css({
@@ -69,7 +81,11 @@ export function CallRecordCard({ data }: Props) {
 								lineHeight: "1.15",
 								// A pending call is not a loss, so it never gets the muted
 								// treatment a miss does.
-								color: resolved && !win ? "fg.muted" : "fg.default",
+								color: nailed
+									? "primary.default"
+									: resolved && !win
+										? "fg.muted"
+										: "fg.default",
 							})}
 						>
 							{data.pickLabel}
@@ -128,6 +144,12 @@ export function CallRecordCard({ data }: Props) {
 								label="Field agreed"
 								value={`${Math.round(data.fieldPct)}%`}
 							/>
+						)}
+						{data.closeness?.kind === "exact" && (
+							<StatRow label="Guess vs actual" value="Exact" />
+						)}
+						{data.closeness?.kind === "off" && (
+							<StatRow label="Off by" value={data.closeness.by} />
 						)}
 						<StatRow
 							label="Conviction"

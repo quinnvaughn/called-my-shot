@@ -16,7 +16,6 @@ export const CallRecordDocument = graphql(`
 			conviction
 			caseText
 			guessValue
-			closenessFieldPct
 			totalPoints
 			currentRank
 			viewerCanSeePick

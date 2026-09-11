@@ -118,16 +118,14 @@ async function sendCallShareCard(res: Response, callId: string) {
 		return
 	}
 
-	// Same "one number only means something for exactly one pick" rule as
-	// the frontend preview (see viewer-status-card.tsx's ShareCallSection) -
-	// a numeric-guess shape and a lone selection both have one,
-	// player_season_award/team_season_award's several independent picks
-	// don't. Left out of loadResolvedCallSummaries because it needs its own
-	// per-question aggregate queries and only this card shows it.
+	// Same "Field agreed only means something for a lone selection" rule as
+	// the /calls/:id page. A numeric guess is too specific for anyone to share
+	// it (and has no selection, so soleOptionId is already null), and
+	// player_season_award/team_season_award's several independent picks have
+	// no single number. Left out of loadResolvedCallSummaries because it needs
+	// its own per-question aggregate queries and only this card shows it.
 	let fieldPctValue: number | null = null
-	if (summary.isNumeric) {
-		fieldPctValue = summary.closenessFieldPct
-	} else if (summary.soleOptionId) {
+	if (summary.soleOptionId) {
 		const [{ n: totalCalls }] = await db
 			.select({ n: count() })
 			.from(calls)
@@ -158,6 +156,7 @@ async function sendCallShareCard(res: Response, callId: string) {
 		isWin: summary.isWin,
 		points: summary.points,
 		fieldPct: fieldPctValue,
+		closeness: summary.closeness,
 		conviction: summary.conviction,
 		caseText: summary.caseText,
 		// quipForCall only has win and loss vocabularies - there is no line for

@@ -39,6 +39,9 @@ const cardRecipe = sva({
 				},
 			},
 		},
+		accent: {
+			true: { root: { border: "1px solid {colors.primary.default}" } },
+		},
 		size: {
 			sm: {
 				header: { padding: "3", gap: "2" },
@@ -83,13 +86,14 @@ function Card({
 	variant,
 	size,
 	interactive,
+	accent,
 	className,
 	children,
 	...props
 }: CardProps) {
 	const slots = useMemo(
-		() => cardRecipe({ variant, size, interactive }),
-		[variant, size, interactive],
+		() => cardRecipe({ variant, size, interactive, accent }),
+		[variant, size, interactive, accent],
 	)
 	return (
 		<CardContext.Provider value={slots}>

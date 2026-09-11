@@ -67,6 +67,11 @@ export type CallShareCardData = {
 	// the page.
 	calledAt: string
 	fieldPct: number | null
+	// Numeric guesses only, once the actual value is in. An exact guess is its
+	// own kind, since "Off by 0" reads as still being off, and gets its own
+	// face. `by` is pre-formatted by formatGuess so a rate stat keeps its three
+	// decimals.
+	closeness: { kind: "exact" } | { kind: "off"; by: string } | null
 	conviction: number
 	caseText: string | null
 	// Resolved only. Null on all three renders the pending face instead.
@@ -120,6 +125,7 @@ function statCell(
 export function buildCallShareCard(data: CallShareCardData): SatoriNode {
 	const resolved = data.points !== null && data.isWin !== null
 	const win = data.isWin === true
+	const nailed = data.closeness?.kind === "exact"
 
 	const pick = clamp(data.pickLabel, PICK_MAX)
 	// Two sizes rather than one that fits the worst case: "Over 47.5" earns
@@ -129,7 +135,13 @@ export function buildCallShareCard(data: CallShareCardData): SatoriNode {
 
 	const body: SatoriNode[] = [
 		eyebrow(
-			resolved ? (win ? "Called it" : "Missed") : "On the record",
+			resolved
+				? nailed
+					? "Nailed it"
+					: win
+						? "Called it"
+						: "Missed"
+				: "On the record",
 			resolved
 				? win
 					? COLOR.primaryDefault
@@ -146,7 +158,11 @@ export function buildCallShareCard(data: CallShareCardData): SatoriNode {
 				textAlign: "center",
 				// A pending call is not a loss, so it never gets the muted
 				// treatment a miss does.
-				color: resolved && !win ? COLOR.dim : COLOR.ink,
+				color: nailed
+					? COLOR.primaryDefault
+					: resolved && !win
+						? COLOR.dim
+						: COLOR.ink,
 			},
 			pick,
 		),
@@ -190,6 +206,13 @@ export function buildCallShareCard(data: CallShareCardData): SatoriNode {
 	if (data.fieldPct !== null) {
 		cells.push(statCell("Field agreed", `${Math.round(data.fieldPct)}%`))
 	}
+	if (data.closeness?.kind === "exact") {
+		cells.push(
+			statCell("Guess vs actual", "Exact", { color: COLOR.primaryDefault }),
+		)
+	} else if (data.closeness?.kind === "off") {
+		cells.push(statCell("Off by", data.closeness.by))
+	}
 	cells.push(
 		resolved
 			? statCell(
@@ -228,7 +251,7 @@ export function buildCallShareCard(data: CallShareCardData): SatoriNode {
 					flex: "1",
 					backgroundColor: COLOR.card,
 					color: COLOR.ink,
-					border: `1px solid ${COLOR.border}`,
+					border: `1px solid ${nailed ? COLOR.primaryDefault : COLOR.border}`,
 					borderRadius: "20px",
 				},
 				[

@@ -172,8 +172,10 @@ export type CallSummary = {
 	isWin: boolean | null
 	conviction: number
 	caseText: string | null
-	closenessFieldPct: number | null
-	isNumeric: boolean
+	// Numeric guesses only, once the actual value is in. An exact guess is its
+	// own kind rather than a distance of 0, which reads as still being off.
+	// `by` is formatted like the guess itself.
+	closeness: { kind: "exact" } | { kind: "off"; by: string } | null
 	userName: string
 	username: string
 	// Only meaningful for a single-selection call - routes/share.ts uses it to
@@ -211,6 +213,7 @@ export async function loadCallSummaries(
 					resolvedAt: true,
 					ouLine: true,
 					numericToleranceAbsolute: true,
+					numericActualValue: true,
 				},
 				with: {
 					league: { columns: { abbreviation: true } },
@@ -254,6 +257,21 @@ export async function loadCallSummaries(
 					selections.every((s) => s.resultPoints !== null)
 				? selections.reduce((sum, s) => sum + (s.resultPoints ?? 0), 0)
 				: null
+		const distance =
+			isNumeric &&
+			call.guessValue !== null &&
+			call.question.numericActualValue !== null
+				? Math.abs(call.guessValue - call.question.numericActualValue)
+				: null
+		const closeness: CallSummary["closeness"] =
+			distance === null
+				? null
+				: distance === 0
+					? { kind: "exact" }
+					: {
+							kind: "off",
+							by: formatGuess(distance, isRateStat(call.question)),
+						}
 
 		byCallId.set(call.id, {
 			callId: call.id,
@@ -284,8 +302,7 @@ export async function loadCallSummaries(
 						)
 					: 0,
 			caseText: call.caseText,
-			closenessFieldPct: call.closenessFieldPct,
-			isNumeric,
+			closeness,
 			userName: call.user.name,
 			username: call.user.username,
 			soleOptionId:

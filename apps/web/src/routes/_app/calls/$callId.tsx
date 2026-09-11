@@ -18,6 +18,7 @@ import { PageHeader } from "#/components/ui/page-header"
 import type { CallRecordQuery } from "#/graphql/generated/graphql"
 import { callRecordQuery } from "#/graphql/queries/call"
 import { pickSummary } from "#/lib/call-summary"
+import { formatGuess, isRateStat } from "#/lib/field-signal"
 import { formatCallDate, formatCallLead } from "#/lib/format-date"
 import { pageMeta } from "#/lib/meta"
 import {
@@ -100,16 +101,33 @@ function describeCall(call: NonNullable<CallRecordQuery["call"]>) {
 		})),
 	})
 
-	// One number only describes one pick's rarity - a numeric-guess shape
-	// (closenessFieldPct) or a lone selection both qualify;
-	// player_season_award/team_season_award's several independent picks don't,
-	// so that case stays null rather than letting one pick stand in for the
-	// whole call.
-	const fieldPct = isNumeric
-		? call.closenessFieldPct
-		: call.selections.length === 1
+	// "Field agreed" only means something for a lone selection. A numeric guess
+	// is too specific for anyone to share it, and
+	// player_season_award/team_season_award's several independent picks have
+	// no single number, so both stay null rather than stating a share nobody
+	// actually picked.
+	const fieldPct =
+		!isNumeric && call.selections.length === 1
 			? (call.selections[0]?.option.fieldPct ?? null)
 			: null
+
+	// A numeric guess's closeness to the real number is its own stat: without
+	// it the card states the guess and the points but never how near it landed.
+	const distance =
+		isNumeric &&
+		call.guessValue !== null &&
+		call.question.numericActualValue !== null
+			? Math.abs(call.guessValue - call.question.numericActualValue)
+			: null
+	const closeness: CallRecordCardData["closeness"] =
+		distance === null
+			? null
+			: distance === 0
+				? { kind: "exact" }
+				: {
+						kind: "off",
+						by: formatGuess(distance, isRateStat(call.question)),
+					}
 
 	const conviction = isNumeric
 		? (call.conviction ?? 0)
@@ -125,6 +143,7 @@ function describeCall(call: NonNullable<CallRecordQuery["call"]>) {
 		points,
 		isWin,
 		fieldPct,
+		closeness,
 		conviction,
 		username: call.user.username,
 		name: call.user.name,
@@ -168,6 +187,7 @@ function RouteComponent() {
 		isWin: view.isWin,
 		points: view.points,
 		fieldPct: view.fieldPct,
+		closeness: view.closeness,
 		conviction: view.conviction,
 		caseText: call.caseText,
 		// Deterministic off the call's own id, so the page and the og:image

@@ -32,6 +32,7 @@ const base = {
 	pickLabel: "Over 275.5",
 	calledAt: "Mar 3, 2026",
 	fieldPct: 12,
+	closeness: null,
 	conviction: 85,
 	caseText: "Their secondary is banged up.",
 	points: 240,
@@ -77,6 +78,34 @@ describe("buildCallShareCard", () => {
 		const texts = textNodes(buildCallShareCard(base))
 		expect(texts).toContain("Mar 3, 2026")
 		expect(texts).toContain("+240 pts")
+	})
+
+	it("states how far off a numeric guess landed", () => {
+		const texts = textNodes(
+			buildCallShareCard({
+				...base,
+				pickLabel: "27",
+				fieldPct: null,
+				closeness: { kind: "off", by: "2" },
+			}),
+		)
+		expect(texts).toContain("Off by")
+		expect(texts).toContain("2")
+		expect(texts).not.toContain("Field agreed")
+	})
+
+	it("gives an exact guess its own face instead of Off by 0", () => {
+		const texts = textNodes(
+			buildCallShareCard({
+				...base,
+				pickLabel: "27",
+				fieldPct: null,
+				closeness: { kind: "exact" },
+			}),
+		)
+		expect(texts).toContain("Nailed it")
+		expect(texts).toContain("Exact")
+		expect(texts).not.toContain("Off by")
 	})
 
 	// quipForCall has no vocabulary for a call nobody has graded, so the
