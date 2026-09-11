@@ -271,6 +271,7 @@ function RouteComponent() {
 											params={{ username: question.creator.username }}
 											className={css({
 												display: "inline-flex",
+												minWidth: "0",
 												_hover: {
 													"& span:first-of-type": {
 														textDecoration: "underline",
@@ -281,6 +282,7 @@ function RouteComponent() {
 											<Identity
 												name={question.creator.name}
 												username={question.creator.username}
+												stackOnMobile
 											/>
 										</Link>
 									) : (

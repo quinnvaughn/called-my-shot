@@ -29,11 +29,24 @@ export function PanelRow({ label, value }: Props) {
 					fontSize: "2xs",
 					letterSpacing: "wide",
 					color: "fg.subtle",
+					flexShrink: 0,
+					whiteSpace: "nowrap",
 				})}
 			>
 				{label}
 			</span>
-			<span className={css({ fontFamily: "mono", fontSize: "xs" })}>
+			{/* The label holds its width and the value absorbs any squeeze, so
+			    a long value wraps within its own column instead of pushing the
+			    label onto two lines. */}
+			<span
+				className={css({
+					fontFamily: "mono",
+					fontSize: "xs",
+					display: "flex",
+					justifyContent: "flex-end",
+					minWidth: "0",
+				})}
+			>
 				{value}
 			</span>
 		</HStack>
