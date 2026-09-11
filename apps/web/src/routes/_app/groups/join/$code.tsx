@@ -104,6 +104,14 @@ function RouteComponent() {
 		)
 	}
 
+	// An empty list means the group counts every league.
+	const leaguesLabel =
+		preview.trackedLeagues.length === 0
+			? "all leagues"
+			: preview.trackedLeagues
+					.map((league) => league.abbreviation)
+					.sort()
+					.join(", ")
 	const topScorerLabel =
 		preview.trackedLeagues.length === 1
 			? `${preview.trackedLeagues[0].abbreviation} top scorer this season:`
@@ -136,8 +144,8 @@ function RouteComponent() {
 					color: "fg.muted",
 				})}
 			>
-				{preview.memberCount} {pluralize(preview.memberCount, "member")} ·
-				invited by {preview.invitedBy.name} (@
+				{preview.memberCount} {pluralize(preview.memberCount, "member")} ·{" "}
+				{leaguesLabel} · invited by {preview.invitedBy.name} (@
 				{preview.invitedBy.username})
 			</p>
 			{preview.topScorer && (
