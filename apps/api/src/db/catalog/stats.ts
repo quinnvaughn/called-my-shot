@@ -61,11 +61,20 @@ const TOLERANCE_TIERS = [
 ] as const
 
 type AppliesTo = "player" | "team" | "both"
+// A plausible line for ONE GAME, split by subject kind - see the
+// typicalPlayerLine/typicalTeamLine columns in db/schema/stats.ts. Only seeds
+// the create-question line field; nothing resolves against it, so these are
+// eyeballed league-average starting points, not sourced data. An omitted side
+// means "no sensible default" and seeds nothing - always omit the side
+// appliesTo excludes, and omit both for a season-only stat like "Wins" that
+// has no per-game reading.
+type TypicalLines = { player?: number; team?: number }
 type StatEntry = readonly [
 	name: string,
 	category: string,
 	tier: (typeof TOLERANCE_TIERS)[number]["name"],
 	appliesTo: AppliesTo,
+	typical?: TypicalLines,
 ]
 
 // The real stat catalog - every player/team box-score stat (and season
@@ -76,14 +85,52 @@ type StatEntry = readonly [
 // no hand-written SQL against prod each time the catalog grows. See
 // statAppliesTo in db/schema/stats.ts for what appliesTo means.
 const BASKETBALL_STATS: StatEntry[] = [
-	["Points", "Scoring", "High-Volume", "both"],
-	["3-Pointers Made", "Scoring", "Low-Count Box Stat", "both"],
-	["Rebounds", "Rebounding", "Low-Count Box Stat", "both"],
-	["Assists", "Playmaking", "Low-Count Box Stat", "both"],
-	["Turnovers", "Playmaking", "Low-Count Box Stat", "both"],
-	["Steals", "Defense", "Low-Count Box Stat", "both"],
-	["Blocks", "Defense", "Low-Count Box Stat", "both"],
-	// Season-long, team-only in practice (no player "wins" a box score).
+	["Points", "Scoring", "High-Volume", "both", { player: 24.5, team: 112.5 }],
+	[
+		"3-Pointers Made",
+		"Scoring",
+		"Low-Count Box Stat",
+		"both",
+		{ player: 2.5, team: 12.5 },
+	],
+	[
+		"Rebounds",
+		"Rebounding",
+		"Low-Count Box Stat",
+		"both",
+		{ player: 7.5, team: 43.5 },
+	],
+	[
+		"Assists",
+		"Playmaking",
+		"Low-Count Box Stat",
+		"both",
+		{ player: 5.5, team: 26.5 },
+	],
+	[
+		"Turnovers",
+		"Playmaking",
+		"Low-Count Box Stat",
+		"both",
+		{ player: 2.5, team: 13.5 },
+	],
+	[
+		"Steals",
+		"Defense",
+		"Low-Count Box Stat",
+		"both",
+		{ player: 1.5, team: 7.5 },
+	],
+	[
+		"Blocks",
+		"Defense",
+		"Low-Count Box Stat",
+		"both",
+		{ player: 0.5, team: 4.5 },
+	],
+	// Season-long, team-only in practice (no player "wins" a box score). No
+	// typical line: it's the one stat with no per-game reading, and that column
+	// is per-game only - see TypicalLines above.
 	["Wins", "Record", "Season Win Total - NBA", "team"],
 ]
 
@@ -91,37 +138,159 @@ const FOOTBALL_STATS: StatEntry[] = [
 	// Team-only here (unlike basketball's, which is "both") - an NFL player
 	// has no individual "Points" box-score line the way a team's final score
 	// is one; credit shows up as TDs/FGs instead.
-	["Points", "Scoring", "High-Volume", "team"],
-	["Passing Yards", "Passing", "High-Volume", "both"],
-	["Passing Touchdowns", "Passing", "Low-Count Box Stat", "both"],
-	["Rushing Yards", "Rushing", "High-Volume", "both"],
-	["Rushing Touchdowns", "Rushing", "Low-Count Box Stat", "both"],
-	["Receiving Yards", "Receiving", "High-Volume", "both"],
-	["Receptions", "Receiving", "Low-Count Box Stat", "both"],
-	["Receiving Touchdowns", "Receiving", "Low-Count Box Stat", "both"],
-	["Sacks", "Defense", "Low-Count Box Stat", "both"],
-	["Interceptions", "Defense", "Low-Count Box Stat", "both"],
-	// See BASKETBALL_STATS' "Wins" entry above - same reasoning.
+	["Points", "Scoring", "High-Volume", "team", { team: 22.5 }],
+	[
+		"Passing Yards",
+		"Passing",
+		"High-Volume",
+		"both",
+		{ player: 249.5, team: 239.5 },
+	],
+	[
+		"Passing Touchdowns",
+		"Passing",
+		"Low-Count Box Stat",
+		"both",
+		{ player: 1.5, team: 1.5 },
+	],
+	[
+		"Rushing Yards",
+		"Rushing",
+		"High-Volume",
+		"both",
+		{ player: 65.5, team: 115.5 },
+	],
+	[
+		"Rushing Touchdowns",
+		"Rushing",
+		"Low-Count Box Stat",
+		"both",
+		{ player: 0.5, team: 1.5 },
+	],
+	[
+		"Receiving Yards",
+		"Receiving",
+		"High-Volume",
+		"both",
+		{ player: 55.5, team: 239.5 },
+	],
+	[
+		"Receptions",
+		"Receiving",
+		"Low-Count Box Stat",
+		"both",
+		{ player: 4.5, team: 21.5 },
+	],
+	[
+		"Receiving Touchdowns",
+		"Receiving",
+		"Low-Count Box Stat",
+		"both",
+		{ player: 0.5, team: 1.5 },
+	],
+	[
+		"Sacks",
+		"Defense",
+		"Low-Count Box Stat",
+		"both",
+		{ player: 0.5, team: 2.5 },
+	],
+	[
+		"Interceptions",
+		"Defense",
+		"Low-Count Box Stat",
+		"both",
+		{ player: 0.5, team: 0.5 },
+	],
+	// See BASKETBALL_STATS' "Wins" entry above - same reasoning, including why
+	// it carries no typical line.
 	["Wins", "Record", "Season Win Total - NFL", "team"],
 ]
 
 const BASEBALL_STATS: StatEntry[] = [
-	["Hits", "Batting", "Low-Count Box Stat", "both"],
-	["Home Runs", "Batting", "Low-Count Box Stat", "both"],
-	["RBIs", "Batting", "Low-Count Box Stat", "both"],
-	["Runs", "Batting", "Low-Count Box Stat", "both"],
-	["Stolen Bases", "Batting", "Low-Count Box Stat", "both"],
-	["Strikeouts (Batting)", "Batting", "Low-Count Box Stat", "both"],
-	["Walks (Batting)", "Batting", "Low-Count Box Stat", "both"],
-	["Batting Average", "Batting", "Rate Stat - Batting", "both"],
-	["On-Base Percentage", "Batting", "Rate Stat - Batting", "both"],
-	["Slugging Percentage", "Batting", "Rate Stat - Batting", "both"],
-	["Saves", "Pitching", "Low-Count Box Stat", "both"],
-	["Strikeouts (Pitching)", "Pitching", "High-Volume", "both"],
-	["Earned Runs Allowed", "Pitching", "Low-Count Box Stat", "both"],
-	["ERA", "Pitching", "Rate Stat - ERA", "both"],
-	["WHIP", "Pitching", "Rate Stat - WHIP", "both"],
-	// Season-long, team-only in practice - see BASKETBALL_STATS' "Wins" entry.
+	["Hits", "Batting", "Low-Count Box Stat", "both", { player: 0.5, team: 8.5 }],
+	[
+		"Home Runs",
+		"Batting",
+		"Low-Count Box Stat",
+		"both",
+		{ player: 0.5, team: 1.5 },
+	],
+	["RBIs", "Batting", "Low-Count Box Stat", "both", { player: 0.5, team: 4.5 }],
+	["Runs", "Batting", "Low-Count Box Stat", "both", { player: 0.5, team: 4.5 }],
+	[
+		"Stolen Bases",
+		"Batting",
+		"Low-Count Box Stat",
+		"both",
+		{ player: 0.5, team: 0.5 },
+	],
+	[
+		"Strikeouts (Batting)",
+		"Batting",
+		"Low-Count Box Stat",
+		"both",
+		{ player: 0.5, team: 8.5 },
+	],
+	[
+		"Walks (Batting)",
+		"Batting",
+		"Low-Count Box Stat",
+		"both",
+		{ player: 0.5, team: 3.5 },
+	],
+	[
+		"Batting Average",
+		"Batting",
+		"Rate Stat - Batting",
+		"both",
+		{ player: 0.275, team: 0.255 },
+	],
+	[
+		"On-Base Percentage",
+		"Batting",
+		"Rate Stat - Batting",
+		"both",
+		{ player: 0.335, team: 0.315 },
+	],
+	[
+		"Slugging Percentage",
+		"Batting",
+		"Rate Stat - Batting",
+		"both",
+		{ player: 0.425, team: 0.405 },
+	],
+	[
+		"Saves",
+		"Pitching",
+		"Low-Count Box Stat",
+		"both",
+		{ player: 0.5, team: 0.5 },
+	],
+	[
+		"Strikeouts (Pitching)",
+		"Pitching",
+		"High-Volume",
+		"both",
+		{ player: 5.5, team: 8.5 },
+	],
+	[
+		"Earned Runs Allowed",
+		"Pitching",
+		"Low-Count Box Stat",
+		"both",
+		{ player: 2.5, team: 4.5 },
+	],
+	["ERA", "Pitching", "Rate Stat - ERA", "both", { player: 3.85, team: 4.05 }],
+	[
+		"WHIP",
+		"Pitching",
+		"Rate Stat - WHIP",
+		"both",
+		{ player: 1.225, team: 1.285 },
+	],
+	// Season-long, team-only in practice - see BASKETBALL_STATS' "Wins" entry,
+	// including why it carries no typical line.
 	["Wins", "Record", "Season Win Total - MLB", "team"],
 ]
 
@@ -145,12 +314,17 @@ async function upsertStats(
 	const rows: StatRow[] = []
 	for (const [
 		index,
-		[name, category, tierName, appliesTo],
+		[name, category, tierName, appliesTo, typical],
 	] of entries.entries()) {
 		const toleranceTierId = tierIdByName.get(tierName)
 		if (!toleranceTierId) {
 			throw new Error(`syncStatCatalog: unknown tolerance tier "${tierName}"`)
 		}
+		// null rather than undefined so dropping a typical line from an entry
+		// above actually clears the column on the next sync, instead of leaving
+		// the stale value in place.
+		const typicalPlayerLine = typical?.player ?? null
+		const typicalTeamLine = typical?.team ?? null
 		const [row] = await db
 			.insert(stats)
 			.values({
@@ -160,10 +334,19 @@ async function upsertStats(
 				toleranceTierId,
 				appliesTo,
 				sortOrder: index,
+				typicalPlayerLine,
+				typicalTeamLine,
 			})
 			.onConflictDoUpdate({
 				target: [stats.sportId, stats.name],
-				set: { category, toleranceTierId, appliesTo, sortOrder: index },
+				set: {
+					category,
+					toleranceTierId,
+					appliesTo,
+					sortOrder: index,
+					typicalPlayerLine,
+					typicalTeamLine,
+				},
 			})
 			.returning()
 		if (!row) {

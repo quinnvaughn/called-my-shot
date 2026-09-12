@@ -80,6 +80,29 @@ export const stats = pgTable(
 		toleranceTierId: uuid("tolerance_tier_id")
 			.notNull()
 			.references(() => statToleranceTiers.id, { onDelete: "restrict" }),
+		// A plausible over/under line for ONE GAME, split by subject kind
+		// because the same stat sits at wildly different magnitudes for the two
+		// (a player scores ~24 points, a team ~112). Seeds the create-question
+		// line field; never used for resolution or scoring.
+		//
+		// Always per-game, with no second reading - a season-only stat like
+		// "Wins" has no meaningful per-game value (0.5 wins a night) and so
+		// carries none at all. Season-total questions seed nothing rather than
+		// this column pulling double duty, which would make every per-game stat
+		// seed ~82x too low.
+		//
+		// Nullable on purpose: a stat with no sensible default seeds nothing
+		// rather than seeding a lie.
+		typicalPlayerLine: numeric("typical_player_line", {
+			precision: 8,
+			scale: 3,
+			mode: "number",
+		}),
+		typicalTeamLine: numeric("typical_team_line", {
+			precision: 8,
+			scale: 3,
+			mode: "number",
+		}),
 	},
 	(t) => [unique().on(t.sportId, t.name)],
 )

@@ -8,9 +8,10 @@ import {
 import { FieldHint } from "#/components/ui/field-hint"
 import { useQuestionData } from "../data-context"
 import type { CreateQuestionValues } from "../form-context"
-import { ChipField, NumberField, useWatch } from "../form-context"
+import { ChipField, useWatch } from "../form-context"
 import { GameField } from "../game-field"
 import { LeagueField } from "../league-field"
+import { LineField } from "../line-field"
 import { StatPicker } from "../stat-picker"
 import { SubjectPicker } from "../subject-picker"
 import { ShapePanel } from "./shape-panel"
@@ -31,6 +32,12 @@ export type StatShape = Extract<
 // because they ask for the same things in the same order - the differences all
 // fall out of the shape itself: who the stat belongs to, whether a game scopes
 // it, and whether there's a line to set.
+//
+// Fields run league -> game -> subject -> stat -> aggregation -> number, so
+// each one sits after whatever scopes it: the league scopes both the games and
+// the stat catalog, the game scopes the subject pool, and the number is last
+// because its seeded starting value depends on the stat and the total/per-game
+// reading of it.
 export function StatPanel({ shape }: { shape: StatShape }) {
 	const leagueId = useWatch("leagueId")
 	const { stats, scopedTeams, scopedPlayers, selectedGame } =
@@ -49,6 +56,14 @@ export function StatPanel({ shape }: { shape: StatShape }) {
 			)}
 			{leagueId ? (
 				<>
+					{subject !== "none" && (
+						<SubjectPicker
+							teams={scopedTeams}
+							players={scopedPlayers}
+							kind={subject}
+							required
+						/>
+					)}
 					<StatPicker
 						stats={stats.filter(
 							(s) =>
@@ -57,18 +72,6 @@ export function StatPanel({ shape }: { shape: StatShape }) {
 						)}
 						catalogOnly={isNumericGuessShape(shape)}
 					/>
-					{isAnyOU && (
-						<NumberField
-							name="ouLine"
-							label="Number"
-							required
-							// "any", not a fixed 0.5 - a rate-stat line (batting average,
-							// ERA) needs finer-grained decimals than a counting-stat one.
-							step="any"
-							placeholder="224.5"
-							description="Can't be a whole number - the result has to be able to land on one side or the other, never exactly on it."
-						/>
-					)}
 					{requiresStatAggregation(shape) && (
 						<ChipField
 							name="statAggregation"
@@ -80,18 +83,11 @@ export function StatPanel({ shape }: { shape: StatShape }) {
 							]}
 						/>
 					)}
-					{subject !== "none" && (
-						<SubjectPicker
-							teams={scopedTeams}
-							players={scopedPlayers}
-							kind={subject}
-							required
-						/>
-					)}
+					{isAnyOU && <LineField />}
 				</>
 			) : (
 				<FieldHint>
-					Pick a league above to choose the stat and subject - both pull from
+					Pick a league above to choose the subject and stat - both pull from
 					that league's catalog.
 				</FieldHint>
 			)}

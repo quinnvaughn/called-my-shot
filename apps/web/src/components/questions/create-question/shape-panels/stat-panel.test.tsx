@@ -1,4 +1,5 @@
 import { screen } from "@testing-library/react"
+import userEvent from "@testing-library/user-event"
 import { describe, expect, it } from "vitest"
 import { renderPanel } from "../test-utils"
 import type { StatShape } from "./stat-panel"
@@ -16,7 +17,7 @@ describe("StatPanel: what each of its eight shapes asks for", () => {
 	it("shows a hint instead of the stat fields until a league is picked", () => {
 		renderPanel(<StatPanel shape="player_stat_over_under" />)
 		expect(
-			screen.getByText(/Pick a league above to choose the stat and subject/),
+			screen.getByText(/Pick a league above to choose the subject and stat/),
 		).toBeInTheDocument()
 		expect(screen.queryByText("Stat")).not.toBeInTheDocument()
 	})
@@ -51,9 +52,9 @@ describe("StatPanel: what each of its eight shapes asks for", () => {
 		"game_total_over_under",
 	] as const)("asks %s for a line", (shape) => {
 		renderShape(shape)
-		expect(
-			screen.getByRole("spinbutton", { name: "Number" }),
-		).toBeInTheDocument()
+		// A textbox, not a spinbutton: the line is a NumberStepper, whose input
+		// is type="text" so an in-progress "24." keeps its trailing dot.
+		expect(screen.getByRole("textbox", { name: "Number" })).toBeInTheDocument()
 	})
 
 	it.each([
@@ -64,7 +65,7 @@ describe("StatPanel: what each of its eight shapes asks for", () => {
 		renderShape(shape)
 		// The caller supplies the number on a numeric guess; the question doesn't.
 		expect(
-			screen.queryByRole("spinbutton", { name: "Number" }),
+			screen.queryByRole("textbox", { name: "Number" }),
 		).not.toBeInTheDocument()
 	})
 
@@ -115,6 +116,22 @@ describe("StatPanel: which stats it offers", () => {
 			category: "c",
 			sortOrder: 1,
 			appliesTo: "PLAYER" as const,
+			typicalPlayerLine: 24.5,
+			typicalTeamLine: 112.5,
+			toleranceTier: {
+				id: "t",
+				toleranceMode: "ABSOLUTE" as const,
+				toleranceValue: 1,
+			},
+		},
+		{
+			id: "r",
+			name: "Rebounds",
+			category: "c",
+			sortOrder: 2,
+			appliesTo: "PLAYER" as const,
+			typicalPlayerLine: 7.5,
+			typicalTeamLine: 43.5,
 			toleranceTier: {
 				id: "t",
 				toleranceMode: "ABSOLUTE" as const,
@@ -125,8 +142,10 @@ describe("StatPanel: which stats it offers", () => {
 			id: "t",
 			name: "Team Wins",
 			category: "c",
-			sortOrder: 2,
+			sortOrder: 3,
 			appliesTo: "TEAM" as const,
+			typicalPlayerLine: null,
+			typicalTeamLine: null,
 			toleranceTier: {
 				id: "t",
 				toleranceMode: "ABSOLUTE" as const,
@@ -155,6 +174,47 @@ describe("StatPanel: which stats it offers", () => {
 		})
 		expect(screen.getByText("Team Wins")).toBeInTheDocument()
 		expect(screen.queryByText("Points")).not.toBeInTheDocument()
+	})
+
+	it("suggests the stat's typical line without filling it in", () => {
+		renderPanel(<StatPanel shape="player_stat_over_under" />, {
+			values: {
+				shape: "player_stat_over_under",
+				leagueId: "l",
+				sportId: "s",
+				statId: "p",
+			},
+			data: { stats },
+		})
+		// The line is the substance of the question, so picking a stat offers a
+		// magnitude and nothing more - a pre-filled line is one the creator
+		// could publish without ever choosing it.
+		const line = screen.getByRole("textbox", { name: "Number" })
+		expect(line).toHaveValue("")
+		expect(line).toHaveAttribute("placeholder", "24.5")
+	})
+
+	it("drops a line already set when the stat changes under it", async () => {
+		const user = userEvent.setup()
+		renderPanel(<StatPanel shape="player_stat_over_under" />, {
+			values: {
+				shape: "player_stat_over_under",
+				leagueId: "l",
+				sportId: "s",
+				statId: "p",
+			},
+			data: { stats },
+		})
+
+		const line = screen.getByRole("textbox", { name: "Number" })
+		await user.type(line, "24.5")
+		expect(line).toHaveValue("24.5")
+
+		await user.click(screen.getByRole("button", { name: "Rebounds" }))
+		// 24.5 was a Points line. Nothing downstream would reject it as a
+		// Rebounds one, so it has to go here or it publishes.
+		expect(line).toHaveValue("")
+		expect(line).toHaveAttribute("placeholder", "7.5")
 	})
 
 	it("treats game_total_over_under as a team shape", () => {

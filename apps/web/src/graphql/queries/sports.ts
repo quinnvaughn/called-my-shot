@@ -115,6 +115,8 @@ export const StatsBySportDocument = graphql(`
 			category
 			sortOrder
 			appliesTo
+			typicalPlayerLine
+			typicalTeamLine
 			toleranceTier {
 				id
 				toleranceMode

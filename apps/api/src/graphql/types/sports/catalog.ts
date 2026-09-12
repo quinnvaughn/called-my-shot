@@ -45,6 +45,17 @@ export const StatRef = builder.drizzleObject("stats", {
 		category: t.exposeString("category"),
 		sortOrder: t.exposeInt("sortOrder"),
 		appliesTo: t.field({ type: StatAppliesTo, resolve: (s) => s.appliesTo }),
+		// Nullable, so t.float rather than exposeFloat - a stat with no
+		// sensible default line seeds the create form with nothing instead of
+		// a misleading number. See db/schema/stats.ts for what these measure.
+		typicalPlayerLine: t.float({
+			nullable: true,
+			resolve: (s) => s.typicalPlayerLine,
+		}),
+		typicalTeamLine: t.float({
+			nullable: true,
+			resolve: (s) => s.typicalTeamLine,
+		}),
 		sport: t.relation("sport"),
 		toleranceTier: t.relation("toleranceTier"),
 	}),
