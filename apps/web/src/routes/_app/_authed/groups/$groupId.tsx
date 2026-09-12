@@ -1,6 +1,7 @@
 import { useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute, useRouteContext } from "@tanstack/react-router"
-import { useState } from "react"
+import { type ReactNode, useState } from "react"
+import { FiSettings, FiUserPlus } from "react-icons/fi"
 import { HiMiniQuestionMarkCircle } from "react-icons/hi2"
 import { css } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
@@ -25,7 +26,7 @@ import {
 	sharedQuestionsQuery,
 } from "#/components/groups/shared-questions-tab"
 import { Breadcrumb } from "#/components/ui/breadcrumb"
-import { Button } from "#/components/ui/button"
+import { Button, type ButtonVariantProps } from "#/components/ui/button"
 import { NotFound } from "#/components/ui/not-found"
 import { PageHeader } from "#/components/ui/page-header"
 import { Tabs } from "#/components/ui/tabs"
@@ -123,6 +124,40 @@ export const Route = createFileRoute("/_app/_authed/groups/$groupId")({
 	},
 })
 
+// A phone can't fit a group name and two labeled buttons on one line, and the
+// name is the more important half - so below md each action shows only its
+// icon, with the label carried as the button's accessible name.
+function HeaderAction({
+	label,
+	icon,
+	variant,
+	onClick,
+}: {
+	label: string
+	icon: ReactNode
+	variant: ButtonVariantProps["variant"]
+	onClick: () => void
+}) {
+	return (
+		<Button
+			size="sm"
+			variant={variant}
+			aria-label={label}
+			onClick={onClick}
+			// Square off the horizontal padding while the label is hidden, so the
+			// icon-only button doesn't read as a wide empty pill.
+			className={css({ paddingInline: { base: "2.5", md: "4.5" } })}
+		>
+			<span className={css({ display: { base: "flex", md: "none" } })}>
+				{icon}
+			</span>
+			<span className={css({ display: { base: "none", md: "inline" } })}>
+				{label}
+			</span>
+		</Button>
+	)
+}
+
 function RouteComponent() {
 	const [activeTab, setActiveTab] = useState<"answered" | "created" | "shared">(
 		"answered",
@@ -171,8 +206,9 @@ function RouteComponent() {
 				action={
 					<HStack gap="2">
 						{group.viewerIsAdmin && (
-							<Button
-								size="sm"
+							<HeaderAction
+								label="Settings"
+								icon={<FiSettings size={16} />}
 								variant="outline"
 								onClick={() =>
 									openModal(
@@ -185,12 +221,11 @@ function RouteComponent() {
 										/>,
 									)
 								}
-							>
-								Settings
-							</Button>
+							/>
 						)}
-						<Button
-							size="sm"
+						<HeaderAction
+							label="Invite"
+							icon={<FiUserPlus size={16} />}
 							variant="dark"
 							onClick={() =>
 								openModal(
@@ -203,9 +238,7 @@ function RouteComponent() {
 									/>,
 								)
 							}
-						>
-							Invite
-						</Button>
+						/>
 					</HStack>
 				}
 			/>

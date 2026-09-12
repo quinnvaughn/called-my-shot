@@ -1,6 +1,6 @@
 import type { ReactNode } from "react"
 import { css } from "styled-system/css"
-import { HStack, VStack } from "styled-system/jsx"
+import { Box, HStack, VStack } from "styled-system/jsx"
 
 type Props = {
 	title: string
@@ -14,12 +14,16 @@ type Props = {
 export function PageHeader({ title, subtitle, description, action }: Props) {
 	return (
 		<HStack alignItems="flex-start" justify="space-between" gap="4">
-			<VStack gap="1" alignItems="flex-start">
+			{/* The action's buttons don't wrap their labels, so the text column is
+			    the side that has to give on a narrow screen - without minWidth it
+			    holds its min-content width and pushes the action off the viewport. */}
+			<VStack gap="1" alignItems="flex-start" minWidth="0">
 				<h1
 					className={css({
 						fontSize: "3xl",
 						fontFamily: "heading",
 						lineHeight: "1",
+						overflowWrap: "anywhere",
 					})}
 				>
 					{title}
@@ -49,7 +53,7 @@ export function PageHeader({ title, subtitle, description, action }: Props) {
 					</p>
 				)}
 			</VStack>
-			{action}
+			{action && <Box flexShrink="0">{action}</Box>}
 		</HStack>
 	)
 }

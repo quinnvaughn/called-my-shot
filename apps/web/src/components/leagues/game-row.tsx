@@ -73,13 +73,20 @@ export function GameRow({ game, leagueSlug }: Props) {
 									abbreviation={game.homeTeam.abbreviation}
 									color={game.homeTeam.color}
 								/>
+								{/* Without minWidth the nowrap name holds its full min-content
+								    width and runs under the status column instead of ellipsing.
+								    A phone has no width to ellipse into either, so there the
+								    matchup wraps onto its own lines (same treatment as Identity's
+								    name). */}
 								<span
 									className={css({
 										fontSize: "sm",
 										fontWeight: "medium",
-										overflow: "hidden",
-										textOverflow: "ellipsis",
-										whiteSpace: "nowrap",
+										minWidth: "0",
+										overflowWrap: { base: "anywhere", md: "normal" },
+										overflow: { base: "visible", md: "hidden" },
+										textOverflow: { md: "ellipsis" },
+										whiteSpace: { base: "normal", md: "nowrap" },
 									})}
 								>
 									{game.awayTeam.name} @ {game.homeTeam.name}
