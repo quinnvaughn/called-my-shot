@@ -1,4 +1,5 @@
 import {
+	boolean,
 	integer,
 	pgEnum,
 	pgTable,
@@ -83,6 +84,11 @@ export const games = pgTable("games", {
 	status: gameStatus("status").notNull().default("scheduled"),
 	homeScore: integer("home_score"),
 	awayScore: integer("away_score"),
+	// Whether a live game is at the half, per ESPN's own status. Status stays
+	// "live" through the break; this only narrows how it's labeled. Kept
+	// current by the same syncs that write status, so it's false again once
+	// the second half starts.
+	atHalftime: boolean("at_halftime").notNull().default(false),
 	seasonType: gameSeasonType("season_type").notNull().default("regular"),
 	// ESPN's own week number, stored verbatim - never derived, so leagues that
 	// carve up their season into byes/playoff rounds stay correct with zero

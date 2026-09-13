@@ -58,7 +58,7 @@ describe("parseBoxScore", () => {
 
 		const postponed = summaryFixture("nba")
 		postponed.header.competitions[0].status = {
-			type: { name: "STATUS_POSTPONED", completed: false },
+			type: { name: "STATUS_POSTPONED", state: "post", completed: false },
 		}
 		expect(parseBoxScore(postponed).isFinal).toBe(false)
 	})

@@ -26,20 +26,23 @@ export type EspnAthlete = {
 	experience?: { years: number }
 }
 
-// ESPN's own status vocabulary - verified live against a real schedule
-// response. STATUS_IN_PROGRESS is the documented value for a live game
-// (not seen in the sample pulled, which had no in-progress game in it, but
-// it's ESPN's standard live status across their site API). Anything else
-// (weather delays, etc.) falls back to "scheduled" - see toGameStatus in
-// sync-live-scores.ts.
+// ESPN's own status vocabulary. `name` is open-ended: a game in progress is
+// not always STATUS_IN_PROGRESS - verified live on an NFL Sunday, games at the
+// half read STATUS_HALFTIME. `state` is the coarse phase every name maps onto
+// ("pre" before kickoff, "in" while the game is underway including breaks,
+// "post" once it's over or called off), which is what toGameStatus in
+// sync-games.ts reads.
 export type EspnEventStatus = {
 	type: {
 		name:
 			| "STATUS_SCHEDULED"
 			| "STATUS_IN_PROGRESS"
+			| "STATUS_HALFTIME"
+			| "STATUS_END_PERIOD"
 			| "STATUS_FINAL"
 			| "STATUS_POSTPONED"
 			| (string & {})
+		state: "pre" | "in" | "post" | (string & {})
 		completed: boolean
 	}
 }

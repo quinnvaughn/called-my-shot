@@ -1,0 +1,1 @@
+ALTER TABLE "games" ADD COLUMN "at_halftime" boolean DEFAULT false NOT NULL;

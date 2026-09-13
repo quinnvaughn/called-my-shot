@@ -4,7 +4,12 @@ import { db } from "../index"
 import { games } from "../schema"
 import { type EspnScoreboardEvent, fetchScoreboard } from "./espn-client"
 import { SYNCED_LEAGUES } from "./leagues"
-import { finalizedAtFor, resolveGameWinner, toGameStatus } from "./sync-games"
+import {
+	finalizedAtFor,
+	isAtHalftime,
+	resolveGameWinner,
+	toGameStatus,
+} from "./sync-games"
 import { findSourceId } from "./sync-refs"
 
 // How far back/forward from "now" a game counts as "plausibly in flight" -
@@ -78,6 +83,7 @@ export async function syncLiveScores(): Promise<void> {
 				.update(games)
 				.set({
 					status,
+					atHalftime: isAtHalftime(competition.status),
 					homeScore,
 					awayScore,
 					finalizedAt: finalizedAtFor(status),

@@ -260,6 +260,7 @@ export const LeagueGamesForWindowDocument = graphql(`
 					id
 					startsAt
 					status
+					atHalftime
 					homeScore
 					awayScore
 					questionCount

@@ -16,6 +16,8 @@ export const GameRef = builder.drizzleObject("games", {
 			resolve: (g) => g.startsAt.toISOString(),
 		}),
 		status: t.field({ type: GameStatus, resolve: (g) => g.status }),
+		// Only ever true while status is LIVE - see games.atHalftime.
+		atHalftime: t.exposeBoolean("atHalftime"),
 		homeScore: t.exposeInt("homeScore", { nullable: true }),
 		awayScore: t.exposeInt("awayScore", { nullable: true }),
 		// The specific game's location, not necessarily the home team's usual

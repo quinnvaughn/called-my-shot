@@ -26,17 +26,23 @@ function toGameSeasonType(espnSeasonType: number): "regular" | "postseason" {
 }
 
 // ESPN's status vocabulary collapses onto this app's 3-value gameStatus enum
-// - anything not explicitly final/in-progress (postponed, delayed, etc.)
-// reads as "scheduled" rather than growing the enum for states this app
-// doesn't otherwise act on. Exported - db/sync/sync-live-scores.ts (the
-// frequent, narrow job that actually keeps a game's status current while
-// it's in flight) uses the exact same mapping, not a parallel one.
+// by its coarse `state`, not its specific name, so every in-game break
+// (halftime, end of a quarter, a mid-game delay) stays "live". A game over
+// but not completed (postponed, canceled) reads as "scheduled" rather than
+// growing the enum for states this app doesn't otherwise act on. Exported -
+// db/sync/sync-live-scores.ts (the frequent, narrow job that actually keeps a
+// game's status current while it's in flight) uses the exact same mapping,
+// not a parallel one.
 export function toGameStatus(
 	status: EspnEventStatus,
 ): "scheduled" | "live" | "final" {
-	if (status.type.name === "STATUS_FINAL") return "final"
-	if (status.type.name === "STATUS_IN_PROGRESS") return "live"
+	if (status.type.state === "post" && status.type.completed) return "final"
+	if (status.type.state === "in") return "live"
 	return "scheduled"
+}
+
+export function isAtHalftime(status: EspnEventStatus): boolean {
+	return status.type.name === "STATUS_HALFTIME"
 }
 
 // The games.finalizedAt value to write alongside a synced status. Keeps an
@@ -216,6 +222,7 @@ async function syncEvent(
 
 	const venue = competition.venue?.fullName ?? null
 	const status = toGameStatus(competition.status)
+	const atHalftime = isAtHalftime(competition.status)
 	const homeScore = home.score ? Math.round(home.score.value) : null
 	const awayScore = away.score ? Math.round(away.score.value) : null
 
@@ -234,6 +241,7 @@ async function syncEvent(
 				slot,
 				venue,
 				status,
+				atHalftime,
 				homeScore,
 				awayScore,
 				finalizedAt: finalizedAtFor(status),
@@ -264,6 +272,7 @@ async function syncEvent(
 			slot,
 			venue,
 			status,
+			atHalftime,
 			homeScore,
 			awayScore,
 			finalizedAt: status === "final" ? new Date() : null,
