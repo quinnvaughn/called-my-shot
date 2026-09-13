@@ -1,3 +1,4 @@
+import { questionTitleWithGame } from "@called-my-shot/schemas"
 import { useSuspenseQuery } from "@tanstack/react-query"
 import {
 	createFileRoute,
@@ -149,12 +150,13 @@ export const Route = createFileRoute("/_app/questions/$questionId/{-$slug}")({
 		const question = loaderData?.question
 		if (!question) return {}
 
-		// The bare question title, with no "· Called My Shot" suffix unlike
+		// The question title (matchup first for a game question, since a tab or
+		// search result shows nothing else about it), with no "· Called My Shot" suffix unlike
 		// every other page here - these titles already run long enough to hit
 		// the ~60 characters a search result shows, and the suffix would be the
 		// half that gets cut.
 		return pageMeta({
-			title: question.title,
+			title: questionTitleWithGame(question.title, question.game),
 			description: `${question.league.abbreviation} · ${questionShapeLabel[question.shape]}: resolves via ${question.resolutionSource}.`,
 			path: questionPath(question),
 		})

@@ -200,7 +200,6 @@ export const GameQuestionsDocument = graphql(`
 				shape
 				createdAt
 				...QuestionCard_question
-				...GameWinnerCard_question
 			}
 			pageInfo {
 				hasNextPage

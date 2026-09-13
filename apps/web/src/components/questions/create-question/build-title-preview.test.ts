@@ -4,11 +4,7 @@ import {
 	type TitlePreviewInput,
 } from "./build-title-preview"
 
-const GAME = {
-	startsAt: "2026-03-01T00:00:00.000Z",
-	homeTeam: { name: "Celtics" },
-	awayTeam: { name: "Nuggets" },
-}
+const GAME = { id: "game-1" }
 
 function input(over: Partial<TitlePreviewInput> = {}): TitlePreviewInput {
 	return {
@@ -26,7 +22,6 @@ function input(over: Partial<TitlePreviewInput> = {}): TitlePreviewInput {
 		selectedPlayerName: undefined,
 		selectedTeamName: undefined,
 		subjectName: null,
-		opponentTeamName: undefined,
 		statName: "",
 		isRateStat: false,
 		hasCatalogStat: true,
@@ -68,20 +63,17 @@ describe("buildTitlePreview returns null until its shape has everything", () => 
 })
 
 describe("buildTitlePreview builds a title once the fields are there", () => {
-	it("names the opponent and the line for a player game over/under", () => {
+	it("names the player, line and stat for a player game over/under", () => {
 		const title = buildTitlePreview(
 			input({
 				shape: "player_stat_over_under",
 				selectedPlayerName: "Jayson Tatum",
 				statName: "Points",
 				ouLine: 27.5,
-				opponentTeamName: "Nuggets",
 				selectedGame: GAME,
 			}),
 		)
-		expect(title).toContain("Jayson Tatum")
-		expect(title).toContain("27.5")
-		expect(title).toContain("Nuggets")
+		expect(title).toBe("Jayson Tatum: over/under 27.5 points")
 	})
 
 	it("pads a rate stat's line to three decimals", () => {
@@ -92,7 +84,6 @@ describe("buildTitlePreview builds a title once the fields are there", () => {
 				statName: "Batting Average",
 				ouLine: 0.3,
 				isRateStat: true,
-				opponentTeamName: "Padres",
 			}),
 		)
 		// ".300" is a distinct value from ".3" - a bare number would silently
@@ -196,11 +187,10 @@ describe("buildTitlePreview builds a title once the fields are there", () => {
 		).toBeNull()
 	})
 
-	it("builds a team_vs_team title from the game alone", () => {
+	it("builds a team_vs_team title once a game is picked", () => {
 		const title = buildTitlePreview(
 			input({ shape: "team_vs_team", selectedGame: GAME }),
 		)
-		expect(title).toContain("Celtics")
-		expect(title).toContain("Nuggets")
+		expect(title).toBe("Who will win?")
 	})
 })

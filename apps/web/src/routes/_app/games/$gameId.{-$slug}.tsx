@@ -9,7 +9,6 @@ import { FaRegTimesCircle } from "react-icons/fa"
 import { css } from "styled-system/css"
 import { VStack } from "styled-system/jsx"
 import { GameMatchupHeader } from "#/components/games/game-matchup-header"
-import { GameWinnerCard } from "#/components/games/game-winner-card"
 import { QuestionCard } from "#/components/questions/question-card"
 import { SortSwitcher } from "#/components/questions/sort-switcher"
 import { Breadcrumb } from "#/components/ui/breadcrumb"
@@ -209,7 +208,7 @@ function RouteComponent() {
 			{hero && (
 				<VStack gap="2" alignItems="stretch">
 					<span className={sectionLabelClass}>Game winner</span>
-					<GameWinnerCard question={hero} />
+					<QuestionCard question={hero} showGame={false} />
 				</VStack>
 			)}
 
@@ -283,7 +282,11 @@ function OfficialQuestions({
 					<span className={sectionLabelClass}>{section.label}</span>
 					<VStack gap="3" alignItems="stretch">
 						{section.questions.map((question) => (
-							<QuestionCard key={question.id} question={question} />
+							<QuestionCard
+								key={question.id}
+								question={question}
+								showGame={false}
+							/>
 						))}
 					</VStack>
 				</VStack>
@@ -327,7 +330,9 @@ function CommunityQuestions({ gameId }: { gameId: string }) {
 						started?
 					</EmptyState>
 				}
-				renderItem={(question) => <QuestionCard question={question} />}
+				renderItem={(question) => (
+					<QuestionCard question={question} showGame={false} />
+				)}
 			/>
 		</VStack>
 	)

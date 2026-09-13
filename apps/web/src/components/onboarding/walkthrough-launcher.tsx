@@ -1,3 +1,4 @@
+import { questionTitleWithGame } from "@called-my-shot/schemas"
 import { useQuery } from "@tanstack/react-query"
 import {
 	useNavigate,
@@ -130,7 +131,8 @@ export function WalkthroughLauncher() {
 								color: "fg.muted",
 							})}
 						>
-							Walk through making a call on {suggested.title}
+							Walk through making a call on{" "}
+							{questionTitleWithGame(suggested.title, suggested.game)}
 						</span>
 					</VStack>
 					<Button size="sm" variant="solid" onClick={handleStart}>

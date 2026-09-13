@@ -4,14 +4,13 @@ import type { Question, QuestionOption } from "../../db/schema"
 import { parseGenerationKey } from "./generation-key"
 
 export type GameForTitle = {
-	startsAt: Date
 	homeTeam: { id: string; name: string }
 	awayTeam: { id: string; name: string }
 }
 
 // What a generated question's title is built from, beyond the game itself.
-// Kept separate from the game so a rescheduled game can re-date every title
-// on it from what the questions already store (see titleFactsFor).
+// Kept separate from the game so a sync pass can rebuild every title on a
+// game from what the questions already store (see titleFactsFor).
 export type GameQuestionTitleFacts =
 	| { shape: "team_vs_team" }
 	| { shape: "team_stat_numeric_guess"; statName: string; teamId: string }
@@ -25,7 +24,6 @@ export type GameQuestionTitleFacts =
 			shape: "player_stat_over_under"
 			statName: string
 			playerName: string
-			teamId: string
 			ouLine: number
 	  }
 	| { shape: "player_game_stat_leader"; statName: string }
@@ -34,29 +32,18 @@ export function gameQuestionTitle(
 	facts: GameQuestionTitleFacts,
 	game: GameForTitle,
 ): string {
-	const gameDate = game.startsAt.toISOString()
-	const isHome = (teamId: string) => teamId === game.homeTeam.id
 	const teamName = (teamId: string) =>
-		isHome(teamId) ? game.homeTeam.name : game.awayTeam.name
-	const opponentName = (teamId: string) =>
-		isHome(teamId) ? game.awayTeam.name : game.homeTeam.name
+		teamId === game.homeTeam.id ? game.homeTeam.name : game.awayTeam.name
 
 	return match(facts)
 		.with({ shape: "team_vs_team" }, () =>
-			generateQuestionTitle({
-				shape: "team_vs_team",
-				awayTeamName: game.awayTeam.name,
-				homeTeamName: game.homeTeam.name,
-				gameDate,
-			}),
+			generateQuestionTitle({ shape: "team_vs_team" }),
 		)
 		.with({ shape: "team_stat_numeric_guess" }, (f) =>
 			generateQuestionTitle({
 				shape: "team_stat_numeric_guess",
 				teamName: teamName(f.teamId),
 				statName: f.statName,
-				opponentTeamName: opponentName(f.teamId),
-				gameDate,
 			}),
 		)
 		// Every generated head-to-head is on a counting stat.
@@ -67,7 +54,6 @@ export function gameQuestionTitle(
 				playerBName: f.playerNames[1],
 				statName: f.statName,
 				isRateStat: false,
-				gameDate,
 			}),
 		)
 		.with({ shape: "player_stat_over_under" }, (f) =>
@@ -76,17 +62,12 @@ export function gameQuestionTitle(
 				playerName: f.playerName,
 				statName: f.statName,
 				ouLine: String(f.ouLine),
-				opponentTeamName: opponentName(f.teamId),
-				gameDate,
 			}),
 		)
 		.with({ shape: "player_game_stat_leader" }, (f) =>
 			generateQuestionTitle({
 				shape: "player_game_stat_leader",
-				awayTeamName: game.awayTeam.name,
-				homeTeamName: game.homeTeam.name,
 				statName: f.statName,
-				gameDate,
 			}),
 		)
 		.exhaustive()
@@ -104,11 +85,10 @@ export type TitledQuestion = Question & {
 export function titleFactsFor(
 	question: TitledQuestion,
 ): GameQuestionTitleFacts | null {
-	const parsed = question.generationKey
-		? parseGenerationKey(question.generationKey)
-		: null
+	if (!question.generationKey || !parseGenerationKey(question.generationKey)) {
+		return null
+	}
 	const statName = question.stat?.name
-	if (!parsed) return null
 
 	return match(question.shape)
 		.returnType<GameQuestionTitleFacts | null>()
@@ -134,23 +114,16 @@ export function titleFactsFor(
 					}
 				: null
 		})
-		// The subject's team is in the key, so the opponent doesn't depend on
-		// which team the player is on by the time the game moves.
-		.with("player_stat_over_under", () => {
-			const [teamId] = parsed.rest
-			return statName &&
-				teamId &&
-				question.subjectPlayer &&
-				question.ouLine !== null
+		.with("player_stat_over_under", () =>
+			statName && question.subjectPlayer && question.ouLine !== null
 				? {
 						shape: "player_stat_over_under",
 						statName,
 						playerName: question.subjectPlayer.name,
-						teamId,
 						ouLine: question.ouLine,
 					}
-				: null
-		})
+				: null,
+		)
 		.with("player_game_stat_leader", () =>
 			statName ? { shape: "player_game_stat_leader", statName } : null,
 		)

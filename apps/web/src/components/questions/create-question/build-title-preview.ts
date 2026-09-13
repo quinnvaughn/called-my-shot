@@ -3,14 +3,10 @@ import { match } from "ts-pattern"
 import { formatGuess } from "#/lib/field-signal"
 import type { CreateQuestionValues } from "./form-context"
 
-// Only the three fields the titles actually name. Structural rather than the
-// generated GameByIdQuery type so this stays a plain function over plain data -
-// nothing here should need a GraphQL document to call or to test.
-type TitleGame = {
-	startsAt: string
-	homeTeam: { name: string }
-	awayTeam: { name: string }
-}
+// No title names the game itself (the question card and pages show it
+// alongside), so all this needs to know is whether one is picked - the
+// shapes about the whole game wait for it before suggesting anything.
+type TitleGame = { id: string }
 
 export type TitlePreviewInput = {
 	shape: CreateQuestionValues["shape"]
@@ -27,7 +23,6 @@ export type TitlePreviewInput = {
 	selectedPlayerName: string | undefined
 	selectedTeamName: string | undefined
 	subjectName: string | null
-	opponentTeamName: string | undefined
 	statName: string
 	isRateStat: boolean
 	// Whether the stat came from the league's catalog rather than being typed in
@@ -58,7 +53,6 @@ export function buildTitlePreview(input: TitlePreviewInput): string | null {
 		selectedPlayerName,
 		selectedTeamName,
 		subjectName,
-		opponentTeamName,
 		statName,
 		isRateStat,
 		hasCatalogStat,
@@ -67,26 +61,22 @@ export function buildTitlePreview(input: TitlePreviewInput): string | null {
 
 	return match(shape)
 		.with("player_stat_over_under", (s) =>
-			selectedPlayerName && statName && ouLine !== undefined && opponentTeamName
+			selectedPlayerName && statName && ouLine !== undefined
 				? generateQuestionTitle({
 						shape: s,
 						playerName: selectedPlayerName,
 						statName,
 						ouLine: formatGuess(ouLine, isRateStat),
-						opponentTeamName,
-						gameDate: selectedGame?.startsAt,
 					})
 				: null,
 		)
 		.with("team_stat_over_under", (s) =>
-			selectedTeamName && statName && ouLine !== undefined && opponentTeamName
+			selectedTeamName && statName && ouLine !== undefined
 				? generateQuestionTitle({
 						shape: s,
 						teamName: selectedTeamName,
 						statName,
 						ouLine: formatGuess(ouLine, isRateStat),
-						opponentTeamName,
-						gameDate: selectedGame?.startsAt,
 					})
 				: null,
 		)
@@ -116,33 +106,26 @@ export function buildTitlePreview(input: TitlePreviewInput): string | null {
 			selectedGame && statName && ouLine !== undefined
 				? generateQuestionTitle({
 						shape: s,
-						awayTeamName: selectedGame.awayTeam.name,
-						homeTeamName: selectedGame.homeTeam.name,
 						statName,
 						ouLine: formatGuess(ouLine, isRateStat),
-						gameDate: selectedGame.startsAt,
 					})
 				: null,
 		)
 		.with("player_stat_numeric_guess", (s) =>
-			selectedPlayerName && statName && opponentTeamName
+			selectedPlayerName && statName
 				? generateQuestionTitle({
 						shape: s,
 						playerName: selectedPlayerName,
 						statName,
-						opponentTeamName,
-						gameDate: selectedGame?.startsAt,
 					})
 				: null,
 		)
 		.with("team_stat_numeric_guess", (s) =>
-			selectedTeamName && statName && opponentTeamName
+			selectedTeamName && statName
 				? generateQuestionTitle({
 						shape: s,
 						teamName: selectedTeamName,
 						statName,
-						opponentTeamName,
-						gameDate: selectedGame?.startsAt,
 					})
 				: null,
 		)
@@ -169,7 +152,6 @@ export function buildTitlePreview(input: TitlePreviewInput): string | null {
 						playerBName: b.label,
 						statName,
 						isRateStat,
-						gameDate: selectedGame?.startsAt,
 					})
 				: null
 		})
@@ -187,14 +169,7 @@ export function buildTitlePreview(input: TitlePreviewInput): string | null {
 				: null
 		})
 		.with("team_vs_team", (s) =>
-			selectedGame
-				? generateQuestionTitle({
-						shape: s,
-						awayTeamName: selectedGame.awayTeam.name,
-						homeTeamName: selectedGame.homeTeam.name,
-						gameDate: selectedGame.startsAt,
-					})
-				: null,
+			selectedGame ? generateQuestionTitle({ shape: s }) : null,
 		)
 		.with("team_vs_team_season", (s) => {
 			const [a, b] = options
@@ -211,13 +186,7 @@ export function buildTitlePreview(input: TitlePreviewInput): string | null {
 		})
 		.with("player_game_stat_leader", (s) =>
 			selectedGame && statName
-				? generateQuestionTitle({
-						shape: s,
-						awayTeamName: selectedGame.awayTeam.name,
-						homeTeamName: selectedGame.homeTeam.name,
-						statName,
-						gameDate: selectedGame.startsAt,
-					})
+				? generateQuestionTitle({ shape: s, statName })
 				: null,
 		)
 		.with("player_season_stat_leader", (s) => {
@@ -248,7 +217,6 @@ export function buildTitlePreview(input: TitlePreviewInput): string | null {
 						shape: s,
 						subjectName,
 						eventClause,
-						gameDate: selectedGame?.startsAt,
 					})
 				: null,
 		)

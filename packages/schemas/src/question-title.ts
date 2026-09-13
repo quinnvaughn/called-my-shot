@@ -1,179 +1,145 @@
 import { match } from "ts-pattern"
 import type { AwardVerb, StatAggregation } from "./questions"
-import { SPORTS_TIME_ZONE } from "./time-zone"
 
-// gameDate is optional on every shape (even the three award ones, where it's
-// never actually set) rather than a separate per-shape concern - whether a
-// question has a real-world game attached is an instance-level fact (gameId
-// on the questions table), not something fixed by shape the way statName or
-// ouLine are. Set from the picked game's own startsAt (ISO string, same
-// reasoning as locksAt elsewhere in this package - stays a plain string end
-// to end, parsed only where actually needed).
-type WithGameDate = { gameDate?: string }
-
-export type TitleInput = WithGameDate &
-	(
-		| {
-				shape: "player_stat_over_under"
-				playerName: string
-				statName: string
-				// Pre-formatted by the caller, not a bare number - a rate-stat
-				// line (batting average) needs a fixed decimal count a plain
-				// number interpolated into the title would silently drop
-				// trailing zeros from (".300" reading as ".3").
-				ouLine: string
-				opponentTeamName: string
-		  }
-		| {
-				shape: "team_stat_over_under"
-				teamName: string
-				statName: string
-				ouLine: string
-				opponentTeamName: string
-		  }
-		| {
-				shape: "player_season_stat_over_under"
-				playerName: string
-				statName: string
-				ouLine: string
-				statAggregation: StatAggregation
-		  }
-		| {
-				shape: "team_season_stat_over_under"
-				teamName: string
-				statName: string
-				ouLine: string
-				statAggregation: StatAggregation
-		  }
-		| {
-				shape: "game_total_over_under"
-				awayTeamName: string
-				homeTeamName: string
-				statName: string
-				ouLine: string
-		  }
-		| {
-				shape: "player_stat_numeric_guess"
-				playerName: string
-				statName: string
-				opponentTeamName: string
-		  }
-		| {
-				shape: "team_stat_numeric_guess"
-				teamName: string
-				statName: string
-				opponentTeamName: string
-		  }
-		| {
-				shape: "team_season_stat_numeric_guess"
-				teamName: string
-				statName: string
-				// The real calendar year this season's guess resolves in (e.g.
-				// 2026) - unlike every other season-scoped shape, this one names
-				// the year directly in its title ("...in 2026") rather than relying
-				// on "this season," since a caller reading a win-total question
-				// outside its own season context (a feed, a notification) still
-				// needs to know which year it's about.
-				year: number
-		  }
-		| {
-				shape: "player_vs_player"
-				playerAName: string
-				playerBName: string
-				statName: string
-				// See isRateStat on player_vs_player_season below - same "more" vs
-				// "a higher" choice, just scoped to one game.
-				isRateStat: boolean
-		  }
-		| {
-				shape: "player_vs_player_season"
-				playerAName: string
-				playerBName: string
-				statName: string
-				statAggregation: StatAggregation
-				// Picks "more" (a count) vs "a higher" (a rate) - see
-				// titleSeasonHeadToHead. Required, not optional-defaulting-to-false:
-				// silently getting this wrong produces a title that reads as broken
-				// English rather than anything a caller would report.
-				isRateStat: boolean
-		  }
-		| { shape: "team_vs_team"; awayTeamName: string; homeTeamName: string }
-		| {
-				shape: "team_vs_team_season"
-				teamAName: string
-				teamBName: string
-				statName: string
-				statAggregation: StatAggregation
-				// See isRateStat on player_vs_player_season above.
-				isRateStat: boolean
-		  }
-		| {
-				shape: "player_game_stat_leader"
-				awayTeamName: string
-				homeTeamName: string
-				statName: string
-		  }
-		| {
-				shape: "player_season_stat_leader"
-				// The curated pool, in the order the creator listed it.
-				playerNames: string[]
-				statName: string
-				// See isRateStat on player_vs_player_season above - the same
-				// count-vs-rate distinction, here picking "the most" vs "the
-				// highest".
-				isRateStat: boolean
-				// null when the stat is neither a season total nor a per-game
-				// rate - an advanced metric like RAPM is already a rate measured
-				// across a full season, so the creator is never asked to pick
-				// one and the title states no aggregation at all. Not optional on
-				// the season over/under shapes above, whose line means nothing
-				// without it.
-				statAggregation: StatAggregation | null
-		  }
-		| { shape: "yes_no_prop"; subjectName: string | null; eventClause: string }
-		| {
-				shape: "player_season_award"
-				awardName: string
-				verb: AwardVerb
-				picksRequired: number
-				// Prepended to awardName when set - ["AL"] + "MVP" -> "AL MVP",
-				// ["AL", "NL"] + "MVP" -> "AL/NL MVP". Not required - most awards
-				// (NBA MVP, NFL MVP) are genuinely league-wide and leave both unset.
-				awardConferences?: string[]
-				awardDivisions?: string[]
-		  }
-		| {
-				shape: "team_season_award"
-				awardName: string
-				verb: AwardVerb
-				picksRequired: number
-				awardConferences?: string[]
-				awardDivisions?: string[]
-		  }
-		| {
-				shape: "player_award_finalists"
-				awardName: string
-				finalistNames: string[]
-		  }
-	)
-
-// Short, no year - this is a scannability aid ("when's this happening"), not
-// a full timestamp; the game itself (with its real date/time) is always
-// shown alongside the question elsewhere in the app too.
-//
-// timeZone is pinned rather than left to the runtime's own: this function
-// runs both in the browser (the create-question form's live title preview)
-// and on the server (the season-question and game-sync jobs), so an implicit
-// zone would date the same kickoff differently depending on which one made
-// the question, and would disagree with the ET day the Games tab files that
-// game under. See SPORTS_TIME_ZONE.
-function formatGameDate(iso: string): string {
-	return new Intl.DateTimeFormat("en-US", {
-		timeZone: SPORTS_TIME_ZONE,
-		month: "short",
-		day: "numeric",
-	}).format(new Date(iso))
-}
+// A game-scoped title names only what the question itself asks - never the
+// matchup, the opponent, or the date. Everywhere a title renders either shows
+// the game right alongside it (QuestionCard's game strip, the game and
+// question pages) or puts it back in front with questionTitleWithGame below.
+export type TitleInput =
+	| {
+			shape: "player_stat_over_under"
+			playerName: string
+			statName: string
+			// Pre-formatted by the caller, not a bare number - a rate-stat
+			// line (batting average) needs a fixed decimal count a plain
+			// number interpolated into the title would silently drop
+			// trailing zeros from (".300" reading as ".3").
+			ouLine: string
+	  }
+	| {
+			shape: "team_stat_over_under"
+			teamName: string
+			statName: string
+			ouLine: string
+	  }
+	| {
+			shape: "player_season_stat_over_under"
+			playerName: string
+			statName: string
+			ouLine: string
+			statAggregation: StatAggregation
+	  }
+	| {
+			shape: "team_season_stat_over_under"
+			teamName: string
+			statName: string
+			ouLine: string
+			statAggregation: StatAggregation
+	  }
+	| {
+			shape: "game_total_over_under"
+			statName: string
+			ouLine: string
+	  }
+	| {
+			shape: "player_stat_numeric_guess"
+			playerName: string
+			statName: string
+	  }
+	| {
+			shape: "team_stat_numeric_guess"
+			teamName: string
+			statName: string
+	  }
+	| {
+			shape: "team_season_stat_numeric_guess"
+			teamName: string
+			statName: string
+			// The real calendar year this season's guess resolves in (e.g.
+			// 2026) - unlike every other season-scoped shape, this one names
+			// the year directly in its title ("...in 2026") rather than relying
+			// on "this season," since a caller reading a win-total question
+			// outside its own season context (a feed, a notification) still
+			// needs to know which year it's about.
+			year: number
+	  }
+	| {
+			shape: "player_vs_player"
+			playerAName: string
+			playerBName: string
+			statName: string
+			// See isRateStat on player_vs_player_season below - same "more" vs
+			// "a higher" choice, just scoped to one game.
+			isRateStat: boolean
+	  }
+	| {
+			shape: "player_vs_player_season"
+			playerAName: string
+			playerBName: string
+			statName: string
+			statAggregation: StatAggregation
+			// Picks "more" (a count) vs "a higher" (a rate) - see
+			// titleSeasonHeadToHead. Required, not optional-defaulting-to-false:
+			// silently getting this wrong produces a title that reads as broken
+			// English rather than anything a caller would report.
+			isRateStat: boolean
+	  }
+	| { shape: "team_vs_team" }
+	| {
+			shape: "team_vs_team_season"
+			teamAName: string
+			teamBName: string
+			statName: string
+			statAggregation: StatAggregation
+			// See isRateStat on player_vs_player_season above.
+			isRateStat: boolean
+	  }
+	| {
+			shape: "player_game_stat_leader"
+			statName: string
+	  }
+	| {
+			shape: "player_season_stat_leader"
+			// The curated pool, in the order the creator listed it.
+			playerNames: string[]
+			statName: string
+			// See isRateStat on player_vs_player_season above - the same
+			// count-vs-rate distinction, here picking "the most" vs "the
+			// highest".
+			isRateStat: boolean
+			// null when the stat is neither a season total nor a per-game
+			// rate - an advanced metric like RAPM is already a rate measured
+			// across a full season, so the creator is never asked to pick
+			// one and the title states no aggregation at all. Not optional on
+			// the season over/under shapes above, whose line means nothing
+			// without it.
+			statAggregation: StatAggregation | null
+	  }
+	| { shape: "yes_no_prop"; subjectName: string | null; eventClause: string }
+	| {
+			shape: "player_season_award"
+			awardName: string
+			verb: AwardVerb
+			picksRequired: number
+			// Prepended to awardName when set - ["AL"] + "MVP" -> "AL MVP",
+			// ["AL", "NL"] + "MVP" -> "AL/NL MVP". Not required - most awards
+			// (NBA MVP, NFL MVP) are genuinely league-wide and leave both unset.
+			awardConferences?: string[]
+			awardDivisions?: string[]
+	  }
+	| {
+			shape: "team_season_award"
+			awardName: string
+			verb: AwardVerb
+			picksRequired: number
+			awardConferences?: string[]
+			awardDivisions?: string[]
+	  }
+	| {
+			shape: "player_award_finalists"
+			awardName: string
+			finalistNames: string[]
+	  }
 
 // teams.conference stores ESPN's abbreviation, which reads correctly in a
 // title for most leagues ("AL MVP", "AFC Championship") but not for the NBA,
@@ -250,13 +216,13 @@ function statInSentence(statName: string): string {
 function titlePlayerStatOverUnder(
 	input: Extract<TitleInput, { shape: "player_stat_over_under" }>,
 ): string {
-	return `${input.playerName}: over/under ${input.ouLine} ${statInSentence(input.statName)} vs the ${input.opponentTeamName}`
+	return `${input.playerName}: over/under ${input.ouLine} ${statInSentence(input.statName)}`
 }
 
 function titleTeamStatOverUnder(
 	input: Extract<TitleInput, { shape: "team_stat_over_under" }>,
 ): string {
-	return `${input.teamName}: over/under ${input.ouLine} ${statInSentence(input.statName)} vs the ${input.opponentTeamName}`
+	return `${input.teamName}: over/under ${input.ouLine} ${statInSentence(input.statName)}`
 }
 
 function titlePlayerSeasonStatOverUnder(
@@ -275,10 +241,12 @@ function titleTeamSeasonStatOverUnder(
 		: `${input.teamName}: over/under ${input.ouLine} ${statInSentence(input.statName)} this season`
 }
 
+// "Game total" is what separates this line from a single team's - with no
+// team named, a bare "over/under 47.5 points" could be either side's.
 function titleGameTotalOverUnder(
 	input: Extract<TitleInput, { shape: "game_total_over_under" }>,
 ): string {
-	return `${input.awayTeamName} @ ${input.homeTeamName}: over/under ${input.ouLine} ${statInSentence(input.statName)}`
+	return `Game total: over/under ${input.ouLine} ${statInSentence(input.statName)}`
 }
 
 // --- Numeric guesses ---
@@ -286,13 +254,13 @@ function titleGameTotalOverUnder(
 function titlePlayerStatNumericGuess(
 	input: Extract<TitleInput, { shape: "player_stat_numeric_guess" }>,
 ): string {
-	return `${input.playerName}'s ${statInSentence(input.statName)} vs the ${input.opponentTeamName}`
+	return `${input.playerName}'s ${statInSentence(input.statName)}`
 }
 
 function titleTeamStatNumericGuess(
 	input: Extract<TitleInput, { shape: "team_stat_numeric_guess" }>,
 ): string {
-	return `${possessive(input.teamName)} ${statInSentence(input.statName)} vs the ${input.opponentTeamName}`
+	return `${possessive(input.teamName)} ${statInSentence(input.statName)}`
 }
 
 // "Wins" (the stat catalog's own lookup name, capitalized) reads wrong in a
@@ -315,8 +283,7 @@ function titleTeamSeasonStatNumericGuess(
 
 // The one template behind all three head-to-heads. They are the same
 // question structurally - two named sides, one stat, who comes out ahead -
-// and differ only in what scopes them: player_vs_player is bounded by a game
-// (whose date generateQuestionTitle appends, "... more points? (Mar 3)"),
+// and differ only in what scopes them: player_vs_player is bounded by a game,
 // the two season shapes by a season. So scope is a parameter here rather
 // than a reason to keep three near-identical templates that drift apart the
 // next time the wording changes.
@@ -335,30 +302,30 @@ function titleTeamSeasonStatNumericGuess(
 // lower-is-better stat.
 function titleHeadToHead(input: {
 	// Both sides bare, teams included ("Boston Celtics vs Philadelphia
-	// 76ers"), unlike the prepositional tails elsewhere in this file that do
-	// take an article ("... 3-pointers made vs the 76ers"). A matchup opener
-	// is the one place the article is genuinely not spoken - every scoreboard
-	// and schedule drops it - so it reads as the normal form rather than as a
-	// missing word, and it keeps the two sides symmetric.
+	// 76ers"). A matchup opener is the one place the article is genuinely not
+	// spoken - every scoreboard and schedule drops it - so it reads as the
+	// normal form rather than as a missing word, and it keeps the two sides
+	// symmetric.
 	sideAName: string
 	sideBName: string
 	statName: string
 	isRateStat: boolean
 	// null for the game-scoped shape, which has no aggregation to state and
-	// takes no "this season" suffix - its game date is what scopes it instead.
+	// takes no "this season" suffix - the game it's attached to scopes it.
 	statAggregation: StatAggregation | null
 }): string {
 	const comparison = input.isRateStat ? "a higher" : "more"
 	const perGame = input.statAggregation === "per_game" ? " per game" : ""
 	const season = input.statAggregation === null ? "" : " this season"
 	// Present tense for the game-scoped shape, future for the two season ones -
-	// same split, and the same reason, as titlePlayerSeasonStatLeader below. A
-	// game date already says when a game-scoped matchup gets measured, so "who
-	// has more points" can't be read as anything else. Nothing scopes a season
-	// shape that way, and "who has more wins this season" reads as a standings
-	// lookup that's true today rather than the end-of-season number resolution
-	// actually checks. statAggregation is what distinguishes them: it's null on
-	// exactly the game-scoped shape and set on both season ones.
+	// same split, and the same reason, as titlePlayerSeasonStatLeader below.
+	// The game shown with a game-scoped matchup already says when it gets
+	// measured, so "who has more points" can't be read as anything else.
+	// Nothing scopes a season shape that way, and "who has more wins this
+	// season" reads as a standings lookup that's true today rather than the
+	// end-of-season number resolution actually checks. statAggregation is what
+	// distinguishes them: it's null on exactly the game-scoped shape and set on
+	// both season ones.
 	//
 	// "will average" for a per-game season line, because "will have more points
 	// per game" is the stiff way to say the thing every box score and broadcast
@@ -398,10 +365,8 @@ function titlePlayerVsPlayerSeason(
 	})
 }
 
-function titleTeamVsTeam(
-	input: Extract<TitleInput, { shape: "team_vs_team" }>,
-): string {
-	return `${input.awayTeamName} @ ${input.homeTeamName}: who will win?`
+function titleTeamVsTeam(): string {
+	return "Who will win?"
 }
 
 // Needs no "Wins" -> "win total" translation, unlike
@@ -423,7 +388,7 @@ function titleTeamVsTeamSeason(
 function titlePlayerGameStatLeader(
 	input: Extract<TitleInput, { shape: "player_game_stat_leader" }>,
 ): string {
-	return `${input.awayTeamName} @ ${input.homeTeamName}: who leads in ${statInSentence(input.statName)}?`
+	return `Who leads the game in ${statInSentence(input.statName)}?`
 }
 
 // Deliberately not "who leads in X" the way the game-scoped leader above is
@@ -516,7 +481,7 @@ function titlePlayerAwardFinalists(
 // blocking on getting every template's phrasing perfect (see title on
 // createQuestionSchema).
 export function generateQuestionTitle(input: TitleInput): string {
-	const base = match(input)
+	return match(input)
 		.with({ shape: "player_stat_over_under" }, titlePlayerStatOverUnder)
 		.with({ shape: "team_stat_over_under" }, titleTeamStatOverUnder)
 		.with(
@@ -545,6 +510,23 @@ export function generateQuestionTitle(input: TitleInput): string {
 		.with({ shape: "team_season_award" }, titleTeamSeasonAward)
 		.with({ shape: "player_award_finalists" }, titlePlayerAwardFinalists)
 		.exhaustive()
+}
 
-	return input.gameDate ? `${base} (${formatGameDate(input.gameDate)})` : base
+// Teams are nullable only because drizzle types every `one` relation that
+// way - a game always has both.
+type TitleGame = {
+	awayTeam: { abbreviation: string } | null
+	homeTeam: { abbreviation: string } | null
+}
+
+// For the places a title shows up with nothing else naming the game - a
+// notification, the resolution email, a share card, a browser tab:
+// "DAL @ NYG · Who will win?". A question with no game passes through as is.
+export function questionTitleWithGame(
+	title: string,
+	game: TitleGame | null | undefined,
+): string {
+	return game?.awayTeam && game.homeTeam
+		? `${game.awayTeam.abbreviation} @ ${game.homeTeam.abbreviation} · ${title}`
+		: title
 }

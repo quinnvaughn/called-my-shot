@@ -1,3 +1,4 @@
+import { questionTitleWithGame } from "@called-my-shot/schemas"
 import type { db } from "../db"
 import { notifications } from "../db/schema"
 
@@ -76,11 +77,56 @@ function toRow(input: NotificationInput) {
 	}
 }
 
+// A notification is read on its own, with nothing else on screen naming the
+// game, so a game question's title is stored with its matchup in front (see
+// questionTitleWithGame). Looked up here once rather than at every caller.
+async function withGameTitles(
+	tx: Tx,
+	inputs: NotificationInput[],
+): Promise<NotificationInput[]> {
+	const questionIds = [
+		...new Set(
+			inputs.flatMap((input) =>
+				"questionId" in input ? [input.questionId] : [],
+			),
+		),
+	]
+	if (questionIds.length === 0) return inputs
+
+	const rows = await tx.query.questions.findMany({
+		where: { id: { in: questionIds } },
+		columns: { id: true },
+		with: {
+			game: {
+				columns: {},
+				with: {
+					homeTeam: { columns: { abbreviation: true } },
+					awayTeam: { columns: { abbreviation: true } },
+				},
+			},
+		},
+	})
+	const gameByQuestionId = new Map(rows.map((row) => [row.id, row.game]))
+
+	return inputs.map((input) =>
+		"questionTitle" in input
+			? {
+					...input,
+					questionTitle: questionTitleWithGame(
+						input.questionTitle,
+						gameByQuestionId.get(input.questionId),
+					),
+				}
+			: input,
+	)
+}
+
 export async function createNotification(tx: Tx, input: NotificationInput) {
-	await tx.insert(notifications).values(toRow(input))
+	await createNotifications(tx, [input])
 }
 
 export async function createNotifications(tx: Tx, inputs: NotificationInput[]) {
 	if (inputs.length === 0) return
-	await tx.insert(notifications).values(inputs.map(toRow))
+	const titled = await withGameTitles(tx, inputs)
+	await tx.insert(notifications).values(titled.map(toRow))
 }

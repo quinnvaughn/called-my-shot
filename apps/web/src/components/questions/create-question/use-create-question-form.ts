@@ -301,24 +301,6 @@ export function useCreateQuestionForm() {
 		: undefined
 	const subjectName = selectedPlayerName ?? selectedTeamName ?? null
 
-	// player_stat_over_under/team_stat_over_under/player_stat_numeric_guess/
-	// team_stat_numeric_guess only - the game's other team, named in the title
-	// so "over/under 27.5 Points" reads as against a specific opponent rather
-	// than floating with no context beyond the date.
-	const opponentTeamName: string | undefined = (() => {
-		if (!selectedGame) return undefined
-		const subjectsTeamId =
-			subjectTeamId ??
-			players.find((player) => player.id === subjectPlayerId)?.currentTeam?.id
-		if (subjectsTeamId === selectedGame.homeTeam.id) {
-			return selectedGame.awayTeam.name
-		}
-		if (subjectsTeamId === selectedGame.awayTeam.id) {
-			return selectedGame.homeTeam.name
-		}
-		return undefined
-	})()
-
 	const titlePreview = buildTitlePreview({
 		shape,
 		options,
@@ -334,7 +316,6 @@ export function useCreateQuestionForm() {
 		selectedPlayerName,
 		selectedTeamName,
 		subjectName,
-		opponentTeamName,
 		statName,
 		isRateStat,
 		hasCatalogStat: !!selectedStat,

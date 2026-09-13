@@ -1,4 +1,7 @@
-import { SPORTS_TIME_ZONE } from "@called-my-shot/schemas"
+import {
+	questionTitleWithGame,
+	SPORTS_TIME_ZONE,
+} from "@called-my-shot/schemas"
 import {
 	isNumericGuessShape,
 	type QuestionShape,
@@ -217,6 +220,15 @@ export async function loadCallSummaries(
 				},
 				with: {
 					league: { columns: { abbreviation: true } },
+					// Neither the card nor the email shows the game anywhere else,
+					// so a game question's title carries its matchup in front.
+					game: {
+						columns: {},
+						with: {
+							homeTeam: { columns: { abbreviation: true } },
+							awayTeam: { columns: { abbreviation: true } },
+						},
+					},
 					stat: {
 						columns: {},
 						with: {
@@ -276,7 +288,10 @@ export async function loadCallSummaries(
 		byCallId.set(call.id, {
 			callId: call.id,
 			questionId: call.question.id,
-			questionTitle: call.question.title,
+			questionTitle: questionTitleWithGame(
+				call.question.title,
+				call.question.game,
+			),
 			questionShape: call.question.shape,
 			questionStatus: call.question.status,
 			leagueAbbr: call.question.league.abbreviation.toUpperCase(),

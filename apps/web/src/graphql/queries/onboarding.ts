@@ -31,6 +31,14 @@ export const ViewerOnboardingDocument = graphql(`
 					game {
 						id
 						startsAt
+						homeTeam {
+							id
+							abbreviation
+						}
+						awayTeam {
+							id
+							abbreviation
+						}
 					}
 				}
 			}

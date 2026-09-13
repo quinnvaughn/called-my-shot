@@ -366,7 +366,6 @@ describe("syncGameQuestions", () => {
 		expect(posted).toHaveLength(7)
 		for (const question of posted) {
 			expect(question.locksAt.getTime()).toBe(movedTo.getTime())
-			expect(question.title).toMatch(/\(Nov 11\)$/)
 		}
 	})
 })

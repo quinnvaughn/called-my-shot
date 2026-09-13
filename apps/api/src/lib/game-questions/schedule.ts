@@ -5,15 +5,16 @@ import { type GameForTitle, gameQuestionTitle, titleFactsFor } from "./titles"
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0]
 
-// Every generated question on a game locks when the game starts, and its
-// title carries the game's date, so when ESPN moves a game (a flex, a rain
-// delay reschedule) both follow it. Only open and locked questions move: a
-// resolved or disputed one already has a real-world result attached, so a
-// late schedule correction shouldn't change what it says. Returns how many
-// questions changed.
+// Every generated question on a game locks when the game starts, so when ESPN
+// moves a game (a flex, a rain delay reschedule) its lock time follows it. The
+// same pass rebuilds each title from the current template, which keeps an
+// open question's wording in step with the template. Only open and locked
+// questions change: a resolved or disputed one already has a real-world
+// result attached, so a late correction shouldn't change what it says.
+// Returns how many questions changed.
 export async function refreshGeneratedQuestionSchedule(
 	tx: Tx,
-	game: GameForTitle & { id: string },
+	game: GameForTitle & { id: string; startsAt: Date },
 ): Promise<number> {
 	const generated = await tx.query.questions.findMany({
 		where: {

@@ -1,10 +1,16 @@
 import { FiZap } from "react-icons/fi"
-import { css } from "styled-system/css"
+import { css, cx } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
 import { formatGuess } from "#/lib/field-signal"
 import { pluralize } from "#/lib/pluralize"
 
 type Bucket = { value: number; count: number }
+
+const tickLabelClass = css({
+	fontFamily: "mono",
+	fontSize: "3xs",
+	color: "fg.subtle",
+})
 
 type Props = {
 	buckets: Bucket[]
@@ -22,6 +28,11 @@ type Props = {
 	// displays padded to a fixed 3 decimals when set, since a trailing zero
 	// is meaningful there (".300", never ".3") - see formatGuess.
 	isRateStat?: boolean
+	// The in-list card version: labels only the two ends of the range, drops
+	// the summary line (the card's footer carries the caller count), and
+	// renders nothing below MIN_GUESSES_FOR_CHART instead of the low-volume
+	// block.
+	compact?: boolean
 }
 
 // Below this many guesses, the bar chart is just 1-2 bars at full height -
@@ -89,11 +100,12 @@ export function GuessDistributionChart({
 	averageGuess,
 	myGuess = null,
 	isRateStat = false,
+	compact = false,
 }: Props) {
 	const totalGuesses = buckets.reduce((sum, bucket) => sum + bucket.count, 0)
 
 	if (totalGuesses < MIN_GUESSES_FOR_CHART) {
-		return <LowVolumeGuesses totalGuesses={totalGuesses} />
+		return compact ? null : <LowVolumeGuesses totalGuesses={totalGuesses} />
 	}
 
 	const maxCount = Math.max(...buckets.map((b) => b.count), 1)
@@ -185,37 +197,42 @@ export function GuessDistributionChart({
 					))}
 				</HStack>
 			</div>
-			<HStack gap="1" className={css({ overflow: "hidden" })}>
-				{buckets.map((bucket) => (
-					<span
-						key={bucket.value}
-						className={css({
-							flex: "1",
-							minWidth: "0",
-							textAlign: "center",
-							fontFamily: "mono",
-							fontSize: "3xs",
-							color: "fg.subtle",
-						})}
-					>
-						{formatGuess(bucket.value, isRateStat)}
-					</span>
-				))}
-			</HStack>
-			<span
-				className={css({
-					fontFamily: "mono",
-					fontSize: "3xs",
-					letterSpacing: "wide",
-					color: "fg.subtle",
-					textTransform: "uppercase",
-					textAlign: "center",
-				})}
-			>
-				{totalGuesses} {pluralize(totalGuesses, "guess", "guesses")}
-				{averageGuess !== null &&
-					` · avg ${formatGuess(averageGuess, isRateStat)}`}
-			</span>
+			{compact ? (
+				<HStack justify="space-between" gap="2">
+					<span className={tickLabelClass}>{formatGuess(lo, isRateStat)}</span>
+					<span className={tickLabelClass}>{formatGuess(hi, isRateStat)}</span>
+				</HStack>
+			) : (
+				<HStack gap="1" className={css({ overflow: "hidden" })}>
+					{buckets.map((bucket) => (
+						<span
+							key={bucket.value}
+							className={cx(
+								tickLabelClass,
+								css({ flex: "1", minWidth: "0", textAlign: "center" }),
+							)}
+						>
+							{formatGuess(bucket.value, isRateStat)}
+						</span>
+					))}
+				</HStack>
+			)}
+			{!compact && (
+				<span
+					className={css({
+						fontFamily: "mono",
+						fontSize: "3xs",
+						letterSpacing: "wide",
+						color: "fg.subtle",
+						textTransform: "uppercase",
+						textAlign: "center",
+					})}
+				>
+					{totalGuesses} {pluralize(totalGuesses, "guess", "guesses")}
+					{averageGuess !== null &&
+						` · avg ${formatGuess(averageGuess, isRateStat)}`}
+				</span>
+			)}
 		</VStack>
 	)
 }

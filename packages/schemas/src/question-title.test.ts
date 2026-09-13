@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest"
-import { generateQuestionTitle, type TitleInput } from "./question-title"
+import {
+	generateQuestionTitle,
+	questionTitleWithGame,
+	type TitleInput,
+} from "./question-title"
 
 const title = (input: TitleInput) => generateQuestionTitle(input)
 
@@ -11,9 +15,8 @@ describe("generateQuestionTitle - over/unders", () => {
 				playerName: "Jayson Tatum",
 				statName: "Points",
 				ouLine: "27.5",
-				opponentTeamName: "76ers",
 			}),
-		).toBe("Jayson Tatum: over/under 27.5 points vs the 76ers")
+		).toBe("Jayson Tatum: over/under 27.5 points")
 	})
 
 	it("writes a team game line", () => {
@@ -23,21 +26,18 @@ describe("generateQuestionTitle - over/unders", () => {
 				teamName: "Celtics",
 				statName: "3-Pointers Made",
 				ouLine: "14.5",
-				opponentTeamName: "76ers",
 			}),
-		).toBe("Celtics: over/under 14.5 3-pointers made vs the 76ers")
+		).toBe("Celtics: over/under 14.5 3-pointers made")
 	})
 
-	it("writes a game total with the away @ home convention", () => {
+	it("labels a game total as one, since no team is named", () => {
 		expect(
 			title({
 				shape: "game_total_over_under",
-				awayTeamName: "Celtics",
-				homeTeamName: "76ers",
 				statName: "Points",
 				ouLine: "220.5",
 			}),
-		).toBe("Celtics @ 76ers: over/under 220.5 points")
+		).toBe("Game total: over/under 220.5 points")
 	})
 
 	it("says 'per game' only for a per-game season line", () => {
@@ -76,7 +76,6 @@ describe("generateQuestionTitle - over/unders", () => {
 				playerName: "Rafael Devers",
 				statName: "Batting Average",
 				ouLine: ".300",
-				opponentTeamName: "Yankees",
 			}),
 		).toContain("over/under .300 batting average")
 	})
@@ -89,9 +88,8 @@ describe("generateQuestionTitle - numeric guesses", () => {
 				shape: "player_stat_numeric_guess",
 				playerName: "Jayson Tatum",
 				statName: "Points",
-				opponentTeamName: "76ers",
 			}),
-		).toBe("Jayson Tatum's points vs the 76ers")
+		).toBe("Jayson Tatum's points")
 	})
 
 	it("writes a team guess in the possessive", () => {
@@ -100,9 +98,8 @@ describe("generateQuestionTitle - numeric guesses", () => {
 				shape: "team_stat_numeric_guess",
 				teamName: "Celtics",
 				statName: "Rebounds",
-				opponentTeamName: "76ers",
 			}),
-		).toBe("Celtics' rebounds vs the 76ers")
+		).toBe("Celtics' rebounds")
 	})
 
 	it("translates the 'Wins' catalog stat to 'win total' in possessive position", () => {
@@ -136,7 +133,7 @@ describe("generateQuestionTitle - head-to-heads", () => {
 	} as const
 
 	it("uses present tense for the game-scoped matchup", () => {
-		// A game date already says when it gets measured.
+		// The game shown with it already says when it gets measured.
 		expect(
 			title({ shape: "player_vs_player", ...players, isRateStat: false }),
 		).toBe("Jayson Tatum vs Joel Embiid: who has more points?")
@@ -197,26 +194,18 @@ describe("generateQuestionTitle - head-to-heads", () => {
 	})
 
 	it("writes the game winner question", () => {
-		expect(
-			title({
-				shape: "team_vs_team",
-				awayTeamName: "Celtics",
-				homeTeamName: "76ers",
-			}),
-		).toBe("Celtics @ 76ers: who will win?")
+		expect(title({ shape: "team_vs_team" })).toBe("Who will win?")
 	})
 })
 
 describe("generateQuestionTitle - stat leaders", () => {
-	it("uses 'who leads in' for the game-scoped leader", () => {
+	it("scopes the game-scoped leader to the game", () => {
 		expect(
 			title({
 				shape: "player_game_stat_leader",
-				awayTeamName: "Celtics",
-				homeTeamName: "76ers",
 				statName: "Rebounds",
 			}),
-		).toBe("Celtics @ 76ers: who leads in rebounds?")
+		).toBe("Who leads the game in rebounds?")
 	})
 
 	it("scopes the season leader to its pool with 'among'", () => {
@@ -357,7 +346,6 @@ describe("generateQuestionTitle - stat names in sentences", () => {
 				shape: "player_stat_numeric_guess",
 				playerName: "X",
 				statName: "Passing Yards",
-				opponentTeamName: "Y",
 			}),
 		).toContain("passing yards")
 	})
@@ -369,10 +357,9 @@ describe("generateQuestionTitle - stat names in sentences", () => {
 					shape: "player_stat_numeric_guess",
 					playerName: "X",
 					statName: stat,
-					opponentTeamName: "Y",
 				}),
 				stat,
-			).toContain(`X's ${stat} vs`)
+			).toBe(`X's ${stat}`)
 		}
 	})
 
@@ -382,60 +369,8 @@ describe("generateQuestionTitle - stat names in sentences", () => {
 				shape: "player_stat_numeric_guess",
 				playerName: "X",
 				statName: "On-Base Percentage",
-				opponentTeamName: "Y",
 			}),
 		).toContain("on-base percentage")
-	})
-})
-
-describe("generateQuestionTitle - game date suffix", () => {
-	const gameOn = (gameDate: string) =>
-		title({
-			shape: "team_vs_team",
-			awayTeamName: "Celtics",
-			homeTeamName: "76ers",
-			gameDate,
-		})
-
-	it("appends the game's month and day when one is attached", () => {
-		expect(gameOn("2026-03-03T12:00:00.000Z")).toBe(
-			"Celtics @ 76ers: who will win? (Mar 3)",
-		)
-	})
-
-	it("dates a game by its ET day, not the runtime's zone", () => {
-		// 1am UTC on Mar 3 is still the evening of Mar 2 in ET, which is the
-		// day the Games tab files this game under (Game.windowKey). Left to an
-		// implicit zone this reads "Mar 3" on a UTC server and "Mar 2" in a US
-		// browser, for the same game.
-		expect(gameOn("2026-03-03T01:00:00.000Z")).toBe(
-			"Celtics @ 76ers: who will win? (Mar 2)",
-		)
-	})
-
-	it("rolls over to the next day at the ET boundary, not the UTC one", () => {
-		// 04:59Z is 11:59pm ET on the 2nd; 05:00Z is midnight ET on the 3rd.
-		expect(gameOn("2026-03-03T04:59:00.000Z")).toContain("(Mar 2)")
-		expect(gameOn("2026-03-03T05:00:00.000Z")).toContain("(Mar 3)")
-	})
-
-	it("tracks daylight saving rather than a fixed offset", () => {
-		// ET is UTC-5 in March and UTC-4 in July, so the same clock time on
-		// either side of the switch lands on different days.
-		expect(gameOn("2026-03-03T04:30:00.000Z")).toContain("(Mar 2)")
-		expect(gameOn("2026-07-03T03:30:00.000Z")).toContain("(Jul 2)")
-		expect(gameOn("2026-07-03T04:30:00.000Z")).toContain("(Jul 3)")
-	})
-
-	it("omits the suffix entirely when there is no game", () => {
-		expect(
-			title({
-				shape: "player_season_award",
-				awardName: "MVP",
-				picksRequired: 1,
-				verb: "win",
-			}),
-		).not.toContain("(")
 	})
 })
 
@@ -446,7 +381,6 @@ describe("possessive handling", () => {
 				shape: "team_stat_numeric_guess",
 				teamName: "Celtics",
 				statName: "Points",
-				opponentTeamName: "X",
 			}),
 		).toContain("Celtics' points")
 	})
@@ -457,8 +391,26 @@ describe("possessive handling", () => {
 				shape: "team_stat_numeric_guess",
 				teamName: "Heat",
 				statName: "Points",
-				opponentTeamName: "X",
 			}),
 		).toContain("Heat's points")
+	})
+})
+
+describe("questionTitleWithGame", () => {
+	const game = {
+		awayTeam: { abbreviation: "BOS" },
+		homeTeam: { abbreviation: "PHI" },
+	}
+
+	it("puts the matchup, away first, in front of a game question's title", () => {
+		expect(questionTitleWithGame("Who will win?", game)).toBe(
+			"BOS @ PHI · Who will win?",
+		)
+	})
+
+	it("leaves a title with no game as it is", () => {
+		expect(questionTitleWithGame("Who will win the MVP?", null)).toBe(
+			"Who will win the MVP?",
+		)
 	})
 })

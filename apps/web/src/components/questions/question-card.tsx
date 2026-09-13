@@ -3,12 +3,13 @@ import { css } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
 import { Card } from "#/components/ui/card"
 import { type FragmentType, graphql, useFragment } from "#/graphql/generated"
-import { fieldSignal } from "#/lib/field-signal"
+import { callersText, isRateStat } from "#/lib/field-signal"
 import { AWAITING_RESULT_TEXT } from "#/lib/question-labels"
 import { buildQuestionSlug } from "#/lib/slug"
 import { CardRule } from "./card-rule"
 import { LockLine } from "./lock-line"
 import { LockedBadge } from "./locked-badge"
+import { QuestionCardField } from "./question-card-field"
 import { QuestionResultBlock } from "./question-result-block"
 import { QuestionSummaryHeader } from "./question-summary-header"
 import { VoidedBadge } from "./voided-badge"
@@ -25,6 +26,10 @@ export const QuestionCardFragment = graphql(`
 		callCount
 		averageGuess
 		numericToleranceAbsolute
+		guessDistribution {
+			value
+			count
+		}
 		stat {
 			id
 			toleranceTier {
@@ -42,6 +47,7 @@ export const QuestionCardFragment = graphql(`
 			id
 			label
 			fieldPct
+			callCount
 			isCorrect
 		}
 		game {
@@ -63,6 +69,13 @@ export const QuestionCardFragment = graphql(`
 		}
 		viewerCall {
 			id
+			guessValue
+			selections {
+				id
+				option {
+					id
+				}
+			}
 		}
 		ballotMembership {
 			id
@@ -82,18 +95,21 @@ type QuestionCardProps = {
 	// from the question's own creator (not shown on this card at all). Only
 	// the group's Shared tab has one; every other context leaves it unset.
 	sharedBy?: { name: string }
+	// Off on a game's own detail page, where the matchup is already the page
+	// header. Defaults to on.
+	showGame?: boolean
 }
 
 export function QuestionCard({
 	question: questionProp,
 	sharedBy,
+	showGame = true,
 }: QuestionCardProps) {
 	const question = useFragment(QuestionCardFragment, questionProp)
 	const isSettled =
 		question.status === "RESOLVED" || question.status === "DISPUTED"
 	const isLocked = question.status === "LOCKED"
 	const isVoided = question.status === "VOIDED"
-	const signal = !isSettled && !isVoided ? fieldSignal(question) : null
 
 	return (
 		<Link
@@ -125,6 +141,7 @@ export function QuestionCard({
 						showTypeTag
 						viewerCalled={question.viewerCall !== null}
 						ballotMembership={question.ballotMembership}
+						showGame={showGame}
 					/>
 					<CardRule />
 					{isSettled ? (
@@ -133,28 +150,35 @@ export function QuestionCard({
 							disputed={question.status === "DISPUTED"}
 						/>
 					) : (
-						<VStack gap="1.5" alignItems="stretch">
-							<HStack justify="space-between" alignItems="center" gap="3">
-								{signal && (
-									<span
-										className={css({
-											fontFamily: "mono",
-											fontSize: "2xs",
-											color: "fg.subtle",
-										})}
-									>
-										{signal.before}
-										<span
-											className={css({
-												color: "fg.body",
-												fontWeight: "bold",
-											})}
-										>
-											{signal.emphasis}
-										</span>
-										{signal.after}
-									</span>
-								)}
+						<>
+							<QuestionCardField
+								shape={question.shape}
+								options={question.options}
+								ouLine={question.ouLine}
+								isRateStat={isRateStat(question)}
+								guessDistribution={question.guessDistribution}
+								averageGuess={question.averageGuess}
+								pickedOptionIds={
+									question.viewerCall?.selections.map((s) => s.option.id) ?? []
+								}
+								myGuess={question.viewerCall?.guessValue ?? null}
+							/>
+							<HStack
+								justify="space-between"
+								alignItems="center"
+								gap="3"
+								className={css({ marginTop: "auto", paddingTop: "1" })}
+							>
+								<span
+									className={css({
+										fontFamily: "mono",
+										fontSize: "3xs",
+										color: "fg.subtle",
+									})}
+								>
+									{callersText(question.callCount)}
+									{isLocked && ` · ${AWAITING_RESULT_TEXT}`}
+								</span>
 								{isLocked ? (
 									<LockedBadge />
 								) : isVoided ? (
@@ -175,18 +199,7 @@ export function QuestionCard({
 									</span>
 								)}
 							</HStack>
-							{isLocked && (
-								<span
-									className={css({
-										fontFamily: "mono",
-										fontSize: "3xs",
-										color: "fg.subtle",
-									})}
-								>
-									{AWAITING_RESULT_TEXT}
-								</span>
-							)}
-						</VStack>
+						</>
 					)}
 				</VStack>
 			</Card>

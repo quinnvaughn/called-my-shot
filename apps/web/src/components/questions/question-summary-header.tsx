@@ -42,6 +42,9 @@ type Props = {
 	// any (published) ballot. QuestionCard and CallCard each pass their own
 	// colocated fragment's ballotMembership straight through - see BallotKicker.
 	ballotMembership?: BallotMembership
+	// Off where the page itself already names the game (a game's own detail
+	// page, under its GameMatchupHeader). Defaults to on.
+	showGame?: boolean
 }
 
 // Shared between QuestionCard and CallCard - both lead with "what is this
@@ -56,6 +59,7 @@ export function QuestionSummaryHeader({
 	showTypeTag,
 	viewerCalled,
 	ballotMembership,
+	showGame = true,
 }: Props) {
 	return (
 		<VStack gap="3" alignItems="stretch">
@@ -114,7 +118,7 @@ export function QuestionSummaryHeader({
 			>
 				{question.title}
 			</span>
-			{question.game && <GameBlock game={question.game} />}
+			{showGame && question.game && <GameBlock game={question.game} />}
 		</VStack>
 	)
 }

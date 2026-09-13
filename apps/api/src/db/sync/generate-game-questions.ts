@@ -427,7 +427,6 @@ async function planTemplate(
 								shape: "player_stat_over_under",
 								statName,
 								playerName: nameOf(candidate.playerId),
-								teamId: team.id,
 								ouLine: basis.line,
 							},
 							subjectPlayerId: candidate.playerId,
