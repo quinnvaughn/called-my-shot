@@ -78,9 +78,10 @@ export function startScheduler(): void {
 		runJob("auto-resolve-championships", () => autoResolveChampionships()),
 		{ name: "auto-resolve-championships", timezone: "UTC", noOverlap: true },
 	)
-	// Every 5m, but each user's rows still have to clear the settling window
-	// inside the job (see SETTLE_MINUTES) - the frequency is how quickly a
-	// batch goes out once it's ripe, not how often anyone gets mailed.
+	// Every 5m, but a user's results only go out once their calls on the day's
+	// games have all settled, or at the 13:00 UTC backstop (see
+	// DAY_START_HOUR_UTC) - the frequency is how quickly a finished day goes
+	// out, not how often anyone gets mailed.
 	cron.schedule(
 		"*/5 * * * *",
 		runJob(DRAIN_DIGESTS_LOCK, async () => {

@@ -14,11 +14,18 @@ import { oneClickUnsubscribeUrl, unsubscribePageUrl } from "./email-unsubscribe"
 import { sendMail } from "./mailer"
 import { loadResolvedCallSummaries } from "./share-cards/call-summary"
 
-// How long a user's oldest unsent row has to sit before their digest goes
-// out. Waiting on the OLDEST row (rather than the newest) is what turns a
-// burst of games finishing together into one email while still letting an
-// afternoon result go out without waiting on an evening one.
+// How long a user's oldest unsent row has to sit before their digest can go
+// out, so a dispute filed right after a resolve still has a chance to stop
+// the mail.
 const SETTLE_MINUTES = 15
+// The digest day runs from 13:00 UTC (9am Eastern) to 13:00 UTC, not midnight
+// to midnight, so a West Coast game ending at 1am Eastern still belongs to the
+// night it was played. Within a day, a user's results wait until none of their
+// calls on that day's games are still open - "my night's results" in one
+// email, whether the night had one game or eight. Anything still waiting at
+// the next 13:00 goes out regardless, so a game that never settles (a creator
+// who doesn't grade, a delayed auto-resolve) costs at most one morning.
+const DAY_START_HOUR_UTC = 13
 const MAX_USERS_PER_RUN = 200
 // A row that has failed this many times is left alone rather than retried
 // forever - by then it's a bad address or a template bug, and neither gets
@@ -67,7 +74,9 @@ async function markFailed(rowIds: string[], error: string): Promise<void> {
 
 // Drained on a cron rather than sent at resolve time - see the comment on
 // emailOutbox in db/schema/email.ts for why. `send` is injectable purely so
-// tests can assert on what would have gone out without a Resend key.
+// tests can assert on what would have gone out without a Resend key, and
+// `now` so they can place rows and games either side of a day boundary
+// without depending on the time of day the suite runs.
 //
 // MUST be called under DRAIN_DIGESTS_LOCK (lib/job-lock.ts). Nothing
 // inside here is safe against a second concurrent drain - the row claim below
@@ -75,15 +84,42 @@ async function markFailed(rowIds: string[], error: string): Promise<void> {
 // that lock by name first.
 export async function drainResolutionDigests({
 	send = sendMail,
+	now = new Date(),
 }: {
 	send?: SendFn
+	now?: Date
 } = {}): Promise<{ sent: number; skipped: number }> {
+	// UTC wall-clock, the same form every timestamp column here is stored in.
+	const nowUtc = sql`(${now.toISOString()}::timestamptz at time zone 'UTC')`
 	const due = await db.execute<{ user_id: string }>(sql`
-		select user_id
-		from email_outbox
-		where sent_at is null
-		group by user_id
-		having min(created_at) <= now() - ${`${SETTLE_MINUTES} minutes`}::interval
+		with digest_day as (
+			select date_trunc('day', ${nowUtc} - ${`${DAY_START_HOUR_UTC} hours`}::interval)
+				+ ${`${DAY_START_HOUR_UTC} hours`}::interval as starts_at
+		)
+		select o.user_id
+		from email_outbox o
+		cross join digest_day d
+		where o.sent_at is null
+		group by o.user_id, d.starts_at
+		having min(o.created_at) <= ${nowUtc} - ${`${SETTLE_MINUTES} minutes`}::interval
+			and (
+				-- Waiting since before today began: the morning backstop.
+				min(o.created_at) <= d.starts_at
+				-- Otherwise only once nothing on today's slate is still open.
+				-- Unstarted games count too, so a 1pm result waits for the same
+				-- person's 7pm game rather than going out alone. Disputed and
+				-- voided questions don't hold anything up.
+				or not exists (
+					select 1
+					from calls c
+					join questions q on q.id = c.question_id
+					join games g on g.id = q.game_id
+					where c.user_id = o.user_id
+						and q.status in ('open', 'locked')
+						and g.starts_at >= d.starts_at
+						and g.starts_at < d.starts_at + interval '1 day'
+				)
+			)
 		limit ${MAX_USERS_PER_RUN}
 	`)
 

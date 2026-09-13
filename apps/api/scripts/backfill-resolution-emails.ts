@@ -119,7 +119,7 @@ if (send) {
 	)
 } else {
 	console.log(
-		`\nQueued ${result.queued} row(s). The drain sends them on its next run once they clear the settling window (~15 min).`,
+		`\nQueued ${result.queued} row(s). The drain sends each user's once they clear the settling window (~15 min) and that user has no open calls on today's games, or at 13:00 UTC at the latest.`,
 	)
 	console.log("To abort before anything sends:")
 	console.log("  delete from email_outbox where sent_at is null;")

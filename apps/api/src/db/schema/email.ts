@@ -71,9 +71,10 @@ export type EmailOptOut = typeof emailOptOuts.$inferSelect
 // One row per (user, resolved call), drained into per-user digests by
 // lib/email-digest.ts rather than sent inline. Two reasons it isn't a direct
 // send at resolve time: resolveQuestionInternal runs inside a transaction
-// (an inline send would fire before commit and again on retry), and
-// sync-live-scores resolves a whole slate of games at once, which would mean
-// eight separate emails to the same person in an hour.
+// (an inline send would fire before commit and again on retry), and a day of
+// games resolves one at a time as each finishes, which would mean a separate
+// email per game to the same person. The drain holds a user's results until
+// their calls on the day's games have all settled.
 export const emailOutbox = pgTable(
 	"email_outbox",
 	{
@@ -94,8 +95,8 @@ export const emailOutbox = pgTable(
 		// says about a call - title, pick, points, win/loss - is read at drain
 		// time through loadResolvedCallSummaries, the same function the shared
 		// PNG is built from, so the email and the card cannot describe the same
-		// pick two different ways. The window between enqueue and send is a few
-		// minutes, and the two things that could change inside it are both
+		// pick two different ways. The window between enqueue and send can be
+		// most of a day, and the two things that could change inside it are both
 		// handled: a voided question cascades this row away, and a disputed one
 		// is caught by the drain's status re-check.
 		sentAt: timestamp("sent_at"),
@@ -106,9 +107,9 @@ export const emailOutbox = pgTable(
 		skippedReason: text("skipped_reason"),
 		attempts: integer("attempts").notNull().default(0),
 		lastError: text("last_error"),
-		// Drives the settling window - the drain waits until a user's OLDEST
-		// unsent row is old enough, which is what coalesces a burst of games
-		// finishing together into one email.
+		// Drives the settling window and the morning backstop - both read a
+		// user's OLDEST unsent row (see SETTLE_MINUTES and DAY_START_HOUR_UTC in
+		// lib/email-digest.tsx).
 		createdAt: timestamp("created_at").notNull().defaultNow(),
 	},
 	(t) => [

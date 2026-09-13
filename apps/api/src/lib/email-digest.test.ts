@@ -8,7 +8,13 @@ import {
 	questions,
 	users,
 } from "../db/schema"
-import { makeCall, makeSelection, seedOptionQuestion } from "../test/factories"
+import {
+	makeCall,
+	makeGame,
+	makeQuestion,
+	makeSelection,
+	seedOptionQuestion,
+} from "../test/factories"
 import { DRAIN_DIGESTS_LOCK, withJobLock } from "./job-lock"
 import { drainResolutionDigests } from "./email-digest"
 import type { MailMessage, MailResult } from "./mailer"
@@ -49,6 +55,102 @@ async function ageOutbox(minutes = 30) {
 		})
 		.where(sql`sent_at is null`)
 }
+
+// 4pm Eastern, partway through the digest day that began at 9am Eastern.
+const NOW = new Date("2026-09-13T20:00:00Z")
+const DAY_START = new Date("2026-09-13T13:00:00Z")
+const HOUR_MS = 60 * 60 * 1000
+
+function hoursFrom(date: Date, hours: number): Date {
+	return new Date(date.getTime() + hours * HOUR_MS)
+}
+
+async function setOutboxCreatedAt(at: Date) {
+	await db
+		.update(emailOutbox)
+		.set({ createdAt: at })
+		.where(sql`sent_at is null`)
+}
+
+/** An unresolved call by this user on a question about a game. */
+async function openCallOnGame(
+	userId: string,
+	startsAt: Date,
+	status: Question["status"] = "open",
+) {
+	const game = await makeGame({ startsAt })
+	const question = await makeQuestion({ gameId: game.id, status })
+	await makeCall(question.id, userId)
+}
+
+describe("drainResolutionDigests day grouping", () => {
+	it("holds results until the day's last open call settles, then sends one email", async () => {
+		const first = await seedOptionQuestion({ callers: [{ optionIndex: 0 }] })
+		const caller = first.callers[0]
+		const tonightGame = await makeGame({ startsAt: hoursFrom(DAY_START, 10) })
+		const second = await seedOptionQuestion({
+			callers: [],
+			question: { gameId: tonightGame.id },
+		})
+		const secondCall = await makeCall(second.question.id, caller.user.id)
+		await makeSelection(secondCall.id, second.options[0].id, 100)
+
+		await resolve(first.question, [first.options[0].id])
+		await setOutboxCreatedAt(hoursFrom(NOW, -1))
+
+		const early = recorder()
+		await drainResolutionDigests({ send: early.send, now: NOW })
+		expect(early.sent).toHaveLength(0)
+
+		await resolve(second.question, [second.options[0].id])
+		await setOutboxCreatedAt(hoursFrom(NOW, -1))
+
+		const late = recorder()
+		await drainResolutionDigests({ send: late.send, now: NOW })
+		expect(late.sent).toHaveLength(1)
+		expect(late.sent[0].text).toContain(first.question.title)
+		expect(late.sent[0].text).toContain(second.question.title)
+	})
+
+	it("sends at the morning backstop even with a call still open", async () => {
+		const { question, options, callers } = await seedOptionQuestion({
+			callers: [{ optionIndex: 0 }],
+		})
+		await openCallOnGame(callers[0].user.id, hoursFrom(DAY_START, 10))
+		await resolve(question, [options[0].id])
+		await setOutboxCreatedAt(hoursFrom(DAY_START, -2))
+
+		const mail = recorder()
+		await drainResolutionDigests({ send: mail.send, now: NOW })
+		expect(mail.sent).toHaveLength(1)
+	})
+
+	it("does not wait on a game from a later day", async () => {
+		const { question, options, callers } = await seedOptionQuestion({
+			callers: [{ optionIndex: 0 }],
+		})
+		await openCallOnGame(callers[0].user.id, hoursFrom(DAY_START, 25))
+		await resolve(question, [options[0].id])
+		await setOutboxCreatedAt(hoursFrom(NOW, -1))
+
+		const mail = recorder()
+		await drainResolutionDigests({ send: mail.send, now: NOW })
+		expect(mail.sent).toHaveLength(1)
+	})
+
+	it("does not wait on a question left unsettled from an earlier day", async () => {
+		const { question, options, callers } = await seedOptionQuestion({
+			callers: [{ optionIndex: 0 }],
+		})
+		await openCallOnGame(callers[0].user.id, hoursFrom(DAY_START, -3), "locked")
+		await resolve(question, [options[0].id])
+		await setOutboxCreatedAt(hoursFrom(NOW, -1))
+
+		const mail = recorder()
+		await drainResolutionDigests({ send: mail.send, now: NOW })
+		expect(mail.sent).toHaveLength(1)
+	})
+})
 
 describe("drainResolutionDigests", () => {
 	it("coalesces a user's separate resolutions into one email", async () => {

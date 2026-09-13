@@ -24,8 +24,9 @@ export type BackfillOptions = {
 	// A username or email. Restricts the whole run to that one account, for
 	// smoke-testing the real thing in production before anyone else gets it.
 	onlyUser?: string
-	// Backdates the queued rows past the settling window so the next drain
-	// tick sends them, instead of waiting it out. Only honoured alongside
+	// Backdates the queued rows past the settling window and the last morning
+	// backstop, so the next drain tick sends them even if the account still has
+	// open calls on today's games. Only honoured alongside
 	// onlyUser: the wait is the abort window for a real backfill, and giving
 	// that up for a one-person test is fine, for a whole cohort is not.
 	immediate?: boolean
@@ -109,7 +110,8 @@ export async function backfillResolutionEmails({
 	if (sendNow && sendable.length > 0) {
 		await db
 			.update(emailOutbox)
-			.set({ createdAt: sql`now() - interval '1 hour'` })
+			// A full day back is always before the most recent backstop.
+			.set({ createdAt: sql`now() - interval '1 day'` })
 			.where(
 				and(
 					isNull(emailOutbox.sentAt),
