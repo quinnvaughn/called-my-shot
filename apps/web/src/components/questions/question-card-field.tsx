@@ -28,10 +28,13 @@ type Props = {
 	// guessValue for a numeric one. Empty / null when they haven't called.
 	pickedOptionIds: string[]
 	myGuess: number | null
+	// How many winners a season award asks callers to pick. Above 1, the card
+	// shows that many rows so the field's whole lineup is visible.
+	picksRequired: number | null
 }
 
-// A stat leader or award question carries a whole roster or league of
-// options, so the card shows only the most-called few.
+// A single-pick stat leader or award question carries a whole roster or
+// league of options, so the card shows only the most-called few.
 const MAX_RANKED_ROWS = 3
 
 const mutedMonoClass = css({
@@ -52,6 +55,7 @@ export function QuestionCardField({
 	averageGuess,
 	pickedOptionIds,
 	myGuess,
+	picksRequired,
 }: Props) {
 	const renderRow = (option: Option) => (
 		<OptionRow
@@ -104,15 +108,28 @@ export function QuestionCardField({
 				if (ranked.length === 0) {
 					return <span className={mutedMonoClass}>No callers yet</span>
 				}
-				const top = ranked.slice(0, MAX_RANKED_ROWS)
+				const isMultiPick = picksRequired !== null && picksRequired > 1
+				const rowCount = isMultiPick ? picksRequired : MAX_RANKED_ROWS
+				const top = ranked.slice(0, rowCount)
 				const picksBelowTop = ranked
-					.slice(MAX_RANKED_ROWS)
+					.slice(rowCount)
 					.filter((option) => pickedOptionIds.includes(option.id))
-				const visible = [...top, ...picksBelowTop]
-				const hiddenCount = ranked.length - visible.length
+				// A single pick outside the top rows gets a row of its own. A
+				// multi-pick caller can have several out there, so those collapse
+				// to one line of names rather than doubling the card's length.
+				const rows = isMultiPick ? top : [...top, ...picksBelowTop]
+				const hiddenCount = ranked.length - top.length - picksBelowTop.length
 				return (
 					<VStack gap="2" alignItems="stretch">
-						{visible.map(renderRow)}
+						{rows.map(renderRow)}
+						{isMultiPick && picksBelowTop.length > 0 && (
+							<span className={mutedMonoClass}>
+								Also yours:{" "}
+								<span className={css({ color: "primary.default" })}>
+									{picksBelowTop.map((option) => option.label).join(", ")}
+								</span>
+							</span>
+						)}
 						{hiddenCount > 0 && (
 							<span className={mutedMonoClass}>+{hiddenCount} more</span>
 						)}

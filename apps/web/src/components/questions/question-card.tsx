@@ -26,6 +26,7 @@ export const QuestionCardFragment = graphql(`
 		callCount
 		averageGuess
 		numericToleranceAbsolute
+		picksRequired
 		guessDistribution {
 			value
 			count
@@ -162,6 +163,7 @@ export function QuestionCard({
 									question.viewerCall?.selections.map((s) => s.option.id) ?? []
 								}
 								myGuess={question.viewerCall?.guessValue ?? null}
+								picksRequired={question.picksRequired}
 							/>
 							<HStack
 								justify="space-between"
