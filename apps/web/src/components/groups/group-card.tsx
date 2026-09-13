@@ -58,7 +58,9 @@ export function GroupCard(props: GroupCardProps) {
 									{pluralize(group.memberCount, "member")}
 								</span>
 							</VStack>
-							<Eyebrow variant={"primary"}>You're #{group.viewerRank}</Eyebrow>
+							{group.viewerRank !== null && (
+								<Eyebrow variant={"primary"}>You're #{group.viewerRank}</Eyebrow>
+							)}
 						</HStack>
 						<AvatarStack
 							members={group.members.map((m) => ({

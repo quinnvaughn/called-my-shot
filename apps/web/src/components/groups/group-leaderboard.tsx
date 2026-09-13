@@ -94,7 +94,7 @@ type GroupLeaderboardProps = {
 }
 
 function toRowData(entry: {
-	rank: number
+	rank: number | null
 	role: "ADMIN" | "MEMBER"
 	totalPoints: number
 	resolvedCallCount: number
@@ -183,7 +183,7 @@ export function GroupLeaderboard({
 						hasMore={hasNextPage}
 						loading={isFetching}
 						onLoadMore={fetchNextPage}
-						emptyMessage={`No calls yet. ${filter.scopeLabel}.`}
+						emptyMessage={`No resolved calls yet. ${filter.scopeLabel}.`}
 					/>
 				</>
 			)}

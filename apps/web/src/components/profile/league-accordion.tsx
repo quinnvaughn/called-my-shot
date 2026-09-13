@@ -11,7 +11,7 @@ import { questionShapeLabel } from "#/lib/question-labels"
 type LeagueStats = {
 	league: { id: string; name: string; abbreviation: string; slug: string }
 	totalPoints: number
-	rank: number
+	rank: number | null
 	accuracy: number | null
 	callCount: number
 	shapeBreakdown: Array<{

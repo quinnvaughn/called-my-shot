@@ -25,7 +25,9 @@ const COLUMNS: TableColumn<LeaderboardColumnKey>[] = [
 ]
 
 export type LeaderboardRowData = {
-	rank: number
+	// null until a resolved call - only ever the viewer's own pinned entry,
+	// since the board itself lists ranked rows only
+	rank: number | null
 	totalPoints: number
 	// settled calls only - a pending call has no result to stand on, so the
 	// board never counts it (accuracy and the ranking tiebreak agree)
@@ -82,7 +84,7 @@ export function Leaderboard({
 										lineHeight: "1",
 									})}
 								>
-									#{viewerEntry.rank}
+									{viewerEntry.rank !== null ? `#${viewerEntry.rank}` : "N/A"}
 								</span>
 								<span
 									className={css({
@@ -91,10 +93,16 @@ export function Leaderboard({
 										color: "fg.muted",
 									})}
 								>
-									{viewerEntry.totalPoints} pts ·{" "}
-									{viewerEntry.resolvedCallCount} resolved
-									{viewerEntry.accuracy !== null &&
-										` · ${Math.round(viewerEntry.accuracy)}%`}
+									{viewerEntry.rank !== null ? (
+										<>
+											{viewerEntry.totalPoints} pts ·{" "}
+											{viewerEntry.resolvedCallCount} resolved
+											{viewerEntry.accuracy !== null &&
+												` · ${Math.round(viewerEntry.accuracy)}%`}
+										</>
+									) : (
+										"Needs a resolved call"
+									)}
 								</span>
 							</VStack>
 						</HStack>
@@ -138,7 +146,7 @@ function LeaderboardRow({
 	item: LeaderboardRowData
 	viewerId?: string
 }) {
-	const isTop3 = item.rank <= 3
+	const isTop3 = item.rank !== null && item.rank <= 3
 	return (
 		<Table.Row active={item.user.id === viewerId}>
 			<Table.Cell

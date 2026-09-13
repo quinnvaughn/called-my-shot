@@ -1,10 +1,11 @@
 import { db } from "../db"
 import type { User } from "../db/schema"
 import { aggregatePointsByUser } from "./points-aggregate"
-import { accuracyFrom, compareRankableEntries } from "./scoring"
+import { accuracyFrom, rankEntries } from "./scoring"
 
 export type LeaderboardEntry = {
-	rank: number
+	// null until this user has a resolved call in scope (see rankEntries)
+	rank: number | null
 	user: User
 	totalPoints: number
 	accuracy: number | null
@@ -62,6 +63,5 @@ export async function buildGlobalLeaderboard(
 		})
 	}
 
-	entries.sort(compareRankableEntries)
-	return entries.map((entry, index) => ({ ...entry, rank: index + 1 }))
+	return rankEntries(entries)
 }

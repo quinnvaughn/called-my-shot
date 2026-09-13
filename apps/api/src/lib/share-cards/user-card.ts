@@ -34,7 +34,8 @@ export type UserShareCardData = {
 	// e.g. "All-time" or "NBA" - distinguishes a career-wide card from a
 	// single league's
 	scopeTag: string
-	rank: number
+	// null until the user has a resolved call in this scope
+	rank: number | null
 	totalPoints: number
 	accuracy: number | null
 	callCount: number
@@ -231,7 +232,11 @@ export function buildUserShareCard(data: UserShareCardData): SatoriNode {
 				},
 				[
 					el("div", { display: "flex", gap: px(12), width: "100%" }, [
-						heroStat("Rank", `#${data.rank}`, "accent"),
+						heroStat(
+							"Rank",
+							data.rank !== null ? `#${data.rank}` : "N/A",
+							"accent",
+						),
 						heroStat("Accuracy", accuracyText, accuracyTone),
 					]),
 					statRow("Calls made", data.callCount.toLocaleString()),

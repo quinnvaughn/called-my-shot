@@ -164,12 +164,14 @@ export const GroupRef = builder.drizzleObject("groups", {
 				season: t.arg({ type: SeasonFilterInput, required: false }),
 			},
 			resolve: async (group, args, ctx) => {
-				const entries = await getGroupLeaderboard(
-					ctx,
-					group.id,
-					args.leagueId ?? null,
-					toSeasonFilter(args.season),
-				)
+				const entries = (
+					await getGroupLeaderboard(
+						ctx,
+						group.id,
+						args.leagueId ?? null,
+						toSeasonFilter(args.season),
+					)
+				).filter((entry) => entry.rank !== null)
 				const limit = clampPageSize(args.first)
 				const afterRank = args.after ? decodeOffsetCursor(args.after) : 0
 				const items = entries.slice(afterRank, afterRank + limit)
@@ -189,9 +191,11 @@ export const GroupRef = builder.drizzleObject("groups", {
 		// convenience for group cards ("YOU'RE #2") that don't need the full
 		// list. Deliberately all-time across every tracked league: it's a
 		// standing summary on a card with no filter UI of its own, not the
-		// leaderboard the group page renders.
+		// leaderboard the group page renders. null until the viewer has a
+		// resolved call in the group's tracked leagues.
 		viewerRank: t.field({
 			type: "Int",
+			nullable: true,
 			resolve: async (group, _args, ctx) => {
 				const user = requireUser(ctx)
 				const leaderboard = await getGroupLeaderboard(

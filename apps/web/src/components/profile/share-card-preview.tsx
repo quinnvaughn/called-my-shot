@@ -12,7 +12,7 @@ export type ShareCardPreviewData = {
 	username: string
 	memberSince: string // ISO date
 	scopeTag: string // e.g. "All-time" or "NBA"
-	rank: number
+	rank: number | null // null until a resolved call
 	totalPoints: number
 	accuracy: number | null
 	callCount: number
@@ -82,7 +82,11 @@ export function ShareCardPreview({
 			<Card.Body>
 				<VStack gap="3">
 					<HStack gap="3" width="full" alignItems="stretch">
-						<HeroStat label="Rank" value={`#${data.rank}`} tone="accent" />
+						<HeroStat
+							label="Rank"
+							value={data.rank !== null ? `#${data.rank}` : "N/A"}
+							tone="accent"
+						/>
 						<HeroStat
 							label="Accuracy"
 							value={

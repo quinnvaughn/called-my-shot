@@ -25,7 +25,7 @@ const ShapeAccuracyRef = builder
 type UserLeagueStatsData = {
 	league: League
 	totalPoints: number
-	rank: number
+	rank: number | null
 	accuracy: number | null
 	callCount: number
 	shapeBreakdown: ShapeAccuracyData[]
@@ -37,7 +37,7 @@ export const UserLeagueStatsRef = builder
 		fields: (t) => ({
 			league: t.field({ type: LeagueRef, resolve: (row) => row.league }),
 			totalPoints: t.exposeInt("totalPoints"),
-			rank: t.exposeInt("rank"),
+			rank: t.exposeInt("rank", { nullable: true }),
 			accuracy: t.exposeFloat("accuracy", { nullable: true }),
 			callCount: t.exposeInt("callCount"),
 			shapeBreakdown: t.field({

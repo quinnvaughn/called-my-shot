@@ -2,7 +2,7 @@ import { db } from "../../../db"
 import type { User } from "../../../db/schema"
 import { getTrackedLeagueIds } from "../../../lib/groups"
 import { aggregatePointsByUser } from "../../../lib/points-aggregate"
-import { accuracyFrom, compareRankableEntries } from "../../../lib/scoring"
+import { accuracyFrom, rankEntries } from "../../../lib/scoring"
 import {
 	resolveSeasonIds,
 	type SeasonFilter,
@@ -15,7 +15,8 @@ import { UserRef } from "../user"
 import { GroupRole } from "./enums"
 
 export type GroupLeaderboardEntry = {
-	rank: number
+	// null until this member has a resolved call (see rankEntries)
+	rank: number | null
 	user: User
 	totalPoints: number
 	accuracy: number | null
@@ -28,7 +29,7 @@ export const GroupLeaderboardEntryRef = builder
 	.objectRef<GroupLeaderboardEntry>("GroupLeaderboardEntry")
 	.implement({
 		fields: (t) => ({
-			rank: t.exposeInt("rank"),
+			rank: t.exposeInt("rank", { nullable: true }),
 			totalPoints: t.exposeInt("totalPoints"),
 			// % of this member's resolved picks that hit - null until they have any
 			accuracy: t.exposeFloat("accuracy", { nullable: true }),
@@ -94,8 +95,7 @@ async function buildLeaderboard(
 		]
 	})
 
-	entries.sort(compareRankableEntries)
-	return entries.map((entry, index) => ({ ...entry, rank: index + 1 }))
+	return rankEntries(entries)
 }
 
 // A group's tracked leagues bound every ranking of it. A league tab inside

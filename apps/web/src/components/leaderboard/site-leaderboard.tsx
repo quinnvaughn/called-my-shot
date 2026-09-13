@@ -20,7 +20,7 @@ type SiteLeaderboardProps = {
 }
 
 function toRowData(entry: {
-	rank: number
+	rank: number | null
 	totalPoints: number
 	resolvedCallCount: number
 	accuracy: number | null
@@ -81,7 +81,7 @@ export function SiteLeaderboard({
 				hasMore={hasNextPage}
 				loading={isFetching}
 				onLoadMore={fetchNextPage}
-				emptyMessage={`No calls yet. ${filter.scopeLabel}.`}
+				emptyMessage={`No resolved calls yet. ${filter.scopeLabel}.`}
 			/>
 		</>
 	)

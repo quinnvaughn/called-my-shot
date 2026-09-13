@@ -67,3 +67,22 @@ export function compareRankableEntries(a: RankableEntry, b: RankableEntry) {
 	if (bAccuracy !== aAccuracy) return bAccuracy - aAccuracy
 	return a.resolvedCallCount - b.resolvedCallCount
 }
+
+// The single place a leaderboard rank is assigned, so every surface showing
+// one (both boards, career and league stats, share cards) agrees. Only a
+// settled record earns a rank: someone with no resolved calls has no score
+// yet, and ranking them at 0 would put them above everyone who is playing
+// and slightly negative. They come back after the ranked entries with a
+// null rank, so callers can still find them for their own summary.
+export function rankEntries<T extends RankableEntry>(
+	entries: T[],
+): (T & { rank: number | null })[] {
+	const ranked = entries
+		.filter((entry) => entry.resolvedCallCount > 0)
+		.sort(compareRankableEntries)
+		.map((entry, index) => ({ ...entry, rank: index + 1 }))
+	const unranked = entries
+		.filter((entry) => entry.resolvedCallCount === 0)
+		.map((entry) => ({ ...entry, rank: null }))
+	return [...ranked, ...unranked]
+}

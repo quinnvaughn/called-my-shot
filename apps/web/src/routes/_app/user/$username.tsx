@@ -41,7 +41,7 @@ export const Route = createFileRoute("/_app/user/$username")({
 						? `${Math.round(stats.accuracy)}% accuracy`
 						: null,
 					`${stats.totalPoints.toLocaleString()} points`,
-					`ranked #${stats.rank}`,
+					stats.rank !== null ? `ranked #${stats.rank}` : null,
 				]
 					.filter((part) => part !== null)
 					.join(" · ")
@@ -95,7 +95,7 @@ function RouteComponent() {
 			{sectionLabel("Career")}
 			<StatGrid
 				items={statGridItems({
-					rank: user.careerStats?.rank ?? 0,
+					rank: user.careerStats?.rank ?? null,
 					totalPoints: user.careerStats?.totalPoints ?? 0,
 					accuracy: user.careerStats?.accuracy ?? null,
 					callCount: user.careerStats?.callCount ?? 0,
@@ -115,7 +115,7 @@ function RouteComponent() {
 								username: user.username,
 								memberSince: user.createdAt,
 								scopeTag: "All-time track record",
-								rank: user.careerStats?.rank ?? 0,
+								rank: user.careerStats?.rank ?? null,
 								totalPoints: user.careerStats?.totalPoints ?? 0,
 								accuracy: user.careerStats?.accuracy ?? null,
 								callCount: user.careerStats?.callCount ?? 0,

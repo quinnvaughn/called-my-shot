@@ -19,7 +19,7 @@ const UserCareerStatsRef = builder
 	.objectRef<LeaderboardEntry>("UserCareerStats")
 	.implement({
 		fields: (t) => ({
-			rank: t.exposeInt("rank"),
+			rank: t.exposeInt("rank", { nullable: true }),
 			totalPoints: t.exposeInt("totalPoints"),
 			accuracy: t.exposeFloat("accuracy", { nullable: true }),
 			callCount: t.exposeInt("callCount"),

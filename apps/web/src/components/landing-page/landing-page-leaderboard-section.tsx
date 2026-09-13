@@ -34,13 +34,22 @@ export function LandingPageLeaderboardSection({ entries: entriesProp }: Props) {
 		return null
 	}
 
-	const rows: (LeaderboardRow & { rank: number })[] = entries.map((entry) => ({
-		rank: entry.rank,
-		initials: initialsFor(entry.user.name, entry.user.username),
-		username: `@${entry.user.username}`,
-		accuracy: Math.round(entry.accuracy ?? 0),
-		points: entry.totalPoints,
-	}))
+	// leaderboard items are ranked rows only; the shared fragment just can't
+	// say so, since the viewer's own entry uses it too
+	const rows: (LeaderboardRow & { rank: number })[] = entries.flatMap(
+		(entry) =>
+			entry.rank === null
+				? []
+				: [
+						{
+							rank: entry.rank,
+							initials: initialsFor(entry.user.name, entry.user.username),
+							username: `@${entry.user.username}`,
+							accuracy: Math.round(entry.accuracy ?? 0),
+							points: entry.totalPoints,
+						},
+					],
+	)
 
 	return (
 		<LandingPageContentSection

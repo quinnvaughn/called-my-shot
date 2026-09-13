@@ -49,7 +49,7 @@ const LeaderboardEntryRef = builder
 	.objectRef<LeaderboardEntry>("LeaderboardEntry")
 	.implement({
 		fields: (t) => ({
-			rank: t.exposeInt("rank"),
+			rank: t.exposeInt("rank", { nullable: true }),
 			totalPoints: t.exposeInt("totalPoints"),
 			// % of this user's resolved picks that hit - null until they have any
 			accuracy: t.exposeFloat("accuracy", { nullable: true }),
@@ -81,11 +81,13 @@ builder.queryFields((t) => ({
 			season: t.arg({ type: SeasonFilterInput, required: false }),
 		},
 		resolve: async (_root, args, ctx) => {
-			const entries = await getGlobalLeaderboard(
-				ctx,
-				args.leagueId ?? null,
-				toSeasonFilter(args.season),
-			)
+			const entries = (
+				await getGlobalLeaderboard(
+					ctx,
+					args.leagueId ?? null,
+					toSeasonFilter(args.season),
+				)
+			).filter((entry) => entry.rank !== null)
 			const limit = clampPageSize(args.first)
 			const afterRank = args.after ? decodeOffsetCursor(args.after) : 0
 			const items = entries.slice(afterRank, afterRank + limit)
@@ -103,9 +105,9 @@ builder.queryFields((t) => ({
 		},
 	}),
 
-	// null when signed out, or when the viewer hasn't made a call yet - both
-	// are normal here (unlike the group version, membership doesn't guarantee
-	// the viewer has ever called anything site-wide).
+	// null only when signed out. A signed-in viewer with no calls in scope
+	// isn't on the board at all, so they get an unranked zero entry instead,
+	// letting the pinned card say why they have no rank rather than vanish.
 	viewerLeaderboardEntry: t.field({
 		type: LeaderboardEntryRef,
 		nullable: true,
@@ -114,13 +116,23 @@ builder.queryFields((t) => ({
 			season: t.arg({ type: SeasonFilterInput, required: false }),
 		},
 		resolve: async (_root, args, ctx) => {
-			if (!ctx.user) return null
+			const viewer = ctx.user
+			if (!viewer) return null
 			const entries = await getGlobalLeaderboard(
 				ctx,
 				args.leagueId ?? null,
 				toSeasonFilter(args.season),
 			)
-			return entries.find((e) => e.user.id === ctx.user?.id) ?? null
+			return (
+				entries.find((e) => e.user.id === viewer.id) ?? {
+					rank: null,
+					user: viewer,
+					totalPoints: 0,
+					accuracy: null,
+					callCount: 0,
+					resolvedCallCount: 0,
+				}
+			)
 		},
 	}),
 }))
