@@ -17,7 +17,12 @@ import { button } from "#/components/ui/button"
 import { EmptyState } from "#/components/ui/empty-state"
 import { InfiniteScroll } from "#/components/ui/infinite-scroll"
 import { NotFound } from "#/components/ui/not-found"
-import type { QuestionSortOrder } from "#/graphql/generated/graphql"
+import { Tabs } from "#/components/ui/tabs"
+import type {
+	GameByIdQuery,
+	QuestionShape,
+	QuestionSortOrder,
+} from "#/graphql/generated/graphql"
 import {
 	GameByIdDocument,
 	GameQuestionsDocument,
@@ -29,6 +34,10 @@ import {
 import { pageMeta } from "#/lib/meta"
 import { buildGameSlug } from "#/lib/slug"
 
+type GameTab = "official" | "community"
+
+type GameData = NonNullable<GameByIdQuery["game"]>
+
 const SORTS: { value: QuestionSortOrder; label: string }[] = [
 	{ value: "MOST_CALLED", label: "Most Called" },
 	{ value: "NEW", label: "New" },
@@ -36,28 +45,64 @@ const SORTS: { value: QuestionSortOrder; label: string }[] = [
 
 const PAGE_SIZE = 15
 
+// A game's official questions always fit on one page - the who-wins question
+// plus one catalog's worth (apps/api/src/db/catalog/game-question-catalog.ts)
+// is well under this.
+const OFFICIAL_LIMIT = 50
+
+// How official questions read below the who-wins card: team guesses, then
+// head-to-heads, then player lines, then who leads the game. Anything else
+// official (an admin's own question on the game) follows them. Within a shape,
+// oldest first, which is the order the catalog posts them in.
+const OFFICIAL_SHAPE_ORDER: QuestionShape[] = [
+	"TEAM_STAT_NUMERIC_GUESS",
+	"PLAYER_VS_PLAYER",
+	"PLAYER_STAT_OVER_UNDER",
+	"PLAYER_GAME_STAT_LEADER",
+]
+
+function officialRank(shape: QuestionShape): number {
+	const index = OFFICIAL_SHAPE_ORDER.indexOf(shape)
+	return index === -1 ? OFFICIAL_SHAPE_ORDER.length : index
+}
+
 const gameQuery = (id: string) => gqlQueryOptions(GameByIdDocument, { id })
+
+const officialQuestionsQuery = (gameId: string) =>
+	gqlQueryOptions(GameQuestionsDocument, {
+		gameId,
+		first: OFFICIAL_LIMIT,
+		isOfficial: true,
+	})
 
 // sort is part of the key, so switching it starts a fresh list rather than
 // appending to the previous ordering.
-const gameQuestionsQuery = (gameId: string, sort: QuestionSortOrder) =>
+const communityQuestionsQuery = (gameId: string, sort: QuestionSortOrder) =>
 	gqlInfiniteQueryOptions(
 		GameQuestionsDocument,
-		{ gameId, first: PAGE_SIZE, sort },
+		{ gameId, first: PAGE_SIZE, sort, isOfficial: false },
 		(data) => data.questions,
 	)
 
 export const Route = createFileRoute("/_app/games/$gameId/{-$slug}")({
 	component: RouteComponent,
 	staleTime: 0,
+	// Official is the default and stays off the url, so a shared game link
+	// always opens on it.
+	validateSearch: (search: Record<string, unknown>): { tab?: "community" } => ({
+		tab: search.tab === "community" ? "community" : undefined,
+	}),
+	loaderDeps: ({ search }) => ({ tab: search.tab ?? "official" }),
 	// head() can only read loaderData, so the meta-tag fields come back from
 	// here; the component reads the same cache entries via its own hooks.
-	loader: async ({ context, params }) => {
+	loader: async ({ context, params, deps }) => {
 		const [gameData] = await Promise.all([
 			context.queryClient.query(gameQuery(params.gameId)),
-			context.queryClient.infiniteQuery(
-				gameQuestionsQuery(params.gameId, "MOST_CALLED"),
-			),
+			deps.tab === "community"
+				? context.queryClient.infiniteQuery(
+						communityQuestionsQuery(params.gameId, "MOST_CALLED"),
+					)
+				: context.queryClient.query(officialQuestionsQuery(params.gameId)),
 		])
 
 		// The slug is decorative - the id ahead of it is what identifies the
@@ -74,6 +119,7 @@ export const Route = createFileRoute("/_app/games/$gameId/{-$slug}")({
 				throw redirect({
 					to: "/games/$gameId/{-$slug}",
 					params: { gameId: game.id, slug },
+					search: deps.tab === "community" ? { tab: "community" } : {},
 					statusCode: 302,
 				})
 			}
@@ -93,25 +139,12 @@ export const Route = createFileRoute("/_app/games/$gameId/{-$slug}")({
 
 function RouteComponent() {
 	const { gameId } = Route.useParams()
-	const [sort, setSort] = useState<QuestionSortOrder>("MOST_CALLED")
+	const { tab: tabParam } = Route.useSearch()
+	const tab: GameTab = tabParam ?? "official"
+	const navigate = Route.useNavigate()
 
 	const { data: gameData } = useSuspenseQuery(gameQuery(gameId))
 	const game = gameData.game
-	// keepPreviousData holds the current ordering on screen while the newly
-	// picked sort's first page loads.
-	const { data, hasNextPage, isFetching, fetchNextPage } = useInfiniteQuery({
-		...gameQuestionsQuery(gameId, sort),
-		placeholderData: keepPreviousData,
-	})
-	const questions = data?.items ?? []
-
-	// The "who will win?" question synced onto this game by syncGameQuestions
-	// (see apps/api/src/db/sync/sync-game-questions.ts) - surfaced prominently
-	// above the rest when it exists, absent entirely otherwise (a game outside
-	// the sync window, or before the daily sync has run) rather than showing a
-	// placeholder that implies something's broken.
-	const hero = questions.find((q) => q.shape === "TEAM_VS_TEAM")
-	const rest = questions.filter((q) => q.id !== hero?.id)
 
 	if (!game) {
 		return (
@@ -123,6 +156,14 @@ function RouteComponent() {
 				link={{ text: "Back home", url: "/home" }}
 			/>
 		)
+	}
+
+	function selectTab(next: GameTab) {
+		navigate({
+			search: next === "community" ? { tab: "community" } : {},
+			replace: true,
+			resetScroll: false,
+		})
 	}
 
 	return (
@@ -143,6 +184,50 @@ function RouteComponent() {
 
 			<GameMatchupHeader game={game} starters={game} />
 
+			<Tabs value={tab} onValueChange={selectTab}>
+				<Tabs.List>
+					<Tabs.Trigger value="official">Official</Tabs.Trigger>
+					<Tabs.Trigger value="community">Community</Tabs.Trigger>
+				</Tabs.List>
+			</Tabs>
+
+			{tab === "official" ? (
+				<OfficialQuestions game={game} />
+			) : (
+				<CommunityQuestions gameId={game.id} />
+			)}
+		</VStack>
+	)
+}
+
+function OfficialQuestions({ game }: { game: GameData }) {
+	const { data } = useSuspenseQuery(officialQuestionsQuery(game.id))
+	const questions = data.questions.items
+
+	// The "who will win?" question synced onto this game by syncGameQuestions
+	// (see apps/api/src/db/sync/sync-game-questions.ts) - surfaced prominently
+	// above the rest when it exists, absent entirely otherwise (a game outside
+	// the sync window, or before the daily sync has run) rather than showing a
+	// placeholder that implies something's broken.
+	const hero = questions.find((q) => q.shape === "TEAM_VS_TEAM")
+	const rest = questions
+		.filter((q) => q.id !== hero?.id)
+		.sort(
+			(a, b) =>
+				officialRank(a.shape) - officialRank(b.shape) ||
+				new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
+		)
+
+	// Catalog questions only go up inside generate-game-questions.ts's window,
+	// so a game further out has just its who-wins question until then.
+	const postsLater = game.status === "SCHEDULED" && rest.length === 0
+	const postsLaterNote =
+		game.league.windowType === "WEEK"
+			? "More official questions go up once this game's week is next on the schedule."
+			: "More official questions go up about a day before the game."
+
+	return (
+		<VStack gap="6" alignItems="stretch">
 			{hero && (
 				<VStack gap="2" alignItems="stretch">
 					<span
@@ -160,10 +245,42 @@ function RouteComponent() {
 				</VStack>
 			)}
 
+			{rest.length > 0 && (
+				<VStack gap="3" alignItems="stretch">
+					{rest.map((question) => (
+						<QuestionCard key={question.id} question={question} />
+					))}
+				</VStack>
+			)}
+
+			{postsLater ? (
+				<EmptyState>{postsLaterNote}</EmptyState>
+			) : (
+				!hero &&
+				rest.length === 0 && (
+					<EmptyState>No official questions on this game.</EmptyState>
+				)
+			)}
+		</VStack>
+	)
+}
+
+function CommunityQuestions({ gameId }: { gameId: string }) {
+	const [sort, setSort] = useState<QuestionSortOrder>("MOST_CALLED")
+
+	// keepPreviousData holds the current ordering on screen while the newly
+	// picked sort's first page loads.
+	const { data, hasNextPage, isFetching, fetchNextPage } = useInfiniteQuery({
+		...communityQuestionsQuery(gameId, sort),
+		placeholderData: keepPreviousData,
+	})
+
+	return (
+		<VStack gap="4" alignItems="stretch">
 			<SortSwitcher sorts={SORTS} active={sort} onChange={setSort} />
 
 			<InfiniteScroll
-				items={rest}
+				items={data?.items ?? []}
 				getKey={(question) => question.id}
 				hasNextPage={hasNextPage}
 				loading={isFetching}
@@ -179,7 +296,8 @@ function RouteComponent() {
 							</Link>
 						}
 					>
-						No other questions on this game yet. Why don't you get it started?
+						No community questions on this game yet. Why don't you get it
+						started?
 					</EmptyState>
 				}
 				renderItem={(question) => <QuestionCard question={question} />}

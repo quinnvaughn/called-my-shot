@@ -3,6 +3,7 @@ import { lockOverdueQuestions } from "./db/lock-overdue-questions"
 import { autoResolveChampionships } from "./db/sync/auto-resolve-championships"
 import { autoResolveGames } from "./db/sync/auto-resolve-games"
 import { autoResolveSeasons } from "./db/sync/auto-resolve-seasons"
+import { generateGameQuestions } from "./db/sync/generate-game-questions"
 import { syncSportsData } from "./db/sync/run"
 import { syncGameStarters } from "./db/sync/sync-game-starters"
 import { syncLiveScores } from "./db/sync/sync-live-scores"
@@ -50,9 +51,15 @@ export function startScheduler(): void {
 	})
 	// Every 30m, but most ticks fetch little or nothing: each game is only due
 	// again once its own refresh interval has passed (see isStartersRefreshDue).
+	// Generation runs straight after, so the starters it picks subjects from
+	// are the ones this tick just refreshed. Most of its runs insert nothing
+	// (see generateGameQuestions).
 	cron.schedule(
 		"*/30 * * * *",
-		runJob("sync-game-starters", () => syncGameStarters()),
+		async () => {
+			await runJob("sync-game-starters", () => syncGameStarters())()
+			await runJob("generate-game-questions", () => generateGameQuestions())()
+		},
 		{ name: "sync-game-starters", timezone: "UTC", noOverlap: true },
 	)
 	// Every 10m, but a game is only read once it has been final for
@@ -115,6 +122,6 @@ export function startScheduler(): void {
 		{ name: DRAIN_SEASON_START_LOCK, timezone: "UTC", noOverlap: true },
 	)
 	console.log(
-		"[scheduler] started: sync-live-scores */5m, lock-overdue-questions */15m, sync-sports-data daily 09:00 UTC, sync-game-starters */30m, auto-resolve-games */10m, auto-resolve-seasons daily 10:30 UTC, auto-resolve-championships daily 10:45 UTC, drain-email-digests */5m, enqueue-season-start-emails daily 13:00 UTC, drain-season-start-emails */5m",
+		"[scheduler] started: sync-live-scores */5m, lock-overdue-questions */15m, sync-sports-data daily 09:00 UTC, sync-game-starters then generate-game-questions */30m, auto-resolve-games */10m, auto-resolve-seasons daily 10:30 UTC, auto-resolve-championships daily 10:45 UTC, drain-email-digests */5m, enqueue-season-start-emails daily 13:00 UTC, drain-season-start-emails */5m",
 	)
 }

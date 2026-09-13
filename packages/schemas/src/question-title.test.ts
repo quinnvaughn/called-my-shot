@@ -91,7 +91,7 @@ describe("generateQuestionTitle - numeric guesses", () => {
 				statName: "Points",
 				opponentTeamName: "76ers",
 			}),
-		).toBe("Guess Jayson Tatum's points vs the 76ers")
+		).toBe("Jayson Tatum's points vs the 76ers")
 	})
 
 	it("writes a team guess in the possessive", () => {
@@ -102,7 +102,7 @@ describe("generateQuestionTitle - numeric guesses", () => {
 				statName: "Rebounds",
 				opponentTeamName: "76ers",
 			}),
-		).toBe("Guess the Celtics' rebounds vs the 76ers")
+		).toBe("Celtics' rebounds vs the 76ers")
 	})
 
 	it("translates the 'Wins' catalog stat to 'win total' in possessive position", () => {
@@ -113,7 +113,7 @@ describe("generateQuestionTitle - numeric guesses", () => {
 				statName: "Wins",
 				year: 2026,
 			}),
-		).toBe("Guess the Celtics' win total for 2026")
+		).toBe("Celtics' win total for 2026")
 	})
 
 	it("passes any other season stat through unchanged", () => {
@@ -124,7 +124,7 @@ describe("generateQuestionTitle - numeric guesses", () => {
 				statName: "Net Rating",
 				year: 2026,
 			}),
-		).toBe("Guess the Celtics' net rating for 2026")
+		).toBe("Celtics' net rating for 2026")
 	})
 })
 
@@ -448,7 +448,7 @@ describe("possessive handling", () => {
 				statName: "Points",
 				opponentTeamName: "X",
 			}),
-		).toContain("the Celtics' points")
+		).toContain("Celtics' points")
 	})
 
 	it("uses 's for the rare singular team name", () => {
@@ -459,6 +459,6 @@ describe("possessive handling", () => {
 				statName: "Points",
 				opponentTeamName: "X",
 			}),
-		).toContain("the Heat's points")
+		).toContain("Heat's points")
 	})
 })

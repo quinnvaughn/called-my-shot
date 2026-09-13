@@ -1,13 +1,16 @@
 import {
 	boolean,
 	integer,
+	jsonb,
 	numeric,
 	pgEnum,
 	pgTable,
 	text,
 	timestamp,
+	uniqueIndex,
 	uuid,
 } from "drizzle-orm/pg-core"
+import type { LineBasis } from "../../lib/game-questions/lines"
 import { games } from "./games"
 import { players } from "./players"
 import { leagues, seasons, sports } from "./sports"
@@ -298,8 +301,20 @@ export const questions = pgTable("questions", {
 	// at sync time (see players.rookieEligible in db/schema/players.ts).
 	awardRookieOnly: boolean("award_rookie_only"),
 
+	// Set on every question a sync job posts on a game - the who-wins question
+	// (db/sync/sync-game-questions.ts) and the catalog ones
+	// (db/sync/generate-game-questions.ts) - and null on everything a person
+	// wrote. Format and slots are in lib/game-questions/generation-key.ts. The
+	// unique index is what makes a rerun a no-op rather than a duplicate.
+	generationKey: text("generation_key"),
+	// A generated over/under's line inputs (LineBasis in
+	// lib/game-questions/lines.ts), kept so db/sync/line-calibration.ts can
+	// compare where lines were set against how they resolved. Null on every
+	// other question.
+	lineBasis: jsonb("line_basis").$type<LineBasis>(),
+
 	createdAt: timestamp("created_at").notNull().defaultNow(),
-})
+}, (t) => [uniqueIndex("questions_generation_key_idx").on(t.generationKey)])
 export type Question = typeof questions.$inferSelect
 
 // The option pool for every option-based shape: the two sides of an

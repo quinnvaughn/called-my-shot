@@ -286,13 +286,13 @@ function titleGameTotalOverUnder(
 function titlePlayerStatNumericGuess(
 	input: Extract<TitleInput, { shape: "player_stat_numeric_guess" }>,
 ): string {
-	return `Guess ${input.playerName}'s ${statInSentence(input.statName)} vs the ${input.opponentTeamName}`
+	return `${input.playerName}'s ${statInSentence(input.statName)} vs the ${input.opponentTeamName}`
 }
 
 function titleTeamStatNumericGuess(
 	input: Extract<TitleInput, { shape: "team_stat_numeric_guess" }>,
 ): string {
-	return `Guess the ${possessive(input.teamName)} ${statInSentence(input.statName)} vs the ${input.opponentTeamName}`
+	return `${possessive(input.teamName)} ${statInSentence(input.statName)} vs the ${input.opponentTeamName}`
 }
 
 // "Wins" (the stat catalog's own lookup name, capitalized) reads wrong in a
@@ -308,7 +308,7 @@ function titleTeamSeasonStatNumericGuess(
 ): string {
 	const displayStatName =
 		input.statName === "Wins" ? "win total" : statInSentence(input.statName)
-	return `Guess the ${possessive(input.teamName)} ${displayStatName} for ${input.year}`
+	return `${possessive(input.teamName)} ${displayStatName} for ${input.year}`
 }
 
 // --- Vs-shapes ---

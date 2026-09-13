@@ -10,6 +10,7 @@ import {
 	ilike,
 	inArray,
 	isNotNull,
+	isNull,
 	lte,
 	ne,
 	notExists,
@@ -126,10 +127,13 @@ builder.queryFields((t) => ({
 			// one sort where "already decided" doesn't belong). Every other
 			// caller leaves this unset and sees every status.
 			excludeSettled: t.arg.boolean({ required: false }),
-			// The league room's Season tab, narrowed to standalone award races
-			// (player_season_award/team_season_award/player_award_finalists) -
-			// every other caller leaves this unset and gets every shape.
+			// Narrows to the listed shapes - every caller that leaves this unset
+			// gets every shape.
 			shapes: t.arg({ type: [QuestionShape], required: false }),
+			// The league room's Season tab - only questions with no game behind
+			// them (award races, win totals, season stat questions). Every other
+			// caller leaves this unset and gets game questions too.
+			seasonLong: t.arg.boolean({ required: false }),
 			// The league room's Season tab only - scoped to the current season
 			// (in progress, else soonest upcoming, else most recently completed -
 			// see getCurrentSeason) so a prior year's award questions don't
@@ -156,6 +160,7 @@ builder.queryFields((t) => ({
 				args.shapes && args.shapes.length > 0
 					? inArray(questions.shape, args.shapes)
 					: undefined,
+				args.seasonLong ? isNull(questions.gameId) : undefined,
 				currentSeason ? eq(questions.seasonId, currentSeason.id) : undefined,
 				args.excludeBallotMembers
 					? notExists(

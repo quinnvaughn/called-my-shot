@@ -1,5 +1,6 @@
-import { generateQuestionTitle } from "@called-my-shot/schemas"
-import { eq } from "drizzle-orm"
+import { generationKey } from "../../lib/game-questions/generation-key"
+import { refreshGeneratedQuestionSchedule } from "../../lib/game-questions/schedule"
+import { gameQuestionTitle } from "../../lib/game-questions/titles"
 import { getOfficialAccountId } from "../../lib/official-account"
 import { getCurrentSeason } from "../../lib/seasons"
 import { db } from "../index"
@@ -11,9 +12,11 @@ import { type League, questionOptions, questions } from "../schema"
 // duplicate matchup question; the sync job is the only thing that should
 // create these). Most runs touch nothing: a game only needs its question
 // created once. What does recur is ESPN moving a game's startsAt (a flex, a
-// rain delay reschedule) after its question already exists - that's synced
-// into locksAt (and the title, since its "(Oct 20)" suffix is derived from
-// the same date) so the lock time never drifts from the real game.
+// rain delay reschedule) after its questions already exist - that's synced
+// into the locksAt and title of this question and of every other generated
+// one on the game (see refreshGeneratedQuestionSchedule), so no lock time
+// drifts from the real game. This runs across the whole season daily, which
+// covers a game moved out of generate-game-questions.ts's own window.
 //
 // Requires syncGames(config, league) to have already run for this league.
 export async function syncGameQuestions(league: League): Promise<void> {
@@ -66,75 +69,60 @@ export async function syncGameQuestions(league: League): Promise<void> {
 				`syncGameQuestions: game ${game.id} is missing its home/away team`,
 			)
 		}
-		const homeTeam = game.homeTeam
-		const awayTeam = game.awayTeam
-
-		const title = generateQuestionTitle({
-			shape: "team_vs_team",
-			awayTeamName: awayTeam.name,
-			homeTeamName: homeTeam.name,
-			gameDate: game.startsAt.toISOString(),
-		})
+		const gameWithTeams = {
+			id: game.id,
+			startsAt: game.startsAt,
+			homeTeam: game.homeTeam,
+			awayTeam: game.awayTeam,
+		}
+		const key = generationKey([league.slug, game.id, "team_vs_team"])
 
 		await db.transaction(async (tx) => {
 			const existing = await tx.query.questions.findFirst({
-				where: { gameId: game.id, shape: "team_vs_team" },
+				where: { generationKey: key },
 			})
 
-			if (existing) {
-				// Never touch a question once it's resolved/disputed - it already
-				// has a real-world result attached, so a late ESPN schedule
-				// correction shouldn't retroactively change what it says.
-				const locksAtChanged =
-					existing.locksAt.getTime() !== game.startsAt.getTime()
-				if (
-					(existing.status === "open" || existing.status === "locked") &&
-					(locksAtChanged || existing.title !== title)
-				) {
-					await tx
-						.update(questions)
-						.set({ locksAt: game.startsAt, title })
-						.where(eq(questions.id, existing.id))
+			if (!existing) {
+				const [inserted] = await tx
+					.insert(questions)
+					.values({
+						shape: "team_vs_team",
+						title: gameQuestionTitle({ shape: "team_vs_team" }, gameWithTeams),
+						creatorId: officialAccountId,
+						isOfficial: true,
+						sportId: league.sportId,
+						leagueId: league.id,
+						gameId: game.id,
+						seasonId: game.seasonId,
+						resolutionSource: "ESPN box score",
+						resolutionMode: "system",
+						locksAt: game.startsAt,
+						generationKey: key,
+					})
+					.returning()
+				if (!inserted) {
+					throw new Error(
+						`syncGameQuestions: insert returned nothing for game ${game.id}`,
+					)
 				}
-				return
+
+				await tx.insert(questionOptions).values([
+					{
+						questionId: inserted.id,
+						label: gameWithTeams.awayTeam.name,
+						sortOrder: 0,
+						teamId: game.awayTeamId,
+					},
+					{
+						questionId: inserted.id,
+						label: gameWithTeams.homeTeam.name,
+						sortOrder: 1,
+						teamId: game.homeTeamId,
+					},
+				])
 			}
 
-			const [inserted] = await tx
-				.insert(questions)
-				.values({
-					shape: "team_vs_team",
-					title,
-					creatorId: officialAccountId,
-					isOfficial: true,
-					sportId: league.sportId,
-					leagueId: league.id,
-					gameId: game.id,
-					seasonId: game.seasonId,
-					resolutionSource: "ESPN box score",
-					resolutionMode: "system",
-					locksAt: game.startsAt,
-				})
-				.returning()
-			if (!inserted) {
-				throw new Error(
-					`syncGameQuestions: insert returned nothing for game ${game.id}`,
-				)
-			}
-
-			await tx.insert(questionOptions).values([
-				{
-					questionId: inserted.id,
-					label: awayTeam.name,
-					sortOrder: 0,
-					teamId: game.awayTeamId,
-				},
-				{
-					questionId: inserted.id,
-					label: homeTeam.name,
-					sortOrder: 1,
-					teamId: game.homeTeamId,
-				},
-			])
+			await refreshGeneratedQuestionSchedule(tx, gameWithTeams)
 		})
 	}
 }

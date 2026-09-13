@@ -1,0 +1,48 @@
+import { resolutionModeFor } from "@called-my-shot/schemas"
+import { describe, expect, it } from "vitest"
+import {
+	activeGameTemplates,
+	GAME_QUESTION_CATALOG,
+	GENERATION_TIER,
+} from "./game-question-catalog"
+
+describe("GAME_QUESTION_CATALOG", () => {
+	for (const [leagueSlug, templates] of Object.entries(GAME_QUESTION_CATALOG)) {
+		it(`${leagueSlug}: every template settles from ESPN`, () => {
+			for (const template of templates) {
+				expect(
+					resolutionModeFor({
+						shape: template.shape,
+						leagueSlug,
+						statName: template.statName,
+					}),
+					template.id,
+				).toBe("system")
+			}
+		})
+
+		it(`${leagueSlug}: template ids are unique`, () => {
+			const ids = templates.map((template) => template.id)
+			expect(new Set(ids).size).toBe(ids.length)
+		})
+	}
+})
+
+describe("activeGameTemplates", () => {
+	it("stops at the league's tier", () => {
+		for (const leagueSlug of Object.keys(GAME_QUESTION_CATALOG)) {
+			const tier = GENERATION_TIER[leagueSlug] ?? 0
+			const active = activeGameTemplates(leagueSlug)
+			expect(active.every((template) => template.tier <= tier)).toBe(true)
+			expect(active).toHaveLength(
+				(GAME_QUESTION_CATALOG[leagueSlug] ?? []).filter(
+					(template) => template.tier <= tier,
+				).length,
+			)
+		}
+	})
+
+	it("is empty for a league with no catalog", () => {
+		expect(activeGameTemplates("wnba")).toEqual([])
+	})
+})

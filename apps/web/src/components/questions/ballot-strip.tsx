@@ -1,12 +1,12 @@
 import { Link } from "@tanstack/react-router"
 import { Fragment, useEffect, useState } from "react"
-import { match } from "ts-pattern"
 import { FaCheck, FaChevronDown, FaXmark } from "react-icons/fa6"
 import { FiChevronDown, FiChevronLeft, FiChevronRight } from "react-icons/fi"
 import { MdBallot } from "react-icons/md"
 import { css, cx } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
 import type { SystemStyleObject } from "styled-system/types"
+import { match } from "ts-pattern"
 import { Card } from "#/components/ui/card"
 import { type FragmentType, graphql, useFragment } from "#/graphql/generated"
 import {
@@ -232,7 +232,8 @@ function sectionRuns<T extends { section?: string | null }>(
 	members.forEach((member, index) => {
 		const section = member.section ?? null
 		const current = runs.at(-1)
-		if (current && current.section === section) current.entries.push({ member, index })
+		if (current && current.section === section)
+			current.entries.push({ member, index })
 		else runs.push({ section, entries: [{ member, index }] })
 	})
 	return runs
@@ -522,7 +523,7 @@ export function BallotStrip({ question: questionProp }: Props) {
 					</button>
 
 					<div className={bodyClass}>
-					{/* The grid is at the section level, not the chip level: equal
+						{/* The grid is at the section level, not the chip level: equal
 					    auto-fit columns, so clusters line up with each other and the
 					    column count follows the card width rather than the content.
 					    Chips inside a cluster keep their natural width - forcing them
@@ -532,40 +533,40 @@ export function BallotStrip({ question: questionProp }: Props) {
 					    to hold it. An ungrouped ballot is one captionless run, which
 					    collapses to a single full-width cluster: the plain wrapping
 					    row it has always been. */}
-					<div
-						className={css({
-							display: "grid",
-							gridTemplateColumns: "repeat(auto-fit, minmax(11rem, 1fr))",
-							columnGap: "4",
-							rowGap: "3",
-							alignItems: "start",
-						})}
-					>
-						{runs.map((run) => (
-							<VStack
-								key={run.section ?? "ungrouped"}
-								gap="1"
-								alignItems="stretch"
-							>
-								{run.section && (
-									<span className={sectionCaptionClass}>{run.section}</span>
-								)}
-								<HStack gap="1.5" flexWrap="wrap">
-									{run.entries.map(({ member, index }) => (
-										<BallotChip
-											key={member.id}
-											member={member}
-											index={index}
-											state={states[index]}
-											isCurrent={index === currentIndex}
-										/>
-									))}
-								</HStack>
-							</VStack>
-						))}
-					</div>
+						<div
+							className={css({
+								display: "grid",
+								gridTemplateColumns: "repeat(auto-fit, minmax(11rem, 1fr))",
+								columnGap: "4",
+								rowGap: "3",
+								alignItems: "start",
+							})}
+						>
+							{runs.map((run) => (
+								<VStack
+									key={run.section ?? "ungrouped"}
+									gap="1"
+									alignItems="stretch"
+								>
+									{run.section && (
+										<span className={sectionCaptionClass}>{run.section}</span>
+									)}
+									<HStack gap="1.5" flexWrap="wrap">
+										{run.entries.map(({ member, index }) => (
+											<BallotChip
+												key={member.id}
+												member={member}
+												index={index}
+												state={states[index]}
+												isCurrent={index === currentIndex}
+											/>
+										))}
+									</HStack>
+								</VStack>
+							))}
+						</div>
 
-					{/* Named for what the rows are read for - call state,
+						{/* Named for what the rows are read for - call state,
 					    correctness, points - rather than for what the list contains,
 					    which the chip grid above already shows. The count stays
 					    alongside it: how big this ballot is is worth knowing before
@@ -575,255 +576,255 @@ export function BallotStrip({ question: questionProp }: Props) {
 					    header's chevron collapses the whole strip, and two chevrons
 					    side by side doing different things is exactly what made that
 					    row confusing. */}
-					<button
-						type="button"
-						onClick={() => setExpanded((v) => !v)}
-						aria-expanded={expanded}
-						className={cx(
-							stripCountClass,
-							css({
-								display: "flex",
-								alignItems: "center",
-								gap: "1.5",
-								alignSelf: "flex-start",
-								letterSpacing: "wide",
-								textTransform: "uppercase",
-								minHeight: { base: "44px", sm: "0" },
-								cursor: "pointer",
-								_hover: { color: "fg.default" },
-							}),
-						)}
-					>
-						scorecard · {members.length}
-						<FaChevronDown
-							size={9}
-							className={css({
-								transition: "transform 0.15s ease",
-								transform: expanded ? "rotate(180deg)" : undefined,
-							})}
-						/>
-					</button>
-
-					{expanded && (
-						<VStack
-							gap="0"
-							alignItems="stretch"
-							className={css({
-								maxHeight: "56",
-								overflowY: "auto",
-								borderTop: "1px solid {colors.border.default}",
-								borderBottom: "1px solid {colors.border.default}",
-								paddingBlock: "1",
-							})}
+						<button
+							type="button"
+							onClick={() => setExpanded((v) => !v)}
+							aria-expanded={expanded}
+							className={cx(
+								stripCountClass,
+								css({
+									display: "flex",
+									alignItems: "center",
+									gap: "1.5",
+									alignSelf: "flex-start",
+									letterSpacing: "wide",
+									textTransform: "uppercase",
+									minHeight: { base: "44px", sm: "0" },
+									cursor: "pointer",
+									_hover: { color: "fg.default" },
+								}),
+							)}
 						>
-							{members.map((member, i) => {
-								const points = member.question.viewerCall?.totalPoints ?? null
-								const isCurrent = i === currentIndex
-								// Same run boundaries the chip grid above breaks its lines
-								// on, drawn here as a heading instead - the list is
-								// scrollable and a title alone ("Guess the Boston Celtics'
-								// win total") doesn't say which division it sits in.
-								const startsSection =
-									member.section && member.section !== members[i - 1]?.section
-								return (
-									<Fragment key={member.id}>
-										{startsSection && (
-											<span
-												className={cx(
-													sectionHeadingClass,
-													css({
-														paddingInline: "2",
-														paddingTop: "2",
-														paddingBottom: "1",
-													}),
-												)}
-											>
-												{member.section}
-											</span>
-										)}
-									<Link
-										to="/questions/$questionId/{-$slug}"
-										params={{
-											questionId: member.question.id,
-											slug: buildQuestionSlug(member.question.title),
-										}}
-										className={css({
-											display: "flex",
-											alignItems: "center",
-											gap: "2.5",
-											width: "full",
-											textAlign: "left",
-											borderRadius: "md",
-											paddingBlock: "1.5",
-											paddingInline: "2",
-											backgroundColor: isCurrent ? "bg.subtle" : undefined,
-											_hover: { backgroundColor: "bg.subtle" },
-										})}
-									>
-										<span
-											className={css({
-												fontFamily: "mono",
-												fontSize: "2xs",
-												color: "fg.subtle",
-												width: "4",
-												flexShrink: "0",
-												textAlign: "right",
-											})}
-										>
-											{i + 1}
-										</span>
-										<MemberStateIcon state={states[i]} />
-										<span
-											className={css({
-												fontSize: "xs",
-												color: isCurrent ? "fg.default" : "fg.subtle",
-												fontWeight: isCurrent ? "medium" : undefined,
-												opacity: states[i] === "missed" ? 0.55 : undefined,
-												flex: "1",
-												minWidth: "0",
-												overflow: "hidden",
-												textOverflow: "ellipsis",
-												whiteSpace: "nowrap",
-											})}
-										>
-											{member.question.title}
-										</span>
-										{points !== null ? (
-											<span
-												className={cx(
-													listSlotClass,
-													css({
-														color:
-															points >= 0
-																? "success.default"
-																: "danger.default",
-													}),
-												)}
-											>
-												{points >= 0 ? "+" : "−"}
-												{Math.abs(points)}
-											</span>
-										) : (
-											<span className={listSlotClass}>{member.slot}</span>
-										)}
-									</Link>
-									</Fragment>
-								)
-							})}
-						</VStack>
-					)}
+							scorecard · {members.length}
+							<FaChevronDown
+								size={9}
+								className={css({
+									transition: "transform 0.15s ease",
+									transform: expanded ? "rotate(180deg)" : undefined,
+								})}
+							/>
+						</button>
 
-					<HStack gap="2" alignItems="stretch">
-						{prev ? (
-							<Link
-								to="/questions/$questionId/{-$slug}"
-								params={{
-									questionId: prev.question.id,
-									slug: buildQuestionSlug(prev.question.title),
-								}}
-								className={cx(navBoxClass, navBoxLinkClass)}
+						{expanded && (
+							<VStack
+								gap="0"
+								alignItems="stretch"
+								className={css({
+									maxHeight: "56",
+									overflowY: "auto",
+									borderTop: "1px solid {colors.border.default}",
+									borderBottom: "1px solid {colors.border.default}",
+									paddingBlock: "1",
+								})}
 							>
-								<FiChevronLeft className={navArrowClass} />
-								<span className={navTextClass}>
-									{prev.slot && (
-										<span className={navSlotClass}>{prev.slot}</span>
-									)}
-									<span className={navLabelClass}>{prev.label}</span>
-								</span>
-							</Link>
-						) : (
-							<div className={cx(navBoxClass, navBoxEmptyClass)}>
-								<span className={emptyNavTextClass}>start of ballot</span>
-							</div>
+								{members.map((member, i) => {
+									const points = member.question.viewerCall?.totalPoints ?? null
+									const isCurrent = i === currentIndex
+									// Same run boundaries the chip grid above breaks its lines
+									// on, drawn here as a heading instead - the list is
+									// scrollable and a title alone ("Boston Celtics' win
+									// total") doesn't say which division it sits in.
+									const startsSection =
+										member.section && member.section !== members[i - 1]?.section
+									return (
+										<Fragment key={member.id}>
+											{startsSection && (
+												<span
+													className={cx(
+														sectionHeadingClass,
+														css({
+															paddingInline: "2",
+															paddingTop: "2",
+															paddingBottom: "1",
+														}),
+													)}
+												>
+													{member.section}
+												</span>
+											)}
+											<Link
+												to="/questions/$questionId/{-$slug}"
+												params={{
+													questionId: member.question.id,
+													slug: buildQuestionSlug(member.question.title),
+												}}
+												className={css({
+													display: "flex",
+													alignItems: "center",
+													gap: "2.5",
+													width: "full",
+													textAlign: "left",
+													borderRadius: "md",
+													paddingBlock: "1.5",
+													paddingInline: "2",
+													backgroundColor: isCurrent ? "bg.subtle" : undefined,
+													_hover: { backgroundColor: "bg.subtle" },
+												})}
+											>
+												<span
+													className={css({
+														fontFamily: "mono",
+														fontSize: "2xs",
+														color: "fg.subtle",
+														width: "4",
+														flexShrink: "0",
+														textAlign: "right",
+													})}
+												>
+													{i + 1}
+												</span>
+												<MemberStateIcon state={states[i]} />
+												<span
+													className={css({
+														fontSize: "xs",
+														color: isCurrent ? "fg.default" : "fg.subtle",
+														fontWeight: isCurrent ? "medium" : undefined,
+														opacity: states[i] === "missed" ? 0.55 : undefined,
+														flex: "1",
+														minWidth: "0",
+														overflow: "hidden",
+														textOverflow: "ellipsis",
+														whiteSpace: "nowrap",
+													})}
+												>
+													{member.question.title}
+												</span>
+												{points !== null ? (
+													<span
+														className={cx(
+															listSlotClass,
+															css({
+																color:
+																	points >= 0
+																		? "success.default"
+																		: "danger.default",
+															}),
+														)}
+													>
+														{points >= 0 ? "+" : "−"}
+														{Math.abs(points)}
+													</span>
+												) : (
+													<span className={listSlotClass}>{member.slot}</span>
+												)}
+											</Link>
+										</Fragment>
+									)
+								})}
+							</VStack>
 						)}
-						{next ? (
-							<Link
-								to="/questions/$questionId/{-$slug}"
-								params={{
-									questionId: next.question.id,
-									slug: buildQuestionSlug(next.question.title),
-								}}
-								className={cx(
-									navBoxClass,
-									navBoxLinkClass,
-									css({ justifyContent: "flex-end", textAlign: "right" }),
-								)}
-							>
-								<span className={navTextClass}>
-									{next.slot && (
-										<span className={navSlotClass}>{next.slot}</span>
-									)}
-									<span className={navLabelClass}>{next.label}</span>
-								</span>
-								<FiChevronRight className={navArrowClass} />
-							</Link>
-						) : (
-							<div className={cx(navBoxClass, navBoxEmptyClass)}>
-								<span className={emptyNavTextClass}>end of ballot</span>
-							</div>
-						)}
-					</HStack>
 
-					<HStack justify="space-between" alignItems="baseline" gap="2">
-						<span
-							className={css({
-								fontFamily: "mono",
-								fontSize: "2xs",
-								color: "fg.subtle",
-							})}
-						>
-							{resolvedCount > 0
-								? `${wonCount} of ${resolvedCount} right${
-										pendingCount > 0 ? ` · ${pendingCount} pending` : ""
-									}`
-								: `${calledCount} of ${members.length} called`}
-						</span>
-						{resolvedCount > 0 && (
+						<HStack gap="2" alignItems="stretch">
+							{prev ? (
+								<Link
+									to="/questions/$questionId/{-$slug}"
+									params={{
+										questionId: prev.question.id,
+										slug: buildQuestionSlug(prev.question.title),
+									}}
+									className={cx(navBoxClass, navBoxLinkClass)}
+								>
+									<FiChevronLeft className={navArrowClass} />
+									<span className={navTextClass}>
+										{prev.slot && (
+											<span className={navSlotClass}>{prev.slot}</span>
+										)}
+										<span className={navLabelClass}>{prev.label}</span>
+									</span>
+								</Link>
+							) : (
+								<div className={cx(navBoxClass, navBoxEmptyClass)}>
+									<span className={emptyNavTextClass}>start of ballot</span>
+								</div>
+							)}
+							{next ? (
+								<Link
+									to="/questions/$questionId/{-$slug}"
+									params={{
+										questionId: next.question.id,
+										slug: buildQuestionSlug(next.question.title),
+									}}
+									className={cx(
+										navBoxClass,
+										navBoxLinkClass,
+										css({ justifyContent: "flex-end", textAlign: "right" }),
+									)}
+								>
+									<span className={navTextClass}>
+										{next.slot && (
+											<span className={navSlotClass}>{next.slot}</span>
+										)}
+										<span className={navLabelClass}>{next.label}</span>
+									</span>
+									<FiChevronRight className={navArrowClass} />
+								</Link>
+							) : (
+								<div className={cx(navBoxClass, navBoxEmptyClass)}>
+									<span className={emptyNavTextClass}>end of ballot</span>
+								</div>
+							)}
+						</HStack>
+
+						<HStack justify="space-between" alignItems="baseline" gap="2">
 							<span
 								className={css({
 									fontFamily: "mono",
-									fontSize: "xs",
-									fontWeight: "bold",
-									color:
-										totalPoints >= 0 ? "success.default" : "danger.default",
+									fontSize: "2xs",
+									color: "fg.subtle",
 								})}
 							>
-								{totalPoints >= 0 ? "+" : "−"}
-								{Math.abs(totalPoints)}
+								{resolvedCount > 0
+									? `${wonCount} of ${resolvedCount} right${
+											pendingCount > 0 ? ` · ${pendingCount} pending` : ""
+										}`
+									: `${calledCount} of ${members.length} called`}
 							</span>
-						)}
-					</HStack>
+							{resolvedCount > 0 && (
+								<span
+									className={css({
+										fontFamily: "mono",
+										fontSize: "xs",
+										fontWeight: "bold",
+										color:
+											totalPoints >= 0 ? "success.default" : "danger.default",
+									})}
+								>
+									{totalPoints >= 0 ? "+" : "−"}
+									{Math.abs(totalPoints)}
+								</span>
+							)}
+						</HStack>
 
-					{nextUnanswered && (
-						<Link
-							to="/questions/$questionId/{-$slug}"
-							params={{
-								questionId: nextUnanswered.question.id,
-								slug: buildQuestionSlug(nextUnanswered.question.title),
-							}}
-							className={css({
-								display: "flex",
-								alignItems: "center",
-								justifyContent: "center",
-								gap: "1.5",
-								width: "full",
-								backgroundColor: "bg.subtle",
-								border: "1px solid {colors.border.default}",
-								borderRadius: "lg",
-								paddingBlock: "2.5",
-								fontFamily: "mono",
-								fontSize: "2xs",
-								letterSpacing: "wide",
-								color: "primary.default",
-								_hover: { borderColor: "primary.default" },
-							})}
-						>
-							<span className={css({ textTransform: "uppercase" })}>
-								next unanswered: {nextUnanswered.slot || nextUnanswered.label}
-							</span>
-							<FiChevronRight />
-						</Link>
-					)}
+						{nextUnanswered && (
+							<Link
+								to="/questions/$questionId/{-$slug}"
+								params={{
+									questionId: nextUnanswered.question.id,
+									slug: buildQuestionSlug(nextUnanswered.question.title),
+								}}
+								className={css({
+									display: "flex",
+									alignItems: "center",
+									justifyContent: "center",
+									gap: "1.5",
+									width: "full",
+									backgroundColor: "bg.subtle",
+									border: "1px solid {colors.border.default}",
+									borderRadius: "lg",
+									paddingBlock: "2.5",
+									fontFamily: "mono",
+									fontSize: "2xs",
+									letterSpacing: "wide",
+									color: "primary.default",
+									_hover: { borderColor: "primary.default" },
+								})}
+							>
+								<span className={css({ textTransform: "uppercase" })}>
+									next unanswered: {nextUnanswered.slot || nextUnanswered.label}
+								</span>
+								<FiChevronRight />
+							</Link>
+						)}
 					</div>
 				</VStack>
 			</Card.Body>
