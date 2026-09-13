@@ -1,5 +1,9 @@
-import { createQuestionSchema } from "@called-my-shot/schemas"
-import { isNumericGuessShape } from "@called-my-shot/scoring"
+import {
+	autoResolutionSource,
+	createQuestionSchema,
+	resolutionModeFor,
+} from "@called-my-shot/schemas"
+import { isNumericGuessShape, isSeasonLongShape } from "@called-my-shot/scoring"
 import { eq, sql } from "drizzle-orm"
 import { match } from "ts-pattern"
 import { db } from "../../../../db"
@@ -427,6 +431,33 @@ builder.mutationFields((t) => ({
 				)
 			}
 
+			// A system question settles from ESPN, so there's no source for the
+			// creator to name and ESPN's is stored instead - see resolutionModeFor.
+			const league = await db.query.leagues.findFirst({
+				where: { id: data.leagueId },
+				columns: { slug: true },
+			})
+			if (!league) throw ValidationError.field("leagueId", "League not found")
+			const resolutionMode = resolutionModeFor({
+				shape: data.shape,
+				leagueSlug: league.slug,
+				statName: stat?.name,
+				customStat: data.customStat,
+				statAggregation: data.statAggregation,
+				awardName: data.awardName,
+				awardVerb: data.awardVerb,
+				picksRequired: data.picksRequired,
+				awardConferences: data.awardConferences,
+				awardDivisions: data.awardDivisions,
+			})
+			if (resolutionMode === "manual" && !data.resolutionSource) {
+				throw ValidationError.field(
+					"resolutionSource",
+					"Say where you'll check this",
+				)
+			}
+			const isSystem = resolutionMode === "system"
+
 			const question = await db.transaction(async (tx) => {
 				const [question] = await tx
 					.insert(questions)
@@ -439,8 +470,19 @@ builder.mutationFields((t) => ({
 						leagueId: data.leagueId,
 						gameId: data.gameId ?? null,
 						seasonId,
-						resolutionSource: data.resolutionSource,
-						resolutionSourceUrl: data.resolutionSourceUrl || null,
+						resolutionMode,
+						resolutionSource: isSystem
+							? autoResolutionSource(
+									data.shape === "team_season_award"
+										? "postseason"
+										: isSeasonLongShape(data.shape)
+											? "season"
+											: "game",
+								)
+							: data.resolutionSource,
+						resolutionSourceUrl: isSystem
+							? null
+							: data.resolutionSourceUrl || null,
 						locksAt: game?.startsAt ?? new Date(data.locksAt),
 						statId: data.statId ?? null,
 						customStat: data.customStat || null,

@@ -13,6 +13,9 @@ describe("questionPhase", () => {
 		expect(questionPhase({ status: "DISPUTED", locksAt: past }, now)).toBe(
 			"disputed",
 		)
+		expect(questionPhase({ status: "VOIDED", locksAt: past }, now)).toBe(
+			"voided",
+		)
 	})
 
 	it("locks an open question once locksAt passes, even if status never flipped", () => {
@@ -26,28 +29,46 @@ describe("questionPhase", () => {
 
 describe("questionDetailState", () => {
 	it("derives every flag from the phase", () => {
-		expect(questionDetailState({ status: "OPEN", locksAt: future }, now)).toEqual(
-			{
-				phase: "open",
-				isSettled: false,
-				isDisputed: false,
-				isLocked: false,
-				canCall: true,
-			},
-		)
-		expect(questionDetailState({ status: "OPEN", locksAt: past }, now)).toEqual({
-			phase: "locked",
+		expect(
+			questionDetailState({ status: "OPEN", locksAt: future }, now),
+		).toEqual({
+			phase: "open",
 			isSettled: false,
 			isDisputed: false,
-			isLocked: true,
-			canCall: false,
+			isVoided: false,
+			isLocked: false,
+			canCall: true,
 		})
+		expect(questionDetailState({ status: "OPEN", locksAt: past }, now)).toEqual(
+			{
+				phase: "locked",
+				isSettled: false,
+				isDisputed: false,
+				isVoided: false,
+				isLocked: true,
+				canCall: false,
+			},
+		)
 		expect(
 			questionDetailState({ status: "DISPUTED", locksAt: past }, now),
 		).toEqual({
 			phase: "disputed",
 			isSettled: true,
 			isDisputed: true,
+			isVoided: false,
+			isLocked: false,
+			canCall: false,
+		})
+	})
+
+	it("treats a voided question as final but not settled with a result", () => {
+		expect(
+			questionDetailState({ status: "VOIDED", locksAt: past }, now),
+		).toEqual({
+			phase: "voided",
+			isSettled: false,
+			isDisputed: false,
+			isVoided: true,
 			isLocked: false,
 			canCall: false,
 		})

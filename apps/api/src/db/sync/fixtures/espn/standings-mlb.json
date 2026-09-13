@@ -1,0 +1,706 @@
+{
+ "children": [
+  {
+   "standings": {
+    "entries": [
+     {
+      "team": {
+       "id": "30"
+      },
+      "stats": [
+       {
+        "name": "gamesPlayed",
+        "value": 148.0
+       },
+       {
+        "name": "losses",
+        "value": 59.0
+       },
+       {
+        "name": "ties",
+        "value": 0.0
+       },
+       {
+        "name": "wins",
+        "value": 89.0
+       }
+      ]
+     },
+     {
+      "team": {
+       "id": "11"
+      },
+      "stats": [
+       {
+        "name": "gamesPlayed",
+        "value": 148.0
+       },
+       {
+        "name": "losses",
+        "value": 88.0
+       },
+       {
+        "name": "ties",
+        "value": 0.0
+       },
+       {
+        "name": "wins",
+        "value": 60.0
+       }
+      ]
+     },
+     {
+      "team": {
+       "id": "3"
+      },
+      "stats": [
+       {
+        "name": "gamesPlayed",
+        "value": 148.0
+       },
+       {
+        "name": "losses",
+        "value": 92.0
+       },
+       {
+        "name": "ties",
+        "value": 0.0
+       },
+       {
+        "name": "wins",
+        "value": 56.0
+       }
+      ]
+     },
+     {
+      "team": {
+       "id": "10"
+      },
+      "stats": [
+       {
+        "name": "gamesPlayed",
+        "value": 148.0
+       },
+       {
+        "name": "losses",
+        "value": 63.0
+       },
+       {
+        "name": "ties",
+        "value": 0.0
+       },
+       {
+        "name": "wins",
+        "value": 85.0
+       }
+      ]
+     },
+     {
+      "team": {
+       "id": "2"
+      },
+      "stats": [
+       {
+        "name": "gamesPlayed",
+        "value": 149.0
+       },
+       {
+        "name": "losses",
+        "value": 68.0
+       },
+       {
+        "name": "ties",
+        "value": 0.0
+       },
+       {
+        "name": "wins",
+        "value": 81.0
+       }
+      ]
+     },
+     {
+      "team": {
+       "id": "4"
+      },
+      "stats": [
+       {
+        "name": "gamesPlayed",
+        "value": 148.0
+       },
+       {
+        "name": "losses",
+        "value": 72.0
+       },
+       {
+        "name": "ties",
+        "value": 0.0
+       },
+       {
+        "name": "wins",
+        "value": 76.0
+       }
+      ]
+     },
+     {
+      "team": {
+       "id": "18"
+      },
+      "stats": [
+       {
+        "name": "gamesPlayed",
+        "value": 149.0
+       },
+       {
+        "name": "losses",
+        "value": 74.0
+       },
+       {
+        "name": "ties",
+        "value": 0.0
+       },
+       {
+        "name": "wins",
+        "value": 75.0
+       }
+      ]
+     },
+     {
+      "team": {
+       "id": "5"
+      },
+      "stats": [
+       {
+        "name": "gamesPlayed",
+        "value": 149.0
+       },
+       {
+        "name": "losses",
+        "value": 74.0
+       },
+       {
+        "name": "ties",
+        "value": 0.0
+       },
+       {
+        "name": "wins",
+        "value": 75.0
+       }
+      ]
+     },
+     {
+      "team": {
+       "id": "14"
+      },
+      "stats": [
+       {
+        "name": "gamesPlayed",
+        "value": 149.0
+       },
+       {
+        "name": "losses",
+        "value": 75.0
+       },
+       {
+        "name": "ties",
+        "value": 0.0
+       },
+       {
+        "name": "wins",
+        "value": 74.0
+       }
+      ]
+     },
+     {
+      "team": {
+       "id": "13"
+      },
+      "stats": [
+       {
+        "name": "gamesPlayed",
+        "value": 149.0
+       },
+       {
+        "name": "losses",
+        "value": 76.0
+       },
+       {
+        "name": "ties",
+        "value": 0.0
+       },
+       {
+        "name": "wins",
+        "value": 73.0
+       }
+      ]
+     },
+     {
+      "team": {
+       "id": "1"
+      },
+      "stats": [
+       {
+        "name": "gamesPlayed",
+        "value": 149.0
+       },
+       {
+        "name": "losses",
+        "value": 77.0
+       },
+       {
+        "name": "ties",
+        "value": 0.0
+       },
+       {
+        "name": "wins",
+        "value": 72.0
+       }
+      ]
+     },
+     {
+      "team": {
+       "id": "9"
+      },
+      "stats": [
+       {
+        "name": "gamesPlayed",
+        "value": 148.0
+       },
+       {
+        "name": "losses",
+        "value": 78.0
+       },
+       {
+        "name": "ties",
+        "value": 0.0
+       },
+       {
+        "name": "wins",
+        "value": 70.0
+       }
+      ]
+     },
+     {
+      "team": {
+       "id": "6"
+      },
+      "stats": [
+       {
+        "name": "gamesPlayed",
+        "value": 148.0
+       },
+       {
+        "name": "losses",
+        "value": 79.0
+       },
+       {
+        "name": "ties",
+        "value": 0.0
+       },
+       {
+        "name": "wins",
+        "value": 69.0
+       }
+      ]
+     },
+     {
+      "team": {
+       "id": "12"
+      },
+      "stats": [
+       {
+        "name": "gamesPlayed",
+        "value": 148.0
+       },
+       {
+        "name": "losses",
+        "value": 79.0
+       },
+       {
+        "name": "ties",
+        "value": 0.0
+       },
+       {
+        "name": "wins",
+        "value": 69.0
+       }
+      ]
+     },
+     {
+      "team": {
+       "id": "7"
+      },
+      "stats": [
+       {
+        "name": "gamesPlayed",
+        "value": 149.0
+       },
+       {
+        "name": "losses",
+        "value": 83.0
+       },
+       {
+        "name": "ties",
+        "value": 0.0
+       },
+       {
+        "name": "wins",
+        "value": 66.0
+       }
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "standings": {
+    "entries": [
+     {
+      "team": {
+       "id": "8"
+      },
+      "stats": [
+       {
+        "name": "gamesPlayed",
+        "value": 149.0
+       },
+       {
+        "name": "losses",
+        "value": 56.0
+       },
+       {
+        "name": "ties",
+        "value": 0.0
+       },
+       {
+        "name": "wins",
+        "value": 93.0
+       }
+      ]
+     },
+     {
+      "team": {
+       "id": "26"
+      },
+      "stats": [
+       {
+        "name": "gamesPlayed",
+        "value": 149.0
+       },
+       {
+        "name": "losses",
+        "value": 87.0
+       },
+       {
+        "name": "ties",
+        "value": 0.0
+       },
+       {
+        "name": "wins",
+        "value": 62.0
+       }
+      ]
+     },
+     {
+      "team": {
+       "id": "27"
+      },
+      "stats": [
+       {
+        "name": "gamesPlayed",
+        "value": 148.0
+       },
+       {
+        "name": "losses",
+        "value": 93.0
+       },
+       {
+        "name": "ties",
+        "value": 0.0
+       },
+       {
+        "name": "wins",
+        "value": 55.0
+       }
+      ]
+     },
+     {
+      "team": {
+       "id": "19"
+      },
+      "stats": [
+       {
+        "name": "gamesPlayed",
+        "value": 148.0
+       },
+       {
+        "name": "losses",
+        "value": 58.0
+       },
+       {
+        "name": "ties",
+        "value": 0.0
+       },
+       {
+        "name": "wins",
+        "value": 90.0
+       }
+      ]
+     },
+     {
+      "team": {
+       "id": "15"
+      },
+      "stats": [
+       {
+        "name": "gamesPlayed",
+        "value": 149.0
+       },
+       {
+        "name": "losses",
+        "value": 61.0
+       },
+       {
+        "name": "ties",
+        "value": 0.0
+       },
+       {
+        "name": "wins",
+        "value": 88.0
+       }
+      ]
+     },
+     {
+      "team": {
+       "id": "16"
+      },
+      "stats": [
+       {
+        "name": "gamesPlayed",
+        "value": 149.0
+       },
+       {
+        "name": "losses",
+        "value": 66.0
+       },
+       {
+        "name": "ties",
+        "value": 0.0
+       },
+       {
+        "name": "wins",
+        "value": 83.0
+       }
+      ]
+     },
+     {
+      "team": {
+       "id": "22"
+      },
+      "stats": [
+       {
+        "name": "gamesPlayed",
+        "value": 149.0
+       },
+       {
+        "name": "losses",
+        "value": 67.0
+       },
+       {
+        "name": "ties",
+        "value": 0.0
+       },
+       {
+        "name": "wins",
+        "value": 82.0
+       }
+      ]
+     },
+     {
+      "team": {
+       "id": "25"
+      },
+      "stats": [
+       {
+        "name": "gamesPlayed",
+        "value": 148.0
+       },
+       {
+        "name": "losses",
+        "value": 68.0
+       },
+       {
+        "name": "ties",
+        "value": 0.0
+       },
+       {
+        "name": "wins",
+        "value": 80.0
+       }
+      ]
+     },
+     {
+      "team": {
+       "id": "29"
+      },
+      "stats": [
+       {
+        "name": "gamesPlayed",
+        "value": 149.0
+       },
+       {
+        "name": "losses",
+        "value": 70.0
+       },
+       {
+        "name": "ties",
+        "value": 0.0
+       },
+       {
+        "name": "wins",
+        "value": 79.0
+       }
+      ]
+     },
+     {
+      "team": {
+       "id": "23"
+      },
+      "stats": [
+       {
+        "name": "gamesPlayed",
+        "value": 149.0
+       },
+       {
+        "name": "losses",
+        "value": 75.0
+       },
+       {
+        "name": "ties",
+        "value": 0.0
+       },
+       {
+        "name": "wins",
+        "value": 74.0
+       }
+      ]
+     },
+     {
+      "team": {
+       "id": "28"
+      },
+      "stats": [
+       {
+        "name": "gamesPlayed",
+        "value": 149.0
+       },
+       {
+        "name": "losses",
+        "value": 76.0
+       },
+       {
+        "name": "ties",
+        "value": 0.0
+       },
+       {
+        "name": "wins",
+        "value": 73.0
+       }
+      ]
+     },
+     {
+      "team": {
+       "id": "24"
+      },
+      "stats": [
+       {
+        "name": "gamesPlayed",
+        "value": 149.0
+       },
+       {
+        "name": "losses",
+        "value": 76.0
+       },
+       {
+        "name": "ties",
+        "value": 0.0
+       },
+       {
+        "name": "wins",
+        "value": 73.0
+       }
+      ]
+     },
+     {
+      "team": {
+       "id": "17"
+      },
+      "stats": [
+       {
+        "name": "gamesPlayed",
+        "value": 148.0
+       },
+       {
+        "name": "losses",
+        "value": 79.0
+       },
+       {
+        "name": "ties",
+        "value": 0.0
+       },
+       {
+        "name": "wins",
+        "value": 69.0
+       }
+      ]
+     },
+     {
+      "team": {
+       "id": "21"
+      },
+      "stats": [
+       {
+        "name": "gamesPlayed",
+        "value": 148.0
+       },
+       {
+        "name": "losses",
+        "value": 79.0
+       },
+       {
+        "name": "ties",
+        "value": 0.0
+       },
+       {
+        "name": "wins",
+        "value": 69.0
+       }
+      ]
+     },
+     {
+      "team": {
+       "id": "20"
+      },
+      "stats": [
+       {
+        "name": "gamesPlayed",
+        "value": 150.0
+       },
+       {
+        "name": "losses",
+        "value": 81.0
+       },
+       {
+        "name": "ties",
+        "value": 0.0
+       },
+       {
+        "name": "wins",
+        "value": 69.0
+       }
+      ]
+     }
+    ]
+   }
+  }
+ ]
+}

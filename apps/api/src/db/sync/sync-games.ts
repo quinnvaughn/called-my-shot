@@ -1,8 +1,14 @@
-import { and, eq } from "drizzle-orm"
+import { and, eq, sql } from "drizzle-orm"
+import { RECHECK_DELAY_MS } from "../../lib/auto-resolve/apply"
 import { resolveQuestionInternal } from "../../lib/resolve-question"
 import { db } from "../index"
 import type { League } from "../schema"
-import { games, questions, teamRecords } from "../schema"
+import {
+	games,
+	questionAutoResolutions,
+	questions,
+	teamRecords,
+} from "../schema"
 import {
 	type EspnEvent,
 	type EspnEventStatus,
@@ -31,6 +37,13 @@ export function toGameStatus(
 	if (status.type.name === "STATUS_FINAL") return "final"
 	if (status.type.name === "STATUS_IN_PROGRESS") return "live"
 	return "scheduled"
+}
+
+// The games.finalizedAt value to write alongside a synced status. Keeps an
+// existing stamp rather than moving it, so it records the first sync that saw
+// the game final; clears it if ESPN ever takes the final back.
+export function finalizedAtFor(status: "scheduled" | "live" | "final") {
+	return status === "final" ? sql`coalesce(${games.finalizedAt}, now())` : null
 }
 
 // ESPN's record.displayValue is a plain "W-L" (most sports) or "W-L-T" (NFL,
@@ -90,6 +103,7 @@ export async function resolveGameWinner(
 	awayTeamId: string,
 	homeScore: number | null,
 	awayScore: number | null,
+	now: Date = new Date(),
 ): Promise<void> {
 	// A tie has no winning option to mark (team_vs_team has no tie option -
 	// see sync-game-questions.ts) - leave it for manual resolution rather
@@ -106,13 +120,11 @@ export async function resolveGameWinner(
 		)
 		.for("update")
 	// No question yet (outside syncGameQuestions' create window at the time,
-	// or a game predating that sync), or already handled (resolved by an
-	// admin by hand, or disputed) - never touch it once it's past "open"/
-	// "locked", same as every other resolution path in this app.
+	// or a game predating that sync), or already settled by some path - only
+	// an open or locked question is still waiting on a result.
 	if (
 		!question ||
-		question.status === "resolved" ||
-		question.status === "disputed"
+		(question.status !== "open" && question.status !== "locked")
 	) {
 		return
 	}
@@ -129,10 +141,32 @@ export async function resolveGameWinner(
 		return
 	}
 
-	await resolveQuestionInternal(tx, question, {
-		correctOptionIds: [winningOption.id],
-		resolutionNote: "Resolved automatically from ESPN's final score.",
-	})
+	await resolveQuestionInternal(
+		tx,
+		question,
+		{
+			correctOptionIds: [winningOption.id],
+			resolutionNote: "Resolved automatically from ESPN's final score.",
+		},
+		{ resolvedBy: { method: "system" } },
+	)
+	// ESPN can still correct a final score, so auto-resolve-games reads the box
+	// score once more after RECHECK_DELAY_MS, the same re-check every other
+	// automatic result gets.
+	const settled = {
+		attempts: 1,
+		lastAttemptAt: now,
+		settledAt: now,
+		recheckDueAt: new Date(now.getTime() + RECHECK_DELAY_MS),
+		evidence: { home: homeScore, away: awayScore },
+	}
+	await tx
+		.insert(questionAutoResolutions)
+		.values({ questionId: question.id, ...settled })
+		.onConflictDoUpdate({
+			target: questionAutoResolutions.questionId,
+			set: settled,
+		})
 	console.log(`[sync-games] resolved question ${question.id}`)
 }
 
@@ -202,6 +236,7 @@ async function syncEvent(
 				status,
 				homeScore,
 				awayScore,
+				finalizedAt: finalizedAtFor(status),
 			})
 			.where(eq(games.id, existingId))
 		if (status === "final") {
@@ -231,6 +266,7 @@ async function syncEvent(
 			status,
 			homeScore,
 			awayScore,
+			finalizedAt: status === "final" ? new Date() : null,
 		})
 		.returning()
 	if (!row)

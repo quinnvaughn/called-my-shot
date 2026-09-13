@@ -1,5 +1,8 @@
 import cron from "node-cron"
 import { lockOverdueQuestions } from "./db/lock-overdue-questions"
+import { autoResolveChampionships } from "./db/sync/auto-resolve-championships"
+import { autoResolveGames } from "./db/sync/auto-resolve-games"
+import { autoResolveSeasons } from "./db/sync/auto-resolve-seasons"
 import { syncSportsData } from "./db/sync/run"
 import { syncGameStarters } from "./db/sync/sync-game-starters"
 import { syncLiveScores } from "./db/sync/sync-live-scores"
@@ -52,6 +55,29 @@ export function startScheduler(): void {
 		runJob("sync-game-starters", () => syncGameStarters()),
 		{ name: "sync-game-starters", timezone: "UTC", noOverlap: true },
 	)
+	// Every 10m, but a game is only read once it has been final for
+	// SETTLE_DELAY_MS, and a question only again once its retry or its
+	// re-check comes due (see db/sync/auto-resolve-games.ts).
+	cron.schedule(
+		"*/10 * * * *",
+		runJob("auto-resolve-games", () => autoResolveGames()),
+		{ name: "auto-resolve-games", timezone: "UTC", noOverlap: true },
+	)
+	// Daily, after sync-sports-data has brought the season's games up to date.
+	// A season is only read once its regular season is over (see
+	// isSeasonResolutionDue), so most days this fetches nothing.
+	cron.schedule(
+		"30 10 * * *",
+		runJob("auto-resolve-seasons", () => autoResolveSeasons()),
+		{ name: "auto-resolve-seasons", timezone: "UTC", noOverlap: true },
+	)
+	// Daily. Reads nothing for a season whose postseason hasn't started, and
+	// settles each championship once ESPN shows its deciding round finished.
+	cron.schedule(
+		"45 10 * * *",
+		runJob("auto-resolve-championships", () => autoResolveChampionships()),
+		{ name: "auto-resolve-championships", timezone: "UTC", noOverlap: true },
+	)
 	// Every 5m, but each user's rows still have to clear the settling window
 	// inside the job (see SETTLE_MINUTES) - the frequency is how quickly a
 	// batch goes out once it's ripe, not how often anyone gets mailed.
@@ -88,6 +114,6 @@ export function startScheduler(): void {
 		{ name: DRAIN_SEASON_START_LOCK, timezone: "UTC", noOverlap: true },
 	)
 	console.log(
-		"[scheduler] started: sync-live-scores */5m, lock-overdue-questions */15m, sync-sports-data daily 09:00 UTC, sync-game-starters */30m, drain-email-digests */5m, enqueue-season-start-emails daily 13:00 UTC, drain-season-start-emails */5m",
+		"[scheduler] started: sync-live-scores */5m, lock-overdue-questions */15m, sync-sports-data daily 09:00 UTC, sync-game-starters */30m, auto-resolve-games */10m, auto-resolve-seasons daily 10:30 UTC, auto-resolve-championships daily 10:45 UTC, drain-email-digests */5m, enqueue-season-start-emails daily 13:00 UTC, drain-season-start-emails */5m",
 	)
 }

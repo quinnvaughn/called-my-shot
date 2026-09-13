@@ -1,0 +1,2541 @@
+{
+ "header": {
+  "competitions": [
+   {
+    "status": {
+     "type": {
+      "name": "STATUS_FINAL",
+      "completed": true
+     }
+    },
+    "boxscoreAvailable": true,
+    "boxscoreSource": "full",
+    "competitors": [
+     {
+      "id": "10",
+      "homeAway": "home",
+      "score": "10"
+     },
+     {
+      "id": "27",
+      "homeAway": "away",
+      "score": "3"
+     }
+    ]
+   }
+  ]
+ },
+ "boxscore": {
+  "players": [
+   {
+    "team": {
+     "id": "27"
+    },
+    "statistics": [
+     {
+      "keys": [
+       "hits-atBats",
+       "atBats",
+       "runs",
+       "hits",
+       "RBIs",
+       "homeRuns",
+       "walks",
+       "strikeouts",
+       "pitches",
+       "avg",
+       "onBasePct",
+       "slugAvg"
+      ],
+      "totals": [
+       "8-36",
+       "36",
+       "3",
+       "8",
+       "2",
+       "1",
+       "5",
+       "12",
+       "180",
+       "",
+       "",
+       ""
+      ],
+      "athletes": [
+       {
+        "athlete": {
+         "id": "41197"
+        },
+        "stats": [
+         "2-5",
+         "5",
+         "0",
+         "2",
+         "1",
+         "0",
+         "0",
+         "1",
+         "20",
+         ".293",
+         ".337",
+         ".483"
+        ]
+       },
+       {
+        "athlete": {
+         "id": "4417606"
+        },
+        "stats": [
+         "0-3",
+         "3",
+         "0",
+         "0",
+         "0",
+         "0",
+         "1",
+         "2",
+         "22",
+         ".225",
+         ".329",
+         ".361"
+        ]
+       },
+       {
+        "athlete": {
+         "id": "39112"
+        },
+        "stats": [
+         "1-1",
+         "1",
+         "0",
+         "1",
+         "0",
+         "0",
+         "0",
+         "0",
+         "2",
+         ".333",
+         ".333",
+         ".333"
+        ],
+        "notes": [
+         {
+          "type": "lineup",
+          "text": "b-Singled for Norby in the 9th."
+         }
+        ]
+       },
+       {
+        "athlete": {
+         "id": "4416591"
+        },
+        "stats": [
+         "0-5",
+         "5",
+         "0",
+         "0",
+         "0",
+         "0",
+         "0",
+         "1",
+         "14",
+         ".244",
+         ".310",
+         ".522"
+        ]
+       },
+       {
+        "athlete": {
+         "id": "5014349"
+        },
+        "stats": [
+         "0-4",
+         "4",
+         "0",
+         "0",
+         "0",
+         "0",
+         "1",
+         "1",
+         "21",
+         ".295",
+         ".388",
+         ".453"
+        ]
+       },
+       {
+        "athlete": {
+         "id": "5149102"
+        },
+        "stats": [
+         "1-3",
+         "3",
+         "0",
+         "1",
+         "0",
+         "0",
+         "0",
+         "2",
+         "19",
+         ".262",
+         ".337",
+         ".446"
+        ]
+       },
+       {
+        "athlete": {
+         "id": "4717903"
+        },
+        "stats": [
+         "0-1",
+         "1",
+         "1",
+         "0",
+         "0",
+         "0",
+         "1",
+         "1",
+         "10",
+         ".256",
+         ".360",
+         ".488"
+        ],
+        "notes": [
+         {
+          "type": "lineup",
+          "text": "a-Walked for Carrigg in the 8th."
+         }
+        ]
+       },
+       {
+        "athlete": {
+         "id": "5203102"
+        },
+        "stats": [
+         "1-4",
+         "4",
+         "1",
+         "1",
+         "1",
+         "1",
+         "0",
+         "3",
+         "16",
+         ".261",
+         ".355",
+         ".426"
+        ]
+       },
+       {
+        "athlete": {
+         "id": "4917787"
+        },
+        "stats": [
+         "1-4",
+         "4",
+         "0",
+         "1",
+         "0",
+         "0",
+         "0",
+         "1",
+         "21",
+         ".333",
+         ".400",
+         ".639"
+        ]
+       },
+       {
+        "athlete": {
+         "id": "4619460"
+        },
+        "stats": [
+         "0-3",
+         "3",
+         "0",
+         "0",
+         "0",
+         "0",
+         "1",
+         "0",
+         "16",
+         ".193",
+         ".250",
+         ".293"
+        ]
+       },
+       {
+        "athlete": {
+         "id": "4905919"
+        },
+        "stats": [
+         "2-3",
+         "3",
+         "1",
+         "2",
+         "0",
+         "0",
+         "1",
+         "0",
+         "19",
+         ".214",
+         ".261",
+         ".333"
+        ]
+       }
+      ],
+      "type": "batting"
+     },
+     {
+      "keys": [
+       "fullInnings.partInnings",
+       "hits",
+       "runs",
+       "earnedRuns",
+       "walks",
+       "strikeouts",
+       "homeRuns",
+       "pitches-strikes",
+       "ERA",
+       "pitches"
+      ],
+      "totals": [
+       "8.0",
+       "11",
+       "10",
+       "10",
+       "5",
+       "5",
+       "2",
+       "152-88",
+       "",
+       "152"
+      ],
+      "athletes": [
+       {
+        "athlete": {
+         "id": "4019484"
+        },
+        "stats": [
+         "5.0",
+         "6",
+         "4",
+         "4",
+         "1",
+         "2",
+         "1",
+         "83-52",
+         "5.88",
+         "83"
+        ],
+        "notes": [
+         {
+          "type": "pitchingDecision",
+          "text": "L, 5-10"
+         }
+        ]
+       },
+       {
+        "athlete": {
+         "id": "5207459"
+        },
+        "stats": [
+         "1.2",
+         "4",
+         "4",
+         "4",
+         "3",
+         "1",
+         "0",
+         "45-24",
+         "5.93",
+         "45"
+        ]
+       },
+       {
+        "athlete": {
+         "id": "36093"
+        },
+        "stats": [
+         "1.1",
+         "1",
+         "2",
+         "2",
+         "1",
+         "2",
+         "1",
+         "24-12",
+         "6.26",
+         "24"
+        ]
+       }
+      ],
+      "type": "pitching"
+     }
+    ]
+   },
+   {
+    "team": {
+     "id": "10"
+    },
+    "statistics": [
+     {
+      "keys": [
+       "hits-atBats",
+       "atBats",
+       "runs",
+       "hits",
+       "RBIs",
+       "homeRuns",
+       "walks",
+       "strikeouts",
+       "pitches",
+       "avg",
+       "onBasePct",
+       "slugAvg"
+      ],
+      "totals": [
+       "11-34",
+       "34",
+       "10",
+       "11",
+       "10",
+       "2",
+       "5",
+       "5",
+       "152",
+       "",
+       "",
+       ""
+      ],
+      "athletes": [
+       {
+        "athlete": {
+         "id": "5016968"
+        },
+        "stats": [
+         "1-5",
+         "5",
+         "1",
+         "1",
+         "0",
+         "0",
+         "0",
+         "1",
+         "16",
+         ".256",
+         ".351",
+         ".515"
+        ]
+       },
+       {
+        "athlete": {
+         "id": "33912"
+        },
+        "stats": [
+         "2-3",
+         "3",
+         "1",
+         "2",
+         "1",
+         "0",
+         "0",
+         "1",
+         "12",
+         ".266",
+         ".344",
+         ".424"
+        ]
+       },
+       {
+        "athlete": {
+         "id": "39642"
+        },
+        "stats": [
+         "0-1",
+         "1",
+         "0",
+         "0",
+         "0",
+         "0",
+         "0",
+         "0",
+         "3",
+         ".242",
+         ".302",
+         ".401"
+        ]
+       },
+       {
+        "athlete": {
+         "id": "42401"
+        },
+        "stats": [
+         "0-4",
+         "4",
+         "1",
+         "0",
+         "0",
+         "0",
+         "1",
+         "2",
+         "27",
+         ".225",
+         ".267",
+         ".368"
+        ]
+       },
+       {
+        "athlete": {
+         "id": "40459"
+        },
+        "stats": [
+         "1-5",
+         "5",
+         "1",
+         "1",
+         "2",
+         "1",
+         "0",
+         "0",
+         "14",
+         ".287",
+         ".319",
+         ".553"
+        ]
+       },
+       {
+        "athlete": {
+         "id": "4867424"
+        },
+        "stats": [
+         "3-4",
+         "4",
+         "1",
+         "3",
+         "2",
+         "0",
+         "0",
+         "0",
+         "11",
+         ".255",
+         ".333",
+         ".452"
+        ]
+       },
+       {
+        "athlete": {
+         "id": "5149070"
+        },
+        "stats": [
+         "0-4",
+         "4",
+         "0",
+         "0",
+         "0",
+         "0",
+         "0",
+         "1",
+         "10",
+         ".230",
+         ".288",
+         ".360"
+        ]
+       },
+       {
+        "athlete": {
+         "id": "33247"
+        },
+        "stats": [
+         "1-3",
+         "3",
+         "2",
+         "1",
+         "0",
+         "0",
+         "1",
+         "0",
+         "19",
+         ".214",
+         ".283",
+         ".358"
+        ]
+       },
+       {
+        "athlete": {
+         "id": "4683349"
+        },
+        "stats": [
+         "0-1",
+         "1",
+         "2",
+         "0",
+         "0",
+         "0",
+         "3",
+         "0",
+         "19",
+         ".181",
+         ".283",
+         ".303"
+        ]
+       },
+       {
+        "athlete": {
+         "id": "37537"
+        },
+        "stats": [
+         "0-0",
+         "0",
+         "0",
+         "0",
+         "0",
+         "0",
+         "0",
+         "0",
+         "0",
+         ".235",
+         ".264",
+         ".309"
+        ]
+       },
+       {
+        "athlete": {
+         "id": "42547"
+        },
+        "stats": [
+         "3-4",
+         "4",
+         "1",
+         "3",
+         "5",
+         "1",
+         "0",
+         "0",
+         "21",
+         ".251",
+         ".333",
+         ".349"
+        ]
+       }
+      ],
+      "type": "batting"
+     },
+     {
+      "keys": [
+       "fullInnings.partInnings",
+       "hits",
+       "runs",
+       "earnedRuns",
+       "walks",
+       "strikeouts",
+       "homeRuns",
+       "pitches-strikes",
+       "ERA",
+       "pitches"
+      ],
+      "totals": [
+       "9.0",
+       "8",
+       "3",
+       "2",
+       "5",
+       "12",
+       "1",
+       "180-114",
+       "",
+       "180"
+      ],
+      "athletes": [
+       {
+        "athlete": {
+         "id": "32685"
+        },
+        "stats": [
+         "3.1",
+         "1",
+         "1",
+         "1",
+         "2",
+         "7",
+         "1",
+         "80-48",
+         "2.73",
+         "80"
+        ]
+       },
+       {
+        "athlete": {
+         "id": "34842"
+        },
+        "stats": [
+         "0.2",
+         "0",
+         "0",
+         "0",
+         "0",
+         "1",
+         "0",
+         "9-7",
+         "1.86",
+         "9"
+        ]
+       },
+       {
+        "athlete": {
+         "id": "39949"
+        },
+        "stats": [
+         "1.1",
+         "1",
+         "0",
+         "0",
+         "0",
+         "1",
+         "0",
+         "13-10",
+         "3.27",
+         "13"
+        ],
+        "notes": [
+         {
+          "type": "pitchingDecision",
+          "text": "W, 2-3"
+         }
+        ]
+       },
+       {
+        "athlete": {
+         "id": "33735"
+        },
+        "stats": [
+         "1.1",
+         "1",
+         "1",
+         "1",
+         "1",
+         "1",
+         "0",
+         "29-14",
+         "3.98",
+         "29"
+        ],
+        "notes": [
+         {
+          "type": "pitchingDecision",
+          "text": "H, 2"
+         }
+        ]
+       },
+       {
+        "athlete": {
+         "id": "5116839"
+        },
+        "stats": [
+         "0.1",
+         "1",
+         "0",
+         "0",
+         "1",
+         "0",
+         "0",
+         "8-4",
+         "1.86",
+         "8"
+        ],
+        "notes": [
+         {
+          "type": "pitchingDecision",
+          "text": "H, 27"
+         }
+        ]
+       },
+       {
+        "athlete": {
+         "id": "40626"
+        },
+        "stats": [
+         "2.0",
+         "4",
+         "1",
+         "0",
+         "1",
+         "2",
+         "0",
+         "41-31",
+         "5.40",
+         "41"
+        ]
+       }
+      ],
+      "type": "pitching"
+     }
+    ]
+   }
+  ],
+  "teams": [
+   {
+    "team": {
+     "id": "27"
+    },
+    "statistics": [
+     {
+      "name": "batting",
+      "stats": [
+       {
+        "name": "gamesPlayed",
+        "displayValue": "1",
+        "value": 1.0
+       },
+       {
+        "name": "teamGamesPlayed",
+        "displayValue": "1",
+        "value": 1.0
+       },
+       {
+        "name": "hitByPitch",
+        "displayValue": "0",
+        "value": 0.0
+       },
+       {
+        "name": "groundBalls",
+        "displayValue": "8",
+        "value": 8.0
+       },
+       {
+        "name": "strikeouts",
+        "displayValue": "12",
+        "value": 12.0
+       },
+       {
+        "name": "RBIs",
+        "displayValue": "2",
+        "value": 2.0
+       },
+       {
+        "name": "sacHits",
+        "displayValue": "0",
+        "value": 0.0
+       },
+       {
+        "name": "hits",
+        "displayValue": "8",
+        "value": 8.0
+       },
+       {
+        "name": "stolenBases",
+        "displayValue": "0",
+        "value": 0.0
+       },
+       {
+        "name": "walks",
+        "displayValue": "5",
+        "value": 5.0
+       },
+       {
+        "name": "catcherInterference",
+        "displayValue": "0",
+        "value": 0.0
+       },
+       {
+        "name": "runs",
+        "displayValue": "3",
+        "value": 3.0
+       },
+       {
+        "name": "GIDPs",
+        "displayValue": "0",
+        "value": 0.0
+       },
+       {
+        "name": "sacFlies",
+        "displayValue": "0",
+        "value": 0.0
+       },
+       {
+        "name": "atBats",
+        "displayValue": "36",
+        "value": 36.0
+       },
+       {
+        "name": "homeRuns",
+        "displayValue": "1",
+        "value": 1.0
+       },
+       {
+        "name": "grandSlamHomeRuns",
+        "displayValue": "0",
+        "value": 0.0
+       },
+       {
+        "name": "runnersLeftOnBase",
+        "displayValue": "24",
+        "value": 24.0
+       },
+       {
+        "name": "triples",
+        "displayValue": "1",
+        "value": 1.0
+       },
+       {
+        "name": "gameWinningRBIs",
+        "displayValue": "0",
+        "value": 0.0
+       },
+       {
+        "name": "intentionalWalks",
+        "displayValue": "0",
+        "value": 0.0
+       },
+       {
+        "name": "doubles",
+        "displayValue": "1",
+        "value": 1.0
+       },
+       {
+        "name": "flyBalls",
+        "displayValue": "16",
+        "value": 16.0
+       },
+       {
+        "name": "caughtStealing",
+        "displayValue": "0",
+        "value": 0.0
+       },
+       {
+        "name": "pitches",
+        "displayValue": "180",
+        "value": 180.0
+       },
+       {
+        "name": "gamesStarted",
+        "displayValue": "0",
+        "value": 0.0
+       },
+       {
+        "name": "pinchAtBats",
+        "displayValue": "1",
+        "value": 1.0
+       },
+       {
+        "name": "pinchHits",
+        "displayValue": "1",
+        "value": 1.0
+       },
+       {
+        "name": "playerRating",
+        "displayValue": "0.0",
+        "value": 0.0
+       },
+       {
+        "name": "isQualified",
+        "displayValue": "1",
+        "value": 1.0
+       },
+       {
+        "name": "isQualifiedSteals",
+        "displayValue": "0",
+        "value": 0.0
+       },
+       {
+        "name": "totalBases",
+        "displayValue": "14",
+        "value": 14.0
+       },
+       {
+        "name": "plateAppearances",
+        "displayValue": "41",
+        "value": 41.0
+       },
+       {
+        "name": "projectedHomeRuns",
+        "displayValue": "162.0",
+        "value": 162.0
+       },
+       {
+        "name": "extraBaseHits",
+        "displayValue": "3",
+        "value": 3.0
+       },
+       {
+        "name": "runsCreated",
+        "displayValue": "4.7",
+        "value": 4.743679
+       },
+       {
+        "name": "avg",
+        "displayValue": ".222",
+        "value": 0.22222222
+       },
+       {
+        "name": "pinchAvg",
+        "displayValue": "1.000",
+        "value": 1.0
+       },
+       {
+        "name": "slugAvg",
+        "displayValue": ".389",
+        "value": 0.3888889
+       },
+       {
+        "name": "secondaryAvg",
+        "displayValue": ".306",
+        "value": 0.30555555
+       },
+       {
+        "name": "onBasePct",
+        "displayValue": ".317",
+        "value": 0.31707317
+       },
+       {
+        "name": "OPS",
+        "displayValue": ".706",
+        "value": 0.70596206
+       },
+       {
+        "name": "groundToFlyRatio",
+        "displayValue": "0.5",
+        "value": 0.5
+       },
+       {
+        "name": "runsCreatedPer27Outs",
+        "displayValue": "4.6",
+        "value": 4.5742617
+       },
+       {
+        "name": "batterRating",
+        "displayValue": "25.5",
+        "value": 25.5
+       },
+       {
+        "name": "atBatsPerHomeRun",
+        "displayValue": "36.0",
+        "value": 36.0
+       },
+       {
+        "name": "stolenBasePct",
+        "displayValue": "0.00",
+        "value": 0.0
+       },
+       {
+        "name": "pitchesPerPlateAppearance",
+        "displayValue": "4.39",
+        "value": 4.390244
+       },
+       {
+        "name": "isolatedPower",
+        "displayValue": ".167",
+        "value": 0.16666667
+       },
+       {
+        "name": "walkToStrikeoutRatio",
+        "displayValue": "0.42",
+        "value": 0.41666666
+       },
+       {
+        "name": "walksPerPlateAppearance",
+        "displayValue": ".122",
+        "value": 0.12195122
+       },
+       {
+        "name": "secondaryAvgMinusBA",
+        "displayValue": ".083",
+        "value": 0.08333333
+       },
+       {
+        "name": "runsProduced",
+        "displayValue": "5.0",
+        "value": 5.0
+       },
+       {
+        "name": "runsRatio",
+        "displayValue": "0.7",
+        "value": 0.6666667
+       },
+       {
+        "name": "patienceRatio",
+        "displayValue": "0.5",
+        "value": 0.48373985
+       },
+       {
+        "name": "BIPA",
+        "displayValue": "0.3",
+        "value": 0.3043478
+       },
+       {
+        "name": "MLBRating",
+        "displayValue": "77.3",
+        "value": 77.25
+       },
+       {
+        "name": "offWARBR",
+        "displayValue": "0.0",
+        "value": 0.0
+       },
+       {
+        "name": "WARBR",
+        "displayValue": "0.0",
+        "value": 0.0
+       }
+      ]
+     },
+     {
+      "name": "pitching",
+      "stats": [
+       {
+        "name": "gamesPlayed",
+        "displayValue": "1",
+        "value": 1.0
+       },
+       {
+        "name": "teamGamesPlayed",
+        "displayValue": "1",
+        "value": 1.0
+       },
+       {
+        "name": "saves",
+        "displayValue": "0",
+        "value": 0.0
+       },
+       {
+        "name": "groundBalls",
+        "displayValue": "13",
+        "value": 13.0
+       },
+       {
+        "name": "strikeouts",
+        "displayValue": "5",
+        "value": 5.0
+       },
+       {
+        "name": "sacFlies",
+        "displayValue": "1",
+        "value": 1.0
+       },
+       {
+        "name": "losses",
+        "displayValue": "1",
+        "value": 1.0
+       },
+       {
+        "name": "hits",
+        "displayValue": "11",
+        "value": 11.0
+       },
+       {
+        "name": "earnedRuns",
+        "displayValue": "10",
+        "value": 10.0
+       },
+       {
+        "name": "battersHit",
+        "displayValue": "0",
+        "value": 0.0
+       },
+       {
+        "name": "walks",
+        "displayValue": "5",
+        "value": 5.0
+       },
+       {
+        "name": "runs",
+        "displayValue": "10",
+        "value": 10.0
+       },
+       {
+        "name": "stolenBases",
+        "displayValue": "3",
+        "value": 3.0
+       },
+       {
+        "name": "caughtStealing",
+        "displayValue": "0",
+        "value": 0.0
+       },
+       {
+        "name": "sacBunts",
+        "displayValue": "0",
+        "value": 0.0
+       },
+       {
+        "name": "saveOpportunities",
+        "displayValue": "0",
+        "value": 0.0
+       },
+       {
+        "name": "homeRuns",
+        "displayValue": "2",
+        "value": 2.0
+       },
+       {
+        "name": "triples",
+        "displayValue": "0",
+        "value": 0.0
+       },
+       {
+        "name": "finishes",
+        "displayValue": "1",
+        "value": 1.0
+       },
+       {
+        "name": "balks",
+        "displayValue": "0",
+        "value": 0.0
+       },
+       {
+        "name": "intentionalWalks",
+        "displayValue": "0",
+        "value": 0.0
+       },
+       {
+        "name": "flyBalls",
+        "displayValue": "17",
+        "value": 17.0
+       },
+       {
+        "name": "battersFaced",
+        "displayValue": "40",
+        "value": 40.0
+       },
+       {
+        "name": "holds",
+        "displayValue": "0",
+        "value": 0.0
+       },
+       {
+        "name": "doubles",
+        "displayValue": "2",
+        "value": 2.0
+       },
+       {
+        "name": "wins",
+        "displayValue": "0",
+        "value": 0.0
+       },
+       {
+        "name": "completeGames",
+        "displayValue": "0",
+        "value": 0.0
+       },
+       {
+        "name": "perfectGames",
+        "displayValue": "0",
+        "value": 0.0
+       },
+       {
+        "name": "wildPitches",
+        "displayValue": "1",
+        "value": 1.0
+       },
+       {
+        "name": "RBIs",
+        "displayValue": "10",
+        "value": 10.0
+       },
+       {
+        "name": "thirdInnings",
+        "displayValue": "24",
+        "value": 24.0
+       },
+       {
+        "name": "teamEarnedRuns",
+        "displayValue": "10",
+        "value": 10.0
+       },
+       {
+        "name": "shutouts",
+        "displayValue": "0",
+        "value": 0.0
+       },
+       {
+        "name": "pickoffAttempts",
+        "displayValue": "0",
+        "value": 0.0
+       },
+       {
+        "name": "pitches",
+        "displayValue": "152",
+        "value": 152.0
+       },
+       {
+        "name": "runSupport",
+        "displayValue": "3.0",
+        "value": 3.0
+       },
+       {
+        "name": "catcherInterference",
+        "displayValue": "0",
+        "value": 0.0
+       },
+       {
+        "name": "pitchesAsStarter",
+        "displayValue": "83",
+        "value": 83.0
+       },
+       {
+        "name": "gamesStarted",
+        "displayValue": "1",
+        "value": 1.0
+       },
+       {
+        "name": "avgGameScore",
+        "displayValue": "0.0",
+        "value": 0.0
+       },
+       {
+        "name": "qualityStarts",
+        "displayValue": "0",
+        "value": 0.0
+       },
+       {
+        "name": "inheritedRunners",
+        "displayValue": "2",
+        "value": 2.0
+       },
+       {
+        "name": "inheritedRunnersScored",
+        "displayValue": "2",
+        "value": 2.0
+       },
+       {
+        "name": "playerRating",
+        "displayValue": "0.0",
+        "value": 0.0
+       },
+       {
+        "name": "atBats",
+        "displayValue": "34",
+        "value": 34.0
+       },
+       {
+        "name": "opponentTotalBases",
+        "displayValue": "19",
+        "value": 19.0
+       },
+       {
+        "name": "isQualified",
+        "displayValue": "1",
+        "value": 1.0
+       },
+       {
+        "name": "isQualifiedSaves",
+        "displayValue": "0",
+        "value": 0.0
+       },
+       {
+        "name": "fullInnings",
+        "displayValue": "8",
+        "value": 8.0
+       },
+       {
+        "name": "partInnings",
+        "displayValue": "0",
+        "value": 0.0
+       },
+       {
+        "name": "blownSaves",
+        "displayValue": "0",
+        "value": 0.0
+       },
+       {
+        "name": "innings",
+        "displayValue": "8.0",
+        "value": 8.0
+       },
+       {
+        "name": "ERA",
+        "displayValue": "11.25",
+        "value": 11.25
+       },
+       {
+        "name": "WHIP",
+        "displayValue": "2.00",
+        "value": 2.0
+       },
+       {
+        "name": "winPct",
+        "displayValue": ".000",
+        "value": 0.0
+       },
+       {
+        "name": "caughtStealingPct",
+        "displayValue": "0.0",
+        "value": 0.0
+       },
+       {
+        "name": "groundToFlyRatio",
+        "displayValue": "0.8",
+        "value": 0.7647059
+       },
+       {
+        "name": "pitchesPerStart",
+        "displayValue": "83.0",
+        "value": 83.0
+       },
+       {
+        "name": "pitchesPerInning",
+        "displayValue": "19.0",
+        "value": 19.0
+       },
+       {
+        "name": "pitchesPerPlateAppearance",
+        "displayValue": "3.8",
+        "value": 3.8
+       },
+       {
+        "name": "runSupportAvg",
+        "displayValue": "3.4",
+        "value": 3.375
+       },
+       {
+        "name": "opponentAvg",
+        "displayValue": ".324",
+        "value": 0.32352942
+       },
+       {
+        "name": "opponentSlugAvg",
+        "displayValue": ".559",
+        "value": 0.5588235
+       },
+       {
+        "name": "opponentOnBasePct",
+        "displayValue": ".400",
+        "value": 0.4
+       },
+       {
+        "name": "opponentOPS",
+        "displayValue": ".959",
+        "value": 0.95882356
+       },
+       {
+        "name": "savePct",
+        "displayValue": "0.0",
+        "value": 0.0
+       },
+       {
+        "name": "strikeoutsPerNineInnings",
+        "displayValue": "5.6",
+        "value": 5.625
+       },
+       {
+        "name": "strikeoutToWalkRatio",
+        "displayValue": "1.0",
+        "value": 1.0
+       },
+       {
+        "name": "toughLosses",
+        "displayValue": "0",
+        "value": 0.0
+       },
+       {
+        "name": "cheapWins",
+        "displayValue": "0",
+        "value": 0.0
+       },
+       {
+        "name": "saveOpportunitiesPerWin",
+        "displayValue": "0.0",
+        "value": 0.0
+       },
+       {
+        "name": "BIPA",
+        "displayValue": "0.321",
+        "value": 0.32142857
+       },
+       {
+        "name": "totalBases",
+        "displayValue": "19.000",
+        "value": 19.0
+       },
+       {
+        "name": "pitchCount",
+        "displayValue": "152",
+        "value": 152.0
+       },
+       {
+        "name": "strikes",
+        "displayValue": "88",
+        "value": 88.0
+       },
+       {
+        "name": "strikePitchRatio",
+        "displayValue": "0.6",
+        "value": 0.57894737
+       },
+       {
+        "name": "WARBR",
+        "displayValue": "0.0",
+        "value": 0.0
+       }
+      ]
+     },
+     {
+      "name": "fielding",
+      "stats": [
+       {
+        "name": "gamesPlayed",
+        "displayValue": "1",
+        "value": 1.0
+       },
+       {
+        "name": "teamGamesPlayed",
+        "displayValue": "1",
+        "value": 1.0
+       },
+       {
+        "name": "doublePlays",
+        "displayValue": "0",
+        "value": 0.0
+       },
+       {
+        "name": "opportunities",
+        "displayValue": "0",
+        "value": 0.0
+       },
+       {
+        "name": "errors",
+        "displayValue": "0",
+        "value": 0.0
+       },
+       {
+        "name": "passedBalls",
+        "displayValue": "0",
+        "value": 0.0
+       },
+       {
+        "name": "assists",
+        "displayValue": "7",
+        "value": 7.0
+       },
+       {
+        "name": "outfieldAssists",
+        "displayValue": "0",
+        "value": 0.0
+       },
+       {
+        "name": "pickoffs",
+        "displayValue": "0",
+        "value": 0.0
+       },
+       {
+        "name": "putouts",
+        "displayValue": "24",
+        "value": 24.0
+       },
+       {
+        "name": "outsOnField",
+        "displayValue": "24",
+        "value": 24.0
+       },
+       {
+        "name": "triplePlays",
+        "displayValue": "0",
+        "value": 0.0
+       },
+       {
+        "name": "ballsInZone",
+        "displayValue": "0",
+        "value": 0.0
+       },
+       {
+        "name": "extraBases",
+        "displayValue": "0",
+        "value": 0.0
+       },
+       {
+        "name": "outsMade",
+        "displayValue": "0",
+        "value": 0.0
+       },
+       {
+        "name": "hits",
+        "displayValue": "0",
+        "value": 0.0
+       },
+       {
+        "name": "totalBases",
+        "displayValue": "0",
+        "value": 0.0
+       },
+       {
+        "name": "gamesStarted",
+        "displayValue": "0",
+        "value": 0.0
+       },
+       {
+        "name": "catcherThirdInningsPlayed",
+        "displayValue": "24.0",
+        "value": 24.0
+       },
+       {
+        "name": "catcherCaughtStealing",
+        "displayValue": "0",
+        "value": 0.0
+       },
+       {
+        "name": "catcherStolenBasesAllowed",
+        "displayValue": "3",
+        "value": 3.0
+       },
+       {
+        "name": "catcherEarnedRuns",
+        "displayValue": "0",
+        "value": 0.0
+       },
+       {
+        "name": "isQualified",
+        "displayValue": "1",
+        "value": 1.0
+       },
+       {
+        "name": "isQualifiedCatcher",
+        "displayValue": "1",
+        "value": 1.0
+       },
+       {
+        "name": "isQualifiedPitcher",
+        "displayValue": "1",
+        "value": 1.0
+       },
+       {
+        "name": "successfulChances",
+        "displayValue": "31",
+        "value": 31.0
+       },
+       {
+        "name": "totalChances",
+        "displayValue": "0",
+        "value": 0.0
+       },
+       {
+        "name": "fullInningsPlayed",
+        "displayValue": "8",
+        "value": 8.0
+       },
+       {
+        "name": "partInningsPlayed",
+        "displayValue": "0",
+        "value": 0.0
+       },
+       {
+        "name": "fieldingPct",
+        "displayValue": "0.000",
+        "value": 0.0
+       },
+       {
+        "name": "rangeFactor",
+        "displayValue": "34.9",
+        "value": 34.875
+       },
+       {
+        "name": "zoneRating",
+        "displayValue": "0.0",
+        "value": 0.0
+       },
+       {
+        "name": "catcherCaughtStealingPct",
+        "displayValue": "0.000",
+        "value": 0.0
+       },
+       {
+        "name": "catcherERA",
+        "displayValue": "0.0",
+        "value": 0.0
+       },
+       {
+        "name": "defWARBR",
+        "displayValue": "0.0",
+        "value": 0.0
+       }
+      ]
+     },
+     {
+      "name": "records",
+      "stats": []
+     }
+    ]
+   },
+   {
+    "team": {
+     "id": "10"
+    },
+    "statistics": [
+     {
+      "name": "batting",
+      "stats": [
+       {
+        "name": "gamesPlayed",
+        "displayValue": "1",
+        "value": 1.0
+       },
+       {
+        "name": "teamGamesPlayed",
+        "displayValue": "1",
+        "value": 1.0
+       },
+       {
+        "name": "hitByPitch",
+        "displayValue": "0",
+        "value": 0.0
+       },
+       {
+        "name": "groundBalls",
+        "displayValue": "13",
+        "value": 13.0
+       },
+       {
+        "name": "strikeouts",
+        "displayValue": "5",
+        "value": 5.0
+       },
+       {
+        "name": "RBIs",
+        "displayValue": "10",
+        "value": 10.0
+       },
+       {
+        "name": "sacHits",
+        "displayValue": "0",
+        "value": 0.0
+       },
+       {
+        "name": "hits",
+        "displayValue": "11",
+        "value": 11.0
+       },
+       {
+        "name": "stolenBases",
+        "displayValue": "3",
+        "value": 3.0
+       },
+       {
+        "name": "walks",
+        "displayValue": "5",
+        "value": 5.0
+       },
+       {
+        "name": "catcherInterference",
+        "displayValue": "0",
+        "value": 0.0
+       },
+       {
+        "name": "runs",
+        "displayValue": "10",
+        "value": 10.0
+       },
+       {
+        "name": "GIDPs",
+        "displayValue": "0",
+        "value": 0.0
+       },
+       {
+        "name": "sacFlies",
+        "displayValue": "1",
+        "value": 1.0
+       },
+       {
+        "name": "atBats",
+        "displayValue": "34",
+        "value": 34.0
+       },
+       {
+        "name": "homeRuns",
+        "displayValue": "2",
+        "value": 2.0
+       },
+       {
+        "name": "grandSlamHomeRuns",
+        "displayValue": "1",
+        "value": 1.0
+       },
+       {
+        "name": "runnersLeftOnBase",
+        "displayValue": "16",
+        "value": 16.0
+       },
+       {
+        "name": "triples",
+        "displayValue": "0",
+        "value": 0.0
+       },
+       {
+        "name": "gameWinningRBIs",
+        "displayValue": "1",
+        "value": 1.0
+       },
+       {
+        "name": "intentionalWalks",
+        "displayValue": "0",
+        "value": 0.0
+       },
+       {
+        "name": "doubles",
+        "displayValue": "2",
+        "value": 2.0
+       },
+       {
+        "name": "flyBalls",
+        "displayValue": "17",
+        "value": 17.0
+       },
+       {
+        "name": "caughtStealing",
+        "displayValue": "0",
+        "value": 0.0
+       },
+       {
+        "name": "pitches",
+        "displayValue": "152",
+        "value": 152.0
+       },
+       {
+        "name": "gamesStarted",
+        "displayValue": "0",
+        "value": 0.0
+       },
+       {
+        "name": "pinchAtBats",
+        "displayValue": "0",
+        "value": 0.0
+       },
+       {
+        "name": "pinchHits",
+        "displayValue": "0",
+        "value": 0.0
+       },
+       {
+        "name": "playerRating",
+        "displayValue": "0.0",
+        "value": 0.0
+       },
+       {
+        "name": "isQualified",
+        "displayValue": "1",
+        "value": 1.0
+       },
+       {
+        "name": "isQualifiedSteals",
+        "displayValue": "1",
+        "value": 1.0
+       },
+       {
+        "name": "totalBases",
+        "displayValue": "19",
+        "value": 19.0
+       },
+       {
+        "name": "plateAppearances",
+        "displayValue": "40",
+        "value": 40.0
+       },
+       {
+        "name": "projectedHomeRuns",
+        "displayValue": "324.0",
+        "value": 324.0
+       },
+       {
+        "name": "extraBaseHits",
+        "displayValue": "4",
+        "value": 4.0
+       },
+       {
+        "name": "runsCreated",
+        "displayValue": "8.4",
+        "value": 8.364449
+       },
+       {
+        "name": "avg",
+        "displayValue": ".324",
+        "value": 0.32352942
+       },
+       {
+        "name": "pinchAvg",
+        "displayValue": ".000",
+        "value": 0.0
+       },
+       {
+        "name": "slugAvg",
+        "displayValue": ".559",
+        "value": 0.5588235
+       },
+       {
+        "name": "secondaryAvg",
+        "displayValue": ".471",
+        "value": 0.47058824
+       },
+       {
+        "name": "onBasePct",
+        "displayValue": ".400",
+        "value": 0.4
+       },
+       {
+        "name": "OPS",
+        "displayValue": ".959",
+        "value": 0.95882356
+       },
+       {
+        "name": "groundToFlyRatio",
+        "displayValue": "0.8",
+        "value": 0.7647059
+       },
+       {
+        "name": "runsCreatedPer27Outs",
+        "displayValue": "9.4",
+        "value": 9.410005
+       },
+       {
+        "name": "batterRating",
+        "displayValue": "64.0",
+        "value": 64.0
+       },
+       {
+        "name": "atBatsPerHomeRun",
+        "displayValue": "17.0",
+        "value": 17.0
+       },
+       {
+        "name": "stolenBasePct",
+        "displayValue": "1.00",
+        "value": 1.0
+       },
+       {
+        "name": "pitchesPerPlateAppearance",
+        "displayValue": "3.80",
+        "value": 3.8
+       },
+       {
+        "name": "isolatedPower",
+        "displayValue": ".235",
+        "value": 0.23529412
+       },
+       {
+        "name": "walkToStrikeoutRatio",
+        "displayValue": "1.00",
+        "value": 1.0
+       },
+       {
+        "name": "walksPerPlateAppearance",
+        "displayValue": ".125",
+        "value": 0.125
+       },
+       {
+        "name": "secondaryAvgMinusBA",
+        "displayValue": ".147",
+        "value": 0.14705881
+       },
+       {
+        "name": "runsProduced",
+        "displayValue": "20.0",
+        "value": 20.0
+       },
+       {
+        "name": "runsRatio",
+        "displayValue": "1.0",
+        "value": 1.0
+       },
+       {
+        "name": "patienceRatio",
+        "displayValue": "0.6",
+        "value": 0.63529414
+       },
+       {
+        "name": "BIPA",
+        "displayValue": "0.3",
+        "value": 0.33333334
+       },
+       {
+        "name": "MLBRating",
+        "displayValue": "104.3",
+        "value": 104.25
+       },
+       {
+        "name": "offWARBR",
+        "displayValue": "0.0",
+        "value": 0.0
+       },
+       {
+        "name": "WARBR",
+        "displayValue": "0.0",
+        "value": 0.0
+       }
+      ]
+     },
+     {
+      "name": "pitching",
+      "stats": [
+       {
+        "name": "gamesPlayed",
+        "displayValue": "1",
+        "value": 1.0
+       },
+       {
+        "name": "teamGamesPlayed",
+        "displayValue": "1",
+        "value": 1.0
+       },
+       {
+        "name": "saves",
+        "displayValue": "0",
+        "value": 0.0
+       },
+       {
+        "name": "groundBalls",
+        "displayValue": "8",
+        "value": 8.0
+       },
+       {
+        "name": "strikeouts",
+        "displayValue": "12",
+        "value": 12.0
+       },
+       {
+        "name": "sacFlies",
+        "displayValue": "0",
+        "value": 0.0
+       },
+       {
+        "name": "losses",
+        "displayValue": "0",
+        "value": 0.0
+       },
+       {
+        "name": "hits",
+        "displayValue": "8",
+        "value": 8.0
+       },
+       {
+        "name": "earnedRuns",
+        "displayValue": "2",
+        "value": 2.0
+       },
+       {
+        "name": "battersHit",
+        "displayValue": "0",
+        "value": 0.0
+       },
+       {
+        "name": "walks",
+        "displayValue": "5",
+        "value": 5.0
+       },
+       {
+        "name": "runs",
+        "displayValue": "3",
+        "value": 3.0
+       },
+       {
+        "name": "stolenBases",
+        "displayValue": "0",
+        "value": 0.0
+       },
+       {
+        "name": "caughtStealing",
+        "displayValue": "0",
+        "value": 0.0
+       },
+       {
+        "name": "sacBunts",
+        "displayValue": "0",
+        "value": 0.0
+       },
+       {
+        "name": "saveOpportunities",
+        "displayValue": "0",
+        "value": 0.0
+       },
+       {
+        "name": "homeRuns",
+        "displayValue": "1",
+        "value": 1.0
+       },
+       {
+        "name": "triples",
+        "displayValue": "1",
+        "value": 1.0
+       },
+       {
+        "name": "finishes",
+        "displayValue": "1",
+        "value": 1.0
+       },
+       {
+        "name": "balks",
+        "displayValue": "0",
+        "value": 0.0
+       },
+       {
+        "name": "intentionalWalks",
+        "displayValue": "0",
+        "value": 0.0
+       },
+       {
+        "name": "flyBalls",
+        "displayValue": "16",
+        "value": 16.0
+       },
+       {
+        "name": "battersFaced",
+        "displayValue": "41",
+        "value": 41.0
+       },
+       {
+        "name": "holds",
+        "displayValue": "2",
+        "value": 2.0
+       },
+       {
+        "name": "doubles",
+        "displayValue": "1",
+        "value": 1.0
+       },
+       {
+        "name": "wins",
+        "displayValue": "1",
+        "value": 1.0
+       },
+       {
+        "name": "completeGames",
+        "displayValue": "0",
+        "value": 0.0
+       },
+       {
+        "name": "perfectGames",
+        "displayValue": "0",
+        "value": 0.0
+       },
+       {
+        "name": "wildPitches",
+        "displayValue": "0",
+        "value": 0.0
+       },
+       {
+        "name": "RBIs",
+        "displayValue": "2",
+        "value": 2.0
+       },
+       {
+        "name": "thirdInnings",
+        "displayValue": "27",
+        "value": 27.0
+       },
+       {
+        "name": "teamEarnedRuns",
+        "displayValue": "2",
+        "value": 2.0
+       },
+       {
+        "name": "shutouts",
+        "displayValue": "0",
+        "value": 0.0
+       },
+       {
+        "name": "pickoffAttempts",
+        "displayValue": "0",
+        "value": 0.0
+       },
+       {
+        "name": "pitches",
+        "displayValue": "180",
+        "value": 180.0
+       },
+       {
+        "name": "runSupport",
+        "displayValue": "10.0",
+        "value": 10.0
+       },
+       {
+        "name": "catcherInterference",
+        "displayValue": "0",
+        "value": 0.0
+       },
+       {
+        "name": "pitchesAsStarter",
+        "displayValue": "80",
+        "value": 80.0
+       },
+       {
+        "name": "gamesStarted",
+        "displayValue": "1",
+        "value": 1.0
+       },
+       {
+        "name": "avgGameScore",
+        "displayValue": "0.0",
+        "value": 0.0
+       },
+       {
+        "name": "qualityStarts",
+        "displayValue": "0",
+        "value": 0.0
+       },
+       {
+        "name": "inheritedRunners",
+        "displayValue": "2",
+        "value": 2.0
+       },
+       {
+        "name": "inheritedRunnersScored",
+        "displayValue": "1",
+        "value": 1.0
+       },
+       {
+        "name": "playerRating",
+        "displayValue": "0.0",
+        "value": 0.0
+       },
+       {
+        "name": "atBats",
+        "displayValue": "36",
+        "value": 36.0
+       },
+       {
+        "name": "opponentTotalBases",
+        "displayValue": "14",
+        "value": 14.0
+       },
+       {
+        "name": "isQualified",
+        "displayValue": "1",
+        "value": 1.0
+       },
+       {
+        "name": "isQualifiedSaves",
+        "displayValue": "0",
+        "value": 0.0
+       },
+       {
+        "name": "fullInnings",
+        "displayValue": "9",
+        "value": 9.0
+       },
+       {
+        "name": "partInnings",
+        "displayValue": "0",
+        "value": 0.0
+       },
+       {
+        "name": "blownSaves",
+        "displayValue": "0",
+        "value": 0.0
+       },
+       {
+        "name": "innings",
+        "displayValue": "9.0",
+        "value": 9.0
+       },
+       {
+        "name": "ERA",
+        "displayValue": "2.00",
+        "value": 2.0
+       },
+       {
+        "name": "WHIP",
+        "displayValue": "1.44",
+        "value": 1.4444444
+       },
+       {
+        "name": "winPct",
+        "displayValue": "1.000",
+        "value": 1.0
+       },
+       {
+        "name": "caughtStealingPct",
+        "displayValue": "0.0",
+        "value": 0.0
+       },
+       {
+        "name": "groundToFlyRatio",
+        "displayValue": "0.5",
+        "value": 0.5
+       },
+       {
+        "name": "pitchesPerStart",
+        "displayValue": "80.0",
+        "value": 80.0
+       },
+       {
+        "name": "pitchesPerInning",
+        "displayValue": "20.0",
+        "value": 20.0
+       },
+       {
+        "name": "pitchesPerPlateAppearance",
+        "displayValue": "4.4",
+        "value": 4.390244
+       },
+       {
+        "name": "runSupportAvg",
+        "displayValue": "10.0",
+        "value": 10.0
+       },
+       {
+        "name": "opponentAvg",
+        "displayValue": ".222",
+        "value": 0.22222222
+       },
+       {
+        "name": "opponentSlugAvg",
+        "displayValue": ".389",
+        "value": 0.3888889
+       },
+       {
+        "name": "opponentOnBasePct",
+        "displayValue": ".317",
+        "value": 0.31707317
+       },
+       {
+        "name": "opponentOPS",
+        "displayValue": ".706",
+        "value": 0.70596206
+       },
+       {
+        "name": "savePct",
+        "displayValue": "0.0",
+        "value": 0.0
+       },
+       {
+        "name": "strikeoutsPerNineInnings",
+        "displayValue": "12.0",
+        "value": 12.0
+       },
+       {
+        "name": "strikeoutToWalkRatio",
+        "displayValue": "2.4",
+        "value": 2.4
+       },
+       {
+        "name": "toughLosses",
+        "displayValue": "0",
+        "value": 0.0
+       },
+       {
+        "name": "cheapWins",
+        "displayValue": "0",
+        "value": 0.0
+       },
+       {
+        "name": "saveOpportunitiesPerWin",
+        "displayValue": "0.0",
+        "value": 0.0
+       },
+       {
+        "name": "BIPA",
+        "displayValue": "0.318",
+        "value": 0.3181818
+       },
+       {
+        "name": "totalBases",
+        "displayValue": "14.000",
+        "value": 14.0
+       },
+       {
+        "name": "pitchCount",
+        "displayValue": "180",
+        "value": 180.0
+       },
+       {
+        "name": "strikes",
+        "displayValue": "114",
+        "value": 114.0
+       },
+       {
+        "name": "strikePitchRatio",
+        "displayValue": "0.6",
+        "value": 0.6333333
+       },
+       {
+        "name": "WARBR",
+        "displayValue": "0.0",
+        "value": 0.0
+       }
+      ]
+     },
+     {
+      "name": "fielding",
+      "stats": [
+       {
+        "name": "gamesPlayed",
+        "displayValue": "1",
+        "value": 1.0
+       },
+       {
+        "name": "teamGamesPlayed",
+        "displayValue": "1",
+        "value": 1.0
+       },
+       {
+        "name": "doublePlays",
+        "displayValue": "0",
+        "value": 0.0
+       },
+       {
+        "name": "opportunities",
+        "displayValue": "0",
+        "value": 0.0
+       },
+       {
+        "name": "errors",
+        "displayValue": "2",
+        "value": 2.0
+       },
+       {
+        "name": "passedBalls",
+        "displayValue": "0",
+        "value": 0.0
+       },
+       {
+        "name": "assists",
+        "displayValue": "6",
+        "value": 6.0
+       },
+       {
+        "name": "outfieldAssists",
+        "displayValue": "0",
+        "value": 0.0
+       },
+       {
+        "name": "pickoffs",
+        "displayValue": "0",
+        "value": 0.0
+       },
+       {
+        "name": "putouts",
+        "displayValue": "27",
+        "value": 27.0
+       },
+       {
+        "name": "outsOnField",
+        "displayValue": "27",
+        "value": 27.0
+       },
+       {
+        "name": "triplePlays",
+        "displayValue": "0",
+        "value": 0.0
+       },
+       {
+        "name": "ballsInZone",
+        "displayValue": "0",
+        "value": 0.0
+       },
+       {
+        "name": "extraBases",
+        "displayValue": "0",
+        "value": 0.0
+       },
+       {
+        "name": "outsMade",
+        "displayValue": "0",
+        "value": 0.0
+       },
+       {
+        "name": "hits",
+        "displayValue": "0",
+        "value": 0.0
+       },
+       {
+        "name": "totalBases",
+        "displayValue": "0",
+        "value": 0.0
+       },
+       {
+        "name": "gamesStarted",
+        "displayValue": "0",
+        "value": 0.0
+       },
+       {
+        "name": "catcherThirdInningsPlayed",
+        "displayValue": "27.0",
+        "value": 27.0
+       },
+       {
+        "name": "catcherCaughtStealing",
+        "displayValue": "0",
+        "value": 0.0
+       },
+       {
+        "name": "catcherStolenBasesAllowed",
+        "displayValue": "0",
+        "value": 0.0
+       },
+       {
+        "name": "catcherEarnedRuns",
+        "displayValue": "0",
+        "value": 0.0
+       },
+       {
+        "name": "isQualified",
+        "displayValue": "1",
+        "value": 1.0
+       },
+       {
+        "name": "isQualifiedCatcher",
+        "displayValue": "1",
+        "value": 1.0
+       },
+       {
+        "name": "isQualifiedPitcher",
+        "displayValue": "1",
+        "value": 1.0
+       },
+       {
+        "name": "successfulChances",
+        "displayValue": "33",
+        "value": 33.0
+       },
+       {
+        "name": "totalChances",
+        "displayValue": "0",
+        "value": 0.0
+       },
+       {
+        "name": "fullInningsPlayed",
+        "displayValue": "9",
+        "value": 9.0
+       },
+       {
+        "name": "partInningsPlayed",
+        "displayValue": "0",
+        "value": 0.0
+       },
+       {
+        "name": "fieldingPct",
+        "displayValue": "0.000",
+        "value": 0.0
+       },
+       {
+        "name": "rangeFactor",
+        "displayValue": "33.0",
+        "value": 33.0
+       },
+       {
+        "name": "zoneRating",
+        "displayValue": "0.0",
+        "value": 0.0
+       },
+       {
+        "name": "catcherCaughtStealingPct",
+        "displayValue": "0.000",
+        "value": 0.0
+       },
+       {
+        "name": "catcherERA",
+        "displayValue": "0.0",
+        "value": 0.0
+       },
+       {
+        "name": "defWARBR",
+        "displayValue": "0.0",
+        "value": 0.0
+       }
+      ]
+     },
+     {
+      "name": "records",
+      "stats": []
+     }
+    ]
+   }
+  ]
+ }
+}

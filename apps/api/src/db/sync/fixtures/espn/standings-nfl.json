@@ -1,0 +1,624 @@
+{
+ "children": [
+  {
+   "standings": {
+    "entries": [
+     {
+      "team": {
+       "id": "17"
+      },
+      "stats": [
+       {
+        "name": "losses",
+        "value": 3.0
+       },
+       {
+        "name": "ties",
+        "value": 0.0
+       },
+       {
+        "name": "wins",
+        "value": 14.0
+       }
+      ]
+     },
+     {
+      "team": {
+       "id": "30"
+      },
+      "stats": [
+       {
+        "name": "losses",
+        "value": 4.0
+       },
+       {
+        "name": "ties",
+        "value": 0.0
+       },
+       {
+        "name": "wins",
+        "value": 13.0
+       }
+      ]
+     },
+     {
+      "team": {
+       "id": "23"
+      },
+      "stats": [
+       {
+        "name": "losses",
+        "value": 7.0
+       },
+       {
+        "name": "ties",
+        "value": 0.0
+       },
+       {
+        "name": "wins",
+        "value": 10.0
+       }
+      ]
+     },
+     {
+      "team": {
+       "id": "34"
+      },
+      "stats": [
+       {
+        "name": "losses",
+        "value": 5.0
+       },
+       {
+        "name": "ties",
+        "value": 0.0
+       },
+       {
+        "name": "wins",
+        "value": 12.0
+       }
+      ]
+     },
+     {
+      "team": {
+       "id": "2"
+      },
+      "stats": [
+       {
+        "name": "losses",
+        "value": 5.0
+       },
+       {
+        "name": "ties",
+        "value": 0.0
+       },
+       {
+        "name": "wins",
+        "value": 12.0
+       }
+      ]
+     },
+     {
+      "team": {
+       "id": "24"
+      },
+      "stats": [
+       {
+        "name": "losses",
+        "value": 6.0
+       },
+       {
+        "name": "ties",
+        "value": 0.0
+       },
+       {
+        "name": "wins",
+        "value": 11.0
+       }
+      ]
+     },
+     {
+      "team": {
+       "id": "11"
+      },
+      "stats": [
+       {
+        "name": "losses",
+        "value": 9.0
+       },
+       {
+        "name": "ties",
+        "value": 0.0
+       },
+       {
+        "name": "wins",
+        "value": 8.0
+       }
+      ]
+     },
+     {
+      "team": {
+       "id": "33"
+      },
+      "stats": [
+       {
+        "name": "losses",
+        "value": 9.0
+       },
+       {
+        "name": "ties",
+        "value": 0.0
+       },
+       {
+        "name": "wins",
+        "value": 8.0
+       }
+      ]
+     },
+     {
+      "team": {
+       "id": "15"
+      },
+      "stats": [
+       {
+        "name": "losses",
+        "value": 10.0
+       },
+       {
+        "name": "ties",
+        "value": 0.0
+       },
+       {
+        "name": "wins",
+        "value": 7.0
+       }
+      ]
+     },
+     {
+      "team": {
+       "id": "4"
+      },
+      "stats": [
+       {
+        "name": "losses",
+        "value": 11.0
+       },
+       {
+        "name": "ties",
+        "value": 0.0
+       },
+       {
+        "name": "wins",
+        "value": 6.0
+       }
+      ]
+     },
+     {
+      "team": {
+       "id": "12"
+      },
+      "stats": [
+       {
+        "name": "losses",
+        "value": 11.0
+       },
+       {
+        "name": "ties",
+        "value": 0.0
+       },
+       {
+        "name": "wins",
+        "value": 6.0
+       }
+      ]
+     },
+     {
+      "team": {
+       "id": "5"
+      },
+      "stats": [
+       {
+        "name": "losses",
+        "value": 12.0
+       },
+       {
+        "name": "ties",
+        "value": 0.0
+       },
+       {
+        "name": "wins",
+        "value": 5.0
+       }
+      ]
+     },
+     {
+      "team": {
+       "id": "13"
+      },
+      "stats": [
+       {
+        "name": "losses",
+        "value": 14.0
+       },
+       {
+        "name": "ties",
+        "value": 0.0
+       },
+       {
+        "name": "wins",
+        "value": 3.0
+       }
+      ]
+     },
+     {
+      "team": {
+       "id": "20"
+      },
+      "stats": [
+       {
+        "name": "losses",
+        "value": 14.0
+       },
+       {
+        "name": "ties",
+        "value": 0.0
+       },
+       {
+        "name": "wins",
+        "value": 3.0
+       }
+      ]
+     },
+     {
+      "team": {
+       "id": "10"
+      },
+      "stats": [
+       {
+        "name": "losses",
+        "value": 14.0
+       },
+       {
+        "name": "ties",
+        "value": 0.0
+       },
+       {
+        "name": "wins",
+        "value": 3.0
+       }
+      ]
+     },
+     {
+      "team": {
+       "id": "7"
+      },
+      "stats": [
+       {
+        "name": "losses",
+        "value": 3.0
+       },
+       {
+        "name": "ties",
+        "value": 0.0
+       },
+       {
+        "name": "wins",
+        "value": 14.0
+       }
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "standings": {
+    "entries": [
+     {
+      "team": {
+       "id": "3"
+      },
+      "stats": [
+       {
+        "name": "losses",
+        "value": 6.0
+       },
+       {
+        "name": "ties",
+        "value": 0.0
+       },
+       {
+        "name": "wins",
+        "value": 11.0
+       }
+      ]
+     },
+     {
+      "team": {
+       "id": "21"
+      },
+      "stats": [
+       {
+        "name": "losses",
+        "value": 6.0
+       },
+       {
+        "name": "ties",
+        "value": 0.0
+       },
+       {
+        "name": "wins",
+        "value": 11.0
+       }
+      ]
+     },
+     {
+      "team": {
+       "id": "29"
+      },
+      "stats": [
+       {
+        "name": "losses",
+        "value": 9.0
+       },
+       {
+        "name": "ties",
+        "value": 0.0
+       },
+       {
+        "name": "wins",
+        "value": 8.0
+       }
+      ]
+     },
+     {
+      "team": {
+       "id": "14"
+      },
+      "stats": [
+       {
+        "name": "losses",
+        "value": 5.0
+       },
+       {
+        "name": "ties",
+        "value": 0.0
+       },
+       {
+        "name": "wins",
+        "value": 12.0
+       }
+      ]
+     },
+     {
+      "team": {
+       "id": "25"
+      },
+      "stats": [
+       {
+        "name": "losses",
+        "value": 5.0
+       },
+       {
+        "name": "ties",
+        "value": 0.0
+       },
+       {
+        "name": "wins",
+        "value": 12.0
+       }
+      ]
+     },
+     {
+      "team": {
+       "id": "9"
+      },
+      "stats": [
+       {
+        "name": "losses",
+        "value": 7.0
+       },
+       {
+        "name": "ties",
+        "value": 1.0
+       },
+       {
+        "name": "wins",
+        "value": 9.0
+       }
+      ]
+     },
+     {
+      "team": {
+       "id": "16"
+      },
+      "stats": [
+       {
+        "name": "losses",
+        "value": 8.0
+       },
+       {
+        "name": "ties",
+        "value": 0.0
+       },
+       {
+        "name": "wins",
+        "value": 9.0
+       }
+      ]
+     },
+     {
+      "team": {
+       "id": "8"
+      },
+      "stats": [
+       {
+        "name": "losses",
+        "value": 8.0
+       },
+       {
+        "name": "ties",
+        "value": 0.0
+       },
+       {
+        "name": "wins",
+        "value": 9.0
+       }
+      ]
+     },
+     {
+      "team": {
+       "id": "27"
+      },
+      "stats": [
+       {
+        "name": "losses",
+        "value": 9.0
+       },
+       {
+        "name": "ties",
+        "value": 0.0
+       },
+       {
+        "name": "wins",
+        "value": 8.0
+       }
+      ]
+     },
+     {
+      "team": {
+       "id": "1"
+      },
+      "stats": [
+       {
+        "name": "losses",
+        "value": 9.0
+       },
+       {
+        "name": "ties",
+        "value": 0.0
+       },
+       {
+        "name": "wins",
+        "value": 8.0
+       }
+      ]
+     },
+     {
+      "team": {
+       "id": "6"
+      },
+      "stats": [
+       {
+        "name": "losses",
+        "value": 9.0
+       },
+       {
+        "name": "ties",
+        "value": 1.0
+       },
+       {
+        "name": "wins",
+        "value": 7.0
+       }
+      ]
+     },
+     {
+      "team": {
+       "id": "18"
+      },
+      "stats": [
+       {
+        "name": "losses",
+        "value": 11.0
+       },
+       {
+        "name": "ties",
+        "value": 0.0
+       },
+       {
+        "name": "wins",
+        "value": 6.0
+       }
+      ]
+     },
+     {
+      "team": {
+       "id": "28"
+      },
+      "stats": [
+       {
+        "name": "losses",
+        "value": 12.0
+       },
+       {
+        "name": "ties",
+        "value": 0.0
+       },
+       {
+        "name": "wins",
+        "value": 5.0
+       }
+      ]
+     },
+     {
+      "team": {
+       "id": "19"
+      },
+      "stats": [
+       {
+        "name": "losses",
+        "value": 13.0
+       },
+       {
+        "name": "ties",
+        "value": 0.0
+       },
+       {
+        "name": "wins",
+        "value": 4.0
+       }
+      ]
+     },
+     {
+      "team": {
+       "id": "22"
+      },
+      "stats": [
+       {
+        "name": "losses",
+        "value": 14.0
+       },
+       {
+        "name": "ties",
+        "value": 0.0
+       },
+       {
+        "name": "wins",
+        "value": 3.0
+       }
+      ]
+     },
+     {
+      "team": {
+       "id": "26"
+      },
+      "stats": [
+       {
+        "name": "losses",
+        "value": 3.0
+       },
+       {
+        "name": "ties",
+        "value": 0.0
+       },
+       {
+        "name": "wins",
+        "value": 14.0
+       }
+      ]
+     }
+    ]
+   }
+  }
+ ]
+}

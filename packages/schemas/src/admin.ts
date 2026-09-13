@@ -42,6 +42,24 @@ export const voidQuestionSchema = z
 	})
 export type VoidQuestionInput = z.infer<typeof voidQuestionSchema>
 
+export const questionVoidedReasonSchema = z.enum([
+	"subject_did_not_play",
+	"game_not_completed",
+	"other",
+])
+
+// Voiding a question without deleting it - see adminMarkQuestionVoided. Nobody
+// is at fault in these cases, so unlike voidQuestionSchema there is no strike
+// toggle.
+export const adminMarkQuestionVoidedSchema = z.object({
+	questionId: z.string().uuid(),
+	reason: questionVoidedReasonSchema,
+	note: z.string().trim().max(500, "Keep it under 500 characters").default(""),
+})
+export type AdminMarkQuestionVoidedInput = z.infer<
+	typeof adminMarkQuestionVoidedSchema
+>
+
 // Same shape as resolveQuestionSchema, plus the two source fields an admin
 // can overwrite at resolve/overturn time (see adminResolveQuestion and
 // overturnDispute) - regular creator resolution never touches these, they're

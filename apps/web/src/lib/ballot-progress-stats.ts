@@ -4,7 +4,7 @@ import { isContested, rankByField } from "./contested"
 // `call` is the viewer's own call on the member's question.
 type BallotMember = {
 	question: {
-		status: "OPEN" | "LOCKED" | "RESOLVED" | "DISPUTED"
+		status: "OPEN" | "LOCKED" | "RESOLVED" | "DISPUTED" | "VOIDED"
 		locksAt: string
 		callCount: number
 		options: { fieldPct: number | null }[]

@@ -25,6 +25,7 @@ export const NotificationsPageDocument = graphql(`
 						...DisputeUpheldRow_notification
 						...DisputeOverturnedRow_notification
 						...QuestionVoidedRow_notification
+						...CallVoidedRow_notification
 						...GroupMemberJoinedRow_notification
 						...QuestionSharedToGroupRow_notification
 					}

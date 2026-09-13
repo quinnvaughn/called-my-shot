@@ -2,7 +2,9 @@ import { match, P } from "ts-pattern"
 import { resultState } from "#/lib/call-summary"
 import type { QuestionPhase } from "#/lib/question-detail-state"
 
-export type CallResult = ReturnType<typeof resultState>
+// "unscored": the question resolved but this call was left out of scoring
+// (see callUnscoredReason on the API), so it has no win or loss to show.
+export type CallResult = ReturnType<typeof resultState> | { status: "unscored" }
 
 // Where things stand between the viewer and one question. Every combination
 // of the question's phase and whether the viewer called it lands in exactly
@@ -18,11 +20,12 @@ export type ViewerStatus<Call> =
 	// `result` can still be pending on a settled question until the call's
 	// points have been written.
 	| { kind: "resolved"; call: Call; disputed: boolean; result: CallResult }
+	// Settled with no result: no call on the question scores, called or not.
+	| { kind: "voided"; call: Call | null }
 
-export function viewerStatus<Call extends { totalPoints: number | null }>(
-	phase: QuestionPhase,
-	call: Call | null | undefined,
-): ViewerStatus<Call> {
+export function viewerStatus<
+	Call extends { totalPoints: number | null; unscoredReason?: string | null },
+>(phase: QuestionPhase, call: Call | null | undefined): ViewerStatus<Call> {
 	if (call == null) {
 		return match(phase)
 			.returnType<ViewerStatus<Call>>()
@@ -32,6 +35,7 @@ export function viewerStatus<Call extends { totalPoints: number | null }>(
 				kind: "resolvedNoCall",
 				disputed: settled === "disputed",
 			}))
+			.with("voided", () => ({ kind: "voided", call: null }))
 			.exhaustive()
 	}
 	return match(phase)
@@ -45,8 +49,11 @@ export function viewerStatus<Call extends { totalPoints: number | null }>(
 			kind: "resolved",
 			call,
 			disputed: settled === "disputed",
-			result: resultState(call.totalPoints),
+			result: call.unscoredReason
+				? { status: "unscored" }
+				: resultState(call.totalPoints),
 		}))
+		.with("voided", () => ({ kind: "voided", call }))
 		.exhaustive()
 }
 
@@ -63,7 +70,10 @@ export function disputeAction(
 ): DisputeAction {
 	return match(status)
 		.returnType<DisputeAction>()
-		.with({ kind: P.union("canCall", "lockedNoCall", "pending") }, () => "hidden")
+		.with(
+			{ kind: P.union("canCall", "lockedNoCall", "pending", "voided") },
+			() => "hidden",
+		)
 		.with({ kind: P.union("resolvedNoCall", "resolved") }, ({ disputed }) => {
 			if (disputed || dispute.hasSettledDispute) return "hidden"
 			return dispute.hasViewerDispute ? "underReview" : "available"

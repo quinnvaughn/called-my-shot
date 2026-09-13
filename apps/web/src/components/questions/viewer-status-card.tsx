@@ -19,7 +19,11 @@ import {
 } from "#/components/questions/call-share-row"
 import { CaseBlock } from "#/components/questions/case-block"
 import { DisputeModal } from "#/components/questions/dispute-modal"
-import type { QuestionShape } from "#/graphql/generated/graphql"
+import type {
+	CallUnscoredReason,
+	QuestionShape,
+	QuestionVoidedReason,
+} from "#/graphql/generated/graphql"
 import { pickSummary } from "#/lib/call-summary"
 import { formatGuess } from "#/lib/field-signal"
 import { formatCallDate } from "#/lib/format-date"
@@ -115,6 +119,9 @@ type ViewerCall = {
 	guessValue: number | null
 	conviction: number | null
 	totalPoints: number | null
+	// Set when resolution left this call out of scoring - see CallResult's
+	// "unscored" in #/lib/viewer-status.
+	unscoredReason: CallUnscoredReason | null
 	currentRank: number
 	// Season-long shapes only (null for a game-scoped question) - games
 	// already final as of this call's own createdAt, and the total games in
@@ -179,6 +186,8 @@ type Props = {
 	// paired with what the viewer did or didn't do about it.
 	answer: string | null
 	resolutionNote: string | null
+	// Why the question was voided - null unless it was.
+	voidedReason: QuestionVoidedReason | null
 	// The correct answer's fieldPct (or numericHitRatePct for a guess) - null
 	// until settled. "how rare was being right" belongs next to the outcome
 	// itself, not buried in the per-pick breakdown below.
@@ -189,7 +198,7 @@ type Props = {
 	questionTitle: string
 }
 
-// Pending / locked-no-call / resolved-no-call / won / lost are five faces of
+// Pending / locked-no-call / resolved-no-call / won / lost / voided are faces of
 // the exact same question: "where do things stand between the viewer and
 // this question." Used to be a dedicated PendingCallCard plus three separate
 // inline blocks in the route - four near-identical card shells with the same
@@ -207,6 +216,7 @@ export function ViewerStatusCard({
 	isRateStat,
 	answer,
 	resolutionNote,
+	voidedReason,
 	fieldAccuracyPct,
 	questionTitle,
 }: Props) {
@@ -275,6 +285,9 @@ export function ViewerStatusCard({
 				return (
 					<Shell tone={face.tone}>
 						<StatusPill tone={face.tone}>{face.label}</StatusPill>
+						{result.status === "unscored" && (
+							<Sub>Nobody else called this question.</Sub>
+						)}
 						<VStack gap="1" alignItems="flex-start">
 							{answer && <ResultTitle answer={answer} disputed={disputed} />}
 							{fieldAccuracyPct !== null && (
@@ -289,7 +302,9 @@ export function ViewerStatusCard({
 								win={face.outcome.isWin}
 							/>
 						)}
-						<PickRows call={call} settled {...pickRowsProps} />
+						{result.status !== "unscored" && (
+							<PickRows call={call} settled {...pickRowsProps} />
+						)}
 						<ShareCallSection
 							viewerCall={call}
 							outcome={face.outcome}
@@ -302,8 +317,30 @@ export function ViewerStatusCard({
 					</Shell>
 				)
 			})
+			.with({ kind: "voided" }, () => (
+				<Shell tone="neutral">
+					<StatusPill tone="neutral">Voided</StatusPill>
+					<Sub>{voidedText(voidedReason)}</Sub>
+					{noteBlock}
+				</Shell>
+			))
 			.exhaustive()
 	)
+}
+
+// What a voided question's card says in place of a result.
+function voidedText(reason: QuestionVoidedReason | null): string {
+	return match(reason)
+		.with(
+			"SUBJECT_DID_NOT_PLAY",
+			() => "The player this is about didn't play, so no call on it scores.",
+		)
+		.with(
+			"GAME_NOT_COMPLETED",
+			() => "The game wasn't completed, so no call on it scores.",
+		)
+		.with("OTHER", null, () => "No call on this question scores.")
+		.exhaustive()
 }
 
 type ShareOutcome = { isWin: boolean; points: number }
@@ -331,6 +368,11 @@ function resultFace(result: CallResult): {
 			tone: "danger",
 			label: "Missed",
 			outcome: { isWin: false, points },
+		}))
+		.with({ status: "unscored" }, () => ({
+			tone: "neutral",
+			label: "Not scored",
+			outcome: null,
 		}))
 		.exhaustive()
 }

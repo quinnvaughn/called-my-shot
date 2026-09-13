@@ -7,7 +7,13 @@ import type {
 import { builder } from "../../builder"
 import { BallotQuestionInput } from "../ballot"
 import { CallRef } from "./call"
-import { AwardVerb, QuestionShape, StatAggregation, VoidReason } from "./enums"
+import {
+	AwardVerb,
+	QuestionShape,
+	QuestionVoidedReason,
+	StatAggregation,
+	VoidReason,
+} from "./enums"
 import { QuestionReportRef, ResolutionDisputeRef } from "./moderation-objects"
 import { QuestionRef } from "./question-object"
 
@@ -229,6 +235,17 @@ export const VoidQuestionPayload = builder
 			questionId: t.exposeID("questionId"),
 		}),
 	})
+
+export const AdminMarkQuestionVoidedInput = builder.inputType(
+	"AdminMarkQuestionVoidedInput",
+	{
+		fields: (t) => ({
+			questionId: t.id({ required: true }),
+			reason: t.field({ type: QuestionVoidedReason, required: true }),
+			note: t.string({ required: false }),
+		}),
+	},
+)
 
 export const DeleteQuestionInput = builder.inputType("DeleteQuestionInput", {
 	fields: (t) => ({

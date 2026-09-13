@@ -82,6 +82,12 @@ const dotStateStyle: Record<BallotMemberState, SystemStyleObject> = {
 		backgroundColor: "danger.default/8",
 		border: "1px solid {colors.danger.default/40}",
 	},
+	voided: {
+		color: "fg.subtle",
+		backgroundColor: "transparent",
+		border: "1px solid {colors.fg.subtle}",
+		textDecoration: "line-through",
+	},
 	missed: {
 		color: "fg.subtle",
 		backgroundColor: "transparent",
@@ -260,6 +266,10 @@ const stateIconClass: Record<BallotMemberState, string> = {
 	}),
 	missed: css({
 		border: "1px dashed {colors.fg.subtle}",
+		opacity: 0.5,
+	}),
+	voided: css({
+		border: "1px solid {colors.fg.subtle}",
 		opacity: 0.5,
 	}),
 }

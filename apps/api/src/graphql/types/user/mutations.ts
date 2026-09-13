@@ -277,13 +277,14 @@ builder.mutationFields((t) => ({
 
 			// Deleting the account orphans authored questions rather than
 			// cascading them away (questions.creatorId is set null, not
-			// cascade-deleted) - but only the creator can ever resolve a
-			// question. An open/locked/disputed one would be stuck forever
-			// with no creator left to resolve it, so block deletion until
-			// those are settled instead.
+			// cascade-deleted) - but a manual question is resolved by its
+			// creator. An open/locked/disputed one would be stuck with no
+			// creator left to resolve it, so block deletion until those are
+			// settled instead. A system question settles without them.
 			const unresolvedQuestion = await db.query.questions.findFirst({
 				where: {
 					creatorId: user.id,
+					resolutionMode: "manual",
 					status: { in: ["open", "locked", "disputed"] },
 				},
 			})

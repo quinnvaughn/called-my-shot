@@ -229,6 +229,9 @@ function RouteComponent() {
 				.map((option) => option.id),
 		)
 		.with({ kind: P.union("canCall", "lockedNoCall") }, () => [])
+		.with({ kind: "voided" }, ({ call }) =>
+			call ? call.selections.map((selection) => selection.option.id) : [],
+		)
 		.exhaustive()
 
 	return (
@@ -474,6 +477,7 @@ function RouteComponent() {
 					isRateStat={callForm.isRateStat}
 					answer={answer}
 					resolutionNote={question.resolutionNote}
+					voidedReason={question.voidedReason}
 					fieldAccuracyPct={fieldAccuracyPct}
 					questionTitle={question.title}
 				/>
@@ -508,7 +512,9 @@ function RouteComponent() {
 						)}
 					</FieldBreakdownCard>
 				)}
-				{isCreator && state.phase === "locked" && (
+				{isCreator &&
+					state.phase === "locked" &&
+					!question.resolvesAutomatically && (
 					<Button
 						variant="outline"
 						onClick={() =>

@@ -1,5 +1,6 @@
 export * from "./admin"
 export * from "./auth"
+export * from "./auto-resolve"
 export * from "./ballots"
 export * from "./groups"
 export * from "./question-title"

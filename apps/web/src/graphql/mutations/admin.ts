@@ -26,6 +26,36 @@ export const VoidQuestionDocument = graphql(`
 	}
 `)
 
+export const AdminMarkQuestionVoidedDocument = graphql(`
+	mutation AdminMarkQuestionVoided($input: AdminMarkQuestionVoidedInput!) {
+		adminMarkQuestionVoided(input: $input) {
+			__typename
+			... on QuestionPayload {
+				question {
+					id
+					status
+					voidedReason
+				}
+			}
+			... on ValidationError {
+				fieldErrors {
+					field
+					message
+				}
+			}
+			... on AuthenticationError {
+				message
+			}
+			... on AuthorizationError {
+				message
+			}
+			... on NotFoundError {
+				message
+			}
+		}
+	}
+`)
+
 export const EditQuestionTitleDocument = graphql(`
 	mutation EditQuestionTitle($input: EditQuestionTitleInput!) {
 		editQuestionTitle(input: $input) {

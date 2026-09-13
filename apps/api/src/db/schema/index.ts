@@ -1,3 +1,4 @@
+export * from "./auto-resolutions"
 export * from "./ballots"
 export * from "./calls"
 export * from "./email"

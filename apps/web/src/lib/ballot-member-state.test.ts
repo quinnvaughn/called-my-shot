@@ -32,4 +32,10 @@ describe("ballotMemberState", () => {
 		).toBe("won")
 		expect(ballotMemberState(resolved, null)).toBe("missed")
 	})
+
+	it("counts a voided member as called but neither won nor lost", () => {
+		const voided = { status: "VOIDED", locksAt: past } as const
+		expect(ballotMemberState(voided, pick(true))).toBe("voided")
+		expect(ballotMemberState(voided, null)).toBe("missed")
+	})
 })

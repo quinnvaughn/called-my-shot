@@ -181,7 +181,10 @@ export const createQuestionSchema = z
 		// the two.
 		gameId: z.string().uuid().optional(),
 
-		resolutionSource: z.string().trim().min(1, "Say where you'll check this"),
+		// Required only when a person resolves the question, which depends on the
+		// league and stat (see resolutionModeFor) - so the API enforces it rather
+		// than this schema, and fills in ESPN's source itself otherwise.
+		resolutionSource: z.string().trim().default(""),
 		resolutionSourceUrl: resolutionSourceUrlSchema.default(""),
 		locksAt: z
 			.string()

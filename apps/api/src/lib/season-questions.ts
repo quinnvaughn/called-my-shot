@@ -1,4 +1,8 @@
-import { generateQuestionTitle } from "@called-my-shot/schemas"
+import {
+	autoResolutionSource,
+	generateQuestionTitle,
+	resolutionModeFor,
+} from "@called-my-shot/schemas"
 import { inArray, sql } from "drizzle-orm"
 import { match } from "ts-pattern"
 import { db } from "../db"
@@ -135,6 +139,7 @@ async function generatePerTeamNumericGuess(params: {
 		{ shape: "team_season_stat_numeric_guess" }
 	>
 	leagueId: string
+	leagueSlug: string
 	sportId: string
 	seasonId: string
 	seasonYear: number
@@ -143,6 +148,18 @@ async function generatePerTeamNumericGuess(params: {
 	createdBy: string
 	ballotId: string
 }): Promise<{ created: number; skipped: number }> {
+	// Win totals settle from ESPN's standings, so they store ESPN as their
+	// source in place of the one passed in.
+	const resolutionMode = resolutionModeFor({
+		shape: "team_season_stat_numeric_guess",
+		leagueSlug: params.leagueSlug,
+		statName: params.template.statName,
+		statAggregation: "total",
+	})
+	const resolutionSource =
+		resolutionMode === "system"
+			? autoResolutionSource("season")
+			: params.resolutionSource
 	// Sorted here rather than in the query so the ballot's own order comes
 	// from the same comparator the section headings do (see team-grouping.ts)
 	// - attachToBallot appends at max(sortOrder)+1, so iteration order IS the
@@ -206,7 +223,8 @@ async function generatePerTeamNumericGuess(params: {
 					sportId: params.sportId,
 					leagueId: params.leagueId,
 					seasonId: params.seasonId,
-					resolutionSource: params.resolutionSource,
+					resolutionMode,
+					resolutionSource,
 					locksAt: params.locksAt,
 					statId: stat.id,
 					statAggregation: "total",
@@ -426,6 +444,7 @@ async function generatePlayerSeasonAward(params: {
 async function generateTeamSeasonAward(params: {
 	template: Extract<RecurringQuestionTemplate, { shape: "team_season_award" }>
 	leagueId: string
+	leagueSlug: string
 	sportId: string
 	seasonId: string
 	resolutionSource: string
@@ -433,6 +452,18 @@ async function generateTeamSeasonAward(params: {
 	createdBy: string
 	ballotId: string
 }): Promise<{ created: number; skipped: number }> {
+	// A championship settles from ESPN's postseason results, so it stores ESPN
+	// as its source in place of the one passed in.
+	const resolutionMode = resolutionModeFor({
+		shape: "team_season_award",
+		leagueSlug: params.leagueSlug,
+		statName: null,
+		awardName: params.template.awardName,
+		awardVerb: params.template.awardVerb,
+		picksRequired: params.template.picksRequired,
+		awardConferences: params.template.awardConferences,
+		awardDivisions: params.template.awardDivisions,
+	})
 	// See the matching comment in generatePlayerSeasonAward above - awardName
 	// alone isn't a unique key once two entries share a bare name distinguished
 	// only by conference/division.
@@ -484,7 +515,11 @@ async function generateTeamSeasonAward(params: {
 				sportId: params.sportId,
 				leagueId: params.leagueId,
 				seasonId: params.seasonId,
-				resolutionSource: params.resolutionSource,
+				resolutionMode,
+				resolutionSource:
+					resolutionMode === "system"
+						? autoResolutionSource("postseason")
+						: params.resolutionSource,
 				locksAt: params.locksAt,
 				picksRequired: params.template.picksRequired,
 				awardName: params.template.awardName,
@@ -619,6 +654,7 @@ export async function generateSeasonQuestions(params: {
 					generatePerTeamNumericGuess({
 						template: t,
 						leagueId: params.leagueId,
+						leagueSlug: league.slug,
 						sportId: league.sportId,
 						seasonId: season.id,
 						seasonYear: season.year,
@@ -644,6 +680,7 @@ export async function generateSeasonQuestions(params: {
 					generateTeamSeasonAward({
 						template: t,
 						leagueId: params.leagueId,
+						leagueSlug: league.slug,
 						sportId: league.sportId,
 						seasonId: season.id,
 						resolutionSource: params.resolutionSource,

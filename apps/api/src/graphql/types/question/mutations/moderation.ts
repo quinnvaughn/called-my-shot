@@ -1,4 +1,5 @@
 import {
+	adminMarkQuestionVoidedSchema,
 	deleteQuestionSchema,
 	editQuestionTitleSchema,
 	reportQuestionSchema,
@@ -22,8 +23,10 @@ import {
 import { createNotification } from "../../../../lib/notifications"
 import { reverseQuestionLeagueStats } from "../../../../lib/resolve-question"
 import { STRIKE_LOCK_THRESHOLD } from "../../../../lib/strikes"
+import { markQuestionVoided } from "../../../../lib/void-question"
 import { builder } from "../../../builder"
 import {
+	AdminMarkQuestionVoidedInput,
 	DeleteQuestionInput,
 	DeleteQuestionPayload,
 	DismissReportInput,
@@ -201,7 +204,7 @@ builder.mutationFields((t) => ({
 					.where(eq(questions.id, data.questionId))
 					.for("update")
 				if (!question) throw new NotFoundError("Question not found")
-				if (question.status !== "open" && question.status !== "disputed") {
+				if (question.status === "resolved") {
 					throw ValidationError.field(
 						null,
 						"Only a live, locked, or disputed question can be voided.",
@@ -310,6 +313,65 @@ builder.mutationFields((t) => ({
 			if (!report) throw new Error("reportQuestion: insert returned no row")
 
 			return { report }
+		},
+	}),
+
+	// Voids a question with no result and nobody at fault - see
+	// markQuestionVoided. For what the automatic resolver can't settle on its
+	// own: a player ESPN doesn't list, a game that never finished. Allowed once
+	// the question has locked, resolved ones included; an open dispute has to
+	// be settled first, since upholding it would put the question back to
+	// resolved.
+	adminMarkQuestionVoided: t.field({
+		type: QuestionPayload,
+		errors: {
+			types: [
+				AuthenticationError,
+				AuthorizationError,
+				NotFoundError,
+				ValidationError,
+			],
+			directResult: true,
+			union: { name: "AdminMarkQuestionVoidedResult" },
+		},
+		args: {
+			input: t.arg({ type: AdminMarkQuestionVoidedInput, required: true }),
+		},
+		resolve: async (_root, args, ctx) => {
+			const admin = requireAdmin(ctx)
+			const parsed = adminMarkQuestionVoidedSchema.safeParse(args.input)
+			if (!parsed.success)
+				throw ValidationError.fromZodIssues(parsed.error.issues)
+			const data = parsed.data
+
+			const question = await db.transaction(async (tx) => {
+				const [question] = await tx
+					.select()
+					.from(questions)
+					.where(eq(questions.id, data.questionId))
+					.for("update")
+				if (!question) throw new NotFoundError("Question not found")
+				if (question.status === "disputed") {
+					throw ValidationError.field(
+						null,
+						"Settle the open dispute before voiding this question.",
+					)
+				}
+				if (question.status === "voided") {
+					throw ValidationError.field(null, "This question is already voided.")
+				}
+				if (question.locksAt > new Date()) {
+					throw ValidationError.field(null, "This question hasn't locked yet.")
+				}
+
+				return markQuestionVoided(tx, question, {
+					reason: data.reason,
+					note: data.note,
+					voidedBy: { method: "admin", userId: admin.id },
+				})
+			})
+
+			return { question }
 		},
 	}),
 }))

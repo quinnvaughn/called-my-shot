@@ -111,6 +111,7 @@ export async function syncGameQuestions(league: League): Promise<void> {
 					gameId: game.id,
 					seasonId: game.seasonId,
 					resolutionSource: "ESPN box score",
+					resolutionMode: "system",
 					locksAt: game.startsAt,
 				})
 				.returning()

@@ -10,6 +10,7 @@ import { openModal } from "#/stores/modal-store"
 import { AdminResolveModal } from "./admin-resolve-modal"
 import { DeleteQuestionModal } from "./delete-question-modal"
 import { EditQuestionTitleModal } from "./edit-question-title-modal"
+import { MarkVoidedModal } from "./mark-voided-modal"
 import { VoidQuestionModal } from "./void-question-modal"
 
 // Loads the option pool on demand rather than requiring every caller (the
@@ -59,12 +60,26 @@ export function QuestionRowActions({
 	question: {
 		id: string
 		title: string
-		status: "OPEN" | "LOCKED" | "RESOLVED" | "DISPUTED"
+		status: "OPEN" | "LOCKED" | "RESOLVED" | "DISPUTED" | "VOIDED"
 		isOfficial: boolean
 		creator: { username: string } | null
 	}
 	onChanged: () => void
 }) {
+	// Settles the question with no result and keeps it, unlike Void, which
+	// deletes it.
+	const noResultButton = (
+		<Button
+			variant="outline"
+			size="sm"
+			onClick={() =>
+				openModal(<MarkVoidedModal question={question} onVoided={onChanged} />)
+			}
+		>
+			No result
+		</Button>
+	)
+
 	const editTitleButton = (
 		<Button
 			variant="outline"
@@ -113,6 +128,18 @@ export function QuestionRowActions({
 	if (question.status === "RESOLVED") {
 		return (
 			<HStack gap="1.5" justify="flex-end">
+				{noResultButton}
+				{editTitleButton}
+				{deleteButton}
+			</HStack>
+		)
+	}
+
+	// Resolving a voided question gives it a result after all.
+	if (question.status === "VOIDED") {
+		return (
+			<HStack gap="1.5" justify="flex-end">
+				<ResolveButton questionId={question.id} onResolved={onChanged} />
 				{editTitleButton}
 				{deleteButton}
 			</HStack>
@@ -133,6 +160,7 @@ export function QuestionRowActions({
 			>
 				Void
 			</Button>
+			{question.status === "LOCKED" && noResultButton}
 			{editTitleButton}
 			{deleteButton}
 		</HStack>

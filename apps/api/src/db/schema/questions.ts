@@ -74,7 +74,40 @@ export const questionStatus = pgEnum("question_status", [
 	"locked",
 	"resolved",
 	"disputed",
+	// Settled with no result - see markQuestionVoided in lib/void-question.ts.
+	// The question and its calls stay; the moderation voidQuestion is the one
+	// that deletes a question outright.
+	"voided",
 ])
+
+// Why a question is voided - null for every other status. subject_did_not_play:
+// the player or team the question is about didn't play. game_not_completed:
+// the game was postponed or abandoned. other: an admin's call, explained in
+// resolutionNote.
+export const questionVoidedReason = pgEnum("question_voided_reason", [
+	"subject_did_not_play",
+	"game_not_completed",
+	"other",
+])
+export type QuestionVoidedReason =
+	(typeof questionVoidedReason.enumValues)[number]
+
+// Who set a question's current result - null until it has one. "system" is
+// ESPN data read by a sync job; "creator" and "admin" are the two human
+// resolve paths. Recorded so a creator grading their own question can be told
+// apart from a result somebody else checked.
+export const resolutionMethod = pgEnum("resolution_method", [
+	"system",
+	"creator",
+	"admin",
+])
+
+// Whether a question's result comes from ESPN data ("system") or has to be
+// entered by a person ("manual"). Decided at creation from the shape and stat
+// (see resolutionModeFor in packages/schemas) - a system question is never
+// resolved by its creator, only by the sync job or, when that can't settle
+// it, an admin.
+export const resolutionMode = pgEnum("resolution_mode", ["system", "manual"])
 
 // player_season_award/team_season_award only - which verb the single-winner
 // title reads with ("Who will WIN the MVP?" vs "Who will BE the AL Gold
@@ -141,6 +174,15 @@ export const questions = pgTable("questions", {
 	status: questionStatus("status").notNull().default("open"),
 	resolvedAt: timestamp("resolved_at"),
 	resolutionNote: text("resolution_note"),
+	// See resolutionMethod above. resolvedByUserId is the person behind a
+	// creator or admin resolution - null for a system one, and set null if
+	// that account is later deleted.
+	resolutionMethod: resolutionMethod("resolution_method"),
+	resolvedByUserId: uuid("resolved_by_user_id").references(() => users.id, {
+		onDelete: "set null",
+	}),
+	resolutionMode: resolutionMode("resolution_mode").notNull().default("manual"),
+	voidedReason: questionVoidedReason("voided_reason"),
 
 	// The *_over_under and *_numeric_guess shapes share this - the stat being
 	// checked. statId is the strong default (catalog-backed, consistent

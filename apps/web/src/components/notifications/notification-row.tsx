@@ -1,6 +1,7 @@
 import { match } from "ts-pattern"
 import type { NotificationsPageQuery } from "#/graphql/generated/graphql"
 import { CallResolvedRow } from "./rows/call-resolved-row"
+import { CallVoidedRow } from "./rows/call-voided-row"
 import { DisputeFiledRow } from "./rows/dispute-filed-row"
 import { DisputeOverturnedRow } from "./rows/dispute-overturned-row"
 import { DisputeUpheldRow } from "./rows/dispute-upheld-row"
@@ -42,6 +43,9 @@ export function NotificationRow({ notification, unread, onOpen }: Props) {
 		))
 		.with({ __typename: "QuestionVoidedNotification" }, (n) => (
 			<QuestionVoidedRow notification={n} unread={unread} onOpen={onOpen} />
+		))
+		.with({ __typename: "CallVoidedNotification" }, (n) => (
+			<CallVoidedRow notification={n} unread={unread} onOpen={onOpen} />
 		))
 		.with({ __typename: "GroupMemberJoinedNotification" }, (n) => (
 			<GroupMemberJoinedRow notification={n} unread={unread} onOpen={onOpen} />

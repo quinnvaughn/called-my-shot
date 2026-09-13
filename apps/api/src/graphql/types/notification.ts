@@ -33,6 +33,7 @@ const GQL_TYPE_BY_ROW_TYPE: Record<NotificationRow["type"], string> = {
 	dispute_upheld: "DisputeUpheldNotification",
 	dispute_overturned: "DisputeOverturnedNotification",
 	question_voided: "QuestionVoidedNotification",
+	call_voided: "CallVoidedNotification",
 	group_member_joined: "GroupMemberJoinedNotification",
 	question_shared_to_group: "QuestionSharedToGroupNotification",
 }
@@ -143,6 +144,20 @@ builder.objectRef<NotificationRow>("QuestionVoidedNotification").implement({
 	fields: (t) => ({
 		questionTitle: t.exposeString("questionTitle", { nullable: true }),
 		strikeCount: t.exposeInt("strikeCount", { nullable: true }),
+	}),
+})
+
+// A question you called was voided without a result - see markQuestionVoided.
+// Unlike QuestionVoidedNotification, the question still exists to link to.
+builder.objectRef<NotificationRow>("CallVoidedNotification").implement({
+	interfaces: [NotificationNode],
+	fields: (t) => ({
+		question: t.field({
+			type: QuestionRef,
+			nullable: true,
+			resolve: resolveQuestion,
+		}),
+		questionTitle: t.exposeString("questionTitle", { nullable: true }),
 	}),
 })
 

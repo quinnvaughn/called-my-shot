@@ -126,6 +126,10 @@ export const relations = defineRelations(schema, (r) => ({
 			from: r.questions.id,
 			to: r.ballotQuestions.questionId,
 		}),
+		autoResolution: r.one.questionAutoResolutions({
+			from: r.questions.id,
+			to: r.questionAutoResolutions.questionId,
+		}),
 	},
 	questionOptions: {
 		question: r.one.questions({

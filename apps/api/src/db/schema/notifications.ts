@@ -18,6 +18,7 @@ export const notificationType = pgEnum("notification_type", [
 	"dispute_upheld",
 	"dispute_overturned",
 	"question_voided",
+	"call_voided",
 	"group_member_joined",
 	"question_shared_to_group",
 ])

@@ -190,6 +190,16 @@ export const AdminQueueSummaryDocument = graphql(`
 						locksAt
 						callCount
 					}
+					autoResolveEscalated {
+						failureReason
+						failureDetail
+						question {
+							id
+							title
+							locksAt
+							callCount
+						}
+					}
 					disputed {
 						id
 						reason

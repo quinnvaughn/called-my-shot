@@ -89,6 +89,10 @@ const stateDotStyle: Record<BallotMemberState, string> = {
 		border: "1px dashed {colors.fg.subtle}",
 		opacity: 0.5,
 	}),
+	voided: css({
+		border: "1px solid {colors.fg.subtle}",
+		opacity: 0.5,
+	}),
 }
 
 // Sits inline with the pick itself ("your pick" line), not as a leading

@@ -14,6 +14,7 @@ import { PersonLine } from "./person-line"
 import { PickList } from "./pick-list"
 import { QuestionSummaryHeader } from "./question-summary-header"
 import { ResultBadge } from "./result-badge"
+import { VoidedBadge } from "./voided-badge"
 
 export const CallCardFragment = graphql(`
 	fragment CallCard_call on Call {
@@ -21,6 +22,7 @@ export const CallCardFragment = graphql(`
 		guessValue
 		conviction
 		totalPoints
+		unscoredReason
 		caseText
 		user {
 			name
@@ -137,8 +139,12 @@ export function CallCard({ call: callProp }: CallCardProps) {
 						))
 						.with("LOCKED", () => <LockedBadge />)
 						.with("RESOLVED", "DISPUTED", () => (
-							<ResultBadge totalPoints={call.totalPoints} />
+							<ResultBadge
+								totalPoints={call.totalPoints}
+								unscoredReason={call.unscoredReason}
+							/>
 						))
+						.with("VOIDED", () => <VoidedBadge />)
 						.exhaustive()}
 				/>
 				<PickList call={call} />

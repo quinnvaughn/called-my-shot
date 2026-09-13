@@ -109,5 +109,10 @@ export const games = pgTable("games", {
 	// starters - how that job tells a game is due again without re-fetching
 	// ESPN every tick. Null until the first successful refresh.
 	startersSyncedAt: timestamp("starters_synced_at"),
+	// When a sync first saw this game go final. Stamped once and never moved
+	// by later ticks, so a job that waits out a settling period after the
+	// final whistle measures from the same moment every time it runs. Null
+	// while the game isn't final.
+	finalizedAt: timestamp("finalized_at"),
 })
 export type Game = typeof games.$inferSelect

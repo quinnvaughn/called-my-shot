@@ -5,7 +5,7 @@ import {
 } from "@called-my-shot/schemas"
 import { eq } from "drizzle-orm"
 import { db } from "../../../../db"
-import { questions, resolutionDisputes } from "../../../../db/schema"
+import { calls, questions, resolutionDisputes } from "../../../../db/schema"
 import { requireAdmin, requireUser } from "../../../../lib/auth"
 import {
 	AuthenticationError,
@@ -56,6 +56,15 @@ builder.mutationFields((t) => ({
 						"Only the creator can resolve this question.",
 					)
 				}
+				if (question.status === "voided") {
+					throw ValidationError.field(null, "This question was voided.")
+				}
+				if (question.resolutionMode === "system") {
+					throw ValidationError.field(
+						null,
+						"This question resolves automatically from ESPN.",
+					)
+				}
 				if (question.status === "resolved" || question.status === "disputed") {
 					throw ValidationError.field(
 						null,
@@ -76,7 +85,25 @@ builder.mutationFields((t) => ({
 					throw ValidationError.fromZodIssues(parsed.error.issues)
 				}
 
-				return resolveQuestionInternal(tx, question, parsed.data)
+				// A creator grading a question nobody else called has nobody who
+				// could dispute the result, so their own call on it doesn't score.
+				const callers = await tx
+					.select({ userId: calls.userId })
+					.from(calls)
+					.where(eq(calls.questionId, question.id))
+				const isSoleCaller =
+					callers.length === 1 && callers[0]?.userId === user.id
+
+				return resolveQuestionInternal(tx, question, parsed.data, {
+					resolvedBy: { method: "creator", userId: user.id },
+					...(isSoleCaller
+						? {
+								unscoredUserIds: new Map([
+									[user.id, "creator_sole_caller" as const],
+								]),
+							}
+						: {}),
+				})
 			})
 
 			return { question }
@@ -104,7 +131,7 @@ builder.mutationFields((t) => ({
 		},
 		args: { input: t.arg({ type: AdminResolveQuestionInput, required: true }) },
 		resolve: async (_root, args, ctx) => {
-			requireAdmin(ctx)
+			const admin = requireAdmin(ctx)
 
 			const question = await db.transaction(async (tx) => {
 				const [question] = await tx
@@ -132,8 +159,11 @@ builder.mutationFields((t) => ({
 				}
 
 				return resolveQuestionInternal(tx, question, parsed.data, {
-					resolutionSource: parsed.data.resolutionSource,
-					resolutionSourceUrl: parsed.data.resolutionSourceUrl,
+					resolvedBy: { method: "admin", userId: admin.id },
+					source: {
+						resolutionSource: parsed.data.resolutionSource,
+						resolutionSourceUrl: parsed.data.resolutionSourceUrl,
+					},
 				})
 			})
 
@@ -160,7 +190,7 @@ builder.mutationFields((t) => ({
 		},
 		args: { input: t.arg({ type: OverturnDisputeInput, required: true }) },
 		resolve: async (_root, args, ctx) => {
-			requireAdmin(ctx)
+			const admin = requireAdmin(ctx)
 
 			const question = await db.transaction(async (tx) => {
 				const [dispute] = await tx
@@ -196,8 +226,11 @@ builder.mutationFields((t) => ({
 					question,
 					parsed.data,
 					{
-						resolutionSource: parsed.data.resolutionSource,
-						resolutionSourceUrl: parsed.data.resolutionSourceUrl,
+						resolvedBy: { method: "admin", userId: admin.id },
+						source: {
+							resolutionSource: parsed.data.resolutionSource,
+							resolutionSourceUrl: parsed.data.resolutionSourceUrl,
+						},
 					},
 				)
 

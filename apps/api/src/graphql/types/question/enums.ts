@@ -52,6 +52,50 @@ export const QuestionStatus = builder.enumType("QuestionStatus", {
 		LOCKED: { value: "locked" },
 		RESOLVED: { value: "resolved" },
 		DISPUTED: { value: "disputed" },
+		VOIDED: { value: "voided" },
+	},
+})
+
+// See questionVoidedReason on the questions table.
+export const QuestionVoidedReason = builder.enumType("QuestionVoidedReason", {
+	values: {
+		SUBJECT_DID_NOT_PLAY: { value: "subject_did_not_play" },
+		GAME_NOT_COMPLETED: { value: "game_not_completed" },
+		OTHER: { value: "other" },
+	},
+})
+
+// See callUnscoredReason on the calls table.
+export const CallUnscoredReason = builder.enumType("CallUnscoredReason", {
+	values: {
+		QUESTION_VOIDED: { value: "question_voided" },
+		CREATOR_SOLE_CALLER: { value: "creator_sole_caller" },
+	},
+})
+
+// See autoResolveFailure on the question_auto_resolutions table.
+export const AutoResolveFailure = builder.enumType("AutoResolveFailure", {
+	values: {
+		FETCH_FAILED: { value: "fetch_failed" },
+		BOX_SCORE_NOT_FINAL: { value: "box_score_not_final" },
+		MISSING_EXTERNAL_REF: { value: "missing_external_ref" },
+		SUBJECT_NOT_IN_BOX_SCORE: { value: "subject_not_in_box_score" },
+		STAT_UNDEFINED: { value: "stat_undefined" },
+		TIE: { value: "tie" },
+		PUSH: { value: "push" },
+		LEADER_NOT_IN_POOL: { value: "leader_not_in_pool" },
+		NO_LEADER: { value: "no_leader" },
+		UNMAPPED: { value: "unmapped" },
+		RECHECK_DISAGREED: { value: "recheck_disagreed" },
+	},
+})
+
+// See resolutionMethod on the questions table.
+export const ResolutionMethod = builder.enumType("ResolutionMethod", {
+	values: {
+		SYSTEM: { value: "system" },
+		CREATOR: { value: "creator" },
+		ADMIN: { value: "admin" },
 	},
 })
 
@@ -110,9 +154,10 @@ export const VoidReason = builder.enumType("VoidReason", {
 })
 
 // Not a DB column - derived from question.status (see myCalls below). A call
-// is "resolved" once its question has resolved and scoring is final; open,
-// locked, and disputed questions all still count as "open" from the caller's
-// point of view since none of them are a final outcome yet.
+// is "resolved" once its question has resolved or been voided, so nothing
+// about it will change again; open, locked, and disputed questions all still
+// count as "open" from the caller's point of view since none of them are a
+// final outcome yet.
 export const CallResolutionStatus = builder.enumType("CallResolutionStatus", {
 	values: {
 		OPEN: { value: "open" },

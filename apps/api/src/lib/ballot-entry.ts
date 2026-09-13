@@ -69,6 +69,8 @@ export async function loadBallotEntry(
 				: null)
 		if (totalPoints !== null) points += totalPoints
 
+		// An unscored call has no result to count either way.
+		if (call.unscoredReason !== null) continue
 		const settled =
 			question?.status === "resolved" || question?.status === "disputed"
 		if (!settled) continue

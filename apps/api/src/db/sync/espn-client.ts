@@ -267,6 +267,35 @@ export async function fetchScoreboardRange(
 	return data.events
 }
 
+// A postseason game. `notes` names its round ("NBA Finals - Game 7", "AFC
+// Championship") and `series` is only present for the leagues that play
+// series.
+export type EspnPostseasonEvent = {
+	id: string
+	date: string
+	competitions: [
+		{
+			notes?: { headline?: string }[]
+			series?: { completed: boolean }
+			status: { type: { name: string; completed: boolean } }
+			competitors: { team: { id: string }; winner?: boolean }[]
+		},
+	]
+}
+
+// Every postseason game in a date range (YYYYMMDD). A whole NBA postseason is
+// under 200 games, so one call covers it.
+export async function fetchPostseasonScoreboard(
+	sportPath: EspnSportPath,
+	startDate: string,
+	endDate: string,
+): Promise<EspnPostseasonEvent[]> {
+	const data = await espnGet<{ events: EspnPostseasonEvent[] }>(
+		`${sportPath}/scoreboard?seasontype=3&dates=${startDate}-${endDate}&limit=500`,
+	)
+	return data.events
+}
+
 export type EspnLineupEntry = {
 	starter?: boolean
 	batOrder?: number
@@ -290,6 +319,76 @@ export async function fetchGameSummaryRosters(
 		`${sportPath}/summary?event=${espnEventId}`,
 	)
 	return data.rosters ?? []
+}
+
+export type EspnBoxScoreAthlete = {
+	athlete: { id: string }
+	// NBA only: set on anyone listed for the game who sat.
+	didNotPlay?: boolean
+	// Lines up with the table's `keys`.
+	stats: string[]
+	// MLB pitchers carry their decision here ("W, 2-3", "S, 33").
+	notes?: { type: string; text: string }[]
+}
+
+// One stat table for one team. NBA has a single unnamed table, NFL names each
+// ("passing", "defensive"), MLB types them ("batting", "pitching"). `totals`
+// is the team's sum of each column. A table nobody recorded anything in (no
+// interceptions) still lists its keys, but with no athletes and no totals.
+export type EspnBoxScorePlayerTable = {
+	name?: string | null
+	type?: string | null
+	keys: string[]
+	totals?: string[]
+	athletes: EspnBoxScoreAthlete[]
+}
+
+export type EspnBoxScoreTeamStat = {
+	name: string
+	displayValue: string
+	value?: number
+}
+
+// MLB groups its team stats by batting/pitching; NBA and NFL list them flat.
+export type EspnBoxScoreTeamStatGroup = {
+	name: string
+	stats: EspnBoxScoreTeamStat[]
+}
+
+// The parts of a game's summary the automatic resolver reads - see
+// box-score-parse.ts. Verified live against a final game in each league.
+export type EspnGameSummary = {
+	header: {
+		competitions: [
+			{
+				status: EspnEventStatus
+				boxscoreAvailable?: boolean
+				boxscoreSource?: string
+				competitors: {
+					id: string
+					homeAway: "home" | "away"
+					score?: string
+				}[]
+			},
+		]
+	}
+	boxscore?: {
+		players?: {
+			team: { id: string }
+			statistics: EspnBoxScorePlayerTable[]
+		}[]
+		teams?: {
+			team: { id: string }
+			statistics: (EspnBoxScoreTeamStat | EspnBoxScoreTeamStatGroup)[]
+		}[]
+	}
+}
+
+export async function fetchGameSummary(
+	sportPath: EspnSportPath,
+	espnEventId: string,
+): Promise<EspnGameSummary> {
+	return espnGet<EspnGameSummary>(`${sportPath}/summary?event=${espnEventId}`)
 }
 
 export type EspnDepthChartAthlete = {
@@ -347,6 +446,65 @@ async function coreEspnGet<T>(path: string): Promise<T | null> {
 	return res.json() as Promise<T>
 }
 
+// For per-game reads a job has to tell apart: null only when ESPN has nothing
+// at that address, and a thrown EspnRequestError for any other failure, so a
+// refusal still ends the run (see espn-requester.ts).
+async function coreEspnGetOrNotFound<T>(path: string): Promise<T | null> {
+	const res = await fetch(`${CORE_BASE_URL}/${path}`, {
+		signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+	})
+	if (res.status === 404) return null
+	if (!res.ok) throw new EspnRequestError(path, res.status)
+	return res.json() as Promise<T>
+}
+
+function competitorPath(
+	sportPath: EspnSportPath,
+	espnEventId: string,
+	espnTeamId: string,
+): string {
+	return `${toLeaguesPath(sportPath)}/events/${espnEventId}/competitions/${espnEventId}/competitors/${espnTeamId}`
+}
+
+// Everyone on one team's game roster. The site box score leaves an NFL player
+// out of every table they recorded nothing in, so this is what tells "played,
+// did nothing" apart from "didn't play".
+export type EspnCompetitorRosterEntry = {
+	playerId: number
+	didNotPlay?: boolean
+}
+
+export async function fetchCompetitorRoster(
+	sportPath: EspnSportPath,
+	espnEventId: string,
+	espnTeamId: string,
+): Promise<EspnCompetitorRosterEntry[] | null> {
+	const data = await coreEspnGetOrNotFound<{
+		entries?: EspnCompetitorRosterEntry[]
+	}>(`${competitorPath(sportPath, espnEventId, espnTeamId)}/roster`)
+	return data ? (data.entries ?? []) : null
+}
+
+// One athlete's stats for one game, as game values. The site box score's MLB
+// avg/onBasePct/slugAvg columns are season-to-date and it has no stolen bases
+// column, which is why those come from here instead.
+export type EspnAthleteGameStatistics = {
+	splits: {
+		categories: { name: string; stats: { name: string; value: number }[] }[]
+	}
+}
+
+export async function fetchCompetitorAthleteStatistics(
+	sportPath: EspnSportPath,
+	espnEventId: string,
+	espnTeamId: string,
+	espnAthleteId: string,
+): Promise<EspnAthleteGameStatistics | null> {
+	return coreEspnGetOrNotFound<EspnAthleteGameStatistics>(
+		`${competitorPath(sportPath, espnEventId, espnTeamId)}/roster/${espnAthleteId}/statistics/0`,
+	)
+}
+
 export type EspnSeason = {
 	year: number
 	displayName: string
@@ -402,4 +560,57 @@ export async function fetchSeasonWeeks(
 		),
 	)
 	return weeks.filter((week): week is EspnSeasonWeek => week !== null)
+}
+
+// Same categorized shape as a game's athlete statistics, for a whole regular
+// season. `perGameValue` is left out on purpose: ESPN rounds it to a whole
+// number, so a per-game line is worked out from the total instead.
+export type EspnSeasonStatistics = EspnAthleteGameStatistics
+
+export async function fetchAthleteSeasonStatistics(
+	sportPath: EspnSportPath,
+	year: number,
+	espnAthleteId: string,
+): Promise<EspnSeasonStatistics | null> {
+	return coreEspnGetOrNotFound<EspnSeasonStatistics>(
+		`${toLeaguesPath(sportPath)}/seasons/${year}/types/2/athletes/${espnAthleteId}/statistics`,
+	)
+}
+
+export async function fetchTeamSeasonStatistics(
+	sportPath: EspnSportPath,
+	year: number,
+	espnTeamId: string,
+): Promise<EspnSeasonStatistics | null> {
+	return coreEspnGetOrNotFound<EspnSeasonStatistics>(
+		`${toLeaguesPath(sportPath)}/seasons/${year}/types/2/teams/${espnTeamId}/statistics`,
+	)
+}
+
+const STANDINGS_BASE_URL = "https://site.api.espn.com/apis/v2/sports"
+
+export type EspnStandingsEntry = {
+	team: { id: string }
+	stats: { name: string; value?: number }[]
+}
+
+// Conferences, then divisions - a league's standings nest to whatever depth
+// it groups teams by, with entries at the leaves.
+export type EspnStandingsGroup = {
+	standings?: { entries: EspnStandingsEntry[] }
+	children?: EspnStandingsGroup[]
+}
+
+// Always asked for by season: without one ESPN answers with whichever season it
+// considers current, which between seasons is next year's empty preseason.
+export async function fetchStandings(
+	sportPath: EspnSportPath,
+	year: number,
+): Promise<EspnStandingsGroup> {
+	const path = `${sportPath}/standings?season=${year}`
+	const res = await fetch(`${STANDINGS_BASE_URL}/${path}`, {
+		signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+	})
+	if (!res.ok) throw new EspnRequestError(path, res.status)
+	return res.json() as Promise<EspnStandingsGroup>
 }

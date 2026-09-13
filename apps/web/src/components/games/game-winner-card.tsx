@@ -9,6 +9,7 @@ import { LockedBadge } from "../questions/locked-badge"
 import { OptionRow } from "../questions/option-row"
 import { PickStateIcon } from "../questions/pick-state-icon"
 import { QuestionResultBlock } from "../questions/question-result-block"
+import { VoidedBadge } from "../questions/voided-badge"
 
 export const GameWinnerCardFragment = graphql(`
 	fragment GameWinnerCard_question on Question {
@@ -66,6 +67,7 @@ export function GameWinnerCard({ question: questionProp }: Props) {
 	const isSettled =
 		question.status === "RESOLVED" || question.status === "DISPUTED"
 	const isLocked = question.status === "LOCKED"
+	const isVoided = question.status === "VOIDED"
 
 	const viewerPickIds = question.viewerCall?.selections.map((s) => s.option.id)
 	const highlightedOptionIds =
@@ -152,6 +154,8 @@ export function GameWinnerCard({ question: questionProp }: Props) {
 						</span>
 						{isLocked ? (
 							<LockedBadge />
+						) : isVoided ? (
+							<VoidedBadge />
 						) : (
 							<span
 								className={css({

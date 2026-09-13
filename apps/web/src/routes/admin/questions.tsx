@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router"
 import { useState } from "react"
 import { css, cx } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
+import { match } from "ts-pattern"
 import { QuestionRowActions } from "#/components/admin/question-row-actions"
 import { Button } from "#/components/ui/button"
 import { PageHeader } from "#/components/ui/page-header"
@@ -27,6 +28,7 @@ const STATUS_FILTERS: { value: QuestionStatus | null; label: string }[] = [
 	{ value: "OPEN", label: "Open" },
 	{ value: "RESOLVED", label: "Resolved" },
 	{ value: "DISPUTED", label: "Disputed" },
+	{ value: "VOIDED", label: "Voided" },
 ]
 
 const columns = [
@@ -56,14 +58,23 @@ const SORT_ENUM_TO_KEY: Record<AdminQuestionSort, SortKey> = {
 }
 
 function questionDisplayStatus(status: QuestionStatus, locksAt: string) {
-	if (status === "OPEN") {
-		return new Date(locksAt) <= new Date()
-			? { label: "Locked", variant: "neutral" as const }
-			: { label: "Live", variant: "primary" as const }
-	}
-	if (status === "DISPUTED")
-		return { label: "Disputed", variant: "primary" as const }
-	return { label: "Resolved", variant: "success" as const }
+	return match(status)
+		.with("OPEN", () =>
+			new Date(locksAt) <= new Date()
+				? { label: "Locked", variant: "neutral" as const }
+				: { label: "Live", variant: "primary" as const },
+		)
+		.with("LOCKED", () => ({ label: "Locked", variant: "neutral" as const }))
+		.with("DISPUTED", () => ({
+			label: "Disputed",
+			variant: "primary" as const,
+		}))
+		.with("RESOLVED", () => ({
+			label: "Resolved",
+			variant: "success" as const,
+		}))
+		.with("VOIDED", () => ({ label: "Voided", variant: "neutral" as const }))
+		.exhaustive()
 }
 
 const filterPill = css({

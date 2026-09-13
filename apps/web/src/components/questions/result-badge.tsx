@@ -4,11 +4,16 @@ import { resultState } from "#/lib/call-summary"
 
 type Props = {
 	totalPoints: number | null
+	// Set when resolution left the call out of scoring, so it will never have
+	// points to show.
+	unscoredReason?: string | null
 }
 
 // Win/pending badge for a call, sat next to the caller's identity (see
 // PersonLine) rather than buried at the end of the pick row.
-export function ResultBadge({ totalPoints }: Props) {
+export function ResultBadge({ totalPoints, unscoredReason }: Props) {
+	if (unscoredReason) return <Tag>Not scored</Tag>
+
 	const result = resultState(totalPoints)
 
 	if (result.status === "pending") return <Tag>Pending</Tag>

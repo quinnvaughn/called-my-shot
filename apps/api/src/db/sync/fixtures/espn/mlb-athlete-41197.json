@@ -1,0 +1,47 @@
+{
+ "splits": {
+  "categories": [
+   {
+    "name": "batting",
+    "stats": [
+     {
+      "name": "hitByPitch",
+      "value": 0.0
+     },
+     {
+      "name": "hits",
+      "value": 2.0
+     },
+     {
+      "name": "stolenBases",
+      "value": 0.0
+     },
+     {
+      "name": "walks",
+      "value": 0.0
+     },
+     {
+      "name": "sacFlies",
+      "value": 0.0
+     },
+     {
+      "name": "atBats",
+      "value": 5.0
+     },
+     {
+      "name": "avg",
+      "value": 0.4
+     },
+     {
+      "name": "slugAvg",
+      "value": 0.8
+     },
+     {
+      "name": "onBasePct",
+      "value": 0.4
+     }
+    ]
+   }
+  ]
+ }
+}

@@ -161,7 +161,7 @@ export type CallSummary = {
 	questionId: string
 	questionTitle: string
 	questionShape: QuestionShape
-	questionStatus: "open" | "locked" | "resolved" | "disputed"
+	questionStatus: "open" | "locked" | "resolved" | "disputed" | "voided"
 	leagueAbbr: string
 	shapeLabel: string
 	pickLabel: string

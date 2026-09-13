@@ -35,6 +35,12 @@ export type NotificationInput =
 			strikeCount?: number
 	  }
 	| {
+			type: "call_voided"
+			userId: string
+			questionId: string
+			questionTitle: string
+	  }
+	| {
 			type: "group_member_joined"
 			userId: string
 			groupId: string

@@ -9,6 +9,7 @@ import { describe, expect, it } from "vitest"
 import { db } from "../db"
 import {
 	callSelections,
+	emailOutbox,
 	notifications,
 	type Question,
 	questionOptions,
@@ -26,11 +27,15 @@ import {
 	seedOptionQuestion,
 } from "../test/factories"
 import {
+	type ResolveOptions,
 	resolveQuestionInternal,
 	reverseQuestionLeagueStats,
 } from "./resolve-question"
 
-/** resolveQuestionInternal takes a tx, so every call goes through one. */
+/**
+ * resolveQuestionInternal takes a tx, so every call goes through one. Resolves
+ * as the system unless a test says otherwise.
+ */
 function resolve(
 	question: Question,
 	data: {
@@ -38,7 +43,7 @@ function resolve(
 		actualValue?: number
 		resolutionNote?: string
 	},
-	sourceOverride?: { resolutionSource?: string; resolutionSourceUrl?: string },
+	opts: Partial<ResolveOptions> = {},
 ) {
 	return db.transaction((tx) =>
 		resolveQuestionInternal(
@@ -49,10 +54,13 @@ function resolve(
 				actualValue: data.actualValue,
 				resolutionNote: data.resolutionNote ?? "",
 			},
-			sourceOverride,
+			{ resolvedBy: { method: "system" }, ...opts },
 		),
 	)
 }
+
+const soleCaller = (userId: string) =>
+	new Map([[userId, "creator_sole_caller" as const]])
 
 const statsFor = (userId: string) =>
 	db.query.userSeasonStats.findFirst({ where: { userId } })
@@ -595,8 +603,10 @@ describe("resolveQuestionInternal - notifications and source overrides", () => {
 			question,
 			{ correctOptionIds: [options[0].id] },
 			{
-				resolutionSource: "Official league release",
-				resolutionSourceUrl: "https://nba.com/x",
+				source: {
+					resolutionSource: "Official league release",
+					resolutionSourceUrl: "https://nba.com/x",
+				},
 			},
 		)
 		expect(updated.resolutionSource).toBe("Official league release")
@@ -611,7 +621,7 @@ describe("resolveQuestionInternal - notifications and source overrides", () => {
 		const updated = await resolve(
 			question,
 			{ correctOptionIds: [options[0].id] },
-			{ resolutionSourceUrl: "" },
+			{ source: { resolutionSourceUrl: "" } },
 		)
 		expect(updated.resolutionSourceUrl).toBeNull()
 	})
@@ -653,6 +663,152 @@ describe("reverseQuestionLeagueStats", () => {
 		const stats = await statsFor(callers[0].user.id)
 		expect(stats?.callCount).toBe(0)
 	})
+
+	it("reverses only callCount for an unscored call", async () => {
+		const { question, options, callers } = await seedOptionQuestion({
+			callers: [{ optionIndex: 0 }],
+		})
+		const userId = callers[0].user.id
+		await db.insert(userSeasonStats).values({
+			userId,
+			leagueId: question.leagueId,
+			seasonId: question.seasonId,
+			callCount: 1,
+		})
+		await resolve(
+			question,
+			{ correctOptionIds: [options[0].id] },
+			{ unscoredUserIds: soleCaller(userId) },
+		)
+
+		await db.transaction((tx) => reverseQuestionLeagueStats(tx, question))
+
+		const stats = await statsFor(userId)
+		expect(stats?.callCount).toBe(0)
+		expect(stats?.points).toBe(0)
+		expect(stats?.resolvedCallCount).toBe(0)
+	})
+})
+
+describe("resolveQuestionInternal - resolution method", () => {
+	it("stamps the creator who resolved it", async () => {
+		const creator = await makeUser()
+		const { question, options } = await seedOptionQuestion({
+			callers: [{ optionIndex: 0 }],
+			question: { creatorId: creator.id },
+		})
+		const updated = await resolve(
+			question,
+			{ correctOptionIds: [options[0].id] },
+			{ resolvedBy: { method: "creator", userId: creator.id } },
+		)
+		expect(updated.resolutionMethod).toBe("creator")
+		expect(updated.resolvedByUserId).toBe(creator.id)
+	})
+
+	it("records no person behind a system resolution", async () => {
+		const { question, options } = await seedOptionQuestion({
+			callers: [{ optionIndex: 0 }],
+		})
+		const updated = await resolve(question, {
+			correctOptionIds: [options[0].id],
+		})
+		expect(updated.resolutionMethod).toBe("system")
+		expect(updated.resolvedByUserId).toBeNull()
+	})
+})
+
+describe("resolveQuestionInternal - unscored calls", () => {
+	it("leaves an excluded call unscored and out of every stat", async () => {
+		const { question, options, callers } = await seedOptionQuestion({
+			callers: [{ optionIndex: 0 }],
+		})
+		const userId = callers[0].user.id
+		await resolve(
+			question,
+			{ correctOptionIds: [options[0].id] },
+			{ unscoredUserIds: soleCaller(userId) },
+		)
+
+		expect(
+			(await selectionFor(callers[0].selection.id))?.resultPoints,
+		).toBeNull()
+		const call = await db.query.calls.findFirst({
+			where: { id: callers[0].call.id },
+		})
+		expect(call?.unscoredReason).toBe("creator_sole_caller")
+		expect(await statsFor(userId)).toBeUndefined()
+		expect(await db.query.notifications.findMany()).toHaveLength(0)
+		expect(await db.select().from(emailOutbox)).toHaveLength(0)
+	})
+
+	it("keeps a persisted exclusion when re-resolved without it", async () => {
+		const { question, options, callers } = await seedOptionQuestion({
+			callers: [{ optionIndex: 0 }],
+		})
+		const userId = callers[0].user.id
+		await resolve(
+			question,
+			{ correctOptionIds: [options[1].id] },
+			{ unscoredUserIds: soleCaller(userId) },
+		)
+		await resolve(question, { correctOptionIds: [options[0].id] })
+
+		expect(
+			(await selectionFor(callers[0].selection.id))?.resultPoints,
+		).toBeNull()
+		expect(await statsFor(userId)).toBeUndefined()
+	})
+
+	it("still counts an excluded call in the field the others score against", async () => {
+		const { question, options, callers } = await seedOptionQuestion({
+			callers: [
+				{ optionIndex: 0, createdAt: pastDate(2) },
+				{ optionIndex: 1, createdAt: pastDate(1) },
+			],
+		})
+		await resolve(
+			question,
+			{ correctOptionIds: [options[0].id] },
+			{ unscoredUserIds: soleCaller(callers[1].user.id) },
+		)
+
+		const winner = await selectionFor(callers[0].selection.id)
+		expect(winner?.resultPoints).toBe(
+			selectionPoints(
+				BASE_POINTS_BY_SHAPE.yes_no_prop,
+				50,
+				2,
+				100,
+				true,
+				earlyTierFor(1, 2).mult,
+			),
+		)
+	})
+
+	it("leaves an excluded numeric guess unscored", async () => {
+		const question = await makeQuestion({
+			shape: "player_stat_numeric_guess",
+			numericTolerancePct: 0.1,
+		})
+		const user = await makeUser()
+		const call = await makeCall(question.id, user.id, {
+			guessValue: 100,
+			conviction: 100,
+		})
+		await resolve(
+			question,
+			{ actualValue: 100 },
+			{ unscoredUserIds: soleCaller(user.id) },
+		)
+
+		const scored = await db.query.calls.findFirst({ where: { id: call.id } })
+		expect(scored?.resultPoints).toBeNull()
+		expect(scored?.hitTolerance).toBeNull()
+		expect(scored?.closenessMult).toBeNull()
+		expect(scored?.unscoredReason).toBe("creator_sole_caller")
+		expect(await statsFor(user.id)).toBeUndefined()
+	})
 })
 
 describe("transactional integrity", () => {
@@ -666,7 +822,7 @@ describe("transactional integrity", () => {
 					tx,
 					question,
 					{ correctOptionIds: [options[0].id], resolutionNote: "" },
-					undefined,
+					{ resolvedBy: { method: "system" } },
 				)
 				throw new Error("caller blew up after resolving")
 			}),

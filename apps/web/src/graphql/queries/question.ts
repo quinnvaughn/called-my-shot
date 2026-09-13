@@ -16,6 +16,7 @@ export const QuestionDetailDocument = graphql(`
 			locksAt
 			resolvedAt
 			resolutionNote
+			voidedReason
 			hasSettledDispute
 			ouLine
 			numericActualValue
@@ -34,6 +35,7 @@ export const QuestionDetailDocument = graphql(`
 			callCount
 			resolutionSource
 			resolutionSourceUrl
+			resolvesAutomatically
 			league {
 				id
 				abbreviation
@@ -93,6 +95,7 @@ export const QuestionDetailDocument = graphql(`
 				guessValue
 				conviction
 				totalPoints
+				unscoredReason
 				currentRank
 				seasonGamesPlayed
 				seasonTotalGames

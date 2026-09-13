@@ -55,6 +55,28 @@ describe("viewerStatus", () => {
 			result: { status: "pending" },
 		})
 	})
+
+	it("marks a call resolution left out of scoring as unscored", () => {
+		const excluded = {
+			totalPoints: null,
+			unscoredReason: "CREATOR_SOLE_CALLER",
+		}
+		expect(viewerStatus("resolved", excluded)).toEqual({
+			kind: "resolved",
+			call: excluded,
+			disputed: false,
+			result: { status: "unscored" },
+		})
+	})
+
+	it("reads a voided question the same whether or not it was called", () => {
+		const called = call(null)
+		expect(viewerStatus("voided", null)).toEqual({ kind: "voided", call: null })
+		expect(viewerStatus("voided", called)).toEqual({
+			kind: "voided",
+			call: called,
+		})
+	})
 })
 
 describe("disputeAction", () => {
@@ -84,6 +106,12 @@ describe("disputeAction", () => {
 				hasViewerDispute: true,
 			}),
 		).toBe("underReview")
+	})
+
+	it("is hidden on a voided question", () => {
+		expect(disputeAction(viewerStatus("voided", call(null)), none)).toBe(
+			"hidden",
+		)
 	})
 
 	it("is hidden while disputed and once a dispute has settled", () => {

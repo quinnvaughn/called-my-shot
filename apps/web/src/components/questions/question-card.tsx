@@ -11,6 +11,7 @@ import { LockLine } from "./lock-line"
 import { LockedBadge } from "./locked-badge"
 import { QuestionResultBlock } from "./question-result-block"
 import { QuestionSummaryHeader } from "./question-summary-header"
+import { VoidedBadge } from "./voided-badge"
 
 export const QuestionCardFragment = graphql(`
 	fragment QuestionCard_question on Question {
@@ -91,7 +92,8 @@ export function QuestionCard({
 	const isSettled =
 		question.status === "RESOLVED" || question.status === "DISPUTED"
 	const isLocked = question.status === "LOCKED"
-	const signal = !isSettled ? fieldSignal(question) : null
+	const isVoided = question.status === "VOIDED"
+	const signal = !isSettled && !isVoided ? fieldSignal(question) : null
 
 	return (
 		<Link
@@ -155,6 +157,8 @@ export function QuestionCard({
 								)}
 								{isLocked ? (
 									<LockedBadge />
+								) : isVoided ? (
+									<VoidedBadge />
 								) : (
 									<span
 										className={css({

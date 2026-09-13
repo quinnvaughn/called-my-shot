@@ -4,6 +4,7 @@ import { createFileRoute, Link, useRouteContext } from "@tanstack/react-router"
 import { FaRegTimesCircle } from "react-icons/fa"
 import { css } from "styled-system/css"
 import { VStack } from "styled-system/jsx"
+import { match } from "ts-pattern"
 import {
 	CallRecordCard,
 	type CallRecordCardData,
@@ -194,10 +195,11 @@ function RouteComponent() {
 		// (which calls the same function against the same id) always show the
 		// same line, and neither has to persist it.
 		quip: resolved ? quipForCall(call.id, view.isWin === true) : null,
-		pendingLabel:
-			view.questionStatus === "OPEN"
-				? `Locks ${formatCallDate(view.locksAt)}`
-				: "Awaiting result",
+		pendingLabel: match(view.questionStatus)
+			.with("OPEN", () => `Locks ${formatCallDate(view.locksAt)}`)
+			.with("VOIDED", () => "Voided, no result")
+			.with("LOCKED", "RESOLVED", "DISPUTED", () => "Awaiting result")
+			.exhaustive(),
 	}
 
 	const lead = view.resolvedAt

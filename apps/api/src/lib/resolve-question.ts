@@ -11,6 +11,7 @@ import {
 } from "@called-my-shot/scoring"
 import { and, count, eq, inArray, lte, notInArray } from "drizzle-orm"
 import {
+	type CallUnscoredReason,
 	callSelections,
 	calls,
 	games,
@@ -18,6 +19,7 @@ import {
 	questionOptions,
 	questions,
 } from "../db/schema"
+import { callContribution } from "./call-contribution"
 import { enqueueResolvedCallEmails } from "./email-outbox"
 import { ValidationError } from "./errors"
 import { createNotifications } from "./notifications"
@@ -28,19 +30,38 @@ import {
 	type Tx,
 } from "./user-season-stats"
 
-// The scoring + question-update core of resolving a question - shared by the
-// creator-only resolveQuestion and the admin-only adminResolveQuestion/
-// overturnDispute (graphql/types/question/mutations/resolution.ts).
-// Deliberately has no auth or status-eligibility checks of its own - every
-// caller already had to load and validate `question` itself (different rules:
-// resolveQuestion requires the creator and refuses resolved/disputed,
-// adminResolveQuestion is admin-only, overturnDispute specifically requires
-// disputed), so re-checking here would just be redundant with all of them.
-// sourceOverride is only ever passed by the admin callers - regular creator
-// resolution never touches resolutionSource/resolutionSourceUrl. Exported for
-// db/sync/sync-live-scores.ts, which resolves a game's team_vs_team question
-// straight off ESPN's final score the same way - same "caller already
-// validated eligibility" contract applies there too.
+// Who set a question's current result. userId is null only when the creator
+// or admin account behind it has since been deleted.
+export type ResolvedBy =
+	| { method: "system" }
+	| { method: "creator" | "admin"; userId: string | null }
+
+// A reason the resolution itself leaves a call unscored. question_voided isn't
+// one of them - only voiding sets it, and resolving a question clears it.
+export type ResolutionUnscoredReason = Exclude<
+	CallUnscoredReason,
+	"question_voided"
+>
+
+export type ResolveOptions = {
+	resolvedBy: ResolvedBy
+	// Overwrites the creation-time resolutionSource/resolutionSourceUrl with
+	// what was actually checked. Admin and automatic resolutions pass it; a
+	// creator's never does.
+	source?: { resolutionSource?: string; resolutionSourceUrl?: string }
+	// Calls to leave unscored, keyed by caller. Merged with any reason already
+	// persisted on a call, so an exclusion made at first resolution survives an
+	// overturn or admin re-resolve that doesn't pass it again.
+	unscoredUserIds?: ReadonlyMap<string, ResolutionUnscoredReason>
+}
+
+// The scoring + question-update core of resolving a question - shared by
+// resolveQuestion, adminResolveQuestion and overturnDispute
+// (graphql/types/question/mutations/resolution.ts) and by the ESPN-driven
+// resolvers under db/sync. Deliberately has no auth or status-eligibility
+// checks of its own - every caller already had to load, lock and validate
+// `question` under its own rules, so re-checking here would just be redundant
+// with all of them.
 export async function resolveQuestionInternal(
 	tx: Tx,
 	question: Question,
@@ -49,16 +70,17 @@ export async function resolveQuestionInternal(
 		actualValue?: number
 		resolutionNote: string
 	},
-	sourceOverride?: { resolutionSource?: string; resolutionSourceUrl?: string },
+	opts: ResolveOptions,
 ) {
 	// Accumulates each affected user's net (points, resolvedCallCount,
 	// correctCount) change across this call - not the new totals themselves,
 	// since overturnDispute can re-run this against a question that was
 	// already resolved once, and the calls/selections below still carry their
 	// *previous* values when that happens (there is no reset step). Using
-	// (new - old) instead of (new) keeps user_league_stats correct on a
-	// re-resolve instead of double-counting the prior award. callCount is
-	// never touched here - it only changes at castCall/voidQuestion time.
+	// (new - old) instead of (new) keeps user_season_stats correct on a
+	// re-resolve instead of double-counting the prior award. callCount only
+	// moves here when resolving a voided question (see below) - otherwise it
+	// changes at castCall and voiding time.
 	const statDeltas = new Map<string, LeagueStatDelta>()
 	// What each user's call is actually worth after this resolution (summed
 	// across every selection on a multi-pick award) - deliberately NOT the
@@ -75,6 +97,28 @@ export async function resolveQuestionInternal(
 	// (questionId, userId), so a user has at most one call here regardless of
 	// how many selections it carries.
 	const callIdByUserId = new Map<string, string>()
+	// Callers whose call this resolution leaves unscored. They get no result
+	// notification or email - there's no result on their call to report.
+	const unscoredUsers = new Set<string>()
+
+	const unscoredReasonFor = (
+		userId: string,
+		persisted: CallUnscoredReason | null,
+	): ResolutionUnscoredReason | null =>
+		opts.unscoredUserIds?.get(userId) ??
+		(persisted === "question_voided" ? null : persisted)
+
+	// Voiding took every call's callCount back out (see markQuestionVoided), so
+	// resolving a voided question puts it back.
+	if (question.status === "voided") {
+		const voidedCalls = await tx.query.calls.findMany({
+			where: { questionId: question.id },
+			columns: { userId: true },
+		})
+		for (const call of voidedCalls) {
+			addLeagueStatDelta(statDeltas, call.userId, { callCount: 1 })
+		}
+	}
 
 	const isNumericGuess = isNumericGuessShape(question.shape)
 
@@ -88,9 +132,13 @@ export async function resolveQuestionInternal(
 				conviction: true,
 				resultPoints: true,
 				hitTolerance: true,
+				unscoredReason: true,
 				createdAt: true,
 			},
 		})
+		// Unscored calls still count toward the field every other guess is
+		// ranked against - they were real guesses at lock, whatever happens to
+		// their own result.
 		const guesses = guessCalls
 			.filter(
 				(c): c is typeof c & { guessValue: number; conviction: number } =>
@@ -104,7 +152,7 @@ export async function resolveQuestionInternal(
 			}))
 
 		// resolveQuestionSchema/adminResolveQuestionSchema guarantee actualValue
-		// is set for the two numeric-guess shapes, and createQuestionSchema
+		// is set for the numeric-guess shapes, and createQuestionSchema
 		// guarantees exactly one of numericTolerancePct/numericToleranceAbsolute
 		// was set at creation for them, matching the picked stat's tolerance
 		// tier mode.
@@ -120,6 +168,35 @@ export async function resolveQuestionInternal(
 		)
 		const oldByCallId = new Map(guessCalls.map((c) => [c.id, c]))
 		for (const r of scored) {
+			const prior = oldByCallId.get(r.callId)
+			if (!prior) continue
+			const wasResolved = prior.resultPoints !== null
+			const wasCorrect = wasResolved && prior.hitTolerance === true
+			const unscoredReason = unscoredReasonFor(
+				prior.userId,
+				prior.unscoredReason,
+			)
+
+			if (unscoredReason) {
+				await tx
+					.update(calls)
+					.set({
+						resultPoints: null,
+						hitTolerance: null,
+						closenessMult: null,
+						closenessFieldPct: null,
+						unscoredReason,
+					})
+					.where(eq(calls.id, r.callId))
+				addLeagueStatDelta(statDeltas, prior.userId, {
+					points: -(prior.resultPoints ?? 0),
+					resolvedCallCount: wasResolved ? -1 : 0,
+					correctCount: wasCorrect ? -1 : 0,
+				})
+				unscoredUsers.add(prior.userId)
+				continue
+			}
+
 			await tx
 				.update(calls)
 				.set({
@@ -127,22 +204,18 @@ export async function resolveQuestionInternal(
 					hitTolerance: r.hit,
 					closenessMult: r.closenessMult,
 					closenessFieldPct: r.closenessFieldPct,
+					unscoredReason: null,
 				})
 				.where(eq(calls.id, r.callId))
 
-			const prior = oldByCallId.get(r.callId)
-			if (prior) {
-				const wasResolved = prior.resultPoints !== null
-				const wasCorrect = wasResolved && prior.hitTolerance === true
-				const isCorrect = r.hit === true
-				addLeagueStatDelta(statDeltas, prior.userId, {
-					points: r.points - (prior.resultPoints ?? 0),
-					resolvedCallCount: wasResolved ? 0 : 1,
-					correctCount: (isCorrect ? 1 : 0) - (wasCorrect ? 1 : 0),
-				})
-				newPointsByUserId.set(prior.userId, r.points)
-				callIdByUserId.set(prior.userId, r.callId)
-			}
+			const isCorrect = r.hit === true
+			addLeagueStatDelta(statDeltas, prior.userId, {
+				points: r.points - (prior.resultPoints ?? 0),
+				resolvedCallCount: wasResolved ? 0 : 1,
+				correctCount: (isCorrect ? 1 : 0) - (wasCorrect ? 1 : 0),
+			})
+			newPointsByUserId.set(prior.userId, r.points)
+			callIdByUserId.set(prior.userId, r.callId)
 		}
 	} else {
 		const options = await tx.query.questionOptions.findMany({
@@ -204,7 +277,16 @@ export async function resolveQuestionInternal(
 				conviction: true,
 				resultPoints: true,
 			},
-			with: { call: { columns: { id: true, userId: true, createdAt: true } } },
+			with: {
+				call: {
+					columns: {
+						id: true,
+						userId: true,
+						createdAt: true,
+						unscoredReason: true,
+					},
+				},
+			},
 		})
 		// The `where` above already filters to selections whose call belongs to
 		// this question, so `call` is always present here - this narrows the
@@ -218,7 +300,8 @@ export async function resolveQuestionInternal(
 		// Earliness is a property of the call, not any one selection in it - a
 		// player_season_award/team_season_award call's picks all share the same
 		// createdAt, so this ranks distinct calls, not selections, before
-		// mapping back.
+		// mapping back. Unscored calls keep their place in the order and in the
+		// field share above - they were real picks at lock.
 		const callsById = new Map(selections.map((s) => [s.call.id, s.call]))
 		const orderedCalls = [...callsById.values()].sort(
 			(a, b) => a.createdAt.getTime() - b.createdAt.getTime(),
@@ -260,6 +343,28 @@ export async function resolveQuestionInternal(
 		}
 
 		for (const s of selections) {
+			const wasResolved = s.resultPoints !== null
+			const wasCorrect =
+				wasResolved && oldIsCorrectByOptionId.get(s.optionId) === true
+			const unscoredReason = unscoredReasonFor(
+				s.call.userId,
+				s.call.unscoredReason,
+			)
+
+			if (unscoredReason) {
+				await tx
+					.update(callSelections)
+					.set({ resultPoints: null })
+					.where(eq(callSelections.id, s.id))
+				addLeagueStatDelta(statDeltas, s.call.userId, {
+					points: -(s.resultPoints ?? 0),
+					resolvedCallCount: wasResolved ? -1 : 0,
+					correctCount: wasCorrect ? -1 : 0,
+				})
+				unscoredUsers.add(s.call.userId)
+				continue
+			}
+
 			const pct = fieldPct(countByOption.get(s.optionId) ?? 0, totalCalls)
 			const isCorrect = correctOptionIds.has(s.optionId)
 			const earlyMult = earlyMultByCallId.get(s.call.id) ?? 1
@@ -276,9 +381,6 @@ export async function resolveQuestionInternal(
 				.set({ resultPoints: points })
 				.where(eq(callSelections.id, s.id))
 
-			const wasResolved = s.resultPoints !== null
-			const wasCorrect =
-				wasResolved && oldIsCorrectByOptionId.get(s.optionId) === true
 			addLeagueStatDelta(statDeltas, s.call.userId, {
 				points: points - (s.resultPoints ?? 0),
 				resolvedCallCount: wasResolved ? 0 : 1,
@@ -290,6 +392,15 @@ export async function resolveQuestionInternal(
 			)
 			callIdByUserId.set(s.call.userId, s.call.id)
 		}
+
+		for (const call of callsById.values()) {
+			const unscoredReason = unscoredReasonFor(call.userId, call.unscoredReason)
+			if (unscoredReason === call.unscoredReason) continue
+			await tx
+				.update(calls)
+				.set({ unscoredReason })
+				.where(eq(calls.id, call.id))
+		}
 	}
 
 	await applySeasonStatDeltas(
@@ -300,7 +411,9 @@ export async function resolveQuestionInternal(
 	)
 
 	const notified = [...statDeltas].filter(
-		([, d]) => d.points !== 0 || d.resolvedCallCount !== 0,
+		([userId, d]) =>
+			!unscoredUsers.has(userId) &&
+			(d.points !== 0 || d.resolvedCallCount !== 0),
 	)
 
 	await createNotifications(
@@ -329,18 +442,23 @@ export async function resolveQuestionInternal(
 		}),
 	)
 
+	const { resolvedBy, source } = opts
 	const [updated] = await tx
 		.update(questions)
 		.set({
 			status: "resolved",
+			voidedReason: null,
 			resolvedAt: new Date(),
 			resolutionNote: data.resolutionNote || null,
+			resolutionMethod: resolvedBy.method,
+			resolvedByUserId:
+				resolvedBy.method === "system" ? null : resolvedBy.userId,
 			...(isNumericGuess ? { numericActualValue: data.actualValue } : {}),
-			...(sourceOverride?.resolutionSource
-				? { resolutionSource: sourceOverride.resolutionSource }
+			...(source?.resolutionSource
+				? { resolutionSource: source.resolutionSource }
 				: {}),
-			...(sourceOverride?.resolutionSourceUrl !== undefined
-				? { resolutionSourceUrl: sourceOverride.resolutionSourceUrl || null }
+			...(source?.resolutionSourceUrl !== undefined
+				? { resolutionSourceUrl: source.resolutionSourceUrl || null }
 				: {}),
 		})
 		.where(eq(questions.id, question.id))
@@ -353,19 +471,19 @@ export async function resolveQuestionInternal(
 	return updated
 }
 
-// Called by voidQuestion for every question it voids, regardless of status -
-// callCount always needs decrementing for each caller (an `open` question
-// can already have calls cast on it), while points/resolvedCallCount/
-// correctCount only come out non-zero when calls had already been scored,
-// i.e. a `disputed` question (the only status reachable after
-// resolveQuestionInternal has already run). Reads whatever's currently on
-// the calls/selections before the cascade delete removes them and un-applies
-// it from user_league_stats, so a voided-after-dispute question doesn't
-// leave stale points/accuracy behind.
+// Takes every call's contribution to user_season_stats back out, ahead of
+// voidQuestion/deleteQuestion hard-deleting the question and the calls that
+// recorded it. See callContribution for what each call gave: always its
+// callCount, plus points/resolvedCallCount/correctCount once it was scored.
 export async function reverseQuestionLeagueStats(tx: Tx, question: Question) {
 	const questionCalls = await tx.query.calls.findMany({
 		where: { questionId: question.id },
-		columns: { userId: true, resultPoints: true, hitTolerance: true },
+		columns: {
+			userId: true,
+			resultPoints: true,
+			hitTolerance: true,
+			unscoredReason: true,
+		},
 		with: {
 			selections: {
 				columns: { resultPoints: true },
@@ -376,26 +494,12 @@ export async function reverseQuestionLeagueStats(tx: Tx, question: Question) {
 
 	const deltas = new Map<string, LeagueStatDelta>()
 	for (const call of questionCalls) {
-		let points = 0
-		let resolvedCallCount = 0
-		let correctCount = 0
-		if (call.selections.length > 0) {
-			for (const s of call.selections) {
-				if (s.resultPoints === null) continue
-				points += s.resultPoints
-				resolvedCallCount += 1
-				if (s.option?.isCorrect) correctCount += 1
-			}
-		} else if (call.resultPoints !== null) {
-			points += call.resultPoints
-			resolvedCallCount += 1
-			if (call.hitTolerance) correctCount += 1
-		}
+		const contribution = callContribution(call, question.status)
 		addLeagueStatDelta(deltas, call.userId, {
-			points: -points,
-			resolvedCallCount: -resolvedCallCount,
-			correctCount: -correctCount,
-			callCount: -1,
+			points: -contribution.points,
+			resolvedCallCount: -contribution.resolvedCallCount,
+			correctCount: -contribution.correctCount,
+			callCount: -contribution.callCount,
 		})
 	}
 

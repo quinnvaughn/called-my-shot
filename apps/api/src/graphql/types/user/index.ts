@@ -8,6 +8,7 @@ import "./inputs"
 import "./queries"
 import "./mutations"
 import "./onboarding"
+import "./admin-report"
 
 // The public surface other modules build on - everything else stays internal
 // to this directory. The queries and mutations are registered by the

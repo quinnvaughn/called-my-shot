@@ -6,6 +6,7 @@ import { aggregatePointsByUser } from "../../../lib/points-aggregate"
 import { accuracyFrom } from "../../../lib/scoring"
 import { builder } from "../../builder"
 import { type Connection, PageInfoRef } from "../pagination"
+import { CallUnscoredReason } from "./enums"
 import { getQuestionLeagueIdLoader } from "./loaders"
 
 export const CallSelectionRef = builder.drizzleObject("callSelections", {
@@ -66,6 +67,13 @@ export const CallRef = builder.drizzleObject("calls", {
 		// ("62% of the field guessed at least this close") instead of inverting
 		// the curve client-side. Same nullability as closenessMult.
 		closenessFieldPct: t.exposeFloat("closenessFieldPct", { nullable: true }),
+		// Why this call carries no result on a settled question - null for any
+		// call that scores. See callUnscoredReason on the calls table.
+		unscoredReason: t.field({
+			type: CallUnscoredReason,
+			nullable: true,
+			resolve: (call) => call.unscoredReason,
+		}),
 		createdAt: t.field({
 			type: "String",
 			resolve: (call) => call.createdAt.toISOString(),

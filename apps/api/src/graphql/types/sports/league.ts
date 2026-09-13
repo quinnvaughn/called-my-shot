@@ -1,4 +1,4 @@
-import { and, count, eq, min, ne } from "drizzle-orm"
+import { and, count, eq, min, notInArray } from "drizzle-orm"
 import { db } from "../../../db"
 import { LEAGUE_SEASON_FORMAT } from "../../../db/catalog/league-season-format"
 import { calls, games, questions } from "../../../db/schema"
@@ -133,7 +133,7 @@ export const LeagueRef = builder.drizzleObject("leagues", {
 						and(
 							eq(calls.userId, ctx.user.id),
 							eq(questions.leagueId, league.id),
-							ne(questions.status, "resolved"),
+							notInArray(questions.status, ["resolved", "voided"]),
 						),
 					)
 				return n

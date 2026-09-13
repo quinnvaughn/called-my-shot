@@ -165,7 +165,9 @@ builder.queryFields((t) => ({
 								.where(eq(ballotQuestions.questionId, questions.id)),
 						)
 					: undefined,
-				args.excludeLocked ? ne(questions.status, "locked") : undefined,
+				args.excludeLocked
+					? notInArray(questions.status, ["locked", "voided"])
+					: undefined,
 				args.excludeGameWinners
 					? ne(questions.shape, "team_vs_team")
 					: undefined,
@@ -177,7 +179,7 @@ builder.queryFields((t) => ({
 						])
 					: undefined,
 				args.excludeSettled
-					? notInArray(questions.status, ["resolved", "disputed"])
+					? notInArray(questions.status, ["resolved", "disputed", "voided"])
 					: undefined,
 				args.teamId
 					? or(
@@ -451,7 +453,7 @@ builder.queryFields((t) => ({
 
 	// The "My Calls" page - every call the viewer has made, split into an
 	// Open tab (question still open/locked/disputed - no final outcome yet)
-	// and a Resolved tab (question resolved, points are final). See
+	// and a Resolved tab (question resolved or voided - settled for good). See
 	// myCallCounts below for the counts shown on each tab.
 	myCalls: t.field({
 		type: CallConnectionRef,
@@ -469,7 +471,9 @@ builder.queryFields((t) => ({
 					userId: user.id,
 					question: {
 						status:
-							args.status === "resolved" ? "resolved" : { ne: "resolved" },
+							args.status === "resolved"
+								? { in: ["resolved", "voided"] }
+								: { notIn: ["resolved", "voided"] },
 					},
 					...(cursor ? cursorWhere(cursor) : {}),
 				},
@@ -497,7 +501,10 @@ builder.queryFields((t) => ({
 			// viewer's lifetime resolved-call count is small enough that this
 			// isn't a real cost, unlike a site-wide query would be.
 			const rows = await db.query.calls.findMany({
-				where: { userId: user.id, question: { status: "resolved" } },
+				where: {
+					userId: user.id,
+					question: { status: { in: ["resolved", "voided"] } },
+				},
 				with: { question: { columns: { resolvedAt: true } } },
 			})
 			return rows
@@ -521,7 +528,9 @@ builder.queryFields((t) => ({
 				with: { question: { columns: { status: true } } },
 			})
 			const resolved = calls.filter(
-				(call) => call.question?.status === "resolved",
+				(call) =>
+					call.question?.status === "resolved" ||
+					call.question?.status === "voided",
 			).length
 			return { open: calls.length - resolved, resolved }
 		},
@@ -552,8 +561,8 @@ builder.queryFields((t) => ({
 	}),
 
 	// Queue tab. "Needs resolution" / "probably still live" only ever considers
-	// game-scoped questions (gameId set) that are still open past their
-	// locksAt - season-long questions (MVP, championship) have no single game
+	// game-scoped questions (gameId set) that are still unresolved (open, or
+	// flipped to locked by lock-overdue-questions) past their locksAt - season-long questions (MVP, championship) have no single game
 	// to estimate a "likely over" guess off of, and aren't time-sensitive the
 	// same way, so they're resolved manually elsewhere and never show up here.
 	adminQueueSummary: t.field({
@@ -569,7 +578,8 @@ builder.queryFields((t) => ({
 				.innerJoin(leagues, eq(leagues.id, questions.leagueId))
 				.where(
 					and(
-						eq(questions.status, "open"),
+						eq(questions.resolutionMode, "manual"),
+						inArray(questions.status, ["open", "locked"]),
 						isNotNull(questions.gameId),
 						lte(questions.locksAt, now),
 					),
@@ -597,6 +607,42 @@ builder.queryFields((t) => ({
 				orderBy: { createdAt: "asc" },
 			})
 
+			// System questions the resolver handed over, plus any whose game has
+			// sat unfinished a day past lock (postponed, suspended) - the resolver
+			// only reads a game once it's final, so those never reach it.
+			const [escalated, stuck] = await Promise.all([
+				db.query.questions.findMany({
+					where: {
+						resolutionMode: "system",
+						status: { in: ["open", "locked"] },
+						autoResolution: { escalatedAt: { isNotNull: true } },
+					},
+					with: { autoResolution: true },
+					orderBy: { locksAt: "asc" },
+				}),
+				db.query.questions.findMany({
+					where: {
+						resolutionMode: "system",
+						status: { in: ["open", "locked"] },
+						locksAt: { lte: new Date(now.getTime() - 24 * 60 * 60 * 1000) },
+						game: { status: { ne: "final" } },
+					},
+					orderBy: { locksAt: "asc" },
+				}),
+			])
+			const autoResolveEscalated = [
+				...escalated.map(({ autoResolution, ...question }) => ({
+					question,
+					failureReason: autoResolution?.failureReason ?? null,
+					failureDetail: autoResolution?.failureDetail ?? null,
+				})),
+				...stuck.map((question) => ({
+					question,
+					failureReason: null,
+					failureDetail: "The game hasn't gone final a day after lock.",
+				})),
+			]
+
 			const [{ n: liveQuestionsCount }] = await db
 				.select({ n: count() })
 				.from(questions)
@@ -609,6 +655,7 @@ builder.queryFields((t) => ({
 			return {
 				needsResolution,
 				probablyStillLive,
+				autoResolveEscalated,
 				disputed,
 				reported,
 				liveQuestionsCount,

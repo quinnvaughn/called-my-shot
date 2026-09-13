@@ -29,10 +29,10 @@ builder.mutationFields((t) => ({
 			})
 			if (!question) throw new NotFoundError("Question not found")
 
-			// status alone can't be trusted here - nothing in the app ever flips
-			// it from "open" to "locked" once locksAt passes (no cron/worker
-			// exists), so a stale "open" row past its lock time must still be
-			// rejected on the real clock, not the column.
+			// status alone can't be trusted here - lock-overdue-questions only
+			// flips "open" to "locked" every 15 minutes, so a row can still read
+			// "open" for a while after its locksAt and must be rejected on the
+			// real clock, not the column.
 			if (question.status !== "open" || question.locksAt <= new Date()) {
 				throw ValidationError.field(
 					null,

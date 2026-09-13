@@ -10,10 +10,12 @@ import { resolveQuestionInternal } from "./resolve-question"
 
 function resolve(question: Question, correctOptionIds: string[]) {
 	return db.transaction((tx) =>
-		resolveQuestionInternal(tx, question, {
-			correctOptionIds,
-			resolutionNote: "",
-		}),
+		resolveQuestionInternal(
+			tx,
+			question,
+			{ correctOptionIds, resolutionNote: "" },
+			{ resolvedBy: { method: "system" } },
+		),
 	)
 }
 

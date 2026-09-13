@@ -3,6 +3,7 @@ import {
 	index,
 	integer,
 	numeric,
+	pgEnum,
 	pgTable,
 	text,
 	timestamp,
@@ -11,6 +12,18 @@ import {
 } from "drizzle-orm/pg-core"
 import { questionOptions, questions } from "./questions"
 import { users } from "./users"
+
+// Why a call on a settled question carries no result. Its resultPoints and
+// hitTolerance stay null either way - the same "not scored" signal an
+// unresolved call has - so nothing that sums or badges results can mistake it
+// for a loss. question_voided: the question itself was voided.
+// creator_sole_caller: the creator resolved a question nobody else called, so
+// their own call on it doesn't score.
+export const callUnscoredReason = pgEnum("call_unscored_reason", [
+	"question_voided",
+	"creator_sole_caller",
+])
+export type CallUnscoredReason = (typeof callUnscoredReason.enumValues)[number]
 
 // One row per user per question. The two numeric_guess shapes score entirely
 // off the columns here (no options involved); every other shape scores
@@ -61,6 +74,9 @@ export const calls = pgTable(
 			scale: 2,
 			mode: "number",
 		}),
+		// See callUnscoredReason above - null for every call that scores, or
+		// will once its question resolves.
+		unscoredReason: callUnscoredReason("unscored_reason"),
 
 		createdAt: timestamp("created_at").notNull().defaultNow(),
 	},

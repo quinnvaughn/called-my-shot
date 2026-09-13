@@ -1,4 +1,3 @@
-import { setTimeout as sleep } from "node:timers/promises"
 import { SPORTS_TIME_ZONE } from "@called-my-shot/schemas"
 import { and, eq } from "drizzle-orm"
 import { DateTime } from "luxon"
@@ -8,11 +7,15 @@ import { db } from "../index"
 import { type Game, gameStarters, games } from "../schema"
 import {
 	type EspnDepthChart,
-	EspnRequestError,
 	fetchDepthChart,
 	fetchGameSummaryRosters,
 	fetchScoreboardRange,
 } from "./espn-client"
+import {
+	createEspnRequester,
+	DEFAULT_ESPN_SPACING_MS,
+	type EspnRequester,
+} from "./espn-requester"
 import { SYNCED_LEAGUES, type SyncLeagueConfig } from "./leagues"
 import {
 	type ParsedStarterGroup,
@@ -36,13 +39,6 @@ const LINEUP_WINDOW_MS = 3 * HOUR_MS
 // seconds after a tick waits a whole extra tick, and the schedule drifts later
 // every day.
 const TICK_SLACK_MS = 5 * MINUTE_MS
-
-// ESPN publishes no limits for these unauthenticated endpoints, so requests go
-// out one at a time with a gap and a run never bursts.
-const DEFAULT_SPACING_MS = 250
-
-// ESPN turning us away. Anything else is one failed request.
-const REFUSAL_STATUSES = [403, 429]
 
 type StarterSource = "probables" | "depth_chart"
 
@@ -100,41 +96,7 @@ export function isStartersRefreshDue(
 	return age + TICK_SLACK_MS >= maxAgeMs(source, msUntilStart)
 }
 
-type Requester = ReturnType<typeof createRequester>
-
-// One run's access to ESPN. Spaces requests out, counts them for the log line,
-// and splits failures in two: ESPN refusing us throws and ends the run, while
-// any other failure is logged and returns null, leaving the affected games due
-// for the next run.
-function createRequester(spacingMs: number) {
-	let lastRequestAt = 0
-	let count = 0
-
-	async function request<T>(
-		label: string,
-		fetcher: () => Promise<T>,
-	): Promise<T | null> {
-		const wait = lastRequestAt + spacingMs - Date.now()
-		if (wait > 0) await sleep(wait)
-		count++
-		try {
-			return await fetcher()
-		} catch (err) {
-			if (
-				err instanceof EspnRequestError &&
-				REFUSAL_STATUSES.includes(err.status)
-			) {
-				throw err
-			}
-			console.error(`[sync-game-starters] ${label} failed:`, err)
-			return null
-		} finally {
-			lastRequestAt = Date.now()
-		}
-	}
-
-	return { request, count: () => count }
-}
+type Requester = EspnRequester
 
 const espnIdOf = (sourceId: string) => sourceId.split(":")[1] ?? sourceId
 
@@ -355,7 +317,7 @@ async function syncDepthCharts(
 
 export async function syncGameStarters({
 	now = new Date(),
-	spacingMs = DEFAULT_SPACING_MS,
+	spacingMs = DEFAULT_ESPN_SPACING_MS,
 }: {
 	now?: Date
 	spacingMs?: number
@@ -381,7 +343,7 @@ export async function syncGameStarters({
 		orderBy: { startsAt: "asc" },
 	})
 
-	const requester = createRequester(spacingMs)
+	const requester = createEspnRequester("sync-game-starters", spacingMs)
 
 	for (const { config, plan } of leaguePlans) {
 		const dueGames = upcoming.filter(

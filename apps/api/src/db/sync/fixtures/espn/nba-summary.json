@@ -1,0 +1,824 @@
+{
+ "header": {
+  "competitions": [
+   {
+    "status": {
+     "type": {
+      "name": "STATUS_FINAL",
+      "completed": true
+     }
+    },
+    "boxscoreAvailable": true,
+    "boxscoreSource": "full",
+    "competitors": [
+     {
+      "id": "2",
+      "homeAway": "home",
+      "score": "144"
+     },
+     {
+      "id": "3",
+      "homeAway": "away",
+      "score": "118"
+     }
+    ]
+   }
+  ]
+ },
+ "boxscore": {
+  "players": [
+   {
+    "team": {
+     "id": "3"
+    },
+    "statistics": [
+     {
+      "keys": [
+       "minutes",
+       "points",
+       "fieldGoalsMade-fieldGoalsAttempted",
+       "threePointFieldGoalsMade-threePointFieldGoalsAttempted",
+       "freeThrowsMade-freeThrowsAttempted",
+       "rebounds",
+       "assists",
+       "turnovers",
+       "steals",
+       "blocks",
+       "offensiveRebounds",
+       "defensiveRebounds",
+       "fouls",
+       "plusMinus"
+      ],
+      "totals": [
+       "",
+       "118",
+       "44-96",
+       "9-32",
+       "21-30",
+       "44",
+       "22",
+       "13",
+       "6",
+       "3",
+       "14",
+       "30",
+       "19",
+       ""
+      ],
+      "athletes": [
+       {
+        "athlete": {
+         "id": "3155535"
+        },
+        "stats": [
+         "25",
+         "0",
+         "0-2",
+         "0-2",
+         "0-0",
+         "6",
+         "3",
+         "1",
+         "1",
+         "0",
+         "2",
+         "4",
+         "0",
+         "-29"
+        ],
+        "didNotPlay": false
+       },
+       {
+        "athlete": {
+         "id": "4869780"
+        },
+        "stats": [
+         "39",
+         "25",
+         "9-14",
+         "0-2",
+         "7-9",
+         "11",
+         "4",
+         "2",
+         "1",
+         "3",
+         "2",
+         "9",
+         "1",
+         "-24"
+        ],
+        "didNotPlay": false
+       },
+       {
+        "athlete": {
+         "id": "4277956"
+        },
+        "stats": [
+         "29",
+         "11",
+         "3-10",
+         "2-5",
+         "3-5",
+         "3",
+         "3",
+         "5",
+         "1",
+         "0",
+         "1",
+         "2",
+         "1",
+         "-40"
+        ],
+        "didNotPlay": false
+       },
+       {
+        "athlete": {
+         "id": "4432185"
+        },
+        "stats": [
+         "37",
+         "2",
+         "1-7",
+         "0-3",
+         "0-0",
+         "2",
+         "1",
+         "0",
+         "0",
+         "0",
+         "1",
+         "1",
+         "5",
+         "-5"
+        ],
+        "didNotPlay": false
+       },
+       {
+        "athlete": {
+         "id": "5144091"
+        },
+        "stats": [
+         "44",
+         "36",
+         "13-29",
+         "3-10",
+         "7-11",
+         "3",
+         "6",
+         "1",
+         "3",
+         "0",
+         "1",
+         "2",
+         "4",
+         "-32"
+        ],
+        "didNotPlay": false
+       },
+       {
+        "athlete": {
+         "id": "4432068"
+        },
+        "stats": [
+         "24",
+         "12",
+         "5-8",
+         "0-2",
+         "2-3",
+         "12",
+         "1",
+         "0",
+         "0",
+         "0",
+         "6",
+         "6",
+         "4",
+         "+6"
+        ],
+        "didNotPlay": false
+       },
+       {
+        "athlete": {
+         "id": "4432180"
+        },
+        "stats": [
+         "5",
+         "2",
+         "1-1",
+         "0-0",
+         "0-0",
+         "0",
+         "0",
+         "0",
+         "0",
+         "0",
+         "0",
+         "0",
+         "0",
+         "-11"
+        ],
+        "didNotPlay": false
+       },
+       {
+        "athlete": {
+         "id": "4433268"
+        },
+        "stats": [
+         "15",
+         "10",
+         "4-10",
+         "2-4",
+         "0-0",
+         "2",
+         "1",
+         "0",
+         "0",
+         "0",
+         "0",
+         "2",
+         "3",
+         "+2"
+        ],
+        "didNotPlay": false
+       },
+       {
+        "athlete": {
+         "id": "4683750"
+        },
+        "stats": [
+         "23",
+         "20",
+         "8-15",
+         "2-4",
+         "2-2",
+         "5",
+         "3",
+         "4",
+         "0",
+         "0",
+         "1",
+         "4",
+         "1",
+         "+3"
+        ],
+        "didNotPlay": false
+       },
+       {
+        "athlete": {
+         "id": "3442"
+        },
+        "stats": [],
+        "didNotPlay": true
+       },
+       {
+        "athlete": {
+         "id": "4576086"
+        },
+        "stats": [],
+        "didNotPlay": true
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "team": {
+     "id": "2"
+    },
+    "statistics": [
+     {
+      "keys": [
+       "minutes",
+       "points",
+       "fieldGoalsMade-fieldGoalsAttempted",
+       "threePointFieldGoalsMade-threePointFieldGoalsAttempted",
+       "freeThrowsMade-freeThrowsAttempted",
+       "rebounds",
+       "assists",
+       "turnovers",
+       "steals",
+       "blocks",
+       "offensiveRebounds",
+       "defensiveRebounds",
+       "fouls",
+       "plusMinus"
+      ],
+      "totals": [
+       "",
+       "144",
+       "52-96",
+       "29-59",
+       "11-15",
+       "44",
+       "35",
+       "13",
+       "9",
+       "5",
+       "9",
+       "35",
+       "26",
+       ""
+      ],
+      "athletes": [
+       {
+        "athlete": {
+         "id": "4065804"
+        },
+        "stats": [
+         "28",
+         "24",
+         "8-13",
+         "8-12",
+         "0-0",
+         "6",
+         "4",
+         "0",
+         "0",
+         "0",
+         "0",
+         "6",
+         "4",
+         "+21"
+        ],
+        "didNotPlay": false
+       },
+       {
+        "athlete": {
+         "id": "4397424"
+        },
+        "stats": [
+         "13",
+         "7",
+         "3-3",
+         "1-1",
+         "0-0",
+         "10",
+         "2",
+         "1",
+         "0",
+         "1",
+         "2",
+         "8",
+         "1",
+         "+13"
+        ],
+        "didNotPlay": false
+       },
+       {
+        "athlete": {
+         "id": "3078576"
+        },
+        "stats": [
+         "16",
+         "9",
+         "3-9",
+         "3-9",
+         "0-0",
+         "2",
+         "5",
+         "1",
+         "1",
+         "0",
+         "1",
+         "1",
+         "0",
+         "+18"
+        ],
+        "didNotPlay": false
+       },
+       {
+        "athlete": {
+         "id": "3917376"
+        },
+        "stats": [
+         "29",
+         "23",
+         "8-13",
+         "2-3",
+         "5-7",
+         "3",
+         "1",
+         "7",
+         "1",
+         "0",
+         "0",
+         "3",
+         "4",
+         "+24"
+        ],
+        "didNotPlay": false
+       },
+       {
+        "athlete": {
+         "id": "4683689"
+        },
+        "stats": [
+         "22",
+         "6",
+         "2-4",
+         "2-4",
+         "0-0",
+         "2",
+         "2",
+         "0",
+         "1",
+         "1",
+         "0",
+         "2",
+         "2",
+         "+17"
+        ],
+        "didNotPlay": false
+       },
+       {
+        "athlete": {
+         "id": "6478"
+        },
+        "stats": [
+         "19",
+         "14",
+         "5-7",
+         "3-5",
+         "1-2",
+         "4",
+         "5",
+         "0",
+         "0",
+         "1",
+         "1",
+         "3",
+         "1",
+         "+15"
+        ],
+        "didNotPlay": false
+       },
+       {
+        "athlete": {
+         "id": "4277951"
+        },
+        "stats": [
+         "16",
+         "14",
+         "6-13",
+         "0-3",
+         "2-3",
+         "6",
+         "2",
+         "1",
+         "1",
+         "2",
+         "4",
+         "2",
+         "4",
+         "-2"
+        ],
+        "didNotPlay": false
+       },
+       {
+        "athlete": {
+         "id": "4066354"
+        },
+        "stats": [
+         "30",
+         "21",
+         "7-14",
+         "5-9",
+         "2-2",
+         "3",
+         "10",
+         "1",
+         "1",
+         "0",
+         "0",
+         "3",
+         "3",
+         "+29"
+        ],
+        "didNotPlay": false
+       },
+       {
+        "athlete": {
+         "id": "4397251"
+        },
+        "stats": [
+         "12",
+         "7",
+         "3-7",
+         "1-4",
+         "0-0",
+         "0",
+         "1",
+         "0",
+         "1",
+         "0",
+         "0",
+         "0",
+         "0",
+         "-8"
+        ],
+        "didNotPlay": false
+       },
+       {
+        "athlete": {
+         "id": "4593841"
+        },
+        "stats": [
+         "25",
+         "9",
+         "3-6",
+         "2-5",
+         "1-1",
+         "2",
+         "2",
+         "1",
+         "0",
+         "0",
+         "0",
+         "2",
+         "2",
+         "+5"
+        ],
+        "didNotPlay": false
+       },
+       {
+        "athlete": {
+         "id": "4701992"
+        },
+        "stats": [
+         "6",
+         "0",
+         "0-0",
+         "0-0",
+         "0-0",
+         "2",
+         "0",
+         "1",
+         "0",
+         "0",
+         "1",
+         "1",
+         "1",
+         "-13"
+        ],
+        "didNotPlay": false
+       },
+       {
+        "athlete": {
+         "id": "5175647"
+        },
+        "stats": [
+         "25",
+         "10",
+         "4-7",
+         "2-4",
+         "0-0",
+         "4",
+         "1",
+         "0",
+         "3",
+         "0",
+         "0",
+         "4",
+         "4",
+         "+11"
+        ],
+        "didNotPlay": false
+       },
+       {
+        "athlete": {
+         "id": "4593043"
+        },
+        "stats": [],
+        "didNotPlay": true
+       },
+       {
+        "athlete": {
+         "id": "4702745"
+        },
+        "stats": [],
+        "didNotPlay": true
+       }
+      ]
+     }
+    ]
+   }
+  ],
+  "teams": [
+   {
+    "team": {
+     "id": "3"
+    },
+    "statistics": [
+     {
+      "name": "fieldGoalsMade-fieldGoalsAttempted",
+      "displayValue": "44-96"
+     },
+     {
+      "name": "fieldGoalPct",
+      "displayValue": "46"
+     },
+     {
+      "name": "threePointFieldGoalsMade-threePointFieldGoalsAttempted",
+      "displayValue": "9-32"
+     },
+     {
+      "name": "threePointFieldGoalPct",
+      "displayValue": "28"
+     },
+     {
+      "name": "freeThrowsMade-freeThrowsAttempted",
+      "displayValue": "21-30"
+     },
+     {
+      "name": "freeThrowPct",
+      "displayValue": "70"
+     },
+     {
+      "name": "totalRebounds",
+      "displayValue": "44"
+     },
+     {
+      "name": "offensiveRebounds",
+      "displayValue": "14"
+     },
+     {
+      "name": "defensiveRebounds",
+      "displayValue": "30"
+     },
+     {
+      "name": "assists",
+      "displayValue": "22"
+     },
+     {
+      "name": "steals",
+      "displayValue": "6"
+     },
+     {
+      "name": "blocks",
+      "displayValue": "3"
+     },
+     {
+      "name": "turnovers",
+      "displayValue": "13"
+     },
+     {
+      "name": "teamTurnovers",
+      "displayValue": "0"
+     },
+     {
+      "name": "totalTurnovers",
+      "displayValue": "13"
+     },
+     {
+      "name": "technicalFouls",
+      "displayValue": "1"
+     },
+     {
+      "name": "totalTechnicalFouls",
+      "displayValue": "1"
+     },
+     {
+      "name": "flagrantFouls",
+      "displayValue": "0"
+     },
+     {
+      "name": "turnoverPoints",
+      "displayValue": "18"
+     },
+     {
+      "name": "fastBreakPoints",
+      "displayValue": "18"
+     },
+     {
+      "name": "pointsInPaint",
+      "displayValue": "56"
+     },
+     {
+      "name": "fouls",
+      "displayValue": "19"
+     },
+     {
+      "name": "largestLead",
+      "displayValue": "2"
+     },
+     {
+      "name": "leadChanges",
+      "displayValue": "1"
+     },
+     {
+      "name": "leadPercentage",
+      "displayValue": "1"
+     }
+    ]
+   },
+   {
+    "team": {
+     "id": "2"
+    },
+    "statistics": [
+     {
+      "name": "fieldGoalsMade-fieldGoalsAttempted",
+      "displayValue": "52-96"
+     },
+     {
+      "name": "fieldGoalPct",
+      "displayValue": "54"
+     },
+     {
+      "name": "threePointFieldGoalsMade-threePointFieldGoalsAttempted",
+      "displayValue": "29-59"
+     },
+     {
+      "name": "threePointFieldGoalPct",
+      "displayValue": "49"
+     },
+     {
+      "name": "freeThrowsMade-freeThrowsAttempted",
+      "displayValue": "11-15"
+     },
+     {
+      "name": "freeThrowPct",
+      "displayValue": "73"
+     },
+     {
+      "name": "totalRebounds",
+      "displayValue": "44"
+     },
+     {
+      "name": "offensiveRebounds",
+      "displayValue": "9"
+     },
+     {
+      "name": "defensiveRebounds",
+      "displayValue": "35"
+     },
+     {
+      "name": "assists",
+      "displayValue": "35"
+     },
+     {
+      "name": "steals",
+      "displayValue": "9"
+     },
+     {
+      "name": "blocks",
+      "displayValue": "5"
+     },
+     {
+      "name": "turnovers",
+      "displayValue": "13"
+     },
+     {
+      "name": "teamTurnovers",
+      "displayValue": "1"
+     },
+     {
+      "name": "totalTurnovers",
+      "displayValue": "14"
+     },
+     {
+      "name": "technicalFouls",
+      "displayValue": "0"
+     },
+     {
+      "name": "totalTechnicalFouls",
+      "displayValue": "0"
+     },
+     {
+      "name": "flagrantFouls",
+      "displayValue": "0"
+     },
+     {
+      "name": "turnoverPoints",
+      "displayValue": "17"
+     },
+     {
+      "name": "fastBreakPoints",
+      "displayValue": "26"
+     },
+     {
+      "name": "pointsInPaint",
+      "displayValue": "40"
+     },
+     {
+      "name": "fouls",
+      "displayValue": "26"
+     },
+     {
+      "name": "largestLead",
+      "displayValue": "41"
+     },
+     {
+      "name": "leadChanges",
+      "displayValue": "1"
+     },
+     {
+      "name": "leadPercentage",
+      "displayValue": "96"
+     }
+    ]
+   }
+  ]
+ }
+}

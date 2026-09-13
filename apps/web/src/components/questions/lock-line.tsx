@@ -21,10 +21,10 @@ function formatLockLine(locksAt: string, now: number): string {
 	const locksAtTime = DateTime.fromISO(locksAt)
 	const current = DateTime.fromMillis(now)
 	if (locksAtTime <= current) {
-		// status doesn't flip off "open" the instant locksAt passes (no cron/
-		// worker does that - see resolveQuestion's comment in question.ts), so
-		// a question can sit "open" for days after its game already started.
-		// A lock that just happened still reads as "any moment"; anything
+		// status doesn't flip off "open" the instant locksAt passes - the API's
+		// lock job only runs every 15 minutes - so a question can still read
+		// "open" a while after its game has started. A lock that just
+		// happened still reads as "any moment"; anything
 		// older than one tick of the countdown should read as locked, not
 		// perpetually imminent.
 		return current.diff(locksAtTime, "minutes").minutes < 1

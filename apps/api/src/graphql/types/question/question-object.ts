@@ -25,6 +25,8 @@ import {
 	AwardVerb,
 	QuestionShape,
 	QuestionStatus,
+	QuestionVoidedReason,
+	ResolutionMethod,
 	StatAggregation,
 } from "./enums"
 import {
@@ -120,6 +122,23 @@ export const QuestionRef = builder.drizzleObject("questions", {
 			resolve: (q) => q.resolvedAt?.toISOString() ?? null,
 		}),
 		resolutionNote: t.exposeString("resolutionNote", { nullable: true }),
+		// True when ESPN data settles the question rather than a person - see
+		// resolutionMode on the questions table.
+		resolvesAutomatically: t.boolean({
+			resolve: (q) => q.resolutionMode === "system",
+		}),
+		// Who set the current result - null until there is one.
+		resolutionMethod: t.field({
+			type: ResolutionMethod,
+			nullable: true,
+			resolve: (q) => q.resolutionMethod,
+		}),
+		// Why a VOIDED question was voided - null for every other status.
+		voidedReason: t.field({
+			type: QuestionVoidedReason,
+			nullable: true,
+			resolve: (q) => q.voidedReason,
+		}),
 
 		// The single real-world matchup this question is about - null for
 		// anything not scoped to one game (season awards, an MVP race).
