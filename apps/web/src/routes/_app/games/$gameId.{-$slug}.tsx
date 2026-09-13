@@ -20,6 +20,7 @@ import { NotFound } from "#/components/ui/not-found"
 import { Tabs } from "#/components/ui/tabs"
 import type {
 	GameByIdQuery,
+	GameQuestionsQuery,
 	QuestionShape,
 	QuestionSortOrder,
 } from "#/graphql/generated/graphql"
@@ -38,6 +39,8 @@ type GameTab = "official" | "community"
 
 type GameData = NonNullable<GameByIdQuery["game"]>
 
+type GameQuestion = GameQuestionsQuery["questions"]["items"][number]
+
 const SORTS: { value: QuestionSortOrder; label: string }[] = [
 	{ value: "MOST_CALLED", label: "Most Called" },
 	{ value: "NEW", label: "New" },
@@ -50,21 +53,24 @@ const PAGE_SIZE = 15
 // is well under this.
 const OFFICIAL_LIMIT = 50
 
-// How official questions read below the who-wins card: team guesses, then
-// head-to-heads, then player lines, then who leads the game. Anything else
-// official (an admin's own question on the game) follows them. Within a shape,
-// oldest first, which is the order the catalog posts them in.
-const OFFICIAL_SHAPE_ORDER: QuestionShape[] = [
-	"TEAM_STAT_NUMERIC_GUESS",
-	"PLAYER_VS_PLAYER",
-	"PLAYER_STAT_OVER_UNDER",
-	"PLAYER_GAME_STAT_LEADER",
+// The Official tab's sections, in the order they read. Each names the kind of
+// call its questions are, so a new catalog template lands in its shape's
+// section and a new shape needs a section of its own here. Any other official
+// question on the game (an admin's own) goes under More.
+const OFFICIAL_SECTIONS: { label: string; shapes: QuestionShape[] }[] = [
+	{ label: "Team scores", shapes: ["TEAM_STAT_NUMERIC_GUESS"] },
+	{ label: "Head to head", shapes: ["PLAYER_VS_PLAYER"] },
+	{ label: "Player lines", shapes: ["PLAYER_STAT_OVER_UNDER"] },
+	{ label: "Game leader", shapes: ["PLAYER_GAME_STAT_LEADER"] },
 ]
 
-function officialRank(shape: QuestionShape): number {
-	const index = OFFICIAL_SHAPE_ORDER.indexOf(shape)
-	return index === -1 ? OFFICIAL_SHAPE_ORDER.length : index
-}
+const sectionLabelClass = css({
+	fontFamily: "mono",
+	fontSize: "2xs",
+	letterSpacing: "wide",
+	color: "fg.subtle",
+	textTransform: "uppercase",
+})
 
 const gameQuery = (id: string) => gqlQueryOptions(GameByIdDocument, { id })
 
@@ -95,15 +101,20 @@ export const Route = createFileRoute("/_app/games/$gameId/{-$slug}")({
 	loaderDeps: ({ search }) => ({ tab: search.tab ?? "official" }),
 	// head() can only read loaderData, so the meta-tag fields come back from
 	// here; the component reads the same cache entries via its own hooks.
+	// Official questions load on either tab, since the Game winner card above
+	// the tabs comes from them.
 	loader: async ({ context, params, deps }) => {
-		const [gameData] = await Promise.all([
-			context.queryClient.query(gameQuery(params.gameId)),
+		const gamePromise = context.queryClient.query(gameQuery(params.gameId))
+		await Promise.all([
+			gamePromise,
+			context.queryClient.query(officialQuestionsQuery(params.gameId)),
 			deps.tab === "community"
 				? context.queryClient.infiniteQuery(
 						communityQuestionsQuery(params.gameId, "MOST_CALLED"),
 					)
-				: context.queryClient.query(officialQuestionsQuery(params.gameId)),
+				: null,
 		])
+		const gameData = await gamePromise
 
 		// The slug is decorative - the id ahead of it is what identifies the
 		// game - so a missing or stale one is corrected here rather than 404ing.
@@ -144,7 +155,11 @@ function RouteComponent() {
 	const navigate = Route.useNavigate()
 
 	const { data: gameData } = useSuspenseQuery(gameQuery(gameId))
+	const { data: officialData } = useSuspenseQuery(
+		officialQuestionsQuery(gameId),
+	)
 	const game = gameData.game
+	const officialQuestions = officialData.questions.items
 
 	if (!game) {
 		return (
@@ -157,6 +172,13 @@ function RouteComponent() {
 			/>
 		)
 	}
+
+	// The "who will win?" question synced onto this game by syncGameQuestions
+	// (see apps/api/src/db/sync/sync-game-questions.ts) - the headline call,
+	// shown above the tabs so neither one hides it. Absent entirely when the
+	// game has none (before the daily sync has run) rather than showing a
+	// placeholder that implies something's broken.
+	const hero = officialQuestions.find((q) => q.shape === "TEAM_VS_TEAM")
 
 	function selectTab(next: GameTab) {
 		navigate({
@@ -184,6 +206,13 @@ function RouteComponent() {
 
 			<GameMatchupHeader game={game} starters={game} />
 
+			{hero && (
+				<VStack gap="2" alignItems="stretch">
+					<span className={sectionLabelClass}>Game winner</span>
+					<GameWinnerCard question={hero} />
+				</VStack>
+			)}
+
 			<Tabs value={tab} onValueChange={selectTab}>
 				<Tabs.List>
 					<Tabs.Trigger value="official">Official</Tabs.Trigger>
@@ -192,7 +221,10 @@ function RouteComponent() {
 			</Tabs>
 
 			{tab === "official" ? (
-				<OfficialQuestions game={game} />
+				<OfficialQuestions
+					game={game}
+					questions={officialQuestions.filter((q) => q.id !== hero?.id)}
+				/>
 			) : (
 				<CommunityQuestions gameId={game.id} />
 			)}
@@ -200,67 +232,62 @@ function RouteComponent() {
 	)
 }
 
-function OfficialQuestions({ game }: { game: GameData }) {
-	const { data } = useSuspenseQuery(officialQuestionsQuery(game.id))
-	const questions = data.questions.items
+function OfficialQuestions({
+	game,
+	questions,
+}: {
+	game: GameData
+	questions: GameQuestion[]
+}) {
+	// Oldest first within a section, which is the order the catalog posts them
+	// in (away team before home).
+	const byAge = (a: GameQuestion, b: GameQuestion) =>
+		new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+	const sectioned = new Set(OFFICIAL_SECTIONS.flatMap((s) => s.shapes))
+	const sections = [
+		...OFFICIAL_SECTIONS.map((section) => ({
+			label: section.label,
+			questions: questions.filter((q) => section.shapes.includes(q.shape)),
+		})),
+		{
+			label: "More",
+			questions: questions.filter((q) => !sectioned.has(q.shape)),
+		},
+	]
+		.map((section) => ({
+			...section,
+			questions: [...section.questions].sort(byAge),
+		}))
+		.filter((section) => section.questions.length > 0)
 
-	// The "who will win?" question synced onto this game by syncGameQuestions
-	// (see apps/api/src/db/sync/sync-game-questions.ts) - surfaced prominently
-	// above the rest when it exists, absent entirely otherwise (a game outside
-	// the sync window, or before the daily sync has run) rather than showing a
-	// placeholder that implies something's broken.
-	const hero = questions.find((q) => q.shape === "TEAM_VS_TEAM")
-	const rest = questions
-		.filter((q) => q.id !== hero?.id)
-		.sort(
-			(a, b) =>
-				officialRank(a.shape) - officialRank(b.shape) ||
-				new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
-		)
-
-	// Catalog questions only go up inside generate-game-questions.ts's window,
-	// so a game further out has just its who-wins question until then.
-	const postsLater = game.status === "SCHEDULED" && rest.length === 0
-	const postsLaterNote =
-		game.league.windowType === "WEEK"
-			? "More official questions go up once this game's week is next on the schedule."
-			: "More official questions go up about a day before the game."
+	if (sections.length === 0) {
+		// Catalog questions only go up inside generate-game-questions.ts's
+		// window, so a game further out has just its who-wins question until
+		// then.
+		if (game.status === "SCHEDULED") {
+			return (
+				<EmptyState>
+					{game.league.windowType === "WEEK"
+						? "More official questions go up once this game's week is next on the schedule."
+						: "More official questions go up about a day before the game."}
+				</EmptyState>
+			)
+		}
+		return <EmptyState>No other official questions on this game.</EmptyState>
+	}
 
 	return (
 		<VStack gap="6" alignItems="stretch">
-			{hero && (
-				<VStack gap="2" alignItems="stretch">
-					<span
-						className={css({
-							fontFamily: "mono",
-							fontSize: "2xs",
-							letterSpacing: "wide",
-							color: "fg.subtle",
-							textTransform: "uppercase",
-						})}
-					>
-						Game winner
-					</span>
-					<GameWinnerCard question={hero} />
+			{sections.map((section) => (
+				<VStack key={section.label} gap="2" alignItems="stretch">
+					<span className={sectionLabelClass}>{section.label}</span>
+					<VStack gap="3" alignItems="stretch">
+						{section.questions.map((question) => (
+							<QuestionCard key={question.id} question={question} />
+						))}
+					</VStack>
 				</VStack>
-			)}
-
-			{rest.length > 0 && (
-				<VStack gap="3" alignItems="stretch">
-					{rest.map((question) => (
-						<QuestionCard key={question.id} question={question} />
-					))}
-				</VStack>
-			)}
-
-			{postsLater ? (
-				<EmptyState>{postsLaterNote}</EmptyState>
-			) : (
-				!hero &&
-				rest.length === 0 && (
-					<EmptyState>No official questions on this game.</EmptyState>
-				)
-			)}
+			))}
 		</VStack>
 	)
 }
