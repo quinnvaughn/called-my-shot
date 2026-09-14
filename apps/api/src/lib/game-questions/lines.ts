@@ -9,7 +9,7 @@ export type LineRule = {
 	// Counting stats skew right: a few big games pull the average above the
 	// typical one, so a line at the average lands under more often than over.
 	// Multiplying by this moves the line toward the median. Tuned per
-	// template from db/sync/line-calibration.ts.
+	// template from the admin Lines page (see ./line-settings).
 	shade: number
 	// The lowest line worth posting. Below it the under is close to certain.
 	minLine: number
@@ -19,8 +19,8 @@ export type LineRule = {
 export type SeasonSample = { mean: number; games: number }
 
 // Everything a generated line was set from, stored on the question so
-// db/sync/line-calibration.ts can check each template's lines against how
-// they resolved.
+// ./line-calibration can check each template's lines against how they
+// resolved.
 export type LineBasis = {
 	seasonMean: number | null
 	seasonGames: number

@@ -21,6 +21,7 @@ import { Route as AppLeaderboardRouteImport } from './routes/_app/leaderboard'
 import { Route as AdminIndexRouteImport } from './routes/admin/index'
 import { Route as AdminDisputesRouteImport } from './routes/admin/disputes'
 import { Route as AdminIntegrityRouteImport } from './routes/admin/integrity'
+import { Route as AdminLinesRouteImport } from './routes/admin/lines'
 import { Route as AdminQuestionsRouteImport } from './routes/admin/questions'
 import { Route as AdminQueueRouteImport } from './routes/admin/queue'
 import { Route as AdminReportsRouteImport } from './routes/admin/reports'
@@ -120,6 +121,11 @@ const AdminDisputesRoute = AdminDisputesRouteImport.update({
 const AdminIntegrityRoute = AdminIntegrityRouteImport.update({
   id: '/integrity',
   path: '/integrity',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminLinesRoute = AdminLinesRouteImport.update({
+  id: '/lines',
+  path: '/lines',
   getParentRoute: () => AdminRoute,
 } as any)
 const AdminQuestionsRoute = AdminQuestionsRouteImport.update({
@@ -355,6 +361,7 @@ export interface FileRoutesByFullPath {
   '/leaderboard': typeof AppLeaderboardRoute
   '/admin/disputes': typeof AdminDisputesRoute
   '/admin/integrity': typeof AdminIntegrityRoute
+  '/admin/lines': typeof AdminLinesRoute
   '/admin/questions': typeof AdminQuestionsRoute
   '/admin/queue': typeof AdminQueueRoute
   '/admin/reports': typeof AdminReportsRoute
@@ -408,6 +415,7 @@ export interface FileRoutesByTo {
   '/leaderboard': typeof AppLeaderboardRoute
   '/admin/disputes': typeof AdminDisputesRoute
   '/admin/integrity': typeof AdminIntegrityRoute
+  '/admin/lines': typeof AdminLinesRoute
   '/admin/questions': typeof AdminQuestionsRoute
   '/admin/queue': typeof AdminQueueRoute
   '/admin/reports': typeof AdminReportsRoute
@@ -463,6 +471,7 @@ export interface FileRoutesById {
   '/_app/leaderboard': typeof AppLeaderboardRoute
   '/admin/disputes': typeof AdminDisputesRoute
   '/admin/integrity': typeof AdminIntegrityRoute
+  '/admin/lines': typeof AdminLinesRoute
   '/admin/questions': typeof AdminQuestionsRoute
   '/admin/queue': typeof AdminQueueRoute
   '/admin/reports': typeof AdminReportsRoute
@@ -519,6 +528,7 @@ export interface FileRouteTypes {
     | '/leaderboard'
     | '/admin/disputes'
     | '/admin/integrity'
+    | '/admin/lines'
     | '/admin/questions'
     | '/admin/queue'
     | '/admin/reports'
@@ -572,6 +582,7 @@ export interface FileRouteTypes {
     | '/leaderboard'
     | '/admin/disputes'
     | '/admin/integrity'
+    | '/admin/lines'
     | '/admin/questions'
     | '/admin/queue'
     | '/admin/reports'
@@ -626,6 +637,7 @@ export interface FileRouteTypes {
     | '/_app/leaderboard'
     | '/admin/disputes'
     | '/admin/integrity'
+    | '/admin/lines'
     | '/admin/questions'
     | '/admin/queue'
     | '/admin/reports'
@@ -771,6 +783,13 @@ declare module '@tanstack/react-router' {
       path: '/integrity'
       fullPath: '/admin/integrity'
       preLoaderRoute: typeof AdminIntegrityRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/lines': {
+      id: '/admin/lines'
+      path: '/lines'
+      fullPath: '/admin/lines'
+      preLoaderRoute: typeof AdminLinesRouteImport
       parentRoute: typeof AdminRoute
     }
     '/admin/questions': {
@@ -1170,6 +1189,7 @@ const AdminDataLeagueIdRouteWithChildren =
 interface AdminRouteChildren {
   AdminDisputesRoute: typeof AdminDisputesRoute
   AdminIntegrityRoute: typeof AdminIntegrityRoute
+  AdminLinesRoute: typeof AdminLinesRoute
   AdminQuestionsRoute: typeof AdminQuestionsRoute
   AdminQueueRoute: typeof AdminQueueRoute
   AdminReportsRoute: typeof AdminReportsRoute
@@ -1184,6 +1204,7 @@ interface AdminRouteChildren {
 const AdminRouteChildren: AdminRouteChildren = {
   AdminDisputesRoute: AdminDisputesRoute,
   AdminIntegrityRoute: AdminIntegrityRoute,
+  AdminLinesRoute: AdminLinesRoute,
   AdminQuestionsRoute: AdminQuestionsRoute,
   AdminQueueRoute: AdminQueueRoute,
   AdminReportsRoute: AdminReportsRoute,

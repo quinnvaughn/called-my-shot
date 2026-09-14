@@ -28,7 +28,15 @@ export function gqlQueryKey<TResult, TVariables>(
 
 type QueryOverrides<TResult> = Partial<
 	Omit<UseQueryOptions<TResult, Error, TResult>, "queryKey" | "queryFn">
->
+> & {
+	// false for a query that opens with a modal. React-query cancels a query
+	// whenever a newer fetch supersedes it or its last observer goes away (the
+	// modal closing), and that abort reaches the dev server as a closed socket
+	// mid-request, which Nitro surfaces as an unhandled `aborted` in Vite's
+	// error overlay. Route preloads and paginated feeds are cancelled
+	// constantly and should be, so they keep the default.
+	abortable?: boolean
+}
 
 /**
  * The same object drives a route loader (`queryClient.query`), the component
@@ -39,12 +47,15 @@ type QueryOverrides<TResult> = Partial<
 export function gqlQueryOptions<TResult, TVariables>(
 	document: TypedDocumentNode<TResult, TVariables>,
 	variables: TVariables,
-	overrides?: QueryOverrides<TResult>,
+	{ abortable = true, ...overrides }: QueryOverrides<TResult> = {},
 ) {
 	return queryOptions({
 		queryKey: gqlQueryKey(document, variables),
 		queryFn: ({ signal, meta }) =>
-			gqlFetch(document, variables, { cookie: meta?.cookie, signal }),
+			gqlFetch(document, variables, {
+				cookie: meta?.cookie,
+				signal: abortable ? signal : undefined,
+			}),
 		...overrides,
 	})
 }

@@ -11,6 +11,10 @@ import {
 	parseGenerationKey,
 } from "../../lib/game-questions/generation-key"
 import {
+	loadLineSettings,
+	withLineSettings,
+} from "../../lib/game-questions/line-settings"
+import {
 	blendSamples,
 	type LineBasis,
 	needsPriorSeason,
@@ -704,10 +708,9 @@ async function generateForLeague(
 		...new Set(catalogTemplates.map((template) => template.statName)),
 	])
 	const statsByName = new Map(statRows.map((stat) => [stat.name, stat]))
-	const templates = systemTemplates(
-		league.slug,
-		catalogTemplates,
-		statsByName,
+	const templates = withLineSettings(
+		systemTemplates(league.slug, catalogTemplates, statsByName),
+		await loadLineSettings(league.slug),
 	)
 
 	const starterRows = await db.query.gameStarters.findMany({

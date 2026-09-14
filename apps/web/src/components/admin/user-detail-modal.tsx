@@ -27,7 +27,11 @@ type Props = {
 
 export function UserDetailModal({ user, onChanged }: Props) {
 	const { data } = useQuery(
-		gqlQueryOptions(AdminUserVoidHistoryDocument, { userId: user.id }),
+		gqlQueryOptions(
+			AdminUserVoidHistoryDocument,
+			{ userId: user.id },
+			{ abortable: false },
+		),
 	)
 	const setCreationEnabled = useGqlMutation(
 		SetUserQuestionCreationEnabledDocument,

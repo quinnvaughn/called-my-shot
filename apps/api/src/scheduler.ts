@@ -8,6 +8,7 @@ import { syncSportsData } from "./db/sync/run"
 import { syncGameStarters } from "./db/sync/sync-game-starters"
 import { syncLiveScores } from "./db/sync/sync-live-scores"
 import { drainResolutionDigests } from "./lib/email-digest"
+import { tuneLines } from "./lib/game-questions/tune-lines"
 import {
 	DRAIN_DIGESTS_LOCK,
 	DRAIN_SEASON_START_LOCK,
@@ -85,6 +86,16 @@ export function startScheduler(): void {
 		runJob("auto-resolve-championships", () => autoResolveChampionships()),
 		{ name: "auto-resolve-championships", timezone: "UTC", noOverlap: true },
 	)
+	// Daily, after the night's games have resolved. Most days most templates
+	// don't move: each one waits for enough resolved lines, and a shade already
+	// where its results point stays put (see tuneLines).
+	cron.schedule(
+		"0 11 * * *",
+		runJob("tune-lines", async () => {
+			await tuneLines()
+		}),
+		{ name: "tune-lines", timezone: "UTC", noOverlap: true },
+	)
 	// Every 5m, but a user's results only go out once their calls on the day's
 	// games have all settled, or at the 13:00 UTC backstop (see
 	// DAY_START_HOUR_UTC) - the frequency is how quickly a finished day goes
@@ -122,6 +133,6 @@ export function startScheduler(): void {
 		{ name: DRAIN_SEASON_START_LOCK, timezone: "UTC", noOverlap: true },
 	)
 	console.log(
-		"[scheduler] started: sync-live-scores */5m, lock-overdue-questions */15m, sync-sports-data daily 09:00 UTC, sync-game-starters then generate-game-questions */30m, auto-resolve-games */10m, auto-resolve-seasons daily 10:30 UTC, auto-resolve-championships daily 10:45 UTC, drain-email-digests */5m, enqueue-season-start-emails daily 13:00 UTC, drain-season-start-emails */5m",
+		"[scheduler] started: sync-live-scores */5m, lock-overdue-questions */15m, sync-sports-data daily 09:00 UTC, sync-game-starters then generate-game-questions */30m, auto-resolve-games */10m, auto-resolve-seasons daily 10:30 UTC, auto-resolve-championships daily 10:45 UTC, tune-lines daily 11:00 UTC, drain-email-digests */5m, enqueue-season-start-emails daily 13:00 UTC, drain-season-start-emails */5m",
 	)
 }

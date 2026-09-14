@@ -50,6 +50,30 @@ export const questionVoidedReasonSchema = z.enum([
 	"other",
 ])
 
+// The settings one generated over/under template's lines are set from - see
+// adminUpdateLineSetting.
+export const updateLineSettingSchema = z.object({
+	leagueSlug: z.string().trim().min(1),
+	templateId: z.string().trim().min(1),
+	shade: z
+		.number()
+		.min(0.5, "Shade has to be at least 0.5")
+		.max(1.5, "Shade can't be more than 1.5"),
+	minLine: z
+		.number()
+		.min(0.5, "Lowest line has to be at least 0.5")
+		.refine(
+			(value) => Number.isInteger(value - 0.5),
+			"Lowest line has to end in .5, like the lines themselves",
+		),
+	minGames: z
+		.number()
+		.int("Minimum games has to be a whole number")
+		.min(1, "Minimum games has to be at least 1"),
+	autoTune: z.boolean(),
+})
+export type UpdateLineSettingInput = z.infer<typeof updateLineSettingSchema>
+
 // Voiding a question without deleting it - see adminMarkQuestionVoided. Nobody
 // is at fault in these cases, so unlike voidQuestionSchema there is no strike
 // toggle.

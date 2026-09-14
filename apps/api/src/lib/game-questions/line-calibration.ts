@@ -1,19 +1,17 @@
-import { parseGenerationKey } from "../../lib/game-questions/generation-key"
-import { isMainModule } from "../../lib/is-main-module"
-import { db } from "../index"
+import { db } from "../../db"
+import { parseGenerationKey } from "./generation-key"
 
-// How each generated over/under template's lines have landed: the share of
-// its resolved questions that went over. Lines are meant to be coin flips, so
-// a template holding outside 45-55% over a real sample needs its shade moved
-// in db/catalog/game-question-catalog.ts - up when overs hit too often (the
-// lines are too low), down when unders do.
-
-const TARGET_LOW = 0.45
-const TARGET_HIGH = 0.55
+// Lines are meant to be coin flips, so a template whose overs land outside
+// this share needs its shade moved: up when overs hit too often (the lines are
+// too low), down when unders do.
+export const TARGET_OVER_RATE = { low: 0.45, high: 0.55 }
 
 export type CalibrationRow = {
 	league: string
 	template: string
+	// The shade these lines were set with. A template whose shade has changed
+	// has a row for each.
+	shade: number
 	resolved: number
 	overRate: number
 	averageLine: number
@@ -21,6 +19,8 @@ export type CalibrationRow = {
 	outsideTarget: boolean
 }
 
+// How each generated over/under template's lines have landed: the share of
+// its resolved questions that went over, per shade they were set with.
 export async function lineCalibration(): Promise<CalibrationRow[]> {
 	const resolved = await db.query.questions.findMany({
 		where: {
@@ -35,7 +35,14 @@ export async function lineCalibration(): Promise<CalibrationRow[]> {
 
 	const groups = new Map<
 		string,
-		{ league: string; template: string; overs: number; lines: number[]; means: number[] }
+		{
+			league: string
+			template: string
+			shade: number
+			overs: number
+			lines: number[]
+			means: number[]
+		}
 	>()
 	for (const question of resolved) {
 		const parsed = question.generationKey
@@ -43,10 +50,11 @@ export async function lineCalibration(): Promise<CalibrationRow[]> {
 			: null
 		const basis = question.lineBasis
 		if (!parsed || !basis) continue
-		const id = `${parsed.leagueSlug}:${parsed.templateId}`
+		const id = `${parsed.leagueSlug}:${parsed.templateId}:${basis.shade}`
 		const group = groups.get(id) ?? {
 			league: parsed.leagueSlug,
 			template: parsed.templateId,
+			shade: basis.shade,
 			overs: 0,
 			lines: [],
 			means: [],
@@ -68,31 +76,19 @@ export async function lineCalibration(): Promise<CalibrationRow[]> {
 			return {
 				league: group.league,
 				template: group.template,
+				shade: group.shade,
 				resolved: group.lines.length,
 				overRate: Math.round(overRate * 1000) / 1000,
 				averageLine: average(group.lines),
 				averageBlendedMean: average(group.means),
-				outsideTarget: overRate < TARGET_LOW || overRate > TARGET_HIGH,
+				outsideTarget:
+					overRate < TARGET_OVER_RATE.low || overRate > TARGET_OVER_RATE.high,
 			}
 		})
 		.sort(
 			(a, b) =>
-				a.league.localeCompare(b.league) || a.template.localeCompare(b.template),
+				a.league.localeCompare(b.league) ||
+				a.template.localeCompare(b.template) ||
+				a.shade - b.shade,
 		)
-}
-
-if (isMainModule(import.meta.url)) {
-	lineCalibration()
-		.then((rows) => {
-			if (rows.length === 0) {
-				console.log("No resolved generated over/unders yet.")
-			} else {
-				console.table(rows)
-			}
-			process.exit(0)
-		})
-		.catch((err) => {
-			console.error(err)
-			process.exit(1)
-		})
 }

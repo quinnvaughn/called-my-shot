@@ -234,6 +234,54 @@ export const SetUserQuestionCreationEnabledDocument = graphql(`
 	}
 `)
 
+export const AdminUpdateLineSettingDocument = graphql(`
+	mutation AdminUpdateLineSetting($input: UpdateLineSettingInput!) {
+		adminUpdateLineSetting(input: $input) {
+			__typename
+			... on LineSetting {
+				leagueSlug
+				templateId
+			}
+			... on ValidationError {
+				fieldErrors {
+					field
+					message
+				}
+			}
+			... on AuthenticationError {
+				message
+			}
+			... on AuthorizationError {
+				message
+			}
+			... on NotFoundError {
+				message
+			}
+		}
+	}
+`)
+
+export const AdminResetLineSettingDocument = graphql(`
+	mutation AdminResetLineSetting($leagueSlug: String!, $templateId: String!) {
+		adminResetLineSetting(leagueSlug: $leagueSlug, templateId: $templateId) {
+			__typename
+			... on LineSetting {
+				leagueSlug
+				templateId
+			}
+			... on AuthenticationError {
+				message
+			}
+			... on AuthorizationError {
+				message
+			}
+			... on NotFoundError {
+				message
+			}
+		}
+	}
+`)
+
 export const SetUserVerifiedDocument = graphql(`
 	mutation SetUserVerified($userId: ID!, $verified: Boolean!) {
 		setUserVerified(userId: $userId, verified: $verified) {

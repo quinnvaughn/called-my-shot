@@ -311,7 +311,7 @@ export const questions = pgTable("questions", {
 	// unique index is what makes a rerun a no-op rather than a duplicate.
 	generationKey: text("generation_key"),
 	// A generated over/under's line inputs (LineBasis in
-	// lib/game-questions/lines.ts), kept so db/sync/line-calibration.ts can
+	// lib/game-questions/lines.ts), kept so lib/game-questions/line-calibration.ts can
 	// compare where lines were set against how they resolved. Null on every
 	// other question.
 	lineBasis: jsonb("line_basis").$type<LineBasis>(),

@@ -1,4 +1,4 @@
-import { queryOptions, useQuery, useQueryClient } from "@tanstack/react-query"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { useState } from "react"
 import { css } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
@@ -7,12 +7,11 @@ import { Button } from "#/components/ui/button"
 import { CopyLinkRow } from "#/components/ui/copy-link-row"
 import { FormError } from "#/components/ui/form-error"
 import { Modal } from "#/components/ui/modal"
-import { gqlFetch } from "#/graphql/fetcher"
 import { graphql } from "#/graphql/generated"
 import { useGqlMutation } from "#/graphql/hooks"
 import { ShareQuestionToGroupDocument } from "#/graphql/mutations/groups"
 import { questionDetailQuery } from "#/graphql/queries/question"
-import { gqlQueryKey } from "#/graphql/query-options"
+import { gqlQueryOptions } from "#/graphql/query-options"
 import { track } from "#/lib/analytics"
 import { SITE_HOST, SITE_ORIGIN } from "#/lib/meta"
 import { pluralize } from "#/lib/pluralize"
@@ -34,22 +33,14 @@ const ShareTargetGroupsDocument = graphql(`
 	}
 `)
 
-// Built by hand rather than through gqlQueryOptions, for one reason: that
-// helper hands `signal` to gqlFetch, which makes every query it builds
-// abortable. That's right for paginated feeds and for the route preloads
-// `defaultPreload: "intent"` fires and cancels constantly - but this query
-// opens with a modal, and whenever react-query cancels it (a superseding
-// fetch, the last observer going away) the abort reaches the dev server as a
-// closed socket mid-request, which Nitro surfaces as an unhandled `aborted`
-// in Vite's error overlay. Nothing is gained by cancelling a single small
-// idempotent lookup, so it simply isn't cancellable. staleTime keeps
+// Opens with a modal, so not abortable (see gqlQueryOptions). staleTime keeps
 // reopening the sheet off the network entirely.
 const shareTargetGroupsQuery = () =>
-	queryOptions({
-		queryKey: gqlQueryKey(ShareTargetGroupsDocument, {}),
-		queryFn: () => gqlFetch(ShareTargetGroupsDocument, {}),
-		staleTime: 5 * 60_000,
-	})
+	gqlQueryOptions(
+		ShareTargetGroupsDocument,
+		{},
+		{ abortable: false, staleTime: 5 * 60_000 },
+	)
 
 const labelClass = css({
 	fontFamily: "mono",

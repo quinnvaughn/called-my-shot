@@ -15,9 +15,11 @@ type Props = {
 // verification.
 export function IntegrityCreatorModal({ creator }: Props) {
 	const { data } = useQuery(
-		gqlQueryOptions(AdminFrequentCoCallersDocument, {
-			creatorId: creator.userId,
-		}),
+		gqlQueryOptions(
+			AdminFrequentCoCallersDocument,
+			{ creatorId: creator.userId },
+			{ abortable: false },
+		),
 	)
 	const rows =
 		data?.adminFrequentCoCallers.__typename ===

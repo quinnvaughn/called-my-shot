@@ -385,6 +385,48 @@ export const AdminReportsDocument = graphql(`
 	}
 `)
 
+// Lines tab.
+export const AdminLineSettingsDocument = graphql(`
+	query AdminLineSettings {
+		adminLineSettings {
+			__typename
+			... on QueryAdminLineSettingsSuccess {
+				data {
+					leagueSlug
+					templateId
+					statName
+					isCustom
+					autoTune
+					tunedAt
+					line {
+						shade
+						minLine
+						minGames
+					}
+					defaultLine {
+						shade
+						minLine
+						minGames
+					}
+					calibration {
+						resolved
+						overRate
+						averageLine
+						averageBlendedMean
+						outsideTarget
+					}
+				}
+			}
+			... on AuthenticationError {
+				message
+			}
+			... on AuthorizationError {
+				message
+			}
+		}
+	}
+`)
+
 // Users tab.
 export const AdminUsersDocument = graphql(`
 	query AdminUsers(
