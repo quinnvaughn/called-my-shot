@@ -62,7 +62,14 @@ export function EmailLayout({
 }: Props) {
 	return (
 		<Html lang="en">
-			<Head />
+			<Head>
+				{/* Declares the email as already dark. Without it, clients with a
+				    dark-mode pass (Apple Mail, Outlook) treat the colors as a light
+				    design to adapt and can repaint the backgrounds light. */}
+				<meta name="color-scheme" content="dark" />
+				<meta name="supported-color-schemes" content="dark" />
+				<style>{":root { color-scheme: dark; supported-color-schemes: dark; }"}</style>
+			</Head>
 			<Preview>{preview}</Preview>
 			<Body
 				style={{
