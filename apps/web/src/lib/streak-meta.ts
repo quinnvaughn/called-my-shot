@@ -6,16 +6,20 @@ import { formatRecord, formatSignedPoints } from "#/lib/ballot-entry"
 // in words. The og:image itself is apps/api's share-cards/streak-card.ts and
 // sweep-card.ts; these state the same numbers.
 
-export type StreakFamilyValue = "WINNERS" | "TOTALS" | "PROPS" | "NUMERIC"
+export type StreakFamilyValue =
+	| "WINNERS"
+	| "TEAM_STATS"
+	| "PLAYER_STATS"
+	| "NUMERIC"
 
 const FAMILY_BY_PARAM: Record<string, StreakFamilyValue> = {
 	winners: "WINNERS",
-	totals: "TOTALS",
-	props: "PROPS",
+	team_stats: "TEAM_STATS",
+	player_stats: "PLAYER_STATS",
 	numeric: "NUMERIC",
 }
 
-// The url carries the family lowercase ("props"), matching the api's own
+// The url carries the family lowercase ("player_stats"), matching the api's own
 // share route.
 export function parseStreakFamilyParam(
 	param: string,
@@ -55,7 +59,7 @@ export function ordinal(n: number): string {
 // called yet. A run already at its best is one win from a new one; any other
 // run can only be ended by this call.
 export function streakStakeText(stake: {
-	// "NFL Props"
+	// "NFL Player Stats"
 	track: string
 	currentLength: number
 	bestLength: number
@@ -85,7 +89,7 @@ export function milestoneNudge(
 type TweetAuthor = { isOwn: true } | { isOwn: false; username: string }
 
 type StreakFacts = {
-	// "NFL Props"
+	// "NFL Player Stats"
 	track: string
 	currentLength: number
 	bestLength: number

@@ -15,15 +15,15 @@ import {
 	sweepPath,
 } from "./streak-meta"
 
-const streak = { track: "NFL Props", currentLength: 7, bestLength: 7 }
+const streak = { track: "NFL Player Stats", currentLength: 7, bestLength: 7 }
 
 describe("buildStreakTweet", () => {
 	it("speaks in the first person about your own streak", () => {
 		expect(buildStreakTweet({ ...streak, isOwn: true })).toBe(
-			"7 in a row on NFL Props.",
+			"7 in a row on NFL Player Stats.",
 		)
 		expect(buildStreakTweet({ ...streak, bestLength: 9, isOwn: true })).toBe(
-			"7 in a row on NFL Props. My best is 9.",
+			"7 in a row on NFL Player Stats. My best is 9.",
 		)
 		expect(
 			buildStreakTweet({
@@ -32,7 +32,7 @@ describe("buildStreakTweet", () => {
 				bestLength: 9,
 				isOwn: true,
 			}),
-		).toBe("My best on NFL Props: 9 in a row.")
+		).toBe("My best on NFL Player Stats: 9 in a row.")
 	})
 
 	// A streak page is public. First-person text on someone else's page would
@@ -40,7 +40,7 @@ describe("buildStreakTweet", () => {
 	it("attributes someone else's streak to them", () => {
 		expect(
 			buildStreakTweet({ ...streak, isOwn: false, username: "quinn" }),
-		).toBe("@quinn is 7 in a row on NFL Props.")
+		).toBe("@quinn is 7 in a row on NFL Player Stats.")
 		expect(
 			buildStreakTweet({
 				...streak,
@@ -48,7 +48,7 @@ describe("buildStreakTweet", () => {
 				isOwn: false,
 				username: "quinn",
 			}),
-		).toBe("@quinn is 7 in a row on NFL Props. Best is 9.")
+		).toBe("@quinn is 7 in a row on NFL Player Stats. Best is 9.")
 		expect(
 			buildStreakTweet({
 				...streak,
@@ -57,7 +57,7 @@ describe("buildStreakTweet", () => {
 				isOwn: false,
 				username: "quinn",
 			}),
-		).toBe("@quinn's best on NFL Props: 9 in a row.")
+		).toBe("@quinn's best on NFL Player Stats: 9 in a row.")
 	})
 })
 
@@ -87,7 +87,7 @@ describe("streakPageMeta", () => {
 				runStartedAt: "Sep 3, 2026",
 			}),
 		).toEqual({
-			title: "@quinn is 7 in a row on NFL Props",
+			title: "@quinn is 7 in a row on NFL Player Stats",
 			description: "7 in a row · Best 9 · Run started Sep 3, 2026.",
 		})
 	})
@@ -100,7 +100,7 @@ describe("streakPageMeta", () => {
 			username: "quinn",
 			runStartedAt: null,
 		})
-		expect(title).toBe("@quinn's best on NFL Props: 9 in a row")
+		expect(title).toBe("@quinn's best on NFL Player Stats: 9 in a row")
 		expect(description).toBe("No current run · Best 9.")
 	})
 })
@@ -172,11 +172,11 @@ describe("card versions", () => {
 
 describe("paths", () => {
 	it("round-trips the family through its url form", () => {
-		expect(streakPath("quinn", "nfl", "PROPS")).toBe(
-			"/user/quinn/streaks/nfl/props",
+		expect(streakPath("quinn", "nfl", "PLAYER_STATS")).toBe(
+			"/user/quinn/streaks/nfl/player_stats",
 		)
-		expect(parseStreakFamilyParam("props")).toBe("PROPS")
-		expect(parseStreakFamilyParam("PROPS")).toBeNull()
+		expect(parseStreakFamilyParam("player_stats")).toBe("PLAYER_STATS")
+		expect(parseStreakFamilyParam("PLAYER_STATS")).toBeNull()
 		expect(parseStreakFamilyParam("parlays")).toBeNull()
 		expect(sweepPath("quinn", "nfl", "2026-reg-w3-sun-early")).toBe(
 			"/user/quinn/sweeps/nfl/2026-reg-w3-sun-early",
@@ -234,13 +234,13 @@ describe("milestoneNudge", () => {
 describe("streakStakeText", () => {
 	it("warns that a miss ends a run below its best", () => {
 		expect(
-			streakStakeText({ track: "NFL Props", currentLength: 6, bestLength: 9 }),
-		).toBe("You're 6 in a row on NFL Props. A miss ends it.")
+			streakStakeText({ track: "NFL Player Stats", currentLength: 6, bestLength: 9 }),
+		).toBe("You're 6 in a row on NFL Player Stats. A miss ends it.")
 	})
 
 	it("says one more sets the best when the run is already level with it", () => {
 		expect(
-			streakStakeText({ track: "NFL Props", currentLength: 6, bestLength: 6 }),
-		).toBe("You're 6 in a row on NFL Props. One more sets your best.")
+			streakStakeText({ track: "NFL Player Stats", currentLength: 6, bestLength: 6 }),
+		).toBe("You're 6 in a row on NFL Player Stats. One more sets your best.")
 	})
 })

@@ -12,7 +12,7 @@ function call(overrides: Partial<DigestCall> = {}): DigestCall {
 	return {
 		questionTitle: "Patrick Mahomes over 275.5 passing yards",
 		leagueAbbr: "NFL",
-		shapeLabel: "Player Prop",
+		shapeLabel: "Player Stat",
 		pickLabel: "Over 275.5",
 		points: 210,
 		isWin: true,

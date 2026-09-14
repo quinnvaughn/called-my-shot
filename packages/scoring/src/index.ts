@@ -132,10 +132,15 @@ export const SHAPE_SUBJECT: Record<QuestionShape, "player" | "team" | "none"> =
 	}
 
 // The families a streak is counted within. A streak belongs to one league and
-// one family, so a missed player prop doesn't end a run of correct winner
+// one family, so a missed player stat call doesn't end a run of correct winner
 // picks. Mirrored by the streak_family pg enum in apps/api's
 // db/schema/streaks.ts.
-export const STREAK_FAMILIES = ["winners", "totals", "props", "numeric"] as const
+export const STREAK_FAMILIES = [
+	"winners",
+	"team_stats",
+	"player_stats",
+	"numeric",
+] as const
 export type StreakFamily = (typeof STREAK_FAMILIES)[number]
 
 // A Record for the same reason as SHAPE_SUBJECT above: a new shape fails the
@@ -146,11 +151,11 @@ export type StreakFamily = (typeof STREAK_FAMILIES)[number]
 export const STREAK_FAMILY_BY_SHAPE: Record<QuestionShape, StreakFamily | null> =
 	{
 		team_vs_team: "winners",
-		game_total_over_under: "totals",
-		team_stat_over_under: "totals",
-		player_stat_over_under: "props",
-		player_vs_player: "props",
-		player_game_stat_leader: "props",
+		game_total_over_under: "team_stats",
+		team_stat_over_under: "team_stats",
+		player_stat_over_under: "player_stats",
+		player_vs_player: "player_stats",
+		player_game_stat_leader: "player_stats",
 		player_stat_numeric_guess: "numeric",
 		team_stat_numeric_guess: "numeric",
 		yes_no_prop: null,
@@ -177,8 +182,8 @@ export function shapesInFamily(family: StreakFamily): QuestionShape[] {
 
 export const STREAK_FAMILY_LABEL: Record<StreakFamily, string> = {
 	winners: "Winners",
-	totals: "Totals",
-	props: "Props",
+	team_stats: "Team Stats",
+	player_stats: "Player Stats",
 	numeric: "Number Guesses",
 }
 

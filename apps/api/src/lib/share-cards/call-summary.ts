@@ -21,14 +21,14 @@ import { db } from "../../db"
 // player_game_stat_leader had been doing. Mirrors shareCardShapeLabel in
 // apps/web/src/lib/question-labels.ts.
 export const SHAPE_LABEL: Record<QuestionShape, string> = {
-	player_stat_over_under: "Player Prop",
-	team_stat_over_under: "Team Prop",
-	player_season_stat_over_under: "Season Prop",
-	team_season_stat_over_under: "Season Prop",
-	game_total_over_under: "Game Total",
-	player_stat_numeric_guess: "Player Prop",
-	team_stat_numeric_guess: "Team Prop",
-	team_season_stat_numeric_guess: "Season Prop",
+	player_stat_over_under: "Player Stat",
+	team_stat_over_under: "Team Stat",
+	player_season_stat_over_under: "Season Stat",
+	team_season_stat_over_under: "Season Stat",
+	game_total_over_under: "Combined Score",
+	player_stat_numeric_guess: "Player Stat",
+	team_stat_numeric_guess: "Team Stat",
+	team_season_stat_numeric_guess: "Season Stat",
 	player_vs_player: "Head-to-Head",
 	player_vs_player_season: "Head-to-Head",
 	team_vs_team: "Game Outcome",

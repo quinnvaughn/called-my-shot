@@ -26,7 +26,7 @@ function textNodes(node: SatoriNode, out: string[] = []): string[] {
 const base = {
 	questionTitle: "Patrick Mahomes over 275.5 passing yards vs. Buffalo",
 	leagueAbbr: "NFL",
-	categoryLabel: "Player Prop",
+	categoryLabel: "Player Stat",
 	name: "Quinn Vaughn",
 	username: "quinn",
 	pickLabel: "Over 275.5",

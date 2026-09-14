@@ -67,7 +67,7 @@ export const notifications = pgTable(
 		// question_voided only, and only when the void counted as a strike
 		strikeCount: integer("strike_count"),
 		// The sweep and streak types. achievementLabel is a snapshot of what the
-		// run or slate was called ("NFL Props", "NFL Week 3 Sunday Early");
+		// run or slate was called ("NFL Player Stats", "NFL Week 3 Sunday Early");
 		// achievementCount is the streak's length or the sweep's game count.
 		leagueId: uuid("league_id").references(() => leagues.id, {
 			onDelete: "cascade",

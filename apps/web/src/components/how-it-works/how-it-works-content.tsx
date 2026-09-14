@@ -169,7 +169,7 @@ function CurveScale({
 
 const QUESTION_TYPES = [
 	{
-		title: "Stat lines & props",
+		title: "Stat lines & yes/no",
 		pts: "150 pts",
 		desc: "A player or team stat line, a game total, a head-to-head comparison, a yes/no proposition: one pick between two (or a few named) options.",
 	},

@@ -24,12 +24,12 @@ import { announceOnce } from "./streaks/notices"
 /** A streak milestone announced to this user, as the rebuild job would. */
 async function announceMilestone(userId: string, leagueId: string) {
 	await db.transaction((tx) =>
-		announceOnce(tx, `milestone:${leagueId}:props:call-1:5`, {
+		announceOnce(tx, `milestone:${leagueId}:player_stats:call-1:5`, {
 			type: "streak_milestone",
 			userId,
 			leagueId,
-			streakFamily: "props",
-			achievementLabel: "NFL Props",
+			streakFamily: "player_stats",
+			achievementLabel: "NFL Player Stats",
 			achievementCount: 5,
 		}),
 	)
@@ -461,9 +461,9 @@ describe("drainResolutionDigests achievement lines", () => {
 			where: { id: question.leagueId },
 		})
 		const [message] = mail.sent
-		expect(message.text).toContain("5 in a row on NFL Props.")
+		expect(message.text).toContain("5 in a row on NFL Player Stats.")
 		expect(message.text).toContain(
-			`/user/${user.username}/streaks/${league?.slug}/props`,
+			`/user/${user.username}/streaks/${league?.slug}/player_stats`,
 		)
 		expect(message.text).toContain(
 			"utm_campaign=resolution_digest&utm_content=achievement",

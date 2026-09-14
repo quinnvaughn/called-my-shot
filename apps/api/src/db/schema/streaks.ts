@@ -16,8 +16,8 @@ import { users } from "./users"
 // each question shape to one of these.
 export const streakFamily = pgEnum("streak_family", [
 	"winners",
-	"totals",
-	"props",
+	"team_stats",
+	"player_stats",
 	"numeric",
 ])
 

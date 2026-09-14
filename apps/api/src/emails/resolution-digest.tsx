@@ -347,7 +347,7 @@ ResolutionDigest.PreviewProps = {
 		{
 			questionTitle: "Patrick Mahomes over 275.5 passing yards vs. Buffalo",
 			leagueAbbr: "NFL",
-			shapeLabel: "Player Prop",
+			shapeLabel: "Player Stat",
 			pickLabel: "Over 275.5",
 			points: 210,
 			isWin: true,
@@ -378,8 +378,8 @@ ResolutionDigest.PreviewProps = {
 			url: "https://calledmyshot.com/user/preview/sweeps/nfl/2026-reg-w3-sun-early",
 		},
 		{
-			text: "10 in a row on NFL Props.",
-			url: "https://calledmyshot.com/user/preview/streaks/nfl/props",
+			text: "10 in a row on NFL Player Stats.",
+			url: "https://calledmyshot.com/user/preview/streaks/nfl/player_stats",
 		},
 	],
 	primaryCallUrl: "https://calledmyshot.com/calls/9f2a3b1c-0000-4000-8000-000000000001",

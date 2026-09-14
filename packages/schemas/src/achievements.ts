@@ -8,7 +8,7 @@ export type AchievementKind =
 
 export type AchievementTextInput = {
 	kind: AchievementKind
-	// "NFL Props" for a streak, "NFL Week 3 Sunday Early" for a sweep.
+	// "NFL Player Stats" for a streak, "NFL Week 3 Sunday Early" for a sweep.
 	label: string
 	// The streak's length, or the sweep's game count.
 	count: number

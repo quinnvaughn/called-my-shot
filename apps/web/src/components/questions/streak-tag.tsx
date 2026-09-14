@@ -5,7 +5,7 @@ import { ordinal } from "#/lib/streak-meta"
 type Props = {
 	// The run's length as of this call.
 	length: number
-	// "NFL Props"
+	// "NFL Player Stats"
 	track: string
 }
 

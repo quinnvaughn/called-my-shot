@@ -26,7 +26,7 @@ function textNodes(node: SatoriNode, out: string[] = []): string[] {
 
 const base = {
 	leagueAbbr: "NFL",
-	familyLabel: "Props",
+	familyLabel: "Player Stats",
 	name: "Quinn Vaughn",
 	username: "quinn",
 	currentLength: 7,
@@ -50,7 +50,7 @@ describe("buildStreakShareCard", () => {
 		expect(texts).toContain("7 in a row")
 		expect(texts).toContain("Current")
 		expect(texts).toContain("7")
-		expect(texts).toContain("NFL · Props streak")
+		expect(texts).toContain("NFL · Player Stats streak")
 		expect(texts).toContain("Best")
 		expect(texts).toContain("9")
 		expect(texts).toContain("Run started")
@@ -58,14 +58,14 @@ describe("buildStreakShareCard", () => {
 		expect(texts).toContain("Last hit")
 		expect(texts).toContain("Over 275.5")
 		expect(texts).toContain("@quinn")
-		expect(texts).toContain("NFL Props calls right")
+		expect(texts).toContain("NFL Player Stats calls right")
 	})
 
 	it("leads with the best run once the current one has ended", () => {
 		const texts = textNodes(buildStreakShareCard({ ...base, currentLength: 0 }))
 		expect(texts).toContain("Best 9")
 		expect(texts).not.toContain("0 in a row")
-		expect(texts).toContain("9 NFL Props calls right in a row")
+		expect(texts).toContain("9 NFL Player Stats calls right in a row")
 	})
 
 	it("caps a long last-hit pick and title", () => {
@@ -95,8 +95,8 @@ describe("streakHero", () => {
 
 describe("parseStreakFamily", () => {
 	it("accepts only the lowercase url form of a family", () => {
-		expect(parseStreakFamily("props")).toBe("props")
-		expect(parseStreakFamily("PROPS")).toBeNull()
+		expect(parseStreakFamily("player_stats")).toBe("player_stats")
+		expect(parseStreakFamily("PLAYER_STATS")).toBeNull()
 		expect(parseStreakFamily("parlays")).toBeNull()
 	})
 })
