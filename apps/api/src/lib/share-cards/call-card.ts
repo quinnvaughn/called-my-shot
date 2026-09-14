@@ -83,6 +83,8 @@ export type CallShareCardData = {
 	quip: string | null
 	// "Awaiting result" / "Locks Jun 2027" - pending only.
 	pendingLabel: string | null
+	// Set on a win at least STREAK_TAG_MIN into its league-and-family streak.
+	streakLength: number | null
 }
 
 export function eyebrow(text: string, color = COLOR.dim): SatoriNode {
@@ -274,6 +276,13 @@ export function buildCallShareCard(data: CallShareCardData): SatoriNode {
 		)
 	} else if (data.closeness?.kind === "off") {
 		cells.push(statCell("Off by", data.closeness.by))
+	}
+	if (resolved && data.streakLength !== null) {
+		cells.push(
+			statCell("Streak", `${data.streakLength} in a row`, {
+				color: COLOR.success,
+			}),
+		)
 	}
 	if (!resolved) {
 		cells.push(

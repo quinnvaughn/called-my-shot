@@ -10,6 +10,7 @@ import {
 import { callContribution } from "./call-contribution"
 import { createNotifications } from "./notifications"
 import type { ResolvedBy } from "./resolve-question"
+import { markAchievementsDirty } from "./streaks/enqueue"
 import {
 	addLeagueStatDelta,
 	applySeasonStatDeltas,
@@ -96,6 +97,8 @@ export async function markQuestionVoided(
 			questionTitle: question.title,
 		})),
 	)
+
+	await markAchievementsDirty(tx, question)
 
 	const { voidedBy } = input
 	const [updated] = await tx

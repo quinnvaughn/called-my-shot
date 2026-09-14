@@ -372,5 +372,49 @@ export const relations = defineRelations(schema, (r) => ({
 			from: r.notifications.disputeId,
 			to: r.resolutionDisputes.id,
 		}),
+		league: r.one.leagues({
+			from: r.notifications.leagueId,
+			to: r.leagues.id,
+		}),
+	},
+	achievementNotices: {
+		user: r.one.users({
+			from: r.achievementNotices.userId,
+			to: r.users.id,
+		}),
+		notification: r.one.notifications({
+			from: r.achievementNotices.notificationId,
+			to: r.notifications.id,
+		}),
+	},
+	userStreaks: {
+		user: r.one.users({
+			from: r.userStreaks.userId,
+			to: r.users.id,
+		}),
+		league: r.one.leagues({
+			from: r.userStreaks.leagueId,
+			to: r.leagues.id,
+		}),
+	},
+	callStreakPositions: {
+		call: r.one.calls({
+			from: r.callStreakPositions.callId,
+			to: r.calls.id,
+		}),
+	},
+	userSweeps: {
+		user: r.one.users({
+			from: r.userSweeps.userId,
+			to: r.users.id,
+		}),
+		league: r.one.leagues({
+			from: r.userSweeps.leagueId,
+			to: r.leagues.id,
+		}),
+		season: r.one.seasons({
+			from: r.userSweeps.seasonId,
+			to: r.seasons.id,
+		}),
 	},
 }))

@@ -28,6 +28,10 @@ export const NotificationsPageDocument = graphql(`
 						...CallVoidedRow_notification
 						...GroupMemberJoinedRow_notification
 						...QuestionSharedToGroupRow_notification
+						...SweepCompletedRow_notification
+						...StreakMilestoneRow_notification
+						...StreakPersonalBestRow_notification
+						...StreakSnappedRow_notification
 					}
 					pageInfo {
 						hasNextPage

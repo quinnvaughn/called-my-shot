@@ -30,6 +30,29 @@ export const UserProfileDocument = graphql(`
 					callCount
 				}
 			}
+			streaks {
+				league {
+					id
+					abbreviation
+					slug
+				}
+				family
+				familyLabel
+				currentLength
+				bestLength
+				nextMilestone
+			}
+			sweeps {
+				league {
+					id
+					abbreviation
+					slug
+				}
+				slateKey
+				slateLabel
+				gameCount
+				firstStartsAt
+			}
 			recentCalls {
 				id
 				...CallCard_call

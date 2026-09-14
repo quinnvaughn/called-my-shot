@@ -23,6 +23,16 @@ import {
 	loadCallSummaries,
 } from "../lib/share-cards/call-summary"
 import {
+	buildStreakShareCard,
+	loadStreakShareCardData,
+	STREAK_SHARE_CARD_SIZE,
+} from "../lib/share-cards/streak-card"
+import {
+	buildSweepShareCard,
+	loadSweepShareCardData,
+	SWEEP_SHARE_CARD_SIZE,
+} from "../lib/share-cards/sweep-card"
+import {
 	buildUserShareCard,
 	USER_SHARE_CARD_SIZE,
 } from "../lib/share-cards/user-card"
@@ -52,6 +62,69 @@ export function registerShareRoutes(app: Express) {
 			await sendBallotShareCard(res, req.params.ballotSlug, req.params.username)
 		},
 	)
+
+	app.get("/share/streaks/:username/:league/:family.png", async (req, res) => {
+		await sendStreakShareCard(
+			res,
+			req.params.username,
+			req.params.league,
+			req.params.family,
+		)
+	})
+
+	app.get("/share/sweeps/:username/:league/:slateKey.png", async (req, res) => {
+		await sendSweepShareCard(
+			res,
+			req.params.username,
+			req.params.league,
+			req.params.slateKey,
+		)
+	})
+}
+
+// The og:image behind /user/:username/streaks/:league/:family. A track whose
+// best run is a single call has nothing to brag about, so it 404s like a
+// track that doesn't exist.
+async function sendStreakShareCard(
+	res: Response,
+	username: string,
+	leagueSlug: string,
+	family: string,
+) {
+	const data = await loadStreakShareCardData(username, leagueSlug, family)
+	if (!data) {
+		res.status(404).end()
+		return
+	}
+	const png = await renderShareImage(
+		buildStreakShareCard(data),
+		STREAK_SHARE_CARD_SIZE,
+	)
+	res.setHeader("Content-Type", "image/png")
+	res.setHeader("Cache-Control", "public, max-age=300")
+	res.send(png)
+}
+
+// The og:image behind /user/:username/sweeps/:league/:slateKey. 404s once an
+// overturn has taken the sweep away, the same as the page's not-found state.
+async function sendSweepShareCard(
+	res: Response,
+	username: string,
+	leagueSlug: string,
+	slateKey: string,
+) {
+	const data = await loadSweepShareCardData(username, leagueSlug, slateKey)
+	if (!data) {
+		res.status(404).end()
+		return
+	}
+	const png = await renderShareImage(
+		buildSweepShareCard(data),
+		SWEEP_SHARE_CARD_SIZE,
+	)
+	res.setHeader("Content-Type", "image/png")
+	res.setHeader("Cache-Control", "public, max-age=300")
+	res.send(png)
 }
 
 // The og:image behind /ballots/:slug/:username. See ballot-card.ts for what
@@ -237,6 +310,7 @@ async function sendCallShareCard(res: Response, callId: string) {
 			: summary.questionStatus === "open"
 				? `Locks ${formatCallDate(summary.locksAt)}`
 				: "Awaiting result",
+		streakLength: summary.streakLength,
 	})
 
 	const png = await renderShareImage(node, CALL_SHARE_CARD_SIZE)

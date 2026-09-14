@@ -30,6 +30,7 @@ import { QuestionCallsList } from "#/components/questions/question-calls-list"
 import { ReportQuestionModal } from "#/components/questions/report-question-modal"
 import { ResolveQuestionModal } from "#/components/questions/resolve-question-modal"
 import { ShareQuestionModal } from "#/components/questions/share-question-modal"
+import { StreakStakeLine } from "#/components/questions/streak-stake-line"
 import { ViewerStatusCard } from "#/components/questions/viewer-status-card"
 import { Breadcrumb } from "#/components/ui/breadcrumb"
 import { Button } from "#/components/ui/button"
@@ -492,7 +493,15 @@ function RouteComponent() {
 			different concepts, but the order between them never flips
 			regardless of which status - pending, won, either loss - is active). */}
 				{isCallable ? (
-					<CastCallForm callForm={callForm} />
+					<VStack gap="3" alignItems="stretch">
+						{question.viewerStreak && (
+							<StreakStakeLine
+								leagueAbbr={question.league.abbreviation}
+								stake={question.viewerStreak}
+							/>
+						)}
+						<CastCallForm callForm={callForm} />
+					</VStack>
 				) : (
 					<FieldBreakdownCard>
 						{isNumericQuestionShape(question.shape) ? (

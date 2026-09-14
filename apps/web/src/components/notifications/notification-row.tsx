@@ -8,6 +8,10 @@ import { DisputeUpheldRow } from "./rows/dispute-upheld-row"
 import { GroupMemberJoinedRow } from "./rows/group-member-joined-row"
 import { QuestionSharedToGroupRow } from "./rows/question-shared-to-group-row"
 import { QuestionVoidedRow } from "./rows/question-voided-row"
+import { StreakMilestoneRow } from "./rows/streak-milestone-row"
+import { StreakPersonalBestRow } from "./rows/streak-personal-best-row"
+import { StreakSnappedRow } from "./rows/streak-snapped-row"
+import { SweepCompletedRow } from "./rows/sweep-completed-row"
 
 export type NotificationItem = NonNullable<
 	Extract<
@@ -56,6 +60,18 @@ export function NotificationRow({ notification, unread, onOpen }: Props) {
 				unread={unread}
 				onOpen={onOpen}
 			/>
+		))
+		.with({ __typename: "SweepCompletedNotification" }, (n) => (
+			<SweepCompletedRow notification={n} unread={unread} onOpen={onOpen} />
+		))
+		.with({ __typename: "StreakMilestoneNotification" }, (n) => (
+			<StreakMilestoneRow notification={n} unread={unread} onOpen={onOpen} />
+		))
+		.with({ __typename: "StreakPersonalBestNotification" }, (n) => (
+			<StreakPersonalBestRow notification={n} unread={unread} onOpen={onOpen} />
+		))
+		.with({ __typename: "StreakSnappedNotification" }, (n) => (
+			<StreakSnappedRow notification={n} unread={unread} onOpen={onOpen} />
 		))
 		.exhaustive()
 }

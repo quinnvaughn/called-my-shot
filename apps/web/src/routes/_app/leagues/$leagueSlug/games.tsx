@@ -4,6 +4,7 @@ import { FiChevronLeft, FiChevronRight } from "react-icons/fi"
 import { css } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
 import { GameRow } from "#/components/leagues/game-row"
+import { SlateSweepLine } from "#/components/leagues/slate-sweep-line"
 import { EmptyState } from "#/components/ui/empty-state"
 import { Select } from "#/components/ui/select"
 import {
@@ -216,6 +217,12 @@ function RouteComponent() {
 									})}
 								/>
 							</HStack>
+						)}
+						{group.viewerSweep && (
+							<SlateSweepLine
+								progress={group.viewerSweep}
+								leagueSlug={leagueSlug}
+							/>
 						)}
 						{group.games.map((game) => (
 							<GameRow key={game.id} game={game} leagueSlug={leagueSlug} />

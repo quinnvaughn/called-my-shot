@@ -131,6 +131,68 @@ export const SHAPE_SUBJECT: Record<QuestionShape, "player" | "team" | "none"> =
 		player_award_finalists: "player",
 	}
 
+// The families a streak is counted within. A streak belongs to one league and
+// one family, so a missed player prop doesn't end a run of correct winner
+// picks. Mirrored by the streak_family pg enum in apps/api's
+// db/schema/streaks.ts.
+export const STREAK_FAMILIES = ["winners", "totals", "props", "numeric"] as const
+export type StreakFamily = (typeof STREAK_FAMILIES)[number]
+
+// A Record for the same reason as SHAPE_SUBJECT above: a new shape fails the
+// build until it's placed in a family or deliberately left out. Only
+// game-scoped shapes have one. A season-long question settles months after
+// it's called, so it has no place in a run ordered by when results landed,
+// and yes_no_prop has no game to order it by at all.
+export const STREAK_FAMILY_BY_SHAPE: Record<QuestionShape, StreakFamily | null> =
+	{
+		team_vs_team: "winners",
+		game_total_over_under: "totals",
+		team_stat_over_under: "totals",
+		player_stat_over_under: "props",
+		player_vs_player: "props",
+		player_game_stat_leader: "props",
+		player_stat_numeric_guess: "numeric",
+		team_stat_numeric_guess: "numeric",
+		yes_no_prop: null,
+		player_season_stat_over_under: null,
+		team_season_stat_over_under: null,
+		player_vs_player_season: null,
+		team_vs_team_season: null,
+		player_season_award: null,
+		team_season_award: null,
+		player_award_finalists: null,
+		team_season_stat_numeric_guess: null,
+		player_season_stat_leader: null,
+	}
+
+export function streakFamilyFor(shape: QuestionShape): StreakFamily | null {
+	return STREAK_FAMILY_BY_SHAPE[shape]
+}
+
+export function shapesInFamily(family: StreakFamily): QuestionShape[] {
+	return (Object.keys(STREAK_FAMILY_BY_SHAPE) as QuestionShape[]).filter(
+		(shape) => STREAK_FAMILY_BY_SHAPE[shape] === family,
+	)
+}
+
+export const STREAK_FAMILY_LABEL: Record<StreakFamily, string> = {
+	winners: "Winners",
+	totals: "Totals",
+	props: "Props",
+	numeric: "Number Guesses",
+}
+
+// A sweep is every game in a slate called right; below this many games a
+// slate is too small for that to mean much.
+export const SWEEP_MIN_GAMES = 3
+// The shortest run a call's streak tag is shown for.
+export const STREAK_TAG_MIN = 3
+// Streak notifications fire at every multiple of this length.
+export const STREAK_MILESTONE_STEP = 5
+// The shortest run a personal best or a snapped streak is worth telling
+// anyone about.
+export const STREAK_NOTIFY_MIN = 5
+
 // The over/under family. Every one of these pairs a stat with a line the
 // result lands on one side of, which is what makes them share an option label
 // format ("Over 224.5") and a "set the number" field in the create form.

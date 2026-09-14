@@ -1,5 +1,6 @@
 import {
 	boolean,
+	index,
 	integer,
 	jsonb,
 	numeric,
@@ -317,7 +318,10 @@ export const questions = pgTable("questions", {
 	lineBasis: jsonb("line_basis").$type<LineBasis>(),
 
 	createdAt: timestamp("created_at").notNull().defaultNow(),
-}, (t) => [uniqueIndex("questions_generation_key_idx").on(t.generationKey)])
+}, (t) => [
+	uniqueIndex("questions_generation_key_idx").on(t.generationKey),
+	index("questions_game_id_idx").on(t.gameId),
+])
 export type Question = typeof questions.$inferSelect
 
 // The option pool for every option-based shape: the two sides of an

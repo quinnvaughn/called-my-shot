@@ -15,10 +15,28 @@ import {
 	makeSelection,
 	seedOptionQuestion,
 } from "../test/factories"
-import { DRAIN_DIGESTS_LOCK, withJobLock } from "./job-lock"
 import { drainResolutionDigests } from "./email-digest"
+import { DRAIN_DIGESTS_LOCK, withJobLock } from "./job-lock"
 import type { MailMessage, MailResult } from "./mailer"
 import { resolveQuestionInternal } from "./resolve-question"
+import { announceOnce } from "./streaks/notices"
+
+/** A streak milestone announced to this user, as the rebuild job would. */
+async function announceMilestone(userId: string, leagueId: string) {
+	await db.transaction((tx) =>
+		announceOnce(tx, `milestone:${leagueId}:props:call-1:5`, {
+			type: "streak_milestone",
+			userId,
+			leagueId,
+			streakFamily: "props",
+			achievementLabel: "NFL Props",
+			achievementCount: 5,
+		}),
+	)
+}
+
+const noticesFor = (userId: string) =>
+	db.query.achievementNotices.findMany({ where: { userId } })
 
 function resolve(question: Question, correctOptionIds: string[]) {
 	return db.transaction((tx) =>
@@ -423,6 +441,63 @@ describe("drainResolutionDigests", () => {
 		const second = recorder()
 		await drainResolutionDigests({ send: second.send })
 		expect(second.sent).toHaveLength(0)
+	})
+})
+
+describe("drainResolutionDigests achievement lines", () => {
+	it("adds a line for each sweep or streak event and marks it emailed", async () => {
+		const { question, options, callers } = await seedOptionQuestion({
+			callers: [{ optionIndex: 0 }],
+		})
+		const { user } = callers[0]
+		await resolve(question, [options[0].id])
+		await announceMilestone(user.id, question.leagueId)
+		await ageOutbox()
+
+		const mail = recorder()
+		await drainResolutionDigests({ send: mail.send })
+
+		const league = await db.query.leagues.findFirst({
+			where: { id: question.leagueId },
+		})
+		const [message] = mail.sent
+		expect(message.text).toContain("5 in a row on NFL Props.")
+		expect(message.text).toContain(
+			`/user/${user.username}/streaks/${league?.slug}/props`,
+		)
+		expect(message.text).toContain(
+			"utm_campaign=resolution_digest&utm_content=achievement",
+		)
+		expect(message.subject).not.toContain("in a row")
+		const [notice] = await noticesFor(user.id)
+		expect(notice?.emailedAt).not.toBeNull()
+	})
+
+	it("keeps the line for the next digest when the send fails", async () => {
+		const { question, options, callers } = await seedOptionQuestion({
+			callers: [{ optionIndex: 0 }],
+		})
+		await resolve(question, [options[0].id])
+		await announceMilestone(callers[0].user.id, question.leagueId)
+		await ageOutbox()
+
+		await drainResolutionDigests({
+			send: recorder({ ok: false, error: "resend exploded" }).send,
+		})
+
+		const [notice] = await noticesFor(callers[0].user.id)
+		expect(notice?.emailedAt).toBeNull()
+	})
+
+	it("sends nothing for an achievement with no results to go with it", async () => {
+		const { question, callers } = await seedOptionQuestion({
+			callers: [{ optionIndex: 0 }],
+		})
+		await announceMilestone(callers[0].user.id, question.leagueId)
+
+		const mail = recorder()
+		await drainResolutionDigests({ send: mail.send })
+		expect(mail.sent).toHaveLength(0)
 	})
 })
 

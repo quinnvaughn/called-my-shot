@@ -1,5 +1,11 @@
-import { emailPreferenceType } from "../../../db/schema"
+import { emailPreferenceType, streakFamily } from "../../../db/schema"
 import { builder } from "../../builder"
+
+export const StreakFamilyEnum = builder.enumType("StreakFamily", {
+	values: Object.fromEntries(
+		streakFamily.enumValues.map((value) => [value.toUpperCase(), { value }]),
+	) as Record<string, { value: (typeof streakFamily.enumValues)[number] }>,
+})
 
 // Built from the pgEnum's own values rather than hand-listed, so a type added
 // to the table can't be missing from the api without anyone noticing. The

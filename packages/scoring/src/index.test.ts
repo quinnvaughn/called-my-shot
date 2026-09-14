@@ -12,6 +12,8 @@ import {
 	SEASON_LONG_SHAPES,
 	seasonEarlyTierFor,
 	selectionPoints,
+	shapesInFamily,
+	STREAK_FAMILY_BY_SHAPE,
 	TIER_MAX_MULT,
 	TIER_MIN_MULT,
 	tierFor,
@@ -435,5 +437,23 @@ describe("numericGuessPoints", () => {
 
 	it("handles an empty field", () => {
 		expect(numericGuessPoints(base, [], 100, spec)).toEqual([])
+	})
+})
+
+describe("STREAK_FAMILY_BY_SHAPE", () => {
+	it("answers for every shape", () => {
+		expect(Object.keys(STREAK_FAMILY_BY_SHAPE).sort()).toEqual(
+			[...ALL_SHAPES].sort(),
+		)
+	})
+
+	it("leaves every season-long shape out of streaks", () => {
+		for (const shape of SEASON_LONG_SHAPES) {
+			expect(STREAK_FAMILY_BY_SHAPE[shape], shape).toBeNull()
+		}
+	})
+
+	it("keeps winners to the one who-wins shape", () => {
+		expect(shapesInFamily("winners")).toEqual(["team_vs_team"])
 	})
 })

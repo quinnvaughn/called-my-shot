@@ -22,6 +22,7 @@ import {
 } from "../../../../lib/errors"
 import { createNotification } from "../../../../lib/notifications"
 import { reverseQuestionLeagueStats } from "../../../../lib/resolve-question"
+import { markAchievementsDirty } from "../../../../lib/streaks/enqueue"
 import { STRIKE_LOCK_THRESHOLD } from "../../../../lib/strikes"
 import { markQuestionVoided } from "../../../../lib/void-question"
 import { builder } from "../../../builder"
@@ -161,6 +162,7 @@ builder.mutationFields((t) => ({
 				}
 
 				await reverseQuestionLeagueStats(tx, question)
+				await markAchievementsDirty(tx, question)
 				await tx.delete(questions).where(eq(questions.id, question.id))
 			})
 
@@ -254,6 +256,7 @@ builder.mutationFields((t) => ({
 				}
 
 				await reverseQuestionLeagueStats(tx, question)
+				await markAchievementsDirty(tx, question)
 
 				await tx.delete(questions).where(eq(questions.id, question.id))
 			})

@@ -2,6 +2,9 @@ import {
 	fieldPct,
 	isNumericGuessShape,
 	isSeasonLongShape,
+	STREAK_FAMILY_LABEL,
+	STREAK_TAG_MIN,
+	streakFamilyFor,
 } from "@called-my-shot/scoring"
 import { and, count, eq, inArray, lte } from "drizzle-orm"
 import { db } from "../../../db"
@@ -10,6 +13,7 @@ import {
 	groupMembers,
 	type Question,
 	questionShares,
+	type UserStreak,
 } from "../../../db/schema"
 import {
 	clampPageSize,
@@ -17,9 +21,11 @@ import {
 	decodeCursor,
 	paginate,
 } from "../../../lib/pagination"
+import { countsTowardAchievements } from "../../../lib/streaks/enqueue"
 import { builder } from "../../builder"
 import { BallotQuestionRef } from "../ballot"
 import { type Connection, PageInfoRef } from "../pagination"
+import { StreakFamilyEnum } from "../user/enums"
 import { CallConnectionRef, CallRef } from "./call"
 import {
 	AwardVerb,
@@ -33,8 +39,23 @@ import {
 	getOptionSelectionCountLoader,
 	getQuestionCallCountLoader,
 	getQuestionGuessCallsLoader,
+	getViewerStreakLoader,
 } from "./loaders"
 import { QuestionReportRef, ResolutionDisputeRef } from "./moderation-objects"
+
+// The viewer's streak a question's result would extend or end - see
+// Question.viewerStreak.
+const StreakStakeRef = builder.objectRef<UserStreak>("StreakStake").implement({
+	fields: (t) => ({
+		family: t.field({ type: StreakFamilyEnum, resolve: (s) => s.family }),
+		familyLabel: t.field({
+			type: "String",
+			resolve: (s) => STREAK_FAMILY_LABEL[s.family],
+		}),
+		currentLength: t.exposeInt("currentLength"),
+		bestLength: t.exposeInt("bestLength"),
+	}),
+})
 
 export const QuestionOptionRef = builder.drizzleObject("questionOptions", {
 	name: "QuestionOption",
@@ -421,6 +442,24 @@ export const QuestionRef = builder.drizzleObject("questions", {
 				return questionIds.map((id) => byQuestionId.get(id) ?? null)
 			},
 			resolve: (question) => question.id,
+		}),
+
+		// The viewer's run in this question's league and family, when this
+		// question counts toward it and the run is at least STREAK_TAG_MIN -
+		// what the pick form shows as being on the line.
+		viewerStreak: t.field({
+			type: StreakStakeRef,
+			nullable: true,
+			resolve: async (question, _args, ctx) => {
+				const family = streakFamilyFor(question.shape)
+				if (!ctx.user || !family || !countsTowardAchievements(question)) {
+					return null
+				}
+				const streak = await getViewerStreakLoader(ctx, ctx.user.id).load(
+					`${question.leagueId}:${family}`,
+				)
+				return streak && streak.currentLength >= STREAK_TAG_MIN ? streak : null
+			},
 		}),
 
 		viewerDispute: t.field({

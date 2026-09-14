@@ -5,6 +5,7 @@ import {
 import {
 	isNumericGuessShape,
 	type QuestionShape,
+	STREAK_TAG_MIN,
 } from "@called-my-shot/scoring"
 import { DateTime } from "luxon"
 import { db } from "../../db"
@@ -179,6 +180,10 @@ export type CallSummary = {
 	// own kind rather than a distance of 0, which reads as still being off.
 	// `by` is formatted like the guess itself.
 	closeness: { kind: "exact" } | { kind: "off"; by: string } | null
+	// How far into its league-and-family streak this call was when it landed.
+	// Same gate as Call.streak: a standing, scored win at least STREAK_TAG_MIN
+	// into its run, otherwise null.
+	streakLength: number | null
 	userName: string
 	username: string
 	// Only meaningful for a single-selection call - routes/share.ts uses it to
@@ -244,6 +249,12 @@ export async function loadCallSummaries(
 			},
 		},
 	})
+
+	const positions = await db.query.callStreakPositions.findMany({
+		where: { callId: { in: callIds }, length: { gte: STREAK_TAG_MIN } },
+		columns: { callId: true, length: true },
+	})
+	const streakByCallId = new Map(positions.map((p) => [p.callId, p.length]))
 
 	for (const call of rows) {
 		// A data-integrity drop, not a status gate - a call with no user or a
@@ -318,6 +329,15 @@ export async function loadCallSummaries(
 					: 0,
 			caseText: call.caseText,
 			closeness,
+			// The streak cache is rebuilt shortly after a result changes, not
+			// in the same transaction, so a row can briefly outlive the result
+			// it was built from.
+			streakLength:
+				call.unscoredReason === null &&
+				(call.question.status === "resolved" ||
+					call.question.status === "disputed")
+					? (streakByCallId.get(call.id) ?? null)
+					: null,
 			userName: call.user.name,
 			username: call.user.username,
 			soleOptionId:

@@ -85,6 +85,18 @@ export function callPageMeta(input: CallMetaInput): {
 	return { title: `${lead} | ${question}`, description }
 }
 
+// The og:image url's `?v=`. Third-party unfurl caches hold a scraped card for
+// days, so anything that changes the card's face has to change this: the
+// call resolving, and the streak cell a winning call can carry. A call with
+// no streak keeps the version it has always had.
+export function callCardVersion(
+	resolvedAt: string | null,
+	streakLength: number | null,
+): string {
+	const base = resolvedAt ? String(Date.parse(resolvedAt)) : "pending"
+	return streakLength ? `${base}-w${streakLength}` : base
+}
+
 function clampText(text: string, max: number): string {
 	if (text.length <= max) return text
 	return `${text.slice(0, max - 1).trimEnd()}…`

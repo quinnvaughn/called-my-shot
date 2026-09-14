@@ -13,12 +13,21 @@ import {
 	AUTO_RESOLVE_GAMES_LOCK,
 	DRAIN_DIGESTS_LOCK,
 	DRAIN_SEASON_START_LOCK,
+	RECOMPUTE_ACHIEVEMENTS_LOCK,
 	withJobLock,
 } from "./lib/job-lock"
 import {
 	drainSeasonStartEmails,
 	enqueueSeasonStartEmails,
 } from "./lib/season-start-email"
+import { enqueueAchievementRecomputes } from "./lib/streaks/backfill"
+import { drainAchievementRecomputes } from "./lib/streaks/drain"
+
+const RECONCILE_ACHIEVEMENTS_DAYS = 7
+
+const drainAchievements = runJob(RECOMPUTE_ACHIEVEMENTS_LOCK, async () => {
+	await drainAchievementRecomputes()
+})
 
 // Every job runs under a lease named after it, so a tick that fires on all
 // machines at once still runs the job exactly once across the fleet - see
@@ -48,8 +57,31 @@ export function startScheduler(): void {
 			})()
 			if (wentFinal.length === 0) return
 			await runJob(AUTO_RESOLVE_GAMES_LOCK, () => autoResolveGames())()
+			await drainAchievements()
 		},
 		{ name: "sync-live-scores", timezone: "UTC", noOverlap: true },
+	)
+	// Every minute, so a streak or sweep lands shortly after the result that
+	// made it. Most ticks find the queue empty and do nothing.
+	cron.schedule("* * * * *", drainAchievements, {
+		name: RECOMPUTE_ACHIEVEMENTS_LOCK,
+		timezone: "UTC",
+		noOverlap: true,
+	})
+	// Daily, after the night's games have settled. Re-marks the last week's
+	// tracks and slates for what no settle event covers - a flexed game moving
+	// slot, ESPN correcting when a game went final - and the minute drain
+	// rebuilds them.
+	cron.schedule(
+		"30 11 * * *",
+		runJob("reconcile-achievements", async () => {
+			await enqueueAchievementRecomputes({
+				since: new Date(
+					Date.now() - RECONCILE_ACHIEVEMENTS_DAYS * 24 * 60 * 60 * 1000,
+				),
+			})
+		}),
+		{ name: "reconcile-achievements", timezone: "UTC", noOverlap: true },
 	)
 	cron.schedule(
 		"*/15 * * * *",
@@ -146,6 +178,6 @@ export function startScheduler(): void {
 		{ name: DRAIN_SEASON_START_LOCK, timezone: "UTC", noOverlap: true },
 	)
 	console.log(
-		"[scheduler] started: sync-live-scores */5m (then auto-resolve-games when a game went final), lock-overdue-questions */15m, sync-sports-data daily 09:00 UTC, sync-game-starters then generate-game-questions */30m, auto-resolve-games 2-59/10m, auto-resolve-seasons daily 10:30 UTC, auto-resolve-championships daily 10:45 UTC, tune-lines daily 11:00 UTC, drain-email-digests */5m, enqueue-season-start-emails daily 13:00 UTC, drain-season-start-emails */5m",
+		"[scheduler] started: sync-live-scores */5m (then auto-resolve-games and recompute-achievements when a game went final), recompute-achievements */1m, reconcile-achievements daily 11:30 UTC, lock-overdue-questions */15m, sync-sports-data daily 09:00 UTC, sync-game-starters then generate-game-questions */30m, auto-resolve-games 2-59/10m, auto-resolve-seasons daily 10:30 UTC, auto-resolve-championships daily 10:45 UTC, tune-lines daily 11:00 UTC, drain-email-digests */5m, enqueue-season-start-emails daily 13:00 UTC, drain-season-start-emails */5m",
 	)
 }

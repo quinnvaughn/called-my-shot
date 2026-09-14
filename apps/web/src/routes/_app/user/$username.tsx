@@ -8,12 +8,16 @@ import { ProfileHeader } from "#/components/profile/profile-header"
 import { ShareCardPreview } from "#/components/profile/share-card-preview"
 import { ShareImagePanel } from "#/components/profile/share-image-panel"
 import { StatGrid, statGridItems } from "#/components/profile/stat-grid"
+import { StreaksSection } from "#/components/profile/streaks-section"
+import { SweepsSection } from "#/components/profile/sweeps-section"
 import { CallCard } from "#/components/questions/call-card"
 import { EmptyState } from "#/components/ui/empty-state"
 import { NotFound } from "#/components/ui/not-found"
 import { UserProfileDocument } from "#/graphql/generated/graphql"
 import { gqlQueryOptions } from "#/graphql/query-options"
 import { pageMeta } from "#/lib/meta"
+
+const MAX_LIVE_STREAKS = 3
 
 const userProfileQuery = (username: string) =>
 	gqlQueryOptions(UserProfileDocument, { username })
@@ -89,6 +93,14 @@ function RouteComponent() {
 		)
 	}
 
+	const isOwn = me?.id === user.id
+	// Only runs still going make the top of the profile. Every track, ended
+	// ones included, is listed in its league's accordion below.
+	const liveStreaks = user.streaks
+		.filter((streak) => streak.currentLength > 0)
+		.slice(0, MAX_LIVE_STREAKS)
+	const latestSweep = user.sweeps[0]
+
 	return (
 		<VStack alignItems="stretch" gap="6">
 			<ProfileHeader user={user} viewerId={me?.id} />
@@ -124,6 +136,23 @@ function RouteComponent() {
 					)}
 				/>
 			)}
+			{liveStreaks.length > 0 && (
+				<VStack alignItems="stretch" gap="3">
+					{sectionLabel("On a run")}
+					<StreaksSection
+						username={user.username}
+						streaks={liveStreaks}
+						isOwn={isOwn}
+						layout="grid"
+					/>
+				</VStack>
+			)}
+			{latestSweep && (
+				<VStack alignItems="stretch" gap="3">
+					{sectionLabel("Latest sweep")}
+					<SweepsSection username={user.username} sweeps={[latestSweep]} />
+				</VStack>
+			)}
 			{user.leagues.length > 0 && (
 				<VStack alignItems="stretch" gap="3">
 					{sectionLabel("Leagues")}
@@ -133,6 +162,13 @@ function RouteComponent() {
 								key={leagueStats.league.id}
 								stats={leagueStats}
 								user={user}
+								streaks={user.streaks.filter(
+									(streak) => streak.league.id === leagueStats.league.id,
+								)}
+								sweeps={user.sweeps.filter(
+									(sweep) => sweep.league.id === leagueStats.league.id,
+								)}
+								isOwn={isOwn}
 							/>
 						))}
 					</VStack>

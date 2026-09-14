@@ -18,6 +18,11 @@ export const CallRecordDocument = graphql(`
 			guessValue
 			totalPoints
 			currentRank
+			streak {
+				length
+				family
+				familyLabel
+			}
 			user {
 				id
 				name

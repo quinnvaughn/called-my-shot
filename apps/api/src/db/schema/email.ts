@@ -41,6 +41,10 @@ export const emailPreferenceType = pgEnum("email_preference_type", [
 	"call_voided",
 	"group_member_joined",
 	"question_shared_to_group",
+	"sweep_completed",
+	"streak_milestone",
+	"streak_personal_best",
+	"streak_snapped",
 	// Email-only - see above.
 	"season_starting",
 ])

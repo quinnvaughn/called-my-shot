@@ -6,8 +6,21 @@ import {
 } from "../../../lib/global-leaderboard"
 import { builder } from "../../builder"
 import { CallRef, VoidReason } from "../question"
-import { EmailPreferenceType } from "./enums"
+import { EmailPreferenceType, StreakFamilyEnum } from "./enums"
 import { buildUserLeagueStats, UserLeagueStatsRef } from "./stats"
+import { UserStreakRef, UserSweepRef } from "./streaks"
+
+// A run of 1 isn't a streak worth listing on anyone's profile.
+const LISTED_STREAK_MIN = 2
+const MAX_SWEEPS = 50
+
+async function leagueIdBySlug(slug: string): Promise<string | null> {
+	const league = await db.query.leagues.findFirst({
+		where: { slug },
+		columns: { id: true },
+	})
+	return league?.id ?? null
+}
 
 // Deliberately doesn't reuse LeaderboardEntryRef from ./leaderboard: that
 // type has its own `user` field, and importing it here would make this
@@ -121,6 +134,57 @@ export const UserRef = builder.drizzleObject("users", {
 					orderBy: { createdAt: "desc", id: "desc" },
 					limit: 3,
 				}),
+		}),
+		// Every league-and-family track whose best run reached
+		// LISTED_STREAK_MIN, hottest first.
+		streaks: t.field({
+			type: [UserStreakRef],
+			resolve: (user) =>
+				db.query.userStreaks.findMany({
+					where: { userId: user.id, bestLength: { gte: LISTED_STREAK_MIN } },
+					orderBy: { currentLength: "desc", bestLength: "desc" },
+				}),
+		}),
+		streak: t.field({
+			type: UserStreakRef,
+			nullable: true,
+			args: {
+				league: t.arg.string({ required: true }),
+				family: t.arg({ type: StreakFamilyEnum, required: true }),
+			},
+			resolve: async (user, args) => {
+				const leagueId = await leagueIdBySlug(args.league)
+				if (!leagueId) return null
+				return db.query.userStreaks.findFirst({
+					where: { userId: user.id, leagueId, family: args.family },
+				})
+			},
+		}),
+		// Newest first.
+		sweeps: t.field({
+			type: [UserSweepRef],
+			args: { limit: t.arg.int({ required: false }) },
+			resolve: (user, args) =>
+				db.query.userSweeps.findMany({
+					where: { userId: user.id },
+					orderBy: { settledAt: "desc" },
+					limit: Math.min(Math.max(args.limit ?? MAX_SWEEPS, 1), MAX_SWEEPS),
+				}),
+		}),
+		sweep: t.field({
+			type: UserSweepRef,
+			nullable: true,
+			args: {
+				league: t.arg.string({ required: true }),
+				slateKey: t.arg.string({ required: true }),
+			},
+			resolve: async (user, args) => {
+				const leagueId = await leagueIdBySlug(args.league)
+				if (!leagueId) return null
+				return db.query.userSweeps.findFirst({
+					where: { userId: user.id, leagueId, slateKey: args.slateKey },
+				})
+			},
 		}),
 	}),
 })

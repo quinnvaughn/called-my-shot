@@ -37,6 +37,8 @@ export type CallRecordCardData = {
 	closeness: { kind: "exact" } | { kind: "off"; by: string } | null
 	conviction: number
 	caseText: string | null
+	// Set on a win at least STREAK_TAG_MIN into its league-and-family streak.
+	streakLength: number | null
 }
 
 type Props = { data: CallRecordCardData }
@@ -72,6 +74,9 @@ export function CallRecordCard({ data }: Props) {
 										? "Called it"
 										: "Missed"
 								: "On the record"}
+							{resolved && win && data.streakLength !== null
+								? ` · ${data.streakLength} in a row`
+								: ""}
 						</Eyebrow>
 						<span
 							className={css({

@@ -269,6 +269,9 @@ export const LeagueGamesForWindowDocument = graphql(`
 			nextKey
 			groups {
 				slotLabel
+				viewerSweep {
+					...SlateSweepLine_progress
+				}
 				games {
 					id
 					startsAt

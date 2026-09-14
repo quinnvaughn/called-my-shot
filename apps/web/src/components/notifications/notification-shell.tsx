@@ -5,12 +5,20 @@ import { css } from "styled-system/css"
 import { HStack } from "styled-system/jsx"
 import { Card } from "#/components/ui/card"
 
-// The only two destinations any notification type ever deep-links to -
-// spelled out rather than a bare `{ to: string }` so this stays assignable to
-// Link's strictly-typed `to` prop without a cast.
+// Every destination a notification type deep-links to - spelled out rather
+// than a bare `{ to: string }` so this stays assignable to Link's
+// strictly-typed `to` prop without a cast.
 export type Target =
 	| { to: "/questions/$questionId/{-$slug}"; params: { questionId: string } }
 	| { to: "/groups/$groupId"; params: { groupId: string } }
+	| {
+			to: "/user/$username/streaks/$league/$family"
+			params: { username: string; league: string; family: string }
+	  }
+	| {
+			to: "/user/$username/sweeps/$league/$slateKey"
+			params: { username: string; league: string; slateKey: string }
+	  }
 	| null
 
 type Props = {

@@ -39,6 +39,7 @@ const base = {
 	isWin: true,
 	quip: "Called it before the line moved.",
 	pendingLabel: null,
+	streakLength: null,
 }
 
 // Generous enough that no legitimate field trips it, tight enough that a
@@ -116,6 +117,13 @@ describe("buildCallShareCard", () => {
 		expect(texts).toContain("Nailed it")
 		expect(texts).toContain("Exact")
 		expect(texts).not.toContain("Off by")
+	})
+
+	it("states the streak a winning call extended", () => {
+		const texts = textNodes(buildCallShareCard({ ...base, streakLength: 7 }))
+		expect(texts).toContain("Streak")
+		expect(texts).toContain("7 in a row")
+		expect(textNodes(buildCallShareCard(base))).not.toContain("Streak")
 	})
 
 	// quipForCall has no vocabulary for a call nobody has graded, so the

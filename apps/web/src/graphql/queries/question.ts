@@ -89,6 +89,12 @@ export const QuestionDetailDocument = graphql(`
 				value
 				count
 			}
+			viewerStreak {
+				family
+				familyLabel
+				currentLength
+				bestLength
+			}
 			viewerCall {
 				id
 				createdAt

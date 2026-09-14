@@ -15,6 +15,14 @@ export type DigestCall = {
 	callUrl: string
 }
 
+// A sweep or streak event from the same stretch of results - its one-line
+// sentence (achievementText in @called-my-shot/schemas) and the page that
+// shows it off.
+export type DigestAchievement = {
+	text: string
+	url: string
+}
+
 // Rows listed in the body; the rest become "and N more". A 12-call Sunday
 // should read as a result, not a spreadsheet. Lives here rather than in the
 // drain because it is purely about how much of the list fits on screen.
@@ -27,6 +35,9 @@ export type ResolutionDigestProps = {
 	// 12-call batch reported the record of its first 8, so the subject line
 	// was simply wrong.
 	calls: DigestCall[]
+	// Listed between the net and the calls. Never in the subject or preheader,
+	// for the same no-spoiler reason as the result itself.
+	achievements?: DigestAchievement[]
 	// The call worth leading with - biggest swing, wins preferred.
 	primaryCallUrl: string
 	allCallsUrl: string
@@ -186,6 +197,7 @@ function CallRow({ call }: { call: DigestCall }) {
 
 export function ResolutionDigest({
 	calls,
+	achievements = [],
 	primaryCallUrl,
 	allCallsUrl,
 	manageUrl,
@@ -241,6 +253,30 @@ export function ResolutionDigest({
 			>
 				{signed(net)} pts
 			</Text>
+
+			{achievements.length > 0 && (
+				<Section style={{ margin: "0 0 20px", textAlign: "center" }}>
+					{achievements.map((achievement) => (
+						<Text
+							key={`${achievement.url}:${achievement.text}`}
+							style={{
+								fontFamily: FONT_BODY,
+								fontSize: "15px",
+								lineHeight: "22px",
+								fontWeight: 600,
+								margin: "0 0 6px",
+							}}
+						>
+							<Link
+								href={achievement.url}
+								style={{ color: COLOR.primaryDefault, textDecoration: "none" }}
+							>
+								{achievement.text}
+							</Link>
+						</Text>
+					))}
+				</Section>
+			)}
 
 			{shown.map((call) => (
 				<CallRow key={call.callUrl} call={call} />
@@ -334,6 +370,16 @@ ResolutionDigest.PreviewProps = {
 			points: -40,
 			isWin: false,
 			callUrl: "https://calledmyshot.com/calls/9f2a3b1c-0000-4000-8000-000000000003",
+		},
+	],
+	achievements: [
+		{
+			text: "You picked every NFL Week 3 Sunday Early winner. 9 for 9.",
+			url: "https://calledmyshot.com/user/preview/sweeps/nfl/2026-reg-w3-sun-early",
+		},
+		{
+			text: "10 in a row on NFL Props.",
+			url: "https://calledmyshot.com/user/preview/streaks/nfl/props",
 		},
 	],
 	primaryCallUrl: "https://calledmyshot.com/calls/9f2a3b1c-0000-4000-8000-000000000001",

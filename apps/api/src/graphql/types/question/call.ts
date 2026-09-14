@@ -1,4 +1,4 @@
-import { isSeasonLongShape } from "@called-my-shot/scoring"
+import { isSeasonLongShape, STREAK_FAMILY_LABEL } from "@called-my-shot/scoring"
 import { and, count, eq, lte, sql } from "drizzle-orm"
 import { db } from "../../../db"
 import { type Call, calls, games } from "../../../db/schema"
@@ -6,8 +6,27 @@ import { aggregatePointsByUser } from "../../../lib/points-aggregate"
 import { accuracyFrom } from "../../../lib/scoring"
 import { builder } from "../../builder"
 import { type Connection, PageInfoRef } from "../pagination"
+import { StreakFamilyEnum } from "../user/enums"
 import { CallUnscoredReason } from "./enums"
-import { getQuestionLeagueIdLoader } from "./loaders"
+import {
+	type CallStreakMark,
+	getCallStreakLoader,
+	getQuestionLeagueIdLoader,
+} from "./loaders"
+
+// How far into a streak a call was when it landed - see Call.streak.
+const CallStreakMarkRef = builder
+	.objectRef<CallStreakMark>("CallStreakMark")
+	.implement({
+		fields: (t) => ({
+			length: t.exposeInt("length"),
+			family: t.field({ type: StreakFamilyEnum, resolve: (m) => m.family }),
+			familyLabel: t.field({
+				type: "String",
+				resolve: (m) => STREAK_FAMILY_LABEL[m.family],
+			}),
+		}),
+	})
 
 export const CallSelectionRef = builder.drizzleObject("callSelections", {
 	name: "CallSelection",
@@ -145,6 +164,13 @@ export const CallRef = builder.drizzleObject("calls", {
 		}),
 		user: t.relation("user"),
 		question: t.relation("question"),
+		// Set when this call was a win at least STREAK_TAG_MIN into its
+		// league-and-family streak - the run's length as of this call.
+		streak: t.field({
+			type: CallStreakMarkRef,
+			nullable: true,
+			resolve: (call, _args, ctx) => getCallStreakLoader(ctx).load(call.id),
+		}),
 		// Not pick info - shown even on a locked call to signal "this person
 		// tends to be right in this league", the same way identity is. Scoped to
 		// this call's own question's league (not the caller's site-wide

@@ -14,6 +14,7 @@ import { PersonLine } from "./person-line"
 import { PickList } from "./pick-list"
 import { QuestionSummaryHeader } from "./question-summary-header"
 import { ResultBadge } from "./result-badge"
+import { StreakTag } from "./streak-tag"
 import { VoidedBadge } from "./voided-badge"
 
 export const CallCardFragment = graphql(`
@@ -24,6 +25,11 @@ export const CallCardFragment = graphql(`
 		totalPoints
 		unscoredReason
 		caseText
+		streak {
+			length
+			family
+			familyLabel
+		}
 		user {
 			name
 			username
@@ -139,10 +145,18 @@ export function CallCard({ call: callProp }: CallCardProps) {
 						))
 						.with("LOCKED", () => <LockedBadge />)
 						.with("RESOLVED", "DISPUTED", () => (
-							<ResultBadge
-								totalPoints={call.totalPoints}
-								unscoredReason={call.unscoredReason}
-							/>
+							<HStack gap="1.5" alignItems="center">
+								{call.streak && (
+									<StreakTag
+										length={call.streak.length}
+										track={`${call.question.league.abbreviation} ${call.streak.familyLabel}`}
+									/>
+								)}
+								<ResultBadge
+									totalPoints={call.totalPoints}
+									unscoredReason={call.unscoredReason}
+								/>
+							</HStack>
 						))
 						.with("VOIDED", () => <VoidedBadge />)
 						.exhaustive()}

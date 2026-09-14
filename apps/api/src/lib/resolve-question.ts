@@ -23,6 +23,7 @@ import { callContribution } from "./call-contribution"
 import { enqueueResolvedCallEmails } from "./email-outbox"
 import { ValidationError } from "./errors"
 import { createNotifications } from "./notifications"
+import { markAchievementsDirty } from "./streaks/enqueue"
 import {
 	addLeagueStatDelta,
 	applySeasonStatDeltas,
@@ -441,6 +442,8 @@ export async function resolveQuestionInternal(
 			return callId ? [{ userId, questionId: question.id, callId }] : []
 		}),
 	)
+
+	await markAchievementsDirty(tx, question)
 
 	const { resolvedBy, source } = opts
 	const [updated] = await tx

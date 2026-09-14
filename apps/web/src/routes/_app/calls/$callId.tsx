@@ -18,7 +18,7 @@ import { NotFound } from "#/components/ui/not-found"
 import { PageHeader } from "#/components/ui/page-header"
 import type { CallRecordQuery } from "#/graphql/generated/graphql"
 import { callRecordQuery } from "#/graphql/queries/call"
-import { callPageMeta } from "#/lib/call-meta"
+import { callCardVersion, callPageMeta } from "#/lib/call-meta"
 import { pickSummary } from "#/lib/call-summary"
 import { formatGuess, isRateStat } from "#/lib/field-signal"
 import { formatCallDate, formatCallLead } from "#/lib/format-date"
@@ -28,6 +28,7 @@ import {
 	shareCardShapeLabel,
 } from "#/lib/question-labels"
 import { buildQuestionSlug } from "#/lib/slug"
+import { streakFamilyParam } from "#/lib/streak-meta"
 
 // No slug segment, unlike /questions/:id/:slug and /games/:id/:slug. A slug
 // there earns its keep with crawlers; nothing about a single person's call
@@ -74,9 +75,10 @@ export const Route = createFileRoute("/_app/calls/$callId")({
 				// url, which is a url they have never scraped. It can't fix links
 				// already posted; it does fix every share after. The proxy route
 				// ignores the param.
-				path: `/share/calls/${call.id}/card.png?v=${
-					view.resolvedAt ? Date.parse(view.resolvedAt) : "pending"
-				}`,
+				path: `/share/calls/${call.id}/card.png?v=${callCardVersion(
+					view.resolvedAt,
+					call.streak?.length ?? null,
+				)}`,
 				alt: title,
 			},
 		})
@@ -198,6 +200,7 @@ function RouteComponent() {
 		closeness: view.closeness,
 		conviction: view.conviction,
 		caseText: call.caseText,
+		streakLength: call.streak?.length ?? null,
 		// Deterministic off the call's own id, so the page and the og:image
 		// (which calls the same function against the same id) always show the
 		// same line, and neither has to persist it.
@@ -240,6 +243,29 @@ function RouteComponent() {
 			<PageHeader title="The Call" />
 
 			<CallRecordCard data={cardData} />
+
+			{call.streak && (
+				<Link
+					to="/user/$username/streaks/$league/$family"
+					params={{
+						username: call.user.username,
+						league: call.question.league.slug,
+						family: streakFamilyParam(call.streak.family),
+					}}
+					className={css({
+						fontFamily: "mono",
+						fontSize: "2xs",
+						letterSpacing: "wide",
+						textTransform: "uppercase",
+						color: "primary.default",
+						textDecoration: "none",
+						_hover: { opacity: 0.8 },
+					})}
+				>
+					Part of a {call.streak.length}-call {view.leagueAbbr}{" "}
+					{call.streak.familyLabel} streak →
+				</Link>
+			)}
 
 			{/* The gap between calling something and being right about it is the
 			claim this page exists to make, so it's stated in words rather than

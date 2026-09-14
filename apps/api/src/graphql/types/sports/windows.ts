@@ -3,8 +3,11 @@ import { sql } from "drizzle-orm"
 import { DateTime } from "luxon"
 import { db } from "../../../db"
 import type { Game, League } from "../../../db/schema"
-import { NFL_SLOT_LABELS } from "../../../db/sync/nfl-slot"
 import { parsePgTimestamp } from "../../../lib/pg-timestamp"
+import {
+	loadSlateProgress,
+	type SlateProgress,
+} from "../../../lib/streaks/progress"
 import { builder } from "../../builder"
 import { GameRef } from "./game"
 
@@ -34,12 +37,58 @@ export const GameWindowRef = builder
 
 export type SlotGroup = { slotLabel: string | null; games: Game[] }
 
+const SweepProgressStatus = builder.enumType("SweepProgressStatus", {
+	values: {
+		ALIVE: { value: "alive" },
+		OFF: { value: "off" },
+		SWEPT: { value: "swept" },
+	} as const,
+})
+
+type SlateSweepProgress = SlateProgress & { slateKey: string; games: Game[] }
+
+// The viewer's run at sweeping the slate a slot group makes up - see
+// slateProgress in lib/streaks/progress.ts.
+const SlateSweepProgressRef = builder
+	.objectRef<SlateSweepProgress>("SlateSweepProgress")
+	.implement({
+		fields: (t) => ({
+			status: t.field({ type: SweepProgressStatus, resolve: (p) => p.status }),
+			slateKey: t.exposeString("slateKey"),
+			// Games in the slate with a who-wins question that wasn't voided.
+			gameCount: t.exposeInt("gameCount"),
+			calledCount: t.exposeInt("calledCount"),
+			winCount: t.exposeInt("winCount"),
+			lossCount: t.exposeInt("lossCount"),
+			pendingCount: t.exposeInt("pendingCount"),
+			// Locked without the viewer's pick.
+			missedGames: t.field({
+				type: [GameRef],
+				resolve: (p) => p.games.filter((g) => p.missedGameIds.includes(g.id)),
+			}),
+			lostGames: t.field({
+				type: [GameRef],
+				resolve: (p) => p.games.filter((g) => p.lostGameIds.includes(g.id)),
+			}),
+		}),
+	})
+
 const GameSlotGroupRef = builder
 	.objectRef<SlotGroup>("GameSlotGroup")
 	.implement({
 		fields: (t) => ({
 			slotLabel: t.exposeString("slotLabel", { nullable: true }),
 			games: t.field({ type: [GameRef], resolve: (g) => g.games }),
+			// Null signed out, and for a group that isn't one sweepable slate.
+			viewerSweep: t.field({
+				type: SlateSweepProgressRef,
+				nullable: true,
+				resolve: async (group, _args, ctx) => {
+					if (!ctx.user) return null
+					const progress = await loadSlateProgress(ctx.user.id, group.games)
+					return progress ? { ...progress, games: group.games } : null
+				},
+			}),
 		}),
 	})
 
@@ -61,12 +110,7 @@ export const LeagueGamesForWindowResultRef = builder
 		}),
 	})
 
-// Slot vocabulary is owned entirely by each week-window league's own sync
-// module (see games.slot's comment in db/schema/games.ts) - this is just the
-// lookup from league slug to that module's maps, not a generic mechanism.
-export const SLOT_LABELS_BY_LEAGUE: Record<string, Record<string, string>> = {
-	nfl: NFL_SLOT_LABELS,
-}
+export { SLOT_LABELS_BY_LEAGUE } from "../../../db/sync/slot-labels"
 
 // Re-exported rather than declared here so the Games tab's bucketing and the
 // question titles that name a game's date can never disagree about which

@@ -6,6 +6,14 @@ import { BreakdownBar } from "#/components/profile/breakdown-bar"
 import { ShareCardPreview } from "#/components/profile/share-card-preview"
 import { ShareImagePanel } from "#/components/profile/share-image-panel"
 import { StatGrid, statGridItems } from "#/components/profile/stat-grid"
+import {
+	type StreakRow,
+	StreaksSection,
+} from "#/components/profile/streaks-section"
+import {
+	type SweepRow,
+	SweepsSection,
+} from "#/components/profile/sweeps-section"
 import { questionShapeLabel } from "#/lib/question-labels"
 
 type LeagueStats = {
@@ -23,9 +31,31 @@ type LeagueStats = {
 
 type User = { name: string; username: string; createdAt: string }
 
-type Props = { stats: LeagueStats; user: User }
+type Props = {
+	stats: LeagueStats
+	user: User
+	// This league's tracks and sweeps, in the order User.streaks and
+	// User.sweeps return them.
+	streaks: StreakRow[]
+	sweeps: SweepRow[]
+	isOwn: boolean
+}
 
-export function LeagueAccordion({ stats, user }: Props) {
+const subLabel = css({
+	fontFamily: "mono",
+	fontSize: "2xs",
+	letterSpacing: "wide",
+	textTransform: "uppercase",
+	color: "fg.muted",
+})
+
+export function LeagueAccordion({
+	stats,
+	user,
+	streaks,
+	sweeps,
+	isOwn,
+}: Props) {
 	const [open, setOpen] = useState(false)
 
 	return (
@@ -112,6 +142,27 @@ export function LeagueAccordion({ stats, user }: Props) {
 									callCount={s.callCount}
 								/>
 							))}
+						</VStack>
+					)}
+					{streaks.length > 0 && (
+						<VStack alignItems="stretch" gap="2">
+							<span className={subLabel}>Streaks</span>
+							<StreaksSection
+								username={user.username}
+								streaks={streaks}
+								isOwn={isOwn}
+								showLeague={false}
+							/>
+						</VStack>
+					)}
+					{sweeps.length > 0 && (
+						<VStack alignItems="stretch" gap="2">
+							<span className={subLabel}>Sweeps</span>
+							<SweepsSection
+								username={user.username}
+								sweeps={sweeps}
+								showLeague={false}
+							/>
 						</VStack>
 					)}
 				</VStack>

@@ -1,8 +1,11 @@
-import { inArray, sql } from "drizzle-orm"
+import { type AchievementKind, achievementText } from "@called-my-shot/schemas"
+import { and, eq, inArray, sql } from "drizzle-orm"
+import { match } from "ts-pattern"
 import { db } from "../db"
-import { emailOutbox } from "../db/schema"
+import { achievementNotices, emailOutbox } from "../db/schema"
 import { renderEmail } from "../emails/render"
 import {
+	type DigestAchievement,
 	type DigestCall,
 	digestSubject,
 	ResolutionDigest,
@@ -46,6 +49,83 @@ function callUrl(callId: string, content: "hero" | "call_row"): string {
 	return emailUrl(`/calls/${callId}`, {
 		campaign: "resolution_digest",
 		content,
+	})
+}
+
+// A sweep or streak line only ever rides along with a digest of results - it
+// never sends an email of its own. One that finds no digest to join within
+// this long stays an in-app notification only, rather than turning up in a
+// results email days after the fact.
+const ACHIEVEMENT_WINDOW_HOURS = 36
+
+// The user's sweep and streak events not yet in any email, each as its line
+// and a link to the page that shows it off.
+async function loadDigestAchievements(
+	userId: string,
+	username: string,
+	now: Date,
+): Promise<{ dedupeKey: string; achievement: DigestAchievement }[]> {
+	const rows = await db.query.achievementNotices.findMany({
+		where: {
+			userId,
+			emailedAt: { isNull: true },
+			notificationId: { isNotNull: true },
+			createdAt: {
+				gte: new Date(
+					now.getTime() - ACHIEVEMENT_WINDOW_HOURS * 60 * 60 * 1000,
+				),
+			},
+		},
+		orderBy: { createdAt: "asc" },
+		with: {
+			notification: { with: { league: { columns: { slug: true } } } },
+		},
+	})
+
+	return rows.flatMap(({ dedupeKey, notification: n }) => {
+		const leagueSlug = n?.league?.slug
+		if (!n || !leagueSlug) return []
+		const target = match(n.type)
+			.with("sweep_completed", (kind) =>
+				n.slateKey
+					? {
+							kind,
+							path: `/user/${username}/sweeps/${leagueSlug}/${n.slateKey}`,
+						}
+					: null,
+			)
+			.with(
+				"streak_milestone",
+				"streak_personal_best",
+				"streak_snapped",
+				(kind) =>
+					n.streakFamily
+						? {
+								kind,
+								path: `/user/${username}/streaks/${leagueSlug}/${n.streakFamily}`,
+							}
+						: null,
+			)
+			.otherwise(() => null)
+		if (!target) return []
+		const kind: AchievementKind = target.kind
+		return [
+			{
+				dedupeKey,
+				achievement: {
+					text: achievementText({
+						kind,
+						label: n.achievementLabel ?? "",
+						count: n.achievementCount ?? 0,
+						previousBest: n.previousBest,
+					}),
+					url: emailUrl(target.path, {
+						campaign: "resolution_digest",
+						content: "achievement",
+					}),
+				},
+			},
+		]
 	})
 }
 
@@ -127,7 +207,7 @@ export async function drainResolutionDigests({
 	let skipped = 0
 
 	for (const { user_id: userId } of due.rows) {
-		const result = await drainOneUser(userId, send)
+		const result = await drainOneUser(userId, send, now)
 		sent += result.sent
 		skipped += result.skipped
 	}
@@ -143,6 +223,7 @@ export async function drainResolutionDigests({
 async function drainOneUser(
 	userId: string,
 	send: SendFn,
+	now: Date,
 ): Promise<{ sent: number; skipped: number }> {
 	// Spends the attempt up front, in the same statement that reads the rows,
 	// so a run that dies between here and the send has still burned one - a
@@ -177,7 +258,7 @@ async function drainOneUser(
 
 	const user = await db.query.users.findFirst({
 		where: { id: userId },
-		columns: { id: true, email: true },
+		columns: { id: true, email: true, username: true },
 	})
 	if (!user) {
 		await markSkipped(rowIds, "user_missing")
@@ -249,9 +330,12 @@ async function drainOneUser(
 	const primary = ordered.find((s) => s.isWin) ?? ordered[0]
 	if (!primary) return { sent: 0, skipped: stale.length }
 
+	const achievements = await loadDigestAchievements(userId, user.username, now)
+
 	const { html, text } = await renderEmail(
 		<ResolutionDigest
 			calls={calls}
+			achievements={achievements.map((a) => a.achievement)}
 			primaryCallUrl={callUrl(primary.callId, "hero")}
 			allCallsUrl={emailUrl("/my-calls", {
 				campaign: "resolution_digest",
@@ -298,5 +382,19 @@ async function drainOneUser(
 		.update(emailOutbox)
 		.set({ sentAt: new Date() })
 		.where(inArray(emailOutbox.id, liveIds))
+	if (achievements.length > 0) {
+		await db
+			.update(achievementNotices)
+			.set({ emailedAt: new Date() })
+			.where(
+				and(
+					eq(achievementNotices.userId, userId),
+					inArray(
+						achievementNotices.dedupeKey,
+						achievements.map((a) => a.dedupeKey),
+					),
+				),
+			)
+	}
 	return { sent: liveIds.length, skipped: stale.length }
 }

@@ -1,4 +1,5 @@
 import { questionTitleWithGame } from "@called-my-shot/schemas"
+import type { StreakFamily } from "@called-my-shot/scoring"
 import type { db } from "../db"
 import { notifications } from "../db/schema"
 
@@ -59,6 +60,31 @@ export type NotificationInput =
 			actorId: string
 			actorUsername: string
 	  }
+	| {
+			type: "sweep_completed"
+			userId: string
+			leagueId: string
+			slateKey: string
+			achievementLabel: string
+			achievementCount: number
+	  }
+	| {
+			type: "streak_milestone" | "streak_snapped"
+			userId: string
+			leagueId: string
+			streakFamily: StreakFamily
+			achievementLabel: string
+			achievementCount: number
+	  }
+	| {
+			type: "streak_personal_best"
+			userId: string
+			leagueId: string
+			streakFamily: StreakFamily
+			achievementLabel: string
+			achievementCount: number
+			previousBest: number
+	  }
 
 function toRow(input: NotificationInput) {
 	return {
@@ -74,6 +100,14 @@ function toRow(input: NotificationInput) {
 		pointsDelta: input.type === "call_resolved" ? input.pointsDelta : null,
 		strikeCount:
 			input.type === "question_voided" ? (input.strikeCount ?? null) : null,
+		leagueId: "leagueId" in input ? input.leagueId : null,
+		streakFamily: "streakFamily" in input ? input.streakFamily : null,
+		slateKey: "slateKey" in input ? input.slateKey : null,
+		achievementLabel:
+			"achievementLabel" in input ? input.achievementLabel : null,
+		achievementCount:
+			"achievementCount" in input ? input.achievementCount : null,
+		previousBest: "previousBest" in input ? input.previousBest : null,
 	}
 }
 
@@ -125,8 +159,14 @@ export async function createNotification(tx: Tx, input: NotificationInput) {
 	await createNotifications(tx, [input])
 }
 
-export async function createNotifications(tx: Tx, inputs: NotificationInput[]) {
-	if (inputs.length === 0) return
+export async function createNotifications(
+	tx: Tx,
+	inputs: NotificationInput[],
+): Promise<{ id: string }[]> {
+	if (inputs.length === 0) return []
 	const titled = await withGameTitles(tx, inputs)
-	await tx.insert(notifications).values(titled.map(toRow))
+	return tx
+		.insert(notifications)
+		.values(titled.map(toRow))
+		.returning({ id: notifications.id })
 }

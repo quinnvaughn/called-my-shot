@@ -82,6 +82,20 @@ type AnalyticsEvents = {
 		method: "native" | "clipboard" | "x"
 		surface: "ballot_page" | "entry_page"
 	}
+	// A link to one person's league-and-family streak page, or to a slate
+	// they swept. Each has one page it can be shared from, so no surface.
+	streak_link_shared: {
+		userId: string
+		league: string
+		family: string
+		method: "native" | "clipboard" | "x"
+	}
+	sweep_link_shared: {
+		userId: string
+		league: string
+		slateKey: string
+		method: "native" | "clipboard" | "x"
+	}
 
 	support_ticket_filed: { category: string }
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { callPageMeta } from "./call-meta"
+import { callCardVersion, callPageMeta } from "./call-meta"
 
 const base = {
 	username: "quinn",
@@ -90,5 +90,17 @@ describe("callPageMeta", () => {
 		).toBe(true)
 		expect(description.endsWith('…"')).toBe(true)
 		expect(description.length).toBeLessThan(260)
+	})
+})
+
+describe("callCardVersion", () => {
+	it("changes when the call resolves and when it carries a streak", () => {
+		const pending = callCardVersion(null, null)
+		const resolved = callCardVersion("2026-03-09T00:00:00Z", null)
+		const streaked = callCardVersion("2026-03-09T00:00:00Z", 7)
+		expect(pending).toBe("pending")
+		expect(resolved).not.toBe(pending)
+		expect(streaked).not.toBe(resolved)
+		expect(callCardVersion("2026-03-09T00:00:00Z", 8)).not.toBe(streaked)
 	})
 })
