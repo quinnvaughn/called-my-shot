@@ -127,6 +127,7 @@ describe("decideSeasonQuestion - player lines", () => {
 	it("voids the question for a player ESPN has no season for", () => {
 		expect(decideSeasonQuestion(playerLine("never-played", 0.5))).toEqual({
 			kind: "void",
+			reason: "subject_did_not_play",
 		})
 	})
 
@@ -136,7 +137,7 @@ describe("decideSeasonQuestion - player lines", () => {
 				...playerLine("41197", 10.5),
 				extractor: SEASON_EXTRACTORS["mlb:season:player:Strikeouts (Pitching)"],
 			}),
-		).toEqual({ kind: "void" })
+		).toEqual({ kind: "void", reason: "subject_did_not_play" })
 	})
 
 	it("retries a player whose statistics couldn't be fetched", () => {

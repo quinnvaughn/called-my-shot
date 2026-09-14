@@ -7,6 +7,7 @@ import {
 	decideFinalScore,
 	decideGameQuestion,
 	type GameQuestionContext,
+	gradeLeader,
 } from "./decide"
 import { EXTRACTORS, GAME_EXTRACTORS, type GameSources } from "./registry"
 
@@ -79,6 +80,7 @@ describe("decideGameQuestion - player over/under", () => {
 	it("voids the question when the player didn't play", () => {
 		expect(decideGameQuestion(context(playerOverUnder("3442", 10.5)))).toEqual({
 			kind: "void",
+			reason: "subject_did_not_play",
 		})
 	})
 
@@ -170,7 +172,7 @@ describe("decideGameQuestion - other game shapes", () => {
 		expect(decision).toMatchObject({ kind: "resolve", correctOptionIds: ["a"] })
 	})
 
-	it("fails a head-to-head tie", () => {
+	it("voids a head-to-head tie as a push", () => {
 		// 3155535 and 4065804 both had 6 rebounds.
 		const decision = decideGameQuestion(
 			context({
@@ -191,7 +193,7 @@ describe("decideGameQuestion - other game shapes", () => {
 				]),
 			}),
 		)
-		expect(decision).toMatchObject({ kind: "fail", reason: "tie" })
+		expect(decision).toEqual({ kind: "void", reason: "tie" })
 	})
 
 	it("marks the game leader, and fails when the leader isn't an option", () => {
@@ -260,7 +262,10 @@ describe("decideGameQuestion - NFL", () => {
 	})
 
 	it("voids the question for a player the roster lists as not playing", () => {
-		expect(decideGameQuestion(sackLine("3912189"))).toEqual({ kind: "void" })
+		expect(decideGameQuestion(sackLine("3912189"))).toEqual({
+			kind: "void",
+			reason: "subject_did_not_play",
+		})
 	})
 
 	it("counts the defense's interceptions from the table totals", () => {
@@ -342,6 +347,7 @@ describe("decideGameQuestion - MLB", () => {
 	it("voids a batting question for a pitcher who never batted", () => {
 		expect(mlbNumeric("4019484", "mlb:game:player:Hits")).toEqual({
 			kind: "void",
+			reason: "subject_did_not_play",
 		})
 	})
 })
@@ -378,6 +384,43 @@ describe("decideFinalScore", () => {
 			kind: "fail",
 			reason: "missing_external_ref",
 		})
+	})
+
+	it("voids a tied final score as a push", () => {
+		// Both options read team "2"'s 144.
+		expect(
+			matchup(
+				new Map([
+					["th", "2"],
+					["ta", "2"],
+				]),
+			),
+		).toEqual({ kind: "void", reason: "tie" })
+	})
+})
+
+describe("gradeLeader", () => {
+	it("marks every option tied for the most", () => {
+		expect(
+			gradeLeader([
+				{ optionId: "a", value: 3 },
+				{ optionId: "b", value: 3 },
+				{ optionId: "c", value: 1 },
+			]),
+		).toEqual({
+			kind: "resolve",
+			correctOptionIds: ["a", "b"],
+			evidence: { max: 3 },
+		})
+	})
+
+	it("voids the question when nobody recorded the stat", () => {
+		expect(
+			gradeLeader([
+				{ optionId: "a", value: 0 },
+				{ optionId: "b", value: 0 },
+			]),
+		).toEqual({ kind: "void", reason: "no_leader" })
 	})
 })
 

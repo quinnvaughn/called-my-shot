@@ -202,8 +202,7 @@ describe("createQuestionSchema - over/under shapes", () => {
 	})
 
 	it("rejects a whole-number line - the result could land exactly on it", () => {
-		// There is no push/void outcome anywhere in the app, so a tie has no
-		// defined result.
+		// Neither Over nor Under would be correct on a result that lands on it.
 		expect(errorPaths({ ...ou, ouLine: 24 })).toContain("ouLine")
 		expect(errorPaths({ ...ou, ouLine: 0 })).toContain("ouLine")
 		expect(errorPaths({ ...ou, ouLine: -3 })).toContain("ouLine")

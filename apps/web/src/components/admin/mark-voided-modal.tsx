@@ -16,12 +16,16 @@ import { closeModal } from "#/stores/modal-store"
 const REASON_OPTIONS: { value: QuestionVoidedReason; label: string }[] = [
 	{ value: "SUBJECT_DID_NOT_PLAY", label: "Player didn't play" },
 	{ value: "GAME_NOT_COMPLETED", label: "Game not completed" },
+	{ value: "TIE", label: "Tie" },
+	{ value: "NO_LEADER", label: "Nobody recorded the stat" },
 	{ value: "OTHER", label: "Other" },
 ]
 
 const reasonToSchemaValue = {
 	SUBJECT_DID_NOT_PLAY: "subject_did_not_play",
 	GAME_NOT_COMPLETED: "game_not_completed",
+	TIE: "tie",
+	NO_LEADER: "no_leader",
 	OTHER: "other",
 } as const satisfies Record<QuestionVoidedReason, string>
 

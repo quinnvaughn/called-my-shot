@@ -19,6 +19,7 @@ import {
 	setLine,
 } from "../../lib/game-questions/lines"
 import {
+	chooseFrom,
 	eligibleStarters,
 	rankCandidates,
 	type StarterCandidate,
@@ -26,6 +27,7 @@ import {
 	startersPosted,
 } from "../../lib/game-questions/pick-subjects"
 import { refreshGeneratedQuestionSchedule } from "../../lib/game-questions/schedule"
+import { selectGameTemplates } from "../../lib/game-questions/select-templates"
 import {
 	type GameQuestionTitleFacts,
 	gameQuestionTitle,
@@ -35,12 +37,14 @@ import { getOfficialAccountId } from "../../lib/official-account"
 import {
 	activeGameTemplates,
 	type GameQuestionTemplate,
+	PLAYER_QUESTIONS_PER_GAME,
 } from "../catalog/game-question-catalog"
 import { db } from "../index"
 import {
 	calls,
 	type Game,
 	type League,
+	type Player,
 	questionOptions,
 	questions,
 	type Season,
@@ -124,13 +128,25 @@ type CatalogStat = NonNullable<
 	Awaited<ReturnType<typeof loadCatalogStats>>
 >[number]
 
+// Stands in for the catalog, per league slug: tests pin the exact templates a
+// run posts rather than depending on which ones a game draws.
+export type CatalogOverride = {
+	templates?: Record<string, GameQuestionTemplate[]>
+	playerQuestionsPerGame?: Record<string, number>
+}
+
 type LeagueContext = {
 	config: SyncLeagueConfig
 	league: League
 	officialAccountId: string
 	templates: GameQuestionTemplate[]
+	// How many player templates each game draws - see PLAYER_QUESTIONS_PER_GAME.
+	perGame: number
 	statsByName: Map<string, CatalogStat>
 	starters: (StarterCandidate & { gameId: string })[]
+	// Each due team's current roster, loaded only when a template picks from
+	// rosters.
+	rostersByTeamId: Map<string, Player[]>
 	playerNameById: Map<string, string>
 	espnAthleteIdByPlayerId: Map<string, string>
 	seasonStatsFor: (
@@ -233,8 +249,34 @@ async function samplesFor(
 	}
 }
 
+// A team's roster players at the pick's positions, shaped like starters in the
+// pick's role.
+function rosterCandidates(
+	ctx: LeagueContext,
+	teamId: string,
+	pick: StarterPick,
+): StarterCandidate[] {
+	return (ctx.rostersByTeamId.get(teamId) ?? [])
+		.filter(
+			(player) =>
+				!pick.positions ||
+				player.positions.some((position) =>
+					pick.positions?.includes(position),
+				),
+		)
+		.map((player, index) => ({
+			playerId: player.id,
+			teamId,
+			role: pick.role,
+			position: player.position,
+			sortOrder: index + 1,
+			injuryStatus: null,
+		}))
+}
+
 // A team's starters the pick can come from, best per-game average first, each
-// with the samples that ranking was made from.
+// with the samples that ranking was made from. A roster pick takes the roster
+// until ESPN lists the team's starters in its role.
 async function rankedStarters(
 	ctx: LeagueContext,
 	game: DueGame,
@@ -242,8 +284,13 @@ async function rankedStarters(
 	pick: StarterPick,
 ): Promise<{ candidate: StarterCandidate; samples: Samples }[]> {
 	const gameStarters = ctx.starters.filter((s) => s.gameId === game.id)
-	const eligible = eligibleStarters(gameStarters, teamId, pick).filter(
-		(candidate) => ctx.playerNameById.has(candidate.playerId),
+	const candidates =
+		pick.source === "roster" &&
+		!startersPosted(gameStarters, teamId, pick.role)
+			? rosterCandidates(ctx, teamId, pick)
+			: eligibleStarters(gameStarters, teamId, pick)
+	const eligible = candidates.filter((candidate) =>
+		ctx.playerNameById.has(candidate.playerId),
 	)
 	const samplesByPlayerId = new Map<string, Samples>()
 	for (const candidate of eligible) {
@@ -307,6 +354,25 @@ function isStale(
 		.exhaustive()
 }
 
+// The players a generated question is about, read off the rest of its key.
+// A leader question's options are whole rosters, so it isn't about anyone in
+// particular.
+function subjectPlayerIds(
+	template: GameQuestionTemplate,
+	keyRest: string[],
+): string[] {
+	return match(template)
+		.returnType<string[]>()
+		.with({ shape: "player_vs_player" }, () => keyRest.slice(0, 2))
+		.with({ shape: "player_stat_over_under" }, () => keyRest.slice(1, 2))
+		.with(
+			{ shape: "team_stat_numeric_guess" },
+			{ shape: "player_game_stat_leader" },
+			() => [],
+		)
+		.exhaustive()
+}
+
 // Only while nobody has called it: a question someone already called stays
 // up, and auto-resolution voids it if the player doesn't play.
 async function deleteIfUncalled(questionId: string): Promise<boolean> {
@@ -333,6 +399,7 @@ async function planTemplate(
 	game: DueGame,
 	template: GameQuestionTemplate,
 	isFilled: (slot: string) => boolean,
+	isClaimed: (statName: string, playerId: string) => boolean,
 ): Promise<PlannedQuestion[]> {
 	const base = [ctx.league.slug, game.id, template.id]
 	const teams = [game.awayTeam, game.homeTeam]
@@ -379,8 +446,18 @@ async function planTemplate(
 		})
 		.with({ shape: "player_vs_player" }, async ({ statName, pick }) => {
 			if (isFilled(generationKey(base))) return []
-			const [away] = await rankedStarters(ctx, game, game.awayTeamId, pick)
-			const [home] = await rankedStarters(ctx, game, game.homeTeamId, pick)
+			// Drawn from each side's best starters that nothing on the game
+			// already asks about in this stat.
+			const pickSide = async (teamId: string) =>
+				chooseFrom(
+					(await rankedStarters(ctx, game, teamId, pick)).filter(
+						({ candidate }) => !isClaimed(statName, candidate.playerId),
+					),
+					pick.choose,
+					generationKey([...base, teamId]),
+				)
+			const away = await pickSide(game.awayTeamId)
+			const home = await pickSide(game.homeTeamId)
 			if (!away || !home) return []
 			const awayId = away.candidate.playerId
 			const homeId = home.candidate.playerId
@@ -406,39 +483,40 @@ async function planTemplate(
 				for (const team of teams) {
 					const slot = generationKey([...base, team.id])
 					if (isFilled(slot)) continue
-					// The best starter whose season can carry a line. One without
-					// enough games falls through to the next.
-					for (const { candidate, samples } of await rankedStarters(
-						ctx,
-						game,
-						team.id,
-						pick,
-					)) {
+					// Drawn from the best starters whose season can carry a line and
+					// that nothing on the game already asks about in this stat. One
+					// without enough games falls through to the next.
+					const lined = (
+						await rankedStarters(ctx, game, team.id, pick)
+					).flatMap(({ candidate, samples }) => {
+						if (isClaimed(statName, candidate.playerId)) return []
 						const basis = setLine(
 							samples.season,
 							samples.prior,
 							pick.priorWeight,
 							line,
 						)
-						if (!basis) continue
-						planned.push({
-							key: generationKey([slot, candidate.playerId]),
-							title: {
-								shape: "player_stat_over_under",
-								statName,
-								playerName: nameOf(candidate.playerId),
-								ouLine: basis.line,
-							},
-							subjectPlayerId: candidate.playerId,
+						return basis ? [{ candidate, basis }] : []
+					})
+					const chosen = chooseFrom(lined, pick.choose, slot)
+					if (!chosen) continue
+					const { candidate, basis } = chosen
+					planned.push({
+						key: generationKey([slot, candidate.playerId]),
+						title: {
+							shape: "player_stat_over_under",
+							statName,
+							playerName: nameOf(candidate.playerId),
 							ouLine: basis.line,
-							lineBasis: basis,
-							options: [
-								{ label: "Over", sortOrder: 0 },
-								{ label: "Under", sortOrder: 1 },
-							],
-						})
-						break
-					}
+						},
+						subjectPlayerId: candidate.playerId,
+						ouLine: basis.line,
+						lineBasis: basis,
+						options: [
+							{ label: "Over", sortOrder: 0 },
+							{ label: "Under", sortOrder: 1 },
+						],
+					})
 				}
 				return planned
 			},
@@ -513,6 +591,9 @@ async function generateForGame(
 		where: { gameId: game.id, generationKey: { isNotNull: true } },
 		columns: { id: true, generationKey: true, status: true },
 	})
+	const templateById = new Map(
+		ctx.templates.map((template) => [template.id, template]),
+	)
 
 	// A slot is filled by any question in it that isn't about a ruled-out
 	// starter. One that is gets taken down if nobody has called it yet; either
@@ -523,7 +604,7 @@ async function generateForGame(
 		const key = question.generationKey
 		if (!key) continue
 		const parsed = parseGenerationKey(key)
-		const template = ctx.templates.find((t) => t.id === parsed?.templateId)
+		const template = parsed ? templateById.get(parsed.templateId) : undefined
 		if (
 			parsed &&
 			template &&
@@ -537,9 +618,44 @@ async function generateForGame(
 	}
 	const isFilled = (slot: string) => liveKeys.some((key) => isInSlot(key, slot))
 
+	// A player is asked about each stat at most once per game: whoever a live
+	// or just-planned question is about can't be the subject of another one on
+	// the same stat.
+	const claimed = new Set<string>()
+	const claim = (template: GameQuestionTemplate, key: string) => {
+		const parsed = parseGenerationKey(key)
+		if (!parsed) return
+		for (const playerId of subjectPlayerIds(template, parsed.rest)) {
+			claimed.add(`${template.statName}:${playerId}`)
+		}
+	}
+	const liveTemplateIds = new Set<string>()
+	for (const key of liveKeys) {
+		const parsed = parseGenerationKey(key)
+		const template = parsed ? templateById.get(parsed.templateId) : undefined
+		if (!template) continue
+		liveTemplateIds.add(template.id)
+		claim(template, key)
+	}
+	const isClaimed = (statName: string, playerId: string) =>
+		claimed.has(`${statName}:${playerId}`)
+
+	const selected = selectGameTemplates(ctx.templates, {
+		gameId: game.id,
+		perGame: ctx.perGame,
+		liveTemplateIds,
+	})
+
 	let created = 0
-	for (const template of ctx.templates) {
-		for (const planned of await planTemplate(ctx, game, template, isFilled)) {
+	for (const template of selected) {
+		for (const planned of await planTemplate(
+			ctx,
+			game,
+			template,
+			isFilled,
+			isClaimed,
+		)) {
+			claim(template, planned.key)
 			if (await insertPlanned(ctx, game, template, planned)) created++
 		}
 	}
@@ -551,10 +667,13 @@ async function generateForLeague(
 	now: Date,
 	requester: EspnRequester,
 	officialAccountId: string,
+	catalog: CatalogOverride,
 ): Promise<{ games: number; created: number; removed: number }> {
 	const none = { games: 0, created: 0, removed: 0 }
 	const window = windowFor(config.leagueSlug)
-	const catalogTemplates = activeGameTemplates(config.leagueSlug)
+	const catalogTemplates =
+		catalog.templates?.[config.leagueSlug] ??
+		activeGameTemplates(config.leagueSlug)
 	if (!window || catalogTemplates.length === 0) return none
 
 	const league = await db.query.leagues.findFirst({
@@ -612,7 +731,39 @@ async function generateForLeague(
 				]
 			: [],
 	)
-	const playerIds = [...new Set(starters.map((starter) => starter.playerId))]
+
+	const picksFromRosters = templates.some(
+		(template) => "pick" in template && template.pick.source === "roster",
+	)
+	const rosterPlayers = picksFromRosters
+		? await db.query.players.findMany({
+				where: {
+					currentTeamId: {
+						in: [
+							...new Set(
+								due.flatMap((game) => [game.awayTeamId, game.homeTeamId]),
+							),
+						],
+					},
+				},
+				orderBy: { name: "asc" },
+			})
+		: []
+	const rostersByTeamId = new Map<string, Player[]>()
+	for (const player of rosterPlayers) {
+		if (!player.currentTeamId) continue
+		rostersByTeamId.set(player.currentTeamId, [
+			...(rostersByTeamId.get(player.currentTeamId) ?? []),
+			player,
+		])
+	}
+
+	const playerIds = [
+		...new Set([
+			...starters.map((starter) => starter.playerId),
+			...rosterPlayers.map((player) => player.id),
+		]),
+	]
 	const [players, playerRefs] =
 		playerIds.length > 0
 			? await Promise.all([
@@ -632,8 +783,13 @@ async function generateForLeague(
 		league,
 		officialAccountId,
 		templates,
+		perGame:
+			catalog.playerQuestionsPerGame?.[league.slug] ??
+			PLAYER_QUESTIONS_PER_GAME[league.slug] ??
+			0,
 		statsByName,
 		starters,
+		rostersByTeamId,
 		playerNameById: new Map(players.map((player) => [player.id, player.name])),
 		espnAthleteIdByPlayerId: new Map(
 			playerRefs.map((ref) => [ref.entityId, espnIdOf(ref.sourceId)]),
@@ -657,9 +813,11 @@ async function generateForLeague(
 export async function generateGameQuestions({
 	now = new Date(),
 	spacingMs = DEFAULT_ESPN_SPACING_MS,
+	catalog = {},
 }: {
 	now?: Date
 	spacingMs?: number
+	catalog?: CatalogOverride
 } = {}): Promise<void> {
 	const officialAccountId = await getOfficialAccountId()
 	const requester = createEspnRequester("generate-game-questions", spacingMs)
@@ -670,6 +828,7 @@ export async function generateGameQuestions({
 			now,
 			requester,
 			officialAccountId,
+			catalog,
 		)
 		if (games === 0) continue
 		console.log(

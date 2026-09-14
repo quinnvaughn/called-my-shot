@@ -11,6 +11,10 @@ import type { StarterPick } from "../../lib/game-questions/pick-subjects"
 // `id` is part of every generated question's generationKey, so renaming one
 // makes the job treat its existing questions as a different template and
 // post new ones beside them.
+//
+// `group` names the stat a player template asks about. A game gets at most
+// one template per group (see selectGameTemplates), so the same stat isn't
+// asked as a head-to-head and an over/under on one game.
 export type GameQuestionTemplate =
 	| {
 			// "How many points will X score?", once per team. The tolerance band
@@ -26,6 +30,7 @@ export type GameQuestionTemplate =
 			tier: number
 			shape: "player_vs_player"
 			statName: string
+			group: string
 			pick: StarterPick
 	  }
 	| {
@@ -35,6 +40,7 @@ export type GameQuestionTemplate =
 			tier: number
 			shape: "player_stat_over_under"
 			statName: string
+			group: string
 			pick: StarterPick
 			line: LineRule
 	  }
@@ -45,6 +51,7 @@ export type GameQuestionTemplate =
 			tier: number
 			shape: "player_game_stat_leader"
 			statName: string
+			group: string
 	  }
 
 // The highest template tier each league gets. Raising it posts every
@@ -56,11 +63,12 @@ export const GENERATION_TIER: Record<string, number> = {
 	mlb: 1,
 }
 
-const NFL_QB: StarterPick = {
-	role: "offense",
-	positions: ["QB"],
-	espnStat: "passing.passingYards",
-	priorWeight: 4,
+// How many player templates each game gets, drawn at random from the league's
+// active ones. Team templates go up on every game on top of these.
+export const PLAYER_QUESTIONS_PER_GAME: Record<string, number> = {
+	nba: 3,
+	nfl: 4,
+	mlb: 3,
 }
 
 const NBA_TOP_SCORER: StarterPick = {
@@ -69,12 +77,73 @@ const NBA_TOP_SCORER: StarterPick = {
 	priorWeight: 12,
 }
 
+const NBA_BIG_REBOUNDER: StarterPick = {
+	role: "starter",
+	positions: ["PF", "C"],
+	espnStat: "general.rebounds",
+	priorWeight: 12,
+}
+
+const NBA_GUARD_PASSER: StarterPick = {
+	role: "starter",
+	positions: ["PG", "SG"],
+	espnStat: "offensive.assists",
+	priorWeight: 12,
+}
+
+const NBA_SHOOTER: StarterPick = {
+	role: "starter",
+	positions: ["PG", "SG", "SF"],
+	espnStat: "offensive.threePointFieldGoalsMade",
+	priorWeight: 12,
+}
+
+const NFL_QB: StarterPick = {
+	role: "offense",
+	positions: ["QB"],
+	espnStat: "passing.passingYards",
+	priorWeight: 4,
+}
+
+const NFL_RB: StarterPick = {
+	role: "offense",
+	positions: ["RB"],
+	espnStat: "rushing.rushingYards",
+	priorWeight: 4,
+}
+
+const NFL_WR: StarterPick = {
+	role: "offense",
+	positions: ["WR"],
+	espnStat: "receiving.receivingYards",
+	priorWeight: 4,
+}
+
+const NFL_TE: StarterPick = {
+	role: "offense",
+	positions: ["TE"],
+	espnStat: "receiving.receptions",
+	priorWeight: 4,
+}
+
 const MLB_STARTER: StarterPick = {
 	role: "starting_pitcher",
 	espnStat: "pitching.strikeouts",
 	espnGames: "pitching.gamesStarted",
 	priorWeight: 6,
 }
+
+// Everyone who bats: any lineup spot, or a roster player at a fielding
+// position or DH before the lineup is out. Drawn from the top three so it
+// isn't the same slugger every day.
+const mlbBatter = (espnStat: string): StarterPick => ({
+	role: "batter",
+	positions: ["C", "1B", "2B", "3B", "SS", "LF", "CF", "RF", "OF", "DH"],
+	espnStat,
+	priorWeight: 20,
+	source: "roster",
+	choose: 3,
+})
 
 export const GAME_QUESTION_CATALOG: Record<string, GameQuestionTemplate[]> = {
 	nfl: [
@@ -89,33 +158,88 @@ export const GAME_QUESTION_CATALOG: Record<string, GameQuestionTemplate[]> = {
 			tier: 1,
 			shape: "player_vs_player",
 			statName: "Passing Yards",
+			group: "passing-yards",
 			pick: NFL_QB,
-		},
-		{
-			id: "rb-rushing-yards-duel",
-			tier: 1,
-			shape: "player_vs_player",
-			statName: "Rushing Yards",
-			pick: {
-				role: "offense",
-				positions: ["RB"],
-				espnStat: "rushing.rushingYards",
-				priorWeight: 4,
-			},
 		},
 		{
 			id: "qb-passing-yards",
 			tier: 1,
 			shape: "player_stat_over_under",
 			statName: "Passing Yards",
+			group: "passing-yards",
 			pick: NFL_QB,
 			line: { minGames: 3, shade: 0.95, minLine: 150.5 },
+		},
+		{
+			id: "rb-rushing-yards-duel",
+			tier: 1,
+			shape: "player_vs_player",
+			statName: "Rushing Yards",
+			group: "rushing-yards",
+			pick: NFL_RB,
+		},
+		{
+			id: "rb-rushing-yards",
+			tier: 1,
+			shape: "player_stat_over_under",
+			statName: "Rushing Yards",
+			group: "rushing-yards",
+			pick: NFL_RB,
+			line: { minGames: 3, shade: 0.93, minLine: 30.5 },
+		},
+		{
+			id: "rushing-yards-leader",
+			tier: 1,
+			shape: "player_game_stat_leader",
+			statName: "Rushing Yards",
+			group: "rushing-yards",
+		},
+		{
+			id: "wr-receiving-yards-duel",
+			tier: 1,
+			shape: "player_vs_player",
+			statName: "Receiving Yards",
+			group: "receiving-yards",
+			pick: NFL_WR,
+		},
+		{
+			id: "wr-receiving-yards",
+			tier: 1,
+			shape: "player_stat_over_under",
+			statName: "Receiving Yards",
+			group: "receiving-yards",
+			pick: NFL_WR,
+			line: { minGames: 3, shade: 0.93, minLine: 30.5 },
 		},
 		{
 			id: "receiving-yards-leader",
 			tier: 1,
 			shape: "player_game_stat_leader",
 			statName: "Receiving Yards",
+			group: "receiving-yards",
+		},
+		{
+			id: "te-receptions",
+			tier: 1,
+			shape: "player_stat_over_under",
+			statName: "Receptions",
+			group: "receptions",
+			pick: NFL_TE,
+			line: { minGames: 3, shade: 0.95, minLine: 2.5 },
+		},
+		{
+			id: "receptions-leader",
+			tier: 1,
+			shape: "player_game_stat_leader",
+			statName: "Receptions",
+			group: "receptions",
+		},
+		{
+			id: "sacks-leader",
+			tier: 1,
+			shape: "player_game_stat_leader",
+			statName: "Sacks",
+			group: "sacks",
 		},
 	],
 	nba: [
@@ -130,6 +254,7 @@ export const GAME_QUESTION_CATALOG: Record<string, GameQuestionTemplate[]> = {
 			tier: 1,
 			shape: "player_vs_player",
 			statName: "Points",
+			group: "points",
 			pick: NBA_TOP_SCORER,
 		},
 		{
@@ -137,14 +262,87 @@ export const GAME_QUESTION_CATALOG: Record<string, GameQuestionTemplate[]> = {
 			tier: 1,
 			shape: "player_stat_over_under",
 			statName: "Points",
+			group: "points",
 			pick: NBA_TOP_SCORER,
 			line: { minGames: 8, shade: 0.97, minLine: 10.5 },
+		},
+		{
+			id: "points-leader",
+			tier: 1,
+			shape: "player_game_stat_leader",
+			statName: "Points",
+			group: "points",
+		},
+		{
+			id: "big-rebounds-duel",
+			tier: 1,
+			shape: "player_vs_player",
+			statName: "Rebounds",
+			group: "rebounds",
+			pick: NBA_BIG_REBOUNDER,
+		},
+		{
+			id: "big-rebounds",
+			tier: 1,
+			shape: "player_stat_over_under",
+			statName: "Rebounds",
+			group: "rebounds",
+			pick: NBA_BIG_REBOUNDER,
+			line: { minGames: 8, shade: 0.97, minLine: 4.5 },
 		},
 		{
 			id: "rebounds-leader",
 			tier: 1,
 			shape: "player_game_stat_leader",
 			statName: "Rebounds",
+			group: "rebounds",
+		},
+		{
+			id: "guard-assists-duel",
+			tier: 1,
+			shape: "player_vs_player",
+			statName: "Assists",
+			group: "assists",
+			pick: NBA_GUARD_PASSER,
+		},
+		{
+			id: "guard-assists",
+			tier: 1,
+			shape: "player_stat_over_under",
+			statName: "Assists",
+			group: "assists",
+			pick: NBA_GUARD_PASSER,
+			line: { minGames: 8, shade: 0.97, minLine: 3.5 },
+		},
+		{
+			id: "assists-leader",
+			tier: 1,
+			shape: "player_game_stat_leader",
+			statName: "Assists",
+			group: "assists",
+		},
+		{
+			id: "shooter-threes",
+			tier: 1,
+			shape: "player_stat_over_under",
+			statName: "3-Pointers Made",
+			group: "threes",
+			pick: NBA_SHOOTER,
+			line: { minGames: 8, shade: 0.95, minLine: 1.5 },
+		},
+		{
+			id: "threes-leader",
+			tier: 1,
+			shape: "player_game_stat_leader",
+			statName: "3-Pointers Made",
+			group: "threes",
+		},
+		{
+			id: "blocks-leader",
+			tier: 1,
+			shape: "player_game_stat_leader",
+			statName: "Blocks",
+			group: "blocks",
 		},
 	],
 	mlb: [
@@ -159,6 +357,7 @@ export const GAME_QUESTION_CATALOG: Record<string, GameQuestionTemplate[]> = {
 			tier: 1,
 			shape: "player_vs_player",
 			statName: "Strikeouts (Pitching)",
+			group: "strikeouts",
 			pick: MLB_STARTER,
 		},
 		{
@@ -166,8 +365,57 @@ export const GAME_QUESTION_CATALOG: Record<string, GameQuestionTemplate[]> = {
 			tier: 1,
 			shape: "player_stat_over_under",
 			statName: "Strikeouts (Pitching)",
+			group: "strikeouts",
 			pick: MLB_STARTER,
 			line: { minGames: 5, shade: 0.97, minLine: 2.5 },
+		},
+		{
+			id: "strikeouts-leader",
+			tier: 1,
+			shape: "player_game_stat_leader",
+			statName: "Strikeouts (Pitching)",
+			group: "strikeouts",
+		},
+		{
+			id: "batter-hits",
+			tier: 1,
+			shape: "player_stat_over_under",
+			statName: "Hits",
+			group: "hits",
+			pick: mlbBatter("batting.hits"),
+			line: { minGames: 15, shade: 0.9, minLine: 0.5 },
+		},
+		{
+			id: "hits-leader",
+			tier: 1,
+			shape: "player_game_stat_leader",
+			statName: "Hits",
+			group: "hits",
+		},
+		{
+			id: "batter-rbis",
+			tier: 1,
+			shape: "player_stat_over_under",
+			statName: "RBIs",
+			group: "rbis",
+			pick: mlbBatter("batting.RBIs"),
+			line: { minGames: 15, shade: 0.9, minLine: 0.5 },
+		},
+		{
+			id: "rbis-leader",
+			tier: 1,
+			shape: "player_game_stat_leader",
+			statName: "RBIs",
+			group: "rbis",
+		},
+		{
+			id: "batter-home-runs",
+			tier: 1,
+			shape: "player_stat_over_under",
+			statName: "Home Runs",
+			group: "home-runs",
+			pick: mlbBatter("batting.homeRuns"),
+			line: { minGames: 15, shade: 1, minLine: 0.5 },
 		},
 	],
 }

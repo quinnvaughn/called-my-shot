@@ -167,6 +167,53 @@ describe("autoResolveGames", () => {
 		expect(row?.voidedReason).toBe("subject_did_not_play")
 	})
 
+	it("voids a tied head-to-head as a push, scoring no call", async () => {
+		const setup = await seedNbaGame()
+		const rebounds = await makeStat({
+			sportId: setup.league.sportId,
+			name: "Rebounds",
+			appliesTo: "both",
+		})
+		// 3155535 and 4065804 both had 6 rebounds.
+		const question = await makeQuestion({
+			shape: "player_vs_player",
+			leagueId: setup.league.id,
+			sportId: setup.league.sportId,
+			seasonId: setup.game.seasonId,
+			gameId: setup.game.id,
+			statId: rebounds.id,
+			status: "locked",
+			locksAt: setup.game.startsAt,
+			resolutionMode: "system",
+		})
+		const options = []
+		for (const [sortOrder, espnAthleteId] of ["3155535", "4065804"].entries()) {
+			const player = await makePlayer({ currentTeamId: setup.away.id })
+			await link("player", `nba:${espnAthleteId}`, player.id)
+			options.push(
+				await makeOption(question.id, {
+					label: player.name,
+					sortOrder,
+					playerId: player.id,
+				}),
+			)
+		}
+		const caller = await makeUser()
+		const call = await makeCall(question.id, caller.id)
+		const [first] = options
+		if (!first) throw new Error("expected options")
+		await makeSelection(call.id, first.id)
+		vi.mocked(fetchGameSummary).mockResolvedValue(nbaSummary())
+
+		await run()
+
+		const row = await questionById(question.id)
+		expect(row?.status).toBe("voided")
+		expect(row?.voidedReason).toBe("tie")
+		const scored = await db.query.calls.findFirst({ where: { id: call.id } })
+		expect(scored?.unscoredReason).toBe("question_voided")
+	})
+
 	it("reads the box score once for every question on the game", async () => {
 		const setup = await seedNbaGame()
 		await seedPointsLine(setup, "4869780", 22.5)

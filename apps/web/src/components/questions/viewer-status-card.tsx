@@ -339,6 +339,11 @@ function voidedText(reason: QuestionVoidedReason | null): string {
 			"GAME_NOT_COMPLETED",
 			() => "The game wasn't completed, so no call on it scores.",
 		)
+		.with("TIE", () => "It ended in a tie, so no call on it scores.")
+		.with(
+			"NO_LEADER",
+			() => "Nobody recorded this stat, so no call on it scores.",
+		)
 		.with("OTHER", null, () => "No call on this question scores.")
 		.exhaustive()
 }

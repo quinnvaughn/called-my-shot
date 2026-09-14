@@ -124,9 +124,9 @@ async function settleFrom(
 				},
 			),
 		)
-		.with({ kind: "void" }, () =>
+		.with({ kind: "void" }, (d) =>
 			markQuestionVoided(tx, question, {
-				reason: "subject_did_not_play",
+				reason: d.reason,
 				note: ctx.voidedNote,
 				voidedBy: { method: "system" },
 			}),

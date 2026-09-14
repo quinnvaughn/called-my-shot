@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest"
 import {
+	chooseFrom,
 	eligibleStarters,
 	isPlayable,
 	rankCandidates,
@@ -68,6 +69,25 @@ describe("startersPosted", () => {
 		expect(startersPosted(starters, "home", "offense")).toBe(true)
 		expect(startersPosted(starters, "home", "defense")).toBe(false)
 		expect(startersPosted(starters, "away", "offense")).toBe(false)
+	})
+})
+
+describe("chooseFrom", () => {
+	const ranked = ["best", "second", "third", "fourth"]
+
+	it("takes the best when choose is unset or there's only one", () => {
+		expect(chooseFrom(ranked, undefined, "seed")).toBe("best")
+		expect(chooseFrom(["only"], 3, "seed")).toBe("only")
+		expect(chooseFrom([], 3, "seed")).toBeUndefined()
+	})
+
+	it("draws from the top few, the same one for the same seed", () => {
+		const picks = Array.from({ length: 30 }, (_, i) =>
+			chooseFrom(ranked, 3, `game-${i}`),
+		)
+		expect(new Set(picks).size).toBeGreaterThan(1)
+		expect(picks).not.toContain("fourth")
+		expect(chooseFrom(ranked, 3, "game-1")).toBe(chooseFrom(ranked, 3, "game-1"))
 	})
 })
 

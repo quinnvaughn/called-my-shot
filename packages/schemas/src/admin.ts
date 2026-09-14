@@ -45,6 +45,8 @@ export type VoidQuestionInput = z.infer<typeof voidQuestionSchema>
 export const questionVoidedReasonSchema = z.enum([
 	"subject_did_not_play",
 	"game_not_completed",
+	"tie",
+	"no_leader",
 	"other",
 ])
 

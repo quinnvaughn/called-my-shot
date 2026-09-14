@@ -85,11 +85,14 @@ export const questionStatus = pgEnum("question_status", [
 
 // Why a question is voided - null for every other status. subject_did_not_play:
 // the player or team the question is about didn't play. game_not_completed:
-// the game was postponed or abandoned. other: an admin's call, explained in
-// resolutionNote.
+// the game was postponed or abandoned. tie: a head-to-head ended level, a
+// push. no_leader: nobody recorded the stat a leader question asks about.
+// other: an admin's call, explained in resolutionNote.
 export const questionVoidedReason = pgEnum("question_voided_reason", [
 	"subject_did_not_play",
 	"game_not_completed",
+	"tie",
+	"no_leader",
 	"other",
 ])
 export type QuestionVoidedReason =

@@ -320,9 +320,7 @@ export const createQuestionSchema = z
 				})
 			} else if (Number.isInteger(data.ouLine)) {
 				// A whole-number line the actual result can land on exactly isn't
-				// an over/under anymore - there's no push/void outcome anywhere in
-				// this app (resolution just marks one option isCorrect), so a tie
-				// has no defined result.
+				// an over/under anymore: neither Over nor Under would be correct.
 				ctx.addIssue({
 					code: "custom",
 					path: ["ouLine"],

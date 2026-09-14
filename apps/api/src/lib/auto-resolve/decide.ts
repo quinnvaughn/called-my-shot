@@ -3,6 +3,7 @@ import type {
 	AutoResolveFailure,
 	Question,
 	QuestionOption,
+	QuestionVoidedReason,
 } from "../../db/schema"
 import type { ParsedBoxScore } from "../../db/sync/box-score-parse"
 import type { GameExtractor, GameSources, StatReading } from "./registry"
@@ -14,7 +15,7 @@ export type Decision =
 			actualValue?: number
 			evidence: Record<string, number>
 	  }
-	| { kind: "void" }
+	| { kind: "void"; reason: QuestionVoidedReason }
 	| {
 			kind: "fail"
 			reason: AutoResolveFailure
@@ -69,7 +70,10 @@ export function withReading(
 	return match(reading)
 		.returnType<Decision>()
 		.with({ kind: "value" }, ({ value }) => grade(value))
-		.with({ kind: "did_not_play" }, () => ({ kind: "void" }))
+		.with({ kind: "did_not_play" }, () => ({
+			kind: "void",
+			reason: "subject_did_not_play",
+		}))
 		.with({ kind: "unavailable" }, ({ reason, detail }) => fail(reason, detail))
 		.exhaustive()
 }
@@ -106,10 +110,11 @@ export function gradeNumericGuess(value: number): Decision {
 
 type Side = { optionId: string; reading: StatReading }
 
-// Either side not having played voids the matchup.
+// Either side not having played voids the matchup, and so does a tie: a push,
+// where no call scores.
 export function gradeHeadToHead(a: Side, b: Side): Decision {
 	if (a.reading.kind === "did_not_play" || b.reading.kind === "did_not_play") {
-		return { kind: "void" }
+		return { kind: "void", reason: "subject_did_not_play" }
 	}
 	if (a.reading.kind === "unavailable") {
 		return fail(a.reading.reason, a.reading.detail)
@@ -118,7 +123,7 @@ export function gradeHeadToHead(a: Side, b: Side): Decision {
 		return fail(b.reading.reason, b.reading.detail)
 	}
 	if (equal(a.reading.value, b.reading.value)) {
-		return fail("tie", `both sides had ${a.reading.value}`)
+		return { kind: "void", reason: "tie" }
 	}
 	return {
 		kind: "resolve",
@@ -129,12 +134,13 @@ export function gradeHeadToHead(a: Side, b: Side): Decision {
 	}
 }
 
-// Every option tied for the most is correct, same as a tie on an award.
+// Every option tied for the most is correct, same as a tie on an award. With
+// nobody having recorded the stat there's no leader to pick, so no call scores.
 export function gradeLeader(
 	values: { optionId: string; value: number }[],
 ): Decision {
 	const max = Math.max(0, ...values.map((v) => v.value))
-	if (max <= 0) return fail("no_leader", "nobody recorded the stat")
+	if (max <= 0) return { kind: "void", reason: "no_leader" }
 	return {
 		kind: "resolve",
 		correctOptionIds: values

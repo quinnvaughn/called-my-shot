@@ -1,4 +1,5 @@
 import type { StarterRole } from "../../db/sync/starters-parse"
+import { seededRandom } from "./select-templates"
 
 // Which starter a generated player question is about, chosen per team.
 export type StarterPick = {
@@ -15,6 +16,13 @@ export type StarterPick = {
 	// How many games of last season's average count until this season has
 	// that many of its own - see blendSamples in ./lines.
 	priorWeight: number
+	// "roster": until ESPN lists the team's starters in the role, candidates
+	// come from the team's current roster at `positions` instead. An MLB
+	// lineup only posts a few hours before first pitch.
+	source?: "roster"
+	// How many of the best-ranked candidates the pick is drawn from, so it
+	// isn't the same star every game. Unset is always the best.
+	choose?: number
 }
 
 export type StarterCandidate = {
@@ -69,6 +77,16 @@ export function startersPosted(
 	return starters.some(
 		(starter) => starter.teamId === teamId && starter.role === role,
 	)
+}
+
+// One of the first `choose` candidates, the same one for the same seed.
+export function chooseFrom<T>(
+	candidates: T[],
+	choose: number | undefined,
+	seed: string,
+): T | undefined {
+	const pool = candidates.slice(0, Math.max(1, choose ?? 1))
+	return pool[Math.floor(seededRandom(seed)() * pool.length)]
 }
 
 // Highest per-game average first. A candidate with no average keeps its depth
