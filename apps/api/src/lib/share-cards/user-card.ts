@@ -38,7 +38,7 @@ export type UserShareCardData = {
 	rank: number | null
 	totalPoints: number
 	accuracy: number | null
-	callCount: number
+	resolvedCallCount: number
 }
 
 // Mirrors Eyebrow (size="sm" variant="neutral"): mono, uppercase, dim.
@@ -239,7 +239,7 @@ export function buildUserShareCard(data: UserShareCardData): SatoriNode {
 						),
 						heroStat("Accuracy", accuracyText, accuracyTone),
 					]),
-					statRow("Calls made", data.callCount.toLocaleString()),
+					statRow("Resolved", data.resolvedCallCount.toLocaleString()),
 				],
 			),
 			// Footer

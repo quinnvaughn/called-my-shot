@@ -21,11 +21,11 @@ type LeagueStats = {
 	totalPoints: number
 	rank: number | null
 	accuracy: number | null
-	callCount: number
+	resolvedCallCount: number
 	shapeBreakdown: Array<{
 		shape: string
 		accuracy: number | null
-		callCount: number
+		resolvedCallCount: number
 	}>
 }
 
@@ -89,7 +89,7 @@ export function LeagueAccordion({
 						})}
 					>
 						{stats.accuracy !== null ? `${Math.round(stats.accuracy)}%` : "-"} ·{" "}
-						{stats.callCount} calls
+						{stats.resolvedCallCount} resolved
 					</span>
 				</VStack>
 				{open ? <FiChevronUp /> : <FiChevronDown />}
@@ -123,7 +123,7 @@ export function LeagueAccordion({
 									rank: stats.rank,
 									totalPoints: stats.totalPoints,
 									accuracy: stats.accuracy,
-									callCount: stats.callCount,
+									resolvedCallCount: stats.resolvedCallCount,
 								}}
 							/>
 						)}
@@ -139,7 +139,7 @@ export function LeagueAccordion({
 										] ?? s.shape
 									}
 									accuracy={s.accuracy}
-									callCount={s.callCount}
+									resolvedCallCount={s.resolvedCallCount}
 								/>
 							))}
 						</VStack>

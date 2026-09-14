@@ -4,10 +4,10 @@ import { HStack, VStack } from "styled-system/jsx"
 type Props = {
 	label: string
 	accuracy: number | null
-	callCount: number
+	resolvedCallCount: number
 }
 
-export function BreakdownBar({ label, accuracy, callCount }: Props) {
+export function BreakdownBar({ label, accuracy, resolvedCallCount }: Props) {
 	const pct = accuracy !== null ? Math.round(accuracy) : null
 	return (
 		<VStack
@@ -29,7 +29,7 @@ export function BreakdownBar({ label, accuracy, callCount }: Props) {
 						color: "fg.muted",
 					})}
 				>
-					{pct !== null ? `${pct}%` : "-"} · {callCount} calls
+					{pct !== null ? `${pct}%` : "-"} · {resolvedCallCount} resolved
 				</span>
 			</HStack>
 			<div

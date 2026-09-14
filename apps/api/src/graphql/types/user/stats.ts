@@ -10,6 +10,7 @@ type ShapeAccuracyData = {
 	shape: (typeof questionShape.enumValues)[number]
 	accuracy: number | null
 	callCount: number
+	resolvedCallCount: number
 }
 
 const ShapeAccuracyRef = builder
@@ -19,6 +20,7 @@ const ShapeAccuracyRef = builder
 			shape: t.field({ type: QuestionShape, resolve: (s) => s.shape }),
 			accuracy: t.exposeFloat("accuracy", { nullable: true }),
 			callCount: t.exposeInt("callCount"),
+			resolvedCallCount: t.exposeInt("resolvedCallCount"),
 		}),
 	})
 
@@ -28,6 +30,7 @@ type UserLeagueStatsData = {
 	rank: number | null
 	accuracy: number | null
 	callCount: number
+	resolvedCallCount: number
 	shapeBreakdown: ShapeAccuracyData[]
 }
 
@@ -40,6 +43,7 @@ export const UserLeagueStatsRef = builder
 			rank: t.exposeInt("rank", { nullable: true }),
 			accuracy: t.exposeFloat("accuracy", { nullable: true }),
 			callCount: t.exposeInt("callCount"),
+			resolvedCallCount: t.exposeInt("resolvedCallCount"),
 			shapeBreakdown: t.field({
 				type: [ShapeAccuracyRef],
 				resolve: (row) => row.shapeBreakdown,
@@ -109,6 +113,7 @@ export async function buildUserLeagueStats(
 					shape,
 					accuracy: accuracyFrom(summary),
 					callCount: shapeCalls.length,
+					resolvedCallCount: summary.resolvedCallCount,
 				}
 			},
 		)
@@ -119,6 +124,7 @@ export async function buildUserLeagueStats(
 			rank: entry.rank,
 			accuracy: entry.accuracy,
 			callCount: entry.callCount,
+			resolvedCallCount: entry.resolvedCallCount,
 			shapeBreakdown,
 		})
 	}

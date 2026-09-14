@@ -15,7 +15,7 @@ export type ShareCardPreviewData = {
 	rank: number | null // null until a resolved call
 	totalPoints: number
 	accuracy: number | null
-	callCount: number
+	resolvedCallCount: number
 }
 
 type ShareCardPreviewProps = {
@@ -99,7 +99,7 @@ export function ShareCardPreview({
 							}
 						/>
 					</HStack>
-					<ShareStatRow label="Calls made" value={data.callCount} />
+					<ShareStatRow label="Resolved" value={data.resolvedCallCount} />
 				</VStack>
 			</Card.Body>
 			<Card.Footer>

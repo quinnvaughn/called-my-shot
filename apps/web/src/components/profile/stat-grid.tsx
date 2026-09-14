@@ -12,7 +12,7 @@ type Stats = {
 	rank: number | null
 	totalPoints: number
 	accuracy: number | null
-	callCount: number
+	resolvedCallCount: number
 }
 
 export function statGridItems(stats: Stats): StatGridItem[] {
@@ -26,7 +26,7 @@ export function statGridItems(stats: Stats): StatGridItem[] {
 			label: "Accuracy",
 			value: stats.accuracy !== null ? `${Math.round(stats.accuracy)}%` : "-",
 		},
-		{ label: "Calls made", value: stats.callCount.toLocaleString() },
+		{ label: "Resolved", value: stats.resolvedCallCount.toLocaleString() },
 	]
 }
 

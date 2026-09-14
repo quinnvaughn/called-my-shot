@@ -11,7 +11,7 @@ export const UserProfileDocument = graphql(`
 				rank
 				totalPoints
 				accuracy
-				callCount
+				resolvedCallCount
 			}
 			leagues {
 				league {
@@ -23,11 +23,11 @@ export const UserProfileDocument = graphql(`
 				totalPoints
 				rank
 				accuracy
-				callCount
+				resolvedCallCount
 				shapeBreakdown {
 					shape
 					accuracy
-					callCount
+					resolvedCallCount
 				}
 			}
 			streaks {

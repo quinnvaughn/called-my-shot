@@ -232,7 +232,7 @@ async function sendUserShareCard(
 		rank: entry.rank,
 		totalPoints: entry.totalPoints,
 		accuracy: entry.accuracy,
-		callCount: entry.callCount,
+		resolvedCallCount: entry.resolvedCallCount,
 	})
 
 	const png = await renderShareImage(node, USER_SHARE_CARD_SIZE)

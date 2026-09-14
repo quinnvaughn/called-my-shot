@@ -40,7 +40,7 @@ export const Route = createFileRoute("/_app/user/$username")({
 		const stats = user.careerStats
 		const summary = stats
 			? [
-					`${stats.callCount.toLocaleString()} call${stats.callCount === 1 ? "" : "s"}`,
+					`${stats.resolvedCallCount.toLocaleString()} resolved call${stats.resolvedCallCount === 1 ? "" : "s"}`,
 					stats.accuracy !== null
 						? `${Math.round(stats.accuracy)}% accuracy`
 						: null,
@@ -110,7 +110,7 @@ function RouteComponent() {
 					rank: user.careerStats?.rank ?? null,
 					totalPoints: user.careerStats?.totalPoints ?? 0,
 					accuracy: user.careerStats?.accuracy ?? null,
-					callCount: user.careerStats?.callCount ?? 0,
+					resolvedCallCount: user.careerStats?.resolvedCallCount ?? 0,
 				})}
 			/>
 			{user.careerStats && (
@@ -130,7 +130,7 @@ function RouteComponent() {
 								rank: user.careerStats?.rank ?? null,
 								totalPoints: user.careerStats?.totalPoints ?? 0,
 								accuracy: user.careerStats?.accuracy ?? null,
-								callCount: user.careerStats?.callCount ?? 0,
+								resolvedCallCount: user.careerStats?.resolvedCallCount ?? 0,
 							}}
 						/>
 					)}
