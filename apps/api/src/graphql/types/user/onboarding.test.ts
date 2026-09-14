@@ -259,3 +259,61 @@ describe("the onboarding dismissal timestamp", () => {
 		}
 	})
 })
+
+describe("the leaderboard step", () => {
+	const VIEWED_LEADERBOARD = /* GraphQL */ `
+		query ViewerOnboardingLeaderboard {
+			viewerOnboarding {
+				__typename
+				... on ViewerOnboarding { hasViewedLeaderboard }
+			}
+		}
+	`
+
+	const MARK_LEADERBOARD_VIEWED = /* GraphQL */ `
+		mutation MarkLeaderboardViewed {
+			markLeaderboardViewed {
+				__typename
+				... on User { id }
+			}
+		}
+	`
+
+	it("stays outstanding after a call, until the leaderboard is opened", async () => {
+		const user = await makeUser()
+		const question = await makeQuestion({ locksAt: futureDate(4) })
+		await makeCall(question.id, user.id)
+
+		const before = await expectData<{
+			viewerOnboarding: { hasViewedLeaderboard: boolean }
+		}>(VIEWED_LEADERBOARD, { as: user })
+		expect(before.viewerOnboarding.hasViewedLeaderboard).toBe(false)
+
+		await expectData(MARK_LEADERBOARD_VIEWED, { as: user })
+
+		const after = await expectData<{
+			viewerOnboarding: { hasViewedLeaderboard: boolean }
+		}>(VIEWED_LEADERBOARD, { as: user })
+		expect(after.viewerOnboarding.hasViewedLeaderboard).toBe(true)
+	})
+
+	it("can be marked again without failing", async () => {
+		const user = await makeUser()
+
+		await expectData(MARK_LEADERBOARD_VIEWED, { as: user })
+		const again = await expectData<{
+			markLeaderboardViewed: { __typename: string }
+		}>(MARK_LEADERBOARD_VIEWED, { as: user })
+
+		expect(again.markLeaderboardViewed.__typename).toBe("User")
+	})
+
+	it("refuses a signed-out viewer", async () => {
+		const result = await execute(MARK_LEADERBOARD_VIEWED, { as: null })
+
+		expect(
+			(result.data as { markLeaderboardViewed: { __typename: string } })
+				.markLeaderboardViewed.__typename,
+		).toBe("AuthenticationError")
+	})
+})

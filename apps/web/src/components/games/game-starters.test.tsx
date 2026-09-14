@@ -98,4 +98,37 @@ describe("GameStarters", () => {
 		expect(screen.queryByText("Cam Skattebo")).not.toBeInTheDocument()
 		expect(screen.getByText("Not announced yet")).toBeInTheDocument()
 	})
+
+	it("shows only the key lines, with nothing to expand, when compact", () => {
+		render(
+			<GameStarters
+				compact
+				game={
+					{
+						id: "g",
+						awayTeam,
+						homeTeam,
+						starters: [
+							starter("away", {
+								role: "STARTING_PITCHER",
+								playerName: "Carlos Rodon",
+								position: "SP",
+							}),
+							starter("away", {
+								role: "BATTER",
+								playerName: "Aaron Judge",
+								position: "RF",
+							}),
+						],
+					} as unknown as FragmentType<typeof GameStartersFragment>
+				}
+			/>,
+		)
+
+		expect(screen.getByText("Carlos Rodon")).toBeInTheDocument()
+		expect(screen.queryByText("Aaron Judge")).not.toBeInTheDocument()
+		expect(
+			screen.queryByRole("button", { name: /show all/i }),
+		).not.toBeInTheDocument()
+	})
 })

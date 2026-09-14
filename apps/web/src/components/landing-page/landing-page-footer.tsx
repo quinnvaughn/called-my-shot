@@ -31,12 +31,7 @@ export function LandingPageFooter() {
 						color: "fg.subtle",
 					})}
 				>
-					<Link to="/" hash="how-it-works">
-						How It Works
-					</Link>
-					<Link to="/" hash="question-types">
-						Question Types
-					</Link>
+					<Link to="/how-it-works">How It Works</Link>
 					<Link to="/leaderboard">Leaderboard</Link>
 				</div>
 				<div

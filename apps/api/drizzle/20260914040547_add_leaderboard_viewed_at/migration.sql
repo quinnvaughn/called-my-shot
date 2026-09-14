@@ -1,0 +1,1 @@
+ALTER TABLE "users" ADD COLUMN "leaderboard_viewed_at" timestamp;

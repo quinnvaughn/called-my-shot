@@ -52,12 +52,7 @@ export function LandingPageNav({ leagues }: Props) {
 						display: { base: "none", lg: "flex" },
 					})}
 				>
-					<Link to="/" hash="how-it-works">
-						How It Works
-					</Link>
-					<Link to="/" hash="question-types">
-						Question Types
-					</Link>
+					<Link to="/how-it-works">How It Works</Link>
 					{leagues.length > 0 && (
 						<Dropdown>
 							<Dropdown.Trigger

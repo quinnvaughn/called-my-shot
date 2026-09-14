@@ -50,3 +50,20 @@ export const SetOnboardingCollapsedDocument = graphql(`
 		}
 	}
 `)
+
+// Fired by the leaderboard page for a signed-in viewer. The server keeps the
+// first visit's timestamp, so sending it again is harmless. What it changes
+// is read through ViewerOnboarding, not off this result.
+export const MarkLeaderboardViewedDocument = graphql(`
+	mutation MarkLeaderboardViewed {
+		markLeaderboardViewed {
+			__typename
+			... on User {
+				id
+			}
+			... on AuthenticationError {
+				message
+			}
+		}
+	}
+`)

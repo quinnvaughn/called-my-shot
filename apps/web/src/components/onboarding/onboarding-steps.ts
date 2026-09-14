@@ -13,6 +13,8 @@ export type OnboardingStepId =
 
 export type OnboardingFacts = {
 	hasCalled: boolean
+	// Whether this account has ever opened the leaderboard page.
+	hasViewedLeaderboard: boolean
 	hasGroup: boolean
 	hasCreatedQuestion: boolean
 	emailVerified: boolean
@@ -42,14 +44,14 @@ export function onboardingSteps(facts: OnboardingFacts): OnboardingStep[] {
 			done: facts.hasCalled,
 		},
 		{
-			// Shares the call's completion signal on purpose. There is no
-			// separate thing to do here: a resolved call is what puts you on the
-			// board, so tying this to a "visited the page" flag would tick for
-			// someone who is still nowhere on it.
+			// Done once the leaderboard has been opened, like every other step
+			// here being something the user goes and does. Tying it to a call
+			// instead ticked it the moment a first call went in, before that call
+			// had resolved and put anyone on the board.
 			id: "leaderboard",
 			title: "See where you rank",
 			body: "Every call that resolves moves your points and your accuracy. The leaderboard sorts by points for the season and shows accuracy beside it, so volume alone doesn't carry you.",
-			done: facts.hasCalled,
+			done: facts.hasViewedLeaderboard,
 		},
 		{
 			id: "group",

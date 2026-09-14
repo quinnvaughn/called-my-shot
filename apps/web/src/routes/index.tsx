@@ -1,37 +1,21 @@
 import { useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute, Link, redirect } from "@tanstack/react-router"
-import {
-	FaArrowsUpDown,
-	FaHashtag,
-	FaToggleOn,
-	FaTrophy,
-	FaUserGroup,
-} from "react-icons/fa6"
-import {
-	FiAward,
-	FiCheckCircle,
-	FiEye,
-	FiFlag,
-	FiHelpCircle,
-	FiLock,
-	FiMessageSquare,
-	FiTrendingUp,
-	FiUserCheck,
-	FiUsers,
-} from "react-icons/fi"
+import { FiHelpCircle, FiLock, FiUsers, FiZap } from "react-icons/fi"
 import { css } from "styled-system/css"
-import { HStack, VStack } from "styled-system/jsx"
+import { VStack } from "styled-system/jsx"
 import { AuthModal } from "#/components/auth/auth-modal"
+import { GuestPicks } from "#/components/landing-page/guest-picks/guest-picks"
 import { LandingPageFeatureSection } from "#/components/landing-page/landing-page-feature-section"
 import { LandingPageFooter } from "#/components/landing-page/landing-page-footer"
 import { LandingPageGetStartedSection } from "#/components/landing-page/landing-page-get-started-section"
 import { LandingPageLeaderboardSection } from "#/components/landing-page/landing-page-leaderboard-section"
-import { LandingPageMockCard } from "#/components/landing-page/landing-page-mock-card"
 import { LandingPageNav } from "#/components/landing-page/landing-page-nav"
-import { LandingPageOpenQuestionsSection } from "#/components/landing-page/landing-page-open-questions-section"
+import { LandingPageSection } from "#/components/landing-page/landing-page-section"
 import { LandingPageWrap } from "#/components/landing-page/landing-page-wrap"
 import { Badge } from "#/components/ui/badge"
-import { Button, button } from "#/components/ui/button"
+import { Button } from "#/components/ui/button"
+import { Card } from "#/components/ui/card"
+import { Eyebrow } from "#/components/ui/eyebrow"
 import { LandingPageDocument } from "#/graphql/queries/landing-page"
 import { gqlQueryOptions } from "#/graphql/query-options"
 import { openModal } from "#/stores/modal-store"
@@ -48,122 +32,63 @@ export const Route = createFileRoute("/")({
 	component: Home,
 })
 
-const howItWorksItems = [
-	{
-		icon: <FiFlag />,
-		title: "Make your call",
-		description:
-			"Pick a side, set a number, or guess an exact number. Set your conviction: how many points are actually riding on it.",
-	},
-	{
-		icon: <FiTrendingUp />,
-		title: "The field reacts",
-		description:
-			"Every call shifts the percentages live. Bold picks against the crowd are worth more: that's baked into the scoring, not a bonus.",
-	},
+const whyItems = [
 	{
 		icon: <FiLock />,
-		title: "It locks and resolves",
+		title: "Receipts, not vibes",
 		description:
-			"Locked to a named source the second it's created. No moving goalposts, no fine print: the same rule for everyone.",
-	},
-	{
-		icon: <FiAward />,
-		title: "Climb the board",
-		description:
-			"Right calls add points and accuracy. Wrong calls cost what you committed. Your standing is the whole point.",
-	},
-]
-
-const questionTypeItems = [
-	{
-		icon: <FaArrowsUpDown />,
-		title: "Stat lines",
-		description:
-			"Set a number on a player or team stat: over or under, your call.",
-		example: "e.g. Will Embiid grab over/under 10.5 rebounds?",
-	},
-	{
-		icon: <FaHashtag />,
-		title: "Exact guesses",
-		description:
-			"Call an exact number for one game. A tolerance band decides if you're close enough; how close beats the field decides your score.",
-		example: "e.g. How many passing yards will Mahomes throw for?",
-	},
-	{
-		icon: <FaUserGroup />,
-		title: "Head-to-head",
-		description:
-			"Two named players or teams, one stat or one outcome. Straight up.",
-		example: "e.g. Who has more rebounds: Jokic or Embiid?",
-	},
-	{
-		icon: <FaToggleOn />,
-		title: "Yes / No",
-		description:
-			"A clean binary call on anything: a stat, an event, a transaction.",
-		example: "e.g. Will there be a triple-double tonight?",
-	},
-	{
-		icon: <FaTrophy />,
-		title: "Season-long awards",
-		description:
-			"MVP, a championship, an All-league team: decided at season's end, so calling it early is worth more.",
-		example: "e.g. Who will win NFL MVP this season?",
-	},
-]
-
-const noHouseItems = [
-	{
-		icon: <FiUserCheck />,
-		title: "We don't boot sharps",
-		description:
-			"Get good, stay good. There's no bankroll to protect from you, so being consistently right is the entire point, not a liability.",
-	},
-	{
-		icon: <FiEye />,
-		title: "Your accuracy is public",
-		description:
-			"Tracked and shown on every call you make, not buried. It's the actual reputation system, not a vanity number.",
-	},
-	{
-		icon: <FiHelpCircle />,
-		title: "Anyone can create one",
-		description:
-			"Pick a shape, fill in the real players, teams, and stats, and it's live: no license to chase, no real-money market to manage, no approval to wait on.",
-	},
-	{
-		icon: <FiCheckCircle />,
-		title: "Official, alongside everyone else's",
-		description:
-			"We post our own questions daily. Yours sit right next to them, scored the exact same way.",
-	},
-]
-
-const communityItems = [
-	{
-		icon: <FiMessageSquare />,
-		title: "Defend your take",
-		description:
-			"Every call can come with a real case: the reasoning behind it, out in the open. That's where the actual arguing happens, before anyone's proven right.",
+			"Every call locks when the game starts and can't be edited after. Your accuracy sits on your profile for anyone to check.",
 	},
 	{
 		icon: <FiUsers />,
-		title: "Run it with your group",
+		title: "Settle it with your people",
 		description:
-			"Invite-only leaderboards that run on the exact same real points: so you can settle who actually knows ball with the people you argue about it with anyway.",
+			"Make a private leaderboard for your group chat, fantasy league, or office. Send the invite link, everyone calls the same games, and the standings settle who actually knows ball.",
+	},
+	{
+		icon: <FiHelpCircle />,
+		title: "Ask anything",
+		description:
+			"Post your own question and set your own line. If it has a public result somebody could check, anyone can call it.",
+	},
+	{
+		icon: <FiZap />,
+		title: "Call every game",
+		description:
+			"It's free, so you don't have to pick your spots. Call every game you have an opinion on.",
+	},
+]
+
+// The caps come straight from packages/scoring: the contrarian multiplier tops
+// out at 6x, the early multiplier at 2x for a game and 3x for a season-long
+// question, and conviction scales both what a hit pays and what a miss costs.
+const scoringItems = [
+	{
+		figure: "Up to 6x",
+		title: "Against the crowd",
+		description:
+			"A hit pays more the less of the field ended up on your side. On a two-way question, the boost starts once your side is under 20%.",
+	},
+	{
+		figure: "Up to 3x",
+		title: "Calling early",
+		description:
+			"Calling ahead of the rest of the field pays up to 2x on a game. Calling a season-long question before the games get played pays up to 3x.",
+	},
+	{
+		figure: "1 to 100",
+		title: "Your conviction",
+		description:
+			"You set how much rides on each call. Higher pays more on a hit and costs more on a miss.",
 	},
 ]
 
 function Home() {
 	const { data } = useSuspenseQuery(landingPageQuery)
-	const leagues = data.leagues
-	const questions = data.questions.items
-	const leaderboardEntries = data.leaderboard.items
 
 	return (
 		<div>
-			<LandingPageNav leagues={leagues} />
+			<LandingPageNav leagues={data.leagues} />
 			<header className={css({ paddingBlock: { base: "8", sm: "16" } })}>
 				<LandingPageWrap
 					className={css({
@@ -185,7 +110,8 @@ function Home() {
 										letterSpacing: "tight",
 									})}
 								>
-									Anyone can talk a good game. Prove it.
+									You already think you know more than your friends. Now prove
+									it.
 								</h1>
 								<p
 									className={css({
@@ -194,31 +120,12 @@ function Home() {
 										maxWidth: "lg",
 									})}
 								>
-									Call your shot on real games and season awards across every
-									sport you follow, defend it in the comments, and run your own
-									leaderboard against your group chat. Bold, correct calls score
-									more than safe ones: that's the whole game.
+									Make calls on real games for free. Every call goes on your
+									record, right or wrong, and your group can see exactly who
+									called it.
 								</p>
 							</VStack>
-							<VStack alignItems="flex-start" gap="7">
-								<HStack gap="5" flexWrap="wrap">
-									<Button
-										variant="solid"
-										size="lg"
-										onClick={() =>
-											openModal(<AuthModal defaultView="signup" />)
-										}
-									>
-										Get started free
-									</Button>
-									<Link
-										to="/"
-										hash="how-it-works"
-										className={button({ variant: "ghost", size: "md" })}
-									>
-										See how scoring works ↓
-									</Link>
-								</HStack>
+							<VStack alignItems="flex-start" gap="3">
 								<p
 									className={css({
 										color: "fg.subtle",
@@ -226,47 +133,104 @@ function Home() {
 										fontSize: "xs",
 									})}
 								>
-									free to play · takes 30 seconds · no card required
+									free · no money, ever · takes 30 seconds
 								</p>
+								<Button
+									variant="ghost"
+									size="md"
+									onClick={() => openModal(<AuthModal defaultView="signin" />)}
+								>
+									Already have an account? Sign in
+								</Button>
 							</VStack>
 						</VStack>
 					</div>
-					<LandingPageMockCard />
+					<div id="make-calls" className={css({ scrollMarginTop: "24" })}>
+						<GuestPicks questions={data.guestPicks.items} />
+					</div>
 				</LandingPageWrap>
 			</header>
-			<LandingPageOpenQuestionsSection questions={questions} />
 			<LandingPageFeatureSection
-				id="how-it-works"
+				id="why"
 				alt
-				eyebrow="How it works"
-				title="Four steps, every question."
-				description="Same loop whether you're picking a champion, a game total, or an exact stat line."
-				items={howItWorksItems}
+				eyebrow="Why play"
+				title="Being right is more fun when it's on the record."
+				description="No money on the line. Just a public record of what you called and how it went."
+				items={whyItems}
 			/>
-			<LandingPageFeatureSection
-				id="question-types"
-				eyebrow="Question types"
-				title="Not every call works the same way."
-				description="Picking a side is different from guessing an exact number: so the scoring is honest about that instead of pretending it's all one thing. We post official questions every day, but anyone can create their own the same way."
-				items={questionTypeItems}
-				columns={3}
-			/>
-			<LandingPageFeatureSection
-				alt
-				eyebrow="No house, different incentives"
-				title="There's nothing to protect, so we don't have to protect it from you."
-				description="Sportsbooks quietly limit or ban people who get too good at winning. We built the opposite thing on purpose."
-				items={noHouseItems}
-			/>
-			<LandingPageFeatureSection
-				id="community"
-				eyebrow="This is a social product"
-				title="Being right is better with an audience."
-				description="A leaderboard is just a number until people can see the reasoning behind it: and until you can put it up against people you actually know."
-				items={communityItems}
-				columns={2}
-			/>
-			<LandingPageLeaderboardSection entries={leaderboardEntries} />
+			<LandingPageSection>
+				<LandingPageWrap
+					className={css({
+						display: "grid",
+						gridTemplateColumns: { base: "1fr", lg: "2fr 3fr" },
+						gap: { base: "8", lg: "12" },
+						alignItems: "center",
+					})}
+				>
+					<VStack alignItems="flex-start" gap="4">
+						<Eyebrow>How scoring works</Eyebrow>
+						<h2
+							className={css({
+								fontFamily: "heading",
+								fontSize: { base: "xl", lg: "2xl" },
+								lineHeight: "snug",
+							})}
+						>
+							Bold calls against the crowd score more. Misses cost what you
+							committed.
+						</h2>
+						<Link
+							to="/how-it-works"
+							className={css({
+								fontSize: "sm",
+								fontWeight: "medium",
+								color: "primary.default",
+								_hover: { textDecoration: "underline" },
+							})}
+						>
+							Read how scoring works →
+						</Link>
+					</VStack>
+					<div
+						className={css({
+							display: "grid",
+							gridTemplateColumns: { base: "1fr", md: "repeat(3, 1fr)" },
+							gap: "4",
+						})}
+					>
+						{scoringItems.map((item) => (
+							<Card key={item.title}>
+								<Card.Body>
+									<VStack alignItems="flex-start" gap="2">
+										<span
+											className={css({
+												fontFamily: "heading",
+												fontSize: "2xl",
+												color: "secondary.default",
+											})}
+										>
+											{item.figure}
+										</span>
+										<span className={css({ fontWeight: "semibold" })}>
+											{item.title}
+										</span>
+										<p
+											className={css({
+												fontSize: "sm",
+												lineHeight: "relaxed",
+												color: "fg.muted",
+											})}
+										>
+											{item.description}
+										</p>
+									</VStack>
+								</Card.Body>
+							</Card>
+						))}
+					</div>
+				</LandingPageWrap>
+			</LandingPageSection>
+			<LandingPageLeaderboardSection entries={data.leaderboard.items} />
 			<LandingPageGetStartedSection />
 			<LandingPageFooter />
 		</div>

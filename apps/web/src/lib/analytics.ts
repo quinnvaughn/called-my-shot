@@ -1,12 +1,16 @@
 import posthog from "posthog-js"
+import type { AuthModalSurface } from "#/components/auth/auth-modal"
 import type { QuestionCallShape } from "#/components/questions/cast-call-form/use-cast-call-form"
 
 // Add new events here as they're needed - `track()` below is typed against
 // this map, so every call site gets the right property shape for free and a
 // typo'd event name is a compile error instead of a silent no-op in PostHog.
 type AnalyticsEvents = {
-	user_signed_up: { method: "email" }
-	user_signed_in: { method: "email" }
+	// `surface` separates the landing page's "lock these in" prompt from every
+	// other way into the auth modal, so it's visible whether trying picks first
+	// actually moves signups.
+	user_signed_up: { method: "email"; surface: AuthModalSurface }
+	user_signed_in: { method: "email"; surface: AuthModalSurface }
 	user_signed_out: Record<string, never>
 	email_confirmed: Record<string, never>
 	account_deleted: Record<string, never>
@@ -94,6 +98,20 @@ type AnalyticsEvents = {
 	}
 	onboarding_completed: Record<string, never>
 	first_call_tour_step: { step: number }
+
+	// The landing page's try-it stack, before the visitor has an account.
+	// `index` is which card in the stack the pick was made on.
+	guest_pick_made: {
+		questionId: string
+		questionShape: QuestionCallShape
+		index: number
+	}
+	guest_pick_skipped: { questionId: string }
+	guest_picks_signup_opened: { pickCount: number }
+	// Fired once the account exists and the held picks have been sent.
+	// `notPosted` counts refusals (the game locked, or already called) and
+	// failed requests together.
+	guest_picks_submitted: { posted: number; notPosted: number }
 }
 
 const POSTHOG_KEY = import.meta.env.VITE_PUBLIC_POSTHOG_KEY as

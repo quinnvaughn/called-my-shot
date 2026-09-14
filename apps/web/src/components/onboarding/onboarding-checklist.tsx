@@ -83,6 +83,7 @@ export function OnboardingChecklist() {
 
 	const steps = onboardingSteps({
 		hasCalled: onboarding.hasCalled,
+		hasViewedLeaderboard: onboarding.hasViewedLeaderboard,
 		hasGroup: onboarding.hasGroup,
 		hasCreatedQuestion: onboarding.hasCreatedQuestion,
 		emailVerified: me.emailVerified,

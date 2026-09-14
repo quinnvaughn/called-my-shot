@@ -45,10 +45,11 @@ export const users = pgTable("users", {
 		.notNull()
 		.default(true),
 	// Null means the get-started checklist is still showing on /home. Together
-	// with onboardingCollapsedAt below, the only onboarding state stored at
-	// all: which steps are done is derived from the user's real calls and email
-	// status, so these record the one thing no other row can - what they chose
-	// to do with the card.
+	// with onboardingCollapsedAt and leaderboardViewedAt below, the only
+	// onboarding state stored at all: every other step is derived from the
+	// user's real calls, groups and email status, so these record what no other
+	// row can - what they chose to do with the card, and whether they've been to
+	// the leaderboard.
 	//
 	// Deliberately has no backfill. Every account that predates onboarding
 	// starts null and gets the checklist, which is intended rather than an
@@ -61,6 +62,11 @@ export const users = pgTable("users", {
 	// so the choice follows the account to a second device, the same as the
 	// dismissal it sits in front of.
 	onboardingCollapsedAt: timestamp("onboarding_collapsed_at"),
+	// Null until the user first opens the leaderboard, which is what ticks "See
+	// where you rank" on the get-started checklist. Stored because a page visit
+	// leaves no other row to derive it from. Keeps the first visit's time; later
+	// visits don't move it. No backfill, same as onboardingDismissedAt.
+	leaderboardViewedAt: timestamp("leaderboard_viewed_at"),
 	createdAt: timestamp("created_at").notNull().defaultNow(),
 })
 export type User = typeof users.$inferSelect

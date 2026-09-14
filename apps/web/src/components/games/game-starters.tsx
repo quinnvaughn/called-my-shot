@@ -46,6 +46,10 @@ type Team = GameStarters_GameFragment["homeTeam"]
 
 type Props = {
 	game: FragmentType<typeof GameStartersFragment>
+	// Only the one key line per team, with no way to expand to the full lists.
+	// For a card that has to hold a fixed height, like the landing page's
+	// try-it stack.
+	compact?: boolean
 }
 
 const ROLE_ORDER: GameStarterRole[] = [
@@ -205,9 +209,10 @@ function TeamStarters({
 // of its own - it's the same object, this game. Collapsed to one key line per
 // team so the call form below isn't pushed down, with the full lists a tap
 // away. Renders nothing for a game the starters sync hasn't reached.
-export function GameStarters(props: Props) {
+export function GameStarters({ compact = false, ...props }: Props) {
 	const game = useFragment(GameStartersFragment, props.game)
-	const [open, setOpen] = useState(false)
+	const [expanded, setExpanded] = useState(false)
+	const open = expanded && !compact
 
 	if (game.starters.length === 0) return null
 
@@ -230,15 +235,17 @@ export function GameStarters(props: Props) {
 				<Eyebrow variant="neutral" size="sm">
 					Starters
 				</Eyebrow>
-				<button
-					type="button"
-					aria-expanded={open}
-					onClick={() => setOpen((o) => !o)}
-					className={button({ variant: "ghost", size: "sm" })}
-				>
-					{open ? "Hide" : "Show all"}
-					{open ? <FiChevronUp /> : <FiChevronDown />}
-				</button>
+				{!compact && (
+					<button
+						type="button"
+						aria-expanded={open}
+						onClick={() => setExpanded((o) => !o)}
+						className={button({ variant: "ghost", size: "sm" })}
+					>
+						{open ? "Hide" : "Show all"}
+						{open ? <FiChevronUp /> : <FiChevronDown />}
+					</button>
+				)}
 			</HStack>
 
 			{open ? (

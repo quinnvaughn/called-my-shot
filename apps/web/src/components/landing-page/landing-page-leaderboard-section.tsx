@@ -56,8 +56,8 @@ export function LandingPageLeaderboardSection({ entries: entriesProp }: Props) {
 			id="leaderboard"
 			alt
 			eyebrow="The leaderboard"
-			title="Being right, on the record."
-			description="Points and accuracy are tracked in the open. This is what actually being good at this looks like: no way to fake it."
+			title="A board you can actually top."
+			description="Every league keeps its own standings, for this season and all time, next to the overall board. You don't have to know every sport to lead one. Points and accuracy are public, so the only way up is being right."
 		>
 			<VStack
 				gap="6"

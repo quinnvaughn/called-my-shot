@@ -62,7 +62,7 @@ export const Route = createRootRouteWithContext<RouterContext>()({
 			{
 				name: "description",
 				content:
-					"Call outcomes, set your conviction, and get paid more for bold picks against the crowd.",
+					"Make calls on real games for free. Every call goes on your record, and your friends can see who actually called it.",
 			},
 			{
 				property: "og:type",
@@ -79,7 +79,7 @@ export const Route = createRootRouteWithContext<RouterContext>()({
 			{
 				property: "og:description",
 				content:
-					"Call outcomes, set your conviction, and get paid more for bold picks against the crowd.",
+					"Make calls on real games for free. Every call goes on your record, and your friends can see who actually called it.",
 			},
 			{
 				property: "og:url",
@@ -100,7 +100,7 @@ export const Route = createRootRouteWithContext<RouterContext>()({
 			{
 				name: "twitter:description",
 				content:
-					"Call outcomes, set your conviction, and get paid more for bold picks against the crowd.",
+					"Make calls on real games for free. Every call goes on your record, and your friends can see who actually called it.",
 			},
 			{
 				name: "twitter:image",

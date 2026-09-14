@@ -9,6 +9,7 @@ import {
 // A brand new, fully verified account: nothing done, nothing restricted.
 const FRESH: OnboardingFacts = {
 	hasCalled: false,
+	hasViewedLeaderboard: false,
 	hasGroup: false,
 	hasCreatedQuestion: false,
 	emailVerified: true,
@@ -33,9 +34,11 @@ describe("onboardingSteps", () => {
 		expect(idsOf({})).toContain("leaderboard")
 	})
 
-	it("ticks the leaderboard off the first call, since that is what ranks you", () => {
-		expect(stepById({ hasCalled: true }, "leaderboard")?.done).toBe(true)
-		expect(stepById({ hasCalled: false }, "leaderboard")?.done).toBe(false)
+	it("ticks the leaderboard off opening it, not off making a call", () => {
+		expect(
+			stepById({ hasViewedLeaderboard: true }, "leaderboard")?.done,
+		).toBe(true)
+		expect(stepById({ hasCalled: true }, "leaderboard")?.done).toBe(false)
 	})
 
 	it("counts a group somebody else started", () => {
@@ -65,6 +68,7 @@ describe("onboardingSteps", () => {
 	it("shows an established user most of the list already done", () => {
 		const steps = onboardingSteps({
 			hasCalled: true,
+			hasViewedLeaderboard: true,
 			hasGroup: true,
 			hasCreatedQuestion: true,
 			emailVerified: true,
@@ -79,6 +83,6 @@ describe("onboardingSteps", () => {
 		const steps = onboardingSteps({ ...FRESH, hasCalled: true })
 
 		expect(isOnboardingComplete(steps)).toBe(false)
-		expect(completedCount(steps)).toBe(2)
+		expect(completedCount(steps)).toBe(1)
 	})
 })

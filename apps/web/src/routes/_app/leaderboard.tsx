@@ -1,12 +1,17 @@
+import { useQueryClient } from "@tanstack/react-query"
 import { createFileRoute, useRouteContext } from "@tanstack/react-router"
+import { useEffect } from "react"
 import { VStack } from "styled-system/jsx"
 import { SiteLeaderboard } from "#/components/leaderboard/site-leaderboard"
 import { PageHeader } from "#/components/ui/page-header"
+import { useGqlMutation } from "#/graphql/hooks"
+import { MarkLeaderboardViewedDocument } from "#/graphql/mutations/onboarding"
 import {
 	leaderboardPageQuery,
 	leaderboardQuery,
 } from "#/graphql/queries/leaderboard"
-import { seedInfiniteQuery } from "#/graphql/query-options"
+import { ViewerOnboardingDocument } from "#/graphql/queries/onboarding"
+import { gqlQueryKey, seedInfiniteQuery } from "#/graphql/query-options"
 import {
 	resolveLeaderboardFilter,
 	validateLeaderboardSearch,
@@ -53,11 +58,31 @@ export const Route = createFileRoute("/_app/leaderboard")({
 		}),
 })
 
+// Which account this page load has already told the server about. Once per
+// user per page load is enough, since the server only ever keeps the first
+// visit, and keying on the id covers signing out and back in as someone else.
+let markedViewedForUserId: string | null = null
+
 function RouteComponent() {
 	const search = Route.useSearch()
 	const navigate = Route.useNavigate()
 	const { leagues } = Route.useRouteContext()
 	const { me } = useRouteContext({ from: "__root__" })
+	const queryClient = useQueryClient()
+	const { mutate: markViewed } = useGqlMutation(MarkLeaderboardViewedDocument)
+
+	// Opening the leaderboard is what ticks "See where you rank" on the
+	// get-started checklist, which reads it through ViewerOnboarding.
+	useEffect(() => {
+		if (!me || markedViewedForUserId === me.id) return
+		markedViewedForUserId = me.id
+		markViewed(undefined, {
+			onSuccess: () =>
+				queryClient.invalidateQueries({
+					queryKey: gqlQueryKey(ViewerOnboardingDocument, {}),
+				}),
+		})
+	}, [me, markViewed, queryClient])
 
 	const filter = resolveLeaderboardFilter(leagues, search)
 

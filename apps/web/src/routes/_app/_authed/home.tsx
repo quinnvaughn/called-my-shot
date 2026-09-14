@@ -1,6 +1,6 @@
-import { useSuspenseQuery } from "@tanstack/react-query"
-import { createFileRoute } from "@tanstack/react-router"
-import type { ReactNode } from "react"
+import { useQueryClient, useSuspenseQuery } from "@tanstack/react-query"
+import { createFileRoute, useRouter } from "@tanstack/react-router"
+import { type ReactNode, useEffect } from "react"
 import { css } from "styled-system/css"
 import { Grid, VStack } from "styled-system/jsx"
 import { LeagueRoomCard } from "#/components/home/league-room-card"
@@ -10,6 +10,7 @@ import { EmptyState } from "#/components/ui/empty-state"
 import { PageHeader } from "#/components/ui/page-header"
 import { HomeDashboardDocument } from "#/graphql/queries/home"
 import { gqlQueryOptions } from "#/graphql/query-options"
+import { submitGuestPicks } from "#/lib/submit-guest-picks"
 
 function SectionLabel({ children }: { children: ReactNode }) {
 	return (
@@ -41,6 +42,15 @@ export const Route = createFileRoute("/_app/_authed/home")({
 // actionable right now, not a feed - that lives in each league's Feed tab.
 function RouteComponent() {
 	const { data } = useSuspenseQuery(homeDashboardQuery)
+	const queryClient = useQueryClient()
+	const router = useRouter()
+
+	// Every sign-up and sign-in lands here, so this is where picks made on the
+	// landing page before the account existed get posted.
+	useEffect(() => {
+		void submitGuestPicks({ queryClient, router })
+	}, [queryClient, router])
+
 	const leagues = data.leagues
 	const lockingSoon = data.questions.items
 	const justResolved = data.myRecentResolvedCalls

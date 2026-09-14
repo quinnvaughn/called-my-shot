@@ -5,7 +5,7 @@ import {
 	updatePasswordSchema,
 	updateUsernameSchema,
 } from "@called-my-shot/schemas"
-import { eq } from "drizzle-orm"
+import { eq, sql } from "drizzle-orm"
 import { db } from "../../../db"
 import { pendingEmailChanges, users } from "../../../db/schema"
 import { requireAdmin, requireUser } from "../../../lib/auth"
@@ -438,6 +438,32 @@ builder.mutationFields((t) => ({
 				.returning()
 			if (!updated) {
 				throw new Error("setOnboardingCollapsed: user vanished mid-request")
+			}
+			return updated
+		},
+	}),
+
+	// Stamps the first time a signed-in user opens the leaderboard, which is what
+	// ticks "See where you rank" on the get-started checklist. coalesce keeps
+	// the first visit's time, so every later visit is a no-op write.
+	markLeaderboardViewed: t.field({
+		type: UserRef,
+		errors: {
+			types: [AuthenticationError],
+			directResult: true,
+			union: { name: "MarkLeaderboardViewedResult" },
+		},
+		resolve: async (_root, _args, ctx) => {
+			const user = requireUser(ctx)
+			const [updated] = await db
+				.update(users)
+				.set({
+					leaderboardViewedAt: sql`coalesce(${users.leaderboardViewedAt}, now())`,
+				})
+				.where(eq(users.id, user.id))
+				.returning()
+			if (!updated) {
+				throw new Error("markLeaderboardViewed: user vanished mid-request")
 			}
 			return updated
 		},

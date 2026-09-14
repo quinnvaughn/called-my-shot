@@ -31,6 +31,9 @@ type Props = {
 	// matchup fields above are structural props, so one value can't be both.
 	// Omitted where starters shouldn't show at all.
 	starters?: FragmentType<typeof GameStartersFragment>
+	// Starters as one key line per team with no expand toggle, for a card that
+	// has to hold its height (the landing page's try-it stack).
+	compactStarters?: boolean
 	// The game page's own header leaves this off - that page already lists the
 	// questions this would link to.
 	questionsLink?: {
@@ -180,7 +183,12 @@ function TeamLine({
 // which stays the small inline badge inside QuestionCard/CallCard list cards.
 // Detail pages are prominent enough to warrant full team names, a real score,
 // and each team's record.
-export function GameMatchupHeader({ game, starters, questionsLink }: Props) {
+export function GameMatchupHeader({
+	game,
+	starters,
+	compactStarters = false,
+	questionsLink,
+}: Props) {
 	const live = game.status === "LIVE"
 	const final = game.status === "FINAL"
 	const scored = live || final
@@ -261,7 +269,7 @@ export function GameMatchupHeader({ game, starters, questionsLink }: Props) {
 				)}
 			</HStack>
 
-			{starters && <GameStarters game={starters} />}
+			{starters && <GameStarters game={starters} compact={compactStarters} />}
 
 			{/* Only worth a link when there's more than the question being read
 			right now. */}

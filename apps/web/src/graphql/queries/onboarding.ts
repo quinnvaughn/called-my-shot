@@ -18,6 +18,7 @@ export const ViewerOnboardingDocument = graphql(`
 			__typename
 			... on ViewerOnboarding {
 				hasCalled
+				hasViewedLeaderboard
 				hasGroup
 				hasCreatedQuestion
 				suggestedQuestion {

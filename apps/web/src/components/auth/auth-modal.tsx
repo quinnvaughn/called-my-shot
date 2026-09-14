@@ -40,7 +40,12 @@ type AuthModalProps = {
 	// succeeds - lets callers (e.g. useRequireAuth) resume whatever action
 	// was gated behind auth.
 	onSuccess?: () => void
+	// Where the modal was opened from, recorded on the signed-up/signed-in
+	// event.
+	surface?: AuthModalSurface
 }
+
+export type AuthModalSurface = "guest_picks" | "default"
 
 const defaultCopy: AuthModalCopy = {
 	signin: {
@@ -57,6 +62,7 @@ export function AuthModal({
 	defaultView = "signin",
 	copy,
 	onSuccess,
+	surface = "default",
 }: AuthModalProps) {
 	const [view, setView] = useState<AuthModalView>(defaultView)
 
@@ -80,15 +86,20 @@ export function AuthModal({
 				<Modal.Description>{description}</Modal.Description>
 			</VStack>
 			{view === "signin" ? (
-				<SignInFields onSuccess={onSuccess} />
+				<SignInFields onSuccess={onSuccess} surface={surface} />
 			) : (
-				<SignUpFields onSuccess={onSuccess} />
+				<SignUpFields onSuccess={onSuccess} surface={surface} />
 			)}
 		</Modal>
 	)
 }
 
-function SignInFields({ onSuccess }: { onSuccess?: () => void }) {
+type FieldsProps = {
+	onSuccess?: () => void
+	surface: AuthModalSurface
+}
+
+function SignInFields({ onSuccess, surface }: FieldsProps) {
 	const signIn = useGqlMutation(SignInDocument)
 	const router = useRouter()
 	const queryClient = useQueryClient()
@@ -116,7 +127,7 @@ function SignInFields({ onSuccess }: { onSuccess?: () => void }) {
 					helpers.setErrors(errors)
 				})
 				.with({ __typename: "AuthPayload" }, async () => {
-					track("user_signed_in", { method: "email" })
+					track("user_signed_in", { method: "email", surface })
 					queryClient.clear()
 					await router.invalidate()
 					closeModal()
@@ -186,7 +197,7 @@ function SignInFields({ onSuccess }: { onSuccess?: () => void }) {
 	)
 }
 
-function SignUpFields({ onSuccess }: { onSuccess?: () => void }) {
+function SignUpFields({ onSuccess, surface }: FieldsProps) {
 	const signUp = useGqlMutation(SignUpDocument)
 	const router = useRouter()
 	const queryClient = useQueryClient()
@@ -214,7 +225,7 @@ function SignUpFields({ onSuccess }: { onSuccess?: () => void }) {
 					helpers.setErrors(errors)
 				})
 				.with({ __typename: "AuthPayload" }, async () => {
-					track("user_signed_up", { method: "email" })
+					track("user_signed_up", { method: "email", surface })
 					queryClient.clear()
 					await router.invalidate()
 					closeModal()
