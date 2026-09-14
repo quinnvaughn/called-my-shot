@@ -42,6 +42,19 @@ import {
 	type SlotGroup,
 } from "./windows"
 
+// Games sharing a kickoff (a Sunday early slate, a night of 7:05 first
+// pitches) are ordered by away team name, so the list reads predictably and
+// holds its order as scores update.
+function byKickoffThenAwayTeam(
+	a: Game & { awayTeam: { name: string } | null },
+	b: Game & { awayTeam: { name: string } | null },
+) {
+	return (
+		a.startsAt.getTime() - b.startsAt.getTime() ||
+		(a.awayTeam?.name ?? "").localeCompare(b.awayTeam?.name ?? "")
+	)
+}
+
 builder.queryFields((t) => ({
 	sports: t.field({
 		type: [SportRef],
@@ -223,7 +236,7 @@ builder.queryFields((t) => ({
 							}
 						: {}),
 				},
-				orderBy: { startsAt: "asc" },
+				orderBy: { startsAt: "asc", id: "asc" },
 				limit,
 			})
 		},
@@ -242,7 +255,7 @@ builder.queryFields((t) => ({
 			if (!currentSeason) return []
 			return db.query.games.findMany({
 				where: { leagueId: args.leagueId, seasonId: currentSeason.id },
-				orderBy: { startsAt: "asc" },
+				orderBy: { startsAt: "asc", id: "asc" },
 			})
 		},
 	}),
@@ -315,13 +328,15 @@ builder.queryFields((t) => ({
 						seasonType: seasonType as "regular" | "postseason",
 						weekNumber: Number(weekNumberRaw),
 					},
-					orderBy: { startsAt: "asc" },
+					with: { awayTeam: true },
+					orderBy: { startsAt: "asc", id: "asc" },
 				})
+				rows.sort(byKickoffThenAwayTeam)
 				const labels = SLOT_LABELS_BY_LEAGUE[league.slug] ?? {}
 				// Groups come out in kickoff order rather than a fixed list of
 				// slots, because the league's week has no fixed shape - a
 				// Wednesday opener, a Saturday slate in December, a Friday game.
-				// `rows` is already sorted by startsAt, so a Map keyed by slot
+				// `rows` is already sorted by kickoff, so a Map keyed by slot
 				// picks up each group in the order its first game is played.
 				const bySlot = new Map<string, Game[]>()
 				const unslotted: Game[] = []
@@ -351,8 +366,10 @@ builder.queryFields((t) => ({
 					leagueId: league.id,
 					startsAt: { gte: selected.rangeStart, lte: selected.rangeEnd },
 				},
-				orderBy: { startsAt: "asc" },
+				with: { awayTeam: true },
+				orderBy: { startsAt: "asc", id: "asc" },
 			})
+			rows.sort(byKickoffThenAwayTeam)
 			return {
 				window: selected,
 				prevKey,
