@@ -47,6 +47,17 @@ export const CallRecordDocument = graphql(`
 					abbreviation
 					slug
 				}
+				game {
+					id
+					awayTeam {
+						id
+						abbreviation
+					}
+					homeTeam {
+						id
+						abbreviation
+					}
+				}
 			}
 			selections {
 				id

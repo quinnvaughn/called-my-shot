@@ -74,10 +74,20 @@ describe("buildCallShareCard", () => {
 		expect(texts.some((t) => t.startsWith("Minnesota Timberwolves"))).toBe(true)
 	})
 
-	it("states the call date on a resolved card", () => {
+	it("states the call date and the points won on a resolved card", () => {
 		const texts = textNodes(buildCallShareCard(base))
 		expect(texts).toContain("Mar 3, 2026")
-		expect(texts).toContain("+240 pts")
+		expect(texts).toContain("Points won")
+		expect(texts).toContain("+240")
+	})
+
+	it("states the points lost on a miss", () => {
+		const texts = textNodes(
+			buildCallShareCard({ ...base, points: -120, isWin: false }),
+		)
+		expect(texts).toContain("Missed")
+		expect(texts).toContain("Points lost")
+		expect(texts).toContain("−120")
 	})
 
 	it("states how far off a numeric guess landed", () => {
@@ -122,7 +132,7 @@ describe("buildCallShareCard", () => {
 		)
 		expect(texts).toContain("Locks Jun 12, 2027")
 		expect(texts).toContain("Mar 3, 2026")
-		expect(texts.some((t) => t.includes("pts"))).toBe(false)
+		expect(texts.some((t) => t.startsWith("Points"))).toBe(false)
 		expect(texts.some((t) => t.includes("Called it before"))).toBe(false)
 	})
 })

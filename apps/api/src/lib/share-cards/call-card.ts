@@ -48,12 +48,15 @@ export function clamp(text: string, max: number): string {
 // Measured against Archivo Black / Inter at the sizes used below, across the
 // card's ~1050px of inner width.
 const PICK_HERO_MAX = 22
+// The resolved card's text column gives up ~380px to the points panel.
+const PICK_HERO_MAX_BESIDE_POINTS = 16
 const PICK_MAX = 42
 const TITLE_MAX = 100
 const CASE_MAX = 150
 
 const HEADER_HEIGHT = 96
 const FOOTER_HEIGHT = 168
+const POINTS_PANEL_WIDTH = 340
 
 export type CallShareCardData = {
 	questionTitle: string
@@ -122,16 +125,74 @@ export function statCell(
 	])
 }
 
+// The result is the first thing anyone scrolling past an unfurl should read,
+// so it gets its own tinted panel beside the pick rather than a cell in the
+// footer row at the same weight as the call date.
+function pointsPanel(points: number, win: boolean): SatoriNode {
+	const color = win ? COLOR.success : COLOR.danger
+	const value = `${win ? "+" : "−"}${Math.abs(points)}`
+	// Archivo Black digits run ~0.7em wide, so the size steps down with the
+	// digit count to stay inside the panel.
+	const fontSize =
+		value.length <= 4 ? "112px" : value.length === 5 ? "92px" : "72px"
+	return el(
+		"div",
+		{
+			display: "flex",
+			flexDirection: "column",
+			alignItems: "center",
+			justifyContent: "center",
+			width: `${POINTS_PANEL_WIDTH}px`,
+			flexShrink: 0,
+			alignSelf: "stretch",
+			gap: "6px",
+			backgroundColor: win ? COLOR.successSubtle : COLOR.dangerSubtle,
+			border: `1px solid ${win ? COLOR.success : COLOR.danger}`,
+			borderRadius: "16px",
+		},
+		[
+			el(
+				"span",
+				{
+					display: "flex",
+					fontFamily: "Space Mono",
+					fontWeight: 700,
+					fontSize: "22px",
+					letterSpacing: "2px",
+					textTransform: "uppercase",
+					color,
+				},
+				win ? "Points won" : "Points lost",
+			),
+			el(
+				"span",
+				{
+					display: "flex",
+					fontFamily: "Archivo Black",
+					fontSize,
+					lineHeight: 1,
+					color,
+				},
+				value,
+			),
+		],
+	)
+}
+
 export function buildCallShareCard(data: CallShareCardData): SatoriNode {
 	const resolved = data.points !== null && data.isWin !== null
 	const win = data.isWin === true
 	const nailed = data.closeness?.kind === "exact"
+	const textAlign = resolved ? "left" : "center"
 
 	const pick = clamp(data.pickLabel, PICK_MAX)
 	// Two sizes rather than one that fits the worst case: "Over 47.5" earns
 	// the hero treatment, and "Minnesota Timberwolves" still has to fit next
 	// to it without being set at a size only it needs.
-	const pickFontSize = pick.length <= PICK_HERO_MAX ? "68px" : "44px"
+	const pickFontSize =
+		pick.length <= (resolved ? PICK_HERO_MAX_BESIDE_POINTS : PICK_HERO_MAX)
+			? "68px"
+			: "44px"
 
 	const body: SatoriNode[] = [
 		eyebrow(
@@ -155,7 +216,8 @@ export function buildCallShareCard(data: CallShareCardData): SatoriNode {
 				fontFamily: "Archivo Black",
 				fontSize: pickFontSize,
 				lineHeight: 1.1,
-				textAlign: "center",
+				textAlign,
+				lineClamp: 2,
 				// A pending call is not a loss, so it never gets the muted
 				// treatment a miss does.
 				color: nailed
@@ -174,7 +236,7 @@ export function buildCallShareCard(data: CallShareCardData): SatoriNode {
 				fontSize: "22px",
 				lineHeight: 1.3,
 				color: COLOR.steel,
-				textAlign: "center",
+				textAlign,
 				lineClamp: 2,
 			},
 			clamp(data.questionTitle, TITLE_MAX),
@@ -213,19 +275,13 @@ export function buildCallShareCard(data: CallShareCardData): SatoriNode {
 	} else if (data.closeness?.kind === "off") {
 		cells.push(statCell("Off by", data.closeness.by))
 	}
-	cells.push(
-		resolved
-			? statCell(
-					"Result",
-					`${win ? "+" : "−"}${Math.abs(data.points ?? 0)} pts`,
-					{ color: win ? COLOR.success : COLOR.danger, big: true },
-				)
-			: // Not Archivo Black like the points cell - it isn't a number and
-				// shouldn't shout as if it were one.
-				statCell("Status", data.pendingLabel ?? "Awaiting result", {
-					color: COLOR.dim,
-				}),
-	)
+	if (!resolved) {
+		cells.push(
+			statCell("Status", data.pendingLabel ?? "Awaiting result", {
+				color: COLOR.dim,
+			}),
+		)
+	}
 
 	return el(
 		"div",
@@ -279,21 +335,52 @@ export function buildCallShareCard(data: CallShareCardData): SatoriNode {
 					// leave and centres its content in it. overflow: hidden so
 					// that a field which somehow beats its cap gets cut off at
 					// the band's edge instead of painting over the footer.
-					el(
-						"div",
-						{
-							display: "flex",
-							flexDirection: "column",
-							flex: "1",
-							overflow: "hidden",
-							alignItems: "center",
-							justifyContent: "center",
-							gap: "10px",
-							paddingLeft: "48px",
-							paddingRight: "48px",
-						},
-						body,
-					),
+					resolved
+						? el(
+								"div",
+								{
+									display: "flex",
+									flex: "1",
+									overflow: "hidden",
+									alignItems: "center",
+									gap: "40px",
+									paddingTop: "28px",
+									paddingBottom: "28px",
+									paddingLeft: "48px",
+									paddingRight: "36px",
+								},
+								[
+									el(
+										"div",
+										{
+											display: "flex",
+											flexDirection: "column",
+											flex: "1",
+											overflow: "hidden",
+											alignItems: "flex-start",
+											justifyContent: "center",
+											gap: "10px",
+										},
+										body,
+									),
+									pointsPanel(data.points ?? 0, win),
+								],
+							)
+						: el(
+								"div",
+								{
+									display: "flex",
+									flexDirection: "column",
+									flex: "1",
+									overflow: "hidden",
+									alignItems: "center",
+									justifyContent: "center",
+									gap: "10px",
+									paddingLeft: "48px",
+									paddingRight: "48px",
+								},
+								body,
+							),
 					// Footer
 					el(
 						"div",

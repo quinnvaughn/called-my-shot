@@ -18,6 +18,7 @@ import { NotFound } from "#/components/ui/not-found"
 import { PageHeader } from "#/components/ui/page-header"
 import type { CallRecordQuery } from "#/graphql/generated/graphql"
 import { callRecordQuery } from "#/graphql/queries/call"
+import { callPageMeta } from "#/lib/call-meta"
 import { pickSummary } from "#/lib/call-summary"
 import { formatGuess, isRateStat } from "#/lib/field-signal"
 import { formatCallDate, formatCallLead } from "#/lib/format-date"
@@ -31,8 +32,8 @@ import { buildQuestionSlug } from "#/lib/slug"
 // No slug segment, unlike /questions/:id/:slug and /games/:id/:slug. A slug
 // there earns its keep with crawlers; nothing about a single person's call
 // wants indexing, and calls are deliberately left out of the sitemap for the
-// same reason. This url exists to be pasted, and it unfurls into the card
-// below rather than relying on its own text to say anything.
+// same reason. This url exists to be pasted, so its title and og:image each
+// state the whole call on their own (see lib/call-meta.ts).
 export const Route = createFileRoute("/_app/calls/$callId")({
 	component: RouteComponent,
 	loader: async ({ context, params }) => {
@@ -44,21 +45,27 @@ export const Route = createFileRoute("/_app/calls/$callId")({
 		if (!call) return {}
 
 		const view = describeCall(call)
-		const dates = view.resolvedAt
-			? `called ${view.calledAt}, resolved ${formatCallDate(view.resolvedAt)}`
-			: view.questionStatus === "OPEN"
-				? `called ${view.calledAt}. Locks ${formatCallDate(view.locksAt)}.`
-				: `called ${view.calledAt}. Awaiting result.`
-		const outcome =
-			view.points !== null
-				? `${view.isWin ? "+" : "−"}${Math.abs(view.points)} pts · `
-				: ""
+		const { title, description } = callPageMeta({
+			username: view.username,
+			pickLabel: view.pickLabel,
+			questionTitle: call.question.title,
+			game: call.question.game,
+			leagueAbbr: view.leagueAbbr,
+			shapeLabel: shareCardShapeLabel[call.question.shape],
+			conviction: view.conviction,
+			points: view.points,
+			isWin: view.isWin,
+			exact: view.closeness?.kind === "exact",
+			questionStatus: view.questionStatus,
+			calledAt: view.calledAt,
+			locksAt: formatCallDate(view.locksAt),
+			resolvedAt: view.resolvedAt ? formatCallDate(view.resolvedAt) : null,
+			caseText: call.caseText,
+		})
 
 		return pageMeta({
-			// The claim is the claim, settled or not - the description below is
-			// where the outcome goes.
-			title: `@${view.username} called ${view.pickLabel}`,
-			description: `${outcome}${view.leagueAbbr} · ${dates}`,
+			title,
+			description,
 			path: `/calls/${call.id}`,
 			image: {
 				// Third-party unfurl caches hold a scraped card for days, so a
@@ -70,7 +77,7 @@ export const Route = createFileRoute("/_app/calls/$callId")({
 				path: `/share/calls/${call.id}/card.png?v=${
 					view.resolvedAt ? Date.parse(view.resolvedAt) : "pending"
 				}`,
-				alt: `${view.username}'s call: ${view.pickLabel}`,
+				alt: title,
 			},
 		})
 	},
