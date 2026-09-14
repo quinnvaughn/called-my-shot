@@ -63,9 +63,9 @@ describe("buildStreakShareCard", () => {
 
 	it("leads with the best run once the current one has ended", () => {
 		const texts = textNodes(buildStreakShareCard({ ...base, currentLength: 0 }))
-		expect(texts).toContain("Best 9")
+		expect(texts).toContain("9 in a row")
 		expect(texts).not.toContain("0 in a row")
-		expect(texts).toContain("9 NFL Player Stats calls right in a row")
+		expect(texts).toContain("Best run on NFL Player Stats")
 	})
 
 	it("caps a long last-hit pick and title", () => {
@@ -89,7 +89,7 @@ describe("buildStreakShareCard", () => {
 describe("streakHero", () => {
 	it("is the run length while a run is going, the best otherwise", () => {
 		expect(streakHero(7, 9)).toBe("7 in a row")
-		expect(streakHero(0, 9)).toBe("Best 9")
+		expect(streakHero(0, 9)).toBe("9 in a row")
 	})
 })
 

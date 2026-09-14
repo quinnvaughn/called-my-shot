@@ -88,7 +88,7 @@ describe("streakPageMeta", () => {
 			}),
 		).toEqual({
 			title: "@quinn is 7 in a row on NFL Player Stats",
-			description: "7 in a row · Best 9 · Run started Sep 3, 2026.",
+			description: "7 in a row · Best run of 9 · Run started Sep 3, 2026.",
 		})
 	})
 
@@ -101,7 +101,7 @@ describe("streakPageMeta", () => {
 			runStartedAt: null,
 		})
 		expect(title).toBe("@quinn's best on NFL Player Stats: 9 in a row")
-		expect(description).toBe("No current run · Best 9.")
+		expect(description).toBe("No current run · Best run of 9.")
 	})
 })
 

@@ -109,7 +109,7 @@ export function buildSweepShareCard(data: SweepShareCardData): SatoriNode {
 
 	const cells: SatoriNode[] = [
 		statCell("Games", String(n)),
-		statCell("Record", `${n}–0`, { color: COLOR.success }),
+		statCell("Record", `${n}–0`),
 	]
 	// Every call in a sweep won, and a winning pick never scores below zero.
 	if (data.points !== null) {

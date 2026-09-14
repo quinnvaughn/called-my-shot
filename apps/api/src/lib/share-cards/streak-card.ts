@@ -51,9 +51,10 @@ export type StreakShareCardData = {
 }
 
 // "7 in a row" while a run is going. A track whose newest call missed has no
-// current run to state, so it leads with the best one instead.
+// current run to state, so it leads with the best one instead, and the line
+// under it names that as the best run.
 export function streakHero(currentLength: number, bestLength: number): string {
-	return currentLength > 0 ? `${currentLength} in a row` : `Best ${bestLength}`
+	return `${currentLength > 0 ? currentLength : bestLength} in a row`
 }
 
 function lastHitCell(hit: StreakShareCardData["lastHit"]): SatoriNode {
@@ -178,7 +179,7 @@ export function buildStreakShareCard(data: StreakShareCardData): SatoriNode {
 								},
 								going
 									? `${track} call${runLength === 1 ? "" : "s"} right`
-									: `${runLength} ${track} call${runLength === 1 ? "" : "s"} right in a row`,
+									: `Best run on ${track}`,
 							),
 						],
 					),

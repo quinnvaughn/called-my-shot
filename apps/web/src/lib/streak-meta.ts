@@ -127,7 +127,7 @@ export function streakPageMeta(
 		input.currentLength > 0
 			? `${input.currentLength} in a row`
 			: "No current run",
-		`Best ${input.bestLength}`,
+		`Best run of ${input.bestLength}`,
 		input.runStartedAt ? `Run started ${input.runStartedAt}` : null,
 	]
 		.filter((part) => part !== null)

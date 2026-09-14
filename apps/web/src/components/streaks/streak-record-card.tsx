@@ -95,9 +95,7 @@ export function StreakRecordCard(props: Props) {
 								textAlign: "center",
 							})}
 						>
-							{going
-								? `${props.currentLength} in a row`
-								: `Best ${props.bestLength}`}
+							{runLength} in a row
 						</span>
 						<span
 							className={css({
@@ -108,7 +106,7 @@ export function StreakRecordCard(props: Props) {
 						>
 							{going
 								? `${track} ${pluralize(runLength, "call")} right`
-								: `${runLength} ${track} ${pluralize(runLength, "call")} right in a row`}
+								: `Best run on ${track}`}
 						</span>
 					</VStack>
 					<HStack gap="2" alignItems="center">
