@@ -94,5 +94,6 @@ export async function withJobLock(
 // The lease names the jobs share with their schedulers. Constants rather than
 // string literals at each call site because a typo in one of them silently
 // buys a second, useless lease instead of failing.
+export const AUTO_RESOLVE_GAMES_LOCK = "auto-resolve-games"
 export const DRAIN_DIGESTS_LOCK = "drain-email-digests"
 export const DRAIN_SEASON_START_LOCK = "drain-season-start-emails"

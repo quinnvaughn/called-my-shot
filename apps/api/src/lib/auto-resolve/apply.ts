@@ -180,9 +180,13 @@ async function recheck(
 	ctx: ApplyContext,
 ): Promise<AutoResolutionPatch | null> {
 	const recheckDueAt = auto?.recheckDueAt
+	// Checked again under the row lock: a run that loaded this question while it
+	// was still open reaches here after another run settled it, and must not
+	// spend the re-check early.
 	if (
 		question.resolutionMethod !== "system" ||
 		!recheckDueAt ||
+		recheckDueAt > ctx.now ||
 		auto.recheckedAt
 	) {
 		return null

@@ -21,7 +21,9 @@ import { findSourceId } from "./sync-refs"
 const LOOKBACK_MS = 6 * 60 * 60 * 1000
 const LOOKAHEAD_MS = 10 * 60 * 1000
 
-export async function syncLiveScores(): Promise<void> {
+// Returns the games this run moved to final, so the caller can settle their
+// questions straight away.
+export async function syncLiveScores(): Promise<string[]> {
 	const now = new Date()
 	const candidates = await db.query.games.findMany({
 		where: {
@@ -42,7 +44,7 @@ export async function syncLiveScores(): Promise<void> {
 
 	if (candidates.length === 0) {
 		console.log("[sync-live-scores] nothing in flight")
-		return
+		return []
 	}
 
 	// One scoreboard call per league covers every candidate game in that
@@ -52,6 +54,7 @@ export async function syncLiveScores(): Promise<void> {
 	// live), which is exactly why a live game sat at "LIVE ---" forever. The
 	// scoreboard endpoint is ESPN's real live feed instead.
 	const scoreboardCache = new Map<string, EspnScoreboardEvent[]>()
+	const wentFinal: string[] = []
 
 	for (const game of candidates) {
 		const league = game.league
@@ -59,7 +62,7 @@ export async function syncLiveScores(): Promise<void> {
 		const config = SYNCED_LEAGUES.find((c) => c.leagueSlug === league.slug)
 		if (!config) continue
 
-		await db.transaction(async (tx) => {
+		const isNewlyFinal = await db.transaction(async (tx) => {
 			let scoreboard = scoreboardCache.get(config.espnPath)
 			if (!scoreboard) {
 				scoreboard = await fetchScoreboard(config.espnPath)
@@ -69,7 +72,7 @@ export async function syncLiveScores(): Promise<void> {
 			const gameSourceId = await findSourceId(tx, "game", game.id)
 			const espnEventId = gameSourceId?.split(":")[1]
 			const event = scoreboard.find((e) => e.id === espnEventId)
-			if (!event) return
+			if (!event) return false
 
 			const competition = event.competitions[0]
 			const [home, away] = competition.competitors
@@ -104,8 +107,12 @@ export async function syncLiveScores(): Promise<void> {
 					awayScore,
 				)
 			}
+			return status === "final" && game.status !== "final"
 		})
+		if (isNewlyFinal) wentFinal.push(game.id)
 	}
+
+	return wentFinal
 }
 
 if (isMainModule(import.meta.url)) {

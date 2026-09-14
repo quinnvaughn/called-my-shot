@@ -10,6 +10,7 @@ import { syncLiveScores } from "./db/sync/sync-live-scores"
 import { drainResolutionDigests } from "./lib/email-digest"
 import { tuneLines } from "./lib/game-questions/tune-lines"
 import {
+	AUTO_RESOLVE_GAMES_LOCK,
 	DRAIN_DIGESTS_LOCK,
 	DRAIN_SEASON_START_LOCK,
 	withJobLock,
@@ -35,11 +36,21 @@ function runJob(name: string, fn: () => Promise<void>) {
 }
 
 export function startScheduler(): void {
-	cron.schedule("*/5 * * * *", runJob("sync-live-scores", syncLiveScores), {
-		name: "sync-live-scores",
-		timezone: "UTC",
-		noOverlap: true,
-	})
+	// A game going final is the moment its questions can settle, so the ones
+	// this tick marked final are resolved in the same tick rather than waiting
+	// for auto-resolve-games' own schedule below.
+	cron.schedule(
+		"*/5 * * * *",
+		async () => {
+			let wentFinal: string[] = []
+			await runJob("sync-live-scores", async () => {
+				wentFinal = await syncLiveScores()
+			})()
+			if (wentFinal.length === 0) return
+			await runJob(AUTO_RESOLVE_GAMES_LOCK, () => autoResolveGames())()
+		},
+		{ name: "sync-live-scores", timezone: "UTC", noOverlap: true },
+	)
 	cron.schedule(
 		"*/15 * * * *",
 		runJob("lock-overdue-questions", lockOverdueQuestions),
@@ -63,13 +74,15 @@ export function startScheduler(): void {
 		},
 		{ name: "sync-game-starters", timezone: "UTC", noOverlap: true },
 	)
-	// Every 10m, but a game is only read once it has been final for
-	// SETTLE_DELAY_MS, and a question only again once its retry or its
-	// re-check comes due (see db/sync/auto-resolve-games.ts).
+	// Retries, re-checks, and games the daily sync marked final. A question is
+	// only read again once its retry or its re-check comes due (see
+	// db/sync/auto-resolve-games.ts). Offset from sync-live-scores' */5 so a
+	// run here isn't holding the lock when that tick settles a game that just
+	// went final.
 	cron.schedule(
-		"*/10 * * * *",
-		runJob("auto-resolve-games", () => autoResolveGames()),
-		{ name: "auto-resolve-games", timezone: "UTC", noOverlap: true },
+		"2-59/10 * * * *",
+		runJob(AUTO_RESOLVE_GAMES_LOCK, () => autoResolveGames()),
+		{ name: AUTO_RESOLVE_GAMES_LOCK, timezone: "UTC", noOverlap: true },
 	)
 	// Daily, after sync-sports-data has brought the season's games up to date.
 	// A season is only read once its regular season is over (see
@@ -133,6 +146,6 @@ export function startScheduler(): void {
 		{ name: DRAIN_SEASON_START_LOCK, timezone: "UTC", noOverlap: true },
 	)
 	console.log(
-		"[scheduler] started: sync-live-scores */5m, lock-overdue-questions */15m, sync-sports-data daily 09:00 UTC, sync-game-starters then generate-game-questions */30m, auto-resolve-games */10m, auto-resolve-seasons daily 10:30 UTC, auto-resolve-championships daily 10:45 UTC, tune-lines daily 11:00 UTC, drain-email-digests */5m, enqueue-season-start-emails daily 13:00 UTC, drain-season-start-emails */5m",
+		"[scheduler] started: sync-live-scores */5m (then auto-resolve-games when a game went final), lock-overdue-questions */15m, sync-sports-data daily 09:00 UTC, sync-game-starters then generate-game-questions */30m, auto-resolve-games 2-59/10m, auto-resolve-seasons daily 10:30 UTC, auto-resolve-championships daily 10:45 UTC, tune-lines daily 11:00 UTC, drain-email-digests */5m, enqueue-season-start-emails daily 13:00 UTC, drain-season-start-emails */5m",
 	)
 }

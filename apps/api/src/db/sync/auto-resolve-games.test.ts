@@ -148,11 +148,29 @@ describe("autoResolveGames", () => {
 		)
 	})
 
-	it("waits until the game has been final long enough", async () => {
-		const setup = await seedNbaGame(0.1)
-		await seedPointsLine(setup, "4869780", 22.5)
+	it("resolves a game that has only just gone final", async () => {
+		const setup = await seedNbaGame(0)
+		const { question } = await seedPointsLine(setup, "4869780", 22.5)
+		vi.mocked(fetchGameSummary).mockResolvedValue(nbaSummary())
+
 		await run()
-		expect(fetchGameSummary).not.toHaveBeenCalled()
+
+		expect((await questionById(question.id))?.status).toBe("resolved")
+	})
+
+	it("waits on a box score ESPN hasn't finished", async () => {
+		const setup = await seedNbaGame(0)
+		const { question } = await seedPointsLine(setup, "4869780", 22.5)
+		const partial = nbaSummary()
+		partial.header.competitions[0].boxscoreSource = "basic"
+		vi.mocked(fetchGameSummary).mockResolvedValue(partial)
+
+		await run()
+
+		expect((await questionById(question.id))?.status).toBe("locked")
+		const auto = await autoRowFor(question.id)
+		expect(auto?.failureReason).toBe("box_score_not_final")
+		expect(auto?.nextAttemptAt).not.toBeNull()
 	})
 
 	it("voids the question when the player didn't play", async () => {

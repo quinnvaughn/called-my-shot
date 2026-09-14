@@ -35,11 +35,8 @@ import {
 } from "./espn-requester"
 import { SYNCED_LEAGUES } from "./leagues"
 
-const MINUTE_MS = 60 * 1000
-const HOUR_MS = 60 * MINUTE_MS
+const HOUR_MS = 60 * 60 * 1000
 
-// ESPN keeps filling a box score in for a while after the game ends.
-export const SETTLE_DELAY_MS = 30 * MINUTE_MS
 // How long past the game going final a retryable failure keeps being retried
 // before the question is handed to an admin.
 export const ESCALATE_AFTER_MS = 12 * HOUR_MS
@@ -56,15 +53,13 @@ const CANDIDATE_RELATIONS = {
 	autoResolution: true,
 } as const
 
-// System questions on games that have been final long enough to read: the
-// ones still waiting on a result, and settled ones whose re-check is due.
-// team_vs_team is settled by resolveGameWinner the moment the game goes final,
-// so only its re-check comes through here.
+// System questions on final games: the ones still waiting on a result, and
+// settled ones whose re-check is due. A box score that isn't complete yet fails
+// as box_score_not_final and is retried, and a stat ESPN corrects later is
+// caught by the re-check. team_vs_team is settled by resolveGameWinner the
+// moment the game goes final, so only its re-check comes through here.
 async function loadCandidates(now: Date) {
-	const game = {
-		status: "final",
-		finalizedAt: { lte: new Date(now.getTime() - SETTLE_DELAY_MS) },
-	} as const
+	const game = { status: "final" } as const
 	const [unsettled, awaitingRecheck] = await Promise.all([
 		db.query.questions.findMany({
 			where: {
