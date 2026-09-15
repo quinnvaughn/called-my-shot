@@ -12,7 +12,6 @@ import { builder } from "../../builder"
 import type { Context } from "../../context"
 import { type Connection, PageInfoRef } from "../pagination"
 import { UserRef } from "../user"
-import { GroupRole } from "./enums"
 
 export type GroupLeaderboardEntry = {
 	// null until this member has a resolved call (see rankEntries)
@@ -22,7 +21,6 @@ export type GroupLeaderboardEntry = {
 	accuracy: number | null
 	callCount: number
 	resolvedCallCount: number
-	role: "admin" | "member"
 }
 
 export const GroupLeaderboardEntryRef = builder
@@ -35,7 +33,6 @@ export const GroupLeaderboardEntryRef = builder
 			accuracy: t.exposeFloat("accuracy", { nullable: true }),
 			callCount: t.exposeInt("callCount"),
 			resolvedCallCount: t.exposeInt("resolvedCallCount"),
-			role: t.field({ type: GroupRole, resolve: (entry) => entry.role }),
 			user: t.field({ type: UserRef, resolve: (entry) => entry.user }),
 		}),
 	})
@@ -90,7 +87,6 @@ async function buildLeaderboard(
 				accuracy: summary ? accuracyFrom(summary) : null,
 				callCount: summary?.callCount ?? 0,
 				resolvedCallCount: summary?.resolvedCallCount ?? 0,
-				role: membership.role,
 			},
 		]
 	})

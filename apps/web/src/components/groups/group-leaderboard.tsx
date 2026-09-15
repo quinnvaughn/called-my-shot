@@ -24,7 +24,6 @@ import { LeaderboardFilters } from "../leaderboard/leaderboard-filters"
 export const GroupLeaderboardEntryFragment = graphql(`
 	fragment GroupLeaderboard_entry on GroupLeaderboardEntry {
 		rank
-		role
 		totalPoints
 		accuracy
 		resolvedCallCount
@@ -95,7 +94,6 @@ type GroupLeaderboardProps = {
 
 function toRowData(entry: {
 	rank: number | null
-	role: "ADMIN" | "MEMBER"
 	totalPoints: number
 	resolvedCallCount: number
 	accuracy: number | null
@@ -106,7 +104,6 @@ function toRowData(entry: {
 		totalPoints: entry.totalPoints,
 		resolvedCallCount: entry.resolvedCallCount,
 		accuracy: entry.accuracy,
-		role: entry.role,
 		user: entry.user,
 	}
 }

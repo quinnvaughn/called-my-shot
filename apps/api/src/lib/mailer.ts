@@ -1,7 +1,14 @@
 import { Resend } from "resend"
 import { env } from "../env"
 
-const resend = env.RESEND_API_KEY ? new Resend(env.RESEND_API_KEY) : null
+// Delivery also requires a public CLIENT_ORIGIN. A key in a local .env (kept
+// there for the --send scripts, which point CLIENT_ORIGIN at the live site)
+// must not turn the dev server's cron drains into real sends to seeded users,
+// with every link pointing at localhost.
+const resend =
+	env.RESEND_API_KEY && env.CLIENT_ORIGIN.startsWith("https://")
+		? new Resend(env.RESEND_API_KEY)
+		: null
 
 export type MailMessage = {
 	to: string

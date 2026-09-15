@@ -1,7 +1,7 @@
 import { useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute, useRouteContext } from "@tanstack/react-router"
 import { type ReactNode, useState } from "react"
-import { FiSettings, FiUserPlus } from "react-icons/fi"
+import { FiSettings, FiUserPlus, FiUsers } from "react-icons/fi"
 import { HiMiniQuestionMarkCircle } from "react-icons/hi2"
 import { css } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
@@ -19,6 +19,7 @@ import {
 	GroupLeaderboard,
 	groupLeaderboardQuery,
 } from "#/components/groups/group-leaderboard"
+import { GroupMembersSheet } from "#/components/groups/group-members-sheet"
 import { GroupSettingsModal } from "#/components/groups/group-settings-modal"
 import { InviteCodeModal } from "#/components/groups/invite-code-modal"
 import {
@@ -124,16 +125,19 @@ export const Route = createFileRoute("/_app/_authed/groups/$groupId")({
 	},
 })
 
-// A phone can't fit a group name and two labeled buttons on one line, and the
-// name is the more important half - so below md each action shows only its
-// icon, with the label carried as the button's accessible name.
+// A phone can't fit a group name and several labeled buttons on one line, and
+// the name is the more important half - so below md each action shows only its
+// icon (plus compactLabel, when set), with the label carried as the button's
+// accessible name.
 function HeaderAction({
 	label,
+	compactLabel,
 	icon,
 	variant,
 	onClick,
 }: {
 	label: string
+	compactLabel?: string
 	icon: ReactNode
 	variant: ButtonVariantProps["variant"]
 	onClick: () => void
@@ -144,12 +148,21 @@ function HeaderAction({
 			variant={variant}
 			aria-label={label}
 			onClick={onClick}
-			// Square off the horizontal padding while the label is hidden, so the
-			// icon-only button doesn't read as a wide empty pill.
-			className={css({ paddingInline: { base: "2.5", md: "4.5" } })}
+			// Square off the horizontal padding while only the icon shows, so the
+			// button doesn't read as a wide empty pill.
+			className={css({
+				paddingInline: { base: compactLabel ? "3" : "2.5", md: "4.5" },
+			})}
 		>
-			<span className={css({ display: { base: "flex", md: "none" } })}>
+			<span
+				className={css({
+					display: { base: "flex", md: "none" },
+					alignItems: "center",
+					gap: "1.5",
+				})}
+			>
 				{icon}
+				{compactLabel}
 			</span>
 			<span className={css({ display: { base: "none", md: "inline" } })}>
 				{label}
@@ -201,10 +214,20 @@ function RouteComponent() {
 			</Breadcrumb>
 			<PageHeader
 				title={group.name}
-				subtitle={`${group.memberCount} ${pluralize(group.memberCount, "member")}`}
 				description={group.description}
 				action={
 					<HStack gap="2">
+						<HeaderAction
+							label={`${group.memberCount} ${pluralize(group.memberCount, "member")}`}
+							compactLabel={String(group.memberCount)}
+							icon={<FiUsers size={16} />}
+							variant="outline"
+							onClick={() =>
+								openModal(
+									<GroupMembersSheet groupId={group.id} viewerId={me?.id} />,
+								)
+							}
+						/>
 						{group.viewerIsAdmin && (
 							<HeaderAction
 								label="Settings"

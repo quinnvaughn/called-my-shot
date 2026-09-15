@@ -166,6 +166,16 @@ export default defineConfig({
           "0%, 100%": { opacity: "1" },
           "50%": { opacity: "0.25" },
         },
+        // Sheet panel entrances (ui/sheet.tsx): rising from the bottom edge
+        // below md, sliding in from the right edge from md up.
+        sheetUp: {
+          from: { transform: "translateY(100%)" },
+          to: { transform: "translateY(0)" },
+        },
+        sheetIn: {
+          from: { transform: "translateX(100%)" },
+          to: { transform: "translateX(0)" },
+        },
       },
       semanticTokens: {
         colors: {
@@ -1255,6 +1265,103 @@ export default defineConfig({
           },
           defaultVariants: {
             size: "sm",
+          },
+        }),
+        // A panel pinned to a screen edge (ui/sheet.tsx) for lists that read
+        // as a roster rather than a dialog. Below md it's a bottom sheet
+        // capped at 85dvh; from md up it's a full-height column on the right.
+        sheet: defineSlotRecipe({
+          className: "sheet",
+          slots: [
+            "overlay",
+            "panel",
+            "dragHandle",
+            "header",
+            "title",
+            "closeButton",
+            "body",
+          ],
+          base: {
+            overlay: {
+              position: "fixed",
+              inset: 0,
+              zIndex: "overlay",
+              backgroundColor: "bg.overlay/70",
+              backdropFilter: "blur(6px)",
+            },
+            panel: {
+              position: "fixed",
+              display: "flex",
+              flexDirection: "column",
+              top: { base: "auto", md: "0" },
+              right: "0",
+              bottom: "0",
+              left: { base: "0", md: "auto" },
+              width: { base: "full", md: "360px" },
+              maxWidth: "full",
+              height: { base: "auto", md: "100dvh" },
+              maxHeight: { base: "85dvh", md: "none" },
+              backgroundColor: "bg.surface",
+              borderTop: {
+                base: "1px solid {colors.border.default}",
+                md: "none",
+              },
+              borderLeft: {
+                base: "none",
+                md: "1px solid {colors.border.default}",
+              },
+              borderTopLeftRadius: { base: "xl", md: "0" },
+              borderTopRightRadius: { base: "xl", md: "0" },
+              boxShadow: "0 24px 60px rgba(0, 0, 0, 0.45)",
+              animation: {
+                base: "sheetUp 0.22s ease",
+                md: "sheetIn 0.22s ease",
+              },
+            },
+            dragHandle: {
+              display: { base: "block", md: "none" },
+              alignSelf: "center",
+              flexShrink: "0",
+              width: "9",
+              height: "1",
+              marginTop: "2.5",
+              borderRadius: "full",
+              backgroundColor: "border.emphasized",
+            },
+            header: {
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: "3",
+              flexShrink: "0",
+              padding: "{spacing.4} {spacing.5}",
+              borderBottom: "1px solid {colors.border.default}",
+            },
+            title: {
+              fontFamily: "heading",
+              fontSize: "lg",
+            },
+            closeButton: {
+              width: "8",
+              height: "8",
+              flexShrink: "0",
+              borderRadius: "full",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              color: "fg.muted",
+              _hover: {
+                backgroundColor: "bg.subtle",
+                color: "fg.default",
+                cursor: "pointer",
+              },
+            },
+            body: {
+              flex: "1",
+              minHeight: "0",
+              overflowY: "auto",
+              padding: "{spacing.4} {spacing.3} {spacing.6}",
+            },
           },
         }),
         // Underlined tabs, not bordered pill buttons - a shared baseline rule

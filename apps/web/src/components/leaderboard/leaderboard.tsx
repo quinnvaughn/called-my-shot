@@ -33,8 +33,6 @@ export type LeaderboardRowData = {
 	// board never counts it (accuracy and the ranking tiebreak agree)
 	resolvedCallCount: number
 	accuracy: number | null
-	// group-only - absent (and never rendered) on the site-wide leaderboard
-	role?: "ADMIN" | "MEMBER"
 	user: { id: string; name: string; username: string }
 }
 
@@ -195,11 +193,6 @@ function LeaderboardRow({
 								@{item.user.username}
 							</span>
 							{item.user.id === viewerId && <Tag size="sm">You</Tag>}
-							{item.role === "ADMIN" && (
-								<Tag size="sm" variant="primary">
-									Admin
-								</Tag>
-							)}
 						</HStack>
 					</VStack>
 				</HStack>

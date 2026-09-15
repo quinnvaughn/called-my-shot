@@ -4,7 +4,6 @@ import {
 	type HTMLAttributes,
 	type ReactNode,
 	useContext,
-	useEffect,
 	useId,
 	useMemo,
 	useRef,
@@ -14,9 +13,7 @@ import { FiX } from "react-icons/fi"
 import { cx } from "styled-system/css"
 import { modal as modalRecipe } from "styled-system/recipes"
 import { closeModal, modalStore } from "#/stores/modal-store"
-
-const FOCUSABLE_SELECTOR =
-	"input, button, [href], select, textarea, [tabindex]:not([tabindex='-1'])"
+import { useDialogBehavior } from "./use-dialog-behavior"
 
 type ModalSlots = ReturnType<typeof modalRecipe>
 
@@ -38,36 +35,17 @@ type ModalProps = { children: ReactNode; size?: "sm" | "md" }
 // The portal/overlay/box/focus-trap chrome. Used directly at the root of each
 // modal's own content component — <Modal> only ever renders because it's the
 // content ModalHost pulled out of the store, so its mount *is* "open", and its
-// unmount (via cleanup below) is "closed". No separate isOpen check needed.
+// unmount (via useDialogBehavior's cleanup) is "closed". No separate isOpen
+// check needed.
 function Modal({ children, size = "sm" }: ModalProps) {
 	const boxRef = useRef<HTMLDivElement>(null)
-	const lastFocusedRef = useRef<HTMLElement | null>(null)
 	const titleId = useId()
 	const slots = useMemo(() => modalRecipe({ size }), [size])
 
-	useEffect(() => {
-		lastFocusedRef.current = document.activeElement as HTMLElement | null
-		document.body.style.overflow = "hidden"
-
-		const focusTarget =
-			boxRef.current?.querySelector<HTMLElement>(FOCUSABLE_SELECTOR) ??
-			boxRef.current
-		focusTarget?.focus()
-
-		function onKeyDown(event: KeyboardEvent) {
-			if (event.key === "Escape") closeModal()
-		}
-		document.addEventListener("keydown", onKeyDown)
-
-		return () => {
-			document.body.style.overflow = ""
-			document.removeEventListener("keydown", onKeyDown)
-			lastFocusedRef.current?.focus()
-		}
-	}, [])
+	useDialogBehavior(boxRef)
 
 	return createPortal(
-		// biome-ignore lint/a11y/noStaticElementInteractions: click-outside-to-close backdrop; keyboard users close via Escape (handled above) or Modal.CloseButton
+		// biome-ignore lint/a11y/noStaticElementInteractions: click-outside-to-close backdrop; keyboard users close via Escape (useDialogBehavior) or Modal.CloseButton
 		// biome-ignore lint/a11y/useKeyWithClickEvents: see above
 		<div
 			className={slots.overlay}
