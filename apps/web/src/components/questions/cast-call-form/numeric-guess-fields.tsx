@@ -159,6 +159,14 @@ function GuessValueInput({
 						aria-label="Your guess"
 						value={text}
 						onChange={(e) => commitText(e.target.value)}
+						// Select-all on focus so typing replaces the current guess
+						// instead of appending to it. Deferred a frame because the
+						// click that focused the input would otherwise place the
+						// caret after select() runs and collapse the selection.
+						onFocus={(e) => {
+							const input = e.currentTarget
+							requestAnimationFrame(() => input.select())
+						}}
 						onBlur={onBlur}
 						// ch tracks the actual character count (min 2) so a
 						// 3-digit passing-yards guess gets more room than a
