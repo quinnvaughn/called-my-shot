@@ -62,33 +62,39 @@ export function CallRow({ call: callProp }: Props) {
 	const call = useFragment(CallRowFragment, callProp)
 
 	return (
-		<Link
-			to="/calls/$callId"
-			params={{ callId: call.id }}
+		<VStack
+			gap="2.5"
+			alignItems="stretch"
 			className={css({
-				display: "block",
-				textDecoration: "none",
-				color: "inherit",
+				position: "relative",
+				background: "card",
+				border: "1px solid {colors.border.default}",
+				borderRadius: "md",
+				padding: "3",
+				transition: "border-color 0.15s ease",
+				_hover: { borderColor: "border.emphasized" },
 			})}
 		>
-			<VStack
-				gap="2.5"
-				alignItems="stretch"
+			{/* Stretched over the whole row instead of wrapping the row in an
+			anchor, so CaseBlock's "Show more" button isn't nested inside a link.
+			Absolutely positioned, it also stays out of the VStack's gap. */}
+			<Link
+				to="/calls/$callId"
+				params={{ callId: call.id }}
+				aria-label={`${call.user.name}'s call`}
 				className={css({
-					background: "card",
-					border: "1px solid {colors.border.default}",
+					position: "absolute",
+					inset: "0",
 					borderRadius: "md",
-					padding: "3",
-					transition: "border-color 0.15s ease",
-					_hover: { borderColor: "border.emphasized" },
 				})}
-			>
-				<PersonLine name={call.user.name} username={call.user.username} />
-				<PickList call={call} />
-				{call.caseText && (
+			/>
+			<PersonLine name={call.user.name} username={call.user.username} />
+			<PickList call={call} />
+			{call.caseText && (
+				<div className={css({ position: "relative", zIndex: 1 })}>
 					<CaseBlock text={call.caseText} clampable />
-				)}
-			</VStack>
-		</Link>
+				</div>
+			)}
+		</VStack>
 	)
 }
