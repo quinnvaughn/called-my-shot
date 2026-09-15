@@ -469,6 +469,40 @@ export const AdminBandSettingsDocument = graphql(`
 	}
 `)
 
+// Leaders tab.
+export const AdminLeaderLossSettingsDocument = graphql(`
+	query AdminLeaderLossSettings {
+		adminLeaderLossSettings {
+			__typename
+			... on QueryAdminLeaderLossSettingsSuccess {
+				data {
+					leagueSlug
+					templateId
+					statName
+					lossRate
+					defaultLossRate
+					isCustom
+					autoTune
+					tunedAt
+					calibration {
+						resolved
+						favoriteHitRate
+						suggestedLossRate
+						callerPicks
+						callerHitRate
+					}
+				}
+			}
+			... on AuthenticationError {
+				message
+			}
+			... on AuthorizationError {
+				message
+			}
+		}
+	}
+`)
+
 // Users tab.
 export const AdminUsersDocument = graphql(`
 	query AdminUsers(

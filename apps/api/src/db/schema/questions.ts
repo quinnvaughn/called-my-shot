@@ -11,6 +11,7 @@ import {
 	uniqueIndex,
 	uuid,
 } from "drizzle-orm/pg-core"
+import type { LeaderBasis } from "../../lib/game-questions/leaders"
 import type { LineBasis } from "../../lib/game-questions/lines"
 import { games } from "./games"
 import { players } from "./players"
@@ -316,6 +317,16 @@ export const questions = pgTable("questions", {
 	// compare where lines were set against how they resolved. Null on every
 	// other question.
 	lineBasis: jsonb("line_basis").$type<LineBasis>(),
+	// A generated game stat leader question's favorite (LeaderBasis in
+	// lib/game-questions/leaders.ts), kept so
+	// lib/game-questions/leader-calibration.ts can check how often the
+	// favorite led. Null on every other question.
+	leaderBasis: jsonb("leader_basis").$type<LeaderBasis>(),
+	// The share of committed points a miss costs, set when the question is
+	// created so a later retune can't change what a caller agreed to. Only a
+	// game stat leader question sets it (see game_question_loss_settings);
+	// null means the shape's LOSS_RATE_BY_SHAPE rate.
+	lossRate: numeric("loss_rate", { precision: 4, scale: 3, mode: "number" }),
 
 	createdAt: timestamp("created_at").notNull().defaultNow(),
 }, (t) => [

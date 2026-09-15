@@ -1,3 +1,4 @@
+import { LOSS_RATE_BY_SHAPE } from "@called-my-shot/scoring"
 import { eq } from "drizzle-orm"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { parseGenerationKey } from "../../lib/game-questions/generation-key"
@@ -52,6 +53,7 @@ const TEAM_POINTS = catalogTemplate("nba", "team-points")
 const POINTS_DUEL = catalogTemplate("nba", "top-scorer-points-duel")
 const POINTS_LINE = catalogTemplate("nba", "top-scorer-points")
 const REBOUNDS_LEADER = catalogTemplate("nba", "rebounds-leader")
+const POINTS_LEADER = catalogTemplate("nba", "points-leader")
 const BATTER_HITS = catalogTemplate("mlb", "batter-hits")
 
 // With templates, posts exactly those on the league's games, each in a group
@@ -255,6 +257,23 @@ const markOut = (playerName: string) =>
 		.where(eq(gameStarters.playerName, playerName))
 
 describe("generateGameQuestions", () => {
+	it("records a leader question's favorite and saves its loss rate", async () => {
+		const { game } = await seedStandardGame()
+
+		await run([POINTS_LEADER])
+
+		const leader = (await questionsOn(game.id)).find(
+			(q) => q.shape === "player_game_stat_leader",
+		)
+		const brunson = leader?.options.find((o) => o.label === "Jalen Brunson")
+		expect(leader?.leaderBasis).toEqual({
+			favoritePlayerId: brunson?.playerId,
+			favoriteMean: 28,
+			contenders: 4,
+		})
+		expect(leader?.lossRate).toBe(LOSS_RATE_BY_SHAPE.player_game_stat_leader)
+	})
+
 	it("posts each template on a game in the window, and nothing more on a rerun", async () => {
 		const { game } = await seedStandardGame()
 

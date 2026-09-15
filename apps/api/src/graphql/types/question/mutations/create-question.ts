@@ -3,7 +3,11 @@ import {
 	createQuestionSchema,
 	resolutionModeFor,
 } from "@called-my-shot/schemas"
-import { isNumericGuessShape, isSeasonLongShape } from "@called-my-shot/scoring"
+import {
+	isNumericGuessShape,
+	isSeasonLongShape,
+	LOSS_RATE_BY_SHAPE,
+} from "@called-my-shot/scoring"
 import { eq, sql } from "drizzle-orm"
 import { match } from "ts-pattern"
 import { db } from "../../../../db"
@@ -20,6 +24,7 @@ import {
 	ValidationError,
 } from "../../../../lib/errors"
 import { bandSettingFor } from "../../../../lib/game-questions/band-settings"
+import { leaderLossRateFor } from "../../../../lib/game-questions/leader-settings"
 import { numericToleranceFor } from "../../../../lib/numeric-tolerance"
 import { getOfficialAccountId } from "../../../../lib/official-account"
 import { getCurrentSeason } from "../../../../lib/seasons"
@@ -195,6 +200,16 @@ builder.mutationFields((t) => ({
 			const numericTolerancePct = tolerance?.numericTolerancePct ?? null
 			const numericToleranceAbsolute =
 				tolerance?.numericToleranceAbsolute ?? null
+			// Saved on the question so a later retune can't change what a caller
+			// agreed to - see questions.lossRate.
+			const savedLossRate =
+				data.shape === "player_game_stat_leader" && stat
+					? await leaderLossRateFor(data.leagueId, stat.name)
+					: null
+			const lossRate =
+				data.shape === "player_game_stat_leader"
+					? (savedLossRate ?? LOSS_RATE_BY_SHAPE.player_game_stat_leader)
+					: null
 
 			// Only meaningful for a catalog stat - a freeform customStat (over_under
 			// and player_vs_player both allow one, see requireStat vs
@@ -495,6 +510,7 @@ builder.mutationFields((t) => ({
 						subjectPlayerId: data.subjectPlayerId ?? null,
 						numericTolerancePct,
 						numericToleranceAbsolute,
+						lossRate,
 						picksRequired: data.picksRequired ?? null,
 						eventClause: data.eventClause || null,
 						awardName: data.awardName || null,

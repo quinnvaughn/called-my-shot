@@ -24,6 +24,7 @@ export const CastCallFormFragment = graphql(`
 		ouLine
 		numericTolerancePct
 		numericToleranceAbsolute
+		lossRate
 		picksRequired
 		callCount
 		# Named in the walkthrough's closing modal, which tells a first-time

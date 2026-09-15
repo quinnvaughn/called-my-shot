@@ -2,6 +2,7 @@ import {
 	autoResolutionSource,
 	resolutionModeFor,
 } from "@called-my-shot/schemas"
+import { LOSS_RATE_BY_SHAPE } from "@called-my-shot/scoring"
 import { and, eq, notExists, sql } from "drizzle-orm"
 import { match } from "ts-pattern"
 import { buildPlayerPool } from "../../lib/award-pool"
@@ -11,6 +12,8 @@ import {
 	isInSlot,
 	parseGenerationKey,
 } from "../../lib/game-questions/generation-key"
+import { loadLeaderLossSettings } from "../../lib/game-questions/leader-settings"
+import { favoriteOf, type LeaderBasis } from "../../lib/game-questions/leaders"
 import {
 	loadLineSettings,
 	withLineSettings,
@@ -151,6 +154,9 @@ type LeagueContext = {
 	statsByName: Map<string, CatalogStat>
 	// The league's saved team numeric guess bands - see loadBandSettings.
 	bandsByStatName: Map<string, number>
+	// The league's saved game stat leader loss rates - see
+	// loadLeaderLossSettings.
+	leaderLossByStatName: Map<string, number>
 	starters: (StarterCandidate & { gameId: string })[]
 	// Each due team's current roster, loaded only when a template picks from
 	// rosters.
@@ -170,6 +176,7 @@ type PlannedQuestion = {
 	subjectPlayerId?: string
 	ouLine?: number
 	lineBasis?: LineBasis
+	leaderBasis?: LeaderBasis
 	options: { label: string; sortOrder: number; playerId?: string }[]
 }
 
@@ -433,17 +440,36 @@ async function planTemplate(
 				]
 			}),
 		)
-		.with({ shape: "player_game_stat_leader" }, async ({ statName }) => {
+		.with({ shape: "player_game_stat_leader" }, async ({ statName, pick }) => {
 			const key = generationKey(base)
 			if (isFilled(key)) return []
 			const pool = await buildPlayerPool({
 				teamIds: [game.awayTeamId, game.homeTeamId],
 			})
 			if (pool.length < 2) return []
+			// Only a favorite who's one of the options can be checked against
+			// who actually led.
+			const inPool = new Set(pool.map((player) => player.id))
+			const contenders = [
+				...(await rankedStarters(ctx, game, game.awayTeamId, pick)),
+				...(await rankedStarters(ctx, game, game.homeTeamId, pick)),
+			].flatMap(({ candidate, samples }) =>
+				inPool.has(candidate.playerId)
+					? [
+							{
+								playerId: candidate.playerId,
+								mean:
+									blendSamples(samples.season, samples.prior, pick.priorWeight)
+										?.mean ?? null,
+							},
+						]
+					: [],
+			)
 			return [
 				{
 					key,
 					title: { shape: "player_game_stat_leader", statName },
+					leaderBasis: favoriteOf(contenders) ?? undefined,
 					options: pool.map((player, index) => ({
 						label: player.name,
 						sortOrder: index,
@@ -574,6 +600,12 @@ async function insertPlanned(
 				numericToleranceAbsolute: tolerance?.numericToleranceAbsolute ?? null,
 				generationKey: planned.key,
 				lineBasis: planned.lineBasis ?? null,
+				leaderBasis: planned.leaderBasis ?? null,
+				lossRate:
+					template.shape === "player_game_stat_leader"
+						? (ctx.leaderLossByStatName.get(template.statName) ??
+							LOSS_RATE_BY_SHAPE.player_game_stat_leader)
+						: null,
 			})
 			.onConflictDoNothing({ target: questions.generationKey })
 			.returning({ id: questions.id })
@@ -801,6 +833,7 @@ async function generateForLeague(
 			0,
 		statsByName,
 		bandsByStatName: await loadBandSettings(league.slug),
+		leaderLossByStatName: await loadLeaderLossSettings(league.slug),
 		starters,
 		rostersByTeamId,
 		playerNameById: new Map(players.map((player) => [player.id, player.name])),

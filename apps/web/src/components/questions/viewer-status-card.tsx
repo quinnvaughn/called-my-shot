@@ -1,7 +1,6 @@
 import {
 	BASE_POINTS_BY_SHAPE,
 	earlyTierFor,
-	LOSS_RATE_BY_SHAPE,
 	seasonEarlyTierFor,
 	TIER_MAX_MULT,
 	TIER_MIN_MULT,
@@ -71,31 +70,6 @@ const BASE_POINTS_BY_GQL_SHAPE: Record<QuestionShape, number> = {
 	PLAYER_SEASON_AWARD: BASE_POINTS_BY_SHAPE.player_season_award,
 	TEAM_SEASON_AWARD: BASE_POINTS_BY_SHAPE.team_season_award,
 	PLAYER_AWARD_FINALISTS: BASE_POINTS_BY_SHAPE.player_award_finalists,
-}
-
-// Same GQL/DB casing bridge as BASE_POINTS_BY_GQL_SHAPE above, for
-// LOSS_RATE_BY_SHAPE.
-const LOSS_RATE_BY_GQL_SHAPE: Record<QuestionShape, number> = {
-	PLAYER_STAT_OVER_UNDER: LOSS_RATE_BY_SHAPE.player_stat_over_under,
-	TEAM_STAT_OVER_UNDER: LOSS_RATE_BY_SHAPE.team_stat_over_under,
-	PLAYER_SEASON_STAT_OVER_UNDER:
-		LOSS_RATE_BY_SHAPE.player_season_stat_over_under,
-	TEAM_SEASON_STAT_OVER_UNDER: LOSS_RATE_BY_SHAPE.team_season_stat_over_under,
-	GAME_TOTAL_OVER_UNDER: LOSS_RATE_BY_SHAPE.game_total_over_under,
-	PLAYER_STAT_NUMERIC_GUESS: LOSS_RATE_BY_SHAPE.player_stat_numeric_guess,
-	TEAM_STAT_NUMERIC_GUESS: LOSS_RATE_BY_SHAPE.team_stat_numeric_guess,
-	TEAM_SEASON_STAT_NUMERIC_GUESS:
-		LOSS_RATE_BY_SHAPE.team_season_stat_numeric_guess,
-	PLAYER_VS_PLAYER: LOSS_RATE_BY_SHAPE.player_vs_player,
-	PLAYER_VS_PLAYER_SEASON: LOSS_RATE_BY_SHAPE.player_vs_player_season,
-	TEAM_VS_TEAM: LOSS_RATE_BY_SHAPE.team_vs_team,
-	TEAM_VS_TEAM_SEASON: LOSS_RATE_BY_SHAPE.team_vs_team_season,
-	PLAYER_GAME_STAT_LEADER: LOSS_RATE_BY_SHAPE.player_game_stat_leader,
-	PLAYER_SEASON_STAT_LEADER: LOSS_RATE_BY_SHAPE.player_season_stat_leader,
-	YES_NO_PROP: LOSS_RATE_BY_SHAPE.yes_no_prop,
-	PLAYER_SEASON_AWARD: LOSS_RATE_BY_SHAPE.player_season_award,
-	TEAM_SEASON_AWARD: LOSS_RATE_BY_SHAPE.team_season_award,
-	PLAYER_AWARD_FINALISTS: LOSS_RATE_BY_SHAPE.player_award_finalists,
 }
 
 // Mirrors SEASON_LONG_SHAPES/isSeasonLongShape in @called-my-shot/scoring -
@@ -172,7 +146,12 @@ type ViewerCall = {
 	// nullability as closenessMult. Exists purely so the resolved-state
 	// breakdown can explain "why this multiplier" with a real number.
 	closenessFieldPct: number | null
-	question: { shape: QuestionShape; ouLine: number | null }
+	question: {
+		shape: QuestionShape
+		ouLine: number | null
+		// The share of committed points a miss costs - see Question.lossRate.
+		lossRate: number
+	}
 	selections: {
 		conviction: number
 		// The authoritative per-pick score, set once at resolution (see
@@ -755,9 +734,8 @@ function PickRows({
 	numericToleranceAbsolute: number | null
 	isRateStat: boolean
 }) {
-	const { shape, ouLine } = call.question
+	const { shape, ouLine, lossRate } = call.question
 	const basePoints = BASE_POINTS_BY_GQL_SHAPE[shape]
-	const lossRate = LOSS_RATE_BY_GQL_SHAPE[shape]
 
 	if (isNumericQuestionShape(shape)) {
 		const { guessValue, conviction } = call

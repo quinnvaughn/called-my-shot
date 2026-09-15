@@ -52,6 +52,10 @@ export type GameQuestionTemplate =
 			shape: "player_game_stat_leader"
 			statName: string
 			group: string
+			// The contenders the favorite is picked from: the best per-game
+			// average across both teams' candidates (see LeaderBasis in
+			// lib/game-questions/leaders.ts). choose doesn't apply.
+			pick: StarterPick
 	  }
 
 // The highest template tier each league gets. Raising it posts every
@@ -126,6 +130,34 @@ const NFL_TE: StarterPick = {
 	priorWeight: 4,
 }
 
+// Leader contenders, wider than the single-player picks above: anyone in
+// these can lead the game in the stat.
+const NFL_RUSHERS: StarterPick = {
+	role: "offense",
+	positions: ["RB", "QB"],
+	espnStat: "rushing.rushingYards",
+	priorWeight: 4,
+}
+
+const nflReceivers = (espnStat: string): StarterPick => ({
+	role: "offense",
+	positions: ["WR", "TE", "RB"],
+	espnStat,
+	priorWeight: 4,
+})
+
+const NFL_DEFENDERS: StarterPick = {
+	role: "defense",
+	espnStat: "defensive.sacks",
+	priorWeight: 4,
+}
+
+const nbaStarter = (espnStat: string): StarterPick => ({
+	role: "starter",
+	espnStat,
+	priorWeight: 12,
+})
+
 const MLB_STARTER: StarterPick = {
 	role: "starting_pitcher",
 	espnStat: "pitching.strikeouts",
@@ -193,6 +225,7 @@ export const GAME_QUESTION_CATALOG: Record<string, GameQuestionTemplate[]> = {
 			shape: "player_game_stat_leader",
 			statName: "Rushing Yards",
 			group: "rushing-yards",
+			pick: NFL_RUSHERS,
 		},
 		{
 			id: "wr-receiving-yards-duel",
@@ -217,6 +250,7 @@ export const GAME_QUESTION_CATALOG: Record<string, GameQuestionTemplate[]> = {
 			shape: "player_game_stat_leader",
 			statName: "Receiving Yards",
 			group: "receiving-yards",
+			pick: nflReceivers("receiving.receivingYards"),
 		},
 		{
 			id: "te-receptions",
@@ -233,6 +267,7 @@ export const GAME_QUESTION_CATALOG: Record<string, GameQuestionTemplate[]> = {
 			shape: "player_game_stat_leader",
 			statName: "Receptions",
 			group: "receptions",
+			pick: nflReceivers("receiving.receptions"),
 		},
 		{
 			id: "sacks-leader",
@@ -240,6 +275,7 @@ export const GAME_QUESTION_CATALOG: Record<string, GameQuestionTemplate[]> = {
 			shape: "player_game_stat_leader",
 			statName: "Sacks",
 			group: "sacks",
+			pick: NFL_DEFENDERS,
 		},
 	],
 	nba: [
@@ -272,6 +308,7 @@ export const GAME_QUESTION_CATALOG: Record<string, GameQuestionTemplate[]> = {
 			shape: "player_game_stat_leader",
 			statName: "Points",
 			group: "points",
+			pick: NBA_TOP_SCORER,
 		},
 		{
 			id: "big-rebounds-duel",
@@ -296,6 +333,7 @@ export const GAME_QUESTION_CATALOG: Record<string, GameQuestionTemplate[]> = {
 			shape: "player_game_stat_leader",
 			statName: "Rebounds",
 			group: "rebounds",
+			pick: nbaStarter("general.rebounds"),
 		},
 		{
 			id: "guard-assists-duel",
@@ -320,6 +358,7 @@ export const GAME_QUESTION_CATALOG: Record<string, GameQuestionTemplate[]> = {
 			shape: "player_game_stat_leader",
 			statName: "Assists",
 			group: "assists",
+			pick: nbaStarter("offensive.assists"),
 		},
 		{
 			id: "shooter-threes",
@@ -336,6 +375,7 @@ export const GAME_QUESTION_CATALOG: Record<string, GameQuestionTemplate[]> = {
 			shape: "player_game_stat_leader",
 			statName: "3-Pointers Made",
 			group: "threes",
+			pick: nbaStarter("offensive.threePointFieldGoalsMade"),
 		},
 		{
 			id: "blocks-leader",
@@ -343,6 +383,7 @@ export const GAME_QUESTION_CATALOG: Record<string, GameQuestionTemplate[]> = {
 			shape: "player_game_stat_leader",
 			statName: "Blocks",
 			group: "blocks",
+			pick: nbaStarter("defensive.blocks"),
 		},
 	],
 	mlb: [
@@ -375,6 +416,7 @@ export const GAME_QUESTION_CATALOG: Record<string, GameQuestionTemplate[]> = {
 			shape: "player_game_stat_leader",
 			statName: "Strikeouts (Pitching)",
 			group: "strikeouts",
+			pick: MLB_STARTER,
 		},
 		{
 			id: "batter-hits",
@@ -391,6 +433,7 @@ export const GAME_QUESTION_CATALOG: Record<string, GameQuestionTemplate[]> = {
 			shape: "player_game_stat_leader",
 			statName: "Hits",
 			group: "hits",
+			pick: mlbBatter("batting.hits"),
 		},
 		{
 			id: "batter-rbis",
@@ -407,6 +450,7 @@ export const GAME_QUESTION_CATALOG: Record<string, GameQuestionTemplate[]> = {
 			shape: "player_game_stat_leader",
 			statName: "RBIs",
 			group: "rbis",
+			pick: mlbBatter("batting.RBIs"),
 		},
 		{
 			id: "batter-home-runs",

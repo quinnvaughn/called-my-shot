@@ -1,7 +1,6 @@
 import {
 	BASE_POINTS_BY_SHAPE,
 	isSeasonLongShape,
-	LOSS_RATE_BY_SHAPE,
 	seasonEarlyTierFor,
 } from "@called-my-shot/scoring"
 import { useRouteContext } from "@tanstack/react-router"
@@ -58,7 +57,7 @@ export function ConfirmCallModal({
 	if (!question) return null
 
 	const basePoints = BASE_POINTS_BY_SHAPE[shape]
-	const lossRate = LOSS_RATE_BY_SHAPE[shape]
+	const { lossRate } = question
 	// Season-long shapes preview off games played so far, not rank - see
 	// PointsPreview's own comment on the same distinction. Null for a
 	// game-scoped shape (or a season-long one with no games synced yet, where

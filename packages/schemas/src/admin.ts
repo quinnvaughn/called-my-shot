@@ -88,6 +88,21 @@ export const updateBandSettingSchema = z.object({
 })
 export type UpdateBandSettingInput = z.infer<typeof updateBandSettingSchema>
 
+// The loss rate one league's game stat leader questions on a stat are created
+// with - see adminUpdateLeaderLossSetting.
+export const updateLeaderLossSettingSchema = z.object({
+	leagueSlug: z.string().trim().min(1),
+	statName: z.string().trim().min(1),
+	lossRate: z
+		.number()
+		.min(0.05, "Loss rate has to be at least 0.05")
+		.max(1, "Loss rate can't be more than 1"),
+	autoTune: z.boolean(),
+})
+export type UpdateLeaderLossSettingInput = z.infer<
+	typeof updateLeaderLossSettingSchema
+>
+
 // Voiding a question without deleting it - see adminMarkQuestionVoided. Nobody
 // is at fault in these cases, so unlike voidQuestionSchema there is no strike
 // toggle.

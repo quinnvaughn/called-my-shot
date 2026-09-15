@@ -2,6 +2,7 @@ import {
 	fieldPct,
 	isNumericGuessShape,
 	isSeasonLongShape,
+	LOSS_RATE_BY_SHAPE,
 	STREAK_FAMILY_LABEL,
 	STREAK_TAG_MIN,
 	streakFamilyFor,
@@ -238,6 +239,11 @@ export const QuestionRef = builder.drizzleObject("questions", {
 		}),
 		numericToleranceAbsolute: t.exposeFloat("numericToleranceAbsolute", {
 			nullable: true,
+		}),
+		// The share of committed points a miss costs: the rate saved on the
+		// question when it was created, else the shape's default.
+		lossRate: t.float({
+			resolve: (q) => q.lossRate ?? LOSS_RATE_BY_SHAPE[q.shape],
 		}),
 		numericActualValue: t.exposeFloat("numericActualValue", { nullable: true }),
 		// live average of every guessValue submitted so far - numeric-guess

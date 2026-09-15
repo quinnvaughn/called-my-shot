@@ -330,6 +330,54 @@ export const AdminResetBandSettingDocument = graphql(`
 	}
 `)
 
+export const AdminUpdateLeaderLossSettingDocument = graphql(`
+	mutation AdminUpdateLeaderLossSetting($input: UpdateLeaderLossSettingInput!) {
+		adminUpdateLeaderLossSetting(input: $input) {
+			__typename
+			... on LeaderLossSetting {
+				leagueSlug
+				statName
+			}
+			... on ValidationError {
+				fieldErrors {
+					field
+					message
+				}
+			}
+			... on AuthenticationError {
+				message
+			}
+			... on AuthorizationError {
+				message
+			}
+			... on NotFoundError {
+				message
+			}
+		}
+	}
+`)
+
+export const AdminResetLeaderLossSettingDocument = graphql(`
+	mutation AdminResetLeaderLossSetting($leagueSlug: String!, $statName: String!) {
+		adminResetLeaderLossSetting(leagueSlug: $leagueSlug, statName: $statName) {
+			__typename
+			... on LeaderLossSetting {
+				leagueSlug
+				statName
+			}
+			... on AuthenticationError {
+				message
+			}
+			... on AuthorizationError {
+				message
+			}
+			... on NotFoundError {
+				message
+			}
+		}
+	}
+`)
+
 export const SetUserVerifiedDocument = graphql(`
 	mutation SetUserVerified($userId: ID!, $verified: Boolean!) {
 		setUserVerified(userId: $userId, verified: $verified) {

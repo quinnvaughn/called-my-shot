@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest"
 import {
 	BASE_POINTS_BY_SHAPE,
 	breakEvenHitRate,
+	breakEvenLossRate,
 	earlyTierFor,
 	fieldPct,
 	hitTolerance,
@@ -84,6 +85,14 @@ describe("breakEvenHitRate", () => {
 	it("is even odds at a full loss and a third at half", () => {
 		expect(breakEvenHitRate(1)).toBe(0.5)
 		expect(breakEvenHitRate(0.5)).toBeCloseTo(1 / 3)
+	})
+})
+
+describe("breakEvenLossRate", () => {
+	it("undoes breakEvenHitRate", () => {
+		expect(breakEvenLossRate(0.5)).toBe(1)
+		expect(breakEvenLossRate(0.25)).toBeCloseTo(1 / 3)
+		expect(breakEvenLossRate(breakEvenHitRate(0.5))).toBeCloseTo(0.5)
 	})
 })
 

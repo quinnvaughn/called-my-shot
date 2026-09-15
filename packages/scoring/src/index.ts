@@ -77,7 +77,10 @@ export const BASE_POINTS_BY_SHAPE: Record<QuestionShape, number> = {
 // make up that gap on its own: it's read off the field, and with only one or
 // two callers the field says nothing (a lone caller always holds 100% of it,
 // which is a x1 multiplier). A fixed rate per shape also means the loss is
-// known exactly when the call is made.
+// known exactly when the call is made. A game stat leader question's rate is
+// tuned per league and stat from how often the favorite leads, and saved on
+// the question when it's created (questions.lossRate) - the value here is its
+// default until a league stat has one.
 export const LOSS_RATE_BY_SHAPE: Record<QuestionShape, number> = {
 	yes_no_prop: 1,
 	player_vs_player: 1,
@@ -105,6 +108,12 @@ export const LOSS_RATE_BY_SHAPE: Record<QuestionShape, number> = {
 // here - wider and the guess is free points, narrower and it's a trap.
 export function breakEvenHitRate(lossRate: number): number {
 	return lossRate / (1 + lossRate)
+}
+
+// The loss rate a pick that hits `hitRate` of the time breaks even at - the
+// inverse of breakEvenHitRate. Infinite for a pick that always hits.
+export function breakEvenLossRate(hitRate: number): number {
+	return hitRate / (1 - hitRate)
 }
 
 // Season-long shapes (no gameId, open across the whole season) score

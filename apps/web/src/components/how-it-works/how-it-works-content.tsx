@@ -195,7 +195,7 @@ function missCost(lossRate: number): string {
 }
 
 const NUMERIC_LOSS = LOSS_RATE_BY_SHAPE.player_stat_numeric_guess
-const LEADER_LOSS = LOSS_RATE_BY_SHAPE.player_game_stat_leader
+const SEASON_LEADER_LOSS = LOSS_RATE_BY_SHAPE.player_season_stat_leader
 const TEAM_GUESS_TARGET = breakEvenHitRate(
 	LOSS_RATE_BY_SHAPE.team_stat_numeric_guess,
 )
@@ -231,7 +231,7 @@ const QUESTION_TYPES = [
 	{
 		title: "Stat leaders",
 		pts: `${BASE_POINTS_BY_SHAPE.player_game_stat_leader} pts`,
-		desc: `Pick who leads a game or a season in a stat, from the full roster. A miss costs ${missCost(LEADER_LOSS)}.`,
+		desc: `Pick who leads a game or a season in a stat, from the full roster. A game leader miss costs a share of what you committed, sized per stat so picking the player with the best season average breaks even. A season leader miss costs ${missCost(SEASON_LEADER_LOSS)}.`,
 	},
 	{
 		title: "Season-long awards",
@@ -429,10 +429,12 @@ export function HowItWorksSections() {
 					either multiplier. The loss rate is set by question type. Stat lines,
 					yes/no, head-to-head, and award picks lose{" "}
 					{missCost(LOSS_RATE_BY_SHAPE.yes_no_prop)}. A numeric guess loses{" "}
-					{missCost(NUMERIC_LOSS)}. A game or season stat leader pick loses{" "}
-					{missCost(LEADER_LOSS)}. Those last two miss far more often than they
-					hit, and the rarity multiplier can't make up for that when only a few
-					people have called.
+					{missCost(NUMERIC_LOSS)}. A game stat leader pick loses a share sized
+					per stat so picking the player with the best season average breaks
+					even, and a season stat leader pick loses{" "}
+					{missCost(SEASON_LEADER_LOSS)}. Those last two miss far more often
+					than they hit, and the rarity multiplier can't make up for that when
+					only a few people have called.
 				</P>
 
 				<ExampleCard

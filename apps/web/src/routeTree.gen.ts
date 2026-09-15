@@ -22,6 +22,7 @@ import { Route as AdminIndexRouteImport } from './routes/admin/index'
 import { Route as AdminBandsRouteImport } from './routes/admin/bands'
 import { Route as AdminDisputesRouteImport } from './routes/admin/disputes'
 import { Route as AdminIntegrityRouteImport } from './routes/admin/integrity'
+import { Route as AdminLeadersRouteImport } from './routes/admin/leaders'
 import { Route as AdminLinesRouteImport } from './routes/admin/lines'
 import { Route as AdminQuestionsRouteImport } from './routes/admin/questions'
 import { Route as AdminQueueRouteImport } from './routes/admin/queue'
@@ -131,6 +132,11 @@ const AdminDisputesRoute = AdminDisputesRouteImport.update({
 const AdminIntegrityRoute = AdminIntegrityRouteImport.update({
   id: '/integrity',
   path: '/integrity',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminLeadersRoute = AdminLeadersRouteImport.update({
+  id: '/leaders',
+  path: '/leaders',
   getParentRoute: () => AdminRoute,
 } as any)
 const AdminLinesRoute = AdminLinesRouteImport.update({
@@ -396,6 +402,7 @@ export interface FileRoutesByFullPath {
   '/admin/bands': typeof AdminBandsRoute
   '/admin/disputes': typeof AdminDisputesRoute
   '/admin/integrity': typeof AdminIntegrityRoute
+  '/admin/leaders': typeof AdminLeadersRoute
   '/admin/lines': typeof AdminLinesRoute
   '/admin/questions': typeof AdminQuestionsRoute
   '/admin/queue': typeof AdminQueueRoute
@@ -455,6 +462,7 @@ export interface FileRoutesByTo {
   '/admin/bands': typeof AdminBandsRoute
   '/admin/disputes': typeof AdminDisputesRoute
   '/admin/integrity': typeof AdminIntegrityRoute
+  '/admin/leaders': typeof AdminLeadersRoute
   '/admin/lines': typeof AdminLinesRoute
   '/admin/questions': typeof AdminQuestionsRoute
   '/admin/queue': typeof AdminQueueRoute
@@ -516,6 +524,7 @@ export interface FileRoutesById {
   '/admin/bands': typeof AdminBandsRoute
   '/admin/disputes': typeof AdminDisputesRoute
   '/admin/integrity': typeof AdminIntegrityRoute
+  '/admin/leaders': typeof AdminLeadersRoute
   '/admin/lines': typeof AdminLinesRoute
   '/admin/questions': typeof AdminQuestionsRoute
   '/admin/queue': typeof AdminQueueRoute
@@ -578,6 +587,7 @@ export interface FileRouteTypes {
     | '/admin/bands'
     | '/admin/disputes'
     | '/admin/integrity'
+    | '/admin/leaders'
     | '/admin/lines'
     | '/admin/questions'
     | '/admin/queue'
@@ -637,6 +647,7 @@ export interface FileRouteTypes {
     | '/admin/bands'
     | '/admin/disputes'
     | '/admin/integrity'
+    | '/admin/leaders'
     | '/admin/lines'
     | '/admin/questions'
     | '/admin/queue'
@@ -697,6 +708,7 @@ export interface FileRouteTypes {
     | '/admin/bands'
     | '/admin/disputes'
     | '/admin/integrity'
+    | '/admin/leaders'
     | '/admin/lines'
     | '/admin/questions'
     | '/admin/queue'
@@ -856,6 +868,13 @@ declare module '@tanstack/react-router' {
       path: '/integrity'
       fullPath: '/admin/integrity'
       preLoaderRoute: typeof AdminIntegrityRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/leaders': {
+      id: '/admin/leaders'
+      path: '/leaders'
+      fullPath: '/admin/leaders'
+      preLoaderRoute: typeof AdminLeadersRouteImport
       parentRoute: typeof AdminRoute
     }
     '/admin/lines': {
@@ -1297,6 +1316,7 @@ interface AdminRouteChildren {
   AdminBandsRoute: typeof AdminBandsRoute
   AdminDisputesRoute: typeof AdminDisputesRoute
   AdminIntegrityRoute: typeof AdminIntegrityRoute
+  AdminLeadersRoute: typeof AdminLeadersRoute
   AdminLinesRoute: typeof AdminLinesRoute
   AdminQuestionsRoute: typeof AdminQuestionsRoute
   AdminQueueRoute: typeof AdminQueueRoute
@@ -1313,6 +1333,7 @@ const AdminRouteChildren: AdminRouteChildren = {
   AdminBandsRoute: AdminBandsRoute,
   AdminDisputesRoute: AdminDisputesRoute,
   AdminIntegrityRoute: AdminIntegrityRoute,
+  AdminLeadersRoute: AdminLeadersRoute,
   AdminLinesRoute: AdminLinesRoute,
   AdminQuestionsRoute: AdminQuestionsRoute,
   AdminQueueRoute: AdminQueueRoute,
@@ -1350,12 +1371,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { createStart } from '@tanstack/react-start'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-  }
-}

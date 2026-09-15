@@ -112,6 +112,7 @@ export const QuestionDetailDocument = graphql(`
 					id
 					shape
 					ouLine
+					lossRate
 				}
 				selections {
 					id
