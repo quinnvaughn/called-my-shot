@@ -1,6 +1,7 @@
 import {
 	BASE_POINTS_BY_SHAPE,
 	earlyTierFor,
+	LOSS_RATE_BY_SHAPE,
 	selectionPoints,
 	tierFor,
 } from "@called-my-shot/scoring"
@@ -145,6 +146,7 @@ describe("resolveQuestionInternal - option-based shapes", () => {
 
 		const expected = selectionPoints(
 			BASE_POINTS_BY_SHAPE.yes_no_prop,
+			LOSS_RATE_BY_SHAPE.yes_no_prop,
 			50,
 			2,
 			100,
@@ -200,6 +202,7 @@ describe("resolveQuestionInternal - option-based shapes", () => {
 		const expected = (conviction: number) =>
 			selectionPoints(
 				BASE_POINTS_BY_SHAPE.yes_no_prop,
+				LOSS_RATE_BY_SHAPE.yes_no_prop,
 				50,
 				2,
 				conviction,
@@ -429,7 +432,8 @@ describe("resolveQuestionInternal - numeric guess shapes", () => {
 		expect(hit?.resultPoints).toBeGreaterThan(0)
 		expect(miss?.hitTolerance).toBe(false)
 		expect(miss?.resultPoints).toBe(
-			-BASE_POINTS_BY_SHAPE.player_stat_numeric_guess,
+			-BASE_POINTS_BY_SHAPE.player_stat_numeric_guess *
+				LOSS_RATE_BY_SHAPE.player_stat_numeric_guess,
 		)
 	})
 
@@ -777,6 +781,7 @@ describe("resolveQuestionInternal - unscored calls", () => {
 		expect(winner?.resultPoints).toBe(
 			selectionPoints(
 				BASE_POINTS_BY_SHAPE.yes_no_prop,
+				LOSS_RATE_BY_SHAPE.yes_no_prop,
 				50,
 				2,
 				100,

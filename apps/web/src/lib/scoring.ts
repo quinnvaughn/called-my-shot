@@ -52,10 +52,11 @@ export function previewFieldPct(
 // just leaves the early multiplier at 1x rather than guessing - this also
 // runs before a call exists (no rank, and no meaningful "as of my own
 // createdAt" games-played reading either), where 1x is the correct read
-// either way. basePoints comes from BASE_POINTS_BY_SHAPE for this question's
-// shape.
+// either way. basePoints comes from BASE_POINTS_BY_SHAPE and lossRate from
+// LOSS_RATE_BY_SHAPE for this question's shape.
 export function previewSelectionPoints(
 	basePoints: number,
+	lossRate: number,
 	fieldPct: number,
 	totalOptions: number,
 	conviction: number,
@@ -65,7 +66,7 @@ export function previewSelectionPoints(
 	const tier = tierFor(fieldPct, totalOptions)
 	return {
 		win: Math.round(basePoints * stake * tier.mult * earlyTier.mult),
-		lose: Math.round(basePoints * stake),
+		lose: Math.round(basePoints * stake * lossRate),
 		tier,
 		earlyTier,
 	}
@@ -85,12 +86,13 @@ export type NumericPointsPreview = {
 // close to the actual value as this guess did. Unlike an option pick, that
 // share genuinely can't be known before resolution (it depends on where
 // everyone else's guesses end up relative to a value nobody's seen yet), so
-// this reports the full possible range instead of one number. A miss is
-// always a flat loss of the stake, same as every other type. earlyRank/
-// earlyTotalCalls follow the same optional-before-a-call-exists rule as
-// previewSelectionPoints above.
+// this reports the full possible range instead of one number. A miss is a
+// flat loss of the stake at the shape's loss rate, same as every other type.
+// earlyRank/earlyTotalCalls follow the same optional-before-a-call-exists
+// rule as previewSelectionPoints above.
 export function previewNumericPoints(
 	basePoints: number,
+	lossRate: number,
 	conviction: number,
 	earlyRank?: number,
 	earlyTotalCalls?: number,
@@ -103,7 +105,7 @@ export function previewNumericPoints(
 	return {
 		winLow: Math.round(basePoints * stake * TIER_MIN_MULT * earlyTier.mult),
 		winHigh: Math.round(basePoints * stake * TIER_MAX_MULT * earlyTier.mult),
-		lose: Math.round(basePoints * stake),
+		lose: Math.round(basePoints * stake * lossRate),
 		earlyTier,
 	}
 }

@@ -19,6 +19,8 @@ import {
 	AuthorizationError,
 	ValidationError,
 } from "../../../../lib/errors"
+import { bandSettingFor } from "../../../../lib/game-questions/band-settings"
+import { numericToleranceFor } from "../../../../lib/numeric-tolerance"
 import { getOfficialAccountId } from "../../../../lib/official-account"
 import { getCurrentSeason } from "../../../../lib/seasons"
 import { builder } from "../../../builder"
@@ -107,13 +109,13 @@ builder.mutationFields((t) => ({
 
 			// Resolved once up front for the structured-field validation below -
 			// only the fields a given shape actually uses end up set. Includes
-			// toleranceTier so the numeric_guess tolerance snapshot below can
-			// read off this one fetch instead of querying stats twice.
+			// both tolerance tiers so the numeric_guess tolerance snapshot below
+			// can read off this one fetch instead of querying stats twice.
 			const [stat, subjectPlayer, subjectTeam] = await Promise.all([
 				data.statId
 					? db.query.stats.findFirst({
 							where: { id: data.statId },
-							with: { toleranceTier: true },
+							with: { toleranceTier: true, teamToleranceTier: true },
 						})
 					: null,
 				data.subjectPlayerId
@@ -177,21 +179,22 @@ builder.mutationFields((t) => ({
 			// The tolerance band comes from the stat's own tolerance tier, not
 			// the creator - createQuestionSchema guarantees statId is set (no
 			// customStat fallback) for these two shapes specifically, so a
-			// creator can't set an unhittable or trivial-to-hit band by hand.
-			// Which column gets set depends on the tier's mode - see
-			// ToleranceSpec in @called-my-shot/scoring.
-			let numericTolerancePct: number | null = null
-			let numericToleranceAbsolute: number | null = null
-			if (isNumericGuessShape(data.shape)) {
-				if (!stat?.toleranceTier) {
-					throw ValidationError.field("statId", "Pick a stat from the list")
-				}
-				if (stat.toleranceTier.toleranceMode === "absolute") {
-					numericToleranceAbsolute = stat.toleranceTier.toleranceValue
-				} else {
-					numericTolerancePct = stat.toleranceTier.toleranceValue
-				}
+			// creator can't set an unhittable or trivial-to-hit band by hand. See
+			// numericToleranceFor for which of the stat's bands applies.
+			const bandSetting =
+				data.shape === "team_stat_numeric_guess" && stat
+					? await bandSettingFor(data.leagueId, stat.name)
+					: null
+			const tolerance =
+				isNumericGuessShape(data.shape) && stat
+					? numericToleranceFor(data.shape, stat, bandSetting)
+					: null
+			if (isNumericGuessShape(data.shape) && !tolerance) {
+				throw ValidationError.field("statId", "Pick a stat from the list")
 			}
+			const numericTolerancePct = tolerance?.numericTolerancePct ?? null
+			const numericToleranceAbsolute =
+				tolerance?.numericToleranceAbsolute ?? null
 
 			// Only meaningful for a catalog stat - a freeform customStat (over_under
 			// and player_vs_player both allow one, see requireStat vs

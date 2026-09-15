@@ -1,0 +1,2 @@
+ALTER TABLE "stats" ADD COLUMN "team_tolerance_tier_id" uuid;--> statement-breakpoint
+ALTER TABLE "stats" ADD CONSTRAINT "stats_team_tolerance_tier_id_stat_tolerance_tiers_id_fkey" FOREIGN KEY ("team_tolerance_tier_id") REFERENCES "stat_tolerance_tiers"("id") ON DELETE RESTRICT;

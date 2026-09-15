@@ -282,6 +282,54 @@ export const AdminResetLineSettingDocument = graphql(`
 	}
 `)
 
+export const AdminUpdateBandSettingDocument = graphql(`
+	mutation AdminUpdateBandSetting($input: UpdateBandSettingInput!) {
+		adminUpdateBandSetting(input: $input) {
+			__typename
+			... on BandSetting {
+				leagueSlug
+				statName
+			}
+			... on ValidationError {
+				fieldErrors {
+					field
+					message
+				}
+			}
+			... on AuthenticationError {
+				message
+			}
+			... on AuthorizationError {
+				message
+			}
+			... on NotFoundError {
+				message
+			}
+		}
+	}
+`)
+
+export const AdminResetBandSettingDocument = graphql(`
+	mutation AdminResetBandSetting($leagueSlug: String!, $statName: String!) {
+		adminResetBandSetting(leagueSlug: $leagueSlug, statName: $statName) {
+			__typename
+			... on BandSetting {
+				leagueSlug
+				statName
+			}
+			... on AuthenticationError {
+				message
+			}
+			... on AuthorizationError {
+				message
+			}
+			... on NotFoundError {
+				message
+			}
+		}
+	}
+`)
+
 export const SetUserVerifiedDocument = graphql(`
 	mutation SetUserVerified($userId: ID!, $verified: Boolean!) {
 		setUserVerified(userId: $userId, verified: $verified) {

@@ -1,3 +1,12 @@
+import {
+	BASE_POINTS_BY_SHAPE,
+	breakEvenHitRate,
+	EARLY_MAX_MULT,
+	LOSS_RATE_BY_SHAPE,
+	SEASON_EARLY_MAX_MULT,
+	TIER_MAX_MULT,
+	TIER_MIN_MULT,
+} from "@called-my-shot/scoring"
 import { useLocation } from "@tanstack/react-router"
 import type { ReactNode } from "react"
 import { css } from "styled-system/css"
@@ -167,25 +176,66 @@ function CurveScale({
 	)
 }
 
+// Every scoring number on this page is read from @called-my-shot/scoring, so
+// the copy can't drift from how points are actually scored.
+
+// A share in the words the copy uses: "half", "a third".
+function fractionWords(share: number): string {
+	if (share === 0.5) return "half"
+	if (share === 0.25) return "a quarter"
+	if (Math.abs(share - 1 / 3) < 1e-9) return "a third"
+	return `${Math.round(share * 100)}%`
+}
+
+// What a miss costs at a loss rate.
+function missCost(lossRate: number): string {
+	return lossRate === 1
+		? "everything you committed"
+		: `${fractionWords(lossRate)} of what you committed`
+}
+
+const NUMERIC_LOSS = LOSS_RATE_BY_SHAPE.player_stat_numeric_guess
+const LEADER_LOSS = LOSS_RATE_BY_SHAPE.player_game_stat_leader
+const TEAM_GUESS_TARGET = breakEvenHitRate(
+	LOSS_RATE_BY_SHAPE.team_stat_numeric_guess,
+)
+
+// The worked examples are an award finalists pick.
+const EXAMPLE_BASE = BASE_POINTS_BY_SHAPE.player_award_finalists
+const EXAMPLE_EARLY_MULT = 1.5
+const HIT_COMMITTED = Math.round(EXAMPLE_BASE * 0.6)
+const HIT_POINTS = Math.round(
+	HIT_COMMITTED * TIER_MAX_MULT * EXAMPLE_EARLY_MULT,
+)
+const MISS_COMMITTED = Math.round(EXAMPLE_BASE * 0.7)
+const MISS_POINTS = Math.round(
+	MISS_COMMITTED * LOSS_RATE_BY_SHAPE.player_award_finalists,
+)
+
 const QUESTION_TYPES = [
 	{
 		title: "Stat lines & yes/no",
-		pts: "150 pts",
+		pts: `${BASE_POINTS_BY_SHAPE.yes_no_prop} pts`,
 		desc: "A player or team stat line, a game total, a head-to-head comparison, a yes/no proposition: one pick between two (or a few named) options.",
 	},
 	{
 		title: "Award finalists",
-		pts: "200 pts",
+		pts: `${BASE_POINTS_BY_SHAPE.player_award_finalists} pts`,
 		desc: "The real announced shortlist for an award: pick the winner once the field's narrowed to a handful of named people.",
 	},
 	{
 		title: "Numeric guesses",
-		pts: "250 pts",
-		desc: "Guess an exact number for a player or team stat, one game at a time. Landing within the tolerance band still counts as a hit.",
+		pts: `${BASE_POINTS_BY_SHAPE.player_stat_numeric_guess} pts`,
+		desc: `Guess an exact number for a player or team stat, one game at a time. Landing within the tolerance band still counts as a hit. A miss costs ${missCost(NUMERIC_LOSS)}.`,
+	},
+	{
+		title: "Stat leaders",
+		pts: `${BASE_POINTS_BY_SHAPE.player_game_stat_leader} pts`,
+		desc: `Pick who leads a game or a season in a stat, from the full roster. A miss costs ${missCost(LEADER_LOSS)}.`,
 	},
 	{
 		title: "Season-long awards",
-		pts: "250 pts / pick",
+		pts: `${BASE_POINTS_BY_SHAPE.player_season_award} pts / pick`,
 		desc: "MVP, a championship, an All-league team: pick from the full league before the field's known, and each pick is scored at full value on its own, not a split pool.",
 	},
 ]
@@ -333,12 +383,13 @@ export function HowItWorksSections() {
 				</P>
 				<CurveScale
 					labels={["SAFE", "STEADY", "BOLD", "DARING", "FEARLESS"]}
-					floorMult="×1"
-					ceilingMult="×6"
+					floorMult={`×${TIER_MIN_MULT}`}
+					ceilingMult={`×${TIER_MAX_MULT}`}
 				/>
 				<P>
-					The multiplier only applies on a hit. Miss, and you just lose what you
-					committed; the tier doesn't make a miss cost more.
+					The multiplier only applies on a hit. Miss, and you lose what you
+					committed (or a set share of it on the harder question types, see
+					below); the tier doesn't make a miss cost more.
 				</P>
 			</Accordion>
 
@@ -357,7 +408,7 @@ export function HowItWorksSections() {
 				<CurveScale
 					labels={["STANDARD", "AHEAD OF THE CURVE", "EARLY", "FIRST MOVER"]}
 					floorMult="×1"
-					ceilingMult="×2"
+					ceilingMult={`×${EARLY_MAX_MULT}`}
 				/>
 				<P>
 					That call-order version is for single-game questions. A question
@@ -371,28 +422,46 @@ export function HowItWorksSections() {
 				<CurveScale
 					labels={["STANDARD", "EARLY SEASON", "FIRST QUARTER", "PRESEASON"]}
 					floorMult="×1"
-					ceilingMult="×3"
+					ceilingMult={`×${SEASON_EARLY_MAX_MULT}`}
 				/>
 				<P>
-					A miss is just <B>−committed points</B>, flat, regardless of either
-					multiplier.
+					A miss is <B>−committed points × loss rate</B>, flat, regardless of
+					either multiplier. The loss rate is set by question type. Stat lines,
+					yes/no, head-to-head, and award picks lose{" "}
+					{missCost(LOSS_RATE_BY_SHAPE.yes_no_prop)}. A numeric guess loses{" "}
+					{missCost(NUMERIC_LOSS)}. A game or season stat leader pick loses{" "}
+					{missCost(LEADER_LOSS)}. Those last two miss far more often than they
+					hit, and the rarity multiplier can't make up for that when only a few
+					people have called.
 				</P>
 
 				<ExampleCard
 					label="Worked example: hit, near-fearless rarity"
 					rows={[
-						{ term: "COMMITTED", expr: "200 × 60% = 120" },
-						{ term: "IF RIGHT", expr: "120 × 6 × 1.5 = +1,080" },
+						{
+							term: "COMMITTED",
+							expr: `${EXAMPLE_BASE} × 60% = ${HIT_COMMITTED}`,
+						},
+						{
+							term: "IF RIGHT",
+							expr: `${HIT_COMMITTED} × ${TIER_MAX_MULT} × ${EXAMPLE_EARLY_MULT} = +${HIT_POINTS.toLocaleString("en-US")}`,
+						},
 					]}
-					note="≈×6 boldness (barely anyone else picked it) · ≈×1.5 early bonus (called in the earliest quarter of the field, by call order)"
+					note={`≈×${TIER_MAX_MULT} boldness (barely anyone else picked it) · ≈×${EXAMPLE_EARLY_MULT} early bonus (called in the earliest quarter of the field, by call order)`}
 				/>
 				<ExampleCard
 					label="Worked example: miss, safe pick"
 					rows={[
-						{ term: "COMMITTED", expr: "200 × 70% = 140" },
-						{ term: "RESULT", expr: "missed → −140" },
+						{
+							term: "COMMITTED",
+							expr: `${EXAMPLE_BASE} × 70% = ${MISS_COMMITTED}`,
+						},
+						{
+							term: "RESULT",
+							expr: `missed → −${MISS_POINTS.toLocaleString("en-US")}`,
+						},
 					]}
-					note="tier was ≈×1 anyway (a popular pick), but it's irrelevant here; the multiplier never applies to a miss"
+					note={`tier was ≈×${TIER_MIN_MULT} anyway (a popular pick), but it's irrelevant here; the multiplier never applies to a miss`}
 				/>
 
 				<P>
@@ -414,37 +483,48 @@ export function HowItWorksSections() {
 					question resolves, how much of the <B>whole field</B> (not just the
 					people who also hit) guessed at least as close to the actual result as
 					you did? The smaller that share, the higher your multiplier, scaling
-					smoothly on the exact same <B>×1 to ×6</B> curve as the contrarian
-					tier.
+					smoothly on the exact same{" "}
+					<B>
+						×{TIER_MIN_MULT} to ×{TIER_MAX_MULT}
+					</B>{" "}
+					curve as the contrarian tier.
 				</P>
 				<P>
 					That's a deliberate choice: if half the field also landed on the same
 					close answer (a low-count stat like steals, where a lot of people will
 					correctly guess a small number), that's not a rare read and shouldn't
-					score like one; everyone tied at that distance sits near the ×1 floor,
-					the same as a popular option pick. If you're the only one who landed
-					that close on a harder, wider-ranging stat, that's genuinely rare, and
-					it scores like it. It stacks with the same early-call bonus as every
-					other type.
+					score like one; everyone tied at that distance sits near the ×
+					{TIER_MIN_MULT} floor, the same as a popular option pick. If you're
+					the only one who landed that close on a harder, wider-ranging stat,
+					that's genuinely rare, and it scores like it. It stacks with the same
+					early-call bonus as every other type.
 				</P>
 				<ExampleCard
 					label="Formula: numeric guess"
 					rows={[
-						{ term: "COMMITTED", expr: "250 × conviction% = committed points" },
+						{
+							term: "COMMITTED",
+							expr: `${BASE_POINTS_BY_SHAPE.player_stat_numeric_guess} × conviction% = committed points`,
+						},
 						{
 							term: "IF HIT",
-							expr: "committed × rarity (×1-×6) × early bonus",
+							expr: `committed × rarity (×${TIER_MIN_MULT}-×${TIER_MAX_MULT}) × early bonus`,
 						},
+						{ term: "IF MISS", expr: `−committed × ${NUMERIC_LOSS}` },
 					]}
 				/>
 				<P>
 					You don't need to land on the exact number to hit; that part hasn't
 					changed. Each stat carries its own tolerance band, based on how it's
 					typically distributed: a low-count stat like blocks or steals gets a
-					wider band (currently 15%) than a high-volume stat like points or
-					yards (currently 10%). Before the question resolves, the app shows
-					that as an approximate number so it's easier to read. Missing the band
-					is still a flat loss of what you committed, same as everywhere else:
+					wider band (currently 15%) than a high-volume stat like yards or a
+					player's points (currently 10%). A team's final score gets a fixed
+					band instead, since how much a score swings doesn't track how big it
+					is. That band is sized from recent final scores so a guess at a team's
+					own average lands inside it about {fractionWords(TEAM_GUESS_TARGET)}{" "}
+					of the time, and it adjusts as the season goes. Before the question
+					resolves, the app shows that as an approximate number so it's easier
+					to read. Missing the band costs {missCost(NUMERIC_LOSS)}, flat:
 					there's no partial credit for close but not close enough.
 				</P>
 			</Accordion>
@@ -456,7 +536,9 @@ export function HowItWorksSections() {
 				<P>
 					Each pick in a season-long award question (like First Team All-NBA)
 					is scored independently, using the same contrarian-tier math as
-					everything else, off the same 250-point base as any other pick: one
+					everything else, off the same{" "}
+					{BASE_POINTS_BY_SHAPE.player_season_award}-point base as any other
+					pick: one
 					player might land in FEARLESS while another lands in SAFE, and each
 					scores on its own rather than splitting a shared pool.
 				</P>

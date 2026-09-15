@@ -242,10 +242,16 @@ export const relations = defineRelations(schema, (r) => ({
 		toleranceTier: r.one.statToleranceTiers({
 			from: r.stats.toleranceTierId,
 			to: r.statToleranceTiers.id,
+			alias: "tolerance_tier",
+		}),
+		teamToleranceTier: r.one.statToleranceTiers({
+			from: r.stats.teamToleranceTierId,
+			to: r.statToleranceTiers.id,
+			alias: "team_tolerance_tier",
 		}),
 	},
 	statToleranceTiers: {
-		stats: r.many.stats(),
+		stats: r.many.stats({ alias: "tolerance_tier" }),
 	},
 	calls: {
 		question: r.one.questions({

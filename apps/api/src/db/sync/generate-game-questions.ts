@@ -5,6 +5,7 @@ import {
 import { and, eq, notExists, sql } from "drizzle-orm"
 import { match } from "ts-pattern"
 import { buildPlayerPool } from "../../lib/award-pool"
+import { loadBandSettings } from "../../lib/game-questions/band-settings"
 import {
 	generationKey,
 	isInSlot,
@@ -37,6 +38,7 @@ import {
 	gameQuestionTitle,
 } from "../../lib/game-questions/titles"
 import { isMainModule } from "../../lib/is-main-module"
+import { numericToleranceFor } from "../../lib/numeric-tolerance"
 import { getOfficialAccountId } from "../../lib/official-account"
 import {
 	activeGameTemplates,
@@ -147,6 +149,8 @@ type LeagueContext = {
 	// How many player templates each game draws - see PLAYER_QUESTIONS_PER_GAME.
 	perGame: number
 	statsByName: Map<string, CatalogStat>
+	// The league's saved team numeric guess bands - see loadBandSettings.
+	bandsByStatName: Map<string, number>
 	starters: (StarterCandidate & { gameId: string })[]
 	// Each due team's current roster, loaded only when a template picks from
 	// rosters.
@@ -176,7 +180,7 @@ const espnIdOf = (sourceId: string) => sourceId.split(":")[1] ?? sourceId
 function loadCatalogStats(sportId: string, names: string[]) {
 	return db.query.stats.findMany({
 		where: { sportId, name: { in: names } },
-		with: { toleranceTier: true },
+		with: { toleranceTier: true, teamToleranceTier: true },
 	})
 }
 
@@ -538,7 +542,14 @@ async function insertPlanned(
 ): Promise<boolean> {
 	const stat = ctx.statsByName.get(template.statName)
 	if (!stat) return false
-	const tier = template.shape === "team_stat_numeric_guess" ? stat.toleranceTier : null
+	const tolerance =
+		template.shape === "team_stat_numeric_guess"
+			? numericToleranceFor(
+					template.shape,
+					stat,
+					ctx.bandsByStatName.get(template.statName),
+				)
+			: null
 
 	return db.transaction(async (tx) => {
 		const [inserted] = await tx
@@ -559,10 +570,8 @@ async function insertPlanned(
 				ouLine: planned.ouLine ?? null,
 				subjectTeamId: planned.subjectTeamId ?? null,
 				subjectPlayerId: planned.subjectPlayerId ?? null,
-				numericTolerancePct:
-					tier?.toleranceMode === "percentage" ? tier.toleranceValue : null,
-				numericToleranceAbsolute:
-					tier?.toleranceMode === "absolute" ? tier.toleranceValue : null,
+				numericTolerancePct: tolerance?.numericTolerancePct ?? null,
+				numericToleranceAbsolute: tolerance?.numericToleranceAbsolute ?? null,
 				generationKey: planned.key,
 				lineBasis: planned.lineBasis ?? null,
 			})
@@ -791,6 +800,7 @@ async function generateForLeague(
 			PLAYER_QUESTIONS_PER_GAME[league.slug] ??
 			0,
 		statsByName,
+		bandsByStatName: await loadBandSettings(league.slug),
 		starters,
 		rostersByTeamId,
 		playerNameById: new Map(players.map((player) => [player.id, player.name])),

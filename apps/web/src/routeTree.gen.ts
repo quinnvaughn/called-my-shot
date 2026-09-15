@@ -19,6 +19,7 @@ import { Route as AppConfirmEmailRouteImport } from './routes/_app/confirm-email
 import { Route as AppHowItWorksRouteImport } from './routes/_app/how-it-works'
 import { Route as AppLeaderboardRouteImport } from './routes/_app/leaderboard'
 import { Route as AdminIndexRouteImport } from './routes/admin/index'
+import { Route as AdminBandsRouteImport } from './routes/admin/bands'
 import { Route as AdminDisputesRouteImport } from './routes/admin/disputes'
 import { Route as AdminIntegrityRouteImport } from './routes/admin/integrity'
 import { Route as AdminLinesRouteImport } from './routes/admin/lines'
@@ -115,6 +116,11 @@ const AppLeaderboardRoute = AppLeaderboardRouteImport.update({
 const AdminIndexRoute = AdminIndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminBandsRoute = AdminBandsRouteImport.update({
+  id: '/bands',
+  path: '/bands',
   getParentRoute: () => AdminRoute,
 } as any)
 const AdminDisputesRoute = AdminDisputesRouteImport.update({
@@ -387,6 +393,7 @@ export interface FileRoutesByFullPath {
   '/confirm-email': typeof AppConfirmEmailRoute
   '/how-it-works': typeof AppHowItWorksRoute
   '/leaderboard': typeof AppLeaderboardRoute
+  '/admin/bands': typeof AdminBandsRoute
   '/admin/disputes': typeof AdminDisputesRoute
   '/admin/integrity': typeof AdminIntegrityRoute
   '/admin/lines': typeof AdminLinesRoute
@@ -445,6 +452,7 @@ export interface FileRoutesByTo {
   '/confirm-email': typeof AppConfirmEmailRoute
   '/how-it-works': typeof AppHowItWorksRoute
   '/leaderboard': typeof AppLeaderboardRoute
+  '/admin/bands': typeof AdminBandsRoute
   '/admin/disputes': typeof AdminDisputesRoute
   '/admin/integrity': typeof AdminIntegrityRoute
   '/admin/lines': typeof AdminLinesRoute
@@ -505,6 +513,7 @@ export interface FileRoutesById {
   '/_app/confirm-email': typeof AppConfirmEmailRoute
   '/_app/how-it-works': typeof AppHowItWorksRoute
   '/_app/leaderboard': typeof AppLeaderboardRoute
+  '/admin/bands': typeof AdminBandsRoute
   '/admin/disputes': typeof AdminDisputesRoute
   '/admin/integrity': typeof AdminIntegrityRoute
   '/admin/lines': typeof AdminLinesRoute
@@ -566,6 +575,7 @@ export interface FileRouteTypes {
     | '/confirm-email'
     | '/how-it-works'
     | '/leaderboard'
+    | '/admin/bands'
     | '/admin/disputes'
     | '/admin/integrity'
     | '/admin/lines'
@@ -624,6 +634,7 @@ export interface FileRouteTypes {
     | '/confirm-email'
     | '/how-it-works'
     | '/leaderboard'
+    | '/admin/bands'
     | '/admin/disputes'
     | '/admin/integrity'
     | '/admin/lines'
@@ -683,6 +694,7 @@ export interface FileRouteTypes {
     | '/_app/confirm-email'
     | '/_app/how-it-works'
     | '/_app/leaderboard'
+    | '/admin/bands'
     | '/admin/disputes'
     | '/admin/integrity'
     | '/admin/lines'
@@ -823,6 +835,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/admin/'
       preLoaderRoute: typeof AdminIndexRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/bands': {
+      id: '/admin/bands'
+      path: '/bands'
+      fullPath: '/admin/bands'
+      preLoaderRoute: typeof AdminBandsRouteImport
       parentRoute: typeof AdminRoute
     }
     '/admin/disputes': {
@@ -1275,6 +1294,7 @@ const AdminDataLeagueIdRouteWithChildren =
   AdminDataLeagueIdRoute._addFileChildren(AdminDataLeagueIdRouteChildren)
 
 interface AdminRouteChildren {
+  AdminBandsRoute: typeof AdminBandsRoute
   AdminDisputesRoute: typeof AdminDisputesRoute
   AdminIntegrityRoute: typeof AdminIntegrityRoute
   AdminLinesRoute: typeof AdminLinesRoute
@@ -1290,6 +1310,7 @@ interface AdminRouteChildren {
 }
 
 const AdminRouteChildren: AdminRouteChildren = {
+  AdminBandsRoute: AdminBandsRoute,
   AdminDisputesRoute: AdminDisputesRoute,
   AdminIntegrityRoute: AdminIntegrityRoute,
   AdminLinesRoute: AdminLinesRoute,

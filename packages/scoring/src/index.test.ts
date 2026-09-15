@@ -1,11 +1,13 @@
 import { describe, expect, it } from "vitest"
 import {
 	BASE_POINTS_BY_SHAPE,
+	breakEvenHitRate,
 	earlyTierFor,
 	fieldPct,
 	hitTolerance,
 	isNumericGuessShape,
 	isSeasonLongShape,
+	LOSS_RATE_BY_SHAPE,
 	NUMERIC_GUESS_SHAPES,
 	numericGuessPoints,
 	type QuestionShape,
@@ -75,6 +77,47 @@ describe("BASE_POINTS_BY_SHAPE", () => {
 		]
 		const rates = new Set(binary.map((s) => BASE_POINTS_BY_SHAPE[s]))
 		expect(rates.size).toBe(1)
+	})
+})
+
+describe("breakEvenHitRate", () => {
+	it("is even odds at a full loss and a third at half", () => {
+		expect(breakEvenHitRate(1)).toBe(0.5)
+		expect(breakEvenHitRate(0.5)).toBeCloseTo(1 / 3)
+	})
+})
+
+describe("LOSS_RATE_BY_SHAPE", () => {
+	it("covers every shape with a rate in (0, 1]", () => {
+		for (const shape of ALL_SHAPES) {
+			expect(LOSS_RATE_BY_SHAPE[shape], shape).toBeGreaterThan(0)
+			expect(LOSS_RATE_BY_SHAPE[shape], shape).toBeLessThanOrEqual(1)
+		}
+		expect(Object.keys(LOSS_RATE_BY_SHAPE).sort()).toEqual(
+			[...ALL_SHAPES].sort(),
+		)
+	})
+
+	it("charges every 2-option shape the full stake", () => {
+		const binary: QuestionShape[] = [
+			"yes_no_prop",
+			"player_vs_player",
+			"team_vs_team",
+			"player_stat_over_under",
+			"game_total_over_under",
+		]
+		for (const shape of binary) {
+			expect(LOSS_RATE_BY_SHAPE[shape], shape).toBe(1)
+		}
+	})
+
+	it("rates a season-scoped shape the same as its game-scoped sibling", () => {
+		expect(LOSS_RATE_BY_SHAPE.team_season_stat_numeric_guess).toBe(
+			LOSS_RATE_BY_SHAPE.team_stat_numeric_guess,
+		)
+		expect(LOSS_RATE_BY_SHAPE.player_season_stat_leader).toBe(
+			LOSS_RATE_BY_SHAPE.player_game_stat_leader,
+		)
 	})
 })
 
@@ -217,17 +260,18 @@ describe("seasonEarlyTierFor", () => {
 
 describe("selectionPoints", () => {
 	const base = BASE_POINTS_BY_SHAPE.yes_no_prop
+	const lossRate = LOSS_RATE_BY_SHAPE.yes_no_prop
 
 	it("scales a win by conviction, contrarian tier and earliness", () => {
 		// 50% of the field on a binary question is a 1x tier, so with a neutral
 		// early multiplier a full-conviction win is exactly the base rate.
-		expect(selectionPoints(base, 50, 2, 100, true, 1)).toBe(base)
-		expect(selectionPoints(base, 50, 2, 50, true, 1)).toBe(base / 2)
+		expect(selectionPoints(base, lossRate, 50, 2, 100, true, 1)).toBe(base)
+		expect(selectionPoints(base, lossRate, 50, 2, 50, true, 1)).toBe(base / 2)
 	})
 
 	it("multiplies the two bonuses together on a win", () => {
 		const tier = tierFor(10, 2).mult
-		expect(selectionPoints(base, 10, 2, 100, true, 1.5)).toBe(
+		expect(selectionPoints(base, lossRate, 10, 2, 100, true, 1.5)).toBe(
 			Math.round(base * tier * 1.5),
 		)
 	})
@@ -235,20 +279,27 @@ describe("selectionPoints", () => {
 	it("charges a flat loss - no tier or earliness on the downside", () => {
 		// A wrong call eats the full stake regardless of how contrarian or how
 		// early it was, which is what stops early-and-often from being farmable.
-		const contrarianLoss = selectionPoints(base, 1, 2, 100, false, 2)
-		const safeLoss = selectionPoints(base, 99, 2, 100, false, 1)
+		const contrarianLoss = selectionPoints(base, lossRate, 1, 2, 100, false, 2)
+		const safeLoss = selectionPoints(base, lossRate, 99, 2, 100, false, 1)
 		expect(contrarianLoss).toBe(-base)
 		expect(safeLoss).toBe(-base)
 	})
 
 	it("scales the loss by conviction only", () => {
-		expect(selectionPoints(base, 50, 2, 25, false, 1)).toBe(
+		expect(selectionPoints(base, lossRate, 50, 2, 25, false, 1)).toBe(
 			-Math.round(base * 0.25),
 		)
 	})
 
+	it("scales the loss by the loss rate, never the win", () => {
+		expect(selectionPoints(base, 0.25, 50, 2, 100, false, 1)).toBe(
+			-Math.round(base * 0.25),
+		)
+		expect(selectionPoints(base, 0.25, 50, 2, 100, true, 1)).toBe(base)
+	})
+
 	it("returns whole numbers", () => {
-		const points = selectionPoints(base, 7, 3, 37, true, 1.23)
+		const points = selectionPoints(base, lossRate, 7, 3, 37, true, 1.23)
 		expect(Number.isInteger(points)).toBe(true)
 	})
 })
@@ -301,6 +352,7 @@ describe("hitTolerance", () => {
 
 describe("numericGuessPoints", () => {
 	const base = BASE_POINTS_BY_SHAPE.player_stat_numeric_guess
+	const lossRate = LOSS_RATE_BY_SHAPE.player_stat_numeric_guess
 	const spec = { mode: "percentage", pct: 0.1 } as const
 	const at = (minutes: number) => new Date(2026, 0, 1, 0, minutes)
 
@@ -311,6 +363,7 @@ describe("numericGuessPoints", () => {
 	it("returns one result per guess, hits and misses alike", () => {
 		const results = numericGuessPoints(
 			base,
+			lossRate,
 			[guess("a", 100, 0), guess("b", 500, 1)],
 			100,
 			spec,
@@ -318,10 +371,16 @@ describe("numericGuessPoints", () => {
 		expect(results.map((r) => r.callId)).toEqual(["a", "b"])
 	})
 
-	it("charges a miss the flat stake and records no closeness", () => {
-		const [miss] = numericGuessPoints(base, [guess("a", 500, 0)], 100, spec)
+	it("charges a miss the stake at the loss rate and records no closeness", () => {
+		const [miss] = numericGuessPoints(
+			base,
+			lossRate,
+			[guess("a", 500, 0)],
+			100,
+			spec,
+		)
 		expect(miss.hit).toBe(false)
-		expect(miss.points).toBe(-base)
+		expect(miss.points).toBe(-Math.round(base * lossRate))
 		expect(miss.closenessMult).toBeNull()
 		expect(miss.closenessFieldPct).toBeNull()
 	})
@@ -329,11 +388,12 @@ describe("numericGuessPoints", () => {
 	it("scales a miss by conviction", () => {
 		const [miss] = numericGuessPoints(
 			base,
+			lossRate,
 			[{ callId: "a", guessValue: 500, conviction: 40, createdAt: at(0) }],
 			100,
 			spec,
 		)
-		expect(miss.points).toBe(-Math.round(base * 0.4))
+		expect(miss.points).toBe(-Math.round(base * 0.4 * lossRate))
 	})
 
 	it("sizes closeness against the whole field, not just the hitters", () => {
@@ -342,6 +402,7 @@ describe("numericGuessPoints", () => {
 		// hitters counted.
 		const results = numericGuessPoints(
 			base,
+			lossRate,
 			[
 				guess("hit", 100, 0),
 				guess("miss1", 500, 1),
@@ -359,6 +420,7 @@ describe("numericGuessPoints", () => {
 	it("scores a lone hit in a big field higher than the same hit in a small one", () => {
 		const big = numericGuessPoints(
 			base,
+			lossRate,
 			[
 				guess("hit", 100, 0),
 				...Array.from({ length: 39 }, (_, i) => guess(`m${i}`, 500, i + 1)),
@@ -368,6 +430,7 @@ describe("numericGuessPoints", () => {
 		)
 		const small = numericGuessPoints(
 			base,
+			lossRate,
 			[
 				guess("hit", 100, 0),
 				...Array.from({ length: 3 }, (_, i) => guess(`m${i}`, 500, i + 1)),
@@ -385,6 +448,7 @@ describe("numericGuessPoints", () => {
 		// everyone lands at the tier floor.
 		const results = numericGuessPoints(
 			base,
+			lossRate,
 			Array.from({ length: 10 }, (_, i) => guess(`c${i}`, 100, i)),
 			100,
 			spec,
@@ -400,6 +464,7 @@ describe("numericGuessPoints", () => {
 		// Equidistant on opposite sides of the actual: neither is closer.
 		const results = numericGuessPoints(
 			base,
+			lossRate,
 			[guess("under", 95, 0), guess("over", 105, 1)],
 			100,
 			spec,
@@ -411,6 +476,7 @@ describe("numericGuessPoints", () => {
 	it("ranks a closer hit above a farther one", () => {
 		const results = numericGuessPoints(
 			base,
+			lossRate,
 			[guess("exact", 100, 0), guess("edge", 109, 1)],
 			100,
 			spec,
@@ -426,6 +492,7 @@ describe("numericGuessPoints", () => {
 		// Identical guesses, so closeness is identical - only createdAt differs.
 		const results = numericGuessPoints(
 			base,
+			lossRate,
 			[guess("late", 100, 100), guess("first", 100, 0)],
 			100,
 			spec,
@@ -436,7 +503,7 @@ describe("numericGuessPoints", () => {
 	})
 
 	it("handles an empty field", () => {
-		expect(numericGuessPoints(base, [], 100, spec)).toEqual([])
+		expect(numericGuessPoints(base, lossRate, [], 100, spec)).toEqual([])
 	})
 })
 

@@ -69,6 +69,44 @@ export const BASE_POINTS_BY_SHAPE: Record<QuestionShape, number> = {
 	player_season_stat_leader: 250,
 }
 
+// The fraction of committed points a miss costs, set by hand per shape. A
+// 2-option pick lands near a coin flip, so a full-stake loss is already
+// even. A numeric guess or a stat leader misses far more often than it hits,
+// and at a full-stake loss the expected result sits well below an easy
+// 2-option favorite, so nobody would take them. The rarity multiplier can't
+// make up that gap on its own: it's read off the field, and with only one or
+// two callers the field says nothing (a lone caller always holds 100% of it,
+// which is a x1 multiplier). A fixed rate per shape also means the loss is
+// known exactly when the call is made.
+export const LOSS_RATE_BY_SHAPE: Record<QuestionShape, number> = {
+	yes_no_prop: 1,
+	player_vs_player: 1,
+	player_vs_player_season: 1,
+	team_vs_team: 1,
+	team_vs_team_season: 1,
+	player_stat_over_under: 1,
+	team_stat_over_under: 1,
+	player_season_stat_over_under: 1,
+	team_season_stat_over_under: 1,
+	game_total_over_under: 1,
+	player_award_finalists: 1,
+	player_season_award: 1,
+	team_season_award: 1,
+	player_stat_numeric_guess: 0.5,
+	team_stat_numeric_guess: 0.5,
+	team_season_stat_numeric_guess: 0.5,
+	player_game_stat_leader: 0.25,
+	player_season_stat_leader: 0.25,
+}
+
+// The hit rate where a pick's wins and losses cancel out at a x1 multiplier:
+// a hit pays the committed points and a miss costs committed x loss rate, so
+// they even out at lossRate / (1 + lossRate). A tuned tolerance band aims
+// here - wider and the guess is free points, narrower and it's a trap.
+export function breakEvenHitRate(lossRate: number): number {
+	return lossRate / (1 + lossRate)
+}
+
 // Season-long shapes (no gameId, open across the whole season) score
 // earliness off how much of the season had actually happened when the call
 // was made (seasonEarlyTierFor, below) instead of rank-among-callers - call
@@ -312,6 +350,11 @@ function tierLabel(mult: number): string {
 
 export type EarlyTier = { mult: number; label: string }
 
+// The ceilings of earlyTierFor and seasonEarlyTierFor below. Both floor at 1:
+// being early only ever adds.
+export const EARLY_MAX_MULT = 2
+export const SEASON_EARLY_MAX_MULT = 3
+
 // A second, independent multiplier from the contrarian tier above - being
 // early and being contrarian aren't the same thing (you can call the eventual
 // favorite on day one, or call a pick that stays a minority the whole way
@@ -340,7 +383,7 @@ export type EarlyTier = { mult: number; label: string }
 export function earlyTierFor(rank: number, totalCalls: number): EarlyTier {
 	if (totalCalls === 0) return { mult: 1, label: "STANDARD" }
 	const percentile = rank / totalCalls
-	const mult = Math.min(2, Math.max(1, percentile ** -0.301))
+	const mult = Math.min(EARLY_MAX_MULT, Math.max(1, percentile ** -0.301))
 	return { mult, label: earlyLabel(mult) }
 }
 
@@ -388,7 +431,9 @@ export function seasonEarlyTierFor(
 ): EarlyTier {
 	const elapsedPct = totalGames === 0 ? 0 : gamesPlayed / totalGames
 	const mult =
-		elapsedPct === 0 ? 3 : Math.min(3, Math.max(1, elapsedPct ** -0.477))
+		elapsedPct === 0
+			? SEASON_EARLY_MAX_MULT
+			: Math.min(SEASON_EARLY_MAX_MULT, Math.max(1, elapsedPct ** -0.477))
 	return { mult, label: seasonEarlyLabel(mult) }
 }
 
@@ -403,13 +448,15 @@ function seasonEarlyLabel(mult: number): string {
 }
 
 // conviction is 1-100, how much of the tier's payout is actually in play.
-// basePoints comes from BASE_POINTS_BY_SHAPE for this question's shape.
+// basePoints comes from BASE_POINTS_BY_SHAPE and lossRate from
+// LOSS_RATE_BY_SHAPE for this question's shape.
 // earlyMult comes from earlyTierFor, computed by the caller from the call's
 // (not the selection's) position in the field - a player_season_award/
 // team_season_award call has several selections made at the same instant, so
 // earliness is a property of the call, not of any one pick within it.
 export function selectionPoints(
 	basePoints: number,
+	lossRate: number,
 	optionFieldPct: number,
 	totalOptions: number,
 	conviction: number,
@@ -417,7 +464,7 @@ export function selectionPoints(
 	earlyMult: number,
 ): number {
 	const stake = conviction / 100
-	if (!isCorrect) return -Math.round(basePoints * stake)
+	if (!isCorrect) return -Math.round(basePoints * stake * lossRate)
 	return Math.round(
 		basePoints * stake * tierFor(optionFieldPct, totalOptions).mult * earlyMult,
 	)
@@ -467,7 +514,8 @@ export function hitTolerance(
 // option elsewhere - without a genuine downside for missing it, the two
 // numeric-guess shapes would be a strictly better bet than every other shape
 // (upside with none of the risk), and callers would only ever answer these.
-// A miss loses the full stake, flat, same as a wrong option pick. That line
+// A miss loses the stake at the shape's LOSS_RATE_BY_SHAPE rate, flat - no
+// multiplier touches it, same as a wrong option pick. That line
 // stays a hard binary on purpose - every other shape's win/loss is binary too
 // (you picked the correct option or you didn't), and softening it into a
 // decaying "almost right still counts a little" would make numeric-guess
@@ -494,10 +542,11 @@ export function hitTolerance(
 // regardless of the total field size, and there was no way for an "everyone
 // guessed the obvious number" hit to score any differently than a genuinely
 // rare exact guess.
-// basePoints comes from BASE_POINTS_BY_SHAPE for whichever numeric-guess
-// shape this is.
+// basePoints comes from BASE_POINTS_BY_SHAPE and lossRate from
+// LOSS_RATE_BY_SHAPE for whichever numeric-guess shape this is.
 export function numericGuessPoints(
 	basePoints: number,
+	lossRate: number,
 	guesses: {
 		callId: string
 		guessValue: number
@@ -575,7 +624,7 @@ export function numericGuessPoints(
 			: null,
 		points: guess.hit
 			? (pointsByCallId.get(guess.callId) ?? 0)
-			: -Math.round(basePoints * (guess.conviction / 100)),
+			: -Math.round(basePoints * (guess.conviction / 100) * lossRate),
 	}))
 }
 

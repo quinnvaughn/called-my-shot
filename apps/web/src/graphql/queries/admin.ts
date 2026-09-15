@@ -427,6 +427,48 @@ export const AdminLineSettingsDocument = graphql(`
 	}
 `)
 
+// Bands tab.
+export const AdminBandSettingsDocument = graphql(`
+	query AdminBandSettings {
+		adminBandSettings {
+			__typename
+			... on QueryAdminBandSettingsSuccess {
+				data {
+					leagueSlug
+					templateId
+					statName
+					isCustom
+					autoTune
+					tunedAt
+					tolerance {
+						mode
+						value
+					}
+					defaultTolerance {
+						mode
+						value
+					}
+					calibration {
+						samples
+						hitRate
+						suggestedBand
+						targetHitRate
+						outsideTarget
+						callerCalls
+						callerHitRate
+					}
+				}
+			}
+			... on AuthenticationError {
+				message
+			}
+			... on AuthorizationError {
+				message
+			}
+		}
+	}
+`)
+
 // Users tab.
 export const AdminUsersDocument = graphql(`
 	query AdminUsers(

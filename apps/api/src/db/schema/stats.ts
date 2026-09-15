@@ -80,6 +80,14 @@ export const stats = pgTable(
 		toleranceTierId: uuid("tolerance_tier_id")
 			.notNull()
 			.references(() => statToleranceTiers.id, { onDelete: "restrict" }),
+		// A separate band for team questions on a "both" stat, for when the team
+		// reading swings on a different scale than the player one (an NBA team's
+		// score vs one player's points). Null means team questions use
+		// toleranceTierId the same as player questions.
+		teamToleranceTierId: uuid("team_tolerance_tier_id").references(
+			() => statToleranceTiers.id,
+			{ onDelete: "restrict" },
+		),
 		// A plausible over/under line for ONE GAME, split by subject kind
 		// because the same stat sits at wildly different magnitudes for the two
 		// (a player scores ~24 points, a team ~112). Seeds the create-question

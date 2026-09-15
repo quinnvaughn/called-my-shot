@@ -16,6 +16,7 @@ import {
 } from "../db/schema"
 import { buildPlayerPool, buildTeamPool } from "./award-pool"
 import { generateUniqueBallotSlug } from "./ballot-slug"
+import { numericToleranceFor } from "./numeric-tolerance"
 import { getCurrentSeason } from "./seasons"
 import { compareTeamsByGrouping, teamSectionResolver } from "./team-grouping"
 
@@ -173,21 +174,17 @@ async function generatePerTeamNumericGuess(params: {
 	const sectionFor = teamSectionResolver(teamsInLeague)
 	const stat = await db.query.stats.findFirst({
 		where: { sportId: params.sportId, name: params.template.statName },
-		with: { toleranceTier: true },
+		with: { toleranceTier: true, teamToleranceTier: true },
 	})
-	if (!stat?.toleranceTier) {
+	const tolerance = stat
+		? numericToleranceFor("team_season_stat_numeric_guess", stat)
+		: null
+	if (!stat || !tolerance) {
 		throw new Error(
 			`generatePerTeamNumericGuess: stat "${params.template.statName}" not found or missing a tolerance tier for sport ${params.sportId}`,
 		)
 	}
-	const numericTolerancePct =
-		stat.toleranceTier.toleranceMode === "absolute"
-			? null
-			: stat.toleranceTier.toleranceValue
-	const numericToleranceAbsolute =
-		stat.toleranceTier.toleranceMode === "absolute"
-			? stat.toleranceTier.toleranceValue
-			: null
+	const { numericTolerancePct, numericToleranceAbsolute } = tolerance
 
 	let created = 0
 	let skipped = 0

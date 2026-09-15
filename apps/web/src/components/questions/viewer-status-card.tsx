@@ -1,6 +1,7 @@
 import {
 	BASE_POINTS_BY_SHAPE,
 	earlyTierFor,
+	LOSS_RATE_BY_SHAPE,
 	seasonEarlyTierFor,
 	TIER_MAX_MULT,
 	TIER_MIN_MULT,
@@ -70,6 +71,31 @@ const BASE_POINTS_BY_GQL_SHAPE: Record<QuestionShape, number> = {
 	PLAYER_SEASON_AWARD: BASE_POINTS_BY_SHAPE.player_season_award,
 	TEAM_SEASON_AWARD: BASE_POINTS_BY_SHAPE.team_season_award,
 	PLAYER_AWARD_FINALISTS: BASE_POINTS_BY_SHAPE.player_award_finalists,
+}
+
+// Same GQL/DB casing bridge as BASE_POINTS_BY_GQL_SHAPE above, for
+// LOSS_RATE_BY_SHAPE.
+const LOSS_RATE_BY_GQL_SHAPE: Record<QuestionShape, number> = {
+	PLAYER_STAT_OVER_UNDER: LOSS_RATE_BY_SHAPE.player_stat_over_under,
+	TEAM_STAT_OVER_UNDER: LOSS_RATE_BY_SHAPE.team_stat_over_under,
+	PLAYER_SEASON_STAT_OVER_UNDER:
+		LOSS_RATE_BY_SHAPE.player_season_stat_over_under,
+	TEAM_SEASON_STAT_OVER_UNDER: LOSS_RATE_BY_SHAPE.team_season_stat_over_under,
+	GAME_TOTAL_OVER_UNDER: LOSS_RATE_BY_SHAPE.game_total_over_under,
+	PLAYER_STAT_NUMERIC_GUESS: LOSS_RATE_BY_SHAPE.player_stat_numeric_guess,
+	TEAM_STAT_NUMERIC_GUESS: LOSS_RATE_BY_SHAPE.team_stat_numeric_guess,
+	TEAM_SEASON_STAT_NUMERIC_GUESS:
+		LOSS_RATE_BY_SHAPE.team_season_stat_numeric_guess,
+	PLAYER_VS_PLAYER: LOSS_RATE_BY_SHAPE.player_vs_player,
+	PLAYER_VS_PLAYER_SEASON: LOSS_RATE_BY_SHAPE.player_vs_player_season,
+	TEAM_VS_TEAM: LOSS_RATE_BY_SHAPE.team_vs_team,
+	TEAM_VS_TEAM_SEASON: LOSS_RATE_BY_SHAPE.team_vs_team_season,
+	PLAYER_GAME_STAT_LEADER: LOSS_RATE_BY_SHAPE.player_game_stat_leader,
+	PLAYER_SEASON_STAT_LEADER: LOSS_RATE_BY_SHAPE.player_season_stat_leader,
+	YES_NO_PROP: LOSS_RATE_BY_SHAPE.yes_no_prop,
+	PLAYER_SEASON_AWARD: LOSS_RATE_BY_SHAPE.player_season_award,
+	TEAM_SEASON_AWARD: LOSS_RATE_BY_SHAPE.team_season_award,
+	PLAYER_AWARD_FINALISTS: LOSS_RATE_BY_SHAPE.player_award_finalists,
 }
 
 // Mirrors SEASON_LONG_SHAPES/isSeasonLongShape in @called-my-shot/scoring -
@@ -731,6 +757,7 @@ function PickRows({
 }) {
 	const { shape, ouLine } = call.question
 	const basePoints = BASE_POINTS_BY_GQL_SHAPE[shape]
+	const lossRate = LOSS_RATE_BY_GQL_SHAPE[shape]
 
 	if (isNumericQuestionShape(shape)) {
 		const { guessValue, conviction } = call
@@ -747,6 +774,7 @@ function PickRows({
 						rank={call.currentRank}
 						totalCalls={callCount}
 						basePoints={basePoints}
+						lossRate={lossRate}
 						result={numericRowResult(call, settled)}
 					/>
 				)}
@@ -774,6 +802,7 @@ function PickRows({
 					seasonGamesPlayed={call.seasonGamesPlayed}
 					seasonTotalGames={call.seasonTotalGames}
 					basePoints={basePoints}
+					lossRate={lossRate}
 					// A single pick's name is already up in the title - only
 					// player_season_award/team_season_award (several picks,
 					// none of them named up top) needs each row to say what it is.
@@ -809,13 +838,13 @@ function numericRowResult(
 	}
 }
 
-// A short ledger, not prose - two rows, each labeled with what it IS
-// (COMMITTED, IF RIGHT) rather than just showing bare math. The committed
+// A short ledger, not prose - each row labeled with what it IS (COMMITTED,
+// IF RIGHT, IF WRONG) rather than just showing bare math. The committed
 // amount is colored consistently (orange) everywhere it appears, including
-// inside the IF RIGHT math, so it visually reads as "that same number,
-// multiplied" rather than an unexplained coincidence. There's no IF WRONG row
-// - COMMITTED already IS the downside, so a separate "-130 flat" row would
-// just repeat it.
+// inside the other rows' math, so it visually reads as "that same number,
+// multiplied" rather than an unexplained coincidence. IF WRONG only appears
+// for a shape whose loss rate is under 1 - at a full loss COMMITTED already
+// IS the downside, so a separate "-130 flat" row would just repeat it.
 type LedgerRow = { label: string; math: ReactNode }
 type Breakdown = { ledger: LedgerRow[]; note?: string }
 // A resolved pick's second ledger row plus the note under it - both depend on
@@ -866,19 +895,48 @@ function committedRow(
 	}
 }
 
-function missedRow(points: number): ResultLedger {
+// The stored points are authoritative: a call scored at a full loss reads as
+// one even on a shape whose loss rate is under 1.
+function missedRow(
+	points: number,
+	committed: number,
+	lossRate: number,
+): ResultLedger {
+	const partial = lossRate !== 1 && Math.abs(points) !== committed
 	return {
 		label: "RESULT",
 		math: (
 			<>
 				<span className={mathDefault}>
-					missed: you lose what you committed ={" "}
+					{partial
+						? `missed: ${committed} × ${lossRate} loss rate = `
+						: "missed: you lose what you committed = "}
 				</span>
 				<span className={mathLose}>−{Math.abs(points)}</span>
 			</>
 		),
 		note: missNote,
 	}
+}
+
+function wrongRows(
+	committed: number,
+	lossRate: number,
+	lose: number,
+): LedgerRow[] {
+	if (lossRate === 1) return []
+	return [
+		{
+			label: "IF WRONG",
+			math: (
+				<>
+					<span className={mathDownside}>{committed}</span>
+					<span className={mathDefault}> × {lossRate} loss rate = </span>
+					<span className={mathLose}>−{lose}</span>
+				</>
+			),
+		},
+	]
 }
 
 // A pick's row renders one of two ways depending on whether the question has
@@ -1067,6 +1125,7 @@ function SelectionPickRow({
 	seasonGamesPlayed,
 	seasonTotalGames,
 	basePoints,
+	lossRate,
 	result,
 	// Only matters once resolved - the pending preview has nothing else
 	// naming the pick, so it always shows the name regardless of this flag.
@@ -1082,6 +1141,7 @@ function SelectionPickRow({
 	seasonGamesPlayed: number | null
 	seasonTotalGames: number | null
 	basePoints: number
+	lossRate: number
 	result: SelectionRowResult
 	showName?: boolean
 }) {
@@ -1143,7 +1203,9 @@ function SelectionPickRow({
 				math: <span className={mathUpside}>+{result.points}</span>,
 				note: fieldNote,
 			}))
-			.with({ isCorrect: false }, () => missedRow(result.points))
+			.with({ isCorrect: false }, () =>
+				missedRow(result.points, committed, lossRate),
+			)
 			.exhaustive()
 		return (
 			<PickRowShell
@@ -1173,24 +1235,25 @@ function SelectionPickRow({
 			: earlyTierFor(rank, totalCalls)
 	const preview = previewSelectionPoints(
 		basePoints,
+		lossRate,
 		fieldPct,
 		totalOptions,
 		conviction,
 		earlyTier,
 	)
-	const stake = preview.lose // the loss is always the flat, un-multiplied stake
+	const committed = Math.round(basePoints * (conviction / 100))
 	return (
 		<PickRowShell
 			name={label}
 			note={null}
 			breakdown={{
 				ledger: [
-					committedRow(basePoints, conviction, stake),
+					committedRow(basePoints, conviction, committed),
 					{
 						label: "IF RIGHT",
 						math: (
 							<>
-								<span className={mathDownside}>{stake}</span>
+								<span className={mathDownside}>{committed}</span>
 								<span className={mathDefault}>
 									{" "}
 									× {formatMult(preview.tier.mult)} boldness ×{" "}
@@ -1200,6 +1263,7 @@ function SelectionPickRow({
 							</>
 						),
 					},
+					...wrongRows(committed, lossRate, preview.lose),
 				],
 			}}
 			payout={<Payout win={preview.win} lose={preview.lose} />}
@@ -1214,6 +1278,7 @@ function NumericPickRow({
 	rank,
 	totalCalls,
 	basePoints,
+	lossRate,
 	result,
 }: {
 	guessValue: number
@@ -1222,6 +1287,7 @@ function NumericPickRow({
 	rank: number
 	totalCalls: number
 	basePoints: number
+	lossRate: number
 	result: NumericRowResult
 }) {
 	const band = tolerance !== null ? toleranceBand(guessValue, tolerance) : null
@@ -1284,7 +1350,9 @@ function NumericPickRow({
 				math: <span className={mathUpside}>+{result.totalPoints}</span>,
 				note: closenessNote,
 			}))
-			.with({ win: false }, () => missedRow(result.totalPoints))
+			.with({ win: false }, () =>
+				missedRow(result.totalPoints, committed, lossRate),
+			)
 			.exhaustive()
 		return (
 			<PickRowShell
@@ -1301,20 +1369,26 @@ function NumericPickRow({
 		)
 	}
 
-	const preview = previewNumericPoints(basePoints, conviction, rank, totalCalls)
-	const stake = preview.lose // the loss is always the flat, un-multiplied stake
+	const preview = previewNumericPoints(
+		basePoints,
+		lossRate,
+		conviction,
+		rank,
+		totalCalls,
+	)
+	const committed = Math.round(basePoints * (conviction / 100))
 	return (
 		<PickRowShell
 			name={formatGuess(guessValue, isRateStat)}
 			note={bandNote}
 			breakdown={{
 				ledger: [
-					committedRow(basePoints, conviction, stake),
+					committedRow(basePoints, conviction, committed),
 					{
 						label: "IF RIGHT",
 						math: (
 							<>
-								<span className={mathDownside}>{stake}</span>
+								<span className={mathDownside}>{committed}</span>
 								<span className={mathDefault}>
 									{" "}
 									× {TIER_MIN_MULT}–{TIER_MAX_MULT} closeness ×{" "}
@@ -1326,6 +1400,7 @@ function NumericPickRow({
 							</>
 						),
 					},
+					...wrongRows(committed, lossRate, preview.lose),
 				],
 			}}
 			payout={

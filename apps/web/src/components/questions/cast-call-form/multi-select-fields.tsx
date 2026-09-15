@@ -1,6 +1,7 @@
 import {
 	BASE_POINTS_BY_SHAPE,
 	isSeasonLongShape,
+	LOSS_RATE_BY_SHAPE,
 	seasonEarlyTierFor,
 } from "@called-my-shot/scoring"
 import { FiX } from "react-icons/fi"
@@ -252,6 +253,7 @@ export function MultiSelectFields({ callForm }: Props) {
 												totalOptions={question.options.length}
 												conviction={selection.conviction}
 												basePoints={BASE_POINTS_BY_SHAPE[shape]}
+												lossRate={LOSS_RATE_BY_SHAPE[shape]}
 												earlyTier={earlyTier}
 											/>
 										</VStack>

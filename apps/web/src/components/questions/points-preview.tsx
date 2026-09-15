@@ -12,6 +12,7 @@ type Props =
 			kind: "numeric"
 			conviction: number
 			basePoints: number
+			lossRate: number
 	  }
 	| {
 			kind: "option"
@@ -21,6 +22,7 @@ type Props =
 			totalOptions: number
 			conviction: number
 			basePoints: number
+			lossRate: number
 			// Season-long shapes only (see isSeasonLongShape in
 			// @called-my-shot/scoring) - the caller computes this from the
 			// question's live seasonGamesPlayed/seasonTotalGames via
@@ -44,7 +46,11 @@ type Props =
 // here, before a call exists.
 export function PointsPreview(props: Props) {
 	if (props.kind === "numeric") {
-		const preview = previewNumericPoints(props.basePoints, props.conviction)
+		const preview = previewNumericPoints(
+			props.basePoints,
+			props.lossRate,
+			props.conviction,
+		)
 		return (
 			<PointsPreviewShell
 				tierText="Bonus depends on how rare your guess turns out to be"
@@ -66,6 +72,7 @@ export function PointsPreview(props: Props) {
 
 	const preview = previewSelectionPoints(
 		props.basePoints,
+		props.lossRate,
 		props.fieldPct,
 		props.totalOptions,
 		props.conviction,

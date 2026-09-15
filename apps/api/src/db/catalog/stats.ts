@@ -58,6 +58,23 @@ const TOLERANCE_TIERS = [
 		toleranceMode: "absolute",
 		toleranceValue: 6,
 	},
+	// Team final scores, per league (statName "Points"). Absolute rather than
+	// "High-Volume" because a band should scale with how much a score swings,
+	// not how big it is: an NFL score swings by roughly 45% of its average and
+	// an NBA score by ~11%, so no one percentage fits both. Each is sized so a
+	// good guess hits about a third of the time, where a numeric guess breaks
+	// even at its 0.5 loss rate (see LOSS_RATE_BY_SHAPE in
+	// @called-my-shot/scoring). +/-3 is within a field goal.
+	{
+		name: "Team Score - NFL",
+		toleranceMode: "absolute",
+		toleranceValue: 3,
+	},
+	{
+		name: "Team Score - NBA",
+		toleranceMode: "absolute",
+		toleranceValue: 6,
+	},
 ] as const
 
 type AppliesTo = "player" | "team" | "both"
@@ -69,12 +86,16 @@ type AppliesTo = "player" | "team" | "both"
 // appliesTo excludes, and omit both for a season-only stat like "Wins" that
 // has no per-game reading.
 type TypicalLines = { player?: number; team?: number }
+type TierName = (typeof TOLERANCE_TIERS)[number]["name"]
+// teamTier overrides tier for team questions only - see teamToleranceTierId
+// in db/schema/stats.ts. Omitted means team questions use tier.
 type StatEntry = readonly [
 	name: string,
 	category: string,
-	tier: (typeof TOLERANCE_TIERS)[number]["name"],
+	tier: TierName,
 	appliesTo: AppliesTo,
 	typical?: TypicalLines,
+	teamTier?: TierName,
 ]
 
 // The real stat catalog - every player/team box-score stat (and season
@@ -85,7 +106,14 @@ type StatEntry = readonly [
 // no hand-written SQL against prod each time the catalog grows. See
 // statAppliesTo in db/schema/stats.ts for what appliesTo means.
 const BASKETBALL_STATS: StatEntry[] = [
-	["Points", "Scoring", "High-Volume", "both", { player: 24.5, team: 112.5 }],
+	[
+		"Points",
+		"Scoring",
+		"High-Volume",
+		"both",
+		{ player: 24.5, team: 112.5 },
+		"Team Score - NBA",
+	],
 	[
 		"3-Pointers Made",
 		"Scoring",
@@ -138,7 +166,7 @@ const FOOTBALL_STATS: StatEntry[] = [
 	// Team-only here (unlike basketball's, which is "both") - an NFL player
 	// has no individual "Points" box-score line the way a team's final score
 	// is one; credit shows up as TDs/FGs instead.
-	["Points", "Scoring", "High-Volume", "team", { team: 22.5 }],
+	["Points", "Scoring", "Team Score - NFL", "team", { team: 22.5 }],
 	[
 		"Passing Yards",
 		"Passing",
@@ -314,11 +342,21 @@ async function upsertStats(
 	const rows: StatRow[] = []
 	for (const [
 		index,
-		[name, category, tierName, appliesTo, typical],
+		[name, category, tierName, appliesTo, typical, teamTierName],
 	] of entries.entries()) {
 		const toleranceTierId = tierIdByName.get(tierName)
 		if (!toleranceTierId) {
 			throw new Error(`syncStatCatalog: unknown tolerance tier "${tierName}"`)
+		}
+		// null rather than undefined for the same reason as the typical lines
+		// below: dropping a teamTier from an entry has to clear the column.
+		const teamToleranceTierId = teamTierName
+			? (tierIdByName.get(teamTierName) ?? null)
+			: null
+		if (teamTierName && !teamToleranceTierId) {
+			throw new Error(
+				`syncStatCatalog: unknown tolerance tier "${teamTierName}"`,
+			)
 		}
 		// null rather than undefined so dropping a typical line from an entry
 		// above actually clears the column on the next sync, instead of leaving
@@ -332,6 +370,7 @@ async function upsertStats(
 				name,
 				category,
 				toleranceTierId,
+				teamToleranceTierId,
 				appliesTo,
 				sortOrder: index,
 				typicalPlayerLine,
@@ -342,6 +381,7 @@ async function upsertStats(
 				set: {
 					category,
 					toleranceTierId,
+					teamToleranceTierId,
 					appliesTo,
 					sortOrder: index,
 					typicalPlayerLine,

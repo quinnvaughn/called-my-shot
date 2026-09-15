@@ -74,6 +74,20 @@ export const updateLineSettingSchema = z.object({
 })
 export type UpdateLineSettingInput = z.infer<typeof updateLineSettingSchema>
 
+// The band one league's team numeric guesses on a stat are created with - see
+// adminUpdateBandSetting.
+export const updateBandSettingSchema = z.object({
+	leagueSlug: z.string().trim().min(1),
+	statName: z.string().trim().min(1),
+	band: z
+		.number()
+		.int("Band has to be a whole number")
+		.min(1, "Band has to be at least 1")
+		.max(99, "Band can't be more than 99"),
+	autoTune: z.boolean(),
+})
+export type UpdateBandSettingInput = z.infer<typeof updateBandSettingSchema>
+
 // Voiding a question without deleting it - see adminMarkQuestionVoided. Nobody
 // is at fault in these cases, so unlike voidQuestionSchema there is no strike
 // toggle.

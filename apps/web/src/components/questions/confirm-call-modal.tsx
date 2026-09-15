@@ -1,6 +1,7 @@
 import {
 	BASE_POINTS_BY_SHAPE,
 	isSeasonLongShape,
+	LOSS_RATE_BY_SHAPE,
 	seasonEarlyTierFor,
 } from "@called-my-shot/scoring"
 import { useRouteContext } from "@tanstack/react-router"
@@ -57,6 +58,7 @@ export function ConfirmCallModal({
 	if (!question) return null
 
 	const basePoints = BASE_POINTS_BY_SHAPE[shape]
+	const lossRate = LOSS_RATE_BY_SHAPE[shape]
 	// Season-long shapes preview off games played so far, not rank - see
 	// PointsPreview's own comment on the same distinction. Null for a
 	// game-scoped shape (or a season-long one with no games synced yet, where
@@ -105,7 +107,11 @@ export function ConfirmCallModal({
 										? `within ±${formatGuess(toleranceBand, isRateStat)} counts as a hit`
 										: "counts as a hit within tolerance"
 								}
-								payout={previewNumericPoints(basePoints, convictionValue)}
+								payout={previewNumericPoints(
+									basePoints,
+									lossRate,
+									convictionValue,
+								)}
 							/>
 						)
 					: selections.map((selection) => {
@@ -131,6 +137,7 @@ export function ConfirmCallModal({
 									meta={meta}
 									payout={previewSelectionPoints(
 										basePoints,
+										lossRate,
 										simulatedFieldPct,
 										question.options.length,
 										selection.conviction,

@@ -1,5 +1,6 @@
 export * from "./auto-resolutions"
 export * from "./ballots"
+export * from "./band-settings"
 export * from "./calls"
 export * from "./email"
 export * from "./game-starters"
