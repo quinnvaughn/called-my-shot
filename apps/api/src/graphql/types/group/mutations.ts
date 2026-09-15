@@ -5,7 +5,12 @@ import {
 } from "@called-my-shot/schemas"
 import { and, eq } from "drizzle-orm"
 import { db } from "../../../db"
-import { groupMembers, groups, questionShares } from "../../../db/schema"
+import {
+	groupInvites,
+	groupMembers,
+	groups,
+	questionShares,
+} from "../../../db/schema"
 import { requireUser } from "../../../lib/auth"
 import {
 	AuthenticationError,
@@ -26,8 +31,9 @@ import {
 	setTrackedLeagues,
 } from "../../../lib/groups"
 import { createNotifications } from "../../../lib/notifications"
+import type { Tx } from "../../../lib/user-season-stats"
 import { builder } from "../../builder"
-import { InviteExpiry } from "./enums"
+import { GroupRole, InviteExpiry } from "./enums"
 import {
 	CreateGroupInput,
 	GroupPayload,
@@ -35,7 +41,20 @@ import {
 	QuestionSharePayload,
 	UpdateGroupInput,
 } from "./inputs"
-import { GroupInviteRef, GroupRef } from "./refs"
+import { GroupInviteRef, GroupMemberRef, GroupRef } from "./refs"
+
+// A departed member's link would otherwise keep letting people into a group
+// they're no longer part of.
+function deleteMemberInvite(tx: Tx, groupId: string, userId: string) {
+	return tx
+		.delete(groupInvites)
+		.where(
+			and(
+				eq(groupInvites.groupId, groupId),
+				eq(groupInvites.createdBy, userId),
+			),
+		)
+}
 
 builder.mutationFields((t) => ({
 	createGroup: t.field({
@@ -199,15 +218,86 @@ builder.mutationFields((t) => ({
 			}
 			await requireAdmin(args.groupId, user.id)
 
-			await db
-				.delete(groupMembers)
-				.where(
-					and(
-						eq(groupMembers.groupId, args.groupId),
-						eq(groupMembers.userId, args.userId),
-					),
-				)
+			await db.transaction(async (tx) => {
+				await tx
+					.delete(groupMembers)
+					.where(
+						and(
+							eq(groupMembers.groupId, args.groupId),
+							eq(groupMembers.userId, args.userId),
+						),
+					)
+				await deleteMemberInvite(tx, args.groupId, args.userId)
+			})
 
+			return true
+		},
+	}),
+
+	// Admins are equals: any admin can promote a member or demote any admin,
+	// themselves included, as long as the group keeps at least one.
+	setGroupMemberRole: t.field({
+		type: GroupMemberRef,
+		errors: {
+			types: [AuthenticationError, AuthorizationError, NotFoundError],
+			directResult: true,
+			union: { name: "SetGroupMemberRoleResult" },
+		},
+		args: {
+			groupId: t.arg.id({ required: true }),
+			userId: t.arg.id({ required: true }),
+			role: t.arg({ type: GroupRole, required: true }),
+		},
+		resolve: async (_root, args, ctx) => {
+			const user = requireUser(ctx)
+			await requireAdmin(args.groupId, user.id)
+
+			return db.transaction(async (tx) => {
+				// Locks the group so two admins demoting each other at once can't
+				// both pass the last-admin check below.
+				await tx
+					.select({ id: groups.id })
+					.from(groups)
+					.where(eq(groups.id, args.groupId))
+					.for("update")
+				const members = await tx.query.groupMembers.findMany({
+					where: { groupId: args.groupId },
+				})
+				const target = members.find((m) => m.userId === args.userId)
+				if (!target) {
+					throw new NotFoundError("They're not a member of this group.")
+				}
+				if (target.role === args.role) return target
+
+				const adminCount = members.filter((m) => m.role === "admin").length
+				if (args.role === "member" && adminCount === 1) {
+					throw ValidationError.field(
+						null,
+						"A group needs at least one admin. Make someone else an admin first.",
+					)
+				}
+
+				const [updated] = await tx
+					.update(groupMembers)
+					.set({ role: args.role })
+					.where(eq(groupMembers.id, target.id))
+					.returning()
+				return updated
+			})
+		},
+	}),
+
+	deleteGroup: t.field({
+		type: "Boolean",
+		errors: {
+			types: [AuthenticationError, AuthorizationError],
+			union: { name: "DeleteGroupResult" },
+		},
+		args: { groupId: t.arg.id({ required: true }) },
+		resolve: async (_root, args, ctx) => {
+			const user = requireUser(ctx)
+			await requireAdmin(args.groupId, user.id)
+			await db.delete(groups).where(eq(groups.id, args.groupId))
 			return true
 		},
 	}),
@@ -249,6 +339,7 @@ builder.mutationFields((t) => ({
 				await tx
 					.delete(groupMembers)
 					.where(eq(groupMembers.id, actorMembership.id))
+				await deleteMemberInvite(tx, args.groupId, user.id)
 
 				if (others.length === 0) {
 					await tx.delete(groups).where(eq(groups.id, args.groupId))

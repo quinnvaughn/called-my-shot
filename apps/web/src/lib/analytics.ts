@@ -75,6 +75,10 @@ type AnalyticsEvents = {
 	// memberCount separates someone opting out of a two-person group from
 	// someone hiding the card on a group that has already grown.
 	group_invite_card_dismissed: { groupId: string; memberCount: number }
+	// memberCount is the size before the leave or delete, so a two-person
+	// group falling apart reads differently from a big one losing someone.
+	group_left: { groupId: string; memberCount: number }
+	group_deleted: { groupId: string; memberCount: number }
 
 	// Profile track-record cards only. A call used to have a downloadable
 	// image too; what gets shared now is a link to the call's own page, which

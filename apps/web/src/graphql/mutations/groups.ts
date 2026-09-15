@@ -120,6 +120,81 @@ export const UpdateGroupDocument = graphql(`
 	}
 `)
 
+export const SetGroupMemberRoleDocument = graphql(`
+	mutation SetGroupMemberRole($groupId: ID!, $userId: ID!, $role: GroupRole!) {
+		setGroupMemberRole(groupId: $groupId, userId: $userId, role: $role) {
+			__typename
+			... on GroupMember {
+				id
+				role
+			}
+			... on AuthenticationError {
+				message
+			}
+			... on AuthorizationError {
+				message
+			}
+			... on NotFoundError {
+				message
+			}
+			... on ValidationError {
+				message
+			}
+		}
+	}
+`)
+
+export const RemoveGroupMemberDocument = graphql(`
+	mutation RemoveGroupMember($groupId: ID!, $userId: ID!) {
+		removeGroupMember(groupId: $groupId, userId: $userId) {
+			__typename
+			... on AuthenticationError {
+				message
+			}
+			... on AuthorizationError {
+				message
+			}
+			... on ValidationError {
+				message
+			}
+		}
+	}
+`)
+
+export const LeaveGroupDocument = graphql(`
+	mutation LeaveGroup($groupId: ID!) {
+		leaveGroup(groupId: $groupId) {
+			__typename
+			... on AuthenticationError {
+				message
+			}
+			... on NotFoundError {
+				message
+			}
+			... on ValidationError {
+				message
+			}
+		}
+	}
+`)
+
+export const DeleteGroupDocument = graphql(`
+	mutation DeleteGroup($groupId: ID!) {
+		deleteGroup(groupId: $groupId) {
+			__typename
+			... on AuthenticationError {
+				message
+			}
+			... on AuthorizationError {
+				message
+			}
+			... on ValidationError {
+				message
+			}
+		}
+	}
+`)
+
 export const ShareQuestionToGroupDocument = graphql(`
 	mutation ShareQuestionToGroup($groupId: ID!, $questionId: ID!) {
 		shareQuestionToGroup(groupId: $groupId, questionId: $questionId) {

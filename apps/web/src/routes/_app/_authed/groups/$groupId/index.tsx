@@ -20,7 +20,6 @@ import {
 	groupLeaderboardQuery,
 } from "#/components/groups/group-leaderboard"
 import { GroupMembersSheet } from "#/components/groups/group-members-sheet"
-import { GroupSettingsModal } from "#/components/groups/group-settings-modal"
 import { InviteCodeModal } from "#/components/groups/invite-code-modal"
 import {
 	SharedQuestionsTab,
@@ -71,7 +70,7 @@ function groupLeagueScope(
 	}
 }
 
-export const Route = createFileRoute("/_app/_authed/groups/$groupId")({
+export const Route = createFileRoute("/_app/_authed/groups/$groupId/")({
 	component: RouteComponent,
 	validateSearch: validateLeaderboardSearch,
 	loaderDeps: ({ search }) => ({
@@ -228,24 +227,17 @@ function RouteComponent() {
 								)
 							}
 						/>
-						{group.viewerIsAdmin && (
-							<HeaderAction
-								label="Settings"
-								icon={<FiSettings size={16} />}
-								variant="outline"
-								onClick={() =>
-									openModal(
-										<GroupSettingsModal
-											groupId={group.id}
-											groupName={group.name}
-											groupDescription={group.description ?? null}
-											leagues={leagues}
-											trackedLeagueIds={trackedLeagues.map((l) => l.id)}
-										/>,
-									)
-								}
-							/>
-						)}
+						<HeaderAction
+							label="Settings"
+							icon={<FiSettings size={16} />}
+							variant="outline"
+							onClick={() =>
+								navigate({
+									to: "/groups/$groupId/settings",
+									params: { groupId: group.id },
+								})
+							}
+						/>
 						<HeaderAction
 							label="Invite"
 							icon={<FiUserPlus size={16} />}

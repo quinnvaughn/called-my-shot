@@ -51,6 +51,43 @@ export const GroupLeaguesDocument = graphql(`
     }
 `)
 
+// invites comes back empty for anyone who isn't an admin, same as the
+// admin-only sections that render it.
+export const GroupSettingsDocument = graphql(`
+    query GroupSettings($groupId: ID!) {
+        group(id: $groupId) {
+            id
+            name
+            description
+            viewerIsAdmin
+            trackedLeagues {
+                id
+                abbreviation
+            }
+            members {
+                id
+                role
+                joinedAt
+                user {
+                    id
+                    name
+                    username
+                }
+            }
+            invites {
+                id
+                code
+                expiresAt
+                creator {
+                    id
+                    name
+                    username
+                }
+            }
+        }
+    }
+`)
+
 // Per-tab connections spread the same fragments their standalone paginated
 // queries use (AnsweredQuestionsTab_call, etc.) - see components/groups/
 // *-questions-tab.tsx, colocated with the components that render them.
@@ -75,7 +112,6 @@ export const GroupDetailDocument = graphql(`
             name
             description
             memberCount
-            viewerIsAdmin
             viewerDismissedInviteCard
             viewerRank
             myInvite {
