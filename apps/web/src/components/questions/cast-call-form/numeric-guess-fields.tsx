@@ -1,7 +1,4 @@
-import {
-	BASE_POINTS_BY_SHAPE,
-	LOSS_RATE_BY_SHAPE,
-} from "@called-my-shot/scoring"
+import { BASE_POINTS_BY_SHAPE } from "@called-my-shot/scoring"
 import { useEffect, useState } from "react"
 import { FiMinus, FiPlus } from "react-icons/fi"
 import { css, cx } from "styled-system/css"
@@ -200,6 +197,7 @@ function GuessValueInput({
 
 export function NumericGuessFields({ callForm }: Props) {
 	const {
+		question,
 		shape,
 		form,
 		toleranceBand,
@@ -215,6 +213,8 @@ export function NumericGuessFields({ callForm }: Props) {
 	const stepSizes = isRateStat
 		? RATE_GUESS_STEP_SIZES
 		: COUNTING_GUESS_STEP_SIZES
+
+	if (!question) return null
 
 	return (
 		<VStack gap="5" alignItems="stretch">
@@ -337,7 +337,7 @@ export function NumericGuessFields({ callForm }: Props) {
 							kind="numeric"
 							conviction={numericConviction ?? 50}
 							basePoints={BASE_POINTS_BY_SHAPE[shape]}
-							lossRate={LOSS_RATE_BY_SHAPE[shape]}
+							lossRate={question.lossRate}
 						/>
 					</VStack>
 				</Card.Body>
