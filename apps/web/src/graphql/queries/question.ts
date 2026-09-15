@@ -56,10 +56,10 @@ export const QuestionDetailDocument = graphql(`
 				name
 				username
 			}
+			...GameStrip_question
 			game {
 				id
 				...GameStarters_game
-				questionCount
 				status
 				startsAt
 				homeScore

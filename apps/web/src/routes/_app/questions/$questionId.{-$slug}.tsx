@@ -25,6 +25,7 @@ import {
 } from "#/components/questions/cast-call-form"
 import type { QuestionCallShape } from "#/components/questions/cast-call-form/use-cast-call-form"
 import { FieldBreakdownCard } from "#/components/questions/field-breakdown-card"
+import { GameStrip } from "#/components/questions/game-strip"
 import { GuessDistributionChart } from "#/components/questions/guess-distribution-chart"
 import { OptionFieldBreakdown } from "#/components/questions/option-field-breakdown"
 import { PanelRow } from "#/components/questions/panel-row"
@@ -312,10 +313,20 @@ function RouteComponent() {
 					<Breadcrumb.Current>{question.title}</Breadcrumb.Current>
 				</Breadcrumb>
 				<BallotStrip question={question} />
+				<GameStrip question={question} />
 				<VStack gap="3" alignItems="stretch">
 					<HStack gap="2" justify="space-between" alignItems="flex-start">
 						<HStack gap="2" flexWrap="wrap">
-							{question.isOfficial && <Tag variant="primary">Official</Tag>}
+							{/* Stated either way: this row is the only thing on the page
+						that says what kind of question you're reading, and an absent
+						badge isn't a signal anyone reads. Feed cards keep tagging
+						Official alone, where a Community tag would sit on nearly every
+						card and carry nothing. */}
+							{question.isOfficial ? (
+								<Tag variant="primary">Official</Tag>
+							) : (
+								<Tag>Community</Tag>
+							)}
 							<Tag>{question.league.abbreviation}</Tag>
 							<Tag>{questionShapeLabel[question.shape]}</Tag>
 						</HStack>
@@ -355,15 +366,8 @@ function RouteComponent() {
 				{/* Only rendered when this question is actually tied to a single
 			game - season-long questions (championship, MVP) have no game and
 			this stays hidden for those. */}
-				{question.game && gameLinkParams && (
-					<GameMatchupHeader
-						game={question.game}
-						starters={question.game}
-						questionsLink={{
-							params: gameLinkParams,
-							count: question.game.questionCount,
-						}}
-					/>
+				{question.game && (
+					<GameMatchupHeader game={question.game} starters={question.game} />
 				)}
 				<Card>
 					<Card.Body>
@@ -552,15 +556,15 @@ function RouteComponent() {
 				{isCreator &&
 					state.phase === "locked" &&
 					!question.resolvesAutomatically && (
-					<Button
-						variant="outline"
-						onClick={() =>
-							openModal(<ResolveQuestionModal question={question} />)
-						}
-					>
-						Resolve this question
-					</Button>
-				)}
+						<Button
+							variant="outline"
+							onClick={() =>
+								openModal(<ResolveQuestionModal question={question} />)
+							}
+						>
+							Resolve this question
+						</Button>
+					)}
 				<VStack gap="3" alignItems="stretch">
 					{sectionLabel("Calls")}
 					<QuestionCallsList questionId={question.id} />

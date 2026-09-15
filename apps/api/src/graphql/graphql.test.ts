@@ -652,6 +652,54 @@ async function makePriorSeason(leagueId: string) {
 	})
 }
 
+describe("Game.officialQuestions", () => {
+	const GAME_OFFICIAL_QUESTIONS = /* GraphQL */ `
+		query GameOfficialQuestions($id: ID!) {
+			game(id: $id) {
+				officialQuestions { id callCount }
+			}
+		}
+	`
+
+	it("lists the game's official questions oldest first, and nothing else", async () => {
+		const game = await makeGame()
+		const onGame = {
+			leagueId: game.leagueId,
+			seasonId: game.seasonId,
+			gameId: game.id,
+		}
+		const newer = await makeQuestion({
+			...onGame,
+			isOfficial: true,
+			createdAt: new Date("2026-09-01T12:05:00Z"),
+		})
+		const older = await makeQuestion({
+			...onGame,
+			isOfficial: true,
+			createdAt: new Date("2026-09-01T12:00:00Z"),
+		})
+		await makeQuestion({ ...onGame, isOfficial: false })
+		const otherGame = await makeGame({
+			leagueId: game.leagueId,
+			seasonId: game.seasonId,
+		})
+		await makeQuestion({
+			leagueId: game.leagueId,
+			seasonId: game.seasonId,
+			gameId: otherGame.id,
+			isOfficial: true,
+		})
+
+		const data = await expectData<{
+			game: { officialQuestions: { id: string; callCount: number }[] }
+		}>(GAME_OFFICIAL_QUESTIONS, { variables: { id: game.id } })
+		expect(data.game.officialQuestions).toEqual([
+			{ id: older.id, callCount: 0 },
+			{ id: newer.id, callCount: 0 },
+		])
+	})
+})
+
 describe("Query.sitemapGames", () => {
 	it("lists the current season's games and skips a prior season's", async () => {
 		const league = await makeLeague()

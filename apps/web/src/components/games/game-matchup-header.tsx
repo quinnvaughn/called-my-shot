@@ -1,5 +1,3 @@
-import { Link } from "@tanstack/react-router"
-import { FiChevronRight } from "react-icons/fi"
 import { css } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
 import { TeamBadge } from "#/components/ui/team-badge"
@@ -34,12 +32,6 @@ type Props = {
 	// Starters as one key line per team with no expand toggle, for a card that
 	// has to hold its height (the landing page's try-it stack).
 	compactStarters?: boolean
-	// The game page's own header leaves this off - that page already lists the
-	// questions this would link to.
-	questionsLink?: {
-		params: { gameId: string; slug: string }
-		count: number
-	}
 }
 
 // maxWidth is what actually makes the ellipsis work: the name is a flex item
@@ -130,21 +122,6 @@ const versusClass = css({
 	textAlign: "center",
 })
 
-// Sections below the matchup are separated by a rule rather than their own
-// card, so the whole thing reads as one object: this game.
-const sectionLinkClass = css({
-	display: "flex",
-	alignItems: "center",
-	justifyContent: "space-between",
-	gap: "2",
-	borderTop: "1px solid {colors.border.default}",
-	paddingTop: "3",
-	fontSize: "sm",
-	color: "fg.body",
-	textDecoration: "none",
-	_hover: { color: "fg.default", textDecoration: "underline" },
-})
-
 function TeamLine({
 	team,
 	record,
@@ -187,7 +164,6 @@ export function GameMatchupHeader({
 	game,
 	starters,
 	compactStarters = false,
-	questionsLink,
 }: Props) {
 	const live = game.status === "LIVE"
 	const final = game.status === "FINAL"
@@ -270,19 +246,6 @@ export function GameMatchupHeader({
 			</HStack>
 
 			{starters && <GameStarters game={starters} compact={compactStarters} />}
-
-			{/* Only worth a link when there's more than the question being read
-			right now. */}
-			{questionsLink && questionsLink.count > 1 && (
-				<Link
-					to="/games/$gameId/{-$slug}"
-					params={questionsLink.params}
-					className={sectionLinkClass}
-				>
-					<span>{questionsLink.count} questions on this game</span>
-					<FiChevronRight size={14} />
-				</Link>
-			)}
 		</VStack>
 	)
 }

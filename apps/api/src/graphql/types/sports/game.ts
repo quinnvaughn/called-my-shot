@@ -86,6 +86,15 @@ export const GameRef = builder.drizzleObject("games", {
 				return n
 			},
 		}),
+		// The game's official questions, oldest first. Community questions are
+		// left out: a game can collect any number of them. No literal `with` here,
+		// for the same reason as BallotRef.members (graphql/types/ballot/refs.ts).
+		officialQuestions: t.relation("questions", {
+			query: () => ({
+				where: { isOfficial: true },
+				orderBy: { createdAt: "asc", id: "asc" },
+			}),
+		}),
 		// Null when signed out - same reasoning as League.myOpenCallCount above.
 		viewerCalledCount: t.field({
 			type: "Int",

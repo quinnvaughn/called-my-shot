@@ -20,7 +20,6 @@ import { Tabs } from "#/components/ui/tabs"
 import type {
 	GameByIdQuery,
 	GameQuestionsQuery,
-	QuestionShape,
 	QuestionSortOrder,
 } from "#/graphql/generated/graphql"
 import {
@@ -32,6 +31,11 @@ import {
 	gqlQueryOptions,
 } from "#/graphql/query-options"
 import { pageMeta } from "#/lib/meta"
+import {
+	findGameWinnerQuestion,
+	GAME_WINNER_LABEL,
+	sectionOfficialQuestions,
+} from "#/lib/official-game-questions"
 import { buildGameSlug } from "#/lib/slug"
 
 type GameTab = "official" | "community"
@@ -51,17 +55,6 @@ const PAGE_SIZE = 15
 // plus one catalog's worth (apps/api/src/db/catalog/game-question-catalog.ts)
 // is well under this.
 const OFFICIAL_LIMIT = 50
-
-// The Official tab's sections, in the order they read. Each names the kind of
-// call its questions are, so a new catalog template lands in its shape's
-// section and a new shape needs a section of its own here. Any other official
-// question on the game (an admin's own) goes under More.
-const OFFICIAL_SECTIONS: { label: string; shapes: QuestionShape[] }[] = [
-	{ label: "Team scores", shapes: ["TEAM_STAT_NUMERIC_GUESS"] },
-	{ label: "Head to head", shapes: ["PLAYER_VS_PLAYER"] },
-	{ label: "Player lines", shapes: ["PLAYER_STAT_OVER_UNDER"] },
-	{ label: "Game leader", shapes: ["PLAYER_GAME_STAT_LEADER"] },
-]
 
 const sectionLabelClass = css({
 	fontFamily: "mono",
@@ -172,12 +165,10 @@ function RouteComponent() {
 		)
 	}
 
-	// The "who will win?" question synced onto this game by syncGameQuestions
-	// (see apps/api/src/db/sync/sync-game-questions.ts) - the headline call,
-	// shown above the tabs so neither one hides it. Absent entirely when the
-	// game has none (before the daily sync has run) rather than showing a
-	// placeholder that implies something's broken.
-	const hero = officialQuestions.find((q) => q.shape === "TEAM_VS_TEAM")
+	// The headline call, shown above the tabs so neither one hides it. Absent
+	// entirely when the game has none (before the daily sync has run) rather
+	// than showing a placeholder that implies something's broken.
+	const hero = findGameWinnerQuestion(officialQuestions)
 
 	function selectTab(next: GameTab) {
 		navigate({
@@ -207,7 +198,7 @@ function RouteComponent() {
 
 			{hero && (
 				<VStack gap="2" alignItems="stretch">
-					<span className={sectionLabelClass}>Game winner</span>
+					<span className={sectionLabelClass}>{GAME_WINNER_LABEL}</span>
 					<QuestionCard question={hero} showGame={false} />
 				</VStack>
 			)}
@@ -238,26 +229,7 @@ function OfficialQuestions({
 	game: GameData
 	questions: GameQuestion[]
 }) {
-	// Oldest first within a section, which is the order the catalog posts them
-	// in (away team before home).
-	const byAge = (a: GameQuestion, b: GameQuestion) =>
-		new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
-	const sectioned = new Set(OFFICIAL_SECTIONS.flatMap((s) => s.shapes))
-	const sections = [
-		...OFFICIAL_SECTIONS.map((section) => ({
-			label: section.label,
-			questions: questions.filter((q) => section.shapes.includes(q.shape)),
-		})),
-		{
-			label: "More",
-			questions: questions.filter((q) => !sectioned.has(q.shape)),
-		},
-	]
-		.map((section) => ({
-			...section,
-			questions: [...section.questions].sort(byAge),
-		}))
-		.filter((section) => section.questions.length > 0)
+	const sections = sectionOfficialQuestions(questions)
 
 	if (sections.length === 0) {
 		// Catalog questions only go up inside generate-game-questions.ts's
