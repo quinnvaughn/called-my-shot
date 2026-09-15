@@ -9,6 +9,7 @@ import { eq } from "drizzle-orm"
 import { describe, expect, it } from "vitest"
 import { db } from "../db"
 import {
+	analyticsOutbox,
 	callSelections,
 	emailOutbox,
 	notifications,
@@ -845,5 +846,79 @@ describe("transactional integrity", () => {
 			.where(eq(questionOptions.id, options[0].id))
 		expect(option[0].isCorrect).toBeNull()
 		expect(await db.select().from(questionVoids)).toHaveLength(0)
+	})
+})
+
+describe("resolveQuestionInternal - call_resolved analytics", () => {
+	const eventsFor = (userId: string) =>
+		db.query.analyticsOutbox.findMany({ where: { userId } })
+
+	it("queues one event per scored caller with league, sport and result", async () => {
+		const { question, options, callers } = await seedOptionQuestion({
+			callers: [{ optionIndex: 0 }, { optionIndex: 1 }],
+		})
+		await resolve(question, { correctOptionIds: [options[0].id] })
+
+		const [won] = await eventsFor(callers[0].user.id)
+		const [lost] = await eventsFor(callers[1].user.id)
+		expect(won.event).toBe("call_resolved")
+		expect(won.properties).toMatchObject({
+			questionId: question.id,
+			callId: callers[0].call.id,
+			questionShape: "yes_no_prop",
+			leagueId: question.leagueId,
+			sportId: question.sportId,
+			horizon: "game",
+			correct: true,
+			resolutionMethod: "system",
+			rescored: false,
+		})
+		expect((won.properties as { pointsDelta: number }).pointsDelta).toBeGreaterThan(0)
+		expect(lost.properties).toMatchObject({
+			correct: false,
+			pointsDelta: -BASE_POINTS_BY_SHAPE.yes_no_prop,
+		})
+	})
+
+	it("marks a season-long question's calls with the season horizon", async () => {
+		const { question, options, callers } = await seedOptionQuestion({
+			shape: "player_season_award",
+			callers: [{ optionIndex: 0 }],
+		})
+		await resolve(question, { correctOptionIds: [options[0].id] })
+
+		const [event] = await eventsFor(callers[0].user.id)
+		expect(event.properties).toMatchObject({ horizon: "season" })
+	})
+
+	it("queues nothing for a caller the resolution leaves unscored", async () => {
+		const { question, options, callers } = await seedOptionQuestion({
+			callers: [{ optionIndex: 0 }],
+		})
+		await resolve(
+			question,
+			{ correctOptionIds: [options[0].id] },
+			{ unscoredUserIds: soleCaller(callers[0].user.id) },
+		)
+		expect(await eventsFor(callers[0].user.id)).toHaveLength(0)
+	})
+
+	it("flags an overturn as rescored, and a no-change re-resolve queues nothing", async () => {
+		const { question, options, callers } = await seedOptionQuestion({
+			callers: [{ optionIndex: 0 }, { optionIndex: 1 }],
+		})
+		await resolve(question, { correctOptionIds: [options[0].id] })
+		await db.delete(analyticsOutbox)
+
+		await resolve(question, { correctOptionIds: [options[0].id] })
+		expect(await db.select().from(analyticsOutbox)).toHaveLength(0)
+
+		await resolve(question, { correctOptionIds: [options[1].id] })
+		const [flipped] = await eventsFor(callers[0].user.id)
+		expect(flipped.properties).toMatchObject({
+			correct: false,
+			rescored: true,
+			pointsDelta: -BASE_POINTS_BY_SHAPE.yes_no_prop,
+		})
 	})
 })

@@ -34,6 +34,9 @@ export const GuestPickCardFragment = graphql(`
 			id
 			abbreviation
 		}
+		sport {
+			id
+		}
 		options {
 			id
 			label
@@ -193,6 +196,8 @@ export function GuestPickCard({
 											questionId: question.id,
 											optionId: option.id,
 											shape: question.shape,
+											leagueId: question.league.id,
+											sportId: question.sport.id,
 											title: question.title,
 											optionLabel: label,
 											locksAt: question.locksAt,

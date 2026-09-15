@@ -8,6 +8,8 @@ export type GuestPick = {
 	questionId: string
 	optionId: string
 	shape: QuestionShape
+	leagueId: string
+	sportId: string
 	title: string
 	optionLabel: string
 	locksAt: string

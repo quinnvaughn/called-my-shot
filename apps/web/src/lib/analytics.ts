@@ -1,6 +1,15 @@
+import { isSeasonLongShape } from "@called-my-shot/scoring"
 import posthog from "posthog-js"
 import type { AuthModalSurface } from "#/components/auth/auth-modal"
 import type { QuestionCallShape } from "#/components/questions/cast-call-form/use-cast-call-form"
+import type { ViewerStatus } from "#/lib/viewer-status"
+
+// Whether a question settles off one game or off the season. Separates someone
+// holding award calls that land in June from someone with games tonight.
+export type QuestionHorizon = "game" | "season"
+export function questionHorizon(shape: QuestionCallShape): QuestionHorizon {
+	return isSeasonLongShape(shape) ? "season" : "game"
+}
 
 // Add new events here as they're needed - `track()` below is typed against
 // this map, so every call site gets the right property shape for free and a
@@ -15,12 +24,32 @@ type AnalyticsEvents = {
 	email_confirmed: Record<string, never>
 	account_deleted: Record<string, never>
 
+	// locksAt with horizon is the time-to-resolution signal: a game question
+	// settles within hours of locking, a season one months after. The call
+	// settling is call_resolved, captured server-side (apps/api
+	// lib/analytics-outbox.ts) since nothing in the browser sees it happen.
 	call_submitted: {
 		questionId: string
 		questionShape: QuestionCallShape
+		leagueId: string
+		sportId: string
+		horizon: QuestionHorizon
+		locksAt: string
 		pickCount: number
 		hasCase: boolean
 		avgConviction: number
+	}
+	// One per mount of a question's page. viewerState is what the page offered:
+	// only a `canCall` view could have become a call, so viewed-to-called is
+	// measured over those, and the rest tell "nothing left to call" apart
+	// from "chose not to".
+	question_viewed: {
+		questionId: string
+		questionShape: QuestionCallShape
+		leagueId: string
+		sportId: string
+		horizon: QuestionHorizon
+		viewerState: ViewerStatus<unknown>["kind"]
 	}
 
 	question_created: {

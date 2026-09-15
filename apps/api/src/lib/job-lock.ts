@@ -95,6 +95,7 @@ export async function withJobLock(
 // string literals at each call site because a typo in one of them silently
 // buys a second, useless lease instead of failing.
 export const AUTO_RESOLVE_GAMES_LOCK = "auto-resolve-games"
+export const DRAIN_ANALYTICS_LOCK = "drain-analytics-outbox"
 export const DRAIN_DIGESTS_LOCK = "drain-email-digests"
 export const DRAIN_SEASON_START_LOCK = "drain-season-start-emails"
 export const RECOMPUTE_ACHIEVEMENTS_LOCK = "recompute-achievements"

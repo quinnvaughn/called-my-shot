@@ -7,6 +7,7 @@ import { generateGameQuestions } from "./db/sync/generate-game-questions"
 import { syncSportsData } from "./db/sync/run"
 import { syncGameStarters } from "./db/sync/sync-game-starters"
 import { syncLiveScores } from "./db/sync/sync-live-scores"
+import { drainAnalyticsOutbox } from "./lib/analytics-outbox"
 import { drainResolutionDigests } from "./lib/email-digest"
 import { tuneBands } from "./lib/game-questions/tune-bands"
 import { tuneLeaderLosses } from "./lib/game-questions/tune-leader-losses"
@@ -14,6 +15,7 @@ import { tuneLines } from "./lib/game-questions/tune-lines"
 import { tuneTitleLosses } from "./lib/game-questions/tune-title-losses"
 import {
 	AUTO_RESOLVE_GAMES_LOCK,
+	DRAIN_ANALYTICS_LOCK,
 	DRAIN_DIGESTS_LOCK,
 	DRAIN_SEASON_START_LOCK,
 	RECOMPUTE_ACHIEVEMENTS_LOCK,
@@ -209,7 +211,16 @@ export function startScheduler(): void {
 		}),
 		{ name: DRAIN_SEASON_START_LOCK, timezone: "UTC", noOverlap: true },
 	)
+	// Every minute, so a server-side event lands in PostHog close to when it
+	// happened. Most ticks find nothing queued.
+	cron.schedule(
+		"* * * * *",
+		runJob(DRAIN_ANALYTICS_LOCK, async () => {
+			await drainAnalyticsOutbox()
+		}),
+		{ name: DRAIN_ANALYTICS_LOCK, timezone: "UTC", noOverlap: true },
+	)
 	console.log(
-		"[scheduler] started: sync-live-scores */5m (then auto-resolve-games and recompute-achievements when a game went final), recompute-achievements */1m, reconcile-achievements daily 11:30 UTC, lock-overdue-questions */15m, sync-sports-data daily 09:00 UTC, sync-game-starters then generate-game-questions */30m, auto-resolve-games 2-59/10m, auto-resolve-seasons daily 10:30 UTC, auto-resolve-championships daily 10:45 UTC, tune-lines daily 11:00 UTC, tune-bands daily 11:05 UTC, tune-leader-losses daily 11:10 UTC, tune-title-losses daily 11:15 UTC, drain-email-digests */5m, enqueue-season-start-emails daily 13:00 UTC, drain-season-start-emails */5m",
+		"[scheduler] started: sync-live-scores */5m (then auto-resolve-games and recompute-achievements when a game went final), recompute-achievements */1m, reconcile-achievements daily 11:30 UTC, lock-overdue-questions */15m, sync-sports-data daily 09:00 UTC, sync-game-starters then generate-game-questions */30m, auto-resolve-games 2-59/10m, auto-resolve-seasons daily 10:30 UTC, auto-resolve-championships daily 10:45 UTC, tune-lines daily 11:00 UTC, tune-bands daily 11:05 UTC, tune-leader-losses daily 11:10 UTC, tune-title-losses daily 11:15 UTC, drain-email-digests */5m, enqueue-season-start-emails daily 13:00 UTC, drain-season-start-emails */5m, drain-analytics-outbox */1m",
 	)
 }

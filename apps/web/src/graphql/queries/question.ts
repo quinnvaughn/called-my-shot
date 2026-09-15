@@ -41,6 +41,9 @@ export const QuestionDetailDocument = graphql(`
 				abbreviation
 				slug
 			}
+			sport {
+				id
+			}
 			options {
 				id
 				label

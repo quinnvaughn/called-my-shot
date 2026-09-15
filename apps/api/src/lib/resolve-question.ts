@@ -19,6 +19,7 @@ import {
 	questionOptions,
 	questions,
 } from "../db/schema"
+import { enqueueAnalyticsEvents } from "./analytics-outbox"
 import { callContribution } from "./call-contribution"
 import { enqueueResolvedCallEmails } from "./email-outbox"
 import { ValidationError } from "./errors"
@@ -101,6 +102,9 @@ export async function resolveQuestionInternal(
 	// Callers whose call this resolution leaves unscored. They get no result
 	// notification or email - there's no result on their call to report.
 	const unscoredUsers = new Set<string>()
+	// Callers whose call already carried a result before this pass, which is
+	// only possible on a re-resolve.
+	const rescoredUsers = new Set<string>()
 
 	const unscoredReasonFor = (
 		userId: string,
@@ -218,6 +222,7 @@ export async function resolveQuestionInternal(
 			})
 			newPointsByUserId.set(prior.userId, r.points)
 			callIdByUserId.set(prior.userId, r.callId)
+			if (wasResolved) rescoredUsers.add(prior.userId)
 		}
 	} else {
 		const options = await tx.query.questionOptions.findMany({
@@ -394,6 +399,7 @@ export async function resolveQuestionInternal(
 				(newPointsByUserId.get(s.call.userId) ?? 0) + points,
 			)
 			callIdByUserId.set(s.call.userId, s.call.id)
+			if (wasResolved) rescoredUsers.add(s.call.userId)
 		}
 
 		for (const call of callsById.values()) {
@@ -445,9 +451,41 @@ export async function resolveQuestionInternal(
 		}),
 	)
 
+	const { resolvedBy, source } = opts
+
+	// The same set that gets a notification: a re-resolve that leaves a call's
+	// result where it was settles nothing new, so it isn't counted twice.
+	await enqueueAnalyticsEvents(
+		tx,
+		notified.flatMap(([userId, d]) => {
+			const callId = callIdByUserId.get(userId)
+			if (!callId) return []
+			const pointsDelta = newPointsByUserId.get(userId) ?? d.points
+			return [
+				{
+					event: "call_resolved" as const,
+					userId,
+					properties: {
+						questionId: question.id,
+						callId,
+						questionShape: question.shape,
+						leagueId: question.leagueId,
+						sportId: question.sportId,
+						horizon: isSeasonLongShape(question.shape)
+							? ("season" as const)
+							: ("game" as const),
+						correct: pointsDelta >= 0,
+						pointsDelta,
+						resolutionMethod: resolvedBy.method,
+						rescored: rescoredUsers.has(userId),
+					},
+				},
+			]
+		}),
+	)
+
 	await markAchievementsDirty(tx, question)
 
-	const { resolvedBy, source } = opts
 	const [updated] = await tx
 		.update(questions)
 		.set({

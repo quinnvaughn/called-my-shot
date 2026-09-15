@@ -52,6 +52,11 @@ const envSchema = z.object({
 	// spam-complaint events. Without it routes/webhooks.ts refuses every
 	// request rather than trusting an unverified one.
 	RESEND_WEBHOOK_SECRET: z.string().optional(),
+	// PostHog project key for server-side events (lib/analytics-outbox.ts).
+	// Unset everywhere but production, so local runs never send into
+	// production analytics. Without it the outbox holds its rows, and they go
+	// out with their original timestamps once a key is set.
+	POSTHOG_KEY: z.string().optional(),
 })
 
 export const env = envSchema.parse(process.env)

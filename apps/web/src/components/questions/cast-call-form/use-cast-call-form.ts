@@ -11,7 +11,7 @@ import { FirstCallDoneModal } from "#/components/onboarding/first-call-done-moda
 import { type FragmentType, graphql, useFragment } from "#/graphql/generated"
 import { useGqlMutation } from "#/graphql/hooks"
 import { CastCallDocument } from "#/graphql/mutations/calls"
-import { track } from "#/lib/analytics"
+import { questionHorizon, track } from "#/lib/analytics"
 import { isRateStat as computeIsRateStat } from "#/lib/field-signal"
 import { useForm } from "#/lib/form/use-form"
 import { closeModal, openModal } from "#/stores/modal-store"
@@ -21,6 +21,7 @@ export const CastCallFormFragment = graphql(`
 	fragment CastCallForm_question on Question {
 		id
 		shape
+		locksAt
 		ouLine
 		numericTolerancePct
 		numericToleranceAbsolute
@@ -52,6 +53,9 @@ export const CastCallFormFragment = graphql(`
 			seasonFormat {
 				gamesPerSeason
 			}
+		}
+		sport {
+			id
 		}
 		options {
 			id
@@ -336,14 +340,20 @@ export function useCastCallForm(
 					const convictions = values.selections.length
 						? values.selections.map((s) => s.conviction)
 						: [values.conviction ?? 0]
-					track("call_submitted", {
-						questionId: values.questionId,
-						questionShape: shape,
-						pickCount: values.selections.length || 1,
-						hasCase: values.caseText.length > 0,
-						avgConviction:
-							convictions.reduce((sum, c) => sum + c, 0) / convictions.length,
-					})
+					if (question) {
+						track("call_submitted", {
+							questionId: values.questionId,
+							questionShape: shape,
+							leagueId: question.league.id,
+							sportId: question.sport.id,
+							horizon: questionHorizon(shape),
+							locksAt: question.locksAt,
+							pickCount: values.selections.length || 1,
+							hasCase: values.caseText.length > 0,
+							avgConviction:
+								convictions.reduce((sum, c) => sum + c, 0) / convictions.length,
+						})
+					}
 
 					// This page is the destination - refresh in place rather than
 					// navigating away, so the pending banner/locked calls list pick

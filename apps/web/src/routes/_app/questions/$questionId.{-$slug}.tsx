@@ -7,6 +7,7 @@ import {
 	useRouteContext,
 } from "@tanstack/react-router"
 import { DateTime } from "luxon"
+import { useEffect, useRef } from "react"
 import { FaRegTimesCircle } from "react-icons/fa"
 import { FiShare } from "react-icons/fi"
 import { css } from "styled-system/css"
@@ -22,6 +23,7 @@ import {
 	CastCallForm,
 	useCastCallForm,
 } from "#/components/questions/cast-call-form"
+import type { QuestionCallShape } from "#/components/questions/cast-call-form/use-cast-call-form"
 import { FieldBreakdownCard } from "#/components/questions/field-breakdown-card"
 import { GuessDistributionChart } from "#/components/questions/guess-distribution-chart"
 import { OptionFieldBreakdown } from "#/components/questions/option-field-breakdown"
@@ -43,7 +45,7 @@ import {
 	questionCallsQuery,
 	questionDetailQuery,
 } from "#/graphql/queries/question"
-import { track } from "#/lib/analytics"
+import { questionHorizon, track } from "#/lib/analytics"
 import { safeExternalUrl } from "#/lib/external-url"
 import { formatGuess } from "#/lib/field-signal"
 import { pageMeta } from "#/lib/meta"
@@ -175,6 +177,30 @@ function RouteComponent() {
 	// harmless when there's no question yet, since nothing renders CastCallForm
 	// or CallSubmitBar in that case either.
 	const callForm = useCastCallForm(question)
+
+	// Captured once per mount, which remountDeps makes once per question. The
+	// state is what the page first offered, not what it becomes after a call.
+	const trackedView = useRef(false)
+	const viewedQuestion = question
+		? {
+				questionId: question.id,
+				questionShape: question.shape.toLowerCase() as QuestionCallShape,
+				leagueId: question.league.id,
+				sportId: question.sport.id,
+				viewerState: viewerStatus(
+					questionDetailState(question).phase,
+					question.viewerCall,
+				).kind,
+			}
+		: null
+	useEffect(() => {
+		if (!viewedQuestion || trackedView.current) return
+		trackedView.current = true
+		track("question_viewed", {
+			...viewedQuestion,
+			horizon: questionHorizon(viewedQuestion.questionShape),
+		})
+	})
 
 	if (!question) {
 		return (

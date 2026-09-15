@@ -5,7 +5,7 @@ import { GuestPicksPostedModal } from "#/components/onboarding/guest-picks-poste
 import type { QuestionCallShape } from "#/components/questions/cast-call-form/use-cast-call-form"
 import { gqlFetch } from "#/graphql/fetcher"
 import { CastCallDocument } from "#/graphql/mutations/calls"
-import { track } from "#/lib/analytics"
+import { questionHorizon, track } from "#/lib/analytics"
 import {
 	clearGuestPicks,
 	type GuestPick,
@@ -54,9 +54,14 @@ async function postPicks(
 			})
 			if (data.castCall?.__typename !== "CastCallPayload") continue
 			posted.push(pick)
+			const questionShape = pick.shape.toLowerCase() as QuestionCallShape
 			track("call_submitted", {
 				questionId: pick.questionId,
-				questionShape: pick.shape.toLowerCase() as QuestionCallShape,
+				questionShape,
+				leagueId: pick.leagueId,
+				sportId: pick.sportId,
+				horizon: questionHorizon(questionShape),
+				locksAt: pick.locksAt,
 				pickCount: 1,
 				hasCase: false,
 				avgConviction: GUEST_PICK_CONVICTION,
