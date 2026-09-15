@@ -117,6 +117,15 @@ export { SLOT_LABELS_BY_LEAGUE } from "../../../db/sync/slot-labels"
 // zone "that game's day" means.
 export const ET_ZONE = SPORTS_TIME_ZONE
 
+// ESPN's Wednesday 3am ET week boundary moved to the Tuesday before it.
+// Stepped back in ET rather than by 24 raw hours so a DST change that week
+// still lands on 3am.
+function weekBoundary(espnBoundary: string): Date {
+	return DateTime.fromJSDate(parsePgTimestamp(espnBoundary), { zone: ET_ZONE })
+		.minus({ days: 1 })
+		.toJSDate()
+}
+
 // Every window this league has synced games for, oldest first. Date-window
 // leagues (MLB/NBA) get one window per ET calendar date; week-window leagues
 // (NFL) get one per (season, seasonType, weekNumber). Both are computed
@@ -170,17 +179,18 @@ export async function getLeagueWindows(
 				sublabel: `${start.toFormat("LLL d").toUpperCase()} – ${end.toFormat("LLL d").toUpperCase()}`,
 				gameCount: row.n,
 				// ESPN's own week boundaries where they're synced (see seasonWeeks
-				// in db/schema/games.ts) - contiguous, so mid-season there's
-				// always exactly one window holding "now", including the Tuesday
-				// after Monday Night Football. Falls back to the span of the
-				// week's own games for a week ESPN hasn't published boundaries
-				// for, which does leave a gap between weeks - better than a
-				// window with no range at all.
+				// in db/schema/games.ts), pulled back a day to Tuesday 3am ET -
+				// once Monday Night Football is over the week is done, so the
+				// Tuesday after it belongs to the next week. Still contiguous, so
+				// mid-season there's always exactly one window holding "now".
+				// Falls back to the span of the week's own games for a week ESPN
+				// hasn't published boundaries for, which does leave a gap between
+				// weeks - better than a window with no range at all.
 				rangeStart: row.week_starts
-					? parsePgTimestamp(row.week_starts)
+					? weekBoundary(row.week_starts)
 					: start.startOf("day").toJSDate(),
 				rangeEnd: row.week_ends
-					? parsePgTimestamp(row.week_ends)
+					? weekBoundary(row.week_ends)
 					: end.endOf("day").toJSDate(),
 			}
 		})
