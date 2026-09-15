@@ -11,6 +11,7 @@ const NAV_ITEMS = [
 	{ to: "/admin/lines", label: "Lines" },
 	{ to: "/admin/bands", label: "Bands" },
 	{ to: "/admin/leaders", label: "Leaders" },
+	{ to: "/admin/titles", label: "Titles" },
 	{ to: "/admin/ballots", label: "Ballots" },
 	{ to: "/admin/disputes", label: "Disputes" },
 	{ to: "/admin/reports", label: "Reports" },

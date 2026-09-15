@@ -487,6 +487,41 @@ export const AdminLeaderLossSettingsDocument = graphql(`
 					calibration {
 						resolved
 						favoriteHitRate
+						blendedHitRate
+						suggestedLossRate
+						callerPicks
+						callerHitRate
+					}
+				}
+			}
+			... on AuthenticationError {
+				message
+			}
+			... on AuthorizationError {
+				message
+			}
+		}
+	}
+`)
+
+// Titles tab.
+export const AdminTitleLossSettingsDocument = graphql(`
+	query AdminTitleLossSettings {
+		adminTitleLossSettings {
+			__typename
+			... on QueryAdminTitleLossSettingsSuccess {
+				data {
+					leagueSlug
+					awardName
+					lossRate
+					defaultLossRate
+					isCustom
+					autoTune
+					tunedAt
+					calibration {
+						resolved
+						bestRecordHitRate
+						blendedHitRate
 						suggestedLossRate
 						callerPicks
 						callerHitRate

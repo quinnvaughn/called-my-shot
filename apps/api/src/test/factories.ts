@@ -1,3 +1,4 @@
+import { defaultLossRate } from "@called-my-shot/scoring"
 import { db } from "../db"
 import {
 	type Call,
@@ -222,6 +223,9 @@ export async function makeQuestion(
 				resolutionSource: "Box score",
 				locksAt: futureDate(),
 				eventClause: "happen",
+				lossRate: defaultLossRate(overrides.shape ?? "yes_no_prop", {
+					picksRequired: overrides.picksRequired,
+				}),
 				...overrides,
 				sportId: overrides.sportId ?? league.sportId,
 				leagueId,

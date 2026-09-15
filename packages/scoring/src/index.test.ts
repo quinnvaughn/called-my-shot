@@ -3,6 +3,7 @@ import {
 	BASE_POINTS_BY_SHAPE,
 	breakEvenHitRate,
 	breakEvenLossRate,
+	defaultLossRate,
 	earlyTierFor,
 	fieldPct,
 	hitTolerance,
@@ -120,13 +121,42 @@ describe("LOSS_RATE_BY_SHAPE", () => {
 		}
 	})
 
-	it("rates a season-scoped shape the same as its game-scoped sibling", () => {
+	it("rates a season numeric guess the same as a game one", () => {
 		expect(LOSS_RATE_BY_SHAPE.team_season_stat_numeric_guess).toBe(
 			LOSS_RATE_BY_SHAPE.team_stat_numeric_guess,
 		)
-		expect(LOSS_RATE_BY_SHAPE.player_season_stat_leader).toBe(
+	})
+})
+
+describe("defaultLossRate", () => {
+	it("takes the shape's rate for most questions", () => {
+		expect(defaultLossRate("yes_no_prop", {})).toBe(1)
+		expect(defaultLossRate("player_game_stat_leader", {})).toBe(
 			LOSS_RATE_BY_SHAPE.player_game_stat_leader,
 		)
+		expect(defaultLossRate("player_season_award", { picksRequired: 1 })).toBe(
+			LOSS_RATE_BY_SHAPE.player_season_award,
+		)
+	})
+
+	it("breaks a finalists pick even at random among the finalists", () => {
+		expect(defaultLossRate("player_award_finalists", { optionCount: 3 })).toBe(
+			0.5,
+		)
+		expect(defaultLossRate("player_award_finalists", { optionCount: 5 })).toBe(
+			0.25,
+		)
+		expect(defaultLossRate("player_award_finalists", { optionCount: 2 })).toBe(
+			1,
+		)
+		expect(defaultLossRate("player_award_finalists", {})).toBe(
+			LOSS_RATE_BY_SHAPE.player_award_finalists,
+		)
+	})
+
+	it("keeps the full rate on an award asked with several picks", () => {
+		expect(defaultLossRate("player_season_award", { picksRequired: 5 })).toBe(1)
+		expect(defaultLossRate("team_season_award", { picksRequired: 2 })).toBe(1)
 	})
 })
 

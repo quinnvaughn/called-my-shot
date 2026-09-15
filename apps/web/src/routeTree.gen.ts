@@ -27,6 +27,7 @@ import { Route as AdminLinesRouteImport } from './routes/admin/lines'
 import { Route as AdminQuestionsRouteImport } from './routes/admin/questions'
 import { Route as AdminQueueRouteImport } from './routes/admin/queue'
 import { Route as AdminReportsRouteImport } from './routes/admin/reports'
+import { Route as AdminTitlesRouteImport } from './routes/admin/titles'
 import { Route as AdminUsersRouteImport } from './routes/admin/users'
 import { Route as IngestSplatRouteImport } from './routes/ingest/$'
 import { Route as UnsubscribeIndexRouteImport } from './routes/unsubscribe/index'
@@ -157,6 +158,11 @@ const AdminQueueRoute = AdminQueueRouteImport.update({
 const AdminReportsRoute = AdminReportsRouteImport.update({
   id: '/reports',
   path: '/reports',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminTitlesRoute = AdminTitlesRouteImport.update({
+  id: '/titles',
+  path: '/titles',
   getParentRoute: () => AdminRoute,
 } as any)
 const AdminUsersRoute = AdminUsersRouteImport.update({
@@ -407,6 +413,7 @@ export interface FileRoutesByFullPath {
   '/admin/questions': typeof AdminQuestionsRoute
   '/admin/queue': typeof AdminQueueRoute
   '/admin/reports': typeof AdminReportsRoute
+  '/admin/titles': typeof AdminTitlesRoute
   '/admin/users': typeof AdminUsersRoute
   '/ingest/$': typeof IngestSplatRoute
   '/unsubscribe/one-click': typeof UnsubscribeOneClickRoute
@@ -467,6 +474,7 @@ export interface FileRoutesByTo {
   '/admin/questions': typeof AdminQuestionsRoute
   '/admin/queue': typeof AdminQueueRoute
   '/admin/reports': typeof AdminReportsRoute
+  '/admin/titles': typeof AdminTitlesRoute
   '/admin/users': typeof AdminUsersRoute
   '/ingest/$': typeof IngestSplatRoute
   '/unsubscribe/one-click': typeof UnsubscribeOneClickRoute
@@ -529,6 +537,7 @@ export interface FileRoutesById {
   '/admin/questions': typeof AdminQuestionsRoute
   '/admin/queue': typeof AdminQueueRoute
   '/admin/reports': typeof AdminReportsRoute
+  '/admin/titles': typeof AdminTitlesRoute
   '/admin/users': typeof AdminUsersRoute
   '/ingest/$': typeof IngestSplatRoute
   '/unsubscribe/one-click': typeof UnsubscribeOneClickRoute
@@ -592,6 +601,7 @@ export interface FileRouteTypes {
     | '/admin/questions'
     | '/admin/queue'
     | '/admin/reports'
+    | '/admin/titles'
     | '/admin/users'
     | '/ingest/$'
     | '/unsubscribe/one-click'
@@ -652,6 +662,7 @@ export interface FileRouteTypes {
     | '/admin/questions'
     | '/admin/queue'
     | '/admin/reports'
+    | '/admin/titles'
     | '/admin/users'
     | '/ingest/$'
     | '/unsubscribe/one-click'
@@ -713,6 +724,7 @@ export interface FileRouteTypes {
     | '/admin/questions'
     | '/admin/queue'
     | '/admin/reports'
+    | '/admin/titles'
     | '/admin/users'
     | '/ingest/$'
     | '/unsubscribe/one-click'
@@ -903,6 +915,13 @@ declare module '@tanstack/react-router' {
       path: '/reports'
       fullPath: '/admin/reports'
       preLoaderRoute: typeof AdminReportsRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/titles': {
+      id: '/admin/titles'
+      path: '/titles'
+      fullPath: '/admin/titles'
+      preLoaderRoute: typeof AdminTitlesRouteImport
       parentRoute: typeof AdminRoute
     }
     '/admin/users': {
@@ -1321,6 +1340,7 @@ interface AdminRouteChildren {
   AdminQuestionsRoute: typeof AdminQuestionsRoute
   AdminQueueRoute: typeof AdminQueueRoute
   AdminReportsRoute: typeof AdminReportsRoute
+  AdminTitlesRoute: typeof AdminTitlesRoute
   AdminUsersRoute: typeof AdminUsersRoute
   AdminIndexRoute: typeof AdminIndexRoute
   AdminBallotsBallotIdRoute: typeof AdminBallotsBallotIdRoute
@@ -1338,6 +1358,7 @@ const AdminRouteChildren: AdminRouteChildren = {
   AdminQuestionsRoute: AdminQuestionsRoute,
   AdminQueueRoute: AdminQueueRoute,
   AdminReportsRoute: AdminReportsRoute,
+  AdminTitlesRoute: AdminTitlesRoute,
   AdminUsersRoute: AdminUsersRoute,
   AdminIndexRoute: AdminIndexRoute,
   AdminBallotsBallotIdRoute: AdminBallotsBallotIdRoute,

@@ -23,6 +23,7 @@ const LeaderLossCalibrationRef = builder
 		fields: (t) => ({
 			resolved: t.exposeInt("resolved"),
 			favoriteHitRate: t.exposeFloat("favoriteHitRate", { nullable: true }),
+			blendedHitRate: t.exposeFloat("blendedHitRate", { nullable: true }),
 			suggestedLossRate: t.exposeFloat("suggestedLossRate", {
 				nullable: true,
 			}),

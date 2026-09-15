@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest"
 import {
+	blendedHitRate,
 	favoriteHitRate,
 	LEADER_TUNING,
 	leaderTemplates,
@@ -17,11 +18,7 @@ describe("leaderTemplates", () => {
 			expect.arrayContaining([
 				{ leagueSlug: "nba", templateId: "points-leader", statName: "Points" },
 				{ leagueSlug: "nfl", templateId: "sacks-leader", statName: "Sacks" },
-				{
-					leagueSlug: "mlb",
-					templateId: "hits-leader",
-					statName: "Hits",
-				},
+				{ leagueSlug: "mlb", templateId: "hits-leader", statName: "Hits" },
 			]),
 		)
 	})
@@ -34,35 +31,37 @@ describe("favoriteHitRate", () => {
 	})
 })
 
-describe("suggestedLossRate", () => {
-	it("is where a pick on the favorite breaks even", () => {
-		expect(suggestedLossRate(results(40, 4))).toBe(0.33)
-		expect(suggestedLossRate(results(40, 2))).toBe(1)
+describe("blendedHitRate", () => {
+	it("starts a league stat with no record at everyone else's", () => {
+		expect(blendedHitRate([], { hits: 10, total: 40 })).toBe(0.25)
 	})
 
-	it("stays within the rate bounds", () => {
-		expect(suggestedLossRate(results(40, 41).map(() => false))).toBe(
-			LEADER_TUNING.minRate,
-		)
-		expect(suggestedLossRate(results(40, 1))).toBe(LEADER_TUNING.maxRate)
-		expect(suggestedLossRate([])).toBeNull()
+	it("is a league stat's own record when it's the only one", () => {
+		expect(blendedHitRate(results(40, 4), { hits: 10, total: 40 })).toBe(0.25)
+	})
+})
+
+describe("suggestedLossRate", () => {
+	it("is where a pick on the favorite breaks even, within bounds", () => {
+		expect(suggestedLossRate(0.25)).toBe(0.33)
+		expect(suggestedLossRate(0.5)).toBe(LEADER_TUNING.maxRate)
+		expect(suggestedLossRate(0)).toBe(LEADER_TUNING.minRate)
+		expect(suggestedLossRate(null)).toBeNull()
 	})
 })
 
 describe("nextLossRate", () => {
-	it("waits for enough resolved questions", () => {
-		expect(
-			nextLossRate(0.25, results(LEADER_TUNING.minSample - 1, 2)),
-		).toBeNull()
+	it("waits for enough resolved questions anywhere", () => {
+		expect(nextLossRate(0.25, 0.5, LEADER_TUNING.minSample - 1)).toBeNull()
 	})
 
 	it("moves toward the suggested rate by at most a step per run", () => {
-		expect(nextLossRate(0.25, results(40, 4))).toBe(0.33)
-		expect(nextLossRate(0.25, results(40, 2))).toBe(0.35)
-		expect(nextLossRate(0.5, results(40, 10))).toBe(0.4)
+		expect(nextLossRate(0.25, 0.25, 40)).toBe(0.33)
+		expect(nextLossRate(0.25, 0.5, 40)).toBe(0.35)
+		expect(nextLossRate(0.5, 0.1, 40)).toBe(0.4)
 	})
 
-	it("leaves a rate already where the results point", () => {
-		expect(nextLossRate(0.33, results(40, 4))).toBeNull()
+	it("leaves a rate already where the record points", () => {
+		expect(nextLossRate(0.33, 0.25, 40)).toBeNull()
 	})
 })

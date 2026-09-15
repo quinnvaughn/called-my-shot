@@ -1,3 +1,4 @@
+import { defaultLossRate } from "@called-my-shot/scoring"
 import { generationKey } from "../../lib/game-questions/generation-key"
 import { refreshGeneratedQuestionSchedule } from "../../lib/game-questions/schedule"
 import { gameQuestionTitle } from "../../lib/game-questions/titles"
@@ -98,6 +99,7 @@ export async function syncGameQuestions(league: League): Promise<void> {
 						resolutionMode: "system",
 						locksAt: game.startsAt,
 						generationKey: key,
+						lossRate: defaultLossRate("team_vs_team", {}),
 					})
 					.returning()
 				if (!inserted) {

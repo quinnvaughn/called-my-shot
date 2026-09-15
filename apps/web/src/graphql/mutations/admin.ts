@@ -378,6 +378,54 @@ export const AdminResetLeaderLossSettingDocument = graphql(`
 	}
 `)
 
+export const AdminUpdateTitleLossSettingDocument = graphql(`
+	mutation AdminUpdateTitleLossSetting($input: UpdateTitleLossSettingInput!) {
+		adminUpdateTitleLossSetting(input: $input) {
+			__typename
+			... on TitleLossSetting {
+				leagueSlug
+				awardName
+			}
+			... on ValidationError {
+				fieldErrors {
+					field
+					message
+				}
+			}
+			... on AuthenticationError {
+				message
+			}
+			... on AuthorizationError {
+				message
+			}
+			... on NotFoundError {
+				message
+			}
+		}
+	}
+`)
+
+export const AdminResetTitleLossSettingDocument = graphql(`
+	mutation AdminResetTitleLossSetting($leagueSlug: String!, $awardName: String!) {
+		adminResetTitleLossSetting(leagueSlug: $leagueSlug, awardName: $awardName) {
+			__typename
+			... on TitleLossSetting {
+				leagueSlug
+				awardName
+			}
+			... on AuthenticationError {
+				message
+			}
+			... on AuthorizationError {
+				message
+			}
+			... on NotFoundError {
+				message
+			}
+		}
+	}
+`)
+
 export const SetUserVerifiedDocument = graphql(`
 	mutation SetUserVerified($userId: ID!, $verified: Boolean!) {
 		setUserVerified(userId: $userId, verified: $verified) {

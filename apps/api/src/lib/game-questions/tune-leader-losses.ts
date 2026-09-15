@@ -2,11 +2,13 @@ import { eq } from "drizzle-orm"
 import { db } from "../../db"
 import { gameQuestionLossSettings } from "../../db/schema"
 import {
+	blendedHitRate,
 	DEFAULT_LEADER_LOSS_RATE,
 	favoriteResultsByTemplate,
 	leaderTemplates,
 	nextLossRate,
 } from "./leader-calibration"
+import { sumHits } from "./pooling"
 
 // Moves every league stat's leader loss rate left on automatic toward where a
 // pick on the favorite breaks even. Returns how many rates moved.
@@ -15,6 +17,7 @@ export async function tuneLeaderLosses(now = new Date()): Promise<number> {
 		db.select().from(gameQuestionLossSettings),
 		favoriteResultsByTemplate(),
 	])
+	const pool = sumHits(resultsByTemplate.values())
 
 	let tuned = 0
 	for (const template of leaderTemplates()) {
@@ -26,10 +29,13 @@ export async function tuneLeaderLosses(now = new Date()): Promise<number> {
 		)
 		if (row && !row.autoTune) continue
 		const current = row?.lossRate ?? DEFAULT_LEADER_LOSS_RATE
+		const results =
+			resultsByTemplate.get(`${template.leagueSlug}:${template.templateId}`) ??
+			[]
 		const lossRate = nextLossRate(
 			current,
-			resultsByTemplate.get(`${template.leagueSlug}:${template.templateId}`) ??
-				[],
+			blendedHitRate(results, pool),
+			pool.total,
 		)
 		if (lossRate === null) continue
 

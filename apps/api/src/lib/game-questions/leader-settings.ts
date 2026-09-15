@@ -2,6 +2,7 @@ import { and, eq } from "drizzle-orm"
 import { db } from "../../db"
 import { gameQuestionLossSettings } from "../../db/schema"
 import {
+	blendedHitRate,
 	callerLeaderHits,
 	DEFAULT_LEADER_LOSS_RATE,
 	favoriteHitRate,
@@ -10,13 +11,18 @@ import {
 	leaderTemplates,
 	suggestedLossRate,
 } from "./leader-calibration"
+import { sumHits } from "./pooling"
 
 export type LeaderLossCalibration = {
-	// Resolved leader questions with a favorite, within the tuning window.
+	// This league stat's resolved leader questions with a favorite, within
+	// the tuning window.
 	resolved: number
 	// How often the favorite led those.
 	favoriteHitRate: number | null
-	// The rate a pick on the favorite breaks even at over the same questions.
+	// That record leaning on every other league stat's while it's small - what
+	// the rate is tuned from.
+	blendedHitRate: number | null
+	// The rate a pick on the favorite breaks even at, from the blended record.
 	suggestedLossRate: number | null
 	callerPicks: number
 	callerHitRate: number | null
@@ -53,6 +59,7 @@ export async function leaderLossSettingRows(): Promise<LeaderLossSettingRow[]> {
 		db.select().from(gameQuestionLossSettings),
 		favoriteResultsByTemplate(),
 	])
+	const pool = sumHits(resultsByTemplate.values())
 	const rows: LeaderLossSettingRow[] = []
 	for (const template of leaderTemplates()) {
 		const row = saved.find(
@@ -63,6 +70,7 @@ export async function leaderLossSettingRows(): Promise<LeaderLossSettingRow[]> {
 		const results =
 			resultsByTemplate.get(`${template.leagueSlug}:${template.templateId}`) ??
 			[]
+		const blended = blendedHitRate(results, pool)
 		const ids = await leagueStatIds(template)
 		const callers = ids
 			? await callerLeaderHits(ids.leagueId, ids.statId)
@@ -77,7 +85,8 @@ export async function leaderLossSettingRows(): Promise<LeaderLossSettingRow[]> {
 			calibration: {
 				resolved: results.length,
 				favoriteHitRate: favoriteHitRate(results),
-				suggestedLossRate: suggestedLossRate(results),
+				blendedHitRate: blended,
+				suggestedLossRate: suggestedLossRate(blended),
 				callerPicks: callers.picks,
 				callerHitRate: callers.hitRate,
 			},

@@ -4,3 +4,4 @@
 import "./band-settings"
 import "./leader-loss-settings"
 import "./line-settings"
+import "./title-loss-settings"

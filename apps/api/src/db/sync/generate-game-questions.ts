@@ -2,7 +2,7 @@ import {
 	autoResolutionSource,
 	resolutionModeFor,
 } from "@called-my-shot/schemas"
-import { LOSS_RATE_BY_SHAPE } from "@called-my-shot/scoring"
+import { defaultLossRate } from "@called-my-shot/scoring"
 import { and, eq, notExists, sql } from "drizzle-orm"
 import { match } from "ts-pattern"
 import { buildPlayerPool } from "../../lib/award-pool"
@@ -602,10 +602,9 @@ async function insertPlanned(
 				lineBasis: planned.lineBasis ?? null,
 				leaderBasis: planned.leaderBasis ?? null,
 				lossRate:
-					template.shape === "player_game_stat_leader"
-						? (ctx.leaderLossByStatName.get(template.statName) ??
-							LOSS_RATE_BY_SHAPE.player_game_stat_leader)
-						: null,
+					(template.shape === "player_game_stat_leader"
+						? ctx.leaderLossByStatName.get(template.statName)
+						: undefined) ?? defaultLossRate(template.shape, {}),
 			})
 			.onConflictDoNothing({ target: questions.generationKey })
 			.returning({ id: questions.id })

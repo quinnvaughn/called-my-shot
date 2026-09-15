@@ -103,6 +103,21 @@ export type UpdateLeaderLossSettingInput = z.infer<
 	typeof updateLeaderLossSettingSchema
 >
 
+// The loss rate one league's single-pick title questions are created with -
+// see adminUpdateTitleLossSetting.
+export const updateTitleLossSettingSchema = z.object({
+	leagueSlug: z.string().trim().min(1),
+	awardName: z.string().trim().min(1),
+	lossRate: z
+		.number()
+		.min(0.05, "Loss rate has to be at least 0.05")
+		.max(1, "Loss rate can't be more than 1"),
+	autoTune: z.boolean(),
+})
+export type UpdateTitleLossSettingInput = z.infer<
+	typeof updateTitleLossSettingSchema
+>
+
 // Voiding a question without deleting it - see adminMarkQuestionVoided. Nobody
 // is at fault in these cases, so unlike voidQuestionSchema there is no strike
 // toggle.

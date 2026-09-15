@@ -11,6 +11,7 @@ import { drainResolutionDigests } from "./lib/email-digest"
 import { tuneBands } from "./lib/game-questions/tune-bands"
 import { tuneLeaderLosses } from "./lib/game-questions/tune-leader-losses"
 import { tuneLines } from "./lib/game-questions/tune-lines"
+import { tuneTitleLosses } from "./lib/game-questions/tune-title-losses"
 import {
 	AUTO_RESOLVE_GAMES_LOCK,
 	DRAIN_DIGESTS_LOCK,
@@ -163,6 +164,15 @@ export function startScheduler(): void {
 		}),
 		{ name: "tune-leader-losses", timezone: "UTC", noOverlap: true },
 	)
+	// Daily, though a title only resolves a few times a year - most runs move
+	// nothing (see tuneTitleLosses).
+	cron.schedule(
+		"15 11 * * *",
+		runJob("tune-title-losses", async () => {
+			await tuneTitleLosses()
+		}),
+		{ name: "tune-title-losses", timezone: "UTC", noOverlap: true },
+	)
 	// Every 5m, but a user's results only go out once their calls on the day's
 	// games have all settled, or at the 13:00 UTC backstop (see
 	// DAY_START_HOUR_UTC) - the frequency is how quickly a finished day goes
@@ -200,6 +210,6 @@ export function startScheduler(): void {
 		{ name: DRAIN_SEASON_START_LOCK, timezone: "UTC", noOverlap: true },
 	)
 	console.log(
-		"[scheduler] started: sync-live-scores */5m (then auto-resolve-games and recompute-achievements when a game went final), recompute-achievements */1m, reconcile-achievements daily 11:30 UTC, lock-overdue-questions */15m, sync-sports-data daily 09:00 UTC, sync-game-starters then generate-game-questions */30m, auto-resolve-games 2-59/10m, auto-resolve-seasons daily 10:30 UTC, auto-resolve-championships daily 10:45 UTC, tune-lines daily 11:00 UTC, tune-bands daily 11:05 UTC, tune-leader-losses daily 11:10 UTC, drain-email-digests */5m, enqueue-season-start-emails daily 13:00 UTC, drain-season-start-emails */5m",
+		"[scheduler] started: sync-live-scores */5m (then auto-resolve-games and recompute-achievements when a game went final), recompute-achievements */1m, reconcile-achievements daily 11:30 UTC, lock-overdue-questions */15m, sync-sports-data daily 09:00 UTC, sync-game-starters then generate-game-questions */30m, auto-resolve-games 2-59/10m, auto-resolve-seasons daily 10:30 UTC, auto-resolve-championships daily 10:45 UTC, tune-lines daily 11:00 UTC, tune-bands daily 11:05 UTC, tune-leader-losses daily 11:10 UTC, tune-title-losses daily 11:15 UTC, drain-email-digests */5m, enqueue-season-start-emails daily 13:00 UTC, drain-season-start-emails */5m",
 	)
 }

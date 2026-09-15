@@ -4,7 +4,6 @@ import {
 	fieldPct,
 	isNumericGuessShape,
 	isSeasonLongShape,
-	LOSS_RATE_BY_SHAPE,
 	numericGuessPoints,
 	seasonEarlyTierFor,
 	selectionPoints,
@@ -164,7 +163,7 @@ export async function resolveQuestionInternal(
 				: { mode: "percentage", pct: question.numericTolerancePct as number }
 		const scored = numericGuessPoints(
 			BASE_POINTS_BY_SHAPE[question.shape],
-			question.lossRate ?? LOSS_RATE_BY_SHAPE[question.shape],
+			question.lossRate,
 			guesses,
 			data.actualValue as number,
 			toleranceSpec,
@@ -373,7 +372,7 @@ export async function resolveQuestionInternal(
 			const earlyMult = earlyMultByCallId.get(s.call.id) ?? 1
 			const points = selectionPoints(
 				BASE_POINTS_BY_SHAPE[question.shape],
-				question.lossRate ?? LOSS_RATE_BY_SHAPE[question.shape],
+				question.lossRate,
 				pct,
 				options.length,
 				s.conviction,

@@ -1,6 +1,7 @@
 import {
 	BASE_POINTS_BY_SHAPE,
 	breakEvenHitRate,
+	defaultLossRate,
 	EARLY_MAX_MULT,
 	LOSS_RATE_BY_SHAPE,
 	SEASON_EARLY_MAX_MULT,
@@ -196,21 +197,23 @@ function missCost(lossRate: number): string {
 
 const NUMERIC_LOSS = LOSS_RATE_BY_SHAPE.player_stat_numeric_guess
 const SEASON_LEADER_LOSS = LOSS_RATE_BY_SHAPE.player_season_stat_leader
+const SINGLE_AWARD_LOSS = LOSS_RATE_BY_SHAPE.player_season_award
+const MULTI_AWARD_LOSS = defaultLossRate("player_season_award", {
+	picksRequired: 2,
+})
 const TEAM_GUESS_TARGET = breakEvenHitRate(
 	LOSS_RATE_BY_SHAPE.team_stat_numeric_guess,
 )
 
-// The worked examples are an award finalists pick.
-const EXAMPLE_BASE = BASE_POINTS_BY_SHAPE.player_award_finalists
+// The worked examples are a yes/no pick.
+const EXAMPLE_BASE = BASE_POINTS_BY_SHAPE.yes_no_prop
 const EXAMPLE_EARLY_MULT = 1.5
 const HIT_COMMITTED = Math.round(EXAMPLE_BASE * 0.6)
 const HIT_POINTS = Math.round(
 	HIT_COMMITTED * TIER_MAX_MULT * EXAMPLE_EARLY_MULT,
 )
 const MISS_COMMITTED = Math.round(EXAMPLE_BASE * 0.7)
-const MISS_POINTS = Math.round(
-	MISS_COMMITTED * LOSS_RATE_BY_SHAPE.player_award_finalists,
-)
+const MISS_POINTS = Math.round(MISS_COMMITTED * LOSS_RATE_BY_SHAPE.yes_no_prop)
 
 const QUESTION_TYPES = [
 	{
@@ -221,7 +224,7 @@ const QUESTION_TYPES = [
 	{
 		title: "Award finalists",
 		pts: `${BASE_POINTS_BY_SHAPE.player_award_finalists} pts`,
-		desc: "The real announced shortlist for an award: pick the winner once the field's narrowed to a handful of named people.",
+		desc: "The real announced shortlist for an award: pick the winner once the field's narrowed to a handful of named people. A miss costs a share sized so a pick at random among the finalists breaks even.",
 	},
 	{
 		title: "Numeric guesses",
@@ -236,7 +239,7 @@ const QUESTION_TYPES = [
 	{
 		title: "Season-long awards",
 		pts: `${BASE_POINTS_BY_SHAPE.player_season_award} pts / pick`,
-		desc: "MVP, a championship, an All-league team: pick from the full league before the field's known, and each pick is scored at full value on its own, not a split pool.",
+		desc: `MVP, a championship, an All-league team: pick from the full league before the field's known, and each pick is scored at full value on its own, not a split pool. A single-pick award miss costs ${missCost(SINGLE_AWARD_LOSS)}, a title miss costs a share sized per league so picking the best record breaks even, and each wrong pick on an award with several picks costs ${missCost(MULTI_AWARD_LOSS)}.`,
 	},
 ]
 
@@ -426,15 +429,21 @@ export function HowItWorksSections() {
 				/>
 				<P>
 					A miss is <B>−committed points × loss rate</B>, flat, regardless of
-					either multiplier. The loss rate is set by question type. Stat lines,
-					yes/no, head-to-head, and award picks lose{" "}
+					either multiplier. The loss rate is set by question type and saved on
+					the question when it's posted, so it can't change after you call. Stat
+					lines, yes/no, and head-to-head picks lose{" "}
 					{missCost(LOSS_RATE_BY_SHAPE.yes_no_prop)}. A numeric guess loses{" "}
 					{missCost(NUMERIC_LOSS)}. A game stat leader pick loses a share sized
 					per stat so picking the player with the best season average breaks
 					even, and a season stat leader pick loses{" "}
-					{missCost(SEASON_LEADER_LOSS)}. Those last two miss far more often
-					than they hit, and the rarity multiplier can't make up for that when
-					only a few people have called.
+					{missCost(SEASON_LEADER_LOSS)}. A single-pick season award loses{" "}
+					{missCost(SINGLE_AWARD_LOSS)}, and each wrong pick on an award with
+					several picks loses {missCost(MULTI_AWARD_LOSS)}. A title pick loses a
+					share sized per league so picking the best regular-season record
+					breaks even, and a finalists pick loses a share sized so a pick at
+					random among the finalists breaks even. Everything past a two-option
+					pick misses far more often than it hits, and the rarity multiplier
+					can't make up for that when only a few people have called.
 				</P>
 
 				<ExampleCard
@@ -540,9 +549,8 @@ export function HowItWorksSections() {
 					is scored independently, using the same contrarian-tier math as
 					everything else, off the same{" "}
 					{BASE_POINTS_BY_SHAPE.player_season_award}-point base as any other
-					pick: one
-					player might land in FEARLESS while another lands in SAFE, and each
-					scores on its own rather than splitting a shared pool.
+					pick: one player might land in FEARLESS while another lands in SAFE,
+					and each scores on its own rather than splitting a shared pool.
 				</P>
 				<P>
 					Conviction can be set once for the whole question (<B>ONE FOR ALL</B>)

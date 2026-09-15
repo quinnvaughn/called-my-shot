@@ -323,10 +323,14 @@ export const questions = pgTable("questions", {
 	// favorite led. Null on every other question.
 	leaderBasis: jsonb("leader_basis").$type<LeaderBasis>(),
 	// The share of committed points a miss costs, set when the question is
-	// created so a later retune can't change what a caller agreed to. Only a
-	// game stat leader question sets it (see game_question_loss_settings);
-	// null means the shape's LOSS_RATE_BY_SHAPE rate.
-	lossRate: numeric("loss_rate", { precision: 4, scale: 3, mode: "number" }),
+	// created so a later retune or default change can't change what a caller
+	// agreed to. A tuned rate where one applies (game_question_loss_settings,
+	// title_loss_settings), else defaultLossRate in @called-my-shot/scoring.
+	lossRate: numeric("loss_rate", {
+		precision: 4,
+		scale: 3,
+		mode: "number",
+	}).notNull(),
 
 	createdAt: timestamp("created_at").notNull().defaultNow(),
 }, (t) => [

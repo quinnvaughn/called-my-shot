@@ -18,6 +18,7 @@ const columns = [
 	{ key: "stat", label: "Stat", sortable: false },
 	{ key: "resolved", label: "Resolved", numeric: true, sortable: false },
 	{ key: "favorite", label: "Favorite led", numeric: true, sortable: false },
+	{ key: "blended", label: "Blended", numeric: true, sortable: false },
 	{ key: "suggested", label: "Suggested", numeric: true, sortable: false },
 	{ key: "callers", label: "Callers", numeric: true, sortable: false },
 	{ key: "autoTune", label: "Auto-tune", numeric: true, sortable: false },
@@ -43,7 +44,7 @@ function RouteComponent() {
 			<PageHeader
 				title="Leaders"
 				subtitle="What a miss costs on a game stat leader question."
-				description="A leader question's loss rate is working when a pick on the favorite, the contender with the best season average in the stat across both teams, breaks even. A favorite who leads a quarter of the time breaks even at a loss rate of 33%. Each rate adjusts itself once a day as leader questions resolve, unless it's set to manual. Favorite led counts only questions posted with a favorite. Callers is how real picks on resolved questions did, for comparison only."
+				description="A leader question's loss rate is working when a pick on the favorite, the contender with the best season average in the stat across both teams, breaks even. A favorite who leads a quarter of the time breaks even at a loss rate of 33%. Favorite led is this league stat's own record, counting only questions posted with a favorite. Blended leans that record on every other league stat's until it has enough of its own, and is what the rate is tuned from, once a day, unless it's set to manual. Callers is how real picks on resolved questions did, for comparison only."
 			/>
 
 			<Table sortBy="stat" sortDir="asc" wide>
@@ -58,6 +59,11 @@ function RouteComponent() {
 							<Table.Cell numeric>
 								{row.calibration.favoriteHitRate !== null
 									? percent(row.calibration.favoriteHitRate)
+									: "-"}
+							</Table.Cell>
+							<Table.Cell numeric>
+								{row.calibration.blendedHitRate !== null
+									? percent(row.calibration.blendedHitRate)
 									: "-"}
 							</Table.Cell>
 							<Table.Cell numeric>

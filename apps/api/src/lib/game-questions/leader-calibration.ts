@@ -1,18 +1,31 @@
-import { breakEvenLossRate, LOSS_RATE_BY_SHAPE } from "@called-my-shot/scoring"
+import { LOSS_RATE_BY_SHAPE } from "@called-my-shot/scoring"
 import { db } from "../../db"
 import { GAME_QUESTION_CATALOG } from "../../db/catalog/game-question-catalog"
 import { parseGenerationKey } from "./generation-key"
+import {
+	boundedLossRate,
+	countHits,
+	type HitCount,
+	pooledHitRate,
+	stepRate,
+} from "./pooling"
 
 // A game stat leader question's loss rate is where a pick on the favorite
 // breaks even: a favorite who leads a quarter of the time is worth a third of
 // the stake on a miss (see breakEvenLossRate). It follows the favorite's real
-// record, not callers', so it works with nobody calling.
+// record, not callers', so it works with nobody calling. Each league stat's
+// record leans on every other league stat's until its own is large, so a new
+// league or stat starts from how favorites lead everywhere else.
 export const LEADER_TUNING = {
-	// The fewest resolved leader questions a rate is tuned from.
+	// The fewest resolved leader questions, across every league and stat,
+	// before any rate moves.
 	minSample: 30,
-	// The most recent resolved leader questions the favorite's record is read
-	// over, so a rate follows how a stat plays now rather than all-time.
+	// The most recent resolved leader questions each league stat's record is
+	// read over, so a rate follows how a stat plays now rather than all-time.
 	window: 100,
+	// How many results every other league stat counts as while one league
+	// stat's own record is small - see pooledHitRate.
+	poolWeight: 20,
 	// The most a rate moves in one run.
 	maxStep: 0.1,
 	minRate: 0.05,
@@ -96,41 +109,34 @@ export async function favoriteResultsByTemplate(): Promise<
 	return results
 }
 
+// A league stat's own record alone.
 export function favoriteHitRate(results: boolean[]): number | null {
 	if (results.length === 0) return null
 	return results.filter(Boolean).length / results.length
 }
 
-const roundRate = (value: number) => Math.round(value * 100) / 100
+// A league stat's record leaning on `pool` (every league stat's results,
+// its own included) until its own is large.
+export function blendedHitRate(
+	results: boolean[],
+	pool: HitCount,
+): number | null {
+	return pooledHitRate(countHits(results), pool, LEADER_TUNING.poolWeight)
+}
 
-// The loss rate a pick on the favorite breaks even at, within bounds.
-export function suggestedLossRate(results: boolean[]): number | null {
-	const hitRate = favoriteHitRate(results)
-	if (hitRate === null) return null
-	return roundRate(
-		Math.min(
-			LEADER_TUNING.maxRate,
-			Math.max(LEADER_TUNING.minRate, breakEvenLossRate(hitRate)),
-		),
-	)
+export function suggestedLossRate(hitRate: number | null): number | null {
+	return boundedLossRate(hitRate, LEADER_TUNING.minRate, LEADER_TUNING.maxRate)
 }
 
 // The rate to move to from `current`, or null to leave it: too few resolved
-// questions to go on, or already where they point.
+// questions anywhere to go on, or already where the record points.
 export function nextLossRate(
 	current: number,
-	results: boolean[],
+	hitRate: number | null,
+	poolTotal: number,
 ): number | null {
-	if (results.length < LEADER_TUNING.minSample) return null
-	const target = suggestedLossRate(results)
-	if (target === null) return null
-	const rate = roundRate(
-		Math.min(
-			current + LEADER_TUNING.maxStep,
-			Math.max(current - LEADER_TUNING.maxStep, target),
-		),
-	)
-	return rate === current ? null : rate
+	if (poolTotal < LEADER_TUNING.minSample) return null
+	return stepRate(current, suggestedLossRate(hitRate), LEADER_TUNING.maxStep)
 }
 
 // Real scored picks on resolved leader questions for one league stat. For

@@ -3,6 +3,7 @@ import {
 	generateQuestionTitle,
 	resolutionModeFor,
 } from "@called-my-shot/schemas"
+import { defaultLossRate } from "@called-my-shot/scoring"
 import { inArray, sql } from "drizzle-orm"
 import { match } from "ts-pattern"
 import { db } from "../db"
@@ -16,6 +17,7 @@ import {
 } from "../db/schema"
 import { buildPlayerPool, buildTeamPool } from "./award-pool"
 import { generateUniqueBallotSlug } from "./ballot-slug"
+import { titleLossRateFor } from "./game-questions/title-settings"
 import { numericToleranceFor } from "./numeric-tolerance"
 import { getCurrentSeason } from "./seasons"
 import { compareTeamsByGrouping, teamSectionResolver } from "./team-grouping"
@@ -228,6 +230,7 @@ async function generatePerTeamNumericGuess(params: {
 					subjectTeamId: team.id,
 					numericTolerancePct,
 					numericToleranceAbsolute,
+					lossRate: defaultLossRate("team_season_stat_numeric_guess", {}),
 				})
 				.returning()
 			if (!question) {
@@ -412,6 +415,9 @@ async function generatePlayerSeasonAward(params: {
 					? params.template.awardSeasonsInLeague
 					: null,
 				awardRookieOnly: params.template.awardRookieOnly ?? null,
+				lossRate: defaultLossRate("player_season_award", {
+					picksRequired: params.template.picksRequired,
+				}),
 			})
 			.returning()
 		if (!question) {
@@ -492,6 +498,14 @@ async function generateTeamSeasonAward(params: {
 		)
 	}
 
+	const lossRate =
+		(params.template.picksRequired === 1
+			? await titleLossRateFor(params.leagueId, params.template.awardName)
+			: null) ??
+		defaultLossRate("team_season_award", {
+			picksRequired: params.template.picksRequired,
+		})
+
 	const title = generateQuestionTitle({
 		shape: "team_season_award",
 		awardName: params.template.awardName,
@@ -527,6 +541,7 @@ async function generateTeamSeasonAward(params: {
 				awardDivisions: params.template.awardDivisions?.length
 					? params.template.awardDivisions
 					: null,
+				lossRate,
 			})
 			.returning()
 		if (!question) {

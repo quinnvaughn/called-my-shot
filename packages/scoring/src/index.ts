@@ -92,14 +92,47 @@ export const LOSS_RATE_BY_SHAPE: Record<QuestionShape, number> = {
 	player_season_stat_over_under: 1,
 	team_season_stat_over_under: 1,
 	game_total_over_under: 1,
-	player_award_finalists: 1,
-	player_season_award: 1,
-	team_season_award: 1,
+	// Only a fallback: a finalists question's rate comes from how many
+	// finalists it has - see defaultLossRate.
+	player_award_finalists: 0.5,
+	// A single pick from a whole league: even the favorite for an MVP wins
+	// about a third of the time. A multi-pick award is 1 - see
+	// defaultLossRate.
+	player_season_award: 0.5,
+	// A title from the whole league or a conference: the best record wins a
+	// small share of them. Tuned per league and award from how often it does.
+	team_season_award: 0.3,
 	player_stat_numeric_guess: 0.5,
 	team_stat_numeric_guess: 0.5,
 	team_season_stat_numeric_guess: 0.5,
 	player_game_stat_leader: 0.25,
-	player_season_stat_leader: 0.25,
+	// A whole-league pool over a whole season, where the early leader often
+	// holds on.
+	player_season_stat_leader: 0.5,
+}
+
+// The loss rate a question is created with when nothing tuned applies. Most
+// shapes take LOSS_RATE_BY_SHAPE as is. A finalists question breaks even for
+// a pick at random among its finalists (a third of three is 0.5, a fifth of
+// five is 0.25), since there's no favorite to measure against. An award asked
+// with several picks is scored one pick at a time, and each pick is among
+// several winners, so it keeps the full rate.
+export function defaultLossRate(
+	shape: QuestionShape,
+	question: { picksRequired?: number | null; optionCount?: number },
+): number {
+	const { picksRequired, optionCount } = question
+	if (shape === "player_award_finalists" && optionCount && optionCount > 1) {
+		const rate = breakEvenLossRate(1 / optionCount)
+		return Math.round(Math.min(1, Math.max(0.05, rate)) * 100) / 100
+	}
+	if (
+		(shape === "player_season_award" || shape === "team_season_award") &&
+		(picksRequired ?? 1) > 1
+	) {
+		return 1
+	}
+	return LOSS_RATE_BY_SHAPE[shape]
 }
 
 // The hit rate where a pick's wins and losses cancel out at a x1 multiplier:
