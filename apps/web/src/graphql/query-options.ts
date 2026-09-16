@@ -87,7 +87,16 @@ type InfiniteOverrides<TResult, TItem> = Partial<
 		>,
 		"queryKey" | "queryFn" | "initialPageParam" | "getNextPageParam" | "select"
 	>
->
+> & {
+	// Same escape hatch as gqlQueryOptions', and for the same reason - see the
+	// comment there. A paginated feed normally wants the default: its fetches
+	// are superseded constantly (every keystroke in a search box) and
+	// cancelling those is the point. Set this false only for a list that
+	// unmounts while a fetch can still be in flight - a list inside a tab or a
+	// modal - where the cancel isn't a superseded fetch but the observer going
+	// away, and the only thing it produces is a dev-server `aborted` overlay.
+	abortable?: boolean
+}
 
 /**
  * Relay-style keyset pagination over a connection field. `selectConnection`
@@ -103,14 +112,14 @@ export function gqlInfiniteQueryOptions<TResult, TVariables, TItem>(
 	document: TypedDocumentNode<TResult, TVariables>,
 	variables: Omit<TVariables, "after">,
 	selectConnection: (result: TResult) => Connection<TItem>,
-	overrides?: InfiniteOverrides<TResult, TItem>,
+	{ abortable = true, ...overrides }: InfiniteOverrides<TResult, TItem> = {},
 ) {
 	return infiniteQueryOptions({
 		queryKey: [getOperationName(document), variables, "infinite"] as const,
 		queryFn: ({ pageParam, signal, meta }) =>
 			gqlFetch(document, { ...variables, after: pageParam } as TVariables, {
 				cookie: meta?.cookie,
-				signal,
+				signal: abortable ? signal : undefined,
 			}),
 		initialPageParam: null as PageParam,
 		getNextPageParam: (lastPage: TResult) => {

@@ -1,23 +1,98 @@
+import { keepPreviousData, useInfiniteQuery } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
+import { useState } from "react"
 import { VStack } from "styled-system/jsx"
+import {
+	EMPTY_FILTERS,
+	hasActiveFilters,
+	QuestionFilterBar,
+	type QuestionFilterValue,
+} from "#/components/filters/question-filter-bar"
 import { MyQuestionsTab } from "#/components/my-questions/my-questions-tab"
+import { SortSwitcher } from "#/components/questions/sort-switcher"
 import { PageHeader } from "#/components/ui/page-header"
-import { myQuestionsQuery } from "#/graphql/queries/my-questions"
+import type { MyQuestionSort } from "#/graphql/generated/graphql"
+import {
+	type MyQuestionsFilters,
+	myQuestionsQuery,
+} from "#/graphql/queries/my-questions"
+import { useDebouncedValue } from "#/hooks/use-debounced-value"
+import {
+	DEFAULT_MY_QUESTIONS_SORT,
+	MY_QUESTION_SORTS,
+} from "#/lib/my-list-sorts"
 
 export const Route = createFileRoute("/_app/_authed/my-questions")({
 	component: RouteComponent,
+	// Prefetched under exactly the key the component asks for on its first
+	// render - the sort has to be passed explicitly here even though it's the
+	// server's default too, because the component always sends one and a key
+	// that differs by so much as an absent variable is a different cache entry
+	// and a wasted round trip. Any filter or re-sort past that fetches normally.
 	loader: ({ context }) =>
-		context.queryClient.infiniteQuery(myQuestionsQuery()),
+		context.queryClient.infiniteQuery(
+			myQuestionsQuery({}, DEFAULT_MY_QUESTIONS_SORT),
+		),
 })
 
 function RouteComponent() {
+	const { leagues } = Route.useRouteContext()
+	const [filters, setFilters] = useState<QuestionFilterValue>(EMPTY_FILTERS)
+	const [sort, setSort] = useState<MyQuestionSort>(DEFAULT_MY_QUESTIONS_SORT)
+
+	const debouncedSearch = useDebouncedValue(filters.search.trim(), 300)
+	const queryFilters = toQueryFilters(filters, debouncedSearch)
+
+	// Same query key the tab below renders off, so this shares its cache entry
+	// rather than costing a second request - it's read here only because the
+	// count belongs in the header, above the list that produces it.
+	const { data } = useInfiniteQuery({
+		...myQuestionsQuery(queryFilters, sort),
+		placeholderData: keepPreviousData,
+	})
+	const total = data?.pages[0]?.myQuestions.totalCount ?? null
+
 	return (
 		<VStack alignItems="stretch" gap="6">
-			<PageHeader
-				title="My Questions"
-				subtitle="Every question you've posted"
+			<PageHeader title="My Questions" subtitle={subtitle(total)} />
+
+			<QuestionFilterBar
+				value={filters}
+				onChange={setFilters}
+				leagues={leagues}
+				searchPlaceholder="Search your questions by title, player or team…"
 			/>
-			<MyQuestionsTab />
+
+			<SortSwitcher
+				sorts={MY_QUESTION_SORTS}
+				active={sort}
+				onChange={setSort}
+			/>
+
+			<MyQuestionsTab
+				filters={queryFilters}
+				sort={sort}
+				filtered={hasActiveFilters(filters)}
+			/>
 		</VStack>
 	)
+}
+
+function subtitle(total: number | null): string {
+	if (total === null) return "Every question you've posted"
+	return total === 1 ? "1 question" : `${total} questions`
+}
+
+// Drops anything unset so an untouched filter sends no variable at all, keeping
+// the opening state's query key identical to the one the loader prefetched.
+function toQueryFilters(
+	value: QuestionFilterValue,
+	search: string,
+): MyQuestionsFilters {
+	return {
+		...(value.leagueId ? { leagueId: value.leagueId } : {}),
+		...(value.shapes.length > 0 ? { shapes: value.shapes } : {}),
+		...(search ? { search } : {}),
+		...(value.scope ? { scope: value.scope } : {}),
+	}
 }

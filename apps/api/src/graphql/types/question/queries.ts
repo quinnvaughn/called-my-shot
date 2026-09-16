@@ -19,9 +19,11 @@ import {
 	sql,
 } from "drizzle-orm"
 import { DateTime } from "luxon"
+import { match } from "ts-pattern"
 import { db } from "../../../db"
 import {
 	ballotQuestions,
+	callSelections,
 	calls,
 	leagues,
 	players,
@@ -42,11 +44,8 @@ import { AuthenticationError, AuthorizationError } from "../../../lib/errors"
 import { typicalGameLengthHours } from "../../../lib/game-length"
 import {
 	clampPageSize,
-	cursorWhere,
-	decodeCursor,
 	decodeOffsetCursor,
 	encodeOffsetCursor,
-	paginate,
 } from "../../../lib/pagination"
 import { getCurrentSeason } from "../../../lib/seasons"
 import { isUuid } from "../../../lib/uuid"
@@ -56,6 +55,10 @@ import { CallConnectionRef, CallRef } from "./call"
 import {
 	AdminQuestionSort,
 	CallResolutionStatus,
+	CallResultFilter,
+	CallSortOrder,
+	MyQuestionSort,
+	QuestionScope,
 	QuestionShape,
 	QuestionSortOrder,
 	QuestionStatus,
@@ -65,6 +68,128 @@ import {
 	QuestionConnectionRef,
 	QuestionRef,
 } from "./question-object"
+
+// One row per call carrying everything the My Calls sorts and the hit/miss
+// filter need out of call_selections. Both coalesces at the use sites below are
+// load-bearing rather than defensive: a numeric-guess call stores its points and
+// its conviction on the calls row itself and has no selections at all, while
+// every other shape stores both per selection (see the calls/callSelections
+// tables). pts stays null while any selection is still pending, matching
+// Call.totalPoints in ./call.ts exactly - the two must agree or a call would
+// filter as a miss while rendering as unresolved.
+const callPoints = db.$with("call_points").as(
+	db
+		.select({
+			callId: callSelections.callId,
+			pts: sql<number | null>`
+				case when bool_or(${callSelections.resultPoints} is null)
+					then null
+					else sum(${callSelections.resultPoints})
+				end
+			`.as("pts"),
+			// The biggest single stake, not the sum - a multi-pick call splits its
+			// conviction across picks, and "how hard did I lean on this" is the
+			// largest one, not a total that grows with the number of picks.
+			maxConviction: sql<number | null>`max(${callSelections.conviction})`.as(
+				"max_conviction",
+			),
+		})
+		.from(callSelections)
+		.groupBy(callSelections.callId),
+)
+
+// A call's points as the app defines them, in SQL. Mirrors Call.totalPoints.
+const callTotalPoints = sql<
+	number | null
+>`coalesce(${calls.resultPoints}, ${callPoints.pts})`
+// Likewise for conviction - see the CTE above.
+const callConviction = sql<
+	number | null
+>`coalesce(${calls.conviction}, ${callPoints.maxConviction})`
+
+// questions.gameId set or null. Shared by both My pages, so it lives here
+// rather than being spelled out twice.
+function scopeCondition(scope: "game" | "season_long" | null | undefined) {
+	return match(scope)
+		.with("game", () => isNotNull(questions.gameId))
+		.with("season_long", () => isNull(questions.gameId))
+		.otherwise(() => undefined)
+}
+
+type MyCallFilters = {
+	status: "open" | "resolved"
+	leagueId?: string | null
+	shapes?: readonly string[] | null
+	search?: string | null
+	scope?: "game" | "season_long" | null
+	result?: "hit" | "miss" | "unscored" | null
+}
+
+// Shared by myCalls and myCallCounts so the list and the tab badges above it
+// can't disagree about what the current filter matches.
+function myCallConditions(userId: string, filters: MyCallFilters) {
+	return [
+		eq(calls.userId, userId),
+		filters.status === "resolved"
+			? inArray(questions.status, ["resolved", "voided"])
+			: notInArray(questions.status, ["resolved", "voided"]),
+		filters.leagueId ? eq(questions.leagueId, filters.leagueId) : undefined,
+		filters.shapes && filters.shapes.length > 0
+			? inArray(
+					questions.shape,
+					filters.shapes as (typeof questions.shape.enumValues)[number][],
+				)
+			: undefined,
+		scopeCondition(filters.scope),
+		filters.search
+			? or(
+					ilike(questions.title, `%${filters.search}%`),
+					ilike(users.name, `%${filters.search}%`),
+					ilike(users.username, `%${filters.search}%`),
+					ilike(teams.name, `%${filters.search}%`),
+					ilike(teams.abbreviation, `%${filters.search}%`),
+					ilike(players.name, `%${filters.search}%`),
+				)
+			: undefined,
+		// A miss scores genuinely negative rather than zero (see
+		// @called-my-shot/scoring), so hit/miss is a sign test. UNSCORED is a
+		// third outcome rather than a shade of miss - a voided question, or a
+		// creator who ended up the only caller, leaves a settled call carrying
+		// no result at all.
+		match(filters.result)
+			.with("hit", () => sql`${callTotalPoints} > 0`)
+			.with(
+				"miss",
+				() => sql`${callTotalPoints} <= 0 and ${calls.unscoredReason} is null`,
+			)
+			.with(
+				"unscored",
+				() =>
+					sql`(${calls.unscoredReason} is not null or ${callTotalPoints} is null)`,
+			)
+			.otherwise(() => undefined),
+	].filter((c) => c !== undefined)
+}
+
+// My Calls' ordering keys, without the trailing calls.id tiebreak every sort
+// shares (added at the use site). Closing Soon is ordering only, with no window
+// filter - unlike Query.questions' same-named sort, which also narrows to the
+// next 48 hours. Your call on an already-locked question that hasn't resolved
+// yet still belongs on this page; the leading boolean just sorts those behind
+// everything still coming up, since they're waiting on resolution, not on you.
+function myCallOrderKeys(
+	sort: "closing_soon" | "newest" | "points" | "conviction",
+) {
+	return match(sort)
+		.with("closing_soon", () => [
+			asc(sql`(${questions.locksAt} <= now())`),
+			asc(questions.locksAt),
+		])
+		.with("newest", () => [desc(calls.createdAt)])
+		.with("points", () => [sql`${callTotalPoints} desc nulls last`])
+		.with("conviction", () => [sql`${callConviction} desc nulls last`])
+		.exhaustive()
+}
 
 builder.queryFields((t) => ({
 	// The home feed. leagueId/teamId/search/isOfficial narrow the pool, sort
@@ -460,32 +585,67 @@ builder.queryFields((t) => ({
 	// Open tab (question still open/locked/disputed - no final outcome yet)
 	// and a Resolved tab (question resolved or voided - settled for good). See
 	// myCallCounts below for the counts shown on each tab.
+	//
+	// A join query with offset cursors rather than the (createdAt, id) keyset
+	// db.query.calls.findMany this used to be: half the sorts and the whole
+	// search order by or match on columns that live on the *question*, and
+	// RQBv2 can neither sort by a relation's column (see
+	// myRecentResolvedCalls below) nor reach one for an ilike. Same
+	// $dynamic()/conditions-array shape as Query.questions at the top of this
+	// file, for the same reasons.
 	myCalls: t.field({
 		type: CallConnectionRef,
 		args: {
 			status: t.arg({ type: CallResolutionStatus, required: true }),
 			first: t.arg.int(),
 			after: t.arg.string(),
+			leagueId: t.arg.id(),
+			shapes: t.arg({ type: [QuestionShape], required: false }),
+			search: t.arg.string(),
+			scope: t.arg({ type: QuestionScope, required: false }),
+			// Resolved tab only - an open call has no outcome to filter on yet.
+			// Applied whenever passed rather than rejected alongside status
+			// OPEN, which would just be a second way to say "no rows".
+			result: t.arg({ type: CallResultFilter, required: false }),
+			sort: t.arg({ type: CallSortOrder, required: false }),
 		},
 		resolve: async (_root, args, ctx) => {
 			const user = requireUser(ctx)
 			const limit = clampPageSize(args.first)
-			const cursor = args.after ? decodeCursor(args.after) : null
-			const rows = await db.query.calls.findMany({
-				where: {
-					userId: user.id,
-					question: {
-						status:
-							args.status === "resolved"
-								? { in: ["resolved", "voided"] }
-								: { notIn: ["resolved", "voided"] },
-					},
-					...(cursor ? cursorWhere(cursor) : {}),
+			const offset = args.after ? decodeOffsetCursor(args.after) : 0
+			// Closing Soon is the Open tab's default and Points the Resolved
+			// tab's: what you want off an unsettled pile is what needs you next,
+			// and off a settled one, what it was worth.
+			const sort =
+				args.sort ?? (args.status === "resolved" ? "points" : "closing_soon")
+
+			const query = db
+				.with(callPoints)
+				.select(getColumns(calls))
+				.from(calls)
+				.innerJoin(questions, eq(questions.id, calls.questionId))
+				.leftJoin(users, eq(users.id, questions.creatorId))
+				.leftJoin(teams, eq(teams.id, questions.subjectTeamId))
+				.leftJoin(players, eq(players.id, questions.subjectPlayerId))
+				.leftJoin(callPoints, eq(callPoints.callId, calls.id))
+				.where(and(...myCallConditions(user.id, args)))
+				.$dynamic()
+
+			const rows = await query
+				.orderBy(...myCallOrderKeys(sort), desc(calls.id))
+				.limit(limit + 1)
+				.offset(offset)
+			const hasNextPage = rows.length > limit
+			const items = rows.slice(0, limit)
+
+			return {
+				items,
+				pageInfo: {
+					hasNextPage,
+					endCursor:
+						items.length > 0 ? encodeOffsetCursor(offset + items.length) : null,
 				},
-				orderBy: { createdAt: "desc", id: "desc" },
-				limit: limit + 1,
-			})
-			return paginate(rows, limit)
+			}
 		},
 	}),
 
@@ -523,45 +683,173 @@ builder.queryFields((t) => ({
 		},
 	}),
 
+	// The two tab badges on My Calls. Takes the same filters the list does (all
+	// but status, which is the axis it counts across) so a filtered page's tabs
+	// report what that filter actually matches instead of the lifetime totals.
+	//
+	// Two SQL counts rather than the "load every call the viewer ever made and
+	// count in a loop" this used to do - that was already the wrong shape at a
+	// few hundred rows, and it can't express the filters at all.
 	myCallCounts: t.field({
 		type: MyCallCountsRef,
-		resolve: async (_root, _args, ctx) => {
+		args: {
+			leagueId: t.arg.id(),
+			shapes: t.arg({ type: [QuestionShape], required: false }),
+			search: t.arg.string(),
+			scope: t.arg({ type: QuestionScope, required: false }),
+			result: t.arg({ type: CallResultFilter, required: false }),
+		},
+		resolve: async (_root, args, ctx) => {
 			const user = requireUser(ctx)
-			const calls = await db.query.calls.findMany({
-				where: { userId: user.id },
-				columns: { id: true },
-				with: { question: { columns: { status: true } } },
-			})
-			const resolved = calls.filter(
-				(call) =>
-					call.question?.status === "resolved" ||
-					call.question?.status === "voided",
-			).length
-			return { open: calls.length - resolved, resolved }
+
+			async function countFor(status: "open" | "resolved") {
+				const [row] = await db
+					.with(callPoints)
+					.select({ value: count(calls.id) })
+					.from(calls)
+					.innerJoin(questions, eq(questions.id, calls.questionId))
+					.leftJoin(users, eq(users.id, questions.creatorId))
+					.leftJoin(teams, eq(teams.id, questions.subjectTeamId))
+					.leftJoin(players, eq(players.id, questions.subjectPlayerId))
+					.leftJoin(callPoints, eq(callPoints.callId, calls.id))
+					.where(
+						and(
+							...myCallConditions(user.id, {
+								...args,
+								status,
+								// An open call has no outcome, so a hit/miss filter would
+								// match none of them and the Open badge would read 0 while
+								// the tab behind it still holds calls. The filter belongs to
+								// the Resolved half of this count only.
+								result: status === "resolved" ? args.result : null,
+							}),
+						),
+					)
+				return row?.value ?? 0
+			}
+
+			const [open, resolved] = await Promise.all([
+				countFor("open"),
+				countFor("resolved"),
+			])
+			return { open, resolved }
 		},
 	}),
 
-	// The "My Questions" page - every question the viewer has asked, newest
-	// first, across every status (live, locked, resolved).
+	// The "My Questions" page - every question the viewer has asked, across
+	// every status (live, locked, resolved). Same join/offset-cursor shape as
+	// myCalls above and for the same reasons; totalCount is populated here
+	// because this page has no tabs to carry a count the way My Calls does.
 	myQuestions: t.field({
 		type: QuestionConnectionRef,
 		args: {
 			first: t.arg.int(),
 			after: t.arg.string(),
+			leagueId: t.arg.id(),
+			shapes: t.arg({ type: [QuestionShape], required: false }),
+			search: t.arg.string(),
+			scope: t.arg({ type: QuestionScope, required: false }),
+			status: t.arg({ type: QuestionStatus, required: false }),
+			sort: t.arg({ type: MyQuestionSort, required: false }),
 		},
 		resolve: async (_root, args, ctx) => {
 			const user = requireUser(ctx)
 			const limit = clampPageSize(args.first)
-			const cursor = args.after ? decodeCursor(args.after) : null
-			const rows = await db.query.questions.findMany({
-				where: {
-					creatorId: user.id,
-					...(cursor ? cursorWhere(cursor) : {}),
+			const offset = args.after ? decodeOffsetCursor(args.after) : 0
+			const sort = args.sort ?? "newest"
+
+			const conditions = [
+				eq(questions.creatorId, user.id),
+				args.leagueId ? eq(questions.leagueId, args.leagueId) : undefined,
+				args.status ? eq(questions.status, args.status) : undefined,
+				args.shapes && args.shapes.length > 0
+					? inArray(questions.shape, args.shapes)
+					: undefined,
+				scopeCondition(args.scope),
+				// No users join here - every row's asker is the viewer, so matching
+				// on their own name would just make every question match.
+				args.search
+					? or(
+							ilike(questions.title, `%${args.search}%`),
+							ilike(teams.name, `%${args.search}%`),
+							ilike(teams.abbreviation, `%${args.search}%`),
+							ilike(players.name, `%${args.search}%`),
+						)
+					: undefined,
+			].filter((c) => c !== undefined)
+
+			// Same call-count CTE Query.questions builds at the top of this file,
+			// for the same reason: MOST_CALLED orders by it in SQL rather than
+			// sorting a page in application code.
+			const callCounts = db.$with("call_counts").as(
+				db
+					.select({
+						questionId: calls.questionId,
+						cnt: count(calls.id).as("cnt"),
+					})
+					.from(calls)
+					.groupBy(calls.questionId),
+			)
+
+			// The same joins and conditions as the page query below, minus the
+			// call-count CTE (nothing counts by it) - only the teams/players joins
+			// matter, and only because `search` reaches through them.
+			const totalQuery = db
+				.select({ value: count(questions.id) })
+				.from(questions)
+				.leftJoin(teams, eq(teams.id, questions.subjectTeamId))
+				.leftJoin(players, eq(players.id, questions.subjectPlayerId))
+				.where(and(...conditions))
+
+			let query = db
+				.with(callCounts)
+				.select(getColumns(questions))
+				.from(questions)
+				.leftJoin(teams, eq(teams.id, questions.subjectTeamId))
+				.leftJoin(players, eq(players.id, questions.subjectPlayerId))
+				.leftJoin(callCounts, eq(callCounts.questionId, questions.id))
+				.where(and(...conditions))
+				.$dynamic()
+
+			query = match(sort)
+				// Ordering only, no window filter - unlike Query.questions'
+				// same-named sort. Your own question stays on this page after it
+				// locks; the leading boolean just sorts already-locked ones behind
+				// everything still coming up.
+				.with("closing_soon", () =>
+					query.orderBy(
+						asc(sql`(${questions.locksAt} <= now())`),
+						asc(questions.locksAt),
+						desc(questions.id),
+					),
+				)
+				.with("most_called", () =>
+					query.orderBy(
+						desc(sql`coalesce(${callCounts.cnt}, 0)`),
+						desc(questions.id),
+					),
+				)
+				.with("newest", () =>
+					query.orderBy(desc(questions.createdAt), desc(questions.id)),
+				)
+				.exhaustive()
+
+			const [rows, [totals]] = await Promise.all([
+				query.limit(limit + 1).offset(offset),
+				totalQuery,
+			])
+			const hasNextPage = rows.length > limit
+			const items = rows.slice(0, limit)
+
+			return {
+				items,
+				totalCount: totals?.value ?? 0,
+				pageInfo: {
+					hasNextPage,
+					endCursor:
+						items.length > 0 ? encodeOffsetCursor(offset + items.length) : null,
 				},
-				orderBy: { createdAt: "desc", id: "desc" },
-				limit: limit + 1,
-			})
-			return paginate(rows, limit)
+			}
 		},
 	}),
 

@@ -166,3 +166,52 @@ export const CallResolutionStatus = builder.enumType("CallResolutionStatus", {
 		RESOLVED: { value: "resolved" },
 	},
 })
+
+// My Calls' ordering. Separate from QuestionSortOrder above because these
+// rank a *call*, not a question: POINTS and CONVICTION read columns that only
+// exist on a call, and CLOSING_SOON means something different here (see
+// myCalls) - it orders without also filtering to a 48-hour window the way the
+// public feed's same-named sort does.
+export const CallSortOrder = builder.enumType("CallSortOrder", {
+	values: {
+		CLOSING_SOON: { value: "closing_soon" },
+		NEWEST: { value: "newest" },
+		POINTS: { value: "points" },
+		CONVICTION: { value: "conviction" },
+	},
+})
+
+// Not a DB column - derived from a call's points (see the call_points CTE in
+// myCalls). A miss scores genuinely negative rather than zero (see
+// @called-my-shot/scoring), so the hit/miss split is a sign test. UNSCORED is
+// the third outcome, not a shade of miss: a voided question or a creator who
+// was the only caller leaves a settled call carrying no result at all.
+export const CallResultFilter = builder.enumType("CallResultFilter", {
+	values: {
+		HIT: { value: "hit" },
+		MISS: { value: "miss" },
+		UNSCORED: { value: "unscored" },
+	},
+})
+
+// Whether a question hangs off one game or off a whole season - questions.gameId
+// set or null. Shared by myCalls and myQuestions, hence the general name; an
+// unset arg means both, the way every other optional filter here works.
+export const QuestionScope = builder.enumType("QuestionScope", {
+	values: {
+		GAME: { value: "game" },
+		SEASON_LONG: { value: "season_long" },
+	},
+})
+
+// My Questions' ordering. Deliberately not QuestionSortOrder: that enum's
+// CLOSING_SOON carries a 48-hour window filter baked into Query.questions, and
+// its MOST_CALLED is the feed default. Your own questions should stay visible
+// under every sort, so this one orders and never filters.
+export const MyQuestionSort = builder.enumType("MyQuestionSort", {
+	values: {
+		NEWEST: { value: "newest" },
+		CLOSING_SOON: { value: "closing_soon" },
+		MOST_CALLED: { value: "most_called" },
+	},
+})

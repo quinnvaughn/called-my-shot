@@ -45,6 +45,55 @@ export const questionShapeLabel: Record<QuestionShape, string> = {
 	PLAYER_AWARD_FINALISTS: "Award Finalists",
 }
 
+// The six buckets the shape filter groups its 18 options under - a flat list of
+// 18 is unscannable in a dropdown, and these are the lines people already think
+// along ("my over/unders", "my award calls").
+export const SHAPE_FAMILIES = [
+	"OVER_UNDER",
+	"NUMERIC_GUESS",
+	"HEAD_TO_HEAD",
+	"STAT_LEADER",
+	"AWARD",
+	"YES_NO",
+] as const
+
+export type ShapeFamily = (typeof SHAPE_FAMILIES)[number]
+
+export const shapeFamilyLabel: Record<ShapeFamily, string> = {
+	OVER_UNDER: "Over/Under",
+	NUMERIC_GUESS: "Numeric Guess",
+	HEAD_TO_HEAD: "Head-to-Head",
+	STAT_LEADER: "Stat Leader",
+	AWARD: "Award",
+	YES_NO: "Yes/No",
+}
+
+// A Record rather than a lookup with a default, same reasoning as
+// NUMERIC_GUESS_BY_SHAPE below: a shape added later has to be filed somewhere
+// deliberately, and failing the build is how that gets noticed. Falling back to
+// a catch-all group would silently hide the new shape at the bottom of the
+// picker instead.
+export const questionShapeFamily: Record<QuestionShape, ShapeFamily> = {
+	PLAYER_STAT_OVER_UNDER: "OVER_UNDER",
+	TEAM_STAT_OVER_UNDER: "OVER_UNDER",
+	PLAYER_SEASON_STAT_OVER_UNDER: "OVER_UNDER",
+	TEAM_SEASON_STAT_OVER_UNDER: "OVER_UNDER",
+	GAME_TOTAL_OVER_UNDER: "OVER_UNDER",
+	PLAYER_STAT_NUMERIC_GUESS: "NUMERIC_GUESS",
+	TEAM_STAT_NUMERIC_GUESS: "NUMERIC_GUESS",
+	TEAM_SEASON_STAT_NUMERIC_GUESS: "NUMERIC_GUESS",
+	PLAYER_VS_PLAYER: "HEAD_TO_HEAD",
+	PLAYER_VS_PLAYER_SEASON: "HEAD_TO_HEAD",
+	TEAM_VS_TEAM: "HEAD_TO_HEAD",
+	TEAM_VS_TEAM_SEASON: "HEAD_TO_HEAD",
+	PLAYER_GAME_STAT_LEADER: "STAT_LEADER",
+	PLAYER_SEASON_STAT_LEADER: "STAT_LEADER",
+	PLAYER_SEASON_AWARD: "AWARD",
+	TEAM_SEASON_AWARD: "AWARD",
+	PLAYER_AWARD_FINALISTS: "AWARD",
+	YES_NO_PROP: "YES_NO",
+}
+
 export const questionShapeIcon: Record<QuestionShape, IconType> = {
 	PLAYER_STAT_OVER_UNDER: FaArrowsUpDown,
 	TEAM_STAT_OVER_UNDER: FaArrowsUpDown,

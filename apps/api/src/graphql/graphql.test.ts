@@ -1,13 +1,15 @@
 import { eq } from "drizzle-orm"
 import { describe, expect, it } from "vitest"
 import { db } from "../db"
-import { emailOptOuts, questions } from "../db/schema"
+import { callSelections, emailOptOuts, questions } from "../db/schema"
 import { unsubscribeToken } from "../lib/email-unsubscribe"
 import {
+	futureDate,
 	makeAdmin,
 	makeCall,
 	makeGame,
 	makeLeague,
+	makePlayer,
 	makeQuestion,
 	makeSeason,
 	makeSelection,
@@ -592,6 +594,393 @@ describe("Query.myCalls", () => {
 			{ as: mine, variables: { status: "OPEN" } },
 		)
 		expect(data.myCalls.items.map((c) => c.id)).toEqual([myCall.id])
+	})
+})
+
+describe("Query.myCalls filtering and sorting", () => {
+	const FILTERED = /* GraphQL */ `
+		query MyCallsFiltered(
+			$status: CallResolutionStatus!
+			$leagueId: ID
+			$shapes: [QuestionShape!]
+			$search: String
+			$scope: QuestionScope
+			$result: CallResultFilter
+			$sort: CallSortOrder
+			$first: Int
+			$after: String
+		) {
+			myCalls(
+				status: $status
+				first: $first
+				after: $after
+				leagueId: $leagueId
+				shapes: $shapes
+				search: $search
+				scope: $scope
+				result: $result
+				sort: $sort
+			) {
+				items { id }
+				pageInfo { hasNextPage endCursor }
+			}
+		}
+	`
+
+	type CallsResult = {
+		myCalls: {
+			items: { id: string }[]
+			pageInfo: { hasNextPage: boolean; endCursor: string | null }
+		}
+	}
+
+	function ids(data: CallsResult) {
+		return data.myCalls.items.map((c) => c.id)
+	}
+
+	// One open call per league, so a leagueId filter has something to exclude.
+	async function seedTwoLeagues(userId: string) {
+		const a = await makeLeague()
+		const b = await makeLeague()
+		const qa = await makeQuestion({ leagueId: a.id, title: "Mahomes yardage" })
+		const qb = await makeQuestion({ leagueId: b.id, title: "Jokic boards" })
+		const callA = await makeCall(qa.id, userId)
+		const callB = await makeCall(qb.id, userId)
+		return { a, b, qa, qb, callA, callB }
+	}
+
+	it("narrows to one league", async () => {
+		const user = await makeUser()
+		const { a, callA } = await seedTwoLeagues(user.id)
+
+		const data = await expectData<CallsResult>(FILTERED, {
+			as: user,
+			variables: { status: "OPEN", leagueId: a.id },
+		})
+		expect(ids(data)).toEqual([callA.id])
+	})
+
+	it("narrows to the listed shapes", async () => {
+		const user = await makeUser()
+		const yesNo = await makeQuestion({ shape: "yes_no_prop" })
+		const h2h = await makeQuestion({ shape: "player_vs_player" })
+		const yesNoCall = await makeCall(yesNo.id, user.id)
+		await makeCall(h2h.id, user.id)
+
+		const data = await expectData<CallsResult>(FILTERED, {
+			as: user,
+			variables: { status: "OPEN", shapes: ["YES_NO_PROP"] },
+		})
+		expect(ids(data)).toEqual([yesNoCall.id])
+	})
+
+	it("splits game-scoped from season-long by the question's game", async () => {
+		const user = await makeUser()
+		const game = await makeGame()
+		const gameQuestion = await makeQuestion({
+			leagueId: game.leagueId,
+			seasonId: game.seasonId,
+			gameId: game.id,
+		})
+		const seasonQuestion = await makeQuestion()
+		const gameCall = await makeCall(gameQuestion.id, user.id)
+		const seasonCall = await makeCall(seasonQuestion.id, user.id)
+
+		const gameOnly = await expectData<CallsResult>(FILTERED, {
+			as: user,
+			variables: { status: "OPEN", scope: "GAME" },
+		})
+		expect(ids(gameOnly)).toEqual([gameCall.id])
+
+		const seasonOnly = await expectData<CallsResult>(FILTERED, {
+			as: user,
+			variables: { status: "OPEN", scope: "SEASON_LONG" },
+		})
+		expect(ids(seasonOnly)).toEqual([seasonCall.id])
+	})
+
+	it("searches the question title", async () => {
+		const user = await makeUser()
+		const { callA } = await seedTwoLeagues(user.id)
+
+		const data = await expectData<CallsResult>(FILTERED, {
+			as: user,
+			variables: { status: "OPEN", search: "mahomes" },
+		})
+		expect(ids(data)).toEqual([callA.id])
+	})
+
+	it("searches through the question's subject player", async () => {
+		const user = await makeUser()
+		const player = await makePlayer({ name: "Breanna Stewart" })
+		const question = await makeQuestion({
+			subjectPlayerId: player.id,
+			title: "Untitled",
+		})
+		const call = await makeCall(question.id, user.id)
+		await makeCall((await makeQuestion({ title: "Untitled" })).id, user.id)
+
+		const data = await expectData<CallsResult>(FILTERED, {
+			as: user,
+			variables: { status: "OPEN", search: "stewart" },
+		})
+		expect(ids(data)).toEqual([call.id])
+	})
+
+	// The hit/miss/unscored split has to agree with Call.totalPoints, which
+	// reads calls.resultPoints when set and otherwise sums the selections - the
+	// SQL below reimplements that, so both halves are exercised here.
+	it("splits hits, misses and unscored calls", async () => {
+		const user = await makeUser()
+		const settled = { status: "resolved" as const }
+
+		// Scores off its selection, like every option shape.
+		const hitQ = await seedOptionQuestion({ callers: [], question: settled })
+		const hit = await makeCall(hitQ.question.id, user.id)
+		await db.insert(callSelections).values({
+			callId: hit.id,
+			optionId: hitQ.options[0].id,
+			conviction: 100,
+			resultPoints: 120,
+		})
+
+		const missQ = await seedOptionQuestion({ callers: [], question: settled })
+		const miss = await makeCall(missQ.question.id, user.id)
+		await db.insert(callSelections).values({
+			callId: miss.id,
+			optionId: missQ.options[0].id,
+			conviction: 100,
+			resultPoints: -40,
+		})
+
+		// Scores off the call row itself, like a numeric guess.
+		const numericQ = await makeQuestion({
+			shape: "player_stat_numeric_guess",
+			status: "resolved",
+		})
+		const numericHit = await makeCall(numericQ.id, user.id, {
+			guessValue: 20,
+			conviction: 80,
+			resultPoints: 55,
+		})
+
+		const voidedQ = await makeQuestion({ status: "voided" })
+		const unscored = await makeCall(voidedQ.id, user.id, {
+			unscoredReason: "question_voided",
+		})
+
+		const hits = await expectData<CallsResult>(FILTERED, {
+			as: user,
+			variables: { status: "RESOLVED", result: "HIT" },
+		})
+		expect(ids(hits).sort()).toEqual([hit.id, numericHit.id].sort())
+
+		const misses = await expectData<CallsResult>(FILTERED, {
+			as: user,
+			variables: { status: "RESOLVED", result: "MISS" },
+		})
+		expect(ids(misses)).toEqual([miss.id])
+
+		const unscoredOnly = await expectData<CallsResult>(FILTERED, {
+			as: user,
+			variables: { status: "RESOLVED", result: "UNSCORED" },
+		})
+		expect(ids(unscoredOnly)).toEqual([unscored.id])
+	})
+
+	// The whole point of the sort: an already-locked question is still on the
+	// page, just behind everything the viewer can still act on.
+	it("orders closing soon by lock time, with already-locked calls last", async () => {
+		const user = await makeUser()
+		const soon = await makeQuestion({ locksAt: futureDate(1) })
+		const later = await makeQuestion({ locksAt: futureDate(48) })
+		const locked = await makeQuestion({ locksAt: pastDate(2) })
+		const lockedCall = await makeCall(locked.id, user.id)
+		const laterCall = await makeCall(later.id, user.id)
+		const soonCall = await makeCall(soon.id, user.id)
+
+		const data = await expectData<CallsResult>(FILTERED, {
+			as: user,
+			variables: { status: "OPEN", sort: "CLOSING_SOON" },
+		})
+		expect(ids(data)).toEqual([soonCall.id, laterCall.id, lockedCall.id])
+	})
+
+	// Conviction lives on the call for a numeric guess and on the selections
+	// for every other shape, so this orders one against the other.
+	it("orders by conviction across both places it is stored", async () => {
+		const user = await makeUser()
+		const optionQ = await seedOptionQuestion({ callers: [] })
+		const optionCall = await makeCall(optionQ.question.id, user.id)
+		await makeSelection(optionCall.id, optionQ.options[0].id, 30)
+
+		const numericQ = await makeQuestion({ shape: "player_stat_numeric_guess" })
+		const numericCall = await makeCall(numericQ.id, user.id, {
+			guessValue: 10,
+			conviction: 90,
+		})
+
+		const data = await expectData<CallsResult>(FILTERED, {
+			as: user,
+			variables: { status: "OPEN", sort: "CONVICTION" },
+		})
+		expect(ids(data)).toEqual([numericCall.id, optionCall.id])
+	})
+
+	it("pages without repeating or dropping a row under a non-default sort", async () => {
+		const user = await makeUser()
+		for (let i = 0; i < 3; i++) {
+			const question = await makeQuestion({ locksAt: futureDate(i + 1) })
+			await makeCall(question.id, user.id)
+		}
+
+		const first = await expectData<CallsResult>(FILTERED, {
+			as: user,
+			variables: { status: "OPEN", sort: "CLOSING_SOON", first: 2 },
+		})
+		expect(first.myCalls.items).toHaveLength(2)
+		expect(first.myCalls.pageInfo.hasNextPage).toBe(true)
+
+		const second = await expectData<CallsResult>(FILTERED, {
+			as: user,
+			variables: {
+				status: "OPEN",
+				sort: "CLOSING_SOON",
+				first: 2,
+				after: first.myCalls.pageInfo.endCursor,
+			},
+		})
+		expect(second.myCalls.items).toHaveLength(1)
+		expect(ids(second)[0]).not.toBe(ids(first)[0])
+		expect(ids(second)[0]).not.toBe(ids(first)[1])
+	})
+
+	it("counts tab badges under the same filters as the list", async () => {
+		const COUNTS = /* GraphQL */ `
+			query Counts($leagueId: ID) {
+				myCallCounts(leagueId: $leagueId) { open resolved }
+			}
+		`
+		const user = await makeUser()
+		const { a } = await seedTwoLeagues(user.id)
+		const settled = await makeQuestion({
+			leagueId: a.id,
+			status: "resolved",
+		})
+		await makeCall(settled.id, user.id)
+
+		const all = await expectData<{
+			myCallCounts: { open: number; resolved: number }
+		}>(COUNTS, { as: user, variables: {} })
+		expect(all.myCallCounts).toEqual({ open: 2, resolved: 1 })
+
+		const scoped = await expectData<{
+			myCallCounts: { open: number; resolved: number }
+		}>(COUNTS, { as: user, variables: { leagueId: a.id } })
+		expect(scoped.myCallCounts).toEqual({ open: 1, resolved: 1 })
+	})
+
+	// A hit/miss filter can only mean something for settled calls. Applied to
+	// the open count too it would match nothing, and the Open badge would read
+	// 0 with a full tab behind it.
+	it("leaves the open count alone when a result filter is set", async () => {
+		const COUNTS = /* GraphQL */ `
+			query ResultCounts($result: CallResultFilter) {
+				myCallCounts(result: $result) { open resolved }
+			}
+		`
+		const user = await makeUser()
+		await makeCall((await makeQuestion()).id, user.id)
+
+		const settled = await seedOptionQuestion({
+			callers: [],
+			question: { status: "resolved" },
+		})
+		const hit = await makeCall(settled.question.id, user.id)
+		await db.insert(callSelections).values({
+			callId: hit.id,
+			optionId: settled.options[0].id,
+			conviction: 100,
+			resultPoints: 90,
+		})
+
+		const data = await expectData<{
+			myCallCounts: { open: number; resolved: number }
+		}>(COUNTS, { as: user, variables: { result: "HIT" } })
+		expect(data.myCallCounts).toEqual({ open: 1, resolved: 1 })
+	})
+})
+
+describe("Query.myQuestions filtering and sorting", () => {
+	const MY_QUESTIONS = /* GraphQL */ `
+		query MyQuestionsFiltered(
+			$leagueId: ID
+			$shapes: [QuestionShape!]
+			$search: String
+			$scope: QuestionScope
+			$status: QuestionStatus
+			$sort: MyQuestionSort
+		) {
+			myQuestions(
+				leagueId: $leagueId
+				shapes: $shapes
+				search: $search
+				scope: $scope
+				status: $status
+				sort: $sort
+			) {
+				items { id }
+				totalCount
+			}
+		}
+	`
+
+	type QuestionsResult = {
+		myQuestions: { items: { id: string }[]; totalCount: number | null }
+	}
+
+	it("narrows to one league and reports the filtered total", async () => {
+		const user = await makeUser()
+		const a = await makeLeague()
+		const b = await makeLeague()
+		const mine = await makeQuestion({ leagueId: a.id, creatorId: user.id })
+		await makeQuestion({ leagueId: b.id, creatorId: user.id })
+
+		const data = await expectData<QuestionsResult>(MY_QUESTIONS, {
+			as: user,
+			variables: { leagueId: a.id },
+		})
+		expect(data.myQuestions.items.map((q) => q.id)).toEqual([mine.id])
+		expect(data.myQuestions.totalCount).toBe(1)
+	})
+
+	it("orders most called by the live call count", async () => {
+		const user = await makeUser()
+		const quiet = await makeQuestion({ creatorId: user.id })
+		const busy = await makeQuestion({ creatorId: user.id })
+		for (let i = 0; i < 2; i++) {
+			await makeCall(busy.id, (await makeUser()).id)
+		}
+
+		const data = await expectData<QuestionsResult>(MY_QUESTIONS, {
+			as: user,
+			variables: { sort: "MOST_CALLED" },
+		})
+		expect(data.myQuestions.items.map((q) => q.id)).toEqual([busy.id, quiet.id])
+	})
+
+	it("returns only the viewer's own questions", async () => {
+		const mine = await makeUser()
+		const theirs = await makeUser()
+		const myQuestion = await makeQuestion({ creatorId: mine.id })
+		await makeQuestion({ creatorId: theirs.id })
+
+		const data = await expectData<QuestionsResult>(MY_QUESTIONS, {
+			as: mine,
+			variables: {},
+		})
+		expect(data.myQuestions.items.map((q) => q.id)).toEqual([myQuestion.id])
+		expect(data.myQuestions.totalCount).toBe(1)
 	})
 })
 

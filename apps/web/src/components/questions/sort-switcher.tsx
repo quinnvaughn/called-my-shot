@@ -1,18 +1,24 @@
 import { css } from "styled-system/css"
 import { HStack } from "styled-system/jsx"
-import type { QuestionSortOrder } from "#/graphql/generated/graphql"
 
-type Props = {
-	sorts: { value: QuestionSortOrder; label: string }[]
-	active: QuestionSortOrder
-	onChange: (value: QuestionSortOrder) => void
+type Props<T extends string> = {
+	sorts: { value: T; label: string }[]
+	active: T
+	onChange: (value: T) => void
 }
 
-// The sort-pill row shared by the league feed and the game detail page's
-// question list - each caller supplies its own subset of QuestionSortOrder
-// (the feed offers Closing Soon/Most Called/New; a single game's questions
-// all share one locksAt, so that page skips Closing Soon entirely).
-export function SortSwitcher({ sorts, active, onChange }: Props) {
+// The sort-pill row shared by the league feed, the game detail page's question
+// list, and the My Calls/My Questions pages - each caller supplies its own
+// subset of its own sort enum (the feed offers Closing Soon/Most Called/New; a
+// single game's questions all share one locksAt, so that page skips Closing
+// Soon entirely; My Calls offers a different enum again, since a call sorts by
+// things only a call has). Generic over the enum rather than tied to
+// QuestionSortOrder for that last reason.
+export function SortSwitcher<T extends string>({
+	sorts,
+	active,
+	onChange,
+}: Props<T>) {
 	return (
 		<HStack gap="2" alignItems="center" flexWrap="wrap">
 			<span

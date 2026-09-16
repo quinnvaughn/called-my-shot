@@ -105,6 +105,12 @@ export const QuestionConnectionRef = builder
 		fields: (t) => ({
 			items: t.field({ type: [QuestionRef], resolve: (c) => c.items }),
 			pageInfo: t.field({ type: PageInfoRef, resolve: (c) => c.pageInfo }),
+			// Null on every connection but myQuestions, which is the only caller
+			// that shows a total - see totalCount on Connection in ../pagination.ts.
+			totalCount: t.int({
+				nullable: true,
+				resolve: (c) => c.totalCount ?? null,
+			}),
 		}),
 	})
 
