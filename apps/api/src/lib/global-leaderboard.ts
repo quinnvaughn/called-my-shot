@@ -1,7 +1,7 @@
 import { db } from "../db"
 import type { User } from "../db/schema"
 import { aggregatePointsByUser } from "./points-aggregate"
-import { accuracyFrom, rankEntries } from "./scoring"
+import { accuracyFrom, convictionEdge, rankEntries } from "./scoring"
 
 export type LeaderboardEntry = {
 	// null until this user has a resolved call in scope (see rankEntries)
@@ -9,6 +9,9 @@ export type LeaderboardEntry = {
 	user: User
 	totalPoints: number
 	accuracy: number | null
+	// null until the record clears MIN_EDGE_SAMPLE and has both a hit and a
+	// miss to compare - see convictionEdge.
+	convictionEdge: number | null
 	callCount: number
 	resolvedCallCount: number
 }
@@ -58,6 +61,7 @@ export async function buildGlobalLeaderboard(
 			user,
 			totalPoints: summary.totalPoints,
 			accuracy: accuracyFrom(summary),
+			convictionEdge: convictionEdge(summary),
 			callCount: summary.callCount,
 			resolvedCallCount: summary.resolvedCallCount,
 		})

@@ -21,10 +21,12 @@ type LeagueStats = {
 	totalPoints: number
 	rank: number | null
 	accuracy: number | null
+	convictionEdge: number | null
 	resolvedCallCount: number
 	shapeBreakdown: Array<{
 		shape: string
 		accuracy: number | null
+		convictionEdge: number | null
 		resolvedCallCount: number
 	}>
 }
@@ -139,6 +141,7 @@ export function LeagueAccordion({
 										] ?? s.shape
 									}
 									accuracy={s.accuracy}
+									convictionEdge={s.convictionEdge}
 									resolvedCallCount={s.resolvedCallCount}
 								/>
 							))}

@@ -7,9 +7,10 @@ import { users } from "./users"
 // aggregating live over calls/callSelections on every read. One row per
 // season a user has ever cast a call in; kept in sync transactionally by
 // castCall (callCount +1 on cast), resolveQuestionInternal (points/
-// resolvedCallCount/correctCount deltas on resolve, delta not overwrite, so
-// a dispute overturn re-resolving a question doesn't double-count), and
-// voidQuestion (reverses all four fields for every call on the voided
+// resolvedCallCount/correctCount/conviction deltas on resolve, delta not
+// overwrite, so a dispute overturn re-resolving a question doesn't
+// double-count), and
+// voidQuestion (reverses all six fields for every call on the voided
 // question - callCount always, the others only when calls had already been
 // scored, i.e. a disputed question being voided).
 //
@@ -52,7 +53,17 @@ export const userSeasonStats = pgTable(
 		// selections adds 3 here, not 1.
 		resolvedCallCount: integer("resolved_call_count").notNull().default(0),
 		correctCount: integer("correct_count").notNull().default(0),
-		// Unlike the three fields above, this counts calls (one per cast),
+		// The same two counts above, weighted by each pick's conviction, which
+		// is all convictionEdge (@called-my-shot/scoring) needs to recover the
+		// average conviction behind a caller's hits and behind their misses.
+		// Storing sums rather than the averages themselves is what keeps this
+		// row mergeable: an average can't be added to another average, so a
+		// delta-per-resolution rollup has to carry the numerator.
+		convictionSum: integer("conviction_sum").notNull().default(0),
+		convictionSumCorrect: integer("conviction_sum_correct")
+			.notNull()
+			.default(0),
+		// Unlike the five fields above, this counts calls (one per cast),
 		// incremented at castCall time regardless of resolution status.
 		callCount: integer("call_count").notNull().default(0),
 	},

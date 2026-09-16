@@ -38,11 +38,12 @@ export async function markQuestionVoided(
 			userId: true,
 			resultPoints: true,
 			hitTolerance: true,
+			conviction: true,
 			unscoredReason: true,
 		},
 		with: {
 			selections: {
-				columns: { resultPoints: true },
+				columns: { resultPoints: true, conviction: true },
 				with: { option: { columns: { isCorrect: true } } },
 			},
 		},
@@ -55,6 +56,8 @@ export async function markQuestionVoided(
 			points: -contribution.points,
 			resolvedCallCount: -contribution.resolvedCallCount,
 			correctCount: -contribution.correctCount,
+			convictionSum: -contribution.convictionSum,
+			convictionSumCorrect: -contribution.convictionSumCorrect,
 			callCount: -contribution.callCount,
 		})
 	}

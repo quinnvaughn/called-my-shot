@@ -281,6 +281,28 @@ describe("resolveQuestionInternal - user season stats", () => {
 		expect(stats?.points).toBeLessThan(0)
 	})
 
+	it("banks conviction behind a hit on both sums", async () => {
+		const { question, options, callers } = await seedOptionQuestion({
+			callers: [{ optionIndex: 0, conviction: 80 }],
+		})
+		await resolve(question, { correctOptionIds: [options[0].id] })
+
+		const stats = await statsFor(callers[0].user.id)
+		expect(stats?.convictionSum).toBe(80)
+		expect(stats?.convictionSumCorrect).toBe(80)
+	})
+
+	it("banks conviction behind a miss on the total sum only", async () => {
+		const { question, options, callers } = await seedOptionQuestion({
+			callers: [{ optionIndex: 1, conviction: 35 }],
+		})
+		await resolve(question, { correctOptionIds: [options[0].id] })
+
+		const stats = await statsFor(callers[0].user.id)
+		expect(stats?.convictionSum).toBe(35)
+		expect(stats?.convictionSumCorrect).toBe(0)
+	})
+
 	it("never touches callCount - that only moves at cast time", async () => {
 		const { question, options, callers } = await seedOptionQuestion({
 			callers: [{ optionIndex: 0 }],
@@ -374,6 +396,64 @@ describe("resolveQuestionInternal - re-resolution (dispute overturn)", () => {
 		expect(winnerAfter?.resolvedCallCount).toBe(1)
 		expect(loserAfter?.correctCount).toBe(1)
 		expect(loserAfter?.points).toBeGreaterThan(0)
+	})
+
+	it("moves the conviction sums with the outcome when it flips", async () => {
+		const { question, options, callers } = await seedOptionQuestion({
+			callers: [
+				{ optionIndex: 0, conviction: 90 },
+				{ optionIndex: 1, conviction: 20 },
+			],
+		})
+		await resolve(question, { correctOptionIds: [options[0].id] })
+		expect((await statsFor(callers[0].user.id))?.convictionSumCorrect).toBe(90)
+		expect((await statsFor(callers[1].user.id))?.convictionSumCorrect).toBe(0)
+
+		await resolve(question, { correctOptionIds: [options[1].id] })
+
+		const winnerAfter = await statsFor(callers[0].user.id)
+		const loserAfter = await statsFor(callers[1].user.id)
+		// The old correct-side conviction is fully netted out rather than left
+		// sitting alongside the new one, same as correctCount above.
+		expect(winnerAfter?.convictionSumCorrect).toBe(0)
+		expect(winnerAfter?.convictionSum).toBe(90)
+		expect(loserAfter?.convictionSumCorrect).toBe(20)
+		expect(loserAfter?.convictionSum).toBe(20)
+	})
+
+	it("leaves the conviction sums untouched when the outcome doesn't flip", async () => {
+		const { question, options, callers } = await seedOptionQuestion({
+			callers: [{ optionIndex: 0, conviction: 65 }],
+		})
+		await resolve(question, { correctOptionIds: [options[0].id] })
+		await resolve(question, { correctOptionIds: [options[0].id] })
+
+		const stats = await statsFor(callers[0].user.id)
+		expect(stats?.convictionSum).toBe(65)
+		expect(stats?.convictionSumCorrect).toBe(65)
+	})
+
+	it("returns the conviction sums to zero across resolve, overturn and reverse", async () => {
+		// The invariant the whole delta design rests on: every path that adds
+		// to these sums has a mirror that takes exactly the same amount back
+		// out, so a question's entire lifecycle nets to nothing.
+		const { question, options, callers } = await seedOptionQuestion({
+			callers: [
+				{ optionIndex: 0, conviction: 90 },
+				{ optionIndex: 1, conviction: 20 },
+			],
+		})
+		await resolve(question, { correctOptionIds: [options[0].id] })
+		await resolve(question, { correctOptionIds: [options[1].id] })
+		await db.transaction((tx) => reverseQuestionLeagueStats(tx, question))
+
+		for (const caller of callers) {
+			const stats = await statsFor(caller.user.id)
+			expect(stats?.convictionSum).toBe(0)
+			expect(stats?.convictionSumCorrect).toBe(0)
+			expect(stats?.resolvedCallCount).toBe(0)
+			expect(stats?.correctCount).toBe(0)
+		}
 	})
 
 	it("notifies with what the call is worth now, not the portfolio swing", async () => {
@@ -493,6 +573,22 @@ describe("resolveQuestionInternal - numeric guess shapes", () => {
 		const stats = await statsFor(callers[0].user.id)
 		expect(stats?.resolvedCallCount).toBe(1)
 		expect(stats?.correctCount).toBe(1)
+	})
+
+	it("reads conviction off the call too, for both sums", async () => {
+		const { question, callers } = await seedNumeric([
+			{ value: 100, conviction: 75 },
+			{ value: 5000, conviction: 25 },
+		])
+		await resolve(question, { actualValue: 100 })
+
+		const hit = await statsFor(callers[0].user.id)
+		expect(hit?.convictionSum).toBe(75)
+		expect(hit?.convictionSumCorrect).toBe(75)
+
+		const miss = await statsFor(callers[1].user.id)
+		expect(miss?.convictionSum).toBe(25)
+		expect(miss?.convictionSumCorrect).toBe(0)
 	})
 })
 

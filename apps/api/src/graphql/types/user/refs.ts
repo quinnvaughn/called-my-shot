@@ -35,6 +35,7 @@ const UserCareerStatsRef = builder
 			rank: t.exposeInt("rank", { nullable: true }),
 			totalPoints: t.exposeInt("totalPoints"),
 			accuracy: t.exposeFloat("accuracy", { nullable: true }),
+			convictionEdge: t.exposeFloat("convictionEdge", { nullable: true }),
 			callCount: t.exposeInt("callCount"),
 			resolvedCallCount: t.exposeInt("resolvedCallCount"),
 		}),

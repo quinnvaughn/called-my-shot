@@ -1,8 +1,12 @@
 type ScorableCall = {
 	resultPoints: number | null
 	hitTolerance: boolean | null
+	// numeric_guess only, and nullable on the column - every other shape
+	// carries conviction per selection instead.
+	conviction: number | null
 	selections: Array<{
 		resultPoints: number | null
+		conviction: number
 		option: { isCorrect: boolean | null } | null
 	}>
 }
@@ -11,6 +15,8 @@ export type ScoreSummary = {
 	totalPoints: number
 	resolvedCallCount: number
 	correctCount: number
+	convictionSum: number
+	convictionSumCorrect: number
 }
 
 // Shared by every "sum a set of calls into points/accuracy" computation
@@ -21,6 +27,8 @@ export function scoreCalls(calls: ScorableCall[]): ScoreSummary {
 	let totalPoints = 0
 	let resolvedCallCount = 0
 	let correctCount = 0
+	let convictionSum = 0
+	let convictionSumCorrect = 0
 
 	for (const call of calls) {
 		if (call.selections.length > 0) {
@@ -28,16 +36,33 @@ export function scoreCalls(calls: ScorableCall[]): ScoreSummary {
 				if (selection.resultPoints === null) continue
 				resolvedCallCount++
 				totalPoints += selection.resultPoints
-				if (selection.option?.isCorrect) correctCount++
+				convictionSum += selection.conviction
+				if (selection.option?.isCorrect) {
+					correctCount++
+					convictionSumCorrect += selection.conviction
+				}
 			}
 		} else if (call.resultPoints !== null) {
 			resolvedCallCount++
 			totalPoints += call.resultPoints
+			// Same guard, and same reasoning, as callContribution's numeric
+			// branch: a scored guess always has a conviction, and leaving it out
+			// beats coercing a missing one to 0 and dragging the average down.
+			if (call.conviction !== null) {
+				convictionSum += call.conviction
+				if (call.hitTolerance) convictionSumCorrect += call.conviction
+			}
 			if (call.hitTolerance) correctCount++
 		}
 	}
 
-	return { totalPoints, resolvedCallCount, correctCount }
+	return {
+		totalPoints,
+		resolvedCallCount,
+		correctCount,
+		convictionSum,
+		convictionSumCorrect,
+	}
 }
 
 export function accuracyFrom(summary: ScoreSummary): number | null {
@@ -45,6 +70,11 @@ export function accuracyFrom(summary: ScoreSummary): number | null {
 		? (summary.correctCount / summary.resolvedCallCount) * 100
 		: null
 }
+
+// Re-exported so callers here reach for it the same way they reach for
+// accuracyFrom above; the formula itself lives in @called-my-shot/scoring
+// because apps/web needs MIN_EDGE_SAMPLE to render the locked state.
+export { convictionEdge, MIN_EDGE_SAMPLE } from "@called-my-shot/scoring"
 
 type RankableEntry = {
 	totalPoints: number

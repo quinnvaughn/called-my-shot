@@ -198,6 +198,8 @@ export async function resolveQuestionInternal(
 					points: -(prior.resultPoints ?? 0),
 					resolvedCallCount: wasResolved ? -1 : 0,
 					correctCount: wasCorrect ? -1 : 0,
+					convictionSum: (wasResolved ? -1 : 0) * (prior.conviction ?? 0),
+					convictionSumCorrect: (wasCorrect ? -1 : 0) * (prior.conviction ?? 0),
 				})
 				unscoredUsers.add(prior.userId)
 				continue
@@ -215,10 +217,18 @@ export async function resolveQuestionInternal(
 				.where(eq(calls.id, r.callId))
 
 			const isCorrect = r.hit === true
+			// The two conviction sums are just the two counts above weighted by
+			// this call's conviction, which never changes after cast - so a
+			// re-resolve that doesn't flip correctness nets to zero here exactly
+			// the way the raw counts do.
 			addLeagueStatDelta(statDeltas, prior.userId, {
 				points: r.points - (prior.resultPoints ?? 0),
 				resolvedCallCount: wasResolved ? 0 : 1,
 				correctCount: (isCorrect ? 1 : 0) - (wasCorrect ? 1 : 0),
+				convictionSum: (wasResolved ? 0 : 1) * (prior.conviction ?? 0),
+				convictionSumCorrect:
+					((isCorrect ? 1 : 0) - (wasCorrect ? 1 : 0)) *
+					(prior.conviction ?? 0),
 			})
 			newPointsByUserId.set(prior.userId, r.points)
 			callIdByUserId.set(prior.userId, r.callId)
@@ -367,6 +377,8 @@ export async function resolveQuestionInternal(
 					points: -(s.resultPoints ?? 0),
 					resolvedCallCount: wasResolved ? -1 : 0,
 					correctCount: wasCorrect ? -1 : 0,
+					convictionSum: (wasResolved ? -1 : 0) * s.conviction,
+					convictionSumCorrect: (wasCorrect ? -1 : 0) * s.conviction,
 				})
 				unscoredUsers.add(s.call.userId)
 				continue
@@ -393,6 +405,9 @@ export async function resolveQuestionInternal(
 				points: points - (s.resultPoints ?? 0),
 				resolvedCallCount: wasResolved ? 0 : 1,
 				correctCount: (isCorrect ? 1 : 0) - (wasCorrect ? 1 : 0),
+				convictionSum: (wasResolved ? 0 : 1) * s.conviction,
+				convictionSumCorrect:
+					((isCorrect ? 1 : 0) - (wasCorrect ? 1 : 0)) * s.conviction,
 			})
 			newPointsByUserId.set(
 				s.call.userId,
@@ -525,11 +540,12 @@ export async function reverseQuestionLeagueStats(tx: Tx, question: Question) {
 			userId: true,
 			resultPoints: true,
 			hitTolerance: true,
+			conviction: true,
 			unscoredReason: true,
 		},
 		with: {
 			selections: {
-				columns: { resultPoints: true },
+				columns: { resultPoints: true, conviction: true },
 				with: { option: { columns: { isCorrect: true } } },
 			},
 		},
@@ -542,6 +558,8 @@ export async function reverseQuestionLeagueStats(tx: Tx, question: Question) {
 			points: -contribution.points,
 			resolvedCallCount: -contribution.resolvedCallCount,
 			correctCount: -contribution.correctCount,
+			convictionSum: -contribution.convictionSum,
+			convictionSumCorrect: -contribution.convictionSumCorrect,
 			callCount: -contribution.callCount,
 		})
 	}

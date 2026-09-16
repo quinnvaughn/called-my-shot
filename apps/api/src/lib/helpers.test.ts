@@ -83,8 +83,10 @@ describe("scoreCalls", () => {
 	const selection = (
 		resultPoints: number | null,
 		isCorrect: boolean | null,
+		conviction = 50,
 	) => ({
 		resultPoints,
+		conviction,
 		option: { isCorrect },
 	})
 
@@ -94,10 +96,17 @@ describe("scoreCalls", () => {
 				{
 					resultPoints: null,
 					hitTolerance: null,
-					selections: [selection(100, true), selection(-50, false)],
+					conviction: null,
+					selections: [selection(100, true, 70), selection(-50, false, 30)],
 				},
 			]),
-		).toEqual({ totalPoints: 50, resolvedCallCount: 2, correctCount: 1 })
+		).toEqual({
+			totalPoints: 50,
+			resolvedCallCount: 2,
+			correctCount: 1,
+			convictionSum: 100,
+			convictionSumCorrect: 70,
+		})
 	})
 
 	it("counts picks, not calls, on a multi-pick award", () => {
@@ -105,6 +114,7 @@ describe("scoreCalls", () => {
 			{
 				resultPoints: null,
 				hitTolerance: null,
+				conviction: null,
 				selections: [
 					selection(10, true),
 					selection(10, true),
@@ -117,27 +127,66 @@ describe("scoreCalls", () => {
 
 	it("scores a numeric-guess call off the call row itself", () => {
 		expect(
-			scoreCalls([{ resultPoints: 250, hitTolerance: true, selections: [] }]),
-		).toEqual({ totalPoints: 250, resolvedCallCount: 1, correctCount: 1 })
+			scoreCalls([
+				{
+					resultPoints: 250,
+					hitTolerance: true,
+					conviction: 85,
+					selections: [],
+				},
+			]),
+		).toEqual({
+			totalPoints: 250,
+			resolvedCallCount: 1,
+			correctCount: 1,
+			convictionSum: 85,
+			convictionSumCorrect: 85,
+		})
 	})
 
 	it("ignores unresolved calls and unresolved selections", () => {
 		expect(
 			scoreCalls([
-				{ resultPoints: null, hitTolerance: null, selections: [] },
 				{
 					resultPoints: null,
 					hitTolerance: null,
-					selections: [selection(null, null), selection(20, true)],
+					conviction: null,
+					selections: [],
+				},
+				{
+					resultPoints: null,
+					hitTolerance: null,
+					conviction: null,
+					selections: [selection(null, null, 90), selection(20, true, 40)],
 				},
 			]),
-		).toEqual({ totalPoints: 20, resolvedCallCount: 1, correctCount: 1 })
+		).toEqual({
+			totalPoints: 20,
+			resolvedCallCount: 1,
+			correctCount: 1,
+			// The unresolved pick's 90 is left out entirely, not averaged in.
+			convictionSum: 40,
+			convictionSumCorrect: 40,
+		})
 	})
 
 	it("counts a scored-but-wrong numeric call as resolved", () => {
 		expect(
-			scoreCalls([{ resultPoints: -250, hitTolerance: false, selections: [] }]),
-		).toEqual({ totalPoints: -250, resolvedCallCount: 1, correctCount: 0 })
+			scoreCalls([
+				{
+					resultPoints: -250,
+					hitTolerance: false,
+					conviction: 60,
+					selections: [],
+				},
+			]),
+		).toEqual({
+			totalPoints: -250,
+			resolvedCallCount: 1,
+			correctCount: 0,
+			convictionSum: 60,
+			convictionSumCorrect: 0,
+		})
 	})
 
 	it("returns zeroes for an empty set", () => {
@@ -145,6 +194,8 @@ describe("scoreCalls", () => {
 			totalPoints: 0,
 			resolvedCallCount: 0,
 			correctCount: 0,
+			convictionSum: 0,
+			convictionSumCorrect: 0,
 		})
 	})
 })
@@ -152,14 +203,26 @@ describe("scoreCalls", () => {
 describe("accuracyFrom", () => {
 	it("is a percentage of resolved picks", () => {
 		expect(
-			accuracyFrom({ totalPoints: 0, resolvedCallCount: 4, correctCount: 1 }),
+			accuracyFrom({
+				totalPoints: 0,
+				resolvedCallCount: 4,
+				correctCount: 1,
+				convictionSum: 0,
+				convictionSumCorrect: 0,
+			}),
 		).toBe(25)
 	})
 
 	it("is null rather than 0 when nothing has resolved", () => {
 		// A blank record and a 0% record are different things.
 		expect(
-			accuracyFrom({ totalPoints: 0, resolvedCallCount: 0, correctCount: 0 }),
+			accuracyFrom({
+				totalPoints: 0,
+				resolvedCallCount: 0,
+				correctCount: 0,
+				convictionSum: 0,
+				convictionSumCorrect: 0,
+			}),
 		).toBeNull()
 	})
 })
@@ -256,12 +319,22 @@ describe("team grouping", () => {
 describe("addLeagueStatDelta", () => {
 	it("accumulates in place rather than replacing", () => {
 		const map = new Map<string, LeagueStatDelta>()
-		addLeagueStatDelta(map, "u1", { points: 10, resolvedCallCount: 1 })
-		addLeagueStatDelta(map, "u1", { points: -4, correctCount: 1 })
+		addLeagueStatDelta(map, "u1", {
+			points: 10,
+			resolvedCallCount: 1,
+			convictionSum: 70,
+		})
+		addLeagueStatDelta(map, "u1", {
+			points: -4,
+			correctCount: 1,
+			convictionSumCorrect: 70,
+		})
 		expect(map.get("u1")).toEqual({
 			points: 6,
 			resolvedCallCount: 1,
 			correctCount: 1,
+			convictionSum: 70,
+			convictionSumCorrect: 70,
 			callCount: 0,
 		})
 	})
@@ -281,6 +354,8 @@ describe("addLeagueStatDelta", () => {
 			points: 0,
 			resolvedCallCount: 0,
 			correctCount: 0,
+			convictionSum: 0,
+			convictionSumCorrect: 0,
 			callCount: 0,
 		})
 	})

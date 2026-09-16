@@ -4,13 +4,19 @@ import { type ContributingCall, callContribution } from "./call-contribution"
 const call = (overrides: Partial<ContributingCall> = {}): ContributingCall => ({
 	resultPoints: null,
 	hitTolerance: null,
+	conviction: null,
 	unscoredReason: null,
 	selections: [],
 	...overrides,
 })
 
-const pick = (resultPoints: number | null, isCorrect: boolean | null) => ({
+const pick = (
+	resultPoints: number | null,
+	isCorrect: boolean | null,
+	conviction = 50,
+) => ({
 	resultPoints,
+	conviction,
 	option: { isCorrect },
 })
 
@@ -22,6 +28,8 @@ describe("callContribution", () => {
 			points: 0,
 			resolvedCallCount: 0,
 			correctCount: 0,
+			convictionSum: 0,
+			convictionSumCorrect: 0,
 			callCount: 1,
 		})
 	})
@@ -29,13 +37,15 @@ describe("callContribution", () => {
 	it("sums every scored pick on an option call", () => {
 		expect(
 			callContribution(
-				call({ selections: [pick(300, true), pick(-150, false)] }),
+				call({ selections: [pick(300, true, 80), pick(-150, false, 20)] }),
 				"resolved",
 			),
 		).toEqual({
 			points: 150,
 			resolvedCallCount: 2,
 			correctCount: 1,
+			convictionSum: 100,
+			convictionSumCorrect: 80,
 			callCount: 1,
 		})
 	})
@@ -43,13 +53,47 @@ describe("callContribution", () => {
 	it("reads a numeric guess off the call itself", () => {
 		expect(
 			callContribution(
-				call({ resultPoints: 400, hitTolerance: true }),
+				call({ resultPoints: 400, hitTolerance: true, conviction: 90 }),
 				"resolved",
 			),
 		).toEqual({
 			points: 400,
 			resolvedCallCount: 1,
 			correctCount: 1,
+			convictionSum: 90,
+			convictionSumCorrect: 90,
+			callCount: 1,
+		})
+	})
+
+	it("leaves a missed guess out of the correct-conviction sum only", () => {
+		expect(
+			callContribution(
+				call({ resultPoints: -60, hitTolerance: false, conviction: 30 }),
+				"resolved",
+			),
+		).toEqual({
+			points: -60,
+			resolvedCallCount: 1,
+			correctCount: 0,
+			convictionSum: 30,
+			convictionSumCorrect: 0,
+			callCount: 1,
+		})
+	})
+
+	it("still counts a scored guess that somehow has no conviction", () => {
+		expect(
+			callContribution(
+				call({ resultPoints: 400, hitTolerance: true, conviction: null }),
+				"resolved",
+			),
+		).toEqual({
+			points: 400,
+			resolvedCallCount: 1,
+			correctCount: 1,
+			convictionSum: 0,
+			convictionSumCorrect: 0,
 			callCount: 1,
 		})
 	})
@@ -67,6 +111,8 @@ describe("callContribution", () => {
 			points: 0,
 			resolvedCallCount: 0,
 			correctCount: 0,
+			convictionSum: 0,
+			convictionSumCorrect: 0,
 			callCount: 1,
 		})
 	})
@@ -84,6 +130,8 @@ describe("callContribution", () => {
 			points: 0,
 			resolvedCallCount: 0,
 			correctCount: 0,
+			convictionSum: 0,
+			convictionSumCorrect: 0,
 			callCount: 0,
 		})
 	})

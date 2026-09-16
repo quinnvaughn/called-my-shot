@@ -228,27 +228,29 @@ export type StreakFamily = (typeof STREAK_FAMILIES)[number]
 // game-scoped shapes have one. A season-long question settles months after
 // it's called, so it has no place in a run ordered by when results landed,
 // and yes_no_prop has no game to order it by at all.
-export const STREAK_FAMILY_BY_SHAPE: Record<QuestionShape, StreakFamily | null> =
-	{
-		team_vs_team: "winners",
-		game_total_over_under: "team_stats",
-		team_stat_over_under: "team_stats",
-		player_stat_over_under: "player_stats",
-		player_vs_player: "player_stats",
-		player_game_stat_leader: "player_stats",
-		player_stat_numeric_guess: "numeric",
-		team_stat_numeric_guess: "numeric",
-		yes_no_prop: null,
-		player_season_stat_over_under: null,
-		team_season_stat_over_under: null,
-		player_vs_player_season: null,
-		team_vs_team_season: null,
-		player_season_award: null,
-		team_season_award: null,
-		player_award_finalists: null,
-		team_season_stat_numeric_guess: null,
-		player_season_stat_leader: null,
-	}
+export const STREAK_FAMILY_BY_SHAPE: Record<
+	QuestionShape,
+	StreakFamily | null
+> = {
+	team_vs_team: "winners",
+	game_total_over_under: "team_stats",
+	team_stat_over_under: "team_stats",
+	player_stat_over_under: "player_stats",
+	player_vs_player: "player_stats",
+	player_game_stat_leader: "player_stats",
+	player_stat_numeric_guess: "numeric",
+	team_stat_numeric_guess: "numeric",
+	yes_no_prop: null,
+	player_season_stat_over_under: null,
+	team_season_stat_over_under: null,
+	player_vs_player_season: null,
+	team_vs_team_season: null,
+	player_season_award: null,
+	team_season_award: null,
+	player_award_finalists: null,
+	team_season_stat_numeric_guess: null,
+	player_season_stat_leader: null,
+}
 
 export function streakFamilyFor(shape: QuestionShape): StreakFamily | null {
 	return STREAK_FAMILY_BY_SHAPE[shape]
@@ -668,6 +670,50 @@ export function numericGuessPoints(
 			? (pointsByCallId.get(guess.callId) ?? 0)
 			: -Math.round(basePoints * (guess.conviction / 100) * lossRate),
 	}))
+}
+
+// How many resolved picks a record needs before its conviction edge means
+// anything. Under this the two-sided average swings wildly on a single pick -
+// a three-call record reading -47 says nothing about the caller. Lives here
+// rather than in the API so the web can render the locked state's "N more to
+// unlock" hint off the same number the API gates on.
+export const MIN_EDGE_SAMPLE = 20
+
+// Does a caller put more weight behind the picks they hit than the ones they
+// miss? Accuracy answers "were you right"; this answers "did you know when
+// you were right". Positive means your loudest calls are your best ones,
+// negative means they're your worst, and zero means conviction carries no
+// information about the outcome.
+//
+// Deliberately a difference of averages rather than a probability score
+// (Brier, log loss): those read conviction as a stated likelihood, but the
+// product presents it as a stake - "conviction just decides how much of it is
+// in play" - so grading a caller against a meaning the slider never claimed
+// would be scoring them on a question they weren't asked. A difference of
+// averages is purely relative, so it holds up whether a caller sets
+// conviction by belief or by appetite.
+//
+// Orthogonal to accuracy on purpose, not a replacement for it: a 30%-accurate
+// caller can post a strong edge, and should - being wrong often while knowing
+// which ones you'll be wrong about is a real skill the points total alone
+// never shows.
+//
+// Null rather than zero when one side has no samples - an all-hits or
+// all-misses record has nothing to subtract, which is a different statement
+// than "conviction told us nothing".
+export function convictionEdge(summary: {
+	resolvedCallCount: number
+	correctCount: number
+	convictionSum: number
+	convictionSumCorrect: number
+}): number | null {
+	const wrongCount = summary.resolvedCallCount - summary.correctCount
+	if (summary.resolvedCallCount < MIN_EDGE_SAMPLE) return null
+	if (summary.correctCount === 0 || wrongCount === 0) return null
+	const sumWrong = summary.convictionSum - summary.convictionSumCorrect
+	return (
+		summary.convictionSumCorrect / summary.correctCount - sumWrong / wrongCount
+	)
 }
 
 // Share-card flavor text (WIN_QUIPS/LOSS_QUIPS) and quipForCall, the

@@ -3,6 +3,7 @@ import {
 	BASE_POINTS_BY_SHAPE,
 	breakEvenHitRate,
 	breakEvenLossRate,
+	convictionEdge,
 	defaultLossRate,
 	earlyTierFor,
 	fieldPct,
@@ -10,6 +11,7 @@ import {
 	isNumericGuessShape,
 	isSeasonLongShape,
 	LOSS_RATE_BY_SHAPE,
+	MIN_EDGE_SAMPLE,
 	NUMERIC_GUESS_SHAPES,
 	numericGuessPoints,
 	type QuestionShape,
@@ -561,5 +563,75 @@ describe("STREAK_FAMILY_BY_SHAPE", () => {
 
 	it("keeps winners to the one who-wins shape", () => {
 		expect(shapesInFamily("winners")).toEqual(["team_vs_team"])
+	})
+})
+
+describe("convictionEdge", () => {
+	// Builds a record of `correct` hits and `wrong` misses, with every hit at
+	// hitConviction and every miss at missConviction, which makes the expected
+	// edge just the difference between those two numbers.
+	const record = (
+		correct: number,
+		wrong: number,
+		hitConviction: number,
+		missConviction: number,
+	) => ({
+		resolvedCallCount: correct + wrong,
+		correctCount: correct,
+		convictionSum: correct * hitConviction + wrong * missConviction,
+		convictionSumCorrect: correct * hitConviction,
+	})
+
+	it("is positive when the loud calls are the right ones", () => {
+		expect(convictionEdge(record(10, 10, 80, 30))).toBe(50)
+	})
+
+	it("is negative when the loud calls are the wrong ones", () => {
+		expect(convictionEdge(record(10, 10, 30, 80))).toBe(-50)
+	})
+
+	it("is zero when conviction says nothing about the outcome", () => {
+		expect(convictionEdge(record(10, 10, 55, 55))).toBe(0)
+	})
+
+	it("rewards a low-accuracy caller who knows which ones they will miss", () => {
+		// 8 hits in 20 is a losing record, but the conviction behind them is
+		// where it belongs - this is exactly the caller accuracy alone hides.
+		const edge = convictionEdge(record(8, 12, 90, 20))
+		expect(edge).toBe(70)
+	})
+
+	it("punishes a high-accuracy caller who is loudest on their misses", () => {
+		const edge = convictionEdge(record(16, 8, 40, 95))
+		expect(edge).toBeLessThan(0)
+	})
+
+	it("is null below the sample gate", () => {
+		const justUnder = record(MIN_EDGE_SAMPLE - 2, 1, 90, 10)
+		expect(justUnder.resolvedCallCount).toBe(MIN_EDGE_SAMPLE - 1)
+		expect(convictionEdge(justUnder)).toBeNull()
+	})
+
+	it("unlocks exactly at the sample gate", () => {
+		const atGate = record(MIN_EDGE_SAMPLE - 1, 1, 90, 10)
+		expect(atGate.resolvedCallCount).toBe(MIN_EDGE_SAMPLE)
+		expect(convictionEdge(atGate)).toBe(80)
+	})
+
+	it("is null with nothing to compare against", () => {
+		// An all-hits or all-misses record has no other side to subtract, which
+		// is a different statement than "conviction told us nothing" (0).
+		expect(convictionEdge(record(30, 0, 70, 0))).toBeNull()
+		expect(convictionEdge(record(0, 30, 0, 70))).toBeNull()
+	})
+
+	it("is null on an empty record", () => {
+		expect(convictionEdge(record(0, 0, 0, 0))).toBeNull()
+	})
+
+	it("weights by pick, so one loud miss moves it more than a quiet one", () => {
+		const quietMiss = convictionEdge(record(19, 1, 60, 10)) as number
+		const loudMiss = convictionEdge(record(19, 1, 60, 100)) as number
+		expect(loudMiss).toBeLessThan(quietMiss)
 	})
 })

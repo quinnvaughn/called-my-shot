@@ -119,6 +119,8 @@ builder.mutationFields((t) => ({
 								points: 0,
 								resolvedCallCount: 0,
 								correctCount: 0,
+								convictionSum: 0,
+								convictionSumCorrect: 0,
 								callCount: 1,
 							},
 						],

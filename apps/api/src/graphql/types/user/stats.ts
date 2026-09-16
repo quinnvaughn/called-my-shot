@@ -1,7 +1,7 @@
 import { db } from "../../../db"
 import type { League, questionShape } from "../../../db/schema"
 import { buildGlobalLeaderboard } from "../../../lib/global-leaderboard"
-import { accuracyFrom, scoreCalls } from "../../../lib/scoring"
+import { accuracyFrom, convictionEdge, scoreCalls } from "../../../lib/scoring"
 import { builder } from "../../builder"
 import { QuestionShape } from "../question"
 import { LeagueRef } from "../sports"
@@ -9,6 +9,7 @@ import { LeagueRef } from "../sports"
 type ShapeAccuracyData = {
 	shape: (typeof questionShape.enumValues)[number]
 	accuracy: number | null
+	convictionEdge: number | null
 	callCount: number
 	resolvedCallCount: number
 }
@@ -19,6 +20,7 @@ const ShapeAccuracyRef = builder
 		fields: (t) => ({
 			shape: t.field({ type: QuestionShape, resolve: (s) => s.shape }),
 			accuracy: t.exposeFloat("accuracy", { nullable: true }),
+			convictionEdge: t.exposeFloat("convictionEdge", { nullable: true }),
 			callCount: t.exposeInt("callCount"),
 			resolvedCallCount: t.exposeInt("resolvedCallCount"),
 		}),
@@ -29,6 +31,7 @@ type UserLeagueStatsData = {
 	totalPoints: number
 	rank: number | null
 	accuracy: number | null
+	convictionEdge: number | null
 	callCount: number
 	resolvedCallCount: number
 	shapeBreakdown: ShapeAccuracyData[]
@@ -42,6 +45,7 @@ export const UserLeagueStatsRef = builder
 			totalPoints: t.exposeInt("totalPoints"),
 			rank: t.exposeInt("rank", { nullable: true }),
 			accuracy: t.exposeFloat("accuracy", { nullable: true }),
+			convictionEdge: t.exposeFloat("convictionEdge", { nullable: true }),
 			callCount: t.exposeInt("callCount"),
 			resolvedCallCount: t.exposeInt("resolvedCallCount"),
 			shapeBreakdown: t.field({
@@ -112,6 +116,7 @@ export async function buildUserLeagueStats(
 				return {
 					shape,
 					accuracy: accuracyFrom(summary),
+					convictionEdge: convictionEdge(summary),
 					callCount: shapeCalls.length,
 					resolvedCallCount: summary.resolvedCallCount,
 				}
@@ -123,6 +128,7 @@ export async function buildUserLeagueStats(
 			totalPoints: entry.totalPoints,
 			rank: entry.rank,
 			accuracy: entry.accuracy,
+			convictionEdge: entry.convictionEdge,
 			callCount: entry.callCount,
 			resolvedCallCount: entry.resolvedCallCount,
 			shapeBreakdown,

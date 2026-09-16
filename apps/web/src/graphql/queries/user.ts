@@ -11,6 +11,7 @@ export const UserProfileDocument = graphql(`
 				rank
 				totalPoints
 				accuracy
+				convictionEdge
 				resolvedCallCount
 			}
 			leagues {
@@ -23,10 +24,12 @@ export const UserProfileDocument = graphql(`
 				totalPoints
 				rank
 				accuracy
+				convictionEdge
 				resolvedCallCount
 				shapeBreakdown {
 					shape
 					accuracy
+					convictionEdge
 					resolvedCallCount
 				}
 			}

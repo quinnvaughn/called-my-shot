@@ -5,6 +5,8 @@ export type PointsAggregate = {
 	totalPoints: number
 	resolvedCallCount: number
 	correctCount: number
+	convictionSum: number
+	convictionSumCorrect: number
 	callCount: number
 }
 
@@ -49,6 +51,8 @@ export async function aggregatePointsByUser(options: {
 		total_points: number
 		resolved_call_count: number
 		correct_count: number
+		conviction_sum: number
+		conviction_sum_correct: number
 		call_count: number
 	}>(sql`
 		select
@@ -56,6 +60,8 @@ export async function aggregatePointsByUser(options: {
 			coalesce(sum(points), 0)::int as total_points,
 			coalesce(sum(resolved_call_count), 0)::int as resolved_call_count,
 			coalesce(sum(correct_count), 0)::int as correct_count,
+			coalesce(sum(conviction_sum), 0)::int as conviction_sum,
+			coalesce(sum(conviction_sum_correct), 0)::int as conviction_sum_correct,
 			coalesce(sum(call_count), 0)::int as call_count
 		from user_season_stats
 		where true ${leagueFilter} ${seasonFilter} ${userFilter}
@@ -73,6 +79,8 @@ export async function aggregatePointsByUser(options: {
 			totalPoints: row.total_points,
 			resolvedCallCount: row.resolved_call_count,
 			correctCount: row.correct_count,
+			convictionSum: row.conviction_sum,
+			convictionSumCorrect: row.conviction_sum_correct,
 			callCount: row.call_count,
 		})
 	}

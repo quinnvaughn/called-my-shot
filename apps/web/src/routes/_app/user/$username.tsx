@@ -110,6 +110,7 @@ function RouteComponent() {
 					rank: user.careerStats?.rank ?? null,
 					totalPoints: user.careerStats?.totalPoints ?? 0,
 					accuracy: user.careerStats?.accuracy ?? null,
+					convictionEdge: user.careerStats?.convictionEdge ?? null,
 					resolvedCallCount: user.careerStats?.resolvedCallCount ?? 0,
 				})}
 			/>

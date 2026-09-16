@@ -129,6 +129,7 @@ builder.queryFields((t) => ({
 					user: viewer,
 					totalPoints: 0,
 					accuracy: null,
+					convictionEdge: null,
 					callCount: 0,
 					resolvedCallCount: 0,
 				}
