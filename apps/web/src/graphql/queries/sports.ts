@@ -142,6 +142,7 @@ export const GameByIdDocument = graphql(`
 			awayScore
 			venue
 			windowKey
+			viewerHasReminder
 			league {
 				id
 				abbreviation

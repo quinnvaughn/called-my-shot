@@ -80,6 +80,11 @@ type AnalyticsEvents = {
 	group_left: { groupId: string; memberCount: number }
 	group_deleted: { groupId: string; memberCount: number }
 
+	// emailMuted is whether the reminder can only arrive in-app, which is
+	// when the toast points at email settings.
+	game_reminder_set: { gameId: string; emailMuted: boolean }
+	game_reminder_removed: { gameId: string }
+
 	// Profile track-record cards only. A call used to have a downloadable
 	// image too; what gets shared now is a link to the call's own page, which
 	// is call_link_shared below.

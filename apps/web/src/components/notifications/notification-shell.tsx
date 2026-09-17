@@ -11,6 +11,7 @@ import { Card } from "#/components/ui/card"
 export type Target =
 	| { to: "/questions/$questionId/{-$slug}"; params: { questionId: string } }
 	| { to: "/groups/$groupId"; params: { groupId: string } }
+	| { to: "/games/$gameId/{-$slug}"; params: { gameId: string; slug: string } }
 	| {
 			to: "/user/$username/streaks/$league/$family"
 			params: { username: string; league: string; family: string }

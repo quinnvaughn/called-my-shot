@@ -10,7 +10,10 @@ import { env } from "../env"
 // email it was, and content says which link inside that email got clicked -
 // the only one that can tell a hero button from the same destination linked
 // in the footer.
-export type EmailCampaign = "resolution_digest" | "season_start"
+export type EmailCampaign =
+	| "resolution_digest"
+	| "season_start"
+	| "game_reminder"
 
 type Tag = {
 	campaign: EmailCampaign

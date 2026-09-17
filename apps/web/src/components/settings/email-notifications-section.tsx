@@ -30,6 +30,7 @@ export function EmailNotificationsSection({ mutedEmailTypes }: Props) {
 	const mutedAll = mutedEmailTypes.includes("ALL")
 	const mutedResults = mutedEmailTypes.includes("CALL_RESOLVED")
 	const mutedSeasonStarts = mutedEmailTypes.includes("SEASON_STARTING")
+	const mutedGameReminders = mutedEmailTypes.includes("GAME_REMINDER")
 
 	async function toggle(type: EmailPreferenceType, enabled: boolean) {
 		setFormError(null)
@@ -75,6 +76,18 @@ export function EmailNotificationsSection({ mutedEmailTypes }: Props) {
 						checked={!mutedAll && !mutedResults}
 						onChange={(checked) =>
 							!mutedAll && pending === null && toggle("CALL_RESOLVED", checked)
+						}
+					/>
+					<ToggleRow
+						label="Game reminders"
+						description={
+							mutedAll
+								? "Turn all email back on to change this."
+								: "An email an hour before a game you asked to be reminded about. Games starting close together come in one email."
+						}
+						checked={!mutedAll && !mutedGameReminders}
+						onChange={(checked) =>
+							!mutedAll && pending === null && toggle("GAME_REMINDER", checked)
 						}
 					/>
 					<ToggleRow

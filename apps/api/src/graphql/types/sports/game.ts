@@ -2,6 +2,7 @@ import { and, count, eq } from "drizzle-orm"
 import { DateTime } from "luxon"
 import { db } from "../../../db"
 import { calls, questions } from "../../../db/schema"
+import { hasGameReminder } from "../../../lib/game-reminders"
 import { builder } from "../../builder"
 import { GameStatus } from "./enums"
 import { loadTeamRecordsByKey, TeamRecordRef } from "./team"
@@ -94,6 +95,13 @@ export const GameRef = builder.drizzleObject("games", {
 				where: { isOfficial: true },
 				orderBy: { createdAt: "asc", id: "asc" },
 			}),
+		}),
+		// Whether the viewer asked to be reminded before this game starts - see
+		// lib/game-reminders.tsx. False when signed out.
+		viewerHasReminder: t.field({
+			type: "Boolean",
+			resolve: async (game, _args, ctx) =>
+				ctx.user ? hasGameReminder(ctx.user.id, game.id) : false,
 		}),
 		// Null when signed out - same reasoning as League.myOpenCallCount above.
 		viewerCalledCount: t.field({

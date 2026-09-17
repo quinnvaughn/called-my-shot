@@ -5,6 +5,7 @@ import { CallVoidedRow } from "./rows/call-voided-row"
 import { DisputeFiledRow } from "./rows/dispute-filed-row"
 import { DisputeOverturnedRow } from "./rows/dispute-overturned-row"
 import { DisputeUpheldRow } from "./rows/dispute-upheld-row"
+import { GameReminderRow } from "./rows/game-reminder-row"
 import { GroupMemberJoinedRow } from "./rows/group-member-joined-row"
 import { QuestionSharedToGroupRow } from "./rows/question-shared-to-group-row"
 import { QuestionVoidedRow } from "./rows/question-voided-row"
@@ -72,6 +73,9 @@ export function NotificationRow({ notification, unread, onOpen }: Props) {
 		))
 		.with({ __typename: "StreakSnappedNotification" }, (n) => (
 			<StreakSnappedRow notification={n} unread={unread} onOpen={onOpen} />
+		))
+		.with({ __typename: "GameReminderNotification" }, (n) => (
+			<GameReminderRow notification={n} unread={unread} onOpen={onOpen} />
 		))
 		.exhaustive()
 }

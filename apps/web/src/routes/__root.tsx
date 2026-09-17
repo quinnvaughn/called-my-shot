@@ -10,6 +10,7 @@ import { useEffect } from "react"
 
 import { ModalHost } from "#/components/ui/modal"
 import { RouteError } from "#/components/ui/route-error"
+import { ToastHost } from "#/components/ui/toast"
 import { MeDocument } from "#/graphql/queries/me"
 import { gqlQueryOptions } from "#/graphql/query-options"
 import {
@@ -176,6 +177,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
 			<body>
 				{children}
 				<ModalHost />
+				<ToastHost />
 				<TanStackDevtools
 					config={{
 						position: "bottom-right",

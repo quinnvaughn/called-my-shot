@@ -3,8 +3,10 @@
 // the detail route's meta tags, the share sheet and the sitemap emit, or an
 // emailed link lands on a 302 instead of the page.
 //
-// apps/web/src/lib/slug.ts re-exports all of this and keeps buildGameSlug,
-// which needs luxon and has no api-side caller.
+// apps/web/src/lib/slug.ts re-exports all of this. Game urls are here for the
+// same reason: the game reminder email links to game pages.
+
+import { SPORTS_TIME_ZONE } from "./time-zone"
 
 // Lowercase, alphanumerics only, single dashes between runs, no leading or
 // trailing dash. Same rules as the api's ballot slugs (lib/ballot-slug.ts) -
@@ -52,4 +54,49 @@ export function questionPath(question: { id: string; title: string }): string {
 	return slug
 		? `/questions/${question.id}/${slug}`
 		: `/questions/${question.id}`
+}
+
+type GameSlugInput = {
+	league: { slug: string }
+	homeTeam: { name: string }
+	awayTeam: { name: string }
+	// An ISO string on the web (off GraphQL), a Date in the api.
+	startsAt: string | Date
+}
+
+// "yyyy-MM-dd" for the calendar date in SPORTS_TIME_ZONE. en-CA is the locale
+// whose short date is already in that order.
+const sportsDateFormat = new Intl.DateTimeFormat("en-CA", {
+	timeZone: SPORTS_TIME_ZONE,
+	year: "numeric",
+	month: "2-digit",
+	day: "2-digit",
+})
+
+// "nba-boston-celtics-at-los-angeles-lakers-2026-01-15". Away before home,
+// matching the "@" convention the rest of the app reads off (see the comment
+// on the games table).
+//
+// Full team names rather than abbreviations because the entire point of the
+// slug is the words people type - "celtics lakers" finds this, "bos lal"
+// doesn't. The date is in SPORTS_TIME_ZONE, not UTC: a 7pm ET game is already
+// tomorrow in UTC, and the url would then disagree with the day the Games tab
+// files that same game under.
+//
+// Derived on every render rather than stored, which is what makes a
+// rescheduled game self-healing - syncEvent overwrites startsAt on every pass
+// (a rained-out game moves days), and a stored slug would keep insisting on
+// the old date forever.
+export function buildGameSlug(game: GameSlugInput): string {
+	const date = sportsDateFormat.format(new Date(game.startsAt))
+	return slugify(
+		`${game.league.slug} ${game.awayTeam.name} at ${game.homeTeam.name} ${date}`,
+	)
+}
+
+// The path a game's page canonically lives at. Linking to it directly rather
+// than to the bare id matters for email: the detail route redirects a missing
+// slug, and that redirect drops the utm params the link carries.
+export function gamePath(game: GameSlugInput & { id: string }): string {
+	return `/games/${game.id}/${buildGameSlug(game)}`
 }

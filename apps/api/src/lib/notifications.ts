@@ -85,6 +85,11 @@ export type NotificationInput =
 			achievementCount: number
 			previousBest: number
 	  }
+	| {
+			type: "game_reminder"
+			userId: string
+			gameId: string
+	  }
 
 function toRow(input: NotificationInput) {
 	return {
@@ -97,6 +102,7 @@ function toRow(input: NotificationInput) {
 		groupName: "groupName" in input ? input.groupName : null,
 		actorUsername: "actorUsername" in input ? input.actorUsername : null,
 		disputeId: "disputeId" in input ? input.disputeId : null,
+		gameId: "gameId" in input ? input.gameId : null,
 		pointsDelta: input.type === "call_resolved" ? input.pointsDelta : null,
 		strikeCount:
 			input.type === "question_voided" ? (input.strikeCount ?? null) : null,

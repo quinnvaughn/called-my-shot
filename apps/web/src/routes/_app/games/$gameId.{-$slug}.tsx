@@ -7,8 +7,12 @@ import { createFileRoute, Link, redirect } from "@tanstack/react-router"
 import { useState } from "react"
 import { FaRegTimesCircle } from "react-icons/fa"
 import { css } from "styled-system/css"
-import { VStack } from "styled-system/jsx"
+import { HStack, VStack } from "styled-system/jsx"
 import { GameMatchupHeader } from "#/components/games/game-matchup-header"
+import {
+	canSetGameReminder,
+	GameReminderButton,
+} from "#/components/games/game-reminder-button"
 import { QuestionCard } from "#/components/questions/question-card"
 import { SortSwitcher } from "#/components/questions/sort-switcher"
 import { Breadcrumb } from "#/components/ui/breadcrumb"
@@ -194,7 +198,17 @@ function RouteComponent() {
 				</Breadcrumb.Current>
 			</Breadcrumb>
 
-			<GameMatchupHeader game={game} starters={game} />
+			<VStack gap="2" alignItems="stretch">
+				<GameMatchupHeader game={game} starters={game} />
+				{canSetGameReminder(game) && (
+					<HStack justify="flex-end">
+						<GameReminderButton
+							gameId={game.id}
+							hasReminder={game.viewerHasReminder}
+						/>
+					</HStack>
+				)}
+			</VStack>
 
 			{hero && (
 				<VStack gap="2" alignItems="stretch">

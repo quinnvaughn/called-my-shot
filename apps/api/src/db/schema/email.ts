@@ -28,7 +28,8 @@ import { users } from "./users"
 // a season is about to start is worth nothing to someone who is already
 // in-app. Anything past this comment is email-only by the same test.
 //
-// "call_resolved" (lib/email-digest.ts) and "season_starting"
+// "call_resolved" (lib/email-digest.ts), "game_reminder"
+// (lib/game-reminders.tsx) and "season_starting"
 // (lib/season-start-email.tsx) actually send today; the rest exist so the
 // opt-out someone sets now is still honored when its email ships.
 export const emailPreferenceType = pgEnum("email_preference_type", [
@@ -45,6 +46,7 @@ export const emailPreferenceType = pgEnum("email_preference_type", [
 	"streak_milestone",
 	"streak_personal_best",
 	"streak_snapped",
+	"game_reminder",
 	// Email-only - see above.
 	"season_starting",
 ])

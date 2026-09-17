@@ -153,6 +153,11 @@ export default defineConfig({
           // be pointing at a select or dropdown, and a tooltip explaining a
           // control that renders behind that control explains nothing.
           coachmark: { value: "120" },
+          // Toasts (ui/toast.tsx). Above `overlay` and `popover`, because a
+          // toast can come out of an action taken inside a modal and has to
+          // be readable over it; below the coachmark, which is explaining
+          // the screen the toast is sitting on.
+          toast: { value: "115" },
         },
       },
       keyframes: {
@@ -175,6 +180,10 @@ export default defineConfig({
         sheetIn: {
           from: { transform: "translateX(100%)" },
           to: { transform: "translateX(0)" },
+        },
+        toastIn: {
+          from: { opacity: "0", transform: "translateY(8px)" },
+          to: { opacity: "1", transform: "translateY(0)" },
         },
       },
       semanticTokens: {

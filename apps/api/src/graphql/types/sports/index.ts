@@ -12,6 +12,7 @@ import "./windows"
 import "./queries"
 import "./inputs"
 import "./mutations"
+import "./game-reminders"
 
 // The public surface other type modules build on - everything else stays
 // internal to this directory. The queries and mutations are registered by the

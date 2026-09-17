@@ -8,6 +8,7 @@ import {
 	timestamp,
 	uuid,
 } from "drizzle-orm/pg-core"
+import { games } from "./games"
 import { groups } from "./groups"
 import { resolutionDisputes } from "./question-moderation"
 import { questions } from "./questions"
@@ -28,6 +29,7 @@ export const notificationType = pgEnum("notification_type", [
 	"streak_milestone",
 	"streak_personal_best",
 	"streak_snapped",
+	"game_reminder",
 ])
 
 // One row per (recipient, thing that happened) - see hook points in
@@ -57,6 +59,10 @@ export const notifications = pgTable(
 			onDelete: "cascade",
 		}),
 		disputeId: uuid("dispute_id").references(() => resolutionDisputes.id, {
+			onDelete: "set null",
+		}),
+		// game_reminder only
+		gameId: uuid("game_id").references(() => games.id, {
 			onDelete: "set null",
 		}),
 		questionTitle: text("question_title"),

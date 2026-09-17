@@ -13,10 +13,12 @@ import { tuneBands } from "./lib/game-questions/tune-bands"
 import { tuneLeaderLosses } from "./lib/game-questions/tune-leader-losses"
 import { tuneLines } from "./lib/game-questions/tune-lines"
 import { tuneTitleLosses } from "./lib/game-questions/tune-title-losses"
+import { drainGameReminders } from "./lib/game-reminders"
 import {
 	AUTO_RESOLVE_GAMES_LOCK,
 	DRAIN_ANALYTICS_LOCK,
 	DRAIN_DIGESTS_LOCK,
+	DRAIN_GAME_REMINDERS_LOCK,
 	DRAIN_SEASON_START_LOCK,
 	RECOMPUTE_ACHIEVEMENTS_LOCK,
 	withJobLock,
@@ -186,6 +188,16 @@ export function startScheduler(): void {
 		}),
 		{ name: DRAIN_DIGESTS_LOCK, timezone: "UTC", noOverlap: true },
 	)
+	// Every 5m, so a reminder lands between 60 and 55 minutes before its game.
+	// Games starting close together go out as one email - see
+	// BATCH_WINDOW_MINUTES in lib/game-reminders.tsx.
+	cron.schedule(
+		"*/5 * * * *",
+		runJob(DRAIN_GAME_REMINDERS_LOCK, async () => {
+			await drainGameReminders()
+		}),
+		{ name: DRAIN_GAME_REMINDERS_LOCK, timezone: "UTC", noOverlap: true },
+	)
 	// 13:00 UTC is 9am Eastern, the hour this list is most likely to be read,
 	// and the only reason the enqueue has a time of day at all: rows appear only
 	// when it runs, and the drain sends them within five minutes. Daily rather
@@ -221,6 +233,6 @@ export function startScheduler(): void {
 		{ name: DRAIN_ANALYTICS_LOCK, timezone: "UTC", noOverlap: true },
 	)
 	console.log(
-		"[scheduler] started: sync-live-scores */5m (then auto-resolve-games and recompute-achievements when a game went final), recompute-achievements */1m, reconcile-achievements daily 11:30 UTC, lock-overdue-questions */15m, sync-sports-data daily 09:00 UTC, sync-game-starters then generate-game-questions */30m, auto-resolve-games 2-59/10m, auto-resolve-seasons daily 10:30 UTC, auto-resolve-championships daily 10:45 UTC, tune-lines daily 11:00 UTC, tune-bands daily 11:05 UTC, tune-leader-losses daily 11:10 UTC, tune-title-losses daily 11:15 UTC, drain-email-digests */5m, enqueue-season-start-emails daily 13:00 UTC, drain-season-start-emails */5m, drain-analytics-outbox */1m",
+		"[scheduler] started: sync-live-scores */5m (then auto-resolve-games and recompute-achievements when a game went final), recompute-achievements */1m, reconcile-achievements daily 11:30 UTC, lock-overdue-questions */15m, sync-sports-data daily 09:00 UTC, sync-game-starters then generate-game-questions */30m, auto-resolve-games 2-59/10m, auto-resolve-seasons daily 10:30 UTC, auto-resolve-championships daily 10:45 UTC, tune-lines daily 11:00 UTC, tune-bands daily 11:05 UTC, tune-leader-losses daily 11:10 UTC, tune-title-losses daily 11:15 UTC, drain-email-digests */5m, drain-game-reminders */5m, enqueue-season-start-emails daily 13:00 UTC, drain-season-start-emails */5m, drain-analytics-outbox */1m",
 	)
 }

@@ -14,7 +14,7 @@ import { builder } from "../builder"
 import { GroupRef } from "./group"
 import { PageInfoRef } from "./pagination"
 import { QuestionRef } from "./question"
-import { LeagueRef } from "./sports"
+import { GameRef, LeagueRef } from "./sports"
 import { StreakFamilyEnum, UserRef } from "./user"
 
 type Connection<T> = {
@@ -42,6 +42,7 @@ const GQL_TYPE_BY_ROW_TYPE: Record<NotificationRow["type"], string> = {
 	streak_milestone: "StreakMilestoneNotification",
 	streak_personal_best: "StreakPersonalBestNotification",
 	streak_snapped: "StreakSnappedNotification",
+	game_reminder: "GameReminderNotification",
 }
 
 function resolveLeague(row: { leagueId: string | null }) {
@@ -60,6 +61,11 @@ const achievementMessage = (kind: AchievementKind) => (row: NotificationRow) =>
 		previousBest: row.previousBest,
 	})
 
+function resolveGame(row: { gameId: string | null }) {
+	return row.gameId
+		? db.query.games.findFirst({ where: { id: row.gameId } })
+		: null
+}
 function resolveQuestion(row: { questionId: string | null }) {
 	return row.questionId
 		? db.query.questions.findFirst({ where: { id: row.questionId } })
@@ -302,6 +308,16 @@ builder.objectRef<NotificationRow>("StreakSnappedNotification").implement({
 			type: "String",
 			resolve: achievementMessage("streak_snapped"),
 		}),
+	}),
+})
+
+// A game you asked to be reminded about starts within the hour - see
+// drainGameReminders in lib/game-reminders.tsx. Null game only once the game
+// itself has been deleted.
+builder.objectRef<NotificationRow>("GameReminderNotification").implement({
+	interfaces: [NotificationNode],
+	fields: (t) => ({
+		game: t.field({ type: GameRef, nullable: true, resolve: resolveGame }),
 	}),
 })
 
