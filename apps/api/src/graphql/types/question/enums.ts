@@ -169,12 +169,14 @@ export const CallResolutionStatus = builder.enumType("CallResolutionStatus", {
 
 // My Calls' ordering. Separate from QuestionSortOrder above because these
 // rank a *call*, not a question: POINTS and CONVICTION read columns that only
-// exist on a call, and CLOSING_SOON means something different here (see
-// myCalls) - it orders without also filtering to a 48-hour window the way the
-// public feed's same-named sort does.
+// exist on a call, and LIVE has no counterpart on the public feed at all.
+//
+// LIVE rather than a lock-time sort because a call on this page has already
+// been made - when it locks says nothing about whether it's worth looking at,
+// but whether its game is being played right now does.
 export const CallSortOrder = builder.enumType("CallSortOrder", {
 	values: {
-		CLOSING_SOON: { value: "closing_soon" },
+		LIVE: { value: "live" },
 		NEWEST: { value: "newest" },
 		POINTS: { value: "points" },
 		CONVICTION: { value: "conviction" },

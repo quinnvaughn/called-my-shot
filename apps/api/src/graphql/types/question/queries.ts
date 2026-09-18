@@ -25,6 +25,7 @@ import {
 	ballotQuestions,
 	callSelections,
 	calls,
+	games,
 	leagues,
 	players,
 	type Question,
@@ -172,16 +173,19 @@ function myCallConditions(userId: string, filters: MyCallFilters) {
 }
 
 // My Calls' ordering keys, without the trailing calls.id tiebreak every sort
-// shares (added at the use site). Closing Soon is ordering only, with no window
-// filter - unlike Query.questions' same-named sort, which also narrows to the
-// next 48 hours. Your call on an already-locked question that hasn't resolved
-// yet still belongs on this page; the leading boolean just sorts those behind
-// everything still coming up, since they're waiting on resolution, not on you.
-function myCallOrderKeys(
-	sort: "closing_soon" | "newest" | "points" | "conviction",
-) {
+// shares (added at the use site). Requires the games join myCalls makes, which
+// LIVE reads.
+//
+// LIVE leads with the calls whose game is being played right now, ordered by
+// lock time so the game closest to finishing sits on top. Everything else
+// falls in behind it under the lock-time ordering the page used to lead with:
+// still-callable first by soonest lock, then the locked ones, which are
+// waiting on resolution rather than on you. A season-long call has no game, so
+// it never enters the live block.
+function myCallOrderKeys(sort: "live" | "newest" | "points" | "conviction") {
 	return match(sort)
-		.with("closing_soon", () => [
+		.with("live", () => [
+			asc(sql`(${games.status} is distinct from 'live')`),
 			asc(sql`(${questions.locksAt} <= now())`),
 			asc(questions.locksAt),
 		])
@@ -613,11 +617,11 @@ builder.queryFields((t) => ({
 			const user = requireUser(ctx)
 			const limit = clampPageSize(args.first)
 			const offset = args.after ? decodeOffsetCursor(args.after) : 0
-			// Closing Soon is the Open tab's default and Points the Resolved
-			// tab's: what you want off an unsettled pile is what needs you next,
+			// Live is the Open tab's default and Points the Resolved tab's: what
+			// you want off an unsettled pile is what's playing out right now,
 			// and off a settled one, what it was worth.
 			const sort =
-				args.sort ?? (args.status === "resolved" ? "points" : "closing_soon")
+				args.sort ?? (args.status === "resolved" ? "points" : "live")
 
 			const query = db
 				.with(callPoints)
@@ -628,6 +632,9 @@ builder.queryFields((t) => ({
 				.leftJoin(teams, eq(teams.id, questions.subjectTeamId))
 				.leftJoin(players, eq(players.id, questions.subjectPlayerId))
 				.leftJoin(callPoints, eq(callPoints.callId, calls.id))
+				// Null for a season-long question, which hangs off no game - the
+				// LIVE sort treats that the same as a game that isn't live.
+				.leftJoin(games, eq(games.id, questions.gameId))
 				.where(and(...myCallConditions(user.id, args)))
 				.$dynamic()
 

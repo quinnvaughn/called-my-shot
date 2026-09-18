@@ -19,7 +19,7 @@ describe("loader seeds land on the keys the components read", () => {
 	it("seeds each My Calls tab under its own default sort", () => {
 		expect(
 			hashKey(myCallsQuery("OPEN", {}, MY_CALL_SORTS.open.default).queryKey),
-		).toBe(hashKey(myCallsQuery("OPEN", {}, "CLOSING_SOON").queryKey))
+		).toBe(hashKey(myCallsQuery("OPEN", {}, "LIVE").queryKey))
 
 		expect(
 			hashKey(
@@ -32,7 +32,7 @@ describe("loader seeds land on the keys the components read", () => {
 	// component sends one is a different cache entry, not a looser match.
 	it("treats an absent sort as a different key from an explicit one", () => {
 		expect(hashKey(myCallsQuery("OPEN").queryKey)).not.toBe(
-			hashKey(myCallsQuery("OPEN", {}, "CLOSING_SOON").queryKey),
+			hashKey(myCallsQuery("OPEN", {}, "LIVE").queryKey),
 		)
 	})
 

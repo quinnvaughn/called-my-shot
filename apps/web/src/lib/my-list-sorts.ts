@@ -14,13 +14,13 @@ type CallSortSet = {
 	options: { value: CallSortOrder; label: string }[]
 }
 
-// Closing Soon is meaningless once a question has settled and Points is
-// meaningless before it has, so neither tab offers the other's.
+// Live is meaningless once a question has settled and Points is meaningless
+// before it has, so neither tab offers the other's.
 export const MY_CALL_SORTS: Record<"open" | "resolved", CallSortSet> = {
 	open: {
-		default: "CLOSING_SOON",
+		default: "LIVE",
 		options: [
-			{ value: "CLOSING_SOON", label: "Closing Soon" },
+			{ value: "LIVE", label: "Live" },
 			{ value: "NEWEST", label: "Newest" },
 			{ value: "CONVICTION", label: "Conviction" },
 		],
