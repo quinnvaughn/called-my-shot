@@ -6,7 +6,7 @@ import {
 	getSessionWithUser,
 	SESSION_COOKIE_NAME,
 } from "../lib/session"
-import type { GroupLeaderboardEntry } from "./types/group"
+import type { GroupHighlights, GroupLeaderboardEntry } from "./types/group"
 
 export type Context = {
 	req: Request
@@ -23,6 +23,11 @@ export type Context = {
 	// and graphql/types/group/leaderboard.ts.
 	globalLeaderboardCache: Map<string, Promise<LeaderboardEntry[]>>
 	groupLeaderboardCache: Map<string, Promise<GroupLeaderboardEntry[]>>
+	// Same idea for a group's highlights band, keyed on groupId alone -
+	// hotStreaks/coldStreaks/streakRecords/recentSweeps all come off one page
+	// load and share one read of the roster. See graphql/types/group/
+	// highlights.ts.
+	groupHighlightsCache: Map<string, Promise<GroupHighlights>>
 }
 
 const UUID_RE =
@@ -32,6 +37,7 @@ function requestScopedCaches() {
 	return {
 		globalLeaderboardCache: new Map(),
 		groupLeaderboardCache: new Map(),
+		groupHighlightsCache: new Map(),
 	}
 }
 

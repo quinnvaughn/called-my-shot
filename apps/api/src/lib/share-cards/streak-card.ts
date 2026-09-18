@@ -6,9 +6,11 @@
 // same reasons documented there, and built from its eyebrow/statCell pieces
 // so the cards read as one set.
 import {
+	resolveStreakMode,
 	STREAK_FAMILIES,
 	STREAK_FAMILY_LABEL,
 	type StreakFamily,
+	type StreakMode,
 } from "@called-my-shot/scoring"
 import { db } from "../../db"
 import { COLOR } from "../brand-palette"
@@ -36,34 +38,51 @@ const LAST_HIT_TITLE_MAX = 40
 const HEADER_HEIGHT = 96
 const FOOTER_HEIGHT = 168
 
+// Which side of the track the card is about. A track can only be live on one
+// of them at a time, so the mode is settled when the data is loaded.
+export type StreakCardMode = "hot" | "cold"
+
 export type StreakShareCardData = {
 	leagueAbbr: string
 	familyLabel: string
 	name: string
 	username: string
+	mode: StreakCardMode
 	currentLength: number
 	bestLength: number
-	// The run the hero states: the current one while it's going, the best one
+	currentColdLength: number
+	worstColdLength: number
+	// The run the hero states: the live one while it's going, the record one
 	// once it isn't. Pre-formatted by formatCallDate.
 	runStartedAt: string | null
-	// That run's most recent win.
-	lastHit: { pickLabel: string; questionTitle: string } | null
+	// That run's most recent call: its last win on a hot card, its last miss
+	// on a cold one.
+	lastCall: { pickLabel: string; questionTitle: string } | null
 }
 
-// "7 in a row" while a run is going. A track whose newest call missed has no
-// current run to state, so it leads with the best one instead, and the line
-// under it names that as the best run.
-export function streakHero(currentLength: number, bestLength: number): string {
-	return `${currentLength > 0 ? currentLength : bestLength} in a row`
+// "7 in a row" while a run is going, "4 misses in a row" on a cold card. A
+// track whose newest call went the other way has no live run to state, so it
+// leads with the record instead and the line under it says so.
+export function streakHero(data: StreakShareCardData): string {
+	if (data.mode === "cold") {
+		const n =
+			data.currentColdLength > 0 ? data.currentColdLength : data.worstColdLength
+		return `${n} ${n === 1 ? "miss" : "misses"} in a row`
+	}
+	const n = data.currentLength > 0 ? data.currentLength : data.bestLength
+	return `${n} in a row`
 }
 
-function lastHitCell(hit: StreakShareCardData["lastHit"]): SatoriNode {
-	if (!hit) return statCell("Last hit", "-", { color: COLOR.dim })
+function lastCallCell(
+	call: StreakShareCardData["lastCall"],
+	label: string,
+): SatoriNode {
+	if (!call) return statCell(label, "-", { color: COLOR.dim })
 	return el(
 		"div",
 		{ display: "flex", flexDirection: "column", gap: "6px", maxWidth: "440px" },
 		[
-			eyebrow("Last hit"),
+			eyebrow(label),
 			el(
 				"span",
 				{
@@ -73,7 +92,7 @@ function lastHitCell(hit: StreakShareCardData["lastHit"]): SatoriNode {
 					fontSize: "28px",
 					color: COLOR.ink,
 				},
-				clamp(hit.pickLabel, LAST_HIT_PICK_MAX),
+				clamp(call.pickLabel, LAST_HIT_PICK_MAX),
 			),
 			el(
 				"span",
@@ -83,25 +102,39 @@ function lastHitCell(hit: StreakShareCardData["lastHit"]): SatoriNode {
 					fontSize: "18px",
 					color: COLOR.steel,
 				},
-				clamp(hit.questionTitle, LAST_HIT_TITLE_MAX),
+				clamp(call.questionTitle, LAST_HIT_TITLE_MAX),
 			),
 		],
 	)
 }
 
 export function buildStreakShareCard(data: StreakShareCardData): SatoriNode {
-	const going = data.currentLength > 0
-	const runLength = going ? data.currentLength : data.bestLength
+	const cold = data.mode === "cold"
+	// Whether the run this card leads with is the one still going. A cold card
+	// is only ever made for a live cold run, so it always is.
+	const going = cold ? data.currentColdLength > 0 : data.currentLength > 0
+	const runLength = cold
+		? data.currentColdLength || data.worstColdLength
+		: data.currentLength || data.bestLength
 	const track = `${data.leagueAbbr} ${data.familyLabel}`
 
-	const cells: SatoriNode[] = [
-		statCell("Current", String(data.currentLength), {
-			color: going ? COLOR.success : COLOR.dim,
-		}),
-		statCell("Best", String(data.bestLength)),
-		statCell("Run started", data.runStartedAt ?? "-"),
-		lastHitCell(data.lastHit),
-	]
+	const cells: SatoriNode[] = cold
+		? [
+				statCell("Cold", String(data.currentColdLength), {
+					color: going ? COLOR.danger : COLOR.dim,
+				}),
+				statCell("Worst", String(data.worstColdLength)),
+				statCell("Started", data.runStartedAt ?? "-"),
+				lastCallCell(data.lastCall, "Last miss"),
+			]
+		: [
+				statCell("Current", String(data.currentLength), {
+					color: going ? COLOR.success : COLOR.dim,
+				}),
+				statCell("Best", String(data.bestLength)),
+				statCell("Run started", data.runStartedAt ?? "-"),
+				lastCallCell(data.lastCall, "Last hit"),
+			]
 
 	return el(
 		"div",
@@ -140,7 +173,9 @@ export function buildStreakShareCard(data: StreakShareCardData): SatoriNode {
 						},
 						[
 							brandWordmark(wordmarkPx, WORDMARK_SCALE),
-							eyebrow(`${data.leagueAbbr} · ${data.familyLabel} streak`),
+							eyebrow(
+								`${data.leagueAbbr} · ${data.familyLabel} ${cold ? "cold streak" : "streak"}`,
+							),
 						],
 					),
 					el(
@@ -167,7 +202,7 @@ export function buildStreakShareCard(data: StreakShareCardData): SatoriNode {
 									lineHeight: 1,
 									color: COLOR.ink,
 								},
-								streakHero(data.currentLength, data.bestLength),
+								streakHero(data),
 							),
 							el(
 								"span",
@@ -177,9 +212,11 @@ export function buildStreakShareCard(data: StreakShareCardData): SatoriNode {
 									fontSize: "24px",
 									color: COLOR.steel,
 								},
-								going
-									? `${track} call${runLength === 1 ? "" : "s"} right`
-									: `Best run on ${track}`,
+								cold
+									? `${track} call${runLength === 1 ? "" : "s"} wrong`
+									: going
+										? `${track} call${runLength === 1 ? "" : "s"} right`
+										: `Best run on ${track}`,
 							),
 						],
 					),
@@ -237,12 +274,19 @@ export function parseStreakFamily(param: string): StreakFamily | null {
 		: null
 }
 
+export function parseStreakMode(param: string | undefined): StreakMode | null {
+	return param === "hot" || param === "cold" ? param : null
+}
+
 // Null when there's nothing worth a card: an unknown user, league or family,
-// or a track whose best run never got past a single call.
+// or a track where neither side clears its floor. `requested` is the side the
+// page asked for, so the card and the page never disagree about which run
+// they're showing.
 export async function loadStreakShareCardData(
 	username: string,
 	leagueSlug: string,
 	familyParam: string,
+	requested: StreakMode | null = null,
 ): Promise<StreakShareCardData | null> {
 	const family = parseStreakFamily(familyParam)
 	if (!family) return null
@@ -255,11 +299,22 @@ export async function loadStreakShareCardData(
 	const streak = await db.query.userStreaks.findFirst({
 		where: { userId: user.id, leagueId: league.id, family },
 	})
-	if (!streak || streak.bestLength < 2) return null
+	if (!streak) return null
+	const mode = resolveStreakMode(streak, requested)
+	if (!mode) return null
 
-	const going = streak.currentLength > 0
-	const startCallId = going ? streak.currentStartCallId : streak.bestStartCallId
-	const endCallId = going ? streak.currentEndCallId : streak.bestEndCallId
+	const cold = mode === "cold"
+	const going = cold ? true : streak.currentLength > 0
+	const startCallId = cold
+		? streak.currentColdStartCallId
+		: going
+			? streak.currentStartCallId
+			: streak.bestStartCallId
+	const endCallId = cold
+		? streak.currentColdEndCallId
+		: going
+			? streak.currentEndCallId
+			: streak.bestEndCallId
 
 	const [startCall, summaries] = await Promise.all([
 		startCallId
@@ -277,10 +332,13 @@ export async function loadStreakShareCardData(
 		familyLabel: STREAK_FAMILY_LABEL[family],
 		name: user.name,
 		username: user.username,
+		mode,
 		currentLength: streak.currentLength,
 		bestLength: streak.bestLength,
+		currentColdLength: streak.currentColdLength,
+		worstColdLength: streak.worstColdLength,
 		runStartedAt: startCall ? formatCallDate(startCall.createdAt) : null,
-		lastHit: last
+		lastCall: last
 			? { pickLabel: last.pickLabel, questionTitle: last.questionTitle }
 			: null,
 	}

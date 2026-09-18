@@ -1,3 +1,4 @@
+import { shapesInFamily } from "@called-my-shot/scoring"
 import { db } from "../../db"
 import type { Call, UserStreak, UserSweep } from "../../db/schema"
 import { canonicalWinnerQuestion, compareTrackRows } from "./compute"
@@ -53,6 +54,66 @@ export async function loadRunCalls(
 		})
 		.sort(compareTrackRows)
 
+	const start = ordered.findIndex((row) => row.callId === startCallId)
+	const end = ordered.findIndex((row) => row.callId === endCallId)
+	if (start === -1 || end < start) return []
+	return ordered.slice(start, end + 1).map((row) => bareCall(row.call))
+}
+
+// Every counted call on a track, oldest first - the same set and the same
+// order computeTrack walked to build its runs. loadRunCalls above reads the
+// win positions instead, which is cheaper but only covers wins: a miss
+// deliberately gets no position row, so a cold run has to come from the calls
+// themselves.
+async function loadTrackCalls(
+	track: Pick<UserStreak, "userId" | "leagueId" | "family">,
+) {
+	const rows = await db.query.calls.findMany({
+		where: {
+			userId: track.userId,
+			question: {
+				leagueId: track.leagueId,
+				shape: { in: shapesInFamily(track.family) },
+				resolutionMode: "system",
+				gameId: { isNotNull: true },
+				status: { in: ["resolved", "disputed"] },
+			},
+		},
+		with: {
+			question: {
+				columns: { id: true },
+				with: { game: { columns: { startsAt: true, finalizedAt: true } } },
+			},
+		},
+	})
+
+	return rows
+		.flatMap((call) => {
+			const game = call.question?.game
+			if (!game) return []
+			return [
+				{
+					call,
+					callId: call.id,
+					questionId: call.questionId,
+					realizedAt: game.finalizedAt ?? game.startsAt,
+					startsAt: game.startsAt,
+				},
+			]
+		})
+		.sort(compareTrackRows)
+}
+
+// The misses that make up one cold run, in the order they landed. The block
+// between its first and last call is every counted call in between by
+// construction - a win is what would have ended it.
+export async function loadColdRunCalls(
+	track: Pick<UserStreak, "userId" | "leagueId" | "family">,
+	startCallId: string | null,
+	endCallId: string | null,
+): Promise<Call[]> {
+	if (!startCallId || !endCallId) return []
+	const ordered = await loadTrackCalls(track)
 	const start = ordered.findIndex((row) => row.callId === startCallId)
 	const end = ordered.findIndex((row) => row.callId === endCallId)
 	if (start === -1 || end < start) return []

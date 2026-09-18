@@ -1,3 +1,4 @@
+import type { StreakMode } from "@called-my-shot/scoring"
 import { VStack } from "styled-system/jsx"
 import { CopyLinkRow } from "#/components/ui/copy-link-row"
 import { PostOnXLink } from "#/components/ui/post-on-x-link"
@@ -15,6 +16,9 @@ type Props = {
 	username: string
 	leagueSlug: string
 	family: StreakFamilyValue
+	// Which page this row is sharing, so the link and its og:image match the
+	// page the reader is on.
+	mode: StreakMode
 	// Built by buildStreakTweet, which the caller applies because only it
 	// knows whose page this is.
 	tweetText: string
@@ -26,10 +30,11 @@ export function StreakShareRow({
 	username,
 	leagueSlug,
 	family,
+	mode,
 	tweetText,
 	shareTitle,
 }: Props) {
-	const path = streakPath(username, leagueSlug, family)
+	const path = streakPath(username, leagueSlug, family, mode)
 	const url = `${SITE_ORIGIN}${path}`
 	const props = {
 		userId,

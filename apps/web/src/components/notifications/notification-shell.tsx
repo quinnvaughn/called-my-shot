@@ -1,3 +1,4 @@
+import type { StreakMode } from "@called-my-shot/scoring"
 import { Link } from "@tanstack/react-router"
 import { type ReactNode, useEffect, useRef } from "react"
 import type { IconType } from "react-icons/lib"
@@ -13,8 +14,13 @@ export type Target =
 	| { to: "/groups/$groupId"; params: { groupId: string } }
 	| { to: "/games/$gameId/{-$slug}"; params: { gameId: string; slug: string } }
 	| {
-			to: "/user/$username/streaks/$league/$family"
-			params: { username: string; league: string; family: string }
+			to: "/user/$username/streaks/$league/$family/$mode"
+			params: {
+				username: string
+				league: string
+				family: string
+				mode: StreakMode
+			}
 	  }
 	| {
 			to: "/user/$username/sweeps/$league/$slateKey"

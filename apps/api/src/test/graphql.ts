@@ -30,6 +30,7 @@ export function testContext(user: User | null = null): Context & {
 		user,
 		globalLeaderboardCache: new Map(),
 		groupLeaderboardCache: new Map(),
+		groupHighlightsCache: new Map(),
 		cookies,
 		clearedCookies,
 	}

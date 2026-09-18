@@ -22,6 +22,12 @@ import { SeasonFilterInput, toSeasonFilter } from "../season-filter"
 import { LeagueRef } from "../sports"
 import { GroupRole } from "./enums"
 import {
+	clampHighlightLimit,
+	GroupStreakEntryRef,
+	GroupSweepEntryRef,
+	getGroupHighlights,
+} from "./highlights"
+import {
 	GroupLeaderboardConnectionRef,
 	GroupLeaderboardEntryRef,
 	getGroupLeaderboard,
@@ -236,6 +242,52 @@ export const GroupRef = builder.drizzleObject("groups", {
 				// should always be found
 				return leaderboard.find((e) => e.user.id === user.id) ?? null
 			},
+		}),
+		// The highlights band above the activity tabs. Unlike leaderboard above,
+		// these take no league or season: they're bound by the group's tracked
+		// leagues and nothing else (see buildHighlights). Each takes a limit
+		// because the page's band shows three and the sheet behind its "see
+		// all" shows the lot.
+		//
+		// Members currently on a run, hottest first.
+		hotStreaks: t.field({
+			type: [GroupStreakEntryRef],
+			args: { limit: t.arg.int({ required: false }) },
+			resolve: async (group, args, ctx) =>
+				(await getGroupHighlights(ctx, group.id)).hotStreaks.slice(
+					0,
+					clampHighlightLimit(args.limit),
+				),
+		}),
+		// Members currently missing, coldest first.
+		coldStreaks: t.field({
+			type: [GroupStreakEntryRef],
+			args: { limit: t.arg.int({ required: false }) },
+			resolve: async (group, args, ctx) =>
+				(await getGroupHighlights(ctx, group.id)).coldStreaks.slice(
+					0,
+					clampHighlightLimit(args.limit),
+				),
+		}),
+		// The group's longest runs ever, for when nobody is on one now.
+		streakRecords: t.field({
+			type: [GroupStreakEntryRef],
+			args: { limit: t.arg.int({ required: false }) },
+			resolve: async (group, args, ctx) =>
+				(await getGroupHighlights(ctx, group.id)).streakRecords.slice(
+					0,
+					clampHighlightLimit(args.limit),
+				),
+		}),
+		// Slates a member called every winner of, newest first.
+		recentSweeps: t.field({
+			type: [GroupSweepEntryRef],
+			args: { limit: t.arg.int({ required: false }) },
+			resolve: async (group, args, ctx) =>
+				(await getGroupHighlights(ctx, group.id)).recentSweeps.slice(
+					0,
+					clampHighlightLimit(args.limit),
+				),
 		}),
 		// Calls made by other members of this group - the "Answered" tab.
 		// Group-wide (a group is just a set of people, there's no group-scoped

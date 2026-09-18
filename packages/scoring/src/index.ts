@@ -274,6 +274,44 @@ export const STREAK_FAMILY_LABEL: Record<StreakFamily, string> = {
 export const SWEEP_MIN_GAMES = 3
 // The shortest run a call's streak tag is shown for.
 export const STREAK_TAG_MIN = 3
+// The shortest streak worth listing on a group's highlights or a profile.
+// Same number on both sides today, but they're worth tuning apart: calling
+// someone cold sooner than you call them hot is a product choice.
+export const HOT_STREAK_MIN = 3
+export const COLD_STREAK_MIN = 3
+// A run of one isn't a streak, so a track with nothing longer has no page.
+export const LISTED_STREAK_MIN = 2
+
+// Which side of a track a page or its og:image leads with.
+export type StreakMode = "hot" | "cold"
+
+// A track can hold both a run worth showing and a cold streak worth showing,
+// and which one a visitor expects depends on the link they followed: a "best
+// streaks" row and a "cold streaks" row can name the same track, since a best
+// run of 6 says nothing about missing the last 4. So a link states the side it
+// meant, and only a link that didn't state one falls back to whichever side is
+// live. Null when neither side clears its floor, which is the page's
+// not-found.
+export function resolveStreakMode(
+	track: {
+		currentLength: number
+		bestLength: number
+		currentColdLength: number
+		worstColdLength: number
+	},
+	requested?: StreakMode | null,
+): StreakMode | null {
+	const hot = track.bestLength >= LISTED_STREAK_MIN
+	const cold = track.worstColdLength >= COLD_STREAK_MIN
+	if (!hot && !cold) return null
+	// An asked-for side that has nothing to show falls through to the other
+	// rather than 404ing, so a stale link still lands on the track.
+	if (requested === "cold") return cold ? "cold" : "hot"
+	if (requested === "hot") return hot ? "hot" : "cold"
+	if (track.currentLength > 0) return "hot"
+	if (track.currentColdLength >= COLD_STREAK_MIN && cold) return "cold"
+	return hot ? "hot" : "cold"
+}
 // Streak notifications fire at every multiple of this length.
 export const STREAK_MILESTONE_STEP = 5
 // The shortest run a personal best or a snapped streak is worth telling

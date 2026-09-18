@@ -57,6 +57,28 @@ export const userStreaks = pgTable(
 		}),
 		// When the best run's last result landed.
 		bestEndedAt: timestamp("best_ended_at"),
+		// The same pair for runs of misses. Zero when the most recent counted
+		// call was a win, so exactly one of currentLength/currentColdLength is
+		// above zero on any track that has ever counted a call.
+		currentColdLength: integer("current_cold_length").notNull().default(0),
+		currentColdStartCallId: uuid("current_cold_start_call_id").references(
+			() => calls.id,
+			{ onDelete: "set null" },
+		),
+		currentColdEndCallId: uuid("current_cold_end_call_id").references(
+			() => calls.id,
+			{ onDelete: "set null" },
+		),
+		worstColdLength: integer("worst_cold_length").notNull().default(0),
+		worstColdStartCallId: uuid("worst_cold_start_call_id").references(
+			() => calls.id,
+			{ onDelete: "set null" },
+		),
+		worstColdEndCallId: uuid("worst_cold_end_call_id").references(
+			() => calls.id,
+			{ onDelete: "set null" },
+		),
+		worstColdEndedAt: timestamp("worst_cold_ended_at"),
 		// When the track's most recent counted result landed - what decides
 		// whether a change is fresh enough to notify about.
 		lastSettledAt: timestamp("last_settled_at"),

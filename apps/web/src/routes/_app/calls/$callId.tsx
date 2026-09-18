@@ -246,11 +246,13 @@ function RouteComponent() {
 
 			{call.streak && (
 				<Link
-					to="/user/$username/streaks/$league/$family"
+					to="/user/$username/streaks/$league/$family/$mode"
 					params={{
 						username: call.user.username,
 						league: call.question.league.slug,
 						family: streakFamilyParam(call.streak.family),
+						// A call carries a streak tag only when it extended a run.
+						mode: "hot",
 					}}
 					className={css({
 						fontFamily: "mono",

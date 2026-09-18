@@ -172,8 +172,11 @@ describe("card versions", () => {
 
 describe("paths", () => {
 	it("round-trips the family through its url form", () => {
-		expect(streakPath("quinn", "nfl", "PLAYER_STATS")).toBe(
-			"/user/quinn/streaks/nfl/player_stats",
+		expect(streakPath("quinn", "nfl", "PLAYER_STATS", "hot")).toBe(
+			"/user/quinn/streaks/nfl/player_stats/hot",
+		)
+		expect(streakPath("quinn", "nfl", "PLAYER_STATS", "cold")).toBe(
+			"/user/quinn/streaks/nfl/player_stats/cold",
 		)
 		expect(parseStreakFamilyParam("player_stats")).toBe("PLAYER_STATS")
 		expect(parseStreakFamilyParam("PLAYER_STATS")).toBeNull()
@@ -234,13 +237,21 @@ describe("milestoneNudge", () => {
 describe("streakStakeText", () => {
 	it("warns that a miss ends a run below its best", () => {
 		expect(
-			streakStakeText({ track: "NFL Player Stats", currentLength: 6, bestLength: 9 }),
+			streakStakeText({
+				track: "NFL Player Stats",
+				currentLength: 6,
+				bestLength: 9,
+			}),
 		).toBe("You're 6 in a row on NFL Player Stats. A miss ends it.")
 	})
 
 	it("says one more sets the best when the run is already level with it", () => {
 		expect(
-			streakStakeText({ track: "NFL Player Stats", currentLength: 6, bestLength: 6 }),
+			streakStakeText({
+				track: "NFL Player Stats",
+				currentLength: 6,
+				bestLength: 6,
+			}),
 		).toBe("You're 6 in a row on NFL Player Stats. One more sets your best.")
 	})
 })

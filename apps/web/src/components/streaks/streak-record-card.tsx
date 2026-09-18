@@ -8,6 +8,7 @@ import { Eyebrow } from "#/components/ui/eyebrow"
 import { type FragmentType, graphql, useFragment } from "#/graphql/generated"
 import { pickSummary } from "#/lib/call-summary"
 import { pluralize } from "#/lib/pluralize"
+import { coldStreakText } from "#/lib/streak-meta"
 import { RecordStatRow } from "./record-stat-row"
 
 export const StreakRecordCardLastHitFragment = graphql(`
@@ -60,22 +61,31 @@ type Props = {
 	familyLabel: string
 	name: string
 	username: string
+	// Which side of the track this card is about. A track can only be live on
+	// one of them at a time, so the page picks before it renders.
+	mode: "hot" | "cold"
 	currentLength: number
 	bestLength: number
-	// The run the card leads with: the current one while it's going, the best
+	currentColdLength: number
+	worstColdLength: number
+	// The run the card leads with: the live one while it's going, the record
 	// one once it isn't. Pre-formatted by formatCallDate.
 	runStartedAt: string | null
-	// That run's most recent win.
-	lastHit: FragmentType<typeof StreakRecordCardLastHitFragment> | null
+	// That run's most recent call: its last win on a hot card, its last miss
+	// on a cold one.
+	lastCall: FragmentType<typeof StreakRecordCardLastHitFragment> | null
 }
 
 // The centrepiece of a streak page, stating the same facts as its og:image
-// (apps/api's share-cards/streak-card.ts): the hero run, the best, when the
+// (apps/api's share-cards/streak-card.ts): the hero run, the record, when the
 // run began and the call that last extended it.
 export function StreakRecordCard(props: Props) {
-	const lastHit = useFragment(StreakRecordCardLastHitFragment, props.lastHit)
-	const going = props.currentLength > 0
-	const runLength = going ? props.currentLength : props.bestLength
+	const lastCall = useFragment(StreakRecordCardLastHitFragment, props.lastCall)
+	const cold = props.mode === "cold"
+	const going = cold ? props.currentColdLength > 0 : props.currentLength > 0
+	const runLength = cold
+		? props.currentColdLength || props.worstColdLength
+		: props.currentLength || props.bestLength
 	const track = `${props.leagueAbbr} ${props.familyLabel}`
 
 	return (
@@ -85,7 +95,8 @@ export function StreakRecordCard(props: Props) {
 					<Brand size="sm" />
 					<VStack gap="1.5" alignItems="center">
 						<Eyebrow size="sm" variant="neutral">
-							{props.leagueAbbr} · {props.familyLabel} streak
+							{props.leagueAbbr} · {props.familyLabel}{" "}
+							{cold ? "cold streak" : "streak"}
 						</Eyebrow>
 						<span
 							className={css({
@@ -95,7 +106,7 @@ export function StreakRecordCard(props: Props) {
 								textAlign: "center",
 							})}
 						>
-							{runLength} in a row
+							{cold ? coldStreakText(runLength) : `${runLength} in a row`}
 						</span>
 						<span
 							className={css({
@@ -104,9 +115,11 @@ export function StreakRecordCard(props: Props) {
 								textAlign: "center",
 							})}
 						>
-							{going
-								? `${track} ${pluralize(runLength, "call")} right`
-								: `Best run on ${track}`}
+							{cold
+								? `${track} ${pluralize(runLength, "call")} wrong`
+								: going
+									? `${track} ${pluralize(runLength, "call")} right`
+									: `Best run on ${track}`}
 						</span>
 					</VStack>
 					<HStack gap="2" alignItems="center">
@@ -125,18 +138,24 @@ export function StreakRecordCard(props: Props) {
 			</Card.Header>
 			<Card.Body>
 				<VStack gap="2.5" alignItems="stretch">
-					<RecordStatRow label="Current" value={String(props.currentLength)} />
-					<RecordStatRow label="Best" value={String(props.bestLength)} />
 					<RecordStatRow
-						label="Run started"
+						label={cold ? "Cold" : "Current"}
+						value={String(cold ? props.currentColdLength : props.currentLength)}
+					/>
+					<RecordStatRow
+						label={cold ? "Worst" : "Best"}
+						value={String(cold ? props.worstColdLength : props.bestLength)}
+					/>
+					<RecordStatRow
+						label={cold ? "Started" : "Run started"}
 						value={props.runStartedAt ?? "-"}
 					/>
 					<RecordStatRow
-						label="Last hit"
+						label={cold ? "Last miss" : "Last hit"}
 						value={
-							lastHit ? (
+							lastCall ? (
 								<VStack gap="0.5" alignItems="flex-end">
-									<span>{pickSummary(lastHit)}</span>
+									<span>{pickSummary(lastCall)}</span>
 									<span
 										className={css({
 											fontSize: "xs",
@@ -145,8 +164,8 @@ export function StreakRecordCard(props: Props) {
 										})}
 									>
 										{questionTitleWithGame(
-											lastHit.question.title,
-											lastHit.question.game,
+											lastCall.question.title,
+											lastCall.question.game,
 										)}
 									</span>
 								</VStack>

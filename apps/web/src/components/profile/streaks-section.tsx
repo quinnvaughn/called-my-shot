@@ -90,11 +90,12 @@ export function StreaksSection({
 		return (
 			<Link
 				key={`${streak.league.id}-${streak.family}`}
-				to="/user/$username/streaks/$league/$family"
+				to="/user/$username/streaks/$league/$family/$mode"
 				params={{
 					username,
 					league: streak.league.slug,
 					family: streakFamilyParam(streak.family),
+					mode: "hot",
 				}}
 				className={css({
 					display: "block",

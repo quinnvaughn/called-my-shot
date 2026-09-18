@@ -29,10 +29,13 @@ const base = {
 	familyLabel: "Player Stats",
 	name: "Quinn Vaughn",
 	username: "quinn",
+	mode: "hot" as const,
 	currentLength: 7,
 	bestLength: 9,
+	currentColdLength: 0,
+	worstColdLength: 2,
 	runStartedAt: "Sep 3, 2026",
-	lastHit: {
+	lastCall: {
 		pickLabel: "Over 275.5",
 		questionTitle: "KC @ BUF · Mahomes passing yards",
 	},
@@ -68,11 +71,46 @@ describe("buildStreakShareCard", () => {
 		expect(texts).toContain("Best run on NFL Player Stats")
 	})
 
+	it("states the cold run, and never a hot number, on a cold card", () => {
+		const texts = textNodes(
+			buildStreakShareCard({
+				...base,
+				mode: "cold",
+				currentLength: 0,
+				bestLength: 0,
+				currentColdLength: 4,
+				worstColdLength: 4,
+			}),
+		)
+		expect(texts).toContain("4 misses in a row")
+		expect(texts).toContain("NFL · Player Stats cold streak")
+		expect(texts).toContain("Cold")
+		expect(texts).toContain("Worst")
+		expect(texts).toContain("Last miss")
+		expect(texts).toContain("NFL Player Stats calls wrong")
+		expect(texts).not.toContain("0 in a row")
+		expect(texts).not.toContain("Best run on NFL Player Stats")
+	})
+
+	it("says one miss, not one misses", () => {
+		const texts = textNodes(
+			buildStreakShareCard({
+				...base,
+				mode: "cold",
+				currentLength: 0,
+				currentColdLength: 1,
+				worstColdLength: 1,
+			}),
+		)
+		expect(texts).toContain("1 miss in a row")
+		expect(texts).toContain("NFL Player Stats call wrong")
+	})
+
 	it("caps a long last-hit pick and title", () => {
 		const texts = textNodes(
 			buildStreakShareCard({
 				...base,
-				lastHit: {
+				lastCall: {
 					pickLabel: "Minnesota Timberwolves to win the Western Conference",
 					questionTitle:
 						"Which player will record the most receiving yards ".repeat(5),
@@ -88,8 +126,20 @@ describe("buildStreakShareCard", () => {
 
 describe("streakHero", () => {
 	it("is the run length while a run is going, the best otherwise", () => {
-		expect(streakHero(7, 9)).toBe("7 in a row")
-		expect(streakHero(0, 9)).toBe("9 in a row")
+		expect(streakHero(base)).toBe("7 in a row")
+		expect(streakHero({ ...base, currentLength: 0 })).toBe("9 in a row")
+	})
+
+	it("counts misses on a cold card", () => {
+		const cold = { ...base, mode: "cold" as const, currentLength: 0 }
+		expect(streakHero({ ...cold, currentColdLength: 4 })).toBe(
+			"4 misses in a row",
+		)
+		// Falls back to the worst on record the same way the hot side falls
+		// back to the best.
+		expect(streakHero({ ...cold, currentColdLength: 0 })).toBe(
+			"2 misses in a row",
+		)
 	})
 })
 

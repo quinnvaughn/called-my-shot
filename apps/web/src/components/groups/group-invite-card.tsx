@@ -39,7 +39,11 @@ export function GroupInviteCard({
 	// checklist's dismiss. Nothing else on the page waits on the write.
 	const [dismissedLocally, setDismissedLocally] = useState(false)
 
-	if (dismissed || dismissedLocally || memberCount >= SMALL_GROUP_MEMBER_LIMIT) {
+	if (
+		dismissed ||
+		dismissedLocally ||
+		memberCount >= SMALL_GROUP_MEMBER_LIMIT
+	) {
 		return null
 	}
 

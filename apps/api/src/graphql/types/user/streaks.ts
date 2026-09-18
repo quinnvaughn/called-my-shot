@@ -9,7 +9,11 @@ import {
 	type UserStreak,
 	type UserSweep,
 } from "../../../db/schema"
-import { loadRunCalls, loadSweepCalls } from "../../../lib/streaks/read"
+import {
+	loadColdRunCalls,
+	loadRunCalls,
+	loadSweepCalls,
+} from "../../../lib/streaks/read"
 import { formatSlateLabel, parseSlateKey } from "../../../lib/streaks/slate"
 import { builder } from "../../builder"
 import { CallRef } from "../question"
@@ -39,6 +43,16 @@ export const UserStreakRef = builder
 			// Zero when the newest counted call on the track missed.
 			currentLength: t.exposeInt("currentLength"),
 			bestLength: t.exposeInt("bestLength"),
+			// The cold streak: the same two numbers for runs of misses. Zero when
+			// the newest counted call on the track hit, so one side or the other
+			// is always zero.
+			currentColdLength: t.exposeInt("currentColdLength"),
+			worstColdLength: t.exposeInt("worstColdLength"),
+			worstColdEndedAt: t.field({
+				type: "String",
+				nullable: true,
+				resolve: (s) => s.worstColdEndedAt?.toISOString() ?? null,
+			}),
 			// The next multiple of STREAK_MILESTONE_STEP the current run can
 			// reach - what a "one more for 10" nudge counts toward.
 			nextMilestone: t.field({
@@ -78,6 +92,35 @@ export const UserStreakRef = builder
 			bestRunCalls: t.field({
 				type: [CallRef],
 				resolve: (s) => loadRunCalls(s, s.bestStartCallId, s.bestEndCallId),
+			}),
+			// Whether the worst cold run is the one still going.
+			worstColdIsCurrent: t.field({
+				type: "Boolean",
+				resolve: (s) =>
+					s.currentColdLength > 0 &&
+					s.worstColdStartCallId === s.currentColdStartCallId,
+			}),
+			coldStartedAt: t.field({
+				type: "String",
+				nullable: true,
+				resolve: async (s) => {
+					const [first] = await loadColdRunCalls(
+						s,
+						s.currentColdStartCallId,
+						s.currentColdStartCallId,
+					)
+					return first?.createdAt.toISOString() ?? null
+				},
+			}),
+			coldRunCalls: t.field({
+				type: [CallRef],
+				resolve: (s) =>
+					loadColdRunCalls(s, s.currentColdStartCallId, s.currentColdEndCallId),
+			}),
+			worstColdRunCalls: t.field({
+				type: [CallRef],
+				resolve: (s) =>
+					loadColdRunCalls(s, s.worstColdStartCallId, s.worstColdEndCallId),
 			}),
 		}),
 	})

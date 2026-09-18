@@ -1,13 +1,8 @@
-import { fieldPct, quipForCall } from "@called-my-shot/scoring"
+import { fieldPct, quipForCall, type StreakMode } from "@called-my-shot/scoring"
 import { and, asc, count, eq, gt } from "drizzle-orm"
 import type { Express, Response } from "express"
 import { db } from "../db"
-import {
-	ballotQuestions,
-	callSelections,
-	calls,
-	questions,
-} from "../db/schema"
+import { ballotQuestions, callSelections, calls, questions } from "../db/schema"
 import { loadBallotEntry } from "../lib/ballot-entry"
 import { buildGlobalLeaderboard } from "../lib/global-leaderboard"
 import {
@@ -25,6 +20,7 @@ import {
 import {
 	buildStreakShareCard,
 	loadStreakShareCardData,
+	parseStreakMode,
 	STREAK_SHARE_CARD_SIZE,
 } from "../lib/share-cards/streak-card"
 import {
@@ -63,12 +59,29 @@ export function registerShareRoutes(app: Express) {
 		},
 	)
 
+	// The mode-scoped url is what the page emits: /hot and /cold are separate
+	// pages, so they need separate cards. The bare one stays for links shared
+	// before the split, and leads with whichever side is live.
+	app.get(
+		"/share/streaks/:username/:league/:family/:mode.png",
+		async (req, res) => {
+			await sendStreakShareCard(
+				res,
+				req.params.username,
+				req.params.league,
+				req.params.family,
+				parseStreakMode(req.params.mode),
+			)
+		},
+	)
+
 	app.get("/share/streaks/:username/:league/:family.png", async (req, res) => {
 		await sendStreakShareCard(
 			res,
 			req.params.username,
 			req.params.league,
 			req.params.family,
+			null,
 		)
 	})
 
@@ -82,16 +95,17 @@ export function registerShareRoutes(app: Express) {
 	})
 }
 
-// The og:image behind /user/:username/streaks/:league/:family. A track whose
-// best run is a single call has nothing to brag about, so it 404s like a
+// The og:image behind /user/:username/streaks/:league/:family/:mode. A track
+// with nothing on either side has nothing to brag about, so it 404s like a
 // track that doesn't exist.
 async function sendStreakShareCard(
 	res: Response,
 	username: string,
 	leagueSlug: string,
 	family: string,
+	mode: StreakMode | null,
 ) {
-	const data = await loadStreakShareCardData(username, leagueSlug, family)
+	const data = await loadStreakShareCardData(username, leagueSlug, family, mode)
 	if (!data) {
 		res.status(404).end()
 		return

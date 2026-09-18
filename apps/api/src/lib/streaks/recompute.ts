@@ -138,6 +138,13 @@ export async function recomputeStreakTrack(
 			bestStartCallId: track.best?.startCallId ?? null,
 			bestEndCallId: track.best?.endCallId ?? null,
 			bestEndedAt: track.best?.endedAt ?? null,
+			currentColdLength: track.currentCold?.length ?? 0,
+			currentColdStartCallId: track.currentCold?.startCallId ?? null,
+			currentColdEndCallId: track.currentCold?.endCallId ?? null,
+			worstColdLength: track.worstCold?.length ?? 0,
+			worstColdStartCallId: track.worstCold?.startCallId ?? null,
+			worstColdEndCallId: track.worstCold?.endCallId ?? null,
+			worstColdEndedAt: track.worstCold?.endedAt ?? null,
 			lastSettledAt: track.lastSettledAt,
 			computedAt: opts.now,
 		}

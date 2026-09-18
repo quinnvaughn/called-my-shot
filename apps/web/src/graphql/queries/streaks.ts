@@ -22,6 +22,10 @@ export const UserStreakPageDocument = graphql(`
 				bestLength
 				bestIsCurrent
 				nextMilestone
+				currentColdLength
+				worstColdLength
+				worstColdIsCurrent
+				coldStartedAt
 				league {
 					id
 					abbreviation
@@ -34,6 +38,18 @@ export const UserStreakPageDocument = graphql(`
 					...StreakRecordCard_lastHit
 				}
 				bestRunCalls {
+					id
+					createdAt
+					...CallCard_call
+					...StreakRecordCard_lastHit
+				}
+				coldRunCalls {
+					id
+					createdAt
+					...CallCard_call
+					...StreakRecordCard_lastHit
+				}
+				worstColdRunCalls {
 					id
 					createdAt
 					...CallCard_call

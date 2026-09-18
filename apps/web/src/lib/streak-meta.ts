@@ -1,4 +1,5 @@
 import { SPORTS_TIME_ZONE } from "@called-my-shot/schemas"
+import type { StreakMode } from "@called-my-shot/scoring"
 import { DateTime } from "luxon"
 import { formatRecord, formatSignedPoints } from "#/lib/ballot-entry"
 
@@ -31,12 +32,19 @@ export function streakFamilyParam(family: StreakFamilyValue): string {
 	return family.toLowerCase()
 }
 
+// The mode is part of the path, not a default: /hot and /cold are separate
+// pages, and a link has to say which one it meant (see resolveStreakMode).
 export function streakPath(
 	username: string,
 	leagueSlug: string,
 	family: StreakFamilyValue,
+	mode: StreakMode,
 ): string {
-	return `/user/${username}/streaks/${leagueSlug}/${streakFamilyParam(family)}`
+	return `/user/${username}/streaks/${leagueSlug}/${streakFamilyParam(family)}/${mode}`
+}
+
+export function parseStreakMode(param: string | undefined): StreakMode | null {
+	return param === "hot" || param === "cold" ? param : null
 }
 
 export function sweepPath(
@@ -109,6 +117,59 @@ export function buildStreakTweet(streak: StreakFacts & TweetAuthor): string {
 	return streak.isOwn
 		? `My best on ${track}: ${best} in a row.`
 		: `@${streak.username}'s best on ${track}: ${best} in a row.`
+}
+
+// "4 misses in a row". The cold side never reuses the hot side's "N in a
+// row": the number means the opposite thing, and these two strings turn up
+// next to each other everywhere.
+export function coldStreakText(length: number): string {
+	return `${length} ${length === 1 ? "miss" : "misses"} in a row`
+}
+
+type ColdFacts = {
+	// "NFL Player Stats"
+	track: string
+	currentColdLength: number
+	worstColdLength: number
+}
+
+// Owning it is funnier than hiding it, so a cold streak shares in the first
+// person the same way a run does.
+export function buildColdStreakTweet(cold: ColdFacts & TweetAuthor): string {
+	const tally = coldStreakText(cold.currentColdLength)
+	return cold.isOwn
+		? `${tally} on ${cold.track}. Send help.`
+		: `@${cold.username} is ${tally} on ${cold.track}.`
+}
+
+export function coldStreakPageMeta(
+	input: ColdFacts & {
+		username: string
+		// Pre-formatted by formatCallDate.
+		startedAt: string | null
+	},
+): { title: string; description: string } {
+	const description = [
+		coldStreakText(input.currentColdLength),
+		`Worst run of ${input.worstColdLength}`,
+		input.startedAt ? `Started ${input.startedAt}` : null,
+	]
+		.filter((part) => part !== null)
+		.join(" · ")
+	return {
+		title: `@${input.username} is ${coldStreakText(input.currentColdLength)} on ${input.track}`,
+		description: `${description}.`,
+	}
+}
+
+// Changes whenever a number on the cold card does, for the same unfurl-cache
+// reason as streakCardVersion.
+export function coldCardVersion(input: {
+	currentColdLength: number
+	worstColdLength: number
+	lastMissCallId: string | null
+}): string {
+	return `cold-${input.currentColdLength}-${input.worstColdLength}-${input.lastMissCallId?.slice(0, 8) ?? "none"}`
 }
 
 export function streakPageMeta(

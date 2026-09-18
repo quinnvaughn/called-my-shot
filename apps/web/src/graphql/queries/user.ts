@@ -45,6 +45,17 @@ export const UserProfileDocument = graphql(`
 				bestLength
 				nextMilestone
 			}
+			coldStreaks {
+				league {
+					id
+					abbreviation
+					slug
+				}
+				family
+				familyLabel
+				currentColdLength
+				worstColdLength
+			}
 			sweeps {
 				league {
 					id

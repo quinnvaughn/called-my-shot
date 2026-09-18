@@ -24,6 +24,7 @@ import {
 	TIER_MIN_MULT,
 	tierFor,
 	toleranceBand,
+	resolveStreakMode,
 } from "./index"
 
 const ALL_SHAPES: QuestionShape[] = [
@@ -633,5 +634,63 @@ describe("convictionEdge", () => {
 		const quietMiss = convictionEdge(record(19, 1, 60, 10)) as number
 		const loudMiss = convictionEdge(record(19, 1, 60, 100)) as number
 		expect(loudMiss).toBeLessThan(quietMiss)
+	})
+})
+
+describe("resolveStreakMode", () => {
+	const track = {
+		currentLength: 0,
+		bestLength: 0,
+		currentColdLength: 0,
+		worstColdLength: 0,
+	}
+
+	it("honours the side the link asked for, not the side that is live", () => {
+		// The case the /hot and /cold split exists for: a group's "best
+		// streaks" row and its "cold streaks" row can name this same track, and
+		// each has to land where its reader expects.
+		const both = {
+			...track,
+			bestLength: 6,
+			currentColdLength: 4,
+			worstColdLength: 4,
+		}
+		expect(resolveStreakMode(both, "hot")).toBe("hot")
+		expect(resolveStreakMode(both, "cold")).toBe("cold")
+	})
+
+	it("falls back to whichever side is live when the link named none", () => {
+		expect(
+			resolveStreakMode({ ...track, currentLength: 5, bestLength: 5 }),
+		).toBe("hot")
+		expect(
+			resolveStreakMode({
+				...track,
+				bestLength: 6,
+				currentColdLength: 4,
+				worstColdLength: 4,
+			}),
+		).toBe("cold")
+	})
+
+	it("falls through to the other side rather than 404ing a stale link", () => {
+		// A track that has only ever missed has no hot side at all.
+		const coldOnly = { ...track, currentColdLength: 4, worstColdLength: 4 }
+		expect(resolveStreakMode(coldOnly, "hot")).toBe("cold")
+		const hotOnly = { ...track, currentLength: 5, bestLength: 5 }
+		expect(resolveStreakMode(hotOnly, "cold")).toBe("hot")
+	})
+
+	it("is null when neither side clears its floor", () => {
+		expect(resolveStreakMode(track, "hot")).toBeNull()
+		expect(
+			resolveStreakMode({
+				...track,
+				currentLength: 1,
+				bestLength: 1,
+				currentColdLength: 2,
+				worstColdLength: 2,
+			}),
+		).toBeNull()
 	})
 })

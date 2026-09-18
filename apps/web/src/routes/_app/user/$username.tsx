@@ -3,6 +3,7 @@ import { createFileRoute, useRouteContext } from "@tanstack/react-router"
 import { FiUserX } from "react-icons/fi"
 import { css } from "styled-system/css"
 import { VStack } from "styled-system/jsx"
+import { ColdStreaksSection } from "#/components/profile/cold-streaks-section"
 import { LeagueAccordion } from "#/components/profile/league-accordion"
 import { ProfileHeader } from "#/components/profile/profile-header"
 import { ShareCardPreview } from "#/components/profile/share-card-preview"
@@ -139,12 +140,21 @@ function RouteComponent() {
 			)}
 			{liveStreaks.length > 0 && (
 				<VStack alignItems="stretch" gap="3">
-					{sectionLabel("On a run")}
+					{sectionLabel("Hot streaks")}
 					<StreaksSection
 						username={user.username}
 						streaks={liveStreaks}
 						isOwn={isOwn}
 						layout="grid"
+					/>
+				</VStack>
+			)}
+			{user.coldStreaks.length > 0 && (
+				<VStack alignItems="stretch" gap="3">
+					{sectionLabel("Cold streaks")}
+					<ColdStreaksSection
+						username={user.username}
+						coldStreaks={user.coldStreaks}
 					/>
 				</VStack>
 			)}
@@ -164,6 +174,9 @@ function RouteComponent() {
 								stats={leagueStats}
 								user={user}
 								streaks={user.streaks.filter(
+									(streak) => streak.league.id === leagueStats.league.id,
+								)}
+								coldStreaks={user.coldStreaks.filter(
 									(streak) => streak.league.id === leagueStats.league.id,
 								)}
 								sweeps={user.sweeps.filter(

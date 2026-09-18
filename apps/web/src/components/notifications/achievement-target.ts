@@ -12,8 +12,14 @@ export function streakTarget(
 ): Target {
 	if (!username || !leagueSlug || !family) return null
 	return {
-		to: "/user/$username/streaks/$league/$family",
-		params: { username, league: leagueSlug, family: streakFamilyParam(family) },
+		to: "/user/$username/streaks/$league/$family/$mode",
+		params: {
+			username,
+			league: leagueSlug,
+			family: streakFamilyParam(family),
+			// Every achievement notification is about a run, never a cold one.
+			mode: "hot",
+		},
 	}
 }
 

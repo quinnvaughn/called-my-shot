@@ -93,6 +93,11 @@ export const GroupSettingsDocument = graphql(`
 // *-questions-tab.tsx, colocated with the components that render them.
 // leaderboard is colocated the same way with group-leaderboard.tsx.
 //
+// The four highlights lists take their three each here and are read straight
+// off this result - unlike the lists above they don't paginate, so the band
+// costs no request of its own and needs no seeding. Only the sheet behind its
+// "see all" queries separately, for the full fifty.
+//
 // The leaderboard's scope comes in as variables so its embedded first page is
 // the one the route actually renders (the loader seeds the infinite cache
 // with it) - a link to a filtered board shouldn't have to fetch the default
@@ -134,6 +139,18 @@ export const GroupDetailDocument = graphql(`
             }
             viewerLeaderboardEntry(leagueId: $leagueId, season: $season) {
                 ...GroupLeaderboard_entry
+            }
+            hotStreaks(limit: 3) {
+                ...GroupHighlights_streak
+            }
+            coldStreaks(limit: 3) {
+                ...GroupHighlights_streak
+            }
+            streakRecords(limit: 3) {
+                ...GroupHighlights_streak
+            }
+            recentSweeps(limit: 3) {
+                ...GroupHighlights_sweep
             }
             answeredQuestions(first: 10, after: $answeredAfter) {
                 items {

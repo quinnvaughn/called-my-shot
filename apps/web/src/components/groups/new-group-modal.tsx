@@ -133,8 +133,8 @@ export function NewGroupModal({ leagues }: Props) {
 									onChange={field.onChange}
 								/>
 								<FieldHint>
-									Only these leagues count toward the leaderboard and show up
-									in the group's activity.
+									Only these leagues count toward the leaderboard and show up in
+									the group's activity.
 								</FieldHint>
 							</VStack>
 						)}

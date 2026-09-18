@@ -14,6 +14,7 @@ import {
 	CreatedQuestionsTab,
 	createdQuestionsQuery,
 } from "#/components/groups/created-questions-tab"
+import { GroupHighlights } from "#/components/groups/group-highlights"
 import { GroupInviteCard } from "#/components/groups/group-invite-card"
 import {
 	GroupLeaderboard,
@@ -270,6 +271,13 @@ function RouteComponent() {
 				filter={filter}
 				onFilterChange={(next) => navigate({ search: next })}
 				viewerId={me?.id}
+			/>
+			<GroupHighlights
+				groupId={group.id}
+				hotStreaks={group.hotStreaks}
+				coldStreaks={group.coldStreaks}
+				streakRecords={group.streakRecords}
+				recentSweeps={group.recentSweeps}
 			/>
 			<VStack alignItems="stretch" gap="3">
 				<h2

@@ -3,6 +3,10 @@ import { FiChevronDown, FiChevronUp } from "react-icons/fi"
 import { css } from "styled-system/css"
 import { VStack } from "styled-system/jsx"
 import { BreakdownBar } from "#/components/profile/breakdown-bar"
+import {
+	type ColdStreakRow,
+	ColdStreaksSection,
+} from "#/components/profile/cold-streaks-section"
 import { ShareCardPreview } from "#/components/profile/share-card-preview"
 import { ShareImagePanel } from "#/components/profile/share-image-panel"
 import { StatGrid, statGridItems } from "#/components/profile/stat-grid"
@@ -36,9 +40,10 @@ type User = { name: string; username: string; createdAt: string }
 type Props = {
 	stats: LeagueStats
 	user: User
-	// This league's tracks and sweeps, in the order User.streaks and
-	// User.sweeps return them.
+	// This league's tracks and sweeps, in the order User.streaks,
+	// User.coldStreaks and User.sweeps return them.
 	streaks: StreakRow[]
+	coldStreaks: ColdStreakRow[]
 	sweeps: SweepRow[]
 	isOwn: boolean
 }
@@ -55,6 +60,7 @@ export function LeagueAccordion({
 	stats,
 	user,
 	streaks,
+	coldStreaks,
 	sweeps,
 	isOwn,
 }: Props) {
@@ -149,11 +155,21 @@ export function LeagueAccordion({
 					)}
 					{streaks.length > 0 && (
 						<VStack alignItems="stretch" gap="2">
-							<span className={subLabel}>Streaks</span>
+							<span className={subLabel}>Hot streaks</span>
 							<StreaksSection
 								username={user.username}
 								streaks={streaks}
 								isOwn={isOwn}
+								showLeague={false}
+							/>
+						</VStack>
+					)}
+					{coldStreaks.length > 0 && (
+						<VStack alignItems="stretch" gap="2">
+							<span className={subLabel}>Cold streaks</span>
+							<ColdStreaksSection
+								username={user.username}
+								coldStreaks={coldStreaks}
 								showLeague={false}
 							/>
 						</VStack>

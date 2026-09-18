@@ -58,7 +58,8 @@ export type Run = {
 }
 
 export type TrackResult = {
-	// Run length as of each counted win.
+	// Run length as of each counted win. Misses have no position - the only
+	// thing reading these is the call card's streak tag, which marks wins.
 	positions: Map<string, number>
 	// Every run of one or more wins, oldest first.
 	runs: Run[]
@@ -67,6 +68,12 @@ export type TrackResult = {
 	current: Run | null
 	// The longest run. A later run has to be strictly longer to take it.
 	best: Run | null
+	// The same three, for runs of misses. A cold streak is the same
+	// measurement with the outcome inverted, so a skip breaks neither and the
+	// newest counted call leaves exactly one of current/currentCold set.
+	coldRuns: Run[]
+	currentCold: Run | null
+	worstCold: Run | null
 	lastSettledAt: Date | null
 }
 
@@ -82,44 +89,70 @@ export function compareTrackRows(
 	)
 }
 
+// Adds a counted call to the run it continues, or starts one when the last
+// counted call went the other way. `current` is always the newest entry of
+// `runs`, which is the one this grows in place.
+function extendRun(runs: Run[], current: Run | null, row: TrackRow): Run {
+	if (current) {
+		const grown = {
+			length: current.length + 1,
+			startCallId: current.startCallId,
+			endCallId: row.callId,
+			endedAt: row.realizedAt,
+		}
+		runs[runs.length - 1] = grown
+		return grown
+	}
+	const started = {
+		length: 1,
+		startCallId: row.callId,
+		endCallId: row.callId,
+		endedAt: row.realizedAt,
+	}
+	runs.push(started)
+	return started
+}
+
+// A later run has to be strictly longer to take it, so a tie stays with the
+// run that got there first.
+function longestRun(runs: Run[]): Run | null {
+	return runs.reduce<Run | null>(
+		(best, run) => (!best || run.length > best.length ? run : best),
+		null,
+	)
+}
+
 export function computeTrack(rows: TrackRow[]): TrackResult {
 	const positions = new Map<string, number>()
 	const runs: Run[] = []
+	const coldRuns: Run[] = []
 	let current: Run | null = null
+	let currentCold: Run | null = null
 	let lastSettledAt: Date | null = null
 
 	for (const row of [...rows].sort(compareTrackRows)) {
 		if (row.outcome === "skip") continue
 		lastSettledAt = row.realizedAt
 		if (row.outcome === "loss") {
+			currentCold = extendRun(coldRuns, currentCold, row)
 			current = null
 			continue
 		}
-		if (current) {
-			current = {
-				length: current.length + 1,
-				startCallId: current.startCallId,
-				endCallId: row.callId,
-				endedAt: row.realizedAt,
-			}
-			runs[runs.length - 1] = current
-		} else {
-			current = {
-				length: 1,
-				startCallId: row.callId,
-				endCallId: row.callId,
-				endedAt: row.realizedAt,
-			}
-			runs.push(current)
-		}
+		current = extendRun(runs, current, row)
+		currentCold = null
 		positions.set(row.callId, current.length)
 	}
 
-	const best = runs.reduce<Run | null>(
-		(longest, run) => (!longest || run.length > longest.length ? run : longest),
-		null,
-	)
-	return { positions, runs, current, best, lastSettledAt }
+	return {
+		positions,
+		runs,
+		current,
+		best: longestRun(runs),
+		coldRuns,
+		currentCold,
+		worstCold: longestRun(coldRuns),
+		lastSettledAt,
+	}
 }
 
 // A change older than this is history being corrected, not news. Keeps a

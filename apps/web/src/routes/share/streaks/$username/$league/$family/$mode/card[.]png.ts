@@ -2,11 +2,12 @@ import { createFileRoute } from "@tanstack/react-router"
 import { apiUrl } from "#/env.server"
 
 // Same passthrough as /share/calls/$callId/card.png, for the og:image on
-// /user/:username/streaks/:league/:family - including the static card.png
-// segment and the ignored `?v=` cache-buster, for the same reasons given
-// there.
+// /user/:username/streaks/:league/:family/:mode - including the static
+// card.png segment and the ignored `?v=` cache-buster, for the same reasons
+// given there. The mode rides along so the card can't disagree with the page:
+// /hot and /cold are separate pages and need separate images.
 export const Route = createFileRoute(
-	"/share/streaks/$username/$league/$family/card.png",
+	"/share/streaks/$username/$league/$family/$mode/card.png",
 )({
 	server: {
 		handlers: {
@@ -15,7 +16,7 @@ export const Route = createFileRoute(
 				try {
 					upstream = await fetch(
 						apiUrl(
-							`/share/streaks/${encodeURIComponent(params.username)}/${encodeURIComponent(params.league)}/${encodeURIComponent(params.family)}.png`,
+							`/share/streaks/${encodeURIComponent(params.username)}/${encodeURIComponent(params.league)}/${encodeURIComponent(params.family)}/${encodeURIComponent(params.mode)}.png`,
 						),
 					)
 				} catch {

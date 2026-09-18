@@ -152,6 +152,52 @@ describe("computeTrack", () => {
 		expect(computeTrack(rows).lastSettledAt).toEqual(rows[1]?.realizedAt)
 		expect(computeTrack([]).lastSettledAt).toBeNull()
 	})
+
+	it("counts a cold streak the newest counted call is still in", () => {
+		const track = computeTrack(rowsFor([W, L, L, L]))
+		expect(track.currentCold?.length).toBe(3)
+		expect(track.worstCold?.length).toBe(3)
+	})
+
+	it("doesn't break a cold streak on a skip", () => {
+		const track = computeTrack(rowsFor([L, S, L]))
+		expect(track.currentCold?.length).toBe(2)
+	})
+
+	it("ends a cold streak on a win and keeps it as the worst", () => {
+		const track = computeTrack(rowsFor([L, L, L, W, L]))
+		expect(track.currentCold?.length).toBe(1)
+		expect(track.worstCold?.length).toBe(3)
+	})
+
+	it("keeps the earlier cold streak as worst on a tie", () => {
+		const rows = rowsFor([L, L, W, L, L])
+		const track = computeTrack(rows)
+		expect(track.worstCold?.startCallId).toBe(rows[0]?.callId)
+	})
+
+	it("gives misses no position, so only wins carry a streak tag", () => {
+		const rows = rowsFor([L, L])
+		const track = computeTrack(rows)
+		expect(track.positions.size).toBe(0)
+	})
+
+	it("leaves exactly one of current and currentCold set once a call counts", () => {
+		for (const outcomes of [
+			[W],
+			[L],
+			[W, L],
+			[L, W],
+			[W, S, L],
+			[L, L, W, S],
+		]) {
+			const track = computeTrack(rowsFor(outcomes))
+			expect([track.current, track.currentCold].filter(Boolean)).toHaveLength(1)
+		}
+		const empty = computeTrack(rowsFor([S, S]))
+		expect(empty.current).toBeNull()
+		expect(empty.currentCold).toBeNull()
+	})
 })
 
 describe("streakEvents", () => {

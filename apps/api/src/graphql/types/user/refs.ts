@@ -1,3 +1,4 @@
+import { COLD_STREAK_MIN } from "@called-my-shot/scoring"
 import { db } from "../../../db"
 import { mutedEmailTypes } from "../../../lib/email-prefs"
 import {
@@ -144,6 +145,21 @@ export const UserRef = builder.drizzleObject("users", {
 				db.query.userStreaks.findMany({
 					where: { userId: user.id, bestLength: { gte: LISTED_STREAK_MIN } },
 					orderBy: { currentLength: "desc", bestLength: "desc" },
+				}),
+		}),
+		// Every track the user is currently cold on, coldest first. Separate
+		// from streaks above rather than a filter over it: a track that has
+		// only ever missed has a bestLength of 0, so it never clears that
+		// field's LISTED_STREAK_MIN.
+		coldStreaks: t.field({
+			type: [UserStreakRef],
+			resolve: (user) =>
+				db.query.userStreaks.findMany({
+					where: {
+						userId: user.id,
+						currentColdLength: { gte: COLD_STREAK_MIN },
+					},
+					orderBy: { currentColdLength: "desc", worstColdLength: "desc" },
 				}),
 		}),
 		streak: t.field({
