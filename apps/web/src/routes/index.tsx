@@ -146,7 +146,7 @@ function Home() {
 						</VStack>
 					</div>
 					<div id="make-calls" className={css({ scrollMarginTop: "24" })}>
-						<GuestPicks questions={data.guestPicks.items} />
+						<GuestPicks questions={data.guestPicks} />
 					</div>
 				</LandingPageWrap>
 			</header>

@@ -156,9 +156,21 @@ type AnalyticsEvents = {
 	guest_pick_made: {
 		questionId: string
 		questionShape: QuestionCallShape
+		leagueId: string
 		index: number
 	}
-	guest_pick_skipped: { questionId: string }
+	// Carries the same league and shape a made pick does, so a skip rate can be
+	// read per league and per shape. Which one the skips cluster on is the whole
+	// question: a league means the stack offered a sport the visitor doesn't
+	// follow, a shape means the question itself was the problem.
+	guest_pick_skipped: {
+		questionId: string
+		questionShape: QuestionCallShape
+		leagueId: string
+	}
+	// The hero's league chips. Without it there's no telling a visitor who found
+	// their sport apart from one who never noticed the row.
+	guest_picks_league_selected: { leagueId: string }
 	guest_picks_signup_opened: { pickCount: number }
 	// Fired once the account exists and the held picks have been sent.
 	// `notPosted` counts refusals (the game locked, or already called) and

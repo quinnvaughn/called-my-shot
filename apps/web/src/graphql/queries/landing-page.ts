@@ -8,13 +8,17 @@ export const LandingPageDocument = graphql(`
 			abbreviation
 			slug
 		}
-		# The hero's try-it stack: official questions locking within the next
-		# two days, limited to shapes that take a single tap to call.
-		# orderGuestPicks decides which lead and which back the Skip button.
-		guestPicks: questions(
-			sort: CLOSING_SOON
-			first: 12
-			isOfficial: true
+		# The hero's try-it stack. guestPickQuestions returns the soonest
+		# questions in every active league rather than the soonest overall, so
+		# a visitor who only follows one sport is offered it whether its next
+		# game is tomorrow or a month out. Limited to shapes that take a single
+		# tap to call. guestPickLeagues builds the chip row out of what comes
+		# back and orderGuestPicks scopes the stack to the chosen league.
+		#
+		# 8 per league: the stack shows three, and the rest are what Skip draws
+		# on without leaving that league.
+		guestPicks: guestPickQuestions(
+			perLeague: 8
 			shapes: [
 				TEAM_VS_TEAM
 				YES_NO_PROP
@@ -24,15 +28,14 @@ export const LandingPageDocument = graphql(`
 				PLAYER_VS_PLAYER
 			]
 		) {
-			items {
+			id
+			shape
+			locksAt
+			league {
 				id
-				shape
-				locksAt
-				league {
-					id
-				}
-				...GuestPickCard_question
+				abbreviation
 			}
+			...GuestPickCard_question
 		}
 		# Current season, matching /leaderboard's own default - "the
 		# leaderboard" should mean the same thing on the front page as it does
