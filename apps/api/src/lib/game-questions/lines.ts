@@ -15,6 +15,15 @@ export type LineRule = {
 	minLine: number
 }
 
+// The generated shapes whose lines setLine sets, and so the ones
+// ./line-calibration reads back and ./tune-lines moves the shade of. A team
+// over/under's line is set from the team's own final scores, a player's from
+// ESPN season stats, but both land in lineBasis the same way.
+export const GENERATED_OVER_UNDER_SHAPES = [
+	"player_stat_over_under",
+	"team_stat_over_under",
+] as const
+
 // One season's per-game average and the games it's over.
 export type SeasonSample = { mean: number; games: number }
 

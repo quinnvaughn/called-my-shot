@@ -50,6 +50,7 @@ const catalogTemplate = (leagueSlug: string, id: string) => {
 }
 
 const TEAM_POINTS = catalogTemplate("nba", "team-points")
+const TEAM_POINTS_LINE = catalogTemplate("nba", "team-points-ou")
 const POINTS_DUEL = catalogTemplate("nba", "top-scorer-points-duel")
 const POINTS_LINE = catalogTemplate("nba", "top-scorer-points")
 const REBOUNDS_LEADER = catalogTemplate("nba", "rebounds-leader")
@@ -66,7 +67,9 @@ const run = (templates?: GameQuestionTemplate[], leagueSlug = "nba") =>
 			? {
 					templates: {
 						[leagueSlug]: templates.map((template) =>
-							"group" in template ? { ...template, group: template.id } : template,
+							"group" in template
+								? { ...template, group: template.id }
+								: template,
 						),
 					},
 					playerQuestionsPerGame: { [leagueSlug]: templates.length },
@@ -430,6 +433,92 @@ describe("generateGameQuestions", () => {
 		expect(await templateIds()).toEqual(first)
 	})
 
+	// Every team over/under line comes off finished games, so these seed
+	// scores rather than ESPN season stats.
+	const playFinals = (
+		league: League,
+		seasonId: string,
+		team: Team,
+		scores: number[],
+	) =>
+		Promise.all(
+			scores.map(async (score, index) =>
+				makeGame({
+					leagueId: league.id,
+					seasonId,
+					homeTeamId: team.id,
+					awayTeamId: (await makeTeam({ leagueId: league.id })).id,
+					startsAt: hoursFromNow(-100 - index),
+					status: "final",
+					homeScore: score,
+					awayScore: 100,
+				}),
+			),
+		)
+
+	it("sets each team's over/under from its own finished games", async () => {
+		const { league, away, home, game } = await seedNbaGame()
+		await playFinals(league, game.seasonId, away, [100, 110, 120, 110, 110])
+		await playFinals(league, game.seasonId, home, [120, 130, 128, 122, 120])
+
+		await run([TEAM_POINTS_LINE])
+
+		const posted = await questionsOn(game.id)
+		expect(shapeCounts(posted)).toEqual({ team_stat_over_under: 2 })
+		const lineFor = (teamId: string) =>
+			posted.find((q) => q.subjectTeamId === teamId)?.ouLine
+		expect(lineFor(away.id)).toBe(110.5)
+		expect(lineFor(home.id)).toBe(124.5)
+		expect(posted[0]?.options.map((o) => o.label)).toEqual(["Over", "Under"])
+	})
+
+	it("titles a team over/under with the team and its line", async () => {
+		const { league, away, home, game } = await seedNbaGame()
+		await playFinals(league, game.seasonId, away, [100, 110, 120, 110, 110])
+		await playFinals(league, game.seasonId, home, [120, 130, 128, 122, 120])
+
+		await run([TEAM_POINTS_LINE])
+
+		const titles = (await questionsOn(game.id)).map((q) => q.title).sort()
+		expect(titles).toEqual([
+			"Celtics: over/under 124.5 points",
+			"Knicks: over/under 110.5 points",
+		])
+	})
+
+	it("skips a team too early in the season for a line, keeping its guess", async () => {
+		const { league, away, home, game } = await seedNbaGame()
+		await playFinals(league, game.seasonId, away, [100, 110])
+		await playFinals(league, game.seasonId, home, [120, 130, 128, 122, 120])
+
+		await run([TEAM_POINTS_LINE, TEAM_POINTS])
+
+		const posted = await questionsOn(game.id)
+		expect(shapeCounts(posted)).toEqual({
+			team_stat_over_under: 1,
+			team_stat_numeric_guess: 2,
+		})
+		expect(
+			posted.find((q) => q.shape === "team_stat_over_under")?.subjectTeamId,
+		).toBe(home.id)
+	})
+
+	it("posts a team over/under ahead of the guess on the same stat", async () => {
+		const { league, away, home, game } = await seedNbaGame()
+		await playFinals(league, game.seasonId, away, [100, 110, 120, 110, 110])
+		await playFinals(league, game.seasonId, home, [120, 130, 128, 122, 120])
+
+		await run([TEAM_POINTS_LINE, TEAM_POINTS])
+
+		const posted = (await questionsOn(game.id)).sort(
+			(a, b) => a.createdAt.getTime() - b.createdAt.getTime(),
+		)
+		expect(posted.slice(0, 2).map((q) => q.shape)).toEqual([
+			"team_stat_over_under",
+			"team_stat_over_under",
+		])
+	})
+
 	it("posts only the team guesses before any starters are listed", async () => {
 		const { game } = await seedNbaGame()
 
@@ -664,9 +753,9 @@ describe("gamesInWindow", () => {
 	it("leaves out a game about to start", () => {
 		const aboutToStart = nflGame(0.5, 3)
 		const later = nflGame(3, 3)
-		expect(
-			gamesInWindow([aboutToStart, later], { kind: "week" }, NOW),
-		).toEqual([later])
+		expect(gamesInWindow([aboutToStart, later], { kind: "week" }, NOW)).toEqual(
+			[later],
+		)
 	})
 
 	it("takes the hours ahead for a daily league", () => {

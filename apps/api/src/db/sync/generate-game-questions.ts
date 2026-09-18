@@ -36,6 +36,7 @@ import {
 } from "../../lib/game-questions/pick-subjects"
 import { refreshGeneratedQuestionSchedule } from "../../lib/game-questions/schedule"
 import { selectGameTemplates } from "../../lib/game-questions/select-templates"
+import { createTeamScoreCache } from "../../lib/game-questions/team-lines"
 import {
 	type GameQuestionTitleFacts,
 	gameQuestionTitle,
@@ -167,6 +168,13 @@ type LeagueContext = {
 		espnAthleteId: string,
 		year: number,
 	) => Promise<Map<string, number> | null>
+	// A team's own final scores this season and last, for the team over/under
+	// lines - see createTeamScoreCache.
+	teamSamplesFor: (
+		teamId: string,
+		year: number,
+		priorWeight: number,
+	) => Promise<Samples>
 }
 
 type PlannedQuestion = {
@@ -275,9 +283,7 @@ function rosterCandidates(
 		.filter(
 			(player) =>
 				!pick.positions ||
-				player.positions.some((position) =>
-					pick.positions?.includes(position),
-				),
+				player.positions.some((position) => pick.positions?.includes(position)),
 		)
 		.map((player, index) => ({
 			playerId: player.id,
@@ -300,8 +306,7 @@ async function rankedStarters(
 ): Promise<{ candidate: StarterCandidate; samples: Samples }[]> {
 	const gameStarters = ctx.starters.filter((s) => s.gameId === game.id)
 	const candidates =
-		pick.source === "roster" &&
-		!startersPosted(gameStarters, teamId, pick.role)
+		pick.source === "roster" && !startersPosted(gameStarters, teamId, pick.role)
 			? rosterCandidates(ctx, teamId, pick)
 			: eligibleStarters(gameStarters, teamId, pick)
 	const eligible = candidates.filter((candidate) =>
@@ -350,7 +355,9 @@ function isStale(
 	return match(template)
 		.with({ shape: "player_stat_over_under" }, ({ pick }) => {
 			const [teamId, playerId] = keyRest
-			return !!teamId && !!playerId && isRuledOut(starters, teamId, playerId, pick)
+			return (
+				!!teamId && !!playerId && isRuledOut(starters, teamId, playerId, pick)
+			)
 		})
 		.with({ shape: "player_vs_player" }, ({ pick }) => {
 			const [awayPlayerId, homePlayerId] = keyRest
@@ -363,6 +370,7 @@ function isStale(
 		})
 		.with(
 			{ shape: "team_stat_numeric_guess" },
+			{ shape: "team_stat_over_under" },
 			{ shape: "player_game_stat_leader" },
 			() => false,
 		)
@@ -382,6 +390,7 @@ function subjectPlayerIds(
 		.with({ shape: "player_stat_over_under" }, () => keyRest.slice(1, 2))
 		.with(
 			{ shape: "team_stat_numeric_guess" },
+			{ shape: "team_stat_over_under" },
 			{ shape: "player_game_stat_leader" },
 			() => [],
 		)
@@ -439,6 +448,42 @@ async function planTemplate(
 					},
 				]
 			}),
+		)
+		.with(
+			{ shape: "team_stat_over_under" },
+			async ({ statName, line, priorWeight }) => {
+				const planned: PlannedQuestion[] = []
+				for (const team of teams) {
+					const key = generationKey([...base, team.id])
+					if (isFilled(key)) continue
+					const { season, prior } = await ctx.teamSamplesFor(
+						team.id,
+						game.season.year,
+						priorWeight,
+					)
+					// A team too early in the season to carry a line is skipped;
+					// the numeric guess on the same stat still goes up.
+					const basis = setLine(season, prior, priorWeight, line)
+					if (!basis) continue
+					planned.push({
+						key,
+						title: {
+							shape: "team_stat_over_under",
+							statName,
+							teamId: team.id,
+							ouLine: basis.line,
+						},
+						subjectTeamId: team.id,
+						ouLine: basis.line,
+						lineBasis: basis,
+						options: [
+							{ label: "Over", sortOrder: 0 },
+							{ label: "Under", sortOrder: 1 },
+						],
+					})
+				}
+				return planned
+			},
 		)
 		.with({ shape: "player_game_stat_leader" }, async ({ statName, pick }) => {
 			const key = generationKey(base)
@@ -840,6 +885,7 @@ async function generateForLeague(
 			playerRefs.map((ref) => [ref.entityId, espnIdOf(ref.sourceId)]),
 		),
 		seasonStatsFor: createSeasonStatsCache(config, requester),
+		teamSamplesFor: createTeamScoreCache(league.id),
 	}
 
 	let created = 0

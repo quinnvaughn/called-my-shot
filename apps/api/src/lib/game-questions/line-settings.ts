@@ -9,12 +9,22 @@ import {
 	gameQuestionLineSettings,
 } from "../../db/schema"
 import { type CalibrationRow, lineCalibration } from "./line-calibration"
-import type { LineRule } from "./lines"
+import { GENERATED_OVER_UNDER_SHAPES, type LineRule } from "./lines"
 
 export type OverUnderTemplate = Extract<
 	GameQuestionTemplate,
-	{ shape: "player_stat_over_under" }
+	{ shape: (typeof GENERATED_OVER_UNDER_SHAPES)[number] }
 >
+
+// Both over/under templates carry a LineRule, so everything the Lines page
+// and the tuner do to one works on the other unchanged.
+export function isGeneratedOverUnder(
+	template: GameQuestionTemplate,
+): template is OverUnderTemplate {
+	return (GENERATED_OVER_UNDER_SHAPES as readonly string[]).includes(
+		template.shape,
+	)
+}
 
 // One over/under template as the admin Lines page shows it: the settings its
 // lines are set from now, the catalog's own, whether tuneLines is moving its
@@ -48,7 +58,7 @@ export function overUnderTemplate(
 	const template = GAME_QUESTION_CATALOG[leagueSlug]?.find(
 		(t) => t.id === templateId,
 	)
-	return template?.shape === "player_stat_over_under" ? template : undefined
+	return template && isGeneratedOverUnder(template) ? template : undefined
 }
 
 // A league's saved line settings by template id.
@@ -68,7 +78,7 @@ export function withLineSettings(
 	settings: Map<string, LineRule>,
 ): GameQuestionTemplate[] {
 	return templates.map((template) =>
-		template.shape === "player_stat_over_under"
+		isGeneratedOverUnder(template)
 			? { ...template, line: settings.get(template.id) ?? template.line }
 			: template,
 	)
@@ -86,7 +96,7 @@ export async function lineSettingRows(): Promise<LineSettingRow[]> {
 	return Object.entries(GAME_QUESTION_CATALOG).flatMap(
 		([leagueSlug, templates]) =>
 			templates.flatMap((template) => {
-				if (template.shape !== "player_stat_over_under") return []
+				if (!isGeneratedOverUnder(template)) return []
 				const row = savedByKey.get(`${leagueSlug}:${template.id}`)
 				const line = row ? ruleOf(row) : template.line
 				return [

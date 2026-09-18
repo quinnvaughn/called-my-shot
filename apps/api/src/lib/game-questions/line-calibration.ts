@@ -1,5 +1,6 @@
 import { db } from "../../db"
 import { parseGenerationKey } from "./generation-key"
+import { GENERATED_OVER_UNDER_SHAPES } from "./lines"
 
 // Lines are meant to be coin flips, so a template whose overs land outside
 // this share needs its shade moved: up when overs hit too often (the lines are
@@ -24,7 +25,7 @@ export type CalibrationRow = {
 export async function lineCalibration(): Promise<CalibrationRow[]> {
 	const resolved = await db.query.questions.findMany({
 		where: {
-			shape: "player_stat_over_under",
+			shape: { in: [...GENERATED_OVER_UNDER_SHAPES] },
 			status: "resolved",
 			generationKey: { isNotNull: true },
 			lineBasis: { isNotNull: true },

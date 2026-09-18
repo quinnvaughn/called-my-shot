@@ -25,6 +25,20 @@ export type GameQuestionTemplate =
 			statName: string
 	  }
 	| {
+			// A team's own final score over/under a line set from the games it
+			// has already played, once per team. The line comes from the games
+			// table rather than ESPN - see lib/game-questions/team-lines.ts.
+			id: string
+			tier: number
+			shape: "team_stat_over_under"
+			statName: string
+			line: LineRule
+			// How many of this season's games a team needs before last
+			// season's scores stop standing in, the same blend a player line
+			// uses (see blendSamples).
+			priorWeight: number
+	  }
+	| {
 			// Each team's best starter at the pick, head to head.
 			id: string
 			tier: number
@@ -180,6 +194,14 @@ const mlbBatter = (espnStat: string): StarterPick => ({
 export const GAME_QUESTION_CATALOG: Record<string, GameQuestionTemplate[]> = {
 	nfl: [
 		{
+			id: "team-points-ou",
+			tier: 1,
+			shape: "team_stat_over_under",
+			statName: "Points",
+			line: { minGames: 3, shade: 1, minLine: 10.5 },
+			priorWeight: 4,
+		},
+		{
 			id: "team-points",
 			tier: 1,
 			shape: "team_stat_numeric_guess",
@@ -279,6 +301,14 @@ export const GAME_QUESTION_CATALOG: Record<string, GameQuestionTemplate[]> = {
 		},
 	],
 	nba: [
+		{
+			id: "team-points-ou",
+			tier: 1,
+			shape: "team_stat_over_under",
+			statName: "Points",
+			line: { minGames: 5, shade: 1, minLine: 80.5 },
+			priorWeight: 10,
+		},
 		{
 			id: "team-points",
 			tier: 1,
@@ -388,6 +418,14 @@ export const GAME_QUESTION_CATALOG: Record<string, GameQuestionTemplate[]> = {
 	],
 	mlb: [
 		{
+			id: "team-runs-ou",
+			tier: 1,
+			shape: "team_stat_over_under",
+			statName: "Runs",
+			line: { minGames: 10, shade: 1, minLine: 1.5 },
+			priorWeight: 20,
+		},
+		{
 			id: "team-runs",
 			tier: 1,
 			shape: "team_stat_numeric_guess",
@@ -465,7 +503,9 @@ export const GAME_QUESTION_CATALOG: Record<string, GameQuestionTemplate[]> = {
 }
 
 // The templates a league posts at its current tier.
-export function activeGameTemplates(leagueSlug: string): GameQuestionTemplate[] {
+export function activeGameTemplates(
+	leagueSlug: string,
+): GameQuestionTemplate[] {
 	const tier = GENERATION_TIER[leagueSlug] ?? 0
 	return (GAME_QUESTION_CATALOG[leagueSlug] ?? []).filter(
 		(template) => template.tier <= tier,

@@ -15,6 +15,12 @@ export type GameQuestionTitleFacts =
 	| { shape: "team_vs_team" }
 	| { shape: "team_stat_numeric_guess"; statName: string; teamId: string }
 	| {
+			shape: "team_stat_over_under"
+			statName: string
+			teamId: string
+			ouLine: number
+	  }
+	| {
 			shape: "player_vs_player"
 			statName: string
 			// Away player first, same order as the question's options.
@@ -35,42 +41,52 @@ export function gameQuestionTitle(
 	const teamName = (teamId: string) =>
 		teamId === game.homeTeam.id ? game.homeTeam.name : game.awayTeam.name
 
-	return match(facts)
-		.with({ shape: "team_vs_team" }, () =>
-			generateQuestionTitle({ shape: "team_vs_team" }),
-		)
-		.with({ shape: "team_stat_numeric_guess" }, (f) =>
-			generateQuestionTitle({
-				shape: "team_stat_numeric_guess",
-				teamName: teamName(f.teamId),
-				statName: f.statName,
-			}),
-		)
-		// Every generated head-to-head is on a counting stat.
-		.with({ shape: "player_vs_player" }, (f) =>
-			generateQuestionTitle({
-				shape: "player_vs_player",
-				playerAName: f.playerNames[0],
-				playerBName: f.playerNames[1],
-				statName: f.statName,
-				isRateStat: false,
-			}),
-		)
-		.with({ shape: "player_stat_over_under" }, (f) =>
-			generateQuestionTitle({
-				shape: "player_stat_over_under",
-				playerName: f.playerName,
-				statName: f.statName,
-				ouLine: String(f.ouLine),
-			}),
-		)
-		.with({ shape: "player_game_stat_leader" }, (f) =>
-			generateQuestionTitle({
-				shape: "player_game_stat_leader",
-				statName: f.statName,
-			}),
-		)
-		.exhaustive()
+	return (
+		match(facts)
+			.with({ shape: "team_vs_team" }, () =>
+				generateQuestionTitle({ shape: "team_vs_team" }),
+			)
+			.with({ shape: "team_stat_numeric_guess" }, (f) =>
+				generateQuestionTitle({
+					shape: "team_stat_numeric_guess",
+					teamName: teamName(f.teamId),
+					statName: f.statName,
+				}),
+			)
+			.with({ shape: "team_stat_over_under" }, (f) =>
+				generateQuestionTitle({
+					shape: "team_stat_over_under",
+					teamName: teamName(f.teamId),
+					statName: f.statName,
+					ouLine: String(f.ouLine),
+				}),
+			)
+			// Every generated head-to-head is on a counting stat.
+			.with({ shape: "player_vs_player" }, (f) =>
+				generateQuestionTitle({
+					shape: "player_vs_player",
+					playerAName: f.playerNames[0],
+					playerBName: f.playerNames[1],
+					statName: f.statName,
+					isRateStat: false,
+				}),
+			)
+			.with({ shape: "player_stat_over_under" }, (f) =>
+				generateQuestionTitle({
+					shape: "player_stat_over_under",
+					playerName: f.playerName,
+					statName: f.statName,
+					ouLine: String(f.ouLine),
+				}),
+			)
+			.with({ shape: "player_game_stat_leader" }, (f) =>
+				generateQuestionTitle({
+					shape: "player_game_stat_leader",
+					statName: f.statName,
+				}),
+			)
+			.exhaustive()
+	)
 }
 
 export type TitledQuestion = Question & {
@@ -124,11 +140,20 @@ export function titleFactsFor(
 					}
 				: null,
 		)
+		.with("team_stat_over_under", () =>
+			statName && question.subjectTeamId && question.ouLine !== null
+				? {
+						shape: "team_stat_over_under",
+						statName,
+						teamId: question.subjectTeamId,
+						ouLine: question.ouLine,
+					}
+				: null,
+		)
 		.with("player_game_stat_leader", () =>
 			statName ? { shape: "player_game_stat_leader", statName } : null,
 		)
 		.with(
-			"team_stat_over_under",
 			"player_season_stat_over_under",
 			"team_season_stat_over_under",
 			"game_total_over_under",

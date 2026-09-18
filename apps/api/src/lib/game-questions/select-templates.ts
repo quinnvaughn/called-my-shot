@@ -34,7 +34,8 @@ export function shuffled<T>(items: T[], random: () => number): T[] {
 }
 
 const isTeamTemplate = (template: SelectableTemplate) =>
-	template.shape === "team_stat_numeric_guess"
+	template.shape === "team_stat_numeric_guess" ||
+	template.shape === "team_stat_over_under"
 
 // Every team template, every template already holding a live question on the
 // game, then player templates in the game's shuffled order until there are

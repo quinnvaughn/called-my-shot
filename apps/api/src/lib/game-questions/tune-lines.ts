@@ -3,6 +3,8 @@ import { db } from "../../db"
 import { GAME_QUESTION_CATALOG } from "../../db/catalog/game-question-catalog"
 import { gameQuestionLineSettings } from "../../db/schema"
 import { parseGenerationKey } from "./generation-key"
+import { isGeneratedOverUnder } from "./line-settings"
+import { GENERATED_OVER_UNDER_SHAPES } from "./lines"
 
 // A generated line is floor(average x shade) + 0.5, so for a whole-number stat
 // the over hits exactly when the result divided by the player's average beats
@@ -55,7 +57,7 @@ export function nextShade(current: number, ratios: number[]): number | null {
 async function ratiosByTemplate(): Promise<Map<string, number[]>> {
 	const resolved = await db.query.questions.findMany({
 		where: {
-			shape: "player_stat_over_under",
+			shape: { in: [...GENERATED_OVER_UNDER_SHAPES] },
 			status: "resolved",
 			generationKey: { isNotNull: true },
 			lineBasis: { isNotNull: true },
@@ -96,7 +98,7 @@ export async function tuneLines(now = new Date()): Promise<number> {
 	let tuned = 0
 	for (const [leagueSlug, templates] of Object.entries(GAME_QUESTION_CATALOG)) {
 		for (const template of templates) {
-			if (template.shape !== "player_stat_over_under") continue
+			if (!isGeneratedOverUnder(template)) continue
 			const key = `${leagueSlug}:${template.id}`
 			const row = savedByKey.get(key)
 			if (row && !row.autoTune) continue
