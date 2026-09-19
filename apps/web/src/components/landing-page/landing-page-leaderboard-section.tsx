@@ -57,9 +57,9 @@ export function LandingPageLeaderboardSection({ entries: entriesProp }: Props) {
 		<LandingPageContentSection
 			id="leaderboard"
 			alt
-			eyebrow="The leaderboard"
+			eyebrow="The leaderboards"
 			title="A board you can actually top."
-			description="Every league keeps its own standings, for this season and all time, next to the overall board. You don't have to know every sport to lead one. Points and accuracy are public, so the only way up is being right."
+			description="The overall board, each league's standings for this season and all time, and your group's private board all run on the same points. A group board is just these rows filtered to the people you invited, so you can sit mid-pack here and still run your group chat."
 		>
 			<VStack
 				gap="6"

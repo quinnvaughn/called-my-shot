@@ -1,8 +1,16 @@
 import { useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute, Link, redirect } from "@tanstack/react-router"
-import { FiHelpCircle, FiLock, FiUsers, FiZap } from "react-icons/fi"
+import {
+	FiAward,
+	FiHelpCircle,
+	FiLock,
+	FiMessageCircle,
+	FiMic,
+	FiUsers,
+	FiZap,
+} from "react-icons/fi"
 import { css } from "styled-system/css"
-import { VStack } from "styled-system/jsx"
+import { HStack, VStack } from "styled-system/jsx"
 import { AuthModal } from "#/components/auth/auth-modal"
 import { GuestPicks } from "#/components/landing-page/guest-picks/guest-picks"
 import { LandingPageFeatureSection } from "#/components/landing-page/landing-page-feature-section"
@@ -32,18 +40,39 @@ export const Route = createFileRoute("/")({
 	component: Home,
 })
 
+const whoItems = [
+	{
+		icon: <FiMessageCircle />,
+		title: "Your group chat",
+		description:
+			"The takes are already flying. Start a group, drop the invite link in the chat, and the standings remember who said what.",
+	},
+	{
+		icon: <FiAward />,
+		title: "Your fantasy league",
+		description:
+			"Fantasy only scores the players you drafted. Run a group next to it so the league also settles who reads games right, including the weeks your roster is dead.",
+	},
+	{
+		icon: <FiMic />,
+		title: "Your audience",
+		description:
+			"Podcast, channel, newsletter, whatever you run. One invite link gives every follower a leaderboard to beat you on. Nobody puts money up, so it's a scoreboard, not a sportsbook.",
+	},
+	{
+		icon: <FiUsers />,
+		title: "Your community",
+		description:
+			"Discord server, subreddit, a stats group, whatever you're already in. Nobody has to run it. Post the invite link once and the board sorts out who in the room calls games right.",
+	},
+]
+
 const whyItems = [
 	{
 		icon: <FiLock />,
 		title: "Receipts, not vibes",
 		description:
 			"Every call locks when the game starts and can't be edited after. Your accuracy sits on your profile for anyone to check.",
-	},
-	{
-		icon: <FiUsers />,
-		title: "Settle it with your people",
-		description:
-			"Make a private leaderboard for your group chat, fantasy league, or office. Send the invite link, everyone calls the same games, and the standings settle who actually knows ball.",
 	},
 	{
 		icon: <FiHelpCircle />,
@@ -120,9 +149,10 @@ function Home() {
 										maxWidth: "lg",
 									})}
 								>
-									Make calls on real games for free. Every call goes on your
-									record, right or wrong, and your group can see exactly who
-									called it.
+									Make calls on real games for free, then put a leaderboard
+									behind it for your group chat, your fantasy league, or your
+									whole audience. Every call goes on your record, right or
+									wrong.
 								</p>
 							</VStack>
 							<VStack alignItems="flex-start" gap="3">
@@ -135,13 +165,18 @@ function Home() {
 								>
 									free · no money, ever · takes 30 seconds
 								</p>
-								<Button
-									variant="ghost"
-									size="md"
-									onClick={() => openModal(<AuthModal defaultView="signin" />)}
-								>
-									Already have an account? Sign in
-								</Button>
+								<HStack gap="3" flexWrap="wrap">
+									<p className={css({ color: "fg.muted", fontSize: "sm" })}>
+										Already have an account?
+									</p>
+									<Button
+										variant="dark"
+										size="md"
+										onClick={() => openModal(<AuthModal defaultView="signin" />)}
+									>
+										Sign in
+									</Button>
+								</HStack>
 							</VStack>
 						</VStack>
 					</div>
@@ -151,11 +186,19 @@ function Home() {
 				</LandingPageWrap>
 			</header>
 			<LandingPageFeatureSection
+				id="who"
+				eyebrow="Who it's for"
+				title="Somebody in every group needs to be proven wrong."
+				description="A group is a private leaderboard for people who already argue about this. Free to join, no money in it, so anyone you'd invite can actually play."
+				items={whoItems}
+			/>
+			<LandingPageFeatureSection
 				id="why"
 				alt
+				columns={3}
 				eyebrow="Why play"
 				title="Being right is more fun when it's on the record."
-				description="No money on the line. Just a public record of what you called and how it went."
+				description="Every call is timestamped, locked when the game starts, and scored against what the rest of the field said."
 				items={whyItems}
 			/>
 			<LandingPageSection>

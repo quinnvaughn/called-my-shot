@@ -21,6 +21,21 @@ type Props = {
 	id?: string
 }
 
+// Each column count needs its own literal css() call: Panda extracts styles
+// statically, so a breakpoint map built at runtime generates no CSS and the
+// grid silently falls back to a single column.
+const columnStyles = {
+	2: css({ gridTemplateColumns: { base: "1fr", md: "repeat(2, 1fr)" } }),
+	// Three go wide at lg rather than xl, since a 2+1 orphan row is the only
+	// other option and there's room for three across at 1024.
+	3: css({
+		gridTemplateColumns: { base: "1fr", md: "1fr 1fr", lg: "repeat(3, 1fr)" },
+	}),
+	4: css({
+		gridTemplateColumns: { base: "1fr", md: "1fr 1fr", xl: "repeat(4, 1fr)" },
+	}),
+}
+
 export function LandingPageFeatureSection({
 	items,
 	columns = 4,
@@ -28,15 +43,7 @@ export function LandingPageFeatureSection({
 }: Props) {
 	return (
 		<LandingPageContentSection {...headerProps}>
-			<Grid
-				gridTemplateColumns={{
-					base: "1fr",
-					md: "1fr 1fr",
-					xl: `repeat(${columns}, 1fr)`,
-				}}
-				gap="5"
-				width="full"
-			>
+			<Grid className={columnStyles[columns]} gap="5" width="full">
 				{items.map((item) => (
 					<FeatureCard {...item} key={item.title} />
 				))}

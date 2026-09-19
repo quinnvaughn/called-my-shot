@@ -61,7 +61,7 @@ export const Route = createRootRouteWithContext<RouterContext>()({
 			{
 				name: "description",
 				content:
-					"Make calls on real games for free. Every call goes on your record, and your friends can see who actually called it.",
+					"Make calls on real games for free and settle it on a private leaderboard with your group chat, your fantasy league, or your audience. No money, ever.",
 			},
 			{
 				property: "og:type",
@@ -78,7 +78,7 @@ export const Route = createRootRouteWithContext<RouterContext>()({
 			{
 				property: "og:description",
 				content:
-					"Make calls on real games for free. Every call goes on your record, and your friends can see who actually called it.",
+					"Make calls on real games for free and settle it on a private leaderboard with your group chat, your fantasy league, or your audience. No money, ever.",
 			},
 			{
 				property: "og:url",
@@ -99,7 +99,7 @@ export const Route = createRootRouteWithContext<RouterContext>()({
 			{
 				name: "twitter:description",
 				content:
-					"Make calls on real games for free. Every call goes on your record, and your friends can see who actually called it.",
+					"Make calls on real games for free and settle it on a private leaderboard with your group chat, your fantasy league, or your audience. No money, ever.",
 			},
 			{
 				name: "twitter:image",
