@@ -2,6 +2,7 @@ import { Link } from "@tanstack/react-router"
 import { css } from "styled-system/css"
 import { VStack } from "styled-system/jsx"
 import { type FragmentType, graphql, useFragment } from "#/graphql/generated"
+import { toIdentity } from "#/lib/identity"
 import { CaseBlock } from "./case-block"
 import { PersonLine } from "./person-line"
 import { PickList } from "./pick-list"
@@ -14,8 +15,7 @@ export const CallRowFragment = graphql(`
 		totalPoints
 		caseText
 		user {
-			name
-			username
+			...Identity_user
 		}
 		question {
 			id
@@ -60,6 +60,7 @@ type Props = {
 // it yourself and it has already resolved.
 export function CallRow({ call: callProp }: Props) {
 	const call = useFragment(CallRowFragment, callProp)
+	const caller = toIdentity(call.user)
 
 	return (
 		<VStack
@@ -81,14 +82,18 @@ export function CallRow({ call: callProp }: Props) {
 			<Link
 				to="/calls/$callId"
 				params={{ callId: call.id }}
-				aria-label={`${call.user.name}'s call`}
+				aria-label={`${caller.name}'s call`}
 				className={css({
 					position: "absolute",
 					inset: "0",
 					borderRadius: "md",
 				})}
 			/>
-			<PersonLine name={call.user.name} username={call.user.username} />
+			<PersonLine
+				name={caller.name}
+				username={caller.username}
+				flair={caller.flair}
+			/>
 			<PickList call={call} />
 			{call.caseText && (
 				<div className={css({ position: "relative", zIndex: 1 })}>

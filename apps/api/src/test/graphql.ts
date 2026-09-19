@@ -31,6 +31,7 @@ export function testContext(user: User | null = null): Context & {
 		globalLeaderboardCache: new Map(),
 		groupLeaderboardCache: new Map(),
 		groupHighlightsCache: new Map(),
+		teamsByIdCache: { promise: null },
 		cookies,
 		clearedCookies,
 	}

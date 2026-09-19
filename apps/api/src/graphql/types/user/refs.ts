@@ -6,6 +6,7 @@ import {
 	type LeaderboardEntry,
 } from "../../../lib/global-leaderboard"
 import { builder } from "../../builder"
+import { FlairRef } from "../flair"
 import { CallRef, VoidReason } from "../question"
 import { EmailPreferenceType, StreakFamilyEnum } from "./enums"
 import { buildUserLeagueStats, UserLeagueStatsRef } from "./stats"
@@ -95,6 +96,23 @@ export const UserRef = builder.drizzleObject("users", {
 		createdAt: t.field({
 			type: "String",
 			resolve: (user) => user.createdAt.toISOString(),
+		}),
+		// The one chip shown beside this user's name site-wide. Null for an
+		// account that hasn't picked one, which is every account until it does.
+		equippedFlair: t.relation("equippedFlair", { nullable: true }),
+		// Only what this user was GIVEN, newest first. Not what they can equip:
+		// every team flair is open to everyone with no row behind it, so the
+		// picker reads the myFlairs query instead.
+		grantedFlairs: t.field({
+			type: [FlairRef],
+			resolve: async (user) => {
+				const rows = await db.query.userFlairs.findMany({
+					where: { userId: user.id },
+					orderBy: { grantedAt: "desc" },
+					with: { flair: true },
+				})
+				return rows.map((row) => row.flair)
+			},
 		}),
 		// Null on a brand new account, which is what makes the get-started
 		// checklist appear. Read straight off the Me query into router context,

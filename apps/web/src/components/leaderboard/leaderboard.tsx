@@ -6,8 +6,8 @@ import { Button } from "#/components/ui/button"
 import { Card } from "#/components/ui/card"
 import { EmptyState } from "#/components/ui/empty-state"
 import { Eyebrow } from "#/components/ui/eyebrow"
+import { Flair, type FlairData } from "#/components/ui/flair"
 import { Table, type TableColumn } from "#/components/ui/table"
-import { Tag } from "#/components/ui/tag"
 
 type LeaderboardColumnKey =
 	| "rank"
@@ -33,7 +33,12 @@ export type LeaderboardRowData = {
 	// board never counts it (accuracy and the ranking tiebreak agree)
 	resolvedCallCount: number
 	accuracy: number | null
-	user: { id: string; name: string; username: string }
+	user: {
+		id: string
+		name: string
+		username: string
+		flair?: FlairData | null
+	}
 }
 
 type LeaderboardProps = {
@@ -63,47 +68,59 @@ export function Leaderboard({
 			{viewerEntry && (
 				<Card size="sm" variant="surface">
 					<Card.Body>
-						<HStack gap="3.5" alignItems="center">
-							<Avatar size="md" name={viewerEntry.user.name} />
-							<VStack gap="0.5" alignItems="flex-start" flex="1" minWidth="0">
-								<Eyebrow variant="neutral">Your rank</Eyebrow>
-								<span
-									className={css({ fontSize: "sm", fontWeight: "semibold" })}
-								>
-									{viewerEntry.user.name}
-								</span>
-							</VStack>
-							<VStack gap="0.5" alignItems="flex-end" flexShrink="0">
+						<VStack alignItems="stretch" gap="2">
+							{/* Only the rank shares the identity's row, and only because
+							it is two characters. The stat line gets the row below, full
+							width - beside the name it was the one thing long enough to
+							break it across lines on a phone. */}
+							<HStack gap="3.5" alignItems="flex-start">
+								<Avatar size="md" name={viewerEntry.user.name} />
+								<VStack gap="0.5" alignItems="flex-start" flex="1" minWidth="0">
+									<Eyebrow variant="neutral">Your rank</Eyebrow>
+									<span
+										className={css({
+											fontSize: "sm",
+											fontWeight: "semibold",
+										})}
+									>
+										{viewerEntry.user.name}
+									</span>
+									{viewerEntry.user.flair && (
+										<Flair flair={viewerEntry.user.flair} />
+									)}
+								</VStack>
 								<span
 									className={css({
 										fontFamily: "heading",
 										fontSize: "xl",
 										color: "primary.default",
 										lineHeight: "1",
+										flexShrink: "0",
 									})}
 								>
 									{viewerEntry.rank !== null ? `#${viewerEntry.rank}` : "N/A"}
 								</span>
-								<span
-									className={css({
-										fontFamily: "mono",
-										fontSize: "xs",
-										color: "fg.muted",
-									})}
-								>
-									{viewerEntry.rank !== null ? (
-										<>
-											{viewerEntry.totalPoints} pts ·{" "}
-											{viewerEntry.resolvedCallCount} resolved
-											{viewerEntry.accuracy !== null &&
-												` · ${Math.round(viewerEntry.accuracy)}%`}
-										</>
-									) : (
-										"Needs a resolved call"
-									)}
-								</span>
-							</VStack>
-						</HStack>
+							</HStack>
+							<span
+								className={css({
+									fontFamily: "mono",
+									fontSize: "xs",
+									color: "fg.muted",
+									textAlign: "right",
+								})}
+							>
+								{viewerEntry.rank !== null ? (
+									<>
+										{viewerEntry.totalPoints} pts ·{" "}
+										{viewerEntry.resolvedCallCount} resolved
+										{viewerEntry.accuracy !== null &&
+											` · ${Math.round(viewerEntry.accuracy)}%`}
+									</>
+								) : (
+									"Needs a resolved call"
+								)}
+							</span>
+						</VStack>
 					</Card.Body>
 				</Card>
 			)}
@@ -159,32 +176,35 @@ function LeaderboardRow({
 				{item.rank}
 			</Table.Cell>
 			<Table.Cell>
-				{/* Name and handle stack so the tags sit on their own line and only
-				the text truncates - on a narrow screen the member column is what's
-				left of the table's min width, and a single line clipped the tags. */}
+				{/* Name and handle share the top line; the flair gets the second to
+				itself. No "you" tag - the row is already highlighted for the viewer
+				(Table.Row active, below), so the tag repeated what the row said and
+				took width from the two things that name the person. */}
 				<HStack gap="3" minWidth="0">
 					<Avatar size="sm" name={item.user.name} />
 					<VStack gap="0.5" alignItems="flex-start" minWidth="0" flex="1">
-						<Link
-							to={"/user/$username"}
-							params={{ username: item.user.username }}
-							className={css({
-								maxWidth: "full",
-								overflow: "hidden",
-								textOverflow: "ellipsis",
-								fontSize: "sm",
-								fontWeight: "medium",
-								_hover: { textDecoration: "underline" },
-							})}
-						>
-							{item.user.name}
-						</Link>
-						<HStack gap="1.5" minWidth="0" maxWidth="full">
+						<HStack gap="2" minWidth="0" maxWidth="full">
+							<Link
+								to={"/user/$username"}
+								params={{ username: item.user.username }}
+								className={css({
+									minWidth: "0",
+									overflow: "hidden",
+									textOverflow: "ellipsis",
+									whiteSpace: "nowrap",
+									fontSize: "sm",
+									fontWeight: "medium",
+									_hover: { textDecoration: "underline" },
+								})}
+							>
+								{item.user.name}
+							</Link>
 							<span
 								className={css({
 									minWidth: "0",
 									overflow: "hidden",
 									textOverflow: "ellipsis",
+									whiteSpace: "nowrap",
 									fontFamily: "mono",
 									fontSize: "xs",
 									color: "fg.muted",
@@ -192,8 +212,8 @@ function LeaderboardRow({
 							>
 								@{item.user.username}
 							</span>
-							{item.user.id === viewerId && <Tag size="sm">You</Tag>}
 						</HStack>
+						{item.user.flair && <Flair flair={item.user.flair} />}
 					</VStack>
 				</HStack>
 			</Table.Cell>

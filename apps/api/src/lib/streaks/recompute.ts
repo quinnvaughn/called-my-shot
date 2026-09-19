@@ -1,11 +1,13 @@
 import {
 	STREAK_FAMILY_LABEL,
+	STREAK_FLAIR_THRESHOLDS,
 	type StreakFamily,
 	shapesInFamily,
 } from "@called-my-shot/scoring"
 import { and, eq } from "drizzle-orm"
 import { match } from "ts-pattern"
 import { callStreakPositions, userStreaks, userSweeps } from "../../db/schema"
+import { grantFlairByKey } from "../flairs/grant"
 import type { Tx } from "../user-season-stats"
 import {
 	callOutcome,
@@ -157,6 +159,19 @@ export async function recomputeStreakTrack(
 			})
 	}
 
+	// Above the notify guard on purpose. A grant is state, not an
+	// announcement, so the backfill (which runs with notify off) still awards
+	// runs that happened before flairs existed.
+	//
+	// Read off the rebuilt track's best run rather than the event stream below,
+	// so a rebuild that re-derives the same run grants the same flair without
+	// depending on having seen its milestone event on this particular pass.
+	for (const threshold of STREAK_FLAIR_THRESHOLDS) {
+		if ((track.best?.length ?? 0) >= threshold) {
+			await grantFlairByKey(tx, userId, `streak:${threshold}`)
+		}
+	}
+
 	if (!opts.notify) return
 	const achievementLabel = `${league.abbreviation} ${STREAK_FAMILY_LABEL[family]}`
 	const base = { userId, leagueId, streakFamily: family, achievementLabel }
@@ -279,6 +294,13 @@ export async function recomputeSlate(
 			computedAt: opts.now,
 		})),
 	)
+
+	// Above the notify and freshness guards, same reasoning as the streak
+	// grant in recomputeStreakTrack: the flair is earned by the sweep itself,
+	// not by the announcement being fresh enough to send.
+	for (const userId of result.sweptUserIds) {
+		await grantFlairByKey(tx, userId, "sweep:first")
+	}
 
 	if (!opts.notify || !isFresh(settledAt, opts.now)) return
 	const alreadySwept = new Set(previous.map((row) => row.userId))

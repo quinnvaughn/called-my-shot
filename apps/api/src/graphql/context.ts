@@ -28,6 +28,25 @@ export type Context = {
 	// load and share one read of the roster. See graphql/types/group/
 	// highlights.ts.
 	groupHighlightsCache: Map<string, Promise<GroupHighlights>>
+	// Every team, by id, read at most once per request. A team flair stores
+	// no display fields of its own (see db/schema/flairs.ts), so each chip
+	// needs its team's name, abbreviation and color - and a leaderboard page
+	// renders one chip per row. Caching the in-flight promise rather than the
+	// value means 25 chips share one round trip, the same single-flight trick
+	// the leaderboard caches above use.
+	//
+	// Whole table rather than a per-id dataloader because it's ~90 rows of
+	// nearly static data, so one unfiltered read beats assembling a batch.
+	// See graphql/types/flair/refs.ts.
+	teamsByIdCache: { promise: Promise<Map<string, FlairTeam>> | null }
+}
+
+// Just the columns a flair chip renders. Not the full Team row, so nothing
+// here implies the chip can reach the rest of it.
+export type FlairTeam = {
+	abbreviation: string
+	name: string
+	color: string
 }
 
 const UUID_RE =
@@ -38,6 +57,7 @@ function requestScopedCaches() {
 		globalLeaderboardCache: new Map(),
 		groupLeaderboardCache: new Map(),
 		groupHighlightsCache: new Map(),
+		teamsByIdCache: { promise: null },
 	}
 }
 

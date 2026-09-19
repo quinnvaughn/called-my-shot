@@ -1,3 +1,4 @@
+import { syncTeamFlairs } from "../catalog/flairs"
 import { db } from "../index"
 import { type League, leagues, sports, teams } from "../schema"
 import { type EspnGroup, fetchGroups, fetchTeams } from "./espn-client"
@@ -155,6 +156,12 @@ export async function syncTeams(config: SyncLeagueConfig): Promise<League> {
 			)
 		})
 	}
+
+	// Give any team that just landed its flair, rather than waiting for the
+	// next deploy to run the catalog. A team ESPN adds mid-season is otherwise
+	// the one team nobody can root for. Idempotent, so re-running costs a
+	// no-op upsert per team.
+	await syncTeamFlairs()
 
 	return league
 }

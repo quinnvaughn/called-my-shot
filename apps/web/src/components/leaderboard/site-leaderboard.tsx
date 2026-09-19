@@ -4,6 +4,7 @@ import {
 	LeaderboardEntryFragment,
 	leaderboardQuery,
 } from "#/graphql/queries/leaderboard"
+import { type IdentityUser, toIdentity } from "#/lib/identity"
 import type {
 	FilterLeague,
 	LeaderboardFilter,
@@ -19,19 +20,21 @@ type SiteLeaderboardProps = {
 	viewerId?: string
 }
 
-function toRowData(entry: {
+type LeaderboardEntryData = {
 	rank: number | null
 	totalPoints: number
 	resolvedCallCount: number
 	accuracy: number | null
-	user: { id: string; name: string; username: string }
-}): LeaderboardRowData {
+	user: IdentityUser
+}
+
+function toRowData(entry: LeaderboardEntryData): LeaderboardRowData {
 	return {
 		rank: entry.rank,
 		totalPoints: entry.totalPoints,
 		resolvedCallCount: entry.resolvedCallCount,
 		accuracy: entry.accuracy,
-		user: entry.user,
+		user: toIdentity(entry.user),
 	}
 }
 

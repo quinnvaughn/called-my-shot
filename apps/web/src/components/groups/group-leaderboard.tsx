@@ -10,6 +10,7 @@ import {
 	EMPTY_CONNECTION,
 	gqlInfiniteQueryOptions,
 } from "#/graphql/query-options"
+import { type IdentityUser, toIdentity } from "#/lib/identity"
 import type {
 	FilterLeague,
 	LeaderboardFilter,
@@ -28,9 +29,7 @@ export const GroupLeaderboardEntryFragment = graphql(`
 		accuracy
 		resolvedCallCount
 		user {
-			id
-			name
-			username
+			...Identity_user
 		}
 	}
 `)
@@ -97,14 +96,14 @@ function toRowData(entry: {
 	totalPoints: number
 	resolvedCallCount: number
 	accuracy: number | null
-	user: { id: string; name: string; username: string }
+	user: IdentityUser
 }): LeaderboardRowData {
 	return {
 		rank: entry.rank,
 		totalPoints: entry.totalPoints,
 		resolvedCallCount: entry.resolvedCallCount,
 		accuracy: entry.accuracy,
-		user: entry.user,
+		user: toIdentity(entry.user),
 	}
 }
 

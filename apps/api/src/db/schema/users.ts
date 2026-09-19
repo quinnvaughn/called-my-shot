@@ -7,6 +7,7 @@ import {
 	unique,
 	uuid,
 } from "drizzle-orm/pg-core"
+import { flairs } from "./flairs"
 
 export const users = pgTable("users", {
 	id: uuid("id").primaryKey().defaultRandom(),
@@ -67,6 +68,20 @@ export const users = pgTable("users", {
 	// leaves no other row to derive it from. Keeps the first visit's time; later
 	// visits don't move it. No backfill, same as onboardingDismissedAt.
 	leaderboardViewedAt: timestamp("leaderboard_viewed_at"),
+	// The one flair shown beside this user's name site-wide. Null means none,
+	// which is where every account starts - there's no default team to guess.
+	//
+	// "set null" rather than cascade because retiring a flair should quietly
+	// unequip the people wearing it, not touch their accounts. Retirement via
+	// flairs.status is the intended path; this covers a genuine hard delete.
+	//
+	// A pointer rather than a userFlairs column because most equippable flairs
+	// have no userFlairs row at all (see flairs.unlock): every team flair is
+	// open to everyone, so "what have I got" and "what am I wearing" are
+	// genuinely different questions.
+	equippedFlairId: uuid("equipped_flair_id").references(() => flairs.id, {
+		onDelete: "set null",
+	}),
 	createdAt: timestamp("created_at").notNull().defaultNow(),
 })
 export type User = typeof users.$inferSelect

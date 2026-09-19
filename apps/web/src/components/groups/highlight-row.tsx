@@ -7,6 +7,7 @@ import { match } from "ts-pattern"
 import { Card } from "#/components/ui/card"
 import { Identity } from "#/components/ui/identity"
 import { Tag } from "#/components/ui/tag"
+import type { IdentityData } from "#/lib/identity"
 
 const rowLink = css({
 	display: "block",
@@ -15,14 +16,17 @@ const rowLink = css({
 })
 
 type Props = {
-	name: string
-	username: string
+	user: IdentityData
 	leagueAbbr: string
 	// The track or slate this row is about: "Winners", "Week 3 Sunday Early".
 	label: string
-	// The headline number, already in words - "7 in a row", "4 misses in a
-	// row", "6 for 6".
+	// The headline figure alone - "7", "6 for 6". Big, because across a column
+	// of these the number is what people scan.
 	value: string
+	// What the figure counts, as subtext beneath it - "in a row", "misses in a
+	// row". Split off rather than baked into one sentence: as a sentence it was
+	// wide enough to collide with the name beside it at card width.
+	valueLabel: string
 	// The smaller line under it, if there is one.
 	note?: string
 	// Where the row goes. Optional so a row can render unlinked, though every
@@ -48,11 +52,11 @@ export type Destination =
 // both list them. Sized to sit three to a column, so the member and the number
 // are what read first and everything else is support.
 export function HighlightRow({
-	name,
-	username,
+	user,
 	leagueAbbr,
 	label,
 	value,
+	valueLabel,
 	note,
 	to,
 }: Props) {
@@ -60,8 +64,15 @@ export function HighlightRow({
 		<Card size="sm" interactive={!!to}>
 			<Card.Body>
 				<HStack justify="space-between" alignItems="center" gap="3">
-					<VStack gap="1" alignItems="flex-start" minWidth="0">
-						<Identity name={name} username={username} />
+					{/* gap-2, not 1: the flair ends the identity block and the league
+					tag starts this one, so two chips would otherwise sit close enough
+					to read as one row of tags. */}
+					<VStack gap="2" alignItems="flex-start" minWidth="0" flex="1">
+						<Identity
+							name={user.name}
+							username={user.username}
+							flair={user.flair}
+						/>
 						<HStack gap="2" alignItems="center" minWidth="0">
 							<Tag size="sm">{leagueAbbr}</Tag>
 							<span
@@ -78,9 +89,25 @@ export function HighlightRow({
 							</span>
 						</HStack>
 					</VStack>
-					<VStack gap="0.5" alignItems="flex-end" flexShrink="0">
-						<span className={css({ fontFamily: "heading", fontSize: "md" })}>
+					<VStack gap="0" alignItems="flex-end" flexShrink="0">
+						<span
+							className={css({
+								fontFamily: "heading",
+								fontSize: "xl",
+								lineHeight: "1.1",
+							})}
+						>
 							{value}
+						</span>
+						<span
+							className={css({
+								fontFamily: "mono",
+								fontSize: "2xs",
+								color: "fg.muted",
+								whiteSpace: "nowrap",
+							})}
+						>
+							{valueLabel}
 						</span>
 						{note && (
 							<span

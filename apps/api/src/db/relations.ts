@@ -31,6 +31,49 @@ export const relations = defineRelations(schema, (r) => ({
 			from: r.users.id,
 			to: r.notifications.userId,
 		}),
+		equippedFlair: r.one.flairs({
+			from: r.users.equippedFlairId,
+			to: r.flairs.id,
+		}),
+		// Only the flairs this user was GIVEN. Not what they can equip: every
+		// "open" flair is equippable without a row here (see flairs.unlock), so
+		// the picker's list comes from lib/flairs/available.ts instead.
+		flairGrants: r.many.userFlairs({
+			from: r.users.id,
+			to: r.userFlairs.userId,
+		}),
+	},
+	flairs: {
+		// Non-null only on a team flair, and the source of its label, icon and
+		// color - those columns are null on the flair row itself.
+		team: r.one.teams({
+			from: r.flairs.teamId,
+			to: r.teams.id,
+		}),
+		scopeGroup: r.one.groups({
+			from: r.flairs.scopeGroupId,
+			to: r.groups.id,
+		}),
+		grants: r.many.userFlairs({
+			from: r.flairs.id,
+			to: r.userFlairs.flairId,
+		}),
+	},
+	userFlairs: {
+		flair: r.one.flairs({
+			from: r.userFlairs.flairId,
+			to: r.flairs.id,
+		}),
+		// Two relations onto users, so each needs an explicit from/to - same
+		// reason as voidsReceived/voidsIssued above.
+		user: r.one.users({
+			from: r.userFlairs.userId,
+			to: r.users.id,
+		}),
+		grantedBy: r.one.users({
+			from: r.userFlairs.grantedByUserId,
+			to: r.users.id,
+		}),
 	},
 	sessions: {
 		user: r.one.users({
@@ -72,6 +115,12 @@ export const relations = defineRelations(schema, (r) => ({
 		user: r.one.users({
 			from: r.groupMembers.userId,
 			to: r.users.id,
+		}),
+		// This member's in-group override. Null on every row today - nothing
+		// writes groupMembers.equippedFlairId yet.
+		equippedFlair: r.one.flairs({
+			from: r.groupMembers.equippedFlairId,
+			to: r.flairs.id,
 		}),
 	},
 	groupInvites: {

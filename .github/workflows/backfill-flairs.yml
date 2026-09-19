@@ -1,0 +1,38 @@
+name: Backfill achievement flairs
+
+on:
+  # Manual only, and expected to be run roughly once: the flair grants ride
+  # along with the streak and sweep rebuild, so this is what awards runs that
+  # were already finished before flairs existed. Safe to re-run - a grant is
+  # an insert on (user, flair) that does nothing the second time.
+  workflow_dispatch: {}
+
+jobs:
+  backfill-flairs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: superfly/flyctl-actions/setup-flyctl@master
+
+      # The catalog sync runs as part of `pnpm release` on every deploy, so
+      # the flair rows normally exist by the time anyone triggers this. Run
+      # it again first anyway: a backfill that silently grants nothing
+      # because the catalog had not synced yet is the one failure mode here
+      # that leaves no trace.
+      - name: Sync the flair catalog on the API machine
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: |
+          flyctl ssh console -a called-my-shot-api -C "pnpm exec tsx src/db/catalog/run.ts"
+
+      # Same reasoning as the other ops workflows here - runs on the
+      # already-deployed API machine (DATABASE_URL already set, code already
+      # shipped) rather than connecting out to Postgres from the runner.
+      #
+      # Takes RECOMPUTE_ACHIEVEMENTS_LOCK, so it will refuse rather than run
+      # alongside the scheduler's own drain. If it exits saying so, trigger
+      # it again.
+      - name: Rebuild every streak and sweep, granting flairs
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: |
+          flyctl ssh console -a called-my-shot-api -C "pnpm exec tsx scripts/backfill-streaks.ts --commit"

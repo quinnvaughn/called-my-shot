@@ -4,6 +4,7 @@ import {
 	type Question,
 	streakRecomputeQueue,
 	sweepRecomputeQueue,
+	userFlairs,
 } from "../../db/schema"
 import {
 	makeAdmin,
@@ -18,6 +19,7 @@ import {
 	pastDate,
 } from "../../test/factories"
 import { expectData } from "../../test/graphql"
+import { syncFlairCatalog } from "../../db/catalog/flairs"
 import { generationKey } from "../game-questions/generation-key"
 import { resolveQuestionInternal } from "../resolve-question"
 import { markQuestionVoided } from "../void-question"
@@ -319,5 +321,81 @@ describe("sweeps", () => {
 		expect(
 			await db.query.userSweeps.findMany({ where: { userId: user.id } }),
 		).toHaveLength(0)
+	})
+})
+
+// The flair grants ride along with the rebuild that computes the streak, so
+// they're covered here rather than in a suite of their own.
+describe("achievement flairs", () => {
+	const grantsOf = (userId: string) =>
+		db.query.userFlairs.findMany({
+			where: { userId },
+			with: { flair: { columns: { key: true } } },
+		})
+
+	async function winStreak(userId: string, wins: number) {
+		const league = await seedLeague()
+		for (let i = 0; i < wins; i++) {
+			const { question, home } = await seedWinnerGame(league, 100 - i)
+			await pick(question, userId, home.id)
+			await resolve(question, home.id)
+		}
+		await drainAchievementRecomputes()
+	}
+
+	it("grants the thresholds a run clears and no more", async () => {
+		await syncFlairCatalog()
+		const user = await makeUser()
+
+		await winStreak(user.id, 5)
+
+		const keys = (await grantsOf(user.id)).map((row) => row.flair?.key)
+		expect(keys).toContain("streak:5")
+		expect(keys).not.toContain("streak:10")
+		expect(keys).not.toContain("streak:25")
+	})
+
+	// Every question that settles rebuilds the whole track, so the same run is
+	// re-detected constantly. Only the first detection may write.
+	it("leaves one row when the track is rebuilt again", async () => {
+		await syncFlairCatalog()
+		const user = await makeUser()
+
+		await winStreak(user.id, 5)
+		await enqueueAchievementRecomputes({ since: null })
+		await drainAchievementRecomputes()
+
+		const grants = await grantsOf(user.id)
+		expect(grants.filter((g) => g.flair?.key === "streak:5")).toHaveLength(1)
+	})
+
+	// The backfill runs with notify off, and history earned before flairs
+	// existed should still be rewarded.
+	it("grants with notify off", async () => {
+		await syncFlairCatalog()
+		const user = await makeUser()
+
+		await winStreak(user.id, 5)
+		await db.delete(userFlairs)
+		await enqueueAchievementRecomputes({ since: null })
+		await drainAchievementRecomputes({ notify: false })
+
+		const keys = (await grantsOf(user.id)).map((row) => row.flair?.key)
+		expect(keys).toContain("streak:5")
+	})
+
+	it("grants a sweep", async () => {
+		await syncFlairCatalog()
+		const league = await seedLeague()
+		const user = await makeUser()
+		for (const hoursAgo of [30, 20, 10]) {
+			const { question, home } = await seedWinnerGame(league, hoursAgo)
+			await pick(question, user.id, home.id)
+			await resolve(question, home.id)
+		}
+		await drainAchievementRecomputes()
+
+		const keys = (await grantsOf(user.id)).map((row) => row.flair?.key)
+		expect(keys).toContain("sweep:first")
 	})
 })

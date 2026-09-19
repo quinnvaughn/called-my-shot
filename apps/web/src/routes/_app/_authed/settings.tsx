@@ -5,11 +5,13 @@ import { VStack } from "styled-system/jsx"
 import { DangerZone } from "#/components/settings/danger-zone"
 import { EmailNotificationsSection } from "#/components/settings/email-notifications-section"
 import { EmailSection } from "#/components/settings/email-section"
+import { FlairSection } from "#/components/settings/flair-section"
 import { PasswordSection } from "#/components/settings/password-section"
 import { UsernameSection } from "#/components/settings/username-section"
 import { PageHeader } from "#/components/ui/page-header"
 import { SettingsPageDocument } from "#/graphql/queries/user"
 import { gqlQueryOptions } from "#/graphql/query-options"
+import { toFlair } from "#/lib/identity"
 
 const settingsQuery = gqlQueryOptions(SettingsPageDocument, {})
 
@@ -50,6 +52,13 @@ function RouteComponent() {
 			<VStack alignItems="stretch" gap="3">
 				{sectionLabel("Username")}
 				<UsernameSection username={me.username} />
+			</VStack>
+			<VStack alignItems="stretch" gap="3">
+				{sectionLabel("Flair")}
+				<FlairSection
+					flair={toFlair(me.equippedFlair)}
+					flairId={me.equippedFlair?.id ?? null}
+				/>
 			</VStack>
 			<VStack alignItems="stretch" gap="3">
 				{sectionLabel("Email")}

@@ -4,6 +4,7 @@ import {
 	type Call,
 	callSelections,
 	calls,
+	flairs,
 	games,
 	type League,
 	leagues,
@@ -124,6 +125,29 @@ export async function makeTeam(
 				color: "#007A33",
 				...overrides,
 				leagueId,
+			})
+			.returning(),
+	)
+}
+
+// Defaults to the shape an achievement flair has - its own display columns
+// and a grant needed to wear it. Pass { source: "team", unlock: "open",
+// teamId } for the other kind, which carries no display columns at all.
+export function makeFlair(
+	overrides: Partial<typeof flairs.$inferInsert> = {},
+) {
+	const i = uniq()
+	return insertOne(
+		db
+			.insert(flairs)
+			.values({
+				key: `flair-${i}`,
+				source: "achievement",
+				unlock: "grant",
+				icon: `F${i}`,
+				label: `Flair ${i}`,
+				color: "#22C55E",
+				...overrides,
 			})
 			.returning(),
 	)

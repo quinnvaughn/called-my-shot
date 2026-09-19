@@ -7,6 +7,7 @@ export const UserProfileDocument = graphql(`
 			name
 			username
 			createdAt
+			...Identity_user
 			careerStats {
 				rank
 				totalPoints
@@ -108,6 +109,10 @@ export const SettingsPageDocument = graphql(`
 			pendingEmailChange {
 				newEmail
 				expiresAt
+			}
+			equippedFlair {
+				id
+				...Flair_flair
 			}
 		}
 	}

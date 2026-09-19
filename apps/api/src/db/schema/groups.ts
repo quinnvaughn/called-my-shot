@@ -7,6 +7,7 @@ import {
 	unique,
 	uuid,
 } from "drizzle-orm/pg-core"
+import { flairs } from "./flairs"
 import { questions } from "./questions"
 import { leagues } from "./sports"
 import { users } from "./users"
@@ -60,6 +61,19 @@ export const groupMembers = pgTable(
 		// member rather than per group, so one person opting out doesn't stop
 		// the card asking everyone else.
 		inviteCardDismissedAt: timestamp("invite_card_dismissed_at"),
+		// What this member wears inside this group, overriding whatever they
+		// wear site-wide. Null means "use my usual one", which is every member
+		// today.
+		//
+		// Nothing writes this yet. It ships with the first flair migration
+		// because per-group flair is a known next step and this is the column
+		// that would otherwise force a migration once the table has live rows.
+		// Because users.equippedFlairId is never cleared by an override here,
+		// showing both chips instead of replacing stays a render decision
+		// rather than a data one.
+		equippedFlairId: uuid("equipped_flair_id").references(() => flairs.id, {
+			onDelete: "set null",
+		}),
 	},
 	(t) => [unique().on(t.groupId, t.userId)],
 )

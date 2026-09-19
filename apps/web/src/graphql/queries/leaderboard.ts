@@ -12,9 +12,7 @@ export const LeaderboardEntryFragment = graphql(`
 		accuracy
 		resolvedCallCount
 		user {
-			id
-			name
-			username
+			...Identity_user
 		}
 	}
 `)

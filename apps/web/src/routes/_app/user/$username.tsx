@@ -16,6 +16,7 @@ import { EmptyState } from "#/components/ui/empty-state"
 import { NotFound } from "#/components/ui/not-found"
 import { UserProfileDocument } from "#/graphql/generated/graphql"
 import { gqlQueryOptions } from "#/graphql/query-options"
+import { toIdentity } from "#/lib/identity"
 import { pageMeta } from "#/lib/meta"
 
 const MAX_LIVE_STREAKS = 3
@@ -104,7 +105,10 @@ function RouteComponent() {
 
 	return (
 		<VStack alignItems="stretch" gap="6">
-			<ProfileHeader user={user} viewerId={me?.id} />
+			<ProfileHeader
+				user={{ ...user, flair: toIdentity(user).flair }}
+				viewerId={me?.id}
+			/>
 			{sectionLabel("Career")}
 			<StatGrid
 				items={statGridItems({

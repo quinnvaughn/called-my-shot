@@ -4,6 +4,7 @@ import { HStack, VStack } from "styled-system/jsx"
 import { match } from "ts-pattern"
 import { Card } from "#/components/ui/card"
 import { type FragmentType, graphql, useFragment } from "#/graphql/generated"
+import { toIdentity } from "#/lib/identity"
 import { buildQuestionSlug } from "#/lib/slug"
 import { CardRule } from "./card-rule"
 import { CaseBlock } from "./case-block"
@@ -31,8 +32,7 @@ export const CallCardFragment = graphql(`
 			familyLabel
 		}
 		user {
-			name
-			username
+			...Identity_user
 		}
 		question {
 			id
@@ -106,6 +106,7 @@ const aboveOverlay = css({ position: "relative", zIndex: 1 })
 
 export function CallCard({ call: callProp }: CallCardProps) {
 	const call = useFragment(CallCardFragment, callProp)
+	const caller = toIdentity(call.user)
 
 	return (
 		<Card
@@ -125,8 +126,9 @@ export function CallCard({ call: callProp }: CallCardProps) {
 				<CardRule />
 				{call.question.status === "DISPUTED" && <DisputedFlag />}
 				<PersonLine
-					name={call.user.name}
-					username={call.user.username}
+					name={caller.name}
+					username={caller.username}
+					flair={caller.flair}
 					badge={match(call.question.status)
 						.with("OPEN", () => (
 							<span

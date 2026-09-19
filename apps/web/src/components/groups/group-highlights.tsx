@@ -3,11 +3,8 @@ import { css } from "styled-system/css"
 import { Grid, VStack } from "styled-system/jsx"
 import { EmptyState } from "#/components/ui/empty-state"
 import { type FragmentType, graphql, useFragment } from "#/graphql/generated"
-import {
-	coldStreakText,
-	type StreakFamilyValue,
-	streakFamilyParam,
-} from "#/lib/streak-meta"
+import { type IdentityUser, toIdentity } from "#/lib/identity"
+import { type StreakFamilyValue, streakFamilyParam } from "#/lib/streak-meta"
 import { openModal } from "#/stores/modal-store"
 import { GroupHighlightsSheet } from "./group-highlights-sheet"
 import { HighlightList, HighlightRow } from "./highlight-row"
@@ -15,9 +12,7 @@ import { HighlightList, HighlightRow } from "./highlight-row"
 export const GroupStreakEntryFragment = graphql(`
 	fragment GroupHighlights_streak on GroupStreakEntry {
 		user {
-			id
-			name
-			username
+			...Identity_user
 		}
 		league {
 			id
@@ -36,9 +31,7 @@ export const GroupStreakEntryFragment = graphql(`
 export const GroupSweepEntryFragment = graphql(`
 	fragment GroupHighlights_sweep on GroupSweepEntry {
 		user {
-			id
-			name
-			username
+			...Identity_user
 		}
 		league {
 			id
@@ -55,7 +48,7 @@ export const GroupSweepEntryFragment = graphql(`
 // sheet can share them - same split as LeaderboardRowData and the two
 // leaderboards that feed it.
 export type StreakEntry = {
-	user: { id: string; name: string; username: string }
+	user: IdentityUser
 	league: { id: string; abbreviation: string; slug: string }
 	family: StreakFamilyValue
 	familyLabel: string
@@ -66,7 +59,7 @@ export type StreakEntry = {
 }
 
 export type SweepEntry = {
-	user: { id: string; name: string; username: string }
+	user: IdentityUser
 	league: { id: string; abbreviation: string; slug: string }
 	slateKey: string
 	slateLabel: string
@@ -85,14 +78,15 @@ export function useSweepEntries(
 	return [...useFragment(GroupSweepEntryFragment, entries)]
 }
 
-const entryKey = (e: StreakEntry) => `${e.user.id}-${e.league.id}-${e.family}`
+const entryKey = (e: StreakEntry) =>
+	`${toIdentity(e.user).id}-${e.league.id}-${e.family}`
 
 // A hot row and a cold row can name the same track, so each says which side
 // of it the reader just clicked on rather than letting the page guess.
 const streakTo = (e: StreakEntry, mode: StreakMode) =>
 	({
 		kind: "streak",
-		username: e.user.username,
+		username: toIdentity(e.user).username,
 		league: e.league.slug,
 		family: streakFamilyParam(e.family),
 		mode,
@@ -104,12 +98,16 @@ export function HotStreakRows({ entries }: { entries: StreakEntry[] }) {
 			{entries.map((e) => (
 				<HighlightRow
 					key={entryKey(e)}
-					name={e.user.name}
-					username={e.user.username}
+					user={toIdentity(e.user)}
 					leagueAbbr={e.league.abbreviation}
 					label={e.familyLabel}
-					value={`${e.currentLength} in a row`}
-					note={`Best ${e.bestLength}`}
+					value={`${e.currentLength}`}
+					valueLabel="in a row"
+					// Only when the run they are on is not their best one. On a row
+					// where it is, "Best 8" under an 8 is the same number twice.
+					note={
+						e.bestLength > e.currentLength ? `Best ${e.bestLength}` : undefined
+					}
 					to={streakTo(e, "hot")}
 				/>
 			))}
@@ -126,11 +124,11 @@ export function StreakRecordRows({ entries }: { entries: StreakEntry[] }) {
 			{entries.map((e) => (
 				<HighlightRow
 					key={entryKey(e)}
-					name={e.user.name}
-					username={e.user.username}
+					user={toIdentity(e.user)}
 					leagueAbbr={e.league.abbreviation}
 					label={e.familyLabel}
-					value={`${e.bestLength} in a row`}
+					value={`${e.bestLength}`}
+					valueLabel="in a row"
 					to={streakTo(e, "hot")}
 				/>
 			))}
@@ -144,12 +142,16 @@ export function ColdStreakRows({ entries }: { entries: StreakEntry[] }) {
 			{entries.map((e) => (
 				<HighlightRow
 					key={entryKey(e)}
-					name={e.user.name}
-					username={e.user.username}
+					user={toIdentity(e.user)}
 					leagueAbbr={e.league.abbreviation}
 					label={e.familyLabel}
-					value={coldStreakText(e.currentColdLength)}
-					note={`Worst ${e.worstColdLength}`}
+					value={`${e.currentColdLength}`}
+					valueLabel={e.currentColdLength === 1 ? "miss" : "misses"}
+					note={
+						e.worstColdLength > e.currentColdLength
+							? `Worst ${e.worstColdLength}`
+							: undefined
+					}
 					to={streakTo(e, "cold")}
 				/>
 			))}
@@ -162,15 +164,17 @@ export function SweepRows({ entries }: { entries: SweepEntry[] }) {
 		<VStack alignItems="stretch" gap="2">
 			{entries.map((e) => (
 				<HighlightRow
-					key={`${e.user.id}-${e.league.id}-${e.slateKey}`}
-					name={e.user.name}
-					username={e.user.username}
+					key={`${toIdentity(e.user).id}-${e.league.id}-${e.slateKey}`}
+					user={toIdentity(e.user)}
 					leagueAbbr={e.league.abbreviation}
 					label={e.slateLabel}
-					value={`${e.gameCount} for ${e.gameCount}`}
+					// Under a "sweeps" heading, "swept" and "8 for 8" are both
+					// already said. The size of the slate is the part that isn't.
+					value={`${e.gameCount}`}
+					valueLabel={e.gameCount === 1 ? "game" : "games"}
 					to={{
 						kind: "sweep",
-						username: e.user.username,
+						username: toIdentity(e.user).username,
 						league: e.league.slug,
 						slateKey: e.slateKey,
 					}}
@@ -230,11 +234,13 @@ export function GroupHighlights(props: Props) {
 			>
 				Highlights
 			</h2>
-			{/* Wide enough on md that one column's "see all" reads as belonging
-			 * to it rather than to the next column's heading. */}
+			{/* Two columns only from xl. Each card carries an identity, a flair
+			 * and a headline number side by side, and at half of a md or lg page
+			 * that does not fit - the number ended up on top of the handle. One
+			 * full-width column reads better than two squeezed ones. */}
 			<Grid
-				gridTemplateColumns={{ base: "1fr", md: "1fr 1fr" }}
-				gap={{ base: "5", md: "8" }}
+				gridTemplateColumns={{ base: "1fr", xl: "1fr 1fr" }}
+				gap={{ base: "5", xl: "8" }}
 			>
 				<HighlightList
 					label={live ? "Hot streaks" : "Best streaks"}

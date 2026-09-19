@@ -1,11 +1,9 @@
-import { TanStackDevtools } from "@tanstack/react-devtools"
 import {
 	createRootRouteWithContext,
 	HeadContent,
 	Scripts,
 	useRouterState,
 } from "@tanstack/react-router"
-import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools"
 import { useEffect } from "react"
 
 import { ModalHost } from "#/components/ui/modal"
@@ -178,17 +176,6 @@ function RootDocument({ children }: { children: React.ReactNode }) {
 				{children}
 				<ModalHost />
 				<ToastHost />
-				<TanStackDevtools
-					config={{
-						position: "bottom-right",
-					}}
-					plugins={[
-						{
-							name: "Tanstack Router",
-							render: <TanStackRouterDevtoolsPanel />,
-						},
-					]}
-				/>
 				<Scripts />
 			</body>
 		</html>

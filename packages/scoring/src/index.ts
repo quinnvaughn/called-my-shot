@@ -318,6 +318,13 @@ export const STREAK_MILESTONE_STEP = 5
 // anyone about.
 export const STREAK_NOTIFY_MIN = 5
 
+// The run lengths that earn a flair, one per entry. Deliberately sparser than
+// STREAK_MILESTONE_STEP above: a notification every five is a nudge you read
+// once, but a flair is worn until you swap it, so the bar to earn a new one
+// has to climb. The api's flair catalog builds its "streak:N" keys straight
+// off this array, so adding a number here is the whole change.
+export const STREAK_FLAIR_THRESHOLDS = [5, 10, 25] as const
+
 // The over/under family. Every one of these pairs a stat with a line the
 // result lands on one side of, which is what makes them share an option label
 // format ("Over 224.5") and a "set the number" field in the create form.

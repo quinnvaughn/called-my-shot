@@ -4,6 +4,7 @@ import { HStack, VStack } from "styled-system/jsx"
 import { button } from "#/components/ui/button"
 import { type FragmentType, useFragment } from "#/graphql/generated"
 import { LeaderboardEntryFragment } from "#/graphql/queries/leaderboard"
+import { toIdentity } from "#/lib/identity"
 import { LandingPageContentSection } from "./landing-page-content-section"
 
 type LeaderboardRow = {
@@ -37,18 +38,19 @@ export function LandingPageLeaderboardSection({ entries: entriesProp }: Props) {
 	// leaderboard items are ranked rows only; the shared fragment just can't
 	// say so, since the viewer's own entry uses it too
 	const rows: (LeaderboardRow & { rank: number })[] = entries.flatMap(
-		(entry) =>
-			entry.rank === null
-				? []
-				: [
-						{
-							rank: entry.rank,
-							initials: initialsFor(entry.user.name, entry.user.username),
-							username: `@${entry.user.username}`,
-							accuracy: Math.round(entry.accuracy ?? 0),
-							points: entry.totalPoints,
-						},
-					],
+		(entry) => {
+			if (entry.rank === null) return []
+			const user = toIdentity(entry.user)
+			return [
+				{
+					rank: entry.rank,
+					initials: initialsFor(user.name, user.username),
+					username: `@${user.username}`,
+					accuracy: Math.round(entry.accuracy ?? 0),
+					points: entry.totalPoints,
+				},
+			]
+		},
 	)
 
 	return (
