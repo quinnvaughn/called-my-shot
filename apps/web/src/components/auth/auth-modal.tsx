@@ -13,6 +13,7 @@ import { useGqlMutation } from "#/graphql/hooks"
 import { SignInDocument, SignUpDocument } from "#/graphql/mutations/auth"
 import { track } from "#/lib/analytics"
 import { useForm } from "#/lib/form/use-form"
+import { markGuestPicksEntry } from "#/stores/guest-picks-store"
 import { closeModal } from "#/stores/modal-store"
 import { Brand } from "../ui/brand"
 import { FormError } from "../ui/form-error"
@@ -128,6 +129,7 @@ function SignInFields({ onSuccess, surface }: FieldsProps) {
 				})
 				.with({ __typename: "AuthPayload" }, async () => {
 					track("user_signed_in", { method: "email", surface })
+					markGuestPicksEntry("signin")
 					queryClient.clear()
 					await router.invalidate()
 					closeModal()
@@ -226,6 +228,7 @@ function SignUpFields({ onSuccess, surface }: FieldsProps) {
 				})
 				.with({ __typename: "AuthPayload" }, async () => {
 					track("user_signed_up", { method: "email", surface })
+					markGuestPicksEntry("signup")
 					queryClient.clear()
 					await router.invalidate()
 					closeModal()

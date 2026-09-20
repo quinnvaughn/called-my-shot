@@ -92,3 +92,32 @@ export function removeGuestPick(questionId: string) {
 export function clearGuestPicks() {
 	write([])
 }
+
+const ENTRY_KEY = "cms.guestPicks.entry.v1"
+
+// How the account these picks post from arrived. Signing up is someone's first
+// minute in the product, where what a call is and what happens to it still has
+// to be said. Signing in is someone who already has a record and knows, so the
+// same announcement is in their way.
+export type GuestPicksEntry = "signup" | "signin"
+
+export function markGuestPicksEntry(entry: GuestPicksEntry) {
+	try {
+		window.sessionStorage.setItem(ENTRY_KEY, entry)
+	} catch {
+		// Blocked storage: the picks still post, they just get the sign-up
+		// treatment, which is the safer of the two to show someone twice.
+	}
+}
+
+// Read once and cleared: it describes one arrival, not the session. Null when
+// nothing recorded one, which the caller treats as a sign-up.
+export function takeGuestPicksEntry(): GuestPicksEntry | null {
+	try {
+		const raw = window.sessionStorage.getItem(ENTRY_KEY)
+		window.sessionStorage.removeItem(ENTRY_KEY)
+		return raw === "signin" || raw === "signup" ? raw : null
+	} catch {
+		return null
+	}
+}
