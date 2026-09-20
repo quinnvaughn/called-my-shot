@@ -597,6 +597,112 @@ describe("Query.myCalls", () => {
 	})
 })
 
+describe("Query.myLiveCalls", () => {
+	const LIVE = /* GraphQL */ `
+		query MyLiveCalls($leagueId: ID, $scope: QuestionScope) {
+			myLiveCalls(leagueId: $leagueId, scope: $scope) { id }
+		}
+	`
+	type LiveResult = { myLiveCalls: { id: string }[] }
+
+	async function liveGameCall(userId: string, hoursAgo: number) {
+		const game = await makeGame({
+			status: "live",
+			startsAt: pastDate(hoursAgo),
+		})
+		const question = await makeQuestion({
+			leagueId: game.leagueId,
+			seasonId: game.seasonId,
+			gameId: game.id,
+			locksAt: pastDate(hoursAgo),
+		})
+		return { game, call: await makeCall(question.id, userId) }
+	}
+
+	// Earliest kickoff first: that game is closest to finishing, so its outcome
+	// is the one about to be decided.
+	it("returns live calls with the longest-running game first", async () => {
+		const user = await makeUser()
+		const early = await liveGameCall(user.id, 3)
+		const late = await liveGameCall(user.id, 1)
+
+		const data = await expectData<LiveResult>(LIVE, { as: user })
+		expect(data.myLiveCalls.map((c) => c.id)).toEqual([
+			early.call.id,
+			late.call.id,
+		])
+	})
+
+	// The empty case is the one the old "Live" sort got wrong: with nothing in
+	// flight it quietly fell through to a lock-time ordering and looked like
+	// every other sort. Now there is simply no section to render.
+	it("returns nothing when no called game is in flight", async () => {
+		const user = await makeUser()
+		const scheduled = await makeGame({
+			status: "scheduled",
+			startsAt: futureDate(2),
+		})
+		const scheduledQ = await makeQuestion({
+			leagueId: scheduled.leagueId,
+			seasonId: scheduled.seasonId,
+			gameId: scheduled.id,
+		})
+		await makeCall(scheduledQ.id, user.id)
+		// Season-long: no game at all, so never live.
+		const seasonQ = await makeQuestion({ gameId: null })
+		await makeCall(seasonQ.id, user.id)
+
+		const data = await expectData<LiveResult>(LIVE, { as: user })
+		expect(data.myLiveCalls).toEqual([])
+	})
+
+	// A resolved question's call has an outcome already, so it belongs to the
+	// Resolved tab however its game row happens to be flagged.
+	it("only returns calls the open tab would hold", async () => {
+		const user = await makeUser()
+		const open = await liveGameCall(user.id, 2)
+		const game = await makeGame({ status: "live", startsAt: pastDate(2) })
+		const settled = await makeQuestion({
+			leagueId: game.leagueId,
+			seasonId: game.seasonId,
+			gameId: game.id,
+			status: "resolved",
+		})
+		await makeCall(settled.id, user.id, { resultPoints: 10 })
+
+		const data = await expectData<LiveResult>(LIVE, { as: user })
+		expect(data.myLiveCalls.map((c) => c.id)).toEqual([open.call.id])
+	})
+
+	it("narrows by the same filters the list below it uses", async () => {
+		const user = await makeUser()
+		const mine = await liveGameCall(user.id, 2)
+		const other = await liveGameCall(user.id, 2)
+
+		const data = await expectData<LiveResult>(LIVE, {
+			as: user,
+			variables: { leagueId: mine.game.leagueId },
+		})
+		expect(data.myLiveCalls.map((c) => c.id)).toEqual([mine.call.id])
+		expect(data.myLiveCalls.map((c) => c.id)).not.toContain(other.call.id)
+	})
+
+	// The tab badge describes the tab, not the one list under it - a live call
+	// is still an open call even though the list below has handed it off.
+	it("stays counted in the open tab badge", async () => {
+		const COUNTS = /* GraphQL */ `
+			query LiveCounts { myCallCounts { open resolved } }
+		`
+		const user = await makeUser()
+		await liveGameCall(user.id, 2)
+
+		const data = await expectData<{
+			myCallCounts: { open: number; resolved: number }
+		}>(COUNTS, { as: user })
+		expect(data.myCallCounts.open).toBe(1)
+	})
+})
+
 describe("Query.myCalls filtering and sorting", () => {
 	const FILTERED = /* GraphQL */ `
 		query MyCallsFiltered(
@@ -788,10 +894,9 @@ describe("Query.myCalls filtering and sorting", () => {
 		expect(ids(unscoredOnly)).toEqual([unscored.id])
 	})
 
-	// The whole point of the sort: a call whose game is being played right now
-	// leads, ahead of one the viewer can still act on. Everything with no live
-	// game behind it keeps the lock-time ordering, already-locked calls last.
-	it("orders live games first, then by lock time", async () => {
+	// The Playing Now section owns the live calls, so the list below it must
+	// not carry them too - otherwise every in-flight call renders twice.
+	it("keeps calls on a live game out of the open list", async () => {
 		const user = await makeUser()
 		const live = await makeGame({ status: "live", startsAt: pastDate(1) })
 		const liveQ = await makeQuestion({
@@ -801,51 +906,35 @@ describe("Query.myCalls filtering and sorting", () => {
 			locksAt: pastDate(1),
 		})
 		const soon = await makeQuestion({ locksAt: futureDate(1) })
-		const later = await makeQuestion({ locksAt: futureDate(48) })
-		const locked = await makeQuestion({ locksAt: pastDate(2) })
-		const lockedCall = await makeCall(locked.id, user.id)
-		const laterCall = await makeCall(later.id, user.id)
 		const soonCall = await makeCall(soon.id, user.id)
-		const liveCall = await makeCall(liveQ.id, user.id)
+		await makeCall(liveQ.id, user.id)
 
 		const data = await expectData<CallsResult>(FILTERED, {
 			as: user,
-			variables: { status: "OPEN", sort: "LIVE" },
+			variables: { status: "OPEN", sort: "NEWEST" },
 		})
-		expect(ids(data)).toEqual([
-			liveCall.id,
-			soonCall.id,
-			laterCall.id,
-			lockedCall.id,
-		])
+		expect(ids(data)).toEqual([soonCall.id])
 	})
 
-	// A scheduled or final game is not live, and a season-long question has no
-	// game at all - none of the three may jump the live block.
-	it("keeps calls without a live game out of the live block", async () => {
+	// A settled call's game finished long ago, so the exclusion has no business
+	// touching the Resolved tab - where it would silently hide any call whose
+	// game row is still sitting at "live" because a sync missed the whistle.
+	it("leaves the resolved list alone", async () => {
 		const user = await makeUser()
-		const finished = await makeGame({ status: "final", startsAt: pastDate(4) })
-		const finishedQ = await makeQuestion({
-			leagueId: finished.leagueId,
-			seasonId: finished.seasonId,
-			gameId: finished.id,
-			locksAt: pastDate(4),
-		})
 		const live = await makeGame({ status: "live", startsAt: pastDate(1) })
-		const liveQ = await makeQuestion({
+		const resolvedQ = await makeQuestion({
 			leagueId: live.leagueId,
 			seasonId: live.seasonId,
 			gameId: live.id,
-			locksAt: pastDate(1),
+			status: "resolved",
 		})
-		const finishedCall = await makeCall(finishedQ.id, user.id)
-		const liveCall = await makeCall(liveQ.id, user.id)
+		const call = await makeCall(resolvedQ.id, user.id, { resultPoints: 10 })
 
 		const data = await expectData<CallsResult>(FILTERED, {
 			as: user,
-			variables: { status: "OPEN", sort: "LIVE" },
+			variables: { status: "RESOLVED" },
 		})
-		expect(ids(data)).toEqual([liveCall.id, finishedCall.id])
+		expect(ids(data)).toEqual([call.id])
 	})
 
 	// Conviction lives on the call for a numeric guess and on the selections
@@ -878,7 +967,7 @@ describe("Query.myCalls filtering and sorting", () => {
 
 		const first = await expectData<CallsResult>(FILTERED, {
 			as: user,
-			variables: { status: "OPEN", sort: "LIVE", first: 2 },
+			variables: { status: "OPEN", sort: "CONVICTION", first: 2 },
 		})
 		expect(first.myCalls.items).toHaveLength(2)
 		expect(first.myCalls.pageInfo.hasNextPage).toBe(true)
@@ -887,7 +976,7 @@ describe("Query.myCalls filtering and sorting", () => {
 			as: user,
 			variables: {
 				status: "OPEN",
-				sort: "LIVE",
+				sort: "CONVICTION",
 				first: 2,
 				after: first.myCalls.pageInfo.endCursor,
 			},

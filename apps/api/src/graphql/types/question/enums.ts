@@ -169,14 +169,15 @@ export const CallResolutionStatus = builder.enumType("CallResolutionStatus", {
 
 // My Calls' ordering. Separate from QuestionSortOrder above because these
 // rank a *call*, not a question: POINTS and CONVICTION read columns that only
-// exist on a call, and LIVE has no counterpart on the public feed at all.
+// exist on a call.
 //
-// LIVE rather than a lock-time sort because a call on this page has already
-// been made - when it locks says nothing about whether it's worth looking at,
-// but whether its game is being played right now does.
+// No "live" value here. A call whose game is in progress is hoisted out of
+// this list entirely, into Query.myLiveCalls below - as a sort it could only
+// ever move a handful of rows up, and on the usual day, when nothing the
+// viewer called is playing, it moved none at all and was indistinguishable
+// from the lock-time ordering it fell back to.
 export const CallSortOrder = builder.enumType("CallSortOrder", {
 	values: {
-		LIVE: { value: "live" },
 		NEWEST: { value: "newest" },
 		POINTS: { value: "points" },
 		CONVICTION: { value: "conviction" },

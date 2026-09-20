@@ -8,6 +8,7 @@ import {
 	QuestionFilterBar,
 	type QuestionFilterValue,
 } from "#/components/filters/question-filter-bar"
+import { LiveCallsSection } from "#/components/my-calls/live-calls-section"
 import { MyCallsTab } from "#/components/my-calls/my-calls-tab"
 import { SortSwitcher } from "#/components/questions/sort-switcher"
 import { PageHeader } from "#/components/ui/page-header"
@@ -18,6 +19,7 @@ import {
 	myCallCountsQuery,
 	myCallsPageQuery,
 	myCallsQuery,
+	myLiveCallsQuery,
 } from "#/graphql/queries/my-calls"
 import { seedInfiniteQuery } from "#/graphql/query-options"
 import { useDebouncedValue } from "#/hooks/use-debounced-value"
@@ -51,6 +53,9 @@ export const Route = createFileRoute("/_app/_authed/my-calls")({
 		)
 		context.queryClient.setQueryData(myCallCountsQuery().queryKey, {
 			myCallCounts: data.myCallCounts,
+		})
+		context.queryClient.setQueryData(myLiveCallsQuery().queryKey, {
+			myLiveCalls: data.myLiveCalls,
 		})
 	},
 })
@@ -105,6 +110,10 @@ function RouteComponent() {
 				active={sort}
 				onChange={setSort}
 			/>
+
+			{/* Open tab only: a resolved call's game finished long ago, so
+			there is never anything live to pin above that list. */}
+			{activeTab === "open" && <LiveCallsSection filters={queryFilters} />}
 
 			<MyCallsTab
 				key={activeTab}

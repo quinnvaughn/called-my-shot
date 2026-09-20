@@ -14,13 +14,14 @@ type CallSortSet = {
 	options: { value: CallSortOrder; label: string }[]
 }
 
-// Live is meaningless once a question has settled and Points is meaningless
-// before it has, so neither tab offers the other's.
+// Points is meaningless before a question has settled, so the Open tab
+// doesn't offer it. Neither tab offers a "live" ordering: a call whose game
+// is in flight is lifted out of the list entirely, into the Playing Now
+// section above it (see LiveCallsSection).
 export const MY_CALL_SORTS: Record<"open" | "resolved", CallSortSet> = {
 	open: {
-		default: "LIVE",
+		default: "NEWEST",
 		options: [
-			{ value: "LIVE", label: "Live" },
 			{ value: "NEWEST", label: "Newest" },
 			{ value: "CONVICTION", label: "Conviction" },
 		],

@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest"
 import { EMPTY_FILTERS } from "#/components/filters/question-filter-bar"
 import { DEFAULT_MY_QUESTIONS_SORT, MY_CALL_SORTS } from "#/lib/my-list-sorts"
 import { toQueryFilters } from "#/routes/_app/_authed/my-calls"
-import { myCallCountsQuery, myCallsQuery } from "./my-calls"
+import { myCallCountsQuery, myCallsQuery, myLiveCallsQuery } from "./my-calls"
 import { myQuestionsQuery } from "./my-questions"
 
 // The My Calls loader hands one combined query's fields straight to the caches
@@ -19,7 +19,7 @@ describe("loader seeds land on the keys the components read", () => {
 	it("seeds each My Calls tab under its own default sort", () => {
 		expect(
 			hashKey(myCallsQuery("OPEN", {}, MY_CALL_SORTS.open.default).queryKey),
-		).toBe(hashKey(myCallsQuery("OPEN", {}, "LIVE").queryKey))
+		).toBe(hashKey(myCallsQuery("OPEN", {}, "NEWEST").queryKey))
 
 		expect(
 			hashKey(
@@ -32,7 +32,7 @@ describe("loader seeds land on the keys the components read", () => {
 	// component sends one is a different cache entry, not a looser match.
 	it("treats an absent sort as a different key from an explicit one", () => {
 		expect(hashKey(myCallsQuery("OPEN").queryKey)).not.toBe(
-			hashKey(myCallsQuery("OPEN", {}, "LIVE").queryKey),
+			hashKey(myCallsQuery("OPEN", {}, "NEWEST").queryKey),
 		)
 	})
 
@@ -71,6 +71,21 @@ describe("loader seeds land on the keys the components read", () => {
 		expect(toQueryFilters(withResult, "", "resolved")).toEqual({
 			result: "HIT",
 		})
+	})
+
+	// The Playing Now section reads under the filters the page opens on, and
+	// the loader seeds it unfiltered. `result` never reaches it at all - it's a
+	// Resolved-tab filter, and no live call has an outcome yet - so passing one
+	// has to land on the same key as passing none.
+	it("seeds the live calls under the key an unfiltered open tab reads", () => {
+		expect(hashKey(myLiveCallsQuery().queryKey)).toBe(
+			hashKey(
+				myLiveCallsQuery(toQueryFilters(EMPTY_FILTERS, "", "open")).queryKey,
+			),
+		)
+		expect(hashKey(myLiveCallsQuery({ result: "HIT" }).queryKey)).toBe(
+			hashKey(myLiveCallsQuery({}).queryKey),
+		)
 	})
 
 	it("prefetches My Questions under its default sort", () => {

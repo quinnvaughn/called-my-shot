@@ -44,6 +44,10 @@ export const MyCallsPageDocument = graphql(`
                 endCursor
             }
         }
+        myLiveCalls {
+            id
+            ...MyCallsTab_call
+        }
     }
 `)
 
@@ -77,6 +81,30 @@ export const MyCallsDocument = graphql(`
                 hasNextPage
                 endCursor
             }
+        }
+    }
+`)
+
+// The Playing Now section above the Open tab's list. Takes the same filters
+// as the list (minus the ones only a settled call has) so narrowing to one
+// league narrows both halves of the tab, not just the half below the fold.
+// Unpaginated - the server caps it, since you can only have as many live
+// calls as there are games in flight.
+export const MyLiveCallsDocument = graphql(`
+    query MyLiveCalls(
+        $leagueId: ID
+        $shapes: [QuestionShape!]
+        $search: String
+        $scope: QuestionScope
+    ) {
+        myLiveCalls(
+            leagueId: $leagueId
+            shapes: $shapes
+            search: $search
+            scope: $scope
+        ) {
+            id
+            ...MyCallsTab_call
         }
     }
 `)
@@ -119,6 +147,14 @@ export const myCallsPageQuery = gqlQueryOptions(MyCallsPageDocument, {})
 
 export const myCallCountsQuery = (filters: MyCallsFilters = {}) =>
 	gqlQueryOptions(MyCallCountsDocument, filters)
+
+// `result` is dropped rather than passed through: it's a Resolved-tab filter
+// and every live call is by definition unsettled, so sending it could only
+// ever empty this section out.
+export const myLiveCallsQuery = ({
+	result: _result,
+	...filters
+}: MyCallsFilters = {}) => gqlQueryOptions(MyLiveCallsDocument, filters)
 
 // Every filter and the sort are part of the variables, and therefore of the
 // query key, so changing one starts a fresh list rather than appending to the

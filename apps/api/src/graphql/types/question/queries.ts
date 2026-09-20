@@ -172,23 +172,20 @@ function myCallConditions(userId: string, filters: MyCallFilters) {
 	].filter((c) => c !== undefined)
 }
 
+// A call whose question hangs off a game that is being played right now.
+// Query.myLiveCalls selects on it and Query.myCalls excludes it, so the two
+// can't disagree about which rows the "Playing now" section has taken off the
+// list. A season-long call has no game at all, and so is never live.
+const callGameIsLive = sql`${games.status} = 'live'`
+
+// See Query.myLiveCalls - a backstop, not a page size. The largest single
+// slate in any synced league is well under this.
+const MY_LIVE_CALLS_CAP = 50
+
 // My Calls' ordering keys, without the trailing calls.id tiebreak every sort
-// shares (added at the use site). Requires the games join myCalls makes, which
-// LIVE reads.
-//
-// LIVE leads with the calls whose game is being played right now, ordered by
-// lock time so the game closest to finishing sits on top. Everything else
-// falls in behind it under the lock-time ordering the page used to lead with:
-// still-callable first by soonest lock, then the locked ones, which are
-// waiting on resolution rather than on you. A season-long call has no game, so
-// it never enters the live block.
-function myCallOrderKeys(sort: "live" | "newest" | "points" | "conviction") {
+// shares (added at the use site).
+function myCallOrderKeys(sort: "newest" | "points" | "conviction") {
 	return match(sort)
-		.with("live", () => [
-			asc(sql`(${games.status} is distinct from 'live')`),
-			asc(sql`(${questions.locksAt} <= now())`),
-			asc(questions.locksAt),
-		])
 		.with("newest", () => [desc(calls.createdAt)])
 		.with("points", () => [sql`${callTotalPoints} desc nulls last`])
 		.with("conviction", () => [sql`${callConviction} desc nulls last`])
@@ -682,11 +679,12 @@ builder.queryFields((t) => ({
 			const user = requireUser(ctx)
 			const limit = clampPageSize(args.first)
 			const offset = args.after ? decodeOffsetCursor(args.after) : 0
-			// Live is the Open tab's default and Points the Resolved tab's: what
-			// you want off an unsettled pile is what's playing out right now,
-			// and off a settled one, what it was worth.
+			// Newest is the Open tab's default and Points the Resolved tab's:
+			// off an unsettled pile you want what you just called, and off a
+			// settled one, what it was worth. What's playing out right now isn't
+			// in this list at all - see myLiveCalls below.
 			const sort =
-				args.sort ?? (args.status === "resolved" ? "points" : "live")
+				args.sort ?? (args.status === "resolved" ? "points" : "newest")
 
 			const query = db
 				.with(callPoints)
@@ -697,10 +695,20 @@ builder.queryFields((t) => ({
 				.leftJoin(teams, eq(teams.id, questions.subjectTeamId))
 				.leftJoin(players, eq(players.id, questions.subjectPlayerId))
 				.leftJoin(callPoints, eq(callPoints.callId, calls.id))
-				// Null for a season-long question, which hangs off no game - the
-				// LIVE sort treats that the same as a game that isn't live.
+				// Null for a season-long question, which hangs off no game.
 				.leftJoin(games, eq(games.id, questions.gameId))
-				.where(and(...myCallConditions(user.id, args)))
+				.where(
+					and(
+						...myCallConditions(user.id, args),
+						// The Open tab renders its live calls as a pinned section above
+						// this list (myLiveCalls below), so leaving them in would show
+						// each of them twice. myCallCounts deliberately still counts
+						// them: the tab badge describes the tab, not this one list.
+						args.status === "open"
+							? sql`(${callGameIsLive}) is not true`
+							: undefined,
+					),
+				)
 				.$dynamic()
 
 			const rows = await query
@@ -718,6 +726,51 @@ builder.queryFields((t) => ({
 						items.length > 0 ? encodeOffsetCursor(offset + items.length) : null,
 				},
 			}
+		},
+	}),
+
+	// The "Playing now" section pinned above the Open tab's list - the viewer's
+	// calls whose game is in flight right now. These rows are excluded from
+	// myCalls above, so the two together are the whole Open tab exactly once.
+	//
+	// A section rather than one of myCalls' sort orders, which is what this
+	// used to be. As a sort it had nothing to hoist on any day the viewer had
+	// no game in flight - which is most days - and fell through to ordering by
+	// locksAt, so picking "Live" produced the identical list to a closing-soon
+	// ordering and the control read as broken. A section is simply absent when
+	// there's nothing live, which is the honest rendering of the same fact.
+	//
+	// Not a connection: a viewer can only have as many live calls as there are
+	// games in flight, so this is a naturally small set. The cap is a
+	// backstop against a pathological account, not real pagination.
+	myLiveCalls: t.field({
+		type: [CallRef],
+		args: {
+			leagueId: t.arg.id(),
+			shapes: t.arg({ type: [QuestionShape], required: false }),
+			search: t.arg.string(),
+			scope: t.arg({ type: QuestionScope, required: false }),
+		},
+		resolve: async (_root, args, ctx) => {
+			const user = requireUser(ctx)
+			return db
+				.select(getColumns(calls))
+				.from(calls)
+				.innerJoin(questions, eq(questions.id, calls.questionId))
+				.leftJoin(users, eq(users.id, questions.creatorId))
+				.leftJoin(teams, eq(teams.id, questions.subjectTeamId))
+				.leftJoin(players, eq(players.id, questions.subjectPlayerId))
+				.innerJoin(games, eq(games.id, questions.gameId))
+				.where(
+					and(
+						...myCallConditions(user.id, { ...args, status: "open" }),
+						callGameIsLive,
+					),
+				)
+				// Earliest start first, so the game closest to finishing - the one
+				// whose outcome is about to be decided - sits on top.
+				.orderBy(asc(games.startsAt), desc(calls.id))
+				.limit(MY_LIVE_CALLS_CAP)
 		},
 	}),
 
