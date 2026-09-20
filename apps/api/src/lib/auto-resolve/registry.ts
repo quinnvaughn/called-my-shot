@@ -33,7 +33,7 @@ export type GameSourceNeed = "roster" | "athleteGameStats"
 // must not be conflated (NBA team rebounds are "totalRebounds" in the team box
 // but "rebounds" in the player tables).
 export type BoxStatSource = {
-	origin: "athlete" | "team_box" | "player_table_total"
+	origin: "athlete" | "team_box" | "player_table_total" | "final_score"
 	key: string
 	parse: (raw: string | undefined) => number | null
 }
@@ -325,6 +325,7 @@ const teamScore: GameTeamExtractor = {
 			? noValue(`score for team ${espnTeamId}`)
 			: value(score)
 	},
+	source: { origin: "final_score", key: "score", parse: parseStatNumber },
 }
 
 function teamBoxStat(

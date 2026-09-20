@@ -3,6 +3,7 @@ import { match } from "ts-pattern"
 import {
 	homeAwaySplit,
 	opponentAllowed,
+	poolRanking,
 	recentGames,
 	restSplit,
 	type StatContextScope,
@@ -11,12 +12,21 @@ import {
 } from "./queries"
 import { recipeFor } from "./recipes"
 import { boxStatSourceFor } from "./stat-source"
-import type { StatContext, StatContextSlot, StatContextSubject } from "./types"
+import type {
+	StatContext,
+	StatContextRankedPlayer,
+	StatContextSlot,
+	StatContextSubject,
+} from "./types"
 
 // Fixed across sports on purpose. The query returns what exists, so a league
 // with a short season simply yields fewer rows rather than needing a per-sport
 // number here. How many of them to show is the page's call, not this layer's.
 const LAST_N = 10
+
+// A pool question's list is a shortlist, not a roster dump. Five is enough to
+// see who is in front and whether it's close.
+const RANK_LIMIT = 5
 
 // One side a question can be about, with its team in this game already
 // resolved by the caller - null when the player isn't on either competitor,
@@ -45,6 +55,9 @@ export type StatContextQuestion = {
 	// where a head-to-head keeps its two sides; there are no dedicated A/B
 	// columns on questions.
 	optionSubjects: SubjectRef[]
+	// The game's two teams, home first. A game total is about neither side in
+	// particular, so it falls back to these.
+	competitors: SubjectRef[]
 }
 
 // Which sides of a question get cards. Exhaustive on purpose: a nineteenth
@@ -94,6 +107,14 @@ function subjectsFor(question: StatContextQuestion): SubjectRef[] {
 	)
 }
 
+// Whether a shape's option pool is a leaderboard rather than a pair. Only the
+// game-scoped one for now: a season award's pool is the whole league, which is
+// a different query and a different claim ("who leads the league so far" is
+// not the same as "who leads tonight").
+function ranksPool(shape: QuestionShape): boolean {
+	return shape === "player_game_stat_leader"
+}
+
 async function cardsFor(
 	subject: SubjectRef,
 	question: StatContextQuestion,
@@ -108,8 +129,17 @@ async function cardsFor(
 	if (!teamId) return null
 
 	const scope: StatContextScope = {
+		subjectKind: source.subject,
 		playerId: source.subject === "player" ? subject.playerId : null,
 		teamId,
+		// A team stat lives in whichever team_game_stats scope its extractor
+		// reads from, which is exactly what the source descriptor records.
+		teamScope:
+			source.subject === "team"
+				? source.origin === "athlete"
+					? null
+					: source.origin
+				: null,
 		opponentTeamId:
 			teamId === game.homeTeamId ? game.awayTeamId : game.homeTeamId,
 		seasonId: question.seasonId,
@@ -118,6 +148,7 @@ async function cardsFor(
 		ouLine: question.ouLine,
 		positions: subject.positions,
 	}
+	if (source.subject === "team" && !scope.teamScope) return null
 
 	const wants = (slot: StatContextSlot) => slots.has(slot)
 	const [games, season, splits, rest, allowed, share] = await Promise.all([
@@ -168,7 +199,8 @@ export async function buildStatContext(
 	question: StatContextQuestion,
 ): Promise<StatContext | null> {
 	const subjects = subjectsFor(question)
-	if (subjects.length === 0) return null
+	const pooled = ranksPool(question.shape)
+	if (subjects.length === 0 && !pooled) return null
 
 	const source = boxStatSourceFor({
 		shape: question.shape,
@@ -179,6 +211,27 @@ export async function buildStatContext(
 	})
 	if (!source) return null
 
+	const base = { statLabel: question.statName ?? "", lastN: LAST_N }
+
+	if (pooled) {
+		if (!question.seasonId) return null
+		const ranking = await poolRanking(
+			{
+				seasonId: question.seasonId,
+				statKey: source.statKey,
+				asOf: question.locksAt,
+			},
+			question.optionSubjects
+				.map((option) => option.playerId)
+				.filter((id): id is string => id !== null),
+			RANK_LIMIT,
+		)
+		// Nobody in the pool has a stored appearance, so there is no order to
+		// show and a list of names with no numbers is worse than no list.
+		if (ranking.length === 0) return null
+		return { ...base, subjects: [], ranking }
+	}
+
 	const slots = new Set<StatContextSlot>(recipeFor(source.autoResolveStatKey))
 	const built = await Promise.all(
 		subjects.map((subject) => cardsFor(subject, question, source, slots)),
@@ -186,8 +239,8 @@ export async function buildStatContext(
 	if (built.some((side) => side === null)) return null
 
 	return {
-		statLabel: question.statName ?? "",
-		lastN: LAST_N,
+		...base,
 		subjects: built.filter((side): side is StatContextSubject => side !== null),
+		ranking: [] as StatContextRankedPlayer[],
 	}
 }

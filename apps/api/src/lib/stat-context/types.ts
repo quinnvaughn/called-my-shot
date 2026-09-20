@@ -82,8 +82,22 @@ export type StatContextSubject = {
 	teamShare: StatContextShare | null
 }
 
+// One candidate in a "who leads this game" pool, with what they're averaging.
+// A leader question's pool is every player on both teams, so the useful view
+// was never a game log each - it's who is actually in front.
+export type StatContextRankedPlayer = {
+	playerId: string
+	label: string
+	mean: number
+	games: number
+}
+
 export type StatContext = {
 	statLabel: string
 	lastN: number
+	// One entry for a one-sided question, two for a head-to-head. Empty for a
+	// pool question, which uses ranking instead.
 	subjects: StatContextSubject[]
+	// Populated only for a pool question. Ordered best first.
+	ranking: StatContextRankedPlayer[]
 }

@@ -7,17 +7,19 @@ type GameKey = keyof typeof GAME_EXTRACTORS
 // The game stats whose value genuinely isn't a single cell of a stored box
 // score, and so can't carry a `source`. Each one is here for one of three
 // reasons, all spelled out on the factory that builds it in registry.ts:
-// computed from several cells (ERA, WHIP), not a stat cell at all (Points off
-// the scoreboard, Saves off the pitching decision note), or a column ESPN
-// reports season-to-date rather than per-game (the four mlbBatterGameStat
-// ones, which is the trap this whole list exists to keep visible).
+// computed from several cells (ERA, WHIP), not a stat cell at all (Saves, read
+// off the pitching decision note), or a column ESPN reports season-to-date
+// rather than per-game (the four mlbBatterGameStat ones, which is the trap
+// this whole list exists to keep visible).
+//
+// The final score used to be here too. It isn't a box-score cell either, but
+// it is now stored as a one-key team stat (scope "final_score"), so a points
+// question reads it the same way every other team stat is read.
 //
 // Adding a key here is a claim that stat context cannot be derived from
 // stored box-score rows. Anything not listed must be readable from one, which
 // is what stops a newly added league quietly shipping without context.
 const NO_RAW_BOX_COLUMN = new Set<GameKey>([
-	"nba:game:team:Points",
-	"nfl:game:team:Points",
 	"mlb:game:player:Stolen Bases",
 	"mlb:game:player:Batting Average",
 	"mlb:game:player:On-Base Percentage",

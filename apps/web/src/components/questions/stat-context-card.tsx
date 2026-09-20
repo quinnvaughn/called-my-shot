@@ -12,6 +12,12 @@ export const StatContextCardFragment = graphql(`
 	fragment StatContextCard_statContext on StatContext {
 		statLabel
 		lastN
+		ranking {
+			playerId
+			label
+			mean
+			games
+		}
 		subjects {
 			label
 			recentGames {
@@ -69,8 +75,9 @@ type Subject = StatContextCard_StatContextFragment["subjects"][number]
 // The game strip needs two games to be a strip rather than a restatement of
 // the headline.
 const MIN_LOG = 2
-// A hit rate under three games says nothing - "1 of 1" is not a rate.
-const MIN_HIT_RATE = 3
+// "1 of 1" is not a rate. Two is, so that's the floor - the same point every
+// other figure here starts averaging at.
+const MIN_HIT_RATE = 2
 // A split needs two games on each side, or it's just two games relabelled.
 const MIN_PER_SIDE = 2
 
@@ -255,6 +262,50 @@ function supportingTiles(subject: Subject, teams: TeamLabels): Tile[] {
 	return tiles
 }
 
+// A pool question's answer is who is in front, so the list is the card. Rank
+// on the left, name, then what they average - the number stays right-aligned
+// and in the same face as every other figure here so the column scans.
+//
+// The sample is spelled out per row rather than printed as a bare count: one
+// game reads "last game", which is honest about the ordering being a single
+// week rather than dressing it up as an average. Early in a season that is
+// what every row will say, and saying it is better than implying a season's
+// worth of evidence behind the sort.
+function Ranking({
+	ranking,
+}: {
+	ranking: StatContextCard_StatContextFragment["ranking"]
+}) {
+	return (
+		<VStack gap="1.5" alignItems="stretch">
+			{ranking.map((player, index) => (
+				<HStack key={player.playerId} justify="space-between" gap="3">
+					<HStack gap="2" minWidth="0">
+						<span className={mutedClass}>{index + 1}</span>
+						<span
+							className={css({
+								fontSize: "sm",
+								minWidth: "0",
+								overflow: "hidden",
+								textOverflow: "ellipsis",
+								whiteSpace: "nowrap",
+							})}
+						>
+							{player.label}
+						</span>
+					</HStack>
+					<HStack gap="2" flexShrink="0">
+						<span className={numberClass}>{round(player.mean)}</span>
+						<span className={mutedClass}>
+							{player.games === 1 ? "last game" : `${player.games} games`}
+						</span>
+					</HStack>
+				</HStack>
+			))}
+		</VStack>
+	)
+}
+
 function SubjectColumn({
 	subject,
 	teams,
@@ -333,8 +384,12 @@ export function StatContextCard(props: {
 	const [expanded, setExpanded] = useState(props.isCallable)
 	const context = useFragment(StatContextCardFragment, props.statContext)
 
-	if (!context || context.subjects.length === 0) return null
+	if (!context) return null
 
+	// Not gated on subjects being present: a pool question deliberately has
+	// none, because its ranking stands in for them. The real check is below,
+	// once both have been built.
+	const ranking = context.ranking
 	const columns = context.subjects
 		.map((subject) => ({
 			subject,
@@ -345,7 +400,7 @@ export function StatContextCard(props: {
 
 	// Everything got gated out, so there's nothing worth a card. Renders
 	// nothing rather than an empty state, the same as GameStarters.
-	if (columns.length === 0) return null
+	if (columns.length === 0 && ranking.length === 0) return null
 
 	const twoUp = columns.length > 1
 	// The sat-out note only makes sense next to a strip that can show one.
@@ -387,6 +442,7 @@ export function StatContextCard(props: {
 
 					{expanded && (
 						<>
+							{ranking.length > 0 && <Ranking ranking={ranking} />}
 							<div
 								className={css({
 									display: "grid",

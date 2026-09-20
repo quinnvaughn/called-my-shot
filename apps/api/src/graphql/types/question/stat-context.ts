@@ -2,6 +2,7 @@ import type {
 	StatContext,
 	StatContextGame,
 	StatContextOpponentAllowed,
+	StatContextRankedPlayer,
 	StatContextRest,
 	StatContextShare,
 	StatContextSplit,
@@ -131,6 +132,17 @@ const SubjectRef = builder
 		}),
 	})
 
+const RankedPlayerRef = builder
+	.objectRef<StatContextRankedPlayer>("StatContextRankedPlayer")
+	.implement({
+		fields: (t) => ({
+			playerId: t.exposeID("playerId"),
+			label: t.exposeString("label"),
+			mean: t.exposeFloat("mean"),
+			games: t.exposeInt("games"),
+		}),
+	})
+
 export const StatContextRef = builder
 	.objectRef<StatContext>("StatContext")
 	.implement({
@@ -140,5 +152,11 @@ export const StatContextRef = builder
 			// One entry for a one-sided question, two for a head-to-head, in the
 			// order its options are listed.
 			subjects: t.field({ type: [SubjectRef], resolve: (c) => c.subjects }),
+			// Populated instead of subjects for a pool question ("who leads
+			// this game"), ordered best first. Empty otherwise.
+			ranking: t.field({
+				type: [RankedPlayerRef],
+				resolve: (c) => c.ranking,
+			}),
 		}),
 	})

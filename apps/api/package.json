@@ -10,6 +10,7 @@
     "email:dev": "email dev --dir src/emails --port 3001",
     "email:logo": "tsx scripts/render-email-logo.ts",
     "backfill:emails": "tsx --env-file=.env scripts/backfill-resolution-emails.ts",
+    "backfill:final-scores": "tsx --env-file=.env scripts/backfill-final-scores.ts",
     "backfill:box-scores": "tsx --env-file=.env scripts/backfill-box-scores.ts",
     "backfill:streaks": "tsx --env-file=.env scripts/backfill-streaks.ts",
     "season-start:emails": "tsx --env-file=.env scripts/season-start-emails.ts",

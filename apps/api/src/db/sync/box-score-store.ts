@@ -187,6 +187,19 @@ export async function persistBoxScore(args: {
 			}
 		}
 		collectTeamRows("team_box", "team_box", box.teamStats)
+		// The final score, as a one-key team stat. Not a box-score cell, but
+		// storing it here is what lets "team points" be an ordinary stat
+		// question rather than a special case in every query.
+		collectTeamRows(
+			"final_score",
+			"final_score",
+			new Map(
+				[...box.scoreByEspnTeamId].map(([espnTeamId, score]) => [
+					espnTeamId,
+					new Map([["score", String(score)]]),
+				]),
+			),
+		)
 		collectTeamRows("player_table_total", "player_table_total", box.tableTotals)
 
 		await tx.delete(playerGameStats).where(eq(playerGameStats.gameId, game.id))

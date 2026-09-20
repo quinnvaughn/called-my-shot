@@ -2,13 +2,15 @@ import { db } from "../index"
 import { parseBoxScore } from "./box-score-parse"
 import { persistBoxScore } from "./box-score-store"
 import { EspnRequestError, fetchGameSummary } from "./espn-client"
-import { createEspnRequester } from "./espn-requester"
+import { createEspnRequester, DEFAULT_ESPN_SPACING_MS } from "./espn-requester"
 import { SYNCED_LEAGUES } from "./leagues"
 
-// Deliberately slower than DEFAULT_ESPN_SPACING_MS (250ms). A full MLB season
-// is ~2,400 summaries, and there is no reason for a bulk historical pass to
-// move at the speed the live path needs.
-export const BACKFILL_SPACING_MS = 1000
+// The same rate the scheduler already hits ESPN at. A bulk pass makes the same
+// number of requests whichever spacing it uses, and the rate is what a host
+// cares about, so there was no case for the backfill crawling at a quarter of
+// a proven-safe speed - it just turned nine minutes of MLB into thirty-six.
+// Override with --spacing when a run needs to tread more carefully.
+export const BACKFILL_SPACING_MS = DEFAULT_ESPN_SPACING_MS
 
 // Logged every this many games so a long run shows progress without a line per
 // game.

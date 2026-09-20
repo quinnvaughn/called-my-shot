@@ -40,6 +40,11 @@ import { teams } from "./teams"
 export const teamGameStatScope = pgEnum("team_game_stat_scope", [
 	"team_box",
 	"player_table_total",
+	// The final score, which is not a box-score cell at all - ESPN carries it
+	// on the competitor. Stored here anyway, under the key "score", so a
+	// question about a team's points is just another team stat and needs no
+	// special path through the query layer.
+	"final_score",
 ])
 
 // Columns every box-score row carries so the aggregate queries stay

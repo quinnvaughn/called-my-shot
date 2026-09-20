@@ -87,8 +87,10 @@ async function appearance(
 
 function scopeFor(world: World, overrides: Partial<StatContextScope> = {}) {
 	return {
+		subjectKind: "player",
 		playerId: world.player.id,
 		teamId: world.team.id,
+		teamScope: null,
 		opponentTeamId: world.opponent.id,
 		seasonId: world.season.id,
 		statKey: STAT_KEY,
@@ -341,6 +343,100 @@ describe("shareOfTeamTotal", () => {
 	})
 })
 
+// Team questions read team_game_stats rather than player_game_stats, which is
+// what makes "team runs" and "total points in this game" answerable at all.
+describe("team subjects", () => {
+	async function teamGame(
+		days: number,
+		value: number,
+		options: { isHome?: boolean; scope?: "team_box" | "final_score" } = {},
+	) {
+		const isHome = options.isHome ?? true
+		const game = await makeGame({
+			leagueId: world.league.id,
+			seasonId: world.season.id,
+			homeTeamId: isHome ? world.team.id : world.opponent.id,
+			awayTeamId: isHome ? world.opponent.id : world.team.id,
+			startsAt: daysAgo(days),
+			status: "final",
+		})
+		await db.insert(teamGameStats).values({
+			gameId: game.id,
+			source: "espn",
+			scope: options.scope ?? "team_box",
+			teamId: world.team.id,
+			opponentTeamId: world.opponent.id,
+			isHome,
+			gameDate: daysAgo(days),
+			seasonId: world.season.id,
+			leagueId: world.league.id,
+			statKey: STAT_KEY,
+			valueText: String(value),
+			valueNumeric: value,
+		})
+		return game
+	}
+
+	const teamScope = (overrides: Partial<StatContextScope> = {}) =>
+		({
+			...scopeFor(world),
+			subjectKind: "team",
+			playerId: null,
+			teamScope: "team_box",
+			...overrides,
+		}) satisfies StatContextScope
+
+	it("reads a team's own game log", async () => {
+		await teamGame(5, 4)
+		await teamGame(2, 7)
+
+		const games = await recentGames(teamScope(), 10)
+
+		expect(games.map((g) => g.value)).toEqual([7, 4])
+		// A team always plays its own game.
+		expect(games.every((g) => !g.didNotPlay)).toBe(true)
+	})
+
+	it("averages and splits a team's season", async () => {
+		await teamGame(6, 4, { isHome: true })
+		await teamGame(4, 8, { isHome: true })
+		await teamGame(2, 3, { isHome: false })
+
+		const season = await seasonToDate(teamScope())
+		const { home, away } = await homeAwaySplit(teamScope())
+
+		expect(season).toMatchObject({ games: 3, total: 15, mean: 5 })
+		expect(home).toMatchObject({ games: 2, mean: 6 })
+		expect(away).toMatchObject({ games: 1, mean: 3 })
+	})
+
+	// The final score is stored as an ordinary team stat, which is what lets a
+	// points question work without a special path through any of this.
+	it("reads the final score like any other team stat", async () => {
+		await teamGame(3, 27, { scope: "final_score" })
+
+		const season = await seasonToDate(teamScope({ teamScope: "final_score" }))
+
+		expect(season).toMatchObject({ games: 1, mean: 27 })
+	})
+
+	it("keeps the two team scopes apart", async () => {
+		await teamGame(3, 4, { scope: "team_box" })
+		await teamGame(3, 27, { scope: "final_score" })
+
+		expect((await seasonToDate(teamScope()))?.mean).toBe(4)
+		expect(
+			(await seasonToDate(teamScope({ teamScope: "final_score" })))?.mean,
+		).toBe(27)
+	})
+
+	it("has no share of its own total", async () => {
+		await teamGame(3, 4)
+
+		expect(await shareOfTeamTotal(teamScope())).toBeNull()
+	})
+})
+
 describe("boxStatSourceFor", () => {
 	const base = {
 		leagueSlug: "nba",
@@ -432,6 +528,7 @@ describe("buildStatContext", () => {
 			seasonId: world.season.id,
 			game: { homeTeamId: world.team.id, awayTeamId: world.opponent.id },
 			subject: refFor(world.player, "Subject", world.team.id),
+			competitors: [],
 			optionSubjects: [],
 		})
 
@@ -460,6 +557,7 @@ describe("buildStatContext", () => {
 			seasonId: world.season.id,
 			game: { homeTeamId: world.team.id, awayTeamId: world.opponent.id },
 			subject: null,
+			competitors: [],
 			optionSubjects: [
 				refFor(world.player, "Subject", world.team.id),
 				refFor(rival, "Rival", world.opponent.id),
@@ -483,6 +581,7 @@ describe("buildStatContext", () => {
 			seasonId: world.season.id,
 			game: { homeTeamId: world.team.id, awayTeamId: world.opponent.id },
 			subject: null,
+			competitors: [],
 			optionSubjects: [
 				refFor(world.player, "Subject", world.team.id),
 				refFor(rival, "Rival", world.opponent.id),
@@ -492,8 +591,13 @@ describe("buildStatContext", () => {
 		expect(context).toBeNull()
 	})
 
-	it("returns nothing for a shape with a pool rather than a pair", async () => {
-		await appearance(world, { daysAgo: 5, value: 30 })
+	// A pool question's answer is who is in front, so it gets a ranking rather
+	// than a card each - ten game logs was never the useful view.
+	it("ranks the pool for a leader question, best first", async () => {
+		const rival = await makePlayer({ currentTeamId: world.team.id })
+		const bench = await makePlayer({ currentTeamId: world.team.id })
+		await appearance(world, { daysAgo: 5, value: 10 })
+		await appearance(world, { daysAgo: 5, value: 30, playerId: rival.id })
 
 		const context = await buildStatContext({
 			...questionBase,
@@ -501,6 +605,29 @@ describe("buildStatContext", () => {
 			seasonId: world.season.id,
 			game: { homeTeamId: world.team.id, awayTeamId: world.opponent.id },
 			subject: null,
+			competitors: [],
+			optionSubjects: [
+				refFor(world.player, "Subject", world.team.id),
+				refFor(rival, "Rival", world.team.id),
+				// No stored appearance at all, so no number to rank on.
+				refFor(bench, "Bench", world.team.id),
+			],
+		})
+
+		expect(context?.subjects).toEqual([])
+		expect(context?.ranking.map((r) => r.mean)).toEqual([30, 10])
+		// A zero would rank an unknown player as genuinely bad.
+		expect(context?.ranking).toHaveLength(2)
+	})
+
+	it("returns nothing when no one in the pool has played", async () => {
+		const context = await buildStatContext({
+			...questionBase,
+			shape: "player_game_stat_leader",
+			seasonId: world.season.id,
+			game: { homeTeamId: world.team.id, awayTeamId: world.opponent.id },
+			subject: null,
+			competitors: [],
 			optionSubjects: [refFor(world.player, "Subject", world.team.id)],
 		})
 

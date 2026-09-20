@@ -1,0 +1,1 @@
+ALTER TYPE "team_game_stat_scope" ADD VALUE 'final_score';

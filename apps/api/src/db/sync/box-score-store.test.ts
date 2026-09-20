@@ -126,7 +126,16 @@ describe("persistBoxScore", () => {
 
 		const rows = await teamRows(setup.game.id)
 		const scopes = new Set(rows.map((r) => r.scope))
-		expect(scopes).toEqual(new Set(["team_box", "player_table_total"]))
+		expect(scopes).toEqual(
+			new Set(["team_box", "player_table_total", "final_score"]),
+		)
+
+		// The score isn't a box-score cell, so it's stored under its own scope
+		// with a single key rather than mixed in with ESPN's columns.
+		const score = rows.filter((r) => r.scope === "final_score")
+		expect(score).toHaveLength(2)
+		expect(score.every((r) => r.statKey === "score")).toBe(true)
+		expect(score.every((r) => (r.valueNumeric ?? 0) > 0)).toBe(true)
 
 		// NBA's two namespaces disagree on rebounds, which is the whole reason
 		// the scope column exists.

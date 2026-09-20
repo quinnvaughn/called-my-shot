@@ -485,6 +485,10 @@ export const QuestionRef = builder.drizzleObject("questions", {
 					optionSubjects: options
 						.filter((o) => o.playerId || o.teamId)
 						.map((o) => refFor(o.label, o.playerId, o.teamId)),
+					competitors: [
+						refFor("", null, game.homeTeamId),
+						refFor("", null, game.awayTeamId),
+					],
 				})
 			},
 		}),
