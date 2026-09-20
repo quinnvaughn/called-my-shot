@@ -21,18 +21,35 @@ import fontsCss from "../fonts.css?url"
 import type { RouterContext } from "../router-context"
 import appCss from "../styles.css?url"
 
-const meQuery = gqlQueryOptions(MeDocument, {})
+// queryClient.query() forces `retry: false` onto whatever it is handed, so
+// without this the viewer load gets exactly one attempt. It is the first thing
+// every navigation awaits, which makes a single dropped POST enough to replace
+// the whole app with an error page. The retry covers a connection that died
+// while the tab sat idle: the attempt that opens a fresh one succeeds.
+const meQuery = gqlQueryOptions(MeDocument, {}, { retry: 1, retryDelay: 250 })
 
 export const Route = createRootRouteWithContext<RouterContext>()({
 	beforeLoad: async ({ context }) => {
-		const data = await context.queryClient.query(meQuery)
-		return { me: data.me ?? null }
+		try {
+			const data = await context.queryClient.query(meQuery)
+			return { me: data.me ?? null }
+		} catch (error) {
+			// The viewer barely changes between navigations, so the last known
+			// one is a better answer than tearing the app down. It also beats
+			// falling back to null, which reads as signed out and would bounce
+			// an admin off /admin mid-session. A signed-out viewer arrives as a
+			// successful response carrying `me: null`, never as a throw, so
+			// nothing here can resurrect a session the api has already ended.
+			const cached = context.queryClient.getQueryData(meQuery.queryKey)
+			if (!cached) throw error
+			return { me: cached.me ?? null }
+		}
 	},
-	// The viewer query above runs before anything else renders, so a failure
-	// here (api down, network blip) has nothing below it to catch. Declared on
-	// the root specifically rather than relying on defaultErrorComponent so it
-	// renders inside shellComponent's <html>/<body> - an error page instead of
-	// a bare document shell.
+	// Nothing renders above the viewer query, so the failures that still escape
+	// it (no cached viewer to stand in, api down on a cold load) have nothing
+	// below them to catch. Declared on the root specifically rather than
+	// relying on defaultErrorComponent so it renders inside shellComponent's
+	// <html>/<body> - an error page instead of a bare document shell.
 	errorComponent: RouteError,
 	head: () => ({
 		meta: [
