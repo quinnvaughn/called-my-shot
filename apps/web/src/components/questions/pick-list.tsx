@@ -4,8 +4,8 @@ import { match } from "ts-pattern"
 import {
 	type CallSummaryData,
 	convictionSummary,
-	lossContext,
 	pickSummary,
+	resultContext,
 	resultState,
 } from "#/lib/call-summary"
 import { PickStateIcon } from "./pick-state-icon"
@@ -79,7 +79,10 @@ export function PickList({ call }: Props) {
 			"PLAYER_AWARD_FINALISTS",
 			() => {
 				const result = resultState(call.totalPoints)
-				const context = lossContext(call)
+				// "actual was 63", "off by 1", "inches away" - whichever of
+				// those this shape and result can actually say. A pending call
+				// and a shape with no numbers behind it both contribute none.
+				const context = resultContext(call)
 				return (
 					<VStack gap="1.5" alignItems="stretch">
 						<PickRow state={result.status}>
@@ -101,8 +104,9 @@ export function PickList({ call }: Props) {
 								paddingLeft: "6",
 							})}
 						>
-							{convictionSummary(call)} conviction
-							{context && ` · ${context}`}
+							{[`${convictionSummary(call)} conviction`, ...context].join(
+								" · ",
+							)}
 						</span>
 					</VStack>
 				)

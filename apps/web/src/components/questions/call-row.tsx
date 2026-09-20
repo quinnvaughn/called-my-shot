@@ -23,6 +23,12 @@ export const CallRowFragment = graphql(`
 			ouLine
 			numericActualValue
 			numericToleranceAbsolute
+			numericTolerancePct
+			scoredOptions {
+				id
+				label
+				actualValue
+			}
 			stat {
 				id
 				toleranceTier {
@@ -39,6 +45,7 @@ export const CallRowFragment = graphql(`
 				id
 				label
 				isCorrect
+				actualValue
 			}
 		}
 	}

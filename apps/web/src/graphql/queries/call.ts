@@ -39,6 +39,7 @@ export const CallRecordDocument = graphql(`
 				ouLine
 				numericActualValue
 				numericToleranceAbsolute
+				numericTolerancePct
 				scoredOptions {
 					id
 					label
@@ -78,6 +79,12 @@ export const CallRecordDocument = graphql(`
 					label
 					isCorrect
 					fieldPct
+					# This caller's own pick's number, which scoredOptions above
+					# cannot give on a leader pool: that is trimmed to whoever led,
+					# and the margin needs whoever they backed. f6ffc09 dropped this
+					# in favour of scoredOptions for the Actual line; it is back for
+					# a different question.
+					actualValue
 				}
 			}
 		}

@@ -49,6 +49,7 @@ import {
 	questionStatContextQuery,
 } from "#/graphql/queries/question"
 import { questionHorizon, track } from "#/lib/analytics"
+import { callMarginFor, marginLabel } from "#/lib/call-summary"
 import { safeExternalUrl } from "#/lib/external-url"
 import { formatGuess } from "#/lib/field-signal"
 import { pageMeta } from "#/lib/meta"
@@ -264,6 +265,41 @@ function RouteComponent() {
 	const fieldAccuracyPct = state.isSettled
 		? fieldAccuracyPctFor(question)
 		: null
+	// The viewer's own call's margin, as the word the status badge leads with.
+	// Derived here rather than inside ViewerStatusCard because that card
+	// carries a deliberately trimmed ViewerCall, while this scope already has
+	// the whole resolved question. Same label the eyebrow on /calls/:id shows,
+	// so the two can't contradict each other about the same call.
+	const viewerMarginLabel = (() => {
+		const call = question.viewerCall
+		if (!call) return null
+		const margin = callMarginFor({
+			guessValue: call.guessValue,
+			conviction: call.conviction,
+			totalPoints: call.totalPoints,
+			question: {
+				shape: question.shape,
+				ouLine: question.ouLine,
+				numericActualValue: question.numericActualValue,
+				numericToleranceAbsolute: question.numericToleranceAbsolute,
+				numericTolerancePct: question.numericTolerancePct,
+				stat: question.stat,
+				scoredOptions: question.scoredOptions,
+			},
+			selections: call.selections.map((s) => ({
+				id: s.id,
+				conviction: s.conviction,
+				option: {
+					label: s.option.label,
+					isCorrect: s.option.isCorrect,
+					actualValue: s.option.actualValue,
+				},
+			})),
+		})
+		return margin?.verdict
+			? marginLabel(margin.verdict, (call.totalPoints ?? 0) >= 0)
+			: null
+	})()
 	// Which option row(s) read as "active" in the breakdown below: your own
 	// pick if you called (mirrors numeric's own myGuess highlight - it's your
 	// call being pointed at, not necessarily the right one), or the winning
@@ -534,6 +570,7 @@ function RouteComponent() {
 					resolutionNote={question.resolutionNote}
 					voidedReason={question.voidedReason}
 					fieldAccuracyPct={fieldAccuracyPct}
+					marginLabel={viewerMarginLabel}
 					questionTitle={question.title}
 				/>
 				{/* Directly above the pick form, so it reads as input to the call

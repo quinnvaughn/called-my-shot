@@ -319,6 +319,7 @@ async function drainOneUser(
 		pickLabel: s.pickLabel,
 		points: s.points,
 		isWin: s.isWin,
+		marginLabel: s.margin?.label ?? null,
 		callUrl: callUrl(s.callId, "call_row"),
 	}))
 

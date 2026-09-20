@@ -35,6 +35,16 @@ export type CallRecordCardData = {
 	// own kind, since "Off by 0" reads as still being off, and gets its own
 	// face. `by` is already formatted (see formatGuess).
 	closeness: { kind: "exact" } | { kind: "off"; by: string } | null
+	// Replaces the verdict word ("Called it" / "Missed") when this call's
+	// margin was remarkable in either direction - see callMargin in
+	// @called-my-shot/scoring. Null on the ordinary call, which is most of
+	// them, and the eyebrow reads as it always has.
+	marginLabel: string | null
+	// How far the call landed from its line, already formatted. Set on every
+	// shape with two numbers to subtract, not just the numeric guesses
+	// `closeness` covers, and set whether or not the margin earned a label:
+	// the distance is worth stating even when its size isn't remarkable.
+	offBy: string | null
 	// What actually happened, already formatted - "63", "Ja'Marr Chase: 118".
 	// The pick and the points say whether the call landed; without this the
 	// card never says what it landed against. Null on a question with no
@@ -72,12 +82,13 @@ export function CallRecordCard({ data }: Props) {
 							size="sm"
 							variant={!resolved || win ? "primary" : "neutral"}
 						>
+							{/* An exact guess keeps "Nailed it" over any margin label:
+							it is the rarer claim, and a second superlative next to
+							it reads as two prizes for one result. */}
 							{resolved
 								? nailed
 									? "Nailed it"
-									: win
-										? "Called it"
-										: "Missed"
+									: (data.marginLabel ?? (win ? "Called it" : "Missed"))
 								: "On the record"}
 							{resolved && win && data.streakLength !== null
 								? ` · ${data.streakLength} in a row`
@@ -179,11 +190,18 @@ export function CallRecordCard({ data }: Props) {
 								value={`${Math.round(data.fieldPct)}%`}
 							/>
 						)}
-						{data.closeness?.kind === "exact" && (
+						{/* "Off by 0" reads as still being off, so an exact guess keeps
+						its own row. Every other resolved call with two numbers to
+						subtract gets the distance, which used to be numeric guesses
+						only - an over/under stated its line and its actual and left
+						the reader to work out that a yard was all that separated
+						them. */}
+						{data.closeness?.kind === "exact" ? (
 							<StatRow label="Guess vs actual" value="Exact" />
-						)}
-						{data.closeness?.kind === "off" && (
-							<StatRow label="Off by" value={data.closeness.by} />
+						) : (
+							data.offBy !== null && (
+								<StatRow label="Off by" value={data.offBy} />
+							)
 						)}
 						<StatRow
 							label="Conviction"

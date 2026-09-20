@@ -43,6 +43,12 @@ export const CallCardFragment = graphql(`
 			ouLine
 			numericActualValue
 			numericToleranceAbsolute
+			numericTolerancePct
+			scoredOptions {
+				id
+				label
+				actualValue
+			}
 			stat {
 				id
 				toleranceTier {
@@ -90,6 +96,7 @@ export const CallCardFragment = graphql(`
 				id
 				label
 				isCorrect
+				actualValue
 			}
 		}
 	}

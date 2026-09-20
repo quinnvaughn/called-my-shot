@@ -197,6 +197,12 @@ type Props = {
 	// until settled. "how rare was being right" belongs next to the outcome
 	// itself, not buried in the per-pick breakdown below.
 	fieldAccuracyPct: number | null
+	// The viewer's own call's margin, as the word the badge leads with
+	// ("Inches away", "Never in doubt") - null on the ordinary call and until
+	// it settles. Derived in the route rather than here because this card
+	// deliberately carries a trimmed ViewerCall, not a whole question's worth
+	// of resolved numbers.
+	marginLabel: string | null
 	// Names the thing being shared, in the OS share sheet and the tweet -
 	// the question itself, not the resolved answer, which is already shown
 	// above as the badge/title.
@@ -223,6 +229,7 @@ export function ViewerStatusCard({
 	resolutionNote,
 	voidedReason,
 	fieldAccuracyPct,
+	marginLabel,
 	questionTitle,
 }: Props) {
 	const pickRowsProps = {
@@ -286,7 +293,7 @@ export function ViewerStatusCard({
 				</Shell>
 			))
 			.with({ kind: "resolved" }, ({ call, disputed, result }) => {
-				const face = resultFace(result)
+				const face = resultFace(result, marginLabel)
 				return (
 					<Shell tone={face.tone}>
 						<StatusPill tone={face.tone}>{face.label}</StatusPill>
@@ -357,7 +364,14 @@ type ShareOutcome = { isWin: boolean; points: number }
 
 // A settled call's own result as the card presents it: the badge, plus the
 // win and points it's shared with (null until the call's points are written).
-function resultFace(result: CallResult): {
+// marginLabel replaces the verdict word when this call's margin was
+// remarkable, exactly as it does in the eyebrow on /calls/:id. The two are the
+// same claim about the same call, so one reading "Inches away" while the other
+// says "Missed" would be a visible contradiction.
+function resultFace(
+	result: CallResult,
+	marginLabel: string | null,
+): {
 	tone: Tone
 	label: string
 	outcome: ShareOutcome | null
@@ -371,12 +385,12 @@ function resultFace(result: CallResult): {
 		}))
 		.with({ status: "win" }, ({ points }) => ({
 			tone: "success",
-			label: "You called it",
+			label: marginLabel ?? "You called it",
 			outcome: { isWin: true, points },
 		}))
 		.with({ status: "loss" }, ({ points }) => ({
 			tone: "danger",
-			label: "Missed",
+			label: marginLabel ?? "Missed",
 			outcome: { isWin: false, points },
 		}))
 		.with({ status: "unscored" }, () => ({

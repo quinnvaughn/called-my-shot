@@ -1,4 +1,4 @@
-import { quipForCall } from "@called-my-shot/scoring"
+import { type QuipTone, quipForCall } from "@called-my-shot/scoring"
 import { useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute, Link, useRouteContext } from "@tanstack/react-router"
 import { FaRegTimesCircle } from "react-icons/fa"
@@ -19,7 +19,12 @@ import { PageHeader } from "#/components/ui/page-header"
 import type { CallRecordQuery } from "#/graphql/generated/graphql"
 import { callRecordQuery } from "#/graphql/queries/call"
 import { callCardVersion, callPageMeta } from "#/lib/call-meta"
-import { actualSummary, pickSummary } from "#/lib/call-summary"
+import {
+	actualSummary,
+	callMarginFor,
+	marginLabel,
+	pickSummary,
+} from "#/lib/call-summary"
 import { formatGuess, isRateStat } from "#/lib/field-signal"
 import { formatCallDate, formatCallLead } from "#/lib/format-date"
 import { pageMeta } from "#/lib/meta"
@@ -57,6 +62,9 @@ export const Route = createFileRoute("/_app/calls/$callId")({
 			points: view.points,
 			isWin: view.isWin,
 			exact: view.closeness?.kind === "exact",
+			marginLabel: view.margin?.verdict
+				? marginLabel(view.margin.verdict, view.isWin === true)
+				: null,
 			questionStatus: view.questionStatus,
 			calledAt: view.calledAt,
 			locksAt: formatCallDate(view.locksAt),
@@ -102,12 +110,18 @@ function describeCall(call: NonNullable<CallRecordQuery["call"]>) {
 			ouLine: call.question.ouLine,
 			numericActualValue: call.question.numericActualValue,
 			numericToleranceAbsolute: call.question.numericToleranceAbsolute,
+			numericTolerancePct: call.question.numericTolerancePct,
 			stat: call.question.stat,
+			scoredOptions: call.question.scoredOptions,
 		},
 		selections: call.selections.map((s) => ({
 			id: s.id,
 			conviction: s.conviction,
-			option: { label: s.option.label, isCorrect: s.option.isCorrect },
+			option: {
+				label: s.option.label,
+				isCorrect: s.option.isCorrect,
+				actualValue: s.option.actualValue,
+			},
 		})),
 	}
 	const pickLabel = pickSummary(summaryData)
@@ -149,18 +163,20 @@ function describeCall(call: NonNullable<CallRecordQuery["call"]>) {
 				)
 			: 0
 
+	// How far the call landed from its line, on every shape with two numbers
+	// to subtract rather than just the numeric guesses `closeness` covers.
+	// Null verdict is the ordinary case: the distance is worth stating, the
+	// size of it isn't worth a word.
+	const margin = callMarginFor(summaryData)
+
 	return {
 		pickLabel,
 		points,
 		isWin,
 		fieldPct,
 		closeness,
-		actual: actualSummary({
-			question: {
-				...summaryData.question,
-				scoredOptions: call.question.scoredOptions,
-			},
-		}),
+		margin,
+		actual: actualSummary({ question: summaryData.question }),
 		conviction,
 		username: call.user.username,
 		name: call.user.name,
@@ -170,6 +186,17 @@ function describeCall(call: NonNullable<CallRecordQuery["call"]>) {
 		locksAt: call.question.locksAt,
 		resolvedAt: call.question.resolvedAt,
 	}
+}
+
+// Only two of the four outcomes get a pool of their own. A narrow WIN and a
+// runaway LOSS fall back to the plain win/loss vocabulary on purpose: "by a
+// hair" and "not close" are already the card's own label a few pixels up, and
+// a quip repeating them would say the same thing twice.
+function quipTone(view: ReturnType<typeof describeCall>): QuipTone {
+	const won = view.isWin === true
+	if (view.margin?.verdict === "narrow" && !won) return "narrow_miss"
+	if (view.margin?.verdict === "runaway" && won) return "runaway_win"
+	return won ? "win" : "loss"
 }
 
 function RouteComponent() {
@@ -205,6 +232,17 @@ function RouteComponent() {
 		points: view.points,
 		fieldPct: view.fieldPct,
 		closeness: view.closeness,
+		// The label replaces the verdict word in the card's eyebrow; the
+		// distance fills the Off by row underneath it. Only a resolved call
+		// with a real gap has either.
+		marginLabel:
+			resolved && view.margin?.verdict
+				? marginLabel(view.margin.verdict, view.isWin === true)
+				: null,
+		offBy:
+			resolved && view.margin
+				? formatGuess(view.margin.displayDistance, isRateStat(call.question))
+				: null,
 		actual: view.actual,
 		conviction: view.conviction,
 		caseText: call.caseText,
@@ -212,7 +250,7 @@ function RouteComponent() {
 		// Deterministic off the call's own id, so the page and the og:image
 		// (which calls the same function against the same id) always show the
 		// same line, and neither has to persist it.
-		quip: resolved ? quipForCall(call.id, view.isWin === true) : null,
+		quip: resolved ? quipForCall(call.id, quipTone(view)) : null,
 		pendingLabel: match(view.questionStatus)
 			.with("OPEN", () => `Locks ${formatCallDate(view.locksAt)}`)
 			.with("VOIDED", () => "Voided, no result")

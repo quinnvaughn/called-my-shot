@@ -33,6 +33,8 @@ const base = {
 	calledAt: "Mar 3, 2026",
 	fieldPct: 12,
 	closeness: null,
+	marginLabel: null,
+	actual: null,
 	conviction: 85,
 	caseText: "Their secondary is banged up.",
 	points: 240,
@@ -117,6 +119,52 @@ describe("buildCallShareCard", () => {
 		expect(texts).toContain("Nailed it")
 		expect(texts).toContain("Exact")
 		expect(texts).not.toContain("Off by")
+	})
+
+	it("leads with the margin label instead of the bare verdict", () => {
+		const missed = textNodes(
+			buildCallShareCard({
+				...base,
+				points: -120,
+				isWin: false,
+				marginLabel: "Inches away",
+			}),
+		)
+		expect(missed).toContain("Inches away")
+		expect(missed).not.toContain("Missed")
+
+		const won = textNodes(
+			buildCallShareCard({ ...base, marginLabel: "Never in doubt" }),
+		)
+		expect(won).toContain("Never in doubt")
+		expect(won).not.toContain("Called it")
+	})
+
+	// The rarer claim wins. Two superlatives on one result reads as two prizes
+	// for the same thing.
+	it("keeps Nailed it over any margin label", () => {
+		const texts = textNodes(
+			buildCallShareCard({
+				...base,
+				pickLabel: "27",
+				fieldPct: null,
+				closeness: { kind: "exact" },
+				marginLabel: "By a hair",
+			}),
+		)
+		expect(texts).toContain("Nailed it")
+		expect(texts).not.toContain("By a hair")
+	})
+
+	// The footer row is a fixed-height, fixed-width strip and satori clips
+	// overflow with no warning, so the margin has to stay in the eyebrow. If
+	// someone later adds a Margin statCell, this catches it.
+	it("adds no footer cell for a margin", () => {
+		const withMargin = textNodes(
+			buildCallShareCard({ ...base, marginLabel: "Never in doubt" }),
+		)
+		const without = textNodes(buildCallShareCard(base))
+		expect(withMargin.length).toBe(without.length)
 	})
 
 	it("states the streak a winning call extended", () => {

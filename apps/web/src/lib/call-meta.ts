@@ -16,6 +16,10 @@ type CallMetaInput = {
 	isWin: boolean | null
 	// A numeric guess that landed exactly, which the og:image calls "Nailed it".
 	exact: boolean
+	// The card's own word for a remarkable margin ("Inches away", "Never in
+	// doubt"), or null on the ordinary call. Null keeps the plain Won/Lost
+	// lead this has always used.
+	marginLabel: string | null
 	questionStatus: CallQuestion["status"]
 	// All three pre-formatted by formatCallDate.
 	calledAt: string
@@ -43,12 +47,22 @@ export function callPageMeta(input: CallMetaInput): {
 	const lead = match(input)
 		.with(
 			{ points: P.number, isWin: P.boolean },
-			({ points, isWin, exact, pickLabel }) => {
+			({ points, isWin, exact, pickLabel, marginLabel }) => {
 				const signed = `${isWin ? "+" : "−"}${Math.abs(points)} pts`
-				if (!isWin) return `Lost: ${who} called ${pickLabel} (${signed})`
-				return exact
-					? `Won: ${who} nailed ${pickLabel} exactly (${signed})`
-					: `Won: ${who} called ${pickLabel} (${signed})`
+				// An exact guess keeps its own lead over any margin, the same
+				// precedence the card's eyebrow uses. Otherwise a remarkable
+				// margin replaces the bare Won/Lost, since "Inches away" says
+				// how it went AND how close it was in the same two words, and
+				// this is the one line a truncated unfurl is sure to show.
+				if (exact && isWin) {
+					return `Won: ${who} nailed ${pickLabel} exactly (${signed})`
+				}
+				if (marginLabel) {
+					return `${marginLabel}: ${who} called ${pickLabel} (${signed})`
+				}
+				return isWin
+					? `Won: ${who} called ${pickLabel} (${signed})`
+					: `Lost: ${who} called ${pickLabel} (${signed})`
 			},
 		)
 		.with(

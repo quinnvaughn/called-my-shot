@@ -10,6 +10,12 @@ export type DigestCall = {
 	pickLabel: string
 	points: number
 	isWin: boolean
+	// The card's own word for a remarkable margin ("Inches away", "Never in
+	// doubt"), or null on the ordinary call. This is the only surface that
+	// reaches someone who won't open the app, and "missed by a hair" is the
+	// most clickable thing a results email can say. Deliberately not in the
+	// subject line, which stays spoiler-free.
+	marginLabel: string | null
 	// The call's own permanent page (/calls/:id) - the record of this one
 	// call, and the thing there is to send someone.
 	callUrl: string
@@ -160,6 +166,7 @@ function CallRow({ call }: { call: DigestCall }) {
 						}}
 					>
 						Your call: {call.pickLabel}
+						{call.marginLabel ? ` · ${call.marginLabel.toLowerCase()}` : ""}
 					</Text>
 					<Text style={{ margin: "6px 0 0" }}>
 						<Link
@@ -351,6 +358,7 @@ ResolutionDigest.PreviewProps = {
 			pickLabel: "Over 275.5",
 			points: 210,
 			isWin: true,
+			marginLabel: null,
 			callUrl: "https://calledmyshot.com/calls/9f2a3b1c-0000-4000-8000-000000000001",
 		},
 		{
@@ -360,6 +368,7 @@ ResolutionDigest.PreviewProps = {
 			pickLabel: "Buffalo Bills",
 			points: 130,
 			isWin: true,
+			marginLabel: "Never in doubt",
 			callUrl: "https://calledmyshot.com/calls/9f2a3b1c-0000-4000-8000-000000000002",
 		},
 		{
@@ -369,6 +378,7 @@ ResolutionDigest.PreviewProps = {
 			pickLabel: "Yes",
 			points: -40,
 			isWin: false,
+			marginLabel: null,
 			callUrl: "https://calledmyshot.com/calls/9f2a3b1c-0000-4000-8000-000000000003",
 		},
 	],

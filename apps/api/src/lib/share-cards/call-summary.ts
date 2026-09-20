@@ -3,9 +3,14 @@ import {
 	SPORTS_TIME_ZONE,
 } from "@called-my-shot/schemas"
 import {
+	callMargin,
 	isNumericGuessShape,
+	type MarginBasis,
+	type MarginVerdict,
 	type QuestionShape,
+	type QuipTone,
 	STREAK_TAG_MIN,
+	type ToleranceSpec,
 } from "@called-my-shot/scoring"
 import { DateTime } from "luxon"
 import { match } from "ts-pattern"
@@ -211,6 +216,166 @@ export function buildActualLabel(call: {
 	return `${winner.label}, ${values}`
 }
 
+// Mirrors marginLabel in apps/web/src/lib/call-summary.ts. The four words the
+// card leads with in place of "Called it" / "Missed" - no shared module for
+// the same reason as buildPickLabel above, and the two have to stay in step
+// because the page and the picture of it are the same claim.
+export function marginLabel(verdict: MarginVerdict, won: boolean): string {
+	return match([verdict, won] as const)
+		.with(["narrow", false], () => "Inches away")
+		.with(["narrow", true], () => "By a hair")
+		.with(["runaway", true], () => "Never in doubt")
+		.with(["runaway", false], () => "Not close")
+		.exhaustive()
+}
+
+// The tolerance band grading ran against, off this route's own DB row. Note
+// the table's lowercase "absolute", not the GraphQL enum's "ABSOLUTE" - same
+// casing split isRateStat above already documents.
+function toleranceSpecOf(
+	tolerance: { mode: string; value: number } | null,
+): ToleranceSpec | null {
+	if (!tolerance) return null
+	return tolerance.mode === "absolute"
+		? { mode: "absolute", amount: tolerance.value }
+		: { mode: "percentage", pct: tolerance.value }
+}
+
+// Mirrors marginBasisFor in apps/web/src/lib/call-summary.ts - which two
+// numbers this shape has to subtract, if it has two at all.
+function marginBasisFor(call: {
+	guessValue: number | null
+	question: {
+		shape: QuestionShape
+		ouLine: number | null
+		numericActualValue: number | null
+		numericToleranceAbsolute: number | null
+		numericTolerancePct: number | null
+		stat: {
+			toleranceTier: { toleranceMode: string; toleranceValue: number } | null
+		} | null
+		options: {
+			label: string
+			isCorrect: boolean | null
+			actualValue: number | null
+		}[]
+	}
+	selections: { option: { actualValue: number | null } }[]
+}): MarginBasis | null {
+	const { question } = call
+	return match(question.shape)
+		.returnType<MarginBasis | null>()
+		.with(
+			"player_stat_over_under",
+			"team_stat_over_under",
+			"player_season_stat_over_under",
+			"team_season_stat_over_under",
+			"game_total_over_under",
+			() => {
+				const tier = question.stat?.toleranceTier
+				return question.numericActualValue !== null && question.ouLine !== null
+					? {
+							kind: "line",
+							actual: question.numericActualValue,
+							line: question.ouLine,
+							spec: toleranceSpecOf(
+								tier
+									? { mode: tier.toleranceMode, value: tier.toleranceValue }
+									: null,
+							),
+						}
+					: null
+			},
+		)
+		.with(
+			"player_stat_numeric_guess",
+			"team_stat_numeric_guess",
+			"team_season_stat_numeric_guess",
+			() => {
+				const spec = toleranceSpecOf(
+					question.numericToleranceAbsolute !== null
+						? { mode: "absolute", value: question.numericToleranceAbsolute }
+						: question.numericTolerancePct !== null
+							? { mode: "percentage", value: question.numericTolerancePct }
+							: null,
+				)
+				return call.guessValue !== null &&
+					question.numericActualValue !== null &&
+					spec !== null
+					? {
+							kind: "guess",
+							guess: call.guessValue,
+							actual: question.numericActualValue,
+							spec,
+						}
+					: null
+			},
+		)
+		.with(
+			"player_vs_player",
+			"player_vs_player_season",
+			"team_vs_team",
+			"team_vs_team_season",
+			"player_game_stat_leader",
+			"player_season_stat_leader",
+			() => {
+				const scored = scoredOptionsFor(question)
+				const winner = scored[0]
+				if (!winner) return null
+				// A head-to-head keeps both sides. A leader pool is trimmed to
+				// whoever led, so the other number comes off this caller's own
+				// pick - which is also why a leader WIN produces nothing: their
+				// pick IS the winner, and callMargin drops a gap of zero.
+				const other =
+					scored[1]?.actualValue ??
+					call.selections[0]?.option.actualValue ??
+					null
+				return other === null
+					? null
+					: { kind: "gap", winner: winner.actualValue, other }
+			},
+		)
+		.with(
+			"yes_no_prop",
+			"player_award_finalists",
+			"player_season_award",
+			"team_season_award",
+			() => null,
+		)
+		.exhaustive()
+}
+
+// How far this call landed from the line it was called against, judged.
+// `points` is authoritative for win/loss across every shape (same rule
+// resultState states on the web side), so it both gates this - a call with no
+// final points has no outcome to be remarkable about - and tells callMargin
+// which way the result went.
+export function buildMargin(
+	call: Parameters<typeof marginBasisFor>[0],
+	points: number | null,
+): { verdict: MarginVerdict; label: string } | null {
+	if (points === null) return null
+	const basis = marginBasisFor(call)
+	if (basis === null) return null
+	const won = points >= 0
+	const margin = callMargin(basis, won)
+	if (!margin?.verdict) return null
+	return { verdict: margin.verdict, label: marginLabel(margin.verdict, won) }
+}
+
+// Which quip pool a resolved call draws from. Mirrors quipTone in apps/web's
+// routes/_app/calls/$callId.tsx: only a narrow miss and a runaway win get a
+// pool of their own, because "by a hair" and "not close" are already the
+// card's own label and a quip repeating them says it twice.
+export function quipToneFor(
+	won: boolean,
+	margin: { verdict: MarginVerdict } | null,
+): QuipTone {
+	if (margin?.verdict === "narrow" && !won) return "narrow_miss"
+	if (margin?.verdict === "runaway" && won) return "runaway_win"
+	return won ? "win" : "loss"
+}
+
 // Everything the og:image card and the resolution digest need to describe one
 // call, derived in a single batched query. Neither the aggregate
 // field-percentage counts nor the quip are here: the first needs its own
@@ -239,6 +404,15 @@ export type CallSummary = {
 	// own kind rather than a distance of 0, which reads as still being off.
 	// `by` is formatted like the guess itself.
 	closeness: { kind: "exact" } | { kind: "off"; by: string } | null
+	// How remarkable this call's margin was, and the word the card leads with
+	// in place of "Called it" / "Missed" because of it. Null on the ordinary
+	// call, and on every shape with no two numbers to subtract. The verdict
+	// rides along with the label so callers picking a quip tone can branch on
+	// data rather than string-matching the copy. Deliberately not folded into
+	// `closeness`: that one is a numeric guess's distance from the answer,
+	// this is a judgement about any shape's distance from its line, and they
+	// coexist on a numeric guess.
+	margin: { verdict: MarginVerdict; label: string } | null
 	// What the question actually came out to, already formatted. Mirrors
 	// actualSummary in apps/web/src/lib/call-summary.ts - the question's own
 	// number where the shape has one, otherwise what the subject of this
@@ -286,6 +460,10 @@ export async function loadCallSummaries(
 					resolvedAt: true,
 					ouLine: true,
 					numericToleranceAbsolute: true,
+					// Percentage mode is the common case for a numeric guess
+					// (Standard 15%, High-Volume 10%), so without this the band
+					// buildMargin measures against is unknown on most of them.
+					numericTolerancePct: true,
 					numericActualValue: true,
 				},
 				with: {
@@ -317,7 +495,15 @@ export async function loadCallSummaries(
 				},
 			},
 			selections: {
-				with: { option: { columns: { label: true, isCorrect: true } } },
+				// actualValue is this caller's OWN pick's number, which the
+				// question's options above can't stand in for on a leader pool:
+				// buildActualLabel trims those to whoever led, and the margin
+				// needs whoever this caller backed.
+				with: {
+					option: {
+						columns: { label: true, isCorrect: true, actualValue: true },
+					},
+				},
 			},
 		},
 	})
@@ -401,6 +587,22 @@ export async function loadCallSummaries(
 					: 0,
 			caseText: call.caseText,
 			closeness,
+			margin: buildMargin(
+				{
+					guessValue: call.guessValue,
+					question: {
+						shape: call.question.shape,
+						ouLine: call.question.ouLine,
+						numericActualValue: call.question.numericActualValue,
+						numericToleranceAbsolute: call.question.numericToleranceAbsolute,
+						numericTolerancePct: call.question.numericTolerancePct,
+						stat: call.question.stat,
+						options: call.question.options,
+					},
+					selections,
+				},
+				points,
+			),
 			actual: buildActualLabel({
 				question: {
 					shape: call.question.shape,

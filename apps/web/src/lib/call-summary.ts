@@ -1,3 +1,10 @@
+import {
+	type CallMargin,
+	callMargin,
+	type MarginBasis,
+	type MarginVerdict,
+	type ToleranceSpec,
+} from "@called-my-shot/scoring"
 import { match } from "ts-pattern"
 import type { QuestionShape } from "#/graphql/generated/graphql"
 import {
@@ -18,17 +25,42 @@ export type CallSummaryData = {
 		ouLine: number | null
 		numericActualValue: number | null
 		numericToleranceAbsolute: number | null
+		// Set alongside numericToleranceAbsolute on the numeric-guess shapes -
+		// exactly one of the two is, depending on whether the picked stat is a
+		// rate stat. Both are needed to rebuild the ToleranceSpec that grading
+		// ran against, which is what callMargin measures a guess with.
+		//
+		// Optional, like scoredOptions and option.actualValue below, because
+		// several callers here only want pickSummary or convictionSummary and
+		// have no margin to render. Leaving it out costs them the margin, not a
+		// compile error, so a card that does want one has to opt in by
+		// selecting the field - which is the right way round: the alternative
+		// is every fragment in the app paying for a leader pool's worth of
+		// options to render a pick label.
+		numericTolerancePct?: number | null
 		// The over/under shapes have no tolerance snapshot of their own, so
 		// isRateStat below falls back to the picked stat's own tolerance tier
 		// value instead - see isRateStat in #/lib/field-signal.
 		stat: {
 			toleranceTier: { toleranceMode: string; toleranceValue: number } | null
 		} | null
+		// Winner first, already trimmed by shape - see Question.scoredOptions in
+		// the API. Two entries on a head-to-head, just the leader on a leader
+		// pool, empty everywhere else.
+		scoredOptions?: { label: string; actualValue: number | null }[]
 	}
 	selections: {
 		id: string
 		conviction: number
-		option: { label: string; isCorrect: boolean | null }
+		// actualValue is this caller's OWN pick's number, which is a different
+		// question from scoredOptions above: on a leader pool scoredOptions holds
+		// whoever led, and this holds whoever they backed. Both are needed to say
+		// how far behind the leader they finished.
+		option: {
+			label: string
+			isCorrect: boolean | null
+			actualValue?: number | null
+		}
 	}[]
 }
 
@@ -39,9 +71,13 @@ function isRateStat(question: CallSummaryData["question"]): boolean {
 // actualSummary reads the question's scored options rather than the caller's
 // own selections: on a head-to-head the losing side's number is half the
 // story, and the caller may well have picked it.
+// scoredOptions is optional on CallSummaryData, since most callers only want
+// a pick label, but this function is entirely about those options - so it
+// asks for them outright rather than quietly returning null for a caller that
+// forgot to select them.
 export type ActualSummaryData = {
 	question: CallSummaryData["question"] & {
-		scoredOptions: { label: string; actualValue: number | null }[]
+		scoredOptions: NonNullable<CallSummaryData["question"]["scoredOptions"]>
 	}
 }
 
@@ -173,6 +209,162 @@ export function lossContext(call: CallSummaryData): string | null {
 	if (resultState(call.totalPoints).status !== "loss") return null
 	if (call.question.numericActualValue === null) return null
 	return `actual was ${formatGuessValue(call.question.numericActualValue, isRateStat(call.question))}`
+}
+
+// The tolerance band grading ran against, rebuilt from whichever of the two
+// snapshots the question carries. Mirrors toleranceSpec in
+// components/questions/cast-call-form/use-cast-call-form.ts - only the
+// numeric-guess shapes have one, which is why the line basis passes null and
+// lets callMargin fall back to the catalog's Standard tier.
+function guessToleranceSpec(
+	question: CallSummaryData["question"],
+): ToleranceSpec | null {
+	if (question.numericToleranceAbsolute !== null) {
+		return { mode: "absolute", amount: question.numericToleranceAbsolute }
+	}
+	if (question.numericTolerancePct != null) {
+		return { mode: "percentage", pct: question.numericTolerancePct }
+	}
+	return null
+}
+
+// The over/under shapes have no tolerance snapshot of their own, so the band
+// comes off the picked stat's tier - the same place isRateStat reads for the
+// same reason.
+function statToleranceSpec(
+	question: CallSummaryData["question"],
+): ToleranceSpec | null {
+	const tier = question.stat?.toleranceTier
+	if (!tier) return null
+	return tier.toleranceMode === "ABSOLUTE"
+		? { mode: "absolute", amount: tier.toleranceValue }
+		: { mode: "percentage", pct: tier.toleranceValue }
+}
+
+// Which two numbers this shape has to subtract, if it has two at all. Yes/No
+// and the award shapes never do: their answer is a name, not a number.
+function marginBasisFor(call: CallSummaryData): MarginBasis | null {
+	const { question } = call
+	return match(question.shape)
+		.returnType<MarginBasis | null>()
+		.with(
+			"PLAYER_STAT_OVER_UNDER",
+			"TEAM_STAT_OVER_UNDER",
+			"PLAYER_SEASON_STAT_OVER_UNDER",
+			"TEAM_SEASON_STAT_OVER_UNDER",
+			"GAME_TOTAL_OVER_UNDER",
+			() =>
+				question.numericActualValue !== null && question.ouLine !== null
+					? {
+							kind: "line",
+							actual: question.numericActualValue,
+							line: question.ouLine,
+							spec: statToleranceSpec(question),
+						}
+					: null,
+		)
+		.with(
+			"PLAYER_STAT_NUMERIC_GUESS",
+			"TEAM_STAT_NUMERIC_GUESS",
+			"TEAM_SEASON_STAT_NUMERIC_GUESS",
+			() => {
+				const spec = guessToleranceSpec(question)
+				return call.guessValue !== null &&
+					question.numericActualValue !== null &&
+					spec !== null
+					? {
+							kind: "guess",
+							guess: call.guessValue,
+							actual: question.numericActualValue,
+							spec,
+						}
+					: null
+			},
+		)
+		.with(
+			"PLAYER_VS_PLAYER",
+			"PLAYER_VS_PLAYER_SEASON",
+			"TEAM_VS_TEAM",
+			"TEAM_VS_TEAM_SEASON",
+			"PLAYER_GAME_STAT_LEADER",
+			"PLAYER_SEASON_STAT_LEADER",
+			() => {
+				const scored = question.scoredOptions ?? []
+				const winner = scored[0]
+				if (!winner || winner.actualValue === null) return null
+				// A head-to-head keeps both sides, so the runner-up is right
+				// there. A leader pool is trimmed to whoever led, so the other
+				// number has to come off this caller's own pick - which is also
+				// why a leader WIN produces nothing: their pick IS the winner,
+				// and callMargin drops a gap of zero.
+				const other =
+					scored[1]?.actualValue ??
+					call.selections[0]?.option.actualValue ??
+					null
+				return other === null
+					? null
+					: { kind: "gap", winner: winner.actualValue, other }
+			},
+		)
+		.with(
+			"YES_NO_PROP",
+			"PLAYER_AWARD_FINALISTS",
+			"PLAYER_SEASON_AWARD",
+			"TEAM_SEASON_AWARD",
+			() => null,
+		)
+		.exhaustive()
+}
+
+// How far this call landed from the line it was called against, null until
+// the question resolves and whenever the shape has no two numbers to
+// subtract. See callMargin in @called-my-shot/scoring for the bands, and note
+// that a non-null result with a null verdict is the ordinary case: worth
+// stating the distance, not worth a word about it.
+export function callMarginFor(call: CallSummaryData): CallMargin | null {
+	const result = resultState(call.totalPoints)
+	if (result.status === "pending") return null
+	const basis = marginBasisFor(call)
+	return basis === null ? null : callMargin(basis, result.status === "win")
+}
+
+// The four words the card leads with in place of "Called it" / "Missed".
+// Deliberately says nothing a reader has to take on faith: each one describes
+// the size of the gap the Off by row states underneath it.
+export function marginLabel(
+	verdict: MarginVerdict,
+	won: boolean,
+): string {
+	return match([verdict, won] as const)
+		.with(["narrow", false], () => "Inches away")
+		.with(["narrow", true], () => "By a hair")
+		.with(["runaway", true], () => "Never in doubt")
+		.with(["runaway", false], () => "Not close")
+		.exhaustive()
+}
+
+// The sub-line under a pick on a feed card or a call row: the caller's
+// conviction, then whatever else is worth saying about how it landed. Built
+// as clauses rather than one sentence so a shape that has nothing to add
+// (a Yes/No, an award) simply contributes nothing.
+export function resultContext(call: CallSummaryData): string[] {
+	const clauses: string[] = []
+	const actual = lossContext(call)
+	if (actual) clauses.push(actual)
+
+	const margin = callMarginFor(call)
+	if (margin) {
+		clauses.push(
+			`off by ${formatGuessValue(margin.displayDistance, isRateStat(call.question))}`,
+		)
+		if (margin.verdict) {
+			const result = resultState(call.totalPoints)
+			clauses.push(
+				marginLabel(margin.verdict, result.status === "win").toLowerCase(),
+			)
+		}
+	}
+	return clauses
 }
 
 // The points sign is authoritative for win/loss across every shape, not a

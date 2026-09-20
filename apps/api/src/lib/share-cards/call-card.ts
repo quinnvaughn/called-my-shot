@@ -75,6 +75,12 @@ export type CallShareCardData = {
 	// face. `by` is pre-formatted by formatGuess so a rate stat keeps its three
 	// decimals.
 	closeness: { kind: "exact" } | { kind: "off"; by: string } | null
+	// Replaces the verdict word in the eyebrow when this call's margin was
+	// remarkable in either direction - "Inches away", "Never in doubt". Null
+	// on the ordinary call. Deliberately eyebrow-only: the footer row already
+	// carries up to six statCells at a fixed width and satori clips overflow
+	// silently, so the distance itself stays on the page and out of the PNG.
+	marginLabel: string | null
 	// What the question actually came out to, pre-formatted by
 	// buildActualLabel (call-summary.ts). Null where nothing numeric was
 	// recorded, same as on the page.
@@ -202,12 +208,13 @@ export function buildCallShareCard(data: CallShareCardData): SatoriNode {
 
 	const body: SatoriNode[] = [
 		eyebrow(
+			// Same precedence as the page's own eyebrow (call-record-card.tsx):
+			// an exact guess keeps "Nailed it" over any margin label, since it
+			// is the rarer claim.
 			resolved
 				? nailed
 					? "Nailed it"
-					: win
-						? "Called it"
-						: "Missed"
+					: (data.marginLabel ?? (win ? "Called it" : "Missed"))
 				: "On the record",
 			resolved
 				? win

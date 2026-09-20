@@ -52,6 +52,13 @@ export const QuestionDetailDocument = graphql(`
 				actualValue
 				callCount
 			}
+			# Winner first and already trimmed by shape, which the options list
+			# above is not - the margin needs to know which side actually won.
+			scoredOptions {
+				id
+				label
+				actualValue
+			}
 			creator {
 				id
 				name
@@ -127,6 +134,10 @@ export const QuestionDetailDocument = graphql(`
 						label
 						isCorrect
 						fieldPct
+						# The viewer's own pick's number, which question.options
+						# above can't stand in for on a leader pool - the margin
+						# needs whoever they backed, not just whoever led.
+						actualValue
 					}
 				}
 			}

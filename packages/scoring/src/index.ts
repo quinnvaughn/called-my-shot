@@ -765,4 +765,24 @@ export function convictionEdge(summary: {
 // deterministic picker between them, live in ./quips - split out from the
 // scoring math above since that list is expected to keep growing and has
 // nothing to do with points.
-export { LOSS_QUIPS, quipForCall, WIN_QUIPS } from "./quips"
+export {
+	LOSS_QUIPS,
+	NARROW_MISS_QUIPS,
+	type QuipTone,
+	quipForCall,
+	RUNAWAY_WIN_QUIPS,
+	WIN_QUIPS,
+} from "./quips"
+
+// How far a resolved call landed from its line, and whether that was
+// remarkable. Split out for the same reason as ./quips: it describes a
+// result, it doesn't score one. Nothing above imports it - see the header
+// comment in ./margin.ts for why that separation is load-bearing.
+export {
+	type CallMargin,
+	callMargin,
+	FALLBACK_TOLERANCE_SPEC,
+	MARGIN_THRESHOLDS,
+	type MarginBasis,
+	type MarginVerdict,
+} from "./margin"

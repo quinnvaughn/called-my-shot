@@ -16,6 +16,7 @@ import {
 import {
 	formatCallDate,
 	loadCallSummaries,
+	quipToneFor,
 } from "../lib/share-cards/call-summary"
 import {
 	buildStreakShareCard,
@@ -313,13 +314,19 @@ async function sendCallShareCard(res: Response, callId: string) {
 		points: summary.points,
 		fieldPct: fieldPctValue,
 		closeness: summary.closeness,
+		marginLabel: summary.margin?.label ?? null,
 		actual: summary.actual,
 		conviction: summary.conviction,
 		caseText: summary.caseText,
-		// quipForCall only has win and loss vocabularies - there is no line for
-		// a call nobody has graded, and inventing one would be the kind of
-		// filler the loss quips exist to avoid.
-		quip: resolved ? quipForCall(summary.callId, summary.isWin === true) : null,
+		// There is no quip for a call nobody has graded, and inventing one
+		// would be the kind of filler the loss quips exist to avoid. Only two
+		// of the four margins get a pool of their own - see QuipTone.
+		quip: resolved
+			? quipForCall(
+					summary.callId,
+					quipToneFor(summary.isWin === true, summary.margin),
+				)
+			: null,
 		pendingLabel: resolved
 			? null
 			: summary.questionStatus === "open"

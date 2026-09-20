@@ -15,6 +15,7 @@ const base = {
 	points: 240,
 	isWin: true,
 	exact: false,
+	marginLabel: null,
 	questionStatus: "RESOLVED" as const,
 	calledAt: "Mar 3, 2026",
 	locksAt: "Mar 8, 2026",
@@ -34,6 +35,38 @@ describe("callPageMeta", () => {
 		expect(title).toBe(
 			"Lost: @quinn called Chicago Bears (−120 pts) | CHI @ GB · Who will win?",
 		)
+	})
+
+	// "Inches away" says both how it went and how close it was, in the one
+	// line a truncated unfurl is sure to show.
+	it("leads with a remarkable margin in place of Won or Lost", () => {
+		expect(
+			callPageMeta({
+				...base,
+				points: -120,
+				isWin: false,
+				marginLabel: "Inches away",
+			}).title,
+		).toBe(
+			"Inches away: @quinn called Chicago Bears (−120 pts) | CHI @ GB · Who will win?",
+		)
+		expect(
+			callPageMeta({ ...base, marginLabel: "Never in doubt" }).title,
+		).toBe(
+			"Never in doubt: @quinn called Chicago Bears (+240 pts) | CHI @ GB · Who will win?",
+		)
+	})
+
+	it("keeps the exact-guess lead over a margin", () => {
+		const { title } = callPageMeta({
+			...base,
+			pickLabel: "13",
+			game: null,
+			exact: true,
+			marginLabel: "By a hair",
+		})
+		expect(title).toContain("nailed 13 exactly")
+		expect(title).not.toContain("By a hair")
 	})
 
 	it("says an exact numeric guess landed exactly", () => {
