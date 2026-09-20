@@ -2,7 +2,12 @@ import { STREAK_TAG_MIN, type StreakFamily } from "@called-my-shot/scoring"
 import DataLoader from "dataloader"
 import { count, inArray } from "drizzle-orm"
 import { db } from "../../../db"
-import { callSelections, calls, type UserStreak } from "../../../db/schema"
+import {
+	callSelections,
+	calls,
+	type QuestionOption,
+	type UserStreak,
+} from "../../../db/schema"
 import type { Context } from "../../context"
 
 export type CallStreakMark = { length: number; family: StreakFamily }
@@ -182,6 +187,40 @@ export function getQuestionLeagueIdLoader(ctx: Context) {
 			return ids.map((id) => leagueIdById.get(id))
 		})
 		questionLeagueIdLoaders.set(ctx, loader)
+	}
+	return loader
+}
+
+// Question.scoredOptions - the options carrying a number once a question has
+// settled. Filtered in SQL to the rows that have one, so a season award's
+// whole-league pool (which never gets numbers) costs nothing, and trimmed by
+// shape in the resolver. A game leader's pool does get a number per player,
+// which is why this is a loader and not a walk over Question.options: the
+// pages that show a result show many of them at once.
+const scoredOptionLoaders = new WeakMap<
+	Context,
+	DataLoader<string, QuestionOption[]>
+>()
+export function getScoredOptionsLoader(ctx: Context) {
+	let loader = scoredOptionLoaders.get(ctx)
+	if (!loader) {
+		loader = new DataLoader<string, QuestionOption[]>(async (questionIds) => {
+			const ids = [...questionIds]
+			const rows = await db.query.questionOptions.findMany({
+				where: { questionId: { in: ids }, actualValue: { isNotNull: true } },
+			})
+			const byQuestion = new Map<string, QuestionOption[]>()
+			for (const row of rows) {
+				const list = byQuestion.get(row.questionId)
+				if (list) {
+					list.push(row)
+				} else {
+					byQuestion.set(row.questionId, [row])
+				}
+			}
+			return ids.map((id) => byQuestion.get(id) ?? [])
+		})
+		scoredOptionLoaders.set(ctx, loader)
 	}
 	return loader
 }

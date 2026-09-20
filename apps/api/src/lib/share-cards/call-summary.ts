@@ -8,6 +8,7 @@ import {
 	STREAK_TAG_MIN,
 } from "@called-my-shot/scoring"
 import { DateTime } from "luxon"
+import { match } from "ts-pattern"
 import { db } from "../../db"
 
 // The pick/shape vocabulary a resolved call gets described with. Extracted
@@ -152,28 +153,62 @@ export function buildPickLabel(call: {
 	return selection.option.label
 }
 
+// The options a settled result is worth stating from, winner first - the DB
+// mirror of Question.scoredOptions (graphql/types/question/question-object.ts).
+// A head-to-head keeps both sides so the result reads as a scoreline; a leader
+// pool keeps whoever led, since the also-rans carry numbers nothing shows.
+function scoredOptionsFor(question: {
+	shape: QuestionShape
+	options: { label: string; isCorrect: boolean | null; actualValue: number | null }[]
+}): { label: string; actualValue: number }[] {
+	const scored = question.options.filter(
+		(o): o is typeof o & { actualValue: number } => o.actualValue !== null,
+	)
+	return match(question.shape)
+		.returnType<typeof scored>()
+		.with(
+			"player_vs_player",
+			"player_vs_player_season",
+			"team_vs_team",
+			"team_vs_team_season",
+			() =>
+				[...scored].sort((a, b) => Number(b.isCorrect) - Number(a.isCorrect)),
+		)
+		.with("player_game_stat_leader", "player_season_stat_leader", () =>
+			scored.filter((o) => o.isCorrect),
+		)
+		.otherwise(() => [])
+}
+
 // Mirrors actualSummary in apps/web/src/lib/call-summary.ts, against this
 // route's own DB-shaped call - same reasoning as buildPickLabel above for why
 // there's no shared module between the two.
 export function buildActualLabel(call: {
 	question: {
+		shape: QuestionShape
 		numericActualValue: number | null
 		numericToleranceAbsolute: number | null
 		stat: {
 			toleranceTier: { toleranceMode: string; toleranceValue: number } | null
 		} | null
+		options: {
+			label: string
+			isCorrect: boolean | null
+			actualValue: number | null
+		}[]
 	}
-	selections: { option: { label: string; actualValue: number | null } }[]
 }): string | null {
 	const rateStat = isRateStat(call.question)
 	if (call.question.numericActualValue !== null) {
 		return formatGuess(call.question.numericActualValue, rateStat)
 	}
-	if (call.selections.length !== 1) return null
-	const option = call.selections[0]?.option
-	return option?.actualValue == null
-		? null
-		: `${option.label}: ${formatGuess(option.actualValue, rateStat)}`
+	const scored = scoredOptionsFor(call.question)
+	const winner = scored[0]
+	if (!winner) return null
+	const values = scored
+		.map((option) => formatGuess(option.actualValue, rateStat))
+		.join(" to ")
+	return `${winner.label}, ${values}`
 }
 
 // Everything the og:image card and the resolution digest need to describe one
@@ -206,8 +241,9 @@ export type CallSummary = {
 	closeness: { kind: "exact" } | { kind: "off"; by: string } | null
 	// What the question actually came out to, already formatted. Mirrors
 	// actualSummary in apps/web/src/lib/call-summary.ts - the question's own
-	// number where the shape has one, otherwise the subject of this caller's
-	// own pick and what it put up. Null where nothing numeric was recorded.
+	// number where the shape has one, otherwise what the subject of this
+	// caller's own pick put up, named only on a miss. Null where nothing
+	// numeric was recorded.
 	actual: string | null
 	// How far into its league-and-family streak this call was when it landed.
 	// Same gate as Call.streak: a standing, scored win at least STREAK_TAG_MIN
@@ -253,6 +289,13 @@ export async function loadCallSummaries(
 					numericActualValue: true,
 				},
 				with: {
+					// Only the options carrying a number, for buildActualLabel - a
+					// season award's whole-league pool never gets one, so this
+					// costs nothing on the shapes with the biggest pools.
+					options: {
+						columns: { label: true, isCorrect: true, actualValue: true },
+						where: { actualValue: { isNotNull: true } },
+					},
 					league: { columns: { abbreviation: true } },
 					// Neither the card nor the email shows the game anywhere else,
 					// so a game question's title carries its matchup in front.
@@ -274,11 +317,7 @@ export async function loadCallSummaries(
 				},
 			},
 			selections: {
-				with: {
-					option: {
-						columns: { label: true, isCorrect: true, actualValue: true },
-					},
-				},
+				with: { option: { columns: { label: true, isCorrect: true } } },
 			},
 		},
 	})
@@ -364,11 +403,12 @@ export async function loadCallSummaries(
 			closeness,
 			actual: buildActualLabel({
 				question: {
+					shape: call.question.shape,
 					numericActualValue: call.question.numericActualValue,
 					numericToleranceAbsolute: call.question.numericToleranceAbsolute,
 					stat: call.question.stat,
+					options: call.question.options,
 				},
-				selections,
 			}),
 			// The streak cache is rebuilt shortly after a result changes, not
 			// in the same transaction, so a row can briefly outlive the result

@@ -107,11 +107,7 @@ function describeCall(call: NonNullable<CallRecordQuery["call"]>) {
 		selections: call.selections.map((s) => ({
 			id: s.id,
 			conviction: s.conviction,
-			option: {
-				label: s.option.label,
-				isCorrect: s.option.isCorrect,
-				actualValue: s.option.actualValue,
-			},
+			option: { label: s.option.label, isCorrect: s.option.isCorrect },
 		})),
 	}
 	const pickLabel = pickSummary(summaryData)
@@ -159,7 +155,12 @@ function describeCall(call: NonNullable<CallRecordQuery["call"]>) {
 		isWin,
 		fieldPct,
 		closeness,
-		actual: actualSummary(summaryData),
+		actual: actualSummary({
+			question: {
+				...summaryData.question,
+				scoredOptions: call.question.scoredOptions,
+			},
+		}),
 		conviction,
 		username: call.user.username,
 		name: call.user.name,

@@ -109,6 +109,30 @@ export function CallRecordCard({ data }: Props) {
 						>
 							{data.questionTitle}
 						</span>
+						{/* Directly under the question it answers, at headline weight.
+						As one more StatRow down in the body it sat between "Field
+						agreed" and "Conviction" and read as the same order of
+						trivia - the pick and the points say whether the call
+						landed, and this is the only thing on the card that says
+						what it landed against. */}
+						{data.actual !== null && (
+							<HStack gap="2" alignItems="baseline" paddingTop="1">
+								<Eyebrow size="sm" variant="neutral">
+									Actual
+								</Eyebrow>
+								<span
+									className={css({
+										fontFamily: "heading",
+										fontSize: "xl",
+										lineHeight: "1.2",
+										textAlign: "center",
+										color: "fg.default",
+									})}
+								>
+									{data.actual}
+								</span>
+							</HStack>
+						)}
 					</VStack>
 					<HStack gap="2" alignItems="center">
 						<Avatar size="xs" name={data.name} />
@@ -149,9 +173,6 @@ export function CallRecordCard({ data }: Props) {
 						</VStack>
 					)}
 					<VStack gap="2.5" alignItems="stretch">
-						{data.actual !== null && (
-							<StatRow label="Actual" value={data.actual} />
-						)}
 						{data.fieldPct !== null && (
 							<StatRow
 								label="Field agreed"

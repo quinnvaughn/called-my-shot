@@ -7,6 +7,7 @@ import {
 	streakFamilyFor,
 } from "@called-my-shot/scoring"
 import { and, count, eq, inArray, lte } from "drizzle-orm"
+import { match } from "ts-pattern"
 import { db } from "../../../db"
 import {
 	games,
@@ -39,6 +40,7 @@ import {
 import {
 	getOptionSelectionCountLoader,
 	getQuestionCallCountLoader,
+	getScoredOptionsLoader,
 	getQuestionGuessCallsLoader,
 	getViewerStreakLoader,
 } from "./loaders"
@@ -358,6 +360,35 @@ export const QuestionRef = builder.drizzleObject("questions", {
 		// happens to return without an explicit sort.
 		options: t.relation("options", {
 			query: () => ({ orderBy: { sortOrder: "asc" } }),
+		}),
+		// The options a settled result can be stated from, winner first. Two
+		// for a head-to-head, so the result reads as a scoreline ("64 to 52");
+		// just the leader(s) for a leader pool, where the also-rans carry
+		// numbers nothing displays; empty for every shape whose answer is one
+		// number about the question as a whole (that's numericActualValue) or
+		// no number at all. Separate from `options` above so a caller that
+		// only wants the result doesn't pay for a whole award pool.
+		scoredOptions: t.field({
+			type: [QuestionOptionRef],
+			resolve: async (question, _args, ctx) => {
+				const scored = await getScoredOptionsLoader(ctx).load(question.id)
+				return match(question.shape)
+					.returnType<typeof scored>()
+					.with(
+						"player_vs_player",
+						"player_vs_player_season",
+						"team_vs_team",
+						"team_vs_team_season",
+						() =>
+							[...scored].sort(
+								(a, b) => Number(b.isCorrect) - Number(a.isCorrect),
+							),
+					)
+					.with("player_game_stat_leader", "player_season_stat_leader", () =>
+						scored.filter((o) => o.isCorrect),
+					)
+					.otherwise(() => [])
+			},
 		}),
 		callCount: t.relatedCount("calls"),
 		disputes: t.relation("disputes"),

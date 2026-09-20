@@ -39,6 +39,11 @@ export const CallRecordDocument = graphql(`
 				ouLine
 				numericActualValue
 				numericToleranceAbsolute
+				scoredOptions {
+					id
+					label
+					actualValue
+				}
 				stat {
 					id
 					toleranceTier {
@@ -72,7 +77,6 @@ export const CallRecordDocument = graphql(`
 					id
 					label
 					isCorrect
-					actualValue
 					fieldPct
 				}
 			}

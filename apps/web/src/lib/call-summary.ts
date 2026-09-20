@@ -28,20 +28,21 @@ export type CallSummaryData = {
 	selections: {
 		id: string
 		conviction: number
-		// actualValue is what this option's own player or team put up, set only
-		// on the shapes graded by comparing options. Optional because the
-		// callers that build a CallSummaryData by hand (viewer-status-card) only
-		// need enough of one to format a pick.
-		option: {
-			label: string
-			isCorrect: boolean | null
-			actualValue?: number | null
-		}
+		option: { label: string; isCorrect: boolean | null }
 	}[]
 }
 
 function isRateStat(question: CallSummaryData["question"]): boolean {
 	return computeIsRateStat(question)
+}
+
+// actualSummary reads the question's scored options rather than the caller's
+// own selections: on a head-to-head the losing side's number is half the
+// story, and the caller may well have picked it.
+export type ActualSummaryData = {
+	question: CallSummaryData["question"] & {
+		scoredOptions: { label: string; actualValue: number | null }[]
+	}
 }
 
 // Every shape scores differently, so each needs its own formatting here - an
@@ -188,20 +189,28 @@ export function resultState(
 	return { status: totalPoints >= 0 ? "win" : "loss", points: totalPoints }
 }
 
-// What the question actually came out to, read from the caller's side of it:
-// the question's own number where the shape has one, and otherwise what the
-// subject of their own pick put up. That second case names the subject, since
-// on a head-to-head the number means nothing without knowing whose it is.
-// Null where no number was recorded at all - a Yes/No, an award, anything a
-// person resolved by hand.
-export function actualSummary(call: CallSummaryData): string | null {
+// What the question actually came out to, stated the way the shape makes it
+// mean something. An over/under or a numeric guess has one number and needs no
+// more. A head-to-head reads as a scoreline, winner first, because "9" on its
+// own doesn't say who put it up or what it beat. A leader pool names whoever
+// led. Null where nothing numeric was recorded - a Yes/No, an award, anything
+// a person resolved by hand.
+//
+// scoredOptions arrives winner-first and already trimmed to the options worth
+// naming (see Question.scoredOptions in the API), so this only formats.
+export function actualSummary(call: ActualSummaryData): string | null {
 	const rate = isRateStat(call.question)
 	if (call.question.numericActualValue !== null) {
 		return formatGuessValue(call.question.numericActualValue, rate)
 	}
-	if (call.selections.length !== 1) return null
-	const option = call.selections[0]?.option
-	return option?.actualValue == null
-		? null
-		: `${option.label}: ${formatGuessValue(option.actualValue, rate)}`
+	const scored = call.question.scoredOptions.filter(
+		(option): option is typeof option & { actualValue: number } =>
+			option.actualValue !== null,
+	)
+	const [winner, ...rest] = scored
+	if (!winner) return null
+	const values = [winner, ...rest]
+		.map((option) => formatGuessValue(option.actualValue, rate))
+		.join(" to ")
+	return `${winner.label}, ${values}`
 }
