@@ -207,6 +207,8 @@ export const relations = defineRelations(schema, (r) => ({
 		teams: r.many.teams(),
 		games: r.many.games(),
 		seasons: r.many.seasons(),
+		playerGameStats: r.many.playerGameStats(),
+		teamGameStats: r.many.teamGameStats(),
 	},
 	seasons: {
 		league: r.one.leagues({
@@ -215,6 +217,8 @@ export const relations = defineRelations(schema, (r) => ({
 		}),
 		games: r.many.games(),
 		weeks: r.many.seasonWeeks(),
+		playerGameStats: r.many.playerGameStats(),
+		teamGameStats: r.many.teamGameStats(),
 	},
 	seasonWeeks: {
 		season: r.one.seasons({
@@ -232,6 +236,28 @@ export const relations = defineRelations(schema, (r) => ({
 			to: r.players.currentTeamId,
 		}),
 		records: r.many.teamRecords(),
+		// Rows a team's own players put up, and rows their opponents put up
+		// against them - the second is what opponent-allowed numbers read.
+		gameStats: r.many.playerGameStats({
+			from: r.teams.id,
+			to: r.playerGameStats.teamId,
+			alias: "player_game_stat_team",
+		}),
+		gameStatsAllowed: r.many.playerGameStats({
+			from: r.teams.id,
+			to: r.playerGameStats.opponentTeamId,
+			alias: "player_game_stat_opponent",
+		}),
+		teamGameStats: r.many.teamGameStats({
+			from: r.teams.id,
+			to: r.teamGameStats.teamId,
+			alias: "team_game_stat_team",
+		}),
+		teamGameStatsAllowed: r.many.teamGameStats({
+			from: r.teams.id,
+			to: r.teamGameStats.opponentTeamId,
+			alias: "team_game_stat_opponent",
+		}),
 	},
 	teamRecords: {
 		team: r.one.teams({
@@ -248,6 +274,7 @@ export const relations = defineRelations(schema, (r) => ({
 			from: r.players.currentTeamId,
 			to: r.teams.id,
 		}),
+		gameStats: r.many.playerGameStats(),
 	},
 	games: {
 		league: r.one.leagues({
@@ -268,6 +295,61 @@ export const relations = defineRelations(schema, (r) => ({
 		}),
 		questions: r.many.questions(),
 		starters: r.many.gameStarters(),
+		playerStats: r.many.playerGameStats(),
+		teamStats: r.many.teamGameStats(),
+	},
+	playerGameStats: {
+		game: r.one.games({
+			from: r.playerGameStats.gameId,
+			to: r.games.id,
+		}),
+		player: r.one.players({
+			from: r.playerGameStats.playerId,
+			to: r.players.id,
+		}),
+		// Two FKs onto teams, so both sides need explicit from/to and an alias.
+		team: r.one.teams({
+			from: r.playerGameStats.teamId,
+			to: r.teams.id,
+			alias: "player_game_stat_team",
+		}),
+		opponentTeam: r.one.teams({
+			from: r.playerGameStats.opponentTeamId,
+			to: r.teams.id,
+			alias: "player_game_stat_opponent",
+		}),
+		season: r.one.seasons({
+			from: r.playerGameStats.seasonId,
+			to: r.seasons.id,
+		}),
+		league: r.one.leagues({
+			from: r.playerGameStats.leagueId,
+			to: r.leagues.id,
+		}),
+	},
+	teamGameStats: {
+		game: r.one.games({
+			from: r.teamGameStats.gameId,
+			to: r.games.id,
+		}),
+		team: r.one.teams({
+			from: r.teamGameStats.teamId,
+			to: r.teams.id,
+			alias: "team_game_stat_team",
+		}),
+		opponentTeam: r.one.teams({
+			from: r.teamGameStats.opponentTeamId,
+			to: r.teams.id,
+			alias: "team_game_stat_opponent",
+		}),
+		season: r.one.seasons({
+			from: r.teamGameStats.seasonId,
+			to: r.seasons.id,
+		}),
+		league: r.one.leagues({
+			from: r.teamGameStats.leagueId,
+			to: r.leagues.id,
+		}),
 	},
 	gameStarters: {
 		game: r.one.games({

@@ -182,3 +182,22 @@ export const questionCallsQuery = (id: string) =>
 		{ id },
 		(data) => data.question?.calls ?? EMPTY_CONNECTION,
 	)
+
+// Its own document, deliberately not part of QuestionDetailDocument. The route
+// loader awaits that one, so folding the cards in would let a slow card set
+// hold up the pick form, which is the page's whole job. This is prefetched
+// without awaiting instead. It's also why nothing in a feed should ever select
+// statContext - it runs several queries per question.
+export const QuestionStatContextDocument = graphql(`
+	query QuestionStatContext($id: ID!) {
+		question(id: $id) {
+			id
+			statContext {
+				...StatContextCard_statContext
+			}
+		}
+	}
+`)
+
+export const questionStatContextQuery = (id: string) =>
+	gqlQueryOptions(QuestionStatContextDocument, { id })

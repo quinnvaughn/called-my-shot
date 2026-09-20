@@ -1,5 +1,5 @@
 import { questionTitleWithGame } from "@called-my-shot/schemas"
-import { useSuspenseQuery } from "@tanstack/react-query"
+import { useQuery, useSuspenseQuery } from "@tanstack/react-query"
 import {
 	createFileRoute,
 	Link,
@@ -33,6 +33,7 @@ import { QuestionCallsList } from "#/components/questions/question-calls-list"
 import { ReportQuestionModal } from "#/components/questions/report-question-modal"
 import { ResolveQuestionModal } from "#/components/questions/resolve-question-modal"
 import { ShareQuestionModal } from "#/components/questions/share-question-modal"
+import { StatContextCard } from "#/components/questions/stat-context-card"
 import { StreakStakeLine } from "#/components/questions/streak-stake-line"
 import { ViewerStatusCard } from "#/components/questions/viewer-status-card"
 import { Breadcrumb } from "#/components/ui/breadcrumb"
@@ -45,6 +46,7 @@ import type { QuestionShape } from "#/graphql/generated/graphql"
 import {
 	questionCallsQuery,
 	questionDetailQuery,
+	questionStatContextQuery,
 } from "#/graphql/queries/question"
 import { questionHorizon, track } from "#/lib/analytics"
 import { safeExternalUrl } from "#/lib/external-url"
@@ -126,6 +128,13 @@ export const Route = createFileRoute("/_app/questions/$questionId/{-$slug}")({
 	// head() can only read loaderData, so the meta-tag fields come back from
 	// here; the component reads the same cache entries via useSuspenseQuery.
 	loader: async ({ context, params }) => {
+		// Warmed but deliberately not awaited: the cards are color on a page
+		// whose job is taking a call, so a slow card set must never hold up the
+		// pick form. The section renders nothing until this lands.
+		void context.queryClient
+			.query(questionStatContextQuery(params.questionId))
+			.catch(() => {})
+
 		const [detail] = await Promise.all([
 			context.queryClient.query(questionDetailQuery(params.questionId)),
 			context.queryClient.infiniteQuery(questionCallsQuery(params.questionId)),
@@ -172,7 +181,20 @@ function RouteComponent() {
 	const { tour } = Route.useSearch()
 	const navigate = Route.useNavigate()
 	const { data } = useSuspenseQuery(questionDetailQuery(questionId))
+	// Not suspense: the loader fires this without awaiting, so the page has
+	// to render before it lands.
+	const statContext = useQuery(questionStatContextQuery(questionId))
+
 	const question = data.question
+	// Both competitors, so a game log can name the opponent. An opponent from
+	// an earlier matchup isn't in here and simply shows no abbreviation, which
+	// beats another request for a line of mono text.
+	const teamLabels = question?.game
+		? {
+				[question.game.homeTeam.id]: question.game.homeTeam.abbreviation,
+				[question.game.awayTeam.id]: question.game.awayTeam.abbreviation,
+			}
+		: {}
 	const { me } = useRouteContext({ from: "__root__" })
 	// Called unconditionally (hooks can't follow the early-return below) -
 	// harmless when there's no question yet, since nothing renders CastCallForm
@@ -513,6 +535,15 @@ function RouteComponent() {
 					voidedReason={question.voidedReason}
 					fieldAccuracyPct={fieldAccuracyPct}
 					questionTitle={question.title}
+				/>
+				{/* Directly above the pick form, so it reads as input to the call
+			    rather than trivia below it. Renders nothing until the loader's
+			    unawaited prefetch lands, and nothing at all when there's no
+			    history to show. */}
+				<StatContextCard
+					statContext={statContext.data?.question?.statContext}
+					teams={teamLabels}
+					isCallable={isCallable}
 				/>
 				{/* While the call is still open, the picker itself (CastCallForm)
 			shows this same live breakdown inline - one card for "make your

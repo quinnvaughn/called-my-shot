@@ -1,0 +1,102 @@
+import { describe, expect, it } from "vitest"
+import { parseMadeAttempted } from "../../db/sync/box-score-parse"
+import { GAME_EXTRACTORS } from "./registry"
+
+type GameKey = keyof typeof GAME_EXTRACTORS
+
+// The game stats whose value genuinely isn't a single cell of a stored box
+// score, and so can't carry a `source`. Each one is here for one of three
+// reasons, all spelled out on the factory that builds it in registry.ts:
+// computed from several cells (ERA, WHIP), not a stat cell at all (Points off
+// the scoreboard, Saves off the pitching decision note), or a column ESPN
+// reports season-to-date rather than per-game (the four mlbBatterGameStat
+// ones, which is the trap this whole list exists to keep visible).
+//
+// Adding a key here is a claim that stat context cannot be derived from
+// stored box-score rows. Anything not listed must be readable from one, which
+// is what stops a newly added league quietly shipping without context.
+const NO_RAW_BOX_COLUMN = new Set<GameKey>([
+	"nba:game:team:Points",
+	"nfl:game:team:Points",
+	"mlb:game:player:Stolen Bases",
+	"mlb:game:player:Batting Average",
+	"mlb:game:player:On-Base Percentage",
+	"mlb:game:player:Slugging Percentage",
+	"mlb:game:player:Saves",
+	"mlb:game:player:ERA",
+	"mlb:game:player:WHIP",
+])
+
+const gameEntries = Object.entries(GAME_EXTRACTORS) as [
+	GameKey,
+	(typeof GAME_EXTRACTORS)[GameKey],
+][]
+
+describe("GAME_EXTRACTORS box stat sources", () => {
+	it("gives every game stat a source unless it's a documented exception", () => {
+		const missing = gameEntries
+			.filter(([key, e]) => !e.source && !NO_RAW_BOX_COLUMN.has(key))
+			.map(([key]) => key)
+
+		expect(missing).toEqual([])
+	})
+
+	it("keeps the exception list from going stale", () => {
+		const nowSourced = [...NO_RAW_BOX_COLUMN].filter(
+			(key) => GAME_EXTRACTORS[key].source,
+		)
+
+		expect(nowSourced).toEqual([])
+	})
+
+	it("reads a made-attempted pair through the pair parser", () => {
+		const source = GAME_EXTRACTORS["nba:game:player:3-Pointers Made"].source
+
+		expect(source).toEqual({
+			origin: "athlete",
+			key: "threePointFieldGoalsMade-threePointFieldGoalsAttempted",
+			parse: parseMadeAttempted,
+		})
+	})
+
+	it("carries the raw ESPN key, prefixed where the box score prefixes it", () => {
+		expect(GAME_EXTRACTORS["nba:game:player:Points"].source?.key).toBe("points")
+		expect(GAME_EXTRACTORS["mlb:game:player:Hits"].source?.key).toBe(
+			"batting.hits",
+		)
+		expect(GAME_EXTRACTORS["nfl:game:player:Passing Yards"].source?.key).toBe(
+			"passing.passingYards",
+		)
+	})
+
+	it("separates the three key namespaces", () => {
+		// The same stat reads from a different map at team level than at player
+		// level, and NBA rebounds are the case where the keys differ too.
+		expect(GAME_EXTRACTORS["nba:game:player:Rebounds"].source).toMatchObject({
+			origin: "athlete",
+			key: "rebounds",
+		})
+		expect(GAME_EXTRACTORS["nba:game:team:Rebounds"].source).toMatchObject({
+			origin: "team_box",
+			key: "totalRebounds",
+		})
+		expect(GAME_EXTRACTORS["nfl:game:team:Receptions"].source).toMatchObject({
+			origin: "player_table_total",
+		})
+	})
+
+	it("never gives one origin and key two different parsers", () => {
+		const parserBySource = new Map<string, (raw?: string) => number | null>()
+		const conflicts: string[] = []
+
+		for (const [, extractor] of gameEntries) {
+			if (!extractor.source) continue
+			const id = `${extractor.source.origin}:${extractor.source.key}`
+			const seen = parserBySource.get(id)
+			if (!seen) parserBySource.set(id, extractor.source.parse)
+			else if (seen !== extractor.source.parse) conflicts.push(id)
+		}
+
+		expect(conflicts).toEqual([])
+	})
+})

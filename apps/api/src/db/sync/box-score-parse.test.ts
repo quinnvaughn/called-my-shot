@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs"
 import { describe, expect, it } from "vitest"
 import {
+	defaultStatParser,
 	parseBoxScore,
 	parseInnings,
 	parseMadeAttempted,
@@ -80,5 +81,34 @@ describe("stat value parsing", () => {
 		expect(parseInnings("5.0")).toBe(5)
 		expect(parseInnings("1.2")).toBeCloseTo(5 / 3)
 		expect(parseInnings("0.1")).toBeCloseTo(1 / 3)
+	})
+})
+
+describe("defaultStatParser", () => {
+	it("reads a paired column as its first side", () => {
+		expect(defaultStatParser("batting.hits-atBats")("2-4")).toBe(2)
+		expect(defaultStatParser("pitching.pitches-strikes")("95-60")).toBe(95)
+		expect(
+			defaultStatParser(
+				"threePointFieldGoalsMade-threePointFieldGoalsAttempted",
+			)("4-9"),
+		).toBe(4)
+	})
+
+	it("reads a baseball innings column as thirds", () => {
+		expect(
+			defaultStatParser("pitching.fullInnings.partInnings")("5.2"),
+		).toBeCloseTo(17 / 3)
+	})
+
+	it("reads anything else as a plain number", () => {
+		expect(defaultStatParser("points")("31")).toBe(31)
+		expect(defaultStatParser("batting.RBIs")("--")).toBeNull()
+	})
+
+	// The dotted table prefix is not part of the column name, and a key can
+	// carry dots of its own, so only the last segment decides.
+	it("looks at the column, not the table prefix", () => {
+		expect(defaultStatParser("receiving.receptions")("7")).toBe(7)
 	})
 })

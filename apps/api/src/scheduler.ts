@@ -5,6 +5,7 @@ import { autoResolveGames } from "./db/sync/auto-resolve-games"
 import { autoResolveSeasons } from "./db/sync/auto-resolve-seasons"
 import { generateGameQuestions } from "./db/sync/generate-game-questions"
 import { syncSportsData } from "./db/sync/run"
+import { syncBoxScores } from "./db/sync/sync-box-scores"
 import { syncGameStarters } from "./db/sync/sync-game-starters"
 import { syncLiveScores } from "./db/sync/sync-live-scores"
 import { drainAnalyticsOutbox } from "./lib/analytics-outbox"
@@ -16,6 +17,7 @@ import { tuneTitleLosses } from "./lib/game-questions/tune-title-losses"
 import { drainGameReminders } from "./lib/game-reminders"
 import {
 	AUTO_RESOLVE_GAMES_LOCK,
+	BOX_SCORE_SYNC_LOCK,
 	DRAIN_ANALYTICS_LOCK,
 	DRAIN_DIGESTS_LOCK,
 	DRAIN_GAME_REMINDERS_LOCK,
@@ -65,6 +67,13 @@ export function startScheduler(): void {
 			if (wentFinal.length === 0) return
 			await runJob(AUTO_RESOLVE_GAMES_LOCK, () => autoResolveGames())()
 			await drainAchievements()
+			// After resolution, not before: auto-resolve-games stores the box
+			// score of every game it fetched, so by now this usually finds
+			// nothing to do. What it picks up is the games that path never
+			// touches - see syncBoxScores.
+			await runJob(BOX_SCORE_SYNC_LOCK, async () => {
+				await syncBoxScores()
+			})()
 		},
 		{ name: "sync-live-scores", timezone: "UTC", noOverlap: true },
 	)
@@ -233,6 +242,6 @@ export function startScheduler(): void {
 		{ name: DRAIN_ANALYTICS_LOCK, timezone: "UTC", noOverlap: true },
 	)
 	console.log(
-		"[scheduler] started: sync-live-scores */5m (then auto-resolve-games and recompute-achievements when a game went final), recompute-achievements */1m, reconcile-achievements daily 11:30 UTC, lock-overdue-questions */15m, sync-sports-data daily 09:00 UTC, sync-game-starters then generate-game-questions */30m, auto-resolve-games 2-59/10m, auto-resolve-seasons daily 10:30 UTC, auto-resolve-championships daily 10:45 UTC, tune-lines daily 11:00 UTC, tune-bands daily 11:05 UTC, tune-leader-losses daily 11:10 UTC, tune-title-losses daily 11:15 UTC, drain-email-digests */5m, drain-game-reminders */5m, enqueue-season-start-emails daily 13:00 UTC, drain-season-start-emails */5m, drain-analytics-outbox */1m",
+		"[scheduler] started: sync-live-scores */5m (then auto-resolve-games, recompute-achievements and sync-box-scores when a game went final), recompute-achievements */1m, reconcile-achievements daily 11:30 UTC, lock-overdue-questions */15m, sync-sports-data daily 09:00 UTC, sync-game-starters then generate-game-questions */30m, auto-resolve-games 2-59/10m, auto-resolve-seasons daily 10:30 UTC, auto-resolve-championships daily 10:45 UTC, tune-lines daily 11:00 UTC, tune-bands daily 11:05 UTC, tune-leader-losses daily 11:10 UTC, tune-title-losses daily 11:15 UTC, drain-email-digests */5m, drain-game-reminders */5m, enqueue-season-start-emails daily 13:00 UTC, drain-season-start-emails */5m, drain-analytics-outbox */1m",
 	)
 }

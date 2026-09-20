@@ -120,5 +120,12 @@ export const games = pgTable("games", {
 	// final whistle measures from the same moment every time it runs. Null
 	// while the game isn't final.
 	finalizedAt: timestamp("finalized_at"),
+	// When this game's box score was last stored into player_game_stats /
+	// team_game_stats. Does triple duty: it's what makes a re-run skip a game
+	// already captured, it's the backfill script's checkpoint (a crash leaves a
+	// game unstamped and un-rowed, never half-written, so a re-run resumes
+	// exactly where it stopped), and it's how the went-final sweep finds games
+	// auto-resolution never fetched a box score for. Null until first captured.
+	boxScoreSyncedAt: timestamp("box_score_synced_at"),
 })
 export type Game = typeof games.$inferSelect

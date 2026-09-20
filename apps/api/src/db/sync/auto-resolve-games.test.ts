@@ -17,6 +17,7 @@ import {
 import { db } from "../index"
 import { externalRefs } from "../schema"
 import { autoResolveGames } from "./auto-resolve-games"
+import { persistBoxScore } from "./box-score-store"
 import {
 	type EspnGameSummary,
 	EspnRequestError,
@@ -32,6 +33,13 @@ vi.mock("./espn-client", async (importOriginal) => ({
 	fetchCompetitorRoster: vi.fn(),
 	fetchCompetitorAthleteStatistics: vi.fn(),
 }))
+
+// Calls through by default - only the "persisting fails" case overrides it,
+// and with mockRejectedValueOnce, so nothing has to put the real one back.
+vi.mock("./box-score-store", async (importOriginal) => {
+	const actual = await importOriginal<typeof import("./box-score-store")>()
+	return { ...actual, persistBoxScore: vi.fn(actual.persistBoxScore) }
+})
 
 const NOW = new Date("2026-09-12T12:00:00Z")
 const hoursAgo = (hours: number) => new Date(NOW.getTime() - hours * HOUR)
@@ -124,6 +132,46 @@ beforeEach(() => {
 	vi.mocked(fetchGameSummary).mockReset()
 	vi.mocked(fetchCompetitorRoster).mockReset()
 	vi.mocked(fetchCompetitorAthleteStatistics).mockReset()
+})
+
+describe("autoResolveGames box score capture", () => {
+	it("stores the box score it already fetched to resolve", async () => {
+		const setup = await seedNbaGame()
+		await seedPointsLine(setup, "4869780", 22.5)
+		vi.mocked(fetchGameSummary).mockResolvedValue(nbaSummary())
+
+		await run()
+
+		const rows = await db.query.playerGameStats.findMany({
+			where: { gameId: setup.game.id },
+		})
+		const game = await db.query.games.findFirst({
+			where: { id: setup.game.id },
+		})
+
+		expect(rows.length).toBeGreaterThan(0)
+		expect(game?.boxScoreSyncedAt).toEqual(NOW)
+	})
+
+	// Resolution is the critical path and stat context is not, so a bad row
+	// must never cost a caller their result.
+	it("still resolves the question when storing the box score fails", async () => {
+		const setup = await seedNbaGame()
+		const { question, over } = await seedPointsLine(setup, "4869780", 22.5)
+		vi.mocked(fetchGameSummary).mockResolvedValue(nbaSummary())
+		vi.mocked(persistBoxScore).mockRejectedValueOnce(new Error("nope"))
+
+		await run()
+
+		const row = await questionById(question.id)
+		expect(row?.status).toBe("resolved")
+		expect(await correctOptionIds(question.id)).toEqual([over.id])
+
+		const game = await db.query.games.findFirst({
+			where: { id: setup.game.id },
+		})
+		expect(game?.boxScoreSyncedAt).toBeNull()
+	})
 })
 
 describe("autoResolveGames", () => {

@@ -22,6 +22,7 @@ import {
 import { isMainModule } from "../../lib/is-main-module"
 import { db } from "../index"
 import { parseBoxScore } from "./box-score-parse"
+import { persistBoxScore } from "./box-score-store"
 import {
 	EspnRequestError,
 	fetchCompetitorAthleteStatistics,
@@ -305,6 +306,27 @@ async function processGame(
 								awayTeamId: game.awayTeamId,
 							})
 		await applyDecision(question.id, decision, ctx)
+	}
+
+	// Last, deliberately. The box score is already fetched and parsed, so
+	// storing it costs nothing beyond the write - but it's a few hundred rows
+	// per game, and resolution is the critical path while stat context is not.
+	// Settling every question first means a slow or failing write can only
+	// delay a game log, never a caller's result. A failure leaves
+	// boxScoreSyncedAt null, which is exactly what sync-box-scores looks for.
+	try {
+		await persistBoxScore({
+			game,
+			leagueSlug: league.slug,
+			box,
+			espnTeamIdByTeamId: refs.espnTeamIdByTeamId,
+			now,
+		})
+	} catch (error) {
+		console.error(
+			`[auto-resolve-games] couldn't store the box score for game ${game.id}:`,
+			error,
+		)
 	}
 }
 

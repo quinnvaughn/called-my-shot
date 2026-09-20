@@ -95,6 +95,13 @@ export async function withJobLock(
 // string literals at each call site because a typo in one of them silently
 // buys a second, useless lease instead of failing.
 export const AUTO_RESOLVE_GAMES_LOCK = "auto-resolve-games"
+// Held by the box score backfill and by the went-final sweep, so a hand-run
+// backfill and a tick can't both be fetching the same games. Deliberately not
+// AUTO_RESOLVE_GAMES_LOCK: a backfill can run for the better part of an hour,
+// and blocking resolution for that long would cost callers their results.
+// Overlap on one individual game is handled by persistBoxScore's own
+// SELECT ... FOR UPDATE.
+export const BOX_SCORE_SYNC_LOCK = "sync-box-scores"
 export const DRAIN_ANALYTICS_LOCK = "drain-analytics-outbox"
 export const DRAIN_DIGESTS_LOCK = "drain-email-digests"
 export const DRAIN_GAME_REMINDERS_LOCK = "drain-game-reminders"

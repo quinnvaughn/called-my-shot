@@ -27,6 +27,17 @@ export type GameSources = {
 
 export type GameSourceNeed = "roster" | "athleteGameStats"
 
+// Which map in ParsedBoxScore a value is read out of, and under which raw ESPN
+// key. "athlete" is ParsedAthlete.stats, "team_box" is teamStats, and
+// "player_table_total" is tableTotals - three separate key namespaces that
+// must not be conflated (NBA team rebounds are "totalRebounds" in the team box
+// but "rebounds" in the player tables).
+export type BoxStatSource = {
+	origin: "athlete" | "team_box" | "player_table_total"
+	key: string
+	parse: (raw: string | undefined) => number | null
+}
+
 export type GamePlayerExtractor = {
 	scope: "game"
 	subject: "player"
@@ -35,6 +46,15 @@ export type GamePlayerExtractor = {
 	// Every athlete in the game with a value, for "who led the game" questions.
 	// Absent for a stat that can't settle one (see AUTO_RESOLVE_STATS).
 	readAll?: (sources: GameSources) => Map<string, number>
+	// Where this stat lives in a stored box score, when it is a single cell
+	// read straight off one. Absent means the value can't be recovered from
+	// stored box-score rows alone, which is the signal stat context uses to
+	// leave the stat out rather than read a cell that doesn't mean what its
+	// key suggests. Three reasons it's absent: the value is computed from
+	// several cells (mlbPitchingRate), it isn't a stat cell at all (teamScore,
+	// mlbSaves), or the box score's column for it is season-to-date rather
+	// than per-game (mlbBatterGameStat - see its comment).
+	source?: BoxStatSource
 }
 
 export type GameTeamExtractor = {
@@ -42,6 +62,8 @@ export type GameTeamExtractor = {
 	subject: "team"
 	needs: readonly GameSourceNeed[]
 	read: (sources: GameSources, espnTeamId: string) => StatReading
+	// See GamePlayerExtractor.source.
+	source?: BoxStatSource
 }
 
 export type GameExtractor = GamePlayerExtractor | GameTeamExtractor
@@ -123,6 +145,7 @@ function nbaPlayer(
 			return v === null ? noValue(key) : value(v)
 		},
 		readAll: ({ box }) => collect(box, key, parse, (a) => !a.didNotPlay),
+		source: { origin: "athlete", key, parse },
 	}
 }
 
@@ -144,6 +167,7 @@ function nflPlayer(key: string): GamePlayerExtractor {
 			return value(v ?? 0)
 		},
 		readAll: ({ box }) => collect(box, key, parseStatNumber, () => true),
+		source: { origin: "athlete", key, parse: parseStatNumber },
 	}
 }
 
@@ -174,6 +198,7 @@ function mlbCounting(
 		},
 		readAll: ({ box }) =>
 			collect(box, statKey, parseStatNumber, (a) => appearedIn(a, table)),
+		source: { origin: "athlete", key: statKey, parse: parseStatNumber },
 	}
 }
 
@@ -314,6 +339,7 @@ function teamBoxStat(
 			const v = parse(box.teamStats.get(espnTeamId)?.get(name))
 			return v === null ? noValue(name) : value(v)
 		},
+		source: { origin: "team_box", key: name, parse },
 	}
 }
 
@@ -335,6 +361,7 @@ function teamTableTotal(key: string): GameTeamExtractor {
 			if (!totals) return noValue(`player tables for team ${espnTeamId}`)
 			return value(parseStatNumber(totals.get(key)) ?? 0)
 		},
+		source: { origin: "player_table_total", key, parse: parseStatNumber },
 	}
 }
 

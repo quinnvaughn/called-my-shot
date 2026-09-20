@@ -125,6 +125,26 @@ export function parseInnings(raw: string | undefined): number | null {
 	return innings + extraOuts / 3
 }
 
+// How a box-score cell should be read when no extractor claims its key - i.e.
+// for the long tail of columns no catalog stat is defined against, which are
+// stored anyway (see db/schema/box-scores.ts) and which a plain Number() would
+// silently get wrong for two of ESPN's encodings.
+//
+// This keys off the column name's own shape, not off any stat, because it's a
+// property of the feed rather than of the catalog: ESPN names a paired column
+// "made-attempted" ("hits-atBats", "pitches-strikes") and names a baseball
+// innings column "fullInnings.partInnings" wherever either appears. An
+// extractor's own `source.parse` still wins where there is one, so a stat that
+// settles questions is always read exactly as resolution reads it.
+export function defaultStatParser(
+	statKey: string,
+): (raw: string | undefined) => number | null {
+	if (statKey.endsWith("fullInnings.partInnings")) return parseInnings
+	const column = statKey.split(".").pop() ?? statKey
+	if (column.includes("-")) return parseMadeAttempted
+	return parseStatNumber
+}
+
 // Rate stats settle against lines with three decimals, so a computed rate is
 // compared at that precision.
 export function roundToThousandths(value: number): number {

@@ -21,6 +21,7 @@ import {
 	decodeCursor,
 	paginate,
 } from "../../../lib/pagination"
+import { buildStatContext } from "../../../lib/stat-context/build"
 import { countsTowardAchievements } from "../../../lib/streaks/enqueue"
 import { builder } from "../../builder"
 import { BallotQuestionRef } from "../ballot"
@@ -42,6 +43,7 @@ import {
 	getViewerStreakLoader,
 } from "./loaders"
 import { QuestionReportRef, ResolutionDisputeRef } from "./moderation-objects"
+import { StatContextRef } from "./stat-context"
 
 // The viewer's streak a question's result would extend or end - see
 // Question.viewerStreak.
@@ -355,6 +357,137 @@ export const QuestionRef = builder.drizzleObject("questions", {
 		}),
 		callCount: t.relatedCount("calls"),
 		disputes: t.relation("disputes"),
+
+		// The stat context cards for this question, or null when there's
+		// nothing honest to show (see buildStatContext - a custom stat, a
+		// season-scoped shape, a leader pool, or a subject with no stored
+		// history all land there).
+		//
+		// A plain field, not t.loadable: the subject can be a player or a team,
+		// with or without an opponent, so there's no single key to batch on and
+		// a loader would issue the same queries anyway. Same reasoning as
+		// seasonGamesPlayed above.
+		//
+		// Expensive by nature. Do NOT select this on a feed - it runs several
+		// queries per question. The detail page fetches it in its own document,
+		// separate from questionDetailQuery, so a slow card set can't hold up
+		// the pick form.
+		statContext: t.field({
+			type: StatContextRef,
+			nullable: true,
+			resolve: async (question) => {
+				if (!question.gameId) return null
+
+				const [game, stat, league, options] = await Promise.all([
+					db.query.games.findFirst({
+						where: { id: question.gameId },
+						columns: { homeTeamId: true, awayTeamId: true },
+					}),
+					question.statId
+						? db.query.stats.findFirst({
+								where: { id: question.statId },
+								columns: { name: true },
+							})
+						: null,
+					db.query.leagues.findFirst({
+						where: { id: question.leagueId },
+						columns: { slug: true },
+					}),
+					db.query.questionOptions.findMany({
+						where: { questionId: question.id },
+						orderBy: { sortOrder: "asc" },
+						columns: { label: true, playerId: true, teamId: true },
+					}),
+				])
+				if (!game || !league) return null
+
+				// currentTeamId is "who they play for now", which is the only
+				// team pointer a player carries - see players.ts. For a question
+				// on an upcoming or recent game that's right; for an old game
+				// after a trade it can be wrong, and a subject that resolves to
+				// neither competitor gets no cards rather than the wrong ones.
+				const playerIds = [
+					question.subjectPlayerId,
+					...options.map((o) => o.playerId),
+				].filter((id): id is string => id !== null)
+
+				const teamIds = [
+					question.subjectTeamId,
+					...options.map((o) => o.teamId),
+				].filter((id): id is string => id !== null)
+
+				const [players, subjectTeams] = await Promise.all([
+					playerIds.length
+						? db.query.players.findMany({
+								where: { id: { in: playerIds } },
+								columns: {
+									id: true,
+									name: true,
+									currentTeamId: true,
+									positions: true,
+								},
+							})
+						: [],
+					teamIds.length
+						? db.query.teams.findMany({
+								where: { id: { in: teamIds } },
+								columns: { id: true, name: true },
+							})
+						: [],
+				])
+				const playerById = new Map(players.map((p) => [p.id, p]))
+				const teamById = new Map(subjectTeams.map((t) => [t.id, t]))
+
+				// The label names the SIDE, not the stat - it's what a
+				// head-to-head puts above each column. An option's own label is
+				// already the player's name; the single-subject case has to look
+				// it up.
+				const refFor = (
+					label: string,
+					playerId: string | null,
+					teamId: string | null,
+				) => {
+					const player = playerId ? playerById.get(playerId) : null
+					const teamInGame =
+						teamId ??
+						(player?.currentTeamId === game.homeTeamId ||
+						player?.currentTeamId === game.awayTeamId
+							? player.currentTeamId
+							: null)
+					return {
+						// A team question's subject has no player to name it,
+						// so the team's own name is the label there.
+						label:
+							label ||
+							player?.name ||
+							(teamId ? (teamById.get(teamId)?.name ?? "") : ""),
+						playerId,
+						teamId,
+						positions: player?.positions ?? [],
+						teamInGameId: teamInGame,
+					}
+				}
+
+				return buildStatContext({
+					shape: question.shape,
+					leagueSlug: league.slug,
+					statName: stat?.name ?? null,
+					customStat: question.customStat,
+					statAggregation: question.statAggregation,
+					ouLine: question.ouLine,
+					locksAt: question.locksAt,
+					seasonId: question.seasonId,
+					game,
+					subject:
+						question.subjectPlayerId || question.subjectTeamId
+							? refFor("", question.subjectPlayerId, question.subjectTeamId)
+							: null,
+					optionSubjects: options
+						.filter((o) => o.playerId || o.teamId)
+						.map((o) => refFor(o.label, o.playerId, o.teamId)),
+				})
+			},
+		}),
 
 		// True once any dispute on this question has been closed (upheld or
 		// overturned) - fileDispute refuses to reopen the dispute process past
