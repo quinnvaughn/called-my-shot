@@ -5,6 +5,7 @@ import {
 import {
 	type ApplyContext,
 	applyDecision,
+	autoVoidedNote,
 	isAttemptDue,
 } from "../../lib/auto-resolve/apply"
 import {
@@ -43,8 +44,7 @@ const HOUR_MS = 60 * 60 * 1000
 export const ESCALATE_AFTER_MS = 12 * HOUR_MS
 
 const RESOLVED_NOTE = "Resolved automatically from ESPN's box score."
-const VOIDED_NOTE =
-	"Voided automatically: ESPN's box score shows the player didn't play."
+const voidedNoteFor = autoVoidedNote("ESPN's box score")
 
 const CANDIDATE_RELATIONS = {
 	game: true,
@@ -174,7 +174,7 @@ async function processGame(
 		resolutionSource: autoResolutionSource("game"),
 		resolutionSourceUrl,
 		resolvedNote: RESOLVED_NOTE,
-		voidedNote: VOIDED_NOTE,
+		voidedNote: voidedNoteFor,
 	})
 	const applyAll = async (decision: Decision) => {
 		for (const question of group) {

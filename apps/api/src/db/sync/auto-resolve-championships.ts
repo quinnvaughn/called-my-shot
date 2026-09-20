@@ -5,6 +5,7 @@ import {
 import {
 	type ApplyContext,
 	applyDecision,
+	autoVoidedNote,
 	isAttemptDue,
 } from "../../lib/auto-resolve/apply"
 import { findChampionshipWinner } from "../../lib/auto-resolve/championship"
@@ -28,7 +29,7 @@ const DAY_MS = 24 * HOUR_MS
 export const CHAMPIONSHIP_GRACE_MS = 72 * HOUR_MS
 
 const RESOLVED_NOTE = "Resolved automatically from ESPN's postseason results."
-const VOIDED_NOTE = "Voided automatically from ESPN's postseason results."
+const voidedNoteFor = autoVoidedNote("ESPN's postseason results")
 
 const CANDIDATE_RELATIONS = {
 	season: true,
@@ -111,7 +112,7 @@ async function processSeason(
 		resolutionSource: autoResolutionSource("postseason"),
 		resolutionSourceUrl,
 		resolvedNote: RESOLVED_NOTE,
-		voidedNote: VOIDED_NOTE,
+		voidedNote: voidedNoteFor,
 	})
 	const applyAll = async (decision: Decision) => {
 		for (const question of group) {

@@ -276,6 +276,7 @@ describe("autoResolveGames", () => {
 		const row = await questionById(question.id)
 		expect(row?.status).toBe("voided")
 		expect(row?.voidedReason).toBe("tie")
+		expect(row?.resolutionNote).toContain("both sides finished level")
 		const scored = await db.query.calls.findFirst({ where: { id: call.id } })
 		expect(scored?.unscoredReason).toBe("question_voided")
 	})

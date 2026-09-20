@@ -6,6 +6,7 @@ import {
 	type QuestionAutoResolution,
 	questionAutoResolutions,
 	questions,
+	type QuestionVoidedReason,
 } from "../../db/schema"
 import { roundToThousandths } from "../../db/sync/box-score-parse"
 import { resolveQuestionInternal } from "../resolve-question"
@@ -31,7 +32,37 @@ export type ApplyContext = {
 	// Null when the question couldn't be matched to an ESPN page.
 	resolutionSourceUrl: string | null
 	resolvedNote: string
-	voidedNote: string
+	// The note is picked from the reason the question was voided, so a tie or a
+	// missing leader isn't reported as a player who didn't play.
+	voidedNote: (reason: QuestionVoidedReason) => string
+}
+
+// Builds that note for a resolver reading one ESPN page, named by source.
+export function autoVoidedNote(
+	source: string,
+): (reason: QuestionVoidedReason) => string {
+	return (reason) =>
+		match(reason)
+			.returnType<string>()
+			.with(
+				"subject_did_not_play",
+				() => `Voided automatically from ${source}: the player didn't play.`,
+			)
+			.with(
+				"game_not_completed",
+				() => `Voided automatically from ${source}: the game wasn't completed.`,
+			)
+			.with(
+				"tie",
+				() =>
+					`Voided automatically from ${source}: both sides finished level, so neither one is ahead.`,
+			)
+			.with(
+				"no_leader",
+				() => `Voided automatically from ${source}: nobody recorded this stat.`,
+			)
+			.with("other", () => `Voided automatically from ${source}.`)
+			.exhaustive()
 }
 
 type AutoResolutionPatch = Partial<
@@ -127,7 +158,7 @@ async function settleFrom(
 		.with({ kind: "void" }, (d) =>
 			markQuestionVoided(tx, question, {
 				reason: d.reason,
-				note: ctx.voidedNote,
+				note: ctx.voidedNote(d.reason),
 				voidedBy: { method: "system" },
 			}),
 		)

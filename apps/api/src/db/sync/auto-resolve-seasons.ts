@@ -5,6 +5,7 @@ import {
 import {
 	type ApplyContext,
 	applyDecision,
+	autoVoidedNote,
 	isAttemptDue,
 } from "../../lib/auto-resolve/apply"
 import { fail } from "../../lib/auto-resolve/decide"
@@ -46,8 +47,7 @@ const HOUR_MS = 60 * 60 * 1000
 export const SEASON_ESCALATE_AFTER_MS = 48 * HOUR_MS
 
 const RESOLVED_NOTE = "Resolved automatically from ESPN's regular-season stats."
-const VOIDED_NOTE =
-	"Voided automatically: ESPN's regular-season stats show the player didn't play."
+const voidedNoteFor = autoVoidedNote("ESPN's regular-season stats")
 
 // The season-long shapes a stat settles. Awards and championships aren't
 // among them.
@@ -176,7 +176,7 @@ async function processSeason(
 		resolutionSource: autoResolutionSource("season"),
 		resolutionSourceUrl,
 		resolvedNote: RESOLVED_NOTE,
-		voidedNote: VOIDED_NOTE,
+		voidedNote: voidedNoteFor,
 	})
 
 	const config = SYNCED_LEAGUES.find((c) => c.leagueSlug === league.slug)
