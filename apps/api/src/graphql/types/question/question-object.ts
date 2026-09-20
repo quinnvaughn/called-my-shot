@@ -71,6 +71,10 @@ export const QuestionOptionRef = builder.drizzleObject("questionOptions", {
 		player: t.relation("player", { nullable: true }),
 		// null until the question resolves
 		isCorrect: t.exposeBoolean("isCorrect", { nullable: true }),
+		// What this option's own player or team actually put up - set on the
+		// head-to-head and leader shapes, whose result is a comparison between
+		// the options. Null on every other shape and on a hand-entered result.
+		actualValue: t.exposeFloat("actualValue", { nullable: true }),
 		callCount: t.relatedCount("selections"),
 		// live % of the question's callers who picked this option - same formula
 		// resolution scores against at lock (see fieldPct in @called-my-shot/scoring),

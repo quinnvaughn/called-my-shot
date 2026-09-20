@@ -12,7 +12,13 @@ export type Decision =
 	| {
 			kind: "resolve"
 			correctOptionIds: string[]
+			// The one number the whole question was about - a subject's stat for
+			// an over/under, the guessed quantity for a numeric guess. The
+			// comparison shapes have no such number and set optionValues instead.
 			actualValue?: number
+			// What each option's own subject put up, for the shapes graded by
+			// comparing options against each other.
+			optionValues?: { optionId: string; value: number }[]
 			evidence: Record<string, number>
 	  }
 	| { kind: "void"; reason: QuestionVoidedReason }
@@ -95,6 +101,7 @@ export function gradeOverUnder(
 	return {
 		kind: "resolve",
 		correctOptionIds: [value > ouLine ? over.id : under.id],
+		actualValue: value,
 		evidence: { value },
 	}
 }
@@ -130,6 +137,10 @@ export function gradeHeadToHead(a: Side, b: Side): Decision {
 		correctOptionIds: [
 			a.reading.value > b.reading.value ? a.optionId : b.optionId,
 		],
+		optionValues: [
+			{ optionId: a.optionId, value: a.reading.value },
+			{ optionId: b.optionId, value: b.reading.value },
+		],
 		evidence: { a: a.reading.value, b: b.reading.value },
 	}
 }
@@ -146,6 +157,7 @@ export function gradeLeader(
 		correctOptionIds: values
 			.filter((v) => equal(v.value, max))
 			.map((v) => v.optionId),
+		optionValues: values,
 		evidence: { max },
 	}
 }
@@ -257,20 +269,29 @@ export function decideGameQuestion(ctx: GameQuestionContext): Decision {
 		const optionByPlayerId = new Map(
 			options.flatMap((o) => (o.playerId ? [[o.playerId, o] as const] : [])),
 		)
-		const leaders: { optionId: string; value: number }[] = []
+		// Every option in the pool, not just whoever tied for the most: grading
+		// reads the same winner off it either way, and carrying the whole pool
+		// is what lets the settled question say what the leader actually put
+		// up. A pool player the box score doesn't list put up none of the stat,
+		// the same reading a season pool leader gets.
+		const valueByOptionId = new Map(
+			options.flatMap((o) => (o.playerId ? [[o.id, 0] as const] : [])),
+		)
 		for (const [espnAthleteId, v] of values) {
-			if (max <= 0 || !equal(v, max)) continue
 			const playerId = ctx.playerIdByEspnAthleteId.get(espnAthleteId)
 			const option = playerId ? optionByPlayerId.get(playerId) : undefined
-			if (!option) {
+			if (option) {
+				valueByOptionId.set(option.id, v)
+			} else if (max > 0 && equal(v, max)) {
 				return fail(
 					"leader_not_in_pool",
 					`ESPN athlete ${espnAthleteId} led with ${v} but isn't an option`,
 				)
 			}
-			leaders.push({ optionId: option.id, value: v })
 		}
-		return gradeLeader(leaders)
+		return gradeLeader(
+			[...valueByOptionId].map(([optionId, value]) => ({ optionId, value })),
+		)
 	}
 
 	return match(question.shape)

@@ -313,6 +313,7 @@ async function sendCallShareCard(res: Response, callId: string) {
 		points: summary.points,
 		fieldPct: fieldPctValue,
 		closeness: summary.closeness,
+		actual: summary.actual,
 		conviction: summary.conviction,
 		caseText: summary.caseText,
 		// quipForCall only has win and loss vocabularies - there is no line for

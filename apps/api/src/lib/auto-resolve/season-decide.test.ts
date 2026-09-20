@@ -96,6 +96,7 @@ describe("decideSeasonQuestion - player lines", () => {
 		expect(decideSeasonQuestion(playerLine("4869780", 900.5))).toEqual({
 			kind: "resolve",
 			correctOptionIds: ["over"],
+			actualValue: 948,
 			evidence: { value: 948 },
 		})
 	})
@@ -107,6 +108,7 @@ describe("decideSeasonQuestion - player lines", () => {
 		).toEqual({
 			kind: "resolve",
 			correctOptionIds: ["over"],
+			actualValue: 11.704,
 			evidence: { value: 11.704 },
 		})
 	})
@@ -120,6 +122,7 @@ describe("decideSeasonQuestion - player lines", () => {
 		).toEqual({
 			kind: "resolve",
 			correctOptionIds: ["under"],
+			actualValue: 0.296,
 			evidence: { value: 0.296 },
 		})
 	})
@@ -190,6 +193,7 @@ describe("decideSeasonQuestion - teams", () => {
 		).toEqual({
 			kind: "resolve",
 			correctOptionIds: ["over"],
+			actualValue: 20,
 			evidence: { value: 20 },
 		})
 	})
@@ -256,6 +260,11 @@ describe("decideSeasonQuestion - pool leader", () => {
 		expect(decideSeasonQuestion(leaderContext(500))).toEqual({
 			kind: "resolve",
 			correctOptionIds: ["option-pa"],
+			optionValues: [
+				{ optionId: "option-pa", value: 948 },
+				{ optionId: "option-pb", value: 500 },
+				{ optionId: "option-pc", value: 0 },
+			],
 			evidence: { max: 948 },
 		})
 	})

@@ -328,6 +328,7 @@ export const AdminDisputesDocument = graphql(`
 								id
 								label
 								isCorrect
+								actualValue
 							}
 						}
 						user {

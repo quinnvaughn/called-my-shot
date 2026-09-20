@@ -88,7 +88,7 @@ export async function markQuestionVoided(
 	}
 	await tx
 		.update(questionOptions)
-		.set({ isCorrect: null })
+		.set({ isCorrect: null, actualValue: null })
 		.where(eq(questionOptions.questionId, question.id))
 
 	await createNotifications(

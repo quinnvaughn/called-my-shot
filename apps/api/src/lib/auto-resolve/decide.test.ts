@@ -70,6 +70,7 @@ describe("decideGameQuestion - player over/under", () => {
 		).toEqual({
 			kind: "resolve",
 			correctOptionIds: ["over"],
+			actualValue: 25,
 			evidence: { value: 25 },
 		})
 		expect(
@@ -145,6 +146,7 @@ describe("decideGameQuestion - other game shapes", () => {
 		expect(decision).toEqual({
 			kind: "resolve",
 			correctOptionIds: ["over"],
+			actualValue: 262,
 			evidence: { value: 262 },
 		})
 	})
@@ -375,6 +377,10 @@ describe("decideFinalScore", () => {
 		).toEqual({
 			kind: "resolve",
 			correctOptionIds: ["home"],
+			optionValues: [
+				{ optionId: "home", value: 144 },
+				{ optionId: "away", value: 118 },
+			],
 			evidence: { a: 144, b: 118 },
 		})
 	})
@@ -410,6 +416,11 @@ describe("gradeLeader", () => {
 		).toEqual({
 			kind: "resolve",
 			correctOptionIds: ["a", "b"],
+			optionValues: [
+				{ optionId: "a", value: 3 },
+				{ optionId: "b", value: 3 },
+				{ optionId: "c", value: 1 },
+			],
 			evidence: { max: 3 },
 		})
 	})

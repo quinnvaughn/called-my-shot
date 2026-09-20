@@ -50,6 +50,7 @@ export const QuestionCardFragment = graphql(`
 			fieldPct
 			callCount
 			isCorrect
+			actualValue
 		}
 		game {
 			id

@@ -1,3 +1,4 @@
+import { isNumericGuessShape } from "@called-my-shot/scoring"
 import { eq } from "drizzle-orm"
 import { match } from "ts-pattern"
 import { db } from "../../db/index"
@@ -5,6 +6,7 @@ import {
 	type Question,
 	type QuestionAutoResolution,
 	questionAutoResolutions,
+	questionOptions,
 	questions,
 	type QuestionVoidedReason,
 } from "../../db/schema"
@@ -142,6 +144,7 @@ async function settleFrom(
 				{
 					correctOptionIds: d.correctOptionIds,
 					actualValue: d.actualValue,
+					optionValues: d.optionValues,
 					resolutionNote: ctx.resolvedNote,
 				},
 				{
@@ -249,7 +252,13 @@ async function recheck(
 				}
 	}
 
-	if (!(await hasSameResult(tx, question, decision))) {
+	if (await hasSameResult(tx, question, decision)) {
+		// Same winner, possibly different numbers: a correction that moves a
+		// stat without moving it across the line still has to reach the page
+		// that prints it, but nothing about the scoring changed, so it's written
+		// straight through instead of re-running resolution.
+		await restateValues(tx, question, decision)
+	} else {
 		await settleFrom(tx, question, decision, ctx)
 	}
 	return {
@@ -265,8 +274,14 @@ async function hasSameResult(
 ): Promise<boolean> {
 	if (decision.kind === "void") return question.status === "voided"
 	if (question.status !== "resolved") return false
-	if (decision.actualValue !== undefined) {
+	// A numeric guess has no options, so its result is the number itself. Every
+	// other shape is graded by which option won, and an over/under carries an
+	// actualValue too - but a corrected box score that moves the number without
+	// moving it across the line is the same result, and re-scoring it would
+	// churn everyone's points for nothing.
+	if (isNumericGuessShape(question.shape)) {
 		return (
+			decision.actualValue !== undefined &&
 			question.numericActualValue !== null &&
 			roundToThousandths(question.numericActualValue) ===
 				roundToThousandths(decision.actualValue)
@@ -281,4 +296,26 @@ async function hasSameResult(
 		current.size === decision.correctOptionIds.length &&
 		decision.correctOptionIds.every((id) => current.has(id))
 	)
+}
+
+// The stat values a re-check came back with, written onto an already-settled
+// question whose result they don't change. Voids carry no numbers.
+async function restateValues(
+	tx: Tx,
+	question: Question,
+	decision: Exclude<Decision, { kind: "fail" }>,
+): Promise<void> {
+	if (decision.kind !== "resolve") return
+	if (decision.actualValue !== undefined) {
+		await tx
+			.update(questions)
+			.set({ numericActualValue: decision.actualValue })
+			.where(eq(questions.id, question.id))
+	}
+	for (const { optionId, value } of decision.optionValues ?? []) {
+		await tx
+			.update(questionOptions)
+			.set({ actualValue: value })
+			.where(eq(questionOptions.id, optionId))
+	}
 }

@@ -244,6 +244,12 @@ export const questions = pgTable("questions", {
 		scale: 3,
 		mode: "number",
 	}),
+	// The real number the question turned out to be about, set at resolution.
+	// The numeric_guess shapes score directly against it; the *_over_under
+	// shapes are graded by which side of ouLine it fell on and keep it so the
+	// result can state the number rather than just the side. Null on every
+	// shape whose answer is an option rather than a quantity, and null on an
+	// over/under a person resolved by hand without supplying one.
 	// scale 3, not 2 - see ouLine above.
 	numericActualValue: numeric("numeric_actual_value", {
 		precision: 8,
@@ -358,5 +364,18 @@ export const questionOptions = pgTable("question_options", {
 	}),
 	// null until the question resolves
 	isCorrect: boolean("is_correct"),
+	// What this option's own subject actually put up, for the shapes whose
+	// result is a comparison between the options rather than one number about
+	// the question as a whole: the two sides of a head-to-head and every
+	// player in a leader pool. The whole-question number lives on
+	// questions.numericActualValue instead, which is what the over/under and
+	// numeric-guess shapes set. Null until the question resolves, and stays
+	// null when a person resolved it by hand - only the ESPN resolvers read a
+	// number per option.
+	actualValue: numeric("actual_value", {
+		precision: 8,
+		scale: 3,
+		mode: "number",
+	}),
 })
 export type QuestionOption = typeof questionOptions.$inferSelect

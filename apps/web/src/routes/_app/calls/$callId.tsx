@@ -19,7 +19,7 @@ import { PageHeader } from "#/components/ui/page-header"
 import type { CallRecordQuery } from "#/graphql/generated/graphql"
 import { callRecordQuery } from "#/graphql/queries/call"
 import { callCardVersion, callPageMeta } from "#/lib/call-meta"
-import { pickSummary } from "#/lib/call-summary"
+import { actualSummary, pickSummary } from "#/lib/call-summary"
 import { formatGuess, isRateStat } from "#/lib/field-signal"
 import { formatCallDate, formatCallLead } from "#/lib/format-date"
 import { pageMeta } from "#/lib/meta"
@@ -93,7 +93,7 @@ function describeCall(call: NonNullable<CallRecordQuery["call"]>) {
 	const points = call.totalPoints
 	const isWin = points === null ? null : points >= 0
 
-	const pickLabel = pickSummary({
+	const summaryData = {
 		guessValue: call.guessValue,
 		conviction: call.conviction,
 		totalPoints: call.totalPoints,
@@ -107,9 +107,14 @@ function describeCall(call: NonNullable<CallRecordQuery["call"]>) {
 		selections: call.selections.map((s) => ({
 			id: s.id,
 			conviction: s.conviction,
-			option: { label: s.option.label, isCorrect: s.option.isCorrect },
+			option: {
+				label: s.option.label,
+				isCorrect: s.option.isCorrect,
+				actualValue: s.option.actualValue,
+			},
 		})),
-	})
+	}
+	const pickLabel = pickSummary(summaryData)
 
 	// "Field agreed" only means something for a lone selection. A numeric guess
 	// is too specific for anyone to share it, and
@@ -154,6 +159,7 @@ function describeCall(call: NonNullable<CallRecordQuery["call"]>) {
 		isWin,
 		fieldPct,
 		closeness,
+		actual: actualSummary(summaryData),
 		conviction,
 		username: call.user.username,
 		name: call.user.name,
@@ -198,6 +204,7 @@ function RouteComponent() {
 		points: view.points,
 		fieldPct: view.fieldPct,
 		closeness: view.closeness,
+		actual: view.actual,
 		conviction: view.conviction,
 		caseText: call.caseText,
 		streakLength: call.streak?.length ?? null,

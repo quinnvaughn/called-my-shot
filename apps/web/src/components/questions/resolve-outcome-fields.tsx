@@ -36,31 +36,33 @@ export function ResolveOutcomeFields({
 	actualValueError,
 	isRateStat = false,
 }: Props) {
+	const numberField = (required: boolean) => (
+		<TextInput error={actualValueError}>
+			<TextInput.Label required={required}>Actual value</TextInput.Label>
+			<TextInput.Group>
+				<TextInput.Field
+					type="number"
+					// "any" rather than a fixed step - a rate stat's actual value
+					// (batting average, ERA) needs decimals a step of 1 would
+					// otherwise reject via native constraint validation.
+					step="any"
+					value={actualValue ?? ""}
+					onChange={(e) =>
+						onActualValueChange(
+							e.target.value === "" ? undefined : Number(e.target.value),
+						)
+					}
+				/>
+			</TextInput.Group>
+		</TextInput>
+	)
+
 	if (
 		shape === "player_stat_numeric_guess" ||
 		shape === "team_stat_numeric_guess" ||
 		shape === "team_season_stat_numeric_guess"
 	) {
-		return (
-			<TextInput error={actualValueError}>
-				<TextInput.Label required>Actual value</TextInput.Label>
-				<TextInput.Group>
-					<TextInput.Field
-						type="number"
-						// "any" rather than a fixed step - a rate stat's actual value
-						// (batting average, ERA) needs decimals a step of 1 would
-						// otherwise reject via native constraint validation.
-						step="any"
-						value={actualValue ?? ""}
-						onChange={(e) =>
-							onActualValueChange(
-								e.target.value === "" ? undefined : Number(e.target.value),
-							)
-						}
-					/>
-				</TextInput.Group>
-			</TextInput>
-		)
+		return numberField(true)
 	}
 
 	return (
@@ -79,6 +81,13 @@ export function ResolveOutcomeFields({
 					onClick={() => onToggleOption(option.id)}
 				/>
 			))}
+			{/* Optional, unlike the numeric-guess field above: the side that hit
+			    is what scores an over/under, and the number only decides which
+			    side that was. Supplying it lets the settled question state what
+			    the subject actually did instead of just which way it went - the
+			    ESPN resolvers always record it, so this is the one path that
+			    could otherwise leave it blank. */}
+			{isOverUnderShape(shape) && numberField(false)}
 		</VStack>
 	)
 }

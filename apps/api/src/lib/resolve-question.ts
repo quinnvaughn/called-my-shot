@@ -3,6 +3,7 @@ import {
 	earlyTierFor,
 	fieldPct,
 	isNumericGuessShape,
+	isOverUnderShape,
 	isSeasonLongShape,
 	numericGuessPoints,
 	seasonEarlyTierFor,
@@ -69,7 +70,14 @@ export async function resolveQuestionInternal(
 	question: Question,
 	data: {
 		correctOptionIds: string[]
+		// The question's own final number, persisted to numericActualValue for
+		// the shapes that have one (see the column). Undefined leaves whatever
+		// is already there alone, which is how a manual resolve that supplies
+		// no number keeps an earlier automatic one.
 		actualValue?: number
+		// What each option's subject put up, for the comparison shapes - see
+		// questionOptions.actualValue. Options left out keep their current value.
+		optionValues?: { optionId: string; value: number }[]
 		resolutionNote: string
 	},
 	opts: ResolveOptions,
@@ -126,6 +134,11 @@ export async function resolveQuestionInternal(
 	}
 
 	const isNumericGuess = isNumericGuessShape(question.shape)
+	// Which shapes have a single number as their answer. The numeric guesses
+	// are scored against it; an over/under is scored against which side of the
+	// line it fell on and keeps it only so the result can state it.
+	const storesActualValue =
+		isNumericGuess || isOverUnderShape(question.shape)
 
 	if (isNumericGuess) {
 		const guessCalls = await tx.query.calls.findMany({
@@ -271,6 +284,22 @@ export async function resolveQuestionInternal(
 					notInArray(questionOptions.id, data.correctOptionIds),
 				),
 			)
+
+		// One statement per option rather than a single set: each option gets a
+		// different number, and a head-to-head has two of them while a leader
+		// pool has as many as the pool is big, which is still a handful.
+		for (const { optionId, value } of data.optionValues ?? []) {
+			if (!validIds.has(optionId)) {
+				throw ValidationError.field(
+					"optionValues",
+					"One or more options don't belong to this question",
+				)
+			}
+			await tx
+				.update(questionOptions)
+				.set({ actualValue: value })
+				.where(eq(questionOptions.id, optionId))
+		}
 
 		const [{ n: totalCalls }] = await tx
 			.select({ n: count() })
@@ -511,7 +540,9 @@ export async function resolveQuestionInternal(
 			resolutionMethod: resolvedBy.method,
 			resolvedByUserId:
 				resolvedBy.method === "system" ? null : resolvedBy.userId,
-			...(isNumericGuess ? { numericActualValue: data.actualValue } : {}),
+			...(storesActualValue && data.actualValue !== undefined
+				? { numericActualValue: data.actualValue }
+				: {}),
 			...(source?.resolutionSource
 				? { resolutionSource: source.resolutionSource }
 				: {}),

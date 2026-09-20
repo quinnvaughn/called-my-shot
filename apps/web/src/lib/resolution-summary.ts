@@ -20,7 +20,7 @@ export type ResolvedAnswerData = {
 	stat: {
 		toleranceTier: { toleranceMode: string; toleranceValue: number } | null
 	} | null
-	options: { label: string; isCorrect: boolean | null }[]
+	options: { id: string; label: string; isCorrect: boolean | null; actualValue: number | null }[]
 }
 
 function isRateStat(question: ResolvedAnswerData): boolean {
@@ -28,10 +28,15 @@ function isRateStat(question: ResolvedAnswerData): boolean {
 }
 
 // The actual answer a question resolved to, independent of any one caller's
-// pick - derived from the same isCorrect/numericActualValue fields scoring
-// itself runs on. Deliberately not sourced from resolutionNote: that's a
-// free-text caption an admin writes and isn't guaranteed to restate the
+// pick - derived from the same isCorrect/numericActualValue/actualValue fields
+// scoring itself runs on. Deliberately not sourced from resolutionNote: that's
+// a free-text caption an admin writes and isn't guaranteed to restate the
 // answer verbatim.
+//
+// Every branch states the number behind the answer when there is one, so a
+// settled question reads as "Over 47.5, actual 63" rather than leaving the
+// reader to go find what the player actually did. A question resolved by hand
+// carries no number and reads exactly as it did before.
 export function resolvedAnswerSummary(
 	question: ResolvedAnswerData,
 ): string | null {
@@ -76,18 +81,27 @@ function correctOptions(question: ResolvedAnswerData) {
 function formatOverUnder(question: ResolvedAnswerData): string | null {
 	const winner = correctOptions(question)[0]
 	if (!winner) return null
-	return optionDisplayLabel(
+	const side = optionDisplayLabel(
 		winner.label,
 		isOverUnderQuestionShape(question.shape),
 		question.ouLine,
 		isRateStat(question),
 	)
+	return question.numericActualValue !== null
+		? `${side}, actual ${formatGuess(question.numericActualValue, isRateStat(question))}`
+		: side
 }
 
 function formatMultiSelect(question: ResolvedAnswerData): string | null {
 	const winners = correctOptions(question)
 	if (winners.length === 0) return null
-	return winners.map((option) => option.label).join(", ")
+	return winners
+		.map((option) =>
+			option.actualValue !== null
+				? `${option.label}, ${formatGuess(option.actualValue, isRateStat(question))}`
+				: option.label,
+		)
+		.join(" · ")
 }
 
 function formatNumeric(question: ResolvedAnswerData): string | null {
@@ -96,7 +110,20 @@ function formatNumeric(question: ResolvedAnswerData): string | null {
 		: null
 }
 
+// The two sides of a head-to-head, winner first, so the answer carries the
+// margin. Yes/No and the finalists shape share this branch and have no numbers
+// on their options, so they fall back to the bare label.
 function formatSingleSelection(question: ResolvedAnswerData): string | null {
 	const winner = correctOptions(question)[0]
-	return winner ? winner.label : null
+	if (!winner) return null
+	const loser = question.options.find((option) => option.id !== winner.id)
+	if (
+		question.options.length !== 2 ||
+		winner.actualValue === null ||
+		loser?.actualValue == null
+	) {
+		return winner.label
+	}
+	const rate = isRateStat(question)
+	return `${winner.label}, ${formatGuess(winner.actualValue, rate)} to ${formatGuess(loser.actualValue, rate)}`
 }

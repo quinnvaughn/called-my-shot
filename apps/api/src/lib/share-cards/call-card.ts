@@ -75,6 +75,10 @@ export type CallShareCardData = {
 	// face. `by` is pre-formatted by formatGuess so a rate stat keeps its three
 	// decimals.
 	closeness: { kind: "exact" } | { kind: "off"; by: string } | null
+	// What the question actually came out to, pre-formatted by
+	// buildActualLabel (call-summary.ts). Null where nothing numeric was
+	// recorded, same as on the page.
+	actual: string | null
 	conviction: number
 	caseText: string | null
 	// Resolved only. Null on all three renders the pending face instead.
@@ -267,6 +271,9 @@ export function buildCallShareCard(data: CallShareCardData): SatoriNode {
 
 	const cells: SatoriNode[] = [statCell("Called", data.calledAt)]
 	cells.push(statCell("Conviction", `${Math.round(data.conviction)}%`))
+	if (data.actual !== null) {
+		cells.push(statCell("Actual", data.actual))
+	}
 	if (data.fieldPct !== null) {
 		cells.push(statCell("Field agreed", `${Math.round(data.fieldPct)}%`))
 	}

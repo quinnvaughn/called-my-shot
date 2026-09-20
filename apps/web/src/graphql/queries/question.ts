@@ -49,6 +49,7 @@ export const QuestionDetailDocument = graphql(`
 				label
 				fieldPct
 				isCorrect
+				actualValue
 				callCount
 			}
 			creator {

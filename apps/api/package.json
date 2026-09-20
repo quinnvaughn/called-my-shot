@@ -12,6 +12,7 @@
     "backfill:emails": "tsx --env-file=.env scripts/backfill-resolution-emails.ts",
     "backfill:final-scores": "tsx --env-file=.env scripts/backfill-final-scores.ts",
     "backfill:box-scores": "tsx --env-file=.env scripts/backfill-box-scores.ts",
+    "backfill:actual-values": "tsx --env-file=.env scripts/backfill-actual-values.ts",
     "backfill:streaks": "tsx --env-file=.env scripts/backfill-streaks.ts",
     "season-start:emails": "tsx --env-file=.env scripts/season-start-emails.ts",
     "format": "biome format .",

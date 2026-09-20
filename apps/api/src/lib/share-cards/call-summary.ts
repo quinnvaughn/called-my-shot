@@ -152,6 +152,30 @@ export function buildPickLabel(call: {
 	return selection.option.label
 }
 
+// Mirrors actualSummary in apps/web/src/lib/call-summary.ts, against this
+// route's own DB-shaped call - same reasoning as buildPickLabel above for why
+// there's no shared module between the two.
+export function buildActualLabel(call: {
+	question: {
+		numericActualValue: number | null
+		numericToleranceAbsolute: number | null
+		stat: {
+			toleranceTier: { toleranceMode: string; toleranceValue: number } | null
+		} | null
+	}
+	selections: { option: { label: string; actualValue: number | null } }[]
+}): string | null {
+	const rateStat = isRateStat(call.question)
+	if (call.question.numericActualValue !== null) {
+		return formatGuess(call.question.numericActualValue, rateStat)
+	}
+	if (call.selections.length !== 1) return null
+	const option = call.selections[0]?.option
+	return option?.actualValue == null
+		? null
+		: `${option.label}: ${formatGuess(option.actualValue, rateStat)}`
+}
+
 // Everything the og:image card and the resolution digest need to describe one
 // call, derived in a single batched query. Neither the aggregate
 // field-percentage counts nor the quip are here: the first needs its own
@@ -180,6 +204,11 @@ export type CallSummary = {
 	// own kind rather than a distance of 0, which reads as still being off.
 	// `by` is formatted like the guess itself.
 	closeness: { kind: "exact" } | { kind: "off"; by: string } | null
+	// What the question actually came out to, already formatted. Mirrors
+	// actualSummary in apps/web/src/lib/call-summary.ts - the question's own
+	// number where the shape has one, otherwise the subject of this caller's
+	// own pick and what it put up. Null where nothing numeric was recorded.
+	actual: string | null
 	// How far into its league-and-family streak this call was when it landed.
 	// Same gate as Call.streak: a standing, scored win at least STREAK_TAG_MIN
 	// into its run, otherwise null.
@@ -245,7 +274,11 @@ export async function loadCallSummaries(
 				},
 			},
 			selections: {
-				with: { option: { columns: { label: true, isCorrect: true } } },
+				with: {
+					option: {
+						columns: { label: true, isCorrect: true, actualValue: true },
+					},
+				},
 			},
 		},
 	})
@@ -329,6 +362,14 @@ export async function loadCallSummaries(
 					: 0,
 			caseText: call.caseText,
 			closeness,
+			actual: buildActualLabel({
+				question: {
+					numericActualValue: call.question.numericActualValue,
+					numericToleranceAbsolute: call.question.numericToleranceAbsolute,
+					stat: call.question.stat,
+				},
+				selections,
+			}),
 			// The streak cache is rebuilt shortly after a result changes, not
 			// in the same transaction, so a row can briefly outlive the result
 			// it was built from.

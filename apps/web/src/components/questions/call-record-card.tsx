@@ -35,6 +35,11 @@ export type CallRecordCardData = {
 	// own kind, since "Off by 0" reads as still being off, and gets its own
 	// face. `by` is already formatted (see formatGuess).
 	closeness: { kind: "exact" } | { kind: "off"; by: string } | null
+	// What actually happened, already formatted - "63", "Ja'Marr Chase: 118".
+	// The pick and the points say whether the call landed; without this the
+	// card never says what it landed against. Null on a question with no
+	// number behind it (Yes/No, an award) and on one resolved by hand.
+	actual: string | null
 	conviction: number
 	caseText: string | null
 	// Set on a win at least STREAK_TAG_MIN into its league-and-family streak.
@@ -144,6 +149,9 @@ export function CallRecordCard({ data }: Props) {
 						</VStack>
 					)}
 					<VStack gap="2.5" alignItems="stretch">
+						{data.actual !== null && (
+							<StatRow label="Actual" value={data.actual} />
+						)}
 						{data.fieldPct !== null && (
 							<StatRow
 								label="Field agreed"

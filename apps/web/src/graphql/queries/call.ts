@@ -72,6 +72,7 @@ export const CallRecordDocument = graphql(`
 					id
 					label
 					isCorrect
+					actualValue
 					fieldPct
 				}
 			}

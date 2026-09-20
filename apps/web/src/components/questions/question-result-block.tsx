@@ -19,6 +19,10 @@ type Option = {
 	label: string
 	fieldPct: number | null
 	isCorrect: boolean | null
+	// What this option's own subject put up - set on the shapes graded by
+	// comparing the options, null everywhere else. See
+	// questionOptions.actualValue in the API.
+	actualValue: number | null
 }
 
 type Props = {
@@ -64,6 +68,17 @@ export function QuestionResultBlock({ question, disputed }: Props) {
 	const winners = question.options.filter((o) => o.isCorrect)
 	const callers = callersText(question.callCount)
 	const isRateStat = computeIsRateStat(question)
+	// "144 to 118" - the two sides of a head-to-head in winner-first order, so
+	// the result states the margin and not just who took it. Null whenever
+	// either number is missing, which is every shape that shares this branch
+	// without being a comparison of numbers (Yes/No, finalists) and any
+	// matchup a person resolved by hand.
+	const headToHeadScore = (() => {
+		if (question.options.length !== 2) return null
+		const loser = question.options.find((o) => o.id !== winner?.id)
+		if (winner?.actualValue == null || loser?.actualValue == null) return null
+		return `${formatGuess(winner.actualValue, isRateStat)} to ${formatGuess(loser.actualValue, isRateStat)}`
+	})()
 	const winnerSub =
 		winner?.fieldPct !== undefined && winner.fieldPct !== null
 			? `${Math.round(winner.fieldPct)}% of the field called it right · ${callers}`
@@ -120,10 +135,10 @@ export function QuestionResultBlock({ question, disputed }: Props) {
 						<VStack gap="1.5" alignItems="stretch">
 							<span className={valueClass}>
 								{winner
-									? `${optionDisplayLabel(winner.label, isOverUnderQuestionShape(question.shape), question.ouLine, isRateStat)}: total was ${
+									? `${optionDisplayLabel(winner.label, isOverUnderQuestionShape(question.shape), question.ouLine, isRateStat)}${
 											question.numericActualValue !== null
-												? formatGuess(question.numericActualValue, isRateStat)
-												: "-"
+												? `: actual ${formatGuess(question.numericActualValue, isRateStat)}`
+												: ""
 										}`
 									: "-"}
 							</span>
@@ -140,7 +155,13 @@ export function QuestionResultBlock({ question, disputed }: Props) {
 					"PLAYER_AWARD_FINALISTS",
 					() => (
 						<VStack gap="1.5" alignItems="stretch">
-							<span className={valueClass}>{winner?.label ?? "-"}</span>
+							<span className={valueClass}>
+								{winner
+									? headToHeadScore
+										? `${winner.label}, ${headToHeadScore}`
+										: winner.label
+									: "-"}
+							</span>
 							<span className={subClass}>{winnerSub}</span>
 						</VStack>
 					),
@@ -176,7 +197,9 @@ export function QuestionResultBlock({ question, disputed }: Props) {
 												color: "fg.default",
 											})}
 										>
-											{option.label}
+											{option.actualValue !== null
+												? `${option.label}, ${formatGuess(option.actualValue, isRateStat)}`
+												: option.label}
 										</span>
 									</HStack>
 								))}
