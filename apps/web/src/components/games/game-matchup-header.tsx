@@ -32,6 +32,9 @@ type Props = {
 	// Starters as one key line per team with no expand toggle, for a card that
 	// has to hold its height (the landing page's try-it stack).
 	compactStarters?: boolean
+	// Tighter padding, smaller team names, no venue - the same matchup on a
+	// card that has to fit inside the landing page's fold.
+	dense?: boolean
 }
 
 // maxWidth is what actually makes the ellipsis work: the name is a flex item
@@ -39,6 +42,15 @@ type Props = {
 // otherwise overflow its column and collide with the score.
 const nameClass = css({
 	fontSize: { base: "sm", sm: "md" },
+	fontWeight: "bold",
+	maxWidth: "100%",
+	overflow: "hidden",
+	textOverflow: "ellipsis",
+	whiteSpace: "nowrap",
+})
+
+const denseNameClass = css({
+	fontSize: "sm",
 	fontWeight: "bold",
 	maxWidth: "100%",
 	overflow: "hidden",
@@ -126,16 +138,18 @@ function TeamLine({
 	team,
 	record,
 	home,
+	dense,
 }: {
 	team: Team
 	record: TeamRecord
 	home: boolean
+	dense: boolean
 }) {
 	const formattedRecord = formatTeamRecord(record)
 
 	return (
 		<HStack
-			gap="2.5"
+			gap={dense ? "2" : "2.5"}
 			alignItems="center"
 			minWidth="0"
 			className={home ? homeLineClass : awayLineClass}
@@ -146,7 +160,7 @@ function TeamLine({
 				minWidth="0"
 				className={home ? homeTextClass : awayTextClass}
 			>
-				<span className={nameClass}>{team.name}</span>
+				<span className={dense ? denseNameClass : nameClass}>{team.name}</span>
 				{formattedRecord && (
 					<span className={recordClass}>{formattedRecord}</span>
 				)}
@@ -164,6 +178,7 @@ export function GameMatchupHeader({
 	game,
 	starters,
 	compactStarters = false,
+	dense = false,
 }: Props) {
 	const live = game.status === "LIVE"
 	const final = game.status === "FINAL"
@@ -171,13 +186,13 @@ export function GameMatchupHeader({
 
 	return (
 		<VStack
-			gap="3"
+			gap={dense ? "2" : "3"}
 			alignItems="stretch"
 			className={css({
 				border: "1px solid {colors.border.default}",
 				borderRadius: "xl",
 				bg: "bg.subtle",
-				padding: { base: "3.5", sm: "4" },
+				padding: dense ? "3" : { base: "3.5", sm: "4" },
 			})}
 		>
 			<div className={scoreboardClass}>
@@ -185,11 +200,13 @@ export function GameMatchupHeader({
 					team={game.awayTeam}
 					record={game.awayTeamRecord ?? null}
 					home={false}
+					dense={dense}
 				/>
 				<TeamLine
 					team={game.homeTeam}
 					record={game.homeTeamRecord ?? null}
 					home
+					dense={dense}
 				/>
 
 				{scored ? (
@@ -237,7 +254,7 @@ export function GameMatchupHeader({
 				)}
 				{final && <span className={css({ fontWeight: "bold" })}>FINAL</span>}
 				{!live && !final && <span>{gameStartLabel(game)}</span>}
-				{game.venue && (
+				{game.venue && !dense && (
 					<>
 						<span>·</span>
 						<span>{game.venue}</span>

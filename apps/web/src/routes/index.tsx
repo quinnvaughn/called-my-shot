@@ -123,8 +123,16 @@ function Home() {
 					className={css({
 						display: "grid",
 						gridTemplateColumns: { base: "1fr", lg: "1fr 1fr" },
-						gap: "10",
-						alignItems: "center",
+						// Stacked, this gap is the only thing between the pitch
+						// and the try-it stack, so it has to read as a break
+						// between two sections rather than the space between two
+						// paragraphs. Side by side it's just the column gutter.
+						gap: { base: "16", lg: "10" },
+						// Both columns start at the top. Centring hung the copy
+						// off the middle of whatever height the try-it card
+						// happened to be, which moves the headline down the page
+						// for no reason the reader can see.
+						alignItems: "flex-start",
 					})}
 				>
 					<div>

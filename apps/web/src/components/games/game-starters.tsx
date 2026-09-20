@@ -224,11 +224,11 @@ export function GameStarters({ compact = false, ...props }: Props) {
 
 	return (
 		<VStack
-			gap="3"
+			gap={compact ? "1.5" : "3"}
 			alignItems="stretch"
 			className={css({
 				borderTop: "1px solid {colors.border.default}",
-				paddingTop: "3",
+				paddingTop: compact ? "2" : "3",
 			})}
 		>
 			<HStack justify="space-between" alignItems="center">
@@ -276,7 +276,7 @@ export function GameStarters({ compact = false, ...props }: Props) {
 					</p>
 				</>
 			) : (
-				<VStack gap="2" alignItems="stretch">
+				<VStack gap={compact ? "1" : "2"} alignItems="stretch">
 					{teams.map(({ team, starters }) => (
 						<KeyLine key={team.id} team={team} starters={starters} />
 					))}

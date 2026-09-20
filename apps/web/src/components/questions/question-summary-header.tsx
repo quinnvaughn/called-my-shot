@@ -45,6 +45,9 @@ type Props = {
 	// Off where the page itself already names the game (a game's own detail
 	// page, under its GameMatchupHeader). Defaults to on.
 	showGame?: boolean
+	// Tighter title and spacing, for the landing page's try-it card - it sits
+	// beside the hero copy and has to stay inside the fold.
+	dense?: boolean
 }
 
 // Shared between QuestionCard and CallCard - both lead with "what is this
@@ -60,9 +63,10 @@ export function QuestionSummaryHeader({
 	viewerCalled,
 	ballotMembership,
 	showGame = true,
+	dense = false,
 }: Props) {
 	return (
-		<VStack gap="3" alignItems="stretch">
+		<VStack gap={dense ? "2" : "3"} alignItems="stretch">
 			<HStack justify="space-between" alignItems="center" gap="2">
 				<HStack gap="2" alignItems="center">
 					<span
@@ -112,7 +116,7 @@ export function QuestionSummaryHeader({
 			<span
 				className={css({
 					fontWeight: "bold",
-					fontSize: "xl",
+					fontSize: dense ? "md" : "xl",
 					lineHeight: "snug",
 				})}
 			>

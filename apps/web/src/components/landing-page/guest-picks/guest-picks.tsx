@@ -333,14 +333,14 @@ export function GuestPicks({ questions }: Props) {
 // everything there was.
 function GuestPicksEmpty() {
 	return (
-		<Card variant="surface" size="lg">
+		<Card variant="surface" size="md">
 			<Card.Body>
-				<VStack gap="4" alignItems="flex-start">
+				<VStack gap="3" alignItems="flex-start">
 					<Eyebrow>Next slate</Eyebrow>
 					<h2
 						className={css({
 							fontFamily: "heading",
-							fontSize: "xl",
+							fontSize: "lg",
 							lineHeight: "snug",
 						})}
 					>
@@ -358,7 +358,7 @@ function GuestPicksEmpty() {
 					</p>
 					<Button
 						variant="solid"
-						size="lg"
+						size="md"
 						onClick={() => openModal(<AuthModal defaultView="signup" />)}
 					>
 						Sign up free

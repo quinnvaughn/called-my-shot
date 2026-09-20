@@ -44,19 +44,17 @@ export function GuestPicksSummary({ picks, onChangePicks }: Props) {
 	}
 
 	return (
-		<Card variant="surface" size="lg">
+		<Card variant="surface" size="md">
 			<Card.Body>
-				<VStack
-					gap="5"
-					alignItems="stretch"
-					className={css({ minHeight: "22rem" })}
-				>
-					<VStack gap="2" alignItems="flex-start">
+				{/* Sized like the pick cards it replaces, so the end of the stack
+				    doesn't suddenly need a screen of its own. */}
+				<VStack gap="3" alignItems="stretch">
+					<VStack gap="1.5" alignItems="flex-start">
 						<Eyebrow>Your calls</Eyebrow>
 						<h2
 							className={css({
 								fontFamily: "heading",
-								fontSize: "xl",
+								fontSize: "lg",
 								lineHeight: "snug",
 							})}
 						>
@@ -77,12 +75,12 @@ export function GuestPicksSummary({ picks, onChangePicks }: Props) {
 						{picks.map((pick) => (
 							<VStack
 								key={pick.questionId}
-								gap="1"
+								gap="0.5"
 								alignItems="stretch"
 								className={css({
 									border: "1px solid {colors.border.default}",
 									borderRadius: "md",
-									padding: "3",
+									padding: "{spacing.2} {spacing.2.5}",
 								})}
 							>
 								<span className={css({ fontSize: "sm", fontWeight: "medium" })}>
@@ -113,10 +111,10 @@ export function GuestPicksSummary({ picks, onChangePicks }: Props) {
 							</VStack>
 						))}
 					</VStack>
-					<VStack gap="2" alignItems="stretch" marginTop="auto">
+					<VStack gap="1.5" alignItems="stretch">
 						<Button
 							variant="solid"
-							size="lg"
+							size="md"
 							fullWidth
 							onClick={() => openAuth("signup")}
 						>

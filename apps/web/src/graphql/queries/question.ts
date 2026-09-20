@@ -201,3 +201,11 @@ export const QuestionStatContextDocument = graphql(`
 
 export const questionStatContextQuery = (id: string) =>
 	gqlQueryOptions(QuestionStatContextDocument, { id })
+
+// The same document for the landing page's try-it stack, which unmounts the
+// card the moment a call advances it. That abort is its last observer going
+// away rather than a superseded fetch, and the only thing it produces is a dev
+// server `aborted` in the error overlay - see gqlQueryOptions. Same key as
+// above, so the two share a cache entry.
+export const guestPickStatContextQuery = (id: string) =>
+	gqlQueryOptions(QuestionStatContextDocument, { id }, { abortable: false })

@@ -1,10 +1,13 @@
+import { useQuery } from "@tanstack/react-query"
 import { css, cx } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
 import { GameMatchupHeader } from "#/components/games/game-matchup-header"
 import { LockLine } from "#/components/questions/lock-line"
 import { QuestionSummaryHeader } from "#/components/questions/question-summary-header"
+import { StatContextHighlights } from "#/components/questions/stat-context-card"
 import { Card } from "#/components/ui/card"
 import { type FragmentType, graphql, useFragment } from "#/graphql/generated"
+import { guestPickStatContextQuery } from "#/graphql/queries/question"
 import { callersText, isRateStat } from "#/lib/field-signal"
 import {
 	isOverUnderQuestionShape,
@@ -45,7 +48,6 @@ export const GuestPickCardFragment = graphql(`
 		}
 		game {
 			id
-			...GameStarters_game
 			status
 			startsAt
 			homeScore
@@ -93,11 +95,11 @@ const mutedMonoClass = css({
 const optionBaseClass = css({
 	display: "flex",
 	alignItems: "center",
-	gap: "3",
+	gap: "2.5",
 	width: "full",
 	textAlign: "left",
 	borderRadius: "lg",
-	padding: "4",
+	padding: "{spacing.2.5} {spacing.3}",
 	cursor: "pointer",
 	transition: "border-color 0.15s ease, background-color 0.15s ease",
 })
@@ -115,8 +117,8 @@ const optionSelectedClass = css({
 })
 
 const radioBaseClass = css({
-	width: "5",
-	height: "5",
+	width: "4",
+	height: "4",
 	borderRadius: "full",
 	flexShrink: "0",
 	transition: "border-width 0.15s ease",
@@ -125,16 +127,29 @@ const radioIdleClass = css({
 	border: "2px solid {colors.border.emphasized}",
 })
 const radioSelectedClass = css({
-	border: "6px solid {colors.primary.default}",
+	border: "5px solid {colors.primary.default}",
 })
 
-// One question in the landing page's try-it stack. The game shows the same
-// full matchup header the question page uses (team names, records, starters),
-// since that's what someone wants in front of them before picking a side. The
-// options are big radio-style buttons rather than the question page's stat
-// rows, so a visitor who has never seen the app reads them as something to tap.
-// Held to a fixed minimum height so moving between cards with and without a
-// game doesn't shift the hero around.
+const callHeadingClass = css({
+	fontFamily: "mono",
+	fontSize: "xs",
+	letterSpacing: "wide",
+	color: "fg.muted",
+	textTransform: "uppercase",
+})
+
+// One question in the landing page's try-it stack. The whole card runs a size
+// down from the question page's version - card padding, title, matchup, stats
+// and the option rows - because it has to sit whole inside the fold next to the
+// hero copy. A visitor who has to scroll to find the options doesn't know there
+// are any.
+//
+// The matchup shows the teams and when it starts, without starters: a lineup is
+// for someone already deciding, and this card is still trying to get them to
+// decide anything at all. The stats are here for the visitor who wants a number
+// behind the call (see StatContextHighlights), folded away because most of this
+// page's traffic is meeting the product, not researching a game. Conviction
+// stays off the card entirely - that's a second decision, not better input.
 export function GuestPickCard({
 	question: questionProp,
 	pickedOptionId,
@@ -143,37 +158,38 @@ export function GuestPickCard({
 	const question = useFragment(GuestPickCardFragment, questionProp)
 	const isOverUnder = isOverUnderQuestionShape(question.shape)
 	const rateStat = isRateStat(question)
+	// Its own request, never folded into the landing page query: statContext
+	// runs several queries per question and the stack is offered eight of them
+	// per league, so it's fetched for the card on screen only. Fetched even
+	// though the section starts folded, because whether there is anything worth
+	// offering is only knowable from the answer.
+	const statContext = useQuery(guestPickStatContextQuery(question.id))
+	// Both competitors, so a game log can name the opponent - the same pair the
+	// question page hands the card.
+	const teamLabels = question.game
+		? {
+				[question.game.homeTeam.id]: question.game.homeTeam.abbreviation,
+				[question.game.awayTeam.id]: question.game.awayTeam.abbreviation,
+			}
+		: {}
 
 	return (
-		<Card variant="surface" size="lg">
+		<Card variant="surface" size="md">
 			<Card.Body>
-				<VStack
-					gap="4"
-					alignItems="stretch"
-					className={css({ minHeight: "26rem" })}
-				>
+				<VStack gap="3" alignItems="stretch">
 					<QuestionSummaryHeader
 						question={question}
 						showTypeTag
 						showGame={false}
+						dense
 					/>
-					{question.game && (
-						<GameMatchupHeader
-							game={question.game}
-							starters={question.game}
-							compactStarters
-						/>
-					)}
-					<VStack gap="2.5" alignItems="stretch" marginTop="auto">
-						<span
-							className={css({
-								fontSize: "md",
-								fontWeight: "semibold",
-								color: "fg.default",
-							})}
-						>
-							Tap your call
-						</span>
+					{question.game && <GameMatchupHeader game={question.game} dense />}
+					<StatContextHighlights
+						statContext={statContext.data?.question?.statContext}
+						teams={teamLabels}
+					/>
+					<VStack gap="2" alignItems="stretch">
+						<span className={callHeadingClass}>Tap your call</span>
 						{question.options.map((option) => {
 							const label = optionDisplayLabel(
 								option.label,
@@ -213,7 +229,7 @@ export function GuestPickCard({
 									<span
 										className={css({
 											flex: "1",
-											fontSize: "lg",
+											fontSize: "md",
 											fontWeight: "semibold",
 										})}
 									>

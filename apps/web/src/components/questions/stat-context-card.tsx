@@ -102,6 +102,12 @@ const tileValueClass = css({
 	lineHeight: "1.1",
 })
 
+const denseTileValueClass = css({
+	fontFamily: "heading",
+	fontSize: "sm",
+	lineHeight: "1.1",
+})
+
 const tileLabelClass = css({
 	fontFamily: "mono",
 	fontSize: "3xs",
@@ -109,6 +115,21 @@ const tileLabelClass = css({
 	color: "fg.subtle",
 	textTransform: "uppercase",
 })
+
+const sectionHeadingClass = css({
+	fontFamily: "mono",
+	fontSize: "xs",
+	letterSpacing: "wide",
+	color: "fg.muted",
+	textTransform: "uppercase",
+})
+
+// A fixed section name so the card is recognisable page to page, with the stat
+// as a qualifier on it. The stat appears exactly once, which is what lets every
+// label below stay a short inherited qualifier.
+function sectionTitle(statLabel: string): string {
+	return statLabel ? `The stats \u00b7 ${statLabel}` : "The stats"
+}
 
 function round(value: number): string {
 	return Number.isInteger(value) ? String(value) : value.toFixed(1)
@@ -309,16 +330,22 @@ function Ranking({
 function SubjectColumn({
 	subject,
 	teams,
+	maxTiles,
+	dense = false,
 }: {
 	subject: Subject
 	teams: TeamLabels
+	// Left off where there's room for every tile the recipe produced.
+	maxTiles?: number
+	// A whole type scale down, for the landing card.
+	dense?: boolean
 }) {
 	const lead = headline(subject)
-	const tiles = supportingTiles(subject, teams)
+	const tiles = supportingTiles(subject, teams).slice(0, maxTiles)
 	if (!lead && tiles.length === 0) return null
 
 	return (
-		<VStack gap="3" alignItems="stretch" minWidth="0">
+		<VStack gap={dense ? "2" : "3"} alignItems="stretch" minWidth="0">
 			{/* Always named, not just in a head-to-head. On a one-sided card
 			    the subject was only implied by the question title further up
 			    the page, which leaves a bare "75 / LAST GAME" sitting next to
@@ -331,7 +358,7 @@ function SubjectColumn({
 					<span
 						className={css({
 							fontFamily: "heading",
-							fontSize: "3xl",
+							fontSize: dense ? "lg" : "3xl",
 							lineHeight: "1",
 						})}
 					>
@@ -357,11 +384,13 @@ function SubjectColumn({
 						base: "repeat(2, minmax(0, 1fr))",
 						sm: "repeat(auto-fit, minmax(7rem, 1fr))",
 					}}
-					gap="2.5"
+					gap={dense ? "2" : "2.5"}
 				>
 					{tiles.map((tile) => (
 						<VStack key={tile.label} gap="0.5" alignItems="flex-start">
-							<span className={tileValueClass}>{tile.value}</span>
+							<span className={dense ? denseTileValueClass : tileValueClass}>
+								{tile.value}
+							</span>
 							<span className={tileLabelClass}>{tile.label}</span>
 						</VStack>
 					))}
@@ -412,22 +441,9 @@ export function StatContextCard(props: {
 		<Card>
 			<Card.Body>
 				<VStack gap="3" alignItems="stretch">
-					{/* A fixed section name so the card is recognisable page to
-					    page, with the stat as a qualifier on it. The stat still
-					    appears exactly once, which is what lets every label
-					    below stay a short inherited qualifier. */}
 					<HStack justify="space-between" alignItems="center">
-						<h2
-							className={css({
-								fontFamily: "mono",
-								fontSize: "xs",
-								letterSpacing: "wide",
-								color: "fg.muted",
-								textTransform: "uppercase",
-							})}
-						>
-							The stats
-							{context.statLabel ? ` \u00b7 ${context.statLabel}` : ""}
+						<h2 className={sectionHeadingClass}>
+							{sectionTitle(context.statLabel)}
 						</h2>
 						<button
 							type="button"
@@ -474,5 +490,83 @@ export function StatContextCard(props: {
 				</VStack>
 			</Card.Body>
 		</Card>
+	)
+}
+
+// A trimmed run of the same figures, for a surface where the question is an
+// invitation rather than a page: the landing page's try-it stack. Same labels
+// and the same thresholds, one type scale down, cut to the headline, the games
+// behind it and the two tiles that qualify it.
+//
+// Folded away by default, unlike the card above. There the viewer arrived to
+// call a specific question and the numbers are input to a decision already
+// being made; here they are one card into meeting the product, and a block of
+// splits opening on them pushes the options they are actually being asked to
+// tap out of the fold. The line stays visible so the numbers are known to be
+// there, which is the part a visitor can't guess.
+const HIGHLIGHT_TILES = 2
+const HIGHLIGHT_RANKING = 3
+
+export function StatContextHighlights(props: {
+	statContext?: FragmentType<typeof StatContextCardFragment> | null
+	teams: TeamLabels
+}) {
+	const [expanded, setExpanded] = useState(false)
+	const context = useFragment(StatContextCardFragment, props.statContext)
+
+	if (!context) return null
+
+	const ranking = context.ranking.slice(0, HIGHLIGHT_RANKING)
+	const columns = context.subjects.filter(
+		(subject) =>
+			headline(subject) !== null ||
+			supportingTiles(subject, props.teams).length > 0,
+	)
+	// Nothing to open, so nothing to offer - a toggle that expands to an empty
+	// panel is worse than no toggle.
+	if (columns.length === 0 && ranking.length === 0) return null
+
+	return (
+		<VStack gap="2" alignItems="stretch">
+			<HStack justify="space-between" alignItems="center">
+				<h3 className={sectionHeadingClass}>
+					{sectionTitle(context.statLabel)}
+				</h3>
+				<button
+					type="button"
+					aria-expanded={expanded}
+					onClick={() => setExpanded((open) => !open)}
+					className={button({ variant: "ghost", size: "sm" })}
+				>
+					{expanded ? "Hide" : "Show"}
+					{expanded ? <FiChevronUp /> : <FiChevronDown />}
+				</button>
+			</HStack>
+			{expanded && (
+				<>
+					{ranking.length > 0 && <Ranking ranking={ranking} />}
+					<div
+						className={css({
+							display: "grid",
+							gridTemplateColumns:
+								columns.length > 1
+									? { base: "minmax(0, 1fr)", sm: "repeat(2, minmax(0, 1fr))" }
+									: "minmax(0, 1fr)",
+							gap: { base: "3", sm: "4" },
+						})}
+					>
+						{columns.map((subject) => (
+							<SubjectColumn
+								key={subject.label}
+								subject={subject}
+								teams={props.teams}
+								maxTiles={HIGHLIGHT_TILES}
+								dense
+							/>
+						))}
+					</div>
+				</>
+			)}
+		</VStack>
 	)
 }
