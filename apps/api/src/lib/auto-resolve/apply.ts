@@ -5,19 +5,17 @@ import { db } from "../../db/index"
 import {
 	type Question,
 	type QuestionAutoResolution,
+	type QuestionVoidedReason,
 	questionAutoResolutions,
 	questionOptions,
 	questions,
-	type QuestionVoidedReason,
 } from "../../db/schema"
 import { roundToThousandths } from "../../db/sync/box-score-parse"
+import type { Tx } from "../../db/types"
 import { resolveQuestionInternal } from "../resolve-question"
-import type { Tx } from "../user-season-stats"
+import { HOUR_MS, MINUTE_MS } from "../time"
 import { markQuestionVoided } from "../void-question"
 import type { Decision } from "./decide"
-
-const MINUTE_MS = 60 * 1000
-const HOUR_MS = 60 * MINUTE_MS
 
 // ESPN corrects its numbers after the fact, so a question settled from them is
 // read once more this long after.
@@ -39,32 +37,38 @@ export type ApplyContext = {
 	voidedNote: (reason: QuestionVoidedReason) => string
 }
 
-// Builds that note for a resolver reading one ESPN page, named by source.
-export function autoVoidedNote(
+// Both notes for a resolver reading one ESPN page, named by source.
+export function autoResolveNotes(
 	source: string,
-): (reason: QuestionVoidedReason) => string {
-	return (reason) =>
-		match(reason)
-			.returnType<string>()
-			.with(
-				"subject_did_not_play",
-				() => `Voided automatically from ${source}: the player didn't play.`,
-			)
-			.with(
-				"game_not_completed",
-				() => `Voided automatically from ${source}: the game wasn't completed.`,
-			)
-			.with(
-				"tie",
-				() =>
-					`Voided automatically from ${source}: both sides finished level, so neither one is ahead.`,
-			)
-			.with(
-				"no_leader",
-				() => `Voided automatically from ${source}: nobody recorded this stat.`,
-			)
-			.with("other", () => `Voided automatically from ${source}.`)
-			.exhaustive()
+): Pick<ApplyContext, "resolvedNote" | "voidedNote"> {
+	return {
+		resolvedNote: `Resolved automatically from ${source}.`,
+		voidedNote: (reason) => voidedNoteFrom(source, reason),
+	}
+}
+
+function voidedNoteFrom(source: string, reason: QuestionVoidedReason): string {
+	return match(reason)
+		.returnType<string>()
+		.with(
+			"subject_did_not_play",
+			() => `Voided automatically from ${source}: the player didn't play.`,
+		)
+		.with(
+			"game_not_completed",
+			() => `Voided automatically from ${source}: the game wasn't completed.`,
+		)
+		.with(
+			"tie",
+			() =>
+				`Voided automatically from ${source}: both sides finished level, so neither one is ahead.`,
+		)
+		.with(
+			"no_leader",
+			() => `Voided automatically from ${source}: nobody recorded this stat.`,
+		)
+		.with("other", () => `Voided automatically from ${source}.`)
+		.exhaustive()
 }
 
 type AutoResolutionPatch = Partial<

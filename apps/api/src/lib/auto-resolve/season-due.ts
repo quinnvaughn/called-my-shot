@@ -1,7 +1,6 @@
 import { match } from "ts-pattern"
 import type { games, seasons } from "../../db/schema"
-
-const HOUR_MS = 60 * 60 * 1000
+import { HOUR_MS } from "../time"
 
 // ESPN's season totals and standings trail the last game by about a day.
 export const SEASON_SETTLE_DELAY_MS = 36 * HOUR_MS

@@ -1,13 +1,7 @@
 import { LOSS_RATE_BY_SHAPE } from "@called-my-shot/scoring"
 import { db } from "../../db"
 import { RECURRING_QUESTION_CATALOG } from "../../db/catalog/recurring-question-catalog"
-import {
-	boundedLossRate,
-	countHits,
-	type HitCount,
-	pooledHitRate,
-	stepRate,
-} from "./pooling"
+import { lossRateTuner, pushWithin } from "./pooling"
 
 // A single-pick title question's loss rate is where a pick on the best
 // regular-season record in its pool breaks even. Measured on the finished
@@ -17,17 +11,15 @@ import {
 // Each league only decides a few titles a year, so each league title leans on
 // every other league's until its own record is large.
 export const TITLE_TUNING = {
-	// The fewest resolved titles, across every league, before any rate moves.
 	minSample: 20,
-	// The most recent resolved titles each league title's record is read over.
 	window: 50,
-	// How many results every other league title counts as while one league
-	// title's own record is small - see pooledHitRate.
 	poolWeight: 10,
 	maxStep: 0.1,
 	minRate: 0.05,
 	maxRate: 1,
 }
+
+export const titleRates = lossRateTuner(TITLE_TUNING)
 
 export const DEFAULT_TITLE_LOSS_RATE = LOSS_RATE_BY_SHAPE.team_season_award
 
@@ -52,15 +44,6 @@ export function titleGroups(): TitleGroup[] {
 		}
 	}
 	return groups
-}
-
-export function titleGroup(
-	leagueSlug: string,
-	awardName: string,
-): TitleGroup | undefined {
-	return titleGroups().find(
-		(group) => group.leagueSlug === leagueSlug && group.awardName === awardName,
-	)
 }
 
 type TeamRecord = { wins: number; games: number }
@@ -128,110 +111,49 @@ export async function bestRecordResultsByGroup(): Promise<
 		},
 		orderBy: { locksAt: "desc" },
 	})
-
-	const recordsBySeason = new Map<string, Map<string, TeamRecord>>()
-	const results = new Map<string, boolean[]>()
-	for (const question of resolved) {
-		if (!question.league || !question.awardName) continue
-		let records = recordsBySeason.get(question.seasonId)
-		if (!records) {
-			records = recordsFrom(
-				await db.query.games.findMany({
+	const seasonIds = [...new Set(resolved.map((q) => q.seasonId))]
+	const finals =
+		seasonIds.length === 0
+			? []
+			: await db.query.games.findMany({
 					where: {
-						seasonId: question.seasonId,
+						seasonId: { in: seasonIds },
 						status: "final",
 						seasonType: "regular",
 					},
 					columns: {
+						seasonId: true,
 						homeTeamId: true,
 						awayTeamId: true,
 						homeScore: true,
 						awayScore: true,
 					},
-				}),
-			)
-			recordsBySeason.set(question.seasonId, records)
-		}
+				})
+	const recordsBySeason = new Map(
+		seasonIds.map((seasonId) => [
+			seasonId,
+			recordsFrom(finals.filter((game) => game.seasonId === seasonId)),
+		]),
+	)
+
+	const results = new Map<string, boolean[]>()
+	for (const question of resolved) {
+		if (!question.league || !question.awardName) continue
 		const best = bestRecord(
 			question.options.flatMap((option) =>
 				option.teamId ? [option.teamId] : [],
 			),
-			records,
+			recordsBySeason.get(question.seasonId) ?? new Map(),
 		)
 		if (!best) continue
-		const key = `${question.league.slug}:${question.awardName}`
-		const list = results.get(key) ?? []
-		if (list.length < TITLE_TUNING.window) {
-			list.push(
-				question.options.some(
-					(option) => option.teamId === best && option.isCorrect === true,
-				),
-			)
-		}
-		results.set(key, list)
+		pushWithin(
+			results,
+			`${question.league.slug}:${question.awardName}`,
+			question.options.some(
+				(option) => option.teamId === best && option.isCorrect === true,
+			),
+			TITLE_TUNING.window,
+		)
 	}
 	return results
-}
-
-// A league title's own record alone.
-export function bestRecordHitRate(results: boolean[]): number | null {
-	if (results.length === 0) return null
-	return results.filter(Boolean).length / results.length
-}
-
-// A league title's record leaning on `pool` (every league title's results,
-// its own included) until its own is large.
-export function blendedTitleHitRate(
-	results: boolean[],
-	pool: HitCount,
-): number | null {
-	return pooledHitRate(countHits(results), pool, TITLE_TUNING.poolWeight)
-}
-
-export function suggestedTitleLossRate(hitRate: number | null): number | null {
-	return boundedLossRate(hitRate, TITLE_TUNING.minRate, TITLE_TUNING.maxRate)
-}
-
-// The rate to move to from `current`, or null to leave it: too few resolved
-// titles anywhere to go on, or already where the record points.
-export function nextTitleLossRate(
-	current: number,
-	hitRate: number | null,
-	poolTotal: number,
-): number | null {
-	if (poolTotal < TITLE_TUNING.minSample) return null
-	return stepRate(
-		current,
-		suggestedTitleLossRate(hitRate),
-		TITLE_TUNING.maxStep,
-	)
-}
-
-// Real scored picks on resolved single-pick title questions for one league
-// title. For comparison only, same as callerLeaderHits.
-export async function callerTitleHits(
-	leagueId: string,
-	awardName: string,
-): Promise<{ picks: number; hitRate: number | null }> {
-	const rows = await db.query.callSelections.findMany({
-		where: {
-			resultPoints: { isNotNull: true },
-			call: {
-				question: {
-					leagueId,
-					awardName,
-					picksRequired: 1,
-					shape: "team_season_award",
-					status: "resolved",
-				},
-			},
-		},
-		columns: { id: true },
-		with: { option: { columns: { isCorrect: true } } },
-	})
-	const hits = rows.filter((row) => row.option?.isCorrect === true).length
-	return {
-		picks: rows.length,
-		hitRate: rows.length === 0 ? null : hits / rows.length,
-	}
 }

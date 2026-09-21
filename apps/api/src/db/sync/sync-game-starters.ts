@@ -2,14 +2,15 @@ import { SPORTS_TIME_ZONE } from "@called-my-shot/schemas"
 import { and, eq } from "drizzle-orm"
 import { DateTime } from "luxon"
 import { match } from "ts-pattern"
-import { isMainModule } from "../../lib/is-main-module"
+import { SYNC_GAME_STARTERS_LOCK } from "../../lib/job-lock"
+import { runCli } from "../../lib/run-cli"
+import { DAY_MS, HOUR_MS, MINUTE_MS } from "../../lib/time"
 import { db } from "../index"
 import { type Game, gameStarters, games } from "../schema"
 import {
+	defaultEspnClient,
+	type EspnClient,
 	type EspnDepthChart,
-	fetchDepthChart,
-	fetchGameSummaryRosters,
-	fetchScoreboardRange,
 } from "./espn-client"
 import {
 	createEspnRequester,
@@ -24,11 +25,7 @@ import {
 	parseNflDepthChart,
 	parseProbables,
 } from "./starters-parse"
-import { scopedSourceId } from "./sync-refs"
-
-const MINUTE_MS = 60 * 1000
-const HOUR_MS = 60 * MINUTE_MS
-const DAY_MS = 24 * HOUR_MS
+import { byEspnId, loadEspnIds, scopedSourceId } from "./sync-refs"
 
 // MLB batting orders get posted a few hours before first pitch (seen live
 // roughly 2-4h out), so the per-game summary call is only made inside this
@@ -96,36 +93,24 @@ export function isStartersRefreshDue(
 	return age + TICK_SLACK_MS >= maxAgeMs(source, msUntilStart)
 }
 
-type Requester = EspnRequester
+// What one run reads ESPN through.
+type EspnAccess = { espn: EspnClient; requester: EspnRequester }
 
-const espnIdOf = (sourceId: string) => sourceId.split(":")[1] ?? sourceId
-
-async function loadEspnIds(dueGames: Game[]) {
-	const teamIds = [
-		...new Set(dueGames.flatMap((g) => [g.homeTeamId, g.awayTeamId])),
-	]
-	const [gameRefs, teamRefs] = await Promise.all([
-		db.query.externalRefs.findMany({
-			where: {
-				source: "espn",
-				entityType: "game",
-				entityId: { in: dueGames.map((g) => g.id) },
-			},
-		}),
-		db.query.externalRefs.findMany({
-			where: { source: "espn", entityType: "team", entityId: { in: teamIds } },
-		}),
+async function loadEspnIdsFor(dueGames: Game[]) {
+	const [espnEventIdByGameId, espnTeamIdByTeamId] = await Promise.all([
+		loadEspnIds(
+			"game",
+			dueGames.map((g) => g.id),
+		),
+		loadEspnIds(
+			"team",
+			dueGames.flatMap((g) => [g.homeTeamId, g.awayTeamId]),
+		),
 	])
 	return {
-		espnEventIdByGameId: new Map(
-			gameRefs.map((ref) => [ref.entityId, espnIdOf(ref.sourceId)]),
-		),
-		espnTeamIdByTeamId: new Map(
-			teamRefs.map((ref) => [ref.entityId, espnIdOf(ref.sourceId)]),
-		),
-		teamIdByEspnTeamId: new Map(
-			teamRefs.map((ref) => [espnIdOf(ref.sourceId), ref.entityId]),
-		),
+		espnEventIdByGameId,
+		espnTeamIdByTeamId,
+		teamIdByEspnTeamId: byEspnId(espnTeamIdByTeamId),
 	}
 }
 
@@ -214,7 +199,7 @@ async function syncProbables(
 	config: SyncLeagueConfig,
 	dueGames: Game[],
 	now: Date,
-	requester: Requester,
+	{ espn, requester }: EspnAccess,
 ): Promise<number> {
 	const first = dueGames[0]
 	const last = dueGames[dueGames.length - 1]
@@ -223,7 +208,7 @@ async function syncProbables(
 	const scoreboard = await requester.request(
 		`${config.leagueSlug} scoreboard`,
 		() =>
-			fetchScoreboardRange(
+			espn.fetchScoreboardRange(
 				config.espnPath,
 				toEspnDate(first.startsAt),
 				toEspnDate(last.startsAt),
@@ -231,7 +216,7 @@ async function syncProbables(
 	)
 	if (!scoreboard) return 0
 
-	const ids = await loadEspnIds(dueGames)
+	const ids = await loadEspnIdsFor(dueGames)
 	let refreshed = 0
 
 	for (const game of dueGames) {
@@ -248,7 +233,7 @@ async function syncProbables(
 		if (event && inLineupWindow) {
 			const rosters = await requester.request(
 				`${config.leagueSlug} summary ${event.id}`,
-				() => fetchGameSummaryRosters(config.espnPath, event.id),
+				() => espn.fetchGameSummaryRosters(config.espnPath, event.id),
 			)
 			if (rosters) {
 				groups.push(...parseBattingOrders(rosters))
@@ -276,9 +261,9 @@ async function syncDepthCharts(
 	parse: DepthChartParser,
 	dueGames: Game[],
 	now: Date,
-	requester: Requester,
+	{ espn, requester }: EspnAccess,
 ): Promise<number> {
-	const ids = await loadEspnIds(dueGames)
+	const ids = await loadEspnIdsFor(dueGames)
 	// null marks a team whose chart couldn't be fetched this run.
 	const groupsByTeamId = new Map<string, ParsedStarterGroup[] | null>()
 
@@ -292,7 +277,7 @@ async function syncDepthCharts(
 			}
 			const charts = await requester.request(
 				`${config.leagueSlug} depth chart ${espnTeamId}`,
-				() => fetchDepthChart(config.espnPath, espnTeamId),
+				() => espn.fetchDepthChart(config.espnPath, espnTeamId),
 			)
 			groupsByTeamId.set(teamId, charts ? parse(espnTeamId, charts) : null)
 		}
@@ -318,9 +303,11 @@ async function syncDepthCharts(
 export async function syncGameStarters({
 	now = new Date(),
 	spacingMs = DEFAULT_ESPN_SPACING_MS,
+	espn = defaultEspnClient,
 }: {
 	now?: Date
 	spacingMs?: number
+	espn?: EspnClient
 } = {}): Promise<void> {
 	const leaguePlans = SYNCED_LEAGUES.flatMap((config) => {
 		const plan = starterPlanFor(config.leagueSlug)
@@ -344,6 +331,7 @@ export async function syncGameStarters({
 	})
 
 	const requester = createEspnRequester("sync-game-starters", spacingMs)
+	const access = { espn, requester }
 
 	for (const { config, plan } of leaguePlans) {
 		const dueGames = upcoming.filter(
@@ -356,10 +344,10 @@ export async function syncGameStarters({
 
 		const refreshed = await match(plan)
 			.with({ source: "probables" }, () =>
-				syncProbables(config, dueGames, now, requester),
+				syncProbables(config, dueGames, now, access),
 			)
 			.with({ source: "depth_chart" }, ({ parse }) =>
-				syncDepthCharts(config, parse, dueGames, now, requester),
+				syncDepthCharts(config, parse, dueGames, now, access),
 			)
 			.exhaustive()
 		console.log(
@@ -370,11 +358,4 @@ export async function syncGameStarters({
 	console.log(`[sync-game-starters] done, ${requester.count()} ESPN request(s)`)
 }
 
-if (isMainModule(import.meta.url)) {
-	syncGameStarters()
-		.then(() => process.exit(0))
-		.catch((err) => {
-			console.error(err)
-			process.exit(1)
-		})
-}
+runCli(import.meta.url, syncGameStarters, { lock: SYNC_GAME_STARTERS_LOCK })

@@ -9,6 +9,7 @@ import {
 	updateTeamSchema,
 } from "@called-my-shot/schemas"
 import { eq } from "drizzle-orm"
+import type { z } from "zod"
 import { db } from "../../../db"
 import { games, leagues, players, teams } from "../../../db/schema"
 import { requireAdmin } from "../../../lib/auth"
@@ -18,8 +19,10 @@ import {
 	NotFoundError,
 	ValidationError,
 } from "../../../lib/errors"
-import { getCurrentSeason } from "../../../lib/seasons"
+import { requireCurrentSeason } from "../../../lib/seasons"
 import { builder } from "../../builder"
+import type { Context } from "../../context"
+import { parseInput } from "../../helpers"
 import { PlayerRef } from "./catalog"
 import { GameRef } from "./game"
 import {
@@ -35,29 +38,47 @@ import {
 import { LeagueRef } from "./league"
 import { TeamRef } from "./team"
 
+// Every catalog write below is admin-only and opens the same way.
+function adminInput<S extends z.ZodType>(
+	ctx: Context,
+	schema: S,
+	input: unknown,
+): z.output<S> {
+	requireAdmin(ctx)
+	return parseInput(schema, input)
+}
+
+// An update's one returned row, or NotFoundError when the id matched nothing.
+async function oneOrNotFound<R>(rows: Promise<R[]>, message: string) {
+	const [row] = await rows
+	if (!row) throw new NotFoundError(message)
+	return row
+}
+
+const slugTaken = () => ValidationError.field("slug", "That slug is taken")
+const abbreviationTaken = () =>
+	ValidationError.field(
+		"abbreviation",
+		"A team with that abbreviation already exists in this league",
+	)
+
 builder.mutationFields((t) => ({
 	createLeague: t.field({
 		type: LeagueRef,
 		errors: {
-			types: [AuthenticationError, AuthorizationError, ValidationError],
+			types: [AuthenticationError, AuthorizationError],
 			directResult: true,
 			union: { name: "CreateLeagueResult" },
 		},
 		args: { input: t.arg({ type: CreateLeagueInput, required: true }) },
 		resolve: async (_root, args, ctx) => {
-			requireAdmin(ctx)
-			const parsed = createLeagueSchema.safeParse(args.input)
-			if (!parsed.success)
-				throw ValidationError.fromZodIssues(parsed.error.issues)
-			const data = parsed.data
+			const data = adminInput(ctx, createLeagueSchema, args.input)
 
-			const existing = await db.query.leagues.findFirst({
-				where: { slug: data.slug },
-			})
-			if (existing) throw ValidationError.field("slug", "That slug is taken")
+			if (await db.query.leagues.findFirst({ where: { slug: data.slug } })) {
+				throw slugTaken()
+			}
 
 			const [created] = await db.insert(leagues).values(data).returning()
-			if (!created) throw new Error("createLeague: insert returned nothing")
 			return created
 		},
 	}),
@@ -65,62 +86,41 @@ builder.mutationFields((t) => ({
 	updateLeague: t.field({
 		type: LeagueRef,
 		errors: {
-			types: [
-				AuthenticationError,
-				AuthorizationError,
-				NotFoundError,
-				ValidationError,
-			],
+			types: [AuthenticationError, AuthorizationError, NotFoundError],
 			directResult: true,
 			union: { name: "UpdateLeagueResult" },
 		},
 		args: { input: t.arg({ type: UpdateLeagueInput, required: true }) },
 		resolve: async (_root, args, ctx) => {
-			requireAdmin(ctx)
-			const parsed = updateLeagueSchema.safeParse(args.input)
-			if (!parsed.success)
-				throw ValidationError.fromZodIssues(parsed.error.issues)
-			const { id, ...data } = parsed.data
+			const { id, ...data } = adminInput(ctx, updateLeagueSchema, args.input)
 
 			const existing = await db.query.leagues.findFirst({
 				where: { slug: data.slug, id: { ne: id } },
 			})
-			if (existing) throw ValidationError.field("slug", "That slug is taken")
+			if (existing) throw slugTaken()
 
-			const [updated] = await db
-				.update(leagues)
-				.set(data)
-				.where(eq(leagues.id, id))
-				.returning()
-			if (!updated) throw new NotFoundError("League not found")
-			return updated
+			return oneOrNotFound(
+				db.update(leagues).set(data).where(eq(leagues.id, id)).returning(),
+				"League not found",
+			)
 		},
 	}),
 
 	createTeam: t.field({
 		type: TeamRef,
 		errors: {
-			types: [AuthenticationError, AuthorizationError, ValidationError],
+			types: [AuthenticationError, AuthorizationError],
 			directResult: true,
 			union: { name: "CreateTeamResult" },
 		},
 		args: { input: t.arg({ type: CreateTeamInput, required: true }) },
 		resolve: async (_root, args, ctx) => {
-			requireAdmin(ctx)
-			const parsed = createTeamSchema.safeParse(args.input)
-			if (!parsed.success)
-				throw ValidationError.fromZodIssues(parsed.error.issues)
-			const data = parsed.data
+			const data = adminInput(ctx, createTeamSchema, args.input)
 
 			const existing = await db.query.teams.findFirst({
 				where: { leagueId: data.leagueId, abbreviation: data.abbreviation },
 			})
-			if (existing) {
-				throw ValidationError.field(
-					"abbreviation",
-					"A team with that abbreviation already exists in this league",
-				)
-			}
+			if (existing) throw abbreviationTaken()
 
 			const [created] = await db
 				.insert(teams)
@@ -130,7 +130,6 @@ builder.mutationFields((t) => ({
 					division: data.division || null,
 				})
 				.returning()
-			if (!created) throw new Error("createTeam: insert returned nothing")
 			return created
 		},
 	}),
@@ -138,22 +137,13 @@ builder.mutationFields((t) => ({
 	updateTeam: t.field({
 		type: TeamRef,
 		errors: {
-			types: [
-				AuthenticationError,
-				AuthorizationError,
-				NotFoundError,
-				ValidationError,
-			],
+			types: [AuthenticationError, AuthorizationError, NotFoundError],
 			directResult: true,
 			union: { name: "UpdateTeamResult" },
 		},
 		args: { input: t.arg({ type: UpdateTeamInput, required: true }) },
 		resolve: async (_root, args, ctx) => {
-			requireAdmin(ctx)
-			const parsed = updateTeamSchema.safeParse(args.input)
-			if (!parsed.success)
-				throw ValidationError.fromZodIssues(parsed.error.issues)
-			const { id, ...data } = parsed.data
+			const { id, ...data } = adminInput(ctx, updateTeamSchema, args.input)
 
 			const existing = await db.query.teams.findFirst({
 				where: {
@@ -162,47 +152,38 @@ builder.mutationFields((t) => ({
 					id: { ne: id },
 				},
 			})
-			if (existing) {
-				throw ValidationError.field(
-					"abbreviation",
-					"A team with that abbreviation already exists in this league",
-				)
-			}
+			if (existing) throw abbreviationTaken()
 
-			const [updated] = await db
-				.update(teams)
-				.set({
-					...data,
-					conference: data.conference || null,
-					division: data.division || null,
-				})
-				.where(eq(teams.id, id))
-				.returning()
-			if (!updated) throw new NotFoundError("Team not found")
-			return updated
+			return oneOrNotFound(
+				db
+					.update(teams)
+					.set({
+						...data,
+						conference: data.conference || null,
+						division: data.division || null,
+					})
+					.where(eq(teams.id, id))
+					.returning(),
+				"Team not found",
+			)
 		},
 	}),
 
 	createPlayer: t.field({
 		type: PlayerRef,
 		errors: {
-			types: [AuthenticationError, AuthorizationError, ValidationError],
+			types: [AuthenticationError, AuthorizationError],
 			directResult: true,
 			union: { name: "CreatePlayerResult" },
 		},
 		args: { input: t.arg({ type: CreatePlayerInput, required: true }) },
 		resolve: async (_root, args, ctx) => {
-			requireAdmin(ctx)
-			const parsed = createPlayerSchema.safeParse(args.input)
-			if (!parsed.success)
-				throw ValidationError.fromZodIssues(parsed.error.issues)
-			const data = parsed.data
+			const data = adminInput(ctx, createPlayerSchema, args.input)
 
 			const [created] = await db
 				.insert(players)
 				.values({ ...data, position: data.position || null })
 				.returning()
-			if (!created) throw new Error("createPlayer: insert returned nothing")
 			return created
 		},
 	}),
@@ -210,64 +191,49 @@ builder.mutationFields((t) => ({
 	updatePlayer: t.field({
 		type: PlayerRef,
 		errors: {
-			types: [
-				AuthenticationError,
-				AuthorizationError,
-				NotFoundError,
-				ValidationError,
-			],
+			types: [AuthenticationError, AuthorizationError, NotFoundError],
 			directResult: true,
 			union: { name: "UpdatePlayerResult" },
 		},
 		args: { input: t.arg({ type: UpdatePlayerInput, required: true }) },
 		resolve: async (_root, args, ctx) => {
-			requireAdmin(ctx)
-			const parsed = updatePlayerSchema.safeParse(args.input)
-			if (!parsed.success)
-				throw ValidationError.fromZodIssues(parsed.error.issues)
-			const { id, ...data } = parsed.data
+			const { id, ...data } = adminInput(ctx, updatePlayerSchema, args.input)
 
-			const [updated] = await db
-				.update(players)
-				.set({ ...data, position: data.position || null })
-				.where(eq(players.id, id))
-				.returning()
-			if (!updated) throw new NotFoundError("Player not found")
-			return updated
+			return oneOrNotFound(
+				db
+					.update(players)
+					.set({ ...data, position: data.position || null })
+					.where(eq(players.id, id))
+					.returning(),
+				"Player not found",
+			)
 		},
 	}),
 
 	createGame: t.field({
 		type: GameRef,
 		errors: {
-			types: [AuthenticationError, AuthorizationError, ValidationError],
+			types: [AuthenticationError, AuthorizationError],
 			directResult: true,
 			union: { name: "CreateGameResult" },
 		},
 		args: { input: t.arg({ type: CreateGameInput, required: true }) },
 		resolve: async (_root, args, ctx) => {
-			requireAdmin(ctx)
-			const parsed = createGameSchema.safeParse(args.input)
-			if (!parsed.success)
-				throw ValidationError.fromZodIssues(parsed.error.issues)
-			const { startsAt, ...rest } = parsed.data
+			const { startsAt, ...rest } = adminInput(
+				ctx,
+				createGameSchema,
+				args.input,
+			)
 
 			// Manually-entered games (no ESPN event backing them) get the same
 			// current-season derivation as everything else - see createQuestion's
 			// own seasonId comment in graphql/types/question/mutations/create-question.ts.
-			const seasonId = (await getCurrentSeason(rest.leagueId))?.id
-			if (!seasonId) {
-				throw ValidationError.field(
-					"leagueId",
-					"This league isn't set up yet - no season data has synced for it.",
-				)
-			}
+			const season = await requireCurrentSeason(rest.leagueId)
 
 			const [created] = await db
 				.insert(games)
-				.values({ ...rest, seasonId, startsAt: new Date(startsAt) })
+				.values({ ...rest, seasonId: season.id, startsAt: new Date(startsAt) })
 				.returning()
-			if (!created) throw new Error("createGame: insert returned nothing")
 			return created
 		},
 	}),
@@ -275,30 +241,26 @@ builder.mutationFields((t) => ({
 	updateGame: t.field({
 		type: GameRef,
 		errors: {
-			types: [
-				AuthenticationError,
-				AuthorizationError,
-				NotFoundError,
-				ValidationError,
-			],
+			types: [AuthenticationError, AuthorizationError, NotFoundError],
 			directResult: true,
 			union: { name: "UpdateGameResult" },
 		},
 		args: { input: t.arg({ type: UpdateGameInput, required: true }) },
 		resolve: async (_root, args, ctx) => {
-			requireAdmin(ctx)
-			const parsed = updateGameSchema.safeParse(args.input)
-			if (!parsed.success)
-				throw ValidationError.fromZodIssues(parsed.error.issues)
-			const { id, startsAt, ...rest } = parsed.data
+			const { id, startsAt, ...rest } = adminInput(
+				ctx,
+				updateGameSchema,
+				args.input,
+			)
 
-			const [updated] = await db
-				.update(games)
-				.set({ ...rest, startsAt: new Date(startsAt) })
-				.where(eq(games.id, id))
-				.returning()
-			if (!updated) throw new NotFoundError("Game not found")
-			return updated
+			return oneOrNotFound(
+				db
+					.update(games)
+					.set({ ...rest, startsAt: new Date(startsAt) })
+					.where(eq(games.id, id))
+					.returning(),
+				"Game not found",
+			)
 		},
 	}),
 }))

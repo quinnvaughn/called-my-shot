@@ -9,6 +9,7 @@ import {
 	enqueueSeasonStartEmails,
 	LEAD_DAYS,
 } from "../src/lib/season-start-email"
+import { parseFlags } from "./parse-flags"
 
 // Thin CLI over lib/season-start-email.tsx, which is where the behaviour and
 // its tests live. The scheduler runs the same two functions daily; this is
@@ -25,18 +26,19 @@ import {
 // --send drains right here instead of waiting for the api machine's cron, so
 // the mail goes out now and is rendered by THIS checkout - which is what lets
 // you see a copy change without deploying first.
-function flag(name: string): string | undefined {
-	const hit = process.argv.find((a) => a.startsWith(`--${name}`))
-	if (!hit) return undefined
-	return hit.includes("=") ? hit.split("=")[1] : "true"
-}
+const flags = parseFlags({
+	league: { type: "string" },
+	user: { type: "string" },
+	commit: { type: "boolean", default: false },
+	send: { type: "boolean", default: false },
+	"lead-days": { type: "string" },
+})
 
-const leagueSlug = flag("league")
-const onlyUser = flag("user")
-const commit = flag("commit") === "true"
-const send = flag("send") === "true"
+const leagueSlug = flags.league
+const onlyUser = flags.user
+const { commit, send } = flags
 
-const leadDays = Number(flag("lead-days") ?? LEAD_DAYS)
+const leadDays = Number(flags["lead-days"] ?? LEAD_DAYS)
 if (!Number.isFinite(leadDays) || leadDays <= 0 || leadDays > 60) {
 	console.error("--lead-days must be a number between 1 and 60")
 	process.exit(1)
@@ -109,8 +111,8 @@ console.log(
 
 if (send) {
 	console.log("Draining now...")
-	// The same lock the scheduler's drain tick takes - see the equivalent in
-	// backfill-resolution-emails.ts.
+	// The same lock the scheduler's drain tick takes, so a manual drain can't
+	// race a tick and send the same row twice.
 	const { ran } = await withJobLock(DRAIN_SEASON_START_LOCK, async () => {
 		const drained = await drainSeasonStartEmails()
 		console.log(

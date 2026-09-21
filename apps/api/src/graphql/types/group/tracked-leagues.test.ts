@@ -1,56 +1,24 @@
 import { randomUUID } from "node:crypto"
 import { describe, expect, it } from "vitest"
 import { db } from "../../../db"
-import {
-	groupLeagues,
-	groupMembers,
-	groups,
-	questionShares,
-	type User,
-	userSeasonStats,
-} from "../../../db/schema"
+import { questionShares } from "../../../db/schema"
 import { insertGroupInvite } from "../../../lib/groups"
 import {
 	makeCall,
+	makeGroup,
 	makeLeague,
 	makeQuestion,
 	makeSeason,
 	makeUser,
+	makeUserSeasonStats,
 } from "../../../test/factories"
 import { type ErrorResult, expectData } from "../../../test/graphql"
+import { daysAgo } from "../../../test/helpers"
 
 // A group's tracked leagues bound what it ranks, shows, and accepts: the
 // leaderboard (and the card's viewerRank built on it), the invite preview's
 // top scorer, the three activity feeds, and shareQuestionToGroup. No tracked
 // rows means every league.
-
-const DAY_MS = 24 * 60 * 60 * 1000
-const daysAgo = (days: number) => new Date(Date.now() - days * DAY_MS)
-
-async function makeGroup(
-	admin: User,
-	members: User[] = [],
-	leagueIds: string[] = [],
-) {
-	const [group] = await db
-		.insert(groups)
-		.values({ name: "Test group", createdBy: admin.id })
-		.returning()
-	await db.insert(groupMembers).values([
-		{ groupId: group.id, userId: admin.id, role: "admin" as const },
-		...members.map((m) => ({
-			groupId: group.id,
-			userId: m.id,
-			role: "member" as const,
-		})),
-	])
-	if (leagueIds.length > 0) {
-		await db
-			.insert(groupLeagues)
-			.values(leagueIds.map((leagueId) => ({ groupId: group.id, leagueId })))
-	}
-	return group
-}
 
 function scorePoints(
 	userId: string,
@@ -58,7 +26,7 @@ function scorePoints(
 	seasonId: string,
 	points: number,
 ) {
-	return db.insert(userSeasonStats).values({
+	return makeUserSeasonStats({
 		userId,
 		leagueId,
 		seasonId,
@@ -180,7 +148,12 @@ describe("group leaderboard", () => {
 		const { nba, nfl, nbaSeason, nflSeason } = await twoLeagues()
 		const admin = await makeUser()
 		const member = await makeUser()
-		const group = await makeGroup(admin, [member], [nba.id])
+		const group = await makeGroup({
+			admin: admin,
+			members: [member],
+			leagueIds: [nba.id],
+			name: "Test group",
+		})
 		await scorePoints(admin.id, nba.id, nbaSeason.id, 10)
 		await scorePoints(member.id, nba.id, nbaSeason.id, 5)
 		await scorePoints(member.id, nfl.id, nflSeason.id, 50)
@@ -200,7 +173,12 @@ describe("group leaderboard", () => {
 	it("ranks the tracked set for a league tab the group doesn't track", async () => {
 		const { nba, nfl, nbaSeason, nflSeason } = await twoLeagues()
 		const admin = await makeUser()
-		const group = await makeGroup(admin, [], [nba.id])
+		const group = await makeGroup({
+			admin: admin,
+			members: [],
+			leagueIds: [nba.id],
+			name: "Test group",
+		})
 		await scorePoints(admin.id, nba.id, nbaSeason.id, 5)
 		await scorePoints(admin.id, nfl.id, nflSeason.id, 50)
 
@@ -219,7 +197,7 @@ describe("group leaderboard", () => {
 	it("ranks every league when the group tracks none", async () => {
 		const { nba, nfl, nbaSeason, nflSeason } = await twoLeagues()
 		const admin = await makeUser()
-		const group = await makeGroup(admin)
+		const group = await makeGroup({ admin: admin, name: "Test group" })
 		await scorePoints(admin.id, nba.id, nbaSeason.id, 5)
 		await scorePoints(admin.id, nfl.id, nflSeason.id, 50)
 
@@ -242,7 +220,12 @@ describe("invite preview top scorer", () => {
 		})
 		const admin = await makeUser()
 		const member = await makeUser()
-		const group = await makeGroup(admin, [member], [nba.id])
+		const group = await makeGroup({
+			admin: admin,
+			members: [member],
+			leagueIds: [nba.id],
+			name: "Test group",
+		})
 		await scorePoints(admin.id, nba.id, lastSeason.id, 100)
 		await scorePoints(admin.id, nfl.id, nflSeason.id, 100)
 		await scorePoints(member.id, nba.id, nbaSeason.id, 5)
@@ -270,7 +253,12 @@ describe("invite preview top scorer", () => {
 			regularSeasonEndsAt: daysAgo(300),
 		})
 		const admin = await makeUser()
-		const group = await makeGroup(admin, [], [nba.id])
+		const group = await makeGroup({
+			admin: admin,
+			members: [],
+			leagueIds: [nba.id],
+			name: "Test group",
+		})
 		await scorePoints(admin.id, nba.id, lastSeason.id, 100)
 		const invite = await insertGroupInvite(group.id, admin.id, null)
 
@@ -313,7 +301,11 @@ describe("setting tracked leagues", () => {
 		const nba = await makeLeague()
 		const admin = await makeUser()
 		const member = await makeUser()
-		const group = await makeGroup(admin, [member])
+		const group = await makeGroup({
+			admin: admin,
+			members: [member],
+			name: "Test group",
+		})
 
 		const data = await expectData<{ updateGroup: UpdateResult }>(UPDATE_GROUP, {
 			as: member,
@@ -333,7 +325,12 @@ describe("setting tracked leagues", () => {
 	it("renames the group and replaces its leagues together", async () => {
 		const { nba, nfl } = await twoLeagues()
 		const admin = await makeUser()
-		const group = await makeGroup(admin, [], [nba.id])
+		const group = await makeGroup({
+			admin: admin,
+			members: [],
+			leagueIds: [nba.id],
+			name: "Test group",
+		})
 
 		const replaced = await expectData<{ updateGroup: UpdateResult }>(
 			UPDATE_GROUP,
@@ -377,7 +374,12 @@ describe("setting tracked leagues", () => {
 	it("changes nothing when the name is invalid", async () => {
 		const { nba, nfl } = await twoLeagues()
 		const admin = await makeUser()
-		const group = await makeGroup(admin, [], [nba.id])
+		const group = await makeGroup({
+			admin: admin,
+			members: [],
+			leagueIds: [nba.id],
+			name: "Test group",
+		})
 
 		const data = await expectData<{ updateGroup: UpdateResult }>(UPDATE_GROUP, {
 			as: admin,
@@ -405,13 +407,21 @@ describe("sharing and activity", () => {
 	it("refuses a question from a league the group doesn't track", async () => {
 		const { nba, nfl } = await twoLeagues()
 		const admin = await makeUser()
-		const group = await makeGroup(admin, [], [nba.id])
+		const group = await makeGroup({
+			admin: admin,
+			members: [],
+			leagueIds: [nba.id],
+			name: "Test group",
+		})
 		const nflQuestion = await makeQuestion({ leagueId: nfl.id })
 		const nbaQuestion = await makeQuestion({ leagueId: nba.id })
 
 		const refused = await expectData<{ shareQuestionToGroup: ErrorResult }>(
 			SHARE,
-			{ as: admin, variables: { groupId: group.id, questionId: nflQuestion.id } },
+			{
+				as: admin,
+				variables: { groupId: group.id, questionId: nflQuestion.id },
+			},
 		)
 		expect(refused.shareQuestionToGroup).toEqual({
 			__typename: "ValidationError",
@@ -420,7 +430,10 @@ describe("sharing and activity", () => {
 
 		const shared = await expectData<{ shareQuestionToGroup: ErrorResult }>(
 			SHARE,
-			{ as: admin, variables: { groupId: group.id, questionId: nbaQuestion.id } },
+			{
+				as: admin,
+				variables: { groupId: group.id, questionId: nbaQuestion.id },
+			},
 		)
 		expect(shared.shareQuestionToGroup.__typename).toBe("QuestionSharePayload")
 	})
@@ -429,7 +442,12 @@ describe("sharing and activity", () => {
 		const { nba, nfl } = await twoLeagues()
 		const admin = await makeUser()
 		const member = await makeUser()
-		const group = await makeGroup(admin, [member], [nba.id])
+		const group = await makeGroup({
+			admin: admin,
+			members: [member],
+			leagueIds: [nba.id],
+			name: "Test group",
+		})
 		const nbaQuestion = await makeQuestion({
 			leagueId: nba.id,
 			creatorId: member.id,

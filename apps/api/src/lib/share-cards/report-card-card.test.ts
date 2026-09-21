@@ -1,8 +1,7 @@
 import { describe, expect, it } from "vitest"
-import type { SatoriNode } from "../share-image"
+import { textNodes } from "../../test/helpers"
 import {
 	buildReportCardShareCard,
-	REPORT_CARD_SHARE_CARD_SIZE,
 	type ReportCardShareData,
 } from "./report-card-card"
 
@@ -11,21 +10,9 @@ import {
 // caller played gets a row - an og:image that silently dropped one would be
 // stating a partial record as a whole one.
 
-function textNodes(node: SatoriNode, out: string[] = []): string[] {
-	const children = node.props.children
-	if (typeof children === "string") {
-		out.push(children)
-	} else if (Array.isArray(children)) {
-		for (const child of children as SatoriNode[]) {
-			if (child && typeof child === "object") textNodes(child, out)
-		}
-	} else if (children && typeof children === "object") {
-		textNodes(children as SatoriNode, out)
-	}
-	return out
-}
-
-const data = (over: Partial<ReportCardShareData> = {}): ReportCardShareData => ({
+const data = (
+	over: Partial<ReportCardShareData> = {},
+): ReportCardShareData => ({
 	leagueAbbr: "NFL",
 	windowLabel: "WEEK 3",
 	name: "Quinn Vaughn",
@@ -46,10 +33,6 @@ const data = (over: Partial<ReportCardShareData> = {}): ReportCardShareData => (
 
 describe("buildReportCardShareCard", () => {
 	it("fills the fixed og:image size", () => {
-		expect(REPORT_CARD_SHARE_CARD_SIZE).toStrictEqual({
-			width: 1200,
-			height: 630,
-		})
 		const node = buildReportCardShareCard(data())
 		expect(node.props.style?.width).toBe("1200px")
 		expect(node.props.style?.height).toBe("630px")

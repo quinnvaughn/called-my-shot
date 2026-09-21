@@ -3,10 +3,6 @@ import { beforeEach, describe, expect, it } from "vitest"
 import { db } from "../../db"
 import { callSelections, questionOptions } from "../../db/schema"
 import {
-	getLeagueWindows,
-	type WindowDescriptor,
-} from "../../graphql/types/sports/windows"
-import {
 	type League,
 	makeCall,
 	makeGame,
@@ -17,6 +13,7 @@ import {
 	makeSelection,
 	makeUser,
 } from "../../test/factories"
+import { getLeagueWindows, type WindowDescriptor } from "../windows"
 import { loadReportCard } from "./load"
 
 let league: League

@@ -15,6 +15,30 @@ import {
 } from "../../../test/factories"
 import { execute, expectData } from "../../../test/graphql"
 
+type ReportCard = {
+	windowKey: string
+	windowLabel: string
+	settledCount: number
+	pendingCount: number
+	wins: number
+	losses: number
+	netPoints: number
+	isFinal: boolean
+	returnPct: number | null
+	grade: string | null
+	biggestHit: { id: string } | null
+	biggestMiss: { id: string } | null
+	byFamily: unknown[]
+	byShape: unknown[]
+}
+type UserReportCard = { userByUsername: { reportCard: ReportCard | null } }
+type WindowReportCard = {
+	leagueGamesForWindow: {
+		window: { key: string }
+		viewerReportCard: ReportCard | null
+	}
+}
+
 let league: League
 let seasonId: string
 let user: Awaited<ReturnType<typeof makeUser>>
@@ -82,43 +106,43 @@ describe("User.reportCard", () => {
 		const miss = await settledCall(-75, false)
 		await settledCall(75, true)
 
-		const data = await expectData(USER_REPORT_CARD, {
+		const data = await expectData<UserReportCard>(USER_REPORT_CARD, {
 			variables: {
 				username: user.username,
 				league: league.slug,
 				key: "2026-reg-w3",
 			},
 		})
-		const card = (data.userByUsername as any).reportCard
-		expect(card.windowKey).toBe("2026-reg-w3")
-		expect(card.windowLabel).toBe("WEEK 3")
-		expect(card.settledCount).toBe(3)
-		expect(card.wins).toBe(2)
-		expect(card.losses).toBe(1)
-		expect(card.netPoints).toBe(400)
-		expect(card.isFinal).toBe(true)
-		expect(card.biggestHit.id).toBe(big.id)
-		expect(card.biggestMiss.id).toBe(miss.id)
+		const card = data.userByUsername.reportCard
+		expect(card?.windowKey).toBe("2026-reg-w3")
+		expect(card?.windowLabel).toBe("WEEK 3")
+		expect(card?.settledCount).toBe(3)
+		expect(card?.wins).toBe(2)
+		expect(card?.losses).toBe(1)
+		expect(card?.netPoints).toBe(400)
+		expect(card?.isFinal).toBe(true)
+		expect(card?.biggestHit?.id).toBe(big.id)
+		expect(card?.biggestMiss?.id).toBe(miss.id)
 		// Three settled calls is under REPORT_CARD_MIN_SETTLED, so the return
 		// is real but the letter is withheld.
-		expect(card.returnPct).toBeGreaterThan(0)
-		expect(card.grade).toBeNull()
+		expect(card?.returnPct).toBeGreaterThan(0)
+		expect(card?.grade).toBeNull()
 	})
 
 	it("labels its breakdown rows", async () => {
 		await settledCall(75, true)
-		const data = await expectData(USER_REPORT_CARD, {
+		const data = await expectData<UserReportCard>(USER_REPORT_CARD, {
 			variables: {
 				username: user.username,
 				league: league.slug,
 				key: "2026-reg-w3",
 			},
 		})
-		const card = (data.userByUsername as any).reportCard
+		const card = data.userByUsername.reportCard
 		// toEqual, not toStrictEqual - a GraphQL response builds its objects
 		// with a null prototype, which toStrictEqual treats as a mismatch even
 		// when every value is identical.
-		expect(card.byFamily).toEqual([
+		expect(card?.byFamily).toEqual([
 			{
 				family: "YES_NO",
 				label: "Yes/No",
@@ -127,7 +151,7 @@ describe("User.reportCard", () => {
 				netPoints: 75,
 			},
 		])
-		expect(card.byShape[0]).toEqual({
+		expect(card?.byShape[0]).toEqual({
 			shape: "YES_NO_PROP",
 			family: "YES_NO",
 			label: "Yes/No",
@@ -141,42 +165,42 @@ describe("User.reportCard", () => {
 			seasonType: "regular",
 			weekNumber: 3,
 		})
-		const data = await expectData(USER_REPORT_CARD, {
+		const data = await expectData<UserReportCard>(USER_REPORT_CARD, {
 			variables: {
 				username: user.username,
 				league: league.slug,
 				key: "2026-reg-w3",
 			},
 		})
-		const card = (data.userByUsername as any).reportCard
+		const card = data.userByUsername.reportCard
 		// Still names the window, so the page can say which one it found
 		// nothing for.
-		expect(card.windowLabel).toBe("WEEK 3")
-		expect(card.settledCount).toBe(0)
-		expect(card.pendingCount ?? 0).toBe(0)
-		expect(card.byFamily).toEqual([])
-		expect(card.grade).toBeNull()
+		expect(card?.windowLabel).toBe("WEEK 3")
+		expect(card?.settledCount).toBe(0)
+		expect(card?.pendingCount ?? 0).toBe(0)
+		expect(card?.byFamily).toEqual([])
+		expect(card?.grade).toBeNull()
 	})
 
 	it("is null for a key that names no window - the permalink's 404", async () => {
 		await settledCall(75, true)
 		for (const key of ["2026-reg-w99", "nonsense", "not-a-key"]) {
-			const data = await expectData(USER_REPORT_CARD, {
+			const data = await expectData<UserReportCard>(USER_REPORT_CARD, {
 				variables: { username: user.username, league: league.slug, key },
 			})
-			expect((data.userByUsername as any).reportCard).toBeNull()
+			expect(data.userByUsername.reportCard).toBeNull()
 		}
 	})
 
 	it("is null for a league that does not exist", async () => {
-		const data = await expectData(USER_REPORT_CARD, {
+		const data = await expectData<UserReportCard>(USER_REPORT_CARD, {
 			variables: {
 				username: user.username,
 				league: "no-such-league",
 				key: "2026-reg-w3",
 			},
 		})
-		expect((data.userByUsername as any).reportCard).toBeNull()
+		expect(data.userByUsername.reportCard).toBeNull()
 	})
 })
 
@@ -197,15 +221,15 @@ describe("LeagueGamesForWindowResult.viewerReportCard", () => {
 	it("is scoped to the window the stepper selected", async () => {
 		await settledCall(120, true)
 
-		const data = await expectData(VIEWER_REPORT_CARD, {
+		const data = await expectData<WindowReportCard>(VIEWER_REPORT_CARD, {
 			as: user,
 			variables: { leagueId: league.id, key: "2026-reg-w3" },
 		})
-		const result = data.leagueGamesForWindow as any
+		const result = data.leagueGamesForWindow
 		expect(result.window.key).toBe("2026-reg-w3")
-		expect(result.viewerReportCard.windowKey).toBe("2026-reg-w3")
-		expect(result.viewerReportCard.settledCount).toBe(1)
-		expect(result.viewerReportCard.netPoints).toBe(120)
+		expect(result.viewerReportCard?.windowKey).toBe("2026-reg-w3")
+		expect(result.viewerReportCard?.settledCount).toBe(1)
+		expect(result.viewerReportCard?.netPoints).toBe(120)
 	})
 
 	it("is null signed out", async () => {
@@ -214,7 +238,8 @@ describe("LeagueGamesForWindowResult.viewerReportCard", () => {
 			variables: { leagueId: league.id, key: "2026-reg-w3" },
 		})
 		expect(
-			(result.data?.leagueGamesForWindow as any).viewerReportCard,
+			(result.data as WindowReportCard | undefined)?.leagueGamesForWindow
+				.viewerReportCard,
 		).toBeNull()
 	})
 })

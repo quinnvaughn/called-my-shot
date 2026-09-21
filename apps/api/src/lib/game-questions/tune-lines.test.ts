@@ -2,12 +2,9 @@ import { describe, expect, it } from "vitest"
 import { db } from "../../db"
 import { questionAutoResolutions } from "../../db/schema"
 import { makeQuestion, makeUser } from "../../test/factories"
-import {
-	lineSettingRow,
-	overUnderTemplate,
-	saveLineSetting,
-} from "./line-settings"
-import { median, nextShade, TUNING, tuneLines } from "./tune-lines"
+import { LINE_TUNING, median, nextShade } from "./line-calibration"
+import { lineSettings } from "./line-settings"
+import { tuneLines } from "./tune-lines"
 
 const LEAGUE = "nba"
 const TEMPLATE = "top-scorer-points"
@@ -17,7 +14,7 @@ const ratios = (count: number, ratio: number) =>
 	Array.from({ length: count }, () => ratio)
 
 function pointsLine() {
-	const template = overUnderTemplate(LEAGUE, TEMPLATE)
+	const template = lineSettings.template(LEAGUE, TEMPLATE)
 	if (!template) throw new Error(`no ${LEAGUE} over/under ${TEMPLATE}`)
 	return template
 }
@@ -58,31 +55,31 @@ describe("median", () => {
 
 describe("nextShade", () => {
 	it("waits for enough resolved lines", () => {
-		expect(nextShade(0.97, ratios(TUNING.minSample - 1, 0.8))).toBeNull()
+		expect(nextShade(0.97, ratios(LINE_TUNING.minSample - 1, 0.8))).toBeNull()
 	})
 
 	it("moves toward the median ratio by at most a step per run", () => {
-		expect(nextShade(0.97, ratios(TUNING.minSample, 0.8))).toBe(0.92)
-		expect(nextShade(0.97, ratios(TUNING.minSample, 0.95))).toBe(0.95)
+		expect(nextShade(0.97, ratios(LINE_TUNING.minSample, 0.8))).toBe(0.92)
+		expect(nextShade(0.97, ratios(LINE_TUNING.minSample, 0.95))).toBe(0.95)
 	})
 
 	it("stays within the shade bounds", () => {
-		expect(nextShade(0.52, ratios(TUNING.minSample, 0.1))).toBe(0.5)
-		expect(nextShade(1.48, ratios(TUNING.minSample, 3))).toBe(1.5)
+		expect(nextShade(0.52, ratios(LINE_TUNING.minSample, 0.1))).toBe(0.5)
+		expect(nextShade(1.48, ratios(LINE_TUNING.minSample, 3))).toBe(1.5)
 	})
 
 	it("leaves a shade already where the ratios point", () => {
-		expect(nextShade(0.95, ratios(TUNING.minSample, 0.95))).toBeNull()
+		expect(nextShade(0.95, ratios(LINE_TUNING.minSample, 0.95))).toBeNull()
 	})
 })
 
 describe("tuneLines", () => {
 	it("moves an automatic template's shade toward its results and keeps the rest", async () => {
-		await resolvedLines(TUNING.minSample, 0.8)
+		await resolvedLines(LINE_TUNING.minSample, 0.8)
 
 		expect(await tuneLines(NOW)).toBe(1)
 
-		const row = await lineSettingRow(LEAGUE, TEMPLATE)
+		const row = await lineSettings.row(LEAGUE, TEMPLATE)
 		expect(row).toMatchObject({
 			autoTune: true,
 			line: {
@@ -96,9 +93,9 @@ describe("tuneLines", () => {
 
 	it("keeps an admin's lowest line while it tunes the shade", async () => {
 		const admin = await makeUser({ isAdmin: true })
-		await saveLineSetting(
-			pointsLine(),
+		await lineSettings.save(
 			{
+				templateId: TEMPLATE,
 				...pointsLine().line,
 				leagueSlug: LEAGUE,
 				autoTune: true,
@@ -106,11 +103,11 @@ describe("tuneLines", () => {
 			},
 			admin.id,
 		)
-		await resolvedLines(TUNING.minSample, 0.8)
+		await resolvedLines(LINE_TUNING.minSample, 0.8)
 
 		await tuneLines(NOW)
 
-		expect((await lineSettingRow(LEAGUE, TEMPLATE))?.line).toMatchObject({
+		expect((await lineSettings.row(LEAGUE, TEMPLATE))?.line).toMatchObject({
 			shade: 0.92,
 			minLine: 20.5,
 		})
@@ -118,16 +115,21 @@ describe("tuneLines", () => {
 
 	it("leaves a manual template alone", async () => {
 		const admin = await makeUser({ isAdmin: true })
-		await saveLineSetting(
-			pointsLine(),
-			{ ...pointsLine().line, leagueSlug: LEAGUE, autoTune: false, shade: 1.1 },
+		await lineSettings.save(
+			{
+				templateId: TEMPLATE,
+				...pointsLine().line,
+				leagueSlug: LEAGUE,
+				autoTune: false,
+				shade: 1.1,
+			},
 			admin.id,
 		)
-		await resolvedLines(TUNING.minSample, 0.8)
+		await resolvedLines(LINE_TUNING.minSample, 0.8)
 
 		expect(await tuneLines(NOW)).toBe(0)
 
-		expect(await lineSettingRow(LEAGUE, TEMPLATE)).toMatchObject({
+		expect(await lineSettings.row(LEAGUE, TEMPLATE)).toMatchObject({
 			autoTune: false,
 			tunedAt: null,
 			line: { shade: 1.1 },
@@ -135,9 +137,9 @@ describe("tuneLines", () => {
 	})
 
 	it("doesn't move a template without enough resolved lines", async () => {
-		await resolvedLines(TUNING.minSample - 1, 0.8)
+		await resolvedLines(LINE_TUNING.minSample - 1, 0.8)
 
 		expect(await tuneLines(NOW)).toBe(0)
-		expect((await lineSettingRow(LEAGUE, TEMPLATE))?.isCustom).toBe(false)
+		expect((await lineSettings.row(LEAGUE, TEMPLATE))?.isCustom).toBe(false)
 	})
 })

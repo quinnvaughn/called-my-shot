@@ -1,14 +1,14 @@
-import { readFileSync } from "node:fs"
 import { describe, expect, it } from "vitest"
 import {
 	HOUR,
+	makeExternalRef,
 	makeGame,
 	makeLeague,
 	makePlayer,
 	makeTeam,
 } from "../../test/factories"
+import { espnFixture } from "../../test/helpers"
 import { db } from "../index"
-import { externalRefs } from "../schema"
 import { parseBoxScore } from "./box-score-parse"
 import { persistBoxScore } from "./box-score-store"
 import type { EspnGameSummary } from "./espn-client"
@@ -17,22 +17,7 @@ const NOW = new Date("2026-09-12T12:00:00Z")
 
 // Same fixtures box-score-parse.test.ts reads - see there for provenance.
 const summary = (league: "nba" | "nfl" | "mlb") =>
-	JSON.parse(
-		readFileSync(
-			new URL(`./fixtures/espn/${league}-summary.json`, import.meta.url),
-			"utf8",
-		),
-	) as EspnGameSummary
-
-async function link(
-	entityType: "team" | "player" | "game",
-	sourceId: string,
-	entityId: string,
-) {
-	await db
-		.insert(externalRefs)
-		.values({ source: "espn", entityType, sourceId, entityId })
-}
+	espnFixture<EspnGameSummary>(`${league}-summary.json`)
 
 // Each fixture's two competitors, home first.
 const COMPETITORS = {
@@ -46,8 +31,8 @@ async function seed(leagueSlug: "nba" | "nfl" | "mlb") {
 	const home = await makeTeam({ leagueId: league.id })
 	const away = await makeTeam({ leagueId: league.id })
 	const [homeEspnId, awayEspnId] = COMPETITORS[leagueSlug]
-	await link("team", `${leagueSlug}:${homeEspnId}`, home.id)
-	await link("team", `${leagueSlug}:${awayEspnId}`, away.id)
+	await makeExternalRef("team", `${leagueSlug}:${homeEspnId}`, home.id)
+	await makeExternalRef("team", `${leagueSlug}:${awayEspnId}`, away.id)
 	const game = await makeGame({
 		leagueId: league.id,
 		homeTeamId: home.id,
@@ -172,7 +157,7 @@ describe("persistBoxScore", () => {
 		const box = parseBoxScore(summary("nba"))
 		const [firstEspnAthleteId] = [...box.athletes.keys()]
 		const player = await makePlayer({ currentTeamId: setup.home.id })
-		await link("player", `nba:${firstEspnAthleteId}`, player.id)
+		await makeExternalRef("player", `nba:${firstEspnAthleteId}`, player.id)
 
 		const result = await persist(setup, "nba")
 

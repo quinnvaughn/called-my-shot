@@ -1,16 +1,16 @@
 import { match } from "ts-pattern"
 import { db } from "../../../db"
 import {
+	adminListArgs,
 	buildAdminConnection,
-	clampAdminPageSize,
-	SortDirection,
 } from "../../../lib/admin-pagination"
 import { requireAdmin } from "../../../lib/auth"
 import { AuthenticationError, AuthorizationError } from "../../../lib/errors"
-import { decodeOffsetCursor } from "../../../lib/pagination"
 import { getCurrentSeason } from "../../../lib/seasons"
 import { isUuid } from "../../../lib/uuid"
 import { builder } from "../../builder"
+import { clampTypeahead } from "../../helpers"
+import { SortDirection } from "../pagination"
 import { AdminBallotSort, BallotStatus } from "./enums"
 import { AdminBallotConnectionRef, BallotRef } from "./refs"
 
@@ -80,11 +80,8 @@ builder.queryFields((t) => ({
 			sortDir: t.arg({ type: SortDirection, required: false }),
 		},
 		resolve: async (_root, args, ctx) => {
-			requireAdmin(ctx)
-			const limit = clampAdminPageSize(args.first)
-			const offset = args.after ? decodeOffsetCursor(args.after) : 0
+			const { limit, offset, sortDir } = adminListArgs(ctx, args)
 			const sortBy = args.sortBy ?? "name"
-			const sortDir = args.sortDir ?? "asc"
 
 			const rows = await db.query.ballots.findMany({
 				where: {
@@ -139,7 +136,7 @@ builder.queryFields((t) => ({
 		},
 		resolve: async (_root, args, ctx) => {
 			requireAdmin(ctx)
-			const limit = Math.min(Math.max(args.first ?? 8, 1), 20)
+			const limit = clampTypeahead(args.first, 8)
 			return db.query.ballots.findMany({
 				where: {
 					leagueId: args.leagueId,

@@ -18,7 +18,7 @@ builder.mutationFields((t) => ({
 	equipFlair: t.field({
 		type: UserRef,
 		errors: {
-			types: [AuthenticationError, NotFoundError, ValidationError],
+			types: [AuthenticationError, NotFoundError],
 			directResult: true,
 			union: { name: "EquipFlairResult" },
 		},
@@ -72,12 +72,7 @@ builder.mutationFields((t) => ({
 	grantFlair: t.field({
 		type: UserRef,
 		errors: {
-			types: [
-				AuthenticationError,
-				AuthorizationError,
-				NotFoundError,
-				ValidationError,
-			],
+			types: [AuthenticationError, AuthorizationError, NotFoundError],
 			directResult: true,
 			union: { name: "GrantFlairResult" },
 		},
@@ -144,10 +139,7 @@ builder.mutationFields((t) => ({
 				await tx
 					.delete(userFlairs)
 					.where(
-						and(
-							eq(userFlairs.userId, userId),
-							eq(userFlairs.flairId, flairId),
-						),
+						and(eq(userFlairs.userId, userId), eq(userFlairs.flairId, flairId)),
 					)
 
 				// Taking the grant away has to take the chip off too, or they

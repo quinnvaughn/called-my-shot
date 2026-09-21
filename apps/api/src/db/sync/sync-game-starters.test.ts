@@ -1,50 +1,33 @@
-import { beforeEach, describe, expect, it, vi } from "vitest"
+import { beforeEach, describe, expect, it } from "vitest"
 import {
-	HOUR,
+	makeExternalRef,
 	makeGame,
 	makeLeague,
 	makePlayer,
 	makeTeam,
 } from "../../test/factories"
+import { hoursFromNow as hoursAfter } from "../../test/helpers"
 import { db } from "../index"
-import { externalRefs, gameStarters, type League, type Team } from "../schema"
+import { gameStarters, type League, type Team } from "../schema"
 import {
 	type EspnDepthChart,
 	type EspnProbablesEvent,
 	EspnRequestError,
-	fetchDepthChart,
-	fetchGameSummaryRosters,
-	fetchScoreboardRange,
 } from "./espn-client"
 import { isStartersRefreshDue, syncGameStarters } from "./sync-game-starters"
-
-vi.mock("./espn-client", async (importOriginal) => ({
-	...(await importOriginal<typeof import("./espn-client")>()),
-	fetchScoreboardRange: vi.fn(),
-	fetchGameSummaryRosters: vi.fn(),
-	fetchDepthChart: vi.fn(),
-}))
+import { type FakeEspnClient, fakeEspnClient } from "./test-support"
 
 // Noon Eastern, so a game 10h out starts late the same ET evening but on the
 // next UTC day - the scoreboard range has to be built from ET dates.
 const NOW = new Date("2026-09-11T16:00:00Z")
-const hoursFromNow = (hours: number) => new Date(NOW.getTime() + hours * HOUR)
+const hoursFromNow = (hours: number) => hoursAfter(hours, NOW.getTime())
 
-const run = () => syncGameStarters({ now: NOW, spacingMs: 0 })
-
-async function link(
-	entityType: "team" | "player" | "game",
-	sourceId: string,
-	entityId: string,
-) {
-	await db
-		.insert(externalRefs)
-		.values({ source: "espn", entityType, sourceId, entityId })
-}
+let espn: FakeEspnClient
+const run = () => syncGameStarters({ now: NOW, spacingMs: 0, espn })
 
 async function seedTeam(league: League, espnTeamId: string) {
 	const team = await makeTeam({ leagueId: league.id })
-	await link("team", `${league.slug}:${espnTeamId}`, team.id)
+	await makeExternalRef("team", `${league.slug}:${espnTeamId}`, team.id)
 	return team
 }
 
@@ -63,7 +46,7 @@ async function seedGame(
 		startsAt: hoursFromNow(hoursUntilStart),
 		startersSyncedAt,
 	})
-	await link("game", `${league.slug}:${espnEventId}`, game.id)
+	await makeExternalRef("game", `${league.slug}:${espnEventId}`, game.id)
 	return game
 }
 
@@ -126,9 +109,7 @@ const nbaChart = (prefix: string): EspnDepthChart[] => [
 ]
 
 beforeEach(() => {
-	vi.mocked(fetchScoreboardRange).mockReset()
-	vi.mocked(fetchGameSummaryRosters).mockReset()
-	vi.mocked(fetchDepthChart).mockReset()
+	espn = fakeEspnClient()
 })
 
 describe("isStartersRefreshDue", () => {
@@ -159,9 +140,9 @@ describe("syncGameStarters: MLB", () => {
 		const away = await seedTeam(league, "20")
 		const game = await seedGame(league, home, away, "401", 10)
 		const rodon = await makePlayer({ name: "Carlos Rodon" })
-		await link("player", "mlb:33696", rodon.id)
+		await makeExternalRef("player", "mlb:33696", rodon.id)
 
-		vi.mocked(fetchScoreboardRange).mockResolvedValue([
+		espn.fetchScoreboardRange.mockResolvedValue([
 			probablesEvent(
 				"401",
 				["33696", "Carlos Rodon"],
@@ -171,13 +152,13 @@ describe("syncGameStarters: MLB", () => {
 
 		await run()
 
-		expect(fetchScoreboardRange).toHaveBeenCalledOnce()
-		expect(fetchScoreboardRange).toHaveBeenCalledWith(
+		expect(espn.fetchScoreboardRange).toHaveBeenCalledOnce()
+		expect(espn.fetchScoreboardRange).toHaveBeenCalledWith(
 			"baseball/mlb",
 			"20260911",
 			"20260911",
 		)
-		expect(fetchGameSummaryRosters).not.toHaveBeenCalled()
+		expect(espn.fetchGameSummaryRosters).not.toHaveBeenCalled()
 
 		const starters = await startersFor(game.id)
 		expect(
@@ -232,10 +213,10 @@ describe("syncGameStarters: MLB", () => {
 			},
 		])
 
-		vi.mocked(fetchScoreboardRange).mockResolvedValue([
+		espn.fetchScoreboardRange.mockResolvedValue([
 			probablesEvent("402", ["33696", "Carlos Rodon"], null),
 		])
-		vi.mocked(fetchGameSummaryRosters).mockResolvedValue([
+		espn.fetchGameSummaryRosters.mockResolvedValue([
 			{
 				homeAway: "home",
 				team: { id: "10" },
@@ -259,7 +240,10 @@ describe("syncGameStarters: MLB", () => {
 
 		await run()
 
-		expect(fetchGameSummaryRosters).toHaveBeenCalledWith("baseball/mlb", "402")
+		expect(espn.fetchGameSummaryRosters).toHaveBeenCalledWith(
+			"baseball/mlb",
+			"402",
+		)
 		const starters = await startersFor(game.id)
 		const rowsFor = (teamId: string, role: string) =>
 			starters
@@ -281,7 +265,7 @@ describe("syncGameStarters: MLB", () => {
 
 		await run()
 
-		expect(fetchScoreboardRange).not.toHaveBeenCalled()
+		expect(espn.fetchScoreboardRange).not.toHaveBeenCalled()
 	})
 
 	it("keeps probables but leaves the game due when the lineup call fails", async () => {
@@ -290,10 +274,10 @@ describe("syncGameStarters: MLB", () => {
 		const away = await seedTeam(league, "20")
 		const game = await seedGame(league, home, away, "404", 1)
 
-		vi.mocked(fetchScoreboardRange).mockResolvedValue([
+		espn.fetchScoreboardRange.mockResolvedValue([
 			probablesEvent("404", ["33696", "Carlos Rodon"], ["5", "Other Arm"]),
 		])
-		vi.mocked(fetchGameSummaryRosters).mockRejectedValue(
+		espn.fetchGameSummaryRosters.mockRejectedValue(
 			new EspnRequestError("summary", 500),
 		)
 
@@ -314,13 +298,13 @@ describe("syncGameStarters: depth charts", () => {
 		const tomorrow = await seedGame(league, c, a, "502", 32)
 		const later = await seedGame(league, b, c, "503", 72)
 
-		vi.mocked(fetchDepthChart).mockImplementation(async (_path, espnTeamId) =>
+		espn.fetchDepthChart.mockImplementation(async (_path, espnTeamId) =>
 			nbaChart(`team${espnTeamId}`),
 		)
 
 		await run()
 
-		expect(fetchDepthChart).toHaveBeenCalledTimes(3)
+		expect(espn.fetchDepthChart).toHaveBeenCalledTimes(3)
 		expect(await startersFor(tonight.id)).toHaveLength(10)
 		expect(await startersFor(tomorrow.id)).toHaveLength(10)
 		expect(await startersFor(later.id)).toHaveLength(0)
@@ -334,12 +318,12 @@ describe("syncGameStarters: depth charts", () => {
 		const away = await seedTeam(league, "21")
 		const game = await seedGame(league, home, away, "601", 48)
 
-		vi.mocked(fetchDepthChart).mockRejectedValue(
+		espn.fetchDepthChart.mockRejectedValue(
 			new EspnRequestError("nfl depth chart", 403),
 		)
 
 		await expect(run()).rejects.toBeInstanceOf(EspnRequestError)
-		expect(fetchDepthChart).toHaveBeenCalledOnce()
+		expect(espn.fetchDepthChart).toHaveBeenCalledOnce()
 		expect(await syncedAtOf(game.id)).toBeNull()
 	})
 })

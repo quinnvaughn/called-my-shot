@@ -15,10 +15,9 @@ import {
 	makeSelection,
 	seedOptionQuestion,
 } from "../test/factories"
+import { hoursFromNow, mailRecorder, resolve } from "../test/helpers"
 import { drainResolutionDigests } from "./email-digest"
 import { DRAIN_DIGESTS_LOCK, withJobLock } from "./job-lock"
-import type { MailMessage, MailResult } from "./mailer"
-import { resolveQuestionInternal } from "./resolve-question"
 import { announceOnce } from "./streaks/notices"
 
 /** A streak milestone announced to this user, as the rebuild job would. */
@@ -38,29 +37,6 @@ async function announceMilestone(userId: string, leagueId: string) {
 const noticesFor = (userId: string) =>
 	db.query.achievementNotices.findMany({ where: { userId } })
 
-function resolve(question: Question, correctOptionIds: string[]) {
-	return db.transaction((tx) =>
-		resolveQuestionInternal(
-			tx,
-			question,
-			{ correctOptionIds, resolutionNote: "" },
-			{ resolvedBy: { method: "system" } },
-		),
-	)
-}
-
-/** Collects what would have gone out instead of calling Resend. */
-function recorder(result: MailResult = { ok: true }) {
-	const sent: MailMessage[] = []
-	return {
-		sent,
-		send: async (message: MailMessage) => {
-			sent.push(message)
-			return result
-		},
-	}
-}
-
 /**
  * Rows are only picked up once their user's OLDEST row has cleared the
  * settling window, so every test that expects a send has to age them first.
@@ -77,11 +53,8 @@ async function ageOutbox(minutes = 30) {
 // 4pm Eastern, partway through the digest day that began at 9am Eastern.
 const NOW = new Date("2026-09-13T20:00:00Z")
 const DAY_START = new Date("2026-09-13T13:00:00Z")
-const HOUR_MS = 60 * 60 * 1000
-
-function hoursFrom(date: Date, hours: number): Date {
-	return new Date(date.getTime() + hours * HOUR_MS)
-}
+const hoursFrom = (date: Date, hours: number) =>
+	hoursFromNow(hours, date.getTime())
 
 async function setOutboxCreatedAt(at: Date) {
 	await db
@@ -113,17 +86,17 @@ describe("drainResolutionDigests day grouping", () => {
 		const secondCall = await makeCall(second.question.id, caller.user.id)
 		await makeSelection(secondCall.id, second.options[0].id, 100)
 
-		await resolve(first.question, [first.options[0].id])
+		await resolve(first.question, { correctOptionIds: [first.options[0].id] })
 		await setOutboxCreatedAt(hoursFrom(NOW, -1))
 
-		const early = recorder()
+		const early = mailRecorder()
 		await drainResolutionDigests({ send: early.send, now: NOW })
 		expect(early.sent).toHaveLength(0)
 
-		await resolve(second.question, [second.options[0].id])
+		await resolve(second.question, { correctOptionIds: [second.options[0].id] })
 		await setOutboxCreatedAt(hoursFrom(NOW, -1))
 
-		const late = recorder()
+		const late = mailRecorder()
 		await drainResolutionDigests({ send: late.send, now: NOW })
 		expect(late.sent).toHaveLength(1)
 		expect(late.sent[0].text).toContain(first.question.title)
@@ -135,10 +108,10 @@ describe("drainResolutionDigests day grouping", () => {
 			callers: [{ optionIndex: 0 }],
 		})
 		await openCallOnGame(callers[0].user.id, hoursFrom(DAY_START, 10))
-		await resolve(question, [options[0].id])
+		await resolve(question, { correctOptionIds: [options[0].id] })
 		await setOutboxCreatedAt(hoursFrom(DAY_START, -2))
 
-		const mail = recorder()
+		const mail = mailRecorder()
 		await drainResolutionDigests({ send: mail.send, now: NOW })
 		expect(mail.sent).toHaveLength(1)
 	})
@@ -148,10 +121,10 @@ describe("drainResolutionDigests day grouping", () => {
 			callers: [{ optionIndex: 0 }],
 		})
 		await openCallOnGame(callers[0].user.id, hoursFrom(DAY_START, 25))
-		await resolve(question, [options[0].id])
+		await resolve(question, { correctOptionIds: [options[0].id] })
 		await setOutboxCreatedAt(hoursFrom(NOW, -1))
 
-		const mail = recorder()
+		const mail = mailRecorder()
 		await drainResolutionDigests({ send: mail.send, now: NOW })
 		expect(mail.sent).toHaveLength(1)
 	})
@@ -161,10 +134,10 @@ describe("drainResolutionDigests day grouping", () => {
 			callers: [{ optionIndex: 0 }],
 		})
 		await openCallOnGame(callers[0].user.id, hoursFrom(DAY_START, -3), "locked")
-		await resolve(question, [options[0].id])
+		await resolve(question, { correctOptionIds: [options[0].id] })
 		await setOutboxCreatedAt(hoursFrom(NOW, -1))
 
-		const mail = recorder()
+		const mail = mailRecorder()
 		await drainResolutionDigests({ send: mail.send, now: NOW })
 		expect(mail.sent).toHaveLength(1)
 	})
@@ -180,11 +153,11 @@ describe("drainResolutionDigests", () => {
 		const secondCall = await makeCall(second.question.id, caller.user.id)
 		await makeSelection(secondCall.id, second.options[0].id, 100)
 
-		await resolve(first.question, [first.options[0].id])
-		await resolve(second.question, [second.options[0].id])
+		await resolve(first.question, { correctOptionIds: [first.options[0].id] })
+		await resolve(second.question, { correctOptionIds: [second.options[0].id] })
 		await ageOutbox()
 
-		const mail = recorder()
+		const mail = mailRecorder()
 		const result = await drainResolutionDigests({ send: mail.send })
 
 		expect(mail.sent).toHaveLength(1)
@@ -199,9 +172,9 @@ describe("drainResolutionDigests", () => {
 		const { question, options } = await seedOptionQuestion({
 			callers: [{ optionIndex: 0 }],
 		})
-		await resolve(question, [options[0].id])
+		await resolve(question, { correctOptionIds: [options[0].id] })
 
-		const mail = recorder()
+		const mail = mailRecorder()
 		await drainResolutionDigests({ send: mail.send })
 
 		expect(mail.sent).toHaveLength(0)
@@ -216,10 +189,10 @@ describe("drainResolutionDigests", () => {
 		const { question, options } = await seedOptionQuestion({
 			callers: [{ optionIndex: 0 }, { optionIndex: 1 }],
 		})
-		await resolve(question, [options[0].id])
+		await resolve(question, { correctOptionIds: [options[0].id] })
 		await ageOutbox()
 
-		const mail = recorder()
+		const mail = mailRecorder()
 		await drainResolutionDigests({ send: mail.send })
 
 		expect(mail.sent).toHaveLength(2)
@@ -233,10 +206,10 @@ describe("drainResolutionDigests", () => {
 		await db
 			.insert(emailOptOuts)
 			.values({ userId: callers[0].user.id, type: "call_resolved" })
-		await resolve(question, [options[0].id])
+		await resolve(question, { correctOptionIds: [options[0].id] })
 		await ageOutbox()
 
-		const mail = recorder()
+		const mail = mailRecorder()
 		await drainResolutionDigests({ send: mail.send })
 
 		expect(mail.sent).toHaveLength(0)
@@ -253,10 +226,10 @@ describe("drainResolutionDigests", () => {
 		await db
 			.insert(emailOptOuts)
 			.values({ userId: callers[0].user.id, type: "all" })
-		await resolve(question, [options[0].id])
+		await resolve(question, { correctOptionIds: [options[0].id] })
 		await ageOutbox()
 
-		const mail = recorder()
+		const mail = mailRecorder()
 		await drainResolutionDigests({ send: mail.send })
 
 		expect(mail.sent).toHaveLength(0)
@@ -276,10 +249,10 @@ describe("drainResolutionDigests", () => {
 			.update(users)
 			.set({ emailVerified: false })
 			.where(eq(users.id, callers[0].user.id))
-		await resolve(question, [options[0].id])
+		await resolve(question, { correctOptionIds: [options[0].id] })
 		await ageOutbox()
 
-		const mail = recorder()
+		const mail = mailRecorder()
 		await drainResolutionDigests({ send: mail.send })
 
 		expect(mail.sent).toHaveLength(1)
@@ -290,7 +263,7 @@ describe("drainResolutionDigests", () => {
 		const { question, options } = await seedOptionQuestion({
 			callers: [{ optionIndex: 0 }],
 		})
-		await resolve(question, [options[0].id])
+		await resolve(question, { correctOptionIds: [options[0].id] })
 		// A dispute filed inside the settling window - the result is contested
 		// and the share card the email points at would 404.
 		await db
@@ -299,7 +272,7 @@ describe("drainResolutionDigests", () => {
 			.where(eq(questions.id, question.id))
 		await ageOutbox()
 
-		const mail = recorder()
+		const mail = mailRecorder()
 		await drainResolutionDigests({ send: mail.send })
 
 		expect(mail.sent).toHaveLength(0)
@@ -315,10 +288,10 @@ describe("drainResolutionDigests", () => {
 		const { question, options } = await seedOptionQuestion({
 			callers: [{ optionIndex: 0 }],
 		})
-		await resolve(question, [options[0].id])
+		await resolve(question, { correctOptionIds: [options[0].id] })
 		await ageOutbox()
 
-		const mail = recorder()
+		const mail = mailRecorder()
 		await drainResolutionDigests({ send: mail.send })
 
 		const [message] = mail.sent
@@ -337,10 +310,10 @@ describe("drainResolutionDigests", () => {
 		const { question, options, callers } = await seedOptionQuestion({
 			callers: [{ optionIndex: 0 }],
 		})
-		await resolve(question, [options[0].id])
+		await resolve(question, { correctOptionIds: [options[0].id] })
 		await ageOutbox()
 
-		const mail = recorder()
+		const mail = mailRecorder()
 		await drainResolutionDigests({ send: mail.send })
 
 		const [message] = mail.sent
@@ -353,10 +326,10 @@ describe("drainResolutionDigests", () => {
 		const { question, options } = await seedOptionQuestion({
 			callers: [{ optionIndex: 0 }],
 		})
-		await resolve(question, [options[0].id])
+		await resolve(question, { correctOptionIds: [options[0].id] })
 		await ageOutbox()
 
-		const mail = recorder()
+		const mail = mailRecorder()
 		await drainResolutionDigests({ send: mail.send })
 
 		const [message] = mail.sent
@@ -379,10 +352,10 @@ describe("drainResolutionDigests", () => {
 		const { question, options } = await seedOptionQuestion({
 			callers: [{ optionIndex: 0 }],
 		})
-		await resolve(question, [options[0].id])
+		await resolve(question, { correctOptionIds: [options[0].id] })
 		await ageOutbox()
 
-		const mail = recorder()
+		const mail = mailRecorder()
 		const runs = await Promise.all([
 			withJobLock(DRAIN_DIGESTS_LOCK, async () => {
 				await drainResolutionDigests({ send: mail.send })
@@ -401,10 +374,10 @@ describe("drainResolutionDigests", () => {
 		const { question, options } = await seedOptionQuestion({
 			callers: [{ optionIndex: 0 }],
 		})
-		await resolve(question, [options[0].id])
+		await resolve(question, { correctOptionIds: [options[0].id] })
 		await ageOutbox()
 
-		const mail = recorder({ ok: false, error: "resend exploded" })
+		const mail = mailRecorder({ ok: false, error: "resend exploded" })
 		await drainResolutionDigests({ send: mail.send })
 
 		const [row] = await db.select().from(emailOutbox)
@@ -417,11 +390,11 @@ describe("drainResolutionDigests", () => {
 		const { question, options } = await seedOptionQuestion({
 			callers: [{ optionIndex: 0 }],
 		})
-		await resolve(question, [options[0].id])
+		await resolve(question, { correctOptionIds: [options[0].id] })
 		await ageOutbox()
 		await db.update(emailOutbox).set({ attempts: 5 })
 
-		const mail = recorder()
+		const mail = mailRecorder()
 		await drainResolutionDigests({ send: mail.send })
 
 		expect(mail.sent).toHaveLength(0)
@@ -431,14 +404,14 @@ describe("drainResolutionDigests", () => {
 		const { question, options } = await seedOptionQuestion({
 			callers: [{ optionIndex: 0 }],
 		})
-		await resolve(question, [options[0].id])
+		await resolve(question, { correctOptionIds: [options[0].id] })
 		await ageOutbox()
 
-		const first = recorder()
+		const first = mailRecorder()
 		await drainResolutionDigests({ send: first.send })
 		expect(first.sent).toHaveLength(1)
 
-		const second = recorder()
+		const second = mailRecorder()
 		await drainResolutionDigests({ send: second.send })
 		expect(second.sent).toHaveLength(0)
 	})
@@ -450,11 +423,11 @@ describe("drainResolutionDigests achievement lines", () => {
 			callers: [{ optionIndex: 0 }],
 		})
 		const { user } = callers[0]
-		await resolve(question, [options[0].id])
+		await resolve(question, { correctOptionIds: [options[0].id] })
 		await announceMilestone(user.id, question.leagueId)
 		await ageOutbox()
 
-		const mail = recorder()
+		const mail = mailRecorder()
 		await drainResolutionDigests({ send: mail.send })
 
 		const league = await db.query.leagues.findFirst({
@@ -477,12 +450,12 @@ describe("drainResolutionDigests achievement lines", () => {
 		const { question, options, callers } = await seedOptionQuestion({
 			callers: [{ optionIndex: 0 }],
 		})
-		await resolve(question, [options[0].id])
+		await resolve(question, { correctOptionIds: [options[0].id] })
 		await announceMilestone(callers[0].user.id, question.leagueId)
 		await ageOutbox()
 
 		await drainResolutionDigests({
-			send: recorder({ ok: false, error: "resend exploded" }).send,
+			send: mailRecorder({ ok: false, error: "resend exploded" }).send,
 		})
 
 		const [notice] = await noticesFor(callers[0].user.id)
@@ -495,7 +468,7 @@ describe("drainResolutionDigests achievement lines", () => {
 		})
 		await announceMilestone(callers[0].user.id, question.leagueId)
 
-		const mail = recorder()
+		const mail = mailRecorder()
 		await drainResolutionDigests({ send: mail.send })
 		expect(mail.sent).toHaveLength(0)
 	})
@@ -506,7 +479,7 @@ describe("resolveQuestionInternal enqueueing", () => {
 		const { question, options, callers } = await seedOptionQuestion({
 			callers: [{ optionIndex: 0 }, { optionIndex: 1 }],
 		})
-		await resolve(question, [options[0].id])
+		await resolve(question, { correctOptionIds: [options[0].id] })
 
 		const rows = await db.select().from(emailOutbox)
 		expect(rows).toHaveLength(2)
@@ -523,10 +496,10 @@ describe("resolveQuestionInternal enqueueing", () => {
 		const { question, options } = await seedOptionQuestion({
 			callers: [{ optionIndex: 0 }],
 		})
-		await resolve(question, [options[0].id])
+		await resolve(question, { correctOptionIds: [options[0].id] })
 		// What overturnDispute does: re-run the scoring pass with the other
 		// outcome while the first email is still queued.
-		await resolve(question, [options[1].id])
+		await resolve(question, { correctOptionIds: [options[1].id] })
 
 		const rows = await db.select().from(emailOutbox)
 		expect(rows).toHaveLength(1)
@@ -536,11 +509,11 @@ describe("resolveQuestionInternal enqueueing", () => {
 		const { question, options } = await seedOptionQuestion({
 			callers: [{ optionIndex: 0 }],
 		})
-		await resolve(question, [options[0].id])
+		await resolve(question, { correctOptionIds: [options[0].id] })
 		await ageOutbox()
-		await drainResolutionDigests({ send: recorder().send })
+		await drainResolutionDigests({ send: mailRecorder().send })
 
-		await resolve(question, [options[1].id])
+		await resolve(question, { correctOptionIds: [options[1].id] })
 
 		const rows = await db.select().from(emailOutbox)
 		expect(rows).toHaveLength(2)
@@ -552,7 +525,7 @@ describe("resolveQuestionInternal enqueueing", () => {
 		const { question, options } = await seedOptionQuestion({
 			callers: [{ optionIndex: 0 }],
 		})
-		await resolve(question, [options[0].id])
+		await resolve(question, { correctOptionIds: [options[0].id] })
 		expect(await db.select().from(emailOutbox)).toHaveLength(1)
 
 		// voidQuestion hard-deletes the question; the cascade is what keeps the

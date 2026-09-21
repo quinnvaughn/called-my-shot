@@ -1,4 +1,5 @@
 import {
+	type AnyPgColumn,
 	boolean,
 	integer,
 	pgTable,
@@ -79,9 +80,12 @@ export const users = pgTable("users", {
 	// have no userFlairs row at all (see flairs.unlock): every team flair is
 	// open to everyone, so "what have I got" and "what am I wearing" are
 	// genuinely different questions.
-	equippedFlairId: uuid("equipped_flair_id").references(() => flairs.id, {
-		onDelete: "set null",
-	}),
+	equippedFlairId: uuid("equipped_flair_id").references(
+		(): AnyPgColumn => flairs.id,
+		{
+			onDelete: "set null",
+		},
+	),
 	createdAt: timestamp("created_at").notNull().defaultNow(),
 })
 export type User = typeof users.$inferSelect

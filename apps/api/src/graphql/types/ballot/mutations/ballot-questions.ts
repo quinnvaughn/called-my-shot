@@ -2,7 +2,7 @@ import {
 	attachQuestionToBallotSchema,
 	updateBallotQuestionSchema,
 } from "@called-my-shot/schemas"
-import { and, eq, sql } from "drizzle-orm"
+import { and, eq } from "drizzle-orm"
 import { db } from "../../../../db"
 import { RECURRING_QUESTION_CATALOG } from "../../../../db/catalog/recurring-question-catalog"
 import { ballotQuestions } from "../../../../db/schema"
@@ -14,9 +14,11 @@ import {
 	ValidationError,
 } from "../../../../lib/errors"
 import { getOfficialAccountId } from "../../../../lib/official-account"
+import { attachToBallot, writeOrder } from "../../../../lib/questions/ballot"
 import { generateSeasonQuestions } from "../../../../lib/season-questions"
 import { getCurrentSeason } from "../../../../lib/seasons"
 import { builder } from "../../../builder"
+import { parseInput } from "../../../helpers"
 import {
 	AttachQuestionToBallotInput,
 	BallotQuestionPayload,
@@ -28,12 +30,7 @@ builder.mutationFields((t) => ({
 	attachQuestionToBallot: t.field({
 		type: BallotQuestionPayload,
 		errors: {
-			types: [
-				AuthenticationError,
-				AuthorizationError,
-				NotFoundError,
-				ValidationError,
-			],
+			types: [AuthenticationError, AuthorizationError, NotFoundError],
 			directResult: true,
 			union: { name: "AttachQuestionToBallotResult" },
 		},
@@ -42,10 +39,10 @@ builder.mutationFields((t) => ({
 		},
 		resolve: async (_root, args, ctx) => {
 			requireAdmin(ctx)
-			const parsed = attachQuestionToBallotSchema.safeParse(args.input)
-			if (!parsed.success)
-				throw ValidationError.fromZodIssues(parsed.error.issues)
-			const { ballotId, questionId, label, slot, section } = parsed.data
+			const { ballotId, questionId, label, slot, section } = parseInput(
+				attachQuestionToBallotSchema,
+				args.input,
+			)
 
 			const [ballot, question, existing] = await Promise.all([
 				db.query.ballots.findFirst({ where: { id: ballotId } }),
@@ -67,26 +64,9 @@ builder.mutationFields((t) => ({
 				)
 			}
 
-			const ballotQuestion = await db.transaction(async (tx) => {
-				const [{ maxSortOrder }] = await tx
-					.select({
-						maxSortOrder: sql<number>`coalesce(max(${ballotQuestions.sortOrder}), -1)`,
-					})
-					.from(ballotQuestions)
-					.where(eq(ballotQuestions.ballotId, ballotId))
-				const [inserted] = await tx
-					.insert(ballotQuestions)
-					.values({
-						ballotId,
-						questionId,
-						label,
-						slot: slot ?? null,
-						section: section ?? null,
-						sortOrder: maxSortOrder + 1,
-					})
-					.returning()
-				return inserted
-			})
+			const ballotQuestion = await db.transaction((tx) =>
+				attachToBallot(tx, { ballotId, questionId, label, slot, section }),
+			)
 
 			return { ballotQuestion }
 		},
@@ -115,12 +95,7 @@ builder.mutationFields((t) => ({
 	updateBallotQuestion: t.field({
 		type: BallotQuestionPayload,
 		errors: {
-			types: [
-				AuthenticationError,
-				AuthorizationError,
-				NotFoundError,
-				ValidationError,
-			],
+			types: [AuthenticationError, AuthorizationError, NotFoundError],
 			directResult: true,
 			union: { name: "UpdateBallotQuestionResult" },
 		},
@@ -129,18 +104,16 @@ builder.mutationFields((t) => ({
 		},
 		resolve: async (_root, args, ctx) => {
 			requireAdmin(ctx)
-			const parsed = updateBallotQuestionSchema.safeParse(args.input)
-			if (!parsed.success)
-				throw ValidationError.fromZodIssues(parsed.error.issues)
+			const data = parseInput(updateBallotQuestionSchema, args.input)
 
 			const [ballotQuestion] = await db
 				.update(ballotQuestions)
 				.set({
-					label: parsed.data.label,
-					slot: parsed.data.slot ?? null,
-					section: parsed.data.section ?? null,
+					label: data.label,
+					slot: data.slot ?? null,
+					section: data.section ?? null,
 				})
-				.where(eq(ballotQuestions.questionId, parsed.data.questionId))
+				.where(eq(ballotQuestions.questionId, data.questionId))
 				.returning()
 			if (!ballotQuestion)
 				throw new NotFoundError("This question isn't in a ballot")
@@ -154,7 +127,7 @@ builder.mutationFields((t) => ({
 	reorderBallotQuestions: t.field({
 		type: "Boolean",
 		errors: {
-			types: [AuthenticationError, AuthorizationError, ValidationError],
+			types: [AuthenticationError, AuthorizationError],
 			union: { name: "ReorderBallotQuestionsResult" },
 		},
 		args: {
@@ -167,32 +140,22 @@ builder.mutationFields((t) => ({
 				where: { ballotId: args.ballotId },
 				columns: { questionId: true },
 			})
-			const currentIds = new Set(current.map((r) => r.questionId))
-			const incoming = args.orderedQuestionIds as string[]
-			const sameSet =
-				incoming.length === currentIds.size &&
-				incoming.every((id) => currentIds.has(id))
-			if (!sameSet) {
-				throw ValidationError.field(
-					"orderedQuestionIds",
-					"That doesn't match this ballot's current members",
-				)
-			}
-
-			await db.transaction(async (tx) => {
-				await Promise.all(
-					incoming.map((questionId, index) =>
-						tx
-							.update(ballotQuestions)
-							.set({ sortOrder: index })
-							.where(
-								and(
-									eq(ballotQuestions.ballotId, args.ballotId),
-									eq(ballotQuestions.questionId, questionId),
-								),
+			await writeOrder({
+				currentIds: current.map((r) => r.questionId),
+				orderedIds: args.orderedQuestionIds as string[],
+				field: "orderedQuestionIds",
+				mismatchMessage: "That doesn't match this ballot's current members",
+				first: 0,
+				setPosition: (tx, questionId, sortOrder) =>
+					tx
+						.update(ballotQuestions)
+						.set({ sortOrder })
+						.where(
+							and(
+								eq(ballotQuestions.ballotId, args.ballotId),
+								eq(ballotQuestions.questionId, questionId),
 							),
-					),
-				)
+						),
 			})
 			return true
 		},

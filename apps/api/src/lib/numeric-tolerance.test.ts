@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 import type { StatToleranceTier } from "../db/schema"
-import { numericToleranceFor } from "./numeric-tolerance"
+import { numericToleranceFor, toleranceSpecFor } from "./numeric-tolerance"
 
 function tier(
 	toleranceMode: StatToleranceTier["toleranceMode"],
@@ -72,5 +72,25 @@ describe("numericToleranceFor", () => {
 				teamToleranceTier: null,
 			}),
 		).toBeNull()
+	})
+})
+
+describe("toleranceSpecFor", () => {
+	it("reads the absolute column when that's the one set", () => {
+		expect(
+			toleranceSpecFor({
+				numericTolerancePct: null,
+				numericToleranceAbsolute: 0.02,
+			}),
+		).toEqual({ mode: "absolute", amount: 0.02 })
+	})
+
+	it("otherwise reads the percentage column", () => {
+		expect(
+			toleranceSpecFor({
+				numericTolerancePct: 0.1,
+				numericToleranceAbsolute: null,
+			}),
+		).toEqual({ mode: "percentage", pct: 0.1 })
 	})
 })

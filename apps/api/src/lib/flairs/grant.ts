@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm"
 import { flairs, userFlairs } from "../../db/schema"
-import type { Tx } from "../user-season-stats"
+import type { Tx } from "../../db/types"
 
 // Gives a user a flair, once, ever. Returns whether this call is the one that
 // granted it.

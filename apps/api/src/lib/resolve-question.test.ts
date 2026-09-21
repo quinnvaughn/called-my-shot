@@ -13,7 +13,6 @@ import {
 	callSelections,
 	emailOutbox,
 	notifications,
-	type Question,
 	questionOptions,
 	questionVoids,
 	userSeasonStats,
@@ -25,50 +24,16 @@ import {
 	makeQuestion,
 	makeSelection,
 	makeUser,
+	makeUserSeasonStats,
 	pastDate,
 	seedOptionQuestion,
 } from "../test/factories"
+import { resolve } from "../test/helpers"
+import { selectionFor, soleCaller, statsFor } from "./resolution/test-support"
 import {
-	type ResolveOptions,
 	resolveQuestionInternal,
 	reverseQuestionLeagueStats,
 } from "./resolve-question"
-
-/**
- * resolveQuestionInternal takes a tx, so every call goes through one. Resolves
- * as the system unless a test says otherwise.
- */
-function resolve(
-	question: Question,
-	data: {
-		correctOptionIds?: string[]
-		actualValue?: number
-		resolutionNote?: string
-	},
-	opts: Partial<ResolveOptions> = {},
-) {
-	return db.transaction((tx) =>
-		resolveQuestionInternal(
-			tx,
-			question,
-			{
-				correctOptionIds: data.correctOptionIds ?? [],
-				actualValue: data.actualValue,
-				resolutionNote: data.resolutionNote ?? "",
-			},
-			{ resolvedBy: { method: "system" }, ...opts },
-		),
-	)
-}
-
-const soleCaller = (userId: string) =>
-	new Map([[userId, "creator_sole_caller" as const]])
-
-const statsFor = (userId: string) =>
-	db.query.userSeasonStats.findFirst({ where: { userId } })
-
-const selectionFor = (id: string) =>
-	db.query.callSelections.findFirst({ where: { id } })
 
 describe("resolveQuestionInternal - option-based shapes", () => {
 	it("marks the question resolved and stamps the note", async () => {
@@ -184,46 +149,6 @@ describe("resolveQuestionInternal - option-based shapes", () => {
 		const safe = await selectionFor(consensus.callers[0].selection.id)
 		const bold = await selectionFor(contrarian.callers[0].selection.id)
 		expect(bold?.resultPoints).toBeGreaterThan(safe?.resultPoints ?? 0)
-	})
-
-	it("scales a win by conviction", async () => {
-		// Two questions rather than two callers on one: conviction and rank
-		// both feed the final number, so the caller under test has to sit at
-		// the same rank in the same-shaped field for this to isolate conviction.
-		async function winnerPoints(conviction: number) {
-			const { question, options, callers } = await seedOptionQuestion({
-				callers: [{ optionIndex: 0, conviction }, { optionIndex: 1 }],
-			})
-			await resolve(question, { correctOptionIds: [options[0].id] })
-			return (await selectionFor(callers[0].selection.id))?.resultPoints ?? 0
-		}
-		// Compared against the shared formula rather than against each other:
-		// points are rounded once, at the end, so half-conviction is not
-		// exactly round(full / 2).
-		const expected = (conviction: number) =>
-			selectionPoints(
-				BASE_POINTS_BY_SHAPE.yes_no_prop,
-				LOSS_RATE_BY_SHAPE.yes_no_prop,
-				50,
-				2,
-				conviction,
-				true,
-				earlyTierFor(1, 2).mult,
-			)
-		expect(await winnerPoints(100)).toBe(expected(100))
-		expect(await winnerPoints(50)).toBe(expected(50))
-		expect(expected(50)).toBeLessThan(expected(100))
-	})
-
-	it("scales a loss by conviction alone", async () => {
-		const { question, options, callers } = await seedOptionQuestion({
-			callers: [{ optionIndex: 0 }, { optionIndex: 1, conviction: 40 }],
-		})
-		await resolve(question, { correctOptionIds: [options[0].id] })
-		const loser = await selectionFor(callers[1].selection.id)
-		expect(loser?.resultPoints).toBe(
-			-Math.round(BASE_POINTS_BY_SHAPE.yes_no_prop * 0.4),
-		)
 	})
 
 	it("ranks earliness by call, so an award's picks share one multiplier", async () => {
@@ -398,41 +323,6 @@ describe("resolveQuestionInternal - re-resolution (dispute overturn)", () => {
 		expect(loserAfter?.points).toBeGreaterThan(0)
 	})
 
-	it("moves the conviction sums with the outcome when it flips", async () => {
-		const { question, options, callers } = await seedOptionQuestion({
-			callers: [
-				{ optionIndex: 0, conviction: 90 },
-				{ optionIndex: 1, conviction: 20 },
-			],
-		})
-		await resolve(question, { correctOptionIds: [options[0].id] })
-		expect((await statsFor(callers[0].user.id))?.convictionSumCorrect).toBe(90)
-		expect((await statsFor(callers[1].user.id))?.convictionSumCorrect).toBe(0)
-
-		await resolve(question, { correctOptionIds: [options[1].id] })
-
-		const winnerAfter = await statsFor(callers[0].user.id)
-		const loserAfter = await statsFor(callers[1].user.id)
-		// The old correct-side conviction is fully netted out rather than left
-		// sitting alongside the new one, same as correctCount above.
-		expect(winnerAfter?.convictionSumCorrect).toBe(0)
-		expect(winnerAfter?.convictionSum).toBe(90)
-		expect(loserAfter?.convictionSumCorrect).toBe(20)
-		expect(loserAfter?.convictionSum).toBe(20)
-	})
-
-	it("leaves the conviction sums untouched when the outcome doesn't flip", async () => {
-		const { question, options, callers } = await seedOptionQuestion({
-			callers: [{ optionIndex: 0, conviction: 65 }],
-		})
-		await resolve(question, { correctOptionIds: [options[0].id] })
-		await resolve(question, { correctOptionIds: [options[0].id] })
-
-		const stats = await statsFor(callers[0].user.id)
-		expect(stats?.convictionSum).toBe(65)
-		expect(stats?.convictionSumCorrect).toBe(65)
-	})
-
 	it("returns the conviction sums to zero across resolve, overturn and reverse", async () => {
 		// The invariant the whole delta design rests on: every path that adds
 		// to these sums has a mirror that takes exactly the same amount back
@@ -593,48 +483,6 @@ describe("resolveQuestionInternal - numeric guess shapes", () => {
 })
 
 describe("resolveQuestionInternal - season-long earliness", () => {
-	it("scores earliness off games played, not rank among callers", async () => {
-		// Two callers on a season-long shape. The first calls before any game
-		// is final, the second after 8 of 10 - rank would have given the
-		// second caller the worse multiplier anyway, so the test pins the
-		// actual season-progress values instead.
-		const question = await makeQuestion({
-			shape: "player_season_award",
-			isOfficial: true,
-			picksRequired: 1,
-			locksAt: pastDate(1),
-		})
-		const option = await makeOption(question.id, { label: "A" })
-
-		for (let i = 0; i < 10; i++) {
-			await makeGame({
-				leagueId: question.leagueId,
-				seasonId: question.seasonId,
-				startsAt: pastDate(100 - i * 5),
-				status: i < 8 ? "final" : "scheduled",
-			})
-		}
-
-		const earlyUser = await makeUser()
-		const earlyCall = await makeCall(question.id, earlyUser.id, {
-			createdAt: pastDate(120),
-		})
-		const earlyPick = await makeSelection(earlyCall.id, option.id)
-
-		const lateUser = await makeUser()
-		const lateCall = await makeCall(question.id, lateUser.id, {
-			createdAt: pastDate(55),
-		})
-		const latePick = await makeSelection(lateCall.id, option.id)
-
-		await resolve(question, { correctOptionIds: [option.id] })
-
-		const early = await selectionFor(earlyPick.id)
-		const late = await selectionFor(latePick.id)
-		// Called before a single game was played vs. after most of the window.
-		expect(early?.resultPoints).toBeGreaterThan(late?.resultPoints ?? 0)
-	})
-
 	it("counts only games inside the question's own window", async () => {
 		const question = await makeQuestion({
 			shape: "player_season_award",
@@ -752,7 +600,7 @@ describe("reverseQuestionLeagueStats", () => {
 		const { question, callers } = await seedOptionQuestion({
 			callers: [{ optionIndex: 0 }],
 		})
-		await db.insert(userSeasonStats).values({
+		await makeUserSeasonStats({
 			userId: callers[0].user.id,
 			leagueId: question.leagueId,
 			seasonId: question.seasonId,
@@ -770,7 +618,7 @@ describe("reverseQuestionLeagueStats", () => {
 			callers: [{ optionIndex: 0 }],
 		})
 		const userId = callers[0].user.id
-		await db.insert(userSeasonStats).values({
+		await makeUserSeasonStats({
 			userId,
 			leagueId: question.leagueId,
 			seasonId: question.seasonId,
@@ -861,33 +709,6 @@ describe("resolveQuestionInternal - unscored calls", () => {
 		expect(await statsFor(userId)).toBeUndefined()
 	})
 
-	it("still counts an excluded call in the field the others score against", async () => {
-		const { question, options, callers } = await seedOptionQuestion({
-			callers: [
-				{ optionIndex: 0, createdAt: pastDate(2) },
-				{ optionIndex: 1, createdAt: pastDate(1) },
-			],
-		})
-		await resolve(
-			question,
-			{ correctOptionIds: [options[0].id] },
-			{ unscoredUserIds: soleCaller(callers[1].user.id) },
-		)
-
-		const winner = await selectionFor(callers[0].selection.id)
-		expect(winner?.resultPoints).toBe(
-			selectionPoints(
-				BASE_POINTS_BY_SHAPE.yes_no_prop,
-				LOSS_RATE_BY_SHAPE.yes_no_prop,
-				50,
-				2,
-				100,
-				true,
-				earlyTierFor(1, 2).mult,
-			),
-		)
-	})
-
 	it("leaves an excluded numeric guess unscored", async () => {
 		const question = await makeQuestion({
 			shape: "player_stat_numeric_guess",
@@ -969,7 +790,9 @@ describe("resolveQuestionInternal - call_resolved analytics", () => {
 			resolutionMethod: "system",
 			rescored: false,
 		})
-		expect((won.properties as { pointsDelta: number }).pointsDelta).toBeGreaterThan(0)
+		expect(
+			(won.properties as { pointsDelta: number }).pointsDelta,
+		).toBeGreaterThan(0)
 		expect(lost.properties).toMatchObject({
 			correct: false,
 			pointsDelta: -BASE_POINTS_BY_SHAPE.yes_no_prop,

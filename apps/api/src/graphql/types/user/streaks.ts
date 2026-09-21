@@ -16,14 +16,17 @@ import {
 } from "../../../lib/streaks/read"
 import { formatSlateLabel, parseSlateKey } from "../../../lib/streaks/slate"
 import { builder } from "../../builder"
+import type { Context } from "../../context"
 import { CallRef } from "../question"
-import { LeagueRef } from "../sports"
+import { findLeague, LeagueRef } from "../sports"
 import { StreakFamilyEnum } from "./enums"
 
-async function leagueOf(row: { leagueId: string }) {
-	const league = await db.query.leagues.findFirst({
-		where: { id: row.leagueId },
-	})
+async function leagueOf(
+	row: { leagueId: string },
+	_args: unknown,
+	ctx: Context,
+) {
+	const league = await findLeague(ctx, { id: row.leagueId })
 	if (!league) throw new Error(`league ${row.leagueId} not found`)
 	return league
 }
@@ -49,9 +52,9 @@ export const UserStreakRef = builder
 			currentColdLength: t.exposeInt("currentColdLength"),
 			worstColdLength: t.exposeInt("worstColdLength"),
 			worstColdEndedAt: t.field({
-				type: "String",
+				type: "DateTime",
 				nullable: true,
-				resolve: (s) => s.worstColdEndedAt?.toISOString() ?? null,
+				resolve: (s) => s.worstColdEndedAt,
 			}),
 			// The next multiple of STREAK_MILESTONE_STEP the current run can
 			// reach - what a "one more for 10" nudge counts toward.
@@ -62,7 +65,7 @@ export const UserStreakRef = builder
 					STREAK_MILESTONE_STEP,
 			}),
 			currentStartedAt: t.field({
-				type: "String",
+				type: "DateTime",
 				nullable: true,
 				resolve: async (s) => {
 					const [first] = await loadRunCalls(
@@ -70,13 +73,13 @@ export const UserStreakRef = builder
 						s.currentStartCallId,
 						s.currentStartCallId,
 					)
-					return first?.createdAt.toISOString() ?? null
+					return first?.createdAt ?? null
 				},
 			}),
 			bestEndedAt: t.field({
-				type: "String",
+				type: "DateTime",
 				nullable: true,
-				resolve: (s) => s.bestEndedAt?.toISOString() ?? null,
+				resolve: (s) => s.bestEndedAt,
 			}),
 			// Whether the best run is the one still going.
 			bestIsCurrent: t.field({
@@ -101,7 +104,7 @@ export const UserStreakRef = builder
 					s.worstColdStartCallId === s.currentColdStartCallId,
 			}),
 			coldStartedAt: t.field({
-				type: "String",
+				type: "DateTime",
 				nullable: true,
 				resolve: async (s) => {
 					const [first] = await loadColdRunCalls(
@@ -109,7 +112,7 @@ export const UserStreakRef = builder
 						s.currentColdStartCallId,
 						s.currentColdStartCallId,
 					)
-					return first?.createdAt.toISOString() ?? null
+					return first?.createdAt ?? null
 				},
 			}),
 			coldRunCalls: t.field({
@@ -137,20 +140,20 @@ export const UserSweepRef = builder
 			// abbreviation.
 			slateLabel: t.field({
 				type: "String",
-				resolve: async (s) => {
-					const league = await leagueOf(s)
+				resolve: async (s, _args, ctx) => {
+					const league = await leagueOf(s, null, ctx)
 					const slate = parseSlateKey(s.slateKey)
 					return slate ? formatSlateLabel(slate, league.slug) : s.slateKey
 				},
 			}),
 			gameCount: t.exposeInt("gameCount"),
 			firstStartsAt: t.field({
-				type: "String",
-				resolve: (s) => s.firstStartsAt.toISOString(),
+				type: "DateTime",
+				resolve: (s) => s.firstStartsAt,
 			}),
 			settledAt: t.field({
-				type: "String",
-				resolve: (s) => s.settledAt.toISOString(),
+				type: "DateTime",
+				resolve: (s) => s.settledAt,
 			}),
 			calls: t.field({ type: [CallRef], resolve: loadSweepCalls }),
 			// Sum of the swept calls' points, once every one of them is final.

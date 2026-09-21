@@ -3,9 +3,10 @@ import { generationKey } from "../../lib/game-questions/generation-key"
 import { refreshGeneratedQuestionSchedule } from "../../lib/game-questions/schedule"
 import { gameQuestionTitle } from "../../lib/game-questions/titles"
 import { getOfficialAccountId } from "../../lib/official-account"
+import { insertQuestion, teamOptions } from "../../lib/questions/insert"
 import { getCurrentSeason } from "../../lib/seasons"
 import { db } from "../index"
-import { type League, questionOptions, questions } from "../schema"
+import type { League } from "../schema"
 
 // One team_vs_team question per synced game, created official (see
 // ADMIN_ONLY_SHAPES in packages/schemas/src/questions.ts - team_vs_team is
@@ -20,7 +21,10 @@ import { type League, questionOptions, questions } from "../schema"
 // covers a game moved out of generate-game-questions.ts's own window.
 //
 // Requires syncGames(config, league) to have already run for this league.
-export async function syncGameQuestions(league: League): Promise<void> {
+export async function syncGameQuestions(
+	league: League,
+	now: Date = new Date(),
+): Promise<void> {
 	const officialAccountId = await getOfficialAccountId()
 	const allLeagueGames = await db.query.games.findMany({
 		where: { leagueId: league.id },
@@ -44,7 +48,6 @@ export async function syncGameQuestions(league: League): Promise<void> {
 	// considers "current," which in the gap between seasons is still last
 	// season's full slate - hundreds of already-finished games syncGames
 	// just backfilled that have no business getting a question now.
-	const now = new Date()
 	const season = await getCurrentSeason(league.id)
 	// Descending: within a batch, each insert's createdAt lands a little
 	// later than the previous one (sequential round trips, same as any
@@ -84,9 +87,9 @@ export async function syncGameQuestions(league: League): Promise<void> {
 			})
 
 			if (!existing) {
-				const [inserted] = await tx
-					.insert(questions)
-					.values({
+				await insertQuestion(
+					tx,
+					{
 						shape: "team_vs_team",
 						title: gameQuestionTitle({ shape: "team_vs_team" }, gameWithTeams),
 						creatorId: officialAccountId,
@@ -98,30 +101,11 @@ export async function syncGameQuestions(league: League): Promise<void> {
 						resolutionSource: "ESPN box score",
 						resolutionMode: "system",
 						locksAt: game.startsAt,
-						generationKey: key,
 						lossRate: defaultLossRate("team_vs_team", {}),
-					})
-					.returning()
-				if (!inserted) {
-					throw new Error(
-						`syncGameQuestions: insert returned nothing for game ${game.id}`,
-					)
-				}
-
-				await tx.insert(questionOptions).values([
-					{
-						questionId: inserted.id,
-						label: gameWithTeams.awayTeam.name,
-						sortOrder: 0,
-						teamId: game.awayTeamId,
 					},
-					{
-						questionId: inserted.id,
-						label: gameWithTeams.homeTeam.name,
-						sortOrder: 1,
-						teamId: game.homeTeamId,
-					},
-				])
+					{ generationKey: key },
+					teamOptions([gameWithTeams.awayTeam, gameWithTeams.homeTeam]),
+				)
 			}
 
 			await refreshGeneratedQuestionSchedule(tx, gameWithTeams)

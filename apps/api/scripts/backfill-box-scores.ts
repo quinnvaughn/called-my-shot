@@ -4,6 +4,7 @@ import {
 	selectBackfillGames,
 } from "../src/db/sync/backfill-box-scores"
 import { BOX_SCORE_SYNC_LOCK, withJobLock } from "../src/lib/job-lock"
+import { parseFlags } from "./parse-flags"
 
 // Thin CLI over src/db/sync/backfill-box-scores.ts, which is where the
 // behaviour and its tests live. Stores the box score of every final game that
@@ -18,21 +19,24 @@ import { BOX_SCORE_SYNC_LOCK, withJobLock } from "../src/lib/job-lock"
 //
 // Interrupting it is safe. Each game is stamped in the same transaction as its
 // rows, so re-running the same command resumes rather than restarting.
-function flag(name: string): string | undefined {
-	const hit = process.argv.find((a) => a.startsWith(`--${name}`))
-	if (!hit) return undefined
-	return hit.includes("=") ? hit.split("=")[1] : "true"
-}
+const flags = parseFlags({
+	commit: { type: "boolean", default: false },
+	league: { type: "string" },
+	season: { type: "string" },
+	from: { type: "string" },
+	to: { type: "string" },
+	limit: { type: "string" },
+	spacing: { type: "string" },
+})
 
-function list(name: string): string[] | undefined {
-	const raw = flag(name)
-	if (!raw || raw === "true") return undefined
+function list(raw: string | undefined): string[] | undefined {
+	if (!raw) return undefined
 	return raw.split(",").filter(Boolean)
 }
 
-function date(name: string): Date | undefined {
-	const raw = flag(name)
-	if (!raw || raw === "true") return undefined
+function date(name: "from" | "to"): Date | undefined {
+	const raw = flags[name]
+	if (!raw) return undefined
 	const parsed = new Date(raw)
 	if (Number.isNaN(parsed.getTime())) {
 		console.error(`--${name} isn't a date I can read: ${raw}`)
@@ -41,13 +45,13 @@ function date(name: string): Date | undefined {
 	return parsed
 }
 
-const commit = flag("commit") === "true"
-const limit = Number(flag("limit")) || undefined
-const spacingMs = Number(flag("spacing")) || BACKFILL_SPACING_MS
+const commit = flags.commit
+const limit = Number(flags.limit) || undefined
+const spacingMs = Number(flags.spacing) || BACKFILL_SPACING_MS
 
 const selection = await selectBackfillGames({
-	leagueSlugs: list("league"),
-	seasonYears: list("season")?.map(Number).filter(Number.isFinite),
+	leagueSlugs: list(flags.league),
+	seasonYears: list(flags.season)?.map(Number).filter(Number.isFinite),
 	from: date("from"),
 	to: date("to"),
 	limit,

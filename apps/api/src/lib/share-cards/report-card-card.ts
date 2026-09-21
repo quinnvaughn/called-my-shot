@@ -2,37 +2,17 @@
 // states how a caller did across one window of games: the grade, what the
 // return was, the record behind it, and the single best and worst call in it.
 //
-// Same fixed 1200x630 and header/hero/footer bands as call-card.ts and
-// sweep-card.ts, built from their shared eyebrow/statCell pieces so the
-// images read as one set.
+// Built on the shared og:image frame (see frame.ts).
 import { type Grade, SHAPE_FAMILY_LABEL } from "@called-my-shot/scoring"
 import { db } from "../../db"
-import {
-	getLeagueWindows,
-	type WindowDescriptor,
-} from "../../graphql/types/sports/windows"
 import { COLOR } from "../brand-palette"
 import { loadReportCard } from "../report-card/load"
 import { el, type SatoriNode } from "../share-image"
-import { brandWordmark } from "./brand-wordmark"
-import { clamp, eyebrow, statCell } from "./call-card"
+import { getLeagueWindows, type WindowDescriptor } from "../windows"
+import { cardFrame, clamp, eyebrow, PERSON_MAX, statCell } from "./frame"
 
-const TARGET_WIDTH = 1200
-const TARGET_HEIGHT = 630
-export const REPORT_CARD_SHARE_CARD_SIZE = {
-	width: TARGET_WIDTH,
-	height: TARGET_HEIGHT,
-}
-
-const WORDMARK_SCALE = 1.7
-const wordmarkPx = (n: number) => `${Math.round(n * WORDMARK_SCALE)}px`
-
-const PERSON_MAX = 40
 const WINDOW_LABEL_MAX = 34
 const ROW_LABEL_MAX = 22
-
-const HEADER_HEIGHT = 96
-const FOOTER_HEIGHT = 168
 
 // Above this many breakdown rows the list steps down a size rather than
 // dropping rows - a caller who spread across five families should see all
@@ -147,150 +127,67 @@ export function buildReportCardShareCard(
 		statCell("Committed", String(data.committedPoints)),
 	]
 
-	return el(
-		"div",
-		{
-			display: "flex",
-			width: `${TARGET_WIDTH}px`,
-			height: `${TARGET_HEIGHT}px`,
-			padding: "14px",
-			backgroundColor: COLOR.paper,
-			fontFamily: "Inter",
-		},
-		[
-			el(
-				"div",
-				{
-					display: "flex",
-					flexDirection: "column",
-					flex: "1",
-					backgroundColor: COLOR.card,
-					color: COLOR.ink,
-					border: `1px solid ${COLOR.border}`,
-					borderRadius: "20px",
-				},
-				[
-					el(
-						"div",
-						{
-							display: "flex",
-							height: `${HEADER_HEIGHT}px`,
-							flexShrink: 0,
-							alignItems: "center",
-							justifyContent: "space-between",
-							paddingLeft: "36px",
-							paddingRight: "36px",
-							borderBottom: `1px solid ${COLOR.border}`,
-						},
-						[
-							brandWordmark(wordmarkPx, WORDMARK_SCALE),
-							eyebrow(
-								`${data.leagueAbbr} · ${clamp(data.windowLabel, WINDOW_LABEL_MAX)}`,
-							),
-						],
-					),
-					// Grade on the left, breakdown on the right. The grade is the
-					// one thing an unfurl has to land in a thumbnail, so it gets
-					// the size; the rows are what makes it worth opening.
-					el(
-						"div",
-						{
-							display: "flex",
-							flex: "1",
-							overflow: "hidden",
-							alignItems: "center",
-							gap: "40px",
-							paddingLeft: "36px",
-							paddingRight: "36px",
-						},
-						[
-							el(
-								"div",
-								{
-									display: "flex",
-									flexDirection: "column",
-									gap: "10px",
-									width: "320px",
-									flexShrink: 0,
-								},
-								[
-									eyebrow(clamp(data.name, PERSON_MAX)),
-									el(
-										"span",
-										{
-											display: "flex",
-											fontFamily: "Archivo Black",
-											fontSize: "150px",
-											lineHeight: 1,
-											color: gradeColor(data.grade),
-										},
-										data.grade ?? "-",
-									),
-									eyebrow(
-										data.pendingCount > 0
-											? `${data.pendingCount} still out there`
-											: "Final",
-									),
-								],
-							),
-							el(
-								"div",
-								{
-									display: "flex",
-									flexDirection: "column",
-									flex: "1",
-									gap: compact ? "12px" : "16px",
-								},
-								data.rows.map((row) => breakdownRow(row, compact)),
-							),
-						],
-					),
-					el(
-						"div",
-						{
-							display: "flex",
-							flexDirection: "column",
-							height: `${FOOTER_HEIGHT}px`,
-							flexShrink: 0,
-							justifyContent: "center",
-							gap: "18px",
-							paddingLeft: "36px",
-							paddingRight: "36px",
-							borderTop: `1px solid ${COLOR.border}`,
-						},
-						[
-							el(
-								"div",
-								{
-									display: "flex",
-									alignItems: "flex-end",
-									justifyContent: "space-between",
-									width: "100%",
-								},
-								cells,
-							),
-							el(
-								"div",
-								{
-									display: "flex",
-									alignItems: "center",
-									justifyContent: "space-between",
-									width: "100%",
-									fontFamily: "Space Mono",
-									fontSize: "17px",
-									color: COLOR.dim,
-								},
-								[
-									el("span", { display: "flex" }, `@${data.username}`),
-									el("span", { display: "flex" }, "calledmyshot.com"),
-								],
-							),
-						],
-					),
-				],
-			),
-		],
-	)
+	return cardFrame({
+		eyebrow: `${data.leagueAbbr} · ${clamp(data.windowLabel, WINDOW_LABEL_MAX)}`,
+		// Grade on the left, breakdown on the right. The grade is the one thing
+		// an unfurl has to land in a thumbnail, so it gets the size; the rows
+		// are what makes it worth opening.
+		hero: el(
+			"div",
+			{
+				display: "flex",
+				flex: "1",
+				overflow: "hidden",
+				alignItems: "center",
+				gap: "40px",
+				paddingLeft: "36px",
+				paddingRight: "36px",
+			},
+			[
+				el(
+					"div",
+					{
+						display: "flex",
+						flexDirection: "column",
+						gap: "10px",
+						width: "320px",
+						flexShrink: 0,
+					},
+					[
+						eyebrow(clamp(data.name, PERSON_MAX)),
+						el(
+							"span",
+							{
+								display: "flex",
+								fontFamily: "Archivo Black",
+								fontSize: "150px",
+								lineHeight: 1,
+								color: gradeColor(data.grade),
+							},
+							data.grade ?? "-",
+						),
+						eyebrow(
+							data.pendingCount > 0
+								? `${data.pendingCount} still out there`
+								: "Final",
+						),
+					],
+				),
+				el(
+					"div",
+					{
+						display: "flex",
+						flexDirection: "column",
+						flex: "1",
+						gap: compact ? "12px" : "16px",
+					},
+					data.rows.map((row) => breakdownRow(row, compact)),
+				),
+			],
+		),
+		cells,
+		username: data.username,
+	})
 }
 
 // Null when there's nothing to preview: an unknown user or league, a key that

@@ -3,18 +3,18 @@ import { DateTime } from "luxon"
 import { db } from "../../../db"
 import { calls, questions } from "../../../db/schema"
 import { hasGameReminder } from "../../../lib/game-reminders"
+import { buildWeekWindowKey, ET_ZONE } from "../../../lib/windows"
 import { builder } from "../../builder"
 import { GameStatus } from "./enums"
 import { loadTeamRecordsByKey, TeamRecordRef } from "./team"
-import { buildWeekWindowKey, ET_ZONE } from "./windows"
 
 export const GameRef = builder.drizzleObject("games", {
 	name: "Game",
 	fields: (t) => ({
 		id: t.exposeID("id"),
 		startsAt: t.field({
-			type: "String",
-			resolve: (g) => g.startsAt.toISOString(),
+			type: "DateTime",
+			resolve: (g) => g.startsAt,
 		}),
 		status: t.field({ type: GameStatus, resolve: (g) => g.status }),
 		// Only ever true while status is LIVE - see games.atHalftime.
@@ -93,19 +93,7 @@ export const GameRef = builder.drizzleObject("games", {
 				)
 			},
 		}),
-		// Plain per-row resolves, not batched loadables - a games list is one
-		// window's worth of games (a day or a week), never large enough to worry
-		// about N+1 the way a long feed would.
-		questionCount: t.field({
-			type: "Int",
-			resolve: async (game) => {
-				const [{ n }] = await db
-					.select({ n: count() })
-					.from(questions)
-					.where(eq(questions.gameId, game.id))
-				return n
-			},
-		}),
+		questionCount: t.relatedCount("questions"),
 		// The game's official questions, oldest first. Community questions are
 		// left out: a game can collect any number of them. No literal `with` here,
 		// for the same reason as BallotRef.members (graphql/types/ballot/refs.ts).
@@ -122,7 +110,9 @@ export const GameRef = builder.drizzleObject("games", {
 			resolve: async (game, _args, ctx) =>
 				ctx.user ? hasGameReminder(ctx.user.id, game.id) : false,
 		}),
-		// Null when signed out - same reasoning as League.myOpenCallCount above.
+		// Null when signed out - same reasoning as League.myOpenCallCount.
+		// A plain per-row resolve: a games list is one window's worth of games
+		// (a day or a week), never large enough to worry about N+1.
 		viewerCalledCount: t.field({
 			type: "Int",
 			nullable: true,

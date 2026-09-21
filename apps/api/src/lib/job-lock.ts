@@ -94,7 +94,9 @@ export async function withJobLock(
 // The lease names the jobs share with their schedulers. Constants rather than
 // string literals at each call site because a typo in one of them silently
 // buys a second, useless lease instead of failing.
+export const AUTO_RESOLVE_CHAMPIONSHIPS_LOCK = "auto-resolve-championships"
 export const AUTO_RESOLVE_GAMES_LOCK = "auto-resolve-games"
+export const AUTO_RESOLVE_SEASONS_LOCK = "auto-resolve-seasons"
 // Held by the box score backfill and by the went-final sweep, so a hand-run
 // backfill and a tick can't both be fetching the same games. Deliberately not
 // AUTO_RESOLVE_GAMES_LOCK: a backfill can run for the better part of an hour,
@@ -106,4 +108,15 @@ export const DRAIN_ANALYTICS_LOCK = "drain-analytics-outbox"
 export const DRAIN_DIGESTS_LOCK = "drain-email-digests"
 export const DRAIN_GAME_REMINDERS_LOCK = "drain-game-reminders"
 export const DRAIN_SEASON_START_LOCK = "drain-season-start-emails"
+export const ENQUEUE_SEASON_START_LOCK = "enqueue-season-start-emails"
+export const GENERATE_GAME_QUESTIONS_LOCK = "generate-game-questions"
+export const LOCK_OVERDUE_QUESTIONS_LOCK = "lock-overdue-questions"
 export const RECOMPUTE_ACHIEVEMENTS_LOCK = "recompute-achievements"
+export const RECONCILE_ACHIEVEMENTS_LOCK = "reconcile-achievements"
+export const SYNC_GAME_STARTERS_LOCK = "sync-game-starters"
+export const SYNC_LIVE_SCORES_LOCK = "sync-live-scores"
+export const SYNC_SPORTS_DATA_LOCK = "sync-sports-data"
+export const TUNE_BANDS_LOCK = "tune-bands"
+export const TUNE_LEADER_LOSSES_LOCK = "tune-leader-losses"
+export const TUNE_LINES_LOCK = "tune-lines"
+export const TUNE_TITLE_LOSSES_LOCK = "tune-title-losses"

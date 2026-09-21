@@ -20,7 +20,6 @@ import "./game-reminders"
 // side-effect imports above, never referenced by name from outside.
 export { PlayerRef, StatRef } from "./catalog"
 export { GameRef } from "./game"
-export { LeagueRef, SeasonRef, SportRef } from "./league"
+export { findLeague, LeagueRef, SeasonRef, SportRef } from "./league"
 export { ReportCardRef } from "./report-card"
 export { TeamRef } from "./team"
-export { resolveWindowByKey } from "./windows"

@@ -12,13 +12,13 @@ export const ResolutionDisputeRef = builder.drizzleObject(
 			// set by an admin once the dispute is decided
 			resolutionNote: t.exposeString("resolutionNote", { nullable: true }),
 			createdAt: t.field({
-				type: "String",
-				resolve: (d) => d.createdAt.toISOString(),
+				type: "DateTime",
+				resolve: (d) => d.createdAt,
 			}),
 			resolvedAt: t.field({
-				type: "String",
+				type: "DateTime",
 				nullable: true,
-				resolve: (d) => d.resolvedAt?.toISOString() ?? null,
+				resolve: (d) => d.resolvedAt,
 			}),
 			user: t.relation("user"),
 			question: t.relation("question"),
@@ -34,13 +34,13 @@ export const QuestionReportRef = builder.drizzleObject("questionReports", {
 		details: t.exposeString("details", { nullable: true }),
 		status: t.field({ type: ReportStatus, resolve: (r) => r.status }),
 		createdAt: t.field({
-			type: "String",
-			resolve: (r) => r.createdAt.toISOString(),
+			type: "DateTime",
+			resolve: (r) => r.createdAt,
 		}),
 		reviewedAt: t.field({
-			type: "String",
+			type: "DateTime",
 			nullable: true,
-			resolve: (r) => r.reviewedAt?.toISOString() ?? null,
+			resolve: (r) => r.reviewedAt,
 		}),
 		reportedBy: t.relation("reportedBy"),
 		question: t.relation("question"),

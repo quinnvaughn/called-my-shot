@@ -75,3 +75,51 @@ export function decodeOffsetCursor(cursor: string): number {
 	}
 	return offset
 }
+
+export type PageArgs = { first?: number | null; after?: string | null }
+
+// What a keyset-paginated read hands Drizzle: spread `where` into the query's
+// own filters and pass orderBy/limit through untouched.
+export type KeysetPage = {
+	where: ReturnType<typeof cursorWhere> | Record<string, never>
+	orderBy: { createdAt: "desc"; id: "desc" }
+	limit: number
+}
+
+// One page of a (createdAt, id) keyset feed: clamps the page size, decodes
+// the cursor, runs `fetch` for limit + 1 rows, and trims the result.
+export async function keysetPaginate<T extends { createdAt: Date; id: string }>(
+	args: PageArgs,
+	fetch: (page: KeysetPage) => Promise<T[]>,
+) {
+	const limit = clampPageSize(args.first)
+	const cursor = args.after ? decodeCursor(args.after) : null
+	const rows = await fetch({
+		where: cursor ? cursorWhere(cursor) : {},
+		orderBy: { createdAt: "desc", id: "desc" },
+		limit: limit + 1,
+	})
+	return paginate(rows, limit)
+}
+
+// One page of a list already ranked in memory (a leaderboard), addressed by
+// offset cursor.
+export function sliceOffsetPage<T>(
+	all: T[],
+	args: PageArgs,
+): {
+	items: T[]
+	pageInfo: { hasNextPage: boolean; endCursor: string | null }
+} {
+	const limit = clampPageSize(args.first)
+	const offset = args.after ? decodeOffsetCursor(args.after) : 0
+	const items = all.slice(offset, offset + limit)
+	return {
+		items,
+		pageInfo: {
+			hasNextPage: offset + limit < all.length,
+			endCursor:
+				items.length > 0 ? encodeOffsetCursor(offset + items.length) : null,
+		},
+	}
+}

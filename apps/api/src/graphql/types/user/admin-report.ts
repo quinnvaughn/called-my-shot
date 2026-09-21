@@ -32,8 +32,8 @@ const CoCallerRowRef = builder
 			username: t.exposeString("username"),
 			emailVerified: t.exposeBoolean("emailVerified"),
 			joinedAt: t.field({
-				type: "String",
-				resolve: (row) => row.joinedAt.toISOString(),
+				type: "DateTime",
+				resolve: (row) => row.joinedAt,
 			}),
 			sharedCount: t.exposeInt("sharedCount"),
 			wins: t.exposeInt("wins"),

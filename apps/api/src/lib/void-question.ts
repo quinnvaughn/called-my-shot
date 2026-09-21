@@ -7,16 +7,10 @@ import {
 	questionOptions,
 	questions,
 } from "../db/schema"
-import { callContribution } from "./call-contribution"
+import type { Tx } from "../db/types"
 import { createNotifications } from "./notifications"
-import type { ResolvedBy } from "./resolve-question"
+import { type ResolvedBy, reverseQuestionLeagueStats } from "./resolve-question"
 import { markAchievementsDirty } from "./streaks/enqueue"
-import {
-	addLeagueStatDelta,
-	applySeasonStatDeltas,
-	type LeagueStatDelta,
-	type Tx,
-} from "./user-season-stats"
 
 // Settles a question with no result instead of deleting it: every call stays
 // visible but stops counting toward points, accuracy and call count, and the
@@ -31,37 +25,7 @@ export async function markQuestionVoided(
 	question: Question,
 	input: { reason: QuestionVoidedReason; note: string; voidedBy: ResolvedBy },
 ): Promise<Question> {
-	const questionCalls = await tx.query.calls.findMany({
-		where: { questionId: question.id },
-		columns: {
-			id: true,
-			userId: true,
-			resultPoints: true,
-			hitTolerance: true,
-			conviction: true,
-			unscoredReason: true,
-		},
-		with: {
-			selections: {
-				columns: { resultPoints: true, conviction: true },
-				with: { option: { columns: { isCorrect: true } } },
-			},
-		},
-	})
-
-	const deltas = new Map<string, LeagueStatDelta>()
-	for (const call of questionCalls) {
-		const contribution = callContribution(call, question.status)
-		addLeagueStatDelta(deltas, call.userId, {
-			points: -contribution.points,
-			resolvedCallCount: -contribution.resolvedCallCount,
-			correctCount: -contribution.correctCount,
-			convictionSum: -contribution.convictionSum,
-			convictionSumCorrect: -contribution.convictionSumCorrect,
-			callCount: -contribution.callCount,
-		})
-	}
-	await applySeasonStatDeltas(tx, question.leagueId, question.seasonId, deltas)
+	const questionCalls = await reverseQuestionLeagueStats(tx, question)
 
 	if (questionCalls.length > 0) {
 		await tx

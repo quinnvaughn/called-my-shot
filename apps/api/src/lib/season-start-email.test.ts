@@ -16,26 +16,14 @@ import {
 	makeSeason,
 	makeUser,
 } from "../test/factories"
-import type { MailMessage, MailResult } from "./mailer"
+import { mailRecorder } from "../test/helpers"
 import {
 	announceableSeasons,
 	drainSeasonStartEmails,
 	enqueueSeasonStartEmails,
 } from "./season-start-email"
 
-const DAY = 24 * 60 * 60 * 1000
-
-/** Collects what would have gone out instead of calling Resend. */
-function recorder(result: MailResult = { ok: true }) {
-	const sent: MailMessage[] = []
-	return {
-		sent,
-		send: async (message: MailMessage) => {
-			sent.push(message)
-			return result
-		},
-	}
-}
+import { DAY_MS } from "./time"
 
 /**
  * A league whose season opens `daysOut` from now with one scheduled game -
@@ -61,13 +49,13 @@ async function seedUpcomingSeason({
 		windowType,
 		...(slug ? { slug, name: slug.toUpperCase() } : {}),
 	})
-	const firstGameAt = new Date(Date.now() + daysOut * DAY)
+	const firstGameAt = new Date(Date.now() + daysOut * DAY_MS)
 	const season = await makeSeason({
 		leagueId: league.id,
 		regularSeasonStartsAt: new Date(
-			firstGameAt.getTime() - boundaryDaysBefore * DAY,
+			firstGameAt.getTime() - boundaryDaysBefore * DAY_MS,
 		),
-		regularSeasonEndsAt: new Date(firstGameAt.getTime() + 120 * DAY),
+		regularSeasonEndsAt: new Date(firstGameAt.getTime() + 120 * DAY_MS),
 	})
 	for (let i = 0; i < games; i++) {
 		await makeGame({
@@ -98,14 +86,14 @@ describe("announceableSeasons", () => {
 		const started = await makeLeague()
 		const startedSeason = await makeSeason({
 			leagueId: started.id,
-			regularSeasonStartsAt: new Date(Date.now() - 5 * DAY),
+			regularSeasonStartsAt: new Date(Date.now() - 5 * DAY_MS),
 		})
 		await makeGame({
 			leagueId: started.id,
 			seasonId: startedSeason.id,
 			seasonType: "regular",
 			weekNumber: 1,
-			startsAt: new Date(Date.now() - 5 * DAY),
+			startsAt: new Date(Date.now() - 5 * DAY_MS),
 		})
 
 		const found = await announceableSeasons()
@@ -119,11 +107,11 @@ describe("announceableSeasons", () => {
 	// list the season started "today".
 	it("keys on the first game, not ESPN's already-passed season boundary", async () => {
 		const league = await makeLeague({ windowType: "week" })
-		const firstGameAt = new Date(Date.now() + 3 * DAY)
+		const firstGameAt = new Date(Date.now() + 3 * DAY_MS)
 		const season = await makeSeason({
 			leagueId: league.id,
 			// Two days in the PAST, like the real one was.
-			regularSeasonStartsAt: new Date(Date.now() - 2 * DAY),
+			regularSeasonStartsAt: new Date(Date.now() - 2 * DAY_MS),
 		})
 		await makeGame({
 			leagueId: league.id,
@@ -144,7 +132,7 @@ describe("announceableSeasons", () => {
 		const league = await makeLeague({ windowType: "week" })
 		const season = await makeSeason({
 			leagueId: league.id,
-			regularSeasonStartsAt: new Date(Date.now() + 2 * DAY),
+			regularSeasonStartsAt: new Date(Date.now() + 2 * DAY_MS),
 		})
 		await makeGame({
 			leagueId: league.id,
@@ -161,7 +149,7 @@ describe("announceableSeasons", () => {
 		const league = await makeLeague({ status: "inactive", windowType: "week" })
 		const season = await makeSeason({
 			leagueId: league.id,
-			regularSeasonStartsAt: new Date(Date.now() + 3 * DAY),
+			regularSeasonStartsAt: new Date(Date.now() + 3 * DAY_MS),
 		})
 		await makeGame({
 			leagueId: league.id,
@@ -180,7 +168,7 @@ describe("announceableSeasons", () => {
 		const league = await makeLeague()
 		await makeSeason({
 			leagueId: league.id,
-			regularSeasonStartsAt: new Date(Date.now() + 3 * DAY),
+			regularSeasonStartsAt: new Date(Date.now() + 3 * DAY_MS),
 		})
 
 		expect(await announceableSeasons()).toEqual([])
@@ -190,7 +178,7 @@ describe("announceableSeasons", () => {
 		const league = await makeLeague()
 		const season = await makeSeason({
 			leagueId: league.id,
-			regularSeasonStartsAt: new Date(Date.now() + 3 * DAY),
+			regularSeasonStartsAt: new Date(Date.now() + 3 * DAY_MS),
 		})
 		await db.insert(ballots).values({
 			name: "MVP",
@@ -237,7 +225,7 @@ describe("announceableSeasons", () => {
 			leagueId: daily.id,
 			seasonId: dailySeason.id,
 			seasonType: "regular",
-			startsAt: new Date(dailyFirstGame.getTime() + 2 * DAY),
+			startsAt: new Date(dailyFirstGame.getTime() + 2 * DAY_MS),
 		})
 
 		const found = await announceableSeasons()
@@ -322,7 +310,7 @@ describe("drainSeasonStartEmails", () => {
 		await makeUser({ email: "caller@example.com" })
 		await enqueueSeasonStartEmails({ commit: true })
 
-		const first = recorder()
+		const first = mailRecorder()
 		expect(await drainSeasonStartEmails({ send: first.send })).toMatchObject({
 			sent: 1,
 		})
@@ -342,7 +330,7 @@ describe("drainSeasonStartEmails", () => {
 		expect(first.sent[0]?.headers?.["List-Unsubscribe"]).toBeDefined()
 
 		// Nothing left pending, so a second tick five minutes later is a no-op.
-		const second = recorder()
+		const second = mailRecorder()
 		expect(await drainSeasonStartEmails({ send: second.send })).toMatchObject({
 			sent: 0,
 		})
@@ -357,7 +345,7 @@ describe("drainSeasonStartEmails", () => {
 		await enqueueSeasonStartEmails({ commit: true })
 		await db.insert(emailOptOuts).values({ userId: user.id, type: "all" })
 
-		const mail = recorder()
+		const mail = mailRecorder()
 		expect(await drainSeasonStartEmails({ send: mail.send })).toMatchObject({
 			sent: 0,
 			skipped: 1,
@@ -381,7 +369,7 @@ describe("drainSeasonStartEmails", () => {
 			where season_id = ${season.id}
 		`)
 
-		const mail = recorder()
+		const mail = mailRecorder()
 		expect(await drainSeasonStartEmails({ send: mail.send })).toMatchObject({
 			sent: 0,
 			skipped: 1,
@@ -402,7 +390,7 @@ describe("drainSeasonStartEmails", () => {
 			.set({ status: "inactive" })
 			.where(eq(leagues.id, league.id))
 
-		const mail = recorder()
+		const mail = mailRecorder()
 		expect(await drainSeasonStartEmails({ send: mail.send })).toMatchObject({
 			sent: 0,
 			skipped: 1,
@@ -419,7 +407,7 @@ describe("drainSeasonStartEmails", () => {
 		await makeUser()
 		await enqueueSeasonStartEmails({ commit: true })
 
-		const failing = recorder({ ok: false, error: "resend exploded" })
+		const failing = mailRecorder({ ok: false, error: "resend exploded" })
 		expect(await drainSeasonStartEmails({ send: failing.send })).toMatchObject({
 			sent: 0,
 			failed: 1,
@@ -431,7 +419,7 @@ describe("drainSeasonStartEmails", () => {
 			lastError: "resend exploded",
 		})
 
-		const retry = recorder()
+		const retry = mailRecorder()
 		expect(await drainSeasonStartEmails({ send: retry.send })).toMatchObject({
 			sent: 1,
 		})
@@ -444,7 +432,7 @@ describe("drainSeasonStartEmails", () => {
 		await makeUser()
 		await enqueueSeasonStartEmails({ commit: true })
 
-		const mail = recorder()
+		const mail = mailRecorder()
 		expect(
 			await drainSeasonStartEmails({ send: mail.send, limit: 2 }),
 		).toMatchObject({ sent: 2 })
@@ -460,7 +448,7 @@ describe("drainSeasonStartEmails", () => {
 		await makeUser()
 		await enqueueSeasonStartEmails({ commit: true })
 
-		const mail = recorder()
+		const mail = mailRecorder()
 		await drainSeasonStartEmails({ send: mail.send })
 		expect(mail.sent.map((m) => m.subject).sort()).toEqual([
 			expect.stringContaining("NBA is back"),
@@ -477,7 +465,7 @@ describe("drainSeasonStartEmails", () => {
 		// claim, not for this.
 		await db.delete(users).where(sql`${users.id} = ${user.id}`)
 
-		const mail = recorder()
+		const mail = mailRecorder()
 		expect(await drainSeasonStartEmails({ send: mail.send })).toMatchObject({
 			sent: 0,
 		})

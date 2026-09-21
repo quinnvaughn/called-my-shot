@@ -1,11 +1,14 @@
 import { DateTime } from "luxon"
+import { db } from "../../db"
 // The dark values here are what the app actually renders - this card once
 // used panda.config.ts's "light theme: #..." notes, leftover from a reverted
 // flip-to-light experiment, and exported a white card while the app had been
 // dark-only for a while.
 import { COLOR } from "../brand-palette"
-import { brandWordmark } from "./brand-wordmark"
+import { buildGlobalLeaderboard } from "../global-leaderboard"
 import { el, type SatoriNode } from "../share-image"
+import { isUuid } from "../uuid"
+import { brandWordmark } from "./brand-wordmark"
 
 // This PNG is never displayed in-app (see share-image-panel.tsx) - it's only
 // ever downloaded or copied elsewhere (Slack, Twitter, Notes, Finder
@@ -270,4 +273,50 @@ export function buildUserShareCard(data: UserShareCardData): SatoriNode {
 			),
 		],
 	)
+}
+
+// Null for an unknown user or league, or a scope the user has no calls in.
+//
+// league is a slug ("nfl") on links built today and a uuid on ones already
+// shared before the league room moved to slug urls. Both stay valid here
+// rather than being redirected - this card is consumed as <img src>, so there
+// are no meta tags to preserve and nothing to gain from a round trip.
+export async function loadUserShareCardData(
+	username: string,
+	leagueRef: string | null,
+): Promise<UserShareCardData | null> {
+	const user = await db.query.users.findFirst({ where: { username } })
+	if (!user) return null
+
+	let scopeTag = "ALL-TIME TRACK RECORD"
+	let leagueId: string | null = null
+	if (leagueRef) {
+		const league = await db.query.leagues.findFirst({
+			where: isUuid(leagueRef) ? { id: leagueRef } : { slug: leagueRef },
+		})
+		if (!league) return null
+		leagueId = league.id
+		scopeTag = `${league.abbreviation.toUpperCase()} TRACK RECORD`
+	}
+
+	// Same board User.careerStats/User.leagues resolve from (see
+	// graphql/types/user/refs.ts) - no separate query path to keep in sync with
+	// those. No season scope: the card says "track record", and the scope tag
+	// above already commits to all-time.
+	const entries = await buildGlobalLeaderboard({ leagueId })
+	const entry = entries.find((e) => e.user.id === user.id)
+	// No calls in this scope yet - nothing shareable, same as the frontend
+	// not offering a league accordion/share button for an empty scope.
+	if (!entry) return null
+
+	return {
+		name: user.name,
+		username: user.username,
+		memberSince: user.createdAt.toISOString(),
+		scopeTag,
+		rank: entry.rank,
+		totalPoints: entry.totalPoints,
+		accuracy: entry.accuracy,
+		resolvedCallCount: entry.resolvedCallCount,
+	}
 }

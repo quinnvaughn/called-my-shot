@@ -23,3 +23,8 @@ export const PageInfoRef = builder
 			endCursor: t.exposeString("endCursor", { nullable: true }),
 		}),
 	})
+
+// Shared by every admin list query's sortDir arg (see lib/admin-pagination).
+export const SortDirection = builder.enumType("SortDirection", {
+	values: { ASC: { value: "asc" }, DESC: { value: "desc" } },
+})

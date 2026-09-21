@@ -1,22 +1,13 @@
-import { readFileSync } from "node:fs"
 import { describe, expect, it } from "vitest"
 import type { EspnPostseasonEvent } from "../../db/sync/espn-client"
+import { espnFixture } from "../../test/helpers"
 import { findChampionshipWinner } from "./championship"
 
 // Trimmed from ESPN's postseason scoreboards (2026-09-13): the 2025 NBA and
 // MLB postseasons and the 2025 NFL postseason.
 const events = (league: "nba" | "nfl" | "mlb") =>
-	(
-		JSON.parse(
-			readFileSync(
-				new URL(
-					`../../db/sync/fixtures/espn/postseason-${league}.json`,
-					import.meta.url,
-				),
-				"utf8",
-			),
-		) as { events: EspnPostseasonEvent[] }
-	).events
+	espnFixture<{ events: EspnPostseasonEvent[] }>(`postseason-${league}.json`)
+		.events
 
 const winnerOf = (
 	league: "nba" | "nfl" | "mlb",

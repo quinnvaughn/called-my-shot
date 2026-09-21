@@ -6,45 +6,20 @@
 //
 // This is now an og:image and nothing else. Nobody downloads it, nothing in
 // the app renders it: it exists so a /calls/:id link unfurls as the call
-// rather than as the house graphic. That's what fixes the dimensions below.
+// rather than as the house graphic, at the fixed og:image size (see frame.ts).
+import { fieldPct, quipForCall } from "@called-my-shot/scoring"
+import { and, count, eq } from "drizzle-orm"
+import { db } from "../../db"
+import { callSelections, calls } from "../../db/schema"
 import { COLOR } from "../brand-palette"
 import { el, type SatoriNode } from "../share-image"
-import { brandWordmark } from "./brand-wordmark"
+import { formatCallDate, loadCallSummaries, quipToneFor } from "./call-summary"
+import { cardFrame, clamp, eyebrow, statCell } from "./frame"
 
-// 1200x630 exactly, because that is what X's summary_large_image crops to.
-// The card used to render 1200 wide at whatever height its content needed
-// (~1060), and every unfurl of it lost the top and bottom 40% - the pick and
-// the points, i.e. all of it.
+// Every free-text field is capped in JS (see clamp). caseText is the
+// dangerous one: its column is unbounded, and a paragraph-length case is
+// enough to bury the whole footer.
 //
-// Every size below is a real pixel at that resolution. The other share cards
-// are authored against a 475px reference and scaled up, because they mirror
-// an in-app React component that renders at that width; this one mirrors
-// nothing (see the file header), so the indirection would only be a way to
-// get the arithmetic wrong.
-const TARGET_WIDTH = 1200
-const TARGET_HEIGHT = 630
-export const CALL_SHARE_CARD_SIZE = {
-	width: TARGET_WIDTH,
-	height: TARGET_HEIGHT,
-}
-
-// brandWordmark measures against its caller's own reference width, so it
-// takes a px()/scale pair. 1.7 puts the lockup at 34px, in scale with the
-// header rule beside it.
-const WORDMARK_SCALE = 1.7
-const wordmarkPx = (n: number) => `${Math.round(n * WORDMARK_SCALE)}px`
-
-// Given a fixed height, satori clips anything that doesn't fit the viewBox -
-// silently, with no warning and no scaling, and an overflowing flex child
-// paints straight over its siblings rather than pushing them. So every
-// free-text field on this card is capped in JS rather than trusted to wrap
-// into whatever space is left. caseText is the dangerous one: its column is
-// unbounded, and a paragraph-length case is enough to bury the whole footer.
-export function clamp(text: string, max: number): string {
-	if (text.length <= max) return text
-	return `${text.slice(0, max - 1).trimEnd()}…`
-}
-
 // Measured against Archivo Black / Inter at the sizes used below, across the
 // card's ~1050px of inner width.
 const PICK_HERO_MAX = 22
@@ -54,8 +29,6 @@ const PICK_MAX = 42
 const TITLE_MAX = 100
 const CASE_MAX = 150
 
-const HEADER_HEIGHT = 96
-const FOOTER_HEIGHT = 168
 const POINTS_PANEL_WIDTH = 340
 
 export type CallShareCardData = {
@@ -95,46 +68,6 @@ export type CallShareCardData = {
 	pendingLabel: string | null
 	// Set on a win at least STREAK_TAG_MIN into its league-and-family streak.
 	streakLength: number | null
-}
-
-export function eyebrow(text: string, color = COLOR.dim): SatoriNode {
-	return el(
-		"span",
-		{
-			display: "flex",
-			fontFamily: "Space Mono",
-			fontWeight: 500,
-			fontSize: "17px",
-			letterSpacing: "1px",
-			textTransform: "uppercase",
-			color,
-		},
-		text,
-	)
-}
-
-// The footer's unit: a label stacked over a value. Horizontal, unlike the
-// full-width label/value rows the portrait card used - four of those stacked
-// vertically is precisely the height this layout doesn't have.
-export function statCell(
-	label: string,
-	value: string,
-	{ color = COLOR.ink, big = false }: { color?: string; big?: boolean } = {},
-): SatoriNode {
-	return el("div", { display: "flex", flexDirection: "column", gap: "8px" }, [
-		eyebrow(label),
-		el(
-			"span",
-			{
-				display: "flex",
-				fontFamily: big ? "Archivo Black" : "Inter",
-				fontWeight: 600,
-				fontSize: big ? "40px" : "28px",
-				color,
-			},
-			value,
-		),
-	])
 }
 
 // The result is the first thing anyone scrolling past an unfurl should read,
@@ -306,154 +239,139 @@ export function buildCallShareCard(data: CallShareCardData): SatoriNode {
 		)
 	}
 
-	return el(
-		"div",
-		{
-			// Opaque and full-bleed. The rounded card is inset inside this
-			// instead of being the root itself: at a fixed size, a border-radius
-			// on the outermost node leaves transparent PNG corners, which X
-			// composites onto white and Discord onto near-black - the same file
-			// showing two different frames.
-			display: "flex",
-			width: `${TARGET_WIDTH}px`,
-			height: `${TARGET_HEIGHT}px`,
-			padding: "14px",
-			backgroundColor: COLOR.paper,
-			fontFamily: "Inter",
-		},
-		[
-			el(
+	// Hero - takes whatever vertical room the header and footer leave and
+	// centres its content in it. overflow: hidden so that a field which
+	// somehow beats its cap gets cut off at the band's edge instead of
+	// painting over the footer.
+	const hero = resolved
+		? el(
 				"div",
 				{
 					display: "flex",
-					flexDirection: "column",
 					flex: "1",
-					backgroundColor: COLOR.card,
-					color: COLOR.ink,
-					border: `1px solid ${nailed ? COLOR.primaryDefault : COLOR.border}`,
-					borderRadius: "20px",
+					overflow: "hidden",
+					alignItems: "center",
+					gap: "40px",
+					paddingTop: "28px",
+					paddingBottom: "28px",
+					paddingLeft: "48px",
+					paddingRight: "36px",
 				},
 				[
-					// Header. Fixed height, like the footer - the hero between
-					// them is the only band allowed to absorb slack, so a long
-					// pick can never push either of them off the card.
-					el(
-						"div",
-						{
-							display: "flex",
-							height: `${HEADER_HEIGHT}px`,
-							flexShrink: 0,
-							alignItems: "center",
-							justifyContent: "space-between",
-							paddingLeft: "36px",
-							paddingRight: "36px",
-							borderBottom: `1px solid ${COLOR.border}`,
-						},
-						[
-							brandWordmark(wordmarkPx, WORDMARK_SCALE),
-							eyebrow(`${data.leagueAbbr} · ${data.categoryLabel}`),
-						],
-					),
-					// Hero - takes whatever vertical room the header and footer
-					// leave and centres its content in it. overflow: hidden so
-					// that a field which somehow beats its cap gets cut off at
-					// the band's edge instead of painting over the footer.
-					resolved
-						? el(
-								"div",
-								{
-									display: "flex",
-									flex: "1",
-									overflow: "hidden",
-									alignItems: "center",
-									gap: "40px",
-									paddingTop: "28px",
-									paddingBottom: "28px",
-									paddingLeft: "48px",
-									paddingRight: "36px",
-								},
-								[
-									el(
-										"div",
-										{
-											display: "flex",
-											flexDirection: "column",
-											flex: "1",
-											overflow: "hidden",
-											alignItems: "flex-start",
-											justifyContent: "center",
-											gap: "10px",
-										},
-										body,
-									),
-									pointsPanel(data.points ?? 0, win),
-								],
-							)
-						: el(
-								"div",
-								{
-									display: "flex",
-									flexDirection: "column",
-									flex: "1",
-									overflow: "hidden",
-									alignItems: "center",
-									justifyContent: "center",
-									gap: "10px",
-									paddingLeft: "48px",
-									paddingRight: "48px",
-								},
-								body,
-							),
-					// Footer
 					el(
 						"div",
 						{
 							display: "flex",
 							flexDirection: "column",
-							height: `${FOOTER_HEIGHT}px`,
-							flexShrink: 0,
+							flex: "1",
+							overflow: "hidden",
+							alignItems: "flex-start",
 							justifyContent: "center",
-							gap: "18px",
-							paddingLeft: "36px",
-							paddingRight: "36px",
-							borderTop: `1px solid ${COLOR.border}`,
+							gap: "10px",
 						},
-						[
-							el(
-								"div",
-								{
-									display: "flex",
-									alignItems: "flex-end",
-									justifyContent: "space-between",
-									width: "100%",
-								},
-								cells,
-							),
-							el(
-								"div",
-								{
-									display: "flex",
-									alignItems: "center",
-									justifyContent: "space-between",
-									width: "100%",
-									fontFamily: "Space Mono",
-									fontSize: "17px",
-									color: COLOR.dim,
-								},
-								[
-									el("span", { display: "flex" }, `@${data.username}`),
-									el(
-										"span",
-										{ display: "flex", fontStyle: "italic" },
-										data.quip ?? "",
-									),
-									el("span", { display: "flex" }, "calledmyshot.com"),
-								],
-							),
-						],
+						body,
 					),
+					pointsPanel(data.points ?? 0, win),
 				],
-			),
-		],
-	)
+			)
+		: el(
+				"div",
+				{
+					display: "flex",
+					flexDirection: "column",
+					flex: "1",
+					overflow: "hidden",
+					alignItems: "center",
+					justifyContent: "center",
+					gap: "10px",
+					paddingLeft: "48px",
+					paddingRight: "48px",
+				},
+				body,
+			)
+
+	return cardFrame({
+		eyebrow: `${data.leagueAbbr} · ${data.categoryLabel}`,
+		hero,
+		cells,
+		username: data.username,
+		quip: data.quip ?? "",
+		borderColor: nailed ? COLOR.primaryDefault : COLOR.border,
+	})
+}
+
+// Null for an unknown call. Deliberately NOT gated on the question being
+// resolved: a call made a year before it settles is exactly the one worth
+// linking to, so an unresolved call gets a pending face rather than a 404.
+// loadCallSummaries (not loadResolvedCallSummaries) is what allows that; the
+// resolution digest still uses the resolved-only view, because an email
+// announcing a result must never describe a call that has none.
+export async function loadCallShareCardData(
+	callId: string,
+): Promise<CallShareCardData | null> {
+	// Shared with the resolution digest (lib/email-digest.ts) - same query,
+	// same pick label and points, so the card and the email can never disagree
+	// about a call.
+	const summary = (await loadCallSummaries([callId])).get(callId)
+	if (!summary) return null
+
+	// Same "Field agreed only means something for a lone selection" rule as
+	// the /calls/:id page. A numeric guess is too specific for anyone to share
+	// it (and has no selection, so soleOptionId is already null), and
+	// player_season_award/team_season_award's several independent picks have
+	// no single number. Left out of loadResolvedCallSummaries because it needs
+	// its own per-question aggregate queries and only this card shows it.
+	let fieldPctValue: number | null = null
+	if (summary.soleOptionId) {
+		const [{ n: totalCalls }] = await db
+			.select({ n: count() })
+			.from(calls)
+			.where(eq(calls.questionId, summary.questionId))
+		const [{ n: optionCallCount }] = await db
+			.select({ n: count() })
+			.from(callSelections)
+			.innerJoin(calls, eq(calls.id, callSelections.callId))
+			.where(
+				and(
+					eq(calls.questionId, summary.questionId),
+					eq(callSelections.optionId, summary.soleOptionId),
+				),
+			)
+		fieldPctValue = fieldPct(optionCallCount, totalCalls)
+	}
+
+	const resolved = summary.points !== null && summary.isWin !== null
+
+	return {
+		questionTitle: summary.questionTitle,
+		leagueAbbr: summary.leagueAbbr,
+		categoryLabel: summary.shapeLabel,
+		name: summary.userName,
+		username: summary.username,
+		pickLabel: summary.pickLabel,
+		calledAt: formatCallDate(summary.createdAt),
+		isWin: summary.isWin,
+		points: summary.points,
+		fieldPct: fieldPctValue,
+		closeness: summary.closeness,
+		marginLabel: summary.margin?.label ?? null,
+		actual: summary.actual,
+		conviction: summary.conviction,
+		caseText: summary.caseText,
+		// There is no quip for a call nobody has graded, and inventing one
+		// would be the kind of filler the loss quips exist to avoid. Only two
+		// of the four margins get a pool of their own - see QuipTone.
+		quip: resolved
+			? quipForCall(
+					summary.callId,
+					quipToneFor(summary.isWin === true, summary.margin),
+				)
+			: null,
+		pendingLabel: resolved
+			? null
+			: summary.questionStatus === "open"
+				? `Locks ${formatCallDate(summary.locksAt)}`
+				: "Awaiting result",
+		streakLength: summary.streakLength,
+	}
 }

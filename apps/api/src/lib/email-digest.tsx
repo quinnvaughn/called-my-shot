@@ -3,7 +3,6 @@ import { and, eq, inArray, sql } from "drizzle-orm"
 import { match } from "ts-pattern"
 import { db } from "../db"
 import { achievementNotices, emailOutbox } from "../db/schema"
-import { renderEmail } from "../emails/render"
 import {
 	type DigestAchievement,
 	type DigestCall,
@@ -11,10 +10,17 @@ import {
 	ResolutionDigest,
 } from "../emails/resolution-digest"
 import { env } from "../env"
-import { emailUrl, withUtm } from "./email-links"
-import { isMuted, mutedEmailTypesByUser } from "./email-prefs"
-import { oneClickUnsubscribeUrl, unsubscribePageUrl } from "./email-unsubscribe"
+import { emailUrl } from "./email-links"
+import { loadRecipients } from "./email-prefs"
+import { type SendFn, sendListEmail } from "./email-send"
 import { sendMail } from "./mailer"
+import {
+	claimOutboxRows,
+	markOutboxDone,
+	markOutboxFailed,
+	type Outbox,
+	utcTimestamp,
+} from "./outbox"
 import { loadResolvedCallSummaries } from "./share-cards/call-summary"
 
 // How long a user's oldest unsent row has to sit before their digest can go
@@ -30,12 +36,18 @@ const SETTLE_MINUTES = 15
 // who doesn't grade, a delayed auto-resolve) costs at most one morning.
 const DAY_START_HOUR_UTC = 13
 const MAX_USERS_PER_RUN = 200
-// A row that has failed this many times is left alone rather than retried
-// forever - by then it's a bad address or a template bug, and neither gets
-// better on the next pass.
-const MAX_ATTEMPTS = 5
 
-type SendFn = typeof sendMail
+const OUTBOX: Outbox<typeof emailOutbox> = {
+	table: emailOutbox,
+	key: [emailOutbox.id],
+	maxAttempts: 5,
+}
+
+const rowsIn = (rows: { id: string }[]) =>
+	inArray(
+		emailOutbox.id,
+		rows.map((row) => row.id),
+	)
 
 // The call's own permanent page - the record of that one call, which is what
 // there is to share. This used to point at the question page with ?share=1 to
@@ -129,29 +141,6 @@ async function loadDigestAchievements(
 	})
 }
 
-// Resolved without mailing anything. sentAt is stamped alongside the reason
-// so the row leaves the pending index - "we deliberately didn't send" is a
-// finished state, not something to reconsider on the next pass - while
-// skippedReason keeps it distinguishable from a real send.
-async function markSkipped(rowIds: string[], reason: string): Promise<void> {
-	if (rowIds.length === 0) return
-	await db
-		.update(emailOutbox)
-		.set({ sentAt: new Date(), skippedReason: reason })
-		.where(inArray(emailOutbox.id, rowIds))
-}
-
-// Left unsent on purpose, so the next run picks it up again - until attempts
-// crosses MAX_ATTEMPTS and the claim query stops selecting it. The attempt
-// itself was already spent by the claim below, so this only records why.
-async function markFailed(rowIds: string[], error: string): Promise<void> {
-	if (rowIds.length === 0) return
-	await db
-		.update(emailOutbox)
-		.set({ lastError: error })
-		.where(inArray(emailOutbox.id, rowIds))
-}
-
 // Drained on a cron rather than sent at resolve time - see the comment on
 // emailOutbox in db/schema/email.ts for why. `send` is injectable purely so
 // tests can assert on what would have gone out without a Resend key, and
@@ -159,8 +148,8 @@ async function markFailed(rowIds: string[], error: string): Promise<void> {
 // without depending on the time of day the suite runs.
 //
 // MUST be called under DRAIN_DIGESTS_LOCK (lib/job-lock.ts). Nothing
-// inside here is safe against a second concurrent drain - the row claim below
-// says why - so both callers, the scheduler and the backfill script, take
+// inside here is safe against a second concurrent drain - claimOutboxRows
+// (lib/outbox.ts) says why - so both callers, the scheduler and the backfill script, take
 // that lock by name first.
 export async function drainResolutionDigests({
 	send = sendMail,
@@ -169,8 +158,7 @@ export async function drainResolutionDigests({
 	send?: SendFn
 	now?: Date
 } = {}): Promise<{ sent: number; skipped: number }> {
-	// UTC wall-clock, the same form every timestamp column here is stored in.
-	const nowUtc = sql`(${now.toISOString()}::timestamptz at time zone 'UTC')`
+	const nowUtc = utcTimestamp(now)
 	const due = await db.execute<{ user_id: string }>(sql`
 		with digest_day as (
 			select date_trunc('day', ${nowUtc} - ${`${DAY_START_HOUR_UTC} hours`}::interval)
@@ -225,45 +213,10 @@ async function drainOneUser(
 	send: SendFn,
 	now: Date,
 ): Promise<{ sent: number; skipped: number }> {
-	// Spends the attempt up front, in the same statement that reads the rows,
-	// so a run that dies between here and the send has still burned one - a
-	// row that kills the process can't be retried forever.
-	//
-	// This is NOT what stops two runs mailing the same person: the UPDATE
-	// commits immediately, which releases its row locks while the rows are
-	// still `sent_at is null`, so a second run started a moment later selects
-	// them again quite happily. That is exactly what shipped to production -
-	// startScheduler runs on every machine (see index.ts), Fly runs more than
-	// one, and the same digest went out twice. The mutual exclusion is the job
-	// lease every caller of this function takes; see lib/job-lock.ts.
-	const { rows: claimed } = await db.execute<{ id: string; call_id: string }>(
-		sql`
-			update email_outbox
-			set attempts = attempts + 1
-			where id in (
-				select id
-				from email_outbox
-				where user_id = ${userId}
-					and sent_at is null
-					and attempts < ${MAX_ATTEMPTS}
-				order by created_at asc
-				for update skip locked
-			)
-			returning id, call_id
-		`,
-	)
-	if (claimed.length === 0) return { sent: 0, skipped: 0 }
-
-	const rowIds = claimed.map((r) => r.id)
-
-	const user = await db.query.users.findFirst({
-		where: { id: userId },
-		columns: { id: true, email: true, username: true },
+	const claimed = await claimOutboxRows(OUTBOX, {
+		where: eq(emailOutbox.userId, userId),
 	})
-	if (!user) {
-		await markSkipped(rowIds, "user_missing")
-		return { sent: 0, skipped: rowIds.length }
-	}
+	if (claimed.length === 0) return { sent: 0, skipped: 0 }
 
 	// Deliberately not gated on users.emailVerified. That flag exists to gate
 	// question creation, not to decide who can be mailed - it defaults false
@@ -271,13 +224,13 @@ async function drainOneUser(
 	// would silently withhold results from most of the people who signed up
 	// before that flow existed. Bounce handling is Resend's suppression list,
 	// not a column here.
-	//
-	// Checked here rather than at enqueue so an unsubscribe during the
-	// settling window still counts.
-	const muted = (await mutedEmailTypesByUser([userId])).get(userId)
-	if (isMuted(muted, "call_resolved")) {
-		await markSkipped(rowIds, "muted")
-		return { sent: 0, skipped: rowIds.length }
+	const user = (await loadRecipients([userId], "call_resolved")).get(userId)
+	if (!user || user.muted) {
+		await markOutboxDone(emailOutbox, rowsIn(claimed), {
+			now,
+			skippedReason: user ? "muted" : "user_missing",
+		})
+		return { sent: 0, skipped: claimed.length }
 	}
 
 	// Re-checks that each question is still `resolved`. A dispute filed inside
@@ -288,23 +241,23 @@ async function drainOneUser(
 	// for those - it just shows no outcome; it's the email's claim about an
 	// outcome that has to be withheld.
 	const summaries = await loadResolvedCallSummaries(
-		claimed.map((r) => r.call_id),
+		claimed.map((r) => r.callId),
 	)
-	const stale = claimed.filter((r) => !summaries.has(r.call_id))
+	const stale = claimed.filter((r) => !summaries.has(r.callId))
 	if (stale.length > 0) {
-		await markSkipped(
-			stale.map((r) => r.id),
-			"no_longer_resolved",
-		)
+		await markOutboxDone(emailOutbox, rowsIn(stale), {
+			now,
+			skippedReason: "no_longer_resolved",
+		})
 	}
-	const live = claimed.filter((r) => summaries.has(r.call_id))
+	const live = claimed.filter((r) => summaries.has(r.callId))
 	if (live.length === 0) return { sent: 0, skipped: stale.length }
 
 	// Biggest swing first, so the rows people read top-down lead with the
 	// result they care about.
 	const ordered = live
 		.flatMap((r) => {
-			const summary = summaries.get(r.call_id)
+			const summary = summaries.get(r.callId)
 			return summary ? [summary] : []
 		})
 		.sort((a, b) => Math.abs(b.points) - Math.abs(a.points))
@@ -333,60 +286,40 @@ async function drainOneUser(
 
 	const achievements = await loadDigestAchievements(userId, user.username, now)
 
-	const { html, text } = await renderEmail(
-		<ResolutionDigest
-			calls={calls}
-			achievements={achievements.map((a) => a.achievement)}
-			primaryCallUrl={callUrl(primary.callId, "hero")}
-			allCallsUrl={emailUrl("/my-calls", {
-				campaign: "resolution_digest",
-				content: "all_calls",
-			})}
-			manageUrl={emailUrl("/settings", {
-				campaign: "resolution_digest",
-				content: "manage",
-			})}
-			logoUrl={`${env.CLIENT_ORIGIN}/email-logo.png`}
-			unsubscribeUrl={withUtm(unsubscribePageUrl(userId, "call_resolved"), {
-				campaign: "resolution_digest",
-				content: "unsubscribe",
-			})}
-		/>,
+	const result = await sendListEmail(
+		{
+			userId,
+			to: user.email,
+			type: "call_resolved",
+			campaign: "resolution_digest",
+			from: env.EMAIL_FROM_NOTIFICATIONS,
+			subject: digestSubject(calls),
+			render: (links) => (
+				<ResolutionDigest
+					{...links}
+					calls={calls}
+					achievements={achievements.map((a) => a.achievement)}
+					primaryCallUrl={callUrl(primary.callId, "hero")}
+					allCallsUrl={emailUrl("/my-calls", {
+						campaign: "resolution_digest",
+						content: "all_calls",
+					})}
+				/>
+			),
+		},
+		send,
 	)
 
-	const result = await send({
-		to: user.email,
-		from: env.EMAIL_FROM_NOTIFICATIONS,
-		subject: digestSubject(calls),
-		text,
-		html,
-		headers: {
-			// Gmail and Yahoo's bulk-sender rules require one-click unsubscribe
-			// on mail like this, and an easy opt-out is cheaper than a spam
-			// complaint either way. Deliberately untagged, unlike the footer
-			// link: nothing renders a pageview here, the mail client POSTs it
-			// on the reader's behalf, so utm params would only add noise to a
-			// url that has to stay exactly parseable by someone else's code.
-			"List-Unsubscribe": `<${oneClickUnsubscribeUrl(userId, "call_resolved")}>`,
-			"List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
-		},
-		tags: [{ name: "type", value: "resolution_digest" }],
-	})
-
-	const liveIds = live.map((r) => r.id)
 	if (!result.ok) {
-		await markFailed(liveIds, result.error)
+		await markOutboxFailed(emailOutbox, rowsIn(live), result.error)
 		return { sent: 0, skipped: stale.length }
 	}
 
-	await db
-		.update(emailOutbox)
-		.set({ sentAt: new Date() })
-		.where(inArray(emailOutbox.id, liveIds))
+	await markOutboxDone(emailOutbox, rowsIn(live), { now })
 	if (achievements.length > 0) {
 		await db
 			.update(achievementNotices)
-			.set({ emailedAt: new Date() })
+			.set({ emailedAt: now })
 			.where(
 				and(
 					eq(achievementNotices.userId, userId),
@@ -397,5 +330,5 @@ async function drainOneUser(
 				),
 			)
 	}
-	return { sent: liveIds.length, skipped: stale.length }
+	return { sent: live.length, skipped: stale.length }
 }

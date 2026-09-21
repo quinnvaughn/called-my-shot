@@ -1,8 +1,14 @@
 import { eq } from "drizzle-orm"
-import { isMainModule } from "../../lib/is-main-module"
+import { SYNC_LIVE_SCORES_LOCK } from "../../lib/job-lock"
+import { runCli } from "../../lib/run-cli"
+import { HOUR_MS, MINUTE_MS } from "../../lib/time"
 import { db } from "../index"
 import { games } from "../schema"
-import { type EspnScoreboardEvent, fetchScoreboard } from "./espn-client"
+import {
+	defaultEspnClient,
+	type EspnClient,
+	type EspnScoreboardEvent,
+} from "./espn-client"
 import { SYNCED_LEAGUES } from "./leagues"
 import {
 	finalizedAtFor,
@@ -10,7 +16,7 @@ import {
 	resolveGameWinner,
 	toGameStatus,
 } from "./sync-games"
-import { findSourceId } from "./sync-refs"
+import { espnIdOf, findSourceId } from "./sync-refs"
 
 // How far back/forward from "now" a game counts as "plausibly in flight" -
 // wide enough to catch a game that started a while ago and is still going
@@ -18,13 +24,18 @@ import { findSourceId } from "./sync-refs"
 // whole season's worth of games the way sync:sports does. This is the thing
 // that makes this job cheap enough to run every couple of minutes, unlike
 // sync:sports's full team/season/player/game/question sweep.
-const LOOKBACK_MS = 6 * 60 * 60 * 1000
-const LOOKAHEAD_MS = 10 * 60 * 1000
+const LOOKBACK_MS = 6 * HOUR_MS
+const LOOKAHEAD_MS = 10 * MINUTE_MS
 
 // Returns the games this run moved to final, so the caller can settle their
 // questions straight away.
-export async function syncLiveScores(): Promise<string[]> {
-	const now = new Date()
+export async function syncLiveScores({
+	now = new Date(),
+	espn = defaultEspnClient,
+}: {
+	now?: Date
+	espn?: EspnClient
+} = {}): Promise<string[]> {
 	const candidates = await db.query.games.findMany({
 		where: {
 			// "final" stays in the window (not just scheduled/live) so a game
@@ -65,12 +76,12 @@ export async function syncLiveScores(): Promise<string[]> {
 		const isNewlyFinal = await db.transaction(async (tx) => {
 			let scoreboard = scoreboardCache.get(config.espnPath)
 			if (!scoreboard) {
-				scoreboard = await fetchScoreboard(config.espnPath)
+				scoreboard = await espn.fetchScoreboard(config.espnPath)
 				scoreboardCache.set(config.espnPath, scoreboard)
 			}
 
 			const gameSourceId = await findSourceId(tx, "game", game.id)
-			const espnEventId = gameSourceId?.split(":")[1]
+			const espnEventId = gameSourceId ? espnIdOf(gameSourceId) : undefined
 			const event = scoreboard.find((e) => e.id === espnEventId)
 			if (!event) return false
 
@@ -115,11 +126,4 @@ export async function syncLiveScores(): Promise<string[]> {
 	return wentFinal
 }
 
-if (isMainModule(import.meta.url)) {
-	syncLiveScores()
-		.then(() => process.exit(0))
-		.catch((err) => {
-			console.error(err)
-			process.exit(1)
-		})
-}
+runCli(import.meta.url, syncLiveScores, { lock: SYNC_LIVE_SCORES_LOCK })

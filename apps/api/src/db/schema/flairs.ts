@@ -1,4 +1,5 @@
 import {
+	type AnyPgColumn,
 	index,
 	integer,
 	pgEnum,
@@ -67,14 +68,20 @@ export const flairs = pgTable(
 		// per-group flair is a known next step, and retrofitting a scope onto a
 		// table that already has live rows and live pointers is the migration
 		// worth not doing twice.
-		scopeGroupId: uuid("scope_group_id").references(() => groups.id, {
-			onDelete: "cascade",
-		}),
+		scopeGroupId: uuid("scope_group_id").references(
+			(): AnyPgColumn => groups.id,
+			{
+				onDelete: "cascade",
+			},
+		),
 		// Who authored a group flair. Null on everything the catalog syncs.
 		// Reserved alongside scopeGroupId above.
-		createdByUserId: uuid("created_by_user_id").references(() => users.id, {
-			onDelete: "set null",
-		}),
+		createdByUserId: uuid("created_by_user_id").references(
+			(): AnyPgColumn => users.id,
+			{
+				onDelete: "set null",
+			},
+		),
 		// Set iff source is "team". The unique below is what stops a team
 		// collecting two flairs; it only constrains team flairs, since every
 		// other source leaves this null and nulls repeat.

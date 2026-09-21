@@ -152,6 +152,59 @@ async function seedRandomCalls(userIds: string[]): Promise<void> {
 	console.log(`  ${callCount} calls across ${openQuestions.length} questions`)
 }
 
+// Fake accounts for the social layer, all signing in with "password". Their
+// order is the order main() destructures the inserted rows in.
+const DEMO_USERS = [
+	{
+		name: "Marcus Pierce",
+		username: "mpwolves",
+		email: "mpwolves@example.com",
+	},
+	{ name: "Taylor Swisher", username: "tswish", email: "tswish@example.com" },
+	{
+		name: "Devon Kim",
+		username: "dkanalytics",
+		email: "dkanalytics@example.com",
+	},
+	{
+		name: "Riley Cross",
+		username: "rcourtside",
+		email: "rcourtside@example.com",
+	},
+	{
+		name: "Bailey Knowles",
+		username: "ballknower",
+		email: "ballknower@example.com",
+	},
+	{ name: "Jordan Reyes", username: "jrhoops", email: "jrhoops@example.com" },
+	{ name: "Sam Lin", username: "slballer", email: "slballer@example.com" },
+	{
+		name: "Steve Ostrowski",
+		username: "statlinesteve",
+		email: "statlinesteve@example.com",
+	},
+	{
+		name: "Casey Vance",
+		username: "courtvision",
+		email: "courtvision@example.com",
+	},
+	{
+		name: "Harper Nguyen",
+		username: "hoopqueen",
+		email: "hoopqueen@example.com",
+	},
+	{
+		name: "Danny Osei",
+		username: "danny_ringer",
+		email: "danny.ringer@example.com",
+	},
+	{
+		name: "Matt Delgado",
+		username: "mattfantasy",
+		email: "mattfantasy@example.com",
+	},
+]
+
 async function main() {
 	console.log("Wiping existing demo/social data...")
 	// Real questions/ballots/games/teams/players/leagues/sports/stats are owned
@@ -210,78 +263,10 @@ async function main() {
 				// reseeded.
 				emailVerified: true,
 			},
-			{
-				name: "Marcus Pierce",
-				username: "mpwolves",
-				email: "mpwolves@example.com",
+			...DEMO_USERS.map((user) => ({
+				...user,
 				passwordHash: restPasswordHash,
-			},
-			{
-				name: "Taylor Swisher",
-				username: "tswish",
-				email: "tswish@example.com",
-				passwordHash: restPasswordHash,
-			},
-			{
-				name: "Devon Kim",
-				username: "dkanalytics",
-				email: "dkanalytics@example.com",
-				passwordHash: restPasswordHash,
-			},
-			{
-				name: "Riley Cross",
-				username: "rcourtside",
-				email: "rcourtside@example.com",
-				passwordHash: restPasswordHash,
-			},
-			{
-				name: "Bailey Knowles",
-				username: "ballknower",
-				email: "ballknower@example.com",
-				passwordHash: restPasswordHash,
-			},
-			{
-				name: "Jordan Reyes",
-				username: "jrhoops",
-				email: "jrhoops@example.com",
-				passwordHash: restPasswordHash,
-			},
-			{
-				name: "Sam Lin",
-				username: "slballer",
-				email: "slballer@example.com",
-				passwordHash: restPasswordHash,
-			},
-			{
-				name: "Steve Ostrowski",
-				username: "statlinesteve",
-				email: "statlinesteve@example.com",
-				passwordHash: restPasswordHash,
-			},
-			{
-				name: "Casey Vance",
-				username: "courtvision",
-				email: "courtvision@example.com",
-				passwordHash: restPasswordHash,
-			},
-			{
-				name: "Harper Nguyen",
-				username: "hoopqueen",
-				email: "hoopqueen@example.com",
-				passwordHash: restPasswordHash,
-			},
-			{
-				name: "Danny Osei",
-				username: "danny_ringer",
-				email: "danny.ringer@example.com",
-				passwordHash: restPasswordHash,
-			},
-			{
-				name: "Matt Delgado",
-				username: "mattfantasy",
-				email: "mattfantasy@example.com",
-				passwordHash: restPasswordHash,
-			},
+			})),
 		])
 		.returning()
 

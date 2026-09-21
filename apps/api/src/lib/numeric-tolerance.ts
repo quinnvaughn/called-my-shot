@@ -1,4 +1,8 @@
-import { type QuestionShape, SHAPE_SUBJECT } from "@called-my-shot/scoring"
+import {
+	type QuestionShape,
+	SHAPE_SUBJECT,
+	type ToleranceSpec,
+} from "@called-my-shot/scoring"
 import type { StatToleranceTier } from "../db/schema"
 
 type NumericTolerance = {
@@ -35,4 +39,13 @@ export function numericToleranceFor(
 		numericToleranceAbsolute:
 			tier.toleranceMode === "absolute" ? tier.toleranceValue : null,
 	}
+}
+
+// The band a numeric-guess question is scored against, read back off the
+// columns numericToleranceFor filled. createQuestionSchema guarantees exactly
+// one of them is set for a numeric-guess shape.
+export function toleranceSpecFor(question: NumericTolerance): ToleranceSpec {
+	return question.numericToleranceAbsolute !== null
+		? { mode: "absolute", amount: question.numericToleranceAbsolute }
+		: { mode: "percentage", pct: question.numericTolerancePct as number }
 }

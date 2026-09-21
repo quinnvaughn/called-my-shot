@@ -1,4 +1,3 @@
-import { readFileSync } from "node:fs"
 import { describe, expect, it } from "vitest"
 import type {
 	EspnSeasonStatistics,
@@ -8,6 +7,7 @@ import {
 	flattenCategorizedStatistics,
 	parseStandingsWins,
 } from "../../db/sync/season-stats-parse"
+import { espnFixture } from "../../test/helpers"
 import { SEASON_EXTRACTORS, type SeasonSources } from "./registry"
 import {
 	decideSeasonQuestion,
@@ -15,13 +15,7 @@ import {
 } from "./season-decide"
 
 // See season-stats-parse.test.ts for where the fixtures come from.
-const fixture = <T>(name: string) =>
-	JSON.parse(
-		readFileSync(
-			new URL(`../../db/sync/fixtures/espn/${name}.json`, import.meta.url),
-			"utf8",
-		),
-	) as T
+const fixture = <T>(name: string) => espnFixture<T>(`${name}.json`)
 
 const seasonStats = (name: string) =>
 	flattenCategorizedStatistics(fixture<EspnSeasonStatistics>(name))

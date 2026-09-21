@@ -35,7 +35,10 @@ const PREVIEW = /* GraphQL */ `
 `
 
 type GroupResult =
-	| { __typename: "GroupPayload"; group: { id: string; description: string | null } }
+	| {
+			__typename: "GroupPayload"
+			group: { id: string; description: string | null }
+	  }
 	| ErrorResult
 
 describe("group description", () => {
@@ -45,7 +48,10 @@ describe("group description", () => {
 		const data = await expectData<{ createGroup: GroupResult }>(CREATE_GROUP, {
 			as: user,
 			variables: {
-				input: { name: "Celtics Talk", description: "  NBA calls for r/bostonceltics  " },
+				input: {
+					name: "Celtics Talk",
+					description: "  NBA calls for r/bostonceltics  ",
+				},
 			},
 		})
 
@@ -76,7 +82,9 @@ describe("group description", () => {
 
 		const data = await expectData<{ createGroup: GroupResult }>(CREATE_GROUP, {
 			as: user,
-			variables: { input: { name: "Celtics Talk", description: "x".repeat(201) } },
+			variables: {
+				input: { name: "Celtics Talk", description: "x".repeat(201) },
+			},
 		})
 
 		expect(data.createGroup.__typename).toBe("ValidationError")

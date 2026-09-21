@@ -9,6 +9,8 @@ const config: CodegenConfig = {
 			preset: "client",
 			config: {
 				useTypeImports: true,
+				// The API serialises DateTime as an ISO 8601 string.
+				scalars: { DateTime: "string" },
 			},
 		},
 	},

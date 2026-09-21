@@ -3,17 +3,11 @@ import type { QuestionShare } from "../../../db/schema"
 import { requireUser } from "../../../lib/auth"
 import { NotFoundError } from "../../../lib/errors"
 import {
-	getOrCreateMemberInvite,
-	getTrackedLeagueIds,
-} from "../../../lib/groups"
-import {
-	clampPageSize,
-	cursorWhere,
-	decodeCursor,
-	decodeOffsetCursor,
-	encodeOffsetCursor,
-	paginate,
-} from "../../../lib/pagination"
+	clampHighlightLimit,
+	type GroupHighlights,
+} from "../../../lib/group-highlights"
+import { getOrCreateMemberInvite } from "../../../lib/groups"
+import { keysetPaginate, sliceOffsetPage } from "../../../lib/pagination"
 import { ALL_TIME } from "../../../lib/seasons"
 import { builder } from "../../builder"
 import { type Connection, PageInfoRef } from "../pagination"
@@ -22,7 +16,6 @@ import { SeasonFilterInput, toSeasonFilter } from "../season-filter"
 import { LeagueRef } from "../sports"
 import { GroupRole } from "./enums"
 import {
-	clampHighlightLimit,
 	GroupStreakEntryRef,
 	GroupSweepEntryRef,
 	getGroupHighlights,
@@ -31,8 +24,27 @@ import {
 	GroupLeaderboardConnectionRef,
 	GroupLeaderboardEntryRef,
 	getGroupLeaderboard,
-	getMemberUserIds,
+	memberUserIds,
+	trackedLeagueIds,
+	viewerMembership,
 } from "./leaderboard"
+
+// One of the highlight lists on Group, trimmed to the limit the caller asks
+// for. Each takes a limit because the page's band shows three and the sheet
+// behind its "see all" shows the lot.
+function highlightList<K extends keyof GroupHighlights>(key: K) {
+	return async (
+		group: { id: string },
+		args: { limit?: number | null },
+		ctx: Parameters<typeof getGroupHighlights>[0],
+	): Promise<GroupHighlights[K]> => {
+		const highlights = await getGroupHighlights(ctx, group.id)
+		return highlights[key].slice(
+			0,
+			clampHighlightLimit(args.limit),
+		) as GroupHighlights[K]
+	}
+}
 
 export const GroupInviteRef = builder.drizzleObject("groupInvites", {
 	name: "GroupInvite",
@@ -40,9 +52,9 @@ export const GroupInviteRef = builder.drizzleObject("groupInvites", {
 		id: t.exposeID("id"),
 		code: t.exposeString("code"),
 		expiresAt: t.field({
-			type: "String",
+			type: "DateTime",
 			nullable: true,
-			resolve: (invite) => invite.expiresAt?.toISOString() ?? null,
+			resolve: (invite) => invite.expiresAt,
 		}),
 		creator: t.relation("creator"),
 	}),
@@ -54,8 +66,8 @@ export const GroupMemberRef = builder.drizzleObject("groupMembers", {
 		id: t.exposeID("id"),
 		role: t.field({ type: GroupRole, resolve: (member) => member.role }),
 		joinedAt: t.field({
-			type: "String",
-			resolve: (member) => member.joinedAt.toISOString(),
+			type: "DateTime",
+			resolve: (member) => member.joinedAt,
 		}),
 		user: t.relation("user"),
 	}),
@@ -66,8 +78,8 @@ export const QuestionShareRef = builder.drizzleObject("questionShares", {
 	fields: (t) => ({
 		id: t.exposeID("id"),
 		createdAt: t.field({
-			type: "String",
-			resolve: (share) => share.createdAt.toISOString(),
+			type: "DateTime",
+			resolve: (share) => share.createdAt,
 		}),
 		question: t.relation("question"),
 		sharedBy: t.relation("sharedByUser"),
@@ -90,8 +102,8 @@ export const GroupRef = builder.drizzleObject("groups", {
 		name: t.exposeString("name"),
 		description: t.exposeString("description", { nullable: true }),
 		createdAt: t.field({
-			type: "String",
-			resolve: (group) => group.createdAt.toISOString(),
+			type: "DateTime",
+			resolve: (group) => group.createdAt,
 		}),
 		memberCount: t.relatedCount("members"),
 		members: t.relation("members"),
@@ -108,35 +120,21 @@ export const GroupRef = builder.drizzleObject("groups", {
 		invites: t.field({
 			type: [GroupInviteRef],
 			resolve: async (group, _args, ctx) => {
-				if (!ctx.user) return []
-				const membership = await db.query.groupMembers.findFirst({
-					where: { groupId: group.id, userId: ctx.user.id },
-				})
+				const membership = await viewerMembership(ctx, group.id)
 				if (membership?.role !== "admin") return []
 				return db.query.groupInvites.findMany({ where: { groupId: group.id } })
 			},
 		}),
 		viewerIsAdmin: t.field({
 			type: "Boolean",
-			resolve: async (group, _args, ctx) => {
-				if (!ctx.user) return false
-				const membership = await db.query.groupMembers.findFirst({
-					where: { groupId: group.id, userId: ctx.user.id },
-				})
-				return membership?.role === "admin"
-			},
+			resolve: async (group, _args, ctx) =>
+				(await viewerMembership(ctx, group.id))?.role === "admin",
 		}),
 		// Whether the viewer hid the invite card on this group's page.
 		viewerDismissedInviteCard: t.field({
 			type: "Boolean",
-			resolve: async (group, _args, ctx) => {
-				if (!ctx.user) return false
-				const membership = await db.query.groupMembers.findFirst({
-					where: { groupId: group.id, userId: ctx.user.id },
-					columns: { inviteCardDismissedAt: true },
-				})
-				return !!membership?.inviteCardDismissedAt
-			},
+			resolve: async (group, _args, ctx) =>
+				!!(await viewerMembership(ctx, group.id))?.inviteCardDismissedAt,
 		}),
 		// The leagues this group counts on its leaderboard, activity feeds, and
 		// shares. Empty means every league.
@@ -170,28 +168,16 @@ export const GroupRef = builder.drizzleObject("groups", {
 				season: t.arg({ type: SeasonFilterInput, required: false }),
 			},
 			resolve: async (group, args, ctx) => {
-				const entries = (
-					await getGroupLeaderboard(
-						ctx,
-						group.id,
-						args.leagueId ?? null,
-						toSeasonFilter(args.season),
-					)
-				).filter((entry) => entry.rank !== null)
-				const limit = clampPageSize(args.first)
-				const afterRank = args.after ? decodeOffsetCursor(args.after) : 0
-				const items = entries.slice(afterRank, afterRank + limit)
-				const hasNextPage = afterRank + limit < entries.length
-				return {
-					items,
-					pageInfo: {
-						hasNextPage,
-						endCursor:
-							items.length > 0
-								? encodeOffsetCursor(afterRank + items.length)
-								: null,
-					},
-				}
+				const entries = await getGroupLeaderboard(
+					ctx,
+					group.id,
+					args.leagueId ?? null,
+					toSeasonFilter(args.season),
+				)
+				return sliceOffsetPage(
+					entries.filter((entry) => entry.rank !== null),
+					args,
+				)
 			},
 		}),
 		// convenience for group cards ("YOU'RE #2") that don't need the full
@@ -245,49 +231,31 @@ export const GroupRef = builder.drizzleObject("groups", {
 		}),
 		// The highlights band above the activity tabs. Unlike leaderboard above,
 		// these take no league or season: they're bound by the group's tracked
-		// leagues and nothing else (see buildHighlights). Each takes a limit
-		// because the page's band shows three and the sheet behind its "see
-		// all" shows the lot.
+		// leagues and nothing else (see buildGroupHighlights).
 		//
 		// Members currently on a run, hottest first.
 		hotStreaks: t.field({
 			type: [GroupStreakEntryRef],
 			args: { limit: t.arg.int({ required: false }) },
-			resolve: async (group, args, ctx) =>
-				(await getGroupHighlights(ctx, group.id)).hotStreaks.slice(
-					0,
-					clampHighlightLimit(args.limit),
-				),
+			resolve: highlightList("hotStreaks"),
 		}),
 		// Members currently missing, coldest first.
 		coldStreaks: t.field({
 			type: [GroupStreakEntryRef],
 			args: { limit: t.arg.int({ required: false }) },
-			resolve: async (group, args, ctx) =>
-				(await getGroupHighlights(ctx, group.id)).coldStreaks.slice(
-					0,
-					clampHighlightLimit(args.limit),
-				),
+			resolve: highlightList("coldStreaks"),
 		}),
 		// The group's longest runs ever, for when nobody is on one now.
 		streakRecords: t.field({
 			type: [GroupStreakEntryRef],
 			args: { limit: t.arg.int({ required: false }) },
-			resolve: async (group, args, ctx) =>
-				(await getGroupHighlights(ctx, group.id)).streakRecords.slice(
-					0,
-					clampHighlightLimit(args.limit),
-				),
+			resolve: highlightList("streakRecords"),
 		}),
 		// Slates a member called every winner of, newest first.
 		recentSweeps: t.field({
 			type: [GroupSweepEntryRef],
 			args: { limit: t.arg.int({ required: false }) },
-			resolve: async (group, args, ctx) =>
-				(await getGroupHighlights(ctx, group.id)).recentSweeps.slice(
-					0,
-					clampHighlightLimit(args.limit),
-				),
+			resolve: highlightList("recentSweeps"),
 		}),
 		// Calls made by other members of this group - the "Answered" tab.
 		// Group-wide (a group is just a set of people, there's no group-scoped
@@ -303,22 +271,21 @@ export const GroupRef = builder.drizzleObject("groups", {
 			resolve: async (group, args, ctx) => {
 				const user = requireUser(ctx)
 				const [memberIds, tracked] = await Promise.all([
-					getMemberUserIds(group.id),
-					getTrackedLeagueIds(group.id),
+					memberUserIds(ctx, group.id),
+					trackedLeagueIds(ctx, group.id),
 				])
 				const otherMemberIds = memberIds.filter((id) => id !== user.id)
-				const limit = clampPageSize(args.first)
-				const cursor = args.after ? decodeCursor(args.after) : null
-				const rows = await db.query.calls.findMany({
-					where: {
-						userId: { in: otherMemberIds },
-						...(tracked ? { question: { leagueId: { in: tracked } } } : {}),
-						...(cursor ? cursorWhere(cursor) : {}),
-					},
-					orderBy: { createdAt: "desc", id: "desc" },
-					limit: limit + 1,
-				})
-				return paginate(rows, limit)
+				return keysetPaginate(args, (page) =>
+					db.query.calls.findMany({
+						where: {
+							userId: { in: otherMemberIds },
+							...(tracked ? { question: { leagueId: { in: tracked } } } : {}),
+							...page.where,
+						},
+						orderBy: page.orderBy,
+						limit: page.limit,
+					}),
+				)
 			},
 		}),
 		// Public questions created by other members of this group - the
@@ -334,22 +301,21 @@ export const GroupRef = builder.drizzleObject("groups", {
 			resolve: async (group, args, ctx) => {
 				const user = requireUser(ctx)
 				const [memberIds, tracked] = await Promise.all([
-					getMemberUserIds(group.id),
-					getTrackedLeagueIds(group.id),
+					memberUserIds(ctx, group.id),
+					trackedLeagueIds(ctx, group.id),
 				])
 				const otherMemberIds = memberIds.filter((id) => id !== user.id)
-				const limit = clampPageSize(args.first)
-				const cursor = args.after ? decodeCursor(args.after) : null
-				const rows = await db.query.questions.findMany({
-					where: {
-						creatorId: { in: otherMemberIds },
-						...(tracked ? { leagueId: { in: tracked } } : {}),
-						...(cursor ? cursorWhere(cursor) : {}),
-					},
-					orderBy: { createdAt: "desc", id: "desc" },
-					limit: limit + 1,
-				})
-				return paginate(rows, limit)
+				return keysetPaginate(args, (page) =>
+					db.query.questions.findMany({
+						where: {
+							creatorId: { in: otherMemberIds },
+							...(tracked ? { leagueId: { in: tracked } } : {}),
+							...page.where,
+						},
+						orderBy: page.orderBy,
+						limit: page.limit,
+					}),
+				)
 			},
 		}),
 		// Public questions another member explicitly pushed into the group's
@@ -364,22 +330,21 @@ export const GroupRef = builder.drizzleObject("groups", {
 			},
 			resolve: async (group, args, ctx) => {
 				const user = requireUser(ctx)
-				const limit = clampPageSize(args.first)
-				const cursor = args.after ? decodeCursor(args.after) : null
 				// Shares made before an admin narrowed the tracked set drop out
 				// too, not just new ones (shareQuestionToGroup refuses those).
-				const tracked = await getTrackedLeagueIds(group.id)
-				const rows = await db.query.questionShares.findMany({
-					where: {
-						groupId: group.id,
-						sharedBy: { ne: user.id },
-						...(tracked ? { question: { leagueId: { in: tracked } } } : {}),
-						...(cursor ? cursorWhere(cursor) : {}),
-					},
-					orderBy: { createdAt: "desc", id: "desc" },
-					limit: limit + 1,
-				})
-				return paginate(rows, limit)
+				const tracked = await trackedLeagueIds(ctx, group.id)
+				return keysetPaginate(args, (page) =>
+					db.query.questionShares.findMany({
+						where: {
+							groupId: group.id,
+							sharedBy: { ne: user.id },
+							...(tracked ? { question: { leagueId: { in: tracked } } } : {}),
+							...page.where,
+						},
+						orderBy: page.orderBy,
+						limit: page.limit,
+					}),
+				)
 			},
 		}),
 	}),

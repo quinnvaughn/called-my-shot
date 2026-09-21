@@ -115,9 +115,7 @@ async function espnGet<T>(path: string): Promise<T> {
 	return res.json() as Promise<T>
 }
 
-export async function fetchTeams(
-	sportPath: EspnSportPath,
-): Promise<EspnTeam[]> {
+async function fetchTeams(sportPath: EspnSportPath): Promise<EspnTeam[]> {
 	const data = await espnGet<{
 		sports: [{ leagues: [{ teams: { team: EspnTeam }[] }] }]
 	}>(`${sportPath}/teams?limit=200`)
@@ -140,9 +138,7 @@ export type EspnGroup = {
 	children?: EspnGroup[]
 }
 
-export async function fetchGroups(
-	sportPath: EspnSportPath,
-): Promise<EspnGroup[]> {
+async function fetchGroups(sportPath: EspnSportPath): Promise<EspnGroup[]> {
 	const data = await espnGet<{ groups: EspnGroup[] }>(`${sportPath}/groups`)
 	return data.groups
 }
@@ -166,7 +162,7 @@ function isOnRoster(athlete: EspnAthlete): boolean {
 	return !NON_ROSTER_STATUSES.some((excluded) => status.includes(excluded))
 }
 
-export async function fetchRoster(
+async function fetchRoster(
 	sportPath: EspnSportPath,
 	espnTeamId: string,
 ): Promise<EspnAthlete[]> {
@@ -185,7 +181,7 @@ export async function fetchRoster(
 // is correct, not an error - it fills in once ESPN sets the bracket.
 const SYNCED_SEASON_TYPES = [2, 3]
 
-export async function fetchSchedule(
+async function fetchSchedule(
 	sportPath: EspnSportPath,
 	espnTeamId: string,
 ): Promise<EspnEvent[]> {
@@ -223,7 +219,7 @@ export type EspnScoreboardEvent = {
 	]
 }
 
-export async function fetchScoreboard(
+async function fetchScoreboard(
 	sportPath: EspnSportPath,
 ): Promise<EspnScoreboardEvent[]> {
 	const data = await espnGet<{ events: EspnScoreboardEvent[] }>(
@@ -259,7 +255,7 @@ export type EspnProbablesEvent = {
 // A date range (YYYYMMDD, ESPN's local US calendar dates) returns every game
 // in it from one call - verified live, a three-day MLB range came back with
 // all 40 games and their probables.
-export async function fetchScoreboardRange(
+async function fetchScoreboardRange(
 	sportPath: EspnSportPath,
 	startDate: string,
 	endDate: string,
@@ -288,7 +284,7 @@ export type EspnPostseasonEvent = {
 
 // Every postseason game in a date range (YYYYMMDD). A whole NBA postseason is
 // under 200 games, so one call covers it.
-export async function fetchPostseasonScoreboard(
+async function fetchPostseasonScoreboard(
 	sportPath: EspnSportPath,
 	startDate: string,
 	endDate: string,
@@ -314,7 +310,7 @@ export type EspnSummaryRoster = {
 	roster?: EspnLineupEntry[]
 }
 
-export async function fetchGameSummaryRosters(
+async function fetchGameSummaryRosters(
 	sportPath: EspnSportPath,
 	espnEventId: string,
 ): Promise<EspnSummaryRoster[]> {
@@ -387,7 +383,7 @@ export type EspnGameSummary = {
 	}
 }
 
-export async function fetchGameSummary(
+async function fetchGameSummary(
 	sportPath: EspnSportPath,
 	espnEventId: string,
 ): Promise<EspnGameSummary> {
@@ -415,7 +411,7 @@ export type EspnDepthChart = {
 
 // NFL returns three charts (offense, defense, special teams), NBA one - both
 // verified live. Works any time of year, not only near a game.
-export async function fetchDepthChart(
+async function fetchDepthChart(
 	sportPath: EspnSportPath,
 	espnTeamId: string,
 ): Promise<EspnDepthChart[]> {
@@ -477,7 +473,7 @@ export type EspnCompetitorRosterEntry = {
 	didNotPlay?: boolean
 }
 
-export async function fetchCompetitorRoster(
+async function fetchCompetitorRoster(
 	sportPath: EspnSportPath,
 	espnEventId: string,
 	espnTeamId: string,
@@ -497,7 +493,7 @@ export type EspnAthleteGameStatistics = {
 	}
 }
 
-export async function fetchCompetitorAthleteStatistics(
+async function fetchCompetitorAthleteStatistics(
 	sportPath: EspnSportPath,
 	espnEventId: string,
 	espnTeamId: string,
@@ -513,7 +509,7 @@ export type EspnSeason = {
 	displayName: string
 }
 
-export async function fetchSeason(
+async function fetchSeason(
 	sportPath: EspnSportPath,
 	year: number,
 ): Promise<EspnSeason | null> {
@@ -526,7 +522,7 @@ export type EspnSeasonType = {
 	endDate: string
 }
 
-export async function fetchSeasonType(
+async function fetchSeasonType(
 	sportPath: EspnSportPath,
 	year: number,
 	type: 2 | 3,
@@ -549,7 +545,7 @@ export type EspnSeasonWeek = {
 // are always 1..count with no gaps (NFL 2026 regular season: 18; a
 // postseason: 5, wild card through the Super Bowl). A week that 404s is
 // skipped rather than throwing, same as every other core-API read here.
-export async function fetchSeasonWeeks(
+async function fetchSeasonWeeks(
 	sportPath: EspnSportPath,
 	year: number,
 	type: 2 | 3,
@@ -570,7 +566,7 @@ export async function fetchSeasonWeeks(
 // number, so a per-game line is worked out from the total instead.
 export type EspnSeasonStatistics = EspnAthleteGameStatistics
 
-export async function fetchAthleteSeasonStatistics(
+async function fetchAthleteSeasonStatistics(
 	sportPath: EspnSportPath,
 	year: number,
 	espnAthleteId: string,
@@ -580,7 +576,7 @@ export async function fetchAthleteSeasonStatistics(
 	)
 }
 
-export async function fetchTeamSeasonStatistics(
+async function fetchTeamSeasonStatistics(
 	sportPath: EspnSportPath,
 	year: number,
 	espnTeamId: string,
@@ -606,7 +602,7 @@ export type EspnStandingsGroup = {
 
 // Always asked for by season: without one ESPN answers with whichever season it
 // considers current, which between seasons is next year's empty preseason.
-export async function fetchStandings(
+async function fetchStandings(
 	sportPath: EspnSportPath,
 	year: number,
 ): Promise<EspnStandingsGroup> {
@@ -617,3 +613,28 @@ export async function fetchStandings(
 	if (!res.ok) throw new EspnRequestError(path, res.status)
 	return res.json() as Promise<EspnStandingsGroup>
 }
+
+// Every ESPN read a job makes, as one object so a job can be handed a fake in
+// place of the network. Jobs default to this one.
+export const defaultEspnClient = {
+	fetchTeams,
+	fetchGroups,
+	fetchRoster,
+	fetchSchedule,
+	fetchScoreboard,
+	fetchScoreboardRange,
+	fetchPostseasonScoreboard,
+	fetchGameSummaryRosters,
+	fetchGameSummary,
+	fetchDepthChart,
+	fetchCompetitorRoster,
+	fetchCompetitorAthleteStatistics,
+	fetchSeason,
+	fetchSeasonType,
+	fetchSeasonWeeks,
+	fetchAthleteSeasonStatistics,
+	fetchTeamSeasonStatistics,
+	fetchStandings,
+}
+
+export type EspnClient = typeof defaultEspnClient

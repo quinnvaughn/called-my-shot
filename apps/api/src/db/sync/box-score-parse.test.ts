@@ -1,5 +1,5 @@
-import { readFileSync } from "node:fs"
 import { describe, expect, it } from "vitest"
+import { espnFixture } from "../../test/helpers"
 import {
 	defaultStatParser,
 	parseBoxScore,
@@ -12,12 +12,7 @@ import type { EspnGameSummary } from "./espn-client"
 // Trimmed from live ESPN summaries (2026-09-12) down to the fields the parser
 // reads: NBA 401811029, NFL 401872657, MLB 401816883.
 const summaryFixture = (league: "nba" | "nfl" | "mlb") =>
-	JSON.parse(
-		readFileSync(
-			new URL(`./fixtures/espn/${league}-summary.json`, import.meta.url),
-			"utf8",
-		),
-	) as EspnGameSummary
+	espnFixture<EspnGameSummary>(`${league}-summary.json`)
 
 describe("parseBoxScore", () => {
 	it("reads an NBA box score's scores, players and team stats", () => {

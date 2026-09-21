@@ -1,28 +1,13 @@
 import { describe, expect, it } from "vitest"
-import type { SatoriNode } from "../share-image"
+import { textNodes } from "../../test/helpers"
 import {
 	buildStreakShareCard,
 	parseStreakFamily,
-	STREAK_SHARE_CARD_SIZE,
 	streakHero,
 } from "./streak-card"
 
 // Fixed 1200x630 like call-card.ts, with the same silent-clipping hazard: the
 // caps on free text are what keep a long pick or title off the footer.
-
-function textNodes(node: SatoriNode, out: string[] = []): string[] {
-	const children = node.props.children
-	if (typeof children === "string") {
-		out.push(children)
-	} else if (Array.isArray(children)) {
-		for (const child of children as SatoriNode[]) {
-			if (child && typeof child === "object") textNodes(child, out)
-		}
-	} else if (children && typeof children === "object") {
-		textNodes(children as SatoriNode, out)
-	}
-	return out
-}
 
 const base = {
 	leagueAbbr: "NFL",
@@ -44,10 +29,6 @@ const base = {
 const MAX_TEXT_LENGTH = 200
 
 describe("buildStreakShareCard", () => {
-	it("renders at exactly the size X crops og:image to", () => {
-		expect(STREAK_SHARE_CARD_SIZE).toEqual({ width: 1200, height: 630 })
-	})
-
 	it("leads with the current run and states every cell", () => {
 		const texts = textNodes(buildStreakShareCard(base))
 		expect(texts).toContain("7 in a row")

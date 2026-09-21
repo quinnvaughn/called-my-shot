@@ -104,7 +104,7 @@ export function svgEl(
 // height from content, which is what a "card" (as opposed to a fixed-size
 // poster) wants: its real height is whatever its content needs, same as the
 // React version it's mirroring never hardcodes a height either.
-type RenderOptions = { width: number; height?: number }
+export type RenderOptions = { width: number; height?: number }
 
 // Generalized on purpose - the caller builds the element tree (a user's
 // stats card today, a call's result card later), this just turns any such

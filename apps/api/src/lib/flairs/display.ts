@@ -21,18 +21,20 @@ type TeamFields = { abbreviation: string; name: string; color: string } | null
 // rather than a lookup so the GraphQL layer can batch one teams query per
 // request instead of one per chip.
 export function flairDisplay(flair: Flair, team: TeamFields): FlairDisplay {
-	return match(flair.source)
-		.with("team", () =>
-			team
-				? { icon: team.abbreviation, label: team.name, color: team.color }
-				: FALLBACK,
-		)
-		// Everything that isn't a team carries its own display columns, filled
-		// in by the catalog sync or by whoever authored it.
-		.with("achievement", "group", "purchase", () => ({
-			icon: flair.icon ?? FALLBACK.icon,
-			label: flair.label ?? FALLBACK.label,
-			color: flair.color ?? FALLBACK.color,
-		}))
-		.exhaustive()
+	return (
+		match(flair.source)
+			.with("team", () =>
+				team
+					? { icon: team.abbreviation, label: team.name, color: team.color }
+					: FALLBACK,
+			)
+			// Everything that isn't a team carries its own display columns, filled
+			// in by the catalog sync or by whoever authored it.
+			.with("achievement", "group", "purchase", () => ({
+				icon: flair.icon ?? FALLBACK.icon,
+				label: flair.label ?? FALLBACK.label,
+				color: flair.color ?? FALLBACK.color,
+			}))
+			.exhaustive()
+	)
 }

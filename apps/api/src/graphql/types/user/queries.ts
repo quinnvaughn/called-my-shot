@@ -1,9 +1,10 @@
 import { usernameSchema } from "@called-my-shot/schemas"
 import { db } from "../../../db"
-import { SortDirection } from "../../../lib/admin-pagination"
 import { requireAdmin, requireUser } from "../../../lib/auth"
 import { AuthenticationError, AuthorizationError } from "../../../lib/errors"
+import { isUuid } from "../../../lib/uuid"
 import { builder } from "../../builder"
+import { SortDirection } from "../pagination"
 import { AdminUserSort } from "./enums"
 import { QuestionVoidRef, UserRef } from "./refs"
 
@@ -20,7 +21,9 @@ builder.queryFields((t) => ({
 			id: t.arg.id({ required: true }),
 		},
 		resolve: (query, _root, args) =>
-			db.query.users.findFirst(query({ where: { id: args.id } })),
+			isUuid(args.id)
+				? db.query.users.findFirst(query({ where: { id: args.id } }))
+				: null,
 	}),
 	userByUsername: t.drizzleField({
 		type: "users",

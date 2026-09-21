@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest"
 import { db } from "../../../db"
 import { playerGameStats } from "../../../db/schema"
 import {
-	HOUR,
 	makeGame,
 	makeLeague,
 	makeOption,
@@ -13,9 +12,10 @@ import {
 	makeTeam,
 } from "../../../test/factories"
 import { expectData } from "../../../test/graphql"
+import { daysAgo } from "../../../test/helpers"
 
 const NOW = new Date("2026-09-12T12:00:00Z")
-const daysAgo = (days: number) => new Date(NOW.getTime() - days * 24 * HOUR)
+const daysBefore = (days: number) => daysAgo(days, NOW.getTime())
 
 const QUERY = `
 	query ($id: ID!) {
@@ -85,7 +85,7 @@ async function playedGame(
 		seasonId: world.season.id,
 		homeTeamId: world.team.id,
 		awayTeamId: world.opponent.id,
-		startsAt: daysAgo(days),
+		startsAt: daysBefore(days),
 		status: "final",
 	})
 	await db.insert(playerGameStats).values({
@@ -96,7 +96,7 @@ async function playedGame(
 		teamId: world.team.id,
 		opponentTeamId: world.opponent.id,
 		isHome: true,
-		gameDate: daysAgo(days),
+		gameDate: daysBefore(days),
 		seasonId: world.season.id,
 		leagueId: world.league.id,
 		statKey: "points",

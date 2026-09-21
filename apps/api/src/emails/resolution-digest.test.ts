@@ -17,7 +17,8 @@ function call(overrides: Partial<DigestCall> = {}): DigestCall {
 		points: 210,
 		isWin: true,
 		marginLabel: null,
-		callUrl: "https://calledmyshot.com/calls/00000000-0000-4000-8000-000000000001",
+		callUrl:
+			"https://calledmyshot.com/calls/00000000-0000-4000-8000-000000000001",
 		...overrides,
 	}
 }

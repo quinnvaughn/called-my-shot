@@ -1,9 +1,7 @@
 import { graphql } from "#/graphql/generated"
 import { gqlQueryOptions } from "#/graphql/query-options"
 
-// Everything /calls/:id needs to state one call as a record. Deliberately
-// does NOT select user.email - it is ungated on the public User type, and
-// this is a page anyone can open.
+// Everything /calls/:id needs to state one call as a record.
 //
 // stat.toleranceTier is not optional decoration: isRateStat reads it, and
 // pickSummary reads isRateStat, so without it a rate stat renders ".3"

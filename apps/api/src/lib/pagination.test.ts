@@ -9,6 +9,7 @@ import {
 	encodeCursor,
 	encodeOffsetCursor,
 	paginate,
+	sliceOffsetPage,
 } from "./pagination"
 
 const row = (iso: string, id: string) => ({ createdAt: new Date(iso), id })
@@ -143,5 +144,35 @@ describe("admin pagination", () => {
 	it("returns a null cursor when the page is empty", () => {
 		const page = buildAdminConnection([], 5, 0)
 		expect(page.pageInfo).toEqual({ hasNextPage: false, endCursor: null })
+	})
+})
+
+describe("sliceOffsetPage", () => {
+	const ranked = Array.from({ length: 25 }, (_, i) => i + 1)
+
+	it("walks an in-memory list page by page", () => {
+		const first = sliceOffsetPage(ranked, { first: 10 })
+		expect(first.items).toEqual(ranked.slice(0, 10))
+		expect(first.pageInfo.hasNextPage).toBe(true)
+
+		const last = sliceOffsetPage(ranked, {
+			first: 10,
+			after: sliceOffsetPage(ranked, {
+				first: 10,
+				after: first.pageInfo.endCursor,
+			}).pageInfo.endCursor,
+		})
+		expect(last.items).toEqual(ranked.slice(20))
+		expect(last.pageInfo.hasNextPage).toBe(false)
+	})
+
+	it("returns a null cursor past the end", () => {
+		const page = sliceOffsetPage(ranked, {
+			after: encodeOffsetCursor(ranked.length),
+		})
+		expect(page).toEqual({
+			items: [],
+			pageInfo: { hasNextPage: false, endCursor: null },
+		})
 	})
 })

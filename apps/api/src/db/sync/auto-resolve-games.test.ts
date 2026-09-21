@@ -1,38 +1,30 @@
-import { readFileSync } from "node:fs"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { RECHECK_DELAY_MS } from "../../lib/auto-resolve/apply"
 import {
 	HOUR,
 	makeCall,
-	makeGame,
-	makeLeague,
+	makeExternalRef,
 	makeOption,
 	makePlayer,
 	makeQuestion,
 	makeSelection,
 	makeStat,
-	makeTeam,
 	makeUser,
 } from "../../test/factories"
+import { espnFixture } from "../../test/helpers"
 import { db } from "../index"
-import { externalRefs } from "../schema"
 import { autoResolveGames } from "./auto-resolve-games"
 import { persistBoxScore } from "./box-score-store"
-import {
-	type EspnGameSummary,
-	EspnRequestError,
-	fetchCompetitorAthleteStatistics,
-	fetchCompetitorRoster,
-	fetchGameSummary,
-} from "./espn-client"
+import { type EspnGameSummary, EspnRequestError } from "./espn-client"
 import { resolveGameWinner } from "./sync-games"
-
-vi.mock("./espn-client", async (importOriginal) => ({
-	...(await importOriginal<typeof import("./espn-client")>()),
-	fetchGameSummary: vi.fn(),
-	fetchCompetitorRoster: vi.fn(),
-	fetchCompetitorAthleteStatistics: vi.fn(),
-}))
+import {
+	autoRowFor,
+	type FakeEspnClient,
+	fakeEspnClient,
+	questionById,
+	seedNbaSummaryGame,
+	seedPointsLine,
+} from "./test-support"
 
 // Calls through by default - only the "persisting fails" case overrides it,
 // and with mockRejectedValueOnce, so nothing has to put the real one back.
@@ -43,102 +35,33 @@ vi.mock("./box-score-store", async (importOriginal) => {
 
 const NOW = new Date("2026-09-12T12:00:00Z")
 const hoursAgo = (hours: number) => new Date(NOW.getTime() - hours * HOUR)
-const run = (now = NOW) => autoResolveGames({ now, spacingMs: 0 })
+
+let espn: FakeEspnClient
+const run = (now = NOW) => autoResolveGames({ now, spacingMs: 0, espn })
 
 // See box-score-parse.test.ts for where the fixture comes from.
-const nbaSummary = () =>
-	JSON.parse(
-		readFileSync(
-			new URL("./fixtures/espn/nba-summary.json", import.meta.url),
-			"utf8",
-		),
-	) as EspnGameSummary
+const nbaSummary = () => espnFixture<EspnGameSummary>("nba-summary.json")
 
-async function link(
-	entityType: "team" | "player" | "game",
-	sourceId: string,
-	entityId: string,
-) {
-	await db
-		.insert(externalRefs)
-		.values({ source: "espn", entityType, sourceId, entityId })
-}
+const seedNbaGame = (finalizedHoursAgo = 2) =>
+	seedNbaSummaryGame(
+		hoursAgo(finalizedHoursAgo + 3),
+		hoursAgo(finalizedHoursAgo),
+	)
 
-// The fixture's game: home team "2", away team "3", event 401811029.
-async function seedNbaGame(finalizedHoursAgo = 2) {
-	const league = await makeLeague({ slug: "nba" })
-	const home = await makeTeam({ leagueId: league.id })
-	const away = await makeTeam({ leagueId: league.id })
-	await link("team", "nba:2", home.id)
-	await link("team", "nba:3", away.id)
-	const game = await makeGame({
-		leagueId: league.id,
-		homeTeamId: home.id,
-		awayTeamId: away.id,
-		startsAt: hoursAgo(finalizedHoursAgo + 3),
-		status: "final",
-		finalizedAt: hoursAgo(finalizedHoursAgo),
-	})
-	await link("game", "nba:401811029", game.id)
-	const stat = await makeStat({
-		sportId: league.sportId,
-		name: "Points",
-		appliesTo: "both",
-	})
-	return { league, away, game, stat }
-}
-
-type Setup = Awaited<ReturnType<typeof seedNbaGame>>
-
-async function seedPointsLine(
-	setup: Setup,
-	espnAthleteId: string,
-	ouLine: number,
-	resolutionMode: "system" | "manual" = "system",
-) {
-	const player = await makePlayer({ currentTeamId: setup.away.id })
-	await link("player", `nba:${espnAthleteId}`, player.id)
-	const question = await makeQuestion({
-		shape: "player_stat_over_under",
-		leagueId: setup.league.id,
-		sportId: setup.league.sportId,
-		seasonId: setup.game.seasonId,
-		gameId: setup.game.id,
-		statId: setup.stat.id,
-		subjectPlayerId: player.id,
-		ouLine,
-		status: "locked",
-		locksAt: setup.game.startsAt,
-		resolutionMode,
-	})
-	const over = await makeOption(question.id, { label: "Over", sortOrder: 0 })
-	const under = await makeOption(question.id, { label: "Under", sortOrder: 1 })
-	const caller = await makeUser()
-	const call = await makeCall(question.id, caller.id)
-	await makeSelection(call.id, over.id)
-	return { question, over, under }
-}
-
-const questionById = (id: string) =>
-	db.query.questions.findFirst({ where: { id } })
-const autoRowFor = (questionId: string) =>
-	db.query.questionAutoResolutions.findFirst({ where: { questionId } })
 const correctOptionIds = async (questionId: string) =>
 	(await db.query.questionOptions.findMany({ where: { questionId } }))
 		.filter((o) => o.isCorrect)
 		.map((o) => o.id)
 
 beforeEach(() => {
-	vi.mocked(fetchGameSummary).mockReset()
-	vi.mocked(fetchCompetitorRoster).mockReset()
-	vi.mocked(fetchCompetitorAthleteStatistics).mockReset()
+	espn = fakeEspnClient()
 })
 
 describe("autoResolveGames box score capture", () => {
 	it("stores the box score it already fetched to resolve", async () => {
 		const setup = await seedNbaGame()
 		await seedPointsLine(setup, "4869780", 22.5)
-		vi.mocked(fetchGameSummary).mockResolvedValue(nbaSummary())
+		espn.fetchGameSummary.mockResolvedValue(nbaSummary())
 
 		await run()
 
@@ -158,7 +81,7 @@ describe("autoResolveGames box score capture", () => {
 	it("still resolves the question when storing the box score fails", async () => {
 		const setup = await seedNbaGame()
 		const { question, over } = await seedPointsLine(setup, "4869780", 22.5)
-		vi.mocked(fetchGameSummary).mockResolvedValue(nbaSummary())
+		espn.fetchGameSummary.mockResolvedValue(nbaSummary())
 		vi.mocked(persistBoxScore).mockRejectedValueOnce(new Error("nope"))
 
 		await run()
@@ -179,7 +102,7 @@ describe("autoResolveGames", () => {
 		const setup = await seedNbaGame()
 		// 4869780 scored 25.
 		const { question, over } = await seedPointsLine(setup, "4869780", 22.5)
-		vi.mocked(fetchGameSummary).mockResolvedValue(nbaSummary())
+		espn.fetchGameSummary.mockResolvedValue(nbaSummary())
 
 		await run()
 
@@ -199,7 +122,7 @@ describe("autoResolveGames", () => {
 	it("resolves a game that has only just gone final", async () => {
 		const setup = await seedNbaGame(0)
 		const { question } = await seedPointsLine(setup, "4869780", 22.5)
-		vi.mocked(fetchGameSummary).mockResolvedValue(nbaSummary())
+		espn.fetchGameSummary.mockResolvedValue(nbaSummary())
 
 		await run()
 
@@ -211,7 +134,7 @@ describe("autoResolveGames", () => {
 		const { question } = await seedPointsLine(setup, "4869780", 22.5)
 		const partial = nbaSummary()
 		partial.header.competitions[0].boxscoreSource = "basic"
-		vi.mocked(fetchGameSummary).mockResolvedValue(partial)
+		espn.fetchGameSummary.mockResolvedValue(partial)
 
 		await run()
 
@@ -224,7 +147,7 @@ describe("autoResolveGames", () => {
 	it("voids the question when the player didn't play", async () => {
 		const setup = await seedNbaGame()
 		const { question } = await seedPointsLine(setup, "3442", 10.5)
-		vi.mocked(fetchGameSummary).mockResolvedValue(nbaSummary())
+		espn.fetchGameSummary.mockResolvedValue(nbaSummary())
 
 		await run()
 
@@ -255,7 +178,7 @@ describe("autoResolveGames", () => {
 		const options = []
 		for (const [sortOrder, espnAthleteId] of ["3155535", "4065804"].entries()) {
 			const player = await makePlayer({ currentTeamId: setup.away.id })
-			await link("player", `nba:${espnAthleteId}`, player.id)
+			await makeExternalRef("player", `nba:${espnAthleteId}`, player.id)
 			options.push(
 				await makeOption(question.id, {
 					label: player.name,
@@ -269,7 +192,7 @@ describe("autoResolveGames", () => {
 		const [first] = options
 		if (!first) throw new Error("expected options")
 		await makeSelection(call.id, first.id)
-		vi.mocked(fetchGameSummary).mockResolvedValue(nbaSummary())
+		espn.fetchGameSummary.mockResolvedValue(nbaSummary())
 
 		await run()
 
@@ -285,24 +208,24 @@ describe("autoResolveGames", () => {
 		const setup = await seedNbaGame()
 		await seedPointsLine(setup, "4869780", 22.5)
 		await seedPointsLine(setup, "4065804", 20.5)
-		vi.mocked(fetchGameSummary).mockResolvedValue(nbaSummary())
+		espn.fetchGameSummary.mockResolvedValue(nbaSummary())
 
 		await run()
 
-		expect(fetchGameSummary).toHaveBeenCalledTimes(1)
+		expect(espn.fetchGameSummary).toHaveBeenCalledTimes(1)
 	})
 
 	it("leaves a question a person resolves alone", async () => {
 		const setup = await seedNbaGame()
 		await seedPointsLine(setup, "4869780", 22.5, "manual")
 		await run()
-		expect(fetchGameSummary).not.toHaveBeenCalled()
+		expect(espn.fetchGameSummary).not.toHaveBeenCalled()
 	})
 
 	it("retries a failed fetch, then hands the question to an admin", async () => {
 		const setup = await seedNbaGame()
 		const { question } = await seedPointsLine(setup, "4869780", 22.5)
-		vi.mocked(fetchGameSummary).mockRejectedValue(new Error("timed out"))
+		espn.fetchGameSummary.mockRejectedValue(new Error("timed out"))
 
 		await run()
 		const first = await autoRowFor(question.id)
@@ -318,7 +241,7 @@ describe("autoResolveGames", () => {
 	it("stops the run when ESPN refuses it", async () => {
 		const setup = await seedNbaGame()
 		await seedPointsLine(setup, "4869780", 22.5)
-		vi.mocked(fetchGameSummary).mockRejectedValue(
+		espn.fetchGameSummary.mockRejectedValue(
 			new EspnRequestError("summary", 429),
 		)
 		await expect(run()).rejects.toBeInstanceOf(EspnRequestError)
@@ -331,7 +254,7 @@ describe("autoResolveGames - re-check", () => {
 	it("re-scores the question when ESPN corrected the box score", async () => {
 		const setup = await seedNbaGame()
 		const { question, under } = await seedPointsLine(setup, "4869780", 22.5)
-		vi.mocked(fetchGameSummary).mockResolvedValue(nbaSummary())
+		espn.fetchGameSummary.mockResolvedValue(nbaSummary())
 		await run()
 
 		const corrected = nbaSummary()
@@ -343,7 +266,7 @@ describe("autoResolveGames - re-check", () => {
 				}
 			}
 		}
-		vi.mocked(fetchGameSummary).mockResolvedValue(corrected)
+		espn.fetchGameSummary.mockResolvedValue(corrected)
 		await run(afterRecheck)
 
 		expect(await correctOptionIds(question.id)).toEqual([under.id])
@@ -392,7 +315,7 @@ describe("autoResolveGames - re-check", () => {
 			NOW.getTime() + RECHECK_DELAY_MS,
 		)
 
-		vi.mocked(fetchGameSummary).mockResolvedValue(nbaSummary())
+		espn.fetchGameSummary.mockResolvedValue(nbaSummary())
 		await run(afterRecheck)
 
 		expect(await correctOptionIds(question.id)).toEqual([home.id])
@@ -402,7 +325,7 @@ describe("autoResolveGames - re-check", () => {
 	it("changes nothing when the box score still says the same", async () => {
 		const setup = await seedNbaGame()
 		const { question } = await seedPointsLine(setup, "4869780", 22.5)
-		vi.mocked(fetchGameSummary).mockResolvedValue(nbaSummary())
+		espn.fetchGameSummary.mockResolvedValue(nbaSummary())
 		await run()
 		const notificationsAfterFirst = (
 			await db.query.notifications.findMany({

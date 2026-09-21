@@ -11,6 +11,7 @@ import {
 	groups,
 	questionShares,
 } from "../../../db/schema"
+import type { Tx } from "../../../db/types"
 import { requireUser } from "../../../lib/auth"
 import {
 	AuthenticationError,
@@ -25,14 +26,18 @@ import {
 	insertGroupInvite,
 	isInviteExpired,
 	regenerateInviteCode,
-	requireAdmin,
+	requireGroupAdmin,
+	requireGroupMember,
 	requireInviteOwnerOrAdmin,
 	requireKnownLeagueIds,
 	setTrackedLeagues,
 } from "../../../lib/groups"
-import { createNotifications } from "../../../lib/notifications"
-import type { Tx } from "../../../lib/user-season-stats"
+import {
+	createNotifications,
+	type NotificationInput,
+} from "../../../lib/notifications"
 import { builder } from "../../builder"
+import { parseInput } from "../../helpers"
 import { GroupRole, InviteExpiry } from "./enums"
 import {
 	CreateGroupInput,
@@ -42,6 +47,23 @@ import {
 	UpdateGroupInput,
 } from "./inputs"
 import { GroupInviteRef, GroupMemberRef, GroupRef } from "./refs"
+
+// Tells everyone else in the group about something `actor` just did there.
+async function notifyOtherMembers(
+	tx: Tx,
+	groupId: string,
+	actorId: string,
+	notificationFor: (userId: string) => NotificationInput,
+) {
+	const others = await tx.query.groupMembers.findMany({
+		where: { groupId, userId: { ne: actorId } },
+		columns: { userId: true },
+	})
+	await createNotifications(
+		tx,
+		others.map((member) => notificationFor(member.userId)),
+	)
+}
 
 // A departed member's link would otherwise keep letting people into a group
 // they're no longer part of.
@@ -67,30 +89,35 @@ builder.mutationFields((t) => ({
 		args: { input: t.arg({ type: CreateGroupInput, required: true }) },
 		resolve: async (_root, args, ctx) => {
 			const user = requireUser(ctx)
-			const parsed = createGroupSchema.safeParse({
+			const input = parseInput(createGroupSchema, {
 				name: args.input.name,
 				description: args.input.description ?? undefined,
 				leagueIds: args.input.leagueIds ?? undefined,
 			})
-			if (!parsed.success) {
-				throw ValidationError.fromZodIssues(parsed.error.issues)
-			}
-			await requireKnownLeagueIds(parsed.data.leagueIds)
+			await requireKnownLeagueIds(input.leagueIds)
 
-			const [group] = await db
-				.insert(groups)
-				.values({
-					name: parsed.data.name,
-					// || rather than ??: a blank description is no description
-					description: parsed.data.description || null,
-					createdBy: user.id,
-				})
-				.returning()
-			await db
-				.insert(groupMembers)
-				.values({ groupId: group.id, userId: user.id, role: "admin" })
-			await setTrackedLeagues(db, group.id, parsed.data.leagueIds)
-			await insertGroupInvite(group.id, user.id, expiryToDate("NO_EXPIRY"))
+			const group = await db.transaction(async (tx) => {
+				const [group] = await tx
+					.insert(groups)
+					.values({
+						name: input.name,
+						// || rather than ??: a blank description is no description
+						description: input.description || null,
+						createdBy: user.id,
+					})
+					.returning()
+				await tx
+					.insert(groupMembers)
+					.values({ groupId: group.id, userId: user.id, role: "admin" })
+				await setTrackedLeagues(tx, group.id, input.leagueIds)
+				await insertGroupInvite(
+					group.id,
+					user.id,
+					expiryToDate("NO_EXPIRY"),
+					tx,
+				)
+				return group
+			})
 
 			return { group }
 		},
@@ -108,24 +135,21 @@ builder.mutationFields((t) => ({
 		args: { input: t.arg({ type: UpdateGroupInput, required: true }) },
 		resolve: async (_root, args, ctx) => {
 			const user = requireUser(ctx)
-			const parsed = updateGroupSchema.safeParse(args.input)
-			if (!parsed.success) {
-				throw ValidationError.fromZodIssues(parsed.error.issues)
-			}
-			await requireAdmin(parsed.data.groupId, user.id)
-			await requireKnownLeagueIds(parsed.data.leagueIds)
+			const input = parseInput(updateGroupSchema, args.input)
+			await requireGroupAdmin(input.groupId, user.id)
+			await requireKnownLeagueIds(input.leagueIds)
 
 			const group = await db.transaction(async (tx) => {
 				const [updated] = await tx
 					.update(groups)
 					.set({
-						name: parsed.data.name,
-						description: parsed.data.description || null,
+						name: input.name,
+						description: input.description || null,
 					})
-					.where(eq(groups.id, parsed.data.groupId))
+					.where(eq(groups.id, input.groupId))
 					.returning()
 				if (!updated) throw new NotFoundError("Group not found")
-				await setTrackedLeagues(tx, updated.id, parsed.data.leagueIds)
+				await setTrackedLeagues(tx, updated.id, input.leagueIds)
 				return updated
 			})
 			return { group }
@@ -142,13 +166,10 @@ builder.mutationFields((t) => ({
 		args: { input: t.arg({ type: JoinGroupInput, required: true }) },
 		resolve: async (_root, args, ctx) => {
 			const user = requireUser(ctx)
-			const parsed = joinGroupSchema.safeParse(args.input)
-			if (!parsed.success) {
-				throw ValidationError.fromZodIssues(parsed.error.issues)
-			}
+			const { code } = parseInput(joinGroupSchema, args.input)
 
 			const invite = await db.query.groupInvites.findFirst({
-				where: { code: parsed.data.code },
+				where: { code },
 			})
 			if (!invite || isInviteExpired(invite.expiresAt)) {
 				throw ValidationError.field(
@@ -162,34 +183,25 @@ builder.mutationFields((t) => ({
 			})
 			if (!group) throw new NotFoundError("Group not found")
 
-			const existing = await db.query.groupMembers.findFirst({
-				where: { groupId: invite.groupId, userId: user.id },
+			// Joining a group you're already in is a no-op, not an error. The
+			// conflict check and the insert are one statement, so two joins racing
+			// can't both notify.
+			await db.transaction(async (tx) => {
+				const [joined] = await tx
+					.insert(groupMembers)
+					.values({ groupId: group.id, userId: user.id, role: "member" })
+					.onConflictDoNothing()
+					.returning()
+				if (!joined) return
+				await notifyOtherMembers(tx, group.id, user.id, (userId) => ({
+					type: "group_member_joined",
+					userId,
+					groupId: group.id,
+					groupName: group.name,
+					actorId: user.id,
+					actorUsername: user.username,
+				}))
 			})
-			if (!existing) {
-				await db.transaction(async (tx) => {
-					await tx.insert(groupMembers).values({
-						groupId: invite.groupId,
-						userId: user.id,
-						role: "member",
-					})
-
-					const otherMembers = await tx.query.groupMembers.findMany({
-						where: { groupId: invite.groupId, userId: { ne: user.id } },
-						columns: { userId: true },
-					})
-					await createNotifications(
-						tx,
-						otherMembers.map((m) => ({
-							type: "group_member_joined" as const,
-							userId: m.userId,
-							groupId: group.id,
-							groupName: group.name,
-							actorId: user.id,
-							actorUsername: user.username,
-						})),
-					)
-				})
-			}
 			// every member gets their own invite link, same as the creator does in
 			// createGroup - myInvite should never be null for a member
 			await getOrCreateMemberInvite(invite.groupId, user.id)
@@ -216,7 +228,7 @@ builder.mutationFields((t) => ({
 					"You can't remove yourself from a group.",
 				)
 			}
-			await requireAdmin(args.groupId, user.id)
+			await requireGroupAdmin(args.groupId, user.id)
 
 			await db.transaction(async (tx) => {
 				await tx
@@ -250,7 +262,7 @@ builder.mutationFields((t) => ({
 		},
 		resolve: async (_root, args, ctx) => {
 			const user = requireUser(ctx)
-			await requireAdmin(args.groupId, user.id)
+			await requireGroupAdmin(args.groupId, user.id)
 
 			return db.transaction(async (tx) => {
 				// Locks the group so two admins demoting each other at once can't
@@ -296,7 +308,7 @@ builder.mutationFields((t) => ({
 		args: { groupId: t.arg.id({ required: true }) },
 		resolve: async (_root, args, ctx) => {
 			const user = requireUser(ctx)
-			await requireAdmin(args.groupId, user.id)
+			await requireGroupAdmin(args.groupId, user.id)
 			await db.delete(groups).where(eq(groups.id, args.groupId))
 			return true
 		},
@@ -360,12 +372,7 @@ builder.mutationFields((t) => ({
 		args: { groupId: t.arg.id({ required: true }) },
 		resolve: async (_root, args, ctx) => {
 			const user = requireUser(ctx)
-			const membership = await db.query.groupMembers.findFirst({
-				where: { groupId: args.groupId, userId: user.id },
-			})
-			if (!membership) {
-				throw new AuthorizationError("You're not a member of this group.")
-			}
+			await requireGroupMember(args.groupId, user.id)
 			return getOrCreateMemberInvite(args.groupId, user.id)
 		},
 	}),
@@ -382,19 +389,11 @@ builder.mutationFields((t) => ({
 		args: { groupId: t.arg.id({ required: true }) },
 		resolve: async (_root, args, ctx) => {
 			const user = requireUser(ctx)
-			const [membership] = await db
+			const membership = await requireGroupMember(args.groupId, user.id)
+			await db
 				.update(groupMembers)
 				.set({ inviteCardDismissedAt: new Date() })
-				.where(
-					and(
-						eq(groupMembers.groupId, args.groupId),
-						eq(groupMembers.userId, user.id),
-					),
-				)
-				.returning()
-			if (!membership) {
-				throw new AuthorizationError("You're not a member of this group.")
-			}
+				.where(eq(groupMembers.id, membership.id))
 			const group = await db.query.groups.findFirst({
 				where: { id: args.groupId },
 			})
@@ -439,15 +438,11 @@ builder.mutationFields((t) => ({
 		},
 		resolve: async (_root, args, ctx) => {
 			const user = requireUser(ctx)
-			const membership = await db.query.groupMembers.findFirst({
-				where: { groupId: args.groupId, userId: user.id },
-				with: { group: true },
+			await requireGroupMember(args.groupId, user.id)
+			const group = await db.query.groups.findFirst({
+				where: { id: args.groupId },
 			})
-			if (!membership) {
-				throw new AuthorizationError("You're not a member of this group.")
-			}
-			if (!membership.group) throw new NotFoundError("Group not found")
-			const group = membership.group
+			if (!group) throw new NotFoundError("Group not found")
 
 			const question = await db.query.questions.findFirst({
 				where: { id: args.questionId },
@@ -481,23 +476,16 @@ builder.mutationFields((t) => ({
 					})
 					.returning()
 
-				const otherMembers = await tx.query.groupMembers.findMany({
-					where: { groupId: args.groupId, userId: { ne: user.id } },
-					columns: { userId: true },
-				})
-				await createNotifications(
-					tx,
-					otherMembers.map((m) => ({
-						type: "question_shared_to_group" as const,
-						userId: m.userId,
-						groupId: args.groupId,
-						groupName: group.name,
-						questionId: question.id,
-						questionTitle: question.title,
-						actorId: user.id,
-						actorUsername: user.username,
-					})),
-				)
+				await notifyOtherMembers(tx, args.groupId, user.id, (userId) => ({
+					type: "question_shared_to_group",
+					userId,
+					groupId: args.groupId,
+					groupName: group.name,
+					questionId: question.id,
+					questionTitle: question.title,
+					actorId: user.id,
+					actorUsername: user.username,
+				}))
 
 				return share
 			})

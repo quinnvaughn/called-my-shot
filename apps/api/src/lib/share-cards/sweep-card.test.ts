@@ -1,29 +1,15 @@
 import { describe, expect, it } from "vitest"
+import { textNodes } from "../../test/helpers"
 import type { SatoriNode } from "../share-image"
 import {
 	buildSweepShareCard,
 	formatSlateDates,
-	SWEEP_SHARE_CARD_SIZE,
 	type SweepGameChip,
 } from "./sweep-card"
 
 // Fixed 1200x630 like call-card.ts. The chip grid is the one part of this
 // card whose size depends on the data, so what matters is that every game
 // gets a chip however many the slate has.
-
-function textNodes(node: SatoriNode, out: string[] = []): string[] {
-	const children = node.props.children
-	if (typeof children === "string") {
-		out.push(children)
-	} else if (Array.isArray(children)) {
-		for (const child of children as SatoriNode[]) {
-			if (child && typeof child === "object") textNodes(child, out)
-		}
-	} else if (children && typeof children === "object") {
-		textNodes(children as SatoriNode, out)
-	}
-	return out
-}
 
 function findAll(
 	node: SatoriNode,
@@ -61,10 +47,6 @@ const base = {
 }
 
 describe("buildSweepShareCard", () => {
-	it("renders at exactly the size X crops og:image to", () => {
-		expect(SWEEP_SHARE_CARD_SIZE).toEqual({ width: 1200, height: 630 })
-	})
-
 	it("states the slate, the hero and every cell", () => {
 		const texts = textNodes(buildSweepShareCard(base))
 		expect(texts).toContain("NFL · Week 3 Sunday Early sweep")

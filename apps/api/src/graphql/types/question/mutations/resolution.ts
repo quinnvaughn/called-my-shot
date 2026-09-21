@@ -16,6 +16,7 @@ import {
 import { createNotification } from "../../../../lib/notifications"
 import { resolveQuestionInternal } from "../../../../lib/resolve-question"
 import { builder } from "../../../builder"
+import { lockOrThrow, parseInput } from "../../../helpers"
 import {
 	AdminResolveQuestionInput,
 	FileDisputeInput,
@@ -26,17 +27,28 @@ import {
 	UpholdDisputeInput,
 } from "../inputs"
 import { ResolutionDisputeRef } from "../moderation-objects"
+import { assertLocked, assertUnresolved, lockOpenDispute } from "./guards"
+
+// What an admin's resolution records beyond the outcome itself: who set it,
+// and the source they actually checked in place of the creation-time one.
+function adminResolution(
+	adminId: string,
+	resolution: { resolutionSource?: string; resolutionSourceUrl?: string },
+) {
+	return {
+		resolvedBy: { method: "admin" as const, userId: adminId },
+		source: {
+			resolutionSource: resolution.resolutionSource,
+			resolutionSourceUrl: resolution.resolutionSourceUrl,
+		},
+	}
+}
 
 builder.mutationFields((t) => ({
 	resolveQuestion: t.field({
 		type: QuestionPayload,
 		errors: {
-			types: [
-				AuthenticationError,
-				AuthorizationError,
-				NotFoundError,
-				ValidationError,
-			],
+			types: [AuthenticationError, AuthorizationError, NotFoundError],
 			directResult: true,
 			union: { name: "ResolveQuestionResult" },
 		},
@@ -45,12 +57,12 @@ builder.mutationFields((t) => ({
 			const user = requireUser(ctx)
 
 			const question = await db.transaction(async (tx) => {
-				const [question] = await tx
-					.select()
-					.from(questions)
-					.where(eq(questions.id, args.input.questionId))
-					.for("update")
-				if (!question) throw new NotFoundError("Question not found")
+				const question = await lockOrThrow(
+					tx,
+					questions,
+					args.input.questionId,
+					"Question not found",
+				)
 				if (question.creatorId !== user.id) {
 					throw new AuthorizationError(
 						"Only the creator can resolve this question.",
@@ -65,25 +77,13 @@ builder.mutationFields((t) => ({
 						"This question resolves automatically from ESPN.",
 					)
 				}
-				if (question.status === "resolved" || question.status === "disputed") {
-					throw ValidationError.field(
-						null,
-						"This question has already been resolved.",
-					)
-				}
-				// Readiness is derived from locksAt, never trusted from status -
-				// same reasoning as castCall above.
-				if (question.locksAt > new Date()) {
-					throw ValidationError.field(null, "This question hasn't locked yet.")
-				}
+				assertUnresolved(question)
+				assertLocked(question)
 
-				const parsed = resolveQuestionSchema.safeParse({
+				const resolution = parseInput(resolveQuestionSchema, {
 					...args.input,
 					shape: question.shape,
 				})
-				if (!parsed.success) {
-					throw ValidationError.fromZodIssues(parsed.error.issues)
-				}
 
 				// A creator grading a question nobody else called has nobody who
 				// could dispute the result, so their own call on it doesn't score.
@@ -94,7 +94,7 @@ builder.mutationFields((t) => ({
 				const isSoleCaller =
 					callers.length === 1 && callers[0]?.userId === user.id
 
-				return resolveQuestionInternal(tx, question, parsed.data, {
+				return resolveQuestionInternal(tx, question, resolution, {
 					resolvedBy: { method: "creator", userId: user.id },
 					...(isSoleCaller
 						? {
@@ -120,12 +120,7 @@ builder.mutationFields((t) => ({
 	adminResolveQuestion: t.field({
 		type: QuestionPayload,
 		errors: {
-			types: [
-				AuthenticationError,
-				AuthorizationError,
-				NotFoundError,
-				ValidationError,
-			],
+			types: [AuthenticationError, AuthorizationError, NotFoundError],
 			directResult: true,
 			union: { name: "AdminResolveQuestionResult" },
 		},
@@ -134,37 +129,26 @@ builder.mutationFields((t) => ({
 			const admin = requireAdmin(ctx)
 
 			const question = await db.transaction(async (tx) => {
-				const [question] = await tx
-					.select()
-					.from(questions)
-					.where(eq(questions.id, args.input.questionId))
-					.for("update")
-				if (!question) throw new NotFoundError("Question not found")
-				if (question.status === "resolved" || question.status === "disputed") {
-					throw ValidationError.field(
-						null,
-						"This question has already been resolved.",
-					)
-				}
-				if (question.locksAt > new Date()) {
-					throw ValidationError.field(null, "This question hasn't locked yet.")
-				}
+				const question = await lockOrThrow(
+					tx,
+					questions,
+					args.input.questionId,
+					"Question not found",
+				)
+				assertUnresolved(question)
+				assertLocked(question)
 
-				const parsed = adminResolveQuestionSchema.safeParse({
+				const resolution = parseInput(adminResolveQuestionSchema, {
 					...args.input,
 					shape: question.shape,
 				})
-				if (!parsed.success) {
-					throw ValidationError.fromZodIssues(parsed.error.issues)
-				}
 
-				return resolveQuestionInternal(tx, question, parsed.data, {
-					resolvedBy: { method: "admin", userId: admin.id },
-					source: {
-						resolutionSource: parsed.data.resolutionSource,
-						resolutionSourceUrl: parsed.data.resolutionSourceUrl,
-					},
-				})
+				return resolveQuestionInternal(
+					tx,
+					question,
+					resolution,
+					adminResolution(admin.id, resolution),
+				)
 			})
 
 			return { question }
@@ -179,12 +163,7 @@ builder.mutationFields((t) => ({
 	overturnDispute: t.field({
 		type: QuestionPayload,
 		errors: {
-			types: [
-				AuthenticationError,
-				AuthorizationError,
-				NotFoundError,
-				ValidationError,
-			],
+			types: [AuthenticationError, AuthorizationError, NotFoundError],
 			directResult: true,
 			union: { name: "OverturnDisputeResult" },
 		},
@@ -193,45 +172,27 @@ builder.mutationFields((t) => ({
 			const admin = requireAdmin(ctx)
 
 			const question = await db.transaction(async (tx) => {
-				const [dispute] = await tx
-					.select()
-					.from(resolutionDisputes)
-					.where(eq(resolutionDisputes.id, args.input.disputeId))
-					.for("update")
-				if (!dispute) throw new NotFoundError("Dispute not found")
-				if (dispute.status !== "open") {
-					throw ValidationError.field(null, "This dispute is already settled.")
-				}
-
-				const [question] = await tx
-					.select()
-					.from(questions)
-					.where(eq(questions.id, dispute.questionId))
-					.for("update")
-				if (!question) throw new NotFoundError("Question not found")
+				const dispute = await lockOpenDispute(tx, args.input.disputeId)
+				const question = await lockOrThrow(
+					tx,
+					questions,
+					dispute.questionId,
+					"Question not found",
+				)
 				if (question.status !== "disputed") {
 					throw ValidationError.field(null, "This question isn't disputed.")
 				}
 
-				const parsed = adminResolveQuestionSchema.safeParse({
+				const resolution = parseInput(adminResolveQuestionSchema, {
 					...args.input.resolution,
 					shape: question.shape,
 				})
-				if (!parsed.success) {
-					throw ValidationError.fromZodIssues(parsed.error.issues)
-				}
 
 				const updated = await resolveQuestionInternal(
 					tx,
 					question,
-					parsed.data,
-					{
-						resolvedBy: { method: "admin", userId: admin.id },
-						source: {
-							resolutionSource: parsed.data.resolutionSource,
-							resolutionSourceUrl: parsed.data.resolutionSourceUrl,
-						},
-					},
+					resolution,
+					adminResolution(admin.id, resolution),
 				)
 
 				await tx
@@ -270,15 +231,7 @@ builder.mutationFields((t) => ({
 			requireAdmin(ctx)
 
 			return db.transaction(async (tx) => {
-				const [dispute] = await tx
-					.select()
-					.from(resolutionDisputes)
-					.where(eq(resolutionDisputes.id, args.input.disputeId))
-					.for("update")
-				if (!dispute) throw new NotFoundError("Dispute not found")
-				if (dispute.status !== "open") {
-					throw ValidationError.field(null, "This dispute is already settled.")
-				}
+				const dispute = await lockOpenDispute(tx, args.input.disputeId)
 
 				const [updatedDispute] = await tx
 					.update(resolutionDisputes)
@@ -320,68 +273,63 @@ builder.mutationFields((t) => ({
 	fileDispute: t.field({
 		type: FileDisputePayload,
 		errors: {
-			types: [
-				AuthenticationError,
-				AuthorizationError,
-				NotFoundError,
-				ValidationError,
-			],
+			types: [AuthenticationError, AuthorizationError, NotFoundError],
 			directResult: true,
 			union: { name: "FileDisputeResult" },
 		},
 		args: { input: t.arg({ type: FileDisputeInput, required: true }) },
 		resolve: async (_root, args, ctx) => {
 			const user = requireUser(ctx)
-			const parsed = fileDisputeSchema.safeParse(args.input)
-			if (!parsed.success) {
-				throw ValidationError.fromZodIssues(parsed.error.issues)
-			}
-			const data = parsed.data
+			const data = parseInput(fileDisputeSchema, args.input)
 
-			const question = await db.query.questions.findFirst({
-				where: { id: data.questionId },
-			})
-			if (!question) throw new NotFoundError("Question not found")
-			if (question.status !== "resolved") {
-				throw ValidationError.field(
-					null,
-					"Only resolved questions can be disputed.",
-				)
-			}
-
-			const callerCall = await db.query.calls.findFirst({
-				where: { questionId: data.questionId, userId: user.id },
-			})
-			if (!callerCall) {
-				throw new AuthorizationError(
-					"Only callers on this question can dispute its resolution.",
-				)
-			}
-
-			const existingDispute = await db.query.resolutionDisputes.findFirst({
-				where: { questionId: data.questionId, userId: user.id },
-			})
-			if (existingDispute) {
-				throw ValidationError.field(
-					null,
-					"You've already disputed this question.",
-				)
-			}
-
-			const settledDispute = await db.query.resolutionDisputes.findFirst({
-				where: {
-					questionId: data.questionId,
-					status: { in: ["upheld", "overturned"] },
-				},
-			})
-			if (settledDispute) {
-				throw ValidationError.field(
-					null,
-					"This question's resolution has already been reviewed and is final.",
-				)
-			}
-
+			// Checked under the question's row lock, so two disputes filed at
+			// once can't both pass the checks below before either is written.
 			const dispute = await db.transaction(async (tx) => {
+				const question = await lockOrThrow(
+					tx,
+					questions,
+					data.questionId,
+					"Question not found",
+				)
+				if (question.status !== "resolved") {
+					throw ValidationError.field(
+						null,
+						"Only resolved questions can be disputed.",
+					)
+				}
+
+				const callerCall = await tx.query.calls.findFirst({
+					where: { questionId: data.questionId, userId: user.id },
+				})
+				if (!callerCall) {
+					throw new AuthorizationError(
+						"Only callers on this question can dispute its resolution.",
+					)
+				}
+
+				const existingDispute = await tx.query.resolutionDisputes.findFirst({
+					where: { questionId: data.questionId, userId: user.id },
+				})
+				if (existingDispute) {
+					throw ValidationError.field(
+						null,
+						"You've already disputed this question.",
+					)
+				}
+
+				const settledDispute = await tx.query.resolutionDisputes.findFirst({
+					where: {
+						questionId: data.questionId,
+						status: { in: ["upheld", "overturned"] },
+					},
+				})
+				if (settledDispute) {
+					throw ValidationError.field(
+						null,
+						"This question's resolution has already been reviewed and is final.",
+					)
+				}
+
 				const [dispute] = await tx
 					.insert(resolutionDisputes)
 					.values({

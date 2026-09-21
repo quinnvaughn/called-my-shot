@@ -6,7 +6,7 @@ import {
 	streakRecomputeQueue,
 	sweepRecomputeQueue,
 } from "../../db/schema"
-import type { Tx } from "../user-season-stats"
+import type { Tx } from "../../db/types"
 import { buildSlateKey } from "./slate"
 
 // Whether a question's result can move a streak or a sweep: about one game,

@@ -13,6 +13,4 @@ import "./mutations"
 // The public surface other modules build on - everything else stays internal
 // to this directory. The queries and mutations are registered by the
 // side-effect imports above, never referenced by name from outside.
-export type { GroupHighlights } from "./highlights"
-export type { GroupLeaderboardEntry } from "./leaderboard"
 export { GroupMemberRef, GroupRef, QuestionShareRef } from "./refs"

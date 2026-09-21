@@ -1,8 +1,9 @@
-import { inArray, sql } from "drizzle-orm"
+import { inArray } from "drizzle-orm"
 import { db } from "../db"
 import { analyticsOutbox, type Question } from "../db/schema"
+import type { Tx } from "../db/types"
 import { env } from "../env"
-import type { Tx } from "./user-season-stats"
+import { claimOutboxRows, markOutboxFailed, type Outbox } from "./outbox"
 
 // Server-side counterpart to apps/web's AnalyticsEvents map. Property names
 // match the browser events they get joined against (questionShape, leagueId,
@@ -49,7 +50,12 @@ export async function enqueueAnalyticsEvents(
 
 const POSTHOG_BATCH_URL = "https://us.i.posthog.com/batch/"
 const BATCH_SIZE = 500
-const MAX_ATTEMPTS = 10
+
+const OUTBOX: Outbox<typeof analyticsOutbox> = {
+	table: analyticsOutbox,
+	key: [analyticsOutbox.id],
+	maxAttempts: 10,
+}
 
 type PostHogBatchEvent = {
 	uuid: string
@@ -82,24 +88,20 @@ const sendBatch: SendBatchFn = async (apiKey, batch) => {
 export async function drainAnalyticsOutbox({
 	send = sendBatch,
 	apiKey = env.POSTHOG_KEY,
+	now = new Date(),
 }: {
 	send?: SendBatchFn
 	apiKey?: string
+	now?: Date
 } = {}): Promise<{ sent: number }> {
 	if (!apiKey) return { sent: 0 }
 
-	const rows = await db.query.analyticsOutbox.findMany({
-		where: { sentAt: { isNull: true }, attempts: { lt: MAX_ATTEMPTS } },
-		orderBy: { createdAt: "asc" },
-		limit: BATCH_SIZE,
-	})
+	const rows = (await claimOutboxRows(OUTBOX, { limit: BATCH_SIZE })).sort(
+		(a, b) => a.createdAt.getTime() - b.createdAt.getTime(),
+	)
 	if (rows.length === 0) return { sent: 0 }
 
 	const ids = rows.map((row) => row.id)
-	await db
-		.update(analyticsOutbox)
-		.set({ attempts: sql`${analyticsOutbox.attempts} + 1` })
-		.where(inArray(analyticsOutbox.id, ids))
 
 	try {
 		await send(
@@ -117,17 +119,18 @@ export async function drainAnalyticsOutbox({
 		)
 	} catch (err) {
 		const message = err instanceof Error ? err.message : String(err)
-		await db
-			.update(analyticsOutbox)
-			.set({ lastError: message })
-			.where(inArray(analyticsOutbox.id, ids))
+		await markOutboxFailed(
+			analyticsOutbox,
+			inArray(analyticsOutbox.id, ids),
+			message,
+		)
 		console.error("[analytics-outbox] send failed:", message)
 		return { sent: 0 }
 	}
 
 	await db
 		.update(analyticsOutbox)
-		.set({ sentAt: new Date(), lastError: null })
+		.set({ sentAt: now, lastError: null })
 		.where(inArray(analyticsOutbox.id, ids))
 	return { sent: rows.length }
 }

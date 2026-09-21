@@ -48,7 +48,7 @@ function yesNoInput(overrides: Record<string, unknown> = {}) {
 		shape: "YES_NO_PROP",
 		title: "Will it happen?",
 		resolutionSource: "Box score",
-		locksAt: new Date(Date.now() + 86_400_000).toISOString(),
+		locksAt: futureDate().toISOString(),
 		eventClause: "happen",
 		options: [{ label: "Yes" }, { label: "No" }],
 		...overrides,

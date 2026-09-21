@@ -1,32 +1,12 @@
 import { describe, expect, it } from "vitest"
 import { db } from "../../../db"
-import { groupMembers, groups, type User } from "../../../db/schema"
+import { groupMembers } from "../../../db/schema"
 import { insertGroupInvite } from "../../../lib/groups"
-import { makeUser } from "../../../test/factories"
+import { makeGroup, makeUser } from "../../../test/factories"
 import { type ErrorResult, expectData } from "../../../test/graphql"
 
 // Admins are equals: any admin can promote, demote (another admin or
 // themselves) and remove, as long as the group keeps at least one admin.
-
-async function makeGroup(admins: User[], members: User[] = []) {
-	const [group] = await db
-		.insert(groups)
-		.values({ name: "Test group", createdBy: admins[0].id })
-		.returning()
-	await db.insert(groupMembers).values([
-		...admins.map((u) => ({
-			groupId: group.id,
-			userId: u.id,
-			role: "admin" as const,
-		})),
-		...members.map((u) => ({
-			groupId: group.id,
-			userId: u.id,
-			role: "member" as const,
-		})),
-	])
-	return group
-}
 
 async function roleOf(groupId: string, userId: string) {
 	const membership = await db.query.groupMembers.findFirst({
@@ -84,7 +64,7 @@ describe("setGroupMemberRole", () => {
 	it("lets an admin promote a member", async () => {
 		const admin = await makeUser()
 		const member = await makeUser()
-		const group = await makeGroup([admin], [member])
+		const group = await makeGroup({ admin: admin, members: [member] })
 
 		const data = await expectData<SetRoleResult>(SET_ROLE, {
 			as: admin,
@@ -100,7 +80,7 @@ describe("setGroupMemberRole", () => {
 	it("refuses a member changing roles", async () => {
 		const admin = await makeUser()
 		const member = await makeUser()
-		const group = await makeGroup([admin], [member])
+		const group = await makeGroup({ admin: admin, members: [member] })
 
 		const data = await expectData<SetRoleResult>(SET_ROLE, {
 			as: member,
@@ -114,7 +94,10 @@ describe("setGroupMemberRole", () => {
 	it("lets an admin demote another admin", async () => {
 		const first = await makeUser()
 		const second = await makeUser()
-		const group = await makeGroup([first, second])
+		const group = await makeGroup({ admin: first })
+		await db
+			.insert(groupMembers)
+			.values({ groupId: group.id, userId: second.id, role: "admin" })
 
 		const data = await expectData<SetRoleResult>(SET_ROLE, {
 			as: second,
@@ -128,7 +111,7 @@ describe("setGroupMemberRole", () => {
 	it("won't demote the last admin", async () => {
 		const admin = await makeUser()
 		const member = await makeUser()
-		const group = await makeGroup([admin], [member])
+		const group = await makeGroup({ admin: admin, members: [member] })
 
 		const data = await expectData<SetRoleResult>(SET_ROLE, {
 			as: admin,
@@ -144,7 +127,7 @@ describe("a departed member's invite link", () => {
 	it("stops working once they're removed", async () => {
 		const admin = await makeUser()
 		const member = await makeUser()
-		const group = await makeGroup([admin], [member])
+		const group = await makeGroup({ admin: admin, members: [member] })
 		const invite = await insertGroupInvite(group.id, member.id, null)
 
 		await expectData(REMOVE, {
@@ -162,7 +145,7 @@ describe("a departed member's invite link", () => {
 	it("stops working once they leave", async () => {
 		const admin = await makeUser()
 		const member = await makeUser()
-		const group = await makeGroup([admin], [member])
+		const group = await makeGroup({ admin: admin, members: [member] })
 		const invite = await insertGroupInvite(group.id, member.id, null)
 
 		await expectData(LEAVE, { as: member, variables: { groupId: group.id } })
@@ -179,7 +162,7 @@ describe("deleteGroup", () => {
 	it("refuses a member", async () => {
 		const admin = await makeUser()
 		const member = await makeUser()
-		const group = await makeGroup([admin], [member])
+		const group = await makeGroup({ admin: admin, members: [member] })
 
 		const data = await expectData<{ deleteGroup: ErrorResult }>(DELETE, {
 			as: member,
@@ -195,7 +178,7 @@ describe("deleteGroup", () => {
 	it("deletes the group for an admin", async () => {
 		const admin = await makeUser()
 		const member = await makeUser()
-		const group = await makeGroup([admin], [member])
+		const group = await makeGroup({ admin: admin, members: [member] })
 
 		await expectData(DELETE, { as: admin, variables: { groupId: group.id } })
 

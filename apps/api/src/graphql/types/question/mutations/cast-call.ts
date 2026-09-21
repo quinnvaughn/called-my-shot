@@ -10,13 +10,14 @@ import {
 } from "../../../../lib/errors"
 import { applySeasonStatDeltas } from "../../../../lib/user-season-stats"
 import { builder } from "../../../builder"
+import { parseInput } from "../../../helpers"
 import { CastCallInput, CastCallPayload } from "../inputs"
 
 builder.mutationFields((t) => ({
 	castCall: t.field({
 		type: CastCallPayload,
 		errors: {
-			types: [AuthenticationError, ValidationError, NotFoundError],
+			types: [AuthenticationError, NotFoundError],
 			directResult: true,
 			union: { name: "CastCallResult" },
 		},
@@ -50,14 +51,10 @@ builder.mutationFields((t) => ({
 				)
 			}
 
-			const parsed = castCallSchema.safeParse({
+			const data = parseInput(castCallSchema, {
 				...args.input,
 				shape: question.shape,
 			})
-			if (!parsed.success) {
-				throw ValidationError.fromZodIssues(parsed.error.issues)
-			}
-			const data = parsed.data
 
 			if (
 				(data.shape === "player_season_award" ||

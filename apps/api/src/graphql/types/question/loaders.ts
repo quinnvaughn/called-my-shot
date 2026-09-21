@@ -1,194 +1,127 @@
-import { STREAK_TAG_MIN, type StreakFamily } from "@called-my-shot/scoring"
-import DataLoader from "dataloader"
-import { count, inArray } from "drizzle-orm"
-import { db } from "../../../db"
 import {
-	callSelections,
-	calls,
-	type QuestionOption,
-	type UserStreak,
-} from "../../../db/schema"
+	isSeasonLongShape,
+	STREAK_TAG_MIN,
+	type StreakFamily,
+} from "@called-my-shot/scoring"
+import { count, inArray, sql } from "drizzle-orm"
+import { db } from "../../../db"
+import { callSelections, calls, games } from "../../../db/schema"
+import { aggregatePointsByUser } from "../../../lib/points-aggregate"
+import { accuracyFrom } from "../../../lib/scoring"
 import type { Context } from "../../context"
+import { ctxLoader, groupByKey, indexByKey } from "../../loader"
 
 export type CallStreakMark = { length: number; family: StreakFamily }
 
-// Question.viewerStreak - the viewer's own track for each question's league
-// and family, keyed "<leagueId>:<family>". One read of their streaks per
+// Question.viewerStreak - a user's own track for a question's league and
+// family, keyed "<userId>:<leagueId>:<family>". One read of their streaks per
 // request however many questions on the page ask.
-const viewerStreakLoaders = new WeakMap<
-	Context,
-	DataLoader<string, UserStreak | null>
->()
-export function getViewerStreakLoader(ctx: Context, userId: string) {
-	let loader = viewerStreakLoaders.get(ctx)
-	if (!loader) {
-		loader = new DataLoader<string, UserStreak | null>(async (keys) => {
-			const leagueIds = [...new Set(keys.map((key) => key.split(":")[0] ?? ""))]
-			const rows = await db.query.userStreaks.findMany({
-				where: { userId, leagueId: { in: leagueIds } },
-			})
-			const byKey = new Map(
-				rows.map((row) => [`${row.leagueId}:${row.family}`, row]),
-			)
-			return keys.map((key) => byKey.get(key) ?? null)
-		})
-		viewerStreakLoaders.set(ctx, loader)
-	}
-	return loader
-}
+export const viewerStreakLoader = ctxLoader(async (keys: string[]) => {
+	const parts = keys.map((key) => key.split(":"))
+	const rows = await db.query.userStreaks.findMany({
+		where: {
+			userId: { in: [...new Set(parts.map(([userId]) => userId ?? ""))] },
+			leagueId: {
+				in: [...new Set(parts.map(([, leagueId]) => leagueId ?? ""))],
+			},
+		},
+	})
+	return indexByKey(
+		keys,
+		rows,
+		(row) => `${row.userId}:${row.leagueId}:${row.family}`,
+		null,
+	)
+})
 
-// Call.streak below, on every call card in a feed - one batched read of the
-// streak cache per request rather than one per card. Null unless the call is
-// at least STREAK_TAG_MIN into a run, and unless its result still stands: the
+// Call.streak, on every call card in a feed - one batched read of the streak
+// cache per request rather than one per card. Null unless the call is at
+// least STREAK_TAG_MIN into a run, and unless its result still stands: the
 // cache is rebuilt shortly after a result changes, not in the same
 // transaction, so a call voided a moment ago can briefly still have a row.
-const callStreakLoaders = new WeakMap<
-	Context,
-	DataLoader<string, CallStreakMark | null>
->()
-export function getCallStreakLoader(ctx: Context) {
-	let loader = callStreakLoaders.get(ctx)
-	if (!loader) {
-		loader = new DataLoader<string, CallStreakMark | null>(async (callIds) => {
-			const ids = [...callIds]
-			const rows = await db.query.callStreakPositions.findMany({
-				where: { callId: { in: ids }, length: { gte: STREAK_TAG_MIN } },
-				columns: { callId: true, length: true, family: true },
-				with: {
-					call: {
-						columns: { unscoredReason: true },
-						with: { question: { columns: { status: true } } },
-					},
+export const callStreakLoader = ctxLoader(
+	async (callIds: string[]): Promise<(CallStreakMark | null)[]> => {
+		const rows = await db.query.callStreakPositions.findMany({
+			where: { callId: { in: callIds }, length: { gte: STREAK_TAG_MIN } },
+			columns: { callId: true, length: true, family: true },
+			with: {
+				call: {
+					columns: { unscoredReason: true },
+					with: { question: { columns: { status: true } } },
 				},
-			})
-			const markByCallId = new Map(
-				rows.flatMap((row) => {
-					const status = row.call?.question?.status
-					const standing =
-						row.call?.unscoredReason === null &&
-						(status === "resolved" || status === "disputed")
-					return standing
-						? [[row.callId, { length: row.length, family: row.family }]]
-						: []
-				}),
+			},
+		})
+		const standing = rows.filter((row) => {
+			const status = row.call?.question?.status
+			return (
+				row.call?.unscoredReason === null &&
+				(status === "resolved" || status === "disputed")
 			)
-			return ids.map((id) => markByCallId.get(id) ?? null)
 		})
-		callStreakLoaders.set(ctx, loader)
-	}
-	return loader
-}
+		return indexByKey(callIds, standing, (row) => row.callId, null).map(
+			(row) => (row ? { length: row.length, family: row.family } : null),
+		)
+	},
+)
 
-// fieldPct below used to run two unbatched findMany calls per option (its own
-// selection count, its question's total call count) - a feed page of ~10
-// questions with a few options apiece turns that into dozens of sequential
-// round trips for one field, the same shape of bug as questionLeagueIdLoaders
-// further down. Grouped COUNT queries, one per request per side, instead.
-const optionSelectionCountLoaders = new WeakMap<
-	Context,
-	DataLoader<string, number>
->()
-export function getOptionSelectionCountLoader(ctx: Context) {
-	let loader = optionSelectionCountLoaders.get(ctx)
-	if (!loader) {
-		loader = new DataLoader<string, number>(async (optionIds) => {
-			const ids = [...optionIds]
-			const rows = await db
-				.select({ optionId: callSelections.optionId, n: count() })
-				.from(callSelections)
-				.where(inArray(callSelections.optionId, ids))
-				.groupBy(callSelections.optionId)
-			const countByOption = new Map(rows.map((r) => [r.optionId, r.n]))
-			return ids.map((id) => countByOption.get(id) ?? 0)
+// QuestionOption.fieldPct's numerator - grouped COUNT per option.
+export const optionSelectionCountLoader = ctxLoader(
+	async (optionIds: string[]) => {
+		const rows = await db
+			.select({ optionId: callSelections.optionId, n: count() })
+			.from(callSelections)
+			.where(inArray(callSelections.optionId, optionIds))
+			.groupBy(callSelections.optionId)
+		return indexByKey(optionIds, rows, (r) => r.optionId, null).map(
+			(r) => r?.n ?? 0,
+		)
+	},
+)
+
+// QuestionOption.fieldPct's denominator - grouped COUNT per question.
+export const questionCallCountLoader = ctxLoader(
+	async (questionIds: string[]) => {
+		const rows = await db
+			.select({ questionId: calls.questionId, n: count() })
+			.from(calls)
+			.where(inArray(calls.questionId, questionIds))
+			.groupBy(calls.questionId)
+		return indexByKey(questionIds, rows, (r) => r.questionId, null).map(
+			(r) => r?.n ?? 0,
+		)
+	},
+)
+
+// averageGuess/numericHitRatePct/guessDistribution all read the same rows,
+// so they share one batched query per request.
+export const questionGuessCallsLoader = ctxLoader(
+	async (questionIds: string[]) => {
+		const rows = await db.query.calls.findMany({
+			where: { questionId: { in: questionIds } },
+			columns: { questionId: true, guessValue: true, hitTolerance: true },
 		})
-		optionSelectionCountLoaders.set(ctx, loader)
-	}
-	return loader
-}
+		return groupByKey(questionIds, rows, (row) => row.questionId)
+	},
+)
 
-const questionCallCountLoaders = new WeakMap<
-	Context,
-	DataLoader<string, number>
->()
-export function getQuestionCallCountLoader(ctx: Context) {
-	let loader = questionCallCountLoaders.get(ctx)
-	if (!loader) {
-		loader = new DataLoader<string, number>(async (questionIds) => {
-			const ids = [...questionIds]
-			const rows = await db
-				.select({ questionId: calls.questionId, n: count() })
-				.from(calls)
-				.where(inArray(calls.questionId, ids))
-				.groupBy(calls.questionId)
-			const countByQuestion = new Map(rows.map((r) => [r.questionId, r.n]))
-			return ids.map((id) => countByQuestion.get(id) ?? 0)
-		})
-		questionCallCountLoaders.set(ctx, loader)
-	}
-	return loader
-}
+// Call's question-level facts (its league, and the season window for the
+// season-long fields) without loading the whole question per call.
+const questionFactsLoader = ctxLoader(async (questionIds: string[]) => {
+	const rows = await db.query.questions.findMany({
+		where: { id: { in: questionIds } },
+		columns: {
+			id: true,
+			leagueId: true,
+			shape: true,
+			seasonId: true,
+			locksAt: true,
+		},
+	})
+	return indexByKey(questionIds, rows, (q) => q.id, undefined)
+})
 
-// averageGuess/numericHitRatePct/guessDistribution below all used to run
-// their own unbatched db.query.calls.findMany per question (every one of
-// them, unconditionally - even for shapes where the fields end up null),
-// each a duplicate fetch of the same rows. One batched, grouped query per
-// request instead, shared by all three.
-const questionGuessCallsLoaders = new WeakMap<
-	Context,
-	DataLoader<
-		string,
-		{ guessValue: number | null; hitTolerance: boolean | null }[]
-	>
->()
-export function getQuestionGuessCallsLoader(ctx: Context) {
-	let loader = questionGuessCallsLoaders.get(ctx)
-	if (!loader) {
-		loader = new DataLoader(async (questionIds) => {
-			const ids = [...questionIds]
-			const rows = await db.query.calls.findMany({
-				where: { questionId: { in: ids } },
-				columns: { questionId: true, guessValue: true, hitTolerance: true },
-			})
-			const byQuestion = new Map<string, typeof rows>()
-			for (const row of rows) {
-				const list = byQuestion.get(row.questionId)
-				if (list) {
-					list.push(row)
-				} else {
-					byQuestion.set(row.questionId, [row])
-				}
-			}
-			return ids.map((id) => byQuestion.get(id) ?? [])
-		})
-		questionGuessCallsLoaders.set(ctx, loader)
-	}
-	return loader
-}
-
-// callerLeagueAccuracy below used to run its own db.query.questions.findFirst
-// per call just to read that call's question's leagueId - unbatched. This
-// fact has no viewer dependency at all, so it's a plain per-request
-// batch keyed by questionId rather than needing a viewer-scoped cache.
-const questionLeagueIdLoaders = new WeakMap<
-	Context,
-	DataLoader<string, string | undefined>
->()
-
-export function getQuestionLeagueIdLoader(ctx: Context) {
-	let loader = questionLeagueIdLoaders.get(ctx)
-	if (!loader) {
-		loader = new DataLoader<string, string | undefined>(async (questionIds) => {
-			const ids = [...questionIds]
-			const rows = await db.query.questions.findMany({
-				where: { id: { in: ids } },
-				columns: { id: true, leagueId: true },
-			})
-			const leagueIdById = new Map(rows.map((q) => [q.id, q.leagueId]))
-			return ids.map((id) => leagueIdById.get(id))
-		})
-		questionLeagueIdLoaders.set(ctx, loader)
-	}
-	return loader
+export function loadQuestionFacts(ctx: Context, questionId: string) {
+	return questionFactsLoader(ctx).load(questionId)
 }
 
 // Question.scoredOptions - the options carrying a number once a question has
@@ -197,30 +130,110 @@ export function getQuestionLeagueIdLoader(ctx: Context) {
 // shape in the resolver. A game leader's pool does get a number per player,
 // which is why this is a loader and not a walk over Question.options: the
 // pages that show a result show many of them at once.
-const scoredOptionLoaders = new WeakMap<
-	Context,
-	DataLoader<string, QuestionOption[]>
->()
-export function getScoredOptionsLoader(ctx: Context) {
-	let loader = scoredOptionLoaders.get(ctx)
-	if (!loader) {
-		loader = new DataLoader<string, QuestionOption[]>(async (questionIds) => {
-			const ids = [...questionIds]
-			const rows = await db.query.questionOptions.findMany({
-				where: { questionId: { in: ids }, actualValue: { isNotNull: true } },
-			})
-			const byQuestion = new Map<string, QuestionOption[]>()
-			for (const row of rows) {
-				const list = byQuestion.get(row.questionId)
-				if (list) {
-					list.push(row)
-				} else {
-					byQuestion.set(row.questionId, [row])
-				}
-			}
-			return ids.map((id) => byQuestion.get(id) ?? [])
-		})
-		scoredOptionLoaders.set(ctx, loader)
+export const scoredOptionsLoader = ctxLoader(async (questionIds: string[]) => {
+	const rows = await db.query.questionOptions.findMany({
+		where: {
+			questionId: { in: questionIds },
+			actualValue: { isNotNull: true },
+		},
+	})
+	return groupByKey(questionIds, rows, (row) => row.questionId)
+})
+
+// Call.totalPoints sums a call's selections.
+export const callSelectionsLoader = ctxLoader(async (callIds: string[]) => {
+	const rows = await db.query.callSelections.findMany({
+		where: { callId: { in: callIds } },
+	})
+	return groupByKey(callIds, rows, (row) => row.callId)
+})
+
+// Call.callerLeagueAccuracy - keyed "<userId>:<leagueId>", one aggregate per
+// league on the page rather than one per call.
+export const callerLeagueAccuracyLoader = ctxLoader(async (keys: string[]) => {
+	const usersByLeague = new Map<string, Set<string>>()
+	for (const key of keys) {
+		const [userId = "", leagueId = ""] = key.split(":")
+		const users = usersByLeague.get(leagueId) ?? new Set<string>()
+		users.add(userId)
+		usersByLeague.set(leagueId, users)
 	}
-	return loader
+	const accuracyByKey = new Map<string, number | null>()
+	await Promise.all(
+		[...usersByLeague].map(async ([leagueId, userIds]) => {
+			const agg = await aggregatePointsByUser({
+				userIds: [...userIds],
+				leagueIds: [leagueId],
+			})
+			for (const [userId, summary] of agg) {
+				accuracyByKey.set(`${userId}:${leagueId}`, accuracyFrom(summary))
+			}
+		}),
+	)
+	return keys.map((key) => accuracyByKey.get(key) ?? null)
+})
+
+// A season-long question's game window: every game of its season scheduled
+// by its locksAt (the same window resolveQuestionInternal bounds by at real
+// resolution time), and how many of those were final by `playedBy`.
+export type SeasonWindowKey = {
+	seasonId: string
+	locksAt: Date
+	playedBy: Date
+}
+const seasonWindowLoader = ctxLoader(
+	async (keys: SeasonWindowKey[]) => {
+		// games.startsAt is a timestamp without time zone holding UTC, so the
+		// bounds go in as UTC wall-clock values too.
+		const values = sql.join(
+			keys.map(
+				(key, index) =>
+					sql`(${index}::int, ${key.seasonId}::uuid, ${key.locksAt.toISOString()}::timestamp, ${key.playedBy.toISOString()}::timestamp)`,
+			),
+			sql`, `,
+		)
+		const result = await db.execute<{
+			idx: number
+			total: number
+			played: number
+		}>(sql`
+			select
+				k.idx,
+				count(g.id)::int as total,
+				count(g.id) filter (
+					where g.status = 'final' and g.starts_at <= k.played_by
+				)::int as played
+			from (values ${values}) as k(idx, season_id, locks_at, played_by)
+			left join ${games} g
+				on g.season_id = k.season_id and g.starts_at <= k.locks_at
+			group by k.idx
+		`)
+		const byIndex = new Map(result.rows.map((row) => [row.idx, row]))
+		return keys.map((_, index) => {
+			const row = byIndex.get(index)
+			return { total: row?.total ?? 0, played: row?.played ?? 0 }
+		})
+	},
+	{
+		cacheKeyFn: (key) =>
+			`${key.seasonId}|${key.locksAt.getTime()}|${key.playedBy.getTime()}`,
+	},
+)
+
+// The season window for a question, or null for one that isn't season-long
+// (neither count means anything for a single game).
+export function loadSeasonWindow(
+	ctx: Context,
+	question: { shape: Parameters<typeof isSeasonLongShape>[0] } & Omit<
+		SeasonWindowKey,
+		"playedBy"
+	>,
+	playedBy: Date,
+) {
+	if (!isSeasonLongShape(question.shape)) return null
+	return seasonWindowLoader(ctx).load({
+		seasonId: question.seasonId,
+		locksAt: question.locksAt,
+		playedBy,
+	})
 }

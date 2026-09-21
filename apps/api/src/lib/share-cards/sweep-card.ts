@@ -2,9 +2,7 @@
 // slate where someone picked every winner: how many games, which side they
 // took in each, and the points it earned.
 //
-// Same fixed 1200x630 and header/hero/footer bands as call-card.ts, for the
-// same reasons documented there, and built from its eyebrow/statCell pieces
-// so the cards read as one set.
+// Built on the shared og:image frame (see frame.ts).
 import { SPORTS_TIME_ZONE } from "@called-my-shot/schemas"
 import { inArray } from "drizzle-orm"
 import { DateTime } from "luxon"
@@ -15,24 +13,9 @@ import { el, type SatoriNode } from "../share-image"
 import { canonicalWinnerQuestion } from "../streaks/compute"
 import { loadSlateGames } from "../streaks/recompute"
 import { formatSlateLabel, parseSlateKey } from "../streaks/slate"
-import { brandWordmark } from "./brand-wordmark"
-import { clamp, eyebrow, statCell } from "./call-card"
+import { cardFrame, clamp, eyebrow, PERSON_MAX, statCell } from "./frame"
 
-const TARGET_WIDTH = 1200
-const TARGET_HEIGHT = 630
-export const SWEEP_SHARE_CARD_SIZE = {
-	width: TARGET_WIDTH,
-	height: TARGET_HEIGHT,
-}
-
-const WORDMARK_SCALE = 1.7
-const wordmarkPx = (n: number) => `${Math.round(n * WORDMARK_SCALE)}px`
-
-const PERSON_MAX = 40
 const SLATE_LABEL_MAX = 36
-
-const HEADER_HEIGHT = 96
-const FOOTER_HEIGHT = 168
 
 // Above this many games the chips and the hero both step down a size, so a
 // full MLB day (15 or 16 games) wraps to two rows of chips and still fits
@@ -122,135 +105,52 @@ export function buildSweepShareCard(data: SweepShareCardData): SatoriNode {
 	}
 	cells.push(statCell(data.multiDay ? "Dates" : "Date", data.dates))
 
-	return el(
-		"div",
-		{
-			display: "flex",
-			width: `${TARGET_WIDTH}px`,
-			height: `${TARGET_HEIGHT}px`,
-			padding: "14px",
-			backgroundColor: COLOR.paper,
-			fontFamily: "Inter",
-		},
-		[
-			el(
-				"div",
-				{
-					display: "flex",
-					flexDirection: "column",
-					flex: "1",
-					backgroundColor: COLOR.card,
-					color: COLOR.ink,
-					border: `1px solid ${COLOR.border}`,
-					borderRadius: "20px",
-				},
-				[
-					el(
-						"div",
-						{
-							display: "flex",
-							height: `${HEADER_HEIGHT}px`,
-							flexShrink: 0,
-							alignItems: "center",
-							justifyContent: "space-between",
-							paddingLeft: "36px",
-							paddingRight: "36px",
-							borderBottom: `1px solid ${COLOR.border}`,
-						},
-						[
-							brandWordmark(wordmarkPx, WORDMARK_SCALE),
-							eyebrow(
-								`${data.leagueAbbr} · ${clamp(data.slateLabel, SLATE_LABEL_MAX)} sweep`,
-							),
-						],
-					),
-					// The chip row wraps rather than clamping, and the compact sizes
-					// above are what keep a full slate inside this band.
-					el(
-						"div",
-						{
-							display: "flex",
-							flexDirection: "column",
-							flex: "1",
-							overflow: "hidden",
-							alignItems: "center",
-							justifyContent: "center",
-							gap: compact ? "10px" : "14px",
-							paddingLeft: "36px",
-							paddingRight: "36px",
-						},
-						[
-							eyebrow(clamp(data.name, PERSON_MAX)),
-							el(
-								"span",
-								{
-									display: "flex",
-									fontFamily: "Archivo Black",
-									fontSize: compact ? "84px" : "112px",
-									lineHeight: 1,
-									color: COLOR.ink,
-								},
-								`${n} for ${n}`,
-							),
-							el(
-								"div",
-								{
-									display: "flex",
-									flexWrap: "wrap",
-									justifyContent: "center",
-									gap: compact ? "8px" : "12px",
-									width: "100%",
-								},
-								data.games.map((game) => gameChip(game, compact)),
-							),
-						],
-					),
-					el(
-						"div",
-						{
-							display: "flex",
-							flexDirection: "column",
-							height: `${FOOTER_HEIGHT}px`,
-							flexShrink: 0,
-							justifyContent: "center",
-							gap: "18px",
-							paddingLeft: "36px",
-							paddingRight: "36px",
-							borderTop: `1px solid ${COLOR.border}`,
-						},
-						[
-							el(
-								"div",
-								{
-									display: "flex",
-									alignItems: "flex-end",
-									justifyContent: "space-between",
-									width: "100%",
-								},
-								cells,
-							),
-							el(
-								"div",
-								{
-									display: "flex",
-									alignItems: "center",
-									justifyContent: "space-between",
-									width: "100%",
-									fontFamily: "Space Mono",
-									fontSize: "17px",
-									color: COLOR.dim,
-								},
-								[
-									el("span", { display: "flex" }, `@${data.username}`),
-									el("span", { display: "flex" }, "calledmyshot.com"),
-								],
-							),
-						],
-					),
-				],
-			),
-		],
-	)
+	return cardFrame({
+		eyebrow: `${data.leagueAbbr} · ${clamp(data.slateLabel, SLATE_LABEL_MAX)} sweep`,
+		// The chip row wraps rather than clamping, and the compact sizes above
+		// are what keep a full slate inside this band.
+		hero: el(
+			"div",
+			{
+				display: "flex",
+				flexDirection: "column",
+				flex: "1",
+				overflow: "hidden",
+				alignItems: "center",
+				justifyContent: "center",
+				gap: compact ? "10px" : "14px",
+				paddingLeft: "36px",
+				paddingRight: "36px",
+			},
+			[
+				eyebrow(clamp(data.name, PERSON_MAX)),
+				el(
+					"span",
+					{
+						display: "flex",
+						fontFamily: "Archivo Black",
+						fontSize: compact ? "84px" : "112px",
+						lineHeight: 1,
+						color: COLOR.ink,
+					},
+					`${n} for ${n}`,
+				),
+				el(
+					"div",
+					{
+						display: "flex",
+						flexWrap: "wrap",
+						justifyContent: "center",
+						gap: compact ? "8px" : "12px",
+						width: "100%",
+					},
+					data.games.map((game) => gameChip(game, compact)),
+				),
+			],
+		),
+		cells,
+		username: data.username,
+	})
 }
 
 // "Sep 14, 2026", "Sep 14 to 15, 2026", "Sep 30 to Oct 1, 2026". Pinned to

@@ -1,18 +1,17 @@
 import { describe, expect, it } from "vitest"
 import { db } from "../db"
-import { emailOutbox, type Question, userSeasonStats } from "../db/schema"
+import { emailOutbox, type Question } from "../db/schema"
 import {
 	makeAdmin,
 	makeUser,
+	makeUserSeasonStats,
 	pastDate,
 	seedOptionQuestion,
 } from "../test/factories"
 import { expectData } from "../test/graphql"
-import {
-	type ResolveOptions,
-	resolveQuestionInternal,
-	reverseQuestionLeagueStats,
-} from "./resolve-question"
+import { resolve } from "../test/helpers"
+import { soleCaller, statsFor } from "./resolution/test-support"
+import { reverseQuestionLeagueStats } from "./resolve-question"
 import { markQuestionVoided } from "./void-question"
 
 /**
@@ -25,7 +24,7 @@ async function seedCalledQuestion(optionIndexes: number[]) {
 		question: { status: "locked", locksAt: pastDate(1) },
 	})
 	for (const caller of seeded.callers) {
-		await db.insert(userSeasonStats).values({
+		await makeUserSeasonStats({
 			userId: caller.user.id,
 			leagueId: seeded.question.leagueId,
 			seasonId: seeded.question.seasonId,
@@ -44,23 +43,6 @@ const voidIt = (question: Question) =>
 		}),
 	)
 
-const resolveIt = (
-	question: Question,
-	correctOptionIds: string[],
-	opts: Partial<ResolveOptions> = {},
-) =>
-	db.transaction((tx) =>
-		resolveQuestionInternal(
-			tx,
-			question,
-			{ correctOptionIds, resolutionNote: "" },
-			{ resolvedBy: { method: "system" }, ...opts },
-		),
-	)
-
-const statsFor = (userId: string) =>
-	db.query.userSeasonStats.findFirst({ where: { userId } })
-
 describe("markQuestionVoided", () => {
 	it("settles a locked question as voided and takes its calls out of call counts", async () => {
 		const { question, callers } = await seedCalledQuestion([0])
@@ -78,7 +60,9 @@ describe("markQuestionVoided", () => {
 
 	it("claws back everything a resolved question had scored", async () => {
 		const { question, options, callers } = await seedCalledQuestion([0, 1])
-		const resolved = await resolveIt(question, [options[0].id])
+		const resolved = await resolve(question, {
+			correctOptionIds: [options[0].id],
+		})
 		await voidIt(resolved)
 
 		for (const caller of callers) {
@@ -104,7 +88,9 @@ describe("markQuestionVoided", () => {
 	it("restores the calls when a voided question resolves after all", async () => {
 		const { question, options, callers } = await seedCalledQuestion([0])
 		const voided = await voidIt(question)
-		const resolved = await resolveIt(voided, [options[0].id])
+		const resolved = await resolve(voided, {
+			correctOptionIds: [options[0].id],
+		})
 
 		expect(resolved.status).toBe("resolved")
 		expect(resolved.voidedReason).toBeNull()
@@ -132,11 +118,13 @@ describe("markQuestionVoided", () => {
 	it("keeps a sole-caller exclusion through a void and a later resolve", async () => {
 		const { question, options, callers } = await seedCalledQuestion([0])
 		const userId = callers[0].user.id
-		const resolved = await resolveIt(question, [options[0].id], {
-			unscoredUserIds: new Map([[userId, "creator_sole_caller"]]),
-		})
+		const resolved = await resolve(
+			question,
+			{ correctOptionIds: [options[0].id] },
+			{ unscoredUserIds: soleCaller(userId) },
+		)
 		const voided = await voidIt(resolved)
-		await resolveIt(voided, [options[0].id])
+		await resolve(voided, { correctOptionIds: [options[0].id] })
 
 		const call = await db.query.calls.findFirst({
 			where: { id: callers[0].call.id },

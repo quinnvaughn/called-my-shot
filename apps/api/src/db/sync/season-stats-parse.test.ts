@@ -1,5 +1,5 @@
-import { readFileSync } from "node:fs"
 import { describe, expect, it } from "vitest"
+import { espnFixture } from "../../test/helpers"
 import type { EspnSeasonStatistics, EspnStandingsGroup } from "./espn-client"
 import {
 	flattenCategorizedStatistics,
@@ -9,13 +9,7 @@ import {
 // Trimmed from live ESPN responses (2026-09-12): regular-season statistics for
 // NBA athlete 4869780 (2025-26) and MLB athlete 41197 (2025), and each league's
 // 2025 standings.
-const fixture = <T>(name: string) =>
-	JSON.parse(
-		readFileSync(
-			new URL(`./fixtures/espn/${name}.json`, import.meta.url),
-			"utf8",
-		),
-	) as T
+const fixture = <T>(name: string) => espnFixture<T>(`${name}.json`)
 
 describe("flattenCategorizedStatistics", () => {
 	it("keys every stat by its category", () => {

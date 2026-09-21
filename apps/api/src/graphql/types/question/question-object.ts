@@ -1,30 +1,24 @@
 import {
 	fieldPct,
 	isNumericGuessShape,
-	isSeasonLongShape,
 	STREAK_FAMILY_LABEL,
 	STREAK_TAG_MIN,
 	streakFamilyFor,
 } from "@called-my-shot/scoring"
-import { and, count, eq, inArray, lte } from "drizzle-orm"
+import { and, eq, inArray } from "drizzle-orm"
 import { match } from "ts-pattern"
 import { db } from "../../../db"
 import {
-	games,
 	groupMembers,
 	type Question,
 	questionShares,
 	type UserStreak,
 } from "../../../db/schema"
-import {
-	clampPageSize,
-	cursorWhere,
-	decodeCursor,
-	paginate,
-} from "../../../lib/pagination"
+import { keysetPaginate } from "../../../lib/pagination"
 import { buildStatContext } from "../../../lib/stat-context/build"
 import { countsTowardAchievements } from "../../../lib/streaks/enqueue"
 import { builder } from "../../builder"
+import { groupByKey, indexByKey } from "../../loader"
 import { BallotQuestionRef } from "../ballot"
 import { type Connection, PageInfoRef } from "../pagination"
 import { StreakFamilyEnum } from "../user/enums"
@@ -38,11 +32,12 @@ import {
 	StatAggregation,
 } from "./enums"
 import {
-	getOptionSelectionCountLoader,
-	getQuestionCallCountLoader,
-	getScoredOptionsLoader,
-	getQuestionGuessCallsLoader,
-	getViewerStreakLoader,
+	loadSeasonWindow,
+	optionSelectionCountLoader,
+	questionCallCountLoader,
+	questionGuessCallsLoader,
+	scoredOptionsLoader,
+	viewerStreakLoader,
 } from "./loaders"
 import { QuestionReportRef, ResolutionDisputeRef } from "./moderation-objects"
 import { StatContextRef } from "./stat-context"
@@ -86,8 +81,8 @@ export const QuestionOptionRef = builder.drizzleObject("questionOptions", {
 			nullable: true,
 			resolve: async (option, _args, ctx) => {
 				const [selectionCount, questionCallCount] = await Promise.all([
-					getOptionSelectionCountLoader(ctx).load(option.id),
-					getQuestionCallCountLoader(ctx).load(option.questionId),
+					optionSelectionCountLoader(ctx).load(option.id),
+					questionCallCountLoader(ctx).load(option.questionId),
 				])
 				if (questionCallCount === 0) return null
 				return fieldPct(selectionCount, questionCallCount)
@@ -147,14 +142,14 @@ export const QuestionRef = builder.drizzleObject("questions", {
 		}),
 
 		locksAt: t.field({
-			type: "String",
-			resolve: (q) => q.locksAt.toISOString(),
+			type: "DateTime",
+			resolve: (q) => q.locksAt,
 		}),
 		status: t.field({ type: QuestionStatus, resolve: (q) => q.status }),
 		resolvedAt: t.field({
-			type: "String",
+			type: "DateTime",
 			nullable: true,
-			resolve: (q) => q.resolvedAt?.toISOString() ?? null,
+			resolve: (q) => q.resolvedAt,
 		}),
 		resolutionNote: t.exposeString("resolutionNote", { nullable: true }),
 		// True when ESPN data settles the question rather than a person - see
@@ -263,7 +258,7 @@ export const QuestionRef = builder.drizzleObject("questions", {
 			type: "Float",
 			nullable: true,
 			resolve: async (question, _args, ctx) => {
-				const calls = await getQuestionGuessCallsLoader(ctx).load(question.id)
+				const calls = await questionGuessCallsLoader(ctx).load(question.id)
 				const guesses = calls
 					.map((call) => call.guessValue)
 					.filter((value): value is number => value !== null)
@@ -281,7 +276,7 @@ export const QuestionRef = builder.drizzleObject("questions", {
 			type: "Float",
 			nullable: true,
 			resolve: async (question, _args, ctx) => {
-				const calls = await getQuestionGuessCallsLoader(ctx).load(question.id)
+				const calls = await questionGuessCallsLoader(ctx).load(question.id)
 				const scored = calls.filter(
 					(call): call is typeof call & { hitTolerance: boolean } =>
 						call.hitTolerance !== null,
@@ -304,20 +299,9 @@ export const QuestionRef = builder.drizzleObject("questions", {
 		seasonGamesPlayed: t.field({
 			type: "Int",
 			nullable: true,
-			resolve: async (question) => {
-				if (!isSeasonLongShape(question.shape)) return null
-				const [{ n }] = await db
-					.select({ n: count() })
-					.from(games)
-					.where(
-						and(
-							eq(games.seasonId, question.seasonId),
-							eq(games.status, "final"),
-							lte(games.startsAt, new Date()),
-							lte(games.startsAt, question.locksAt),
-						),
-					)
-				return n
+			resolve: async (question, _args, ctx) => {
+				const window = await loadSeasonWindow(ctx, question, new Date())
+				return window?.played ?? null
 			},
 		}),
 		// Total games in the same window seasonGamesPlayed counts against -
@@ -326,18 +310,9 @@ export const QuestionRef = builder.drizzleObject("questions", {
 		seasonTotalGames: t.field({
 			type: "Int",
 			nullable: true,
-			resolve: async (question) => {
-				if (!isSeasonLongShape(question.shape)) return null
-				const [{ n }] = await db
-					.select({ n: count() })
-					.from(games)
-					.where(
-						and(
-							eq(games.seasonId, question.seasonId),
-							lte(games.startsAt, question.locksAt),
-						),
-					)
-				return n
+			resolve: async (question, _args, ctx) => {
+				const window = await loadSeasonWindow(ctx, question, new Date())
+				return window?.total ?? null
 			},
 		}),
 
@@ -345,8 +320,8 @@ export const QuestionRef = builder.drizzleObject("questions", {
 		picksRequired: t.exposeInt("picksRequired", { nullable: true }),
 
 		createdAt: t.field({
-			type: "String",
-			resolve: (q) => q.createdAt.toISOString(),
+			type: "DateTime",
+			resolve: (q) => q.createdAt,
 		}),
 
 		creator: t.relation("creator", { nullable: true }),
@@ -371,7 +346,7 @@ export const QuestionRef = builder.drizzleObject("questions", {
 		scoredOptions: t.field({
 			type: [QuestionOptionRef],
 			resolve: async (question, _args, ctx) => {
-				const scored = await getScoredOptionsLoader(ctx).load(question.id)
+				const scored = await scoredOptionsLoader(ctx).load(question.id)
 				return match(question.shape)
 					.returnType<typeof scored>()
 					.with(
@@ -400,8 +375,7 @@ export const QuestionRef = builder.drizzleObject("questions", {
 		//
 		// A plain field, not t.loadable: the subject can be a player or a team,
 		// with or without an opponent, so there's no single key to batch on and
-		// a loader would issue the same queries anyway. Same reasoning as
-		// seasonGamesPlayed above.
+		// a loader would issue the same queries anyway.
 		//
 		// Expensive by nature. Do NOT select this on a feed - it runs several
 		// queries per question. The detail page fetches it in its own document,
@@ -531,17 +505,20 @@ export const QuestionRef = builder.drizzleObject("questions", {
 		// True once any dispute on this question has been closed (upheld or
 		// overturned) - fileDispute refuses to reopen the dispute process past
 		// that point, so this also gates whether "Dispute this resolution" shows.
-		hasSettledDispute: t.field({
+		hasSettledDispute: t.loadable({
 			type: "Boolean",
-			resolve: async (question) => {
-				const settled = await db.query.resolutionDisputes.findFirst({
+			load: async (questionIds: string[]) => {
+				const settled = await db.query.resolutionDisputes.findMany({
 					where: {
-						questionId: question.id,
+						questionId: { in: questionIds },
 						status: { in: ["upheld", "overturned"] },
 					},
+					columns: { questionId: true },
 				})
-				return settled != null
+				const settledIds = new Set(settled.map((d) => d.questionId))
+				return questionIds.map((id) => settledIds.has(id))
 			},
+			resolve: (question) => question.id,
 		}),
 
 		// Every caller's pick on this question, newest first - the detail page's
@@ -549,19 +526,13 @@ export const QuestionRef = builder.drizzleObject("questions", {
 		calls: t.field({
 			type: CallConnectionRef,
 			args: { first: t.arg.int(), after: t.arg.string() },
-			resolve: async (question, args) => {
-				const limit = clampPageSize(args.first)
-				const cursor = args.after ? decodeCursor(args.after) : null
-				const rows = await db.query.calls.findMany({
-					where: {
-						questionId: question.id,
-						...(cursor ? cursorWhere(cursor) : {}),
-					},
-					orderBy: { createdAt: "desc", id: "desc" },
-					limit: limit + 1,
-				})
-				return paginate(rows, limit)
-			},
+			resolve: (question, args) =>
+				keysetPaginate(args, ({ where, ...page }) =>
+					db.query.calls.findMany({
+						where: { questionId: question.id, ...where },
+						...page,
+					}),
+				),
 		}),
 
 		// Binned guess values for the guess-distribution chart - the
@@ -580,9 +551,7 @@ export const QuestionRef = builder.drizzleObject("questions", {
 			type: [GuessBucketRef],
 			resolve: async (question, _args, ctx) => {
 				if (!isNumericGuessShape(question.shape)) return []
-				const guessCalls = await getQuestionGuessCallsLoader(ctx).load(
-					question.id,
-				)
+				const guessCalls = await questionGuessCallsLoader(ctx).load(question.id)
 				const bucketWidth = question.numericToleranceAbsolute ?? 1
 				const counts = new Map<number, number>()
 				for (const call of guessCalls) {
@@ -617,10 +586,7 @@ export const QuestionRef = builder.drizzleObject("questions", {
 						userId: ctx.user.id,
 					},
 				})
-				const byQuestionId = new Map(
-					found.map((call) => [call.questionId, call]),
-				)
-				return questionIds.map((id) => byQuestionId.get(id) ?? null)
+				return indexByKey(questionIds, found, (c) => c.questionId, null)
 			},
 			resolve: (question) => question.id,
 		}),
@@ -636,36 +602,43 @@ export const QuestionRef = builder.drizzleObject("questions", {
 				if (!ctx.user || !family || !countsTowardAchievements(question)) {
 					return null
 				}
-				const streak = await getViewerStreakLoader(ctx, ctx.user.id).load(
-					`${question.leagueId}:${family}`,
+				const streak = await viewerStreakLoader(ctx).load(
+					`${ctx.user.id}:${question.leagueId}:${family}`,
 				)
 				return streak && streak.currentLength >= STREAK_TAG_MIN ? streak : null
 			},
 		}),
 
-		viewerDispute: t.field({
+		viewerDispute: t.loadable({
 			type: ResolutionDisputeRef,
 			nullable: true,
-			resolve: (question, _args, ctx) => {
-				if (!ctx.user) return null
-				return db.query.resolutionDisputes.findFirst({
+			load: async (questionIds: string[], ctx) => {
+				if (!ctx.user) return questionIds.map(() => null)
+				const found = await db.query.resolutionDisputes.findMany({
 					where: {
-						questionId: question.id,
+						questionId: { in: questionIds },
 						userId: ctx.user.id,
 						status: "open",
 					},
 				})
+				return indexByKey(questionIds, found, (d) => d.questionId, null)
 			},
+			resolve: (question) => question.id,
 		}),
-		viewerReport: t.field({
+		viewerReport: t.loadable({
 			type: QuestionReportRef,
 			nullable: true,
-			resolve: (question, _args, ctx) => {
-				if (!ctx.user) return null
-				return db.query.questionReports.findFirst({
-					where: { questionId: question.id, reportedByUserId: ctx.user.id },
+			load: async (questionIds: string[], ctx) => {
+				if (!ctx.user) return questionIds.map(() => null)
+				const found = await db.query.questionReports.findMany({
+					where: {
+						questionId: { in: questionIds },
+						reportedByUserId: ctx.user.id,
+					},
 				})
+				return indexByKey(questionIds, found, (r) => r.questionId, null)
 			},
+			resolve: (question) => question.id,
 		}),
 
 		// Which of the viewer's OWN groups already have this question in their
@@ -692,13 +665,9 @@ export const QuestionRef = builder.drizzleObject("questions", {
 						),
 					)
 					.where(inArray(questionShares.questionId, questionIds))
-				const byQuestionId = new Map<string, string[]>()
-				for (const row of rows) {
-					const existing = byQuestionId.get(row.questionId)
-					if (existing) existing.push(row.groupId)
-					else byQuestionId.set(row.questionId, [row.groupId])
-				}
-				return questionIds.map((id) => byQuestionId.get(id) ?? [])
+				return groupByKey(questionIds, rows, (row) => row.questionId).map(
+					(shares) => shares.map((share) => share.groupId),
+				)
 			},
 			resolve: (question) => question.id,
 		}),
@@ -716,12 +685,12 @@ export const QuestionRef = builder.drizzleObject("questions", {
 					where: { questionId: { in: questionIds } },
 					with: { ballot: true },
 				})
-				const byQuestionId = new Map(
-					found
-						.filter((row) => row.ballot?.status === "published")
-						.map((row) => [row.questionId, row]),
+				return indexByKey(
+					questionIds,
+					found.filter((row) => row.ballot?.status === "published"),
+					(row) => row.questionId,
+					null,
 				)
-				return questionIds.map((id) => byQuestionId.get(id) ?? null)
 			},
 			resolve: (question) => question.id,
 		}),

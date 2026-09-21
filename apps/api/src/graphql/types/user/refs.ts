@@ -1,30 +1,24 @@
 import { COLD_STREAK_MIN } from "@called-my-shot/scoring"
 import { db } from "../../../db"
+import { canSeePrivate } from "../../../lib/auth"
 import { mutedEmailTypes } from "../../../lib/email-prefs"
-import {
-	buildGlobalLeaderboard,
-	type LeaderboardEntry,
-} from "../../../lib/global-leaderboard"
+import type { LeaderboardEntry } from "../../../lib/global-leaderboard"
 import { loadReportCardResult } from "../../../lib/report-card/load"
+import { ALL_TIME } from "../../../lib/seasons"
+import { buildUserLeagueStats } from "../../../lib/user-stats"
+import { resolveWindowByKey } from "../../../lib/windows"
 import { builder } from "../../builder"
+import { groupByKey, indexByKey } from "../../loader"
 import { FlairRef } from "../flair"
 import { CallRef, VoidReason } from "../question"
-import { ReportCardRef, resolveWindowByKey } from "../sports"
+import { findLeague, ReportCardRef } from "../sports"
 import { EmailPreferenceType, StreakFamilyEnum } from "./enums"
-import { buildUserLeagueStats, UserLeagueStatsRef } from "./stats"
+import { getGlobalLeaderboard, UserLeagueStatsRef } from "./stats"
 import { UserStreakRef, UserSweepRef } from "./streaks"
 
 // A run of 1 isn't a streak worth listing on anyone's profile.
 const LISTED_STREAK_MIN = 2
 const MAX_SWEEPS = 50
-
-async function leagueIdBySlug(slug: string): Promise<string | null> {
-	const league = await db.query.leagues.findFirst({
-		where: { slug },
-		columns: { id: true },
-	})
-	return league?.id ?? null
-}
 
 // Deliberately doesn't reuse LeaderboardEntryRef from ./leaderboard: that
 // type has its own `user` field, and importing it here would make this
@@ -50,8 +44,8 @@ const PendingEmailChangeRef = builder.drizzleObject("pendingEmailChanges", {
 	fields: (t) => ({
 		newEmail: t.exposeString("newEmail"),
 		expiresAt: t.field({
-			type: "String",
-			resolve: (pending) => pending.expiresAt.toISOString(),
+			type: "DateTime",
+			resolve: (pending) => pending.expiresAt,
 		}),
 	}),
 })
@@ -62,7 +56,14 @@ export const UserRef = builder.drizzleObject("users", {
 		id: t.exposeID("id"),
 		name: t.exposeString("name"),
 		username: t.exposeString("username"),
-		email: t.exposeString("email"),
+		// Private fields below resolve null for anyone but the user and admins:
+		// User is returned on public surfaces (leaderboards, call records,
+		// notification actors), so an ungated field here is readable by anyone.
+		email: t.string({
+			nullable: true,
+			resolve: (user, _args, ctx) =>
+				canSeePrivate(ctx, user.id) ? user.email : null,
+		}),
 		isAdmin: t.exposeBoolean("isAdmin"),
 		emailVerified: t.exposeBoolean("emailVerified"),
 		// Admin-facing fields - Users tab strikes/creation-lock/verified badge.
@@ -71,33 +72,40 @@ export const UserRef = builder.drizzleObject("users", {
 		isVerifiedPundit: t.exposeBoolean("isVerifiedPundit"),
 		strikeCount: t.exposeInt("strikeCount"),
 		questionCreationEnabled: t.exposeBoolean("questionCreationEnabled"),
-		pendingEmailChange: t.field({
+		pendingEmailChange: t.loadable({
 			type: PendingEmailChangeRef,
 			nullable: true,
-			resolve: (user) =>
-				db.query.pendingEmailChanges.findFirst({
-					where: { userId: user.id },
-				}),
+			load: async (userIds: string[]) => {
+				const rows = await db.query.pendingEmailChanges.findMany({
+					where: { userId: { in: userIds } },
+				})
+				return indexByKey(userIds, rows, (row) => row.userId, null)
+			},
+			resolve: (user, _args, ctx) =>
+				canSeePrivate(ctx, user.id) ? user.id : null,
 		}),
 		// Non-null means mail we sent to this address came back permanently
 		// (see lib/email-bounce.ts). Drives the site-wide banner asking them to
 		// fix it - unrelated to emailVerified, which is only about whether the
 		// address was ever confirmed.
 		emailBouncedAt: t.field({
-			type: "String",
+			type: "DateTime",
 			nullable: true,
-			resolve: (user) => user.emailBouncedAt?.toISOString() ?? null,
+			resolve: (user, _args, ctx) =>
+				canSeePrivate(ctx, user.id) ? user.emailBouncedAt : null,
 		}),
 		// The types this user has MUTED - absence of a row is the subscribed
 		// state (see db/schema/email.ts), so an empty list means "everything
 		// on", which is what a brand new account gets without any backfill.
 		mutedEmailTypes: t.field({
 			type: [EmailPreferenceType],
-			resolve: (user) => mutedEmailTypes(user.id),
+			nullable: true,
+			resolve: (user, _args, ctx) =>
+				canSeePrivate(ctx, user.id) ? mutedEmailTypes(user.id) : null,
 		}),
 		createdAt: t.field({
-			type: "String",
-			resolve: (user) => user.createdAt.toISOString(),
+			type: "DateTime",
+			resolve: (user) => user.createdAt,
 		}),
 		// The one chip shown beside this user's name site-wide. Null for an
 		// account that hasn't picked one, which is every account until it does.
@@ -105,48 +113,54 @@ export const UserRef = builder.drizzleObject("users", {
 		// Only what this user was GIVEN, newest first. Not what they can equip:
 		// every team flair is open to everyone with no row behind it, so the
 		// picker reads the myFlairs query instead.
-		grantedFlairs: t.field({
-			type: [FlairRef],
-			resolve: async (user) => {
+		grantedFlairs: t.loadableList({
+			type: FlairRef,
+			load: async (userIds: string[]) => {
 				const rows = await db.query.userFlairs.findMany({
-					where: { userId: user.id },
+					where: { userId: { in: userIds } },
 					orderBy: { grantedAt: "desc" },
 					with: { flair: true },
 				})
-				return rows.map((row) => row.flair)
+				return groupByKey(userIds, rows, (row) => row.userId).map((grants) =>
+					grants.flatMap((grant) => (grant.flair ? [grant.flair] : [])),
+				)
 			},
+			resolve: (user) => user.id,
 		}),
 		// Null on a brand new account, which is what makes the get-started
 		// checklist appear. Read straight off the Me query into router context,
 		// so any component can check it without a request of its own.
 		onboardingDismissedAt: t.field({
-			type: "String",
+			type: "DateTime",
 			nullable: true,
-			resolve: (user) => user.onboardingDismissedAt?.toISOString() ?? null,
+			resolve: (user) => user.onboardingDismissedAt,
 		}),
 		// Set means the checklist renders as a single collapsed row instead of
 		// the full card. Independent of the dismissal above: collapsed is a
 		// display choice, dismissed is the card being gone.
 		onboardingCollapsedAt: t.field({
-			type: "String",
+			type: "DateTime",
 			nullable: true,
-			resolve: (user) => user.onboardingCollapsedAt?.toISOString() ?? null,
+			resolve: (user) => user.onboardingCollapsedAt,
 		}),
 		// null until this user has made a single call site-wide
 		careerStats: t.field({
 			type: UserCareerStatsRef,
 			nullable: true,
-			resolve: async (user) => {
+			resolve: async (user, _args, ctx) => {
 				// No league, no season scope - a career total is exactly the
 				// unfiltered board, and stays that way as the leaderboard itself
 				// moves to defaulting to the current season.
-				const entries = await buildGlobalLeaderboard()
+				const entries = await getGlobalLeaderboard(ctx, null, ALL_TIME)
 				return entries.find((entry) => entry.user.id === user.id) ?? null
 			},
 		}),
 		leagues: t.field({
 			type: [UserLeagueStatsRef],
-			resolve: (user) => buildUserLeagueStats(user.id),
+			resolve: (user, _args, ctx) =>
+				buildUserLeagueStats(user.id, (leagueId) =>
+					getGlobalLeaderboard(ctx, leagueId, ALL_TIME),
+				),
 		}),
 		recentCalls: t.field({
 			type: [CallRef],
@@ -189,11 +203,11 @@ export const UserRef = builder.drizzleObject("users", {
 				league: t.arg.string({ required: true }),
 				family: t.arg({ type: StreakFamilyEnum, required: true }),
 			},
-			resolve: async (user, args) => {
-				const leagueId = await leagueIdBySlug(args.league)
-				if (!leagueId) return null
+			resolve: async (user, args, ctx) => {
+				const league = await findLeague(ctx, { slug: args.league })
+				if (!league) return null
 				return db.query.userStreaks.findFirst({
-					where: { userId: user.id, leagueId, family: args.family },
+					where: { userId: user.id, leagueId: league.id, family: args.family },
 				})
 			},
 		}),
@@ -215,11 +229,15 @@ export const UserRef = builder.drizzleObject("users", {
 				league: t.arg.string({ required: true }),
 				slateKey: t.arg.string({ required: true }),
 			},
-			resolve: async (user, args) => {
-				const leagueId = await leagueIdBySlug(args.league)
-				if (!leagueId) return null
+			resolve: async (user, args, ctx) => {
+				const league = await findLeague(ctx, { slug: args.league })
+				if (!league) return null
 				return db.query.userSweeps.findFirst({
-					where: { userId: user.id, leagueId, slateKey: args.slateKey },
+					where: {
+						userId: user.id,
+						leagueId: league.id,
+						slateKey: args.slateKey,
+					},
 				})
 			},
 		}),
@@ -234,10 +252,8 @@ export const UserRef = builder.drizzleObject("users", {
 				league: t.arg.string({ required: true }),
 				windowKey: t.arg.string({ required: true }),
 			},
-			resolve: async (user, args) => {
-				const league = await db.query.leagues.findFirst({
-					where: { slug: args.league },
-				})
+			resolve: async (user, args, ctx) => {
+				const league = await findLeague(ctx, { slug: args.league })
 				if (!league) return null
 				const window = await resolveWindowByKey(league, args.windowKey)
 				if (!window) return null
@@ -259,8 +275,8 @@ export const QuestionVoidRef = builder.drizzleObject("questionVoids", {
 		note: t.exposeString("note", { nullable: true }),
 		countsAsStrike: t.exposeBoolean("countsAsStrike"),
 		createdAt: t.field({
-			type: "String",
-			resolve: (v) => v.createdAt.toISOString(),
+			type: "DateTime",
+			resolve: (v) => v.createdAt,
 		}),
 		voidedByAdmin: t.relation("voidedByAdmin", { nullable: true }),
 	}),

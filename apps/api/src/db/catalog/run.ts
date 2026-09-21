@@ -1,3 +1,4 @@
+import { runCli } from "../../lib/run-cli"
 import { syncFlairCatalog } from "./flairs"
 import { syncStatCatalog } from "./stats"
 
@@ -16,9 +17,4 @@ async function main() {
 	)
 }
 
-main()
-	.then(() => process.exit(0))
-	.catch((err) => {
-		console.error(err)
-		process.exit(1)
-	})
+runCli(import.meta.url, main)

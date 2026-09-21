@@ -53,7 +53,12 @@ describe("eligibleStarters", () => {
 	it("takes any position when the pick names none", () => {
 		const starters = [
 			starter({ playerId: "c", role: "starter", position: "C", sortOrder: 5 }),
-			starter({ playerId: "pg", role: "starter", position: "PG", sortOrder: 1 }),
+			starter({
+				playerId: "pg",
+				role: "starter",
+				position: "PG",
+				sortOrder: 1,
+			}),
 		]
 		expect(
 			eligibleStarters(starters, "home", { role: "starter" }).map(
@@ -87,7 +92,9 @@ describe("chooseFrom", () => {
 		)
 		expect(new Set(picks).size).toBeGreaterThan(1)
 		expect(picks).not.toContain("fourth")
-		expect(chooseFrom(ranked, 3, "game-1")).toBe(chooseFrom(ranked, 3, "game-1"))
+		expect(chooseFrom(ranked, 3, "game-1")).toBe(
+			chooseFrom(ranked, 3, "game-1"),
+		)
 	})
 })
 
@@ -113,10 +120,12 @@ describe("rankCandidates", () => {
 	})
 
 	it("breaks a tie by depth chart order", () => {
-		const candidates = [starter({ playerId: "first" }), starter({ playerId: "second" })]
-		expect(rankCandidates(candidates, () => 20).map((c) => c.playerId)).toEqual([
-			"first",
-			"second",
-		])
+		const candidates = [
+			starter({ playerId: "first" }),
+			starter({ playerId: "second" }),
+		]
+		expect(rankCandidates(candidates, () => 20).map((c) => c.playerId)).toEqual(
+			["first", "second"],
+		)
 	})
 })

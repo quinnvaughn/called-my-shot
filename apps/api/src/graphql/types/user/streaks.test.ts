@@ -1,35 +1,11 @@
 import { describe, expect, it } from "vitest"
-import { db } from "../../../db"
-import { type League, type User, userStreaks } from "../../../db/schema"
-import { makeLeague, makeUser } from "../../../test/factories"
+import type { User } from "../../../db/schema"
+import { makeLeague, makeStreak, makeUser } from "../../../test/factories"
 import { expectData } from "../../../test/graphql"
 
 // streaks and coldStreaks are separate fields rather than one filtered two
 // ways: a track that has only ever missed has a bestLength of 0, so it can
 // never clear the minimum streaks lists by.
-
-function makeStreak(
-	user: User,
-	league: League,
-	lengths: {
-		currentLength?: number
-		bestLength?: number
-		currentColdLength?: number
-		worstColdLength?: number
-	},
-) {
-	return db.insert(userStreaks).values({
-		userId: user.id,
-		leagueId: league.id,
-		family: "winners" as const,
-		currentLength: 0,
-		bestLength: 0,
-		currentColdLength: 0,
-		worstColdLength: 0,
-		lastSettledAt: new Date(),
-		...lengths,
-	})
-}
 
 const PROFILE = /* GraphQL */ `
 	query Profile($username: String!) {
@@ -58,7 +34,10 @@ describe("User.coldStreaks", () => {
 	it("lists a track that has only ever missed, which streaks can't", async () => {
 		const user = await makeUser()
 		const league = await makeLeague()
-		await makeStreak(user, league, {
+		await makeStreak({
+			userId: user.id,
+			leagueId: league.id,
+			lastSettledAt: new Date(),
 			currentColdLength: 4,
 			worstColdLength: 4,
 		})
@@ -74,7 +53,10 @@ describe("User.coldStreaks", () => {
 		const user = await makeUser()
 		const league = await makeLeague()
 		// One miss after a long run: the run is worth listing, the miss isn't.
-		await makeStreak(user, league, {
+		await makeStreak({
+			userId: user.id,
+			leagueId: league.id,
+			lastSettledAt: new Date(),
 			bestLength: 6,
 			currentColdLength: 1,
 			worstColdLength: 1,

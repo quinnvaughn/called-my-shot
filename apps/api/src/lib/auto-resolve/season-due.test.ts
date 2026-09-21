@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest"
+import { HOUR_MS as HOUR } from "../time"
 import { isSeasonResolutionDue } from "./season-due"
 
-const HOUR = 60 * 60 * 1000
 const ENDS = new Date("2026-04-12T23:00:00Z")
 const season = { regularSeasonEndsAt: ENDS }
 const hoursAfterEnd = (hours: number) => new Date(ENDS.getTime() + hours * HOUR)

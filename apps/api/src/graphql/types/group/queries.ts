@@ -2,7 +2,7 @@ import { db } from "../../../db"
 import { isInviteExpired } from "../../../lib/groups"
 import { isUuid } from "../../../lib/uuid"
 import { builder } from "../../builder"
-import { getGroupLeaderboard } from "./leaderboard"
+import { getGroupLeaderboard, viewerMembership } from "./leaderboard"
 import { GROUP_PREVIEW_MEMBER_LIMIT, GroupPreviewRef } from "./preview"
 import { GroupRef } from "./refs"
 
@@ -27,10 +27,7 @@ builder.queryFields((t) => ({
 		args: { id: t.arg.id({ required: true }) },
 		resolve: async (_root, args, ctx) => {
 			if (!ctx.user || !isUuid(args.id)) return null
-			const membership = await db.query.groupMembers.findFirst({
-				where: { groupId: args.id, userId: ctx.user.id },
-			})
-			if (!membership) return null
+			if (!(await viewerMembership(ctx, args.id))) return null
 			return db.query.groups.findFirst({ where: { id: args.id } })
 		},
 	}),

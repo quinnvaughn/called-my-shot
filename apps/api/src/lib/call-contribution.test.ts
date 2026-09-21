@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest"
-import { type ContributingCall, callContribution } from "./call-contribution"
+import {
+	type ContributingCall,
+	callContribution,
+	reversalDeltas,
+} from "./call-contribution"
 
 const call = (overrides: Partial<ContributingCall> = {}): ContributingCall => ({
 	resultPoints: null,
@@ -133,6 +137,36 @@ describe("callContribution", () => {
 			convictionSum: 0,
 			convictionSumCorrect: 0,
 			callCount: 0,
+		})
+	})
+})
+
+describe("reversalDeltas", () => {
+	it("takes back exactly what each caller's calls put in", () => {
+		const deltas = reversalDeltas(
+			[
+				{ ...call({ selections: [pick(300, true, 80)] }), userId: "a" },
+				{
+					...call({ resultPoints: -60, hitTolerance: false, conviction: 30 }),
+					userId: "b",
+				},
+			],
+			"resolved",
+		)
+		expect(deltas.get("a")).toEqual({
+			points: -300,
+			resolvedCallCount: -1,
+			correctCount: -1,
+			convictionSum: -80,
+			convictionSumCorrect: -80,
+			callCount: -1,
+		})
+		expect(deltas.get("b")).toMatchObject({
+			points: 60,
+			resolvedCallCount: -1,
+			correctCount: 0,
+			convictionSum: -30,
+			callCount: -1,
 		})
 	})
 })

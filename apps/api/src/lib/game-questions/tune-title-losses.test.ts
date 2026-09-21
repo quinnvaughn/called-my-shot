@@ -9,7 +9,7 @@ import {
 	makeUser,
 } from "../../test/factories"
 import { TITLE_TUNING, titleGroups } from "./title-calibration"
-import { saveTitleLossSetting, titleLossSettingRow } from "./title-settings"
+import { titleLossSettings } from "./title-settings"
 import { tuneTitleLosses } from "./tune-title-losses"
 
 const NOW = new Date("2026-09-14T11:15:00Z")
@@ -56,14 +56,14 @@ describe("tuneTitleLosses", () => {
 
 		expect(await tuneTitleLosses(NOW)).toBe(titleGroups().length)
 
-		const row = await titleLossSettingRow("nba", "NBA Finals")
+		const row = await titleLossSettings.row("nba", "NBA Finals")
 		expect(row).toMatchObject({
 			isCustom: true,
 			autoTune: true,
 			lossRate: 0.33,
 			calibration: {
 				resolved: TITLE_TUNING.minSample,
-				bestRecordHitRate: 0.25,
+				ownHitRate: 0.25,
 				blendedHitRate: 0.25,
 				suggestedLossRate: 0.33,
 			},
@@ -76,11 +76,11 @@ describe("tuneTitleLosses", () => {
 
 		await tuneTitleLosses(NOW)
 
-		expect(await titleLossSettingRow("nfl", "Super Bowl")).toMatchObject({
+		expect(await titleLossSettings.row("nfl", "Super Bowl")).toMatchObject({
 			lossRate: 0.33,
 			calibration: {
 				resolved: 0,
-				bestRecordHitRate: null,
+				ownHitRate: null,
 				blendedHitRate: 0.25,
 			},
 		})
@@ -89,7 +89,7 @@ describe("tuneTitleLosses", () => {
 	it("leaves a manual rate alone", async () => {
 		await resolvedTitles(TITLE_TUNING.minSample)
 		const admin = await makeUser({ isAdmin: true })
-		await saveTitleLossSetting(
+		await titleLossSettings.save(
 			{
 				leagueSlug: "nba",
 				awardName: "NBA Finals",
@@ -101,7 +101,7 @@ describe("tuneTitleLosses", () => {
 
 		expect(await tuneTitleLosses(NOW)).toBe(titleGroups().length - 1)
 
-		expect(await titleLossSettingRow("nba", "NBA Finals")).toMatchObject({
+		expect(await titleLossSettings.row("nba", "NBA Finals")).toMatchObject({
 			autoTune: false,
 			tunedAt: null,
 			lossRate: 0.6,
@@ -112,7 +112,7 @@ describe("tuneTitleLosses", () => {
 		await resolvedTitles(TITLE_TUNING.minSample - 1)
 
 		expect(await tuneTitleLosses(NOW)).toBe(0)
-		expect((await titleLossSettingRow("nba", "NBA Finals"))?.isCustom).toBe(
+		expect((await titleLossSettings.row("nba", "NBA Finals"))?.isCustom).toBe(
 			false,
 		)
 	})

@@ -3,9 +3,10 @@ import { db } from "../../db"
 import { supportTickets } from "../../db/schema"
 import { env } from "../../env"
 import { requireUser } from "../../lib/auth"
-import { AuthenticationError, ValidationError } from "../../lib/errors"
+import { AuthenticationError } from "../../lib/errors"
 import { sendMail } from "../../lib/mailer"
 import { builder } from "../builder"
+import { parseInput } from "../helpers"
 
 const SupportCategory = builder.enumType("SupportCategory", {
 	values: {
@@ -34,8 +35,8 @@ const FileSupportTicketPayload = builder
 		fields: (t) => ({
 			id: t.exposeID("id"),
 			createdAt: t.field({
-				type: "String",
-				resolve: (ticket) => ticket.createdAt.toISOString(),
+				type: "DateTime",
+				resolve: (ticket) => ticket.createdAt,
 			}),
 		}),
 	})
@@ -44,18 +45,14 @@ builder.mutationFields((t) => ({
 	fileSupportTicket: t.field({
 		type: FileSupportTicketPayload,
 		errors: {
-			types: [AuthenticationError, ValidationError],
+			types: [AuthenticationError],
 			directResult: true,
 			union: { name: "FileSupportTicketResult" },
 		},
 		args: { input: t.arg({ type: FileSupportTicketInput, required: true }) },
 		resolve: async (_root, args, ctx) => {
 			const user = requireUser(ctx)
-			const parsed = fileSupportTicketSchema.safeParse(args.input)
-			if (!parsed.success) {
-				throw ValidationError.fromZodIssues(parsed.error.issues)
-			}
-			const data = parsed.data
+			const data = parseInput(fileSupportTicketSchema, args.input)
 
 			const [ticket] = await db
 				.insert(supportTickets)

@@ -63,14 +63,14 @@ function RouteComponent() {
 			<VStack alignItems="stretch" gap="3">
 				{sectionLabel("Email")}
 				<EmailSection
-					email={me.email}
+					email={me.email ?? ""}
 					emailVerified={me.emailVerified}
 					pendingEmailChange={me.pendingEmailChange ?? null}
 				/>
 			</VStack>
 			<VStack alignItems="stretch" gap="3">
 				{sectionLabel("Email notifications")}
-				<EmailNotificationsSection mutedEmailTypes={me.mutedEmailTypes} />
+				<EmailNotificationsSection mutedEmailTypes={me.mutedEmailTypes ?? []} />
 			</VStack>
 			<VStack alignItems="stretch" gap="3">
 				{sectionLabel("Password")}

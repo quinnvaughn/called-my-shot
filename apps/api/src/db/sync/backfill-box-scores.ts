@@ -1,9 +1,15 @@
 import { db } from "../index"
 import { parseBoxScore } from "./box-score-parse"
 import { persistBoxScore } from "./box-score-store"
-import { EspnRequestError, fetchGameSummary } from "./espn-client"
+import {
+	defaultEspnClient,
+	type EspnClient,
+	type EspnGameSummary,
+	EspnRequestError,
+} from "./espn-client"
 import { createEspnRequester, DEFAULT_ESPN_SPACING_MS } from "./espn-requester"
 import { SYNCED_LEAGUES } from "./leagues"
+import { loadEspnIds } from "./sync-refs"
 
 // The same rate the scheduler already hits ESPN at. A bulk pass makes the same
 // number of requests whichever spacing it uses, and the rate is what a host
@@ -45,8 +51,6 @@ export type BackfillSelection = {
 	skippedNoEspnRef: number
 	skippedUnsyncedLeague: number
 }
-
-const espnIdOf = (sourceId: string) => sourceId.split(":")[1] ?? sourceId
 
 // Final games whose box score was never stored, oldest first. The ordering
 // plus the boxScoreSyncedAt filter is what makes a re-run resume: a game is
@@ -98,15 +102,9 @@ export async function selectBackfillGames(
 		return { candidates: [], skippedNoEspnRef: 0, skippedUnsyncedLeague: 0 }
 	}
 
-	const refs = await db.query.externalRefs.findMany({
-		where: {
-			source: "espn",
-			entityType: "game",
-			entityId: { in: games.map((g) => g.id) },
-		},
-	})
-	const espnEventIdByGameId = new Map(
-		refs.map((ref) => [ref.entityId, espnIdOf(ref.sourceId)]),
+	const espnEventIdByGameId = await loadEspnIds(
+		"game",
+		games.map((g) => g.id),
 	)
 
 	const candidates: BackfillCandidate[] = []
@@ -149,9 +147,15 @@ export async function backfillBoxScores(args: {
 	candidates: BackfillCandidate[]
 	now: Date
 	spacingMs?: number
+	espn?: EspnClient
 	onProgress?: (done: number, total: number) => void
 }): Promise<BackfillResult> {
-	const { candidates, now, spacingMs = BACKFILL_SPACING_MS } = args
+	const {
+		candidates,
+		now,
+		spacingMs = BACKFILL_SPACING_MS,
+		espn = defaultEspnClient,
+	} = args
 	const requester = createEspnRequester("backfill-box-scores", spacingMs)
 	const result: BackfillResult = {
 		captured: 0,
@@ -169,11 +173,11 @@ export async function backfillBoxScores(args: {
 		const config = bySlug.get(candidate.leagueSlug)
 		if (!config) continue
 
-		let summary: Awaited<ReturnType<typeof fetchGameSummary>> | null
+		let summary: EspnGameSummary | null
 		try {
 			summary = await requester.request(
 				`${candidate.leagueSlug} summary ${candidate.espnEventId}`,
-				() => fetchGameSummary(config.espnPath, candidate.espnEventId),
+				() => espn.fetchGameSummary(config.espnPath, candidate.espnEventId),
 			)
 		} catch (error) {
 			if (error instanceof EspnRequestError) {
@@ -197,22 +201,14 @@ export async function backfillBoxScores(args: {
 		}
 
 		try {
-			const teamRefs = await db.query.externalRefs.findMany({
-				where: {
-					source: "espn",
-					entityType: "team",
-					entityId: {
-						in: [candidate.game.homeTeamId, candidate.game.awayTeamId],
-					},
-				},
-			})
 			const stored = await persistBoxScore({
 				game: candidate.game,
 				leagueSlug: candidate.leagueSlug,
 				box,
-				espnTeamIdByTeamId: new Map(
-					teamRefs.map((ref) => [ref.entityId, espnIdOf(ref.sourceId)]),
-				),
+				espnTeamIdByTeamId: await loadEspnIds("team", [
+					candidate.game.homeTeamId,
+					candidate.game.awayTeamId,
+				]),
 				now,
 			})
 			result.captured += 1

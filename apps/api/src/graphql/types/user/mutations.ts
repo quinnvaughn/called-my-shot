@@ -6,8 +6,9 @@ import {
 	updateUsernameSchema,
 } from "@called-my-shot/schemas"
 import { eq, sql } from "drizzle-orm"
+import type { PgUpdateSetSource } from "drizzle-orm/pg-core"
 import { db } from "../../../db"
-import { pendingEmailChanges, users } from "../../../db/schema"
+import { pendingEmailChanges, type User, users } from "../../../db/schema"
 import { requireAdmin, requireUser } from "../../../lib/auth"
 import { issuePendingEmailChange } from "../../../lib/email-change"
 import { setEmailPreference } from "../../../lib/email-prefs"
@@ -21,6 +22,7 @@ import {
 import { hashPassword, verifyPassword } from "../../../lib/password"
 import { clearSessionCookie } from "../../../lib/session"
 import { builder } from "../../builder"
+import { parseInput } from "../../helpers"
 import {
 	DeleteAccountInput,
 	RequestEmailChangeInput,
@@ -30,6 +32,47 @@ import {
 	UpdateUsernameInput,
 } from "./inputs"
 import { UserRef } from "./refs"
+
+type UserUpdate = PgUpdateSetSource<typeof users>
+
+// Writes to the signed-in viewer's own row and returns it updated. The row
+// was just read to authenticate the request, so a miss here is a bug rather
+// than a user error.
+async function updateViewer(viewer: User, values: UserUpdate): Promise<User> {
+	const [updated] = await db
+		.update(users)
+		.set(values)
+		.where(eq(users.id, viewer.id))
+		.returning()
+	if (!updated) throw new Error(`user ${viewer.id} vanished mid-request`)
+	return updated
+}
+
+// Admin writes to someone else's row, where the id comes from the client.
+async function updateUserOrThrow(
+	userId: string,
+	values: UserUpdate,
+): Promise<User> {
+	const [updated] = await db
+		.update(users)
+		.set(values)
+		.where(eq(users.id, userId))
+		.returning()
+	if (!updated) throw new NotFoundError("User not found")
+	return updated
+}
+
+// Re-confirms the viewer's password before a sensitive change.
+async function requirePassword(
+	viewer: User,
+	password: string,
+	field = "password",
+	message = "Incorrect password",
+) {
+	if (!(await verifyPassword(viewer.passwordHash, password))) {
+		throw ValidationError.field(field, message)
+	}
+}
 
 builder.mutationFields((t) => ({
 	updateMyName: t.field({
@@ -42,18 +85,9 @@ builder.mutationFields((t) => ({
 		args: { input: t.arg({ type: UpdateMyNameInput, required: true }) },
 		resolve: async (_root, args, ctx) => {
 			const user = requireUser(ctx)
-			const parsed = updateNameSchema.safeParse(args.input)
-			if (!parsed.success) {
-				throw ValidationError.fromZodIssues(parsed.error.issues)
-			}
+			const { name } = parseInput(updateNameSchema, args.input)
 
-			const [updated] = await db
-				.update(users)
-				.set({ name: parsed.data.name })
-				.where(eq(users.id, user.id))
-				.returning()
-			if (!updated) throw new Error("updateMyName: user vanished mid-request")
-			return updated
+			return updateViewer(user, { name })
 		},
 	}),
 
@@ -67,11 +101,7 @@ builder.mutationFields((t) => ({
 		args: { input: t.arg({ type: UpdateUsernameInput, required: true }) },
 		resolve: async (_root, args, ctx) => {
 			const user = requireUser(ctx)
-			const parsed = updateUsernameSchema.safeParse(args.input)
-			if (!parsed.success) {
-				throw ValidationError.fromZodIssues(parsed.error.issues)
-			}
-			const { username } = parsed.data
+			const { username } = parseInput(updateUsernameSchema, args.input)
 
 			if (username !== user.username) {
 				const existing = await db.query.users.findFirst({
@@ -82,13 +112,7 @@ builder.mutationFields((t) => ({
 				}
 			}
 
-			const [updated] = await db
-				.update(users)
-				.set({ username })
-				.where(eq(users.id, user.id))
-				.returning()
-			if (!updated) throw new Error("updateUsername: user vanished mid-request")
-			return updated
+			return updateViewer(user, { username })
 		},
 	}),
 
@@ -102,15 +126,12 @@ builder.mutationFields((t) => ({
 		args: { input: t.arg({ type: RequestEmailChangeInput, required: true }) },
 		resolve: async (_root, args, ctx) => {
 			const user = requireUser(ctx)
-			const parsed = requestEmailChangeSchema.safeParse(args.input)
-			if (!parsed.success) {
-				throw ValidationError.fromZodIssues(parsed.error.issues)
-			}
-			const { newEmail, password } = parsed.data
+			const { newEmail, password } = parseInput(
+				requestEmailChangeSchema,
+				args.input,
+			)
 
-			if (!(await verifyPassword(user.passwordHash, password))) {
-				throw ValidationError.field("password", "Incorrect password")
-			}
+			await requirePassword(user, password)
 			if (newEmail === user.email) {
 				throw ValidationError.field("newEmail", "That's already your email")
 			}
@@ -179,42 +200,46 @@ builder.mutationFields((t) => ({
 			union: { name: "ConfirmEmailChangeResult" },
 		},
 		args: { token: t.arg.string({ required: true }) },
-		resolve: async (_root, args) => {
+		resolve: async (_root, args, ctx) => {
 			const invalidLink = () =>
 				ValidationError.field(
 					null,
 					"This confirmation link is invalid or expired.",
 				)
 
-			const pending = await db.query.pendingEmailChanges.findFirst({
-				where: { token: args.token },
-			})
-			if (!pending || pending.expiresAt < new Date()) throw invalidLink()
-
-			const stillFree = !(await db.query.users.findFirst({
-				where: { email: pending.newEmail, id: { ne: pending.userId } },
-			}))
-			if (!stillFree) throw invalidLink()
-
-			const [updated] = await db
-				.update(users)
-				.set({
-					email: pending.newEmail,
-					emailVerified: true,
-					// The old address's bounce history says nothing about this one,
-					// and leaving the "your email is bouncing" banner up after
-					// someone did exactly what it asked is what would make it
-					// useless. Cleared here rather than through clearEmailBounce so
-					// it's part of the same single update.
-					emailBouncedAt: null,
-					emailBounceReason: null,
+			const updated = await db.transaction(async (tx) => {
+				const pending = await tx.query.pendingEmailChanges.findFirst({
+					where: { token: args.token },
 				})
-				.where(eq(users.id, pending.userId))
-				.returning()
-			await db
-				.delete(pendingEmailChanges)
-				.where(eq(pendingEmailChanges.id, pending.id))
-			if (!updated) throw invalidLink()
+				if (!pending || pending.expiresAt < new Date()) throw invalidLink()
+
+				const stillFree = !(await tx.query.users.findFirst({
+					where: { email: pending.newEmail, id: { ne: pending.userId } },
+				}))
+				if (!stillFree) throw invalidLink()
+
+				const [row] = await tx
+					.update(users)
+					.set({
+						email: pending.newEmail,
+						emailVerified: true,
+						// The old address's bounce history says nothing about this one,
+						// and leaving the "your email is bouncing" banner up after
+						// someone did exactly what it asked is what would make it
+						// useless. Cleared here rather than through clearEmailBounce so
+						// it's part of the same single update.
+						emailBouncedAt: null,
+						emailBounceReason: null,
+					})
+					.where(eq(users.id, pending.userId))
+					.returning()
+				await tx
+					.delete(pendingEmailChanges)
+					.where(eq(pendingEmailChanges.id, pending.id))
+				if (!row) throw invalidLink()
+				return row
+			})
+			ctx.ownedUserIds.add(updated.id)
 			return updated
 		},
 	}),
@@ -229,27 +254,21 @@ builder.mutationFields((t) => ({
 		args: { input: t.arg({ type: UpdatePasswordInput, required: true }) },
 		resolve: async (_root, args, ctx) => {
 			const user = requireUser(ctx)
-			const parsed = updatePasswordSchema.safeParse(args.input)
-			if (!parsed.success) {
-				throw ValidationError.fromZodIssues(parsed.error.issues)
-			}
-			const { currentPassword, newPassword } = parsed.data
+			const { currentPassword, newPassword } = parseInput(
+				updatePasswordSchema,
+				args.input,
+			)
 
-			if (!(await verifyPassword(user.passwordHash, currentPassword))) {
-				throw ValidationError.field(
-					"currentPassword",
-					"Current password is incorrect",
-				)
-			}
+			await requirePassword(
+				user,
+				currentPassword,
+				"currentPassword",
+				"Current password is incorrect",
+			)
 
-			const passwordHash = await hashPassword(newPassword)
-			const [updated] = await db
-				.update(users)
-				.set({ passwordHash })
-				.where(eq(users.id, user.id))
-				.returning()
-			if (!updated) throw new Error("updatePassword: user vanished mid-request")
-			return updated
+			return updateViewer(user, {
+				passwordHash: await hashPassword(newPassword),
+			})
 		},
 	}),
 
@@ -266,14 +285,9 @@ builder.mutationFields((t) => ({
 		args: { input: t.arg({ type: DeleteAccountInput, required: true }) },
 		resolve: async (_root, args, ctx) => {
 			const user = requireUser(ctx)
-			const parsed = deleteAccountSchema.safeParse(args.input)
-			if (!parsed.success) {
-				throw ValidationError.fromZodIssues(parsed.error.issues)
-			}
+			const { password } = parseInput(deleteAccountSchema, args.input)
 
-			if (!(await verifyPassword(user.passwordHash, parsed.data.password))) {
-				throw ValidationError.field("password", "Incorrect password")
-			}
+			await requirePassword(user, password)
 
 			// Deleting the account orphans authored questions rather than
 			// cascading them away (questions.creatorId is set null, not
@@ -317,13 +331,9 @@ builder.mutationFields((t) => ({
 		},
 		resolve: async (_root, args, ctx) => {
 			requireAdmin(ctx)
-			const [updated] = await db
-				.update(users)
-				.set({ questionCreationEnabled: args.enabled })
-				.where(eq(users.id, args.userId))
-				.returning()
-			if (!updated) throw new NotFoundError("User not found")
-			return updated
+			return updateUserOrThrow(args.userId, {
+				questionCreationEnabled: args.enabled,
+			})
 		},
 	}),
 
@@ -340,13 +350,7 @@ builder.mutationFields((t) => ({
 		},
 		resolve: async (_root, args, ctx) => {
 			requireAdmin(ctx)
-			const [updated] = await db
-				.update(users)
-				.set({ isVerifiedPundit: args.verified })
-				.where(eq(users.id, args.userId))
-				.returning()
-			if (!updated) throw new NotFoundError("User not found")
-			return updated
+			return updateUserOrThrow(args.userId, { isVerifiedPundit: args.verified })
 		},
 	}),
 
@@ -376,7 +380,6 @@ builder.mutationFields((t) => ({
 	unsubscribeFromEmails: t.field({
 		type: "Boolean",
 		errors: {
-			types: [ValidationError],
 			union: { name: "UnsubscribeFromEmailsResult" },
 		},
 		args: { token: t.arg.string({ required: true }) },
@@ -406,15 +409,7 @@ builder.mutationFields((t) => ({
 		},
 		resolve: async (_root, _args, ctx) => {
 			const user = requireUser(ctx)
-			const [updated] = await db
-				.update(users)
-				.set({ onboardingDismissedAt: new Date() })
-				.where(eq(users.id, user.id))
-				.returning()
-			if (!updated) {
-				throw new Error("dismissOnboarding: user vanished mid-request")
-			}
-			return updated
+			return updateViewer(user, { onboardingDismissedAt: new Date() })
 		},
 	}),
 
@@ -431,15 +426,9 @@ builder.mutationFields((t) => ({
 		},
 		resolve: async (_root, args, ctx) => {
 			const user = requireUser(ctx)
-			const [updated] = await db
-				.update(users)
-				.set({ onboardingCollapsedAt: args.collapsed ? new Date() : null })
-				.where(eq(users.id, user.id))
-				.returning()
-			if (!updated) {
-				throw new Error("setOnboardingCollapsed: user vanished mid-request")
-			}
-			return updated
+			return updateViewer(user, {
+				onboardingCollapsedAt: args.collapsed ? new Date() : null,
+			})
 		},
 	}),
 
@@ -455,17 +444,9 @@ builder.mutationFields((t) => ({
 		},
 		resolve: async (_root, _args, ctx) => {
 			const user = requireUser(ctx)
-			const [updated] = await db
-				.update(users)
-				.set({
-					leaderboardViewedAt: sql`coalesce(${users.leaderboardViewedAt}, now())`,
-				})
-				.where(eq(users.id, user.id))
-				.returning()
-			if (!updated) {
-				throw new Error("markLeaderboardViewed: user vanished mid-request")
-			}
-			return updated
+			return updateViewer(user, {
+				leaderboardViewedAt: sql`coalesce(${users.leaderboardViewedAt}, now())`,
+			})
 		},
 	}),
 
@@ -484,15 +465,10 @@ builder.mutationFields((t) => ({
 			// Clears the collapse too. Replaying is a request to see the thing,
 			// and restoring it folded shut would be a menu item that appears to
 			// do nothing.
-			const [updated] = await db
-				.update(users)
-				.set({ onboardingDismissedAt: null, onboardingCollapsedAt: null })
-				.where(eq(users.id, user.id))
-				.returning()
-			if (!updated) {
-				throw new Error("restartOnboarding: user vanished mid-request")
-			}
-			return updated
+			return updateViewer(user, {
+				onboardingDismissedAt: null,
+				onboardingCollapsedAt: null,
+			})
 		},
 	}),
 }))

@@ -1,4 +1,11 @@
-import { index, pgTable, primaryKey, text, timestamp, uuid } from "drizzle-orm/pg-core"
+import {
+	index,
+	pgTable,
+	primaryKey,
+	text,
+	timestamp,
+	uuid,
+} from "drizzle-orm/pg-core"
 import { flairs } from "./flairs"
 import { users } from "./users"
 

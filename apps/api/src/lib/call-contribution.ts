@@ -1,5 +1,6 @@
 import type { CallUnscoredReason, Question } from "../db/schema"
-import type { LeagueStatDelta } from "./user-season-stats"
+import { negated } from "./resolution/deltas"
+import { addLeagueStatDelta, type LeagueStatDelta } from "./user-season-stats"
 
 export type ContributingCall = {
 	resultPoints: number | null
@@ -63,4 +64,21 @@ export function callContribution(
 		if (call.hitTolerance) contribution.correctCount += 1
 	}
 	return contribution
+}
+
+// Per caller, what takes every one of a question's calls back out of
+// user_season_stats - exactly what callContribution says each one put in.
+export function reversalDeltas(
+	calls: (ContributingCall & { userId: string })[],
+	questionStatus: Question["status"],
+): Map<string, LeagueStatDelta> {
+	const deltas = new Map<string, LeagueStatDelta>()
+	for (const call of calls) {
+		addLeagueStatDelta(
+			deltas,
+			call.userId,
+			negated(callContribution(call, questionStatus)),
+		)
+	}
+	return deltas
 }

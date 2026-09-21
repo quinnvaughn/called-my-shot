@@ -1,42 +1,33 @@
-import { readFileSync } from "node:fs"
-import { beforeEach, describe, expect, it, vi } from "vitest"
+import { beforeEach, describe, expect, it } from "vitest"
 import {
-	HOUR,
+	makeExternalRef,
 	makeLeague,
 	makeOption,
 	makeQuestion,
 	makeSeason,
 	makeTeam,
 } from "../../test/factories"
+import { daysAgo as daysBefore, espnFixture } from "../../test/helpers"
 import { db } from "../index"
-import { externalRefs } from "../schema"
 import { autoResolveChampionships } from "./auto-resolve-championships"
+import type { EspnPostseasonEvent } from "./espn-client"
 import {
-	type EspnPostseasonEvent,
-	fetchPostseasonScoreboard,
-} from "./espn-client"
-
-vi.mock("./espn-client", async (importOriginal) => ({
-	...(await importOriginal<typeof import("./espn-client")>()),
-	fetchPostseasonScoreboard: vi.fn(),
-}))
+	autoRowFor,
+	type FakeEspnClient,
+	fakeEspnClient,
+	questionById,
+} from "./test-support"
 
 const NOW = new Date("2026-09-12T12:00:00Z")
-const DAY = 24 * HOUR
-const daysAgo = (days: number) => new Date(NOW.getTime() - days * DAY)
-const run = () => autoResolveChampionships({ now: NOW, spacingMs: 0 })
+const daysAgo = (days: number) => daysBefore(days, NOW.getTime())
+
+let espn: FakeEspnClient
+const run = () => autoResolveChampionships({ now: NOW, spacingMs: 0, espn })
 
 // See championship.test.ts for where the fixture comes from. OKC ("25") beat
 // IND ("11") in the Finals.
 const nbaPostseason = () =>
-	(
-		JSON.parse(
-			readFileSync(
-				new URL("./fixtures/espn/postseason-nba.json", import.meta.url),
-				"utf8",
-			),
-		) as { events: EspnPostseasonEvent[] }
-	).events
+	espnFixture<{ events: EspnPostseasonEvent[] }>("postseason-nba.json").events
 const isFinalsGameSeven = (event: EspnPostseasonEvent) =>
 	event.competitions[0].notes?.some(
 		(note) => note.headline === "NBA Finals - Game 7",
@@ -61,12 +52,7 @@ async function seedFinals(postseason: {
 		[okc, "25"],
 		[ind, "11"],
 	] as const) {
-		await db.insert(externalRefs).values({
-			source: "espn",
-			entityType: "team",
-			sourceId: `nba:${espnId}`,
-			entityId: team.id,
-		})
+		await makeExternalRef("team", `nba:${espnId}`, team.id)
 	}
 	const question = await makeQuestion({
 		shape: "team_season_award",
@@ -89,13 +75,8 @@ async function seedFinals(postseason: {
 	return { question, okcOption }
 }
 
-const questionById = (id: string) =>
-	db.query.questions.findFirst({ where: { id } })
-const autoRowFor = (questionId: string) =>
-	db.query.questionAutoResolutions.findFirst({ where: { questionId } })
-
 beforeEach(() => {
-	vi.mocked(fetchPostseasonScoreboard).mockReset()
+	espn = fakeEspnClient()
 })
 
 describe("autoResolveChampionships", () => {
@@ -104,7 +85,7 @@ describe("autoResolveChampionships", () => {
 			startsDaysAgo: 60,
 			endsDaysAgo: 10,
 		})
-		vi.mocked(fetchPostseasonScoreboard).mockResolvedValue(nbaPostseason())
+		espn.fetchPostseasonScoreboard.mockResolvedValue(nbaPostseason())
 
 		await run()
 
@@ -128,12 +109,12 @@ describe("autoResolveChampionships", () => {
 	it("doesn't read anything before the postseason starts", async () => {
 		await seedFinals({ startsDaysAgo: -5, endsDaysAgo: -60 })
 		await run()
-		expect(fetchPostseasonScoreboard).not.toHaveBeenCalled()
+		expect(espn.fetchPostseasonScoreboard).not.toHaveBeenCalled()
 	})
 
 	it("waits quietly while the deciding series is still going", async () => {
 		const { question } = await seedFinals({ startsDaysAgo: 60, endsDaysAgo: 0 })
-		vi.mocked(fetchPostseasonScoreboard).mockResolvedValue(
+		espn.fetchPostseasonScoreboard.mockResolvedValue(
 			nbaPostseason().filter((event) => !isFinalsGameSeven(event)),
 		)
 
@@ -148,7 +129,7 @@ describe("autoResolveChampionships", () => {
 			startsDaysAgo: 60,
 			endsDaysAgo: 10,
 		})
-		vi.mocked(fetchPostseasonScoreboard).mockResolvedValue(
+		espn.fetchPostseasonScoreboard.mockResolvedValue(
 			nbaPostseason().filter((event) => !isFinalsGameSeven(event)),
 		)
 

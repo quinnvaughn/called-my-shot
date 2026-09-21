@@ -1,7 +1,7 @@
 import type { Request, Response } from "express"
 import { graphql } from "graphql"
 import type { User } from "../db/schema"
-import type { Context } from "../graphql/context"
+import { type Context, requestScopedCaches } from "../graphql/context"
 import { schema } from "../graphql/schema"
 
 /**
@@ -28,10 +28,7 @@ export function testContext(user: User | null = null): Context & {
 		res,
 		sessionId: null,
 		user,
-		globalLeaderboardCache: new Map(),
-		groupLeaderboardCache: new Map(),
-		groupHighlightsCache: new Map(),
-		teamsByIdCache: { promise: null },
+		...requestScopedCaches(),
 		cookies,
 		clearedCookies,
 	}

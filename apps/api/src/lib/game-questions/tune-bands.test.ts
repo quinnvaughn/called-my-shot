@@ -7,11 +7,11 @@ import {
 	makeTeam,
 	makeUser,
 } from "../../test/factories"
-import { bandSettingRow, saveBandSetting } from "./band-settings"
+import { DAY_MS } from "../time"
+import { bandSettings } from "./band-settings"
 import { tuneBands } from "./tune-bands"
 
 const NOW = new Date()
-const DAY = 24 * 60 * 60 * 1000
 
 // An NBA league whose Points stat defaults to +/-6, with `count` final games
 // between the same two teams: the home team alternates 110 and 90 and the
@@ -32,7 +32,7 @@ async function nbaFinals(count: number) {
 			seasonId: season.id,
 			homeTeamId: home.id,
 			awayTeamId: away.id,
-			startsAt: new Date(NOW.getTime() - (count - i) * DAY),
+			startsAt: new Date(NOW.getTime() - (count - i) * DAY_MS),
 			status: "final",
 			homeScore: i % 2 === 0 ? 110 : 90,
 			awayScore: 100,
@@ -46,7 +46,7 @@ describe("tuneBands", () => {
 
 		expect(await tuneBands(NOW)).toBe(1)
 
-		const row = await bandSettingRow("nba", "Points")
+		const row = await bandSettings.row("nba", "Points")
 		expect(row).toMatchObject({
 			isCustom: true,
 			autoTune: true,
@@ -60,14 +60,14 @@ describe("tuneBands", () => {
 	it("leaves a manual band alone", async () => {
 		await nbaFinals(40)
 		const admin = await makeUser({ isAdmin: true })
-		await saveBandSetting(
+		await bandSettings.save(
 			{ leagueSlug: "nba", statName: "Points", band: 9, autoTune: false },
 			admin.id,
 		)
 
 		expect(await tuneBands(NOW)).toBe(0)
 
-		expect(await bandSettingRow("nba", "Points")).toMatchObject({
+		expect(await bandSettings.row("nba", "Points")).toMatchObject({
 			autoTune: false,
 			tunedAt: null,
 			tolerance: { mode: "absolute", amount: 9 },
@@ -78,6 +78,6 @@ describe("tuneBands", () => {
 		await nbaFinals(20)
 
 		expect(await tuneBands(NOW)).toBe(0)
-		expect((await bandSettingRow("nba", "Points"))?.isCustom).toBe(false)
+		expect((await bandSettings.row("nba", "Points"))?.isCustom).toBe(false)
 	})
 })

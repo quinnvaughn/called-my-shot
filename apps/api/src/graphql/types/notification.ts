@@ -4,23 +4,12 @@ import { db } from "../../db"
 import { notifications } from "../../db/schema"
 import { requireUser } from "../../lib/auth"
 import { AuthenticationError } from "../../lib/errors"
-import {
-	clampPageSize,
-	cursorWhere,
-	decodeCursor,
-	paginate,
-} from "../../lib/pagination"
+import { keysetPaginate } from "../../lib/pagination"
 import { builder } from "../builder"
-import { GroupRef } from "./group"
-import { PageInfoRef } from "./pagination"
-import { QuestionRef } from "./question"
-import { GameRef, LeagueRef } from "./sports"
-import { StreakFamilyEnum, UserRef } from "./user"
-
-type Connection<T> = {
-	items: T[]
-	pageInfo: { hasNextPage: boolean; endCursor: string | null }
-}
+import { indexByKey } from "../loader"
+import { type Connection, PageInfoRef } from "./pagination"
+import { GameRef } from "./sports"
+import { StreakFamilyEnum } from "./user"
 
 type NotificationRow = typeof notifications.$inferSelect
 
@@ -45,12 +34,6 @@ const GQL_TYPE_BY_ROW_TYPE: Record<NotificationRow["type"], string> = {
 	game_reminder: "GameReminderNotification",
 }
 
-function resolveLeague(row: { leagueId: string | null }) {
-	return row.leagueId
-		? db.query.leagues.findFirst({ where: { id: row.leagueId } })
-		: null
-}
-
 // The sentence the row is told in, shared with the results email's
 // achievement lines.
 const achievementMessage = (kind: AchievementKind) => (row: NotificationRow) =>
@@ -61,27 +44,6 @@ const achievementMessage = (kind: AchievementKind) => (row: NotificationRow) =>
 		previousBest: row.previousBest,
 	})
 
-function resolveGame(row: { gameId: string | null }) {
-	return row.gameId
-		? db.query.games.findFirst({ where: { id: row.gameId } })
-		: null
-}
-function resolveQuestion(row: { questionId: string | null }) {
-	return row.questionId
-		? db.query.questions.findFirst({ where: { id: row.questionId } })
-		: null
-}
-function resolveGroup(row: { groupId: string | null }) {
-	return row.groupId
-		? db.query.groups.findFirst({ where: { id: row.groupId } })
-		: null
-}
-function resolveActor(row: { actorId: string | null }) {
-	return row.actorId
-		? db.query.users.findFirst({ where: { id: row.actorId } })
-		: null
-}
-
 // The one thing every notification variant has regardless of what happened -
 // id/createdAt/readAt. Everything about *what happened* lives on the
 // concrete type below instead of as optional fields bolted onto one shared
@@ -89,63 +51,57 @@ function resolveActor(row: { actorId: string | null }) {
 // has no way to ask for, say, pointsDelta - the schema itself enforces "this
 // field only makes sense for that kind of notification" instead of leaving
 // it to nullability + convention.
-const NotificationNode = builder
-	.interfaceRef<NotificationRow>("NotificationNode")
-	.implement({
-		resolveType: (row) => GQL_TYPE_BY_ROW_TYPE[row.type],
-		fields: (t) => ({
-			id: t.exposeID("id"),
-			createdAt: t.field({
-				type: "String",
-				resolve: (row) => row.createdAt.toISOString(),
-			}),
-			readAt: t.field({
-				type: "String",
-				nullable: true,
-				resolve: (row) => row.readAt?.toISOString() ?? null,
-			}),
+//
+// Every variant is a drizzleObject over the same table, so its question/
+// group/actor/league fields are relations the plugin batches across the
+// whole page rather than a lookup per row.
+const NotificationNode = builder.drizzleInterface("notifications", {
+	name: "NotificationNode",
+	resolveType: (row) => GQL_TYPE_BY_ROW_TYPE[row.type],
+	fields: (t) => ({
+		id: t.exposeID("id"),
+		createdAt: t.field({
+			type: "DateTime",
+			resolve: (row) => row.createdAt,
 		}),
-	})
+		readAt: t.field({
+			type: "DateTime",
+			nullable: true,
+			resolve: (row) => row.readAt,
+		}),
+	}),
+})
 
 // Your call on a question got scored (won or lost) - see resolveQuestionInternal.
-builder.objectRef<NotificationRow>("CallResolvedNotification").implement({
+builder.drizzleObject("notifications", {
+	variant: "CallResolvedNotification",
 	interfaces: [NotificationNode],
 	fields: (t) => ({
-		question: t.field({
-			type: QuestionRef,
-			nullable: true,
-			resolve: resolveQuestion,
-		}),
+		question: t.relation("question", { nullable: true }),
 		questionTitle: t.exposeString("questionTitle", { nullable: true }),
 		pointsDelta: t.exposeInt("pointsDelta", { nullable: true }),
 	}),
 })
 
 // Someone disputed your resolution of a question you created - see fileDispute.
-builder.objectRef<NotificationRow>("DisputeFiledNotification").implement({
+builder.drizzleObject("notifications", {
+	variant: "DisputeFiledNotification",
 	interfaces: [NotificationNode],
 	fields: (t) => ({
-		question: t.field({
-			type: QuestionRef,
-			nullable: true,
-			resolve: resolveQuestion,
-		}),
+		question: t.relation("question", { nullable: true }),
 		questionTitle: t.exposeString("questionTitle", { nullable: true }),
-		actor: t.field({ type: UserRef, nullable: true, resolve: resolveActor }),
+		actor: t.relation("actor", { nullable: true }),
 		actorUsername: t.exposeString("actorUsername", { nullable: true }),
 	}),
 })
 
 // A dispute you filed was upheld - the original resolution stands, your
 // challenge didn't succeed. See upholdDispute.
-builder.objectRef<NotificationRow>("DisputeUpheldNotification").implement({
+builder.drizzleObject("notifications", {
+	variant: "DisputeUpheldNotification",
 	interfaces: [NotificationNode],
 	fields: (t) => ({
-		question: t.field({
-			type: QuestionRef,
-			nullable: true,
-			resolve: resolveQuestion,
-		}),
+		question: t.relation("question", { nullable: true }),
 		questionTitle: t.exposeString("questionTitle", { nullable: true }),
 	}),
 })
@@ -153,21 +109,19 @@ builder.objectRef<NotificationRow>("DisputeUpheldNotification").implement({
 // A dispute you filed was overturned - the resolution was corrected in your
 // favor. See overturnDispute; a CallResolvedNotification for the corrected
 // points usually follows this one.
-builder.objectRef<NotificationRow>("DisputeOverturnedNotification").implement({
+builder.drizzleObject("notifications", {
+	variant: "DisputeOverturnedNotification",
 	interfaces: [NotificationNode],
 	fields: (t) => ({
-		question: t.field({
-			type: QuestionRef,
-			nullable: true,
-			resolve: resolveQuestion,
-		}),
+		question: t.relation("question", { nullable: true }),
 		questionTitle: t.exposeString("questionTitle", { nullable: true }),
 	}),
 })
 
 // A question you created was voided by an admin - see voidQuestion.
 // strikeCount is only set when the void counted as a strike.
-builder.objectRef<NotificationRow>("QuestionVoidedNotification").implement({
+builder.drizzleObject("notifications", {
+	variant: "QuestionVoidedNotification",
 	interfaces: [NotificationNode],
 	fields: (t) => ({
 		questionTitle: t.exposeString("questionTitle", { nullable: true }),
@@ -177,59 +131,49 @@ builder.objectRef<NotificationRow>("QuestionVoidedNotification").implement({
 
 // A question you called was voided without a result - see markQuestionVoided.
 // Unlike QuestionVoidedNotification, the question still exists to link to.
-builder.objectRef<NotificationRow>("CallVoidedNotification").implement({
+builder.drizzleObject("notifications", {
+	variant: "CallVoidedNotification",
 	interfaces: [NotificationNode],
 	fields: (t) => ({
-		question: t.field({
-			type: QuestionRef,
-			nullable: true,
-			resolve: resolveQuestion,
-		}),
+		question: t.relation("question", { nullable: true }),
 		questionTitle: t.exposeString("questionTitle", { nullable: true }),
 	}),
 })
 
 // Someone joined a group you're in - see joinGroupByCode.
-builder.objectRef<NotificationRow>("GroupMemberJoinedNotification").implement({
+builder.drizzleObject("notifications", {
+	variant: "GroupMemberJoinedNotification",
 	interfaces: [NotificationNode],
 	fields: (t) => ({
-		group: t.field({ type: GroupRef, nullable: true, resolve: resolveGroup }),
+		group: t.relation("group", { nullable: true }),
 		groupName: t.exposeString("groupName", { nullable: true }),
-		actor: t.field({ type: UserRef, nullable: true, resolve: resolveActor }),
+		actor: t.relation("actor", { nullable: true }),
 		actorUsername: t.exposeString("actorUsername", { nullable: true }),
 	}),
 })
 
 // Someone shared a question into a group you're in - see shareQuestionToGroup.
-builder
-	.objectRef<NotificationRow>("QuestionSharedToGroupNotification")
-	.implement({
-		interfaces: [NotificationNode],
-		fields: (t) => ({
-			group: t.field({ type: GroupRef, nullable: true, resolve: resolveGroup }),
-			groupName: t.exposeString("groupName", { nullable: true }),
-			question: t.field({
-				type: QuestionRef,
-				nullable: true,
-				resolve: resolveQuestion,
-			}),
-			questionTitle: t.exposeString("questionTitle", { nullable: true }),
-			actor: t.field({ type: UserRef, nullable: true, resolve: resolveActor }),
-			actorUsername: t.exposeString("actorUsername", { nullable: true }),
-		}),
-	})
+builder.drizzleObject("notifications", {
+	variant: "QuestionSharedToGroupNotification",
+	interfaces: [NotificationNode],
+	fields: (t) => ({
+		group: t.relation("group", { nullable: true }),
+		groupName: t.exposeString("groupName", { nullable: true }),
+		question: t.relation("question", { nullable: true }),
+		questionTitle: t.exposeString("questionTitle", { nullable: true }),
+		actor: t.relation("actor", { nullable: true }),
+		actorUsername: t.exposeString("actorUsername", { nullable: true }),
+	}),
+})
 
 // You picked every winner in a slate - see recomputeSlate in
 // lib/streaks/recompute.ts. achievementLabel is the slate's name as of then
 // ("NFL Week 3 Sunday Early").
-builder.objectRef<NotificationRow>("SweepCompletedNotification").implement({
+builder.drizzleObject("notifications", {
+	variant: "SweepCompletedNotification",
 	interfaces: [NotificationNode],
 	fields: (t) => ({
-		league: t.field({
-			type: LeagueRef,
-			nullable: true,
-			resolve: resolveLeague,
-		}),
+		league: t.relation("league", { nullable: true }),
 		slateKey: t.exposeString("slateKey", { nullable: true }),
 		achievementLabel: t.exposeString("achievementLabel", { nullable: true }),
 		gameCount: t.exposeInt("achievementCount", { nullable: true }),
@@ -242,14 +186,11 @@ builder.objectRef<NotificationRow>("SweepCompletedNotification").implement({
 
 // A streak reached a multiple of STREAK_MILESTONE_STEP - see streakEvents in
 // lib/streaks/compute.ts, as are the two below.
-builder.objectRef<NotificationRow>("StreakMilestoneNotification").implement({
+builder.drizzleObject("notifications", {
+	variant: "StreakMilestoneNotification",
 	interfaces: [NotificationNode],
 	fields: (t) => ({
-		league: t.field({
-			type: LeagueRef,
-			nullable: true,
-			resolve: resolveLeague,
-		}),
+		league: t.relation("league", { nullable: true }),
 		streakFamily: t.field({
 			type: StreakFamilyEnum,
 			nullable: true,
@@ -265,14 +206,11 @@ builder.objectRef<NotificationRow>("StreakMilestoneNotification").implement({
 })
 
 // A streak passed the best run the track had before it.
-builder.objectRef<NotificationRow>("StreakPersonalBestNotification").implement({
+builder.drizzleObject("notifications", {
+	variant: "StreakPersonalBestNotification",
 	interfaces: [NotificationNode],
 	fields: (t) => ({
-		league: t.field({
-			type: LeagueRef,
-			nullable: true,
-			resolve: resolveLeague,
-		}),
+		league: t.relation("league", { nullable: true }),
 		streakFamily: t.field({
 			type: StreakFamilyEnum,
 			nullable: true,
@@ -289,14 +227,11 @@ builder.objectRef<NotificationRow>("StreakPersonalBestNotification").implement({
 })
 
 // A streak long enough to announce ended on a miss.
-builder.objectRef<NotificationRow>("StreakSnappedNotification").implement({
+builder.drizzleObject("notifications", {
+	variant: "StreakSnappedNotification",
 	interfaces: [NotificationNode],
 	fields: (t) => ({
-		league: t.field({
-			type: LeagueRef,
-			nullable: true,
-			resolve: resolveLeague,
-		}),
+		league: t.relation("league", { nullable: true }),
 		streakFamily: t.field({
 			type: StreakFamilyEnum,
 			nullable: true,
@@ -314,10 +249,22 @@ builder.objectRef<NotificationRow>("StreakSnappedNotification").implement({
 // A game you asked to be reminded about starts within the hour - see
 // drainGameReminders in lib/game-reminders.tsx. Null game only once the game
 // itself has been deleted.
-builder.objectRef<NotificationRow>("GameReminderNotification").implement({
+builder.drizzleObject("notifications", {
+	variant: "GameReminderNotification",
 	interfaces: [NotificationNode],
 	fields: (t) => ({
-		game: t.field({ type: GameRef, nullable: true, resolve: resolveGame }),
+		// No relation from notifications to games, so batched by hand.
+		game: t.loadable({
+			type: GameRef,
+			nullable: true,
+			load: async (ids: string[]) => {
+				const rows = await db.query.games.findMany({
+					where: { id: { in: ids } },
+				})
+				return indexByKey(ids, rows, (game) => game.id, null)
+			},
+			resolve: (row) => row.gameId,
+		}),
 	}),
 })
 
@@ -340,17 +287,13 @@ builder.queryFields((t) => ({
 		},
 		resolve: async (_root, args, ctx) => {
 			const user = requireUser(ctx)
-			const limit = clampPageSize(args.first)
-			const cursor = args.after ? decodeCursor(args.after) : null
-			const rows = await db.query.notifications.findMany({
-				where: {
-					userId: user.id,
-					...(cursor ? cursorWhere(cursor) : {}),
-				},
-				orderBy: { createdAt: "desc", id: "desc" },
-				limit: limit + 1,
-			})
-			return paginate(rows, limit)
+			return keysetPaginate(args, (page) =>
+				db.query.notifications.findMany({
+					where: { userId: user.id, ...page.where },
+					orderBy: page.orderBy,
+					limit: page.limit,
+				}),
+			)
 		},
 	}),
 	unreadNotificationCount: t.field({

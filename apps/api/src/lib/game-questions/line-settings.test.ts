@@ -1,11 +1,8 @@
 import { describe, expect, it } from "vitest"
 import { makeOption, makeQuestion, makeUser } from "../../test/factories"
 import {
-	lineSettingRow,
+	lineSettings,
 	loadLineSettings,
-	overUnderTemplate,
-	resetLineSetting,
-	saveLineSetting,
 	withLineSettings,
 } from "./line-settings"
 
@@ -13,12 +10,12 @@ const LEAGUE = "nba"
 const TEMPLATE = "top-scorer-points"
 
 function pointsLine() {
-	const template = overUnderTemplate(LEAGUE, TEMPLATE)
+	const template = lineSettings.template(LEAGUE, TEMPLATE)
 	if (!template) throw new Error(`no ${LEAGUE} over/under ${TEMPLATE}`)
 	return template
 }
 
-const row = () => lineSettingRow(LEAGUE, TEMPLATE)
+const row = () => lineSettings.row(LEAGUE, TEMPLATE)
 
 // A resolved generated over/under whose line was set with `shade`.
 async function resolvedLine(shade: number, wentOver: boolean) {
@@ -66,9 +63,13 @@ describe("line settings", () => {
 		const admin = await makeUser({ isAdmin: true })
 		const saved = { shade: 0.9, minLine: 12.5, minGames: 5 }
 
-		await saveLineSetting(
-			pointsLine(),
-			{ leagueSlug: LEAGUE, autoTune: false, ...saved },
+		await lineSettings.save(
+			{
+				templateId: TEMPLATE,
+				leagueSlug: LEAGUE,
+				autoTune: false,
+				...saved,
+			},
 			admin.id,
 		)
 
@@ -83,7 +84,7 @@ describe("line settings", () => {
 			line: saved,
 		})
 
-		await resetLineSetting(LEAGUE, TEMPLATE)
+		await lineSettings.reset(LEAGUE, TEMPLATE)
 		expect(await row()).toMatchObject({
 			isCustom: false,
 			autoTune: true,
@@ -93,9 +94,9 @@ describe("line settings", () => {
 
 	it("treats saving the catalog's own settings on automatic as a reset", async () => {
 		const admin = await makeUser({ isAdmin: true })
-		await saveLineSetting(
-			pointsLine(),
+		await lineSettings.save(
 			{
+				templateId: TEMPLATE,
 				leagueSlug: LEAGUE,
 				autoTune: false,
 				shade: 0.9,
@@ -105,9 +106,13 @@ describe("line settings", () => {
 			admin.id,
 		)
 
-		await saveLineSetting(
-			pointsLine(),
-			{ leagueSlug: LEAGUE, autoTune: true, ...pointsLine().line },
+		await lineSettings.save(
+			{
+				templateId: TEMPLATE,
+				leagueSlug: LEAGUE,
+				autoTune: true,
+				...pointsLine().line,
+			},
 			admin.id,
 		)
 
@@ -118,9 +123,13 @@ describe("line settings", () => {
 	it("keeps a manual template's row even at the catalog's settings", async () => {
 		const admin = await makeUser({ isAdmin: true })
 
-		await saveLineSetting(
-			pointsLine(),
-			{ leagueSlug: LEAGUE, autoTune: false, ...pointsLine().line },
+		await lineSettings.save(
+			{
+				templateId: TEMPLATE,
+				leagueSlug: LEAGUE,
+				autoTune: false,
+				...pointsLine().line,
+			},
 			admin.id,
 		)
 
@@ -140,9 +149,14 @@ describe("line settings", () => {
 			outsideTarget: false,
 		})
 
-		await saveLineSetting(
-			pointsLine(),
-			{ ...pointsLine().line, leagueSlug: LEAGUE, autoTune: false, shade: 0.9 },
+		await lineSettings.save(
+			{
+				templateId: TEMPLATE,
+				...pointsLine().line,
+				leagueSlug: LEAGUE,
+				autoTune: false,
+				shade: 0.9,
+			},
 			admin.id,
 		)
 

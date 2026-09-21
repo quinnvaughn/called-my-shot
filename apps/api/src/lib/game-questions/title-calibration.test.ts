@@ -1,13 +1,10 @@
 import { describe, expect, it } from "vitest"
 import {
 	bestRecord,
-	bestRecordHitRate,
-	blendedTitleHitRate,
-	nextTitleLossRate,
 	recordsFrom,
-	suggestedTitleLossRate,
 	TITLE_TUNING,
 	titleGroups,
+	titleRates,
 } from "./title-calibration"
 
 const game = (
@@ -73,16 +70,17 @@ describe("title rates", () => {
 	const results = (count: number, every: number) =>
 		Array.from({ length: count }, (_, i) => i % every === 0)
 
-	it("reads a league title's record and leans it on the pool", () => {
-		expect(bestRecordHitRate(results(20, 4))).toBe(0.25)
-		expect(bestRecordHitRate([])).toBeNull()
-		expect(blendedTitleHitRate([], { hits: 5, total: 20 })).toBe(0.25)
+	it("leans a league title's record on the pool", () => {
+		expect(titleRates.blended(results(20, 4), { hits: 5, total: 20 })).toBe(
+			0.25,
+		)
+		expect(titleRates.blended([], { hits: 5, total: 20 })).toBe(0.25)
 	})
 
 	it("breaks a pick on the best record even and steps toward it", () => {
-		expect(suggestedTitleLossRate(0.25)).toBe(0.33)
-		expect(nextTitleLossRate(0.3, 0.25, TITLE_TUNING.minSample)).toBe(0.33)
-		expect(nextTitleLossRate(0.3, 0.5, TITLE_TUNING.minSample)).toBe(0.4)
-		expect(nextTitleLossRate(0.3, 0.25, TITLE_TUNING.minSample - 1)).toBeNull()
+		expect(titleRates.suggested(0.25)).toBe(0.33)
+		expect(titleRates.next(0.3, 0.25, TITLE_TUNING.minSample)).toBe(0.33)
+		expect(titleRates.next(0.3, 0.5, TITLE_TUNING.minSample)).toBe(0.4)
+		expect(titleRates.next(0.3, 0.25, TITLE_TUNING.minSample - 1)).toBeNull()
 	})
 })

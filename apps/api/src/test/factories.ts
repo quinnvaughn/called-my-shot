@@ -4,8 +4,12 @@ import {
 	type Call,
 	callSelections,
 	calls,
+	externalRefs,
 	flairs,
 	games,
+	groupLeagues,
+	groupMembers,
+	groups,
 	type League,
 	leagues,
 	type Player,
@@ -19,6 +23,9 @@ import {
 	statToleranceTiers,
 	type Team,
 	teams,
+	type User,
+	userSeasonStats,
+	userStreaks,
 	users,
 } from "../db/schema"
 
@@ -133,9 +140,7 @@ export async function makeTeam(
 // Defaults to the shape an achievement flair has - its own display columns
 // and a grant needed to wear it. Pass { source: "team", unlock: "open",
 // teamId } for the other kind, which carries no display columns at all.
-export function makeFlair(
-	overrides: Partial<typeof flairs.$inferInsert> = {},
-) {
+export function makeFlair(overrides: Partial<typeof flairs.$inferInsert> = {}) {
 	const i = uniq()
 	return insertOne(
 		db
@@ -338,6 +343,79 @@ export async function seedOptionQuestion(opts: {
 		callers.push({ user, call, selection })
 	}
 	return { question, options, callers }
+}
+
+// A group with its admin, any extra members, and (optionally) the leagues it
+// tracks. No tracked leagues means the group follows every league.
+export async function makeGroup(opts: {
+	admin: User
+	members?: User[]
+	leagueIds?: string[]
+	name?: string
+	description?: string | null
+}) {
+	const group = await insertOne(
+		db
+			.insert(groups)
+			.values({
+				name: opts.name ?? `Group ${uniq()}`,
+				description: opts.description ?? null,
+				createdBy: opts.admin.id,
+			})
+			.returning(),
+	)
+	await db.insert(groupMembers).values([
+		{ groupId: group.id, userId: opts.admin.id, role: "admin" as const },
+		...(opts.members ?? []).map((m) => ({
+			groupId: group.id,
+			userId: m.id,
+			role: "member" as const,
+		})),
+	])
+	if (opts.leagueIds?.length) {
+		await db
+			.insert(groupLeagues)
+			.values(
+				opts.leagueIds.map((leagueId) => ({ groupId: group.id, leagueId })),
+			)
+	}
+	return group
+}
+
+// Links a domain row to the ESPN id the sync jobs look it up by.
+export async function makeExternalRef(
+	entityType: typeof externalRefs.$inferInsert.entityType,
+	sourceId: string,
+	entityId: string,
+) {
+	return insertOne(
+		db
+			.insert(externalRefs)
+			.values({ source: "espn", entityType, sourceId, entityId })
+			.returning(),
+	)
+}
+
+export function makeUserSeasonStats(
+	overrides: Pick<
+		typeof userSeasonStats.$inferInsert,
+		"userId" | "leagueId" | "seasonId"
+	> &
+		Partial<typeof userSeasonStats.$inferInsert>,
+) {
+	return insertOne(db.insert(userSeasonStats).values(overrides).returning())
+}
+
+export function makeStreak(
+	overrides: Pick<typeof userStreaks.$inferInsert, "userId" | "leagueId"> &
+		Partial<typeof userStreaks.$inferInsert>,
+) {
+	return insertOne(
+		db
+			.insert(userStreaks)
+			.values({ family: "winners" as const, ...overrides })
+			.returning(),
+	)
 }
 
 export type { Call, League, Player, Question, Team }

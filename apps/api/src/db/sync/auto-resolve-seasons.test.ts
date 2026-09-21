@@ -1,7 +1,7 @@
-import { readFileSync } from "node:fs"
-import { beforeEach, describe, expect, it, vi } from "vitest"
+import { beforeEach, describe, expect, it } from "vitest"
 import {
 	HOUR,
+	makeExternalRef,
 	makeGame,
 	makeLeague,
 	makeOption,
@@ -11,47 +11,26 @@ import {
 	makeStat,
 	makeTeam,
 } from "../../test/factories"
+import { espnFixture } from "../../test/helpers"
 import { db } from "../index"
-import { externalRefs } from "../schema"
 import { autoResolveSeasons } from "./auto-resolve-seasons"
 import {
 	EspnRequestError,
 	type EspnSeasonStatistics,
 	type EspnStandingsGroup,
-	fetchAthleteSeasonStatistics,
-	fetchStandings,
-	fetchTeamSeasonStatistics,
 } from "./espn-client"
-
-vi.mock("./espn-client", async (importOriginal) => ({
-	...(await importOriginal<typeof import("./espn-client")>()),
-	fetchStandings: vi.fn(),
-	fetchTeamSeasonStatistics: vi.fn(),
-	fetchAthleteSeasonStatistics: vi.fn(),
-}))
+import {
+	autoRowFor,
+	type FakeEspnClient,
+	fakeEspnClient,
+	questionById,
+} from "./test-support"
 
 const NOW = new Date("2026-09-12T12:00:00Z")
 const hoursAgo = (hours: number) => new Date(NOW.getTime() - hours * HOUR)
-const run = (now = NOW) => autoResolveSeasons({ now, spacingMs: 0 })
 
-// See season-stats-parse.test.ts for where the fixtures come from.
-const fixture = <T>(name: string) =>
-	JSON.parse(
-		readFileSync(
-			new URL(`./fixtures/espn/${name}.json`, import.meta.url),
-			"utf8",
-		),
-	) as T
-
-async function link(
-	entityType: "team" | "player",
-	sourceId: string,
-	entityId: string,
-) {
-	await db
-		.insert(externalRefs)
-		.values({ source: "espn", entityType, sourceId, entityId })
-}
+let espn: FakeEspnClient
+const run = (now = NOW) => autoResolveSeasons({ now, spacingMs: 0, espn })
 
 // The fixtures' NBA season: team "3" won 26, athlete 4869780 scored 948.
 async function seedNbaSeason(endedHoursAgo = 72) {
@@ -63,7 +42,7 @@ async function seedNbaSeason(endedHoursAgo = 72) {
 		regularSeasonEndsAt: hoursAgo(endedHoursAgo),
 	})
 	const team = await makeTeam({ leagueId: league.id })
-	await link("team", "nba:3", team.id)
+	await makeExternalRef("team", "nba:3", team.id)
 	return { league, season, team }
 }
 
@@ -106,7 +85,7 @@ async function seedPointsLine(
 		appliesTo: "both",
 	})
 	const player = await makePlayer({ currentTeamId: setup.team.id })
-	await link("player", `nba:${espnAthleteId}`, player.id)
+	await makeExternalRef("player", `nba:${espnAthleteId}`, player.id)
 	const question = await makeQuestion({
 		...seasonQuestion(setup),
 		shape: "player_season_stat_over_under",
@@ -119,23 +98,16 @@ async function seedPointsLine(
 	return { question, over, under }
 }
 
-const questionById = (id: string) =>
-	db.query.questions.findFirst({ where: { id } })
-const autoRowFor = (questionId: string) =>
-	db.query.questionAutoResolutions.findFirst({ where: { questionId } })
-
 beforeEach(() => {
-	vi.mocked(fetchStandings).mockReset()
-	vi.mocked(fetchTeamSeasonStatistics).mockReset()
-	vi.mocked(fetchAthleteSeasonStatistics).mockReset()
+	espn = fakeEspnClient()
 })
 
 describe("autoResolveSeasons", () => {
 	it("resolves a win total from ESPN's standings once the regular season is over", async () => {
 		const setup = await seedNbaSeason()
 		const question = await seedWinTotal(setup)
-		vi.mocked(fetchStandings).mockResolvedValue(
-			fixture<EspnStandingsGroup>("standings-nba"),
+		espn.fetchStandings.mockResolvedValue(
+			espnFixture<EspnStandingsGroup>("standings-nba.json"),
 		)
 
 		await run()
@@ -155,7 +127,7 @@ describe("autoResolveSeasons", () => {
 		const setup = await seedNbaSeason(12)
 		await seedWinTotal(setup)
 		await run()
-		expect(fetchStandings).not.toHaveBeenCalled()
+		expect(espn.fetchStandings).not.toHaveBeenCalled()
 	})
 
 	it("waits on a regular-season game still to be played", async () => {
@@ -169,14 +141,14 @@ describe("autoResolveSeasons", () => {
 			startsAt: hoursAgo(1),
 		})
 		await run()
-		expect(fetchStandings).not.toHaveBeenCalled()
+		expect(espn.fetchStandings).not.toHaveBeenCalled()
 	})
 
 	it("resolves a player's season line from their statistics", async () => {
 		const setup = await seedNbaSeason()
 		const { question, over } = await seedPointsLine(setup, "4869780", 900.5)
-		vi.mocked(fetchAthleteSeasonStatistics).mockResolvedValue(
-			fixture<EspnSeasonStatistics>("season-athlete-nba-4869780"),
+		espn.fetchAthleteSeasonStatistics.mockResolvedValue(
+			espnFixture<EspnSeasonStatistics>("season-athlete-nba-4869780.json"),
 		)
 
 		await run()
@@ -199,7 +171,7 @@ describe("autoResolveSeasons", () => {
 	it("voids a player's line when ESPN has no season for them", async () => {
 		const setup = await seedNbaSeason()
 		const { question } = await seedPointsLine(setup, "4869780", 900.5)
-		vi.mocked(fetchAthleteSeasonStatistics).mockResolvedValue(null)
+		espn.fetchAthleteSeasonStatistics.mockResolvedValue(null)
 
 		await run()
 
@@ -211,7 +183,7 @@ describe("autoResolveSeasons", () => {
 	it("retries failed standings, then hands the question to an admin", async () => {
 		const setup = await seedNbaSeason()
 		const question = await seedWinTotal(setup)
-		vi.mocked(fetchStandings).mockRejectedValue(new Error("timed out"))
+		espn.fetchStandings.mockRejectedValue(new Error("timed out"))
 
 		await run()
 		const first = await autoRowFor(question.id)
@@ -227,7 +199,7 @@ describe("autoResolveSeasons", () => {
 	it("stops the run when ESPN refuses it", async () => {
 		const setup = await seedNbaSeason()
 		await seedWinTotal(setup)
-		vi.mocked(fetchStandings).mockRejectedValue(
+		espn.fetchStandings.mockRejectedValue(
 			new EspnRequestError("standings", 429),
 		)
 		await expect(run()).rejects.toBeInstanceOf(EspnRequestError)

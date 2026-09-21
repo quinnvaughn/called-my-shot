@@ -1,7 +1,11 @@
 import { syncTeamFlairs } from "../catalog/flairs"
 import { db } from "../index"
 import { type League, leagues, sports, teams } from "../schema"
-import { type EspnGroup, fetchGroups, fetchTeams } from "./espn-client"
+import {
+	defaultEspnClient,
+	type EspnClient,
+	type EspnGroup,
+} from "./espn-client"
 import type { SyncLeagueConfig } from "./leagues"
 import { linkRef, scopedSourceId } from "./sync-refs"
 
@@ -102,11 +106,14 @@ function buildConferenceDivisionMap(
 
 // Returns the league row so sync-players/sync-games don't have to re-derive
 // it - they run right after this for the same config.
-export async function syncTeams(config: SyncLeagueConfig): Promise<League> {
+export async function syncTeams(
+	config: SyncLeagueConfig,
+	espn: EspnClient = defaultEspnClient,
+): Promise<League> {
 	const sport = await findOrCreateSport(config.sportName, config.sportSlug)
 	const league = await upsertLeague(sport.id, config)
-	const espnTeams = await fetchTeams(config.espnPath)
-	const groups = await fetchGroups(config.espnPath)
+	const espnTeams = await espn.fetchTeams(config.espnPath)
+	const groups = await espn.fetchGroups(config.espnPath)
 	const conferenceDivisionByEspnId = buildConferenceDivisionMap(groups)
 
 	for (const espnTeam of espnTeams) {

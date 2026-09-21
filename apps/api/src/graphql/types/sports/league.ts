@@ -1,11 +1,31 @@
 import { and, count, eq, min, notInArray } from "drizzle-orm"
 import { db } from "../../../db"
 import { LEAGUE_SEASON_FORMAT } from "../../../db/catalog/league-season-format"
-import { calls, games, questions } from "../../../db/schema"
+import { calls, games, type League, questions } from "../../../db/schema"
 import { getCurrentSeason, listLeagueSeasons } from "../../../lib/seasons"
+import { getLeagueWindows } from "../../../lib/windows"
 import { builder } from "../../builder"
+import { type Context, ctxCache } from "../../context"
 import { LeagueStatus, LeagueWindowType } from "./enums"
-import { getLeagueWindows } from "./windows"
+
+// Every league, read at most once per request. The table holds a handful of
+// rows, so one unfiltered read serves every by-id or by-slug lookup a page
+// makes (a streak list's league tags, a notification feed, a permalink's slug).
+export async function findLeague(
+	ctx: Context,
+	by: { id: string } | { slug: string },
+): Promise<League | null> {
+	const leagues = await ctxCache(ctx, "leagues", async () => {
+		const rows = await db.query.leagues.findMany()
+		return {
+			byId: new Map(rows.map((league) => [league.id, league])),
+			bySlug: new Map(rows.map((league) => [league.slug, league])),
+		}
+	})
+	return (
+		("id" in by ? leagues.byId.get(by.id) : leagues.bySlug.get(by.slug)) ?? null
+	)
+}
 
 export const SportRef = builder.drizzleObject("sports", {
 	name: "Sport",
@@ -101,7 +121,7 @@ export const LeagueRef = builder.drizzleObject("leagues", {
 		// Soonest lock among this league's still-open questions - null once
 		// nothing's open (offseason, or between the day's games and tomorrow's).
 		nextLockAt: t.field({
-			type: "String",
+			type: "DateTime",
 			nullable: true,
 			resolve: async (league) => {
 				const [row] = await db
@@ -113,7 +133,7 @@ export const LeagueRef = builder.drizzleObject("leagues", {
 							eq(questions.status, "open"),
 						),
 					)
-				return row?.locksAt ? new Date(row.locksAt).toISOString() : null
+				return row?.locksAt ? new Date(row.locksAt) : null
 			},
 		}),
 		// Null when signed out - Home (the only caller) is authed-only, but this
@@ -149,22 +169,22 @@ export const SeasonRef = builder.drizzleObject("seasons", {
 		year: t.exposeInt("year"),
 		displayName: t.exposeString("displayName"),
 		regularSeasonStartsAt: t.field({
-			type: "String",
-			resolve: (s) => s.regularSeasonStartsAt.toISOString(),
+			type: "DateTime",
+			resolve: (s) => s.regularSeasonStartsAt,
 		}),
 		regularSeasonEndsAt: t.field({
-			type: "String",
-			resolve: (s) => s.regularSeasonEndsAt.toISOString(),
+			type: "DateTime",
+			resolve: (s) => s.regularSeasonEndsAt,
 		}),
 		postseasonStartsAt: t.field({
-			type: "String",
+			type: "DateTime",
 			nullable: true,
-			resolve: (s) => s.postseasonStartsAt?.toISOString() ?? null,
+			resolve: (s) => s.postseasonStartsAt,
 		}),
 		postseasonEndsAt: t.field({
-			type: "String",
+			type: "DateTime",
 			nullable: true,
-			resolve: (s) => s.postseasonEndsAt?.toISOString() ?? null,
+			resolve: (s) => s.postseasonEndsAt,
 		}),
 		league: t.relation("league"),
 	}),

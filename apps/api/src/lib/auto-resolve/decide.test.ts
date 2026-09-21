@@ -1,8 +1,8 @@
-import { readFileSync } from "node:fs"
 import { AUTO_RESOLVE_STATS } from "@called-my-shot/schemas"
 import { describe, expect, it } from "vitest"
 import { parseBoxScore } from "../../db/sync/box-score-parse"
 import type { EspnGameSummary } from "../../db/sync/espn-client"
+import { espnFixture } from "../../test/helpers"
 import {
 	decideFinalScore,
 	decideGameQuestion,
@@ -11,16 +11,8 @@ import {
 } from "./decide"
 import { EXTRACTORS, GAME_EXTRACTORS, type GameSources } from "./registry"
 
-const fixture = <T>(name: string) =>
-	JSON.parse(
-		readFileSync(
-			new URL(`../../db/sync/fixtures/espn/${name}`, import.meta.url),
-			"utf8",
-		),
-	) as T
-
 const box = (league: "nba" | "nfl" | "mlb") =>
-	parseBoxScore(fixture<EspnGameSummary>(`${league}-summary.json`))
+	parseBoxScore(espnFixture<EspnGameSummary>(`${league}-summary.json`))
 
 const sources = (overrides: Partial<GameSources> & Pick<GameSources, "box">) =>
 	({
@@ -241,7 +233,7 @@ describe("decideGameQuestion - NFL", () => {
 		(["14", "25"] as const).map((teamId) => [
 			teamId,
 			new Map(
-				fixture<{ entries: { playerId: number; didNotPlay: boolean }[] }>(
+				espnFixture<{ entries: { playerId: number; didNotPlay: boolean }[] }>(
 					`nfl-roster-${teamId}.json`,
 				).entries.map((e) => [String(e.playerId), e.didNotPlay]),
 			),
@@ -323,7 +315,7 @@ describe("decideGameQuestion - MLB", () => {
 	})
 
 	it("reads a batter's game average from their game statistics", () => {
-		const stats = fixture<{
+		const stats = espnFixture<{
 			splits: {
 				categories: { name: string; stats: { name: string; value: number }[] }[]
 			}

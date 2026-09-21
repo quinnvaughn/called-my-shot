@@ -1,33 +1,12 @@
-import type { Call, League } from "../../../db/schema"
 import type {
-	ReportCard,
 	ReportCardFamilyRow,
 	ReportCardShapeRow,
 } from "../../../lib/report-card/compute"
+import type { ReportCardResult } from "../../../lib/report-card/load"
 import { builder } from "../../builder"
 import { CallRef } from "../question"
 import { QuestionShape, ShapeFamily } from "../question/enums"
 import { LeagueRef } from "./league"
-import type { WindowDescriptor } from "./windows"
-
-// How a caller did across one window of games. Lives under sports/ rather
-// than user/ to keep the existing dependency direction: user/ imports from
-// sports/ (LeagueRef), nothing in sports/ imports user/. That's also why
-// there's no `user` field here - sports/ pulling in UserRef while user/refs.ts
-// pulls in ReportCardRef would be a cycle, and both places that resolve a
-// report card already have the user in hand as the parent object.
-//
-// CallRef comes from question/, which imports nothing from sports/, so the
-// biggest hit/miss fields are safe. user/streaks.ts already does the same
-// thing for a sweep's calls.
-export type ReportCardResult = ReportCard & {
-	league: League
-	window: WindowDescriptor
-	// Hydrated by the loader - compute.ts deliberately never touches the
-	// database and only knows a call's id.
-	biggestHit: Call | null
-	biggestMiss: Call | null
-}
 
 const ReportCardFamilyRowRef = builder
 	.objectRef<ReportCardFamilyRow>("ReportCardFamilyRow")
@@ -65,6 +44,16 @@ const ReportCardShapeRowRef = builder
 		}),
 	})
 
+// How a caller did across one window of games. Lives under sports/ rather
+// than user/ to keep the existing dependency direction: user/ imports from
+// sports/ (LeagueRef), nothing in sports/ imports user/. That's also why
+// there's no `user` field here - sports/ pulling in UserRef while user/refs.ts
+// pulls in ReportCardRef would be a cycle, and both places that resolve a
+// report card already have the user in hand as the parent object.
+//
+// CallRef comes from question/, which imports nothing from sports/, so the
+// biggest hit/miss fields are safe. user/streaks.ts already does the same
+// thing for a sweep's calls.
 export const ReportCardRef = builder
 	.objectRef<ReportCardResult>("ReportCard")
 	.implement({

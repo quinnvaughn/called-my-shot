@@ -38,8 +38,8 @@ const BallotCompletionRef = builder
 		fields: (t) => ({
 			user: t.field({ type: UserRef, resolve: (c) => c.user }),
 			completedAt: t.field({
-				type: "String",
-				resolve: (c) => c.completedAt.toISOString(),
+				type: "DateTime",
+				resolve: (c) => c.completedAt,
 			}),
 		}),
 	})
@@ -98,13 +98,13 @@ export const BallotRef = builder.drizzleObject("ballots", {
 			resolve: (ballot) => ballot.status,
 		}),
 		publishedAt: t.field({
-			type: "String",
+			type: "DateTime",
 			nullable: true,
-			resolve: (ballot) => ballot.publishedAt?.toISOString() ?? null,
+			resolve: (ballot) => ballot.publishedAt,
 		}),
 		createdAt: t.field({
-			type: "String",
-			resolve: (ballot) => ballot.createdAt.toISOString(),
+			type: "DateTime",
+			resolve: (ballot) => ballot.createdAt,
 		}),
 		sortOrder: t.exposeInt("sortOrder"),
 		sport: t.relation("sport"),
@@ -162,7 +162,7 @@ export const BallotRef = builder.drizzleObject("ballots", {
 		// questions, same definition the ballot detail page's own soonest-lock
 		// line uses. Powers the ballot card's "Locks in X" line.
 		nextLocksAt: t.loadable({
-			type: "String",
+			type: "DateTime",
 			nullable: true,
 			load: async (ballotIds: string[]) => {
 				const rows = await db
@@ -185,7 +185,7 @@ export const BallotRef = builder.drizzleObject("ballots", {
 				const byId = new Map(rows.map((r) => [r.ballotId, r.nextLocksAt]))
 				return ballotIds.map((id) => {
 					const value = byId.get(id)
-					return value ? parsePgTimestamp(value).toISOString() : null
+					return value ? parsePgTimestamp(value) : null
 				})
 			},
 			resolve: (ballot) => ballot.id,

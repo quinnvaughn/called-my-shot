@@ -7,13 +7,11 @@ import {
 	exists,
 	getColumns,
 	gt,
-	ilike,
 	inArray,
 	isNotNull,
 	isNull,
 	lte,
 	ne,
-	notExists,
 	notInArray,
 	or,
 	sql,
@@ -22,35 +20,42 @@ import { DateTime } from "luxon"
 import { match } from "ts-pattern"
 import { db } from "../../../db"
 import {
-	ballotQuestions,
 	callSelections,
 	calls,
 	games,
 	leagues,
-	players,
 	type Question,
 	questionOptions,
 	questions,
-	teams,
 	users,
 } from "../../../db/schema"
 import {
+	adminListArgs,
 	buildAdminConnection,
-	clampAdminPageSize,
-	SortDirection,
 	sortColumn,
 } from "../../../lib/admin-pagination"
 import { requireAdmin, requireUser } from "../../../lib/auth"
 import { AuthenticationError, AuthorizationError } from "../../../lib/errors"
 import { typicalGameLengthHours } from "../../../lib/game-length"
+import { clampPageSize, decodeOffsetCursor } from "../../../lib/pagination"
 import {
-	clampPageSize,
-	decodeOffsetCursor,
-	encodeOffsetCursor,
-} from "../../../lib/pagination"
+	callCountOf,
+	callCountsCte,
+	DECIDED_STATUSES,
+	joinQuestionPeople,
+	notInABallot,
+	questionFilters,
+	questionSearch,
+	SEASON_AWARD_SHAPES,
+	SETTLED_STATUSES,
+	UNRESOLVED_STATUSES,
+} from "../../../lib/question-queries"
 import { getCurrentSeason } from "../../../lib/seasons"
+import { DAY_MS, HOUR_MS } from "../../../lib/time"
 import { isUuid } from "../../../lib/uuid"
 import { builder } from "../../builder"
+import { clampTypeahead } from "../../helpers"
+import { SortDirection } from "../pagination"
 import { AdminQueueSummaryRef } from "./admin-queue"
 import { CallConnectionRef, CallRef } from "./call"
 import {
@@ -108,50 +113,31 @@ const callConviction = sql<
 	number | null
 >`coalesce(${calls.conviction}, ${callPoints.maxConviction})`
 
-// questions.gameId set or null. Shared by both My pages, so it lives here
-// rather than being spelled out twice.
-function scopeCondition(scope: "game" | "season_long" | null | undefined) {
-	return match(scope)
-		.with("game", () => isNotNull(questions.gameId))
-		.with("season_long", () => isNull(questions.gameId))
-		.otherwise(() => undefined)
-}
-
 type MyCallFilters = {
 	status: "open" | "resolved"
 	leagueId?: string | null
-	shapes?: readonly string[] | null
+	shapes?: readonly Question["shape"][] | null
 	search?: string | null
 	scope?: "game" | "season_long" | null
 	result?: "hit" | "miss" | "unscored" | null
 }
 
 // Shared by myCalls and myCallCounts so the list and the tab badges above it
-// can't disagree about what the current filter matches.
+// can't disagree about what the current filter matches. Expects the question's
+// people joined in (see joinQuestionPeople) for the search.
 function myCallConditions(userId: string, filters: MyCallFilters) {
 	return [
 		eq(calls.userId, userId),
 		filters.status === "resolved"
-			? inArray(questions.status, ["resolved", "voided"])
-			: notInArray(questions.status, ["resolved", "voided"]),
-		filters.leagueId ? eq(questions.leagueId, filters.leagueId) : undefined,
-		filters.shapes && filters.shapes.length > 0
-			? inArray(
-					questions.shape,
-					filters.shapes as (typeof questions.shape.enumValues)[number][],
-				)
-			: undefined,
-		scopeCondition(filters.scope),
-		filters.search
-			? or(
-					ilike(questions.title, `%${filters.search}%`),
-					ilike(users.name, `%${filters.search}%`),
-					ilike(users.username, `%${filters.search}%`),
-					ilike(teams.name, `%${filters.search}%`),
-					ilike(teams.abbreviation, `%${filters.search}%`),
-					ilike(players.name, `%${filters.search}%`),
-				)
-			: undefined,
+			? inArray(questions.status, [...SETTLED_STATUSES])
+			: notInArray(questions.status, [...SETTLED_STATUSES]),
+		// filters.status is the My Calls tab (handled above), not a question status.
+		...questionFilters({
+			leagueId: filters.leagueId,
+			shapes: filters.shapes,
+			scope: filters.scope,
+		}),
+		questionSearch(filters.search, { creator: true, subjects: true }),
 		// A miss scores genuinely negative rather than zero (see
 		// @called-my-shot/scoring), so hit/miss is a sign test. UNSCORED is a
 		// third outcome rather than a shade of miss - a voided question, or a
@@ -169,7 +155,7 @@ function myCallConditions(userId: string, filters: MyCallFilters) {
 					sql`(${calls.unscoredReason} is not null or ${callTotalPoints} is null)`,
 			)
 			.otherwise(() => undefined),
-	].filter((c) => c !== undefined)
+	]
 }
 
 // A call whose question hangs off a game that is being played right now.
@@ -290,25 +276,14 @@ builder.queryFields((t) => ({
 					: null
 
 			const conditions = [
-				args.leagueId ? eq(questions.leagueId, args.leagueId) : undefined,
+				...questionFilters(args),
 				args.gameId ? eq(questions.gameId, args.gameId) : undefined,
-				args.status ? eq(questions.status, args.status) : undefined,
 				typeof args.isOfficial === "boolean"
 					? eq(questions.isOfficial, args.isOfficial)
 					: undefined,
-				args.shapes && args.shapes.length > 0
-					? inArray(questions.shape, args.shapes)
-					: undefined,
 				args.seasonLong ? isNull(questions.gameId) : undefined,
 				currentSeason ? eq(questions.seasonId, currentSeason.id) : undefined,
-				args.excludeBallotMembers
-					? notExists(
-							db
-								.select({ one: sql`1` })
-								.from(ballotQuestions)
-								.where(eq(ballotQuestions.questionId, questions.id)),
-						)
-					: undefined,
+				args.excludeBallotMembers ? notInABallot() : undefined,
 				args.excludeLocked
 					? notInArray(questions.status, ["locked", "voided"])
 					: undefined,
@@ -316,14 +291,10 @@ builder.queryFields((t) => ({
 					? ne(questions.shape, "team_vs_team")
 					: undefined,
 				args.excludeSeasonAwards
-					? notInArray(questions.shape, [
-							"player_season_award",
-							"team_season_award",
-							"player_award_finalists",
-						])
+					? notInArray(questions.shape, [...SEASON_AWARD_SHAPES])
 					: undefined,
 				args.excludeSettled
-					? notInArray(questions.status, ["resolved", "disputed", "voided"])
+					? notInArray(questions.status, [...DECIDED_STATUSES])
 					: undefined,
 				args.teamId
 					? or(
@@ -341,16 +312,7 @@ builder.queryFields((t) => ({
 							),
 						)
 					: undefined,
-				args.search
-					? or(
-							ilike(questions.title, `%${args.search}%`),
-							ilike(users.name, `%${args.search}%`),
-							ilike(users.username, `%${args.search}%`),
-							ilike(teams.name, `%${args.search}%`),
-							ilike(teams.abbreviation, `%${args.search}%`),
-							ilike(players.name, `%${args.search}%`),
-						)
-					: undefined,
+				questionSearch(args.search, { creator: true, subjects: true }),
 				// Locked/resolved/disputed questions have nothing left to "close" -
 				// closing-soon only makes sense among questions still open. status
 				// alone isn't enough, though: nothing flips it off "open" the
@@ -372,38 +334,25 @@ builder.queryFields((t) => ({
 							),
 						)
 					: undefined,
-			].filter((c) => c !== undefined)
+			]
 
-			// Live call count per question, joined in rather than computed with
-			// t.relatedCount (as QuestionRef.callCount does) so MOST_CALLED can
-			// ORDER BY it directly instead of sorting the page in application code.
-			const callCounts = db.$with("call_counts").as(
+			// Joined in rather than computed with t.relatedCount (as
+			// QuestionRef.callCount does) so MOST_CALLED can ORDER BY it directly
+			// instead of sorting the page in application code.
+			const callCounts = callCountsCte()
+
+			const rows = await joinQuestionPeople(
 				db
-					.select({
-						questionId: calls.questionId,
-						cnt: count(calls.id).as("cnt"),
-					})
-					.from(calls)
-					.groupBy(calls.questionId),
+					.with(callCounts)
+					.select(getColumns(questions))
+					.from(questions)
+					.$dynamic(),
 			)
-
-			let query = db
-				.with(callCounts)
-				.select(getColumns(questions))
-				.from(questions)
-				.leftJoin(users, eq(users.id, questions.creatorId))
-				.leftJoin(teams, eq(teams.id, questions.subjectTeamId))
-				.leftJoin(players, eq(players.id, questions.subjectPlayerId))
 				.leftJoin(callCounts, eq(callCounts.questionId, questions.id))
-				.$dynamic()
-
-			if (conditions.length > 0) {
-				query = query.where(and(...conditions))
-			}
-
-			query =
-				sort === "new"
-					? // Second key is locksAt, not just id - a sync run can insert a
+				.where(and(...conditions))
+				.orderBy(
+					...match(sort)
+						// Second key is locksAt, not just id - a sync run can insert a
 						// whole batch (e.g. every game entering syncGameQuestions'
 						// creation window in one run - see apps/api/src/db/sync/
 						// sync-game-questions.ts) with createdAt values only
@@ -412,30 +361,24 @@ builder.queryFields((t) => ({
 						// means a same-instant batch still reads soonest-first
 						// within itself, same "what's actually coming up" ordering
 						// CLOSING_SOON uses on its own.
-						query.orderBy(
+						.with("new", () => [
 							desc(questions.createdAt),
 							asc(questions.locksAt),
 							desc(questions.id),
-						)
-					: sort === "closing_soon"
-						? query.orderBy(asc(questions.locksAt), desc(questions.id))
-						: query.orderBy(
-								desc(sql`coalesce(${callCounts.cnt}, 0)`),
-								desc(questions.id),
-							)
-
-			const rows = await query.limit(limit + 1).offset(offset)
-			const hasNextPage = rows.length > limit
-			const items = rows.slice(0, limit)
-
-			return {
-				items,
-				pageInfo: {
-					hasNextPage,
-					endCursor:
-						items.length > 0 ? encodeOffsetCursor(offset + items.length) : null,
-				},
-			}
+						])
+						.with("closing_soon", () => [
+							asc(questions.locksAt),
+							desc(questions.id),
+						])
+						.with("most_called", () => [
+							desc(callCountOf(callCounts)),
+							desc(questions.id),
+						])
+						.exhaustive(),
+				)
+				.limit(limit + 1)
+				.offset(offset)
+			return buildAdminConnection(rows, limit, offset)
 		},
 	}),
 
@@ -533,8 +476,7 @@ builder.queryFields((t) => ({
 
 	// Admin Questions table - every question regardless of status, with real
 	// column sort (unlike the public `questions` field above, which only ever
-	// ranks by MOST_CALLED/NEW/CLOSING_SOON). Its own call-count CTE rather than
-	// reusing the one above - separate queries, no reason to share a `WITH`.
+	// ranks by MOST_CALLED/NEW/CLOSING_SOON).
 	adminQuestions: t.field({
 		type: QuestionConnectionRef,
 		errors: { types: [AuthenticationError, AuthorizationError] },
@@ -552,80 +494,39 @@ builder.queryFields((t) => ({
 			unassignedToBallot: t.arg.boolean({ required: false }),
 		},
 		resolve: async (_root, args, ctx) => {
-			requireAdmin(ctx)
-			const limit = clampAdminPageSize(args.first)
-			const offset = args.after ? decodeOffsetCursor(args.after) : 0
+			const { limit, offset, sortDir } = adminListArgs(ctx, args)
 			const sortBy = args.sortBy ?? "title"
-			const sortDir = args.sortDir ?? "asc"
 
-			const conditions = [
-				args.status ? eq(questions.status, args.status) : undefined,
-				args.leagueId ? eq(questions.leagueId, args.leagueId) : undefined,
-				args.unassignedToBallot
-					? notExists(
-							db
-								.select()
-								.from(ballotQuestions)
-								.where(eq(ballotQuestions.questionId, questions.id)),
-						)
-					: undefined,
-				args.search
-					? or(
-							ilike(questions.title, `%${args.search}%`),
-							ilike(users.name, `%${args.search}%`),
-							ilike(users.username, `%${args.search}%`),
-						)
-					: undefined,
-			].filter((c) => c !== undefined)
-
-			const callCounts = db.$with("admin_question_call_counts").as(
-				db
-					.select({
-						questionId: calls.questionId,
-						cnt: count(calls.id).as("cnt"),
-					})
-					.from(calls)
-					.groupBy(calls.questionId),
-			)
-
-			let query = db
+			const callCounts = callCountsCte()
+			const rows = await db
 				.with(callCounts)
 				.select(getColumns(questions))
 				.from(questions)
 				.leftJoin(users, eq(users.id, questions.creatorId))
 				.leftJoin(callCounts, eq(callCounts.questionId, questions.id))
-				.$dynamic()
-
-			if (conditions.length > 0) {
-				query = query.where(and(...conditions))
-			}
-
-			query =
-				sortBy === "asker"
-					? query.orderBy(
-							sortColumn(sortDir, users.username),
-							asc(questions.id),
+				.where(
+					and(
+						...questionFilters(args),
+						args.unassignedToBallot ? notInABallot() : undefined,
+						questionSearch(args.search, { creator: true, subjects: false }),
+					),
+				)
+				.orderBy(
+					match(sortBy)
+						.with("asker", () => sortColumn(sortDir, users.username))
+						.with("callers", () =>
+							sortDir === "asc"
+								? asc(callCountOf(callCounts))
+								: desc(callCountOf(callCounts)),
 						)
-					: sortBy === "callers"
-						? query.orderBy(
-								sortDir === "asc"
-									? asc(sql`coalesce(${callCounts.cnt}, 0)`)
-									: desc(sql`coalesce(${callCounts.cnt}, 0)`),
-								asc(questions.id),
-							)
-						: query.orderBy(
-								sortColumn(
-									sortDir,
-									sortBy === "shape"
-										? questions.shape
-										: sortBy === "status"
-											? questions.status
-											: questions.title,
-								),
-								asc(questions.id),
-							)
-
-			const rows = await query.limit(limit + 1).offset(offset)
+						.with("shape", () => sortColumn(sortDir, questions.shape))
+						.with("status", () => sortColumn(sortDir, questions.status))
+						.with("title", () => sortColumn(sortDir, questions.title))
+						.exhaustive(),
+					asc(questions.id),
+				)
+				.limit(limit + 1)
+				.offset(offset)
 			return buildAdminConnection(rows, limit, offset)
 		},
 	}),
@@ -702,14 +603,14 @@ builder.queryFields((t) => ({
 			const sort = args.sort ?? (args.status === "resolved" ? "points" : "date")
 			const direction = args.direction ?? "desc"
 
-			const query = db
-				.with(callPoints)
-				.select(getColumns(calls))
-				.from(calls)
-				.innerJoin(questions, eq(questions.id, calls.questionId))
-				.leftJoin(users, eq(users.id, questions.creatorId))
-				.leftJoin(teams, eq(teams.id, questions.subjectTeamId))
-				.leftJoin(players, eq(players.id, questions.subjectPlayerId))
+			const rows = await joinQuestionPeople(
+				db
+					.with(callPoints)
+					.select(getColumns(calls))
+					.from(calls)
+					.innerJoin(questions, eq(questions.id, calls.questionId))
+					.$dynamic(),
+			)
 				.leftJoin(callPoints, eq(callPoints.callId, calls.id))
 				// Null for a season-long question, which hangs off no game.
 				.leftJoin(games, eq(games.id, questions.gameId))
@@ -725,23 +626,10 @@ builder.queryFields((t) => ({
 							: undefined,
 					),
 				)
-				.$dynamic()
-
-			const rows = await query
 				.orderBy(...myCallOrderKeys(sort, direction))
 				.limit(limit + 1)
 				.offset(offset)
-			const hasNextPage = rows.length > limit
-			const items = rows.slice(0, limit)
-
-			return {
-				items,
-				pageInfo: {
-					hasNextPage,
-					endCursor:
-						items.length > 0 ? encodeOffsetCursor(offset + items.length) : null,
-				},
-			}
+			return buildAdminConnection(rows, limit, offset)
 		},
 	}),
 
@@ -770,13 +658,13 @@ builder.queryFields((t) => ({
 		resolve: async (_root, args, ctx) => {
 			const user = requireUser(ctx)
 			return (
-				db
-					.select(getColumns(calls))
-					.from(calls)
-					.innerJoin(questions, eq(questions.id, calls.questionId))
-					.leftJoin(users, eq(users.id, questions.creatorId))
-					.leftJoin(teams, eq(teams.id, questions.subjectTeamId))
-					.leftJoin(players, eq(players.id, questions.subjectPlayerId))
+				joinQuestionPeople(
+					db
+						.select(getColumns(calls))
+						.from(calls)
+						.innerJoin(questions, eq(questions.id, calls.questionId))
+						.$dynamic(),
+				)
 					.innerJoin(games, eq(games.id, questions.gameId))
 					.where(
 						and(
@@ -801,7 +689,7 @@ builder.queryFields((t) => ({
 		args: { first: t.arg.int({ required: false }) },
 		resolve: async (_root, args, ctx) => {
 			const user = requireUser(ctx)
-			const limit = Math.min(Math.max(args.first ?? 5, 1), 20)
+			const limit = clampTypeahead(args.first, 5)
 			// RQBv2's orderBy can't sort by a relation's column, and a resolved
 			// call's own createdAt (when it was MADE) isn't what "recently
 			// resolved" means - so this fetches with the question attached and
@@ -811,7 +699,7 @@ builder.queryFields((t) => ({
 			const rows = await db.query.calls.findMany({
 				where: {
 					userId: user.id,
-					question: { status: { in: ["resolved", "voided"] } },
+					question: { status: { in: [...SETTLED_STATUSES] } },
 				},
 				with: { question: { columns: { resolvedAt: true } } },
 			})
@@ -846,14 +734,14 @@ builder.queryFields((t) => ({
 			const user = requireUser(ctx)
 
 			async function countFor(status: "open" | "resolved") {
-				const [row] = await db
-					.with(callPoints)
-					.select({ value: count(calls.id) })
-					.from(calls)
-					.innerJoin(questions, eq(questions.id, calls.questionId))
-					.leftJoin(users, eq(users.id, questions.creatorId))
-					.leftJoin(teams, eq(teams.id, questions.subjectTeamId))
-					.leftJoin(players, eq(players.id, questions.subjectPlayerId))
+				const [row] = await joinQuestionPeople(
+					db
+						.with(callPoints)
+						.select({ value: count(calls.id) })
+						.from(calls)
+						.innerJoin(questions, eq(questions.id, calls.questionId))
+						.$dynamic(),
+				)
 					.leftJoin(callPoints, eq(callPoints.callId, calls.id))
 					.where(
 						and(
@@ -905,99 +793,69 @@ builder.queryFields((t) => ({
 			const sort = args.sort ?? "date"
 			const direction = args.direction ?? "desc"
 
-			const conditions = [
+			const conditions = and(
 				eq(questions.creatorId, user.id),
-				args.leagueId ? eq(questions.leagueId, args.leagueId) : undefined,
-				args.status ? eq(questions.status, args.status) : undefined,
-				args.shapes && args.shapes.length > 0
-					? inArray(questions.shape, args.shapes)
-					: undefined,
-				scopeCondition(args.scope),
+				...questionFilters(args),
 				// No users join here - every row's asker is the viewer, so matching
 				// on their own name would just make every question match.
-				args.search
-					? or(
-							ilike(questions.title, `%${args.search}%`),
-							ilike(teams.name, `%${args.search}%`),
-							ilike(teams.abbreviation, `%${args.search}%`),
-							ilike(players.name, `%${args.search}%`),
-						)
-					: undefined,
-			].filter((c) => c !== undefined)
-
-			// Same call-count CTE Query.questions builds at the top of this file,
-			// for the same reason: MOST_CALLED orders by it in SQL rather than
-			// sorting a page in application code.
-			const callCounts = db.$with("call_counts").as(
-				db
-					.select({
-						questionId: calls.questionId,
-						cnt: count(calls.id).as("cnt"),
-					})
-					.from(calls)
-					.groupBy(calls.questionId),
+				questionSearch(args.search, { creator: false, subjects: true }),
 			)
 
 			// The same joins and conditions as the page query below, minus the
 			// call-count CTE (nothing counts by it) - only the teams/players joins
 			// matter, and only because `search` reaches through them.
-			const totalQuery = db
-				.select({ value: count(questions.id) })
-				.from(questions)
-				.leftJoin(teams, eq(teams.id, questions.subjectTeamId))
-				.leftJoin(players, eq(players.id, questions.subjectPlayerId))
-				.where(and(...conditions))
+			const totalQuery = joinQuestionPeople(
+				db
+					.select({ value: count(questions.id) })
+					.from(questions)
+					.$dynamic(),
+				{ creator: false },
+			).where(conditions)
 
-			let query = db
-				.with(callCounts)
-				.select(getColumns(questions))
-				.from(questions)
-				.leftJoin(teams, eq(teams.id, questions.subjectTeamId))
-				.leftJoin(players, eq(players.id, questions.subjectPlayerId))
+			// Same call-count CTE Query.questions uses, for the same reason:
+			// MOST_CALLED orders by it in SQL rather than sorting a page in
+			// application code.
+			const callCounts = callCountsCte()
+			const pageQuery = joinQuestionPeople(
+				db
+					.with(callCounts)
+					.select(getColumns(questions))
+					.from(questions)
+					.$dynamic(),
+				{ creator: false },
+			)
 				.leftJoin(callCounts, eq(callCounts.questionId, questions.id))
-				.where(and(...conditions))
-				.$dynamic()
-
-			query = match(sort)
-				// Ordering only, no window filter - unlike Query.questions'
-				// same-named sort. Your own question stays on this page after it
-				// locks; the leading boolean just sorts already-locked ones behind
-				// everything still coming up.
-				.with("closing_soon", () =>
-					query.orderBy(
-						asc(sql`(${questions.locksAt} <= now())`),
-						asc(questions.locksAt),
-						desc(questions.id),
-					),
+				.where(conditions)
+				.orderBy(
+					...match(sort)
+						// Ordering only, no window filter - unlike Query.questions'
+						// same-named sort. Your own question stays on this page after it
+						// locks; the leading boolean just sorts already-locked ones behind
+						// everything still coming up.
+						.with("closing_soon", () => [
+							asc(sql`(${questions.locksAt} <= now())`),
+							asc(questions.locksAt),
+							desc(questions.id),
+						])
+						.with("most_called", () => [
+							desc(callCountOf(callCounts)),
+							desc(questions.id),
+						])
+						.with("date", () =>
+							direction === "asc"
+								? [asc(questions.createdAt), asc(questions.id)]
+								: [desc(questions.createdAt), desc(questions.id)],
+						)
+						.exhaustive(),
 				)
-				.with("most_called", () =>
-					query.orderBy(
-						desc(sql`coalesce(${callCounts.cnt}, 0)`),
-						desc(questions.id),
-					),
-				)
-				.with("date", () =>
-					direction === "asc"
-						? query.orderBy(asc(questions.createdAt), asc(questions.id))
-						: query.orderBy(desc(questions.createdAt), desc(questions.id)),
-				)
-				.exhaustive()
 
 			const [rows, [totals]] = await Promise.all([
-				query.limit(limit + 1).offset(offset),
+				pageQuery.limit(limit + 1).offset(offset),
 				totalQuery,
 			])
-			const hasNextPage = rows.length > limit
-			const items = rows.slice(0, limit)
-
 			return {
-				items,
+				...buildAdminConnection(rows, limit, offset),
 				totalCount: totals?.value ?? 0,
-				pageInfo: {
-					hasNextPage,
-					endCursor:
-						items.length > 0 ? encodeOffsetCursor(offset + items.length) : null,
-				},
 			}
 		},
 	}),
@@ -1014,49 +872,43 @@ builder.queryFields((t) => ({
 			requireAdmin(ctx)
 			const now = new Date()
 
-			const lockedOpenQuestions = await db
-				.select({ ...getColumns(questions), leagueSlug: leagues.slug })
-				.from(questions)
-				.innerJoin(leagues, eq(leagues.id, questions.leagueId))
-				.where(
-					and(
-						eq(questions.resolutionMode, "manual"),
-						inArray(questions.status, ["open", "locked"]),
-						isNotNull(questions.gameId),
-						lte(questions.locksAt, now),
+			const [
+				lockedOpenQuestions,
+				disputed,
+				reported,
+				escalated,
+				stuck,
+				[{ n: liveQuestionsCount }],
+				[{ n: usersLockedCount }],
+			] = await Promise.all([
+				db
+					.select({ ...getColumns(questions), leagueSlug: leagues.slug })
+					.from(questions)
+					.innerJoin(leagues, eq(leagues.id, questions.leagueId))
+					.where(
+						and(
+							eq(questions.resolutionMode, "manual"),
+							inArray(questions.status, [...UNRESOLVED_STATUSES]),
+							isNotNull(questions.gameId),
+							lte(questions.locksAt, now),
+						),
 					),
-				)
-
-			const needsResolution: Question[] = []
-			const probablyStillLive: Question[] = []
-			for (const question of lockedOpenQuestions) {
-				const hoursSinceLock =
-					(now.getTime() - question.locksAt.getTime()) / (1000 * 60 * 60)
-				const typicalHours = typicalGameLengthHours(question.leagueSlug)
-				;(hoursSinceLock >= typicalHours
-					? needsResolution
-					: probablyStillLive
-				).push(question)
-			}
-
-			const disputed = await db.query.resolutionDisputes.findMany({
-				where: { status: "open" },
-				orderBy: { createdAt: "asc" },
-			})
-
-			const reported = await db.query.questionReports.findMany({
-				where: { status: "open" },
-				orderBy: { createdAt: "asc" },
-			})
-
-			// System questions the resolver handed over, plus any whose game has
-			// sat unfinished a day past lock (postponed, suspended) - the resolver
-			// only reads a game once it's final, so those never reach it.
-			const [escalated, stuck] = await Promise.all([
+				db.query.resolutionDisputes.findMany({
+					where: { status: "open" },
+					orderBy: { createdAt: "asc" },
+				}),
+				db.query.questionReports.findMany({
+					where: { status: "open" },
+					orderBy: { createdAt: "asc" },
+				}),
+				// System questions the resolver handed over, plus any whose game
+				// has sat unfinished a day past lock (postponed, suspended) - the
+				// resolver only reads a game once it's final, so those never
+				// reach it.
 				db.query.questions.findMany({
 					where: {
 						resolutionMode: "system",
-						status: { in: ["open", "locked"] },
+						status: { in: [...UNRESOLVED_STATUSES] },
 						autoResolution: { escalatedAt: { isNotNull: true } },
 					},
 					with: { autoResolution: true },
@@ -1065,13 +917,34 @@ builder.queryFields((t) => ({
 				db.query.questions.findMany({
 					where: {
 						resolutionMode: "system",
-						status: { in: ["open", "locked"] },
-						locksAt: { lte: new Date(now.getTime() - 24 * 60 * 60 * 1000) },
+						status: { in: [...UNRESOLVED_STATUSES] },
+						locksAt: { lte: new Date(now.getTime() - DAY_MS) },
 						game: { status: { ne: "final" } },
 					},
 					orderBy: { locksAt: "asc" },
 				}),
+				db
+					.select({ n: count() })
+					.from(questions)
+					.where(eq(questions.status, "open")),
+				db
+					.select({ n: count() })
+					.from(users)
+					.where(eq(users.questionCreationEnabled, false)),
 			])
+
+			const needsResolution: Question[] = []
+			const probablyStillLive: Question[] = []
+			for (const question of lockedOpenQuestions) {
+				const hoursSinceLock =
+					(now.getTime() - question.locksAt.getTime()) / HOUR_MS
+				const typicalHours = typicalGameLengthHours(question.leagueSlug)
+				;(hoursSinceLock >= typicalHours
+					? needsResolution
+					: probablyStillLive
+				).push(question)
+			}
+
 			const autoResolveEscalated = [
 				...escalated.map(({ autoResolution, ...question }) => ({
 					question,
@@ -1084,15 +957,6 @@ builder.queryFields((t) => ({
 					failureDetail: "The game hasn't gone final a day after lock.",
 				})),
 			]
-
-			const [{ n: liveQuestionsCount }] = await db
-				.select({ n: count() })
-				.from(questions)
-				.where(eq(questions.status, "open"))
-			const [{ n: usersLockedCount }] = await db
-				.select({ n: count() })
-				.from(users)
-				.where(eq(users.questionCreationEnabled, false))
 
 			return {
 				needsResolution,

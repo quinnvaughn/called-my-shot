@@ -6,7 +6,7 @@ import {
 	makeUser,
 } from "../../test/factories"
 import { LEADER_TUNING, leaderTemplates } from "./leader-calibration"
-import { leaderLossSettingRow, saveLeaderLossSetting } from "./leader-settings"
+import { leaderLossSettings } from "./leader-settings"
 import { tuneLeaderLosses } from "./tune-leader-losses"
 
 const NOW = new Date("2026-09-14T11:10:00Z")
@@ -47,14 +47,14 @@ describe("tuneLeaderLosses", () => {
 
 		expect(await tuneLeaderLosses(NOW)).toBe(leaderTemplates().length)
 
-		const row = await leaderLossSettingRow("nba", "Points")
+		const row = await leaderLossSettings.row("nba", "Points")
 		expect(row).toMatchObject({
 			isCustom: true,
 			autoTune: true,
 			lossRate: 0.33,
 			calibration: {
 				resolved: 40,
-				favoriteHitRate: 0.25,
+				ownHitRate: 0.25,
 				blendedHitRate: 0.25,
 				suggestedLossRate: 0.33,
 			},
@@ -67,11 +67,11 @@ describe("tuneLeaderLosses", () => {
 
 		await tuneLeaderLosses(NOW)
 
-		expect(await leaderLossSettingRow("nfl", "Sacks")).toMatchObject({
+		expect(await leaderLossSettings.row("nfl", "Sacks")).toMatchObject({
 			lossRate: 0.33,
 			calibration: {
 				resolved: 0,
-				favoriteHitRate: null,
+				ownHitRate: null,
 				blendedHitRate: 0.25,
 			},
 		})
@@ -80,14 +80,14 @@ describe("tuneLeaderLosses", () => {
 	it("leaves a manual rate alone", async () => {
 		await resolvedLeaders(40)
 		const admin = await makeUser({ isAdmin: true })
-		await saveLeaderLossSetting(
+		await leaderLossSettings.save(
 			{ leagueSlug: "nba", statName: "Points", lossRate: 0.6, autoTune: false },
 			admin.id,
 		)
 
 		expect(await tuneLeaderLosses(NOW)).toBe(leaderTemplates().length - 1)
 
-		expect(await leaderLossSettingRow("nba", "Points")).toMatchObject({
+		expect(await leaderLossSettings.row("nba", "Points")).toMatchObject({
 			autoTune: false,
 			tunedAt: null,
 			lossRate: 0.6,
@@ -98,6 +98,8 @@ describe("tuneLeaderLosses", () => {
 		await resolvedLeaders(LEADER_TUNING.minSample - 1)
 
 		expect(await tuneLeaderLosses(NOW)).toBe(0)
-		expect((await leaderLossSettingRow("nba", "Points"))?.isCustom).toBe(false)
+		expect((await leaderLossSettings.row("nba", "Points"))?.isCustom).toBe(
+			false,
+		)
 	})
 })

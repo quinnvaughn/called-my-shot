@@ -1,12 +1,8 @@
 import { isNumericGuessShape } from "@called-my-shot/scoring"
 import { and, eq } from "drizzle-orm"
 import { db } from "../../db"
-import { games, type League } from "../../db/schema"
-import type { ReportCardResult } from "../../graphql/types/sports/report-card"
-import {
-	type WindowDescriptor,
-	windowGameFilter,
-} from "../../graphql/types/sports/windows"
+import { type Call, games, type League } from "../../db/schema"
+import { type WindowDescriptor, windowGameFilter } from "../windows"
 import {
 	buildReportCard,
 	type ReportCard,
@@ -115,6 +111,15 @@ export async function loadReportCard(
 	)
 
 	return buildReportCard(calls)
+}
+
+export type ReportCardResult = ReportCard & {
+	league: League
+	window: WindowDescriptor
+	// Hydrated by loadReportCardResult - compute.ts deliberately never touches
+	// the database and only knows a call's id.
+	biggestHit: Call | null
+	biggestMiss: Call | null
 }
 
 // The card plus the rows GraphQL needs to resolve it: the league and window it

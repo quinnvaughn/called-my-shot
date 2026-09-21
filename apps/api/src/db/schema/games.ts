@@ -40,7 +40,7 @@ export const gameSeasonType = pgEnum("game_season_type", [
 // the Wednesday before Thursday Night Football is already the new one.
 // Deriving the range from the games instead (first kickoff to last kickoff)
 // leaves real gaps between weeks where no window contains "now" at all -
-// see getLeagueWindows in graphql/types/sports/windows.ts, which reads these.
+// see getLeagueWindows in lib/windows.ts, which reads these.
 // (seasonType, weekNumber) matches games.seasonType/games.weekNumber
 // exactly, since both come from the same ESPN response - a postseason week
 // 1 is a different row from a regular-season week 1, same as on games.

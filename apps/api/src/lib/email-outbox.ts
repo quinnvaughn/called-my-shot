@@ -1,5 +1,5 @@
 import { emailOutbox } from "../db/schema"
-import type { Tx } from "./user-season-stats"
+import type { Tx } from "../db/types"
 
 export type ResolvedCallEmail = {
 	userId: string

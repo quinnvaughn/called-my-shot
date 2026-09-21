@@ -1,97 +1,44 @@
-import { readFileSync } from "node:fs"
-import { beforeEach, describe, expect, it, vi } from "vitest"
-import {
-	HOUR,
-	makeGame,
-	makeLeague,
-	makeSeason,
-	makeTeam,
-} from "../../test/factories"
+import { beforeEach, describe, expect, it } from "vitest"
+import { makeSeason } from "../../test/factories"
+import { daysAgo as daysBefore, espnFixture } from "../../test/helpers"
 import { db } from "../index"
-import { externalRefs } from "../schema"
 import { backfillBoxScores, selectBackfillGames } from "./backfill-box-scores"
+import { type EspnGameSummary, EspnRequestError } from "./espn-client"
 import {
-	type EspnGameSummary,
-	EspnRequestError,
-	fetchGameSummary,
-} from "./espn-client"
-
-vi.mock("./espn-client", async (importOriginal) => ({
-	...(await importOriginal<typeof import("./espn-client")>()),
-	fetchGameSummary: vi.fn(),
-}))
+	type FakeEspnClient,
+	fakeEspnClient,
+	type NbaLeague,
+	seedFinalGame as seedGame,
+	seedNbaLeague as seedLeague,
+} from "./test-support"
 
 const NOW = new Date("2026-09-12T12:00:00Z")
-const daysAgo = (days: number) => new Date(NOW.getTime() - days * 24 * HOUR)
+const daysAgo = (days: number) => daysBefore(days, NOW.getTime())
 
-const nbaSummary = () =>
-	JSON.parse(
-		readFileSync(
-			new URL("./fixtures/espn/nba-summary.json", import.meta.url),
-			"utf8",
-		),
-	) as EspnGameSummary
+const nbaSummary = () => espnFixture<EspnGameSummary>("nba-summary.json")
 
-async function link(
-	entityType: "team" | "player" | "game",
-	sourceId: string,
-	entityId: string,
-) {
-	await db
-		.insert(externalRefs)
-		.values({ source: "espn", entityType, sourceId, entityId })
-}
-
-// One synced NBA league whose teams carry the fixture's ESPN ids, so every
-// game seeded against it can be captured from the same summary.
-async function seedLeague() {
-	const league = await makeLeague({ slug: "nba" })
-	const home = await makeTeam({ leagueId: league.id })
-	const away = await makeTeam({ leagueId: league.id })
-	await link("team", "nba:2", home.id)
-	await link("team", "nba:3", away.id)
-	return { league, home, away }
-}
-
-type Seeded = Awaited<ReturnType<typeof seedLeague>>
-
-async function seedFinalGame(
-	seeded: Seeded,
-	options: {
-		startsAt?: Date
-		espnEventId?: string | null
-		seasonId?: string
-		status?: "final" | "scheduled"
-		boxScoreSyncedAt?: Date
-	} = {},
-) {
-	const game = await makeGame({
-		leagueId: seeded.league.id,
-		homeTeamId: seeded.home.id,
-		awayTeamId: seeded.away.id,
-		startsAt: options.startsAt ?? daysAgo(3),
-		status: options.status ?? "final",
-		finalizedAt: options.status === "scheduled" ? null : daysAgo(3),
-		...(options.seasonId ? { seasonId: options.seasonId } : {}),
-		...(options.boxScoreSyncedAt
-			? { boxScoreSyncedAt: options.boxScoreSyncedAt }
-			: {}),
+// Every game seeded against the league can be captured from the same summary.
+const seedFinalGame = (
+	seeded: NbaLeague,
+	options: Partial<Parameters<typeof seedGame>[1]> = {},
+) =>
+	seedGame(seeded, {
+		startsAt: daysAgo(3),
+		finalizedAt: daysAgo(3),
+		...options,
 	})
-	if (options.espnEventId !== null) {
-		await link("game", `nba:${options.espnEventId ?? game.id}`, game.id)
-	}
-	return game
-}
 
+let espn: FakeEspnClient
 const run = (candidates: Awaited<ReturnType<typeof selectBackfillGames>>) =>
 	backfillBoxScores({
 		candidates: candidates.candidates,
 		now: NOW,
 		spacingMs: 0,
+		espn,
 	})
 
 beforeEach(() => {
-	vi.mocked(fetchGameSummary).mockReset()
+	espn = fakeEspnClient()
 })
 
 describe("selectBackfillGames", () => {
@@ -164,7 +111,7 @@ describe("backfillBoxScores", () => {
 		const seeded = await seedLeague()
 		await seedFinalGame(seeded, { startsAt: daysAgo(9) })
 		await seedFinalGame(seeded, { startsAt: daysAgo(2) })
-		vi.mocked(fetchGameSummary).mockResolvedValue(nbaSummary())
+		espn.fetchGameSummary.mockResolvedValue(nbaSummary())
 
 		const result = await run(await selectBackfillGames())
 
@@ -179,7 +126,7 @@ describe("backfillBoxScores", () => {
 		await seedFinalGame(seeded)
 		const partial = nbaSummary()
 		partial.header.competitions[0].boxscoreSource = "basic"
-		vi.mocked(fetchGameSummary).mockResolvedValue(partial)
+		espn.fetchGameSummary.mockResolvedValue(partial)
 
 		const result = await run(await selectBackfillGames())
 
@@ -195,7 +142,7 @@ describe("backfillBoxScores", () => {
 		const second = await seedFinalGame(seeded, { startsAt: daysAgo(6) })
 		const third = await seedFinalGame(seeded, { startsAt: daysAgo(2) })
 
-		vi.mocked(fetchGameSummary)
+		espn.fetchGameSummary
 			.mockResolvedValueOnce(nbaSummary())
 			.mockResolvedValueOnce(nbaSummary())
 			.mockRejectedValueOnce(new EspnRequestError("refused", 429))
@@ -209,7 +156,7 @@ describe("backfillBoxScores", () => {
 		const pending = await selectBackfillGames()
 		expect(pending.candidates.map((c) => c.game.id)).toEqual([third.id])
 
-		vi.mocked(fetchGameSummary).mockResolvedValue(nbaSummary())
+		espn.fetchGameSummary.mockResolvedValue(nbaSummary())
 		const resumed = await run(pending)
 
 		expect(resumed.captured).toBe(1)

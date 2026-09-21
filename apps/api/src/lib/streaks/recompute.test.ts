@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest"
 import { db } from "../../db"
+import { syncFlairCatalog } from "../../db/catalog/flairs"
 import {
 	type Question,
 	streakRecomputeQueue,
@@ -19,7 +20,6 @@ import {
 	pastDate,
 } from "../../test/factories"
 import { expectData } from "../../test/graphql"
-import { syncFlairCatalog } from "../../db/catalog/flairs"
 import { generationKey } from "../game-questions/generation-key"
 import { resolveQuestionInternal } from "../resolve-question"
 import { markQuestionVoided } from "../void-question"

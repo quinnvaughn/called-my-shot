@@ -24,7 +24,7 @@ builder.mutationFields((t) => ({
 	setGameReminder: t.field({
 		type: GameRef,
 		errors: {
-			types: [AuthenticationError, NotFoundError, ValidationError],
+			types: [AuthenticationError, NotFoundError],
 			directResult: true,
 			union: { name: "SetGameReminderResult" },
 		},

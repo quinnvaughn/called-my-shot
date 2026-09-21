@@ -68,7 +68,9 @@ export function EmailLayout({
 				    design to adapt and can repaint the backgrounds light. */}
 				<meta name="color-scheme" content="dark" />
 				<meta name="supported-color-schemes" content="dark" />
-				<style>{":root { color-scheme: dark; supported-color-schemes: dark; }"}</style>
+				<style>
+					{":root { color-scheme: dark; supported-color-schemes: dark; }"}
+				</style>
 			</Head>
 			<Preview>{preview}</Preview>
 			<Body

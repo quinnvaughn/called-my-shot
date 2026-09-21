@@ -19,33 +19,51 @@ export async function mutedEmailTypes(
 	return rows.map((r) => r.type)
 }
 
-// Batched form for the digest drain, which resolves a page of users at once
-// and would otherwise issue one query per recipient.
-export async function mutedEmailTypesByUser(
-	userIds: string[],
-): Promise<Map<string, Set<EmailPreferenceType>>> {
-	const byUser = new Map<string, Set<EmailPreferenceType>>()
-	if (userIds.length === 0) return byUser
-
-	const rows = await db
-		.select({ userId: emailOptOuts.userId, type: emailOptOuts.type })
-		.from(emailOptOuts)
-		.where(inArray(emailOptOuts.userId, userIds))
-
-	for (const row of rows) {
-		const set = byUser.get(row.userId) ?? new Set()
-		set.add(row.type)
-		byUser.set(row.userId, set)
-	}
-	return byUser
+export type Recipient = {
+	email: string
+	username: string
+	// Whether this person muted the email type being sent, directly or through
+	// "all".
+	muted: boolean
 }
 
-export function isMuted(
-	muted: Set<EmailPreferenceType> | undefined,
+// Who a drain is about to mail, keyed by user id, in one query per table
+// rather than one per recipient. An id with no user behind it (deleted since
+// its row was queued) is simply absent from the map.
+//
+// Read at send time rather than at enqueue so an unsubscribe during the wait
+// still counts.
+export async function loadRecipients(
+	userIds: string[],
 	type: EmailPreferenceType,
-): boolean {
-	if (!muted) return false
-	return muted.has("all") || muted.has(type)
+): Promise<Map<string, Recipient>> {
+	const byUser = new Map<string, Recipient>()
+	if (userIds.length === 0) return byUser
+
+	const [rows, optOuts] = await Promise.all([
+		db.query.users.findMany({
+			where: { id: { in: userIds } },
+			columns: { id: true, email: true, username: true },
+		}),
+		db
+			.select({ userId: emailOptOuts.userId })
+			.from(emailOptOuts)
+			.where(
+				and(
+					inArray(emailOptOuts.userId, userIds),
+					inArray(emailOptOuts.type, ["all", type]),
+				),
+			),
+	])
+	const muted = new Set(optOuts.map((o) => o.userId))
+	for (const user of rows) {
+		byUser.set(user.id, {
+			email: user.email,
+			username: user.username,
+			muted: muted.has(user.id),
+		})
+	}
+	return byUser
 }
 
 export async function setEmailPreference(

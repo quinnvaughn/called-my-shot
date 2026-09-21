@@ -243,7 +243,7 @@ type IdentifiedUser = {
 	id: string
 	name: string
 	username: string
-	email: string
+	email: string | null
 	isAdmin: boolean
 	emailVerified: boolean
 	isVerifiedPundit: boolean

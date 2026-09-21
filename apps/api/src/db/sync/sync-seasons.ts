@@ -2,7 +2,7 @@ import { sql } from "drizzle-orm"
 import { db } from "../index"
 import type { League } from "../schema"
 import { seasons, seasonWeeks } from "../schema"
-import { fetchSeason, fetchSeasonType, fetchSeasonWeeks } from "./espn-client"
+import { defaultEspnClient, type EspnClient } from "./espn-client"
 import type { SyncLeagueConfig } from "./leagues"
 
 // Which ESPN season years to pull each run. ESPN's year label means
@@ -11,8 +11,8 @@ import type { SyncLeagueConfig } from "./leagues"
 // whatever's actually current-or-upcoming right now regardless of which
 // convention a given league's year label follows - getCurrentSeason
 // (lib/seasons.ts) picks the right one out of whatever's synced.
-function syncYears(): number[] {
-	const year = new Date().getFullYear()
+function syncYears(now: Date): number[] {
+	const year = now.getFullYear()
 	return [year, year + 1]
 }
 
@@ -20,13 +20,14 @@ async function syncSeasonYear(
 	config: SyncLeagueConfig,
 	league: League,
 	year: number,
+	espn: EspnClient,
 ): Promise<void> {
-	const season = await fetchSeason(config.espnPath, year)
+	const season = await espn.fetchSeason(config.espnPath, year)
 	if (!season) return // ESPN hasn't published this year at all yet
 
 	const [regular, post] = await Promise.all([
-		fetchSeasonType(config.espnPath, year, 2),
-		fetchSeasonType(config.espnPath, year, 3),
+		espn.fetchSeasonType(config.espnPath, year, 2),
+		espn.fetchSeasonType(config.espnPath, year, 3),
 	])
 	if (!regular) return // no regular season dates - nothing usable to store yet
 
@@ -54,7 +55,7 @@ async function syncSeasonYear(
 		.returning({ id: seasons.id })
 
 	if (config.windowType === "week") {
-		await syncSeasonWeeks(config, row.id, year)
+		await syncSeasonWeeks(config, row.id, year, espn)
 	}
 }
 
@@ -69,10 +70,11 @@ async function syncSeasonWeeks(
 	config: SyncLeagueConfig,
 	seasonId: string,
 	year: number,
+	espn: EspnClient,
 ): Promise<void> {
 	const [regular, post] = await Promise.all([
-		fetchSeasonWeeks(config.espnPath, year, 2),
-		fetchSeasonWeeks(config.espnPath, year, 3),
+		espn.fetchSeasonWeeks(config.espnPath, year, 2),
+		espn.fetchSeasonWeeks(config.espnPath, year, 3),
 	])
 	const rows = [
 		...regular.map((week) => ({ week, seasonType: "regular" as const })),
@@ -105,8 +107,12 @@ async function syncSeasonWeeks(
 export async function syncSeasons(
 	config: SyncLeagueConfig,
 	league: League,
+	{
+		now = new Date(),
+		espn = defaultEspnClient,
+	}: { now?: Date; espn?: EspnClient } = {},
 ): Promise<void> {
-	for (const year of syncYears()) {
-		await syncSeasonYear(config, league, year)
+	for (const year of syncYears(now)) {
+		await syncSeasonYear(config, league, year, espn)
 	}
 }

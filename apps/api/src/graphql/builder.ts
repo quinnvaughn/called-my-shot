@@ -12,6 +12,9 @@ export interface PothosTypes {
 	DrizzleRelations: typeof relations
 	Context: Context
 	DefaultFieldNullability: false
+	Scalars: {
+		DateTime: { Input: Date; Output: Date }
+	}
 }
 
 export const builder = new SchemaBuilder<PothosTypes>({
@@ -24,5 +27,17 @@ export const builder = new SchemaBuilder<PothosTypes>({
 	},
 	errors: {
 		defaultTypes: [ValidationError],
+	},
+})
+
+// Every timestamp the API returns, serialised as an ISO 8601 string.
+builder.scalarType("DateTime", {
+	serialize: (value) => value.toISOString(),
+	parseValue: (value) => {
+		const date = typeof value === "string" ? new Date(value) : null
+		if (!date || Number.isNaN(date.getTime())) {
+			throw new TypeError("DateTime must be an ISO 8601 string")
+		}
+		return date
 	},
 })

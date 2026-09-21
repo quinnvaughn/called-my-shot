@@ -9,16 +9,25 @@ import { match } from "ts-pattern"
 import { db } from "../db"
 import type { RecurringQuestionTemplate } from "../db/catalog/recurring-question-catalog"
 import {
-	ballotQuestions,
 	ballots,
 	type Player,
 	questionOptions,
-	questions,
+	type questions,
 } from "../db/schema"
 import { buildPlayerPool, buildTeamPool } from "./award-pool"
 import { generateUniqueBallotSlug } from "./ballot-slug"
 import { titleLossRateFor } from "./game-questions/title-settings"
 import { numericToleranceFor } from "./numeric-tolerance"
+import { attachToBallot } from "./questions/ballot"
+import {
+	insertQuestion,
+	listOrNull,
+	type OptionRow,
+	playerOptions,
+	type QuestionBase,
+	type QuestionShapeFields,
+	teamOptions,
+} from "./questions/insert"
 import { getCurrentSeason } from "./seasons"
 import { compareTeamsByGrouping, teamSectionResolver } from "./team-grouping"
 
@@ -87,8 +96,6 @@ async function findOrCreateBallot(params: {
 	return inserted
 }
 
-type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0]
-
 // Order-independent set equality, treating null/undefined/empty as the same
 // "no filter" value - matches how the rest of this codebase already reads
 // awardConferences (an empty array and a null column both mean "whole
@@ -101,30 +108,110 @@ function sameFilterSet(a?: string[] | null, b?: string[] | null): boolean {
 	return true
 }
 
-async function attachToBallot(
-	tx: Tx,
-	params: {
-		ballotId: string
-		questionId: string
-		label: string
-		slot?: string | null
-		section?: string | null
-	},
+// What every generator shares about the league, season and ballot it's
+// filling.
+type GenerationContext = {
+	leagueId: string
+	leagueSlug: string
+	sportId: string
+	seasonId: string
+	seasonYear: number
+	resolutionSource: string
+	createdBy: string
+	ballotId: string
+}
+
+// Inserts one official question with its options and appends it to the
+// context's ballot, all in one transaction.
+async function createOnBallot(
+	ctx: GenerationContext,
+	question: Pick<
+		QuestionBase,
+		| "shape"
+		| "title"
+		| "locksAt"
+		| "lossRate"
+		| "resolutionSource"
+		| "resolutionMode"
+	>,
+	shapeFields: QuestionShapeFields,
+	options: OptionRow[],
+	member: { label: string; slot?: string | null; section?: string | null },
 ): Promise<void> {
-	const [row] = await tx
-		.select({
-			maxSortOrder: sql<number>`coalesce(max(${ballotQuestions.sortOrder}), -1)`,
+	await db.transaction(async (tx) => {
+		const created = await insertQuestion(
+			tx,
+			{
+				...question,
+				creatorId: ctx.createdBy,
+				isOfficial: true,
+				sportId: ctx.sportId,
+				leagueId: ctx.leagueId,
+				seasonId: ctx.seasonId,
+			},
+			shapeFields,
+			options,
+		)
+		await attachToBallot(tx, {
+			ballotId: ctx.ballotId,
+			questionId: created.id,
+			...member,
 		})
-		.from(ballotQuestions)
-		.where(sql`${ballotQuestions.ballotId} = ${params.ballotId}`)
-	await tx.insert(ballotQuestions).values({
-		ballotId: params.ballotId,
-		questionId: params.questionId,
-		label: params.label,
-		slot: params.slot ?? null,
-		section: params.section ?? null,
-		sortOrder: (row?.maxSortOrder ?? -1) + 1,
 	})
+}
+
+type AwardTemplate = Extract<
+	RecurringQuestionTemplate,
+	{ shape: "player_season_award" | "team_season_award" }
+>
+
+// awardName alone isn't a unique key - MLB's "MVP" catalog entries share it
+// across two real awards (AL MVP, NL MVP), distinguished only by
+// awardConferences, so a candidate only counts as "already generated" if its
+// conference/division scope matches too.
+async function findExistingAward(
+	ctx: GenerationContext,
+	template: AwardTemplate,
+) {
+	const candidates = await db.query.questions.findMany({
+		where: {
+			leagueId: ctx.leagueId,
+			seasonId: ctx.seasonId,
+			shape: template.shape,
+			awardName: template.awardName,
+		},
+	})
+	return candidates.find(
+		(q) =>
+			sameFilterSet(q.awardConferences, template.awardConferences) &&
+			sameFilterSet(q.awardDivisions, template.awardDivisions),
+	)
+}
+
+// The columns and ballot member both award shapes fill the same way.
+function awardQuestion(template: AwardTemplate) {
+	return {
+		title: generateQuestionTitle({
+			shape: template.shape,
+			awardName: template.awardName,
+			verb: template.awardVerb,
+			picksRequired: template.picksRequired,
+			awardConferences: template.awardConferences,
+			awardDivisions: template.awardDivisions,
+		}),
+		shapeFields: {
+			picksRequired: template.picksRequired,
+			awardName: template.awardName,
+			awardVerb: template.awardVerb,
+			awardConferences: listOrNull(template.awardConferences),
+			awardDivisions: listOrNull(template.awardDivisions),
+		},
+		member: {
+			label: template.label ?? template.awardName,
+			slot: template.slot,
+			section: template.ballotSection,
+		},
+	}
 }
 
 // Fans out one team_season_stat_numeric_guess question per team in the
@@ -136,46 +223,39 @@ async function attachToBallot(
 // already-generated league only creates what's missing. Whether the season
 // has already started (win totals stop being a real guess once it has) is
 // decided by the caller, before this even runs - see generateSeasonQuestions.
-async function generatePerTeamNumericGuess(params: {
+async function generatePerTeamNumericGuess(
+	ctx: GenerationContext,
 	template: Extract<
 		RecurringQuestionTemplate,
 		{ shape: "team_season_stat_numeric_guess" }
-	>
-	leagueId: string
-	leagueSlug: string
-	sportId: string
-	seasonId: string
-	seasonYear: number
-	resolutionSource: string
-	locksAt: Date
-	createdBy: string
-	ballotId: string
-}): Promise<{ created: number; skipped: number }> {
+	>,
+	locksAt: Date,
+): Promise<{ created: number; skipped: number }> {
 	// Win totals settle from ESPN's standings, so they store ESPN as their
 	// source in place of the one passed in.
 	const resolutionMode = resolutionModeFor({
 		shape: "team_season_stat_numeric_guess",
-		leagueSlug: params.leagueSlug,
-		statName: params.template.statName,
+		leagueSlug: ctx.leagueSlug,
+		statName: template.statName,
 		statAggregation: "total",
 	})
 	const resolutionSource =
 		resolutionMode === "system"
 			? autoResolutionSource("season")
-			: params.resolutionSource
+			: ctx.resolutionSource
 	// Sorted here rather than in the query so the ballot's own order comes
 	// from the same comparator the section headings do (see team-grouping.ts)
 	// - attachToBallot appends at max(sortOrder)+1, so iteration order IS the
 	// rendered order, and a league's divisions come out as contiguous runs.
 	const teamsInLeague = (
-		await db.query.teams.findMany({ where: { leagueId: params.leagueId } })
+		await db.query.teams.findMany({ where: { leagueId: ctx.leagueId } })
 	).sort(compareTeamsByGrouping)
 	// Resolved against the whole league at once - whether a division name
 	// needs its conference spelled out in front of it is a league-level
 	// question (see teamSectionResolver).
 	const sectionFor = teamSectionResolver(teamsInLeague)
 	const stat = await db.query.stats.findFirst({
-		where: { sportId: params.sportId, name: params.template.statName },
+		where: { sportId: ctx.sportId, name: template.statName },
 		with: { toleranceTier: true, teamToleranceTier: true },
 	})
 	const tolerance = stat
@@ -183,7 +263,7 @@ async function generatePerTeamNumericGuess(params: {
 		: null
 	if (!stat || !tolerance) {
 		throw new Error(
-			`generatePerTeamNumericGuess: stat "${params.template.statName}" not found or missing a tolerance tier for sport ${params.sportId}`,
+			`generatePerTeamNumericGuess: stat "${template.statName}" not found or missing a tolerance tier for sport ${ctx.sportId}`,
 		)
 	}
 	const { numericTolerancePct, numericToleranceAbsolute } = tolerance
@@ -193,8 +273,8 @@ async function generatePerTeamNumericGuess(params: {
 	for (const team of teamsInLeague) {
 		const existing = await db.query.questions.findFirst({
 			where: {
-				leagueId: params.leagueId,
-				seasonId: params.seasonId,
+				leagueId: ctx.leagueId,
+				seasonId: ctx.seasonId,
 				shape: "team_season_stat_numeric_guess",
 				subjectTeamId: team.id,
 			},
@@ -204,52 +284,34 @@ async function generatePerTeamNumericGuess(params: {
 			continue
 		}
 
-		const title = generateQuestionTitle({
-			shape: "team_season_stat_numeric_guess",
-			teamName: team.name,
-			statName: params.template.statName,
-			year: params.seasonYear,
-		})
-
-		await db.transaction(async (tx) => {
-			const [question] = await tx
-				.insert(questions)
-				.values({
+		await createOnBallot(
+			ctx,
+			{
+				shape: "team_season_stat_numeric_guess",
+				title: generateQuestionTitle({
 					shape: "team_season_stat_numeric_guess",
-					title,
-					creatorId: params.createdBy,
-					isOfficial: true,
-					sportId: params.sportId,
-					leagueId: params.leagueId,
-					seasonId: params.seasonId,
-					resolutionMode,
-					resolutionSource,
-					locksAt: params.locksAt,
-					statId: stat.id,
-					statAggregation: "total",
-					subjectTeamId: team.id,
-					numericTolerancePct,
-					numericToleranceAbsolute,
-					lossRate: defaultLossRate("team_season_stat_numeric_guess", {}),
-				})
-				.returning()
-			if (!question) {
-				throw new Error(
-					"generatePerTeamNumericGuess: question insert returned nothing",
-				)
-			}
-			await attachToBallot(tx, {
-				ballotId: params.ballotId,
-				questionId: question.id,
-				// Same slot/label convention as every award ballot member (see
-				// generatePlayerSeasonAward below): slot is the short bold badge
-				// ("LAL"), label is the full spelled-out text underneath it ("Los
-				// Angeles Lakers") - not the other way around.
-				label: team.name,
-				slot: team.abbreviation,
-				section: sectionFor(team),
-			})
-		})
+					teamName: team.name,
+					statName: template.statName,
+					year: ctx.seasonYear,
+				}),
+				resolutionMode,
+				resolutionSource,
+				locksAt,
+				lossRate: defaultLossRate("team_season_stat_numeric_guess", {}),
+			},
+			{
+				statId: stat.id,
+				statAggregation: "total",
+				subjectTeamId: team.id,
+				numericTolerancePct,
+				numericToleranceAbsolute,
+			},
+			[],
+			// Same slot/label convention as every award ballot member: slot is
+			// the short bold badge ("LAL"), label is the full spelled-out text
+			// underneath it ("Los Angeles Lakers") - not the other way around.
+			{ label: team.name, slot: team.abbreviation, section: sectionFor(team) },
+		)
 		created++
 	}
 	return { created, skipped }
@@ -313,11 +375,10 @@ export async function reconcileAwardOptions(
 		if (missing.length > 0) {
 			const nextSortOrder = Math.max(-1, ...options.map((o) => o.sortOrder)) + 1
 			await tx.insert(questionOptions).values(
-				missing.map((player, index) => ({
+				playerOptions(missing).map((option, index) => ({
+					...option,
 					questionId: question.id,
-					label: player.name,
 					sortOrder: nextSortOrder + index,
-					playerId: player.id,
 				})),
 			)
 		}
@@ -327,42 +388,23 @@ export async function reconcileAwardOptions(
 	)
 }
 
-async function generatePlayerSeasonAward(params: {
-	template: Extract<RecurringQuestionTemplate, { shape: "player_season_award" }>
-	leagueId: string
-	sportId: string
-	seasonId: string
-	resolutionSource: string
-	locksAt: Date
-	createdBy: string
-	ballotId: string
-}): Promise<{ created: number; skipped: number }> {
-	// awardName alone isn't a unique key - MLB's "MVP" catalog entries share it
-	// across two real awards (AL MVP, NL MVP), distinguished only by
-	// awardConferences, so a candidate only counts as "already generated" if
-	// its conference/division scope matches too.
-	const candidates = await db.query.questions.findMany({
-		where: {
-			leagueId: params.leagueId,
-			seasonId: params.seasonId,
-			shape: "player_season_award",
-			awardName: params.template.awardName,
-		},
-	})
-	const existing = candidates.find(
-		(q) =>
-			sameFilterSet(q.awardConferences, params.template.awardConferences) &&
-			sameFilterSet(q.awardDivisions, params.template.awardDivisions),
-	)
-
+async function generatePlayerSeasonAward(
+	ctx: GenerationContext,
+	template: Extract<
+		RecurringQuestionTemplate,
+		{ shape: "player_season_award" }
+	>,
+	locksAt: Date,
+): Promise<{ created: number; skipped: number }> {
+	const existing = await findExistingAward(ctx, template)
 	const pool = await buildPlayerPool(
-		{ leagueId: params.leagueId },
+		{ leagueId: ctx.leagueId },
 		{
-			conferences: params.template.awardConferences,
-			divisions: params.template.awardDivisions,
-			positions: params.template.awardPositions,
-			seasonsInLeague: params.template.awardSeasonsInLeague,
-			rookieOnly: params.template.awardRookieOnly,
+			conferences: template.awardConferences,
+			divisions: template.awardDivisions,
+			positions: template.awardPositions,
+			seasonsInLeague: template.awardSeasonsInLeague,
+			rookieOnly: template.awardRookieOnly,
 		},
 	)
 
@@ -371,200 +413,94 @@ async function generatePlayerSeasonAward(params: {
 		return { created: 0, skipped: 1 }
 	}
 
-	if (pool.length < params.template.picksRequired) {
+	if (pool.length < template.picksRequired) {
 		throw new Error(
-			`generatePlayerSeasonAward: not enough players for "${params.template.awardName}" (need ${params.template.picksRequired}, found ${pool.length})`,
+			`generatePlayerSeasonAward: not enough players for "${template.awardName}" (need ${template.picksRequired}, found ${pool.length})`,
 		)
 	}
 
-	const title = generateQuestionTitle({
-		shape: "player_season_award",
-		awardName: params.template.awardName,
-		verb: params.template.awardVerb,
-		picksRequired: params.template.picksRequired,
-		awardConferences: params.template.awardConferences,
-		awardDivisions: params.template.awardDivisions,
-	})
-
-	await db.transaction(async (tx) => {
-		const [question] = await tx
-			.insert(questions)
-			.values({
-				shape: "player_season_award",
-				title,
-				creatorId: params.createdBy,
-				isOfficial: true,
-				sportId: params.sportId,
-				leagueId: params.leagueId,
-				seasonId: params.seasonId,
-				resolutionSource: params.resolutionSource,
-				locksAt: params.locksAt,
-				picksRequired: params.template.picksRequired,
-				awardName: params.template.awardName,
-				awardVerb: params.template.awardVerb,
-				awardConferences: params.template.awardConferences?.length
-					? params.template.awardConferences
-					: null,
-				awardDivisions: params.template.awardDivisions?.length
-					? params.template.awardDivisions
-					: null,
-				awardPositions: params.template.awardPositions?.length
-					? params.template.awardPositions
-					: null,
-				awardSeasonsInLeague: params.template.awardSeasonsInLeague?.length
-					? params.template.awardSeasonsInLeague
-					: null,
-				awardRookieOnly: params.template.awardRookieOnly ?? null,
-				lossRate: defaultLossRate("player_season_award", {
-					picksRequired: params.template.picksRequired,
-				}),
-			})
-			.returning()
-		if (!question) {
-			throw new Error(
-				"generatePlayerSeasonAward: question insert returned nothing",
-			)
-		}
-		await tx.insert(questionOptions).values(
-			pool.map((player, index) => ({
-				questionId: question.id,
-				label: player.name,
-				sortOrder: index,
-				playerId: player.id,
-			})),
-		)
-		await attachToBallot(tx, {
-			ballotId: params.ballotId,
-			questionId: question.id,
-			label: params.template.label ?? params.template.awardName,
-			slot: params.template.slot,
-			section: params.template.ballotSection,
-		})
-	})
+	const { title, shapeFields, member } = awardQuestion(template)
+	await createOnBallot(
+		ctx,
+		{
+			shape: "player_season_award",
+			title,
+			resolutionSource: ctx.resolutionSource,
+			locksAt,
+			lossRate: defaultLossRate("player_season_award", {
+				picksRequired: template.picksRequired,
+			}),
+		},
+		{
+			...shapeFields,
+			awardPositions: listOrNull(template.awardPositions),
+			awardSeasonsInLeague: listOrNull(template.awardSeasonsInLeague),
+			awardRookieOnly: template.awardRookieOnly ?? null,
+		},
+		playerOptions(pool),
+		member,
+	)
 	return { created: 1, skipped: 0 }
 }
 
-async function generateTeamSeasonAward(params: {
-	template: Extract<RecurringQuestionTemplate, { shape: "team_season_award" }>
-	leagueId: string
-	leagueSlug: string
-	sportId: string
-	seasonId: string
-	resolutionSource: string
-	locksAt: Date
-	createdBy: string
-	ballotId: string
-}): Promise<{ created: number; skipped: number }> {
+async function generateTeamSeasonAward(
+	ctx: GenerationContext,
+	template: Extract<RecurringQuestionTemplate, { shape: "team_season_award" }>,
+	locksAt: Date,
+): Promise<{ created: number; skipped: number }> {
 	// A championship settles from ESPN's postseason results, so it stores ESPN
 	// as its source in place of the one passed in.
 	const resolutionMode = resolutionModeFor({
 		shape: "team_season_award",
-		leagueSlug: params.leagueSlug,
+		leagueSlug: ctx.leagueSlug,
 		statName: null,
-		awardName: params.template.awardName,
-		awardVerb: params.template.awardVerb,
-		picksRequired: params.template.picksRequired,
-		awardConferences: params.template.awardConferences,
-		awardDivisions: params.template.awardDivisions,
+		awardName: template.awardName,
+		awardVerb: template.awardVerb,
+		picksRequired: template.picksRequired,
+		awardConferences: template.awardConferences,
+		awardDivisions: template.awardDivisions,
 	})
-	// See the matching comment in generatePlayerSeasonAward above - awardName
-	// alone isn't a unique key once two entries share a bare name distinguished
-	// only by conference/division.
-	const candidates = await db.query.questions.findMany({
-		where: {
-			leagueId: params.leagueId,
-			seasonId: params.seasonId,
-			shape: "team_season_award",
-			awardName: params.template.awardName,
-		},
-	})
-	const existing = candidates.find(
-		(q) =>
-			sameFilterSet(q.awardConferences, params.template.awardConferences) &&
-			sameFilterSet(q.awardDivisions, params.template.awardDivisions),
-	)
-	if (existing) return { created: 0, skipped: 1 }
+	if (await findExistingAward(ctx, template)) return { created: 0, skipped: 1 }
 
 	const pool = await buildTeamPool(
-		{ leagueId: params.leagueId },
+		{ leagueId: ctx.leagueId },
 		{
-			conferences: params.template.awardConferences,
-			divisions: params.template.awardDivisions,
+			conferences: template.awardConferences,
+			divisions: template.awardDivisions,
 		},
 	)
-	if (pool.length < params.template.picksRequired) {
+	if (pool.length < template.picksRequired) {
 		throw new Error(
-			`generateTeamSeasonAward: not enough teams for "${params.template.awardName}" (need ${params.template.picksRequired}, found ${pool.length})`,
+			`generateTeamSeasonAward: not enough teams for "${template.awardName}" (need ${template.picksRequired}, found ${pool.length})`,
 		)
 	}
 
 	const lossRate =
-		(params.template.picksRequired === 1
-			? await titleLossRateFor(params.leagueId, params.template.awardName)
+		(template.picksRequired === 1
+			? await titleLossRateFor(ctx.leagueId, template.awardName)
 			: null) ??
 		defaultLossRate("team_season_award", {
-			picksRequired: params.template.picksRequired,
+			picksRequired: template.picksRequired,
 		})
 
-	const title = generateQuestionTitle({
-		shape: "team_season_award",
-		awardName: params.template.awardName,
-		verb: params.template.awardVerb,
-		picksRequired: params.template.picksRequired,
-		awardConferences: params.template.awardConferences,
-		awardDivisions: params.template.awardDivisions,
-	})
-
-	await db.transaction(async (tx) => {
-		const [question] = await tx
-			.insert(questions)
-			.values({
-				shape: "team_season_award",
-				title,
-				creatorId: params.createdBy,
-				isOfficial: true,
-				sportId: params.sportId,
-				leagueId: params.leagueId,
-				seasonId: params.seasonId,
-				resolutionMode,
-				resolutionSource:
-					resolutionMode === "system"
-						? autoResolutionSource("postseason")
-						: params.resolutionSource,
-				locksAt: params.locksAt,
-				picksRequired: params.template.picksRequired,
-				awardName: params.template.awardName,
-				awardVerb: params.template.awardVerb,
-				awardConferences: params.template.awardConferences?.length
-					? params.template.awardConferences
-					: null,
-				awardDivisions: params.template.awardDivisions?.length
-					? params.template.awardDivisions
-					: null,
-				lossRate,
-			})
-			.returning()
-		if (!question) {
-			throw new Error(
-				"generateTeamSeasonAward: question insert returned nothing",
-			)
-		}
-		await tx.insert(questionOptions).values(
-			pool.map((team, index) => ({
-				questionId: question.id,
-				label: team.name,
-				sortOrder: index,
-				teamId: team.id,
-			})),
-		)
-		await attachToBallot(tx, {
-			ballotId: params.ballotId,
-			questionId: question.id,
-			label: params.template.label ?? params.template.awardName,
-			slot: params.template.slot,
-			section: params.template.ballotSection,
-		})
-	})
+	const { title, shapeFields, member } = awardQuestion(template)
+	await createOnBallot(
+		ctx,
+		{
+			shape: "team_season_award",
+			title,
+			resolutionMode,
+			resolutionSource:
+				resolutionMode === "system"
+					? autoResolutionSource("postseason")
+					: ctx.resolutionSource,
+			locksAt,
+			lossRate,
+		},
+		shapeFields,
+		teamOptions(pool),
+		member,
+	)
 	return { created: 1, skipped: 0 }
 }
 
@@ -661,45 +597,25 @@ export async function generateSeasonQuestions(params: {
 		})
 
 		for (const template of groupTemplates) {
+			const ctx: GenerationContext = {
+				leagueId: params.leagueId,
+				leagueSlug: league.slug,
+				sportId: league.sportId,
+				seasonId: season.id,
+				seasonYear: season.year,
+				resolutionSource: params.resolutionSource,
+				createdBy: params.createdBy,
+				ballotId: ballot.id,
+			}
 			const result = await match(template)
 				.with({ shape: "team_season_stat_numeric_guess" }, (t) =>
-					generatePerTeamNumericGuess({
-						template: t,
-						leagueId: params.leagueId,
-						leagueSlug: league.slug,
-						sportId: league.sportId,
-						seasonId: season.id,
-						seasonYear: season.year,
-						resolutionSource: params.resolutionSource,
-						locksAt: winTotalLocksAt,
-						createdBy: params.createdBy,
-						ballotId: ballot.id,
-					}),
+					generatePerTeamNumericGuess(ctx, t, winTotalLocksAt),
 				)
 				.with({ shape: "player_season_award" }, (t) =>
-					generatePlayerSeasonAward({
-						template: t,
-						leagueId: params.leagueId,
-						sportId: league.sportId,
-						seasonId: season.id,
-						resolutionSource: params.resolutionSource,
-						locksAt: awardLocksAt,
-						createdBy: params.createdBy,
-						ballotId: ballot.id,
-					}),
+					generatePlayerSeasonAward(ctx, t, awardLocksAt),
 				)
 				.with({ shape: "team_season_award" }, (t) =>
-					generateTeamSeasonAward({
-						template: t,
-						leagueId: params.leagueId,
-						leagueSlug: league.slug,
-						sportId: league.sportId,
-						seasonId: season.id,
-						resolutionSource: params.resolutionSource,
-						locksAt: awardLocksAt,
-						createdBy: params.createdBy,
-						ballotId: ballot.id,
-					}),
+					generateTeamSeasonAward(ctx, t, awardLocksAt),
 				)
 				.exhaustive()
 

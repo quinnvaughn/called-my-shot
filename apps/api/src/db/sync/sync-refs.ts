@@ -1,7 +1,6 @@
-import type { db } from "../index"
+import { db } from "../index"
 import { externalRefs, type syncEntityType } from "../schema"
-
-export type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0]
+import type { Tx } from "../types"
 
 type EntityType = (typeof syncEntityType.enumValues)[number]
 
@@ -24,6 +23,27 @@ export async function findRefEntityId(
 export function scopedSourceId(leagueSlug: string, espnId: string): string {
 	return `${leagueSlug}:${espnId}`
 }
+
+// The inverse of scopedSourceId: the bare ESPN id a stored sourceId carries.
+export const espnIdOf = (sourceId: string) => sourceId.split(":")[1] ?? sourceId
+
+// The bare ESPN id each of these domain rows was synced from, keyed by row id.
+// A row with no ref is simply missing from the map.
+export async function loadEspnIds(
+	entityType: EntityType,
+	entityIds: string[],
+): Promise<Map<string, string>> {
+	const unique = [...new Set(entityIds)]
+	if (unique.length === 0) return new Map()
+	const refs = await db.query.externalRefs.findMany({
+		where: { source: "espn", entityType, entityId: { in: unique } },
+	})
+	return new Map(refs.map((ref) => [ref.entityId, espnIdOf(ref.sourceId)]))
+}
+
+// Flips a loadEspnIds map to look domain rows up by ESPN id.
+export const byEspnId = (espnIds: Map<string, string>) =>
+	new Map([...espnIds].map(([entityId, espnId]) => [espnId, entityId]))
 
 // The reverse of findRefEntityId - given a domain row's own id (a games.id,
 // a teams.id), find the ESPN sourceId it was synced from, if any. Needed by

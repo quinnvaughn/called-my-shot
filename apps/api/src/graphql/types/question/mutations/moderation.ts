@@ -26,6 +26,7 @@ import { markAchievementsDirty } from "../../../../lib/streaks/enqueue"
 import { STRIKE_LOCK_THRESHOLD } from "../../../../lib/strikes"
 import { markQuestionVoided } from "../../../../lib/void-question"
 import { builder } from "../../../builder"
+import { lockOrThrow, parseInput } from "../../../helpers"
 import {
 	AdminMarkQuestionVoidedInput,
 	DeleteQuestionInput,
@@ -39,6 +40,7 @@ import {
 	VoidQuestionPayload,
 } from "../inputs"
 import { QuestionReportRef } from "../moderation-objects"
+import { assertLocked } from "./guards"
 
 builder.mutationFields((t) => ({
 	// Dismiss = admin looked at the report and decided the question is fine as
@@ -48,12 +50,7 @@ builder.mutationFields((t) => ({
 	dismissReport: t.field({
 		type: QuestionReportRef,
 		errors: {
-			types: [
-				AuthenticationError,
-				AuthorizationError,
-				NotFoundError,
-				ValidationError,
-			],
+			types: [AuthenticationError, AuthorizationError, NotFoundError],
 			directResult: true,
 			union: { name: "DismissReportResult" },
 		},
@@ -62,12 +59,12 @@ builder.mutationFields((t) => ({
 			requireAdmin(ctx)
 
 			return db.transaction(async (tx) => {
-				const [report] = await tx
-					.select()
-					.from(questionReports)
-					.where(eq(questionReports.id, args.input.reportId))
-					.for("update")
-				if (!report) throw new NotFoundError("Report not found")
+				const report = await lockOrThrow(
+					tx,
+					questionReports,
+					args.input.reportId,
+					"Report not found",
+				)
 				if (report.status !== "open") {
 					throw ValidationError.field(null, "This report is already settled.")
 				}
@@ -93,22 +90,17 @@ builder.mutationFields((t) => ({
 	editQuestionTitle: t.field({
 		type: QuestionPayload,
 		errors: {
-			types: [
-				AuthenticationError,
-				AuthorizationError,
-				NotFoundError,
-				ValidationError,
-			],
+			types: [AuthenticationError, AuthorizationError, NotFoundError],
 			directResult: true,
 			union: { name: "EditQuestionTitleResult" },
 		},
 		args: { input: t.arg({ type: EditQuestionTitleInput, required: true }) },
 		resolve: async (_root, args, ctx) => {
 			requireAdmin(ctx)
-			const parsed = editQuestionTitleSchema.safeParse(args.input)
-			if (!parsed.success)
-				throw ValidationError.fromZodIssues(parsed.error.issues)
-			const { questionId, title } = parsed.data
+			const { questionId, title } = parseInput(
+				editQuestionTitleSchema,
+				args.input,
+			)
 
 			const [updated] = await db
 				.update(questions)
@@ -130,30 +122,22 @@ builder.mutationFields((t) => ({
 	deleteQuestion: t.field({
 		type: DeleteQuestionPayload,
 		errors: {
-			types: [
-				AuthenticationError,
-				AuthorizationError,
-				NotFoundError,
-				ValidationError,
-			],
+			types: [AuthenticationError, AuthorizationError, NotFoundError],
 			directResult: true,
 			union: { name: "DeleteQuestionResult" },
 		},
 		args: { input: t.arg({ type: DeleteQuestionInput, required: true }) },
 		resolve: async (_root, args, ctx) => {
 			requireAdmin(ctx)
-			const parsed = deleteQuestionSchema.safeParse(args.input)
-			if (!parsed.success)
-				throw ValidationError.fromZodIssues(parsed.error.issues)
-			const { questionId } = parsed.data
+			const { questionId } = parseInput(deleteQuestionSchema, args.input)
 
 			await db.transaction(async (tx) => {
-				const [question] = await tx
-					.select()
-					.from(questions)
-					.where(eq(questions.id, questionId))
-					.for("update")
-				if (!question) throw new NotFoundError("Question not found")
+				const question = await lockOrThrow(
+					tx,
+					questions,
+					questionId,
+					"Question not found",
+				)
 				if (!question.isOfficial) {
 					throw ValidationError.field(
 						null,
@@ -182,30 +166,22 @@ builder.mutationFields((t) => ({
 	voidQuestion: t.field({
 		type: VoidQuestionPayload,
 		errors: {
-			types: [
-				AuthenticationError,
-				AuthorizationError,
-				NotFoundError,
-				ValidationError,
-			],
+			types: [AuthenticationError, AuthorizationError, NotFoundError],
 			directResult: true,
 			union: { name: "VoidQuestionResult" },
 		},
 		args: { input: t.arg({ type: VoidQuestionInput, required: true }) },
 		resolve: async (_root, args, ctx) => {
 			const admin = requireAdmin(ctx)
-			const parsed = voidQuestionSchema.safeParse(args.input)
-			if (!parsed.success)
-				throw ValidationError.fromZodIssues(parsed.error.issues)
-			const data = parsed.data
+			const data = parseInput(voidQuestionSchema, args.input)
 
 			await db.transaction(async (tx) => {
-				const [question] = await tx
-					.select()
-					.from(questions)
-					.where(eq(questions.id, data.questionId))
-					.for("update")
-				if (!question) throw new NotFoundError("Question not found")
+				const question = await lockOrThrow(
+					tx,
+					questions,
+					data.questionId,
+					"Question not found",
+				)
 				if (question.status === "resolved") {
 					throw ValidationError.field(
 						null,
@@ -272,48 +248,46 @@ builder.mutationFields((t) => ({
 	reportQuestion: t.field({
 		type: ReportQuestionPayload,
 		errors: {
-			types: [AuthenticationError, NotFoundError, ValidationError],
+			types: [AuthenticationError, NotFoundError],
 			directResult: true,
 			union: { name: "ReportQuestionResult" },
 		},
 		args: { input: t.arg({ type: ReportQuestionInput, required: true }) },
 		resolve: async (_root, args, ctx) => {
 			const user = requireUser(ctx)
-			const parsed = reportQuestionSchema.safeParse(args.input)
-			if (!parsed.success) {
-				throw ValidationError.fromZodIssues(parsed.error.issues)
-			}
-			const data = parsed.data
+			const data = parseInput(reportQuestionSchema, args.input)
 
-			const question = await db.query.questions.findFirst({
-				where: { id: data.questionId },
-			})
-			if (!question) throw new NotFoundError("Question not found")
+			// Checked under the question's row lock, so a double-submitted report
+			// can't pass the duplicate check twice before either is written.
+			const report = await db.transaction(async (tx) => {
+				await lockOrThrow(tx, questions, data.questionId, "Question not found")
 
-			const existingReport = await db.query.questionReports.findFirst({
-				where: {
-					questionId: data.questionId,
-					reportedByUserId: user.id,
-				},
-			})
-			if (existingReport) {
-				throw ValidationError.field(
-					null,
-					"You've already reported this question.",
-				)
-			}
-
-			const [report] = await db
-				.insert(questionReports)
-				.values({
-					questionId: data.questionId,
-					reportedByUserId: user.id,
-					reason: data.reason,
-					details: data.details || null,
-					status: "open",
+				const existingReport = await tx.query.questionReports.findFirst({
+					where: {
+						questionId: data.questionId,
+						reportedByUserId: user.id,
+					},
 				})
-				.returning()
-			if (!report) throw new Error("reportQuestion: insert returned no row")
+				if (existingReport) {
+					throw ValidationError.field(
+						null,
+						"You've already reported this question.",
+					)
+				}
+
+				const [report] = await tx
+					.insert(questionReports)
+					.values({
+						questionId: data.questionId,
+						reportedByUserId: user.id,
+						reason: data.reason,
+						details: data.details || null,
+						status: "open",
+					})
+					.returning()
+				if (!report) throw new Error("reportQuestion: insert returned no row")
+				return report
+			})
 
 			return { report }
 		},
@@ -328,12 +302,7 @@ builder.mutationFields((t) => ({
 	adminMarkQuestionVoided: t.field({
 		type: QuestionPayload,
 		errors: {
-			types: [
-				AuthenticationError,
-				AuthorizationError,
-				NotFoundError,
-				ValidationError,
-			],
+			types: [AuthenticationError, AuthorizationError, NotFoundError],
 			directResult: true,
 			union: { name: "AdminMarkQuestionVoidedResult" },
 		},
@@ -342,18 +311,15 @@ builder.mutationFields((t) => ({
 		},
 		resolve: async (_root, args, ctx) => {
 			const admin = requireAdmin(ctx)
-			const parsed = adminMarkQuestionVoidedSchema.safeParse(args.input)
-			if (!parsed.success)
-				throw ValidationError.fromZodIssues(parsed.error.issues)
-			const data = parsed.data
+			const data = parseInput(adminMarkQuestionVoidedSchema, args.input)
 
 			const question = await db.transaction(async (tx) => {
-				const [question] = await tx
-					.select()
-					.from(questions)
-					.where(eq(questions.id, data.questionId))
-					.for("update")
-				if (!question) throw new NotFoundError("Question not found")
+				const question = await lockOrThrow(
+					tx,
+					questions,
+					data.questionId,
+					"Question not found",
+				)
 				if (question.status === "disputed") {
 					throw ValidationError.field(
 						null,
@@ -363,9 +329,7 @@ builder.mutationFields((t) => ({
 				if (question.status === "voided") {
 					throw ValidationError.field(null, "This question is already voided.")
 				}
-				if (question.locksAt > new Date()) {
-					throw ValidationError.field(null, "This question hasn't locked yet.")
-				}
+				assertLocked(question)
 
 				return markQuestionVoided(tx, question, {
 					reason: data.reason,

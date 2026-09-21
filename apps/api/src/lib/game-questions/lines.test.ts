@@ -1,10 +1,5 @@
 import { describe, expect, it } from "vitest"
-import {
-	blendSamples,
-	needsPriorSeason,
-	perGameSample,
-	setLine,
-} from "./lines"
+import { blendSamples, needsPriorSeason, perGameSample, setLine } from "./lines"
 
 const RULE = { minGames: 8, shade: 0.97, minLine: 10.5 }
 

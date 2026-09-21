@@ -7,8 +7,8 @@ import {
 import { and, eq } from "drizzle-orm"
 import { match } from "ts-pattern"
 import { callStreakPositions, userStreaks, userSweeps } from "../../db/schema"
+import type { Tx } from "../../db/types"
 import { grantFlairByKey } from "../flairs/grant"
-import type { Tx } from "../user-season-stats"
 import {
 	callOutcome,
 	canonicalWinnerQuestion,

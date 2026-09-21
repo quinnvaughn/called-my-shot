@@ -2,7 +2,12 @@ import { eq } from "drizzle-orm"
 import { describe, expect, it } from "vitest"
 import { db } from "../../../db"
 import { groups, teams, userFlairs, users } from "../../../db/schema"
-import { makeFlair, makeTeam, makeUser } from "../../../test/factories"
+import {
+	makeAdmin,
+	makeFlair,
+	makeTeam,
+	makeUser,
+} from "../../../test/factories"
 import { execute, expectData } from "../../../test/graphql"
 
 const MY_FLAIRS = `
@@ -56,6 +61,18 @@ const REVOKE = `
 	}
 `
 
+type FlairChip = {
+	id: string
+	label: string | null
+	icon?: string | null
+	color?: string | null
+}
+type FlairUserResult = {
+	__typename: string
+	equippedFlair?: FlairChip | null
+	grantedFlairs?: { id: string }[]
+}
+
 function teamFlair(teamId: string, overrides = {}) {
 	return makeFlair({
 		source: "team",
@@ -76,14 +93,14 @@ describe("equipFlair", () => {
 		const team = await makeTeam({ name: "Boston Celtics", abbreviation: "BOS" })
 		const flair = await teamFlair(team.id)
 
-		const data = await expectData(EQUIP, {
+		const data = await expectData<{ equipFlair: FlairUserResult }>(EQUIP, {
 			as: user,
 			variables: { flairId: flair.id },
 		})
 
 		expect(data.equipFlair.__typename).toBe("User")
-		expect(data.equipFlair.equippedFlair.id).toBe(flair.id)
-		expect(data.equipFlair.equippedFlair.label).toBe("Boston Celtics")
+		expect(data.equipFlair.equippedFlair?.id).toBe(flair.id)
+		expect(data.equipFlair.equippedFlair?.label).toBe("Boston Celtics")
 
 		// Nothing was written to the grants table - that's the whole point of
 		// an "open" flair.
@@ -95,7 +112,7 @@ describe("equipFlair", () => {
 		const user = await makeUser()
 		const flair = await makeFlair()
 
-		const data = await expectData(EQUIP, {
+		const data = await expectData<{ equipFlair: FlairUserResult }>(EQUIP, {
 			as: user,
 			variables: { flairId: flair.id },
 		})
@@ -108,13 +125,13 @@ describe("equipFlair", () => {
 		const flair = await makeFlair()
 		await db.insert(userFlairs).values({ userId: user.id, flairId: flair.id })
 
-		const data = await expectData(EQUIP, {
+		const data = await expectData<{ equipFlair: FlairUserResult }>(EQUIP, {
 			as: user,
 			variables: { flairId: flair.id },
 		})
 
 		expect(data.equipFlair.__typename).toBe("User")
-		expect(data.equipFlair.equippedFlair.id).toBe(flair.id)
+		expect(data.equipFlair.equippedFlair?.id).toBe(flair.id)
 	})
 
 	it("refuses a retired flair", async () => {
@@ -122,7 +139,7 @@ describe("equipFlair", () => {
 		const team = await makeTeam()
 		const flair = await teamFlair(team.id, { status: "retired" })
 
-		const data = await expectData(EQUIP, {
+		const data = await expectData<{ equipFlair: FlairUserResult }>(EQUIP, {
 			as: user,
 			variables: { flairId: flair.id },
 		})
@@ -146,7 +163,7 @@ describe("equipFlair", () => {
 			scopeGroupId: group?.id,
 		})
 
-		const data = await expectData(EQUIP, {
+		const data = await expectData<{ equipFlair: FlairUserResult }>(EQUIP, {
 			as: user,
 			variables: { flairId: flair.id },
 		})
@@ -158,7 +175,7 @@ describe("equipFlair", () => {
 		const team = await makeTeam()
 		const flair = await teamFlair(team.id)
 
-		const data = await expectData(EQUIP, {
+		const data = await expectData<{ equipFlair: FlairUserResult }>(EQUIP, {
 			variables: { flairId: flair.id },
 		})
 
@@ -176,7 +193,9 @@ describe("unequipFlair", () => {
 			.set({ equippedFlairId: flair.id })
 			.where(eq(users.id, user.id))
 
-		const data = await expectData(UNEQUIP, { as: user })
+		const data = await expectData<{ unequipFlair: FlairUserResult }>(UNEQUIP, {
+			as: user,
+		})
 
 		expect(data.unequipFlair.__typename).toBe("User")
 		expect(data.unequipFlair.equippedFlair).toBeNull()
@@ -199,8 +218,10 @@ describe("myFlairs", () => {
 			{ userId: user.id, flairId: retired.id },
 		])
 
-		const data = await expectData(MY_FLAIRS, { as: user })
-		const ids = data.myFlairs.map((f: { id: string }) => f.id)
+		const data = await expectData<{ myFlairs: FlairChip[] }>(MY_FLAIRS, {
+			as: user,
+		})
+		const ids = data.myFlairs.map((f) => f.id)
 
 		expect(ids).toContain(open.id)
 		expect(ids).toContain(mine.id)
@@ -212,7 +233,7 @@ describe("myFlairs", () => {
 		const team = await makeTeam()
 		await teamFlair(team.id)
 
-		const data = await expectData(MY_FLAIRS, {})
+		const data = await expectData<{ myFlairs: FlairChip[] }>(MY_FLAIRS, {})
 
 		expect(data.myFlairs).toEqual([])
 	})
@@ -234,7 +255,9 @@ describe("myFlairs", () => {
 			.set({ name: "Boston Rebrand", abbreviation: "BRE", color: "#112233" })
 			.where(eq(teams.id, team.id))
 
-		const data = await expectData(MY_FLAIRS, { as: user })
+		const data = await expectData<{ myFlairs: FlairChip[] }>(MY_FLAIRS, {
+			as: user,
+		})
 		const flair = data.myFlairs[0]
 
 		expect(flair.label).toBe("Boston Rebrand")
@@ -245,15 +268,15 @@ describe("myFlairs", () => {
 
 describe("grantFlair / revokeFlair", () => {
 	it("grants, and granting twice leaves one row", async () => {
-		const admin = await makeUser({ isAdmin: true })
+		const admin = await makeAdmin()
 		const user = await makeUser()
 		const flair = await makeFlair()
 
-		await expectData(GRANT, {
+		await expectData<{ grantFlair: FlairUserResult }>(GRANT, {
 			as: admin,
 			variables: { userId: user.id, flairId: flair.id },
 		})
-		const data = await expectData(GRANT, {
+		const data = await expectData<{ grantFlair: FlairUserResult }>(GRANT, {
 			as: admin,
 			variables: { userId: user.id, flairId: flair.id },
 		})
@@ -263,12 +286,12 @@ describe("grantFlair / revokeFlair", () => {
 	})
 
 	it("refuses to grant an open flair, which everyone already has", async () => {
-		const admin = await makeUser({ isAdmin: true })
+		const admin = await makeAdmin()
 		const user = await makeUser()
 		const team = await makeTeam()
 		const flair = await teamFlair(team.id)
 
-		const data = await expectData(GRANT, {
+		const data = await expectData<{ grantFlair: FlairUserResult }>(GRANT, {
 			as: admin,
 			variables: { userId: user.id, flairId: flair.id },
 		})
@@ -280,7 +303,7 @@ describe("grantFlair / revokeFlair", () => {
 		const user = await makeUser()
 		const flair = await makeFlair()
 
-		const data = await expectData(GRANT, {
+		const data = await expectData<{ grantFlair: FlairUserResult }>(GRANT, {
 			as: user,
 			variables: { userId: user.id, flairId: flair.id },
 		})
@@ -289,7 +312,7 @@ describe("grantFlair / revokeFlair", () => {
 	})
 
 	it("unequips the flair it revokes", async () => {
-		const admin = await makeUser({ isAdmin: true })
+		const admin = await makeAdmin()
 		const user = await makeUser()
 		const flair = await makeFlair()
 		await db.insert(userFlairs).values({ userId: user.id, flairId: flair.id })
@@ -298,7 +321,7 @@ describe("grantFlair / revokeFlair", () => {
 			.set({ equippedFlairId: flair.id })
 			.where(eq(users.id, user.id))
 
-		const data = await expectData(REVOKE, {
+		const data = await expectData<{ revokeFlair: FlairUserResult }>(REVOKE, {
 			as: admin,
 			variables: { userId: user.id, flairId: flair.id },
 		})
@@ -309,7 +332,7 @@ describe("grantFlair / revokeFlair", () => {
 	})
 
 	it("leaves a different equipped flair alone when revoking", async () => {
-		const admin = await makeUser({ isAdmin: true })
+		const admin = await makeAdmin()
 		const user = await makeUser()
 		const team = await makeTeam()
 		const worn = await teamFlair(team.id)
@@ -320,12 +343,12 @@ describe("grantFlair / revokeFlair", () => {
 			.set({ equippedFlairId: worn.id })
 			.where(eq(users.id, user.id))
 
-		const data = await expectData(REVOKE, {
+		const data = await expectData<{ revokeFlair: FlairUserResult }>(REVOKE, {
 			as: admin,
 			variables: { userId: user.id, flairId: revoked.id },
 		})
 
-		expect(data.revokeFlair.equippedFlair.id).toBe(worn.id)
+		expect(data.revokeFlair.equippedFlair?.id).toBe(worn.id)
 	})
 })
 

@@ -3,7 +3,9 @@ import {
 	addHits,
 	boundedLossRate,
 	countHits,
+	ownHitRate,
 	pooledHitRate,
+	pushWithin,
 	stepRate,
 	sumHits,
 } from "./pooling"
@@ -16,6 +18,27 @@ describe("countHits", () => {
 			total: 6,
 		})
 		expect(sumHits([[true], [false, true], []])).toEqual({ hits: 2, total: 3 })
+	})
+})
+
+describe("ownHitRate", () => {
+	it("is the share of results that hit", () => {
+		expect(ownHitRate([true, false, false, false])).toBe(0.25)
+		expect(ownHitRate([])).toBeNull()
+	})
+})
+
+describe("pushWithin", () => {
+	it("keeps each list to the first `window` values", () => {
+		const lists = new Map<string, number[]>()
+		for (const value of [1, 2, 3]) pushWithin(lists, "a", value, 2)
+		pushWithin(lists, "b", 4, 2)
+		expect(lists).toEqual(
+			new Map([
+				["a", [1, 2]],
+				["b", [4]],
+			]),
+		)
 	})
 })
 

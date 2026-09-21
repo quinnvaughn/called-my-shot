@@ -1,8 +1,8 @@
 import type { StreakFamily } from "@called-my-shot/scoring"
 import { and, eq } from "drizzle-orm"
 import { achievementNotices } from "../../db/schema"
+import type { Tx } from "../../db/types"
 import { createNotifications, type NotificationInput } from "../notifications"
-import type { Tx } from "../user-season-stats"
 
 // The identity of each announceable event. A streak event is tied to the run
 // it happened in (named by the run's first call), so a new run can reach the

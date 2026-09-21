@@ -1,11 +1,12 @@
 import { LOSS_RATE_BY_SHAPE } from "@called-my-shot/scoring"
 import { eq } from "drizzle-orm"
-import { beforeEach, describe, expect, it, vi } from "vitest"
+import { beforeEach, describe, expect, it } from "vitest"
 import { parseGenerationKey } from "../../lib/game-questions/generation-key"
 import { OFFICIAL_ACCOUNT_USERNAME } from "../../lib/official-account"
 import {
 	HOUR,
 	makeCall,
+	makeExternalRef,
 	makeGame,
 	makeLeague,
 	makePlayer,
@@ -21,24 +22,16 @@ import {
 } from "../catalog/game-question-catalog"
 import { db } from "../index"
 import {
-	externalRefs,
 	gameStarters,
 	games,
 	type League,
 	type Question,
 	type Team,
 } from "../schema"
-import {
-	type EspnSeasonStatistics,
-	fetchAthleteSeasonStatistics,
-} from "./espn-client"
-import { gamesInWindow, generateGameQuestions } from "./generate-game-questions"
+import type { EspnSeasonStatistics } from "./espn-client"
+import { generateGameQuestions } from "./generate-game-questions"
 import { syncGameQuestions } from "./sync-game-questions"
-
-vi.mock("./espn-client", async (importOriginal) => ({
-	...(await importOriginal<typeof import("./espn-client")>()),
-	fetchAthleteSeasonStatistics: vi.fn(),
-}))
+import { type FakeEspnClient, fakeEspnClient } from "./test-support"
 
 const NOW = new Date("2026-11-10T16:00:00Z")
 const hoursFromNow = (hours: number) => new Date(NOW.getTime() + hours * HOUR)
@@ -70,6 +63,7 @@ const run = (templates?: GameQuestionTemplate[], leagueSlug = "nba") =>
 	generateGameQuestions({
 		now: NOW,
 		spacingMs: 0,
+		espn,
 		catalog: templates
 			? {
 					templates: {
@@ -83,6 +77,8 @@ const run = (templates?: GameQuestionTemplate[], leagueSlug = "nba") =>
 				}
 			: {},
 	})
+
+let espn: FakeEspnClient
 
 // ESPN season statistics by athlete id, then season year.
 let seasonStats: Record<string, Record<number, EspnSeasonStatistics>> = {}
@@ -122,8 +118,8 @@ function mlbBattingSeason(hitsPerGame: number, gamesPlayed: number) {
 
 beforeEach(() => {
 	seasonStats = {}
-	vi.mocked(fetchAthleteSeasonStatistics).mockReset()
-	vi.mocked(fetchAthleteSeasonStatistics).mockImplementation(
+	espn = fakeEspnClient()
+	espn.fetchAthleteSeasonStatistics.mockImplementation(
 		async (_sportPath, year, espnAthleteId) =>
 			seasonStats[espnAthleteId]?.[year] ?? null,
 	)
@@ -166,12 +162,7 @@ async function addPlayer(
 		currentTeamId: team.id,
 		positions: player.positions ?? [],
 	})
-	await db.insert(externalRefs).values({
-		source: "espn",
-		entityType: "player",
-		sourceId: `${league.slug}:${player.espnId}`,
-		entityId: row.id,
-	})
+	await makeExternalRef("player", `${league.slug}:${player.espnId}`, row.id)
 	seasonStats[player.espnId] = player.seasons
 	return row
 }
@@ -735,39 +726,5 @@ describe("syncGameQuestions", () => {
 		for (const question of posted) {
 			expect(question.locksAt.getTime()).toBe(movedTo.getTime())
 		}
-	})
-})
-
-describe("gamesInWindow", () => {
-	const nflGame = (hours: number, weekNumber: number | null) => ({
-		startsAt: hoursFromNow(hours),
-		seasonId: "season",
-		seasonType: "regular" as const,
-		weekNumber,
-	})
-
-	it("takes the whole week the next NFL game belongs to", () => {
-		const thursday = nflGame(2, 3)
-		const sunday = nflGame(74, 3)
-		const nextWeek = nflGame(170, 4)
-		expect(
-			gamesInWindow([nextWeek, sunday, thursday], { kind: "week" }, NOW),
-		).toEqual([thursday, sunday])
-	})
-
-	it("leaves out a game about to start", () => {
-		const aboutToStart = nflGame(0.5, 3)
-		const later = nflGame(3, 3)
-		expect(gamesInWindow([aboutToStart, later], { kind: "week" }, NOW)).toEqual(
-			[later],
-		)
-	})
-
-	it("takes the hours ahead for a daily league", () => {
-		const tonight = nflGame(10, null)
-		const dayAfter = nflGame(40, null)
-		expect(
-			gamesInWindow([dayAfter, tonight], { kind: "ahead", ms: 30 * HOUR }, NOW),
-		).toEqual([tonight])
 	})
 })

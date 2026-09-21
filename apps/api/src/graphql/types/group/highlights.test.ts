@@ -1,69 +1,19 @@
 import { describe, expect, it } from "vitest"
 import { db } from "../../../db"
+import { type User, userStreaks, userSweeps } from "../../../db/schema"
 import {
-	groupLeagues,
-	groupMembers,
-	groups,
-	type League,
-	type User,
-	userStreaks,
-	userSweeps,
-} from "../../../db/schema"
-import { makeLeague, makeSeason, makeUser } from "../../../test/factories"
+	makeGroup,
+	makeLeague,
+	makeSeason,
+	makeStreak,
+	makeUser,
+} from "../../../test/factories"
 import { expectData } from "../../../test/graphql"
 
 // The highlights band on a group page: who's hot, who's cold, who just swept.
 // Bound by the group's tracked leagues and nothing else - unlike the
 // leaderboard there's no league tab or season to narrow it, because a streak
 // has no season to filter by.
-
-async function makeGroup(
-	admin: User,
-	members: User[] = [],
-	leagues: League[] = [],
-) {
-	const [group] = await db
-		.insert(groups)
-		.values({ name: "Test group", createdBy: admin.id })
-		.returning()
-	await db.insert(groupMembers).values([
-		{ groupId: group.id, userId: admin.id, role: "admin" as const },
-		...members.map((m) => ({
-			groupId: group.id,
-			userId: m.id,
-			role: "member" as const,
-		})),
-	])
-	if (leagues.length > 0) {
-		await db
-			.insert(groupLeagues)
-			.values(leagues.map((l) => ({ groupId: group.id, leagueId: l.id })))
-	}
-	return group
-}
-
-function makeStreak(
-	user: User,
-	league: League,
-	lengths: {
-		currentLength?: number
-		bestLength?: number
-		currentColdLength?: number
-		worstColdLength?: number
-	},
-) {
-	return db.insert(userStreaks).values({
-		userId: user.id,
-		leagueId: league.id,
-		family: "winners" as const,
-		currentLength: 0,
-		bestLength: 0,
-		currentColdLength: 0,
-		worstColdLength: 0,
-		lastSettledAt: new Date(),
-		...lengths,
-	})
-}
 
 const HIGHLIGHTS = /* GraphQL */ `
 	query Highlights($groupId: ID!, $limit: Int) {
@@ -130,9 +80,21 @@ describe("group highlights", () => {
 			makeUser(),
 		])
 		const league = await makeLeague()
-		const group = await makeGroup(admin, [hotter, cooler])
-		await makeStreak(hotter, league, { currentLength: 7, bestLength: 9 })
-		await makeStreak(cooler, league, { currentLength: 4, bestLength: 4 })
+		const group = await makeGroup({ admin: admin, members: [hotter, cooler] })
+		await makeStreak({
+			userId: hotter.id,
+			leagueId: league.id,
+			lastSettledAt: new Date(),
+			currentLength: 7,
+			bestLength: 9,
+		})
+		await makeStreak({
+			userId: cooler.id,
+			leagueId: league.id,
+			lastSettledAt: new Date(),
+			currentLength: 4,
+			bestLength: 4,
+		})
 
 		const { group: data } = await highlightsFor(group.id, admin)
 		expect(data.hotStreaks).toEqual([
@@ -156,8 +118,14 @@ describe("group highlights", () => {
 	it("leaves a run shorter than HOT_STREAK_MIN off the hot list", async () => {
 		const [admin, member] = await Promise.all([makeUser(), makeUser()])
 		const league = await makeLeague()
-		const group = await makeGroup(admin, [member])
-		await makeStreak(member, league, { currentLength: 2, bestLength: 2 })
+		const group = await makeGroup({ admin: admin, members: [member] })
+		await makeStreak({
+			userId: member.id,
+			leagueId: league.id,
+			lastSettledAt: new Date(),
+			currentLength: 2,
+			bestLength: 2,
+		})
 
 		const { group: data } = await highlightsFor(group.id, admin)
 		expect(data.hotStreaks).toEqual([])
@@ -167,10 +135,13 @@ describe("group highlights", () => {
 	it("lists a cold-only track, which never reaches the hot list", async () => {
 		const [admin, member] = await Promise.all([makeUser(), makeUser()])
 		const league = await makeLeague()
-		const group = await makeGroup(admin, [member])
+		const group = await makeGroup({ admin: admin, members: [member] })
 		// Nothing but misses: bestLength stays 0, so this track is invisible to
 		// every hot list but is exactly what the cold one is for.
-		await makeStreak(member, league, {
+		await makeStreak({
+			userId: member.id,
+			leagueId: league.id,
+			lastSettledAt: new Date(),
 			currentColdLength: 5,
 			worstColdLength: 5,
 		})
@@ -190,9 +161,12 @@ describe("group highlights", () => {
 	it("keeps the records list when no run is live, so the band has a fallback", async () => {
 		const [admin, member] = await Promise.all([makeUser(), makeUser()])
 		const league = await makeLeague()
-		const group = await makeGroup(admin, [member])
+		const group = await makeGroup({ admin: admin, members: [member] })
 		// A run that ended: nothing current, but a best worth remembering.
-		await makeStreak(member, league, {
+		await makeStreak({
+			userId: member.id,
+			leagueId: league.id,
+			lastSettledAt: new Date(),
 			currentLength: 0,
 			bestLength: 6,
 			currentColdLength: 1,
@@ -209,8 +183,18 @@ describe("group highlights", () => {
 	it("counts only the group's tracked leagues", async () => {
 		const [admin, member] = await Promise.all([makeUser(), makeUser()])
 		const [tracked, untracked] = await Promise.all([makeLeague(), makeLeague()])
-		const group = await makeGroup(admin, [member], [tracked])
-		await makeStreak(member, tracked, { currentLength: 5, bestLength: 5 })
+		const group = await makeGroup({
+			admin: admin,
+			members: [member],
+			leagueIds: [tracked.id],
+		})
+		await makeStreak({
+			userId: member.id,
+			leagueId: tracked.id,
+			lastSettledAt: new Date(),
+			currentLength: 5,
+			bestLength: 5,
+		})
 		await db.insert(userStreaks).values({
 			userId: member.id,
 			leagueId: untracked.id,
@@ -228,8 +212,14 @@ describe("group highlights", () => {
 	it("leaves out a streak belonging to someone outside the group", async () => {
 		const [admin, outsider] = await Promise.all([makeUser(), makeUser()])
 		const league = await makeLeague()
-		const group = await makeGroup(admin)
-		await makeStreak(outsider, league, { currentLength: 8, bestLength: 8 })
+		const group = await makeGroup({ admin: admin })
+		await makeStreak({
+			userId: outsider.id,
+			leagueId: league.id,
+			lastSettledAt: new Date(),
+			currentLength: 8,
+			bestLength: 8,
+		})
 
 		const { group: data } = await highlightsFor(group.id, admin)
 		expect(data.hotStreaks).toEqual([])
@@ -239,7 +229,7 @@ describe("group highlights", () => {
 		const [admin, member] = await Promise.all([makeUser(), makeUser()])
 		const league = await makeLeague()
 		const season = await makeSeason({ leagueId: league.id })
-		const group = await makeGroup(admin, [member])
+		const group = await makeGroup({ admin: admin, members: [member] })
 		await db.insert(userSweeps).values([
 			{
 				userId: member.id,

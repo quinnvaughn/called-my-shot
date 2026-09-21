@@ -359,7 +359,8 @@ ResolutionDigest.PreviewProps = {
 			points: 210,
 			isWin: true,
 			marginLabel: null,
-			callUrl: "https://calledmyshot.com/calls/9f2a3b1c-0000-4000-8000-000000000001",
+			callUrl:
+				"https://calledmyshot.com/calls/9f2a3b1c-0000-4000-8000-000000000001",
 		},
 		{
 			questionTitle: "Bills to win outright",
@@ -369,7 +370,8 @@ ResolutionDigest.PreviewProps = {
 			points: 130,
 			isWin: true,
 			marginLabel: "Never in doubt",
-			callUrl: "https://calledmyshot.com/calls/9f2a3b1c-0000-4000-8000-000000000002",
+			callUrl:
+				"https://calledmyshot.com/calls/9f2a3b1c-0000-4000-8000-000000000002",
 		},
 		{
 			questionTitle: "Travis Kelce to score a touchdown",
@@ -379,7 +381,8 @@ ResolutionDigest.PreviewProps = {
 			points: -40,
 			isWin: false,
 			marginLabel: null,
-			callUrl: "https://calledmyshot.com/calls/9f2a3b1c-0000-4000-8000-000000000003",
+			callUrl:
+				"https://calledmyshot.com/calls/9f2a3b1c-0000-4000-8000-000000000003",
 		},
 	],
 	achievements: [
@@ -392,7 +395,8 @@ ResolutionDigest.PreviewProps = {
 			url: "https://calledmyshot.com/user/preview/streaks/nfl/player_stats",
 		},
 	],
-	primaryCallUrl: "https://calledmyshot.com/calls/9f2a3b1c-0000-4000-8000-000000000001",
+	primaryCallUrl:
+		"https://calledmyshot.com/calls/9f2a3b1c-0000-4000-8000-000000000001",
 	allCallsUrl: "https://calledmyshot.com/my-calls",
 	manageUrl: "https://calledmyshot.com/settings",
 	unsubscribeUrl: "https://calledmyshot.com/unsubscribe?token=preview",

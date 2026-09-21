@@ -1,10 +1,11 @@
 import { randomInt } from "node:crypto"
 import { eq } from "drizzle-orm"
 import { DateTime } from "luxon"
+import { match } from "ts-pattern"
 import { db } from "../db"
 import { groupInvites, groupLeagues } from "../db/schema"
+import type { DbOrTx } from "../db/types"
 import { AuthorizationError, NotFoundError, ValidationError } from "./errors"
-import type { Tx } from "./user-season-stats"
 
 // Excludes 0/O and 1/I/L - easy to tell apart if someone reads or types it by hand.
 const INVITE_CODE_ALPHABET = "23456789ABCDEFGHJKMNPQRSTUVWXYZ"
@@ -47,28 +48,33 @@ export type InviteExpiryOption =
 	| "NO_EXPIRY"
 
 export function expiryToDate(expiry: InviteExpiryOption): Date | null {
-	switch (expiry) {
-		case "TWENTY_FOUR_HOURS":
-			return DateTime.now().plus({ hours: 24 }).toJSDate()
-		case "SEVEN_DAYS":
-			return DateTime.now().plus({ days: 7 }).toJSDate()
-		case "NO_EXPIRY":
-			return null
-	}
+	return match(expiry)
+		.with("TWENTY_FOUR_HOURS", () =>
+			DateTime.now().plus({ hours: 24 }).toJSDate(),
+		)
+		.with("SEVEN_DAYS", () => DateTime.now().plus({ days: 7 }).toJSDate())
+		.with("NO_EXPIRY", () => null)
+		.exhaustive()
 }
 
+// Inside a caller's transaction each attempt runs in its own savepoint, so a
+// code collision rolls back just that attempt rather than aborting the
+// caller's whole transaction.
 export function insertGroupInvite(
 	groupId: string,
 	createdBy: string,
 	expiresAt: Date | null,
+	executor: DbOrTx = db,
 ) {
-	return withRetriedCode(async (code) => {
-		const [invite] = await db
-			.insert(groupInvites)
-			.values({ groupId, createdBy, code, expiresAt })
-			.returning()
-		return invite
-	})
+	return withRetriedCode((code) =>
+		executor.transaction(async (sp) => {
+			const [invite] = await sp
+				.insert(groupInvites)
+				.values({ groupId, createdBy, code, expiresAt })
+				.returning()
+			return invite
+		}),
+	)
 }
 
 // Every member gets one invite link per group - fetch theirs, creating it on
@@ -156,7 +162,7 @@ export async function requireKnownLeagueIds(leagueIds: string[]) {
 // Replaces the whole set rather than diffing it - a group tracks a handful of
 // leagues at most, and an empty list clears it back to every league.
 export async function setTrackedLeagues(
-	executor: typeof db | Tx,
+	executor: DbOrTx,
 	groupId: string,
 	leagueIds: string[],
 ) {
@@ -167,7 +173,17 @@ export async function setTrackedLeagues(
 		.values(leagueIds.map((leagueId) => ({ groupId, leagueId })))
 }
 
-export async function requireAdmin(groupId: string, userId: string) {
+export async function requireGroupMember(groupId: string, userId: string) {
+	const membership = await db.query.groupMembers.findFirst({
+		where: { groupId, userId },
+	})
+	if (!membership) {
+		throw new AuthorizationError("You're not a member of this group.")
+	}
+	return membership
+}
+
+export async function requireGroupAdmin(groupId: string, userId: string) {
 	const membership = await db.query.groupMembers.findFirst({
 		where: { groupId, userId },
 	})

@@ -1,6 +1,7 @@
 import { match } from "ts-pattern"
 import { db } from "../db"
 import type { Season } from "../db/schema"
+import { ValidationError } from "./errors"
 
 // "Current" for a league = the season actually in progress right now
 // (regular season through its postseason, if it has one), or if none is in
@@ -49,6 +50,23 @@ export async function getCurrentSeason(
 ): Promise<Season | null> {
 	const rows = await db.query.seasons.findMany({ where: { leagueId } })
 	return pickCurrentSeason(rows)
+}
+
+// getCurrentSeason for write paths that can't proceed without one: a league
+// whose seasons haven't synced yet has nothing to attach a question or ballot
+// to.
+export async function requireCurrentSeason(
+	leagueId: string,
+	field: string | null = "leagueId",
+): Promise<Season> {
+	const season = await getCurrentSeason(leagueId)
+	if (!season) {
+		throw ValidationError.field(
+			field,
+			"This league isn't set up yet - no season data has synced for it.",
+		)
+	}
+	return season
 }
 
 // Every season a league has synced rows for, newest first. startedOnly drops

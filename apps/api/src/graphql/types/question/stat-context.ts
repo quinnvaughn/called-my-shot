@@ -33,7 +33,10 @@ const GameRef = builder
 	.implement({
 		fields: (t) => ({
 			gameId: t.exposeID("gameId"),
-			date: t.string({ resolve: (g) => g.date.toISOString() }),
+			date: t.field({
+				type: "DateTime",
+				resolve: (g) => g.date,
+			}),
 			opponentTeamId: t.exposeID("opponentTeamId"),
 			isHome: t.exposeBoolean("isHome"),
 			// Null on a night off, and also when ESPN recorded no number. The

@@ -1,12 +1,13 @@
-import { isMainModule } from "../../lib/is-main-module"
+import { BOX_SCORE_SYNC_LOCK } from "../../lib/job-lock"
+import { runCli } from "../../lib/run-cli"
+import { DAY_MS } from "../../lib/time"
 import {
 	type BackfillResult,
 	backfillBoxScores,
 	selectBackfillGames,
 } from "./backfill-box-scores"
+import type { EspnClient } from "./espn-client"
 import { DEFAULT_ESPN_SPACING_MS } from "./espn-requester"
-
-const DAY_MS = 24 * 60 * 60 * 1000
 
 // How far back a tick looks for a game it never captured. Recent gaps are the
 // sweep's job; anything older is history, which is what the backfill script is
@@ -29,12 +30,17 @@ const GAMES_PER_RUN = 40
 // generated matchup one would otherwise never be captured at all. Generated
 // player questions cover most games in practice, but only inside
 // generate-game-questions' own window, so "most" is not "all".
-export async function syncBoxScores(
-	args: { now?: Date; limit?: number; spacingMs?: number } = {},
-): Promise<BackfillResult & { pending: number }> {
-	const now = args.now ?? new Date()
-	const limit = args.limit ?? GAMES_PER_RUN
-
+export async function syncBoxScores({
+	now = new Date(),
+	limit = GAMES_PER_RUN,
+	spacingMs = DEFAULT_ESPN_SPACING_MS,
+	espn,
+}: {
+	now?: Date
+	limit?: number
+	spacingMs?: number
+	espn?: EspnClient
+} = {}): Promise<BackfillResult & { pending: number }> {
 	const selection = await selectBackfillGames({
 		from: new Date(now.getTime() - LOOKBACK_DAYS * DAY_MS),
 		limit,
@@ -56,7 +62,8 @@ export async function syncBoxScores(
 	const result = await backfillBoxScores({
 		candidates: selection.candidates,
 		now,
-		spacingMs: args.spacingMs ?? DEFAULT_ESPN_SPACING_MS,
+		spacingMs,
+		espn,
 	})
 
 	if (result.captured > 0) {
@@ -68,11 +75,4 @@ export async function syncBoxScores(
 	return { ...result, pending: selection.candidates.length }
 }
 
-if (isMainModule(import.meta.url)) {
-	syncBoxScores()
-		.then(() => process.exit(0))
-		.catch((err) => {
-			console.error(err)
-			process.exit(1)
-		})
-}
+runCli(import.meta.url, syncBoxScores, { lock: BOX_SCORE_SYNC_LOCK })

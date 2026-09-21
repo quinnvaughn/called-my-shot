@@ -2,21 +2,23 @@ import { asc, eq, getColumns } from "drizzle-orm"
 import { db } from "../../../db"
 import type { Game } from "../../../db/schema"
 import { games, leagues, players, teams } from "../../../db/schema"
+import { SLOT_LABELS_BY_LEAGUE } from "../../../db/sync/slot-labels"
 import {
+	adminListArgs,
 	buildAdminConnection,
-	clampAdminPageSize,
-	SortDirection,
 	sortColumn,
 } from "../../../lib/admin-pagination"
-import { requireAdmin } from "../../../lib/auth"
 import {
 	AuthenticationError,
 	AuthorizationError,
 	NotFoundError,
 } from "../../../lib/errors"
-import { decodeOffsetCursor } from "../../../lib/pagination"
 import { getCurrentSeason, listLeagueSeasons } from "../../../lib/seasons"
+import { isUuid } from "../../../lib/uuid"
+import { getLeagueWindows, pickDefaultWindowIndex } from "../../../lib/windows"
 import { builder } from "../../builder"
+import { clampTypeahead } from "../../helpers"
+import { SortDirection } from "../pagination"
 import {
 	AdminGameConnectionRef,
 	AdminLeagueConnectionRef,
@@ -35,10 +37,7 @@ import { LeagueRef, SeasonRef, SportRef } from "./league"
 import { TeamRef } from "./team"
 import {
 	GameWindowRef,
-	getLeagueWindows,
 	LeagueGamesForWindowResultRef,
-	pickDefaultWindowIndex,
-	SLOT_LABELS_BY_LEAGUE,
 	type SlotGroup,
 } from "./windows"
 
@@ -78,7 +77,9 @@ builder.queryFields((t) => ({
 		nullable: true,
 		args: { id: t.arg.id({ required: true }) },
 		resolve: (_root, args) =>
-			db.query.leagues.findFirst({ where: { id: args.id } }),
+			isUuid(args.id)
+				? db.query.leagues.findFirst({ where: { id: args.id } })
+				: null,
 	}),
 
 	// Single-game lookup, same reasoning as `league` above - lets the
@@ -91,7 +92,9 @@ builder.queryFields((t) => ({
 		nullable: true,
 		args: { id: t.arg.id({ required: true }) },
 		resolve: (_root, args) =>
-			db.query.games.findFirst({ where: { id: args.id } }),
+			isUuid(args.id)
+				? db.query.games.findFirst({ where: { id: args.id } })
+				: null,
 	}),
 
 	// Public, not admin-gated - powers the create-question form's "end of
@@ -152,9 +155,7 @@ builder.queryFields((t) => ({
 						: {}),
 				},
 				orderBy: { name: "asc" },
-				...(search
-					? { limit: Math.min(Math.max(args.first ?? 5, 1), 20) }
-					: {}),
+				...(search ? { limit: clampTypeahead(args.first, 5) } : {}),
 			})
 		},
 	}),
@@ -181,9 +182,7 @@ builder.queryFields((t) => ({
 					...(search ? { name: { ilike: `%${search}%` } } : {}),
 				},
 				orderBy: { name: "asc" },
-				...(search
-					? { limit: Math.min(Math.max(args.first ?? 8, 1), 20) }
-					: {}),
+				...(search ? { limit: clampTypeahead(args.first, 8) } : {}),
 			})
 		},
 	}),
@@ -203,7 +202,7 @@ builder.queryFields((t) => ({
 			first: t.arg.int({ required: false }),
 		},
 		resolve: (_root, args) => {
-			const limit = Math.min(Math.max(args.first ?? 8, 1), 20)
+			const limit = clampTypeahead(args.first, 8)
 			// Split into per-team search tokens rather than matching the raw
 			// string as one substring - "denver boston"/"denver vs boston"
 			// should find Denver @ Boston (or Boston @ Denver) even though no
@@ -411,10 +410,7 @@ builder.queryFields((t) => ({
 			sortDir: t.arg({ type: SortDirection, required: false }),
 		},
 		resolve: async (_root, args, ctx) => {
-			requireAdmin(ctx)
-			const limit = clampAdminPageSize(args.first)
-			const offset = args.after ? decodeOffsetCursor(args.after) : 0
-			const sortDir = args.sortDir ?? "asc"
+			const { limit, offset, sortDir } = adminListArgs(ctx, args)
 			const column = args.sortBy === "status" ? leagues.status : leagues.name
 
 			const rows = await db
@@ -440,10 +436,7 @@ builder.queryFields((t) => ({
 			sortDir: t.arg({ type: SortDirection, required: false }),
 		},
 		resolve: async (_root, args, ctx) => {
-			requireAdmin(ctx)
-			const limit = clampAdminPageSize(args.first)
-			const offset = args.after ? decodeOffsetCursor(args.after) : 0
-			const sortDir = args.sortDir ?? "asc"
+			const { limit, offset, sortDir } = adminListArgs(ctx, args)
 			const column =
 				args.sortBy === "abbreviation" ? teams.abbreviation : teams.name
 
@@ -472,10 +465,7 @@ builder.queryFields((t) => ({
 			sortDir: t.arg({ type: SortDirection, required: false }),
 		},
 		resolve: async (_root, args, ctx) => {
-			requireAdmin(ctx)
-			const limit = clampAdminPageSize(args.first)
-			const offset = args.after ? decodeOffsetCursor(args.after) : 0
-			const sortDir = args.sortDir ?? "asc"
+			const { limit, offset, sortDir } = adminListArgs(ctx, args)
 			const column =
 				args.sortBy === "position" ? players.position : players.name
 
@@ -504,10 +494,7 @@ builder.queryFields((t) => ({
 			sortDir: t.arg({ type: SortDirection, required: false }),
 		},
 		resolve: async (_root, args, ctx) => {
-			requireAdmin(ctx)
-			const limit = clampAdminPageSize(args.first)
-			const offset = args.after ? decodeOffsetCursor(args.after) : 0
-			const sortDir = args.sortDir ?? "desc"
+			const { limit, offset, sortDir } = adminListArgs(ctx, args, "desc")
 			const column = args.sortBy === "status" ? games.status : games.startsAt
 
 			const rows = await db

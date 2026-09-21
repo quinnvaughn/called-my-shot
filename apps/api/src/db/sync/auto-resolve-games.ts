@@ -2,14 +2,8 @@ import {
 	autoResolutionSource,
 	autoResolveStatKeyFor,
 } from "@called-my-shot/schemas"
+import { autoResolveNotes } from "../../lib/auto-resolve/apply"
 import {
-	type ApplyContext,
-	applyDecision,
-	autoVoidedNote,
-	isAttemptDue,
-} from "../../lib/auto-resolve/apply"
-import {
-	type Decision,
 	decideFinalScore,
 	decideGameQuestion,
 	fail,
@@ -20,77 +14,53 @@ import {
 	type GameSourceNeed,
 	type GameSources,
 } from "../../lib/auto-resolve/registry"
-import { isMainModule } from "../../lib/is-main-module"
+import { AUTO_RESOLVE_GAMES_LOCK } from "../../lib/job-lock"
+import { runCli } from "../../lib/run-cli"
+import { HOUR_MS } from "../../lib/time"
 import { db } from "../index"
+import {
+	type AutoResolveJobOptions,
+	type AutoResolveRun,
+	applierFor,
+	loadDueCandidates,
+	runAutoResolveJob,
+} from "./auto-resolve-job"
 import { parseBoxScore } from "./box-score-parse"
 import { persistBoxScore } from "./box-score-store"
-import {
-	EspnRequestError,
-	fetchCompetitorAthleteStatistics,
-	fetchCompetitorRoster,
-	fetchGameSummary,
-} from "./espn-client"
-import {
-	createEspnRequester,
-	DEFAULT_ESPN_SPACING_MS,
-	type EspnRequester,
-} from "./espn-requester"
 import { SYNCED_LEAGUES } from "./leagues"
-
-const HOUR_MS = 60 * 60 * 1000
+import { byEspnId, loadEspnIds } from "./sync-refs"
 
 // How long past the game going final a retryable failure keeps being retried
 // before the question is handed to an admin.
 export const ESCALATE_AFTER_MS = 12 * HOUR_MS
 
-const RESOLVED_NOTE = "Resolved automatically from ESPN's box score."
-const voidedNoteFor = autoVoidedNote("ESPN's box score")
-
-const CANDIDATE_RELATIONS = {
-	game: true,
-	league: true,
-	stat: true,
-	options: true,
-	autoResolution: true,
-} as const
+const NOTES = autoResolveNotes("ESPN's box score")
 
 // System questions on final games: the ones still waiting on a result, and
 // settled ones whose re-check is due. A box score that isn't complete yet fails
 // as box_score_not_final and is retried, and a stat ESPN corrects later is
 // caught by the re-check. team_vs_team is settled by resolveGameWinner the
 // moment the game goes final, so only its re-check comes through here.
-async function loadCandidates(now: Date) {
-	const game = { status: "final" } as const
-	const [unsettled, awaitingRecheck] = await Promise.all([
+const loadCandidates = (now: Date) =>
+	loadDueCandidates(now, (due, phase) =>
 		db.query.questions.findMany({
 			where: {
 				resolutionMode: "system",
-				shape: { ne: "team_vs_team" },
-				status: { in: ["open", "locked"] },
-				locksAt: { lte: now },
-				game,
+				game: { status: "final" },
+				...(phase === "unsettled"
+					? { shape: { ne: "team_vs_team" as const } }
+					: {}),
+				...due,
 			},
-			with: CANDIDATE_RELATIONS,
-		}),
-		db.query.questions.findMany({
-			where: {
-				resolutionMode: "system",
-				resolutionMethod: "system",
-				status: { in: ["resolved", "voided"] },
-				game,
-				autoResolution: {
-					recheckDueAt: { lte: now },
-					recheckedAt: { isNull: true },
-				},
+			with: {
+				game: true,
+				league: true,
+				stat: true,
+				options: true,
+				autoResolution: true,
 			},
-			with: CANDIDATE_RELATIONS,
 		}),
-	])
-
-	return [...unsettled, ...awaitingRecheck].filter((question) =>
-		isAttemptDue(question, now),
 	)
-}
 
 type Candidate = Awaited<ReturnType<typeof loadCandidates>>[number]
 
@@ -99,45 +69,21 @@ const subjectPlayerIds = (question: Candidate) =>
 		(id): id is string => id !== null,
 	)
 
-const espnIdOf = (sourceId: string) => sourceId.split(":")[1] ?? sourceId
-
 async function loadEspnRefs(
 	game: { id: string; homeTeamId: string; awayTeamId: string },
 	group: Candidate[],
 ) {
-	const playerIds = [...new Set(group.flatMap(subjectPlayerIds))]
-	const [gameRef, teamRefs, playerRefs] = await Promise.all([
-		db.query.externalRefs.findFirst({
-			where: { source: "espn", entityType: "game", entityId: game.id },
-		}),
-		db.query.externalRefs.findMany({
-			where: {
-				source: "espn",
-				entityType: "team",
-				entityId: { in: [game.homeTeamId, game.awayTeamId] },
-			},
-		}),
-		playerIds.length > 0
-			? db.query.externalRefs.findMany({
-					where: {
-						source: "espn",
-						entityType: "player",
-						entityId: { in: playerIds },
-					},
-				})
-			: [],
-	])
+	const [eventIds, espnTeamIdByTeamId, espnAthleteIdByPlayerId] =
+		await Promise.all([
+			loadEspnIds("game", [game.id]),
+			loadEspnIds("team", [game.homeTeamId, game.awayTeamId]),
+			loadEspnIds("player", group.flatMap(subjectPlayerIds)),
+		])
 	return {
-		espnEventId: gameRef ? espnIdOf(gameRef.sourceId) : null,
-		espnTeamIdByTeamId: new Map(
-			teamRefs.map((ref) => [ref.entityId, espnIdOf(ref.sourceId)]),
-		),
-		espnAthleteIdByPlayerId: new Map(
-			playerRefs.map((ref) => [ref.entityId, espnIdOf(ref.sourceId)]),
-		),
-		playerIdByEspnAthleteId: new Map(
-			playerRefs.map((ref) => [espnIdOf(ref.sourceId), ref.entityId]),
-		),
+		espnEventId: eventIds.get(game.id) ?? null,
+		espnTeamIdByTeamId,
+		espnAthleteIdByPlayerId,
+		playerIdByEspnAthleteId: byEspnId(espnAthleteIdByPlayerId),
 	}
 }
 
@@ -160,27 +106,19 @@ function extractorFor(
 // once, then settles each question from it.
 async function processGame(
 	group: Candidate[],
-	requester: EspnRequester,
-	now: Date,
+	{ now, espn, requester }: AutoResolveRun,
 ): Promise<void> {
 	const game = group[0]?.game
 	const league = group[0]?.league
 	if (!game || !league) return
-	const contextFor = (resolutionSourceUrl: string | null): ApplyContext => ({
+	const { apply, applyAll } = applierFor(group, {
 		now,
 		escalateAt: new Date(
 			(game.finalizedAt ?? now).getTime() + ESCALATE_AFTER_MS,
 		),
 		resolutionSource: autoResolutionSource("game"),
-		resolutionSourceUrl,
-		resolvedNote: RESOLVED_NOTE,
-		voidedNote: voidedNoteFor,
+		...NOTES,
 	})
-	const applyAll = async (decision: Decision) => {
-		for (const question of group) {
-			await applyDecision(question.id, decision, contextFor(null))
-		}
-	}
 
 	const config = SYNCED_LEAGUES.find((c) => c.leagueSlug === league.slug)
 	const refs = await loadEspnRefs(game, group)
@@ -192,7 +130,7 @@ async function processGame(
 
 	const summary = await requester.request(
 		`${league.slug} summary ${espnEventId}`,
-		() => fetchGameSummary(config.espnPath, espnEventId),
+		() => espn.fetchGameSummary(config.espnPath, espnEventId),
 	)
 	if (!summary) {
 		await applyAll(fail("fetch_failed", "couldn't fetch the box score"))
@@ -222,7 +160,8 @@ async function processGame(
 		for (const espnTeamId of refs.espnTeamIdByTeamId.values()) {
 			const roster = await requester.request(
 				`${league.slug} roster ${espnEventId}/${espnTeamId}`,
-				() => fetchCompetitorRoster(config.espnPath, espnEventId, espnTeamId),
+				() =>
+					espn.fetchCompetitorRoster(config.espnPath, espnEventId, espnTeamId),
 			)
 			if (!roster) {
 				failedNeeds.add("roster")
@@ -252,7 +191,7 @@ async function processGame(
 			const stats = await requester.request(
 				`${league.slug} athlete ${espnAthleteId}`,
 				() =>
-					fetchCompetitorAthleteStatistics(
+					espn.fetchCompetitorAthleteStatistics(
 						config.espnPath,
 						espnEventId,
 						athlete.espnTeamId,
@@ -276,9 +215,7 @@ async function processGame(
 		}
 	}
 
-	const ctx = contextFor(
-		`https://www.espn.com/${league.slug}/boxscore/_/gameId/${espnEventId}`,
-	)
+	const boxScoreUrl = `https://www.espn.com/${league.slug}/boxscore/_/gameId/${espnEventId}`
 	for (const { question, extractor } of planned) {
 		const decision =
 			question.shape === "team_vs_team"
@@ -305,7 +242,7 @@ async function processGame(
 								homeTeamId: game.homeTeamId,
 								awayTeamId: game.awayTeamId,
 							})
-		await applyDecision(question.id, decision, ctx)
+		await apply(question.id, decision, boxScoreUrl)
 	}
 
 	// Last, deliberately. The box score is already fetched and parsed, so
@@ -330,49 +267,19 @@ async function processGame(
 	}
 }
 
-export async function autoResolveGames({
-	now = new Date(),
-	spacingMs = DEFAULT_ESPN_SPACING_MS,
-}: {
-	now?: Date
-	spacingMs?: number
-} = {}): Promise<void> {
-	const candidates = await loadCandidates(now)
-	if (candidates.length === 0) {
-		console.log("[auto-resolve-games] nothing due")
-		return
-	}
-
-	const byGame = new Map<string, Candidate[]>()
-	for (const question of candidates) {
-		if (!question.gameId) continue
-		byGame.set(question.gameId, [
-			...(byGame.get(question.gameId) ?? []),
-			question,
-		])
-	}
-
-	const requester = createEspnRequester("auto-resolve-games", spacingMs)
-	for (const [gameId, group] of byGame) {
-		try {
-			await processGame(group, requester, now)
-		} catch (err) {
-			// ESPN refusing us ends the run; anything else is one game's problem.
-			if (err instanceof EspnRequestError) throw err
-			console.error(`[auto-resolve-games] game ${gameId} failed:`, err)
-		}
-	}
-
-	console.log(
-		`[auto-resolve-games] ${candidates.length} question(s) across ${byGame.size} game(s), ${requester.count()} ESPN request(s)`,
+export function autoResolveGames(
+	options: AutoResolveJobOptions = {},
+): Promise<void> {
+	return runAutoResolveJob(
+		{
+			name: "auto-resolve-games",
+			unit: "game",
+			loadCandidates,
+			groupKey: (question) => question.gameId,
+			processGroup: processGame,
+		},
+		options,
 	)
 }
 
-if (isMainModule(import.meta.url)) {
-	autoResolveGames()
-		.then(() => process.exit(0))
-		.catch((err) => {
-			console.error(err)
-			process.exit(1)
-		})
-}
+runCli(import.meta.url, autoResolveGames, { lock: AUTO_RESOLVE_GAMES_LOCK })

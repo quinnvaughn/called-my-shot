@@ -1,17 +1,19 @@
-import { isSeasonLongShape, STREAK_FAMILY_LABEL } from "@called-my-shot/scoring"
+import { STREAK_FAMILY_LABEL } from "@called-my-shot/scoring"
 import { and, count, eq, lte, sql } from "drizzle-orm"
 import { db } from "../../../db"
-import { type Call, calls, games } from "../../../db/schema"
-import { aggregatePointsByUser } from "../../../lib/points-aggregate"
-import { accuracyFrom } from "../../../lib/scoring"
+import { type Call, calls } from "../../../db/schema"
 import { builder } from "../../builder"
+import type { Context } from "../../context"
 import { type Connection, PageInfoRef } from "../pagination"
 import { StreakFamilyEnum } from "../user/enums"
 import { CallUnscoredReason } from "./enums"
 import {
 	type CallStreakMark,
-	getCallStreakLoader,
-	getQuestionLeagueIdLoader,
+	callerLeagueAccuracyLoader,
+	callSelectionsLoader,
+	callStreakLoader,
+	loadQuestionFacts,
+	loadSeasonWindow,
 } from "./loaders"
 
 // How far into a streak a call was when it landed - see Call.streak.
@@ -39,28 +41,12 @@ export const CallSelectionRef = builder.drizzleObject("callSelections", {
 	}),
 })
 
-// Shared by seasonGamesPlayed/seasonTotalGames on CallRef below - both need
-// the same season-long gate and the same games list (games between season
-// start and this question's own locksAt, matching the window
-// resolveQuestionInternal bounds by at real resolution time - see that
-// function for why locksAt, not a fixed regular-season cutoff, is the right
-// boundary). Returns null for a game-scoped question, where neither field is
-// meaningful.
-async function seasonGamesInWindow(call: Call) {
-	const question = await db.query.questions.findFirst({
-		where: { id: call.questionId },
-		columns: { shape: true, seasonId: true, locksAt: true },
-	})
-	if (!question || !isSeasonLongShape(question.shape)) return null
-	return db
-		.select({ startsAt: games.startsAt, status: games.status })
-		.from(games)
-		.where(
-			and(
-				eq(games.seasonId, question.seasonId),
-				lte(games.startsAt, question.locksAt),
-			),
-		)
+// A call's season window is its question's, with games counted as played
+// only if they were final by the time the call was made.
+async function callSeasonWindow(ctx: Context, call: Call) {
+	const question = await loadQuestionFacts(ctx, call.questionId)
+	if (!question) return null
+	return loadSeasonWindow(ctx, question, call.createdAt)
 }
 
 export const CallRef = builder.drizzleObject("calls", {
@@ -94,8 +80,8 @@ export const CallRef = builder.drizzleObject("calls", {
 			resolve: (call) => call.unscoredReason,
 		}),
 		createdAt: t.field({
-			type: "String",
-			resolve: (call) => call.createdAt.toISOString(),
+			type: "DateTime",
+			resolve: (call) => call.createdAt,
 		}),
 		// live: this call's 1-indexed position among every call on its question,
 		// ordered by createdAt - paired client-side with the question's live
@@ -144,22 +130,19 @@ export const CallRef = builder.drizzleObject("calls", {
 		seasonGamesPlayed: t.field({
 			type: "Int",
 			nullable: true,
-			resolve: async (call) => {
-				const seasonGames = await seasonGamesInWindow(call)
-				if (!seasonGames) return null
-				return seasonGames.filter(
-					(g) => g.status === "final" && g.startsAt <= call.createdAt,
-				).length
+			resolve: async (call, _args, ctx) => {
+				const window = await callSeasonWindow(ctx, call)
+				return window?.played ?? null
 			},
 		}),
 		// Total games in the same window seasonGamesPlayed counts against - see
-		// seasonGamesInWindow above for how that window is bounded.
+		// loadSeasonWindow for how that window is bounded.
 		seasonTotalGames: t.field({
 			type: "Int",
 			nullable: true,
-			resolve: async (call) => {
-				const seasonGames = await seasonGamesInWindow(call)
-				return seasonGames?.length ?? null
+			resolve: async (call, _args, ctx) => {
+				const window = await callSeasonWindow(ctx, call)
+				return window?.total ?? null
 			},
 		}),
 		user: t.relation("user"),
@@ -169,7 +152,7 @@ export const CallRef = builder.drizzleObject("calls", {
 		streak: t.field({
 			type: CallStreakMarkRef,
 			nullable: true,
-			resolve: (call, _args, ctx) => getCallStreakLoader(ctx).load(call.id),
+			resolve: (call, _args, ctx) => callStreakLoader(ctx).load(call.id),
 		}),
 		// Not pick info - shown even on a locked call to signal "this person
 		// tends to be right in this league", the same way identity is. Scoped to
@@ -182,23 +165,14 @@ export const CallRef = builder.drizzleObject("calls", {
 			type: "Float",
 			nullable: true,
 			resolve: async (call, _args, ctx) => {
-				const leagueId = await getQuestionLeagueIdLoader(ctx).load(
-					call.questionId,
+				const question = await loadQuestionFacts(ctx, call.questionId)
+				if (!question) return null
+				return callerLeagueAccuracyLoader(ctx).load(
+					`${call.userId}:${question.leagueId}`,
 				)
-				if (!leagueId) return null
-				const agg = await aggregatePointsByUser({
-					userIds: [call.userId],
-					leagueIds: [leagueId],
-				})
-				const summary = agg.get(call.userId)
-				return summary ? accuracyFrom(summary) : null
 			},
 		}),
-		selections: t.field({
-			type: [CallSelectionRef],
-			resolve: (call) =>
-				db.query.callSelections.findMany({ where: { callId: call.id } }),
-		}),
+		selections: t.relation("selections"),
 		// Always true, and no current web code selects it. It stays in the
 		// schema so a web build that still does keeps working while the api and
 		// web deploys overlap; delete it once that build is no longer serving.
@@ -212,11 +186,9 @@ export const CallRef = builder.drizzleObject("calls", {
 		totalPoints: t.field({
 			type: "Int",
 			nullable: true,
-			resolve: async (call) => {
+			resolve: async (call, _args, ctx) => {
 				if (call.resultPoints !== null) return call.resultPoints
-				const selections = await db.query.callSelections.findMany({
-					where: { callId: call.id },
-				})
+				const selections = await callSelectionsLoader(ctx).load(call.id)
 				if (selections.length === 0) return null
 				if (selections.some((s) => s.resultPoints === null)) return null
 				return selections.reduce((sum, s) => sum + (s.resultPoints ?? 0), 0)

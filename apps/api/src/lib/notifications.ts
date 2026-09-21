@@ -1,9 +1,7 @@
 import { questionTitleWithGame } from "@called-my-shot/schemas"
 import type { StreakFamily } from "@called-my-shot/scoring"
-import type { db } from "../db"
 import { notifications } from "../db/schema"
-
-type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0]
+import type { Tx } from "../db/types"
 
 export type NotificationInput =
 	| {

@@ -1,7 +1,11 @@
 import { eq } from "drizzle-orm"
 import { db } from "../index"
 import { players } from "../schema"
-import { type EspnAthlete, fetchRoster, fetchTeams } from "./espn-client"
+import {
+	defaultEspnClient,
+	type EspnAthlete,
+	type EspnClient,
+} from "./espn-client"
 import type { SyncLeagueConfig } from "./leagues"
 import { findRefEntityId, linkRef, scopedSourceId } from "./sync-refs"
 
@@ -67,8 +71,9 @@ async function syncAthlete(
 export async function syncPlayers(
 	config: SyncLeagueConfig,
 	currentSeasonYear: number,
+	espn: EspnClient = defaultEspnClient,
 ): Promise<void> {
-	const espnTeams = await fetchTeams(config.espnPath)
+	const espnTeams = await espn.fetchTeams(config.espnPath)
 
 	for (const espnTeam of espnTeams) {
 		const teamId = await db.transaction((tx) =>
@@ -88,7 +93,7 @@ export async function syncPlayers(
 			)
 			continue
 		}
-		const roster = await fetchRoster(config.espnPath, espnTeam.id)
+		const roster = await espn.fetchRoster(config.espnPath, espnTeam.id)
 		for (const athlete of roster) {
 			// A handful of roster entries (two-way/practice squad placeholders)
 			// come back with no name - nothing useful to store, skip them.

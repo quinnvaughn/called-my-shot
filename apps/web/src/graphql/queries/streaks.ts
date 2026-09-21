@@ -3,8 +3,7 @@ import { gqlQueryOptions } from "#/graphql/query-options"
 import type { StreakFamilyValue } from "#/lib/streak-meta"
 
 // Everything a streak page needs. Both runs are selected because a track
-// whose current run has ended leads with its best one instead. Deliberately
-// does NOT select user.email, same as CallRecordDocument: this page is public.
+// whose current run has ended leads with its best one instead.
 export const UserStreakPageDocument = graphql(`
 	query UserStreakPage(
 		$username: String!

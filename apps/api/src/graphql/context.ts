@@ -1,63 +1,46 @@
 import type { Request, Response } from "express"
 import type { User } from "../db/schema"
-import type { LeaderboardEntry } from "../lib/global-leaderboard"
 import {
 	clearSessionCookie,
 	getSessionWithUser,
 	SESSION_COOKIE_NAME,
 } from "../lib/session"
-import type { GroupHighlights, GroupLeaderboardEntry } from "./types/group"
+import { isUuid } from "../lib/uuid"
 
 export type Context = {
 	req: Request
 	res: Response
 	sessionId: string | null
 	user: User | null
-	// Single-flight, per-request caches, keyed per leaderboard (leagueId
-	// alone for the site-wide one, groupId+leagueId for a group's) - each
-	// leaderboard has 2-3 GraphQL fields (leaderboard/viewerRank/
-	// viewerLeaderboardEntry) that need the exact same ranking on the same
-	// request. Caching the in-flight promise, not just the resolved value,
-	// means whichever field resolves second reuses the first's DB round trip
-	// instead of recomputing it from scratch. See graphql/types/leaderboard.ts
-	// and graphql/types/group/leaderboard.ts.
-	globalLeaderboardCache: Map<string, Promise<LeaderboardEntry[]>>
-	groupLeaderboardCache: Map<string, Promise<GroupLeaderboardEntry[]>>
-	// Same idea for a group's highlights band, keyed on groupId alone -
-	// hotStreaks/coldStreaks/streakRecords/recentSweeps all come off one page
-	// load and share one read of the roster. See graphql/types/group/
-	// highlights.ts.
-	groupHighlightsCache: Map<string, Promise<GroupHighlights>>
-	// Every team, by id, read at most once per request. A team flair stores
-	// no display fields of its own (see db/schema/flairs.ts), so each chip
-	// needs its team's name, abbreviation and color - and a leaderboard page
-	// renders one chip per row. Caching the in-flight promise rather than the
-	// value means 25 chips share one round trip, the same single-flight trick
-	// the leaderboard caches above use.
-	//
-	// Whole table rather than a per-id dataloader because it's ~90 rows of
-	// nearly static data, so one unfiltered read beats assembling a batch.
-	// See graphql/types/flair/refs.ts.
-	teamsByIdCache: { promise: Promise<Map<string, FlairTeam>> | null }
+	// Backs ctxCache below. Lives and dies with the request.
+	cache: Map<string, unknown>
+	// Accounts this request has proven it owns without a session behind it
+	// yet: signUp/signIn return the User before the cookie is ever read back,
+	// and confirmEmailChange is authorised by its token alone. canSeePrivate
+	// (lib/auth.ts) treats these the same as the signed-in viewer.
+	ownedUserIds: Set<string>
 }
 
-// Just the columns a flair chip renders. Not the full Team row, so nothing
-// here implies the chip can reach the rest of it.
-export type FlairTeam = {
-	abbreviation: string
-	name: string
-	color: string
+// Builds a value at most once per request under `key` and hands every later
+// caller the same one. Several GraphQL fields on one page often need the same
+// expensive read (a leaderboard's ranking, a group's highlights, the teams
+// table behind every flair chip); caching the in-flight promise rather than
+// the settled value means whichever field asks second shares the first one's
+// round trip instead of starting its own. Also holds per-request DataLoaders.
+//
+// Keys are namespaced by the caller ("groupLeaderboard:<groupId>:..."), and
+// each namespace must always build the same type.
+export function ctxCache<T>(ctx: Context, key: string, build: () => T): T {
+	if (ctx.cache.has(key)) return ctx.cache.get(key) as T
+	const value = build()
+	ctx.cache.set(key, value)
+	return value
 }
 
-const UUID_RE =
-	/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-
-function requestScopedCaches() {
+export function requestScopedCaches(): Pick<Context, "cache" | "ownedUserIds"> {
 	return {
-		globalLeaderboardCache: new Map(),
-		groupLeaderboardCache: new Map(),
-		groupHighlightsCache: new Map(),
-		teamsByIdCache: { promise: null },
+		cache: new Map(),
+		ownedUserIds: new Set(),
 	}
 }
 
@@ -73,7 +56,7 @@ export async function createContext({
 	// A cookie named "session" isn't ours to assume — some other localhost
 	// project may have left one behind. Treat anything that isn't a session
 	// id we could have issued as "not signed in" rather than a DB error.
-	if (!sessionId || !UUID_RE.test(sessionId)) {
+	if (!sessionId || !isUuid(sessionId)) {
 		if (sessionId) clearSessionCookie(res)
 		return { req, res, sessionId: null, user: null, ...requestScopedCaches() }
 	}

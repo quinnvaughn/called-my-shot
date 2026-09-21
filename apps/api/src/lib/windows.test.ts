@@ -1,11 +1,6 @@
 import { describe, expect, it } from "vitest"
-import {
-	makeGame,
-	makeLeague,
-	makeSeason,
-	makeTeam,
-} from "../../../test/factories"
-import { expectData } from "../../../test/graphql"
+import { makeGame, makeLeague, makeSeason, makeTeam } from "../test/factories"
+import { expectData } from "../test/graphql"
 import { buildWeekWindowKey, getLeagueWindows, parseWindowKey } from "./windows"
 
 describe("buildWeekWindowKey / parseWindowKey", () => {

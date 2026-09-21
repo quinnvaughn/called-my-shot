@@ -2,9 +2,7 @@
 // league-and-family run: how long it is, the best it has been, when the run
 // began and the last call that extended it.
 //
-// Same fixed 1200x630 and header/hero/footer bands as call-card.ts, for the
-// same reasons documented there, and built from its eyebrow/statCell pieces
-// so the cards read as one set.
+// Built on the shared og:image frame (see frame.ts).
 import {
 	resolveStreakMode,
 	STREAK_FAMILIES,
@@ -15,28 +13,13 @@ import {
 import { db } from "../../db"
 import { COLOR } from "../brand-palette"
 import { el, type SatoriNode } from "../share-image"
-import { brandWordmark } from "./brand-wordmark"
-import { clamp, eyebrow, statCell } from "./call-card"
 import { formatCallDate, loadCallSummaries } from "./call-summary"
+import { cardFrame, clamp, eyebrow, PERSON_MAX, statCell } from "./frame"
 
-const TARGET_WIDTH = 1200
-const TARGET_HEIGHT = 630
-export const STREAK_SHARE_CARD_SIZE = {
-	width: TARGET_WIDTH,
-	height: TARGET_HEIGHT,
-}
-
-const WORDMARK_SCALE = 1.7
-const wordmarkPx = (n: number) => `${Math.round(n * WORDMARK_SCALE)}px`
-
-const PERSON_MAX = 40
 // The last-hit cell shares the footer row with three short cells, which
 // leaves it roughly 420px: a pick at 28px and a title at 18px.
 const LAST_HIT_PICK_MAX = 24
 const LAST_HIT_TITLE_MAX = 40
-
-const HEADER_HEIGHT = 96
-const FOOTER_HEIGHT = 168
 
 // Which side of the track the card is about. A track can only be live on one
 // of them at a time, so the mode is settled when the data is loaded.
@@ -136,136 +119,55 @@ export function buildStreakShareCard(data: StreakShareCardData): SatoriNode {
 				lastCallCell(data.lastCall, "Last hit"),
 			]
 
-	return el(
-		"div",
-		{
-			display: "flex",
-			width: `${TARGET_WIDTH}px`,
-			height: `${TARGET_HEIGHT}px`,
-			padding: "14px",
-			backgroundColor: COLOR.paper,
-			fontFamily: "Inter",
-		},
-		[
-			el(
-				"div",
-				{
-					display: "flex",
-					flexDirection: "column",
-					flex: "1",
-					backgroundColor: COLOR.card,
-					color: COLOR.ink,
-					border: `1px solid ${COLOR.border}`,
-					borderRadius: "20px",
-				},
-				[
-					el(
-						"div",
-						{
-							display: "flex",
-							height: `${HEADER_HEIGHT}px`,
-							flexShrink: 0,
-							alignItems: "center",
-							justifyContent: "space-between",
-							paddingLeft: "36px",
-							paddingRight: "36px",
-							borderBottom: `1px solid ${COLOR.border}`,
-						},
-						[
-							brandWordmark(wordmarkPx, WORDMARK_SCALE),
-							eyebrow(
-								`${data.leagueAbbr} · ${data.familyLabel} ${cold ? "cold streak" : "streak"}`,
-							),
-						],
-					),
-					el(
-						"div",
-						{
-							display: "flex",
-							flexDirection: "column",
-							flex: "1",
-							overflow: "hidden",
-							alignItems: "center",
-							justifyContent: "center",
-							gap: "10px",
-							paddingLeft: "48px",
-							paddingRight: "48px",
-						},
-						[
-							eyebrow(clamp(data.name, PERSON_MAX)),
-							el(
-								"span",
-								{
-									display: "flex",
-									fontFamily: "Archivo Black",
-									fontSize: "120px",
-									lineHeight: 1,
-									color: COLOR.ink,
-								},
-								streakHero(data),
-							),
-							el(
-								"span",
-								{
-									display: "flex",
-									fontFamily: "Inter",
-									fontSize: "24px",
-									color: COLOR.steel,
-								},
-								cold
-									? `${track} call${runLength === 1 ? "" : "s"} wrong`
-									: going
-										? `${track} call${runLength === 1 ? "" : "s"} right`
-										: `Best run on ${track}`,
-							),
-						],
-					),
-					el(
-						"div",
-						{
-							display: "flex",
-							flexDirection: "column",
-							height: `${FOOTER_HEIGHT}px`,
-							flexShrink: 0,
-							justifyContent: "center",
-							gap: "14px",
-							paddingLeft: "36px",
-							paddingRight: "36px",
-							borderTop: `1px solid ${COLOR.border}`,
-						},
-						[
-							el(
-								"div",
-								{
-									display: "flex",
-									alignItems: "flex-end",
-									justifyContent: "space-between",
-									width: "100%",
-								},
-								cells,
-							),
-							el(
-								"div",
-								{
-									display: "flex",
-									alignItems: "center",
-									justifyContent: "space-between",
-									width: "100%",
-									fontFamily: "Space Mono",
-									fontSize: "17px",
-									color: COLOR.dim,
-								},
-								[
-									el("span", { display: "flex" }, `@${data.username}`),
-									el("span", { display: "flex" }, "calledmyshot.com"),
-								],
-							),
-						],
-					),
-				],
-			),
-		],
-	)
+	return cardFrame({
+		eyebrow: `${data.leagueAbbr} · ${data.familyLabel} ${cold ? "cold streak" : "streak"}`,
+		hero: el(
+			"div",
+			{
+				display: "flex",
+				flexDirection: "column",
+				flex: "1",
+				overflow: "hidden",
+				alignItems: "center",
+				justifyContent: "center",
+				gap: "10px",
+				paddingLeft: "48px",
+				paddingRight: "48px",
+			},
+			[
+				eyebrow(clamp(data.name, PERSON_MAX)),
+				el(
+					"span",
+					{
+						display: "flex",
+						fontFamily: "Archivo Black",
+						fontSize: "120px",
+						lineHeight: 1,
+						color: COLOR.ink,
+					},
+					streakHero(data),
+				),
+				el(
+					"span",
+					{
+						display: "flex",
+						fontFamily: "Inter",
+						fontSize: "24px",
+						color: COLOR.steel,
+					},
+					cold
+						? `${track} call${runLength === 1 ? "" : "s"} wrong`
+						: going
+							? `${track} call${runLength === 1 ? "" : "s"} right`
+							: `Best run on ${track}`,
+				),
+			],
+		),
+		cells,
+		username: data.username,
+		// The last-call cell stacks three lines, so the footer tightens up.
+		footerGap: "14px",
+	})
 }
 
 export function parseStreakFamily(param: string): StreakFamily | null {

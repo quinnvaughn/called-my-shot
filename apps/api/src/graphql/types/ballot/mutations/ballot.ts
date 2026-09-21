@@ -1,5 +1,5 @@
 import { createBallotSchema } from "@called-my-shot/schemas"
-import { and, eq, sql } from "drizzle-orm"
+import { and, eq } from "drizzle-orm"
 import { db } from "../../../../db"
 import { ballots } from "../../../../db/schema"
 import { requireAdmin } from "../../../../lib/auth"
@@ -10,69 +10,64 @@ import {
 	NotFoundError,
 	ValidationError,
 } from "../../../../lib/errors"
-import { getCurrentSeason } from "../../../../lib/seasons"
+import { nextPosition, writeOrder } from "../../../../lib/questions/ballot"
+import { requireCurrentSeason } from "../../../../lib/seasons"
 import { builder } from "../../../builder"
+import { parseInput } from "../../../helpers"
 import { BallotPayload, CreateBallotInput } from "../inputs"
 
 builder.mutationFields((t) => ({
 	createBallot: t.field({
 		type: BallotPayload,
 		errors: {
-			types: [AuthenticationError, AuthorizationError, ValidationError],
+			types: [AuthenticationError, AuthorizationError],
 			directResult: true,
 			union: { name: "CreateBallotResult" },
 		},
 		args: { input: t.arg({ type: CreateBallotInput, required: true }) },
 		resolve: async (_root, args, ctx) => {
 			const user = requireAdmin(ctx)
-			const parsed = createBallotSchema.safeParse(args.input)
-			if (!parsed.success)
-				throw ValidationError.fromZodIssues(parsed.error.issues)
+			const data = parseInput(createBallotSchema, args.input)
 
 			const league = await db.query.leagues.findFirst({
-				where: { id: parsed.data.leagueId },
+				where: { id: data.leagueId },
 			})
 			if (!league) throw ValidationError.field("leagueId", "League not found")
 
 			// sportId/seasonId are always derived, never asked of the admin - see
 			// ballots.sportId/seasonId in db/schema/ballots.ts.
-			const season = await getCurrentSeason(league.id)
-			if (!season) {
-				throw ValidationError.field(
-					"leagueId",
-					"This league isn't set up yet - no season data has synced for it.",
-				)
-			}
+			const season = await requireCurrentSeason(league.id)
+			const slug = await generateUniqueBallotSlug({
+				leagueSlug: league.slug,
+				seasonDisplayName: season.displayName,
+				name: data.name,
+			})
 
-			// Appends to the end of its (league, season) rather than taking the
-			// column default, same derivation attachQuestionToBallot uses for a
-			// new member - a ballot made by hand mid-season shouldn't jump ahead
-			// of the ones already sitting there.
-			const [{ maxSortOrder }] = await db
-				.select({
-					maxSortOrder: sql<number>`coalesce(max(${ballots.sortOrder}), 0)`,
-				})
-				.from(ballots)
-				.where(
+			const ballot = await db.transaction(async (tx) => {
+				// Appends to the end of its (league, season) rather than taking the
+				// column default, same as a new ballot member - a ballot made by
+				// hand mid-season shouldn't jump ahead of the ones already there.
+				const sortOrder = await nextPosition(
+					tx,
+					ballots,
+					ballots.sortOrder,
 					and(eq(ballots.leagueId, league.id), eq(ballots.seasonId, season.id)),
+					1,
 				)
-
-			const [ballot] = await db
-				.insert(ballots)
-				.values({
-					name: parsed.data.name,
-					slug: await generateUniqueBallotSlug({
-						leagueSlug: league.slug,
-						seasonDisplayName: season.displayName,
-						name: parsed.data.name,
-					}),
-					sportId: league.sportId,
-					leagueId: league.id,
-					seasonId: season.id,
-					createdBy: user.id,
-					sortOrder: maxSortOrder + 1,
-				})
-				.returning()
+				const [ballot] = await tx
+					.insert(ballots)
+					.values({
+						name: data.name,
+						slug,
+						sportId: league.sportId,
+						leagueId: league.id,
+						seasonId: season.id,
+						createdBy: user.id,
+						sortOrder,
+					})
+					.returning()
+				return ballot
+			})
 
 			return { ballot }
 		},
@@ -81,12 +76,7 @@ builder.mutationFields((t) => ({
 	renameBallot: t.field({
 		type: BallotPayload,
 		errors: {
-			types: [
-				AuthenticationError,
-				AuthorizationError,
-				NotFoundError,
-				ValidationError,
-			],
+			types: [AuthenticationError, AuthorizationError, NotFoundError],
 			directResult: true,
 			union: { name: "RenameBallotResult" },
 		},
@@ -162,7 +152,7 @@ builder.mutationFields((t) => ({
 	reorderBallots: t.field({
 		type: "Boolean",
 		errors: {
-			types: [AuthenticationError, AuthorizationError, ValidationError],
+			types: [AuthenticationError, AuthorizationError],
 			union: { name: "ReorderBallotsResult" },
 		},
 		args: {
@@ -176,27 +166,15 @@ builder.mutationFields((t) => ({
 				where: { leagueId: args.leagueId, seasonId: args.seasonId },
 				columns: { id: true },
 			})
-			const currentIds = new Set(current.map((r) => r.id))
-			const incoming = args.orderedBallotIds as string[]
-			const sameSet =
-				incoming.length === currentIds.size &&
-				incoming.every((id) => currentIds.has(id))
-			if (!sameSet) {
-				throw ValidationError.field(
-					"orderedBallotIds",
+			await writeOrder({
+				currentIds: current.map((r) => r.id),
+				orderedIds: args.orderedBallotIds as string[],
+				field: "orderedBallotIds",
+				mismatchMessage:
 					"That doesn't match this league and season's current ballots",
-				)
-			}
-
-			await db.transaction(async (tx) => {
-				await Promise.all(
-					incoming.map((ballotId, index) =>
-						tx
-							.update(ballots)
-							.set({ sortOrder: index + 1 })
-							.where(eq(ballots.id, ballotId)),
-					),
-				)
+				first: 1,
+				setPosition: (tx, ballotId, sortOrder) =>
+					tx.update(ballots).set({ sortOrder }).where(eq(ballots.id, ballotId)),
 			})
 			return true
 		},

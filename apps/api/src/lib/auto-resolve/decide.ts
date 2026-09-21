@@ -275,7 +275,9 @@ export function decideGameQuestion(ctx: GameQuestionContext): Decision {
 		// up. A pool player the box score doesn't list put up none of the stat,
 		// the same reading a season pool leader gets.
 		const valueByOptionId = new Map(
-			options.flatMap((o) => (o.playerId ? [[o.id, 0] as const] : [])),
+			options.flatMap((o): [string, number][] =>
+				o.playerId ? [[o.id, 0]] : [],
+			),
 		)
 		for (const [espnAthleteId, v] of values) {
 			const playerId = ctx.playerIdByEspnAthleteId.get(espnAthleteId)

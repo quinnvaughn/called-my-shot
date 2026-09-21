@@ -16,7 +16,8 @@
 			"packages/*/src/**/*",
 			"!apps/web/src/routeTree.gen.ts",
 			"!apps/web/src/styles.css",
-			"!apps/web/src/graphql/generated"
+			"!apps/web/src/graphql/generated",
+			"!apps/api/src/db/sync/fixtures"
 		]
 	},
 	"formatter": {

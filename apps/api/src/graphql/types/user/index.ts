@@ -15,3 +15,4 @@ import "./admin-report"
 // side-effect imports above, never referenced by name from outside.
 export { StreakFamilyEnum } from "./enums"
 export { QuestionVoidRef, UserRef } from "./refs"
+export { getGlobalLeaderboard } from "./stats"

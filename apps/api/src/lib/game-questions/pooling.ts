@@ -66,3 +66,63 @@ export function stepRate(
 	)
 	return rate === current ? null : rate
 }
+
+// A group's own hit rate, with nothing pooled in.
+export function ownHitRate(results: boolean[]): number | null {
+	if (results.length === 0) return null
+	return results.filter(Boolean).length / results.length
+}
+
+// Adds `value` to `key`'s list in `lists` unless the list already holds
+// `window` values. Fed most recent first, each list keeps only the latest.
+export function pushWithin<T>(
+	lists: Map<string, T[]>,
+	key: string,
+	value: T,
+	window: number,
+): void {
+	const list = lists.get(key) ?? []
+	if (list.length < window) list.push(value)
+	lists.set(key, list)
+}
+
+// How a pooled loss rate is tuned for one family of questions (game stat
+// leaders, titles).
+export type LossRateTuning = {
+	// The fewest resolved questions, across every group, before any rate
+	// moves.
+	minSample: number
+	// The most recent resolved questions each group's record is read over.
+	window: number
+	// How many results every other group counts as while one group's own
+	// record is small - see pooledHitRate.
+	poolWeight: number
+	// The most a rate moves in one run.
+	maxStep: number
+	minRate: number
+	maxRate: number
+}
+
+export type LossRateTuner = ReturnType<typeof lossRateTuner>
+
+// The pooled loss rate math for one family of questions, set by its tuning.
+export function lossRateTuner(tuning: LossRateTuning) {
+	const suggested = (hitRate: number | null) =>
+		boundedLossRate(hitRate, tuning.minRate, tuning.maxRate)
+	return {
+		tuning,
+		// A group's record leaning on `pool` (every group's results, its own
+		// included) until its own is large.
+		blended: (results: boolean[], pool: HitCount) =>
+			pooledHitRate(countHits(results), pool, tuning.poolWeight),
+		// Where a pick that hits `hitRate` of the time breaks even, in bounds.
+		suggested,
+		// The rate to move to from `current`, or null to leave it: too few
+		// resolved questions anywhere to go on, or already where the record
+		// points.
+		next: (current: number, hitRate: number | null, poolTotal: number) =>
+			poolTotal < tuning.minSample
+				? null
+				: stepRate(current, suggested(hitRate), tuning.maxStep),
+	}
+}

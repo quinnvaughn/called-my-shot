@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest"
-import type { SatoriNode } from "../share-image"
-import { buildCallShareCard, CALL_SHARE_CARD_SIZE } from "./call-card"
+import { textNodes } from "../../test/helpers"
+import { buildCallShareCard } from "./call-card"
+import { SHARE_CARD_SIZE } from "./frame"
 
 // This card is a fixed 1200x630. satori clips anything past that viewBox
 // silently - no warning, no scaling - and an overflowing flex child paints
@@ -8,20 +9,6 @@ import { buildCallShareCard, CALL_SHARE_CARD_SIZE } from "./call-card"
 // buries the footer instead of erroring. The caps are the only thing standing
 // between that and an unfurl nobody looks at twice, and nothing else in the
 // system would notice they had drifted.
-
-function textNodes(node: SatoriNode, out: string[] = []): string[] {
-	const children = node.props.children
-	if (typeof children === "string") {
-		out.push(children)
-	} else if (Array.isArray(children)) {
-		for (const child of children as SatoriNode[]) {
-			if (child && typeof child === "object") textNodes(child, out)
-		}
-	} else if (children && typeof children === "object") {
-		textNodes(children as SatoriNode, out)
-	}
-	return out
-}
 
 const base = {
 	questionTitle: "Patrick Mahomes over 275.5 passing yards vs. Buffalo",
@@ -50,7 +37,10 @@ const MAX_TEXT_LENGTH = 200
 
 describe("buildCallShareCard", () => {
 	it("renders at exactly the size X crops og:image to", () => {
-		expect(CALL_SHARE_CARD_SIZE).toEqual({ width: 1200, height: 630 })
+		expect(SHARE_CARD_SIZE).toEqual({ width: 1200, height: 630 })
+		const node = buildCallShareCard(base)
+		expect(node.props.style?.width).toBe("1200px")
+		expect(node.props.style?.height).toBe("630px")
 	})
 
 	it("caps every text node when the case runs long", () => {
@@ -67,7 +57,9 @@ describe("buildCallShareCard", () => {
 		const node = buildCallShareCard({
 			...base,
 			pickLabel: "Minnesota Timberwolves to win the Western Conference Finals",
-			questionTitle: "Which team will win the 2027 Western Conference ".repeat(6),
+			questionTitle: "Which team will win the 2027 Western Conference ".repeat(
+				6,
+			),
 		})
 		const texts = textNodes(node)
 		for (const text of texts) {

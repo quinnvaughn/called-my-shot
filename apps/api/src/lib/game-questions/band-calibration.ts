@@ -6,7 +6,8 @@ import {
 	toleranceBand,
 } from "@called-my-shot/scoring"
 import { db } from "../../db"
-import { median } from "./tune-lines"
+import { DAY_MS } from "../time"
+import { median } from "./line-calibration"
 
 // A team numeric guess breaks even when it hits this often - see
 // breakEvenHitRate. A band is on target within TARGET_SPREAD either side.
@@ -59,16 +60,6 @@ export function bandTemplates(): BandTemplate[] {
 	return BAND_TEMPLATES
 }
 
-export function bandTemplate(
-	leagueSlug: string,
-	statName: string,
-): BandTemplate | undefined {
-	return bandTemplates().find(
-		(template) =>
-			template.leagueSlug === leagueSlug && template.statName === statName,
-	)
-}
-
 type FinalGame = {
 	seasonId: string
 	homeTeamId: string
@@ -115,9 +106,7 @@ export async function scoreSamples(
 		columns: { id: true },
 	})
 	if (!league) return []
-	const since = new Date(
-		now.getTime() - BAND_TUNING.lookbackDays * 24 * 60 * 60 * 1000,
-	)
+	const since = new Date(now.getTime() - BAND_TUNING.lookbackDays * DAY_MS)
 	const finals = await db.query.games.findMany({
 		where: { leagueId: league.id, status: "final", startsAt: { gte: since } },
 		columns: {

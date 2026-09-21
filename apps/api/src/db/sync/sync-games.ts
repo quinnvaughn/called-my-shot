@@ -9,15 +9,16 @@ import {
 	questions,
 	teamRecords,
 } from "../schema"
+import type { Tx } from "../types"
 import {
+	defaultEspnClient,
+	type EspnClient,
 	type EspnEvent,
 	type EspnEventStatus,
-	fetchSchedule,
-	fetchTeams,
 } from "./espn-client"
 import type { SyncLeagueConfig } from "./leagues"
 import { deriveNflSlot } from "./nfl-slot"
-import { findRefEntityId, linkRef, scopedSourceId, type Tx } from "./sync-refs"
+import { findRefEntityId, linkRef, scopedSourceId } from "./sync-refs"
 
 // 2 = regular season, 3 = postseason - matches SYNCED_SEASON_TYPES in
 // espn-client.ts, the only two types this app ever syncs.
@@ -181,6 +182,7 @@ async function syncEvent(
 	leagueSlug: string,
 	leagueId: string,
 	event: EspnEvent,
+	now: Date,
 ): Promise<void> {
 	const competition = event.competitions[0]
 	const [home, away] = competition.competitors
@@ -255,6 +257,7 @@ async function syncEvent(
 				awayTeamId,
 				homeScore,
 				awayScore,
+				now,
 			)
 		}
 		return
@@ -275,7 +278,7 @@ async function syncEvent(
 			atHalftime,
 			homeScore,
 			awayScore,
-			finalizedAt: status === "final" ? new Date() : null,
+			finalizedAt: status === "final" ? now : null,
 		})
 		.returning()
 	if (!row)
@@ -299,6 +302,7 @@ async function syncTeamRecord(
 	leagueSlug: string,
 	espnTeamId: string,
 	schedule: EspnEvent[],
+	now: Date,
 ): Promise<void> {
 	const sorted = [...schedule].sort(
 		(a, b) => new Date(a.date).getTime() - new Date(b.date).getTime(),
@@ -329,7 +333,7 @@ async function syncTeamRecord(
 		.values({ teamId, seasonId, wins, losses, ties })
 		.onConflictDoUpdate({
 			target: [teamRecords.teamId, teamRecords.seasonId],
-			set: { wins, losses, ties, updatedAt: new Date() },
+			set: { wins, losses, ties, updatedAt: now },
 		})
 }
 
@@ -340,18 +344,29 @@ async function syncTeamRecord(
 export async function syncGames(
 	config: SyncLeagueConfig,
 	league: League,
+	{
+		now = new Date(),
+		espn = defaultEspnClient,
+	}: { now?: Date; espn?: EspnClient } = {},
 ): Promise<void> {
-	const espnTeams = await fetchTeams(config.espnPath)
+	const espnTeams = await espn.fetchTeams(config.espnPath)
 
 	for (const espnTeam of espnTeams) {
-		const schedule = await fetchSchedule(config.espnPath, espnTeam.id)
+		const schedule = await espn.fetchSchedule(config.espnPath, espnTeam.id)
 		for (const event of schedule) {
 			await db.transaction((tx) =>
-				syncEvent(tx, config.leagueSlug, league.id, event),
+				syncEvent(tx, config.leagueSlug, league.id, event, now),
 			)
 		}
 		await db.transaction((tx) =>
-			syncTeamRecord(tx, league.id, config.leagueSlug, espnTeam.id, schedule),
+			syncTeamRecord(
+				tx,
+				league.id,
+				config.leagueSlug,
+				espnTeam.id,
+				schedule,
+				now,
+			),
 		)
 	}
 }

@@ -1,6 +1,11 @@
 import { type AnyColumn, asc, desc } from "drizzle-orm"
-import { builder } from "../graphql/builder"
-import { encodeOffsetCursor } from "./pagination"
+import type { Context } from "../graphql/context"
+import { requireAdmin } from "./auth"
+import {
+	decodeOffsetCursor,
+	encodeOffsetCursor,
+	type PageArgs,
+} from "./pagination"
 
 // Shared by every admin list query (Data tab's leagues/teams/players/games,
 // plus the Questions/Users tabs) - offset-based cursor, not the keyset
@@ -8,9 +13,6 @@ import { encodeOffsetCursor } from "./pagination"
 // of these tables (leagues/teams/players/games) have no createdAt column at
 // all, and even where one exists, these are low-write-rate admin catalogs
 // scanned in bulk, so offset's "reshuffles on insert" downside is a non-issue.
-export const SortDirection = builder.enumType("SortDirection", {
-	values: { ASC: { value: "asc" }, DESC: { value: "desc" } },
-})
 
 // No caller asks for more than 100 at once - a deliberately higher ceiling
 // than lib/pagination's clampPageSize (50), since these are admin tables
@@ -45,6 +47,23 @@ export function buildAdminConnection<T>(
 	}
 }
 
-export function sortColumn(sortDir: "asc" | "desc", column: AnyColumn) {
+export function sortColumn(sortDir: SortDir, column: AnyColumn) {
 	return sortDir === "asc" ? asc(column) : desc(column)
+}
+
+export type SortDir = "asc" | "desc"
+
+// The preamble every admin list resolver shares: admins only, then the page
+// size, offset and sort direction its args ask for.
+export function adminListArgs(
+	ctx: Context,
+	args: PageArgs & { sortDir?: SortDir | null },
+	defaultSortDir: SortDir = "asc",
+): { limit: number; offset: number; sortDir: SortDir } {
+	requireAdmin(ctx)
+	return {
+		limit: clampAdminPageSize(args.first),
+		offset: args.after ? decodeOffsetCursor(args.after) : 0,
+		sortDir: args.sortDir ?? defaultSortDir,
+	}
 }

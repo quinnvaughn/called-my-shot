@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest"
-import { db } from "../db"
 import type { User } from "../db/schema"
 import {
 	makeCall,
@@ -10,7 +9,9 @@ import {
 	pastDate,
 } from "../test/factories"
 import { expectData } from "../test/graphql"
-import { type ResolvedBy, resolveQuestionInternal } from "./resolve-question"
+import { resolve } from "../test/helpers"
+import { soleCaller } from "./resolution/test-support"
+import type { ResolvedBy } from "./resolve-question"
 import {
 	loadFrequentCoCallers,
 	loadSelfGradingReport,
@@ -41,25 +42,18 @@ async function gradedQuestion(opts: {
 		const call = await makeCall(question.id, caller.user.id)
 		await makeSelection(call.id, options[caller.optionIndex].id)
 	}
-	await db.transaction((tx) =>
-		resolveQuestionInternal(
-			tx,
-			question,
-			{ correctOptionIds: [options[opts.correctIndex].id], resolutionNote: "" },
-			{
-				resolvedBy: opts.resolvedBy ?? {
-					method: "creator",
-					userId: opts.creator.id,
-				},
-				...(opts.soleCaller
-					? {
-							unscoredUserIds: new Map([
-								[opts.creator.id, "creator_sole_caller" as const],
-							]),
-						}
-					: {}),
+	await resolve(
+		question,
+		{ correctOptionIds: [options[opts.correctIndex].id] },
+		{
+			resolvedBy: opts.resolvedBy ?? {
+				method: "creator",
+				userId: opts.creator.id,
 			},
-		),
+			...(opts.soleCaller
+				? { unscoredUserIds: soleCaller(opts.creator.id) }
+				: {}),
+		},
 	)
 	return question
 }

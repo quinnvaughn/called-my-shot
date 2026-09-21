@@ -11,6 +11,7 @@ import {
 	setSessionCookie,
 } from "../../lib/session"
 import { builder } from "../builder"
+import { parseInput } from "../helpers"
 import { UserRef } from "./user"
 
 type AuthPayloadShape = { user: User }
@@ -49,11 +50,10 @@ builder.mutationType({
 			errors: { directResult: true, union: { name: "SignUpResult" } },
 			args: { input: t.arg({ type: SignUpInput, required: true }) },
 			resolve: async (_root, args, ctx): Promise<AuthPayloadShape> => {
-				const parsed = signUpSchema.safeParse(args.input)
-				if (!parsed.success) {
-					throw ValidationError.fromZodIssues(parsed.error.issues)
-				}
-				const { name, username, email, password } = parsed.data
+				const { name, username, email, password } = parseInput(
+					signUpSchema,
+					args.input,
+				)
 
 				const existing = await db.query.users.findFirst({
 					where: { OR: [{ email }, { username }] },
@@ -72,6 +72,7 @@ builder.mutationType({
 
 				const session = await createSession(user.id)
 				setSessionCookie(ctx.res, session)
+				ctx.ownedUserIds.add(user.id)
 
 				// An email outage shouldn't fail signup - the account is already
 				// created, this just kicks off the verification email.
@@ -86,11 +87,7 @@ builder.mutationType({
 			errors: { directResult: true, union: { name: "SignInResult" } },
 			args: { input: t.arg({ type: SignInInput, required: true }) },
 			resolve: async (_root, args, ctx): Promise<AuthPayloadShape> => {
-				const parsed = signInSchema.safeParse(args.input)
-				if (!parsed.success) {
-					throw ValidationError.fromZodIssues(parsed.error.issues)
-				}
-				const { identifier, password } = parsed.data
+				const { identifier, password } = parseInput(signInSchema, args.input)
 
 				const user = await db.query.users.findFirst({
 					where: { OR: [{ email: identifier }, { username: identifier }] },
@@ -104,6 +101,7 @@ builder.mutationType({
 
 				const session = await createSession(user.id)
 				setSessionCookie(ctx.res, session)
+				ctx.ownedUserIds.add(user.id)
 
 				return { user }
 			},

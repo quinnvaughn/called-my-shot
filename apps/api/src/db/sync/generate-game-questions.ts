@@ -1,7 +1,4 @@
-import {
-	autoResolutionSource,
-	resolutionModeFor,
-} from "@called-my-shot/schemas"
+import { autoResolutionSource } from "@called-my-shot/schemas"
 import { defaultLossRate } from "@called-my-shot/scoring"
 import { and, eq, notExists, sql } from "drizzle-orm"
 import { match } from "ts-pattern"
@@ -34,6 +31,14 @@ import {
 	type StarterPick,
 	startersPosted,
 } from "../../lib/game-questions/pick-subjects"
+import {
+	gamesInWindow,
+	isStale,
+	rosterCandidates,
+	subjectPlayerIds,
+	systemTemplates,
+	windowFor,
+} from "../../lib/game-questions/plan"
 import { refreshGeneratedQuestionSchedule } from "../../lib/game-questions/schedule"
 import { selectGameTemplates } from "../../lib/game-questions/select-templates"
 import { createTeamScoreCache } from "../../lib/game-questions/team-lines"
@@ -41,9 +46,10 @@ import {
 	type GameQuestionTitleFacts,
 	gameQuestionTitle,
 } from "../../lib/game-questions/titles"
-import { isMainModule } from "../../lib/is-main-module"
+import { GENERATE_GAME_QUESTIONS_LOCK } from "../../lib/job-lock"
 import { numericToleranceFor } from "../../lib/numeric-tolerance"
 import { getOfficialAccountId } from "../../lib/official-account"
+import { runCli } from "../../lib/run-cli"
 import {
 	activeGameTemplates,
 	type GameQuestionTemplate,
@@ -60,7 +66,7 @@ import {
 	type Season,
 	type Team,
 } from "../schema"
-import { fetchAthleteSeasonStatistics } from "./espn-client"
+import { defaultEspnClient, type EspnClient } from "./espn-client"
 import {
 	createEspnRequester,
 	DEFAULT_ESPN_SPACING_MS,
@@ -68,69 +74,7 @@ import {
 } from "./espn-requester"
 import { SYNCED_LEAGUES, type SyncLeagueConfig } from "./leagues"
 import { flattenCategorizedStatistics } from "./season-stats-parse"
-
-const MINUTE_MS = 60 * 1000
-const HOUR_MS = 60 * MINUTE_MS
-const DAY_MS = 24 * HOUR_MS
-
-// NBA and MLB questions go up about a day ahead of the game: late enough that
-// starters are mostly known, early enough to be called over a whole day.
-const DAILY_WINDOW_MS = 30 * HOUR_MS
-
-// A game this close to starting gets nothing new and loses nothing: whatever
-// is on it by now is what people are calling.
-const MIN_LEAD_MS = 60 * MINUTE_MS
-
-type GenerationWindow = { kind: "ahead"; ms: number } | { kind: "week" }
-
-function windowFor(leagueSlug: string): GenerationWindow | null {
-	return match(leagueSlug)
-		.returnType<GenerationWindow | null>()
-		.with("nba", "mlb", () => ({ kind: "ahead", ms: DAILY_WINDOW_MS }))
-		.with("nfl", () => ({ kind: "week" }))
-		.otherwise(() => null)
-}
-
-type WindowGame = Pick<
-	Game,
-	"startsAt" | "seasonId" | "seasonType" | "weekNumber"
->
-
-// The upcoming games a window covers, soonest first. An NFL week is the one
-// the next game belongs to, taken whole, so a week's questions all go up once
-// the previous week's last game has kicked off. A game without a week number
-// falls back to the seven days ahead.
-export function gamesInWindow<G extends WindowGame>(
-	upcoming: G[],
-	window: GenerationWindow,
-	now: Date,
-): G[] {
-	const msUntil = (game: G) => game.startsAt.getTime() - now.getTime()
-	const sorted = upcoming
-		.filter((game) => msUntil(game) > 0)
-		.sort((a, b) => a.startsAt.getTime() - b.startsAt.getTime())
-
-	const covered = match(window)
-		.with({ kind: "ahead" }, ({ ms }) =>
-			sorted.filter((game) => msUntil(game) <= ms),
-		)
-		.with({ kind: "week" }, () => {
-			const next = sorted[0]
-			if (!next) return []
-			if (next.weekNumber === null) {
-				return sorted.filter((game) => msUntil(game) <= 7 * DAY_MS)
-			}
-			return sorted.filter(
-				(game) =>
-					game.seasonId === next.seasonId &&
-					game.seasonType === next.seasonType &&
-					game.weekNumber === next.weekNumber,
-			)
-		})
-		.exhaustive()
-
-	return covered.filter((game) => msUntil(game) >= MIN_LEAD_MS)
-}
+import { loadEspnIds } from "./sync-refs"
 
 type DueGame = Game & { homeTeam: Team; awayTeam: Team; season: Season }
 
@@ -190,7 +134,8 @@ type PlannedQuestion = {
 
 type Samples = { season: SeasonSample | null; prior: SeasonSample | null }
 
-const espnIdOf = (sourceId: string) => sourceId.split(":")[1] ?? sourceId
+// What one run reads ESPN through.
+type EspnAccess = { espn: EspnClient; requester: EspnRequester }
 
 function loadCatalogStats(sportId: string, names: string[]) {
 	return db.query.stats.findMany({
@@ -203,7 +148,7 @@ function loadCatalogStats(sportId: string, names: string[]) {
 // ask for it. A failed or missing read is null, the same as no season at all.
 function createSeasonStatsCache(
 	config: SyncLeagueConfig,
-	requester: EspnRequester,
+	{ espn, requester }: EspnAccess,
 ) {
 	const cache = new Map<string, Map<string, number> | null>()
 	return async (espnAthleteId: string, year: number) => {
@@ -211,7 +156,8 @@ function createSeasonStatsCache(
 		if (cache.has(key)) return cache.get(key) ?? null
 		const statistics = await requester.request(
 			`${config.leagueSlug} athlete ${espnAthleteId} season ${year}`,
-			() => fetchAthleteSeasonStatistics(config.espnPath, year, espnAthleteId),
+			() =>
+				espn.fetchAthleteSeasonStatistics(config.espnPath, year, espnAthleteId),
 		)
 		const flattened = statistics
 			? flattenCategorizedStatistics(statistics)
@@ -219,33 +165,6 @@ function createSeasonStatsCache(
 		cache.set(key, flattened)
 		return flattened
 	}
-}
-
-// Templates whose questions would settle from ESPN on their own. Anything that
-// wouldn't is left out, so no generated question ever needs a person to grade
-// it.
-function systemTemplates(
-	leagueSlug: string,
-	templates: GameQuestionTemplate[],
-	statsByName: Map<string, CatalogStat>,
-): GameQuestionTemplate[] {
-	return templates.filter((template) => {
-		const stat = statsByName.get(template.statName)
-		const settles =
-			stat !== undefined &&
-			resolutionModeFor({
-				shape: template.shape,
-				leagueSlug,
-				statName: template.statName,
-			}) === "system" &&
-			(template.shape !== "team_stat_numeric_guess" || !!stat.toleranceTier)
-		if (!settles) {
-			console.error(
-				`[generate-game-questions] ${leagueSlug} template ${template.id} skipped: "${template.statName}" can't settle automatically`,
-			)
-		}
-		return settles
-	})
 }
 
 async function samplesFor(
@@ -272,29 +191,6 @@ async function samplesFor(
 	}
 }
 
-// A team's roster players at the pick's positions, shaped like starters in the
-// pick's role.
-function rosterCandidates(
-	ctx: LeagueContext,
-	teamId: string,
-	pick: StarterPick,
-): StarterCandidate[] {
-	return (ctx.rostersByTeamId.get(teamId) ?? [])
-		.filter(
-			(player) =>
-				!pick.positions ||
-				player.positions.some((position) => pick.positions?.includes(position)),
-		)
-		.map((player, index) => ({
-			playerId: player.id,
-			teamId,
-			role: pick.role,
-			position: player.position,
-			sortOrder: index + 1,
-			injuryStatus: null,
-		}))
-}
-
 // A team's starters the pick can come from, best per-game average first, each
 // with the samples that ranking was made from. A roster pick takes the roster
 // until ESPN lists the team's starters in its role.
@@ -307,7 +203,7 @@ async function rankedStarters(
 	const gameStarters = ctx.starters.filter((s) => s.gameId === game.id)
 	const candidates =
 		pick.source === "roster" && !startersPosted(gameStarters, teamId, pick.role)
-			? rosterCandidates(ctx, teamId, pick)
+			? rosterCandidates(ctx.rostersByTeamId.get(teamId) ?? [], teamId, pick)
 			: eligibleStarters(gameStarters, teamId, pick)
 	const eligible = candidates.filter((candidate) =>
 		ctx.playerNameById.has(candidate.playerId),
@@ -325,76 +221,6 @@ async function rankedStarters(
 		const { season, prior } = samplesOf(candidate)
 		return blendSamples(season, prior, pick.priorWeight)?.mean ?? null
 	}).map((candidate) => ({ candidate, samples: samplesOf(candidate) }))
-}
-
-// Ruled out once ESPN lists the team's starters in the pick's role without
-// this player among the ones who can play.
-function isRuledOut(
-	starters: StarterCandidate[],
-	teamId: string,
-	playerId: string,
-	pick: StarterPick,
-): boolean {
-	return (
-		startersPosted(starters, teamId, pick.role) &&
-		!eligibleStarters(starters, teamId, pick).some(
-			(starter) => starter.playerId === playerId,
-		)
-	)
-}
-
-// Whether an existing question is about a player who's no longer starting.
-// Team guesses and leader questions aren't about one player, so they never
-// are.
-function isStale(
-	template: GameQuestionTemplate,
-	keyRest: string[],
-	starters: StarterCandidate[],
-	game: DueGame,
-): boolean {
-	return match(template)
-		.with({ shape: "player_stat_over_under" }, ({ pick }) => {
-			const [teamId, playerId] = keyRest
-			return (
-				!!teamId && !!playerId && isRuledOut(starters, teamId, playerId, pick)
-			)
-		})
-		.with({ shape: "player_vs_player" }, ({ pick }) => {
-			const [awayPlayerId, homePlayerId] = keyRest
-			return (
-				(!!awayPlayerId &&
-					isRuledOut(starters, game.awayTeamId, awayPlayerId, pick)) ||
-				(!!homePlayerId &&
-					isRuledOut(starters, game.homeTeamId, homePlayerId, pick))
-			)
-		})
-		.with(
-			{ shape: "team_stat_numeric_guess" },
-			{ shape: "team_stat_over_under" },
-			{ shape: "player_game_stat_leader" },
-			() => false,
-		)
-		.exhaustive()
-}
-
-// The players a generated question is about, read off the rest of its key.
-// A leader question's options are whole rosters, so it isn't about anyone in
-// particular.
-function subjectPlayerIds(
-	template: GameQuestionTemplate,
-	keyRest: string[],
-): string[] {
-	return match(template)
-		.returnType<string[]>()
-		.with({ shape: "player_vs_player" }, () => keyRest.slice(0, 2))
-		.with({ shape: "player_stat_over_under" }, () => keyRest.slice(1, 2))
-		.with(
-			{ shape: "team_stat_numeric_guess" },
-			{ shape: "team_stat_over_under" },
-			{ shape: "player_game_stat_leader" },
-			() => [],
-		)
-		.exhaustive()
 }
 
 // Only while nobody has called it: a question someone already called stays
@@ -754,7 +580,7 @@ async function generateForGame(
 async function generateForLeague(
 	config: SyncLeagueConfig,
 	now: Date,
-	requester: EspnRequester,
+	access: EspnAccess,
 	officialAccountId: string,
 	catalog: CatalogOverride,
 ): Promise<{ games: number; created: number; removed: number }> {
@@ -852,19 +678,12 @@ async function generateForLeague(
 			...rosterPlayers.map((player) => player.id),
 		]),
 	]
-	const [players, playerRefs] =
+	const [players, espnAthleteIdByPlayerId] = await Promise.all([
 		playerIds.length > 0
-			? await Promise.all([
-					db.query.players.findMany({ where: { id: { in: playerIds } } }),
-					db.query.externalRefs.findMany({
-						where: {
-							source: "espn",
-							entityType: "player",
-							entityId: { in: playerIds },
-						},
-					}),
-				])
-			: [[], []]
+			? db.query.players.findMany({ where: { id: { in: playerIds } } })
+			: [],
+		loadEspnIds("player", playerIds),
+	])
 
 	const ctx: LeagueContext = {
 		config,
@@ -881,10 +700,8 @@ async function generateForLeague(
 		starters,
 		rostersByTeamId,
 		playerNameById: new Map(players.map((player) => [player.id, player.name])),
-		espnAthleteIdByPlayerId: new Map(
-			playerRefs.map((ref) => [ref.entityId, espnIdOf(ref.sourceId)]),
-		),
-		seasonStatsFor: createSeasonStatsCache(config, requester),
+		espnAthleteIdByPlayerId,
+		seasonStatsFor: createSeasonStatsCache(config, access),
 		teamSamplesFor: createTeamScoreCache(league.id),
 	}
 
@@ -904,10 +721,12 @@ async function generateForLeague(
 export async function generateGameQuestions({
 	now = new Date(),
 	spacingMs = DEFAULT_ESPN_SPACING_MS,
+	espn = defaultEspnClient,
 	catalog = {},
 }: {
 	now?: Date
 	spacingMs?: number
+	espn?: EspnClient
 	catalog?: CatalogOverride
 } = {}): Promise<void> {
 	const officialAccountId = await getOfficialAccountId()
@@ -917,7 +736,7 @@ export async function generateGameQuestions({
 		const { games, created, removed } = await generateForLeague(
 			config,
 			now,
-			requester,
+			{ espn, requester },
 			officialAccountId,
 			catalog,
 		)
@@ -932,11 +751,6 @@ export async function generateGameQuestions({
 	)
 }
 
-if (isMainModule(import.meta.url)) {
-	generateGameQuestions()
-		.then(() => process.exit(0))
-		.catch((err) => {
-			console.error(err)
-			process.exit(1)
-		})
-}
+runCli(import.meta.url, generateGameQuestions, {
+	lock: GENERATE_GAME_QUESTIONS_LOCK,
+})

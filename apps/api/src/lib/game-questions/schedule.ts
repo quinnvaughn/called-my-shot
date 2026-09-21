@@ -1,9 +1,7 @@
 import { eq } from "drizzle-orm"
-import type { db } from "../../db"
 import { questions } from "../../db/schema"
+import type { Tx } from "../../db/types"
 import { type GameForTitle, gameQuestionTitle, titleFactsFor } from "./titles"
-
-type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0]
 
 // Every generated question on a game locks when the game starts, so when ESPN
 // moves a game (a flex, a rain delay reschedule) its lock time follows it. The

@@ -1,18 +1,24 @@
-import { and, eq, sql } from "drizzle-orm"
+import { and, eq, or, type SQL, sql } from "drizzle-orm"
 import { match } from "ts-pattern"
 import { db } from "../db"
 import { seasonStartEmails } from "../db/schema"
-import { renderEmail } from "../emails/render"
 import {
 	heroTarget,
 	SeasonStart,
 	seasonStartSubject,
 } from "../emails/season-start"
 import { env } from "../env"
-import { emailUrl, withUtm } from "./email-links"
-import { isMuted, mutedEmailTypesByUser } from "./email-prefs"
-import { oneClickUnsubscribeUrl, unsubscribePageUrl } from "./email-unsubscribe"
+import { emailUrl } from "./email-links"
+import { loadRecipients } from "./email-prefs"
+import { type SendFn, sendListEmail } from "./email-send"
 import { sendMail } from "./mailer"
+import {
+	claimOutboxRows,
+	markOutboxDone,
+	markOutboxFailed,
+	type Outbox,
+	utcTimestamp,
+} from "./outbox"
 import { parsePgTimestamp } from "./pg-timestamp"
 
 // How far ahead of the first game the announcement goes out. A window, not a
@@ -27,7 +33,12 @@ export const LEAD_DAYS = 7
 // the entire list at once; at every-5-minutes this spreads the same list over
 // however long it takes, which is what a shared sending domain wants anyway.
 const MAX_EMAILS_PER_RUN = 100
-const MAX_ATTEMPTS = 5
+
+const OUTBOX: Outbox<typeof seasonStartEmails> = {
+	table: seasonStartEmails,
+	key: [seasonStartEmails.userId, seasonStartEmails.seasonId],
+	maxAttempts: 5,
+}
 
 // What "starts" means here is the first game of the opening slate, NOT
 // seasons.regularSeasonStartsAt. That column is ESPN's calendar boundary for
@@ -46,8 +57,6 @@ const MAX_ATTEMPTS = 5
 // No grace past it: a season is announceable while its first game is still
 // ahead, and not after. The lead window below is what makes a missed tick
 // survivable, and it no longer has to cover a boundary that passes at 3am.
-
-type SendFn = typeof sendMail
 
 // Everything the email says about a season, resolved once per season per
 // drain rather than per recipient - the counts are the same for all of them.
@@ -182,10 +191,13 @@ async function describeSeason(row: SeasonRow): Promise<SeasonAnnouncement> {
 export async function announceableSeasons({
 	leadDays = LEAD_DAYS,
 	leagueSlug,
+	now = new Date(),
 }: {
 	leadDays?: number
 	leagueSlug?: string
+	now?: Date
 } = {}): Promise<SeasonAnnouncement[]> {
+	const nowUtc = utcTimestamp(now)
 	const { rows } = await db.execute<SeasonRow>(sql`
 		with candidate as (
 			select ${SEASON_COLUMNS}
@@ -195,8 +207,8 @@ export async function announceableSeasons({
 				${leagueSlug ? sql`and l.slug = ${leagueSlug}` : sql``}
 		)
 		select * from candidate
-		where starts_at > now()
-			and starts_at <= now() + ${`${leadDays} days`}::interval
+		where starts_at > ${nowUtc}
+			and starts_at <= ${nowUtc} + ${`${leadDays} days`}::interval
 		order by starts_at asc
 	`)
 
@@ -221,6 +233,7 @@ export async function enqueueSeasonStartEmails({
 	leagueSlug,
 	onlyUser,
 	commit = false,
+	now = new Date(),
 }: {
 	leadDays?: number
 	leagueSlug?: string
@@ -228,8 +241,9 @@ export async function enqueueSeasonStartEmails({
 	// the whole list.
 	onlyUser?: string
 	commit?: boolean
+	now?: Date
 } = {}): Promise<EnqueueResult> {
-	const seasons = await announceableSeasons({ leadDays, leagueSlug })
+	const seasons = await announceableSeasons({ leadDays, leagueSlug, now })
 	if (!commit || seasons.length === 0) return { seasons, queued: 0 }
 
 	let queued = 0
@@ -269,50 +283,17 @@ export async function enqueueSeasonStartEmails({
 	return { seasons, queued }
 }
 
-async function markSkipped(
-	rows: { user_id: string; season_id: string }[],
-	reason: string,
-): Promise<void> {
-	if (rows.length === 0) return
-	await db.execute(sql`
-		update season_start_emails
-		set sent_at = now(), skipped_reason = ${reason}
-		where (user_id, season_id) in (
-			${sql.join(
-				rows.map((r) => sql`(${r.user_id}::uuid, ${r.season_id}::uuid)`),
-				sql`, `,
-			)}
-		)
-	`)
-}
+type Claimed = { userId: string; seasonId: string }
 
-type Claimed = { user_id: string; season_id: string }
-
-// Spends the attempt in the same statement that reads the rows, so a run that
-// dies between here and the send has still burned one - a row that kills the
-// process can't be retried forever.
-//
-// It is NOT mutual exclusion, despite looking like a claim: this UPDATE
-// commits immediately and releases its row locks while the rows are still
-// `sent_at is null`, so a second concurrent drain selects them again. What
-// keeps two machines from mailing the same person is the job lock every
-// caller takes - see DRAIN_SEASON_START_LOCK in lib/job-lock.ts.
-async function claimBatch(limit: number): Promise<Claimed[]> {
-	const { rows } = await db.execute<Claimed>(sql`
-		update season_start_emails
-		set attempts = attempts + 1
-		where (user_id, season_id) in (
-			select user_id, season_id
-			from season_start_emails
-			where sent_at is null and attempts < ${MAX_ATTEMPTS}
-			order by created_at asc
-			limit ${limit}
-			for update skip locked
-		)
-		returning user_id, season_id
-	`)
-	return rows
-}
+const rowsIn = (rows: Claimed[]) =>
+	or(
+		...rows.map((row) =>
+			and(
+				eq(seasonStartEmails.userId, row.userId),
+				eq(seasonStartEmails.seasonId, row.seasonId),
+			),
+		),
+	) as SQL
 
 // MUST be called under DRAIN_SEASON_START_LOCK (lib/job-lock.ts) -
 // nothing in here is safe against a second concurrent drain, and this one
@@ -321,19 +302,21 @@ async function claimBatch(limit: number): Promise<Claimed[]> {
 export async function drainSeasonStartEmails({
 	send = sendMail,
 	limit = MAX_EMAILS_PER_RUN,
+	now = new Date(),
 }: {
 	send?: SendFn
 	limit?: number
+	now?: Date
 } = {}): Promise<{
 	sent: number
 	skipped: number
 	failed: number
 }> {
-	const claimed = await claimBatch(limit)
+	const claimed = await claimOutboxRows(OUTBOX, { limit })
 	if (claimed.length === 0) return { sent: 0, skipped: 0, failed: 0 }
 
-	const seasonIds = [...new Set(claimed.map((r) => r.season_id))]
-	const userIds = [...new Set(claimed.map((r) => r.user_id))]
+	const seasonIds = [...new Set(claimed.map((r) => r.seasonId))]
+	const userIds = [...new Set(claimed.map((r) => r.userId))]
 
 	// Every season still worth announcing, keyed by id - re-asking every
 	// question the enqueue asked, because up to a day passes between the two
@@ -354,7 +337,7 @@ export async function drainSeasonStartEmails({
 			)})
 				and l.status = 'active'
 		)
-		select * from candidate where starts_at > now()
+		select * from candidate where starts_at > ${utcTimestamp(now)}
 	`)
 	for (const row of seasonRows) {
 		const announcement = await describeSeason(row)
@@ -362,66 +345,62 @@ export async function drainSeasonStartEmails({
 		announcements.set(row.season_id, announcement)
 	}
 
-	const users = await db.query.users.findMany({
-		where: { id: { in: userIds } },
-		columns: { id: true, email: true },
-	})
-	const emailByUser = new Map(users.map((u) => [u.id, u.email]))
-	const mutedByUser = await mutedEmailTypesByUser(userIds)
+	const recipients = await loadRecipients(userIds, "season_starting")
 
-	const stale = claimed.filter((r) => !announcements.has(r.season_id))
-	await markSkipped(stale, "season_no_longer_announceable")
-
-	const missing = claimed.filter(
-		(r) => announcements.has(r.season_id) && !emailByUser.has(r.user_id),
-	)
-	await markSkipped(missing, "user_missing")
-
-	const muted = claimed.filter(
-		(r) =>
-			announcements.has(r.season_id) &&
-			emailByUser.has(r.user_id) &&
-			isMuted(mutedByUser.get(r.user_id), "season_starting"),
-	)
-	await markSkipped(muted, "muted")
-
-	const skippedKeys = new Set(
-		[...stale, ...missing, ...muted].map((r) => `${r.user_id}:${r.season_id}`),
-	)
-	const sendable = claimed.filter(
-		(r) => !skippedKeys.has(`${r.user_id}:${r.season_id}`),
-	)
+	// Each row's reason for not sending, in priority order, or null to send.
+	const skipReason = (row: Claimed): string | null => {
+		if (!announcements.has(row.seasonId)) return "season_no_longer_announceable"
+		const recipient = recipients.get(row.userId)
+		if (!recipient) return "user_missing"
+		return recipient.muted ? "muted" : null
+	}
+	const skippedByReason = new Map<string, Claimed[]>()
+	const sendable: Claimed[] = []
+	for (const row of claimed) {
+		const reason = skipReason(row)
+		if (reason)
+			skippedByReason.set(reason, [...(skippedByReason.get(reason) ?? []), row])
+		else sendable.push(row)
+	}
+	for (const [reason, rows] of skippedByReason) {
+		await markOutboxDone(seasonStartEmails, rowsIn(rows), {
+			now,
+			skippedReason: reason,
+		})
+	}
+	const skipped = claimed.length - sendable.length
 
 	let sent = 0
 	let failed = 0
 	for (const row of sendable) {
-		const announcement = announcements.get(row.season_id)
-		const email = emailByUser.get(row.user_id)
-		// Both are guaranteed present by the filters above; the guard is for
-		// the types, not a reachable case.
-		if (!announcement || !email) continue
+		const announcement = announcements.get(row.seasonId)
+		const recipient = recipients.get(row.userId)
+		// Both are guaranteed present by skipReason; the guard is for the
+		// types, not a reachable case.
+		if (!announcement || !recipient) continue
 
-		const ok = await sendOne(announcement, row.user_id, email, send)
-		if (ok) {
+		// attempts was already incremented by the claim, so a row that keeps
+		// failing runs itself out of retries without any extra bookkeeping.
+		const result = await sendOne(
+			announcement,
+			row.userId,
+			recipient.email,
+			send,
+			now,
+		)
+		if (result.ok) {
 			sent += 1
-			await db
-				.update(seasonStartEmails)
-				.set({ sentAt: new Date() })
-				.where(
-					and(
-						eq(seasonStartEmails.userId, row.user_id),
-						eq(seasonStartEmails.seasonId, row.season_id),
-					),
-				)
+			await markOutboxDone(seasonStartEmails, rowsIn([row]), { now })
 		} else {
 			failed += 1
+			await markOutboxFailed(seasonStartEmails, rowsIn([row]), result.error)
 		}
 	}
 
 	console.log(
-		`[season-start] claimed=${claimed.length} sent=${sent} skipped=${skippedKeys.size} failed=${failed}`,
+		`[season-start] claimed=${claimed.length} sent=${sent} skipped=${skipped} failed=${failed}`,
 	)
-	return { sent, skipped: skippedKeys.size, failed }
+	return { sent, skipped, failed }
 }
 
 async function sendOne(
@@ -429,7 +408,8 @@ async function sendOne(
 	userId: string,
 	to: string,
 	send: SendFn,
-): Promise<boolean> {
+	now: Date,
+) {
 	const tag = { campaign: "season_start" } as const
 	const leaguePath = `/leagues/${announcement.leagueSlug}`
 	const gamesUrl = emailUrl(`${leaguePath}/games`, {
@@ -455,50 +435,26 @@ async function sendOne(
 		leagueName: announcement.leagueName,
 		seasonDisplayName: announcement.seasonDisplayName,
 		startsAt: announcement.startsAt,
-		now: new Date(),
+		now,
 		openingLabel: announcement.openingLabel,
 		gameCount: announcement.gameCount,
 		ballotCount: announcement.ballotCount,
 		gamesUrl,
 		seasonUrl,
 		heroUrl,
-		manageUrl: emailUrl("/settings", { ...tag, content: "manage" }),
-		unsubscribeUrl: withUtm(unsubscribePageUrl(userId, "season_starting"), {
-			...tag,
-			content: "unsubscribe",
-		}),
-		logoUrl: `${env.CLIENT_ORIGIN}/email-logo.png`,
 	}
 
-	const { html, text } = await renderEmail(<SeasonStart {...props} />)
-
-	const result = await send({
-		to,
-		from: env.EMAIL_FROM_ANNOUNCEMENTS,
-		subject: seasonStartSubject(props),
-		text,
-		html,
-		headers: {
-			"List-Unsubscribe": `<${oneClickUnsubscribeUrl(userId, "season_starting")}>`,
-			"List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+	return sendListEmail(
+		{
+			userId,
+			to,
+			type: "season_starting",
+			campaign: tag.campaign,
+			from: env.EMAIL_FROM_ANNOUNCEMENTS,
+			subject: seasonStartSubject(props),
+			render: (links) => <SeasonStart {...props} {...links} />,
+			extraTags: [{ name: "league", value: announcement.leagueSlug }],
 		},
-		tags: [
-			{ name: "type", value: "season_start" },
-			{ name: "league", value: announcement.leagueSlug },
-		],
-	})
-
-	if (result.ok) return true
-	// attempts was already incremented by the claim, so a row that keeps
-	// failing runs itself out of retries without any extra bookkeeping here.
-	await db
-		.update(seasonStartEmails)
-		.set({ lastError: result.error })
-		.where(
-			and(
-				eq(seasonStartEmails.userId, userId),
-				eq(seasonStartEmails.seasonId, announcement.seasonId),
-			),
-		)
-	return false
+		send,
+	)
 }
