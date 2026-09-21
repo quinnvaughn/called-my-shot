@@ -252,13 +252,17 @@ export function ReportCard({ card: cardProp, expanded, username }: Props) {
 		</VStack>
 	)
 
+	// One size in both states. It sat beside the chevron before, which put the
+	// headline number of the whole card in the corner reserved for a control,
+	// and shrinking it on collapse made it jump every time the card toggled.
 	const gradeMark = card.grade ? (
 		<span
 			className={css({
 				fontFamily: "mono",
-				fontSize: collapsed ? "xl" : "3xl",
+				fontSize: "3xl",
 				fontWeight: "bold",
 				lineHeight: "1",
+				flexShrink: "0",
 				color: gradeTone(card.grade),
 			})}
 		>
@@ -276,9 +280,9 @@ export function ReportCard({ card: cardProp, expanded, username }: Props) {
 					    renders the same header with no control, since there's
 					    nothing there to collapse into. */}
 					{expanded ? (
-						<HStack justify="space-between" alignItems="center" gap="3">
-							{identity}
+						<HStack alignItems="center" gap="4">
 							{gradeMark}
+							{identity}
 						</HStack>
 					) : (
 						<button
@@ -298,19 +302,24 @@ export function ReportCard({ card: cardProp, expanded, username }: Props) {
 								cursor: "pointer",
 							})}
 						>
-							{identity}
-							<HStack gap="2.5" alignItems="center" flexShrink="0">
+							<HStack
+								gap="4"
+								alignItems="center"
+								className={css({ minWidth: "0" })}
+							>
 								{gradeMark}
-								<FiChevronDown
-									className={css({
-										color: "fg.subtle",
-										transition: "transform 0.15s ease",
-										// Down to open, up to close - the same rotation
-										// QuestionSetStrip uses.
-										transform: collapsed ? "rotate(0deg)" : "rotate(180deg)",
-									})}
-								/>
+								{identity}
 							</HStack>
+							<FiChevronDown
+								className={css({
+									color: "fg.subtle",
+									flexShrink: "0",
+									transition: "transform 0.15s ease",
+									// Down to open, up to close - the same rotation
+									// QuestionSetStrip uses.
+									transform: collapsed ? "rotate(0deg)" : "rotate(180deg)",
+								})}
+							/>
 						</button>
 					)}
 
