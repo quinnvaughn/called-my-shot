@@ -1,10 +1,26 @@
+import { FiArrowDown, FiArrowUp } from "react-icons/fi"
 import { css } from "styled-system/css"
 import { HStack } from "styled-system/jsx"
+import type { SortDirection } from "#/graphql/generated/graphql"
+
+// A sort that can run either way names what each direction puts first
+// ("Newest first" / "Oldest first") - read out as the pill's accessible label,
+// since the arrow alone says nothing about which end is which.
+export type SortOption<T extends string> = {
+	value: T
+	label: string
+	directions?: { desc: string; asc: string }
+}
 
 type Props<T extends string> = {
-	sorts: { value: T; label: string }[]
+	sorts: SortOption<T>[]
 	active: T
 	onChange: (value: T) => void
+	// Only meaningful when some option has `directions`. Switching to another
+	// sort resets it to DESC, the natural end of every flippable sort here;
+	// clicking the already-active flippable sort reverses it.
+	direction?: SortDirection
+	onDirectionChange?: (direction: SortDirection) => void
 }
 
 // The sort-pill row shared by the league feed, the game detail page's question
@@ -18,7 +34,20 @@ export function SortSwitcher<T extends string>({
 	sorts,
 	active,
 	onChange,
+	direction = "DESC",
+	onDirectionChange,
 }: Props<T>) {
+	function select(option: SortOption<T>) {
+		if (option.value === active) {
+			if (option.directions && onDirectionChange) {
+				onDirectionChange(direction === "DESC" ? "ASC" : "DESC")
+			}
+			return
+		}
+		onChange(option.value)
+		onDirectionChange?.("DESC")
+	}
+
 	return (
 		<HStack gap="2" alignItems="center" flexWrap="wrap">
 			<span
@@ -34,12 +63,26 @@ export function SortSwitcher<T extends string>({
 			</span>
 			{sorts.map((s) => {
 				const isActive = active === s.value
+				// Only the active pill shows a direction, and only if the caller
+				// can actually flip it.
+				const directionLabel =
+					isActive && s.directions && onDirectionChange
+						? s.directions[direction === "DESC" ? "desc" : "asc"]
+						: null
 				return (
 					<button
 						key={s.value}
 						type="button"
-						onClick={() => onChange(s.value)}
+						onClick={() => select(s)}
+						aria-pressed={isActive}
+						aria-label={
+							directionLabel ? `${s.label}, ${directionLabel}` : undefined
+						}
+						title={directionLabel ?? undefined}
 						className={css({
+							display: "inline-flex",
+							alignItems: "center",
+							gap: "1",
 							fontFamily: "mono",
 							fontSize: "2xs",
 							letterSpacing: "wide",
@@ -60,6 +103,12 @@ export function SortSwitcher<T extends string>({
 						})}
 					>
 						{s.label}
+						{directionLabel &&
+							(direction === "DESC" ? (
+								<FiArrowDown aria-hidden />
+							) : (
+								<FiArrowUp aria-hidden />
+							))}
 					</button>
 				)
 			})}

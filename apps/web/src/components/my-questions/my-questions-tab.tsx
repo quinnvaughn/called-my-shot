@@ -3,7 +3,7 @@ import { QuestionCard } from "#/components/questions/question-card"
 import { EmptyState } from "#/components/ui/empty-state"
 import { InfiniteScroll } from "#/components/ui/infinite-scroll"
 import { type FragmentType, graphql, useFragment } from "#/graphql/generated"
-import type { MyQuestionSort } from "#/graphql/generated/graphql"
+import type { MyQuestionSort, SortDirection } from "#/graphql/generated/graphql"
 import {
 	type MyQuestionsFilters,
 	myQuestionsQuery,
@@ -23,16 +23,18 @@ type MyQuestionItem = { id: string } & FragmentType<
 type MyQuestionsTabProps = {
 	filters: MyQuestionsFilters
 	sort: MyQuestionSort
+	direction: SortDirection
 	filtered: boolean
 }
 
 export function MyQuestionsTab({
 	filters,
 	sort,
+	direction,
 	filtered,
 }: MyQuestionsTabProps) {
 	const { data, hasNextPage, isFetching, fetchNextPage } = useInfiniteQuery({
-		...myQuestionsQuery(filters, sort),
+		...myQuestionsQuery(filters, sort, direction),
 		placeholderData: keepPreviousData,
 	})
 

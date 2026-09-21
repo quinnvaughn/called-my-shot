@@ -1,4 +1,9 @@
-import type { CallSortOrder, MyQuestionSort } from "#/graphql/generated/graphql"
+import type { SortOption } from "#/components/questions/sort-switcher"
+import type {
+	CallSortOrder,
+	MyQuestionSort,
+	SortDirection,
+} from "#/graphql/generated/graphql"
 
 // The sort options and per-list defaults for My Calls and My Questions.
 //
@@ -11,35 +16,52 @@ import type { CallSortOrder, MyQuestionSort } from "#/graphql/generated/graphql"
 
 type CallSortSet = {
 	default: CallSortOrder
-	options: { value: CallSortOrder; label: string }[]
+	options: SortOption<CallSortOrder>[]
+}
+
+// Every list opens descending (newest, most points, most conviction first);
+// the direction is flipped from the active sort pill.
+export const DEFAULT_MY_LIST_DIRECTION: SortDirection = "DESC"
+
+const DATE: SortOption<"DATE"> = {
+	value: "DATE",
+	label: "Date",
+	directions: { desc: "Newest first", asc: "Oldest first" },
+}
+
+const CONVICTION: SortOption<"CONVICTION"> = {
+	value: "CONVICTION",
+	label: "Conviction",
+	directions: { desc: "Most conviction first", asc: "Least conviction first" },
+}
+
+const POINTS: SortOption<"POINTS"> = {
+	value: "POINTS",
+	label: "Points",
+	directions: { desc: "Most points first", asc: "Fewest points first" },
 }
 
 // Points is meaningless before a question has settled, so the Open tab
 // doesn't offer it. Neither tab offers a "live" ordering: a call whose game
 // is in flight is lifted out of the list entirely, into the Playing Now
-// section above it (see LiveCallsSection).
+// row above it (see LiveCallsSection).
 export const MY_CALL_SORTS: Record<"open" | "resolved", CallSortSet> = {
 	open: {
-		default: "NEWEST",
-		options: [
-			{ value: "NEWEST", label: "Newest" },
-			{ value: "CONVICTION", label: "Conviction" },
-		],
+		default: "DATE",
+		options: [DATE, CONVICTION],
 	},
 	resolved: {
 		default: "POINTS",
-		options: [
-			{ value: "POINTS", label: "Points" },
-			{ value: "NEWEST", label: "Newest" },
-			{ value: "CONVICTION", label: "Conviction" },
-		],
+		options: [POINTS, DATE, CONVICTION],
 	},
 }
 
-export const DEFAULT_MY_QUESTIONS_SORT: MyQuestionSort = "NEWEST"
+export const DEFAULT_MY_QUESTIONS_SORT: MyQuestionSort = "DATE"
 
-export const MY_QUESTION_SORTS: { value: MyQuestionSort; label: string }[] = [
-	{ value: "NEWEST", label: "Newest" },
+// Closing Soon and Most Called already name their direction, so only Date
+// flips.
+export const MY_QUESTION_SORTS: SortOption<MyQuestionSort>[] = [
+	DATE,
 	{ value: "CLOSING_SOON", label: "Closing Soon" },
 	{ value: "MOST_CALLED", label: "Most Called" },
 ]

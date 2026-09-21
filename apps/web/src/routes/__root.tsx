@@ -11,6 +11,7 @@ import { RouteError } from "#/components/ui/route-error"
 import { ToastHost } from "#/components/ui/toast"
 import { MeDocument } from "#/graphql/queries/me"
 import { gqlQueryOptions } from "#/graphql/query-options"
+import { useStaleBuildGuard } from "#/hooks/use-stale-build-guard"
 import {
 	identifyUser,
 	initAnalytics,
@@ -21,12 +22,7 @@ import fontsCss from "../fonts.css?url"
 import type { RouterContext } from "../router-context"
 import appCss from "../styles.css?url"
 
-// queryClient.query() forces `retry: false` onto whatever it is handed, so
-// without this the viewer load gets exactly one attempt. It is the first thing
-// every navigation awaits, which makes a single dropped POST enough to replace
-// the whole app with an error page. The retry covers a connection that died
-// while the tab sat idle: the attempt that opens a fresh one succeeds.
-const meQuery = gqlQueryOptions(MeDocument, {}, { retry: 1, retryDelay: 250 })
+const meQuery = gqlQueryOptions(MeDocument, {})
 
 export const Route = createRootRouteWithContext<RouterContext>()({
 	beforeLoad: async ({ context }) => {
@@ -163,6 +159,8 @@ export const Route = createRootRouteWithContext<RouterContext>()({
 
 function RootDocument({ children }: { children: React.ReactNode }) {
 	const { me } = Route.useRouteContext()
+
+	useStaleBuildGuard()
 
 	useEffect(() => {
 		initAnalytics()

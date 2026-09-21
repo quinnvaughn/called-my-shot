@@ -4,6 +4,7 @@ import type {
 	QuestionScope,
 	QuestionShape,
 	QuestionStatus,
+	SortDirection,
 } from "#/graphql/generated/graphql"
 import { gqlInfiniteQueryOptions } from "#/graphql/query-options"
 
@@ -16,6 +17,7 @@ export const MyQuestionsDocument = graphql(`
         $scope: QuestionScope
         $status: QuestionStatus
         $sort: MyQuestionSort
+        $direction: SortDirection
     ) {
         myQuestions(
             first: 10
@@ -26,6 +28,7 @@ export const MyQuestionsDocument = graphql(`
             scope: $scope
             status: $status
             sort: $sort
+            direction: $direction
         ) {
             items {
                 id
@@ -54,9 +57,10 @@ export type MyQuestionsFilters = {
 export const myQuestionsQuery = (
 	filters: MyQuestionsFilters = {},
 	sort?: MyQuestionSort,
+	direction?: SortDirection,
 ) =>
 	gqlInfiniteQueryOptions(
 		MyQuestionsDocument,
-		{ ...filters, sort },
+		{ ...filters, sort, direction },
 		(data) => data.myQuestions,
 	)

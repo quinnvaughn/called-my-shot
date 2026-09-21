@@ -187,9 +187,12 @@ export const CallResolutionStatus = builder.enumType("CallResolutionStatus", {
 // ever move a handful of rows up, and on the usual day, when nothing the
 // viewer called is playing, it moved none at all and was indistinguishable
 // from the lock-time ordering it fell back to.
+//
+// Direction travels separately (myCalls' `direction` arg), so DATE covers both
+// newest-first and oldest-first.
 export const CallSortOrder = builder.enumType("CallSortOrder", {
 	values: {
-		NEWEST: { value: "newest" },
+		DATE: { value: "date" },
 		POINTS: { value: "points" },
 		CONVICTION: { value: "conviction" },
 	},
@@ -221,10 +224,12 @@ export const QuestionScope = builder.enumType("QuestionScope", {
 // My Questions' ordering. Deliberately not QuestionSortOrder: that enum's
 // CLOSING_SOON carries a 48-hour window filter baked into Query.questions, and
 // its MOST_CALLED is the feed default. Your own questions should stay visible
-// under every sort, so this one orders and never filters.
+// under every sort, so this one orders and never filters. DATE takes
+// myQuestions' `direction` arg; the other two have a fixed direction their
+// names already state.
 export const MyQuestionSort = builder.enumType("MyQuestionSort", {
 	values: {
-		NEWEST: { value: "newest" },
+		DATE: { value: "date" },
 		CLOSING_SOON: { value: "closing_soon" },
 		MOST_CALLED: { value: "most_called" },
 	},

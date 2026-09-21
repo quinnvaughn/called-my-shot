@@ -14,6 +14,7 @@ import { Route as AppRouteImport } from './routes/_app'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as GraphqlRouteImport } from './routes/graphql'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
+import { Route as VersionRouteImport } from './routes/version'
 import { Route as AppAuthedRouteImport } from './routes/_app/_authed'
 import { Route as AppConfirmEmailRouteImport } from './routes/_app/confirm-email'
 import { Route as AppHowItWorksRouteImport } from './routes/_app/how-it-works'
@@ -97,6 +98,11 @@ const GraphqlRoute = GraphqlRouteImport.update({
 const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
   id: '/sitemap.xml',
   path: '/sitemap.xml',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const VersionRoute = VersionRouteImport.update({
+  id: '/version',
+  path: '/version',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AppAuthedRoute = AppAuthedRouteImport.update({
@@ -424,6 +430,7 @@ export interface FileRoutesByFullPath {
   '/admin': typeof AdminRouteWithChildren
   '/graphql': typeof GraphqlRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/version': typeof VersionRoute
   '/confirm-email': typeof AppConfirmEmailRoute
   '/how-it-works': typeof AppHowItWorksRoute
   '/leaderboard': typeof AppLeaderboardRoute
@@ -488,6 +495,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/graphql': typeof GraphqlRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/version': typeof VersionRoute
   '/confirm-email': typeof AppConfirmEmailRoute
   '/how-it-works': typeof AppHowItWorksRoute
   '/leaderboard': typeof AppLeaderboardRoute
@@ -553,6 +561,7 @@ export interface FileRoutesById {
   '/admin': typeof AdminRouteWithChildren
   '/graphql': typeof GraphqlRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/version': typeof VersionRoute
   '/_app/_authed': typeof AppAuthedRouteWithChildren
   '/_app/confirm-email': typeof AppConfirmEmailRoute
   '/_app/how-it-works': typeof AppHowItWorksRoute
@@ -621,6 +630,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/graphql'
     | '/sitemap.xml'
+    | '/version'
     | '/confirm-email'
     | '/how-it-works'
     | '/leaderboard'
@@ -685,6 +695,7 @@ export interface FileRouteTypes {
     | '/'
     | '/graphql'
     | '/sitemap.xml'
+    | '/version'
     | '/confirm-email'
     | '/how-it-works'
     | '/leaderboard'
@@ -749,6 +760,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/graphql'
     | '/sitemap.xml'
+    | '/version'
     | '/_app/_authed'
     | '/_app/confirm-email'
     | '/_app/how-it-works'
@@ -817,6 +829,7 @@ export interface RootRouteChildren {
   AdminRoute: typeof AdminRouteWithChildren
   GraphqlRoute: typeof GraphqlRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
+  VersionRoute: typeof VersionRoute
   IngestSplatRoute: typeof IngestSplatRoute
   UnsubscribeOneClickRoute: typeof UnsubscribeOneClickRoute
   WebhooksResendRoute: typeof WebhooksResendRoute
@@ -865,6 +878,13 @@ declare module '@tanstack/react-router' {
       path: '/sitemap.xml'
       fullPath: '/sitemap.xml'
       preLoaderRoute: typeof SitemapDotxmlRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/version': {
+      id: '/version'
+      path: '/version'
+      fullPath: '/version'
+      preLoaderRoute: typeof VersionRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_app/_authed': {
@@ -1442,6 +1462,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminRoute: AdminRouteWithChildren,
   GraphqlRoute: GraphqlRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
+  VersionRoute: VersionRoute,
   IngestSplatRoute: IngestSplatRoute,
   UnsubscribeOneClickRoute: UnsubscribeOneClickRoute,
   WebhooksResendRoute: WebhooksResendRoute,

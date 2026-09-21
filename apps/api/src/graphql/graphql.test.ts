@@ -713,6 +713,7 @@ describe("Query.myCalls filtering and sorting", () => {
 			$scope: QuestionScope
 			$result: CallResultFilter
 			$sort: CallSortOrder
+			$direction: SortDirection
 			$first: Int
 			$after: String
 		) {
@@ -726,6 +727,7 @@ describe("Query.myCalls filtering and sorting", () => {
 				scope: $scope
 				result: $result
 				sort: $sort
+				direction: $direction
 			) {
 				items { id }
 				pageInfo { hasNextPage endCursor }
@@ -911,7 +913,7 @@ describe("Query.myCalls filtering and sorting", () => {
 
 		const data = await expectData<CallsResult>(FILTERED, {
 			as: user,
-			variables: { status: "OPEN", sort: "NEWEST" },
+			variables: { status: "OPEN", sort: "DATE" },
 		})
 		expect(ids(data)).toEqual([soonCall.id])
 	})
@@ -956,6 +958,12 @@ describe("Query.myCalls filtering and sorting", () => {
 			variables: { status: "OPEN", sort: "CONVICTION" },
 		})
 		expect(ids(data)).toEqual([numericCall.id, optionCall.id])
+
+		const flipped = await expectData<CallsResult>(FILTERED, {
+			as: user,
+			variables: { status: "OPEN", sort: "CONVICTION", direction: "ASC" },
+		})
+		expect(ids(flipped)).toEqual([optionCall.id, numericCall.id])
 	})
 
 	it("pages without repeating or dropping a row under a non-default sort", async () => {
@@ -1051,6 +1059,7 @@ describe("Query.myQuestions filtering and sorting", () => {
 			$scope: QuestionScope
 			$status: QuestionStatus
 			$sort: MyQuestionSort
+			$direction: SortDirection
 		) {
 			myQuestions(
 				leagueId: $leagueId
@@ -1059,6 +1068,7 @@ describe("Query.myQuestions filtering and sorting", () => {
 				scope: $scope
 				status: $status
 				sort: $sort
+				direction: $direction
 			) {
 				items { id }
 				totalCount
@@ -1098,6 +1108,33 @@ describe("Query.myQuestions filtering and sorting", () => {
 			variables: { sort: "MOST_CALLED" },
 		})
 		expect(data.myQuestions.items.map((q) => q.id)).toEqual([busy.id, quiet.id])
+	})
+
+	it("orders by date newest first, or oldest first when flipped", async () => {
+		const user = await makeUser()
+		const older = await makeQuestion({
+			creatorId: user.id,
+			createdAt: pastDate(48),
+		})
+		const newer = await makeQuestion({
+			creatorId: user.id,
+			createdAt: pastDate(1),
+		})
+
+		const desc = await expectData<QuestionsResult>(MY_QUESTIONS, {
+			as: user,
+			variables: { sort: "DATE" },
+		})
+		expect(desc.myQuestions.items.map((q) => q.id)).toEqual([
+			newer.id,
+			older.id,
+		])
+
+		const asc = await expectData<QuestionsResult>(MY_QUESTIONS, {
+			as: user,
+			variables: { sort: "DATE", direction: "ASC" },
+		})
+		expect(asc.myQuestions.items.map((q) => q.id)).toEqual([older.id, newer.id])
 	})
 
 	it("returns only the viewer's own questions", async () => {

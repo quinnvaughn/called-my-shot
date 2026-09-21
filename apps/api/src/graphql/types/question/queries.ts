@@ -182,13 +182,26 @@ const callGameIsLive = sql`${games.status} = 'live'`
 // slate in any synced league is well under this.
 const MY_LIVE_CALLS_CAP = 50
 
-// My Calls' ordering keys, without the trailing calls.id tiebreak every sort
-// shares (added at the use site).
-function myCallOrderKeys(sort: "newest" | "points" | "conviction") {
+// My Calls' ordering keys, with the calls.id tiebreak running the same way as
+// the sort. Nulls (an unscored call's points) stay last in both directions: a
+// row with nothing to rank on isn't the lowest value, and flipping the list
+// shouldn't drag every one of them to the top.
+function myCallOrderKeys(
+	sort: "date" | "points" | "conviction",
+	direction: "asc" | "desc",
+) {
+	const dir = direction === "asc" ? sql`asc` : sql`desc`
+	const tiebreak = direction === "asc" ? asc(calls.id) : desc(calls.id)
 	return match(sort)
-		.with("newest", () => [desc(calls.createdAt)])
-		.with("points", () => [sql`${callTotalPoints} desc nulls last`])
-		.with("conviction", () => [sql`${callConviction} desc nulls last`])
+		.with("date", () => [
+			direction === "asc" ? asc(calls.createdAt) : desc(calls.createdAt),
+			tiebreak,
+		])
+		.with("points", () => [sql`${callTotalPoints} ${dir} nulls last`, tiebreak])
+		.with("conviction", () => [
+			sql`${callConviction} ${dir} nulls last`,
+			tiebreak,
+		])
 		.exhaustive()
 }
 
@@ -674,17 +687,20 @@ builder.queryFields((t) => ({
 			// OPEN, which would just be a second way to say "no rows".
 			result: t.arg({ type: CallResultFilter, required: false }),
 			sort: t.arg({ type: CallSortOrder, required: false }),
+			// Every sort defaults to descending: newest, most points, most
+			// conviction first.
+			direction: t.arg({ type: SortDirection, required: false }),
 		},
 		resolve: async (_root, args, ctx) => {
 			const user = requireUser(ctx)
 			const limit = clampPageSize(args.first)
 			const offset = args.after ? decodeOffsetCursor(args.after) : 0
-			// Newest is the Open tab's default and Points the Resolved tab's:
+			// Date is the Open tab's default and Points the Resolved tab's:
 			// off an unsettled pile you want what you just called, and off a
 			// settled one, what it was worth. What's playing out right now isn't
 			// in this list at all - see myLiveCalls below.
-			const sort =
-				args.sort ?? (args.status === "resolved" ? "points" : "newest")
+			const sort = args.sort ?? (args.status === "resolved" ? "points" : "date")
+			const direction = args.direction ?? "desc"
 
 			const query = db
 				.with(callPoints)
@@ -712,7 +728,7 @@ builder.queryFields((t) => ({
 				.$dynamic()
 
 			const rows = await query
-				.orderBy(...myCallOrderKeys(sort), desc(calls.id))
+				.orderBy(...myCallOrderKeys(sort, direction))
 				.limit(limit + 1)
 				.offset(offset)
 			const hasNextPage = rows.length > limit
@@ -753,24 +769,26 @@ builder.queryFields((t) => ({
 		},
 		resolve: async (_root, args, ctx) => {
 			const user = requireUser(ctx)
-			return db
-				.select(getColumns(calls))
-				.from(calls)
-				.innerJoin(questions, eq(questions.id, calls.questionId))
-				.leftJoin(users, eq(users.id, questions.creatorId))
-				.leftJoin(teams, eq(teams.id, questions.subjectTeamId))
-				.leftJoin(players, eq(players.id, questions.subjectPlayerId))
-				.innerJoin(games, eq(games.id, questions.gameId))
-				.where(
-					and(
-						...myCallConditions(user.id, { ...args, status: "open" }),
-						callGameIsLive,
-					),
-				)
-				// Earliest start first, so the game closest to finishing - the one
-				// whose outcome is about to be decided - sits on top.
-				.orderBy(asc(games.startsAt), desc(calls.id))
-				.limit(MY_LIVE_CALLS_CAP)
+			return (
+				db
+					.select(getColumns(calls))
+					.from(calls)
+					.innerJoin(questions, eq(questions.id, calls.questionId))
+					.leftJoin(users, eq(users.id, questions.creatorId))
+					.leftJoin(teams, eq(teams.id, questions.subjectTeamId))
+					.leftJoin(players, eq(players.id, questions.subjectPlayerId))
+					.innerJoin(games, eq(games.id, questions.gameId))
+					.where(
+						and(
+							...myCallConditions(user.id, { ...args, status: "open" }),
+							callGameIsLive,
+						),
+					)
+					// Earliest start first, so the game closest to finishing - the one
+					// whose outcome is about to be decided - sits on top.
+					.orderBy(asc(games.startsAt), desc(calls.id))
+					.limit(MY_LIVE_CALLS_CAP)
+			)
 		},
 	}),
 
@@ -876,12 +894,16 @@ builder.queryFields((t) => ({
 			scope: t.arg({ type: QuestionScope, required: false }),
 			status: t.arg({ type: QuestionStatus, required: false }),
 			sort: t.arg({ type: MyQuestionSort, required: false }),
+			// DATE only, defaulting to newest first. CLOSING_SOON and
+			// MOST_CALLED ignore it - see MyQuestionSort.
+			direction: t.arg({ type: SortDirection, required: false }),
 		},
 		resolve: async (_root, args, ctx) => {
 			const user = requireUser(ctx)
 			const limit = clampPageSize(args.first)
 			const offset = args.after ? decodeOffsetCursor(args.after) : 0
-			const sort = args.sort ?? "newest"
+			const sort = args.sort ?? "date"
+			const direction = args.direction ?? "desc"
 
 			const conditions = [
 				eq(questions.creatorId, user.id),
@@ -954,8 +976,10 @@ builder.queryFields((t) => ({
 						desc(questions.id),
 					),
 				)
-				.with("newest", () =>
-					query.orderBy(desc(questions.createdAt), desc(questions.id)),
+				.with("date", () =>
+					direction === "asc"
+						? query.orderBy(asc(questions.createdAt), asc(questions.id))
+						: query.orderBy(desc(questions.createdAt), desc(questions.id)),
 				)
 				.exhaustive()
 

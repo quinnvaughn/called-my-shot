@@ -6,6 +6,7 @@ import { type FragmentType, graphql, useFragment } from "#/graphql/generated"
 import type {
 	CallResolutionStatus,
 	CallSortOrder,
+	SortDirection,
 } from "#/graphql/generated/graphql"
 import { type MyCallsFilters, myCallsQuery } from "#/graphql/queries/my-calls"
 
@@ -22,6 +23,7 @@ type MyCallsTabProps = {
 	status: CallResolutionStatus
 	filters: MyCallsFilters
 	sort: CallSortOrder
+	direction: SortDirection
 	// True when any filter is narrowing the list, so an empty result can say
 	// "nothing matches" rather than "you've never done this".
 	filtered: boolean
@@ -31,12 +33,13 @@ export function MyCallsTab({
 	status,
 	filters,
 	sort,
+	direction,
 	filtered,
 }: MyCallsTabProps) {
 	// keepPreviousData holds the current results in place while a new filter's
 	// first page loads, rather than blanking the list between keystrokes.
 	const { data, hasNextPage, isFetching, fetchNextPage } = useInfiniteQuery({
-		...myCallsQuery(status, filters, sort),
+		...myCallsQuery(status, filters, sort, direction),
 		placeholderData: keepPreviousData,
 	})
 

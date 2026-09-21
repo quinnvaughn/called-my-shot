@@ -11,13 +11,14 @@ import {
 import { MyQuestionsTab } from "#/components/my-questions/my-questions-tab"
 import { SortSwitcher } from "#/components/questions/sort-switcher"
 import { PageHeader } from "#/components/ui/page-header"
-import type { MyQuestionSort } from "#/graphql/generated/graphql"
+import type { MyQuestionSort, SortDirection } from "#/graphql/generated/graphql"
 import {
 	type MyQuestionsFilters,
 	myQuestionsQuery,
 } from "#/graphql/queries/my-questions"
 import { useDebouncedValue } from "#/hooks/use-debounced-value"
 import {
+	DEFAULT_MY_LIST_DIRECTION,
 	DEFAULT_MY_QUESTIONS_SORT,
 	MY_QUESTION_SORTS,
 } from "#/lib/my-list-sorts"
@@ -25,13 +26,17 @@ import {
 export const Route = createFileRoute("/_app/_authed/my-questions")({
 	component: RouteComponent,
 	// Prefetched under exactly the key the component asks for on its first
-	// render - the sort has to be passed explicitly here even though it's the
+	// render - the sort and direction have to be passed explicitly here even though it's the
 	// server's default too, because the component always sends one and a key
 	// that differs by so much as an absent variable is a different cache entry
 	// and a wasted round trip. Any filter or re-sort past that fetches normally.
 	loader: ({ context }) =>
 		context.queryClient.infiniteQuery(
-			myQuestionsQuery({}, DEFAULT_MY_QUESTIONS_SORT),
+			myQuestionsQuery(
+				{},
+				DEFAULT_MY_QUESTIONS_SORT,
+				DEFAULT_MY_LIST_DIRECTION,
+			),
 		),
 })
 
@@ -39,6 +44,9 @@ function RouteComponent() {
 	const { leagues } = Route.useRouteContext()
 	const [filters, setFilters] = useState<QuestionFilterValue>(EMPTY_FILTERS)
 	const [sort, setSort] = useState<MyQuestionSort>(DEFAULT_MY_QUESTIONS_SORT)
+	const [direction, setDirection] = useState<SortDirection>(
+		DEFAULT_MY_LIST_DIRECTION,
+	)
 
 	const debouncedSearch = useDebouncedValue(filters.search.trim(), 300)
 	const queryFilters = toQueryFilters(filters, debouncedSearch)
@@ -47,7 +55,7 @@ function RouteComponent() {
 	// rather than costing a second request - it's read here only because the
 	// count belongs in the header, above the list that produces it.
 	const { data } = useInfiniteQuery({
-		...myQuestionsQuery(queryFilters, sort),
+		...myQuestionsQuery(queryFilters, sort, direction),
 		placeholderData: keepPreviousData,
 	})
 	const total = data?.pages[0]?.myQuestions.totalCount ?? null
@@ -67,11 +75,14 @@ function RouteComponent() {
 				sorts={MY_QUESTION_SORTS}
 				active={sort}
 				onChange={setSort}
+				direction={direction}
+				onDirectionChange={setDirection}
 			/>
 
 			<MyQuestionsTab
 				filters={queryFilters}
 				sort={sort}
+				direction={direction}
 				filtered={hasActiveFilters(filters)}
 			/>
 		</VStack>

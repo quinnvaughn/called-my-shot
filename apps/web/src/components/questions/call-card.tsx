@@ -125,7 +125,9 @@ export function CallCard({ call: callProp }: CallCardProps) {
 				paddingInline: "1.3rem",
 			})}
 		>
-			<VStack gap="2.5" alignItems="stretch">
+			{/* Full height with the link row pushed down, so cards stretched to a
+			shared height (the Playing Now row) line their footers up. */}
+			<VStack gap="2.5" alignItems="stretch" height="full">
 				<QuestionSummaryHeader
 					question={call.question}
 					ballotMembership={call.question.ballotMembership}
@@ -182,7 +184,12 @@ export function CallCard({ call: callProp }: CallCardProps) {
 					</div>
 				)}
 
-				<HStack justify="space-between" alignItems="center" gap="3">
+				<HStack
+					justify="space-between"
+					alignItems="center"
+					gap="3"
+					marginBlockStart="auto"
+				>
 					{/* The card's primary destination, stretched over the whole
 					card by the ::after below rather than by wrapping everything
 					in one anchor. Two real sibling links instead of one giant

@@ -1,7 +1,11 @@
 import { hashKey } from "@tanstack/react-query"
 import { describe, expect, it } from "vitest"
 import { EMPTY_FILTERS } from "#/components/filters/question-filter-bar"
-import { DEFAULT_MY_QUESTIONS_SORT, MY_CALL_SORTS } from "#/lib/my-list-sorts"
+import {
+	DEFAULT_MY_LIST_DIRECTION,
+	DEFAULT_MY_QUESTIONS_SORT,
+	MY_CALL_SORTS,
+} from "#/lib/my-list-sorts"
 import { toQueryFilters } from "#/routes/_app/_authed/my-calls"
 import { myCallCountsQuery, myCallsQuery, myLiveCallsQuery } from "./my-calls"
 import { myQuestionsQuery } from "./my-questions"
@@ -18,21 +22,33 @@ import { myQuestionsQuery } from "./my-questions"
 describe("loader seeds land on the keys the components read", () => {
 	it("seeds each My Calls tab under its own default sort", () => {
 		expect(
-			hashKey(myCallsQuery("OPEN", {}, MY_CALL_SORTS.open.default).queryKey),
-		).toBe(hashKey(myCallsQuery("OPEN", {}, "NEWEST").queryKey))
+			hashKey(
+				myCallsQuery(
+					"OPEN",
+					{},
+					MY_CALL_SORTS.open.default,
+					DEFAULT_MY_LIST_DIRECTION,
+				).queryKey,
+			),
+		).toBe(hashKey(myCallsQuery("OPEN", {}, "DATE", "DESC").queryKey))
 
 		expect(
 			hashKey(
-				myCallsQuery("RESOLVED", {}, MY_CALL_SORTS.resolved.default).queryKey,
+				myCallsQuery(
+					"RESOLVED",
+					{},
+					MY_CALL_SORTS.resolved.default,
+					DEFAULT_MY_LIST_DIRECTION,
+				).queryKey,
 			),
-		).toBe(hashKey(myCallsQuery("RESOLVED", {}, "POINTS").queryKey))
+		).toBe(hashKey(myCallsQuery("RESOLVED", {}, "POINTS", "DESC").queryKey))
 	})
 
 	// The bug this is really guarding against: seeding with no sort while the
 	// component sends one is a different cache entry, not a looser match.
 	it("treats an absent sort as a different key from an explicit one", () => {
 		expect(hashKey(myCallsQuery("OPEN").queryKey)).not.toBe(
-			hashKey(myCallsQuery("OPEN", {}, "NEWEST").queryKey),
+			hashKey(myCallsQuery("OPEN", {}, "DATE").queryKey),
 		)
 	})
 
@@ -90,7 +106,13 @@ describe("loader seeds land on the keys the components read", () => {
 
 	it("prefetches My Questions under its default sort", () => {
 		expect(
-			hashKey(myQuestionsQuery({}, DEFAULT_MY_QUESTIONS_SORT).queryKey),
-		).toBe(hashKey(myQuestionsQuery({}, "NEWEST").queryKey))
+			hashKey(
+				myQuestionsQuery(
+					{},
+					DEFAULT_MY_QUESTIONS_SORT,
+					DEFAULT_MY_LIST_DIRECTION,
+				).queryKey,
+			),
+		).toBe(hashKey(myQuestionsQuery({}, "DATE", "DESC").queryKey))
 	})
 })

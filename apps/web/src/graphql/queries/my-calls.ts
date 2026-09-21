@@ -5,6 +5,7 @@ import type {
 	CallSortOrder,
 	QuestionScope,
 	QuestionShape,
+	SortDirection,
 } from "#/graphql/generated/graphql"
 import {
 	gqlInfiniteQueryOptions,
@@ -61,6 +62,7 @@ export const MyCallsDocument = graphql(`
         $scope: QuestionScope
         $result: CallResultFilter
         $sort: CallSortOrder
+        $direction: SortDirection
     ) {
         myCalls(
             status: $status
@@ -72,6 +74,7 @@ export const MyCallsDocument = graphql(`
             scope: $scope
             result: $result
             sort: $sort
+            direction: $direction
         ) {
             items {
                 id
@@ -85,8 +88,8 @@ export const MyCallsDocument = graphql(`
     }
 `)
 
-// The Playing Now section above the Open tab's list. Takes the same filters
-// as the list (minus the ones only a settled call has) so narrowing to one
+// The Playing Now row above the Open tab's list. Takes the same filters as
+// the list (minus the ones only a settled call has) so narrowing to one
 // league narrows both halves of the tab, not just the half below the fold.
 // Unpaginated - the server caps it, since you can only have as many live
 // calls as there are games in flight.
@@ -156,7 +159,7 @@ export const myLiveCallsQuery = ({
 	...filters
 }: MyCallsFilters = {}) => gqlQueryOptions(MyLiveCallsDocument, filters)
 
-// Every filter and the sort are part of the variables, and therefore of the
+// Every filter, the sort and its direction are part of the variables, and therefore of the
 // query key, so changing one starts a fresh list rather than appending to the
 // previous one - same reasoning as leagueCommunityQuery.
 //
@@ -169,10 +172,11 @@ export const myCallsQuery = (
 	status: CallResolutionStatus,
 	filters: MyCallsFilters = {},
 	sort?: CallSortOrder,
+	direction?: SortDirection,
 ) =>
 	gqlInfiniteQueryOptions(
 		MyCallsDocument,
-		{ status, ...filters, sort },
+		{ status, ...filters, sort, direction },
 		(data) => data.myCalls,
 		// The two tabs swap one list component for the other, so switching tabs
 		// unmounts whichever list is on screen - and with it the only observer

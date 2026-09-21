@@ -6,6 +6,7 @@ import { getRequestHeader } from "@tanstack/react-start/server"
 import type { ReactNode } from "react"
 import { RouteError } from "./components/ui/route-error"
 import { RoutePending } from "./components/ui/route-pending"
+import { GraphQLRequestError } from "./graphql/fetcher"
 import { routeTree } from "./routeTree.gen"
 
 const getCookie = createIsomorphicFn()
@@ -21,6 +22,21 @@ export function getRouter() {
 				// loader and a warm component read agree on what counts as
 				// stale instead of one refetching behind the other.
 				staleTime: 30_000,
+				// queryClient.query() forces `retry: false` unless a retry is
+				// set by the time it reads the options, and every route loader
+				// goes through it - so without a default here a single dropped
+				// request fails the navigation outright. Transport failures (a
+				// connection that died while the tab sat idle, a 502 from the
+				// /graphql proxy) succeed on a fresh attempt. A response that
+				// carries GraphQL errors came back from the api intact and
+				// would fail the same way again, so it isn't retried.
+				retry: (failureCount, error) =>
+					failureCount < 2 &&
+					!(
+						error instanceof GraphQLRequestError &&
+						error.graphQLErrors.length > 0
+					),
+				retryDelay: (attempt) => 250 * 2 ** attempt,
 				// SSR forwards the browser's session; the queryFn is called by
 				// the client rather than by us, so this is the only seam it can
 				// travel through (see graphql/query-options.ts).

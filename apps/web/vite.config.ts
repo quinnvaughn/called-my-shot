@@ -6,6 +6,14 @@ import viteReact from "@vitejs/plugin-react"
 import { nitro } from "nitro/vite"
 import { defineConfig } from "vite"
 
+// One id per build, baked into both the client and server bundles as
+// import.meta.env.VITE_BUILD_ID. A tab still running an older client compares
+// it against /version to learn that its route chunks no longer exist on the
+// server (see hooks/use-stale-build-guard.ts). Set on process.env rather than
+// through `define` so every environment's build reads the same value, even if
+// this file is evaluated more than once in the process.
+process.env.VITE_BUILD_ID ??= Date.now().toString(36)
+
 const config = defineConfig({
 	resolve: { tsconfigPaths: true },
 	// The SSR build otherwise splits into multiple chunks that end up with a
