@@ -1,5 +1,5 @@
 import { castCallSchema } from "@called-my-shot/schemas"
-import { isNumericGuessShape } from "@called-my-shot/scoring"
+import { isNumericGuessShape, maxConvictionFor } from "@called-my-shot/scoring"
 import { db } from "../../../../db"
 import { callSelections, calls } from "../../../../db/schema"
 import { requireUser } from "../../../../lib/auth"
@@ -64,6 +64,14 @@ builder.mutationFields((t) => ({
 				throw ValidationError.field(
 					"selections",
 					`Pick exactly ${question.picksRequired} - you picked ${data.selections.length}`,
+				)
+			}
+
+			const maxConviction = maxConvictionFor(question)
+			if (data.selections.some((s) => s.conviction > maxConviction)) {
+				throw ValidationError.field(
+					"selections",
+					`Conviction on community props maxes out at ${maxConviction}`,
 				)
 			}
 

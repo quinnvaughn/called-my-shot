@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest"
 import {
 	BASE_POINTS_BY_SHAPE,
+	COMMUNITY_PROP_MAX_CONVICTION,
 	breakEvenHitRate,
 	breakEvenLossRate,
 	convictionEdge,
@@ -14,6 +15,7 @@ import {
 	MIN_EDGE_SAMPLE,
 	NUMERIC_GUESS_SHAPES,
 	numericGuessPoints,
+	maxConvictionFor,
 	pointsAtStake,
 	pointsCommitted,
 	type QuestionShape,
@@ -84,6 +86,23 @@ describe("BASE_POINTS_BY_SHAPE", () => {
 		]
 		const rates = new Set(binary.map((s) => BASE_POINTS_BY_SHAPE[s]))
 		expect(rates.size).toBe(1)
+	})
+})
+
+describe("maxConvictionFor", () => {
+	it("caps a community yes/no prop", () => {
+		expect(maxConvictionFor({ shape: "yes_no_prop", isOfficial: false })).toBe(
+			COMMUNITY_PROP_MAX_CONVICTION,
+		)
+	})
+
+	it("leaves official props and every other shape at 100", () => {
+		expect(maxConvictionFor({ shape: "yes_no_prop", isOfficial: true })).toBe(
+			100,
+		)
+		expect(
+			maxConvictionFor({ shape: "player_stat_over_under", isOfficial: false }),
+		).toBe(100)
 	})
 })
 

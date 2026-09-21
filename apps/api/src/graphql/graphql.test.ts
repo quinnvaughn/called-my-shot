@@ -212,7 +212,7 @@ describe("Mutation.castCall - authentication", () => {
 				input: {
 					questionId: question.id,
 					caseText: "They've been hot all month",
-					selections: [{ optionId: options[0].id, conviction: 75 }],
+					selections: [{ optionId: options[0].id, conviction: 60 }],
 				},
 			},
 		})
@@ -307,6 +307,46 @@ describe("Mutation.castCall - rules", () => {
 			},
 		)
 		expect(data.castCall.__typename).not.toBe("CastCallPayload")
+	})
+
+	it("caps conviction on a community yes/no prop", async () => {
+		const { question, options } = await seedOptionQuestion({ callers: [] })
+		const user = await makeUser()
+		const data = await expectData<{ castCall: { __typename: string } }>(
+			CAST_CALL,
+			{
+				as: user,
+				variables: {
+					input: {
+						questionId: question.id,
+						selections: [{ optionId: options[0].id, conviction: 66 }],
+					},
+				},
+			},
+		)
+		expect(data.castCall.__typename).toBe("ValidationError")
+		expect(await db.query.calls.findMany()).toHaveLength(0)
+	})
+
+	it("leaves an official yes/no prop's full conviction range", async () => {
+		const { question, options } = await seedOptionQuestion({
+			callers: [],
+			question: { isOfficial: true },
+		})
+		const user = await makeUser()
+		const data = await expectData<{ castCall: { __typename: string } }>(
+			CAST_CALL,
+			{
+				as: user,
+				variables: {
+					input: {
+						questionId: question.id,
+						selections: [{ optionId: options[0].id, conviction: 100 }],
+					},
+				},
+			},
+		)
+		expect(data.castCall.__typename).toBe("CastCallPayload")
 	})
 
 	it("rejects an out-of-range conviction at the schema boundary", async () => {

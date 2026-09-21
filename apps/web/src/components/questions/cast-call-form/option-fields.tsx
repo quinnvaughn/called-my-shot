@@ -1,6 +1,7 @@
 import {
 	BASE_POINTS_BY_SHAPE,
 	isSeasonLongShape,
+	maxConvictionFor,
 	seasonEarlyTierFor,
 } from "@called-my-shot/scoring"
 import { useState } from "react"
@@ -45,6 +46,11 @@ export function OptionFields({ callForm }: Props) {
 	const payoutAnchor = useTourAnchor("payout")
 
 	if (!question) return null
+
+	const maxConviction = maxConvictionFor({
+		shape,
+		isOfficial: question.isOfficial,
+	})
 
 	// null = nothing picked yet. Simulated as if this call already went
 	// through (see previewFieldPct) so the number shown here matches what
@@ -138,8 +144,20 @@ export function OptionFields({ callForm }: Props) {
 											form.setValue("selections.0.conviction", v)
 										}
 									}}
+									max={maxConviction}
 									aria-label="Conviction"
 								/>
+								{maxConviction < 100 && (
+									<span
+										className={css({
+											fontFamily: "mono",
+											fontSize: "3xs",
+											color: "fg.subtle",
+										})}
+									>
+										Community props max out at {maxConviction}% conviction.
+									</span>
+								)}
 							</VStack>
 							<div ref={payoutAnchor}>
 								<PointsPreview

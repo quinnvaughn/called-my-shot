@@ -28,6 +28,7 @@ export const CastCallFormFragment = graphql(`
 		lossRate
 		picksRequired
 		callCount
+		isOfficial
 		# Named in the walkthrough's closing modal, which tells a first-time
 		# caller where the result is going to come from.
 		resolutionSource

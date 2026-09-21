@@ -698,6 +698,23 @@ export function pointsAtStake(
 	return Math.round(basePoints * (conviction / 100) * lossRate)
 }
 
+// A yes/no prop from a regular user is the one question whose difficulty is
+// whatever its creator writes, with no data to price it against, so a near-
+// sure thing can be posted and called for free points. Capping conviction
+// there limits that without touching a caller on an honest coin flip, who
+// rarely goes near the top of the range anyway. Official props keep the full
+// range.
+export const COMMUNITY_PROP_MAX_CONVICTION = 65
+
+export function maxConvictionFor(question: {
+	shape: QuestionShape
+	isOfficial: boolean
+}): number {
+	return question.shape === "yes_no_prop" && !question.isOfficial
+		? COMMUNITY_PROP_MAX_CONVICTION
+		: 100
+}
+
 // basePoints comes from BASE_POINTS_BY_SHAPE and lossRate from
 // LOSS_RATE_BY_SHAPE for this question's shape.
 // earlyMult comes from earlyTierFor, computed by the caller from the call's
