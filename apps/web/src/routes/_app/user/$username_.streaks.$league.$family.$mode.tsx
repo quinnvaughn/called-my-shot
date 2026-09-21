@@ -13,6 +13,7 @@ import { CallCard } from "#/components/questions/call-card"
 import { StreakRecordCard } from "#/components/streaks/streak-record-card"
 import { StreakShareRow } from "#/components/streaks/streak-share-row"
 import { Breadcrumb } from "#/components/ui/breadcrumb"
+import { CardRail } from "#/components/ui/card-rail"
 import { NotFound } from "#/components/ui/not-found"
 import { PageHeader } from "#/components/ui/page-header"
 import type { UserStreakPageQuery } from "#/graphql/generated/graphql"
@@ -241,7 +242,7 @@ function StreakPage({
 			: null
 
 	return (
-		<VStack gap="6" alignItems="stretch" className={css({ maxWidth: "2xl" })}>
+		<VStack gap="6" alignItems="stretch">
 			<Breadcrumb>
 				<Breadcrumb.Link
 					to="/user/$username"
@@ -356,7 +357,7 @@ function StreakPage({
 	)
 }
 
-// Newest first, so the call that last extended the run is on top.
+// Newest first, so the call that last extended the run leads the row.
 function RunSection({
 	heading,
 	calls,
@@ -365,23 +366,35 @@ function RunSection({
 	calls: Streak["currentRunCalls"]
 }) {
 	return (
-		<VStack gap="3" alignItems="stretch">
-			<span
-				className={css({
-					fontFamily: "mono",
-					fontSize: "2xs",
-					letterSpacing: "wide",
-					color: "fg.subtle",
-					textTransform: "uppercase",
-				})}
-			>
-				{heading}
-			</span>
-			<VStack gap="2" alignItems="stretch">
-				{[...calls].reverse().map((call) => (
-					<CallCard key={call.id} call={call} />
-				))}
-			</VStack>
-		</VStack>
+		<CardRail
+			items={[...calls].reverse()}
+			getKey={(call) => call.id}
+			renderItem={(call) => <CallCard call={call} />}
+			itemLabel="call"
+			header={
+				<>
+					<span
+						className={css({
+							fontFamily: "mono",
+							fontSize: "2xs",
+							letterSpacing: "wide",
+							color: "fg.subtle",
+							textTransform: "uppercase",
+						})}
+					>
+						{heading}
+					</span>
+					<span
+						className={css({
+							fontFamily: "mono",
+							fontSize: "2xs",
+							color: "fg.subtle",
+						})}
+					>
+						{calls.length} calls
+					</span>
+				</>
+			}
+		/>
 	)
 }
