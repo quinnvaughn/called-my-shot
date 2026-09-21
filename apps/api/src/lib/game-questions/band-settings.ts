@@ -104,7 +104,7 @@ async function rowFor(
 	}
 }
 
-// Every tuned league stat, in catalog order.
+// Every tuned league stat, in bandTemplates order.
 export async function bandSettingRows(
 	now = new Date(),
 ): Promise<BandSettingRow[]> {

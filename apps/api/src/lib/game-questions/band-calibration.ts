@@ -6,7 +6,6 @@ import {
 	toleranceBand,
 } from "@called-my-shot/scoring"
 import { db } from "../../db"
-import { GAME_QUESTION_CATALOG } from "../../db/catalog/game-question-catalog"
 import { median } from "./tune-lines"
 
 // A team numeric guess breaks even when it hits this often - see
@@ -40,30 +39,24 @@ export const BAND_TUNING = {
 // final game counts, including ones from before a band change.
 export type ScoreSample = { actual: number; reference: number }
 
-// The league stats a band is tuned for: every team numeric guess the
-// generator posts. Each asks for a team's final score (points, runs), which is
-// what games.homeScore/awayScore hold.
+// The league stats a band is tuned for: each asks for a team's final score
+// (points, runs), which is what games.homeScore/awayScore hold. The generator
+// doesn't post team numeric guesses, but a caller can still ask one, and it's
+// created with the band tuned here (see bandSettingFor).
 export type BandTemplate = {
 	leagueSlug: string
 	templateId: string
 	statName: string
 }
 
+const BAND_TEMPLATES: BandTemplate[] = [
+	{ leagueSlug: "nfl", templateId: "team-points", statName: "Points" },
+	{ leagueSlug: "nba", templateId: "team-points", statName: "Points" },
+	{ leagueSlug: "mlb", templateId: "team-runs", statName: "Runs" },
+]
+
 export function bandTemplates(): BandTemplate[] {
-	return Object.entries(GAME_QUESTION_CATALOG).flatMap(
-		([leagueSlug, templates]) =>
-			templates.flatMap((template) =>
-				template.shape === "team_stat_numeric_guess"
-					? [
-							{
-								leagueSlug,
-								templateId: template.id,
-								statName: template.statName,
-							},
-						]
-					: [],
-			),
-	)
+	return BAND_TEMPLATES
 }
 
 export function bandTemplate(

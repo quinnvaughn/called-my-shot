@@ -49,7 +49,14 @@ const catalogTemplate = (leagueSlug: string, id: string) => {
 	return template
 }
 
-const TEAM_POINTS = catalogTemplate("nba", "team-points")
+// The catalog doesn't post team numeric guesses, but the generator still
+// can, so its handling of them is held to this one.
+const TEAM_POINTS: GameQuestionTemplate = {
+	id: "team-points",
+	tier: 1,
+	shape: "team_stat_numeric_guess",
+	statName: "Points",
+}
 const TEAM_POINTS_LINE = catalogTemplate("nba", "team-points-ou")
 const POINTS_DUEL = catalogTemplate("nba", "top-scorer-points-duel")
 const POINTS_LINE = catalogTemplate("nba", "top-scorer-points")
@@ -414,9 +421,7 @@ describe("generateGameQuestions", () => {
 						const parsed = question.generationKey
 							? parseGenerationKey(question.generationKey)
 							: null
-						return parsed && parsed.templateId !== "team-points"
-							? [parsed.templateId]
-							: []
+						return parsed ? [parsed.templateId] : []
 					}),
 				),
 			].sort()

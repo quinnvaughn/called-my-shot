@@ -9,6 +9,7 @@ import type { QuestionShape } from "#/graphql/generated/graphql"
 // here. Any other official question on the game (an admin's own) goes under
 // More.
 export const OFFICIAL_SECTIONS: { label: string; shapes: QuestionShape[] }[] = [
+	{ label: "Team lines", shapes: ["TEAM_STAT_OVER_UNDER"] },
 	{ label: "Team scores", shapes: ["TEAM_STAT_NUMERIC_GUESS"] },
 	{ label: "Head to head", shapes: ["PLAYER_VS_PLAYER"] },
 	{ label: "Player lines", shapes: ["PLAYER_STAT_OVER_UNDER"] },

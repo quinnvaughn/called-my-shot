@@ -37,27 +37,6 @@ describe("GAME_QUESTION_CATALOG", () => {
 			}
 		})
 
-		// Official questions come back oldest first (see Game.officialQuestions),
-		// and the generator posts in catalog order, so whichever template on a
-		// stat comes first here leads the game page.
-		it(`${leagueSlug}: leads with the over/under on a stat it also guesses`, () => {
-			const guesses = templates.filter(
-				(template) => template.shape === "team_stat_numeric_guess",
-			)
-			for (const guess of guesses) {
-				const line = templates.find(
-					(template) =>
-						template.shape === "team_stat_over_under" &&
-						template.statName === guess.statName,
-				)
-				expect(line, `${guess.id} has no over/under`).toBeDefined()
-				expect(
-					templates.indexOf(line as (typeof templates)[number]),
-					guess.id,
-				).toBeLessThan(templates.indexOf(guess))
-			}
-		})
-
 		it(`${leagueSlug}: posts some player questions per game`, () => {
 			expect(PLAYER_QUESTIONS_PER_GAME[leagueSlug]).toBeGreaterThan(0)
 		})

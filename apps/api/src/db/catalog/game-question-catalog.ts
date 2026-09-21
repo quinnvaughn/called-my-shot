@@ -202,12 +202,6 @@ export const GAME_QUESTION_CATALOG: Record<string, GameQuestionTemplate[]> = {
 			priorWeight: 4,
 		},
 		{
-			id: "team-points",
-			tier: 1,
-			shape: "team_stat_numeric_guess",
-			statName: "Points",
-		},
-		{
 			id: "qb-passing-yards-duel",
 			tier: 1,
 			shape: "player_vs_player",
@@ -308,12 +302,6 @@ export const GAME_QUESTION_CATALOG: Record<string, GameQuestionTemplate[]> = {
 			statName: "Points",
 			line: { minGames: 5, shade: 1, minLine: 80.5 },
 			priorWeight: 10,
-		},
-		{
-			id: "team-points",
-			tier: 1,
-			shape: "team_stat_numeric_guess",
-			statName: "Points",
 		},
 		{
 			id: "top-scorer-points-duel",
@@ -424,12 +412,6 @@ export const GAME_QUESTION_CATALOG: Record<string, GameQuestionTemplate[]> = {
 			statName: "Runs",
 			line: { minGames: 10, shade: 1, minLine: 1.5 },
 			priorWeight: 20,
-		},
-		{
-			id: "team-runs",
-			tier: 1,
-			shape: "team_stat_numeric_guess",
-			statName: "Runs",
 		},
 		{
 			id: "starter-strikeouts-duel",
