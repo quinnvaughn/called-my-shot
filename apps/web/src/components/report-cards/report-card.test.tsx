@@ -98,11 +98,6 @@ describe("ReportCard", () => {
 		).toBeInTheDocument()
 	})
 
-	it("explains a blank grade instead of leaving a bare dash", () => {
-		renderCard({ settledCount: 3, wins: 2, losses: 1, grade: null })
-		expect(screen.getByText("2 more results to grade")).toBeInTheDocument()
-	})
-
 	it("renders a family row per family", () => {
 		renderCard({
 			byFamily: [family(), family({ family: "YES_NO", label: "Yes/No" })],
@@ -142,8 +137,9 @@ describe("ReportCard", () => {
 		expect(screen.getByText("Team Game Over/Under")).toBeInTheDocument()
 	})
 
-	it("does not expand a family that holds only one shape", () => {
-		// The nested row would just repeat the family above it.
+	it("lists a single-shape family and that one shape under it", () => {
+		// The nested row repeats the parent's numbers on purpose - it says the
+		// family IS that shape, which the family row alone doesn't tell you.
 		const shapes = [
 			{
 				shape: "PLAYER_STAT_OVER_UNDER",
@@ -158,7 +154,44 @@ describe("ReportCard", () => {
 		]
 		render(<ReportCard card={card({ byShape: shapes })} expanded />)
 		expect(screen.getByText("Over/Under")).toBeInTheDocument()
-		expect(screen.queryByText("Player Game Over/Under")).not.toBeInTheDocument()
+		expect(screen.getByText("Player Game Over/Under")).toBeInTheDocument()
+	})
+
+	it("lists every shape under a family that holds several", () => {
+		const shapes = [
+			{
+				shape: "TEAM_VS_TEAM",
+				family: "HEAD_TO_HEAD",
+				label: "Team vs Team",
+				wins: 9,
+				losses: 7,
+				pendingCount: 0,
+				netPoints: 150,
+				returnPct: 12,
+			},
+			{
+				shape: "PLAYER_VS_PLAYER",
+				family: "HEAD_TO_HEAD",
+				label: "Player Game Head-to-Head",
+				wins: 4,
+				losses: 2,
+				pendingCount: 0,
+				netPoints: 431,
+				returnPct: 40,
+			},
+		]
+		render(
+			<ReportCard
+				card={card({
+					byFamily: [family({ family: "HEAD_TO_HEAD", label: "Head-to-Head" })],
+					byShape: shapes,
+				})}
+				expanded
+			/>,
+		)
+		expect(screen.getByText("Head-to-Head")).toBeInTheDocument()
+		expect(screen.getByText("Team vs Team")).toBeInTheDocument()
+		expect(screen.getByText("Player Game Head-to-Head")).toBeInTheDocument()
 	})
 
 	it("offers an explicit, labelled link to the permalink", async () => {

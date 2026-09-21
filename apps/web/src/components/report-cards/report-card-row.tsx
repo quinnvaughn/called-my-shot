@@ -81,8 +81,9 @@ export function ReportCardRow({ row, nested = false }: Props) {
 	)
 }
 
-// The breakdown as a whole: family rows, each optionally expanded into the
-// shapes it holds.
+// The breakdown as a whole. On the inline card every row is a family. On the
+// permalink each family is followed by every shape inside it, so the rows
+// stay at one predictable grain.
 export function ReportCardBreakdown({
 	families,
 	shapesByFamily,
@@ -104,16 +105,18 @@ export function ReportCardBreakdown({
 		>
 			{families.map((family) => {
 				const shapes = shapesByFamily?.[family.family] ?? []
-				// A family holding exactly one shape would repeat itself, so the
-				// nested row is only worth drawing when it actually splits.
-				const worthExpanding = shapes.length > 1
 				return (
 					<div key={family.family}>
 						<ReportCardRow row={family} />
-						{worthExpanding &&
-							shapes.map((shape) => (
-								<ReportCardRow key={shape.label} row={shape} nested />
-							))}
+						{/* Every shape, including a family that holds only one.
+						    Repeating the parent's numbers there is the point: it
+						    says the family IS that shape, which is information the
+						    family row alone doesn't carry. Suppressing it made a
+						    page where one family split and three didn't read as
+						    arbitrary. */}
+						{shapes.map((shape) => (
+							<ReportCardRow key={shape.label} row={shape} nested />
+						))}
 					</div>
 				)
 			})}
