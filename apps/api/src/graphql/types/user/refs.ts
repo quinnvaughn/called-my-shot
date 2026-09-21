@@ -5,9 +5,11 @@ import {
 	buildGlobalLeaderboard,
 	type LeaderboardEntry,
 } from "../../../lib/global-leaderboard"
+import { loadReportCardResult } from "../../../lib/report-card/load"
 import { builder } from "../../builder"
 import { FlairRef } from "../flair"
 import { CallRef, VoidReason } from "../question"
+import { ReportCardRef, resolveWindowByKey } from "../sports"
 import { EmailPreferenceType, StreakFamilyEnum } from "./enums"
 import { buildUserLeagueStats, UserLeagueStatsRef } from "./stats"
 import { UserStreakRef, UserSweepRef } from "./streaks"
@@ -219,6 +221,27 @@ export const UserRef = builder.drizzleObject("users", {
 				return db.query.userSweeps.findFirst({
 					where: { userId: user.id, leagueId, slateKey: args.slateKey },
 				})
+			},
+		}),
+		// This user's calls across one window of games. Null only when the
+		// league or the window key names nothing - a window they made no calls
+		// in still returns a card, carrying that window's label and zeroes, so
+		// the permalink can say which window it found nothing for.
+		reportCard: t.field({
+			type: ReportCardRef,
+			nullable: true,
+			args: {
+				league: t.arg.string({ required: true }),
+				windowKey: t.arg.string({ required: true }),
+			},
+			resolve: async (user, args) => {
+				const league = await db.query.leagues.findFirst({
+					where: { slug: args.league },
+				})
+				if (!league) return null
+				const window = await resolveWindowByKey(league, args.windowKey)
+				if (!window) return null
+				return loadReportCardResult(user.id, league, window)
 			},
 		}),
 	}),

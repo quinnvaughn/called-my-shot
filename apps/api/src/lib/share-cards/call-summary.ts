@@ -9,6 +9,7 @@ import {
 	type MarginVerdict,
 	type QuestionShape,
 	type QuipTone,
+	SHARE_CARD_SHAPE_LABEL as SHAPE_LABEL,
 	STREAK_TAG_MIN,
 	type ToleranceSpec,
 } from "@called-my-shot/scoring"
@@ -21,33 +22,12 @@ import { db } from "../../db"
 // (lib/email-digest.ts) can never describe the same pick two different ways -
 // they are the same claim about the same call, arriving in two places.
 
-// Keyed by QuestionShape rather than a loose string so a newly added shape
-// fails the build here instead of silently falling back to "Other" on every
-// share card - which is exactly what team_season_stat_numeric_guess and
-// player_game_stat_leader had been doing. Mirrors shareCardShapeLabel in
-// apps/web/src/lib/question-labels.ts.
-export const SHAPE_LABEL: Record<QuestionShape, string> = {
-	player_stat_over_under: "Player Stat",
-	team_stat_over_under: "Team Stat",
-	player_season_stat_over_under: "Season Stat",
-	team_season_stat_over_under: "Season Stat",
-	game_total_over_under: "Combined Score",
-	player_stat_numeric_guess: "Player Stat",
-	team_stat_numeric_guess: "Team Stat",
-	team_season_stat_numeric_guess: "Season Stat",
-	player_vs_player: "Head-to-Head",
-	player_vs_player_season: "Head-to-Head",
-	team_vs_team: "Game Outcome",
-	team_vs_team_season: "Head-to-Head",
-	player_game_stat_leader: "Stat Leader",
-	// See the matching entry in shareCardShapeLabel (apps/web/src/lib/
-	// question-labels.ts) for why this one isn't "Stat Leader" too.
-	player_season_stat_leader: "Multi-Way",
-	yes_no_prop: "Yes/No",
-	player_season_award: "Season Award",
-	team_season_award: "Season Award",
-	player_award_finalists: "Season Award",
-}
+// The badge strings live in @called-my-shot/scoring, alongside the quips the
+// same cards draw, so the exported PNG, the digest email and the call page's
+// own badge read off one copy instead of three. Kept under the name this
+// module has always used, since the PNG builders below and routes/share.ts
+// both import it from here.
+export { SHAPE_LABEL }
 
 // Mirrors isRateStat in apps/web/src/lib/field-signal.ts, against this
 // route's own DB row rather than the GraphQL question - note the tolerance
@@ -164,7 +144,11 @@ export function buildPickLabel(call: {
 // pool keeps whoever led, since the also-rans carry numbers nothing shows.
 function scoredOptionsFor(question: {
 	shape: QuestionShape
-	options: { label: string; isCorrect: boolean | null; actualValue: number | null }[]
+	options: {
+		label: string
+		isCorrect: boolean | null
+		actualValue: number | null
+	}[]
 }): { label: string; actualValue: number }[] {
 	const scored = question.options.filter(
 		(o): o is typeof o & { actualValue: number } => o.actualValue !== null,
@@ -651,7 +635,11 @@ export async function loadResolvedCallSummaries(
 		// points (it shouldn't, once resolved) - nothing should describe a
 		// result that isn't there.
 		if (summary.points === null || summary.isWin === null) continue
-		resolved.set(id, { ...summary, points: summary.points, isWin: summary.isWin })
+		resolved.set(id, {
+			...summary,
+			points: summary.points,
+			isWin: summary.isWin,
+		})
 	}
 	return resolved
 }

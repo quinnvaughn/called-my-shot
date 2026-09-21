@@ -268,6 +268,9 @@ export const LeagueGamesForWindowDocument = graphql(`
 			}
 			prevKey
 			nextKey
+			viewerReportCard {
+				...ReportCard_card
+			}
 			groups {
 				slotLabel
 				viewerSweep {

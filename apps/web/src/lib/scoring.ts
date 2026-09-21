@@ -9,6 +9,7 @@ import {
 	type EarlyTier,
 	earlyTierFor,
 	isSeasonLongShape,
+	pointsAtStake,
 	seasonEarlyTierFor,
 	TIER_MAX_MULT,
 	TIER_MIN_MULT,
@@ -66,7 +67,7 @@ export function previewSelectionPoints(
 	const tier = tierFor(fieldPct, totalOptions)
 	return {
 		win: Math.round(basePoints * stake * tier.mult * earlyTier.mult),
-		lose: Math.round(basePoints * stake * lossRate),
+		lose: pointsAtStake(basePoints, lossRate, conviction),
 		tier,
 		earlyTier,
 	}
@@ -105,7 +106,7 @@ export function previewNumericPoints(
 	return {
 		winLow: Math.round(basePoints * stake * TIER_MIN_MULT * earlyTier.mult),
 		winHigh: Math.round(basePoints * stake * TIER_MAX_MULT * earlyTier.mult),
-		lose: Math.round(basePoints * stake * lossRate),
+		lose: pointsAtStake(basePoints, lossRate, conviction),
 		earlyTier,
 	}
 }

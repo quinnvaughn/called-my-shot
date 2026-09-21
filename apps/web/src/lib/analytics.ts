@@ -134,6 +134,12 @@ type AnalyticsEvents = {
 		slateKey: string
 		method: "native" | "clipboard" | "x"
 	}
+	report_card_link_shared: {
+		userId: string
+		league: string
+		windowKey: string
+		method: "native" | "clipboard" | "x"
+	}
 
 	support_ticket_filed: { category: string }
 

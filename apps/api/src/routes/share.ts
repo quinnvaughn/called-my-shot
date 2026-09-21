@@ -19,6 +19,11 @@ import {
 	quipToneFor,
 } from "../lib/share-cards/call-summary"
 import {
+	buildReportCardShareCard,
+	loadReportCardShareData,
+	REPORT_CARD_SHARE_CARD_SIZE,
+} from "../lib/share-cards/report-card-card"
+import {
 	buildStreakShareCard,
 	loadStreakShareCardData,
 	parseStreakMode,
@@ -94,6 +99,18 @@ export function registerShareRoutes(app: Express) {
 			req.params.slateKey,
 		)
 	})
+
+	app.get(
+		"/share/report-cards/:username/:league/:windowKey.png",
+		async (req, res) => {
+			await sendReportCardShareCard(
+				res,
+				req.params.username,
+				req.params.league,
+				req.params.windowKey,
+			)
+		},
+	)
 }
 
 // The og:image behind /user/:username/streaks/:league/:family/:mode. A track
@@ -138,6 +155,33 @@ async function sendSweepShareCard(
 		SWEEP_SHARE_CARD_SIZE,
 	)
 	res.setHeader("Content-Type", "image/png")
+	res.setHeader("Cache-Control", "public, max-age=300")
+	res.send(png)
+}
+
+// The og:image behind /user/:username/report-cards/:league/:windowKey. 404s
+// for a window the caller has no calls in, so a pasted link to a week they
+// sat out unfurls with no preview rather than with an empty grade.
+async function sendReportCardShareCard(
+	res: Response,
+	username: string,
+	leagueSlug: string,
+	windowKey: string,
+) {
+	const data = await loadReportCardShareData(username, leagueSlug, windowKey)
+	if (!data) {
+		res.status(404).end()
+		return
+	}
+	const png = await renderShareImage(
+		buildReportCardShareCard(data),
+		REPORT_CARD_SHARE_CARD_SIZE,
+	)
+	res.setHeader("Content-Type", "image/png")
+	// A report card changes as a slate settles, unlike a sweep, which is
+	// fixed the moment it completes. The ?v= buster on the page's og:image url
+	// is what actually forces a re-scrape; this only keeps a hot link from
+	// re-rendering the png on every request.
 	res.setHeader("Cache-Control", "public, max-age=300")
 	res.send(png)
 }

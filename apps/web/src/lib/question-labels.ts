@@ -1,4 +1,10 @@
 import {
+	SHAPE_FAMILY_BY_SHAPE,
+	SHAPE_LABEL,
+	SHARE_CARD_SHAPE_LABEL,
+	type ShapeFamily,
+} from "@called-my-shot/scoring"
+import {
 	FaArrowsUpDown,
 	FaHashtag,
 	FaMedal,
@@ -20,79 +26,40 @@ const OVER_UNDER_SHAPES: readonly QuestionShape[] = [
 	"GAME_TOTAL_OVER_UNDER",
 ]
 
-// _STAT_OVER_UNDER now always names the scope explicitly (Game vs Season) -
-// these two used to be one ambiguous shape with an optional game, which
-// wasn't obvious from the picker and read as "leave it blank for season
-// long" only once you were already deep in the form.
-export const questionShapeLabel: Record<QuestionShape, string> = {
-	PLAYER_STAT_OVER_UNDER: "Player Game Over/Under",
-	TEAM_STAT_OVER_UNDER: "Team Game Over/Under",
-	PLAYER_SEASON_STAT_OVER_UNDER: "Player Season Over/Under",
-	TEAM_SEASON_STAT_OVER_UNDER: "Team Season Over/Under",
-	GAME_TOTAL_OVER_UNDER: "Combined Score Over/Under",
-	PLAYER_STAT_NUMERIC_GUESS: "Player Game Numeric Guess",
-	TEAM_STAT_NUMERIC_GUESS: "Team Game Numeric Guess",
-	TEAM_SEASON_STAT_NUMERIC_GUESS: "Team Season Numeric Guess",
-	PLAYER_VS_PLAYER: "Player Game Head-to-Head",
-	PLAYER_VS_PLAYER_SEASON: "Player Season Head-to-Head",
-	TEAM_VS_TEAM: "Team vs Team",
-	TEAM_VS_TEAM_SEASON: "Team Season Head-to-Head",
-	PLAYER_GAME_STAT_LEADER: "Game Stat Leader",
-	PLAYER_SEASON_STAT_LEADER: "Player Season Multi-Way",
-	YES_NO_PROP: "Yes/No",
-	PLAYER_SEASON_AWARD: "Player Season Award",
-	TEAM_SEASON_AWARD: "Team Season Award",
-	PLAYER_AWARD_FINALISTS: "Award Finalists",
-}
+// The strings live in @called-my-shot/scoring, keyed by the DB's snake_case
+// shape names, because the API needs them too - it renders share-card PNGs
+// with satori, where there's no client to do the labelling. Derived here into
+// the GraphQL enum's SCREAMING_CASE, same as questionShapeFamily below.
+export const questionShapeLabel = Object.fromEntries(
+	Object.entries(SHAPE_LABEL).map(([shape, label]) => [
+		shape.toUpperCase(),
+		label,
+	]),
+) as Record<QuestionShape, string>
 
 // The six buckets the shape filter groups its 18 options under - a flat list of
 // 18 is unscannable in a dropdown, and these are the lines people already think
-// along ("my over/unders", "my award calls").
-export const SHAPE_FAMILIES = [
-	"OVER_UNDER",
-	"NUMERIC_GUESS",
-	"HEAD_TO_HEAD",
-	"STAT_LEADER",
-	"AWARD",
-	"YES_NO",
-] as const
+// along ("my over/unders", "my award calls"). The API groups a report card's
+// breakdown by the same six, so the assignment itself lives in
+// @called-my-shot/scoring and both sides read it from there.
+export {
+	SHAPE_FAMILIES,
+	SHAPE_FAMILY_LABEL as shapeFamilyLabel,
+	type ShapeFamily,
+} from "@called-my-shot/scoring"
 
-export type ShapeFamily = (typeof SHAPE_FAMILIES)[number]
-
-export const shapeFamilyLabel: Record<ShapeFamily, string> = {
-	OVER_UNDER: "Over/Under",
-	NUMERIC_GUESS: "Numeric Guess",
-	HEAD_TO_HEAD: "Head-to-Head",
-	STAT_LEADER: "Stat Leader",
-	AWARD: "Award",
-	YES_NO: "Yes/No",
-}
-
-// A Record rather than a lookup with a default, same reasoning as
-// NUMERIC_GUESS_BY_SHAPE below: a shape added later has to be filed somewhere
-// deliberately, and failing the build is how that gets noticed. Falling back to
-// a catch-all group would silently hide the new shape at the bottom of the
-// picker instead.
-export const questionShapeFamily: Record<QuestionShape, ShapeFamily> = {
-	PLAYER_STAT_OVER_UNDER: "OVER_UNDER",
-	TEAM_STAT_OVER_UNDER: "OVER_UNDER",
-	PLAYER_SEASON_STAT_OVER_UNDER: "OVER_UNDER",
-	TEAM_SEASON_STAT_OVER_UNDER: "OVER_UNDER",
-	GAME_TOTAL_OVER_UNDER: "OVER_UNDER",
-	PLAYER_STAT_NUMERIC_GUESS: "NUMERIC_GUESS",
-	TEAM_STAT_NUMERIC_GUESS: "NUMERIC_GUESS",
-	TEAM_SEASON_STAT_NUMERIC_GUESS: "NUMERIC_GUESS",
-	PLAYER_VS_PLAYER: "HEAD_TO_HEAD",
-	PLAYER_VS_PLAYER_SEASON: "HEAD_TO_HEAD",
-	TEAM_VS_TEAM: "HEAD_TO_HEAD",
-	TEAM_VS_TEAM_SEASON: "HEAD_TO_HEAD",
-	PLAYER_GAME_STAT_LEADER: "STAT_LEADER",
-	PLAYER_SEASON_STAT_LEADER: "STAT_LEADER",
-	PLAYER_SEASON_AWARD: "AWARD",
-	TEAM_SEASON_AWARD: "AWARD",
-	PLAYER_AWARD_FINALISTS: "AWARD",
-	YES_NO_PROP: "YES_NO",
-}
+// The shared map is keyed by the DB's snake_case shape names; this one is
+// keyed by the GraphQL enum's SCREAMING_CASE. Derived rather than restated so
+// the two can't disagree about which family a shape belongs to - the
+// exhaustive Record that forces a newly added shape to be filed somewhere
+// deliberately still exists, it just lives on SHAPE_FAMILY_BY_SHAPE now.
+// Family values are identical on both sides, so only the key is converted.
+export const questionShapeFamily = Object.fromEntries(
+	Object.entries(SHAPE_FAMILY_BY_SHAPE).map(([shape, family]) => [
+		shape.toUpperCase(),
+		family,
+	]),
+) as Record<QuestionShape, ShapeFamily>
 
 export const questionShapeIcon: Record<QuestionShape, IconType> = {
 	PLAYER_STAT_OVER_UNDER: FaArrowsUpDown,
@@ -180,38 +147,18 @@ export function optionDisplayLabel(
 		: label
 }
 
-// The share card's small category badge groups shapes more coarsely than
-// questionShapeLabel above (a share card is a tiny image, not a picker card)
-// - mirrors apps/api/src/routes/share.ts's own SHAPE_LABEL constant exactly,
-// same "hand-synced across the two codebases" reasoning as quipForCall being
-// shared through @called-my-shot/scoring instead: both need to produce
-// identical text, this one just isn't shareable code across the API/web
-// boundary the way a pure function is.
-export const shareCardShapeLabel: Record<QuestionShape, string> = {
-	PLAYER_STAT_OVER_UNDER: "Player Stat",
-	TEAM_STAT_OVER_UNDER: "Team Stat",
-	PLAYER_SEASON_STAT_OVER_UNDER: "Season Stat",
-	TEAM_SEASON_STAT_OVER_UNDER: "Season Stat",
-	GAME_TOTAL_OVER_UNDER: "Combined Score",
-	PLAYER_STAT_NUMERIC_GUESS: "Player Stat",
-	TEAM_STAT_NUMERIC_GUESS: "Team Stat",
-	TEAM_SEASON_STAT_NUMERIC_GUESS: "Season Stat",
-	PLAYER_VS_PLAYER: "Head-to-Head",
-	PLAYER_VS_PLAYER_SEASON: "Head-to-Head",
-	TEAM_VS_TEAM: "Game Outcome",
-	TEAM_VS_TEAM_SEASON: "Head-to-Head",
-	PLAYER_GAME_STAT_LEADER: "Stat Leader",
-	// Not "Stat Leader" like the game-scoped shape above, which really is a
-	// leaderboard over both full rosters. This one ranks a creator-named
-	// handful, and a badge reading "Stat Leader" on a share card - where
-	// there's no picker description to correct it - invites the league-wide
-	// reading the shape's title works to rule out.
-	PLAYER_SEASON_STAT_LEADER: "Multi-Way",
-	YES_NO_PROP: "Yes/No",
-	PLAYER_SEASON_AWARD: "Season Award",
-	TEAM_SEASON_AWARD: "Season Award",
-	PLAYER_AWARD_FINALISTS: "Season Award",
-}
+// The share card's small category badge, which groups shapes more coarsely
+// than questionShapeLabel above - a share card is a tiny image, not a picker
+// card. The strings and the reasoning behind the coarser grouping live on
+// SHARE_CARD_SHAPE_LABEL in @called-my-shot/scoring, because the API renders
+// the same badge into a PNG and into the resolution digest email. Derived
+// into the GraphQL enum's casing, same as the two maps above.
+export const shareCardShapeLabel = Object.fromEntries(
+	Object.entries(SHARE_CARD_SHAPE_LABEL).map(([shape, label]) => [
+		shape.toUpperCase(),
+		label,
+	]),
+) as Record<QuestionShape, string>
 
 // LOCKED sub-line on QuestionCard - resolution is always a human manually
 // entering the answer (there's no automated score feed a question resolves

@@ -269,6 +269,138 @@ export const STREAK_FAMILY_LABEL: Record<StreakFamily, string> = {
 	numeric: "Number Guesses",
 }
 
+// A second, coarser grouping than the streak families above, and deliberately
+// not the same one: streak families are about what a run of calls means
+// ("winners" is its own track because calling games is its own skill), while
+// these are the lines people already think along when reading a breakdown
+// ("my over/unders", "my award calls"). A flat list of 18 shapes is
+// unscannable, in a filter dropdown or in a report card's breakdown.
+//
+// SCREAMING_CASE, unlike StreakFamily's lowercase, because there's no pg enum
+// behind this - nothing stores a shape family, it's derived on read - so the
+// values match what the GraphQL enum and the web already use, and no layer
+// has to translate.
+export const SHAPE_FAMILIES = [
+	"OVER_UNDER",
+	"NUMERIC_GUESS",
+	"HEAD_TO_HEAD",
+	"STAT_LEADER",
+	"AWARD",
+	"YES_NO",
+] as const
+
+export type ShapeFamily = (typeof SHAPE_FAMILIES)[number]
+
+// A Record rather than a Set-per-family, same reasoning as SHAPE_SUBJECT
+// above: a set treats an omitted shape as "not in this family", so a newly
+// added shape would silently vanish from the bottom of a filter and out of
+// every breakdown. Every shape has to be filed somewhere deliberately, and
+// failing the build is how that gets noticed. This is the one place the
+// assignment lives - apps/web derives its own GraphQL-keyed copy from it
+// rather than restating it.
+export const SHAPE_FAMILY_BY_SHAPE: Record<QuestionShape, ShapeFamily> = {
+	player_stat_over_under: "OVER_UNDER",
+	team_stat_over_under: "OVER_UNDER",
+	player_season_stat_over_under: "OVER_UNDER",
+	team_season_stat_over_under: "OVER_UNDER",
+	game_total_over_under: "OVER_UNDER",
+	player_stat_numeric_guess: "NUMERIC_GUESS",
+	team_stat_numeric_guess: "NUMERIC_GUESS",
+	team_season_stat_numeric_guess: "NUMERIC_GUESS",
+	player_vs_player: "HEAD_TO_HEAD",
+	player_vs_player_season: "HEAD_TO_HEAD",
+	team_vs_team: "HEAD_TO_HEAD",
+	team_vs_team_season: "HEAD_TO_HEAD",
+	player_game_stat_leader: "STAT_LEADER",
+	player_season_stat_leader: "STAT_LEADER",
+	player_season_award: "AWARD",
+	team_season_award: "AWARD",
+	player_award_finalists: "AWARD",
+	yes_no_prop: "YES_NO",
+}
+
+export function shapeFamilyFor(shape: QuestionShape): ShapeFamily {
+	return SHAPE_FAMILY_BY_SHAPE[shape]
+}
+
+export const SHAPE_FAMILY_LABEL: Record<ShapeFamily, string> = {
+	OVER_UNDER: "Over/Under",
+	NUMERIC_GUESS: "Numeric Guess",
+	HEAD_TO_HEAD: "Head-to-Head",
+	STAT_LEADER: "Stat Leader",
+	AWARD: "Award",
+	YES_NO: "Yes/No",
+}
+
+// What a shape is called wherever one is named in full: the create form's
+// picker, a question filter, a report card's per-shape breakdown. Lives here
+// rather than in apps/web because the API needs the same strings to render a
+// share card - satori draws that PNG server-side with no browser anywhere, so
+// "the client can label it" isn't available to it.
+//
+// _STAT_OVER_UNDER always names its scope explicitly (Game vs Season) -
+// these two used to be one ambiguous shape with an optional game, which
+// wasn't obvious from the picker and read as "leave it blank for season long"
+// only once you were already deep in the form.
+export const SHAPE_LABEL: Record<QuestionShape, string> = {
+	player_stat_over_under: "Player Game Over/Under",
+	team_stat_over_under: "Team Game Over/Under",
+	player_season_stat_over_under: "Player Season Over/Under",
+	team_season_stat_over_under: "Team Season Over/Under",
+	game_total_over_under: "Combined Score Over/Under",
+	player_stat_numeric_guess: "Player Game Numeric Guess",
+	team_stat_numeric_guess: "Team Game Numeric Guess",
+	team_season_stat_numeric_guess: "Team Season Numeric Guess",
+	player_vs_player: "Player Game Head-to-Head",
+	player_vs_player_season: "Player Season Head-to-Head",
+	team_vs_team: "Team vs Team",
+	team_vs_team_season: "Team Season Head-to-Head",
+	player_game_stat_leader: "Game Stat Leader",
+	player_season_stat_leader: "Player Season Multi-Way",
+	yes_no_prop: "Yes/No",
+	player_season_award: "Player Season Award",
+	team_season_award: "Team Season Award",
+	player_award_finalists: "Award Finalists",
+}
+
+// The compact category badge on a share card, which groups shapes more
+// coarsely than SHAPE_LABEL above - a share card is a tiny image, not a
+// picker card, and several shapes collapse onto one badge here.
+//
+// Shared for the same reason SHAPE_LABEL is, and this pair had the sharper
+// need: the exported PNG (api's lib/share-cards) and the resolution digest
+// email both render server-side, while the call page renders the same badge
+// in the browser. All three are the same claim about the same call arriving
+// in three places, and until now the strings lived in two hand-synced copies
+// that had already drifted once - team_season_stat_numeric_guess and
+// player_game_stat_leader were silently falling back to "Other" on every
+// share card.
+export const SHARE_CARD_SHAPE_LABEL: Record<QuestionShape, string> = {
+	player_stat_over_under: "Player Stat",
+	team_stat_over_under: "Team Stat",
+	player_season_stat_over_under: "Season Stat",
+	team_season_stat_over_under: "Season Stat",
+	game_total_over_under: "Combined Score",
+	player_stat_numeric_guess: "Player Stat",
+	team_stat_numeric_guess: "Team Stat",
+	team_season_stat_numeric_guess: "Season Stat",
+	player_vs_player: "Head-to-Head",
+	player_vs_player_season: "Head-to-Head",
+	team_vs_team: "Game Outcome",
+	team_vs_team_season: "Head-to-Head",
+	player_game_stat_leader: "Stat Leader",
+	// Not "Stat Leader" like the game-scoped shape above, which really is a
+	// leaderboard over both full rosters. This one ranks a creator-named
+	// handful, and a badge reading "Stat Leader" on a share card - where
+	// there's no picker description to correct it - invites the league-wide
+	// reading the shape's title works to rule out.
+	player_season_stat_leader: "Multi-Way",
+	yes_no_prop: "Yes/No",
+	player_season_award: "Season Award",
+	team_season_award: "Season Award",
+	player_award_finalists: "Season Award",
+}
+
 // A sweep is every game in a slate called right; below this many games a
 // slate is too small for that to mean much.
 export const SWEEP_MIN_GAMES = 3
@@ -537,6 +669,35 @@ function seasonEarlyLabel(mult: number): string {
 }
 
 // conviction is 1-100, how much of the tier's payout is actually in play.
+// What a caller puts up on a pick: the committed points, before any
+// multiplier and before the loss rate. Not what a miss costs (that's
+// pointsAtStake below) and not what a hit pays (that's committed x tier x
+// early) - it's the size of the call itself, which is the only one of the
+// three that's fixed the moment the call is made and identical on both
+// sides. The report card divides by it, so a shape that pays 4x its stake on
+// a hit can't dominate a grade purely by risking little.
+export function pointsCommitted(
+	basePoints: number,
+	conviction: number,
+): number {
+	return Math.round(basePoints * (conviction / 100))
+}
+
+// What a miss costs, as a positive number - the callers that want it negative
+// negate it themselves. Extracted because this expression had FOUR copies:
+// the two payout functions below and the two previews in apps/web's
+// lib/scoring.ts, which had already drifted apart in sign convention (the
+// previews returned it positive, the payouts negative). A miss's cost is the
+// one number a caller knows exactly when they commit, so it has to be
+// computed the same way everywhere it's shown or paid.
+export function pointsAtStake(
+	basePoints: number,
+	lossRate: number,
+	conviction: number,
+): number {
+	return Math.round(basePoints * (conviction / 100) * lossRate)
+}
+
 // basePoints comes from BASE_POINTS_BY_SHAPE and lossRate from
 // LOSS_RATE_BY_SHAPE for this question's shape.
 // earlyMult comes from earlyTierFor, computed by the caller from the call's
@@ -552,10 +713,12 @@ export function selectionPoints(
 	isCorrect: boolean,
 	earlyMult: number,
 ): number {
-	const stake = conviction / 100
-	if (!isCorrect) return -Math.round(basePoints * stake * lossRate)
+	if (!isCorrect) return -pointsAtStake(basePoints, lossRate, conviction)
 	return Math.round(
-		basePoints * stake * tierFor(optionFieldPct, totalOptions).mult * earlyMult,
+		basePoints *
+			(conviction / 100) *
+			tierFor(optionFieldPct, totalOptions).mult *
+			earlyMult,
 	)
 }
 
@@ -713,7 +876,7 @@ export function numericGuessPoints(
 			: null,
 		points: guess.hit
 			? (pointsByCallId.get(guess.callId) ?? 0)
-			: -Math.round(basePoints * (guess.conviction / 100) * lossRate),
+			: -pointsAtStake(basePoints, lossRate, guess.conviction),
 	}))
 }
 
@@ -761,6 +924,18 @@ export function convictionEdge(summary: {
 	)
 }
 
+// How far a resolved call landed from its line, and whether that was
+// remarkable. Split out for the same reason as ./quips: it describes a
+// result, it doesn't score one. Nothing above imports it - see the header
+// comment in ./margin.ts for why that separation is load-bearing.
+export {
+	type CallMargin,
+	callMargin,
+	FALLBACK_TOLERANCE_SPEC,
+	MARGIN_THRESHOLDS,
+	type MarginBasis,
+	type MarginVerdict,
+} from "./margin"
 // Share-card flavor text (WIN_QUIPS/LOSS_QUIPS) and quipForCall, the
 // deterministic picker between them, live in ./quips - split out from the
 // scoring math above since that list is expected to keep growing and has
@@ -774,15 +949,13 @@ export {
 	WIN_QUIPS,
 } from "./quips"
 
-// How far a resolved call landed from its line, and whether that was
-// remarkable. Split out for the same reason as ./quips: it describes a
-// result, it doesn't score one. Nothing above imports it - see the header
-// comment in ./margin.ts for why that separation is load-bearing.
+// How a whole window of calls is graded, for the report card. Same separation
+// as ./quips and ./margin above - it reads a set of results, it never decides
+// what any one call is worth, and nothing above imports it.
 export {
-	type CallMargin,
-	callMargin,
-	FALLBACK_TOLERANCE_SPEC,
-	MARGIN_THRESHOLDS,
-	type MarginBasis,
-	type MarginVerdict,
-} from "./margin"
+	GRADE_BANDS,
+	type Grade,
+	gradeForReturn,
+	REPORT_CARD_MIN_SETTLED,
+	returnOnCommitted,
+} from "./report-card"

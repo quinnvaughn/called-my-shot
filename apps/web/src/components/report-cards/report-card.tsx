@@ -1,0 +1,392 @@
+import { Link } from "@tanstack/react-router"
+import { useState } from "react"
+import { FiChevronDown } from "react-icons/fi"
+import { css } from "styled-system/css"
+import { Grid, HStack, VStack } from "styled-system/jsx"
+import { StatTile } from "#/components/ballots/ballot-progress-card"
+import {
+	ReportCardBreakdown,
+	type ReportCardRowData,
+} from "#/components/report-cards/report-card-row"
+import { Card } from "#/components/ui/card"
+import { Eyebrow } from "#/components/ui/eyebrow"
+import { type FragmentType, graphql, useFragment } from "#/graphql/generated"
+import { formatRecord, formatSignedPoints } from "#/lib/ballot-entry"
+import { pickSummary } from "#/lib/call-summary"
+import {
+	formatReturn,
+	gradeTone,
+	isEmptyReportCard,
+	reportCardPath,
+	reportCardStatusLine,
+	returnTone,
+} from "#/lib/report-card"
+
+// One key for every window, not one per window: folding this away is a
+// standing preference about the block, not a judgment about week 3.
+const COLLAPSED_KEY = "report-card-collapsed"
+
+export const ReportCardFragment = graphql(`
+	fragment ReportCard_card on ReportCard {
+		windowKey
+		windowLabel
+		windowSublabel
+		settledCount
+		wins
+		losses
+		pendingCount
+		netPoints
+		committedPoints
+		pendingStake
+		returnPct
+		grade
+		isFinal
+		league {
+			id
+			slug
+			abbreviation
+		}
+		byFamily {
+			family
+			label
+			wins
+			losses
+			pendingCount
+			netPoints
+			returnPct
+		}
+		byShape {
+			shape
+			family
+			label
+			wins
+			losses
+			pendingCount
+			netPoints
+			returnPct
+		}
+		biggestHit {
+			id
+			...ReportCardHighlight_call
+		}
+		biggestMiss {
+			id
+			...ReportCardHighlight_call
+		}
+	}
+`)
+
+// Exactly what pickSummary needs and nothing more. It deliberately leaves out
+// the optional margin fields (numericTolerancePct, scoredOptions,
+// option.actualValue) - a one-line highlight states the pick and the points,
+// and selecting a leader pool's worth of options to render "Josh Allen" would
+// be a real cost for no gain. See the comment on CallSummaryData in
+// #/lib/call-summary for why those are opt-in.
+const HighlightFragment = graphql(`
+	fragment ReportCardHighlight_call on Call {
+		id
+		guessValue
+		conviction
+		totalPoints
+		question {
+			id
+			shape
+			ouLine
+			numericActualValue
+			numericToleranceAbsolute
+			stat {
+				id
+				toleranceTier {
+					toleranceMode
+					toleranceValue
+				}
+			}
+		}
+		selections {
+			id
+			conviction
+			option {
+				id
+				label
+				isCorrect
+			}
+		}
+	}
+`)
+
+type Props = {
+	card: FragmentType<typeof ReportCardFragment>
+	// Set on the permalink, where the breakdown expands to shapes and the
+	// header doesn't need to link anywhere.
+	expanded?: boolean
+	// Turns the header into a link to the permalink. Omitted when already
+	// there, or when signed out.
+	username?: string | null
+}
+
+function Highlight({
+	label,
+	call,
+}: {
+	label: string
+	call: FragmentType<typeof HighlightFragment> | null | undefined
+}) {
+	const data = useFragment(HighlightFragment, call ?? null)
+	if (!data) return null
+	return (
+		<HStack
+			justify="space-between"
+			alignItems="baseline"
+			gap="3"
+			className={css({ paddingY: "1" })}
+		>
+			<VStack
+				gap="0"
+				alignItems="flex-start"
+				className={css({ minWidth: "0" })}
+			>
+				<Eyebrow size="sm" variant="neutral">
+					{label}
+				</Eyebrow>
+				<Link
+					to="/calls/$callId"
+					params={{ callId: data.id }}
+					className={css({
+						fontSize: "sm",
+						color: "fg.default",
+						textDecoration: "none",
+						overflow: "hidden",
+						textOverflow: "ellipsis",
+						whiteSpace: "nowrap",
+						_hover: { textDecoration: "underline" },
+					})}
+				>
+					{pickSummary(data)}
+				</Link>
+			</VStack>
+			<span
+				className={css({
+					fontFamily: "mono",
+					fontSize: "sm",
+					fontWeight: "bold",
+					whiteSpace: "nowrap",
+					color: returnTone(data.totalPoints ?? 0),
+				})}
+			>
+				{formatSignedPoints(data.totalPoints ?? 0)}
+			</span>
+		</HStack>
+	)
+}
+
+// The viewer's whole day or week, graded. Renders nothing at all for a window
+// they have no calls in - the card still comes back from the API in that case
+// so the permalink can name the window it found nothing for, but there's
+// nothing to show inline.
+export function ReportCard({ card: cardProp, expanded, username }: Props) {
+	const card = useFragment(ReportCardFragment, cardProp)
+	// Collapsed state is per browser and per surface, not per window - someone
+	// who folded this away on Sunday wants it folded on Monday too, and a
+	// value that reset on every step of the window stepper would be worse than
+	// no control at all. Wrapped because storage throws in a private window.
+	const [collapsed, setCollapsed] = useState(() => {
+		if (expanded) return false
+		try {
+			return localStorage.getItem(COLLAPSED_KEY) === "1"
+		} catch {
+			return false
+		}
+	})
+
+	if (isEmptyReportCard(card)) return null
+
+	function toggle() {
+		const next = !collapsed
+		setCollapsed(next)
+		try {
+			localStorage.setItem(COLLAPSED_KEY, next ? "1" : "0")
+		} catch {
+			// A viewer with storage blocked just loses the memory of it.
+		}
+	}
+
+	const statusLine = reportCardStatusLine(card)
+	const returnText = formatReturn(card.returnPct)
+	const families: (ReportCardRowData & { family: string })[] =
+		card.byFamily.map((row) => ({ ...row, family: row.family }))
+	const shapesByFamily = expanded
+		? card.byShape.reduce<Record<string, ReportCardRowData[]>>((acc, row) => {
+				acc[row.family] = [...(acc[row.family] ?? []), row]
+				return acc
+			}, {})
+		: undefined
+
+	const track = `${card.league.abbreviation.toUpperCase()} · ${card.windowLabel}`
+
+	// What this block IS comes first, then which window it covers. Without the
+	// title the card is a grade and four numbers with no stated subject.
+	const identity = (
+		<VStack gap="0" alignItems="flex-start" className={css({ minWidth: "0" })}>
+			<span
+				className={css({
+					fontFamily: "mono",
+					fontSize: "xs",
+					fontWeight: "bold",
+					letterSpacing: "wide",
+					color: "fg.default",
+				})}
+			>
+				Your Report Card
+			</span>
+			<span
+				className={css({
+					fontFamily: "mono",
+					fontSize: "2xs",
+					letterSpacing: "wide",
+					color: "fg.muted",
+				})}
+			>
+				{track}
+				{card.windowSublabel ? ` · ${card.windowSublabel}` : ""}
+			</span>
+		</VStack>
+	)
+
+	const gradeMark = card.grade ? (
+		<span
+			className={css({
+				fontFamily: "mono",
+				fontSize: collapsed ? "xl" : "3xl",
+				fontWeight: "bold",
+				lineHeight: "1",
+				color: gradeTone(card.grade),
+			})}
+		>
+			{card.grade}
+		</span>
+	) : null
+
+	return (
+		<Card>
+			<Card.Body>
+				<VStack gap="3" alignItems="stretch">
+					{/* The whole header row is the collapse target, matching
+					    QuestionSetStrip - the thing that reopens a folded card
+					    should be the easiest element on it to hit. The permalink
+					    renders the same header with no control, since there's
+					    nothing there to collapse into. */}
+					{expanded ? (
+						<HStack justify="space-between" alignItems="center" gap="3">
+							{identity}
+							{gradeMark}
+						</HStack>
+					) : (
+						<button
+							type="button"
+							onClick={toggle}
+							aria-expanded={!collapsed}
+							aria-label={
+								collapsed ? "Show your Report Card" : "Hide your Report Card"
+							}
+							className={css({
+								display: "flex",
+								alignItems: "center",
+								justifyContent: "space-between",
+								gap: "3",
+								width: "full",
+								minHeight: { base: "44px", sm: "0" },
+								cursor: "pointer",
+							})}
+						>
+							{identity}
+							<HStack gap="2.5" alignItems="center" flexShrink="0">
+								{gradeMark}
+								<FiChevronDown
+									className={css({
+										color: "fg.subtle",
+										transition: "transform 0.15s ease",
+										// Down to open, up to close - the same rotation
+										// QuestionSetStrip uses.
+										transform: collapsed ? "rotate(0deg)" : "rotate(180deg)",
+									})}
+								/>
+							</HStack>
+						</button>
+					)}
+
+					{collapsed ? null : (
+						<>
+							<Grid columns={{ base: 2, sm: 4 }} gap="3">
+								<StatTile
+									value={formatSignedPoints(card.netPoints)}
+									label="NET POINTS"
+								/>
+								<StatTile
+									value={formatRecord(card.wins, card.losses)}
+									label="RECORD"
+								/>
+								<StatTile value={returnText ?? "–"} label="RETURN" />
+								<StatTile value={card.committedPoints} label="COMMITTED" />
+							</Grid>
+
+							{statusLine && (
+								<span
+									className={css({
+										fontFamily: "mono",
+										fontSize: "2xs",
+										letterSpacing: "wide",
+										color: "fg.subtle",
+									})}
+								>
+									{statusLine}
+								</span>
+							)}
+
+							<ReportCardBreakdown
+								families={families}
+								shapesByFamily={shapesByFamily}
+							/>
+
+							{(card.biggestHit || card.biggestMiss) && (
+								<VStack
+									gap="1"
+									alignItems="stretch"
+									className={css({
+										borderTop: "1px solid {colors.border.default}",
+										paddingTop: "2",
+									})}
+								>
+									<Highlight label="Biggest hit" call={card.biggestHit} />
+									<Highlight label="Biggest miss" call={card.biggestMiss} />
+								</VStack>
+							)}
+
+							{/* An actual link, on its own row with an arrow, rather than
+					    the header secretly being one. */}
+							{username && !expanded && (
+								<Link
+									to={reportCardPath(
+										username,
+										card.league.slug,
+										card.windowKey,
+									)}
+									className={css({
+										fontFamily: "mono",
+										fontSize: "2xs",
+										letterSpacing: "wide",
+										textTransform: "uppercase",
+										color: "primary.default",
+										textDecoration: "none",
+										_hover: { opacity: 0.8 },
+									})}
+								>
+									Open Full Report Card →
+								</Link>
+							)}
+						</>
+					)}
+				</VStack>
+			</Card.Body>
+		</Card>
+	)
+}

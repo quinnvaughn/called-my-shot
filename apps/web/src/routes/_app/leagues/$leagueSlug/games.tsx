@@ -5,6 +5,7 @@ import { css } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
 import { GameRow } from "#/components/leagues/game-row"
 import { SlateSweepLine } from "#/components/leagues/slate-sweep-line"
+import { ReportCard } from "#/components/report-cards/report-card"
 import { EmptyState } from "#/components/ui/empty-state"
 import { Select } from "#/components/ui/select"
 import {
@@ -21,6 +22,8 @@ const EMPTY_RESULT = {
 	window: { key: "", label: "No games scheduled", sublabel: null },
 	prevKey: null,
 	nextKey: null,
+	// No window means no games to have called, so there's nothing to grade.
+	viewerReportCard: null,
 	groups: [],
 }
 
@@ -65,7 +68,7 @@ export const Route = createFileRoute("/_app/leagues/$leagueSlug/games")({
 function RouteComponent() {
 	const { windowKey } = Route.useSearch()
 	const { leagueSlug } = Route.useParams()
-	const { league: contextLeague } = Route.useRouteContext()
+	const { league: contextLeague, me } = Route.useRouteContext()
 	const { data: windowData } = useSuspenseQuery(
 		gamesForWindowQuery(contextLeague.id, windowKey ?? null),
 	)
@@ -188,6 +191,16 @@ function RouteComponent() {
 					<FiChevronRight />
 				</button>
 			</HStack>
+
+			{/*
+			 * Above the slates rather than inside one: this grades the whole
+			 * window, while a group's SlateSweepLine below is scoped to its own
+			 * slot. Renders nothing signed out, or for a window the viewer has
+			 * no calls in.
+			 */}
+			{result.viewerReportCard && (
+				<ReportCard card={result.viewerReportCard} username={me?.username} />
+			)}
 
 			{!hasGames ? (
 				<EmptyState>

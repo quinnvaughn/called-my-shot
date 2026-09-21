@@ -26,7 +26,11 @@ export type ParsedSlateKey =
 			day: string
 	  }
 
-const SEASON_TYPE_CODE: Record<Game["seasonType"], string> = {
+// Exported so the Games tab's window key spells a season type the same way a
+// slate key does - both end up in a url segment a person can read, and
+// "2026-reg-w3" meaning one thing in a sweep link and another in a window
+// link would be its own small bug.
+export const SEASON_TYPE_CODE: Record<Game["seasonType"], string> = {
 	regular: "reg",
 	postseason: "post",
 }
@@ -55,7 +59,7 @@ const DAY_KEY = /^(\d{4}-\d{2}-\d{2})$/
 const WEEK_DAY_KEY = /^(\d{4})-(reg|post)-w(\d+)-(\d{4}-\d{2}-\d{2})$/
 const WEEK_SLOT_KEY = /^(\d{4})-(reg|post)-w(\d+)-([a-z0-9-]+)$/
 
-const seasonTypeFromCode = (code: string): Game["seasonType"] =>
+export const seasonTypeFromCode = (code: string): Game["seasonType"] =>
 	code === "post" ? "postseason" : "regular"
 
 export function parseSlateKey(key: string): ParsedSlateKey | null {

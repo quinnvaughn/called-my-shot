@@ -6,7 +6,7 @@ import { hasGameReminder } from "../../../lib/game-reminders"
 import { builder } from "../../builder"
 import { GameStatus } from "./enums"
 import { loadTeamRecordsByKey, TeamRecordRef } from "./team"
-import { ET_ZONE } from "./windows"
+import { buildWeekWindowKey, ET_ZONE } from "./windows"
 
 export const GameRef = builder.drizzleObject("games", {
 	name: "Game",
@@ -62,12 +62,31 @@ export const GameRef = builder.drizzleObject("games", {
 		windowKey: t.field({
 			type: "String",
 			resolve: async (game) => {
-				const league = await db.query.leagues.findFirst({
-					where: { id: game.leagueId },
-					columns: { windowType: true },
-				})
-				if (league?.windowType === "week") {
-					return `${game.seasonId}:${game.seasonType}:${game.weekNumber}`
+				const [league, season] = await Promise.all([
+					db.query.leagues.findFirst({
+						where: { id: game.leagueId },
+						columns: { windowType: true },
+					}),
+					db.query.seasons.findFirst({
+						where: { id: game.seasonId },
+						columns: { year: true },
+					}),
+				])
+				// Built through the shared helper rather than by hand. The string
+				// this returns has to match getLeagueWindows' key exactly or the
+				// link fails silently: a key that matches no window falls through
+				// to pickDefaultWindowIndex and lands on today/this week, with
+				// nothing anywhere reporting that it missed.
+				if (
+					league?.windowType === "week" &&
+					season &&
+					game.weekNumber !== null
+				) {
+					return buildWeekWindowKey(
+						season.year,
+						game.seasonType,
+						game.weekNumber,
+					)
 				}
 				return DateTime.fromJSDate(game.startsAt, { zone: ET_ZONE }).toFormat(
 					"yyyy-LL-dd",

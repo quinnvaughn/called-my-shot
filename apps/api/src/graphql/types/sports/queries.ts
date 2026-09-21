@@ -296,8 +296,13 @@ builder.queryFields((t) => ({
 			const windows = await getLeagueWindows(league)
 			if (windows.length === 0) {
 				return {
+					leagueId: league.id,
 					window: {
 						key: "",
+						// Never read - a league with no synced games has no groups to
+						// filter and the stepper renders its own empty state - but the
+						// descriptor has to be whole.
+						scope: { kind: "day" as const, day: "" },
 						label: "No games scheduled",
 						sublabel: null,
 						gameCount: 0,
@@ -319,15 +324,10 @@ builder.queryFields((t) => ({
 			const prevKey = index > 0 ? windows[index - 1].key : null
 			const nextKey = index < windows.length - 1 ? windows[index + 1].key : null
 
-			if (league.windowType === "week") {
-				const [seasonId, seasonType, weekNumberRaw] = selected.key.split(":")
+			if (selected.scope.kind === "week") {
+				const { seasonId, seasonType, weekNumber } = selected.scope
 				const rows = await db.query.games.findMany({
-					where: {
-						leagueId: league.id,
-						seasonId,
-						seasonType: seasonType as "regular" | "postseason",
-						weekNumber: Number(weekNumberRaw),
-					},
+					where: { leagueId: league.id, seasonId, seasonType, weekNumber },
 					with: { awayTeam: true },
 					orderBy: { startsAt: "asc", id: "asc" },
 				})
@@ -358,7 +358,13 @@ builder.queryFields((t) => ({
 				}))
 				if (unslotted.length > 0)
 					groups.push({ slotLabel: null, games: unslotted })
-				return { window: selected, prevKey, nextKey, groups }
+				return {
+					leagueId: league.id,
+					window: selected,
+					prevKey,
+					nextKey,
+					groups,
+				}
 			}
 
 			const rows = await db.query.games.findMany({
@@ -371,6 +377,7 @@ builder.queryFields((t) => ({
 			})
 			rows.sort(byKickoffThenAwayTeam)
 			return {
+				leagueId: league.id,
 				window: selected,
 				prevKey,
 				nextKey,

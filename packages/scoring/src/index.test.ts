@@ -14,6 +14,8 @@ import {
 	MIN_EDGE_SAMPLE,
 	NUMERIC_GUESS_SHAPES,
 	numericGuessPoints,
+	pointsAtStake,
+	pointsCommitted,
 	type QuestionShape,
 	SEASON_LONG_SHAPES,
 	seasonEarlyTierFor,
@@ -297,6 +299,74 @@ describe("seasonEarlyTierFor", () => {
 		expect(seasonEarlyTierFor(50, 100).label).toBe("EARLY SEASON")
 		expect(seasonEarlyTierFor(25, 100).label).toBe("FIRST QUARTER")
 		expect(seasonEarlyTierFor(0, 100).label).toBe("PRESEASON")
+	})
+})
+
+describe("pointsCommitted", () => {
+	it("is the base rate scaled by conviction, with no loss rate applied", () => {
+		expect(pointsCommitted(250, 100)).toBe(250)
+		expect(pointsCommitted(250, 50)).toBe(125)
+		expect(pointsCommitted(150, 40)).toBe(60)
+	})
+
+	it("does not vary with the shape's loss rate, unlike pointsAtStake", () => {
+		// The whole point of the two being separate: a stat leader and a yes/no
+		// at the same conviction commit proportionally to their base rate, but
+		// risk wildly different amounts.
+		expect(pointsCommitted(250, 50)).toBe(pointsCommitted(250, 50))
+		expect(pointsAtStake(250, 0.25, 50)).toBe(31)
+		expect(pointsAtStake(250, 1, 50)).toBe(125)
+	})
+})
+
+describe("pointsAtStake", () => {
+	it("scales linearly with conviction and with the loss rate", () => {
+		expect(pointsAtStake(150, 1, 100)).toBe(150)
+		expect(pointsAtStake(150, 1, 50)).toBe(75)
+		expect(pointsAtStake(250, 0.5, 50)).toBe(63)
+		expect(pointsAtStake(250, 0.25, 50)).toBe(31)
+	})
+
+	it("returns a whole number, and can floor to zero at minimum conviction", () => {
+		// 250 x 0.01 x 0.25 = 0.625. A real, settled call that risked nothing,
+		// which is why anything dividing by a stake total has to guard the
+		// denominator rather than the call count.
+		expect(pointsAtStake(250, 0.25, 1)).toBe(1)
+		expect(pointsAtStake(100, 0.04, 1)).toBe(0)
+	})
+
+	// The two assertions that stop the loss branch drifting back out into its
+	// own copy - they tie each payout function to this one rather than to a
+	// literal, so a change to either side has to break one of them.
+	it("is exactly what selectionPoints charges for a miss", () => {
+		const base = BASE_POINTS_BY_SHAPE.player_stat_over_under
+		const lossRate = LOSS_RATE_BY_SHAPE.player_stat_over_under
+		for (const conviction of [1, 37, 50, 100]) {
+			expect(selectionPoints(base, lossRate, 50, 2, conviction, false, 1)).toBe(
+				-pointsAtStake(base, lossRate, conviction),
+			)
+		}
+	})
+
+	it("is exactly what numericGuessPoints charges for a miss", () => {
+		const base = BASE_POINTS_BY_SHAPE.player_stat_numeric_guess
+		const lossRate = LOSS_RATE_BY_SHAPE.player_stat_numeric_guess
+		const [result] = numericGuessPoints(
+			base,
+			lossRate,
+			[
+				{
+					callId: "a",
+					guessValue: 5,
+					conviction: 73,
+					createdAt: new Date("2026-01-01"),
+				},
+			],
+			500,
+			{ mode: "percentage", pct: 0.1 },
+		)
+		expect(result?.hit).toBe(false)
+		expect(result?.points).toBe(-pointsAtStake(base, lossRate, 73))
 	})
 })
 

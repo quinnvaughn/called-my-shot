@@ -1,3 +1,4 @@
+import { SHAPE_FAMILIES } from "@called-my-shot/scoring"
 import { builder } from "../../builder"
 
 // One value per concrete kind of question the app supports - replaces the
@@ -26,6 +27,16 @@ export const QuestionShape = builder.enumType("QuestionShape", {
 		PLAYER_GAME_STAT_LEADER: { value: "player_game_stat_leader" },
 		PLAYER_SEASON_STAT_LEADER: { value: "player_season_stat_leader" },
 	},
+})
+
+// The six coarser buckets a shape falls into, for grouping a breakdown that
+// 18 rows would make unscannable. Built off SHAPE_FAMILIES rather than listed
+// by hand so a family added there turns up here without a second edit - the
+// values are already SCREAMING_CASE for exactly this reason.
+export const ShapeFamily = builder.enumType("ShapeFamily", {
+	values: Object.fromEntries(
+		SHAPE_FAMILIES.map((family) => [family, { value: family }]),
+	) as Record<(typeof SHAPE_FAMILIES)[number], { value: string }>,
 })
 
 // player_season_award/team_season_award only - see awardVerb on the
