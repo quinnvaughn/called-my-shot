@@ -9,7 +9,8 @@ export type StarterPick = {
 	positions?: string[]
 	// "category.stat" in ESPN's season statistics that candidates are ranked
 	// by, highest per game first, and that an over/under's line is set from.
-	espnStat: string
+	// Several are added up, for a stat the catalog asks about as one number.
+	espnStat: string | readonly string[]
 	// The games count that per-game figure divides by, when it isn't the stat
 	// category's own gamesPlayed.
 	espnGames?: string

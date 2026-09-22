@@ -27,16 +27,6 @@ describe("GAME_QUESTION_CATALOG", () => {
 			expect(new Set(ids).size).toBe(ids.length)
 		})
 
-		it(`${leagueSlug}: every template in a group asks about the same stat`, () => {
-			const statByGroup = new Map<string, string>()
-			for (const template of templates) {
-				if (!("group" in template)) continue
-				const stat = statByGroup.get(template.group) ?? template.statName
-				expect(template.statName, template.id).toBe(stat)
-				statByGroup.set(template.group, stat)
-			}
-		})
-
 		it(`${leagueSlug}: posts some player questions per game`, () => {
 			expect(PLAYER_QUESTIONS_PER_GAME[leagueSlug]).toBeGreaterThan(0)
 		})

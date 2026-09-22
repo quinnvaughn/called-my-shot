@@ -262,6 +262,29 @@ describe("decideGameQuestion - NFL", () => {
 		})
 	})
 
+	it("adds rushing and receiving yards into one number", () => {
+		// 3117251 ran for 68 and caught for 20: under on rushing alone.
+		expect(
+			decideGameQuestion(
+				context({
+					...playerOverUnder("3117251", 80.5),
+					extractor:
+						GAME_EXTRACTORS["nfl:game:player:Rushing + Receiving Yards"],
+					sources: nfl,
+				}),
+			),
+		).toMatchObject({ kind: "resolve", correctOptionIds: ["over"] })
+	})
+
+	it("reads a back with no receiving line as the rushing alone", () => {
+		const all =
+			GAME_EXTRACTORS["nfl:game:player:Rushing + Receiving Yards"].readAll?.(
+				nfl,
+			)
+		expect(all?.get("4429096")).toBe(54)
+		expect(all?.get("3117251")).toBe(88)
+	})
+
 	it("counts the defense's interceptions from the table totals", () => {
 		const decision = decideGameQuestion(
 			context({

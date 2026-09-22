@@ -24,7 +24,10 @@ export type StatContextScope = {
 	teamScope: "team_box" | "player_table_total" | "final_score" | null
 	opponentTeamId: string | null
 	seasonId: string
-	statKey: string
+	// The raw keys the stat adds up, usually one. Every query sums them per
+	// game before anything else, so a game is one appearance whatever the
+	// count.
+	statKeys: string[]
 	asOf: Date
 	// The line the question asks about, when it has one, so a split can say
 	// how often it was cleared.
@@ -41,29 +44,31 @@ const num = (v: unknown): number => Number(v ?? 0)
 //
 // A team has no did_not_play - a team always plays its own game - so that
 // column is synthesised rather than every caller having to care which table
-// it came from.
+// it came from. A player's is the same on every one of their rows for a game.
 function appearances(scope: StatContextScope, seasonOnly: boolean): SQL {
 	const season = seasonOnly ? sql`and season_id = ${scope.seasonId}` : sql``
 	if (scope.subjectKind === "team") {
 		return sql`
-			select game_id, game_date, opponent_team_id, is_home, value_numeric,
-				false as did_not_play
+			select game_id, game_date, opponent_team_id, is_home,
+				sum(value_numeric) as value_numeric, false as did_not_play
 			from team_game_stats
 			where team_id = ${scope.teamId}
 				and scope = ${scope.teamScope}
-				and stat_key = ${scope.statKey}
+				and stat_key in ${scope.statKeys}
 				and game_date < ${scope.asOf}
 				${season}
+			group by game_id, game_date, opponent_team_id, is_home
 		`
 	}
 	return sql`
-		select game_id, game_date, opponent_team_id, is_home, value_numeric,
-			did_not_play
+		select game_id, game_date, opponent_team_id, is_home,
+			sum(value_numeric) as value_numeric, bool_or(did_not_play) as did_not_play
 		from player_game_stats
 		where player_id = ${scope.playerId}
-			and stat_key = ${scope.statKey}
+			and stat_key in ${scope.statKeys}
 			and game_date < ${scope.asOf}
 			${season}
+		group by game_id, game_date, opponent_team_id, is_home
 	`
 }
 
@@ -270,14 +275,15 @@ export async function opponentAllowed(
 	const perGame =
 		scope.subjectKind === "team"
 			? sql`
-				select value_numeric as allowed
+				select sum(value_numeric) as allowed
 				from team_game_stats
 				where opponent_team_id = ${scope.opponentTeamId}
 					and scope = ${scope.teamScope}
-					and stat_key = ${scope.statKey}
+					and stat_key in ${scope.statKeys}
 					and season_id = ${scope.seasonId}
 					and game_date < ${scope.asOf}
 					and value_numeric is not null
+				group by game_id
 			`
 			: sql`
 				select sum(s.value_numeric) as allowed
@@ -288,7 +294,7 @@ export async function opponentAllowed(
 						: sql``
 				}
 				where s.opponent_team_id = ${scope.opponentTeamId}
-					and s.stat_key = ${scope.statKey}
+					and s.stat_key in ${scope.statKeys}
 					and s.season_id = ${scope.seasonId}
 					and s.game_date < ${scope.asOf}
 					and s.value_numeric is not null
@@ -331,14 +337,15 @@ export async function shareOfTeamTotal(
 		team_total: string | null
 	}>(sql`
 		with mine as (
-			select game_id, value_numeric
+			select game_id, sum(value_numeric) as value_numeric
 			from player_game_stats
 			where player_id = ${scope.playerId}
-				and stat_key = ${scope.statKey}
+				and stat_key in ${scope.statKeys}
 				and season_id = ${scope.seasonId}
 				and game_date < ${scope.asOf}
 				and not did_not_play
 				and value_numeric is not null
+			group by game_id
 		)
 		select
 			(select count(*) from mine) as games,
@@ -348,7 +355,7 @@ export async function shareOfTeamTotal(
 				from team_game_stats t
 				where t.team_id = ${scope.teamId}
 					and t.scope = 'player_table_total'
-					and t.stat_key = ${scope.statKey}
+					and t.stat_key in ${scope.statKeys}
 					and t.game_id in (select game_id from mine)
 			) as team_total
 	`)
@@ -378,7 +385,7 @@ export async function shareOfTeamTotal(
 // zero would rank them as genuinely bad rather than unknown, and the point of
 // the list is who is in front.
 export async function poolRanking(
-	scope: Pick<StatContextScope, "seasonId" | "statKey" | "asOf">,
+	scope: Pick<StatContextScope, "seasonId" | "statKeys" | "asOf">,
 	playerIds: string[],
 	limit: number,
 ): Promise<StatContextRankedPlayer[]> {
@@ -390,18 +397,22 @@ export async function poolRanking(
 		games: string
 		mean: string
 	}>(sql`
-		select s.player_id, p.name,
+		select g.player_id, p.name,
 			count(*) as games,
-			avg(s.value_numeric) as mean
-		from player_game_stats s
-		join players p on p.id = s.player_id
-		where s.player_id in ${playerIds}
-			and s.stat_key = ${scope.statKey}
-			and s.season_id = ${scope.seasonId}
-			and s.game_date < ${scope.asOf}
-			and not s.did_not_play
-			and s.value_numeric is not null
-		group by s.player_id, p.name
+			avg(g.value) as mean
+		from (
+			select player_id, game_id, sum(value_numeric) as value
+			from player_game_stats
+			where player_id in ${playerIds}
+				and stat_key in ${scope.statKeys}
+				and season_id = ${scope.seasonId}
+				and game_date < ${scope.asOf}
+				and not did_not_play
+				and value_numeric is not null
+			group by player_id, game_id
+		) g
+		join players p on p.id = g.player_id
+		group by g.player_id, p.name
 		order by mean desc
 		limit ${limit}
 	`)

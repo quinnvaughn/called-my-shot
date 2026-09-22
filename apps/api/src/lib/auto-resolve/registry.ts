@@ -28,13 +28,15 @@ export type GameSources = {
 export type GameSourceNeed = "roster" | "athleteGameStats"
 
 // Which map in ParsedBoxScore a value is read out of, and under which raw ESPN
-// key. "athlete" is ParsedAthlete.stats, "team_box" is teamStats, and
+// keys. "athlete" is ParsedAthlete.stats, "team_box" is teamStats, and
 // "player_table_total" is tableTotals - three separate key namespaces that
 // must not be conflated (NBA team rebounds are "totalRebounds" in the team box
-// but "rebounds" in the player tables).
+// but "rebounds" in the player tables). Nearly every stat is one key; a stat
+// made of several (NFL rushing + receiving yards) is their sum, each read with
+// the same parser.
 export type BoxStatSource = {
 	origin: "athlete" | "team_box" | "player_table_total" | "final_score"
-	key: string
+	keys: readonly string[]
 	parse: (raw: string | undefined) => number | null
 }
 
@@ -46,8 +48,8 @@ export type GamePlayerExtractor = {
 	// Every athlete in the game with a value, for "who led the game" questions.
 	// Absent for a stat that can't settle one (see AUTO_RESOLVE_STATS).
 	readAll?: (sources: GameSources) => Map<string, number>
-	// Where this stat lives in a stored box score, when it is a single cell
-	// read straight off one. Absent means the value can't be recovered from
+	// Where this stat lives in a stored box score, when it is a cell read
+	// straight off one, or several cells added up. Absent means the value can't be recovered from
 	// stored box-score rows alone, which is the signal stat context uses to
 	// leave the stat out rather than read a cell that doesn't mean what its
 	// key suggests. Three reasons it's absent: the value is computed from
@@ -145,14 +147,21 @@ function nbaPlayer(
 			return v === null ? noValue(key) : value(v)
 		},
 		readAll: ({ box }) => collect(box, key, parse, (a) => !a.didNotPlay),
-		source: { origin: "athlete", key, parse },
+		source: { origin: "athlete", keys: [key], parse },
 	}
 }
 
 // NFL only lists a player under the tables they recorded something in, so
 // being absent means "played, recorded none" or "didn't play". The game
-// roster's didNotPlay is what tells those apart.
-function nflPlayer(key: string): GamePlayerExtractor {
+// roster's didNotPlay is what tells those apart. Several keys are one stat
+// added up, each missing one counting as zero: a back with carries and no
+// catches has no receiving line at all.
+function nflPlayer(...keys: string[]): GamePlayerExtractor {
+	const sum = (athlete: ParsedAthlete | undefined) =>
+		keys.reduce(
+			(total, key) => total + (parseStatNumber(athlete?.stats.get(key)) ?? 0),
+			0,
+		)
 	return {
 		scope: "game",
 		subject: "player",
@@ -163,11 +172,17 @@ function nflPlayer(key: string): GamePlayerExtractor {
 			)
 			if (!roster) return notInBoxScore(espnAthleteId)
 			if (roster.get(espnAthleteId)) return DID_NOT_PLAY
-			const v = parseStatNumber(box.athletes.get(espnAthleteId)?.stats.get(key))
-			return value(v ?? 0)
+			return value(sum(box.athletes.get(espnAthleteId)))
 		},
-		readAll: ({ box }) => collect(box, key, parseStatNumber, () => true),
-		source: { origin: "athlete", key, parse: parseStatNumber },
+		readAll: ({ box }) =>
+			new Map(
+				[...box.athletes]
+					.filter(([, a]) =>
+						keys.some((key) => parseStatNumber(a.stats.get(key)) !== null),
+					)
+					.map(([id, a]) => [id, sum(a)]),
+			),
+		source: { origin: "athlete", keys, parse: parseStatNumber },
 	}
 }
 
@@ -198,7 +213,7 @@ function mlbCounting(
 		},
 		readAll: ({ box }) =>
 			collect(box, statKey, parseStatNumber, (a) => appearedIn(a, table)),
-		source: { origin: "athlete", key: statKey, parse: parseStatNumber },
+		source: { origin: "athlete", keys: [statKey], parse: parseStatNumber },
 	}
 }
 
@@ -325,7 +340,7 @@ const teamScore: GameTeamExtractor = {
 			? noValue(`score for team ${espnTeamId}`)
 			: value(score)
 	},
-	source: { origin: "final_score", key: "score", parse: parseStatNumber },
+	source: { origin: "final_score", keys: ["score"], parse: parseStatNumber },
 }
 
 function teamBoxStat(
@@ -340,7 +355,7 @@ function teamBoxStat(
 			const v = parse(box.teamStats.get(espnTeamId)?.get(name))
 			return v === null ? noValue(name) : value(v)
 		},
-		source: { origin: "team_box", key: name, parse },
+		source: { origin: "team_box", keys: [name], parse },
 	}
 }
 
@@ -362,19 +377,26 @@ function teamTableTotal(key: string): GameTeamExtractor {
 			if (!totals) return noValue(`player tables for team ${espnTeamId}`)
 			return value(parseStatNumber(totals.get(key)) ?? 0)
 		},
-		source: { origin: "player_table_total", key, parse: parseStatNumber },
+		source: {
+			origin: "player_table_total",
+			keys: [key],
+			parse: parseStatNumber,
+		},
 	}
 }
 
-// One "category.stat" from ESPN's regular-season statistics. A rate names the
-// count it's a rate of (`rateOf`): with none of that count, the rate has no
-// value whatever ESPN prints for it.
+// One "category.stat" from ESPN's regular-season statistics, or several added
+// up. A rate names the count it's a rate of (`rateOf`): with none of that
+// count, the rate has no value whatever ESPN prints for it.
 function seasonStat(
 	subject: "player" | "team",
-	key: string,
+	keys: readonly string[],
 	rateOf?: string,
 ): SeasonExtractor {
-	const [category] = key.split(".")
+	const categories = new Set(keys.map((key) => key.split(".")[0]))
+	// Games per role only mean something for a single category; a sum across
+	// categories counts the athlete's games once.
+	const [category] = categories.size === 1 ? categories : [undefined]
 	return {
 		scope: "season",
 		subject,
@@ -393,7 +415,7 @@ function seasonStat(
 			// MLB counts games per role, since a pitcher's pitching games aren't his
 			// batting games; the other leagues count them once under general.
 			const gamesPlayed =
-				stats.get(`${category}.gamesPlayed`) ??
+				(category ? stats.get(`${category}.gamesPlayed`) : undefined) ??
 				stats.get("general.gamesPlayed") ??
 				0
 			if (gamesPlayed === 0) {
@@ -406,12 +428,12 @@ function seasonStat(
 						}
 			}
 			if (rateOf) {
-				const rate = stats.get(key)
+				const rate = stats.get(keys[0] ?? "")
 				if (!stats.get(rateOf) || rate === undefined) {
 					return {
 						kind: "unavailable",
 						reason: "stat_undefined",
-						detail: `no ${rateOf}, so ${key} has no value`,
+						detail: `no ${rateOf}, so ${keys.join(" + ")} has no value`,
 					}
 				}
 				return value(roundToThousandths(rate))
@@ -419,7 +441,7 @@ function seasonStat(
 			// A category ESPN leaves out is one nothing was recorded in. A per-game
 			// line comes from the total, since ESPN's own per-game figure is rounded
 			// to a whole number.
-			const total = stats.get(key) ?? 0
+			const total = keys.reduce((sum, key) => sum + (stats.get(key) ?? 0), 0)
 			return value(
 				aggregation === "per_game"
 					? roundToThousandths(total / gamesPlayed)
@@ -430,9 +452,10 @@ function seasonStat(
 }
 
 const seasonPlayer = (key: string, rateOf?: string) =>
-	seasonStat("player", key, rateOf)
+	seasonStat("player", [key], rateOf)
+const seasonPlayerSum = (...keys: string[]) => seasonStat("player", keys)
 const seasonTeam = (key: string, rateOf?: string) =>
-	seasonStat("team", key, rateOf)
+	seasonStat("team", [key], rateOf)
 
 // Wins come from the standings, the record ESPN publishes, and are always a
 // season total.
@@ -493,6 +516,10 @@ export const GAME_EXTRACTORS = {
 	"nfl:game:player:Passing Touchdowns": nflPlayer("passing.passingTouchdowns"),
 	"nfl:game:player:Rushing Yards": nflPlayer("rushing.rushingYards"),
 	"nfl:game:player:Rushing Touchdowns": nflPlayer("rushing.rushingTouchdowns"),
+	"nfl:game:player:Rushing + Receiving Yards": nflPlayer(
+		"rushing.rushingYards",
+		"receiving.receivingYards",
+	),
 	"nfl:game:player:Receiving Yards": nflPlayer("receiving.receivingYards"),
 	"nfl:game:player:Receptions": nflPlayer("receiving.receptions"),
 	"nfl:game:player:Receiving Touchdowns": nflPlayer(
@@ -593,6 +620,10 @@ export const SEASON_EXTRACTORS = {
 	"nfl:season:player:Rushing Yards": seasonPlayer("rushing.rushingYards"),
 	"nfl:season:player:Rushing Touchdowns": seasonPlayer(
 		"rushing.rushingTouchdowns",
+	),
+	"nfl:season:player:Rushing + Receiving Yards": seasonPlayerSum(
+		"rushing.rushingYards",
+		"receiving.receivingYards",
 	),
 	"nfl:season:player:Receiving Yards": seasonPlayer("receiving.receivingYards"),
 	"nfl:season:player:Receptions": seasonPlayer("receiving.receptions"),

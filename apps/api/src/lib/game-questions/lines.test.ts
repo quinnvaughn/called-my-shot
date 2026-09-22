@@ -38,6 +38,20 @@ describe("perGameSample", () => {
 		).toEqual({ mean: 6, games: 20 })
 	})
 
+	it("adds several stats up over the general games played", () => {
+		const stats = new Map([
+			["rushing.rushingYards", 600],
+			["receiving.receivingYards", 200],
+			["general.gamesPlayed", 10],
+		])
+		expect(
+			perGameSample(stats, [
+				"rushing.rushingYards",
+				"receiving.receivingYards",
+			]),
+		).toEqual({ mean: 80, games: 10 })
+	})
+
 	it("reads a stat ESPN left out as zero", () => {
 		const stats = new Map([["general.gamesPlayed", 5]])
 		expect(perGameSample(stats, "offensive.points")).toEqual({

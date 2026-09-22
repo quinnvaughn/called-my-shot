@@ -143,7 +143,7 @@ async function cardsFor(
 		opponentTeamId:
 			teamId === game.homeTeamId ? game.awayTeamId : game.homeTeamId,
 		seasonId: question.seasonId,
-		statKey: source.statKey,
+		statKeys: [...source.statKeys],
 		asOf: question.locksAt,
 		ouLine: question.ouLine,
 		positions: subject.positions,
@@ -218,7 +218,7 @@ export async function buildStatContext(
 		const ranking = await poolRanking(
 			{
 				seasonId: question.seasonId,
-				statKey: source.statKey,
+				statKeys: [...source.statKeys],
 				asOf: question.locksAt,
 			},
 			question.optionSubjects

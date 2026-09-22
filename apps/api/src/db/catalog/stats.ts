@@ -195,6 +195,16 @@ const FOOTBALL_STATS: StatEntry[] = [
 		"both",
 		{ player: 0.5, team: 1.5 },
 	],
+	// A back's yards from carries and catches together. Player-only: at team
+	// level it's just total offense, which Passing Yards and Rushing Yards
+	// already cover between them.
+	[
+		"Rushing + Receiving Yards",
+		"Rushing",
+		"High-Volume",
+		"player",
+		{ player: 79.5 },
+	],
 	[
 		"Receiving Yards",
 		"Receiving",

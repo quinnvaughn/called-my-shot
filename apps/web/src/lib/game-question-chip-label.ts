@@ -20,6 +20,7 @@ const STAT_ABBREVIATIONS: Record<string, string> = {
 	"3-Pointers Made": "3PM",
 	"Passing Yards": "PASS YDS",
 	"Rushing Yards": "RUSH YDS",
+	"Rushing + Receiving Yards": "RUSH+REC YDS",
 	"Receiving Yards": "REC YDS",
 	Receptions: "REC",
 	Sacks: "SACKS",

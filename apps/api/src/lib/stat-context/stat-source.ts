@@ -8,7 +8,8 @@ export type StoredStatSource = {
 	// The registry key this resolved through, so a caller can look up the
 	// stat's recipe without asking autoResolveStatKeyFor a second time.
 	autoResolveStatKey: string
-	statKey: string
+	// The raw keys whose values add up to the stat, usually just one.
+	statKeys: readonly string[]
 	subject: "player" | "team"
 	origin: BoxStatSource["origin"]
 }
@@ -27,8 +28,8 @@ export type StoredStatSource = {
 //   - a season-scoped question (season extractors read ESPN's season endpoints,
 //     not a box score; season-to-date over stored games is a different number
 //     and belongs to a later card, not this lookup)
-//   - a stat computed from several cells (MLB ERA, WHIP) or from something
-//     that isn't a cell (team score, saves)
+//   - a stat computed from several cells other than by adding them up (MLB
+//     ERA, WHIP), or from something that isn't a cell (team score, saves)
 //   - a stat whose box-score column is season-to-date rather than per-game
 //     (MLB batting average, OBP, slugging) - the trap this whole mechanism
 //     exists to keep out of a game log
@@ -46,7 +47,7 @@ export function boxStatSourceFor(
 
 	return {
 		autoResolveStatKey: key,
-		statKey: source.key,
+		statKeys: source.keys,
 		subject: extractor.subject,
 		origin: source.origin,
 	}

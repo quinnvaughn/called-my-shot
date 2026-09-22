@@ -93,7 +93,7 @@ function scopeFor(world: World, overrides: Partial<StatContextScope> = {}) {
 		teamScope: null,
 		opponentTeamId: world.opponent.id,
 		seasonId: world.season.id,
-		statKey: STAT_KEY,
+		statKeys: [STAT_KEY],
 		asOf: NOW,
 		ouLine: null,
 		positions: [],
@@ -171,6 +171,45 @@ describe("seasonToDate", () => {
 
 	it("is null for a subject with no stored history", async () => {
 		expect(await seasonToDate(scopeFor(world))).toBeNull()
+	})
+})
+
+describe("a stat made of several keys", () => {
+	const KEYS = ["rushing.rushingYards", "receiving.receivingYards"]
+
+	it("adds the keys up per game, one appearance each", async () => {
+		const both = await appearance(world, {
+			daysAgo: 6,
+			value: 60,
+			statKey: KEYS[0],
+		})
+		await db.insert(playerGameStats).values({
+			gameId: both.id,
+			source: "espn",
+			sourceAthleteId: `nba:${world.player.id}`,
+			playerId: world.player.id,
+			teamId: world.team.id,
+			opponentTeamId: world.opponent.id,
+			isHome: true,
+			gameDate: daysAgo(6),
+			seasonId: world.season.id,
+			leagueId: world.league.id,
+			statKey: KEYS[1],
+			valueText: "25",
+			valueNumeric: 25,
+			didNotPlay: false,
+		})
+		// Carries and no catches: no receiving row at all.
+		await appearance(world, { daysAgo: 3, value: 40, statKey: KEYS[0] })
+
+		const scope = scopeFor(world, { statKeys: KEYS, ouLine: 50.5 })
+
+		expect((await recentGames(scope, 10)).map((g) => g.value)).toEqual([40, 85])
+		expect(await seasonToDate(scope)).toMatchObject({
+			games: 2,
+			total: 125,
+			overLine: 1,
+		})
 	})
 })
 
@@ -451,7 +490,11 @@ describe("boxStatSourceFor", () => {
 				shape: "player_stat_over_under",
 				statName: "Points",
 			}),
-		).toMatchObject({ statKey: "points", subject: "player", origin: "athlete" })
+		).toMatchObject({
+			statKeys: ["points"],
+			subject: "player",
+			origin: "athlete",
+		})
 	})
 
 	it("resolves an MLB counting stat to its table-prefixed column", () => {
@@ -462,7 +505,7 @@ describe("boxStatSourceFor", () => {
 				shape: "player_stat_over_under",
 				statName: "Hits",
 			}),
-		).toMatchObject({ statKey: "batting.hits" })
+		).toMatchObject({ statKeys: ["batting.hits"] })
 	})
 
 	// The trap the whole mechanism exists for: ESPN's box score reports this

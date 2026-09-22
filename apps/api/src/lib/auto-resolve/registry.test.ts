@@ -56,19 +56,27 @@ describe("GAME_EXTRACTORS box stat sources", () => {
 
 		expect(source).toEqual({
 			origin: "athlete",
-			key: "threePointFieldGoalsMade-threePointFieldGoalsAttempted",
+			keys: ["threePointFieldGoalsMade-threePointFieldGoalsAttempted"],
 			parse: parseMadeAttempted,
 		})
 	})
 
 	it("carries the raw ESPN key, prefixed where the box score prefixes it", () => {
-		expect(GAME_EXTRACTORS["nba:game:player:Points"].source?.key).toBe("points")
-		expect(GAME_EXTRACTORS["mlb:game:player:Hits"].source?.key).toBe(
+		expect(GAME_EXTRACTORS["nba:game:player:Points"].source?.keys).toEqual([
+			"points",
+		])
+		expect(GAME_EXTRACTORS["mlb:game:player:Hits"].source?.keys).toEqual([
 			"batting.hits",
-		)
-		expect(GAME_EXTRACTORS["nfl:game:player:Passing Yards"].source?.key).toBe(
-			"passing.passingYards",
-		)
+		])
+		expect(
+			GAME_EXTRACTORS["nfl:game:player:Passing Yards"].source?.keys,
+		).toEqual(["passing.passingYards"])
+	})
+
+	it("names every key a summed stat adds up", () => {
+		expect(
+			GAME_EXTRACTORS["nfl:game:player:Rushing + Receiving Yards"].source?.keys,
+		).toEqual(["rushing.rushingYards", "receiving.receivingYards"])
 	})
 
 	it("separates the three key namespaces", () => {
@@ -76,11 +84,11 @@ describe("GAME_EXTRACTORS box stat sources", () => {
 		// level, and NBA rebounds are the case where the keys differ too.
 		expect(GAME_EXTRACTORS["nba:game:player:Rebounds"].source).toMatchObject({
 			origin: "athlete",
-			key: "rebounds",
+			keys: ["rebounds"],
 		})
 		expect(GAME_EXTRACTORS["nba:game:team:Rebounds"].source).toMatchObject({
 			origin: "team_box",
-			key: "totalRebounds",
+			keys: ["totalRebounds"],
 		})
 		expect(GAME_EXTRACTORS["nfl:game:team:Receptions"].source).toMatchObject({
 			origin: "player_table_total",
@@ -93,10 +101,12 @@ describe("GAME_EXTRACTORS box stat sources", () => {
 
 		for (const [, extractor] of gameEntries) {
 			if (!extractor.source) continue
-			const id = `${extractor.source.origin}:${extractor.source.key}`
-			const seen = parserBySource.get(id)
-			if (!seen) parserBySource.set(id, extractor.source.parse)
-			else if (seen !== extractor.source.parse) conflicts.push(id)
+			for (const key of extractor.source.keys) {
+				const id = `${extractor.source.origin}:${key}`
+				const seen = parserBySource.get(id)
+				if (!seen) parserBySource.set(id, extractor.source.parse)
+				else if (seen !== extractor.source.parse) conflicts.push(id)
+			}
 		}
 
 		expect(conflicts).toEqual([])

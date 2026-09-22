@@ -55,7 +55,9 @@ function parsersFor(leagueSlug: string): Map<string, BoxStatSource["parse"]> {
 		const source = extractor.source
 		if (!source) continue
 		// Namespaced so a team-box key never picks up a player key's parser.
-		parsers.set(`${source.origin}:${source.key}`, source.parse)
+		for (const statKey of source.keys) {
+			parsers.set(`${source.origin}:${statKey}`, source.parse)
+		}
 	}
 	parsersByLeague.set(leagueSlug, parsers)
 	return parsers

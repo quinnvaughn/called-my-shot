@@ -44,6 +44,12 @@ const RECIPES: Partial<Record<string, readonly StatContextSlot[]>> = {
 		"share_of_team",
 		"opponent_allowed",
 	],
+	"nfl:game:player:Rushing + Receiving Yards": [
+		"recent_form",
+		"season_to_date",
+		"share_of_team",
+		"opponent_allowed",
+	],
 	"nfl:game:player:Passing Yards": [
 		"recent_form",
 		"season_to_date",

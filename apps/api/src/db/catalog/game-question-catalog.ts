@@ -12,9 +12,10 @@ import type { StarterPick } from "../../lib/game-questions/pick-subjects"
 // makes the job treat its existing questions as a different template and
 // post new ones beside them.
 //
-// `group` names the stat a player template asks about. A game gets at most
-// one template per group (see selectGameTemplates), so the same stat isn't
-// asked as a head-to-head and an over/under on one game.
+// `group` names the yards, catches or sacks a player template asks about. A
+// game gets at most one template per group (see selectGameTemplates), so the
+// same production isn't asked twice on one game: not as a head-to-head and an
+// over/under, and not as rushing yards beside rushing + receiving yards.
 export type GameQuestionTemplate =
 	| {
 			// "How many points will X score?", once per team. The tolerance band
@@ -130,6 +131,15 @@ const NFL_RB: StarterPick = {
 	priorWeight: 4,
 }
 
+// The same backs, ranked and lined on what they gain carrying and catching
+// together, so a pass-catching back's catches count too.
+const NFL_RB_SCRIMMAGE: StarterPick = {
+	role: "offense",
+	positions: ["RB"],
+	espnStat: ["rushing.rushingYards", "receiving.receivingYards"],
+	priorWeight: 4,
+}
+
 const NFL_WR: StarterPick = {
 	role: "offense",
 	positions: ["WR"],
@@ -242,6 +252,23 @@ export const GAME_QUESTION_CATALOG: Record<string, GameQuestionTemplate[]> = {
 			statName: "Rushing Yards",
 			group: "rushing-yards",
 			pick: NFL_RUSHERS,
+		},
+		{
+			id: "rb-scrimmage-yards-duel",
+			tier: 1,
+			shape: "player_vs_player",
+			statName: "Rushing + Receiving Yards",
+			group: "rushing-yards",
+			pick: NFL_RB_SCRIMMAGE,
+		},
+		{
+			id: "rb-scrimmage-yards",
+			tier: 1,
+			shape: "player_stat_over_under",
+			statName: "Rushing + Receiving Yards",
+			group: "rushing-yards",
+			pick: NFL_RB_SCRIMMAGE,
+			line: { minGames: 3, shade: 0.93, minLine: 40.5 },
 		},
 		{
 			id: "wr-receiving-yards-duel",

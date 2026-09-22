@@ -43,22 +43,27 @@ export type LineBasis = {
 
 const roundToThousandths = (value: number) => Math.round(value * 1000) / 1000
 
-// "category.stat" per game from ESPN's flattened season statistics. Games
-// count from `gamesKey` when given (an MLB starter's strikeouts are per
-// start), otherwise the stat category's own gamesPlayed and then the general
-// one, same as the season extractors in lib/auto-resolve/registry.ts. Null
-// with no games to divide by.
+// "category.stat" per game from ESPN's flattened season statistics, or
+// several added up. Games count from `gamesKey` when given (an MLB starter's
+// strikeouts are per start), otherwise the stat category's own gamesPlayed and
+// then the general one, same as the season extractors in
+// lib/auto-resolve/registry.ts. A sum across categories goes straight to the
+// general count. Null with no games to divide by.
 export function perGameSample(
 	stats: Map<string, number>,
-	statKey: string,
+	statKey: string | readonly string[],
 	gamesKey?: string,
 ): SeasonSample | null {
-	const [category] = statKey.split(".")
+	const keys = typeof statKey === "string" ? [statKey] : statKey
+	const categories = new Set(keys.map((key) => key.split(".")[0]))
+	const [category] = categories.size === 1 ? categories : [undefined]
 	const games = gamesKey
 		? stats.get(gamesKey)
-		: (stats.get(`${category}.gamesPlayed`) ?? stats.get("general.gamesPlayed"))
+		: ((category ? stats.get(`${category}.gamesPlayed`) : undefined) ??
+			stats.get("general.gamesPlayed"))
 	if (!games) return null
-	return { mean: (stats.get(statKey) ?? 0) / games, games }
+	const total = keys.reduce((sum, key) => sum + (stats.get(key) ?? 0), 0)
+	return { mean: total / games, games }
 }
 
 // Last season only matters until this season has priorWeight games of its
