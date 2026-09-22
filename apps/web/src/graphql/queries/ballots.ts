@@ -43,7 +43,7 @@ export const BallotByRefDocument = graphql(`
 								isCorrect
 							}
 						}
-						...BallotPositionRow_call
+						...PickPositionRow_call
 					}
 				}
 			}
@@ -92,7 +92,7 @@ export const BallotEntryDocument = graphql(`
 					}
 					call {
 						id
-						...BallotPositionRow_call
+						...PickPositionRow_call
 					}
 				}
 			}

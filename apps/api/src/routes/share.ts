@@ -9,6 +9,10 @@ import {
 } from "../lib/share-cards/call-card"
 import { SHARE_CARD_SIZE } from "../lib/share-cards/frame"
 import {
+	buildGameShareCard,
+	loadGameShareCardData,
+} from "../lib/share-cards/game-card"
+import {
 	buildReportCardShareCard,
 	loadReportCardShareData,
 } from "../lib/share-cards/report-card-card"
@@ -104,6 +108,16 @@ export function registerShareRoutes(app: Express) {
 			)
 		},
 	)
+
+	// The og:image behind /games/:id/picks/:username.
+	app.get("/share/games/:gameId/users/:username.png", async (req, res) => {
+		await serveCard(
+			res,
+			await loadGameShareCardData(req.params.gameId, req.params.username),
+			buildGameShareCard,
+			SHARE_CARD_SIZE,
+		)
+	})
 
 	// The og:image behind /user/:username/streaks/:league/:family/:mode. The
 	// mode-scoped url is what the page emits: /hot and /cold are separate

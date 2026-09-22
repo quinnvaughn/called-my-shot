@@ -3,7 +3,12 @@ import {
 	useInfiniteQuery,
 	useSuspenseQuery,
 } from "@tanstack/react-query"
-import { createFileRoute, Link, redirect } from "@tanstack/react-router"
+import {
+	createFileRoute,
+	Link,
+	redirect,
+	useRouteContext,
+} from "@tanstack/react-router"
 import { useState } from "react"
 import { FaRegTimesCircle } from "react-icons/fa"
 import { css } from "styled-system/css"
@@ -13,6 +18,7 @@ import {
 	canSetGameReminder,
 	GameReminderButton,
 } from "#/components/games/game-reminder-button"
+import { buildGameTweet, GameShareRow } from "#/components/games/game-share-row"
 import { QuestionCard } from "#/components/questions/question-card"
 import { SortSwitcher } from "#/components/questions/sort-switcher"
 import { Breadcrumb } from "#/components/ui/breadcrumb"
@@ -34,6 +40,7 @@ import {
 	gqlInfiniteQueryOptions,
 	gqlQueryOptions,
 } from "#/graphql/query-options"
+import { viewerGamePicksSummary } from "#/lib/game-entry"
 import { pageMeta } from "#/lib/meta"
 import {
 	findGameWinnerQuestion,
@@ -154,6 +161,7 @@ function RouteComponent() {
 	const { data: officialData } = useSuspenseQuery(
 		officialQuestionsQuery(gameId),
 	)
+	const { me } = useRouteContext({ from: "__root__" })
 	const game = gameData.game
 	const officialQuestions = officialData.questions.items
 
@@ -173,6 +181,9 @@ function RouteComponent() {
 	// entirely when the game has none (before the daily sync has run) rather
 	// than showing a placeholder that implies something's broken.
 	const hero = findGameWinnerQuestion(officialQuestions)
+
+	const matchup = `${game.awayTeam.abbreviation} @ ${game.homeTeam.abbreviation}`
+	const picks = viewerGamePicksSummary(officialQuestions)
 
 	function selectTab(next: GameTab) {
 		navigate({
@@ -225,10 +236,24 @@ function RouteComponent() {
 			</Tabs>
 
 			{tab === "official" ? (
-				<OfficialQuestions
-					game={game}
-					questions={officialQuestions.filter((q) => q.id !== hero?.id)}
-				/>
+				<VStack gap="6" alignItems="stretch">
+					{me && picks.calledCount > 0 && (
+						<VStack gap="3" alignItems="stretch">
+							<span className={sectionLabelClass}>Share your picks</span>
+							<GameShareRow
+								gameId={game.id}
+								username={me.username}
+								shareTitle={`@${me.username}'s ${matchup} picks`}
+								surface="game_page"
+								tweetText={buildGameTweet({ matchup, ...picks, isOwn: true })}
+							/>
+						</VStack>
+					)}
+					<OfficialQuestions
+						game={game}
+						questions={officialQuestions.filter((q) => q.id !== hero?.id)}
+					/>
+				</VStack>
 			) : (
 				<CommunityQuestions gameId={game.id} />
 			)}

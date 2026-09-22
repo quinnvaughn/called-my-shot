@@ -200,11 +200,97 @@ export const GameQuestionsDocument = graphql(`
 				id
 				shape
 				createdAt
+				status
+				locksAt
+				# Read by the page itself for the Official tab's share section
+				# (whether there's anything to share, and the tweet's record).
+				viewerCall {
+					id
+					hitTolerance
+					totalPoints
+					selections {
+						id
+						option {
+							id
+							isCorrect
+						}
+					}
+				}
 				...QuestionCard_question
 			}
 			pageInfo {
 				hasNextPage
 				endCursor
+			}
+		}
+	}
+`)
+
+// /games/<id>/picks/<username> - one user's calls on a game's official
+// questions. Public like the game page; `entry` is null for an unknown
+// username or someone with no official calls on this game.
+export const GameEntryDocument = graphql(`
+	query GameEntry($id: ID!, $username: String!) {
+		game(id: $id) {
+			id
+			startsAt
+			windowKey
+			league {
+				id
+				abbreviation
+				slug
+			}
+			homeTeam {
+				id
+				name
+				abbreviation
+			}
+			awayTeam {
+				id
+				name
+				abbreviation
+			}
+			entry(username: $username) {
+				calledCount
+				wins
+				losses
+				points
+				user {
+					id
+					name
+					username
+				}
+				members {
+					question {
+						id
+						title
+						shape
+						createdAt
+						status
+						locksAt
+						stat {
+							id
+							name
+						}
+						subjectTeam {
+							id
+							abbreviation
+						}
+						subjectPlayer {
+							id
+							name
+						}
+						options {
+							id
+							label
+						}
+						...PickPositionRow_question
+					}
+					call {
+						id
+						...PickPositionRow_call
+					}
+				}
 			}
 		}
 	}

@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router"
-import { Fragment, useEffect, useState } from "react"
+import { Fragment, type ReactNode, useEffect, useState } from "react"
 import type { IconType } from "react-icons"
 import { FaCheck, FaChevronDown, FaXmark } from "react-icons/fa6"
 import { FiChevronDown, FiChevronLeft, FiChevronRight } from "react-icons/fi"
@@ -370,6 +370,10 @@ type Props = {
 	// In order.
 	members: QuestionSetMember[]
 	currentQuestionId: string
+	// Sits at the end of the scorecard toggle's row, inside the collapsible
+	// body: something to do with the set as a whole (sharing your picks on
+	// it), not with the question on screen.
+	action?: ReactNode
 }
 
 // Pure navigation/discovery over a set of independently-resolving questions
@@ -390,6 +394,7 @@ export function QuestionSetStrip({
 	endLabel,
 	members,
 	currentQuestionId,
+	action,
 }: Props) {
 	const [expanded, setExpanded] = useState(false)
 	// null means "whatever this viewport defaults to" - closed on a phone,
@@ -585,34 +590,36 @@ export function QuestionSetStrip({
 						    header's chevron collapses the whole strip, and two chevrons
 						    side by side doing different things is exactly what made that
 						    row confusing. */}
-						<button
-							type="button"
-							onClick={() => setExpanded((v) => !v)}
-							aria-expanded={expanded}
-							className={cx(
-								stripCountClass,
-								css({
-									display: "flex",
-									alignItems: "center",
-									gap: "1.5",
-									alignSelf: "flex-start",
-									letterSpacing: "wide",
-									textTransform: "uppercase",
-									minHeight: { base: "44px", sm: "0" },
-									cursor: "pointer",
-									_hover: { color: "fg.default" },
-								}),
-							)}
-						>
-							scorecard · {members.length}
-							<FaChevronDown
-								size={9}
-								className={css({
-									transition: "transform 0.15s ease",
-									transform: expanded ? "rotate(180deg)" : undefined,
-								})}
-							/>
-						</button>
+						<HStack gap="3" justify="space-between" alignItems="center">
+							<button
+								type="button"
+								onClick={() => setExpanded((v) => !v)}
+								aria-expanded={expanded}
+								className={cx(
+									stripCountClass,
+									css({
+										display: "flex",
+										alignItems: "center",
+										gap: "1.5",
+										letterSpacing: "wide",
+										textTransform: "uppercase",
+										minHeight: { base: "44px", sm: "0" },
+										cursor: "pointer",
+										_hover: { color: "fg.default" },
+									}),
+								)}
+							>
+								scorecard · {members.length}
+								<FaChevronDown
+									size={9}
+									className={css({
+										transition: "transform 0.15s ease",
+										transform: expanded ? "rotate(180deg)" : undefined,
+									})}
+								/>
+							</button>
+							{action}
+						</HStack>
 
 						{expanded && (
 							<VStack

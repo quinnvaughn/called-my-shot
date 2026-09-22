@@ -120,6 +120,14 @@ type AnalyticsEvents = {
 		method: "native" | "clipboard" | "x"
 		surface: "ballot_page" | "entry_page"
 	}
+	// A link to one person's picks on a game's official questions: shared
+	// from the game page, from the game strip on a question page, or from the
+	// picks page itself, which anyone can do for anyone's.
+	game_picks_shared: {
+		gameId: string
+		method: "native" | "clipboard" | "x"
+		surface: "game_page" | "question_strip" | "entry_page"
+	}
 	// A link to one person's league-and-family streak page, or to a slate
 	// they swept. Each has one page it can be shared from, so no surface.
 	streak_link_shared: {

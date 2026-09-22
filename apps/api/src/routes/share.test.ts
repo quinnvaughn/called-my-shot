@@ -74,6 +74,10 @@ describe("share routes", () => {
 			() => "/share/ballots/no-such-ballot/users/nobody.png",
 		],
 		[
+			"a game that doesn't exist",
+			() => `/share/games/${randomUUID()}/users/nobody.png`,
+		],
+		[
 			"a streak track that doesn't exist",
 			() => "/share/streaks/nobody/nba/winners/hot.png",
 		],

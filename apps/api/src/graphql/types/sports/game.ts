@@ -1,12 +1,42 @@
 import { and, count, eq } from "drizzle-orm"
 import { DateTime } from "luxon"
 import { db } from "../../../db"
-import { calls, questions } from "../../../db/schema"
+import { calls, questions, type User } from "../../../db/schema"
+import { type GameEntry, loadGameEntry } from "../../../lib/game-entry"
 import { hasGameReminder } from "../../../lib/game-reminders"
 import { buildWeekWindowKey, ET_ZONE } from "../../../lib/windows"
 import { builder } from "../../builder"
+import { CallRef } from "../question/call"
+import { QuestionRef } from "../question/question-object"
+import { UserRef } from "../user"
 import { GameStatus } from "./enums"
 import { loadTeamRecordsByKey, TeamRecordRef } from "./team"
+
+// One official question of someone's picks on a game.
+const GameEntryMemberRef = builder
+	.objectRef<GameEntry["members"][number]>("GameEntryMember")
+	.implement({
+		fields: (t) => ({
+			question: t.field({ type: QuestionRef, resolve: (m) => m.member }),
+			call: t.field({ type: CallRef, nullable: true, resolve: (m) => m.call }),
+		}),
+	})
+
+const GameEntryRef = builder
+	.objectRef<GameEntry & { user: User }>("GameEntry")
+	.implement({
+		fields: (t) => ({
+			user: t.field({ type: UserRef, resolve: (e) => e.user }),
+			calledCount: t.exposeInt("calledCount"),
+			wins: t.exposeInt("wins"),
+			losses: t.exposeInt("losses"),
+			points: t.exposeInt("points"),
+			members: t.field({
+				type: [GameEntryMemberRef],
+				resolve: (e) => e.members,
+			}),
+		}),
+	})
 
 export const GameRef = builder.drizzleObject("games", {
 	name: "Game",
@@ -126,6 +156,22 @@ export const GameRef = builder.drizzleObject("games", {
 						and(eq(calls.userId, ctx.user.id), eq(questions.gameId, game.id)),
 					)
 				return n
+			},
+		}),
+		// One user's calls on this game's official questions, behind
+		// /games/:id/picks/:username. Null for an unknown user or one with no
+		// official calls here.
+		entry: t.field({
+			type: GameEntryRef,
+			nullable: true,
+			args: { username: t.arg.string({ required: true }) },
+			resolve: async (game, args) => {
+				const user = await db.query.users.findFirst({
+					where: { username: args.username },
+				})
+				if (!user) return null
+				const entry = await loadGameEntry(game.id, user.id)
+				return entry ? { ...entry, user } : null
 			},
 		}),
 	}),
