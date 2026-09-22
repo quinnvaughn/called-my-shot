@@ -15,17 +15,15 @@ import {
 	loadLineSettings,
 	withLineSettings,
 } from "../../lib/game-questions/line-settings"
-import { blendSamples, type LineBasis, setLine } from "../../lib/game-questions/lines"
 import {
-	createSeasonStatsCache,
-	type EspnAccess,
-	playerSamples,
-	type Samples,
-	type SeasonStatsFor,
-} from "../../lib/game-questions/player-samples"
+	blendSamples,
+	type LineBasis,
+	setLine,
+} from "../../lib/game-questions/lines"
 import {
 	chooseFrom,
 	eligibleStarters,
+	isPlayable,
 	rankCandidates,
 	type StarterCandidate,
 	type StarterPick,
@@ -39,6 +37,13 @@ import {
 	systemTemplates,
 	windowFor,
 } from "../../lib/game-questions/plan"
+import {
+	createSeasonStatsCache,
+	type EspnAccess,
+	playerSamples,
+	type Samples,
+	type SeasonStatsFor,
+} from "../../lib/game-questions/player-samples"
 import { refreshGeneratedQuestionSchedule } from "../../lib/game-questions/schedule"
 import { selectGameTemplates } from "../../lib/game-questions/select-templates"
 import { createTeamScoreCache } from "../../lib/game-questions/team-lines"
@@ -67,10 +72,7 @@ import {
 	type Team,
 } from "../schema"
 import { defaultEspnClient, type EspnClient } from "./espn-client"
-import {
-	createEspnRequester,
-	DEFAULT_ESPN_SPACING_MS,
-} from "./espn-requester"
+import { createEspnRequester, DEFAULT_ESPN_SPACING_MS } from "./espn-requester"
 import { SYNCED_LEAGUES, type SyncLeagueConfig } from "./leagues"
 import { loadEspnIds } from "./sync-refs"
 
@@ -105,6 +107,9 @@ type LeagueContext = {
 	// rosters.
 	rostersByTeamId: Map<string, Player[]>
 	playerNameById: Map<string, string>
+	// Players the roster currently says can't play. Read when tearing down a
+	// question posted before the injury - see isUnavailable below.
+	unavailablePlayerIds: Set<string>
 	espnAthleteIdByPlayerId: Map<string, string>
 	seasonStatsFor: SeasonStatsFor
 	// A team's own final scores this season and last, for the team over/under
@@ -126,7 +131,6 @@ type PlannedQuestion = {
 	leaderBasis?: LeaderBasis
 	options: { label: string; sortOrder: number; playerId?: string }[]
 }
-
 
 function loadCatalogStats(sportId: string, names: string[]) {
 	return db.query.stats.findMany({
@@ -263,9 +267,13 @@ async function planTemplate(
 		.with({ shape: "player_game_stat_leader" }, async ({ statName, pick }) => {
 			const key = generationKey(base)
 			if (isFilled(key)) return []
-			const pool = await buildPlayerPool({
-				teamIds: [game.awayTeamId, game.homeTeamId],
-			})
+			// Someone on the IL can't lead a stat, and leaving them in only
+			// tempts a call that's dead on arrival.
+			const pool = (
+				await buildPlayerPool({
+					teamIds: [game.awayTeamId, game.homeTeamId],
+				})
+			).filter((player) => isPlayable(player.injuryStatus))
 			if (pool.length < 2) return []
 			// Only a favorite who's one of the options can be checked against
 			// who actually led.
@@ -473,7 +481,9 @@ async function generateForGame(
 			parsed &&
 			template &&
 			question.status === "open" &&
-			isStale(template, parsed.rest, starters, game)
+			isStale(template, parsed.rest, starters, game, (playerId) =>
+				ctx.unavailablePlayerIds.has(playerId),
+			)
 		) {
 			if (await deleteIfUncalled(question.id)) removed++
 			continue
@@ -649,6 +659,11 @@ async function generateForLeague(
 		starters,
 		rostersByTeamId,
 		playerNameById: new Map(players.map((player) => [player.id, player.name])),
+		unavailablePlayerIds: new Set(
+			players
+				.filter((player) => !isPlayable(player.injuryStatus))
+				.map((player) => player.id),
+		),
 		espnAthleteIdByPlayerId,
 		seasonStatsFor: createSeasonStatsCache(config, access),
 		teamSamplesFor: createTeamScoreCache(league.id),

@@ -23,6 +23,32 @@ function athletePositions(athlete: EspnAthlete): string[] {
 	return athlete.position?.abbreviation ? [athlete.position.abbreviation] : []
 }
 
+// Roster status types a player is still available under, once isOnRoster has
+// already dropped the minors/non-roster entries. Everything else - every IL
+// flavor ESPN spells differently by sport ("injured", "injured7", "injured60",
+// "15-day-il"), a suspension, bereavement leave - means unavailable, so a new
+// designation excludes rather than silently letting someone through.
+const AVAILABLE_ROSTER_STATUSES = new Set([
+	"active",
+	"day-to-day",
+	"news",
+	"practice-squad",
+])
+
+// An `injuries` record is the better signal and wins wherever ESPN files one:
+// its status carries the real designation, while `status.type` can flatly
+// contradict it - NFL players on season-ending IR come back typed
+// "day-to-day". But ESPN leaves `injuries` empty for a chunk of IL stints
+// (MLB 7- and 60-day in particular), where the status type is the only thing
+// that knows, so its display name stands in.
+export function athleteInjuryStatus(athlete: EspnAthlete): string | null {
+	const reported = athlete.injuries?.[0]?.status
+	if (reported) return reported
+	const type = athlete.status?.type?.toLowerCase()
+	if (!type || AVAILABLE_ROSTER_STATUSES.has(type)) return null
+	return athlete.status?.name ?? type
+}
+
 async function syncAthlete(
 	leagueSlug: string,
 	teamId: string,
@@ -42,6 +68,7 @@ async function syncAthlete(
 					currentTeamId: teamId,
 					seasonsInLeague: athlete.experience?.years ?? 0,
 					rookieEligible,
+					injuryStatus: athleteInjuryStatus(athlete),
 				})
 				.where(eq(players.id, existingId))
 			return
@@ -55,6 +82,7 @@ async function syncAthlete(
 				currentTeamId: teamId,
 				seasonsInLeague: athlete.experience?.years ?? 0,
 				rookieEligible,
+				injuryStatus: athleteInjuryStatus(athlete),
 			})
 			.returning()
 		if (!row)

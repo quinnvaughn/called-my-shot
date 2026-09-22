@@ -20,7 +20,15 @@ export type EspnAthlete = {
 	// here even when `position` itself reads "DH". Same `?enable=roster`
 	// response as `position`, verified live - no separate endpoint needed.
 	positions?: { abbreviation: string }[]
-	status?: { abbreviation: string }
+	// `abbreviation` is what isOnRoster reads. `type` is the stable slug
+	// behind it ("active", "injured60", "15-day-il"), which athleteInjuryStatus
+	// in sync-players.ts reads for the IL stints ESPN files no `injuries`
+	// record for, and `name` is that slug's display form ("Injured/60").
+	status?: { abbreviation: string; type?: string; name?: string }
+	// The same shape, and the same designation vocabulary ("Questionable",
+	// "Out", "Injured Reserve", "60-Day-IL"), that depth charts carry - see
+	// EspnDepthChartAthlete. Absent for a healthy player.
+	injuries?: { status: string }[]
 	// Whole seasons of experience, 0 for a rookie. Missing on the rare roster
 	// entry ESPN hasn't backfilled it for.
 	experience?: { years: number }

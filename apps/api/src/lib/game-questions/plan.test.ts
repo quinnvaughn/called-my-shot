@@ -142,12 +142,21 @@ describe("systemTemplates", () => {
 	})
 })
 
+const rosterPlayer = (
+	id: string,
+	position: string,
+	positions: string[],
+	injuryStatus: string | null = null,
+) => ({ id, position, positions, injuryStatus })
+
+const allAvailable = () => false
+
 describe("rosterCandidates", () => {
 	it("shapes the roster players at the pick's positions like starters", () => {
 		const roster = [
-			{ id: "guard", position: "PG", positions: ["PG"] },
-			{ id: "center", position: "C", positions: ["C"] },
-			{ id: "swing", position: "SF", positions: ["SF", "SG"] },
+			rosterPlayer("guard", "PG", ["PG"]),
+			rosterPlayer("center", "C", ["C"]),
+			rosterPlayer("swing", "SF", ["SF", "SG"]),
 		]
 		expect(rosterCandidates(roster, "team", GUARD)).toEqual([
 			starter("guard", "team", { sortOrder: 1 }),
@@ -156,28 +165,45 @@ describe("rosterCandidates", () => {
 	})
 
 	it("takes the whole roster when the pick names no positions", () => {
-		const roster = [{ id: "center", position: "C", positions: ["C"] }]
+		const roster = [rosterPlayer("center", "C", ["C"])]
 		const anyone = { ...GUARD, positions: undefined }
 		expect(
 			rosterCandidates(roster, "team", anyone).map((c) => c.playerId),
 		).toEqual(["center"])
 	})
+
+	it("leaves out a player the roster says can't play", () => {
+		const roster = [
+			rosterPlayer("shelved", "PG", ["PG"], "60-Day-IL"),
+			rosterPlayer("sore", "SG", ["SG"], "Day-To-Day"),
+			rosterPlayer("healthy", "PG", ["PG"]),
+		]
+		expect(
+			rosterCandidates(roster, "team", GUARD).map((c) => c.playerId),
+		).toEqual(["sore", "healthy"])
+	})
 })
 
 describe("isRuledOut", () => {
 	it("can't rule anyone out before the team's starters are posted", () => {
-		expect(isRuledOut([], "team", "player", GUARD)).toBe(false)
+		expect(isRuledOut([], "team", "player", GUARD, allAvailable)).toBe(false)
 	})
 
 	it("rules out a player missing from the posted starters", () => {
 		const posted = [starter("other", "team")]
-		expect(isRuledOut(posted, "team", "player", GUARD)).toBe(true)
-		expect(isRuledOut(posted, "team", "other", GUARD)).toBe(false)
+		expect(isRuledOut(posted, "team", "player", GUARD, allAvailable)).toBe(true)
+		expect(isRuledOut(posted, "team", "other", GUARD, allAvailable)).toBe(false)
 	})
 
 	it("rules out a listed starter who can't play", () => {
 		const posted = [starter("player", "team", { injuryStatus: "Out" })]
-		expect(isRuledOut(posted, "team", "player", GUARD)).toBe(true)
+		expect(isRuledOut(posted, "team", "player", GUARD, allAvailable)).toBe(true)
+	})
+
+	it("rules out an unavailable player with no starters posted yet", () => {
+		const shelved = (playerId: string) => playerId === "player"
+		expect(isRuledOut([], "team", "player", GUARD, shelved)).toBe(true)
+		expect(isRuledOut([], "team", "other", GUARD, shelved)).toBe(false)
 	})
 })
 
@@ -186,18 +212,36 @@ describe("isStale", () => {
 	const posted = [starter("a1", "away"), starter("h1", "home")]
 
 	it("marks an over/under on a player no longer starting", () => {
-		expect(isStale(POINTS_LINE, ["away", "a2"], posted, game)).toBe(true)
-		expect(isStale(POINTS_LINE, ["away", "a1"], posted, game)).toBe(false)
+		expect(
+			isStale(POINTS_LINE, ["away", "a2"], posted, game, allAvailable),
+		).toBe(true)
+		expect(
+			isStale(POINTS_LINE, ["away", "a1"], posted, game, allAvailable),
+		).toBe(false)
 	})
 
 	it("marks a duel when either side's player is out", () => {
-		expect(isStale(POINTS_DUEL, ["a1", "h2"], posted, game)).toBe(true)
-		expect(isStale(POINTS_DUEL, ["a1", "h1"], posted, game)).toBe(false)
+		expect(isStale(POINTS_DUEL, ["a1", "h2"], posted, game, allAvailable)).toBe(
+			true,
+		)
+		expect(isStale(POINTS_DUEL, ["a1", "h1"], posted, game, allAvailable)).toBe(
+			false,
+		)
+	})
+
+	it("marks a question whose subject has since landed on the injured list", () => {
+		const shelved = (playerId: string) => playerId === "a1"
+		expect(isStale(POINTS_LINE, ["away", "a1"], posted, game, shelved)).toBe(
+			true,
+		)
+		expect(isStale(POINTS_DUEL, ["a1", "h1"], posted, game, shelved)).toBe(true)
 	})
 
 	it("never marks a question that isn't about one player", () => {
-		expect(isStale(POINTS_LEADER, [], posted, game)).toBe(false)
-		expect(isStale(TEAM_POINTS, ["away"], posted, game)).toBe(false)
+		expect(isStale(POINTS_LEADER, [], posted, game, allAvailable)).toBe(false)
+		expect(isStale(TEAM_POINTS, ["away"], posted, game, allAvailable)).toBe(
+			false,
+		)
 	})
 })
 

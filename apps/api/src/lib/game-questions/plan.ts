@@ -5,6 +5,7 @@ import type { Game, Player } from "../../db/schema"
 import { DAY_MS, HOUR_MS, MINUTE_MS } from "../time"
 import {
 	eligibleStarters,
+	isPlayable,
 	type StarterCandidate,
 	type StarterPick,
 	startersPosted,
@@ -96,18 +97,23 @@ export function systemTemplates(
 	})
 }
 
-// A team's roster players at the pick's positions, shaped like starters in the
-// pick's role.
+// A team's roster players at the pick's positions who can actually play,
+// shaped like starters in the pick's role. No lineup has posted yet when this
+// runs, so the roster's own injury designation is the only thing standing
+// between a player on the IL and a question about what he does tonight.
 export function rosterCandidates(
-	roster: Pick<Player, "id" | "position" | "positions">[],
+	roster: Pick<Player, "id" | "position" | "positions" | "injuryStatus">[],
 	teamId: string,
 	pick: StarterPick,
 ): StarterCandidate[] {
 	return roster
 		.filter(
 			(player) =>
-				!pick.positions ||
-				player.positions.some((position) => pick.positions?.includes(position)),
+				(!pick.positions ||
+					player.positions.some((position) =>
+						pick.positions?.includes(position),
+					)) &&
+				isPlayable(player.injuryStatus),
 		)
 		.map((player, index) => ({
 			playerId: player.id,
@@ -115,18 +121,23 @@ export function rosterCandidates(
 			role: pick.role,
 			position: player.position,
 			sortOrder: index + 1,
-			injuryStatus: null,
+			injuryStatus: player.injuryStatus,
 		}))
 }
 
-// Ruled out once ESPN lists the team's starters in the pick's role without
-// this player among the ones who can play.
+// Ruled out once the roster says this player can't play, or once ESPN lists
+// the team's starters in the pick's role without him among the ones who can.
+// The roster check stands on its own because a lineup may never post in time
+// to catch it: an MLB question goes up about a day out, and a player who lands
+// on the IL in between would otherwise sit there until first pitch.
 export function isRuledOut(
 	starters: StarterCandidate[],
 	teamId: string,
 	playerId: string,
 	pick: StarterPick,
+	isUnavailable: (playerId: string) => boolean,
 ): boolean {
+	if (isUnavailable(playerId)) return true
 	return (
 		startersPosted(starters, teamId, pick.role) &&
 		!eligibleStarters(starters, teamId, pick).some(
@@ -143,21 +154,36 @@ export function isStale(
 	keyRest: string[],
 	starters: StarterCandidate[],
 	game: Pick<Game, "awayTeamId" | "homeTeamId">,
+	isUnavailable: (playerId: string) => boolean,
 ): boolean {
 	return match(template)
 		.with({ shape: "player_stat_over_under" }, ({ pick }) => {
 			const [teamId, playerId] = keyRest
 			return (
-				!!teamId && !!playerId && isRuledOut(starters, teamId, playerId, pick)
+				!!teamId &&
+				!!playerId &&
+				isRuledOut(starters, teamId, playerId, pick, isUnavailable)
 			)
 		})
 		.with({ shape: "player_vs_player" }, ({ pick }) => {
 			const [awayPlayerId, homePlayerId] = keyRest
 			return (
 				(!!awayPlayerId &&
-					isRuledOut(starters, game.awayTeamId, awayPlayerId, pick)) ||
+					isRuledOut(
+						starters,
+						game.awayTeamId,
+						awayPlayerId,
+						pick,
+						isUnavailable,
+					)) ||
 				(!!homePlayerId &&
-					isRuledOut(starters, game.homeTeamId, homePlayerId, pick))
+					isRuledOut(
+						starters,
+						game.homeTeamId,
+						homePlayerId,
+						pick,
+						isUnavailable,
+					))
 			)
 		})
 		.with(

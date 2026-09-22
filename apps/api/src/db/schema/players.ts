@@ -43,5 +43,15 @@ export const players = pgTable("players", {
 	// sport. Not null/default false, same reasoning as seasonsInLeague -
 	// existing rows predate this column and need a re-sync to get a real value.
 	rookieEligible: boolean("rookie_eligible").notNull().default(false),
+	// Why this player is currently sidelined, in ESPN's own designation
+	// vocabulary ("Questionable", "Out", "Injured Reserve", "60-Day-IL"), or
+	// null when nothing says they're hurt - synced from the roster by
+	// athleteInjuryStatus in db/sync/sync-players.ts. Deliberately the same
+	// vocabulary game_starters.injuryStatus carries off depth charts, so one
+	// filter (isPlayable in lib/game-questions/pick-subjects.ts) reads both:
+	// generated questions pick MLB batters off this table roughly a day out,
+	// long before a lineup posts, so without this an out-for-the-season bat is
+	// just another name in the pool.
+	injuryStatus: text("injury_status"),
 })
 export type Player = typeof players.$inferSelect
