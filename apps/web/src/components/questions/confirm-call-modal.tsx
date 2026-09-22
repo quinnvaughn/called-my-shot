@@ -1,5 +1,6 @@
 import {
 	BASE_POINTS_BY_SHAPE,
+	effectiveLossRate,
 	isSeasonLongShape,
 	seasonEarlyTierFor,
 } from "@called-my-shot/scoring"
@@ -136,7 +137,7 @@ export function ConfirmCallModal({
 									meta={meta}
 									payout={previewSelectionPoints(
 										basePoints,
-										lossRate,
+										effectiveLossRate(lossRate, option.lossRate),
 										simulatedFieldPct,
 										question.options.length,
 										selection.conviction,

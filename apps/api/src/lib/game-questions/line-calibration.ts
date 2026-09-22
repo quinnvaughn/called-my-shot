@@ -143,12 +143,30 @@ export function nextShade(current: number, ratios: number[]): number | null {
 
 // Each over/under template's result-to-average ratios, most recent first, by
 // "<league>:<template>". Only lines auto-resolution settled carry the result.
-export async function ratiosByTemplate(): Promise<Map<string, number[]>> {
+export function ratiosByTemplate(): Promise<Map<string, number[]>> {
+	return collectRatios()
+}
+
+// One template's ratios, most recent first - what a person-set line on the
+// same stat is priced from (see line-pricing.ts).
+export async function ratiosForTemplate(
+	leagueSlug: string,
+	templateId: string,
+): Promise<number[]> {
+	const ratios = await collectRatios(`${leagueSlug}:%:${templateId}:%`)
+	return ratios.get(`${leagueSlug}:${templateId}`) ?? []
+}
+
+async function collectRatios(
+	generationKeyLike?: string,
+): Promise<Map<string, number[]>> {
 	const resolved = await db.query.questions.findMany({
 		where: {
 			shape: { in: [...GENERATED_OVER_UNDER_SHAPES] },
 			status: "resolved",
-			generationKey: { isNotNull: true },
+			generationKey: generationKeyLike
+				? { like: generationKeyLike }
+				: { isNotNull: true },
 			lineBasis: { isNotNull: true },
 		},
 		columns: { generationKey: true, lineBasis: true },

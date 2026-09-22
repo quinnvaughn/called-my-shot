@@ -13,6 +13,7 @@ import {
 } from "../../../../lib/errors"
 import { bandSettingFor } from "../../../../lib/game-questions/band-settings"
 import { leaderLossRateFor } from "../../../../lib/game-questions/leader-settings"
+import { priceUserLine } from "../../../../lib/game-questions/line-pricing"
 import { titleLossRateFor } from "../../../../lib/game-questions/title-settings"
 import { numericToleranceFor } from "../../../../lib/numeric-tolerance"
 import { getOfficialAccountId } from "../../../../lib/official-account"
@@ -84,7 +85,11 @@ builder.mutationFields((t) => ({
 			const gameRow = data.gameId
 				? await db.query.games.findFirst({
 						where: { id: data.gameId },
-						with: { homeTeam: true, awayTeam: true },
+						with: {
+							homeTeam: true,
+							awayTeam: true,
+							season: { columns: { year: true } },
+						},
 					})
 				: null
 			let game: ShapeContext["game"] = null
@@ -278,6 +283,35 @@ builder.mutationFields((t) => ({
 			}
 			const isSystem = resolutionMode === "system"
 
+			// A game stat line is priced per side from the model a generated line
+			// on the same stat would use - see priceUserLine. Null leaves both
+			// sides on lossRate.
+			const pricedLine =
+				(data.shape === "player_stat_over_under" ||
+					data.shape === "team_stat_over_under") &&
+				stat &&
+				gameRow?.season &&
+				data.ouLine !== undefined
+					? await priceUserLine({
+							leagueId: data.leagueId,
+							shape: data.shape,
+							statName: stat.name,
+							ouLine: data.ouLine,
+							subjectPlayerId: data.subjectPlayerId,
+							subjectTeamId: data.subjectTeamId,
+							seasonYear: gameRow.season.year,
+						})
+					: null
+			const options = optionsFor(data, shapeContext).map((option) =>
+				pricedLine && (option.label === "Over" || option.label === "Under")
+					? {
+							...option,
+							lossRate:
+								option.label === "Over" ? pricedLine.over : pricedLine.under,
+						}
+					: option,
+			)
+
 			const question = await db.transaction(async (tx) => {
 				const question = await insertQuestion(
 					tx,
@@ -302,6 +336,7 @@ builder.mutationFields((t) => ({
 						statId: data.statId ?? null,
 						customStat: data.customStat || null,
 						ouLine: data.ouLine ?? null,
+						linePricing: pricedLine?.pricing ?? null,
 						statAggregation: data.statAggregation ?? null,
 						subjectTeamId: data.subjectTeamId ?? null,
 						subjectPlayerId: data.subjectPlayerId ?? null,
@@ -317,7 +352,7 @@ builder.mutationFields((t) => ({
 						awardSeasonsInLeague: listOrNull(data.awardSeasonsInLeague),
 						awardRookieOnly: data.awardRookieOnly || null,
 					},
-					optionsFor(data, shapeContext),
+					options,
 				)
 
 				if (data.ballot) {

@@ -1,5 +1,6 @@
 import {
 	BASE_POINTS_BY_SHAPE,
+	effectiveLossRate,
 	fieldPct,
 	numericGuessPoints,
 	type QuestionShape,
@@ -202,7 +203,8 @@ export type SelectionToScore = {
 }
 
 // Scores every selection on an option-based question. `options` carry
-// isCorrect as persisted before this pass - the only record of whether a
+// isCorrect as persisted before this pass, and the side's own lossRate where
+// a priced line set one - the only record of whether a
 // selection was previously right, which an overturn needs to net it out.
 // totalCalls and countByOption are the whole field, unscored calls included:
 // they were real picks at lock, so they keep their share and their place in
@@ -210,7 +212,11 @@ export type SelectionToScore = {
 export function scoreSelections(input: {
 	shape: QuestionShape
 	lossRate: number
-	options: { id: string; isCorrect: boolean | null }[]
+	options: {
+		id: string
+		isCorrect: boolean | null
+		lossRate?: number | null
+	}[]
 	correctOptionIds: string[]
 	totalCalls: number
 	countByOption: ReadonlyMap<string, number>
@@ -227,6 +233,12 @@ export function scoreSelections(input: {
 } {
 	const wasCorrectByOptionId = new Map(
 		input.options.map((o) => [o.id, o.isCorrect]),
+	)
+	const lossRateByOptionId = new Map(
+		input.options.map((o) => [
+			o.id,
+			effectiveLossRate(input.lossRate, o.lossRate),
+		]),
 	)
 	const correctOptionIds = new Set(input.correctOptionIds)
 	const callsById = new Map(input.selections.map((s) => [s.call.id, s.call]))
@@ -250,7 +262,7 @@ export function scoreSelections(input: {
 			: {
 					points: selectionPoints(
 						BASE_POINTS_BY_SHAPE[input.shape],
-						input.lossRate,
+						lossRateByOptionId.get(s.optionId) ?? input.lossRate,
 						fieldPct(
 							input.countByOption.get(s.optionId) ?? 0,
 							input.totalCalls,

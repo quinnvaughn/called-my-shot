@@ -134,6 +134,7 @@ export const QuestionDetailDocument = graphql(`
 						label
 						isCorrect
 						fieldPct
+						lossRate
 						# The viewer's own pick's number, which question.options
 						# above can't stand in for on a leader pool - the margin
 						# needs whoever they backed, not just whoever led.

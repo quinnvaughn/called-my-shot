@@ -15,14 +15,14 @@ import {
 	loadLineSettings,
 	withLineSettings,
 } from "../../lib/game-questions/line-settings"
+import { blendSamples, type LineBasis, setLine } from "../../lib/game-questions/lines"
 import {
-	blendSamples,
-	type LineBasis,
-	needsPriorSeason,
-	perGameSample,
-	type SeasonSample,
-	setLine,
-} from "../../lib/game-questions/lines"
+	createSeasonStatsCache,
+	type EspnAccess,
+	playerSamples,
+	type Samples,
+	type SeasonStatsFor,
+} from "../../lib/game-questions/player-samples"
 import {
 	chooseFrom,
 	eligibleStarters,
@@ -70,10 +70,8 @@ import { defaultEspnClient, type EspnClient } from "./espn-client"
 import {
 	createEspnRequester,
 	DEFAULT_ESPN_SPACING_MS,
-	type EspnRequester,
 } from "./espn-requester"
 import { SYNCED_LEAGUES, type SyncLeagueConfig } from "./leagues"
-import { flattenCategorizedStatistics } from "./season-stats-parse"
 import { loadEspnIds } from "./sync-refs"
 
 type DueGame = Game & { homeTeam: Team; awayTeam: Team; season: Season }
@@ -108,10 +106,7 @@ type LeagueContext = {
 	rostersByTeamId: Map<string, Player[]>
 	playerNameById: Map<string, string>
 	espnAthleteIdByPlayerId: Map<string, string>
-	seasonStatsFor: (
-		espnAthleteId: string,
-		year: number,
-	) => Promise<Map<string, number> | null>
+	seasonStatsFor: SeasonStatsFor
 	// A team's own final scores this season and last, for the team over/under
 	// lines - see createTeamScoreCache.
 	teamSamplesFor: (
@@ -132,63 +127,12 @@ type PlannedQuestion = {
 	options: { label: string; sortOrder: number; playerId?: string }[]
 }
 
-type Samples = { season: SeasonSample | null; prior: SeasonSample | null }
-
-// What one run reads ESPN through.
-type EspnAccess = { espn: EspnClient; requester: EspnRequester }
 
 function loadCatalogStats(sportId: string, names: string[]) {
 	return db.query.stats.findMany({
 		where: { sportId, name: { in: names } },
 		with: { toleranceTier: true, teamToleranceTier: true },
 	})
-}
-
-// One fetch per athlete and season per run, however many templates or games
-// ask for it. A failed or missing read is null, the same as no season at all.
-function createSeasonStatsCache(
-	config: SyncLeagueConfig,
-	{ espn, requester }: EspnAccess,
-) {
-	const cache = new Map<string, Map<string, number> | null>()
-	return async (espnAthleteId: string, year: number) => {
-		const key = `${espnAthleteId}:${year}`
-		if (cache.has(key)) return cache.get(key) ?? null
-		const statistics = await requester.request(
-			`${config.leagueSlug} athlete ${espnAthleteId} season ${year}`,
-			() =>
-				espn.fetchAthleteSeasonStatistics(config.espnPath, year, espnAthleteId),
-		)
-		const flattened = statistics
-			? flattenCategorizedStatistics(statistics)
-			: null
-		cache.set(key, flattened)
-		return flattened
-	}
-}
-
-async function samplesFor(
-	ctx: LeagueContext,
-	playerId: string,
-	pick: StarterPick,
-	year: number,
-): Promise<Samples> {
-	const espnAthleteId = ctx.espnAthleteIdByPlayerId.get(playerId)
-	if (!espnAthleteId) return { season: null, prior: null }
-	const current = await ctx.seasonStatsFor(espnAthleteId, year)
-	const season = current
-		? perGameSample(current, pick.espnStat, pick.espnGames)
-		: null
-	if (!needsPriorSeason(season, pick.priorWeight)) {
-		return { season, prior: null }
-	}
-	const previous = await ctx.seasonStatsFor(espnAthleteId, year - 1)
-	return {
-		season,
-		prior: previous
-			? perGameSample(previous, pick.espnStat, pick.espnGames)
-			: null,
-	}
 }
 
 // A team's starters the pick can come from, best per-game average first, each
@@ -212,7 +156,12 @@ async function rankedStarters(
 	for (const candidate of eligible) {
 		samplesByPlayerId.set(
 			candidate.playerId,
-			await samplesFor(ctx, candidate.playerId, pick, game.season.year),
+			await playerSamples(
+				ctx.seasonStatsFor,
+				ctx.espnAthleteIdByPlayerId.get(candidate.playerId),
+				pick,
+				game.season.year,
+			),
 		)
 	}
 	const samplesOf = (candidate: StarterCandidate): Samples =>

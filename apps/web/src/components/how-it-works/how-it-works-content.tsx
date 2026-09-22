@@ -5,6 +5,7 @@ import {
 	EARLY_MAX_MULT,
 	LOSS_RATE_BY_SHAPE,
 	SEASON_EARLY_MAX_MULT,
+	SIDE_LOSS_RATE_BOUNDS,
 	TIER_MAX_MULT,
 	TIER_MIN_MULT,
 } from "@called-my-shot/scoring"
@@ -432,7 +433,11 @@ export function HowItWorksSections() {
 					either multiplier. The loss rate is set by question type and saved on
 					the question when it's posted, so it can't change after you call. Stat
 					lines, yes/no, and head-to-head picks lose{" "}
-					{missCost(LOSS_RATE_BY_SHAPE.yes_no_prop)}. A numeric guess loses{" "}
+					{missCost(LOSS_RATE_BY_SHAPE.yes_no_prop)}, except a game stat line
+					someone set by hand. When its line sits well off where the player's or
+					team's history puts it, the side that history favors loses up to{" "}
+					{SIDE_LOSS_RATE_BOUNDS.max}× what you committed, and the other side
+					loses less. A numeric guess loses{" "}
 					{missCost(NUMERIC_LOSS)}. A game stat leader pick loses a share sized
 					per stat so picking the player with the best season average breaks
 					even, and a season stat leader pick loses{" "}

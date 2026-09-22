@@ -253,7 +253,7 @@ async function scoreOptionCalls(
 	// needs what each option was previously marked.
 	const options = await tx.query.questionOptions.findMany({
 		where: { questionId: question.id },
-		columns: { id: true, isCorrect: true },
+		columns: { id: true, isCorrect: true, lossRate: true },
 	})
 	const validIds = new Set(options.map((o) => o.id))
 	if (!data.correctOptionIds.every((id) => validIds.has(id))) {

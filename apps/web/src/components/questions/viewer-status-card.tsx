@@ -1,6 +1,7 @@
 import {
 	BASE_POINTS_BY_SHAPE,
 	earlyTierFor,
+	effectiveLossRate,
 	seasonEarlyTierFor,
 	TIER_MAX_MULT,
 	TIER_MIN_MULT,
@@ -163,6 +164,8 @@ type ViewerCall = {
 			label: string
 			isCorrect: boolean | null
 			fieldPct: number | null
+			// This side's own loss rate when the line was priced, else null.
+			lossRate: number | null
 		}
 	}[]
 }
@@ -794,7 +797,7 @@ function PickRows({
 					seasonGamesPlayed={call.seasonGamesPlayed}
 					seasonTotalGames={call.seasonTotalGames}
 					basePoints={basePoints}
-					lossRate={lossRate}
+					lossRate={effectiveLossRate(lossRate, selection.option.lossRate)}
 					// A single pick's name is already up in the title - only
 					// player_season_award/team_season_award (several picks,
 					// none of them named up top) needs each row to say what it is.
@@ -888,7 +891,7 @@ function committedRow(
 }
 
 // The stored points are authoritative: a call scored at a full loss reads as
-// one even on a shape whose loss rate is under 1.
+// one even on a question whose loss rate isn't 1.
 function missedRow(
 	points: number,
 	committed: number,

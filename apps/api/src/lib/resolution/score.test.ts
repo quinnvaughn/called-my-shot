@@ -134,6 +134,49 @@ describe("scoreSelections", () => {
 		expect(pointsOf(result, "b-no")).toBe(-Math.round(BASE * 0.4))
 	})
 
+	it("charges a miss at its side's own rate when the line was priced", () => {
+		const selections = [
+			pick("a", "over", { conviction: 50 }),
+			pick("b", "under", { conviction: 50 }),
+		]
+		const result = scoreSelections({
+			shape: "player_stat_over_under",
+			lossRate: 1,
+			options: [
+				{ id: "over", isCorrect: null, lossRate: 0.5 },
+				{ id: "under", isCorrect: null, lossRate: null },
+			],
+			correctOptionIds: ["under"],
+			totalCalls: 2,
+			countByOption: new Map([
+				["over", 1],
+				["under", 1],
+			]),
+			selections,
+			earliness: { by: "rank", totalCalls: 2 },
+		})
+		expect(pointsOf(result, "a-over")).toBe(-Math.round(BASE * 0.5 * 0.5))
+
+		const flipped = scoreSelections({
+			shape: "player_stat_over_under",
+			lossRate: 1,
+			options: [
+				{ id: "over", isCorrect: null, lossRate: 0.5 },
+				{ id: "under", isCorrect: null, lossRate: null },
+			],
+			correctOptionIds: ["over"],
+			totalCalls: 2,
+			countByOption: new Map([
+				["over", 1],
+				["under", 1],
+			]),
+			selections,
+			earliness: { by: "rank", totalCalls: 2 },
+		})
+		// No side rate of its own, so the question's full rate.
+		expect(pointsOf(flipped, "b-under")).toBe(-Math.round(BASE * 0.5))
+	})
+
 	it("banks conviction behind a hit on both sums and a miss on the total only", () => {
 		const { tally } = scoreYesNo(
 			[

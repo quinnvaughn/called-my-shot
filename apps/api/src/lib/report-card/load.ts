@@ -65,7 +65,9 @@ export async function loadReportCard(
 				with: {
 					selections: {
 						columns: { conviction: true, resultPoints: true },
-						with: { option: { columns: { isCorrect: true } } },
+						with: {
+							option: { columns: { isCorrect: true, lossRate: true } },
+						},
 					},
 				},
 			},
@@ -104,6 +106,9 @@ export async function loadReportCard(
 					: call.selections.map((s) => s.conviction),
 				selectionsCorrect: call.selections.map(
 					(s) => s.option?.isCorrect ?? null,
+				),
+				selectionLossRates: call.selections.map(
+					(s) => s.option?.lossRate ?? null,
 				),
 				createdAt: call.createdAt,
 			}

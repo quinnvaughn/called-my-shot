@@ -7,6 +7,8 @@ import {
 	convictionEdge,
 	defaultLossRate,
 	earlyTierFor,
+	effectiveLossRate,
+	FAIR_LINE_MARGIN,
 	fieldPct,
 	hitTolerance,
 	isNumericGuessShape,
@@ -16,13 +18,16 @@ import {
 	NUMERIC_GUESS_SHAPES,
 	numericGuessPoints,
 	maxConvictionFor,
+	overProbability,
 	pointsAtStake,
 	pointsCommitted,
 	type QuestionShape,
 	SEASON_LONG_SHAPES,
 	seasonEarlyTierFor,
+	SIDE_LOSS_RATE_BOUNDS,
 	selectionPoints,
 	shapesInFamily,
+	sideLossRates,
 	STREAK_FAMILY_BY_SHAPE,
 	TIER_MAX_MULT,
 	TIER_MIN_MULT,
@@ -118,6 +123,53 @@ describe("breakEvenLossRate", () => {
 		expect(breakEvenLossRate(0.5)).toBe(1)
 		expect(breakEvenLossRate(0.25)).toBeCloseTo(1 / 3)
 		expect(breakEvenLossRate(breakEvenHitRate(0.5))).toBeCloseTo(0.5)
+	})
+})
+
+describe("overProbability", () => {
+	const ratios = [0.6, 0.8, 0.9, 1, 1.1, 1.2, 1.4]
+
+	it("is the smoothed share of ratios past the line's ratio", () => {
+		// 20.5 / 20 = 1.025: three ratios clear it
+		expect(overProbability(ratios, 20, 20.5)).toBeCloseTo(3.5 / 8)
+	})
+
+	it("never reads as a sure thing past every ratio", () => {
+		expect(overProbability(ratios, 20, 40.5)).toBeCloseTo(0.5 / 8)
+		expect(overProbability(ratios, 20, 5.5)).toBeCloseTo(7.5 / 8)
+	})
+})
+
+describe("sideLossRates", () => {
+	it("leaves anything within FAIR_LINE_MARGIN of even at a full loss", () => {
+		expect(sideLossRates(0.5)).toEqual({ over: 1, under: 1 })
+		expect(sideLossRates(0.55)).toEqual({ over: 1, under: 1 })
+		expect(sideLossRates(0.5 - FAIR_LINE_MARGIN)).toEqual({
+			over: 1,
+			under: 1,
+		})
+	})
+
+	it("prices past the margin from its edge, not from even", () => {
+		// 65% sits 5 points past a 60% edge, priced as 55%
+		expect(sideLossRates(0.65)).toEqual({ over: 1.22, under: 0.82 })
+		expect(sideLossRates(0.25)).toEqual({ over: 0.54, under: 1.86 })
+	})
+
+	it("caps the likely side at SIDE_LOSS_RATE_BOUNDS.max", () => {
+		expect(sideLossRates(0.9)).toEqual({
+			over: SIDE_LOSS_RATE_BOUNDS.max,
+			under: 0.25,
+		})
+		expect(sideLossRates(0.02).under).toBe(SIDE_LOSS_RATE_BOUNDS.max)
+	})
+})
+
+describe("effectiveLossRate", () => {
+	it("takes the option's rate when it has one", () => {
+		expect(effectiveLossRate(1, 0.4)).toBe(0.4)
+		expect(effectiveLossRate(1, null)).toBe(1)
+		expect(effectiveLossRate(0.5, undefined)).toBe(0.5)
 	})
 })
 

@@ -149,6 +149,60 @@ export function breakEvenLossRate(hitRate: number): number {
 	return hitRate / (1 - hitRate)
 }
 
+// The range a priced over/under side's loss rate is held to. The likely side
+// of a soft line costs more than committed on a miss, but the price comes from
+// how past lines landed, and that history can't see a real change like a new
+// role. The cap keeps a miss the model got wrong from costing more than twice
+// the call, at the price of a very soft line's likely side keeping a small
+// edge past 67%.
+export const SIDE_LOSS_RATE_BOUNDS = { min: 0.05, max: 2 }
+
+// The chance a result lands over `line`, read off how past results landed
+// against their own mean (`ratios`, result / mean). Smoothed by half a result
+// on each side so a line past every ratio never reads as a sure thing.
+export function overProbability(
+	ratios: number[],
+	mean: number,
+	line: number,
+): number {
+	const threshold = line / mean
+	const over = ratios.filter((ratio) => ratio > threshold).length
+	return (over + 0.5) / (ratios.length + 1)
+}
+
+// How far from even a priced line's over chance can sit and still count as a
+// coin flip. With 30-100 past results behind it, the estimate can't tell 55%
+// from 50%, and generated lines are only re-shaded outside 45-55% themselves.
+export const FAIR_LINE_MARGIN = 0.1
+
+// Each side's loss rate for an over/under whose over lands `pOver` of the
+// time. Inside FAIR_LINE_MARGIN of even, both sides lose a full stake. Past
+// it, each side is priced where a caller with no edge breaks even on how far
+// the line sits beyond the margin, so a rate rises from 1 at the margin's edge
+// instead of jumping there. Held to SIDE_LOSS_RATE_BOUNDS.
+export function sideLossRates(pOver: number): { over: number; under: number } {
+	const beyond = Math.abs(pOver - 0.5) - FAIR_LINE_MARGIN
+	if (beyond <= 0) return { over: 1, under: 1 }
+	const priced = 0.5 + Math.sign(pOver - 0.5) * beyond
+	const bounded = (hitRate: number) =>
+		Math.round(
+			Math.min(
+				SIDE_LOSS_RATE_BOUNDS.max,
+				Math.max(SIDE_LOSS_RATE_BOUNDS.min, breakEvenLossRate(hitRate)),
+			) * 100,
+		) / 100
+	return { over: bounded(priced), under: bounded(1 - priced) }
+}
+
+// The loss rate a selection is scored at: its option's own rate when the
+// question priced its sides, else the question's.
+export function effectiveLossRate(
+	questionRate: number,
+	optionRate: number | null | undefined,
+): number {
+	return optionRate ?? questionRate
+}
+
 // Season-long shapes (no gameId, open across the whole season) score
 // earliness off how much of the season had actually happened when the call
 // was made (seasonEarlyTierFor, below) instead of rank-among-callers - call

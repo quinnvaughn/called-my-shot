@@ -18,6 +18,7 @@ function call(overrides: Partial<ReportCardCall> = {}): ReportCardCall {
 		netPoints: 75,
 		convictions: [50],
 		selectionsCorrect: [true],
+		selectionLossRates: [null],
 		createdAt: new Date(`2026-09-20T12:00:${String(seq).padStart(2, "0")}Z`),
 		...overrides,
 	}
@@ -115,6 +116,12 @@ describe("the return", () => {
 		// A tuned question carries its own rate; 150 x .5 x .5 = 38.
 		const card = buildReportCard([pending({ lossRate: 0.5 })])
 		expect(card.pendingStake).toBe(38)
+	})
+
+	it("uses a priced side's own rate for pending stake", () => {
+		// 150 x .5 x 1.5 = 113 on the priced side, over the question's 1.
+		const card = buildReportCard([pending({ selectionLossRates: [1.5] })])
+		expect(card.pendingStake).toBe(113)
 	})
 })
 

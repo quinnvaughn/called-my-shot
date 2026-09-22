@@ -1,5 +1,6 @@
 import {
 	BASE_POINTS_BY_SHAPE,
+	effectiveLossRate,
 	type Grade,
 	gradeForReturn,
 	pointsAtStake,
@@ -46,6 +47,10 @@ export type ReportCardCall = {
 	// exactly the way selectionPoints does, selection by selection.
 	convictions: number[]
 	selectionsCorrect: (boolean | null)[]
+	// Each selection's own side rate where a priced line set one, in the same
+	// order as convictions. Null, or missing for a numeric guess, falls back
+	// to lossRate.
+	selectionLossRates: (number | null)[]
 	createdAt: Date
 }
 
@@ -142,10 +147,10 @@ function accumulate(
 
 	if (classification.kind === "pending") {
 		bucket.pendingCount += 1
-		for (const conviction of call.convictions) {
+		for (const [index, conviction] of call.convictions.entries()) {
 			bucket.pendingStake += pointsAtStake(
 				basePoints,
-				call.lossRate,
+				effectiveLossRate(call.lossRate, call.selectionLossRates[index]),
 				conviction,
 			)
 		}

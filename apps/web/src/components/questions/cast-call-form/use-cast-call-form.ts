@@ -63,6 +63,7 @@ export const CastCallFormFragment = graphql(`
 			label
 			fieldPct
 			callCount
+			lossRate
 			team {
 				id
 			}

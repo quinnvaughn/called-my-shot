@@ -12,6 +12,7 @@ import {
 	uuid,
 } from "drizzle-orm/pg-core"
 import type { LeaderBasis } from "../../lib/game-questions/leaders"
+import type { LinePricing } from "../../lib/game-questions/line-pricing"
 import type { LineBasis } from "../../lib/game-questions/lines"
 import { games } from "./games"
 import { players } from "./players"
@@ -336,6 +337,11 @@ export const questions = pgTable(
 		// lib/game-questions/leader-calibration.ts can check how often the
 		// favorite led. Null on every other question.
 		leaderBasis: jsonb("leader_basis").$type<LeaderBasis>(),
+		// What a person-set over/under's sides were priced from (LinePricing in
+		// lib/game-questions/line-pricing.ts), kept so priced sides can be checked
+		// against how often they actually hit. Null when the line wasn't priced,
+		// which leaves both sides on lossRate below.
+		linePricing: jsonb("line_pricing").$type<LinePricing>(),
 		// The share of committed points a miss costs, set when the question is
 		// created so a later retune or default change can't change what a caller
 		// agreed to. A tuned rate where one applies (game_question_loss_settings,
@@ -384,6 +390,15 @@ export const questionOptions = pgTable("question_options", {
 	// number per option.
 	actualValue: numeric("actual_value", {
 		precision: 8,
+		scale: 3,
+		mode: "number",
+	}),
+	// A miss's loss rate on this side alone, set at creation when a person-set
+	// over/under line is priced (see sideLossRates in @called-my-shot/scoring),
+	// and never changed after. Null on every other option, which scores at the
+	// question's lossRate.
+	lossRate: numeric("loss_rate", {
+		precision: 4,
 		scale: 3,
 		mode: "number",
 	}),

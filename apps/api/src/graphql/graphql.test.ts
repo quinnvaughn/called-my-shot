@@ -1,7 +1,12 @@
 import { eq } from "drizzle-orm"
 import { describe, expect, it } from "vitest"
 import { db } from "../db"
-import { callSelections, emailOptOuts, questions } from "../db/schema"
+import {
+	callSelections,
+	emailOptOuts,
+	questionAutoResolutions,
+	questions,
+} from "../db/schema"
 import { unsubscribeToken } from "../lib/email-unsubscribe"
 import {
 	futureDate,
@@ -13,6 +18,8 @@ import {
 	makeQuestion,
 	makeSeason,
 	makeSelection,
+	makeStat,
+	makeTeam,
 	makeUser,
 	pastDate,
 	seedOptionQuestion,
@@ -473,6 +480,86 @@ describe("Mutation.createQuestion", () => {
 		expect(stored?.creatorId).toBe(user.id)
 		expect(stored?.isOfficial).toBe(false)
 		expect(stored?.options.length).toBeGreaterThanOrEqual(2)
+	})
+
+	it("prices each side of a team line set well off the model", async () => {
+		const league = await makeLeague({ slug: "nba" })
+		const season = await makeSeason({ leagueId: league.id, year: 2026 })
+		const team = await makeTeam({ leagueId: league.id })
+		// Twelve finals at 100 a game, so the model sits at 100.
+		for (let i = 0; i < 12; i++) {
+			await makeGame({
+				leagueId: league.id,
+				seasonId: season.id,
+				homeTeamId: team.id,
+				status: "final",
+				startsAt: pastDate(24 * (i + 1)),
+				homeScore: 100,
+				awayScore: 90,
+			})
+		}
+		// Thirty resolved generated lines landing from 0.8x to 1.2x.
+		for (let i = 0; i < 30; i++) {
+			const resolved = await makeQuestion({
+				shape: "team_stat_over_under",
+				status: "resolved",
+				ouLine: 99.5,
+				generationKey: `nba:game-${i}:team-points-ou:team`,
+				lineBasis: {
+					seasonMean: 100,
+					seasonGames: 20,
+					priorMean: null,
+					priorGames: 0,
+					priorWeight: 10,
+					blendedMean: 100,
+					shade: 1,
+					line: 99.5,
+				},
+			})
+			await db.insert(questionAutoResolutions).values({
+				questionId: resolved.id,
+				evidence: { value: 100 * (0.8 + (0.4 * i) / 29) },
+			})
+		}
+		const game = await makeGame({
+			leagueId: league.id,
+			seasonId: season.id,
+			homeTeamId: team.id,
+		})
+		const stat = await makeStat({ sportId: league.sportId, name: "Points" })
+
+		const data = await expectData<{
+			createQuestion: { __typename: string; question: { id: string } }
+		}>(CREATE_QUESTION, {
+			as: await makeUser(),
+			variables: {
+				input: {
+					shape: "TEAM_STAT_OVER_UNDER",
+					title: "Over/under 115.5 points?",
+					resolutionSource: "Box score",
+					locksAt: futureDate().toISOString(),
+					sportId: league.sportId,
+					leagueId: league.id,
+					gameId: game.id,
+					subjectTeamId: team.id,
+					statId: stat.id,
+					ouLine: 115.5,
+				},
+			},
+		})
+		expect(data.createQuestion.__typename).toBe("QuestionPayload")
+
+		const stored = await db.query.questions.findFirst({
+			where: { id: data.createQuestion.question.id },
+			with: { options: { orderBy: { sortOrder: "asc" } } },
+		})
+		expect(stored?.linePricing).toMatchObject({
+			templateId: "team-points-ou",
+			blendedMean: 100,
+		})
+		const [over, under] = stored?.options ?? []
+		expect(over?.lossRate).toBeLessThan(1)
+		expect(under?.lossRate).toBeGreaterThan(1)
 	})
 
 	it("refuses a non-admin trying to post officially", async () => {

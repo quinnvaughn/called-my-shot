@@ -1,5 +1,6 @@
 import {
 	BASE_POINTS_BY_SHAPE,
+	effectiveLossRate,
 	isSeasonLongShape,
 	maxConvictionFor,
 	seasonEarlyTierFor,
@@ -52,16 +53,15 @@ export function OptionFields({ callForm }: Props) {
 		isOfficial: question.isOfficial,
 	})
 
+	const selectedOption = selections[0]
+		? question.options.find((o) => o.id === selections[0].optionId)
+		: undefined
 	// null = nothing picked yet. Simulated as if this call already went
 	// through (see previewFieldPct) so the number shown here matches what
 	// fieldPct will actually read the instant after submitting, rather than
 	// a before-me snapshot that jumps once the real call is counted.
 	const selectedFieldPct = selections[0]
-		? previewFieldPct(
-				question.options.find((o) => o.id === selections[0].optionId)
-					?.callCount ?? 0,
-				question.callCount,
-			)
+		? previewFieldPct(selectedOption?.callCount ?? 0, question.callCount)
 		: null
 
 	// Season-long shapes preview off games played so far, not rank - see
@@ -166,7 +166,10 @@ export function OptionFields({ callForm }: Props) {
 									totalOptions={question.options.length}
 									conviction={singleSelectConviction}
 									basePoints={BASE_POINTS_BY_SHAPE[shape]}
-									lossRate={question.lossRate}
+									lossRate={effectiveLossRate(
+										question.lossRate,
+										selectedOption?.lossRate,
+									)}
 									earlyTier={earlyTier}
 								/>
 							</div>
