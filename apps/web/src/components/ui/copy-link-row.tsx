@@ -1,6 +1,7 @@
 import { useState } from "react"
 import { css } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
+import { arrowLink } from "#/components/ui/arrow-link"
 import { Button } from "#/components/ui/button"
 import { TextInput } from "#/components/ui/text-input"
 
@@ -70,15 +71,7 @@ export function CopyLinkRow({
 				<button
 					type="button"
 					onClick={handleNativeShare}
-					className={css({
-						alignSelf: "flex-start",
-						fontFamily: "mono",
-						fontSize: "2xs",
-						letterSpacing: "wide",
-						color: "primary.default",
-						cursor: "pointer",
-						_hover: { opacity: 0.8 },
-					})}
+					className={arrowLink({ tone: "quiet" })}
 				>
 					or open your device's share sheet →
 				</button>

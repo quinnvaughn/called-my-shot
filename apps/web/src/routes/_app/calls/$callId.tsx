@@ -13,6 +13,7 @@ import {
 	buildCallTweet,
 	CallShareRow,
 } from "#/components/questions/call-share-row"
+import { arrowLink } from "#/components/ui/arrow-link"
 import { Breadcrumb } from "#/components/ui/breadcrumb"
 import { NotFound } from "#/components/ui/not-found"
 import { PageHeader } from "#/components/ui/page-header"
@@ -300,15 +301,7 @@ function RouteComponent() {
 						// A call carries a streak tag only when it extended a run.
 						mode: "hot",
 					}}
-					className={css({
-						fontFamily: "mono",
-						fontSize: "2xs",
-						letterSpacing: "wide",
-						textTransform: "uppercase",
-						color: "primary.default",
-						textDecoration: "none",
-						_hover: { opacity: 0.8 },
-					})}
+					className={arrowLink({ tone: "quiet" })}
 				>
 					Part of a {call.streak.length}-call {view.leagueAbbr}{" "}
 					{call.streak.familyLabel} streak →
@@ -353,15 +346,7 @@ function RouteComponent() {
 					questionId: call.question.id,
 					slug: buildQuestionSlug(call.question.title),
 				}}
-				className={css({
-					fontFamily: "mono",
-					fontSize: "2xs",
-					letterSpacing: "wide",
-					textTransform: "uppercase",
-					color: "primary.default",
-					textDecoration: "none",
-					_hover: { opacity: 0.8 },
-				})}
+				className={arrowLink({ tone: "primary" })}
 			>
 				See the question and everyone else who called it →
 			</Link>
