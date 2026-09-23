@@ -57,6 +57,28 @@ const RECIPES: Partial<Record<string, readonly StatContextSlot[]>> = {
 		"home_away",
 	],
 
+	// A team's own scoring is half the question; what the other side gives up
+	// is the other half. Without it the card shows the same number whoever
+	// they're playing, which is the one comparison a caller most wants to make.
+	"nfl:game:team:Points": [
+		"recent_form",
+		"season_to_date",
+		"opponent_allowed",
+		"home_away",
+	],
+	"nba:game:team:Points": [
+		"recent_form",
+		"season_to_date",
+		"opponent_allowed",
+		"home_away",
+	],
+	"mlb:game:team:Runs": [
+		"recent_form",
+		"season_to_date",
+		"opponent_allowed",
+		"home_away",
+	],
+
 	// Basketball's schedule is the thing that moves a line most, so rest earns
 	// its place here and nowhere a team plays weekly.
 	"nba:game:player:Points": [

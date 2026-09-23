@@ -4,6 +4,7 @@ import { questionAutoResolutions } from "../../db/schema"
 import { makeQuestion, makeUser } from "../../test/factories"
 import { LINE_TUNING, median, nextShade } from "./line-calibration"
 import { lineSettings } from "./line-settings"
+import { LINE_FORMULA } from "./lines"
 import { tuneLines } from "./tune-lines"
 
 const LEAGUE = "nba"
@@ -20,8 +21,9 @@ function pointsLine() {
 }
 
 // `count` resolved lines on the template, each set from a 20-a-game average
-// and settled on 20 x `ratio`.
-async function resolvedLines(count: number, ratio: number) {
+// and settled on 20 x `ratio`. `formula` omitted writes the row the way every
+// line already on prod was written, before the field existed.
+async function resolvedLines(count: number, ratio: number, withFormula = true) {
 	for (let i = 0; i < count; i++) {
 		const question = await makeQuestion({
 			shape: "player_stat_over_under",
@@ -35,6 +37,9 @@ async function resolvedLines(count: number, ratio: number) {
 				priorGames: 0,
 				priorWeight: 12,
 				blendedMean: 20,
+				expectedMean: 20,
+				opponent: null,
+				...(withFormula ? { formula: LINE_FORMULA.teamOnly } : {}),
 				shade: 0.97,
 				line: 19.5,
 			},
@@ -110,6 +115,19 @@ describe("tuneLines", () => {
 		expect((await lineSettings.row(LEAGUE, TEMPLATE))?.line).toMatchObject({
 			shade: 0.92,
 			minLine: 20.5,
+		})
+	})
+
+	// The opponent adjustment gave lines a model to be filed under. A player
+	// template never gained one, so its existing lines are still the model it
+	// sets now and its shade keeps tuning off them rather than starting over.
+	it("still tunes from lines written before the model was recorded", async () => {
+		await resolvedLines(LINE_TUNING.minSample, 0.8, false)
+
+		expect(await tuneLines(NOW)).toBe(1)
+
+		expect((await lineSettings.row(LEAGUE, TEMPLATE))?.line).toMatchObject({
+			shade: 0.92,
 		})
 	})
 

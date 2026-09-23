@@ -1,6 +1,7 @@
-// Where a generated over/under's line comes from: a player's per-game average
-// this season, leaning on last season while this season's sample is still
-// small, shaded toward the median, then set on a half so it can't push.
+// Where a generated over/under's line comes from: the subject's per-game
+// average this season, leaning on last season while this season's sample is
+// still small, moved toward or away from the opposing side where the template
+// asks for it, shaded toward the median, then set on a half so it can't push.
 
 export type LineRule = {
 	// The fewest games, this season's plus last season's stand-ins, worth
@@ -37,8 +38,100 @@ export type LineBasis = {
 	priorGames: number
 	priorWeight: number
 	blendedMean: number
+	// The blend after the opponent adjustment: the figure the line is actually
+	// set from, and the one calibration measures a result against. Equal to
+	// blendedMean where the template has no opponent adjustment. Optional
+	// because rows written before the adjustment existed don't carry it - see
+	// expectedMeanOf.
+	expectedMean?: number
+	opponent?: OpponentAdjustment | null
+	// Which model set this line - see LINE_FORMULA. Absent on rows that
+	// predate the field, which were all set the teamOnly way.
+	formula?: string
 	shade: number
 	line: number
+}
+
+// The model a line was set with. A ratio measured against one model says
+// nothing about another, so each keeps its own pool and a template only ever
+// reads the one it sets lines with now. A template that gained no opponent
+// adjustment keeps setting lines the way it always did, and keeps its whole
+// history with it.
+export const LINE_FORMULA = {
+	teamOnly: "team_only",
+	opponentAdjusted: "opponent_adjusted",
+} as const
+
+export type LineFormula = (typeof LINE_FORMULA)[keyof typeof LINE_FORMULA]
+
+// What a line actually set with this adjustment should be filed under.
+export const formulaOf = (opponent: OpponentAdjustment | null): LineFormula =>
+	opponent ? LINE_FORMULA.opponentAdjusted : LINE_FORMULA.teamOnly
+
+// What a template sets lines under now, which is the pool its shade is tuned
+// from and its user lines are priced against. A template with no opponent
+// weight sets them the way it always has.
+export const formulaFor = (oppWeight: number | undefined): LineFormula =>
+	oppWeight === undefined
+		? LINE_FORMULA.teamOnly
+		: LINE_FORMULA.opponentAdjusted
+
+// A row written before the field existed was set with the bare blend, which
+// is exactly what teamOnly means.
+export const formulaOfBasis = (basis: LineBasis): LineFormula =>
+	(basis.formula as LineFormula | undefined) ?? LINE_FORMULA.teamOnly
+
+// The model's expectation for a line, whichever model set it. A row from
+// before the opponent adjustment has only its blend, and that was its
+// expectation.
+export function expectedMeanOf(basis: LineBasis): number {
+	return basis.expectedMean ?? basis.blendedMean
+}
+
+// How much of the way the opponent's own figure moves the line, and what it
+// was measured against.
+export type OpponentAdjustment = {
+	// The opponent's per-game figure in this stat, blended the same way the
+	// subject's own is.
+	allowedMean: number
+	allowedGames: number
+	// The league's per-game figure over the same pool, which is what "average
+	// defense" means here.
+	leagueMean: number
+	// Games of league average the opponent's figure is regressed toward - see
+	// opponentAdjustment.
+	weight: number
+	// What blendedMean is multiplied by. 1 for an exactly average opponent.
+	multiplier: number
+}
+
+// A team's points allowed over a handful of games is mostly noise: the
+// game-to-game spread dwarfs the real gap between defenses, so an early
+// number that looks elite usually isn't. The fix is the standard one -
+// regress it toward the league average, giving the raw figure n / (n + weight)
+// of its weight, where weight is the league's own ratio of game variance to
+// true between-team variance. Measured off 2025 game logs, that is about 12
+// games for NFL points, 13 for NBA points and 45 for MLB runs, which is why an
+// opponent two games into a season barely moves a line and a full season's
+// worth moves it most of the way.
+//
+// Null when there is nothing to measure against, which leaves the line on the
+// subject's own average rather than on a guess.
+export function opponentAdjustment(
+	allowed: SeasonSample | null,
+	leagueMean: number | null,
+	weight: number,
+): OpponentAdjustment | null {
+	if (!allowed || !leagueMean || leagueMean <= 0 || weight < 0) return null
+	const trust = allowed.games / (allowed.games + weight)
+	const regressed = leagueMean + trust * (allowed.mean - leagueMean)
+	return {
+		allowedMean: roundToThousandths(allowed.mean),
+		allowedGames: allowed.games,
+		leagueMean: roundToThousandths(leagueMean),
+		weight,
+		multiplier: roundToThousandths(regressed / leagueMean),
+	}
 }
 
 const roundToThousandths = (value: number) => Math.round(value * 1000) / 1000
@@ -104,10 +197,12 @@ export function setLine(
 	prior: SeasonSample | null,
 	priorWeight: number,
 	rule: LineRule,
+	opponent: OpponentAdjustment | null = null,
 ): LineBasis | null {
 	const blended = blendSamples(season, prior, priorWeight)
 	if (!blended || blended.games < rule.minGames) return null
-	const line = Math.floor(blended.mean * rule.shade) + 0.5
+	const expected = blended.mean * (opponent?.multiplier ?? 1)
+	const line = Math.floor(expected * rule.shade) + 0.5
 	if (line < rule.minLine) return null
 	return {
 		seasonMean: season ? roundToThousandths(season.mean) : null,
@@ -116,6 +211,9 @@ export function setLine(
 		priorGames: prior?.games ?? 0,
 		priorWeight,
 		blendedMean: roundToThousandths(blended.mean),
+		expectedMean: roundToThousandths(expected),
+		opponent,
+		formula: formulaOf(opponent),
 		shade: rule.shade,
 		line,
 	}

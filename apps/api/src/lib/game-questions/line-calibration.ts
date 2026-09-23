@@ -1,6 +1,11 @@
 import { db } from "../../db"
 import { parseGenerationKey } from "./generation-key"
-import { GENERATED_OVER_UNDER_SHAPES } from "./lines"
+import {
+	expectedMeanOf,
+	formulaOfBasis,
+	GENERATED_OVER_UNDER_SHAPES,
+	type LineFormula,
+} from "./lines"
 import { pushWithin } from "./pooling"
 
 // Lines are meant to be coin flips, so a template whose overs land outside
@@ -14,6 +19,10 @@ export type CalibrationRow = {
 	// The shade these lines were set with. A template whose shade has changed
 	// has a row for each.
 	shade: number
+	// The model these lines were set with. Rows from an older model are kept
+	// and shown rather than dropped, so a change stays visible, but they are
+	// never averaged in with the current one.
+	formula: string
 	resolved: number
 	overRate: number
 	averageLine: number
@@ -41,6 +50,7 @@ export async function lineCalibration(): Promise<CalibrationRow[]> {
 			league: string
 			template: string
 			shade: number
+			formula: string
 			overs: number
 			lines: number[]
 			means: number[]
@@ -52,11 +62,13 @@ export async function lineCalibration(): Promise<CalibrationRow[]> {
 			: null
 		const basis = question.lineBasis
 		if (!parsed || !basis) continue
-		const id = `${parsed.leagueSlug}:${parsed.templateId}:${basis.shade}`
+		const formula = formulaOfBasis(basis)
+		const id = `${parsed.leagueSlug}:${parsed.templateId}:${basis.shade}:${formula}`
 		const group = groups.get(id) ?? {
 			league: parsed.leagueSlug,
 			template: parsed.templateId,
 			shade: basis.shade,
+			formula,
 			overs: 0,
 			lines: [],
 			means: [],
@@ -65,7 +77,7 @@ export async function lineCalibration(): Promise<CalibrationRow[]> {
 			group.overs++
 		}
 		group.lines.push(basis.line)
-		group.means.push(basis.blendedMean)
+		group.means.push(expectedMeanOf(basis))
 		groups.set(id, group)
 	}
 
@@ -79,6 +91,7 @@ export async function lineCalibration(): Promise<CalibrationRow[]> {
 				league: group.league,
 				template: group.template,
 				shade: group.shade,
+				formula: group.formula,
 				resolved: group.lines.length,
 				overRate: Math.round(overRate * 1000) / 1000,
 				averageLine: average(group.lines),
@@ -91,15 +104,23 @@ export async function lineCalibration(): Promise<CalibrationRow[]> {
 			(a, b) =>
 				a.league.localeCompare(b.league) ||
 				a.template.localeCompare(b.template) ||
-				a.shade - b.shade,
+				a.shade - b.shade ||
+				a.formula.localeCompare(b.formula),
 		)
 }
 
-// A generated line is floor(average x shade) + 0.5, so for a whole-number stat
-// the over hits exactly when the result divided by the player's average beats
+// A generated line is floor(expectation x shade) + 0.5, so for a whole-number
+// stat the over hits exactly when the result divided by the expectation beats
 // the shade. The shade that makes the over a coin flip is the median of those
 // ratios. A ratio doesn't depend on the shade its line was set with, so every
 // resolved line counts toward it, including ones from before a shade change.
+//
+// It does depend on the model behind the expectation, though: a ratio against
+// an opponent-adjusted number and one against a bare average are answers to
+// different questions, and a median across both would tune a shade against
+// neither. So each model keeps its own pool, keyed into the map alongside the
+// template, and a caller reads the one it sets lines with - see LINE_FORMULA.
+// A template that never gained an adjustment keeps its whole history.
 export const LINE_TUNING = {
 	// The fewest resolved lines a template is tuned from.
 	minSample: 30,
@@ -141,20 +162,28 @@ export function nextShade(current: number, ratios: number[]): number | null {
 	return shade === current ? null : shade
 }
 
-// Each over/under template's result-to-average ratios, most recent first, by
-// "<league>:<template>". Only lines auto-resolution settled carry the result.
+// The key a pool is filed under: the template, then the model that set it.
+export const ratioKey = (
+	leagueSlug: string,
+	templateId: string,
+	formula: LineFormula,
+) => `${leagueSlug}:${templateId}:${formula}`
+
+// Each over/under template's result-to-expectation ratios, most recent first,
+// by ratioKey. Only lines auto-resolution settled carry the result.
 export function ratiosByTemplate(): Promise<Map<string, number[]>> {
 	return collectRatios()
 }
 
-// One template's ratios, most recent first - what a person-set line on the
-// same stat is priced from (see line-pricing.ts).
+// One template's ratios under one model, most recent first - what a
+// person-set line on the same stat is priced from (see line-pricing.ts).
 export async function ratiosForTemplate(
 	leagueSlug: string,
 	templateId: string,
+	formula: LineFormula,
 ): Promise<number[]> {
 	const ratios = await collectRatios(`${leagueSlug}:%:${templateId}:%`)
-	return ratios.get(`${leagueSlug}:${templateId}`) ?? []
+	return ratios.get(ratioKey(leagueSlug, templateId, formula)) ?? []
 }
 
 async function collectRatios(
@@ -179,12 +208,14 @@ async function collectRatios(
 		const parsed = question.generationKey
 			? parseGenerationKey(question.generationKey)
 			: null
-		const mean = question.lineBasis?.blendedMean
+		const basis = question.lineBasis
+		const mean = basis ? expectedMeanOf(basis) : null
 		const value = question.autoResolution?.evidence?.value
-		if (!parsed || !mean || mean <= 0 || typeof value !== "number") continue
+		if (!parsed || !basis || !mean || mean <= 0) continue
+		if (typeof value !== "number") continue
 		pushWithin(
 			ratios,
-			`${parsed.leagueSlug}:${parsed.templateId}`,
+			ratioKey(parsed.leagueSlug, parsed.templateId, formulaOfBasis(basis)),
 			value / mean,
 			LINE_TUNING.window,
 		)

@@ -1,6 +1,6 @@
 import { overProbability, sideLossRates } from "@called-my-shot/scoring"
-import { GAME_QUESTION_CATALOG } from "../../db/catalog/game-question-catalog"
 import { db } from "../../db"
+import { GAME_QUESTION_CATALOG } from "../../db/catalog/game-question-catalog"
 import { defaultEspnClient, type EspnClient } from "../../db/sync/espn-client"
 import { createEspnRequester } from "../../db/sync/espn-requester"
 import { SYNCED_LEAGUES } from "../../db/sync/leagues"
@@ -11,16 +11,19 @@ import {
 	loadLineSettings,
 	withLineSettings,
 } from "./line-settings"
-import { blendSamples } from "./lines"
+import { blendSamples, formulaOf, type OpponentAdjustment } from "./lines"
 import {
 	createSeasonStatsCache,
 	playerSamples,
 	type Samples,
 } from "./player-samples"
 import {
-	createTeamScoreCache,
+	createSeasonTableCache,
+	createStandingsCache,
 	createTeamSeasonStatsCache,
+	opponentFor,
 	teamSamples,
+	teamScoresFrom,
 } from "./team-lines"
 
 // Prices each side of an over/under line a person set, from the same inputs a
@@ -50,6 +53,10 @@ type PriceInput = {
 	ouLine: number
 	subjectPlayerId?: string | null
 	subjectTeamId?: string | null
+	// The other side of the game, so a team line is priced against the same
+	// opponent-adjusted model a generated one is set from. Without it the
+	// pricing would answer a different question than the line does.
+	opponentTeamId?: string | null
 	seasonYear: number
 }
 
@@ -91,29 +98,38 @@ async function price(
 		.find((t) => t.shape === input.shape && t.statName === input.statName)
 	if (!template) return null
 
-	const ratios = await ratiosForTemplate(league.slug, template.id)
-	if (ratios.length < LINE_TUNING.minSample) return null
-
-	const samples = await withTimeout(
+	const loaded = await withTimeout(
 		template.shape === "player_stat_over_under"
-			? loadPlayerSamples(input, template.pick, config, espn)
+			? loadPlayerSamples(input, template.pick, config, espn).then((samples) =>
+					samples ? { samples, opponent: null } : null,
+				)
 			: loadTeamSamples(input, template, config, espn),
 	)
-	if (!samples) return null
+	if (!loaded) return null
+	const { samples, opponent } = loaded
+
+	// Read back the pool for the model this price is about to use, which for a
+	// team line depends on whether an opponent figure was actually available.
+	const ratios = await ratiosForTemplate(
+		league.slug,
+		template.id,
+		formulaOf(opponent),
+	)
+	if (ratios.length < LINE_TUNING.minSample) return null
 	const priorWeight =
 		template.shape === "player_stat_over_under"
 			? template.pick.priorWeight
 			: template.priorWeight
 	const blended = blendSamples(samples.season, samples.prior, priorWeight)
-	if (!blended || blended.games < template.line.minGames || blended.mean <= 0) {
-		return null
-	}
+	if (!blended || blended.games < template.line.minGames) return null
+	const expected = blended.mean * (opponent?.multiplier ?? 1)
+	if (expected <= 0) return null
 
-	const pOver = overProbability(ratios, blended.mean, input.ouLine)
+	const pOver = overProbability(ratios, expected, input.ouLine)
 	return {
 		pricing: {
 			templateId: template.id,
-			blendedMean: Math.round(blended.mean * 1000) / 1000,
+			blendedMean: Math.round(expected * 1000) / 1000,
 			ratioCount: ratios.length,
 			pOver: Math.round(pOver * 1000) / 1000,
 		},
@@ -143,24 +159,41 @@ async function loadPlayerSamples(
 
 async function loadTeamSamples(
 	input: PriceInput,
-	template: { priorWeight: number; priorStat: string },
+	template: { priorWeight: number; priorStat: string; oppWeight?: number },
 	config: (typeof SYNCED_LEAGUES)[number],
 	espn: EspnClient,
-): Promise<Samples | null> {
+): Promise<{ samples: Samples; opponent: OpponentAdjustment | null } | null> {
 	if (!input.subjectTeamId) return null
-	const espnIds = await loadEspnIds("team", [input.subjectTeamId])
-	const teamSeasonStatsFor = createTeamSeasonStatsCache(config, {
+	const teamIds = [input.subjectTeamId, input.opponentTeamId].filter(
+		(id): id is string => !!id,
+	)
+	const espnTeamIdByTeamId = await loadEspnIds("team", teamIds)
+	const access = {
 		espn,
 		requester: createEspnRequester("line-pricing", 0),
-	})
-	return teamSamples(
-		createTeamScoreCache(input.leagueId),
-		teamSeasonStatsFor,
-		espnIds.get(input.subjectTeamId),
+	}
+	const seasonTableFor = createSeasonTableCache(input.leagueId)
+	const samples = await teamSamples(
+		teamScoresFrom(seasonTableFor),
+		createTeamSeasonStatsCache(config, access),
+		espnTeamIdByTeamId.get(input.subjectTeamId),
 		template,
 		input.subjectTeamId,
 		input.seasonYear,
 	)
+	const opponent = input.opponentTeamId
+		? await opponentFor(
+				{
+					seasonTableFor,
+					standingsFor: createStandingsCache(config, access),
+					espnTeamIdByTeamId,
+				},
+				template,
+				input.opponentTeamId,
+				input.seasonYear,
+			)
+		: null
+	return { samples, opponent }
 }
 
 async function withTimeout<T>(work: Promise<T>): Promise<T | null> {

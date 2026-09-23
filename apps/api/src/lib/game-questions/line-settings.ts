@@ -11,9 +11,10 @@ import {
 	type CalibrationRow,
 	lineCalibration,
 	nextShade,
+	ratioKey,
 	ratiosByTemplate,
 } from "./line-calibration"
-import { GENERATED_OVER_UNDER_SHAPES, type LineRule } from "./lines"
+import { formulaFor, GENERATED_OVER_UNDER_SHAPES, type LineRule } from "./lines"
 import { defineTunableSetting, type SettingState } from "./tunable-setting"
 
 export type OverUnderTemplate = Extract<
@@ -32,6 +33,11 @@ export function isGeneratedOverUnder(
 }
 
 type LeagueOverUnder = OverUnderTemplate & { leagueSlug: string }
+
+// Only a team over/under carries an opponent weight, so a player one always
+// sets its lines the original way.
+const formulaOf = (template: OverUnderTemplate) =>
+	formulaFor("oppWeight" in template ? template.oppWeight : undefined)
 
 // Every over/under template in the catalog, by league then catalog order.
 function overUnderTemplates(): LeagueOverUnder[] {
@@ -80,7 +86,9 @@ const settings = defineTunableSetting({
 		next: (current, template, ratios) =>
 			nextShade(
 				current,
-				ratios.get(`${template.leagueSlug}:${template.id}`) ?? [],
+				ratios.get(
+					ratioKey(template.leagueSlug, template.id, formulaOf(template)),
+				) ?? [],
 			),
 		// Minimum games and the lowest line stay as they are.
 		insertDefaults: (template) => ({
@@ -98,12 +106,16 @@ const settings = defineTunableSetting({
 				statName: template.statName,
 				line,
 				defaultLine: template.line,
+				// The current model only: a row from an older one describes lines
+				// this template no longer sets, so showing it beside today's
+				// settings would read as their calibration.
 				calibration:
 					calibration.find(
 						(c) =>
 							c.league === template.leagueSlug &&
 							c.template === template.id &&
-							c.shade === line.shade,
+							c.shade === line.shade &&
+							c.formula === formulaOf(template),
 					) ?? null,
 			}
 		},

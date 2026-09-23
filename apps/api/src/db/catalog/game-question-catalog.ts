@@ -42,6 +42,12 @@ export type GameQuestionTemplate =
 			// that season isn't in the games table. The same key the season
 			// extractor for this stat uses (see SEASON_EXTRACTORS).
 			priorStat: string
+			// Games of league average the opposing side's own figure is
+			// regressed toward before it moves this line - see
+			// opponentAdjustment. Omitted for a stat with no stored figure for
+			// what an opponent gives up, which leaves its line on the subject's
+			// own average.
+			oppWeight?: number
 	  }
 	| {
 			// Each team's best starter at the pick, head to head.
@@ -215,6 +221,9 @@ export const GAME_QUESTION_CATALOG: Record<string, GameQuestionTemplate[]> = {
 			line: { minGames: 3, shade: 1, minLine: 10.5 },
 			priorWeight: 4,
 			priorStat: "scoring.totalPoints",
+			// Points allowed per game, 2025: game-to-game variance 91.4 against
+			// a true between-defense variance of 7.7, so 91.4 / 7.7 = 12.
+			oppWeight: 12,
 		},
 		{
 			id: "qb-passing-yards-duel",
@@ -335,6 +344,9 @@ export const GAME_QUESTION_CATALOG: Record<string, GameQuestionTemplate[]> = {
 			line: { minGames: 5, shade: 1, minLine: 80.5 },
 			priorWeight: 10,
 			priorStat: "offensive.points",
+			// Points allowed per game, 2025: 198.2 game-to-game against 15.2
+			// between defenses, so 198.2 / 15.2 = 13.
+			oppWeight: 13,
 		},
 		{
 			id: "top-scorer-points-duel",
@@ -446,6 +458,11 @@ export const GAME_QUESTION_CATALOG: Record<string, GameQuestionTemplate[]> = {
 			line: { minGames: 10, shade: 1, minLine: 1.5 },
 			priorWeight: 20,
 			priorStat: "batting.runs",
+			// Runs allowed per game, 2025: 10.4 game-to-game against 0.23
+			// between staffs, so 10.4 / 0.23 = 45. Baseball separates its run
+			// prevention far less per game than the other two, so a line here
+			// needs most of a season before the opponent moves it much.
+			oppWeight: 45,
 		},
 		{
 			id: "starter-strikeouts-duel",

@@ -11,6 +11,7 @@ import {
 } from "../../test/factories"
 import { LINE_TUNING } from "./line-calibration"
 import { priceUserLine } from "./line-pricing"
+import { LINE_FORMULA } from "./lines"
 
 const TEMPLATE = "team-points-ou"
 const YEAR = 2026
@@ -52,6 +53,9 @@ async function resolvedLines(count: number) {
 				priorGames: 0,
 				priorWeight: 10,
 				blendedMean: 100,
+				expectedMean: 100,
+				opponent: null,
+				formula: LINE_FORMULA.teamOnly,
 				shade: 1,
 				line: 99.5,
 			},

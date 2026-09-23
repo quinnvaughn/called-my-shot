@@ -30,6 +30,7 @@ import {
 	seasonToDate,
 	shareOfTeamTotal,
 } from "./queries"
+import { recipeFor } from "./recipes"
 import { boxStatSourceFor } from "./stat-source"
 
 const NOW = new Date("2026-09-12T12:00:00Z")
@@ -480,6 +481,25 @@ describe("team subjects", () => {
 		).toBe(27)
 	})
 
+	// What the other side gives up, which for a team scoring question is the
+	// half of the matchup the team's own log can't show.
+	it("reads what the opponent has allowed on the final score", async () => {
+		await teamGame(6, 31, { scope: "final_score" })
+		await teamGame(3, 17, { scope: "final_score" })
+
+		const allowed = await opponentAllowed(
+			teamScope({ teamScope: "final_score" }),
+		)
+
+		expect(allowed).toMatchObject({
+			teamId: world.opponent.id,
+			games: 2,
+			meanAllowed: 24,
+		})
+		// A team has no positions to filter to, so the card can't claim one.
+		expect(allowed?.positions).toEqual([])
+	})
+
 	it("has no share of its own total", async () => {
 		await teamGame(3, 4)
 
@@ -599,6 +619,72 @@ describe("buildStatContext", () => {
 		expect(context?.subjects).toHaveLength(1)
 		expect(context?.subjects[0]?.recentGames).toHaveLength(1)
 		expect(context?.matchup).toBeNull()
+	})
+
+	// End to end for the card a team over/under actually shows: its own log
+	// plus what the side it is facing has been giving up.
+	it("gives a team over/under the opposing defense", async () => {
+		const scoreRow = async (
+			teamId: string,
+			opponentTeamId: string,
+			days: number,
+			score: number,
+		) => {
+			const game = await makeGame({
+				leagueId: world.league.id,
+				seasonId: world.season.id,
+				homeTeamId: teamId,
+				awayTeamId: opponentTeamId,
+				startsAt: daysAgo(days),
+				status: "final",
+			})
+			await db.insert(teamGameStats).values({
+				gameId: game.id,
+				source: "espn",
+				scope: "final_score",
+				teamId,
+				opponentTeamId,
+				isHome: true,
+				gameDate: daysAgo(days),
+				seasonId: world.season.id,
+				leagueId: world.league.id,
+				statKey: "score",
+				valueText: String(score),
+				valueNumeric: score,
+			})
+		}
+
+		// The subject's own two games, both against the side it now faces.
+		await scoreRow(world.team.id, world.opponent.id, 8, 24)
+		await scoreRow(world.team.id, world.opponent.id, 6, 20)
+		// A third team the opponent also played, so what the opponent allows
+		// is its own number rather than a copy of the subject's.
+		const other = await makeTeam({ leagueId: world.league.id })
+		await scoreRow(other.id, world.opponent.id, 4, 40)
+
+		const context = await buildStatContext({
+			...questionBase,
+			shape: "team_stat_over_under",
+			seasonId: world.season.id,
+			game: gameRef(),
+			subject: {
+				label: "Subject",
+				playerId: null,
+				teamId: world.team.id,
+				positions: [],
+				teamInGameId: world.team.id,
+			},
+			competitors: [],
+			optionSubjects: [],
+		})
+
+		const side = context?.subjects[0]
+		expect(side?.seasonToDate?.mean).toBe(22)
+		expect(side?.opponentAllowed).toMatchObject({
+			teamId: world.opponent.id,
+			games: 3,
+			meanAllowed: 28,
+		})
 	})
 
 	it("builds both sides of a head-to-head, in option order", async () => {
@@ -1358,5 +1444,26 @@ describe("differentialFrom", () => {
 		)
 
 		expect(d?.value).toBe(21)
+	})
+})
+
+// The recipe is what decides whether a card is built at all, so a team
+// scoring question asking for the opposing defense is held to here rather
+// than only in the query that would answer it.
+describe("recipeFor", () => {
+	it("gives each league's team scoring stat the opposing defense", () => {
+		for (const key of [
+			"nfl:game:team:Points",
+			"nba:game:team:Points",
+			"mlb:game:team:Runs",
+		]) {
+			expect(recipeFor(key)).toContain("opponent_allowed")
+		}
+	})
+
+	it("leaves a stat with no recipe of its own on the default", () => {
+		expect(recipeFor("nfl:game:team:Passing Yards")).not.toContain(
+			"opponent_allowed",
+		)
 	})
 })

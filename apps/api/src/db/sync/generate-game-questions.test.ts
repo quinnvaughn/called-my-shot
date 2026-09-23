@@ -431,11 +431,14 @@ describe("generateGameQuestions", () => {
 
 	// Every team over/under line comes off finished games, so these seed
 	// scores rather than ESPN season stats.
+	// `allowed` is what each of those opponents scored, which is this team's
+	// own scoring allowed - what the other side of a generated line reads.
 	const playFinals = (
 		league: League,
 		seasonId: string,
 		team: Team,
 		scores: number[],
+		allowed = 100,
 	) =>
 		Promise.all(
 			scores.map(async (score, index) =>
@@ -447,7 +450,7 @@ describe("generateGameQuestions", () => {
 					startsAt: hoursFromNow(-100 - index),
 					status: "final",
 					homeScore: score,
-					awayScore: 100,
+					awayScore: allowed,
 				}),
 			),
 		)
@@ -463,8 +466,11 @@ describe("generateGameQuestions", () => {
 		expect(shapeCounts(posted)).toEqual({ team_stat_over_under: 2 })
 		const lineFor = (teamId: string) =>
 			posted.find((q) => q.subjectTeamId === teamId)?.ouLine
-		expect(lineFor(away.id)).toBe(110.5)
-		expect(lineFor(home.id)).toBe(124.5)
+		// Both sides face an opponent that has allowed 100 a game against a
+		// league average of 108.5, which pulls each line down from the team's
+		// own average of 110 and 124.
+		expect(lineFor(away.id)).toBe(107.5)
+		expect(lineFor(home.id)).toBe(121.5)
 		expect(posted[0]?.options.map((o) => o.label)).toEqual(["Over", "Under"])
 	})
 
@@ -477,9 +483,46 @@ describe("generateGameQuestions", () => {
 
 		const titles = (await questionsOn(game.id)).map((q) => q.title).sort()
 		expect(titles).toEqual([
-			"Celtics: over/under 124.5 points",
-			"Knicks: over/under 110.5 points",
+			"Celtics: over/under 121.5 points",
+			"Knicks: over/under 107.5 points",
 		])
+	})
+
+	// The point of the adjustment: two teams scoring exactly the same get
+	// different lines, because one is facing a defense that gives up 130 a
+	// game and the other one that gives up 90.
+	it("moves a line by the defense the team is facing", async () => {
+		const { league, away, home, game } = await seedNbaGame()
+		const five = [110, 110, 110, 110, 110]
+		await playFinals(league, game.seasonId, away, five, 130)
+		await playFinals(league, game.seasonId, home, five, 90)
+
+		await run([TEAM_POINTS_LINE])
+
+		const posted = await questionsOn(game.id)
+		const lineFor = (teamId: string) =>
+			posted.find((q) => q.subjectTeamId === teamId)?.ouLine
+		// League average 110. The Knicks face the stingier side and land under
+		// their own average; the Celtics face the leakier one and land over it.
+		expect(lineFor(away.id)).toBe(104.5)
+		expect(lineFor(home.id)).toBe(115.5)
+	})
+
+	// Five games of "they allow 90" is mostly noise, so it moves the line far
+	// less than a season of it would - see opponentAdjustment.
+	it("trusts a thin opponent sample less than a thick one", async () => {
+		const { league, away, home, game } = await seedNbaGame()
+		await playFinals(league, game.seasonId, away, [110, 110, 110, 110, 110])
+		await playFinals(league, game.seasonId, home, Array(40).fill(110), 90)
+
+		await run([TEAM_POINTS_LINE])
+
+		const posted = await questionsOn(game.id)
+		const basis = posted.find((q) => q.subjectTeamId === away.id)?.lineBasis
+		expect(basis?.opponent?.allowedGames).toBe(40)
+		// 40 games earn 40/53 of the way from the league average to 90, where
+		// five earned only 5/18 of it.
+		expect(basis?.opponent?.multiplier).toBeLessThan(0.949)
 	})
 
 	it("stands last season's ESPN scoring in while this one is short", async () => {
@@ -496,8 +539,9 @@ describe("generateGameQuestions", () => {
 
 		const posted = await questionsOn(game.id)
 		// Two games at 105 of the ten the blend weights, the other eight from
-		// last season's 120: (105 * 2 + 120 * 8) / 10 = 117.
-		expect(posted.find((q) => q.subjectTeamId === away.id)?.ouLine).toBe(117.5)
+		// last season's 120: (105 * 2 + 120 * 8) / 10 = 117, then moved by the
+		// opponent it's facing.
+		expect(posted.find((q) => q.subjectTeamId === away.id)?.ouLine).toBe(114.5)
 	})
 
 	it("skips a team too early in the season for a line, keeping its guess", async () => {

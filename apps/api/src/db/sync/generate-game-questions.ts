@@ -18,6 +18,7 @@ import {
 import {
 	blendSamples,
 	type LineBasis,
+	type OpponentAdjustment,
 	setLine,
 } from "../../lib/game-questions/lines"
 import {
@@ -47,9 +48,13 @@ import {
 import { refreshGeneratedQuestionSchedule } from "../../lib/game-questions/schedule"
 import { selectGameTemplates } from "../../lib/game-questions/select-templates"
 import {
-	createTeamScoreCache,
+	createSeasonTableCache,
+	createStandingsCache,
 	createTeamSeasonStatsCache,
+	type OpponentDeps,
+	opponentFor,
 	teamSamples,
+	teamScoresFrom,
 } from "../../lib/game-questions/team-lines"
 import {
 	type GameQuestionTitleFacts,
@@ -123,6 +128,13 @@ type LeagueContext = {
 		year: number,
 		template: { priorWeight: number; priorStat: string },
 	) => Promise<Samples>
+	// How much the other side of this game moves a team line - see
+	// opponentFor. Null where the template asks for no adjustment.
+	opponentFor: (
+		opponentTeamId: string,
+		year: number,
+		template: { priorWeight: number; oppWeight?: number },
+	) => Promise<OpponentAdjustment | null>
 }
 
 type PlannedQuestion = {
@@ -234,7 +246,7 @@ async function planTemplate(
 		)
 		.with(
 			{ shape: "team_stat_over_under" },
-			async ({ statName, line, priorWeight, priorStat }) => {
+			async ({ statName, line, priorWeight, priorStat, oppWeight }) => {
 				const planned: PlannedQuestion[] = []
 				for (const team of teams) {
 					const key = generationKey([...base, team.id])
@@ -244,9 +256,14 @@ async function planTemplate(
 						game.season.year,
 						{ priorWeight, priorStat },
 					)
+					const opponent = await ctx.opponentFor(
+						team.id === game.homeTeamId ? game.awayTeamId : game.homeTeamId,
+						game.season.year,
+						{ priorWeight, oppWeight },
+					)
 					// A team too early in the season to carry a line is skipped;
 					// the numeric guess on the same stat still goes up.
-					const basis = setLine(season, prior, priorWeight, line)
+					const basis = setLine(season, prior, priorWeight, line, opponent)
 					if (!basis) continue
 					planned.push({
 						key,
@@ -653,8 +670,14 @@ async function generateForLeague(
 			loadEspnIds("team", teamIds),
 		])
 
-	const teamScoresFor = createTeamScoreCache(league.id)
+	const seasonTableFor = createSeasonTableCache(league.id)
+	const teamScoresFor = teamScoresFrom(seasonTableFor)
 	const teamSeasonStatsFor = createTeamSeasonStatsCache(config, access)
+	const opponentDeps: OpponentDeps = {
+		seasonTableFor,
+		standingsFor: createStandingsCache(config, access),
+		espnTeamIdByTeamId,
+	}
 
 	const ctx: LeagueContext = {
 		config,
@@ -687,6 +710,8 @@ async function generateForLeague(
 				teamId,
 				year,
 			),
+		opponentFor: (opponentTeamId, year, template) =>
+			opponentFor(opponentDeps, template, opponentTeamId, year),
 	}
 
 	let created = 0

@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest"
-import { blendSamples, needsPriorSeason, perGameSample, setLine } from "./lines"
+import {
+	blendSamples,
+	LINE_FORMULA,
+	needsPriorSeason,
+	opponentAdjustment,
+	perGameSample,
+	setLine,
+} from "./lines"
 
 const RULE = { minGames: 8, shade: 0.97, minLine: 10.5 }
 
@@ -111,6 +118,9 @@ describe("setLine", () => {
 			priorGames: 0,
 			priorWeight: 12,
 			blendedMean: 30,
+			expectedMean: 30,
+			opponent: null,
+			formula: LINE_FORMULA.teamOnly,
 			shade: 0.97,
 			line: 29.5,
 		})
@@ -138,5 +148,55 @@ describe("setLine", () => {
 
 	it("skips a line under the rule's floor", () => {
 		expect(setLine({ mean: 8, games: 20 }, null, 12, RULE)).toBeNull()
+	})
+})
+
+describe("opponentAdjustment", () => {
+	it("leaves an exactly average opponent alone", () => {
+		const adjustment = opponentAdjustment({ mean: 22, games: 17 }, 22, 12)
+		expect(adjustment?.multiplier).toBe(1)
+	})
+
+	// The whole point of the weight: the same figure means far less over two
+	// games than over a season, so it moves the line far less.
+	it("trusts a long sample more than a short one", () => {
+		const short = opponentAdjustment({ mean: 10, games: 2 }, 22, 12)
+		const long = opponentAdjustment({ mean: 10, games: 100 }, 22, 12)
+		// Two games keep almost all of the league average: 22 + (2/14)(10 - 22)
+		// = 20.29, over 22. A hundred keep almost none of it: 22 +
+		// (100/112)(10 - 22) = 11.29, over 22.
+		expect(short?.multiplier).toBeCloseTo(0.922, 3)
+		expect(long?.multiplier).toBeCloseTo(0.513, 3)
+		expect(short?.multiplier).toBeGreaterThan(long?.multiplier ?? 0)
+	})
+
+	it("moves the line up for a generous opponent and down for a stingy one", () => {
+		const generous = opponentAdjustment({ mean: 30, games: 17 }, 22, 12)
+		const stingy = opponentAdjustment({ mean: 14, games: 17 }, 22, 12)
+		expect(generous?.multiplier).toBeGreaterThan(1)
+		expect(stingy?.multiplier).toBeLessThan(1)
+	})
+
+	it("is null with no league figure to measure against", () => {
+		expect(opponentAdjustment({ mean: 22, games: 17 }, null, 12)).toBeNull()
+		expect(opponentAdjustment(null, 22, 12)).toBeNull()
+	})
+})
+
+describe("setLine with an opponent", () => {
+	it("sets the line from the adjusted expectation, not the raw blend", () => {
+		const opponent = opponentAdjustment({ mean: 30, games: 100 }, 22, 12)
+		const basis = setLine({ mean: 24, games: 20 }, null, 12, RULE, opponent)
+		expect(basis?.blendedMean).toBe(24)
+		// The blend is untouched; the expectation carries the adjustment.
+		expect(basis?.expectedMean).toBeGreaterThan(24)
+		expect(basis?.opponent?.multiplier).toBe(opponent?.multiplier)
+	})
+
+	it("holds a line to the floor on the adjusted figure", () => {
+		const opponent = opponentAdjustment({ mean: 2, games: 500 }, 22, 12)
+		expect(
+			setLine({ mean: 21, games: 20 }, null, 12, RULE, opponent),
+		).toBeNull()
 	})
 })

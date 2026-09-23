@@ -8,6 +8,7 @@ import {
 	questions,
 } from "../db/schema"
 import { unsubscribeToken } from "../lib/email-unsubscribe"
+import { LINE_FORMULA } from "../lib/game-questions/lines"
 import {
 	futureDate,
 	makeAdmin,
@@ -512,6 +513,9 @@ describe("Mutation.createQuestion", () => {
 					priorGames: 0,
 					priorWeight: 10,
 					blendedMean: 100,
+					expectedMean: 100,
+					opponent: null,
+					formula: LINE_FORMULA.teamOnly,
 					shade: 1,
 					line: 99.5,
 				},

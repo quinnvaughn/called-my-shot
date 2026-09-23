@@ -5,6 +5,7 @@ import {
 	loadLineSettings,
 	withLineSettings,
 } from "./line-settings"
+import { LINE_FORMULA } from "./lines"
 
 const LEAGUE = "nba"
 const TEMPLATE = "top-scorer-points"
@@ -31,6 +32,9 @@ async function resolvedLine(shade: number, wentOver: boolean) {
 			priorGames: 0,
 			priorWeight: 12,
 			blendedMean: 25,
+			expectedMean: 25,
+			opponent: null,
+			formula: LINE_FORMULA.teamOnly,
 			shade,
 			line: 24.5,
 		},

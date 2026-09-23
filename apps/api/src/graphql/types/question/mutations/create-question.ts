@@ -299,6 +299,10 @@ builder.mutationFields((t) => ({
 							ouLine: data.ouLine,
 							subjectPlayerId: data.subjectPlayerId,
 							subjectTeamId: data.subjectTeamId,
+							opponentTeamId:
+								data.subjectTeamId === gameRow.homeTeamId
+									? gameRow.awayTeamId
+									: gameRow.homeTeamId,
 							seasonYear: gameRow.season.year,
 						})
 					: null
