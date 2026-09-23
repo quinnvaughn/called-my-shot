@@ -28,7 +28,7 @@ const columns = [
 const statusTag = {
 	SCHEDULED: { variant: "neutral" as const, label: "Scheduled" },
 	LIVE: { variant: "primary" as const, label: "Live" },
-	FINAL: { variant: "success" as const, label: "Final" },
+	FINAL: { variant: "neutral" as const, label: "Final" },
 }
 
 export function DataGameTable({

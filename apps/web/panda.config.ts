@@ -105,6 +105,11 @@ export default defineConfig({
           steel: { value: "#96938A" }, // tertiary text, placeholders, inactive icons — only ~3:1 on white, which is exactly why it got darkened to #767267 for the light theme; back to full value now that it's on a dark canvas again
           signal: { value: "#FF5A1F" }, // brand accent — CTAs, active/selected state, focus ring; light theme darkened this to #C2410C to hold 4.5:1 as text on white
           signalMuted: { value: "#3A1E12" }, // pale accent-tinted background for badges/chips (not the same as signal at low alpha)
+          // Secondary brand accent — labels and non-outcome status: eyebrows,
+          // badges, completion progress, live dots. Sits 47° of hue off
+          // `verified`, far enough that a label never reads as a won call.
+          sky: { value: "#6AC0FF" }, // 9.9:1 on paper, 9.2:1 on card
+          skyMuted: { value: "#162633" }, // pale sky-tinted background — pitched at verifiedMuted's luminance, so sky-on-skyMuted holds ~7.8:1
           // Same color as verifiedVibrant below — the light theme split these in
           // two only because #34D399 as *text* on white measured ~1.9:1 (illegible;
           // darkened to #15803D), while the raw value was still fine as a filled
@@ -214,11 +219,17 @@ export default defineConfig({
             contrast: { value: "{colors.paper}" },
           },
           secondary: {
-            default: { value: "{colors.verified}" },
+            default: { value: "{colors.sky}" },
+            subtle: { value: "{colors.skyMuted}" },
             contrast: { value: "{colors.paper}" },
           },
-          // Status feedback — reused today (secondary === success), but kept as separate
-          // tokens so status meaning can diverge from brand color without a rename later.
+          // Status feedback. `success` is reserved for one thing: a positive
+          // outcome or good performance — a call that landed, a winning point
+          // total, a strong grade or return. Anything that merely *happened*
+          // (a ballot filled in, a game underway, a question resolved) belongs
+          // to `secondary`, even where it feels vaguely positive; otherwise
+          // green stops carrying information, which is how it ended up on
+          // eyebrows and a "Final" tag that rendered over a loss.
           success: {
             default: { value: "{colors.verified}" },
             subtle: { value: "{colors.verifiedMuted}" },

@@ -17,6 +17,10 @@ export const COLOR = {
 	steel: "#96938A", // fg.subtle
 	primaryDefault: "#FF5A1F", // primary.default
 	primarySubtle: "#3A1E12", // primary.subtle
+	secondary: "#6AC0FF", // secondary.default
+	secondarySubtle: "#162633", // secondary.subtle
+	// Only for a call that actually landed, or performance that's genuinely
+	// good - anything that merely happened takes `secondary` instead.
 	success: "#34D399", // success.default (and success.vibrant, same value)
 	successSubtle: "#112921", // success.subtle
 	danger: "#E24B4A", // danger.default

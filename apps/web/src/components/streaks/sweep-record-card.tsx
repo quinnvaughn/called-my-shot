@@ -169,8 +169,8 @@ function ChipTeam({ abbr, picked }: { abbr: string; picked: boolean }) {
 				paddingInline: "1",
 				borderRadius: "sm",
 				fontWeight: picked ? "bold" : "normal",
-				color: picked ? "success.default" : "fg.muted",
-				bg: picked ? "success.subtle" : "transparent",
+				color: picked ? "secondary.default" : "fg.muted",
+				bg: picked ? "secondary.subtle" : "transparent",
 			})}
 		>
 			{abbr}

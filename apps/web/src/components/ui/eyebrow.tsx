@@ -7,12 +7,6 @@ type Props = {
 	size?: "sm" | "md"
 }
 
-const colorByVariant = {
-	primary: "primary.default",
-	secondary: "secondary.default",
-	neutral: "fg.muted",
-} as const
-
 export function Eyebrow({
 	children,
 	variant = "secondary",
@@ -26,7 +20,16 @@ export function Eyebrow({
 				fontWeight: "medium",
 				textTransform: "uppercase",
 				letterSpacing: "wider",
-				color: colorByVariant[variant],
+				// Spelled out rather than looked up in a variant->token map: Panda
+				// extracts CSS statically, and a map indexed by a prop is opaque to
+				// it, so the class for any token no other file happens to use with
+				// this same property would never be emitted.
+				color:
+					variant === "primary"
+						? "primary.default"
+						: variant === "secondary"
+							? "secondary.default"
+							: "fg.muted",
 			})}
 		>
 			{children}

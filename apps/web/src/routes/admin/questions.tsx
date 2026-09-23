@@ -71,7 +71,7 @@ function questionDisplayStatus(status: QuestionStatus, locksAt: string) {
 		}))
 		.with("RESOLVED", () => ({
 			label: "Resolved",
-			variant: "success" as const,
+			variant: "neutral" as const,
 		}))
 		.with("VOIDED", () => ({ label: "Voided", variant: "neutral" as const }))
 		.exhaustive()

@@ -37,7 +37,7 @@ export function BallotEntrySummaryCard({
 							fontSize: "sm",
 							fontWeight: "bold",
 							letterSpacing: "wide",
-							color: isComplete ? "success.default" : "fg.default",
+							color: isComplete ? "secondary.default" : "fg.default",
 						})}
 					>
 						{calledCount} OF {memberCount} CALLED
@@ -55,7 +55,7 @@ export function BallotEntrySummaryCard({
 							className={css({
 								height: "full",
 								borderRadius: "full",
-								bg: "success.default",
+								bg: "secondary.default",
 							})}
 							style={{ width: `${pct}%` }}
 						/>

@@ -287,7 +287,7 @@ export function NumericGuessFields({ callForm }: Props) {
 										className={css({
 											fontFamily: "mono",
 											fontSize: "xs",
-											color: "success.default",
+											color: "secondary.default",
 											textAlign: "center",
 										})}
 									>

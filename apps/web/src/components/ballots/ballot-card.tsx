@@ -68,7 +68,7 @@ export function BallotCard({ ballot: ballotProp }: Props) {
 								className={css({
 									height: "full",
 									borderRadius: "full",
-									bg: "success.default",
+									bg: "secondary.default",
 								})}
 								style={{ width: `${pct}%` }}
 							/>

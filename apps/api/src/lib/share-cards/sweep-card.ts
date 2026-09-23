@@ -54,8 +54,8 @@ function team(abbr: string, picked: boolean, compact: boolean): SatoriNode {
 			paddingBottom: "2px",
 			borderRadius: "6px",
 			fontWeight: picked ? 700 : 400,
-			color: picked ? COLOR.success : COLOR.dim,
-			backgroundColor: picked ? COLOR.successSubtle : "transparent",
+			color: picked ? COLOR.secondary : COLOR.dim,
+			backgroundColor: picked ? COLOR.secondarySubtle : "transparent",
 		},
 		abbr,
 	)

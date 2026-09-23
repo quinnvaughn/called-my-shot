@@ -281,7 +281,7 @@ function StreakPage({
 						fontSize: "2xs",
 						letterSpacing: "wide",
 						textTransform: "uppercase",
-						color: "success.default",
+						color: "secondary.default",
 					})}
 				>
 					{nudge}

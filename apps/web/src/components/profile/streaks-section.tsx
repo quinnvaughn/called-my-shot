@@ -80,7 +80,7 @@ export function StreaksSection({
 				className={css({
 					fontFamily: "mono",
 					fontSize: "2xs",
-					color: "success.default",
+					color: "secondary.default",
 				})}
 			>
 				{nudge}

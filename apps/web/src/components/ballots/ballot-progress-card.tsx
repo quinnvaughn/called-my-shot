@@ -71,7 +71,7 @@ export function BallotProgressCard({
 								fontSize: "sm",
 								fontWeight: "bold",
 								letterSpacing: "wide",
-								color: isComplete ? "success.default" : "fg.default",
+								color: isComplete ? "secondary.default" : "fg.default",
 							})}
 						>
 							{calledCount} OF {memberCount} CALLED
@@ -106,7 +106,7 @@ export function BallotProgressCard({
 							className={css({
 								height: "full",
 								borderRadius: "full",
-								bg: "success.default",
+								bg: "secondary.default",
 							})}
 							style={{ width: `${pct}%` }}
 						/>

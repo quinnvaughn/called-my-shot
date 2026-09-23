@@ -82,7 +82,7 @@ export function LeagueRoomCard({ league }: Props) {
 											width: "1.5",
 											height: "1.5",
 											borderRadius: "full",
-											bg: "success.default",
+											bg: "secondary.default",
 											flexShrink: 0,
 										})}
 									/>

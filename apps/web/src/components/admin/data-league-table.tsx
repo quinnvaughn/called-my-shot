@@ -64,7 +64,9 @@ export function DataLeagueTable({
 						</Table.Cell>
 						<Table.Cell>{league.sport.name}</Table.Cell>
 						<Table.Cell>
-							<Tag variant={league.status === "ACTIVE" ? "success" : "neutral"}>
+							<Tag
+								variant={league.status === "ACTIVE" ? "secondary" : "neutral"}
+							>
 								{league.status === "ACTIVE" ? "Active" : "Coming soon"}
 							</Tag>
 						</Table.Cell>

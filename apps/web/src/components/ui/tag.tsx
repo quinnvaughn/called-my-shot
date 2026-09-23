@@ -2,7 +2,7 @@ import { css } from "styled-system/css"
 
 type Props = {
 	children: string
-	variant?: "primary" | "neutral" | "success"
+	variant?: "primary" | "secondary" | "neutral" | "success"
 	size?: "sm" | "md" | "lg"
 }
 
@@ -18,20 +18,33 @@ export function Tag({ children, variant = "neutral", size = "md" }: Props) {
 				fontWeight: "bold",
 				letterSpacing: "wide",
 				textTransform: "uppercase",
+				// Spelled out as nested ternaries rather than a variant->token
+				// lookup map: Panda extracts CSS statically, and a map indexed
+				// by a prop is opaque to it, so the classes for whichever
+				// variants no other file happens to use would never be emitted.
+				//
 				// success.default/success.subtle - the same pairing ResultBadge
-				// uses for a winning call.
+				// uses for a winning call, and only for a tag that reports an
+				// outcome. A tag naming a lifecycle state the viewer didn't earn
+				// (resolved, final, a permission that happens to be on) is
+				// neutral; secondary is for a state worth picking out of a column
+				// of neutral chrome, where neutral would erase the distinction.
 				color:
 					variant === "primary"
 						? "primary.default"
-						: variant === "success"
-							? "success.default"
-							: "fg.default",
+						: variant === "secondary"
+							? "secondary.default"
+							: variant === "success"
+								? "success.default"
+								: "fg.default",
 				backgroundColor:
 					variant === "primary"
 						? "primary.subtle"
-						: variant === "success"
-							? "success.subtle"
-							: "border.default",
+						: variant === "secondary"
+							? "secondary.subtle"
+							: variant === "success"
+								? "success.subtle"
+								: "border.default",
 				fontSize: size === "lg" ? "sm" : size === "md" ? "xs" : "2xs",
 				padding:
 					size === "lg"

@@ -99,8 +99,10 @@ export function QuestionResultBlock({ question, disputed }: Props) {
 				>
 					{disputed ? "Flagged result" : "Result"}
 				</span>
+				{/* Neutral, not success: this marks the result as settled, and it
+				    renders over a lost call just as readily as a won one. */}
 				{!disputed && (
-					<Tag variant="success" size="sm">
+					<Tag variant="neutral" size="sm">
 						Final
 					</Tag>
 				)}

@@ -110,7 +110,7 @@ function RouteComponent() {
 							</Table.Cell>
 							<Table.Cell>
 								<Tag
-									variant={user.questionCreationEnabled ? "success" : "primary"}
+									variant={user.questionCreationEnabled ? "neutral" : "primary"}
 								>
 									{user.questionCreationEnabled ? "Enabled" : "Locked"}
 								</Tag>

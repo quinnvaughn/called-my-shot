@@ -40,7 +40,7 @@ export function LiveCallsSection({ filters }: { filters: MyCallsFilters }) {
 									width: "1.5",
 									height: "1.5",
 									borderRadius: "full",
-									bg: "success.default",
+									bg: "secondary.default",
 									animation: "pulse 1.6s ease-in-out infinite",
 								})}
 							/>

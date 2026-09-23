@@ -241,7 +241,7 @@ export function GameMatchupHeader({
 								width: "1.5",
 								height: "1.5",
 								borderRadius: "full",
-								bg: "success.default",
+								bg: "secondary.default",
 								animation: "pulse 1.6s ease-in-out infinite",
 							})}
 						/>

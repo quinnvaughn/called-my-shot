@@ -148,7 +148,7 @@ function LeaderboardRowItem({
 					className={css({
 						fontFamily: "mono",
 						fontSize: "xs",
-						color: "success.default",
+						color: "secondary.default",
 					})}
 				>
 					{accuracy}% accuracy
