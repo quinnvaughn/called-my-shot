@@ -1,5 +1,6 @@
 import type { QuestionShape } from "@called-my-shot/schemas"
 import { match } from "ts-pattern"
+import { buildMatchup } from "./matchup"
 import {
 	homeAwaySplit,
 	opponentAllowed,
@@ -14,6 +15,7 @@ import { recipeFor } from "./recipes"
 import { boxStatSourceFor } from "./stat-source"
 import type {
 	StatContext,
+	StatContextMatchup,
 	StatContextRankedPlayer,
 	StatContextSlot,
 	StatContextSubject,
@@ -48,7 +50,15 @@ export type StatContextQuestion = {
 	ouLine: number | null
 	locksAt: Date
 	seasonId: string | null
-	game: { homeTeamId: string; awayTeamId: string } | null
+	// id and startsAt are what a matchup needs beyond the two team ids: the id
+	// to leave this game out of both records by identity rather than by time
+	// alone, and the start to measure each side's days of rest into it.
+	game: {
+		id: string
+		homeTeamId: string
+		awayTeamId: string
+		startsAt: Date
+	} | null
 	// From subjectPlayerId / subjectTeamId.
 	subject: SubjectRef | null
 	// From the options that name a real player or team, in sort order. This is
@@ -98,10 +108,12 @@ function subjectsFor(question: StatContextQuestion): SubjectRef[] {
 				"team_season_stat_numeric_guess",
 				() => [],
 			)
-			// team_vs_team asks who wins and carries no stat at all, so there is
-			// nothing to build a log of. game_total_over_under is about the game
-			// rather than either side, and yes_no_prop is free text with no
-			// structured subject.
+			// team_vs_team and game_total_over_under are handled before this
+			// function runs: they get a matchup rather than subject columns,
+			// because neither carries a stat either side has a log of. The
+			// question here is only which sides get one, and for them the answer
+			// is still neither. yes_no_prop is free text with no structured
+			// subject at all.
 			.with("team_vs_team", "game_total_over_under", "yes_no_prop", () => [])
 			.exhaustive()
 	)
@@ -113,6 +125,15 @@ function subjectsFor(question: StatContextQuestion): SubjectRef[] {
 // not the same as "who leads tonight").
 function ranksPool(shape: QuestionShape): boolean {
 	return shape === "player_game_stat_leader"
+}
+
+// Whether a shape's context is the game itself rather than a stat line, and
+// which number leads if so. Both read the same rows: one asks who wins, the
+// other how much the two of them score between them.
+function matchupFocus(shape: QuestionShape): StatContextMatchup["focus"] | null {
+	if (shape === "team_vs_team") return "winner"
+	if (shape === "game_total_over_under") return "scoring"
+	return null
 }
 
 async function cardsFor(
@@ -194,10 +215,37 @@ async function cardsFor(
 //
 // A head-to-head returns both sides or neither. Showing one player's form
 // next to a blank column reads as a comparison when it isn't one, so a side
-// with no history takes the whole section down with it.
+// with no history takes the whole section down with it. A matchup follows the
+// same rule for the same reason - see buildMatchup.
 export async function buildStatContext(
 	question: StatContextQuestion,
 ): Promise<StatContext | null> {
+	const base = {
+		statLabel: question.statName ?? "",
+		lastN: LAST_N,
+		subjects: [] as StatContextSubject[],
+		ranking: [] as StatContextRankedPlayer[],
+		matchup: null,
+	}
+
+	// Ahead of the stat-source lookup below on purpose. A who-wins question
+	// carries no stat at all, so boxStatSourceFor is null for it by definition
+	// and that guard would take the shape down before it started.
+	//
+	// Going around the guard doesn't loosen what it protects. It's there so a
+	// card and a settled result can't disagree about where their number came
+	// from, and both of these settle off the same final scores the matchup
+	// reads: a who-wins question off games.home_score/away_score
+	// (resolveGameWinner, db/sync/sync-games.ts), a game total off the
+	// final_score box rows ESPN writes from that same scoreboard. Every other
+	// shape still has to name the stored column its numbers came from before it
+	// gets a card.
+	const focus = matchupFocus(question.shape)
+	if (focus) {
+		const matchup = await buildMatchup(question, focus, LAST_N)
+		return matchup ? { ...base, matchup } : null
+	}
+
 	const subjects = subjectsFor(question)
 	const pooled = ranksPool(question.shape)
 	if (subjects.length === 0 && !pooled) return null
@@ -210,8 +258,6 @@ export async function buildStatContext(
 		statAggregation: question.statAggregation,
 	})
 	if (!source) return null
-
-	const base = { statLabel: question.statName ?? "", lastN: LAST_N }
 
 	if (pooled) {
 		if (!question.seasonId) return null
@@ -229,7 +275,7 @@ export async function buildStatContext(
 		// Nobody in the pool has a stored appearance, so there is no order to
 		// show and a list of names with no numbers is worse than no list.
 		if (ranking.length === 0) return null
-		return { ...base, subjects: [], ranking }
+		return { ...base, ranking }
 	}
 
 	const slots = new Set<StatContextSlot>(recipeFor(source.autoResolveStatKey))
@@ -241,6 +287,5 @@ export async function buildStatContext(
 	return {
 		...base,
 		subjects: built.filter((side): side is StatContextSubject => side !== null),
-		ranking: [] as StatContextRankedPlayer[],
 	}
 }

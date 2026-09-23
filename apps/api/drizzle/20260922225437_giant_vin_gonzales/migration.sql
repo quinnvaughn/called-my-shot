@@ -1,0 +1,2 @@
+CREATE INDEX "games_home_team_starts_at_idx" ON "games" ("home_team_id","starts_at" DESC NULLS LAST);--> statement-breakpoint
+CREATE INDEX "games_away_team_starts_at_idx" ON "games" ("away_team_id","starts_at" DESC NULLS LAST);

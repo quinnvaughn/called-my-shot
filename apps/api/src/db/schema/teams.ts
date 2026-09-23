@@ -1,4 +1,5 @@
 import {
+	index,
 	integer,
 	pgTable,
 	text,
@@ -58,3 +59,60 @@ export const teamRecords = pgTable(
 	(t) => [unique().on(t.teamId, t.seasonId)],
 )
 export type TeamRecord = typeof teamRecords.$inferSelect
+
+// One reading of ESPN's standings row for a team, stamped with the day it was
+// taken. Everything here comes off ESPN rather than being recomputed from this
+// app's own game rows, the same call teamRecords above makes - including
+// pointDifferential, which is stored rather than derived from pointsFor minus
+// pointsAgainst so the figure on a card is the figure ESPN prints even in the
+// cases where a forfeit or a scoring correction makes those disagree.
+//
+// A row per day, not a row per team: standings are a mutable snapshot of a
+// season in progress, and the cards that read this have to show what was known
+// before a game started, never what is known now. A single current row would
+// mean a resolved question's page showing a differential that already contains
+// the game it was asking about. asOf is a date rather than a timestamp because
+// the job that writes it runs daily, so re-running it stays an upsert on the
+// same row instead of laying down a second reading of the same morning.
+export const teamSeasonStats = pgTable(
+	"team_season_stats",
+	{
+		id: uuid("id").primaryKey().defaultRandom(),
+		teamId: uuid("team_id")
+			.notNull()
+			.references(() => teams.id, { onDelete: "cascade" }),
+		seasonId: uuid("season_id")
+			.notNull()
+			.references(() => seasons.id, { onDelete: "cascade" }),
+		asOf: timestamp("as_of", { mode: "date" }).notNull(),
+		gamesPlayed: integer("games_played").notNull().default(0),
+		pointsFor: integer("points_for").notNull().default(0),
+		pointsAgainst: integer("points_against").notNull().default(0),
+		pointDifferential: integer("point_differential").notNull().default(0),
+		homeWins: integer("home_wins").notNull().default(0),
+		homeLosses: integer("home_losses").notNull().default(0),
+		homeTies: integer("home_ties").notNull().default(0),
+		roadWins: integer("road_wins").notNull().default(0),
+		roadLosses: integer("road_losses").notNull().default(0),
+		roadTies: integer("road_ties").notNull().default(0),
+		// ESPN's own streak string ("W3", "L1"). Stored verbatim rather than
+		// parsed into a direction and a count: it is display text on their side
+		// too, and every league writes it the same way.
+		streak: text("streak"),
+		// "8-2". Same reasoning as streak.
+		lastTen: text("last_ten"),
+		// Total possessions this season, for a net rating. Only basketball has
+		// the concept, and it comes from a different endpoint than the rest of
+		// this row (team statistics, not standings), so it is null for every
+		// other league and for a basketball row whose stats fetch failed.
+		possessions: integer("possessions"),
+		updatedAt: timestamp("updated_at").notNull().defaultNow(),
+	},
+	(t) => [
+		unique().on(t.teamId, t.seasonId, t.asOf),
+		// The read every card makes: this team's latest reading before a given
+		// moment.
+		index("team_season_stats_team_as_of_idx").on(t.teamId, t.asOf.desc()),
+	],
+)
+export type TeamSeasonStats = typeof teamSeasonStats.$inferSelect

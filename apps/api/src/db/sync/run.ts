@@ -9,6 +9,7 @@ import { syncPlayers } from "./sync-players"
 import { syncSeasonQuestions } from "./sync-season-questions"
 import { syncSeasons } from "./sync-seasons"
 import { syncTeams } from "./sync-teams"
+import { syncTeamSeasonStats } from "./sync-team-season-stats"
 
 export async function syncSportsData({
 	now = new Date(),
@@ -33,6 +34,17 @@ export async function syncSportsData({
 
 		console.log(`[sync] ${config.leagueName} games...`)
 		await syncGames(config, league, { now, espn })
+
+		// One dated reading of ESPN's standings per run. After syncGames so the
+		// teams it may have just created are there to hang a row off, and
+		// deliberately additive rather than an update in place: the matchup card
+		// reads the last reading taken before a question locked, which a single
+		// current row could never answer. Skipped between seasons, when there is
+		// no current season to attribute a reading to.
+		if (currentSeason) {
+			console.log(`[sync] ${config.leagueName} team season stats...`)
+			await syncTeamSeasonStats(config, league, currentSeason, { now, espn })
+		}
 
 		// After syncGames, per its own doc comment - each synced game gets its
 		// team_vs_team "who will win?" question, which is what the game detail

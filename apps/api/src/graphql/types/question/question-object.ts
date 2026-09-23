@@ -393,7 +393,12 @@ export const QuestionRef = builder.drizzleObject("questions", {
 				const [game, stat, league, options] = await Promise.all([
 					db.query.games.findFirst({
 						where: { id: question.gameId },
-						columns: { homeTeamId: true, awayTeamId: true },
+						columns: {
+							id: true,
+							homeTeamId: true,
+							awayTeamId: true,
+							startsAt: true,
+						},
 					}),
 					question.statId
 						? db.query.stats.findFirst({
@@ -426,6 +431,12 @@ export const QuestionRef = builder.drizzleObject("questions", {
 				const teamIds = [
 					question.subjectTeamId,
 					...options.map((o) => o.teamId),
+					// The two competitors themselves. A matchup falls back to these
+					// when the options name neither team - a game total's options are
+					// Over and Under - and a column with no name on it is worse than
+					// no column.
+					game.homeTeamId,
+					game.awayTeamId,
 				].filter((id): id is string => id !== null)
 
 				const [players, subjectTeams] = await Promise.all([

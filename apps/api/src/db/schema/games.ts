@@ -1,5 +1,6 @@
 import {
 	boolean,
+	index,
 	integer,
 	pgEnum,
 	pgTable,
@@ -62,70 +63,82 @@ export const seasonWeeks = pgTable(
 )
 export type SeasonWeek = typeof seasonWeeks.$inferSelect
 
-export const games = pgTable("games", {
-	id: uuid("id").primaryKey().defaultRandom(),
-	leagueId: uuid("league_id")
-		.notNull()
-		.references(() => leagues.id, { onDelete: "cascade" }),
-	// Which real-world season this game belongs to, resolved by the sync
-	// against seasons' date ranges (see db/sync/sync-games.ts). Restrict, not
-	// cascade/set null - a season with games synced under it shouldn't be
-	// deletable out from under them.
-	seasonId: uuid("season_id")
-		.notNull()
-		.references(() => seasons.id, { onDelete: "restrict" }),
-	homeTeamId: uuid("home_team_id")
-		.notNull()
-		.references(() => teams.id, { onDelete: "restrict" }),
-	awayTeamId: uuid("away_team_id")
-		.notNull()
-		.references(() => teams.id, { onDelete: "restrict" }),
-	startsAt: timestamp("starts_at").notNull(),
-	status: gameStatus("status").notNull().default("scheduled"),
-	homeScore: integer("home_score"),
-	awayScore: integer("away_score"),
-	// Whether a live game is at the half, per ESPN's own status. Status stays
-	// "live" through the break; this only narrows how it's labeled. Kept
-	// current by the same syncs that write status, so it's false again once
-	// the second half starts.
-	atHalftime: boolean("at_halftime").notNull().default(false),
-	seasonType: gameSeasonType("season_type").notNull().default("regular"),
-	// ESPN's own week number, stored verbatim - never derived, so leagues that
-	// carve up their season into byes/playoff rounds stay correct with zero
-	// date-arithmetic on our side. Null for date-window leagues (MLB/NBA),
-	// which don't have a week concept at all.
-	weekNumber: integer("week_number"),
-	// A raw, league-owned machine key ("THU", "SUN_EARLY", ...) - deliberately
-	// plain text, not an enum. This is NFL's own broadcast-window vocabulary,
-	// not a shared cross-league concept the way windowType/seasonType above
-	// are; a pg enum here would force every future week-window league to
-	// share NFL's slot values or fight the type. The valid keys and their
-	// display labels are owned by each league's own sync module (see
-	// db/sync/nfl-slot.ts), never by the schema. Null for any league/game with
-	// no slot concept.
-	slot: text("slot"),
-	// The specific game's location, not the home team's usual park - a team's
-	// normal venue and this game's actual one aren't always the same thing
-	// (neutral-site games, international series), so this lives on the game,
-	// not on teams. Synced from ESPN's per-event venue - see db/sync/sync-games.ts.
-	// Nullable: games synced before this column existed have no value until
-	// their next sync pass.
-	venue: text("venue"),
-	// When db/sync/sync-game-starters.ts last fully refreshed this game's
-	// starters - how that job tells a game is due again without re-fetching
-	// ESPN every tick. Null until the first successful refresh.
-	startersSyncedAt: timestamp("starters_synced_at"),
-	// When a sync first saw this game go final. Stamped once and never moved
-	// by later ticks, so a job that waits out a settling period after the
-	// final whistle measures from the same moment every time it runs. Null
-	// while the game isn't final.
-	finalizedAt: timestamp("finalized_at"),
-	// When this game's box score was last stored into player_game_stats /
-	// team_game_stats. Does triple duty: it's what makes a re-run skip a game
-	// already captured, it's the backfill script's checkpoint (a crash leaves a
-	// game unstamped and un-rowed, never half-written, so a re-run resumes
-	// exactly where it stopped), and it's how the went-final sweep finds games
-	// auto-resolution never fetched a box score for. Null until first captured.
-	boxScoreSyncedAt: timestamp("box_score_synced_at"),
-})
+export const games = pgTable(
+	"games",
+	{
+		id: uuid("id").primaryKey().defaultRandom(),
+		leagueId: uuid("league_id")
+			.notNull()
+			.references(() => leagues.id, { onDelete: "cascade" }),
+		// Which real-world season this game belongs to, resolved by the sync
+		// against seasons' date ranges (see db/sync/sync-games.ts). Restrict, not
+		// cascade/set null - a season with games synced under it shouldn't be
+		// deletable out from under them.
+		seasonId: uuid("season_id")
+			.notNull()
+			.references(() => seasons.id, { onDelete: "restrict" }),
+		homeTeamId: uuid("home_team_id")
+			.notNull()
+			.references(() => teams.id, { onDelete: "restrict" }),
+		awayTeamId: uuid("away_team_id")
+			.notNull()
+			.references(() => teams.id, { onDelete: "restrict" }),
+		startsAt: timestamp("starts_at").notNull(),
+		status: gameStatus("status").notNull().default("scheduled"),
+		homeScore: integer("home_score"),
+		awayScore: integer("away_score"),
+		// Whether a live game is at the half, per ESPN's own status. Status stays
+		// "live" through the break; this only narrows how it's labeled. Kept
+		// current by the same syncs that write status, so it's false again once
+		// the second half starts.
+		atHalftime: boolean("at_halftime").notNull().default(false),
+		seasonType: gameSeasonType("season_type").notNull().default("regular"),
+		// ESPN's own week number, stored verbatim - never derived, so leagues that
+		// carve up their season into byes/playoff rounds stay correct with zero
+		// date-arithmetic on our side. Null for date-window leagues (MLB/NBA),
+		// which don't have a week concept at all.
+		weekNumber: integer("week_number"),
+		// A raw, league-owned machine key ("THU", "SUN_EARLY", ...) - deliberately
+		// plain text, not an enum. This is NFL's own broadcast-window vocabulary,
+		// not a shared cross-league concept the way windowType/seasonType above
+		// are; a pg enum here would force every future week-window league to
+		// share NFL's slot values or fight the type. The valid keys and their
+		// display labels are owned by each league's own sync module (see
+		// db/sync/nfl-slot.ts), never by the schema. Null for any league/game with
+		// no slot concept.
+		slot: text("slot"),
+		// The specific game's location, not the home team's usual park - a team's
+		// normal venue and this game's actual one aren't always the same thing
+		// (neutral-site games, international series), so this lives on the game,
+		// not on teams. Synced from ESPN's per-event venue - see db/sync/sync-games.ts.
+		// Nullable: games synced before this column existed have no value until
+		// their next sync pass.
+		venue: text("venue"),
+		// When db/sync/sync-game-starters.ts last fully refreshed this game's
+		// starters - how that job tells a game is due again without re-fetching
+		// ESPN every tick. Null until the first successful refresh.
+		startersSyncedAt: timestamp("starters_synced_at"),
+		// When a sync first saw this game go final. Stamped once and never moved
+		// by later ticks, so a job that waits out a settling period after the
+		// final whistle measures from the same moment every time it runs. Null
+		// while the game isn't final.
+		finalizedAt: timestamp("finalized_at"),
+		// When this game's box score was last stored into player_game_stats /
+		// team_game_stats. Does triple duty: it's what makes a re-run skip a game
+		// already captured, it's the backfill script's checkpoint (a crash leaves a
+		// game unstamped and un-rowed, never half-written, so a re-run resumes
+		// exactly where it stopped), and it's how the went-final sweep finds games
+		// auto-resolution never fetched a box score for. Null until first captured.
+		boxScoreSyncedAt: timestamp("box_score_synced_at"),
+	},
+	(t) => [
+		// A single team's own schedule, most recent first - what a matchup card's
+		// record, home/road split, streak and results strip all read, and a seq
+		// scan over every game ever synced without them. Two indexes rather than
+		// one because home and away are separate columns (see the "@" convention
+		// above), so a team's season is two range scans unioned, never one.
+		index("games_home_team_starts_at_idx").on(t.homeTeamId, t.startsAt.desc()),
+		index("games_away_team_starts_at_idx").on(t.awayTeamId, t.startsAt.desc()),
+	],
+)
 export type Game = typeof games.$inferSelect

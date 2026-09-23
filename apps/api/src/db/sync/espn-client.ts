@@ -596,9 +596,14 @@ async function fetchTeamSeasonStatistics(
 
 const STANDINGS_BASE_URL = "https://site.api.espn.com/apis/v2/sports"
 
+// displayValue alongside value because the two carry different things in the
+// same array: the record splits ("Home", "Road", "Last Ten Games") arrive as a
+// displayValue of "31-9" with no numeric value at all, while the scoring stats
+// arrive as numbers. A reader that only looked at value would silently drop
+// every split.
 export type EspnStandingsEntry = {
 	team: { id: string }
-	stats: { name: string; value?: number }[]
+	stats: { name: string; value?: number; displayValue?: string }[]
 }
 
 // Conferences, then divisions - a league's standings nest to whatever depth

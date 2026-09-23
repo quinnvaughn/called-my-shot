@@ -1,6 +1,6 @@
-import { useState } from "react"
+import { Fragment, useState } from "react"
 import { FiChevronDown, FiChevronUp } from "react-icons/fi"
-import { css } from "styled-system/css"
+import { css, cx } from "styled-system/css"
 import { Grid, HStack, VStack } from "styled-system/jsx"
 import { button } from "#/components/ui/button"
 import { Card } from "#/components/ui/card"
@@ -63,10 +63,71 @@ export const StatContextCardFragment = graphql(`
 				games
 			}
 		}
+		matchup {
+			focus
+			sides {
+				label
+				teamId
+				isHome
+				differential {
+					kind
+					value
+					games
+				}
+				overall {
+					games
+					pointsForPerGame
+					pointsAgainstPerGame
+					overLine
+				}
+				inThisRole {
+					games
+					wins
+					losses
+					ties
+				}
+				headToHead {
+					games
+					wins
+					losses
+					ties
+				}
+				lastTen {
+					games
+					wins
+					losses
+					ties
+				}
+				streak {
+					outcome
+					length
+				}
+				restDays
+				recentResults {
+					gameId
+					date
+					opponentAbbreviation
+					isHome
+					pointsFor
+					pointsAgainst
+					outcome
+				}
+			}
+			meetings {
+				gameId
+				date
+				homeTeamId
+				awayTeamId
+				homeScore
+				awayScore
+			}
+		}
 	}
 `)
 
 type Subject = StatContextCard_StatContextFragment["subjects"][number]
+type Matchup = NonNullable<StatContextCard_StatContextFragment["matchup"]>
+type MatchupSide = Matchup["sides"][number]
 
 // Thresholds are deliberately low. A bar set where a sport's own early season
 // can't reach it blanks the card exactly when the little that exists is most
@@ -80,6 +141,17 @@ const MIN_LOG = 2
 const MIN_HIT_RATE = 2
 // A split needs two games on each side, or it's just two games relabelled.
 const MIN_PER_SIDE = 2
+// A record needs two games to be a record rather than a restatement of one
+// result - and the strip below already shows that one, with its score on it.
+const MIN_RECORD = 2
+// "W1" is the last result wearing a different hat. Two is the shortest run
+// worth calling a streak.
+const MIN_STREAK = 2
+// How many results the matchup strip shows, against the ten the server sends.
+// Ten of these are wider than a player's game log - each carries a score and an
+// opponent, not one number - so ten wrapped to four rows and buried the figures
+// under them. The last ten is still on the card, as a record in a tile.
+const MATCHUP_RESULTS = 5
 
 type TeamLabels = Record<string, string>
 
@@ -327,6 +399,68 @@ function Ranking({
 	)
 }
 
+// Value large in the heading face over a mono micro-label, the same hierarchy
+// the profile stat tiles use. Shared by both column renderers.
+function HeadlineBlock({
+	lead,
+	dense,
+}: {
+	lead: Headline | null
+	dense: boolean
+}) {
+	if (!lead) return null
+
+	return (
+		<VStack gap="0.5" alignItems="flex-start">
+			<span
+				className={css({
+					fontFamily: "heading",
+					fontSize: dense ? "lg" : "3xl",
+					lineHeight: "1",
+				})}
+			>
+				{lead.value}
+			</span>
+			<span
+				className={css({
+					fontFamily: "mono",
+					fontSize: "3xs",
+					letterSpacing: "wide",
+					color: "fg.subtle",
+					textTransform: "uppercase",
+				})}
+			>
+				{lead.label}
+			</span>
+		</VStack>
+	)
+}
+
+// Shared by both column renderers so a matchup's tiles and a stat line's can't
+// drift into two different grids.
+function TileGrid({ tiles, dense }: { tiles: Tile[]; dense: boolean }) {
+	if (tiles.length === 0) return null
+
+	return (
+		<Grid
+			gridTemplateColumns={{
+				base: "repeat(2, minmax(0, 1fr))",
+				sm: "repeat(auto-fit, minmax(7rem, 1fr))",
+			}}
+			gap={dense ? "2" : "2.5"}
+		>
+			{tiles.map((tile) => (
+				<VStack key={tile.label} gap="0.5" alignItems="flex-start">
+					<span className={dense ? denseTileValueClass : tileValueClass}>
+						{tile.value}
+					</span>
+					<span className={tileLabelClass}>{tile.label}</span>
+				</VStack>
+			))}
+		</Grid>
+	)
+}
+
 function SubjectColumn({
 	subject,
 	teams,
@@ -351,51 +485,311 @@ function SubjectColumn({
 			    the page, which leaves a bare "75 / LAST GAME" sitting next to
 			    a tile that names a different team entirely. */}
 			{subject.label && <Eyebrow size="sm">{subject.label}</Eyebrow>}
-			{lead && (
-				// Value large in the heading face over a mono micro-label, the
-				// same hierarchy the profile stat tiles use.
-				<VStack gap="0.5" alignItems="flex-start">
-					<span
-						className={css({
-							fontFamily: "heading",
-							fontSize: dense ? "lg" : "3xl",
-							lineHeight: "1",
-						})}
-					>
-						{lead.value}
-					</span>
-					<span
-						className={css({
-							fontFamily: "mono",
-							fontSize: "3xs",
-							letterSpacing: "wide",
-							color: "fg.subtle",
-							textTransform: "uppercase",
-						})}
-					>
-						{lead.label}
-					</span>
-				</VStack>
-			)}
+			<HeadlineBlock lead={lead} dense={dense} />
 			<GameStrip subject={subject} teams={teams} />
-			{tiles.length > 0 && (
-				<Grid
-					gridTemplateColumns={{
-						base: "repeat(2, minmax(0, 1fr))",
-						sm: "repeat(auto-fit, minmax(7rem, 1fr))",
-					}}
-					gap={dense ? "2" : "2.5"}
-				>
-					{tiles.map((tile) => (
-						<VStack key={tile.label} gap="0.5" alignItems="flex-start">
-							<span className={dense ? denseTileValueClass : tileValueClass}>
-								{tile.value}
-							</span>
-							<span className={tileLabelClass}>{tile.label}</span>
-						</VStack>
-					))}
-				</Grid>
-			)}
+			<TileGrid tiles={tiles} dense={dense} />
+		</VStack>
+	)
+}
+
+const OUTCOME_LETTER = { WIN: "W", LOSS: "L", TIE: "T" } as const
+
+// The three scoring-gap metrics, by the name each sport actually uses. The
+// server decides which one a league gets (lib/stat-context/differential.ts);
+// this is only how it is written and formatted, and the two halves have to
+// stay in step - a net rating is a rate to one decimal, where a season total
+// is a whole number and wears its sign.
+const DIFFERENTIAL_LABEL = {
+	NET_RATING: "net rating",
+	RUN_DIFFERENTIAL: "run differential",
+	POINT_DIFFERENTIAL: "point differential",
+} as const
+
+// Ties are only written when there are any - a 6-3-0 is how nobody records an
+// NBA season.
+function formatRecord(record: {
+	wins: number
+	losses: number
+	ties: number
+}): string {
+	const base = `${record.wins}-${record.losses}`
+	return record.ties > 0 ? `${base}-${record.ties}` : base
+}
+
+// The sign is the whole point of a differential, so a positive one keeps its
+// plus.
+function signed(value: number): string {
+	return value > 0 ? `+${round(value)}` : round(value)
+}
+
+// A season total is counted in whole runs or points, never 80.5 of them.
+function signedWhole(value: number): string {
+	const whole = Math.round(value)
+	return whole > 0 ? `+${whole}` : String(whole)
+}
+
+function games(count: number): string {
+	return count === 1 ? "1 game" : `${count} games`
+}
+
+// What this side is about, and what it is measured over.
+//
+// Never the won-lost record: the matchup header sits directly above this card
+// and already prints it, so leading with it spends the biggest number here on
+// something the viewer read a moment ago. Margin is the number that isn't up
+// there, and it separates two teams better than their records do - a 9-7 at
+// +6 a game and a 9-7 at -1 are not the same team.
+function matchupHeadline(
+	side: MatchupSide,
+	focus: Matchup["focus"],
+): Headline | null {
+	const overall = side.overall
+	// An average over one game is that game, which the strip below already
+	// shows, with its actual score on it rather than a mean of one.
+	if (!overall || overall.games < MIN_RECORD) return null
+
+	if (focus === "SCORING") {
+		return {
+			value: round(overall.pointsForPerGame + overall.pointsAgainstPerGame),
+			label: `combined per game, ${games(overall.games)}`,
+		}
+	}
+
+	// No standings reading from before this question locked, so there is no
+	// differential to lead with. The results strip below still stands on its own.
+	const differential = side.differential
+	if (!differential) return null
+	return {
+		// A rate reads to a decimal; a season total is whole and keeps its sign,
+		// which is the part that says which way it ran.
+		value:
+			differential.kind === "NET_RATING"
+				? signed(differential.value)
+				: signedWhole(differential.value),
+		label: `${DIFFERENTIAL_LABEL[differential.kind]}, ${games(differential.games)}`,
+	}
+}
+
+function matchupTiles(side: MatchupSide, focus: Matchup["focus"]): Tile[] {
+	const tiles: Tile[] = []
+	const overall = side.overall
+	if (!overall) return tiles
+
+	// The same margin, narrowed to the side of the scoreboard this team is on
+	// in this game. Not both splits for both teams - what the visitor does at
+	// home says nothing about a road game.
+	// A record here rather than another differential: the headline above is
+	// already the scoring gap, and what the team has actually done in this role
+	// is a different fact rather than the same one sliced again. Not a repeat of
+	// the matchup header either, which carries the overall record only.
+	const role = side.inThisRole
+	if (role && role.games >= MIN_PER_SIDE) {
+		tiles.push({
+			value: formatRecord(role),
+			label: side.isHome ? "at home" : "on the road",
+		})
+	}
+
+	// The summary the strip below no longer carries, now that it shows five.
+	if (side.lastTen) {
+		tiles.push({ value: formatRecord(side.lastTen), label: "last 10" })
+	}
+
+	if (
+		focus === "SCORING" &&
+		overall.overLine !== null &&
+		overall.games >= MIN_HIT_RATE
+	) {
+		tiles.push({
+			value: `${overall.overLine} of ${overall.games}`,
+			label: "cleared the total",
+		})
+	}
+
+	// Margin is the headline for a who-wins question, so it isn't repeated
+	// here. What it's made of is what these two numbers add.
+	if (overall.games >= MIN_RECORD) {
+		tiles.push({
+			value: `${round(overall.pointsForPerGame)} / ${round(overall.pointsAgainstPerGame)}`,
+			label: "scored / allowed",
+		})
+	}
+
+	const streak = side.streak
+	if (streak && streak.length >= MIN_STREAK) {
+		tiles.push({
+			value: `${OUTCOME_LETTER[streak.outcome]}${streak.length}`,
+			label: "current streak",
+		})
+	}
+
+	if (side.restDays !== null) {
+		tiles.push({
+			value: String(side.restDays),
+			label: side.restDays === 1 ? "day of rest" : "days of rest",
+		})
+	}
+
+	return tiles
+}
+
+// The team's own results, in the same strip GameStrip uses for a stat line.
+// The opponent comes off the row rather than a lookup: a team's schedule runs
+// through teams this game has nothing to do with.
+//
+// One result is enough here, where a stat line needs MIN_LOG. That threshold
+// is there because a one-game strip restates the headline above it, and this
+// card's headline gates out at exactly that point - so in the case where the
+// strip stands alone, it is the only thing left that says anything.
+function ResultStrip({ results }: { results: MatchupSide["recentResults"] }) {
+	const shown = results.slice(0, MATCHUP_RESULTS)
+	if (shown.length === 0) return null
+
+	return (
+		<VStack gap="1.5" alignItems="stretch">
+			{/* Said outright, because the figures above are measured over the
+			    whole season and these are not - without it the strip reads as
+			    the season's games, and a team that has played 150 of them
+			    appears to have played five. Counted from what is actually
+			    shown, so a side with three games says three. */}
+			<span className={tileLabelClass}>
+				{shown.length === 1 ? "last game" : `last ${shown.length}`}
+			</span>
+			<HStack gap="4" flexWrap="wrap">
+				{[...shown].reverse().map((result) => (
+					<VStack key={result.gameId} gap="0.5" alignItems="flex-start">
+						<span className={numberClass}>
+							{`${OUTCOME_LETTER[result.outcome]} ${result.pointsFor}-${result.pointsAgainst}`}
+						</span>
+						<span className={mutedClass}>
+							{`${shortDate(result.date)} ${result.isHome ? "vs" : "@"} ${result.opponentAbbreviation}`}
+						</span>
+					</VStack>
+				))}
+			</HStack>
+		</VStack>
+	)
+}
+
+function MatchupColumn({
+	side,
+	focus,
+	maxTiles,
+	dense = false,
+}: {
+	side: MatchupSide
+	focus: Matchup["focus"]
+	maxTiles?: number
+	dense?: boolean
+}) {
+	const lead = matchupHeadline(side, focus)
+	const tiles = matchupTiles(side, focus).slice(0, maxTiles)
+
+	return (
+		<VStack gap={dense ? "2" : "3"} alignItems="stretch" minWidth="0">
+			{/* Figures first, results last. The strip is the one block whose
+			    height varies with the data, so keeping it at the bottom leaves
+			    the two columns' tiles on the same line as each other instead of
+			    sliding out of step whenever one side has wrapped to more rows
+			    than the other. */}
+			{side.label && <Eyebrow size="sm">{side.label}</Eyebrow>}
+			<HeadlineBlock lead={lead} dense={dense} />
+			<TileGrid tiles={tiles} dense={dense} />
+			<ResultStrip results={side.recentResults} />
+		</VStack>
+	)
+}
+
+// Who won a given meeting is left to its two scores. A "SEA won" tag beside
+// them is the kind of restatement every label on this card avoids.
+//
+// The series as a whole is a different matter: "HOU 2-9 SEA" sat in the same
+// face and the same right-hand column as the scores below it and read as one
+// more of them. Said in words it cannot - "leads" is what makes it a record
+// rather than a scoreline.
+function seriesSummary(
+	series: NonNullable<MatchupSide["headToHead"]>,
+	first: MatchupSide,
+	second: MatchupSide,
+	teams: TeamLabels,
+): string {
+	const drawn = series.ties > 0 ? `-${series.ties}` : ""
+	if (series.wins === series.losses) {
+		return `series tied ${series.wins}-${series.losses}${drawn}`
+	}
+	const ahead = series.wins > series.losses ? first : second
+	const high = Math.max(series.wins, series.losses)
+	const low = Math.min(series.wins, series.losses)
+	return `${teams[ahead.teamId] ?? ""} leads ${high}-${low}${drawn}`
+}
+
+function Meetings({
+	matchup,
+	teams,
+}: {
+	matchup: Matchup
+	teams: TeamLabels
+}) {
+	const meetings = matchup.meetings
+	if (meetings.length === 0) return null
+
+	const [first, second] = matchup.sides
+	const series = first?.headToHead
+	// The list is capped, so where it shows fewer than they have played it has
+	// to say so - otherwise a 9-2 series reads as five games that don't add up.
+	const total = series?.games ?? meetings.length
+	const summary = [
+		series && first && second
+			? seriesSummary(series, first, second, teams)
+			: null,
+		total > meetings.length ? `last ${meetings.length} of ${total}` : null,
+	]
+		.filter(Boolean)
+		.join(" \u00b7 ")
+
+	return (
+		<VStack gap="2" alignItems="stretch">
+			<HStack justify="space-between" gap="3" flexWrap="wrap">
+				<h3 className={sectionHeadingClass}>Head to head</h3>
+				{summary && <span className={sectionHeadingClass}>{summary}</span>}
+			</HStack>
+			{/* A column each, so the scores stack under one another instead of
+			    landing wherever a three-letter code and a one- or two-digit
+			    number happen to leave them. Scores are right-aligned and
+			    tabular, which is what puts 10 under 3.
+
+			    One grid for every row rather than a grid per row: that is what
+			    makes the columns agree with each other. Aligned columns carry
+			    the eye across on their own here, so there are no rules between
+			    rows - five short lines don't need ruling off. */}
+			<div
+				className={css({
+					display: "grid",
+					gridTemplateColumns: "auto auto auto auto auto",
+					columnGap: "2",
+					rowGap: "1",
+					justifyContent: "start",
+					alignItems: "center",
+				})}
+			>
+				{meetings.map((meeting) => (
+					<Fragment key={meeting.gameId}>
+						<span className={mutedClass}>{shortDate(meeting.date)}</span>
+						<span className={numberClass}>
+							{teams[meeting.awayTeamId] ?? ""}
+						</span>
+						<span className={cx(numberClass, css({ textAlign: "right" }))}>
+							{meeting.awayScore}
+						</span>
+						<span className={mutedClass}>
+							{`@ ${teams[meeting.homeTeamId] ?? ""}`}
+						</span>
+						<span className={cx(numberClass, css({ textAlign: "right" }))}>
+							{meeting.homeScore}
+						</span>
+					</Fragment>
+				))}
+			</div>
 		</VStack>
 	)
 }
@@ -416,9 +810,11 @@ export function StatContextCard(props: {
 	if (!context) return null
 
 	// Not gated on subjects being present: a pool question deliberately has
-	// none, because its ranking stands in for them. The real check is below,
-	// once both have been built.
+	// none, because its ranking stands in for them, and a game-level question
+	// has a matchup instead. The real check is below, once all three have been
+	// built.
 	const ranking = context.ranking
+	const matchup = context.matchup
 	const columns = context.subjects
 		.map((subject) => ({
 			subject,
@@ -429,9 +825,9 @@ export function StatContextCard(props: {
 
 	// Everything got gated out, so there's nothing worth a card. Renders
 	// nothing rather than an empty state, the same as GameStarters.
-	if (columns.length === 0 && ranking.length === 0) return null
+	if (!matchup && columns.length === 0 && ranking.length === 0) return null
 
-	const twoUp = columns.length > 1
+	const twoUp = matchup ? true : columns.length > 1
 	// The sat-out note only makes sense next to a strip that can show one.
 	const anyStrip = columns.some(
 		(column) => column.subject.recentGames.length >= MIN_LOG,
@@ -471,19 +867,33 @@ export function StatContextCard(props: {
 									gap: { base: "5", sm: "6" },
 								})}
 							>
-								{columns.map((column) => (
-									<SubjectColumn
-										key={column.subject.label}
-										subject={column.subject}
-										teams={props.teams}
-									/>
-								))}
+								{matchup
+									? matchup.sides.map((side) => (
+											<MatchupColumn
+												key={side.teamId}
+												side={side}
+												focus={matchup.focus}
+												/>
+										))
+									: columns.map((column) => (
+											<SubjectColumn
+												key={column.subject.label}
+												subject={column.subject}
+												teams={props.teams}
+											/>
+										))}
 							</div>
+							{matchup && (
+								<Meetings matchup={matchup} teams={props.teams} />
+							)}
 							<p className={css({ fontSize: "xs", color: "fg.subtle" })}>
-								From the box scores we resolve against, up to this game.
-								{anyStrip
-									? " Games a player sat out show as -- and stay out of every average."
-									: ""}
+								{matchup
+									? "Completed regular-season games this season, up to this one. Head to head is this season only."
+									: `From the box scores we resolve against, up to this game.${
+											anyStrip
+												? " Games a player sat out show as -- and stay out of every average."
+												: ""
+										}`}
 							</p>
 						</>
 					)}
@@ -517,6 +927,7 @@ export function StatContextHighlights(props: {
 	if (!context) return null
 
 	const ranking = context.ranking.slice(0, HIGHLIGHT_RANKING)
+	const matchup = context.matchup
 	const columns = context.subjects.filter(
 		(subject) =>
 			headline(subject) !== null ||
@@ -524,7 +935,7 @@ export function StatContextHighlights(props: {
 	)
 	// Nothing to open, so nothing to offer - a toggle that expands to an empty
 	// panel is worse than no toggle.
-	if (columns.length === 0 && ranking.length === 0) return null
+	if (!matchup && columns.length === 0 && ranking.length === 0) return null
 
 	return (
 		<VStack gap="2" alignItems="stretch">
@@ -549,21 +960,35 @@ export function StatContextHighlights(props: {
 						className={css({
 							display: "grid",
 							gridTemplateColumns:
-								columns.length > 1
+								matchup || columns.length > 1
 									? { base: "minmax(0, 1fr)", sm: "repeat(2, minmax(0, 1fr))" }
 									: "minmax(0, 1fr)",
 							gap: { base: "3", sm: "4" },
 						})}
 					>
-						{columns.map((subject) => (
-							<SubjectColumn
-								key={subject.label}
-								subject={subject}
-								teams={props.teams}
-								maxTiles={HIGHLIGHT_TILES}
-								dense
-							/>
-						))}
+						{/* Head to head is left off here on purpose: it's a third
+						    block on a card that has to hold its height inside the
+						    fold, and this surface is an invitation rather than
+						    research. */}
+						{matchup
+							? matchup.sides.map((side) => (
+									<MatchupColumn
+										key={side.teamId}
+										side={side}
+										focus={matchup.focus}
+										maxTiles={HIGHLIGHT_TILES}
+										dense
+									/>
+								))
+							: columns.map((subject) => (
+									<SubjectColumn
+										key={subject.label}
+										subject={subject}
+										teams={props.teams}
+										maxTiles={HIGHLIGHT_TILES}
+										dense
+									/>
+								))}
 					</div>
 				</>
 			)}

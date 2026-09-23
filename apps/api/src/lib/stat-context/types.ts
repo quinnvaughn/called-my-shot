@@ -92,6 +92,147 @@ export type StatContextRankedPlayer = {
 	games: number
 }
 
+// A tie is a real outcome in the NFL and stays one rather than folding into a
+// loss, which would misstate both the record and the streak.
+export type StatContextOutcome = "win" | "loss" | "tie"
+
+// One completed game, as a results strip reads it: who, where, and what the
+// scoreboard said. Deliberately not StatContextGame - that one is a player's
+// line in a box score and carries a stat value, where this one has no stat in
+// it at all, because the question it serves is about the result and nothing
+// else.
+export type StatContextResult = {
+	gameId: string
+	date: Date
+	opponentTeamId: string
+	// Carried on the row rather than looked up on the page. A player's game log
+	// names an opponent the page already knows, because every one of those
+	// games was against one of this game's two teams from the subject's point
+	// of view. A team's own schedule is not: last week they played someone
+	// else's team entirely, and the page has no way to name it.
+	opponentAbbreviation: string
+	isHome: boolean
+	pointsFor: number
+	pointsAgainst: number
+	outcome: StatContextOutcome
+}
+
+// The gap between what a team scores and what it gives up, in whatever terms
+// its own sport states that in. `kind` is not decoration - a net rating is a
+// rate per 100 possessions and a run differential is a season total, so the
+// page needs to know which measurement it was handed before it can name or
+// format it. See lib/stat-context/differential.ts for the mapping.
+export type StatContextDifferential = {
+	kind: "net_rating" | "run_differential" | "point_differential"
+	value: number
+	// Games behind the figure, so a page can say what it is measured over.
+	games: number
+}
+
+// A record over some set of completed games, with the scoring behind it.
+// `games` is always wins + losses + ties, so nothing downstream has to add
+// them up to know the sample it is looking at.
+export type StatContextRecord = {
+	games: number
+	wins: number
+	losses: number
+	ties: number
+	pointsForPerGame: number
+	pointsAgainstPerGame: number
+	// How many of those games' combined totals cleared the question's line,
+	// when it has one. Null for a question with no line to clear, which is
+	// every who-wins question.
+	//
+	// Derived here and not taken from ESPN because no standings row can answer
+	// it: it is a count against this question's own line.
+	overLine: number | null
+}
+
+// A won-lost record with nothing else attached, which is all a standings split
+// carries - ESPN publishes a team's home and road records but not the scoring
+// behind either.
+export type StatContextSplitRecord = {
+	games: number
+	wins: number
+	losses: number
+	ties: number
+}
+
+// A run of the same outcome ending at the most recent completed game.
+export type StatContextStreak = {
+	outcome: StatContextOutcome
+	length: number
+}
+
+// One side of a matchup. Everything on it is over completed regular-season
+// games strictly before the question's lock time, with the game being asked
+// about left out - the same pregame guarantee every box-score query makes.
+export type StatContextMatchupSide = {
+	label: string
+	teamId: string
+	isHome: boolean
+	// The sport's own scoring-gap figure, from the last standings reading taken
+	// before this question locked. Null when the league has no mapped metric,
+	// when no reading predates the lock, or - for a net rating - when that
+	// reading carried no possession count.
+	differential: StatContextDifferential | null
+	// Null only when this side has no completed game yet, which takes the whole
+	// matchup down with it - see buildMatchup.
+	overall: StatContextRecord | null
+	// The record on the side of the scoreboard this team is on in this game:
+	// home games for the home team, road games for the visitor. Asymmetric on
+	// purpose. Those are the two numbers that bear on the game being asked
+	// about, where both halves of both teams' splits is four numbers to find
+	// the two in.
+	inThisRole: StatContextSplitRecord | null
+	// This side's record against the other one this season. Over every meeting,
+	// not just the handful listed below the columns - two division rivals can
+	// play thirteen times, and a reader should not have to count a truncated
+	// list to learn who has had the better of it.
+	headToHead: StatContextSplitRecord | null
+	// The last ten, as a record. Set only when ten games actually stand behind
+	// it - a team two weeks into a season has a recent run, not a last ten, and
+	// labelling two games that way overstates what was measured.
+	lastTen: StatContextSplitRecord | null
+	streak: StatContextStreak | null
+	// Most recent first, capped at the context's lastN.
+	recentResults: StatContextResult[]
+	// Days between this team's last completed game and this one's start,
+	// rounded to whole days: a 1pm Sunday into an 8:20pm Sunday is 7 days of
+	// rest, not 7.3, and no league's short-week distinction turns on hours.
+	// Null when they have no completed game before it.
+	restDays: number | null
+}
+
+// A prior meeting between these same two teams.
+export type StatContextMeeting = {
+	gameId: string
+	date: Date
+	// The home side of THAT game, which need not be the home side of this one.
+	homeTeamId: string
+	awayTeamId: string
+	homeScore: number
+	awayScore: number
+	// Null on a tie, which is a result and not a missing one.
+	winnerTeamId: string | null
+}
+
+// The game itself rather than either side's stat line, which is what a
+// who-wins or game-total question actually asks about.
+export type StatContextMatchup = {
+	// Which number leads each column. A who-wins question leads with the
+	// record, a game total with scoring. The same rows are behind both, so the
+	// payload alone can't say which question was asked.
+	focus: "winner" | "scoring"
+	// In the order the question lists its two sides, which is the order the
+	// pick form shows them, so the columns line up with the buttons. Which one
+	// is at home is on the side itself, not in the ordering.
+	sides: [StatContextMatchupSide, StatContextMatchupSide]
+	// Most recent first, this season only. Empty is the normal case in a league
+	// whose teams meet once or twice a year.
+	meetings: StatContextMeeting[]
+}
+
 export type StatContext = {
 	statLabel: string
 	lastN: number
@@ -100,4 +241,7 @@ export type StatContext = {
 	subjects: StatContextSubject[]
 	// Populated only for a pool question. Ordered best first.
 	ranking: StatContextRankedPlayer[]
+	// Populated instead of either of the above for a game-level question, which
+	// has no per-subject stat to log.
+	matchup: StatContextMatchup | null
 }
