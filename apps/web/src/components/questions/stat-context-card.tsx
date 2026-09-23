@@ -62,6 +62,12 @@ export const StatContextCardFragment = graphql(`
 				sharePct
 				games
 			}
+			usage {
+				label
+				games
+				perGame
+				sharePct
+			}
 		}
 		matchup {
 			focus
@@ -296,6 +302,34 @@ function supportingTiles(subject: Subject, teams: TeamLabels): Tile[] {
 		tiles.push({
 			value: `${season.overLine} of ${season.games}`,
 			label: "cleared the line",
+		})
+	}
+
+	// Ahead of the splits below, and the share ahead of the count, because the
+	// compact card keeps only the first two tiles. Volume is the steadiest
+	// thing on this card: yards move week to week and the targets or carries
+	// behind them mostly don't, so a share of the team's is the figure most
+	// likely to still hold on Sunday.
+	//
+	// Two tiles rather than one because they answer different objections. The
+	// count is volume whoever else is on the field; the share is volume that
+	// survives a game script. Both name the column they are counted in, since
+	// neither is the stat the headline is measured in.
+	const usage = subject.usage
+	if (usage) {
+		tiles.push({
+			value: `${round(usage.sharePct)}%`,
+			label:
+				usage.games === 1
+					? `of team ${usage.label}, last game`
+					: `of team ${usage.label}`,
+		})
+		tiles.push({
+			value: round(usage.perGame),
+			label:
+				usage.games === 1
+					? `${usage.label}, last game`
+					: `${usage.label} per game`,
 		})
 	}
 

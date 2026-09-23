@@ -15,6 +15,7 @@ import type {
 	StatContextSplitRecord,
 	StatContextStreak,
 	StatContextSubject,
+	StatContextUsage,
 } from "../../../lib/stat-context/types"
 import { builder } from "../../builder"
 
@@ -99,6 +100,20 @@ const ShareRef = builder
 		}),
 	})
 
+const UsageRef = builder
+	.objectRef<StatContextUsage>("StatContextUsage")
+	.implement({
+		fields: (t) => ({
+			// What the volume is counted in ("targets", "carries"). The card's
+			// headline stat is something else, so a number here means nothing
+			// without it.
+			label: t.exposeString("label"),
+			games: t.exposeInt("games"),
+			perGame: t.exposeFloat("perGame"),
+			sharePct: t.exposeFloat("sharePct"),
+		}),
+	})
+
 const SubjectRef = builder
 	.objectRef<StatContextSubject>("StatContextSubject")
 	.implement({
@@ -139,6 +154,11 @@ const SubjectRef = builder
 				type: ShareRef,
 				nullable: true,
 				resolve: (s) => s.teamShare,
+			}),
+			usage: t.field({
+				type: UsageRef,
+				nullable: true,
+				resolve: (s) => s.usage,
 			}),
 		}),
 	})

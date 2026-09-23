@@ -10,8 +10,9 @@ import {
 	type StatContextScope,
 	seasonToDate,
 	shareOfTeamTotal,
+	usageOfTeam,
 } from "./queries"
-import { recipeFor } from "./recipes"
+import { recipeFor, usageStatFor } from "./recipes"
 import { boxStatSourceFor } from "./stat-source"
 import type {
 	StatContext,
@@ -172,14 +173,21 @@ async function cardsFor(
 	if (source.subject === "team" && !scope.teamScope) return null
 
 	const wants = (slot: StatContextSlot) => slots.has(slot)
-	const [games, season, splits, rest, allowed, share] = await Promise.all([
-		wants("recent_form") ? recentGames(scope, LAST_N) : [],
-		wants("season_to_date") ? seasonToDate(scope) : null,
-		wants("home_away") ? homeAwaySplit(scope) : { home: null, away: null },
-		wants("rest") ? restSplit(scope) : null,
-		wants("opponent_allowed") ? opponentAllowed(scope) : null,
-		wants("share_of_team") ? shareOfTeamTotal(scope) : null,
-	])
+	// A stat can ask for the usage card without any column carrying the volume
+	// behind it, which is not a failure - it just has no usage to show.
+	const usageStat = wants("usage")
+		? usageStatFor(source.autoResolveStatKey)
+		: null
+	const [games, season, splits, rest, allowed, share, usage] =
+		await Promise.all([
+			wants("recent_form") ? recentGames(scope, LAST_N) : [],
+			wants("season_to_date") ? seasonToDate(scope) : null,
+			wants("home_away") ? homeAwaySplit(scope) : { home: null, away: null },
+			wants("rest") ? restSplit(scope) : null,
+			wants("opponent_allowed") ? opponentAllowed(scope) : null,
+			wants("share_of_team") ? shareOfTeamTotal(scope) : null,
+			usageStat ? usageOfTeam(scope, usageStat) : null,
+		])
 
 	// Nothing stored for this side at all.
 	if (
@@ -189,7 +197,8 @@ async function cardsFor(
 		!splits.away &&
 		!rest &&
 		!allowed &&
-		!share
+		!share &&
+		!usage
 	) {
 		return null
 	}
@@ -205,6 +214,7 @@ async function cardsFor(
 		rest,
 		opponentAllowed: allowed,
 		teamShare: share,
+		usage,
 	}
 }
 

@@ -1,4 +1,4 @@
-import type { StatContextSlot } from "./types"
+import type { StatContextSlot, UsageStat } from "./types"
 
 // Which cards a stat gets, and in what order.
 //
@@ -23,31 +23,33 @@ const DEFAULT_RECIPE: readonly StatContextSlot[] = [
 // compute it".
 const RECIPES: Partial<Record<string, readonly StatContextSlot[]>> = {
 	// Volume stats where the opposing side's generosity is most of the story,
-	// and where a share of the team's own total says whether the usage behind
-	// the number is real or one loud game.
+	// and where the opportunity behind the number - targets, carries - says
+	// whether the production is usage or one loud game. Usage rather than a
+	// share of the same stat: yards swing week to week and the touches behind
+	// them don't, so a target share is the figure that still holds next Sunday.
 	"nfl:game:player:Receiving Yards": [
 		"recent_form",
 		"season_to_date",
-		"share_of_team",
+		"usage",
 		"opponent_allowed",
 		"home_away",
 	],
 	"nfl:game:player:Receptions": [
 		"recent_form",
 		"season_to_date",
-		"share_of_team",
+		"usage",
 		"opponent_allowed",
 	],
 	"nfl:game:player:Rushing Yards": [
 		"recent_form",
 		"season_to_date",
-		"share_of_team",
+		"usage",
 		"opponent_allowed",
 	],
 	"nfl:game:player:Rushing + Receiving Yards": [
 		"recent_form",
 		"season_to_date",
-		"share_of_team",
+		"usage",
 		"opponent_allowed",
 	],
 	"nfl:game:player:Passing Yards": [
@@ -126,6 +128,38 @@ const RECIPES: Partial<Record<string, readonly StatContextSlot[]>> = {
 		"season_to_date",
 		"opponent_allowed",
 	],
+}
+
+// The column the usage card counts, per stat. Keyed exactly like RECIPES, and
+// only meaningful for a stat whose own volume is handed out by someone else:
+// a quarterback's attempts are his team's attempts, so passing has no entry
+// here and the card it would draw would always read 100%.
+//
+// Both keys are stored on every NFL box score whether or not a catalog stat
+// reads them, so nothing here needs an extractor of its own.
+const USAGE_STATS: Partial<Record<string, UsageStat>> = {
+	"nfl:game:player:Receiving Yards": {
+		label: "targets",
+		statKeys: ["receiving.receivingTargets"],
+	},
+	"nfl:game:player:Receptions": {
+		label: "targets",
+		statKeys: ["receiving.receivingTargets"],
+	},
+	"nfl:game:player:Rushing Yards": {
+		label: "carries",
+		statKeys: ["rushing.rushingAttempts"],
+	},
+	// A back's day is both, and counting only one of them understates a
+	// receiving back on exactly the question where his floor is the argument.
+	"nfl:game:player:Rushing + Receiving Yards": {
+		label: "carries + targets",
+		statKeys: ["rushing.rushingAttempts", "receiving.receivingTargets"],
+	},
+}
+
+export function usageStatFor(autoResolveStatKey: string): UsageStat | null {
+	return USAGE_STATS[autoResolveStatKey] ?? null
 }
 
 export function recipeFor(

@@ -7,6 +7,8 @@ import type {
 	StatContextRest,
 	StatContextShare,
 	StatContextSplit,
+	StatContextUsage,
+	UsageStat,
 } from "./types"
 
 // What every query below is scoped by. asOf is the question's lock time, and
@@ -373,6 +375,32 @@ export async function shareOfTeamTotal(
 		teamTotal,
 		sharePct: (playerTotal / teamTotal) * 100,
 		games: num(row.games),
+	}
+}
+
+// How much work the subject is actually being given, in the column that hands
+// it out: targets behind receiving yards, carries behind rushing yards. Both
+// halves come back - a per-game count and a share of the team's - because they
+// answer different objections. Ten targets a game is volume whoever else is
+// on the field; a third of the team's is volume that survives a game script.
+//
+// The same query as shareOfTeamTotal over a different column, which is exactly
+// what this is, so the denominator rule it documents holds here too.
+export async function usageOfTeam(
+	scope: StatContextScope,
+	usage: UsageStat,
+): Promise<StatContextUsage | null> {
+	const share = await shareOfTeamTotal({
+		...scope,
+		statKeys: [...usage.statKeys],
+	})
+	if (!share) return null
+
+	return {
+		label: usage.label,
+		games: share.games,
+		perGame: share.playerTotal / share.games,
+		sharePct: share.sharePct,
 	}
 }
 

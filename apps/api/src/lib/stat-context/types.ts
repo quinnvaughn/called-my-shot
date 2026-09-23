@@ -9,6 +9,7 @@ export const STAT_CONTEXT_SLOTS = [
 	"rest",
 	"opponent_allowed",
 	"share_of_team",
+	"usage",
 ] as const
 
 export type StatContextSlot = (typeof STAT_CONTEXT_SLOTS)[number]
@@ -59,6 +60,26 @@ export type StatContextOpponentAllowed = {
 	positions: string[]
 }
 
+// Which column carries the volume behind a stat, and what to call it. Targets
+// are the opportunity behind receiving yards, carries the one behind rushing
+// yards, and neither is the stat the question asks about - so the label
+// travels with the numbers rather than being inferred downstream.
+export type UsageStat = {
+	label: string
+	statKeys: readonly string[]
+}
+
+// The volume a subject is being handed, per game and as a share of what their
+// own team hands out. Separate from StatContextShare because it is measured in
+// a different column from the question's stat: a receiving yards card showing
+// 28% means 28% of the team's targets, and saying so is the whole point.
+export type StatContextUsage = {
+	label: string
+	games: number
+	perGame: number
+	sharePct: number
+}
+
 export type StatContextShare = {
 	playerTotal: number
 	teamTotal: number
@@ -80,6 +101,7 @@ export type StatContextSubject = {
 	rest: StatContextRest | null
 	opponentAllowed: StatContextOpponentAllowed | null
 	teamShare: StatContextShare | null
+	usage: StatContextUsage | null
 }
 
 // One candidate in a "who leads this game" pool, with what they're averaging.

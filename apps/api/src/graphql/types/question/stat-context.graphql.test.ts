@@ -32,6 +32,7 @@ const QUERY = `
 					rest { medianRestDays }
 					opponentAllowed { meanAllowed positions }
 					teamShare { sharePct }
+					usage { label perGame sharePct }
 				}
 				matchup { focus }
 			}
@@ -86,6 +87,7 @@ type Result = {
 			rest: { medianRestDays: number } | null
 			opponentAllowed: { meanAllowed: number; positions: string[] } | null
 			teamShare: { sharePct: number } | null
+			usage: { label: string; perGame: number; sharePct: number } | null
 		}[]
 		matchup: { focus: string } | null
 	} | null

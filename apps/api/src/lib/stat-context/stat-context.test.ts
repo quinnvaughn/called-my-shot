@@ -16,6 +16,7 @@ import {
 	makeTeam,
 } from "../../test/factories"
 import { buildStatContext, type SubjectRef } from "./build"
+import type { UsageStat } from "./types"
 import {
 	derivedDifferentialFrom,
 	differentialFrom,
@@ -29,8 +30,9 @@ import {
 	type StatContextScope,
 	seasonToDate,
 	shareOfTeamTotal,
+	usageOfTeam,
 } from "./queries"
-import { recipeFor } from "./recipes"
+import { recipeFor, usageStatFor } from "./recipes"
 import { boxStatSourceFor } from "./stat-source"
 
 const NOW = new Date("2026-09-12T12:00:00Z")
@@ -391,6 +393,56 @@ describe("shareOfTeamTotal", () => {
 		await appearance(world, { daysAgo: 5, value: 25 })
 
 		expect(await shareOfTeamTotal(scopeFor(world))).toBeNull()
+	})
+})
+
+// The volume behind the question's stat, counted in a column the question
+// never mentions: a receiving yards card that says 30% means 30% of the
+// targets, so the count and the label travel together.
+describe("usageOfTeam", () => {
+	const TARGETS = "receiving.receivingTargets"
+	const targets: UsageStat = { label: "targets", statKeys: [TARGETS] }
+
+	async function targetedGame(days: number, mine: number, team: number) {
+		const game = await appearance(world, {
+			daysAgo: days,
+			value: mine,
+			statKey: TARGETS,
+		})
+		await db.insert(teamGameStats).values({
+			gameId: game.id,
+			source: "espn",
+			scope: "player_table_total",
+			teamId: world.team.id,
+			opponentTeamId: world.opponent.id,
+			isHome: true,
+			gameDate: daysAgo(days),
+			seasonId: world.season.id,
+			leagueId: world.league.id,
+			statKey: TARGETS,
+			valueText: String(team),
+			valueNumeric: team,
+		})
+	}
+
+	it("counts the usage column, not the stat the question asks about", async () => {
+		await targetedGame(7, 9, 30)
+		await targetedGame(4, 5, 20)
+		// A big yardage game on the stat the scope is actually built around,
+		// which the usage card must not pick up.
+		await appearance(world, { daysAgo: 4, value: 140 })
+
+		const usage = await usageOfTeam(scopeFor(world), targets)
+
+		expect(usage).toMatchObject({ label: "targets", games: 2, perGame: 7 })
+		// 14 of the team's 50.
+		expect(usage?.sharePct).toBeCloseTo(28)
+	})
+
+	it("is null when the player tables carry no total for the usage column", async () => {
+		await appearance(world, { daysAgo: 5, value: 9, statKey: TARGETS })
+
+		expect(await usageOfTeam(scopeFor(world), targets)).toBeNull()
 	})
 })
 
@@ -785,6 +837,86 @@ describe("buildStatContext", () => {
 		})
 
 		expect(context).toBeNull()
+	})
+
+	// End to end for a receiver's over/under: the recipe asks for usage, the
+	// stat names targets as the column behind it, and the card comes back with
+	// the opportunity rather than only the yards.
+	it("gives a receiving question the targets behind the yards", async () => {
+		const statRow = async (
+			game: { id: string },
+			days: number,
+			statKey: string,
+			value: number,
+		) =>
+			db.insert(playerGameStats).values({
+				gameId: game.id,
+				source: "espn",
+				sourceAthleteId: `nfl:${world.player.id}:${statKey}`,
+				playerId: world.player.id,
+				teamId: world.team.id,
+				opponentTeamId: world.opponent.id,
+				isHome: true,
+				gameDate: daysAgo(days),
+				seasonId: world.season.id,
+				leagueId: world.league.id,
+				statKey,
+				valueText: String(value),
+				valueNumeric: value,
+				didNotPlay: false,
+			})
+
+		const sunday = async (days: number, yards: number, targets: number) => {
+			const game = await makeGame({
+				leagueId: world.league.id,
+				seasonId: world.season.id,
+				homeTeamId: world.team.id,
+				awayTeamId: world.opponent.id,
+				startsAt: daysAgo(days),
+				status: "final",
+			})
+			await statRow(game, days, "receiving.receivingYards", yards)
+			await statRow(game, days, "receiving.receivingTargets", targets)
+			await db.insert(teamGameStats).values({
+				gameId: game.id,
+				source: "espn",
+				scope: "player_table_total",
+				teamId: world.team.id,
+				opponentTeamId: world.opponent.id,
+				isHome: true,
+				gameDate: daysAgo(days),
+				seasonId: world.season.id,
+				leagueId: world.league.id,
+				statKey: "receiving.receivingTargets",
+				valueText: "30",
+				valueNumeric: 30,
+			})
+		}
+
+		await sunday(8, 110, 12)
+		await sunday(1, 40, 6)
+
+		const context = await buildStatContext({
+			...questionBase,
+			leagueSlug: "nfl",
+			statName: "Receiving Yards",
+			shape: "player_stat_over_under",
+			ouLine: 64.5,
+			seasonId: world.season.id,
+			game: gameRef(),
+			subject: refFor(world.player, "Subject", world.team.id),
+			competitors: [],
+			optionSubjects: [],
+		})
+
+		const side = context?.subjects[0]
+		expect(side?.seasonToDate?.mean).toBe(75)
+		expect(side?.usage).toMatchObject({ label: "targets", perGame: 9 })
+		// 18 of the team's 60.
+		expect(side?.usage?.sharePct).toBeCloseTo(30)
+		// The usage card replaced the share of the team's yards, which the
+		// question's own column would otherwise have been divided by.
+		expect(side?.teamShare).toBeNull()
 	})
 })
 
@@ -1465,5 +1597,36 @@ describe("recipeFor", () => {
 		expect(recipeFor("nfl:game:team:Passing Yards")).not.toContain(
 			"opponent_allowed",
 		)
+	})
+})
+
+// Which column the usage card counts is a claim about the stat, the same way
+// the recipe is, so it is held to here rather than only where it is queried.
+describe("usageStatFor", () => {
+	it("counts targets behind the receiving stats", () => {
+		for (const key of [
+			"nfl:game:player:Receiving Yards",
+			"nfl:game:player:Receptions",
+		]) {
+			expect(usageStatFor(key)).toMatchObject({
+				label: "targets",
+				statKeys: ["receiving.receivingTargets"],
+			})
+		}
+	})
+
+	it("counts carries behind rushing yards, and both behind a back's total", () => {
+		expect(usageStatFor("nfl:game:player:Rushing Yards")).toMatchObject({
+			statKeys: ["rushing.rushingAttempts"],
+		})
+		expect(
+			usageStatFor("nfl:game:player:Rushing + Receiving Yards")?.statKeys,
+		).toEqual(["rushing.rushingAttempts", "receiving.receivingTargets"])
+	})
+
+	// A quarterback's attempts are his team's attempts, so the share would read
+	// 100% every week and say nothing.
+	it("gives passing no usage column", () => {
+		expect(usageStatFor("nfl:game:player:Passing Yards")).toBeNull()
 	})
 })
