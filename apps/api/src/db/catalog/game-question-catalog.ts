@@ -38,6 +38,10 @@ export type GameQuestionTemplate =
 			// season's scores stop standing in, the same blend a player line
 			// uses (see blendSamples).
 			priorWeight: number
+			// The "category.stat" last season's stand-in is read from, since
+			// that season isn't in the games table. The same key the season
+			// extractor for this stat uses (see SEASON_EXTRACTORS).
+			priorStat: string
 	  }
 	| {
 			// Each team's best starter at the pick, head to head.
@@ -210,6 +214,7 @@ export const GAME_QUESTION_CATALOG: Record<string, GameQuestionTemplate[]> = {
 			statName: "Points",
 			line: { minGames: 3, shade: 1, minLine: 10.5 },
 			priorWeight: 4,
+			priorStat: "scoring.totalPoints",
 		},
 		{
 			id: "qb-passing-yards-duel",
@@ -329,6 +334,7 @@ export const GAME_QUESTION_CATALOG: Record<string, GameQuestionTemplate[]> = {
 			statName: "Points",
 			line: { minGames: 5, shade: 1, minLine: 80.5 },
 			priorWeight: 10,
+			priorStat: "offensive.points",
 		},
 		{
 			id: "top-scorer-points-duel",
@@ -439,6 +445,7 @@ export const GAME_QUESTION_CATALOG: Record<string, GameQuestionTemplate[]> = {
 			statName: "Runs",
 			line: { minGames: 10, shade: 1, minLine: 1.5 },
 			priorWeight: 20,
+			priorStat: "batting.runs",
 		},
 		{
 			id: "starter-strikeouts-duel",

@@ -17,7 +17,11 @@ import {
 	playerSamples,
 	type Samples,
 } from "./player-samples"
-import { createTeamScoreCache } from "./team-lines"
+import {
+	createTeamScoreCache,
+	createTeamSeasonStatsCache,
+	teamSamples,
+} from "./team-lines"
 
 // Prices each side of an over/under line a person set, from the same inputs a
 // generated line on that stat is set from: the subject's blended per-game
@@ -93,7 +97,7 @@ async function price(
 	const samples = await withTimeout(
 		template.shape === "player_stat_over_under"
 			? loadPlayerSamples(input, template.pick, config, espn)
-			: loadTeamSamples(input, template.priorWeight),
+			: loadTeamSamples(input, template, config, espn),
 	)
 	if (!samples) return null
 	const priorWeight =
@@ -139,13 +143,23 @@ async function loadPlayerSamples(
 
 async function loadTeamSamples(
 	input: PriceInput,
-	priorWeight: number,
+	template: { priorWeight: number; priorStat: string },
+	config: (typeof SYNCED_LEAGUES)[number],
+	espn: EspnClient,
 ): Promise<Samples | null> {
 	if (!input.subjectTeamId) return null
-	return createTeamScoreCache(input.leagueId)(
+	const espnIds = await loadEspnIds("team", [input.subjectTeamId])
+	const teamSeasonStatsFor = createTeamSeasonStatsCache(config, {
+		espn,
+		requester: createEspnRequester("line-pricing", 0),
+	})
+	return teamSamples(
+		createTeamScoreCache(input.leagueId),
+		teamSeasonStatsFor,
+		espnIds.get(input.subjectTeamId),
+		template,
 		input.subjectTeamId,
 		input.seasonYear,
-		priorWeight,
 	)
 }
 

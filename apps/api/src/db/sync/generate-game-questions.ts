@@ -46,7 +46,11 @@ import {
 } from "../../lib/game-questions/player-samples"
 import { refreshGeneratedQuestionSchedule } from "../../lib/game-questions/schedule"
 import { selectGameTemplates } from "../../lib/game-questions/select-templates"
-import { createTeamScoreCache } from "../../lib/game-questions/team-lines"
+import {
+	createTeamScoreCache,
+	createTeamSeasonStatsCache,
+	teamSamples,
+} from "../../lib/game-questions/team-lines"
 import {
 	type GameQuestionTitleFacts,
 	gameQuestionTitle,
@@ -112,12 +116,12 @@ type LeagueContext = {
 	unavailablePlayerIds: Set<string>
 	espnAthleteIdByPlayerId: Map<string, string>
 	seasonStatsFor: SeasonStatsFor
-	// A team's own final scores this season and last, for the team over/under
-	// lines - see createTeamScoreCache.
+	// A team's per-game scoring this season and last, for the team over/under
+	// lines - see teamSamples.
 	teamSamplesFor: (
 		teamId: string,
 		year: number,
-		priorWeight: number,
+		template: { priorWeight: number; priorStat: string },
 	) => Promise<Samples>
 }
 
@@ -230,7 +234,7 @@ async function planTemplate(
 		)
 		.with(
 			{ shape: "team_stat_over_under" },
-			async ({ statName, line, priorWeight }) => {
+			async ({ statName, line, priorWeight, priorStat }) => {
 				const planned: PlannedQuestion[] = []
 				for (const team of teams) {
 					const key = generationKey([...base, team.id])
@@ -238,7 +242,7 @@ async function planTemplate(
 					const { season, prior } = await ctx.teamSamplesFor(
 						team.id,
 						game.season.year,
-						priorWeight,
+						{ priorWeight, priorStat },
 					)
 					// A team too early in the season to carry a line is skipped;
 					// the numeric guess on the same stat still goes up.
@@ -637,12 +641,20 @@ async function generateForLeague(
 			...rosterPlayers.map((player) => player.id),
 		]),
 	]
-	const [players, espnAthleteIdByPlayerId] = await Promise.all([
-		playerIds.length > 0
-			? db.query.players.findMany({ where: { id: { in: playerIds } } })
-			: [],
-		loadEspnIds("player", playerIds),
-	])
+	const teamIds = [
+		...new Set(due.flatMap((game) => [game.awayTeamId, game.homeTeamId])),
+	]
+	const [players, espnAthleteIdByPlayerId, espnTeamIdByTeamId] =
+		await Promise.all([
+			playerIds.length > 0
+				? db.query.players.findMany({ where: { id: { in: playerIds } } })
+				: [],
+			loadEspnIds("player", playerIds),
+			loadEspnIds("team", teamIds),
+		])
+
+	const teamScoresFor = createTeamScoreCache(league.id)
+	const teamSeasonStatsFor = createTeamSeasonStatsCache(config, access)
 
 	const ctx: LeagueContext = {
 		config,
@@ -666,7 +678,15 @@ async function generateForLeague(
 		),
 		espnAthleteIdByPlayerId,
 		seasonStatsFor: createSeasonStatsCache(config, access),
-		teamSamplesFor: createTeamScoreCache(league.id),
+		teamSamplesFor: (teamId, year, template) =>
+			teamSamples(
+				teamScoresFor,
+				teamSeasonStatsFor,
+				espnTeamIdByTeamId.get(teamId),
+				template,
+				teamId,
+				year,
+			),
 	}
 
 	let created = 0

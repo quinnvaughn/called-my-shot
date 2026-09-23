@@ -482,6 +482,24 @@ describe("generateGameQuestions", () => {
 		])
 	})
 
+	it("stands last season's ESPN scoring in while this one is short", async () => {
+		const { league, away, home, game } = await seedNbaGame()
+		await makeExternalRef("team", `${league.slug}:18`, away.id)
+		espn.fetchTeamSeasonStatistics.mockImplementation(
+			async (_sportPath, year, espnTeamId) =>
+				espnTeamId === "18" && year === 2026 ? nbaSeason(120, 82) : null,
+		)
+		await playFinals(league, game.seasonId, away, [100, 110])
+		await playFinals(league, game.seasonId, home, [120, 130, 128, 122, 120])
+
+		await run([TEAM_POINTS_LINE])
+
+		const posted = await questionsOn(game.id)
+		// Two games at 105 of the ten the blend weights, the other eight from
+		// last season's 120: (105 * 2 + 120 * 8) / 10 = 117.
+		expect(posted.find((q) => q.subjectTeamId === away.id)?.ouLine).toBe(117.5)
+	})
+
 	it("skips a team too early in the season for a line, keeping its guess", async () => {
 		const { league, away, home, game } = await seedNbaGame()
 		await playFinals(league, game.seasonId, away, [100, 110])
