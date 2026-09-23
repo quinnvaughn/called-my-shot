@@ -5,6 +5,7 @@ import type {
 	StatContextMatchupSide,
 	StatContextMeeting,
 	StatContextOpponentAllowed,
+	StatContextPoolDefense,
 	StatContextDifferential,
 	StatContextRankedPlayer,
 	StatContextRecord,
@@ -171,6 +172,23 @@ const RankedPlayerRef = builder
 			label: t.exposeString("label"),
 			mean: t.exposeFloat("mean"),
 			games: t.exposeInt("games"),
+			// The side this row is up against, which differs down the list -
+			// half the pool faces one defense and half the other.
+			opponentTeamId: t.id({
+				nullable: true,
+				resolve: (p) => p.opponentTeamId,
+			}),
+			isHome: t.exposeBoolean("isHome"),
+		}),
+	})
+
+const PoolDefenseRef = builder
+	.objectRef<StatContextPoolDefense>("StatContextPoolDefense")
+	.implement({
+		fields: (t) => ({
+			teamId: t.exposeID("teamId"),
+			games: t.exposeInt("games"),
+			meanAllowed: t.exposeFloat("meanAllowed"),
 		}),
 	})
 
@@ -368,6 +386,13 @@ export const StatContextRef = builder
 			ranking: t.field({
 				type: [RankedPlayerRef],
 				resolve: (c) => c.ranking,
+			}),
+			// What each side of that game gives up in the pooled stat, home
+			// first. Empty for every other shape, and for a stat whose recipe
+			// doesn't count the other side's generosity as part of its story.
+			defenses: t.field({
+				type: [PoolDefenseRef],
+				resolve: (c) => c.defenses,
 			}),
 			// Populated instead of either of the above for a game-level question
 			// ("who wins", a game total), which has no per-subject stat to log.

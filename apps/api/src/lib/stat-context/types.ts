@@ -112,6 +112,29 @@ export type StatContextRankedPlayer = {
 	label: string
 	mean: number
 	games: number
+	// The side this candidate is up against in this game, which is not the same
+	// for every row: half the pool faces one defense and half the other, and
+	// which one is most of why a name further down the list is worth a look.
+	// Null when the candidate is on neither competitor, which a pool shouldn't
+	// contain but which the ranking has no way to rule out on its own.
+	opponentTeamId: string | null
+	isHome: boolean
+}
+
+// What one side of the game has been giving up in the pooled stat, per game.
+// A leader question has no single subject to hang an opponentAllowed card on,
+// so the generosity is stated per team and each ranking row names which of
+// the two it is facing.
+//
+// Unfiltered by position on purpose. A leader pool is mixed - a receiving
+// yards pool holds receivers, tight ends and backs - so a per-candidate
+// position filter would print a different denominator on every row, each on a
+// thinner sample, to answer a question the pool isn't asking. What a caller
+// wants here is which side of this game is the soft one.
+export type StatContextPoolDefense = {
+	teamId: string
+	games: number
+	meanAllowed: number
 }
 
 // A tie is a real outcome in the NFL and stays one rather than folding into a
@@ -263,6 +286,10 @@ export type StatContext = {
 	subjects: StatContextSubject[]
 	// Populated only for a pool question. Ordered best first.
 	ranking: StatContextRankedPlayer[]
+	// The two sides' defenses, home first. Populated alongside a ranking, and
+	// only for a stat whose recipe says the other side's generosity is part of
+	// its story - see recipes.ts.
+	defenses: StatContextPoolDefense[]
 	// Populated instead of either of the above for a game-level question, which
 	// has no per-subject stat to log.
 	matchup: StatContextMatchup | null

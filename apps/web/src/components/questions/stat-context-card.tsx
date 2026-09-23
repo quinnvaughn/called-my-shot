@@ -17,6 +17,13 @@ export const StatContextCardFragment = graphql(`
 			label
 			mean
 			games
+			opponentTeamId
+			isHome
+		}
+		defenses {
+			teamId
+			games
+			meanAllowed
 		}
 		subjects {
 			label
@@ -400,37 +407,74 @@ function supportingTiles(subject: Subject, teams: TeamLabels): Tile[] {
 // worth of evidence behind the sort.
 function Ranking({
 	ranking,
+	defenses,
+	teams,
 }: {
 	ranking: StatContextCard_StatContextFragment["ranking"]
+	defenses: StatContextCard_StatContextFragment["defenses"]
+	teams: TeamLabels
 }) {
 	return (
-		<VStack gap="1.5" alignItems="stretch">
-			{ranking.map((player, index) => (
-				<HStack key={player.playerId} justify="space-between" gap="3">
-					<HStack gap="2" minWidth="0">
-						<span className={mutedClass}>{index + 1}</span>
-						<span
-							className={css({
-								fontSize: "sm",
-								minWidth: "0",
-								overflow: "hidden",
-								textOverflow: "ellipsis",
-								whiteSpace: "nowrap",
-							})}
-						>
-							{player.label}
-						</span>
-					</HStack>
-					<HStack gap="2" flexShrink="0">
-						<span className={numberClass}>{round(player.mean)}</span>
-						<span className={mutedClass}>
-							{player.games === 1 ? "last game" : `${player.games} games`}
-						</span>
-					</HStack>
-				</HStack>
-			))}
+		<VStack gap="3" alignItems="stretch">
+			<VStack gap="1.5" alignItems="stretch">
+				{ranking.map((player, index) => {
+					// Named on the row because it is not the same down the list:
+					// half the pool is facing one of these defenses and half the
+					// other, and the tiles below say what each gives up.
+					const opponent = player.opponentTeamId
+						? teams[player.opponentTeamId]
+						: undefined
+					return (
+						<HStack key={player.playerId} justify="space-between" gap="3">
+							<HStack gap="2" minWidth="0">
+								<span className={mutedClass}>{index + 1}</span>
+								<span
+									className={css({
+										fontSize: "sm",
+										minWidth: "0",
+										overflow: "hidden",
+										textOverflow: "ellipsis",
+										whiteSpace: "nowrap",
+									})}
+								>
+									{player.label}
+								</span>
+								{opponent && (
+									<span className={cx(mutedClass, css({ flexShrink: "0" }))}>
+										{player.isHome ? "vs" : "@"} {opponent}
+									</span>
+								)}
+							</HStack>
+							<HStack gap="2" flexShrink="0">
+								<span className={numberClass}>{round(player.mean)}</span>
+								<span className={mutedClass}>
+									{player.games === 1 ? "last game" : `${player.games} games`}
+								</span>
+							</HStack>
+						</HStack>
+					)
+				})}
+			</VStack>
+			<TileGrid tiles={defenseTiles(defenses, teams)} dense={false} />
 		</VStack>
 	)
+}
+
+// What each side of the game gives up in the pooled stat. Two tiles rather
+// than a column on the list: the number belongs to the defense, not to the
+// player, and repeating it down five rows would say the same thing twice
+// while burying which of the two is the softer spot.
+function defenseTiles(
+	defenses: StatContextCard_StatContextFragment["defenses"],
+	teams: TeamLabels,
+): Tile[] {
+	return defenses.map((defense) => ({
+		value: round(defense.meanAllowed),
+		label:
+			defense.games === 1
+				? `${teams[defense.teamId] ?? "opponent"} allowed, last game`
+				: `${teams[defense.teamId] ?? "opponent"} allowed, per game`,
+	}))
 }
 
 // Value large in the heading face over a mono micro-label, the same hierarchy
@@ -888,7 +932,13 @@ export function StatContextCard(props: {
 
 					{expanded && (
 						<>
-							{ranking.length > 0 && <Ranking ranking={ranking} />}
+							{ranking.length > 0 && (
+								<Ranking
+									ranking={ranking}
+									defenses={context.defenses}
+									teams={props.teams}
+								/>
+							)}
 							<div
 								className={css({
 									display: "grid",
@@ -989,7 +1039,13 @@ export function StatContextHighlights(props: {
 			</HStack>
 			{expanded && (
 				<>
-					{ranking.length > 0 && <Ranking ranking={ranking} />}
+					{ranking.length > 0 && (
+						<Ranking
+							ranking={ranking}
+							defenses={context.defenses}
+							teams={props.teams}
+						/>
+					)}
 					<div
 						className={css({
 							display: "grid",

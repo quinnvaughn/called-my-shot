@@ -4,6 +4,8 @@ import { buildMatchup } from "./matchup"
 import {
 	homeAwaySplit,
 	opponentAllowed,
+	type PoolCandidate,
+	poolDefenses,
 	poolRanking,
 	recentGames,
 	restSplit,
@@ -17,6 +19,7 @@ import { boxStatSourceFor } from "./stat-source"
 import type {
 	StatContext,
 	StatContextMatchup,
+	StatContextPoolDefense,
 	StatContextRankedPlayer,
 	StatContextSlot,
 	StatContextSubject,
@@ -235,6 +238,7 @@ export async function buildStatContext(
 		lastN: LAST_N,
 		subjects: [] as StatContextSubject[],
 		ranking: [] as StatContextRankedPlayer[],
+		defenses: [] as StatContextPoolDefense[],
 		matchup: null,
 	}
 
@@ -271,21 +275,48 @@ export async function buildStatContext(
 
 	if (pooled) {
 		if (!question.seasonId) return null
-		const ranking = await poolRanking(
-			{
-				seasonId: question.seasonId,
-				statKeys: [...source.statKeys],
-				asOf: question.locksAt,
-			},
-			question.optionSubjects
-				.map((option) => option.playerId)
-				.filter((id): id is string => id !== null),
-			RANK_LIMIT,
+		const poolScope = {
+			seasonId: question.seasonId,
+			statKeys: [...source.statKeys],
+			asOf: question.locksAt,
+		}
+		const game = question.game
+		// Which defense each candidate is up against, from the game rather than
+		// from their stat rows: a player traded midseason has a history against
+		// the wrong side of it.
+		const candidates: PoolCandidate[] = question.optionSubjects.flatMap(
+			(option) =>
+				option.playerId
+					? [
+							{
+								playerId: option.playerId,
+								opponentTeamId:
+									game && option.teamInGameId
+										? option.teamInGameId === game.homeTeamId
+											? game.awayTeamId
+											: game.homeTeamId
+										: null,
+								isHome: !!game && option.teamInGameId === game.homeTeamId,
+							},
+						]
+					: [],
 		)
+		// The same per-stat judgement a one-sided card makes: only where the
+		// other side's generosity is part of this stat's story is it worth two
+		// more numbers on the card.
+		const wantsDefenses = recipeFor(source.autoResolveStatKey).includes(
+			"opponent_allowed",
+		)
+		const [ranking, defenses] = await Promise.all([
+			poolRanking(poolScope, candidates, RANK_LIMIT),
+			wantsDefenses && game
+				? poolDefenses(poolScope, [game.homeTeamId, game.awayTeamId])
+				: [],
+		])
 		// Nobody in the pool has a stored appearance, so there is no order to
 		// show and a list of names with no numbers is worse than no list.
 		if (ranking.length === 0) return null
-		return { ...base, ranking }
+		return { ...base, ranking, defenses }
 	}
 
 	const slots = new Set<StatContextSlot>(recipeFor(source.autoResolveStatKey))

@@ -3,6 +3,7 @@ import { db } from "../../db"
 import type {
 	StatContextGame,
 	StatContextOpponentAllowed,
+	StatContextPoolDefense,
 	StatContextRankedPlayer,
 	StatContextRest,
 	StatContextShare,
@@ -404,6 +405,65 @@ export async function usageOfTeam(
 	}
 }
 
+// What each side of a leader question's game has been giving up in the pooled
+// stat, per game. The same measurement opponentAllowed makes for a one-sided
+// card, run for both teams at once, so the two cards can't disagree about what
+// a defense allows.
+//
+// A team with no completed game is left out rather than returned as a zero,
+// which would read as the stingiest defense in the league.
+export async function poolDefenses(
+	scope: Pick<StatContextScope, "seasonId" | "statKeys" | "asOf">,
+	teamIds: string[],
+): Promise<StatContextPoolDefense[]> {
+	if (teamIds.length === 0) return []
+
+	const { rows } = await db.execute<{
+		team_id: string
+		games: string
+		mean_allowed: string
+	}>(sql`
+		select opponent_team_id as team_id,
+			count(*) as games,
+			avg(allowed) as mean_allowed
+		from (
+			select opponent_team_id, game_id, sum(value_numeric) as allowed
+			from player_game_stats
+			where opponent_team_id in ${teamIds}
+				and stat_key in ${scope.statKeys}
+				and season_id = ${scope.seasonId}
+				and game_date < ${scope.asOf}
+				and value_numeric is not null
+			group by opponent_team_id, game_id
+		) per_game
+		group by opponent_team_id
+	`)
+
+	const byTeam = new Map(rows.map((row) => [row.team_id, row]))
+	// In the order asked for, which is the order the game's two sides were
+	// given in, rather than whatever the group by happened to emit.
+	return teamIds.flatMap((teamId) => {
+		const row = byTeam.get(teamId)
+		if (!row || num(row.games) === 0) return []
+		return [
+			{
+				teamId,
+				games: num(row.games),
+				meanAllowed: num(row.mean_allowed),
+			},
+		]
+	})
+}
+
+// One name a leader question could be answered with, and the side of the game
+// they are on. Which defense a candidate faces is a fact about the fixture
+// rather than about the stored rows, so it is handed in rather than looked up.
+export type PoolCandidate = {
+	playerId: string
+	opponentTeamId: string | null
+	isHome: boolean
+}
+
 // The pool of a "who leads this game" question, ordered by what each candidate
 // is averaging this season, best first.
 //
@@ -414,10 +474,11 @@ export async function usageOfTeam(
 // the list is who is in front.
 export async function poolRanking(
 	scope: Pick<StatContextScope, "seasonId" | "statKeys" | "asOf">,
-	playerIds: string[],
+	candidates: PoolCandidate[],
 	limit: number,
 ): Promise<StatContextRankedPlayer[]> {
-	if (playerIds.length === 0) return []
+	if (candidates.length === 0) return []
+	const playerIds = candidates.map((candidate) => candidate.playerId)
 
 	const { rows } = await db.execute<{
 		player_id: string
@@ -445,10 +506,18 @@ export async function poolRanking(
 		limit ${limit}
 	`)
 
-	return rows.map((row) => ({
-		playerId: row.player_id,
-		label: row.name,
-		games: num(row.games),
-		mean: num(row.mean),
-	}))
+	const byPlayer = new Map(
+		candidates.map((candidate) => [candidate.playerId, candidate]),
+	)
+	return rows.map((row) => {
+		const candidate = byPlayer.get(row.player_id)
+		return {
+			playerId: row.player_id,
+			label: row.name,
+			games: num(row.games),
+			mean: num(row.mean),
+			opponentTeamId: candidate?.opponentTeamId ?? null,
+			isHome: candidate?.isHome ?? false,
+		}
+	})
 }

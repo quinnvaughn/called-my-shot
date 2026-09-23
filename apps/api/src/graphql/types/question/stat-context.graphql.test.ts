@@ -34,6 +34,8 @@ const QUERY = `
 					teamShare { sharePct }
 					usage { label perGame sharePct }
 				}
+				ranking { label mean opponentTeamId isHome }
+				defenses { teamId meanAllowed }
 				matchup { focus }
 			}
 		}
@@ -89,6 +91,13 @@ type Result = {
 			teamShare: { sharePct: number } | null
 			usage: { label: string; perGame: number; sharePct: number } | null
 		}[]
+		ranking: {
+			label: string
+			mean: number
+			opponentTeamId: string | null
+			isHome: boolean
+		}[]
+		defenses: { teamId: string; meanAllowed: number }[]
 		matchup: { focus: string } | null
 	} | null
 }

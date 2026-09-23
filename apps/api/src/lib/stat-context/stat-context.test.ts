@@ -25,6 +25,7 @@ import { completedGames, type MatchupScope } from "./matchup"
 import {
 	homeAwaySplit,
 	opponentAllowed,
+	poolDefenses,
 	recentGames,
 	restSplit,
 	type StatContextScope,
@@ -393,6 +394,56 @@ describe("shareOfTeamTotal", () => {
 		await appearance(world, { daysAgo: 5, value: 25 })
 
 		expect(await shareOfTeamTotal(scopeFor(world))).toBeNull()
+	})
+})
+
+// Both sides of a leader question's game at once, which is the same
+// measurement opponentAllowed makes for one side of a one-sided card.
+describe("poolDefenses", () => {
+	const poolScope = { seasonId: "", statKeys: [STAT_KEY], asOf: NOW }
+
+	it("sums a whole game's opposing lines, per team", async () => {
+		const rival = await makePlayer({ currentTeamId: world.team.id })
+		// One game where the subject's team put up 25 and 15 between two
+		// players, so the opponent allowed 40 rather than either number.
+		const game = await appearance(world, { daysAgo: 5, value: 25 })
+		await db.insert(playerGameStats).values({
+			gameId: game.id,
+			source: "espn",
+			sourceAthleteId: `nba:${rival.id}`,
+			playerId: rival.id,
+			teamId: world.team.id,
+			opponentTeamId: world.opponent.id,
+			isHome: true,
+			gameDate: daysAgo(5),
+			seasonId: world.season.id,
+			leagueId: world.league.id,
+			statKey: STAT_KEY,
+			valueText: "15",
+			valueNumeric: 15,
+			didNotPlay: false,
+		})
+
+		const defenses = await poolDefenses(
+			{ ...poolScope, seasonId: world.season.id },
+			[world.opponent.id],
+		)
+
+		expect(defenses).toEqual([
+			{ teamId: world.opponent.id, games: 1, meanAllowed: 40 },
+		])
+	})
+
+	// A zero would read as the stingiest defense in the league.
+	it("leaves out a side with nothing played against it", async () => {
+		await appearance(world, { daysAgo: 5, value: 25 })
+
+		const defenses = await poolDefenses(
+			{ ...poolScope, seasonId: world.season.id },
+			[world.opponent.id, world.team.id],
+		)
+
+		expect(defenses.map((d) => d.teamId)).toEqual([world.opponent.id])
 	})
 })
 
@@ -792,6 +843,73 @@ describe("buildStatContext", () => {
 		})
 
 		expect(context).toBeNull()
+	})
+
+	// A leader pool has no single subject to hang an opponentAllowed card on,
+	// so the two defenses are stated side by side and each row names which one
+	// it is up against.
+	it("gives a leader question both sides' defenses", async () => {
+		const rival = await makePlayer({ currentTeamId: world.opponent.id })
+		await appearance(world, { daysAgo: 5, value: 10 })
+		await appearance(world, {
+			daysAgo: 5,
+			value: 30,
+			playerId: rival.id,
+			teamId: world.opponent.id,
+			opponentTeamId: world.team.id,
+			isHome: false,
+		})
+
+		const context = await buildStatContext({
+			...questionBase,
+			shape: "player_game_stat_leader",
+			seasonId: world.season.id,
+			game: gameRef(),
+			subject: null,
+			competitors: [],
+			optionSubjects: [
+				refFor(world.player, "Subject", world.team.id),
+				refFor(rival, "Rival", world.opponent.id),
+			],
+		})
+
+		// Home first, whichever way the ranking came out.
+		expect(context?.defenses.map((d) => d.teamId)).toEqual([
+			world.team.id,
+			world.opponent.id,
+		])
+		// The subject's team has given up the rival's 30; the rival's has given
+		// up the subject's 10.
+		expect(context?.defenses[0]?.meanAllowed).toBe(30)
+		expect(context?.defenses[1]?.meanAllowed).toBe(10)
+		// Each row faces the other side, which is the whole point of printing
+		// two numbers rather than one.
+		expect(
+			context?.ranking.map((r) => [r.playerId, r.opponentTeamId, r.isHome]),
+		).toEqual([
+			[rival.id, world.team.id, false],
+			[world.player.id, world.opponent.id, true],
+		])
+	})
+
+	// Points has the opposing defense in its recipe; blocks does not, and a
+	// pool card follows the same per-stat judgement a one-sided card does.
+	it("leaves the defenses off a stat whose recipe has no opponent card", async () => {
+		await appearance(world, { daysAgo: 5, value: 10, statKey: "blocks" })
+
+		const context = await buildStatContext({
+			...questionBase,
+			statName: "Blocks",
+			shape: "player_game_stat_leader",
+			seasonId: world.season.id,
+			game: gameRef(),
+			subject: null,
+			competitors: [],
+			optionSubjects: [refFor(world.player, "Subject", world.team.id)],
+		})
+
+		expect(context?.ranking).toHaveLength(1)
+		expect(context?.defenses).toEqual([])
 	})
 
 	// A pool question's answer is who is in front, so it gets a ranking rather
