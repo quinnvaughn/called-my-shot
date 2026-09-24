@@ -1,5 +1,5 @@
+import { Fragment } from "react"
 import { css } from "styled-system/css"
-import { Flex, HStack, VStack } from "styled-system/jsx"
 import { formatRecord, formatSignedPoints } from "#/lib/ballot-entry"
 import { formatReturn, returnTone } from "#/lib/report-card"
 
@@ -21,22 +21,28 @@ type Props = {
 // One line of the breakdown, used at both grains: a family row on the card,
 // and the shape rows nested under it on the permalink. Same component so a
 // family and the shapes inside it can't come out formatted differently.
+// Rows take their columns from the breakdown's grid (subgrid), so record,
+// points and return line up down the whole breakdown.
 export function ReportCardRow({ row, nested = false }: Props) {
 	const settled = row.wins + row.losses
 	const returnText = formatReturn(row.returnPct)
 	return (
-		<Flex
-			direction={{ base: "column", sm: "row" }}
-			justify="space-between"
-			alignItems={{ base: "flex-start", sm: "baseline" }}
-			gap={{ base: "0.5", sm: "3" }}
+		<div
 			className={css({
+				gridColumn: "1 / -1",
+				display: "grid",
+				gridTemplateColumns: "subgrid",
+				alignItems: "baseline",
+				rowGap: "0.5",
 				paddingY: "1.5",
-				paddingLeft: nested ? "4" : "0",
 			})}
 		>
 			<span
 				className={css({
+					// On narrow screens the label takes its own line above the
+					// numbers; from sm up it's the first column.
+					gridColumn: { base: "1 / -1", sm: "1" },
+					paddingLeft: nested ? "4" : "0",
 					fontSize: nested ? "xs" : "sm",
 					fontWeight: nested ? "normal" : "medium",
 					color: nested ? "fg.muted" : "fg.default",
@@ -44,40 +50,40 @@ export function ReportCardRow({ row, nested = false }: Props) {
 			>
 				{row.label}
 			</span>
-			<HStack
-				gap="3"
+			<span
 				className={css({
 					fontFamily: "mono",
 					fontSize: "2xs",
-					// One unbreakable run, so a record never splits across lines
-					// from the points beside it.
 					whiteSpace: "nowrap",
+					color: "fg.muted",
 				})}
 			>
-				<span className={css({ color: "fg.muted" })}>
-					{settled > 0 ? formatRecord(row.wins, row.losses) : "-"}
-					{row.pendingCount > 0 ? ` · ${row.pendingCount} open` : ""}
-				</span>
-				{settled > 0 && (
-					<>
-						<span className={css({ color: returnTone(row.netPoints) })}>
-							{formatSignedPoints(row.netPoints)}
-						</span>
-						{returnText && (
-							<span
-								className={css({
-									color: returnTone(row.returnPct),
-									minWidth: "3.5rem",
-									textAlign: "right",
-								})}
-							>
-								{returnText}
-							</span>
-						)}
-					</>
-				)}
-			</HStack>
-		</Flex>
+				{settled > 0 ? formatRecord(row.wins, row.losses) : "-"}
+				{row.pendingCount > 0 ? ` · ${row.pendingCount} open` : ""}
+			</span>
+			<span
+				className={css({
+					fontFamily: "mono",
+					fontSize: "2xs",
+					whiteSpace: "nowrap",
+					textAlign: "right",
+					color: returnTone(row.netPoints),
+				})}
+			>
+				{settled > 0 ? formatSignedPoints(row.netPoints) : ""}
+			</span>
+			<span
+				className={css({
+					fontFamily: "mono",
+					fontSize: "2xs",
+					whiteSpace: "nowrap",
+					textAlign: "right",
+					color: returnTone(row.returnPct),
+				})}
+			>
+				{settled > 0 ? returnText : ""}
+			</span>
+		</div>
 	)
 }
 
@@ -95,10 +101,17 @@ export function ReportCardBreakdown({
 }) {
 	if (families.length === 0) return null
 	return (
-		<VStack
-			gap="0"
-			alignItems="stretch"
+		<div
 			className={css({
+				display: "grid",
+				// Label on its own line above the numbers on narrow screens, so
+				// the numbers take the first three columns; from sm up the label
+				// fills the left and the numbers hug the right.
+				gridTemplateColumns: {
+					base: "auto auto auto 1fr",
+					sm: "1fr auto auto auto",
+				},
+				columnGap: "3",
 				borderTop: "1px solid {colors.border.default}",
 				paddingTop: "2",
 			})}
@@ -106,7 +119,7 @@ export function ReportCardBreakdown({
 			{families.map((family) => {
 				const shapes = shapesByFamily?.[family.family] ?? []
 				return (
-					<div key={family.family}>
+					<Fragment key={family.family}>
 						<ReportCardRow row={family} />
 						{/* Every shape, including a family that holds only one.
 						    Repeating the parent's numbers there is the point: it
@@ -117,9 +130,9 @@ export function ReportCardBreakdown({
 						{shapes.map((shape) => (
 							<ReportCardRow key={shape.label} row={shape} nested />
 						))}
-					</div>
+					</Fragment>
 				)
 			})}
-		</VStack>
+		</div>
 	)
 }
