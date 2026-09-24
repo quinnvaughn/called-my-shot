@@ -277,8 +277,8 @@ async function drainOneUser(
 	}))
 
 	// The card worth leading with: the biggest win if there is one, otherwise
-	// the biggest miss. A loss card is still worth sharing here - the loss
-	// quips are the self-deprecating half of the product's voice.
+	// the biggest miss. A loss card is still worth sharing here - owning a
+	// miss is half of what a public record is for.
 	// `ordered` is non-empty (live.length > 0 and every live row has a
 	// summary); the guard is for the type, not a reachable case.
 	const primary = ordered.find((s) => s.isWin) ?? ordered[0]

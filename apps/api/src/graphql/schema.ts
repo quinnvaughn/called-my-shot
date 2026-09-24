@@ -14,6 +14,7 @@ import "./types/ballot"
 import "./types/notification"
 import "./types/referral"
 import "./types/support"
+import "./types/call-gif"
 
 builder.queryType({})
 

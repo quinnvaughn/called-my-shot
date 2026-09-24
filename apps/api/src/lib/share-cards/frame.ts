@@ -87,9 +87,6 @@ export type CardFrameOptions = {
 	// The footer's stat row, spread edge to edge.
 	cells: SatoriNode[]
 	username: string
-	// A line centred between the @username and the site. Omitted, the footer
-	// has only those two.
-	quip?: string
 	// The gap between the stat row and the username line.
 	footerGap?: string
 	borderColor?: string
@@ -100,17 +97,13 @@ export function cardFrame({
 	hero,
 	cells,
 	username,
-	quip,
 	footerGap = "18px",
 	borderColor = COLOR.border,
 }: CardFrameOptions): SatoriNode {
 	const bottomLine: SatoriNode[] = [
 		el("span", { display: "flex" }, `@${username}`),
+		el("span", { display: "flex" }, "calledmyshot.com"),
 	]
-	if (quip !== undefined) {
-		bottomLine.push(el("span", { display: "flex", fontStyle: "italic" }, quip))
-	}
-	bottomLine.push(el("span", { display: "flex" }, "calledmyshot.com"))
 
 	return el(
 		"div",

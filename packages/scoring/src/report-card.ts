@@ -1,5 +1,5 @@
 // How a window's worth of calls is graded. Lives beside the scoring math
-// rather than inside it for the same reason ./quips and ./margin do: this
+// rather than inside it for the same reason ./call-gifs and ./margin do: this
 // describes a result after the fact, it never decides what a call is worth.
 // Nothing in index.ts imports this.
 

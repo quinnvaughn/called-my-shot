@@ -1,4 +1,3 @@
-import { type QuipTone, quipForCall } from "@called-my-shot/scoring"
 import { useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute, Link, useRouteContext } from "@tanstack/react-router"
 import { FaRegTimesCircle } from "react-icons/fa"
@@ -22,6 +21,7 @@ import { NotFound } from "#/components/ui/not-found"
 import { PageHeader } from "#/components/ui/page-header"
 import type { CallRecordQuery } from "#/graphql/generated/graphql"
 import { callRecordQuery } from "#/graphql/queries/call"
+import { callGifState } from "#/lib/call-gif"
 import { callCardVersion, callPageMeta } from "#/lib/call-meta"
 import {
 	actualSummary,
@@ -241,17 +241,6 @@ function firstDefined(flags: (boolean | null | undefined)[]): boolean | null {
 	return flags.some((f) => f === true)
 }
 
-// Only two of the four outcomes get a pool of their own. A narrow WIN and a
-// runaway LOSS fall back to the plain win/loss vocabulary on purpose: "by a
-// hair" and "not close" are already the card's own label a few pixels up, and
-// a quip repeating them would say the same thing twice.
-function quipTone(view: ReturnType<typeof describeCall>): QuipTone {
-	const won = view.isWin === true
-	if (view.margin?.verdict === "narrow" && !won) return "narrow_miss"
-	if (view.margin?.verdict === "runaway" && won) return "runaway_win"
-	return won ? "win" : "loss"
-}
-
 function RouteComponent() {
 	const { callId } = Route.useParams()
 	const { data } = useSuspenseQuery(callRecordQuery(callId))
@@ -300,10 +289,11 @@ function RouteComponent() {
 		conviction: view.conviction,
 		caseText: call.caseText,
 		streakLength: call.streak?.length ?? null,
-		// Deterministic off the call's own id, so the page and the og:image
-		// (which calls the same function against the same id) always show the
-		// same line, and neither has to persist it.
-		quip: resolved ? quipForCall(call.id, quipTone(view)) : null,
+		// Which reaction pool the card draws from. Derived from the same facts
+		// the eyebrow above it is, so the gif and the words agree about what
+		// happened - see callGifState for the two precedence rules that aren't
+		// obvious.
+		gifState: callGifState(view),
 		pendingLabel: match(view.questionStatus)
 			.with("OPEN", () => `Locks ${formatCallDate(view.locksAt)}`)
 			.with("VOIDED", () => "Voided, no result")

@@ -1,5 +1,7 @@
+import type { CallGifState } from "@called-my-shot/scoring"
 import { css } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
+import { CallGif } from "#/components/questions/call-gif"
 import { Avatar } from "#/components/ui/avatar"
 import { Brand } from "#/components/ui/brand"
 import { Card } from "#/components/ui/card"
@@ -22,7 +24,10 @@ export type CallRecordCardData = {
 	// is still a record, it just doesn't have a result to state yet.
 	isWin: boolean | null
 	points: number | null
-	quip: string | null
+	// Which reaction pool the card draws from. The state, not a chosen gif:
+	// the pick happens on mount inside CallGif, so whoever renders the card
+	// has nothing to decide - see callGifState in lib/call-gif.ts.
+	gifState: CallGifState
 	// What to say in place of the result while it's pending: "Locks Jun 12,
 	// 2027" or "Awaiting result".
 	pendingLabel: string | null
@@ -242,18 +247,7 @@ export function CallRecordCard({ data }: Props) {
 							</span>
 						)}
 					</HStack>
-					{data.quip && (
-						<p
-							className={css({
-								fontSize: "xs",
-								fontStyle: "italic",
-								color: "fg.subtle",
-								textAlign: "center",
-							})}
-						>
-							{data.quip}
-						</p>
-					)}
+					<CallGif state={data.gifState} />
 				</VStack>
 			</Card.Body>
 			<Card.Footer>

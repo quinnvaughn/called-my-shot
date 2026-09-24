@@ -7,13 +7,13 @@
 // This is now an og:image and nothing else. Nobody downloads it, nothing in
 // the app renders it: it exists so a /calls/:id link unfurls as the call
 // rather than as the house graphic, at the fixed og:image size (see frame.ts).
-import { fieldPct, quipForCall } from "@called-my-shot/scoring"
+import { fieldPct } from "@called-my-shot/scoring"
 import { and, count, eq } from "drizzle-orm"
 import { db } from "../../db"
 import { callSelections, calls } from "../../db/schema"
 import { COLOR } from "../brand-palette"
 import { el, type SatoriNode } from "../share-image"
-import { formatCallDate, loadCallSummaries, quipToneFor } from "./call-summary"
+import { formatCallDate, loadCallSummaries } from "./call-summary"
 import { cardFrame, clamp, eyebrow, statCell } from "./frame"
 
 // Every free-text field is capped in JS (see clamp). caseText is the
@@ -63,7 +63,6 @@ export type CallShareCardData = {
 	// Resolved only. Null on all three renders the pending face instead.
 	points: number | null
 	isWin: boolean | null
-	quip: string | null
 	// "Awaiting result" / "Locks Jun 2027" - pending only.
 	pendingLabel: string | null
 	// Set on a win at least STREAK_TAG_MIN into its league-and-family streak.
@@ -295,7 +294,6 @@ export function buildCallShareCard(data: CallShareCardData): SatoriNode {
 		hero,
 		cells,
 		username: data.username,
-		quip: data.quip ?? "",
 		borderColor: nailed ? COLOR.primaryDefault : COLOR.border,
 	})
 }
@@ -358,15 +356,6 @@ export async function loadCallShareCardData(
 		actual: summary.actual,
 		conviction: summary.conviction,
 		caseText: summary.caseText,
-		// There is no quip for a call nobody has graded, and inventing one
-		// would be the kind of filler the loss quips exist to avoid. Only two
-		// of the four margins get a pool of their own - see QuipTone.
-		quip: resolved
-			? quipForCall(
-					summary.callId,
-					quipToneFor(summary.isWin === true, summary.margin),
-				)
-			: null,
 		pendingLabel: resolved
 			? null
 			: summary.questionStatus === "open"

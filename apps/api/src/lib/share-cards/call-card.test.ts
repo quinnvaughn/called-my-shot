@@ -26,7 +26,6 @@ const base = {
 	caseText: "Their secondary is banged up.",
 	points: 240,
 	isWin: true,
-	quip: "Called it before the line moved.",
 	pendingLabel: null,
 	streakLength: null,
 }
@@ -166,21 +165,19 @@ describe("buildCallShareCard", () => {
 		expect(textNodes(buildCallShareCard(base))).not.toContain("Streak")
 	})
 
-	// quipForCall has no vocabulary for a call nobody has graded, so the
-	// pending face carries a status instead of a result and no quip at all.
-	it("renders a pending face with no result and no quip", () => {
+	// A call nobody has graded has no result to state, so the pending face
+	// carries the status where the points would be.
+	it("renders a pending face with a status in place of a result", () => {
 		const texts = textNodes(
 			buildCallShareCard({
 				...base,
 				points: null,
 				isWin: null,
-				quip: null,
 				pendingLabel: "Locks Jun 12, 2027",
 			}),
 		)
 		expect(texts).toContain("Locks Jun 12, 2027")
 		expect(texts).toContain("Mar 3, 2026")
 		expect(texts.some((t) => t.startsWith("Points"))).toBe(false)
-		expect(texts.some((t) => t.includes("Called it before"))).toBe(false)
 	})
 })

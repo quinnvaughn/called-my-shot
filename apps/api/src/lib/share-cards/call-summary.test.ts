@@ -21,7 +21,6 @@ import {
 	buildPickLabel,
 	loadCallSummaries,
 	loadResolvedCallSummaries,
-	quipToneFor,
 } from "./call-summary"
 
 // The split between these two loaders is load-bearing. The og:image renders
@@ -431,19 +430,5 @@ describe("margin on a loaded call summary", () => {
 			points: 150,
 		})
 		expect(summary?.margin).toBeNull()
-	})
-})
-
-describe("quipToneFor", () => {
-	// Only two of the four margins get a pool of their own. A narrow win and a
-	// runaway loss fall back to the plain vocabulary because the card's own
-	// label already says "By a hair" / "Not close" a few pixels up.
-	it("gives a pool only to a narrow miss and a runaway win", () => {
-		expect(quipToneFor(false, { verdict: "narrow" })).toBe("narrow_miss")
-		expect(quipToneFor(true, { verdict: "runaway" })).toBe("runaway_win")
-		expect(quipToneFor(true, { verdict: "narrow" })).toBe("win")
-		expect(quipToneFor(false, { verdict: "runaway" })).toBe("loss")
-		expect(quipToneFor(true, null)).toBe("win")
-		expect(quipToneFor(false, null)).toBe("loss")
 	})
 })

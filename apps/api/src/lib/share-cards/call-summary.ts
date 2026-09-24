@@ -8,7 +8,6 @@ import {
 	type MarginBasis,
 	type MarginVerdict,
 	type QuestionShape,
-	type QuipTone,
 	SHARE_CARD_SHAPE_LABEL as SHAPE_LABEL,
 	STREAK_TAG_MIN,
 	type ToleranceSpec,
@@ -22,9 +21,9 @@ import { db } from "../../db"
 // (lib/email-digest.ts) can never describe the same pick two different ways -
 // they are the same claim about the same call, arriving in two places.
 
-// The badge strings live in @called-my-shot/scoring, alongside the quips the
-// same cards draw, so the exported PNG, the digest email and the call page's
-// own badge read off one copy instead of three. Kept under the name this
+// The badge strings live in @called-my-shot/scoring, so the exported PNG, the
+// digest email and the call page's own badge read off one copy instead of
+// three. Kept under the name this
 // module has always used, since the PNG builders below and routes/share.ts
 // both import it from here.
 export { SHAPE_LABEL }
@@ -347,24 +346,10 @@ export function buildMargin(
 	return { verdict: margin.verdict, label: marginLabel(margin.verdict, won) }
 }
 
-// Which quip pool a resolved call draws from. Mirrors quipTone in apps/web's
-// routes/_app/calls/$callId.tsx: only a narrow miss and a runaway win get a
-// pool of their own, because "by a hair" and "not close" are already the
-// card's own label and a quip repeating them says it twice.
-export function quipToneFor(
-	won: boolean,
-	margin: { verdict: MarginVerdict } | null,
-): QuipTone {
-	if (margin?.verdict === "narrow" && !won) return "narrow_miss"
-	if (margin?.verdict === "runaway" && won) return "runaway_win"
-	return won ? "win" : "loss"
-}
-
 // Everything the og:image card and the resolution digest need to describe one
-// call, derived in a single batched query. Neither the aggregate
-// field-percentage counts nor the quip are here: the first needs its own
-// per-question count queries and only the card shows it, the second is a pure
-// function of the call id (quipForCall) that either caller can apply.
+// call, derived in a single batched query. The aggregate field-percentage
+// counts are not here: they need their own per-question count queries and
+// only the card shows them.
 //
 // Batched by callIds because the digest resolves a whole email's worth at
 // once; routes/share.ts passes a single id.
@@ -391,8 +376,9 @@ export type CallSummary = {
 	// How remarkable this call's margin was, and the word the card leads with
 	// in place of "Called it" / "Missed" because of it. Null on the ordinary
 	// call, and on every shape with no two numbers to subtract. The verdict
-	// rides along with the label so callers picking a quip tone can branch on
-	// data rather than string-matching the copy. Deliberately not folded into
+	// rides along with the label so a caller that needs to branch on how
+	// remarkable the margin was can read data rather than string-match the
+	// copy. Deliberately not folded into
 	// `closeness`: that one is a numeric guess's distance from the answer,
 	// this is a judgement about any shape's distance from its line, and they
 	// coexist on a numeric guess.
