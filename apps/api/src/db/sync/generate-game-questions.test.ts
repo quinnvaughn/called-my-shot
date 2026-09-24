@@ -56,6 +56,7 @@ const POINTS_LINE = catalogTemplate("nba", "top-scorer-points")
 const REBOUNDS_LEADER = catalogTemplate("nba", "rebounds-leader")
 const POINTS_LEADER = catalogTemplate("nba", "points-leader")
 const BATTER_HITS = catalogTemplate("mlb", "batter-hits")
+const BATTER_RBIS = catalogTemplate("mlb", "batter-rbis")
 
 // With templates, posts exactly those on the league's games, each in a group
 // of its own so none is left out. Without, posts what the catalog draws.
@@ -100,7 +101,11 @@ function nbaSeason(pointsPerGame: number, gamesPlayed: number) {
 	}
 }
 
-function mlbBattingSeason(hitsPerGame: number, gamesPlayed: number) {
+function mlbBattingSeason(
+	hitsPerGame: number,
+	gamesPlayed: number,
+	rbisPerGame = 0,
+) {
 	return {
 		splits: {
 			categories: [
@@ -108,6 +113,7 @@ function mlbBattingSeason(hitsPerGame: number, gamesPlayed: number) {
 					name: "batting",
 					stats: [
 						{ name: "hits", value: hitsPerGame * gamesPlayed },
+						{ name: "RBIs", value: rbisPerGame * gamesPlayed },
 						{ name: "gamesPlayed", value: gamesPlayed },
 					],
 				},
@@ -323,7 +329,7 @@ describe("generateGameQuestions", () => {
 		])
 	})
 
-	it("doesn't ask about a player a duel already asks about in the same stat", async () => {
+	it("doesn't ask about a player a duel already asks about", async () => {
 		const { game } = await seedStandardGame()
 
 		await run([POINTS_DUEL, POINTS_LINE])
@@ -767,6 +773,41 @@ describe("generateGameQuestions", () => {
 		expect(overUnderSubjects(await questionsOn(game.id))).toEqual([
 			"Aaron Judge",
 			"Pete Alonso",
+		])
+	})
+	it("asks each batter about one stat at most", async () => {
+		await makeUser({ username: OFFICIAL_ACCOUNT_USERNAME })
+		const league = await makeLeague({ slug: "mlb" })
+		const season = await makeSeason({ leagueId: league.id, year: 2027 })
+		await makeStat({ sportId: league.sportId, name: "Hits" })
+		await makeStat({ sportId: league.sportId, name: "RBIs" })
+		const away = await makeTeam({ leagueId: league.id, name: "Mets" })
+		const home = await makeTeam({ leagueId: league.id, name: "Yankees" })
+		const game = await makeGame({
+			leagueId: league.id,
+			seasonId: season.id,
+			homeTeamId: home.id,
+			awayTeamId: away.id,
+			startsAt: hoursFromNow(10),
+		})
+		// One batter a side, so a second stat has nobody left to ask about.
+		for (const [team, name, espnId] of [
+			[away, "Francisco Lindor", "11"],
+			[home, "Aaron Judge", "13"],
+		] as const) {
+			await addPlayer(league, team, {
+				name,
+				espnId,
+				positions: ["RF"],
+				seasons: { 2027: mlbBattingSeason(1.2, 100, 0.8) },
+			})
+		}
+
+		await run([BATTER_HITS, BATTER_RBIS], "mlb")
+
+		expect(overUnderSubjects(await questionsOn(game.id))).toEqual([
+			"Aaron Judge",
+			"Francisco Lindor",
 		])
 	})
 })

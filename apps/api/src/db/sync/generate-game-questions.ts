@@ -218,7 +218,7 @@ async function planTemplate(
 	game: DueGame,
 	template: GameQuestionTemplate,
 	isFilled: (slot: string) => boolean,
-	isClaimed: (statName: string, playerId: string) => boolean,
+	isClaimed: (playerId: string) => boolean,
 ): Promise<PlannedQuestion[]> {
 	const base = [ctx.league.slug, game.id, template.id]
 	const teams = [game.awayTeam, game.homeTeam]
@@ -330,11 +330,11 @@ async function planTemplate(
 		.with({ shape: "player_vs_player" }, async ({ statName, pick }) => {
 			if (isFilled(generationKey(base))) return []
 			// Drawn from each side's best starters that nothing on the game
-			// already asks about in this stat.
+			// already asks about.
 			const pickSide = async (teamId: string) =>
 				chooseFrom(
 					(await rankedStarters(ctx, game, teamId, pick)).filter(
-						({ candidate }) => !isClaimed(statName, candidate.playerId),
+						({ candidate }) => !isClaimed(candidate.playerId),
 					),
 					pick.choose,
 					generationKey([...base, teamId]),
@@ -367,12 +367,12 @@ async function planTemplate(
 					const slot = generationKey([...base, team.id])
 					if (isFilled(slot)) continue
 					// Drawn from the best starters whose season can carry a line and
-					// that nothing on the game already asks about in this stat. One
-					// without enough games falls through to the next.
+					// that nothing on the game already asks about. One without enough
+					// games falls through to the next.
 					const lined = (
 						await rankedStarters(ctx, game, team.id, pick)
 					).flatMap(({ candidate, samples }) => {
-						if (isClaimed(statName, candidate.playerId)) return []
+						if (isClaimed(candidate.playerId)) return []
 						const basis = setLine(
 							samples.season,
 							samples.prior,
@@ -513,15 +513,15 @@ async function generateForGame(
 	}
 	const isFilled = (slot: string) => liveKeys.some((key) => isInSlot(key, slot))
 
-	// A player is asked about each stat at most once per game: whoever a live
-	// or just-planned question is about can't be the subject of another one on
-	// the same stat.
+	// A player is the subject of at most one question per game: stats on the
+	// same player move together (a home run is an RBI), so a second question
+	// about them mostly re-asks the first.
 	const claimed = new Set<string>()
 	const claim = (template: GameQuestionTemplate, key: string) => {
 		const parsed = parseGenerationKey(key)
 		if (!parsed) return
 		for (const playerId of subjectPlayerIds(template, parsed.rest)) {
-			claimed.add(`${template.statName}:${playerId}`)
+			claimed.add(playerId)
 		}
 	}
 	const liveTemplateIds = new Set<string>()
@@ -532,8 +532,7 @@ async function generateForGame(
 		liveTemplateIds.add(template.id)
 		claim(template, key)
 	}
-	const isClaimed = (statName: string, playerId: string) =>
-		claimed.has(`${statName}:${playerId}`)
+	const isClaimed = (playerId: string) => claimed.has(playerId)
 
 	const selected = selectGameTemplates(ctx.templates, {
 		gameId: game.id,
