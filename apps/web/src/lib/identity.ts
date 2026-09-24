@@ -16,6 +16,7 @@ export type IdentityData = {
 	id: string
 	name: string
 	username: string
+	avatarUrl: string | null
 	flair: FlairData | null
 }
 
@@ -41,6 +42,7 @@ export function toIdentity(user: IdentityUser): IdentityData {
 		id: data.id,
 		name: data.name,
 		username: data.username,
+		avatarUrl: data.avatarUrl ?? null,
 		flair: toFlair(data.equippedFlair),
 	}
 }

@@ -6,6 +6,7 @@ import {
 import { and, eq } from "drizzle-orm"
 import { db } from "../../../db"
 import {
+	type Group,
 	groupInvites,
 	groupMembers,
 	groups,
@@ -36,6 +37,7 @@ import {
 	createNotifications,
 	type NotificationInput,
 } from "../../../lib/notifications"
+import { deleteImage } from "../../../lib/storage"
 import { builder } from "../../builder"
 import { parseInput } from "../../helpers"
 import { GroupRole, InviteExpiry } from "./enums"
@@ -76,6 +78,13 @@ function deleteMemberInvite(tx: Tx, groupId: string, userId: string) {
 				eq(groupInvites.createdBy, userId),
 			),
 		)
+}
+
+// Run after the group row is gone, never inside its transaction: a storage
+// hiccup shouldn't be able to roll back a delete.
+async function deleteGroupImages(group: Group | undefined) {
+	if (!group) return
+	await Promise.all([deleteImage(group.logoKey), deleteImage(group.bannerKey)])
 }
 
 builder.mutationFields((t) => ({
@@ -309,7 +318,11 @@ builder.mutationFields((t) => ({
 		resolve: async (_root, args, ctx) => {
 			const user = requireUser(ctx)
 			await requireGroupAdmin(args.groupId, user.id)
-			await db.delete(groups).where(eq(groups.id, args.groupId))
+			const [deleted] = await db
+				.delete(groups)
+				.where(eq(groups.id, args.groupId))
+				.returning()
+			await deleteGroupImages(deleted)
 			return true
 		},
 	}),
@@ -334,7 +347,7 @@ builder.mutationFields((t) => ({
 			}
 			const others = members.filter((m) => m.userId !== user.id)
 
-			await db.transaction(async (tx) => {
+			const deletedGroup = await db.transaction(async (tx) => {
 				// The last admin can't just vanish - hand the group to whoever's
 				// been there longest so it doesn't end up unmanageable.
 				if (
@@ -354,9 +367,15 @@ builder.mutationFields((t) => ({
 				await deleteMemberInvite(tx, args.groupId, user.id)
 
 				if (others.length === 0) {
-					await tx.delete(groups).where(eq(groups.id, args.groupId))
+					const [deleted] = await tx
+						.delete(groups)
+						.where(eq(groups.id, args.groupId))
+						.returning()
+					return deleted
 				}
+				return undefined
 			})
+			await deleteGroupImages(deletedGroup)
 
 			return true
 		},

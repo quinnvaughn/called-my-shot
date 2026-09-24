@@ -6,6 +6,7 @@ import { Flair, type FlairData } from "./flair"
 type IdentityProps = {
 	name: string
 	username: string
+	avatarUrl?: string | null
 	// The chip this person is wearing, or null if they haven't picked one.
 	// Rendered on its own line under the name, never inline with it.
 	flair?: FlairData | null
@@ -56,6 +57,7 @@ const handleWrapOnMobile = css({
 export function Identity({
 	name,
 	username,
+	avatarUrl,
 	flair,
 	size = "xs",
 	trailing,
@@ -121,7 +123,7 @@ export function Identity({
 	// of what it is and costs the row nothing horizontally.
 	return (
 		<HStack gap="2" minWidth="0" alignItems={flair ? "flex-start" : "center"}>
-			<Avatar size={size} name={name} />
+			<Avatar size={size} name={name} src={avatarUrl} />
 			{flair ? (
 				<VStack gap="1" alignItems="flex-start" minWidth="0">
 					{identityLine}

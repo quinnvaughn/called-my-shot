@@ -6,6 +6,8 @@ export const UserProfileDocument = graphql(`
 			id
 			name
 			username
+			avatarUrl
+			bannerUrl
 			createdAt
 			...Identity_user
 			careerStats {
@@ -103,6 +105,8 @@ export const SettingsPageDocument = graphql(`
 			id
 			name
 			username
+			avatarUrl
+			bannerUrl
 			email
 			emailVerified
 			mutedEmailTypes

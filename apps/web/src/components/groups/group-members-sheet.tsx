@@ -22,13 +22,19 @@ export const GroupMembersDocument = graphql(`
 					id
 					name
 					username
+					avatarUrl
 				}
 			}
 		}
 	}
 `)
 
-type Member = { id: string; name: string; username: string }
+type Member = {
+	id: string
+	name: string
+	username: string
+	avatarUrl: string | null
+}
 
 function byName(a: Member, b: Member) {
 	return a.name.localeCompare(b.name)
@@ -141,7 +147,7 @@ function MemberRow({
 				_hover: { bg: "fg.default/10" },
 			})}
 		>
-			<Avatar size="sm" name={member.name} />
+			<Avatar size="sm" name={member.name} src={member.avatarUrl} />
 			<VStack gap="0.5" alignItems="flex-start" minWidth="0" flex="1">
 				<span
 					className={`${truncate} ${css({ fontSize: "sm", fontWeight: "medium" })}`}

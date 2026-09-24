@@ -3,6 +3,7 @@ import { createFileRoute, useRouteContext } from "@tanstack/react-router"
 import { FiUserX } from "react-icons/fi"
 import { css } from "styled-system/css"
 import { VStack } from "styled-system/jsx"
+import { PageBanner } from "#/components/images/page-banner"
 import { ColdStreaksSection } from "#/components/profile/cold-streaks-section"
 import { LeagueAccordion } from "#/components/profile/league-accordion"
 import { ProfileHeader } from "#/components/profile/profile-header"
@@ -105,6 +106,14 @@ function RouteComponent() {
 
 	return (
 		<VStack alignItems="stretch" gap="6">
+			<PageBanner
+				bannerUrl={user.bannerUrl ?? null}
+				edit={
+					isOwn
+						? { target: { kind: "user_banner" }, title: "Profile banner" }
+						: null
+				}
+			/>
 			<ProfileHeader
 				user={{ ...user, flair: toIdentity(user).flair }}
 				viewerId={me?.id}
@@ -131,6 +140,7 @@ function RouteComponent() {
 							data={{
 								name: user.name,
 								username: user.username,
+								avatarUrl: user.avatarUrl,
 								memberSince: user.createdAt,
 								scopeTag: "All-time track record",
 								rank: user.careerStats?.rank ?? null,

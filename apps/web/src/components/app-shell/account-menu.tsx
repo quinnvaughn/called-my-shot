@@ -25,6 +25,7 @@ const onboardingQuery = gqlQueryOptions(ViewerOnboardingDocument, {})
 type AccountMenuProps = {
 	name: string
 	username: string
+	avatarUrl: string | null
 	isAdmin?: boolean
 	// "sidebar": full identity chip, menu opens upward (trigger sits at the
 	// bottom of the nav column). "topbar": compact avatar-only trigger, menu
@@ -35,6 +36,7 @@ type AccountMenuProps = {
 export function AccountMenu({
 	name,
 	username,
+	avatarUrl,
 	isAdmin = false,
 	variant = "sidebar",
 }: AccountMenuProps) {
@@ -101,7 +103,7 @@ export function AccountMenu({
 						_hover: { bg: "fg.default/10" },
 					})}
 				>
-					<Avatar name={name} />
+					<Avatar name={name} src={avatarUrl} />
 					<div className={css({ minWidth: 0, textAlign: "left" })}>
 						<div
 							className={css({
@@ -127,7 +129,7 @@ export function AccountMenu({
 				</Dropdown.Trigger>
 			) : (
 				<Dropdown.Trigger aria-label="Account menu">
-					<Avatar name={name} size="sm" />
+					<Avatar name={name} size="sm" src={avatarUrl} />
 				</Dropdown.Trigger>
 			)}
 			<Dropdown.Content

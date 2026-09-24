@@ -4,6 +4,7 @@ import { Avatar, avatarStyle } from "./avatar"
 type AvatarStackMember = {
 	id: string
 	name: string
+	avatarUrl?: string | null
 }
 
 type AvatarStackProps = {
@@ -23,7 +24,7 @@ export function AvatarStack({
 	return (
 		<HStack gap="1">
 			{visible.map((m) => (
-				<Avatar size={size} key={m.id} name={m.name} />
+				<Avatar size={size} key={m.id} name={m.name} src={m.avatarUrl} />
 			))}
 			{overflow > 0 && <div className={avatarStyle({ size })}>+{overflow}</div>}
 		</HStack>

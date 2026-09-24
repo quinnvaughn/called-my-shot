@@ -105,6 +105,7 @@ export function CallRow({ call: callProp }: Props) {
 			<PersonLine
 				name={caller.name}
 				username={caller.username}
+				avatarUrl={caller.avatarUrl}
 				flair={caller.flair}
 				// The one badge this row does carry. Status is redundant here
 				// (the page states it once at the top), but whether a

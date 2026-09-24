@@ -137,6 +137,7 @@ function RouteComponent() {
 				slateLabel={sweep.slateLabel}
 				name={user.name}
 				username={user.username}
+				avatarUrl={user.avatarUrl}
 				gameCount={sweep.gameCount}
 				points={sweep.points}
 				dates={view.dates.text}

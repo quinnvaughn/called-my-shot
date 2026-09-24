@@ -10,6 +10,7 @@ import { Brand } from "../ui/brand"
 export type ShareCardPreviewData = {
 	name: string
 	username: string
+	avatarUrl: string | null
 	memberSince: string // ISO date
 	scopeTag: string // e.g. "All-time" or "NBA"
 	rank: number | null // null until a resolved call
@@ -54,7 +55,7 @@ export function ShareCardPreview({
 					<Brand size="sm" />
 					<VStack gap="3" alignItems="center" width="full">
 						<VStack gap="4" alignItems="center">
-							<Avatar size="lg" name={data.name} />
+							<Avatar size="lg" name={data.name} src={data.avatarUrl} />
 							<VStack gap="1" alignItems="center">
 								<Eyebrow size="sm" variant="neutral">
 									{data.scopeTag}

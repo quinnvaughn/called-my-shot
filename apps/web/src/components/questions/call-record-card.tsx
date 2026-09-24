@@ -13,6 +13,7 @@ export type CallRecordCardData = {
 	categoryLabel: string
 	name: string
 	username: string
+	avatarUrl: string | null
 	// Already formatted for display (e.g. "Minnesota Timberwolves", "Over
 	// 47.5", "62") - see pickSummary in lib/call-summary.ts, which already
 	// handles every question type's own formatting rules.
@@ -151,7 +152,7 @@ export function CallRecordCard({ data }: Props) {
 						)}
 					</VStack>
 					<HStack gap="2" alignItems="center">
-						<Avatar size="xs" name={data.name} />
+						<Avatar size="xs" name={data.name} src={data.avatarUrl} />
 						<span
 							className={css({
 								fontFamily: "mono",

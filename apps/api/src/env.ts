@@ -57,6 +57,19 @@ const envSchema = z.object({
 	// production analytics. Without it the outbox holds its rows, and they go
 	// out with their original timestamps once a key is set.
 	POSTHOG_KEY: z.string().optional(),
+	// Cloudflare R2, for avatars and group logos/banners (lib/storage.ts).
+	// Optional everywhere: without them uploads refuse with a clear error and
+	// every image falls back to its initial, which is a fine local setup.
+	R2_ACCOUNT_ID: z.string().optional(),
+	R2_ACCESS_KEY_ID: z.string().optional(),
+	R2_SECRET_ACCESS_KEY: z.string().optional(),
+	R2_BUCKET: z.string().optional(),
+	// Where the bucket is publicly readable: the custom domain in production,
+	// the r2.dev URL locally. No trailing slash.
+	R2_PUBLIC_URL: z
+		.url()
+		.transform((url) => url.replace(/\/+$/, ""))
+		.optional(),
 })
 
 export const env = envSchema.parse(process.env)

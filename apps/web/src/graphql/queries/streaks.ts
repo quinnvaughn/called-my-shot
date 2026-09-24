@@ -14,6 +14,7 @@ export const UserStreakPageDocument = graphql(`
 			id
 			name
 			username
+			avatarUrl
 			streak(league: $league, family: $family) {
 				family
 				familyLabel
@@ -77,6 +78,7 @@ export const UserSweepPageDocument = graphql(`
 			id
 			name
 			username
+			avatarUrl
 			sweep(league: $league, slateKey: $slateKey) {
 				slateKey
 				slateLabel

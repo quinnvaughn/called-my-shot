@@ -71,6 +71,7 @@ export function HighlightRow({
 						<Identity
 							name={user.name}
 							username={user.username}
+							avatarUrl={user.avatarUrl}
 							flair={user.flair}
 						/>
 						<HStack gap="2" alignItems="center" minWidth="0">

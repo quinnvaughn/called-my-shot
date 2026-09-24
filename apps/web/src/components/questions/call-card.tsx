@@ -143,6 +143,7 @@ export function CallCard({ call: callProp }: CallCardProps) {
 				<PersonLine
 					name={caller.name}
 					username={caller.username}
+					avatarUrl={caller.avatarUrl}
 					flair={caller.flair}
 					// The redo badge rides alongside whatever the status slot
 					// was already showing rather than replacing it - a redone

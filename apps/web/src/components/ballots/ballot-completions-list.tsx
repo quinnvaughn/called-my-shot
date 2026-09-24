@@ -16,6 +16,7 @@ export const BallotCompletionsListFragment = graphql(`
 				id
 				name
 				username
+				avatarUrl
 			}
 		}
 	}
@@ -80,6 +81,7 @@ export function BallotCompletionsList({
 							<Identity
 								name={completion.user.name}
 								username={completion.user.username}
+								avatarUrl={completion.user.avatarUrl}
 							/>
 						</div>
 						<span

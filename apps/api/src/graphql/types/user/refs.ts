@@ -11,6 +11,7 @@ import {
 } from "../../../lib/referrals"
 import { loadReportCardResult } from "../../../lib/report-card/load"
 import { ALL_TIME } from "../../../lib/seasons"
+import { imageUrl } from "../../../lib/storage"
 import { buildUserLeagueStats } from "../../../lib/user-stats"
 import { resolveWindowByKey } from "../../../lib/windows"
 import { builder } from "../../builder"
@@ -73,6 +74,16 @@ export const UserRef = builder.drizzleObject("users", {
 		id: t.exposeID("id"),
 		name: t.exposeString("name"),
 		username: t.exposeString("username"),
+		// Null means no uploaded avatar: render the first-letter fallback.
+		avatarUrl: t.string({
+			nullable: true,
+			resolve: (user) => imageUrl(user.avatarKey),
+		}),
+		// Null means no banner: the profile starts at its header.
+		bannerUrl: t.string({
+			nullable: true,
+			resolve: (user) => imageUrl(user.bannerKey),
+		}),
 		// Private fields below resolve null for anyone but the user and admins:
 		// User is returned on public surfaces (leaderboards, call records,
 		// notification actors), so an ungated field here is readable by anyone.

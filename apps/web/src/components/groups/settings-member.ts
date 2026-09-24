@@ -3,5 +3,10 @@
 export type SettingsMember = {
 	role: "ADMIN" | "MEMBER"
 	joinedAt: string
-	user: { id: string; name: string; username: string }
+	user: {
+		id: string
+		name: string
+		username: string
+		avatarUrl?: string | null
+	}
 }

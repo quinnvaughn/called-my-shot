@@ -1,5 +1,6 @@
 import { db } from "../../../db"
 import { isInviteExpired } from "../../../lib/groups"
+import { imageUrl } from "../../../lib/storage"
 import { isUuid } from "../../../lib/uuid"
 import { builder } from "../../builder"
 import { getGroupLeaderboard, viewerMembership } from "./leaderboard"
@@ -69,10 +70,14 @@ builder.queryFields((t) => ({
 				id: group.id,
 				name: group.name,
 				description: group.description,
+				logoUrl: imageUrl(group.logoKey),
+				bannerUrl: imageUrl(group.bannerKey),
 				memberCount: memberUsers.length,
-				members: memberUsers
-					.slice(0, GROUP_PREVIEW_MEMBER_LIMIT)
-					.map((u) => ({ id: u.id, name: u.name })),
+				members: memberUsers.slice(0, GROUP_PREVIEW_MEMBER_LIMIT).map((u) => ({
+					id: u.id,
+					name: u.name,
+					avatarUrl: imageUrl(u.avatarKey),
+				})),
 				invitedBy: invite.creator
 					? { name: invite.creator.name, username: invite.creator.username }
 					: { name: "a member", username: "" },

@@ -61,6 +61,7 @@ type Props = {
 	familyLabel: string
 	name: string
 	username: string
+	avatarUrl: string | null
 	// Which side of the track this card is about. A track can only be live on
 	// one of them at a time, so the page picks before it renders.
 	mode: "hot" | "cold"
@@ -123,7 +124,7 @@ export function StreakRecordCard(props: Props) {
 						</span>
 					</VStack>
 					<HStack gap="2" alignItems="center">
-						<Avatar size="xs" name={props.name} />
+						<Avatar size="xs" name={props.name} src={props.avatarUrl} />
 						<span
 							className={css({
 								fontFamily: "mono",

@@ -21,6 +21,7 @@ export const IdentityUserFragment = graphql(`
 		id
 		name
 		username
+		avatarUrl
 		equippedFlair {
 			...Flair_flair
 		}

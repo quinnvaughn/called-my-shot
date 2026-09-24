@@ -265,6 +265,7 @@ function StreakPage({
 				familyLabel={streak.familyLabel}
 				name={user.name}
 				username={user.username}
+				avatarUrl={user.avatarUrl}
 				mode={view.mode}
 				currentLength={streak.currentLength}
 				bestLength={streak.bestLength}

@@ -43,6 +43,7 @@ type Props = {
 	slateLabel: string
 	name: string
 	username: string
+	avatarUrl: string | null
 	gameCount: number
 	// Null until every swept call's points are final.
 	points: number | null
@@ -113,7 +114,7 @@ export function SweepRecordCard(props: Props) {
 						})}
 					</HStack>
 					<HStack gap="2" alignItems="center">
-						<Avatar size="xs" name={props.name} />
+						<Avatar size="xs" name={props.name} src={props.avatarUrl} />
 						<span
 							className={css({
 								fontFamily: "mono",

@@ -6,6 +6,7 @@ import { match } from "ts-pattern"
 import { Button } from "#/components/ui/button"
 import { CopyLinkRow } from "#/components/ui/copy-link-row"
 import { FormError } from "#/components/ui/form-error"
+import { GroupLogo } from "#/components/ui/group-logo"
 import { Modal } from "#/components/ui/modal"
 import { graphql } from "#/graphql/generated"
 import { useGqlMutation } from "#/graphql/hooks"
@@ -25,6 +26,7 @@ const ShareTargetGroupsDocument = graphql(`
 		myGroups {
 			id
 			name
+			logoUrl
 			memberCount
 			trackedLeagues {
 				id
@@ -192,6 +194,7 @@ export function ShareQuestionModal({
 									<GroupShareRow
 										key={group.id}
 										name={group.name}
+										logoUrl={group.logoUrl ?? null}
 										memberCount={group.memberCount}
 										alreadyShared={shared.has(group.id)}
 										pending={pendingGroupId === group.id}
@@ -212,6 +215,7 @@ export function ShareQuestionModal({
 
 function GroupShareRow({
 	name,
+	logoUrl,
 	memberCount,
 	alreadyShared,
 	pending,
@@ -219,6 +223,7 @@ function GroupShareRow({
 	onShare,
 }: {
 	name: string
+	logoUrl: string | null
 	memberCount: number
 	alreadyShared: boolean
 	pending: boolean
@@ -235,32 +240,35 @@ function GroupShareRow({
 				_last: { borderBottom: "none" },
 			})}
 		>
-			<VStack
-				gap="0.5"
-				alignItems="flex-start"
-				className={css({ minWidth: 0 })}
-			>
-				<span
-					className={css({
-						fontSize: "sm",
-						overflow: "hidden",
-						textOverflow: "ellipsis",
-						whiteSpace: "nowrap",
-						maxWidth: "full",
-					})}
+			<HStack gap="2.5" alignItems="center" minWidth="0">
+				<GroupLogo size="sm" name={name} src={logoUrl} />
+				<VStack
+					gap="0.5"
+					alignItems="flex-start"
+					className={css({ minWidth: 0 })}
 				>
-					{name}
-				</span>
-				<span
-					className={css({
-						fontFamily: "mono",
-						fontSize: "2xs",
-						color: "fg.subtle",
-					})}
-				>
-					{memberCount} {pluralize(memberCount, "member")}
-				</span>
-			</VStack>
+					<span
+						className={css({
+							fontSize: "sm",
+							overflow: "hidden",
+							textOverflow: "ellipsis",
+							whiteSpace: "nowrap",
+							maxWidth: "full",
+						})}
+					>
+						{name}
+					</span>
+					<span
+						className={css({
+							fontFamily: "mono",
+							fontSize: "2xs",
+							color: "fg.subtle",
+						})}
+					>
+						{memberCount} {pluralize(memberCount, "member")}
+					</span>
+				</VStack>
+			</HStack>
 			{alreadyShared ? (
 				<span
 					className={css({

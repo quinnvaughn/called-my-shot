@@ -7,6 +7,7 @@ import { EmailNotificationsSection } from "#/components/settings/email-notificat
 import { EmailSection } from "#/components/settings/email-section"
 import { FlairSection } from "#/components/settings/flair-section"
 import { PasswordSection } from "#/components/settings/password-section"
+import { ProfileImagesSection } from "#/components/settings/profile-images-section"
 import { UsernameSection } from "#/components/settings/username-section"
 import { PageHeader } from "#/components/ui/page-header"
 import { SettingsPageDocument } from "#/graphql/queries/user"
@@ -49,6 +50,14 @@ function RouteComponent() {
 				title="Settings"
 				subtitle="Manage your login and account-level preferences"
 			/>
+			<VStack alignItems="stretch" gap="3">
+				{sectionLabel("Avatar and banner")}
+				<ProfileImagesSection
+					name={me.name}
+					avatarUrl={me.avatarUrl ?? null}
+					bannerUrl={me.bannerUrl ?? null}
+				/>
+			</VStack>
 			<VStack alignItems="stretch" gap="3">
 				{sectionLabel("Username")}
 				<UsernameSection username={me.username} />

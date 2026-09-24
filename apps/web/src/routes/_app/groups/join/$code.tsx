@@ -3,10 +3,12 @@ import { createFileRoute, useNavigate, useRouter } from "@tanstack/react-router"
 import { FaRegTimesCircle } from "react-icons/fa"
 import { css } from "styled-system/css"
 import { VStack } from "styled-system/jsx"
+import { PageBanner } from "#/components/images/page-banner"
 import { AvatarStack } from "#/components/ui/avatar-stack"
 import { Button } from "#/components/ui/button"
 import { Card } from "#/components/ui/card"
 import { Eyebrow } from "#/components/ui/eyebrow"
+import { GroupLogo } from "#/components/ui/group-logo"
 import { NotFound } from "#/components/ui/not-found"
 import { JoinGroupByCodeDocument } from "#/graphql/generated/graphql"
 import { useGqlMutation } from "#/graphql/hooks"
@@ -118,63 +120,70 @@ function RouteComponent() {
 			: "top scorer this season:"
 
 	return (
-		<VStack gap="4" alignItems="center" className={css({ padding: "8" })}>
-			<Eyebrow variant="neutral">You've been invited to a group</Eyebrow>
-			<h1 className={css({ fontFamily: "heading", fontSize: "2xl" })}>
-				{preview.name}
-			</h1>
-			{preview.description && (
+		<VStack gap="0" alignItems="stretch">
+			{/* Outside the padded column below so it can run edge to edge. */}
+			{preview.bannerUrl && <PageBanner bannerUrl={preview.bannerUrl} />}
+			<VStack gap="4" alignItems="center" className={css({ padding: "8" })}>
+				{preview.logoUrl && (
+					<GroupLogo size="lg" name={preview.name} src={preview.logoUrl} />
+				)}
+				<Eyebrow variant="neutral">You've been invited to a group</Eyebrow>
+				<h1 className={css({ fontFamily: "heading", fontSize: "2xl" })}>
+					{preview.name}
+				</h1>
+				{preview.description && (
+					<p
+						className={css({
+							maxWidth: "md",
+							fontSize: "sm",
+							color: "fg.muted",
+							lineHeight: "relaxed",
+							textAlign: "center",
+						})}
+					>
+						{preview.description}
+					</p>
+				)}
+				<AvatarStack members={preview.members} />
 				<p
 					className={css({
-						maxWidth: "md",
-						fontSize: "sm",
+						fontFamily: "mono",
+						fontSize: "xs",
 						color: "fg.muted",
-						lineHeight: "relaxed",
-						textAlign: "center",
 					})}
 				>
-					{preview.description}
+					{preview.memberCount} {pluralize(preview.memberCount, "member")} ·{" "}
+					{leaguesLabel} · invited by {preview.invitedBy.name} (@
+					{preview.invitedBy.username})
 				</p>
-			)}
-			<AvatarStack members={preview.members} />
-			<p
-				className={css({
-					fontFamily: "mono",
-					fontSize: "xs",
-					color: "fg.muted",
-				})}
-			>
-				{preview.memberCount} {pluralize(preview.memberCount, "member")} ·{" "}
-				{leaguesLabel} · invited by {preview.invitedBy.name} (@
-				{preview.invitedBy.username})
-			</p>
-			{preview.topScorer && (
-				<Card size="sm">
-					<Card.Body>
-						<p
-							className={css({
-								color: "fg.muted",
-								fontSize: "xs",
-								fontFamily: "mono",
-							})}
-						>
-							{topScorerLabel}{" "}
-							<b className={css({ color: "fg.default" })}>
-								{preview.topScorer.name} (@{preview.topScorer.username}) ·{" "}
-								{preview.topScorer.points} pts
-							</b>
-						</p>
-					</Card.Body>
-				</Card>
-			)}
-			<Button
-				variant="solid"
-				size="md"
-				onClick={handleJoin}
-				loading={joinGroupByCode.isPending}
-			>
-				Join {preview.name}
-			</Button>
+				{preview.topScorer && (
+					<Card size="sm">
+						<Card.Body>
+							<p
+								className={css({
+									color: "fg.muted",
+									fontSize: "xs",
+									fontFamily: "mono",
+								})}
+							>
+								{topScorerLabel}{" "}
+								<b className={css({ color: "fg.default" })}>
+									{preview.topScorer.name} (@{preview.topScorer.username}) ·{" "}
+									{preview.topScorer.points} pts
+								</b>
+							</p>
+						</Card.Body>
+					</Card>
+				)}
+				<Button
+					variant="solid"
+					size="md"
+					onClick={handleJoin}
+					loading={joinGroupByCode.isPending}
+				>
+					Join {preview.name}
+				</Button>
+			</VStack>
 		</VStack>
 	)
 }

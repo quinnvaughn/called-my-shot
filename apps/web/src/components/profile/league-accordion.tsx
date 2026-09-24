@@ -35,7 +35,12 @@ type LeagueStats = {
 	}>
 }
 
-type User = { name: string; username: string; createdAt: string }
+type User = {
+	name: string
+	username: string
+	avatarUrl: string | null
+	createdAt: string
+}
 
 type Props = {
 	stats: LeagueStats
@@ -126,6 +131,7 @@ export function LeagueAccordion({
 								data={{
 									name: user.name,
 									username: user.username,
+									avatarUrl: user.avatarUrl,
 									memberSince: user.createdAt,
 									scopeTag: `${stats.league.abbreviation} track record`,
 									rank: stats.rank,

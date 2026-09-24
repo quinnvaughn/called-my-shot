@@ -118,6 +118,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
 						<AccountMenu
 							name={me.name}
 							username={me.username}
+							avatarUrl={me.avatarUrl}
 							variant="sidebar"
 						/>
 					)}

@@ -192,7 +192,7 @@ function MemberRow({
 }) {
 	return (
 		<HStack gap="3" minWidth="0" paddingBlock="2">
-			<Avatar size="sm" name={member.user.name} />
+			<Avatar size="sm" name={member.user.name} src={member.user.avatarUrl} />
 			<VStack gap="0.5" alignItems="flex-start" minWidth="0" flex="1">
 				<span
 					className={`${truncate} ${css({ fontSize: "sm", fontWeight: "medium" })}`}

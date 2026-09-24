@@ -15,6 +15,8 @@ export const GroupPreviewDocument = graphql(`
             id
             name
             description
+            logoUrl
+            bannerUrl
             memberCount
             invitedBy {
                 name
@@ -23,6 +25,7 @@ export const GroupPreviewDocument = graphql(`
             members {
                 id
                 name
+                avatarUrl
             }
             trackedLeagues {
                 abbreviation
@@ -59,6 +62,8 @@ export const GroupSettingsDocument = graphql(`
             id
             name
             description
+            logoUrl
+            bannerUrl
             viewerIsAdmin
             trackedLeagues {
                 id
@@ -72,6 +77,7 @@ export const GroupSettingsDocument = graphql(`
                     id
                     name
                     username
+                    avatarUrl
                 }
             }
             invites {
@@ -116,7 +122,10 @@ export const GroupDetailDocument = graphql(`
             id
             name
             description
+            logoUrl
+            bannerUrl
             memberCount
+            viewerIsAdmin
             viewerDismissedInviteCard
             viewerRank
             myInvite {

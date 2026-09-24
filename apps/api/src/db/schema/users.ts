@@ -86,6 +86,13 @@ export const users = pgTable("users", {
 			onDelete: "set null",
 		},
 	),
+	// R2 object key for the uploaded avatar (see lib/storage.ts). Null means
+	// the first-letter fallback. A key rather than a URL so moving the public
+	// domain is an env change, not a data migration.
+	avatarKey: text("avatar_key"),
+	// Same, for the 3:1 banner across the top of their profile. Null means
+	// no banner is drawn.
+	bannerKey: text("banner_key"),
 	createdAt: timestamp("created_at").notNull().defaultNow(),
 })
 export type User = typeof users.$inferSelect

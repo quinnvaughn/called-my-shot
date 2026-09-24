@@ -474,6 +474,7 @@ function RouteComponent() {
 											<Identity
 												name={question.creator.name}
 												username={question.creator.username}
+												avatarUrl={question.creator.avatarUrl}
 												stackOnMobile
 											/>
 										</Link>

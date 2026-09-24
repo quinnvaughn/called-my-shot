@@ -6,6 +6,7 @@ import { Identity } from "#/components/ui/identity"
 type Props = {
 	name: string
 	username: string
+	avatarUrl?: string | null
 	flair?: FlairData | null
 	// CallCard/CallRow's status slot (open lock line / LOCKED badge / win-loss
 	// result badge) - has nowhere else to sit now that the pick section is a
@@ -17,12 +18,13 @@ type Props = {
 // Who called it - CallCard/CallRow only. QuestionCard's own reference design
 // dropped the equivalent "asked by" credit line entirely; the title carries
 // enough on its own there.
-export function PersonLine({ name, username, flair, badge }: Props) {
+export function PersonLine({ name, username, avatarUrl, flair, badge }: Props) {
 	return (
 		<HStack justify="space-between" alignItems="center" gap="2" flexWrap="wrap">
 			<Identity
 				name={name}
 				username={username}
+				avatarUrl={avatarUrl}
 				flair={flair}
 				trailing="called"
 			/>

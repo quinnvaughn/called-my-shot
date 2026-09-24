@@ -38,6 +38,7 @@ const NAV_ITEMS: NavItem[] = [
 type Me = {
 	name: string
 	username: string
+	avatarUrl: string | null
 	isAdmin: boolean
 	emailBouncedAt?: string | null
 } | null
@@ -55,6 +56,7 @@ export function AppShell({
 		? {
 				name: rawMe.name ?? "",
 				username: rawMe.username ?? "",
+				avatarUrl: rawMe.avatarUrl ?? null,
 				isAdmin: rawMe.isAdmin ?? false,
 			}
 		: null
@@ -91,7 +93,16 @@ export function AppShell({
 	}, [drawerOpen])
 
 	return (
-		<div className={css({ minHeight: "100dvh", bg: "bg.canvas" })}>
+		// overflowX clip: PageBanner bleeds to the window edge using 100vw, which
+		// counts a classic scrollbar's width. Clip rather than hidden, so this
+		// isn't a scroll container and the right rail's sticky still works.
+		<div
+			className={css({
+				minHeight: "100dvh",
+				bg: "bg.canvas",
+				overflowX: "clip",
+			})}
+		>
 			<MobileTopbar me={me} onMenuClick={() => setDrawerOpen(true)} />
 			{drawerOpen && (
 				// biome-ignore lint/a11y/noStaticElementInteractions: scrim closes the drawer; keyboard users close via Escape (handled above) or the drawer's own close button
@@ -216,6 +227,7 @@ function MobileTopbar({
 				<AccountMenu
 					name={me.name}
 					username={me.username}
+					avatarUrl={me.avatarUrl}
 					isAdmin={me.isAdmin}
 					variant="topbar"
 				/>
@@ -436,6 +448,7 @@ function SidebarNav({
 						<AccountMenu
 							name={me.name}
 							username={me.username}
+							avatarUrl={me.avatarUrl}
 							isAdmin={me.isAdmin}
 							variant="sidebar"
 						/>

@@ -37,6 +37,7 @@ export type LeaderboardRowData = {
 		id: string
 		name: string
 		username: string
+		avatarUrl?: string | null
 		flair?: FlairData | null
 	}
 }
@@ -74,7 +75,11 @@ export function Leaderboard({
 							width - beside the name it was the one thing long enough to
 							break it across lines on a phone. */}
 							<HStack gap="3.5" alignItems="flex-start">
-								<Avatar size="md" name={viewerEntry.user.name} />
+								<Avatar
+									size="md"
+									name={viewerEntry.user.name}
+									src={viewerEntry.user.avatarUrl}
+								/>
 								<VStack gap="0.5" alignItems="flex-start" flex="1" minWidth="0">
 									<Eyebrow variant="neutral">Your rank</Eyebrow>
 									<span
@@ -181,7 +186,7 @@ function LeaderboardRow({
 				(Table.Row active, below), so the tag repeated what the row said and
 				took width from the two things that name the person. */}
 				<HStack gap="3" minWidth="0">
-					<Avatar size="sm" name={item.user.name} />
+					<Avatar size="sm" name={item.user.name} src={item.user.avatarUrl} />
 					<VStack gap="0.5" alignItems="flex-start" minWidth="0" flex="1">
 						<HStack gap="2" minWidth="0" maxWidth="full">
 							<Link

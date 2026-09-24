@@ -9,6 +9,7 @@ import {
 import { getOrCreateMemberInvite } from "../../../lib/groups"
 import { keysetPaginate, sliceOffsetPage } from "../../../lib/pagination"
 import { ALL_TIME } from "../../../lib/seasons"
+import { imageUrl } from "../../../lib/storage"
 import { builder } from "../../builder"
 import { type Connection, PageInfoRef } from "../pagination"
 import { CallConnectionRef, QuestionConnectionRef } from "../question"
@@ -101,6 +102,16 @@ export const GroupRef = builder.drizzleObject("groups", {
 		id: t.exposeID("id"),
 		name: t.exposeString("name"),
 		description: t.exposeString("description", { nullable: true }),
+		// Null means none uploaded: the logo falls back to the group's initial
+		// and the banner isn't drawn at all.
+		logoUrl: t.string({
+			nullable: true,
+			resolve: (group) => imageUrl(group.logoKey),
+		}),
+		bannerUrl: t.string({
+			nullable: true,
+			resolve: (group) => imageUrl(group.bannerKey),
+		}),
 		createdAt: t.field({
 			type: "DateTime",
 			resolve: (group) => group.createdAt,

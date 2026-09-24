@@ -21,6 +21,7 @@ import {
 } from "../../../lib/errors"
 import { hashPassword, verifyPassword } from "../../../lib/password"
 import { clearSessionCookie } from "../../../lib/session"
+import { deleteImage } from "../../../lib/storage"
 import { builder } from "../../builder"
 import { parseInput } from "../../helpers"
 import {
@@ -310,6 +311,10 @@ builder.mutationFields((t) => ({
 			}
 
 			await db.delete(users).where(eq(users.id, user.id))
+			await Promise.all([
+				deleteImage(user.avatarKey),
+				deleteImage(user.bannerKey),
+			])
 			clearSessionCookie(ctx.res)
 			return true
 		},

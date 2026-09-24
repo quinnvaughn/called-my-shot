@@ -47,6 +47,7 @@ export const CallRecordDocument = graphql(`
 				id
 				name
 				username
+				avatarUrl
 			}
 			question {
 				id

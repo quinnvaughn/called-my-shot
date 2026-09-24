@@ -3,11 +3,14 @@ import { builder } from "../../builder"
 export const GROUP_PREVIEW_MEMBER_LIMIT = 5
 
 const GroupPreviewMemberRef = builder
-	.objectRef<{ id: string; name: string }>("GroupPreviewMember")
+	.objectRef<{ id: string; name: string; avatarUrl: string | null }>(
+		"GroupPreviewMember",
+	)
 	.implement({
 		fields: (t) => ({
 			id: t.exposeID("id"),
 			name: t.exposeString("name"),
+			avatarUrl: t.exposeString("avatarUrl", { nullable: true }),
 		}),
 	})
 
@@ -45,8 +48,10 @@ export const GroupPreviewRef = builder
 		id: string
 		name: string
 		description: string | null
+		logoUrl: string | null
+		bannerUrl: string | null
 		memberCount: number
-		members: { id: string; name: string }[]
+		members: { id: string; name: string; avatarUrl: string | null }[]
 		invitedBy: { name: string; username: string }
 		trackedLeagues: { abbreviation: string }[]
 		topScorer: { name: string; username: string; points: number } | null
@@ -56,6 +61,8 @@ export const GroupPreviewRef = builder
 			id: t.exposeID("id"),
 			name: t.exposeString("name"),
 			description: t.exposeString("description", { nullable: true }),
+			logoUrl: t.exposeString("logoUrl", { nullable: true }),
+			bannerUrl: t.exposeString("bannerUrl", { nullable: true }),
 			memberCount: t.exposeInt("memberCount"),
 			// capped preview for an avatar stack - not the full roster, this is
 			// visible to unauthenticated visitors

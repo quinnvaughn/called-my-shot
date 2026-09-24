@@ -63,6 +63,7 @@ export const QuestionDetailDocument = graphql(`
 				id
 				name
 				username
+				avatarUrl
 			}
 			...GameStrip_question
 			game {

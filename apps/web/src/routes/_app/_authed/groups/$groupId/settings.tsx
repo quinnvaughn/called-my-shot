@@ -5,6 +5,7 @@ import { css } from "styled-system/css"
 import { VStack } from "styled-system/jsx"
 import { GroupDangerZone } from "#/components/groups/group-danger-zone"
 import { GroupGeneralSection } from "#/components/groups/group-general-section"
+import { GroupImagesSection } from "#/components/groups/group-images-section"
 import { GroupInvitesSection } from "#/components/groups/group-invites-section"
 import { GroupMembersSection } from "#/components/groups/group-members-section"
 import { Breadcrumb } from "#/components/ui/breadcrumb"
@@ -88,6 +89,15 @@ function RouteComponent() {
 							groupDescription={group.description ?? null}
 							leagues={leagues}
 							trackedLeagueIds={group.trackedLeagues.map((l) => l.id)}
+						/>
+					</VStack>
+					<VStack alignItems="stretch" gap="3">
+						{sectionLabel("Logo and banner")}
+						<GroupImagesSection
+							groupId={group.id}
+							groupName={group.name}
+							logoUrl={group.logoUrl ?? null}
+							bannerUrl={group.bannerUrl ?? null}
 						/>
 					</VStack>
 					<VStack alignItems="stretch" gap="3">

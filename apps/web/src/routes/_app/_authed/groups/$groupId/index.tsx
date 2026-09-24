@@ -26,8 +26,10 @@ import {
 	SharedQuestionsTab,
 	sharedQuestionsQuery,
 } from "#/components/groups/shared-questions-tab"
+import { PageBanner } from "#/components/images/page-banner"
 import { Breadcrumb } from "#/components/ui/breadcrumb"
 import { Button, type ButtonVariantProps } from "#/components/ui/button"
+import { GroupLogo } from "#/components/ui/group-logo"
 import { NotFound } from "#/components/ui/not-found"
 import { PageHeader } from "#/components/ui/page-header"
 import { Tabs } from "#/components/ui/tabs"
@@ -208,6 +210,17 @@ function RouteComponent() {
 
 	return (
 		<VStack alignItems="stretch" gap="6">
+			<PageBanner
+				bannerUrl={group.bannerUrl ?? null}
+				edit={
+					group.viewerIsAdmin
+						? {
+								target: { kind: "banner", groupId: group.id },
+								title: "Group banner",
+							}
+						: null
+				}
+			/>
 			<Breadcrumb>
 				<Breadcrumb.Link to="/groups">Groups</Breadcrumb.Link>
 				<Breadcrumb.Current>{group.name}</Breadcrumb.Current>
@@ -215,6 +228,13 @@ function RouteComponent() {
 			<PageHeader
 				title={group.name}
 				description={group.description}
+				leading={
+					// Only once one's uploaded: a big initial beside a big title
+					// would just say the first letter twice.
+					group.logoUrl ? (
+						<GroupLogo size="lg" name={group.name} src={group.logoUrl} />
+					) : undefined
+				}
 				action={
 					<HStack gap="2">
 						<HeaderAction
