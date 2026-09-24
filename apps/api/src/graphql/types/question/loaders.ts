@@ -115,6 +115,10 @@ const questionFactsLoader = ctxLoader(async (questionIds: string[]) => {
 			shape: true,
 			seasonId: true,
 			locksAt: true,
+			// Call.viewerCanRedo needs it: a question voided while still open
+			// has a future locksAt but takes no redos, and the clock alone
+			// can't tell that apart from one still running.
+			status: true,
 		},
 	})
 	return indexByKey(questionIds, rows, (q) => q.id, undefined)
@@ -146,6 +150,27 @@ export const callSelectionsLoader = ctxLoader(async (callIds: string[]) => {
 		where: { callId: { in: callIds } },
 	})
 	return groupByKey(callIds, rows, (row) => row.callId)
+})
+
+// Call.redo - null on almost every call, so this exists to keep a feed of
+// cards from firing one "was this redone" query each. Batched the same way
+// callSelectionsLoader is.
+export const callRedoLoader = ctxLoader(async (callIds: string[]) => {
+	const rows = await db.query.callRedos.findMany({
+		where: { callId: { in: callIds } },
+	})
+	return indexByKey(callIds, rows, (row) => row.callId, null)
+})
+
+// The picks a call had before its redo. Separate from callRedoLoader because
+// a feed only needs to know THAT a call was redone (the badge), while the
+// call page needs what it used to say - loading the selections for every card
+// in a feed to render a badge would be waste.
+export const callRedoSelectionsLoader = ctxLoader(async (redoIds: string[]) => {
+	const rows = await db.query.callRedoSelections.findMany({
+		where: { redoId: { in: redoIds } },
+	})
+	return groupByKey(redoIds, rows, (row) => row.redoId)
 })
 
 // Call.callerLeagueAccuracy - keyed "<userId>:<leagueId>", one aggregate per

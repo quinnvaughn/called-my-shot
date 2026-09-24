@@ -15,6 +15,18 @@ export const relations = defineRelations(schema, (r) => ({
 			to: r.questions.creatorId,
 		}),
 		calls: r.many.calls(),
+		referralCode: r.one.referralCodes(),
+		// Who this user brought in.
+		referralsMade: r.many.referrals({
+			from: r.users.id,
+			to: r.referrals.referrerId,
+		}),
+		// Who brought this user in. At most one, and it never changes.
+		referral: r.one.referrals({
+			from: r.users.id,
+			to: r.referrals.inviteeId,
+		}),
+		redoGrants: r.many.redoGrants(),
 		questionShares: r.many.questionShares(),
 		disputesFiled: r.many.resolutionDisputes(),
 		supportTickets: r.many.supportTickets(),
@@ -394,6 +406,11 @@ export const relations = defineRelations(schema, (r) => ({
 			to: r.users.id,
 		}),
 		selections: r.many.callSelections(),
+		// Null on almost every call. Its presence is the badge signal.
+		redo: r.one.callRedos({
+			from: r.calls.id,
+			to: r.callRedos.callId,
+		}),
 	},
 	callSelections: {
 		call: r.one.calls({
@@ -403,6 +420,65 @@ export const relations = defineRelations(schema, (r) => ({
 		option: r.one.questionOptions({
 			from: r.callSelections.optionId,
 			to: r.questionOptions.id,
+		}),
+	},
+	callRedos: {
+		call: r.one.calls({
+			from: r.callRedos.callId,
+			to: r.calls.id,
+		}),
+		grant: r.one.redoGrants({
+			from: r.callRedos.grantId,
+			to: r.redoGrants.id,
+		}),
+		selections: r.many.callRedoSelections(),
+	},
+	callRedoSelections: {
+		redo: r.one.callRedos({
+			from: r.callRedoSelections.redoId,
+			to: r.callRedos.id,
+		}),
+		option: r.one.questionOptions({
+			from: r.callRedoSelections.optionId,
+			to: r.questionOptions.id,
+		}),
+	},
+	referralCodes: {
+		user: r.one.users({
+			from: r.referralCodes.userId,
+			to: r.users.id,
+		}),
+	},
+	referrals: {
+		referrer: r.one.users({
+			from: r.referrals.referrerId,
+			to: r.users.id,
+		}),
+		invitee: r.one.users({
+			from: r.referrals.inviteeId,
+			to: r.users.id,
+		}),
+		firstCall: r.one.calls({
+			from: r.referrals.firstCallId,
+			to: r.calls.id,
+		}),
+		season: r.one.seasons({
+			from: r.referrals.seasonId,
+			to: r.seasons.id,
+		}),
+	},
+	redoGrants: {
+		user: r.one.users({
+			from: r.redoGrants.userId,
+			to: r.users.id,
+		}),
+		referral: r.one.referrals({
+			from: r.redoGrants.referralId,
+			to: r.referrals.id,
+		}),
+		consumedByCall: r.one.calls({
+			from: r.redoGrants.consumedByCallId,
+			to: r.calls.id,
 		}),
 	},
 	resolutionDisputes: {

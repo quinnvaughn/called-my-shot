@@ -4,6 +4,9 @@ import { type User, users } from "../../db/schema"
 import { issuePendingEmailChange } from "../../lib/email-change"
 import { ValidationError } from "../../lib/errors"
 import { hashPassword, verifyPassword } from "../../lib/password"
+import { grantWelcomeRedo } from "../../lib/redos"
+import { recordReferralAtSignup } from "../../lib/referrals"
+import { clientIpOf } from "../../lib/request-ip"
 import {
 	clearSessionCookie,
 	createSession,
@@ -14,7 +17,7 @@ import { builder } from "../builder"
 import { parseInput } from "../helpers"
 import { UserRef } from "./user"
 
-type AuthPayloadShape = { user: User }
+type AuthPayloadShape = { user: User; redoGranted?: boolean }
 
 const AuthPayload = builder
 	.objectRef<AuthPayloadShape>("AuthPayload")
@@ -24,8 +27,22 @@ const AuthPayload = builder
 				type: UserRef,
 				resolve: (payload) => payload.user,
 			}),
+			// Whether this signup came through a working invite and so landed
+			// with a redo already in the wallet. Reported by the server rather
+			// than inferred from "they typed a code", because an unknown or
+			// mistyped code is accepted silently and grants nothing - the
+			// client has no way to tell those apart on its own, and a welcome
+			// toast for a redo that doesn't exist is worse than no toast.
+			// False on sign-in, which never grants anything.
+			redoGranted: t.boolean({
+				resolve: (payload) => payload.redoGranted ?? false,
+			}),
 		}),
 	})
+
+const ReferralSourceEnum = builder.enumType("ReferralSource", {
+	values: ["INVITE_LINK", "MANUAL_CODE"] as const,
+})
 
 const SignUpInput = builder.inputType("SignUpInput", {
 	fields: (t) => ({
@@ -33,6 +50,10 @@ const SignUpInput = builder.inputType("SignUpInput", {
 		username: t.string({ required: true }),
 		email: t.string({ required: true }),
 		password: t.string({ required: true }),
+		// Set by /join/:code, or typed into the form's "have a code?" field.
+		referralCode: t.string({ required: false }),
+		// Which of those two it was. Only meaningful alongside referralCode.
+		referralSource: t.field({ type: ReferralSourceEnum, required: false }),
 	}),
 })
 
@@ -50,7 +71,7 @@ builder.mutationType({
 			errors: { directResult: true, union: { name: "SignUpResult" } },
 			args: { input: t.arg({ type: SignUpInput, required: true }) },
 			resolve: async (_root, args, ctx): Promise<AuthPayloadShape> => {
-				const { name, username, email, password } = parseInput(
+				const { name, username, email, password, referralCode } = parseInput(
 					signUpSchema,
 					args.input,
 				)
@@ -65,11 +86,40 @@ builder.mutationType({
 				}
 
 				const passwordHash = await hashPassword(password)
-				const [user] = await db
-					.insert(users)
-					.values({ name, username, email, passwordHash })
-					.returning()
 
+				// The account, its attribution, and the invitee's own welcome
+				// redo go in together: an account created with its referral
+				// row missing would silently owe two people a redo that no
+				// later step ever grants.
+				const { user, redoGranted } = await db.transaction(async (tx) => {
+					const [created] = await tx
+						.insert(users)
+						.values({ name, username, email, passwordHash })
+						.returning()
+
+					if (!referralCode) return { user: created, redoGranted: false }
+
+					const referral = await recordReferralAtSignup(
+						tx,
+						created,
+						referralCode,
+						args.input.referralSource === "MANUAL_CODE"
+							? "manual_code"
+							: "invite_link",
+						clientIpOf(ctx.req),
+					)
+					// Both sides of an invite get a redo. The invitee's lands
+					// now rather than on their first call, because it is the
+					// reason they used the link at all. A code that matched
+					// nothing leaves referral null and grants nothing.
+					if (!referral) return { user: created, redoGranted: false }
+
+					await grantWelcomeRedo(tx, created.id, referral.id)
+					return { user: created, redoGranted: true }
+				})
+
+				// Session creation stays outside the transaction so a cookie is
+				// never set for a user the transaction went on to roll back.
 				const session = await createSession(user.id)
 				setSessionCookie(ctx.res, session)
 				ctx.ownedUserIds.add(user.id)
@@ -78,7 +128,7 @@ builder.mutationType({
 				// created, this just kicks off the verification email.
 				void issuePendingEmailChange(user.id, user.email, user.email, "/")
 
-				return { user }
+				return { user, redoGranted }
 			},
 		}),
 

@@ -28,6 +28,55 @@ type ServerAnalyticsEvents = {
 		resolutionMethod: "system" | "creator" | "admin"
 		rescored: boolean
 	}
+
+	// The referral funnel, whose whole point is to make k-factor measurable.
+	// The chain is referral_signup -> referral_qualified -> redo_granted ->
+	// redo_spent, and each step is attributed to the user it happened TO, so
+	// a referrer's events and their invitee's are separate people in PostHog
+	// and the join between them is the explicit id property.
+
+	// An account created through someone's code. On the INVITEE.
+	referral_signup: {
+		referrerId: string
+		source: "invite_link" | "manual_code"
+	}
+	// The invitee's first call landed. On the REFERRER, since this is their
+	// side of the bargain paying out. `outcome` is the part worth watching:
+	// "queued" means the cap held a credit back, and a rising share of it
+	// means REDO_BALANCE_CAP is the thing throttling the loop.
+	referral_qualified: {
+		inviteeId: string
+		seasonId: string
+		outcome: "granted" | "queued" | "rejected_season_cap"
+		// How long the invitee took to go from signing up to calling. The
+		// honest measure of whether an invite produced a real user.
+		hoursFromSignup: number
+		inviteeEmailVerified: boolean
+	}
+	// A redo actually landing in a wallet, whichever side earned it.
+	redo_granted: {
+		source: "referral" | "welcome" | "admin"
+		balanceAfter: number
+	}
+	// A redo being spent. minutesToLock is the one that validates the whole
+	// cost design: if redos cluster right before lock, the earliness forfeit
+	// is doing real work, and if they cluster days out it is charging nothing.
+	redo_spent: {
+		callId: string
+		questionId: string
+		questionShape: Question["shape"]
+		leagueId: string
+		sportId: string
+		horizon: "game" | "season"
+		minutesToLock: number
+		// How long the original call stood before being taken back.
+		minutesSinceOriginalCall: number
+		// A redo that keeps the same pick and only moves conviction is a
+		// different act from one that flips sides.
+		changedPick: boolean
+		convictionDelta: number
+		balanceAfter: number
+	}
 }
 
 export type ServerAnalyticsEvent = {

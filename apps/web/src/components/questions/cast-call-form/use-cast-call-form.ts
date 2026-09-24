@@ -10,7 +10,7 @@ import { match } from "ts-pattern"
 import { FirstCallDoneModal } from "#/components/onboarding/first-call-done-modal"
 import { type FragmentType, graphql, useFragment } from "#/graphql/generated"
 import { useGqlMutation } from "#/graphql/hooks"
-import { CastCallDocument } from "#/graphql/mutations/calls"
+import { CastCallDocument, RedoCallDocument } from "#/graphql/mutations/calls"
 import { questionHorizon, track } from "#/lib/analytics"
 import { isRateStat as computeIsRateStat } from "#/lib/field-signal"
 import { useForm } from "#/lib/form/use-form"
@@ -172,6 +172,21 @@ export function isAwardShape(shape: QuestionCallShape): boolean {
 	)
 }
 
+// What a redo needs that a first call doesn't: which call is being replaced,
+// and what it currently says so the form opens on the existing pick rather
+// than blank. Everything else - validation, the per-shape controls, error
+// mapping - is identical, which is the reason this is a mode on the same hook
+// instead of a second form that would drift from it.
+export type RedoMode = {
+	callId: string
+	current: {
+		caseText: string | null
+		guessValue: number | null
+		conviction: number | null
+		selections: { optionId: string; conviction: number }[]
+	}
+}
+
 // All of the state behind making a call, decoupled from where it renders.
 // The route ($questionId.tsx) calls this once and hands the result to both
 // <CastCallForm> (the fields) and <CallSubmitBar> (the sticky review
@@ -181,8 +196,12 @@ export function isAwardShape(shape: QuestionCallShape): boolean {
 // is nullable because the route calls this unconditionally (hooks can't be
 // called after an early return); nothing here does anything visible unless
 // a real question - and therefore a mounted CastCallForm/CallSubmitBar - exists.
+//
+// Passing `redo` switches it to replacing an existing call instead of making
+// a new one.
 export function useCastCallForm(
 	questionProp: FragmentType<typeof CastCallFormFragment> | null | undefined,
+	redo?: RedoMode,
 ) {
 	const question = useFragment(CastCallFormFragment, questionProp)
 	const shape = (question?.shape.toLowerCase() ??
@@ -192,6 +211,7 @@ export function useCastCallForm(
 	const isRateStat = question != null && computeIsRateStat(question)
 	const bucket = castCallBucketFor(shape, question?.picksRequired ?? 1)
 	const castCall = useGqlMutation(CastCallDocument)
+	const redoCall = useGqlMutation(RedoCallDocument)
 	const router = useRouter()
 	const queryClient = useQueryClient()
 
@@ -281,7 +301,7 @@ export function useCastCallForm(
 		defaultValues: {
 			shape,
 			questionId: question?.id ?? "",
-			caseText: "",
+			caseText: redo?.current.caseText ?? "",
 			// The field's current average when there's enough data to have one -
 			// starting the stepper wherever the crowd already sits is a far more
 			// useful default than an arbitrary constant, and it's already computed
@@ -292,31 +312,53 @@ export function useCastCallForm(
 			// undefined - the stepper's +/- buttons need something to increment
 			// from the moment it mounts, and an empty control with no visible
 			// value reads as broken rather than "not yet answered".
+			//
+			// A redo opens on what the call already says, so "I stand by the
+			// reasoning, I'm changing the pick" is one edit rather than a
+			// retype of everything.
 			guessValue:
-				question?.averageGuess != null
+				redo?.current.guessValue ??
+				(question?.averageGuess != null
 					? isRateStat
 						? Math.round(question.averageGuess * 1000) / 1000
 						: Math.round(question.averageGuess)
 					: isWinTotalGuess && gamesPerSeason != null
 						? Math.round(gamesPerSeason / 2)
-						: 0,
-			conviction: 50,
-			selections: [],
+						: 0),
+			conviction: redo?.current.conviction ?? 50,
+			selections: redo?.current.selections ?? [],
 		},
 		onSubmit: async (values, helpers) => {
-			const data = await castCall.mutateAsync({
-				input: {
-					questionId: values.questionId,
-					caseText: values.caseText || undefined,
-					guessValue: values.guessValue,
-					conviction: values.conviction,
-					selections: values.selections.map((s) => ({
-						optionId: s.optionId,
-						conviction: s.conviction,
-					})),
-				},
-			})
-			const result = data?.castCall
+			const selections = values.selections.map((s) => ({
+				optionId: s.optionId,
+				conviction: s.conviction,
+			}))
+			// The two mutations take the same picks; a redo is keyed on the
+			// call it replaces rather than on the question, which the server
+			// derives from it.
+			const result = redo
+				? (
+						await redoCall.mutateAsync({
+							input: {
+								callId: redo.callId,
+								caseText: values.caseText || undefined,
+								guessValue: values.guessValue,
+								conviction: values.conviction,
+								selections,
+							},
+						})
+					)?.redoCall
+				: (
+						await castCall.mutateAsync({
+							input: {
+								questionId: values.questionId,
+								caseText: values.caseText || undefined,
+								guessValue: values.guessValue,
+								conviction: values.conviction,
+								selections,
+							},
+						})
+					)?.castCall
 
 			if (!result) {
 				helpers.setFormError("Something went wrong. Try again.")
@@ -377,6 +419,19 @@ export function useCastCallForm(
 							}),
 						)
 					}
+				})
+				.with({ __typename: "RedoCallPayload" }, async () => {
+					// No call_submitted here - a redo isn't a new call, and
+					// counting it as one would double-count the same pick in
+					// every funnel that starts at call_submitted. The spend is
+					// tracked server-side as redo_spent, which is where the
+					// wallet and timing facts are.
+					await queryClient.invalidateQueries()
+					await router.invalidate()
+					closeModal()
+				})
+				.with({ __typename: "AuthorizationError" }, async (r) => {
+					helpers.setFormError(r.message)
 				})
 				.exhaustive()
 		},

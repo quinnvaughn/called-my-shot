@@ -148,6 +148,31 @@ export const CastCallPayload = builder
 		}),
 	})
 
+// Everything CastCallInput carries, keyed on the call being replaced rather
+// than the question - the question is derived from the call server-side, so a
+// redo can't be pointed at one call's id and another's question.
+export const RedoCallInput = builder.inputType("RedoCallInput", {
+	fields: (t) => ({
+		callId: t.id({ required: true }),
+		caseText: t.string({ required: false }),
+		guessValue: t.float({ required: false }),
+		conviction: t.int({ required: false }),
+		selections: t.field({ type: [CastCallSelectionInput], required: false }),
+	}),
+})
+
+export const RedoCallPayload = builder
+	.objectRef<{ call: Call; redoBalance: number }>("RedoCallPayload")
+	.implement({
+		fields: (t) => ({
+			call: t.field({ type: CallRef, resolve: (payload) => payload.call }),
+			// Returned rather than left for a refetch: the redo button's own
+			// label is the balance, and it has to be right the instant the
+			// mutation comes back.
+			redoBalance: t.exposeInt("redoBalance"),
+		}),
+	})
+
 export const ResolveQuestionInput = builder.inputType("ResolveQuestionInput", {
 	fields: (t) => ({
 		questionId: t.id({ required: true }),

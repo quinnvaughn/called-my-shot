@@ -6,6 +6,7 @@ import { toIdentity } from "#/lib/identity"
 import { CaseBlock } from "./case-block"
 import { PersonLine } from "./person-line"
 import { PickList } from "./pick-list"
+import { RedoBadge } from "./redo-badge"
 
 export const CallRowFragment = graphql(`
 	fragment CallRow_call on Call {
@@ -14,6 +15,9 @@ export const CallRowFragment = graphql(`
 		conviction
 		totalPoints
 		caseText
+		redo {
+			id
+		}
 		user {
 			...Identity_user
 		}
@@ -59,7 +63,9 @@ type Props = {
 // question's own detail page repeating the question's title/game/status on
 // every row would be redundant (shown once at the top of the page instead).
 // No status badge here either, for the same reason - just identity, then
-// the pick and case.
+// the pick and case. The redo badge is the exception: status is the same for
+// every row on the page, but whether a given caller took their call back is
+// per-row and appears nowhere else in this list.
 //
 // Links to that call's own permanent page. This list is the one place every
 // call on a question is visible at once, so it's the one place each of them
@@ -100,6 +106,11 @@ export function CallRow({ call: callProp }: Props) {
 				name={caller.name}
 				username={caller.username}
 				flair={caller.flair}
+				// The one badge this row does carry. Status is redundant here
+				// (the page states it once at the top), but whether a
+				// particular caller took their call back is per-row and can't
+				// be read anywhere else in this list.
+				badge={call.redo ? <RedoBadge /> : undefined}
 			/>
 			<PickList call={call} />
 			{call.caseText && (

@@ -958,6 +958,26 @@ export function numericGuessPoints(
 // unlock" hint off the same number the API gates on.
 export const MIN_EDGE_SAMPLE = 20
 
+// How many unspent redos a wallet holds at once. The cap is on the stock, not
+// on earning: a referral that qualifies while the wallet is full waits in a
+// queue and is granted the moment one is spent. So this bounds hoarding -
+// nobody walks into a slate holding eight do-overs - without ever closing the
+// loop on someone who keeps inviting people.
+//
+// Lives here rather than in the API so the web can render "3 of 3, spend one
+// to bank another" off the same number the API gates on.
+export const REDO_BALANCE_CAP = 3
+
+// The ceiling on referrals one account can convert to redos in a season.
+//
+// Set where no real user reaches it. Ten people who sign up AND make a call is
+// a k-factor far above 1, and a product doing that is growing rather than
+// being farmed. So this is a circuit breaker against a scripted farm, not a
+// product limit: the only cap a genuine user ever feels is REDO_BALANCE_CAP.
+// Tune it against the abuse review, never against engagement - real users
+// hitting it is a reason to raise it, not evidence it is working.
+export const REFERRAL_SEASON_CAP = 10
+
 // Does a caller put more weight behind the picks they hit than the ones they
 // miss? Accuracy answers "were you right"; this answers "did you know when
 // you were right". Positive means your loudest calls are your best ones,

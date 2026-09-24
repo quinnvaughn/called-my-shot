@@ -3,6 +3,12 @@ import { db } from "../../../db"
 import { canSeePrivate } from "../../../lib/auth"
 import { mutedEmailTypes } from "../../../lib/email-prefs"
 import type { LeaderboardEntry } from "../../../lib/global-leaderboard"
+import { redoBalanceFor } from "../../../lib/redos"
+import {
+	getOrCreateReferralCode,
+	type ReferralStats,
+	referralStatsFor,
+} from "../../../lib/referrals"
 import { loadReportCardResult } from "../../../lib/report-card/load"
 import { ALL_TIME } from "../../../lib/seasons"
 import { buildUserLeagueStats } from "../../../lib/user-stats"
@@ -49,6 +55,17 @@ const PendingEmailChangeRef = builder.drizzleObject("pendingEmailChanges", {
 		}),
 	}),
 })
+
+// How someone's invites are doing, for their own invite screen.
+const ReferralStatsRef = builder
+	.objectRef<ReferralStats>("ReferralStats")
+	.implement({
+		fields: (t) => ({
+			invited: t.exposeInt("invited"),
+			called: t.exposeInt("called"),
+			waiting: t.exposeInt("waiting"),
+		}),
+	})
 
 export const UserRef = builder.drizzleObject("users", {
 	name: "User",
@@ -102,6 +119,33 @@ export const UserRef = builder.drizzleObject("users", {
 			nullable: true,
 			resolve: (user, _args, ctx) =>
 				canSeePrivate(ctx, user.id) ? mutedEmailTypes(user.id) : null,
+		}),
+		// Unspent redos. Private: what someone is holding is theirs to know,
+		// and a public balance would make it obvious who to ask for one.
+		redoBalance: t.field({
+			type: "Int",
+			nullable: true,
+			resolve: (user, _args, ctx) =>
+				canSeePrivate(ctx, user.id) ? redoBalanceFor(user.id) : null,
+		}),
+		// This user's personal invite code, created on first read so the
+		// invite screen always has a link to show.
+		referralCode: t.field({
+			type: "String",
+			nullable: true,
+			resolve: async (user, _args, ctx) =>
+				canSeePrivate(ctx, user.id)
+					? (await getOrCreateReferralCode(user.id)).code
+					: null,
+		}),
+		// How the invites this user has sent are doing. `waiting` is the one
+		// worth surfacing: those are redos already earned that the balance cap
+		// is holding back until they spend one.
+		referralStats: t.field({
+			type: ReferralStatsRef,
+			nullable: true,
+			resolve: (user, _args, ctx) =>
+				canSeePrivate(ctx, user.id) ? referralStatsFor(user.id) : null,
 		}),
 		createdAt: t.field({
 			type: "DateTime",

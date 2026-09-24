@@ -20,6 +20,7 @@ import {
 } from "#/components/questions/call-share-row"
 import { CaseBlock } from "#/components/questions/case-block"
 import { DisputeModal } from "#/components/questions/dispute-modal"
+import { RedoCta, type RedoOffer } from "#/components/questions/redo-cta"
 import type {
 	CallUnscoredReason,
 	QuestionShape,
@@ -210,6 +211,11 @@ type Props = {
 	// the question itself, not the resolved answer, which is already shown
 	// above as the badge/title.
 	questionTitle: string
+	// The offer to take this call back, or null when it isn't on offer.
+	// Rendered inside the pending face rather than as a card of its own: a
+	// redo is an action on the call this card already states, and a second
+	// card would read as a second subject.
+	redo: RedoOffer | null
 }
 
 // Pending / locked-no-call / resolved-no-call / won / lost / voided are faces of
@@ -234,6 +240,7 @@ export function ViewerStatusCard({
 	fieldAccuracyPct,
 	marginLabel,
 	questionTitle,
+	redo,
 }: Props) {
 	const pickRowsProps = {
 		callCount,
@@ -283,6 +290,11 @@ export function ViewerStatusCard({
 						{isLocked ? "Awaiting resolution" : "Pending"}: your call is locked
 					</StatusPill>
 					<PickRows call={call} settled={false} {...pickRowsProps} />
+					{/* Directly under the pick it would change, and above the
+					share row - taking the call back is a decision about the
+					call, where sharing it is what you do once you've settled
+					on it. */}
+					<RedoCta questionId={questionId} offer={redo} />
 					{/* An unresolved call is the one most worth putting on the record -
 					calling something months before it happens is the whole claim - so
 					this is here rather than only on the settled face below. */}
@@ -713,7 +725,9 @@ function DisputeRow({
 								animation: "pulse 1.6s ease-in-out infinite",
 							})}
 						/>
-						<span>UNDER REVIEW: you'll get a notification once it's settled</span>
+						<span>
+							UNDER REVIEW: you'll get a notification once it's settled
+						</span>
 					</HStack>
 				))
 				.with("available", () => (
@@ -1177,21 +1191,24 @@ function SelectionPickRow({
 		// multiplier story left to tell.
 		const outcome = match({ isCorrect: result.isCorrect, multipliers })
 			.returnType<ResultLedger>()
-			.with({ isCorrect: true, multipliers: P.nonNullable }, ({ multipliers }) => ({
-				label: "IF RIGHT",
-				math: (
-					<>
-						<span className={mathDownside}>{committed}</span>
-						<span className={mathDefault}>
-							{" "}
-							× {formatMult(multipliers.boldness)} boldness ×{" "}
-							{formatMult(multipliers.early)} early ={" "}
-						</span>
-						<span className={mathUpside}>+{result.points}</span>
-					</>
-				),
-				note: fieldNote,
-			}))
+			.with(
+				{ isCorrect: true, multipliers: P.nonNullable },
+				({ multipliers }) => ({
+					label: "IF RIGHT",
+					math: (
+						<>
+							<span className={mathDownside}>{committed}</span>
+							<span className={mathDefault}>
+								{" "}
+								× {formatMult(multipliers.boldness)} boldness ×{" "}
+								{formatMult(multipliers.early)} early ={" "}
+							</span>
+							<span className={mathUpside}>+{result.points}</span>
+						</>
+					),
+					note: fieldNote,
+				}),
+			)
 			// A zero stake leaves nothing to back the multipliers out of.
 			.with({ isCorrect: true }, () => ({
 				label: "IF RIGHT",

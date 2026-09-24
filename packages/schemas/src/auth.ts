@@ -21,11 +21,25 @@ export const usernameSchema = z
 		"Username can only contain letters, numbers, and underscores",
 	)
 
+// An invite code, either carried in from /join/:code or typed into the
+// signup form by hand. Optional, and deliberately forgiving: it is uppercased
+// and trimmed rather than rejected for case, and an empty string reads as
+// absent so a blank optional field never fails a signup. A code that is
+// well-formed but unknown is ignored server-side rather than erroring - see
+// recordReferralAtSignup.
+export const referralCodeSchema = z
+	.string()
+	.trim()
+	.toUpperCase()
+	.transform((v) => (v === "" ? undefined : v))
+	.optional()
+
 export const signUpSchema = z.object({
 	name: nameSchema,
 	username: usernameSchema,
 	email: emailSchema,
 	password: passwordSchema,
+	referralCode: referralCodeSchema,
 })
 export type SignUpInput = z.infer<typeof signUpSchema>
 

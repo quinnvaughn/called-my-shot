@@ -113,6 +113,13 @@ export const QuestionDetailDocument = graphql(`
 				conviction
 				totalPoints
 				unscoredReason
+				# Whether the redo CTA can show at all. Deliberately excludes
+				# the viewer's balance, which is per-viewer rather than
+				# per-call - see Call.viewerCanRedo.
+				viewerCanRedo
+				redo {
+					id
+				}
 				currentRank
 				seasonGamesPlayed
 				seasonTotalGames

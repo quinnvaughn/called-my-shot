@@ -9,6 +9,7 @@ import { GameReminderRow } from "./rows/game-reminder-row"
 import { GroupMemberJoinedRow } from "./rows/group-member-joined-row"
 import { QuestionSharedToGroupRow } from "./rows/question-shared-to-group-row"
 import { QuestionVoidedRow } from "./rows/question-voided-row"
+import { RedoEarnedRow } from "./rows/redo-earned-row"
 import { StreakMilestoneRow } from "./rows/streak-milestone-row"
 import { StreakPersonalBestRow } from "./rows/streak-personal-best-row"
 import { StreakSnappedRow } from "./rows/streak-snapped-row"
@@ -76,6 +77,9 @@ export function NotificationRow({ notification, unread, onOpen }: Props) {
 		))
 		.with({ __typename: "GameReminderNotification" }, (n) => (
 			<GameReminderRow notification={n} unread={unread} onOpen={onOpen} />
+		))
+		.with({ __typename: "RedoEarnedNotification" }, (n) => (
+			<RedoEarnedRow notification={n} unread={unread} onOpen={onOpen} />
 		))
 		.exhaustive()
 }

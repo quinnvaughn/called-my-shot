@@ -10,6 +10,8 @@ import { CallUnscoredReason } from "./enums"
 import {
 	type CallStreakMark,
 	callerLeagueAccuracyLoader,
+	callRedoLoader,
+	callRedoSelectionsLoader,
 	callSelectionsLoader,
 	callStreakLoader,
 	loadQuestionFacts,
@@ -48,6 +50,46 @@ async function callSeasonWindow(ctx: Context, call: Call) {
 	if (!question) return null
 	return loadSeasonWindow(ctx, question, call.createdAt)
 }
+
+// What a call said before its one redo. Its presence is what the REDO badge
+// reads; its contents are the before/after on the call's own page.
+export const CallRedoSelectionRef = builder.drizzleObject(
+	"callRedoSelections",
+	{
+		name: "CallRedoSelection",
+		fields: (t) => ({
+			id: t.exposeID("id"),
+			conviction: t.exposeInt("conviction"),
+			option: t.relation("option"),
+		}),
+	},
+)
+
+export const CallRedoRef = builder.drizzleObject("callRedos", {
+	name: "CallRedo",
+	fields: (t) => ({
+		id: t.exposeID("id"),
+		// When the redo happened, which is also the call's current createdAt.
+		redoneAt: t.field({ type: "DateTime", resolve: (r) => r.redoneAt }),
+		// When the original call was made. The call's createdAt no longer says
+		// this - a redo re-stamps it, which is the cost - so the page states
+		// both rather than quietly showing the later one.
+		originalCreatedAt: t.field({
+			type: "DateTime",
+			resolve: (r) => r.originalCreatedAt,
+		}),
+		originalGuessValue: t.exposeFloat("originalGuessValue", {
+			nullable: true,
+		}),
+		originalConviction: t.exposeInt("originalConviction", { nullable: true }),
+		originalCaseText: t.exposeString("originalCaseText", { nullable: true }),
+		originalSelections: t.field({
+			type: [CallRedoSelectionRef],
+			resolve: (redo, _args, ctx) =>
+				callRedoSelectionsLoader(ctx).load(redo.id),
+		}),
+	}),
+})
 
 export const CallRef = builder.drizzleObject("calls", {
 	name: "Call",
@@ -173,6 +215,34 @@ export const CallRef = builder.drizzleObject("calls", {
 			},
 		}),
 		selections: t.relation("selections"),
+		// Null on almost every call. Public: a redo is meant to be visible,
+		// and the whole point of keeping the original is that anyone can see
+		// what was abandoned.
+		redo: t.field({
+			type: CallRedoRef,
+			nullable: true,
+			resolve: (call, _args, ctx) => callRedoLoader(ctx).load(call.id),
+		}),
+		// Whether this call could be redone right now, ignoring the viewer's
+		// wallet: they own it, the question is still open on the real clock,
+		// and it hasn't already been redone.
+		//
+		// Deliberately excludes the balance. Balance is a property of the
+		// viewer, not of the call, so folding it in would make a feed of
+		// twenty cards re-derive the same wallet count twenty times - and it
+		// would collapse "eligible but out of redos" (which should offer an
+		// invite) into "not eligible" (which should show nothing).
+		viewerCanRedo: t.field({
+			type: "Boolean",
+			resolve: async (call, _args, ctx) => {
+				if (ctx.user?.id !== call.userId) return false
+				const question = await loadQuestionFacts(ctx, call.questionId)
+				if (!question) return false
+				if (question.status !== "open" || question.locksAt <= new Date())
+					return false
+				return (await callRedoLoader(ctx).load(call.id)) === null
+			},
+		}),
 		// Always true, and no current web code selects it. It stays in the
 		// schema so a web build that still does keeps working while the api and
 		// web deploys overlap; delete it once that build is no longer serving.

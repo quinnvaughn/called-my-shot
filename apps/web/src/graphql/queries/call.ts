@@ -21,6 +21,28 @@ export const CallRecordDocument = graphql(`
 				family
 				familyLabel
 			}
+			# The full before/after. Fetched here and nowhere else: a feed only
+			# needs to know a redo happened, this page is where there's room to
+			# show what was abandoned.
+			redo {
+				id
+				redoneAt
+				originalCreatedAt
+				originalGuessValue
+				originalConviction
+				originalCaseText
+				originalSelections {
+					id
+					conviction
+					option {
+						id
+						label
+						isCorrect
+						actualValue
+					}
+				}
+			}
+			viewerCanRedo
 			user {
 				id
 				name

@@ -10,6 +10,7 @@ import "./inputs"
 import "./queries"
 import "./mutations/create-question"
 import "./mutations/cast-call"
+import "./mutations/redo-call"
 import "./mutations/resolution"
 import "./mutations/moderation"
 

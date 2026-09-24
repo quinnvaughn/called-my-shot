@@ -17,6 +17,9 @@ import {
 	type Question,
 	questionOptions,
 	questions,
+	redoGrants,
+	referralCodes,
+	referrals,
 	seasons,
 	sports,
 	stats,
@@ -28,6 +31,7 @@ import {
 	userStreaks,
 	users,
 } from "../db/schema"
+import { generateInviteCode } from "../lib/invite-codes"
 
 // Monotonic within a test file so every generated slug/username/abbreviation
 // is unique without the caller having to name one. Reset is unnecessary -
@@ -414,6 +418,50 @@ export function makeStreak(
 		db
 			.insert(userStreaks)
 			.values({ family: "winners" as const, ...overrides })
+			.returning(),
+	)
+}
+
+// Uses the real generator rather than a made-up string: codes are validated
+// against the shared alphabet on the way in (see isValidInviteCodeShape), and
+// that alphabet excludes 0/O/1/I/L, so a hand-rolled "RF0001" is rejected as
+// malformed before it ever gets looked up.
+export function makeReferralCode(userId: string, code?: string) {
+	return insertOne(
+		db
+			.insert(referralCodes)
+			.values({ userId, code: code ?? generateInviteCode() })
+			.returning(),
+	)
+}
+
+export function makeReferral(
+	referrerId: string,
+	inviteeId: string,
+	overrides: Partial<typeof referrals.$inferInsert> = {},
+) {
+	return insertOne(
+		db
+			.insert(referrals)
+			.values({
+				code: `RF${String(uniq()).padStart(4, "0")}`,
+				source: "invite_link" as const,
+				...overrides,
+				referrerId,
+				inviteeId,
+			})
+			.returning(),
+	)
+}
+
+export function makeRedoGrant(
+	userId: string,
+	overrides: Partial<typeof redoGrants.$inferInsert> = {},
+) {
+	return insertOne(
+		db
+			.insert(redoGrants)
+			.values({ source: "admin" as const, ...overrides, userId })
 			.returning(),
 	)
 }

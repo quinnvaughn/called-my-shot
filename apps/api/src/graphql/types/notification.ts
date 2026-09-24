@@ -32,6 +32,7 @@ const GQL_TYPE_BY_ROW_TYPE: Record<NotificationRow["type"], string> = {
 	streak_personal_best: "StreakPersonalBestNotification",
 	streak_snapped: "StreakSnappedNotification",
 	game_reminder: "GameReminderNotification",
+	redo_earned: "RedoEarnedNotification",
 }
 
 // The sentence the row is told in, shared with the results email's
@@ -265,6 +266,19 @@ builder.drizzleObject("notifications", {
 			},
 			resolve: (row) => row.gameId,
 		}),
+	}),
+})
+
+// Someone you invited made their first call, so your half of the invite
+// landed - see qualifyReferralOnFirstCall. Also sent when a credit that had
+// been waiting on a full wallet is finally granted, which is the other moment
+// a redo actually appears.
+builder.drizzleObject("notifications", {
+	variant: "RedoEarnedNotification",
+	interfaces: [NotificationNode],
+	fields: (t) => ({
+		actor: t.relation("actor", { nullable: true }),
+		actorUsername: t.exposeString("actorUsername", { nullable: true }),
 	}),
 })
 

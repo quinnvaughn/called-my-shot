@@ -1,7 +1,14 @@
 import type { LinkProps } from "@tanstack/react-router"
 import { Store } from "@tanstack/react-store"
 
-export type ToastAction = { label: string; to: LinkProps["to"] }
+// `hash` targets a section within the destination. How It Works reads it to
+// open the matching accordion, so a toast can point at one answer rather than
+// at a page of closed headers.
+export type ToastAction = {
+	label: string
+	to: LinkProps["to"]
+	hash?: string
+}
 
 export type Toast = {
 	id: number

@@ -7,7 +7,7 @@ import {
 	useRouteContext,
 } from "@tanstack/react-router"
 import { DateTime } from "luxon"
-import { useEffect, useRef } from "react"
+import { useEffect, useRef, useState } from "react"
 import { FaRegTimesCircle } from "react-icons/fa"
 import { FiShare } from "react-icons/fi"
 import { css } from "styled-system/css"
@@ -200,7 +200,31 @@ function RouteComponent() {
 	// Called unconditionally (hooks can't follow the early-return below) -
 	// harmless when there's no question yet, since nothing renders CastCallForm
 	// or CallSubmitBar in that case either.
-	const callForm = useCastCallForm(question)
+	// Redo mode whenever the viewer has a call that could still be taken back.
+	// Safe to pass unconditionally: a viewer with a call is never offered the
+	// first-call form (isCallable is false), so this only ever seeds the form
+	// that the redo CTA opens.
+	const redoMode = question?.viewerCall?.viewerCanRedo
+		? {
+				callId: question.viewerCall.id,
+				current: {
+					caseText: question.viewerCall.caseText,
+					guessValue: question.viewerCall.guessValue,
+					conviction: question.viewerCall.conviction,
+					selections: question.viewerCall.selections.map((s) => ({
+						optionId: s.option.id,
+						conviction: s.conviction,
+					})),
+				},
+			}
+		: undefined
+	const callForm = useCastCallForm(question, redoMode)
+	const [redoRequested, setRedoRequested] = useState(false)
+	// Gated on redoMode as well as the click, so the form closes itself once
+	// the redo lands: viewerCanRedo goes false the moment a call has been
+	// redone, which clears redoMode. Without that pairing the picker would
+	// stay open and re-submit as a first call on a question already called.
+	const isRedoing = redoRequested && redoMode !== undefined
 
 	// Captured once per mount, which remountDeps makes once per question. The
 	// state is what the page first offered, not what it becomes after a call.
@@ -554,25 +578,51 @@ function RouteComponent() {
 						</HStack>
 					</Card.Footer>
 				</Card>
-				<ViewerStatusCard
-					questionId={question.id}
-					status={status}
-					disputeAction={disputeAction(status, {
-						hasSettledDispute: question.hasSettledDispute,
-						hasViewerDispute: question.viewerDispute !== null,
-					})}
-					callCount={question.callCount}
-					totalOptions={question.options.length}
-					numericTolerancePct={question.numericTolerancePct}
-					numericToleranceAbsolute={question.numericToleranceAbsolute}
-					isRateStat={callForm.isRateStat}
-					answer={answer}
-					resolutionNote={question.resolutionNote}
-					voidedReason={question.voidedReason}
-					fieldAccuracyPct={fieldAccuracyPct}
-					marginLabel={viewerMarginLabel}
-					questionTitle={question.title}
-				/>
+				{/* Hidden while re-picking. This card states the call as it
+			    stands, and leaving a "pending: your call is locked" face above
+			    a form that is changing that very call says two contradictory
+			    things at once. The picker already opens seeded with the
+			    existing pick, so nothing is lost by standing it down. */}
+				{!isRedoing && (
+					<ViewerStatusCard
+						questionId={question.id}
+						status={status}
+						disputeAction={disputeAction(status, {
+							hasSettledDispute: question.hasSettledDispute,
+							hasViewerDispute: question.viewerDispute !== null,
+						})}
+						callCount={question.callCount}
+						totalOptions={question.options.length}
+						numericTolerancePct={question.numericTolerancePct}
+						numericToleranceAbsolute={question.numericToleranceAbsolute}
+						isRateStat={callForm.isRateStat}
+						answer={answer}
+						resolutionNote={question.resolutionNote}
+						voidedReason={question.voidedReason}
+						fieldAccuracyPct={fieldAccuracyPct}
+						marginLabel={viewerMarginLabel}
+						questionTitle={question.title}
+						// Null unless this call could still be taken back, and once
+						// the picker is open the offer has been taken.
+						redo={
+							question.viewerCall?.viewerCanRedo && !isRedoing
+								? {
+										questionShape:
+											question.shape.toLowerCase() as QuestionCallShape,
+										balance: me?.redoBalance ?? 0,
+										action: {
+											// No confirmation step: opening the picker
+											// spends nothing. The redo is only charged
+											// on submit, which already goes through
+											// ConfirmCallModal like any other call.
+											kind: "open",
+											onStart: () => setRedoRequested(true),
+										},
+									}
+								: null
+						}
+					/>
+				)}
 				{/* Directly above the pick form, so it reads as input to the call
 			    rather than trivia below it. Renders nothing until the loader's
 			    unawaited prefetch lands, and nothing at all when there's no
@@ -590,7 +640,7 @@ function RouteComponent() {
 			(your call/outcome vs. how the whole field called it are two
 			different concepts, but the order between them never flips
 			regardless of which status - pending, won, either loss - is active). */}
-				{isCallable ? (
+				{isCallable || isRedoing ? (
 					<VStack gap="3" alignItems="stretch">
 						{question.viewerStreak && (
 							<StreakStakeLine
@@ -637,7 +687,7 @@ function RouteComponent() {
 					{sectionLabel("Calls")}
 					<QuestionCallsList questionId={question.id} />
 				</VStack>
-				{isCallable && <CallSubmitBar callForm={callForm} />}
+				{(isCallable || isRedoing) && <CallSubmitBar callForm={callForm} />}
 				{/* Rendered last so its effects run after the anchors above have
 			    mounted and registered themselves. Gated on the same condition
 			    as the form itself: there is nothing to walk through on a

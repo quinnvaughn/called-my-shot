@@ -11,6 +11,7 @@ import { db } from "../db"
 import {
 	analyticsOutbox,
 	callSelections,
+	calls,
 	emailOutbox,
 	notifications,
 	questionOptions,
@@ -121,6 +122,55 @@ describe("resolveQuestionInternal - option-based shapes", () => {
 		)
 		const winner = await selectionFor(callers[0].selection.id)
 		expect(winner?.resultPoints).toBe(expected)
+	})
+
+	it("costs a redone call its earliness, which is the price of a redo", async () => {
+		// Two callers on the same winning side, so field share and everything
+		// else is identical and earliness is the only thing separating them.
+		// The first caller then redoes, re-stamping createdAt to now, which
+		// drops them behind the second.
+		const { question, options, callers } = await seedOptionQuestion({
+			callers: [
+				{ optionIndex: 0, createdAt: pastDate(3) },
+				{ optionIndex: 0, createdAt: pastDate(2) },
+			],
+		})
+
+		await db
+			.update(calls)
+			.set({ createdAt: new Date() })
+			.where(eq(calls.id, callers[0].call.id))
+
+		await resolve(question, { correctOptionIds: [options[0].id] })
+
+		const redone = await selectionFor(callers[0].selection.id)
+		const untouched = await selectionFor(callers[1].selection.id)
+
+		// Whoever called first of two keeps the better multiplier - and after
+		// the re-stamp that is no longer the caller who originally was first.
+		expect(untouched?.resultPoints).toBe(
+			selectionPoints(
+				BASE_POINTS_BY_SHAPE.yes_no_prop,
+				LOSS_RATE_BY_SHAPE.yes_no_prop,
+				100,
+				2,
+				100,
+				true,
+				earlyTierFor(1, 2).mult,
+			),
+		)
+		expect(redone?.resultPoints).toBe(
+			selectionPoints(
+				BASE_POINTS_BY_SHAPE.yes_no_prop,
+				LOSS_RATE_BY_SHAPE.yes_no_prop,
+				100,
+				2,
+				100,
+				true,
+				earlyTierFor(2, 2).mult,
+			),
+		)
+		expect(redone?.resultPoints).toBeLessThan(untouched?.resultPoints ?? 0)
 	})
 
 	it("pays a contrarian winner more than a consensus winner", async () => {

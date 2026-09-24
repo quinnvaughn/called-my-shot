@@ -14,6 +14,7 @@ import { LockedBadge } from "./locked-badge"
 import { PersonLine } from "./person-line"
 import { PickList } from "./pick-list"
 import { QuestionSummaryHeader } from "./question-summary-header"
+import { RedoBadge } from "./redo-badge"
 import { ResultBadge } from "./result-badge"
 import { StreakTag } from "./streak-tag"
 import { VoidedBadge } from "./voided-badge"
@@ -26,6 +27,11 @@ export const CallCardFragment = graphql(`
 		totalPoints
 		unscoredReason
 		caseText
+		# Presence alone is the badge. What it used to say is only fetched on
+		# the call's own page, where there's room to show it.
+		redo {
+			id
+		}
 		streak {
 			length
 			family
@@ -138,39 +144,48 @@ export function CallCard({ call: callProp }: CallCardProps) {
 					name={caller.name}
 					username={caller.username}
 					flair={caller.flair}
-					badge={match(call.question.status)
-						.with("OPEN", () => (
-							<span
-								className={css({
-									fontFamily: "mono",
-									fontSize: "3xs",
-									color: "fg.subtle",
-									whiteSpace: "nowrap",
-								})}
-							>
-								<LockLine
-									status={call.question.status}
-									locksAt={call.question.locksAt}
-								/>
-							</span>
-						))
-						.with("LOCKED", () => <LockedBadge />)
-						.with("RESOLVED", "DISPUTED", () => (
-							<HStack gap="1.5" alignItems="center">
-								{call.streak && (
-									<StreakTag
-										length={call.streak.length}
-										track={`${call.question.league.abbreviation} ${call.streak.familyLabel}`}
-									/>
-								)}
-								<ResultBadge
-									totalPoints={call.totalPoints}
-									unscoredReason={call.unscoredReason}
-								/>
-							</HStack>
-						))
-						.with("VOIDED", () => <VoidedBadge />)
-						.exhaustive()}
+					// The redo badge rides alongside whatever the status slot
+					// was already showing rather than replacing it - a redone
+					// call still has a lock time or a result, and which it is
+					// matters more than how it got there.
+					badge={
+						<HStack gap="1.5" alignItems="center">
+							{call.redo && <RedoBadge />}
+							{match(call.question.status)
+								.with("OPEN", () => (
+									<span
+										className={css({
+											fontFamily: "mono",
+											fontSize: "3xs",
+											color: "fg.subtle",
+											whiteSpace: "nowrap",
+										})}
+									>
+										<LockLine
+											status={call.question.status}
+											locksAt={call.question.locksAt}
+										/>
+									</span>
+								))
+								.with("LOCKED", () => <LockedBadge />)
+								.with("RESOLVED", "DISPUTED", () => (
+									<HStack gap="1.5" alignItems="center">
+										{call.streak && (
+											<StreakTag
+												length={call.streak.length}
+												track={`${call.question.league.abbreviation} ${call.streak.familyLabel}`}
+											/>
+										)}
+										<ResultBadge
+											totalPoints={call.totalPoints}
+											unscoredReason={call.unscoredReason}
+										/>
+									</HStack>
+								))
+								.with("VOIDED", () => <VoidedBadge />)
+								.exhaustive()}
+						</HStack>
+					}
 				/>
 				<PickList call={call} />
 				{/* CaseBlock renders a real "Show more" button when the case

@@ -12,6 +12,7 @@ import "./types/question"
 import "./types/game-questions"
 import "./types/ballot"
 import "./types/notification"
+import "./types/referral"
 import "./types/support"
 
 builder.queryType({})

@@ -30,6 +30,7 @@ export const notificationType = pgEnum("notification_type", [
 	"streak_personal_best",
 	"streak_snapped",
 	"game_reminder",
+	"redo_earned",
 ])
 
 // One row per (recipient, thing that happened) - see hook points in

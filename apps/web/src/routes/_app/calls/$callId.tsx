@@ -13,6 +13,9 @@ import {
 	buildCallTweet,
 	CallShareRow,
 } from "#/components/questions/call-share-row"
+import type { QuestionCallShape } from "#/components/questions/cast-call-form/use-cast-call-form"
+import { RedoCta } from "#/components/questions/redo-cta"
+import { RedoPanel } from "#/components/questions/redo-panel"
 import { arrowLink } from "#/components/ui/arrow-link"
 import { Breadcrumb } from "#/components/ui/breadcrumb"
 import { NotFound } from "#/components/ui/not-found"
@@ -87,6 +90,7 @@ export const Route = createFileRoute("/_app/calls/$callId")({
 				path: `/share/calls/${call.id}/card.png?v=${callCardVersion(
 					view.resolvedAt,
 					call.streak?.length ?? null,
+					call.redo?.redoneAt ?? null,
 				)}`,
 				alt: title,
 			},
@@ -170,6 +174,43 @@ function describeCall(call: NonNullable<CallRecordQuery["call"]>) {
 	// size of it isn't worth a word.
 	const margin = callMarginFor(summaryData)
 
+	// The abandoned pick, run through the same summariser as the live one so
+	// the two read as the same kind of claim rather than one being a raw
+	// label. Uses the question as it stands, which is right: the whole point
+	// is to compare the two picks against the same outcome.
+	const redo = call.redo
+		? {
+				originalCalledAt: formatCallDate(call.redo.originalCreatedAt),
+				redoneAt: formatCallDate(call.redo.redoneAt),
+				originalPickLabel: pickSummary({
+					...summaryData,
+					guessValue: call.redo.originalGuessValue,
+					conviction: call.redo.originalConviction,
+					selections: call.redo.originalSelections.map((s) => ({
+						id: s.id,
+						conviction: s.conviction,
+						option: {
+							label: s.option.label,
+							isCorrect: s.option.isCorrect,
+							actualValue: s.option.actualValue,
+						},
+					})),
+				}),
+				currentPickLabel: pickLabel,
+				originalCaseText: call.redo.originalCaseText,
+				// Null until the question resolves, which is when isCorrect
+				// stops being null. A numeric guess has no "would the old
+				// number have hit" without re-running the tolerance band, so
+				// it stays null and the panel simply shows both guesses.
+				originalWasCorrect: isNumeric
+					? null
+					: firstDefined(
+							call.redo.originalSelections.map((s) => s.option.isCorrect),
+						),
+				currentIsWin: isWin,
+			}
+		: null
+
 	return {
 		pickLabel,
 		points,
@@ -177,6 +218,7 @@ function describeCall(call: NonNullable<CallRecordQuery["call"]>) {
 		fieldPct,
 		closeness,
 		margin,
+		redo,
 		actual: actualSummary({ question: summaryData.question }),
 		conviction,
 		username: call.user.username,
@@ -187,6 +229,16 @@ function describeCall(call: NonNullable<CallRecordQuery["call"]>) {
 		locksAt: call.question.locksAt,
 		resolvedAt: call.question.resolvedAt,
 	}
+}
+
+// An award call has several picks; it counts as having been right if any of
+// them was. Null while the question is unresolved, where every isCorrect is
+// still null.
+function firstDefined(flags: (boolean | null | undefined)[]): boolean | null {
+	if (flags.length === 0 || flags.every((f) => f === null || f === undefined)) {
+		return null
+	}
+	return flags.some((f) => f === true)
 }
 
 // Only two of the four outcomes get a pool of their own. A narrow WIN and a
@@ -290,6 +342,33 @@ function RouteComponent() {
 			<PageHeader title="The Call" />
 
 			<CallRecordCard data={cardData} />
+
+			{/* Directly under the record, because it is about the record: this
+			call's time is the redo's time, and without this the page would
+			quietly show the later one as if it were the only one. */}
+			{view.redo && <RedoPanel data={view.redo} />}
+
+			{/* The page about one call is where someone goes when they want to
+			change that call, so the offer belongs here as much as on the
+			question. The form itself lives on the question page rather than
+			being duplicated onto a page whose job is stating a record. */}
+			<RedoCta
+				questionId={call.question.id}
+				offer={
+					call.viewerCanRedo
+						? {
+								questionShape:
+									call.question.shape.toLowerCase() as QuestionCallShape,
+								balance: me?.redoBalance ?? 0,
+								action: {
+									kind: "navigate",
+									questionId: call.question.id,
+									slug: buildQuestionSlug(call.question.title),
+								},
+							}
+						: null
+				}
+			/>
 
 			{call.streak && (
 				<Link

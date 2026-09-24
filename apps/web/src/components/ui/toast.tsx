@@ -66,6 +66,7 @@ function ToastItem({ toast }: { toast: Toast }) {
 				{toast.action && (
 					<Link
 						to={toast.action.to}
+						hash={toast.action.hash}
 						className={actionClass}
 						onClick={() => dismissToast(toast.id)}
 					>

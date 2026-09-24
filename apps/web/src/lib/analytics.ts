@@ -18,7 +18,15 @@ type AnalyticsEvents = {
 	// `surface` separates the landing page's "lock these in" prompt from every
 	// other way into the auth modal, so it's visible whether trying picks first
 	// actually moves signups.
-	user_signed_up: { method: "email"; surface: AuthModalSurface }
+	// referralSource is null for the front door. Carried here as well as on
+	// the server's referral_signup so a referred cohort can be split out in
+	// any funnel that starts at signup, without a join back to the API's
+	// events.
+	user_signed_up: {
+		method: "email"
+		surface: AuthModalSurface
+		referralSource: "invite_link" | "manual_code" | null
+	}
 	user_signed_in: { method: "email"; surface: AuthModalSurface }
 	user_signed_out: Record<string, never>
 	email_confirmed: Record<string, never>
@@ -190,6 +198,53 @@ type AnalyticsEvents = {
 	// `notPosted` counts refusals (the game locked, or already called) and
 	// failed requests together.
 	guest_picks_submitted: { posted: number; notPosted: number }
+
+	// The invite loop's front half. The back half - a code converting to an
+	// account and then to a first call - is server-side in apps/api
+	// lib/analytics-outbox.ts, since neither moment is something the browser
+	// sees reliably.
+	//
+	// Worth being clear about what these can and can't say: a share is not an
+	// invite. One copied link can go to one person or to a group chat of
+	// fifty, and for `native` the OS sheet takes over so the destination is
+	// unknowable, the same limit question_link_shared already has. So the
+	// countable denominator for k-factor is join_page_viewed - one unique
+	// visitor there is one person who actually received an invite - and
+	// referral_link_shared only says how the links leave.
+	referral_link_shared: {
+		method: "native" | "clipboard" | "x"
+		surface: "invite_page"
+	}
+	// Someone landed on /join/:code. `codeValid` separates a live link from a
+	// typo or a rotated code, which otherwise look identical in the funnel.
+	// The gap between this and referral_signup is the attribution the link
+	// loses - mostly people who open it on a phone and sign up on a laptop,
+	// which is exactly what the manual code field exists to win back.
+	join_page_viewed: { codeValid: boolean }
+	// The "have a code?" field being used. Fires on submit, not on focus, and
+	// prefilled is whether /join had already filled it in - an unprefilled one
+	// is someone typing a code a friend read out to them, which is the case
+	// the link alone can't serve.
+	referral_code_entered: { prefilled: boolean }
+
+	// A redo being started from the UI. The spend itself is server-side
+	// (redo_spent), which is where the wallet and timing facts are; this is
+	// only the intent, so an abandoned redo form is visible.
+	redo_started: {
+		questionId: string
+		questionShape: QuestionCallShape
+		balance: number
+	}
+	// The out-of-redos state being shown. Wanting a redo and not having one is
+	// the moment someone is most likely to actually send an invite, so this
+	// paired with redo_invite_clicked at balance 0 is the loop's tightest
+	// measure.
+	redo_wall_shown: { questionId: string }
+	// The earn link on a redo row. Carries the balance because the link shows
+	// at every balance, so a click at 0 (someone blocked, converting) and a
+	// click at 3 (someone topping up) are different acts and would otherwise
+	// be indistinguishable.
+	redo_invite_clicked: { questionId: string; balance: number }
 }
 
 const POSTHOG_KEY = import.meta.env.VITE_PUBLIC_POSTHOG_KEY as

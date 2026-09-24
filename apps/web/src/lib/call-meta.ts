@@ -101,14 +101,21 @@ export function callPageMeta(input: CallMetaInput): {
 
 // The og:image url's `?v=`. Third-party unfurl caches hold a scraped card for
 // days, so anything that changes the card's face has to change this: the
-// call resolving, and the streak cell a winning call can carry. A call with
-// no streak keeps the version it has always had.
+// call resolving, the streak cell a winning call can carry, and a redo.
+//
+// The redo is the one that would otherwise slip through. Every redo happens
+// while its question is still open, which is exactly when this used to return
+// a flat "pending" - so a link shared, scraped, and then redone would have
+// gone on unfurling the abandoned pick indefinitely. A call with no streak
+// and no redo keeps the version it has always had.
 export function callCardVersion(
 	resolvedAt: string | null,
 	streakLength: number | null,
+	redoneAt: string | null = null,
 ): string {
 	const base = resolvedAt ? String(Date.parse(resolvedAt)) : "pending"
-	return streakLength ? `${base}-w${streakLength}` : base
+	const withStreak = streakLength ? `${base}-w${streakLength}` : base
+	return redoneAt ? `${withStreak}-r${Date.parse(redoneAt)}` : withStreak
 }
 
 function clampText(text: string, max: number): string {

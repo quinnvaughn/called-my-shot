@@ -33,6 +33,7 @@ export const NotificationsPageDocument = graphql(`
 						...StreakPersonalBestRow_notification
 						...StreakSnappedRow_notification
 						...GameReminderRow_notification
+						...RedoEarnedRow_notification
 					}
 					pageInfo {
 						hasNextPage

@@ -5,6 +5,7 @@ export const SignUpDocument = graphql(`
 		signUp(input: $input) {
 			__typename
 			... on AuthPayload {
+				redoGranted
 				user {
 					id
 					name

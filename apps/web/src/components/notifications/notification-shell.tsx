@@ -26,6 +26,9 @@ export type Target =
 			to: "/user/$username/sweeps/$league/$slateKey"
 			params: { username: string; league: string; slateKey: string }
 	  }
+	// The first destination here that takes no params - the invite screen,
+	// where an earned redo is spent or another link is sent.
+	| { to: "/invite" }
 	| null
 
 type Props = {
@@ -123,7 +126,10 @@ export function NotificationShell({
 	const wrapped = target ? (
 		<Link
 			to={target.to}
-			params={target.params}
+			// Spread rather than passed directly: a paramless destination has
+			// no `params` key at all, and handing Link an explicit undefined
+			// is not the same as omitting it.
+			{...("params" in target ? { params: target.params } : {})}
 			className={css({
 				display: "block",
 				textDecoration: "none",

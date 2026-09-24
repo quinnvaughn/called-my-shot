@@ -1,13 +1,15 @@
 import { castCallSchema } from "@called-my-shot/schemas"
-import { isNumericGuessShape, maxConvictionFor } from "@called-my-shot/scoring"
+import { isNumericGuessShape } from "@called-my-shot/scoring"
 import { db } from "../../../../db"
 import { callSelections, calls } from "../../../../db/schema"
 import { requireUser } from "../../../../lib/auth"
+import { validateCallInput } from "../../../../lib/call-input"
 import {
 	AuthenticationError,
 	NotFoundError,
 	ValidationError,
 } from "../../../../lib/errors"
+import { qualifyReferralOnFirstCall } from "../../../../lib/referrals"
 import { applySeasonStatDeltas } from "../../../../lib/user-season-stats"
 import { builder } from "../../../builder"
 import { parseInput } from "../../../helpers"
@@ -56,38 +58,7 @@ builder.mutationFields((t) => ({
 				shape: question.shape,
 			})
 
-			if (
-				(data.shape === "player_season_award" ||
-					data.shape === "team_season_award") &&
-				data.selections.length !== question.picksRequired
-			) {
-				throw ValidationError.field(
-					"selections",
-					`Pick exactly ${question.picksRequired} - you picked ${data.selections.length}`,
-				)
-			}
-
-			const maxConviction = maxConvictionFor(question)
-			if (data.selections.some((s) => s.conviction > maxConviction)) {
-				throw ValidationError.field(
-					"selections",
-					`Conviction on community props maxes out at ${maxConviction}`,
-				)
-			}
-
-			if (data.selections.length > 0) {
-				const options = await db.query.questionOptions.findMany({
-					where: { questionId: question.id },
-					columns: { id: true },
-				})
-				const validIds = new Set(options.map((o) => o.id))
-				if (!data.selections.every((s) => validIds.has(s.optionId))) {
-					throw ValidationError.field(
-						"selections",
-						"One or more options don't belong to this question",
-					)
-				}
-			}
+			await validateCallInput(question, data)
 
 			const call = await db.transaction(async (tx) => {
 				const isNumericGuess = isNumericGuessShape(data.shape)
@@ -131,6 +102,15 @@ builder.mutationFields((t) => ({
 						],
 					]),
 				)
+
+				// An invite pays out on the invitee's first call, not on its
+				// resolution: the redo is wanted for a game starting soon, and
+				// a season-long question can take months to settle. A no-op
+				// for everyone who wasn't referred - see the comment there.
+				await qualifyReferralOnFirstCall(tx, user.id, {
+					id: call.id,
+					seasonId: question.seasonId,
+				})
 
 				return call
 			})

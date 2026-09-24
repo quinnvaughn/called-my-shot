@@ -88,6 +88,19 @@ export type NotificationInput =
 			userId: string
 			gameId: string
 	  }
+	// The referrer's side of an invite. Sent when the person they invited
+	// makes their first call, which is the moment the redo actually lands.
+	//
+	// Only the referrer gets one. The invitee's welcome redo is granted
+	// during signup, where the toast on AuthPayload.redoGranted tells them
+	// then and there - a notification would be this account's very first, for
+	// something they were just told about seconds earlier.
+	| {
+			type: "redo_earned"
+			userId: string
+			actorId: string
+			actorUsername: string
+	  }
 
 function toRow(input: NotificationInput) {
 	return {

@@ -4,6 +4,7 @@ import {
 	defaultLossRate,
 	EARLY_MAX_MULT,
 	LOSS_RATE_BY_SHAPE,
+	REDO_BALANCE_CAP,
 	SEASON_EARLY_MAX_MULT,
 	SIDE_LOSS_RATE_BOUNDS,
 	TIER_MAX_MULT,
@@ -415,8 +416,8 @@ export function HowItWorksSections() {
 					ceilingMult={`×${EARLY_MAX_MULT}`}
 				/>
 				<P>
-					That call-order version is for single-game questions. A question
-					that spans a season (a season-long stat line, award finalists, or a
+					That call-order version is for single-game questions. A question that
+					spans a season (a season-long stat line, award finalists, or a
 					season-long award) can't use call order the same way, since calls
 					trickle in unevenly over months rather than filling up in an hour;
 					instead it's based on <B>how much of the season had been played</B>{" "}
@@ -437,18 +438,17 @@ export function HowItWorksSections() {
 					someone set by hand. When its line sits well off where the player's or
 					team's history puts it, the side that history favors loses up to{" "}
 					{SIDE_LOSS_RATE_BOUNDS.max}× what you committed, and the other side
-					loses less. A numeric guess loses{" "}
-					{missCost(NUMERIC_LOSS)}. A game stat leader pick loses a share sized
-					per stat so picking the player with the best season average breaks
-					even, and a season stat leader pick loses{" "}
-					{missCost(SEASON_LEADER_LOSS)}. A single-pick season award loses{" "}
-					{missCost(SINGLE_AWARD_LOSS)}, and each wrong pick on an award with
-					several picks loses {missCost(MULTI_AWARD_LOSS)}. A title pick loses a
-					share sized per league so picking the best regular-season record
-					breaks even, and a finalists pick loses a share sized so a pick at
-					random among the finalists breaks even. Everything past a two-option
-					pick misses far more often than it hits, and the rarity multiplier
-					can't make up for that when only a few people have called.
+					loses less. A numeric guess loses {missCost(NUMERIC_LOSS)}. A game
+					stat leader pick loses a share sized per stat so picking the player
+					with the best season average breaks even, and a season stat leader
+					pick loses {missCost(SEASON_LEADER_LOSS)}. A single-pick season award
+					loses {missCost(SINGLE_AWARD_LOSS)}, and each wrong pick on an award
+					with several picks loses {missCost(MULTI_AWARD_LOSS)}. A title pick
+					loses a share sized per league so picking the best regular-season
+					record breaks even, and a finalists pick loses a share sized so a pick
+					at random among the finalists breaks even. Everything past a
+					two-option pick misses far more often than it hits, and the rarity
+					multiplier can't make up for that when only a few people have called.
 				</P>
 
 				<ExampleCard
@@ -550,8 +550,8 @@ export function HowItWorksSections() {
 				subtitle="Each pick scored on its own"
 			>
 				<P>
-					Each pick in a season-long award question (like First Team All-NBA)
-					is scored independently, using the same contrarian-tier math as
+					Each pick in a season-long award question (like First Team All-NBA) is
+					scored independently, using the same contrarian-tier math as
 					everything else, off the same{" "}
 					{BASE_POINTS_BY_SHAPE.player_season_award}-point base as any other
 					pick: one player might land in FEARLESS while another lands in SAFE,
@@ -593,14 +593,47 @@ export function HowItWorksSections() {
 			</Accordion>
 
 			<Accordion
+				id="redos"
+				title="Redos"
+				subtitle="The one way to change a call, and what it costs"
+				defaultOpen={hash === "redos"}
+			>
+				<P>
+					A call can't normally be changed. A <B>redo</B> is the exception: it
+					replaces one call's pick and conviction, and it has to be used before
+					that question locks. One redo per question, ever.
+				</P>
+				<P>
+					It isn't free and it isn't quiet. The call keeps a <B>redo</B> badge
+					from then on, and its own page shows what you originally called
+					alongside what you changed it to. If the call you walked away from
+					turns out to have been the right one, the page says so.
+				</P>
+				<P>
+					The cost is your <B>earliness</B>. Earliness is ranked by when a call
+					was made, and a redo re-stamps that to the moment you redid it, so you
+					re-enter the ranking at the back. Redoing a season-long call in
+					October costs you almost nothing. Redoing twenty minutes before
+					kickoff, once the news you were waiting on has broken, costs you the
+					most.
+				</P>
+				<P>
+					You earn redos by inviting people. Anyone who signs up on your link
+					gets one straight away, and you get one once they've made their first
+					call. You can hold {REDO_BALANCE_CAP} at a time; anything you earn
+					past that is kept for you and arrives as soon as you spend one.
+				</P>
+			</Accordion>
+
+			<Accordion
 				title="Leaderboard"
 				subtitle="Global by default, narrows to one league"
 			>
 				<P>
 					The leaderboard ranks by <B>total points</B>. The default view sums
-					points across every league you've called in; narrow to a single
-					league and it re-ranks using points earned in that league alone, not
-					your global total.
+					points across every league you've called in; narrow to a single league
+					and it re-ranks using points earned in that league alone, not your
+					global total.
 				</P>
 				<P>
 					Accuracy follows the same scope: a blended number across every league

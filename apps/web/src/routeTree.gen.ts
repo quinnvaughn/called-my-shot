@@ -31,10 +31,12 @@ import { Route as AdminReportsRouteImport } from './routes/admin/reports'
 import { Route as AdminTitlesRouteImport } from './routes/admin/titles'
 import { Route as AdminUsersRouteImport } from './routes/admin/users'
 import { Route as IngestSplatRouteImport } from './routes/ingest/$'
+import { Route as JoinCodeRouteImport } from './routes/join/$code'
 import { Route as UnsubscribeIndexRouteImport } from './routes/unsubscribe/index'
 import { Route as UnsubscribeOneClickRouteImport } from './routes/unsubscribe/one-click'
 import { Route as WebhooksResendRouteImport } from './routes/webhooks/resend'
 import { Route as AppAuthedHomeRouteImport } from './routes/_app/_authed/home'
+import { Route as AppAuthedInviteRouteImport } from './routes/_app/_authed/invite'
 import { Route as AppAuthedMyCallsRouteImport } from './routes/_app/_authed/my-calls'
 import { Route as AppAuthedMyQuestionsRouteImport } from './routes/_app/_authed/my-questions'
 import { Route as AppAuthedNewQuestionRouteImport } from './routes/_app/_authed/new-question'
@@ -186,6 +188,11 @@ const IngestSplatRoute = IngestSplatRouteImport.update({
   path: '/ingest/$',
   getParentRoute: () => rootRouteImport,
 } as any)
+const JoinCodeRoute = JoinCodeRouteImport.update({
+  id: '/join/$code',
+  path: '/join/$code',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const UnsubscribeIndexRoute = UnsubscribeIndexRouteImport.update({
   id: '/unsubscribe/',
   path: '/unsubscribe/',
@@ -204,6 +211,11 @@ const WebhooksResendRoute = WebhooksResendRouteImport.update({
 const AppAuthedHomeRoute = AppAuthedHomeRouteImport.update({
   id: '/home',
   path: '/home',
+  getParentRoute: () => AppAuthedRoute,
+} as any)
+const AppAuthedInviteRoute = AppAuthedInviteRouteImport.update({
+  id: '/invite',
+  path: '/invite',
   getParentRoute: () => AppAuthedRoute,
 } as any)
 const AppAuthedMyCallsRoute = AppAuthedMyCallsRouteImport.update({
@@ -459,11 +471,13 @@ export interface FileRoutesByFullPath {
   '/admin/titles': typeof AdminTitlesRoute
   '/admin/users': typeof AdminUsersRoute
   '/ingest/$': typeof IngestSplatRoute
+  '/join/$code': typeof JoinCodeRoute
   '/unsubscribe/one-click': typeof UnsubscribeOneClickRoute
   '/webhooks/resend': typeof WebhooksResendRoute
   '/admin/': typeof AdminIndexRoute
   '/unsubscribe/': typeof UnsubscribeIndexRoute
   '/home': typeof AppAuthedHomeRoute
+  '/invite': typeof AppAuthedInviteRoute
   '/my-calls': typeof AppAuthedMyCallsRoute
   '/my-questions': typeof AppAuthedMyQuestionsRoute
   '/new-question': typeof AppAuthedNewQuestionRoute
@@ -526,11 +540,13 @@ export interface FileRoutesByTo {
   '/admin/titles': typeof AdminTitlesRoute
   '/admin/users': typeof AdminUsersRoute
   '/ingest/$': typeof IngestSplatRoute
+  '/join/$code': typeof JoinCodeRoute
   '/unsubscribe/one-click': typeof UnsubscribeOneClickRoute
   '/webhooks/resend': typeof WebhooksResendRoute
   '/admin': typeof AdminIndexRoute
   '/unsubscribe': typeof UnsubscribeIndexRoute
   '/home': typeof AppAuthedHomeRoute
+  '/invite': typeof AppAuthedInviteRoute
   '/my-calls': typeof AppAuthedMyCallsRoute
   '/my-questions': typeof AppAuthedMyQuestionsRoute
   '/new-question': typeof AppAuthedNewQuestionRoute
@@ -595,11 +611,13 @@ export interface FileRoutesById {
   '/admin/titles': typeof AdminTitlesRoute
   '/admin/users': typeof AdminUsersRoute
   '/ingest/$': typeof IngestSplatRoute
+  '/join/$code': typeof JoinCodeRoute
   '/unsubscribe/one-click': typeof UnsubscribeOneClickRoute
   '/webhooks/resend': typeof WebhooksResendRoute
   '/admin/': typeof AdminIndexRoute
   '/unsubscribe/': typeof UnsubscribeIndexRoute
   '/_app/_authed/home': typeof AppAuthedHomeRoute
+  '/_app/_authed/invite': typeof AppAuthedInviteRoute
   '/_app/_authed/my-calls': typeof AppAuthedMyCallsRoute
   '/_app/_authed/my-questions': typeof AppAuthedMyQuestionsRoute
   '/_app/_authed/new-question': typeof AppAuthedNewQuestionRoute
@@ -665,11 +683,13 @@ export interface FileRouteTypes {
     | '/admin/titles'
     | '/admin/users'
     | '/ingest/$'
+    | '/join/$code'
     | '/unsubscribe/one-click'
     | '/webhooks/resend'
     | '/admin/'
     | '/unsubscribe/'
     | '/home'
+    | '/invite'
     | '/my-calls'
     | '/my-questions'
     | '/new-question'
@@ -732,11 +752,13 @@ export interface FileRouteTypes {
     | '/admin/titles'
     | '/admin/users'
     | '/ingest/$'
+    | '/join/$code'
     | '/unsubscribe/one-click'
     | '/webhooks/resend'
     | '/admin'
     | '/unsubscribe'
     | '/home'
+    | '/invite'
     | '/my-calls'
     | '/my-questions'
     | '/new-question'
@@ -800,11 +822,13 @@ export interface FileRouteTypes {
     | '/admin/titles'
     | '/admin/users'
     | '/ingest/$'
+    | '/join/$code'
     | '/unsubscribe/one-click'
     | '/webhooks/resend'
     | '/admin/'
     | '/unsubscribe/'
     | '/_app/_authed/home'
+    | '/_app/_authed/invite'
     | '/_app/_authed/my-calls'
     | '/_app/_authed/my-questions'
     | '/_app/_authed/new-question'
@@ -857,6 +881,7 @@ export interface RootRouteChildren {
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   VersionRoute: typeof VersionRoute
   IngestSplatRoute: typeof IngestSplatRoute
+  JoinCodeRoute: typeof JoinCodeRoute
   UnsubscribeOneClickRoute: typeof UnsubscribeOneClickRoute
   WebhooksResendRoute: typeof WebhooksResendRoute
   UnsubscribeIndexRoute: typeof UnsubscribeIndexRoute
@@ -1026,6 +1051,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IngestSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/join/$code': {
+      id: '/join/$code'
+      path: '/join/$code'
+      fullPath: '/join/$code'
+      preLoaderRoute: typeof JoinCodeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/unsubscribe/': {
       id: '/unsubscribe/'
       path: '/unsubscribe'
@@ -1052,6 +1084,13 @@ declare module '@tanstack/react-router' {
       path: '/home'
       fullPath: '/home'
       preLoaderRoute: typeof AppAuthedHomeRouteImport
+      parentRoute: typeof AppAuthedRoute
+    }
+    '/_app/_authed/invite': {
+      id: '/_app/_authed/invite'
+      path: '/invite'
+      fullPath: '/invite'
+      preLoaderRoute: typeof AppAuthedInviteRouteImport
       parentRoute: typeof AppAuthedRoute
     }
     '/_app/_authed/my-calls': {
@@ -1353,6 +1392,7 @@ declare module '@tanstack/react-router' {
 
 interface AppAuthedRouteChildren {
   AppAuthedHomeRoute: typeof AppAuthedHomeRoute
+  AppAuthedInviteRoute: typeof AppAuthedInviteRoute
   AppAuthedMyCallsRoute: typeof AppAuthedMyCallsRoute
   AppAuthedMyQuestionsRoute: typeof AppAuthedMyQuestionsRoute
   AppAuthedNewQuestionRoute: typeof AppAuthedNewQuestionRoute
@@ -1366,6 +1406,7 @@ interface AppAuthedRouteChildren {
 
 const AppAuthedRouteChildren: AppAuthedRouteChildren = {
   AppAuthedHomeRoute: AppAuthedHomeRoute,
+  AppAuthedInviteRoute: AppAuthedInviteRoute,
   AppAuthedMyCallsRoute: AppAuthedMyCallsRoute,
   AppAuthedMyQuestionsRoute: AppAuthedMyQuestionsRoute,
   AppAuthedNewQuestionRoute: AppAuthedNewQuestionRoute,
@@ -1507,6 +1548,7 @@ const rootRouteChildren: RootRouteChildren = {
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   VersionRoute: VersionRoute,
   IngestSplatRoute: IngestSplatRoute,
+  JoinCodeRoute: JoinCodeRoute,
   UnsubscribeOneClickRoute: UnsubscribeOneClickRoute,
   WebhooksResendRoute: WebhooksResendRoute,
   UnsubscribeIndexRoute: UnsubscribeIndexRoute,
