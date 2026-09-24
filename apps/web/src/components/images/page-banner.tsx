@@ -1,9 +1,10 @@
-import type { ReactNode } from "react"
 import { FiCamera } from "react-icons/fi"
-import { css } from "styled-system/css"
+import { css, cx } from "styled-system/css"
 import { useImagePicker } from "#/components/images/use-image-picker"
 import { Banner, BannerPlaceholder } from "#/components/ui/banner"
+import { ImageLightbox } from "#/components/ui/image-lightbox"
 import type { ImageTarget } from "#/lib/images/save-image"
+import { openModal } from "#/stores/modal-store"
 
 type Props = {
 	bannerUrl: string | null
@@ -29,18 +30,20 @@ const bleed = css({
 	marginTop: { base: "-5", xl: "-6" },
 })
 
-const bannerButton = css({
-	position: "relative",
+// The bleed wrapper is the positioning context for the camera button.
+const frame = css({ position: "relative" })
+
+const viewButton = css({
 	display: "block",
 	width: "full",
-	cursor: "pointer",
+	cursor: "zoom-in",
 	_focusVisible: {
 		outline: "2px solid {colors.primary.default}",
 		outlineOffset: "-2px",
 	},
 })
 
-const cameraBadge = css({
+const cameraButton = css({
 	position: "absolute",
 	right: "3",
 	bottom: "3",
@@ -53,43 +56,52 @@ const cameraBadge = css({
 	bg: "bg.surface",
 	border: "1px solid {colors.border.default}",
 	color: "fg.muted",
+	cursor: "pointer",
+	_focusVisible: {
+		outline: "2px solid {colors.primary.default}",
+		outlineOffset: "2px",
+	},
 })
 
 // The banner across the top of a profile, group or invite page, edge to edge.
 // Without an image it's the plain frame, so profiles and groups all start at
-// the same place (the invite page just leaves it out). Whoever can change it
-// clicks it to open the picker. Must be the first thing on the page for the
-// bleed to line up with the top.
+// the same place (the invite page just leaves it out). Clicking an uploaded
+// banner opens it full size; only the camera button, shown to whoever can
+// change it, edits it. Must be the first thing on the page for the bleed to
+// line up with the top.
 export function PageBanner({ bannerUrl, edit }: Props) {
-	const banner = bannerUrl ? (
-		<Banner src={bannerUrl} variant="flush" />
-	) : (
-		<BannerPlaceholder variant="flush" />
-	)
-
 	return (
-		<div className={bleed}>
-			{edit ? (
-				<EditableBanner
-					banner={banner}
+		<div className={cx(bleed, frame)}>
+			{bannerUrl ? (
+				<button
+					type="button"
+					className={viewButton}
+					onClick={() =>
+						openModal(<ImageLightbox src={bannerUrl} alt="Banner" />)
+					}
+					aria-label="View banner"
+				>
+					<Banner src={bannerUrl} variant="flush" />
+				</button>
+			) : (
+				<BannerPlaceholder variant="flush" />
+			)}
+			{edit && (
+				<EditBannerButton
 					hasImage={!!bannerUrl}
 					target={edit.target}
 					title={edit.title}
 				/>
-			) : (
-				banner
 			)}
 		</div>
 	)
 }
 
-function EditableBanner({
-	banner,
+function EditBannerButton({
 	hasImage,
 	target,
 	title,
 }: {
-	banner: ReactNode
 	hasImage: boolean
 	target: ImageTarget
 	title: string
@@ -100,14 +112,11 @@ function EditableBanner({
 			{picker.input}
 			<button
 				type="button"
-				className={bannerButton}
+				className={cameraButton}
 				onClick={picker.pick}
 				aria-label={hasImage ? "Change banner" : "Upload banner"}
 			>
-				{banner}
-				<span className={cameraBadge}>
-					<FiCamera size={14} />
-				</span>
+				<FiCamera size={14} />
 			</button>
 		</>
 	)
