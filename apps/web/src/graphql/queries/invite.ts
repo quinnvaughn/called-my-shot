@@ -31,6 +31,17 @@ export const ReferralPreviewDocument = graphql(`
 				id
 				name
 				username
+				...Identity_user
+				careerStats {
+					rank
+					totalPoints
+					accuracy
+					resolvedCallCount
+				}
+				recentCalls {
+					id
+					...CallCard_call
+				}
 			}
 		}
 	}

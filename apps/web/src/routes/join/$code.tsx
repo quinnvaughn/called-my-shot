@@ -2,19 +2,20 @@ import { useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute, redirect } from "@tanstack/react-router"
 import { useEffect } from "react"
 import { FaRegTimesCircle } from "react-icons/fa"
-import { FiHelpCircle, FiLock, FiRotateCcw, FiZap } from "react-icons/fi"
+import { FiRotateCcw } from "react-icons/fi"
 import { css } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
 import { AuthModal } from "#/components/auth/auth-modal"
-import { LandingPageFeatureSection } from "#/components/landing-page/landing-page-feature-section"
 import { LandingPageWrap } from "#/components/landing-page/landing-page-wrap"
-import { Badge } from "#/components/ui/badge"
+import { LeaderboardEntryCard } from "#/components/leaderboard/leaderboard"
+import { CallCard } from "#/components/questions/call-card"
 import { Brand } from "#/components/ui/brand"
 import { Button } from "#/components/ui/button"
-import { InfoTip } from "#/components/ui/info-tip"
+import { Eyebrow } from "#/components/ui/eyebrow"
 import { NotFound } from "#/components/ui/not-found"
 import { referralPreviewQuery } from "#/graphql/queries/invite"
 import { track } from "#/lib/analytics"
+import { toIdentity } from "#/lib/identity"
 import { pageMeta } from "#/lib/meta"
 import { openModal } from "#/stores/modal-store"
 import { captureReferral } from "#/stores/referral-store"
@@ -53,27 +54,6 @@ export const Route = createFileRoute("/join/$code")({
 	component: RouteComponent,
 })
 
-const whyItems = [
-	{
-		icon: <FiLock />,
-		title: "Receipts, not vibes",
-		description:
-			"Every call locks when the game starts and can't be edited after. Your accuracy sits on your profile for anyone to check.",
-	},
-	{
-		icon: <FiHelpCircle />,
-		title: "Ask anything",
-		description:
-			"Post your own question and set your own line. If it has a public result somebody could check, anyone can call it.",
-	},
-	{
-		icon: <FiZap />,
-		title: "Call every game",
-		description:
-			"It's free, so you don't have to pick your spots. Call every game you have an opinion on.",
-	},
-]
-
 function RouteComponent() {
 	const { code } = Route.useParams()
 	const { data } = useSuspenseQuery(referralPreviewQuery(code))
@@ -98,88 +78,179 @@ function RouteComponent() {
 		)
 	}
 
+	const inviter = preview.inviter
+	const identity = toIdentity(inviter)
+	const stats = inviter.careerStats
+	const lastCall = inviter.recentCalls[0]
+
 	return (
-		<div>
+		// Clipped so the CTA bar's full-bleed backdrop (100vw) can't push a
+		// horizontal scrollbar onto the page.
+		<div className={css({ overflowX: "clip" })}>
 			<section className={css({ paddingBlock: { base: "10", sm: "20" } })}>
 				<LandingPageWrap>
-					<VStack alignItems="flex-start" gap="8">
-						<VStack alignItems="flex-start" gap="5">
-							{/* The only branding on the page, so it runs large rather
+					{/* One column on a phone, in reading order. From lg up the call
+					moves to its own column so everything else, the button
+					included, fits above the fold. Grid areas rather than two
+					renders, so the same elements just move. */}
+					<div
+						className={css({
+							display: "grid",
+							gridTemplateColumns: "minmax(0, 1fr)",
+							gridTemplateAreas: `"brand" "intro" "call" "redo" "cta"`,
+							gap: "10",
+							maxWidth: "xl",
+							marginInline: "auto",
+							lg: {
+								maxWidth: "5xl",
+								gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)",
+								gridTemplateAreas: `"brand call" "intro call" "redo call" "cta call"`,
+								gridTemplateRows: "auto auto auto 1fr",
+								columnGap: "16",
+								rowGap: "8",
+							},
+						})}
+					>
+						{/* The only branding on the page, so it runs large rather
 						than sitting at nav scale - there is no nav for it to sit
 						in. className overrides the recipe's height, which only
 						offers nav-sized variants. */}
-							<Brand
-								className={css({
-									height: { base: "10", lg: "16" },
-									width: "auto",
-								})}
+						<Brand
+							className={css({
+								gridArea: "brand",
+								height: { base: "10", lg: "16" },
+								width: "auto",
+								justifySelf: { base: "center", lg: "start" },
+							})}
+						/>
+
+						<VStack
+							alignItems="stretch"
+							gap="5"
+							className={css({ gridArea: "intro" })}
+						>
+							<LeaderboardEntryCard
+								eyebrow="Overall rank"
+								unrankedLabel="No resolved calls yet"
+								entry={{
+									rank: stats?.rank ?? null,
+									totalPoints: stats?.totalPoints ?? 0,
+									resolvedCallCount: stats?.resolvedCallCount ?? 0,
+									accuracy: stats?.accuracy ?? null,
+									user: identity,
+								}}
 							/>
-							<Badge dot>{`Invited by @${preview.inviter.username}`}</Badge>
 							<h1
 								className={css({
 									fontFamily: "heading",
-									fontSize: { base: "3xl", lg: "5xl" },
+									fontSize: { base: "3xl", lg: "4xl" },
 									lineHeight: "tight",
 									letterSpacing: "tight",
-									maxWidth: "3xl",
 								})}
 							>
-								{preview.inviter.name} thinks they call games better than you.
+								@{inviter.username} invited you.
 							</h1>
-							<p
-								className={css({
-									lineHeight: "relaxed",
-									color: "fg.body",
-									maxWidth: "lg",
-								})}
-							>
-								Make calls on games before they start. Every one lands on your
-								public record, right or wrong. The leaderboard settles it.
+							<p className={css({ lineHeight: "relaxed", color: "fg.body" })}>
+								Make calls on NFL, NBA and MLB games and whole seasons. Every
+								call lands on your public record, scored against everyone else
+								who called it.
 							</p>
 						</VStack>
 
-						<VStack alignItems="flex-start" gap="3">
+						{lastCall && (
+							<VStack
+								alignItems="stretch"
+								gap="3"
+								className={css({
+									gridArea: "call",
+									lg: { alignSelf: "center" },
+								})}
+							>
+								<Eyebrow variant="neutral">Their latest call</Eyebrow>
+								<CallCard call={lastCall} linked={false} />
+							</VStack>
+						)}
+
+						<VStack
+							alignItems="stretch"
+							gap="2"
+							className={css({
+								gridArea: "redo",
+								border: "2px dashed {colors.fg.subtle}",
+								borderRadius: "lg",
+								padding: "5",
+							})}
+						>
 							<HStack gap="2" alignItems="center">
 								<FiRotateCcw aria-hidden size={18} />
-								<span
-									className={css({ fontSize: "lg", fontWeight: "semibold" })}
-								>
-									A free redo when you sign up
-								</span>
-								<InfoTip
-									label="redos"
-									text="Changes one call after you've made it, any time before that question locks. One per question."
-								/>
+								<h2 className={css({ fontSize: "lg", fontWeight: "semibold" })}>
+									You both get a free redo
+								</h2>
 							</HStack>
+							<p className={css({ lineHeight: "relaxed", color: "fg.body" })}>
+								A redo changes one call after you've made it, any time before
+								that question locks. Yours lands the moment you sign up.{" "}
+								{`@${inviter.username}`} gets theirs when you make your first
+								call.
+							</p>
+						</VStack>
+
+						{/* Below lg the page is taller than a phone screen, so the
+						button sticks to the bottom of the viewport until the page
+						scrolls down to where it sits. The backdrop is a
+						pseudo-element so it can run edge to edge while the button
+						keeps the column's width. */}
+						<VStack
+							alignItems="stretch"
+							gap="3"
+							className={css({
+								gridArea: "cta",
+								position: "sticky",
+								bottom: "0",
+								zIndex: 10,
+								paddingBlock: "4",
+								_before: {
+									content: '""',
+									position: "absolute",
+									insetBlock: "0",
+									left: "50%",
+									width: "100vw",
+									transform: "translateX(-50%)",
+									zIndex: -1,
+									bg: "bg.canvas/92",
+									backdropFilter: "blur(10px)",
+									borderTop: "1px solid {colors.border.default}",
+								},
+								lg: {
+									position: "static",
+									alignSelf: "start",
+									paddingBlock: "0",
+									_before: { display: "none" },
+								},
+							})}
+						>
 							<Button
 								variant="solid"
 								size="lg"
+								fullWidth
 								onClick={() => openModal(<AuthModal defaultView="signup" />)}
 							>
-								Claim it
+								Claim your redo
 							</Button>
 							<p
 								className={css({
 									color: "fg.subtle",
 									fontFamily: "mono",
 									fontSize: "xs",
+									textAlign: "center",
 								})}
 							>
 								free · no money, ever · takes 30 seconds
 							</p>
 						</VStack>
-					</VStack>
+					</div>
 				</LandingPageWrap>
 			</section>
-
-			<LandingPageFeatureSection
-				alt
-				columns={3}
-				eyebrow="Why play"
-				title="Being right is more fun when it's on the record."
-				description="Every call is timestamped, locked when the game starts, and scored against what the rest of the field said."
-				items={whyItems}
-			/>
 
 			{/* The landing page's footer, minus its links. */}
 			<footer

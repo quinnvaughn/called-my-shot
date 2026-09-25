@@ -110,6 +110,10 @@ export const CallCardFragment = graphql(`
 
 type CallCardProps = {
 	call: FragmentType<typeof CallCardFragment>
+	// False shows the call as an example with nowhere to go: no hover state
+	// and no links to the question or the call, for pages that are meant to
+	// have a single way forward.
+	linked?: boolean
 }
 
 // Lifts an element above the stretched link's overlay so it stays clickable
@@ -117,13 +121,13 @@ type CallCardProps = {
 // overlay's own comment below.
 const aboveOverlay = css({ position: "relative", zIndex: 1 })
 
-export function CallCard({ call: callProp }: CallCardProps) {
+export function CallCard({ call: callProp, linked = true }: CallCardProps) {
 	const call = useFragment(CallCardFragment, callProp)
 	const caller = toIdentity(call.user)
 
 	return (
 		<Card
-			interactive
+			interactive={linked}
 			className={css({
 				position: "relative",
 				borderRadius: "10px",
@@ -200,61 +204,63 @@ export function CallCard({ call: callProp }: CallCardProps) {
 					</div>
 				)}
 
-				<HStack
-					justify="space-between"
-					alignItems="center"
-					gap="3"
-					marginBlockStart="auto"
-				>
-					{/* The card's primary destination, stretched over the whole
-					card by the ::after below rather than by wrapping everything
-					in one anchor. Two real sibling links instead of one giant
-					one: cmd-click works on both, and a screen reader reads two
-					labelled destinations rather than announcing the card's
-					entire text content as a single link name. */}
-					<Link
-						to="/questions/$questionId/{-$slug}"
-						params={{
-							questionId: call.question.id,
-							slug: buildQuestionSlug(call.question.title),
-						}}
-						className={css({
-							fontFamily: "mono",
-							fontSize: "2xs",
-							letterSpacing: "wide",
-							textTransform: "uppercase",
-							color: "fg.subtle",
-							textDecoration: "none",
-							_hover: { color: "fg.muted" },
-							_after: {
-								content: '""',
-								position: "absolute",
-								inset: "0",
-								borderRadius: "10px",
-							},
-						})}
+				{linked && (
+					<HStack
+						justify="space-between"
+						alignItems="center"
+						gap="3"
+						marginBlockStart="auto"
 					>
-						The question →
-					</Link>
-					<Link
-						to="/calls/$callId"
-						params={{ callId: call.id }}
-						className={cx(
-							aboveOverlay,
-							css({
+						{/* The card's primary destination, stretched over the whole
+						card by the ::after below rather than by wrapping everything
+						in one anchor. Two real sibling links instead of one giant
+						one: cmd-click works on both, and a screen reader reads two
+						labelled destinations rather than announcing the card's
+						entire text content as a single link name. */}
+						<Link
+							to="/questions/$questionId/{-$slug}"
+							params={{
+								questionId: call.question.id,
+								slug: buildQuestionSlug(call.question.title),
+							}}
+							className={css({
 								fontFamily: "mono",
 								fontSize: "2xs",
 								letterSpacing: "wide",
 								textTransform: "uppercase",
-								color: "primary.default",
+								color: "fg.subtle",
 								textDecoration: "none",
-								_hover: { opacity: 0.8 },
-							}),
-						)}
-					>
-						The call →
-					</Link>
-				</HStack>
+								_hover: { color: "fg.muted" },
+								_after: {
+									content: '""',
+									position: "absolute",
+									inset: "0",
+									borderRadius: "10px",
+								},
+							})}
+						>
+							The question →
+						</Link>
+						<Link
+							to="/calls/$callId"
+							params={{ callId: call.id }}
+							className={cx(
+								aboveOverlay,
+								css({
+									fontFamily: "mono",
+									fontSize: "2xs",
+									letterSpacing: "wide",
+									textTransform: "uppercase",
+									color: "primary.default",
+									textDecoration: "none",
+									_hover: { opacity: 0.8 },
+								}),
+							)}
+						>
+							The call →
+						</Link>
+					</HStack>
+				)}
 			</VStack>
 		</Card>
 	)

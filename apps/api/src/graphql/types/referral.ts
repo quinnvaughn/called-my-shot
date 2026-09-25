@@ -11,10 +11,9 @@ type ReferralPreviewShape = { inviter: User }
 // is inviting you rather than being a bare form. Public and unauthenticated
 // by necessity - the whole point is that the visitor has no account yet.
 //
-// Deliberately thin: an inviter's name and nothing about their record. A code
-// is a thing people paste into group chats, so whatever this returns is
-// effectively public, and "who holds this code" is the only fact the page
-// actually needs.
+// The inviter is a full User, so the page can show their record and a call of
+// theirs. None of that is new exposure: it's the same public profile anyone
+// can already open at /user/:username.
 const ReferralPreviewRef = builder
 	.objectRef<ReferralPreviewShape>("ReferralPreview")
 	.implement({
