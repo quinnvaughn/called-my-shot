@@ -176,14 +176,14 @@ describe("sideLossRates", () => {
 
 	it("prices past the margin from its edge, not from even", () => {
 		// 65% sits 5 points past a 60% edge, priced as 55%
-		expect(sideLossRates(0.65)).toEqual({ over: 1.11, under: 0.73 })
-		expect(sideLossRates(0.25)).toEqual({ over: 0.46, under: 1.71 })
+		expect(sideLossRates(0.65)).toEqual({ over: 1.18, under: 0.78 })
+		expect(sideLossRates(0.25)).toEqual({ over: 0.51, under: 1.8 })
 	})
 
 	it("caps the likely side at SIDE_LOSS_RATE_BOUNDS.max", () => {
 		expect(sideLossRates(0.9)).toEqual({
 			over: SIDE_LOSS_RATE_BOUNDS.max,
-			under: 0.19,
+			under: 0.22,
 		})
 		expect(sideLossRates(0.02).under).toBe(SIDE_LOSS_RATE_BOUNDS.max)
 	})
@@ -245,13 +245,13 @@ describe("defaultLossRate", () => {
 
 	it("prices a finalists pick at random among the finalists", () => {
 		expect(defaultLossRate("player_award_finalists", { optionCount: 3 })).toBe(
-			0.42,
+			0.47,
 		)
 		expect(defaultLossRate("player_award_finalists", { optionCount: 5 })).toBe(
-			0.19,
+			0.23,
 		)
 		expect(defaultLossRate("player_award_finalists", { optionCount: 2 })).toBe(
-			0.9,
+			0.96,
 		)
 		expect(defaultLossRate("player_award_finalists", {})).toBe(
 			LOSS_RATE_BY_SHAPE.player_award_finalists,

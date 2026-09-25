@@ -75,7 +75,7 @@ export const BASE_POINTS_BY_SHAPE: Record<QuestionShape, number> = {
 // makes ordinary picks should drift up over a season rather than grind flat
 // or slide. Every rate derived from a hit rate aims here (targetLossRate,
 // targetHitRate) rather than at break-even.
-export const PLAYER_EDGE = 0.05
+export const PLAYER_EDGE = 0.02
 
 const roundRate = (value: number) => Math.round(value * 100) / 100
 
@@ -546,13 +546,15 @@ export const STREAK_FLAIR_THRESHOLDS = [5, 10, 25] as const
 // announcement.
 export const STREAK_BONUS_STEP = STREAK_MILESTONE_STEP
 // The bonus is this share of what the STREAK_BONUS_STEP wins that got there
-// scored, rather than a flat amount. A flat bonus would be the same for a run
-// of minimum-conviction chalk as for a run someone stood behind, and would
-// make stacking tiny calls the best way to earn it.
-export const STREAK_BONUS_SHARE = 0.5
-// A sweep pays this share of what its winner calls scored, for the same
-// reason. A bigger slate already pays more, since it holds more calls.
-export const SWEEP_BONUS_SHARE = 0.5
+// committed, rather than a flat amount. A flat bonus would be the same for a
+// run of minimum-conviction chalk as for a run someone stood behind, and would
+// make stacking tiny calls the best way to earn it. Committed rather than
+// scored, because each win's contrarian tier and earliness are already paid
+// on the win itself - a share of the scored points would pay them twice.
+export const STREAK_BONUS_SHARE = 0.2
+// A sweep pays this share of what its winner calls committed, for the same
+// reasons. A bigger slate already pays more, since it holds more calls.
+export const SWEEP_BONUS_SHARE = 0.2
 
 export function shareOfPoints(points: number, share: number): number {
 	return Math.round(points * share)

@@ -160,8 +160,8 @@ export function computeTrack(rows: TrackRow[]): TrackResult {
 }
 
 export type ScoredTrackRow = TrackRow & {
-	// What the call scored. Only read on a win.
-	points: number
+	// What the call committed. Only read on a win.
+	committed: number
 	seasonId: string
 }
 
@@ -175,7 +175,7 @@ export type StreakAward = {
 }
 
 // Every STREAK_BONUS_STEP-th win of every run pays STREAK_BONUS_SHARE of what
-// the STREAK_BONUS_STEP wins ending there scored. Walks the same order and
+// the STREAK_BONUS_STEP wins ending there committed. Walks the same order and
 // skip rules as computeTrack, so the awards always match the runs a track
 // shows.
 export function streakAwards(rows: ScoredTrackRow[]): StreakAward[] {
@@ -190,22 +190,22 @@ export function streakAwards(rows: ScoredTrackRow[]): StreakAward[] {
 		run.push(row)
 		const first = run[0]
 		if (!first || run.length % STREAK_BONUS_STEP !== 0) continue
-		const scored = run
+		const committed = run
 			.slice(-STREAK_BONUS_STEP)
-			.reduce((sum, win) => sum + win.points, 0)
+			.reduce((sum, win) => sum + win.committed, 0)
 		awards.push({
 			sourceKey: `${first.callId}:${run.length}`,
 			seasonId: row.seasonId,
-			points: shareOfPoints(scored, STREAK_BONUS_SHARE),
+			points: shareOfPoints(committed, STREAK_BONUS_SHARE),
 		})
 	}
 	return awards
 }
 
-// What a sweep pays: SWEEP_BONUS_SHARE of what its winner calls scored.
-export function sweepAwardPoints(winnerCallPoints: number[]): number {
+// What a sweep pays: SWEEP_BONUS_SHARE of what its winner calls committed.
+export function sweepAwardPoints(winnerCallsCommitted: number[]): number {
 	return shareOfPoints(
-		winnerCallPoints.reduce((sum, points) => sum + points, 0),
+		winnerCallsCommitted.reduce((sum, committed) => sum + committed, 0),
 		SWEEP_BONUS_SHARE,
 	)
 }

@@ -60,12 +60,12 @@ describe("tuneTitleLosses", () => {
 		expect(row).toMatchObject({
 			isCustom: true,
 			autoTune: true,
-			lossRate: 0.27,
+			lossRate: 0.31,
 			calibration: {
 				resolved: TITLE_TUNING.minSample,
 				ownHitRate: 0.25,
 				blendedHitRate: 0.25,
-				suggestedLossRate: 0.27,
+				suggestedLossRate: 0.31,
 			},
 		})
 		expect(row?.tunedAt?.getTime()).toBe(NOW.getTime())
@@ -77,7 +77,7 @@ describe("tuneTitleLosses", () => {
 		await tuneTitleLosses(NOW)
 
 		expect(await titleLossSettings.row("nfl", "Super Bowl")).toMatchObject({
-			lossRate: 0.27,
+			lossRate: 0.31,
 			calibration: {
 				resolved: 0,
 				ownHitRate: null,

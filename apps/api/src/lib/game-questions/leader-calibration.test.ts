@@ -35,7 +35,7 @@ describe("leaderRates.blended", () => {
 
 describe("leaderRates.suggested", () => {
 	it("is where a pick on the favorite clears PLAYER_EDGE, within bounds", () => {
-		expect(leaderRates.suggested(0.25)).toBe(0.27)
+		expect(leaderRates.suggested(0.25)).toBe(0.31)
 		expect(leaderRates.suggested(0.6)).toBe(LEADER_TUNING.maxRate)
 		expect(leaderRates.suggested(0)).toBe(LEADER_TUNING.minRate)
 		expect(leaderRates.suggested(null)).toBeNull()
@@ -48,12 +48,12 @@ describe("leaderRates.next", () => {
 	})
 
 	it("moves toward the suggested rate by at most a step per run", () => {
-		expect(leaderRates.next(0.35, 0.25, 40)).toBe(0.27)
+		expect(leaderRates.next(0.35, 0.25, 40)).toBe(0.31)
 		expect(leaderRates.next(0.25, 0.5, 40)).toBe(0.35)
 		expect(leaderRates.next(0.5, 0.1, 40)).toBe(0.4)
 	})
 
 	it("leaves a rate already where the record points", () => {
-		expect(leaderRates.next(0.27, 0.25, 40)).toBeNull()
+		expect(leaderRates.next(0.31, 0.25, 40)).toBeNull()
 	})
 })

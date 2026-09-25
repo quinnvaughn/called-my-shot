@@ -1,5 +1,7 @@
 import {
+	BASE_POINTS_BY_SHAPE,
 	isNumericGuessShape,
+	pointsCommitted,
 	type QuestionShape,
 	STREAK_FAMILY_LABEL,
 	STREAK_FLAIR_THRESHOLDS,
@@ -40,22 +42,27 @@ export type RecomputeOptions = {
 }
 
 type LoadedSelection = {
-	resultPoints: number | null
+	conviction: number
 	option: { isCorrect: boolean | null } | null
 }
 
 const selectionsCorrect = (selections: LoadedSelection[]) =>
 	selections.map((s) => s.option?.isCorrect ?? null)
 
-// What a scored call came to: its own result on a numeric guess, its picks'
-// results summed on everything else.
-const callPoints = (
+// What a call committed: its own conviction on a numeric guess, every pick's
+// summed on everything else.
+const callCommitted = (
 	shape: QuestionShape,
-	call: { resultPoints: number | null; selections: LoadedSelection[] },
-) =>
-	isNumericGuessShape(shape)
-		? (call.resultPoints ?? 0)
-		: call.selections.reduce((sum, s) => sum + (s.resultPoints ?? 0), 0)
+	call: { conviction: number | null; selections: LoadedSelection[] },
+) => {
+	const base = BASE_POINTS_BY_SHAPE[shape]
+	return isNumericGuessShape(shape)
+		? pointsCommitted(base, call.conviction ?? 0)
+		: call.selections.reduce(
+				(sum, s) => sum + pointsCommitted(base, s.conviction),
+				0,
+			)
+}
 
 // Rebuilds one (user, league, family) track from that user's calls: every
 // call's run position, the current and best runs, and - when notify is on -
@@ -93,11 +100,11 @@ export async function recomputeStreakTrack(
 			questionId: true,
 			unscoredReason: true,
 			hitTolerance: true,
-			resultPoints: true,
+			conviction: true,
 		},
 		with: {
 			selections: {
-				columns: { id: true, resultPoints: true },
+				columns: { id: true, conviction: true },
 				with: { option: { columns: { isCorrect: true } } },
 			},
 			question: {
@@ -123,7 +130,7 @@ export async function recomputeStreakTrack(
 				}),
 				realizedAt: game.finalizedAt ?? game.startsAt,
 				startsAt: game.startsAt,
-				points: callPoints(call.question.shape, call),
+				committed: callCommitted(call.question.shape, call),
 				seasonId: call.question.seasonId,
 			},
 		]
@@ -271,7 +278,7 @@ export async function recomputeSlate(
 	const slateGames = await loadSlateGames(tx, leagueId, slate)
 	const slateQuestions: SlateQuestion[] = []
 	const outcomesByUser = new Map<string, Map<string, Outcome>>()
-	const pointsByUser = new Map<string, number[]>()
+	const committedByUser = new Map<string, number[]>()
 
 	for (const game of slateGames) {
 		const question = canonicalWinnerQuestion(
@@ -300,9 +307,9 @@ export async function recomputeSlate(
 				}),
 			)
 			outcomesByUser.set(call.userId, outcomes)
-			pointsByUser.set(call.userId, [
-				...(pointsByUser.get(call.userId) ?? []),
-				callPoints("team_vs_team", call),
+			committedByUser.set(call.userId, [
+				...(committedByUser.get(call.userId) ?? []),
+				callCommitted("team_vs_team", call),
 			])
 		}
 	}
@@ -321,7 +328,7 @@ export async function recomputeSlate(
 					leagueId,
 					seasonId,
 					sourceKey: userId,
-					points: sweepAwardPoints(pointsByUser.get(userId) ?? []),
+					points: sweepAwardPoints(committedByUser.get(userId) ?? []),
 				}))
 			: [],
 	)
@@ -431,11 +438,11 @@ export function loadSlateGames(
 							userId: true,
 							unscoredReason: true,
 							hitTolerance: true,
-							resultPoints: true,
+							conviction: true,
 						},
 						with: {
 							selections: {
-								columns: { id: true, resultPoints: true },
+								columns: { id: true, conviction: true },
 								with: {
 									option: { columns: { isCorrect: true, teamId: true } },
 								},

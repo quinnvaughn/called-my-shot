@@ -78,8 +78,8 @@ describe("title rates", () => {
 	})
 
 	it("prices a pick on the best record and steps toward it", () => {
-		expect(titleRates.suggested(0.25)).toBe(0.27)
-		expect(titleRates.next(0.35, 0.25, TITLE_TUNING.minSample)).toBe(0.27)
+		expect(titleRates.suggested(0.25)).toBe(0.31)
+		expect(titleRates.next(0.35, 0.25, TITLE_TUNING.minSample)).toBe(0.31)
 		expect(titleRates.next(0.3, 0.5, TITLE_TUNING.minSample)).toBe(0.4)
 		expect(titleRates.next(0.3, 0.25, TITLE_TUNING.minSample - 1)).toBeNull()
 	})

@@ -51,12 +51,12 @@ describe("tuneLeaderLosses", () => {
 		expect(row).toMatchObject({
 			isCustom: true,
 			autoTune: true,
-			lossRate: 0.27,
+			lossRate: 0.31,
 			calibration: {
 				resolved: 40,
 				ownHitRate: 0.25,
 				blendedHitRate: 0.25,
-				suggestedLossRate: 0.27,
+				suggestedLossRate: 0.31,
 			},
 		})
 		expect(row?.tunedAt?.getTime()).toBe(NOW.getTime())
@@ -68,7 +68,7 @@ describe("tuneLeaderLosses", () => {
 		await tuneLeaderLosses(NOW)
 
 		expect(await leaderLossSettings.row("nfl", "Sacks")).toMatchObject({
-			lossRate: 0.27,
+			lossRate: 0.31,
 			calibration: {
 				resolved: 0,
 				ownHitRate: null,

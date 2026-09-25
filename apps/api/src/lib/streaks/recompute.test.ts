@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest"
 import { db } from "../../db"
 import { syncFlairCatalog } from "../../db/catalog/flairs"
 import {
+	BASE_POINTS_BY_SHAPE,
+	pointsCommitted,
 	STREAK_BONUS_SHARE,
 	STREAK_BONUS_STEP,
 	SWEEP_BONUS_SHARE,
@@ -341,14 +343,16 @@ describe("point awards", () => {
 	const bonusOf = async (userId: string) =>
 		(await db.query.userSeasonStats.findFirst({ where: { userId } }))
 			?.bonusPoints ?? 0
-	// What every one of a user's calls scored.
-	const pointsOf = async (userId: string) => {
+	// What every one of a user's winner calls committed.
+	const committedOf = async (userId: string) => {
 		const rows = await db.query.calls.findMany({
 			where: { userId },
-			with: { selections: { columns: { resultPoints: true } } },
+			with: { selections: { columns: { conviction: true } } },
 		})
-		return rows.map((call) =>
-			call.selections.reduce((sum, s) => sum + (s.resultPoints ?? 0), 0),
+		return rows.flatMap((call) =>
+			call.selections.map((s) =>
+				pointsCommitted(BASE_POINTS_BY_SHAPE.team_vs_team, s.conviction),
+			),
 		)
 	}
 	const total = (values: number[]) => values.reduce((a, b) => a + b, 0)
@@ -367,9 +371,9 @@ describe("point awards", () => {
 		}
 		await drainAchievementRecomputes()
 
-		const scored = total(await pointsOf(user.id))
-		const streak = Math.round(scored * STREAK_BONUS_SHARE)
-		const sweep = Math.round(scored * SWEEP_BONUS_SHARE)
+		const committed = total(await committedOf(user.id))
+		const streak = Math.round(committed * STREAK_BONUS_SHARE)
+		const sweep = Math.round(committed * SWEEP_BONUS_SHARE)
 		expect(await awardsOf(user.id, "streak_milestone")).toEqual([
 			expect.objectContaining({ points: streak }),
 		])

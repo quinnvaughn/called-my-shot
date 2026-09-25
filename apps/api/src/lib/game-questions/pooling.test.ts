@@ -74,8 +74,8 @@ describe("pooledHitRate", () => {
 
 describe("boundedLossRate", () => {
 	it("is where the pick clears PLAYER_EDGE, within bounds", () => {
-		expect(boundedLossRate(0.25, 0.05, 1)).toBe(0.27)
-		expect(boundedLossRate(0.5, 0.05, 1)).toBe(0.9)
+		expect(boundedLossRate(0.25, 0.05, 1)).toBe(0.31)
+		expect(boundedLossRate(0.5, 0.05, 1)).toBe(0.96)
 		expect(boundedLossRate(0.9, 0.05, 1)).toBe(1)
 		expect(boundedLossRate(0, 0.05, 1)).toBe(0.05)
 		expect(boundedLossRate(null, 0.05, 1)).toBeNull()

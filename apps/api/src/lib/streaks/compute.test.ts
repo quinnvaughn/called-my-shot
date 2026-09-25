@@ -436,12 +436,12 @@ describe("canonicalWinnerQuestion", () => {
 })
 
 describe("streakAwards", () => {
-	// Each win scores 10 x its position in the list, so every award's points
-	// say which wins it was paid from.
+	// Each call commits 10 x its position in the list, so every award's
+	// points say which wins it was paid from.
 	const scored = (outcomes: Outcome[]): ScoredTrackRow[] =>
 		rowsFor(outcomes).map((r, index) => ({
 			...r,
-			points: r.outcome === "win" ? 10 * (index + 1) : -50,
+			committed: 10 * (index + 1),
 			seasonId: "season-1",
 		}))
 	const wins = (n: number) => Array.from({ length: n }, () => W)
@@ -450,13 +450,13 @@ describe("streakAwards", () => {
 		expect(streakAwards(scored(wins(STREAK_BONUS_STEP - 1)))).toEqual([])
 	})
 
-	it("pays a share of the wins that reached each step", () => {
+	it("pays a share of what the wins that reached each step committed", () => {
 		const rows = scored(wins(STREAK_BONUS_STEP * 2))
 		const first = rows[0]?.callId
 		const block = (from: number) =>
 			rows
 				.slice(from, from + STREAK_BONUS_STEP)
-				.reduce((sum, r) => sum + r.points, 0)
+				.reduce((sum, r) => sum + r.committed, 0)
 
 		expect(streakAwards(rows)).toEqual([
 			{
@@ -480,7 +480,7 @@ describe("streakAwards", () => {
 })
 
 describe("sweepAwardPoints", () => {
-	it("pays a share of what the winner calls scored", () => {
+	it("pays a share of what the winner calls committed", () => {
 		expect(sweepAwardPoints([100, 50, 30])).toBe(
 			Math.round(180 * SWEEP_BONUS_SHARE),
 		)
