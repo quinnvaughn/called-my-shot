@@ -90,7 +90,7 @@ export const users = pgTable("users", {
 	// the first-letter fallback. A key rather than a URL so moving the public
 	// domain is an env change, not a data migration.
 	avatarKey: text("avatar_key"),
-	// Same, for the 3:1 banner across the top of their profile. Null means
+	// Same, for the 4:1 banner across the top of their profile. Null means
 	// no banner is drawn.
 	bannerKey: text("banner_key"),
 	createdAt: timestamp("created_at").notNull().defaultNow(),

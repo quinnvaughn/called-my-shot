@@ -36,7 +36,7 @@ const cropArea = css({
 })
 
 // The picked image under a frame the shape it'll be saved as: round for an
-// avatar, square for a logo, 3:1 for a banner. Drag to move, pinch, scroll
+// avatar, square for a logo, 4:1 for a banner. Drag to move, pinch, scroll
 // or the slider to zoom.
 export function ImageCropModal({ target, file, title }: Props) {
 	const router = useRouter()

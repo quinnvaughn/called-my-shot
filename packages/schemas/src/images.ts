@@ -7,7 +7,7 @@ import { z } from "zod"
 export const IMAGE_CONTENT_TYPES = ["image/webp", "image/jpeg"] as const
 export type ImageContentType = (typeof IMAGE_CONTENT_TYPES)[number]
 
-// Comfortably above what a 1500x500 WebP at the crop's quality comes out at,
+// Comfortably above what a 1600x400 WebP at the crop's quality comes out at,
 // so hitting it means something skipped the crop step.
 export const IMAGE_MAX_BYTES = 2 * 1024 * 1024
 
@@ -22,16 +22,16 @@ export type GroupImageKind = (typeof GROUP_IMAGE_KINDS)[number]
 
 // What the crop step renders each kind at. Avatars and logos are square and
 // drawn at 2x their largest on-screen size; banners (a user's or a group's)
-// are 3:1, the same as X's, since most photos are far closer to square and
-// anything wider crops away most of their height.
+// are 4:1: wide enough that a banner spanning a desktop content column stays
+// short, while a mostly-square photo still keeps a usable band of its height.
 export const IMAGE_DIMENSIONS: Record<
 	ImageKind,
 	{ width: number; height: number }
 > = {
 	avatar: { width: 512, height: 512 },
-	user_banner: { width: 1500, height: 500 },
+	user_banner: { width: 1600, height: 400 },
 	logo: { width: 512, height: 512 },
-	banner: { width: 1500, height: 500 },
+	banner: { width: 1600, height: 400 },
 }
 
 export function isUserImageKind(kind: ImageKind): kind is UserImageKind {

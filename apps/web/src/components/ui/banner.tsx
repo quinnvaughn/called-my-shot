@@ -1,12 +1,12 @@
 import { cva } from "styled-system/css"
 import { coverImage } from "./avatar"
 
-// 3:1, matching IMAGE_DIMENSIONS in @called-my-shot/schemas, so what the crop
+// 4:1, matching IMAGE_DIMENSIONS in @called-my-shot/schemas, so what the crop
 // modal frames is exactly what shows.
 const frame = cva({
 	base: {
 		width: "full",
-		aspectRatio: "3 / 1",
+		aspectRatio: "4 / 1",
 		overflow: "hidden",
 		bg: "bg.subtle",
 	},
