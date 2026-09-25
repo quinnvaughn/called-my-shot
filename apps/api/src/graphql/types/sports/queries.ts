@@ -13,6 +13,7 @@ import {
 	AuthorizationError,
 	NotFoundError,
 } from "../../../lib/errors"
+import { roundLabel } from "../../../lib/postseason/series"
 import { getCurrentSeason, listLeagueSeasons } from "../../../lib/seasons"
 import { isUuid } from "../../../lib/uuid"
 import { getLeagueWindows, pickDefaultWindowIndex } from "../../../lib/windows"
@@ -52,6 +53,26 @@ function byKickoffThenAwayTeam(
 		a.startsAt.getTime() - b.startsAt.getTime() ||
 		(a.awayTeam?.name ?? "").localeCompare(b.awayTeam?.name ?? "")
 	)
+}
+
+// A day's games under one heading per postseason round ("ALDS", "NL Wild
+// Card Series"), in the order each round first plays that day, so a playoff
+// day reads as its series rather than one undifferentiated list. Regular-season
+// games, and a day with no postseason games at all, stay a single unlabeled
+// group.
+function groupByRound(rows: Game[]): SlotGroup[] {
+	if (rows.length === 0) return []
+	if (!rows.some((game) => game.postseasonRound)) {
+		return [{ slotLabel: null, games: rows }]
+	}
+	const byRound = new Map<string | null, Game[]>()
+	for (const game of rows) {
+		const key = game.postseasonRound ? roundLabel(game.postseasonRound) : null
+		const group = byRound.get(key)
+		if (group) group.push(game)
+		else byRound.set(key, [game])
+	}
+	return [...byRound].map(([slotLabel, games]) => ({ slotLabel, games }))
 }
 
 builder.queryFields((t) => ({
@@ -380,7 +401,7 @@ builder.queryFields((t) => ({
 				window: selected,
 				prevKey,
 				nextKey,
-				groups: rows.length > 0 ? [{ slotLabel: null, games: rows }] : [],
+				groups: groupByRound(rows),
 			}
 		},
 	}),

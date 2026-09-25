@@ -8,6 +8,7 @@ import { syncGames } from "./sync-games"
 import { syncPlayers } from "./sync-players"
 import { syncSeasonQuestions } from "./sync-season-questions"
 import { syncSeasons } from "./sync-seasons"
+import { syncSeriesQuestions } from "./sync-series-questions"
 import { syncTeams } from "./sync-teams"
 import { syncTeamSeasonStats } from "./sync-team-season-stats"
 
@@ -51,6 +52,11 @@ export async function syncSportsData({
 		// page (/games/$gameId) surfaces as its hero question.
 		console.log(`[sync] ${config.leagueName} game questions...`)
 		await syncGameQuestions(league, now)
+
+		// After syncGames too: a series only exists once its games have synced,
+		// and its questions wait on Game 1's start time.
+		console.log(`[sync] ${config.leagueName} series questions...`)
+		await syncSeriesQuestions(league, now)
 
 		// Idempotent per question (see syncSeasonQuestions) - safe to run
 		// daily alongside everything above rather than needing its own

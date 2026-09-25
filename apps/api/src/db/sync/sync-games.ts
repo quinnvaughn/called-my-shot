@@ -1,8 +1,11 @@
 import { and, eq, sql } from "drizzle-orm"
 import { RECHECK_DELAY_MS } from "../../lib/auto-resolve/apply"
+import { parsePostseasonNote } from "../../lib/postseason/series"
+import { findOrCreateSeries, settleSeries } from "../../lib/postseason/settle"
 import { resolveQuestionInternal } from "../../lib/resolve-question"
+import { DAY_MS } from "../../lib/time"
 import { db } from "../index"
-import type { League } from "../schema"
+import type { League, Season } from "../schema"
 import {
 	games,
 	questionAutoResolutions,
@@ -177,13 +180,54 @@ export async function resolveGameWinner(
 	console.log(`[sync-games] resolved question ${question.id}`)
 }
 
+// Where a postseason game sits: its round, and for a series game its series
+// and number. All null for a regular-season game.
+async function postseasonFields(
+	tx: Tx,
+	event: EspnEvent,
+	ids: {
+		leagueId: string
+		seasonId: string
+		homeTeamId: string
+		awayTeamId: string
+	},
+	bestOfByEventId: Map<string, number>,
+) {
+	const none = {
+		postseasonRound: null,
+		seriesId: null,
+		seriesGameNumber: null,
+		ifNecessary: false,
+	}
+	if (toGameSeasonType(event.seasonType.type) !== "postseason") return none
+	const note = parsePostseasonNote(event.competitions[0].notes?.[0]?.headline)
+	if (!note) return none
+	if (note.gameNumber === null) {
+		return { ...none, postseasonRound: note.round }
+	}
+	const seriesId = await findOrCreateSeries(tx, {
+		...ids,
+		round: note.round,
+		bestOf: bestOfByEventId.get(event.id) ?? null,
+	})
+	return {
+		postseasonRound: note.round,
+		seriesId,
+		seriesGameNumber: note.gameNumber,
+		ifNecessary: note.ifNecessary,
+	}
+}
+
+// Returns the series the event belongs to, if any, so the caller can settle
+// it once every game has been written.
 async function syncEvent(
 	tx: Tx,
 	leagueSlug: string,
 	leagueId: string,
 	event: EspnEvent,
 	now: Date,
-): Promise<void> {
+	bestOfByEventId: Map<string, number>,
+): Promise<string | null> {
 	const competition = event.competitions[0]
 	const [home, away] = competition.competitors
 	const homeTeamId = await findRefEntityId(
@@ -208,7 +252,7 @@ async function syncEvent(
 		console.warn(
 			`syncGames: no synced season covers ${startsAt.toISOString()} for league ${leagueId} (event ${event.id}) - skipping until seasons catch up`,
 		)
-		return
+		return null
 	}
 	const seasonType = toGameSeasonType(event.seasonType.type)
 	// week/slot only mean anything for a week-window league (NFL, for now) -
@@ -227,6 +271,13 @@ async function syncEvent(
 	const atHalftime = isAtHalftime(competition.status)
 	const homeScore = home.score ? Math.round(home.score.value) : null
 	const awayScore = away.score ? Math.round(away.score.value) : null
+	const postseason = await postseasonFields(
+		tx,
+		event,
+		{ leagueId, seasonId, homeTeamId, awayTeamId },
+		bestOfByEventId,
+	)
+	const startTimeTbd = event.timeValid === false
 
 	const sourceId = scopedSourceId(leagueSlug, event.id)
 	const existingId = await findRefEntityId(tx, "game", sourceId)
@@ -247,6 +298,8 @@ async function syncEvent(
 				homeScore,
 				awayScore,
 				finalizedAt: finalizedAtFor(status),
+				...postseason,
+				startTimeTbd,
 			})
 			.where(eq(games.id, existingId))
 		if (status === "final") {
@@ -260,7 +313,7 @@ async function syncEvent(
 				now,
 			)
 		}
-		return
+		return postseason.seriesId
 	}
 	const [row] = await tx
 		.insert(games)
@@ -279,6 +332,8 @@ async function syncEvent(
 			homeScore,
 			awayScore,
 			finalizedAt: status === "final" ? now : null,
+			...postseason,
+			startTimeTbd,
 		})
 		.returning()
 	if (!row)
@@ -288,6 +343,52 @@ async function syncEvent(
 	// created by a later step in run.ts's pipeline), so nothing to resolve
 	// on this branch yet - a final score on first sight is only possible for
 	// backfilled historical games, which this app doesn't otherwise handle.
+	return postseason.seriesId
+}
+
+// How far either side of a season's postseason dates its scoreboard is read -
+// enough to catch a bracket ESPN posts a few days before the first game.
+const POSTSEASON_MARGIN_MS = 7 * DAY_MS
+
+const espnDate = (date: Date) =>
+	date.toISOString().slice(0, 10).replaceAll("-", "")
+
+// Each postseason series game's series length, by ESPN event id, read off the
+// postseason scoreboard - the team schedules syncGames otherwise reads don't
+// carry it. Empty outside a postseason, and on a failed read: a series whose
+// length is unknown just waits for the next run to be decided.
+async function loadSeriesLengths(
+	config: SyncLeagueConfig,
+	seasons: Season[],
+	now: Date,
+	espn: EspnClient,
+): Promise<Map<string, number>> {
+	const lengths = new Map<string, number>()
+	const season = seasons.find(
+		(s) =>
+			s.postseasonStartsAt &&
+			s.postseasonEndsAt &&
+			s.postseasonStartsAt.getTime() - POSTSEASON_MARGIN_MS <= now.getTime() &&
+			now.getTime() <= s.postseasonEndsAt.getTime() + POSTSEASON_MARGIN_MS,
+	)
+	if (!season?.postseasonStartsAt || !season.postseasonEndsAt) return lengths
+	try {
+		const events = await espn.fetchPostseasonScoreboard(
+			config.espnPath,
+			espnDate(new Date(season.postseasonStartsAt.getTime() - DAY_MS)),
+			espnDate(new Date(season.postseasonEndsAt.getTime() + DAY_MS)),
+		)
+		for (const event of events) {
+			const total = event.competitions[0].series?.totalCompetitions
+			if (total) lengths.set(event.id, total)
+		}
+	} catch (err) {
+		console.error(
+			`[sync-games] ${config.leagueSlug}: couldn't read the postseason scoreboard`,
+			err,
+		)
+	}
+	return lengths
 }
 
 // The record on the most recently COMPLETED event is this team's current
@@ -350,13 +451,31 @@ export async function syncGames(
 	}: { now?: Date; espn?: EspnClient } = {},
 ): Promise<void> {
 	const espnTeams = await espn.fetchTeams(config.espnPath)
+	const leagueSeasons = await db.query.seasons.findMany({
+		where: { leagueId: league.id },
+	})
+	const bestOfByEventId = await loadSeriesLengths(
+		config,
+		leagueSeasons,
+		now,
+		espn,
+	)
+	const touchedSeries = new Set<string>()
 
 	for (const espnTeam of espnTeams) {
 		const schedule = await espn.fetchSchedule(config.espnPath, espnTeam.id)
 		for (const event of schedule) {
-			await db.transaction((tx) =>
-				syncEvent(tx, config.leagueSlug, league.id, event, now),
+			const seriesId = await db.transaction((tx) =>
+				syncEvent(
+					tx,
+					config.leagueSlug,
+					league.id,
+					event,
+					now,
+					bestOfByEventId,
+				),
 			)
+			if (seriesId) touchedSeries.add(seriesId)
 		}
 		await db.transaction((tx) =>
 			syncTeamRecord(
@@ -368,5 +487,11 @@ export async function syncGames(
 				now,
 			),
 		)
+	}
+
+	// After every game is written, so a series is judged on all of its results
+	// at once rather than on whichever team's schedule came first.
+	for (const seriesId of touchedSeries) {
+		await db.transaction((tx) => settleSeries(tx, seriesId, now))
 	}
 }

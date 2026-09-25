@@ -14,7 +14,7 @@ import {
 import type { LeaderBasis } from "../../lib/game-questions/leaders"
 import type { LinePricing } from "../../lib/game-questions/line-pricing"
 import type { LineBasis } from "../../lib/game-questions/lines"
-import { games } from "./games"
+import { games, postseasonSeries } from "./games"
 import { players } from "./players"
 import { leagues, seasons, sports } from "./sports"
 import { stats } from "./stats"
@@ -160,6 +160,13 @@ export const questions = pgTable(
 		// MVP race). set null on delete rather than restrict: a game going away
 		// shouldn't take its questions down with it.
 		gameId: uuid("game_id").references(() => games.id, {
+			onDelete: "set null",
+		}),
+
+		// The postseason series a series-long question is about ("who wins the
+		// ALDS?"). Such a question has no gameId: it spans every game of the
+		// series and settles when the series does (lib/postseason/series.ts).
+		seriesId: uuid("series_id").references(() => postseasonSeries.id, {
 			onDelete: "set null",
 		}),
 
@@ -357,6 +364,7 @@ export const questions = pgTable(
 	(t) => [
 		uniqueIndex("questions_generation_key_idx").on(t.generationKey),
 		index("questions_game_id_idx").on(t.gameId),
+		index("questions_series_id_idx").on(t.seriesId),
 	],
 )
 export type Question = typeof questions.$inferSelect

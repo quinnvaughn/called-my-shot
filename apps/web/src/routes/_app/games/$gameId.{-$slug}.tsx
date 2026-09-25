@@ -47,6 +47,7 @@ import {
 	GAME_WINNER_LABEL,
 	sectionOfficialQuestions,
 } from "#/lib/official-game-questions"
+import { postseasonHeading } from "#/lib/postseason"
 import { buildGameSlug } from "#/lib/slug"
 
 type GameTab = "official" | "community"
@@ -143,8 +144,11 @@ export const Route = createFileRoute("/_app/games/$gameId/{-$slug}")({
 	head: ({ loaderData }) => {
 		const game = loaderData?.game
 		if (!game) return {}
+		const round = game.postseason
+			? `${postseasonHeading(game.postseason)}: `
+			: ""
 		return pageMeta({
-			title: `${game.awayTeam.name} @ ${game.homeTeam.name} · Called My Shot`,
+			title: `${round}${game.awayTeam.name} @ ${game.homeTeam.name} · Called My Shot`,
 			description: `Call the questions on ${game.awayTeam.name} @ ${game.homeTeam.name} - the winner, the total, and the player lines.`,
 			path: `/games/${game.id}/${buildGameSlug(game)}`,
 		})
@@ -228,6 +232,22 @@ function RouteComponent() {
 				</VStack>
 			)}
 
+			{/* The series' own questions, on every game of the series. They lock
+			    when Game 1 starts, so on a later game they show how the calls
+			    made before the series stand. */}
+			{game.postseason && game.postseason.seriesQuestions.length > 0 && (
+				<VStack gap="2" alignItems="stretch">
+					<span className={sectionLabelClass}>
+						The {game.postseason.roundLabel}
+					</span>
+					<VStack gap="3" alignItems="stretch">
+						{game.postseason.seriesQuestions.map((question) => (
+							<QuestionCard key={question.id} question={question} />
+						))}
+					</VStack>
+				</VStack>
+			)}
+
 			<Tabs value={tab} onValueChange={selectTab}>
 				<Tabs.List>
 					<Tabs.Trigger value="official">Official</Tabs.Trigger>
@@ -274,6 +294,21 @@ function OfficialQuestions({
 		// Catalog questions only go up inside generate-game-questions.ts's
 		// window, so a game further out has just its who-wins question until
 		// then.
+		if (game.postseason?.ifNecessary) {
+			return (
+				<EmptyState>
+					This game is only played if the series is still going. Questions go up
+					once it is.
+				</EmptyState>
+			)
+		}
+		if (game.status === "SCHEDULED" && game.startTimeTbd) {
+			return (
+				<EmptyState>
+					Questions go up once this game has a start time.
+				</EmptyState>
+			)
+		}
 		if (game.status === "SCHEDULED") {
 			return (
 				<EmptyState>

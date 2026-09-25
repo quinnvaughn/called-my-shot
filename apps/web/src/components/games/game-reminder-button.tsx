@@ -26,13 +26,16 @@ const REMINDER_LEAD_MS = 60 * 60 * 1000
 // Whether a reminder is still worth offering. Inside the last hour it would go
 // out within minutes, telling someone already on the game page what they're
 // looking at. The api still accepts a set up to the start, so a page loaded
-// just before the cutoff gets its reminder rather than an error.
+// just before the cutoff gets its reminder rather than an error. Not while the
+// start time is a placeholder: there's no real "an hour before" to send it at.
 export function canSetGameReminder(game: {
 	status: string
 	startsAt: string
+	startTimeTbd?: boolean
 }): boolean {
 	return (
 		game.status === "SCHEDULED" &&
+		!game.startTimeTbd &&
 		new Date(game.startsAt).getTime() - Date.now() > REMINDER_LEAD_MS
 	)
 }

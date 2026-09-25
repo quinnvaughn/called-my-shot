@@ -73,11 +73,17 @@ export type EspnEvent = {
 	// authoritative week number, never recomputed from dates on our side.
 	// Absent for leagues with no week concept.
 	week?: { number: number }
+	// False while the date is a placeholder rather than a real start time -
+	// an "If Necessary" postseason game before it's scheduled, for one.
+	timeValid?: boolean
 	competitions: [
 		{
 			// Absent on some historical/edge events per ESPN, hence optional -
 			// treated as "nothing to capture" rather than an error.
 			venue?: { fullName: string }
+			// A postseason game's round and place in its series ("NLDS - Game
+			// 4", "First Round - Game 3 If Necessary"). See parsePostseasonNote.
+			notes?: { headline?: string }[]
 			status: EspnEventStatus
 			competitors: [
 				{
@@ -283,7 +289,9 @@ export type EspnPostseasonEvent = {
 	competitions: [
 		{
 			notes?: { headline?: string }[]
-			series?: { completed: boolean }
+			// totalCompetitions is the series' length (5 for a best-of-5) - the
+			// team schedule endpoint the daily sync reads doesn't carry it.
+			series?: { completed: boolean; totalCompetitions?: number }
 			status: { type: { name: string; completed: boolean } }
 			competitors: { team: { id: string }; winner?: boolean }[]
 		},

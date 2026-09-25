@@ -162,6 +162,10 @@ export const relations = defineRelations(schema, (r) => ({
 			from: r.questions.gameId,
 			to: r.games.id,
 		}),
+		series: r.one.postseasonSeries({
+			from: r.questions.seriesId,
+			to: r.postseasonSeries.id,
+		}),
 		season: r.one.seasons({
 			from: r.questions.seasonId,
 			to: r.seasons.id,
@@ -231,6 +235,10 @@ export const relations = defineRelations(schema, (r) => ({
 		weeks: r.many.seasonWeeks(),
 		playerGameStats: r.many.playerGameStats(),
 		teamGameStats: r.many.teamGameStats(),
+	},
+	postseasonSeries: {
+		games: r.many.games(),
+		questions: r.many.questions(),
 	},
 	seasonWeeks: {
 		season: r.one.seasons({
@@ -306,6 +314,10 @@ export const relations = defineRelations(schema, (r) => ({
 			to: r.teams.id,
 		}),
 		questions: r.many.questions(),
+		series: r.one.postseasonSeries({
+			from: r.games.seriesId,
+			to: r.postseasonSeries.id,
+		}),
 		starters: r.many.gameStarters(),
 		playerStats: r.many.playerGameStats(),
 		teamStats: r.many.teamGameStats(),

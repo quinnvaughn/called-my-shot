@@ -10,6 +10,7 @@ import { CallRef } from "../question/call"
 import { QuestionRef } from "../question/question-object"
 import { UserRef } from "../user"
 import { GameStatus } from "./enums"
+import { GamePostseasonRef, loadGamePostseason } from "./postseason"
 import { loadTeamRecordsByKey, TeamRecordRef } from "./team"
 
 // One official question of someone's picks on a game.
@@ -49,6 +50,15 @@ export const GameRef = builder.drizzleObject("games", {
 		status: t.field({ type: GameStatus, resolve: (g) => g.status }),
 		// Only ever true while status is LIVE - see games.atHalftime.
 		atHalftime: t.exposeBoolean("atHalftime"),
+		// startsAt is a placeholder date with no real time yet - see
+		// games.startTimeTbd.
+		startTimeTbd: t.exposeBoolean("startTimeTbd"),
+		// Null for a regular-season game.
+		postseason: t.field({
+			type: GamePostseasonRef,
+			nullable: true,
+			resolve: (game, _args, ctx) => loadGamePostseason(game, ctx),
+		}),
 		homeScore: t.exposeInt("homeScore", { nullable: true }),
 		awayScore: t.exposeInt("awayScore", { nullable: true }),
 		// The specific game's location, not necessarily the home team's usual

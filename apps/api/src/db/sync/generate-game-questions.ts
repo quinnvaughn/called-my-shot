@@ -63,6 +63,7 @@ import {
 import { GENERATE_GAME_QUESTIONS_LOCK } from "../../lib/job-lock"
 import { numericToleranceFor } from "../../lib/numeric-tolerance"
 import { getOfficialAccountId } from "../../lib/official-account"
+import { isGameAskable } from "../../lib/postseason/settle"
 import { runCli } from "../../lib/run-cli"
 import {
 	activeGameTemplates,
@@ -579,19 +580,23 @@ async function generateForLeague(
 		where: { leagueId: league.id, status: "scheduled", startsAt: { gt: now } },
 		with: { homeTeam: true, awayTeam: true, season: true },
 	})
-	const due = gamesInWindow(upcoming, window, now).map((game) => {
-		if (!game.homeTeam || !game.awayTeam || !game.season) {
-			throw new Error(
-				`generateGameQuestions: game ${game.id} is missing its teams or season`,
-			)
-		}
-		return {
-			...game,
-			homeTeam: game.homeTeam,
-			awayTeam: game.awayTeam,
-			season: game.season,
-		}
-	})
+	const inWindow = gamesInWindow(upcoming, window, now)
+	const askable = await Promise.all(inWindow.map(isGameAskable))
+	const due = inWindow
+		.filter((_, i) => askable[i])
+		.map((game) => {
+			if (!game.homeTeam || !game.awayTeam || !game.season) {
+				throw new Error(
+					`generateGameQuestions: game ${game.id} is missing its teams or season`,
+				)
+			}
+			return {
+				...game,
+				homeTeam: game.homeTeam,
+				awayTeam: game.awayTeam,
+				season: game.season,
+			}
+		})
 	if (due.length === 0) return none
 
 	const statRows = await loadCatalogStats(league.sportId, [

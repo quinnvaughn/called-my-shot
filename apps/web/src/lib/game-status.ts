@@ -7,6 +7,9 @@ type StatusGame = {
 	startsAt: string
 	homeScore: number | null
 	awayScore: number | null
+	// startsAt is a placeholder date with no real time yet - a postseason game
+	// ESPN hasn't scheduled. Absent where a query doesn't ask for it.
+	startTimeTbd?: boolean
 }
 
 // Shared by GameBlock (the compact inline matchup badge) and GameRow (the
@@ -17,14 +20,19 @@ export function gameScoreLabel(game: StatusGame): string {
 }
 
 export function gameStartLabel(game: StatusGame): string {
-	return DateTime.fromISO(game.startsAt).toFormat("MMM d, h:mm a")
+	const date = DateTime.fromISO(game.startsAt)
+	return game.startTimeTbd
+		? `${date.toFormat("MMM d")}, time TBD`
+		: date.toFormat("MMM d, h:mm a")
 }
 
 // Time only, no date - for a context that already tells you the date some
 // other way (e.g. GameRow's window stepper header), where repeating "Aug 26"
 // on every row below it would just be noise.
 export function gameTimeLabel(game: StatusGame): string {
-	return DateTime.fromISO(game.startsAt).toFormat("h:mm a")
+	return game.startTimeTbd
+		? "TBD"
+		: DateTime.fromISO(game.startsAt).toFormat("h:mm a")
 }
 
 export function gameStatusLabel(game: StatusGame): string {

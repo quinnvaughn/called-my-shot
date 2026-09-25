@@ -63,6 +63,44 @@ export const seasonWeeks = pgTable(
 )
 export type SeasonWeek = typeof seasonWeeks.$inferSelect
 
+// One postseason series (an ALDS, a World Series), found or created by the
+// sync from the games ESPN files under it: a round plus a pair of teams within
+// a season. teamAId/teamBId are the pair in id order, so the same series reads
+// as one row whichever side is home in a given game. bestOf comes from ESPN's
+// postseason scoreboard, the one feed that states a series' length, and stays
+// null until that has been read - nothing decides a series without it.
+// winnerTeamId/decidedAt are set once a team has won enough of the series'
+// final games (see lib/postseason/series.ts).
+export const postseasonSeries = pgTable(
+	"postseason_series",
+	{
+		id: uuid("id").primaryKey().defaultRandom(),
+		leagueId: uuid("league_id")
+			.notNull()
+			.references(() => leagues.id, { onDelete: "cascade" }),
+		seasonId: uuid("season_id")
+			.notNull()
+			.references(() => seasons.id, { onDelete: "restrict" }),
+		// ESPN's name for the round, as it heads each game's note ("ALDS",
+		// "NLWC", "World Series"). Display names come from roundLabel.
+		round: text("round").notNull(),
+		teamAId: uuid("team_a_id")
+			.notNull()
+			.references(() => teams.id, { onDelete: "restrict" }),
+		teamBId: uuid("team_b_id")
+			.notNull()
+			.references(() => teams.id, { onDelete: "restrict" }),
+		bestOf: integer("best_of"),
+		winnerTeamId: uuid("winner_team_id").references(() => teams.id, {
+			onDelete: "restrict",
+		}),
+		decidedAt: timestamp("decided_at"),
+		createdAt: timestamp("created_at").notNull().defaultNow(),
+	},
+	(t) => [unique().on(t.seasonId, t.round, t.teamAId, t.teamBId)],
+)
+export type PostseasonSeries = typeof postseasonSeries.$inferSelect
+
 export const games = pgTable(
 	"games",
 	{
@@ -130,6 +168,25 @@ export const games = pgTable(
 		// exactly where it stopped), and it's how the went-final sweep finds games
 		// auto-resolution never fetched a box score for. Null until first captured.
 		boxScoreSyncedAt: timestamp("box_score_synced_at"),
+		// ESPN's name for a postseason game's round ("ALDS", "AFC Wild Card"),
+		// read off the game's note. Null for a regular-season game, and for a
+		// postseason one ESPN hasn't labeled.
+		postseasonRound: text("postseason_round"),
+		// The series this game is one game of, and which game. Null outside a
+		// series, including single-game rounds.
+		seriesId: uuid("series_id").references(() => postseasonSeries.id, {
+			onDelete: "set null",
+		}),
+		seriesGameNumber: integer("series_game_number"),
+		// ESPN lists a series' later games before anyone knows they'll be played,
+		// flagged "If Necessary" in their note. Such a game gets no questions
+		// until the series reaches it (see isGameConfirmed), and is deleted once
+		// the series ends without it.
+		ifNecessary: boolean("if_necessary").notNull().default(false),
+		// ESPN's timeValid, inverted: when true, startsAt is a placeholder
+		// (midnight ET on the scheduled date) rather than a first pitch, so
+		// nothing locks off it and the UI says the time is to be decided.
+		startTimeTbd: boolean("start_time_tbd").notNull().default(false),
 	},
 	(t) => [
 		// A single team's own schedule, most recent first - what a matchup card's
@@ -139,6 +196,7 @@ export const games = pgTable(
 		// above), so a team's season is two range scans unioned, never one.
 		index("games_home_team_starts_at_idx").on(t.homeTeamId, t.startsAt.desc()),
 		index("games_away_team_starts_at_idx").on(t.awayTeamId, t.startsAt.desc()),
+		index("games_series_id_idx").on(t.seriesId),
 	],
 )
 export type Game = typeof games.$inferSelect

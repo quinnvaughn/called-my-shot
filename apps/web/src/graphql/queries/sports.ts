@@ -143,6 +143,19 @@ export const GameByIdDocument = graphql(`
 			venue
 			windowKey
 			viewerHasReminder
+			startTimeTbd
+			postseason {
+				roundLabel
+				gameNumber
+				bestOf
+				ifNecessary
+				summary
+				clinchTeamIds
+				seriesQuestions {
+					id
+					...QuestionCard_question
+				}
+			}
 			league {
 				id
 				abbreviation
@@ -371,6 +384,13 @@ export const LeagueGamesForWindowDocument = graphql(`
 					awayScore
 					questionCount
 					viewerCalledCount
+					startTimeTbd
+					postseason {
+						gameNumber
+						ifNecessary
+						summary
+						clinchTeamIds
+					}
 					homeTeam {
 						id
 						name

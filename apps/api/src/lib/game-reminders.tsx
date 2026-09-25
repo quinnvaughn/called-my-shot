@@ -72,7 +72,8 @@ export async function hasGameReminder(
 
 // A reminder for a game that has already started (or been marked live/final
 // by the score sync) is no use to anyone. Finished without sending anything,
-// in-app included, since "starts in an hour" would be false by then.
+// in-app included, since "starts in an hour" would be false by then. A start
+// time ESPN hasn't set is a placeholder, so passing it doesn't mean anything.
 async function skipStartedGames(now: Date): Promise<number> {
 	const nowUtc = utcTimestamp(now)
 	const { rowCount } = await db.execute(sql`
@@ -81,7 +82,10 @@ async function skipStartedGames(now: Date): Promise<number> {
 		from games g
 		where g.id = r.game_id
 			and r.sent_at is null
-			and (g.status <> 'scheduled' or g.starts_at <= ${nowUtc})
+			and (
+				g.status <> 'scheduled'
+				or (g.starts_at <= ${nowUtc} and not g.start_time_tbd)
+			)
 	`)
 	return rowCount ?? 0
 }
@@ -107,6 +111,7 @@ async function claimDueBatches(now: Date): Promise<Claimed[]> {
 			where r.sent_at is null
 				and r.attempts < ${MAX_ATTEMPTS}
 				and g.status = 'scheduled'
+				and not g.start_time_tbd
 				and g.starts_at > ${nowUtc}
 				and g.starts_at <= ${nowUtc} + ${REMINDER_LEAD_MINUTES} * interval '1 minute'
 			limit ${MAX_USERS_PER_RUN}
@@ -119,6 +124,7 @@ async function claimDueBatches(now: Date): Promise<Claimed[]> {
 				and r.sent_at is null
 				and r.attempts < ${MAX_ATTEMPTS}
 				and g.status = 'scheduled'
+				and not g.start_time_tbd
 				and g.starts_at > ${nowUtc}
 			group by r.user_id
 		)
@@ -132,6 +138,7 @@ async function claimDueBatches(now: Date): Promise<Claimed[]> {
 			where r.sent_at is null
 				and r.attempts < ${MAX_ATTEMPTS}
 				and g.status = 'scheduled'
+				and not g.start_time_tbd
 				and g.starts_at < f.starts_at + ${BATCH_WINDOW_MINUTES} * interval '1 minute'
 			for update of r skip locked
 		)

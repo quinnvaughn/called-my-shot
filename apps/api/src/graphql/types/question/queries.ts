@@ -281,7 +281,11 @@ builder.queryFields((t) => ({
 				typeof args.isOfficial === "boolean"
 					? eq(questions.isOfficial, args.isOfficial)
 					: undefined,
-				args.seasonLong ? isNull(questions.gameId) : undefined,
+				// A series question has no game either, but it belongs with the
+				// series' games rather than the season - see questions.seriesId.
+				args.seasonLong
+					? and(isNull(questions.gameId), isNull(questions.seriesId))
+					: undefined,
 				currentSeason ? eq(questions.seasonId, currentSeason.id) : undefined,
 				args.excludeBallotMembers ? notInABallot() : undefined,
 				args.excludeLocked

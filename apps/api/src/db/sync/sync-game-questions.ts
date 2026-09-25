@@ -3,6 +3,7 @@ import { generationKey } from "../../lib/game-questions/generation-key"
 import { refreshGeneratedQuestionSchedule } from "../../lib/game-questions/schedule"
 import { gameQuestionTitle } from "../../lib/game-questions/titles"
 import { getOfficialAccountId } from "../../lib/official-account"
+import { isGameAskable } from "../../lib/postseason/settle"
 import { insertQuestion, teamOptions } from "../../lib/questions/insert"
 import { getCurrentSeason } from "../../lib/seasons"
 import { db } from "../index"
@@ -80,13 +81,16 @@ export async function syncGameQuestions(
 			awayTeam: game.awayTeam,
 		}
 		const key = generationKey([league.slug, game.id, "team_vs_team"])
+		// A postseason game that may never be played, or whose start time ESPN
+		// hasn't set, waits for a later run.
+		const askable = await isGameAskable(game)
 
 		await db.transaction(async (tx) => {
 			const existing = await tx.query.questions.findFirst({
 				where: { generationKey: key },
 			})
 
-			if (!existing) {
+			if (!existing && askable) {
 				await insertQuestion(
 					tx,
 					{

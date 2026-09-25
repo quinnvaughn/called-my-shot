@@ -1,5 +1,7 @@
 import { css } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
+import { Eyebrow } from "#/components/ui/eyebrow"
+import { Tag } from "#/components/ui/tag"
 import { TeamBadge } from "#/components/ui/team-badge"
 import type { FragmentType } from "#/graphql/generated"
 import type { GameStatus } from "#/graphql/generated/graphql"
@@ -8,6 +10,7 @@ import {
 	gameScoreLabel,
 	gameStartLabel,
 } from "#/lib/game-status"
+import { postseasonHeading, seriesStakesLabel } from "#/lib/postseason"
 import { GameStarters, type GameStartersFragment } from "./game-starters"
 
 type TeamRecord = { wins: number; losses: number; ties: number } | null
@@ -24,6 +27,15 @@ type Props = {
 		awayTeam: Team
 		homeTeamRecord?: TeamRecord
 		awayTeamRecord?: TeamRecord
+		startTimeTbd?: boolean
+		// Absent for a regular-season game, and wherever the query doesn't ask.
+		postseason?: {
+			roundLabel: string
+			gameNumber: number | null
+			ifNecessary: boolean
+			summary: string | null
+			clinchTeamIds: string[]
+		} | null
 	}
 	// The same game again, as the GameStarters fragment's reference: the
 	// matchup fields above are structural props, so one value can't be both.
@@ -183,18 +195,47 @@ export function GameMatchupHeader({
 	const live = game.status === "LIVE"
 	const final = game.status === "FINAL"
 	const scored = live || final
+	const postseason = game.postseason ?? null
+	const stakes = postseason && !final ? seriesStakesLabel(postseason) : null
 
 	return (
 		<VStack
 			gap={dense ? "2" : "3"}
 			alignItems="stretch"
 			className={css({
-				border: "1px solid {colors.border.default}",
+				// A postseason game's header takes the secondary accent, so a
+				// playoff game reads as one before anything else on it is read.
+				border: postseason
+					? "1px solid {colors.secondary.default}"
+					: "1px solid {colors.border.default}",
 				borderRadius: "xl",
 				bg: "bg.subtle",
 				padding: dense ? "3" : { base: "3.5", sm: "4" },
 			})}
 		>
+			{postseason && (
+				<HStack
+					justify="space-between"
+					alignItems="center"
+					gap="2"
+					flexWrap="wrap"
+				>
+					<Eyebrow size="sm">
+						{postseasonHeading(postseason)}
+						{postseason.summary ? ` · ${postseason.summary}` : ""}
+					</Eyebrow>
+					{postseason.ifNecessary ? (
+						<Tag size="sm">If necessary</Tag>
+					) : (
+						stakes && (
+							<Tag variant="primary" size="sm">
+								{stakes}
+							</Tag>
+						)
+					)}
+				</HStack>
+			)}
+
 			<div className={scoreboardClass}>
 				<TeamLine
 					team={game.awayTeam}

@@ -3,9 +3,11 @@ import { FiChevronRight } from "react-icons/fi"
 import { css } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
 import { Card } from "#/components/ui/card"
+import { Tag } from "#/components/ui/tag"
 import { TeamBadge } from "#/components/ui/team-badge"
 import type { GameStatus } from "#/graphql/generated/graphql"
 import { gameScoreLabel, gameTimeLabel } from "#/lib/game-status"
+import { seriesStakesLabel } from "#/lib/postseason"
 import { buildGameSlug } from "#/lib/slug"
 
 type Props = {
@@ -21,9 +23,26 @@ type Props = {
 		awayScore: number | null
 		questionCount: number
 		viewerCalledCount: number | null
+		startTimeTbd: boolean
+		// The round itself is the heading this row sits under on a postseason
+		// day, so only the game's place in its series is here.
+		postseason: {
+			gameNumber: number | null
+			ifNecessary: boolean
+			summary: string | null
+			clinchTeamIds: string[]
+		} | null
 		homeTeam: { name: string; abbreviation: string; color: string }
 		awayTeam: { name: string; abbreviation: string; color: string }
 	}
+}
+
+// "Game 4 · SEA leads 2-1". Null outside a series.
+function seriesLine(postseason: Props["game"]["postseason"]): string | null {
+	if (!postseason?.gameNumber) return null
+	return [`Game ${postseason.gameNumber}`, postseason.summary]
+		.filter(Boolean)
+		.join(" · ")
 }
 
 function questionsSubline(
@@ -46,6 +65,11 @@ function questionsSubline(
 export function GameRow({ game, leagueSlug }: Props) {
 	const live = game.status === "LIVE"
 	const final = game.status === "FINAL"
+	const series = seriesLine(game.postseason)
+	const stakes =
+		game.postseason && !final && !game.postseason.ifNecessary
+			? seriesStakesLabel(game.postseason)
+			: null
 
 	return (
 		<Link
@@ -93,6 +117,31 @@ export function GameRow({ game, leagueSlug }: Props) {
 									{game.awayTeam.name} @ {game.homeTeam.name}
 								</span>
 							</HStack>
+							{(series || game.postseason?.ifNecessary || stakes) && (
+								<HStack gap="2" alignItems="center" flexWrap="wrap">
+									{series && (
+										<span
+											className={css({
+												fontFamily: "mono",
+												fontSize: "2xs",
+												letterSpacing: "wide",
+												textTransform: "uppercase",
+												color: "secondary.default",
+											})}
+										>
+											{series}
+										</span>
+									)}
+									{game.postseason?.ifNecessary && (
+										<Tag size="sm">If necessary</Tag>
+									)}
+									{stakes && (
+										<Tag variant="primary" size="sm">
+											{stakes}
+										</Tag>
+									)}
+								</HStack>
+							)}
 							<span
 								className={css({
 									fontFamily: "mono",

@@ -1,5 +1,6 @@
 import { eq } from "drizzle-orm"
 import { SYNC_LIVE_SCORES_LOCK } from "../../lib/job-lock"
+import { settleSeries } from "../../lib/postseason/settle"
 import { runCli } from "../../lib/run-cli"
 import { HOUR_MS, MINUTE_MS } from "../../lib/time"
 import { db } from "../index"
@@ -117,6 +118,9 @@ export async function syncLiveScores({
 					homeScore,
 					awayScore,
 				)
+				// A series game going final can end the series, which settles its
+				// series questions and drops the games it no longer needs.
+				if (game.seriesId) await settleSeries(tx, game.seriesId, now)
 			}
 			return status === "final" && game.status !== "final"
 		})
