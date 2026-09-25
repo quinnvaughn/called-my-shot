@@ -1,4 +1,6 @@
 import {
+	isNumericGuessShape,
+	type QuestionShape,
 	STREAK_FAMILY_LABEL,
 	STREAK_FLAIR_THRESHOLDS,
 	type StreakFamily,
@@ -9,6 +11,7 @@ import { match } from "ts-pattern"
 import { callStreakPositions, userStreaks, userSweeps } from "../../db/schema"
 import type { Tx } from "../../db/types"
 import { grantFlairByKey } from "../flairs/grant"
+import { pointAwardScope, reconcileAwards } from "../point-awards"
 import {
 	callOutcome,
 	canonicalWinnerQuestion,
@@ -16,9 +19,11 @@ import {
 	computeTrack,
 	isFresh,
 	type Outcome,
+	type ScoredTrackRow,
 	type SlateQuestion,
+	streakAwards,
 	streakEvents,
-	type TrackRow,
+	sweepAwardPoints,
 } from "./compute"
 import { announceOnce, noticeKey } from "./notices"
 import {
@@ -34,10 +39,23 @@ export type RecomputeOptions = {
 	now: Date
 }
 
-type LoadedSelection = { option: { isCorrect: boolean | null } | null }
+type LoadedSelection = {
+	resultPoints: number | null
+	option: { isCorrect: boolean | null } | null
+}
 
 const selectionsCorrect = (selections: LoadedSelection[]) =>
 	selections.map((s) => s.option?.isCorrect ?? null)
+
+// What a scored call came to: its own result on a numeric guess, its picks'
+// results summed on everything else.
+const callPoints = (
+	shape: QuestionShape,
+	call: { resultPoints: number | null; selections: LoadedSelection[] },
+) =>
+	isNumericGuessShape(shape)
+		? (call.resultPoints ?? 0)
+		: call.selections.reduce((sum, s) => sum + (s.resultPoints ?? 0), 0)
 
 // Rebuilds one (user, league, family) track from that user's calls: every
 // call's run position, the current and best runs, and - when notify is on -
@@ -75,20 +93,21 @@ export async function recomputeStreakTrack(
 			questionId: true,
 			unscoredReason: true,
 			hitTolerance: true,
+			resultPoints: true,
 		},
 		with: {
 			selections: {
-				columns: { id: true },
+				columns: { id: true, resultPoints: true },
 				with: { option: { columns: { isCorrect: true } } },
 			},
 			question: {
-				columns: { shape: true, status: true },
+				columns: { shape: true, status: true, seasonId: true },
 				with: { game: { columns: { startsAt: true, finalizedAt: true } } },
 			},
 		},
 	})
 
-	const rows: TrackRow[] = callRows.flatMap((call) => {
+	const rows: ScoredTrackRow[] = callRows.flatMap((call) => {
 		const game = call.question?.game
 		if (!call.question || !game) return []
 		return [
@@ -104,6 +123,8 @@ export async function recomputeStreakTrack(
 				}),
 				realizedAt: game.finalizedAt ?? game.startsAt,
 				startsAt: game.startsAt,
+				points: callPoints(call.question.shape, call),
+				seasonId: call.question.seasonId,
 			},
 		]
 	})
@@ -158,6 +179,13 @@ export async function recomputeStreakTrack(
 				set: values,
 			})
 	}
+
+	await reconcileAwards(
+		tx,
+		"streak_milestone",
+		pointAwardScope.streak(userId, leagueId, family),
+		streakAwards(rows).map((award) => ({ ...award, userId, leagueId })),
+	)
 
 	// Above the notify guard on purpose. A grant is state, not an
 	// announcement, so the backfill (which runs with notify off) still awards
@@ -228,17 +256,22 @@ export async function recomputeSlate(
 		.from(userSweeps)
 		.where(isSlate)
 	await tx.delete(userSweeps).where(isSlate)
+	const awardScope = pointAwardScope.slate(leagueId, slateKey)
 
 	const league = await tx.query.leagues.findFirst({
 		where: { id: leagueId },
 		columns: { slug: true, abbreviation: true },
 	})
 	const slate = parseSlateKey(slateKey)
-	if (!league || !slate) return
+	if (!league || !slate) {
+		await reconcileAwards(tx, "sweep", awardScope, [])
+		return
+	}
 
 	const slateGames = await loadSlateGames(tx, leagueId, slate)
 	const slateQuestions: SlateQuestion[] = []
 	const outcomesByUser = new Map<string, Map<string, Outcome>>()
+	const pointsByUser = new Map<string, number[]>()
 
 	for (const game of slateGames) {
 		const question = canonicalWinnerQuestion(
@@ -267,12 +300,32 @@ export async function recomputeSlate(
 				}),
 			)
 			outcomesByUser.set(call.userId, outcomes)
+			pointsByUser.set(call.userId, [
+				...(pointsByUser.get(call.userId) ?? []),
+				callPoints("team_vs_team", call),
+			])
 		}
 	}
 
 	const result = computeSlateSweeps(slateQuestions, outcomesByUser)
 	const seasonId = slateGames[0]?.seasonId
 	const { firstStartsAt, settledAt } = result
+
+	await reconcileAwards(
+		tx,
+		"sweep",
+		awardScope,
+		seasonId
+			? result.sweptUserIds.map((userId) => ({
+					userId,
+					leagueId,
+					seasonId,
+					sourceKey: userId,
+					points: sweepAwardPoints(pointsByUser.get(userId) ?? []),
+				}))
+			: [],
+	)
+
 	if (
 		result.sweptUserIds.length === 0 ||
 		!seasonId ||
@@ -378,10 +431,11 @@ export function loadSlateGames(
 							userId: true,
 							unscoredReason: true,
 							hitTolerance: true,
+							resultPoints: true,
 						},
 						with: {
 							selections: {
-								columns: { id: true },
+								columns: { id: true, resultPoints: true },
 								with: {
 									option: { columns: { isCorrect: true, teamId: true } },
 								},

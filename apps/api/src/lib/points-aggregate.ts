@@ -2,7 +2,10 @@ import { sql } from "drizzle-orm"
 import { db } from "../db"
 
 export type PointsAggregate = {
+	// What calls scored plus bonusPoints below - what every board ranks on.
 	totalPoints: number
+	// The part of totalPoints from point_awards: streaks and sweeps.
+	bonusPoints: number
 	resolvedCallCount: number
 	correctCount: number
 	convictionSum: number
@@ -49,6 +52,7 @@ export async function aggregatePointsByUser(options: {
 	const result = await db.execute<{
 		user_id: string
 		total_points: number
+		bonus_points: number
 		resolved_call_count: number
 		correct_count: number
 		conviction_sum: number
@@ -57,7 +61,8 @@ export async function aggregatePointsByUser(options: {
 	}>(sql`
 		select
 			user_id,
-			coalesce(sum(points), 0)::int as total_points,
+			coalesce(sum(points + bonus_points), 0)::int as total_points,
+			coalesce(sum(bonus_points), 0)::int as bonus_points,
 			coalesce(sum(resolved_call_count), 0)::int as resolved_call_count,
 			coalesce(sum(correct_count), 0)::int as correct_count,
 			coalesce(sum(conviction_sum), 0)::int as conviction_sum,
@@ -77,6 +82,7 @@ export async function aggregatePointsByUser(options: {
 		if (row.call_count === 0) continue
 		map.set(row.user_id, {
 			totalPoints: row.total_points,
+			bonusPoints: row.bonus_points,
 			resolvedCallCount: row.resolved_call_count,
 			correctCount: row.correct_count,
 			convictionSum: row.conviction_sum,

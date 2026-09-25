@@ -16,7 +16,7 @@ import {
 export type TitleLossSettingRow = LossRateRow<TitleGroup>
 
 // Each league title's loss rate, tuned toward where a pick on the best
-// record breaks even.
+// record clears PLAYER_EDGE.
 export const titleLossSettings = defineLossRateSetting({
 	table: titleLossSettingsTable,
 	keyField: "awardName",

@@ -42,7 +42,7 @@ async function resolvedLeaders(count: number) {
 }
 
 describe("tuneLeaderLosses", () => {
-	it("moves an automatic rate toward where the favorite breaks even", async () => {
+	it("moves an automatic rate toward where the favorite is priced", async () => {
 		await resolvedLeaders(40)
 
 		expect(await tuneLeaderLosses(NOW)).toBe(leaderTemplates().length)
@@ -51,12 +51,12 @@ describe("tuneLeaderLosses", () => {
 		expect(row).toMatchObject({
 			isCustom: true,
 			autoTune: true,
-			lossRate: 0.33,
+			lossRate: 0.27,
 			calibration: {
 				resolved: 40,
 				ownHitRate: 0.25,
 				blendedHitRate: 0.25,
-				suggestedLossRate: 0.33,
+				suggestedLossRate: 0.27,
 			},
 		})
 		expect(row?.tunedAt?.getTime()).toBe(NOW.getTime())
@@ -68,7 +68,7 @@ describe("tuneLeaderLosses", () => {
 		await tuneLeaderLosses(NOW)
 
 		expect(await leaderLossSettings.row("nfl", "Sacks")).toMatchObject({
-			lossRate: 0.33,
+			lossRate: 0.27,
 			calibration: {
 				resolved: 0,
 				ownHitRate: null,

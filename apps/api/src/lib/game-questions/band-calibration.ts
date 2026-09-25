@@ -1,17 +1,17 @@
 import {
-	breakEvenHitRate,
 	hitTolerance,
 	LOSS_RATE_BY_SHAPE,
 	type ToleranceSpec,
+	targetHitRate,
 	toleranceBand,
 } from "@called-my-shot/scoring"
 import { db } from "../../db"
 import { DAY_MS } from "../time"
 import { median } from "./line-calibration"
 
-// A team numeric guess breaks even when it hits this often - see
-// breakEvenHitRate. A band is on target within TARGET_SPREAD either side.
-export const TARGET_HIT_RATE = breakEvenHitRate(
+// A team numeric guess is priced to hit this often - see targetHitRate. A
+// band is on target within TARGET_SPREAD either side.
+export const TARGET_HIT_RATE = targetHitRate(
 	LOSS_RATE_BY_SHAPE.team_stat_numeric_guess,
 )
 export const TARGET_SPREAD = 0.05

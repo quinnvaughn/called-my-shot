@@ -1,5 +1,5 @@
 import { updateBandSettingSchema } from "@called-my-shot/schemas"
-import { breakEvenHitRate, LOSS_RATE_BY_SHAPE } from "@called-my-shot/scoring"
+import { targetHitRate, LOSS_RATE_BY_SHAPE } from "@called-my-shot/scoring"
 import { useState } from "react"
 import { css } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
@@ -33,7 +33,7 @@ export function formatTolerance(tolerance: {
 }
 
 const TARGET_PERCENT = Math.round(
-	breakEvenHitRate(LOSS_RATE_BY_SHAPE.team_stat_numeric_guess) * 100,
+	targetHitRate(LOSS_RATE_BY_SHAPE.team_stat_numeric_guess) * 100,
 )
 
 type Props = {

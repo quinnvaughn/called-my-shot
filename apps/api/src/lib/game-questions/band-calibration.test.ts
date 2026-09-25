@@ -8,7 +8,6 @@ import {
 	nextBand,
 	type ScoreSample,
 	samplesFrom,
-	TARGET_HIT_RATE,
 } from "./band-calibration"
 
 const DAY = 24 * 60 * 60 * 1000
@@ -121,7 +120,8 @@ describe("bandFor", () => {
 
 	it("doesn't overshoot on float noise in the target", () => {
 		const samples = Array.from({ length: 300 }, (_, i) => off(i))
-		expect(bandFor(samples, TARGET_HIT_RATE)).toBe(99)
+		// 0.5 / 1.5 is a third with float noise in it.
+		expect(bandFor(samples, 0.5 / 1.5)).toBe(99)
 	})
 
 	it("never goes under the smallest band", () => {

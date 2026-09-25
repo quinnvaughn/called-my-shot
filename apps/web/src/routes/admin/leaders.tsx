@@ -44,7 +44,7 @@ function RouteComponent() {
 			<PageHeader
 				title="Leaders"
 				subtitle="What a miss costs on a game stat leader question."
-				description="A leader question's loss rate is working when a pick on the favorite, the contender with the best season average in the stat across both teams, breaks even. A favorite who leads a quarter of the time breaks even at a loss rate of 33%. Favorite led is this league stat's own record, counting only questions posted with a favorite. Blended leans that record on every other league stat's until it has enough of its own, and is what the rate is tuned from, once a day, unless it's set to manual. Callers is how real picks on resolved questions did, for comparison only."
+				description="A leader question's loss rate is working when a pick on the favorite, the contender with the best season average in the stat across both teams, comes out slightly ahead. The less often the favorite leads, the less a miss costs. Favorite led is this league stat's own record, counting only questions posted with a favorite. Blended leans that record on every other league stat's until it has enough of its own, and is what the rate is tuned from, once a day, unless it's set to manual. Callers is how real picks on resolved questions did, for comparison only."
 			/>
 
 			<Table sortBy="stat" sortDir="asc" wide>

@@ -1,4 +1,4 @@
-import { breakEvenHitRate, LOSS_RATE_BY_SHAPE } from "@called-my-shot/scoring"
+import { targetHitRate, LOSS_RATE_BY_SHAPE } from "@called-my-shot/scoring"
 import { useQuery } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
 import { FiCheck } from "react-icons/fi"
@@ -32,7 +32,7 @@ const columns = [
 
 const percent = (rate: number) => `${Math.round(rate * 100)}%`
 
-const TARGET = breakEvenHitRate(LOSS_RATE_BY_SHAPE.team_stat_numeric_guess)
+const TARGET = targetHitRate(LOSS_RATE_BY_SHAPE.team_stat_numeric_guess)
 
 function RouteComponent() {
 	const { data, refetch } = useQuery(
@@ -49,7 +49,7 @@ function RouteComponent() {
 			<PageHeader
 				title="Bands"
 				subtitle="How close a team score guess has to land to count as a hit."
-				description={`A band is working when a guess at a team's average over its earlier games that season lands inside it about ${percent(TARGET)} of the time, which is where a numeric guess breaks even at its loss rate. Each band adjusts itself once a day from final scores, unless it's set to manual. Hit rate and Suggested read the most recent final scores. Callers is how real guesses on resolved questions did, for comparison only.`}
+				description={`A band is working when a guess at a team's average over its earlier games that season lands inside it about ${percent(TARGET)} of the time, which is where a numeric guess comes out slightly ahead at its loss rate. Each band adjusts itself once a day from final scores, unless it's set to manual. Hit rate and Suggested read the most recent final scores. Callers is how real guesses on resolved questions did, for comparison only.`}
 			/>
 
 			<Table sortBy="stat" sortDir="asc" wide>

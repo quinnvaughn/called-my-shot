@@ -44,7 +44,7 @@ function RouteComponent() {
 			<PageHeader
 				title="Titles"
 				subtitle="What a miss costs on a single-pick title question."
-				description="A title's loss rate is working when a pick on the team with the best regular-season record in the pool breaks even. Best record won is this league title's own record, read off each finished season. Blended leans that record on every other league's titles until it has enough of its own, and is what the rate is tuned from, once a day, unless it's set to manual. Callers is how real picks on resolved questions did, for comparison only. A title asked with several picks keeps the full rate and isn't listed."
+				description="A title's loss rate is working when a pick on the team with the best regular-season record in the pool comes out slightly ahead. Best record won is this league title's own record, read off each finished season. Blended leans that record on every other league's titles until it has enough of its own, and is what the rate is tuned from, once a day, unless it's set to manual. Callers is how real picks on resolved questions did, for comparison only. A title asked with several picks keeps the full rate and isn't listed."
 			/>
 
 			<Table sortBy="title" sortDir="asc" wide>

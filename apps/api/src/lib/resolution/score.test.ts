@@ -2,6 +2,7 @@ import {
 	BASE_POINTS_BY_SHAPE,
 	earlyTierFor,
 	LOSS_RATE_BY_SHAPE,
+	pointsAtStake,
 	selectionPoints,
 } from "@called-my-shot/scoring"
 import { describe, expect, it } from "vitest"
@@ -17,6 +18,8 @@ import {
 
 const BASE = BASE_POINTS_BY_SHAPE.yes_no_prop
 const LOSS_RATE = LOSS_RATE_BY_SHAPE.yes_no_prop
+// What a miss at `conviction` costs on this shape.
+const miss = (conviction: number) => -pointsAtStake(BASE, LOSS_RATE, conviction)
 const at = (day: number) => new Date(Date.UTC(2026, 0, day))
 const soleCaller = (userId: string) =>
 	new Map([[userId, "creator_sole_caller" as const]])
@@ -106,7 +109,7 @@ describe("scoreSelections", () => {
 			"yes",
 		)
 		expect(pointsOf(result, "a-yes")).toBe(firstOfTwoWin(100))
-		expect(pointsOf(result, "b-no")).toBe(-BASE)
+		expect(pointsOf(result, "b-no")).toBe(miss(100))
 	})
 
 	it("scales a win by conviction", () => {
@@ -131,7 +134,7 @@ describe("scoreSelections", () => {
 			[pick("a", "yes"), pick("b", "no", { conviction: 40 })],
 			"yes",
 		)
-		expect(pointsOf(result, "b-no")).toBe(-Math.round(BASE * 0.4))
+		expect(pointsOf(result, "b-no")).toBe(miss(40))
 	})
 
 	it("charges a miss at its side's own rate when the line was priced", () => {
@@ -262,14 +265,14 @@ describe("scoreSelections", () => {
 					pick("b", "no", {
 						conviction: 20,
 						createdAt: at(2),
-						resultPoints: -Math.round(BASE * 0.2),
+						resultPoints: miss(20),
 					}),
 				],
 				"no",
 				{ wasCorrect: "yes" },
 			)
 			expect(result.tally.statDeltas.get("a")).toEqual({
-				points: -Math.round(BASE * 0.9) - priorWin,
+				points: miss(90) - priorWin,
 				resolvedCallCount: 0,
 				correctCount: -1,
 				convictionSum: 0,
@@ -291,7 +294,7 @@ describe("scoreSelections", () => {
 						createdAt: at(1),
 						resultPoints: firstOfTwoWin(100),
 					}),
-					pick("b", "no", { createdAt: at(2), resultPoints: -BASE }),
+					pick("b", "no", { createdAt: at(2), resultPoints: miss(100) }),
 				],
 				"no",
 				{ wasCorrect: "yes" },
@@ -300,7 +303,7 @@ describe("scoreSelections", () => {
 			expect(loser).toEqual({
 				userId: "a",
 				callId: "call-a",
-				pointsDelta: -BASE,
+				pointsDelta: miss(100),
 				rescored: true,
 			})
 		})

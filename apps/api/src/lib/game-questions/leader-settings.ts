@@ -18,7 +18,7 @@ import {
 export type LeaderLossSettingRow = LossRateRow<LeaderTemplate>
 
 // Each league stat's leader loss rate, tuned toward where a pick on the
-// favorite breaks even.
+// favorite clears PLAYER_EDGE.
 export const leaderLossSettings = defineLossRateSetting({
 	table: gameQuestionLossSettings,
 	keyField: "statName",

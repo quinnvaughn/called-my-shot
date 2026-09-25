@@ -69,9 +69,36 @@ export const BASE_POINTS_BY_SHAPE: Record<QuestionShape, number> = {
 	player_season_stat_leader: 250,
 }
 
-// The fraction of committed points a miss costs, set by hand per shape. A
-// 2-option pick lands near a coin flip, so a full-stake loss is already
-// even. A numeric guess or a stat leader misses far more often than it hits,
+// What a pick with no edge beyond the reference pick a rate is priced
+// against (a coin flip, the favorite) expects to win per committed point.
+// Positive on purpose: this is a game people play for fun, and a player who
+// makes ordinary picks should drift up over a season rather than grind flat
+// or slide. Every rate derived from a hit rate aims here (targetLossRate,
+// targetHitRate) rather than at break-even.
+export const PLAYER_EDGE = 0.05
+
+const roundRate = (value: number) => Math.round(value * 100) / 100
+
+// The loss rate at which a pick that hits `hitRate` of the time expects
+// PLAYER_EDGE per committed point: a hit pays the committed points, a miss
+// costs committed x rate, so hitRate - (1 - hitRate) x rate = PLAYER_EDGE.
+// Infinite for a pick that always hits, and negative for one that hits less
+// often than the edge itself, so callers bound it.
+export function targetLossRate(hitRate: number): number {
+	return (hitRate - PLAYER_EDGE) / (1 - hitRate)
+}
+
+// The hit rate at which a pick with a given loss rate expects PLAYER_EDGE -
+// the inverse of targetLossRate. What a tuned tolerance band aims for.
+export function targetHitRate(lossRate: number): number {
+	return (lossRate + PLAYER_EDGE) / (1 + lossRate)
+}
+
+// Every exactly-2-option shape: priced as a coin flip.
+const COIN_FLIP_LOSS_RATE = roundRate(targetLossRate(0.5))
+
+// The fraction of committed points a miss costs, set per shape. A 2-option
+// pick lands near a coin flip, so it's priced as one. A numeric guess or a stat leader misses far more often than it hits,
 // and at a full-stake loss the expected result sits well below an easy
 // 2-option favorite, so nobody would take them. The rarity multiplier can't
 // make up that gap on its own: it's read off the field, and with only one or
@@ -82,23 +109,23 @@ export const BASE_POINTS_BY_SHAPE: Record<QuestionShape, number> = {
 // the question when it's created (questions.lossRate) - the value here is its
 // default until a league stat has one.
 export const LOSS_RATE_BY_SHAPE: Record<QuestionShape, number> = {
-	yes_no_prop: 1,
-	player_vs_player: 1,
-	player_vs_player_season: 1,
-	team_vs_team: 1,
-	team_vs_team_season: 1,
-	player_stat_over_under: 1,
-	team_stat_over_under: 1,
-	player_season_stat_over_under: 1,
-	team_season_stat_over_under: 1,
-	game_total_over_under: 1,
+	yes_no_prop: COIN_FLIP_LOSS_RATE,
+	player_vs_player: COIN_FLIP_LOSS_RATE,
+	player_vs_player_season: COIN_FLIP_LOSS_RATE,
+	team_vs_team: COIN_FLIP_LOSS_RATE,
+	team_vs_team_season: COIN_FLIP_LOSS_RATE,
+	player_stat_over_under: COIN_FLIP_LOSS_RATE,
+	team_stat_over_under: COIN_FLIP_LOSS_RATE,
+	player_season_stat_over_under: COIN_FLIP_LOSS_RATE,
+	team_season_stat_over_under: COIN_FLIP_LOSS_RATE,
+	game_total_over_under: COIN_FLIP_LOSS_RATE,
 	// Only a fallback: a finalists question's rate comes from how many
 	// finalists it has - see defaultLossRate.
 	player_award_finalists: 0.5,
 	// A single pick from a whole league: even the favorite for an MVP wins
 	// about a third of the time. A multi-pick award is 1 - see
 	// defaultLossRate.
-	player_season_award: 0.5,
+	player_season_award: roundRate(targetLossRate(1 / 3)),
 	// A title from the whole league or a conference: the best record wins a
 	// small share of them. Tuned per league and award from how often it does.
 	team_season_award: 0.3,
@@ -112,9 +139,9 @@ export const LOSS_RATE_BY_SHAPE: Record<QuestionShape, number> = {
 }
 
 // The loss rate a question is created with when nothing tuned applies. Most
-// shapes take LOSS_RATE_BY_SHAPE as is. A finalists question breaks even for
-// a pick at random among its finalists (a third of three is 0.5, a fifth of
-// five is 0.25), since there's no favorite to measure against. An award asked
+// shapes take LOSS_RATE_BY_SHAPE as is. A finalists question is priced for a
+// pick at random among its finalists (see targetLossRate), since there's no
+// favorite to measure against. An award asked
 // with several picks is scored one pick at a time, and each pick is among
 // several winners, so it keeps the full rate.
 export function defaultLossRate(
@@ -123,8 +150,8 @@ export function defaultLossRate(
 ): number {
 	const { picksRequired, optionCount } = question
 	if (shape === "player_award_finalists" && optionCount && optionCount > 1) {
-		const rate = breakEvenLossRate(1 / optionCount)
-		return Math.round(Math.min(1, Math.max(0.05, rate)) * 100) / 100
+		const rate = targetLossRate(1 / optionCount)
+		return roundRate(Math.min(1, Math.max(0.05, rate)))
 	}
 	if (
 		(shape === "player_season_award" || shape === "team_season_award") &&
@@ -137,8 +164,8 @@ export function defaultLossRate(
 
 // The hit rate where a pick's wins and losses cancel out at a x1 multiplier:
 // a hit pays the committed points and a miss costs committed x loss rate, so
-// they even out at lossRate / (1 + lossRate). A tuned tolerance band aims
-// here - wider and the guess is free points, narrower and it's a trap.
+// they even out at lossRate / (1 + lossRate). The zero point of a report
+// card's grade.
 export function breakEvenHitRate(lossRate: number): number {
 	return lossRate / (1 + lossRate)
 }
@@ -176,21 +203,24 @@ export function overProbability(
 export const FAIR_LINE_MARGIN = 0.1
 
 // Each side's loss rate for an over/under whose over lands `pOver` of the
-// time. Inside FAIR_LINE_MARGIN of even, both sides lose a full stake. Past
-// it, each side is priced where a caller with no edge breaks even on how far
-// the line sits beyond the margin, so a rate rises from 1 at the margin's edge
-// instead of jumping there. Held to SIDE_LOSS_RATE_BOUNDS.
+// time. Inside FAIR_LINE_MARGIN of even, both sides are priced as a coin flip.
+// Past it, each side is priced for a caller with no edge (see targetLossRate)
+// on how far the line sits beyond the margin, so a rate moves away from the
+// coin flip's at the margin's edge instead of jumping there. Held to
+// SIDE_LOSS_RATE_BOUNDS.
 export function sideLossRates(pOver: number): { over: number; under: number } {
 	const beyond = Math.abs(pOver - 0.5) - FAIR_LINE_MARGIN
-	if (beyond <= 0) return { over: 1, under: 1 }
+	if (beyond <= 0) {
+		return { over: COIN_FLIP_LOSS_RATE, under: COIN_FLIP_LOSS_RATE }
+	}
 	const priced = 0.5 + Math.sign(pOver - 0.5) * beyond
 	const bounded = (hitRate: number) =>
-		Math.round(
+		roundRate(
 			Math.min(
 				SIDE_LOSS_RATE_BOUNDS.max,
-				Math.max(SIDE_LOSS_RATE_BOUNDS.min, breakEvenLossRate(hitRate)),
-			) * 100,
-		) / 100
+				Math.max(SIDE_LOSS_RATE_BOUNDS.min, targetLossRate(hitRate)),
+			),
+		)
 	return { over: bounded(priced), under: bounded(1 - priced) }
 }
 
@@ -510,6 +540,23 @@ export const STREAK_NOTIFY_MIN = 5
 // has to climb. The api's flair catalog builds its "streak:N" keys straight
 // off this array, so adding a number here is the whole change.
 export const STREAK_FLAIR_THRESHOLDS = [5, 10, 25] as const
+
+// Every this many wins in a row on one streak track pays a bonus, on the
+// same beat as the milestone notification so the points land with the
+// announcement.
+export const STREAK_BONUS_STEP = STREAK_MILESTONE_STEP
+// The bonus is this share of what the STREAK_BONUS_STEP wins that got there
+// scored, rather than a flat amount. A flat bonus would be the same for a run
+// of minimum-conviction chalk as for a run someone stood behind, and would
+// make stacking tiny calls the best way to earn it.
+export const STREAK_BONUS_SHARE = 0.5
+// A sweep pays this share of what its winner calls scored, for the same
+// reason. A bigger slate already pays more, since it holds more calls.
+export const SWEEP_BONUS_SHARE = 0.5
+
+export function shareOfPoints(points: number, share: number): number {
+	return Math.round(points * share)
+}
 
 // The over/under family. Every one of these pairs a stat with a line the
 // result lands on one side of, which is what makes them share an option label

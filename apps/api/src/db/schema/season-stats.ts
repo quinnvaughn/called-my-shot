@@ -17,9 +17,9 @@ import { users } from "./users"
 // Deliberately NOT a `points` column on `users` for the site-wide total -
 // that would mean an independently-updated running total that could drift
 // from this table if some future write path updates one and forgets the
-// other. All-time and per-league totals are both just sum(points) grouped by
-// user_id over this table (all-time: no league_id filter; one league: filter
-// it) - cheap regardless of a user's call count because this table's size is
+// other. All-time and per-league totals are both just
+// sum(points + bonus_points) grouped by user_id over this table (all-time: no
+// league_id filter; one league: filter it) - cheap regardless of a user's call count because this table's size is
 // bounded by leagues x seasons (an admin-curated catalog, realistically a
 // couple dozen leagues x a handful of seasons each at most - see
 // graphql/types/sports/mutations.ts's createLeague), not by call volume.
@@ -66,6 +66,11 @@ export const userSeasonStats = pgTable(
 		// Unlike the five fields above, this counts calls (one per cast),
 		// incremented at castCall time regardless of resolution status.
 		callCount: integer("call_count").notNull().default(0),
+		// Points from point_awards filed under this season - streaks and
+		// sweeps. Beside points rather than folded into it, so points
+		// stays exactly what this season's calls scored and the two can be
+		// shown apart. Leaderboards rank on the sum.
+		bonusPoints: integer("bonus_points").notNull().default(0),
 	},
 	(t) => [
 		primaryKey({ columns: [t.userId, t.seasonId] }),

@@ -1,9 +1,13 @@
 import {
 	isNumericGuessShape,
 	type QuestionShape,
+	STREAK_BONUS_SHARE,
+	STREAK_BONUS_STEP,
 	STREAK_MILESTONE_STEP,
 	STREAK_NOTIFY_MIN,
+	SWEEP_BONUS_SHARE,
 	SWEEP_MIN_GAMES,
+	shareOfPoints,
 } from "@called-my-shot/scoring"
 import type { CallUnscoredReason, Question } from "../../db/schema"
 import { generationKey } from "../game-questions/generation-key"
@@ -153,6 +157,57 @@ export function computeTrack(rows: TrackRow[]): TrackResult {
 		worstCold: longestRun(coldRuns),
 		lastSettledAt,
 	}
+}
+
+export type ScoredTrackRow = TrackRow & {
+	// What the call scored. Only read on a win.
+	points: number
+	seasonId: string
+}
+
+export type StreakAward = {
+	// The run's first call and the milestone, which together name one award
+	// for as long as the run stands as it is.
+	sourceKey: string
+	// The season of the call that reached the milestone.
+	seasonId: string
+	points: number
+}
+
+// Every STREAK_BONUS_STEP-th win of every run pays STREAK_BONUS_SHARE of what
+// the STREAK_BONUS_STEP wins ending there scored. Walks the same order and
+// skip rules as computeTrack, so the awards always match the runs a track
+// shows.
+export function streakAwards(rows: ScoredTrackRow[]): StreakAward[] {
+	const awards: StreakAward[] = []
+	let run: ScoredTrackRow[] = []
+	for (const row of [...rows].sort(compareTrackRows)) {
+		if (row.outcome === "skip") continue
+		if (row.outcome === "loss") {
+			run = []
+			continue
+		}
+		run.push(row)
+		const first = run[0]
+		if (!first || run.length % STREAK_BONUS_STEP !== 0) continue
+		const scored = run
+			.slice(-STREAK_BONUS_STEP)
+			.reduce((sum, win) => sum + win.points, 0)
+		awards.push({
+			sourceKey: `${first.callId}:${run.length}`,
+			seasonId: row.seasonId,
+			points: shareOfPoints(scored, STREAK_BONUS_SHARE),
+		})
+	}
+	return awards
+}
+
+// What a sweep pays: SWEEP_BONUS_SHARE of what its winner calls scored.
+export function sweepAwardPoints(winnerCallPoints: number[]): number {
+	return shareOfPoints(
+		winnerCallPoints.reduce((sum, points) => sum + points, 0),
+		SWEEP_BONUS_SHARE,
+	)
 }
 
 // A change older than this is history being corrected, not news. Keeps a

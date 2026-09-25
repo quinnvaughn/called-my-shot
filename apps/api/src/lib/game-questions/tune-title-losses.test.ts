@@ -51,7 +51,7 @@ async function resolvedTitles(count: number) {
 }
 
 describe("tuneTitleLosses", () => {
-	it("moves an automatic rate toward where the best record breaks even", async () => {
+	it("moves an automatic rate toward where the best record is priced", async () => {
 		await resolvedTitles(TITLE_TUNING.minSample)
 
 		expect(await tuneTitleLosses(NOW)).toBe(titleGroups().length)
@@ -60,12 +60,12 @@ describe("tuneTitleLosses", () => {
 		expect(row).toMatchObject({
 			isCustom: true,
 			autoTune: true,
-			lossRate: 0.33,
+			lossRate: 0.27,
 			calibration: {
 				resolved: TITLE_TUNING.minSample,
 				ownHitRate: 0.25,
 				blendedHitRate: 0.25,
-				suggestedLossRate: 0.33,
+				suggestedLossRate: 0.27,
 			},
 		})
 		expect(row?.tunedAt?.getTime()).toBe(NOW.getTime())
@@ -77,7 +77,7 @@ describe("tuneTitleLosses", () => {
 		await tuneTitleLosses(NOW)
 
 		expect(await titleLossSettings.row("nfl", "Super Bowl")).toMatchObject({
-			lossRate: 0.33,
+			lossRate: 0.27,
 			calibration: {
 				resolved: 0,
 				ownHitRate: null,

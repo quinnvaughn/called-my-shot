@@ -1,4 +1,4 @@
-import { breakEvenLossRate } from "@called-my-shot/scoring"
+import { targetLossRate } from "@called-my-shot/scoring"
 
 export type HitCount = { hits: number; total: number }
 
@@ -42,15 +42,15 @@ export function pooledHitRate(
 
 const roundRate = (value: number) => Math.round(value * 100) / 100
 
-// The loss rate a pick that hits `hitRate` of the time breaks even at (see
-// breakEvenLossRate), kept within [min, max].
+// The loss rate a pick that hits `hitRate` of the time is priced at (see
+// targetLossRate), kept within [min, max].
 export function boundedLossRate(
 	hitRate: number | null,
 	min: number,
 	max: number,
 ): number | null {
 	if (hitRate === null) return null
-	return roundRate(Math.min(max, Math.max(min, breakEvenLossRate(hitRate))))
+	return roundRate(Math.min(max, Math.max(min, targetLossRate(hitRate))))
 }
 
 // `current` moved toward `target` by at most `maxStep`, or null to leave it:
@@ -115,7 +115,7 @@ export function lossRateTuner(tuning: LossRateTuning) {
 		// included) until its own is large.
 		blended: (results: boolean[], pool: HitCount) =>
 			pooledHitRate(countHits(results), pool, tuning.poolWeight),
-		// Where a pick that hits `hitRate` of the time breaks even, in bounds.
+		// Where a pick that hits `hitRate` of the time is priced, in bounds.
 		suggested,
 		// The rate to move to from `current`, or null to leave it: too few
 		// resolved questions anywhere to go on, or already where the record

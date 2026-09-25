@@ -2,6 +2,7 @@ import {
 	BASE_POINTS_BY_SHAPE,
 	earlyTierFor,
 	LOSS_RATE_BY_SHAPE,
+	pointsAtStake,
 	selectionPoints,
 	tierFor,
 } from "@called-my-shot/scoring"
@@ -35,6 +36,13 @@ import {
 	resolveQuestionInternal,
 	reverseQuestionLeagueStats,
 } from "./resolve-question"
+
+// What a full-conviction miss on a yes/no question costs.
+const FULL_MISS = -pointsAtStake(
+	BASE_POINTS_BY_SHAPE.yes_no_prop,
+	LOSS_RATE_BY_SHAPE.yes_no_prop,
+	100,
+)
 
 describe("resolveQuestionInternal - option-based shapes", () => {
 	it("marks the question resolved and stamps the note", async () => {
@@ -95,7 +103,7 @@ describe("resolveQuestionInternal - option-based shapes", () => {
 		const winner = await selectionFor(callers[0].selection.id)
 		const loser = await selectionFor(callers[1].selection.id)
 		expect(winner?.resultPoints).toBeGreaterThan(0)
-		expect(loser?.resultPoints).toBe(-BASE_POINTS_BY_SHAPE.yes_no_prop)
+		expect(loser?.resultPoints).toBe(FULL_MISS)
 	})
 
 	it("matches the shared scoring formula exactly", async () => {
@@ -366,7 +374,7 @@ describe("resolveQuestionInternal - re-resolution (dispute overturn)", () => {
 		const loserAfter = await statsFor(callers[1].user.id)
 		// The formerly-correct caller now holds the flat loss, with the old
 		// win fully netted out - not the win still sitting there alongside it.
-		expect(winnerAfter?.points).toBe(-BASE_POINTS_BY_SHAPE.yes_no_prop)
+		expect(winnerAfter?.points).toBe(FULL_MISS)
 		expect(winnerAfter?.correctCount).toBe(0)
 		expect(winnerAfter?.resolvedCallCount).toBe(1)
 		expect(loserAfter?.correctCount).toBe(1)
@@ -410,7 +418,7 @@ describe("resolveQuestionInternal - re-resolution (dispute overturn)", () => {
 		expect(rows).toHaveLength(1)
 		// The stats delta here is roughly -2x the base (clawing back a win and
 		// applying a loss); the notification must read as the plain loss.
-		expect(rows[0].pointsDelta).toBe(-BASE_POINTS_BY_SHAPE.yes_no_prop)
+		expect(rows[0].pointsDelta).toBe(FULL_MISS)
 	})
 })
 
@@ -845,7 +853,7 @@ describe("resolveQuestionInternal - call_resolved analytics", () => {
 		).toBeGreaterThan(0)
 		expect(lost.properties).toMatchObject({
 			correct: false,
-			pointsDelta: -BASE_POINTS_BY_SHAPE.yes_no_prop,
+			pointsDelta: FULL_MISS,
 		})
 	})
 
@@ -887,7 +895,7 @@ describe("resolveQuestionInternal - call_resolved analytics", () => {
 		expect(flipped.properties).toMatchObject({
 			correct: false,
 			rescored: true,
-			pointsDelta: -BASE_POINTS_BY_SHAPE.yes_no_prop,
+			pointsDelta: FULL_MISS,
 		})
 	})
 })

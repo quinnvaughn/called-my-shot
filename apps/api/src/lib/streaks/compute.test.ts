@@ -1,3 +1,8 @@
+import {
+	STREAK_BONUS_SHARE,
+	STREAK_BONUS_STEP,
+	SWEEP_BONUS_SHARE,
+} from "@called-my-shot/scoring"
 import { describe, expect, it } from "vitest"
 import {
 	ACHIEVEMENT_FRESH_MS,
@@ -7,8 +12,11 @@ import {
 	computeTrack,
 	type Outcome,
 	type PreviousStreak,
+	type ScoredTrackRow,
 	type SlateQuestion,
+	streakAwards,
 	streakEvents,
+	sweepAwardPoints,
 	type TrackResult,
 	type TrackRow,
 } from "./compute"
@@ -424,5 +432,57 @@ describe("canonicalWinnerQuestion", () => {
 				candidate("user-made", { isOfficial: false }),
 			]),
 		).toBeNull()
+	})
+})
+
+describe("streakAwards", () => {
+	// Each win scores 10 x its position in the list, so every award's points
+	// say which wins it was paid from.
+	const scored = (outcomes: Outcome[]): ScoredTrackRow[] =>
+		rowsFor(outcomes).map((r, index) => ({
+			...r,
+			points: r.outcome === "win" ? 10 * (index + 1) : -50,
+			seasonId: "season-1",
+		}))
+	const wins = (n: number) => Array.from({ length: n }, () => W)
+
+	it("pays nothing short of the first step", () => {
+		expect(streakAwards(scored(wins(STREAK_BONUS_STEP - 1)))).toEqual([])
+	})
+
+	it("pays a share of the wins that reached each step", () => {
+		const rows = scored(wins(STREAK_BONUS_STEP * 2))
+		const first = rows[0]?.callId
+		const block = (from: number) =>
+			rows
+				.slice(from, from + STREAK_BONUS_STEP)
+				.reduce((sum, r) => sum + r.points, 0)
+
+		expect(streakAwards(rows)).toEqual([
+			{
+				sourceKey: `${first}:${STREAK_BONUS_STEP}`,
+				seasonId: "season-1",
+				points: Math.round(block(0) * STREAK_BONUS_SHARE),
+			},
+			{
+				sourceKey: `${first}:${STREAK_BONUS_STEP * 2}`,
+				seasonId: "season-1",
+				points: Math.round(block(STREAK_BONUS_STEP) * STREAK_BONUS_SHARE),
+			},
+		])
+	})
+
+	it("starts over after a miss, and lets a skip pass", () => {
+		const almost = wins(STREAK_BONUS_STEP - 1)
+		expect(streakAwards(scored([...almost, L, ...almost]))).toEqual([])
+		expect(streakAwards(scored([...almost, S, W]))).toHaveLength(1)
+	})
+})
+
+describe("sweepAwardPoints", () => {
+	it("pays a share of what the winner calls scored", () => {
+		expect(sweepAwardPoints([100, 50, 30])).toBe(
+			Math.round(180 * SWEEP_BONUS_SHARE),
+		)
 	})
 })

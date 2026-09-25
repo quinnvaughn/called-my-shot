@@ -181,7 +181,7 @@ describe("loadReportCard", () => {
 		const card = await loadReportCard(userId, league, await windowFor())
 		expect(card.pendingCount).toBe(1)
 		expect(card.settledCount).toBe(0)
-		expect(card.pendingStake).toBe(60) // 150 x 40 conviction x lossRate 1
+		expect(card.pendingStake).toBe(54) // 150 x 40 conviction x lossRate 0.9
 		expect(card.returnPct).toBeNull()
 		expect(card.grade).toBeNull()
 		expect(card.isFinal).toBe(false)

@@ -126,7 +126,7 @@ export function LeaderLossSettingModal({ setting, onChanged }: Props) {
 			<VStack gap="4" alignItems="stretch">
 				<ToggleRow
 					label="Adjust loss rate automatically"
-					description="Once enough leader questions have resolved, the rate moves a little each day toward where a pick on the favorite breaks even. Turn off to set it yourself."
+					description="Once enough leader questions have resolved, the rate moves a little each day toward where a pick on the favorite comes out slightly ahead. Turn off to set it yourself."
 					checked={autoTune}
 					onChange={changeAutoTune}
 				/>

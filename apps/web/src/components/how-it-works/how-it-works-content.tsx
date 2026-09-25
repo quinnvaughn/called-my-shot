@@ -1,6 +1,5 @@
 import {
 	BASE_POINTS_BY_SHAPE,
-	breakEvenHitRate,
 	defaultLossRate,
 	EARLY_MAX_MULT,
 	LOSS_RATE_BY_SHAPE,
@@ -9,6 +8,7 @@ import {
 	SIDE_LOSS_RATE_BOUNDS,
 	TIER_MAX_MULT,
 	TIER_MIN_MULT,
+	targetHitRate,
 } from "@called-my-shot/scoring"
 import { useLocation } from "@tanstack/react-router"
 import type { ReactNode } from "react"
@@ -203,7 +203,7 @@ const SINGLE_AWARD_LOSS = LOSS_RATE_BY_SHAPE.player_season_award
 const MULTI_AWARD_LOSS = defaultLossRate("player_season_award", {
 	picksRequired: 2,
 })
-const TEAM_GUESS_TARGET = breakEvenHitRate(
+const TEAM_GUESS_TARGET = targetHitRate(
 	LOSS_RATE_BY_SHAPE.team_stat_numeric_guess,
 )
 
@@ -226,7 +226,7 @@ const QUESTION_TYPES = [
 	{
 		title: "Award finalists",
 		pts: `${BASE_POINTS_BY_SHAPE.player_award_finalists} pts`,
-		desc: "The real announced shortlist for an award: pick the winner once the field's narrowed to a handful of named people. A miss costs a share sized so a pick at random among the finalists breaks even.",
+		desc: "The real announced shortlist for an award: pick the winner once the field's narrowed to a handful of named people. A miss costs a share sized so a pick at random among the finalists comes out slightly ahead.",
 	},
 	{
 		title: "Numeric guesses",
@@ -236,12 +236,12 @@ const QUESTION_TYPES = [
 	{
 		title: "Stat leaders",
 		pts: `${BASE_POINTS_BY_SHAPE.player_game_stat_leader} pts`,
-		desc: `Pick who leads a game or a season in a stat, from the full roster. A game leader miss costs a share of what you committed, sized per stat so picking the player with the best season average breaks even. A season leader miss costs ${missCost(SEASON_LEADER_LOSS)}.`,
+		desc: `Pick who leads a game or a season in a stat, from the full roster. A game leader miss costs a share of what you committed, sized per stat so picking the player with the best season average comes out slightly ahead. A season leader miss costs ${missCost(SEASON_LEADER_LOSS)}.`,
 	},
 	{
 		title: "Season-long awards",
 		pts: `${BASE_POINTS_BY_SHAPE.player_season_award} pts / pick`,
-		desc: `MVP, a championship, an All-league team: pick from the full league before the field's known, and each pick is scored at full value on its own, not a split pool. A single-pick award miss costs ${missCost(SINGLE_AWARD_LOSS)}, a title miss costs a share sized per league so picking the best record breaks even, and each wrong pick on an award with several picks costs ${missCost(MULTI_AWARD_LOSS)}.`,
+		desc: `MVP, a championship, an All-league team: pick from the full league before the field's known, and each pick is scored at full value on its own, not a split pool. A single-pick award miss costs ${missCost(SINGLE_AWARD_LOSS)}, a title miss costs a share sized per league so picking the best record comes out slightly ahead, and each wrong pick on an award with several picks costs ${missCost(MULTI_AWARD_LOSS)}.`,
 	},
 ]
 
@@ -440,14 +440,14 @@ export function HowItWorksSections() {
 					{SIDE_LOSS_RATE_BOUNDS.max}× what you committed, and the other side
 					loses less. A numeric guess loses {missCost(NUMERIC_LOSS)}. A game
 					stat leader pick loses a share sized per stat so picking the player
-					with the best season average breaks even, and a season stat leader
-					pick loses {missCost(SEASON_LEADER_LOSS)}. A single-pick season award
-					loses {missCost(SINGLE_AWARD_LOSS)}, and each wrong pick on an award
-					with several picks loses {missCost(MULTI_AWARD_LOSS)}. A title pick
-					loses a share sized per league so picking the best regular-season
-					record breaks even, and a finalists pick loses a share sized so a pick
-					at random among the finalists breaks even. Everything past a
-					two-option pick misses far more often than it hits, and the rarity
+					with the best season average comes out slightly ahead, and a season
+					stat leader pick loses {missCost(SEASON_LEADER_LOSS)}. A single-pick
+					season award loses {missCost(SINGLE_AWARD_LOSS)}, and each wrong pick
+					on an award with several picks loses {missCost(MULTI_AWARD_LOSS)}. A
+					title pick loses a share sized per league so picking the best
+					regular-season record comes out slightly ahead, and a finalists pick
+					loses a share sized so a pick at random among the finalists comes out
+					slightly ahead. Everything past a two-option pick misses far more often than it hits, and the rarity
 					multiplier can't make up for that when only a few people have called.
 				</P>
 

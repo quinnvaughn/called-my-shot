@@ -87,7 +87,7 @@ const samplesOf = (template: BandTemplate, ctx: BandContext) =>
 	ctx.samples.get(template.leagueSlug) ?? []
 
 // Each league stat's team numeric guess band, tuned toward the band a guess
-// at a team's own average hits at break-even (see TARGET_HIT_RATE).
+// at a team's own average hits at targetHitRate (see TARGET_HIT_RATE).
 export const bandSettings = defineTunableSetting({
 	table: gameQuestionBandSettings,
 	keyField: "statName",

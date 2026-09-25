@@ -14,6 +14,7 @@ import {
 	isNumericGuessShape,
 	isSeasonLongShape,
 	LOSS_RATE_BY_SHAPE,
+	PLAYER_EDGE,
 	MIN_EDGE_SAMPLE,
 	NUMERIC_GUESS_SHAPES,
 	numericGuessPoints,
@@ -28,6 +29,8 @@ import {
 	selectionPoints,
 	shapesInFamily,
 	sideLossRates,
+	targetHitRate,
+	targetLossRate,
 	STREAK_FAMILY_BY_SHAPE,
 	TIER_MAX_MULT,
 	TIER_MIN_MULT,
@@ -140,26 +143,47 @@ describe("overProbability", () => {
 	})
 })
 
+describe("targetLossRate", () => {
+	it("leaves a pick at its reference hit rate PLAYER_EDGE per committed point", () => {
+		for (const hitRate of [0.2, 1 / 3, 0.5, 0.7]) {
+			const rate = targetLossRate(hitRate)
+			expect(hitRate - (1 - hitRate) * rate).toBeCloseTo(PLAYER_EDGE)
+		}
+	})
+
+	it("sits below break-even", () => {
+		expect(targetLossRate(0.5)).toBeLessThan(breakEvenLossRate(0.5))
+	})
+})
+
+describe("targetHitRate", () => {
+	it("undoes targetLossRate", () => {
+		expect(targetHitRate(targetLossRate(0.4))).toBeCloseTo(0.4)
+		expect(targetLossRate(targetHitRate(0.5))).toBeCloseTo(0.5)
+	})
+})
+
 describe("sideLossRates", () => {
-	it("leaves anything within FAIR_LINE_MARGIN of even at a full loss", () => {
-		expect(sideLossRates(0.5)).toEqual({ over: 1, under: 1 })
-		expect(sideLossRates(0.55)).toEqual({ over: 1, under: 1 })
+	it("prices anything within FAIR_LINE_MARGIN of even as a coin flip", () => {
+		const coinFlip = LOSS_RATE_BY_SHAPE.team_vs_team
+		expect(sideLossRates(0.5)).toEqual({ over: coinFlip, under: coinFlip })
+		expect(sideLossRates(0.55)).toEqual({ over: coinFlip, under: coinFlip })
 		expect(sideLossRates(0.5 - FAIR_LINE_MARGIN)).toEqual({
-			over: 1,
-			under: 1,
+			over: coinFlip,
+			under: coinFlip,
 		})
 	})
 
 	it("prices past the margin from its edge, not from even", () => {
 		// 65% sits 5 points past a 60% edge, priced as 55%
-		expect(sideLossRates(0.65)).toEqual({ over: 1.22, under: 0.82 })
-		expect(sideLossRates(0.25)).toEqual({ over: 0.54, under: 1.86 })
+		expect(sideLossRates(0.65)).toEqual({ over: 1.11, under: 0.73 })
+		expect(sideLossRates(0.25)).toEqual({ over: 0.46, under: 1.71 })
 	})
 
 	it("caps the likely side at SIDE_LOSS_RATE_BOUNDS.max", () => {
 		expect(sideLossRates(0.9)).toEqual({
 			over: SIDE_LOSS_RATE_BOUNDS.max,
-			under: 0.25,
+			under: 0.19,
 		})
 		expect(sideLossRates(0.02).under).toBe(SIDE_LOSS_RATE_BOUNDS.max)
 	})
@@ -184,7 +208,7 @@ describe("LOSS_RATE_BY_SHAPE", () => {
 		)
 	})
 
-	it("charges every 2-option shape the full stake", () => {
+	it("prices every 2-option shape as a coin flip at PLAYER_EDGE", () => {
 		const binary: QuestionShape[] = [
 			"yes_no_prop",
 			"player_vs_player",
@@ -193,7 +217,9 @@ describe("LOSS_RATE_BY_SHAPE", () => {
 			"game_total_over_under",
 		]
 		for (const shape of binary) {
-			expect(LOSS_RATE_BY_SHAPE[shape], shape).toBe(1)
+			expect(LOSS_RATE_BY_SHAPE[shape], shape).toBeCloseTo(
+				targetLossRate(0.5),
+			)
 		}
 	})
 
@@ -206,7 +232,9 @@ describe("LOSS_RATE_BY_SHAPE", () => {
 
 describe("defaultLossRate", () => {
 	it("takes the shape's rate for most questions", () => {
-		expect(defaultLossRate("yes_no_prop", {})).toBe(1)
+		expect(defaultLossRate("yes_no_prop", {})).toBe(
+			LOSS_RATE_BY_SHAPE.yes_no_prop,
+		)
 		expect(defaultLossRate("player_game_stat_leader", {})).toBe(
 			LOSS_RATE_BY_SHAPE.player_game_stat_leader,
 		)
@@ -215,15 +243,15 @@ describe("defaultLossRate", () => {
 		)
 	})
 
-	it("breaks a finalists pick even at random among the finalists", () => {
+	it("prices a finalists pick at random among the finalists", () => {
 		expect(defaultLossRate("player_award_finalists", { optionCount: 3 })).toBe(
-			0.5,
+			0.42,
 		)
 		expect(defaultLossRate("player_award_finalists", { optionCount: 5 })).toBe(
-			0.25,
+			0.19,
 		)
 		expect(defaultLossRate("player_award_finalists", { optionCount: 2 })).toBe(
-			1,
+			0.9,
 		)
 		expect(defaultLossRate("player_award_finalists", {})).toBe(
 			LOSS_RATE_BY_SHAPE.player_award_finalists,
@@ -443,7 +471,7 @@ describe("pointsAtStake", () => {
 
 describe("selectionPoints", () => {
 	const base = BASE_POINTS_BY_SHAPE.yes_no_prop
-	const lossRate = LOSS_RATE_BY_SHAPE.yes_no_prop
+	const lossRate = 1
 
 	it("scales a win by conviction, contrarian tier and earliness", () => {
 		// 50% of the field on a binary question is a 1x tier, so with a neutral
@@ -835,3 +863,4 @@ describe("resolveStreakMode", () => {
 		).toBeNull()
 	})
 })
+

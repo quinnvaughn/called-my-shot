@@ -2,6 +2,14 @@ import { describe, expect, it } from "vitest"
 import { db } from "../../db"
 import { syncFlairCatalog } from "../../db/catalog/flairs"
 import {
+	STREAK_BONUS_SHARE,
+	STREAK_BONUS_STEP,
+	SWEEP_BONUS_SHARE,
+} from "@called-my-shot/scoring"
+import { and, eq } from "drizzle-orm"
+import {
+	type PointAwardKind,
+	pointAwards,
 	type Question,
 	streakRecomputeQueue,
 	sweepRecomputeQueue,
@@ -321,6 +329,82 @@ describe("sweeps", () => {
 		expect(
 			await db.query.userSweeps.findMany({ where: { userId: user.id } }),
 		).toHaveLength(0)
+	})
+})
+
+describe("point awards", () => {
+	const awardsOf = (userId: string, kind: PointAwardKind) =>
+		db
+			.select()
+			.from(pointAwards)
+			.where(and(eq(pointAwards.userId, userId), eq(pointAwards.kind, kind)))
+	const bonusOf = async (userId: string) =>
+		(await db.query.userSeasonStats.findFirst({ where: { userId } }))
+			?.bonusPoints ?? 0
+	// What every one of a user's calls scored.
+	const pointsOf = async (userId: string) => {
+		const rows = await db.query.calls.findMany({
+			where: { userId },
+			with: { selections: { columns: { resultPoints: true } } },
+		})
+		return rows.map((call) =>
+			call.selections.reduce((sum, s) => sum + (s.resultPoints ?? 0), 0),
+		)
+	}
+	const total = (values: number[]) => values.reduce((a, b) => a + b, 0)
+
+	it("pays a streak milestone and a sweep, and takes both back on an overturn", async () => {
+		const league = await seedLeague()
+		const user = await makeUser()
+		const games = []
+		for (let index = 0; index < STREAK_BONUS_STEP; index++) {
+			const seeded = await seedWinnerGame(league, 50 - index * 5)
+			await pick(seeded.question, user.id, seeded.home.id)
+			games.push({
+				...seeded,
+				question: await resolve(seeded.question, seeded.home.id),
+			})
+		}
+		await drainAchievementRecomputes()
+
+		const scored = total(await pointsOf(user.id))
+		const streak = Math.round(scored * STREAK_BONUS_SHARE)
+		const sweep = Math.round(scored * SWEEP_BONUS_SHARE)
+		expect(await awardsOf(user.id, "streak_milestone")).toEqual([
+			expect.objectContaining({ points: streak }),
+		])
+		expect(await awardsOf(user.id, "sweep")).toEqual([
+			expect.objectContaining({ points: sweep }),
+		])
+		expect(await bonusOf(user.id)).toBe(streak + sweep)
+
+		const middle = games[2]
+		if (!middle) throw new Error("missing game")
+		await resolve(middle.question, middle.away.id)
+		await drainAchievementRecomputes()
+
+		expect(await awardsOf(user.id, "streak_milestone")).toHaveLength(0)
+		expect(await awardsOf(user.id, "sweep")).toHaveLength(0)
+		expect(await bonusOf(user.id)).toBe(0)
+	})
+
+	it("leaves the awards as they are when the backfill rebuilds them again", async () => {
+		const league = await seedLeague()
+		const user = await makeUser()
+		for (let index = 0; index < STREAK_BONUS_STEP; index++) {
+			const seeded = await seedWinnerGame(league, 50 - index * 5)
+			await pick(seeded.question, user.id, seeded.home.id)
+			await resolve(seeded.question, seeded.home.id)
+		}
+		await drainAchievementRecomputes()
+		const before = await db.select().from(pointAwards)
+		const bonus = await bonusOf(user.id)
+
+		await enqueueAchievementRecomputes({ since: null })
+		await drainAchievementRecomputes({ notify: false })
+
+		expect(await db.select().from(pointAwards)).toEqual(before)
+		expect(await bonusOf(user.id)).toBe(bonus)
 	})
 })
 

@@ -309,7 +309,7 @@ export type LossRateCalibration = {
 	// That record leaning on every other key's while it's small - what the
 	// rate is tuned from.
 	blendedHitRate: number | null
-	// The rate that pick breaks even at, from the blended record.
+	// The rate that pick is priced at, from the blended record.
 	suggestedLossRate: number | null
 	callerPicks: number
 	callerHitRate: number | null
@@ -324,8 +324,8 @@ export type LossRateRow<T> = T &
 
 type LossRateContext = { results: Map<string, boolean[]>; pool: HitCount }
 
-// A tunable loss rate whose target is where one pick (the favorite, the best
-// record) breaks even, from that pick's record pooled across every key.
+// A tunable loss rate priced off one pick (the favorite, the best record), from
+// that pick's record pooled across every key.
 export function defineLossRateSetting<
 	TTable extends SettingsTable & { lossRate: PgColumn },
 	T extends { leagueSlug: string },

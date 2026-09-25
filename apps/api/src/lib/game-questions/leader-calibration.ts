@@ -4,9 +4,9 @@ import { GAME_QUESTION_CATALOG } from "../../db/catalog/game-question-catalog"
 import { parseGenerationKey } from "./generation-key"
 import { lossRateTuner, pushWithin } from "./pooling"
 
-// A game stat leader question's loss rate is where a pick on the favorite
-// breaks even: a favorite who leads a quarter of the time is worth a third of
-// the stake on a miss (see breakEvenLossRate). It follows the favorite's real
+// A game stat leader question's loss rate is priced off a pick on the
+// favorite: the rarer the favorite leads, the less a miss costs (see
+// targetLossRate). It follows the favorite's real
 // record, not callers', so it works with nobody calling. Each league stat's
 // record leans on every other league stat's until its own is large, so a new
 // league or stat starts from how favorites lead everywhere else.

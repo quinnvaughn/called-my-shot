@@ -126,7 +126,7 @@ export function TitleLossSettingModal({ setting, onChanged }: Props) {
 			<VStack gap="4" alignItems="stretch">
 				<ToggleRow
 					label="Adjust loss rate automatically"
-					description="Once enough titles have resolved across every league, the rate moves a little each day toward where a pick on the best record breaks even. Turn off to set it yourself."
+					description="Once enough titles have resolved across every league, the rate moves a little each day toward where a pick on the best record comes out slightly ahead. Turn off to set it yourself."
 					checked={autoTune}
 					onChange={changeAutoTune}
 				/>

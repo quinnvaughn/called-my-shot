@@ -1,3 +1,4 @@
+import { LOSS_RATE_BY_SHAPE } from "@called-my-shot/scoring"
 import { describe, expect, it } from "vitest"
 import { db } from "../../db"
 import { questionAutoResolutions } from "../../db/schema"
@@ -96,12 +97,13 @@ describe("priceUserLine", () => {
 		expect(priced?.under).toBeGreaterThan(1)
 	})
 
-	it("prices a line near the model at a full loss on both sides", async () => {
+	it("prices a line near the model as a coin flip on both sides", async () => {
 		const { league, team } = await nbaTeam()
 		await resolvedLines(LINE_TUNING.minSample)
 
 		const priced = await price(league.id, team.id, 100.5)
-		expect(priced).toMatchObject({ over: 1, under: 1 })
+		const coinFlip = LOSS_RATE_BY_SHAPE.game_total_over_under
+		expect(priced).toMatchObject({ over: coinFlip, under: coinFlip })
 	})
 
 	it("waits for enough resolved lines", async () => {

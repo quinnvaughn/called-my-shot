@@ -4,8 +4,8 @@ import { RECURRING_QUESTION_CATALOG } from "../../db/catalog/recurring-question-
 import { lossRateTuner, pushWithin } from "./pooling"
 
 // A single-pick title question's loss rate is where a pick on the best
-// regular-season record in its pool breaks even. Measured on the finished
-// season rather than when the question went up: title questions are posted
+// regular-season record in its pool clears PLAYER_EDGE. Measured on the
+// finished season rather than when the question went up: title questions are posted
 // before a game is played, when there's no record to pick from, and a call
 // made that early already earns the bigger season-long early bonus for it.
 // Each league only decides a few titles a year, so each league title leans on
