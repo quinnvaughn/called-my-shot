@@ -54,7 +54,7 @@ type AuthModalProps = {
 	surface?: AuthModalSurface
 }
 
-export type AuthModalSurface = "guest_picks" | "default"
+export type AuthModalSurface = "guest_picks" | "call_page" | "default"
 
 const defaultCopy: AuthModalCopy = {
 	signin: {

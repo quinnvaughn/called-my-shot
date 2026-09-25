@@ -12,6 +12,7 @@ import {
 	buildCallTweet,
 	CallShareRow,
 } from "#/components/questions/call-share-row"
+import { CallSignupCta } from "#/components/questions/call-signup-cta"
 import type { QuestionCallShape } from "#/components/questions/cast-call-form/use-cast-call-form"
 import { RedoCta } from "#/components/questions/redo-cta"
 import { RedoPanel } from "#/components/questions/redo-panel"
@@ -334,6 +335,20 @@ function RouteComponent() {
 			<PageHeader title="The Call" />
 
 			<CallRecordCard data={cardData} />
+
+			{!me && (
+				<CallSignupCta
+					state={match(view)
+						.with({ questionStatus: "OPEN" }, () => ({ kind: "open" }) as const)
+						.with({ isWin: true }, () => ({ kind: "hit" }) as const)
+						.with({ isWin: false }, () => ({ kind: "miss" }) as const)
+						.otherwise(() => ({ kind: "closed" }) as const)}
+					username={view.username}
+					questionId={call.question.id}
+					slug={buildQuestionSlug(call.question.title)}
+					leagueSlug={call.question.league.slug}
+				/>
+			)}
 
 			{/* Directly under the record, because it is about the record: this
 			call's time is the redo's time, and without this the page would
