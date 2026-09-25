@@ -102,7 +102,7 @@ describe("postseason sync", () => {
 			{ id: "6", abbreviation: "DET", displayName: "Detroit", color: "0c2340" },
 		])
 		espn.fetchSchedule.mockResolvedValue(events)
-		espn.fetchPostseasonScoreboard.mockResolvedValue(scoreboardFor(events))
+		espn.fetchPostseasonDay.mockResolvedValue(scoreboardFor(events))
 	}
 
 	beforeEach(async () => {
@@ -162,6 +162,10 @@ describe("postseason sync", () => {
 		const winnerQuestions = await db.query.questions.findMany({
 			where: { shape: "team_vs_team", gameId: { isNotNull: true } },
 		})
+		expect(winnerQuestions.map((q) => q.title).sort()).toEqual([
+			"Who will win Game 1?",
+			"Who will win Game 2?",
+		])
 		expect(winnerQuestions.map((q) => q.gameId).sort()).toEqual(
 			synced
 				.slice(0, 2)
@@ -175,8 +179,8 @@ describe("postseason sync", () => {
 			orderBy: { createdAt: "asc" },
 		})
 		expect(seriesQuestions.map((q) => q.title)).toEqual([
-			"Who wins the AL Wild Card Series: Detroit Tigers or Seattle Mariners?",
-			"Does the Detroit Tigers vs. Seattle Mariners AL Wild Card Series go all 3 games?",
+			"Who wins the series?",
+			"Does the series go all 3 games?",
 		])
 		for (const question of seriesQuestions) {
 			expect(question.gameId).toBeNull()

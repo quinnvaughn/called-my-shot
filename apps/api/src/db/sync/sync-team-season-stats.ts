@@ -76,7 +76,10 @@ export async function syncTeamSeasonStats(
 
 	const standings = await requester.request(
 		`${league.slug} standings ${season.year}`,
-		() => espn.fetchStandings(config.espnPath, season.year),
+		() =>
+			espn.fetchStandings(config.espnPath, season.year, {
+				leagueWide: config.seedsLeagueWide,
+			}),
 	)
 	if (!standings) return
 
@@ -149,6 +152,7 @@ export async function syncTeamSeasonStats(
 			streak: statText(entry, "streak"),
 			lastTen: statText(entry, "Last Ten Games"),
 			possessions,
+			playoffSeed: statValue(entry, "playoffSeed"),
 			updatedAt: now,
 		}
 
@@ -173,7 +177,9 @@ export async function syncTeamSeasonStats(
 // ESPN's own possession total, or null when this league's statistics payload
 // has no such column.
 function flattenPossessions(stats: {
-	splits: { categories: { name: string; stats: { name: string; value: number }[] }[] }
+	splits: {
+		categories: { name: string; stats: { name: string; value: number }[] }[]
+	}
 }): number | null {
 	for (const category of stats.splits.categories) {
 		for (const stat of category.stats) {

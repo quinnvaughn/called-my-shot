@@ -106,6 +106,13 @@ export const teamSeasonStats = pgTable(
 		// this row (team statistics, not standings), so it is null for every
 		// other league and for a basketball row whose stats fetch failed.
 		possessions: integer("possessions"),
+		// ESPN's playoffSeed: the team's place in whatever its league seeds
+		// within - its conference or league (AL/NL, East/West), or the whole
+		// league for one seeded as a single table (see
+		// SyncLeagueConfig.seedsLeagueWide). Carried all season
+		// as a running position, and fixed once the regular season ends - the
+		// last reading of a season is the seed its postseason is played at.
+		playoffSeed: integer("playoff_seed"),
 		updatedAt: timestamp("updated_at").notNull().defaultNow(),
 	},
 	(t) => [

@@ -1643,6 +1643,7 @@ describe("differentialFrom", () => {
 		streak: "W3",
 		lastTen: "8-2",
 		possessions: 8451,
+		playoffSeed: null,
 		updatedAt: NOW,
 		...overrides,
 	})

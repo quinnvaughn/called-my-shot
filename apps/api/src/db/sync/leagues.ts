@@ -12,6 +12,12 @@ export type SyncLeagueConfig = {
 	// league whose real scheduling unit is a week (NFL), omitted (defaults to
 	// "date" in the schema) for a league browsed one day at a time (NBA, MLB).
 	windowType?: "date" | "week"
+	// Whether playoff seeds run across the whole league (WNBA, 1-8) rather
+	// than within each conference or league (MLB's AL/NL, the NBA's East/West).
+	// ESPN's default standings are split by conference, and their playoffSeed
+	// is the position within that split, so a league seeded as one table reads
+	// its standings as one table instead.
+	seedsLeagueWide?: boolean
 	// Decides players.rookieEligible for this league (see its comment in
 	// db/schema/players.ts) - omitted for leagues where "zero prior seasons in
 	// the league" (syncPlayers' own default) is an accurate enough proxy for

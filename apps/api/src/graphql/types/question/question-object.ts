@@ -176,6 +176,9 @@ export const QuestionRef = builder.drizzleObject("questions", {
 		// The single real-world matchup this question is about - null for
 		// anything not scoped to one game (season awards, an MVP race).
 		game: t.relation("game", { nullable: true }),
+		// The postseason series a series-long question is about ("who wins the
+		// series?") - null for everything else, game questions included.
+		series: t.relation("series", { nullable: true }),
 
 		// *_over_under, *_numeric_guess, and player_vs_player only - stat is the
 		// catalog-backed default, customStat is the escape hatch used when stat

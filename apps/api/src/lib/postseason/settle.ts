@@ -23,8 +23,8 @@ const UNPLAYED_NOTE =
 	"Voided automatically: the series ended before this game was needed."
 
 // The series a postseason game belongs to, created the first time one of its
-// games is synced. bestOf is filled in whenever the caller has it and left
-// alone when it doesn't.
+// games is synced. Its length is filled in separately, from ESPN's scoreboard
+// (see fillSeriesLengths in db/sync/sync-games.ts).
 export async function findOrCreateSeries(
 	tx: Tx,
 	input: {
@@ -33,22 +33,13 @@ export async function findOrCreateSeries(
 		round: string
 		homeTeamId: string
 		awayTeamId: string
-		bestOf: number | null
 	},
 ): Promise<string> {
 	const [teamAId, teamBId] = seriesTeamPair(input.homeTeamId, input.awayTeamId)
 	const existing = await tx.query.postseasonSeries.findFirst({
 		where: { seasonId: input.seasonId, round: input.round, teamAId, teamBId },
 	})
-	if (existing) {
-		if (input.bestOf && existing.bestOf !== input.bestOf) {
-			await tx
-				.update(postseasonSeries)
-				.set({ bestOf: input.bestOf })
-				.where(eq(postseasonSeries.id, existing.id))
-		}
-		return existing.id
-	}
+	if (existing) return existing.id
 	const [row] = await tx
 		.insert(postseasonSeries)
 		.values({
@@ -57,7 +48,6 @@ export async function findOrCreateSeries(
 			round: input.round,
 			teamAId,
 			teamBId,
-			bestOf: input.bestOf,
 		})
 		.returning({ id: postseasonSeries.id })
 	if (!row) throw new Error("findOrCreateSeries: insert returned nothing")

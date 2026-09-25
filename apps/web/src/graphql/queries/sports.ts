@@ -146,6 +146,8 @@ export const GameByIdDocument = graphql(`
 			startTimeTbd
 			postseason {
 				roundLabel
+				homeSeed
+				awaySeed
 				gameNumber
 				bestOf
 				ifNecessary
@@ -386,6 +388,8 @@ export const LeagueGamesForWindowDocument = graphql(`
 					viewerCalledCount
 					startTimeTbd
 					postseason {
+						homeSeed
+						awaySeed
 						gameNumber
 						ifNecessary
 						summary

@@ -31,6 +31,8 @@ type Props = {
 		// Absent for a regular-season game, and wherever the query doesn't ask.
 		postseason?: {
 			roundLabel: string
+			homeSeed: number | null
+			awaySeed: number | null
 			gameNumber: number | null
 			ifNecessary: boolean
 			summary: string | null
@@ -111,11 +113,6 @@ const homeLineClass = css({
 	justifyContent: "flex-start",
 })
 
-const awayTextClass = css({ alignItems: "flex-start" })
-const homeTextClass = css({
-	alignItems: { base: "flex-start", sm: "flex-end" },
-})
-
 const teamScoreClass = css({
 	display: { base: "block", sm: "none" },
 	fontFamily: "mono",
@@ -149,15 +146,23 @@ const versusClass = css({
 function TeamLine({
 	team,
 	record,
+	seed,
 	home,
 	dense,
 }: {
 	team: Team
 	record: TeamRecord
+	// A playoff game's seed, within the team's own league or conference.
+	seed: number | null
 	home: boolean
 	dense: boolean
 }) {
-	const formattedRecord = formatTeamRecord(record)
+	const formattedRecord = [
+		formatTeamRecord(record),
+		seed ? `No. ${seed} seed` : null,
+	]
+		.filter(Boolean)
+		.join(" · ")
 
 	return (
 		<HStack
@@ -167,10 +172,16 @@ function TeamLine({
 			className={home ? homeLineClass : awayLineClass}
 		>
 			<TeamBadge abbreviation={team.abbreviation} color={team.color} />
+			{/* Alignment goes through the VStack prop, not a className: the
+			    pattern's own alignItems="center" default otherwise wins. Away
+			    reads from the left edge; home from the right once it sits on
+			    the right of the score. */}
 			<VStack
 				gap="0"
 				minWidth="0"
-				className={home ? homeTextClass : awayTextClass}
+				alignItems={
+					home ? { base: "flex-start", sm: "flex-end" } : "flex-start"
+				}
 			>
 				<span className={dense ? denseNameClass : nameClass}>{team.name}</span>
 				{formattedRecord && (
@@ -240,12 +251,14 @@ export function GameMatchupHeader({
 				<TeamLine
 					team={game.awayTeam}
 					record={game.awayTeamRecord ?? null}
+					seed={game.postseason?.awaySeed ?? null}
 					home={false}
 					dense={dense}
 				/>
 				<TeamLine
 					team={game.homeTeam}
 					record={game.homeTeamRecord ?? null}
+					seed={game.postseason?.homeSeed ?? null}
 					home
 					dense={dense}
 				/>

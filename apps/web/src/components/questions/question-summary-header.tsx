@@ -5,6 +5,7 @@ import { questionShapeLabel } from "#/lib/question-labels"
 import { BallotKicker, type BallotMembership } from "./ballot-kicker"
 import { GameBlock } from "./game-block"
 import { PickStateIcon } from "./pick-state-icon"
+import { SeriesBlock, type SeriesBlockData } from "./series-block"
 
 type QuestionSummaryData = {
 	title: string
@@ -21,6 +22,9 @@ type QuestionSummaryData = {
 		homeTeam: { abbreviation: string; color: string }
 		awayTeam: { abbreviation: string; color: string }
 	} | null
+	// The postseason series a series question is about. Optional because not
+	// every fragment feeding this header asks for it.
+	series?: SeriesBlockData | null
 }
 
 type Props = {
@@ -42,8 +46,8 @@ type Props = {
 	// any (published) ballot. QuestionCard and CallCard each pass their own
 	// colocated fragment's ballotMembership straight through - see BallotKicker.
 	ballotMembership?: BallotMembership
-	// Off where the page itself already names the game (a game's own detail
-	// page, under its GameMatchupHeader). Defaults to on.
+	// Off where the page itself already names the game or series (a game's
+	// own detail page, under its GameMatchupHeader). Defaults to on.
 	showGame?: boolean
 	// Tighter title and spacing, for the landing page's try-it card - it sits
 	// beside the hero copy and has to stay inside the fold.
@@ -123,6 +127,7 @@ export function QuestionSummaryHeader({
 				{question.title}
 			</span>
 			{showGame && question.game && <GameBlock game={question.game} />}
+			{showGame && question.series && <SeriesBlock series={question.series} />}
 		</VStack>
 	)
 }

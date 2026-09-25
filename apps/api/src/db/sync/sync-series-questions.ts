@@ -1,9 +1,8 @@
 import { autoResolutionSource } from "@called-my-shot/schemas"
 import { defaultLossRate } from "@called-my-shot/scoring"
-import { and, eq, inArray } from "drizzle-orm"
+import { and, eq } from "drizzle-orm"
 import { generationKey } from "../../lib/game-questions/generation-key"
 import { getOfficialAccountId } from "../../lib/official-account"
-import { roundLabel } from "../../lib/postseason/series"
 import {
 	SERIES_DISTANCE_TEMPLATE,
 	SERIES_WINNER_TEMPLATE,
@@ -20,8 +19,9 @@ type SeriesQuestion = {
 	options: { label: string; teamId?: string }[]
 }
 
+// Titles stay short: the round and the teams are shown next to the question
+// wherever it appears (its card's series block, the game page's section).
 function seriesQuestions(
-	label: string,
 	bestOf: number,
 	away: Team,
 	home: Team,
@@ -30,13 +30,13 @@ function seriesQuestions(
 		{
 			template: SERIES_WINNER_TEMPLATE,
 			shape: "team_vs_team",
-			title: `Who wins the ${label}: ${away.name} or ${home.name}?`,
+			title: "Who wins the series?",
 			options: teamOptions([away, home]),
 		},
 		{
 			template: SERIES_DISTANCE_TEMPLATE,
 			shape: "yes_no_prop",
-			title: `Does the ${away.name} vs. ${home.name} ${label} go all ${bestOf} games?`,
+			title: `Does the series go all ${bestOf} games?`,
 			options: [{ label: "Yes" }, { label: "No" }],
 		},
 	]
@@ -88,13 +88,9 @@ export async function syncSeriesQuestions(
 			})
 			const posted = new Set(existing.map((q) => q.generationKey))
 
+			const planned = seriesQuestions(bestOf, awayTeam, homeTeam)
 			if (gameOne.status === "scheduled" && gameOne.startsAt > now) {
-				for (const question of seriesQuestions(
-					roundLabel(series.round),
-					bestOf,
-					awayTeam,
-					homeTeam,
-				)) {
+				for (const question of planned) {
 					const key = generationKey([league.slug, series.id, question.template])
 					if (posted.has(key)) continue
 					await insertQuestion(
@@ -118,15 +114,22 @@ export async function syncSeriesQuestions(
 				}
 			}
 
-			await tx
-				.update(questions)
-				.set({ locksAt: gameOne.startsAt })
-				.where(
-					and(
-						inArray(questions.generationKey, keys),
-						eq(questions.status, "open"),
-					),
-				)
+			// The same pass keeps an open question's wording in step with the
+			// template, as refreshGeneratedQuestionSchedule does for game ones.
+			for (const question of planned) {
+				await tx
+					.update(questions)
+					.set({ locksAt: gameOne.startsAt, title: question.title })
+					.where(
+						and(
+							eq(
+								questions.generationKey,
+								generationKey([league.slug, series.id, question.template]),
+							),
+							eq(questions.status, "open"),
+						),
+					)
+			}
 		})
 	}
 }

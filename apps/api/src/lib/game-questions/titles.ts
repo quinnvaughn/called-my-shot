@@ -6,6 +6,9 @@ import { parseGenerationKey } from "./generation-key"
 export type GameForTitle = {
 	homeTeam: { id: string; name: string }
 	awayTeam: { id: string; name: string }
+	// Set on a postseason series game, whose who-wins question names the game
+	// so it can't be read as asking about the series.
+	seriesGameNumber?: number | null
 }
 
 // What a generated question's title is built from, beyond the game itself.
@@ -44,7 +47,9 @@ export function gameQuestionTitle(
 	return (
 		match(facts)
 			.with({ shape: "team_vs_team" }, () =>
-				generateQuestionTitle({ shape: "team_vs_team" }),
+				game.seriesGameNumber
+					? `Who will win Game ${game.seriesGameNumber}?`
+					: generateQuestionTitle({ shape: "team_vs_team" }),
 			)
 			.with({ shape: "team_stat_numeric_guess" }, (f) =>
 				generateQuestionTitle({

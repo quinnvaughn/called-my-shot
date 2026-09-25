@@ -69,6 +69,28 @@ export const QuestionCardFragment = graphql(`
 				color
 			}
 		}
+		series {
+			id
+			roundLabel
+			summary
+			seeds {
+				teamId
+				seed
+			}
+			gameOne {
+				id
+				homeTeam {
+					id
+					abbreviation
+					color
+				}
+				awayTeam {
+					id
+					abbreviation
+					color
+				}
+			}
+		}
 		viewerCall {
 			id
 			guessValue

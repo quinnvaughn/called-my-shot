@@ -66,6 +66,28 @@ export const QuestionDetailDocument = graphql(`
 				avatarUrl
 			}
 			...GameStrip_question
+			series {
+				id
+				roundLabel
+				summary
+				seeds {
+					teamId
+					seed
+				}
+				gameOne {
+					id
+					homeTeam {
+						id
+						abbreviation
+						color
+					}
+					awayTeam {
+						id
+						abbreviation
+						color
+					}
+				}
+			}
 			game {
 				id
 				...GameStarters_game

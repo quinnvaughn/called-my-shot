@@ -47,7 +47,7 @@ import {
 	GAME_WINNER_LABEL,
 	sectionOfficialQuestions,
 } from "#/lib/official-game-questions"
-import { postseasonHeading } from "#/lib/postseason"
+import { postseasonHeading, seededName } from "#/lib/postseason"
 import { buildGameSlug } from "#/lib/slug"
 
 type GameTab = "official" | "community"
@@ -148,7 +148,7 @@ export const Route = createFileRoute("/_app/games/$gameId/{-$slug}")({
 			? `${postseasonHeading(game.postseason)}: `
 			: ""
 		return pageMeta({
-			title: `${round}${game.awayTeam.name} @ ${game.homeTeam.name} · Called My Shot`,
+			title: `${round}${seededName(game.awayTeam.name, game.postseason?.awaySeed)} @ ${seededName(game.homeTeam.name, game.postseason?.homeSeed)} · Called My Shot`,
 			description: `Call the questions on ${game.awayTeam.name} @ ${game.homeTeam.name} - the winner, the total, and the player lines.`,
 			path: `/games/${game.id}/${buildGameSlug(game)}`,
 		})
@@ -242,7 +242,11 @@ function RouteComponent() {
 					</span>
 					<VStack gap="3" alignItems="stretch">
 						{game.postseason.seriesQuestions.map((question) => (
-							<QuestionCard key={question.id} question={question} />
+							<QuestionCard
+								key={question.id}
+								question={question}
+								showGame={false}
+							/>
 						))}
 					</VStack>
 				</VStack>

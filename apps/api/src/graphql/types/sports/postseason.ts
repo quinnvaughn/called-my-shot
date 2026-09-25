@@ -1,5 +1,6 @@
 import { db } from "../../../db"
 import type { Game, PostseasonSeries, Question } from "../../../db/schema"
+import { loadPlayoffSeeds } from "../../../lib/postseason/seeds"
 import {
 	isGameConfirmed,
 	roundLabel,
@@ -64,6 +65,10 @@ const seriesLoader = ctxLoader(async (seriesIds: string[]) => {
 	return indexByKey(seriesIds, bundles, (b) => b.series.id, null)
 })
 
+// Batched by "teamId|seasonId" so a Games tab's worth of playoff games reads
+// every seed in one query.
+export const playoffSeedLoader = ctxLoader(loadPlayoffSeeds)
+
 type GamePostseason = { game: Game; bundle: SeriesBundle | null }
 
 export const GamePostseasonRef = builder
@@ -74,6 +79,18 @@ export const GamePostseasonRef = builder
 		fields: (t) => ({
 			roundLabel: t.string({
 				resolve: ({ game }) => roundLabel(game.postseasonRound ?? ""),
+			}),
+			// Each side's playoff seed within its own league or conference. Null
+			// until a standings reading has one.
+			homeSeed: t.int({
+				nullable: true,
+				resolve: ({ game }, _args, ctx) =>
+					playoffSeedLoader(ctx).load(`${game.homeTeamId}|${game.seasonId}`),
+			}),
+			awaySeed: t.int({
+				nullable: true,
+				resolve: ({ game }, _args, ctx) =>
+					playoffSeedLoader(ctx).load(`${game.awayTeamId}|${game.seasonId}`),
 			}),
 			// Null outside a series.
 			gameNumber: t.int({

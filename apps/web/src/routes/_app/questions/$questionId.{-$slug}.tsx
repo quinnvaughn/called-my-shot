@@ -32,6 +32,7 @@ import { PanelRow } from "#/components/questions/panel-row"
 import { QuestionCallsList } from "#/components/questions/question-calls-list"
 import { ReportQuestionModal } from "#/components/questions/report-question-modal"
 import { ResolveQuestionModal } from "#/components/questions/resolve-question-modal"
+import { SeriesBlock } from "#/components/questions/series-block"
 import { ShareQuestionModal } from "#/components/questions/share-question-modal"
 import { StatContextCard } from "#/components/questions/stat-context-card"
 import { StreakStakeLine } from "#/components/questions/streak-stake-line"
@@ -170,7 +171,9 @@ export const Route = createFileRoute("/_app/questions/$questionId/{-$slug}")({
 		// the ~60 characters a search result shows, and the suffix would be the
 		// half that gets cut.
 		return pageMeta({
-			title: questionTitleWithGame(question.title, question.game),
+			title: question.series?.gameOne
+				? `${question.series.gameOne.awayTeam.abbreviation} vs ${question.series.gameOne.homeTeam.abbreviation} ${question.series.roundLabel} · ${question.title}`
+				: questionTitleWithGame(question.title, question.game),
 			description: `${question.league.abbreviation} · ${questionShapeLabel[question.shape]}: resolves via ${question.resolutionSource}.`,
 			path: questionPath(question),
 		})
@@ -451,6 +454,9 @@ function RouteComponent() {
 				{question.game && (
 					<GameMatchupHeader game={question.game} starters={question.game} />
 				)}
+				{/* A series question's counterpart: the round, the two teams and
+			where the series stands, which its short title leaves out. */}
+				{question.series && <SeriesBlock series={question.series} />}
 				<Card>
 					<Card.Body>
 						<VStack gap="0" alignItems="stretch">

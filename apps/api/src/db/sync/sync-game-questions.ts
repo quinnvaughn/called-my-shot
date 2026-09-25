@@ -79,6 +79,7 @@ export async function syncGameQuestions(
 			startsAt: game.startsAt,
 			homeTeam: game.homeTeam,
 			awayTeam: game.awayTeam,
+			seriesGameNumber: game.seriesGameNumber,
 		}
 		const key = generationKey([league.slug, game.id, "team_vs_team"])
 		// A postseason game that may never be played, or whose start time ESPN

@@ -18,3 +18,11 @@ export function postseasonHeading(postseason: {
 		? `${postseason.roundLabel} · Game ${postseason.gameNumber}`
 		: postseason.roundLabel
 }
+
+// "(4) New York Liberty" when the team has a known playoff seed.
+export function seededName(
+	name: string,
+	seed: number | null | undefined,
+): string {
+	return seed ? `(${seed}) ${name}` : name
+}

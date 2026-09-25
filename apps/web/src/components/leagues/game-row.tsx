@@ -7,7 +7,7 @@ import { Tag } from "#/components/ui/tag"
 import { TeamBadge } from "#/components/ui/team-badge"
 import type { GameStatus } from "#/graphql/generated/graphql"
 import { gameScoreLabel, gameTimeLabel } from "#/lib/game-status"
-import { seriesStakesLabel } from "#/lib/postseason"
+import { seededName, seriesStakesLabel } from "#/lib/postseason"
 import { buildGameSlug } from "#/lib/slug"
 
 type Props = {
@@ -27,6 +27,8 @@ type Props = {
 		// The round itself is the heading this row sits under on a postseason
 		// day, so only the game's place in its series is here.
 		postseason: {
+			homeSeed: number | null
+			awaySeed: number | null
 			gameNumber: number | null
 			ifNecessary: boolean
 			summary: string | null
@@ -114,7 +116,8 @@ export function GameRow({ game, leagueSlug }: Props) {
 										whiteSpace: { base: "normal", md: "nowrap" },
 									})}
 								>
-									{game.awayTeam.name} @ {game.homeTeam.name}
+									{seededName(game.awayTeam.name, game.postseason?.awaySeed)} @{" "}
+									{seededName(game.homeTeam.name, game.postseason?.homeSeed)}
 								</span>
 							</HStack>
 							{(series || game.postseason?.ifNecessary || stakes) && (

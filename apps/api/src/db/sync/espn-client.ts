@@ -311,6 +311,19 @@ async function fetchPostseasonScoreboard(
 	return data.events
 }
 
+// One ET calendar day's postseason games (YYYYMMDD). A single day rather than
+// a range: the scoreboard answers every "dates=A-B" range with a 400 (verified
+// live across MLB, NBA and WNBA, 2026-09-25), while a single date still works.
+async function fetchPostseasonDay(
+	sportPath: EspnSportPath,
+	date: string,
+): Promise<EspnPostseasonEvent[]> {
+	const data = await espnGet<{ events: EspnPostseasonEvent[] }>(
+		`${sportPath}/scoreboard?seasontype=3&dates=${date}&limit=200`,
+	)
+	return data.events
+}
+
 export type EspnLineupEntry = {
 	starter?: boolean
 	batOrder?: number
@@ -623,11 +636,14 @@ export type EspnStandingsGroup = {
 
 // Always asked for by season: without one ESPN answers with whichever season it
 // considers current, which between seasons is next year's empty preseason.
+// leagueWide asks for one league-wide table (level=1) instead of ESPN's
+// default split by conference - see SyncLeagueConfig.seedsLeagueWide.
 async function fetchStandings(
 	sportPath: EspnSportPath,
 	year: number,
+	{ leagueWide = false }: { leagueWide?: boolean } = {},
 ): Promise<EspnStandingsGroup> {
-	const path = `${sportPath}/standings?season=${year}`
+	const path = `${sportPath}/standings?season=${year}${leagueWide ? "&level=1" : ""}`
 	const res = await fetch(`${STANDINGS_BASE_URL}/${path}`, {
 		signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
 	})
@@ -645,6 +661,7 @@ export const defaultEspnClient = {
 	fetchScoreboard,
 	fetchScoreboardRange,
 	fetchPostseasonScoreboard,
+	fetchPostseasonDay,
 	fetchGameSummaryRosters,
 	fetchGameSummary,
 	fetchDepthChart,
