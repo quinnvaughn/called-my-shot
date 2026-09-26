@@ -1,6 +1,10 @@
+import { db } from "../../../db"
 import { builder } from "../../builder"
+import { CallRef } from "../question"
+import { memberUserIds, trackedLeagueIds } from "./leaderboard"
 
 export const GROUP_PREVIEW_MEMBER_LIMIT = 5
+export const GROUP_PREVIEW_CALL_LIMIT = 3
 
 const GroupPreviewMemberRef = builder
 	.objectRef<{ id: string; name: string; avatarUrl: string | null }>(
@@ -86,6 +90,25 @@ export const GroupPreviewRef = builder
 				type: GroupPreviewTopScorerRef,
 				nullable: true,
 				resolve: (preview) => preview.topScorer,
+			}),
+			// The newest calls any member made in the group's tracked leagues,
+			// so an invitee sees what the group actually calls before joining.
+			recentCalls: t.field({
+				type: [CallRef],
+				resolve: async (preview, _args, ctx) => {
+					const [memberIds, tracked] = await Promise.all([
+						memberUserIds(ctx, preview.id),
+						trackedLeagueIds(ctx, preview.id),
+					])
+					return db.query.calls.findMany({
+						where: {
+							userId: { in: memberIds },
+							...(tracked ? { question: { leagueId: { in: tracked } } } : {}),
+						},
+						orderBy: { createdAt: "desc", id: "desc" },
+						limit: GROUP_PREVIEW_CALL_LIMIT,
+					})
+				},
 			}),
 		}),
 	})

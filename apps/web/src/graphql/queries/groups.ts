@@ -35,6 +35,10 @@ export const GroupPreviewDocument = graphql(`
                 username
                 points
             }
+            recentCalls {
+                id
+                ...CallCard_call
+            }
         }
     }
 `)

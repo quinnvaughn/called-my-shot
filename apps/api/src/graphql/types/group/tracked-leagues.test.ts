@@ -270,6 +270,54 @@ describe("invite preview top scorer", () => {
 	})
 })
 
+describe("invite preview recent calls", () => {
+	const RECENT_CALLS = /* GraphQL */ `
+		query PreviewCalls($code: String!) {
+			groupPreview(code: $code) {
+				recentCalls { id }
+			}
+		}
+	`
+
+	it("shows members' newest calls in tracked leagues, three at most", async () => {
+		const { nba, nfl } = await twoLeagues()
+		const admin = await makeUser()
+		const member = await makeUser()
+		const outsider = await makeUser()
+		const group = await makeGroup({
+			admin: admin,
+			members: [member],
+			leagueIds: [nba.id],
+			name: "Test group",
+		})
+		const nbaQuestions = await Promise.all(
+			[0, 1, 2, 3].map(() => makeQuestion({ leagueId: nba.id })),
+		)
+		const nflQuestion = await makeQuestion({ leagueId: nfl.id })
+		const nbaCalls = await Promise.all(
+			nbaQuestions.map((question, index) =>
+				makeCall(question.id, index % 2 === 0 ? admin.id : member.id, {
+					createdAt: daysAgo(10 - index),
+				}),
+			),
+		)
+		await makeCall(nflQuestion.id, member.id)
+		await makeCall(nbaQuestions[0].id, outsider.id)
+		const invite = await insertGroupInvite(group.id, admin.id, null)
+
+		const data = await expectData<{
+			groupPreview: { recentCalls: { id: string }[] }
+		}>(RECENT_CALLS, { variables: { code: invite.code } })
+
+		expect(data.groupPreview.recentCalls).toEqual(
+			nbaCalls
+				.slice(1)
+				.reverse()
+				.map((call) => ({ id: call.id })),
+		)
+	})
+})
+
 describe("setting tracked leagues", () => {
 	it("stores the leagues picked at creation", async () => {
 		const nba = await makeLeague()

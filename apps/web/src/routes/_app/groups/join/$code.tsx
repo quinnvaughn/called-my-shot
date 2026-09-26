@@ -4,6 +4,7 @@ import { FaRegTimesCircle } from "react-icons/fa"
 import { css } from "styled-system/css"
 import { VStack } from "styled-system/jsx"
 import { PageBanner } from "#/components/images/page-banner"
+import { CallCard } from "#/components/questions/call-card"
 import { AvatarStack } from "#/components/ui/avatar-stack"
 import { Button } from "#/components/ui/button"
 import { Card } from "#/components/ui/card"
@@ -183,6 +184,20 @@ function RouteComponent() {
 				>
 					Join {preview.name}
 				</Button>
+				{preview.recentCalls.length > 0 && (
+					<VStack
+						gap="3"
+						alignItems="stretch"
+						className={css({ width: "full", maxWidth: "xl", marginTop: "4" })}
+					>
+						<Eyebrow variant="neutral">Latest calls in the group</Eyebrow>
+						{/* Unlinked: clicking through would leave the invite
+						behind before the visitor has joined. */}
+						{preview.recentCalls.map((call) => (
+							<CallCard key={call.id} call={call} linked={false} />
+						))}
+					</VStack>
+				)}
 			</VStack>
 		</VStack>
 	)
