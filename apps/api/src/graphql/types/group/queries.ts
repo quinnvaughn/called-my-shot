@@ -79,8 +79,12 @@ builder.queryFields((t) => ({
 					avatarUrl: imageUrl(u.avatarKey),
 				})),
 				invitedBy: invite.creator
-					? { name: invite.creator.name, username: invite.creator.username }
-					: { name: "a member", username: "" },
+					? {
+							name: invite.creator.name,
+							username: invite.creator.username,
+							avatarUrl: imageUrl(invite.creator.avatarKey),
+						}
+					: { name: "a member", username: "", avatarUrl: null },
 				trackedLeagues: trackedLeagues.flatMap((row) =>
 					row.league ? [{ abbreviation: row.league.abbreviation }] : [],
 				),

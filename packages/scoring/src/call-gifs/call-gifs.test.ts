@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest"
-import { type CallGifState, GIF_POOLS, pickCallGif } from "./index"
+import {
+	type CallGifState,
+	GIF_POOLS,
+	pickCallGif,
+	pickGif,
+} from "./index"
+import { JOIN_GIFS } from "../join-gifs"
 
 const STATES: CallGifState[] = [
 	"voided",
@@ -23,9 +29,13 @@ describe("GIF_POOLS", () => {
 	})
 
 	// A duplicate url quietly weights that gif, and one appearing under two
-	// states means the same reaction answers two different results.
+	// states means the same reaction answers two different results. The join
+	// pool is included so a call reaction never turns up on an invite.
 	it("has no repeated url within or across pools", () => {
-		const urls = STATES.flatMap((state) => GIF_POOLS[state].map((g) => g.url))
+		const urls = [
+			...STATES.flatMap((state) => GIF_POOLS[state].map((g) => g.url)),
+			...JOIN_GIFS.map((g) => g.url),
+		]
 		expect(new Set(urls).size).toBe(urls.length)
 	})
 
@@ -59,6 +69,32 @@ describe("GIF_POOLS", () => {
 			for (const gif of GIF_POOLS[state]) {
 				expect(CARD_LABELS).not.toContain(gif.alt)
 			}
+		}
+	})
+})
+
+describe("JOIN_GIFS", () => {
+	it("hotlinks described assets, same as the call pools", () => {
+		for (const gif of JOIN_GIFS) {
+			expect(gif.url).toMatch(/^https:\/\//)
+			expect(gif.url).not.toMatch(/^https:\/\/(www\.)?(giphy|tenor)\.com\//)
+			expect(gif.alt.trim()).not.toBe("")
+		}
+	})
+})
+
+describe("pickGif", () => {
+	it("returns null for an empty pool", () => {
+		expect(pickGif([])).toBeNull()
+	})
+
+	it("draws only from the pool it's given", () => {
+		const pool = [
+			{ url: "https://cdn/a.gif", alt: "a" },
+			{ url: "https://cdn/b.gif", alt: "b" },
+		]
+		for (let i = 0; i < 50; i++) {
+			expect(pool).toContain(pickGif(pool))
 		}
 	})
 })

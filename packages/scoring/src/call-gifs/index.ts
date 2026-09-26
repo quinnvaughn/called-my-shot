@@ -377,12 +377,16 @@ export const GIF_POOLS: Record<CallGifState, readonly CallGif[]> = {
 	],
 }
 
+// A random draw from any pool, or null when it is empty.
+export function pickGif(pool: readonly CallGif[]): CallGif | null {
+	if (pool.length === 0) return null
+	return pool[Math.floor(Math.random() * pool.length)] ?? null
+}
+
 // Random, and deliberately not a hash of the call id. Nothing else derives a
 // gif for the same call - the og:image carries none - so there is no second
 // copy that would have to agree with this one, and a record you have already
 // read showing a reaction you haven't is the point of putting one here.
 export function pickCallGif(state: CallGifState): CallGif | null {
-	const pool = GIF_POOLS[state]
-	if (pool.length === 0) return null
-	return pool[Math.floor(Math.random() * pool.length)] ?? null
+	return pickGif(GIF_POOLS[state])
 }

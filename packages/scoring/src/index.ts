@@ -1088,7 +1088,11 @@ export {
 	type CallGifState,
 	GIF_POOLS,
 	pickCallGif,
+	pickGif,
 } from "./call-gifs"
+// The group invite page's gifs. Separate from the call pools above, which it
+// never draws from.
+export { JOIN_GIFS } from "./join-gifs"
 // How far a resolved call landed from its line, and whether that was
 // remarkable. Split out for the same reason as ./call-gifs: it describes a
 // result, it doesn't score one. Nothing above imports it - see the header

@@ -1,14 +1,15 @@
-import {
-	type CallGif,
-	type CallGifState,
-	GIF_POOLS,
-} from "@called-my-shot/scoring"
+import { type CallGif, GIF_POOLS, JOIN_GIFS } from "@called-my-shot/scoring"
 
-type Pools = Record<CallGifState, readonly CallGif[]>
+type Pools = Record<string, readonly CallGif[]>
+
+// Every pool the app draws from. The call pools by result state, plus the
+// group invite page's under "join".
+const ALL_POOLS: Pools = { ...GIF_POOLS, join: JOIN_GIFS }
 
 // One url in one pool, and whether it is still there.
 export type GifHealthRow = {
-	state: CallGifState
+	// A CallGifState, or "join" for the invite page's pool.
+	state: string
 	url: string
 	alt: string
 	// The HTTP status the host answered with, or null when nothing answered
@@ -84,9 +85,9 @@ async function checkUrl(
 // `pools` is a seam for the tests, which need a known set to check rather than
 // whatever has been pasted into the real pools today.
 export async function loadGifHealth(
-	pools: Pools = GIF_POOLS,
+	pools: Pools = ALL_POOLS,
 ): Promise<GifHealthRow[]> {
-	const targets = (Object.keys(pools) as CallGifState[]).flatMap((state) =>
+	const targets = Object.keys(pools).flatMap((state) =>
 		pools[state].map((gif) => ({ state, url: gif.url, alt: gif.alt })),
 	)
 
@@ -114,8 +115,8 @@ export async function loadGifHealth(
 // Which states have no gif at all. An empty pool is as broken as a 404 - that
 // state's calls silently render nothing - and it cannot show up in the rows
 // above, because there is no url to check.
-export function emptyGifPools(pools: Pools = GIF_POOLS): CallGifState[] {
-	return (Object.keys(pools) as CallGifState[]).filter(
+export function emptyGifPools(pools: Pools = ALL_POOLS): string[] {
+	return Object.keys(pools).filter(
 		(state) => pools[state].length === 0,
 	)
 }

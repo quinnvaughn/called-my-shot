@@ -19,11 +19,14 @@ const GroupPreviewMemberRef = builder
 	})
 
 const GroupPreviewInvitedByRef = builder
-	.objectRef<{ name: string; username: string }>("GroupPreviewInvitedBy")
+	.objectRef<{ name: string; username: string; avatarUrl: string | null }>(
+		"GroupPreviewInvitedBy",
+	)
 	.implement({
 		fields: (t) => ({
 			name: t.exposeString("name"),
 			username: t.exposeString("username"),
+			avatarUrl: t.exposeString("avatarUrl", { nullable: true }),
 		}),
 	})
 
@@ -56,7 +59,7 @@ export const GroupPreviewRef = builder
 		bannerUrl: string | null
 		memberCount: number
 		members: { id: string; name: string; avatarUrl: string | null }[]
-		invitedBy: { name: string; username: string }
+		invitedBy: { name: string; username: string; avatarUrl: string | null }
 		trackedLeagues: { abbreviation: string }[]
 		topScorer: { name: string; username: string; points: number } | null
 	}>("GroupPreview")

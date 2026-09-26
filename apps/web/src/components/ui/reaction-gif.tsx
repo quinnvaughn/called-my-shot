@@ -1,12 +1,9 @@
-import {
-	type CallGif as CallGifData,
-	type CallGifState,
-	pickCallGif,
-} from "@called-my-shot/scoring"
+import { type CallGif, pickGif } from "@called-my-shot/scoring"
 import { useEffect, useState } from "react"
 import { css } from "styled-system/css"
 
-// The reaction to how a call landed, under the result on its record card.
+// A random gif from one pool: the reaction to how a call landed on its record
+// card, or the one above the group invite page's join button.
 //
 // Picks on mount rather than in the route loader, which is the obvious place
 // and the wrong one. Loader data is dehydrated into the page and then
@@ -17,8 +14,8 @@ import { css } from "styled-system/css"
 // per visit, full stop, and it costs nothing here - the og:image carries no
 // gif for this to agree with, so the server has no reason to hold an opinion
 // about which one a reader gets.
-export function CallGif({ state }: { state: CallGifState }) {
-	const [gif, setGif] = useState<CallGifData | null>(null)
+export function ReactionGif({ pool }: { pool: readonly CallGif[] }) {
+	const [gif, setGif] = useState<CallGif | null>(null)
 
 	useEffect(() => {
 		// Nothing can pause an animated gif - not CSS, not an attribute - so
@@ -28,8 +25,8 @@ export function CallGif({ state }: { state: CallGifState }) {
 			setGif(null)
 			return
 		}
-		setGif(pickCallGif(state))
-	}, [state])
+		setGif(pickGif(pool))
+	}, [pool])
 
 	if (!gif) return null
 
@@ -39,9 +36,9 @@ export function CallGif({ state }: { state: CallGifState }) {
 			alt={gif.alt}
 			loading="lazy"
 			decoding="async"
-			// The only third-party request this app makes. Sending the call's
-			// url along with it would tell the cdn which record someone is
-			// looking at, which is nobody's business but ours.
+			// The only third-party request this app makes. Sending the page's
+			// url along with it would tell the cdn which record or invite
+			// someone is looking at, which is nobody's business but ours.
 			referrerPolicy="no-referrer"
 			// A hotlinked asset can go away without warning. /admin/gifs is how
 			// that gets found; this is so a reader never sees a broken-image

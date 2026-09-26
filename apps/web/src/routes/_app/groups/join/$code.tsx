@@ -1,16 +1,19 @@
+import { JOIN_GIFS } from "@called-my-shot/scoring"
 import { useQueryClient, useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute, useNavigate, useRouter } from "@tanstack/react-router"
 import { FaRegTimesCircle } from "react-icons/fa"
 import { css } from "styled-system/css"
-import { VStack } from "styled-system/jsx"
+import { HStack, VStack } from "styled-system/jsx"
 import { PageBanner } from "#/components/images/page-banner"
 import { CallCard } from "#/components/questions/call-card"
+import { Avatar } from "#/components/ui/avatar"
 import { AvatarStack } from "#/components/ui/avatar-stack"
 import { Button } from "#/components/ui/button"
 import { Card } from "#/components/ui/card"
 import { Eyebrow } from "#/components/ui/eyebrow"
 import { GroupLogo } from "#/components/ui/group-logo"
 import { NotFound } from "#/components/ui/not-found"
+import { ReactionGif } from "#/components/ui/reaction-gif"
 import { JoinGroupByCodeDocument } from "#/graphql/generated/graphql"
 import { useGqlMutation } from "#/graphql/hooks"
 import { GroupPreviewDocument } from "#/graphql/queries/groups"
@@ -59,6 +62,7 @@ function RouteComponent() {
 	const router = useRouter()
 	const queryClient = useQueryClient()
 	const navigate = useNavigate()
+	const { me } = Route.useRouteContext()
 
 	function handleJoin() {
 		requireAuth(
@@ -115,6 +119,10 @@ function RouteComponent() {
 					.map((league) => league.abbreviation)
 					.sort()
 					.join(", ")
+	// A signed-out visitor gets the invite framed around the person who sent
+	// it, plus a line on what the app is: the call cards below assume both.
+	// Not when the invite's creator is gone, since there is no one to name.
+	const pitchInviter = !me && preview.invitedBy.username !== ""
 	const topScorerLabel =
 		preview.trackedLeagues.length === 1
 			? `${preview.trackedLeagues[0].abbreviation} top scorer this season:`
@@ -122,16 +130,54 @@ function RouteComponent() {
 
 	return (
 		<VStack gap="0" alignItems="stretch">
-			{/* Outside the padded column below so it can run edge to edge. */}
+			{/* Outside the column below so it can run edge to edge. */}
 			{preview.bannerUrl && <PageBanner bannerUrl={preview.bannerUrl} />}
-			<VStack gap="4" alignItems="center" className={css({ padding: "8" })}>
+			<VStack gap="4" alignItems="center" className={css({ paddingTop: "6" })}>
 				{preview.logoUrl && (
 					<GroupLogo size="lg" name={preview.name} src={preview.logoUrl} />
 				)}
-				<Eyebrow variant="neutral">You've been invited to a group</Eyebrow>
-				<h1 className={css({ fontFamily: "heading", fontSize: "2xl" })}>
-					{preview.name}
-				</h1>
+				{pitchInviter ? (
+					<>
+						<HStack gap="2.5" alignItems="center">
+							<Avatar
+								name={preview.invitedBy.name}
+								src={preview.invitedBy.avatarUrl}
+								size="sm"
+							/>
+							<Eyebrow variant="neutral">You've been invited</Eyebrow>
+						</HStack>
+						<h1
+							className={css({
+								fontFamily: "heading",
+								fontSize: "2xl",
+								lineHeight: "tight",
+								textAlign: "center",
+							})}
+						>
+							@{preview.invitedBy.username} invited you to {preview.name}
+						</h1>
+						<p
+							className={css({
+								maxWidth: "md",
+								lineHeight: "relaxed",
+								color: "fg.body",
+								textAlign: "center",
+							})}
+						>
+							Make calls on NFL, NBA and MLB games and whole seasons, or write
+							your own questions for others to call. Every call is scored once
+							the result is in, and {preview.name} ranks its members on its own
+							leaderboard.
+						</p>
+					</>
+				) : (
+					<>
+						<Eyebrow variant="neutral">You've been invited to a group</Eyebrow>
+						<h1 className={css({ fontFamily: "heading", fontSize: "2xl" })}>
+							{preview.name}
+						</h1>
+					</>
+				)}
 				{preview.description && (
 					<p
 						className={css({
@@ -154,8 +200,10 @@ function RouteComponent() {
 					})}
 				>
 					{preview.memberCount} {pluralize(preview.memberCount, "member")} ·{" "}
-					{leaguesLabel} · invited by {preview.invitedBy.name} (@
-					{preview.invitedBy.username})
+					{leaguesLabel}
+					{/* The heading already names them when pitching. */}
+					{!pitchInviter &&
+						` · invited by ${preview.invitedBy.name} (@${preview.invitedBy.username})`}
 				</p>
 				{preview.topScorer && (
 					<Card size="sm">
@@ -176,19 +224,24 @@ function RouteComponent() {
 						</Card.Body>
 					</Card>
 				)}
-				<Button
-					variant="solid"
-					size="md"
-					onClick={handleJoin}
-					loading={joinGroupByCode.isPending}
-				>
-					Join {preview.name}
-				</Button>
+				{/* order only applies from md up, where the button sits inline
+				between the top scorer and the gif. Below md it keeps its place
+				last in the page, which is what lets it stay pinned the whole way
+				down: a sticky element lets go once the page scrolls past where
+				it sits. */}
+				<div className={css({ md: { order: 2 } })}>
+					<ReactionGif pool={JOIN_GIFS} />
+				</div>
 				{preview.recentCalls.length > 0 && (
 					<VStack
 						gap="3"
 						alignItems="stretch"
-						className={css({ width: "full", maxWidth: "xl", marginTop: "4" })}
+						className={css({
+							width: "full",
+							maxWidth: "xl",
+							marginTop: "4",
+							md: { order: 3 },
+						})}
 					>
 						<Eyebrow variant="neutral">Latest calls in the group</Eyebrow>
 						{/* Unlinked: clicking through would leave the invite
@@ -198,6 +251,69 @@ function RouteComponent() {
 						))}
 					</VStack>
 				)}
+				{/* Sticks to the bottom of the viewport below md, over a backdrop
+				that runs edge to edge while the button keeps the column's width.
+				Same bar as /join/$code. */}
+				<VStack
+					alignItems="stretch"
+					gap="2"
+					className={css({
+						width: "full",
+						maxWidth: "md",
+						position: "sticky",
+						bottom: "0",
+						zIndex: 10,
+						paddingBlock: "3",
+						// Pulls the bar down over <main>'s bottom padding (5 below
+						// xl), so at the end of the page it rests flush with the
+						// viewport the same way it sits while pinned.
+						marginBottom: "-5",
+						_before: {
+							content: '""',
+							position: "absolute",
+							insetBlock: "0",
+							left: "50%",
+							width: "100vw",
+							transform: "translateX(-50%)",
+							zIndex: -1,
+							bg: "bg.canvas/92",
+							backdropFilter: "blur(10px)",
+							borderTop: "1px solid {colors.border.default}",
+						},
+						md: {
+							order: 1,
+							maxWidth: "xs",
+							position: "static",
+							paddingBlock: "0",
+							marginBottom: "0",
+							_before: { display: "none" },
+						},
+					})}
+				>
+					<Button
+						variant="solid"
+						size="md"
+						fullWidth
+						onClick={handleJoin}
+						loading={joinGroupByCode.isPending}
+					>
+						Join {preview.name}
+					</Button>
+					{/* Only for someone about to meet the signup form - a
+					signed-in visitor joins in one tap. */}
+					{!me && (
+						<p
+							className={css({
+								color: "fg.subtle",
+								fontFamily: "mono",
+								fontSize: "xs",
+								textAlign: "center",
+							})}
+						>
+							free · no money, ever · takes 30 seconds
+						</p>
+					)}
+				</VStack>
 			</VStack>
 		</VStack>
 	)

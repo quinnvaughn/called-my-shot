@@ -1,13 +1,13 @@
-import type { CallGifState } from "@called-my-shot/scoring"
+import { type CallGifState, GIF_POOLS } from "@called-my-shot/scoring"
 import { Link } from "@tanstack/react-router"
 import { css } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
 import { match } from "ts-pattern"
-import { CallGif } from "#/components/questions/call-gif"
 import { Avatar } from "#/components/ui/avatar"
 import { Brand } from "#/components/ui/brand"
 import { Card } from "#/components/ui/card"
 import { Eyebrow } from "#/components/ui/eyebrow"
+import { ReactionGif } from "#/components/ui/reaction-gif"
 
 export type CallRecordCardData = {
 	questionTitle: string
@@ -28,7 +28,7 @@ export type CallRecordCardData = {
 	isWin: boolean | null
 	points: number | null
 	// Which reaction pool the card draws from. The state, not a chosen gif:
-	// the pick happens on mount inside CallGif, so whoever renders the card
+	// the pick happens on mount inside ReactionGif, so whoever renders the card
 	// has nothing to decide - see callGifState in lib/call-gif.ts.
 	gifState: CallGifState
 	// What to say in place of the result while it's pending: "Locks Jun 12,
@@ -267,7 +267,7 @@ export function CallRecordCard({ data }: Props) {
 							</span>
 						)}
 					</HStack>
-					<CallGif state={data.gifState} />
+					<ReactionGif pool={GIF_POOLS[data.gifState]} />
 				</VStack>
 			</Card.Body>
 			<Card.Footer>

@@ -21,6 +21,7 @@ export const GroupPreviewDocument = graphql(`
             invitedBy {
                 name
                 username
+                avatarUrl
             }
             members {
                 id
