@@ -53,3 +53,54 @@ export const RedoCallDocument = graphql(`
 		}
 	}
 `)
+
+export const AttachFadeDocument = graphql(`
+	mutation AttachFade($input: AttachFadeInput!) {
+		attachFade(input: $input) {
+			__typename
+			... on AttachFadePayload {
+				call {
+					id
+				}
+			}
+			... on ValidationError {
+				fieldErrors {
+					field
+					message
+				}
+			}
+			... on AuthenticationError {
+				message
+			}
+			... on NotFoundError {
+				message
+			}
+		}
+	}
+`)
+
+export const GloatDocument = graphql(`
+	mutation Gloat($input: GloatInput!) {
+		gloat(input: $input) {
+			__typename
+			... on GloatPayload {
+				fades {
+					id
+					gloat
+				}
+			}
+			... on ValidationError {
+				fieldErrors {
+					field
+					message
+				}
+			}
+			... on AuthenticationError {
+				message
+			}
+			... on NotFoundError {
+				message
+			}
+		}
+	}
+`)

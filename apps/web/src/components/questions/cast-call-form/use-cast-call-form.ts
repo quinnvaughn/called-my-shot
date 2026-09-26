@@ -187,6 +187,13 @@ export type RedoMode = {
 	}
 }
 
+// A fade: a new call aimed at an existing one, on the other side from it. The
+// pick is fixed to that side, so the form opens with it already selected.
+export type FadeMode = {
+	callId: string
+	optionId: string
+}
+
 // All of the state behind making a call, decoupled from where it renders.
 // The route ($questionId.tsx) calls this once and hands the result to both
 // <CastCallForm> (the fields) and <CallSubmitBar> (the sticky review
@@ -198,10 +205,11 @@ export type RedoMode = {
 // a real question - and therefore a mounted CastCallForm/CallSubmitBar - exists.
 //
 // Passing `redo` switches it to replacing an existing call instead of making
-// a new one.
+// a new one. Passing `fade` makes a new call that fades another.
 export function useCastCallForm(
 	questionProp: FragmentType<typeof CastCallFormFragment> | null | undefined,
 	redo?: RedoMode,
+	fade?: FadeMode,
 ) {
 	const question = useFragment(CastCallFormFragment, questionProp)
 	const shape = (question?.shape.toLowerCase() ??
@@ -326,7 +334,9 @@ export function useCastCallForm(
 						? Math.round(gamesPerSeason / 2)
 						: 0),
 			conviction: redo?.current.conviction ?? 50,
-			selections: redo?.current.selections ?? [],
+			selections:
+				redo?.current.selections ??
+				(fade ? [{ optionId: fade.optionId, conviction: 50 }] : []),
 		},
 		onSubmit: async (values, helpers) => {
 			const selections = values.selections.map((s) => ({
@@ -356,6 +366,7 @@ export function useCastCallForm(
 								guessValue: values.guessValue,
 								conviction: values.conviction,
 								selections,
+								fadesCallId: fade?.callId,
 							},
 						})
 					)?.castCall

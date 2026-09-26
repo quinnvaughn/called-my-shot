@@ -1,5 +1,9 @@
 import { castCallSchema } from "@called-my-shot/schemas"
-import { isNumericGuessShape, isSeasonLongShape } from "@called-my-shot/scoring"
+import {
+	isNumericGuessShape,
+	isSeasonLongShape,
+	isTwoSidedShape,
+} from "@called-my-shot/scoring"
 import { eq } from "drizzle-orm"
 import { db } from "../../../../db"
 import {
@@ -18,6 +22,7 @@ import {
 	NotFoundError,
 	ValidationError,
 } from "../../../../lib/errors"
+import { reconcileFadesAfterRedo } from "../../../../lib/fades"
 import { consumeRedoGrant, redoBalanceFor } from "../../../../lib/redos"
 import { releaseWaitingReferral } from "../../../../lib/referrals"
 import { builder } from "../../../builder"
@@ -137,6 +142,10 @@ builder.mutationFields((t) => ({
 							conviction: s.conviction,
 						})),
 					)
+				}
+
+				if (isTwoSidedShape(question.shape)) {
+					await reconcileFadesAfterRedo(tx, call.id)
 				}
 
 				const isNumericGuess = isNumericGuessShape(data.shape)

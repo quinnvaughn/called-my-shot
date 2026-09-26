@@ -2,6 +2,7 @@ import { FiCheckCircle, FiXCircle } from "react-icons/fi"
 import { css } from "styled-system/css"
 import { type FragmentType, graphql, useFragment } from "#/graphql/generated"
 import { resultState } from "#/lib/call-summary"
+import { resolvedFadeLine } from "#/lib/fade-copy"
 import { NotificationShell, type Target } from "../notification-shell"
 
 export const CallResolvedRowFragment = graphql(`
@@ -12,6 +13,13 @@ export const CallResolvedRowFragment = graphql(`
 		pointsDelta
 		question {
 			id
+		}
+		fade {
+			fadedUsername
+			fadeLanded
+			targetFlipped
+			doubtersCashed
+			doubtersWrong
 		}
 	}
 `)
@@ -29,8 +37,12 @@ export function CallResolvedRow({
 }: Props) {
 	const n = useFragment(CallResolvedRowFragment, notificationProp)
 	const result = n.pointsDelta !== null ? resultState(n.pointsDelta) : null
+	const fadeLine = n.fade ? resolvedFadeLine(n.fade) : null
 	const target: Target = n.question
-		? { to: "/questions/$questionId/{-$slug}", params: { questionId: n.question.id } }
+		? {
+				to: "/questions/$questionId/{-$slug}",
+				params: { questionId: n.question.id },
+			}
 		: null
 
 	return (
@@ -49,6 +61,9 @@ export function CallResolvedRow({
 				Your call on "{n.questionTitle}"{" "}
 				{result?.status === "win" ? "hit" : "missed"}
 			</p>
+			{fadeLine && (
+				<p className={css({ fontSize: "sm", color: "fg.muted" })}>{fadeLine}</p>
+			)}
 		</NotificationShell>
 	)
 }

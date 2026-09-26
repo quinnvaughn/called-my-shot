@@ -43,6 +43,37 @@ export const CallRecordDocument = graphql(`
 				}
 			}
 			viewerCanRedo
+			fadeOffer {
+				mode
+				option {
+					id
+					label
+				}
+			}
+			doubters {
+				...DoubtersPanel_fade
+			}
+			viewerGloat {
+				audience
+				count
+				fadeId
+				targetUsername
+			}
+			# Stated on the record card itself: whose call this one faded, how
+			# that went, and the line the winner sent.
+			fading {
+				id
+				targetFlippedAt
+				winner
+				gloat
+				target {
+					id
+					user {
+						id
+						username
+					}
+				}
+			}
 			user {
 				id
 				name

@@ -10,6 +10,7 @@ export type NotificationInput =
 			questionId: string
 			questionTitle: string
 			pointsDelta: number
+			callId: string | null
 	  }
 	| {
 			type: "dispute_filed"
@@ -101,6 +102,17 @@ export type NotificationInput =
 			actorId: string
 			actorUsername: string
 	  }
+	// callId is the recipient's own call: the one that was faded, or the one
+	// on the losing side of the fade that was gloated over.
+	| {
+			type: "call_faded" | "fade_gloated"
+			userId: string
+			actorId: string
+			actorUsername: string
+			questionId: string
+			questionTitle: string
+			callId: string
+	  }
 
 function toRow(input: NotificationInput) {
 	return {
@@ -114,6 +126,7 @@ function toRow(input: NotificationInput) {
 		actorUsername: "actorUsername" in input ? input.actorUsername : null,
 		disputeId: "disputeId" in input ? input.disputeId : null,
 		gameId: "gameId" in input ? input.gameId : null,
+		callId: "callId" in input ? input.callId : null,
 		pointsDelta: input.type === "call_resolved" ? input.pointsDelta : null,
 		strikeCount:
 			input.type === "question_voided" ? (input.strikeCount ?? null) : null,

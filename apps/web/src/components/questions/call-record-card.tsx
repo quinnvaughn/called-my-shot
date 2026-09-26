@@ -1,6 +1,8 @@
 import type { CallGifState } from "@called-my-shot/scoring"
+import { Link } from "@tanstack/react-router"
 import { css } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
+import { match } from "ts-pattern"
 import { CallGif } from "#/components/questions/call-gif"
 import { Avatar } from "#/components/ui/avatar"
 import { Brand } from "#/components/ui/brand"
@@ -60,6 +62,19 @@ export type CallRecordCardData = {
 	caseText: string | null
 	// Set on a win at least STREAK_TAG_MIN into its league-and-family streak.
 	streakLength: number | null
+	// Set when this call is a fade: whose call it was aimed at, and once the
+	// question has closed, how it went and the line the winner sent.
+	fading: {
+		username: string
+		callId: string
+		// Past tense once the question is resolved or voided.
+		settled: boolean
+		// won/lost from this call's side. flipped: the target switched onto
+		// this side after being faded, so neither won. Null until there's a
+		// result, and after a void.
+		outcome: "won" | "lost" | "flipped" | null
+		gloat: { username: string; text: string } | null
+	} | null
 }
 
 type Props = { data: CallRecordCardData }
@@ -117,6 +132,9 @@ export function CallRecordCard({ data }: Props) {
 						>
 							{data.pickLabel}
 						</span>
+						{/* Right under the pick, because it's part of the claim: not
+						just this side, but this side against someone. */}
+						{data.fading && <FadeLine fading={data.fading} />}
 						<span
 							className={css({
 								fontSize: "xs",
@@ -277,5 +295,98 @@ function StatRow({ label, value }: { label: string; value: string }) {
 				{value}
 			</span>
 		</HStack>
+	)
+}
+
+// The fade this call is, under the pick: whose call it was aimed at, then
+// once it settles how it went and the winner's line, written on the card
+// where the loser's own record shows it.
+function FadeLine({
+	fading,
+}: {
+	fading: NonNullable<CallRecordCardData["fading"]>
+}) {
+	const outcome = match(fading.outcome)
+		.with("won", () => ({
+			text: `Cashed against @${fading.username}`,
+			tone: "success" as const,
+		}))
+		.with("lost", () => ({
+			text: `Lost the fade to @${fading.username}`,
+			tone: "danger" as const,
+		}))
+		.with("flipped", () => ({
+			text: `@${fading.username} switched to this side after the fade`,
+			tone: "neutral" as const,
+		}))
+		.with(null, () => null)
+		.exhaustive()
+
+	return (
+		<VStack gap="2" alignItems="center" paddingTop="1">
+			<Link
+				to="/calls/$callId"
+				params={{ callId: fading.callId }}
+				className={css({
+					fontFamily: "mono",
+					fontSize: "xs",
+					fontWeight: "bold",
+					letterSpacing: "wide",
+					textTransform: "uppercase",
+					textDecoration: "none",
+					color: "primary.default",
+					border: "1px solid {colors.primary.default}",
+					borderRadius: "sm",
+					paddingBlock: "1",
+					paddingInline: "2.5",
+					_hover: { opacity: 0.8 },
+				})}
+			>
+				{fading.settled ? "Faded" : "Fading"} @{fading.username} →
+			</Link>
+			{outcome && (
+				<span
+					className={css({
+						fontFamily: "mono",
+						fontSize: "xs",
+						letterSpacing: "wide",
+						textTransform: "uppercase",
+						textAlign: "center",
+						color:
+							outcome.tone === "success"
+								? "success.default"
+								: outcome.tone === "danger"
+									? "danger.default"
+									: "fg.muted",
+					})}
+				>
+					{outcome.text}
+				</span>
+			)}
+			{fading.gloat && (
+				<p
+					className={css({
+						fontSize: "md",
+						textAlign: "center",
+						color: "fg.default",
+					})}
+				>
+					<Link
+						to="/user/$username"
+						params={{ username: fading.gloat.username }}
+						className={css({
+							fontWeight: "bold",
+							color: "fg.default",
+							textDecoration: "underline",
+							textUnderlineOffset: "3px",
+							_hover: { color: "fg.muted" },
+						})}
+					>
+						@{fading.gloat.username}
+					</Link>
+					: "{fading.gloat.text}"
+				</p>
+			)}
+		</VStack>
 	)
 }

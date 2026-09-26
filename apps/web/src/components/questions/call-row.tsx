@@ -1,4 +1,5 @@
 import { Link } from "@tanstack/react-router"
+import type { ReactNode } from "react"
 import { css } from "styled-system/css"
 import { VStack } from "styled-system/jsx"
 import { type FragmentType, graphql, useFragment } from "#/graphql/generated"
@@ -57,6 +58,10 @@ export const CallRowFragment = graphql(`
 
 type Props = {
 	call: FragmentType<typeof CallRowFragment>
+	// Anything a particular list adds under the call, like the Doubters
+	// panel's gloat. Raised above the row's stretched link so it stays
+	// clickable.
+	footer?: ReactNode
 }
 
 // Lighter than CallCard - skips QuestionSummaryHeader entirely, since on the
@@ -71,7 +76,7 @@ type Props = {
 // call on a question is visible at once, so it's the one place each of them
 // has to be reachable from - without it a call is only linkable if you made
 // it yourself and it has already resolved.
-export function CallRow({ call: callProp }: Props) {
+export function CallRow({ call: callProp, footer }: Props) {
 	const call = useFragment(CallRowFragment, callProp)
 	const caller = toIdentity(call.user)
 
@@ -118,6 +123,9 @@ export function CallRow({ call: callProp }: Props) {
 				<div className={css({ position: "relative", zIndex: 1 })}>
 					<CaseBlock text={call.caseText} clampable />
 				</div>
+			)}
+			{footer && (
+				<div className={css({ position: "relative", zIndex: 1 })}>{footer}</div>
 			)}
 		</VStack>
 	)

@@ -116,12 +116,13 @@ export async function resolveQuestionInternal(
 
 	await createNotifications(
 		tx,
-		notified.map(({ userId, pointsDelta }) => ({
+		notified.map(({ userId, callId, pointsDelta }) => ({
 			type: "call_resolved" as const,
 			userId,
 			questionId: question.id,
 			questionTitle: question.title,
 			pointsDelta,
+			callId: callId ?? null,
 		})),
 	)
 

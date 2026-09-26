@@ -48,6 +48,8 @@ export const emailPreferenceType = pgEnum("email_preference_type", [
 	"streak_snapped",
 	"game_reminder",
 	"redo_earned",
+	"call_faded",
+	"fade_gloated",
 	// Email-only - see above.
 	"season_starting",
 ])

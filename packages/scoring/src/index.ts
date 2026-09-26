@@ -580,6 +580,20 @@ export function isOverUnderShape(shape: QuestionShape): boolean {
 	return OVER_UNDER_SHAPES.has(shape)
 }
 
+// The shapes with exactly two options, where every call is on one of two
+// sides - which is what a fade needs, since fading a call means taking the
+// other side of it. Derived from the family rather than listed, so a new
+// shape is two-sided only by being filed into one of these families.
+const TWO_SIDED_FAMILIES = new Set<ShapeFamily>([
+	"OVER_UNDER",
+	"HEAD_TO_HEAD",
+	"YES_NO",
+])
+
+export function isTwoSidedShape(shape: QuestionShape): boolean {
+	return TWO_SIDED_FAMILIES.has(shapeFamilyFor(shape))
+}
+
 // The shapes scored off calls.guessValue rather than an options row - a
 // caller types a number and is scored on how close it lands, so they have no
 // options to select and every "does this question have a numeric guess on it"

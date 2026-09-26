@@ -1,10 +1,12 @@
 import { match } from "ts-pattern"
 import type { NotificationsPageQuery } from "#/graphql/generated/graphql"
+import { CallFadedRow } from "./rows/call-faded-row"
 import { CallResolvedRow } from "./rows/call-resolved-row"
 import { CallVoidedRow } from "./rows/call-voided-row"
 import { DisputeFiledRow } from "./rows/dispute-filed-row"
 import { DisputeOverturnedRow } from "./rows/dispute-overturned-row"
 import { DisputeUpheldRow } from "./rows/dispute-upheld-row"
+import { FadeGloatedRow } from "./rows/fade-gloated-row"
 import { GameReminderRow } from "./rows/game-reminder-row"
 import { GroupMemberJoinedRow } from "./rows/group-member-joined-row"
 import { QuestionSharedToGroupRow } from "./rows/question-shared-to-group-row"
@@ -80,6 +82,12 @@ export function NotificationRow({ notification, unread, onOpen }: Props) {
 		))
 		.with({ __typename: "RedoEarnedNotification" }, (n) => (
 			<RedoEarnedRow notification={n} unread={unread} onOpen={onOpen} />
+		))
+		.with({ __typename: "CallFadedNotification" }, (n) => (
+			<CallFadedRow notification={n} unread={unread} onOpen={onOpen} />
+		))
+		.with({ __typename: "FadeGloatedNotification" }, (n) => (
+			<FadeGloatedRow notification={n} unread={unread} onOpen={onOpen} />
 		))
 		.exhaustive()
 }

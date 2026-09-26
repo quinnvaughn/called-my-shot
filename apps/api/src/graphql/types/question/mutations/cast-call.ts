@@ -9,6 +9,7 @@ import {
 	NotFoundError,
 	ValidationError,
 } from "../../../../lib/errors"
+import { assertFadeable, recordFade } from "../../../../lib/fades"
 import { qualifyReferralOnFirstCall } from "../../../../lib/referrals"
 import { applySeasonStatDeltas } from "../../../../lib/user-season-stats"
 import { builder } from "../../../builder"
@@ -111,6 +112,21 @@ builder.mutationFields((t) => ({
 					id: call.id,
 					seasonId: question.seasonId,
 				})
+
+				if (args.input.fadesCallId) {
+					const targetCall = await assertFadeable(tx, {
+						targetCallId: String(args.input.fadesCallId),
+						faderUserId: user.id,
+						faderOptionId: data.selections[0]?.optionId,
+						question,
+					})
+					await recordFade(tx, {
+						faderCallId: call.id,
+						targetCall,
+						fader: user,
+						question,
+					})
+				}
 
 				return call
 			})

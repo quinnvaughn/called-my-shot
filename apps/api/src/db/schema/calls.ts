@@ -1,3 +1,4 @@
+import { GLOAT_MESSAGES } from "@called-my-shot/schemas"
 import {
 	boolean,
 	index,
@@ -112,3 +113,50 @@ export const callSelections = pgTable(
 	},
 	(t) => [unique().on(t.callId, t.optionId)],
 )
+
+// The line the winning side of a fade picked - see GLOAT_MESSAGES.
+export const gloatMessage = pgEnum("gloat_message", GLOAT_MESSAGES)
+
+// One call aimed at another: the fader took the other side of a two-sided
+// question and named whose call they were betting against. The fader's call
+// is an ordinary call scored the ordinary way - this row adds only who it was
+// aimed at, so the target's page can list its doubters.
+//
+// faderCallId is unique because a call fades at most one other call. A fade
+// is a choice of who to bet against, and letting one call fade everyone on
+// the other side would turn it into a label every opposing call carries.
+//
+// Who won is never stored. It's read live off the options' isCorrect (see
+// fadeWinner in lib/fades.ts), so a re-resolve or an overturned dispute moves
+// it without anything here needing an update.
+export const callFades = pgTable(
+	"call_fades",
+	{
+		id: uuid("id").primaryKey().defaultRandom(),
+		faderCallId: uuid("fader_call_id")
+			.notNull()
+			.references(() => calls.id, { onDelete: "cascade" }),
+		targetCallId: uuid("target_call_id")
+			.notNull()
+			.references(() => calls.id, { onDelete: "cascade" }),
+		// Set when the target redid onto the fader's side after being faded.
+		// Kept rather than deleting the fade, because being talked onto the
+		// other side is the most pointed thing a fade can record. Redos are
+		// one per call, so a flip is final.
+		targetFlippedAt: timestamp("target_flipped_at"),
+		// When each side used its one gloat, and the line it sent. Only the
+		// winning side can set its pair, and a gloat only shows while that
+		// side is still the winner. The target's gloat is sent to every
+		// doubter who was wrong at once, so it lands on each of their rows.
+		faderGloatedAt: timestamp("fader_gloated_at"),
+		faderGloatMessage: gloatMessage("fader_gloat_message"),
+		targetGloatedAt: timestamp("target_gloated_at"),
+		targetGloatMessage: gloatMessage("target_gloat_message"),
+		createdAt: timestamp("created_at").notNull().defaultNow(),
+	},
+	(t) => [
+		unique().on(t.faderCallId),
+		index("call_fades_target_call_id_idx").on(t.targetCallId),
+	],
+)
+export type CallFade = typeof callFades.$inferSelect

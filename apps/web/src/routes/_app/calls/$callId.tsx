@@ -14,6 +14,9 @@ import {
 } from "#/components/questions/call-share-row"
 import { CallSignupCta } from "#/components/questions/call-signup-cta"
 import type { QuestionCallShape } from "#/components/questions/cast-call-form/use-cast-call-form"
+import { DoubtersPanel } from "#/components/questions/doubters-panel"
+import { FadeCta } from "#/components/questions/fade-cta"
+import { GloatCta } from "#/components/questions/gloat-cta"
 import { RedoCta } from "#/components/questions/redo-cta"
 import { RedoPanel } from "#/components/questions/redo-panel"
 import { arrowLink } from "#/components/ui/arrow-link"
@@ -30,11 +33,14 @@ import {
 	marginLabel,
 	pickSummary,
 } from "#/lib/call-summary"
+import { gloatText } from "#/lib/fade-copy"
 import { formatGuess, isRateStat } from "#/lib/field-signal"
 import { formatCallDate, formatCallLead } from "#/lib/format-date"
 import { pageMeta } from "#/lib/meta"
 import {
 	isNumericQuestionShape,
+	isOverUnderQuestionShape,
+	optionDisplayLabel,
 	shareCardShapeLabel,
 } from "#/lib/question-labels"
 import { buildQuestionSlug } from "#/lib/slug"
@@ -292,6 +298,30 @@ function RouteComponent() {
 		conviction: view.conviction,
 		caseText: call.caseText,
 		streakLength: call.streak?.length ?? null,
+		fading: call.fading
+			? {
+					username: call.fading.target.user.username,
+					callId: call.fading.target.id,
+					settled:
+						view.questionStatus !== "OPEN" && view.questionStatus !== "LOCKED",
+					outcome: call.fading.targetFlippedAt
+						? "flipped"
+						: call.fading.winner === "FADER"
+							? "won"
+							: call.fading.winner === "TARGET"
+								? "lost"
+								: null,
+					gloat: call.fading.gloat
+						? {
+								username:
+									call.fading.winner === "FADER"
+										? view.username
+										: call.fading.target.user.username,
+								text: gloatText(call.fading.gloat),
+							}
+						: null,
+				}
+			: null,
 		// Which reaction pool the card draws from. Derived from the same facts
 		// the eyebrow above it is, so the gif and the words agree about what
 		// happened - see callGifState for the two precedence rules that aren't
@@ -349,6 +379,50 @@ function RouteComponent() {
 					leagueSlug={call.question.league.slug}
 				/>
 			)}
+
+			{/* A signed-in viewer's counterpart to the signup CTA above, in the
+			same spot: on someone else's open call, fading it is the one thing
+			the page asks them to do. Signed out, the signup CTA already offers
+			a call on this question, so this would be a second competing box. */}
+			{me && call.fadeOffer && (
+				<FadeCta
+					callId={call.id}
+					questionId={call.question.id}
+					opUsername={view.username}
+					opPickLabel={view.pickLabel}
+					pickLabel={optionDisplayLabel(
+						call.fadeOffer.option.label,
+						isOverUnderQuestionShape(call.question.shape),
+						call.question.ouLine,
+						isRateStat(call.question),
+					)}
+					optionId={call.fadeOffer.option.id}
+					mode={call.fadeOffer.mode}
+				/>
+			)}
+
+			{/* Once a fade settles, the winning side's one gloat, in the same
+			spot the fade offer held while the question was open. */}
+			{call.viewerGloat &&
+				(call.viewerGloat.audience === "DOUBTERS" ? (
+					<GloatCta
+						audience={{
+							kind: "doubters",
+							callId: call.id,
+							count: call.viewerGloat.count,
+						}}
+					/>
+				) : (
+					call.viewerGloat.fadeId && (
+						<GloatCta
+							audience={{
+								kind: "target",
+								fadeId: call.viewerGloat.fadeId,
+								username: call.viewerGloat.targetUsername ?? view.username,
+							}}
+						/>
+					)
+				))}
 
 			{/* Directly under the record, because it is about the record: this
 			call's time is the redo's time, and without this the page would
@@ -424,6 +498,19 @@ function RouteComponent() {
 						? ({ isOwn: true } as const)
 						: ({ isOwn: false, username: view.username } as const)),
 				})}
+			/>
+
+			<DoubtersPanel
+				fades={call.doubters}
+				opUsername={view.username}
+				formatPick={(label) =>
+					optionDisplayLabel(
+						label,
+						isOverUnderQuestionShape(call.question.shape),
+						call.question.ouLine,
+						isRateStat(call.question),
+					)
+				}
 			/>
 
 			<Link

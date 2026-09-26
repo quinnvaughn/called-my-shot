@@ -8,6 +8,7 @@ import {
 	timestamp,
 	uuid,
 } from "drizzle-orm/pg-core"
+import { calls } from "./calls"
 import { games } from "./games"
 import { groups } from "./groups"
 import { resolutionDisputes } from "./question-moderation"
@@ -31,6 +32,8 @@ export const notificationType = pgEnum("notification_type", [
 	"streak_snapped",
 	"game_reminder",
 	"redo_earned",
+	"call_faded",
+	"fade_gloated",
 ])
 
 // One row per (recipient, thing that happened) - see hook points in
@@ -64,6 +67,12 @@ export const notifications = pgTable(
 		}),
 		// game_reminder only
 		gameId: uuid("game_id").references(() => games.id, {
+			onDelete: "set null",
+		}),
+		// call_resolved: the recipient's own call, which its fade line reads
+		// from. call_faded: the recipient's call that was faded.
+		// fade_gloated: the recipient's call that lost the fade.
+		callId: uuid("call_id").references(() => calls.id, {
 			onDelete: "set null",
 		}),
 		questionTitle: text("question_title"),
