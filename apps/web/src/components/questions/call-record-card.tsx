@@ -132,9 +132,6 @@ export function CallRecordCard({ data }: Props) {
 						>
 							{data.pickLabel}
 						</span>
-						{/* Right under the pick, because it's part of the claim: not
-						just this side, but this side against someone. */}
-						{data.fading && <FadeLine fading={data.fading} />}
 						<span
 							className={css({
 								fontSize: "xs",
@@ -168,6 +165,10 @@ export function CallRecordCard({ data }: Props) {
 								</span>
 							</HStack>
 						)}
+						{/* After the question and what actually happened, so the pick
+						reads as an answer to the question first and the fade reads
+						as a second claim about it, not as the thing being asked. */}
+						{data.fading && <FadeLine fading={data.fading} />}
 					</VStack>
 					<HStack gap="2" alignItems="center">
 						<Avatar size="xs" name={data.name} src={data.avatarUrl} />
@@ -298,7 +299,7 @@ function StatRow({ label, value }: { label: string; value: string }) {
 	)
 }
 
-// The fade this call is, under the pick: whose call it was aimed at, then
+// The fade this call is, under the question: whose call it was aimed at, then
 // once it settles how it went and the winner's line, written on the card
 // where the loser's own record shows it.
 function FadeLine({
