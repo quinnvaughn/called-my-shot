@@ -83,8 +83,7 @@ export type ActualSummaryData = {
 
 // Every shape scores differently, so each needs its own formatting here - an
 // over/under selection's label alone ("Over") loses the line the call was
-// actually made against, and a player_season_award/team_season_award call
-// reads better as a hit count than a wall of every pick once it's resolved.
+// actually made against.
 export function pickSummary(call: CallSummaryData): string {
 	return match(call.question.shape)
 		.with(
@@ -129,14 +128,13 @@ function formatOverUnder(call: CallSummaryData): string {
 	)
 }
 
+// Names the picks whether or not the question has resolved. The verdict and
+// points around the label already say how it went, and a label is also
+// dropped into sentences ("@quinn called X") where a hit count reads as
+// nonsense.
 function formatMultiSelect(call: CallSummaryData): string {
 	if (call.selections.length === 0) return "-"
-	// isCorrect is set on every option at once, at resolution - so any one
-	// selection having it set means the question resolved and all of them do.
-	const resolved = call.selections[0].option.isCorrect !== null
-	if (!resolved) return call.selections.map((s) => s.option.label).join(", ")
-	const hits = call.selections.filter((s) => s.option.isCorrect).length
-	return `${hits} of ${call.selections.length} hit`
+	return call.selections.map((s) => s.option.label).join(", ")
 }
 
 function formatGuess(call: CallSummaryData): string {

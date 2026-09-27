@@ -111,10 +111,6 @@ describe("loadResolvedCallSummaries", () => {
 })
 
 describe("buildPickLabel on an award shape", () => {
-	// isCorrect is null on every option until resolution, so counting hits
-	// there returns 0 and prints "0 of 3 hit" - a call nobody has graded
-	// reading as a total whiff. Unreachable while the loader dropped
-	// unresolved calls; reachable the moment it stopped.
 	it("lists the picks instead of scoring them before resolution", async () => {
 		const question = await makeQuestion({
 			shape: "player_season_award",
@@ -137,7 +133,7 @@ describe("buildPickLabel on an award shape", () => {
 		}
 	})
 
-	it("scores the picks once they are graded", () => {
+	it("still names the picks once they are graded", () => {
 		expect(
 			buildPickLabel({
 				guessValue: null,
@@ -152,7 +148,7 @@ describe("buildPickLabel on an award shape", () => {
 					{ option: { label: "Luka", isCorrect: false } },
 				],
 			}),
-		).toBe("1 of 2 hit")
+		).toBe("Jokic, Luka")
 	})
 })
 

@@ -20,6 +20,10 @@ export type CallRecordCardData = {
 	// 47.5", "62") - see pickSummary in lib/call-summary.ts, which already
 	// handles every question type's own formatting rules.
 	pickLabel: string
+	// Award calls with more than one pick: each name, and once the question
+	// resolves whether it hit. The card lists these in place of pickLabel so
+	// every pick is marked on its own. Null on every other call.
+	picks: { label: string; hit: boolean | null }[] | null
 	// The date the call was made, already formatted (see formatCallDate). The
 	// point of a record is when it was set, so this is never optional.
 	calledAt: string
@@ -115,23 +119,31 @@ export function CallRecordCard({ data }: Props) {
 								? ` · ${data.streakLength} in a row`
 								: ""}
 						</Eyebrow>
-						<span
-							className={css({
-								fontFamily: "heading",
-								fontSize: "2xl",
-								textAlign: "center",
-								lineHeight: "1.15",
-								// A pending call is not a loss, so it never gets the muted
-								// treatment a miss does.
-								color: nailed
-									? "primary.default"
-									: resolved && !win
-										? "fg.muted"
-										: "fg.default",
-							})}
-						>
-							{data.pickLabel}
-						</span>
+						{data.picks ? (
+							<VStack gap="1" alignItems="center">
+								{data.picks.map((pick) => (
+									<PickLine key={pick.label} pick={pick} />
+								))}
+							</VStack>
+						) : (
+							<span
+								className={css({
+									fontFamily: "heading",
+									fontSize: "2xl",
+									textAlign: "center",
+									lineHeight: "1.15",
+									// A pending call is not a loss, so it never gets the muted
+									// treatment a miss does.
+									color: nailed
+										? "primary.default"
+										: resolved && !win
+											? "fg.muted"
+											: "fg.default",
+								})}
+							>
+								{data.pickLabel}
+							</span>
+						)}
 						<span
 							className={css({
 								fontSize: "xs",
@@ -187,7 +199,16 @@ export function CallRecordCard({ data }: Props) {
 			<Card.Body>
 				<VStack gap="3" alignItems="stretch">
 					{data.caseText && (
-						<VStack gap="1.5" alignItems="stretch">
+						<VStack
+							gap="1.5"
+							alignItems="stretch"
+							className={css({
+								bg: "bg.subtle",
+								borderRadius: "lg",
+								paddingX: "4",
+								paddingY: "3",
+							})}
+						>
 							{/* Same words CaseBlock labels this with everywhere else -
 							a bare quote leaves the reader to work out whose words
 							they are and why they're there. */}
@@ -196,15 +217,14 @@ export function CallRecordCard({ data }: Props) {
 							</Eyebrow>
 							<p
 								className={css({
-									fontSize: "xs",
-									fontStyle: "italic",
-									color: "fg.body",
+									fontSize: "sm",
+									color: "fg.default",
 									lineHeight: "relaxed",
-									borderLeft: "2px solid {colors.border.emphasized}",
-									paddingLeft: "3",
+									whiteSpace: "pre-wrap",
+									overflowWrap: "anywhere",
 								})}
 							>
-								"{data.caseText}"
+								{data.caseText}
 							</p>
 						</VStack>
 					)}
@@ -283,6 +303,44 @@ export function CallRecordCard({ data }: Props) {
 				</HStack>
 			</Card.Footer>
 		</Card>
+	)
+}
+
+// One pick of a multi-pick award call. A miss is muted like a missed call's
+// headline, and a pending pick carries no mark at all.
+function PickLine({
+	pick,
+}: {
+	pick: NonNullable<CallRecordCardData["picks"]>[number]
+}) {
+	return (
+		<HStack gap="2.5" alignItems="baseline" justify="center">
+			<span
+				className={css({
+					fontFamily: "heading",
+					fontSize: "xl",
+					lineHeight: "1.2",
+					textAlign: "center",
+					color: pick.hit === false ? "fg.muted" : "fg.default",
+				})}
+			>
+				{pick.label}
+			</span>
+			{pick.hit !== null && (
+				<span
+					className={css({
+						fontFamily: "mono",
+						fontSize: "2xs",
+						fontWeight: "medium",
+						textTransform: "uppercase",
+						letterSpacing: "wider",
+						color: pick.hit ? "success.default" : "danger.default",
+					})}
+				>
+					{pick.hit ? "Hit" : "Miss"}
+				</span>
+			)}
+		</HStack>
 	)
 }
 

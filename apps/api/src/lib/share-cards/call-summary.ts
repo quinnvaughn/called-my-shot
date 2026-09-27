@@ -111,16 +111,11 @@ export function buildPickLabel(call: {
 		call.question.shape === "team_season_award"
 	) {
 		if (call.selections.length === 0) return "-"
-		// isCorrect is set on every option at once, at resolution - so any one
-		// selection having it set means the question resolved and all of them
-		// do. Counting hits before that point returns 0 and prints "0 of 3 hit"
-		// on a call nobody has graded yet, which reads as a total whiff. Mirrors
+		// Names the picks whether or not the question has resolved: the card's
+		// verdict and points already say how it went, and the label is dropped
+		// into sentences where a hit count reads as nonsense. Mirrors
 		// formatMultiSelect in apps/web/src/lib/call-summary.ts.
-		if (call.selections[0]?.option.isCorrect === null) {
-			return call.selections.map((s) => s.option.label).join(", ")
-		}
-		const hits = call.selections.filter((s) => s.option.isCorrect).length
-		return `${hits} of ${call.selections.length} hit`
+		return call.selections.map((s) => s.option.label).join(", ")
 	}
 	const selection = call.selections[0]
 	if (!selection) return "-"

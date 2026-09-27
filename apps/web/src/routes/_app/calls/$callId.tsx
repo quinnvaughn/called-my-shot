@@ -278,6 +278,15 @@ function RouteComponent() {
 		username: view.username,
 		avatarUrl: view.avatarUrl,
 		pickLabel: view.pickLabel,
+		picks:
+			(call.question.shape === "PLAYER_SEASON_AWARD" ||
+				call.question.shape === "TEAM_SEASON_AWARD") &&
+			call.selections.length > 1
+				? call.selections.map((s) => ({
+						label: s.option.label,
+						hit: s.option.isCorrect ?? null,
+					}))
+				: null,
 		calledAt: view.calledAt,
 		isWin: view.isWin,
 		points: view.points,
