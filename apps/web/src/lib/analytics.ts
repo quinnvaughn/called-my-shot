@@ -213,7 +213,7 @@ type AnalyticsEvents = {
 	// referral_link_shared only says how the links leave.
 	referral_link_shared: {
 		method: "native" | "clipboard" | "x"
-		surface: "invite_page"
+		surface: "invite_page" | "out_of_redos"
 	}
 	// Someone landed on /join/:code. `codeValid` separates a live link from a
 	// typo or a rotated code, which otherwise look identical in the funnel.
@@ -235,11 +235,12 @@ type AnalyticsEvents = {
 		questionShape: QuestionCallShape
 		balance: number
 	}
-	// The out-of-redos state being shown. Wanting a redo and not having one is
-	// the moment someone is most likely to actually send an invite, so this
-	// paired with redo_invite_clicked at balance 0 is the loop's tightest
+	// The out-of-redos modal opening, which only happens from "Use a redo" at a
+	// balance of 0. Wanting a redo and not having one is the moment someone is
+	// most likely to actually send an invite, so this paired with
+	// referral_link_shared from surface out_of_redos is the loop's tightest
 	// measure.
-	redo_wall_shown: { questionId: string }
+	out_of_redos_shown: { questionId: string }
 	// The earn link on a redo row. Carries the balance because the link shows
 	// at every balance, so a click at 0 (someone blocked, converting) and a
 	// click at 3 (someone topping up) are different acts and would otherwise

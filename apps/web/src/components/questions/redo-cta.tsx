@@ -1,13 +1,14 @@
 import { REDO_BALANCE_CAP } from "@called-my-shot/scoring"
 import { Link } from "@tanstack/react-router"
-import { useEffect } from "react"
 import { FiRotateCcw } from "react-icons/fi"
 import { css } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
 import { match } from "ts-pattern"
 import type { QuestionCallShape } from "#/components/questions/cast-call-form/use-cast-call-form"
+import { OutOfRedosModal } from "#/components/questions/out-of-redos-modal"
 import { InfoTip } from "#/components/ui/info-tip"
 import { track } from "#/lib/analytics"
+import { openModal } from "#/stores/modal-store"
 
 // Where the pick form is relative to this row. The question page owns the
 // form, so it opens it in place; the call page doesn't have one, so it sends
@@ -64,16 +65,6 @@ const actionClass = css({
 	_hover: { color: "fg.muted" },
 })
 
-// Same row, same size, no affordance - an empty wallet still has to name the
-// thing it is empty of.
-const spentClass = css({
-	fontFamily: "mono",
-	fontSize: "2xs",
-	letterSpacing: "wide",
-	textTransform: "uppercase",
-	color: "fg.subtle",
-})
-
 const earnClass = css({
 	fontFamily: "mono",
 	fontSize: "2xs",
@@ -107,12 +98,6 @@ export function RedoCta({
 	questionId: string
 	offer: RedoOffer | null
 }) {
-	const outOfRedos = offer !== null && offer.balance === 0
-
-	useEffect(() => {
-		if (outOfRedos) track("redo_wall_shown", { questionId })
-	}, [outOfRedos, questionId])
-
 	if (!offer) return null
 
 	const trackStart = () =>
@@ -143,13 +128,18 @@ export function RedoCta({
 
 			<HStack justify="space-between" gap="3" alignItems="center">
 				<HStack gap="1.5" alignItems="center">
-					{outOfRedos ? (
-						// Nothing to spend, so this states the position rather
-						// than offering an action the server would refuse.
-						<HStack gap="1.5" alignItems="center" className={spentClass}>
-							<FiRotateCcw aria-hidden size={14} />
-							<span>Out of redos</span>
-						</HStack>
+					{offer.balance === 0 ? (
+						// Still offered at zero, and the click opens how to earn
+						// one instead of the pick form.
+						<button
+							type="button"
+							className={actionClass}
+							onClick={() =>
+								openModal(<OutOfRedosModal questionId={questionId} />)
+							}
+						>
+							{action}
+						</button>
 					) : (
 						match(offer.action)
 							.with({ kind: "open" }, ({ onStart }) => (
@@ -193,7 +183,7 @@ export function RedoCta({
 						})
 					}
 				>
-					Invite a friend →
+					Get more by inviting →
 				</Link>
 			</HStack>
 		</VStack>
