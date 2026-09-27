@@ -1,4 +1,4 @@
-import { useRef, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { css, cx } from "styled-system/css"
 
 type Props = {
@@ -90,11 +90,65 @@ export function Slider({
 	className,
 	"aria-label": ariaLabel,
 }: Props) {
+	const rootRef = useRef<HTMLDivElement>(null)
 	const railRef = useRef<HTMLDivElement>(null)
 	// Value at pointerdown, restored if the browser takes the gesture over
 	// for scrolling partway through.
 	const dragStart = useRef<number | null>(null)
 	const [dragging, setDragging] = useState(false)
+
+	// touch-action alone doesn't stop mobile browsers from starting their own
+	// gestures (swipe-back, toolbar collapse) while a horizontal drag drifts
+	// vertically. Once a touch reads as horizontal, or starts on the knob,
+	// every move of that touch is claimed. A touch that reads as vertical is
+	// left alone so the page still scrolls.
+	useEffect(() => {
+		const root = rootRef.current
+		if (!root) return
+		let start: { x: number; y: number } | null = null
+		let claimed = false
+
+		function onTouchStart(e: TouchEvent) {
+			const touch = e.touches[0]
+			start = { x: touch.clientX, y: touch.clientY }
+			claimed =
+				e.target instanceof Element && e.target.closest("[role=slider]") !== null
+			// Claiming at touchstart is what keeps an edge swipe-back from starting.
+			if (claimed) e.preventDefault()
+		}
+
+		function onTouchMove(e: TouchEvent) {
+			if (!start) return
+			if (!claimed) {
+				const touch = e.touches[0]
+				const dx = Math.abs(touch.clientX - start.x)
+				const dy = Math.abs(touch.clientY - start.y)
+				if (dx < 4 && dy < 4) return
+				if (dy >= dx) {
+					start = null
+					return
+				}
+				claimed = true
+			}
+			if (e.cancelable) e.preventDefault()
+		}
+
+		function onTouchEnd() {
+			start = null
+			claimed = false
+		}
+
+		root.addEventListener("touchstart", onTouchStart, { passive: false })
+		root.addEventListener("touchmove", onTouchMove, { passive: false })
+		root.addEventListener("touchend", onTouchEnd)
+		root.addEventListener("touchcancel", onTouchEnd)
+		return () => {
+			root.removeEventListener("touchstart", onTouchStart)
+			root.removeEventListener("touchmove", onTouchMove)
+			root.removeEventListener("touchend", onTouchEnd)
+			root.removeEventListener("touchcancel", onTouchEnd)
+		}
+	}, [])
 
 	const range = max - min
 	const pct = range > 0 ? ((clamp(value, min, max) - min) / range) * 100 : 0
@@ -161,6 +215,7 @@ export function Slider({
 
 	return (
 		<div
+			ref={rootRef}
 			className={cx(rootStyle, className)}
 			onPointerDown={onPointerDown}
 			onPointerMove={onPointerMove}
