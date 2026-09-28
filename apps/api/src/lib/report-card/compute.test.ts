@@ -141,6 +141,28 @@ describe("the grade", () => {
 		const calls = Array.from({ length: REPORT_CARD_MIN_SETTLED }, () => call())
 		expect(buildReportCard(calls).grade).toBe("A+")
 	})
+
+	it("weighs the sample by commitment, not by call count", () => {
+		// 20 even calls at +40%: 14 hits and 6 misses at 75 each.
+		const even = Array.from({ length: 20 }, (_, i) =>
+			i < 14 ? call() : loss(),
+		)
+		expect(buildReportCard(even).returnPct).toBeCloseTo(40)
+		expect(buildReportCard(even).grade).toBe("A")
+
+		// A higher return that rides on one call: a conviction-100 hit
+		// committing 150, beside nineteen conviction-2 misses committing 3
+		// each. Twenty calls on paper, under two in effect.
+		const lopsided = [
+			call({ convictions: [100], netPoints: 150 }),
+			...Array.from({ length: 19 }, () =>
+				loss({ convictions: [2], netPoints: -3 }),
+			),
+		]
+		const card = buildReportCard(lopsided)
+		expect(card.returnPct).toBeGreaterThan(40)
+		expect(card.grade).toBe("B")
+	})
 })
 
 describe("isFinal", () => {

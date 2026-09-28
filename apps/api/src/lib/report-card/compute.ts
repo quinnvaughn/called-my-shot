@@ -1,5 +1,6 @@
 import {
 	BASE_POINTS_BY_SHAPE,
+	effectiveCallCount,
 	effectiveLossRate,
 	type Grade,
 	gradeForReturn,
@@ -99,6 +100,9 @@ type Bucket = {
 	pendingCount: number
 	netPoints: number
 	committedPoints: number
+	// Sum of each settled call's commitment squared, for effectiveCallCount.
+	// Per call, not per selection: a multiselect call is one outcome.
+	committedSquares: number
 	pendingStake: number
 }
 
@@ -109,6 +113,7 @@ const emptyBucket = (): Bucket => ({
 	pendingCount: 0,
 	netPoints: 0,
 	committedPoints: 0,
+	committedSquares: 0,
 	pendingStake: 0,
 })
 
@@ -161,12 +166,15 @@ function accumulate(
 	if (classification.won) bucket.wins += 1
 	else bucket.losses += 1
 	bucket.netPoints += call.netPoints ?? 0
+	let committed = 0
 	for (const conviction of call.convictions) {
-		bucket.committedPoints += pointsCommitted(basePoints, conviction)
+		committed += pointsCommitted(basePoints, conviction)
 	}
+	bucket.committedPoints += committed
+	bucket.committedSquares += committed * committed
 }
 
-const statsFrom = (bucket: Bucket): ReportCardStats => ({
+const statsFrom = ({ committedSquares, ...bucket }: Bucket): ReportCardStats => ({
 	...bucket,
 	// Settled commitment only. Folding pending calls into the denominator
 	// would drag the number toward zero all afternoon and then snap when the
@@ -241,7 +249,10 @@ export function buildReportCard(calls: ReportCardCall[]): ReportCard {
 		// any count and still render.
 		grade:
 			stats.settledCount >= REPORT_CARD_MIN_SETTLED
-				? gradeForReturn(stats.returnPct)
+				? gradeForReturn(
+						stats.returnPct,
+						effectiveCallCount(totals.committedPoints, totals.committedSquares),
+					)
 				: null,
 		isFinal: totals.pendingCount === 0 && totals.settledCount > 0,
 		// Emitted in SHAPE_FAMILIES order rather than by volume, so the card

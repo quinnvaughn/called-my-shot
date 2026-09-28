@@ -8,10 +8,13 @@ import {
 	selectionPoints,
 } from "./index"
 import {
+	CALL_RETURN_SPREAD,
+	effectiveCallCount,
 	GRADE_BANDS,
 	gradeForReturn,
 	REPORT_CARD_MIN_SETTLED,
 	returnOnCommitted,
+	returnScore,
 } from "./report-card"
 
 describe("returnOnCommitted", () => {
@@ -67,28 +70,70 @@ describe("returnOnCommitted", () => {
 	})
 })
 
+describe("effectiveCallCount", () => {
+	it("is the plain count when every call committed the same", () => {
+		// Ten calls at 75 each.
+		expect(effectiveCallCount(750, 10 * 75 * 75)).toBeCloseTo(10)
+	})
+
+	it("shrinks when one call dominates the commitment", () => {
+		// One call at 1000 beside ten at 10.
+		const committed = 1000 + 10 * 10
+		const squares = 1000 * 1000 + 10 * 10 * 10
+		const n = effectiveCallCount(committed, squares)
+		expect(n).toBeGreaterThan(1)
+		expect(n).toBeLessThan(1.5)
+	})
+
+	it("is zero with nothing committed", () => {
+		expect(effectiveCallCount(0, 0)).toBe(0)
+	})
+})
+
+describe("returnScore", () => {
+	it("is the return over the spread at one call", () => {
+		expect(returnScore(CALL_RETURN_SPREAD, 1)).toBeCloseTo(1)
+	})
+
+	it("grows with the square root of the sample", () => {
+		expect(returnScore(10, 100)).toBeCloseTo(returnScore(10, 25) * 2)
+	})
+})
+
 describe("gradeForReturn", () => {
-	it("takes the first band the return clears", () => {
-		expect(gradeForReturn(120)).toBe("A+")
-		expect(gradeForReturn(50)).toBe("A+")
-		expect(gradeForReturn(49.9)).toBe("A")
-		expect(gradeForReturn(32)).toBe("A")
-		expect(gradeForReturn(31.9)).toBe("B")
-		expect(gradeForReturn(10)).toBe("B")
-		expect(gradeForReturn(9.9)).toBe("C")
-		expect(gradeForReturn(0)).toBe("C")
-		expect(gradeForReturn(-8)).toBe("C")
-		expect(gradeForReturn(-8.1)).toBe("D")
-		expect(gradeForReturn(-32)).toBe("D")
-		expect(gradeForReturn(-32.1)).toBe("F")
-		expect(gradeForReturn(-100)).toBe("F")
+	it("takes the first band the score clears", () => {
+		// At 25 calls the standard error is 95 / 5 = 19, so each band edge
+		// sits at 19 x its score.
+		const at = (score: number) => gradeForReturn(score * 19, 25)
+		expect(at(3)).toBe("A+")
+		expect(at(2)).toBe("A+")
+		expect(at(1.99)).toBe("A")
+		expect(at(1.25)).toBe("A")
+		expect(at(1.24)).toBe("B")
+		expect(at(0.5)).toBe("B")
+		expect(at(0.49)).toBe("C")
+		expect(at(0)).toBe("C")
+		expect(at(-0.5)).toBe("C")
+		expect(at(-0.51)).toBe("D")
+		expect(at(-1.5)).toBe("D")
+		expect(at(-1.51)).toBe("F")
+	})
+
+	it("grades the same return harder the more calls stand behind it", () => {
+		// A clearly losing 92-call week, and the same return over a handful.
+		expect(gradeForReturn(-7.1, 92)).toBe("D")
+		expect(gradeForReturn(-7.1, 6)).toBe("C")
+		// A hot 7-call stretch is mostly luck; the same pace over 92 is not.
+		expect(gradeForReturn(43, 7)).toBe("B")
+		expect(gradeForReturn(43, 92)).toBe("A+")
 	})
 
 	it("has no grade for a window that committed nothing", () => {
-		expect(gradeForReturn(null)).toBeNull()
+		expect(gradeForReturn(null, 10)).toBeNull()
+		expect(gradeForReturn(0, 0)).toBeNull()
 	})
 
-	it("covers every return with exactly one band, ordered high to low", () => {
+	it("covers every score with exactly one band, ordered high to low", () => {
 		const mins = GRADE_BANDS.map((band) => band.min)
 		expect(mins).toStrictEqual([...mins].sort((a, b) => b - a))
 		expect(mins.at(-1)).toBe(Number.NEGATIVE_INFINITY)
@@ -97,11 +142,10 @@ describe("gradeForReturn", () => {
 		)
 	})
 
-	it("puts break-even inside C rather than at its floor", () => {
-		// Zero is an ordinary window, not a bad one - it should sit in the
-		// middle of the average grade, with room below it.
-		expect(gradeForReturn(0)).toBe("C")
-		expect(gradeForReturn(-5)).toBe("C")
+	it("puts break-even in the middle of C at any sample size", () => {
+		for (const n of [5, 12, 30, 92, 500]) {
+			expect(gradeForReturn(0, n)).toBe("C")
+		}
 	})
 })
 
