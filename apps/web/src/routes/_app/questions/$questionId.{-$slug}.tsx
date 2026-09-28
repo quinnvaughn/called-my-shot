@@ -636,6 +636,7 @@ function RouteComponent() {
 			    history to show. */}
 				<StatContextCard
 					statContext={statContext.data?.question?.statContext}
+					trackRecord={statContext.data?.question?.viewerTrackRecord}
 					teams={teamLabels}
 					isCallable={isCallable}
 				/>

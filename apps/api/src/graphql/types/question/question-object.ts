@@ -1,6 +1,7 @@
 import {
 	fieldPct,
 	isNumericGuessShape,
+	SHAPE_LABEL,
 	STREAK_FAMILY_LABEL,
 	STREAK_TAG_MIN,
 	streakFamilyFor,
@@ -17,6 +18,11 @@ import {
 import { keysetPaginate } from "../../../lib/pagination"
 import { buildStatContext } from "../../../lib/stat-context/build"
 import { countsTowardAchievements } from "../../../lib/streaks/enqueue"
+import type { TrackRecordSide } from "../../../lib/track-record/compute"
+import {
+	loadTrackRecord,
+	type TrackRecordRow,
+} from "../../../lib/track-record/load"
 import { builder } from "../../builder"
 import { groupByKey, indexByKey } from "../../loader"
 import { BallotQuestionRef } from "../ballot"
@@ -55,6 +61,40 @@ const StreakStakeRef = builder.objectRef<UserStreak>("StreakStake").implement({
 		bestLength: t.exposeInt("bestLength"),
 	}),
 })
+
+const TrackRecordSideRef = builder
+	.objectRef<TrackRecordSide>("TrackRecordSide")
+	.implement({
+		fields: (t) => ({
+			label: t.exposeString("label"),
+			wins: t.exposeInt("wins"),
+			losses: t.exposeInt("losses"),
+			netPoints: t.exposeInt("netPoints"),
+		}),
+	})
+
+const TrackRecordRowRef = builder
+	.objectRef<TrackRecordRow>("TrackRecordRow")
+	.implement({
+		fields: (t) => ({
+			label: t.exposeString("label", { nullable: true }),
+			sides: t.field({ type: [TrackRecordSideRef], resolve: (r) => r.sides }),
+		}),
+	})
+
+// The viewer's record picking each option of a two-option question - see
+// Question.viewerTrackRecord. Labels ride along so the client never has to
+// resolve a stat or subject name itself.
+const TrackRecordRef = builder
+	.objectRef<{ label: string; rows: TrackRecordRow[] }>("TrackRecord")
+	.implement({
+		fields: (t) => ({
+			// The stat these calls share, or the shape's name when there's no
+			// stat, like a yes/no prop.
+			label: t.exposeString("label"),
+			rows: t.field({ type: [TrackRecordRowRef], resolve: (r) => r.rows }),
+		}),
+	})
 
 export const QuestionOptionRef = builder.drizzleObject("questionOptions", {
 	name: "QuestionOption",
@@ -623,6 +663,47 @@ export const QuestionRef = builder.drizzleObject("questions", {
 					`${ctx.user.id}:${question.leagueId}:${family}`,
 				)
 				return streak && streak.currentLength >= STREAK_TAG_MIN ? streak : null
+			},
+		}),
+
+		// How the viewer has done picking each of this question's two options
+		// on every other question of the same shape and stat they've settled:
+		// overall, on this subject alone, and home against road when the
+		// options are the game's two teams. Null when signed out, when the
+		// question doesn't have exactly two options, or when no row has a side
+		// with enough calls.
+		viewerTrackRecord: t.field({
+			type: TrackRecordRef,
+			nullable: true,
+			resolve: async (question, _args, ctx) => {
+				if (!ctx.user) return null
+				const [stat, team, player] = await Promise.all([
+					question.statId
+						? db.query.stats.findFirst({
+								where: { id: question.statId },
+								columns: { name: true },
+							})
+						: null,
+					question.subjectTeamId
+						? db.query.teams.findFirst({
+								where: { id: question.subjectTeamId },
+								columns: { name: true },
+							})
+						: null,
+					question.subjectPlayerId
+						? db.query.players.findFirst({
+								where: { id: question.subjectPlayerId },
+								columns: { name: true },
+							})
+						: null,
+				])
+				const rows = await loadTrackRecord(
+					ctx.user.id,
+					question,
+					player?.name ?? team?.name ?? null,
+				)
+				if (!rows || rows.length === 0) return null
+				return { label: stat?.name ?? SHAPE_LABEL[question.shape], rows }
 			},
 		}),
 

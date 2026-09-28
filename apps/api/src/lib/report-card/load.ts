@@ -24,6 +24,58 @@ async function windowGameIds(
 	return rows.map((row) => row.id)
 }
 
+// The shape of a call row as the report card and track record both load it.
+type LoadedCall = {
+	id: string
+	conviction: number | null
+	hitTolerance: boolean | null
+	resultPoints: number | null
+	unscoredReason: ReportCardCall["unscoredReason"]
+	createdAt: Date
+	selections: {
+		conviction: number
+		resultPoints: number | null
+		option: { isCorrect: boolean | null; lossRate: number | null } | null
+	}[]
+}
+
+export function toReportCardCall(
+	question: Pick<ReportCardCall, "shape" | "status" | "lossRate">,
+	call: LoadedCall,
+): ReportCardCall {
+	const numeric = isNumericGuessShape(question.shape)
+	return {
+		callId: call.id,
+		shape: question.shape,
+		status: question.status,
+		unscoredReason: call.unscoredReason,
+		hitTolerance: call.hitTolerance,
+		lossRate: question.lossRate,
+		// The trap this whole module exists around: calls.resultPoints is
+		// null for every option shape, which scores through call_selections
+		// instead (see the comment on `calls` in db/schema/calls.ts). Reading
+		// the call column alone reports a near-zero net for almost every
+		// caller, silently. Same resolution CallRef.totalPoints already uses.
+		netPoints:
+			call.resultPoints ??
+			(call.selections.length > 0 &&
+			call.selections.every((s) => s.resultPoints !== null)
+				? call.selections.reduce((sum, s) => sum + (s.resultPoints ?? 0), 0)
+				: null),
+		// Conviction lives on the call for a numeric guess and on each
+		// selection for every other shape, exactly as numericGuessPoints and
+		// selectionPoints read it.
+		convictions: numeric
+			? call.conviction === null
+				? []
+				: [call.conviction]
+			: call.selections.map((s) => s.conviction),
+		selectionsCorrect: call.selections.map((s) => s.option?.isCorrect ?? null),
+		selectionLossRates: call.selections.map((s) => s.option?.lossRate ?? null),
+		createdAt: call.createdAt,
+	}
+}
+
 // Always returns a card for a window that exists, even an empty one. Whether
 // the window held no games, the viewer called nothing, or every call they made
 // got voided, the only true sentence is the same: they have no calls that
@@ -74,45 +126,8 @@ export async function loadReportCard(
 		},
 	})
 
-	const calls = questions.flatMap((question): ReportCardCall[] =>
-		question.calls.map((call) => {
-			const numeric = isNumericGuessShape(question.shape)
-			return {
-				callId: call.id,
-				shape: question.shape,
-				status: question.status,
-				unscoredReason: call.unscoredReason,
-				hitTolerance: call.hitTolerance,
-				lossRate: question.lossRate,
-				// The trap this whole module exists around: calls.resultPoints is
-				// null for every option shape, which scores through
-				// call_selections instead (see the comment on `calls` in
-				// db/schema/calls.ts). Reading the call column alone reports a
-				// near-zero net for almost every caller, silently. Same resolution
-				// CallRef.totalPoints already uses.
-				netPoints:
-					call.resultPoints ??
-					(call.selections.length > 0 &&
-					call.selections.every((s) => s.resultPoints !== null)
-						? call.selections.reduce((sum, s) => sum + (s.resultPoints ?? 0), 0)
-						: null),
-				// Conviction lives on the call for a numeric guess and on each
-				// selection for every other shape, exactly as numericGuessPoints
-				// and selectionPoints read it.
-				convictions: numeric
-					? call.conviction === null
-						? []
-						: [call.conviction]
-					: call.selections.map((s) => s.conviction),
-				selectionsCorrect: call.selections.map(
-					(s) => s.option?.isCorrect ?? null,
-				),
-				selectionLossRates: call.selections.map(
-					(s) => s.option?.lossRate ?? null,
-				),
-				createdAt: call.createdAt,
-			}
-		}),
+	const calls = questions.flatMap((question) =>
+		question.calls.map((call) => toReportCardCall(question, call)),
 	)
 
 	return buildReportCard(calls)

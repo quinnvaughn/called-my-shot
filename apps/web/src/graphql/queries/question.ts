@@ -238,6 +238,9 @@ export const QuestionStatContextDocument = graphql(`
 			statContext {
 				...StatContextCard_statContext
 			}
+			viewerTrackRecord {
+				...StatContextCard_trackRecord
+			}
 		}
 	}
 `)

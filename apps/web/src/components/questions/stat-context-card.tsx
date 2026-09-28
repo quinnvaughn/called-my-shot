@@ -6,7 +6,26 @@ import { button } from "#/components/ui/button"
 import { Card } from "#/components/ui/card"
 import { Eyebrow } from "#/components/ui/eyebrow"
 import { type FragmentType, graphql, useFragment } from "#/graphql/generated"
-import type { StatContextCard_StatContextFragment } from "#/graphql/generated/graphql"
+import type {
+	StatContextCard_StatContextFragment,
+	StatContextCard_TrackRecordFragment,
+} from "#/graphql/generated/graphql"
+import { formatRecord as formatWinLoss, formatSignedPoints } from "#/lib/ballot-entry"
+
+export const StatContextTrackRecordFragment = graphql(`
+	fragment StatContextCard_trackRecord on TrackRecord {
+		label
+		rows {
+			label
+			sides {
+				label
+				wins
+				losses
+				netPoints
+			}
+		}
+	}
+`)
 
 export const StatContextCardFragment = graphql(`
 	fragment StatContextCard_statContext on StatContext {
@@ -872,8 +891,67 @@ function Meetings({
 	)
 }
 
+type TrackRecordSide =
+	StatContextCard_TrackRecordFragment["rows"][number]["sides"][number]
+
+function TrackRecordRow(props: { label: string; sides: TrackRecordSide[] }) {
+	return (
+		<HStack justify="space-between" alignItems="baseline" gap="3">
+			<span className={css({ fontSize: "sm", color: "fg.muted" })}>
+				{props.label}
+			</span>
+			<HStack gap="4" alignItems="baseline">
+				{props.sides.map((side) => (
+					<span
+						key={side.label}
+						className={css({ fontFamily: "mono", fontSize: "sm" })}
+					>
+						{side.label}{" "}
+						{formatWinLoss(side.wins, side.losses)}{" "}
+						<span
+							className={css({
+								color:
+									side.netPoints >= 0 ? "success.default" : "danger.default",
+							})}
+						>
+							{formatSignedPoints(side.netPoints)}
+						</span>
+					</span>
+				))}
+			</HStack>
+		</HStack>
+	)
+}
+
+// The viewer's own record picking each of this question's two options: every
+// question of the same shape and stat they've settled, then this subject
+// alone, then home against road, each only when it has enough calls.
+function TrackRecordStrip(props: {
+	record: StatContextCard_TrackRecordFragment
+}) {
+	const { record } = props
+	return (
+		<VStack gap="2" alignItems="stretch">
+			<h3 className={sectionHeadingClass}>
+				{`Your record \u00b7 ${record.label}`}
+			</h3>
+			{record.rows.map((row) => (
+				<TrackRecordRow
+					key={row.label ?? "all"}
+					label={row.label ?? "All your calls"}
+					sides={row.sides}
+				/>
+			))}
+			<p className={css({ fontSize: "xs", color: "fg.subtle" })}>
+				Your settled calls on questions like this one, with points won or lost.
+			</p>
+		</VStack>
+	)
+}
+
 export function StatContextCard(props: {
 	statContext?: FragmentType<typeof StatContextCardFragment> | null
+	trackRecord?: FragmentType<typeof StatContextTrackRecordFragment> | null
 	teams: TeamLabels
 	// Whether the viewer still has a call to make on this question.
 	isCallable: boolean
@@ -884,8 +962,22 @@ export function StatContextCard(props: {
 	// than input, so it starts out of the way and stays one tap from view.
 	const [expanded, setExpanded] = useState(props.isCallable)
 	const context = useFragment(StatContextCardFragment, props.statContext)
+	const trackRecord = useFragment(
+		StatContextTrackRecordFragment,
+		props.trackRecord,
+	)
 
-	if (!context) return null
+	// A season-scoped question has no box-score history to show, but the
+	// viewer's own record on the stat still stands on its own.
+	const recordOnly = trackRecord ? (
+		<Card>
+			<Card.Body>
+				<TrackRecordStrip record={trackRecord} />
+			</Card.Body>
+		</Card>
+	) : null
+
+	if (!context) return recordOnly
 
 	// Not gated on subjects being present: a pool question deliberately has
 	// none, because its ranking stands in for them, and a game-level question
@@ -903,7 +995,9 @@ export function StatContextCard(props: {
 
 	// Everything got gated out, so there's nothing worth a card. Renders
 	// nothing rather than an empty state, the same as GameStarters.
-	if (!matchup && columns.length === 0 && ranking.length === 0) return null
+	if (!matchup && columns.length === 0 && ranking.length === 0) {
+		return recordOnly
+	}
 
 	const twoUp = matchup ? true : columns.length > 1
 	// The sat-out note only makes sense next to a strip that can show one.
@@ -979,6 +1073,7 @@ export function StatContextCard(props: {
 												: ""
 										}`}
 							</p>
+							{trackRecord && <TrackRecordStrip record={trackRecord} />}
 						</>
 					)}
 				</VStack>
