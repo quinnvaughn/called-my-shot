@@ -171,6 +171,7 @@ export function titleFactsFor(
 			"player_award_finalists",
 			"team_season_stat_numeric_guess",
 			"player_season_stat_leader",
+			"player_team_season_stat_leader",
 			() => null,
 		)
 		.exhaustive()

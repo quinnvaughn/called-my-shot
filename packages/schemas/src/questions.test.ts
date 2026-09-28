@@ -50,7 +50,7 @@ function expectValid(input: unknown) {
 
 describe("questionShapeSchema", () => {
 	it("accepts every shape the app supports and nothing else", () => {
-		expect(questionShapeSchema.options).toHaveLength(18)
+		expect(questionShapeSchema.options).toHaveLength(19)
 		expect(questionShapeSchema.safeParse("yes_no_prop").success).toBe(true)
 		expect(questionShapeSchema.safeParse("YES_NO_PROP").success).toBe(false)
 		expect(questionShapeSchema.safeParse("made_up_shape").success).toBe(false)
@@ -529,6 +529,22 @@ describe("createQuestionSchema - stat-leader shapes", () => {
 			}),
 		)
 		expect(parsed.statAggregation).toBeUndefined()
+	})
+
+	it("takes a team and a stat for the team leader, and no pool", () => {
+		const teamLeader = base({
+			shape: "player_team_season_stat_leader",
+			subjectTeamId: TEAM_A,
+			statId: STAT,
+		})
+		expectValid(teamLeader)
+		expectValid({ ...teamLeader, statId: undefined, customStat: "Deflections" })
+		expect(errorPaths({ ...teamLeader, subjectTeamId: undefined })).toContain(
+			"subjectTeamId",
+		)
+		expect(errorPaths({ ...teamLeader, statId: undefined })).toContain(
+			"customStat",
+		)
 	})
 })
 

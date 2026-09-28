@@ -156,6 +156,8 @@ const BASKETBALL_STATS: StatEntry[] = [
 		"both",
 		{ player: 0.5, team: 4.5 },
 	],
+	// Player-only: a team's minutes are 240 plus overtime every night.
+	["Minutes", "Playing Time", "High-Volume", "player", { player: 32.5 }],
 	// Season-long, team-only in practice (no player "wins" a box score). No
 	// typical line: it's the one stat with no per-game reading, and that column
 	// is per-game only - see TypicalLines above.

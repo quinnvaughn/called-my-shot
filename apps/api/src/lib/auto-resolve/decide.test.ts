@@ -89,6 +89,17 @@ describe("decideGameQuestion - player over/under", () => {
 		).toMatchObject({ kind: "fail", reason: "missing_external_ref" })
 	})
 
+	it("reads a player's minutes", () => {
+		expect(
+			decideGameQuestion(
+				context({
+					...playerOverUnder("3155535", 22.5),
+					extractor: GAME_EXTRACTORS["nba:game:player:Minutes"],
+				}),
+			),
+		).toMatchObject({ kind: "resolve", actualValue: 25 })
+	})
+
 	it("retries a player missing from the box score", () => {
 		expect(
 			decideGameQuestion(context(playerOverUnder("999999", 10.5))),

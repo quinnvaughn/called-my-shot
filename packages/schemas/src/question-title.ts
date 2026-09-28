@@ -115,6 +115,11 @@ export type TitleInput =
 			// without it.
 			statAggregation: StatAggregation | null
 	  }
+	| {
+			shape: "player_team_season_stat_leader"
+			teamName: string
+			statName: string
+	  }
 	| { shape: "yes_no_prop"; subjectName: string | null; eventClause: string }
 	| {
 			shape: "player_season_award"
@@ -426,6 +431,15 @@ function titlePlayerSeasonStatLeader(
 	return `Who ${verb} ${comparison} ${statInSentence(input.statName)}${perGame} this season among ${joinWithAnd(input.playerNames)}?`
 }
 
+// "lead", with no "most" or "highest" to pick between: it reads the same for
+// a count and a rate. Unscoped by pool, unlike the curated leader above,
+// because the pool is the whole roster.
+function titlePlayerTeamSeasonStatLeader(
+	input: Extract<TitleInput, { shape: "player_team_season_stat_leader" }>,
+): string {
+	return `Who will lead the ${input.teamName} in ${statInSentence(input.statName)} this season?`
+}
+
 // --- Yes/no ---
 
 function titleYesNoProp(
@@ -505,6 +519,10 @@ export function generateQuestionTitle(input: TitleInput): string {
 		.with({ shape: "team_vs_team_season" }, titleTeamVsTeamSeason)
 		.with({ shape: "player_game_stat_leader" }, titlePlayerGameStatLeader)
 		.with({ shape: "player_season_stat_leader" }, titlePlayerSeasonStatLeader)
+		.with(
+			{ shape: "player_team_season_stat_leader" },
+			titlePlayerTeamSeasonStatLeader,
+		)
 		.with({ shape: "yes_no_prop" }, titleYesNoProp)
 		.with({ shape: "player_season_award" }, titlePlayerSeasonAward)
 		.with({ shape: "team_season_award" }, titleTeamSeasonAward)

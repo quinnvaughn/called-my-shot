@@ -1,3 +1,7 @@
+import {
+	AUTO_RESOLVE_STATS,
+	UNSTORED_GAME_LEADER_STATS,
+} from "@called-my-shot/schemas"
 import { describe, expect, it } from "vitest"
 import { parseMadeAttempted } from "../../db/sync/box-score-parse"
 import { GAME_EXTRACTORS } from "./registry"
@@ -110,5 +114,18 @@ describe("GAME_EXTRACTORS box stat sources", () => {
 		}
 
 		expect(conflicts).toEqual([])
+	})
+})
+
+describe("UNSTORED_GAME_LEADER_STATS", () => {
+	it("lists exactly the leader stats a team's season can't be added up from", () => {
+		const unstored = gameEntries
+			.filter(
+				([key, e]) =>
+					e.subject === "player" && AUTO_RESOLVE_STATS[key].leader && !e.source,
+			)
+			.map(([key]) => key)
+
+		expect([...UNSTORED_GAME_LEADER_STATS].sort()).toEqual(unstored.sort())
 	})
 })

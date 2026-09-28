@@ -7,6 +7,7 @@ import { MatchupPanel } from "./matchup-panel"
 import {
 	GameStatLeaderPanel,
 	SeasonStatLeaderPanel,
+	TeamStatLeaderPanel,
 } from "./stat-leader-panels"
 import { StatPanel } from "./stat-panel"
 import { YesNoPanel } from "./yes-no-panel"
@@ -50,6 +51,7 @@ export function ShapePanelFor({
 			.with("team_vs_team", () => <MatchupPanel />)
 			.with("player_game_stat_leader", () => <GameStatLeaderPanel />)
 			.with("player_season_stat_leader", () => <SeasonStatLeaderPanel />)
+			.with("player_team_season_stat_leader", () => <TeamStatLeaderPanel />)
 			.with("yes_no_prop", () => <YesNoPanel />)
 			// No key, same reasoning as StatPanel: these two shared one
 			// branch, so switching between them kept the league and

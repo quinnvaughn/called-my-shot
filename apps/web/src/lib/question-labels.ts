@@ -76,6 +76,7 @@ export const questionShapeIcon: Record<QuestionShape, IconType> = {
 	TEAM_VS_TEAM_SEASON: FaPeopleGroup,
 	PLAYER_GAME_STAT_LEADER: FaRankingStar,
 	PLAYER_SEASON_STAT_LEADER: FaRankingStar,
+	PLAYER_TEAM_SEASON_STAT_LEADER: FaRankingStar,
 	YES_NO_PROP: FaToggleOn,
 	PLAYER_SEASON_AWARD: FaTrophy,
 	TEAM_SEASON_AWARD: FaTrophy,
@@ -112,6 +113,7 @@ const NUMERIC_GUESS_BY_SHAPE: Record<QuestionShape, boolean> = {
 	TEAM_VS_TEAM_SEASON: false,
 	PLAYER_GAME_STAT_LEADER: false,
 	PLAYER_SEASON_STAT_LEADER: false,
+	PLAYER_TEAM_SEASON_STAT_LEADER: false,
 	YES_NO_PROP: false,
 	PLAYER_SEASON_AWARD: false,
 	TEAM_SEASON_AWARD: false,
@@ -194,6 +196,8 @@ export const questionShapeDescription: Record<QuestionShape, string> = {
 		"One stat, one game, both rosters: who leads it. Resolution can mark more than one player correct on a real tie.",
 	PLAYER_SEASON_STAT_LEADER:
 		"Three or more named players, one stat, the whole season: which of them finishes on top - always one of the names you pick, not the league leader. Off-catalog stats allowed, so advanced metrics work.",
+	PLAYER_TEAM_SEASON_STAT_LEADER:
+		"One team, one stat, the whole season: who on the roster leads it. Only stats put up for that team count, so a traded player keeps just their games there.",
 	YES_NO_PROP:
 		"Will it happen or not: a triple-double, a buzzer-beater, anything with a clean yes or no.",
 	PLAYER_SEASON_AWARD:

@@ -501,6 +501,7 @@ export const GAME_EXTRACTORS = {
 	"nba:game:player:Turnovers": nbaPlayer("turnovers"),
 	"nba:game:player:Steals": nbaPlayer("steals"),
 	"nba:game:player:Blocks": nbaPlayer("blocks"),
+	"nba:game:player:Minutes": nbaPlayer("minutes"),
 	"nba:game:team:Points": teamScore,
 	"nba:game:team:3-Pointers Made": teamBoxStat(
 		"threePointFieldGoalsMade-threePointFieldGoalsAttempted",
@@ -602,6 +603,7 @@ export const SEASON_EXTRACTORS = {
 	"nba:season:player:Turnovers": seasonPlayer("offensive.turnovers"),
 	"nba:season:player:Steals": seasonPlayer("defensive.steals"),
 	"nba:season:player:Blocks": seasonPlayer("defensive.blocks"),
+	"nba:season:player:Minutes": seasonPlayer("general.minutes"),
 	"nba:season:team:Points": seasonTeam("offensive.points"),
 	"nba:season:team:3-Pointers Made": seasonTeam(
 		"offensive.threePointFieldGoalsMade",

@@ -26,11 +26,14 @@ export const QuestionShape = builder.enumType("QuestionShape", {
 		TEAM_SEASON_STAT_NUMERIC_GUESS: { value: "team_season_stat_numeric_guess" },
 		PLAYER_GAME_STAT_LEADER: { value: "player_game_stat_leader" },
 		PLAYER_SEASON_STAT_LEADER: { value: "player_season_stat_leader" },
+		PLAYER_TEAM_SEASON_STAT_LEADER: {
+			value: "player_team_season_stat_leader",
+		},
 	},
 })
 
 // The six coarser buckets a shape falls into, for grouping a breakdown that
-// 18 rows would make unscannable. Built off SHAPE_FAMILIES rather than listed
+// 19 rows would make unscannable. Built off SHAPE_FAMILIES rather than listed
 // by hand so a family added there turns up here without a second edit - the
 // values are already SCREAMING_CASE for exactly this reason.
 export const ShapeFamily = builder.enumType("ShapeFamily", {

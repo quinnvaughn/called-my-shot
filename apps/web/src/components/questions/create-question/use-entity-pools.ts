@@ -25,10 +25,12 @@ type Args = {
 	isTeamAward: boolean
 	isGameStatLeader: boolean
 	isSeasonStatLeader: boolean
+	isTeamSeasonStatLeader: boolean
 	isFinalists: boolean
 	teams: CatalogTeam[]
 	players: CatalogPlayer[]
 	gameTeamIds: Set<string> | null
+	subjectTeamId: string | undefined
 	awardConferences: string[]
 	awardDivisions: string[]
 	awardPositions: string[]
@@ -52,10 +54,12 @@ export function useEntityPools({
 	isTeamAward,
 	isGameStatLeader,
 	isSeasonStatLeader,
+	isTeamSeasonStatLeader,
 	isFinalists,
 	teams,
 	players,
 	gameTeamIds,
+	subjectTeamId,
 	awardConferences,
 	awardDivisions,
 	awardPositions,
@@ -155,6 +159,16 @@ export function useEntityPools({
 		)
 	}, [isGameStatLeader, gameTeamIds, players])
 
+	// player_team_season_stat_leader's pool - the picked team's roster, the
+	// same one the server derives when the question is created. Memoized for
+	// the same PoolSummary reason as the game-scoped pool above.
+	const teamStatLeaderPoolItems: EntitySearchItem[] | null = useMemo(() => {
+		if (!isTeamSeasonStatLeader || !subjectTeamId) return null
+		return toPlayerItems(
+			players.filter((player) => player.currentTeam?.id === subjectTeamId),
+		)
+	}, [isTeamSeasonStatLeader, subjectTeamId, players])
+
 	// These two feed OptionList, which only reads them for autocomplete and
 	// never writes back - so unlike the two above they don't need a stable
 	// reference and aren't memoized.
@@ -171,6 +185,7 @@ export function useEntityPools({
 	return {
 		awardPoolItems,
 		gameStatLeaderPoolItems,
+		teamStatLeaderPoolItems,
 		finalistItems,
 		seasonStatLeaderItems,
 	}

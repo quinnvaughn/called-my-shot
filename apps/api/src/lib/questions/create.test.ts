@@ -16,6 +16,7 @@ const emptyContext: ShapeContext = {
 	awardPlayerPool: null,
 	awardTeamPool: null,
 	gameLeaderPool: null,
+	teamLeaderPool: null,
 }
 
 const game = {
@@ -74,6 +75,20 @@ describe("validateShapeFields", () => {
 		})
 	})
 
+	it("rejects a team leader whose roster is too thin to pick from", () => {
+		const error = fieldError(() =>
+			validateShapeFields(input({ shape: "player_team_season_stat_leader" }), {
+				...emptyContext,
+				subjectTeam: {},
+				teamLeaderPool: [{ id: "p1", name: "One" }] as Player[],
+			}),
+		)
+		expect(error).toEqual({
+			field: "subjectTeamId",
+			message: "Not enough players on that team's roster yet",
+		})
+	})
+
 	it("passes a complete team over/under", () => {
 		expect(() =>
 			validateShapeFields(
@@ -115,6 +130,16 @@ describe("optionsFor", () => {
 			{ label: "One", playerId: "p1" },
 			{ label: "Two", playerId: "p2" },
 		])
+	})
+
+	it("builds a team leader pool from the team's roster", () => {
+		const pool = [{ id: "p1", name: "One" }] as Player[]
+		expect(
+			optionsFor(input({ shape: "player_team_season_stat_leader" }), {
+				...emptyContext,
+				teamLeaderPool: pool,
+			}),
+		).toEqual([{ label: "One", playerId: "p1" }])
 	})
 
 	it("gives a numeric guess no options", () => {

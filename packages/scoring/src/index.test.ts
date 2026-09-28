@@ -58,6 +58,7 @@ const ALL_SHAPES: QuestionShape[] = [
 	"team_season_stat_numeric_guess",
 	"player_game_stat_leader",
 	"player_season_stat_leader",
+	"player_team_season_stat_leader",
 ]
 
 describe("BASE_POINTS_BY_SHAPE", () => {

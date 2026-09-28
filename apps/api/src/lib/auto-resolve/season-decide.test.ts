@@ -11,6 +11,7 @@ import { espnFixture } from "../../test/helpers"
 import { SEASON_EXTRACTORS, type SeasonSources } from "./registry"
 import {
 	decideSeasonQuestion,
+	decideTeamSeasonLeader,
 	type SeasonQuestionContext,
 } from "./season-decide"
 
@@ -93,6 +94,23 @@ describe("decideSeasonQuestion - player lines", () => {
 			actualValue: 948,
 			evidence: { value: 948 },
 		})
+	})
+
+	it("reads season minutes as a total or a per-game rate", () => {
+		// 2023 minutes in 81 games.
+		const minutes = SEASON_EXTRACTORS["nba:season:player:Minutes"]
+		expect(
+			decideSeasonQuestion({
+				...playerLine("4869780", 2000.5),
+				extractor: minutes,
+			}),
+		).toMatchObject({ kind: "resolve", actualValue: 2023 })
+		expect(
+			decideSeasonQuestion({
+				...playerLine("4869780", 24.5, "per_game"),
+				extractor: minutes,
+			}),
+		).toMatchObject({ kind: "resolve", actualValue: 24.975 })
 	})
 
 	it("works a per-game line out from the total", () => {
@@ -268,5 +286,88 @@ describe("decideSeasonQuestion - pool leader", () => {
 			kind: "resolve",
 			correctOptionIds: ["option-pa", "option-pb"],
 		})
+	})
+})
+
+describe("decideTeamSeasonLeader", () => {
+	const options = [
+		{ id: "opt-a", playerId: "a" },
+		{ id: "opt-b", playerId: "b" },
+		{ id: "opt-c", playerId: "c" },
+	]
+	const total = (playerId: string | null, value: number) => ({
+		sourceAthleteId: `nba:${playerId ?? "unlinked"}`,
+		playerId,
+		value,
+	})
+
+	it("marks the pool player with the most correct, and carries every option's total", () => {
+		const decision = decideTeamSeasonLeader({
+			options,
+			totals: [total("a", 2400), total("b", 2650), total("c", 900)],
+			gamesMissingBoxScores: 0,
+		})
+		expect(decision).toMatchObject({
+			kind: "resolve",
+			correctOptionIds: ["opt-b"],
+			optionValues: [
+				{ optionId: "opt-a", value: 2400 },
+				{ optionId: "opt-b", value: 2650 },
+				{ optionId: "opt-c", value: 900 },
+			],
+		})
+	})
+
+	it("reads a pool player with no games for the team as zero", () => {
+		const decision = decideTeamSeasonLeader({
+			options,
+			totals: [total("a", 2400)],
+			gamesMissingBoxScores: 0,
+		})
+		expect(decision).toMatchObject({
+			kind: "resolve",
+			correctOptionIds: ["opt-a"],
+			optionValues: expect.arrayContaining([{ optionId: "opt-c", value: 0 }]),
+		})
+	})
+
+	it("marks every pool player tied for the most correct", () => {
+		const decision = decideTeamSeasonLeader({
+			options,
+			totals: [total("a", 2400), total("b", 2400)],
+			gamesMissingBoxScores: 0,
+		})
+		expect(decision).toMatchObject({ correctOptionIds: ["opt-a", "opt-b"] })
+	})
+
+	it("fails when someone outside the pool led the team", () => {
+		const decision = decideTeamSeasonLeader({
+			options,
+			totals: [total("a", 2400), total("traded-in", 2500), total(null, 100)],
+			gamesMissingBoxScores: 0,
+		})
+		expect(decision).toMatchObject({
+			kind: "fail",
+			reason: "leader_not_in_pool",
+		})
+	})
+
+	it("waits while any of the team's games has no stored box score", () => {
+		const decision = decideTeamSeasonLeader({
+			options,
+			totals: [total("a", 2400)],
+			gamesMissingBoxScores: 2,
+		})
+		expect(decision).toMatchObject({
+			kind: "fail",
+			reason: "fetch_failed",
+			retryable: true,
+		})
+	})
+
+	it("voids when nobody on the team recorded the stat", () => {
+		expect(
+			decideTeamSeasonLeader({ options, totals: [], gamesMissingBoxScores: 0 }),
+		).toEqual({ kind: "void", reason: "no_leader" })
 	})
 })

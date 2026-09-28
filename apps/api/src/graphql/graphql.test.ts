@@ -566,6 +566,60 @@ describe("Mutation.createQuestion", () => {
 		expect(under?.lossRate).toBeGreaterThan(1)
 	})
 
+	it("builds a team leader's pool from the team's roster, resolved automatically", async () => {
+		const league = await makeLeague({ slug: "nba" })
+		await makeSeason({ leagueId: league.id })
+		const team = await makeTeam({ leagueId: league.id })
+		const otherTeam = await makeTeam({ leagueId: league.id })
+		const starter = await makePlayer({ currentTeamId: team.id })
+		const bench = await makePlayer({ currentTeamId: team.id })
+		await makePlayer({ currentTeamId: otherTeam.id })
+		const stat = await makeStat({
+			sportId: league.sportId,
+			name: "Minutes",
+			appliesTo: "player",
+		})
+		const input = {
+			shape: "PLAYER_TEAM_SEASON_STAT_LEADER",
+			title: "Who will lead them in minutes this season?",
+			resolutionSource: "",
+			locksAt: futureDate().toISOString(),
+			sportId: league.sportId,
+			leagueId: league.id,
+			subjectTeamId: team.id,
+			statId: stat.id,
+			options: [{ label: "Ignored" }],
+		}
+
+		const data = await expectData<{
+			createQuestion: { __typename: string; question: { id: string } }
+		}>(CREATE_QUESTION, { as: await makeUser(), variables: { input } })
+		expect(data.createQuestion.__typename).toBe("QuestionPayload")
+
+		const stored = await db.query.questions.findFirst({
+			where: { id: data.createQuestion.question.id },
+			with: { options: true },
+		})
+		expect(stored?.resolutionMode).toBe("system")
+		expect(stored?.options.map((o) => o.playerId).sort()).toEqual(
+			[starter.id, bench.id].sort(),
+		)
+
+		const otherLeague = await makeLeague({ sportId: league.sportId })
+		const refused = await expectData<{
+			createQuestion: { __typename: string }
+		}>(CREATE_QUESTION, {
+			as: await makeUser(),
+			variables: {
+				input: {
+					...input,
+					subjectTeamId: (await makeTeam({ leagueId: otherLeague.id })).id,
+				},
+			},
+		})
+		expect(refused.createQuestion.__typename).toBe("ValidationError")
+	})
+
 	it("refuses a non-admin trying to post officially", async () => {
 		const seed = await makeQuestion()
 		const league = await db.query.leagues.findFirst({

@@ -47,7 +47,8 @@ export function AdminResolveModal({
 			question.shape === "player_season_award" ||
 			question.shape === "team_season_award" ||
 			question.shape === "player_game_stat_leader" ||
-			question.shape === "player_season_stat_leader"
+			question.shape === "player_season_stat_leader" ||
+			question.shape === "player_team_season_stat_leader"
 		) {
 			setCorrectOptionIds((prev) =>
 				prev.includes(optionId)

@@ -25,6 +25,7 @@ export type QuestionShape =
 	| "team_season_stat_numeric_guess"
 	| "player_game_stat_leader"
 	| "player_season_stat_leader"
+	| "player_team_season_stat_leader"
 
 // Difficulty varies by format, not by any individual pick - a binary pick
 // needs less signal to call correctly than a continuous numeric guess, so
@@ -67,6 +68,7 @@ export const BASE_POINTS_BY_SHAPE: Record<QuestionShape, number> = {
 	// pair: a season-long window changes what has to be forecast, not the
 	// structure of the pick.
 	player_season_stat_leader: 250,
+	player_team_season_stat_leader: 250,
 }
 
 // What a pick with no edge beyond the reference pick a rate is priced
@@ -136,6 +138,11 @@ export const LOSS_RATE_BY_SHAPE: Record<QuestionShape, number> = {
 	// A whole-league pool over a whole season, where the early leader often
 	// holds on.
 	player_season_stat_leader: 0.5,
+	// One roster, where the favorite is usually obvious (the starter who plays
+	// the most, the team's top scorer) and holds on more often than not, so a
+	// miss costs the full stake - the most a question's own rate can. Untuned
+	// until there are resolved questions to measure the favorite against.
+	player_team_season_stat_leader: 1,
 }
 
 // The loss rate a question is created with when nothing tuned applies. Most
@@ -255,6 +262,7 @@ export const SEASON_LONG_SHAPES = new Set<QuestionShape>([
 	// No gameId, same as the season-scoped over/under pair above.
 	"team_season_stat_numeric_guess",
 	"player_season_stat_leader",
+	"player_team_season_stat_leader",
 ])
 
 export function isSeasonLongShape(shape: QuestionShape): boolean {
@@ -289,6 +297,7 @@ export const SHAPE_SUBJECT: Record<QuestionShape, "player" | "team" | "none"> =
 		team_vs_team_season: "team",
 		player_game_stat_leader: "player",
 		player_season_stat_leader: "player",
+		player_team_season_stat_leader: "player",
 		yes_no_prop: "none",
 		player_season_award: "player",
 		team_season_award: "team",
@@ -334,6 +343,7 @@ export const STREAK_FAMILY_BY_SHAPE: Record<
 	player_award_finalists: null,
 	team_season_stat_numeric_guess: null,
 	player_season_stat_leader: null,
+	player_team_season_stat_leader: null,
 }
 
 export function streakFamilyFor(shape: QuestionShape): StreakFamily | null {
@@ -357,7 +367,7 @@ export const STREAK_FAMILY_LABEL: Record<StreakFamily, string> = {
 // not the same one: streak families are about what a run of calls means
 // ("winners" is its own track because calling games is its own skill), while
 // these are the lines people already think along when reading a breakdown
-// ("my over/unders", "my award calls"). A flat list of 18 shapes is
+// ("my over/unders", "my award calls"). A flat list of 19 shapes is
 // unscannable, in a filter dropdown or in a report card's breakdown.
 //
 // SCREAMING_CASE, unlike StreakFamily's lowercase, because there's no pg enum
@@ -397,6 +407,7 @@ export const SHAPE_FAMILY_BY_SHAPE: Record<QuestionShape, ShapeFamily> = {
 	team_vs_team_season: "HEAD_TO_HEAD",
 	player_game_stat_leader: "STAT_LEADER",
 	player_season_stat_leader: "STAT_LEADER",
+	player_team_season_stat_leader: "STAT_LEADER",
 	player_season_award: "AWARD",
 	team_season_award: "AWARD",
 	player_award_finalists: "AWARD",
@@ -441,6 +452,7 @@ export const SHAPE_LABEL: Record<QuestionShape, string> = {
 	team_vs_team_season: "Team Season Head-to-Head",
 	player_game_stat_leader: "Game Stat Leader",
 	player_season_stat_leader: "Player Season Multi-Way",
+	player_team_season_stat_leader: "Team Stat Leader",
 	yes_no_prop: "Yes/No",
 	player_season_award: "Player Season Award",
 	team_season_award: "Team Season Award",
@@ -479,6 +491,9 @@ export const SHARE_CARD_SHAPE_LABEL: Record<QuestionShape, string> = {
 	// there's no picker description to correct it - invites the league-wide
 	// reading the shape's title works to rule out.
 	player_season_stat_leader: "Multi-Way",
+	// The whole roster, so unlike the curated pool above it really is a
+	// leaderboard.
+	player_team_season_stat_leader: "Team Leader",
 	yes_no_prop: "Yes/No",
 	player_season_award: "Season Award",
 	team_season_award: "Season Award",

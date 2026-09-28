@@ -49,13 +49,14 @@ describe("buildTitlePreview returns null until its shape has everything", () => 
 		{ shape: "team_vs_team_season", missing: "two options, stat" },
 		{ shape: "player_game_stat_leader", missing: "game, stat" },
 		{ shape: "player_season_stat_leader", missing: "three options, stat" },
+		{ shape: "player_team_season_stat_leader", missing: "team, stat" },
 		{ shape: "yes_no_prop", missing: "event clause" },
 		{ shape: "player_season_award", missing: "award name, verb" },
 		{ shape: "team_season_award", missing: "award name, verb" },
 		{ shape: "player_award_finalists", missing: "award name, finalists" },
 	]
 
-	// All eighteen, so a newly added shape shows up here as a gap rather than
+	// Every shape, so a newly added shape shows up here as a gap rather than
 	// silently defaulting to something.
 	it.each(cases)("$shape (needs $missing)", ({ shape }) => {
 		expect(buildTitlePreview(input({ shape }))).toBeNull()
@@ -63,6 +64,18 @@ describe("buildTitlePreview returns null until its shape has everything", () => 
 })
 
 describe("buildTitlePreview builds a title once the fields are there", () => {
+	it("names the team and stat for a team leader", () => {
+		expect(
+			buildTitlePreview(
+				input({
+					shape: "player_team_season_stat_leader",
+					selectedTeamName: "Boston Celtics",
+					statName: "Minutes",
+				}),
+			),
+		).toBe("Who will lead the Boston Celtics in minutes this season?")
+	})
+
 	it("names the player, line and stat for a player game over/under", () => {
 		const title = buildTitlePreview(
 			input({

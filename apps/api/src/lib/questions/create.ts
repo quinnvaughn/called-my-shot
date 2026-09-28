@@ -50,6 +50,8 @@ export type ShapeContext = {
 	awardTeamPool: Team[] | null
 	// player_game_stat_leader: the active rosters of the game's two teams.
 	gameLeaderPool: Player[] | null
+	// player_team_season_stat_leader: the subject team's roster.
+	teamLeaderPool: Player[] | null
 }
 
 // Checks the structured fields each shape needs. createQuestionSchema has
@@ -207,6 +209,16 @@ export function validateShapeFields(
 		.with("player_season_stat_leader", () => {
 			requireStatAppliesTo("player")
 		})
+		.with("player_team_season_stat_leader", () => {
+			requireTeam()
+			requireStatAppliesTo("player")
+			if (!ctx.teamLeaderPool || ctx.teamLeaderPool.length < 2) {
+				throw ValidationError.field(
+					"subjectTeamId",
+					"Not enough players on that team's roster yet",
+				)
+			}
+		})
 		.exhaustive()
 }
 
@@ -238,6 +250,9 @@ export function optionsFor(
 			.with("team_season_award", () => teamOptions(ctx.awardTeamPool ?? []))
 			.with("player_game_stat_leader", () =>
 				playerOptions(ctx.gameLeaderPool ?? []),
+			)
+			.with("player_team_season_stat_leader", () =>
+				playerOptions(ctx.teamLeaderPool ?? []),
 			)
 			.with("yes_no_prop", () => [{ label: "Yes" }, { label: "No" }])
 			// Bare "Over"/"Under" - the line itself isn't part of the stored label,

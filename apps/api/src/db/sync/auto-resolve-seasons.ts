@@ -2,15 +2,19 @@ import {
 	autoResolutionSource,
 	autoResolveStatKeyFor,
 } from "@called-my-shot/schemas"
+import { sql } from "drizzle-orm"
 import { autoResolveNotes } from "../../lib/auto-resolve/apply"
-import { fail } from "../../lib/auto-resolve/decide"
+import { type Decision, fail } from "../../lib/auto-resolve/decide"
 import {
 	EXTRACTORS,
 	type SeasonExtractor,
 	type SeasonSourceNeed,
 	type SeasonSources,
 } from "../../lib/auto-resolve/registry"
-import { decideSeasonQuestion } from "../../lib/auto-resolve/season-decide"
+import {
+	decideSeasonQuestion,
+	decideTeamSeasonLeader,
+} from "../../lib/auto-resolve/season-decide"
 import {
 	isSeasonResolutionDue,
 	seasonSettlesAt,
@@ -49,6 +53,7 @@ const SEASON_STAT_SHAPES = [
 	"player_vs_player_season",
 	"team_vs_team_season",
 	"player_season_stat_leader",
+	"player_team_season_stat_leader",
 ] as const
 
 const loadCandidates = (now: Date) =>
@@ -82,19 +87,80 @@ const teamIdsOf = (question: Candidate) =>
 		(id): id is string => id !== null,
 	)
 
-function extractorFor(
-	question: Candidate,
-	leagueSlug: string,
-): SeasonExtractor | null {
-	const key = autoResolveStatKeyFor({
+const autoResolveStatKeyOf = (question: Candidate, leagueSlug: string) =>
+	autoResolveStatKeyFor({
 		shape: question.shape,
 		leagueSlug,
 		statName: question.stat?.name,
 		customStat: question.customStat,
 		statAggregation: question.statAggregation,
 	})
+
+function extractorFor(
+	question: Candidate,
+	leagueSlug: string,
+): SeasonExtractor | null {
+	const key = autoResolveStatKeyOf(question, leagueSlug)
 	const extractor = key ? EXTRACTORS[key] : null
 	return extractor?.scope === "season" ? extractor : null
+}
+
+// player_team_season_stat_leader reads no ESPN season endpoint: ESPN's season
+// totals don't split a traded player's year by team, so each athlete's total
+// for the subject team is added up from the stored box scores of its
+// regular-season games.
+async function decideTeamSeasonLeaderQuestion(
+	question: Candidate,
+	leagueSlug: string,
+): Promise<Decision> {
+	const key = autoResolveStatKeyOf(question, leagueSlug)
+	const extractor = key ? EXTRACTORS[key] : null
+	const source =
+		extractor?.scope === "game" && extractor.subject === "player"
+			? extractor.source
+			: undefined
+	const teamId = question.subjectTeamId
+	if (!source || !teamId) {
+		return fail("unmapped", "this question's stat doesn't settle automatically")
+	}
+
+	const [totals, missing] = await Promise.all([
+		db.execute<{
+			source_athlete_id: string
+			player_id: string | null
+			total: string
+		}>(sql`
+			select s.source_athlete_id,
+				(array_agg(s.player_id) filter (where s.player_id is not null))[1] as player_id,
+				coalesce(sum(s.value_numeric), 0) as total
+			from player_game_stats s
+			join games g on g.id = s.game_id
+			where s.team_id = ${teamId}
+				and s.season_id = ${question.seasonId}
+				and g.season_type = 'regular'
+				and s.stat_key in ${source.keys}
+			group by s.source_athlete_id
+		`),
+		db.execute<{ missing: string }>(sql`
+			select count(*) as missing
+			from games
+			where season_id = ${question.seasonId}
+				and season_type = 'regular'
+				and status = 'final'
+				and (home_team_id = ${teamId} or away_team_id = ${teamId})
+				and box_score_synced_at is null
+		`),
+	])
+
+	return decideTeamSeasonLeader({
+		options: question.options,
+		totals: totals.rows.map((row) => ({
+			sourceAthleteId: row.source_athlete_id,
+			playerId: row.player_id,
+			value: Number(row.total),
+		})),
+		gamesMissingBoxScores: Number(missing.rows[0]?.missing ?? 0),
+	})
 }
 
 // Reads one league season's standings and statistics, each once, then settles
@@ -201,6 +267,14 @@ async function processSeason(
 	const statsUrl = `https://www.espn.com/${league.slug}/stats/_/season/${season.year}/seasontype/2`
 	const standingsUrl = `https://www.espn.com/${league.slug}/standings/_/season/${season.year}`
 	for (const { question, extractor } of planned) {
+		if (question.shape === "player_team_season_stat_leader") {
+			await apply(
+				question.id,
+				await decideTeamSeasonLeaderQuestion(question, league.slug),
+				statsUrl,
+			)
+			continue
+		}
 		const decision = extractor
 			? decideSeasonQuestion({
 					question,

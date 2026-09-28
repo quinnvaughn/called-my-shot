@@ -91,6 +91,7 @@ export type QuestionCallShape =
 	| "team_vs_team_season"
 	| "player_game_stat_leader"
 	| "player_season_stat_leader"
+	| "player_team_season_stat_leader"
 	| "yes_no_prop"
 	| "player_season_award"
 	| "team_season_award"
@@ -133,6 +134,7 @@ export function castCallBucketFor(
 			"team_vs_team_season",
 			"player_game_stat_leader",
 			"player_season_stat_leader",
+			"player_team_season_stat_leader",
 			"yes_no_prop",
 			"player_award_finalists",
 			() => "single" as const,
@@ -168,7 +170,8 @@ export function isAwardShape(shape: QuestionCallShape): boolean {
 		shape === "team_season_award" ||
 		shape === "player_award_finalists" ||
 		shape === "player_game_stat_leader" ||
-		shape === "player_season_stat_leader"
+		shape === "player_season_stat_leader" ||
+		shape === "player_team_season_stat_leader"
 	)
 }
 

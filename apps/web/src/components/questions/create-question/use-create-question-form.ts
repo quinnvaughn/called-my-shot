@@ -163,6 +163,7 @@ export function useCreateQuestionForm() {
 
 	const isGameStatLeader = shape === "player_game_stat_leader"
 	const isSeasonStatLeader = shape === "player_season_stat_leader"
+	const isTeamSeasonStatLeader = shape === "player_team_season_stat_leader"
 	const isPlayerAward = shape === "player_season_award"
 	const isTeamAward = shape === "team_season_award"
 	const isFinalists = shape === "player_award_finalists"
@@ -171,6 +172,7 @@ export function useCreateQuestionForm() {
 	const {
 		awardPoolItems,
 		gameStatLeaderPoolItems,
+		teamStatLeaderPoolItems,
 		finalistItems,
 		seasonStatLeaderItems,
 	} = useEntityPools({
@@ -178,10 +180,12 @@ export function useCreateQuestionForm() {
 		isTeamAward,
 		isGameStatLeader,
 		isSeasonStatLeader,
+		isTeamSeasonStatLeader,
 		isFinalists,
 		teams,
 		players,
 		gameTeamIds,
+		subjectTeamId,
 		awardConferences,
 		awardDivisions,
 		awardPositions,
@@ -361,6 +365,7 @@ export function useCreateQuestionForm() {
 			yearsInLeagueOptions,
 			awardPoolItems,
 			gameStatLeaderPoolItems,
+			teamStatLeaderPoolItems,
 			finalistItems,
 			seasonStatLeaderItems,
 			offersStatAggregation,

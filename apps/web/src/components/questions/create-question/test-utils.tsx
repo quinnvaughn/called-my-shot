@@ -52,6 +52,7 @@ export const EMPTY_DATA: QuestionData = {
 	yearsInLeagueOptions: [],
 	awardPoolItems: null,
 	gameStatLeaderPoolItems: null,
+	teamStatLeaderPoolItems: null,
 	finalistItems: null,
 	seasonStatLeaderItems: null,
 	offersStatAggregation: false,

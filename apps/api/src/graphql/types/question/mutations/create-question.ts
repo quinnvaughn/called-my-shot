@@ -180,6 +180,23 @@ builder.mutationFields((t) => ({
 						})
 					: null
 
+			// player_team_season_stat_leader only - the subject team's roster, the
+			// same derived-not-submitted pool as the game-scoped leader above.
+			if (
+				data.shape === "player_team_season_stat_leader" &&
+				subjectTeam &&
+				subjectTeam.leagueId !== data.leagueId
+			) {
+				throw ValidationError.field(
+					"subjectTeamId",
+					"Team must belong to the selected league",
+				)
+			}
+			const teamLeaderPool =
+				data.shape === "player_team_season_stat_leader" && subjectTeam
+					? await buildPlayerPool({ teamIds: [subjectTeam.id] })
+					: null
+
 			// The tolerance band comes from the stat's own tolerance tier, not
 			// the creator - createQuestionSchema guarantees statId is set (no
 			// customStat fallback) for these two shapes specifically, so a
@@ -224,6 +241,7 @@ builder.mutationFields((t) => ({
 				awardPlayerPool,
 				awardTeamPool,
 				gameLeaderPool,
+				teamLeaderPool,
 			}
 			validateShapeFields(data, shapeContext)
 

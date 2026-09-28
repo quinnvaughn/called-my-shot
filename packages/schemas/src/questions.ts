@@ -36,6 +36,7 @@ export const questionShapeSchema = z.enum([
 	"team_vs_team_season",
 	"player_game_stat_leader",
 	"player_season_stat_leader",
+	"player_team_season_stat_leader",
 	"yes_no_prop",
 	// Admin-only shapes grouped at the end - see ADMIN_ONLY_SHAPES below.
 	"team_vs_team",
@@ -210,8 +211,9 @@ export const createQuestionSchema = z
 		// the full league roster), player_award_finalists (2+, playerId
 		// required on each), player_season_stat_leader (3+, a hand-curated
 		// pool). team_vs_team submits none - the resolver derives its two sides
-		// from the picked game, and player_game_stat_leader's pool is derived
-		// server-side from that game's two rosters.
+		// from the picked game, player_game_stat_leader's pool is derived
+		// server-side from that game's two rosters, and
+		// player_team_season_stat_leader's from the subject team's.
 		options: z.array(createQuestionOptionSchema).default([]),
 
 		// *_over_under, *_numeric_guess, player_vs_player
@@ -226,7 +228,8 @@ export const createQuestionSchema = z
 		statAggregation: statAggregationSchema.optional(),
 
 		// player_stat_over_under/numeric_guess (required), team_stat_over_under/
-		// numeric_guess (required), yes_no_prop (optional - null for a
+		// numeric_guess (required), player_team_season_stat_leader (required,
+		// the team whose roster is the pool), yes_no_prop (optional - null for a
 		// subject-less proposition)
 		subjectTeamId: z.string().uuid().optional(),
 		subjectPlayerId: z.string().uuid().optional(),
@@ -642,6 +645,20 @@ export const createQuestionSchema = z
 				requireStat()
 				requirePool("player", 3)
 			})
+			// The same freeform-stat allowance as the curated season leader
+			// above, but no pool to check: it's the subject team's roster,
+			// derived server-side the way player_game_stat_leader's is. No
+			// statAggregation either - it's always a season total.
+			.with("player_team_season_stat_leader", () => {
+				if (!data.subjectTeamId) {
+					ctx.addIssue({
+						code: "custom",
+						path: ["subjectTeamId"],
+						message: "Pick a team",
+					})
+				}
+				requireStat()
+			})
 			.exhaustive()
 	})
 export type CreateQuestionInput = z.infer<typeof createQuestionSchema>
@@ -737,6 +754,7 @@ export const castCallSchema = z
 				"player_award_finalists",
 				"player_game_stat_leader",
 				"player_season_stat_leader",
+				"player_team_season_stat_leader",
 				() => {
 					if (data.selections.length !== 1) {
 						ctx.addIssue({
@@ -793,6 +811,7 @@ export const resolveQuestionSchema = z
 				// should be able to mark both options correct the same way.
 				"player_game_stat_leader",
 				"player_season_stat_leader",
+				"player_team_season_stat_leader",
 				() => {
 					// Deliberately not compared against picksRequired - a real outcome
 					// can produce fewer genuine winners than the number of picks callers

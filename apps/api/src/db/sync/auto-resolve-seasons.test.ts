@@ -13,6 +13,7 @@ import {
 } from "../../test/factories"
 import { espnFixture } from "../../test/helpers"
 import { db } from "../index"
+import { playerGameStats } from "../schema"
 import { autoResolveSeasons } from "./auto-resolve-seasons"
 import {
 	EspnRequestError,
@@ -203,5 +204,147 @@ describe("autoResolveSeasons", () => {
 			new EspnRequestError("standings", 429),
 		)
 		await expect(run()).rejects.toBeInstanceOf(EspnRequestError)
+	})
+
+	describe("team season leader", () => {
+		async function seedMinutesLeader(setup: Setup) {
+			const rival = await makeTeam({ leagueId: setup.league.id })
+			const stat = await makeStat({
+				sportId: setup.league.sportId,
+				name: "Minutes",
+				appliesTo: "player",
+			})
+			const starter = await makePlayer({ currentTeamId: setup.team.id })
+			const traded = await makePlayer({ currentTeamId: setup.team.id })
+			const question = await makeQuestion({
+				...seasonQuestion(setup),
+				statAggregation: null,
+				shape: "player_team_season_stat_leader",
+				statId: stat.id,
+				subjectTeamId: setup.team.id,
+			})
+			const starterOption = await makeOption(question.id, {
+				label: "Starter",
+				playerId: starter.id,
+				sortOrder: 0,
+			})
+			const tradedOption = await makeOption(question.id, {
+				label: "Traded",
+				playerId: traded.id,
+				sortOrder: 1,
+			})
+			return { rival, starter, traded, question, starterOption, tradedOption }
+		}
+
+		async function playedGame(
+			setup: Setup,
+			opts: {
+				homeTeamId: string
+				awayTeamId: string
+				seasonType?: "regular" | "postseason"
+				boxScoreSynced?: boolean
+				minutes: { playerId: string; teamId: string; value: number }[]
+			},
+		) {
+			const game = await makeGame({
+				leagueId: setup.league.id,
+				seasonId: setup.season.id,
+				homeTeamId: opts.homeTeamId,
+				awayTeamId: opts.awayTeamId,
+				seasonType: opts.seasonType ?? "regular",
+				status: "final",
+				startsAt: hoursAgo(24 * 30),
+				boxScoreSyncedAt: opts.boxScoreSynced === false ? null : hoursAgo(1),
+			})
+			for (const { playerId, teamId, value } of opts.minutes) {
+				await db.insert(playerGameStats).values({
+					gameId: game.id,
+					source: "espn",
+					sourceAthleteId: `nba:${playerId}`,
+					playerId,
+					teamId,
+					opponentTeamId:
+						teamId === opts.homeTeamId ? opts.awayTeamId : opts.homeTeamId,
+					isHome: teamId === opts.homeTeamId,
+					gameDate: game.startsAt,
+					seasonId: setup.season.id,
+					leagueId: setup.league.id,
+					statKey: "minutes",
+					valueText: String(value),
+					valueNumeric: value,
+					didNotPlay: false,
+				})
+			}
+			return game
+		}
+
+		it("counts only what each player put up for the team, in the regular season", async () => {
+			const setup = await seedNbaSeason()
+			const { rival, starter, traded, question, starterOption } =
+				await seedMinutesLeader(setup)
+			await playedGame(setup, {
+				homeTeamId: setup.team.id,
+				awayTeamId: rival.id,
+				minutes: [
+					{ playerId: starter.id, teamId: setup.team.id, value: 30 },
+					{ playerId: traded.id, teamId: setup.team.id, value: 40 },
+				],
+			})
+			await playedGame(setup, {
+				homeTeamId: rival.id,
+				awayTeamId: setup.team.id,
+				minutes: [
+					{ playerId: starter.id, teamId: setup.team.id, value: 20 },
+					// After the trade, for the rival: 80 minutes in all, 40 of them here.
+					{ playerId: traded.id, teamId: rival.id, value: 40 },
+				],
+			})
+			await playedGame(setup, {
+				homeTeamId: setup.team.id,
+				awayTeamId: rival.id,
+				seasonType: "postseason",
+				minutes: [{ playerId: traded.id, teamId: setup.team.id, value: 48 }],
+			})
+
+			await run()
+
+			const row = await questionById(question.id)
+			expect(row?.status).toBe("resolved")
+			expect(row?.resolutionSource).toBe("ESPN regular-season stats")
+			const options = await db.query.questionOptions.findMany({
+				where: { questionId: question.id },
+			})
+			expect(options.filter((o) => o.isCorrect).map((o) => o.id)).toEqual([
+				starterOption.id,
+			])
+			expect(
+				Object.fromEntries(options.map((o) => [o.label, o.actualValue])),
+			).toEqual({ Starter: 50, Traded: 40 })
+			expect(espn.fetchAthleteSeasonStatistics).not.toHaveBeenCalled()
+		})
+
+		it("waits for a final game whose box score isn't stored yet", async () => {
+			const setup = await seedNbaSeason()
+			const { rival, starter, question } = await seedMinutesLeader(setup)
+			await playedGame(setup, {
+				homeTeamId: setup.team.id,
+				awayTeamId: rival.id,
+				minutes: [{ playerId: starter.id, teamId: setup.team.id, value: 30 }],
+			})
+			await playedGame(setup, {
+				homeTeamId: rival.id,
+				awayTeamId: setup.team.id,
+				boxScoreSynced: false,
+				minutes: [],
+			})
+
+			await run()
+
+			expect((await questionById(question.id))?.status).toBe("locked")
+			expect(await autoRowFor(question.id)).toMatchObject({
+				failureReason: "fetch_failed",
+				escalatedAt: null,
+			})
+		})
 	})
 })

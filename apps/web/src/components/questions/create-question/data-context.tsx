@@ -24,6 +24,7 @@ export type QuestionData = {
 	yearsInLeagueOptions: number[]
 	awardPoolItems: EntitySearchItem[] | null
 	gameStatLeaderPoolItems: EntitySearchItem[] | null
+	teamStatLeaderPoolItems: EntitySearchItem[] | null
 	finalistItems: EntitySearchItem[] | null
 	seasonStatLeaderItems: EntitySearchItem[] | null
 	offersStatAggregation: boolean

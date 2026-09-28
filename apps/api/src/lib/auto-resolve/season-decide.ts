@@ -7,6 +7,7 @@ import {
 	gradeLeader,
 	gradeNumericGuess,
 	gradeOverUnder,
+	gradePoolLeader,
 	withReading,
 } from "./decide"
 import type { SeasonExtractor, SeasonSources, StatReading } from "./registry"
@@ -102,6 +103,8 @@ export function decideSeasonQuestion(ctx: SeasonQuestionContext): Decision {
 		.with("team_vs_team_season", () => headToHead("team"))
 		.with("player_season_stat_leader", poolLeader)
 		.with(
+			// Settled by decideTeamSeasonLeader, from stored box scores.
+			"player_team_season_stat_leader",
 			"team_vs_team",
 			"yes_no_prop",
 			"player_season_award",
@@ -118,4 +121,38 @@ export function decideSeasonQuestion(ctx: SeasonQuestionContext): Decision {
 				fail("unmapped", `${shape} doesn't settle from season statistics`),
 		)
 		.exhaustive()
+}
+
+export type TeamSeasonLeaderContext = {
+	options: Pick<QuestionOption, "id" | "playerId">[]
+	// What each athlete put up for the team over its regular season, added up
+	// from the stored box scores of its games.
+	totals: {
+		sourceAthleteId: string
+		playerId: string | null
+		value: number
+	}[]
+	// The team's final regular-season games with no stored box score.
+	gamesMissingBoxScores: number
+}
+
+// player_team_season_stat_leader: graded over everyone who played for the team,
+// so a player who joined after the pool was built and led it fails rather than
+// handing the win to whoever finished second. A total with games missing from
+// it would undercount, so it waits for the box-score sync to fill them.
+export function decideTeamSeasonLeader(ctx: TeamSeasonLeaderContext): Decision {
+	if (ctx.gamesMissingBoxScores > 0) {
+		return fail(
+			"fetch_failed",
+			`${ctx.gamesMissingBoxScores} of the team's final regular-season games have no stored box score`,
+		)
+	}
+	return gradePoolLeader(
+		ctx.options,
+		ctx.totals.map((t) => ({
+			playerId: t.playerId,
+			who: t.sourceAthleteId,
+			value: t.value,
+		})),
+	)
 }

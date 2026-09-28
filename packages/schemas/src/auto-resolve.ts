@@ -29,6 +29,7 @@ export const AUTO_RESOLVE_STATS = {
 	"nba:game:player:Turnovers": leaderStat,
 	"nba:game:player:Steals": leaderStat,
 	"nba:game:player:Blocks": leaderStat,
+	"nba:game:player:Minutes": leaderStat,
 	"nba:game:team:Points": nonLeaderStat,
 	"nba:game:team:3-Pointers Made": nonLeaderStat,
 	"nba:game:team:Rebounds": nonLeaderStat,
@@ -43,6 +44,7 @@ export const AUTO_RESOLVE_STATS = {
 	"nba:season:player:Turnovers": leaderStat,
 	"nba:season:player:Steals": leaderStat,
 	"nba:season:player:Blocks": leaderStat,
+	"nba:season:player:Minutes": leaderStat,
 	"nba:season:team:Points": nonLeaderStat,
 	"nba:season:team:3-Pointers Made": nonLeaderStat,
 	"nba:season:team:Rebounds": nonLeaderStat,
@@ -166,6 +168,14 @@ function isAutoResolveStatKey(key: string): key is AutoResolveStatKey {
 	return key in AUTO_RESOLVE_STATS
 }
 
+// Game player stats that settle a leader but aren't a cell in the stored box
+// score, so a season's worth can't be added up from player_game_stats. MLB
+// saves come off the pitching-decision notes. The registry's tests hold this
+// list to exactly the leader stats whose extractor has no `source`.
+export const UNSTORED_GAME_LEADER_STATS: readonly AutoResolveStatKey[] = [
+	"mlb:game:player:Saves",
+]
+
 export type ResolutionModeInput = {
 	shape: QuestionShape
 	leagueSlug: string
@@ -229,6 +239,13 @@ export function autoResolveStatKeyFor(
 					? null
 					: keyFor("season", "player", true),
 			)
+			// A game key, not a season one: ESPN's season totals don't split a
+			// traded player's year by team, so this adds up the stored box scores
+			// of the subject team's games instead.
+			.with("player_team_season_stat_leader", () => {
+				const key = keyFor("game", "player", true)
+				return key && !UNSTORED_GAME_LEADER_STATS.includes(key) ? key : null
+			})
 			.with(
 				"team_vs_team",
 				"yes_no_prop",

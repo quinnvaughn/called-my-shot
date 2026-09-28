@@ -75,6 +75,7 @@ export function PickList({ call }: Props) {
 			"TEAM_VS_TEAM_SEASON",
 			"PLAYER_GAME_STAT_LEADER",
 			"PLAYER_SEASON_STAT_LEADER",
+			"PLAYER_TEAM_SEASON_STAT_LEADER",
 			"YES_NO_PROP",
 			"PLAYER_AWARD_FINALISTS",
 			() => {

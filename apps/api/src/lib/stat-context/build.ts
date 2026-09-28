@@ -74,7 +74,7 @@ export type StatContextQuestion = {
 	competitors: SubjectRef[]
 }
 
-// Which sides of a question get cards. Exhaustive on purpose: a nineteenth
+// Which sides of a question get cards. Exhaustive on purpose: a new
 // shape won't compile until someone decides, including deciding "none".
 function subjectsFor(question: StatContextQuestion): SubjectRef[] {
 	return (
@@ -96,6 +96,7 @@ function subjectsFor(question: StatContextQuestion): SubjectRef[] {
 			.with(
 				"player_game_stat_leader",
 				"player_season_stat_leader",
+				"player_team_season_stat_leader",
 				"player_award_finalists",
 				"player_season_award",
 				"team_season_award",

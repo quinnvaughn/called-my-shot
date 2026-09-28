@@ -192,3 +192,42 @@ describe("autoResolutionSource", () => {
 		expect(autoResolutionSource("postseason")).toBe("ESPN postseason results")
 	})
 })
+
+describe("resolutionModeFor - team season leader", () => {
+	it("settles off the game stat its box scores add up", () => {
+		expect(
+			autoResolveStatKeyFor({
+				shape: "player_team_season_stat_leader",
+				leagueSlug: "nba",
+				statName: "Minutes",
+			}),
+		).toBe("nba:game:player:Minutes")
+		expect(
+			resolutionModeFor({
+				shape: "player_team_season_stat_leader",
+				leagueSlug: "nfl",
+				statName: "Receiving Yards",
+			}),
+		).toBe("system")
+	})
+
+	it("leaves a stat with no stored box-score cell, a rate or a custom stat to a person", () => {
+		for (const statName of ["Saves", "Batting Average"]) {
+			expect(
+				resolutionModeFor({
+					shape: "player_team_season_stat_leader",
+					leagueSlug: "mlb",
+					statName,
+				}),
+			).toBe("manual")
+		}
+		expect(
+			resolutionModeFor({
+				shape: "player_team_season_stat_leader",
+				leagueSlug: "nba",
+				statName: null,
+				customStat: "Deflections",
+			}),
+		).toBe("manual")
+	})
+})

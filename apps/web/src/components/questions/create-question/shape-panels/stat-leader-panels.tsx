@@ -6,6 +6,7 @@ import { LeagueField } from "../league-field"
 import { OptionList } from "../option-list"
 import { PoolSummary } from "../pool-summary"
 import { StatPicker } from "../stat-picker"
+import { SubjectPicker } from "../subject-picker"
 import { PanelNote, ShapePanel } from "./shape-panel"
 
 // player_game_stat_leader - the pool is both rosters of the picked game, so
@@ -80,6 +81,44 @@ export function SeasonStatLeaderPanel() {
 				Season-long, no game attached - name the players yourself, three or
 				more. Off-catalog stats are allowed here, so advanced metrics work. For
 				just two, use Player Season Head-to-Head instead.
+			</PanelNote>
+		</ShapePanel>
+	)
+}
+
+// player_team_season_stat_leader - the pool is the picked team's roster, so
+// like the game-scoped leader there's nothing to curate.
+export function TeamStatLeaderPanel() {
+	const subjectTeamId = useWatch("subjectTeamId")
+	const { stats, scopedTeams, scopedPlayers, teamStatLeaderPoolItems } =
+		useQuestionData("TeamStatLeaderPanel")
+	const selectedTeam = scopedTeams.find((team) => team.id === subjectTeamId)
+
+	return (
+		<ShapePanel label="The team leader">
+			<LeagueField />
+			<SubjectPicker
+				teams={scopedTeams}
+				players={scopedPlayers}
+				kind="team"
+				required
+			/>
+			<StatPicker
+				stats={stats.filter(
+					(s) => s.appliesTo === "BOTH" || s.appliesTo === "PLAYER",
+				)}
+			/>
+			{teamStatLeaderPoolItems === null ? (
+				<FieldHint>Pick a team to see the pool.</FieldHint>
+			) : (
+				<PoolSummary
+					items={teamStatLeaderPoolItems}
+					scopeLabel={selectedTeam?.name ?? ""}
+				/>
+			)}
+			<PanelNote>
+				The pool is the team's roster. Only stats put up for this team count,
+				so a traded player keeps just their games here.
 			</PanelNote>
 		</ShapePanel>
 	)

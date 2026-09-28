@@ -235,6 +235,16 @@ describe("generateQuestionTitle - stat leaders", () => {
 			"Who will average the highest batting average per game this season among A and B?",
 		)
 	})
+
+	it("names the team for the team leader, whose pool is the whole roster", () => {
+		expect(
+			title({
+				shape: "player_team_season_stat_leader",
+				teamName: "Boston Celtics",
+				statName: "Minutes",
+			}),
+		).toBe("Who will lead the Boston Celtics in minutes this season?")
+	})
 })
 
 describe("generateQuestionTitle - yes/no props", () => {

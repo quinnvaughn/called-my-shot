@@ -211,6 +211,15 @@ export function buildTitlePreview(input: TitlePreviewInput): string | null {
 					})
 				: null
 		})
+		.with("player_team_season_stat_leader", (s) =>
+			selectedTeamName && statName
+				? generateQuestionTitle({
+						shape: s,
+						teamName: selectedTeamName,
+						statName,
+					})
+				: null,
+		)
 		.with("yes_no_prop", (s) =>
 			eventClause.trim()
 				? generateQuestionTitle({

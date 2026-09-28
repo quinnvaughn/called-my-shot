@@ -162,6 +162,39 @@ export function gradeLeader(
 	}
 }
 
+// A leader question graded over everyone who recorded the stat, not just the
+// pool. The pool is fixed when the question is created, so a leader who wasn't
+// in it can't be marked correct. Every option is carried, not just whoever tied
+// for the most: grading reads the same winner off it either way, and carrying
+// the whole pool is what lets the settled question say what the leader
+// actually put up. A pool player with no value put up none of the stat.
+export function gradePoolLeader(
+	options: Pick<QuestionOption, "id" | "playerId">[],
+	values: { playerId: string | null; who: string; value: number }[],
+): Decision {
+	const max = Math.max(0, ...values.map((v) => v.value))
+	const optionByPlayerId = new Map(
+		options.flatMap((o) => (o.playerId ? [[o.playerId, o] as const] : [])),
+	)
+	const valueByOptionId = new Map(
+		options.flatMap((o): [string, number][] => (o.playerId ? [[o.id, 0]] : [])),
+	)
+	for (const { playerId, who, value } of values) {
+		const option = playerId ? optionByPlayerId.get(playerId) : undefined
+		if (option) {
+			valueByOptionId.set(option.id, value)
+		} else if (max > 0 && equal(value, max)) {
+			return fail(
+				"leader_not_in_pool",
+				`${who} led with ${value} but isn't an option`,
+			)
+		}
+	}
+	return gradeLeader(
+		[...valueByOptionId].map(([optionId, value]) => ({ optionId, value })),
+	)
+}
+
 export type FinalScoreContext = {
 	options: Pick<QuestionOption, "id" | "teamId">[]
 	box: ParsedBoxScore
@@ -257,42 +290,17 @@ export function decideGameQuestion(ctx: GameQuestionContext): Decision {
 		)
 	}
 
-	// The pool is fixed when the question is created, so a leader who wasn't in
-	// it can't be marked correct.
 	const gameLeader = (): Decision => {
 		if (extractor.subject !== "player" || !extractor.readAll) {
 			return fail("unmapped", "this stat can't settle a game leader")
 		}
-		const values = extractor.readAll(sources)
-		const max = Math.max(0, ...values.values())
-
-		const optionByPlayerId = new Map(
-			options.flatMap((o) => (o.playerId ? [[o.playerId, o] as const] : [])),
-		)
-		// Every option in the pool, not just whoever tied for the most: grading
-		// reads the same winner off it either way, and carrying the whole pool
-		// is what lets the settled question say what the leader actually put
-		// up. A pool player the box score doesn't list put up none of the stat,
-		// the same reading a season pool leader gets.
-		const valueByOptionId = new Map(
-			options.flatMap((o): [string, number][] =>
-				o.playerId ? [[o.id, 0]] : [],
-			),
-		)
-		for (const [espnAthleteId, v] of values) {
-			const playerId = ctx.playerIdByEspnAthleteId.get(espnAthleteId)
-			const option = playerId ? optionByPlayerId.get(playerId) : undefined
-			if (option) {
-				valueByOptionId.set(option.id, v)
-			} else if (max > 0 && equal(v, max)) {
-				return fail(
-					"leader_not_in_pool",
-					`ESPN athlete ${espnAthleteId} led with ${v} but isn't an option`,
-				)
-			}
-		}
-		return gradeLeader(
-			[...valueByOptionId].map(([optionId, value]) => ({ optionId, value })),
+		return gradePoolLeader(
+			options,
+			[...extractor.readAll(sources)].map(([espnAthleteId, value]) => ({
+				playerId: ctx.playerIdByEspnAthleteId.get(espnAthleteId) ?? null,
+				who: `ESPN athlete ${espnAthleteId}`,
+				value,
+			})),
 		)
 	}
 
@@ -329,6 +337,7 @@ export function decideGameQuestion(ctx: GameQuestionContext): Decision {
 			"team_vs_team_season",
 			"team_season_stat_numeric_guess",
 			"player_season_stat_leader",
+			"player_team_season_stat_leader",
 			(shape) => fail("unmapped", `${shape} doesn't settle from a box score`),
 		)
 		.exhaustive()

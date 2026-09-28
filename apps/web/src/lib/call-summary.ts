@@ -110,6 +110,7 @@ export function pickSummary(call: CallSummaryData): string {
 			"TEAM_VS_TEAM_SEASON",
 			"PLAYER_GAME_STAT_LEADER",
 			"PLAYER_SEASON_STAT_LEADER",
+			"PLAYER_TEAM_SEASON_STAT_LEADER",
 			"YES_NO_PROP",
 			"PLAYER_AWARD_FINALISTS",
 			() => formatSingleSelection(call),
@@ -174,6 +175,7 @@ export function convictionSummary(call: CallSummaryData): string {
 			"TEAM_VS_TEAM_SEASON",
 			"PLAYER_GAME_STAT_LEADER",
 			"PLAYER_SEASON_STAT_LEADER",
+			"PLAYER_TEAM_SEASON_STAT_LEADER",
 			"YES_NO_PROP",
 			"PLAYER_AWARD_FINALISTS",
 			() => {
@@ -286,6 +288,7 @@ function marginBasisFor(call: CallSummaryData): MarginBasis | null {
 			"TEAM_VS_TEAM_SEASON",
 			"PLAYER_GAME_STAT_LEADER",
 			"PLAYER_SEASON_STAT_LEADER",
+			"PLAYER_TEAM_SEASON_STAT_LEADER",
 			() => {
 				const scored = question.scoredOptions ?? []
 				const winner = scored[0]

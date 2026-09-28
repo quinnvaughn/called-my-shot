@@ -157,8 +157,11 @@ function scoredOptionsFor(question: {
 			() =>
 				[...scored].sort((a, b) => Number(b.isCorrect) - Number(a.isCorrect)),
 		)
-		.with("player_game_stat_leader", "player_season_stat_leader", () =>
-			scored.filter((o) => o.isCorrect),
+		.with(
+			"player_game_stat_leader",
+			"player_season_stat_leader",
+			"player_team_season_stat_leader",
+			() => scored.filter((o) => o.isCorrect),
 		)
 		.otherwise(() => [])
 }
@@ -296,6 +299,7 @@ function marginBasisFor(call: {
 			"team_vs_team_season",
 			"player_game_stat_leader",
 			"player_season_stat_leader",
+			"player_team_season_stat_leader",
 			() => {
 				const scored = scoredOptionsFor(question)
 				const winner = scored[0]

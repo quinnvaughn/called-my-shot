@@ -66,6 +66,13 @@ export const questionShape = pgEnum("question_shape", [
 	// game to derive one from) and the stat may be a customStat, since the
 	// advanced full-season metrics this exists for aren't in the catalog.
 	"player_season_stat_leader",
+	// "Who will lead the Celtics in minutes?" - the pool is the subject team's
+	// roster when the question is created, derived server-side rather than
+	// curated, and only what a player put up for that team counts, so a
+	// player traded mid-season carries just his games with it. A season total,
+	// never per-game: a per-game leader needs a games-played minimum nothing
+	// here defines.
+	"player_team_season_stat_leader",
 ])
 
 // player_season_stat_over_under/team_season_stat_over_under only - whether
