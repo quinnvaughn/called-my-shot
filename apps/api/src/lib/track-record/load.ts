@@ -80,6 +80,7 @@ export async function loadTrackRecord(
 		with: {
 			question: {
 				columns: {
+					gameId: true,
 					shape: true,
 					status: true,
 					lossRate: true,

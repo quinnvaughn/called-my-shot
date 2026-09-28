@@ -19,6 +19,7 @@ function call(overrides: Partial<TrackRecordCall> = {}): TrackRecordCall {
 	seq += 1
 	return {
 		callId: `call-${seq}`,
+		gameId: null,
 		shape: "team_stat_over_under",
 		status: "resolved",
 		unscoredReason: null,

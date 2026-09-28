@@ -28,8 +28,16 @@ type ReportCard = {
 	grade: string | null
 	biggestHit: { id: string } | null
 	biggestMiss: { id: string } | null
+	bestGame: ReportCardGame | null
+	worstGame: ReportCardGame | null
 	byFamily: unknown[]
 	byShape: unknown[]
+}
+type ReportCardGame = {
+	game: { id: string }
+	netPoints: number
+	wins: number
+	losses: number
 }
 type UserReportCard = { userByUsername: { reportCard: ReportCard | null } }
 type WindowReportCard = {
@@ -49,13 +57,20 @@ beforeEach(async () => {
 	user = await makeUser()
 })
 
-async function settledCall(points: number, correct: boolean) {
-	const game = await makeGame({
+const gameInWeek = () =>
+	makeGame({
 		leagueId: league.id,
 		seasonId,
 		seasonType: "regular",
 		weekNumber: 3,
 	})
+
+async function settledCall(
+	points: number,
+	correct: boolean,
+	game?: { id: string },
+) {
+	game ??= await gameInWeek()
 	const question = await makeQuestion({
 		leagueId: league.id,
 		seasonId,
@@ -95,6 +110,8 @@ const USER_REPORT_CARD = /* GraphQL */ `
 				byShape { shape family label }
 				biggestHit { id }
 				biggestMiss { id }
+				bestGame { game { id } netPoints wins losses }
+				worstGame { game { id } netPoints wins losses }
 			}
 		}
 	}
@@ -127,6 +144,35 @@ describe("User.reportCard", () => {
 		// is real but the letter is withheld.
 		expect(card?.returnPct).toBeGreaterThan(0)
 		expect(card?.grade).toBeNull()
+	})
+
+	it("picks a best and worst game from each game's netted calls", async () => {
+		const up = await gameInWeek()
+		const down = await gameInWeek()
+		await settledCall(300, true, up)
+		await settledCall(-75, false, up)
+		await settledCall(-150, false, down)
+
+		const data = await expectData<UserReportCard>(USER_REPORT_CARD, {
+			variables: {
+				username: user.username,
+				league: league.slug,
+				key: "2026-reg-w3",
+			},
+		})
+		const card = data.userByUsername.reportCard
+		expect(card?.bestGame).toEqual({
+			game: { id: up.id },
+			netPoints: 225,
+			wins: 1,
+			losses: 1,
+		})
+		expect(card?.worstGame).toEqual({
+			game: { id: down.id },
+			netPoints: -150,
+			wins: 0,
+			losses: 1,
+		})
 	})
 
 	it("labels its breakdown rows", async () => {

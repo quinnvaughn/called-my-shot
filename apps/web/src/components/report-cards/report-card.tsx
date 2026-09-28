@@ -21,6 +21,7 @@ import {
 	reportCardStatusLine,
 	returnTone,
 } from "#/lib/report-card"
+import { buildGameSlug } from "#/lib/slug"
 
 // One key for every window, not one per window: folding this away is a
 // standing preference about the block, not a judgment about week 3.
@@ -73,6 +74,12 @@ export const ReportCardFragment = graphql(`
 			id
 			...ReportCardHighlight_call
 		}
+		bestGame {
+			...ReportCardGameHighlight_game
+		}
+		worstGame {
+			...ReportCardGameHighlight_game
+		}
 	}
 `)
 
@@ -109,6 +116,32 @@ const HighlightFragment = graphql(`
 				id
 				label
 				isCorrect
+			}
+		}
+	}
+`)
+
+const GameHighlightFragment = graphql(`
+	fragment ReportCardGameHighlight_game on ReportCardGame {
+		netPoints
+		wins
+		losses
+		game {
+			id
+			startsAt
+			league {
+				id
+				slug
+			}
+			homeTeam {
+				id
+				name
+				abbreviation
+			}
+			awayTeam {
+				id
+				name
+				abbreviation
 			}
 		}
 	}
@@ -174,6 +207,62 @@ function Highlight({
 				})}
 			>
 				{formatSignedPoints(data.totalPoints ?? 0)}
+			</span>
+		</HStack>
+	)
+}
+
+function GameHighlight({
+	label,
+	row,
+}: {
+	label: string
+	row: FragmentType<typeof GameHighlightFragment> | null | undefined
+}) {
+	const data = useFragment(GameHighlightFragment, row ?? null)
+	if (!data) return null
+	const { game } = data
+	return (
+		<HStack
+			justify="space-between"
+			alignItems="baseline"
+			gap="3"
+			className={css({ paddingY: "1" })}
+		>
+			<VStack
+				gap="0"
+				alignItems="flex-start"
+				className={css({ minWidth: "0" })}
+			>
+				<Eyebrow size="sm" variant="neutral">
+					{label}
+				</Eyebrow>
+				<Link
+					to="/games/$gameId/{-$slug}"
+					params={{ gameId: game.id, slug: buildGameSlug(game) }}
+					className={css({
+						fontSize: "sm",
+						color: "fg.default",
+						textDecoration: "none",
+						overflow: "hidden",
+						textOverflow: "ellipsis",
+						whiteSpace: "nowrap",
+						_hover: { textDecoration: "underline" },
+					})}
+				>
+					{`${game.awayTeam.abbreviation} @ ${game.homeTeam.abbreviation} · ${formatRecord(data.wins, data.losses)}`}
+				</Link>
+			</VStack>
+			<span
+				className={css({
+					fontFamily: "mono",
+					fontSize: "sm",
+					fontWeight: "bold",
+					whiteSpace: "nowrap",
+					color: returnTone(data.netPoints),
+				})}
+			>
+				{formatSignedPoints(data.netPoints)}
 			</span>
 		</HStack>
 	)
@@ -367,6 +456,20 @@ export function ReportCard({ card: cardProp, expanded, username }: Props) {
 								>
 									<Highlight label="Biggest hit" call={card.biggestHit} />
 									<Highlight label="Biggest miss" call={card.biggestMiss} />
+								</VStack>
+							)}
+
+							{(card.bestGame || card.worstGame) && (
+								<VStack
+									gap="1"
+									alignItems="stretch"
+									className={css({
+										borderTop: "1px solid {colors.border.default}",
+										paddingTop: "2",
+									})}
+								>
+									<GameHighlight label="Best game" row={card.bestGame} />
+									<GameHighlight label="Worst game" row={card.worstGame} />
 								</VStack>
 							)}
 

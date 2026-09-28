@@ -31,6 +31,10 @@ import { callOutcome } from "../streaks/compute"
 
 export type ReportCardCall = {
 	callId: string
+	// Null for a question spanning no single game (a season stat, a
+	// postseason series). Such a call counts toward every total but can't
+	// belong to a best or worst game.
+	gameId: string | null
 	shape: QuestionShape
 	status: Question["status"]
 	unscoredReason: CallUnscoredReason | null
@@ -92,7 +96,21 @@ export type ReportCard = ReportCardStats & {
 	// Ids, not rows - keeping this module free of the database is the point.
 	biggestHitCallId: string | null
 	biggestMissCallId: string | null
+	bestGame: ReportCardGame | null
+	worstGame: ReportCardGame | null
 }
+
+// One game's settled calls in the window, netted together.
+export type ReportCardGame = {
+	gameId: string
+	netPoints: number
+	wins: number
+	losses: number
+}
+
+// Below this many games with a settled call, a best or worst game would just
+// restate the card's own totals.
+export const REPORT_CARD_MIN_GAMES = 2
 
 type Bucket = {
 	settledCount: number
@@ -209,6 +227,8 @@ export function buildReportCard(calls: ReportCardCall[]): ReportCard {
 	const families = new Map<ShapeFamily, Bucket>()
 	const shapes = new Map<QuestionShape, Bucket>()
 
+	const games = new Map<string, ReportCardGame>()
+
 	let biggestHit: ReportCardCall | null = null
 	let biggestMiss: ReportCardCall | null = null
 
@@ -222,6 +242,18 @@ export function buildReportCard(calls: ReportCardCall[]): ReportCard {
 		accumulate(upsert(shapes, call.shape), call, classification)
 
 		if (classification.kind !== "settled") continue
+		if (call.gameId !== null) {
+			const game = games.get(call.gameId) ?? {
+				gameId: call.gameId,
+				netPoints: 0,
+				wins: 0,
+				losses: 0,
+			}
+			game.netPoints += netOf(call)
+			if (classification.won) game.wins += 1
+			else game.losses += 1
+			games.set(call.gameId, game)
+		}
 		// Keyed on the outcome rather than the sign of the points. The two
 		// agree today - a win always pays positive and a miss always costs -
 		// but outcome can't be confused by a rounding edge landing a call at
@@ -243,6 +275,7 @@ export function buildReportCard(calls: ReportCardCall[]): ReportCard {
 		}
 	}
 
+	const { bestGame, worstGame } = pickGames([...games.values()])
 	const stats = statsFrom(totals)
 	return {
 		...stats,
@@ -284,5 +317,30 @@ export function buildReportCard(calls: ReportCardCall[]): ReportCard {
 		),
 		biggestHitCallId: biggestHit?.callId ?? null,
 		biggestMissCallId: biggestMiss?.callId ?? null,
+		bestGame,
+		worstGame,
+	}
+}
+
+// Keyed on the sign of the game's net, the way a call's highlight is keyed on
+// its outcome: a best game has to have come out ahead and a worst game behind,
+// so a window where every game lost shows a worst game and no best. A game
+// that netted exactly zero is neither. Ties break on id so the pick is the
+// same on every read.
+function pickGames(games: ReportCardGame[]): {
+	bestGame: ReportCardGame | null
+	worstGame: ReportCardGame | null
+} {
+	if (games.length < REPORT_CARD_MIN_GAMES) {
+		return { bestGame: null, worstGame: null }
+	}
+	const ordered = [...games].sort(
+		(a, b) => b.netPoints - a.netPoints || a.gameId.localeCompare(b.gameId),
+	)
+	const top = ordered[0]
+	const bottom = ordered[ordered.length - 1]
+	return {
+		bestGame: top && top.netPoints > 0 ? top : null,
+		worstGame: bottom && bottom.netPoints < 0 ? bottom : null,
 	}
 }

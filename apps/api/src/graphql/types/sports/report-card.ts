@@ -2,10 +2,14 @@ import type {
 	ReportCardFamilyRow,
 	ReportCardShapeRow,
 } from "../../../lib/report-card/compute"
-import type { ReportCardResult } from "../../../lib/report-card/load"
+import type {
+	ReportCardGameResult,
+	ReportCardResult,
+} from "../../../lib/report-card/load"
 import { builder } from "../../builder"
 import { CallRef } from "../question"
 import { QuestionShape, ShapeFamily } from "../question/enums"
+import { GameRef } from "./game"
 import { LeagueRef } from "./league"
 
 const ReportCardFamilyRowRef = builder
@@ -43,6 +47,22 @@ const ReportCardShapeRowRef = builder
 			returnPct: t.exposeFloat("returnPct", { nullable: true }),
 		}),
 	})
+
+// Every settled call the caller made on one game in the window, netted.
+//
+// Declared apart from its implement() call because GameRef reaches back here
+// through UserRef, and an inline implement() makes that loop an inference
+// cycle.
+const ReportCardGameRef =
+	builder.objectRef<ReportCardGameResult>("ReportCardGame")
+ReportCardGameRef.implement({
+	fields: (t) => ({
+		game: t.field({ type: GameRef, resolve: (r) => r.game }),
+		netPoints: t.exposeInt("netPoints"),
+		wins: t.exposeInt("wins"),
+		losses: t.exposeInt("losses"),
+	}),
+})
 
 // How a caller did across one window of games. Lives under sports/ rather
 // than user/ to keep the existing dependency direction: user/ imports from
@@ -106,6 +126,19 @@ export const ReportCardRef = builder
 				type: CallRef,
 				nullable: true,
 				resolve: (r) => r.biggestMiss,
+			}),
+
+			// Null below REPORT_CARD_MIN_GAMES games with a settled call, and
+			// whenever no game came out on that side of zero.
+			bestGame: t.field({
+				type: ReportCardGameRef,
+				nullable: true,
+				resolve: (r) => r.bestGame,
+			}),
+			worstGame: t.field({
+				type: ReportCardGameRef,
+				nullable: true,
+				resolve: (r) => r.worstGame,
 			}),
 		}),
 	})

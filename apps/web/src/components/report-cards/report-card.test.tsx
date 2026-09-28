@@ -39,6 +39,8 @@ function card(over: Record<string, unknown> = {}) {
 		byShape: [],
 		biggestHit: null,
 		biggestMiss: null,
+		bestGame: null,
+		worstGame: null,
 		...over,
 	} as unknown as FragmentType<typeof ReportCardFragment>
 }
@@ -192,6 +194,43 @@ describe("ReportCard", () => {
 		expect(screen.getByText("Head-to-Head")).toBeInTheDocument()
 		expect(screen.getByText("Team vs Team")).toBeInTheDocument()
 		expect(screen.getByText("Player Game Head-to-Head")).toBeInTheDocument()
+	})
+
+	it("names the best and worst game with their record and net", async () => {
+		const gameRow = (id: string, away: string, home: string) => ({
+			id,
+			startsAt: "2026-09-21T17:00:00Z",
+			league: { id: "l", slug: "nfl" },
+			awayTeam: { id: `${id}-a`, name: away, abbreviation: away },
+			homeTeam: { id: `${id}-h`, name: home, abbreviation: home },
+		})
+		await renderWithRouter(
+			<ReportCard
+				card={card({
+					bestGame: {
+						netPoints: 225,
+						wins: 3,
+						losses: 1,
+						game: gameRow("g1", "BUF", "KC"),
+					},
+					worstGame: {
+						netPoints: -150,
+						wins: 0,
+						losses: 2,
+						game: gameRow("g2", "NYJ", "MIA"),
+					},
+				})}
+			/>,
+		)
+		expect(screen.getByText("Best game")).toBeInTheDocument()
+		expect(
+			screen.getByRole("link", { name: "BUF @ KC · 3–1" }),
+		).toHaveAttribute("href", expect.stringMatching(/^\/games\/g1\//))
+		expect(screen.getByText("+225")).toBeInTheDocument()
+		expect(screen.getByText("Worst game")).toBeInTheDocument()
+		expect(
+			screen.getByRole("link", { name: "NYJ @ MIA · 0–2" }),
+		).toBeInTheDocument()
 	})
 
 	it("offers an explicit, labelled link to the permalink", async () => {

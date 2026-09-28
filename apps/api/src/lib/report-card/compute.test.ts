@@ -10,6 +10,7 @@ function call(overrides: Partial<ReportCardCall> = {}): ReportCardCall {
 	seq += 1
 	return {
 		callId: `call-${seq}`,
+		gameId: null,
 		shape: "team_vs_team",
 		status: "resolved",
 		unscoredReason: null,
@@ -273,6 +274,90 @@ describe("biggest hit and biggest miss", () => {
 			}),
 		])
 		expect(card.biggestHitCallId).toBe("earlier")
+	})
+})
+
+describe("best game and worst game", () => {
+	it("nets every settled call on a game and picks the extremes", () => {
+		const card = buildReportCard([
+			call({ gameId: "up", netPoints: 300 }),
+			loss({ gameId: "up", netPoints: -100 }),
+			call({ gameId: "flat-ish", netPoints: 40 }),
+			loss({ gameId: "down", netPoints: -150 }),
+			call({ gameId: "down", netPoints: 60 }),
+		])
+		expect(card.bestGame).toEqual({
+			gameId: "up",
+			netPoints: 200,
+			wins: 1,
+			losses: 1,
+		})
+		expect(card.worstGame).toEqual({
+			gameId: "down",
+			netPoints: -90,
+			wins: 1,
+			losses: 1,
+		})
+	})
+
+	it("is withheld when only one game has a settled call", () => {
+		// The one game would just restate the card's own totals.
+		const card = buildReportCard([
+			call({ gameId: "only", netPoints: 300 }),
+			loss({ gameId: "only", netPoints: -400 }),
+			pending({ gameId: "other" }),
+		])
+		expect(card.bestGame).toBeNull()
+		expect(card.worstGame).toBeNull()
+	})
+
+	it("needs a best game to be up and a worst game to be down", () => {
+		const allUp = buildReportCard([
+			call({ gameId: "a", netPoints: 50 }),
+			call({ gameId: "b", netPoints: 90 }),
+		])
+		expect(allUp.bestGame?.gameId).toBe("b")
+		expect(allUp.worstGame).toBeNull()
+
+		const allDown = buildReportCard([
+			loss({ gameId: "a", netPoints: -50 }),
+			loss({ gameId: "b", netPoints: -90 }),
+		])
+		expect(allDown.bestGame).toBeNull()
+		expect(allDown.worstGame?.gameId).toBe("b")
+
+		const even = buildReportCard([
+			call({ gameId: "a", netPoints: 75 }),
+			loss({ gameId: "a", netPoints: -75 }),
+			call({ gameId: "b", netPoints: 20 }),
+		])
+		expect(even.bestGame?.gameId).toBe("b")
+		expect(even.worstGame).toBeNull()
+	})
+
+	it("leaves out pending, voided and gameless calls", () => {
+		const card = buildReportCard([
+			call({ gameId: "a", netPoints: 50 }),
+			call({ gameId: "b", netPoints: 10 }),
+			pending({ gameId: "b" }),
+			call({ gameId: "b", status: "voided", netPoints: 9999 }),
+			call({ gameId: null, netPoints: 9999 }),
+		])
+		expect(card.bestGame).toEqual({
+			gameId: "a",
+			netPoints: 50,
+			wins: 1,
+			losses: 0,
+		})
+	})
+
+	it("breaks a tie the same way on every read", () => {
+		const tied = [
+			call({ gameId: "zzz", netPoints: 100 }),
+			call({ gameId: "aaa", netPoints: 100 }),
+		]
+		expect(buildReportCard(tied).bestGame?.gameId).toBe("aaa")
+		expect(buildReportCard([...tied].reverse()).bestGame?.gameId).toBe("aaa")
 	})
 })
 

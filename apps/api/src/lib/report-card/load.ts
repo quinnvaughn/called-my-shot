@@ -1,12 +1,13 @@
 import { isNumericGuessShape } from "@called-my-shot/scoring"
 import { and, eq } from "drizzle-orm"
 import { db } from "../../db"
-import { type Call, games, type League } from "../../db/schema"
+import { type Call, type Game, games, type League } from "../../db/schema"
 import { type WindowDescriptor, windowGameFilter } from "../windows"
 import {
 	buildReportCard,
 	type ReportCard,
 	type ReportCardCall,
+	type ReportCardGame,
 } from "./compute"
 
 // Reads the rows ./compute.ts folds. Two queries regardless of how big the
@@ -40,12 +41,13 @@ type LoadedCall = {
 }
 
 export function toReportCardCall(
-	question: Pick<ReportCardCall, "shape" | "status" | "lossRate">,
+	question: Pick<ReportCardCall, "gameId" | "shape" | "status" | "lossRate">,
 	call: LoadedCall,
 ): ReportCardCall {
 	const numeric = isNumericGuessShape(question.shape)
 	return {
 		callId: call.id,
+		gameId: question.gameId,
 		shape: question.shape,
 		status: question.status,
 		unscoredReason: call.unscoredReason,
@@ -102,7 +104,13 @@ export async function loadReportCard(
 	// questions · 3 called" subline on the rows underneath it.
 	const questions = await db.query.questions.findMany({
 		where: { gameId: { in: gameIds } },
-		columns: { id: true, shape: true, status: true, lossRate: true },
+		columns: {
+			id: true,
+			gameId: true,
+			shape: true,
+			status: true,
+			lossRate: true,
+		},
 		with: {
 			calls: {
 				where: { userId },
@@ -140,7 +148,11 @@ export type ReportCardResult = ReportCard & {
 	// the database and only knows a call's id.
 	biggestHit: Call | null
 	biggestMiss: Call | null
+	bestGame: ReportCardGameResult | null
+	worstGame: ReportCardGameResult | null
 }
+
+export type ReportCardGameResult = ReportCardGame & { game: Game }
 
 // The card plus the rows GraphQL needs to resolve it: the league and window it
 // covers, and the two highlighted calls hydrated from their ids. Kept apart
@@ -155,10 +167,23 @@ export async function loadReportCardResult(
 	const ids = [card.biggestHitCallId, card.biggestMissCallId].filter(
 		(id): id is string => id !== null,
 	)
-	const highlighted = ids.length
-		? await db.query.calls.findMany({ where: { id: { in: ids } } })
-		: []
+	const gameIds = [card.bestGame, card.worstGame].flatMap((g) =>
+		g ? [g.gameId] : [],
+	)
+	const [highlighted, highlightedGames] = await Promise.all([
+		ids.length ? db.query.calls.findMany({ where: { id: { in: ids } } }) : [],
+		gameIds.length
+			? db.query.games.findMany({ where: { id: { in: gameIds } } })
+			: [],
+	])
 	const byId = new Map(highlighted.map((call) => [call.id, call]))
+	const gamesById = new Map(highlightedGames.map((game) => [game.id, game]))
+	const withGame = (
+		row: ReportCardGame | null,
+	): ReportCardGameResult | null => {
+		const game = row ? gamesById.get(row.gameId) : undefined
+		return row && game ? { ...row, game } : null
+	}
 	return {
 		...card,
 		league,
@@ -169,5 +194,7 @@ export async function loadReportCardResult(
 		biggestMiss: card.biggestMissCallId
 			? (byId.get(card.biggestMissCallId) ?? null)
 			: null,
+		bestGame: withGame(card.bestGame),
+		worstGame: withGame(card.worstGame),
 	}
 }
