@@ -1,10 +1,8 @@
 // The reaction gif a call's record card wears, and the pools it's drawn from.
 //
-// Lives here, beside the scoring math rather than inside it, for the same
-// reason ./margin and ./report-card do: it describes a result, it never
-// decides what one is worth. It has to be shared rather than sitting in the
-// web app because the api reads it too - lib/gif-health.ts walks these pools
-// to report dead links, and it cannot import from apps/web.
+// A package rather than a file in apps/web because the api reads the pools
+// too - lib/gif-health.ts walks them to report dead links, and it cannot
+// import from apps/web.
 //
 // The urls are hotlinked straight from Giphy/Tenor. That is a departure from
 // how every other image in this app reaches a browser: the share cards are

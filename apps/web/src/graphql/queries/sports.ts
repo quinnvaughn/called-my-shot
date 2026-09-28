@@ -270,6 +270,7 @@ export const GameEntryDocument = graphql(`
 				wins
 				losses
 				points
+				verdict
 				user {
 					id
 					name

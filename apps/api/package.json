@@ -35,6 +35,7 @@
     "@as-integrations/express5": "^1.1.2",
     "@aws-sdk/client-s3": "^3.1138.0",
     "@aws-sdk/s3-request-presigner": "^3.1138.0",
+    "@called-my-shot/gifs": "workspace:*",
     "@called-my-shot/schemas": "workspace:*",
     "@called-my-shot/scoring": "workspace:*",
     "@fontsource/archivo-black": "^5.3.0",

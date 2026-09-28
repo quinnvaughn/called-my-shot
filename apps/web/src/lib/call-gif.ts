@@ -1,4 +1,4 @@
-import type { CallGifState } from "@called-my-shot/scoring"
+import type { CallGifState } from "@called-my-shot/gifs"
 
 // Everything the ladder below reads. A subset of what describeCall returns in
 // routes/_app/calls/$callId.tsx, spelled out here so the rule can be tested

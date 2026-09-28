@@ -1,4 +1,4 @@
-import { type CallGifState, GIF_POOLS } from "@called-my-shot/scoring"
+import { type CallGifState, GIF_POOLS } from "@called-my-shot/gifs"
 import { Link } from "@tanstack/react-router"
 import { css } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"

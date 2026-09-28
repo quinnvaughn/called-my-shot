@@ -166,6 +166,7 @@ function RouteComponent() {
 				wins={entry.wins}
 				losses={entry.losses}
 				points={entry.points}
+				verdict={entry.verdict}
 			/>
 
 			<GameShareRow

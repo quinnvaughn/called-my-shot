@@ -2,14 +2,19 @@ import { and, count, eq } from "drizzle-orm"
 import { DateTime } from "luxon"
 import { db } from "../../../db"
 import { calls, questions, type User } from "../../../db/schema"
-import { type GameEntry, loadGameEntry } from "../../../lib/game-entry"
+import {
+	type GameEntry,
+	type GameEntryVerdict as GameEntryVerdictValue,
+	gameEntryVerdict,
+	loadGameEntry,
+} from "../../../lib/game-entry"
 import { hasGameReminder } from "../../../lib/game-reminders"
 import { buildWeekWindowKey, ET_ZONE } from "../../../lib/windows"
 import { builder } from "../../builder"
 import { CallRef } from "../question/call"
 import { QuestionRef } from "../question/question-object"
 import { UserRef } from "../user"
-import { GameStatus } from "./enums"
+import { GameEntryVerdict, GameStatus } from "./enums"
 import { GamePostseasonRef, loadGamePostseason } from "./postseason"
 import { loadTeamRecordsByKey, TeamRecordRef } from "./team"
 
@@ -24,7 +29,9 @@ const GameEntryMemberRef = builder
 	})
 
 const GameEntryRef = builder
-	.objectRef<GameEntry & { user: User }>("GameEntry")
+	.objectRef<GameEntry & { user: User; verdict: GameEntryVerdictValue | null }>(
+		"GameEntry",
+	)
 	.implement({
 		fields: (t) => ({
 			user: t.field({ type: UserRef, resolve: (e) => e.user }),
@@ -32,6 +39,11 @@ const GameEntryRef = builder
 			wins: t.exposeInt("wins"),
 			losses: t.exposeInt("losses"),
 			points: t.exposeInt("points"),
+			verdict: t.field({
+				type: GameEntryVerdict,
+				nullable: true,
+				resolve: (e) => e.verdict,
+			}),
 			members: t.field({
 				type: [GameEntryMemberRef],
 				resolve: (e) => e.members,
@@ -181,7 +193,12 @@ export const GameRef = builder.drizzleObject("games", {
 				})
 				if (!user) return null
 				const entry = await loadGameEntry(game.id, user.id)
-				return entry ? { ...entry, user } : null
+				if (!entry) return null
+				return {
+					...entry,
+					user,
+					verdict: gameEntryVerdict(entry, game.status),
+				}
 			},
 		}),
 	}),

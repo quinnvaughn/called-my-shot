@@ -1078,24 +1078,9 @@ export function convictionEdge(summary: {
 	)
 }
 
-// The reaction gif a call's record card wears, and the pools it's drawn from,
-// live in ./call-gifs - split out from the scoring math above since that list
-// is expected to keep growing and has nothing to do with points. Shared
-// rather than web-only because the api walks the same pools to report dead
-// links; see the header comment there.
-export {
-	type CallGif,
-	type CallGifState,
-	GIF_POOLS,
-	pickCallGif,
-	pickGif,
-} from "./call-gifs"
-// The group invite page's gifs. Separate from the call pools above, which it
-// never draws from.
-export { JOIN_GIFS } from "./join-gifs"
 // How far a resolved call landed from its line, and whether that was
-// remarkable. Split out for the same reason as ./call-gifs: it describes a
-// result, it doesn't score one. Nothing above imports it - see the header
+// remarkable. Split out from the scoring math above: it describes a result,
+// it doesn't score one. Nothing above imports it - see the header
 // comment in ./margin.ts for why that separation is load-bearing.
 export {
 	type CallMargin,
@@ -1107,7 +1092,7 @@ export {
 } from "./margin"
 
 // How a whole window of calls is graded, for the report card. Same separation
-// as ./call-gifs and ./margin above - it reads a set of results, never decides
+// as ./margin above - it reads a set of results, never decides
 // what any one call is worth, and nothing above imports it.
 export {
 	callReturnVariance,

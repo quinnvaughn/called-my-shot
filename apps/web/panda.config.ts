@@ -190,6 +190,12 @@ export default defineConfig({
           from: { opacity: "0", transform: "translateY(8px)" },
           to: { opacity: "1", transform: "translateY(0)" },
         },
+        // A game entry's perfect-card / oh-fer stamp (GameVerdictStamp):
+        // comes down large and lands tilted, like a rubber stamp on paper.
+        stampDown: {
+          from: { opacity: "0", transform: "scale(1.8) rotate(-4deg)" },
+          to: { opacity: "1", transform: "scale(1) rotate(-4deg)" },
+        },
       },
       semanticTokens: {
         colors: {

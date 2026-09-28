@@ -1,14 +1,27 @@
-import { type CallGif, GIF_POOLS, JOIN_GIFS } from "@called-my-shot/scoring"
+import {
+	type CallGif,
+	GIF_POOLS,
+	JOIN_GIFS,
+	OH_FER_GIFS,
+	PERFECT_GIFS,
+} from "@called-my-shot/gifs"
 
 type Pools = Record<string, readonly CallGif[]>
 
-// Every pool the app draws from. The call pools by result state, plus the
-// group invite page's under "join".
-const ALL_POOLS: Pools = { ...GIF_POOLS, join: JOIN_GIFS }
+// Every pool the app draws from. The call pools by result state, the group
+// invite page's under "join", and a finished game's entry page under
+// "perfect" and "oh_fer".
+const ALL_POOLS: Pools = {
+	...GIF_POOLS,
+	join: JOIN_GIFS,
+	perfect: PERFECT_GIFS,
+	oh_fer: OH_FER_GIFS,
+}
 
 // One url in one pool, and whether it is still there.
 export type GifHealthRow = {
-	// A CallGifState, or "join" for the invite page's pool.
+	// A CallGifState, or "join", "perfect" or "oh_fer" for the pools outside
+	// the call page.
 	state: string
 	url: string
 	alt: string

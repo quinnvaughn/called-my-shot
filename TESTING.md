@@ -13,6 +13,7 @@ pnpm test                            # everything, via turbo
 | Package | Needs a DB | Covers |
 |---|---|---|
 | `packages/scoring` | no | points, contrarian/earliness tiers, tolerance bands, numeric-guess closeness |
+| `packages/gifs` | no | every gif pool has a url and alt text, and the random draw |
 | `packages/schemas` | no | every zod schema's per-shape rules, and `generateQuestionTitle`'s templates |
 | `apps/api` | **yes** | `resolveQuestionInternal`, the lib helpers, and GraphQL operations run against the real schema |
 

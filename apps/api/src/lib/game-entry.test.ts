@@ -8,6 +8,7 @@ import {
 	makeUser,
 } from "../test/factories"
 import { expectData } from "../test/graphql"
+import { GAME_ENTRY_VERDICT_MIN_CALLS, gameEntryVerdict } from "./game-entry"
 
 const ENTRY = /* GraphQL */ `
 	query Entry($id: ID!, $username: String!) {
@@ -96,5 +97,98 @@ describe("Game.entry", () => {
 			})
 			expect(data.game.entry).toBeNull()
 		}
+	})
+})
+
+describe("gameEntryVerdict", () => {
+	const settled = (count: number) =>
+		Array.from({ length: count }, () => ({
+			member: { status: "resolved" as const },
+			call: { unscoredReason: null },
+		}))
+
+	it("stamps a final game called all right or all wrong", () => {
+		const members = settled(GAME_ENTRY_VERDICT_MIN_CALLS)
+		expect(gameEntryVerdict({ members, wins: 5, losses: 0 }, "final")).toBe(
+			"perfect",
+		)
+		expect(gameEntryVerdict({ members, wins: 0, losses: 5 }, "final")).toBe(
+			"oh_fer",
+		)
+		expect(
+			gameEntryVerdict({ members, wins: 4, losses: 1 }, "final"),
+		).toBeNull()
+	})
+
+	it("needs the minimum number of settled calls", () => {
+		const members = settled(GAME_ENTRY_VERDICT_MIN_CALLS - 1)
+		expect(
+			gameEntryVerdict({ members, wins: 0, losses: 4 }, "final"),
+		).toBeNull()
+	})
+
+	it("waits for the game to finish", () => {
+		const members = settled(GAME_ENTRY_VERDICT_MIN_CALLS)
+		expect(gameEntryVerdict({ members, wins: 0, losses: 5 }, "live")).toBeNull()
+	})
+
+	it("waits on a counted call still missing its result", () => {
+		const members = [
+			...settled(GAME_ENTRY_VERDICT_MIN_CALLS),
+			{ member: { status: "locked" as const }, call: { unscoredReason: null } },
+		]
+		expect(
+			gameEntryVerdict({ members, wins: 0, losses: 5 }, "final"),
+		).toBeNull()
+	})
+
+	it("ignores uncalled, voided and unscored questions", () => {
+		const members = [
+			...settled(GAME_ENTRY_VERDICT_MIN_CALLS),
+			{ member: { status: "open" as const }, call: null },
+			{ member: { status: "voided" as const }, call: { unscoredReason: null } },
+			{
+				member: { status: "locked" as const },
+				call: { unscoredReason: "creator_sole_caller" as const },
+			},
+		]
+		expect(gameEntryVerdict({ members, wins: 0, losses: 5 }, "final")).toBe(
+			"oh_fer",
+		)
+	})
+})
+
+describe("Game.entry verdict", () => {
+	it("reads OH_FER once a final game's calls all missed", async () => {
+		const game = await makeGame({ status: "final" })
+		const user = await makeUser()
+		for (let i = 0; i < GAME_ENTRY_VERDICT_MIN_CALLS; i++) {
+			const question = await makeQuestion({
+				leagueId: game.leagueId,
+				seasonId: game.seasonId,
+				gameId: game.id,
+				isOfficial: true,
+				status: "resolved",
+			})
+			const wrong = await makeOption(question.id, { isCorrect: false })
+			await makeOption(question.id, { isCorrect: true })
+			const call = await makeCall(question.id, user.id)
+			await makeSelection(call.id, wrong.id)
+		}
+
+		const data = await expectData<{
+			game: { entry: { wins: number; losses: number; verdict: string | null } }
+		}>(
+			/* GraphQL */ `
+				query Verdict($id: ID!, $username: String!) {
+					game(id: $id) {
+						entry(username: $username) { wins losses verdict }
+					}
+				}
+			`,
+			{ variables: { id: game.id, username: user.username } },
+		)
+
+		expect(data.game.entry).toEqual({ wins: 0, losses: 5, verdict: "OH_FER" })
 	})
 })

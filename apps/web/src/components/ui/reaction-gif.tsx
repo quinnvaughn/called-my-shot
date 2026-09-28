@@ -1,4 +1,4 @@
-import { type CallGif, pickGif } from "@called-my-shot/scoring"
+import { type CallGif, pickGif } from "@called-my-shot/gifs"
 import { useEffect, useState } from "react"
 import { css } from "styled-system/css"
 

@@ -22,6 +22,7 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@called-my-shot/gifs": "workspace:*",
     "@called-my-shot/schemas": "workspace:*",
     "@called-my-shot/scoring": "workspace:*",
     "@graphql-typed-document-node/core": "^3.2.0",

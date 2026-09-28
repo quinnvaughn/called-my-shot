@@ -4,8 +4,9 @@ import {
 	GIF_POOLS,
 	pickCallGif,
 	pickGif,
-} from "./index"
-import { JOIN_GIFS } from "../join-gifs"
+} from "./call-gifs"
+import { OH_FER_GIFS, PERFECT_GIFS } from "./game-verdict-gifs"
+import { JOIN_GIFS } from "./join-gifs"
 
 const STATES: CallGifState[] = [
 	"voided",
@@ -73,9 +74,9 @@ describe("GIF_POOLS", () => {
 	})
 })
 
-describe("JOIN_GIFS", () => {
+describe("JOIN_GIFS, PERFECT_GIFS and OH_FER_GIFS", () => {
 	it("hotlinks described assets, same as the call pools", () => {
-		for (const gif of JOIN_GIFS) {
+		for (const gif of [...JOIN_GIFS, ...PERFECT_GIFS, ...OH_FER_GIFS]) {
 			expect(gif.url).toMatch(/^https:\/\//)
 			expect(gif.url).not.toMatch(/^https:\/\/(www\.)?(giphy|tenor)\.com\//)
 			expect(gif.alt.trim()).not.toBe("")

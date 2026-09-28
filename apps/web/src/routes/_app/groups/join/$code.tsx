@@ -1,4 +1,4 @@
-import { JOIN_GIFS } from "@called-my-shot/scoring"
+import { JOIN_GIFS } from "@called-my-shot/gifs"
 import { useQueryClient, useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute, useNavigate, useRouter } from "@tanstack/react-router"
 import { FaRegTimesCircle } from "react-icons/fa"

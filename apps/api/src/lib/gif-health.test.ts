@@ -1,4 +1,4 @@
-import type { CallGif, CallGifState } from "@called-my-shot/scoring"
+import type { CallGif, CallGifState } from "@called-my-shot/gifs"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { emptyGifPools, loadGifHealth } from "./gif-health"
 

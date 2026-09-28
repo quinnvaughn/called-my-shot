@@ -8,11 +8,13 @@ FROM base AS deps
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json ./
 COPY apps/web/package.json apps/web/package.json
 COPY apps/api/package.json apps/api/package.json
+COPY packages/gifs/package.json packages/gifs/package.json
 COPY packages/schemas/package.json packages/schemas/package.json
 COPY packages/scoring/package.json packages/scoring/package.json
 RUN pnpm install --frozen-lockfile --ignore-scripts
 
 FROM deps AS build
+COPY packages/gifs packages/gifs
 COPY packages/schemas packages/schemas
 COPY packages/scoring packages/scoring
 COPY apps/api apps/api

@@ -15,6 +15,15 @@ export const GameStatus = builder.enumType("GameStatus", {
 	},
 })
 
+// A finished game called all right or all wrong - see gameEntryVerdict in
+// lib/game-entry.ts.
+export const GameEntryVerdict = builder.enumType("GameEntryVerdict", {
+	values: {
+		PERFECT: { value: "perfect" },
+		OH_FER: { value: "oh_fer" },
+	},
+})
+
 // How a league's Games tab pages through its schedule - see
 // leagues.windowType's comment in db/schema/sports.ts.
 export const LeagueWindowType = builder.enumType("LeagueWindowType", {
