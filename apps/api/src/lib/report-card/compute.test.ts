@@ -163,6 +163,36 @@ describe("the grade", () => {
 		expect(card.returnPct).toBeGreaterThan(40)
 		expect(card.grade).toBe("B")
 	})
+
+	it("trusts a return more when its misses were cheap", () => {
+		// Ten over/unders at 6-4: +20%, but ten calls that each swing their
+		// full commitment either way leave plenty of room for luck.
+		const pricey = buildReportCard([
+			...Array.from({ length: 6 }, () => call()),
+			...Array.from({ length: 4 }, () => loss()),
+		])
+		expect(pricey.returnPct).toBeCloseTo(20)
+		expect(pricey.grade).toBe("B")
+
+		// Ten stat leader calls priced at 0.05, conviction 72 committing 180
+		// each: two hits at +180, eight misses at -9. A lower return, but
+		// hitting 20% on questions priced near 5% is far outside luck.
+		const statLeader = (won: boolean) =>
+			call({
+				shape: "player_game_stat_leader",
+				lossRate: 0.05,
+				convictions: [72],
+				netPoints: won ? 180 : -9,
+				selectionsCorrect: [won],
+			})
+		const cheap = buildReportCard([
+			statLeader(true),
+			statLeader(true),
+			...Array.from({ length: 8 }, () => statLeader(false)),
+		])
+		expect(cheap.returnPct).toBeCloseTo(16)
+		expect(cheap.grade).toBe("A+")
+	})
 })
 
 describe("isFinal", () => {

@@ -1,6 +1,6 @@
 import {
 	BASE_POINTS_BY_SHAPE,
-	effectiveCallCount,
+	callReturnVariance,
 	effectiveLossRate,
 	type Grade,
 	gradeForReturn,
@@ -9,6 +9,7 @@ import {
 	type QuestionShape,
 	REPORT_CARD_MIN_SETTLED,
 	returnOnCommitted,
+	returnStandardError,
 	SHAPE_FAMILIES,
 	SHAPE_FAMILY_LABEL,
 	SHAPE_LABEL,
@@ -100,9 +101,8 @@ type Bucket = {
 	pendingCount: number
 	netPoints: number
 	committedPoints: number
-	// Sum of each settled call's commitment squared, for effectiveCallCount.
-	// Per call, not per selection: a multiselect call is one outcome.
-	committedSquares: number
+	// Sum of callReturnVariance over settled selections, for the grade.
+	varianceSum: number
 	pendingStake: number
 }
 
@@ -113,7 +113,7 @@ const emptyBucket = (): Bucket => ({
 	pendingCount: 0,
 	netPoints: 0,
 	committedPoints: 0,
-	committedSquares: 0,
+	varianceSum: 0,
 	pendingStake: 0,
 })
 
@@ -166,15 +166,17 @@ function accumulate(
 	if (classification.won) bucket.wins += 1
 	else bucket.losses += 1
 	bucket.netPoints += call.netPoints ?? 0
-	let committed = 0
-	for (const conviction of call.convictions) {
-		committed += pointsCommitted(basePoints, conviction)
+	for (const [index, conviction] of call.convictions.entries()) {
+		const committed = pointsCommitted(basePoints, conviction)
+		bucket.committedPoints += committed
+		bucket.varianceSum += callReturnVariance(
+			committed,
+			effectiveLossRate(call.lossRate, call.selectionLossRates[index]),
+		)
 	}
-	bucket.committedPoints += committed
-	bucket.committedSquares += committed * committed
 }
 
-const statsFrom = ({ committedSquares, ...bucket }: Bucket): ReportCardStats => ({
+const statsFrom = ({ varianceSum, ...bucket }: Bucket): ReportCardStats => ({
 	...bucket,
 	// Settled commitment only. Folding pending calls into the denominator
 	// would drag the number toward zero all afternoon and then snap when the
@@ -251,7 +253,7 @@ export function buildReportCard(calls: ReportCardCall[]): ReportCard {
 			stats.settledCount >= REPORT_CARD_MIN_SETTLED
 				? gradeForReturn(
 						stats.returnPct,
-						effectiveCallCount(totals.committedPoints, totals.committedSquares),
+						returnStandardError(totals.committedPoints, totals.varianceSum),
 					)
 				: null,
 		isFinal: totals.pendingCount === 0 && totals.settledCount > 0,

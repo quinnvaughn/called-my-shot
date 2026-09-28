@@ -8,13 +8,13 @@ import {
 	selectionPoints,
 } from "./index"
 import {
-	CALL_RETURN_SPREAD,
-	effectiveCallCount,
+	callReturnVariance,
 	GRADE_BANDS,
 	gradeForReturn,
 	REPORT_CARD_MIN_SETTLED,
 	returnOnCommitted,
 	returnScore,
+	returnStandardError,
 } from "./report-card"
 
 describe("returnOnCommitted", () => {
@@ -70,41 +70,66 @@ describe("returnOnCommitted", () => {
 	})
 })
 
-describe("effectiveCallCount", () => {
-	it("is the plain count when every call committed the same", () => {
-		// Ten calls at 75 each.
-		expect(effectiveCallCount(750, 10 * 75 * 75)).toBeCloseTo(10)
+describe("callReturnVariance", () => {
+	// The claim the whole grade leans on: at the break-even hit rate, one
+	// call's return on committed has a standard deviation of sqrt(lossRate).
+	// Checked against the real payout function, so a change to how hits or
+	// misses score shows up here.
+	it("matches the real payout's spread at break-even for any loss rate", () => {
+		const base = BASE_POINTS_BY_SHAPE.player_game_stat_leader
+		for (const lossRate of [0.05, 0.23, 0.5, 1]) {
+			const committed = pointsCommitted(base, 100)
+			const hit = selectionPoints(base, lossRate, 50, 2, 100, true, 1)
+			const miss = selectionPoints(base, lossRate, 50, 2, 100, false, 1)
+			const p = breakEvenHitRate(lossRate)
+			const actualSd =
+				(Math.sqrt(p * (1 - p)) * (hit - miss)) / committed
+			const modelSd =
+				Math.sqrt(callReturnVariance(committed, lossRate)) / committed
+			expect(modelSd).toBeCloseTo(actualSd, 2)
+		}
+	})
+})
+
+describe("returnStandardError", () => {
+	it("is 100 / sqrt(n) for n equal calls at a 1.0 loss rate", () => {
+		const committed = 75
+		const n = 25
+		const variance = n * callReturnVariance(committed, 1)
+		expect(returnStandardError(n * committed, variance)).toBeCloseTo(20)
 	})
 
-	it("shrinks when one call dominates the commitment", () => {
-		// One call at 1000 beside ten at 10.
-		const committed = 1000 + 10 * 10
-		const squares = 1000 * 1000 + 10 * 10 * 10
-		const n = effectiveCallCount(committed, squares)
-		expect(n).toBeGreaterThan(1)
-		expect(n).toBeLessThan(1.5)
+	it("shrinks with a cheaper miss", () => {
+		const at = (lossRate: number) =>
+			returnStandardError(750, 10 * callReturnVariance(75, lossRate))
+		expect(at(0.05)).toBeLessThan(at(0.25) ?? 0)
+		expect(at(0.25)).toBeCloseTo((at(1) ?? 0) / 2)
 	})
 
-	it("is zero with nothing committed", () => {
-		expect(effectiveCallCount(0, 0)).toBe(0)
+	it("grows when one call carries most of the commitment", () => {
+		const even = returnStandardError(1000, 10 * callReturnVariance(100, 1))
+		const lopsided = returnStandardError(
+			1000,
+			callReturnVariance(910, 1) + 9 * callReturnVariance(10, 1),
+		)
+		expect(lopsided).toBeGreaterThan((even ?? 0) * 2)
+	})
+
+	it("is null with nothing committed", () => {
+		expect(returnStandardError(0, 0)).toBeNull()
 	})
 })
 
 describe("returnScore", () => {
-	it("is the return over the spread at one call", () => {
-		expect(returnScore(CALL_RETURN_SPREAD, 1)).toBeCloseTo(1)
-	})
-
-	it("grows with the square root of the sample", () => {
-		expect(returnScore(10, 100)).toBeCloseTo(returnScore(10, 25) * 2)
+	it("is the return in standard errors", () => {
+		expect(returnScore(30, 20)).toBeCloseTo(1.5)
+		expect(returnScore(-10, 20)).toBeCloseTo(-0.5)
 	})
 })
 
 describe("gradeForReturn", () => {
 	it("takes the first band the score clears", () => {
-		// At 25 calls the standard error is 95 / 5 = 19, so each band edge
-		// sits at 19 x its score.
-		const at = (score: number) => gradeForReturn(score * 19, 25)
+		const at = (score: number) => gradeForReturn(score * 20, 20)
 		expect(at(3)).toBe("A+")
 		expect(at(2)).toBe("A+")
 		expect(at(1.99)).toBe("A")
@@ -120,17 +145,18 @@ describe("gradeForReturn", () => {
 	})
 
 	it("grades the same return harder the more calls stand behind it", () => {
-		// A clearly losing 92-call week, and the same return over a handful.
-		expect(gradeForReturn(-7.1, 92)).toBe("D")
-		expect(gradeForReturn(-7.1, 6)).toBe("C")
-		// A hot 7-call stretch is mostly luck; the same pace over 92 is not.
-		expect(gradeForReturn(43, 7)).toBe("B")
-		expect(gradeForReturn(43, 92)).toBe("A+")
+		// n equal over/unders, where the standard error is 100 / sqrt(n).
+		const overUnders = (returnPct: number, n: number) =>
+			gradeForReturn(returnPct, 100 / Math.sqrt(n))
+		expect(overUnders(-7.1, 92)).toBe("D")
+		expect(overUnders(-7.1, 6)).toBe("C")
+		expect(overUnders(43, 7)).toBe("B")
+		expect(overUnders(43, 92)).toBe("A+")
 	})
 
 	it("has no grade for a window that committed nothing", () => {
 		expect(gradeForReturn(null, 10)).toBeNull()
-		expect(gradeForReturn(0, 0)).toBeNull()
+		expect(gradeForReturn(0, null)).toBeNull()
 	})
 
 	it("covers every score with exactly one band, ordered high to low", () => {
@@ -142,9 +168,9 @@ describe("gradeForReturn", () => {
 		)
 	})
 
-	it("puts break-even in the middle of C at any sample size", () => {
-		for (const n of [5, 12, 30, 92, 500]) {
-			expect(gradeForReturn(0, n)).toBe("C")
+	it("puts break-even in the middle of C at any standard error", () => {
+		for (const se of [5, 20, 45, 100]) {
+			expect(gradeForReturn(0, se)).toBe("C")
 		}
 	})
 })

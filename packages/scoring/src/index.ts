@@ -1110,12 +1110,12 @@ export {
 // as ./call-gifs and ./margin above - it reads a set of results, never decides
 // what any one call is worth, and nothing above imports it.
 export {
-	CALL_RETURN_SPREAD,
-	effectiveCallCount,
+	callReturnVariance,
 	GRADE_BANDS,
 	type Grade,
 	gradeForReturn,
 	REPORT_CARD_MIN_SETTLED,
 	returnOnCommitted,
 	returnScore,
+	returnStandardError,
 } from "./report-card"

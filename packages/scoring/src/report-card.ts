@@ -43,64 +43,70 @@ export function returnOnCommitted(
 
 export type Grade = "A+" | "A" | "B" | "C" | "D" | "F"
 
-// How far one settled call's return lands from its window's return, as a
-// commitment-weighted standard deviation in percent. Measured in production
-// across 378 settled calls from 19 callers: 94.1 overall, with shapes ranging
-// from 42 (stat leader, whose misses are cheap) to 103 (team vs team).
+// How much luck one settled call carries, as its share of the variance of
+// a window's return. A call's return on committed is +1 on a hit at x1 and
+// -lossRate on a miss. At the break-even hit rate, lossRate / (1 + lossRate),
+// the standard deviation of that works out to exactly sqrt(lossRate). So the
+// spread follows from the price alone: an over/under at 1.0 swings 100% of
+// what was committed, a stat leader tuned to 0.05 swings about 22%, because
+// its likely outcome is a miss that costs almost nothing.
 //
-// This is mostly a property of the payout rules rather than of the callers.
-// Nearly every call settles at roughly +1 or -1 times what was committed, so
-// the spread sits near 100 whoever is calling and needs retuning only if the
-// shape mix or the multipliers change materially.
-export const CALL_RETURN_SPREAD = 95
-
-// How many calls a window is worth for measuring skill. Each call counts in
-// proportion to what was committed to it, so a window holding one huge call
-// and ten tiny ones behaves like far fewer than eleven: the huge one decides
-// the return almost alone. Equal commitments reduce this to the plain count.
+// Checked against production: 378 settled calls came out at 94% overall and
+// 42% for stat leader, in line with their loss rates. The contrarian and
+// earliness multipliers widen a hit's payout past x1, so this runs slightly
+// under the true spread for calls that earn them.
 //
-// Takes the sum of each settled call's commitment and the sum of their
-// squares, which is what the report card can accumulate without keeping every
-// call around.
-export function effectiveCallCount(
+// Summed per selection, weighted by the square of what each one committed,
+// since a bigger commitment moves the window's return proportionally more.
+// Pass each selection's own rate where a priced line set one.
+export function callReturnVariance(
 	committedPoints: number,
-	committedSquares: number,
+	lossRate: number,
 ): number {
-	if (committedSquares <= 0) return 0
-	return (committedPoints * committedPoints) / committedSquares
+	return committedPoints * committedPoints * lossRate
 }
 
-// How many standard errors a window's return sits from break-even: the return
-// over the luck its sample size allows, CALL_RETURN_SPREAD / sqrt(calls).
+// The luck a window's return allows, in percentage points: one standard
+// deviation of what a caller hitting exactly at break-even would post on
+// these same calls. Takes the window's committed total and the sum of
+// callReturnVariance over its settled selections.
+export function returnStandardError(
+	committedPoints: number,
+	varianceSum: number,
+): number | null {
+	if (committedPoints <= 0 || varianceSum <= 0) return null
+	return (Math.sqrt(varianceSum) / committedPoints) * 100
+}
+
+// How many standard errors a window's return sits from break-even.
 //
 // A raw return can't be graded on one scale because the same number means
-// different things at different sizes. -7% over 92 calls is a clear miss,
-// while -13% over 5 calls is noise; +43% over 7 calls is a hot week, while
-// +20% over 92 is an excellent one. Fixed return bands handed every large
-// window a C and every extreme letter to windows of nine calls or fewer.
+// different things at different sizes and prices. -7% over 92 over/unders is
+// a clear miss, while -13% over 5 is noise; a window of cheap-miss stat
+// leader calls has far less luck in it than the same number of over/unders.
+// Fixed return bands handed every large window a C and every extreme letter
+// to windows of nine calls or fewer.
 //
 // Centered on break-even (0), not on where callers happen to land, so a C
 // means calling about as well as the questions were priced and the scale
 // doesn't drift as the field grows.
-export function returnScore(
-	returnPct: number,
-	effectiveCalls: number,
-): number {
-	return (returnPct * Math.sqrt(effectiveCalls)) / CALL_RETURN_SPREAD
+export function returnScore(returnPct: number, standardError: number): number {
+	return returnPct / standardError
 }
 
 // Bands on returnScore. By luck alone, a caller hitting exactly at break-even
 // lands A+ about 2% of the time and F about 7%. A+ gets the tighter tail
 // because it is the letter people share.
 //
-// What each band needs, as a return:
+// What each band needs, as a return, for equal-conviction calls at a 1.0
+// loss rate (over/under, head-to-head). Cheaper-miss shapes need less:
 //
 //                 5 calls   12 calls   30 calls   92 calls
-//     A+  >= 2.0    +85%      +55%       +35%       +20%
-//     A   >= 1.25   +53%      +34%       +22%       +12%
-//     B   >= 0.5    +21%      +14%        +9%        +5%
-//     C   >= -0.5   -21%      -14%        -9%        -5%
-//     D   >= -1.5   -64%      -41%       -26%       -15%
+//     A+  >= 2.0    +89%      +58%       +37%       +21%
+//     A   >= 1.25   +56%      +36%       +23%       +13%
+//     B   >= 0.5    +22%      +14%        +9%        +5%
+//     C   >= -0.5   -22%      -14%        -9%        -5%
+//     D   >= -1.5   -67%      -43%       -27%       -16%
 //
 // Ordered high to low; gradeForReturn takes the first band a score clears.
 export const GRADE_BANDS: readonly { min: number; grade: Grade }[] = [
@@ -114,10 +120,10 @@ export const GRADE_BANDS: readonly { min: number; grade: Grade }[] = [
 
 export function gradeForReturn(
 	returnPct: number | null,
-	effectiveCalls: number,
+	standardError: number | null,
 ): Grade | null {
-	if (returnPct === null || effectiveCalls <= 0) return null
-	const score = returnScore(returnPct, effectiveCalls)
+	if (returnPct === null || standardError === null) return null
+	const score = returnScore(returnPct, standardError)
 	return GRADE_BANDS.find((band) => score >= band.min)?.grade ?? "F"
 }
 
