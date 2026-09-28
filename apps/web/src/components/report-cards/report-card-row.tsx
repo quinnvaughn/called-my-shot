@@ -55,7 +55,11 @@ export function ReportCardRow({ row, nested = false }: Props) {
 					fontFamily: "mono",
 					fontSize: "2xs",
 					whiteSpace: "nowrap",
-					textAlign: "right",
+					// On narrow screens the record starts the numbers line, so it
+					// sits flush under its label (indented with it on a shape row)
+					// rather than right-aligning away from it.
+					textAlign: { base: "left", sm: "right" },
+					paddingLeft: nested ? { base: "4", sm: "0" } : "0",
 					color: "fg.muted",
 				})}
 			>
