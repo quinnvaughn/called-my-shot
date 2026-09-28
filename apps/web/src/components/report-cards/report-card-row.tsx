@@ -22,7 +22,7 @@ type Props = {
 // and the shape rows nested under it on the permalink. Same component so a
 // family and the shapes inside it can't come out formatted differently.
 // Rows take their columns from the breakdown's grid (subgrid), so record,
-// points and return line up down the whole breakdown.
+// open count, points and return line up down the whole breakdown.
 export function ReportCardRow({ row, nested = false }: Props) {
 	const settled = row.wins + row.losses
 	const returnText = formatReturn(row.returnPct)
@@ -55,11 +55,21 @@ export function ReportCardRow({ row, nested = false }: Props) {
 					fontFamily: "mono",
 					fontSize: "2xs",
 					whiteSpace: "nowrap",
+					textAlign: "right",
 					color: "fg.muted",
 				})}
 			>
 				{settled > 0 ? formatRecord(row.wins, row.losses) : "-"}
-				{row.pendingCount > 0 ? ` · ${row.pendingCount} open` : ""}
+			</span>
+			<span
+				className={css({
+					fontFamily: "mono",
+					fontSize: "2xs",
+					whiteSpace: "nowrap",
+					color: "fg.muted",
+				})}
+			>
+				{row.pendingCount > 0 ? `${row.pendingCount} open` : ""}
 			</span>
 			<span
 				className={css({
@@ -105,11 +115,11 @@ export function ReportCardBreakdown({
 			className={css({
 				display: "grid",
 				// Label on its own line above the numbers on narrow screens, so
-				// the numbers take the first three columns; from sm up the label
+				// the numbers take the first four columns; from sm up the label
 				// fills the left and the numbers hug the right.
 				gridTemplateColumns: {
-					base: "auto auto auto 1fr",
-					sm: "1fr auto auto auto",
+					base: "auto auto auto auto 1fr",
+					sm: "1fr auto auto auto auto",
 				},
 				columnGap: "3",
 				borderTop: "1px solid {colors.border.default}",
