@@ -31,6 +31,7 @@ import { Route as AdminQueueRouteImport } from './routes/admin/queue'
 import { Route as AdminReportsRouteImport } from './routes/admin/reports'
 import { Route as AdminTitlesRouteImport } from './routes/admin/titles'
 import { Route as AdminUsersRouteImport } from './routes/admin/users'
+import { Route as AssetsSplatRouteImport } from './routes/assets/$'
 import { Route as IngestSplatRouteImport } from './routes/ingest/$'
 import { Route as JoinCodeRouteImport } from './routes/join/$code'
 import { Route as UnsubscribeIndexRouteImport } from './routes/unsubscribe/index'
@@ -187,6 +188,11 @@ const AdminUsersRoute = AdminUsersRouteImport.update({
   id: '/users',
   path: '/users',
   getParentRoute: () => AdminRoute,
+} as any)
+const AssetsSplatRoute = AssetsSplatRouteImport.update({
+  id: '/assets/$',
+  path: '/assets/$',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const IngestSplatRoute = IngestSplatRouteImport.update({
   id: '/ingest/$',
@@ -471,6 +477,7 @@ export interface FileRoutesByFullPath {
   '/admin/reports': typeof AdminReportsRoute
   '/admin/titles': typeof AdminTitlesRoute
   '/admin/users': typeof AdminUsersRoute
+  '/assets/$': typeof AssetsSplatRoute
   '/ingest/$': typeof IngestSplatRoute
   '/join/$code': typeof JoinCodeRoute
   '/unsubscribe/one-click': typeof UnsubscribeOneClickRoute
@@ -540,6 +547,7 @@ export interface FileRoutesByTo {
   '/admin/reports': typeof AdminReportsRoute
   '/admin/titles': typeof AdminTitlesRoute
   '/admin/users': typeof AdminUsersRoute
+  '/assets/$': typeof AssetsSplatRoute
   '/ingest/$': typeof IngestSplatRoute
   '/join/$code': typeof JoinCodeRoute
   '/unsubscribe/one-click': typeof UnsubscribeOneClickRoute
@@ -611,6 +619,7 @@ export interface FileRoutesById {
   '/admin/reports': typeof AdminReportsRoute
   '/admin/titles': typeof AdminTitlesRoute
   '/admin/users': typeof AdminUsersRoute
+  '/assets/$': typeof AssetsSplatRoute
   '/ingest/$': typeof IngestSplatRoute
   '/join/$code': typeof JoinCodeRoute
   '/unsubscribe/one-click': typeof UnsubscribeOneClickRoute
@@ -683,6 +692,7 @@ export interface FileRouteTypes {
     | '/admin/reports'
     | '/admin/titles'
     | '/admin/users'
+    | '/assets/$'
     | '/ingest/$'
     | '/join/$code'
     | '/unsubscribe/one-click'
@@ -752,6 +762,7 @@ export interface FileRouteTypes {
     | '/admin/reports'
     | '/admin/titles'
     | '/admin/users'
+    | '/assets/$'
     | '/ingest/$'
     | '/join/$code'
     | '/unsubscribe/one-click'
@@ -822,6 +833,7 @@ export interface FileRouteTypes {
     | '/admin/reports'
     | '/admin/titles'
     | '/admin/users'
+    | '/assets/$'
     | '/ingest/$'
     | '/join/$code'
     | '/unsubscribe/one-click'
@@ -880,6 +892,7 @@ export interface RootRouteChildren {
   GraphqlRoute: typeof GraphqlRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   VersionRoute: typeof VersionRoute
+  AssetsSplatRoute: typeof AssetsSplatRoute
   IngestSplatRoute: typeof IngestSplatRoute
   JoinCodeRoute: typeof JoinCodeRoute
   UnsubscribeOneClickRoute: typeof UnsubscribeOneClickRoute
@@ -1049,6 +1062,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/admin/users'
       preLoaderRoute: typeof AdminUsersRouteImport
       parentRoute: typeof AdminRoute
+    }
+    '/assets/$': {
+      id: '/assets/$'
+      path: '/assets/$'
+      fullPath: '/assets/$'
+      preLoaderRoute: typeof AssetsSplatRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/ingest/$': {
       id: '/ingest/$'
@@ -1548,6 +1568,7 @@ const rootRouteChildren: RootRouteChildren = {
   GraphqlRoute: GraphqlRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   VersionRoute: VersionRoute,
+  AssetsSplatRoute: AssetsSplatRoute,
   IngestSplatRoute: IngestSplatRoute,
   JoinCodeRoute: JoinCodeRoute,
   UnsubscribeOneClickRoute: UnsubscribeOneClickRoute,
