@@ -16,6 +16,11 @@ import { parseFlags } from "./parse-flags"
 //   pnpm --filter api backfill:box-scores -- --league=mlb --commit
 //   pnpm --filter api backfill:box-scores -- --season=2025 --limit=200 --commit
 //   pnpm --filter api backfill:box-scores -- --from=2025-04-01 --to=2025-10-01 --commit
+//   pnpm --filter api backfill:box-scores -- --league=mlb --restore-before=2026-09-29T20:00:00Z --commit
+//
+// --restore-before also stores again every game whose box score was stored
+// before that time, for when the parser starts deriving a value that older
+// rows don't have. Pass the same timestamp to resume one.
 //
 // Interrupting it is safe. Each game is stamped in the same transaction as its
 // rows, so re-running the same command resumes rather than restarting.
@@ -27,6 +32,7 @@ const flags = parseFlags({
 	to: { type: "string" },
 	limit: { type: "string" },
 	spacing: { type: "string" },
+	"restore-before": { type: "string" },
 })
 
 function list(raw: string | undefined): string[] | undefined {
@@ -34,7 +40,7 @@ function list(raw: string | undefined): string[] | undefined {
 	return raw.split(",").filter(Boolean)
 }
 
-function date(name: "from" | "to"): Date | undefined {
+function date(name: "from" | "to" | "restore-before"): Date | undefined {
 	const raw = flags[name]
 	if (!raw) return undefined
 	const parsed = new Date(raw)
@@ -54,6 +60,7 @@ const selection = await selectBackfillGames({
 	seasonYears: list(flags.season)?.map(Number).filter(Number.isFinite),
 	from: date("from"),
 	to: date("to"),
+	restoreBefore: date("restore-before"),
 	limit,
 })
 

@@ -28,6 +28,10 @@ export type BackfillFilters = {
 	from?: Date
 	to?: Date
 	limit?: number
+	// Also takes games whose box score was stored before this, to store them
+	// again after the parser starts deriving something new. A game re-stored
+	// is stamped after it, so an interrupted re-sync resumes like any other run.
+	restoreBefore?: Date
 }
 
 export type BackfillCandidate = {
@@ -52,7 +56,8 @@ export type BackfillSelection = {
 	skippedUnsyncedLeague: number
 }
 
-// Final games whose box score was never stored, oldest first. The ordering
+// Final games whose box score was never stored (or was stored before
+// restoreBefore), oldest first. The ordering
 // plus the boxScoreSyncedAt filter is what makes a re-run resume: a game is
 // stamped in the same transaction as its rows, so an interrupted run leaves
 // every unfinished game exactly as it found it.
@@ -90,7 +95,14 @@ export async function selectBackfillGames(
 	const games = await db.query.games.findMany({
 		where: {
 			status: "final",
-			boxScoreSyncedAt: { isNull: true },
+			...(filters.restoreBefore
+				? {
+						OR: [
+							{ boxScoreSyncedAt: { isNull: true } },
+							{ boxScoreSyncedAt: { lt: filters.restoreBefore } },
+						],
+					}
+				: { boxScoreSyncedAt: { isNull: true } }),
 			leagueId: { in: [...slugByLeagueId.keys()] },
 			...(seasons ? { seasonId: { in: seasons.map((s) => s.id) } } : {}),
 			...(Object.keys(startsAt).length > 0 ? { startsAt } : {}),

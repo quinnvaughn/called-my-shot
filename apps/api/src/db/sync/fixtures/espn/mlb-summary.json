@@ -2537,5 +2537,254 @@
     ]
    }
   ]
- }
+ },
+ "plays": [
+  {
+   "type": {
+    "text": "Single"
+   },
+   "participants": [
+    {
+     "athlete": {
+      "id": "5016968"
+     },
+     "type": "batter"
+    }
+   ]
+  },
+  {
+   "type": {
+    "text": "Home Run"
+   },
+   "participants": [
+    {
+     "athlete": {
+      "id": "40459"
+     },
+     "type": "batter"
+    }
+   ]
+  },
+  {
+   "type": {
+    "text": "Single"
+   },
+   "participants": [
+    {
+     "athlete": {
+      "id": "4867424"
+     },
+     "type": "batter"
+    }
+   ]
+  },
+  {
+   "type": {
+    "text": "Home Run"
+   },
+   "participants": [
+    {
+     "athlete": {
+      "id": "5203102"
+     },
+     "type": "batter"
+    }
+   ]
+  },
+  {
+   "type": {
+    "text": "Single"
+   },
+   "participants": [
+    {
+     "athlete": {
+      "id": "33247"
+     },
+     "type": "batter"
+    }
+   ]
+  },
+  {
+   "type": {
+    "text": "Single"
+   },
+   "participants": [
+    {
+     "athlete": {
+      "id": "42547"
+     },
+     "type": "batter"
+    }
+   ]
+  },
+  {
+   "type": {
+    "text": "Single"
+   },
+   "participants": [
+    {
+     "athlete": {
+      "id": "4905919"
+     },
+     "type": "batter"
+    }
+   ]
+  },
+  {
+   "type": {
+    "text": "Double"
+   },
+   "participants": [
+    {
+     "athlete": {
+      "id": "33912"
+     },
+     "type": "batter"
+    }
+   ]
+  },
+  {
+   "type": {
+    "text": "Double"
+   },
+   "participants": [
+    {
+     "athlete": {
+      "id": "5149102"
+     },
+     "type": "batter"
+    }
+   ]
+  },
+  {
+   "type": {
+    "text": "Single"
+   },
+   "participants": [
+    {
+     "athlete": {
+      "id": "4867424"
+     },
+     "type": "batter"
+    }
+   ]
+  },
+  {
+   "type": {
+    "text": "Single"
+   },
+   "participants": [
+    {
+     "athlete": {
+      "id": "42547"
+     },
+     "type": "batter"
+    }
+   ]
+  },
+  {
+   "type": {
+    "text": "Triple"
+   },
+   "participants": [
+    {
+     "athlete": {
+      "id": "41197"
+     },
+     "type": "batter"
+    }
+   ]
+  },
+  {
+   "type": {
+    "text": "Double"
+   },
+   "participants": [
+    {
+     "athlete": {
+      "id": "33912"
+     },
+     "type": "batter"
+    }
+   ]
+  },
+  {
+   "type": {
+    "text": "Single"
+   },
+   "participants": [
+    {
+     "athlete": {
+      "id": "4867424"
+     },
+     "type": "batter"
+    }
+   ]
+  },
+  {
+   "type": {
+    "text": "Home Run"
+   },
+   "participants": [
+    {
+     "athlete": {
+      "id": "42547"
+     },
+     "type": "batter"
+    }
+   ]
+  },
+  {
+   "type": {
+    "text": "Single"
+   },
+   "participants": [
+    {
+     "athlete": {
+      "id": "4917787"
+     },
+     "type": "batter"
+    }
+   ]
+  },
+  {
+   "type": {
+    "text": "Single"
+   },
+   "participants": [
+    {
+     "athlete": {
+      "id": "4905919"
+     },
+     "type": "batter"
+    }
+   ]
+  },
+  {
+   "type": {
+    "text": "Single"
+   },
+   "participants": [
+    {
+     "athlete": {
+      "id": "41197"
+     },
+     "type": "batter"
+    }
+   ]
+  },
+  {
+   "type": {
+    "text": "Single"
+   },
+   "participants": [
+    {
+     "athlete": {
+      "id": "39112"
+     },
+     "type": "batter"
+    }
+   ]
+  }
+ ]
 }

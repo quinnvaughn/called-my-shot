@@ -256,6 +256,13 @@ const BASEBALL_STATS: StatEntry[] = [
 		"both",
 		{ player: 0.5, team: 1.5 },
 	],
+	[
+		"Total Bases",
+		"Batting",
+		"Low-Count Box Stat",
+		"both",
+		{ player: 1.5, team: 13.5 },
+	],
 	["RBIs", "Batting", "Low-Count Box Stat", "both", { player: 0.5, team: 4.5 }],
 	["Runs", "Batting", "Low-Count Box Stat", "both", { player: 0.5, team: 4.5 }],
 	[
@@ -313,6 +320,13 @@ const BASEBALL_STATS: StatEntry[] = [
 		"High-Volume",
 		"both",
 		{ player: 5.5, team: 8.5 },
+	],
+	[
+		"Pitches Thrown",
+		"Pitching",
+		"High-Volume",
+		"both",
+		{ player: 90.5, team: 145.5 },
 	],
 	[
 		"Earned Runs Allowed",

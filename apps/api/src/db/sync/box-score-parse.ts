@@ -98,8 +98,43 @@ export function parseBoxScore(summary: EspnGameSummary): ParsedBoxScore {
 		}
 		tableTotals.set(espnTeamId, totals)
 	}
+	deriveTotalBases(summary.plays ?? [], athletes)
 
 	return { isFinal, scoreByEspnTeamId, teamStats, tableTotals, athletes }
+}
+
+const BASES_PER_HIT: Record<string, number> = {
+	Single: 1,
+	Double: 2,
+	Triple: 3,
+	"Home Run": 4,
+}
+
+// ESPN's MLB batting table has no total bases, and no doubles or triples to
+// work it out from, so it's counted off the play-by-play's hits and stored as
+// "batting.totalBases" like any other cell. A batter whose hits there don't
+// add up to the table's H gets no value rather than a wrong one, which leaves
+// a question on it for a person instead of settling it short.
+function deriveTotalBases(
+	plays: NonNullable<EspnGameSummary["plays"]>,
+	athletes: Map<string, ParsedAthlete>,
+): void {
+	const hits = new Map<string, number>()
+	const bases = new Map<string, number>()
+	for (const play of plays) {
+		const perHit = BASES_PER_HIT[play.type?.text ?? ""]
+		if (perHit === undefined) continue
+		const batters = (play.participants ?? []).filter((p) => p.type === "batter")
+		if (batters.length !== 1 || !batters[0]) continue
+		const id = batters[0].athlete.id
+		hits.set(id, (hits.get(id) ?? 0) + 1)
+		bases.set(id, (bases.get(id) ?? 0) + perHit)
+	}
+	for (const [id, athlete] of athletes) {
+		const tableHits = parseStatNumber(athlete.stats.get("batting.hits"))
+		if (tableHits === null || tableHits !== (hits.get(id) ?? 0)) continue
+		athlete.stats.set("batting.totalBases", String(bases.get(id) ?? 0))
+	}
 }
 
 // A plain number, or null for ESPN's blanks ("", "--") and anything else that

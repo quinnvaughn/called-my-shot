@@ -63,6 +63,22 @@ describe("selectBackfillGames", () => {
 		expect(candidates.map((c) => c.game.id)).toEqual([pending.id])
 	})
 
+	it("takes games stored before restoreBefore again", async () => {
+		const seeded = await seedLeague()
+		const pending = await seedFinalGame(seeded, { startsAt: daysAgo(9) })
+		const stale = await seedFinalGame(seeded, {
+			startsAt: daysAgo(5),
+			boxScoreSyncedAt: daysAgo(4),
+		})
+		await seedFinalGame(seeded, { boxScoreSyncedAt: daysAgo(1) })
+
+		const { candidates } = await selectBackfillGames({
+			restoreBefore: daysAgo(2),
+		})
+
+		expect(candidates.map((c) => c.game.id)).toEqual([pending.id, stale.id])
+	})
+
 	it("counts a game with no ESPN event instead of trying to fetch it", async () => {
 		const seeded = await seedLeague()
 		const fetchable = await seedFinalGame(seeded)

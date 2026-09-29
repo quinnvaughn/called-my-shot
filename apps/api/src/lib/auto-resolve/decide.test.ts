@@ -372,6 +372,20 @@ describe("decideGameQuestion - MLB", () => {
 		).toMatchObject({ actualValue: 0.4 })
 	})
 
+	it("reads a batter's total bases counted off the play-by-play", () => {
+		// 41197: 2 for 5, a single and a triple.
+		expect(mlbNumeric("41197", "mlb:game:player:Total Bases")).toMatchObject({
+			actualValue: 4,
+		})
+	})
+
+	it("reads a pitcher's pitch count off the box score", () => {
+		// 4019484: 83 pitches, 52 strikes.
+		expect(
+			mlbNumeric("4019484", "mlb:game:player:Pitches Thrown"),
+		).toMatchObject({ actualValue: 83 })
+	})
+
 	it("voids a batting question for a pitcher who never batted", () => {
 		expect(mlbNumeric("4019484", "mlb:game:player:Hits")).toEqual({
 			kind: "void",

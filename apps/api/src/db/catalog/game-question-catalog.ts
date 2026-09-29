@@ -199,6 +199,13 @@ const MLB_STARTER: StarterPick = {
 	priorWeight: 6,
 }
 
+// The same starter, lined on pitches per start. Pitches thrown in relief
+// would pull a swingman's figure down, so only starts count.
+const MLB_STARTER_PITCHES: StarterPick = {
+	...MLB_STARTER,
+	espnStat: "pitching.pitchesAsStarter",
+}
+
 // Everyone who bats: any lineup spot, or a roster player at a fielding
 // position or DH before the lineup is out. Drawn from the top three so it
 // isn't the same slugger every day.
@@ -482,6 +489,17 @@ export const GAME_QUESTION_CATALOG: Record<string, GameQuestionTemplate[]> = {
 			line: { minGames: 5, shade: 0.97, minLine: 2.5 },
 		},
 		{
+			id: "starter-pitches",
+			tier: 1,
+			shape: "player_stat_over_under",
+			statName: "Pitches Thrown",
+			group: "pitches",
+			pick: MLB_STARTER_PITCHES,
+			// The floor keeps openers out: an inning or two is 20-40 pitches, and
+			// a line down there is a question about the bullpen plan.
+			line: { minGames: 5, shade: 1, minLine: 60.5 },
+		},
+		{
 			id: "batter-hits",
 			tier: 1,
 			shape: "player_stat_over_under",
@@ -516,13 +534,13 @@ export const GAME_QUESTION_CATALOG: Record<string, GameQuestionTemplate[]> = {
 			pick: mlbBatter("batting.RBIs"),
 		},
 		{
-			id: "batter-home-runs",
+			id: "batter-total-bases",
 			tier: 1,
 			shape: "player_stat_over_under",
-			statName: "Home Runs",
-			group: "home-runs",
-			pick: mlbBatter("batting.homeRuns"),
-			line: { minGames: 15, shade: 1, minLine: 0.5 },
+			statName: "Total Bases",
+			group: "total-bases",
+			pick: mlbBatter("batting.totalBases"),
+			line: { minGames: 15, shade: 0.9, minLine: 0.5 },
 		},
 	],
 }
@@ -532,9 +550,11 @@ export const GAME_QUESTION_CATALOG: Record<string, GameQuestionTemplate[]> = {
 // to another template on the same run. One already called stays up and
 // settles as usual.
 export const RETIRED_GAME_TEMPLATE_IDS: Record<string, string[]> = {
-	// Nearly always one of the two starters, which the strikeouts duel
-	// already asks.
-	mlb: ["strikeouts-leader"],
+	// strikeouts-leader: nearly always one of the two starters, which the
+	// strikeouts duel already asks. batter-home-runs: a batter homers in about
+	// one game in five, so the line never gets off its 0.5 floor and the under
+	// hits too often for any loss rate in SIDE_LOSS_RATE_BOUNDS to price out.
+	mlb: ["strikeouts-leader", "batter-home-runs"],
 }
 
 // The templates a league posts at its current tier.

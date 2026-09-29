@@ -10,7 +10,8 @@ import {
 import type { EspnGameSummary } from "./espn-client"
 
 // Trimmed from live ESPN summaries (2026-09-12) down to the fields the parser
-// reads: NBA 401811029, NFL 401872657, MLB 401816883.
+// reads: NBA 401811029, NFL 401872657, MLB 401816883. MLB's plays are only its
+// hits, each with just its type and batter.
 const summaryFixture = (league: "nba" | "nfl" | "mlb") =>
 	espnFixture<EspnGameSummary>(`${league}-summary.json`)
 
@@ -45,6 +46,27 @@ describe("parseBoxScore", () => {
 		expect(box.athletes.get("4019484")?.notes).toEqual([
 			{ type: "pitchingDecision", text: "L, 5-10" },
 		])
+	})
+
+	it("counts an MLB batter's total bases off the play-by-play", () => {
+		const box = parseBoxScore(summaryFixture("mlb"))
+		expect(box.athletes.get("41197")?.stats.get("batting.totalBases")).toBe("4")
+		expect(box.athletes.get("4417606")?.stats.get("batting.totalBases")).toBe(
+			"0",
+		)
+	})
+
+	it("leaves total bases unset when the play-by-play's hits don't match H", () => {
+		const summary = summaryFixture("mlb")
+		summary.plays = summary.plays?.filter(
+			(play) =>
+				!play.participants?.some((p) => p.athlete.id === "41197") ||
+				play.type?.text !== "Single",
+		)
+		const box = parseBoxScore(summary)
+		expect(box.athletes.get("41197")?.stats.has("batting.totalBases")).toBe(
+			false,
+		)
 	})
 
 	it("isn't final until ESPN marks the game completed with a full box score", () => {

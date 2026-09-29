@@ -28,7 +28,9 @@ const STAT_ABBREVIATIONS: Record<string, string> = {
 	Hits: "H",
 	RBIs: "RBI",
 	"Home Runs": "HR",
+	"Total Bases": "TB",
 	"Strikeouts (Pitching)": "K",
+	"Pitches Thrown": "PC",
 }
 
 export function statAbbreviation(statName: string): string {

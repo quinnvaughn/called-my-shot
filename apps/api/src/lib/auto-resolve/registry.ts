@@ -547,6 +547,9 @@ export const GAME_EXTRACTORS = {
 
 	"mlb:game:player:Hits": mlbCounting("batting", "hits"),
 	"mlb:game:player:Home Runs": mlbCounting("batting", "homeRuns"),
+	// Derived from the play-by-play when the box score is parsed; see
+	// deriveTotalBases in db/sync/box-score-parse.ts.
+	"mlb:game:player:Total Bases": mlbCounting("batting", "totalBases"),
 	"mlb:game:player:RBIs": mlbCounting("batting", "RBIs"),
 	"mlb:game:player:Runs": mlbCounting("batting", "runs"),
 	"mlb:game:player:Walks (Batting)": mlbCounting("batting", "walks"),
@@ -561,6 +564,7 @@ export const GAME_EXTRACTORS = {
 	),
 	"mlb:game:player:Earned Runs Allowed": mlbCounting("pitching", "earnedRuns"),
 	"mlb:game:player:Saves": mlbSaves,
+	"mlb:game:player:Pitches Thrown": mlbCounting("pitching", "pitches"),
 	"mlb:game:player:ERA": mlbPitchingRate(
 		({ innings, earnedRuns }) => (9 * earnedRuns) / innings,
 	),
@@ -569,6 +573,7 @@ export const GAME_EXTRACTORS = {
 	),
 	"mlb:game:team:Hits": teamBoxStat("batting.hits"),
 	"mlb:game:team:Home Runs": teamBoxStat("batting.homeRuns"),
+	"mlb:game:team:Total Bases": teamBoxStat("batting.totalBases"),
 	"mlb:game:team:RBIs": teamBoxStat("batting.RBIs"),
 	"mlb:game:team:Runs": teamBoxStat("batting.runs"),
 	"mlb:game:team:Walks (Batting)": teamBoxStat("batting.walks"),
@@ -586,6 +591,7 @@ export const GAME_EXTRACTORS = {
 	"mlb:game:team:Strikeouts (Pitching)": teamBoxStat("pitching.strikeouts"),
 	"mlb:game:team:Earned Runs Allowed": teamBoxStat("pitching.earnedRuns"),
 	"mlb:game:team:Saves": teamBoxStat("pitching.saves"),
+	"mlb:game:team:Pitches Thrown": teamBoxStat("pitching.pitches"),
 	"mlb:game:team:ERA": teamBoxStat("pitching.ERA", parseRate),
 	"mlb:game:team:WHIP": teamBoxStat("pitching.WHIP", parseRate),
 } as const satisfies Record<GameStatKey, GameExtractor>
@@ -654,6 +660,7 @@ export const SEASON_EXTRACTORS = {
 
 	"mlb:season:player:Hits": seasonPlayer("batting.hits"),
 	"mlb:season:player:Home Runs": seasonPlayer("batting.homeRuns"),
+	"mlb:season:player:Total Bases": seasonPlayer("batting.totalBases"),
 	"mlb:season:player:RBIs": seasonPlayer("batting.RBIs"),
 	"mlb:season:player:Runs": seasonPlayer("batting.runs"),
 	"mlb:season:player:Walks (Batting)": seasonPlayer("batting.walks"),
@@ -676,10 +683,12 @@ export const SEASON_EXTRACTORS = {
 	),
 	"mlb:season:player:Earned Runs Allowed": seasonPlayer("pitching.earnedRuns"),
 	"mlb:season:player:Saves": seasonPlayer("pitching.saves"),
+	"mlb:season:player:Pitches Thrown": seasonPlayer("pitching.pitches"),
 	"mlb:season:player:ERA": seasonPlayer("pitching.ERA", "pitching.innings"),
 	"mlb:season:player:WHIP": seasonPlayer("pitching.WHIP", "pitching.innings"),
 	"mlb:season:team:Hits": seasonTeam("batting.hits"),
 	"mlb:season:team:Home Runs": seasonTeam("batting.homeRuns"),
+	"mlb:season:team:Total Bases": seasonTeam("batting.totalBases"),
 	"mlb:season:team:RBIs": seasonTeam("batting.RBIs"),
 	"mlb:season:team:Runs": seasonTeam("batting.runs"),
 	"mlb:season:team:Walks (Batting)": seasonTeam("batting.walks"),
@@ -700,6 +709,7 @@ export const SEASON_EXTRACTORS = {
 	"mlb:season:team:Strikeouts (Pitching)": seasonTeam("pitching.strikeouts"),
 	"mlb:season:team:Earned Runs Allowed": seasonTeam("pitching.earnedRuns"),
 	"mlb:season:team:Saves": seasonTeam("pitching.saves"),
+	"mlb:season:team:Pitches Thrown": seasonTeam("pitching.pitches"),
 	"mlb:season:team:ERA": seasonTeam("pitching.ERA", "pitching.innings"),
 	"mlb:season:team:WHIP": seasonTeam("pitching.WHIP", "pitching.innings"),
 	"mlb:season:team:Wins": standingsWins,

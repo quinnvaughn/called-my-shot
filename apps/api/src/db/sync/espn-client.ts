@@ -400,6 +400,12 @@ export type EspnGameSummary = {
 			},
 		]
 	}
+	// Play-by-play, which only MLB's box score is read from: see
+	// deriveTotalBases in box-score-parse.ts.
+	plays?: {
+		type?: { text?: string }
+		participants?: { athlete: { id: string }; type: string }[]
+	}[]
 	boxscore?: {
 		players?: {
 			team: { id: string }
