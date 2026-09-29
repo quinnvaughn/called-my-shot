@@ -47,7 +47,11 @@ import {
 	GAME_WINNER_LABEL,
 	sectionOfficialQuestions,
 } from "#/lib/official-game-questions"
-import { postseasonHeading, seededName } from "#/lib/postseason"
+import {
+	postseasonHeading,
+	seededName,
+	seriesStakesLabel,
+} from "#/lib/postseason"
 import { buildGameSlug } from "#/lib/slug"
 
 type GameTab = "official" | "community"
@@ -149,11 +153,45 @@ export const Route = createFileRoute("/_app/games/$gameId/{-$slug}")({
 			: ""
 		return pageMeta({
 			title: `${round}${seededName(game.awayTeam.name, game.postseason?.awaySeed)} @ ${seededName(game.homeTeam.name, game.postseason?.homeSeed)} · Called My Shot`,
-			description: `Call the questions on ${game.awayTeam.name} @ ${game.homeTeam.name} - the winner, the total, and the player lines.`,
+			description: [
+				seriesLead(game),
+				`Call the questions on ${game.awayTeam.name} @ ${game.homeTeam.name} - the winner, the total, and the player lines.`,
+			]
+				.filter(Boolean)
+				.join(" "),
 			path: `/games/${game.id}/${buildGameSlug(game)}`,
 		})
 	},
 })
+
+// "Game 5, winner take all. Series tied 2-2." ahead of a series game's meta
+// description, so a shared link says what's riding on it. Null outside a
+// series.
+function seriesLead(game: {
+	status: string
+	postseason?: {
+		gameNumber: number | null
+		ifNecessary: boolean
+		summary: string | null
+		clinchTeamIds: string[]
+	} | null
+}): string | null {
+	const postseason = game.postseason
+	if (!postseason?.gameNumber) return null
+	const stakes =
+		game.status !== "FINAL" && !postseason.ifNecessary
+			? seriesStakesLabel(postseason)
+			: null
+	const qualifier = stakes
+		? stakes.toLowerCase()
+		: postseason.ifNecessary
+			? "if necessary"
+			: null
+	const first = qualifier
+		? `Game ${postseason.gameNumber}, ${qualifier}.`
+		: `Game ${postseason.gameNumber}.`
+	return postseason.summary ? `${first} ${postseason.summary}.` : first
+}
 
 function RouteComponent() {
 	const { gameId } = Route.useParams()

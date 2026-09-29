@@ -3,8 +3,10 @@ import { DateTime } from "luxon"
 import { css } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
 import { Card } from "#/components/ui/card"
+import { Tag } from "#/components/ui/tag"
 import type { LeagueWindowType } from "#/graphql/generated/graphql"
-import { gamesInWindowLabel } from "#/lib/game-status"
+import { gamesInWindowLabel, windowUnitLabel } from "#/lib/game-status"
+import { eliminationGamesLabel, roundsPhrase } from "#/lib/postseason"
 
 type Props = {
 	league: {
@@ -17,6 +19,10 @@ type Props = {
 		liveGameCount: number
 		nextLockAt: string | null
 		myOpenCallCount: number | null
+		postseason: {
+			roundLabels: string[]
+			currentWindowEliminationGameCount: number
+		} | null
 	}
 }
 
@@ -37,6 +43,21 @@ export function LeagueRoomCard({ league }: Props) {
 		: league.nextLockAt
 			? `Next lock ${DateTime.fromISO(league.nextLockAt).toRelative()}`
 			: "Nothing open right now"
+
+	// "ALDS & NLDS · 2 elimination games today". Only the parts that have
+	// something to say: a round-less postseason (NFL's single games) still
+	// shows its elimination count.
+	const postseason = league.postseason
+	const stakes = postseason
+		? [
+				roundsPhrase(postseason.roundLabels) ?? "Postseason",
+				postseason.currentWindowEliminationGameCount > 0
+					? `${eliminationGamesLabel(postseason.currentWindowEliminationGameCount)} ${windowUnitLabel(league.windowType)}`
+					: null,
+			]
+				.filter(Boolean)
+				.join(" · ")
+		: null
 
 	return (
 		<Link to="/leagues/$leagueSlug" params={{ leagueSlug: league.slug }}>
@@ -73,7 +94,26 @@ export function LeagueRoomCard({ league }: Props) {
 							>
 								{league.name}
 							</span>
+							{postseason && (
+								<span className={css({ marginInlineStart: "auto" })}>
+									<Tag size="sm">Playoffs</Tag>
+								</span>
+							)}
 						</HStack>
+						{stakes && (
+							<span
+								className={css({
+									fontFamily: "mono",
+									fontSize: "2xs",
+									letterSpacing: "wide",
+									textTransform: "uppercase",
+									fontWeight: "bold",
+									color: "secondary.default",
+								})}
+							>
+								{stakes}
+							</span>
+						)}
 						<VStack gap="0.5" alignItems="flex-start">
 							<HStack gap="1.5" alignItems="center">
 								{live && (

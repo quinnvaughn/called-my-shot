@@ -43,21 +43,25 @@ export function gameStatusLabel(game: StatusGame): string {
 		.exhaustive()
 }
 
-// Shared by the league room's header and Home's LeagueRoomCard - no "live"
-// count folded in here, that data isn't reliable enough yet to surface.
 // Phrased in the league's own scheduling unit (see leagues.windowType): "this
 // week" for a league whose slate is a week (NFL), "today" for one browsed a
 // day at a time (NBA/MLB). Counting a week's games but calling them today's
 // would read as broken on an NFL Tuesday, when the week has 16 games and the
 // day has none.
+export function windowUnitLabel(windowType: LeagueWindowType): string {
+	return match(windowType)
+		.with("WEEK", () => "this week")
+		.with("DATE", () => "today")
+		.exhaustive()
+}
+
+// Shared by the league room's header and Home's LeagueRoomCard - no "live"
+// count folded in here, that data isn't reliable enough yet to surface.
 export function gamesInWindowLabel(
 	count: number,
 	windowType: LeagueWindowType,
 ): string {
-	const unit = match(windowType)
-		.with("WEEK", () => "this week")
-		.with("DATE", () => "today")
-		.exhaustive()
+	const unit = windowUnitLabel(windowType)
 	return count === 0
 		? `No games ${unit}`
 		: `${count} game${count === 1 ? "" : "s"} ${unit}`

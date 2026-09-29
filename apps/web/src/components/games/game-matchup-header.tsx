@@ -214,11 +214,7 @@ export function GameMatchupHeader({
 			gap={dense ? "2" : "3"}
 			alignItems="stretch"
 			className={css({
-				// A postseason game's header takes the secondary accent, so a
-				// playoff game reads as one before anything else on it is read.
-				border: postseason
-					? "1px solid {colors.secondary.default}"
-					: "1px solid {colors.border.default}",
+				border: "1px solid {colors.border.default}",
 				borderRadius: "xl",
 				bg: "bg.subtle",
 				padding: dense ? "3" : { base: "3.5", sm: "4" },

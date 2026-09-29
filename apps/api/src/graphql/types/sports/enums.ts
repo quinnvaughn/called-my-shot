@@ -33,6 +33,17 @@ export const LeagueWindowType = builder.enumType("LeagueWindowType", {
 	},
 })
 
+// Where a season stands on ESPN's calendar - see seasonPhase in
+// lib/postseason/current.ts.
+export const SeasonPhase = builder.enumType("SeasonPhase", {
+	values: {
+		UPCOMING: { value: "upcoming" },
+		REGULAR_SEASON: { value: "regular_season" },
+		POSTSEASON: { value: "postseason" },
+		COMPLETE: { value: "complete" },
+	} as const,
+})
+
 // Which slice of a team's lineup a starter is - see gameStarterRole in
 // db/schema/game-starters.ts.
 export const GameStarterRole = builder.enumType("GameStarterRole", {

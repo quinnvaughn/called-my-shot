@@ -17,6 +17,10 @@ export const HomeDashboardDocument = graphql(`
 			liveGameCount
 			nextLockAt
 			myOpenCallCount
+			postseason {
+				roundLabels
+				currentWindowEliminationGameCount
+			}
 		}
 		questions(sort: CLOSING_SOON, first: 6) {
 			items {

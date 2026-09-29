@@ -2,11 +2,12 @@ import { and, count, eq, min, notInArray } from "drizzle-orm"
 import { db } from "../../../db"
 import { LEAGUE_SEASON_FORMAT } from "../../../db/catalog/league-season-format"
 import { calls, games, type League, questions } from "../../../db/schema"
+import { seasonPhase } from "../../../lib/postseason/current"
 import { getCurrentSeason, listLeagueSeasons } from "../../../lib/seasons"
 import { getLeagueWindows } from "../../../lib/windows"
 import { builder } from "../../builder"
 import { type Context, ctxCache } from "../../context"
-import { LeagueStatus, LeagueWindowType } from "./enums"
+import { LeagueStatus, LeagueWindowType, SeasonPhase } from "./enums"
 
 // Every league, read at most once per request. The table holds a handful of
 // rows, so one unfiltered read serves every by-id or by-slug lookup a page
@@ -186,6 +187,7 @@ export const SeasonRef = builder.drizzleObject("seasons", {
 			nullable: true,
 			resolve: (s) => s.postseasonEndsAt,
 		}),
+		phase: t.field({ type: SeasonPhase, resolve: (s) => seasonPhase(s) }),
 		league: t.relation("league"),
 	}),
 })

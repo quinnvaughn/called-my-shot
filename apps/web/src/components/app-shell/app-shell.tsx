@@ -12,6 +12,8 @@ import { AuthModal } from "#/components/auth/auth-modal"
 import { WalkthroughLauncher } from "#/components/onboarding/walkthrough-launcher"
 import { Brand } from "#/components/ui/brand"
 import { Button, button } from "#/components/ui/button"
+import { Tag } from "#/components/ui/tag"
+import type { SeasonPhase } from "#/graphql/generated/graphql"
 import { unreadNotificationCountQuery } from "#/graphql/queries/notifications"
 import { openModal } from "#/stores/modal-store"
 import { AccountMenu } from "./account-menu"
@@ -42,7 +44,13 @@ type Me = {
 	isAdmin: boolean
 	emailBouncedAt?: string | null
 } | null
-type League = { id: string; name: string; abbreviation: string; slug: string }
+type League = {
+	id: string
+	name: string
+	abbreviation: string
+	slug: string
+	currentSeason?: { phase: SeasonPhase } | null
+}
 
 export function AppShell({
 	children,
@@ -421,6 +429,11 @@ function SidebarNav({
 										{league.abbreviation}
 									</span>
 									{league.name}
+									{league.currentSeason?.phase === "POSTSEASON" && (
+										<span className={css({ marginInlineStart: "auto" })}>
+											<Tag size="sm">Playoffs</Tag>
+										</span>
+									)}
 								</Link>
 							))}
 						</VStack>

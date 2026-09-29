@@ -21,7 +21,7 @@ type SeriesBundle = {
 
 // Everything a game's postseason fields read about its series, one query per
 // kind for a whole Games tab of series games rather than per row.
-const seriesLoader = ctxLoader(async (seriesIds: string[]) => {
+export const seriesLoader = ctxLoader(async (seriesIds: string[]) => {
 	const [seriesRows, seriesGames, seriesQuestions] = await Promise.all([
 		db.query.postseasonSeries.findMany({ where: { id: { in: seriesIds } } }),
 		db.query.games.findMany({

@@ -21,6 +21,7 @@ export const LeaguesDocument = graphql(`
 				id
 				year
 				displayName
+				phase
 			}
 			seasons(startedOnly: true) {
 				id
@@ -32,7 +33,8 @@ export const LeaguesDocument = graphql(`
 `)
 
 // The league room's own header (name/abbreviation/current season/current
-// window's game count) - see routes/_app/leagues. currentSeason and
+// window's game count, and the rounds on during a postseason) - see
+// routes/_app/leagues. currentSeason and
 // currentWindowGameCount are fetched here, not per-tab, since the header
 // shows them on every tab (Games/Season/Feed), not just Season/Games. No live
 // count yet - that data isn't reliable enough to surface.
@@ -45,6 +47,9 @@ export const LeagueByIdDocument = graphql(`
 			slug
 			windowType
 			currentWindowGameCount
+			postseason {
+				roundLabels
+			}
 		}
 		currentSeason(leagueId: $id) {
 			id
@@ -544,6 +549,24 @@ export const AdminBallotScopeDocument = graphql(`
 		}
 		currentSeason(leagueId: $leagueId) {
 			id
+		}
+	}
+`)
+
+// The Games tab's series strip - null outside the postseason, so a league in
+// its regular season pays for one cheap season read and nothing else.
+export const LeaguePostseasonSeriesDocument = graphql(`
+	query LeaguePostseasonSeries($leagueId: ID!) {
+		league(id: $leagueId) {
+			id
+			postseason {
+				roundLabels
+				series {
+					id
+					winnerTeamId
+					...SeriesCard_series
+				}
+			}
 		}
 	}
 `)

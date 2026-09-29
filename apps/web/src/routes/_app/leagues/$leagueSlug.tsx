@@ -14,6 +14,7 @@ import { Tabs } from "#/components/ui/tabs"
 import { leagueQuery } from "#/graphql/queries/sports"
 import { gamesInWindowLabel } from "#/lib/game-status"
 import { pageMeta } from "#/lib/meta"
+import { postseasonDescription, roundsPhrase } from "#/lib/postseason"
 import { isUuid } from "#/lib/uuid"
 
 export const Route = createFileRoute("/_app/leagues/$leagueSlug")({
@@ -54,11 +55,15 @@ export const Route = createFileRoute("/_app/leagues/$leagueSlug")({
 	loader: async ({ context }) => {
 		const data = await context.queryClient.query(leagueQuery(context.league.id))
 		if (!data.league) throw notFound()
-		return { league: { name: data.league.name, slug: data.league.slug } }
+		return {
+			league: { name: data.league.name, slug: data.league.slug },
+			postseason: data.league.postseason ?? null,
+		}
 	},
 	head: ({ loaderData }) => {
 		const league = loaderData?.league
 		if (!league) return {}
+		const postseason = loaderData.postseason
 
 		// Only the tabs below are ever indexed (see the sitemap), but this
 		// still covers the bare /leagues/$slug url before its redirect and
@@ -66,8 +71,12 @@ export const Route = createFileRoute("/_app/leagues/$leagueSlug")({
 		// Canonical slug url even when the request arrived on a uuid, so the
 		// old links consolidate onto this one rather than being indexed twice.
 		return pageMeta({
-			title: `${league.name} · Called My Shot`,
-			description: `Every ${league.name} call on the board - game props, season awards, and where the crowd is wrong.`,
+			title: postseason
+				? `${league.name} Postseason · Called My Shot`
+				: `${league.name} · Called My Shot`,
+			description: postseason
+				? postseasonDescription(league.name, postseason.roundLabels)
+				: `Every ${league.name} call on the board - game props, season awards, and where the crowd is wrong.`,
 			path: `/leagues/${league.slug}`,
 		})
 	},
@@ -101,17 +110,23 @@ function RouteComponent() {
 	if (!data.league) return null
 	const league = data.league
 	const currentSeason = data.currentSeason ?? null
+	const postseason = league.postseason ?? null
 
 	return (
 		<VStack gap="6" alignItems="stretch" className={css({ maxWidth: "3xl" })}>
 			<PageHeader
 				title={league.name}
 				subtitle={[
-					currentSeason
-						? `${league.abbreviation} · ${currentSeason.displayName}`
-						: league.abbreviation,
+					league.abbreviation,
+					currentSeason &&
+						(postseason
+							? `${currentSeason.displayName} Postseason`
+							: currentSeason.displayName),
+					postseason && roundsPhrase(postseason.roundLabels),
 					gamesInWindowLabel(league.currentWindowGameCount, league.windowType),
-				].join(" · ")}
+				]
+					.filter(Boolean)
+					.join(" · ")}
 			/>
 			<Tabs.List>
 				{TAB_ITEMS.map((item) => (

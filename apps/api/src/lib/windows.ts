@@ -201,10 +201,9 @@ export async function getLeagueWindows(
 		})
 	}
 
-	const result = await db.execute<{ d: string; n: number; post: boolean }>(sql`
+	const result = await db.execute<{ d: string; n: number }>(sql`
 		select (starts_at at time zone 'UTC' at time zone ${ET_ZONE})::date as d,
-			count(*)::int as n,
-			bool_and(season_type = 'postseason') as post
+			count(*)::int as n
 		from games
 		where league_id = ${league.id}
 		group by d
@@ -217,7 +216,7 @@ export async function getLeagueWindows(
 			key,
 			scope: { kind: "day" as const, day: key },
 			label: day.toFormat("ccc LLL d").toUpperCase(),
-			sublabel: row.post ? "POSTSEASON" : null,
+			sublabel: null,
 			gameCount: row.n,
 			rangeStart: day.startOf("day").toJSDate(),
 			rangeEnd: day.endOf("day").toJSDate(),
