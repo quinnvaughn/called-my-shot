@@ -1,3 +1,4 @@
+import { questionTitleWithGame } from "@called-my-shot/schemas"
 import { Link } from "@tanstack/react-router"
 import { useState } from "react"
 import { FiChevronDown } from "react-icons/fi"
@@ -83,10 +84,10 @@ export const ReportCardFragment = graphql(`
 	}
 `)
 
-// Exactly what pickSummary needs and nothing more. It deliberately leaves out
-// the optional margin fields (numericTolerancePct, scoredOptions,
-// option.actualValue) - a one-line highlight states the pick and the points,
-// and selecting a leader pool's worth of options to render "Josh Allen" would
+// What pickSummary needs plus the question's title and matchup. It
+// deliberately leaves out the optional margin fields (numericTolerancePct,
+// scoredOptions, option.actualValue) - a highlight states the pick, what it
+// answered, and the points, and selecting a leader pool's worth of options to render "Josh Allen" would
 // be a real cost for no gain. See the comment on CallSummaryData in
 // #/lib/call-summary for why those are opt-in.
 const HighlightFragment = graphql(`
@@ -97,6 +98,7 @@ const HighlightFragment = graphql(`
 		totalPoints
 		question {
 			id
+			title
 			shape
 			ouLine
 			numericActualValue
@@ -106,6 +108,17 @@ const HighlightFragment = graphql(`
 				toleranceTier {
 					toleranceMode
 					toleranceValue
+				}
+			}
+			game {
+				id
+				awayTeam {
+					id
+					abbreviation
+				}
+				homeTeam {
+					id
+					abbreviation
 				}
 			}
 		}
@@ -196,6 +209,20 @@ function Highlight({
 				>
 					{pickSummary(data)}
 				</Link>
+				{/* A bare pick ("Under 0.5") says nothing without the question it
+				    answers. */}
+				<span
+					className={css({
+						fontSize: "xs",
+						color: "fg.subtle",
+						overflow: "hidden",
+						textOverflow: "ellipsis",
+						whiteSpace: "nowrap",
+						maxWidth: "full",
+					})}
+				>
+					{questionTitleWithGame(data.question.title, data.question.game)}
+				</span>
 			</VStack>
 			<span
 				className={css({
