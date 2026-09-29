@@ -13,6 +13,10 @@ import {
 	loadGameShareCardData,
 } from "../lib/share-cards/game-card"
 import {
+	buildProfileShareCard,
+	loadProfileShareCardData,
+} from "../lib/share-cards/profile-card"
+import {
 	buildReportCardShareCard,
 	loadReportCardShareData,
 } from "../lib/share-cards/report-card-card"
@@ -25,11 +29,6 @@ import {
 	buildSweepShareCard,
 	loadSweepShareCardData,
 } from "../lib/share-cards/sweep-card"
-import {
-	buildUserShareCard,
-	loadUserShareCardData,
-	USER_SHARE_CARD_SIZE,
-} from "../lib/share-cards/user-card"
 import {
 	type RenderOptions,
 	renderShareImage,
@@ -59,26 +58,17 @@ async function serveCard<T>(
 	res.send(png)
 }
 
-// Plain REST, not GraphQL - these are consumed as <img src> and by the
-// frontend's copy-to-clipboard flow (a plain `fetch` for the PNG bytes),
-// neither of which wants to carry a GraphQL query string around. Registered
+// Plain REST, not GraphQL - these are consumed as og:image urls, which
+// can't carry a GraphQL query string around. Registered
 // on the Express app directly rather than through Apollo.
 export function registerShareRoutes(app: Express) {
+	// The og:image behind /user/:username.
 	app.get("/share/users/:username.png", async (req, res) => {
 		await serveCard(
 			res,
-			await loadUserShareCardData(req.params.username, null),
-			buildUserShareCard,
-			USER_SHARE_CARD_SIZE,
-		)
-	})
-
-	app.get("/share/users/:username/leagues/:league.png", async (req, res) => {
-		await serveCard(
-			res,
-			await loadUserShareCardData(req.params.username, req.params.league),
-			buildUserShareCard,
-			USER_SHARE_CARD_SIZE,
+			await loadProfileShareCardData(req.params.username),
+			buildProfileShareCard,
+			SHARE_CARD_SIZE,
 		)
 	})
 

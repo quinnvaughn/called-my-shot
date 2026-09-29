@@ -12,7 +12,7 @@ import { QuestionShape, ShapeFamily } from "../question/enums"
 import { GameRef } from "./game"
 import { LeagueRef } from "./league"
 
-const ReportCardFamilyRowRef = builder
+export const ReportCardFamilyRowRef = builder
 	.objectRef<ReportCardFamilyRow>("ReportCardFamilyRow")
 	.implement({
 		fields: (t) => ({
@@ -29,7 +29,7 @@ const ReportCardFamilyRowRef = builder
 		}),
 	})
 
-const ReportCardShapeRowRef = builder
+export const ReportCardShapeRowRef = builder
 	.objectRef<ReportCardShapeRow>("ReportCardShapeRow")
 	.implement({
 		fields: (t) => ({

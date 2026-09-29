@@ -93,11 +93,12 @@ type AnalyticsEvents = {
 	game_reminder_set: { gameId: string; emailMuted: boolean }
 	game_reminder_removed: { gameId: string }
 
-	// Profile track-record cards only. A call used to have a downloadable
-	// image too; what gets shared now is a link to the call's own page, which
-	// is call_link_shared below.
-	share_image_copied: { type: "profile" | "league" }
-	share_image_saved: { type: "profile" | "league" }
+	// A profile's own url being handed to someone. `x` fires on click, since
+	// an intent link's outcome is as unknowable as `native`'s.
+	profile_link_shared: {
+		userId: string
+		method: "native" | "clipboard" | "x"
+	}
 
 	// The share sheet itself opening is worth its own event - an open with no
 	// link/group event after it is an abandoned share, which is invisible if

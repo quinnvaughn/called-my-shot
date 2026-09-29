@@ -1,17 +1,18 @@
 import { createFileRoute } from "@tanstack/react-router"
 import { apiUrl } from "#/env.server"
 
-// Same reasoning as /graphql (see routes/graphql.ts): the api has no public
-// ingress in production, only reachable from this app's own server over
-// Fly's private network - so the browser (an <img src>, or a fetch() for
-// the copy-to-clipboard flow) always hits this same-origin route instead.
-export const Route = createFileRoute("/share/users/$username")({
+// Same passthrough as /share/sweeps/$username/$league/$slateKey/card.png, for
+// the og:image on /user/:username - including the static card.png segment
+// and the ignored `?v=` cache-buster, for the same reasons given there.
+export const Route = createFileRoute("/share/users/$username/card.png")({
 	server: {
 		handlers: {
 			GET: async ({ params }) => {
 				let upstream: Response
 				try {
-					upstream = await fetch(apiUrl(`/share/users/${params.username}.png`))
+					upstream = await fetch(
+						apiUrl(`/share/users/${encodeURIComponent(params.username)}.png`),
+					)
 				} catch {
 					return new Response("Bad Gateway", { status: 502 })
 				}

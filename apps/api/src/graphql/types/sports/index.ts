@@ -22,5 +22,9 @@ import "./game-reminders"
 export { PlayerRef, StatRef } from "./catalog"
 export { GameRef } from "./game"
 export { findLeague, LeagueRef, SeasonRef, SportRef } from "./league"
-export { ReportCardRef } from "./report-card"
+export {
+	ReportCardFamilyRowRef,
+	ReportCardRef,
+	ReportCardShapeRowRef,
+} from "./report-card"
 export { TeamRef } from "./team"

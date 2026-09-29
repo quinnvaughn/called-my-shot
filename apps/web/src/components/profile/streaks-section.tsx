@@ -24,7 +24,7 @@ type Props = {
 	streaks: StreakRow[]
 	// The milestone nudge is only shown to the person whose runs these are.
 	isOwn: boolean
-	// Off inside a league's own accordion, where the league goes without saying.
+	// Off when the profile is scoped to one league, where it goes without saying.
 	showLeague?: boolean
 	// "grid" is the profile's top row of live runs; "list" is every track.
 	layout?: "list" | "grid"

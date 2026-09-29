@@ -134,3 +134,37 @@ export function gradeForReturn(
 // below this; the record, the net points and the breakdown are all real at
 // any count and still render.
 export const REPORT_CARD_MIN_SETTLED = 5
+
+// How a day is shaded on a profile's results calendar. The side is the sign
+// of what the day netted. The level is how big a day it was against this
+// caller's own days: the quartiles of their |net points|, the way GitHub
+// shades contributions. Measured in points rather than return because a
+// one-call day nets about +/-100% and would read as dark as a full slate.
+// Shared by the page and its og:image so both shade a day the same way.
+export type CalendarSide = "up" | "down" | "even" | "pending"
+export type CalendarLevel = 1 | 2 | 3 | 4
+
+type CalendarDay = { settledCount: number; netPoints: number }
+
+// The three |net| cut points between levels 1-2, 2-3 and 3-4, from every
+// settled day that moved.
+export function calendarSteps(days: CalendarDay[]): [number, number, number] {
+	const sizes = days
+		.filter((day) => day.settledCount > 0 && day.netPoints !== 0)
+		.map((day) => Math.abs(day.netPoints))
+		.sort((a, b) => a - b)
+	const at = (q: number) => sizes[Math.floor(q * (sizes.length - 1))] ?? 0
+	return [at(0.25), at(0.5), at(0.75)]
+}
+
+export function calendarTone(
+	day: CalendarDay,
+	steps: [number, number, number],
+): { side: CalendarSide; level: CalendarLevel } {
+	if (day.settledCount === 0) return { side: "pending", level: 1 }
+	if (day.netPoints === 0) return { side: "even", level: 1 }
+	const size = Math.abs(day.netPoints)
+	const level = (steps.filter((step) => size > step).length +
+		1) as CalendarLevel
+	return { side: day.netPoints > 0 ? "up" : "down", level }
+}

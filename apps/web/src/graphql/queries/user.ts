@@ -29,12 +29,6 @@ export const UserProfileDocument = graphql(`
 				accuracy
 				convictionEdge
 				resolvedCallCount
-				shapeBreakdown {
-					shape
-					accuracy
-					convictionEdge
-					resolvedCallCount
-				}
 			}
 			streaks {
 				league {
@@ -73,6 +67,85 @@ export const UserProfileDocument = graphql(`
 			recentCalls {
 				id
 				...CallCard_call
+			}
+		}
+	}
+`)
+
+// The profile's results calendar and points breakdown, for the whole career
+// or one league. Its own query rather than part of UserProfile so switching
+// leagues refetches only this.
+export const UserRecordDocument = graphql(`
+	query UserRecord($username: String!, $league: String) {
+		userByUsername(username: $username) {
+			id
+			record(league: $league) {
+				wins
+				losses
+				returnPct
+				netFromCalls
+				bonusPoints
+				calendar {
+					startDay
+					endDay
+					activeDays
+					callCount
+					days {
+						day
+						settledCount
+						wins
+						losses
+						pendingCount
+						netPoints
+						returnPct
+						grade
+						leagues {
+							league {
+								id
+								abbreviation
+								slug
+							}
+							windowKey
+							settledCount
+							wins
+							losses
+							pendingCount
+							netPoints
+						}
+					}
+				}
+				byLeague {
+					league {
+						id
+						name
+						abbreviation
+						slug
+					}
+					settledCount
+					wins
+					losses
+					netPoints
+					returnPct
+				}
+				byFamily {
+					family
+					label
+					settledCount
+					wins
+					losses
+					netPoints
+					returnPct
+				}
+				byShape {
+					shape
+					family
+					label
+					settledCount
+					wins
+					losses
+					netPoints
+					returnPct
+				}
 			}
 		}
 	}

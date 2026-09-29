@@ -1110,6 +1110,10 @@ export {
 // as ./margin above - it reads a set of results, never decides
 // what any one call is worth, and nothing above imports it.
 export {
+	type CalendarLevel,
+	type CalendarSide,
+	calendarSteps,
+	calendarTone,
 	callReturnVariance,
 	GRADE_BANDS,
 	type Grade,

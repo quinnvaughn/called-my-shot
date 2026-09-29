@@ -3,6 +3,7 @@
 // graphql/schema.ts) - the modules below have no other entry point.
 import "./enums"
 import "./refs"
+import "./record"
 import "./stats"
 import "./inputs"
 import "./queries"

@@ -1,5 +1,5 @@
 // The frame every fixed-size og:image card shares (call, ballot, streak,
-// sweep, report card): a header band with the wordmark and an eyebrow, a hero
+// sweep, report card, profile): a header band with the wordmark and an eyebrow, a hero
 // band the card fills, and a footer band with a row of stat cells over the
 // @username and site line. Only the hero differs between them, so the cards
 // read as one set.
@@ -11,10 +11,7 @@ import { brandWordmark } from "./brand-wordmark"
 // A card rendered at whatever height its content needs loses the top and
 // bottom of itself in every unfurl.
 //
-// Every size in these cards is a real pixel at that resolution. The user card
-// is authored against a 475px reference and scaled up, because it mirrors an
-// in-app React component that renders at that width; these mirror nothing, so
-// the indirection would only be a way to get the arithmetic wrong.
+// Every size in these cards is a real pixel at that resolution.
 export const SHARE_CARD_SIZE = { width: 1200, height: 630 }
 
 // brandWordmark measures against its caller's own reference width, so it

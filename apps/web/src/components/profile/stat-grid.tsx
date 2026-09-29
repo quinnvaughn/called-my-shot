@@ -24,10 +24,8 @@ type Stats = {
 	resolvedCallCount: number
 }
 
-// Signed on purpose, and shared with the per-shape breakdown so the sign
-// convention can't drift between the two places an edge is rendered. A
-// leading + is the whole point of the stat: 18 alone reads like a count,
-// +18 reads like a direction.
+// Signed on purpose. A leading + is the whole point of the stat: 18 alone
+// reads like a count, +18 reads like a direction.
 export function formatConvictionEdge(edge: number): string {
 	const rounded = Math.round(edge)
 	return rounded > 0 ? `+${rounded}` : String(rounded)

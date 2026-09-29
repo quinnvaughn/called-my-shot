@@ -12,6 +12,7 @@ import {
 import { loadReportCardResult } from "../../../lib/report-card/load"
 import { ALL_TIME } from "../../../lib/seasons"
 import { imageUrl } from "../../../lib/storage"
+import { buildUserRecord } from "../../../lib/user-record"
 import { buildUserLeagueStats } from "../../../lib/user-stats"
 import { resolveWindowByKey } from "../../../lib/windows"
 import { builder } from "../../builder"
@@ -20,12 +21,16 @@ import { FlairRef } from "../flair"
 import { CallRef, VoidReason } from "../question"
 import { findLeague, ReportCardRef } from "../sports"
 import { EmailPreferenceType, StreakFamilyEnum } from "./enums"
+import { getUserRecordInputs, UserRecordRef } from "./record"
 import { getGlobalLeaderboard, UserLeagueStatsRef } from "./stats"
 import { UserStreakRef, UserSweepRef } from "./streaks"
 
 // A run of 1 isn't a streak worth listing on anyone's profile.
 const LISTED_STREAK_MIN = 2
 const MAX_SWEEPS = 50
+// Half a year of calendar by default, capped at a full one.
+const DEFAULT_RECORD_WEEKS = 26
+const MAX_RECORD_WEEKS = 53
 
 // Deliberately doesn't reuse LeaderboardEntryRef from ./leaderboard: that
 // type has its own `user` field, and importing it here would make this
@@ -212,10 +217,38 @@ export const UserRef = builder.drizzleObject("users", {
 		}),
 		leagues: t.field({
 			type: [UserLeagueStatsRef],
-			resolve: (user, _args, ctx) =>
-				buildUserLeagueStats(user.id, (leagueId) =>
+			resolve: async (user, _args, ctx) => {
+				const { leagues } = await getUserRecordInputs(ctx, user.id)
+				return buildUserLeagueStats(user.id, leagues, (leagueId) =>
 					getGlobalLeaderboard(ctx, leagueId, ALL_TIME),
-				),
+				)
+			},
+		}),
+		// The results calendar and where the points came from, across the
+		// whole career or one league. Null for a league slug that names
+		// nothing.
+		record: t.field({
+			type: UserRecordRef,
+			nullable: true,
+			args: {
+				league: t.arg.string({ required: false }),
+				weeks: t.arg.int({ required: false }),
+			},
+			resolve: async (user, args, ctx) => {
+				const league = args.league
+					? await findLeague(ctx, { slug: args.league })
+					: null
+				if (args.league && !league) return null
+				const inputs = await getUserRecordInputs(ctx, user.id)
+				return buildUserRecord(inputs, {
+					leagueId: league?.id ?? null,
+					weeks: Math.min(
+						Math.max(args.weeks ?? DEFAULT_RECORD_WEEKS, 1),
+						MAX_RECORD_WEEKS,
+					),
+					now: new Date(),
+				})
+			},
 		}),
 		recentCalls: t.field({
 			type: [CallRef],

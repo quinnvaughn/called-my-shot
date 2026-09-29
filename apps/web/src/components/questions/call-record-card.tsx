@@ -88,11 +88,6 @@ type Props = { data: CallRecordCardData }
 // same thing whatever the call arrives as, and the og:image (apps/api's
 // share-cards/call-card.ts) is built from the same set of facts, so the page
 // and the unfurl of it can't drift apart.
-//
-// Kept separate from ShareCardPreview (the profile's track-record card) even
-// though both are a Card with the wordmark on top: a career stat line and a
-// single call are different claims, and merging them would mean one data
-// shape serving neither.
 export function CallRecordCard({ data }: Props) {
 	const resolved = data.points !== null && data.isWin !== null
 	const win = data.isWin === true

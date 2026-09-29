@@ -8,6 +8,8 @@ import {
 	selectionPoints,
 } from "./index"
 import {
+	calendarSteps,
+	calendarTone,
 	callReturnVariance,
 	GRADE_BANDS,
 	gradeForReturn,
@@ -178,5 +180,47 @@ describe("gradeForReturn", () => {
 describe("REPORT_CARD_MIN_SETTLED", () => {
 	it("is above one, which is the count a single lucky call would exploit", () => {
 		expect(REPORT_CARD_MIN_SETTLED).toBeGreaterThan(1)
+	})
+})
+
+describe("calendarTone", () => {
+	const steps: [number, number, number] = [50, 100, 200]
+
+	it("marks a day with nothing settled as pending", () => {
+		expect(calendarTone({ settledCount: 0, netPoints: 0 }, steps)).toEqual({
+			side: "pending",
+			level: 1,
+		})
+	})
+
+	it("marks a day that netted exactly zero as even", () => {
+		expect(calendarTone({ settledCount: 4, netPoints: 0 }, steps)).toEqual({
+			side: "even",
+			level: 1,
+		})
+	})
+
+	it("steps the level up past each cut point, either way", () => {
+		const tone = (netPoints: number) =>
+			calendarTone({ settledCount: 5, netPoints }, steps)
+		expect(tone(50)).toEqual({ side: "up", level: 1 })
+		expect(tone(51)).toEqual({ side: "up", level: 2 })
+		expect(tone(-150)).toEqual({ side: "down", level: 3 })
+		expect(tone(-900)).toEqual({ side: "down", level: 4 })
+	})
+})
+
+describe("calendarSteps", () => {
+	it("takes the quartiles of the settled days that moved, ignoring sign", () => {
+		const days = [10, -20, 30, -40, 50, 0].map((netPoints) => ({
+			settledCount: 1,
+			netPoints,
+		}))
+		days.push({ settledCount: 0, netPoints: 999 })
+		expect(calendarSteps(days)).toEqual([20, 30, 40])
+	})
+
+	it("is all zeroes with nothing settled", () => {
+		expect(calendarSteps([])).toEqual([0, 0, 0])
 	})
 })

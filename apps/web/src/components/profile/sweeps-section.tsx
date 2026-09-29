@@ -17,7 +17,7 @@ type Props = {
 	username: string
 	// Newest first, as User.sweeps returns them.
 	sweeps: SweepRow[]
-	// Off inside a league's own accordion, where the league goes without saying.
+	// Off when the profile is scoped to one league, where it goes without saying.
 	showLeague?: boolean
 }
 

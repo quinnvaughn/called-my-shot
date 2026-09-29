@@ -4,13 +4,9 @@ import {
 	type SeasonFilter,
 	seasonFilterKey,
 } from "../../../lib/seasons"
-import type {
-	ShapeAccuracyData,
-	UserLeagueStatsData,
-} from "../../../lib/user-stats"
+import type { UserLeagueStatsData } from "../../../lib/user-stats"
 import { builder } from "../../builder"
 import { type Context, ctxCache } from "../../context"
-import { QuestionShape } from "../question"
 import { LeagueRef } from "../sports"
 
 // The site-wide ranking for one scope, built at most once per request. The
@@ -36,18 +32,6 @@ export function getGlobalLeaderboard(
 	)
 }
 
-const ShapeAccuracyRef = builder
-	.objectRef<ShapeAccuracyData>("ShapeAccuracy")
-	.implement({
-		fields: (t) => ({
-			shape: t.field({ type: QuestionShape, resolve: (s) => s.shape }),
-			accuracy: t.exposeFloat("accuracy", { nullable: true }),
-			convictionEdge: t.exposeFloat("convictionEdge", { nullable: true }),
-			callCount: t.exposeInt("callCount"),
-			resolvedCallCount: t.exposeInt("resolvedCallCount"),
-		}),
-	})
-
 export const UserLeagueStatsRef = builder
 	.objectRef<UserLeagueStatsData>("UserLeagueStats")
 	.implement({
@@ -59,9 +43,5 @@ export const UserLeagueStatsRef = builder
 			convictionEdge: t.exposeFloat("convictionEdge", { nullable: true }),
 			callCount: t.exposeInt("callCount"),
 			resolvedCallCount: t.exposeInt("resolvedCallCount"),
-			shapeBreakdown: t.field({
-				type: [ShapeAccuracyRef],
-				resolve: (row) => row.shapeBreakdown,
-			}),
 		}),
 	})
