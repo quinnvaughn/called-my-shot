@@ -69,6 +69,7 @@ import {
 	activeGameTemplates,
 	type GameQuestionTemplate,
 	PLAYER_QUESTIONS_PER_GAME,
+	RETIRED_GAME_TEMPLATE_IDS,
 } from "../catalog/game-question-catalog"
 import { db } from "../index"
 import {
@@ -97,6 +98,7 @@ type CatalogStat = NonNullable<
 export type CatalogOverride = {
 	templates?: Record<string, GameQuestionTemplate[]>
 	playerQuestionsPerGame?: Record<string, number>
+	retiredTemplateIds?: Record<string, string[]>
 }
 
 type LeagueContext = {
@@ -104,6 +106,8 @@ type LeagueContext = {
 	league: League
 	officialAccountId: string
 	templates: GameQuestionTemplate[]
+	// See RETIRED_GAME_TEMPLATE_IDS.
+	retiredTemplateIds: Set<string>
 	// How many player templates each game draws - see PLAYER_QUESTIONS_PER_GAME.
 	perGame: number
 	statsByName: Map<string, CatalogStat>
@@ -491,13 +495,23 @@ async function generateForGame(
 
 	// A slot is filled by any question in it that isn't about a ruled-out
 	// starter. One that is gets taken down if nobody has called it yet; either
-	// way its slot opens for whoever is starting now.
+	// way its slot opens for whoever is starting now. A question from a
+	// template retired from the catalog comes down the same way, and never
+	// holds a slot.
 	const liveKeys: string[] = []
 	let removed = 0
 	for (const question of existing) {
 		const key = question.generationKey
 		if (!key) continue
 		const parsed = parseGenerationKey(key)
+		if (
+			parsed &&
+			question.status === "open" &&
+			ctx.retiredTemplateIds.has(parsed.templateId)
+		) {
+			if (await deleteIfUncalled(question.id)) removed++
+			continue
+		}
 		const template = parsed ? templateById.get(parsed.templateId) : undefined
 		if (
 			parsed &&
@@ -688,6 +702,11 @@ async function generateForLeague(
 		league,
 		officialAccountId,
 		templates,
+		retiredTemplateIds: new Set(
+			catalog.retiredTemplateIds?.[league.slug] ??
+				RETIRED_GAME_TEMPLATE_IDS[league.slug] ??
+				[],
+		),
 		perGame:
 			catalog.playerQuestionsPerGame?.[league.slug] ??
 			PLAYER_QUESTIONS_PER_GAME[league.slug] ??

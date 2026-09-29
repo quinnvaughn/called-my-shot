@@ -482,14 +482,6 @@ export const GAME_QUESTION_CATALOG: Record<string, GameQuestionTemplate[]> = {
 			line: { minGames: 5, shade: 0.97, minLine: 2.5 },
 		},
 		{
-			id: "strikeouts-leader",
-			tier: 1,
-			shape: "player_game_stat_leader",
-			statName: "Strikeouts (Pitching)",
-			group: "strikeouts",
-			pick: MLB_STARTER,
-		},
-		{
 			id: "batter-hits",
 			tier: 1,
 			shape: "player_stat_over_under",
@@ -533,6 +525,16 @@ export const GAME_QUESTION_CATALOG: Record<string, GameQuestionTemplate[]> = {
 			line: { minGames: 15, shade: 1, minLine: 0.5 },
 		},
 	],
+}
+
+// Template ids taken out of the catalog, per league slug. The job takes down
+// any open, uncalled question still up from one of these, and its slot goes
+// to another template on the same run. One already called stays up and
+// settles as usual.
+export const RETIRED_GAME_TEMPLATE_IDS: Record<string, string[]> = {
+	// Nearly always one of the two starters, which the strikeouts duel
+	// already asks.
+	mlb: ["strikeouts-leader"],
 }
 
 // The templates a league posts at its current tier.

@@ -60,7 +60,11 @@ const BATTER_RBIS = catalogTemplate("mlb", "batter-rbis")
 
 // With templates, posts exactly those on the league's games, each in a group
 // of its own so none is left out. Without, posts what the catalog draws.
-const run = (templates?: GameQuestionTemplate[], leagueSlug = "nba") =>
+const run = (
+	templates?: GameQuestionTemplate[],
+	leagueSlug = "nba",
+	retiredTemplateIds: string[] = [],
+) =>
 	generateGameQuestions({
 		now: NOW,
 		spacingMs: 0,
@@ -75,6 +79,7 @@ const run = (templates?: GameQuestionTemplate[], leagueSlug = "nba") =>
 						),
 					},
 					playerQuestionsPerGame: { [leagueSlug]: templates.length },
+					retiredTemplateIds: { [leagueSlug]: retiredTemplateIds },
 				}
 			: {},
 	})
@@ -711,6 +716,37 @@ describe("generateGameQuestions", () => {
 			"Jaylen Brown",
 			"Jayson Tatum",
 		])
+	})
+
+	it("replaces an uncalled question from a retired template, leaving who-wins alone", async () => {
+		const { league, game } = await seedStandardGame()
+		await syncGameQuestions(league, NOW)
+		await run([POINTS_LEADER])
+
+		await run([POINTS_DUEL], "nba", [POINTS_LEADER.id])
+
+		expect(shapeCounts(await questionsOn(game.id))).toEqual({
+			team_vs_team: 1,
+			player_vs_player: 1,
+		})
+	})
+
+	it("keeps a called question from a retired template up beside its replacement", async () => {
+		const { game } = await seedStandardGame()
+		await run([POINTS_LEADER])
+		const leader = (await questionsOn(game.id)).find(
+			(q) => q.shape === "player_game_stat_leader",
+		)
+		if (!leader) throw new Error("expected a leader question")
+		const caller = await makeUser()
+		await makeCall(leader.id, caller.id)
+
+		await run([POINTS_DUEL], "nba", [POINTS_LEADER.id])
+
+		expect(shapeCounts(await questionsOn(game.id))).toEqual({
+			player_game_stat_leader: 1,
+			player_vs_player: 1,
+		})
 	})
 
 	it("asks about a roster batter before the lineup is out, and a lineup batter once it is", async () => {
