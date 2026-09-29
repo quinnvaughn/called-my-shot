@@ -12,6 +12,10 @@ import { syncSeriesQuestions } from "./sync-series-questions"
 import { syncTeams } from "./sync-teams"
 import { syncTeamSeasonStats } from "./sync-team-season-stats"
 
+// Each step runs on its own: one that throws is logged and the run moves on,
+// so a bad ESPN response in one step doesn't cost every step after it - most
+// of all the game and series questions, which work from whatever games did
+// sync. The run still fails at the end, naming every step that did.
 export async function syncSportsData({
 	now = new Date(),
 	espn = defaultEspnClient,
@@ -19,22 +23,40 @@ export async function syncSportsData({
 	now?: Date
 	espn?: EspnClient
 } = {}): Promise<void> {
+	const failed: string[] = []
+	const step = async <T>(
+		name: string,
+		fn: () => Promise<T>,
+	): Promise<T | undefined> => {
+		console.log(`[sync] ${name}...`)
+		try {
+			return await fn()
+		} catch (err) {
+			console.error(`[sync] ${name} failed:`, err)
+			failed.push(name)
+			return undefined
+		}
+	}
+
 	for (const config of SYNCED_LEAGUES) {
-		console.log(`[sync] ${config.leagueName} teams...`)
-		const league = await syncTeams(config, espn)
+		const name = config.leagueName
+		// Every later step hangs off the league row this returns.
+		const league = await step(`${name} teams`, () => syncTeams(config, espn))
+		if (!league) continue
 
 		// Seasons before players: a league's resolveRookieEligible hook (MLB)
 		// needs to know the current season's year to tell which prior seasons'
 		// stats count toward rookie eligibility - see syncPlayers.
-		console.log(`[sync] ${config.leagueName} seasons...`)
-		await syncSeasons(config, league, { now, espn })
+		await step(`${name} seasons`, () =>
+			syncSeasons(config, league, { now, espn }),
+		)
 
-		console.log(`[sync] ${config.leagueName} players...`)
 		const currentSeason = await getCurrentSeason(league.id)
-		await syncPlayers(config, currentSeason?.year ?? now.getFullYear(), espn)
+		await step(`${name} players`, () =>
+			syncPlayers(config, currentSeason?.year ?? now.getFullYear(), espn),
+		)
 
-		console.log(`[sync] ${config.leagueName} games...`)
-		await syncGames(config, league, { now, espn })
+		await step(`${name} games`, () => syncGames(config, league, { now, espn }))
 
 		// One dated reading of ESPN's standings per run. After syncGames so the
 		// teams it may have just created are there to hang a row off, and
@@ -43,26 +65,30 @@ export async function syncSportsData({
 		// current row could never answer. Skipped between seasons, when there is
 		// no current season to attribute a reading to.
 		if (currentSeason) {
-			console.log(`[sync] ${config.leagueName} team season stats...`)
-			await syncTeamSeasonStats(config, league, currentSeason, { now, espn })
+			await step(`${name} team season stats`, () =>
+				syncTeamSeasonStats(config, league, currentSeason, { now, espn }),
+			)
 		}
 
 		// After syncGames, per its own doc comment - each synced game gets its
 		// team_vs_team "who will win?" question, which is what the game detail
 		// page (/games/$gameId) surfaces as its hero question.
-		console.log(`[sync] ${config.leagueName} game questions...`)
-		await syncGameQuestions(league, now)
+		await step(`${name} game questions`, () => syncGameQuestions(league, now))
 
 		// After syncGames too: a series only exists once its games have synced,
 		// and its questions wait on Game 1's start time.
-		console.log(`[sync] ${config.leagueName} series questions...`)
-		await syncSeriesQuestions(league, now)
+		await step(`${name} series questions`, () =>
+			syncSeriesQuestions(league, now),
+		)
 
 		// Idempotent per question (see syncSeasonQuestions) - safe to run
 		// daily alongside everything above rather than needing its own
 		// season-boundary-detection logic.
-		console.log(`[sync] ${config.leagueName} season questions...`)
-		await syncSeasonQuestions(league)
+		await step(`${name} season questions`, () => syncSeasonQuestions(league))
+	}
+
+	if (failed.length > 0) {
+		throw new Error(`[sync] finished with failures: ${failed.join(", ")}`)
 	}
 	console.log("[sync] done")
 }

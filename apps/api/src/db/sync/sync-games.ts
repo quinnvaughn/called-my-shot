@@ -224,6 +224,8 @@ async function postseasonFields(
 	}
 }
 
+export const isPlaceholderTeam = (espnTeamId: string) => Number(espnTeamId) <= 0
+
 // Returns the series the event belongs to, if any, so the caller can settle
 // it once every game has been written.
 async function syncEvent(
@@ -235,6 +237,12 @@ async function syncEvent(
 ): Promise<string | null> {
 	const competition = event.competitions[0]
 	const [home, away] = competition.competitors
+	// A postseason game whose opponent is still undecided lists ESPN's "TBD"
+	// placeholder (a non-positive team id) on that side. It's skipped until a
+	// later run finds the real team there.
+	if (isPlaceholderTeam(home.team.id) || isPlaceholderTeam(away.team.id)) {
+		return null
+	}
 	const homeTeamId = await findRefEntityId(
 		tx,
 		"team",
@@ -464,14 +472,26 @@ export async function syncGames(
 ): Promise<void> {
 	const espnTeams = await espn.fetchTeams(config.espnPath)
 	const touchedSeries = new Set<string>()
+	// An event that fails to write is logged and passed over, so the rest of
+	// the schedule still syncs. The run throws once everything else is done.
+	const failedEventIds = new Set<string>()
 
 	for (const espnTeam of espnTeams) {
 		const schedule = await espn.fetchSchedule(config.espnPath, espnTeam.id)
 		for (const event of schedule) {
-			const seriesId = await db.transaction((tx) =>
-				syncEvent(tx, config.leagueSlug, league.id, event, now),
-			)
-			if (seriesId) touchedSeries.add(seriesId)
+			if (failedEventIds.has(event.id)) continue
+			try {
+				const seriesId = await db.transaction((tx) =>
+					syncEvent(tx, config.leagueSlug, league.id, event, now),
+				)
+				if (seriesId) touchedSeries.add(seriesId)
+			} catch (err) {
+				console.error(
+					`[sync-games] ${config.leagueSlug}: event ${event.id} failed:`,
+					err,
+				)
+				failedEventIds.add(event.id)
+			}
 		}
 		await db.transaction((tx) =>
 			syncTeamRecord(
@@ -490,5 +510,11 @@ export async function syncGames(
 	await fillSeriesLengths(config, touchedSeries, espn)
 	for (const seriesId of touchedSeries) {
 		await db.transaction((tx) => settleSeries(tx, seriesId, now))
+	}
+
+	if (failedEventIds.size > 0) {
+		throw new Error(
+			`syncGames: ${failedEventIds.size} ${config.leagueSlug} event(s) failed: ${[...failedEventIds].join(", ")}`,
+		)
 	}
 }

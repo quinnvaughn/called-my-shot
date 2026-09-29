@@ -222,4 +222,68 @@ describe("postseason sync", () => {
 		expect(winner?.options.find((o) => o.isCorrect)?.teamId).toBe(seattle.id)
 		expect(distance?.options.find((o) => o.isCorrect)?.label).toBe("No")
 	})
+
+	it("skips a game whose opponent is still TBD and syncs the rest", async () => {
+		const gameOne = seriesEvent(1, { startsAt: daysFromNow(1) })
+		const nextRound: EspnEvent = {
+			...seriesEvent(1, { startsAt: daysFromNow(5) }),
+			id: "401999",
+		}
+		const [competition] = nextRound.competitions
+		if (!competition) throw new Error("no competition")
+		nextRound.competitions = [
+			{
+				...competition,
+				notes: [{ headline: "ALDS - Game 1" }],
+				competitors: [
+					{ homeAway: "home", team: { id: "12" } },
+					{ homeAway: "away", team: { id: "-2" } },
+				],
+			},
+		]
+		serve([gameOne, nextRound])
+		await syncGames(MLB, league, { now: NOW, espn })
+		await syncGameQuestions(league, NOW)
+
+		const synced = await db.query.games.findMany({
+			where: { leagueId: league.id },
+		})
+		expect(synced.map((g) => g.postseasonRound)).toEqual(["ALWC"])
+		expect(
+			await db.query.questions.findMany({ where: { shape: "team_vs_team" } }),
+		).toHaveLength(1)
+	})
+
+	it("syncs the rest of the schedule past an event that fails, then throws", async () => {
+		const broken = seriesEvent(1, { startsAt: daysFromNow(1) })
+		const [competition] = broken.competitions
+		if (!competition) throw new Error("no competition")
+		broken.competitions = [
+			{
+				...competition,
+				competitors: [
+					{ homeAway: "home", team: { id: "99" } },
+					{ homeAway: "away", team: { id: "6" } },
+				],
+			},
+		]
+		serve([
+			broken,
+			seriesEvent(2, { startsAt: daysFromNow(2) }),
+			seriesEvent(3, { startsAt: daysFromNow(3), ifNecessary: true }),
+		])
+
+		await expect(syncGames(MLB, league, { now: NOW, espn })).rejects.toThrow(
+			"401001",
+		)
+		const synced = await db.query.games.findMany({
+			where: { leagueId: league.id },
+			orderBy: { seriesGameNumber: "asc" },
+		})
+		expect(synced.map((g) => g.seriesGameNumber)).toEqual([2, 3])
+		const series = await db.query.postseasonSeries.findFirst({
+			where: { leagueId: league.id },
+		})
+		expect(series?.bestOf).toBe(3)
+	})
 })
