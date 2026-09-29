@@ -6,6 +6,8 @@ import type {
 
 export type ParsedAthlete = {
 	espnTeamId: string
+	// ESPN's display name, for naming someone who isn't in our players table.
+	name?: string
 	didNotPlay: boolean
 	// "table.key" -> raw value ("passing.passingYards", "batting.hits"). NBA's
 	// one table is unnamed, so its keys carry no prefix ("points").
@@ -79,6 +81,7 @@ export function parseBoxScore(summary: EspnGameSummary): ParsedBoxScore {
 			for (const entry of table.athletes) {
 				const athlete = athletes.get(entry.athlete.id) ?? {
 					espnTeamId,
+					name: entry.athlete.displayName,
 					didNotPlay: false,
 					stats: new Map<string, string>(),
 					notes: [],

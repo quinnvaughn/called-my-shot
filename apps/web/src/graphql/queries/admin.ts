@@ -179,6 +179,25 @@ export const AdminQueueSummaryDocument = graphql(`
 						shape
 						locksAt
 						callCount
+						game {
+							id
+							startsAt
+							status
+							awayScore
+							homeScore
+							league {
+								id
+								abbreviation
+							}
+							awayTeam {
+								id
+								abbreviation
+							}
+							homeTeam {
+								id
+								abbreviation
+							}
+						}
 						creator {
 							id
 							username
@@ -198,6 +217,25 @@ export const AdminQueueSummaryDocument = graphql(`
 							title
 							locksAt
 							callCount
+							game {
+								id
+								startsAt
+								status
+								awayScore
+								homeScore
+								league {
+									id
+									abbreviation
+								}
+								awayTeam {
+									id
+									abbreviation
+								}
+								homeTeam {
+									id
+									abbreviation
+								}
+							}
 						}
 					}
 					disputed {

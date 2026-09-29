@@ -1,5 +1,8 @@
+import { SPORTS_TIME_ZONE } from "@called-my-shot/schemas"
 import { useQuery } from "@tanstack/react-query"
 import { createFileRoute, Link } from "@tanstack/react-router"
+import { DateTime } from "luxon"
+import { match } from "ts-pattern"
 import { css } from "styled-system/css"
 import { Grid, HStack, VStack } from "styled-system/jsx"
 import { MarkVoidedModal } from "#/components/admin/mark-voided-modal"
@@ -8,7 +11,10 @@ import { VoidQuestionModal } from "#/components/admin/void-question-modal"
 import { Button, button } from "#/components/ui/button"
 import { EmptyState } from "#/components/ui/empty-state"
 import { PageHeader } from "#/components/ui/page-header"
-import type { AutoResolveFailure } from "#/graphql/generated/graphql"
+import type {
+	AdminQueueSummaryQuery,
+	AutoResolveFailure,
+} from "#/graphql/generated/graphql"
 import { AdminQueueSummaryDocument } from "#/graphql/queries/admin"
 import { gqlQueryOptions } from "#/graphql/query-options"
 import { openModal } from "#/stores/modal-store"
@@ -59,6 +65,70 @@ const AUTO_RESOLVE_FAILURE_LABELS: Record<AutoResolveFailure, string> = {
 	NO_LEADER: "Nobody recorded the stat",
 	UNMAPPED: "Stat doesn't settle automatically",
 	RECHECK_DISAGREED: "Re-check couldn't confirm the result",
+}
+
+type QueueGame = NonNullable<
+	Extract<
+		AdminQueueSummaryQuery["adminQueueSummary"],
+		{ __typename: "QueryAdminQueueSummarySuccess" }
+	>["data"]["needsResolution"][number]["game"]
+>
+
+// A question title like "Who will win?" names nothing on its own, so each row
+// says which game it belongs to, when it started, and where it stands.
+function gameLine(game: QueueGame | null | undefined): string | null {
+	if (!game) return null
+	const when = DateTime.fromISO(game.startsAt, { zone: SPORTS_TIME_ZONE })
+		.setLocale("en-US")
+		.toFormat("MMM d, h:mm a")
+	const state = match(game.status)
+		.with("FINAL", () =>
+			game.awayScore != null && game.homeScore != null
+				? `Final ${game.awayScore}-${game.homeScore}`
+				: "Final",
+		)
+		.with("LIVE", () => "Live")
+		.with("SCHEDULED", () => "Not started")
+		.exhaustive()
+	return `${game.league.abbreviation.toUpperCase()} · ${game.awayTeam.abbreviation} @ ${game.homeTeam.abbreviation} · ${when} ET · ${state}`
+}
+
+function QuestionHeading({
+	question,
+}: {
+	question: { id: string; title: string; game?: QueueGame | null }
+}) {
+	const line = gameLine(question.game)
+	return (
+		<>
+			{line && (
+				<span
+					className={css({
+						fontFamily: "mono",
+						fontSize: "2xs",
+						letterSpacing: "wide",
+						color: "fg.muted",
+					})}
+				>
+					{line}
+				</span>
+			)}
+			<Link
+				to="/questions/$questionId/{-$slug}"
+				params={{ questionId: question.id }}
+				target="_blank"
+				className={css({
+					fontSize: "sm",
+					fontWeight: "medium",
+					color: "fg.default",
+					textDecoration: "none",
+					_hover: { textDecoration: "underline" },
+				})}
+			>
+				{question.title}
+			</Link>
+		</>
+	)
 }
 
 function timeAgo(iso: string) {
@@ -135,9 +205,7 @@ function RouteComponent() {
 								alignItems="flex-start"
 								className={css({ minWidth: 0 })}
 							>
-								<span className={css({ fontSize: "sm", fontWeight: "medium" })}>
-									{question.title}
-								</span>
+								<QuestionHeading question={question} />
 								<span
 									className={css({
 										fontFamily: "mono",
@@ -205,11 +273,7 @@ function RouteComponent() {
 									alignItems="flex-start"
 									className={css({ minWidth: 0 })}
 								>
-									<span
-										className={css({ fontSize: "sm", fontWeight: "medium" })}
-									>
-										{question.title}
-									</span>
+									<QuestionHeading question={question} />
 									<span
 										className={css({
 											fontFamily: "mono",

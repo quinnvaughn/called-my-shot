@@ -35,6 +35,7 @@ import {
 	sortColumn,
 } from "../../../lib/admin-pagination"
 import { requireAdmin, requireUser } from "../../../lib/auth"
+import { nameEspnAthletes } from "../../../lib/auto-resolve/name-athletes"
 import { AuthenticationError, AuthorizationError } from "../../../lib/errors"
 import { typicalGameLengthHours } from "../../../lib/game-length"
 import { clampPageSize, decodeOffsetCursor } from "../../../lib/pagination"
@@ -915,7 +916,7 @@ builder.queryFields((t) => ({
 						status: { in: [...UNRESOLVED_STATUSES] },
 						autoResolution: { escalatedAt: { isNotNull: true } },
 					},
-					with: { autoResolution: true },
+					with: { autoResolution: true, league: { columns: { slug: true } } },
 					orderBy: { locksAt: "asc" },
 				}),
 				db.query.questions.findMany({
@@ -949,12 +950,16 @@ builder.queryFields((t) => ({
 				).push(question)
 			}
 
-			const autoResolveEscalated = [
-				...escalated.map(({ autoResolution, ...question }) => ({
+			const escalatedRows = await nameEspnAthletes(
+				escalated.map(({ autoResolution, league, ...question }) => ({
 					question,
+					leagueSlug: league?.slug ?? null,
 					failureReason: autoResolution?.failureReason ?? null,
 					failureDetail: autoResolution?.failureDetail ?? null,
 				})),
+			)
+			const autoResolveEscalated = [
+				...escalatedRows.map(({ leagueSlug: _, ...row }) => row),
 				...stuck.map((question) => ({
 					question,
 					failureReason: null,

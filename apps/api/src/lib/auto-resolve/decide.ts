@@ -298,7 +298,9 @@ export function decideGameQuestion(ctx: GameQuestionContext): Decision {
 			options,
 			[...extractor.readAll(sources)].map(([espnAthleteId, value]) => ({
 				playerId: ctx.playerIdByEspnAthleteId.get(espnAthleteId) ?? null,
-				who: `ESPN athlete ${espnAthleteId}`,
+				who:
+					sources.box.athletes.get(espnAthleteId)?.name ??
+					`ESPN athlete ${espnAthleteId}`,
 				value,
 			})),
 		)

@@ -350,7 +350,7 @@ async function fetchGameSummaryRosters(
 }
 
 export type EspnBoxScoreAthlete = {
-	athlete: { id: string }
+	athlete: { id: string; displayName?: string }
 	// NBA only: set on anyone listed for the game who sat.
 	didNotPlay?: boolean
 	// Lines up with the table's `keys`.
