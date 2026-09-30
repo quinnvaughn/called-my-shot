@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query"
 import { Link, useMatches, useRouteContext } from "@tanstack/react-router"
 import { type ReactNode, useEffect, useState } from "react"
 import { BsBarChartFill } from "react-icons/bs"
-import { FaUser, FaUserGroup } from "react-icons/fa6"
+import { FaSquareCheck, FaUser, FaUserGroup } from "react-icons/fa6"
 import { FiBell, FiMenu, FiX } from "react-icons/fi"
 import { GoHomeFill } from "react-icons/go"
 import type { IconType } from "react-icons/lib"
@@ -18,6 +18,7 @@ import { unreadNotificationCountQuery } from "#/graphql/queries/notifications"
 import { openModal } from "#/stores/modal-store"
 import { AccountMenu } from "./account-menu"
 import { EmailBounceBanner } from "./email-bounce-banner"
+import { MoreMenu } from "./more-menu"
 
 type NavItem = {
 	to: string
@@ -31,6 +32,12 @@ const NAV_ITEMS: NavItem[] = [
 		to: "/notifications",
 		label: "Notifications",
 		icon: FiBell,
+		authRequired: true,
+	},
+	{
+		to: "/my-calls",
+		label: "My Calls",
+		icon: FaSquareCheck,
 		authRequired: true,
 	},
 	{ to: "/leaderboard", label: "Leaderboard", icon: BsBarChartFill },
@@ -236,7 +243,6 @@ function MobileTopbar({
 					name={me.name}
 					username={me.username}
 					avatarUrl={me.avatarUrl}
-					isAdmin={me.isAdmin}
 					variant="topbar"
 				/>
 			) : (
@@ -285,6 +291,7 @@ function SidebarNav({
 				top: 0,
 				left: { base: 0, md: "auto" },
 				height: "100dvh",
+				overflowY: { base: "auto", md: "visible" },
 				maxWidth: { base: "82vw", md: "none" },
 				zIndex: { base: "50", md: "auto" },
 				boxShadow: { base: "0 0 40px rgba(0, 0, 0, 0.4)", md: "none" },
@@ -372,6 +379,11 @@ function SidebarNav({
 							)}
 						</Link>
 					))}
+					<MoreMenu
+						signedIn={!!me}
+						isAdmin={me?.isAdmin ?? false}
+						onNavigate={onNavigate}
+					/>
 
 					{leagues.length > 0 && (
 						<VStack alignItems="stretch" gap="1.5">
@@ -462,7 +474,6 @@ function SidebarNav({
 							name={me.name}
 							username={me.username}
 							avatarUrl={me.avatarUrl}
-							isAdmin={me.isAdmin}
 							variant="sidebar"
 						/>
 					</div>
