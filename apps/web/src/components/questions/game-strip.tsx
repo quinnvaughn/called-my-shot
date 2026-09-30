@@ -7,6 +7,7 @@ import { ballotMemberState } from "#/lib/ballot-member-state"
 import { viewerGamePicksSummary } from "#/lib/game-entry"
 import { gameQuestionChipLabels } from "#/lib/game-question-chip-label"
 import { officialQuestionSequence } from "#/lib/official-game-questions"
+import { questionSetNavigation } from "#/lib/question-set-navigation"
 import { openModal } from "#/stores/modal-store"
 import { QuestionSetStrip } from "./question-set-strip"
 
@@ -77,6 +78,41 @@ export const GameStripFragment = graphql(`
 
 type Props = {
 	question: FragmentType<typeof GameStripFragment>
+}
+
+export type GameNextUp = {
+	matchup: string
+	// Official questions on the game the viewer can still call, not counting
+	// the one on screen.
+	openCount: number
+	next: { questionId: string; title: string }
+}
+
+// Where the viewer goes after calling this question: the next official
+// question on the same game they haven't called yet, in the strip's own
+// order. Null for a question with no game or once nothing on it is left open.
+export function useGameNextUp(
+	questionProp: FragmentType<typeof GameStripFragment> | null,
+): GameNextUp | null {
+	const question = useFragment(GameStripFragment, questionProp)
+	const game = question?.game
+	if (!question || !game) return null
+
+	const sequence = officialQuestionSequence(game.officialQuestions).map(
+		(e) => e.question,
+	)
+	const states = sequence.map((q) => ballotMemberState(q, q.viewerCall))
+	const currentIndex = sequence.findIndex((q) => q.id === question.id)
+	const { nextUncalledIndex } = questionSetNavigation(states, currentIndex)
+	const next = nextUncalledIndex !== null ? sequence[nextUncalledIndex] : null
+	if (!next) return null
+
+	return {
+		matchup: `${game.awayTeam.abbreviation} @ ${game.homeTeam.abbreviation}`,
+		openCount: states.filter((s, i) => s === "uncalled" && i !== currentIndex)
+			.length,
+		next: { questionId: next.id, title: next.title },
+	}
 }
 
 // A game's official questions as one navigable set, in the game page's

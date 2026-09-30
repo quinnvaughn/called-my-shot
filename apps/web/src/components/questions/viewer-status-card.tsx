@@ -10,7 +10,8 @@ import {
 	toleranceBand,
 } from "@called-my-shot/scoring"
 import { Link } from "@tanstack/react-router"
-import { type ReactNode, useState } from "react"
+import { type ReactNode, type Ref, useState } from "react"
+import { FiChevronRight } from "react-icons/fi"
 import { css, cx } from "styled-system/css"
 import { Flex, HStack, VStack } from "styled-system/jsx"
 import { match, P } from "ts-pattern"
@@ -20,6 +21,7 @@ import {
 } from "#/components/questions/call-share-row"
 import { CaseBlock } from "#/components/questions/case-block"
 import { DisputeModal } from "#/components/questions/dispute-modal"
+import type { GameNextUp } from "#/components/questions/game-strip"
 import { RedoCta, type RedoOffer } from "#/components/questions/redo-cta"
 import type {
 	CallUnscoredReason,
@@ -40,6 +42,7 @@ import {
 	previewSelectionPoints,
 	toleranceSpecFrom,
 } from "#/lib/scoring"
+import { buildQuestionSlug } from "#/lib/slug"
 import type {
 	CallResult,
 	DisputeAction,
@@ -219,6 +222,13 @@ type Props = {
 	// redo is an action on the call this card already states, and a second
 	// card would read as a second subject.
 	redo: RedoOffer | null
+	// The next question on this game the viewer hasn't called, shown on the
+	// pending face so the card a new call lands on points at the rest of
+	// the game. Null off a game or once nothing on it is left open.
+	nextUp: GameNextUp | null
+	// Attached to the pending face only: the route scrolls it into view when
+	// a new call turns the form into this card.
+	ref?: Ref<HTMLDivElement>
 }
 
 // Pending / locked-no-call / resolved-no-call / won / lost / voided are faces of
@@ -244,6 +254,8 @@ export function ViewerStatusCard({
 	marginLabel,
 	questionTitle,
 	redo,
+	nextUp,
+	ref,
 }: Props) {
 	const pickRowsProps = {
 		callCount,
@@ -288,7 +300,7 @@ export function ViewerStatusCard({
 			// the same scoring formula CastCallForm shows while picking (see
 			// #/lib/scoring) so the number never jumps between the two screens.
 			.with({ kind: "pending" }, ({ call, isLocked }) => (
-				<Shell tone="primary">
+				<Shell tone="primary" ref={ref}>
 					<StatusPill tone="primary" live>
 						{isLocked ? "Awaiting resolution" : "Pending"}: your call is locked
 					</StatusPill>
@@ -298,6 +310,7 @@ export function ViewerStatusCard({
 					call, where sharing it is what you do once you've settled
 					on it. */}
 					<RedoCta questionId={questionId} offer={redo} />
+					{nextUp && <NextUpLink nextUp={nextUp} />}
 					{/* An unresolved call is the one most worth putting on the record -
 					calling something months before it happens is the whole claim - so
 					this is here rather than only on the settled face below. */}
@@ -526,6 +539,62 @@ function ShareCallSection({
 	)
 }
 
+// The rest of the game, right under the call just made: how much of it is
+// still open, and a way straight to the next one.
+function NextUpLink({ nextUp }: { nextUp: GameNextUp }) {
+	return (
+		<Link
+			to="/questions/$questionId/{-$slug}"
+			params={{
+				questionId: nextUp.next.questionId,
+				slug: buildQuestionSlug(nextUp.next.title),
+			}}
+			className={css({
+				display: "flex",
+				alignItems: "center",
+				justifyContent: "space-between",
+				gap: "3",
+				backgroundColor: "bg.canvas",
+				border: "1px solid {colors.border.default}",
+				borderRadius: "md",
+				paddingBlock: "2.5",
+				paddingInline: "3.5",
+				textDecoration: "none",
+				_hover: { border: "1px solid {colors.primary.default}" },
+			})}
+		>
+			<VStack gap="0.5" alignItems="flex-start" minWidth="0">
+				<span
+					className={css({
+						fontFamily: "mono",
+						fontSize: "2xs",
+						letterSpacing: "wide",
+						textTransform: "uppercase",
+						color: "primary.default",
+					})}
+				>
+					{nextUp.openCount} more open on {nextUp.matchup}
+				</span>
+				<span
+					className={css({
+						fontSize: "sm",
+						color: "fg.default",
+						overflow: "hidden",
+						textOverflow: "ellipsis",
+						whiteSpace: "nowrap",
+						maxWidth: "full",
+					})}
+				>
+					Next: {nextUp.next.title}
+				</span>
+			</VStack>
+			<FiChevronRight
+				className={css({ flexShrink: "0", color: "primary.default" })}
+			/>
+		</Link>
+	)
+}
+
 function ResultTitle({
 	answer,
 	disputed,
@@ -562,6 +631,8 @@ const shellClassByTone: Record<Tone, string> = {
 		position: "relative",
 		borderRadius: "xl",
 		padding: "5",
+		// Clears the sticky mobile top bar when scrolled to after a call.
+		scrollMarginTop: "20",
 		backgroundColor: "primary.default/8",
 		border: "1px solid {colors.primary.default/35}",
 		borderLeft: "3px solid {colors.primary.default}",
@@ -596,9 +667,22 @@ const shellClassByTone: Record<Tone, string> = {
 // tone. Only "primary" (pending) earns the accent left-border on top of that:
 // it's the one state still awaiting an outcome, so it's the one worth a
 // second visual cue to catch the eye.
-function Shell({ tone, children }: { tone: Tone; children: ReactNode }) {
+function Shell({
+	tone,
+	ref,
+	children,
+}: {
+	tone: Tone
+	ref?: Ref<HTMLDivElement>
+	children: ReactNode
+}) {
 	return (
-		<VStack gap="3" alignItems="stretch" className={shellClassByTone[tone]}>
+		<VStack
+			ref={ref}
+			gap="3"
+			alignItems="stretch"
+			className={shellClassByTone[tone]}
+		>
 			{children}
 		</VStack>
 	)

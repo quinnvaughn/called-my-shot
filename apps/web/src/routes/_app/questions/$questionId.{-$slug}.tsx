@@ -25,7 +25,7 @@ import {
 } from "#/components/questions/cast-call-form"
 import type { QuestionCallShape } from "#/components/questions/cast-call-form/use-cast-call-form"
 import { FieldBreakdownCard } from "#/components/questions/field-breakdown-card"
-import { GameStrip } from "#/components/questions/game-strip"
+import { GameStrip, useGameNextUp } from "#/components/questions/game-strip"
 import { GuessDistributionChart } from "#/components/questions/guess-distribution-chart"
 import { OptionFieldBreakdown } from "#/components/questions/option-field-breakdown"
 import { PanelRow } from "#/components/questions/panel-row"
@@ -252,6 +252,23 @@ function RouteComponent() {
 			horizon: questionHorizon(viewedQuestion.questionShape),
 		})
 	})
+
+	// A new call swaps the form for the pending card, which can land
+	// anywhere relative to where the viewer was scrolled. Brought into view
+	// on that one transition only, not on a redo or a plain page load.
+	const statusCardRef = useRef<HTMLDivElement>(null)
+	const previousStatusKind = useRef(viewedQuestion?.viewerState)
+	useEffect(() => {
+		const kind = viewedQuestion?.viewerState
+		if (previousStatusKind.current === "canCall" && kind === "pending") {
+			statusCardRef.current?.scrollIntoView({
+				block: "start",
+				behavior: "smooth",
+			})
+		}
+		previousStatusKind.current = kind
+	})
+	const nextUp = useGameNextUp(question)
 
 	if (!question) {
 		return (
@@ -609,6 +626,8 @@ function RouteComponent() {
 						fieldAccuracyPct={fieldAccuracyPct}
 						marginLabel={viewerMarginLabel}
 						questionTitle={question.title}
+						nextUp={nextUp}
+						ref={statusCardRef}
 						// Null unless this call could still be taken back, and once
 						// the picker is open the offer has been taken.
 						redo={
