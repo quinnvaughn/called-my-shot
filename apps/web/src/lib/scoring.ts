@@ -5,6 +5,7 @@
 // this can never quietly drift from what the API actually scores at
 // resolution - the server remains the source of truth for the real payout.
 import {
+	BASE_POINTS_BY_SHAPE,
 	type ContrarianTier,
 	type EarlyTier,
 	earlyTierFor,
@@ -16,6 +17,7 @@ import {
 	type ToleranceSpec,
 	tierFor,
 } from "@called-my-shot/scoring"
+import type { QuestionShape } from "#/graphql/generated/graphql"
 
 export type { ContrarianTier, EarlyTier, ToleranceSpec }
 export { earlyTierFor, isSeasonLongShape, seasonEarlyTierFor, tierFor }
@@ -131,4 +133,94 @@ export function toleranceSpecFrom(
 	if (absolute !== null) return { mode: "absolute", amount: absolute }
 	if (pct !== null) return { mode: "percentage", pct }
 	return null
+}
+
+// GraphQL's QuestionShape is SCREAMING_SNAKE; BASE_POINTS_BY_SHAPE (and the
+// rest of @called-my-shot/scoring) key off the API's lower snake_case DB
+// enum instead - this is the one explicit place that bridges the two so a
+// typo can't silently fall back to the wrong base.
+export const BASE_POINTS_BY_GQL_SHAPE: Record<QuestionShape, number> = {
+	PLAYER_STAT_OVER_UNDER: BASE_POINTS_BY_SHAPE.player_stat_over_under,
+	TEAM_STAT_OVER_UNDER: BASE_POINTS_BY_SHAPE.team_stat_over_under,
+	PLAYER_SEASON_STAT_OVER_UNDER:
+		BASE_POINTS_BY_SHAPE.player_season_stat_over_under,
+	TEAM_SEASON_STAT_OVER_UNDER: BASE_POINTS_BY_SHAPE.team_season_stat_over_under,
+	GAME_TOTAL_OVER_UNDER: BASE_POINTS_BY_SHAPE.game_total_over_under,
+	PLAYER_STAT_NUMERIC_GUESS: BASE_POINTS_BY_SHAPE.player_stat_numeric_guess,
+	TEAM_STAT_NUMERIC_GUESS: BASE_POINTS_BY_SHAPE.team_stat_numeric_guess,
+	TEAM_SEASON_STAT_NUMERIC_GUESS:
+		BASE_POINTS_BY_SHAPE.team_season_stat_numeric_guess,
+	PLAYER_VS_PLAYER: BASE_POINTS_BY_SHAPE.player_vs_player,
+	PLAYER_VS_PLAYER_SEASON: BASE_POINTS_BY_SHAPE.player_vs_player_season,
+	TEAM_VS_TEAM: BASE_POINTS_BY_SHAPE.team_vs_team,
+	TEAM_VS_TEAM_SEASON: BASE_POINTS_BY_SHAPE.team_vs_team_season,
+	PLAYER_GAME_STAT_LEADER: BASE_POINTS_BY_SHAPE.player_game_stat_leader,
+	PLAYER_SEASON_STAT_LEADER: BASE_POINTS_BY_SHAPE.player_season_stat_leader,
+	PLAYER_TEAM_SEASON_STAT_LEADER:
+		BASE_POINTS_BY_SHAPE.player_team_season_stat_leader,
+	YES_NO_PROP: BASE_POINTS_BY_SHAPE.yes_no_prop,
+	PLAYER_SEASON_AWARD: BASE_POINTS_BY_SHAPE.player_season_award,
+	TEAM_SEASON_AWARD: BASE_POINTS_BY_SHAPE.team_season_award,
+	PLAYER_AWARD_FINALISTS: BASE_POINTS_BY_SHAPE.player_award_finalists,
+}
+
+// Mirrors SEASON_LONG_SHAPES/isSeasonLongShape in @called-my-shot/scoring -
+// same GQL/DB casing bridge as BASE_POINTS_BY_GQL_SHAPE above, kept as an
+// explicit list rather than derived so a shape added on one side isn't
+// silently assumed to match the other. Determines which earliness preview a
+// pending pick's row shows: seasonEarlyTierFor (games played so far) for
+// these, earlyTierFor (rank among callers) for everything else.
+//
+// A Record, not the boolean || chain this shape of check invites: an
+// omission from a chain just reads as false, quietly pricing a pending row
+// off rank-among-callers when it should be off season progress. A missing
+// key here fails the build instead - the same protection
+// BASE_POINTS_BY_GQL_SHAPE above already gets from being a Record.
+const SEASON_LONG_BY_GQL_SHAPE: Record<QuestionShape, boolean> = {
+	PLAYER_STAT_OVER_UNDER: false,
+	TEAM_STAT_OVER_UNDER: false,
+	PLAYER_SEASON_STAT_OVER_UNDER: true,
+	TEAM_SEASON_STAT_OVER_UNDER: true,
+	GAME_TOTAL_OVER_UNDER: false,
+	PLAYER_STAT_NUMERIC_GUESS: false,
+	TEAM_STAT_NUMERIC_GUESS: false,
+	TEAM_SEASON_STAT_NUMERIC_GUESS: true,
+	PLAYER_VS_PLAYER: false,
+	PLAYER_VS_PLAYER_SEASON: true,
+	TEAM_VS_TEAM: false,
+	TEAM_VS_TEAM_SEASON: true,
+	PLAYER_GAME_STAT_LEADER: false,
+	PLAYER_SEASON_STAT_LEADER: true,
+	PLAYER_TEAM_SEASON_STAT_LEADER: true,
+	// Not season-long despite having no game: its locksAt is an arbitrary
+	// creator-chosen window, not tied to season length - see the note on
+	// SEASON_LONG_SHAPES in @called-my-shot/scoring.
+	YES_NO_PROP: false,
+	PLAYER_SEASON_AWARD: true,
+	TEAM_SEASON_AWARD: true,
+	PLAYER_AWARD_FINALISTS: true,
+}
+
+export function isSeasonLongGqlShape(shape: QuestionShape): boolean {
+	return SEASON_LONG_BY_GQL_SHAPE[shape]
+}
+
+// The early multiplier a pending pick previews with. Season-long shapes read
+// games played so far, not rank among callers. seasonGamesPlayed/
+// seasonTotalGames are only ever null for a game-scoped question (or a
+// season-long one with no games synced yet, where seasonEarlyTierFor's own
+// zero-games guard already lands on the same preseason ceiling), so falling
+// back to earlyTierFor(rank, totalCalls) there is correct either way.
+export function selectionEarlyTier(
+	shape: QuestionShape,
+	rank: number,
+	totalCalls: number,
+	seasonGamesPlayed: number | null,
+	seasonTotalGames: number | null,
+): EarlyTier {
+	return isSeasonLongGqlShape(shape) &&
+		seasonGamesPlayed !== null &&
+		seasonTotalGames !== null
+		? seasonEarlyTierFor(seasonGamesPlayed, seasonTotalGames)
+		: earlyTierFor(rank, totalCalls)
 }

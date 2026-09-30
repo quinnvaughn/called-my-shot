@@ -16,6 +16,11 @@ export const CallRecordDocument = graphql(`
 			guessValue
 			totalPoints
 			currentRank
+			# With the fields below, what a pending call's "if right / if
+			# wrong" preview needs - the same inputs the question page's
+			# status card reads.
+			seasonGamesPlayed
+			seasonTotalGames
 			streak {
 				length
 				family
@@ -88,6 +93,10 @@ export const CallRecordDocument = graphql(`
 				locksAt
 				resolvedAt
 				callCount
+				lossRate
+				options {
+					id
+				}
 				ouLine
 				numericActualValue
 				numericToleranceAbsolute
@@ -131,6 +140,7 @@ export const CallRecordDocument = graphql(`
 					label
 					isCorrect
 					fieldPct
+					lossRate
 					# This caller's own pick's number, which scoredOptions above
 					# cannot give on a leader pool: that is trimmed to whoever led,
 					# and the margin needs whoever they backed. f6ffc09 dropped this

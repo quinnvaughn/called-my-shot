@@ -1,18 +1,16 @@
 import { type CallGifState, GIF_POOLS } from "@called-my-shot/gifs"
 import { Link } from "@tanstack/react-router"
-import { css } from "styled-system/css"
+import type { ReactNode } from "react"
+import { css, cx } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
 import { match } from "ts-pattern"
 import { Avatar } from "#/components/ui/avatar"
-import { Brand } from "#/components/ui/brand"
 import { Card } from "#/components/ui/card"
 import { Eyebrow } from "#/components/ui/eyebrow"
+import { InfoTip } from "#/components/ui/info-tip"
 import { ReactionGif } from "#/components/ui/reaction-gif"
 
 export type CallRecordCardData = {
-	questionTitle: string
-	leagueAbbr: string
-	categoryLabel: string
 	name: string
 	username: string
 	avatarUrl: string | null
@@ -31,6 +29,10 @@ export type CallRecordCardData = {
 	// is still a record, it just doesn't have a result to state yet.
 	isWin: boolean | null
 	points: number | null
+	// While unsettled, what the call pays if right and costs if wrong,
+	// already formatted ("+107", "+80–120" for a numeric guess's range;
+	// "−102"). Null once settled, and for a multi-pick award call.
+	inTheAir: { win: string; lose: string } | null
 	// Which reaction pool the card draws from. The state, not a chosen gif:
 	// the pick happens on mount inside ReactionGif, so whoever renders the card
 	// has nothing to decide - see callGifState in lib/call-gif.ts.
@@ -81,26 +83,74 @@ export type CallRecordCardData = {
 	} | null
 }
 
-type Props = { data: CallRecordCardData }
+type Props = {
+	data: CallRecordCardData
+	// The owner's offer to take the pick back (RedoCta), rendered under the
+	// points it would change. Null for anyone else and once it's off the table.
+	redo?: ReactNode
+	// What to do with the call from here - where to see the rest of the
+	// question, and the ways of sending this one on. Owned by the page, which
+	// knows the viewer and the surface to track the share against.
+	footer: ReactNode
+}
 
 // The centrepiece of /calls/:id: one call, stated as a record. Deliberately
 // takes a flat data object rather than a GraphQL fragment - it renders the
 // same thing whatever the call arrives as, and the og:image (apps/api's
 // share-cards/call-card.ts) is built from the same set of facts, so the page
 // and the unfurl of it can't drift apart.
-export function CallRecordCard({ data }: Props) {
+export function CallRecordCard({ data, redo = null, footer }: Props) {
 	const resolved = data.points !== null && data.isWin !== null
 	const win = data.isWin === true
 	const nailed = data.closeness?.kind === "exact"
 	return (
 		<Card size="md" accent={nailed}>
 			<Card.Header>
-				<VStack gap="4" alignItems="center" width="full">
-					<Brand size="sm" />
-					<VStack gap="1.5" alignItems="center">
-						<Eyebrow
-							size="sm"
-							variant={!resolved || win ? "primary" : "neutral"}
+				<VStack gap="4" alignItems="stretch" width="full">
+					{/* Who and when on the left, how it stands on the right - the
+					same header row the question page's status card opens with. */}
+					<HStack justify="space-between" gap="3" alignItems="center">
+						<HStack gap="2" alignItems="center" minWidth="0">
+							<Link
+								to="/user/$username"
+								params={{ username: data.username }}
+								className={css({
+									display: "inline-flex",
+									alignItems: "center",
+									gap: "2",
+									minWidth: "0",
+									textDecoration: "none",
+									color: "fg.default",
+									_hover: { "& span": { textDecoration: "underline" } },
+								})}
+							>
+								<Avatar size="xs" name={data.name} src={data.avatarUrl} />
+								<span
+									className={css({
+										fontFamily: "mono",
+										fontSize: "xs",
+										overflow: "hidden",
+										textOverflow: "ellipsis",
+										whiteSpace: "nowrap",
+									})}
+								>
+									@{data.username}
+								</span>
+							</Link>
+							<span
+								className={css({
+									flexShrink: "0",
+									fontFamily: "mono",
+									fontSize: "xs",
+									color: "fg.muted",
+									whiteSpace: "nowrap",
+								})}
+							>
+								· {data.calledAt}
+							</span>
+						</HStack>
+						<RecordTag
+							tone={resolved ? (win ? "success" : "danger") : "pending"}
 						>
 							{/* An exact guess keeps "Nailed it" over any margin label:
 							it is the rarer claim, and a second superlative next to
@@ -113,9 +163,16 @@ export function CallRecordCard({ data }: Props) {
 							{resolved && win && data.streakLength !== null
 								? ` · ${data.streakLength} in a row`
 								: ""}
+						</RecordTag>
+					</HStack>
+					{/* The question is the page's title above this card, so the
+					card leads with the answer to it, labelled as such. */}
+					<VStack gap="3" alignItems="flex-start">
+						<Eyebrow size="sm" variant="neutral">
+							The call
 						</Eyebrow>
 						{data.picks ? (
-							<VStack gap="1" alignItems="center">
+							<VStack gap="1" alignItems="flex-start">
 								{data.picks.map((pick) => (
 									<PickLine key={pick.label} pick={pick} />
 								))}
@@ -124,8 +181,7 @@ export function CallRecordCard({ data }: Props) {
 							<span
 								className={css({
 									fontFamily: "heading",
-									fontSize: "2xl",
-									textAlign: "center",
+									fontSize: { base: "2xl", sm: "3xl" },
 									lineHeight: "1.15",
 									// A pending call is not a loss, so it never gets the muted
 									// treatment a miss does.
@@ -139,56 +195,61 @@ export function CallRecordCard({ data }: Props) {
 								{data.pickLabel}
 							</span>
 						)}
-						<span
-							className={css({
-								fontSize: "xs",
-								color: "fg.subtle",
-								textAlign: "center",
-							})}
-						>
-							{data.questionTitle}
-						</span>
-						{/* Directly under the question it answers, at headline weight.
-						As one more StatRow down in the body it sat between "Field
-						agreed" and "Conviction" and read as the same order of
-						trivia - the pick and the points say whether the call
-						landed, and this is the only thing on the card that says
-						what it landed against. */}
-						{data.actual !== null && (
-							<HStack gap="2" alignItems="baseline" paddingTop="1">
-								<Eyebrow size="sm" variant="neutral">
-									Actual
-								</Eyebrow>
-								<span
-									className={css({
-										fontFamily: "heading",
-										fontSize: "xl",
-										lineHeight: "1.2",
-										textAlign: "center",
-										color: "fg.default",
-									})}
-								>
-									{data.actual}
-								</span>
-							</HStack>
+						{/* The numbers at the pick's own scale: the final points once
+						settled, what's in the air before that. */}
+						{resolved ? (
+							<RecordStat
+								value={`${win ? "+" : "−"}${Math.abs(data.points ?? 0)}`}
+								label="Final"
+								tone={win ? "success" : "danger"}
+							/>
+						) : (
+							data.inTheAir && (
+								<HStack gap="8" alignItems="flex-start">
+									<RecordStat
+										value={data.inTheAir.win}
+										label="If right"
+										tone="success"
+									/>
+									<RecordStat
+										value={data.inTheAir.lose}
+										label="If wrong"
+										tone="danger"
+									/>
+								</HStack>
+							)
 						)}
-						{/* After the question and what actually happened, so the pick
-						reads as an answer to the question first and the fade reads
-						as a second claim about it, not as the thing being asked. */}
-						{data.fading && <FadeLine fading={data.fading} />}
 					</VStack>
-					<HStack gap="2" alignItems="center">
-						<Avatar size="xs" name={data.name} src={data.avatarUrl} />
-						<span
+					{redo}
+					{/* What it landed against, once there's an answer. */}
+					{data.actual !== null && (
+						<HStack
+							gap="2"
+							alignItems="baseline"
 							className={css({
-								fontFamily: "mono",
-								fontSize: "xs",
-								color: "fg.muted",
+								paddingTop: "3",
+								borderTop: "1px solid {colors.border.default}",
 							})}
 						>
-							@{data.username} · called {data.calledAt}
-						</span>
-					</HStack>
+							<Eyebrow size="sm" variant="neutral">
+								Actual
+							</Eyebrow>
+							<span
+								className={css({
+									fontFamily: "heading",
+									fontSize: "lg",
+									lineHeight: "1.2",
+									color: "fg.default",
+								})}
+							>
+								{data.actual}
+							</span>
+						</HStack>
+					)}
+					{/* After the question and what actually happened, so the pick
+					reads as an answer to the question first and the fade reads
+					as a second claim about it, not as the thing being asked. */}
+					{data.fading && <FadeLine fading={data.fading} />}
 				</VStack>
 			</Card.Header>
 			<Card.Body>
@@ -228,6 +289,7 @@ export function CallRecordCard({ data }: Props) {
 							<StatRow
 								label="Field agreed"
 								value={`${Math.round(data.fieldPct)}%`}
+								hint={FIELD_AGREED_HINT}
 							/>
 						)}
 						{/* "Off by 0" reads as still being off, so an exact guess keeps
@@ -246,57 +308,19 @@ export function CallRecordCard({ data }: Props) {
 						<StatRow
 							label="Conviction"
 							value={`${Math.round(data.conviction)}%`}
+							hint={CONVICTION_HINT}
 						/>
-					</VStack>
-					<HStack
-						justify="space-between"
-						alignItems="baseline"
-						className={css({
-							borderTop: "1px solid {colors.border.default}",
-							paddingTop: "3",
-						})}
-					>
-						<Eyebrow size="sm" variant="neutral">
-							{resolved ? "Result" : "Status"}
-						</Eyebrow>
-						{resolved ? (
-							<span
-								className={css({
-									fontFamily: "heading",
-									fontSize: "2xl",
-									color: win ? "success.default" : "danger.default",
-								})}
-							>
-								{win ? "+" : "−"}
-								{Math.abs(data.points ?? 0)} pts
-							</span>
-						) : (
-							<span
-								className={css({
-									fontFamily: "mono",
-									fontSize: "sm",
-									color: "fg.muted",
-								})}
-							>
-								{data.pendingLabel ?? "Awaiting result"}
-							</span>
+						{!resolved && (
+							<StatRow
+								label="Status"
+								value={data.pendingLabel ?? "Awaiting result"}
+							/>
 						)}
-					</HStack>
+					</VStack>
 					<ReactionGif pool={GIF_POOLS[data.gifState]} />
 				</VStack>
 			</Card.Body>
-			<Card.Footer>
-				<HStack
-					justify="space-between"
-					alignItems="center"
-					className={css({ color: "fg.muted", fontSize: "2xs" })}
-				>
-					<span>calledmyshot.com/{data.username}</span>
-					<span>
-						{data.leagueAbbr} · {data.categoryLabel}
-					</span>
-				</HStack>
-			</Card.Footer>
+			<Card.Footer>{footer}</Card.Footer>
 		</Card>
 	)
 }
@@ -309,13 +333,12 @@ function PickLine({
 	pick: NonNullable<CallRecordCardData["picks"]>[number]
 }) {
 	return (
-		<HStack gap="2.5" alignItems="baseline" justify="center">
+		<HStack gap="2.5" alignItems="baseline">
 			<span
 				className={css({
 					fontFamily: "heading",
 					fontSize: "xl",
 					lineHeight: "1.2",
-					textAlign: "center",
 					color: pick.hit === false ? "fg.muted" : "fg.default",
 				})}
 			>
@@ -339,12 +362,30 @@ function PickLine({
 	)
 }
 
-function StatRow({ label, value }: { label: string; value: string }) {
+// A stat's own vocabulary, for someone who landed here from a shared link
+// with no idea what the app is: what the number does to the points.
+const CONVICTION_HINT =
+	"How much of this pick's points they put on the line. Higher conviction pays more if right and costs more if wrong."
+const FIELD_AGREED_HINT =
+	"The share of everyone who called this question that picked the same thing. The fewer who agree, the more a correct pick pays."
+
+function StatRow({
+	label,
+	value,
+	hint,
+}: {
+	label: string
+	value: string
+	hint?: string
+}) {
 	return (
 		<HStack alignItems="center" justify="space-between" width="full">
-			<Eyebrow size="sm" variant="neutral">
-				{label}
-			</Eyebrow>
+			<HStack gap="1" alignItems="center">
+				<Eyebrow size="sm" variant="neutral">
+					{label}
+				</Eyebrow>
+				{hint && <InfoTip label={label.toLowerCase()} text={hint} />}
+			</HStack>
 			<span className={css({ fontSize: "sm", fontWeight: "semibold" })}>
 				{value}
 			</span>
@@ -377,7 +418,7 @@ function FadeLine({
 		.exhaustive()
 
 	return (
-		<VStack gap="2" alignItems="center" paddingTop="1">
+		<VStack gap="2" alignItems="flex-start" paddingTop="1">
 			<Link
 				to="/calls/$callId"
 				params={{ callId: fading.callId }}
@@ -405,7 +446,6 @@ function FadeLine({
 						fontSize: "xs",
 						letterSpacing: "wide",
 						textTransform: "uppercase",
-						textAlign: "center",
 						color:
 							outcome.tone === "success"
 								? "success.default"
@@ -421,7 +461,6 @@ function FadeLine({
 				<p
 					className={css({
 						fontSize: "md",
-						textAlign: "center",
 						color: "fg.default",
 					})}
 				>
@@ -441,6 +480,101 @@ function FadeLine({
 					: "{fading.gloat.text}"
 				</p>
 			)}
+		</VStack>
+	)
+}
+
+type RecordTone = "pending" | "success" | "danger"
+
+// Panda reads token classes statically, so each tone is its own literal
+// css() call rather than a lookup inside one.
+const recordTagClassByTone: Record<RecordTone, string> = {
+	pending: css({
+		backgroundColor: "secondary.subtle",
+		color: "secondary.default",
+	}),
+	success: css({
+		backgroundColor: "success.subtle",
+		color: "success.default",
+	}),
+	danger: css({
+		backgroundColor: "danger.subtle",
+		color: "danger.default",
+	}),
+}
+
+const recordTagBaseClass = css({
+	flexShrink: "0",
+	fontFamily: "mono",
+	fontSize: "2xs",
+	fontWeight: "bold",
+	letterSpacing: "wide",
+	textTransform: "uppercase",
+	borderRadius: "sm",
+	paddingBlock: "1",
+	paddingInline: "2",
+	whiteSpace: "nowrap",
+})
+
+// Where the call stands, small in the corner: blue while it's still out
+// there, green or red once it settles.
+function RecordTag({
+	tone,
+	children,
+}: {
+	tone: RecordTone
+	children: ReactNode
+}) {
+	return (
+		<span className={cx(recordTagBaseClass, recordTagClassByTone[tone])}>
+			{children}
+		</span>
+	)
+}
+
+const recordStatValueClassByTone: Record<
+	Exclude<RecordTone, "pending">,
+	string
+> = {
+	success: css({
+		fontFamily: "mono",
+		fontSize: "2xl",
+		fontWeight: "bold",
+		lineHeight: "1",
+		color: "success.default",
+	}),
+	danger: css({
+		fontFamily: "mono",
+		fontSize: "2xl",
+		fontWeight: "bold",
+		lineHeight: "1",
+		color: "danger.default",
+	}),
+}
+
+function RecordStat({
+	value,
+	label,
+	tone,
+}: {
+	value: string
+	label: string
+	tone: Exclude<RecordTone, "pending">
+}) {
+	return (
+		<VStack gap="1.5" alignItems="flex-start">
+			<span className={recordStatValueClassByTone[tone]}>{value}</span>
+			<span
+				className={css({
+					fontFamily: "mono",
+					fontSize: "2xs",
+					letterSpacing: "wide",
+					textTransform: "uppercase",
+					color: "fg.muted",
+				})}
+			>
+				{label}
+			</span>
 		</VStack>
 	)
 }

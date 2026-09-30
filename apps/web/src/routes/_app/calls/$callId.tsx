@@ -1,8 +1,9 @@
+import { effectiveLossRate } from "@called-my-shot/scoring"
 import { useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute, Link, useRouteContext } from "@tanstack/react-router"
 import { FaRegTimesCircle } from "react-icons/fa"
 import { css } from "styled-system/css"
-import { VStack } from "styled-system/jsx"
+import { HStack, VStack } from "styled-system/jsx"
 import { match } from "ts-pattern"
 import {
 	CallRecordCard,
@@ -22,7 +23,6 @@ import { RedoPanel } from "#/components/questions/redo-panel"
 import { arrowLink } from "#/components/ui/arrow-link"
 import { Breadcrumb } from "#/components/ui/breadcrumb"
 import { NotFound } from "#/components/ui/not-found"
-import { PageHeader } from "#/components/ui/page-header"
 import type { CallRecordQuery } from "#/graphql/generated/graphql"
 import { callRecordQuery } from "#/graphql/queries/call"
 import { callGifState } from "#/lib/call-gif"
@@ -43,6 +43,12 @@ import {
 	optionDisplayLabel,
 	shareCardShapeLabel,
 } from "#/lib/question-labels"
+import {
+	BASE_POINTS_BY_GQL_SHAPE,
+	previewNumericPoints,
+	previewSelectionPoints,
+	selectionEarlyTier,
+} from "#/lib/scoring"
 import { buildQuestionSlug } from "#/lib/slug"
 import { streakFamilyParam } from "#/lib/streak-meta"
 
@@ -239,6 +245,53 @@ function describeCall(call: NonNullable<CallRecordQuery["call"]>) {
 	}
 }
 
+// What an unsettled call pays if right and costs if wrong, from the same
+// scoring helpers the question page's status card previews with, so the two
+// pages can't disagree. Null once the question settles, and for an award
+// call with several picks, which has no single pair of numbers.
+function pendingPayout(
+	call: NonNullable<CallRecordQuery["call"]>,
+): { win: string; lose: string } | null {
+	const question = call.question
+	if (question.status !== "OPEN" && question.status !== "LOCKED") return null
+	const basePoints = BASE_POINTS_BY_GQL_SHAPE[question.shape]
+
+	if (isNumericQuestionShape(question.shape)) {
+		if (call.conviction === null) return null
+		const preview = previewNumericPoints(
+			basePoints,
+			question.lossRate,
+			call.conviction,
+			call.currentRank,
+			question.callCount,
+		)
+		return {
+			win: `+${preview.winLow}–${preview.winHigh}`,
+			lose: `−${preview.lose}`,
+		}
+	}
+
+	const [selection, ...rest] = call.selections
+	if (!selection || rest.length > 0 || selection.option.fieldPct === null) {
+		return null
+	}
+	const preview = previewSelectionPoints(
+		basePoints,
+		effectiveLossRate(question.lossRate, selection.option.lossRate),
+		selection.option.fieldPct,
+		question.options.length,
+		selection.conviction,
+		selectionEarlyTier(
+			question.shape,
+			call.currentRank,
+			question.callCount,
+			call.seasonGamesPlayed,
+			call.seasonTotalGames,
+		),
+	)
+	return { win: `+${preview.win}`, lose: `−${preview.lose}` }
+}
+
 // An award call has several picks; it counts as having been right if any of
 // them was. Null while the question is unresolved, where every isCorrect is
 // still null.
@@ -271,9 +324,6 @@ function RouteComponent() {
 	const resolved = view.points !== null && view.isWin !== null
 
 	const cardData: CallRecordCardData = {
-		questionTitle: call.question.title,
-		leagueAbbr: view.leagueAbbr,
-		categoryLabel: shareCardShapeLabel[call.question.shape],
 		name: view.name,
 		username: view.username,
 		avatarUrl: view.avatarUrl,
@@ -290,6 +340,7 @@ function RouteComponent() {
 		calledAt: view.calledAt,
 		isWin: view.isWin,
 		points: view.points,
+		inTheAir: pendingPayout(call),
 		fieldPct: view.fieldPct,
 		closeness: view.closeness,
 		// The label replaces the verdict word in the card's eyebrow; the
@@ -368,12 +419,77 @@ function RouteComponent() {
 				<Breadcrumb.Current>@{call.user.username}</Breadcrumb.Current>
 			</Breadcrumb>
 
-			{/* Names the page and nothing else. Who called it, when, in which
-			league, on what kind of question - the card below states all of it,
-			and a subtitle here would only say it twice. */}
-			<PageHeader title="The Call" />
+			{/* The question is the page's title, as it is on the question page,
+			and the card below is one person's answer to it - whose is on the
+			card's own header. */}
+			<h1 className={css({ fontSize: "2xl", fontFamily: "heading" })}>
+				{call.question.title}
+			</h1>
 
-			<CallRecordCard data={cardData} />
+			<CallRecordCard
+				data={cardData}
+				// The page about one call is where someone goes when they want
+				// to change that call, so the offer belongs here as much as on
+				// the question. The form itself lives on the question page
+				// rather than being duplicated onto a page whose job is stating
+				// a record.
+				redo={
+					<RedoCta
+						questionId={call.question.id}
+						offer={
+							call.viewerCanRedo
+								? {
+										questionShape:
+											call.question.shape.toLowerCase() as QuestionCallShape,
+										balance: me?.redoBalance ?? 0,
+										action: {
+											kind: "navigate",
+											questionId: call.question.id,
+											slug: buildQuestionSlug(call.question.title),
+										},
+									}
+								: null
+						}
+					/>
+				}
+				footer={
+					<HStack justify="space-between" gap="3" width="full">
+						<Link
+							to="/questions/$questionId/{-$slug}"
+							params={{
+								questionId: call.question.id,
+								slug: buildQuestionSlug(call.question.title),
+							}}
+							className={css({
+								fontFamily: "mono",
+								fontSize: "2xs",
+								letterSpacing: "wide",
+								textTransform: "uppercase",
+								color: "primary.default",
+								textDecoration: "none",
+								_hover: { opacity: 0.8 },
+							})}
+						>
+							See the question →
+						</Link>
+						<CallShareRow
+							callId={call.id}
+							shareTitle={call.question.title}
+							surface="call_page"
+							layout="icons"
+							tweetText={buildCallTweet({
+								pickLabel: view.pickLabel,
+								points: view.points,
+								isWin: view.isWin,
+								calledAt: view.calledAt,
+								...(me?.id === call.user.id
+									? ({ isOwn: true } as const)
+									: ({ isOwn: false, username: view.username } as const)),
+							})}
+						/>
+					</HStack>
+				}
+			/>
 
 			{!me && (
 				<CallSignupCta
@@ -438,28 +554,6 @@ function RouteComponent() {
 			quietly show the later one as if it were the only one. */}
 			{view.redo && <RedoPanel data={view.redo} />}
 
-			{/* The page about one call is where someone goes when they want to
-			change that call, so the offer belongs here as much as on the
-			question. The form itself lives on the question page rather than
-			being duplicated onto a page whose job is stating a record. */}
-			<RedoCta
-				questionId={call.question.id}
-				offer={
-					call.viewerCanRedo
-						? {
-								questionShape:
-									call.question.shape.toLowerCase() as QuestionCallShape,
-								balance: me?.redoBalance ?? 0,
-								action: {
-									kind: "navigate",
-									questionId: call.question.id,
-									slug: buildQuestionSlug(call.question.title),
-								},
-							}
-						: null
-				}
-			/>
-
 			{call.streak && (
 				<Link
 					to="/user/$username/streaks/$league/$family/$mode"
@@ -494,21 +588,6 @@ function RouteComponent() {
 				</span>
 			)}
 
-			<CallShareRow
-				callId={call.id}
-				shareTitle={call.question.title}
-				surface="call_page"
-				tweetText={buildCallTweet({
-					pickLabel: view.pickLabel,
-					points: view.points,
-					isWin: view.isWin,
-					calledAt: view.calledAt,
-					...(me?.id === call.user.id
-						? ({ isOwn: true } as const)
-						: ({ isOwn: false, username: view.username } as const)),
-				})}
-			/>
-
 			<DoubtersPanel
 				fades={call.doubters}
 				opUsername={view.username}
@@ -521,17 +600,6 @@ function RouteComponent() {
 					)
 				}
 			/>
-
-			<Link
-				to="/questions/$questionId/{-$slug}"
-				params={{
-					questionId: call.question.id,
-					slug: buildQuestionSlug(call.question.title),
-				}}
-				className={arrowLink({ tone: "primary" })}
-			>
-				See the question and everyone else who called it →
-			</Link>
 		</VStack>
 	)
 }
