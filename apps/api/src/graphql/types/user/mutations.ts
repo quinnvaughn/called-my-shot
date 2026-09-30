@@ -63,13 +63,17 @@ async function updateUserOrThrow(
 	return updated
 }
 
-// Re-confirms the viewer's password before a sensitive change.
+// Re-confirms the viewer's password before a sensitive change. An account
+// made through Google has no password to re-confirm, so its signed-in session
+// is the only proof there is and the check passes.
 async function requirePassword(
 	viewer: User,
-	password: string,
+	password: string | null | undefined,
 	field = "password",
 	message = "Incorrect password",
 ) {
+	if (!viewer.passwordHash) return
+	if (!password) throw ValidationError.field(field, "Enter your password")
 	if (!(await verifyPassword(viewer.passwordHash, password))) {
 		throw ValidationError.field(field, message)
 	}
@@ -128,8 +132,8 @@ builder.mutationFields((t) => ({
 		resolve: async (_root, args, ctx) => {
 			const user = requireUser(ctx)
 			const { newEmail, password } = parseInput(
-				requestEmailChangeSchema,
-				args.input,
+				requestEmailChangeSchema.partial({ password: true }),
+				{ ...args.input, password: args.input.password ?? undefined },
 			)
 
 			await requirePassword(user, password)
@@ -256,8 +260,11 @@ builder.mutationFields((t) => ({
 		resolve: async (_root, args, ctx) => {
 			const user = requireUser(ctx)
 			const { currentPassword, newPassword } = parseInput(
-				updatePasswordSchema,
-				args.input,
+				updatePasswordSchema.partial({ currentPassword: true }),
+				{
+					...args.input,
+					currentPassword: args.input.currentPassword ?? undefined,
+				},
 			)
 
 			await requirePassword(
@@ -286,7 +293,10 @@ builder.mutationFields((t) => ({
 		args: { input: t.arg({ type: DeleteAccountInput, required: true }) },
 		resolve: async (_root, args, ctx) => {
 			const user = requireUser(ctx)
-			const { password } = parseInput(deleteAccountSchema, args.input)
+			const { password } = parseInput(
+				deleteAccountSchema.partial({ password: true }),
+				{ password: args.input.password ?? undefined },
+			)
 
 			await requirePassword(user, password)
 

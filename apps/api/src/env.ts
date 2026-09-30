@@ -57,6 +57,11 @@ const envSchema = z.object({
 	// production analytics. Without it the outbox holds its rows, and they go
 	// out with their original timestamps once a key is set.
 	POSTHOG_KEY: z.string().optional(),
+	// The OAuth client for "Continue with Google". Optional so local dev needs
+	// no setup: without both, the Google routes redirect back with an error
+	// rather than starting a flow that can't finish.
+	GOOGLE_CLIENT_ID: z.string().optional(),
+	GOOGLE_CLIENT_SECRET: z.string().optional(),
 	// Cloudflare R2, for avatars and group logos/banners (lib/storage.ts).
 	// Optional everywhere: without them uploads refuse with a clear error and
 	// every image falls back to its initial, which is a fine local setup.

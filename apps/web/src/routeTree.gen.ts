@@ -53,6 +53,8 @@ import { Route as AdminBallotsIndexRouteImport } from './routes/admin/ballots/in
 import { Route as AdminBallotsBallotIdRouteImport } from './routes/admin/ballots/$ballotId'
 import { Route as AdminDataIndexRouteImport } from './routes/admin/data/index'
 import { Route as AdminDataLeagueIdRouteImport } from './routes/admin/data/$leagueId'
+import { Route as AuthGoogleIndexRouteImport } from './routes/auth/google/index'
+import { Route as AuthGoogleCallbackRouteImport } from './routes/auth/google/callback'
 import { Route as AppAuthedGroupsIndexRouteImport } from './routes/_app/_authed/groups/index'
 import { Route as AppBallotsBallotSlugUsernameRouteImport } from './routes/_app/ballots/$ballotSlug_.$username'
 import { Route as AppGamesGameIdChar123SlugChar125RouteImport } from './routes/_app/games/$gameId.{-$slug}'
@@ -299,6 +301,16 @@ const AdminDataLeagueIdRoute = AdminDataLeagueIdRouteImport.update({
   path: '/data/$leagueId',
   getParentRoute: () => AdminRoute,
 } as any)
+const AuthGoogleIndexRoute = AuthGoogleIndexRouteImport.update({
+  id: '/auth/google/',
+  path: '/auth/google/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthGoogleCallbackRoute = AuthGoogleCallbackRouteImport.update({
+  id: '/auth/google/callback',
+  path: '/auth/google/callback',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AppAuthedGroupsIndexRoute = AppAuthedGroupsIndexRouteImport.update({
   id: '/groups/',
   path: '/groups/',
@@ -498,8 +510,10 @@ export interface FileRoutesByFullPath {
   '/user/$username': typeof AppUserUsernameRoute
   '/admin/ballots/$ballotId': typeof AdminBallotsBallotIdRoute
   '/admin/data/$leagueId': typeof AdminDataLeagueIdRouteWithChildren
+  '/auth/google/callback': typeof AuthGoogleCallbackRoute
   '/admin/ballots/': typeof AdminBallotsIndexRoute
   '/admin/data/': typeof AdminDataIndexRoute
+  '/auth/google/': typeof AuthGoogleIndexRoute
   '/ballots/$ballotSlug/$username': typeof AppBallotsBallotSlugUsernameRoute
   '/games/$gameId/{-$slug}': typeof AppGamesGameIdChar123SlugChar125Route
   '/groups/join/$code': typeof AppGroupsJoinCodeRoute
@@ -566,8 +580,10 @@ export interface FileRoutesByTo {
   '/calls/$callId': typeof AppCallsCallIdRoute
   '/user/$username': typeof AppUserUsernameRoute
   '/admin/ballots/$ballotId': typeof AdminBallotsBallotIdRoute
+  '/auth/google/callback': typeof AuthGoogleCallbackRoute
   '/admin/ballots': typeof AdminBallotsIndexRoute
   '/admin/data': typeof AdminDataIndexRoute
+  '/auth/google': typeof AuthGoogleIndexRoute
   '/ballots/$ballotSlug/$username': typeof AppBallotsBallotSlugUsernameRoute
   '/games/$gameId/{-$slug}': typeof AppGamesGameIdChar123SlugChar125Route
   '/groups/join/$code': typeof AppGroupsJoinCodeRoute
@@ -640,8 +656,10 @@ export interface FileRoutesById {
   '/_app/user/$username': typeof AppUserUsernameRoute
   '/admin/ballots/$ballotId': typeof AdminBallotsBallotIdRoute
   '/admin/data/$leagueId': typeof AdminDataLeagueIdRouteWithChildren
+  '/auth/google/callback': typeof AuthGoogleCallbackRoute
   '/admin/ballots/': typeof AdminBallotsIndexRoute
   '/admin/data/': typeof AdminDataIndexRoute
+  '/auth/google/': typeof AuthGoogleIndexRoute
   '/_app/ballots/$ballotSlug_/$username': typeof AppBallotsBallotSlugUsernameRoute
   '/_app/games/$gameId/{-$slug}': typeof AppGamesGameIdChar123SlugChar125Route
   '/_app/groups/join/$code': typeof AppGroupsJoinCodeRoute
@@ -713,8 +731,10 @@ export interface FileRouteTypes {
     | '/user/$username'
     | '/admin/ballots/$ballotId'
     | '/admin/data/$leagueId'
+    | '/auth/google/callback'
     | '/admin/ballots/'
     | '/admin/data/'
+    | '/auth/google/'
     | '/ballots/$ballotSlug/$username'
     | '/games/$gameId/{-$slug}'
     | '/groups/join/$code'
@@ -781,8 +801,10 @@ export interface FileRouteTypes {
     | '/calls/$callId'
     | '/user/$username'
     | '/admin/ballots/$ballotId'
+    | '/auth/google/callback'
     | '/admin/ballots'
     | '/admin/data'
+    | '/auth/google'
     | '/ballots/$ballotSlug/$username'
     | '/games/$gameId/{-$slug}'
     | '/groups/join/$code'
@@ -854,8 +876,10 @@ export interface FileRouteTypes {
     | '/_app/user/$username'
     | '/admin/ballots/$ballotId'
     | '/admin/data/$leagueId'
+    | '/auth/google/callback'
     | '/admin/ballots/'
     | '/admin/data/'
+    | '/auth/google/'
     | '/_app/ballots/$ballotSlug_/$username'
     | '/_app/games/$gameId/{-$slug}'
     | '/_app/groups/join/$code'
@@ -898,6 +922,8 @@ export interface RootRouteChildren {
   UnsubscribeOneClickRoute: typeof UnsubscribeOneClickRoute
   WebhooksResendRoute: typeof WebhooksResendRoute
   UnsubscribeIndexRoute: typeof UnsubscribeIndexRoute
+  AuthGoogleCallbackRoute: typeof AuthGoogleCallbackRoute
+  AuthGoogleIndexRoute: typeof AuthGoogleIndexRoute
   ShareCallsCallIdCardDotpngRoute: typeof ShareCallsCallIdCardDotpngRoute
   ShareUsersUsernameCardDotpngRoute: typeof ShareUsersUsernameCardDotpngRoute
   ShareBallotsBallotSlugUsersUsernameCardDotpngRoute: typeof ShareBallotsBallotSlugUsersUsernameCardDotpngRoute
@@ -1216,6 +1242,20 @@ declare module '@tanstack/react-router' {
       fullPath: '/admin/data/$leagueId'
       preLoaderRoute: typeof AdminDataLeagueIdRouteImport
       parentRoute: typeof AdminRoute
+    }
+    '/auth/google/': {
+      id: '/auth/google/'
+      path: '/auth/google'
+      fullPath: '/auth/google/'
+      preLoaderRoute: typeof AuthGoogleIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/auth/google/callback': {
+      id: '/auth/google/callback'
+      path: '/auth/google/callback'
+      fullPath: '/auth/google/callback'
+      preLoaderRoute: typeof AuthGoogleCallbackRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/_app/_authed/groups/': {
       id: '/_app/_authed/groups/'
@@ -1574,6 +1614,8 @@ const rootRouteChildren: RootRouteChildren = {
   UnsubscribeOneClickRoute: UnsubscribeOneClickRoute,
   WebhooksResendRoute: WebhooksResendRoute,
   UnsubscribeIndexRoute: UnsubscribeIndexRoute,
+  AuthGoogleCallbackRoute: AuthGoogleCallbackRoute,
+  AuthGoogleIndexRoute: AuthGoogleIndexRoute,
   ShareCallsCallIdCardDotpngRoute: ShareCallsCallIdCardDotpngRoute,
   ShareUsersUsernameCardDotpngRoute: ShareUsersUsernameCardDotpngRoute,
   ShareBallotsBallotSlugUsersUsernameCardDotpngRoute:

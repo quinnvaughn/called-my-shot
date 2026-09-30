@@ -32,16 +32,24 @@ export type UpdatePasswordInput = z.infer<typeof updatePasswordSchema>
 
 // Client-facing - adds the confirm field and the cross-field match check.
 // The form strips confirmPassword back off before calling the mutation.
-export const changePasswordFormSchema = z
-	.object({
-		currentPassword: z.string().min(1, "Current password is required"),
-		newPassword: passwordSchema,
-		confirmPassword: z.string().min(1, "Confirm your new password"),
-	})
-	.refine((v) => v.newPassword === v.confirmPassword, {
-		message: "Passwords don't match",
-		path: ["confirmPassword"],
-	})
+//
+// An account made through Google has no current password, so for it the
+// field is left unchecked and never shown: the same form sets a first one.
+export function passwordFormSchema(hasPassword: boolean) {
+	return z
+		.object({
+			currentPassword: hasPassword
+				? z.string().min(1, "Current password is required")
+				: z.string(),
+			newPassword: passwordSchema,
+			confirmPassword: z.string().min(1, "Confirm your new password"),
+		})
+		.refine((v) => v.newPassword === v.confirmPassword, {
+			message: "Passwords don't match",
+			path: ["confirmPassword"],
+		})
+}
+export const changePasswordFormSchema = passwordFormSchema(true)
 export type ChangePasswordFormInput = z.infer<typeof changePasswordFormSchema>
 
 export const deleteAccountSchema = z.object({

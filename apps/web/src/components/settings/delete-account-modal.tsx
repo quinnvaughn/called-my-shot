@@ -1,8 +1,9 @@
 import { deleteAccountSchema } from "@called-my-shot/schemas"
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import { css } from "styled-system/css"
 import { VStack } from "styled-system/jsx"
 import { match } from "ts-pattern"
+import { z } from "zod"
 import { Button } from "#/components/ui/button"
 import { FormError } from "#/components/ui/form-error"
 import { Modal } from "#/components/ui/modal"
@@ -16,18 +17,31 @@ import { closeModal } from "#/stores/modal-store"
 
 type Props = {
 	username: string
+	// False for an account made through Google, which has no password to
+	// confirm with. Typing DELETE is then the only confirmation.
+	hasPassword: boolean
 }
 
-export function DeleteAccountModal({ username }: Props) {
+export function DeleteAccountModal({ username, hasPassword }: Props) {
 	const { signOut } = useSignOut()
 	const deleteAccount = useGqlMutation(DeleteAccountDocument)
 	const [confirmText, setConfirmText] = useState("")
 
+	const schema = useMemo(
+		() =>
+			hasPassword
+				? deleteAccountSchema
+				: deleteAccountSchema.extend({ password: z.string() }),
+		[hasPassword],
+	)
+
 	const form = useForm({
 		defaultValues: { password: "" },
-		schema: deleteAccountSchema,
+		schema,
 		onSubmit: async (values, helpers) => {
-			const data = await deleteAccount.mutateAsync({ input: values })
+			const data = await deleteAccount.mutateAsync({
+				input: hasPassword ? values : {},
+			})
 			const result = data?.deleteAccount
 
 			if (!result) {
@@ -72,20 +86,22 @@ export function DeleteAccountModal({ username }: Props) {
 						and every call, point, and rank tied to it. There's no getting it
 						back.
 					</Modal.Description>
-					<form.Field name="password">
-						{(field) => (
-							<TextInput error={field.meta.error ?? undefined}>
-								<TextInput.Label>Confirm password</TextInput.Label>
-								<TextInput.Password
-									autoComplete="current-password"
-									placeholder="Enter your password"
-									value={field.value}
-									onChange={field.onChange}
-									onBlur={field.onBlur}
-								/>
-							</TextInput>
-						)}
-					</form.Field>
+					{hasPassword && (
+						<form.Field name="password">
+							{(field) => (
+								<TextInput error={field.meta.error ?? undefined}>
+									<TextInput.Label>Confirm password</TextInput.Label>
+									<TextInput.Password
+										autoComplete="current-password"
+										placeholder="Enter your password"
+										value={field.value}
+										onChange={field.onChange}
+										onBlur={field.onBlur}
+									/>
+								</TextInput>
+							)}
+						</form.Field>
+					)}
 					<TextInput>
 						<TextInput.Label>Type DELETE to confirm</TextInput.Label>
 						<TextInput.Group>

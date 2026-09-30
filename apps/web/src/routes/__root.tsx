@@ -18,6 +18,7 @@ import {
 	resetAnalytics,
 	trackPageview,
 } from "#/lib/analytics"
+import { useGoogleAuthReturn } from "#/lib/google-auth"
 import fontsCss from "../fonts.css?url"
 import type { RouterContext } from "../router-context"
 import appCss from "../styles.css?url"
@@ -161,6 +162,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
 	const { me } = Route.useRouteContext()
 
 	useStaleBuildGuard()
+	useGoogleAuthReturn(me?.username ?? null)
 
 	useEffect(() => {
 		initAnalytics()

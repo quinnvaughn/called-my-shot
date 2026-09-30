@@ -1,5 +1,7 @@
-import { changePasswordFormSchema } from "@called-my-shot/schemas"
-import { useState } from "react"
+import { passwordFormSchema } from "@called-my-shot/schemas"
+import { useQueryClient } from "@tanstack/react-query"
+import { useMemo, useState } from "react"
+import { css } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
 import { match } from "ts-pattern"
 import { Button } from "#/components/ui/button"
@@ -11,9 +13,17 @@ import { useGqlMutation } from "#/graphql/hooks"
 import { UpdatePasswordDocument } from "#/graphql/queries/user"
 import { useForm } from "#/lib/form/use-form"
 
-export function PasswordSection() {
+type Props = {
+	// False for an account made through Google that has never set one. The
+	// same form then sets a first password, with no current one to confirm.
+	hasPassword: boolean
+}
+
+export function PasswordSection({ hasPassword }: Props) {
 	const updatePassword = useGqlMutation(UpdatePasswordDocument)
+	const queryClient = useQueryClient()
 	const [savedNote, setSavedNote] = useState<string | null>(null)
+	const schema = useMemo(() => passwordFormSchema(hasPassword), [hasPassword])
 
 	const form = useForm({
 		defaultValues: {
@@ -21,11 +31,11 @@ export function PasswordSection() {
 			newPassword: "",
 			confirmPassword: "",
 		},
-		schema: changePasswordFormSchema,
+		schema,
 		onSubmit: async (values, helpers) => {
 			const data = await updatePassword.mutateAsync({
 					input: {
-						currentPassword: values.currentPassword,
+						currentPassword: hasPassword ? values.currentPassword : null,
 						newPassword: values.newPassword,
 					},
 				})
@@ -50,7 +60,8 @@ export function PasswordSection() {
 				})
 				.with({ __typename: "User" }, async () => {
 					helpers.reset()
-					setSavedNote("Updated")
+					if (!hasPassword) await queryClient.invalidateQueries()
+					setSavedNote(hasPassword ? "Updated" : "Password set")
 					setTimeout(() => setSavedNote(null), 2000)
 				})
 				.exhaustive()
@@ -62,20 +73,27 @@ export function PasswordSection() {
 			<Card.Body>
 				<form onSubmit={form.handleSubmit} id="password-form">
 					<VStack gap="3.5" alignItems="stretch">
-						<form.Field name="currentPassword">
-							{(field) => (
-								<TextInput error={field.meta.error ?? undefined}>
-									<TextInput.Label>Current password</TextInput.Label>
-									<TextInput.Password
-										autoComplete="current-password"
-										placeholder="Enter current password"
-										value={field.value}
-										onChange={field.onChange}
-										onBlur={field.onBlur}
-									/>
-								</TextInput>
-							)}
-						</form.Field>
+						{hasPassword ? (
+							<form.Field name="currentPassword">
+								{(field) => (
+									<TextInput error={field.meta.error ?? undefined}>
+										<TextInput.Label>Current password</TextInput.Label>
+										<TextInput.Password
+											autoComplete="current-password"
+											placeholder="Enter current password"
+											value={field.value}
+											onChange={field.onChange}
+											onBlur={field.onBlur}
+										/>
+									</TextInput>
+								)}
+							</form.Field>
+						) : (
+							<p className={css({ fontSize: "xs", color: "fg.muted" })}>
+								You sign in with Google. Set a password to also sign in with
+								your email or username.
+							</p>
+						)}
 						<form.Field name="newPassword">
 							{(field) => (
 								<TextInput
@@ -124,7 +142,7 @@ export function PasswordSection() {
 								loading={meta.isSubmitting}
 								disabled={meta.isSubmitting || !meta.canSubmit}
 							>
-								Update password
+								{hasPassword ? "Update password" : "Set password"}
 							</Button>
 						</HStack>
 					)}

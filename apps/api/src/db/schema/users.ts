@@ -15,7 +15,9 @@ export const users = pgTable("users", {
 	name: text("name").notNull(),
 	username: text("username").notNull().unique(),
 	email: text("email").notNull().unique(),
-	passwordHash: text("password_hash").notNull(),
+	// Null for an account created through Google, which has never had a
+	// password. Such an account can still add one from settings.
+	passwordHash: text("password_hash"),
 	// No real admin/role system yet - this is the first bit of one, just
 	// enough to gate posting a question as "official".
 	isAdmin: boolean("is_admin").notNull().default(false),
@@ -105,6 +107,27 @@ export const sessions = pgTable("sessions", {
 	expiresAt: timestamp("expires_at").notNull(),
 	createdAt: timestamp("created_at").notNull().defaultNow(),
 })
+
+// A sign-in provider identity attached to an account. Matched on the
+// provider's stable subject id, never on email: an email can change on either
+// side, the subject can't.
+export const oauthAccounts = pgTable(
+	"oauth_accounts",
+	{
+		id: uuid("id").primaryKey().defaultRandom(),
+		userId: uuid("user_id")
+			.notNull()
+			.references(() => users.id, { onDelete: "cascade" }),
+		provider: text("provider", { enum: ["google"] }).notNull(),
+		providerUserId: text("provider_user_id").notNull(),
+		createdAt: timestamp("created_at").notNull().defaultNow(),
+	},
+	(t) => [
+		unique().on(t.provider, t.providerUserId),
+		unique().on(t.userId, t.provider),
+	],
+)
+export type OauthAccount = typeof oauthAccounts.$inferSelect
 
 // One pending change per user - requesting a new one (or resending) replaces
 // whatever was there. Nothing on `users` changes until confirmEmailChange

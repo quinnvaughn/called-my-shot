@@ -75,6 +75,7 @@ function RouteComponent() {
 					email={me.email ?? ""}
 					emailVerified={me.emailVerified}
 					pendingEmailChange={me.pendingEmailChange ?? null}
+					hasPassword={me.hasPassword ?? true}
 				/>
 			</VStack>
 			<VStack alignItems="stretch" gap="3">
@@ -83,11 +84,14 @@ function RouteComponent() {
 			</VStack>
 			<VStack alignItems="stretch" gap="3">
 				{sectionLabel("Password")}
-				<PasswordSection />
+				<PasswordSection hasPassword={me.hasPassword ?? true} />
 			</VStack>
 			<VStack alignItems="stretch" gap="3">
 				{sectionLabel("Danger zone")}
-				<DangerZone username={me.username} />
+				<DangerZone
+					username={me.username}
+					hasPassword={me.hasPassword ?? true}
+				/>
 			</VStack>
 		</VStack>
 	)

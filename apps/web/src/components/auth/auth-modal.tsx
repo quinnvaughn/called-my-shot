@@ -1,9 +1,10 @@
 import { signInSchema, signUpSchema } from "@called-my-shot/schemas"
 import { useQueryClient } from "@tanstack/react-query"
-import { useNavigate, useRouter } from "@tanstack/react-router"
+import { useNavigate, useRouter, useRouterState } from "@tanstack/react-router"
 import { useMemo, useState } from "react"
+import { FcGoogle } from "react-icons/fc"
 import { css } from "styled-system/css"
-import { VStack } from "styled-system/jsx"
+import { HStack, VStack } from "styled-system/jsx"
 import { match } from "ts-pattern"
 import { Button } from "#/components/ui/button"
 import { Modal } from "#/components/ui/modal"
@@ -13,12 +14,15 @@ import { useGqlMutation } from "#/graphql/hooks"
 import { SignInDocument, SignUpDocument } from "#/graphql/mutations/auth"
 import { track } from "#/lib/analytics"
 import { useForm } from "#/lib/form/use-form"
+import { startGoogleAuth } from "#/lib/google-auth"
+import { readLastSignInMethod, rememberSignInMethod } from "#/lib/last-sign-in"
 import { markGuestPicksEntry } from "#/stores/guest-picks-store"
 import { closeModal } from "#/stores/modal-store"
 import { clearReferral, readReferral } from "#/stores/referral-store"
 import { showToast } from "#/stores/toast-store"
 import { Brand } from "../ui/brand"
 import { FormError } from "../ui/form-error"
+import { Tag } from "../ui/tag"
 
 // How long after the post-signup navigation the welcome toast waits. Long
 // enough for the destination to have mounted, so the toast lands on the page
@@ -74,6 +78,7 @@ export function AuthModal({
 	surface = "default",
 }: AuthModalProps) {
 	const [view, setView] = useState<AuthModalView>(defaultView)
+	const [lastMethod] = useState(readLastSignInMethod)
 
 	const { title, description } = {
 		...defaultCopy[view],
@@ -94,12 +99,113 @@ export function AuthModal({
 				<Modal.Title>{title}</Modal.Title>
 				<Modal.Description>{description}</Modal.Description>
 			</VStack>
+			<GoogleButton
+				hasOnSuccess={Boolean(onSuccess)}
+				surface={surface}
+				lastUsed={view === "signin" && lastMethod === "google"}
+			/>
+			<OrDivider />
 			{view === "signin" ? (
-				<SignInFields onSuccess={onSuccess} surface={surface} />
+				<SignInFields
+					onSuccess={onSuccess}
+					surface={surface}
+					lastUsed={lastMethod === "email"}
+				/>
 			) : (
 				<SignUpFields onSuccess={onSuccess} surface={surface} />
 			)}
 		</Modal>
+	)
+}
+
+// One button for both tabs: Google signs an existing account in and creates
+// a new one, so which tab someone was on doesn't matter.
+//
+// A signup here lands back on the page it started from when the caller had
+// something to resume there, and on /home otherwise, the same split as the
+// email forms' onSuccess. The resumed action itself can't survive the trip
+// through Google, only the page it was on.
+function GoogleButton({
+	hasOnSuccess,
+	surface,
+	lastUsed,
+}: {
+	hasOnSuccess: boolean
+	surface: AuthModalSurface
+	lastUsed: boolean
+}) {
+	const href = useRouterState({ select: (s) => s.location.href })
+	const [leaving, setLeaving] = useState(false)
+
+	return (
+		<LastUsed show={lastUsed}>
+			<Button
+				type="button"
+				variant="outline"
+				size="md"
+				fullWidth
+				loading={leaving}
+				disabled={leaving}
+				className={css({ fontFamily: "heading", letterSpacing: "wide" })}
+				onClick={() => {
+					setLeaving(true)
+					startGoogleAuth({ surface, returnTo: hasOnSuccess ? href : "/home" })
+				}}
+			>
+				<FcGoogle size={18} />
+				Continue with Google
+			</Button>
+		</LastUsed>
+	)
+}
+
+// Pins a small "Last used" tag to the top corner of whichever way in this
+// browser used last, so someone with both doesn't have to remember which.
+function LastUsed({
+	show,
+	children,
+}: {
+	show: boolean
+	children: React.ReactNode
+}) {
+	if (!show) return children
+	return (
+		<div className={css({ position: "relative" })}>
+			{children}
+			<span
+				className={css({
+					position: "absolute",
+					top: "-2",
+					right: "3",
+					bg: "bg.default",
+					pointerEvents: "none",
+				})}
+			>
+				<Tag size="sm" variant="primary">
+					Last used
+				</Tag>
+			</span>
+		</div>
+	)
+}
+
+function OrDivider() {
+	const rule = css({ flex: "1", height: "1px", bg: "border.default" })
+	return (
+		<HStack gap="3" alignItems="center">
+			<span className={rule} />
+			<span
+				className={css({
+					fontFamily: "mono",
+					fontSize: "3xs",
+					color: "fg.subtle",
+					textTransform: "uppercase",
+				})}
+			>
+				or
+			</span>
+			<span className={rule} />
+		</HStack>
 	)
 }
 
@@ -108,7 +214,11 @@ type FieldsProps = {
 	surface: AuthModalSurface
 }
 
-function SignInFields({ onSuccess, surface }: FieldsProps) {
+function SignInFields({
+	onSuccess,
+	surface,
+	lastUsed,
+}: FieldsProps & { lastUsed: boolean }) {
 	const signIn = useGqlMutation(SignInDocument)
 	const router = useRouter()
 	const queryClient = useQueryClient()
@@ -137,6 +247,7 @@ function SignInFields({ onSuccess, surface }: FieldsProps) {
 				})
 				.with({ __typename: "AuthPayload" }, async () => {
 					track("user_signed_in", { method: "email", surface })
+					rememberSignInMethod("email")
 					markGuestPicksEntry("signin")
 					queryClient.clear()
 					await router.invalidate()
@@ -188,16 +299,18 @@ function SignInFields({ onSuccess, surface }: FieldsProps) {
 				<form.Subscribe selector={(s) => s.meta}>
 					{(meta) => (
 						<VStack gap="3.5" alignItems="stretch">
-							<Button
-								type="submit"
-								variant="solid"
-								size="md"
-								fullWidth
-								loading={meta.isSubmitting}
-								disabled={meta.isSubmitting || !meta.canSubmit}
-							>
-								Sign in
-							</Button>
+							<LastUsed show={lastUsed}>
+								<Button
+									type="submit"
+									variant="solid"
+									size="md"
+									fullWidth
+									loading={meta.isSubmitting}
+									disabled={meta.isSubmitting || !meta.canSubmit}
+								>
+									Sign in
+								</Button>
+							</LastUsed>
 							<FormError message={meta.formError} />
 						</VStack>
 					)}
@@ -215,15 +328,13 @@ function InviteCodeField({
 	onChange,
 	onBlur,
 	error,
-	startOpen,
 }: {
 	value: string
 	onChange: (next: string) => void
 	onBlur: () => void
 	error?: string
-	startOpen: boolean
 }) {
-	const [open, setOpen] = useState(startOpen)
+	const [open, setOpen] = useState(false)
 
 	if (!open) {
 		return (
@@ -273,8 +384,9 @@ function SignUpFields({ onSuccess, surface }: FieldsProps) {
 	const navigate = useNavigate()
 
 	// Whatever /join/:code captured, if this browser is the one that opened
-	// the link. Read once on mount rather than per keystroke so typing in the
-	// field can override it.
+	// the link. Applied as-is with no field shown: the link already said whose
+	// invite this is, and a prefilled box only invites someone to wonder
+	// whether they're meant to change it.
 	const captured = useMemo(() => readReferral(), [])
 
 	const form = useForm({
@@ -287,13 +399,11 @@ function SignUpFields({ onSuccess, surface }: FieldsProps) {
 			referralCode: captured?.code ?? "",
 		},
 		onSubmit: async (values, helpers) => {
-			// Typing over a captured code makes it a manual entry, since the
-			// link is no longer what brought the code in.
-			const referralSource = !values.referralCode
-				? null
-				: values.referralCode === captured?.code
-					? captured.source
-					: "manual_code"
+			const referralSource = captured
+				? captured.source
+				: values.referralCode
+					? "manual_code"
+					: null
 
 			const data = await signUp.mutateAsync({
 				input: {
@@ -323,10 +433,9 @@ function SignUpFields({ onSuccess, surface }: FieldsProps) {
 				})
 				.with({ __typename: "AuthPayload" }, async (r) => {
 					track("user_signed_up", { method: "email", surface, referralSource })
+					rememberSignInMethod("email")
 					if (values.referralCode) {
-						track("referral_code_entered", {
-							prefilled: values.referralCode === captured?.code,
-						})
+						track("referral_code_entered", { prefilled: Boolean(captured) })
 					}
 					// Spent. A second account made in this browser shouldn't be
 					// credited to the same person again.
@@ -436,21 +545,21 @@ function SignUpFields({ onSuccess, surface }: FieldsProps) {
 							</TextInput>
 						)}
 					</form.Field>
-					{/* Open already when a link filled it in, so someone who
-					clicked an invite can see their code made it through.
-					Otherwise collapsed: it's for the person whose friend read a
-					code out to them, which is the case a link can't serve. */}
-					<form.Field name="referralCode">
-						{(field) => (
-							<InviteCodeField
-								value={field.value ?? ""}
-								onChange={field.onChange}
-								onBlur={field.onBlur}
-								error={field.meta.error ?? undefined}
-								startOpen={Boolean(captured?.code)}
-							/>
-						)}
-					</form.Field>
+					{/* Only when no link captured a code: it's for the person
+					whose friend read a code out to them, which is the case a
+					link can't serve. */}
+					{!captured && (
+						<form.Field name="referralCode">
+							{(field) => (
+								<InviteCodeField
+									value={field.value ?? ""}
+									onChange={field.onChange}
+									onBlur={field.onBlur}
+									error={field.meta.error ?? undefined}
+								/>
+							)}
+						</form.Field>
+					)}
 				</VStack>
 				<form.Subscribe selector={(s) => s.meta}>
 					{(meta) => (

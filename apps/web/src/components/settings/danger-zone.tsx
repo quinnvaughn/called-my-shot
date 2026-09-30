@@ -7,9 +7,10 @@ import { DeleteAccountModal } from "./delete-account-modal"
 
 type Props = {
 	username: string
+	hasPassword: boolean
 }
 
-export function DangerZone({ username }: Props) {
+export function DangerZone({ username, hasPassword }: Props) {
 	return (
 		<Card>
 			<Card.Body>
@@ -32,7 +33,12 @@ export function DangerZone({ username }: Props) {
 						variant="outline"
 						size="sm"
 						onClick={() =>
-							openModal(<DeleteAccountModal username={username} />)
+							openModal(
+								<DeleteAccountModal
+									username={username}
+									hasPassword={hasPassword}
+								/>,
+							)
 						}
 						className={css({
 							borderColor: "danger.default",

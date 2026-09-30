@@ -1,11 +1,10 @@
 import { signInSchema, signUpSchema } from "@called-my-shot/schemas"
 import { db } from "../../db"
-import { type User, users } from "../../db/schema"
+import type { User } from "../../db/schema"
+import { createAccount } from "../../lib/accounts"
 import { issuePendingEmailChange } from "../../lib/email-change"
 import { ValidationError } from "../../lib/errors"
 import { hashPassword, verifyPassword } from "../../lib/password"
-import { grantWelcomeRedo } from "../../lib/redos"
-import { recordReferralAtSignup } from "../../lib/referrals"
 import { clientIpOf } from "../../lib/request-ip"
 import {
 	clearSessionCookie,
@@ -87,36 +86,25 @@ builder.mutationType({
 
 				const passwordHash = await hashPassword(password)
 
-				// The account, its attribution, and the invitee's own welcome
-				// redo go in together: an account created with its referral
-				// row missing would silently owe two people a redo that no
-				// later step ever grants.
-				const { user, redoGranted } = await db.transaction(async (tx) => {
-					const [created] = await tx
-						.insert(users)
-						.values({ name, username, email, passwordHash })
-						.returning()
-
-					if (!referralCode) return { user: created, redoGranted: false }
-
-					const referral = await recordReferralAtSignup(
-						tx,
-						created,
-						referralCode,
-						args.input.referralSource === "MANUAL_CODE"
-							? "manual_code"
-							: "invite_link",
-						clientIpOf(ctx.req),
-					)
-					// Both sides of an invite get a redo. The invitee's lands
-					// now rather than on their first call, because it is the
-					// reason they used the link at all. A code that matched
-					// nothing leaves referral null and grants nothing.
-					if (!referral) return { user: created, redoGranted: false }
-
-					await grantWelcomeRedo(tx, created.id, referral.id)
-					return { user: created, redoGranted: true }
-				})
+				const { user, redoGranted } = await db.transaction((tx) =>
+					createAccount(tx, {
+						name,
+						username,
+						email,
+						passwordHash,
+						emailVerified: false,
+						referral: referralCode
+							? {
+									code: referralCode,
+									source:
+										args.input.referralSource === "MANUAL_CODE"
+											? "manual_code"
+											: "invite_link",
+								}
+							: null,
+						signupIp: clientIpOf(ctx.req),
+					}),
+				)
 
 				// Session creation stays outside the transaction so a cookie is
 				// never set for a user the transaction went on to roll back.
@@ -142,7 +130,13 @@ builder.mutationType({
 				const user = await db.query.users.findFirst({
 					where: { OR: [{ email: identifier }, { username: identifier }] },
 				})
-				if (!user || !(await verifyPassword(user.passwordHash, password))) {
+				// An account made through Google has no password to match, and
+				// gets the same answer as a wrong one rather than revealing how
+				// it signs in.
+				if (
+					!user?.passwordHash ||
+					!(await verifyPassword(user.passwordHash, password))
+				) {
 					throw ValidationError.field(
 						null,
 						"Invalid email/username or password",

@@ -121,3 +121,76 @@ describe("signUp referral attribution", () => {
 		expect(await redoBalanceFor(data.signUp.user?.id ?? "")).toBe(0)
 	})
 })
+
+describe("accounts made through Google", () => {
+	const SIGN_IN = /* GraphQL */ `
+		mutation SignIn($input: SignInInput!) {
+			signIn(input: $input) {
+				__typename
+				... on ValidationError { fieldErrors { field message } }
+			}
+		}
+	`
+
+	it("can't be signed into with a password, and look like a wrong one", async () => {
+		const user = await makeUser({ passwordHash: null })
+
+		const data = await expectData<{
+			signIn: { __typename: string; fieldErrors?: { message: string }[] }
+		}>(SIGN_IN, {
+			variables: { input: { identifier: user.email, password: "anything" } },
+		})
+
+		expect(data.signIn.__typename).toBe("ValidationError")
+		expect(data.signIn.fieldErrors?.[0]?.message).toBe(
+			"Invalid email/username or password",
+		)
+	})
+
+	it("can set a first password without a current one", async () => {
+		const user = await makeUser({ passwordHash: null })
+
+		const data = await expectData<{
+			updatePassword: { __typename: string; hasPassword?: boolean }
+		}>(
+			/* GraphQL */ `
+				mutation SetPassword($input: UpdatePasswordInput!) {
+					updatePassword(input: $input) {
+						__typename
+						... on User { hasPassword }
+					}
+				}
+			`,
+			{ as: user, variables: { input: { newPassword: "password123" } } },
+		)
+
+		expect(data.updatePassword.__typename).toBe("User")
+		expect(data.updatePassword.hasPassword).toBe(true)
+	})
+
+	it("still needs the current password once one is set", async () => {
+		const user = await makeUser()
+
+		const data = await expectData<{
+			updatePassword: {
+				__typename: string
+				fieldErrors?: { field: string | null }[]
+			}
+		}>(
+			/* GraphQL */ `
+				mutation SetPassword($input: UpdatePasswordInput!) {
+					updatePassword(input: $input) {
+						__typename
+						... on ValidationError { fieldErrors { field } }
+					}
+				}
+			`,
+			{ as: user, variables: { input: { newPassword: "password123" } } },
+		)
+
+		expect(data.updatePassword.__typename).toBe("ValidationError")
+		expect(data.updatePassword.fieldErrors?.[0]?.field).toBe(
+			"currentPassword",
+		)
+	})
+})

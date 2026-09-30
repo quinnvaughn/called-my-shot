@@ -8,6 +8,7 @@ import {
 	FiRefreshCw,
 	FiSettings,
 	FiShield,
+	FiUserPlus,
 } from "react-icons/fi"
 import { css } from "styled-system/css"
 import { Avatar } from "#/components/ui/avatar"
@@ -182,6 +183,14 @@ export function AccountMenu({
 					>
 						<FaQuestion size={14} />
 						My Questions
+					</span>
+				</Dropdown.Item>
+				<Dropdown.Item onClick={() => navigate({ to: "/invite" })}>
+					<span
+						className={css({ display: "flex", alignItems: "center", gap: "2" })}
+					>
+						<FiUserPlus size={14} />
+						Invite a Friend
 					</span>
 				</Dropdown.Item>
 				{isAdmin && (

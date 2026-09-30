@@ -18,21 +18,25 @@ export const RequestEmailChangeInput = builder.inputType(
 	{
 		fields: (t) => ({
 			newEmail: t.string({ required: true }),
-			password: t.string({ required: true }),
+			// Omitted by an account with no password. See requirePassword.
+			password: t.string({ required: false }),
 		}),
 	},
 )
 
 export const UpdatePasswordInput = builder.inputType("UpdatePasswordInput", {
 	fields: (t) => ({
-		currentPassword: t.string({ required: true }),
+		// Omitted when setting a first password on an account made through
+		// Google, which has no current one.
+		currentPassword: t.string({ required: false }),
 		newPassword: t.string({ required: true }),
 	}),
 })
 
 export const DeleteAccountInput = builder.inputType("DeleteAccountInput", {
 	fields: (t) => ({
-		password: t.string({ required: true }),
+		// Omitted by an account with no password. See requirePassword.
+		password: t.string({ required: false }),
 	}),
 })
 

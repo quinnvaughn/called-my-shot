@@ -8,6 +8,7 @@ import express from "express"
 import { assertProductionConfig, env } from "./env"
 import { createContext } from "./graphql/context"
 import { schema } from "./graphql/schema"
+import { registerGoogleAuthRoutes } from "./routes/auth-google"
 import { registerSchemaRoute } from "./routes/schema"
 import { registerShareRoutes } from "./routes/share"
 import { registerWebhookRoutes } from "./routes/webhooks"
@@ -32,6 +33,7 @@ app.use("/share", cors({ origin: env.CLIENT_ORIGIN }))
 registerShareRoutes(app)
 registerSchemaRoute(app)
 registerWebhookRoutes(app)
+registerGoogleAuthRoutes(app)
 
 app.use(
 	"/",

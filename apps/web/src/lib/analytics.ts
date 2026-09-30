@@ -23,11 +23,11 @@ type AnalyticsEvents = {
 	// any funnel that starts at signup, without a join back to the API's
 	// events.
 	user_signed_up: {
-		method: "email"
+		method: "email" | "google"
 		surface: AuthModalSurface
 		referralSource: "invite_link" | "manual_code" | null
 	}
-	user_signed_in: { method: "email"; surface: AuthModalSurface }
+	user_signed_in: { method: "email" | "google"; surface: AuthModalSurface }
 	user_signed_out: Record<string, never>
 	email_confirmed: Record<string, never>
 	account_deleted: Record<string, never>

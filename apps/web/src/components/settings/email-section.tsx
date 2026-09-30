@@ -1,10 +1,11 @@
 import { useQueryClient } from "@tanstack/react-query"
 import { requestEmailChangeSchema } from "@called-my-shot/schemas"
 import { useRouter } from "@tanstack/react-router"
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import { css } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
 import { match } from "ts-pattern"
+import { z } from "zod"
 import { Button } from "#/components/ui/button"
 import { Card } from "#/components/ui/card"
 import { FormError } from "#/components/ui/form-error"
@@ -22,6 +23,9 @@ type Props = {
 	email: string
 	emailVerified: boolean
 	pendingEmailChange: { newEmail: string; expiresAt: string } | null
+	// False for an account made through Google, which has no password to
+	// confirm the change with.
+	hasPassword: boolean
 }
 
 function CurrentEmailRow({
@@ -60,6 +64,7 @@ export function EmailSection({
 	email,
 	emailVerified,
 	pendingEmailChange,
+	hasPassword,
 }: Props) {
 	const requestEmailChange = useGqlMutation(RequestEmailChangeDocument)
 	const resendEmailChange = useGqlMutation(ResendEmailChangeDocument)
@@ -71,11 +76,21 @@ export function EmailSection({
 		null,
 	)
 
+	const schema = useMemo(
+		() =>
+			hasPassword
+				? requestEmailChangeSchema
+				: requestEmailChangeSchema.extend({ password: z.string() }),
+		[hasPassword],
+	)
+
 	const form = useForm({
 		defaultValues: { newEmail: "", password: "" },
-		schema: requestEmailChangeSchema,
+		schema,
 		onSubmit: async (values, helpers) => {
-			const data = await requestEmailChange.mutateAsync({ input: values })
+			const data = await requestEmailChange.mutateAsync({
+				input: hasPassword ? values : { newEmail: values.newEmail },
+			})
 			const result = data?.requestEmailChange
 
 			if (!result) {
@@ -189,23 +204,25 @@ export function EmailSection({
 									</TextInput>
 								)}
 							</form.Field>
-							<form.Field name="password">
-								{(field) => (
-									<TextInput
-										error={field.meta.error ?? undefined}
-										description="Changing your email requires your password."
-									>
-										<TextInput.Label>Confirm password</TextInput.Label>
-										<TextInput.Password
-											autoComplete="current-password"
-											placeholder="Enter your password"
-											value={field.value}
-											onChange={field.onChange}
-											onBlur={field.onBlur}
-										/>
-									</TextInput>
-								)}
-							</form.Field>
+							{hasPassword && (
+								<form.Field name="password">
+									{(field) => (
+										<TextInput
+											error={field.meta.error ?? undefined}
+											description="Changing your email requires your password."
+										>
+											<TextInput.Label>Confirm password</TextInput.Label>
+											<TextInput.Password
+												autoComplete="current-password"
+												placeholder="Enter your password"
+												value={field.value}
+												onChange={field.onChange}
+												onBlur={field.onBlur}
+											/>
+										</TextInput>
+									)}
+								</form.Field>
+							)}
 						</VStack>
 					</form>
 				</VStack>

@@ -182,6 +182,7 @@ export const SettingsPageDocument = graphql(`
 			bannerUrl
 			email
 			emailVerified
+			hasPassword
 			mutedEmailTypes
 			pendingEmailChange {
 				newEmail

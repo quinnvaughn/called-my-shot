@@ -97,6 +97,13 @@ export const UserRef = builder.drizzleObject("users", {
 			resolve: (user, _args, ctx) =>
 				canSeePrivate(ctx, user.id) ? user.email : null,
 		}),
+		// False for an account made through Google that hasn't set one, which
+		// settings reads to offer "set a password" and to skip asking for one.
+		hasPassword: t.boolean({
+			nullable: true,
+			resolve: (user, _args, ctx) =>
+				canSeePrivate(ctx, user.id) ? user.passwordHash != null : null,
+		}),
 		isAdmin: t.exposeBoolean("isAdmin"),
 		emailVerified: t.exposeBoolean("emailVerified"),
 		// Admin-facing fields - Users tab strikes/creation-lock/verified badge.

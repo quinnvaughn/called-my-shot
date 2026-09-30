@@ -93,6 +93,12 @@ export const relations = defineRelations(schema, (r) => ({
 			to: r.users.id,
 		}),
 	},
+	oauthAccounts: {
+		user: r.one.users({
+			from: r.oauthAccounts.userId,
+			to: r.users.id,
+		}),
+	},
 	pendingEmailChanges: {
 		user: r.one.users({
 			from: r.pendingEmailChanges.userId,
