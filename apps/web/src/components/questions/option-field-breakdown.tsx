@@ -104,6 +104,7 @@ export function OptionFieldBreakdown({
 					fieldPct={option.fieldPct}
 					count={option.callCount}
 					selected={highlightedOptionIds.includes(option.id)}
+					tone="record"
 				/>
 			))}
 			{visibleCount < rankedOptions.length && (

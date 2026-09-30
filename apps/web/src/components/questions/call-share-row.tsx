@@ -1,4 +1,7 @@
-import { VStack } from "styled-system/jsx"
+import { type ReactNode, useState } from "react"
+import { FiCheck, FiLink, FiShare } from "react-icons/fi"
+import { css } from "styled-system/css"
+import { HStack, VStack } from "styled-system/jsx"
 import { CopyLinkRow } from "#/components/ui/copy-link-row"
 import { PostOnXLink } from "#/components/ui/post-on-x-link"
 import { track } from "#/lib/analytics"
@@ -13,6 +16,10 @@ type Props = {
 	tweetText: string
 	shareTitle: string
 	surface: CallShareSurface
+	// "full" is the call page's: the link in a field, Copy, and a Post on X
+	// button. "icons" is one row of icon buttons for a card where sharing is
+	// one thing among several.
+	layout?: "full" | "icons"
 }
 
 // The tweet is deliberately short and hashtag-free. The og card carries the
@@ -59,9 +66,23 @@ export function CallShareRow({
 	tweetText,
 	shareTitle,
 	surface,
+	layout = "full",
 }: Props) {
 	const url = `${SITE_ORIGIN}/calls/${callId}`
 	const displayUrl = `${SITE_HOST}/calls/${callId}`
+
+	if (layout === "icons") {
+		return (
+			<IconShareRow
+				url={url}
+				tweetText={tweetText}
+				shareTitle={shareTitle}
+				onShared={(method) =>
+					track("call_link_shared", { callId, method, surface })
+				}
+			/>
+		)
+	}
 
 	return (
 		<VStack gap="3" alignItems="stretch">
@@ -84,5 +105,94 @@ export function CallShareRow({
 				}
 			/>
 		</VStack>
+	)
+}
+
+const iconButtonClass = css({
+	display: "inline-flex",
+	alignItems: "center",
+	justifyContent: "center",
+	width: { base: "11", sm: "9" },
+	height: { base: "11", sm: "9" },
+	borderRadius: "md",
+	border: "1px solid {colors.border.default}",
+	color: "fg.default",
+	cursor: "pointer",
+	transition: "background-color 0.15s ease",
+	_hover: { backgroundColor: "bg.subtle" },
+})
+
+function IconShareRow({
+	url,
+	tweetText,
+	shareTitle,
+	onShared,
+}: {
+	url: string
+	tweetText: string
+	shareTitle: string
+	onShared: (method: "clipboard" | "native" | "x") => void
+}) {
+	const [copied, setCopied] = useState(false)
+
+	function handleCopy() {
+		navigator.clipboard.writeText(url)
+		onShared("clipboard")
+		setCopied(true)
+		setTimeout(() => setCopied(false), 1200)
+	}
+
+	async function handleNativeShare() {
+		try {
+			await navigator.share({ title: shareTitle, url })
+			onShared("native")
+		} catch {
+			// A dismissed share sheet rejects the same way a failure does, and
+			// neither is worth surfacing: Copy still works.
+		}
+	}
+
+	return (
+		<HStack gap="2">
+			<IconButton
+				label={copied ? "Link copied" : "Copy link"}
+				onClick={handleCopy}
+			>
+				{copied ? <FiCheck size={15} /> : <FiLink size={15} />}
+			</IconButton>
+			{typeof navigator !== "undefined" && "share" in navigator && (
+				<IconButton label="Share" onClick={handleNativeShare}>
+					<FiShare size={15} />
+				</IconButton>
+			)}
+			<PostOnXLink
+				text={tweetText}
+				url={url}
+				onClick={() => onShared("x")}
+				iconClassName={iconButtonClass}
+			/>
+		</HStack>
+	)
+}
+
+function IconButton({
+	label,
+	onClick,
+	children,
+}: {
+	label: string
+	onClick: () => void
+	children: ReactNode
+}) {
+	return (
+		<button
+			type="button"
+			aria-label={label}
+			title={label}
+			onClick={onClick}
+			className={iconButtonClass}
+		>
+			{children}
+		</button>
 	)
 }

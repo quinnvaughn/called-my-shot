@@ -65,6 +65,8 @@ import { buildGameSlug, buildQuestionSlug, questionPath } from "#/lib/slug"
 import { disputeAction, viewerStatus } from "#/lib/viewer-status"
 import { openModal } from "#/stores/modal-store"
 
+const STATUS_CARD_SCROLL_DELAY_MS = 150
+
 function sectionLabel(text: string) {
 	return (
 		<h2
@@ -221,7 +223,27 @@ function RouteComponent() {
 				},
 			}
 		: undefined
-	const callForm = useCastCallForm(question, redoMode)
+	// A new call swaps the form for the pending card, which can land anywhere
+	// relative to where the viewer was scrolled. Flagged once the submit has
+	// finished and the confirm modal is gone, then scrolled to after a short
+	// delay so the card has rendered and the router's refresh has settled -
+	// not on a redo or a plain page load.
+	const statusCardRef = useRef<HTMLDivElement>(null)
+	const [scrollToStatusCard, setScrollToStatusCard] = useState(false)
+	useEffect(() => {
+		if (!scrollToStatusCard) return
+		const timeout = setTimeout(() => {
+			statusCardRef.current?.scrollIntoView({
+				block: "start",
+				behavior: "smooth",
+			})
+			setScrollToStatusCard(false)
+		}, STATUS_CARD_SCROLL_DELAY_MS)
+		return () => clearTimeout(timeout)
+	}, [scrollToStatusCard])
+	const callForm = useCastCallForm(question, redoMode, undefined, () =>
+		setScrollToStatusCard(true),
+	)
 	const [redoRequested, setRedoRequested] = useState(false)
 	// Gated on redoMode as well as the click, so the form closes itself once
 	// the redo lands: viewerCanRedo goes false the moment a call has been
@@ -251,22 +273,6 @@ function RouteComponent() {
 			...viewedQuestion,
 			horizon: questionHorizon(viewedQuestion.questionShape),
 		})
-	})
-
-	// A new call swaps the form for the pending card, which can land
-	// anywhere relative to where the viewer was scrolled. Brought into view
-	// on that one transition only, not on a redo or a plain page load.
-	const statusCardRef = useRef<HTMLDivElement>(null)
-	const previousStatusKind = useRef(viewedQuestion?.viewerState)
-	useEffect(() => {
-		const kind = viewedQuestion?.viewerState
-		if (previousStatusKind.current === "canCall" && kind === "pending") {
-			statusCardRef.current?.scrollIntoView({
-				block: "start",
-				behavior: "smooth",
-			})
-		}
-		previousStatusKind.current = kind
 	})
 	const nextUp = useGameNextUp(question)
 
@@ -684,6 +690,7 @@ function RouteComponent() {
 								buckets={question.guessDistribution}
 								averageGuess={question.averageGuess}
 								myGuess={question.viewerCall?.guessValue ?? null}
+								tone="record"
 								isRateStat={callForm.isRateStat}
 							/>
 						) : (

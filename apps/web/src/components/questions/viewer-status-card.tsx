@@ -282,14 +282,21 @@ export function ViewerStatusCard({
 			// Open and never called - nothing to report yet, CastCallForm owns this state.
 			.with({ kind: "canCall" }, () => null)
 			.with({ kind: "lockedNoCall" }, () => (
-				<Shell tone="neutral">
-					<StatusPill tone="neutral">Locked</StatusPill>
+				<Shell>
+					<CardHeader
+						label="No call"
+						tag={<StatusTag tone="neutral">Locked</StatusTag>}
+					/>
 					<Sub>Check back once this resolves.</Sub>
 				</Shell>
 			))
+			// No pick to lead with, so the answer itself is the headline.
 			.with({ kind: "resolvedNoCall" }, ({ disputed }) => (
-				<Shell tone="neutral">
-					<StatusPill tone="neutral">Resolved</StatusPill>
+				<Shell>
+					<CardHeader
+						label="No call"
+						tag={<StatusTag tone="neutral">Resolved</StatusTag>}
+					/>
 					{answer && <ResultTitle answer={answer} disputed={disputed} />}
 					{disputeRow}
 					{noteBlock}
@@ -300,17 +307,28 @@ export function ViewerStatusCard({
 			// the same scoring formula CastCallForm shows while picking (see
 			// #/lib/scoring) so the number never jumps between the two screens.
 			.with({ kind: "pending" }, ({ call, isLocked }) => (
-				<Shell tone="primary" ref={ref}>
-					<StatusPill tone="primary" live>
-						{isLocked ? "Awaiting resolution" : "Pending"}: your call is locked
-					</StatusPill>
-					<PickRows call={call} settled={false} {...pickRowsProps} />
+				<Shell ref={ref}>
+					<CardHeader
+						label="Your call"
+						tag={
+							<StatusTag tone="pending" live>
+								{isLocked ? "Awaiting result" : "Pending"}
+							</StatusTag>
+						}
+					/>
+					<PickRows
+						call={call}
+						settled={false}
+						// One pick reads as the headline; several (the award
+						// ballots) keep a row each.
+						hero={call.selections.length <= 1}
+						{...pickRowsProps}
+					/>
 					{/* Directly under the pick it would change, and above the
 					share row - taking the call back is a decision about the
 					call, where sharing it is what you do once you've settled
 					on it. */}
 					<RedoCta questionId={questionId} offer={redo} />
-					{nextUp && <NextUpLink nextUp={nextUp} />}
 					{/* An unresolved call is the one most worth putting on the record -
 					calling something months before it happens is the whole claim - so
 					this is here rather than only on the settled face below. */}
@@ -321,33 +339,38 @@ export function ViewerStatusCard({
 						numericToleranceAbsolute={numericToleranceAbsolute}
 						isRateStat={isRateStat}
 					/>
+					{/* Last, as the card's footer: everything above is about this
+					call, and this is where to go once it's made. */}
+					{nextUp && <NextUpFooter nextUp={nextUp} />}
 				</Shell>
 			))
+			// Same layout as pending, so the call reads as the same object once
+			// it settles: the tag says how it went, the hero trades its "if
+			// right / if wrong" pair for the final points, and the answer sits
+			// underneath for the miss where it differs from the pick.
 			.with({ kind: "resolved" }, ({ call, disputed, result }) => {
 				const face = resultFace(result, marginLabel)
 				return (
-					<Shell tone={face.tone}>
-						<StatusPill tone={face.tone}>{face.label}</StatusPill>
-						{result.status === "unscored" && (
+					<Shell>
+						<CardHeader
+							label="Your call"
+							tag={<StatusTag tone={face.tone}>{face.label}</StatusTag>}
+						/>
+						{result.status === "unscored" ? (
 							<Sub>Nobody else called this question.</Sub>
-						)}
-						<VStack gap="1" alignItems="flex-start">
-							{answer && <ResultTitle answer={answer} disputed={disputed} />}
-							{fieldAccuracyPct !== null && (
-								<span className={crowdStatClass}>
-									{Math.round(fieldAccuracyPct)}% of the crowd nailed this
-								</span>
-							)}
-						</VStack>
-						{face.outcome && (
-							<PointsFinal
-								points={face.outcome.points}
-								win={face.outcome.isWin}
+						) : (
+							<PickRows
+								call={call}
+								settled
+								hero={call.selections.length <= 1}
+								{...pickRowsProps}
 							/>
 						)}
-						{result.status !== "unscored" && (
-							<PickRows call={call} settled {...pickRowsProps} />
-						)}
+						<AnswerBlock
+							answer={answer}
+							disputed={disputed}
+							fieldAccuracyPct={fieldAccuracyPct}
+						/>
 						<ShareCallSection
 							viewerCall={call}
 							outcome={face.outcome}
@@ -361,8 +384,11 @@ export function ViewerStatusCard({
 				)
 			})
 			.with({ kind: "voided" }, () => (
-				<Shell tone="neutral">
-					<StatusPill tone="neutral">Voided</StatusPill>
+				<Shell>
+					<CardHeader
+						label={null}
+						tag={<StatusTag tone="neutral">Voided</StatusTag>}
+					/>
 					<Sub>{voidedText(voidedReason)}</Sub>
 					{noteBlock}
 				</Shell>
@@ -416,7 +442,7 @@ function resultFace(
 		}))
 		.with({ status: "win" }, ({ points }) => ({
 			tone: "success",
-			label: marginLabel ?? "You called it",
+			label: marginLabel ?? "Won",
 			outcome: { isWin: true, points },
 		}))
 		.with({ status: "loss" }, ({ points }) => ({
@@ -437,21 +463,6 @@ const crowdStatClass = css({
 	fontSize: "2xs",
 	color: "fg.muted",
 })
-
-function PointsFinal({ points, win }: { points: number; win: boolean }) {
-	return (
-		<span
-			className={css({
-				fontFamily: "heading",
-				fontSize: "2xl",
-				color: win ? "success.default" : "danger.default",
-			})}
-		>
-			{win ? "+" : "−"}
-			{Math.abs(points)} pts
-		</span>
-	)
-}
 
 // A link to this call's own page - the record worth handing someone - plus
 // the ways of handing it over. This used to assemble a whole preview card and
@@ -505,8 +516,10 @@ function ShareCallSection({
 			option: { label: s.option.label, isCorrect: s.option.isCorrect },
 		})),
 	})
+	// One row: the link to the call's page, and the ways of sending it. The
+	// call page itself carries the full share block with the URL spelled out.
 	return (
-		<VStack gap="3" alignItems="stretch">
+		<HStack justify="space-between" gap="3">
 			<Link
 				to="/calls/$callId"
 				params={{ callId: viewerCall.id }}
@@ -526,6 +539,7 @@ function ShareCallSection({
 				callId={viewerCall.id}
 				shareTitle={questionTitle}
 				surface="question_detail"
+				layout="icons"
 				tweetText={buildCallTweet({
 					pickLabel,
 					points: outcome?.points ?? null,
@@ -535,13 +549,15 @@ function ShareCallSection({
 					isOwn: true,
 				})}
 			/>
-		</VStack>
+		</HStack>
 	)
 }
 
-// The rest of the game, right under the call just made: how much of it is
-// still open, and a way straight to the next one.
-function NextUpLink({ nextUp }: { nextUp: GameNextUp }) {
+// The rest of the game, as the pending card's footer: how much of it is
+// still open, and a way straight to the next one. Bleeds to the card's edges
+// (cancelling Shell's padding) so it reads as where the card leads rather
+// than one more box inside it.
+function NextUpFooter({ nextUp }: { nextUp: GameNextUp }) {
 	return (
 		<Link
 			to="/questions/$questionId/{-$slug}"
@@ -554,23 +570,27 @@ function NextUpLink({ nextUp }: { nextUp: GameNextUp }) {
 				alignItems: "center",
 				justifyContent: "space-between",
 				gap: "3",
-				backgroundColor: "bg.canvas",
-				border: "1px solid {colors.border.default}",
-				borderRadius: "md",
-				paddingBlock: "2.5",
-				paddingInline: "3.5",
+				marginInline: "-5",
+				marginBottom: "-5",
+				marginTop: "1",
+				paddingBlock: "3.5",
+				paddingInline: "5",
+				backgroundColor: "bg.canvas/60",
+				borderTop: "1px solid {colors.border.default}",
+				borderBottomRadius: "xl",
 				textDecoration: "none",
-				_hover: { border: "1px solid {colors.primary.default}" },
+				transition: "background-color 0.15s ease",
+				_hover: { backgroundColor: "bg.canvas" },
 			})}
 		>
-			<VStack gap="0.5" alignItems="flex-start" minWidth="0">
+			<VStack gap="1" alignItems="flex-start" minWidth="0">
 				<span
 					className={css({
 						fontFamily: "mono",
 						fontSize: "2xs",
 						letterSpacing: "wide",
 						textTransform: "uppercase",
-						color: "primary.default",
+						color: "secondary.default",
 					})}
 				>
 					{nextUp.openCount} more open on {nextUp.matchup}
@@ -589,7 +609,8 @@ function NextUpLink({ nextUp }: { nextUp: GameNextUp }) {
 				</span>
 			</VStack>
 			<FiChevronRight
-				className={css({ flexShrink: "0", color: "primary.default" })}
+				size={18}
+				className={css({ flexShrink: "0", color: "fg.muted" })}
 			/>
 		</Link>
 	)
@@ -617,81 +638,54 @@ function ResultTitle({
 	)
 }
 
-type Tone = "primary" | "success" | "danger" | "neutral"
+type Tone = "pending" | "success" | "danger" | "neutral"
 
-// Panda extracts token classes by statically reading the string literals
-// passed to css() - a css({ border: t.border }) with `t.border` coming from
-// a runtime lookup never gets extracted, so the token just leaks into the
-// DOM as an unresolved string and the border silently disappears. Precomputing
-// one full literal css() call per tone (border written as a single
-// "1px solid {colors.X}" string, never split into border/borderColor) keeps
-// every value Panda needs to see sitting directly in the source.
-const shellClassByTone: Record<Tone, string> = {
-	primary: css({
-		position: "relative",
-		borderRadius: "xl",
-		padding: "5",
-		// Clears the sticky mobile top bar when scrolled to after a call.
-		scrollMarginTop: "20",
-		backgroundColor: "primary.default/8",
-		border: "1px solid {colors.primary.default/35}",
-		borderLeft: "3px solid {colors.primary.default}",
-	}),
-	success: css({
-		position: "relative",
-		borderRadius: "xl",
-		padding: "5",
-		backgroundColor: "success.default/8",
-		border: "1px solid {colors.success.default/30}",
-	}),
-	// Deliberately not tinted red like the other tones - a miss shouldn't
-	// read as an alarm, "no shame in a bold miss" already carries that tone
-	// in copy, the card itself just stays a plain card.
-	danger: css({
-		position: "relative",
-		borderRadius: "xl",
-		padding: "5",
-		backgroundColor: "bg.surface",
-		border: "1px solid {colors.border.default}",
-	}),
-	neutral: css({
-		position: "relative",
-		borderRadius: "xl",
-		padding: "5",
-		backgroundColor: "bg.surface",
-		border: "1px solid {colors.border.default}",
-	}),
-}
-
-// The one shared shell every state renders into - a bordered card, tinted by
-// tone. Only "primary" (pending) earns the accent left-border on top of that:
-// it's the one state still awaiting an outcome, so it's the one worth a
-// second visual cue to catch the eye.
+// The one shared shell every state renders into - the same plain card for
+// all of them. What changed (pending, won, missed) lives in the corner tag
+// and the numbers, so a call looks like the same object before and after it
+// settles.
 function Shell({
-	tone,
 	ref,
 	children,
 }: {
-	tone: Tone
 	ref?: Ref<HTMLDivElement>
 	children: ReactNode
 }) {
 	return (
 		<VStack
 			ref={ref}
-			gap="3"
+			gap="4"
 			alignItems="stretch"
-			className={shellClassByTone[tone]}
+			className={css({
+				position: "relative",
+				borderRadius: "xl",
+				padding: "5",
+				// Clears the sticky mobile top bar when scrolled to after a call.
+				scrollMarginTop: "20",
+				backgroundColor: "bg.surface",
+				border: "1px solid {colors.border.default}",
+			})}
 		>
 			{children}
 		</VStack>
 	)
 }
 
-const pillClassByTone: Record<Tone, string> = {
-	primary: css({
-		backgroundColor: "primary.subtle",
-		color: "primary.default",
+const kickerClass = css({
+	fontFamily: "mono",
+	fontSize: "2xs",
+	letterSpacing: "wide",
+	textTransform: "uppercase",
+	color: "fg.muted",
+})
+
+// Panda extracts token classes by statically reading the string literals
+// passed to css(), so each tone is its own literal call rather than a
+// lookup inside one.
+const tagClassByTone: Record<Tone, string> = {
+	pending: css({
+		backgroundColor: "secondary.subtle",
+		color: "secondary.default",
 	}),
 	success: css({
 		backgroundColor: "success.subtle",
@@ -707,20 +701,21 @@ const pillClassByTone: Record<Tone, string> = {
 	}),
 }
 
-const pillBaseClass = css({
-	display: "inline-flex",
-	alignSelf: "flex-start",
+const tagBaseClass = css({
+	flexShrink: "0",
 	fontFamily: "mono",
 	fontSize: "2xs",
 	fontWeight: "bold",
 	letterSpacing: "wide",
 	textTransform: "uppercase",
 	borderRadius: "sm",
-	paddingBlock: "1.5",
-	paddingInline: "2.5",
+	paddingBlock: "1",
+	paddingInline: "2",
 })
 
-function StatusPill({
+// The card's status, small in the corner rather than the headline. The
+// pulsing dot marks the one state still waiting on something.
+function StatusTag({
 	tone,
 	live,
 	children,
@@ -730,7 +725,7 @@ function StatusPill({
 	children: ReactNode
 }) {
 	return (
-		<HStack gap="1.5" className={cx(pillBaseClass, pillClassByTone[tone])}>
+		<HStack gap="1.5" className={cx(tagBaseClass, tagClassByTone[tone])}>
 			{live && (
 				<span
 					className={css({
@@ -744,6 +739,59 @@ function StatusPill({
 			)}
 			<span>{children}</span>
 		</HStack>
+	)
+}
+
+// Every face opens with this row: what the card is about on the left, where
+// it stands on the right.
+function CardHeader({ label, tag }: { label: string | null; tag: ReactNode }) {
+	return (
+		<HStack justify={label ? "space-between" : "flex-end"} gap="3">
+			{label && <span className={kickerClass}>{label}</span>}
+			{tag}
+		</HStack>
+	)
+}
+
+// The settled answer under the viewer's own pick: what actually happened,
+// and how much of the field saw it coming.
+function AnswerBlock({
+	answer,
+	disputed,
+	fieldAccuracyPct,
+}: {
+	answer: string | null
+	disputed: boolean
+	fieldAccuracyPct: number | null
+}) {
+	if (!answer) return null
+	return (
+		<VStack
+			gap="1"
+			alignItems="flex-start"
+			className={css({
+				paddingTop: "3",
+				borderTop: "1px solid {colors.border.default}",
+			})}
+		>
+			<span className={kickerClass}>
+				{disputed ? "Answer (disputed)" : "Answer"}
+			</span>
+			<span
+				className={
+					disputed
+						? css({ fontSize: "md", color: "warning.default" })
+						: css({ fontSize: "md", color: "fg.default" })
+				}
+			>
+				{answer}
+			</span>
+			{fieldAccuracyPct !== null && (
+				<span className={crowdStatClass}>
+					{Math.round(fieldAccuracyPct)}% of the crowd nailed this
+				</span>
+			)}
+		</VStack>
 	)
 }
 
@@ -838,6 +886,7 @@ function DisputeRow({
 function PickRows({
 	call,
 	settled,
+	hero = false,
 	callCount,
 	totalOptions,
 	numericTolerancePct,
@@ -846,6 +895,9 @@ function PickRows({
 }: {
 	call: ViewerCall
 	settled: boolean
+	// The pick as the card's headline, with its payout at the same scale,
+	// instead of a compact row.
+	hero?: boolean
 	callCount: number
 	totalOptions: number
 	numericTolerancePct: number | null
@@ -872,6 +924,7 @@ function PickRows({
 						basePoints={basePoints}
 						lossRate={lossRate}
 						result={numericRowResult(call, settled)}
+						hero={hero}
 					/>
 				)}
 			</VStack>
@@ -899,11 +952,12 @@ function PickRows({
 					seasonTotalGames={call.seasonTotalGames}
 					basePoints={basePoints}
 					lossRate={effectiveLossRate(lossRate, selection.option.lossRate)}
-					// A single pick's name is already up in the title - only
-					// player_season_award/team_season_award (several picks,
-					// none of them named up top) needs each row to say what it is.
+					// Several picks (player_season_award/team_season_award) need
+					// each row to say what it is; a single pick is named by the
+					// hero instead.
 					showName={call.selections.length > 1}
 					result={selectionRowResult(selection, settled)}
+					hero={hero}
 				/>
 			))}
 		</VStack>
@@ -936,8 +990,8 @@ function numericRowResult(
 
 // A short ledger, not prose - each row labeled with what it IS (COMMITTED,
 // IF RIGHT, IF WRONG) rather than just showing bare math. The committed
-// amount is colored consistently (orange) everywhere it appears, including
-// inside the other rows' math, so it visually reads as "that same number,
+// amount is styled consistently (bold, full-strength text) everywhere it
+// appears, including inside the other rows' math, so it reads as "that same number,
 // multiplied" rather than an unexplained coincidence. IF WRONG only appears
 // for a shape whose loss rate is under 1 - at a full loss COMMITTED already
 // IS the downside, so a separate "-130 flat" row would just repeat it.
@@ -956,7 +1010,7 @@ const mathDownside = css({
 	fontFamily: "mono",
 	fontSize: "xs",
 	fontWeight: "bold",
-	color: "primary.default",
+	color: "fg.default",
 })
 const mathUpside = css({
 	fontFamily: "mono",
@@ -1003,11 +1057,17 @@ function missedRow(
 		label: "RESULT",
 		math: (
 			<>
-				<span className={mathDefault}>
-					{partial
-						? `missed: ${committed} × ${lossRate} loss rate = `
-						: "missed: you lose what you committed = "}
-				</span>
+				{partial ? (
+					<>
+						<span className={mathDefault}>missed: </span>
+						<span className={mathDownside}>{committed}</span>
+						<span className={mathDefault}> × {lossRate} loss rate = </span>
+					</>
+				) : (
+					<span className={mathDefault}>
+						missed: you lose what you committed ={" "}
+					</span>
+				)}
 				<span className={mathLose}>−{Math.abs(points)}</span>
 			</>
 		),
@@ -1072,12 +1132,46 @@ function PickRowShell({
 	note,
 	breakdown,
 	payout,
+	hero = false,
 }: {
 	name: string | null
 	note: string | null
 	breakdown: Breakdown | null
 	payout: ReactNode
+	hero?: boolean
 }) {
+	if (hero) {
+		return (
+			<VStack gap="3" alignItems="stretch">
+				{name !== null && (
+					<span
+						className={css({
+							fontFamily: "heading",
+							fontSize: { base: "2xl", sm: "3xl" },
+							lineHeight: "1.15",
+							color: "fg.default",
+						})}
+					>
+						{name}
+					</span>
+				)}
+				{note && (
+					<span
+						className={css({
+							fontFamily: "mono",
+							fontSize: "xs",
+							color: "fg.muted",
+						})}
+					>
+						{note}
+					</span>
+				)}
+				{payout}
+				{breakdown && <WhyThesePoints breakdown={breakdown} />}
+			</VStack>
+		)
+	}
+
 	return (
 		<VStack
 			gap="1.5"
@@ -1226,6 +1320,7 @@ function SelectionPickRow({
 	// Only matters once resolved - the pending preview has nothing else
 	// naming the pick, so it always shows the name regardless of this flag.
 	showName = true,
+	hero = false,
 }: {
 	label: string
 	fieldPct: number | null
@@ -1240,6 +1335,7 @@ function SelectionPickRow({
 	lossRate: number
 	result: SelectionRowResult
 	showName?: boolean
+	hero?: boolean
 }) {
 	if (fieldPct === null) {
 		return <PickRowShell name={label} note={null} breakdown={null} payout="-" />
@@ -1308,13 +1404,14 @@ function SelectionPickRow({
 			.exhaustive()
 		return (
 			<PickRowShell
-				name={showName ? label : null}
+				name={showName || hero ? label : null}
 				note={null}
 				breakdown={{
 					ledger: [committedRow(basePoints, conviction, committed), outcome],
 					note: outcome.note,
 				}}
-				payout={null}
+				payout={hero ? <HeroFinal points={result.points} /> : null}
+				hero={hero}
 			/>
 		)
 	}
@@ -1365,7 +1462,14 @@ function SelectionPickRow({
 					...wrongRows(committed, lossRate, preview.lose),
 				],
 			}}
-			payout={<Payout win={preview.win} lose={preview.lose} />}
+			payout={
+				hero ? (
+					<HeroPayout win={`+${preview.win}`} lose={`−${preview.lose}`} />
+				) : (
+					<Payout win={preview.win} lose={preview.lose} />
+				)
+			}
+			hero={hero}
 		/>
 	)
 }
@@ -1379,6 +1483,7 @@ function NumericPickRow({
 	basePoints,
 	lossRate,
 	result,
+	hero = false,
 }: {
 	guessValue: number
 	conviction: number
@@ -1388,6 +1493,7 @@ function NumericPickRow({
 	basePoints: number
 	lossRate: number
 	result: NumericRowResult
+	hero?: boolean
 }) {
 	const band = tolerance !== null ? toleranceBand(guessValue, tolerance) : null
 	// Absolute mode alone doesn't mean rate stat (a win-total's band is
@@ -1455,15 +1561,16 @@ function NumericPickRow({
 			.exhaustive()
 		return (
 			<PickRowShell
-				// A numeric guess is always exactly one pick, and that value is
-				// already the whole title up top - never worth a second header.
-				name={null}
+				// The guess is the headline in hero mode; a compact row has
+				// nothing else to name, as a numeric guess is always one pick.
+				name={hero ? formatGuess(guessValue, isRateStat) : null}
 				note={bandNote}
 				breakdown={{
 					ledger: [committedRow(basePoints, conviction, committed), outcome],
 					note: outcome.note,
 				}}
-				payout={null}
+				payout={hero ? <HeroFinal points={result.totalPoints} /> : null}
+				hero={hero}
 			/>
 		)
 	}
@@ -1503,12 +1610,20 @@ function NumericPickRow({
 				],
 			}}
 			payout={
-				<RangePayout
-					winLow={preview.winLow}
-					winHigh={preview.winHigh}
-					lose={preview.lose}
-				/>
+				hero ? (
+					<HeroPayout
+						win={`+${preview.winLow}–${preview.winHigh}`}
+						lose={`−${preview.lose}`}
+					/>
+				) : (
+					<RangePayout
+						winLow={preview.winLow}
+						winHigh={preview.winHigh}
+						lose={preview.lose}
+					/>
+				)
 			}
+			hero={hero}
 		/>
 	)
 }
@@ -1546,5 +1661,63 @@ function RangePayout({
 				−{lose}
 			</span>
 		</>
+	)
+}
+
+// The payout at headline scale: what the pick pays if right and costs if
+// wrong, each labelled, under the pick they belong to.
+function HeroPayout({ win, lose }: { win: string; lose: string }) {
+	return (
+		<HStack gap="8" alignItems="flex-start">
+			<HeroStat value={win} label="If right" valueClass={heroWinClass} />
+			<HeroStat value={lose} label="If wrong" valueClass={heroLoseClass} />
+		</HStack>
+	)
+}
+
+const heroWinClass = css({
+	fontFamily: "mono",
+	fontSize: "2xl",
+	fontWeight: "bold",
+	lineHeight: "1",
+	color: "success.default",
+})
+
+const heroLoseClass = css({
+	fontFamily: "mono",
+	fontSize: "2xl",
+	fontWeight: "bold",
+	lineHeight: "1",
+	color: "danger.default",
+})
+
+function HeroStat({
+	value,
+	label,
+	valueClass,
+}: {
+	value: string
+	label: string
+	valueClass: string
+}) {
+	return (
+		<VStack gap="1.5" alignItems="flex-start">
+			<span className={valueClass}>{value}</span>
+			<span className={kickerClass}>{label}</span>
+		</VStack>
+	)
+}
+
+// A settled pick's points at headline scale, in place of the pending card's
+// "if right / if wrong" pair.
+function HeroFinal({ points }: { points: number }) {
+	return points >= 0 ? (
+		<HeroStat value={`+${points}`} label="Final" valueClass={heroWinClass} />
+	) : (
+		<HeroStat
+			value={`−${Math.abs(points)}`}
+			label="Final"
+			valueClass={heroLoseClass}
+		/>
 	)
 }

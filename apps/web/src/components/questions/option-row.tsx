@@ -15,6 +15,11 @@ type Props = {
 	// full opacity rather than a dimmed "disabled" look, since there's
 	// nothing actually unavailable about it.
 	onClick?: () => void
+	// "pick" (the default) is the live picker's orange: choosing an option is
+	// part of the primary action. "record" is for a breakdown of calls
+	// already made - the highlighted row is where the viewer stands, in the
+	// secondary blue, and the crowd's fills go neutral.
+	tone?: "pick" | "record"
 }
 
 const compactCount = new Intl.NumberFormat("en-US", { notation: "compact" })
@@ -31,14 +36,20 @@ export function OptionRow({
 	count,
 	selected,
 	onClick,
+	tone = "pick",
 }: Props) {
+	const isRecord = tone === "record"
 	const rowClassName = css({
 		position: "relative",
 		width: "full",
 		textAlign: "left",
 		background: "card",
 		border: "1px solid",
-		borderColor: selected ? "primary.default" : "border.default",
+		borderColor: selected
+			? isRecord
+				? "secondary.default"
+				: "primary.default"
+			: "border.default",
 		borderRadius: "md",
 		padding: "3",
 		overflow: "hidden",
@@ -59,8 +70,12 @@ export function OptionRow({
 						position: "absolute",
 						inset: "0",
 						backgroundColor: selected
-							? "primary.default/18"
-							: "primary.default/10",
+							? isRecord
+								? "secondary.default/18"
+								: "primary.default/18"
+							: isRecord
+								? "fg.default/6"
+								: "primary.default/10",
 						zIndex: 0,
 						transition: "background-color 0.15s ease",
 					})}
@@ -80,7 +95,11 @@ export function OptionRow({
 						className={css({
 							fontFamily: "mono",
 							fontSize: "xs",
-							color: selected ? "primary.default" : "fg.muted",
+							color: selected
+								? isRecord
+									? "secondary.default"
+									: "primary.default"
+								: "fg.muted",
 						})}
 					>
 						{fieldPct !== null ? `${Math.round(fieldPct)}%` : "-"}
@@ -100,7 +119,11 @@ export function OptionRow({
 								className={css({
 									fontFamily: "mono",
 									fontSize: "xs",
-									color: selected ? "primary.default" : "fg.subtle",
+									color: selected
+										? isRecord
+											? "secondary.default"
+											: "primary.default"
+										: "fg.subtle",
 								})}
 							>
 								{compactCount.format(count)} {pluralize(count, "call")}

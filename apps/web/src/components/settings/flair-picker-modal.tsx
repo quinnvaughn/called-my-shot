@@ -20,7 +20,12 @@ import { gqlQueryOptions } from "#/graphql/query-options"
 import { toFlair } from "#/lib/identity"
 import { closeModal } from "#/stores/modal-store"
 
-const myFlairsQuery = gqlQueryOptions(MyFlairsDocument, {})
+// Opens with a modal, so not abortable (see gqlQueryOptions).
+const myFlairsQuery = gqlQueryOptions(
+	MyFlairsDocument,
+	{},
+	{ abortable: false },
+)
 
 // The tab earned flairs live under. Not a league slug, so it can't collide
 // with one.

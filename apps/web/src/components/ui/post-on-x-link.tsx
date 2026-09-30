@@ -13,9 +13,12 @@ type Props = {
 	text: string
 	url: string
 	onClick: () => void
+	// Replaces the labelled button with the caller's own icon-button class,
+	// for a row of share icons.
+	iconClassName?: string
 }
 
-export function PostOnXLink({ text, url, onClick }: Props) {
+export function PostOnXLink({ text, url, onClick, iconClassName }: Props) {
 	// x.com/intent/post rather than twitter.com/intent/tweet: the old host
 	// still 302s, but that adds a hop to the path a share takes. text and url
 	// stay separate params so X joins them itself and doesn't count the url
@@ -34,7 +37,10 @@ export function PostOnXLink({ text, url, onClick }: Props) {
 		match(detectDevicePlatform())
 			.with("ios", () => {
 				event.preventDefault()
-				openAppWithWebFallback(`twitter://post?message=${appMessage}`, intentUrl)
+				openAppWithWebFallback(
+					`twitter://post?message=${appMessage}`,
+					intentUrl,
+				)
 			})
 			.with("android", () => {
 				event.preventDefault()
@@ -47,6 +53,22 @@ export function PostOnXLink({ text, url, onClick }: Props) {
 			})
 			.with("desktop", () => {})
 			.exhaustive()
+	}
+
+	if (iconClassName) {
+		return (
+			<a
+				href={intentUrl}
+				target="_blank"
+				rel="noopener noreferrer"
+				onClick={handleClick}
+				aria-label="Post on X"
+				title="Post on X"
+				className={iconClassName}
+			>
+				<FaXTwitter size={14} />
+			</a>
+		)
 	}
 
 	return (

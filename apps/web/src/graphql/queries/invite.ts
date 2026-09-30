@@ -20,7 +20,9 @@ export const InvitePageDocument = graphql(`
 	}
 `)
 
-export const invitePageQuery = () => gqlQueryOptions(InvitePageDocument, {})
+// Not abortable: OutOfRedosModal opens with this too (see gqlQueryOptions).
+export const invitePageQuery = () =>
+	gqlQueryOptions(InvitePageDocument, {}, { abortable: false })
 
 // What /join/:code shows before the visitor has an account.
 export const ReferralPreviewDocument = graphql(`

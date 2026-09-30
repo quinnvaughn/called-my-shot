@@ -2,7 +2,7 @@ import { REDO_BALANCE_CAP } from "@called-my-shot/scoring"
 import { Link } from "@tanstack/react-router"
 import { FiRotateCcw } from "react-icons/fi"
 import { css } from "styled-system/css"
-import { HStack, VStack } from "styled-system/jsx"
+import { HStack } from "styled-system/jsx"
 import { match } from "ts-pattern"
 import type { QuestionCallShape } from "#/components/questions/cast-call-form/use-cast-call-form"
 import { OutOfRedosModal } from "#/components/questions/out-of-redos-modal"
@@ -35,34 +35,27 @@ export type RedoOffer = {
 const REDO_HINT =
 	"Changes your pick before this question locks. One per question, and the call carries a redo badge afterwards. Your earliness resets to the time of the redo. You earn them by inviting people: they get a redo at signup, and you get one once they make their first call."
 
-// The hook. Deliberately not the card's quiet mono style: this competes with
-// a share row directly beneath it, and it is the one thing on a pending call
-// someone might actually want to do.
-const promptClass = css({
-	fontSize: "sm",
-	fontWeight: "semibold",
-	color: "fg.default",
-})
-
-// The action, which names the mechanic rather than describing it - "redo" is
-// the word the badge, the notification and How It Works all use.
-//
-// Neutral, not the accent colour. This card already spends its accent on the
-// status pill and the share link, and a third coloured control in the same
-// card reads as three competing priorities rather than one call with things
-// you can do to it.
+// A small bordered button, the same weight as the share icons beside it on
+// the card: a real action on the call, but not the card's subject.
 const actionClass = css({
+	display: "inline-flex",
+	alignItems: "center",
+	gap: "1.5",
+	flexShrink: "0",
 	fontFamily: "mono",
 	fontSize: "2xs",
 	letterSpacing: "wide",
 	textTransform: "uppercase",
 	color: "fg.default",
 	background: "transparent",
-	border: "none",
-	padding: "0",
+	border: "1px solid {colors.border.default}",
+	borderRadius: "md",
+	paddingInline: "3",
+	height: { base: "11", sm: "9" },
 	cursor: "pointer",
 	textDecoration: "none",
-	_hover: { color: "fg.muted" },
+	transition: "background-color 0.15s ease",
+	_hover: { backgroundColor: "bg.subtle" },
 })
 
 const earnClass = css({
@@ -87,10 +80,11 @@ const countClass = css({
 // the call. Deliberately not a card of its own: a redo is a small action on
 // an existing call, not a second subject on the page.
 //
-// Two rows: the hook and the count, then the action and where more come from.
-// The earn link is there at every balance, not just at zero - "where do redos
-// come from" is the question someone has the moment they find out redos
-// exist, and at one or two left nothing else on screen answers it.
+// One row: the action and how many are left on one side, where more come
+// from on the other. The earn link is there at every balance, not just at
+// zero - "where do redos come from" is the question someone has the moment
+// they find out redos exist, and at one or two left nothing else on screen
+// answers it.
 export function RedoCta({
 	questionId,
 	offer,
@@ -108,84 +102,73 @@ export function RedoCta({
 		})
 
 	const action = (
-		<HStack gap="1.5" alignItems="center">
-			<FiRotateCcw aria-hidden size={14} />
-			<span>Use a redo</span>
-		</HStack>
+		<>
+			<FiRotateCcw aria-hidden size={13} />
+			<span>Redo pick</span>
+		</>
 	)
 
 	return (
-		<VStack gap="1.5" alignItems="stretch">
-			{/* The hook and the count. "Regret the call?" is what makes anyone
-			look; the row below it names the mechanic, since "redo" is the word
-			the badge, the notifications and How It Works all use. */}
-			<HStack justify="space-between" gap="3" alignItems="baseline">
-				<span className={promptClass}>Regret the call?</span>
-				<span className={countClass}>
-					{offer.balance} of {REDO_BALANCE_CAP} redos
-				</span>
-			</HStack>
-
-			<HStack justify="space-between" gap="3" alignItems="center">
-				<HStack gap="1.5" alignItems="center">
-					{offer.balance === 0 ? (
-						// Still offered at zero, and the click opens how to earn
-						// one instead of the pick form.
-						<button
-							type="button"
-							className={actionClass}
-							onClick={() =>
-								openModal(<OutOfRedosModal questionId={questionId} />)
-							}
-						>
-							{action}
-						</button>
-					) : (
-						match(offer.action)
-							.with({ kind: "open" }, ({ onStart }) => (
-								<button
-									type="button"
-									className={actionClass}
-									onClick={() => {
-										trackStart()
-										onStart()
-									}}
-								>
-									{action}
-								</button>
-							))
-							.with({ kind: "navigate" }, ({ questionId: id, slug }) => (
-								<Link
-									to="/questions/$questionId/{-$slug}"
-									params={{ questionId: id, slug }}
-									className={actionClass}
-									onClick={trackStart}
-								>
-									{action}
-								</Link>
-							))
-							.exhaustive()
-					)}
+		<HStack justify="space-between" gap="3" flexWrap="wrap">
+			<HStack gap="2.5" alignItems="center">
+				{offer.balance === 0 ? (
+					// Still offered at zero, and the click opens how to earn one
+					// instead of the pick form.
+					<button
+						type="button"
+						className={actionClass}
+						onClick={() =>
+							openModal(<OutOfRedosModal questionId={questionId} />)
+						}
+					>
+						{action}
+					</button>
+				) : (
+					match(offer.action)
+						.with({ kind: "open" }, ({ onStart }) => (
+							<button
+								type="button"
+								className={actionClass}
+								onClick={() => {
+									trackStart()
+									onStart()
+								}}
+							>
+								{action}
+							</button>
+						))
+						.with({ kind: "navigate" }, ({ questionId: id, slug }) => (
+							<Link
+								to="/questions/$questionId/{-$slug}"
+								params={{ questionId: id, slug }}
+								className={actionClass}
+								onClick={trackStart}
+							>
+								{action}
+							</Link>
+						))
+						.exhaustive()
+				)}
+				<HStack gap="1" alignItems="center">
+					<span className={countClass}>
+						{offer.balance} of {REDO_BALANCE_CAP} left
+					</span>
 					<InfoTip label="redos" text={REDO_HINT} />
 				</HStack>
-
-				{/* Always present, not just at zero. Where redos come from is
-				the question someone has the moment they learn redos exist, and
-				at one or two left there was previously nothing on screen that
-				answered it. */}
-				<Link
-					to="/invite"
-					className={earnClass}
-					onClick={() =>
-						track("redo_invite_clicked", {
-							questionId,
-							balance: offer.balance,
-						})
-					}
-				>
-					Get more by inviting →
-				</Link>
 			</HStack>
-		</VStack>
+
+			<Link
+				to="/invite"
+				className={earnClass}
+				onClick={() =>
+					track("redo_invite_clicked", {
+						questionId,
+						balance: offer.balance,
+					})
+				}
+			>
+				Get more by inviting →
+			</Link>
+		</HStack>
 	)
 }

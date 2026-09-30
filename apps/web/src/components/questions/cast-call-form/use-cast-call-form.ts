@@ -208,11 +208,14 @@ export type FadeMode = {
 // a real question - and therefore a mounted CastCallForm/CallSubmitBar - exists.
 //
 // Passing `redo` switches it to replacing an existing call instead of making
-// a new one. Passing `fade` makes a new call that fades another.
+// a new one. Passing `fade` makes a new call that fades another. `onCalled`
+// runs once a new call has landed, the page has refreshed and the confirm
+// modal has closed.
 export function useCastCallForm(
 	questionProp: FragmentType<typeof CastCallFormFragment> | null | undefined,
 	redo?: RedoMode,
 	fade?: FadeMode,
+	onCalled?: () => void,
 ) {
 	const question = useFragment(CastCallFormFragment, questionProp)
 	const shape = (question?.shape.toLowerCase() ??
@@ -419,6 +422,7 @@ export function useCastCallForm(
 					await queryClient.invalidateQueries()
 					await router.invalidate()
 					closeModal()
+					onCalled?.()
 
 					// Closes out the walkthrough on the call it was built
 					// around. Asks the tour store rather than the ?tour param,

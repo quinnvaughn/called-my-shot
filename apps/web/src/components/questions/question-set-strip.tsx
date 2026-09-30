@@ -23,6 +23,9 @@ import { buildQuestionSlug } from "#/lib/slug"
 //   (atomic CSS ordering isn't guaranteed to follow JSX order), so each pair
 //   resolves to exactly one class and the merge happens before atomizing.
 //
+// The current dot is ringed in secondary blue, which marks where you are;
+// primary orange stays the hover on the others, which marks where you can go.
+//
 // The cost is that the hover block and the current border are spelled out per
 // entry. They can't be hoisted into a shared const: a token referenced through
 // a variable is invisible to the extractor for the same reason as above.
@@ -46,10 +49,10 @@ const dotStateClass: Record<
 		current: css({
 			color: "fg.subtle",
 			backgroundColor: "transparent",
-			border: "1.5px solid {colors.primary.default}",
+			border: "1.5px solid {colors.secondary.default}",
 			_hover: {
-				border: "1.5px solid {colors.primary.default}",
-				backgroundColor: "primary.default/12",
+				border: "1.5px solid {colors.secondary.default}",
+				backgroundColor: "secondary.default/12",
 				color: "fg.default",
 				opacity: 1,
 				textDecoration: "none",
@@ -73,11 +76,11 @@ const dotStateClass: Record<
 		current: css({
 			color: "fg.default",
 			backgroundColor: "bg.subtle",
-			border: "1.5px solid {colors.primary.default}",
+			border: "1.5px solid {colors.secondary.default}",
 			fontWeight: "bold",
 			_hover: {
-				border: "1.5px solid {colors.primary.default}",
-				backgroundColor: "primary.default/12",
+				border: "1.5px solid {colors.secondary.default}",
+				backgroundColor: "secondary.default/12",
 				color: "fg.default",
 				opacity: 1,
 				textDecoration: "none",
@@ -100,10 +103,10 @@ const dotStateClass: Record<
 		current: css({
 			color: "success.default",
 			backgroundColor: "success.default/8",
-			border: "1.5px solid {colors.primary.default}",
+			border: "1.5px solid {colors.secondary.default}",
 			_hover: {
-				border: "1.5px solid {colors.primary.default}",
-				backgroundColor: "primary.default/12",
+				border: "1.5px solid {colors.secondary.default}",
+				backgroundColor: "secondary.default/12",
 				color: "fg.default",
 				opacity: 1,
 				textDecoration: "none",
@@ -126,10 +129,10 @@ const dotStateClass: Record<
 		current: css({
 			color: "danger.default",
 			backgroundColor: "danger.default/8",
-			border: "1.5px solid {colors.primary.default}",
+			border: "1.5px solid {colors.secondary.default}",
 			_hover: {
-				border: "1.5px solid {colors.primary.default}",
-				backgroundColor: "primary.default/12",
+				border: "1.5px solid {colors.secondary.default}",
+				backgroundColor: "secondary.default/12",
 				color: "fg.default",
 				opacity: 1,
 				textDecoration: "none",
@@ -153,11 +156,11 @@ const dotStateClass: Record<
 		current: css({
 			color: "fg.subtle",
 			backgroundColor: "transparent",
-			border: "1.5px solid {colors.primary.default}",
+			border: "1.5px solid {colors.secondary.default}",
 			textDecoration: "line-through",
 			_hover: {
-				border: "1.5px solid {colors.primary.default}",
-				backgroundColor: "primary.default/12",
+				border: "1.5px solid {colors.secondary.default}",
+				backgroundColor: "secondary.default/12",
 				color: "fg.default",
 				opacity: 1,
 				textDecoration: "none",
@@ -182,12 +185,12 @@ const dotStateClass: Record<
 		current: css({
 			color: "fg.subtle",
 			backgroundColor: "transparent",
-			border: "1.5px solid {colors.primary.default}",
+			border: "1.5px solid {colors.secondary.default}",
 			opacity: 0.4,
 			textDecoration: "line-through",
 			_hover: {
-				border: "1.5px solid {colors.primary.default}",
-				backgroundColor: "primary.default/12",
+				border: "1.5px solid {colors.secondary.default}",
+				backgroundColor: "secondary.default/12",
 				color: "fg.default",
 				opacity: 1,
 				textDecoration: "none",

@@ -17,13 +17,17 @@ type Props = {
 	averageGuess: number | null
 	// The viewer's own guess (live while they're still picking, their locked
 	// call's value afterward) - whichever bucket it falls on gets called out
-	// in the primary color, same as every other "this one's you" highlight in
-	// the picker (a selected team row, a selected multi-select chip). null
+	// in the tone's color (see tone below), same as every other "this one's
+	// you" highlight (a selected team row, a selected multi-select chip). null
 	// while there's nothing to highlight yet; a value outside the chart's own
 	// range (buckets only cover where the field has actually landed) just
 	// doesn't match any bucket, so nothing lights up - it isn't a bug, there's
 	// nothing on the chart to point at.
 	myGuess?: number | null
+	// "pick" (the default) while the viewer is still guessing: their bucket
+	// in the primary orange. "record" once the call is made: their bucket in
+	// the secondary blue, and the field average in a neutral tint.
+	tone?: "pick" | "record"
 	// True only for a rate stat (batting average, ERA) - every value below
 	// displays padded to a fixed 3 decimals when set, since a trailing zero
 	// is meaningful there (".300", never ".3") - see formatGuess.
@@ -99,6 +103,7 @@ export function GuessDistributionChart({
 	buckets,
 	averageGuess,
 	myGuess = null,
+	tone = "pick",
 	isRateStat = false,
 	compact = false,
 }: Props) {
@@ -178,17 +183,21 @@ export function GuessDistributionChart({
 								minWidth: "1",
 								// border.emphasized (track, #3E3E3A) - the design system's
 								// reserved progress/chart-bar color for an unhighlighted bar.
-								// myGuess wins the solid primary.default fill when it lands on
-								// this bucket; failing that, the bucket the field average
-								// rounds to still gets picked out via the paler primary.subtle
-								// tint, so a spectator with no call of their own (viewer-status-
+								// myGuess wins the solid fill (orange while picking, blue as
+								// a record) when it lands on this bucket; failing that, the
+								// bucket the field average rounds to still gets picked out via
+								// a paler tint, so a spectator with no call of their own (viewer-status-
 								// card's "Locked" state, no myGuess to show) still sees where
 								// the field landed, not just a flat gray chart.
 								background:
 									bucket.value === myGuess
-										? "primary.default"
+										? tone === "record"
+											? "secondary.default"
+											: "primary.default"
 										: bucket.value === avgBucketValue
-											? "primary.subtle"
+											? tone === "record"
+												? "fg.subtle"
+												: "primary.subtle"
 											: "border.emphasized",
 								borderRadius: "1px 1px 0 0",
 							})}
