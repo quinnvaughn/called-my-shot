@@ -404,6 +404,7 @@ export type EspnGameSummary = {
 	// deriveTotalBases in box-score-parse.ts.
 	plays?: {
 		type?: { text?: string }
+		atBatId?: string
 		participants?: { athlete: { id: string }; type: string }[]
 	}[]
 	boxscore?: {

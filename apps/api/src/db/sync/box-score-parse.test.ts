@@ -56,6 +56,47 @@ describe("parseBoxScore", () => {
 		)
 	})
 
+	it("counts bunt singles and ground rule doubles as hits", () => {
+		const summary = summaryFixture("mlb")
+		const batter = (text: string) => ({
+			type: { text },
+			participants: [{ athlete: { id: "4417606" }, type: "batter" }],
+		})
+		summary.plays = [
+			...(summary.plays ?? []),
+			batter("Bunt Single"),
+			batter("Ground Rule Double"),
+		]
+		const athlete = summary.boxscore?.players?.[0]?.statistics
+			.find((table) => table.type === "batting")
+			?.athletes.find((a) => a.athlete.id === "4417606")
+		if (athlete) athlete.stats[3] = "2"
+
+		const box = parseBoxScore(summary)
+		expect(box.athletes.get("4417606")?.stats.get("batting.totalBases")).toBe(
+			"3",
+		)
+	})
+
+	it("counts a ball in play ESPN logged twice in one at-bat once", () => {
+		const summary = summaryFixture("mlb")
+		const double = {
+			type: { text: "Double" },
+			atBatId: "4018168830101",
+			participants: [{ athlete: { id: "4417606" }, type: "batter" }],
+		}
+		summary.plays = [...(summary.plays ?? []), double, double]
+		const athlete = summary.boxscore?.players?.[0]?.statistics
+			.find((table) => table.type === "batting")
+			?.athletes.find((a) => a.athlete.id === "4417606")
+		if (athlete) athlete.stats[3] = "1"
+
+		const box = parseBoxScore(summary)
+		expect(box.athletes.get("4417606")?.stats.get("batting.totalBases")).toBe(
+			"2",
+		)
+	})
+
 	it("leaves total bases unset when the play-by-play's hits don't match H", () => {
 		const summary = summaryFixture("mlb")
 		summary.plays = summary.plays?.filter(

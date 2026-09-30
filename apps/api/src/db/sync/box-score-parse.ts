@@ -105,30 +105,40 @@ export function parseBoxScore(summary: EspnGameSummary): ParsedBoxScore {
 
 const BASES_PER_HIT: Record<string, number> = {
 	Single: 1,
+	"Bunt Single": 1,
 	Double: 2,
+	"Ground Rule Double": 2,
 	Triple: 3,
 	"Home Run": 4,
 }
 
 // ESPN's MLB batting table has no total bases, and no doubles or triples to
 // work it out from, so it's counted off the play-by-play's hits and stored as
-// "batting.totalBases" like any other cell. A batter whose hits there don't
-// add up to the table's H gets no value rather than a wrong one, which leaves
-// a question on it for a person instead of settling it short.
+// "batting.totalBases" like any other cell. ESPN sometimes logs one ball in
+// play twice within an at-bat, so each at-bat counts its last hit only. A
+// batter whose hits there don't add up to the table's H gets no value rather
+// than a wrong one, which leaves a question on it for a person instead of
+// settling it short.
 function deriveTotalBases(
 	plays: NonNullable<EspnGameSummary["plays"]>,
 	athletes: Map<string, ParsedAthlete>,
 ): void {
+	const hitByAtBat = new Map<string, { batter: string; bases: number }>()
+	plays.forEach((play, index) => {
+		const perHit = BASES_PER_HIT[play.type?.text ?? ""]
+		if (perHit === undefined) return
+		const batters = (play.participants ?? []).filter((p) => p.type === "batter")
+		if (batters.length !== 1 || !batters[0]) return
+		hitByAtBat.set(play.atBatId ?? `play:${index}`, {
+			batter: batters[0].athlete.id,
+			bases: perHit,
+		})
+	})
 	const hits = new Map<string, number>()
 	const bases = new Map<string, number>()
-	for (const play of plays) {
-		const perHit = BASES_PER_HIT[play.type?.text ?? ""]
-		if (perHit === undefined) continue
-		const batters = (play.participants ?? []).filter((p) => p.type === "batter")
-		if (batters.length !== 1 || !batters[0]) continue
-		const id = batters[0].athlete.id
-		hits.set(id, (hits.get(id) ?? 0) + 1)
-		bases.set(id, (bases.get(id) ?? 0) + perHit)
+	for (const hit of hitByAtBat.values()) {
+		hits.set(hit.batter, (hits.get(hit.batter) ?? 0) + 1)
+		bases.set(hit.batter, (bases.get(hit.batter) ?? 0) + hit.bases)
 	}
 	for (const [id, athlete] of athletes) {
 		const tableHits = parseStatNumber(athlete.stats.get("batting.hits"))
