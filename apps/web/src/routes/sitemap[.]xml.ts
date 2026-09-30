@@ -15,7 +15,13 @@ const ORIGIN = "https://calledmyshot.com"
 // either behind _authed (home, settings, my-calls, ...), admin-only, or
 // reached from a link nobody should be indexing (group invites, email
 // confirmation) - see public/robots.txt for the matching disallow list.
-const STATIC_PATHS = ["/", "/how-it-works", "/leaderboard"]
+const STATIC_PATHS = [
+	"/",
+	"/how-it-works",
+	"/leaderboard",
+	"/privacy",
+	"/terms",
+]
 
 // The league room's tabs. Its bare /leagues/$slug url is not listed: it only
 // redirects to the games tab (see leagues/$leagueSlug/index.tsx), and a

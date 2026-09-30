@@ -19,6 +19,8 @@ import { Route as AppAuthedRouteImport } from './routes/_app/_authed'
 import { Route as AppConfirmEmailRouteImport } from './routes/_app/confirm-email'
 import { Route as AppHowItWorksRouteImport } from './routes/_app/how-it-works'
 import { Route as AppLeaderboardRouteImport } from './routes/_app/leaderboard'
+import { Route as AppPrivacyRouteImport } from './routes/_app/privacy'
+import { Route as AppTermsRouteImport } from './routes/_app/terms'
 import { Route as AdminIndexRouteImport } from './routes/admin/index'
 import { Route as AdminBandsRouteImport } from './routes/admin/bands'
 import { Route as AdminDisputesRouteImport } from './routes/admin/disputes'
@@ -129,6 +131,16 @@ const AppHowItWorksRoute = AppHowItWorksRouteImport.update({
 const AppLeaderboardRoute = AppLeaderboardRouteImport.update({
   id: '/leaderboard',
   path: '/leaderboard',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppPrivacyRoute = AppPrivacyRouteImport.update({
+  id: '/privacy',
+  path: '/privacy',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppTermsRoute = AppTermsRouteImport.update({
+  id: '/terms',
+  path: '/terms',
   getParentRoute: () => AppRoute,
 } as any)
 const AdminIndexRoute = AdminIndexRouteImport.update({
@@ -478,6 +490,8 @@ export interface FileRoutesByFullPath {
   '/confirm-email': typeof AppConfirmEmailRoute
   '/how-it-works': typeof AppHowItWorksRoute
   '/leaderboard': typeof AppLeaderboardRoute
+  '/privacy': typeof AppPrivacyRoute
+  '/terms': typeof AppTermsRoute
   '/admin/bands': typeof AdminBandsRoute
   '/admin/disputes': typeof AdminDisputesRoute
   '/admin/gifs': typeof AdminGifsRoute
@@ -550,6 +564,8 @@ export interface FileRoutesByTo {
   '/confirm-email': typeof AppConfirmEmailRoute
   '/how-it-works': typeof AppHowItWorksRoute
   '/leaderboard': typeof AppLeaderboardRoute
+  '/privacy': typeof AppPrivacyRoute
+  '/terms': typeof AppTermsRoute
   '/admin/bands': typeof AdminBandsRoute
   '/admin/disputes': typeof AdminDisputesRoute
   '/admin/gifs': typeof AdminGifsRoute
@@ -624,6 +640,8 @@ export interface FileRoutesById {
   '/_app/confirm-email': typeof AppConfirmEmailRoute
   '/_app/how-it-works': typeof AppHowItWorksRoute
   '/_app/leaderboard': typeof AppLeaderboardRoute
+  '/_app/privacy': typeof AppPrivacyRoute
+  '/_app/terms': typeof AppTermsRoute
   '/admin/bands': typeof AdminBandsRoute
   '/admin/disputes': typeof AdminDisputesRoute
   '/admin/gifs': typeof AdminGifsRoute
@@ -699,6 +717,8 @@ export interface FileRouteTypes {
     | '/confirm-email'
     | '/how-it-works'
     | '/leaderboard'
+    | '/privacy'
+    | '/terms'
     | '/admin/bands'
     | '/admin/disputes'
     | '/admin/gifs'
@@ -771,6 +791,8 @@ export interface FileRouteTypes {
     | '/confirm-email'
     | '/how-it-works'
     | '/leaderboard'
+    | '/privacy'
+    | '/terms'
     | '/admin/bands'
     | '/admin/disputes'
     | '/admin/gifs'
@@ -844,6 +866,8 @@ export interface FileRouteTypes {
     | '/_app/confirm-email'
     | '/_app/how-it-works'
     | '/_app/leaderboard'
+    | '/_app/privacy'
+    | '/_app/terms'
     | '/admin/bands'
     | '/admin/disputes'
     | '/admin/gifs'
@@ -1003,6 +1027,20 @@ declare module '@tanstack/react-router' {
       path: '/leaderboard'
       fullPath: '/leaderboard'
       preLoaderRoute: typeof AppLeaderboardRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/privacy': {
+      id: '/_app/privacy'
+      path: '/privacy'
+      fullPath: '/privacy'
+      preLoaderRoute: typeof AppPrivacyRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/terms': {
+      id: '/_app/terms'
+      path: '/terms'
+      fullPath: '/terms'
+      preLoaderRoute: typeof AppTermsRouteImport
       parentRoute: typeof AppRoute
     }
     '/admin/': {
@@ -1505,6 +1543,8 @@ interface AppRouteChildren {
   AppConfirmEmailRoute: typeof AppConfirmEmailRoute
   AppHowItWorksRoute: typeof AppHowItWorksRoute
   AppLeaderboardRoute: typeof AppLeaderboardRoute
+  AppPrivacyRoute: typeof AppPrivacyRoute
+  AppTermsRoute: typeof AppTermsRoute
   AppBallotsBallotSlugRoute: typeof AppBallotsBallotSlugRoute
   AppCallsCallIdRoute: typeof AppCallsCallIdRoute
   AppLeaguesLeagueSlugRoute: typeof AppLeaguesLeagueSlugRouteWithChildren
@@ -1524,6 +1564,8 @@ const AppRouteChildren: AppRouteChildren = {
   AppConfirmEmailRoute: AppConfirmEmailRoute,
   AppHowItWorksRoute: AppHowItWorksRoute,
   AppLeaderboardRoute: AppLeaderboardRoute,
+  AppPrivacyRoute: AppPrivacyRoute,
+  AppTermsRoute: AppTermsRoute,
   AppBallotsBallotSlugRoute: AppBallotsBallotSlugRoute,
   AppCallsCallIdRoute: AppCallsCallIdRoute,
   AppLeaguesLeagueSlugRoute: AppLeaguesLeagueSlugRouteWithChildren,

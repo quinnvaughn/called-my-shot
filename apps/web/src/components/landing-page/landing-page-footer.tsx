@@ -34,14 +34,20 @@ export function LandingPageFooter() {
 					<Link to="/how-it-works">How It Works</Link>
 					<Link to="/leaderboard">Leaderboard</Link>
 				</div>
+				{/* Always shown, unlike the page links: Google's sign-in review
+				checks that the homepage links to the privacy policy. */}
 				<div
 					className={css({
+						display: "flex",
+						gap: "4",
 						fontFamily: "mono",
 						fontSize: "xs",
 						color: "fg.subtle",
 					})}
 				>
-					© {new Date().getFullYear()} Called My Shot
+					<Link to="/privacy">Privacy</Link>
+					<Link to="/terms">Terms</Link>
+					<span>© {new Date().getFullYear()} Called My Shot</span>
 				</div>
 			</LandingPageWrap>
 		</footer>
