@@ -3,6 +3,7 @@ import { createFileRoute } from "@tanstack/react-router"
 import { FiChevronLeft, FiChevronRight } from "react-icons/fi"
 import { css } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
+import { GameDayPicker } from "#/components/leagues/game-day-picker"
 import { GameRow } from "#/components/leagues/game-row"
 import { SeriesStrip } from "#/components/leagues/series-strip"
 import { SlateSweepLine } from "#/components/leagues/slate-sweep-line"
@@ -175,20 +176,29 @@ function RouteComponent() {
 				</button>
 
 				<VStack gap="1.5" flex="1" minWidth="0" alignItems="stretch">
-					<Select value={result.window.key} onValueChange={stepTo}>
-						<Select.Trigger
-							className={css({ "& > span": { textAlign: "center" } })}
-						>
-							{result.window.label}
-						</Select.Trigger>
-						<Select.Content>
-							{windows.map((w) => (
-								<Select.Option key={w.key} value={w.key}>
-									{w.label}
-								</Select.Option>
-							))}
-						</Select.Content>
-					</Select>
+					{league?.windowType === "WEEK" ? (
+						<Select value={result.window.key} onValueChange={stepTo}>
+							<Select.Trigger
+								className={css({ "& > span": { textAlign: "center" } })}
+							>
+								{result.window.label}
+							</Select.Trigger>
+							<Select.Content>
+								{windows.map((w) => (
+									<Select.Option key={w.key} value={w.key}>
+										{w.label}
+									</Select.Option>
+								))}
+							</Select.Content>
+						</Select>
+					) : (
+						<GameDayPicker
+							windows={windows}
+							selectedKey={result.window.key}
+							label={result.window.label}
+							onSelect={stepTo}
+						/>
+					)}
 					{result.window.sublabel && (
 						<span
 							className={css({

@@ -1,10 +1,15 @@
 import { DateTime } from "luxon"
-import { useEffect, useLayoutEffect, useRef, useState } from "react"
+import { useState } from "react"
 import { createPortal } from "react-dom"
 import { FiCalendar, FiChevronLeft, FiChevronRight } from "react-icons/fi"
 import { cx } from "styled-system/css"
 import { dateTimePicker as dateTimePickerRecipe } from "styled-system/recipes"
 import { Button } from "./button"
+import {
+	buildCalendarGridDays,
+	CALENDAR_WEEKDAYS,
+	useAnchoredPopover,
+} from "./use-anchored-popover"
 
 // Matches what a native <input type="datetime-local"> used to produce - no
 // timezone offset, so `new Date(value)` (the zod schema's refine, and the API
@@ -14,16 +19,6 @@ import { Button } from "./button"
 // startsAt) can produce a value in the same shape.
 export const DATE_TIME_PICKER_VALUE_FORMAT = "yyyy-MM-dd'T'HH:mm"
 const VALUE_FORMAT = DATE_TIME_PICKER_VALUE_FORMAT
-const WEEKDAYS = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"]
-// Matches Panda's default `md` breakpoint (768px), same cutoff app-shell.tsx
-// uses to switch between the desktop nav rail and the mobile drawer - below
-// it, the calendar renders as a bottom sheet instead of a trigger-anchored
-// popover (see the `content` slot in panda.config.ts).
-const MOBILE_BREAKPOINT = 768
-
-function isMobileViewport(): boolean {
-	return typeof window !== "undefined" && window.innerWidth < MOBILE_BREAKPOINT
-}
 
 function parseValue(value: string): DateTime | null {
 	if (!value) return null
@@ -38,13 +33,6 @@ function roundedNow(): DateTime {
 	const now = DateTime.local().set({ second: 0, millisecond: 0 })
 	const remainder = now.minute % 5
 	return remainder === 0 ? now : now.plus({ minutes: 5 - remainder })
-}
-
-// Always 6 full weeks so the popover's height never shifts between months.
-function buildGridDays(viewMonth: DateTime): DateTime[] {
-	const startOfMonth = viewMonth.startOf("month")
-	const gridStart = startOfMonth.minus({ days: startOfMonth.weekday % 7 })
-	return Array.from({ length: 42 }, (_, i) => gridStart.plus({ days: i }))
 }
 
 type DateTimePickerProps = {
@@ -66,25 +54,11 @@ export function DateTimePicker({
 	className,
 	disabled,
 }: DateTimePickerProps) {
-	const [open, setOpen] = useState(false)
+	const popover = useAnchoredPopover()
+	const { open } = popover
 	const [viewMonth, setViewMonth] = useState<DateTime>(() =>
 		(parseValue(value) ?? roundedNow()).startOf("month"),
 	)
-	// Edges of the trigger button, not a placement yet - the layout effect
-	// below turns this into an actual top/left once it can measure how tall
-	// the popover rendered (needed to decide whether it flips above).
-	const [triggerEdges, setTriggerEdges] = useState<{
-		top: number
-		bottom: number
-		left: number
-	} | null>(null)
-	const [placement, setPlacement] = useState<{
-		top: number
-		left: number
-	} | null>(null)
-	const rootRef = useRef<HTMLDivElement>(null)
-	const triggerRef = useRef<HTMLButtonElement>(null)
-	const contentRef = useRef<HTMLDivElement>(null)
 
 	const selected = parseValue(value)
 	const hasError = Boolean(error)
@@ -98,13 +72,8 @@ export function DateTimePicker({
 	}
 
 	function openPicker() {
-		const el = triggerRef.current
-		if (el) {
-			const r = el.getBoundingClientRect()
-			setTriggerEdges({ top: r.top, bottom: r.bottom, left: r.left })
-		}
 		setViewMonth((selected ?? roundedNow()).startOf("month"))
-		setOpen(true)
+		popover.openPopover()
 	}
 
 	function selectDay(day: DateTime) {
@@ -142,108 +111,22 @@ export function DateTimePicker({
 		commit(base.set({ hour: isPM ? (hour12 % 12) + 12 : hour12 % 12 }))
 	}
 
-	useEffect(() => {
-		if (!open) return
-
-		function updateTriggerEdges() {
-			const el = triggerRef.current
-			if (!el) return
-			const r = el.getBoundingClientRect()
-			setTriggerEdges({ top: r.top, bottom: r.bottom, left: r.left })
-		}
-		function onPointerDown(event: MouseEvent) {
-			const target = event.target as Node
-			if (
-				!rootRef.current?.contains(target) &&
-				!contentRef.current?.contains(target)
-			) {
-				setOpen(false)
-			}
-		}
-		function onKeyDown(event: KeyboardEvent) {
-			if (event.key === "Escape") setOpen(false)
-		}
-		function onScroll() {
-			setOpen(false)
-		}
-		window.addEventListener("resize", updateTriggerEdges)
-		document.addEventListener("mousedown", onPointerDown)
-		document.addEventListener("keydown", onKeyDown)
-		document.addEventListener("scroll", onScroll, true)
-		return () => {
-			window.removeEventListener("resize", updateTriggerEdges)
-			document.removeEventListener("mousedown", onPointerDown)
-			document.removeEventListener("keydown", onKeyDown)
-			document.removeEventListener("scroll", onScroll, true)
-		}
-	}, [open])
-
-	// Runs after the popover's actual DOM node exists (so its real height is
-	// known) but before the browser paints - flips it above the trigger when
-	// there isn't room below, and slides it left/right to stay on-screen,
-	// without ever showing the wrong position for a frame.
-	useLayoutEffect(() => {
-		if (!open || !triggerEdges || isMobileViewport()) return
-		const contentEl = contentRef.current
-		if (!contentEl) return
-
-		const margin = 8
-		const gap = 6
-		const contentHeight = contentEl.offsetHeight
-		const contentWidth = contentEl.offsetWidth
-		const spaceBelow = window.innerHeight - triggerEdges.bottom
-		const spaceAbove = triggerEdges.top
-		const required = contentHeight + gap + margin
-		// Only flip above when it actually fits there - otherwise this used to
-		// flip above just because there was *relatively* more room up than
-		// down, even when neither side truly fit, which left the popover
-		// clipped against the top of the viewport instead of the comparatively
-		// more natural (and scrollable) overflow of staying below.
-		const placeAbove = spaceBelow < required && spaceAbove >= required
-
-		// Below-placement also slides up to stay fully on-screen when the
-		// content is taller than the room left under the trigger (e.g. a
-		// trigger sitting low in a modal) - same idea as the horizontal clamp
-		// on `left` just below, which this used to lack entirely.
-		const top = placeAbove
-			? Math.max(margin, triggerEdges.top - contentHeight - gap)
-			: Math.max(
-					margin,
-					Math.min(
-						triggerEdges.bottom + gap,
-						window.innerHeight - contentHeight - margin,
-					),
-				)
-		const left = Math.min(
-			Math.max(margin, triggerEdges.left),
-			window.innerWidth - contentWidth - margin,
-		)
-		setPlacement({ top, left })
-		// Deliberately keyed on triggerEdges (open + resize), not every render -
-		// the popover's own size is fixed (see buildGridDays), so nothing else
-		// changes what this needs to recompute.
-	}, [open, triggerEdges])
-
-	const gridDays = buildGridDays(viewMonth)
+	const gridDays = buildCalendarGridDays(viewMonth)
 	const today = DateTime.local().startOf("day")
 	const base = selected ?? roundedNow()
 	const hour12 = base.hour % 12 === 0 ? 12 : base.hour % 12
 	const isPM = base.hour >= 12
-	// Re-evaluated on every render (cheap, and re-renders already happen on
-	// resize via triggerEdges) rather than tracked in its own state - avoids
-	// a second source of truth to keep in sync with the layout effect above.
-	const isMobile = isMobileViewport()
 
 	return (
-		<div ref={rootRef} className={cx(slots.root, className)}>
+		<div ref={popover.rootRef} className={cx(slots.root, className)}>
 			<button
-				ref={triggerRef}
+				ref={popover.triggerRef}
 				type="button"
 				disabled={disabled}
 				aria-haspopup="dialog"
 				aria-expanded={open}
 				className={slots.trigger}
-				onClick={() => (open ? setOpen(false) : openPicker())}
+				onClick={() => (open ? popover.close() : openPicker())}
 			>
 				<span className={slots.triggerLabel}>
 					{selected
@@ -260,33 +143,20 @@ export function DateTimePicker({
 				description && <div className={slots.description}>{description}</div>
 			)}
 			{open &&
-				triggerEdges &&
 				createPortal(
 					<>
-						{isMobile && (
+						{popover.isMobile && (
 							// Purely visual dimming - the existing outside-pointerdown
 							// listener already closes on tap since this div sits outside
 							// contentRef, same as clicking anywhere else off the panel.
 							<div aria-hidden className={slots.scrim} />
 						)}
 						<div
-							ref={contentRef}
+							ref={popover.contentRef}
 							role="dialog"
 							aria-label="Choose date and time"
 							className={slots.content}
-							style={
-								isMobile
-									? undefined
-									: {
-											position: "fixed",
-											// Falls back to "below the trigger" for the single
-											// frame before the layout effect measures this node
-											// and picks a final spot - that effect runs before
-											// paint, so this fallback is never actually visible.
-											top: placement?.top ?? triggerEdges.bottom + 6,
-											left: placement?.left ?? triggerEdges.left,
-										}
-							}
+							style={popover.contentStyle}
 						>
 							<div className={slots.dragHandle} />
 							<div className={slots.calendarHeader}>
@@ -311,7 +181,7 @@ export function DateTimePicker({
 							</button>
 						</div>
 						<div className={slots.weekdayRow}>
-							{WEEKDAYS.map((day) => (
+							{CALENDAR_WEEKDAYS.map((day) => (
 								<span key={day} className={slots.weekday}>
 									{day}
 								</span>
@@ -392,7 +262,7 @@ export function DateTimePicker({
 							>
 								Now
 							</Button>
-							<Button variant="solid" size="sm" onClick={() => setOpen(false)}>
+							<Button variant="solid" size="sm" onClick={popover.close}>
 								Done
 							</Button>
 						</div>
