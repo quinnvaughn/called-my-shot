@@ -250,7 +250,10 @@ function RouteComponent() {
 			 * no calls in.
 			 */}
 			{result.viewerReportCard && (
-				<ReportCard card={result.viewerReportCard} username={me?.username} />
+				<ReportCard
+					card={result.viewerReportCard}
+					owner={me && { id: me.id, username: me.username, isOwn: true }}
+				/>
 			)}
 
 			{!hasGames ? (

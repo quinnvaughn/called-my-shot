@@ -1,8 +1,6 @@
-import { VStack } from "styled-system/jsx"
-import { CopyLinkRow } from "#/components/ui/copy-link-row"
-import { PostOnXLink } from "#/components/ui/post-on-x-link"
+import { ShareIconRow } from "#/components/ui/share-icon-row"
 import { track } from "#/lib/analytics"
-import { SITE_HOST, SITE_ORIGIN } from "#/lib/meta"
+import { SITE_ORIGIN } from "#/lib/meta"
 import { reportCardPath } from "#/lib/report-card"
 
 type Props = {
@@ -17,8 +15,9 @@ type Props = {
 	shareTitle: string
 }
 
-// Mirrors SweepShareRow. The thing being shared is the url - the og:image
-// only exists so that url unfurls with a preview, and is never shown here.
+// The thing being shared is the permalink url, from either the inline card or
+// the permalink itself - the og:image only exists so that url unfurls with a
+// preview, and is never shown here.
 export function ReportCardShareRow({
 	userId,
 	username,
@@ -27,30 +26,19 @@ export function ReportCardShareRow({
 	tweetText,
 	shareTitle,
 }: Props) {
-	const path = reportCardPath(username, leagueSlug, windowKey)
-	const url = `${SITE_ORIGIN}${path}`
-	const props = { userId, league: leagueSlug, windowKey }
-
 	return (
-		<VStack gap="3" alignItems="stretch">
-			<CopyLinkRow
-				url={url}
-				displayUrl={`${SITE_HOST}${path}`}
-				shareTitle={shareTitle}
-				onCopied={() =>
-					track("report_card_link_shared", { ...props, method: "clipboard" })
-				}
-				onNativeShared={() =>
-					track("report_card_link_shared", { ...props, method: "native" })
-				}
-			/>
-			<PostOnXLink
-				text={tweetText}
-				url={url}
-				onClick={() =>
-					track("report_card_link_shared", { ...props, method: "x" })
-				}
-			/>
-		</VStack>
+		<ShareIconRow
+			url={`${SITE_ORIGIN}${reportCardPath(username, leagueSlug, windowKey)}`}
+			tweetText={tweetText}
+			shareTitle={shareTitle}
+			onShared={(method) =>
+				track("report_card_link_shared", {
+					userId,
+					league: leagueSlug,
+					windowKey,
+					method,
+				})
+			}
+		/>
 	)
 }

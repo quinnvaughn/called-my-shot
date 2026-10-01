@@ -4,14 +4,12 @@ import { FaRegTimesCircle } from "react-icons/fa"
 import { css } from "styled-system/css"
 import { VStack } from "styled-system/jsx"
 import { ReportCard } from "#/components/report-cards/report-card"
-import { ReportCardShareRow } from "#/components/report-cards/report-card-share-row"
 import { Breadcrumb } from "#/components/ui/breadcrumb"
 import { NotFound } from "#/components/ui/not-found"
 import { PageHeader } from "#/components/ui/page-header"
 import { userReportCardPageQuery } from "#/graphql/queries/report-cards"
 import { pageMeta } from "#/lib/meta"
 import {
-	buildReportCardTweet,
 	isEmptyReportCard,
 	reportCardPageMeta,
 	reportCardPath,
@@ -128,56 +126,40 @@ function RouteComponent() {
 			<PageHeader title={`${track} Report Card`} subtitle={user.name} />
 
 			{empty ? (
-				// The window exists, they just have nothing in it. Worth saying
-				// outright, since a blank page reads as a broken link.
-				<span className={css({ fontSize: "sm", color: "fg.muted" })}>
-					{isOwn ? "You didn't call" : `@${user.username} didn't call`} anything
-					in {track}.
-				</span>
-			) : (
 				<>
-					{/* Expanded: the permalink has the room to split each family
-					    into the shapes behind it, which the inline card doesn't. */}
-					<ReportCard card={card} expanded />
-
-					<ReportCardShareRow
-						userId={user.id}
-						username={user.username}
-						leagueSlug={card.league.slug}
-						windowKey={card.windowKey}
-						shareTitle={`@${user.username}'s ${track} Report Card`}
-						tweetText={buildReportCardTweet({
-							username: user.username,
-							track,
-							wins: card.wins,
-							losses: card.losses,
-							netPoints: card.netPoints,
-							committedPoints: card.committedPoints,
-							returnPct: card.returnPct ?? null,
-							grade: card.grade ?? null,
-							isFinal: card.isFinal,
-							isOwn,
+					{/* The window exists, they just have nothing in it. Worth saying
+					    outright, since a blank page reads as a broken link. The
+					    games link lives in the card's footer otherwise. */}
+					<span className={css({ fontSize: "sm", color: "fg.muted" })}>
+						{isOwn ? "You didn't call" : `@${user.username} didn't call`}{" "}
+						anything in {track}.
+					</span>
+					<Link
+						to="/leagues/$leagueSlug/games"
+						params={{ leagueSlug: card.league.slug }}
+						search={{ windowKey: card.windowKey }}
+						className={css({
+							fontFamily: "mono",
+							fontSize: "2xs",
+							letterSpacing: "wide",
+							textTransform: "uppercase",
+							color: "primary.default",
+							textDecoration: "none",
+							_hover: { opacity: 0.8 },
 						})}
-					/>
+					>
+						See the games →
+					</Link>
 				</>
+			) : (
+				// Expanded: the permalink has the room to split each family into
+				// the shapes behind it, which the inline card doesn't.
+				<ReportCard
+					card={card}
+					expanded
+					owner={{ id: user.id, username: user.username, isOwn }}
+				/>
 			)}
-
-			<Link
-				to="/leagues/$leagueSlug/games"
-				params={{ leagueSlug: card.league.slug }}
-				search={{ windowKey: card.windowKey }}
-				className={css({
-					fontFamily: "mono",
-					fontSize: "2xs",
-					letterSpacing: "wide",
-					textTransform: "uppercase",
-					color: "primary.default",
-					textDecoration: "none",
-					_hover: { opacity: 0.8 },
-				})}
-			>
-				See the games →
-			</Link>
 		</VStack>
 	)
 }

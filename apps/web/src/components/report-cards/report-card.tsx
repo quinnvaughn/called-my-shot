@@ -9,12 +9,14 @@ import {
 	ReportCardBreakdown,
 	type ReportCardRowData,
 } from "#/components/report-cards/report-card-row"
+import { ReportCardShareRow } from "#/components/report-cards/report-card-share-row"
 import { Card } from "#/components/ui/card"
 import { Eyebrow } from "#/components/ui/eyebrow"
 import { type FragmentType, graphql, useFragment } from "#/graphql/generated"
 import { formatRecord, formatSignedPoints } from "#/lib/ballot-entry"
 import { pickSummary } from "#/lib/call-summary"
 import {
+	buildReportCardTweet,
 	formatReturn,
 	gradeTone,
 	isEmptyReportCard,
@@ -165,9 +167,10 @@ type Props = {
 	// Set on the permalink, where the breakdown expands to shapes and the
 	// header doesn't need to link anywhere.
 	expanded?: boolean
-	// Turns the header into a link to the permalink. Omitted when already
-	// there, or when signed out.
-	username?: string | null
+	// Whose card this is. Adds the footer: the share row, plus a link to the
+	// permalink (or, on the permalink, to the window's games). Omitted when
+	// signed out.
+	owner?: { id: string; username: string; isOwn: boolean } | null
 }
 
 function Highlight({
@@ -299,7 +302,7 @@ function GameHighlight({
 // they have no calls in - the card still comes back from the API in that case
 // so the permalink can name the window it found nothing for, but there's
 // nothing to show inline.
-export function ReportCard({ card: cardProp, expanded, username }: Props) {
+export function ReportCard({ card: cardProp, expanded, owner }: Props) {
 	const card = useFragment(ReportCardFragment, cardProp)
 	// Collapsed state is per browser and per surface, not per window - someone
 	// who folded this away on Sunday wants it folded on Monday too, and a
@@ -338,6 +341,7 @@ export function ReportCard({ card: cardProp, expanded, username }: Props) {
 		: undefined
 
 	const track = `${card.league.abbreviation.toUpperCase()} · ${card.windowLabel}`
+	const tweetTrack = `${card.league.abbreviation.toUpperCase()} ${card.windowLabel}`
 
 	// What this block IS comes first, then which window it covers. Without the
 	// title the card is a grade and four numbers with no stated subject.
@@ -499,33 +503,66 @@ export function ReportCard({ card: cardProp, expanded, username }: Props) {
 									<GameHighlight label="Worst game" row={card.worstGame} />
 								</VStack>
 							)}
-
-							{/* An actual link, on its own row with an arrow, rather than
-					    the header secretly being one. */}
-							{username && !expanded && (
-								<Link
-									to={reportCardPath(
-										username,
-										card.league.slug,
-										card.windowKey,
-									)}
-									className={css({
-										fontFamily: "mono",
-										fontSize: "2xs",
-										letterSpacing: "wide",
-										textTransform: "uppercase",
-										color: "primary.default",
-										textDecoration: "none",
-										_hover: { opacity: 0.8 },
-									})}
-								>
-									Open Full Report Card →
-								</Link>
-							)}
 						</>
 					)}
 				</VStack>
 			</Card.Body>
+			{owner && !collapsed && (
+				<Card.Footer>
+					<HStack justify="space-between" gap="3" width="full">
+						{expanded ? (
+							<Link
+								to="/leagues/$leagueSlug/games"
+								params={{ leagueSlug: card.league.slug }}
+								search={{ windowKey: card.windowKey }}
+								className={footerLinkClass}
+							>
+								See the games →
+							</Link>
+						) : (
+							<Link
+								to={reportCardPath(
+									owner.username,
+									card.league.slug,
+									card.windowKey,
+								)}
+								className={footerLinkClass}
+							>
+								Open Full Report Card →
+							</Link>
+						)}
+						<ReportCardShareRow
+							userId={owner.id}
+							username={owner.username}
+							leagueSlug={card.league.slug}
+							windowKey={card.windowKey}
+							shareTitle={`@${owner.username}'s ${tweetTrack} Report Card`}
+							tweetText={buildReportCardTweet({
+								username: owner.username,
+								track: tweetTrack,
+								wins: card.wins,
+								losses: card.losses,
+								netPoints: card.netPoints,
+								committedPoints: card.committedPoints,
+								returnPct: card.returnPct ?? null,
+								grade: card.grade ?? null,
+								isFinal: card.isFinal,
+								isOwn: owner.isOwn,
+							})}
+						/>
+					</HStack>
+				</Card.Footer>
+			)}
 		</Card>
 	)
 }
+
+const footerLinkClass = css({
+	fontFamily: "mono",
+	fontSize: "2xs",
+	letterSpacing: "wide",
+	textTransform: "uppercase",
+	color: "primary.default",
+	textDecoration: "none",
+	_hover: { opacity: 0.8 },
+})

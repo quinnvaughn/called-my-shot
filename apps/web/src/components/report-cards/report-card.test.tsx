@@ -234,7 +234,12 @@ describe("ReportCard", () => {
 	})
 
 	it("offers an explicit, labelled link to the permalink", async () => {
-		await renderWithRouter(<ReportCard card={card()} username="quinn" />)
+		await renderWithRouter(
+			<ReportCard
+				card={card()}
+				owner={{ id: "u1", username: "quinn", isOwn: true }}
+			/>,
+		)
 		const link = screen.getByRole("link", { name: /open full Report Card/i })
 		expect(link).toHaveAttribute(
 			"href",
