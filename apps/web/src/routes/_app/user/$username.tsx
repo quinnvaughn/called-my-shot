@@ -28,7 +28,7 @@ import {
 import { gqlQueryOptions } from "#/graphql/query-options"
 import { toIdentity } from "#/lib/identity"
 import { pageMeta } from "#/lib/meta"
-import { buildProfileTweet, profileCardVersion } from "#/lib/profile"
+import { profileCardVersion } from "#/lib/profile"
 
 const MAX_LIVE_STREAKS = 3
 
@@ -246,6 +246,15 @@ function RouteComponent() {
 			<ProfileHeader
 				user={{ ...user, flair: toIdentity(user).flair }}
 				viewerId={me?.id}
+				share={
+					user.careerStats && (
+						<ProfileShareRow
+							userId={user.id}
+							username={user.username}
+							shareTitle={`${user.name} on Called My Shot`}
+						/>
+					)
+				}
 			/>
 			{/* One tab per league played, plus All. A single league skips the
 			    row entirely, since All and that league would be the same page. */}
@@ -295,20 +304,6 @@ function RouteComponent() {
 						username={user.username}
 					/>
 				</VStack>
-			)}
-			{user.careerStats && (
-				<ProfileShareRow
-					userId={user.id}
-					username={user.username}
-					shareTitle={`${user.name} on Called My Shot`}
-					tweetText={buildProfileTweet({
-						username: user.username,
-						isOwn,
-						totalPoints: user.careerStats.totalPoints,
-						rank: user.careerStats.rank ?? null,
-						accuracy: user.careerStats.accuracy ?? null,
-					})}
-				/>
 			)}
 			{breakdown.length > 0 && (
 				<VStack alignItems="stretch" gap="3">

@@ -8,7 +8,9 @@ export type ShareMethod = "clipboard" | "native" | "x"
 
 type Props = {
 	url: string
-	tweetText: string
+	// Omitted where posting to X isn't something anyone would do with the
+	// link, which leaves just Copy and the native share sheet.
+	tweetText?: string
 	shareTitle: string
 	onShared: (method: ShareMethod) => void
 }
@@ -62,12 +64,14 @@ export function ShareIconRow({ url, tweetText, shareTitle, onShared }: Props) {
 					<FiShare size={15} />
 				</IconButton>
 			)}
-			<PostOnXLink
-				text={tweetText}
-				url={url}
-				onClick={() => onShared("x")}
-				iconClassName={iconButtonClass}
-			/>
+			{tweetText && (
+				<PostOnXLink
+					text={tweetText}
+					url={url}
+					onClick={() => onShared("x")}
+					iconClassName={iconButtonClass}
+				/>
+			)}
 		</HStack>
 	)
 }

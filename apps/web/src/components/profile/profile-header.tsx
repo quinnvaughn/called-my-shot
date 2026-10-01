@@ -1,4 +1,5 @@
 import { DateTime } from "luxon"
+import type { ReactNode } from "react"
 import { FiCamera } from "react-icons/fi"
 import { css } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
@@ -19,6 +20,9 @@ type Props = {
 		flair?: FlairData | null
 	}
 	viewerId?: string
+	// The profile's share row, beside Edit. Null until there's a record to
+	// share.
+	share?: ReactNode
 }
 
 const avatarButton = css({
@@ -75,50 +79,69 @@ function EditableAvatar({
 	)
 }
 
-export function ProfileHeader({ user, viewerId }: Props) {
+export function ProfileHeader({ user, viewerId, share }: Props) {
 	const isViewer = viewerId === user.id
+	const hasActions = isViewer || Boolean(share)
 	return (
-		<HStack gap="4" alignItems="center">
-			{isViewer ? (
-				<EditableAvatar name={user.name} avatarUrl={user.avatarUrl ?? null} />
-			) : (
-				<Avatar size="lg" name={user.name} src={user.avatarUrl} />
-			)}
-			<VStack gap="0.5" alignItems="flex-start" flex="1" minWidth="0">
-				<HStack gap="2" alignItems="center" minWidth="0" maxWidth="full">
-					<span className={css({ fontFamily: "heading", fontSize: "xl" })}>
-						{user.name}
+		// The actions drop to their own row on a phone, where three share
+		// icons and Edit beside the avatar would leave the name no room.
+		<div
+			className={css({
+				display: "flex",
+				flexDirection: { base: "column", sm: "row" },
+				alignItems: { base: "stretch", sm: "center" },
+				gap: { base: "3", sm: "4" },
+			})}
+		>
+			<HStack gap="4" alignItems="center" flex="1" minWidth="0">
+				{isViewer ? (
+					<EditableAvatar name={user.name} avatarUrl={user.avatarUrl ?? null} />
+				) : (
+					<Avatar size="lg" name={user.name} src={user.avatarUrl} />
+				)}
+				<VStack gap="0.5" alignItems="flex-start" flex="1" minWidth="0">
+					<HStack gap="2" alignItems="center" minWidth="0" maxWidth="full">
+						<span className={css({ fontFamily: "heading", fontSize: "xl" })}>
+							{user.name}
+						</span>
+						{user.flair && <Flair flair={user.flair} size="sm" />}
+					</HStack>
+					<span
+						className={css({
+							fontFamily: "mono",
+							fontSize: "xs",
+							color: "fg.subtle",
+						})}
+					>
+						@{user.username}
 					</span>
-					{user.flair && <Flair flair={user.flair} size="sm" />}
+					<span
+						className={css({
+							fontFamily: "mono",
+							fontSize: "2xs",
+							color: "fg.subtle",
+						})}
+					>
+						Member since {DateTime.fromISO(user.createdAt).toFormat("MMM yyyy")}
+					</span>
+				</VStack>
+			</HStack>
+			{hasActions && (
+				<HStack gap="2" alignItems="center" flexShrink="0">
+					{share}
+					{isViewer && (
+						<Button
+							variant="outline"
+							size="sm"
+							onClick={() =>
+								openModal(<EditNameModal currentName={user.name} />)
+							}
+						>
+							Edit
+						</Button>
+					)}
 				</HStack>
-				<span
-					className={css({
-						fontFamily: "mono",
-						fontSize: "xs",
-						color: "fg.subtle",
-					})}
-				>
-					@{user.username}
-				</span>
-				<span
-					className={css({
-						fontFamily: "mono",
-						fontSize: "2xs",
-						color: "fg.subtle",
-					})}
-				>
-					Member since {DateTime.fromISO(user.createdAt).toFormat("MMM yyyy")}
-				</span>
-			</VStack>
-			{isViewer && (
-				<Button
-					variant="outline"
-					size="sm"
-					onClick={() => openModal(<EditNameModal currentName={user.name} />)}
-				>
-					Edit
-				</Button>
 			)}
-		</HStack>
+		</div>
 	)
 }

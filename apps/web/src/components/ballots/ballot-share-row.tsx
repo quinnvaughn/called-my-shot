@@ -1,6 +1,7 @@
 import { VStack } from "styled-system/jsx"
 import { CopyLinkRow } from "#/components/ui/copy-link-row"
 import { PostOnXLink } from "#/components/ui/post-on-x-link"
+import { ShareIconRow } from "#/components/ui/share-icon-row"
 import { track } from "#/lib/analytics"
 import {
 	ballotEntryPath,
@@ -19,6 +20,9 @@ type Props = {
 	tweetText: string
 	shareTitle: string
 	surface: BallotShareSurface
+	// "full" is the link in a field, Copy, and a Post on X button. "icons" is
+	// one row of icon buttons, for a card footer.
+	layout?: "full" | "icons"
 }
 
 // Same split as buildCallTweet: first person only on your own ballot, since
@@ -51,9 +55,23 @@ export function BallotShareRow({
 	tweetText,
 	shareTitle,
 	surface,
+	layout = "full",
 }: Props) {
 	const path = ballotEntryPath(ballotSlug, username)
 	const url = `${SITE_ORIGIN}${path}`
+
+	if (layout === "icons") {
+		return (
+			<ShareIconRow
+				url={url}
+				tweetText={tweetText}
+				shareTitle={shareTitle}
+				onShared={(method) =>
+					track("ballot_link_shared", { ballotId, method, surface })
+				}
+			/>
+		)
+	}
 
 	return (
 		<VStack gap="3" alignItems="stretch">

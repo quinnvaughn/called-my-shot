@@ -40,7 +40,8 @@ import {
 	gqlInfiniteQueryOptions,
 	gqlQueryOptions,
 } from "#/graphql/query-options"
-import { viewerGamePicksSummary } from "#/lib/game-entry"
+import { formatRecord, formatSignedPoints } from "#/lib/ballot-entry"
+import { gameEntryPath, viewerGamePicksSummary } from "#/lib/game-entry"
 import { pageMeta } from "#/lib/meta"
 import {
 	findGameWinnerQuestion,
@@ -300,16 +301,36 @@ function RouteComponent() {
 			{tab === "official" ? (
 				<VStack gap="6" alignItems="stretch">
 					{me && picks.calledCount > 0 && (
-						<VStack gap="3" alignItems="stretch">
-							<span className={sectionLabelClass}>Share your picks</span>
+						<HStack justify="space-between" gap="3">
+							<Link
+								to={gameEntryPath(game.id, me.username)}
+								className={css({
+									fontFamily: "mono",
+									fontSize: "2xs",
+									letterSpacing: "wide",
+									textTransform: "uppercase",
+									color: "primary.default",
+									textDecoration: "none",
+									_hover: { opacity: 0.8 },
+								})}
+							>
+								{/* Says what the linked page holds, and so what the icons
+								    beside it share: the count until a question settles,
+								    the record after, same as buildGameTweet. */}
+								{picks.wins + picks.losses === 0
+									? `${picks.calledCount} of ${picks.questionCount} called`
+									: `${formatRecord(picks.wins, picks.losses)} · ${formatSignedPoints(picks.points)} pts`}{" "}
+								· See your picks →
+							</Link>
 							<GameShareRow
 								gameId={game.id}
 								username={me.username}
 								shareTitle={`@${me.username}'s ${matchup} picks`}
 								surface="game_page"
+								layout="icons"
 								tweetText={buildGameTweet({ matchup, ...picks, isOwn: true })}
 							/>
-						</VStack>
+						</HStack>
 					)}
 					<OfficialQuestions
 						game={game}

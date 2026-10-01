@@ -1,6 +1,7 @@
 import { VStack } from "styled-system/jsx"
 import { CopyLinkRow } from "#/components/ui/copy-link-row"
 import { PostOnXLink } from "#/components/ui/post-on-x-link"
+import { ShareIconRow } from "#/components/ui/share-icon-row"
 import { track } from "#/lib/analytics"
 import { formatRecord, formatSignedPoints } from "#/lib/ballot-entry"
 import { gameEntryPath } from "#/lib/game-entry"
@@ -15,6 +16,10 @@ type Props = {
 	tweetText: string
 	shareTitle: string
 	surface: GameShareSurface
+	// "full" is the modal's: the link in a field, Copy, and a Post on X
+	// button. "icons" is one row of icon buttons, for beside a card's or a
+	// row's other content.
+	layout?: "full" | "icons"
 }
 
 // Same split as buildBallotTweet: first person only on your own picks, since
@@ -46,9 +51,23 @@ export function GameShareRow({
 	tweetText,
 	shareTitle,
 	surface,
+	layout = "full",
 }: Props) {
 	const path = gameEntryPath(gameId, username)
 	const url = `${SITE_ORIGIN}${path}`
+
+	if (layout === "icons") {
+		return (
+			<ShareIconRow
+				url={url}
+				tweetText={tweetText}
+				shareTitle={shareTitle}
+				onShared={(method) =>
+					track("game_picks_shared", { gameId, method, surface })
+				}
+			/>
+		)
+	}
 
 	return (
 		<VStack gap="3" alignItems="stretch">

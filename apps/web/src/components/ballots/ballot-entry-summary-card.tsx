@@ -1,3 +1,4 @@
+import type { ReactNode } from "react"
 import { css } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
 import { StatTile } from "#/components/ballots/ballot-progress-card"
@@ -15,6 +16,10 @@ type Props = {
 	// Game entries only: set once a final game was called all right or all
 	// wrong. A ballot never carries one.
 	verdict?: GameEntryVerdict | null
+	// The entry's share row and the link back to what it's an entry in. The
+	// entry page is the thing its link points at, so the share sits on the
+	// card that summarises it.
+	footer?: ReactNode
 }
 
 // The entry page's counterpart to BallotProgressCard. That card's other
@@ -28,8 +33,10 @@ export function BallotEntrySummaryCard({
 	losses,
 	points,
 	verdict,
+	footer,
 }: Props) {
-	const pct = memberCount === 0 ? 0 : Math.round((calledCount / memberCount) * 100)
+	const pct =
+		memberCount === 0 ? 0 : Math.round((calledCount / memberCount) * 100)
 	const isComplete = calledCount === memberCount && memberCount > 0
 	const hasSettled = wins + losses > 0
 
@@ -91,6 +98,13 @@ export function BallotEntrySummaryCard({
 					)}
 				</VStack>
 			</Card.Body>
+			{footer && (
+				<Card.Footer>
+					<HStack justify="space-between" gap="3" width="full">
+						{footer}
+					</HStack>
+				</Card.Footer>
+			)}
 		</Card>
 	)
 }

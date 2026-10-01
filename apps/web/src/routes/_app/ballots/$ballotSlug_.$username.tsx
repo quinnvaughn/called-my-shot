@@ -150,7 +150,10 @@ function RouteComponent() {
 
 			<VStack gap="2" alignItems="flex-start">
 				<Tag>{ballot.league.abbreviation}</Tag>
-				<PageHeader title={ballot.name} subtitle={`${entry.user.name}'s picks`} />
+				<PageHeader
+					title={ballot.name}
+					subtitle={`${entry.user.name}'s picks`}
+				/>
 			</VStack>
 
 			<BallotEntrySummaryCard
@@ -159,27 +162,45 @@ function RouteComponent() {
 				wins={entry.wins}
 				losses={entry.losses}
 				points={entry.points}
+				footer={
+					<>
+						<Link
+							to="/ballots/$ballotSlug"
+							params={{ ballotSlug: ballot.slug }}
+							className={css({
+								fontFamily: "mono",
+								fontSize: "2xs",
+								letterSpacing: "wide",
+								textTransform: "uppercase",
+								color: "primary.default",
+								textDecoration: "none",
+								_hover: { opacity: 0.8 },
+							})}
+						>
+							{isOwn ? "Back to the ballot →" : "Fill out your own ballot →"}
+						</Link>
+						<BallotShareRow
+							ballotId={ballot.id}
+							ballotSlug={ballot.slug}
+							username={entry.user.username}
+							shareTitle={`@${entry.user.username}'s ${ballot.name} ballot`}
+							surface="entry_page"
+							layout="icons"
+							tweetText={buildBallotTweet({
+								ballotName: ballot.name,
+								calledCount: entry.calledCount,
+								memberCount: ballot.memberCount,
+								wins: entry.wins,
+								losses: entry.losses,
+								points: entry.points,
+								...(isOwn
+									? ({ isOwn: true } as const)
+									: ({ isOwn: false, username: entry.user.username } as const)),
+							})}
+						/>
+					</>
+				}
 			/>
-
-			<BallotShareRow
-				ballotId={ballot.id}
-				ballotSlug={ballot.slug}
-				username={entry.user.username}
-				shareTitle={`@${entry.user.username}'s ${ballot.name} ballot`}
-				surface="entry_page"
-				tweetText={buildBallotTweet({
-					ballotName: ballot.name,
-					calledCount: entry.calledCount,
-					memberCount: ballot.memberCount,
-					wins: entry.wins,
-					losses: entry.losses,
-					points: entry.points,
-					...(isOwn
-						? ({ isOwn: true } as const)
-						: ({ isOwn: false, username: entry.user.username } as const)),
-				})}
-			/>
-
 			<VStack gap="3" alignItems="stretch">
 				<span
 					className={css({
@@ -204,7 +225,10 @@ function RouteComponent() {
 							</Fragment>
 						))}
 						{notCalledYet.length > 0 && (
-							<BallotUncalledLine heading="Not called yet" labels={notCalledYet} />
+							<BallotUncalledLine
+								heading="Not called yet"
+								labels={notCalledYet}
+							/>
 						)}
 						{missed.length > 0 && (
 							<BallotUncalledLine heading="Missed" labels={missed} />
@@ -212,22 +236,6 @@ function RouteComponent() {
 					</VStack>
 				</Card>
 			</VStack>
-
-			<Link
-				to="/ballots/$ballotSlug"
-				params={{ ballotSlug: ballot.slug }}
-				className={css({
-					fontFamily: "mono",
-					fontSize: "2xs",
-					letterSpacing: "wide",
-					textTransform: "uppercase",
-					color: "primary.default",
-					textDecoration: "none",
-					_hover: { opacity: 0.8 },
-				})}
-			>
-				{isOwn ? "Back to the ballot →" : "Fill out your own ballot →"}
-			</Link>
 		</VStack>
 	)
 }

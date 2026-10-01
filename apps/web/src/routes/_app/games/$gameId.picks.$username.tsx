@@ -167,26 +167,44 @@ function RouteComponent() {
 				losses={entry.losses}
 				points={entry.points}
 				verdict={entry.verdict}
+				footer={
+					<>
+						<Link
+							to="/games/$gameId/{-$slug}"
+							params={gameParams}
+							className={css({
+								fontFamily: "mono",
+								fontSize: "2xs",
+								letterSpacing: "wide",
+								textTransform: "uppercase",
+								color: "primary.default",
+								textDecoration: "none",
+								_hover: { opacity: 0.8 },
+							})}
+						>
+							{isOwn ? "Back to the game →" : "Make your own calls →"}
+						</Link>
+						<GameShareRow
+							gameId={game.id}
+							username={entry.user.username}
+							shareTitle={`@${entry.user.username}'s ${matchup} picks`}
+							surface="entry_page"
+							layout="icons"
+							tweetText={buildGameTweet({
+								matchup,
+								calledCount: entry.calledCount,
+								questionCount: entry.members.length,
+								wins: entry.wins,
+								losses: entry.losses,
+								points: entry.points,
+								...(isOwn
+									? ({ isOwn: true } as const)
+									: ({ isOwn: false, username: entry.user.username } as const)),
+							})}
+						/>
+					</>
+				}
 			/>
-
-			<GameShareRow
-				gameId={game.id}
-				username={entry.user.username}
-				shareTitle={`@${entry.user.username}'s ${matchup} picks`}
-				surface="entry_page"
-				tweetText={buildGameTweet({
-					matchup,
-					calledCount: entry.calledCount,
-					questionCount: entry.members.length,
-					wins: entry.wins,
-					losses: entry.losses,
-					points: entry.points,
-					...(isOwn
-						? ({ isOwn: true } as const)
-						: ({ isOwn: false, username: entry.user.username } as const)),
-				})}
-			/>
-
 			<VStack gap="3" alignItems="stretch">
 				<span
 					className={css({
@@ -229,22 +247,6 @@ function RouteComponent() {
 					</VStack>
 				</Card>
 			</VStack>
-
-			<Link
-				to="/games/$gameId/{-$slug}"
-				params={gameParams}
-				className={css({
-					fontFamily: "mono",
-					fontSize: "2xs",
-					letterSpacing: "wide",
-					textTransform: "uppercase",
-					color: "primary.default",
-					textDecoration: "none",
-					_hover: { opacity: 0.8 },
-				})}
-			>
-				{isOwn ? "Back to the game →" : "Make your own calls →"}
-			</Link>
 		</VStack>
 	)
 }
