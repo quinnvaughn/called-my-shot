@@ -1,9 +1,7 @@
 import { keepPreviousData, useQuery } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
-import { useState } from "react"
 import { VStack } from "styled-system/jsx"
 import {
-	EMPTY_FILTERS,
 	hasActiveFilters,
 	QuestionFilterBar,
 	type QuestionFilterValue,
@@ -13,7 +11,6 @@ import { MyCallsTab } from "#/components/my-calls/my-calls-tab"
 import { SortSwitcher } from "#/components/questions/sort-switcher"
 import { PageHeader } from "#/components/ui/page-header"
 import { Tabs } from "#/components/ui/tabs"
-import type { CallSortOrder, SortDirection } from "#/graphql/generated/graphql"
 import {
 	type MyCallsFilters,
 	myCallCountsQuery,
@@ -23,12 +20,22 @@ import {
 } from "#/graphql/queries/my-calls"
 import { seedInfiniteQuery } from "#/graphql/query-options"
 import { useDebouncedValue } from "#/hooks/use-debounced-value"
+import {
+	filtersFromSearch,
+	filtersToSearch,
+	myCallsDirection,
+	myCallsSort,
+	myCallsTab,
+	type MyCallsTab as TabValue,
+	validateMyCallsSearch,
+} from "#/lib/my-calls-search"
 import { DEFAULT_MY_LIST_DIRECTION, MY_CALL_SORTS } from "#/lib/my-list-sorts"
-
-type TabValue = "open" | "resolved"
 
 export const Route = createFileRoute("/_app/_authed/my-calls")({
 	component: RouteComponent,
+	// Tab, filters and sort all live in the URL (see lib/my-calls-search.ts),
+	// so coming back to this page from a call lands on the list as it was left.
+	validateSearch: validateMyCallsSearch,
 	// Both tabs' first pages and the counts arrive as fields of one query (see
 	// MyCallsPageDocument), so they're handed straight to the caches the page
 	// reads from rather than costing a request each.
@@ -72,12 +79,23 @@ export const Route = createFileRoute("/_app/_authed/my-calls")({
 
 function RouteComponent() {
 	const { leagues } = Route.useRouteContext()
-	const [activeTab, setActiveTab] = useState<TabValue>("open")
-	const [filters, setFilters] = useState<QuestionFilterValue>(EMPTY_FILTERS)
-	const [sort, setSort] = useState<CallSortOrder>(MY_CALL_SORTS.open.default)
-	const [direction, setDirection] = useState<SortDirection>(
-		DEFAULT_MY_LIST_DIRECTION,
-	)
+	const search = Route.useSearch()
+	const navigate = Route.useNavigate()
+	const activeTab = myCallsTab(search)
+	const filters = filtersFromSearch(search, leagues)
+	const sort = myCallsSort(search)
+	const direction = myCallsDirection(search)
+
+	// replace rather than push: a filter change isn't a page of its own, so
+	// Back from here still leaves My Calls instead of stepping through every
+	// filter that was tried.
+	function updateSearch(next: Partial<typeof search>) {
+		navigate({ search: (prev) => ({ ...prev, ...next }), replace: true })
+	}
+
+	function setFilters(next: QuestionFilterValue) {
+		updateSearch(filtersToSearch(next, leagues))
+	}
 
 	const debouncedSearch = useDebouncedValue(filters.search.trim(), 300)
 	const queryFilters = toQueryFilters(filters, debouncedSearch, activeTab)
@@ -87,10 +105,14 @@ function RouteComponent() {
 		placeholderData: keepPreviousData,
 	})
 
+	// Each tab opens on its own default sort, so the sort params are dropped
+	// rather than carried across.
 	function selectTab(next: TabValue) {
-		setActiveTab(next)
-		setSort(MY_CALL_SORTS[next].default)
-		setDirection(DEFAULT_MY_LIST_DIRECTION)
+		updateSearch({
+			tab: next === "resolved" ? "resolved" : undefined,
+			sort: undefined,
+			dir: undefined,
+		})
 	}
 
 	return (
@@ -126,9 +148,17 @@ function RouteComponent() {
 			<SortSwitcher
 				sorts={MY_CALL_SORTS[activeTab].options}
 				active={sort}
-				onChange={setSort}
+				onChange={(next) =>
+					updateSearch({
+						sort: next === MY_CALL_SORTS[activeTab].default ? undefined : next,
+					})
+				}
 				direction={direction}
-				onDirectionChange={setDirection}
+				onDirectionChange={(next) =>
+					updateSearch({
+						dir: next === DEFAULT_MY_LIST_DIRECTION ? undefined : "asc",
+					})
+				}
 			/>
 
 			<MyCallsTab
