@@ -2,13 +2,15 @@ import {
 	STREAK_FAMILY_LABEL,
 	STREAK_MILESTONE_STEP,
 } from "@called-my-shot/scoring"
-import { inArray } from "drizzle-orm"
+import { and, eq, inArray, like, sum } from "drizzle-orm"
 import { db } from "../../../db"
 import {
 	callSelections,
+	pointAwards,
 	type UserStreak,
 	type UserSweep,
 } from "../../../db/schema"
+import { pointAwardScope } from "../../../lib/point-awards"
 import {
 	loadColdRunCalls,
 	loadRunCalls,
@@ -29,6 +31,30 @@ async function leagueOf(
 	const league = await findLeague(ctx, { id: row.leagueId })
 	if (!league) throw new Error(`league ${row.leagueId} not found`)
 	return league
+}
+
+// The milestone bonuses one run has paid so far - every STREAK_BONUS_STEP
+// wins, see streakAwards in lib/streaks/compute.ts. Each award's sourceKey
+// leads with its run's first call, which is the run's start here too.
+async function runBonus(
+	streak: UserStreak,
+	startCallId: string | null,
+): Promise<number> {
+	if (!startCallId) return 0
+	const [row] = await db
+		.select({ points: sum(pointAwards.points).mapWith(Number) })
+		.from(pointAwards)
+		.where(
+			and(
+				eq(pointAwards.kind, "streak_milestone"),
+				eq(
+					pointAwards.scopeKey,
+					pointAwardScope.streak(streak.userId, streak.leagueId, streak.family),
+				),
+				like(pointAwards.sourceKey, `${startCallId}:%`),
+			),
+		)
+	return row?.points ?? 0
 }
 
 // One league-and-family track for one user - see user_streaks in
@@ -96,6 +122,16 @@ export const UserStreakRef = builder
 				type: [CallRef],
 				resolve: (s) => loadRunCalls(s, s.bestStartCallId, s.bestEndCallId),
 			}),
+			// Streak bonus points each run has earned, on top of its calls' own.
+			// Zero for a run that hasn't reached its first milestone. A broken
+			// run keeps what it paid.
+			currentRunBonus: t.int({
+				resolve: (s) =>
+					s.currentLength > 0 ? runBonus(s, s.currentStartCallId) : 0,
+			}),
+			bestRunBonus: t.int({
+				resolve: (s) => runBonus(s, s.bestStartCallId),
+			}),
 			// Whether the worst cold run is the one still going.
 			worstColdIsCurrent: t.field({
 				type: "Boolean",
@@ -156,6 +192,21 @@ export const UserSweepRef = builder
 				resolve: (s) => s.settledAt,
 			}),
 			calls: t.field({ type: [CallRef], resolve: loadSweepCalls }),
+			// The sweep's own award, on top of its calls' points - see
+			// sweepAwardPoints in lib/streaks/compute.ts.
+			bonus: t.int({
+				resolve: async (s) => {
+					const award = await db.query.pointAwards.findFirst({
+						where: {
+							kind: "sweep",
+							scopeKey: pointAwardScope.slate(s.leagueId, s.slateKey),
+							sourceKey: s.userId,
+						},
+						columns: { points: true },
+					})
+					return award?.points ?? 0
+				},
+			}),
 			// Sum of the swept calls' points, once every one of them is final.
 			points: t.field({
 				type: "Int",

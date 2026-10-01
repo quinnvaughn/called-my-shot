@@ -1,14 +1,19 @@
 import { questionTitleWithGame } from "@called-my-shot/schemas"
+import { Link } from "@tanstack/react-router"
+import type { ReactNode } from "react"
 import { css } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
+import {
+	RecordTag,
+	type RecordTone,
+} from "#/components/questions/call-record-card"
 import { Avatar } from "#/components/ui/avatar"
-import { Brand } from "#/components/ui/brand"
 import { Card } from "#/components/ui/card"
 import { Eyebrow } from "#/components/ui/eyebrow"
 import { type FragmentType, graphql, useFragment } from "#/graphql/generated"
 import { pickSummary } from "#/lib/call-summary"
-import { pluralize } from "#/lib/pluralize"
 import { coldStreakText } from "#/lib/streak-meta"
+import { PointsTotal } from "./points-total"
 import { RecordStatRow } from "./record-stat-row"
 
 export const StreakRecordCardLastHitFragment = graphql(`
@@ -75,11 +80,22 @@ type Props = {
 	// That run's most recent call: its last win on a hot card, its last miss
 	// on a cold one.
 	lastCall: FragmentType<typeof StreakRecordCardLastHitFragment> | null
+	// What the run's calls scored between them: won on a hot run, lost on a
+	// cold one.
+	runPoints: number
+	// Hot runs only: the milestone bonuses the run has paid on top of its
+	// calls' own points. Null on a cold run, which pays none.
+	runBonus: number | null
+	// A live hot run only: the length its next bonus pays at.
+	nextMilestone: number | null
+	// Where to go from here and the ways of sending the streak on, owned by
+	// the page, which knows the viewer.
+	footer: ReactNode
 }
 
-// The centrepiece of a streak page, stating the same facts as its og:image
-// (apps/api's share-cards/streak-card.ts): the hero run, the record, when the
-// run began and the call that last extended it.
+// The centrepiece of a streak page, laid out like CallRecordCard: whose run
+// it is and how it stands across the top, the run at the pick's scale, then
+// its points, then the record behind it.
 export function StreakRecordCard(props: Props) {
 	const lastCall = useFragment(StreakRecordCardLastHitFragment, props.lastCall)
 	const cold = props.mode === "cold"
@@ -88,53 +104,67 @@ export function StreakRecordCard(props: Props) {
 		? props.currentColdLength || props.worstColdLength
 		: props.currentLength || props.bestLength
 	const track = `${props.leagueAbbr} ${props.familyLabel}`
+	// Active means the next settled call on the track extends this run or
+	// ends it. Ended is a record run, shown because nothing is live.
+	const tag: { tone: RecordTone; label: string } = going
+		? cold
+			? { tone: "danger", label: "Active" }
+			: { tone: "success", label: "Active" }
+		: { tone: "pending", label: "Ended" }
 
 	return (
 		<Card size="md">
 			<Card.Header>
-				<VStack gap="4" alignItems="center" width="full">
-					<Brand size="sm" />
-					<VStack gap="1.5" alignItems="center">
+				<VStack gap="4" alignItems="stretch" width="full">
+					<HStack justify="space-between" gap="3" alignItems="center">
+						<Link
+							to="/user/$username"
+							params={{ username: props.username }}
+							className={css({
+								display: "inline-flex",
+								alignItems: "center",
+								gap: "2",
+								minWidth: "0",
+								textDecoration: "none",
+								color: "fg.default",
+								_hover: { "& span": { textDecoration: "underline" } },
+							})}
+						>
+							<Avatar size="xs" name={props.name} src={props.avatarUrl} />
+							<span
+								className={css({
+									fontFamily: "mono",
+									fontSize: "xs",
+									overflow: "hidden",
+									textOverflow: "ellipsis",
+									whiteSpace: "nowrap",
+								})}
+							>
+								@{props.username}
+							</span>
+						</Link>
+						<RecordTag tone={tag.tone}>{tag.label}</RecordTag>
+					</HStack>
+					<VStack gap="3" alignItems="flex-start">
 						<Eyebrow size="sm" variant="neutral">
-							{props.leagueAbbr} · {props.familyLabel}{" "}
-							{cold ? "cold streak" : "streak"}
+							{track} {cold ? "cold streak" : going ? "streak" : "best run"}
 						</Eyebrow>
 						<span
 							className={css({
 								fontFamily: "heading",
-								fontSize: { base: "4xl", sm: "6xl" },
-								lineHeight: "1",
-								textAlign: "center",
+								fontSize: { base: "2xl", sm: "3xl" },
+								lineHeight: "1.15",
 							})}
 						>
 							{cold ? coldStreakText(runLength) : `${runLength} in a row`}
 						</span>
-						<span
-							className={css({
-								fontSize: "xs",
-								color: "fg.subtle",
-								textAlign: "center",
-							})}
-						>
-							{cold
-								? `${track} ${pluralize(runLength, "call")} wrong`
-								: going
-									? `${track} ${pluralize(runLength, "call")} right`
-									: `Best run on ${track}`}
-						</span>
+						<PointsTotal
+							callPoints={props.runPoints}
+							bonus={props.runBonus ?? 0}
+							bonusLabel="streak bonus"
+							label="Run points"
+						/>
 					</VStack>
-					<HStack gap="2" alignItems="center">
-						<Avatar size="xs" name={props.name} src={props.avatarUrl} />
-						<span
-							className={css({
-								fontFamily: "mono",
-								fontSize: "xs",
-								color: "fg.muted",
-							})}
-						>
-							@{props.username}
-						</span>
-					</HStack>
 				</VStack>
 			</Card.Header>
 			<Card.Body>
@@ -147,6 +177,12 @@ export function StreakRecordCard(props: Props) {
 						label={cold ? "Worst" : "Best"}
 						value={String(cold ? props.worstColdLength : props.bestLength)}
 					/>
+					{props.nextMilestone !== null && (
+						<RecordStatRow
+							label="Next bonus"
+							value={`At ${props.nextMilestone} in a row`}
+						/>
+					)}
 					<RecordStatRow
 						label={cold ? "Started" : "Run started"}
 						value={props.runStartedAt ?? "-"}
@@ -177,16 +213,7 @@ export function StreakRecordCard(props: Props) {
 					/>
 				</VStack>
 			</Card.Body>
-			<Card.Footer>
-				<HStack
-					justify="space-between"
-					alignItems="center"
-					className={css({ color: "fg.muted", fontSize: "2xs" })}
-				>
-					<span>calledmyshot.com/{props.username}</span>
-					<span>{track}</span>
-				</HStack>
-			</Card.Footer>
+			<Card.Footer>{props.footer}</Card.Footer>
 		</Card>
 	)
 }

@@ -26,6 +26,8 @@ export const UserStreakPageDocument = graphql(`
 				worstColdLength
 				worstColdIsCurrent
 				coldStartedAt
+				currentRunBonus
+				bestRunBonus
 				league {
 					id
 					abbreviation
@@ -34,24 +36,28 @@ export const UserStreakPageDocument = graphql(`
 				currentRunCalls {
 					id
 					createdAt
+					totalPoints
 					...CallCard_call
 					...StreakRecordCard_lastHit
 				}
 				bestRunCalls {
 					id
 					createdAt
+					totalPoints
 					...CallCard_call
 					...StreakRecordCard_lastHit
 				}
 				coldRunCalls {
 					id
 					createdAt
+					totalPoints
 					...CallCard_call
 					...StreakRecordCard_lastHit
 				}
 				worstColdRunCalls {
 					id
 					createdAt
+					totalPoints
 					...CallCard_call
 					...StreakRecordCard_lastHit
 				}
@@ -84,6 +90,7 @@ export const UserSweepPageDocument = graphql(`
 				slateLabel
 				gameCount
 				points
+				bonus
 				league {
 					id
 					abbreviation

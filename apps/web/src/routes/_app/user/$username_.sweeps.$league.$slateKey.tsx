@@ -2,7 +2,7 @@ import { useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute, Link, useRouteContext } from "@tanstack/react-router"
 import { FaRegTimesCircle } from "react-icons/fa"
 import { css } from "styled-system/css"
-import { VStack } from "styled-system/jsx"
+import { HStack, VStack } from "styled-system/jsx"
 import { CallCard } from "#/components/questions/call-card"
 import { SweepRecordCard } from "#/components/streaks/sweep-record-card"
 import { SweepShareRow } from "#/components/streaks/sweep-share-row"
@@ -119,7 +119,7 @@ function RouteComponent() {
 	const isOwn = me?.id === user.id
 
 	return (
-		<VStack gap="6" alignItems="stretch" className={css({ maxWidth: "2xl" })}>
+		<VStack gap="6" alignItems="stretch">
 			<Breadcrumb>
 				<Breadcrumb.Link
 					to="/user/$username"
@@ -133,31 +133,48 @@ function RouteComponent() {
 			<PageHeader title={`${view.track} sweep`} subtitle={user.name} />
 
 			<SweepRecordCard
-				leagueAbbr={sweep.league.abbreviation.toUpperCase()}
-				slateLabel={sweep.slateLabel}
 				name={user.name}
 				username={user.username}
 				avatarUrl={user.avatarUrl}
 				gameCount={sweep.gameCount}
 				points={sweep.points}
+				bonus={sweep.bonus}
 				dates={view.dates.text}
-				multiDay={view.dates.multiDay}
 				calls={sweep.calls}
-			/>
-
-			<SweepShareRow
-				userId={user.id}
-				username={user.username}
-				leagueSlug={sweep.league.slug}
-				slateKey={sweep.slateKey}
-				shareTitle={`@${user.username}'s ${view.track} sweep`}
-				tweetText={buildSweepTweet({
-					track: view.track,
-					gameCount: sweep.gameCount,
-					...(isOwn
-						? ({ isOwn: true } as const)
-						: ({ isOwn: false, username: user.username } as const)),
-				})}
+				footer={
+					<HStack justify="space-between" gap="3" width="full">
+						<Link
+							to="/user/$username"
+							params={{ username: user.username }}
+							className={css({
+								fontFamily: "mono",
+								fontSize: "2xs",
+								letterSpacing: "wide",
+								textTransform: "uppercase",
+								color: "primary.default",
+								textDecoration: "none",
+								_hover: { opacity: 0.8 },
+							})}
+						>
+							{isOwn ? "Your profile →" : `@${user.username}'s profile →`}
+						</Link>
+						<SweepShareRow
+							layout="icons"
+							userId={user.id}
+							username={user.username}
+							leagueSlug={sweep.league.slug}
+							slateKey={sweep.slateKey}
+							shareTitle={`@${user.username}'s ${view.track} sweep`}
+							tweetText={buildSweepTweet({
+								track: view.track,
+								gameCount: sweep.gameCount,
+								...(isOwn
+									? ({ isOwn: true } as const)
+									: ({ isOwn: false, username: user.username } as const)),
+							})}
+						/>
+					</HStack>
+				}
 			/>
 
 			<VStack gap="3" alignItems="stretch">
@@ -178,22 +195,6 @@ function RouteComponent() {
 					))}
 				</VStack>
 			</VStack>
-
-			<Link
-				to="/user/$username"
-				params={{ username: user.username }}
-				className={css({
-					fontFamily: "mono",
-					fontSize: "2xs",
-					letterSpacing: "wide",
-					textTransform: "uppercase",
-					color: "primary.default",
-					textDecoration: "none",
-					_hover: { opacity: 0.8 },
-				})}
-			>
-				{isOwn ? "Back to your profile →" : `See @${user.username}'s profile →`}
-			</Link>
 		</VStack>
 	)
 }

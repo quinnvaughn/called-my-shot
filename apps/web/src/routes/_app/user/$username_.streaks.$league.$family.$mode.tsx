@@ -8,7 +8,7 @@ import { useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute, Link, useRouteContext } from "@tanstack/react-router"
 import { FaRegTimesCircle } from "react-icons/fa"
 import { css } from "styled-system/css"
-import { VStack } from "styled-system/jsx"
+import { HStack, VStack } from "styled-system/jsx"
 import { CallCard } from "#/components/questions/call-card"
 import { StreakRecordCard } from "#/components/streaks/streak-record-card"
 import { StreakShareRow } from "#/components/streaks/streak-share-row"
@@ -137,8 +137,18 @@ function describeStreak(streak: Streak, requested: StreakMode | null) {
 				? streak.currentRunCalls
 				: streak.bestRunCalls
 	const first = run[0]
+	const live =
+		mode === "cold" ? streak.currentColdLength > 0 : streak.currentLength > 0
 	return {
 		mode,
+		runPoints: run.reduce((sum, call) => sum + (call.totalPoints ?? 0), 0),
+		runBonus:
+			mode === "cold"
+				? null
+				: live
+					? streak.currentRunBonus
+					: streak.bestRunBonus,
+		nextMilestone: mode === "hot" && live ? streak.nextMilestone : null,
 		track: `${streak.league.abbreviation.toUpperCase()} ${streak.familyLabel}`,
 		runStartedAt: first ? formatCallDate(first.createdAt) : null,
 		lastCall: run[run.length - 1] ?? null,
@@ -273,6 +283,56 @@ function StreakPage({
 				worstColdLength={streak.worstColdLength}
 				runStartedAt={view.runStartedAt}
 				lastCall={view.lastCall}
+				runPoints={view.runPoints}
+				runBonus={view.runBonus}
+				nextMilestone={view.nextMilestone}
+				footer={
+					<HStack justify="space-between" gap="3" width="full">
+						<Link
+							to="/user/$username"
+							params={{ username: user.username }}
+							className={css({
+								fontFamily: "mono",
+								fontSize: "2xs",
+								letterSpacing: "wide",
+								textTransform: "uppercase",
+								color: "primary.default",
+								textDecoration: "none",
+								_hover: { opacity: 0.8 },
+							})}
+						>
+							{isOwn ? "Your profile →" : `@${user.username}'s profile →`}
+						</Link>
+						<StreakShareRow
+							layout="icons"
+							userId={user.id}
+							username={user.username}
+							leagueSlug={streak.league.slug}
+							family={streak.family}
+							mode={view.mode}
+							shareTitle={`@${user.username}'s ${view.track} ${cold ? "cold streak" : "streak"}`}
+							tweetText={
+								cold
+									? buildColdStreakTweet({
+											track: view.track,
+											currentColdLength: streak.currentColdLength,
+											worstColdLength: streak.worstColdLength,
+											...(isOwn
+												? ({ isOwn: true } as const)
+												: ({ isOwn: false, username: user.username } as const)),
+										})
+									: buildStreakTweet({
+											track: view.track,
+											currentLength: streak.currentLength,
+											bestLength: streak.bestLength,
+											...(isOwn
+												? ({ isOwn: true } as const)
+												: ({ isOwn: false, username: user.username } as const)),
+										})
+							}
+						/>
+					</HStack>
+				}
 			/>
 
 			{nudge && (
@@ -288,34 +348,6 @@ function StreakPage({
 					{nudge}
 				</span>
 			)}
-
-			<StreakShareRow
-				userId={user.id}
-				username={user.username}
-				leagueSlug={streak.league.slug}
-				family={streak.family}
-				mode={view.mode}
-				shareTitle={`@${user.username}'s ${view.track} ${cold ? "cold streak" : "streak"}`}
-				tweetText={
-					cold
-						? buildColdStreakTweet({
-								track: view.track,
-								currentColdLength: streak.currentColdLength,
-								worstColdLength: streak.worstColdLength,
-								...(isOwn
-									? ({ isOwn: true } as const)
-									: ({ isOwn: false, username: user.username } as const)),
-							})
-						: buildStreakTweet({
-								track: view.track,
-								currentLength: streak.currentLength,
-								bestLength: streak.bestLength,
-								...(isOwn
-									? ({ isOwn: true } as const)
-									: ({ isOwn: false, username: user.username } as const)),
-							})
-				}
-			/>
 
 			{cold ? (
 				<>
@@ -338,22 +370,6 @@ function StreakPage({
 					)}
 				</>
 			)}
-
-			<Link
-				to="/user/$username"
-				params={{ username: user.username }}
-				className={css({
-					fontFamily: "mono",
-					fontSize: "2xs",
-					letterSpacing: "wide",
-					textTransform: "uppercase",
-					color: "primary.default",
-					textDecoration: "none",
-					_hover: { opacity: 0.8 },
-				})}
-			>
-				{isOwn ? "Back to your profile →" : `See @${user.username}'s profile →`}
-			</Link>
 		</VStack>
 	)
 }

@@ -2,6 +2,7 @@ import type { StreakMode } from "@called-my-shot/scoring"
 import { VStack } from "styled-system/jsx"
 import { CopyLinkRow } from "#/components/ui/copy-link-row"
 import { PostOnXLink } from "#/components/ui/post-on-x-link"
+import { ShareIconRow } from "#/components/ui/share-icon-row"
 import { track } from "#/lib/analytics"
 import { SITE_HOST, SITE_ORIGIN } from "#/lib/meta"
 import {
@@ -23,6 +24,8 @@ type Props = {
 	// knows whose page this is.
 	tweetText: string
 	shareTitle: string
+	// "icons" for a card footer, where sharing is one thing among several.
+	layout?: "full" | "icons"
 }
 
 export function StreakShareRow({
@@ -33,6 +36,7 @@ export function StreakShareRow({
 	mode,
 	tweetText,
 	shareTitle,
+	layout = "full",
 }: Props) {
 	const path = streakPath(username, leagueSlug, family, mode)
 	const url = `${SITE_ORIGIN}${path}`
@@ -40,6 +44,17 @@ export function StreakShareRow({
 		userId,
 		league: leagueSlug,
 		family: streakFamilyParam(family),
+	}
+
+	if (layout === "icons") {
+		return (
+			<ShareIconRow
+				url={url}
+				tweetText={tweetText}
+				shareTitle={shareTitle}
+				onShared={(method) => track("streak_link_shared", { ...props, method })}
+			/>
+		)
 	}
 
 	return (
