@@ -81,7 +81,10 @@ export function GameDayPicker({
 				type="button"
 				aria-haspopup="dialog"
 				aria-expanded={open}
-				className={triggerSlots.trigger}
+				className={cx(
+					triggerSlots.trigger,
+					open && css({ border: "1px solid {colors.secondary.default}" }),
+				)}
 				onClick={() => (open ? popover.close() : openPicker())}
 			>
 				<span
@@ -174,6 +177,15 @@ export function GameDayPicker({
 													aspectRatio: "auto",
 													height: "12",
 												}),
+												// Jumping between days is navigation, not a CTA, so it
+												// takes the secondary accent over the recipe's primary.
+												isToday && css({ color: "secondary.default" }),
+												isSelected &&
+													css({
+														backgroundColor: "secondary.default",
+														color: "secondary.contrast",
+														_hover: { backgroundColor: "secondary.default" },
+													}),
 											)}
 											onClick={() => pick(key)}
 										>
