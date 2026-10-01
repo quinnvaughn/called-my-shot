@@ -1,7 +1,16 @@
-import { STREAK_FAMILY_LABEL } from "@called-my-shot/scoring"
-import { and, count, eq, lte, sql } from "drizzle-orm"
-import { db } from "../../../db"
-import { type Call, calls } from "../../../db/schema"
+import {
+	BASE_POINTS_BY_SHAPE,
+	earlyTierFor,
+	effectiveLossRate,
+	fieldPct,
+	isNumericGuessShape,
+	isSeasonLongShape,
+	previewNumericPoints,
+	previewSelectionPoints,
+	STREAK_FAMILY_LABEL,
+	seasonEarlyTierFor,
+} from "@called-my-shot/scoring"
+import type { Call } from "../../../db/schema"
 import { builder } from "../../builder"
 import type { Context } from "../../context"
 import { type Connection, PageInfoRef } from "../pagination"
@@ -10,12 +19,17 @@ import { CallUnscoredReason } from "./enums"
 import {
 	type CallStreakMark,
 	callerLeagueAccuracyLoader,
+	callRankLoader,
 	callRedoLoader,
 	callRedoSelectionsLoader,
 	callSelectionsLoader,
 	callStreakLoader,
 	loadQuestionFacts,
 	loadSeasonWindow,
+	optionSelectionCountLoader,
+	questionCallCountLoader,
+	questionOptionCountLoader,
+	questionOptionLoader,
 } from "./loaders"
 
 // How far into a streak a call was when it landed - see Call.streak.
@@ -49,6 +63,70 @@ async function callSeasonWindow(ctx: Context, call: Call) {
 	const question = await loadQuestionFacts(ctx, call.questionId)
 	if (!question) return null
 	return loadSeasonWindow(ctx, question, call.createdAt)
+}
+
+type CallPayout = { winLow: number; winHigh: number; lose: number }
+
+// winLow and winHigh match on an option pick. A numeric guess's win depends
+// on how close the rest of the field lands, so it's a range until it settles.
+const CallPayoutRef = builder.objectRef<CallPayout>("CallPayout").implement({
+	fields: (t) => ({
+		winLow: t.exposeInt("winLow"),
+		winHigh: t.exposeInt("winHigh"),
+		lose: t.exposeInt("lose"),
+	}),
+})
+
+async function pendingPayout(
+	ctx: Context,
+	call: Call,
+): Promise<CallPayout | null> {
+	const question = await loadQuestionFacts(ctx, call.questionId)
+	if (!question) return null
+	if (question.status !== "open" && question.status !== "locked") return null
+	const basePoints = BASE_POINTS_BY_SHAPE[question.shape]
+	const [rank, callCount] = await Promise.all([
+		callRankLoader(ctx).load(call.id),
+		questionCallCountLoader(ctx).load(call.questionId),
+	])
+
+	if (isNumericGuessShape(question.shape)) {
+		if (call.conviction === null) return null
+		const preview = previewNumericPoints(
+			basePoints,
+			question.lossRate,
+			call.conviction,
+			rank,
+			callCount,
+		)
+		return {
+			winLow: preview.winLow,
+			winHigh: preview.winHigh,
+			lose: preview.lose,
+		}
+	}
+
+	const [selection, ...rest] = await callSelectionsLoader(ctx).load(call.id)
+	if (!selection || rest.length > 0 || callCount === 0) return null
+	const [option, optionCalls, optionCount, window] = await Promise.all([
+		questionOptionLoader(ctx).load(selection.optionId),
+		optionSelectionCountLoader(ctx).load(selection.optionId),
+		questionOptionCountLoader(ctx).load(call.questionId),
+		isSeasonLongShape(question.shape)
+			? callSeasonWindow(ctx, call)
+			: Promise.resolve(null),
+	])
+	const preview = previewSelectionPoints(
+		basePoints,
+		effectiveLossRate(question.lossRate, option?.lossRate),
+		fieldPct(optionCalls, callCount),
+		optionCount,
+		selection.conviction,
+		window
+			? seasonEarlyTierFor(window.played, window.total)
+			: earlyTierFor(rank, callCount),
+	)
+	return { winLow: preview.win, winHigh: preview.win, lose: preview.lose }
 }
 
 // What a call said before its one redo. Its presence is what the REDO badge
@@ -135,31 +213,16 @@ export const CallRef = builder.drizzleObject("calls", {
 		// open/resolved logic.
 		currentRank: t.field({
 			type: "Int",
-			resolve: async (call) => {
-				// Comparing against a correlated subquery, not `call.createdAt`
-				// directly - Postgres timestamps carry microsecond precision but a
-				// JS Date only holds milliseconds, so round-tripping the parent's
-				// createdAt through JS and back into this query silently truncates
-				// it. When the truncated value lands *below* the row's real
-				// microsecond-precision value in the DB, `createdAt <= call.createdAt`
-				// is false for the call's own row, undercounting it out of its own
-				// rank (observed producing rank 0, which should be impossible - the
-				// count is inclusive of the row itself). Selecting the comparison
-				// value back out of the same table keeps it at full DB precision.
-				const [{ n }] = await db
-					.select({ n: count() })
-					.from(calls)
-					.where(
-						and(
-							eq(calls.questionId, call.questionId),
-							lte(
-								calls.createdAt,
-								sql`(select ${calls.createdAt} from ${calls} where ${calls.id} = ${call.id})`,
-							),
-						),
-					)
-				return n
-			},
+			resolve: (call, _args, ctx) => callRankLoader(ctx).load(call.id),
+		}),
+		// While the question is open or locked, what this call pays if right
+		// and costs if wrong, priced off the field as it stands now - the same
+		// preview the caller saw while picking. Null once it settles, and for
+		// an award call with several picks, which has no single pair.
+		payout: t.field({
+			type: CallPayoutRef,
+			nullable: true,
+			resolve: (call, _args, ctx) => pendingPayout(ctx, call),
 		}),
 		// Season-long shapes only (see SEASON_LONG_SHAPES/isSeasonLongShape in
 		// @called-my-shot/scoring) - null for a game-scoped question, where

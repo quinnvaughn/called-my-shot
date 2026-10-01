@@ -161,6 +161,7 @@ function RouteComponent() {
 				wins={entry.wins}
 				losses={entry.losses}
 				points={entry.points}
+				isOpen={rows.some((r) => questionDetailState(r.question).canCall)}
 				verdict={entry.verdict}
 				footer={
 					<>

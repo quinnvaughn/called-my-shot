@@ -1,10 +1,10 @@
-import { effectiveLossRate } from "@called-my-shot/scoring"
 import { useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute, Link, useRouteContext } from "@tanstack/react-router"
 import { FaRegTimesCircle } from "react-icons/fa"
 import { css } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
 import { match } from "ts-pattern"
+import { GameMatchupHeader } from "#/components/games/game-matchup-header"
 import {
 	CallRecordCard,
 	type CallRecordCardData,
@@ -20,6 +20,7 @@ import { FadeCta } from "#/components/questions/fade-cta"
 import { GloatCta } from "#/components/questions/gloat-cta"
 import { RedoCta } from "#/components/questions/redo-cta"
 import { RedoPanel } from "#/components/questions/redo-panel"
+import { SeriesBlock } from "#/components/questions/series-block"
 import { arrowLink } from "#/components/ui/arrow-link"
 import { Breadcrumb } from "#/components/ui/breadcrumb"
 import { NotFound } from "#/components/ui/not-found"
@@ -30,6 +31,7 @@ import { callCardVersion, callPageMeta } from "#/lib/call-meta"
 import {
 	actualSummary,
 	callMarginFor,
+	formatPayout,
 	marginLabel,
 	pickSummary,
 } from "#/lib/call-summary"
@@ -43,12 +45,6 @@ import {
 	optionDisplayLabel,
 	shareCardShapeLabel,
 } from "#/lib/question-labels"
-import {
-	BASE_POINTS_BY_GQL_SHAPE,
-	previewNumericPoints,
-	previewSelectionPoints,
-	selectionEarlyTier,
-} from "#/lib/scoring"
 import { buildQuestionSlug } from "#/lib/slug"
 import { streakFamilyParam } from "#/lib/streak-meta"
 
@@ -245,53 +241,6 @@ function describeCall(call: NonNullable<CallRecordQuery["call"]>) {
 	}
 }
 
-// What an unsettled call pays if right and costs if wrong, from the same
-// scoring helpers the question page's status card previews with, so the two
-// pages can't disagree. Null once the question settles, and for an award
-// call with several picks, which has no single pair of numbers.
-function pendingPayout(
-	call: NonNullable<CallRecordQuery["call"]>,
-): { win: string; lose: string } | null {
-	const question = call.question
-	if (question.status !== "OPEN" && question.status !== "LOCKED") return null
-	const basePoints = BASE_POINTS_BY_GQL_SHAPE[question.shape]
-
-	if (isNumericQuestionShape(question.shape)) {
-		if (call.conviction === null) return null
-		const preview = previewNumericPoints(
-			basePoints,
-			question.lossRate,
-			call.conviction,
-			call.currentRank,
-			question.callCount,
-		)
-		return {
-			win: `+${preview.winLow}–${preview.winHigh}`,
-			lose: `−${preview.lose}`,
-		}
-	}
-
-	const [selection, ...rest] = call.selections
-	if (!selection || rest.length > 0 || selection.option.fieldPct === null) {
-		return null
-	}
-	const preview = previewSelectionPoints(
-		basePoints,
-		effectiveLossRate(question.lossRate, selection.option.lossRate),
-		selection.option.fieldPct,
-		question.options.length,
-		selection.conviction,
-		selectionEarlyTier(
-			question.shape,
-			call.currentRank,
-			question.callCount,
-			call.seasonGamesPlayed,
-			call.seasonTotalGames,
-		),
-	)
-	return { win: `+${preview.win}`, lose: `−${preview.lose}` }
-}
-
 // An award call has several picks; it counts as having been right if any of
 // them was. Null while the question is unresolved, where every isCorrect is
 // still null.
@@ -340,7 +289,7 @@ function RouteComponent() {
 		calledAt: view.calledAt,
 		isWin: view.isWin,
 		points: view.points,
-		inTheAir: pendingPayout(call),
+		inTheAir: call.payout ? formatPayout(call.payout) : null,
 		fieldPct: view.fieldPct,
 		closeness: view.closeness,
 		// The label replaces the verdict word in the card's eyebrow; the
@@ -387,6 +336,7 @@ function RouteComponent() {
 		// happened - see callGifState for the two precedence rules that aren't
 		// obvious.
 		gifState: callGifState(view),
+		questionStatus: view.questionStatus,
 		pendingLabel: match(view.questionStatus)
 			.with("OPEN", () => `Locks ${formatCallDate(view.locksAt)}`)
 			.with("VOIDED", () => "Voided, no result")
@@ -425,6 +375,11 @@ function RouteComponent() {
 			<h1 className={css({ fontSize: "2xl", fontFamily: "heading" })}>
 				{call.question.title}
 			</h1>
+
+			{/* Which game or series the title is about, as on the question
+			page: "Who will win?" means nothing without it. */}
+			{call.question.game && <GameMatchupHeader game={call.question.game} />}
+			{call.question.series && <SeriesBlock series={call.question.series} />}
 
 			<CallRecordCard
 				data={cardData}

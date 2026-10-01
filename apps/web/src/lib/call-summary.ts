@@ -407,3 +407,19 @@ export function actualSummary(call: ActualSummaryData): string | null {
 		.join(" to ")
 	return `${winner.label}, ${values}`
 }
+
+// Call.payout as it reads on a card: "+107" on an option pick, "+80–120" on a
+// numeric guess, whose win depends on where the rest of the field lands.
+export function formatPayout(payout: {
+	winLow: number
+	winHigh: number
+	lose: number
+}): { win: string; lose: string } {
+	return {
+		win:
+			payout.winLow === payout.winHigh
+				? `+${payout.winLow}`
+				: `+${payout.winLow}–${payout.winHigh}`,
+		lose: `−${payout.lose}`,
+	}
+}

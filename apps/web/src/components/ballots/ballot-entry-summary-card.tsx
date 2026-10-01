@@ -20,6 +20,10 @@ type Props = {
 	wins: number
 	losses: number
 	points: number
+	// Whether any of the entry's questions can still be called. Until
+	// something settles, the tag says this the way a single call's does:
+	// Open while picks can still be added, Locked once they're all frozen.
+	isOpen: boolean
 	// Game entries only: set once a final game was called all right or all
 	// wrong. A ballot never carries one.
 	verdict?: GameEntryVerdict | null
@@ -39,6 +43,7 @@ export function BallotEntrySummaryCard({
 	wins,
 	losses,
 	points,
+	isOpen,
 	verdict,
 	footer,
 }: Props) {
@@ -56,7 +61,7 @@ export function BallotEntrySummaryCard({
 			: { tone: "danger", label: "Oh-fer" }
 		: hasSettled
 			? { tone: pointsTone, label: formatRecord(wins, losses) }
-			: { tone: "pending", label: "On the record" }
+			: { tone: "pending", label: isOpen ? "Open" : "Locked" }
 
 	return (
 		<Card size="md">

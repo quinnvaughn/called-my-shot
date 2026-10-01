@@ -3,9 +3,15 @@ import {
 	STREAK_TAG_MIN,
 	type StreakFamily,
 } from "@called-my-shot/scoring"
-import { count, inArray, sql } from "drizzle-orm"
+import { and, count, eq, inArray, lte, sql } from "drizzle-orm"
+import { alias } from "drizzle-orm/pg-core"
 import { db } from "../../../db"
-import { callSelections, calls, games } from "../../../db/schema"
+import {
+	callSelections,
+	calls,
+	games,
+	questionOptions,
+} from "../../../db/schema"
 import { loadCallSides } from "../../../lib/fades"
 import { aggregatePointsByUser } from "../../../lib/points-aggregate"
 import { accuracyFrom } from "../../../lib/scoring"
@@ -116,6 +122,8 @@ const questionFactsLoader = ctxLoader(async (questionIds: string[]) => {
 			shape: true,
 			seasonId: true,
 			locksAt: true,
+			// Call.payout prices a pending pick's miss at it.
+			lossRate: true,
 			// Call.viewerCanRedo needs it: a question voided while still open
 			// has a future locksAt but takes no redos, and the clock alone
 			// can't tell that apart from one still running.
@@ -128,6 +136,54 @@ const questionFactsLoader = ctxLoader(async (questionIds: string[]) => {
 export function loadQuestionFacts(ctx: Context, questionId: string) {
 	return questionFactsLoader(ctx).load(questionId)
 }
+
+// Call.currentRank - each call's 1-indexed position among every call on its
+// question, one grouped query for a feed of cards rather than a COUNT each.
+// A self-join, so both sides of the createdAt comparison stay in Postgres:
+// it keeps microseconds and a JS Date holds milliseconds, so a value
+// round-tripped through JS can land below the row's own timestamp and drop
+// the call out of its own count.
+export const callRankLoader = ctxLoader(async (callIds: string[]) => {
+	const others = alias(calls, "others")
+	const rows = await db
+		.select({ callId: calls.id, n: count() })
+		.from(calls)
+		.innerJoin(
+			others,
+			and(
+				eq(others.questionId, calls.questionId),
+				lte(others.createdAt, calls.createdAt),
+			),
+		)
+		.where(inArray(calls.id, callIds))
+		.groupBy(calls.id)
+	return indexByKey(callIds, rows, (r) => r.callId, null).map((r) => r?.n ?? 0)
+})
+
+// The option count tierFor normalises a pick's field share against, for
+// Call.payout. Counted in SQL so a season award's whole-league pool isn't
+// loaded row by row to be measured.
+export const questionOptionCountLoader = ctxLoader(
+	async (questionIds: string[]) => {
+		const rows = await db
+			.select({ questionId: questionOptions.questionId, n: count() })
+			.from(questionOptions)
+			.where(inArray(questionOptions.questionId, questionIds))
+			.groupBy(questionOptions.questionId)
+		return indexByKey(questionIds, rows, (r) => r.questionId, null).map(
+			(r) => r?.n ?? 0,
+		)
+	},
+)
+
+// The option behind each of a feed's pending picks, for Call.payout.
+export const questionOptionLoader = ctxLoader(async (optionIds: string[]) => {
+	const rows = await db.query.questionOptions.findMany({
+		where: { id: { in: optionIds } },
+		columns: { id: true, questionId: true, lossRate: true },
+	})
+	return indexByKey(optionIds, rows, (row) => row.id, undefined)
+})
 
 // Question.scoredOptions - the options carrying a number once a question has
 // settled. Filtered in SQL to the rows that have one, so a season award's

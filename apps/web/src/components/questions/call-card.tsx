@@ -1,23 +1,32 @@
 import { Link } from "@tanstack/react-router"
 import { css, cx } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
-import { match } from "ts-pattern"
 import { Card } from "#/components/ui/card"
 import { type FragmentType, graphql, useFragment } from "#/graphql/generated"
+import type { CallCard_CallFragment } from "#/graphql/generated/graphql"
+import {
+	callMarginFor,
+	formatPayout,
+	marginLabel,
+	resultState,
+} from "#/lib/call-summary"
 import { toIdentity } from "#/lib/identity"
+import { isNumericQuestionShape } from "#/lib/question-labels"
 import { buildQuestionSlug } from "#/lib/slug"
+import {
+	RecordStat,
+	RecordTag,
+	type RecordTone,
+	recordTagFor,
+} from "./call-record-card"
 import { CardRule } from "./card-rule"
 import { CaseBlock } from "./case-block"
 import { DisputedFlag } from "./disputed-flag"
 import { LockLine } from "./lock-line"
-import { LockedBadge } from "./locked-badge"
 import { PersonLine } from "./person-line"
 import { PickList } from "./pick-list"
 import { QuestionSummaryHeader } from "./question-summary-header"
 import { RedoBadge } from "./redo-badge"
-import { ResultBadge } from "./result-badge"
-import { StreakTag } from "./streak-tag"
-import { VoidedBadge } from "./voided-badge"
 
 export const CallCardFragment = graphql(`
 	fragment CallCard_call on Call {
@@ -27,6 +36,11 @@ export const CallCardFragment = graphql(`
 		totalPoints
 		unscoredReason
 		caseText
+		payout {
+			winLow
+			winHigh
+			lose
+		}
 		# Presence alone is the badge. What it used to say is only fetched on
 		# the call's own page, where there's room to show it.
 		redo {
@@ -146,6 +160,7 @@ const aboveOverlay = css({ position: "relative", zIndex: 1 })
 export function CallCard({ call: callProp, linked = true }: CallCardProps) {
 	const call = useFragment(CallCardFragment, callProp)
 	const caller = toIdentity(call.user)
+	const tag = callTag(call)
 
 	return (
 		<Card
@@ -171,50 +186,18 @@ export function CallCard({ call: callProp, linked = true }: CallCardProps) {
 					username={caller.username}
 					avatarUrl={caller.avatarUrl}
 					flair={caller.flair}
-					// The redo badge rides alongside whatever the status slot
-					// was already showing rather than replacing it - a redone
-					// call still has a lock time or a result, and which it is
-					// matters more than how it got there.
+					// The redo badge rides alongside the tag rather than
+					// replacing it - a redone call still has a standing, and
+					// which it is matters more than how it got there.
 					badge={
 						<HStack gap="1.5" alignItems="center">
 							{call.redo && <RedoBadge />}
-							{match(call.question.status)
-								.with("OPEN", () => (
-									<span
-										className={css({
-											fontFamily: "mono",
-											fontSize: "3xs",
-											color: "fg.subtle",
-											whiteSpace: "nowrap",
-										})}
-									>
-										<LockLine
-											status={call.question.status}
-											locksAt={call.question.locksAt}
-										/>
-									</span>
-								))
-								.with("LOCKED", () => <LockedBadge />)
-								.with("RESOLVED", "DISPUTED", () => (
-									<HStack gap="1.5" alignItems="center">
-										{call.streak && (
-											<StreakTag
-												length={call.streak.length}
-												track={`${call.question.league.abbreviation} ${call.streak.familyLabel}`}
-											/>
-										)}
-										<ResultBadge
-											totalPoints={call.totalPoints}
-											unscoredReason={call.unscoredReason}
-										/>
-									</HStack>
-								))
-								.with("VOIDED", () => <VoidedBadge />)
-								.exhaustive()}
+							<RecordTag tone={tag.tone}>{tag.label}</RecordTag>
 						</HStack>
 					}
 				/>
 				<PickList call={call} />
+				<CallPoints call={call} />
 				{/* CaseBlock renders a real "Show more" button when the case
 				overflows, so it has to sit above the overlay. It used to be
 				inside the anchor that wrapped this whole card - a button nested
@@ -285,5 +268,81 @@ export function CallCard({ call: callProp, linked = true }: CallCardProps) {
 				)}
 			</VStack>
 		</Card>
+	)
+}
+
+type CallCardData = CallCard_CallFragment
+
+// The same tag the call's own page leads with - see recordTagFor.
+function callTag(call: CallCardData): { tone: RecordTone; label: string } {
+	const result = resultState(call.totalPoints)
+	const isWin = result.status === "pending" ? null : result.status === "win"
+	const margin = callMarginFor(call)
+	return recordTagFor({
+		status: call.question.status,
+		isWin,
+		nailed:
+			isWin === true &&
+			isNumericQuestionShape(call.question.shape) &&
+			call.guessValue !== null &&
+			call.guessValue === call.question.numericActualValue,
+		marginLabel:
+			isWin !== null && margin?.verdict
+				? marginLabel(margin.verdict, isWin)
+				: null,
+		streakLength: call.streak?.length ?? null,
+	})
+}
+
+// The points at the card's scale. Settled, the final number, as big as the
+// call page states it. Before that, what the call pays if right and costs if
+// wrong on one quiet line with when it locks, so a feed of open
+// calls doesn't turn into a wall of green and red.
+function CallPoints({ call }: { call: CallCardData }) {
+	const status = call.question.status
+	if (status === "RESOLVED" || status === "DISPUTED") {
+		if (call.unscoredReason || call.totalPoints === null) return null
+		return (
+			<RecordStat
+				value={`${call.totalPoints >= 0 ? "+" : "−"}${Math.abs(call.totalPoints)}`}
+				label="Final"
+				tone={call.totalPoints >= 0 ? "success" : "danger"}
+			/>
+		)
+	}
+	if (status === "VOIDED") return null
+
+	// Locked needs no line of its own here: the tag already says it.
+	const payout = call.payout ? formatPayout(call.payout) : null
+	if (!payout && status !== "OPEN") return null
+	return (
+		<span
+			className={css({
+				fontFamily: "mono",
+				fontSize: "xs",
+				color: "fg.subtle",
+				whiteSpace: "nowrap",
+			})}
+		>
+			{payout && (
+				<>
+					<span
+						className={css({ color: "success.default", fontWeight: "bold" })}
+					>
+						{payout.win}
+					</span>
+					{" / "}
+					<span
+						className={css({ color: "danger.default", fontWeight: "bold" })}
+					>
+						{payout.lose}
+					</span>
+				</>
+			)}
+			{payout && status === "OPEN" && " · "}
+			{status === "OPEN" && (
+				<LockLine status={status} locksAt={call.question.locksAt} />
+			)}
+		</span>
 	)
 }

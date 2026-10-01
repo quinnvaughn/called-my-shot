@@ -9,6 +9,7 @@ import { Card } from "#/components/ui/card"
 import { Eyebrow } from "#/components/ui/eyebrow"
 import { InfoTip } from "#/components/ui/info-tip"
 import { ReactionGif } from "#/components/ui/reaction-gif"
+import type { QuestionStatus } from "#/graphql/generated/graphql"
 
 export type CallRecordCardData = {
 	name: string
@@ -37,6 +38,7 @@ export type CallRecordCardData = {
 	// the pick happens on mount inside ReactionGif, so whoever renders the card
 	// has nothing to decide - see callGifState in lib/call-gif.ts.
 	gifState: CallGifState
+	questionStatus: QuestionStatus
 	// What to say in place of the result while it's pending: "Locks Jun 12,
 	// 2027" or "Awaiting result".
 	pendingLabel: string | null
@@ -103,6 +105,13 @@ export function CallRecordCard({ data, redo = null, footer }: Props) {
 	const resolved = data.points !== null && data.isWin !== null
 	const win = data.isWin === true
 	const nailed = data.closeness?.kind === "exact"
+	const tag = recordTagFor({
+		status: data.questionStatus,
+		isWin: resolved ? data.isWin : null,
+		nailed,
+		marginLabel: data.marginLabel,
+		streakLength: data.streakLength,
+	})
 	return (
 		<Card size="md" accent={nailed}>
 			<Card.Header>
@@ -149,21 +158,7 @@ export function CallRecordCard({ data, redo = null, footer }: Props) {
 								· {data.calledAt}
 							</span>
 						</HStack>
-						<RecordTag
-							tone={resolved ? (win ? "success" : "danger") : "pending"}
-						>
-							{/* An exact guess keeps "Nailed it" over any margin label:
-							it is the rarer claim, and a second superlative next to
-							it reads as two prizes for one result. */}
-							{resolved
-								? nailed
-									? "Nailed it"
-									: (data.marginLabel ?? (win ? "Called it" : "Missed"))
-								: "On the record"}
-							{resolved && win && data.streakLength !== null
-								? ` · ${data.streakLength} in a row`
-								: ""}
-						</RecordTag>
+						<RecordTag tone={tag.tone}>{tag.label}</RecordTag>
 					</HStack>
 					{/* The question is the page's title above this card, so the
 					card leads with the answer to it, labelled as such. */}
@@ -515,6 +510,52 @@ const recordTagBaseClass = css({
 	paddingInline: "2",
 	whiteSpace: "nowrap",
 })
+
+// What the corner tag says about a call, here and on CallCard in a feed, so
+// the two never describe the same result in different words. isWin is null
+// until the call settles; until then the tag names the question's state,
+// since Open (the field, and so the payout, can still move) and Locked
+// (every pick is frozen until the result) are different things to be waiting
+// on. An exact guess keeps "Nailed it" over any margin label: it is the
+// rarer claim, and a second superlative next to it reads as two prizes for
+// one result.
+export function recordTagFor({
+	status,
+	isWin,
+	nailed,
+	marginLabel,
+	streakLength,
+}: {
+	status: QuestionStatus
+	isWin: boolean | null
+	nailed: boolean
+	marginLabel: string | null
+	streakLength: number | null
+}): { tone: RecordTone; label: string } {
+	if (isWin === null) {
+		return {
+			tone: "pending",
+			// A settled question with no result for this call means
+			// resolution left it out of scoring.
+			label: match(status)
+				.with("OPEN", () => "Open")
+				.with("LOCKED", () => "Locked")
+				.with("VOIDED", () => "Voided")
+				.with("RESOLVED", "DISPUTED", () => "Not scored")
+				.exhaustive(),
+		}
+	}
+	const verdict = nailed
+		? "Nailed it"
+		: (marginLabel ?? (isWin ? "Called it" : "Missed"))
+	return {
+		tone: isWin ? "success" : "danger",
+		label:
+			isWin && streakLength !== null
+				? `${verdict} · ${streakLength} in a row`
+				: verdict,
+	}
+}
 
 // Where the call stands, small in the corner: blue while it's still out
 // there, green or red once it settles.

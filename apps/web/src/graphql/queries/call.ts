@@ -15,12 +15,11 @@ export const CallRecordDocument = graphql(`
 			caseText
 			guessValue
 			totalPoints
-			currentRank
-			# With the fields below, what a pending call's "if right / if
-			# wrong" preview needs - the same inputs the question page's
-			# status card reads.
-			seasonGamesPlayed
-			seasonTotalGames
+			payout {
+				winLow
+				winHigh
+				lose
+			}
 			streak {
 				length
 				family
@@ -92,11 +91,6 @@ export const CallRecordDocument = graphql(`
 				status
 				locksAt
 				resolvedAt
-				callCount
-				lossRate
-				options {
-					id
-				}
 				ouLine
 				numericActualValue
 				numericToleranceAbsolute
@@ -119,15 +113,69 @@ export const CallRecordDocument = graphql(`
 					abbreviation
 					slug
 				}
+				# The matchup card under the title. A game question's title
+				# ("Who will win?") leaves out which game; this is where it says.
 				game {
 					id
-					awayTeam {
-						id
-						abbreviation
+					status
+					startsAt
+					homeScore
+					awayScore
+					venue
+					startTimeTbd
+					postseason {
+						roundLabel
+						homeSeed
+						awaySeed
+						gameNumber
+						ifNecessary
+						summary
+						clinchTeamIds
 					}
 					homeTeam {
 						id
+						name
 						abbreviation
+						color
+					}
+					awayTeam {
+						id
+						name
+						abbreviation
+						color
+					}
+					homeTeamRecord {
+						wins
+						losses
+						ties
+					}
+					awayTeamRecord {
+						wins
+						losses
+						ties
+					}
+				}
+				# A series question's counterpart, for the same reason.
+				series {
+					id
+					roundLabel
+					summary
+					seeds {
+						teamId
+						seed
+					}
+					gameOne {
+						id
+						homeTeam {
+							id
+							abbreviation
+							color
+						}
+						awayTeam {
+							id
+							abbreviation
+							color
+						}
 					}
 				}
 			}
@@ -140,7 +188,6 @@ export const CallRecordDocument = graphql(`
 					label
 					isCorrect
 					fieldPct
-					lossRate
 					# This caller's own pick's number, which scoredOptions above
 					# cannot give on a leader pool: that is trimmed to whoever led,
 					# and the margin needs whoever they backed. f6ffc09 dropped this

@@ -1,3 +1,8 @@
+import {
+	BASE_POINTS_BY_SHAPE,
+	earlyTierFor,
+	previewSelectionPoints,
+} from "@called-my-shot/scoring"
 import { describe, expect, it } from "vitest"
 import {
 	makeCall,
@@ -165,5 +170,74 @@ describe("season window counts", () => {
 		}>(SEASON_WINDOW, { variables: { id: question.id } })
 		expect(data.question.seasonGamesPlayed).toBeNull()
 		expect(data.question.calls.items[0]?.seasonTotalGames).toBeNull()
+	})
+})
+
+describe("Call.currentRank and Call.payout", () => {
+	const RANK_AND_PAYOUT = /* GraphQL */ `
+		query RankAndPayout($id: ID!) {
+			question(id: $id) {
+				calls(first: 10) {
+					items { id currentRank payout { winLow winHigh lose } }
+				}
+			}
+		}
+	`
+	type Row = {
+		id: string
+		currentRank: number
+		payout: { winLow: number; winHigh: number; lose: number } | null
+	}
+
+	it("ranks each call by when it was made and prices it off the field as it stands", async () => {
+		const { question, callers } = await seedOptionQuestion({
+			callers: [
+				{ optionIndex: 0, conviction: 80, createdAt: hoursAgo(3) },
+				{ optionIndex: 1, conviction: 50, createdAt: hoursAgo(2) },
+				{ optionIndex: 0, conviction: 100, createdAt: hoursAgo(1) },
+			],
+		})
+
+		const data = await expectData<{
+			question: { calls: { items: Row[] } }
+		}>(RANK_AND_PAYOUT, { variables: { id: question.id } })
+		const byId = new Map(data.question.calls.items.map((c) => [c.id, c]))
+
+		const basePoints = BASE_POINTS_BY_SHAPE.yes_no_prop
+		const expectations = [
+			{ rank: 1, fieldPct: (2 / 3) * 100, conviction: 80 },
+			{ rank: 2, fieldPct: (1 / 3) * 100, conviction: 50 },
+			{ rank: 3, fieldPct: (2 / 3) * 100, conviction: 100 },
+		]
+		for (const [index, expected] of expectations.entries()) {
+			const row = byId.get(callers[index].call.id)
+			const preview = previewSelectionPoints(
+				basePoints,
+				question.lossRate,
+				expected.fieldPct,
+				2,
+				expected.conviction,
+				earlyTierFor(expected.rank, 3),
+			)
+			expect(row?.currentRank).toBe(expected.rank)
+			expect(row?.payout).toEqual({
+				winLow: preview.win,
+				winHigh: preview.win,
+				lose: preview.lose,
+			})
+		}
+	})
+
+	it("has no payout once the question settles", async () => {
+		const { question } = await seedOptionQuestion({
+			callers: [{ optionIndex: 0 }],
+			question: { status: "resolved" },
+		})
+
+		const data = await expectData<{
+			question: { calls: { items: Row[] } }
+		}>(RANK_AND_PAYOUT, { variables: { id: question.id } })
+
+		expect(data.question.calls.items[0].payout).toBeNull()
 	})
 })

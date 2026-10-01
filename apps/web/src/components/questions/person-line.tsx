@@ -8,10 +8,10 @@ type Props = {
 	username: string
 	avatarUrl?: string | null
 	flair?: FlairData | null
-	// CallCard/CallRow's status slot (open lock line / LOCKED badge / win-loss
-	// result badge) - has nowhere else to sit now that the pick section is a
-	// bare list, so it rides along with the identity line that names who the
-	// call belongs to.
+	// CallCard/CallRow's status slot (where the call stands, plus a redo
+	// badge) - has nowhere else to sit now that the pick section is a bare
+	// list, so it rides along with the identity line that names who the call
+	// belongs to.
 	badge?: ReactNode
 }
 

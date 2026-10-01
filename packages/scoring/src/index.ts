@@ -847,6 +847,73 @@ export function maxConvictionFor(question: {
 		: 100
 }
 
+export type PointsPreview = {
+	win: number
+	lose: number
+	tier: ContrarianTier
+	earlyTier: EarlyTier
+}
+
+// What an unsettled option pick pays if right and costs if wrong - both
+// outcomes at once, since which one applies isn't known until resolution.
+// Shared by the web's live preview while picking and the API's Call.payout,
+// so a pick shows the same pair of numbers before and after it's made.
+// earlyTier is caller-computed (earlyTierFor for game-scoped shapes,
+// seasonEarlyTierFor for season-long ones - see isSeasonLongShape) since
+// which formula applies depends on the shape. Omitting it leaves the early
+// multiplier at 1x, which is also the right read before a call exists.
+export function previewSelectionPoints(
+	basePoints: number,
+	lossRate: number,
+	fieldPct: number,
+	totalOptions: number,
+	conviction: number,
+	earlyTier: EarlyTier = { mult: 1, label: "STANDARD" },
+): PointsPreview {
+	const stake = conviction / 100
+	const tier = tierFor(fieldPct, totalOptions)
+	return {
+		win: Math.round(basePoints * stake * tier.mult * earlyTier.mult),
+		lose: pointsAtStake(basePoints, lossRate, conviction),
+		tier,
+		earlyTier,
+	}
+}
+
+export type NumericPointsPreview = {
+	winLow: number
+	winHigh: number
+	lose: number
+	earlyTier: EarlyTier
+}
+
+// A numeric guess pays out on the same "how rare was being right" curve as
+// every other shape (see numericGuessPoints), where rare means few people,
+// out of the whole field, landed at least as close to the actual value. That
+// share can't be known before resolution, so this reports the full possible
+// range instead of one number. A miss is a flat loss of the stake at the
+// loss rate, same as every other shape. earlyRank/earlyTotalCalls follow the
+// same optional-before-a-call-exists rule as previewSelectionPoints above.
+export function previewNumericPoints(
+	basePoints: number,
+	lossRate: number,
+	conviction: number,
+	earlyRank?: number,
+	earlyTotalCalls?: number,
+): NumericPointsPreview {
+	const stake = conviction / 100
+	const earlyTier =
+		earlyRank !== undefined && earlyTotalCalls !== undefined
+			? earlyTierFor(earlyRank, earlyTotalCalls)
+			: { mult: 1, label: "STANDARD" }
+	return {
+		winLow: Math.round(basePoints * stake * TIER_MIN_MULT * earlyTier.mult),
+		winHigh: Math.round(basePoints * stake * TIER_MAX_MULT * earlyTier.mult),
+		lose: pointsAtStake(basePoints, lossRate, conviction),
+		earlyTier,
+	}
+}
+
 // basePoints comes from BASE_POINTS_BY_SHAPE and lossRate from
 // LOSS_RATE_BY_SHAPE for this question's shape.
 // earlyMult comes from earlyTierFor, computed by the caller from the call's
