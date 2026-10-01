@@ -1,7 +1,13 @@
 import { isNumericGuessShape } from "@called-my-shot/scoring"
-import { and, eq } from "drizzle-orm"
+import { and, eq, inArray } from "drizzle-orm"
 import { db } from "../../db"
-import { type Call, type Game, games, type League } from "../../db/schema"
+import {
+	type Call,
+	type Game,
+	games,
+	type League,
+	postseasonSeries,
+} from "../../db/schema"
 import { type WindowDescriptor, windowGameFilter } from "../windows"
 import {
 	buildReportCard,
@@ -10,19 +16,71 @@ import {
 	type ReportCardGame,
 } from "./compute"
 
-// Reads the rows ./compute.ts folds. Two queries regardless of how big the
-// window is: the games it holds, then every call the viewer made on a
-// question anchored to one of them.
+// Reads the rows ./compute.ts folds: the games the window holds, the series
+// those games belong to, then every call the viewer made on a question
+// anchored to one of them.
 
-async function windowGameIds(
+async function windowGames(
 	league: League,
 	window: WindowDescriptor,
-): Promise<string[]> {
-	const rows = await db
-		.select({ id: games.id })
+): Promise<{ id: string; seriesId: string | null }[]> {
+	return db
+		.select({ id: games.id, seriesId: games.seriesId })
 		.from(games)
 		.where(and(eq(games.leagueId, league.id), windowGameFilter(window)))
-	return rows.map((row) => row.id)
+}
+
+// A series question has no gameId, so it's placed by its series instead. Once
+// the series is decided it belongs to the window holding the game that
+// decided it, which is when it settled. Until then it's riding on every game
+// of the series, so it counts as open in each window that holds one.
+// settleSeries deletes the games a series never needed, so the deciding game
+// is simply the series' last final game.
+async function windowSeriesIds(
+	inWindow: { id: string; seriesId: string | null }[],
+): Promise<string[]> {
+	const candidates = [
+		...new Set(inWindow.flatMap((g) => (g.seriesId ? [g.seriesId] : []))),
+	]
+	if (candidates.length === 0) return []
+
+	const [series, finals] = await Promise.all([
+		db
+			.select({
+				id: postseasonSeries.id,
+				winnerTeamId: postseasonSeries.winnerTeamId,
+			})
+			.from(postseasonSeries)
+			.where(inArray(postseasonSeries.id, candidates)),
+		db
+			.select({
+				id: games.id,
+				seriesId: games.seriesId,
+				startsAt: games.startsAt,
+			})
+			.from(games)
+			.where(
+				and(inArray(games.seriesId, candidates), eq(games.status, "final")),
+			),
+	])
+
+	const decidingGame = new Map<string, { id: string; startsAt: Date }>()
+	for (const game of finals) {
+		if (!game.seriesId) continue
+		const latest = decidingGame.get(game.seriesId)
+		if (!latest || game.startsAt > latest.startsAt) {
+			decidingGame.set(game.seriesId, game)
+		}
+	}
+
+	const windowIds = new Set(inWindow.map((g) => g.id))
+	return series
+		.filter(
+			(s) =>
+				s.winnerTeamId === null ||
+				windowIds.has(decidingGame.get(s.id)?.id ?? ""),
+		)
+		.map((s) => s.id)
 }
 
 // The shape of a call row as the report card and track record both load it.
@@ -94,16 +152,23 @@ export async function loadReportCard(
 	league: League,
 	window: WindowDescriptor,
 ): Promise<ReportCard> {
-	const gameIds = await windowGameIds(league, window)
-	if (gameIds.length === 0) return buildReportCard([])
+	const inWindow = await windowGames(league, window)
+	if (inWindow.length === 0) return buildReportCard([])
+	const gameIds = inWindow.map((g) => g.id)
+	const seriesIds = await windowSeriesIds(inWindow)
 
-	// Filtered by gameId and nothing else - no isOfficial predicate anywhere.
-	// A community question on one of this window's games counts exactly like
-	// an official one, which is also what Game.questionCount and
+	// Filtered by gameId/seriesId and nothing else - no isOfficial predicate
+	// anywhere. A community question on one of this window's games counts
+	// exactly like an official one, which is also what Game.questionCount and
 	// Game.viewerCalledCount do, so the card's totals reconcile with the "8
 	// questions · 3 called" subline on the rows underneath it.
 	const questions = await db.query.questions.findMany({
-		where: { gameId: { in: gameIds } },
+		where:
+			seriesIds.length > 0
+				? {
+						OR: [{ gameId: { in: gameIds } }, { seriesId: { in: seriesIds } }],
+					}
+				: { gameId: { in: gameIds } },
 		columns: {
 			id: true,
 			gameId: true,

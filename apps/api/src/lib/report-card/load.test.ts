@@ -1,7 +1,11 @@
 import { eq } from "drizzle-orm"
 import { beforeEach, describe, expect, it } from "vitest"
 import { db } from "../../db"
-import { callSelections, questionOptions } from "../../db/schema"
+import {
+	callSelections,
+	postseasonSeries,
+	questionOptions,
+} from "../../db/schema"
 import {
 	type League,
 	makeCall,
@@ -11,6 +15,7 @@ import {
 	makeQuestion,
 	makeSeason,
 	makeSelection,
+	makeTeam,
 	makeUser,
 } from "../../test/factories"
 import { getLeagueWindows, type WindowDescriptor } from "../windows"
@@ -46,7 +51,8 @@ const gameInWeek = () => makeGame({ leagueId: league.id, seasonId, ...WEEK })
  * option-shape call really scores, and the case this loader has to get right.
  */
 async function optionCall(opts: {
-	gameId: string
+	gameId?: string
+	seriesId?: string
 	correct?: boolean
 	points?: number | null
 	conviction?: number
@@ -59,7 +65,8 @@ async function optionCall(opts: {
 	const question = await makeQuestion({
 		leagueId: opts.leagueId ?? league.id,
 		seasonId: opts.seasonId ?? seasonId,
-		gameId: opts.gameId,
+		gameId: opts.gameId ?? null,
+		seriesId: opts.seriesId ?? null,
 		status: opts.status ?? "resolved",
 		...(opts.isOfficial === undefined ? {} : { isOfficial: opts.isOfficial }),
 	})
@@ -283,5 +290,100 @@ describe("loadReportCard for a date league", () => {
 		)
 		// The game on that day only, not the one two days later.
 		expect(card.settledCount).toBe(1)
+	})
+})
+
+describe("loadReportCard for a series question", () => {
+	let dateLeague: League
+	let dateSeasonId: string
+	let seriesId: string
+	let homeTeamId: string
+	let awayTeamId: string
+
+	beforeEach(async () => {
+		dateLeague = await makeLeague({ windowType: "date" })
+		dateSeasonId = (await makeSeason({ leagueId: dateLeague.id })).id
+		homeTeamId = (await makeTeam({ leagueId: dateLeague.id })).id
+		awayTeamId = (await makeTeam({ leagueId: dateLeague.id })).id
+		const [series] = await db
+			.insert(postseasonSeries)
+			.values({
+				leagueId: dateLeague.id,
+				seasonId: dateSeasonId,
+				round: "NLWC",
+				teamAId: homeTeamId,
+				teamBId: awayTeamId,
+				bestOf: 3,
+			})
+			.returning()
+		if (!series) throw new Error("series insert returned nothing")
+		seriesId = series.id
+	})
+
+	const seriesGame = (startsAt: string, seriesGameNumber: number) =>
+		makeGame({
+			leagueId: dateLeague.id,
+			seasonId: dateSeasonId,
+			homeTeamId,
+			awayTeamId,
+			seriesId,
+			seriesGameNumber,
+			seasonType: "postseason",
+			status: "final",
+			startsAt: new Date(startsAt),
+		})
+
+	const decide = () =>
+		db
+			.update(postseasonSeries)
+			.set({ winnerTeamId: homeTeamId, decidedAt: new Date() })
+			.where(eq(postseasonSeries.id, seriesId))
+
+	const seriesCall = (status: "open" | "resolved" = "resolved") =>
+		optionCall({
+			seriesId,
+			correct: status === "resolved" ? true : undefined,
+			points: status === "resolved" ? 75 : undefined,
+			status,
+			leagueId: dateLeague.id,
+			seasonId: dateSeasonId,
+		})
+
+	it("counts on the day of the game that decided the series", async () => {
+		await seriesGame("2026-09-29T18:00:00Z", 1)
+		await seriesGame("2026-09-30T18:00:00Z", 2)
+		await decide()
+		await seriesCall()
+
+		const decidingDay = await loadReportCard(
+			userId,
+			dateLeague,
+			await windowFor(dateLeague, "2026-09-30"),
+		)
+		expect(decidingDay.settledCount).toBe(1)
+		expect(decidingDay.netPoints).toBe(75)
+
+		const earlierDay = await loadReportCard(
+			userId,
+			dateLeague,
+			await windowFor(dateLeague, "2026-09-29"),
+		)
+		expect(earlierDay.settledCount + earlierDay.pendingCount).toBe(0)
+	})
+
+	it("counts as open on each day of a series still being played", async () => {
+		await seriesGame("2026-09-29T18:00:00Z", 1)
+		await seriesGame("2026-09-30T18:00:00Z", 2)
+		await seriesCall("open")
+
+		for (const key of ["2026-09-29", "2026-09-30"]) {
+			const card = await loadReportCard(
+				userId,
+				dateLeague,
+				await windowFor(dateLeague, key),
+			)
+			expect(card.pendingCount).toBe(1)
+			expect(card.settledCount).toBe(0)
+		}
 	})
 })
