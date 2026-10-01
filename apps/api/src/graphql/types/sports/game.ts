@@ -18,13 +18,25 @@ import { GameEntryVerdict, GameStatus } from "./enums"
 import { GamePostseasonRef, loadGamePostseason } from "./postseason"
 import { loadTeamRecordsByKey, TeamRecordRef } from "./team"
 
-// One official question of someone's picks on a game.
+// One question of someone's picks on a game, and their call on it.
 const GameEntryMemberRef = builder
-	.objectRef<GameEntry["members"][number]>("GameEntryMember")
+	.objectRef<GameEntry["official"]["members"][number]>("GameEntryMember")
 	.implement({
 		fields: (t) => ({
 			question: t.field({ type: QuestionRef, resolve: (m) => m.member }),
 			call: t.field({ type: CallRef, nullable: true, resolve: (m) => m.call }),
+		}),
+	})
+
+// One half of a game entry's record - see GameEntry in lib/game-entry.ts.
+const GameEntrySplitRef = builder
+	.objectRef<GameEntry["official"]>("GameEntrySplit")
+	.implement({
+		fields: (t) => ({
+			calledCount: t.exposeInt("calledCount"),
+			wins: t.exposeInt("wins"),
+			losses: t.exposeInt("losses"),
+			points: t.exposeInt("points"),
 		}),
 	})
 
@@ -35,18 +47,37 @@ const GameEntryRef = builder
 	.implement({
 		fields: (t) => ({
 			user: t.field({ type: UserRef, resolve: (e) => e.user }),
-			calledCount: t.exposeInt("calledCount"),
+			// Official questions called, against members' length: how much of
+			// the slate everyone gets is done.
+			calledCount: t.int({ resolve: (e) => e.official.calledCount }),
+			// Record and points across every call on the game, official and
+			// community both. official and community below split them.
 			wins: t.exposeInt("wins"),
 			losses: t.exposeInt("losses"),
 			points: t.exposeInt("points"),
+			official: t.field({
+				type: GameEntrySplitRef,
+				resolve: (e) => e.official,
+			}),
+			community: t.field({
+				type: GameEntrySplitRef,
+				resolve: (e) => e.community,
+			}),
+			// Decided by the official questions alone.
 			verdict: t.field({
 				type: GameEntryVerdict,
 				nullable: true,
 				resolve: (e) => e.verdict,
 			}),
+			// Every official question, called or not.
 			members: t.field({
 				type: [GameEntryMemberRef],
-				resolve: (e) => e.members,
+				resolve: (e) => e.official.members,
+			}),
+			// Only the community questions this user called.
+			communityMembers: t.field({
+				type: [GameEntryMemberRef],
+				resolve: (e) => e.community.members,
 			}),
 		}),
 	})
@@ -180,9 +211,8 @@ export const GameRef = builder.drizzleObject("games", {
 				return n
 			},
 		}),
-		// One user's calls on this game's official questions, behind
-		// /games/:id/picks/:username. Null for an unknown user or one with no
-		// official calls here.
+		// One user's calls on this game, behind /games/:id/picks/:username.
+		// Null for an unknown user or one with no calls here.
 		entry: t.field({
 			type: GameEntryRef,
 			nullable: true,
@@ -197,7 +227,7 @@ export const GameRef = builder.drizzleObject("games", {
 				return {
 					...entry,
 					user,
-					verdict: gameEntryVerdict(entry, game.status),
+					verdict: gameEntryVerdict(entry.official, game.status),
 				}
 			},
 		}),

@@ -302,6 +302,26 @@ export const GameEntryDocument = graphql(`
 				losses
 				points
 				verdict
+				official {
+					wins
+					losses
+					points
+				}
+				community {
+					calledCount
+					wins
+					losses
+					points
+				}
+				communityMembers {
+					question {
+						id
+					}
+					call {
+						id
+						...CallCard_call
+					}
+				}
 				user {
 					id
 					name

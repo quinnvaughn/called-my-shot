@@ -96,7 +96,7 @@ function RouteComponent() {
 				icon={<FaRegTimesCircle size={24} />}
 				eyebrowText="Game"
 				heading="No picks here"
-				subtitle={`@${username} hasn't called any official questions on ${matchup}.`}
+				subtitle={`@${username} hasn't called anything on ${matchup}.`}
 				link={{ text: "Back home", url: "/home" }}
 			/>
 		)
@@ -163,6 +163,11 @@ function RouteComponent() {
 				points={entry.points}
 				isOpen={rows.some((r) => questionDetailState(r.question).canCall)}
 				verdict={entry.verdict}
+				splits={
+					entry.community.calledCount > 0
+						? { official: entry.official, community: entry.community }
+						: null
+				}
 				footer={
 					<>
 						<Link
@@ -211,6 +216,18 @@ function RouteComponent() {
 				notCalledYet={notCalledYet}
 				missed={missed}
 			/>
+			{/* After the official slate and what's left of it: community
+			questions are extra, called on top of the questions everyone got. */}
+			{entry.communityMembers.length > 0 && (
+				<EntryCallList
+					rows={entry.communityMembers.flatMap((m) =>
+						m.call ? [{ key: m.question.id, section: null, call: m.call }] : [],
+					)}
+					fallbackLabel="Community questions"
+					notCalledYet={[]}
+					missed={[]}
+				/>
+			)}
 		</VStack>
 	)
 }

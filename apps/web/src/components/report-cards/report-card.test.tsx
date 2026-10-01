@@ -233,6 +233,31 @@ describe("ReportCard", () => {
 		).toBeInTheDocument()
 	})
 
+	it("links a best or worst game to the owner's picks on it", async () => {
+		await renderWithRouter(
+			<ReportCard
+				card={card({
+					bestGame: {
+						netPoints: 225,
+						wins: 3,
+						losses: 1,
+						game: {
+							id: "g1",
+							startsAt: "2026-09-21T17:00:00Z",
+							league: { id: "l", slug: "nfl" },
+							awayTeam: { id: "g1-a", name: "BUF", abbreviation: "BUF" },
+							homeTeam: { id: "g1-h", name: "KC", abbreviation: "KC" },
+						},
+					},
+				})}
+				owner={{ id: "u1", username: "quinn", isOwn: true }}
+			/>,
+		)
+		expect(
+			screen.getByRole("link", { name: "BUF @ KC · 3–1" }),
+		).toHaveAttribute("href", "/games/g1/picks/quinn")
+	})
+
 	it("offers an explicit, labelled link to the permalink", async () => {
 		await renderWithRouter(
 			<ReportCard

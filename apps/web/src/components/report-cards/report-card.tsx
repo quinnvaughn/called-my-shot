@@ -242,12 +242,16 @@ function Highlight({
 	)
 }
 
+// Opens the owner's picks on that game, which count the same calls this
+// record and points do. Falls back to the game itself with no owner to name.
 function GameHighlight({
 	label,
 	row,
+	username,
 }: {
 	label: string
 	row: FragmentType<typeof GameHighlightFragment> | null | undefined
+	username: string | null
 }) {
 	const data = useFragment(GameHighlightFragment, row ?? null)
 	if (!data) return null
@@ -268,8 +272,15 @@ function GameHighlight({
 					{label}
 				</Eyebrow>
 				<Link
-					to="/games/$gameId/{-$slug}"
-					params={{ gameId: game.id, slug: buildGameSlug(game) }}
+					{...(username
+						? {
+								to: "/games/$gameId/picks/$username",
+								params: { gameId: game.id, username },
+							}
+						: {
+								to: "/games/$gameId/{-$slug}",
+								params: { gameId: game.id, slug: buildGameSlug(game) },
+							})}
 					className={css({
 						fontSize: "sm",
 						color: "fg.default",
@@ -499,8 +510,16 @@ export function ReportCard({ card: cardProp, expanded, owner }: Props) {
 										paddingTop: "2",
 									})}
 								>
-									<GameHighlight label="Best game" row={card.bestGame} />
-									<GameHighlight label="Worst game" row={card.worstGame} />
+									<GameHighlight
+										label="Best game"
+										row={card.bestGame}
+										username={owner?.username ?? null}
+									/>
+									<GameHighlight
+										label="Worst game"
+										row={card.worstGame}
+										username={owner?.username ?? null}
+									/>
 								</VStack>
 							)}
 						</>

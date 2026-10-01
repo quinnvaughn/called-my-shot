@@ -1,6 +1,6 @@
 // The og:image behind /games/:id/picks/:username. It states how much of the
 // game's official slate someone has called and, once questions settle, their
-// record and points. None of the picks: those are on the page the link opens.
+// record and points across every call on the game. None of the picks: those are on the page the link opens.
 //
 // Built on the shared og:image frame (see frame.ts), with the same cells as
 // ballot-card.ts.
@@ -87,8 +87,9 @@ export function buildGameShareCard(data: GameShareCardData): SatoriNode {
 	})
 }
 
-// Null for an unknown game, an unknown user, or a user with no official calls
-// on it.
+// Null for an unknown game, an unknown user, or a user with no calls on it.
+// Called counts the official slate; the record and points count every call,
+// community ones included, as the page does.
 export async function loadGameShareCardData(
 	gameId: string,
 	username: string,
@@ -128,8 +129,8 @@ export async function loadGameShareCardData(
 		homeAbbr: game.homeTeam.abbreviation,
 		name: user.name,
 		username: user.username,
-		calledCount: entry.calledCount,
-		questionCount: entry.members.length,
+		calledCount: entry.official.calledCount,
+		questionCount: entry.official.members.length,
 		wins: entry.wins,
 		losses: entry.losses,
 		points: entry.points,
