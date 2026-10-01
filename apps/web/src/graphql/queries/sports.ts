@@ -254,7 +254,21 @@ export const GameEntryDocument = graphql(`
 		game(id: $id) {
 			id
 			startsAt
+			status
+			homeScore
+			awayScore
+			venue
 			windowKey
+			startTimeTbd
+			postseason {
+				roundLabel
+				homeSeed
+				awaySeed
+				gameNumber
+				ifNecessary
+				summary
+				clinchTeamIds
+			}
 			league {
 				id
 				abbreviation
@@ -264,11 +278,23 @@ export const GameEntryDocument = graphql(`
 				id
 				name
 				abbreviation
+				color
 			}
 			awayTeam {
 				id
 				name
 				abbreviation
+				color
+			}
+			homeTeamRecord {
+				wins
+				losses
+				ties
+			}
+			awayTeamRecord {
+				wins
+				losses
+				ties
 			}
 			entry(username: $username) {
 				calledCount
@@ -280,6 +306,7 @@ export const GameEntryDocument = graphql(`
 					id
 					name
 					username
+					avatarUrl
 				}
 				members {
 					question {
@@ -305,11 +332,10 @@ export const GameEntryDocument = graphql(`
 							id
 							label
 						}
-						...PickPositionRow_question
 					}
 					call {
 						id
-						...PickPositionRow_call
+						...CallCard_call
 					}
 				}
 			}

@@ -1,19 +1,15 @@
 import { useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute, Link, useRouteContext } from "@tanstack/react-router"
-import { Fragment } from "react"
 import { FaRegTimesCircle } from "react-icons/fa"
 import { css } from "styled-system/css"
 import { VStack } from "styled-system/jsx"
 import { BallotEntrySummaryCard } from "#/components/ballots/ballot-entry-summary-card"
-import { BallotSectionHeading } from "#/components/ballots/ballot-section-heading"
-import { BallotUncalledLine } from "#/components/ballots/ballot-uncalled-line"
+import { EntryCallList } from "#/components/ballots/entry-call-list"
+import { GameMatchupHeader } from "#/components/games/game-matchup-header"
 import { buildGameTweet, GameShareRow } from "#/components/games/game-share-row"
-import { PickPositionRow } from "#/components/questions/pick-position-row"
 import { Breadcrumb } from "#/components/ui/breadcrumb"
-import { Card } from "#/components/ui/card"
 import { NotFound } from "#/components/ui/not-found"
 import { PageHeader } from "#/components/ui/page-header"
-import { Tag } from "#/components/ui/tag"
 import { GameEntryDocument } from "#/graphql/queries/sports"
 import { gqlQueryOptions } from "#/graphql/query-options"
 import { formatRecord, formatSignedPoints } from "#/lib/ballot-entry"
@@ -152,15 +148,14 @@ function RouteComponent() {
 				<Breadcrumb.Current>@{entry.user.username}</Breadcrumb.Current>
 			</Breadcrumb>
 
-			<VStack gap="2" alignItems="flex-start">
-				<Tag>{game.league.abbreviation}</Tag>
-				<PageHeader
-					title={`${game.awayTeam.name} @ ${game.homeTeam.name}`}
-					subtitle={`${entry.user.name}'s picks`}
-				/>
-			</VStack>
+			<PageHeader title={`${entry.user.name}'s picks`} />
+
+			{/* The same matchup the game page opens with, minus starters: the
+			    picks only mean something against the game they were made on. */}
+			<GameMatchupHeader game={game} />
 
 			<BallotEntrySummaryCard
+				person={entry.user}
 				calledCount={entry.calledCount}
 				memberCount={entry.members.length}
 				wins={entry.wins}
@@ -205,48 +200,16 @@ function RouteComponent() {
 					</>
 				}
 			/>
-			<VStack gap="3" alignItems="stretch">
-				<span
-					className={css({
-						fontFamily: "mono",
-						fontSize: "2xs",
-						letterSpacing: "wide",
-						color: "fg.subtle",
-						textTransform: "uppercase",
-					})}
-				>
-					Official questions
-				</span>
-				<Card>
-					<VStack gap="0" alignItems="stretch">
-						{called.map((row, i) => (
-							<Fragment key={row.question.id}>
-								{row.section !== called[i - 1]?.section && (
-									<BallotSectionHeading label={row.section} />
-								)}
-								{/* The chip label runs longer than a ballot slot, so it
-								    takes the row's wrapping label line rather than its
-								    bold code line. */}
-								<PickPositionRow
-									question={row.question}
-									call={row.call}
-									code={null}
-									label={row.code}
-								/>
-							</Fragment>
-						))}
-						{notCalledYet.length > 0 && (
-							<BallotUncalledLine
-								heading="Not called yet"
-								labels={notCalledYet}
-							/>
-						)}
-						{missed.length > 0 && (
-							<BallotUncalledLine heading="Missed" labels={missed} />
-						)}
-					</VStack>
-				</Card>
-			</VStack>
+			<EntryCallList
+				rows={called.flatMap((row) =>
+					row.call
+						? [{ key: row.question.id, section: row.section, call: row.call }]
+						: [],
+				)}
+				fallbackLabel="Official questions"
+				notCalledYet={notCalledYet}
+				missed={missed}
+			/>
 		</VStack>
 	)
 }

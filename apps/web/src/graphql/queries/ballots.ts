@@ -76,6 +76,7 @@ export const BallotEntryDocument = graphql(`
 					id
 					name
 					username
+					avatarUrl
 				}
 				members {
 					member {
@@ -88,11 +89,10 @@ export const BallotEntryDocument = graphql(`
 							status
 							locksAt
 						}
-						...BallotPositionRow_member
 					}
 					call {
 						id
-						...PickPositionRow_call
+						...CallCard_call
 					}
 				}
 			}

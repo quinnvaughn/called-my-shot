@@ -484,7 +484,7 @@ function FadeLine({
 	)
 }
 
-type RecordTone = "pending" | "success" | "danger"
+export type RecordTone = "pending" | "success" | "danger"
 
 // Panda reads token classes statically, so each tone is its own literal
 // css() call rather than a lookup inside one.
@@ -518,7 +518,7 @@ const recordTagBaseClass = css({
 
 // Where the call stands, small in the corner: blue while it's still out
 // there, green or red once it settles.
-function RecordTag({
+export function RecordTag({
 	tone,
 	children,
 }: {
@@ -552,7 +552,7 @@ const recordStatValueClassByTone: Record<
 	}),
 }
 
-function RecordStat({
+export function RecordStat({
 	value,
 	label,
 	tone,

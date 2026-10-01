@@ -1,19 +1,15 @@
 import { useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute, Link, useRouteContext } from "@tanstack/react-router"
-import { Fragment } from "react"
 import { FaRegTimesCircle } from "react-icons/fa"
 import { css } from "styled-system/css"
 import { VStack } from "styled-system/jsx"
 import { BallotEntrySummaryCard } from "#/components/ballots/ballot-entry-summary-card"
-import { BallotPositionRow } from "#/components/ballots/ballot-position-row"
-import { BallotSectionHeading } from "#/components/ballots/ballot-section-heading"
 import {
 	BallotShareRow,
 	buildBallotTweet,
 } from "#/components/ballots/ballot-share-row"
-import { BallotUncalledLine } from "#/components/ballots/ballot-uncalled-line"
+import { EntryCallList } from "#/components/ballots/entry-call-list"
 import { Breadcrumb } from "#/components/ui/breadcrumb"
-import { Card } from "#/components/ui/card"
 import { NotFound } from "#/components/ui/not-found"
 import { PageHeader } from "#/components/ui/page-header"
 import { Tag } from "#/components/ui/tag"
@@ -157,6 +153,7 @@ function RouteComponent() {
 			</VStack>
 
 			<BallotEntrySummaryCard
+				person={entry.user}
 				calledCount={entry.calledCount}
 				memberCount={ballot.memberCount}
 				wins={entry.wins}
@@ -201,41 +198,16 @@ function RouteComponent() {
 					</>
 				}
 			/>
-			<VStack gap="3" alignItems="stretch">
-				<span
-					className={css({
-						fontFamily: "mono",
-						fontSize: "2xs",
-						letterSpacing: "wide",
-						color: "fg.subtle",
-						textTransform: "uppercase",
-					})}
-				>
-					Questions
-				</span>
-				<Card>
-					<VStack gap="0" alignItems="stretch">
-						{called.map(({ member, call }, i) => (
-							<Fragment key={member.id}>
-								{member.section &&
-									member.section !== called[i - 1]?.member.section && (
-										<BallotSectionHeading label={member.section} />
-									)}
-								<BallotPositionRow member={member} call={call} />
-							</Fragment>
-						))}
-						{notCalledYet.length > 0 && (
-							<BallotUncalledLine
-								heading="Not called yet"
-								labels={notCalledYet}
-							/>
-						)}
-						{missed.length > 0 && (
-							<BallotUncalledLine heading="Missed" labels={missed} />
-						)}
-					</VStack>
-				</Card>
-			</VStack>
+			<EntryCallList
+				rows={called.flatMap(({ member, call }) =>
+					call
+						? [{ key: member.id, section: member.section ?? null, call }]
+						: [],
+				)}
+				fallbackLabel="Questions"
+				notCalledYet={notCalledYet}
+				missed={missed}
+			/>
 		</VStack>
 	)
 }

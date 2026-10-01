@@ -1,13 +1,20 @@
+import { Link } from "@tanstack/react-router"
 import type { ReactNode } from "react"
 import { css } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
-import { StatTile } from "#/components/ballots/ballot-progress-card"
 import { GameVerdictStamp } from "#/components/games/game-verdict-stamp"
+import {
+	RecordStat,
+	RecordTag,
+	type RecordTone,
+} from "#/components/questions/call-record-card"
+import { Avatar } from "#/components/ui/avatar"
 import { Card } from "#/components/ui/card"
 import type { GameEntryVerdict } from "#/graphql/generated/graphql"
 import { formatRecord, formatSignedPoints } from "#/lib/ballot-entry"
 
 type Props = {
+	person: { name: string; username: string; avatarUrl: string | null }
 	calledCount: number
 	memberCount: number
 	wins: number
@@ -22,11 +29,11 @@ type Props = {
 	footer?: ReactNode
 }
 
-// The entry page's counterpart to BallotProgressCard. That card's other
-// stats (off the field, contested, full ballots) describe the ballot from
-// the viewer's seat; this one describes someone's entry, so it's how much
-// they called and, once members settle, how it's going.
+// The centrepiece of an entry page (a game's official questions, a ballot),
+// laid out like CallRecordCard: whose it is and how it stands across the
+// top, the points at the call page's scale, then how much of it is called.
 export function BallotEntrySummaryCard({
+	person,
 	calledCount,
 	memberCount,
 	wins,
@@ -39,9 +46,60 @@ export function BallotEntrySummaryCard({
 		memberCount === 0 ? 0 : Math.round((calledCount / memberCount) * 100)
 	const isComplete = calledCount === memberCount && memberCount > 0
 	const hasSettled = wins + losses > 0
+	const pointsTone = points >= 0 ? "success" : "danger"
+
+	// The verdict outranks the bare record: it is the rarer claim, and says
+	// the record in a word.
+	const standing: { tone: RecordTone; label: string } = verdict
+		? verdict === "PERFECT"
+			? { tone: "success", label: "Perfect card" }
+			: { tone: "danger", label: "Oh-fer" }
+		: hasSettled
+			? { tone: pointsTone, label: formatRecord(wins, losses) }
+			: { tone: "pending", label: "On the record" }
 
 	return (
-		<Card>
+		<Card size="md">
+			<Card.Header>
+				<VStack gap="4" alignItems="stretch" width="full">
+					<HStack justify="space-between" gap="3" alignItems="center">
+						<Link
+							to="/user/$username"
+							params={{ username: person.username }}
+							className={css({
+								display: "inline-flex",
+								alignItems: "center",
+								gap: "2",
+								minWidth: "0",
+								textDecoration: "none",
+								color: "fg.default",
+								_hover: { "& span": { textDecoration: "underline" } },
+							})}
+						>
+							<Avatar size="xs" name={person.name} src={person.avatarUrl} />
+							<span
+								className={css({
+									fontFamily: "mono",
+									fontSize: "xs",
+									overflow: "hidden",
+									textOverflow: "ellipsis",
+									whiteSpace: "nowrap",
+								})}
+							>
+								@{person.username}
+							</span>
+						</Link>
+						<RecordTag tone={standing.tone}>{standing.label}</RecordTag>
+					</HStack>
+					{hasSettled && (
+						<RecordStat
+							value={formatSignedPoints(points)}
+							label="Points"
+							tone={pointsTone}
+						/>
+					)}
+				</VStack>
+			</Card.Header>
 			<Card.Body>
 				<VStack gap="3" alignItems="stretch">
 					<span
@@ -73,19 +131,6 @@ export function BallotEntrySummaryCard({
 							style={{ width: `${pct}%` }}
 						/>
 					</div>
-					{hasSettled && (
-						<HStack
-							gap="6"
-							flexWrap="wrap"
-							className={css({
-								paddingTop: "3",
-								borderTop: "1px solid {colors.border.default}",
-							})}
-						>
-							<StatTile value={formatRecord(wins, losses)} label="RECORD" />
-							<StatTile value={formatSignedPoints(points)} label="POINTS" />
-						</HStack>
-					)}
 					{verdict && (
 						<div
 							className={css({
