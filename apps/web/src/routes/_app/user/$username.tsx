@@ -121,23 +121,27 @@ type ProfileRecord = NonNullable<
 >
 
 // Leagues (career view only), then play-type families with their shapes
-// nested, then the bonuses no call earned. The league rows and the family
-// rows each add up to the calls' net, and either plus the bonuses is the
-// points tile above them.
+// nested or teams, one at a time, then the bonuses no call earned. The league
+// rows, the family rows and the team rows each add up to the calls' net, and
+// any of them plus the bonuses is the points tile above them.
 function breakdownGroups(record: ProfileRecord): PointsGroup[] {
 	const groups: PointsGroup[] = []
 	if (record.byLeague.length > 0) {
 		groups.push({
-			label: "By league",
-			rows: record.byLeague.map((row) => ({
+			views: [
+				{
+					label: "By league",
+					rows: record.byLeague.map((row) => ({
 				key: row.league.id,
 				label: row.league.name,
 				netPoints: row.netPoints,
 				wins: row.wins,
 				losses: row.losses,
-				returnPct: row.returnPct ?? null,
-				leagueSlug: row.league.slug,
-			})),
+						returnPct: row.returnPct ?? null,
+						leagueSlug: row.league.slug,
+					})),
+				},
+			],
 		})
 	}
 	const families: PointsRow[] = record.byFamily.map((family) => ({
@@ -158,19 +162,34 @@ function breakdownGroups(record: ProfileRecord): PointsGroup[] {
 				returnPct: shape.returnPct ?? null,
 			})),
 	}))
-	if (families.length > 0)
-		groups.push({ label: "By play type", rows: families })
+	const teams: PointsRow[] = record.byTeam.map((row) => ({
+		key: row.team?.id ?? "no-team",
+		label: row.team?.name ?? "No specific team",
+		netPoints: row.netPoints,
+		wins: row.wins,
+		losses: row.losses,
+		returnPct: row.returnPct ?? null,
+	}))
+	const splits = [
+		...(families.length > 0 ? [{ label: "By play type", rows: families }] : []),
+		...(teams.length > 0 ? [{ label: "By team", rows: teams }] : []),
+	]
+	if (splits.length > 0) groups.push({ views: splits })
 	if (record.bonusPoints !== 0) {
 		groups.push({
-			label: "Bonuses",
-			rows: [
+			views: [
 				{
-					key: "bonuses",
-					label: "Streaks & sweeps",
-					netPoints: record.bonusPoints,
-					wins: null,
-					losses: null,
-					returnPct: null,
+					label: "Bonuses",
+					rows: [
+						{
+							key: "bonuses",
+							label: "Streaks & sweeps",
+							netPoints: record.bonusPoints,
+							wins: null,
+							losses: null,
+							returnPct: null,
+						},
+					],
 				},
 			],
 		})

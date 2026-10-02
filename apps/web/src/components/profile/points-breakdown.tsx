@@ -4,6 +4,7 @@ import { FiChevronDown, FiChevronRight } from "react-icons/fi"
 import { css, cx } from "styled-system/css"
 import { Flex, HStack, VStack } from "styled-system/jsx"
 import { Card } from "#/components/ui/card"
+import { ChipButton } from "#/components/ui/chip-button"
 import { formatRecord, formatSignedPoints } from "#/lib/ballot-entry"
 import { formatReturn } from "#/lib/report-card"
 
@@ -23,9 +24,15 @@ export type PointsRow = {
 
 // Leagues and play types each account for the same calls, so they're drawn
 // as separate labeled groups rather than one list that reads as a hierarchy.
-export type PointsGroup = {
+export type PointsView = {
 	label: string
 	rows: PointsRow[]
+}
+
+// A group with more than one view splits the same calls more than one way,
+// one view on screen at a time.
+export type PointsGroup = {
+	views: PointsView[]
 }
 
 type Props = {
@@ -47,15 +54,26 @@ function signedTone(points: number): string {
 			: css({ color: "fg.default" })
 }
 
+const groupLabel = css({
+	fontFamily: "mono",
+	fontSize: "2xs",
+	letterSpacing: "wide",
+	textTransform: "uppercase",
+	color: "fg.muted",
+	paddingX: "2",
+})
+
 // Where the points came from, one bar per row out from a shared zero line:
 // right and green for what a row netted, left and red for what it cost. Every
-// bar, nested ones and every group included, is scaled against the biggest
-// swing on the card, so a short bar always means a small share of the total.
+// bar, nested ones, every group and every view included, is scaled against
+// the biggest swing on the card, so a short bar always means a small share of
+// the total and switching views doesn't rescale the rest of the card.
 export function PointsBreakdown({ groups, username }: Props) {
 	const max = Math.max(
 		1,
 		...groups
-			.flatMap((group) => group.rows)
+			.flatMap((group) => group.views)
+			.flatMap((view) => view.rows)
 			.flatMap((row) => [
 				Math.abs(row.netPoints),
 				...(row.children ?? []).map((child) => Math.abs(child.netPoints)),
@@ -67,44 +85,68 @@ export function PointsBreakdown({ groups, username }: Props) {
 			<Card.Body>
 				<VStack alignItems="stretch" gap="4">
 					{groups.map((group, index) => (
-						<VStack
-							key={group.label}
-							alignItems="stretch"
-							gap="1"
-							className={
-								index > 0
-									? css({
-											borderTop: "1px solid {colors.border.default}",
-											paddingTop: "4",
-										})
-									: undefined
-							}
-						>
-							<span
-								className={css({
-									fontFamily: "mono",
-									fontSize: "2xs",
-									letterSpacing: "wide",
-									textTransform: "uppercase",
-									color: "fg.muted",
-									paddingX: "2",
-								})}
-							>
-								{group.label}
-							</span>
-							{group.rows.map((row) => (
-								<BreakdownRow
-									key={row.key}
-									row={row}
-									max={max}
-									username={username}
-								/>
-							))}
-						</VStack>
+						<BreakdownGroup
+							key={group.views.map((view) => view.label).join("|")}
+							group={group}
+							max={max}
+							username={username}
+							divided={index > 0}
+						/>
 					))}
 				</VStack>
 			</Card.Body>
 		</Card>
+	)
+}
+
+function BreakdownGroup({
+	group,
+	max,
+	username,
+	divided,
+}: {
+	group: PointsGroup
+	max: number
+	username: string
+	divided: boolean
+}) {
+	const [selected, setSelected] = useState(0)
+	const view = group.views[selected] ?? group.views[0]
+	if (!view) return null
+
+	return (
+		<VStack
+			alignItems="stretch"
+			gap="1"
+			className={
+				divided
+					? css({
+							borderTop: "1px solid {colors.border.default}",
+							paddingTop: "4",
+						})
+					: undefined
+			}
+		>
+			{group.views.length > 1 ? (
+				<HStack gap="1.5" paddingX="2" paddingBottom="1">
+					{group.views.map((option, index) => (
+						<ChipButton
+							key={option.label}
+							selected={index === selected}
+							pressed={index === selected}
+							onClick={() => setSelected(index)}
+						>
+							{option.label}
+						</ChipButton>
+					))}
+				</HStack>
+			) : (
+				<span className={groupLabel}>{view.label}</span>
+			)}
+			{view.rows.map((row) => (
+				<BreakdownRow key={row.key} row={row} max={max} username={username} />
+			))}
+		</VStack>
 	)
 }
 

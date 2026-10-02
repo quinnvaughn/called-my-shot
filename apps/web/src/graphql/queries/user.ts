@@ -146,6 +146,17 @@ export const UserRecordDocument = graphql(`
 					netPoints
 					returnPct
 				}
+				byTeam {
+					team {
+						id
+						name
+					}
+					settledCount
+					wins
+					losses
+					netPoints
+					returnPct
+				}
 			}
 		}
 	}

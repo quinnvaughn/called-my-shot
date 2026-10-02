@@ -3,6 +3,7 @@ import type {
 	RecordDay,
 	RecordDayLeague,
 	RecordLeagueRow,
+	RecordTeamRow,
 	UserRecord,
 	UserRecordInputs,
 } from "../../../lib/user-record"
@@ -13,6 +14,7 @@ import {
 	LeagueRef,
 	ReportCardFamilyRowRef,
 	ReportCardShapeRowRef,
+	TeamRef,
 } from "../sports"
 
 // Every call a user has made, loaded once per request no matter how many
@@ -87,6 +89,26 @@ const RecordLeagueRowRef = builder
 		}),
 	})
 
+const RecordTeamRowRef = builder
+	.objectRef<RecordTeamRow>("RecordTeamRow")
+	.implement({
+		fields: (t) => ({
+			// Null for the row of calls about no single team: game totals,
+			// subject-less props, picks from more than one roster.
+			team: t.field({
+				type: TeamRef,
+				nullable: true,
+				resolve: (r) => r.team,
+			}),
+			settledCount: t.exposeInt("settledCount"),
+			wins: t.exposeInt("wins"),
+			losses: t.exposeInt("losses"),
+			netPoints: t.exposeInt("netPoints"),
+			committedPoints: t.exposeInt("committedPoints"),
+			returnPct: t.exposeFloat("returnPct", { nullable: true }),
+		}),
+	})
+
 export const UserRecordRef = builder
 	.objectRef<UserRecord>("UserRecord")
 	.implement({
@@ -107,6 +129,10 @@ export const UserRecordRef = builder
 			byShape: t.field({
 				type: [ReportCardShapeRowRef],
 				resolve: (r) => r.byShape,
+			}),
+			byTeam: t.field({
+				type: [RecordTeamRowRef],
+				resolve: (r) => r.byTeam,
 			}),
 			wins: t.exposeInt("wins"),
 			losses: t.exposeInt("losses"),

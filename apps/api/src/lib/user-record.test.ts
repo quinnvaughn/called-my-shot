@@ -1,16 +1,23 @@
 import { eq } from "drizzle-orm"
 import { beforeEach, describe, expect, it } from "vitest"
 import { db } from "../db"
-import { callSelections, pointAwards, questionOptions } from "../db/schema"
+import {
+	callSelections,
+	playerGameStats,
+	pointAwards,
+	questionOptions,
+} from "../db/schema"
 import {
 	type League,
 	makeCall,
 	makeGame,
 	makeLeague,
 	makeOption,
+	makePlayer,
 	makeQuestion,
 	makeSeason,
 	makeSelection,
+	makeTeam,
 	makeUser,
 } from "../test/factories"
 import {
@@ -190,5 +197,243 @@ describe("loadUserRecordInputs + buildUserRecord", () => {
 		expect(nbaOnly.byFamily.reduce((sum, row) => sum + row.netPoints, 0)).toBe(
 			70,
 		)
+	})
+})
+
+describe("byTeam", () => {
+	const now = new Date("2026-09-24T16:00:00Z")
+
+	// A settled call on a fresh question with one picked option per entry in
+	// picks, each scored points / picks.length.
+	async function pickCall(opts: {
+		league: League
+		seasonId: string
+		gameId: string | null
+		question?: Parameters<typeof makeQuestion>[0]
+		picks: { teamId?: string; playerId?: string; label?: string }[]
+		points: number
+	}) {
+		const question = await makeQuestion({
+			leagueId: opts.league.id,
+			seasonId: opts.seasonId,
+			gameId: opts.gameId,
+			status: "resolved",
+			resolvedAt: new Date(),
+			...opts.question,
+		})
+		const call = await makeCall(question.id, userId)
+		for (const [i, pick] of opts.picks.entries()) {
+			const option = await makeOption(question.id, {
+				label: pick.label ?? `Pick ${i}`,
+				sortOrder: i,
+				teamId: pick.teamId ?? null,
+				playerId: pick.playerId ?? null,
+				isCorrect: opts.points > 0,
+			})
+			await makeSelection(call.id, option.id, 50)
+			await db
+				.update(callSelections)
+				.set({ resultPoints: opts.points / opts.picks.length })
+				.where(eq(callSelections.optionId, option.id))
+		}
+	}
+
+	async function boxScore(opts: {
+		league: League
+		seasonId: string
+		gameId: string
+		playerId: string
+		teamId: string
+		opponentTeamId: string
+		gameDate: Date
+	}) {
+		await db.insert(playerGameStats).values({
+			gameId: opts.gameId,
+			source: "espn",
+			sourceAthleteId: `nba:${opts.playerId}`,
+			playerId: opts.playerId,
+			teamId: opts.teamId,
+			opponentTeamId: opts.opponentTeamId,
+			isHome: true,
+			gameDate: opts.gameDate,
+			seasonId: opts.seasonId,
+			leagueId: opts.league.id,
+			statKey: "points",
+			valueText: "20",
+			valueNumeric: 20,
+			didNotPlay: false,
+		})
+	}
+
+	it("puts each call on the one team it's about and adds up to the calls' net", async () => {
+		const league = await makeLeague({ windowType: "date" })
+		const seasonId = (await makeSeason({ leagueId: league.id })).id
+		const celtics = await makeTeam({ leagueId: league.id, name: "Celtics" })
+		const sixers = await makeTeam({ leagueId: league.id, name: "76ers" })
+		const game = await makeGame({
+			leagueId: league.id,
+			seasonId,
+			homeTeamId: celtics.id,
+			awayTeamId: sixers.id,
+		})
+
+		// A matchup counts toward the team picked, never the opponent.
+		await pickCall({
+			league,
+			seasonId,
+			gameId: game.id,
+			question: { shape: "team_vs_team" },
+			picks: [{ teamId: sixers.id }],
+			points: -40,
+		})
+		await pickCall({
+			league,
+			seasonId,
+			gameId: game.id,
+			question: { shape: "team_stat_over_under", subjectTeamId: celtics.id },
+			picks: [{ label: "Over" }],
+			points: 30,
+		})
+		// A game total is about neither team alone.
+		await pickCall({
+			league,
+			seasonId,
+			gameId: game.id,
+			question: { shape: "game_total_over_under" },
+			picks: [{ label: "Under" }],
+			points: 100,
+		})
+
+		const record = buildUserRecord(await loadUserRecordInputs(userId), {
+			leagueId: null,
+			weeks: 2,
+			now,
+		})
+		expect(
+			record.byTeam.map((row) => [row.team?.id ?? null, row.netPoints]),
+		).toEqual([
+			[celtics.id, 30],
+			[sixers.id, -40],
+			[null, 100],
+		])
+		expect(record.byTeam.reduce((sum, row) => sum + row.netPoints, 0)).toBe(
+			record.netFromCalls,
+		)
+	})
+
+	it("places a player on the team they played for, not the one they're on now", async () => {
+		const league = await makeLeague({ windowType: "date" })
+		const seasonId = (await makeSeason({ leagueId: league.id })).id
+		const before = await makeTeam({ leagueId: league.id })
+		const after = await makeTeam({ leagueId: league.id })
+		const other = await makeTeam({ leagueId: league.id })
+		const player = await makePlayer({ currentTeamId: after.id })
+		const game = await makeGame({
+			leagueId: league.id,
+			seasonId,
+			homeTeamId: before.id,
+			awayTeamId: other.id,
+		})
+		await boxScore({
+			league,
+			seasonId,
+			gameId: game.id,
+			playerId: player.id,
+			teamId: before.id,
+			opponentTeamId: other.id,
+			gameDate: new Date("2026-01-10T00:00:00Z"),
+		})
+
+		await pickCall({
+			league,
+			seasonId,
+			gameId: game.id,
+			question: {
+				shape: "player_stat_over_under",
+				subjectPlayerId: player.id,
+			},
+			picks: [{ label: "Over" }],
+			points: 25,
+		})
+
+		const record = buildUserRecord(await loadUserRecordInputs(userId), {
+			leagueId: null,
+			weeks: 2,
+			now,
+		})
+		expect(record.byTeam.map((row) => row.team?.id)).toEqual([before.id])
+	})
+
+	it("places a season-long player call on their latest team that season", async () => {
+		const league = await makeLeague({ windowType: "date" })
+		const seasonId = (await makeSeason({ leagueId: league.id })).id
+		const first = await makeTeam({ leagueId: league.id })
+		const second = await makeTeam({ leagueId: league.id })
+		const other = await makeTeam({ leagueId: league.id })
+		const player = await makePlayer({ currentTeamId: null })
+		for (const [teamId, gameDate] of [
+			[first.id, new Date("2026-01-10T00:00:00Z")],
+			[second.id, new Date("2026-03-10T00:00:00Z")],
+		] as const) {
+			const game = await makeGame({
+				leagueId: league.id,
+				seasonId,
+				homeTeamId: teamId,
+				awayTeamId: other.id,
+			})
+			await boxScore({
+				league,
+				seasonId,
+				gameId: game.id,
+				playerId: player.id,
+				teamId,
+				opponentTeamId: other.id,
+				gameDate,
+			})
+		}
+
+		await pickCall({
+			league,
+			seasonId,
+			gameId: null,
+			question: {
+				shape: "player_season_stat_over_under",
+				subjectPlayerId: player.id,
+			},
+			picks: [{ label: "Over" }],
+			points: 60,
+		})
+
+		const record = buildUserRecord(await loadUserRecordInputs(userId), {
+			leagueId: null,
+			weeks: 2,
+			now,
+		})
+		expect(record.byTeam.map((row) => row.team?.id)).toEqual([second.id])
+	})
+
+	it("puts picks of players from different teams on no specific team", async () => {
+		const league = await makeLeague({ windowType: "date" })
+		const seasonId = (await makeSeason({ leagueId: league.id })).id
+		const a = await makeTeam({ leagueId: league.id })
+		const b = await makeTeam({ leagueId: league.id })
+		const playerA = await makePlayer({ currentTeamId: a.id })
+		const playerB = await makePlayer({ currentTeamId: b.id })
+
+		await pickCall({
+			league,
+			seasonId,
+			gameId: null,
+			question: { shape: "player_award_finalists" },
+			picks: [{ playerId: playerA.id }, { playerId: playerB.id }],
+			points: 80,
+		})
+
+		const record = buildUserRecord(await loadUserRecordInputs(userId), {
+			leagueId: null,
+			weeks: 2,
+			now,
+		})
+		expect(record.byTeam.map((row) => row.team)).toEqual([null])
 	})
 })
