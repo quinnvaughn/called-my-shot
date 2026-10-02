@@ -21,12 +21,19 @@ export const TeamRef = builder.drizzleObject("teams", {
 // record independent of which season/point in the season you're asking
 // about).
 export const TeamRecordRef = builder
-	.objectRef<{ wins: number; losses: number; ties: number }>("TeamRecord")
+	.objectRef<{
+		wins: number
+		losses: number
+		ties: number
+		otLosses: number | null
+	}>("TeamRecord")
 	.implement({
 		fields: (t) => ({
 			wins: t.exposeInt("wins"),
 			losses: t.exposeInt("losses"),
 			ties: t.exposeInt("ties"),
+			// The NHL's third count. Null for a league without overtime losses.
+			otLosses: t.int({ nullable: true, resolve: (r) => r.otLosses }),
 		}),
 	})
 

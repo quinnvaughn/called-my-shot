@@ -117,18 +117,21 @@ export const StatContextCardFragment = graphql(`
 					wins
 					losses
 					ties
+					otLosses
 				}
 				headToHead {
 					games
 					wins
 					losses
 					ties
+					otLosses
 				}
 				lastTen {
 					games
 					wins
 					losses
 					ties
+					otLosses
 				}
 				streak {
 					outcome
@@ -591,7 +594,7 @@ function SubjectColumn({
 
 const OUTCOME_LETTER = { WIN: "W", LOSS: "L", TIE: "T" } as const
 
-// The three scoring-gap metrics, by the name each sport actually uses. The
+// The four scoring-gap metrics, by the name each sport actually uses. The
 // server decides which one a league gets (lib/stat-context/differential.ts);
 // this is only how it is written and formatted, and the two halves have to
 // stay in step - a net rating is a rate to one decimal, where a season total
@@ -600,16 +603,20 @@ const DIFFERENTIAL_LABEL = {
 	NET_RATING: "net rating",
 	RUN_DIFFERENTIAL: "run differential",
 	POINT_DIFFERENTIAL: "point differential",
+	GOAL_DIFFERENTIAL: "goal differential",
 } as const
 
 // Ties are only written when there are any - a 6-3-0 is how nobody records an
-// NBA season.
+// NBA season. The NHL's overtime losses are written whenever ESPN's split
+// supplies them, zero included, the way hockey records always read.
 function formatRecord(record: {
 	wins: number
 	losses: number
 	ties: number
+	otLosses?: number | null
 }): string {
 	const base = `${record.wins}-${record.losses}`
+	if (record.otLosses != null) return `${base}-${record.otLosses}`
 	return record.ties > 0 ? `${base}-${record.ties}` : base
 }
 

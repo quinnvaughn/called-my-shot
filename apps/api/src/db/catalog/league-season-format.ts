@@ -11,4 +11,5 @@ export const LEAGUE_SEASON_FORMAT: Record<string, { gamesPerSeason: number }> =
 		nba: { gamesPerSeason: 82 },
 		nfl: { gamesPerSeason: 17 },
 		mlb: { gamesPerSeason: 162 },
+		nhl: { gamesPerSeason: 82 },
 	}

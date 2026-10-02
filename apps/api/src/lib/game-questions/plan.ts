@@ -24,7 +24,7 @@ export type GenerationWindow = { kind: "ahead"; ms: number } | { kind: "week" }
 export function windowFor(leagueSlug: string): GenerationWindow | null {
 	return match(leagueSlug)
 		.returnType<GenerationWindow | null>()
-		.with("nba", "mlb", () => ({ kind: "ahead", ms: DAILY_WINDOW_MS }))
+		.with("nba", "mlb", "nhl", () => ({ kind: "ahead", ms: DAILY_WINDOW_MS }))
 		.with("nfl", () => ({ kind: "week" }))
 		.otherwise(() => null)
 }

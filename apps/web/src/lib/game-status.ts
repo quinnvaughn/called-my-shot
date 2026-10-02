@@ -70,13 +70,21 @@ export function gamesInWindowLabel(
 // "W-L" for the overwhelming majority of sports, "W-L-T" only once a team
 // actually has a tie on the board (MLB/NBA never will; NFL occasionally
 // does) - showing "-0" on every row regardless would just be noise for the
-// sports that never see one. Null in, null out: GameRef.homeTeamRecord/
-// awayTeamRecord are null for a game synced before that data existed.
+// sports that never see one. The NHL's "W-L-OTL" always carries its third
+// count, zero included, since that's how hockey records are written;
+// otLosses is null for every other league. Null in, null out:
+// GameRef.homeTeamRecord/awayTeamRecord are null for a game synced before
+// that data existed.
 export function formatTeamRecord(
-	record: { wins: number; losses: number; ties: number } | null,
+	record: {
+		wins: number
+		losses: number
+		ties: number
+		otLosses?: number | null
+	} | null,
 ): string | null {
 	if (!record) return null
-	return record.ties > 0
-		? `${record.wins}-${record.losses}-${record.ties}`
-		: `${record.wins}-${record.losses}`
+	const base = `${record.wins}-${record.losses}`
+	if (record.otLosses != null) return `${base}-${record.otLosses}`
+	return record.ties > 0 ? `${base}-${record.ties}` : base
 }

@@ -90,6 +90,7 @@ export const GENERATION_TIER: Record<string, number> = {
 	nba: 1,
 	nfl: 1,
 	mlb: 1,
+	nhl: 1,
 }
 
 // How many player templates each game gets, drawn at random from the league's
@@ -98,6 +99,7 @@ export const PLAYER_QUESTIONS_PER_GAME: Record<string, number> = {
 	nba: 3,
 	nfl: 4,
 	mlb: 3,
+	nhl: 3,
 }
 
 const NBA_TOP_SCORER: StarterPick = {
@@ -217,6 +219,27 @@ const mlbBatter = (espnStat: string): StarterPick => ({
 	source: "roster",
 	choose: 3,
 })
+
+// Every skater, from the roster: ESPN posts no NHL lineup before puck drop and
+// lists nobody in the "starter" role for the NHL, so these always read the
+// roster. Drawn from the top three so it isn't the same star every night.
+const nhlSkater = (espnStat: string): StarterPick => ({
+	role: "starter",
+	positions: ["C", "LW", "RW", "D"],
+	espnStat,
+	priorWeight: 15,
+	source: "roster",
+	choose: 3,
+})
+
+// ESPN's probable starting goalie, lined on saves per start so a relief
+// appearance doesn't drag the figure down.
+const NHL_GOALIE: StarterPick = {
+	role: "starting_goalie",
+	espnStat: "defensive.saves",
+	espnGames: "general.gameStarted",
+	priorWeight: 6,
+}
 
 export const GAME_QUESTION_CATALOG: Record<string, GameQuestionTemplate[]> = {
 	nfl: [
@@ -541,6 +564,83 @@ export const GAME_QUESTION_CATALOG: Record<string, GameQuestionTemplate[]> = {
 			group: "total-bases",
 			pick: mlbBatter("batting.totalBases"),
 			line: { minGames: 15, shade: 0.9, minLine: 0.5 },
+		},
+	],
+	nhl: [
+		{
+			id: "team-goals-ou",
+			tier: 1,
+			shape: "team_stat_over_under",
+			statName: "Goals",
+			// The line comes off final scores, which count a shootout win as a
+			// goal that the question's own reading leaves out (see
+			// deriveHockeyStats), so it starts about 0.06 a game high until
+			// the shade is tuned.
+			line: { minGames: 10, shade: 1, minLine: 1.5 },
+			priorWeight: 20,
+			priorStat: "offensive.goals",
+			// Goals allowed per game, 2025-26: 2.9 game-to-game against 0.071
+			// between teams, so 2.9 / 0.071 = 41.
+			oppWeight: 41,
+		},
+		{
+			id: "skater-shots-duel",
+			tier: 1,
+			shape: "player_vs_player",
+			statName: "Shots on Goal",
+			group: "shots",
+			pick: nhlSkater("offensive.shotsTotal"),
+		},
+		{
+			id: "skater-shots",
+			tier: 1,
+			shape: "player_stat_over_under",
+			statName: "Shots on Goal",
+			group: "shots",
+			pick: nhlSkater("offensive.shotsTotal"),
+			line: { minGames: 10, shade: 0.95, minLine: 1.5 },
+		},
+		{
+			id: "shots-leader",
+			tier: 1,
+			shape: "player_game_stat_leader",
+			statName: "Shots on Goal",
+			group: "shots",
+			pick: nhlSkater("offensive.shotsTotal"),
+		},
+		{
+			id: "skater-points",
+			tier: 1,
+			shape: "player_stat_over_under",
+			statName: "Points",
+			group: "points",
+			pick: nhlSkater("offensive.points"),
+			line: { minGames: 10, shade: 0.9, minLine: 0.5 },
+		},
+		{
+			id: "points-leader",
+			tier: 1,
+			shape: "player_game_stat_leader",
+			statName: "Points",
+			group: "points",
+			pick: nhlSkater("offensive.points"),
+		},
+		{
+			id: "goalie-saves-duel",
+			tier: 1,
+			shape: "player_vs_player",
+			statName: "Saves",
+			group: "saves",
+			pick: NHL_GOALIE,
+		},
+		{
+			id: "goalie-saves",
+			tier: 1,
+			shape: "player_stat_over_under",
+			statName: "Saves",
+			group: "saves",
+			pick: NHL_GOALIE,
+			line: { minGames: 5, shade: 1, minLine: 15.5 },
 		},
 	],
 }

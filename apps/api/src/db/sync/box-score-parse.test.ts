@@ -11,9 +11,12 @@ import type { EspnGameSummary } from "./espn-client"
 
 // Trimmed from live ESPN summaries (2026-09-12) down to the fields the parser
 // reads: NBA 401811029, NFL 401872657, MLB 401816883. MLB's plays are only its
-// hits, each with just its type and batter.
-const summaryFixture = (league: "nba" | "nfl" | "mlb") =>
+// hits, each with just its type and batter. NHL (2026-10-01): 401803653, a
+// regulation final, and 401803652, decided in a shootout.
+const summaryFixture = (league: "nba" | "nfl" | "mlb" | "nhl") =>
 	espnFixture<EspnGameSummary>(`${league}-summary.json`)
+const nhlShootoutFixture = () =>
+	espnFixture<EspnGameSummary>("nhl-summary-shootout.json")
 
 describe("parseBoxScore", () => {
 	it("reads an NBA box score's scores, players and team stats", () => {
@@ -108,6 +111,44 @@ describe("parseBoxScore", () => {
 		expect(box.athletes.get("41197")?.stats.has("batting.totalBases")).toBe(
 			false,
 		)
+	})
+
+	it("files NHL forwards and defensemen under one skaters table", () => {
+		const box = parseBoxScore(summaryFixture("nhl"))
+		expect(box.isFinal).toBe(true)
+		expect(box.athletes.get("4588750")?.stats.get("skaters.goals")).toBe("2")
+		expect(box.athletes.get("4588750")?.stats.get("skaters.shotsTotal")).toBe(
+			"3",
+		)
+		expect(box.athletes.get("4697705")?.stats.get("goalies.saves")).toBe("29")
+		expect(box.athletes.get("4697705")?.stats.has("skaters.goals")).toBe(false)
+	})
+
+	it("adds up an NHL skater's points and each team's totals", () => {
+		const box = parseBoxScore(summaryFixture("nhl"))
+		expect(box.athletes.get("4588750")?.stats.get("skaters.points")).toBe("3")
+		expect(box.tableTotals.get("13")?.get("skaters.goals")).toBe("4")
+		expect(box.tableTotals.get("13")?.get("skaters.shotsTotal")).toBe("21")
+		expect(box.tableTotals.get("20")?.get("goalies.saves")).toBe("17")
+	})
+
+	it("takes NHL team goals off the final score in regulation", () => {
+		const box = parseBoxScore(summaryFixture("nhl"))
+		expect(box.teamStats.get("13")?.get("goals")).toBe("4")
+		expect(box.teamStats.get("20")?.get("goals")).toBe("2")
+	})
+
+	it("leaves the shootout out of NHL team goals but not the final score", () => {
+		const box = parseBoxScore(nhlShootoutFixture())
+		expect(box.scoreByEspnTeamId.get("9")).toBe(4)
+		expect(box.teamStats.get("9")?.get("goals")).toBe("3")
+		expect(box.tableTotals.get("9")?.get("skaters.goals")).toBe("3")
+		expect(box.teamStats.get("2")?.get("goals")).toBe("3")
+	})
+
+	it("derives no hockey stats for another league", () => {
+		const box = parseBoxScore(summaryFixture("nba"))
+		expect(box.teamStats.get("3")?.has("goals")).toBe(false)
 	})
 
 	it("isn't final until ESPN marks the game completed with a full box score", () => {

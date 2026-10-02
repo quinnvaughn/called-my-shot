@@ -112,11 +112,13 @@ export const QuestionDetailDocument = graphql(`
 					wins
 					losses
 					ties
+					otLosses
 				}
 				awayTeamRecord {
 					wins
 					losses
 					ties
+					otLosses
 				}
 			}
 			guessDistribution {

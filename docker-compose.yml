@@ -1,15 +1,39 @@
-# Postgres for the API's integration tests only - NOT the dev database, which
-# lives on 5433 (see apps/api/.env.example). Deliberately a separate port and
-# a separate database name: the integration suite truncates every table
-# between tests, so pointing it at the dev database would wipe local data.
+# Two local Postgres instances, deliberately on separate ports with separate
+# database names: the integration suite truncates every table between tests,
+# so pointing it at the dev database would wipe local data.
+#
+# postgres-dev is the dev database apps/api/.env points at (5433, see
+# apps/api/.env.example). A named volume, so local data survives restarts.
+#
+#   docker compose up -d postgres-dev
+#
+# postgres-test is for the API's integration tests only. tmpfs, not a named
+# volume - this data is disposable by definition, and keeping it in memory
+# makes the truncate-between-tests cycle noticeably faster than a disk-backed
+# volume.
 #
 #   docker compose up -d postgres-test
 #   pnpm test
-#
-# tmpfs, not a named volume - this data is disposable by definition, and
-# keeping it in memory makes the truncate-between-tests cycle noticeably
-# faster than a disk-backed volume.
 services:
+  postgres-dev:
+    image: postgres:18-alpine
+    container_name: called-my-shot-postgres-dev
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: called_my_shot
+    ports:
+      - "5433:5432"
+    # Mounted at /var/lib/postgresql for the same Postgres 18 reason as
+    # postgres-test below.
+    volumes:
+      - postgres-dev-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d called_my_shot"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
   postgres-test:
     image: postgres:18-alpine
     container_name: called-my-shot-postgres-test
@@ -30,3 +54,6 @@ services:
       interval: 2s
       timeout: 3s
       retries: 30
+
+volumes:
+  postgres-dev-data:

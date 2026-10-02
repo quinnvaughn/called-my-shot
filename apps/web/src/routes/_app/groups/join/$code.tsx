@@ -164,10 +164,10 @@ function RouteComponent() {
 								textAlign: "center",
 							})}
 						>
-							Make calls on NFL, NBA and MLB games and whole seasons, or write
-							your own questions for others to call. Every call is scored once
-							the result is in, and {preview.name} ranks its members on its own
-							leaderboard.
+							Make calls on NFL, NBA, MLB and NHL games and whole seasons, or
+							write your own questions for others to call. Every call is scored
+							once the result is in, and {preview.name} ranks its members on its
+							own leaderboard.
 						</p>
 					</>
 				) : (

@@ -14,6 +14,9 @@ const DECIDING_ROUND: Record<ChampionshipKey, RegExp> = {
 	"mlb:World Series": /^World Series\b/,
 	"mlb:Pennant:AL": /^ALCS\b/,
 	"mlb:Pennant:NL": /^NLCS\b/,
+	"nhl:Stanley Cup": /^Stanley Cup Final\b/,
+	"nhl:Conference Final:East": /^East Final\b/,
+	"nhl:Conference Final:West": /^West Final\b/,
 }
 
 export type ChampionshipWinner = { espnEventId: string; espnTeamId: string }

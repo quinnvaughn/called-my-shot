@@ -2,11 +2,12 @@ import type { TeamSeasonStats } from "../../db/schema"
 import type { StatContextDifferential } from "./types"
 
 // How each sport measures the gap between what a team scores and what it gives
-// up. Three different metrics, not one metric with three names:
+// up. Four different metrics, not one metric with four names:
 //
 //   net rating          points per 100 possessions, so a pace-neutral rate
 //   run differential    runs, as a season total
 //   point differential  points, as a season total
+//   goal differential   goals, as a season total
 //
 // A per-game margin is a fourth thing again, and printing any of these under
 // another's name claims a measurement that wasn't taken. This map is the only
@@ -17,6 +18,7 @@ const METRIC_BY_LEAGUE: Record<string, StatContextDifferential["kind"]> = {
 	nba: "net_rating",
 	mlb: "run_differential",
 	nfl: "point_differential",
+	nhl: "goal_differential",
 }
 
 export function differentialKindFor(

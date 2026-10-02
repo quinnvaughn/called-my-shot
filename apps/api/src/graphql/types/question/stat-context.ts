@@ -210,8 +210,8 @@ const MatchupFocusEnum = builder.enumType("StatContextMatchupFocus", {
 	} as const,
 })
 
-// Named per sport because these are not one metric with three names: a net
-// rating is a rate per 100 possessions, the other two are season totals. The
+// Named per sport because these are not one metric with four names: a net
+// rating is a rate per 100 possessions, the other three are season totals. The
 // page needs the kind to name and format the value correctly - see
 // lib/stat-context/differential.ts.
 const DifferentialKindEnum = builder.enumType("StatContextDifferentialKind", {
@@ -219,6 +219,7 @@ const DifferentialKindEnum = builder.enumType("StatContextDifferentialKind", {
 		NET_RATING: { value: "net_rating" },
 		RUN_DIFFERENTIAL: { value: "run_differential" },
 		POINT_DIFFERENTIAL: { value: "point_differential" },
+		GOAL_DIFFERENTIAL: { value: "goal_differential" },
 	} as const,
 })
 
@@ -240,6 +241,9 @@ const SplitRecordRef = builder
 			wins: t.exposeInt("wins"),
 			losses: t.exposeInt("losses"),
 			ties: t.exposeInt("ties"),
+			// The NHL's overtime losses, from ESPN's own split. Null outside the
+			// NHL and for a split counted off game rows.
+			otLosses: t.int({ nullable: true, resolve: (r) => r.otLosses }),
 		}),
 	})
 

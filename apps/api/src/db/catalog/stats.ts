@@ -20,10 +20,10 @@ async function findOrCreateSport(
 // One row per tolerance band a numeric_guess stat can point at - see
 // statToleranceTiers' own doc comment in db/schema/stats.ts. Upserted by
 // name, so tweaking a toleranceValue here and re-running the sync updates the
-// live row instead of erroring on the unique constraint. The three "Rate
-// Stat" tiers are absolute-mode (a fixed amount in the stat's own unit, not
-// a fraction of it) - starting points for AVG/OBP/SLG/ERA/WHIP, tunable like
-// any other tier.
+// live row instead of erroring on the unique constraint. The "Rate Stat"
+// tiers are absolute-mode (a fixed amount in the stat's own unit, not a
+// fraction of it) - starting points for AVG/OBP/SLG/ERA/WHIP and the NHL's
+// SV%/GAA, tunable like any other tier.
 const TOLERANCE_TIERS = [
 	{
 		name: "Low-Count Box Stat",
@@ -38,6 +38,12 @@ const TOLERANCE_TIERS = [
 	},
 	{ name: "Rate Stat - ERA", toleranceMode: "absolute", toleranceValue: 0.5 },
 	{ name: "Rate Stat - WHIP", toleranceMode: "absolute", toleranceValue: 0.15 },
+	{
+		name: "Rate Stat - Save Percentage",
+		toleranceMode: "absolute",
+		toleranceValue: 0.01,
+	},
+	{ name: "Rate Stat - GAA", toleranceMode: "absolute", toleranceValue: 0.25 },
 	// Season win-total guesses (team_season_stat_numeric_guess, statName
 	// "Wins") - absolute-mode and sport-specific rather than the generic
 	// "High-Volume" percentage tier, since a fixed win-count band scales with
@@ -57,6 +63,11 @@ const TOLERANCE_TIERS = [
 		name: "Season Win Total - MLB",
 		toleranceMode: "absolute",
 		toleranceValue: 6,
+	},
+	{
+		name: "Season Win Total - NHL",
+		toleranceMode: "absolute",
+		toleranceValue: 4,
 	},
 	// Team final scores, per league (statName "Points"). Absolute rather than
 	// "High-Volume" because a band should scale with how much a score swings,
@@ -348,15 +359,98 @@ const BASEBALL_STATS: StatEntry[] = [
 	["Wins", "Record", "Season Win Total - MLB", "team"],
 ]
 
+// Team goals keep the Low-Count tier rather than a "Team Score" one of their
+// own: hockey scores are small enough that 15% of any realistic guess rounds
+// to an exact count, and an exact count is already about as hard as the
+// one-in-three target the other Team Score tiers are sized to.
+const HOCKEY_STATS: StatEntry[] = [
+	[
+		"Goals",
+		"Scoring",
+		"Low-Count Box Stat",
+		"both",
+		{ player: 0.5, team: 3.5 },
+	],
+	[
+		"Assists",
+		"Scoring",
+		"Low-Count Box Stat",
+		"both",
+		{ player: 0.5, team: 5.5 },
+	],
+	// Player-only: a team's goals plus assists isn't a number anyone follows,
+	// and "points" for a team means standings points.
+	["Points", "Scoring", "Low-Count Box Stat", "player", { player: 0.5 }],
+	[
+		"Shots on Goal",
+		"Shooting",
+		"Low-Count Box Stat",
+		"both",
+		{ player: 2.5, team: 29.5 },
+	],
+	// Team-only: ESPN's skater table has no power-play goals column.
+	["Power Play Goals", "Scoring", "Low-Count Box Stat", "team", { team: 0.5 }],
+	[
+		"Hits",
+		"Physical",
+		"Low-Count Box Stat",
+		"both",
+		{ player: 1.5, team: 21.5 },
+	],
+	[
+		"Blocked Shots",
+		"Defense",
+		"Low-Count Box Stat",
+		"both",
+		{ player: 1.5, team: 14.5 },
+	],
+	[
+		"Penalty Minutes",
+		"Discipline",
+		"Low-Count Box Stat",
+		"both",
+		{ player: 0.5, team: 8.5 },
+	],
+	["Saves", "Goaltending", "High-Volume", "both", { player: 25.5, team: 25.5 }],
+	// Goalie-only, like the two rates below: a team's goals against is just the
+	// other team's goals.
+	[
+		"Goals Against",
+		"Goaltending",
+		"Low-Count Box Stat",
+		"player",
+		{ player: 2.5 },
+	],
+	[
+		"Save Percentage",
+		"Goaltending",
+		"Rate Stat - Save Percentage",
+		"player",
+		{ player: 0.905 },
+	],
+	[
+		"Goals Against Average",
+		"Goaltending",
+		"Rate Stat - GAA",
+		"player",
+		{ player: 2.85 },
+	],
+	// Season-long, team-only in practice - see BASKETBALL_STATS' "Wins" entry,
+	// including why it carries no typical line.
+	["Wins", "Record", "Season Win Total - NHL", "team"],
+]
+
 type TierRow = typeof statToleranceTiers.$inferSelect
 
 export type StatCatalog = {
 	basketball: SportRow
 	football: SportRow
 	baseball: SportRow
+	hockey: SportRow
 	basketballStats: StatRow[]
 	footballStats: StatRow[]
 	baseballStats: StatRow[]
+	hockeyStats: StatRow[]
 	toleranceTiers: TierRow[]
 }
 
@@ -434,6 +528,7 @@ export async function syncStatCatalog(): Promise<StatCatalog> {
 	const basketball = await findOrCreateSport("Basketball", "basketball")
 	const football = await findOrCreateSport("Football", "football")
 	const baseball = await findOrCreateSport("Baseball", "baseball")
+	const hockey = await findOrCreateSport("Hockey", "hockey")
 
 	const tierIdByName = new Map<string, string>()
 	const tierRows: TierRow[] = []
@@ -473,14 +568,17 @@ export async function syncStatCatalog(): Promise<StatCatalog> {
 		BASEBALL_STATS,
 		tierIdByName,
 	)
+	const hockeyStats = await upsertStats(hockey, HOCKEY_STATS, tierIdByName)
 
 	return {
 		basketball,
 		football,
 		baseball,
+		hockey,
 		basketballStats,
 		footballStats,
 		baseballStats,
+		hockeyStats,
 		toleranceTiers: tierRows,
 	}
 }

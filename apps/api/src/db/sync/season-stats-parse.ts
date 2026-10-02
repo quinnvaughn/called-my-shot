@@ -6,7 +6,9 @@ import type {
 
 // "category.stat" -> value, the same keys the season extractors read
 // ("offensive.points", "batting.hits"). A category ESPN leaves out is one the
-// athlete or team recorded nothing in.
+// athlete or team recorded nothing in. The NHL names its games played
+// "general.games" where every other league says "general.gamesPlayed", so it's
+// filed under both and everything reading a games count finds it the same way.
 export function flattenCategorizedStatistics(
 	statistics: EspnSeasonStatistics,
 ): Map<string, number> {
@@ -17,6 +19,10 @@ export function flattenCategorizedStatistics(
 				values.set(`${category.name}.${stat.name}`, stat.value)
 			}
 		}
+	}
+	const games = values.get("general.games")
+	if (games !== undefined && !values.has("general.gamesPlayed")) {
+		values.set("general.gamesPlayed", games)
 	}
 	return values
 }

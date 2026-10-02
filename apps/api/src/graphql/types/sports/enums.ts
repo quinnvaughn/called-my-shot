@@ -53,6 +53,7 @@ export const GameStarterRole = builder.enumType("GameStarterRole", {
 		OFFENSE: { value: "offense" },
 		DEFENSE: { value: "defense" },
 		STARTER: { value: "starter" },
+		STARTING_GOALIE: { value: "starting_goalie" },
 	},
 })
 

@@ -13,7 +13,12 @@ import {
 import { postseasonHeading, seriesStakesLabel } from "#/lib/postseason"
 import { GameStarters, type GameStartersFragment } from "./game-starters"
 
-type TeamRecord = { wins: number; losses: number; ties: number } | null
+type TeamRecord = {
+	wins: number
+	losses: number
+	ties: number
+	otLosses?: number | null
+} | null
 type Team = { name: string; abbreviation: string; color: string }
 
 type Props = {

@@ -394,6 +394,79 @@ describe("decideGameQuestion - MLB", () => {
 	})
 })
 
+describe("decideGameQuestion - NHL", () => {
+	const nhlBox = (fixture = "nhl-summary.json") =>
+		parseBoxScore(espnFixture<EspnGameSummary>(fixture))
+	const nhlNumeric = (
+		espnAthleteId: string,
+		key: keyof typeof GAME_EXTRACTORS,
+	) =>
+		decideGameQuestion(
+			context({
+				question: {
+					shape: "player_stat_numeric_guess",
+					ouLine: null,
+					subjectPlayerId: "player",
+					subjectTeamId: null,
+				},
+				options: [],
+				extractor: GAME_EXTRACTORS[key],
+				sources: sources({ box: nhlBox() }),
+				espnAthleteIdByPlayerId: new Map([["player", espnAthleteId]]),
+			}),
+		)
+
+	it("reads a skater's points as goals plus assists", () => {
+		// 4588750: 2 goals, 1 assist.
+		expect(nhlNumeric("4588750", "nhl:game:player:Points")).toMatchObject({
+			actualValue: 3,
+		})
+	})
+
+	it("reads a goalie's saves and save percentage", () => {
+		// 4697705: 29 saves on 31 shots.
+		expect(nhlNumeric("4697705", "nhl:game:player:Saves")).toMatchObject({
+			actualValue: 29,
+		})
+		expect(
+			nhlNumeric("4697705", "nhl:game:player:Save Percentage"),
+		).toMatchObject({ actualValue: 0.935 })
+	})
+
+	it("voids a skater question for a goalie", () => {
+		expect(nhlNumeric("4697705", "nhl:game:player:Goals")).toEqual({
+			kind: "void",
+			reason: "subject_did_not_play",
+		})
+	})
+
+	it("leaves a shootout out of a team's goals", () => {
+		// DAL won 4-3 in a shootout: three goals in regulation and overtime.
+		expect(
+			decideGameQuestion(
+				context({
+					question: {
+						shape: "team_stat_over_under",
+						ouLine: 3.5,
+						subjectPlayerId: null,
+						subjectTeamId: "away",
+					},
+					extractor: GAME_EXTRACTORS["nhl:game:team:Goals"],
+					sources: sources({ box: nhlBox("nhl-summary-shootout.json") }),
+					espnTeamIdByTeamId: new Map([
+						["home", "2"],
+						["away", "9"],
+					]),
+				}),
+			),
+		).toMatchObject({
+			kind: "resolve",
+			correctOptionIds: ["under"],
+			actualValue: 3,
+		})
+	})
+})
+
 describe("decideFinalScore", () => {
 	const matchup = (espnTeamIdByTeamId: Map<string, string>) =>
 		decideFinalScore({

@@ -9,6 +9,7 @@ const TYPICAL_GAME_LENGTH_HOURS: Record<string, number> = {
 	nba: 2.5,
 	nfl: 3.5,
 	mlb: 3.25,
+	nhl: 2.5,
 }
 const DEFAULT_GAME_LENGTH_HOURS = 3
 

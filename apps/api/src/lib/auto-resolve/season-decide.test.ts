@@ -24,11 +24,14 @@ const standingsWins = (league: "nba" | "nfl") =>
 	parseStandingsWins(fixture<EspnStandingsGroup>(`standings-${league}`))
 
 // NBA athlete 4869780: 948 points in 81 games. MLB athlete 41197: .296. NFL
-// team 25: 20 sacks.
+// team 25: 20 sacks. NHL skater 3895074: 138 points in 82 games; goalie
+// 4196914: .899 on 1372 shots.
 const sources = (overrides: Partial<SeasonSources> = {}): SeasonSources => ({
 	athleteStats: new Map([
 		["4869780", seasonStats("season-athlete-nba-4869780")],
 		["41197", seasonStats("season-athlete-mlb-41197")],
+		["3895074", seasonStats("season-athlete-nhl-3895074")],
+		["4196914", seasonStats("season-athlete-nhl-4196914")],
 		["never-played", new Map()],
 	]),
 	teamStats: new Map([["25", seasonStats("season-team-nfl-25")]]),
@@ -137,6 +140,36 @@ describe("decideSeasonQuestion - player lines", () => {
 			actualValue: 0.296,
 			evidence: { value: 0.296 },
 		})
+	})
+
+	it("divides an NHL per-game line by ESPN's games", () => {
+		// 138 / 82 = 1.6829...
+		expect(
+			decideSeasonQuestion({
+				...playerLine("3895074", 1.5, "per_game"),
+				extractor: SEASON_EXTRACTORS["nhl:season:player:Points"],
+			}),
+		).toMatchObject({ kind: "resolve", actualValue: 1.683 })
+	})
+
+	it("reads a goalie's save percentage, and leaves a skater's undefined", () => {
+		const savePct = SEASON_EXTRACTORS["nhl:season:player:Save Percentage"]
+		expect(
+			decideSeasonQuestion({
+				...playerLine("4196914", 0.905),
+				extractor: savePct,
+			}),
+		).toMatchObject({
+			kind: "resolve",
+			correctOptionIds: ["under"],
+			actualValue: 0.899,
+		})
+		expect(
+			decideSeasonQuestion({
+				...playerLine("3895074", 0.905),
+				extractor: savePct,
+			}),
+		).toMatchObject({ kind: "fail", reason: "stat_undefined" })
 	})
 
 	it("voids the question for a player ESPN has no season for", () => {

@@ -3,6 +3,7 @@ import type {
 	EspnDepthChart,
 	EspnDepthChartPosition,
 	EspnLineupEntry,
+	EspnProbable,
 	EspnProbablesEvent,
 	EspnStatistic,
 	EspnSummaryRoster,
@@ -48,30 +49,59 @@ function pitcherStatLine(
 
 // One group per competitor, including an empty one when ESPN lists no
 // probable for that team.
-export function parseProbables(
+function probableGroups(
 	event: EspnProbablesEvent,
+	probableName: string,
+	role: StarterRole,
+	position: (probable: EspnProbable) => string,
+	statLine: (probable: EspnProbable) => string | null,
 ): ParsedStarterGroup[] {
 	return event.competitions[0].competitors.map((competitor) => {
-		const probable = competitor.probables?.find(
-			(p) => p.name === "probableStartingPitcher",
-		)
+		const probable = competitor.probables?.find((p) => p.name === probableName)
 		return {
 			espnTeamId: competitor.team.id,
-			role: "starting_pitcher",
+			role,
 			starters: probable
 				? [
 						{
 							espnAthleteId: probable.athlete.id,
 							playerName: probable.athlete.displayName,
-							position: probable.abbreviation,
+							position: position(probable),
 							sortOrder: 1,
-							statLine: pitcherStatLine(probable.statistics),
+							statLine: statLine(probable),
 							injuryStatus: null,
 						},
 					]
 				: [],
 		}
 	})
+}
+
+export function parseProbables(
+	event: EspnProbablesEvent,
+): ParsedStarterGroup[] {
+	return probableGroups(
+		event,
+		"probableStartingPitcher",
+		"starting_pitcher",
+		(probable) => probable.abbreviation,
+		(probable) => pitcherStatLine(probable.statistics),
+	)
+}
+
+// ESPN's NHL probables carry no season line (an empty statistics array,
+// verified live), so a goalie's row has none. Filed as "G" rather than ESPN's
+// "SG", which reads as a shooting guard everywhere else.
+export function parseProbableGoalies(
+	event: EspnProbablesEvent,
+): ParsedStarterGroup[] {
+	return probableGroups(
+		event,
+		"probableStartingGoalie",
+		"starting_goalie",
+		() => "G",
+		() => null,
+	)
 }
 
 // Only teams whose lineup is actually posted produce a group. An empty roster

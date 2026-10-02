@@ -4,13 +4,14 @@ import { espnFixture } from "../../test/helpers"
 import { findChampionshipWinner } from "./championship"
 
 // Trimmed from ESPN's postseason scoreboards (2026-09-13): the 2025 NBA and
-// MLB postseasons and the 2025 NFL postseason.
-const events = (league: "nba" | "nfl" | "mlb") =>
+// MLB postseasons and the 2025 NFL postseason. NHL (2026-10-01): the 2026
+// conference finals and Stanley Cup Final.
+const events = (league: "nba" | "nfl" | "mlb" | "nhl") =>
 	espnFixture<{ events: EspnPostseasonEvent[] }>(`postseason-${league}.json`)
 		.events
 
 const winnerOf = (
-	league: "nba" | "nfl" | "mlb",
+	league: "nba" | "nfl" | "mlb" | "nhl",
 	key: Parameters<typeof findChampionshipWinner>[0],
 ) => findChampionshipWinner(key, events(league))?.espnTeamId
 
@@ -24,6 +25,10 @@ describe("findChampionshipWinner", () => {
 		expect(winnerOf("mlb", "mlb:World Series")).toBe("19")
 		expect(winnerOf("mlb", "mlb:Pennant:AL")).toBe("14")
 		expect(winnerOf("mlb", "mlb:Pennant:NL")).toBe("19")
+		// CAR beat VGK in the Stanley Cup Final; CAR won the East, VGK the West.
+		expect(winnerOf("nhl", "nhl:Stanley Cup")).toBe("7")
+		expect(winnerOf("nhl", "nhl:Conference Final:East")).toBe("7")
+		expect(winnerOf("nhl", "nhl:Conference Final:West")).toBe("37")
 	})
 
 	it("takes an NFL title from its single game", () => {

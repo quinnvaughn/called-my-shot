@@ -391,6 +391,38 @@ function allMlb(team: "First" | "Second"): RecurringQuestionTemplate[] {
 // LEAGUE_SEASON_FORMAT (db/catalog/league-season-format.ts) both use. Edited
 // via PR, same as the stat catalog in db/catalog/stats.ts - not an
 // admin-editable UI.
+// The NHL's First or Second All-Star Team, one ballot each the way All-Pro is:
+// a center, two wingers, two defensemen and a goalie.
+function nhlAllStarTeam(team: "First" | "Second"): RecurringQuestionTemplate[] {
+	return positionBallot({
+		ballotGroup: `${team} All-Star Team`,
+		awardPrefix: `${team} All-Star Team, `,
+		slots: [
+			{ slot: "C", name: "Center", label: "Center", awardPositions: ["C"] },
+			{
+				slot: "LW",
+				name: "Left Wing",
+				label: "Left Wing",
+				awardPositions: ["LW"],
+			},
+			{
+				slot: "RW",
+				name: "Right Wing",
+				label: "Right Wing",
+				awardPositions: ["RW"],
+			},
+			{
+				slot: "D",
+				name: "Defense",
+				label: "Defense",
+				picksRequired: 2,
+				awardPositions: ["D"],
+			},
+			{ slot: "G", name: "Goalie", label: "Goalie", awardPositions: ["G"] },
+		],
+	})
+}
+
 export const RECURRING_QUESTION_CATALOG: Record<
 	string,
 	RecurringQuestionTemplate[]
@@ -734,6 +766,122 @@ export const RECURRING_QUESTION_CATALOG: Record<
 			awardConferences: ["NL"],
 			label: "NL Pennant",
 			slot: "NL",
+		},
+	],
+	nhl: [
+		{
+			shape: "team_season_stat_numeric_guess",
+			ballotGroup: "Win Totals",
+			statName: "Wins",
+			perTeam: true,
+		},
+		{
+			shape: "player_season_award",
+			ballotGroup: "Major Awards",
+			awardName: "Hart Trophy",
+			awardVerb: "win",
+			picksRequired: 1,
+			label: "Hart (MVP)",
+			slot: "Hart",
+		},
+		{
+			shape: "player_season_award",
+			ballotGroup: "Major Awards",
+			awardName: "Vezina Trophy",
+			awardVerb: "win",
+			picksRequired: 1,
+			awardPositions: ["G"],
+			label: "Vezina (Goalie)",
+			slot: "Vezina",
+		},
+		{
+			shape: "player_season_award",
+			ballotGroup: "Major Awards",
+			awardName: "Norris Trophy",
+			awardVerb: "win",
+			picksRequired: 1,
+			awardPositions: ["D"],
+			label: "Norris (Defenseman)",
+			slot: "Norris",
+		},
+		{
+			shape: "player_season_award",
+			ballotGroup: "Major Awards",
+			awardName: "Calder Trophy",
+			awardVerb: "win",
+			picksRequired: 1,
+			awardRookieOnly: true,
+			label: "Calder (Rookie)",
+			slot: "Calder",
+		},
+		{
+			shape: "player_season_award",
+			ballotGroup: "Major Awards",
+			awardName: "Selke Trophy",
+			awardVerb: "win",
+			picksRequired: 1,
+			awardPositions: ["C", "LW", "RW"],
+			label: "Selke (Defensive Forward)",
+			slot: "Selke",
+		},
+		{
+			shape: "player_season_award",
+			ballotGroup: "Major Awards",
+			awardName: "Art Ross Trophy",
+			awardVerb: "win",
+			picksRequired: 1,
+			label: "Art Ross (Points)",
+			slot: "Ross",
+		},
+		{
+			shape: "player_season_award",
+			ballotGroup: "Major Awards",
+			awardName: "Rocket Richard Trophy",
+			awardVerb: "win",
+			picksRequired: 1,
+			label: "Rocket Richard (Goals)",
+			slot: "Richard",
+		},
+		{
+			shape: "player_season_award",
+			ballotGroup: "Major Awards",
+			awardName: "Conn Smythe Trophy",
+			awardVerb: "win",
+			picksRequired: 1,
+			label: "Conn Smythe (Playoff MVP)",
+			slot: "Smythe",
+		},
+		...nhlAllStarTeam("First"),
+		...nhlAllStarTeam("Second"),
+		{
+			shape: "team_season_award",
+			ballotGroup: "Postseason",
+			awardName: "Stanley Cup",
+			awardVerb: "win",
+			picksRequired: 1,
+			label: "Stanley Cup",
+			slot: "Cup",
+		},
+		// See the NBA's conference entries for what awardConferences does here.
+		{
+			shape: "team_season_award",
+			ballotGroup: "Postseason",
+			awardName: "Conference Final",
+			awardVerb: "win",
+			picksRequired: 1,
+			awardConferences: ["East"],
+			label: "Eastern Conference",
+			slot: "East",
+		},
+		{
+			shape: "team_season_award",
+			ballotGroup: "Postseason",
+			awardName: "Conference Final",
+			awardVerb: "win",
+			picksRequired: 1,
+			awardConferences: ["West"],
+			label: "Western Conference",
+			slot: "West",
 		},
 	],
 }

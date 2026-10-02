@@ -10,7 +10,7 @@ export type SyncLeagueConfig = {
 	espnPath: EspnSportPath
 	// How this league's Games tab pages through its schedule - "week" for a
 	// league whose real scheduling unit is a week (NFL), omitted (defaults to
-	// "date" in the schema) for a league browsed one day at a time (NBA, MLB).
+	// "date" in the schema) for a league browsed one day at a time (NBA, MLB, NHL).
 	windowType?: "date" | "week"
 	// Whether playoff seeds run across the whole league (WNBA, 1-8) rather
 	// than within each conference or league (MLB's AL/NL, the NBA's East/West).
@@ -59,5 +59,13 @@ export const SYNCED_LEAGUES: SyncLeagueConfig[] = [
 		leagueSlug: "mlb",
 		espnPath: "baseball/mlb",
 		resolveRookieEligible: resolveMlbRookieEligible,
+	},
+	{
+		sportName: "Hockey",
+		sportSlug: "hockey",
+		leagueName: "NHL",
+		leagueAbbreviation: "NHL",
+		leagueSlug: "nhl",
+		espnPath: "hockey/nhl",
 	},
 ]

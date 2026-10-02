@@ -1,3 +1,8 @@
+import {
+	hasOtLosses,
+	type ParsedTeamRecord,
+	parseTeamRecord,
+} from "../../lib/team-record"
 import { db } from "../index"
 import { type Season, teamSeasonStats } from "../schema"
 import {
@@ -33,20 +38,21 @@ function statText(entry: EspnStandingsEntry, name: string): string | null {
 	return entry.stats.find((stat) => stat.name === name)?.displayValue ?? null
 }
 
-// "31-9" or "12-4-1" -> the three counts. A split ESPN has no games for yet
-// comes back as "-" or empty, which reads as all zeroes rather than throwing.
-function parseSplit(display: string | null): {
-	wins: number
-	losses: number
-	ties: number
-} {
-	const parts = (display ?? "").split("-").map((part) => Number(part.trim()))
-	const [wins, losses, ties] = parts
-	return {
-		wins: Number.isFinite(wins) ? (wins as number) : 0,
-		losses: Number.isFinite(losses) ? (losses as number) : 0,
-		ties: Number.isFinite(ties) ? (ties as number) : 0,
-	}
+// "31-9", "12-4-1" or the NHL's "29-10-2" -> its counts. A split ESPN has no
+// games for yet comes back as "-" or empty, which reads as all zeroes rather
+// than throwing.
+function parseSplit(
+	display: string | null,
+	leagueSlug: string,
+): ParsedTeamRecord {
+	return (
+		parseTeamRecord(display, leagueSlug) ?? {
+			wins: 0,
+			losses: 0,
+			ties: 0,
+			otLosses: hasOtLosses(leagueSlug) ? 0 : null,
+		}
+	)
 }
 
 // The day this reading belongs to. Standings are a moving snapshot and the
@@ -122,8 +128,8 @@ export async function syncTeamSeasonStats(
 			if (stats) possessions = flattenPossessions(stats)
 		}
 
-		const home = parseSplit(statText(entry, "Home"))
-		const road = parseSplit(statText(entry, "Road"))
+		const home = parseSplit(statText(entry, "Home"), league.slug)
+		const road = parseSplit(statText(entry, "Road"), league.slug)
 
 		// Only baseball's standings carry gamesPlayed; football's and
 		// basketball's leave it out entirely, which stored a flat 0 and had the
@@ -146,9 +152,11 @@ export async function syncTeamSeasonStats(
 			homeWins: home.wins,
 			homeLosses: home.losses,
 			homeTies: home.ties,
+			homeOtLosses: home.otLosses,
 			roadWins: road.wins,
 			roadLosses: road.losses,
 			roadTies: road.ties,
+			roadOtLosses: road.otLosses,
 			streak: statText(entry, "streak"),
 			lastTen: statText(entry, "Last Ten Games"),
 			possessions,

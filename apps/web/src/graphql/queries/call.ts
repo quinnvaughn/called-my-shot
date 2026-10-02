@@ -148,11 +148,13 @@ export const CallRecordDocument = graphql(`
 						wins
 						losses
 						ties
+						otLosses
 					}
 					awayTeamRecord {
 						wins
 						losses
 						ties
+						otLosses
 					}
 				}
 				# A series question's counterpart, for the same reason.

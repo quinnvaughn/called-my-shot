@@ -1,6 +1,7 @@
 import { and, desc, eq, inArray, lt, type SQL, sql } from "drizzle-orm"
 import { db } from "../../db"
 import { type TeamSeasonStats, teamSeasonStats } from "../../db/schema"
+import { parseTeamRecord, recordGames } from "../team-record"
 import type { StatContextQuestion, SubjectRef } from "./build"
 import { derivedDifferentialFrom, differentialFrom } from "./differential"
 import type {
@@ -198,7 +199,7 @@ function splitOf(results: StatContextResult[]): StatContextSplitRecord | null {
 	const record = recordOf(results, null)
 	if (!record) return null
 	const { games, wins, losses, ties } = record
-	return { games, wins, losses, ties }
+	return { games, wins, losses, ties, otLosses: null }
 }
 
 // The last standings reading taken before this question locked, per team. A
@@ -236,17 +237,17 @@ async function standingsAsOf(
 // How many games a "last ten" has to stand on before it can be called one.
 const LAST_TEN = 10
 
-// ESPN writes a record split as display text ("8-2", "12-4-1"). Null when it
-// has no games behind it yet, or isn't in that form.
-function parseRecordText(text: string | null): StatContextSplitRecord | null {
-	const parts = (text ?? "").trim().split("-")
-	if (parts.length < 2) return null
-	const [wins, losses, ties] = parts.map((part) => Number(part))
-	if (!Number.isFinite(wins) || !Number.isFinite(losses)) return null
-	const withTies = Number.isFinite(ties) ? (ties as number) : 0
-	const games = (wins as number) + (losses as number) + withTies
-	if (games === 0) return null
-	return { games, wins: wins as number, losses: losses as number, ties: withTies }
+// ESPN writes a record split as display text ("8-2", "12-4-1", the NHL's
+// "7-2-1, 0 PTS"). Null when it has no games behind it yet, or isn't in that
+// form.
+function parseRecordText(
+	text: string | null,
+	leagueSlug: string,
+): StatContextSplitRecord | null {
+	const record = parseTeamRecord(text, leagueSlug)
+	if (!record) return null
+	const games = recordGames(record)
+	return games === 0 ? null : { games, ...record }
 }
 
 // ESPN writes a streak as display text ("W3", "L1"). Parsed into the same shape
@@ -336,7 +337,7 @@ function seriesRecord(
 		else if (meeting.winnerTeamId === teamId) wins++
 		else losses++
 	}
-	return { games: meetings.length, wins, losses, ties }
+	return { games: meetings.length, wins, losses, ties, otLosses: null }
 }
 
 // The two sides, in the order the question lists its options - the order the
@@ -418,20 +419,23 @@ export async function buildMatchup(
 		// The fallback is not a second-class answer - it is computed from the
 		// games ESPN itself reported and is what every question that locked
 		// before this app started taking readings has to use.
-		const espnRole = standing
+		const espnRoleCounts = standing
 			? isHome
 				? {
-						games: standing.homeWins + standing.homeLosses + standing.homeTies,
 						wins: standing.homeWins,
 						losses: standing.homeLosses,
 						ties: standing.homeTies,
+						otLosses: standing.homeOtLosses,
 					}
 				: {
-						games: standing.roadWins + standing.roadLosses + standing.roadTies,
 						wins: standing.roadWins,
 						losses: standing.roadLosses,
 						ties: standing.roadTies,
+						otLosses: standing.roadOtLosses,
 					}
+			: null
+		const espnRole = espnRoleCounts
+			? { games: recordGames(espnRoleCounts), ...espnRoleCounts }
 			: null
 
 		return {
@@ -450,7 +454,7 @@ export async function buildMatchup(
 					: splitOf(results.filter((result) => result.isHome === isHome)),
 			headToHead: seriesRecord(allMeetings, teamId),
 			lastTen:
-				parseRecordText(standing?.lastTen ?? null) ??
+				parseRecordText(standing?.lastTen ?? null, question.leagueSlug) ??
 				(results.length >= LAST_TEN
 					? splitOf(results.slice(0, LAST_TEN))
 					: null),

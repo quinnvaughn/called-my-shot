@@ -69,11 +69,13 @@ export const GuestPickCardFragment = graphql(`
 				wins
 				losses
 				ties
+				otLosses
 			}
 			awayTeamRecord {
 				wins
 				losses
 				ties
+				otLosses
 			}
 		}
 	}

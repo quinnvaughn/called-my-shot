@@ -168,7 +168,11 @@ export type StatContextResult = {
 // page needs to know which measurement it was handed before it can name or
 // format it. See lib/stat-context/differential.ts for the mapping.
 export type StatContextDifferential = {
-	kind: "net_rating" | "run_differential" | "point_differential"
+	kind:
+		| "net_rating"
+		| "run_differential"
+		| "point_differential"
+		| "goal_differential"
 	value: number
 	// Games behind the figure, so a page can say what it is measured over.
 	games: number
@@ -195,12 +199,16 @@ export type StatContextRecord = {
 
 // A won-lost record with nothing else attached, which is all a standings split
 // carries - ESPN publishes a team's home and road records but not the scoring
-// behind either.
+// behind either. otLosses is the NHL's overtime-loss count where ESPN's own
+// split supplies it, and null otherwise: a record counted off this app's game
+// rows can't tell an overtime loss from any other, so it counts it a loss.
+// `games` includes them.
 export type StatContextSplitRecord = {
 	games: number
 	wins: number
 	losses: number
 	ties: number
+	otLosses: number | null
 }
 
 // A run of the same outcome ending at the most recent completed game.

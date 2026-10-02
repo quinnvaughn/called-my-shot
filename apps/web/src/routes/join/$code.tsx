@@ -151,9 +151,9 @@ function RouteComponent() {
 								@{inviter.username} invited you.
 							</h1>
 							<p className={css({ lineHeight: "relaxed", color: "fg.body" })}>
-								Make calls on NFL, NBA and MLB games and whole seasons. Every
-								call lands on your public record, scored against everyone else
-								who called it.
+								Make calls on NFL, NBA, MLB and NHL games and whole seasons.
+								Every call lands on your public record, scored against everyone
+								else who called it.
 							</p>
 						</VStack>
 

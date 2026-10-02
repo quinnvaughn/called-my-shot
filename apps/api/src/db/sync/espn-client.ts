@@ -1,8 +1,14 @@
+import { DAY_MS } from "../../lib/time"
+
 // Thin wrappers over ESPN's public, unauthenticated site API. No key needed,
 // no official support either - if a shape here breaks, that's ESPN, not us.
 const BASE_URL = "https://site.api.espn.com/apis/site/v2/sports"
 
-export type EspnSportPath = "basketball/nba" | "football/nfl" | "baseball/mlb"
+export type EspnSportPath =
+	| "basketball/nba"
+	| "football/nfl"
+	| "baseball/mlb"
+	| "hockey/nhl"
 
 export type EspnTeam = {
 	id: string
@@ -52,16 +58,19 @@ export type EspnEventStatus = {
 			| (string & {})
 		state: "pre" | "in" | "post" | (string & {})
 		completed: boolean
+		// "Final", "Final/OT", "Final/SO" - how a finished game ended.
+		detail?: string
 	}
 }
 
-// A competitor's record entries, one per split ("total" is the one this app
-// cares about - overall W-L(-T), same number a broadcast graphic would show
-// - "home"/"road" are ESPN splits this app doesn't surface). displayValue is
-// a plain "W-L" or "W-L-T" string - parsed, not derived, since this app has
-// no independent source of truth for a team's record.
+// A competitor's record entries, one per split ("total", or "ytd" in the NHL,
+// is the one this app cares about - overall W-L(-T), same number a broadcast
+// graphic would show - "home"/"road" are ESPN splits this app doesn't
+// surface). displayValue is a plain "W-L" or "W-L-T" string, or the NHL's
+// "W-L-OTL, N PTS" - parsed, not derived, since this app has no independent
+// source of truth for a team's record.
 export type EspnRecord = {
-	type: "total" | "home" | "road" | (string & {})
+	type: "total" | "ytd" | "home" | "road" | (string & {})
 	displayValue: string
 }
 
@@ -244,8 +253,9 @@ async function fetchScoreboard(
 
 export type EspnStatistic = { abbreviation: string; displayValue: string }
 
-// MLB only in practice: no other league's scoreboard carries probables
-// (verified live). `abbreviation` is "SP" for the probable starting pitcher.
+// MLB and NHL only in practice: no other league's scoreboard carries
+// probables (verified live). `abbreviation` is "SP" for the probable starting
+// pitcher, "SG" for the NHL's probable starting goalie.
 export type EspnProbable = {
 	name: string
 	abbreviation: string
@@ -266,18 +276,44 @@ export type EspnProbablesEvent = {
 	]
 }
 
-// A date range (YYYYMMDD, ESPN's local US calendar dates) returns every game
-// in it from one call - verified live, a three-day MLB range came back with
-// all 40 games and their probables.
+// Every game from startDate through endDate (YYYYMMDD, ESPN's local US
+// calendar dates), one call per day: the scoreboard answers a "dates=A-B"
+// range with a 400 (see fetchPostseasonDay), while a single date still works.
+// The ranges asked for here are a few days at most.
 async function fetchScoreboardRange(
 	sportPath: EspnSportPath,
 	startDate: string,
 	endDate: string,
 ): Promise<EspnProbablesEvent[]> {
-	const data = await espnGet<{ events: EspnProbablesEvent[] }>(
-		`${sportPath}/scoreboard?dates=${startDate}-${endDate}&limit=200`,
-	)
-	return data.events
+	const events: EspnProbablesEvent[] = []
+	for (const date of espnDatesBetween(startDate, endDate)) {
+		const data = await espnGet<{ events: EspnProbablesEvent[] }>(
+			`${sportPath}/scoreboard?dates=${date}&limit=200`,
+		)
+		events.push(...data.events)
+	}
+	return events
+}
+
+// Each YYYYMMDD from start through end, inclusive. Plain calendar arithmetic
+// in UTC, which only ever steps whole days, so no time zone can skip or repeat
+// one.
+export function espnDatesBetween(startDate: string, endDate: string): string[] {
+	const toDate = (yyyymmdd: string) =>
+		new Date(
+			Date.UTC(
+				Number(yyyymmdd.slice(0, 4)),
+				Number(yyyymmdd.slice(4, 6)) - 1,
+				Number(yyyymmdd.slice(6, 8)),
+			),
+		)
+	const dates: string[] = []
+	const end = toDate(endDate)
+	for (let day = toDate(startDate); day <= end; ) {
+		dates.push(day.toISOString().slice(0, 10).replaceAll("-", ""))
+		day = new Date(day.getTime() + DAY_MS)
+	}
+	return dates
 }
 
 // A postseason game. `notes` names its round ("NBA Finals - Game 7", "AFC
@@ -360,8 +396,9 @@ export type EspnBoxScoreAthlete = {
 }
 
 // One stat table for one team. NBA has a single unnamed table, NFL names each
-// ("passing", "defensive"), MLB types them ("batting", "pitching"). `totals`
-// is the team's sum of each column. A table nobody recorded anything in (no
+// ("passing", "defensive"), MLB types them ("batting", "pitching"), NHL names
+// them by position ("forwards", "defenses", "goalies"). `totals` is the
+// team's sum of each column, which the NHL leaves out. A table nobody recorded anything in (no
 // interceptions) still lists its keys, but with no athletes and no totals.
 export type EspnBoxScorePlayerTable = {
 	name?: string | null
@@ -396,6 +433,9 @@ export type EspnGameSummary = {
 					id: string
 					homeAway: "home" | "away"
 					score?: string
+					// One entry per period played, a shootout included as its own
+					// "period" (1 for the team that won it, 0 for the other).
+					linescores?: { displayValue: string }[]
 				}[]
 			},
 		]

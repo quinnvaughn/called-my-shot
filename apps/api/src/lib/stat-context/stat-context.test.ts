@@ -1522,6 +1522,7 @@ describe("buildStatContext for a game-level question", () => {
 			wins: 4,
 			losses: 1,
 			ties: 1,
+			otLosses: null,
 		})
 		// The mirror, so neither column has to be read off the other.
 		expect(theirs?.headToHead).toEqual({
@@ -1529,6 +1530,7 @@ describe("buildStatContext for a game-level question", () => {
 			wins: 1,
 			losses: 4,
 			ties: 1,
+			otLosses: null,
 		})
 		// The list itself stays capped.
 		expect(context?.matchup?.meetings).toHaveLength(5)
@@ -1613,8 +1615,14 @@ describe("derivedDifferentialFrom", () => {
 		expect(derivedDifferentialFrom("nba", [game(117, 109)])).toBeNull()
 	})
 
+	it("measures hockey in goals", () => {
+		const d = derivedDifferentialFrom("nhl", [game(4, 2), game(1, 3)])
+
+		expect(d).toMatchObject({ kind: "goal_differential", value: 0, games: 2 })
+	})
+
 	it("gives a league with no mapped metric nothing", () => {
-		expect(derivedDifferentialFrom("nhl", [game(4, 2)])).toBeNull()
+		expect(derivedDifferentialFrom("wnba", [game(84, 79)])).toBeNull()
 	})
 
 	it("has nothing to report before a team has played", () => {
@@ -1637,9 +1645,11 @@ describe("differentialFrom", () => {
 		homeWins: 31,
 		homeLosses: 9,
 		homeTies: 0,
+		homeOtLosses: null,
 		roadWins: 28,
 		roadLosses: 13,
 		roadTies: 0,
+		roadOtLosses: null,
 		streak: "W3",
 		lastTen: "8-2",
 		possessions: 8451,
@@ -1679,11 +1689,20 @@ describe("differentialFrom", () => {
 		expect(d).toMatchObject({ kind: "point_differential", value: 24 })
 	})
 
-	// A default would have to pick someone else's unit. Hockey's is goals, and
-	// a card confidently reading "point differential" over it is worse than a
+	it("measures hockey as a season goal total", () => {
+		const d = differentialFrom(
+			"nhl",
+			reading({ pointDifferential: 56, possessions: null }),
+		)
+
+		expect(d).toMatchObject({ kind: "goal_differential", value: 56 })
+	})
+
+	// A default would have to pick someone else's unit, and a card confidently
+	// reading "point differential" over another sport's figure is worse than a
 	// card with no figure on it.
 	it("gives a league with no mapped metric no figure at all", () => {
-		expect(differentialFrom("nhl", reading())).toBeNull()
+		expect(differentialFrom("wnba", reading())).toBeNull()
 	})
 
 	// ESPN's own total, not pointsFor minus pointsAgainst, so a card and the

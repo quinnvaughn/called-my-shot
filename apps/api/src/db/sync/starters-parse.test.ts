@@ -9,6 +9,7 @@ import {
 	parseBattingOrders,
 	parseNbaDepthChart,
 	parseNflDepthChart,
+	parseProbableGoalies,
 	parseProbables,
 } from "./starters-parse"
 
@@ -95,6 +96,39 @@ describe("parseProbables", () => {
 			mlbEvent([probable("1", "No Record", [["W", "0"]])], []),
 		)
 		expect(home?.starters[0]?.statLine).toBeNull()
+	})
+})
+
+describe("parseProbableGoalies", () => {
+	it("takes each team's probable starting goalie and ignores a pitcher", () => {
+		// The NHL scoreboard's shape, verified live 2026-10-01.
+		const goalie: EspnProbable = {
+			name: "probableStartingGoalie",
+			abbreviation: "SG",
+			athlete: { id: "3151297", displayName: "Igor Shesterkin" },
+			statistics: [],
+		}
+		const groups = parseProbableGoalies(
+			mlbEvent([goalie], [probable("33696", "Carlos Rodon")]),
+		)
+
+		expect(groups).toEqual([
+			{
+				espnTeamId: "10",
+				role: "starting_goalie",
+				starters: [
+					{
+						espnAthleteId: "3151297",
+						playerName: "Igor Shesterkin",
+						position: "G",
+						sortOrder: 1,
+						statLine: null,
+						injuryStatus: null,
+					},
+				],
+			},
+			{ espnTeamId: "2", role: "starting_goalie", starters: [] },
+		])
 	})
 })
 

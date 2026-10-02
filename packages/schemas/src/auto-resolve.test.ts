@@ -43,7 +43,7 @@ describe("resolutionModeFor", () => {
 		expect(
 			resolutionModeFor({
 				shape: "player_stat_over_under",
-				leagueSlug: "nhl",
+				leagueSlug: "wnba",
 				statName: "Points",
 			}),
 		).toBe("manual")

@@ -11,6 +11,7 @@ import {
 	defaultEspnClient,
 	type EspnClient,
 	type EspnDepthChart,
+	type EspnProbablesEvent,
 } from "./espn-client"
 import {
 	createEspnRequester,
@@ -23,6 +24,7 @@ import {
 	parseBattingOrders,
 	parseNbaDepthChart,
 	parseNflDepthChart,
+	parseProbableGoalies,
 	parseProbables,
 } from "./starters-parse"
 import { byEspnId, loadEspnIds, scopedSourceId } from "./sync-refs"
@@ -44,17 +46,37 @@ type DepthChartParser = (
 	charts: EspnDepthChart[],
 ) => ParsedStarterGroup[]
 
+type ProbablesParser = (event: EspnProbablesEvent) => ParsedStarterGroup[]
+
+// `lineups`: whether games inside the lineup window also get their summary
+// read for a batting order. Only MLB posts one.
 type StarterPlan =
-	| { source: "probables"; horizonMs: number }
+	| {
+			source: "probables"
+			horizonMs: number
+			parse: ProbablesParser
+			lineups: boolean
+	  }
 	| { source: "depth_chart"; horizonMs: number; parse: DepthChartParser }
 
 // How far ahead each league's starters are fetched. MLB probables are posted a
-// few days out, an NFL depth chart matters all week, and NBA teams play every
-// other day or so, so two days covers each team's next game.
+// few days out, an NFL depth chart matters all week, and NBA and NHL teams
+// play every other day or so, so two days covers each team's next game.
 function starterPlanFor(leagueSlug: string): StarterPlan | null {
 	return match(leagueSlug)
 		.returnType<StarterPlan | null>()
-		.with("mlb", () => ({ source: "probables", horizonMs: 3 * DAY_MS }))
+		.with("mlb", () => ({
+			source: "probables",
+			horizonMs: 3 * DAY_MS,
+			parse: parseProbables,
+			lineups: true,
+		}))
+		.with("nhl", () => ({
+			source: "probables",
+			horizonMs: 2 * DAY_MS,
+			parse: parseProbableGoalies,
+			lineups: false,
+		}))
 		.with("nfl", () => ({
 			source: "depth_chart",
 			horizonMs: 7 * DAY_MS,
@@ -192,11 +214,12 @@ async function saveStarters(
 const toEspnDate = (date: Date) =>
 	DateTime.fromJSDate(date, { zone: SPORTS_TIME_ZONE }).toFormat("yyyyLLdd")
 
-// One scoreboard call covers every due game's probables. Games inside the
-// lineup window also get their own summary call for the batting orders.
-// Returns how many games were fully refreshed.
+// One scoreboard call covers every due game's probables. Where the league
+// posts lineups, games inside the lineup window also get their own summary
+// call for the batting orders. Returns how many games were fully refreshed.
 async function syncProbables(
 	config: SyncLeagueConfig,
+	{ parse, lineups }: { parse: ProbablesParser; lineups: boolean },
 	dueGames: Game[],
 	now: Date,
 	{ espn, requester }: EspnAccess,
@@ -225,12 +248,12 @@ async function syncProbables(
 		// Not on the scoreboard (postponed, or moved outside the range): nothing
 		// to change. It's still marked synced, so the game doesn't pull the
 		// scoreboard again every run while it's missing.
-		const groups = event ? parseProbables(event) : []
+		const groups = event ? parse(event) : []
 		let complete = true
 
 		const inLineupWindow =
 			game.startsAt.getTime() - now.getTime() <= LINEUP_WINDOW_MS
-		if (event && inLineupWindow) {
+		if (event && lineups && inLineupWindow) {
 			const rosters = await requester.request(
 				`${config.leagueSlug} summary ${event.id}`,
 				() => espn.fetchGameSummaryRosters(config.espnPath, event.id),
@@ -343,8 +366,8 @@ export async function syncGameStarters({
 		if (dueGames.length === 0) continue
 
 		const refreshed = await match(plan)
-			.with({ source: "probables" }, () =>
-				syncProbables(config, dueGames, now, access),
+			.with({ source: "probables" }, (probables) =>
+				syncProbables(config, probables, dueGames, now, access),
 			)
 			.with({ source: "depth_chart" }, ({ parse }) =>
 				syncDepthCharts(config, parse, dueGames, now, access),

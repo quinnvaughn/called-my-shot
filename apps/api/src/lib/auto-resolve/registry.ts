@@ -114,6 +114,11 @@ const noValue = (what: string): StatReading => ({
 	detail: `no ${what} value in the box score`,
 })
 
+const parseRate = (raw: string | undefined) => {
+	const v = parseStatNumber(raw)
+	return v === null ? null : roundToThousandths(v)
+}
+
 function collect(
 	box: ParsedBoxScore,
 	key: string,
@@ -187,17 +192,21 @@ function nflPlayer(...keys: string[]): GamePlayerExtractor {
 }
 
 // MLB lists every batter who came to the plate and every pitcher who pitched,
-// so an athlete without a row in that table didn't appear in that role.
+// and the NHL every skater and goalie who took a shift, so an athlete without
+// a row in that table didn't appear in that role. A healthy scratch or a
+// backup goalie who never went in isn't in the NHL's box score at all.
+type AppearanceTable = "batting" | "pitching" | "skaters" | "goalies"
+
 function appearedIn(
 	athlete: ParsedAthlete | undefined,
-	table: "batting" | "pitching",
+	table: AppearanceTable,
 ): athlete is ParsedAthlete {
 	if (!athlete) return false
 	return [...athlete.stats.keys()].some((k) => k.startsWith(`${table}.`))
 }
 
-function mlbCounting(
-	table: "batting" | "pitching",
+function tableCounting(
+	table: AppearanceTable,
 	key: string,
 ): GamePlayerExtractor {
 	const statKey = `${table}.${key}`
@@ -258,6 +267,30 @@ function mlbPitchingRate(
 			)
 		},
 	}
+}
+
+// A goalie's save percentage for the game. Unlike MLB's ERA column, the NHL
+// box score's is this game's own. No shots faced (in for the last seconds)
+// leaves it undefined whatever ESPN prints.
+const nhlGameSavePct: GamePlayerExtractor = {
+	scope: "game",
+	subject: "player",
+	needs: [],
+	read: ({ box }, espnAthleteId) => {
+		const athlete = box.athletes.get(espnAthleteId)
+		if (!appearedIn(athlete, "goalies")) return DID_NOT_PLAY
+		const shots = parseStatNumber(athlete.stats.get("goalies.shotsAgainst"))
+		if (shots === 0) {
+			return {
+				kind: "unavailable",
+				reason: "stat_undefined",
+				detail: "no shots faced, so the rate has no value",
+			}
+		}
+		const v = parseRate(athlete.stats.get("goalies.savePct"))
+		return v === null ? noValue("goalies.savePct") : value(v)
+	},
+	source: { origin: "athlete", keys: ["goalies.savePct"], parse: parseRate },
 }
 
 const SAVE_DECISION = /^S(,|$)/
@@ -357,11 +390,6 @@ function teamBoxStat(
 		},
 		source: { origin: "team_box", keys: [name], parse },
 	}
-}
-
-const parseRate = (raw: string | undefined) => {
-	const v = parseStatNumber(raw)
-	return v === null ? null : roundToThousandths(v)
 }
 
 // Team stats the team box doesn't carry, read off the player tables' totals
@@ -545,26 +573,32 @@ export const GAME_EXTRACTORS = {
 	"nfl:game:team:Sacks": teamTableTotal("defensive.sacks"),
 	"nfl:game:team:Interceptions": teamTableTotal("interceptions.interceptions"),
 
-	"mlb:game:player:Hits": mlbCounting("batting", "hits"),
-	"mlb:game:player:Home Runs": mlbCounting("batting", "homeRuns"),
+	"mlb:game:player:Hits": tableCounting("batting", "hits"),
+	"mlb:game:player:Home Runs": tableCounting("batting", "homeRuns"),
 	// Derived from the play-by-play when the box score is parsed; see
 	// deriveTotalBases in db/sync/box-score-parse.ts.
-	"mlb:game:player:Total Bases": mlbCounting("batting", "totalBases"),
-	"mlb:game:player:RBIs": mlbCounting("batting", "RBIs"),
-	"mlb:game:player:Runs": mlbCounting("batting", "runs"),
-	"mlb:game:player:Walks (Batting)": mlbCounting("batting", "walks"),
-	"mlb:game:player:Strikeouts (Batting)": mlbCounting("batting", "strikeouts"),
+	"mlb:game:player:Total Bases": tableCounting("batting", "totalBases"),
+	"mlb:game:player:RBIs": tableCounting("batting", "RBIs"),
+	"mlb:game:player:Runs": tableCounting("batting", "runs"),
+	"mlb:game:player:Walks (Batting)": tableCounting("batting", "walks"),
+	"mlb:game:player:Strikeouts (Batting)": tableCounting(
+		"batting",
+		"strikeouts",
+	),
 	"mlb:game:player:Stolen Bases": mlbBatterGameStat("stolenBases"),
 	"mlb:game:player:Batting Average": mlbBatterGameStat("avg"),
 	"mlb:game:player:On-Base Percentage": mlbBatterGameStat("onBasePct"),
 	"mlb:game:player:Slugging Percentage": mlbBatterGameStat("slugAvg"),
-	"mlb:game:player:Strikeouts (Pitching)": mlbCounting(
+	"mlb:game:player:Strikeouts (Pitching)": tableCounting(
 		"pitching",
 		"strikeouts",
 	),
-	"mlb:game:player:Earned Runs Allowed": mlbCounting("pitching", "earnedRuns"),
+	"mlb:game:player:Earned Runs Allowed": tableCounting(
+		"pitching",
+		"earnedRuns",
+	),
 	"mlb:game:player:Saves": mlbSaves,
-	"mlb:game:player:Pitches Thrown": mlbCounting("pitching", "pitches"),
+	"mlb:game:player:Pitches Thrown": tableCounting("pitching", "pitches"),
 	"mlb:game:player:ERA": mlbPitchingRate(
 		({ innings, earnedRuns }) => (9 * earnedRuns) / innings,
 	),
@@ -594,6 +628,28 @@ export const GAME_EXTRACTORS = {
 	"mlb:game:team:Pitches Thrown": teamBoxStat("pitching.pitches"),
 	"mlb:game:team:ERA": teamBoxStat("pitching.ERA", parseRate),
 	"mlb:game:team:WHIP": teamBoxStat("pitching.WHIP", parseRate),
+
+	// Points and the team totals are added up when the box score is parsed,
+	// and team goals leave out a shootout - see deriveHockeyStats in
+	// db/sync/box-score-parse.ts.
+	"nhl:game:player:Goals": tableCounting("skaters", "goals"),
+	"nhl:game:player:Assists": tableCounting("skaters", "assists"),
+	"nhl:game:player:Points": tableCounting("skaters", "points"),
+	"nhl:game:player:Shots on Goal": tableCounting("skaters", "shotsTotal"),
+	"nhl:game:player:Hits": tableCounting("skaters", "hits"),
+	"nhl:game:player:Blocked Shots": tableCounting("skaters", "blockedShots"),
+	"nhl:game:player:Penalty Minutes": tableCounting("skaters", "penaltyMinutes"),
+	"nhl:game:player:Saves": tableCounting("goalies", "saves"),
+	"nhl:game:player:Goals Against": tableCounting("goalies", "goalsAgainst"),
+	"nhl:game:player:Save Percentage": nhlGameSavePct,
+	"nhl:game:team:Goals": teamBoxStat("goals"),
+	"nhl:game:team:Assists": teamTableTotal("skaters.assists"),
+	"nhl:game:team:Shots on Goal": teamBoxStat("shotsTotal"),
+	"nhl:game:team:Power Play Goals": teamBoxStat("powerPlayGoals"),
+	"nhl:game:team:Hits": teamBoxStat("hits"),
+	"nhl:game:team:Blocked Shots": teamBoxStat("blockedShots"),
+	"nhl:game:team:Penalty Minutes": teamBoxStat("penaltyMinutes"),
+	"nhl:game:team:Saves": teamTableTotal("goalies.saves"),
 } as const satisfies Record<GameStatKey, GameExtractor>
 
 // The same definitions as the game table, read from ESPN's season statistics:
@@ -713,6 +769,35 @@ export const SEASON_EXTRACTORS = {
 	"mlb:season:team:ERA": seasonTeam("pitching.ERA", "pitching.innings"),
 	"mlb:season:team:WHIP": seasonTeam("pitching.WHIP", "pitching.innings"),
 	"mlb:season:team:Wins": standingsWins,
+
+	"nhl:season:player:Goals": seasonPlayer("offensive.goals"),
+	"nhl:season:player:Assists": seasonPlayer("offensive.assists"),
+	"nhl:season:player:Points": seasonPlayer("offensive.points"),
+	"nhl:season:player:Shots on Goal": seasonPlayer("offensive.shotsTotal"),
+	"nhl:season:player:Hits": seasonPlayer("defensive.hits"),
+	"nhl:season:player:Blocked Shots": seasonPlayer("defensive.blockedShots"),
+	"nhl:season:player:Penalty Minutes": seasonPlayer("penalties.penaltyMinutes"),
+	"nhl:season:player:Saves": seasonPlayer("defensive.saves"),
+	"nhl:season:player:Goals Against": seasonPlayer("defensive.goalsAgainst"),
+	"nhl:season:player:Save Percentage": seasonPlayer(
+		"defensive.savePct",
+		"defensive.shotsAgainst",
+	),
+	"nhl:season:player:Goals Against Average": seasonPlayer(
+		"defensive.avgGoalsAgainst",
+		"defensive.shotsAgainst",
+	),
+	// ESPN's season goals leave shootouts out, the same as the game reading.
+	// Its standings' goals for count one per shootout win.
+	"nhl:season:team:Goals": seasonTeam("offensive.goals"),
+	"nhl:season:team:Assists": seasonTeam("offensive.assists"),
+	"nhl:season:team:Shots on Goal": seasonTeam("offensive.shotsTotal"),
+	"nhl:season:team:Power Play Goals": seasonTeam("offensive.powerPlayGoals"),
+	"nhl:season:team:Hits": seasonTeam("defensive.hits"),
+	"nhl:season:team:Blocked Shots": seasonTeam("defensive.blockedShots"),
+	"nhl:season:team:Penalty Minutes": seasonTeam("penalties.penaltyMinutes"),
+	"nhl:season:team:Saves": seasonTeam("defensive.saves"),
+	"nhl:season:team:Wins": standingsWins,
 } as const satisfies Record<SeasonStatKey, SeasonExtractor>
 
 // Every key in AUTO_RESOLVE_STATS, which the annotation holds to exactly.

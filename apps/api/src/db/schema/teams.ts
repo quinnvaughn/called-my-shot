@@ -40,7 +40,8 @@ export type Team = typeof teams.$inferSelect
 // upstream source, don't recompute it" call as games.weekNumber in ./games).
 // Ties default to 0 rather than nullable - every sport this app syncs is
 // representable as wins/losses/ties, NFL's the only one that ever needs a
-// non-zero tie.
+// non-zero tie. otLosses is the NHL's third count instead, and null for every
+// league without overtime losses (see parseTeamRecord in lib/team-record.ts).
 export const teamRecords = pgTable(
 	"team_records",
 	{
@@ -54,6 +55,7 @@ export const teamRecords = pgTable(
 		wins: integer("wins").notNull().default(0),
 		losses: integer("losses").notNull().default(0),
 		ties: integer("ties").notNull().default(0),
+		otLosses: integer("ot_losses"),
 		updatedAt: timestamp("updated_at").notNull().defaultNow(),
 	},
 	(t) => [unique().on(t.teamId, t.seasonId)],
@@ -92,9 +94,12 @@ export const teamSeasonStats = pgTable(
 		homeWins: integer("home_wins").notNull().default(0),
 		homeLosses: integer("home_losses").notNull().default(0),
 		homeTies: integer("home_ties").notNull().default(0),
+		// Null outside the NHL, same as teamRecords.otLosses.
+		homeOtLosses: integer("home_ot_losses"),
 		roadWins: integer("road_wins").notNull().default(0),
 		roadLosses: integer("road_losses").notNull().default(0),
 		roadTies: integer("road_ties").notNull().default(0),
+		roadOtLosses: integer("road_ot_losses"),
 		// ESPN's own streak string ("W3", "L1"). Stored verbatim rather than
 		// parsed into a direction and a count: it is display text on their side
 		// too, and every league writes it the same way.

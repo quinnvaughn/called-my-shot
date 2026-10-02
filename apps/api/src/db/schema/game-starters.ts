@@ -12,16 +12,17 @@ import { teams } from "./teams"
 
 // Which slice of a team's lineup a row belongs to. The role also says how firm
 // the data is, which is why there's no separate column for it:
-// starting_pitcher is ESPN's probable (can change up to first pitch), batter is
-// the posted batting order, and offense/defense/starter come off ESPN's depth
-// charts - a projection, since ESPN publishes no confirmed NFL or NBA starters
-// before the game.
+// starting_pitcher and starting_goalie are ESPN's probables (can change up to
+// puck drop or first pitch), batter is the posted batting order, and
+// offense/defense/starter come off ESPN's depth charts - a projection, since
+// ESPN publishes no confirmed NFL or NBA starters before the game.
 export const gameStarterRole = pgEnum("game_starter_role", [
 	"starting_pitcher",
 	"batter",
 	"offense",
 	"defense",
 	"starter",
+	"starting_goalie",
 ])
 
 // Who's starting a game, per team, synced by db/sync/sync-game-starters.ts.

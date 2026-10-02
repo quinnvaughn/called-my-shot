@@ -185,11 +185,13 @@ export const GameByIdDocument = graphql(`
 				wins
 				losses
 				ties
+				otLosses
 			}
 			awayTeamRecord {
 				wins
 				losses
 				ties
+				otLosses
 			}
 		}
 	}
@@ -290,11 +292,13 @@ export const GameEntryDocument = graphql(`
 				wins
 				losses
 				ties
+				otLosses
 			}
 			awayTeamRecord {
 				wins
 				losses
 				ties
+				otLosses
 			}
 			entry(username: $username) {
 				calledCount

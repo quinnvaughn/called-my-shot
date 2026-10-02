@@ -4,6 +4,7 @@ import { RECHECK_DELAY_MS } from "../../lib/auto-resolve/apply"
 import { parsePostseasonNote } from "../../lib/postseason/series"
 import { findOrCreateSeries, settleSeries } from "../../lib/postseason/settle"
 import { resolveQuestionInternal } from "../../lib/resolve-question"
+import { parseTeamRecord } from "../../lib/team-record"
 import { ET_ZONE } from "../../lib/windows"
 import { db } from "../index"
 import type { League } from "../schema"
@@ -62,20 +63,6 @@ export function isAtHalftime(status: EspnEventStatus): boolean {
 // the game final; clears it if ESPN ever takes the final back.
 export function finalizedAtFor(status: "scheduled" | "live" | "final") {
 	return status === "final" ? sql`coalesce(${games.finalizedAt}, now())` : null
-}
-
-// ESPN's record.displayValue is a plain "W-L" (most sports) or "W-L-T" (NFL,
-// on the rare tie) string - there's no independent source of truth for a
-// team's record on this app's side to derive it from instead, so it's parsed
-// verbatim rather than computed. Missing tie segment reads as 0, same as
-// every other sport that doesn't have one.
-export function parseRecord(displayValue: string): {
-	wins: number
-	losses: number
-	ties: number
-} {
-	const [wins = 0, losses = 0, ties = 0] = displayValue.split("-").map(Number)
-	return { wins, losses, ties }
 }
 
 // Matched by date range against whatever's synced for this league (see
@@ -416,7 +403,9 @@ async function fillSeriesLengths(
 // scheduled event's record (always "0-0") is the closest thing to "current"
 // there is. Either way, it's ESPN's own number for that specific event, not
 // something summed/recomputed from other games - same "trust the upstream
-// source" call as toGameStatus/parseRecord above.
+// source" call as toGameStatus above. ESPN's record.displayValue is parsed
+// verbatim (see parseTeamRecord) - there's no independent source of truth for
+// a team's record on this app's side to derive it from instead.
 async function syncTeamRecord(
 	tx: Tx,
 	leagueId: string,
@@ -437,7 +426,10 @@ async function syncTeamRecord(
 	const competitor = reference.competitions[0].competitors.find(
 		(c) => c.team.id === espnTeamId,
 	)
-	const total = competitor?.record?.find((r) => r.type === "total")
+	// The overall split is "total" in most leagues and "ytd" in the NHL.
+	const total = competitor?.record?.find(
+		(r) => r.type === "total" || r.type === "ytd",
+	)
 	if (!total) return
 
 	const teamId = await findRefEntityId(
@@ -448,13 +440,15 @@ async function syncTeamRecord(
 	const seasonId = await findSeasonId(tx, leagueId, new Date(reference.date))
 	if (!teamId || !seasonId) return
 
-	const { wins, losses, ties } = parseRecord(total.displayValue)
+	const record = parseTeamRecord(total.displayValue, leagueSlug)
+	if (!record) return
+	const { wins, losses, ties, otLosses } = record
 	await tx
 		.insert(teamRecords)
-		.values({ teamId, seasonId, wins, losses, ties })
+		.values({ teamId, seasonId, wins, losses, ties, otLosses })
 		.onConflictDoUpdate({
 			target: [teamRecords.teamId, teamRecords.seasonId],
-			set: { wins, losses, ties, updatedAt: now },
+			set: { wins, losses, ties, otLosses, updatedAt: now },
 		})
 }
 

@@ -10,7 +10,8 @@ export type ParsedAthlete = {
 	name?: string
 	didNotPlay: boolean
 	// "table.key" -> raw value ("passing.passingYards", "batting.hits"). NBA's
-	// one table is unnamed, so its keys carry no prefix ("points").
+	// one table is unnamed, so its keys carry no prefix ("points"). NHL
+	// forwards and defensemen share "skaters." (see TABLE_ALIASES).
 	stats: Map<string, string>
 	notes: { type: string; text: string }[]
 }
@@ -27,6 +28,14 @@ export type ParsedBoxScore = {
 	// tables' totals rows. A column missing here had nobody record it.
 	tableTotals: Map<string, Map<string, string>>
 	athletes: Map<string, ParsedAthlete>
+}
+
+// The NHL splits its skaters into forwards and defensemen, with the same
+// columns in both. They're one table here, so a skater's stat has one key
+// ("skaters.goals") whatever his position.
+const TABLE_ALIASES: Record<string, string> = {
+	forwards: "skaters",
+	defenses: "skaters",
 }
 
 const withPrefix = (prefix: string | null, key: string) =>
@@ -73,7 +82,8 @@ export function parseBoxScore(summary: EspnGameSummary): ParsedBoxScore {
 		const espnTeamId = team.team.id
 		const totals = new Map<string, string>()
 		for (const table of team.statistics) {
-			const prefix = table.name ?? table.type ?? null
+			const tableName = table.name ?? table.type ?? null
+			const prefix = tableName ? (TABLE_ALIASES[tableName] ?? tableName) : null
 			table.keys.forEach((key, i) => {
 				const total = table.totals?.[i]
 				if (total) totals.set(withPrefix(prefix, key), total)
@@ -99,6 +109,7 @@ export function parseBoxScore(summary: EspnGameSummary): ParsedBoxScore {
 		tableTotals.set(espnTeamId, totals)
 	}
 	deriveTotalBases(summary.plays ?? [], athletes)
+	deriveHockeyStats(competition, athletes, teamStats, tableTotals)
 
 	return { isFinal, scoreByEspnTeamId, teamStats, tableTotals, athletes }
 }
@@ -144,6 +155,79 @@ function deriveTotalBases(
 		const tableHits = parseStatNumber(athlete.stats.get("batting.hits"))
 		if (tableHits === null || tableHits !== (hits.get(id) ?? 0)) continue
 		athlete.stats.set("batting.totalBases", String(bases.get(id) ?? 0))
+	}
+}
+
+// The counting columns of the NHL's skater and goalie tables, totalled per team
+// here since ESPN's NHL tables carry no totals row.
+const HOCKEY_TOTALED_KEYS = [
+	"skaters.goals",
+	"skaters.assists",
+	"skaters.points",
+	"skaters.shotsTotal",
+	"skaters.hits",
+	"skaters.blockedShots",
+	"skaters.penaltyMinutes",
+	"skaters.takeaways",
+	"skaters.giveaways",
+	"skaters.faceoffsWon",
+	"skaters.faceoffsLost",
+	"goalies.saves",
+	"goalies.goalsAgainst",
+	"goalies.shotsAgainst",
+]
+
+const isSkater = (athlete: ParsedAthlete) =>
+	[...athlete.stats.keys()].some((key) => key.startsWith("skaters."))
+
+// What ESPN's NHL box score leaves out:
+// - A skater's points, which it has no column for. Goals plus assists.
+// - The tables' totals, summed from the athletes.
+// - Team goals ("goals" in the team box). A shootout winner's final score
+//   counts the shootout as one goal that no skater scored, which a box score's
+//   own goal count leaves out, so this is goals in regulation and overtime.
+//   The final score itself stays as ESPN has it, since it still decides who
+//   won.
+// A league with no skaters table is left untouched.
+function deriveHockeyStats(
+	competition: EspnGameSummary["header"]["competitions"][0],
+	athletes: Map<string, ParsedAthlete>,
+	teamStats: Map<string, Map<string, string>>,
+	tableTotals: Map<string, Map<string, string>>,
+): void {
+	const skaters = [...athletes.values()].filter(isSkater)
+	if (skaters.length === 0) return
+
+	for (const athlete of skaters) {
+		const goals = parseStatNumber(athlete.stats.get("skaters.goals"))
+		const assists = parseStatNumber(athlete.stats.get("skaters.assists"))
+		if (goals === null || assists === null) continue
+		athlete.stats.set("skaters.points", String(goals + assists))
+	}
+
+	for (const [espnTeamId, totals] of tableTotals) {
+		const roster = [...athletes.values()].filter(
+			(athlete) => athlete.espnTeamId === espnTeamId,
+		)
+		for (const key of HOCKEY_TOTALED_KEYS) {
+			const total = roster.reduce(
+				(sum, athlete) => sum + (parseStatNumber(athlete.stats.get(key)) ?? 0),
+				0,
+			)
+			totals.set(key, String(total))
+		}
+	}
+
+	const shootout = competition.status.type.detail?.endsWith("/SO") ?? false
+	for (const competitor of competition.competitors) {
+		const score = parseStatNumber(competitor.score)
+		if (score === null) continue
+		const shootoutGoal = shootout
+			? (parseStatNumber(competitor.linescores?.at(-1)?.displayValue) ?? 0)
+			: 0
+		const stats = teamStats.get(competitor.id) ?? new Map<string, string>()
+		stats.set("goals", String(score - shootoutGoal))
+		teamStats.set(competitor.id, stats)
 	}
 }
 
