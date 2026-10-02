@@ -14,9 +14,9 @@ import {
 	CreatedQuestionsTab,
 	createdQuestionsQuery,
 } from "#/components/groups/created-questions-tab"
+import { GroupHeader } from "#/components/groups/group-header"
 import { GroupHighlights } from "#/components/groups/group-highlights"
 import { GroupInviteCard } from "#/components/groups/group-invite-card"
-import { GroupLinks } from "#/components/groups/group-links"
 import {
 	GroupLeaderboard,
 	groupLeaderboardQuery,
@@ -30,9 +30,7 @@ import {
 import { PageBanner } from "#/components/images/page-banner"
 import { Breadcrumb } from "#/components/ui/breadcrumb"
 import { Button, type ButtonVariantProps } from "#/components/ui/button"
-import { GroupLogo } from "#/components/ui/group-logo"
 import { NotFound } from "#/components/ui/not-found"
-import { PageHeader } from "#/components/ui/page-header"
 import { Tabs } from "#/components/ui/tabs"
 import {
 	GroupDetailDocument,
@@ -226,18 +224,12 @@ function RouteComponent() {
 				<Breadcrumb.Link to="/groups">Groups</Breadcrumb.Link>
 				<Breadcrumb.Current>{group.name}</Breadcrumb.Current>
 			</Breadcrumb>
-			<PageHeader
-				title={group.name}
+			<GroupHeader
+				name={group.name}
+				logoUrl={group.logoUrl}
 				description={group.description}
-				footer={<GroupLinks links={group.links} />}
-				leading={
-					// Only once one's uploaded: a big initial beside a big title
-					// would just say the first letter twice.
-					group.logoUrl ? (
-						<GroupLogo size="lg" name={group.name} src={group.logoUrl} />
-					) : undefined
-				}
-				action={
+				links={group.links}
+				actions={
 					<HStack gap="2">
 						<HeaderAction
 							label={`${group.memberCount} ${pluralize(group.memberCount, "member")}`}
