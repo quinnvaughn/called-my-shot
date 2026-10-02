@@ -74,6 +74,19 @@ export const GroupMemberRef = builder.drizzleObject("groupMembers", {
 	}),
 })
 
+// Just the url and the admin's label. Which platform it is, its icon, and
+// the label shown when none was set all come from describeLink in
+// @called-my-shot/schemas, which the client runs itself - its editor needs
+// the same answer live as an admin types, before anything is saved.
+export const GroupLinkRef = builder.drizzleObject("groupLinks", {
+	name: "GroupLink",
+	fields: (t) => ({
+		id: t.exposeID("id"),
+		url: t.exposeString("url"),
+		label: t.exposeString("label", { nullable: true }),
+	}),
+})
+
 export const QuestionShareRef = builder.drizzleObject("questionShares", {
 	name: "QuestionShare",
 	fields: (t) => ({
@@ -116,6 +129,7 @@ export const GroupRef = builder.drizzleObject("groups", {
 			type: "DateTime",
 			resolve: (group) => group.createdAt,
 		}),
+		links: t.relation("links", { query: { orderBy: { position: "asc" } } }),
 		memberCount: t.relatedCount("members"),
 		members: t.relation("members"),
 		// the viewer's own invite link - every member gets one the moment they

@@ -1,4 +1,5 @@
 import {
+	integer,
 	pgEnum,
 	pgTable,
 	primaryKey,
@@ -48,6 +49,30 @@ export const groupLeagues = pgTable(
 	},
 	(t) => [primaryKey({ columns: [t.groupId, t.leagueId] })],
 )
+
+// Socials and websites shown on the group's page. Only the url is stored:
+// the platform and icon are read off its hostname at render (describeLink in
+// @called-my-shot/schemas), so a platform recognised later applies to links
+// saved before it was.
+export const groupLinks = pgTable(
+	"group_links",
+	{
+		id: uuid("id").primaryKey().defaultRandom(),
+		groupId: uuid("group_id")
+			.notNull()
+			.references(() => groups.id, { onDelete: "cascade" }),
+		url: text("url").notNull(),
+		// Null means "label it from the url" - the handle, the platform's name,
+		// or the hostname.
+		label: text("label"),
+		// Display order, as the admin arranged them. Rewritten whole on every
+		// save, so it's always 0..n-1.
+		position: integer("position").notNull(),
+		createdAt: timestamp("created_at").notNull().defaultNow(),
+	},
+	(t) => [unique().on(t.groupId, t.url)],
+)
+export type GroupLink = typeof groupLinks.$inferSelect
 
 export const groupMembers = pgTable(
 	"group_members",

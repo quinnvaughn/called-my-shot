@@ -41,6 +41,25 @@ export const UpdateGroupInput = builder.inputType("UpdateGroupInput", {
 	}),
 })
 
+export const GroupLinkInput = builder.inputType("GroupLinkInput", {
+	fields: (t) => ({
+		url: t.string({ required: true }),
+		// omitted or blank labels it from the url
+		label: t.string({ required: false }),
+	}),
+})
+
+export const UpdateGroupLinksInput = builder.inputType(
+	"UpdateGroupLinksInput",
+	{
+		fields: (t) => ({
+			groupId: t.id({ required: true }),
+			// the whole set, in display order - empty clears them
+			links: t.field({ type: [GroupLinkInput], required: true }),
+		}),
+	},
+)
+
 export const JoinGroupInput = builder.inputType("JoinGroupInput", {
 	fields: (t) => ({
 		code: t.string({ required: true }),

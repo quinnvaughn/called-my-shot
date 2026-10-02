@@ -1,4 +1,5 @@
 import { z } from "zod"
+import { linksSchema } from "./links"
 
 export const groupNameSchema = z
 	.string()
@@ -36,6 +37,13 @@ export const updateGroupSchema = z.object({
 	leagueIds: trackedLeagueIdsSchema,
 })
 export type UpdateGroupInput = z.infer<typeof updateGroupSchema>
+
+// The whole set, in display order. Empty clears them.
+export const updateGroupLinksSchema = z.object({
+	groupId: z.string().uuid(),
+	links: linksSchema,
+})
+export type UpdateGroupLinksInput = z.input<typeof updateGroupLinksSchema>
 
 export const inviteCodeSchema = z
 	.string()

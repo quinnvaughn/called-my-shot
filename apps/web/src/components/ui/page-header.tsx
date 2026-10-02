@@ -8,6 +8,8 @@ type Props = {
 	// Sentence-case body text under the subtitle, for prose the uppercase
 	// subtitle line can't carry (e.g. a group's description).
 	description?: ReactNode
+	// Under the description, for anything that isn't prose: a group's links.
+	footer?: ReactNode
 	action?: ReactNode
 	// Beside the title, before it: a group's logo.
 	leading?: ReactNode
@@ -17,6 +19,7 @@ export function PageHeader({
 	title,
 	subtitle,
 	description,
+	footer,
 	action,
 	leading,
 }: Props) {
@@ -59,6 +62,7 @@ export function PageHeader({
 					{description}
 				</p>
 			)}
+			{footer && <Box marginTop="2">{footer}</Box>}
 		</VStack>
 	)
 

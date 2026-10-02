@@ -1,6 +1,7 @@
 import {
 	createGroupSchema,
 	joinGroupSchema,
+	updateGroupLinksSchema,
 	updateGroupSchema,
 } from "@called-my-shot/schemas"
 import { and, eq } from "drizzle-orm"
@@ -31,6 +32,7 @@ import {
 	requireGroupMember,
 	requireInviteOwnerOrAdmin,
 	requireKnownLeagueIds,
+	setGroupLinks,
 	setTrackedLeagues,
 } from "../../../lib/groups"
 import {
@@ -47,6 +49,7 @@ import {
 	JoinGroupInput,
 	QuestionSharePayload,
 	UpdateGroupInput,
+	UpdateGroupLinksInput,
 } from "./inputs"
 import { GroupInviteRef, GroupMemberRef, GroupRef } from "./refs"
 
@@ -160,6 +163,39 @@ builder.mutationFields((t) => ({
 				if (!updated) throw new NotFoundError("Group not found")
 				await setTrackedLeagues(tx, updated.id, input.leagueIds)
 				return updated
+			})
+			return { group }
+		},
+	}),
+
+	// Its own mutation rather than part of updateGroup: links have their own
+	// section in settings, and saving one form shouldn't resubmit the other.
+	updateGroupLinks: t.field({
+		type: GroupPayload,
+		errors: {
+			types: [AuthenticationError, AuthorizationError, NotFoundError],
+			directResult: true,
+			union: { name: "UpdateGroupLinksResult" },
+		},
+		args: { input: t.arg({ type: UpdateGroupLinksInput, required: true }) },
+		resolve: async (_root, args, ctx) => {
+			const user = requireUser(ctx)
+			const input = parseInput(updateGroupLinksSchema, {
+				groupId: args.input.groupId,
+				links: args.input.links.map((link) => ({
+					url: link.url,
+					label: link.label ?? undefined,
+				})),
+			})
+			await requireGroupAdmin(input.groupId, user.id)
+
+			const group = await db.transaction(async (tx) => {
+				const group = await tx.query.groups.findFirst({
+					where: { id: input.groupId },
+				})
+				if (!group) throw new NotFoundError("Group not found")
+				await setGroupLinks(tx, group.id, input.links)
+				return group
 			})
 			return { group }
 		},

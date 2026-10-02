@@ -16,6 +16,7 @@ import {
 } from "#/components/groups/created-questions-tab"
 import { GroupHighlights } from "#/components/groups/group-highlights"
 import { GroupInviteCard } from "#/components/groups/group-invite-card"
+import { GroupLinks } from "#/components/groups/group-links"
 import {
 	GroupLeaderboard,
 	groupLeaderboardQuery,
@@ -228,6 +229,7 @@ function RouteComponent() {
 			<PageHeader
 				title={group.name}
 				description={group.description}
+				footer={<GroupLinks links={group.links} />}
 				leading={
 					// Only once one's uploaded: a big initial beside a big title
 					// would just say the first letter twice.

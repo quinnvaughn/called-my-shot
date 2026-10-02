@@ -70,6 +70,11 @@ export const GroupSettingsDocument = graphql(`
             logoUrl
             bannerUrl
             viewerIsAdmin
+            links {
+                id
+                url
+                label
+            }
             trackedLeagues {
                 id
                 abbreviation
@@ -132,6 +137,11 @@ export const GroupDetailDocument = graphql(`
             memberCount
             viewerIsAdmin
             viewerDismissedInviteCard
+            links {
+                id
+                url
+                label
+            }
             viewerRank
             myInvite {
                 id

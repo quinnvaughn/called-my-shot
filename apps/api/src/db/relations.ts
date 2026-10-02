@@ -114,6 +114,13 @@ export const relations = defineRelations(schema, (r) => ({
 		invites: r.many.groupInvites(),
 		questionShares: r.many.questionShares(),
 		trackedLeagues: r.many.groupLeagues(),
+		links: r.many.groupLinks(),
+	},
+	groupLinks: {
+		group: r.one.groups({
+			from: r.groupLinks.groupId,
+			to: r.groups.id,
+		}),
 	},
 	groupLeagues: {
 		group: r.one.groups({

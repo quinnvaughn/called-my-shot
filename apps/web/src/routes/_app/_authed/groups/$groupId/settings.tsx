@@ -7,6 +7,7 @@ import { GroupDangerZone } from "#/components/groups/group-danger-zone"
 import { GroupGeneralSection } from "#/components/groups/group-general-section"
 import { GroupImagesSection } from "#/components/groups/group-images-section"
 import { GroupInvitesSection } from "#/components/groups/group-invites-section"
+import { GroupLinksSection } from "#/components/groups/group-links-section"
 import { GroupMembersSection } from "#/components/groups/group-members-section"
 import { Breadcrumb } from "#/components/ui/breadcrumb"
 import { NotFound } from "#/components/ui/not-found"
@@ -90,6 +91,10 @@ function RouteComponent() {
 							leagues={leagues}
 							trackedLeagueIds={group.trackedLeagues.map((l) => l.id)}
 						/>
+					</VStack>
+					<VStack alignItems="stretch" gap="3">
+						{sectionLabel("Links")}
+						<GroupLinksSection groupId={group.id} links={group.links} />
 					</VStack>
 					<VStack alignItems="stretch" gap="3">
 						{sectionLabel("Logo and banner")}

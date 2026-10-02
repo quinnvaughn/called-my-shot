@@ -120,6 +120,39 @@ export const UpdateGroupDocument = graphql(`
 	}
 `)
 
+export const UpdateGroupLinksDocument = graphql(`
+	mutation UpdateGroupLinks($input: UpdateGroupLinksInput!) {
+		updateGroupLinks(input: $input) {
+			__typename
+			... on GroupPayload {
+				group {
+					id
+					links {
+						id
+						url
+						label
+					}
+				}
+			}
+			... on AuthenticationError {
+				message
+			}
+			... on AuthorizationError {
+				message
+			}
+			... on NotFoundError {
+				message
+			}
+			... on ValidationError {
+				fieldErrors {
+					field
+					message
+				}
+			}
+		}
+	}
+`)
+
 export const SetGroupMemberRoleDocument = graphql(`
 	mutation SetGroupMemberRole($groupId: ID!, $userId: ID!, $role: GroupRole!) {
 		setGroupMemberRole(groupId: $groupId, userId: $userId, role: $role) {

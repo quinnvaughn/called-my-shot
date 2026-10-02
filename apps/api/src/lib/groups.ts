@@ -2,7 +2,7 @@ import { eq } from "drizzle-orm"
 import { DateTime } from "luxon"
 import { match } from "ts-pattern"
 import { db } from "../db"
-import { groupInvites, groupLeagues } from "../db/schema"
+import { groupInvites, groupLeagues, groupLinks } from "../db/schema"
 import type { DbOrTx } from "../db/types"
 import { AuthorizationError, NotFoundError, ValidationError } from "./errors"
 import { withRetriedCode } from "./invite-codes"
@@ -136,6 +136,27 @@ export async function setTrackedLeagues(
 	await executor
 		.insert(groupLeagues)
 		.values(leagueIds.map((leagueId) => ({ groupId, leagueId })))
+}
+
+// Replaces the whole set, in the order given - a group shows a handful of
+// links at most, and reordering would otherwise mean rewriting every
+// position anyway.
+export async function setGroupLinks(
+	executor: DbOrTx,
+	groupId: string,
+	links: { url: string; label?: string }[],
+) {
+	await executor.delete(groupLinks).where(eq(groupLinks.groupId, groupId))
+	if (links.length === 0) return
+	await executor.insert(groupLinks).values(
+		links.map((link, position) => ({
+			groupId,
+			url: link.url,
+			// || rather than ??: a blank label is no label
+			label: link.label || null,
+			position,
+		})),
+	)
 }
 
 export async function requireGroupMember(groupId: string, userId: string) {
