@@ -8,6 +8,7 @@ import { ColdStreaksSection } from "#/components/profile/cold-streaks-section"
 import {
 	PointsBreakdown,
 	type PointsGroup,
+	type PointsView,
 	type PointsRow,
 } from "#/components/profile/points-breakdown"
 import { ProfileHeader } from "#/components/profile/profile-header"
@@ -31,6 +32,8 @@ import { pageMeta } from "#/lib/meta"
 import { profileCardVersion } from "#/lib/profile"
 
 const MAX_LIVE_STREAKS = 3
+// The best and worst teams the team view keeps on screen before the rest fold.
+const TEAM_ROWS_AT_EACH_END = 3
 
 type ProfileSearch = { league?: string }
 
@@ -162,7 +165,7 @@ function breakdownGroups(record: ProfileRecord): PointsGroup[] {
 				returnPct: shape.returnPct ?? null,
 			})),
 	}))
-	const teams: PointsRow[] = record.byTeam.map((row) => ({
+	const teamRows: PointsRow[] = record.byTeam.map((row) => ({
 		key: row.team?.id ?? "no-team",
 		label: row.team?.name ?? "No specific team",
 		netPoints: row.netPoints,
@@ -170,9 +173,22 @@ function breakdownGroups(record: ProfileRecord): PointsGroup[] {
 		losses: row.losses,
 		returnPct: row.returnPct ?? null,
 	}))
-	const splits = [
+	// The API sorts the no-team row last, outside the best-to-worst order.
+	const teams = teamRows.filter((row) => row.key !== "no-team")
+	const noTeam = teamRows.filter((row) => row.key === "no-team")
+	const splits: PointsView[] = [
 		...(families.length > 0 ? [{ label: "By play type", rows: families }] : []),
-		...(teams.length > 0 ? [{ label: "By team", rows: teams }] : []),
+		...(teamRows.length > 0
+			? [
+					{
+						label: "By team",
+						rows: teams,
+						fold: { ends: TEAM_ROWS_AT_EACH_END, label: "Show all teams" },
+						pinned: noTeam,
+						ownScale: true,
+					},
+				]
+			: []),
 	]
 	if (splits.length > 0) groups.push({ views: splits })
 	if (record.bonusPoints !== 0) {

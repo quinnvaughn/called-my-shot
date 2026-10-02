@@ -3,6 +3,7 @@ import { useState } from "react"
 import { FiChevronDown, FiChevronRight } from "react-icons/fi"
 import { css, cx } from "styled-system/css"
 import { Flex, HStack, VStack } from "styled-system/jsx"
+import { button } from "#/components/ui/button"
 import { Card } from "#/components/ui/card"
 import { ChipButton } from "#/components/ui/chip-button"
 import { formatRecord, formatSignedPoints } from "#/lib/ballot-entry"
@@ -27,6 +28,16 @@ export type PointsRow = {
 export type PointsView = {
 	label: string
 	rows: PointsRow[]
+	// Keeps this many rows at each end of a long list and folds the middle
+	// behind a button, so the best and worst rows stay on screen without the
+	// whole list.
+	fold?: { ends: number; label: string }
+	// Shown after rows and never folded.
+	pinned?: PointsRow[]
+	// Scales this view's bars against its own biggest row instead of the
+	// card's, for a view whose rows are compared with each other rather than
+	// with the rest of the card.
+	ownScale?: boolean
 }
 
 // A group with more than one view splits the same calls more than one way,
@@ -63,21 +74,27 @@ const groupLabel = css({
 	paddingX: "2",
 })
 
-// Where the points came from, one bar per row out from a shared zero line:
-// right and green for what a row netted, left and red for what it cost. Every
-// bar, nested ones, every group and every view included, is scaled against
-// the biggest swing on the card, so a short bar always means a small share of
-// the total and switching views doesn't rescale the rest of the card.
-export function PointsBreakdown({ groups, username }: Props) {
-	const max = Math.max(
+// The biggest swing among some views' rows, nested and pinned ones included.
+function biggestSwing(views: PointsView[]): number {
+	return Math.max(
 		1,
-		...groups
-			.flatMap((group) => group.views)
-			.flatMap((view) => view.rows)
+		...views
+			.flatMap((view) => [...view.rows, ...(view.pinned ?? [])])
 			.flatMap((row) => [
 				Math.abs(row.netPoints),
 				...(row.children ?? []).map((child) => Math.abs(child.netPoints)),
 			]),
+	)
+}
+
+// Where the points came from, one bar per row out from a shared zero line:
+// right and green for what a row netted, left and red for what it cost. Every
+// bar, nested ones included, is scaled against the biggest swing on the card,
+// so a short bar always means a small share of the total. A view with its own
+// scale is left out of that and measured against itself.
+export function PointsBreakdown({ groups, username }: Props) {
+	const max = biggestSwing(
+		groups.flatMap((group) => group.views).filter((view) => !view.ownScale),
 	)
 
 	return (
@@ -111,8 +128,20 @@ function BreakdownGroup({
 	divided: boolean
 }) {
 	const [selected, setSelected] = useState(0)
+	const [unfolded, setUnfolded] = useState(false)
 	const view = group.views[selected] ?? group.views[0]
 	if (!view) return null
+	const scale = view.ownScale ? biggestSwing([view]) : max
+
+	// Folding away a single row would trade it for a button the same height.
+	const folds =
+		!unfolded &&
+		view.fold !== undefined &&
+		view.rows.length > view.fold.ends * 2 + 1
+	const rows = (rows: PointsRow[]) =>
+		rows.map((row) => (
+			<BreakdownRow key={row.key} row={row} max={scale} username={username} />
+		))
 
 	return (
 		<VStack
@@ -134,7 +163,10 @@ function BreakdownGroup({
 							key={option.label}
 							selected={index === selected}
 							pressed={index === selected}
-							onClick={() => setSelected(index)}
+							onClick={() => {
+								setSelected(index)
+								setUnfolded(false)
+							}}
 						>
 							{option.label}
 						</ChipButton>
@@ -143,9 +175,26 @@ function BreakdownGroup({
 			) : (
 				<span className={groupLabel}>{view.label}</span>
 			)}
-			{view.rows.map((row) => (
-				<BreakdownRow key={row.key} row={row} max={max} username={username} />
-			))}
+			{folds && view.fold ? (
+				<>
+					{rows(view.rows.slice(0, view.fold.ends))}
+					<button
+						type="button"
+						onClick={() => setUnfolded(true)}
+						className={cx(
+							button({ variant: "ghost", size: "sm" }),
+							css({ alignSelf: "center" }),
+						)}
+					>
+						{view.fold.label}
+						<FiChevronDown />
+					</button>
+					{rows(view.rows.slice(-view.fold.ends))}
+				</>
+			) : (
+				rows(view.rows)
+			)}
+			{rows(view.pinned ?? [])}
 		</VStack>
 	)
 }
