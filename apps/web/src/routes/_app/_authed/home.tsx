@@ -7,6 +7,7 @@ import { LeagueRoomCard } from "#/components/home/league-room-card"
 import { OnboardingChecklist } from "#/components/onboarding/onboarding-checklist"
 import { ResultsCalendar } from "#/components/profile/results-calendar"
 import { StatGrid, statGridItems } from "#/components/profile/stat-grid"
+import { StreaksSection } from "#/components/profile/streaks-section"
 import { QuestionCard } from "#/components/questions/question-card"
 import { EmptyState } from "#/components/ui/empty-state"
 import { PageHeader } from "#/components/ui/page-header"
@@ -116,9 +117,14 @@ function RouteComponent() {
 				)}
 			</VStack>
 
-			<div className={css({ display: { base: "block", xl: "none" } })}>
+			<VStack
+				gap="8"
+				alignItems="stretch"
+				className={css({ display: { base: "flex", xl: "none" } })}
+			>
+				<HotStreaksSection />
 				<JustResolvedSection />
-			</div>
+			</VStack>
 		</VStack>
 	)
 }
@@ -127,6 +133,7 @@ function HomeRail() {
 	return (
 		<VStack gap="8" alignItems="stretch">
 			<ResultsSection placement="rail" />
+			<HotStreaksSection />
 			<JustResolvedSection />
 		</VStack>
 	)
@@ -160,6 +167,31 @@ function ResultsSection({ placement }: { placement: "main" | "rail" }) {
 				calendar={record.calendar}
 				username={me.username}
 				compact={placement === "rail"}
+			/>
+		</VStack>
+	)
+}
+
+// Same cap as the profile's top row of live runs.
+const MAX_LIVE_STREAKS = 3
+
+// Live runs only. A run that has ended, or a cold one, gives the viewer
+// nothing to act on from here; both stay on the profile.
+function HotStreaksSection() {
+	const { data } = useSuspenseQuery(homeDashboardQuery)
+	const me = data.me
+	const live = (me?.streaks ?? [])
+		.filter((streak) => streak.currentLength > 0)
+		.slice(0, MAX_LIVE_STREAKS)
+	if (!me || live.length === 0) return null
+	return (
+		<VStack gap="3" alignItems="stretch">
+			<SectionLabel>Hot streaks</SectionLabel>
+			<StreaksSection
+				username={me.username}
+				streaks={live}
+				isOwn
+				layout="grid"
 			/>
 		</VStack>
 	)
