@@ -10,42 +10,53 @@ import { useEffect, useRef, useState } from "react"
 import { css, cx } from "styled-system/css"
 import { Flex, HStack, VStack } from "styled-system/jsx"
 import { Card } from "#/components/ui/card"
+import { type FragmentType, graphql, useFragment } from "#/graphql/generated"
+import type { ResultsCalendar_CalendarFragment } from "#/graphql/generated/graphql"
 import { formatRecord, formatSignedPoints } from "#/lib/ballot-entry"
 import { pluralize } from "#/lib/pluralize"
 import { gradeTone, reportCardPath } from "#/lib/report-card"
 
-export type CalendarDayLeague = {
-	league: { id: string; abbreviation: string; slug: string }
-	windowKey: string | null
-	settledCount: number
-	wins: number
-	losses: number
-	pendingCount: number
-	netPoints: number
-}
+export const ResultsCalendarFragment = graphql(`
+	fragment ResultsCalendar_calendar on RecordCalendar {
+		startDay
+		endDay
+		activeDays
+		callCount
+		days {
+			day
+			settledCount
+			wins
+			losses
+			pendingCount
+			netPoints
+			grade
+			leagues {
+				league {
+					id
+					abbreviation
+					slug
+				}
+				windowKey
+				settledCount
+				wins
+				losses
+				pendingCount
+				netPoints
+			}
+		}
+	}
+`)
 
-export type CalendarDay = {
-	day: string
-	settledCount: number
-	wins: number
-	losses: number
-	pendingCount: number
-	netPoints: number
-	grade: string | null
-	leagues: CalendarDayLeague[]
-}
-
-export type Calendar = {
-	startDay: string
-	endDay: string
-	activeDays: number
-	callCount: number
-	days: CalendarDay[]
-}
+type CalendarDay = ResultsCalendar_CalendarFragment["days"][number]
 
 type Props = {
-	calendar: Calendar
+	calendar: FragmentType<typeof ResultsCalendarFragment>
 	username: string
+	// For a column too narrow to hold the grid at its usual floor: the grid
+	// shrinks to fit instead of scrolling, and the summary stacks over the
+	// legend at every width. Pair it with a shorter span of weeks so the
+	// squares stay large enough to pick.
+	compact?: boolean
 }
 
 // One class per shade, written out so Panda can see every one of them. The
@@ -120,7 +131,12 @@ function signedTone(points: number): string {
 // lost them, darker for a bigger day by this caller's own standards. Picking
 // a square opens that day below the grid, with a link to each league's
 // report card for it.
-export function ResultsCalendar({ calendar, username }: Props) {
+export function ResultsCalendar({
+	calendar: calendarProp,
+	username,
+	compact = false,
+}: Props) {
+	const calendar = useFragment(ResultsCalendarFragment, calendarProp)
 	const byDay = new Map(calendar.days.map((day) => [day.day, day]))
 	const steps = calendarSteps(calendar.days)
 	const latest = calendar.days.at(-1)?.day ?? null
@@ -166,13 +182,15 @@ export function ResultsCalendar({ calendar, username }: Props) {
 	)
 
 	return (
-		<Card variant="surface" size="md">
+		<Card variant="surface" size={compact ? "sm" : "md"}>
 			<Card.Body>
 				<VStack alignItems="stretch" gap="4">
 					<Flex
 						justify="space-between"
-						alignItems={{ base: "flex-start", sm: "center" }}
-						direction={{ base: "column", sm: "row" }}
+						alignItems={
+							compact ? "flex-start" : { base: "flex-start", sm: "center" }
+						}
+						direction={compact ? "column" : { base: "column", sm: "row" }}
 						gap="2"
 					>
 						<span className={css({ fontSize: "sm", color: "fg.body" })}>
@@ -196,7 +214,7 @@ export function ResultsCalendar({ calendar, username }: Props) {
 						<VStack
 							alignItems="stretch"
 							gap="1.5"
-							className={css({ minWidth: "96" })}
+							className={css({ minWidth: compact ? "0" : "96" })}
 						>
 							<div
 								aria-hidden

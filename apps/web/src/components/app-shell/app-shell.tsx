@@ -152,7 +152,6 @@ export function AppShell({
 					className={css({
 						flex: 1,
 						minWidth: 0,
-						maxWidth: rightRail ? "700px" : "none",
 						px: "6",
 						borderRight: rightRail
 							? "1px solid {colors.border.default}"

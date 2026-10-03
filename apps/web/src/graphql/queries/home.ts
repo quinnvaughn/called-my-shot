@@ -1,10 +1,17 @@
 import { graphql } from "#/graphql/generated"
 
 // Home - a bounded, time-scoped checklist, not a growing catalogue (see
-// home.tsx). Three sections, one query: room cards (per-league counts),
+// home.tsx). Four sections, one query: room cards (per-league counts),
 // locking soon (site-wide, closing-soon open questions - reuses the same
 // `questions(sort: CLOSING_SOON)` behavior the old cross-league feed used),
-// and just resolved (the viewer's own calls, most recently decided first).
+// just resolved (the viewer's own calls, most recently decided first), and
+// the viewer's results calendar.
+//
+// The calendar comes in two spans because it renders in two places. The
+// right rail is under half the main column's width, so it shows a quarter,
+// which draws its squares close to the size the profile's half year does.
+// Below the rail's breakpoint it sits in the main column at the profile's
+// own span. Both read the same per-request record inputs on the server.
 export const HomeDashboardDocument = graphql(`
 	query HomeDashboard {
 		leagues {
@@ -26,6 +33,20 @@ export const HomeDashboardDocument = graphql(`
 			items {
 				id
 				...QuestionCard_question
+			}
+		}
+		me {
+			id
+			username
+			record {
+				calendar {
+					...ResultsCalendar_calendar
+				}
+			}
+			railRecord: record(weeks: 13) {
+				calendar {
+					...ResultsCalendar_calendar
+				}
 			}
 		}
 		myRecentResolvedCalls(first: 3) {

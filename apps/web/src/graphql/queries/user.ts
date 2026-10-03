@@ -86,33 +86,7 @@ export const UserRecordDocument = graphql(`
 				netFromCalls
 				bonusPoints
 				calendar {
-					startDay
-					endDay
-					activeDays
-					callCount
-					days {
-						day
-						settledCount
-						wins
-						losses
-						pendingCount
-						netPoints
-						returnPct
-						grade
-						leagues {
-							league {
-								id
-								abbreviation
-								slug
-							}
-							windowKey
-							settledCount
-							wins
-							losses
-							pendingCount
-							netPoints
-						}
-					}
+					...ResultsCalendar_calendar
 				}
 				byLeague {
 					league {

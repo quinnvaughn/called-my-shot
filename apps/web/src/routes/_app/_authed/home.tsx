@@ -1,10 +1,11 @@
 import { useQueryClient, useSuspenseQuery } from "@tanstack/react-query"
-import { createFileRoute, useRouter } from "@tanstack/react-router"
+import { createFileRoute, Link, useRouter } from "@tanstack/react-router"
 import { type ReactNode, useEffect } from "react"
 import { css } from "styled-system/css"
-import { Grid, VStack } from "styled-system/jsx"
+import { Grid, HStack, VStack } from "styled-system/jsx"
 import { LeagueRoomCard } from "#/components/home/league-room-card"
 import { OnboardingChecklist } from "#/components/onboarding/onboarding-checklist"
+import { ResultsCalendar } from "#/components/profile/results-calendar"
 import { QuestionCard } from "#/components/questions/question-card"
 import { EmptyState } from "#/components/ui/empty-state"
 import { PageHeader } from "#/components/ui/page-header"
@@ -32,6 +33,10 @@ const homeDashboardQuery = gqlQueryOptions(HomeDashboardDocument, {})
 
 export const Route = createFileRoute("/_app/_authed/home")({
 	component: RouteComponent,
+	// The viewer's own results, beside the list of what to do next. The shell
+	// only shows the rail from xl up, so RouteComponent repeats both sections
+	// inline below that.
+	staticData: { rightRail: <HomeRail /> },
 	loader: ({ context }) => context.queryClient.query(homeDashboardQuery),
 })
 
@@ -53,7 +58,6 @@ function RouteComponent() {
 
 	const leagues = data.leagues
 	const lockingSoon = data.questions.items
-	const justResolved = data.myRecentResolvedCalls
 
 	return (
 		<VStack gap="8" alignItems="stretch">
@@ -79,6 +83,12 @@ function RouteComponent() {
 				</Grid>
 			</VStack>
 
+			{/* Above Locking soon, which runs six cards deep: the calendar is a
+			    fixed height, so it costs the list little to sit over it. */}
+			<div className={css({ display: { base: "block", xl: "none" } })}>
+				<ResultsSection placement="main" />
+			</div>
+
 			<VStack gap="3" alignItems="stretch">
 				<SectionLabel>Locking soon</SectionLabel>
 				{lockingSoon.length > 0 ? (
@@ -94,23 +104,75 @@ function RouteComponent() {
 				)}
 			</VStack>
 
-			<VStack gap="3" alignItems="stretch">
-				<SectionLabel>Just resolved</SectionLabel>
-				{justResolved.length > 0 ? (
-					<VStack gap="3" alignItems="stretch">
-						{justResolved.map(
-							(call) =>
-								call.question && (
-									<QuestionCard key={call.id} question={call.question} />
-								),
-						)}
-					</VStack>
-				) : (
-					<EmptyState>
-						No results yet. Your calls will show up here as they resolve.
-					</EmptyState>
-				)}
-			</VStack>
+			<div className={css({ display: { base: "block", xl: "none" } })}>
+				<JustResolvedSection />
+			</div>
+		</VStack>
+	)
+}
+
+function HomeRail() {
+	return (
+		<VStack gap="8" alignItems="stretch">
+			<ResultsSection placement="rail" />
+			<JustResolvedSection />
+		</VStack>
+	)
+}
+
+function ResultsSection({ placement }: { placement: "main" | "rail" }) {
+	const { data } = useSuspenseQuery(homeDashboardQuery)
+	const me = data.me
+	const record = placement === "rail" ? me?.railRecord : me?.record
+	if (!me || !record) {
+		return null
+	}
+	return (
+		<VStack gap="3" alignItems="stretch">
+			<HStack justify="space-between" alignItems="baseline" gap="3">
+				<SectionLabel>Your results</SectionLabel>
+				<Link
+					to="/user/$username"
+					params={{ username: me.username }}
+					className={css({
+						fontSize: "xs",
+						color: "primary.default",
+						whiteSpace: "nowrap",
+						_hover: { textDecoration: "underline" },
+					})}
+				>
+					Full record
+				</Link>
+			</HStack>
+			<ResultsCalendar
+				calendar={record.calendar}
+				username={me.username}
+				compact={placement === "rail"}
+			/>
+		</VStack>
+	)
+}
+
+function JustResolvedSection() {
+	const { data } = useSuspenseQuery(homeDashboardQuery)
+	const justResolved = data.myRecentResolvedCalls
+	return (
+		<VStack gap="3" alignItems="stretch">
+			<SectionLabel>Just resolved</SectionLabel>
+			{justResolved.length > 0 ? (
+				<VStack gap="3" alignItems="stretch">
+					{justResolved.map(
+						(call) =>
+							call.question && (
+								<QuestionCard key={call.id} question={call.question} />
+							),
+					)}
+				</VStack>
+			) : (
+				<EmptyState>
+					No results yet. Your calls will show up here as they resolve.
+				</EmptyState>
+			)}
 		</VStack>
 	)
 }
