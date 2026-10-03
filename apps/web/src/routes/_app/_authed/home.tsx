@@ -10,6 +10,7 @@ import { ResultsCalendar } from "#/components/profile/results-calendar"
 import { StatGrid, statGridItems } from "#/components/profile/stat-grid"
 import { StreaksSection } from "#/components/profile/streaks-section"
 import { QuestionCard } from "#/components/questions/question-card"
+import { CardRail } from "#/components/ui/card-rail"
 import { EmptyState } from "#/components/ui/empty-state"
 import { PageHeader } from "#/components/ui/page-header"
 import { HomeDashboardDocument } from "#/graphql/queries/home"
@@ -100,12 +101,25 @@ function RouteComponent() {
 			    width. */}
 			<LiveCallsSection filters={{}} />
 
-			<VStack gap="3" alignItems="stretch">
+			{/* A row on phones rather than a stack: stacked, every league costs a
+			    full card of scrolling before Locking soon. From sm up they fit
+			    side by side as a grid. */}
+			<div className={css({ display: { base: "block", sm: "none" } })}>
+				<CardRail
+					items={leagues}
+					getKey={(league) => league.id}
+					renderItem={(league) => <LeagueRoomCard league={league} />}
+					itemLabel="league"
+					header={<SectionLabel>Leagues</SectionLabel>}
+				/>
+			</div>
+			<VStack
+				gap="3"
+				alignItems="stretch"
+				className={css({ display: { base: "none", sm: "flex" } })}
+			>
 				<SectionLabel>Leagues</SectionLabel>
-				<Grid
-					gridTemplateColumns={{ base: "1fr", sm: "repeat(3, 1fr)" }}
-					gap="3"
-				>
+				<Grid gridTemplateColumns="repeat(3, 1fr)" gap="3">
 					{leagues.map((league) => (
 						<LeagueRoomCard key={league.id} league={league} />
 					))}
