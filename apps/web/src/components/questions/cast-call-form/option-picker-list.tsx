@@ -22,6 +22,24 @@ import {
 // (see OptionFieldBreakdown) pages through elsewhere.
 export const OPTIONS_PAGE_STEP = 5
 
+// The first `visibleCount` rows plus any pinned row past them (the viewer's
+// own pick), each in its ranked position. A pick picked through search from
+// row 12 still shows as selected instead of hiding behind "Show more".
+// `nextCount` is how many rows the next page actually adds, since a pinned
+// row inside that page is already on screen.
+export function pageOptions<T extends { id: string }>(
+	options: T[],
+	visibleCount: number,
+	isPinned: (optionId: string) => boolean,
+) {
+	const pageOf = (count: number) =>
+		options.filter((option, index) => index < count || isPinned(option.id))
+	const visible = pageOf(visibleCount)
+	const nextCount =
+		pageOf(visibleCount + OPTIONS_PAGE_STEP).length - visible.length
+	return { visible, nextCount }
+}
+
 type PickerOption = {
 	id: string
 	label: string
@@ -71,11 +89,16 @@ export function OptionPickerList({
 	const orderedOptions = isAwardShape(shape)
 		? [...options].sort((a, b) => (b.fieldPct ?? 0) - (a.fieldPct ?? 0))
 		: options
+	const { visible, nextCount } = pageOptions(
+		orderedOptions,
+		visibleOptionCount,
+		isSelected,
+	)
 
 	return (
 		<VStack gap="2.5" alignItems="stretch">
 			<VStack gap="2.5" alignItems="stretch">
-				{orderedOptions.slice(0, visibleOptionCount).map((option) => (
+				{visible.map((option) => (
 					<OptionRow
 						key={option.id}
 						image={
@@ -95,7 +118,7 @@ export function OptionPickerList({
 				))}
 				{extraRow}
 			</VStack>
-			{visibleOptionCount < options.length && (
+			{nextCount > 0 && (
 				<Button
 					type="button"
 					variant="outline"
@@ -103,9 +126,7 @@ export function OptionPickerList({
 					fullWidth
 					onClick={() => setVisibleOptionCount((v) => v + OPTIONS_PAGE_STEP)}
 				>
-					Show{" "}
-					{Math.min(OPTIONS_PAGE_STEP, options.length - visibleOptionCount)}{" "}
-					more
+					Show {nextCount} more
 				</Button>
 			)}
 			<span

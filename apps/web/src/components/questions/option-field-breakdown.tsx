@@ -13,7 +13,10 @@ import {
 	isOverUnderQuestionShape,
 	optionDisplayLabel,
 } from "#/lib/question-labels"
-import { OPTIONS_PAGE_STEP } from "./cast-call-form/option-picker-list"
+import {
+	OPTIONS_PAGE_STEP,
+	pageOptions,
+} from "./cast-call-form/option-picker-list"
 import { OptionRow } from "./option-row"
 
 type Option = {
@@ -86,6 +89,11 @@ export function OptionFieldBreakdown({
 				option.callCount > 0 || highlightedOptionIds.includes(option.id),
 		)
 		.sort((a, b) => b.callCount - a.callCount)
+	const { visible, nextCount } = pageOptions(
+		rankedOptions,
+		visibleCount,
+		(optionId) => highlightedOptionIds.includes(optionId),
+	)
 
 	return (
 		<VStack gap="2.5" alignItems="stretch">
@@ -101,7 +109,7 @@ export function OptionFieldBreakdown({
 					No one's called this yet.
 				</span>
 			)}
-			{rankedOptions.slice(0, visibleCount).map((option) => (
+			{visible.map((option) => (
 				<OptionRow
 					key={option.id}
 					image={
@@ -119,7 +127,7 @@ export function OptionFieldBreakdown({
 					tone="record"
 				/>
 			))}
-			{visibleCount < rankedOptions.length && (
+			{nextCount > 0 && (
 				<Button
 					type="button"
 					variant="outline"
@@ -127,9 +135,7 @@ export function OptionFieldBreakdown({
 					fullWidth
 					onClick={() => setVisibleCount((v) => v + OPTIONS_PAGE_STEP)}
 				>
-					Show{" "}
-					{Math.min(OPTIONS_PAGE_STEP, rankedOptions.length - visibleCount)}{" "}
-					more
+					Show {nextCount} more
 				</Button>
 			)}
 			<span
