@@ -9,7 +9,9 @@ import type {
 	StatContextShare,
 	StatContextSplit,
 	StatContextUsage,
+	StatContextWorkload,
 	UsageStat,
+	WorkloadStat,
 } from "./types"
 
 // What every query below is scoped by. asOf is the question's lock time, and
@@ -403,6 +405,23 @@ export async function usageOfTeam(
 		perGame: share.playerTotal / share.games,
 		sharePct: share.sharePct,
 	}
+}
+
+// How much of a game the subject is out there for, per appearance this
+// season. The same average seasonToDate takes, over a different column, so a
+// game sat out stays out of it the same way.
+export async function workloadPerGame(
+	scope: StatContextScope,
+	workload: WorkloadStat,
+): Promise<StatContextWorkload | null> {
+	const split = await seasonToDate({
+		...scope,
+		statKeys: [...workload.statKeys],
+		ouLine: null,
+	})
+	if (!split) return null
+
+	return { label: workload.label, games: split.games, perGame: split.mean }
 }
 
 // What each side of a leader question's game has been giving up in the pooled

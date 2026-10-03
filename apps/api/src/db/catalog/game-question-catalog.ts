@@ -57,6 +57,11 @@ export type GameQuestionTemplate =
 			statName: string
 			group: string
 			pick: StarterPick
+			// What each side's workload is read from, for a stat that piles up
+			// with time on the field. Two starters whose workloads don't match
+			// (see lib/workload.ts) get no head-to-head, and one with no
+			// workload on record gets none either. Unset asks no such question.
+			workload?: Pick<StarterPick, "espnStat" | "espnGames" | "priorWeight">
 	  }
 	| {
 			// Each team's best starter at the pick, over/under a line set from
@@ -501,6 +506,9 @@ export const GAME_QUESTION_CATALOG: Record<string, GameQuestionTemplate[]> = {
 			statName: "Strikeouts (Pitching)",
 			group: "strikeouts",
 			pick: MLB_STARTER,
+			// An opener's strikeouts are capped by the inning or two he's out
+			// there for, so he only meets a starter who goes as deep.
+			workload: MLB_STARTER_PITCHES,
 		},
 		{
 			id: "starter-strikeouts",

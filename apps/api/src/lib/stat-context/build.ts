@@ -1,5 +1,6 @@
 import type { QuestionShape } from "@called-my-shot/schemas"
 import { match } from "ts-pattern"
+import { isWorkloadMismatch } from "../workload"
 import { buildMatchup } from "./matchup"
 import {
 	homeAwaySplit,
@@ -13,8 +14,9 @@ import {
 	seasonToDate,
 	shareOfTeamTotal,
 	usageOfTeam,
+	workloadPerGame,
 } from "./queries"
-import { recipeFor, usageStatFor } from "./recipes"
+import { recipeFor, usageStatFor, workloadStatFor } from "./recipes"
 import { boxStatSourceFor } from "./stat-source"
 import type {
 	StatContext,
@@ -182,7 +184,10 @@ async function cardsFor(
 	const usageStat = wants("usage")
 		? usageStatFor(source.autoResolveStatKey)
 		: null
-	const [games, season, splits, rest, allowed, share, usage] =
+	const workloadStat = wants("workload")
+		? workloadStatFor(source.autoResolveStatKey)
+		: null
+	const [games, season, splits, rest, allowed, share, usage, workload] =
 		await Promise.all([
 			wants("recent_form") ? recentGames(scope, LAST_N) : [],
 			wants("season_to_date") ? seasonToDate(scope) : null,
@@ -191,6 +196,7 @@ async function cardsFor(
 			wants("opponent_allowed") ? opponentAllowed(scope) : null,
 			wants("share_of_team") ? shareOfTeamTotal(scope) : null,
 			usageStat ? usageOfTeam(scope, usageStat) : null,
+			workloadStat ? workloadPerGame(scope, workloadStat) : null,
 		])
 
 	// Nothing stored for this side at all.
@@ -202,7 +208,8 @@ async function cardsFor(
 		!rest &&
 		!allowed &&
 		!share &&
-		!usage
+		!usage &&
+		!workload
 	) {
 		return null
 	}
@@ -219,6 +226,7 @@ async function cardsFor(
 		opponentAllowed: allowed,
 		teamShare: share,
 		usage,
+		workload,
 	}
 }
 
@@ -241,6 +249,7 @@ export async function buildStatContext(
 		ranking: [] as StatContextRankedPlayer[],
 		defenses: [] as StatContextPoolDefense[],
 		matchup: null,
+		workloadMismatch: false,
 	}
 
 	// Ahead of the stat-source lookup below on purpose. A who-wins question
@@ -326,8 +335,16 @@ export async function buildStatContext(
 	)
 	if (built.some((side) => side === null)) return null
 
+	const sides = built.filter(
+		(side): side is StatContextSubject => side !== null,
+	)
+	const [first, second] = sides
 	return {
 		...base,
-		subjects: built.filter((side): side is StatContextSubject => side !== null),
+		subjects: sides,
+		workloadMismatch:
+			!!first?.workload &&
+			!!second?.workload &&
+			isWorkloadMismatch(first.workload.perGame, second.workload.perGame),
 	}
 }

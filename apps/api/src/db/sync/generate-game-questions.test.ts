@@ -57,6 +57,7 @@ const REBOUNDS_LEADER = catalogTemplate("nba", "rebounds-leader")
 const POINTS_LEADER = catalogTemplate("nba", "points-leader")
 const BATTER_HITS = catalogTemplate("mlb", "batter-hits")
 const BATTER_RBIS = catalogTemplate("mlb", "batter-rbis")
+const STRIKEOUTS_DUEL = catalogTemplate("mlb", "starter-strikeouts-duel")
 
 // With templates, posts exactly those on the league's games, each in a group
 // of its own so none is left out. Without, posts what the catalog draws.
@@ -120,6 +121,27 @@ function mlbBattingSeason(
 						{ name: "hits", value: hitsPerGame * gamesPlayed },
 						{ name: "RBIs", value: rbisPerGame * gamesPlayed },
 						{ name: "gamesPlayed", value: gamesPlayed },
+					],
+				},
+			],
+		},
+	}
+}
+
+function mlbPitchingSeason(
+	strikeoutsPerStart: number,
+	pitchesPerStart: number,
+	gamesStarted: number,
+) {
+	return {
+		splits: {
+			categories: [
+				{
+					name: "pitching",
+					stats: [
+						{ name: "strikeouts", value: strikeoutsPerStart * gamesStarted },
+						{ name: "pitchesAsStarter", value: pitchesPerStart * gamesStarted },
+						{ name: "gamesStarted", value: gamesStarted },
 					],
 				},
 			],
@@ -811,6 +833,84 @@ describe("generateGameQuestions", () => {
 			"Pete Alonso",
 		])
 	})
+	describe("a strikeout duel", () => {
+		// One listed starting pitcher a side, the way ESPN posts an MLB game.
+		async function seedPitchers(
+			awaySeason: EspnSeasonStatistics,
+			homeSeason: EspnSeasonStatistics,
+		) {
+			await makeUser({ username: OFFICIAL_ACCOUNT_USERNAME })
+			const league = await makeLeague({ slug: "mlb" })
+			const season = await makeSeason({ leagueId: league.id, year: 2027 })
+			await makeStat({ sportId: league.sportId, name: "Strikeouts (Pitching)" })
+			const away = await makeTeam({ leagueId: league.id, name: "White Sox" })
+			const home = await makeTeam({ leagueId: league.id, name: "Guardians" })
+			const game = await makeGame({
+				leagueId: league.id,
+				seasonId: season.id,
+				homeTeamId: home.id,
+				awayTeamId: away.id,
+				startsAt: hoursFromNow(10),
+			})
+			for (const [team, name, espnId, seasons] of [
+				[away, "Hagen Smith", "21", { 2027: awaySeason }],
+				[home, "Parker Messick", "22", { 2027: homeSeason }],
+			] as const) {
+				const player = await addPlayer(league, team, {
+					name,
+					espnId,
+					seasons,
+				})
+				await db.insert(gameStarters).values({
+					gameId: game.id,
+					teamId: team.id,
+					playerId: player.id,
+					role: "starting_pitcher",
+					sortOrder: 1,
+					playerName: name,
+					position: "SP",
+				})
+			}
+			return game
+		}
+
+		it("puts two starters who go about as deep head to head", async () => {
+			const game = await seedPitchers(
+				mlbPitchingSeason(5, 82, 20),
+				mlbPitchingSeason(7, 95, 20),
+			)
+
+			await run([STRIKEOUTS_DUEL], "mlb")
+
+			expect(duelPlayers(await questionsOn(game.id))).toEqual([
+				"Hagen Smith",
+				"Parker Messick",
+			])
+		})
+
+		it("isn't posted when one side is an opener", async () => {
+			const game = await seedPitchers(
+				mlbPitchingSeason(2, 40, 20),
+				mlbPitchingSeason(7, 95, 20),
+			)
+
+			await run([STRIKEOUTS_DUEL], "mlb")
+
+			expect(await questionsOn(game.id)).toEqual([])
+		})
+
+		it("isn't posted when one side has no starts on record", async () => {
+			const game = await seedPitchers(
+				mlbPitchingSeason(1, 0, 0),
+				mlbPitchingSeason(7, 95, 20),
+			)
+
+			await run([STRIKEOUTS_DUEL], "mlb")
+
+			expect(await questionsOn(game.id)).toEqual([])
+		})
+	})
+
 	it("asks each batter about one stat at most", async () => {
 		await makeUser({ username: OFFICIAL_ACCOUNT_USERNAME })
 		const league = await makeLeague({ slug: "mlb" })

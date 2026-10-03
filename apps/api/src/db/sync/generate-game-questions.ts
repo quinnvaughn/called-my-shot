@@ -65,6 +65,7 @@ import { numericToleranceFor } from "../../lib/numeric-tolerance"
 import { getOfficialAccountId } from "../../lib/official-account"
 import { isGameAskable } from "../../lib/postseason/settle"
 import { runCli } from "../../lib/run-cli"
+import { isWorkloadMismatch } from "../../lib/workload"
 import {
 	activeGameTemplates,
 	type GameQuestionTemplate,
@@ -195,6 +196,24 @@ async function rankedStarters(
 		const { season, prior } = samplesOf(candidate)
 		return blendSamples(season, prior, pick.priorWeight)?.mean ?? null
 	}).map((candidate) => ({ candidate, samples: samplesOf(candidate) }))
+}
+
+// A player's per-game workload, blended across seasons the same way the stat
+// itself is. Null when nothing is on record, which for a pitcher means no
+// starts to divide by: a reliever opening a bullpen game.
+async function workloadOf(
+	ctx: LeagueContext,
+	game: DueGame,
+	workload: Pick<StarterPick, "espnStat" | "espnGames" | "priorWeight">,
+	playerId: string,
+): Promise<number | null> {
+	const { season, prior } = await playerSamples(
+		ctx.seasonStatsFor,
+		ctx.espnAthleteIdByPlayerId.get(playerId),
+		workload,
+		game.season.year,
+	)
+	return blendSamples(season, prior, workload.priorWeight)?.mean ?? null
 }
 
 // Only while nobody has called it: a question someone already called stays
@@ -332,7 +351,7 @@ async function planTemplate(
 				},
 			]
 		})
-		.with({ shape: "player_vs_player" }, async ({ statName, pick }) => {
+		.with({ shape: "player_vs_player" }, async ({ statName, pick, workload }) => {
 			if (isFilled(generationKey(base))) return []
 			// Drawn from each side's best starters that nothing on the game
 			// already asks about.
@@ -349,6 +368,19 @@ async function planTemplate(
 			if (!away || !home) return []
 			const awayId = away.candidate.playerId
 			const homeId = home.candidate.playerId
+			if (workload) {
+				const [awayLoad, homeLoad] = await Promise.all([
+					workloadOf(ctx, game, workload, awayId),
+					workloadOf(ctx, game, workload, homeId),
+				])
+				if (
+					awayLoad === null ||
+					homeLoad === null ||
+					isWorkloadMismatch(awayLoad, homeLoad)
+				) {
+					return []
+				}
+			}
 			return [
 				{
 					key: generationKey([...base, awayId, homeId]),

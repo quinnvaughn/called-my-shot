@@ -7,6 +7,7 @@ import { Card } from "#/components/ui/card"
 import { Eyebrow } from "#/components/ui/eyebrow"
 import { PlayerHeadshot } from "#/components/ui/player-headshot"
 import { PlayerOrTeamImage } from "#/components/ui/player-or-team-image"
+import { Tag } from "#/components/ui/tag"
 import { TeamBadge } from "#/components/ui/team-badge"
 import { type FragmentType, graphql, useFragment } from "#/graphql/generated"
 import type {
@@ -37,6 +38,7 @@ export const StatContextCardFragment = graphql(`
 	fragment StatContextCard_statContext on StatContext {
 		statLabel
 		lastN
+		workloadMismatch
 		ranking {
 			playerId
 			player {
@@ -114,6 +116,11 @@ export const StatContextCardFragment = graphql(`
 				games
 				perGame
 				sharePct
+			}
+			workload {
+				label
+				games
+				perGame
 			}
 		}
 		matchup {
@@ -389,6 +396,19 @@ function supportingTiles(subject: Subject, teams: TeamLabels): Tile[] {
 		})
 	}
 
+	// Next to the headline it caps: a pitcher's strikeouts are bounded by how
+	// long he's left in, and this is the figure that says how long that is.
+	const workload = subject.workload
+	if (workload) {
+		tiles.push({
+			value: round(workload.perGame),
+			label:
+				workload.games === 1
+					? `${workload.label}, last game`
+					: `${workload.label} per game`,
+		})
+	}
+
 	if (
 		subject.home &&
 		subject.away &&
@@ -443,6 +463,19 @@ function supportingTiles(subject: Subject, teams: TeamLabels): Tile[] {
 	}
 
 	return tiles
+}
+
+// Beside the section title on both cards, so it shows while the numbers are
+// folded away: when one side is out there for a fraction of the other's game,
+// that settles the comparison before either stat line matters. The workload
+// tiles in each column carry the figures behind it.
+function MismatchTag({ show }: { show: boolean }) {
+	if (!show) return null
+	return (
+		<Tag variant="secondary" size="sm">
+			Mismatch
+		</Tag>
+	)
 }
 
 // A pool question's answer is who is in front, so the list is the card. Rank
@@ -1071,9 +1104,12 @@ export function StatContextCard(props: {
 			<Card.Body>
 				<VStack gap="3" alignItems="stretch">
 					<HStack justify="space-between" alignItems="center">
-						<h2 className={sectionHeadingClass}>
-							{sectionTitle(context.statLabel)}
-						</h2>
+						<HStack gap="2" alignItems="center" minWidth="0">
+							<h2 className={sectionHeadingClass}>
+								{sectionTitle(context.statLabel)}
+							</h2>
+							<MismatchTag show={context.workloadMismatch} />
+						</HStack>
 						<button
 							type="button"
 							aria-expanded={expanded}
@@ -1178,9 +1214,12 @@ export function StatContextHighlights(props: {
 	return (
 		<VStack gap="2" alignItems="stretch">
 			<HStack justify="space-between" alignItems="center">
-				<h3 className={sectionHeadingClass}>
-					{sectionTitle(context.statLabel)}
-				</h3>
+				<HStack gap="2" alignItems="center" minWidth="0">
+					<h3 className={sectionHeadingClass}>
+						{sectionTitle(context.statLabel)}
+					</h3>
+					<MismatchTag show={context.workloadMismatch} />
+				</HStack>
 				<button
 					type="button"
 					aria-expanded={expanded}

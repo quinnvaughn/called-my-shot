@@ -18,6 +18,7 @@ import type {
 	StatContextStreak,
 	StatContextSubject,
 	StatContextUsage,
+	StatContextWorkload,
 } from "../../../lib/stat-context/types"
 import { builder } from "../../builder"
 import { indexByKey } from "../../loader"
@@ -130,6 +131,18 @@ const UsageRef = builder
 		}),
 	})
 
+const WorkloadRef = builder
+	.objectRef<StatContextWorkload>("StatContextWorkload")
+	.implement({
+		fields: (t) => ({
+			// What the workload is counted in ("pitches"). The card's headline
+			// stat is something else, so a number here means nothing without it.
+			label: t.exposeString("label"),
+			games: t.exposeInt("games"),
+			perGame: t.exposeFloat("perGame"),
+		}),
+	})
+
 const SubjectRef = builder
 	.objectRef<StatContextSubject>("StatContextSubject")
 	.implement({
@@ -187,6 +200,11 @@ const SubjectRef = builder
 				type: UsageRef,
 				nullable: true,
 				resolve: (s) => s.usage,
+			}),
+			workload: t.field({
+				type: WorkloadRef,
+				nullable: true,
+				resolve: (s) => s.workload,
 			}),
 		}),
 	})
@@ -445,5 +463,9 @@ export const StatContextRef = builder
 				nullable: true,
 				resolve: (c) => c.matchup,
 			}),
+			// A head-to-head whose two sides' workloads are too far apart to
+			// compare like with like. False whenever either side has no workload
+			// figure, and on every question that isn't a head-to-head.
+			workloadMismatch: t.exposeBoolean("workloadMismatch"),
 		}),
 	})
