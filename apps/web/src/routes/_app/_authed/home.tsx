@@ -6,6 +6,7 @@ import { Grid, HStack, VStack } from "styled-system/jsx"
 import { LeagueRoomCard } from "#/components/home/league-room-card"
 import { OnboardingChecklist } from "#/components/onboarding/onboarding-checklist"
 import { ResultsCalendar } from "#/components/profile/results-calendar"
+import { StatGrid, statGridItems } from "#/components/profile/stat-grid"
 import { QuestionCard } from "#/components/questions/question-card"
 import { EmptyState } from "#/components/ui/empty-state"
 import { PageHeader } from "#/components/ui/page-header"
@@ -58,6 +59,7 @@ function RouteComponent() {
 
 	const leagues = data.leagues
 	const lockingSoon = data.questions.items
+	const stats = data.me?.careerStats
 
 	return (
 		<VStack gap="8" alignItems="stretch">
@@ -70,6 +72,16 @@ function RouteComponent() {
 			    it, or dismissed it. This route's own comment calls itself a
 			    checklist of what's actionable right now, which is the same job. */}
 			<OnboardingChecklist />
+
+			<StatGrid
+				items={statGridItems({
+					rank: stats?.rank ?? null,
+					totalPoints: stats?.totalPoints ?? 0,
+					accuracy: stats?.accuracy ?? null,
+					convictionEdge: stats?.convictionEdge ?? null,
+					resolvedCallCount: stats?.resolvedCallCount ?? 0,
+				})}
+			/>
 
 			<VStack gap="3" alignItems="stretch">
 				<SectionLabel>Leagues</SectionLabel>

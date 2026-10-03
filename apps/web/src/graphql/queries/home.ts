@@ -1,7 +1,8 @@
 import { graphql } from "#/graphql/generated"
 
 // Home - a bounded, time-scoped checklist, not a growing catalogue (see
-// home.tsx). Four sections, one query: room cards (per-league counts),
+// home.tsx). Five sections, one query: the viewer's career stats (the same
+// numbers the profile leads with), room cards (per-league counts),
 // locking soon (site-wide, closing-soon open questions - reuses the same
 // `questions(sort: CLOSING_SOON)` behavior the old cross-league feed used),
 // just resolved (the viewer's own calls, most recently decided first), and
@@ -38,6 +39,13 @@ export const HomeDashboardDocument = graphql(`
 		me {
 			id
 			username
+			careerStats {
+				rank
+				totalPoints
+				accuracy
+				convictionEdge
+				resolvedCallCount
+			}
 			record {
 				calendar {
 					...ResultsCalendar_calendar
