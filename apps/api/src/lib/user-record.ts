@@ -327,8 +327,13 @@ export type RecordDay = ReportCardStats & {
 export type RecordCalendar = {
 	// Always a Sunday, so the grid's columns are whole weeks.
 	startDay: string
-	// Today, ET. The grid stops here rather than running to Saturday.
+	// Today, ET, on the current page: the grid stops here rather than running
+	// to Saturday. An earlier page ends on its last Saturday.
 	endDay: string
+	// The earliest day with a call in scope, on any page. Null with no dated
+	// calls. Lets the client stop paging back once a page starts at or
+	// before it.
+	firstDay: string | null
 	activeDays: number
 	callCount: number
 	// Only days with at least one settled or pending call. The client fills
@@ -373,18 +378,22 @@ function groupBy<K, T>(items: T[], key: (item: T) => K): Map<K, T[]> {
 	return groups
 }
 
-// The Sunday that starts the grid: the current week plus weeks-1 before it.
+// Page 0 is the current week plus weeks-1 before it, ending today. Each page
+// after that is the `weeks` whole weeks before the one above it, Sunday to
+// Saturday.
 export function calendarRange(
 	now: Date,
 	weeks: number,
+	page = 0,
 ): { startDay: string; endDay: string } {
 	const today = DateTime.fromJSDate(now, { zone: SPORTS_TIME_ZONE }).startOf(
 		"day",
 	)
 	// luxon weekdays run Monday 1 to Sunday 7.
 	const sunday = today.minus({ days: today.weekday % 7 })
-	const start = sunday.minus({ weeks: weeks - 1 })
-	return { startDay: start.toISODate() ?? "", endDay: today.toISODate() ?? "" }
+	const start = sunday.minus({ weeks: weeks - 1 + page * weeks })
+	const end = page === 0 ? today : start.plus({ weeks }).minus({ days: 1 })
+	return { startDay: start.toISODate() ?? "", endDay: end.toISODate() ?? "" }
 }
 
 function buildCalendar(
@@ -424,8 +433,16 @@ function buildCalendar(
 	}
 	days.sort((a, b) => a.day.localeCompare(b.day))
 
+	let firstDay: string | null = null
+	for (const call of calls) {
+		if (call.day !== null && (firstDay === null || call.day < firstDay)) {
+			firstDay = call.day
+		}
+	}
+
 	return {
 		...range,
+		firstDay,
 		activeDays: days.length,
 		callCount: days.reduce(
 			(sum, day) => sum + day.settledCount + day.pendingCount,
@@ -454,8 +471,9 @@ export function buildUserRecord(
 	{
 		leagueId,
 		weeks,
+		page = 0,
 		now,
-	}: { leagueId: string | null; weeks: number; now: Date },
+	}: { leagueId: string | null; weeks: number; page?: number; now: Date },
 ): UserRecord {
 	const leaguesById = new Map(
 		inputs.leagues.map((league) => [league.id, league]),
@@ -499,7 +517,11 @@ export function buildUserRecord(
 		: [...inputs.bonusByLeague.values()].reduce((sum, n) => sum + n, 0)
 
 	return {
-		calendar: buildCalendar(calls, leaguesById, calendarRange(now, weeks)),
+		calendar: buildCalendar(
+			calls,
+			leaguesById,
+			calendarRange(now, weeks, page),
+		),
 		byLeague,
 		byFamily: card.byFamily.filter((row) => row.settledCount > 0),
 		byShape: card.byShape.filter((row) => row.settledCount > 0),

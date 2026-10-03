@@ -173,7 +173,7 @@ function HomeRail() {
 function ResultsSection({ placement }: { placement: "main" | "rail" }) {
 	const { data } = useSuspenseQuery(homeDashboardQuery)
 	const me = data.me
-	const record = placement === "rail" ? me?.railRecord : me?.record
+	const record = me?.record
 	if (!me || !record) {
 		return null
 	}

@@ -73,6 +73,18 @@ describe("calendarRange", () => {
 		const range = calendarRange(new Date("2026-09-20T16:00:00Z"), 1)
 		expect(range).toEqual({ startDay: "2026-09-20", endDay: "2026-09-20" })
 	})
+
+	it("pages back whole weeks, each page ending the Saturday before the next", () => {
+		const now = new Date("2026-09-24T02:00:00Z")
+		expect(calendarRange(now, 2, 1)).toEqual({
+			startDay: "2026-08-30",
+			endDay: "2026-09-12",
+		})
+		expect(calendarRange(now, 2, 2)).toEqual({
+			startDay: "2026-08-16",
+			endDay: "2026-08-29",
+		})
+	})
 })
 
 describe("loadUserRecordInputs + buildUserRecord", () => {
@@ -139,6 +151,46 @@ describe("loadUserRecordInputs + buildUserRecord", () => {
 		})
 		expect(record.calendar.days[0]?.day).toBe("2026-09-21")
 		expect(record.calendar.days[0]?.leagues[0]?.windowKey).toBeNull()
+	})
+
+	it("pages the calendar back and reports the first day on every page", async () => {
+		const league = await makeLeague({ windowType: "date" })
+		const seasonId = (await makeSeason({ leagueId: league.id })).id
+		// Noon ET on the 1st, a page and a bit before now.
+		const early = await makeGame({
+			leagueId: league.id,
+			seasonId,
+			startsAt: new Date("2026-09-01T16:00:00Z"),
+		})
+		const recent = await makeGame({
+			leagueId: league.id,
+			seasonId,
+			startsAt: new Date("2026-09-22T16:00:00Z"),
+		})
+		await optionCall({ league, seasonId, gameId: early.id, points: 30 })
+		await optionCall({ league, seasonId, gameId: recent.id, points: 50 })
+		const inputs = await loadUserRecordInputs(userId)
+
+		const current = buildUserRecord(inputs, { leagueId: null, weeks: 2, now })
+		expect(current.calendar.days.map((day) => day.day)).toEqual([
+			"2026-09-22",
+		])
+		expect(current.calendar.firstDay).toBe("2026-09-01")
+
+		const previous = buildUserRecord(inputs, {
+			leagueId: null,
+			weeks: 2,
+			page: 1,
+			now,
+		})
+		expect(previous.calendar.startDay).toBe("2026-08-30")
+		expect(previous.calendar.endDay).toBe("2026-09-12")
+		expect(previous.calendar.days.map((day) => day.day)).toEqual([
+			"2026-09-01",
+		])
+		expect(previous.calendar.firstDay).toBe("2026-09-01")
+		// The breakdown covers every call whatever page the calendar is on.
+		expect(previous.netFromCalls).toBe(80)
 	})
 
 	it("adds up to the scope's points: calls net plus bonuses, per league and overall", async () => {

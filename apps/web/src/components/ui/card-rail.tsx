@@ -2,6 +2,7 @@ import { type ReactNode, useCallback, useEffect, useRef, useState } from "react"
 import { FiChevronLeft, FiChevronRight } from "react-icons/fi"
 import { css } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
+import { StepButton } from "#/components/ui/step-button"
 
 type Props<T> = {
 	items: T[]
@@ -74,20 +75,20 @@ export function CardRail<T>({
 				{header}
 				{overflowing && (
 					<HStack gap="1.5" marginInlineStart="auto">
-						<ScrollButton
+						<StepButton
 							label={`Previous ${itemLabel}`}
 							disabled={!canScrollPrev}
 							onClick={() => scrollByPage(-1)}
 						>
 							<FiChevronLeft aria-hidden />
-						</ScrollButton>
-						<ScrollButton
+						</StepButton>
+						<StepButton
 							label={`Next ${itemLabel}`}
 							disabled={!canScrollNext}
 							onClick={() => scrollByPage(1)}
 						>
 							<FiChevronRight aria-hidden />
-						</ScrollButton>
+						</StepButton>
 					</HStack>
 				)}
 			</HStack>
@@ -141,47 +142,4 @@ export function CardRail<T>({
 function edgeMask(next: boolean): string | undefined {
 	if (!next) return undefined
 	return "linear-gradient(to right, black calc(100% - 32px), transparent)"
-}
-
-function ScrollButton({
-	label,
-	disabled,
-	onClick,
-	children,
-}: {
-	label: string
-	disabled: boolean
-	onClick: () => void
-	children: ReactNode
-}) {
-	return (
-		<button
-			type="button"
-			aria-label={label}
-			disabled={disabled}
-			onClick={onClick}
-			className={css({
-				display: "inline-flex",
-				alignItems: "center",
-				justifyContent: "center",
-				width: "7",
-				height: "7",
-				borderRadius: "md",
-				border: "1px solid {colors.border.default}",
-				color: "fg.default",
-				bg: "transparent",
-				cursor: "pointer",
-				transition: "color 0.15s ease, border-color 0.15s ease",
-				_hover: { borderColor: "border.emphasized" },
-				_disabled: {
-					color: "fg.subtle",
-					opacity: 0.4,
-					cursor: "default",
-					_hover: { borderColor: "border.default" },
-				},
-			})}
-		>
-			{children}
-		</button>
-	)
 }

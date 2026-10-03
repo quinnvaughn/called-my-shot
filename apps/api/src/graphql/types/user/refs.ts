@@ -28,8 +28,10 @@ import { UserStreakRef, UserSweepRef } from "./streaks"
 // A run of 1 isn't a streak worth listing on anyone's profile.
 const LISTED_STREAK_MIN = 2
 const MAX_SWEEPS = 50
-// Half a year of calendar by default, capped at a full one.
-const DEFAULT_RECORD_WEEKS = 26
+// Eight weeks of calendar by default, so a phone fits the grid with squares
+// big enough to tap. Earlier stretches are reached by paging, not by a longer
+// span. Capped at a full year.
+const DEFAULT_RECORD_WEEKS = 8
 const MAX_RECORD_WEEKS = 53
 
 // Deliberately doesn't reuse LeaderboardEntryRef from ./leaderboard: that
@@ -233,13 +235,15 @@ export const UserRef = builder.drizzleObject("users", {
 		}),
 		// The results calendar and where the points came from, across the
 		// whole career or one league. Null for a league slug that names
-		// nothing.
+		// nothing. `page` steps the calendar back in time, a span of `weeks` at
+		// a time, 0 being the span that ends today. The breakdown ignores it.
 		record: t.field({
 			type: UserRecordRef,
 			nullable: true,
 			args: {
 				league: t.arg.string({ required: false }),
 				weeks: t.arg.int({ required: false }),
+				page: t.arg.int({ required: false }),
 			},
 			resolve: async (user, args, ctx) => {
 				const league = args.league
@@ -253,6 +257,7 @@ export const UserRef = builder.drizzleObject("users", {
 						Math.max(args.weeks ?? DEFAULT_RECORD_WEEKS, 1),
 						MAX_RECORD_WEEKS,
 					),
+					page: Math.max(args.page ?? 0, 0),
 					now: new Date(),
 				})
 			},

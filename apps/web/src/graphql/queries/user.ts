@@ -75,10 +75,19 @@ export const UserProfileDocument = graphql(`
 // The profile's results calendar and points breakdown, for the whole career
 // or one league. Its own query rather than part of UserProfile so switching
 // leagues refetches only this.
+//
+// The calendar comes in two spans: the server's default eight weeks below lg,
+// so a phone fits the grid with squares big enough to tap, and half a year
+// from lg, where the profile's main column has room for it.
 export const UserRecordDocument = graphql(`
 	query UserRecord($username: String!, $league: String) {
 		userByUsername(username: $username) {
 			id
+			wideRecord: record(league: $league, weeks: 26) {
+				calendar {
+					...ResultsCalendar_calendar
+				}
+			}
 			record(league: $league) {
 				wins
 				losses
@@ -133,6 +142,28 @@ export const UserRecordDocument = graphql(`
 					losses
 					netPoints
 					returnPct
+				}
+			}
+		}
+	}
+`)
+
+// One earlier span of the results calendar, for paging back from the one the
+// page loaded with. Selects only the calendar, so a step back doesn't drag the
+// breakdown along. Page 0 is the span ending today, which arrives with the
+// page itself (UserRecord, HomeDashboard) and is never fetched through this.
+export const UserRecordCalendarDocument = graphql(`
+	query UserRecordCalendar(
+		$username: String!
+		$league: String
+		$weeks: Int!
+		$page: Int!
+	) {
+		userByUsername(username: $username) {
+			id
+			record(league: $league, weeks: $weeks, page: $page) {
+				calendar {
+					...ResultsCalendar_calendar
 				}
 			}
 		}

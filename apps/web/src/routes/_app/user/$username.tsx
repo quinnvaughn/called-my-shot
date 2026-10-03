@@ -248,6 +248,7 @@ function RouteComponent() {
 		userRecordQuery(username, scoped?.league.slug ?? null),
 	)
 	const record = recordData.userByUsername?.record ?? null
+	const wideRecord = recordData.userByUsername?.wideRecord ?? null
 
 	if (!user) {
 		return (
@@ -339,13 +340,27 @@ function RouteComponent() {
 			{record && (
 				<VStack alignItems="stretch" gap="3">
 					{sectionLabel("Results")}
-					<ResultsCalendar
-						// Remounted per scope so the picked day resets to that
-						// scope's latest rather than pointing at a day it may not have.
-						key={leagueId ?? "all"}
-						calendar={record.calendar}
-						username={user.username}
-					/>
+					{/* Eight weeks below lg, half a year from it (see
+					    UserRecordDocument). Each is remounted per scope so its
+					    picked day and page reset to that scope's latest. */}
+					<div className={css({ display: { base: "block", lg: "none" } })}>
+						<ResultsCalendar
+							key={leagueId ?? "all"}
+							calendar={record.calendar}
+							username={user.username}
+							league={scoped?.league.slug ?? null}
+						/>
+					</div>
+					{wideRecord && (
+						<div className={css({ display: { base: "none", lg: "block" } })}>
+							<ResultsCalendar
+								key={leagueId ?? "all"}
+								calendar={wideRecord.calendar}
+								username={user.username}
+								league={scoped?.league.slug ?? null}
+							/>
+						</div>
+					)}
 				</VStack>
 			)}
 			{breakdown.length > 0 && (

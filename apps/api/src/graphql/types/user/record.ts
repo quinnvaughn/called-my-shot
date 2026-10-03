@@ -69,6 +69,9 @@ const RecordCalendarRef = builder
 		fields: (t) => ({
 			startDay: t.exposeString("startDay"),
 			endDay: t.exposeString("endDay"),
+			// The earliest day with a call in scope, on any page. Null with no
+			// dated calls.
+			firstDay: t.exposeString("firstDay", { nullable: true }),
 			activeDays: t.exposeInt("activeDays"),
 			callCount: t.exposeInt("callCount"),
 			days: t.field({ type: [RecordDayRef], resolve: (r) => r.days }),
