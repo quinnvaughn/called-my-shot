@@ -127,10 +127,16 @@ function RouteComponent() {
 			</VStack>
 
 			{/* Above Locking soon, which runs six cards deep: the calendar is a
-			    fixed height, so it costs the list little to sit over it. */}
-			<div className={css({ display: { base: "block", xl: "none" } })}>
+			    fixed height and the streaks a few short tiles, so they cost the
+			    list little to sit over it. Same order as the rail. */}
+			<VStack
+				gap="8"
+				alignItems="stretch"
+				className={css({ display: { base: "flex", xl: "none" } })}
+			>
 				<ResultsSection placement="main" />
-			</div>
+				<HotStreaksSection />
+			</VStack>
 
 			<VStack gap="3" alignItems="stretch">
 				<SectionLabel>Locking soon</SectionLabel>
@@ -147,14 +153,9 @@ function RouteComponent() {
 				)}
 			</VStack>
 
-			<VStack
-				gap="8"
-				alignItems="stretch"
-				className={css({ display: { base: "flex", xl: "none" } })}
-			>
-				<HotStreaksSection />
+			<div className={css({ display: { base: "block", xl: "none" } })}>
 				<JustResolvedSection />
-			</VStack>
+			</div>
 		</VStack>
 	)
 }
