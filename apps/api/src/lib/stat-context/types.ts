@@ -10,7 +10,6 @@ export const STAT_CONTEXT_SLOTS = [
 	"opponent_allowed",
 	"share_of_team",
 	"usage",
-	"workload",
 ] as const
 
 export type StatContextSlot = (typeof STAT_CONTEXT_SLOTS)[number]
@@ -81,23 +80,6 @@ export type StatContextUsage = {
 	sharePct: number
 }
 
-// Which column measures how much of a game a subject is out there for, and
-// what to call it. Pitches behind a pitcher's strikeouts: the count he gets to
-// is capped by how long he's left in, and an opener and a starter on the same
-// card are not doing the same job.
-export type WorkloadStat = {
-	label: string
-	statKeys: readonly string[]
-}
-
-// How much work the subject gets per appearance, over this season. Per
-// appearance because that is what the headline's average is built from.
-export type StatContextWorkload = {
-	label: string
-	games: number
-	perGame: number
-}
-
 export type StatContextShare = {
 	playerTotal: number
 	teamTotal: number
@@ -120,7 +102,6 @@ export type StatContextSubject = {
 	opponentAllowed: StatContextOpponentAllowed | null
 	teamShare: StatContextShare | null
 	usage: StatContextUsage | null
-	workload: StatContextWorkload | null
 }
 
 // One candidate in a "who leads this game" pool, with what they're averaging.
@@ -320,8 +301,8 @@ export type StatContext = {
 	// Populated instead of either of the above for a game-level question, which
 	// has no per-subject stat to log.
 	matchup: StatContextMatchup | null
-	// A head-to-head whose two sides' workloads are too far apart to compare
-	// like with like - see lib/workload.ts. False whenever either side has no
-	// workload figure, and on every question that isn't a head-to-head.
-	workloadMismatch: boolean
+	// A head-to-head where one side's season average in the asked stat is far
+	// behind the other's - see lib/mismatch.ts. False on every question that
+	// isn't a head-to-head.
+	mismatch: boolean
 }

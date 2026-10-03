@@ -1,4 +1,4 @@
-import type { StatContextSlot, UsageStat, WorkloadStat } from "./types"
+import type { StatContextSlot, UsageStat } from "./types"
 
 // Which cards a stat gets, and in what order.
 //
@@ -123,12 +123,9 @@ const RECIPES: Partial<Record<string, readonly StatContextSlot[]>> = {
 		"home_away",
 		"opponent_allowed",
 	],
-	// A pitcher's strikeouts are capped by how long he's left in, which is
-	// what separates an opener from a starter with the same strikeout rate.
 	"mlb:game:player:Strikeouts (Pitching)": [
 		"recent_form",
 		"season_to_date",
-		"workload",
 		"opponent_allowed",
 	],
 }
@@ -159,21 +156,6 @@ const USAGE_STATS: Partial<Record<string, UsageStat>> = {
 		label: "carries + targets",
 		statKeys: ["rushing.rushingAttempts", "receiving.receivingTargets"],
 	},
-}
-
-// The column the workload card averages, per stat. Keyed exactly like
-// RECIPES.
-const WORKLOAD_STATS: Partial<Record<string, WorkloadStat>> = {
-	"mlb:game:player:Strikeouts (Pitching)": {
-		label: "pitches",
-		statKeys: ["pitching.pitches"],
-	},
-}
-
-export function workloadStatFor(
-	autoResolveStatKey: string,
-): WorkloadStat | null {
-	return WORKLOAD_STATS[autoResolveStatKey] ?? null
 }
 
 export function usageStatFor(autoResolveStatKey: string): UsageStat | null {

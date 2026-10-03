@@ -128,11 +128,7 @@ function mlbBattingSeason(
 	}
 }
 
-function mlbPitchingSeason(
-	strikeoutsPerStart: number,
-	pitchesPerStart: number,
-	gamesStarted: number,
-) {
+function mlbPitchingSeason(strikeoutsPerStart: number, gamesStarted: number) {
 	return {
 		splits: {
 			categories: [
@@ -140,7 +136,6 @@ function mlbPitchingSeason(
 					name: "pitching",
 					stats: [
 						{ name: "strikeouts", value: strikeoutsPerStart * gamesStarted },
-						{ name: "pitchesAsStarter", value: pitchesPerStart * gamesStarted },
 						{ name: "gamesStarted", value: gamesStarted },
 					],
 				},
@@ -874,10 +869,10 @@ describe("generateGameQuestions", () => {
 			return game
 		}
 
-		it("puts two starters who go about as deep head to head", async () => {
+		it("puts two starters head to head when their strikeouts are close", async () => {
 			const game = await seedPitchers(
-				mlbPitchingSeason(5, 82, 20),
-				mlbPitchingSeason(7, 95, 20),
+				mlbPitchingSeason(5, 20),
+				mlbPitchingSeason(7, 20),
 			)
 
 			await run([STRIKEOUTS_DUEL], "mlb")
@@ -888,10 +883,21 @@ describe("generateGameQuestions", () => {
 			])
 		})
 
-		it("isn't posted when one side is an opener", async () => {
+		it("still posts a clear favorite", async () => {
 			const game = await seedPitchers(
-				mlbPitchingSeason(2, 40, 20),
-				mlbPitchingSeason(7, 95, 20),
+				mlbPitchingSeason(3.5, 20),
+				mlbPitchingSeason(7, 20),
+			)
+
+			await run([STRIKEOUTS_DUEL], "mlb")
+
+			expect(duelPlayers(await questionsOn(game.id))).toHaveLength(2)
+		})
+
+		it("isn't posted when one side's strikeouts are far behind", async () => {
+			const game = await seedPitchers(
+				mlbPitchingSeason(2.3, 20),
+				mlbPitchingSeason(6.5, 20),
 			)
 
 			await run([STRIKEOUTS_DUEL], "mlb")
@@ -901,8 +907,8 @@ describe("generateGameQuestions", () => {
 
 		it("isn't posted when one side has no starts on record", async () => {
 			const game = await seedPitchers(
-				mlbPitchingSeason(1, 0, 0),
-				mlbPitchingSeason(7, 95, 20),
+				mlbPitchingSeason(1, 0),
+				mlbPitchingSeason(7, 20),
 			)
 
 			await run([STRIKEOUTS_DUEL], "mlb")

@@ -32,9 +32,8 @@ import {
 	seasonToDate,
 	shareOfTeamTotal,
 	usageOfTeam,
-	workloadPerGame,
 } from "./queries"
-import { recipeFor, usageStatFor, workloadStatFor } from "./recipes"
+import { recipeFor, usageStatFor } from "./recipes"
 import { boxStatSourceFor } from "./stat-source"
 
 const NOW = new Date("2026-09-12T12:00:00Z")
@@ -498,39 +497,6 @@ describe("usageOfTeam", () => {
 	})
 })
 
-describe("workloadPerGame", () => {
-	const PITCHES = "pitching.pitches"
-
-	it("averages the workload column per appearance, not the question's stat", async () => {
-		await appearance(world, { daysAgo: 9, value: 90, statKey: PITCHES })
-		await appearance(world, { daysAgo: 4, value: 40, statKey: PITCHES })
-		// A night off is not a zero-pitch outing.
-		await appearance(world, {
-			daysAgo: 2,
-			value: null,
-			statKey: PITCHES,
-			didNotPlay: true,
-		})
-		await appearance(world, { daysAgo: 4, value: 11 })
-
-		expect(
-			await workloadPerGame(scopeFor(world), {
-				label: "pitches",
-				statKeys: [PITCHES],
-			}),
-		).toEqual({ label: "pitches", games: 2, perGame: 65 })
-	})
-
-	it("is null with no appearances", async () => {
-		expect(
-			await workloadPerGame(scopeFor(world), {
-				label: "pitches",
-				statKeys: [PITCHES],
-			}),
-		).toBeNull()
-	})
-})
-
 // Team questions read team_game_stats rather than player_game_stats, which is
 // what makes "team runs" and "total points in this game" answerable at all.
 describe("team subjects", () => {
@@ -857,40 +823,24 @@ describe("buildStatContext", () => {
 		expect(context?.subjects[1]?.seasonToDate?.mean).toBe(12)
 	})
 
-	describe("a strikeout head-to-head", () => {
-		// Each pitcher's line for one start: strikeouts and the pitches behind
-		// them, stored under the keys a real MLB box score uses.
-		async function start(
-			playerId: string,
-			teamId: string,
-			opponentTeamId: string,
-			days: number,
-			strikeouts: number,
-			pitches: number,
-		) {
-			for (const [statKey, value] of [
-				["pitching.strikeouts", strikeouts],
-				["pitching.pitches", pitches],
-			] as const) {
+	describe("the mismatch flag", () => {
+		// Each side's season in the asked stat, one game per value.
+		async function headToHead(mine: number[], theirs: number[]) {
+			const rival = await makePlayer({ currentTeamId: world.opponent.id })
+			for (const [index, value] of mine.entries()) {
+				await appearance(world, { daysAgo: 10 - index, value })
+			}
+			for (const [index, value] of theirs.entries()) {
 				await appearance(world, {
-					daysAgo: days,
+					daysAgo: 10 - index,
 					value,
-					statKey,
-					playerId,
-					teamId,
-					opponentTeamId,
+					playerId: rival.id,
+					teamId: world.opponent.id,
+					opponentTeamId: world.team.id,
 				})
 			}
-		}
-
-		async function duel(rivalPitches: number) {
-			const rival = await makePlayer({ currentTeamId: world.opponent.id })
-			await start(world.player.id, world.team.id, world.opponent.id, 6, 8, 95)
-			await start(rival.id, world.opponent.id, world.team.id, 5, 2, rivalPitches)
 			return buildStatContext({
 				...questionBase,
-				leagueSlug: "mlb",
-				statName: "Strikeouts (Pitching)",
 				shape: "player_vs_player",
 				ouLine: null,
 				seasonId: world.season.id,
@@ -898,26 +848,29 @@ describe("buildStatContext", () => {
 				subject: null,
 				competitors: [],
 				optionSubjects: [
-					refFor(world.player, "Starter", world.team.id),
-					refFor(rival, "Opener", world.opponent.id),
+					refFor(world.player, "Subject", world.team.id),
+					refFor(rival, "Rival", world.opponent.id),
 				],
 			})
 		}
 
-		it("flags an opener against a starter", async () => {
-			const context = await duel(38)
+		it("is raised when one side averages far less of the stat", async () => {
+			const context = await headToHead([110, 130], [50, 70])
 
-			expect(context?.subjects.map((side) => side.workload)).toEqual([
-				{ label: "pitches", games: 1, perGame: 95 },
-				{ label: "pitches", games: 1, perGame: 38 },
-			])
-			expect(context?.workloadMismatch).toBe(true)
+			expect(context?.mismatch).toBe(true)
 		})
 
-		it("doesn't flag two starters who go about as deep", async () => {
-			const context = await duel(88)
+		it("isn't raised for a close one", async () => {
+			const context = await headToHead([28, 30], [24, 26])
 
-			expect(context?.workloadMismatch).toBe(false)
+			expect(context?.mismatch).toBe(false)
+		})
+
+		// One game a side is two results, not two averages.
+		it("isn't raised on a single game a side", async () => {
+			const context = await headToHead([120], [40])
+
+			expect(context?.mismatch).toBe(false)
 		})
 	})
 
@@ -1864,18 +1817,5 @@ describe("usageStatFor", () => {
 	// 100% every week and say nothing.
 	it("gives passing no usage column", () => {
 		expect(usageStatFor("nfl:game:player:Passing Yards")).toBeNull()
-	})
-})
-
-describe("workloadStatFor", () => {
-	it("counts pitches behind a pitcher's strikeouts", () => {
-		expect(workloadStatFor("mlb:game:player:Strikeouts (Pitching)")).toEqual({
-			label: "pitches",
-			statKeys: ["pitching.pitches"],
-		})
-	})
-
-	it("gives a stat with no workload column none", () => {
-		expect(workloadStatFor("nba:game:player:Points")).toBeNull()
 	})
 })

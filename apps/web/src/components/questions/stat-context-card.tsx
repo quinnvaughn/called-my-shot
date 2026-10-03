@@ -38,7 +38,7 @@ export const StatContextCardFragment = graphql(`
 	fragment StatContextCard_statContext on StatContext {
 		statLabel
 		lastN
-		workloadMismatch
+		mismatch
 		ranking {
 			playerId
 			player {
@@ -116,11 +116,6 @@ export const StatContextCardFragment = graphql(`
 				games
 				perGame
 				sharePct
-			}
-			workload {
-				label
-				games
-				perGame
 			}
 		}
 		matchup {
@@ -396,19 +391,6 @@ function supportingTiles(subject: Subject, teams: TeamLabels): Tile[] {
 		})
 	}
 
-	// Next to the headline it caps: a pitcher's strikeouts are bounded by how
-	// long he's left in, and this is the figure that says how long that is.
-	const workload = subject.workload
-	if (workload) {
-		tiles.push({
-			value: round(workload.perGame),
-			label:
-				workload.games === 1
-					? `${workload.label}, last game`
-					: `${workload.label} per game`,
-		})
-	}
-
 	if (
 		subject.home &&
 		subject.away &&
@@ -466,9 +448,8 @@ function supportingTiles(subject: Subject, teams: TeamLabels): Tile[] {
 }
 
 // Beside the section title on both cards, so it shows while the numbers are
-// folded away: when one side is out there for a fraction of the other's game,
-// that settles the comparison before either stat line matters. The workload
-// tiles in each column carry the figures behind it.
+// folded away: one side averaging far less of the asked stat is the first
+// thing worth knowing about a head-to-head.
 function MismatchTag({ show }: { show: boolean }) {
 	if (!show) return null
 	return (
@@ -1108,7 +1089,7 @@ export function StatContextCard(props: {
 							<h2 className={sectionHeadingClass}>
 								{sectionTitle(context.statLabel)}
 							</h2>
-							<MismatchTag show={context.workloadMismatch} />
+							<MismatchTag show={context.mismatch} />
 						</HStack>
 						<button
 							type="button"
@@ -1218,7 +1199,7 @@ export function StatContextHighlights(props: {
 					<h3 className={sectionHeadingClass}>
 						{sectionTitle(context.statLabel)}
 					</h3>
-					<MismatchTag show={context.workloadMismatch} />
+					<MismatchTag show={context.mismatch} />
 				</HStack>
 				<button
 					type="button"

@@ -1,6 +1,6 @@
 import type { QuestionShape } from "@called-my-shot/schemas"
 import { match } from "ts-pattern"
-import { isWorkloadMismatch } from "../workload"
+import { MISMATCH_RATIO, shareOfLeader } from "../mismatch"
 import { buildMatchup } from "./matchup"
 import {
 	homeAwaySplit,
@@ -14,9 +14,8 @@ import {
 	seasonToDate,
 	shareOfTeamTotal,
 	usageOfTeam,
-	workloadPerGame,
 } from "./queries"
-import { recipeFor, usageStatFor, workloadStatFor } from "./recipes"
+import { recipeFor, usageStatFor } from "./recipes"
 import { boxStatSourceFor } from "./stat-source"
 import type {
 	StatContext,
@@ -184,10 +183,7 @@ async function cardsFor(
 	const usageStat = wants("usage")
 		? usageStatFor(source.autoResolveStatKey)
 		: null
-	const workloadStat = wants("workload")
-		? workloadStatFor(source.autoResolveStatKey)
-		: null
-	const [games, season, splits, rest, allowed, share, usage, workload] =
+	const [games, season, splits, rest, allowed, share, usage] =
 		await Promise.all([
 			wants("recent_form") ? recentGames(scope, LAST_N) : [],
 			wants("season_to_date") ? seasonToDate(scope) : null,
@@ -196,7 +192,6 @@ async function cardsFor(
 			wants("opponent_allowed") ? opponentAllowed(scope) : null,
 			wants("share_of_team") ? shareOfTeamTotal(scope) : null,
 			usageStat ? usageOfTeam(scope, usageStat) : null,
-			workloadStat ? workloadPerGame(scope, workloadStat) : null,
 		])
 
 	// Nothing stored for this side at all.
@@ -208,8 +203,7 @@ async function cardsFor(
 		!rest &&
 		!allowed &&
 		!share &&
-		!usage &&
-		!workload
+		!usage
 	) {
 		return null
 	}
@@ -226,7 +220,6 @@ async function cardsFor(
 		opponentAllowed: allowed,
 		teamShare: share,
 		usage,
-		workload,
 	}
 }
 
@@ -249,7 +242,7 @@ export async function buildStatContext(
 		ranking: [] as StatContextRankedPlayer[],
 		defenses: [] as StatContextPoolDefense[],
 		matchup: null,
-		workloadMismatch: false,
+		mismatch: false,
 	}
 
 	// Ahead of the stat-source lookup below on purpose. A who-wins question
@@ -338,13 +331,21 @@ export async function buildStatContext(
 	const sides = built.filter(
 		(side): side is StatContextSubject => side !== null,
 	)
-	const [first, second] = sides
-	return {
-		...base,
-		subjects: sides,
-		workloadMismatch:
-			!!first?.workload &&
-			!!second?.workload &&
-			isWorkloadMismatch(first.workload.perGame, second.workload.perGame),
+	return { ...base, subjects: sides, mismatch: isMismatch(sides) }
+}
+
+// Two games a side, the same floor the card puts under every other average:
+// one game each is two results, not two averages.
+const MISMATCH_MIN_GAMES = 2
+
+function isMismatch(sides: StatContextSubject[]): boolean {
+	if (sides.length !== 2) return false
+	const seasons = sides.map((side) => side.seasonToDate)
+	if (seasons.some((season) => !season || season.games < MISMATCH_MIN_GAMES)) {
+		return false
 	}
+	const [first, second] = seasons.map((season) => season?.mean ?? 0)
+	if (first === undefined || second === undefined) return false
+	const share = shareOfLeader(first, second)
+	return share !== null && share < MISMATCH_RATIO
 }
