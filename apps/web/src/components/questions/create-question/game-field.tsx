@@ -2,11 +2,12 @@ import { keepPreviousData, useQuery } from "@tanstack/react-query"
 import { DateTime } from "luxon"
 import { useEffect, useRef, useState } from "react"
 import { css } from "styled-system/css"
-import { VStack } from "styled-system/jsx"
+import { HStack, VStack } from "styled-system/jsx"
 import { Combobox } from "#/components/ui/combobox"
 import { DATE_TIME_PICKER_VALUE_FORMAT } from "#/components/ui/date-time-picker"
 import { FieldHint } from "#/components/ui/field-hint"
 import { FieldLabel } from "#/components/ui/field-label"
+import { TeamBadge } from "#/components/ui/team-badge"
 import { TextInput } from "#/components/ui/text-input"
 import type { GameByIdQuery } from "#/graphql/generated/graphql"
 import { GamesByLeagueDocument } from "#/graphql/queries/sports"
@@ -153,7 +154,21 @@ export function GameField({ leagueId, selectedGame, required }: Props) {
 								optionKey={game.id}
 								meta={DateTime.fromISO(game.startsAt).toFormat("MMM d, h:mm a")}
 							>
-								{game.awayTeam.abbreviation} @ {game.homeTeam.abbreviation}
+								<HStack gap="2" alignItems="center">
+									<TeamBadge
+										abbreviation={game.awayTeam.abbreviation}
+										color={game.awayTeam.color}
+										logoUrl={game.awayTeam.logoUrl}
+										showAbbreviation
+									/>
+									<span className={css({ color: "fg.subtle" })}>@</span>
+									<TeamBadge
+										abbreviation={game.homeTeam.abbreviation}
+										color={game.homeTeam.color}
+										logoUrl={game.homeTeam.logoUrl}
+										showAbbreviation
+									/>
+								</HStack>
 							</Combobox.Option>
 						))}
 					</Combobox>

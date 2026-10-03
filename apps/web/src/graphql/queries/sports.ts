@@ -390,11 +390,13 @@ export const GamesByLeagueDocument = graphql(`
 				id
 				abbreviation
 				color
+				logoUrl
 			}
 			awayTeam {
 				id
 				abbreviation
 				color
+				logoUrl
 			}
 		}
 	}
