@@ -22,7 +22,7 @@ export function GloatCta({ audience }: { audience: GloatAudience }) {
 	const prompt =
 		audience.kind === "doubters"
 			? "You called it."
-			: `You faded @${audience.username} and cashed.`
+			: `Your fade on @${audience.username} hit.`
 	const sub =
 		audience.kind === "doubters"
 			? audience.count === 1

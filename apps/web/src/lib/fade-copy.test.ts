@@ -12,6 +12,7 @@ const noFade = {
 	targetFlipped: false,
 	doubtersCashed: 0,
 	doubtersWrong: 0,
+	gloatOpen: false,
 }
 
 describe("gloats", () => {
@@ -33,11 +34,11 @@ describe("doubtersVerdict", () => {
 	})
 
 	it("covers all right, all wrong, and a split", () => {
-		expect(doubtersVerdict(1, 0)).toBe("The doubter cashed")
-		expect(doubtersVerdict(3, 0)).toBe("All 3 doubters cashed")
+		expect(doubtersVerdict(1, 0)).toBe("The doubter called it")
+		expect(doubtersVerdict(3, 0)).toBe("All 3 doubters called it")
 		expect(doubtersVerdict(0, 1)).toBe("The doubter was wrong")
 		expect(doubtersVerdict(0, 3)).toBe("All 3 doubters were wrong")
-		expect(doubtersVerdict(2, 1)).toBe("2 of 3 doubters cashed")
+		expect(doubtersVerdict(2, 1)).toBe("2 of 3 doubters called it")
 	})
 })
 
@@ -49,7 +50,7 @@ describe("resolvedFadeLine", () => {
 	it("tells a fader how their fade went", () => {
 		expect(
 			resolvedFadeLine({ ...noFade, fadedUsername: "op", fadeLanded: true }),
-		).toBe("You faded @op and cashed.")
+		).toBe("Your fade on @op hit.")
 		expect(
 			resolvedFadeLine({ ...noFade, fadedUsername: "op", fadeLanded: false }),
 		).toBe("Your fade on @op missed.")
@@ -67,11 +68,11 @@ describe("resolvedFadeLine", () => {
 			"3 doubters, all wrong.",
 		)
 		expect(resolvedFadeLine({ ...noFade, doubtersCashed: 1 })).toBe(
-			"Your doubter cashed.",
+			"Your doubter called it.",
 		)
 		expect(
 			resolvedFadeLine({ ...noFade, doubtersCashed: 2, doubtersWrong: 1 }),
-		).toBe("2 of 3 doubters cashed.")
+		).toBe("2 of 3 doubters called it.")
 	})
 
 	it("joins both halves when a call faded and was faded", () => {
@@ -82,6 +83,20 @@ describe("resolvedFadeLine", () => {
 				fadeLanded: true,
 				doubtersWrong: 1,
 			}),
-		).toBe("You faded @op and cashed. Your doubter was wrong.")
+		).toBe("Your fade on @op hit. Your doubter was wrong.")
+	})
+
+	it("asks the winner to gloat while the call page still offers one", () => {
+		expect(
+			resolvedFadeLine({
+				...noFade,
+				fadedUsername: "op",
+				fadeLanded: true,
+				gloatOpen: true,
+			}),
+		).toBe("Your fade on @op hit. Send them a line.")
+		expect(
+			resolvedFadeLine({ ...noFade, doubtersWrong: 1, gloatOpen: true }),
+		).toBe("Your doubter was wrong. Send them a line.")
 	})
 })

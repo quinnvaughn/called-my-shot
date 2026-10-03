@@ -14,12 +14,16 @@ export const CallResolvedRowFragment = graphql(`
 		question {
 			id
 		}
+		call {
+			id
+		}
 		fade {
 			fadedUsername
 			fadeLanded
 			targetFlipped
 			doubtersCashed
 			doubtersWrong
+			gloatOpen
 		}
 	}
 `)
@@ -38,12 +42,17 @@ export function CallResolvedRow({
 	const n = useFragment(CallResolvedRowFragment, notificationProp)
 	const result = n.pointsDelta !== null ? resultState(n.pointsDelta) : null
 	const fadeLine = n.fade ? resolvedFadeLine(n.fade) : null
-	const target: Target = n.question
-		? {
-				to: "/questions/$questionId/{-$slug}",
-				params: { questionId: n.question.id },
-			}
-		: null
+	// An open gloat can only be sent from the call page, so that's where the
+	// row goes while there is one.
+	const target: Target =
+		n.fade?.gloatOpen && n.call
+			? { to: "/calls/$callId", params: { callId: n.call.id } }
+			: n.question
+				? {
+						to: "/questions/$questionId/{-$slug}",
+						params: { questionId: n.question.id },
+					}
+				: null
 
 	return (
 		<NotificationShell

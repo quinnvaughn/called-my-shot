@@ -1,6 +1,7 @@
 import { Button, Column, Link, Row, Section, Text } from "react-email"
 import { match } from "ts-pattern"
 import { COLOR } from "../lib/brand-palette"
+import type { OpenGloat } from "../lib/fades"
 import { EmailLayout, FONT_BODY, FONT_HEADING, FONT_MONO } from "./layout"
 
 export type DigestCall = {
@@ -19,6 +20,10 @@ export type DigestCall = {
 	// The call's own permanent page (/calls/:id) - the record of this one
 	// call, and the thing there is to send someone.
 	callUrl: string
+	// A gloat the call page would still offer on this call, or null. The
+	// page is the only place to send one, so the row says who it's for and
+	// links there.
+	gloat: { prompt: OpenGloat; url: string } | null
 }
 
 // A sweep or streak event from the same stretch of results - its one-line
@@ -121,6 +126,33 @@ function primaryLabel(calls: DigestCall[]): string {
 		.otherwise(() => "Share your best call")
 }
 
+// Same wording as the call page's gloat card, so the email and the page it
+// links to ask for the same thing.
+export function gloatPromptLine(prompt: OpenGloat): string {
+	return match(prompt)
+		.with({ audience: "doubters", count: 1 }, () =>
+			"Your doubter was wrong. Send them a line.",
+		)
+		.with(
+			{ audience: "doubters" },
+			({ count }) => `${count} doubters were wrong. Send them all a line.`,
+		)
+		.with(
+			{ audience: "target" },
+			({ username }) => `Your fade on @${username} hit. Send them a line.`,
+		)
+		.exhaustive()
+}
+
+const actionLinkStyle = {
+	fontFamily: FONT_MONO,
+	fontSize: "11px",
+	letterSpacing: "0.5px",
+	textTransform: "uppercase",
+	color: COLOR.primaryDefault,
+	textDecoration: "none",
+} as const
+
 function CallRow({ call }: { call: DigestCall }) {
 	const tone = call.isWin ? COLOR.success : COLOR.danger
 	return (
@@ -168,18 +200,29 @@ function CallRow({ call }: { call: DigestCall }) {
 						Your call: {call.pickLabel}
 						{call.marginLabel ? ` · ${call.marginLabel.toLowerCase()}` : ""}
 					</Text>
-					<Text style={{ margin: "6px 0 0" }}>
-						<Link
-							href={call.callUrl}
+					{call.gloat && (
+						<Text
 							style={{
-								fontFamily: FONT_MONO,
-								fontSize: "11px",
-								letterSpacing: "0.5px",
-								textTransform: "uppercase",
-								color: COLOR.primaryDefault,
-								textDecoration: "none",
+								fontFamily: FONT_BODY,
+								fontSize: "13px",
+								fontWeight: 600,
+								color: COLOR.ink,
+								margin: "6px 0 0",
 							}}
 						>
+							{gloatPromptLine(call.gloat.prompt)}
+						</Text>
+					)}
+					<Text style={{ margin: "6px 0 0" }}>
+						{call.gloat && (
+							<>
+								<Link href={call.gloat.url} style={actionLinkStyle}>
+									Gloat →
+								</Link>
+								<span style={{ color: COLOR.dim }}>{"   "}</span>
+							</>
+						)}
+						<Link href={call.callUrl} style={actionLinkStyle}>
 							Share this →
 						</Link>
 					</Text>
@@ -361,6 +404,10 @@ ResolutionDigest.PreviewProps = {
 			marginLabel: null,
 			callUrl:
 				"https://calledmyshot.com/calls/9f2a3b1c-0000-4000-8000-000000000001",
+			gloat: {
+				prompt: { audience: "doubters", count: 2 },
+				url: "https://calledmyshot.com/calls/9f2a3b1c-0000-4000-8000-000000000001",
+			},
 		},
 		{
 			questionTitle: "Bills to win outright",
@@ -372,6 +419,7 @@ ResolutionDigest.PreviewProps = {
 			marginLabel: "Never in doubt",
 			callUrl:
 				"https://calledmyshot.com/calls/9f2a3b1c-0000-4000-8000-000000000002",
+			gloat: null,
 		},
 		{
 			questionTitle: "Travis Kelce to score a touchdown",
@@ -383,6 +431,7 @@ ResolutionDigest.PreviewProps = {
 			marginLabel: null,
 			callUrl:
 				"https://calledmyshot.com/calls/9f2a3b1c-0000-4000-8000-000000000003",
+			gloat: null,
 		},
 	],
 	achievements: [

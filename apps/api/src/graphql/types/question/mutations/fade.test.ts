@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest"
 import { db } from "../../../../db"
 import type { User } from "../../../../db/schema"
+import { loadOpenGloats } from "../../../../lib/fades"
 import {
 	makeCall,
 	makeRedoGrant,
@@ -461,6 +462,33 @@ describe("gloat", () => {
 		expect(view.call.doubters[0]?.gloat).toBeNull()
 		expect(view.call.viewerGloat?.audience).toBe("DOUBTERS")
 	})
+
+	it("lists the same open gloats the call page offers, until they're sent", async () => {
+		const { faders, fades, op, target } = await seedSettled("no")
+		const [fader] = faders
+		const [fade] = fades
+		if (!fader || !fade) throw new Error("seed missing")
+
+		const before = await loadOpenGloats(db, [fade.faderCallId, target.id])
+		expect(before.get(fade.faderCallId)).toEqual({
+			audience: "target",
+			username: op.username,
+		})
+		expect(before.has(target.id)).toBe(false)
+
+		await gloat(fader, { fadeId: fade.id, message: "CALLED_IT" })
+		expect((await loadOpenGloats(db, [fade.faderCallId])).size).toBe(0)
+	})
+
+	it("counts every wrong doubter on the target's call", async () => {
+		const { op, target } = await seedSettled("yes", 2)
+		expect((await loadOpenGloats(db, [target.id])).get(target.id)).toEqual({
+			audience: "doubters",
+			count: 2,
+		})
+		await gloat(op, { callId: target.id, message: "TOLD_YOU" })
+		expect((await loadOpenGloats(db, [target.id])).size).toBe(0)
+	})
 })
 
 describe("call_resolved fade summary", () => {
@@ -477,6 +505,7 @@ describe("call_resolved fade summary", () => {
 								doubterCount
 								doubtersCashed
 								doubtersWrong
+								gloatOpen
 							}
 						}
 					} }
@@ -495,6 +524,7 @@ describe("call_resolved fade summary", () => {
 						targetFlipped: boolean
 						doubterCount: number
 						doubtersCashed: number
+						gloatOpen: boolean
 					} | null
 				}[]
 			}
@@ -515,6 +545,7 @@ describe("call_resolved fade summary", () => {
 			doubterCount: 0,
 			doubtersCashed: 0,
 			doubtersWrong: 0,
+			gloatOpen: true,
 		})
 
 		const forOp = await expectData<Result>(NOTIFICATIONS, { as: op })
@@ -525,6 +556,18 @@ describe("call_resolved fade summary", () => {
 			doubterCount: 1,
 			doubtersCashed: 1,
 			doubtersWrong: 0,
+			gloatOpen: false,
 		})
+
+		const fade = await db.query.callFades.findFirst({
+			where: { targetCallId: target.id },
+		})
+		if (!fade) throw new Error("fade missing")
+		await expectData(GLOAT, {
+			as: fader,
+			variables: { input: { fadeId: fade.id, message: "CALLED_IT" } },
+		})
+		const afterGloat = await expectData<Result>(NOTIFICATIONS, { as: fader })
+		expect(afterGloat.notifications.data.items[0]?.fade?.gloatOpen).toBe(false)
 	})
 })

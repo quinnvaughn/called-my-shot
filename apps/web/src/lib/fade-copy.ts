@@ -34,10 +34,10 @@ export function doubtersVerdict(cashed: number, wrong: number): string | null {
 	}
 	if (wrong === 0) {
 		return settled === 1
-			? "The doubter cashed"
-			: `All ${settled} doubters cashed`
+			? "The doubter called it"
+			: `All ${settled} doubters called it`
 	}
-	return `${cashed} of ${settled} doubters cashed`
+	return `${cashed} of ${settled} doubters called it`
 }
 
 export type ResolvedFade = {
@@ -46,11 +46,12 @@ export type ResolvedFade = {
 	targetFlipped: boolean
 	doubtersCashed: number
 	doubtersWrong: number
+	gloatOpen: boolean
 }
 
 // The extra line on a resolved-call notification, from the recipient's side:
-// how their own fade went, then how their doubters did. Null when neither
-// has anything to say.
+// how their own fade went, then how their doubters did, then a nudge to gloat
+// while the call page still offers one. Null when none has anything to say.
 export function resolvedFadeLine(fade: ResolvedFade): string | null {
 	const parts: string[] = []
 
@@ -58,7 +59,7 @@ export function resolvedFadeLine(fade: ResolvedFade): string | null {
 		if (fade.targetFlipped) {
 			parts.push(`@${fade.fadedUsername} flipped onto your side.`)
 		} else if (fade.fadeLanded === true) {
-			parts.push(`You faded @${fade.fadedUsername} and cashed.`)
+			parts.push(`Your fade on @${fade.fadedUsername} hit.`)
 		} else if (fade.fadeLanded === false) {
 			parts.push(`Your fade on @${fade.fadedUsername} missed.`)
 		}
@@ -75,13 +76,15 @@ export function resolvedFadeLine(fade: ResolvedFade): string | null {
 		} else if (fade.doubtersWrong === 0) {
 			parts.push(
 				settled === 1
-					? "Your doubter cashed."
-					: `All ${settled} doubters cashed.`,
+					? "Your doubter called it."
+					: `All ${settled} doubters called it.`,
 			)
 		} else {
-			parts.push(`${fade.doubtersCashed} of ${settled} doubters cashed.`)
+			parts.push(`${fade.doubtersCashed} of ${settled} doubters called it.`)
 		}
 	}
+
+	if (fade.gloatOpen) parts.push("Send them a line.")
 
 	return parts.length > 0 ? parts.join(" ") : null
 }

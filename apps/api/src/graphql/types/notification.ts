@@ -93,6 +93,7 @@ type CallResolvedFade = {
 	doubterCount: number
 	doubtersCashed: number
 	doubtersWrong: number
+	gloatOpen: boolean
 }
 
 const CallResolvedFadeRef = builder
@@ -112,6 +113,9 @@ const CallResolvedFadeRef = builder
 			doubterCount: t.exposeInt("doubterCount"),
 			doubtersCashed: t.exposeInt("doubtersCashed"),
 			doubtersWrong: t.exposeInt("doubtersWrong"),
+			// The recipient won a side of a fade here and hasn't gloated on it
+			// yet, so the call page still offers them a gloat.
+			gloatOpen: t.exposeBoolean("gloatOpen"),
 		}),
 	})
 
@@ -123,6 +127,8 @@ builder.drizzleObject("notifications", {
 		question: t.relation("question", { nullable: true }),
 		questionTitle: t.exposeString("questionTitle", { nullable: true }),
 		pointsDelta: t.exposeInt("pointsDelta", { nullable: true }),
+		// The recipient's resolved call.
+		call: t.relation("call", { nullable: true }),
 		// Null unless the call faded someone or was faded.
 		fade: t.field({
 			type: CallResolvedFadeRef,
@@ -163,6 +169,12 @@ builder.drizzleObject("notifications", {
 					doubterCount: doubters.length,
 					doubtersCashed: doubterWinners.filter((w) => w === "fader").length,
 					doubtersWrong: doubterWinners.filter((w) => w === "target").length,
+					gloatOpen:
+						(fadingWinner === "fader" && fading?.faderGloatedAt === null) ||
+						doubters.some(
+							(fade, i) =>
+								doubterWinners[i] === "target" && fade.targetGloatedAt === null,
+						),
 				}
 			},
 		}),

@@ -22,7 +22,7 @@ export const GLOAT_TEXT: Record<GloatMessage, string> = {
 	wrong_call: "Faded the wrong call.",
 	think_twice: "Think twice next time.",
 	called_it: "Called it.",
-	faded_and_cashed: "Faded and cashed.",
+	faded_and_cashed: "Faded you for a reason.",
 	wrong_side: "Wrong side.",
 	check_the_receipt: "Check the receipt.",
 }

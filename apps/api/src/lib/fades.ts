@@ -9,6 +9,7 @@ import {
 	type Question,
 	questionOptions,
 	questions,
+	users,
 } from "../db/schema"
 import type { DbOrTx, Tx } from "../db/types"
 import { ValidationError } from "./errors"
@@ -340,4 +341,77 @@ async function notifyGloat(
 			callId: loser.callId,
 		})),
 	)
+}
+
+// A gloat a call's owner could still send, as the call page would offer it:
+// at their wrong doubters first, otherwise at the call they faded and beat.
+export type OpenGloat =
+	| { audience: "doubters"; count: number }
+	| { audience: "target"; username: string }
+
+// The open gloat on each of these calls, from their owners' side. Calls with
+// nothing left to gloat about are absent.
+export async function loadOpenGloats(
+	q: DbOrTx,
+	callIds: string[],
+): Promise<Map<string, OpenGloat>> {
+	if (callIds.length === 0) return new Map()
+	const [doubted, fading] = await Promise.all([
+		q
+			.select()
+			.from(callFades)
+			.where(
+				and(
+					inArray(callFades.targetCallId, callIds),
+					isNull(callFades.targetGloatedAt),
+				),
+			),
+		q
+			.select()
+			.from(callFades)
+			.where(
+				and(
+					inArray(callFades.faderCallId, callIds),
+					isNull(callFades.faderGloatedAt),
+				),
+			),
+	])
+	const sides = await loadCallSides(q, [
+		...new Set(
+			[...doubted, ...fading].flatMap((f) => [f.faderCallId, f.targetCallId]),
+		),
+	])
+	const winner = (fade: CallFade) =>
+		fadeWinner(sides.get(fade.faderCallId), sides.get(fade.targetCallId))
+
+	const open = new Map<string, OpenGloat>()
+	for (const fade of doubted) {
+		if (winner(fade) !== "target") continue
+		const prev = open.get(fade.targetCallId)
+		open.set(fade.targetCallId, {
+			audience: "doubters",
+			count: prev?.audience === "doubters" ? prev.count + 1 : 1,
+		})
+	}
+
+	const beaten = fading.filter(
+		(fade) => !open.has(fade.faderCallId) && winner(fade) === "fader",
+	)
+	if (beaten.length === 0) return open
+	const owners = await q
+		.select({ callId: calls.id, username: users.username })
+		.from(calls)
+		.innerJoin(users, eq(users.id, calls.userId))
+		.where(
+			inArray(
+				calls.id,
+				beaten.map((fade) => fade.targetCallId),
+			),
+		)
+	const usernameOf = new Map(owners.map((o) => [o.callId, o.username]))
+	for (const fade of beaten) {
+		const username = usernameOf.get(fade.targetCallId)
+		if (username) open.set(fade.faderCallId, { audience: "target", username })
+	}
+	return open
 }
