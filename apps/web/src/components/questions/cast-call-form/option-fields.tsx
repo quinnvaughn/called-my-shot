@@ -56,6 +56,7 @@ export function OptionFields({ callForm }: Props) {
 								isRateStat,
 							),
 							kind: "team",
+							image: { player: option.player, team: option.team },
 							meta:
 								option.fieldPct !== null
 									? `${Math.round(option.fieldPct)}%`

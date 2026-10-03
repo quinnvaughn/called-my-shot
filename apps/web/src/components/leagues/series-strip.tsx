@@ -26,6 +26,7 @@ export const SeriesCardFragment = graphql(`
 				name
 				abbreviation
 				color
+				logoUrl
 			}
 		}
 		spotlightGame {
@@ -74,7 +75,9 @@ export function SeriesStrip({ series, heading, leagueSlug }: Props) {
 			getKey={(item) => item.id}
 			header={<Eyebrow size="sm">{heading}</Eyebrow>}
 			itemLabel="series"
-			renderItem={(item) => <SeriesCard series={item} leagueSlug={leagueSlug} />}
+			renderItem={(item) => (
+				<SeriesCard series={item} leagueSlug={leagueSlug} />
+			)}
 		/>
 	)
 }
@@ -93,7 +96,9 @@ function SeriesCard({
 		? series.summary
 		: game
 			? [
-					game.postseason?.gameNumber ? `Game ${game.postseason.gameNumber}` : null,
+					game.postseason?.gameNumber
+						? `Game ${game.postseason.gameNumber}`
+						: null,
 					gameStatusLabel(game),
 				]
 					.filter(Boolean)
@@ -131,6 +136,7 @@ function SeriesCard({
 								<TeamBadge
 									abbreviation={side.team.abbreviation}
 									color={side.team.color}
+									logoUrl={side.team.logoUrl}
 								/>
 								<span
 									className={css({

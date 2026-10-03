@@ -54,6 +54,7 @@ async function syncAthlete(
 	teamId: string,
 	athlete: EspnAthlete,
 	rookieEligible: boolean,
+	headshotUrl: string | null,
 ): Promise<void> {
 	const sourceId = scopedSourceId(leagueSlug, athlete.id)
 	await db.transaction(async (tx) => {
@@ -69,6 +70,8 @@ async function syncAthlete(
 					seasonsInLeague: athlete.experience?.years ?? 0,
 					rookieEligible,
 					injuryStatus: athleteInjuryStatus(athlete),
+					// A source that's down this run keeps the headshot it had.
+					...(headshotUrl && { headshotUrl }),
 				})
 				.where(eq(players.id, existingId))
 			return
@@ -83,6 +86,7 @@ async function syncAthlete(
 				seasonsInLeague: athlete.experience?.years ?? 0,
 				rookieEligible,
 				injuryStatus: athleteInjuryStatus(athlete),
+				headshotUrl,
 			})
 			.returning()
 		if (!row)
@@ -102,6 +106,9 @@ export async function syncPlayers(
 	espn: EspnClient = defaultEspnClient,
 ): Promise<void> {
 	const espnTeams = await espn.fetchTeams(config.espnPath)
+	// Players the league's image source had no match for, logged once at the
+	// end rather than one line each.
+	const missingHeadshots: string[] = []
 
 	for (const espnTeam of espnTeams) {
 		const teamId = await db.transaction((tx) =>
@@ -133,7 +140,22 @@ export async function syncPlayers(
 						currentSeasonYear,
 					)
 				: (athlete.experience?.years ?? 0) === 0
-			await syncAthlete(config.leagueSlug, teamId, athlete, rookieEligible)
+			const headshotUrl = config.images
+				? await config.images.headshotUrl(athlete, espnTeam)
+				: null
+			if (config.images && !headshotUrl) missingHeadshots.push(athlete.fullName)
+			await syncAthlete(
+				config.leagueSlug,
+				teamId,
+				athlete,
+				rookieEligible,
+				headshotUrl,
+			)
 		}
+	}
+	if (missingHeadshots.length > 0) {
+		console.warn(
+			`syncPlayers: no ${config.leagueName} headshot for ${missingHeadshots.length} players: ${missingHeadshots.join(", ")}`,
+		)
 	}
 }

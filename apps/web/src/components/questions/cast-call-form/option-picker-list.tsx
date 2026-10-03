@@ -3,6 +3,11 @@ import { useState } from "react"
 import { css } from "styled-system/css"
 import { VStack } from "styled-system/jsx"
 import { Button } from "#/components/ui/button"
+import {
+	type ImagePlayer,
+	type ImageTeam,
+	PlayerOrTeamImage,
+} from "#/components/ui/player-or-team-image"
 import { callersText } from "#/lib/field-signal"
 import { optionDisplayLabel } from "#/lib/question-labels"
 import { OptionRow } from "../option-row"
@@ -22,6 +27,9 @@ type PickerOption = {
 	label: string
 	fieldPct: number | null
 	callCount: number
+	// Set when the option is a real player or team, for its image.
+	player?: ImagePlayer | null
+	team?: ImageTeam | null
 }
 
 type Props = {
@@ -70,6 +78,9 @@ export function OptionPickerList({
 				{orderedOptions.slice(0, visibleOptionCount).map((option) => (
 					<OptionRow
 						key={option.id}
+						image={
+							<PlayerOrTeamImage player={option.player} team={option.team} />
+						}
 						label={optionDisplayLabel(
 							option.label,
 							isOverUnderShape(shape),

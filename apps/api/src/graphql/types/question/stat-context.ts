@@ -1,12 +1,13 @@
+import { db } from "../../../db"
 import type {
 	StatContext,
+	StatContextDifferential,
 	StatContextGame,
 	StatContextMatchup,
 	StatContextMatchupSide,
 	StatContextMeeting,
 	StatContextOpponentAllowed,
 	StatContextPoolDefense,
-	StatContextDifferential,
 	StatContextRankedPlayer,
 	StatContextRecord,
 	StatContextRest,
@@ -19,6 +20,20 @@ import type {
 	StatContextUsage,
 } from "../../../lib/stat-context/types"
 import { builder } from "../../builder"
+import { indexByKey } from "../../loader"
+import { PlayerRef, TeamRef } from "../sports"
+
+// The player or team a row names, for its headshot or logo. Stat context
+// carries ids only, so these are batched by hand.
+async function loadPlayers(ids: string[]) {
+	const rows = await db.query.players.findMany({ where: { id: { in: ids } } })
+	return indexByKey(ids, rows, (player) => player.id, null)
+}
+
+async function loadTeams(ids: string[]) {
+	const rows = await db.query.teams.findMany({ where: { id: { in: ids } } })
+	return indexByKey(ids, rows, (team) => team.id, null)
+}
 
 // Every card is nullable while the scalars inside a present card are not.
 // DefaultFieldNullability is false in builder.ts, so without this a rookie's
@@ -122,6 +137,18 @@ const SubjectRef = builder
 			label: t.exposeString("label"),
 			playerId: t.id({ nullable: true, resolve: (s) => s.playerId }),
 			teamId: t.id({ nullable: true, resolve: (s) => s.teamId }),
+			player: t.loadable({
+				type: PlayerRef,
+				nullable: true,
+				load: loadPlayers,
+				resolve: (s) => s.playerId,
+			}),
+			team: t.loadable({
+				type: TeamRef,
+				nullable: true,
+				load: loadTeams,
+				resolve: (s) => s.teamId,
+			}),
 			recentGames: t.field({
 				type: [GameRef],
 				resolve: (s) => s.recentGames,
@@ -169,6 +196,12 @@ const RankedPlayerRef = builder
 	.implement({
 		fields: (t) => ({
 			playerId: t.exposeID("playerId"),
+			player: t.loadable({
+				type: PlayerRef,
+				nullable: true,
+				load: loadPlayers,
+				resolve: (p) => p.playerId,
+			}),
 			label: t.exposeString("label"),
 			mean: t.exposeFloat("mean"),
 			games: t.exposeInt("games"),
@@ -314,6 +347,12 @@ const MatchupSideRef = builder
 		fields: (t) => ({
 			label: t.exposeString("label"),
 			teamId: t.exposeID("teamId"),
+			team: t.loadable({
+				type: TeamRef,
+				nullable: true,
+				load: loadTeams,
+				resolve: (side) => side.teamId,
+			}),
 			isHome: t.exposeBoolean("isHome"),
 			// The sport's own scoring-gap figure, from the last standings reading
 			// taken before this question locked.

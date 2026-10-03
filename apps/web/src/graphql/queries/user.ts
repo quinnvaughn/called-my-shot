@@ -150,6 +150,9 @@ export const UserRecordDocument = graphql(`
 					team {
 						id
 						name
+						abbreviation
+						color
+						logoUrl
 					}
 					settledCount
 					wins

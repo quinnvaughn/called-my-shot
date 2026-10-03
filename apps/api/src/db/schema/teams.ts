@@ -29,6 +29,9 @@ export const teams = pgTable(
 		// as conference. Null for a league with conferences but no further split,
 		// or no split at all.
 		division: text("division"),
+		// The team's logo on its own league's CDN, same sync and fallback story
+		// as players.headshotUrl.
+		logoUrl: text("logo_url"),
 	},
 	(t) => [unique().on(t.leagueId, t.abbreviation)],
 )

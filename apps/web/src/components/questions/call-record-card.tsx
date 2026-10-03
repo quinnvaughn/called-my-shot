@@ -8,6 +8,11 @@ import { Avatar } from "#/components/ui/avatar"
 import { Card } from "#/components/ui/card"
 import { Eyebrow } from "#/components/ui/eyebrow"
 import { InfoTip } from "#/components/ui/info-tip"
+import {
+	type ImagePlayer,
+	type ImageTeam,
+	PlayerOrTeamImage,
+} from "#/components/ui/player-or-team-image"
 import { ReactionGif } from "#/components/ui/reaction-gif"
 import type { QuestionStatus } from "#/graphql/generated/graphql"
 
@@ -19,10 +24,23 @@ export type CallRecordCardData = {
 	// 47.5", "62") - see pickSummary in lib/call-summary.ts, which already
 	// handles every question type's own formatting rules.
 	pickLabel: string
+	// The player or team a single pick is, shown beside pickLabel. Null for a
+	// pick that is neither (Over, a numeric guess) and for a multi-pick call.
+	pickSubject?: {
+		player?: ImagePlayer | null
+		team?: ImageTeam | null
+	} | null
 	// Award calls with more than one pick: each name, and once the question
 	// resolves whether it hit. The card lists these in place of pickLabel so
 	// every pick is marked on its own. Null on every other call.
-	picks: { label: string; hit: boolean | null }[] | null
+	picks:
+		| {
+				label: string
+				hit: boolean | null
+				player?: ImagePlayer | null
+				team?: ImageTeam | null
+		  }[]
+		| null
 	// The date the call was made, already formatted (see formatCallDate). The
 	// point of a record is when it was set, so this is never optional.
 	calledAt: string
@@ -173,22 +191,31 @@ export function CallRecordCard({ data, redo = null, footer }: Props) {
 								))}
 							</VStack>
 						) : (
-							<span
-								className={css({
-									fontFamily: "heading",
-									fontSize: { base: "2xl", sm: "3xl" },
-									lineHeight: "1.15",
-									// A pending call is not a loss, so it never gets the muted
-									// treatment a miss does.
-									color: nailed
-										? "primary.default"
-										: resolved && !win
-											? "fg.muted"
-											: "fg.default",
-								})}
-							>
-								{data.pickLabel}
-							</span>
+							<HStack gap="3" alignItems="center" minWidth="0">
+								{data.pickSubject && (
+									<PlayerOrTeamImage
+										player={data.pickSubject.player}
+										team={data.pickSubject.team}
+										size="lg"
+									/>
+								)}
+								<span
+									className={css({
+										fontFamily: "heading",
+										fontSize: { base: "2xl", sm: "3xl" },
+										lineHeight: "1.15",
+										// A pending call is not a loss, so it never gets the muted
+										// treatment a miss does.
+										color: nailed
+											? "primary.default"
+											: resolved && !win
+												? "fg.muted"
+												: "fg.default",
+									})}
+								>
+									{data.pickLabel}
+								</span>
+							</HStack>
 						)}
 						{/* The numbers at the pick's own scale: the final points once
 						settled, what's in the air before that. */}
@@ -328,7 +355,8 @@ function PickLine({
 	pick: NonNullable<CallRecordCardData["picks"]>[number]
 }) {
 	return (
-		<HStack gap="2.5" alignItems="baseline">
+		<HStack gap="2.5" alignItems="center">
+			<PlayerOrTeamImage player={pick.player} team={pick.team} />
 			<span
 				className={css({
 					fontFamily: "heading",

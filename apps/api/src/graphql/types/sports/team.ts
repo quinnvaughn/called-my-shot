@@ -11,6 +11,8 @@ export const TeamRef = builder.drizzleObject("teams", {
 		color: t.exposeString("color"),
 		conference: t.exposeString("conference", { nullable: true }),
 		division: t.exposeString("division", { nullable: true }),
+		// Null when the league's CDN had no match - see teams.logoUrl.
+		logoUrl: t.exposeString("logoUrl", { nullable: true }),
 		league: t.relation("league"),
 	}),
 })

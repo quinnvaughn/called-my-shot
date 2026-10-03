@@ -51,6 +51,17 @@ export const CallRowFragment = graphql(`
 				label
 				isCorrect
 				actualValue
+				team {
+					id
+					abbreviation
+					color
+					logoUrl
+				}
+				player {
+					id
+					name
+					headshotUrl
+				}
 			}
 		}
 	}

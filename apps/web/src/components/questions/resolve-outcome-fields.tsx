@@ -1,4 +1,9 @@
 import { VStack } from "styled-system/jsx"
+import {
+	type ImagePlayer,
+	type ImageTeam,
+	PlayerOrTeamImage,
+} from "#/components/ui/player-or-team-image"
 import { TextInput } from "#/components/ui/text-input"
 import { optionDisplayLabel } from "#/lib/question-labels"
 import {
@@ -10,7 +15,13 @@ import { OptionRow } from "./option-row"
 type Props = {
 	shape: QuestionCallShape
 	ouLine: number | null
-	options: { id: string; label: string }[]
+	options: {
+		id: string
+		label: string
+		// Set when the option is a real player or team, for its image.
+		player?: ImagePlayer | null
+		team?: ImageTeam | null
+	}[]
 	correctOptionIds: string[]
 	onToggleOption: (optionId: string) => void
 	actualValue: number | undefined
@@ -70,6 +81,9 @@ export function ResolveOutcomeFields({
 			{options.map((option) => (
 				<OptionRow
 					key={option.id}
+					image={
+						<PlayerOrTeamImage player={option.player} team={option.team} />
+					}
 					label={optionDisplayLabel(
 						option.label,
 						isOverUnderShape(shape),

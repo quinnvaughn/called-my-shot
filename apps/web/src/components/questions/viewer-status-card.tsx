@@ -20,6 +20,11 @@ import { CaseBlock } from "#/components/questions/case-block"
 import { DisputeModal } from "#/components/questions/dispute-modal"
 import type { GameNextUp } from "#/components/questions/game-strip"
 import { RedoCta, type RedoOffer } from "#/components/questions/redo-cta"
+import {
+	type ImagePlayer,
+	type ImageTeam,
+	PlayerOrTeamImage,
+} from "#/components/ui/player-or-team-image"
 import type {
 	CallUnscoredReason,
 	QuestionShape,
@@ -102,9 +107,15 @@ type ViewerCall = {
 			fieldPct: number | null
 			// This side's own loss rate when the line was priced, else null.
 			lossRate: number | null
+			// Set when the pick is a real player or team, for its image.
+			player?: ImagePlayer | null
+			team?: ImageTeam | null
 		}
 	}[]
 }
+
+// The player or team a pick is, shown beside its name.
+type PickSubject = { player?: ImagePlayer | null; team?: ImageTeam | null }
 
 type Props = {
 	questionId: string
@@ -129,6 +140,9 @@ type Props = {
 	// same information the badge/points above are about: what happened,
 	// paired with what the viewer did or didn't do about it.
 	answer: string | null
+	// The player or team the answer is, shown beside it. Null when the answer
+	// is neither, or names several winners.
+	answerSubject?: PickSubject | null
 	resolutionNote: string | null
 	// Why the question was voided - null unless it was.
 	voidedReason: QuestionVoidedReason | null
@@ -177,6 +191,7 @@ export function ViewerStatusCard({
 	numericToleranceAbsolute,
 	isRateStat,
 	answer,
+	answerSubject = null,
 	resolutionNote,
 	voidedReason,
 	fieldAccuracyPct,
@@ -226,7 +241,13 @@ export function ViewerStatusCard({
 						label="No call"
 						tag={<StatusTag tone="neutral">Resolved</StatusTag>}
 					/>
-					{answer && <ResultTitle answer={answer} disputed={disputed} />}
+					{answer && (
+						<ResultTitle
+							answer={answer}
+							subject={answerSubject}
+							disputed={disputed}
+						/>
+					)}
 					{disputeRow}
 					{noteBlock}
 				</Shell>
@@ -297,6 +318,7 @@ export function ViewerStatusCard({
 						)}
 						<AnswerBlock
 							answer={answer}
+							subject={answerSubject}
 							disputed={disputed}
 							fieldAccuracyPct={fieldAccuracyPct}
 						/>
@@ -547,23 +569,30 @@ function NextUpFooter({ nextUp }: { nextUp: GameNextUp }) {
 
 function ResultTitle({
 	answer,
+	subject,
 	disputed,
 }: {
 	answer: string
+	subject: PickSubject | null
 	disputed: boolean
 }) {
 	return (
-		<span
-			className={css({
-				fontFamily: "heading",
-				fontSize: "xl",
-				lineHeight: "1.3",
-				color: disputed ? "warning.default" : "fg.default",
-			})}
-		>
-			{disputed && "Disputed: "}
-			{answer}
-		</span>
+		<HStack gap="2.5" alignItems="center" minWidth="0">
+			{subject && (
+				<PlayerOrTeamImage player={subject.player} team={subject.team} />
+			)}
+			<span
+				className={css({
+					fontFamily: "heading",
+					fontSize: "xl",
+					lineHeight: "1.3",
+					color: disputed ? "warning.default" : "fg.default",
+				})}
+			>
+				{disputed && "Disputed: "}
+				{answer}
+			</span>
+		</HStack>
 	)
 }
 
@@ -686,10 +715,12 @@ function CardHeader({ label, tag }: { label: string | null; tag: ReactNode }) {
 // and how much of the field saw it coming.
 function AnswerBlock({
 	answer,
+	subject,
 	disputed,
 	fieldAccuracyPct,
 }: {
 	answer: string | null
+	subject: PickSubject | null
 	disputed: boolean
 	fieldAccuracyPct: number | null
 }) {
@@ -706,15 +737,20 @@ function AnswerBlock({
 			<span className={kickerClass}>
 				{disputed ? "Answer (disputed)" : "Answer"}
 			</span>
-			<span
-				className={
-					disputed
-						? css({ fontSize: "md", color: "warning.default" })
-						: css({ fontSize: "md", color: "fg.default" })
-				}
-			>
-				{answer}
-			</span>
+			<HStack gap="2" alignItems="center" minWidth="0">
+				{subject && (
+					<PlayerOrTeamImage player={subject.player} team={subject.team} />
+				)}
+				<span
+					className={
+						disputed
+							? css({ fontSize: "md", color: "warning.default" })
+							: css({ fontSize: "md", color: "fg.default" })
+					}
+				>
+					{answer}
+				</span>
+			</HStack>
 			{fieldAccuracyPct !== null && (
 				<span className={crowdStatClass}>
 					{Math.round(fieldAccuracyPct)}% of the crowd nailed this
@@ -865,6 +901,7 @@ function PickRows({
 			{call.selections.map((selection) => (
 				<SelectionPickRow
 					key={selection.option.label}
+					subject={selection.option}
 					label={optionDisplayLabel(
 						selection.option.label,
 						isOverUnderQuestionShape(shape),
@@ -1058,12 +1095,14 @@ type NumericRowResult =
 // yet) pass a real name.
 function PickRowShell({
 	name,
+	subject = null,
 	note,
 	breakdown,
 	payout,
 	hero = false,
 }: {
 	name: string | null
+	subject?: PickSubject | null
 	note: string | null
 	breakdown: Breakdown | null
 	payout: ReactNode
@@ -1073,16 +1112,25 @@ function PickRowShell({
 		return (
 			<VStack gap="3" alignItems="stretch">
 				{name !== null && (
-					<span
-						className={css({
-							fontFamily: "heading",
-							fontSize: { base: "2xl", sm: "3xl" },
-							lineHeight: "1.15",
-							color: "fg.default",
-						})}
-					>
-						{name}
-					</span>
+					<HStack gap="3" alignItems="center" minWidth="0">
+						{subject && (
+							<PlayerOrTeamImage
+								player={subject.player}
+								team={subject.team}
+								size="lg"
+							/>
+						)}
+						<span
+							className={css({
+								fontFamily: "heading",
+								fontSize: { base: "2xl", sm: "3xl" },
+								lineHeight: "1.15",
+								color: "fg.default",
+							})}
+						>
+							{name}
+						</span>
+					</HStack>
 				)}
 				{note && (
 					<span
@@ -1114,18 +1162,23 @@ function PickRowShell({
 		>
 			{name !== null && (
 				<HStack justify="space-between" gap="3">
-					<span
-						className={css({
-							fontSize: "sm",
-							fontWeight: "bold",
-							color: "fg.default",
-							overflow: "hidden",
-							textOverflow: "ellipsis",
-							whiteSpace: "nowrap",
-						})}
-					>
-						{name}
-					</span>
+					<HStack gap="2" alignItems="center" minWidth="0">
+						{subject && (
+							<PlayerOrTeamImage player={subject.player} team={subject.team} />
+						)}
+						<span
+							className={css({
+								fontSize: "sm",
+								fontWeight: "bold",
+								color: "fg.default",
+								overflow: "hidden",
+								textOverflow: "ellipsis",
+								whiteSpace: "nowrap",
+							})}
+						>
+							{name}
+						</span>
+					</HStack>
 					<span
 						className={css({
 							flexShrink: "0",
@@ -1235,6 +1288,7 @@ function WhyThesePoints({ breakdown }: { breakdown: Breakdown }) {
 
 function SelectionPickRow({
 	label,
+	subject,
 	fieldPct,
 	totalOptions,
 	conviction,
@@ -1252,6 +1306,7 @@ function SelectionPickRow({
 	hero = false,
 }: {
 	label: string
+	subject: PickSubject
 	fieldPct: number | null
 	totalOptions: number
 	conviction: number
@@ -1267,7 +1322,15 @@ function SelectionPickRow({
 	hero?: boolean
 }) {
 	if (fieldPct === null) {
-		return <PickRowShell name={label} note={null} breakdown={null} payout="-" />
+		return (
+			<PickRowShell
+				name={label}
+				subject={subject}
+				note={null}
+				breakdown={null}
+				payout="-"
+			/>
+		)
 	}
 
 	if (result.kind === "resolved") {
@@ -1334,6 +1397,7 @@ function SelectionPickRow({
 		return (
 			<PickRowShell
 				name={showName || hero ? label : null}
+				subject={subject}
 				note={null}
 				breakdown={{
 					ledger: [committedRow(basePoints, conviction, committed), outcome],
@@ -1364,6 +1428,7 @@ function SelectionPickRow({
 	return (
 		<PickRowShell
 			name={label}
+			subject={subject}
 			note={null}
 			breakdown={{
 				ledger: [

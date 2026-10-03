@@ -5,6 +5,7 @@ import { HStack, VStack } from "styled-system/jsx"
 import { match } from "ts-pattern"
 import { button } from "#/components/ui/button"
 import { Eyebrow } from "#/components/ui/eyebrow"
+import { PlayerHeadshot } from "#/components/ui/player-headshot"
 import { Tag } from "#/components/ui/tag"
 import { TeamBadge } from "#/components/ui/team-badge"
 import { type FragmentType, graphql, useFragment } from "#/graphql/generated"
@@ -20,11 +21,13 @@ export const GameStartersFragment = graphql(`
 			id
 			abbreviation
 			color
+			logoUrl
 		}
 		homeTeam {
 			id
 			abbreviation
 			color
+			logoUrl
 		}
 		starters {
 			id
@@ -36,6 +39,10 @@ export const GameStartersFragment = graphql(`
 			injuryStatus
 			team {
 				id
+			}
+			player {
+				id
+				headshotUrl
 			}
 		}
 	}
@@ -111,13 +118,22 @@ function KeyLine({ team, starters }: { team: Team; starters: Starter[] }) {
 
 	return (
 		<HStack gap="2.5" alignItems="center" minWidth="0">
-			<TeamBadge abbreviation={team.abbreviation} color={team.color} />
+			<TeamBadge
+				abbreviation={team.abbreviation}
+				color={team.color}
+				logoUrl={team.logoUrl}
+				showAbbreviation
+			/>
 			{key.length === 0 ? (
 				<span className={emptyClass}>Not announced yet</span>
 			) : (
 				<HStack gap="1.5" alignItems="center" flexWrap="wrap" minWidth="0">
 					{key.map((starter, index) => (
 						<HStack key={starter.id} gap="1.5" alignItems="center" minWidth="0">
+							<PlayerHeadshot
+								name={starter.playerName}
+								src={starter.player?.headshotUrl}
+							/>
 							<span className={nameClass}>
 								{starter.playerName}
 								{index < key.length - 1 ? "," : ""}
@@ -155,6 +171,10 @@ function StarterRow({ starter }: { starter: Starter }) {
 			>
 				{slot}
 			</span>
+			<PlayerHeadshot
+				name={starter.playerName}
+				src={starter.player?.headshotUrl}
+			/>
 			<span className={nameClass}>{starter.playerName}</span>
 			{starter.statLine && (
 				<span className={detailClass}>{starter.statLine}</span>
@@ -182,7 +202,12 @@ function TeamStarters({
 	return (
 		<VStack gap="3" alignItems="stretch" minWidth="0">
 			<HStack>
-				<TeamBadge abbreviation={team.abbreviation} color={team.color} />
+				<TeamBadge
+					abbreviation={team.abbreviation}
+					color={team.color}
+					logoUrl={team.logoUrl}
+					showAbbreviation
+				/>
 			</HStack>
 			{groups.map((group) => (
 				<VStack key={group.role} gap="1" alignItems="stretch">

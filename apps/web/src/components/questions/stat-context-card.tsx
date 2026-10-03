@@ -1,16 +1,22 @@
-import { Fragment, useState } from "react"
+import { Fragment, type ReactNode, useState } from "react"
 import { FiChevronDown, FiChevronUp } from "react-icons/fi"
 import { css, cx } from "styled-system/css"
 import { Grid, HStack, VStack } from "styled-system/jsx"
 import { button } from "#/components/ui/button"
 import { Card } from "#/components/ui/card"
 import { Eyebrow } from "#/components/ui/eyebrow"
+import { PlayerHeadshot } from "#/components/ui/player-headshot"
+import { PlayerOrTeamImage } from "#/components/ui/player-or-team-image"
+import { TeamBadge } from "#/components/ui/team-badge"
 import { type FragmentType, graphql, useFragment } from "#/graphql/generated"
 import type {
 	StatContextCard_StatContextFragment,
 	StatContextCard_TrackRecordFragment,
 } from "#/graphql/generated/graphql"
-import { formatRecord as formatWinLoss, formatSignedPoints } from "#/lib/ballot-entry"
+import {
+	formatSignedPoints,
+	formatRecord as formatWinLoss,
+} from "#/lib/ballot-entry"
 
 export const StatContextTrackRecordFragment = graphql(`
 	fragment StatContextCard_trackRecord on TrackRecord {
@@ -33,6 +39,10 @@ export const StatContextCardFragment = graphql(`
 		lastN
 		ranking {
 			playerId
+			player {
+				id
+				headshotUrl
+			}
 			label
 			mean
 			games
@@ -46,6 +56,17 @@ export const StatContextCardFragment = graphql(`
 		}
 		subjects {
 			label
+			player {
+				id
+				name
+				headshotUrl
+			}
+			team {
+				id
+				abbreviation
+				color
+				logoUrl
+			}
 			recentGames {
 				gameId
 				date
@@ -100,6 +121,12 @@ export const StatContextCardFragment = graphql(`
 			sides {
 				label
 				teamId
+				team {
+					id
+					abbreviation
+					color
+					logoUrl
+				}
 				isHome
 				differential {
 					kind
@@ -450,6 +477,10 @@ function Ranking({
 						<HStack key={player.playerId} justify="space-between" gap="3">
 							<HStack gap="2" minWidth="0">
 								<span className={mutedClass}>{index + 1}</span>
+								<PlayerHeadshot
+									name={player.label}
+									src={player.player?.headshotUrl}
+								/>
 								<span
 									className={css({
 										fontSize: "sm",
@@ -584,11 +615,28 @@ function SubjectColumn({
 			    the subject was only implied by the question title further up
 			    the page, which leaves a bare "75 / LAST GAME" sitting next to
 			    a tile that names a different team entirely. */}
-			{subject.label && <Eyebrow size="sm">{subject.label}</Eyebrow>}
+			{subject.label && (
+				<ColumnHeading
+					label={subject.label}
+					image={
+						<PlayerOrTeamImage player={subject.player} team={subject.team} />
+					}
+				/>
+			)}
 			<HeadlineBlock lead={lead} dense={dense} />
 			<GameStrip subject={subject} teams={teams} />
 			<TileGrid tiles={tiles} dense={dense} />
 		</VStack>
+	)
+}
+
+// A column's name, with the player's headshot or the team's logo beside it.
+function ColumnHeading({ label, image }: { label: string; image: ReactNode }) {
+	return (
+		<HStack gap="2" alignItems="center" minWidth="0">
+			{image}
+			<Eyebrow size="sm">{label}</Eyebrow>
+		</HStack>
 	)
 }
 
@@ -796,7 +844,20 @@ function MatchupColumn({
 			    the two columns' tiles on the same line as each other instead of
 			    sliding out of step whenever one side has wrapped to more rows
 			    than the other. */}
-			{side.label && <Eyebrow size="sm">{side.label}</Eyebrow>}
+			{side.label && (
+				<ColumnHeading
+					label={side.label}
+					image={
+						side.team && (
+							<TeamBadge
+								abbreviation={side.team.abbreviation}
+								color={side.team.color}
+								logoUrl={side.team.logoUrl}
+							/>
+						)
+					}
+				/>
+			)}
 			<HeadlineBlock lead={lead} dense={dense} />
 			<TileGrid tiles={tiles} dense={dense} />
 			<ResultStrip results={side.recentResults} />
@@ -827,13 +888,7 @@ function seriesSummary(
 	return `${teams[ahead.teamId] ?? ""} leads ${high}-${low}${drawn}`
 }
 
-function Meetings({
-	matchup,
-	teams,
-}: {
-	matchup: Matchup
-	teams: TeamLabels
-}) {
+function Meetings({ matchup, teams }: { matchup: Matchup; teams: TeamLabels }) {
 	const meetings = matchup.meetings
 	if (meetings.length === 0) return null
 
@@ -913,8 +968,7 @@ function TrackRecordRow(props: { label: string; sides: TrackRecordSide[] }) {
 						key={side.label}
 						className={css({ fontFamily: "mono", fontSize: "sm" })}
 					>
-						{side.label}{" "}
-						{formatWinLoss(side.wins, side.losses)}{" "}
+						{side.label} {formatWinLoss(side.wins, side.losses)}{" "}
 						<span
 							className={css({
 								color:
@@ -1058,7 +1112,7 @@ export function StatContextCard(props: {
 												key={side.teamId}
 												side={side}
 												focus={matchup.focus}
-												/>
+											/>
 										))
 									: columns.map((column) => (
 											<SubjectColumn
@@ -1068,9 +1122,7 @@ export function StatContextCard(props: {
 											/>
 										))}
 							</div>
-							{matchup && (
-								<Meetings matchup={matchup} teams={props.teams} />
-							)}
+							{matchup && <Meetings matchup={matchup} teams={props.teams} />}
 							<p className={css({ fontSize: "xs", color: "fg.subtle" })}>
 								{matchup
 									? "Completed regular-season games this season, up to this one. Head to head is this season only."

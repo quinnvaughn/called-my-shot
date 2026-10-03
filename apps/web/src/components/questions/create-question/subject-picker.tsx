@@ -10,6 +10,7 @@ import type {
 import type { EntitySearchItem } from "./entity-search-field"
 import { EntitySearchField } from "./entity-search-field"
 import { useSetValue, useWatch } from "./form-context"
+import { toPlayerItems, toTeamItems } from "./use-entity-pools"
 
 type Team = TeamsByLeagueQuery["teams"][number]
 type Player = PlayersByLeagueQuery["players"][number]
@@ -47,19 +48,7 @@ export function SubjectPicker({ teams, players, kind, required }: Props) {
 	const [inputText, setInputText] = useState("")
 
 	const items: EntitySearchItem[] =
-		subjectType === "team"
-			? teams.map((team) => ({
-					id: team.id,
-					label: team.name,
-					kind: "team" as const,
-					meta: team.abbreviation,
-				}))
-			: players.map((player) => ({
-					id: player.id,
-					label: player.name,
-					kind: "player" as const,
-					meta: player.currentTeam?.abbreviation,
-				}))
+		subjectType === "team" ? toTeamItems(teams) : toPlayerItems(players)
 
 	const selectedLabel =
 		subjectType === "team"

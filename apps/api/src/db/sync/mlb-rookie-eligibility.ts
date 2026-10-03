@@ -1,10 +1,6 @@
 import type { EspnAthlete } from "./espn-client"
-import {
-	fetchAllMlbTeams,
-	fetchMlbTeamRoster,
-	type MlbRosterEntry,
-	type MlbStatGroup,
-} from "./mlb-stats-client"
+import { findMlbRosterEntry } from "./mlb-rosters"
+import type { MlbStatGroup } from "./mlb-stats-client"
 
 // MLB's real Rookie of the Year rule: a player stays rookie-eligible until,
 // across ALL prior seasons combined, they exceed 130 at-bats or 50 innings
@@ -16,85 +12,12 @@ import {
 const MAX_ROOKIE_AT_BATS = 130
 const MAX_ROOKIE_INNINGS_PITCHED_OUTS = 50 * 3
 
-// ESPN writes names without diacritics ("Ronald Acuna Jr.") where MLB keeps
-// them ("Ronald Acuña Jr."), so a raw string compare drops a few dozen
-// players league-wide - and a player who fails to match falls through to the
-// experience-only fallback below rather than getting the real rule applied.
-// Punctuation and hyphen/space differences are folded for the same reason.
-function normalizeName(name: string): string {
-	return name
-		.normalize("NFD")
-		.replace(/\p{Mn}/gu, "")
-		.toLowerCase()
-		.replace(/[.,']/g, "")
-		.replace(/[-\s]+/g, " ")
-		.trim()
-}
-
-type RosterIndex = {
-	// MLB team name (which is also ESPN's team displayName - see MlbTeam.name)
-	// -> that team's 40-man, by normalized player name.
-	byTeamName: Map<string, Map<string, MlbRosterEntry>>
-	// Every 40-man player in the league, by normalized name, for the case
-	// where ESPN still lists someone on the team he was traded off of. A name
-	// held by more than one player maps to null rather than to a coin flip -
-	// the wrong Luis Garcia would be worse than no match at all.
-	byName: Map<string, MlbRosterEntry | null>
-}
-
-// Built once per sync run and reused across every MLB player: 30 roster
-// requests (career stats hydrated in, see fetchMlbTeamRoster) answer
-// eligibility for the whole league. Team ids are fetched rather than
-// hardcoded, same reasoning as sync-teams.ts not hardcoding ESPN's ids -
-// they're stable in practice, but one live call gives the real thing.
-let rosterIndex: Promise<RosterIndex> | null = null
-
-async function buildRosterIndex(): Promise<RosterIndex> {
-	const teams = await fetchAllMlbTeams()
-	const rosters = await Promise.all(
-		teams.map(async (team) => ({
-			team,
-			roster: await fetchMlbTeamRoster(team.id),
-		})),
-	)
-	const byTeamName = new Map<string, Map<string, MlbRosterEntry>>()
-	const byName = new Map<string, MlbRosterEntry | null>()
-	for (const { team, roster } of rosters) {
-		const byPlayer = new Map<string, MlbRosterEntry>()
-		for (const entry of roster) {
-			const key = normalizeName(entry.person.fullName)
-			byPlayer.set(key, entry)
-			byName.set(key, byName.has(key) ? null : entry)
-		}
-		byTeamName.set(team.name, byPlayer)
-	}
-	return { byTeamName, byName }
-}
-
-function getRosterIndex(): Promise<RosterIndex> {
-	rosterIndex ??= buildRosterIndex()
-	return rosterIndex
-}
-
 // "12.1" -> 37 outs (12 innings * 3 + 1). MLB's box-score notation reads the
 // digit after the decimal point as thirds of an inning, not a decimal
 // fraction - ".1"/".2" are the only fractional parts that ever appear.
 function inningsPitchedToOuts(inningsPitched: string): number {
 	const [whole, thirds] = inningsPitched.split(".")
 	return Number(whole) * 3 + Number(thirds ?? 0)
-}
-
-// The player's own team is tried first so a shared name resolves to the
-// right man whenever ESPN and MLB agree on where he plays.
-async function findRosterEntry(
-	athlete: EspnAthlete,
-	teamName: string,
-): Promise<MlbRosterEntry | null> {
-	const index = await getRosterIndex()
-	const key = normalizeName(athlete.fullName)
-	return (
-		index.byTeamName.get(teamName)?.get(key) ?? index.byName.get(key) ?? null
-	)
 }
 
 // Sums at-bats/innings-pitched (as outs) from every season strictly before
@@ -153,7 +76,7 @@ export async function resolveMlbRookieEligible(
 	teamName: string,
 	currentSeasonYear: number,
 ): Promise<boolean> {
-	const entry = await findRosterEntry(athlete, teamName)
+	const entry = await findMlbRosterEntry(athlete.fullName, teamName)
 	if (!entry) {
 		// Not on this team's 40-man - most often a non-roster player ESPN
 		// lists anyway, but it also covers a name this side couldn't match.

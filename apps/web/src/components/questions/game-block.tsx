@@ -10,8 +10,8 @@ type Props = {
 		startsAt: string
 		homeScore: number | null
 		awayScore: number | null
-		homeTeam: { abbreviation: string; color: string }
-		awayTeam: { abbreviation: string; color: string }
+		homeTeam: { abbreviation: string; color: string; logoUrl?: string | null }
+		awayTeam: { abbreviation: string; color: string; logoUrl?: string | null }
 	}
 }
 
@@ -38,6 +38,8 @@ export function GameBlock({ game }: Props) {
 				<TeamBadge
 					abbreviation={game.awayTeam.abbreviation}
 					color={game.awayTeam.color}
+					logoUrl={game.awayTeam.logoUrl}
+					showAbbreviation
 				/>
 				<span
 					className={css({
@@ -51,6 +53,8 @@ export function GameBlock({ game }: Props) {
 				<TeamBadge
 					abbreviation={game.homeTeam.abbreviation}
 					color={game.homeTeam.color}
+					logoUrl={game.homeTeam.logoUrl}
+					showAbbreviation
 				/>
 			</HStack>
 			<span

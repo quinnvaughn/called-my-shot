@@ -53,5 +53,10 @@ export const players = pgTable("players", {
 	// long before a lineup posts, so without this an out-for-the-season bat is
 	// just another name in the pool.
 	injuryStatus: text("injury_status"),
+	// A headshot on the player's own league CDN, resolved at sync time by
+	// db/sync/league-images.ts and hotlinked rather than copied. Null when the
+	// league's roster had no match for this player, which the UI renders as
+	// initials.
+	headshotUrl: text("headshot_url"),
 })
 export type Player = typeof players.$inferSelect

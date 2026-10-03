@@ -12,6 +12,7 @@ import {
 import { ReportCardShareRow } from "#/components/report-cards/report-card-share-row"
 import { Card } from "#/components/ui/card"
 import { Eyebrow } from "#/components/ui/eyebrow"
+import { PlayerOrTeamImage } from "#/components/ui/player-or-team-image"
 import { type FragmentType, graphql, useFragment } from "#/graphql/generated"
 import { formatRecord, formatSignedPoints } from "#/lib/ballot-entry"
 import { pickSummary } from "#/lib/call-summary"
@@ -131,6 +132,17 @@ const HighlightFragment = graphql(`
 				id
 				label
 				isCorrect
+				team {
+					id
+					abbreviation
+					color
+					logoUrl
+				}
+				player {
+					id
+					name
+					headshotUrl
+				}
 			}
 		}
 	}
@@ -197,21 +209,29 @@ function Highlight({
 				<Eyebrow size="sm" variant="neutral">
 					{label}
 				</Eyebrow>
-				<Link
-					to="/calls/$callId"
-					params={{ callId: data.id }}
-					className={css({
-						fontSize: "sm",
-						color: "fg.default",
-						textDecoration: "none",
-						overflow: "hidden",
-						textOverflow: "ellipsis",
-						whiteSpace: "nowrap",
-						_hover: { textDecoration: "underline" },
-					})}
-				>
-					{pickSummary(data)}
-				</Link>
+				<HStack gap="2" alignItems="center" minWidth="0" maxWidth="full">
+					{data.selections.length === 1 && (
+						<PlayerOrTeamImage
+							player={data.selections[0]?.option.player}
+							team={data.selections[0]?.option.team}
+						/>
+					)}
+					<Link
+						to="/calls/$callId"
+						params={{ callId: data.id }}
+						className={css({
+							fontSize: "sm",
+							color: "fg.default",
+							textDecoration: "none",
+							overflow: "hidden",
+							textOverflow: "ellipsis",
+							whiteSpace: "nowrap",
+							_hover: { textDecoration: "underline" },
+						})}
+					>
+						{pickSummary(data)}
+					</Link>
+				</HStack>
 				{/* A bare pick ("Under 0.5") says nothing without the question it
 				    answers. */}
 				<span

@@ -2,6 +2,11 @@ import { useState } from "react"
 import { css } from "styled-system/css"
 import { VStack } from "styled-system/jsx"
 import { Button } from "#/components/ui/button"
+import {
+	type ImagePlayer,
+	type ImageTeam,
+	PlayerOrTeamImage,
+} from "#/components/ui/player-or-team-image"
 import type { QuestionShape } from "#/graphql/generated/graphql"
 import { callersText } from "#/lib/field-signal"
 import {
@@ -16,6 +21,9 @@ type Option = {
 	label: string
 	fieldPct: number | null
 	callCount: number
+	// Set when the option is a real player or team, for its image.
+	player?: ImagePlayer | null
+	team?: ImageTeam | null
 }
 
 type Props = {
@@ -74,7 +82,8 @@ export function OptionFieldBreakdown({
 	const [visibleCount, setVisibleCount] = useState(OPTIONS_PAGE_STEP)
 	const rankedOptions = options
 		.filter(
-			(option) => option.callCount > 0 || highlightedOptionIds.includes(option.id),
+			(option) =>
+				option.callCount > 0 || highlightedOptionIds.includes(option.id),
 		)
 		.sort((a, b) => b.callCount - a.callCount)
 
@@ -95,6 +104,9 @@ export function OptionFieldBreakdown({
 			{rankedOptions.slice(0, visibleCount).map((option) => (
 				<OptionRow
 					key={option.id}
+					image={
+						<PlayerOrTeamImage player={option.player} team={option.team} />
+					}
 					label={optionDisplayLabel(
 						option.label,
 						isOverUnderQuestionShape(shape),
@@ -115,7 +127,8 @@ export function OptionFieldBreakdown({
 					fullWidth
 					onClick={() => setVisibleCount((v) => v + OPTIONS_PAGE_STEP)}
 				>
-					Show {Math.min(OPTIONS_PAGE_STEP, rankedOptions.length - visibleCount)}{" "}
+					Show{" "}
+					{Math.min(OPTIONS_PAGE_STEP, rankedOptions.length - visibleCount)}{" "}
 					more
 				</Button>
 			)}

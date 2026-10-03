@@ -1,4 +1,11 @@
 import type { EspnAthlete, EspnSportPath } from "./espn-client"
+import {
+	type LeagueImages,
+	mlbImages,
+	nbaImages,
+	nflImages,
+	nhlImages,
+} from "./league-images"
 import { resolveMlbRookieEligible } from "./mlb-rookie-eligibility"
 
 export type SyncLeagueConfig = {
@@ -31,6 +38,9 @@ export type SyncLeagueConfig = {
 		teamName: string,
 		currentSeasonYear: number,
 	) => Promise<boolean>
+	// Where teams.logoUrl and players.headshotUrl come from - see
+	// league-images.ts. Omitted, a league syncs without images.
+	images?: LeagueImages
 }
 
 export const SYNCED_LEAGUES: SyncLeagueConfig[] = [
@@ -41,6 +51,7 @@ export const SYNCED_LEAGUES: SyncLeagueConfig[] = [
 		leagueAbbreviation: "NBA",
 		leagueSlug: "nba",
 		espnPath: "basketball/nba",
+		images: nbaImages,
 	},
 	{
 		sportName: "Football",
@@ -50,6 +61,7 @@ export const SYNCED_LEAGUES: SyncLeagueConfig[] = [
 		leagueSlug: "nfl",
 		espnPath: "football/nfl",
 		windowType: "week",
+		images: nflImages,
 	},
 	{
 		sportName: "Baseball",
@@ -59,6 +71,7 @@ export const SYNCED_LEAGUES: SyncLeagueConfig[] = [
 		leagueSlug: "mlb",
 		espnPath: "baseball/mlb",
 		resolveRookieEligible: resolveMlbRookieEligible,
+		images: mlbImages,
 	},
 	{
 		sportName: "Hockey",
@@ -67,5 +80,6 @@ export const SYNCED_LEAGUES: SyncLeagueConfig[] = [
 		leagueAbbreviation: "NHL",
 		leagueSlug: "nhl",
 		espnPath: "hockey/nhl",
+		images: nhlImages,
 	},
 ]

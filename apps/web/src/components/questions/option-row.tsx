@@ -1,9 +1,13 @@
+import type { ReactNode } from "react"
 import { css } from "styled-system/css"
 import { HStack } from "styled-system/jsx"
 import { pluralize } from "#/lib/pluralize"
 
 type Props = {
 	label: string
+	// Before the label: the option's player headshot or team logo, when it is
+	// one (see PlayerOrTeamImage).
+	image?: ReactNode
 	fieldPct: number | null
 	// Omitted entirely by callers that don't have it (e.g.
 	// ResolveQuestionModal, which shows the option pool with no live stats) -
@@ -32,6 +36,7 @@ const compactCount = new Intl.NumberFormat("en-US", { notation: "compact" })
 // percentage or a fill bar, hence a dedicated component here.
 export function OptionRow({
 	label,
+	image,
 	fieldPct,
 	count,
 	selected,
@@ -58,8 +63,7 @@ export function OptionRow({
 		// selected guard wins on source order regardless of specificity,
 		// so it was silently overriding primary.default back to
 		// border.emphasized on any selected row the pointer sat over.
-		_hover:
-			!onClick || selected ? {} : { borderColor: "border.emphasized" },
+		_hover: !onClick || selected ? {} : { borderColor: "border.emphasized" },
 	})
 
 	const content = (
@@ -87,9 +91,12 @@ export function OptionRow({
 				gap="2"
 				className={css({ position: "relative", zIndex: 1 })}
 			>
-				<span className={css({ fontSize: "sm", fontWeight: "medium" })}>
-					{label}
-				</span>
+				<HStack gap="2" alignItems="center" minWidth="0">
+					{image}
+					<span className={css({ fontSize: "sm", fontWeight: "medium" })}>
+						{label}
+					</span>
+				</HStack>
 				<HStack gap="1.5" flexShrink="0">
 					<span
 						className={css({

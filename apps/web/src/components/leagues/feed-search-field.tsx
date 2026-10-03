@@ -1,8 +1,8 @@
 import { keepPreviousData, useQuery } from "@tanstack/react-query"
 import { useEffect, useState } from "react"
 import { Combobox } from "#/components/ui/combobox"
-import { TextInput } from "#/components/ui/text-input"
 import { TeamBadge } from "#/components/ui/team-badge"
+import { TextInput } from "#/components/ui/text-input"
 import { LeagueSearchDocument } from "#/graphql/queries/sports"
 import { gqlQueryOptions } from "#/graphql/query-options"
 
@@ -114,7 +114,11 @@ export function FeedSearchField({
 								key={team.id}
 								optionKey={team.id}
 								icon={
-									<TeamBadge abbreviation={team.abbreviation} color={team.color} />
+									<TeamBadge
+										abbreviation={team.abbreviation}
+										color={team.color}
+										logoUrl={team.logoUrl}
+									/>
 								}
 							>
 								{team.name}
@@ -133,6 +137,7 @@ export function FeedSearchField({
 										<TeamBadge
 											abbreviation={player.currentTeam.abbreviation}
 											color={player.currentTeam.color}
+											logoUrl={player.currentTeam.logoUrl}
 										/>
 									)
 								}

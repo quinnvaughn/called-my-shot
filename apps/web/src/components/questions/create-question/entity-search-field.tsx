@@ -1,5 +1,10 @@
 import { useState } from "react"
 import { Combobox } from "#/components/ui/combobox"
+import {
+	type ImagePlayer,
+	type ImageTeam,
+	PlayerOrTeamImage,
+} from "#/components/ui/player-or-team-image"
 import { TextInput } from "#/components/ui/text-input"
 
 export type EntitySearchItem = {
@@ -7,6 +12,8 @@ export type EntitySearchItem = {
 	label: string
 	kind: "team" | "player" | "stat" | "league"
 	meta?: string
+	// Shown before the label in the dropdown. Absent, the row is text only.
+	image?: { player?: ImagePlayer | null; team?: ImageTeam | null }
 }
 
 type Props = {
@@ -92,7 +99,19 @@ export function EntitySearchField({
 				}}
 			>
 				{matches.map((item) => (
-					<Combobox.Option key={item.id} optionKey={item.id} meta={item.meta}>
+					<Combobox.Option
+						key={item.id}
+						optionKey={item.id}
+						meta={item.meta}
+						icon={
+							item.image && (
+								<PlayerOrTeamImage
+									player={item.image.player}
+									team={item.image.team}
+								/>
+							)
+						}
+					>
 						{item.label}
 					</Combobox.Option>
 				))}

@@ -1,5 +1,5 @@
-import { useQueryClient } from "@tanstack/react-query"
 import { resolveQuestionSchema } from "@called-my-shot/schemas"
+import { useQueryClient } from "@tanstack/react-query"
 import { useRouter } from "@tanstack/react-router"
 import { css } from "styled-system/css"
 import { VStack } from "styled-system/jsx"
@@ -36,6 +36,17 @@ export const ResolveQuestionModalFragment = graphql(`
 		options {
 			id
 			label
+			team {
+				id
+				abbreviation
+				color
+				logoUrl
+			}
+			player {
+				id
+				name
+				headshotUrl
+			}
 		}
 	}
 `)
@@ -68,13 +79,13 @@ export function ResolveQuestionModal({ question: questionProp }: Props) {
 		},
 		onSubmit: async (values, helpers) => {
 			const data = await resolveQuestion.mutateAsync({
-					input: {
-						questionId: question.id,
-						correctOptionIds: values.correctOptionIds,
-						actualValue: values.actualValue,
-						resolutionNote: values.resolutionNote || undefined,
-					},
-				})
+				input: {
+					questionId: question.id,
+					correctOptionIds: values.correctOptionIds,
+					actualValue: values.actualValue,
+					resolutionNote: values.resolutionNote || undefined,
+				},
+			})
 			const result = data?.resolveQuestion
 
 			if (!result) {

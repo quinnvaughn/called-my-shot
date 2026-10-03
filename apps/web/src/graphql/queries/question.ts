@@ -51,6 +51,17 @@ export const QuestionDetailDocument = graphql(`
 				isCorrect
 				actualValue
 				callCount
+				team {
+					id
+					abbreviation
+					color
+					logoUrl
+				}
+				player {
+					id
+					name
+					headshotUrl
+				}
 			}
 			# Winner first and already trimmed by shape, which the options list
 			# above is not - the margin needs to know which side actually won.
@@ -80,11 +91,13 @@ export const QuestionDetailDocument = graphql(`
 						id
 						abbreviation
 						color
+						logoUrl
 					}
 					awayTeam {
 						id
 						abbreviation
 						color
+						logoUrl
 					}
 				}
 			}
@@ -101,12 +114,14 @@ export const QuestionDetailDocument = graphql(`
 					name
 					abbreviation
 					color
+					logoUrl
 				}
 				awayTeam {
 					id
 					name
 					abbreviation
 					color
+					logoUrl
 				}
 				homeTeamRecord {
 					wins
@@ -171,6 +186,17 @@ export const QuestionDetailDocument = graphql(`
 						# above can't stand in for on a leader pool - the margin
 						# needs whoever they backed, not just whoever led.
 						actualValue
+						team {
+							id
+							abbreviation
+							color
+							logoUrl
+						}
+						player {
+							id
+							name
+							headshotUrl
+						}
 					}
 				}
 			}

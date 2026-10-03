@@ -137,12 +137,14 @@ export const CallRecordDocument = graphql(`
 						name
 						abbreviation
 						color
+						logoUrl
 					}
 					awayTeam {
 						id
 						name
 						abbreviation
 						color
+						logoUrl
 					}
 					homeTeamRecord {
 						wins
@@ -172,11 +174,13 @@ export const CallRecordDocument = graphql(`
 							id
 							abbreviation
 							color
+							logoUrl
 						}
 						awayTeam {
 							id
 							abbreviation
 							color
+							logoUrl
 						}
 					}
 				}
@@ -196,6 +200,17 @@ export const CallRecordDocument = graphql(`
 					# in favour of scoredOptions for the Actual line; it is back for
 					# a different question.
 					actualValue
+					team {
+						id
+						abbreviation
+						color
+						logoUrl
+					}
+					player {
+						id
+						name
+						headshotUrl
+					}
 				}
 			}
 		}

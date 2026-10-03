@@ -10,6 +10,7 @@ import type { EntitySearchItem } from "#/components/questions/create-question/en
 import { EntitySearchField } from "#/components/questions/create-question/entity-search-field"
 import { Card } from "#/components/ui/card"
 import { FieldLabel } from "#/components/ui/field-label"
+import { PlayerOrTeamImage } from "#/components/ui/player-or-team-image"
 import { Slider } from "#/components/ui/slider"
 import { previewFieldPct } from "#/lib/scoring"
 import { PointsPreview } from "../points-preview"
@@ -51,7 +52,10 @@ export function MultiSelectFields({ callForm }: Props) {
 		isSeasonLongShape(shape) &&
 		question.seasonGamesPlayed !== null &&
 		question.seasonTotalGames !== null
-			? seasonEarlyTierFor(question.seasonGamesPlayed, question.seasonTotalGames)
+			? seasonEarlyTierFor(
+					question.seasonGamesPlayed,
+					question.seasonTotalGames,
+				)
 			: undefined
 
 	return (
@@ -91,12 +95,15 @@ export function MultiSelectFields({ callForm }: Props) {
 					value={multiSelectSearch}
 					onValueChange={setMultiSelectSearch}
 					items={question.options
-						.filter((option) => !selections.some((s) => s.optionId === option.id))
+						.filter(
+							(option) => !selections.some((s) => s.optionId === option.id),
+						)
 						.map(
 							(option): EntitySearchItem => ({
 								id: option.id,
 								label: option.label,
 								kind: "player",
+								image: { player: option.player, team: option.team },
 								meta:
 									option.fieldPct !== null
 										? `${Math.round(option.fieldPct)}%`
@@ -159,9 +166,7 @@ export function MultiSelectFields({ callForm }: Props) {
 									>
 										Applies to all picks
 									</span>
-									<span
-										className={css({ fontFamily: "mono", fontSize: "xs" })}
-									>
+									<span className={css({ fontFamily: "mono", fontSize: "xs" })}>
 										{sharedConviction}%
 									</span>
 								</HStack>
@@ -195,14 +200,20 @@ export function MultiSelectFields({ callForm }: Props) {
 											})}
 										>
 											<HStack justify="space-between" gap="2">
-												<span
-													className={css({
-														fontSize: "sm",
-														fontWeight: "medium",
-													})}
-												>
-													{option.label}
-												</span>
+												<HStack gap="2" alignItems="center" minWidth="0">
+													<PlayerOrTeamImage
+														player={option.player}
+														team={option.team}
+													/>
+													<span
+														className={css({
+															fontSize: "sm",
+															fontWeight: "medium",
+														})}
+													>
+														{option.label}
+													</span>
+												</HStack>
 												<button
 													type="button"
 													aria-label={`Remove ${option.label}`}

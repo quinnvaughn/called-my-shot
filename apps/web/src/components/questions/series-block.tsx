@@ -2,7 +2,12 @@ import { css } from "styled-system/css"
 import { HStack } from "styled-system/jsx"
 import { TeamBadge } from "#/components/ui/team-badge"
 
-type Team = { id: string; abbreviation: string; color: string }
+type Team = {
+	id: string
+	abbreviation: string
+	color: string
+	logoUrl?: string | null
+}
 
 export type SeriesBlockData = {
 	roundLabel: string
@@ -21,7 +26,12 @@ function SeededBadge({ team, seed }: { team: Team; seed?: number }) {
 	return (
 		<HStack gap="1" alignItems="center">
 			{seed !== undefined && <span className={seedClass}>({seed})</span>}
-			<TeamBadge abbreviation={team.abbreviation} color={team.color} />
+			<TeamBadge
+				abbreviation={team.abbreviation}
+				color={team.color}
+				logoUrl={team.logoUrl}
+				showAbbreviation
+			/>
 		</HStack>
 	)
 }

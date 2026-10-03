@@ -34,8 +34,18 @@ type Props = {
 			summary: string | null
 			clinchTeamIds: string[]
 		} | null
-		homeTeam: { name: string; abbreviation: string; color: string }
-		awayTeam: { name: string; abbreviation: string; color: string }
+		homeTeam: {
+			name: string
+			abbreviation: string
+			color: string
+			logoUrl?: string | null
+		}
+		awayTeam: {
+			name: string
+			abbreviation: string
+			color: string
+			logoUrl?: string | null
+		}
 	}
 }
 
@@ -90,15 +100,21 @@ export function GameRow({ game, leagueSlug }: Props) {
 								<TeamBadge
 									abbreviation={game.awayTeam.abbreviation}
 									color={game.awayTeam.color}
+									logoUrl={game.awayTeam.logoUrl}
 								/>
 								<span
-									className={css({ fontFamily: "mono", fontSize: "2xs", color: "fg.subtle" })}
+									className={css({
+										fontFamily: "mono",
+										fontSize: "2xs",
+										color: "fg.subtle",
+									})}
 								>
 									@
 								</span>
 								<TeamBadge
 									abbreviation={game.homeTeam.abbreviation}
 									color={game.homeTeam.color}
+									logoUrl={game.homeTeam.logoUrl}
 								/>
 								{/* Without minWidth the nowrap name holds its full min-content
 								    width and runs under the status column instead of ellipsing.
@@ -182,13 +198,23 @@ export function GameRow({ game, leagueSlug }: Props) {
 									</HStack>
 								) : (
 									<span
-										className={css({ fontFamily: "mono", fontSize: "2xs", color: "fg.subtle" })}
+										className={css({
+											fontFamily: "mono",
+											fontSize: "2xs",
+											color: "fg.subtle",
+										})}
 									>
 										{final ? "FINAL" : gameTimeLabel(game)}
 									</span>
 								)}
 								{(live || final) && (
-									<span className={css({ fontFamily: "mono", fontSize: "sm", fontWeight: "bold" })}>
+									<span
+										className={css({
+											fontFamily: "mono",
+											fontSize: "sm",
+											fontWeight: "bold",
+										})}
+									>
 										{gameScoreLabel(game)}
 									</span>
 								)}

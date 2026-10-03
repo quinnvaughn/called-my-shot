@@ -88,6 +88,7 @@ export const TeamsByLeagueDocument = graphql(`
 			color
 			conference
 			division
+			logoUrl
 		}
 	}
 `)
@@ -101,6 +102,7 @@ export const PlayersByLeagueDocument = graphql(`
 			positions
 			seasonsInLeague
 			rookieEligible
+			headshotUrl
 			currentTeam {
 				id
 				abbreviation
@@ -174,12 +176,14 @@ export const GameByIdDocument = graphql(`
 				name
 				abbreviation
 				color
+				logoUrl
 			}
 			awayTeam {
 				id
 				name
 				abbreviation
 				color
+				logoUrl
 			}
 			homeTeamRecord {
 				wins
@@ -281,12 +285,14 @@ export const GameEntryDocument = graphql(`
 				name
 				abbreviation
 				color
+				logoUrl
 			}
 			awayTeam {
 				id
 				name
 				abbreviation
 				color
+				logoUrl
 			}
 			homeTeamRecord {
 				wins
@@ -456,12 +462,14 @@ export const LeagueGamesForWindowDocument = graphql(`
 						name
 						abbreviation
 						color
+						logoUrl
 					}
 					awayTeam {
 						id
 						name
 						abbreviation
 						color
+						logoUrl
 					}
 				}
 			}
@@ -515,6 +523,7 @@ export const LeagueSearchDocument = graphql(`
 			name
 			abbreviation
 			color
+			logoUrl
 		}
 		players(leagueId: $leagueId, search: $search, first: 5) {
 			id
@@ -523,6 +532,7 @@ export const LeagueSearchDocument = graphql(`
 				id
 				abbreviation
 				color
+				logoUrl
 			}
 		}
 	}

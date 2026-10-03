@@ -18,6 +18,8 @@ export const PlayerRef = builder.drizzleObject("players", {
 		// player's sport's own rule - see players.rookieEligible's comment in
 		// db/schema/players.ts for why this isn't just seasonsInLeague === 0.
 		rookieEligible: t.exposeBoolean("rookieEligible"),
+		// Null when the league's CDN had no match - see players.headshotUrl.
+		headshotUrl: t.exposeString("headshotUrl", { nullable: true }),
 	}),
 })
 

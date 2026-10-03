@@ -1,6 +1,11 @@
 import { css } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
 import { match } from "ts-pattern"
+import {
+	type ImagePlayer,
+	type ImageTeam,
+	PlayerOrTeamImage,
+} from "#/components/ui/player-or-team-image"
 import type { QuestionShape } from "#/graphql/generated/graphql"
 import { formatGuess } from "#/lib/field-signal"
 import {
@@ -15,6 +20,9 @@ type Option = {
 	label: string
 	fieldPct: number | null
 	callCount: number
+	// Set when the option is a real player or team, for its image.
+	player?: ImagePlayer | null
+	team?: ImageTeam | null
 }
 
 type Props = {
@@ -60,6 +68,7 @@ export function QuestionCardField({
 	const renderRow = (option: Option) => (
 		<OptionRow
 			key={option.id}
+			image={<PlayerOrTeamImage player={option.player} team={option.team} />}
 			label={optionDisplayLabel(
 				option.label,
 				isOverUnderQuestionShape(shape),

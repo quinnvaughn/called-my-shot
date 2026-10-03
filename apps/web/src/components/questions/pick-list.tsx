@@ -1,6 +1,8 @@
+import type { ReactNode } from "react"
 import { css } from "styled-system/css"
 import { VStack } from "styled-system/jsx"
 import { match } from "ts-pattern"
+import { PlayerOrTeamImage } from "#/components/ui/player-or-team-image"
 import {
 	type CallSummaryData,
 	convictionSummary,
@@ -32,7 +34,16 @@ export function PickList({ call }: Props) {
 								? "win"
 								: "loss"
 					return (
-						<PickRow key={selection.id} state={state}>
+						<PickRow
+							key={selection.id}
+							state={state}
+							image={
+								<PlayerOrTeamImage
+									player={selection.option.player}
+									team={selection.option.team}
+								/>
+							}
+						>
 							<span
 								className={css({
 									fontSize: "lg",
@@ -86,7 +97,15 @@ export function PickList({ call }: Props) {
 				const context = resultContext(call)
 				return (
 					<VStack gap="1.5" alignItems="stretch">
-						<PickRow state={result.status}>
+						<PickRow
+							state={result.status}
+							image={
+								<PlayerOrTeamImage
+									player={call.selections[0]?.option.player}
+									team={call.selections[0]?.option.team}
+								/>
+							}
+						>
 							<span
 								className={css({
 									fontSize: "lg",
@@ -118,10 +137,12 @@ export function PickList({ call }: Props) {
 
 function PickRow({
 	state,
+	image,
 	children,
 }: {
 	state: "win" | "loss" | "pending"
-	children: React.ReactNode
+	image?: ReactNode
+	children: ReactNode
 }) {
 	return (
 		<div
@@ -133,6 +154,7 @@ function PickRow({
 			})}
 		>
 			<PickStateIcon state={state} />
+			{image}
 			{children}
 		</div>
 	)

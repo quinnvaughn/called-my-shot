@@ -312,6 +312,10 @@ function RouteComponent() {
 		question.numericToleranceAbsolute,
 	)
 	const answer = state.isSettled ? resolvedAnswerSummary(question) : null
+	// The player or team the answer is, when exactly one option won.
+	const correctOptions = question.options.filter((o) => o.isCorrect)
+	const answerSubject =
+		answer && correctOptions.length === 1 ? (correctOptions[0] ?? null) : null
 	const fieldAccuracyPct = state.isSettled
 		? fieldAccuracyPctFor(question)
 		: null
@@ -627,6 +631,7 @@ function RouteComponent() {
 						numericToleranceAbsolute={question.numericToleranceAbsolute}
 						isRateStat={callForm.isRateStat}
 						answer={answer}
+						answerSubject={answerSubject}
 						resolutionNote={question.resolutionNote}
 						voidedReason={question.voidedReason}
 						fieldAccuracyPct={fieldAccuracyPct}

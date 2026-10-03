@@ -15,6 +15,11 @@ import { isOverUnderShape } from "#/components/questions/cast-call-form/use-cast
 import { Button } from "#/components/ui/button"
 import { FormError } from "#/components/ui/form-error"
 import { Modal } from "#/components/ui/modal"
+import {
+	type ImagePlayer,
+	type ImageTeam,
+	PlayerOrTeamImage,
+} from "#/components/ui/player-or-team-image"
 import { useRequireAuth } from "#/hooks/use-require-auth"
 import { formatGuess } from "#/lib/field-signal"
 import { optionDisplayLabel } from "#/lib/question-labels"
@@ -68,7 +73,10 @@ export function ConfirmCallModal({
 		isSeasonLongShape(shape) &&
 		question.seasonGamesPlayed !== null &&
 		question.seasonTotalGames !== null
-			? seasonEarlyTierFor(question.seasonGamesPlayed, question.seasonTotalGames)
+			? seasonEarlyTierFor(
+					question.seasonGamesPlayed,
+					question.seasonTotalGames,
+				)
 			: undefined
 
 	// Split mode already shows each pick's own conviction inline below - a
@@ -134,6 +142,7 @@ export function ConfirmCallModal({
 								<ConfirmPickRow
 									key={selection.optionId}
 									name={optionLabel(option)}
+									subject={option}
 									meta={meta}
 									payout={previewSelectionPoints(
 										basePoints,
@@ -275,10 +284,13 @@ export function ConfirmCallModal({
 // thing being confirmed, everything else here is supporting detail.
 function ConfirmPickRow({
 	name,
+	subject = null,
 	meta,
 	payout,
 }: {
 	name: string
+	// The player or team the pick is, shown beside it.
+	subject?: { player?: ImagePlayer | null; team?: ImageTeam | null } | null
 	meta: string
 	payout:
 		| { win: number; lose: number }
@@ -297,18 +309,23 @@ function ConfirmPickRow({
 			})}
 		>
 			<VStack gap="0.5" alignItems="stretch" className={css({ minWidth: 0 })}>
-				<span
-					className={css({
-						fontSize: "sm",
-						fontWeight: "bold",
-						color: "fg.default",
-						overflow: "hidden",
-						textOverflow: "ellipsis",
-						whiteSpace: "nowrap",
-					})}
-				>
-					{name}
-				</span>
+				<HStack gap="2" alignItems="center" minWidth="0">
+					{subject && (
+						<PlayerOrTeamImage player={subject.player} team={subject.team} />
+					)}
+					<span
+						className={css({
+							fontSize: "sm",
+							fontWeight: "bold",
+							color: "fg.default",
+							overflow: "hidden",
+							textOverflow: "ellipsis",
+							whiteSpace: "nowrap",
+						})}
+					>
+						{name}
+					</span>
+				</HStack>
 				<span
 					className={css({
 						fontFamily: "mono",

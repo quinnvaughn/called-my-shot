@@ -1,9 +1,10 @@
-// Thin wrappers over MLB's own public, unauthenticated Stats API. Used only
-// for rookie eligibility (see mlb-rookie-eligibility.ts) - ESPN's roster feed
+// Thin wrappers over MLB's own public, unauthenticated Stats API. Used for
+// rookie eligibility (see mlb-rookie-eligibility.ts) - ESPN's roster feed
 // (espn-client.ts) has no cumulative career stats, and this is MLB's own
 // data, which is the authoritative source for something MLB itself
-// administers (Rookie of the Year). No key needed, no official support
-// either - if a shape here breaks, that's MLB, not us.
+// administers (Rookie of the Year) - and for the MLB ids its CDN keys
+// headshots and logos by (see league-images.ts). No key needed, no official
+// support either - if a shape here breaks, that's MLB, not us.
 const BASE_URL = "https://statsapi.mlb.com/api/v1"
 
 // sportId 1 is MLB itself in MLB's own sport taxonomy (2 is AAA, etc.) -

@@ -277,6 +277,10 @@ function RouteComponent() {
 		username: view.username,
 		avatarUrl: view.avatarUrl,
 		pickLabel: view.pickLabel,
+		pickSubject:
+			call.selections.length === 1
+				? (call.selections[0]?.option ?? null)
+				: null,
 		picks:
 			(call.question.shape === "PLAYER_SEASON_AWARD" ||
 				call.question.shape === "TEAM_SEASON_AWARD") &&
@@ -284,6 +288,8 @@ function RouteComponent() {
 				? call.selections.map((s) => ({
 						label: s.option.label,
 						hit: s.option.isCorrect ?? null,
+						player: s.option.player,
+						team: s.option.team,
 					}))
 				: null,
 		calledAt: view.calledAt,

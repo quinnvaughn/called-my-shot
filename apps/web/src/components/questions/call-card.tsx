@@ -92,11 +92,13 @@ export const CallCardFragment = graphql(`
 					id
 					abbreviation
 					color
+					logoUrl
 				}
 				awayTeam {
 					id
 					abbreviation
 					color
+					logoUrl
 				}
 			}
 			series {
@@ -113,11 +115,13 @@ export const CallCardFragment = graphql(`
 						id
 						abbreviation
 						color
+						logoUrl
 					}
 					awayTeam {
 						id
 						abbreviation
 						color
+						logoUrl
 					}
 				}
 			}
@@ -139,6 +143,17 @@ export const CallCardFragment = graphql(`
 				label
 				isCorrect
 				actualValue
+				team {
+					id
+					abbreviation
+					color
+					logoUrl
+				}
+				player {
+					id
+					name
+					headshotUrl
+				}
 			}
 		}
 	}

@@ -6,6 +6,10 @@ import {
 	type ToleranceSpec,
 } from "@called-my-shot/scoring"
 import { match } from "ts-pattern"
+import type {
+	ImagePlayer,
+	ImageTeam,
+} from "#/components/ui/player-or-team-image"
 import type { QuestionShape } from "#/graphql/generated/graphql"
 import {
 	isRateStat as computeIsRateStat,
@@ -60,6 +64,11 @@ export type CallSummaryData = {
 			label: string
 			isCorrect: boolean | null
 			actualValue?: number | null
+			// The real team or player this option is, when it is one - shown
+			// beside the pick by PickList. Optional for the same opt-in reason
+			// as actualValue.
+			team?: ImageTeam | null
+			player?: ImagePlayer | null
 		}
 	}[]
 }
@@ -332,10 +341,7 @@ export function callMarginFor(call: CallSummaryData): CallMargin | null {
 // The four words the card leads with in place of "Called it" / "Missed".
 // Deliberately says nothing a reader has to take on faith: each one describes
 // the size of the gap the Off by row states underneath it.
-export function marginLabel(
-	verdict: MarginVerdict,
-	won: boolean,
-): string {
+export function marginLabel(verdict: MarginVerdict, won: boolean): string {
 	return match([verdict, won] as const)
 		.with(["narrow", false], () => "Inches away")
 		.with(["narrow", true], () => "By a hair")

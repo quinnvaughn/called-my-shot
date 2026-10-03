@@ -132,6 +132,7 @@ export async function syncTeams(
 			continue
 		}
 		const conferenceDivision = conferenceDivisionByEspnId.get(espnTeam.id)
+		const logoUrl = (await config.images?.teamLogoUrl(espnTeam)) ?? null
 		await db.transaction(async (tx) => {
 			const [row] = await tx
 				.insert(teams)
@@ -142,6 +143,7 @@ export async function syncTeams(
 					color: toHex(espnTeam.color),
 					conference: conferenceDivision?.conference ?? null,
 					division: conferenceDivision?.division ?? null,
+					logoUrl,
 				})
 				.onConflictDoUpdate({
 					target: [teams.leagueId, teams.abbreviation],
@@ -150,6 +152,8 @@ export async function syncTeams(
 						color: toHex(espnTeam.color),
 						conference: conferenceDivision?.conference ?? null,
 						division: conferenceDivision?.division ?? null,
+						// A source that's down this run keeps the logo it had.
+						...(logoUrl && { logoUrl }),
 					},
 				})
 				.returning()

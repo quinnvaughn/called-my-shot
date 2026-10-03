@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router"
-import { useState } from "react"
+import { type ReactNode, useState } from "react"
 import { FiChevronDown, FiChevronRight } from "react-icons/fi"
 import { css, cx } from "styled-system/css"
 import { Flex, HStack, VStack } from "styled-system/jsx"
@@ -12,6 +12,8 @@ import { formatReturn } from "#/lib/report-card"
 export type PointsRow = {
 	key: string
 	label: string
+	// Shown before the label, like a team's logo.
+	icon?: ReactNode
 	netPoints: number
 	// Null for a row no call earned, like the bonuses row.
 	wins: number | null
@@ -293,6 +295,9 @@ function RowBody({
 			<span
 				className={cx(
 					css({
+						display: "flex",
+						alignItems: "center",
+						gap: "2",
 						fontSize: "sm",
 						flexShrink: "0",
 						sm: { width: "40" },
@@ -302,6 +307,7 @@ function RowBody({
 						: css({ color: "fg.default", fontWeight: "medium" }),
 				)}
 			>
+				{row.icon}
 				{row.label}
 			</span>
 			<HStack gap="3" flex="1" minWidth="0">

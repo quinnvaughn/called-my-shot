@@ -8,8 +8,8 @@ import { ColdStreaksSection } from "#/components/profile/cold-streaks-section"
 import {
 	PointsBreakdown,
 	type PointsGroup,
-	type PointsView,
 	type PointsRow,
+	type PointsView,
 } from "#/components/profile/points-breakdown"
 import { ProfileHeader } from "#/components/profile/profile-header"
 import { ProfileShareRow } from "#/components/profile/profile-share-row"
@@ -21,6 +21,7 @@ import { CallCard } from "#/components/questions/call-card"
 import { EmptyState } from "#/components/ui/empty-state"
 import { NotFound } from "#/components/ui/not-found"
 import { Tabs } from "#/components/ui/tabs"
+import { TeamBadge } from "#/components/ui/team-badge"
 import {
 	UserProfileDocument,
 	UserRecordDocument,
@@ -135,11 +136,11 @@ function breakdownGroups(record: ProfileRecord): PointsGroup[] {
 				{
 					label: "By league",
 					rows: record.byLeague.map((row) => ({
-				key: row.league.id,
-				label: row.league.name,
-				netPoints: row.netPoints,
-				wins: row.wins,
-				losses: row.losses,
+						key: row.league.id,
+						label: row.league.name,
+						netPoints: row.netPoints,
+						wins: row.wins,
+						losses: row.losses,
 						returnPct: row.returnPct ?? null,
 						leagueSlug: row.league.slug,
 					})),
@@ -168,6 +169,13 @@ function breakdownGroups(record: ProfileRecord): PointsGroup[] {
 	const teamRows: PointsRow[] = record.byTeam.map((row) => ({
 		key: row.team?.id ?? "no-team",
 		label: row.team?.name ?? "No specific team",
+		icon: row.team && (
+			<TeamBadge
+				abbreviation={row.team.abbreviation}
+				color={row.team.color}
+				logoUrl={row.team.logoUrl}
+			/>
+		),
 		netPoints: row.netPoints,
 		wins: row.wins,
 		losses: row.losses,

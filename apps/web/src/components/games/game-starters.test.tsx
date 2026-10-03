@@ -20,6 +20,7 @@ const starter = (
 	statLine: null,
 	injuryStatus: null,
 	team: { id: teamId },
+	player: null,
 	...fields,
 })
 

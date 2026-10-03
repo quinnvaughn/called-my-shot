@@ -38,6 +38,10 @@ export type EspnAthlete = {
 	// Whole seasons of experience, 0 for a rookie. Missing on the rare roster
 	// entry ESPN hasn't backfilled it for.
 	experience?: { years: number }
+	// ESPN's own headshot. Only read for the NFL, whose league CDN keys its
+	// photos by an opaque image id rather than a player id - see
+	// db/sync/league-images.ts.
+	headshot?: { href: string }
 }
 
 // ESPN's own status vocabulary. `name` is open-ended: a game in progress is

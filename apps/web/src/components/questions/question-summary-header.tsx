@@ -19,8 +19,8 @@ type QuestionSummaryData = {
 		startsAt: string
 		homeScore: number | null
 		awayScore: number | null
-		homeTeam: { abbreviation: string; color: string }
-		awayTeam: { abbreviation: string; color: string }
+		homeTeam: { abbreviation: string; color: string; logoUrl?: string | null }
+		awayTeam: { abbreviation: string; color: string; logoUrl?: string | null }
 	} | null
 	// The postseason series a series question is about. Optional because not
 	// every fragment feeding this header asks for it.

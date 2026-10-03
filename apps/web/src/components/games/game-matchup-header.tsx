@@ -19,7 +19,12 @@ type TeamRecord = {
 	ties: number
 	otLosses?: number | null
 } | null
-type Team = { name: string; abbreviation: string; color: string }
+type Team = {
+	name: string
+	abbreviation: string
+	color: string
+	logoUrl?: string | null
+}
 
 type Props = {
 	game: {
@@ -176,7 +181,12 @@ function TeamLine({
 			minWidth="0"
 			className={home ? homeLineClass : awayLineClass}
 		>
-			<TeamBadge abbreviation={team.abbreviation} color={team.color} />
+			<TeamBadge
+				abbreviation={team.abbreviation}
+				color={team.color}
+				logoUrl={team.logoUrl}
+				size={dense ? "sm" : "lg"}
+			/>
 			{/* Alignment goes through the VStack prop, not a className: the
 			    pattern's own alignItems="center" default otherwise wins. Away
 			    reads from the left edge; home from the right once it sits on

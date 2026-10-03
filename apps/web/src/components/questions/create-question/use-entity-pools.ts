@@ -8,6 +8,7 @@ export function toPlayerItems(players: CatalogPlayer[]): EntitySearchItem[] {
 		label: player.name,
 		kind: "player" as const,
 		meta: player.currentTeam?.abbreviation,
+		image: { player },
 	}))
 }
 
@@ -17,6 +18,7 @@ export function toTeamItems(teams: CatalogTeam[]): EntitySearchItem[] {
 		label: team.name,
 		kind: "team" as const,
 		meta: team.abbreviation,
+		image: { team },
 	}))
 }
 

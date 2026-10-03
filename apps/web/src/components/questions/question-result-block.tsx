@@ -1,6 +1,11 @@
 import { css } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
 import { match } from "ts-pattern"
+import {
+	type ImagePlayer,
+	type ImageTeam,
+	PlayerOrTeamImage,
+} from "#/components/ui/player-or-team-image"
 import { Tag } from "#/components/ui/tag"
 import type { QuestionShape } from "#/graphql/generated/graphql"
 import {
@@ -23,6 +28,9 @@ type Option = {
 	// comparing the options, null everywhere else. See
 	// questionOptions.actualValue in the API.
 	actualValue: number | null
+	// Set when the option is a real player or team, for its image.
+	player?: ImagePlayer | null
+	team?: ImageTeam | null
 }
 
 type Props = {
@@ -157,13 +165,21 @@ export function QuestionResultBlock({ question, disputed }: Props) {
 					"PLAYER_AWARD_FINALISTS",
 					() => (
 						<VStack gap="1.5" alignItems="stretch">
-							<span className={valueClass}>
-								{winner
-									? headToHeadScore
-										? `${winner.label}, ${headToHeadScore}`
-										: winner.label
-									: "-"}
-							</span>
+							<HStack gap="2" alignItems="center" minWidth="0">
+								{winner && (
+									<PlayerOrTeamImage
+										player={winner.player}
+										team={winner.team}
+									/>
+								)}
+								<span className={valueClass}>
+									{winner
+										? headToHeadScore
+											? `${winner.label}, ${headToHeadScore}`
+											: winner.label
+										: "-"}
+								</span>
+							</HStack>
 							<span className={subClass}>{winnerSub}</span>
 						</VStack>
 					),
@@ -184,15 +200,22 @@ export function QuestionResultBlock({ question, disputed }: Props) {
 										alignItems="center"
 										paddingBlock="0.5"
 									>
-										<span
-											className={css({
-												width: "1",
-												height: "1",
-												borderRadius: "full",
-												backgroundColor: "fg.subtle",
-												flexShrink: "0",
-											})}
-										/>
+										{option.player || option.team ? (
+											<PlayerOrTeamImage
+												player={option.player}
+												team={option.team}
+											/>
+										) : (
+											<span
+												className={css({
+													width: "1",
+													height: "1",
+													borderRadius: "full",
+													backgroundColor: "fg.subtle",
+													flexShrink: "0",
+												})}
+											/>
+										)}
 										<span
 											className={css({
 												fontSize: "md",

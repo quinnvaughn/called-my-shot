@@ -3,6 +3,7 @@ import { FaCheck, FaXmark } from "react-icons/fa6"
 import { css, cx } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
 import { match, P } from "ts-pattern"
+import { PlayerOrTeamImage } from "#/components/ui/player-or-team-image"
 import { Tag } from "#/components/ui/tag"
 import { type FragmentType, graphql, useFragment } from "#/graphql/generated"
 import {
@@ -48,6 +49,17 @@ export const PickPositionRowCallFragment = graphql(`
 				label
 				fieldPct
 				isCorrect
+				team {
+					id
+					abbreviation
+					color
+					logoUrl
+				}
+				player {
+					id
+					name
+					headshotUrl
+				}
 			}
 		}
 	}
@@ -294,6 +306,10 @@ export function PickPositionRow({
 												selection.option.isCorrect,
 												isSettled,
 											)}
+										/>
+										<PlayerOrTeamImage
+											player={selection.option.player}
+											team={selection.option.team}
 										/>
 										<span
 											className={css({ fontSize: "sm", fontWeight: "bold" })}

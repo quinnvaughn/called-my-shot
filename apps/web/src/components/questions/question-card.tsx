@@ -51,6 +51,17 @@ export const QuestionCardFragment = graphql(`
 			callCount
 			isCorrect
 			actualValue
+			team {
+				id
+				abbreviation
+				color
+				logoUrl
+			}
+			player {
+				id
+				name
+				headshotUrl
+			}
 		}
 		game {
 			id
@@ -62,11 +73,13 @@ export const QuestionCardFragment = graphql(`
 				id
 				abbreviation
 				color
+				logoUrl
 			}
 			awayTeam {
 				id
 				abbreviation
 				color
+				logoUrl
 			}
 		}
 		series {
@@ -83,11 +96,13 @@ export const QuestionCardFragment = graphql(`
 					id
 					abbreviation
 					color
+					logoUrl
 				}
 				awayTeam {
 					id
 					abbreviation
 					color
+					logoUrl
 				}
 			}
 		}

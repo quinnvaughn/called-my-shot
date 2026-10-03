@@ -6,6 +6,7 @@ import { LockLine } from "#/components/questions/lock-line"
 import { QuestionSummaryHeader } from "#/components/questions/question-summary-header"
 import { StatContextHighlights } from "#/components/questions/stat-context-card"
 import { Card } from "#/components/ui/card"
+import { PlayerOrTeamImage } from "#/components/ui/player-or-team-image"
 import { type FragmentType, graphql, useFragment } from "#/graphql/generated"
 import { guestPickStatContextQuery } from "#/graphql/queries/question"
 import { callersText, isRateStat } from "#/lib/field-signal"
@@ -45,6 +46,17 @@ export const GuestPickCardFragment = graphql(`
 			label
 			fieldPct
 			callCount
+			team {
+				id
+				abbreviation
+				color
+				logoUrl
+			}
+			player {
+				id
+				name
+				headshotUrl
+			}
 		}
 		game {
 			id
@@ -58,12 +70,14 @@ export const GuestPickCardFragment = graphql(`
 				name
 				abbreviation
 				color
+				logoUrl
 			}
 			awayTeam {
 				id
 				name
 				abbreviation
 				color
+				logoUrl
 			}
 			homeTeamRecord {
 				wins
@@ -227,6 +241,10 @@ export function GuestPickCard({
 											radioBaseClass,
 											selected ? radioSelectedClass : radioIdleClass,
 										)}
+									/>
+									<PlayerOrTeamImage
+										player={option.player}
+										team={option.team}
 									/>
 									<span
 										className={css({
