@@ -12,14 +12,23 @@ import {
 
 type LiveCall = { id: string } & FragmentType<typeof MyCallsTabFragment>
 
-// The Open tab's calls whose game is being played right now, as a
-// horizontally scrolling row between the tabs and the sort. The server keeps
-// these out of the list below (see Query.myLiveCalls), so nothing appears
-// twice.
+// The viewer's calls whose game is being played right now, as a horizontally
+// scrolling row. On My Calls it sits between the Open tab's tabs and sort, and
+// the server keeps these out of the list below it (see Query.myLiveCalls), so
+// nothing appears twice on that page. Home shows the same row unfiltered.
 //
 // Renders nothing at all when no game the viewer called is in flight, which is
 // most of the time.
-export function LiveCallsSection({ filters }: { filters: MyCallsFilters }) {
+//
+// `divider` rules it off from a list directly beneath it. It lives here rather
+// than at the call site so it disappears along with the row.
+export function LiveCallsSection({
+	filters,
+	divider = false,
+}: {
+	filters: MyCallsFilters
+	divider?: boolean
+}) {
 	const { data } = useQuery(myLiveCallsQuery(filters))
 	const calls = data?.myLiveCalls ?? []
 
@@ -68,13 +77,15 @@ export function LiveCallsSection({ filters }: { filters: MyCallsFilters }) {
 						</>
 					}
 				/>
-				<div
-					className={css({
-						height: "1px",
-						bg: "border.default",
-						marginBlockStart: "1",
-					})}
-				/>
+				{divider && (
+					<div
+						className={css({
+							height: "1px",
+							bg: "border.default",
+							marginBlockStart: "1",
+						})}
+					/>
+				)}
 			</VStack>
 		</section>
 	)

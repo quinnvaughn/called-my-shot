@@ -1,8 +1,9 @@
 import { graphql } from "#/graphql/generated"
 
 // Home - a bounded, time-scoped checklist, not a growing catalogue (see
-// home.tsx). Six sections, one query: the viewer's career stats (the same
-// numbers the profile leads with), room cards (per-league counts),
+// home.tsx). Seven sections, one query: the viewer's career stats (the same
+// numbers the profile leads with), their calls on games in flight (the same
+// list My Calls pins above its Open tab), room cards (per-league counts),
 // locking soon (site-wide, closing-soon open questions - reuses the same
 // `questions(sort: CLOSING_SOON)` behavior the old cross-league feed used),
 // just resolved (the viewer's own calls, most recently decided first), the
@@ -68,6 +69,10 @@ export const HomeDashboardDocument = graphql(`
 					...ResultsCalendar_calendar
 				}
 			}
+		}
+		myLiveCalls {
+			id
+			...MyCallsTab_call
 		}
 		myRecentResolvedCalls(first: 3) {
 			id

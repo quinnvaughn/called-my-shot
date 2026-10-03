@@ -143,7 +143,9 @@ function RouteComponent() {
 
 			{/* Open tab only: a resolved call's game finished long ago, so
 			there is never anything live to pin above that list. */}
-			{activeTab === "open" && <LiveCallsSection filters={queryFilters} />}
+			{activeTab === "open" && (
+				<LiveCallsSection filters={queryFilters} divider />
+			)}
 
 			<SortSwitcher
 				sorts={MY_CALL_SORTS[activeTab].options}

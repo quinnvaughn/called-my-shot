@@ -4,6 +4,7 @@ import { type ReactNode, useEffect } from "react"
 import { css } from "styled-system/css"
 import { Grid, HStack, VStack } from "styled-system/jsx"
 import { LeagueRoomCard } from "#/components/home/league-room-card"
+import { LiveCallsSection } from "#/components/my-calls/live-calls-section"
 import { OnboardingChecklist } from "#/components/onboarding/onboarding-checklist"
 import { ResultsCalendar } from "#/components/profile/results-calendar"
 import { StatGrid, statGridItems } from "#/components/profile/stat-grid"
@@ -12,6 +13,7 @@ import { QuestionCard } from "#/components/questions/question-card"
 import { EmptyState } from "#/components/ui/empty-state"
 import { PageHeader } from "#/components/ui/page-header"
 import { HomeDashboardDocument } from "#/graphql/queries/home"
+import { myLiveCallsQuery } from "#/graphql/queries/my-calls"
 import { gqlQueryOptions } from "#/graphql/query-options"
 import { submitGuestPicks } from "#/lib/submit-guest-picks"
 
@@ -39,7 +41,15 @@ export const Route = createFileRoute("/_app/_authed/home")({
 	// only shows the rail from xl up, so RouteComponent repeats both sections
 	// inline below that.
 	staticData: { rightRail: <HomeRail /> },
-	loader: ({ context }) => context.queryClient.query(homeDashboardQuery),
+	// The live row reads its own cache entry (it's shared with My Calls), so
+	// it's handed the dashboard's copy rather than fetching after first paint
+	// and pushing everything below it down.
+	loader: async ({ context }) => {
+		const data = await context.queryClient.query(homeDashboardQuery)
+		context.queryClient.setQueryData(myLiveCallsQuery().queryKey, {
+			myLiveCalls: data.myLiveCalls,
+		})
+	},
 })
 
 // Deliberately ranks nothing and grows with nothing - no MOST_CALLED/NEW sort, no
@@ -83,6 +93,12 @@ function RouteComponent() {
 					resolvedCallCount: stats?.resolvedCallCount ?? 0,
 				})}
 			/>
+
+			{/* Above Leagues: when it renders at all, a game the viewer called is
+			    on right now, which is the most time-sensitive thing on the page.
+			    Main column only, since the row scrolls sideways and needs the
+			    width. */}
+			<LiveCallsSection filters={{}} />
 
 			<VStack gap="3" alignItems="stretch">
 				<SectionLabel>Leagues</SectionLabel>
