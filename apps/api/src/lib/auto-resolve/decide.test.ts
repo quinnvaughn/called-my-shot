@@ -201,7 +201,7 @@ describe("decideGameQuestion - other game shapes", () => {
 		expect(decision).toEqual({ kind: "void", reason: "tie" })
 	})
 
-	it("marks the game leader, and fails when the leader isn't an option", () => {
+	it("marks the game leader, and voids when the leader isn't an option", () => {
 		const nba = sources({ box: box("nba") })
 		const extractor = GAME_EXTRACTORS["nba:game:player:3-Pointers Made"]
 		const values = extractor.readAll?.(nba) ?? new Map<string, number>()
@@ -232,8 +232,8 @@ describe("decideGameQuestion - other game shapes", () => {
 			kind: "resolve",
 			correctOptionIds: leaders.map((id) => `option-${id}`),
 		})
-		expect(decideGameQuestion(leaderContext([]))).toMatchObject({
-			kind: "fail",
+		expect(decideGameQuestion(leaderContext([]))).toEqual({
+			kind: "void",
 			reason: "leader_not_in_pool",
 		})
 	})

@@ -163,14 +163,17 @@ export function gradeLeader(
 }
 
 // A leader question graded over everyone who recorded the stat, not just the
-// pool. The pool is fixed when the question is created, so a leader who wasn't
-// in it can't be marked correct. Every option is carried, not just whoever tied
-// for the most: grading reads the same winner off it either way, and carrying
-// the whole pool is what lets the settled question say what the leader
-// actually put up. A pool player with no value put up none of the stat.
+// pool. The pool is fixed when the question is created, so someone outside it
+// can still lead. A pool player tied with them for the most led too and is
+// marked correct, same as any tie. A leader outside the pool with nobody in it
+// level was no one's pick to make, so the question voids. Every option is
+// carried, not just whoever tied for the most: grading reads the same winner
+// off it either way, and carrying the whole pool is what lets the settled
+// question say what the leader actually put up. A pool player with no value
+// put up none of the stat.
 export function gradePoolLeader(
 	options: Pick<QuestionOption, "id" | "playerId">[],
-	values: { playerId: string | null; who: string; value: number }[],
+	values: { playerId: string | null; value: number }[],
 ): Decision {
 	const max = Math.max(0, ...values.map((v) => v.value))
 	const optionByPlayerId = new Map(
@@ -179,16 +182,13 @@ export function gradePoolLeader(
 	const valueByOptionId = new Map(
 		options.flatMap((o): [string, number][] => (o.playerId ? [[o.id, 0]] : [])),
 	)
-	for (const { playerId, who, value } of values) {
+	for (const { playerId, value } of values) {
 		const option = playerId ? optionByPlayerId.get(playerId) : undefined
-		if (option) {
-			valueByOptionId.set(option.id, value)
-		} else if (max > 0 && equal(value, max)) {
-			return fail(
-				"leader_not_in_pool",
-				`${who} led with ${value} but isn't an option`,
-			)
-		}
+		if (option) valueByOptionId.set(option.id, value)
+	}
+	const poolMax = Math.max(0, ...valueByOptionId.values())
+	if (max > 0 && !equal(poolMax, max)) {
+		return { kind: "void", reason: "leader_not_in_pool" }
 	}
 	return gradeLeader(
 		[...valueByOptionId].map(([optionId, value]) => ({ optionId, value })),
@@ -298,9 +298,6 @@ export function decideGameQuestion(ctx: GameQuestionContext): Decision {
 			options,
 			[...extractor.readAll(sources)].map(([espnAthleteId, value]) => ({
 				playerId: ctx.playerIdByEspnAthleteId.get(espnAthleteId) ?? null,
-				who:
-					sources.box.athletes.get(espnAthleteId)?.name ??
-					`ESPN athlete ${espnAthleteId}`,
 				value,
 			})),
 		)

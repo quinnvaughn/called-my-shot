@@ -364,6 +364,10 @@ function voidedText(reason: QuestionVoidedReason | null): string {
 			"NO_LEADER",
 			() => "Nobody recorded this stat, so no call on it scores.",
 		)
+		.with(
+			"LEADER_NOT_IN_POOL",
+			() => "The leader wasn't one of the options, so no call on it scores.",
+		)
 		.with("OTHER", null, () => "No call on this question scores.")
 		.exhaustive()
 }

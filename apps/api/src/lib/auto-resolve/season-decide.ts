@@ -137,8 +137,8 @@ export type TeamSeasonLeaderContext = {
 }
 
 // player_team_season_stat_leader: graded over everyone who played for the team,
-// so a player who joined after the pool was built and led it fails rather than
-// handing the win to whoever finished second. A total with games missing from
+// so a player who joined after the pool was built and led it alone voids the
+// question rather than handing the win to whoever finished second. A total with games missing from
 // it would undercount, so it waits for the box-score sync to fill them.
 export function decideTeamSeasonLeader(ctx: TeamSeasonLeaderContext): Decision {
 	if (ctx.gamesMissingBoxScores > 0) {
@@ -149,10 +149,6 @@ export function decideTeamSeasonLeader(ctx: TeamSeasonLeaderContext): Decision {
 	}
 	return gradePoolLeader(
 		ctx.options,
-		ctx.totals.map((t) => ({
-			playerId: t.playerId,
-			who: t.sourceAthleteId,
-			value: t.value,
-		})),
+		ctx.totals.map((t) => ({ playerId: t.playerId, value: t.value })),
 	)
 }

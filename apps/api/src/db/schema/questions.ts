@@ -97,12 +97,15 @@ export const questionStatus = pgEnum("question_status", [
 // the player or team the question is about didn't play. game_not_completed:
 // the game was postponed or abandoned. tie: a head-to-head ended level, a
 // push. no_leader: nobody recorded the stat a leader question asks about.
+// leader_not_in_pool: a leader question's leader wasn't one of its options,
+// and no option tied them.
 // other: an admin's call, explained in resolutionNote.
 export const questionVoidedReason = pgEnum("question_voided_reason", [
 	"subject_did_not_play",
 	"game_not_completed",
 	"tie",
 	"no_leader",
+	"leader_not_in_pool",
 	"other",
 ])
 export type QuestionVoidedReason =

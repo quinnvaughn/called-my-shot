@@ -9,8 +9,9 @@ export type StatGridItem = {
 	value: string
 	// What the stat measures, shown from the info icon beside the label.
 	description: string
-	// A second line under the label, for a stat that isn't showing a number
-	// yet and owes the reader a reason why.
+	// Shown in place of the value, for a stat that isn't showing a number yet
+	// and owes the reader a reason why. Kept on the value's row so a locked
+	// tile is no taller than its neighbors.
 	hint?: string
 }
 
@@ -92,36 +93,41 @@ export function StatGrid({ items }: { items: StatGridItem[] }) {
 			{items.map((item) => (
 				<Card key={item.label} size="sm" variant="surface">
 					<Card.Body>
-						<VStack gap="0.5" alignItems="flex-start">
-							<span className={css({ fontFamily: "heading", fontSize: "lg" })}>
-								{item.value}
-							</span>
-							<HStack gap="1">
-								<span
-									className={css({
-										fontFamily: "mono",
-										fontSize: "3xs",
-										letterSpacing: "wide",
-										color: "fg.subtle",
-										textTransform: "uppercase",
-									})}
-								>
-									{item.label}
-								</span>
+						<VStack gap="0.5" alignItems="stretch">
+							{/* The tip rides the value's row, so a label that wraps
+							    in a narrow tile doesn't drag the icon down with it. */}
+							<HStack justify="space-between" alignItems="center" gap="2">
+								{item.hint ? (
+									<span
+										className={css({
+											fontFamily: "mono",
+											fontSize: "xs",
+											letterSpacing: "wide",
+											color: "fg.subtle",
+										})}
+									>
+										{item.hint}
+									</span>
+								) : (
+									<span
+										className={css({ fontFamily: "heading", fontSize: "lg" })}
+									>
+										{item.value}
+									</span>
+								)}
 								<InfoTip label={item.label} text={item.description} />
 							</HStack>
-							{item.hint && (
-								<span
-									className={css({
-										fontFamily: "mono",
-										fontSize: "3xs",
-										letterSpacing: "wide",
-										color: "fg.subtle",
-									})}
-								>
-									{item.hint}
-								</span>
-							)}
+							<span
+								className={css({
+									fontFamily: "mono",
+									fontSize: "3xs",
+									letterSpacing: "wide",
+									color: "fg.subtle",
+									textTransform: "uppercase",
+								})}
+							>
+								{item.label}
+							</span>
 						</VStack>
 					</Card.Body>
 				</Card>

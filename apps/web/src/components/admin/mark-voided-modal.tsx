@@ -18,6 +18,7 @@ const REASON_OPTIONS: { value: QuestionVoidedReason; label: string }[] = [
 	{ value: "GAME_NOT_COMPLETED", label: "Game not completed" },
 	{ value: "TIE", label: "Tie" },
 	{ value: "NO_LEADER", label: "Nobody recorded the stat" },
+	{ value: "LEADER_NOT_IN_POOL", label: "Leader wasn't an option" },
 	{ value: "OTHER", label: "Other" },
 ]
 
@@ -26,6 +27,7 @@ const reasonToSchemaValue = {
 	GAME_NOT_COMPLETED: "game_not_completed",
 	TIE: "tie",
 	NO_LEADER: "no_leader",
+	LEADER_NOT_IN_POOL: "leader_not_in_pool",
 	OTHER: "other",
 } as const satisfies Record<QuestionVoidedReason, string>
 

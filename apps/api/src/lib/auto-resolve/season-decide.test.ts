@@ -373,15 +373,24 @@ describe("decideTeamSeasonLeader", () => {
 		expect(decision).toMatchObject({ correctOptionIds: ["opt-a", "opt-b"] })
 	})
 
-	it("fails when someone outside the pool led the team", () => {
+	it("voids when someone outside the pool led the team alone", () => {
 		const decision = decideTeamSeasonLeader({
 			options,
 			totals: [total("a", 2400), total("traded-in", 2500), total(null, 100)],
 			gamesMissingBoxScores: 0,
 		})
+		expect(decision).toEqual({ kind: "void", reason: "leader_not_in_pool" })
+	})
+
+	it("marks a pool player tied with a leader outside the pool correct", () => {
+		const decision = decideTeamSeasonLeader({
+			options,
+			totals: [total("a", 2500), total("traded-in", 2500), total("b", 900)],
+			gamesMissingBoxScores: 0,
+		})
 		expect(decision).toMatchObject({
-			kind: "fail",
-			reason: "leader_not_in_pool",
+			kind: "resolve",
+			correctOptionIds: ["opt-a"],
 		})
 	})
 

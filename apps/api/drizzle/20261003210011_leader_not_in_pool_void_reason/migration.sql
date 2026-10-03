@@ -1,0 +1,1 @@
+ALTER TYPE "question_voided_reason" ADD VALUE 'leader_not_in_pool' BEFORE 'other';

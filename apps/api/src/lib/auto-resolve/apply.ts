@@ -67,6 +67,11 @@ function voidedNoteFrom(source: string, reason: QuestionVoidedReason): string {
 			"no_leader",
 			() => `Voided automatically from ${source}: nobody recorded this stat.`,
 		)
+		.with(
+			"leader_not_in_pool",
+			() =>
+				`Voided automatically from ${source}: the leader wasn't one of the options.`,
+		)
 		.with("other", () => `Voided automatically from ${source}.`)
 		.exhaustive()
 }

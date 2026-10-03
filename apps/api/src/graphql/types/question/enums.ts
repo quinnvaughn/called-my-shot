@@ -77,6 +77,7 @@ export const QuestionVoidedReason = builder.enumType("QuestionVoidedReason", {
 		GAME_NOT_COMPLETED: { value: "game_not_completed" },
 		TIE: { value: "tie" },
 		NO_LEADER: { value: "no_leader" },
+		LEADER_NOT_IN_POOL: { value: "leader_not_in_pool" },
 		OTHER: { value: "other" },
 	},
 })

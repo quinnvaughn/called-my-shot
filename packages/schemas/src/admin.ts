@@ -47,6 +47,7 @@ export const questionVoidedReasonSchema = z.enum([
 	"game_not_completed",
 	"tie",
 	"no_leader",
+	"leader_not_in_pool",
 	"other",
 ])
 
