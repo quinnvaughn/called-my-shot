@@ -40,6 +40,16 @@ export const db = drizzle({
 		// useless without something to actually open them eagerly. See
 		// warmPool() below for that part.
 		idleTimeoutMillis: 0,
+		// With idleTimeoutMillis at 0, nothing else ever closes a connection,
+		// so one that ends up on a server that can no longer serve it (e.g.
+		// a node that's gone read-only, failing every write with 25006)
+		// keeps getting handed out until the process restarts. Capping each
+		// connection's lifetime bounds that to a few minutes: pg-pool ends
+		// an idle connection once it expires, or a checked-out one on
+		// release, and the next query opens a fresh one. Reconnecting every
+		// 5 minutes is cheap next to the per-request handshakes the idle
+		// timeout above exists to avoid.
+		maxLifetimeSeconds: 300,
 	},
 	relations,
 })
