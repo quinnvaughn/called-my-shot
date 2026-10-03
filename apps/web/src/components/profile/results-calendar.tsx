@@ -8,7 +8,7 @@ import { keepPreviousData, useQuery } from "@tanstack/react-query"
 import { Link } from "@tanstack/react-router"
 import { DateTime } from "luxon"
 import { useState } from "react"
-import { FiChevronLeft, FiChevronRight } from "react-icons/fi"
+import { FiChevronLeft, FiChevronRight, FiClock } from "react-icons/fi"
 import { css, cx } from "styled-system/css"
 import { Flex, HStack, VStack } from "styled-system/jsx"
 import { Card } from "#/components/ui/card"
@@ -460,6 +460,19 @@ function Legend({ hasPending }: { hasPending: boolean }) {
 	)
 }
 
+// Shared by a league's row whether or not it links, so the two line up.
+const leagueRow = css({
+	display: "flex",
+	justifyContent: "space-between",
+	alignItems: "center",
+	gap: "3",
+	minHeight: "10",
+	paddingInline: "3",
+	paddingBlock: "2",
+	borderRadius: "md",
+	fontSize: "sm",
+})
+
 function DayDetail({ day, username }: { day: CalendarDay; username: string }) {
 	return (
 		<VStack alignItems="stretch" gap="2">
@@ -481,52 +494,88 @@ function DayDetail({ day, username }: { day: CalendarDay; username: string }) {
 							<GradeText grade={day.grade} />
 						</span>
 					)}
-					{day.pendingCount > 0 && (
-						<span className={css({ color: "fg.muted" })}>
-							{day.pendingCount} pending
-						</span>
-					)}
 				</HStack>
 			</Flex>
-			{day.leagues.map((entry) => (
-				<Flex
-					key={entry.league.id}
-					justify="space-between"
-					alignItems="center"
-					gap="3"
-					className={css({ fontSize: "sm" })}
-				>
-					<HStack gap="3" className={css({ fontFamily: "mono" })}>
-						<span className={css({ color: "fg.default", minWidth: "10" })}>
-							{entry.league.abbreviation.toUpperCase()}
-						</span>
-						{entry.settledCount > 0 && (
-							<span className={signedTone(entry.netPoints)}>
-								{formatSignedPoints(entry.netPoints)}
-							</span>
+			{day.leagues.map((entry) => {
+				// The whole row is the way to that league's report card for the
+				// day, so it's drawn as a button. A row with no report card (only
+				// calls on no single game) stays plain text.
+				return entry.windowKey ? (
+					<Link
+						key={entry.league.id}
+						to={reportCardPath(username, entry.league.slug, entry.windowKey)}
+						className={cx(
+							leagueRow,
+							css({
+								bg: "bg.subtle",
+								border: "1px solid {colors.border.default}",
+								transition: "border-color 0.15s ease",
+								_hover: { border: "1px solid {colors.border.emphasized}" },
+								_focusVisible: {
+									outline: "2px solid {colors.primary.default}",
+									outlineOffset: "2px",
+								},
+							}),
 						)}
-						{entry.settledCount > 0 && (
-							<span className={css({ color: "fg.muted" })}>
-								{formatRecord(entry.wins, entry.losses)}
-							</span>
+					>
+						<LeagueStats entry={entry} />
+						<span className={css({ srOnly: true })}>report card</span>
+						<FiChevronRight
+							aria-hidden
+							className={css({ color: "primary.default", flexShrink: "0" })}
+						/>
+					</Link>
+				) : (
+					<div
+						key={entry.league.id}
+						className={cx(
+							leagueRow,
+							css({ border: "1px solid transparent" }),
 						)}
-					</HStack>
-					{entry.windowKey && (
-						<Link
-							to={reportCardPath(username, entry.league.slug, entry.windowKey)}
-							className={css({
-								fontSize: "xs",
-								color: "primary.default",
-								whiteSpace: "nowrap",
-								_hover: { textDecoration: "underline" },
-							})}
-						>
-							Report card
-						</Link>
-					)}
-				</Flex>
-			))}
+					>
+						<LeagueStats entry={entry} />
+					</div>
+				)
+			})}
 		</VStack>
+	)
+}
+
+type DayLeague = CalendarDay["leagues"][number]
+
+function LeagueStats({ entry }: { entry: DayLeague }) {
+	return (
+		<HStack gap="3" className={css({ fontFamily: "mono" })}>
+			<span className={css({ color: "fg.default", minWidth: "10" })}>
+				{entry.league.abbreviation.toUpperCase()}
+			</span>
+			{entry.settledCount > 0 && (
+				<span className={signedTone(entry.netPoints)}>
+					{formatSignedPoints(entry.netPoints)}
+				</span>
+			)}
+			{entry.settledCount > 0 && (
+				<span className={css({ color: "fg.muted" })}>
+					{formatRecord(entry.wins, entry.losses)}
+				</span>
+			)}
+			{/* A clock and the count rather than "N pending", which would crowd
+			    a row that also has points and a record in a column as narrow
+			    as the rail. */}
+			{entry.pendingCount > 0 && (
+				<HStack
+					gap="1"
+					title={`${entry.pendingCount} pending`}
+					className={css({ color: "fg.muted" })}
+				>
+					<FiClock aria-hidden size={12} />
+					<span aria-hidden>{entry.pendingCount}</span>
+					<span className={css({ srOnly: true })}>
+						{entry.pendingCount} pending
+					</span>
+				</HStack>
+			)}
+		</HStack>
 	)
 }
 
