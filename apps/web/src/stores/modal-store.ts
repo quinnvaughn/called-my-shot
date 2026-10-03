@@ -24,3 +24,9 @@ export function closeModal() {
 export function replaceModalStack(content: ReactNode) {
 	modalStore.setState(() => [content])
 }
+
+// Empties the stack. A modal belongs to the page that opened it, so a link
+// inside one (a sheet row, a member) shouldn't leave it covering the next page.
+export function closeAllModals() {
+	modalStore.setState(() => [])
+}

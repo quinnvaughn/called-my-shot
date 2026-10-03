@@ -1,6 +1,6 @@
 import type { StreakMode } from "@called-my-shot/scoring"
 import { css } from "styled-system/css"
-import { Grid, VStack } from "styled-system/jsx"
+import { VStack } from "styled-system/jsx"
 import { EmptyState } from "#/components/ui/empty-state"
 import { type FragmentType, graphql, useFragment } from "#/graphql/generated"
 import { type IdentityUser, toIdentity } from "#/lib/identity"
@@ -92,11 +92,18 @@ const streakTo = (e: StreakEntry, mode: StreakMode) =>
 		mode,
 	}) as const
 
-export function HotStreakRows({ entries }: { entries: StreakEntry[] }) {
+export function HotStreakRows({
+	entries,
+	compact,
+}: {
+	entries: StreakEntry[]
+	compact?: boolean
+}) {
 	return (
 		<VStack alignItems="stretch" gap="2">
 			{entries.map((e) => (
 				<HighlightRow
+					compact={compact}
 					key={entryKey(e)}
 					user={toIdentity(e.user)}
 					leagueAbbr={e.league.abbreviation}
@@ -118,11 +125,18 @@ export function HotStreakRows({ entries }: { entries: StreakEntry[] }) {
 // The group's longest runs ever, shown in the hot list's place when nobody is
 // on one now. These are history, so they lead with the best length and don't
 // claim anything about right now.
-export function StreakRecordRows({ entries }: { entries: StreakEntry[] }) {
+export function StreakRecordRows({
+	entries,
+	compact,
+}: {
+	entries: StreakEntry[]
+	compact?: boolean
+}) {
 	return (
 		<VStack alignItems="stretch" gap="2">
 			{entries.map((e) => (
 				<HighlightRow
+					compact={compact}
 					key={entryKey(e)}
 					user={toIdentity(e.user)}
 					leagueAbbr={e.league.abbreviation}
@@ -136,11 +150,18 @@ export function StreakRecordRows({ entries }: { entries: StreakEntry[] }) {
 	)
 }
 
-export function ColdStreakRows({ entries }: { entries: StreakEntry[] }) {
+export function ColdStreakRows({
+	entries,
+	compact,
+}: {
+	entries: StreakEntry[]
+	compact?: boolean
+}) {
 	return (
 		<VStack alignItems="stretch" gap="2">
 			{entries.map((e) => (
 				<HighlightRow
+					compact={compact}
 					key={entryKey(e)}
 					user={toIdentity(e.user)}
 					leagueAbbr={e.league.abbreviation}
@@ -159,11 +180,18 @@ export function ColdStreakRows({ entries }: { entries: StreakEntry[] }) {
 	)
 }
 
-export function SweepRows({ entries }: { entries: SweepEntry[] }) {
+export function SweepRows({
+	entries,
+	compact,
+}: {
+	entries: SweepEntry[]
+	compact?: boolean
+}) {
 	return (
 		<VStack alignItems="stretch" gap="2">
 			{entries.map((e) => (
 				<HighlightRow
+					compact={compact}
 					key={`${toIdentity(e.user).id}-${e.league.id}-${e.slateKey}`}
 					user={toIdentity(e.user)}
 					leagueAbbr={e.league.abbreviation}
@@ -192,23 +220,27 @@ type Props = {
 	recentSweeps: readonly FragmentType<typeof GroupSweepEntryFragment>[]
 }
 
-// Who's hot, who's cold and who just swept, between the group's leaderboard
-// and its activity tabs. Deliberately outside the leaderboard's league and
-// season filters: a streak has no season at all, so following them would
-// filter the sweeps and leave the streaks alone. Every row carries its own
-// league tag instead.
+// Who's hot, who's cold and who just swept. Deliberately outside the
+// leaderboard's league and season filters: a streak has no season at all, so
+// following them would filter the sweeps and leave the streaks alone. Every
+// row carries its own league tag instead.
 //
-// Each list is capped at three here; "see all" opens the sheet.
-export function GroupHighlights(props: Props) {
+// Each list is capped at three; "see all" opens the sheet. The band renders
+// nothing for a group nobody has settled a call in yet, rather than three empty
+// boxes mid-page. The rail always shows its lists, so the column is never
+// blank.
+function Highlights({
+	placement,
+	...props
+}: Props & { placement: "band" | "rail" }) {
 	const { groupId } = props
 	const hotStreaks = useStreakEntries(props.hotStreaks)
 	const coldStreaks = useStreakEntries(props.coldStreaks)
 	const streakRecords = useStreakEntries(props.streakRecords)
 	const recentSweeps = useSweepEntries(props.recentSweeps)
 
-	// A group nobody has settled a call in yet gets no band at all, rather
-	// than three empty boxes.
 	if (
+		placement === "band" &&
 		hotStreaks.length === 0 &&
 		coldStreaks.length === 0 &&
 		streakRecords.length === 0 &&
@@ -220,9 +252,16 @@ export function GroupHighlights(props: Props) {
 	const seeAll = (tab: "hot" | "cold" | "sweeps") => () =>
 		openModal(<GroupHighlightsSheet groupId={groupId} initialTab={tab} />)
 	const live = hotStreaks.length > 0
+	const compact = placement === "rail"
 
 	return (
-		<VStack alignItems="stretch" gap="3">
+		<VStack
+			alignItems="stretch"
+			gap="3"
+			// The band is the below-xl stand-in for the rail, which the shell
+			// only shows from xl.
+			display={placement === "band" ? { base: "flex", xl: "none" } : "flex"}
+		>
 			<h2
 				className={css({
 					fontFamily: "mono",
@@ -234,22 +273,15 @@ export function GroupHighlights(props: Props) {
 			>
 				Highlights
 			</h2>
-			{/* Two columns only from xl. Each card carries an identity, a flair
-			 * and a headline number side by side, and at half of a md or lg page
-			 * that does not fit - the number ended up on top of the handle. One
-			 * full-width column reads better than two squeezed ones. */}
-			<Grid
-				gridTemplateColumns={{ base: "1fr", xl: "1fr 1fr" }}
-				gap={{ base: "5", xl: "8" }}
-			>
+			<VStack alignItems="stretch" gap={compact ? "6" : "5"}>
 				<HighlightList
 					label={live ? "Hot streaks" : "Best streaks"}
 					onSeeAll={live ? seeAll("hot") : undefined}
 				>
 					{live ? (
-						<HotStreakRows entries={hotStreaks} />
+						<HotStreakRows entries={hotStreaks} compact={compact} />
 					) : streakRecords.length > 0 ? (
-						<StreakRecordRows entries={streakRecords} />
+						<StreakRecordRows entries={streakRecords} compact={compact} />
 					) : (
 						<EmptyState>Nobody's put a run together yet.</EmptyState>
 					)}
@@ -259,22 +291,32 @@ export function GroupHighlights(props: Props) {
 					onSeeAll={coldStreaks.length > 0 ? seeAll("cold") : undefined}
 				>
 					{coldStreaks.length > 0 ? (
-						<ColdStreakRows entries={coldStreaks} />
+						<ColdStreakRows entries={coldStreaks} compact={compact} />
 					) : (
 						<EmptyState>Nobody's cold right now.</EmptyState>
 					)}
 				</HighlightList>
-			</Grid>
-			<HighlightList
-				label="Latest sweeps"
-				onSeeAll={recentSweeps.length > 0 ? seeAll("sweeps") : undefined}
-			>
-				{recentSweeps.length > 0 ? (
-					<SweepRows entries={recentSweeps} />
-				) : (
-					<EmptyState>No sweeps yet.</EmptyState>
-				)}
-			</HighlightList>
+				<HighlightList
+					label="Latest sweeps"
+					onSeeAll={recentSweeps.length > 0 ? seeAll("sweeps") : undefined}
+				>
+					{recentSweeps.length > 0 ? (
+						<SweepRows entries={recentSweeps} compact={compact} />
+					) : (
+						<EmptyState>No sweeps yet.</EmptyState>
+					)}
+				</HighlightList>
+			</VStack>
 		</VStack>
 	)
+}
+
+// Between the group page's leaderboard and its activity tabs, below xl.
+export function GroupHighlights(props: Props) {
+	return <Highlights {...props} placement="band" />
+}
+
+// The group page's right rail, from xl.
+export function GroupHighlightsRail(props: Props) {
+	return <Highlights {...props} placement="rail" />
 }

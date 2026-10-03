@@ -1,5 +1,6 @@
 import { FiCamera } from "react-icons/fi"
 import { css, cx } from "styled-system/css"
+import { useRightRail } from "#/components/app-shell/app-shell"
 import { useImagePicker } from "#/components/images/use-image-picker"
 import { Banner, BannerPlaceholder } from "#/components/ui/banner"
 import { ImageLightbox } from "#/components/ui/image-lightbox"
@@ -17,17 +18,21 @@ type Props = {
 // of the content column and up to the top of the page. Change both together.
 // Below xl that's 5 on top but 6 at the sides: main sets both `padding: 5` and
 // `px: 6`, and the px wins. From xl, 6 on top and 8 at the sides.
-//
-// On the right it also crosses the empty margin the shell leaves once the
-// window is wider than its 1320px column, so it reaches the window's edge.
-// The left needs nothing extra: that margin sits behind the sidebar.
 const bleed = css({
 	marginLeft: { base: "-6", xl: "-8" },
+	marginRight: { base: "-6", xl: "-8" },
+	marginTop: { base: "-5", xl: "-6" },
+})
+
+// With no right rail, the right edge also crosses the empty margin the shell
+// leaves once the window is wider than its 1320px column, so it reaches the
+// window's edge. The left needs nothing extra: that margin sits behind the
+// sidebar. With a rail, the rail fills that side from xl, so the banner stops
+// at main's border.
+const bleedToWindow = css({
 	marginRight: {
-		base: "-6",
 		xl: "calc(-1 * ({spacing.8} + max(0px, (100vw - 1320px) / 2)))",
 	},
-	marginTop: { base: "-5", xl: "-6" },
 })
 
 // The bleed wrapper is the positioning context for the camera button.
@@ -70,8 +75,9 @@ const cameraButton = css({
 // change it, edits it. Must be the first thing on the page for the bleed to
 // line up with the top.
 export function PageBanner({ bannerUrl, edit }: Props) {
+	const hasRail = !!useRightRail()
 	return (
-		<div className={cx(bleed, frame)}>
+		<div className={cx(bleed, hasRail ? undefined : bleedToWindow, frame)}>
 			{bannerUrl ? (
 				<button
 					type="button"

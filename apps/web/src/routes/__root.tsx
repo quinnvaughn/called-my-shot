@@ -19,6 +19,7 @@ import {
 	trackPageview,
 } from "#/lib/analytics"
 import { useGoogleAuthReturn } from "#/lib/google-auth"
+import { closeAllModals } from "#/stores/modal-store"
 import fontsCss from "../fonts.css?url"
 import type { RouterContext } from "../router-context"
 import appCss from "../styles.css?url"
@@ -183,6 +184,17 @@ function RootDocument({ children }: { children: React.ReactNode }) {
 	useEffect(() => {
 		trackPageview(locationHref)
 	}, [locationHref])
+
+	// Pathname, not href: a modal that writes to the search params is still
+	// on the same page and should stay open.
+	const pathname = useRouterState({
+		select: (state) => state.location.pathname,
+	})
+
+	// biome-ignore lint/correctness/useExhaustiveDependencies: runs on each page change
+	useEffect(() => {
+		closeAllModals()
+	}, [pathname])
 
 	return (
 		<html lang="en">

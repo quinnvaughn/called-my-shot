@@ -15,7 +15,10 @@ import {
 	createdQuestionsQuery,
 } from "#/components/groups/created-questions-tab"
 import { GroupHeader } from "#/components/groups/group-header"
-import { GroupHighlights } from "#/components/groups/group-highlights"
+import {
+	GroupHighlights,
+	GroupHighlightsRail,
+} from "#/components/groups/group-highlights"
 import { GroupInviteCard } from "#/components/groups/group-invite-card"
 import {
 	GroupLeaderboard,
@@ -74,6 +77,7 @@ function groupLeagueScope(
 
 export const Route = createFileRoute("/_app/_authed/groups/$groupId/")({
 	component: RouteComponent,
+	staticData: { rightRail: <GroupRail /> },
 	validateSearch: validateLeaderboardSearch,
 	loaderDeps: ({ search }) => ({
 		league: search.league,
@@ -172,13 +176,12 @@ function HeaderAction({
 	)
 }
 
-function RouteComponent() {
-	const [activeTab, setActiveTab] = useState<"answered" | "created" | "shared">(
-		"answered",
-	)
+// The same cached GroupDetail the loader fetched, read by both the page and
+// its rail. The rail renders in the app shell, outside this route's component,
+// so it can't be handed the page's data as props.
+function useGroupDetail() {
 	const { groupId } = Route.useParams()
 	const search = Route.useSearch()
-	const navigate = Route.useNavigate()
 	const { leagues } = Route.useRouteContext()
 	const { data: trackedData } = useSuspenseQuery(groupLeaguesQuery(groupId))
 	const trackedLeagues = trackedData.group?.trackedLeagues ?? []
@@ -189,7 +192,29 @@ function RouteComponent() {
 	const { data } = useSuspenseQuery(
 		groupDetailQuery(groupId, filter.leagueId, filter.season),
 	)
-	const group = data.group
+	return { group: data.group, scope, filter }
+}
+
+function GroupRail() {
+	const { group } = useGroupDetail()
+	if (!group) return null
+	return (
+		<GroupHighlightsRail
+			groupId={group.id}
+			hotStreaks={group.hotStreaks}
+			coldStreaks={group.coldStreaks}
+			streakRecords={group.streakRecords}
+			recentSweeps={group.recentSweeps}
+		/>
+	)
+}
+
+function RouteComponent() {
+	const [activeTab, setActiveTab] = useState<"answered" | "created" | "shared">(
+		"answered",
+	)
+	const navigate = Route.useNavigate()
+	const { group, scope, filter } = useGroupDetail()
 	const { me } = useRouteContext({ from: "__root__" })
 
 	if (!group) {

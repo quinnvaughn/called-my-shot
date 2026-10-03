@@ -32,6 +32,10 @@ type Props = {
 	// Where the row goes. Optional so a row can render unlinked, though every
 	// list passes one today.
 	to?: Destination
+	// The right rail's layout: identity on its own line, the number beside the
+	// label under it. The default puts the number beside the identity, which
+	// needs more width than the rail has.
+	compact?: boolean
 }
 
 // The two pages a highlight row can lead to. A union rather than a path
@@ -59,72 +63,111 @@ export function HighlightRow({
 	valueLabel,
 	note,
 	to,
+	compact = false,
 }: Props) {
+	const identity = (
+		<Identity
+			name={user.name}
+			username={user.username}
+			avatarUrl={user.avatarUrl}
+			flair={user.flair}
+		/>
+	)
+	const meta = (
+		<HStack gap="2" alignItems="center" minWidth="0">
+			<Tag size="sm">{leagueAbbr}</Tag>
+			<span
+				className={css({
+					fontSize: "xs",
+					color: "fg.muted",
+					minWidth: "0",
+					overflow: "hidden",
+					textOverflow: "ellipsis",
+					whiteSpace: "nowrap",
+				})}
+			>
+				{label}
+			</span>
+		</HStack>
+	)
+	const valueLabelText = (
+		<span
+			className={css({
+				fontFamily: "mono",
+				fontSize: "2xs",
+				color: "fg.muted",
+				whiteSpace: "nowrap",
+			})}
+		>
+			{valueLabel}
+		</span>
+	)
+	const noteText = note && (
+		<span
+			className={css({
+				fontFamily: "mono",
+				fontSize: "2xs",
+				letterSpacing: "wide",
+				textTransform: "uppercase",
+				color: "fg.subtle",
+			})}
+		>
+			{note}
+		</span>
+	)
+
 	const body = (
 		<Card size="sm" interactive={!!to}>
 			<Card.Body>
-				<HStack justify="space-between" alignItems="center" gap="3">
-					{/* gap-2, not 1: the flair ends the identity block and the league
-					tag starts this one, so two chips would otherwise sit close enough
-					to read as one row of tags. */}
-					<VStack gap="2" alignItems="flex-start" minWidth="0" flex="1">
-						<Identity
-							name={user.name}
-							username={user.username}
-							avatarUrl={user.avatarUrl}
-							flair={user.flair}
-						/>
-						<HStack gap="2" alignItems="center" minWidth="0">
-							<Tag size="sm">{leagueAbbr}</Tag>
-							<span
-								className={css({
-									fontSize: "xs",
-									color: "fg.muted",
-									minWidth: "0",
-									overflow: "hidden",
-									textOverflow: "ellipsis",
-									whiteSpace: "nowrap",
-								})}
-							>
-								{label}
-							</span>
+				{compact ? (
+					// At rail width the identity needs the whole line to itself, so
+					// the number drops to the league line beneath it, beside the
+					// label it counts.
+					<VStack gap="2" alignItems="stretch">
+						{identity}
+						<HStack justify="space-between" alignItems="center" gap="3">
+							{meta}
+							<VStack gap="0" alignItems="flex-end" flexShrink="0">
+								<HStack gap="1" alignItems="baseline">
+									<span
+										className={css({
+											fontFamily: "heading",
+											fontSize: "lg",
+											lineHeight: "1.1",
+										})}
+									>
+										{value}
+									</span>
+									{valueLabelText}
+								</HStack>
+								{noteText}
+							</VStack>
 						</HStack>
 					</VStack>
-					<VStack gap="0" alignItems="flex-end" flexShrink="0">
-						<span
-							className={css({
-								fontFamily: "heading",
-								fontSize: "xl",
-								lineHeight: "1.1",
-							})}
-						>
-							{value}
-						</span>
-						<span
-							className={css({
-								fontFamily: "mono",
-								fontSize: "2xs",
-								color: "fg.muted",
-								whiteSpace: "nowrap",
-							})}
-						>
-							{valueLabel}
-						</span>
-						{note && (
+				) : (
+					<HStack justify="space-between" alignItems="center" gap="3">
+						{/* gap-2, not 1: the flair ends the identity block and the league
+						tag starts this one, so two chips would otherwise sit close
+						enough to read as one row of tags. */}
+						<VStack gap="2" alignItems="flex-start" minWidth="0" flex="1">
+							{identity}
+							{meta}
+						</VStack>
+						<VStack gap="0" alignItems="flex-end" flexShrink="0">
 							<span
 								className={css({
-									fontFamily: "mono",
-									fontSize: "2xs",
-									letterSpacing: "wide",
-									textTransform: "uppercase",
-									color: "fg.subtle",
+									fontFamily: "heading",
+									fontSize: "xl",
+									lineHeight: "1.1",
 								})}
 							>
-								{note}
+								{value}
 							</span>
-						)}
-					</VStack>
-				</HStack>
+							{valueLabelText}
+							{noteText}
+						</VStack>
+					</HStack>
+				)}
 			</Card.Body>
 		</Card>
 	)

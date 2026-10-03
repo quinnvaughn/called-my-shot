@@ -59,6 +59,13 @@ type League = {
 	currentSeason?: { phase: SeasonPhase } | null
 }
 
+// The deepest matched route's rail, if any route on the way down set one.
+export function useRightRail() {
+	const matches = useMatches()
+	return [...matches].reverse().find((match) => match.staticData?.rightRail)
+		?.staticData.rightRail
+}
+
 export function AppShell({
 	children,
 	leagues,
@@ -76,10 +83,7 @@ export function AppShell({
 			}
 		: null
 	const [drawerOpen, setDrawerOpen] = useState(false)
-	const matches = useMatches()
-	const rightRail = [...matches]
-		.reverse()
-		.find((match) => match.staticData?.rightRail)?.staticData.rightRail
+	const rightRail = useRightRail()
 
 	// Shares notifications-list.tsx's options object so the key it invalidates
 	// after marking rows read is exactly the key this reads.
