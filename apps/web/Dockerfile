@@ -45,10 +45,10 @@ ENV VITE_PUBLIC_POSTHOG_KEY=$VITE_PUBLIC_POSTHOG_KEY
 # deploy. Fails closed: no image, so the previous web release keeps serving
 # against the newer api, which is the safe direction of skew.
 #
-# web and api build in parallel off the same push, so reaching the api before
-# it has released is routine rather than exceptional - the check retries for
-# that, and only distinguishes a genuine mistake by first validating against
-# the schema printed below (see check-schema-compat.ts).
+# The api is released before web starts building, so the live schema should
+# already match. The check validates against the schema printed below first,
+# which tells a missing resolver apart from an api deploy that failed (see
+# check-schema-compat.ts).
 ARG PROD_SCHEMA_URL
 ENV PROD_SCHEMA_URL=$PROD_SCHEMA_URL
 RUN pnpm --filter api run schema:print

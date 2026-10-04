@@ -1,17 +1,25 @@
+import { availableParallelism } from "node:os"
 import { defineConfig } from "vitest/config"
 
 // Never inherits an ambient DATABASE_URL - a shell with the dev database
 // exported (or a deployed one) would otherwise get truncated between tests.
-// Only TEST_DATABASE_URL can redirect this, and global-setup.ts still
-// refuses anything whose database name doesn't end in "_test".
+// Only TEST_DATABASE_URL can redirect this, and the suite still refuses
+// anything whose database name doesn't end in "_test".
 const TEST_DATABASE_URL =
 	process.env.TEST_DATABASE_URL ??
 	"postgres://postgres:postgres@localhost:5435/called_my_shot_test"
 
+// One core left for Postgres, which runs on the same machine locally and on
+// the CI runner. TEST_WORKERS overrides it.
+const TEST_WORKERS = Number(
+	process.env.TEST_WORKERS ?? Math.max(1, availableParallelism() - 1),
+)
+
 // Assigned here, at config load, rather than only through `test.env` below:
 // globalSetup runs in vitest's main process, which `test.env` (worker-only)
-// never reaches.
-process.env.DATABASE_URL = TEST_DATABASE_URL
+// never reaches, and it needs both to clone one database per worker.
+process.env.TEST_DATABASE_URL = TEST_DATABASE_URL
+process.env.TEST_WORKERS = String(TEST_WORKERS)
 process.env.NODE_ENV = "test"
 
 export default defineConfig({
@@ -22,19 +30,17 @@ export default defineConfig({
 	resolve: { dedupe: ["graphql"] },
 	test: {
 		globalSetup: ["./src/test/global-setup.ts"],
-		setupFiles: ["./src/test/setup.ts"],
-		// Every integration test truncates shared tables, so two files running
-		// against the same database at the same time would clobber each other.
-		// Files in sequence, one worker - the suite is small enough that the
-		// lost parallelism costs less than the isolation machinery would.
+		// worker-env.ts first: it points this worker at its own database before
+		// setup.ts pulls in the db.
+		setupFiles: ["./src/test/worker-env.ts", "./src/test/setup.ts"],
+		// Every integration test truncates every table, so files run in parallel
+		// only because each worker has its own database (see
+		// src/test/worker-database.ts). VITEST_POOL_ID, which picks it, runs
+		// 1..maxWorkers - the same count global-setup.ts clones.
 		pool: "forks",
-		fileParallelism: false,
-		maxWorkers: 1,
-		// db/index.ts reads env.DATABASE_URL at import time, and env.ts parses
-		// process.env the moment it is imported - so the test URL has to be in
-		// place before any test file pulls in the db.
+		maxWorkers: TEST_WORKERS,
 		env: {
-			DATABASE_URL: TEST_DATABASE_URL,
+			TEST_DATABASE_URL,
 			NODE_ENV: "test",
 			CLIENT_ORIGIN: "http://localhost:3000",
 		},

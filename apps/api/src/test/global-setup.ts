@@ -1,24 +1,13 @@
 import { execFileSync } from "node:child_process"
 import { fileURLToPath } from "node:url"
 import { Client } from "pg"
+import {
+	assertIsATestDatabase,
+	databaseName,
+	workerDatabaseUrl,
+} from "./worker-database"
 
 const API_DIR = fileURLToPath(new URL("../..", import.meta.url))
-
-// The integration suite truncates every table between tests, so pointing it
-// at the wrong database destroys real data. Both of these are hard refusals
-// rather than warnings: the dev database (called_my_shot on 5433) and any
-// deployed one would both sail past a softer check.
-function assertIsATestDatabase(url: string) {
-	const name = new URL(url).pathname.replace(/^\//, "")
-	if (!name.endsWith("_test")) {
-		throw new Error(
-			`Refusing to run tests against "${name}" - the test database's name ` +
-				`must end in "_test" (the suite truncates every table). Set ` +
-				`TEST_DATABASE_URL, or start the bundled one with ` +
-				`\`docker compose up -d postgres-test\`.`,
-		)
-	}
-}
 
 async function waitForPostgres(url: string) {
 	const deadline = Date.now() + 30_000
@@ -41,13 +30,36 @@ async function waitForPostgres(url: string) {
 	)
 }
 
-// Drops and rebuilds the schema from the real migrations rather than from
-// drizzle-kit push - the suite should run against the same DDL production
-// gets, so a migration that is wrong or missing fails here instead of at
-// deploy time.
+// CREATE DATABASE ... TEMPLATE copies the migrated base at the file level,
+// which takes milliseconds where replaying the migrations per worker would
+// take seconds. It has to run from another database, since Postgres refuses
+// to copy a template anything is connected to.
+async function cloneWorkerDatabases(baseUrl: string, workers: number) {
+	const maintenanceUrl = new URL(baseUrl)
+	maintenanceUrl.pathname = "/postgres"
+	const client = new Client({ connectionString: maintenanceUrl.toString() })
+	await client.connect()
+	try {
+		const template = databaseName(baseUrl)
+		for (let poolId = 1; poolId <= workers; poolId++) {
+			const name = databaseName(workerDatabaseUrl(baseUrl, poolId))
+			await client.query(`drop database if exists "${name}" with (force)`)
+			await client.query(`create database "${name}" template "${template}"`)
+		}
+	} finally {
+		await client.end()
+	}
+}
+
+// Drops and rebuilds the base schema from the real migrations rather than
+// from drizzle-kit push - the suite should run against the same DDL
+// production gets, so a migration that is wrong or missing fails here instead
+// of at deploy time. Each worker's database is then cloned from it.
 export async function setup() {
-	const url = process.env.DATABASE_URL
-	if (!url) throw new Error("DATABASE_URL is not set (see vitest.config.ts)")
+	const url = process.env.TEST_DATABASE_URL
+	if (!url) {
+		throw new Error("TEST_DATABASE_URL is not set (see vitest.config.ts)")
+	}
 	assertIsATestDatabase(url)
 	await waitForPostgres(url)
 
@@ -63,4 +75,6 @@ export async function setup() {
 		env: { ...process.env, DATABASE_URL: url },
 		stdio: "inherit",
 	})
+
+	await cloneWorkerDatabases(url, Number(process.env.TEST_WORKERS ?? "1"))
 }

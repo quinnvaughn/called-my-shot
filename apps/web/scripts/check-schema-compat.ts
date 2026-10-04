@@ -50,26 +50,12 @@ const LOCAL_SCHEMA_PATH = resolve(
 	envString("LOCAL_SCHEMA_PATH", "../api/schema.graphql"),
 )
 
-// Budgeted to outlast a full api deploy, because that is what this is
-// actually waiting for. The deploy workflow (.github/workflows/deploy.yml)
-// releases the api before it starts on web, so there the first attempt
-// passes. A web deploy started any other way, alongside an api deploy, can
-// reach this check while the previous api is still serving, and waiting here
-// keeps the two sequential - api first, then web.
-//
-// 10 minutes covers the api's build, its release_command (drizzle-kit
-// migrate, which can be the slow part), machine start and health checks.
-// The old budget was ~55s, which only ever covered an api that was already
-// most of the way up.
-//
-// This costs nothing on a deploy that doesn't change the schema: the first
-// attempt validates against the live api and exits immediately. The price is
-// only paid when there is genuinely something to wait for - and if the api
-// deploy fails outright, this spends the full budget before failing, which is
-// the right outcome (shipping the frontend anyway would break production)
-// just not the fastest one.
-const ATTEMPTS = envCount("SCHEMA_CHECK_ATTEMPTS", 30)
-const RETRY_DELAY_MS = envCount("SCHEMA_CHECK_RETRY_MS", 20_000)
+// Only for reaching the api at all - a machine still coming up right after
+// its own deploy. The api is always released before web (see
+// .github/workflows/deploy.yml), so a schema it does answer with is the one
+// web ships against, and a mismatch fails at once rather than being waited on.
+const ATTEMPTS = envCount("SCHEMA_CHECK_ATTEMPTS", 6)
+const RETRY_DELAY_MS = envCount("SCHEMA_CHECK_RETRY_MS", 10_000)
 
 // A fragment spread into nothing is dead code worth deleting, but it is not a
 // reason to block a deploy - the check should only fail for things that would
@@ -128,10 +114,9 @@ function report(errors: readonly GraphQLError[]) {
 
 const ast = await loadAst()
 
-// Checked first because it is the one failure that retrying can never fix: if
-// the queries do not even match the api sitting in this commit, no amount of
-// waiting for a deploy will make them valid. Failing here immediately keeps a
-// plain mistake from spending the whole retry budget below before reporting.
+// Checked first so a plain mistake reads as one: if the queries do not even
+// match the api sitting in this commit, the fix is a missing resolver, not
+// anything about the deploy.
 const localSchema = await readLocalSchema()
 if (localSchema) {
 	const localErrors = validate(localSchema, ast, rules)
@@ -147,10 +132,8 @@ if (localSchema) {
 	}
 }
 
-// Everything valid locally, so any failure from here is the api not having
-// caught up yet. Web and api build in parallel off the same push, so the web
-// image regularly reaches this point while the old api is still serving - a
-// real skew, but a self-resolving one, hence retrying rather than failing.
+// Everything valid locally, so a failure from here means the live api is
+// behind this commit - most likely its deploy failed or was rolled back.
 for (let attempt = 1; attempt <= ATTEMPTS; attempt++) {
 	let liveSchema: GraphQLSchema
 	try {
@@ -173,25 +156,17 @@ for (let attempt = 1; attempt <= ATTEMPTS; attempt++) {
 		process.exit(0)
 	}
 
-	console.warn(
-		`  attempt ${attempt}/${ATTEMPTS}: live api is missing ${errors.length} thing(s) the web app asks for`,
+	console.error(
+		`${errors.length} operation(s) invalid against the live schema at ${SCHEMA_URL}:\n`,
 	)
-
-	if (attempt === ATTEMPTS) {
-		console.error(
-			`\n${errors.length} operation(s) invalid against the live schema at ${SCHEMA_URL}:\n`,
-		)
-		report(errors)
-		console.error(
-			`\nWaited ${Math.round((ATTEMPTS * RETRY_DELAY_MS) / 60_000)} minute(s) and the api never caught up - its deploy has most likely failed. Check the api's logs, then re-push.`,
-		)
-		process.exit(1)
-	}
-
-	await new Promise((r) => setTimeout(r, RETRY_DELAY_MS))
+	report(errors)
+	console.error(
+		"\nThe live api is missing what this commit's web asks for - check that the api deploy for this commit succeeded, then re-run.",
+	)
+	process.exit(1)
 }
 
-// The loop above always exits on its final attempt, so reaching this line
+// The loop above always exits by its final attempt, so reaching this line
 // would mean it ran zero times. Exiting non-zero keeps a misconfigured
 // attempt count from reading as a passing check.
 process.exit(1)

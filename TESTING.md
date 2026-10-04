@@ -37,13 +37,18 @@ starts empty every time and nothing survives a restart.
 Point the suite somewhere else with `TEST_DATABASE_URL`. An ambient
 `DATABASE_URL` is deliberately ignored — see `apps/api/vitest.config.ts`.
 
-**The suite truncates every table between tests.** `src/test/global-setup.ts`
-refuses to run against a database whose name doesn't end in `_test`, which is
-what stops a stray `TEST_DATABASE_URL` from wiping the dev database.
+**The suite truncates every table between tests.** It refuses to run against
+a database whose name doesn't end in `_test`, which is what stops a stray
+`TEST_DATABASE_URL` from wiping the dev database.
 
 Each run drops the schema and replays the real migrations with `drizzle-kit
 migrate`, so a broken or missing migration fails here rather than at deploy
 time.
+
+Files run in parallel, one worker per core minus one (override with
+`TEST_WORKERS`). `global-setup.ts` clones the migrated database once per worker
+(`called_my_shot_w1_test`, `called_my_shot_w2_test`, ...), so each worker
+truncates only its own copy.
 
 ## Writing a test
 
