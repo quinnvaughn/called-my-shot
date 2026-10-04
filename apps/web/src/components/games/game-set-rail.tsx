@@ -537,7 +537,7 @@ function StandingCell({
 			<span className={cx(css({ fontWeight: "bold" }), TONE_COLOR[tone])}>
 				{value}
 			</span>
-			{detail && <span className={TONE_COLOR.muted}> {detail}</span>}
+			{detail && <span className={TONE_COLOR.muted}> · {detail}</span>}
 		</span>
 	)
 }
