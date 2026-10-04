@@ -11,7 +11,7 @@ import { FirstCallDoneModal } from "#/components/onboarding/first-call-done-moda
 import { type FragmentType, graphql, useFragment } from "#/graphql/generated"
 import { useGqlMutation } from "#/graphql/hooks"
 import { CastCallDocument, RedoCallDocument } from "#/graphql/mutations/calls"
-import { questionHorizon, track } from "#/lib/analytics"
+import { type CallSurface, questionHorizon, track } from "#/lib/analytics"
 import { isRateStat as computeIsRateStat } from "#/lib/field-signal"
 import { useForm } from "#/lib/form/use-form"
 import { closeModal, openModal } from "#/stores/modal-store"
@@ -202,6 +202,27 @@ export type FadeMode = {
 	optionId: string
 }
 
+// The pick a new call landed with, for a surface that reacts to it.
+export type CalledPick = {
+	optionIds: string[]
+	guessValue: number | null
+}
+
+export type CastCallFormOptions = {
+	// Where the call is being made, for analytics.
+	surface: CallSurface
+	redo?: RedoMode
+	fade?: FadeMode
+	onCalled?: (pick: CalledPick) => void
+	// Set when the call is made from a group's welcome modal, so the server
+	// can record it as that member's welcome call.
+	welcomeGroupId?: string
+	// Whether a landed call closes the top modal. True for the confirm and
+	// fade modals, which exist only to submit; false for a modal that goes
+	// on to show something after the call.
+	closeOnSuccess?: boolean
+}
+
 // All of the state behind making a call, decoupled from where it renders.
 // The route ($questionId.tsx) calls this once and hands the result to both
 // <CastCallForm> (the fields) and <CallSubmitBar> (the sticky review
@@ -214,13 +235,18 @@ export type FadeMode = {
 //
 // Passing `redo` switches it to replacing an existing call instead of making
 // a new one. Passing `fade` makes a new call that fades another. `onCalled`
-// runs once a new call has landed, the page has refreshed and the confirm
-// modal has closed.
+// runs once a new call has landed, the page has refreshed and (unless
+// closeOnSuccess is false) the confirm modal has closed.
 export function useCastCallForm(
 	questionProp: FragmentType<typeof CastCallFormFragment> | null | undefined,
-	redo?: RedoMode,
-	fade?: FadeMode,
-	onCalled?: () => void,
+	{
+		surface,
+		redo,
+		fade,
+		onCalled,
+		welcomeGroupId,
+		closeOnSuccess = true,
+	}: CastCallFormOptions,
 ) {
 	const question = useFragment(CastCallFormFragment, questionProp)
 	const shape = (question?.shape.toLowerCase() ??
@@ -378,6 +404,7 @@ export function useCastCallForm(
 								conviction: values.conviction,
 								selections,
 								fadesCallId: fade?.callId,
+								welcomeGroupId,
 							},
 						})
 					)?.castCall
@@ -418,6 +445,7 @@ export function useCastCallForm(
 							hasCase: values.caseText.length > 0,
 							avgConviction:
 								convictions.reduce((sum, c) => sum + c, 0) / convictions.length,
+							surface,
 						})
 					}
 
@@ -426,8 +454,12 @@ export function useCastCallForm(
 					// up the new viewerCall immediately.
 					await queryClient.invalidateQueries()
 					await router.invalidate()
-					closeModal()
-					onCalled?.()
+					if (closeOnSuccess) closeModal()
+					onCalled?.({
+						optionIds: values.selections.map((s) => s.optionId),
+						guessValue:
+							bucket === "numeric" ? (values.guessValue ?? null) : null,
+					})
 
 					// Closes out the walkthrough on the call it was built
 					// around. Asks the tour store rather than the ?tour param,
@@ -451,7 +483,7 @@ export function useCastCallForm(
 					// wallet and timing facts are.
 					await queryClient.invalidateQueries()
 					await router.invalidate()
-					closeModal()
+					if (closeOnSuccess) closeModal()
 				})
 				.with({ __typename: "AuthorizationError" }, async (r) => {
 					helpers.setFormError(r.message)

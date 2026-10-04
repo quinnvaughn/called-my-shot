@@ -20,6 +20,7 @@ type ModalSlots = ReturnType<typeof modalRecipe>
 const ModalContext = createContext<{
 	slots: ModalSlots
 	titleId: string
+	dismiss: () => void
 } | null>(null)
 
 function useModalSlots(part: string) {
@@ -30,19 +31,32 @@ function useModalSlots(part: string) {
 	return ctx
 }
 
-type ModalProps = { children: ReactNode; size?: "sm" | "md" }
+type ModalProps = {
+	children: ReactNode
+	size?: "sm" | "md" | "lg"
+	// Runs when the viewer dismisses the modal themselves: the backdrop,
+	// Escape, or the close button. Not when something else unmounts it (a
+	// navigation, another modal stacked on top), and not when the modal's
+	// own buttons call closeModal - those know what they're doing already.
+	onClose?: () => void
+}
 
 // The portal/overlay/box/focus-trap chrome. Used directly at the root of each
 // modal's own content component — <Modal> only ever renders because it's the
 // content ModalHost pulled out of the store, so its mount *is* "open", and its
 // unmount (via useDialogBehavior's cleanup) is "closed". No separate isOpen
 // check needed.
-function Modal({ children, size = "sm" }: ModalProps) {
+function Modal({ children, size = "sm", onClose }: ModalProps) {
 	const boxRef = useRef<HTMLDivElement>(null)
 	const titleId = useId()
 	const slots = useMemo(() => modalRecipe({ size }), [size])
 
-	useDialogBehavior(boxRef)
+	function dismiss() {
+		onClose?.()
+		closeModal()
+	}
+
+	useDialogBehavior(boxRef, dismiss)
 
 	return createPortal(
 		// biome-ignore lint/a11y/noStaticElementInteractions: click-outside-to-close backdrop; keyboard users close via Escape (useDialogBehavior) or Modal.CloseButton
@@ -50,10 +64,10 @@ function Modal({ children, size = "sm" }: ModalProps) {
 		<div
 			className={slots.overlay}
 			onClick={(event) => {
-				if (event.target === event.currentTarget) closeModal()
+				if (event.target === event.currentTarget) dismiss()
 			}}
 		>
-			<ModalContext.Provider value={{ slots, titleId }}>
+			<ModalContext.Provider value={{ slots, titleId, dismiss }}>
 				<div
 					ref={boxRef}
 					className={slots.box}
@@ -71,13 +85,13 @@ function Modal({ children, size = "sm" }: ModalProps) {
 }
 
 function ModalCloseButton() {
-	const { slots } = useModalSlots("CloseButton")
+	const { slots, dismiss } = useModalSlots("CloseButton")
 	return (
 		<button
 			type="button"
 			className={slots.closeButton}
 			aria-label="Close"
-			onClick={closeModal}
+			onClick={dismiss}
 		>
 			<FiX size={16} />
 		</button>

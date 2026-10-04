@@ -10,7 +10,11 @@ import { GroupLogo } from "#/components/ui/group-logo"
 import { Modal } from "#/components/ui/modal"
 import { graphql } from "#/graphql/generated"
 import { useGqlMutation } from "#/graphql/hooks"
-import { ShareQuestionToGroupDocument } from "#/graphql/mutations/groups"
+import {
+	PinQuestionToGroupDocument,
+	ShareQuestionToGroupDocument,
+	UnpinQuestionFromGroupDocument,
+} from "#/graphql/mutations/groups"
 import { questionDetailQuery } from "#/graphql/queries/question"
 import { gqlQueryOptions } from "#/graphql/query-options"
 import { track } from "#/lib/analytics"
@@ -28,6 +32,7 @@ const ShareTargetGroupsDocument = graphql(`
 			name
 			logoUrl
 			memberCount
+			viewerIsAdmin
 			trackedLeagues {
 				id
 			}
@@ -61,9 +66,15 @@ type Props = {
 	// list renders its "Shared" rows on first paint instead of after a
 	// round-trip.
 	sharedGroupIds: string[]
+	// Group ids that have this question pinned, from viewerPinnedGroupIds.
+	// Seeded for the same reason as sharedGroupIds.
+	pinnedGroupIds: string[]
 	// Signed-out viewers still get the link half of this sheet - only the
 	// group list needs an account behind it.
 	canShareToGroup: boolean
+	// Whether the question can still be called. Only then can an admin pin
+	// it; unpinning stays available either way.
+	canPin: boolean
 }
 
 export function ShareQuestionModal({
@@ -71,12 +82,19 @@ export function ShareQuestionModal({
 	questionTitle,
 	questionLeague,
 	sharedGroupIds,
+	pinnedGroupIds,
 	canShareToGroup,
+	canPin,
 }: Props) {
 	const queryClient = useQueryClient()
 	const shareToGroup = useGqlMutation(ShareQuestionToGroupDocument)
+	const pinToGroup = useGqlMutation(PinQuestionToGroupDocument)
+	const unpinFromGroup = useGqlMutation(UnpinQuestionFromGroupDocument)
 	const [shared, setShared] = useState<Set<string>>(
 		() => new Set(sharedGroupIds),
+	)
+	const [pinned, setPinned] = useState<Set<string>>(
+		() => new Set(pinnedGroupIds),
 	)
 	const [pendingGroupId, setPendingGroupId] = useState<string | null>(null)
 	const [error, setError] = useState<string | null>(null)
@@ -127,6 +145,60 @@ export function ShareQuestionModal({
 							queryKey: questionDetailQuery(questionId).queryKey,
 						}),
 					])
+				})
+				.with(
+					{ __typename: "AuthenticationError" },
+					{ __typename: "AuthorizationError" },
+					{ __typename: "NotFoundError" },
+					{ __typename: "ValidationError" },
+					async (r) => {
+						setError(r.message)
+					},
+				)
+				.exhaustive()
+		} finally {
+			setPendingGroupId(null)
+		}
+	}
+
+	// A pin also shares, so both land in the group's feeds and settings.
+	async function refreshAfterPin() {
+		await Promise.all([
+			queryClient.invalidateQueries({ queryKey: ["SharedQuestions"] }),
+			queryClient.invalidateQueries({ queryKey: ["GroupDetail"] }),
+			queryClient.invalidateQueries({ queryKey: ["GroupSettings"] }),
+			queryClient.invalidateQueries({
+				queryKey: questionDetailQuery(questionId).queryKey,
+			}),
+		])
+	}
+
+	async function handleTogglePin(groupId: string) {
+		setError(null)
+		setPendingGroupId(groupId)
+		const unpinning = pinned.has(groupId)
+		try {
+			const result = unpinning
+				? (await unpinFromGroup.mutateAsync({ groupId, questionId }))
+						?.unpinQuestionFromGroup
+				: (await pinToGroup.mutateAsync({ groupId, questionId }))
+						?.pinQuestionToGroup
+			if (!result) {
+				setError("Something went wrong. Try again.")
+				return
+			}
+			await match(result)
+				.with({ __typename: "GroupPayload" }, async () => {
+					setPinned((current) => {
+						const next = new Set(current)
+						if (unpinning) next.delete(groupId)
+						else next.add(groupId)
+						return next
+					})
+					if (!unpinning) {
+						setShared((current) => new Set(current).add(groupId))
+					}
+					await refreshAfterPin()
 				})
 				.with(
 					{ __typename: "AuthenticationError" },
@@ -200,6 +272,14 @@ export function ShareQuestionModal({
 										pending={pendingGroupId === group.id}
 										disabled={pendingGroupId !== null}
 										onShare={() => handleShareToGroup(group.id)}
+										pin={
+											group.viewerIsAdmin && (canPin || pinned.has(group.id))
+												? {
+														pinned: pinned.has(group.id),
+														onToggle: () => handleTogglePin(group.id),
+													}
+												: null
+										}
 									/>
 								))}
 							</VStack>
@@ -221,6 +301,7 @@ function GroupShareRow({
 	pending,
 	disabled,
 	onShare,
+	pin,
 }: {
 	name: string
 	logoUrl: string | null
@@ -229,6 +310,9 @@ function GroupShareRow({
 	pending: boolean
 	disabled: boolean
 	onShare: () => void
+	// Admins only: pins the question to the top of the group page, or
+	// unpins it.
+	pin: { pinned: boolean; onToggle: () => void } | null
 }) {
 	return (
 		<HStack
@@ -269,29 +353,41 @@ function GroupShareRow({
 					</span>
 				</VStack>
 			</HStack>
-			{alreadyShared ? (
-				<span
-					className={css({
-						fontFamily: "mono",
-						fontSize: "2xs",
-						letterSpacing: "wide",
-						color: "success.default",
-						whiteSpace: "nowrap",
-					})}
-				>
-					✓ Shared
-				</span>
-			) : (
-				<Button
-					variant="outline"
-					size="sm"
-					loading={pending}
-					disabled={disabled}
-					onClick={onShare}
-				>
-					Share
-				</Button>
-			)}
+			<HStack gap="2" flexShrink="0">
+				{pin && (
+					<Button
+						variant={pin.pinned ? "ghost" : "outline"}
+						size="sm"
+						disabled={disabled}
+						onClick={pin.onToggle}
+					>
+						{pin.pinned ? "Unpin" : "Pin"}
+					</Button>
+				)}
+				{alreadyShared ? (
+					<span
+						className={css({
+							fontFamily: "mono",
+							fontSize: "2xs",
+							letterSpacing: "wide",
+							color: "success.default",
+							whiteSpace: "nowrap",
+						})}
+					>
+						✓ Shared
+					</span>
+				) : (
+					<Button
+						variant="outline"
+						size="sm"
+						loading={pending}
+						disabled={disabled}
+						onClick={onShare}
+					>
+						Share
+					</Button>
+				)}
+			</HStack>
 		</HStack>
 	)
 }

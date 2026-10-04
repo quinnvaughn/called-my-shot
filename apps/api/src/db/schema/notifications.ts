@@ -34,6 +34,7 @@ export const notificationType = pgEnum("notification_type", [
 	"redo_earned",
 	"call_faded",
 	"fade_gloated",
+	"group_pins_expired",
 ])
 
 // One row per (recipient, thing that happened) - see hook points in

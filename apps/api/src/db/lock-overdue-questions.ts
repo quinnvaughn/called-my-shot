@@ -1,4 +1,5 @@
 import { and, eq, lte } from "drizzle-orm"
+import { expireGroupPins } from "../lib/group-pins"
 import { LOCK_OVERDUE_QUESTIONS_LOCK } from "../lib/job-lock"
 import { runCli } from "../lib/run-cli"
 import { db } from "./index"
@@ -23,6 +24,11 @@ export async function lockOverdueQuestions({
 		.where(and(eq(questions.status, "open"), lte(questions.locksAt, now)))
 		.returning({ id: questions.id })
 	console.log(`[lock-overdue-questions] locked ${rows.length} question(s)`)
+
+	// Rides along here because a pin stops counting the moment its question
+	// locks, and this is the job already watching for that.
+	const unpinned = await expireGroupPins({ now })
+	console.log(`[lock-overdue-questions] unpinned ${unpinned} group pin(s)`)
 }
 
 runCli(import.meta.url, lockOverdueQuestions, {

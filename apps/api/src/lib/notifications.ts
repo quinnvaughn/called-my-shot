@@ -113,6 +113,13 @@ export type NotificationInput =
 			questionTitle: string
 			callId: string
 	  }
+	// To a group's admins, when the last of its callable pins locks.
+	| {
+			type: "group_pins_expired"
+			userId: string
+			groupId: string
+			groupName: string
+	  }
 
 function toRow(input: NotificationInput) {
 	return {

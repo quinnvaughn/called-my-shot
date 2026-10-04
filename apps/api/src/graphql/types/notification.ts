@@ -42,6 +42,7 @@ const GQL_TYPE_BY_ROW_TYPE: Record<NotificationRow["type"], string> = {
 	redo_earned: "RedoEarnedNotification",
 	call_faded: "CallFadedNotification",
 	fade_gloated: "FadeGloatedNotification",
+	group_pins_expired: "GroupPinsExpiredNotification",
 }
 
 // The sentence the row is told in, shared with the results email's
@@ -293,6 +294,17 @@ builder.drizzleObject("notifications", {
 		groupName: t.exposeString("groupName", { nullable: true }),
 		actor: t.relation("actor", { nullable: true }),
 		actorUsername: t.exposeString("actorUsername", { nullable: true }),
+	}),
+})
+
+// The last callable question pinned in a group you admin has locked - see
+// expireGroupPins.
+builder.drizzleObject("notifications", {
+	variant: "GroupPinsExpiredNotification",
+	interfaces: [NotificationNode],
+	fields: (t) => ({
+		group: t.relation("group", { nullable: true }),
+		groupName: t.exposeString("groupName", { nullable: true }),
 	}),
 })
 

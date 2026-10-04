@@ -68,6 +68,7 @@ async function postPicks(
 				pickCount: 1,
 				hasCase: false,
 				avgConviction: GUEST_PICK_CONVICTION,
+				surface: "guest_picks",
 			})
 		} catch {
 			// A network or server failure counts the same as a refusal: the pick

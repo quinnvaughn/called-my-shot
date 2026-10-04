@@ -2,10 +2,19 @@ import { eq } from "drizzle-orm"
 import { DateTime } from "luxon"
 import { match } from "ts-pattern"
 import { db } from "../db"
-import { groupInvites, groupLeagues, groupLinks } from "../db/schema"
-import type { DbOrTx } from "../db/types"
+import {
+	type Group,
+	groupInvites,
+	groupLeagues,
+	groupLinks,
+	type Question,
+	questionShares,
+	type User,
+} from "../db/schema"
+import type { DbOrTx, Tx } from "../db/types"
 import { AuthorizationError, NotFoundError, ValidationError } from "./errors"
 import { withRetriedCode } from "./invite-codes"
+import { createNotifications, type NotificationInput } from "./notifications"
 
 export type InviteExpiryOption =
 	| "TWENTY_FOUR_HOURS"
@@ -177,4 +186,82 @@ export async function requireGroupAdmin(groupId: string, userId: string) {
 		throw new AuthorizationError("Only group admins can do that.")
 	}
 	return membership
+}
+
+// Tells everyone else in the group about something `actor` just did there.
+export async function notifyOtherMembers(
+	tx: Tx,
+	groupId: string,
+	actorId: string,
+	notificationFor: (userId: string) => NotificationInput,
+) {
+	const others = await tx.query.groupMembers.findMany({
+		where: { groupId, userId: { ne: actorId } },
+		columns: { userId: true },
+	})
+	await createNotifications(
+		tx,
+		others.map((member) => notificationFor(member.userId)),
+	)
+}
+
+// A group only takes questions from the leagues it tracks - the same filter
+// its feeds and leaderboard read through.
+export async function assertGroupTracksLeague(
+	group: Pick<Group, "id" | "name">,
+	question: Pick<Question, "leagueId">,
+) {
+	const tracked = await getTrackedLeagueIds(group.id)
+	if (!tracked || tracked.includes(question.leagueId)) return
+	const league = await db.query.leagues.findFirst({
+		where: { id: question.leagueId },
+		columns: { abbreviation: true },
+	})
+	throw ValidationError.field(
+		null,
+		`${group.name} doesn't track ${league?.abbreviation ?? "this league's"} questions.`,
+	)
+}
+
+// Puts a question in the group's Shared feed, or returns the share that's
+// already there. Only a share this call actually inserted notifies anyone, so
+// re-sharing stays silent and never bumps the original back to the top.
+export async function shareQuestionInTx(
+	tx: Tx,
+	{
+		group,
+		question,
+		user,
+	}: {
+		group: Pick<Group, "id" | "name">
+		question: Pick<Question, "id" | "title">
+		user: Pick<User, "id" | "username">
+	},
+) {
+	const [inserted] = await tx
+		.insert(questionShares)
+		.values({ groupId: group.id, questionId: question.id, sharedBy: user.id })
+		.onConflictDoNothing()
+		.returning()
+	if (!inserted) {
+		const existing = await tx.query.questionShares.findFirst({
+			where: { groupId: group.id, questionId: question.id },
+		})
+		if (!existing) {
+			throw new Error("shareQuestionInTx: share vanished mid-transaction")
+		}
+		return existing
+	}
+
+	await notifyOtherMembers(tx, group.id, user.id, (userId) => ({
+		type: "question_shared_to_group",
+		userId,
+		groupId: group.id,
+		groupName: group.name,
+		questionId: question.id,
+		questionTitle: question.title,
+		actorId: user.id,
+		actorUsername: user.username,
+	}))
+	return inserted
 }

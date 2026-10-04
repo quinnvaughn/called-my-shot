@@ -27,6 +27,7 @@ export const NotificationsPageDocument = graphql(`
 						...QuestionVoidedRow_notification
 						...CallVoidedRow_notification
 						...GroupMemberJoinedRow_notification
+						...GroupPinsExpiredRow_notification
 						...QuestionSharedToGroupRow_notification
 						...SweepCompletedRow_notification
 						...StreakMilestoneRow_notification

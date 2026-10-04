@@ -70,6 +70,7 @@ export const GroupSettingsDocument = graphql(`
             logoUrl
             bannerUrl
             viewerIsAdmin
+            welcomeMessage
             links {
                 id
                 url
@@ -78,6 +79,9 @@ export const GroupSettingsDocument = graphql(`
             trackedLeagues {
                 id
                 abbreviation
+            }
+            pinnedQuestions {
+                ...GroupWelcomeSection_pin
             }
             members {
                 id
@@ -137,6 +141,10 @@ export const GroupDetailDocument = graphql(`
             memberCount
             viewerIsAdmin
             viewerDismissedInviteCard
+            viewerDismissedWelcome
+            pinnedQuestions {
+                ...GroupPinnedStrip_pin
+            }
             links {
                 id
                 url

@@ -3,15 +3,16 @@ import {
 	joinGroupSchema,
 	updateGroupLinksSchema,
 	updateGroupSchema,
+	updateGroupWelcomeSchema,
 } from "@called-my-shot/schemas"
 import { and, eq } from "drizzle-orm"
 import { db } from "../../../db"
 import {
 	type Group,
+	groupEvents,
 	groupInvites,
 	groupMembers,
 	groups,
-	questionShares,
 } from "../../../db/schema"
 import type { Tx } from "../../../db/types"
 import { requireUser } from "../../../lib/auth"
@@ -22,11 +23,12 @@ import {
 	ValidationError,
 } from "../../../lib/errors"
 import {
+	assertGroupTracksLeague,
 	expiryToDate,
 	getOrCreateMemberInvite,
-	getTrackedLeagueIds,
 	insertGroupInvite,
 	isInviteExpired,
+	notifyOtherMembers,
 	regenerateInviteCode,
 	requireGroupAdmin,
 	requireGroupMember,
@@ -34,11 +36,8 @@ import {
 	requireKnownLeagueIds,
 	setGroupLinks,
 	setTrackedLeagues,
+	shareQuestionInTx,
 } from "../../../lib/groups"
-import {
-	createNotifications,
-	type NotificationInput,
-} from "../../../lib/notifications"
 import { deleteImage } from "../../../lib/storage"
 import { builder } from "../../builder"
 import { parseInput } from "../../helpers"
@@ -50,25 +49,9 @@ import {
 	QuestionSharePayload,
 	UpdateGroupInput,
 	UpdateGroupLinksInput,
+	UpdateGroupWelcomeInput,
 } from "./inputs"
 import { GroupInviteRef, GroupMemberRef, GroupRef } from "./refs"
-
-// Tells everyone else in the group about something `actor` just did there.
-async function notifyOtherMembers(
-	tx: Tx,
-	groupId: string,
-	actorId: string,
-	notificationFor: (userId: string) => NotificationInput,
-) {
-	const others = await tx.query.groupMembers.findMany({
-		where: { groupId, userId: { ne: actorId } },
-		columns: { userId: true },
-	})
-	await createNotifications(
-		tx,
-		others.map((member) => notificationFor(member.userId)),
-	)
-}
 
 // A departed member's link would otherwise keep letting people into a group
 // they're no longer part of.
@@ -118,9 +101,14 @@ builder.mutationFields((t) => ({
 						createdBy: user.id,
 					})
 					.returning()
-				await tx
-					.insert(groupMembers)
-					.values({ groupId: group.id, userId: user.id, role: "admin" })
+				// The creator never sees the welcome modal: it's for people
+				// arriving in a group someone else set up.
+				await tx.insert(groupMembers).values({
+					groupId: group.id,
+					userId: user.id,
+					role: "admin",
+					welcomeDismissedAt: new Date(),
+				})
 				await setTrackedLeagues(tx, group.id, input.leagueIds)
 				await insertGroupInvite(
 					group.id,
@@ -234,10 +222,21 @@ builder.mutationFields((t) => ({
 			await db.transaction(async (tx) => {
 				const [joined] = await tx
 					.insert(groupMembers)
-					.values({ groupId: group.id, userId: user.id, role: "member" })
+					.values({
+						groupId: group.id,
+						userId: user.id,
+						role: "member",
+						invitedById: invite.createdBy,
+					})
 					.onConflictDoNothing()
 					.returning()
 				if (!joined) return
+				await tx.insert(groupEvents).values({
+					groupId: group.id,
+					kind: "member_joined",
+					actorId: user.id,
+					invitedById: invite.createdBy,
+				})
 				await notifyOtherMembers(tx, group.id, user.id, (userId) => ({
 					type: "group_member_joined",
 					userId,
@@ -459,6 +458,62 @@ builder.mutationFields((t) => ({
 		},
 	}),
 
+	// Marks this member welcomed, so the welcome modal stops opening for
+	// them. The client calls it when they close or skip the modal, or make
+	// the call it offers.
+	dismissGroupWelcome: t.field({
+		type: GroupRef,
+		errors: {
+			types: [AuthenticationError, AuthorizationError],
+			directResult: true,
+			union: { name: "DismissGroupWelcomeResult" },
+		},
+		args: { groupId: t.arg.id({ required: true }) },
+		resolve: async (_root, args, ctx) => {
+			const user = requireUser(ctx)
+			const membership = await requireGroupMember(args.groupId, user.id)
+			if (!membership.welcomeDismissedAt) {
+				await db
+					.update(groupMembers)
+					.set({ welcomeDismissedAt: new Date() })
+					.where(eq(groupMembers.id, membership.id))
+			}
+			const group = await db.query.groups.findFirst({
+				where: { id: args.groupId },
+			})
+			if (!group) {
+				throw new Error("dismissGroupWelcome: group vanished mid-request")
+			}
+			return group
+		},
+	}),
+
+	// Its own mutation rather than part of updateGroup, for the same reason
+	// as updateGroupLinks: the welcome message has its own settings section.
+	updateGroupWelcome: t.field({
+		type: GroupPayload,
+		errors: {
+			types: [AuthenticationError, AuthorizationError, NotFoundError],
+			directResult: true,
+			union: { name: "UpdateGroupWelcomeResult" },
+		},
+		args: { input: t.arg({ type: UpdateGroupWelcomeInput, required: true }) },
+		resolve: async (_root, args, ctx) => {
+			const user = requireUser(ctx)
+			const input = parseInput(updateGroupWelcomeSchema, args.input)
+			await requireGroupAdmin(input.groupId, user.id)
+
+			const [group] = await db
+				.update(groups)
+				// || rather than ??: a blank message is no message
+				.set({ welcomeMessage: input.welcomeMessage || null })
+				.where(eq(groups.id, input.groupId))
+				.returning()
+			if (!group) throw new NotFoundError("Group not found")
+			return { group }
+		},
+	}),
+
 	resetGroupInviteCode: t.field({
 		type: GroupInviteRef,
 		errors: {
@@ -504,46 +559,11 @@ builder.mutationFields((t) => ({
 			})
 			if (!question) throw new NotFoundError("Question not found")
 
-			const tracked = await getTrackedLeagueIds(args.groupId)
-			if (tracked && !tracked.includes(question.leagueId)) {
-				const league = await db.query.leagues.findFirst({
-					where: { id: question.leagueId },
-					columns: { abbreviation: true },
-				})
-				throw ValidationError.field(
-					null,
-					`${group.name} doesn't track ${league?.abbreviation ?? "this league's"} questions.`,
-				)
-			}
+			await assertGroupTracksLeague(group, question)
 
-			const existing = await db.query.questionShares.findFirst({
-				where: { groupId: args.groupId, questionId: args.questionId },
-			})
-			if (existing) return { share: existing }
-
-			const share = await db.transaction(async (tx) => {
-				const [share] = await tx
-					.insert(questionShares)
-					.values({
-						groupId: args.groupId,
-						questionId: args.questionId,
-						sharedBy: user.id,
-					})
-					.returning()
-
-				await notifyOtherMembers(tx, args.groupId, user.id, (userId) => ({
-					type: "question_shared_to_group",
-					userId,
-					groupId: args.groupId,
-					groupName: group.name,
-					questionId: question.id,
-					questionTitle: question.title,
-					actorId: user.id,
-					actorUsername: user.username,
-				}))
-
-				return share
-			})
+			const share = await db.transaction((tx) =>
+				shareQuestionInTx(tx, { group, question, user }),
+			)
 			return { share }
 		},
 	}),

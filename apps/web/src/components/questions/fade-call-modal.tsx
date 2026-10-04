@@ -5,16 +5,20 @@ import { HStack, VStack } from "styled-system/jsx"
 import { match } from "ts-pattern"
 import { CaseField } from "#/components/questions/cast-call-form/case-field"
 import { ConvictionCard } from "#/components/questions/cast-call-form/conviction-card"
-import { useCastCallForm } from "#/components/questions/cast-call-form/use-cast-call-form"
+import {
+	type CalledPick,
+	type CastCallFormFragment,
+	useCastCallForm,
+} from "#/components/questions/cast-call-form/use-cast-call-form"
 import { Button } from "#/components/ui/button"
 import { FormError } from "#/components/ui/form-error"
 import { Modal } from "#/components/ui/modal"
-import { graphql } from "#/graphql/generated"
-import type { FadeCallQuestionQuery } from "#/graphql/generated/graphql"
+import { type FragmentType, graphql } from "#/graphql/generated"
 import { useGqlMutation } from "#/graphql/hooks"
 import { AttachFadeDocument } from "#/graphql/mutations/calls"
 import { CallRecordDocument } from "#/graphql/queries/call"
 import { gqlQueryKey, gqlQueryOptions } from "#/graphql/query-options"
+import type { CallSurface } from "#/lib/analytics"
 import { closeModal } from "#/stores/modal-store"
 
 // The call page doesn't carry the cast form's question fields, and most
@@ -119,18 +123,39 @@ function NewFade(props: FadeCallModalProps) {
 	if (!data?.question) {
 		return <FormError message="This question couldn't be loaded." />
 	}
-	return <NewFadeForm {...props} question={data.question} />
+	return (
+		<FadeCallForm {...props} question={data.question} surface="call_page" />
+	)
 }
 
-function NewFadeForm({
+export type FadeCallFormProps = Pick<
+	FadeCallModalProps,
+	"callId" | "optionId" | "opUsername" | "opPickLabel" | "pickLabel"
+> & {
+	question: FragmentType<typeof CastCallFormFragment>
+	surface: CallSurface
+	welcomeGroupId?: string
+	closeOnSuccess?: boolean
+	onCalled?: (pick: CalledPick) => void
+}
+
+// The NEW fade's form on its own, so a surface that already has the question
+// loaded (the group welcome modal) can show it in place rather than stacking
+// a second modal over itself.
+export function FadeCallForm({
 	question,
+	surface,
+	welcomeGroupId,
+	closeOnSuccess,
+	onCalled,
 	...props
-}: FadeCallModalProps & {
-	question: NonNullable<FadeCallQuestionQuery["question"]>
-}) {
-	const callForm = useCastCallForm(question, undefined, {
-		callId: props.callId,
-		optionId: props.optionId,
+}: FadeCallFormProps) {
+	const callForm = useCastCallForm(question, {
+		surface,
+		fade: { callId: props.callId, optionId: props.optionId },
+		welcomeGroupId,
+		closeOnSuccess,
+		onCalled,
 	})
 	const { form } = callForm
 

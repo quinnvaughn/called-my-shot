@@ -241,9 +241,11 @@ function RouteComponent() {
 		}, STATUS_CARD_SCROLL_DELAY_MS)
 		return () => clearTimeout(timeout)
 	}, [scrollToStatusCard])
-	const callForm = useCastCallForm(question, redoMode, undefined, () =>
-		setScrollToStatusCard(true),
-	)
+	const callForm = useCastCallForm(question, {
+		surface: "question_page",
+		redo: redoMode,
+		onCalled: () => setScrollToStatusCard(true),
+	})
 	const [redoRequested, setRedoRequested] = useState(false)
 	// Gated on redoMode as well as the click, so the form closes itself once
 	// the redo lands: viewerCanRedo goes false the moment a call has been
@@ -461,7 +463,12 @@ function RouteComponent() {
 										questionTitle={question.title}
 										questionLeague={question.league}
 										sharedGroupIds={question.viewerSharedGroupIds}
+										pinnedGroupIds={question.viewerPinnedGroupIds}
 										canShareToGroup={me !== null}
+										canPin={
+											question.status === "OPEN" &&
+											new Date(question.locksAt) > new Date()
+										}
 									/>,
 								)
 							}}

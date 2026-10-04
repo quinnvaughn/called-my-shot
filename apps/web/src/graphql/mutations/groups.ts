@@ -252,3 +252,126 @@ export const ShareQuestionToGroupDocument = graphql(`
 		}
 	}
 `)
+
+// Returns the group so the flag can be read off the result.
+export const DismissGroupWelcomeDocument = graphql(`
+	mutation DismissGroupWelcome($groupId: ID!) {
+		dismissGroupWelcome(groupId: $groupId) {
+			__typename
+			... on Group {
+				id
+				viewerDismissedWelcome
+			}
+			... on AuthenticationError {
+				message
+			}
+			... on AuthorizationError {
+				message
+			}
+		}
+	}
+`)
+
+export const UpdateGroupWelcomeDocument = graphql(`
+	mutation UpdateGroupWelcome($input: UpdateGroupWelcomeInput!) {
+		updateGroupWelcome(input: $input) {
+			__typename
+			... on GroupPayload {
+				group {
+					id
+					welcomeMessage
+				}
+			}
+			... on AuthenticationError {
+				message
+			}
+			... on AuthorizationError {
+				message
+			}
+			... on NotFoundError {
+				message
+			}
+			... on ValidationError {
+				fieldErrors {
+					field
+					message
+				}
+			}
+		}
+	}
+`)
+
+export const PinQuestionToGroupDocument = graphql(`
+	mutation PinQuestionToGroup($groupId: ID!, $questionId: ID!) {
+		pinQuestionToGroup(groupId: $groupId, questionId: $questionId) {
+			__typename
+			... on GroupPayload {
+				group {
+					id
+				}
+			}
+			... on AuthenticationError {
+				message
+			}
+			... on AuthorizationError {
+				message
+			}
+			... on NotFoundError {
+				message
+			}
+			... on ValidationError {
+				message
+			}
+		}
+	}
+`)
+
+export const UnpinQuestionFromGroupDocument = graphql(`
+	mutation UnpinQuestionFromGroup($groupId: ID!, $questionId: ID!) {
+		unpinQuestionFromGroup(groupId: $groupId, questionId: $questionId) {
+			__typename
+			... on GroupPayload {
+				group {
+					id
+				}
+			}
+			... on AuthenticationError {
+				message
+			}
+			... on AuthorizationError {
+				message
+			}
+			... on NotFoundError {
+				message
+			}
+			... on ValidationError {
+				message
+			}
+		}
+	}
+`)
+
+export const SetGroupPinOrderDocument = graphql(`
+	mutation SetGroupPinOrder($groupId: ID!, $questionIds: [ID!]!) {
+		setGroupPinOrder(groupId: $groupId, questionIds: $questionIds) {
+			__typename
+			... on GroupPayload {
+				group {
+					id
+				}
+			}
+			... on AuthenticationError {
+				message
+			}
+			... on AuthorizationError {
+				message
+			}
+			... on NotFoundError {
+				message
+			}
+			... on ValidationError {
+				message
+			}
+		}
+	}
+`)

@@ -9,7 +9,10 @@ export const relations = defineRelations(schema, (r) => ({
 			from: r.users.id,
 			to: r.groups.createdBy,
 		}),
-		groupMemberships: r.many.groupMembers(),
+		groupMemberships: r.many.groupMembers({
+			from: r.users.id,
+			to: r.groupMembers.userId,
+		}),
 		questionsCreated: r.many.questions({
 			from: r.users.id,
 			to: r.questions.creatorId,
@@ -115,6 +118,7 @@ export const relations = defineRelations(schema, (r) => ({
 		questionShares: r.many.questionShares(),
 		trackedLeagues: r.many.groupLeagues(),
 		links: r.many.groupLinks(),
+		pins: r.many.groupPins(),
 	},
 	groupLinks: {
 		group: r.one.groups({
@@ -146,6 +150,42 @@ export const relations = defineRelations(schema, (r) => ({
 		equippedFlair: r.one.flairs({
 			from: r.groupMembers.equippedFlairId,
 			to: r.flairs.id,
+		}),
+		invitedBy: r.one.users({
+			from: r.groupMembers.invitedById,
+			to: r.users.id,
+		}),
+		welcomeCall: r.one.calls({
+			from: r.groupMembers.welcomeCallId,
+			to: r.calls.id,
+		}),
+	},
+	groupPins: {
+		group: r.one.groups({
+			from: r.groupPins.groupId,
+			to: r.groups.id,
+		}),
+		question: r.one.questions({
+			from: r.groupPins.questionId,
+			to: r.questions.id,
+		}),
+		pinnedByUser: r.one.users({
+			from: r.groupPins.pinnedBy,
+			to: r.users.id,
+		}),
+	},
+	groupEvents: {
+		group: r.one.groups({
+			from: r.groupEvents.groupId,
+			to: r.groups.id,
+		}),
+		actor: r.one.users({
+			from: r.groupEvents.actorId,
+			to: r.users.id,
+		}),
+		invitedBy: r.one.users({
+			from: r.groupEvents.invitedById,
+			to: r.users.id,
 		}),
 	},
 	groupInvites: {

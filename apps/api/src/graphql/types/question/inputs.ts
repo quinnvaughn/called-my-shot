@@ -141,6 +141,9 @@ export const CastCallInput = builder.inputType("CastCallInput", {
 		// Casts this call as a fade of another call on the same question: a
 		// two-sided question, on the other side from it.
 		fadesCallId: t.id({ required: false }),
+		// The group whose welcome modal this call was made from. Recorded on
+		// the caller's membership as that group's welcome call.
+		welcomeGroupId: t.id({ required: false }),
 	}),
 })
 

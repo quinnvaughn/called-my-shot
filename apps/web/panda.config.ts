@@ -61,7 +61,7 @@ export default defineConfig({
       // modal's `size` prop and tabs' `active`/`stretch` are always passed
       // through a variable (a component prop, active-tab comparison, etc.),
       // never a literal at the call site - same reasoning as above.
-      modal: [{ size: ["sm", "md"] }],
+      modal: [{ size: ["sm", "md", "lg"] }],
       tabs: [{ active: ["true"] }, { stretch: ["true"] }],
     },
   },
@@ -1287,6 +1287,9 @@ export default defineConfig({
             size: {
               sm: { box: { maxWidth: "sm" } },
               md: { box: { maxWidth: "md" } },
+              // Room for a full call form beside the copy around it - the
+              // group welcome modal.
+              lg: { box: { maxWidth: "xl" } },
             },
           },
           defaultVariants: {

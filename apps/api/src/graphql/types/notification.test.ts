@@ -27,6 +27,9 @@ const FEED = /* GraphQL */ `
 							question { title }
 							actor { username }
 						}
+						... on GroupPinsExpiredNotification {
+							group { name }
+						}
 						... on StreakMilestoneNotification {
 							league { abbreviation }
 						}
@@ -88,11 +91,22 @@ describe("notifications", () => {
 				actorId: actor.id,
 				createdAt: new Date(Date.now() - 1000),
 			},
+			{
+				userId: viewer.id,
+				type: "group_pins_expired",
+				groupId: group.id,
+				groupName: group.name,
+			},
 		])
 
 		const data = await expectData<Feed>(FEED, { as: viewer })
-		const [shared, milestone, reminder] = data.notifications.data.items
+		const [pinsExpired, shared, milestone, reminder] =
+			data.notifications.data.items
 
+		expect(pinsExpired).toMatchObject({
+			__typename: "GroupPinsExpiredNotification",
+			group: { name: group.name },
+		})
 		expect(shared).toMatchObject({
 			__typename: "QuestionSharedToGroupNotification",
 			group: { name: group.name },
