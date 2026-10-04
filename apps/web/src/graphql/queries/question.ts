@@ -135,6 +135,11 @@ export const QuestionDetailDocument = graphql(`
 					ties
 					otLosses
 				}
+				# The rail beside the question, from xl up (GameSetRail).
+				officialQuestions {
+					id
+					...GameSetRail_question
+				}
 			}
 			guessDistribution {
 				value

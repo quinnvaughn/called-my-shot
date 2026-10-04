@@ -13,7 +13,7 @@ import { useState } from "react"
 import { FaRegTimesCircle } from "react-icons/fa"
 import { css } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
-import { GameCallsRail } from "#/components/games/game-calls-rail"
+import { GameSetRail } from "#/components/games/game-set-rail"
 import { GameMatchupHeader } from "#/components/games/game-matchup-header"
 import {
 	canSetGameReminder,
@@ -43,6 +43,7 @@ import {
 } from "#/graphql/query-options"
 import { formatRecord, formatSignedPoints } from "#/lib/ballot-entry"
 import { gameEntryPath, viewerGamePicksSummary } from "#/lib/game-entry"
+import { IN_PLAY_REFETCH_MS, isGameInPlay } from "#/lib/game-status"
 import { pageMeta } from "#/lib/meta"
 import {
 	findGameWinnerQuestion,
@@ -84,21 +85,6 @@ const sectionLabelClass = css({
 
 const gameQuery = (id: string) => gqlQueryOptions(GameByIdDocument, { id })
 
-// How often a game in play is re-read, so the score and the rail's live
-// numbers move without a reload. The numbers themselves refresh every five
-// minutes server side (sync-live-readings), so this only has to keep up.
-const IN_PLAY_REFETCH_MS = 60_000
-
-// Being played, or past its start with the last read still saying scheduled:
-// the status only flips when sync-live-scores next runs, and the page has to
-// be polling already to see it.
-function isInPlay(game: { status: string; startsAt: string }): boolean {
-	return (
-		game.status === "LIVE" ||
-		(game.status === "SCHEDULED" && Date.parse(game.startsAt) <= Date.now())
-	)
-}
-
 const officialQuestionsQuery = (gameId: string) =>
 	gqlQueryOptions(GameQuestionsDocument, {
 		gameId,
@@ -117,8 +103,9 @@ const communityQuestionsQuery = (gameId: string, sort: QuestionSortOrder) =>
 
 export const Route = createFileRoute("/_app/games/$gameId/{-$slug}")({
 	component: RouteComponent,
-	// The viewer's calls on this game. The shell only shows the rail from xl
-	// up; below that the Official tab's picks line stands in for it.
+	// The game's official questions with the viewer's call on each. The shell
+	// only shows the rail from xl up; below that the Official tab's picks line
+	// stands in for it.
 	staticData: { rightRail: <GameRail /> },
 	staleTime: 0,
 	// Official is the default and stays off the url, so a shared game link
@@ -223,13 +210,13 @@ function RouteComponent() {
 		...gameQuery(gameId),
 		refetchInterval: (query) => {
 			const game = query.state.data?.game
-			return game && isInPlay(game) ? IN_PLAY_REFETCH_MS : false
+			return game && isGameInPlay(game) ? IN_PLAY_REFETCH_MS : false
 		},
 	})
 	const { data: officialData } = useSuspenseQuery({
 		...officialQuestionsQuery(gameId),
 		refetchInterval:
-			gameData.game && isInPlay(gameData.game) ? IN_PLAY_REFETCH_MS : false,
+			gameData.game && isGameInPlay(gameData.game) ? IN_PLAY_REFETCH_MS : false,
 	})
 	const { me } = useRouteContext({ from: "__root__" })
 	const game = gameData.game
@@ -386,7 +373,7 @@ function GameRail() {
 	const { me } = useRouteContext({ from: "__root__" })
 	if (!gameData.game) return null
 	return (
-		<GameCallsRail
+		<GameSetRail
 			game={gameData.game}
 			questions={officialData.questions.items}
 			username={me?.username ?? null}

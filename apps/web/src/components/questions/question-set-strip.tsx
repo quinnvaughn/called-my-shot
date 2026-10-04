@@ -377,7 +377,7 @@ const stateIconClass: Record<BallotMemberState, string> = {
 	}),
 }
 
-function MemberStateIcon({ state }: { state: BallotMemberState }) {
+export function MemberStateIcon({ state }: { state: BallotMemberState }) {
 	return (
 		<div
 			className={cx(
@@ -503,6 +503,8 @@ type Props = {
 	// body: something to do with the set as a whole (sharing your picks on
 	// it), not with the question on screen.
 	action?: ReactNode
+	// On the root card, for a page that shows the strip only at some widths.
+	className?: string
 }
 
 // Pure navigation/discovery over a set of independently-resolving questions
@@ -524,6 +526,7 @@ export function QuestionSetStrip({
 	members,
 	currentQuestionId,
 	action,
+	className,
 }: Props) {
 	const [expanded, setExpanded] = useState(false)
 	// null means "whatever this viewport defaults to" - closed on a phone,
@@ -602,7 +605,7 @@ export function QuestionSetStrip({
 		.exhaustive()
 
 	return (
-		<Card>
+		<Card className={className}>
 			<Card.Body>
 				<VStack gap="3" alignItems="stretch">
 					{/* The header is the only control up here, and the whole row is

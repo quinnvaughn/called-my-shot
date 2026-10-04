@@ -15,6 +15,7 @@ import { HStack, VStack } from "styled-system/jsx"
 import { match, P } from "ts-pattern"
 import { AuthModal } from "#/components/auth/auth-modal"
 import { GameMatchupHeader } from "#/components/games/game-matchup-header"
+import { GameSetRail } from "#/components/games/game-set-rail"
 import { FirstCallTour } from "#/components/onboarding/first-call-tour"
 import { TourAnchorProvider } from "#/components/onboarding/tour-anchors"
 import { BallotStrip } from "#/components/questions/ballot-strip"
@@ -53,6 +54,7 @@ import { questionHorizon, track } from "#/lib/analytics"
 import { callMarginFor, marginLabel } from "#/lib/call-summary"
 import { safeExternalUrl } from "#/lib/external-url"
 import { formatGuess } from "#/lib/field-signal"
+import { IN_PLAY_REFETCH_MS, isGameInPlay } from "#/lib/game-status"
 import { pageMeta } from "#/lib/meta"
 import { questionDetailState } from "#/lib/question-detail-state"
 import {
@@ -129,6 +131,9 @@ export const Route = createFileRoute("/_app/questions/$questionId/{-$slug}")({
 	// switching questions that way would submit against the question you
 	// were on when the component first mounted, not the one on screen.
 	remountDeps: ({ params }) => params.questionId,
+	// The game's official questions beside this one, in place of GameStrip
+	// from xl up. Renders nothing for a question with no game.
+	staticData: { rightRail: <QuestionGameRail /> },
 	// head() can only read loaderData, so the meta-tag fields come back from
 	// here; the component reads the same cache entries via useSuspenseQuery.
 	loader: async ({ context, params }) => {
@@ -182,11 +187,45 @@ export const Route = createFileRoute("/_app/questions/$questionId/{-$slug}")({
 	},
 })
 
+// Reads the cache entry RouteComponent loads and polls, so the rail moves
+// with the page rather than fetching on its own.
+function QuestionGameRail() {
+	const { questionId } = Route.useParams()
+	const { data } = useSuspenseQuery(questionDetailQuery(questionId))
+	const { me } = useRouteContext({ from: "__root__" })
+	const question = data.question
+	const game = question?.game
+	if (!question || !game) return null
+	return (
+		<GameSetRail
+			game={game}
+			questions={game.officialQuestions}
+			username={me?.username ?? null}
+			currentQuestionId={question.id}
+			gameLinkParams={{
+				gameId: game.id,
+				slug: buildGameSlug({
+					league: question.league,
+					homeTeam: game.homeTeam,
+					awayTeam: game.awayTeam,
+					startsAt: game.startsAt,
+				}),
+			}}
+		/>
+	)
+}
+
 function RouteComponent() {
 	const { questionId } = Route.useParams()
 	const { tour } = Route.useSearch()
 	const navigate = Route.useNavigate()
-	const { data } = useSuspenseQuery(questionDetailQuery(questionId))
+	const { data } = useSuspenseQuery({
+		...questionDetailQuery(questionId),
+		refetchInterval: (query) => {
+			const game = query.state.data?.question?.game
+			return game && isGameInPlay(game) ? IN_PLAY_REFETCH_MS : false
+		},
+	})
 	// Not suspense: the loader fires this without awaiting, so the page has
 	// to render before it lands.
 	const statContext = useQuery(questionStatContextQuery(questionId))
@@ -427,7 +466,10 @@ function RouteComponent() {
 					<Breadcrumb.Current>{question.title}</Breadcrumb.Current>
 				</Breadcrumb>
 				<BallotStrip question={question} />
-				<GameStrip question={question} />
+				<GameStrip
+					question={question}
+					className={css({ display: { base: "flex", xl: "none" } })}
+				/>
 				<VStack gap="3" alignItems="stretch">
 					<HStack gap="2" justify="space-between" alignItems="flex-start">
 						<HStack gap="2" flexWrap="wrap">

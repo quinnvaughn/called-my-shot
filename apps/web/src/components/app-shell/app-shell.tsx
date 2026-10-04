@@ -161,9 +161,6 @@ export function AppShell({
 						flex: 1,
 						minWidth: 0,
 						px: "6",
-						borderRight: rightRail
-							? "1px solid {colors.border.default}"
-							: "none",
 						padding: {
 							base: "5",
 							xl: "{spacing.6} {spacing.8}",
@@ -188,6 +185,10 @@ export function AppShell({
 							height: "100dvh",
 							overflowY: "auto",
 							padding: "6",
+							borderLeft: "1px solid {colors.border.default}",
+							// A rail whose page has nothing for it this time (a
+							// question with no game) gives its column back.
+							_empty: { display: "none" },
 						})}
 					>
 						{rightRail}

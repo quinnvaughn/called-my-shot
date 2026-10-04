@@ -35,6 +35,25 @@ export function gameTimeLabel(game: StatusGame): string {
 		: DateTime.fromISO(game.startsAt).toFormat("h:mm a")
 }
 
+// How often a page showing a game in play re-reads it, so the score and the
+// live numbers beside it move without a reload. The numbers themselves
+// refresh every five minutes server side (sync-live-readings), so this only
+// has to keep up.
+export const IN_PLAY_REFETCH_MS = 60_000
+
+// Being played, or past its start with the last read still saying scheduled:
+// the status only flips when sync-live-scores next runs, and the page has to
+// be polling already to see it.
+export function isGameInPlay(game: {
+	status: GameStatus
+	startsAt: string
+}): boolean {
+	return (
+		game.status === "LIVE" ||
+		(game.status === "SCHEDULED" && Date.parse(game.startsAt) <= Date.now())
+	)
+}
+
 export function gameStatusLabel(game: StatusGame): string {
 	return match(game.status)
 		.with("FINAL", () => `FINAL · ${gameScoreLabel(game)}`)

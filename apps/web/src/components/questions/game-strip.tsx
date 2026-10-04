@@ -78,6 +78,7 @@ export const GameStripFragment = graphql(`
 
 type Props = {
 	question: FragmentType<typeof GameStripFragment>
+	className?: string
 }
 
 export type GameNextUp = {
@@ -118,7 +119,7 @@ export function useGameNextUp(
 // A game's official questions as one navigable set, in the game page's
 // order (see official-game-questions.ts). Renders nothing for a question with
 // no game, or a game with fewer than two official questions to move between.
-export function GameStrip({ question: questionProp }: Props) {
+export function GameStrip({ question: questionProp, className }: Props) {
 	const question = useFragment(GameStripFragment, questionProp)
 	const { me } = useRouteContext({ from: "__root__" })
 	const game = question.game
@@ -131,6 +132,7 @@ export function GameStrip({ question: questionProp }: Props) {
 
 	return (
 		<QuestionSetStrip
+			className={className}
 			name={matchup}
 			icon={MdScoreboard}
 			navigationLabel="game"

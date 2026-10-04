@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest"
-import { gameCallsRailLabel, liveStanding } from "./game-calls-rail"
+import { gameSetRailLabel, liveStanding } from "./game-set-rail"
 
 const question = (
-	overrides: Partial<Parameters<typeof gameCallsRailLabel>[0]>,
-): Parameters<typeof gameCallsRailLabel>[0] => ({
+	overrides: Partial<Parameters<typeof gameSetRailLabel>[0]>,
+): Parameters<typeof gameSetRailLabel>[0] => ({
 	title: "The title",
 	shape: "PLAYER_STAT_OVER_UNDER",
 	stat: { name: "Passing Yards" },
@@ -13,14 +13,14 @@ const question = (
 	...overrides,
 })
 
-describe("gameCallsRailLabel", () => {
+describe("gameSetRailLabel", () => {
 	it("names the player and the stat on a player line", () => {
-		expect(gameCallsRailLabel(question({}))).toBe("Herbert PASS YDS")
+		expect(gameSetRailLabel(question({}))).toBe("Herbert PASS YDS")
 	})
 
 	it("adds the stat to a head-to-head", () => {
 		expect(
-			gameCallsRailLabel(
+			gameSetRailLabel(
 				question({
 					shape: "PLAYER_VS_PLAYER",
 					subjectPlayer: null,
@@ -31,14 +31,14 @@ describe("gameCallsRailLabel", () => {
 	})
 
 	it("calls the who-wins question the game winner", () => {
-		expect(gameCallsRailLabel(question({ shape: "TEAM_VS_TEAM" }))).toBe(
+		expect(gameSetRailLabel(question({ shape: "TEAM_VS_TEAM" }))).toBe(
 			"Game winner",
 		)
 	})
 
 	it("falls back to the title when there's nothing to build a label from", () => {
 		expect(
-			gameCallsRailLabel(question({ subjectPlayer: null, stat: null })),
+			gameSetRailLabel(question({ subjectPlayer: null, stat: null })),
 		).toBe("The title")
 	})
 })
