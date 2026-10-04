@@ -243,6 +243,7 @@ export const GameQuestionsDocument = graphql(`
 					}
 				}
 				...QuestionCard_question
+				...GameCallsRail_question
 			}
 			pageInfo {
 				hasNextPage

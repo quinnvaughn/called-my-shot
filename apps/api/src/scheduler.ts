@@ -7,6 +7,7 @@ import { generateGameQuestions } from "./db/sync/generate-game-questions"
 import { syncSportsData } from "./db/sync/run"
 import { syncBoxScores } from "./db/sync/sync-box-scores"
 import { syncGameStarters } from "./db/sync/sync-game-starters"
+import { syncLiveReadings } from "./db/sync/sync-live-readings"
 import { syncLiveScores } from "./db/sync/sync-live-scores"
 import { drainAnalyticsOutbox } from "./lib/analytics-outbox"
 import { drainResolutionDigests } from "./lib/email-digest"
@@ -30,6 +31,7 @@ import {
 	RECOMPUTE_ACHIEVEMENTS_LOCK,
 	RECONCILE_ACHIEVEMENTS_LOCK,
 	SYNC_GAME_STARTERS_LOCK,
+	SYNC_LIVE_READINGS_LOCK,
 	SYNC_LIVE_SCORES_LOCK,
 	SYNC_SPORTS_DATA_LOCK,
 	TUNE_BANDS_LOCK,
@@ -90,25 +92,29 @@ const job = (
 export const JOBS: ScheduledJob[] = [
 	// A game going final is the moment its questions can settle, so the ones
 	// this tick marked final are resolved in the same tick rather than waiting
-	// for auto-resolve-games' own schedule below.
+	// for auto-resolve-games' own schedule below. Live readings come last, off
+	// the statuses this tick just wrote, since a result matters more than a
+	// game in progress.
 	{
 		name: SYNC_LIVE_SCORES_LOCK,
 		cron: "*/5 * * * *",
 		chains:
-			"auto-resolve-games, recompute-achievements and sync-box-scores when a game went final",
+			"auto-resolve-games, recompute-achievements and sync-box-scores when a game went final, then sync-live-readings",
 		run: async () => {
 			let wentFinal: string[] = []
 			await runJob(SYNC_LIVE_SCORES_LOCK, async () => {
 				wentFinal = await syncLiveScores()
 			})()
-			if (wentFinal.length === 0) return
-			await runJob(AUTO_RESOLVE_GAMES_LOCK, () => autoResolveGames())()
-			await drainAchievements()
-			// After resolution, not before: auto-resolve-games stores the box
-			// score of every game it fetched, so by now this usually finds
-			// nothing to do. What it picks up is the games that path never
-			// touches - see syncBoxScores.
-			await runJob(BOX_SCORE_SYNC_LOCK, () => syncBoxScores())()
+			if (wentFinal.length > 0) {
+				await runJob(AUTO_RESOLVE_GAMES_LOCK, () => autoResolveGames())()
+				await drainAchievements()
+				// After resolution, not before: auto-resolve-games stores the box
+				// score of every game it fetched, so by now this usually finds
+				// nothing to do. What it picks up is the games that path never
+				// touches - see syncBoxScores.
+				await runJob(BOX_SCORE_SYNC_LOCK, () => syncBoxScores())()
+			}
+			await runJob(SYNC_LIVE_READINGS_LOCK, () => syncLiveReadings())()
 		},
 	},
 	// Every minute, so a streak or sweep lands shortly after the result that

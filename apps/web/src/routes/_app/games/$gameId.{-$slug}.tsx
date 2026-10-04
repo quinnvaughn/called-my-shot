@@ -13,6 +13,7 @@ import { useState } from "react"
 import { FaRegTimesCircle } from "react-icons/fa"
 import { css } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
+import { GameCallsRail } from "#/components/games/game-calls-rail"
 import { GameMatchupHeader } from "#/components/games/game-matchup-header"
 import {
 	canSetGameReminder,
@@ -83,6 +84,21 @@ const sectionLabelClass = css({
 
 const gameQuery = (id: string) => gqlQueryOptions(GameByIdDocument, { id })
 
+// How often a game in play is re-read, so the score and the rail's live
+// numbers move without a reload. The numbers themselves refresh every five
+// minutes server side (sync-live-readings), so this only has to keep up.
+const IN_PLAY_REFETCH_MS = 60_000
+
+// Being played, or past its start with the last read still saying scheduled:
+// the status only flips when sync-live-scores next runs, and the page has to
+// be polling already to see it.
+function isInPlay(game: { status: string; startsAt: string }): boolean {
+	return (
+		game.status === "LIVE" ||
+		(game.status === "SCHEDULED" && Date.parse(game.startsAt) <= Date.now())
+	)
+}
+
 const officialQuestionsQuery = (gameId: string) =>
 	gqlQueryOptions(GameQuestionsDocument, {
 		gameId,
@@ -101,6 +117,9 @@ const communityQuestionsQuery = (gameId: string, sort: QuestionSortOrder) =>
 
 export const Route = createFileRoute("/_app/games/$gameId/{-$slug}")({
 	component: RouteComponent,
+	// The viewer's calls on this game. The shell only shows the rail from xl
+	// up; below that the Official tab's picks line stands in for it.
+	staticData: { rightRail: <GameRail /> },
 	staleTime: 0,
 	// Official is the default and stays off the url, so a shared game link
 	// always opens on it.
@@ -200,10 +219,18 @@ function RouteComponent() {
 	const tab: GameTab = tabParam ?? "official"
 	const navigate = Route.useNavigate()
 
-	const { data: gameData } = useSuspenseQuery(gameQuery(gameId))
-	const { data: officialData } = useSuspenseQuery(
-		officialQuestionsQuery(gameId),
-	)
+	const { data: gameData } = useSuspenseQuery({
+		...gameQuery(gameId),
+		refetchInterval: (query) => {
+			const game = query.state.data?.game
+			return game && isInPlay(game) ? IN_PLAY_REFETCH_MS : false
+		},
+	})
+	const { data: officialData } = useSuspenseQuery({
+		...officialQuestionsQuery(gameId),
+		refetchInterval:
+			gameData.game && isInPlay(gameData.game) ? IN_PLAY_REFETCH_MS : false,
+	})
 	const { me } = useRouteContext({ from: "__root__" })
 	const game = gameData.game
 	const officialQuestions = officialData.questions.items
@@ -301,7 +328,11 @@ function RouteComponent() {
 			{tab === "official" ? (
 				<VStack gap="6" alignItems="stretch">
 					{me && picks.calledCount > 0 && (
-						<HStack justify="space-between" gap="3">
+						<HStack
+							justify="space-between"
+							gap="3"
+							display={{ base: "flex", xl: "none" }}
+						>
 							<Link
 								to={gameEntryPath(game.id, me.username)}
 								className={css({
@@ -341,6 +372,25 @@ function RouteComponent() {
 				<CommunityQuestions gameId={game.id} />
 			)}
 		</VStack>
+	)
+}
+
+// Reads the cache entries RouteComponent loads and polls, so the rail moves
+// with the page rather than fetching on its own.
+function GameRail() {
+	const { gameId } = Route.useParams()
+	const { data: gameData } = useSuspenseQuery(gameQuery(gameId))
+	const { data: officialData } = useSuspenseQuery(
+		officialQuestionsQuery(gameId),
+	)
+	const { me } = useRouteContext({ from: "__root__" })
+	if (!gameData.game) return null
+	return (
+		<GameCallsRail
+			game={gameData.game}
+			questions={officialData.questions.items}
+			username={me?.username ?? null}
+		/>
 	)
 }
 

@@ -11,7 +11,9 @@ import { match } from "ts-pattern"
 import { db } from "../../../db"
 import {
 	groupMembers,
+	type LiveOptionValue,
 	type Question,
+	type QuestionLiveReading,
 	questionShares,
 	type UserStreak,
 } from "../../../db/schema"
@@ -166,6 +168,29 @@ export const MyCallCountsRef = builder
 		fields: (t) => ({
 			open: t.exposeInt("open"),
 			resolved: t.exposeInt("resolved"),
+		}),
+	})
+
+const LiveOptionValueRef = builder
+	.objectRef<LiveOptionValue>("LiveOptionValue")
+	.implement({
+		fields: (t) => ({
+			optionId: t.exposeID("optionId"),
+			value: t.exposeFloat("value", { nullable: true }),
+		}),
+	})
+
+const LiveReadingRef = builder
+	.objectRef<QuestionLiveReading>("LiveReading")
+	.implement({
+		fields: (t) => ({
+			value: t.exposeFloat("value", { nullable: true }),
+			optionValues: t.field({
+				type: [LiveOptionValueRef],
+				nullable: true,
+				resolve: (r) => r.optionValues,
+			}),
+			updatedAt: t.field({ type: "DateTime", resolve: (r) => r.updatedAt }),
 		}),
 	})
 
@@ -646,6 +671,25 @@ export const QuestionRef = builder.drizzleObject("questions", {
 				return indexByKey(questionIds, found, (c) => c.questionId, null)
 			},
 			resolve: (question) => question.id,
+		}),
+
+		// Where the question stands while its game is being played, from the
+		// latest in-progress box score (see db/sync/sync-live-readings.ts).
+		// Null before the game, on a shape the box score can't speak to, and
+		// once the question settles, when its own result takes over.
+		liveReading: t.loadable({
+			type: LiveReadingRef,
+			nullable: true,
+			load: async (questionIds: string[]) => {
+				const found = await db.query.questionLiveReadings.findMany({
+					where: { questionId: { in: questionIds } },
+				})
+				return indexByKey(questionIds, found, (r) => r.questionId, null)
+			},
+			resolve: (question) =>
+				question.status === "open" || question.status === "locked"
+					? question.id
+					: null,
 		}),
 
 		// The viewer's run in this question's league and family, when this

@@ -1,19 +1,10 @@
-import {
-	autoResolutionSource,
-	autoResolveStatKeyFor,
-} from "@called-my-shot/schemas"
+import { autoResolutionSource } from "@called-my-shot/schemas"
 import { autoResolveNotes } from "../../lib/auto-resolve/apply"
 import {
 	decideFinalScore,
 	decideGameQuestion,
 	fail,
 } from "../../lib/auto-resolve/decide"
-import {
-	EXTRACTORS,
-	type GameExtractor,
-	type GameSourceNeed,
-	type GameSources,
-} from "../../lib/auto-resolve/registry"
 import { AUTO_RESOLVE_GAMES_LOCK } from "../../lib/job-lock"
 import { runCli } from "../../lib/run-cli"
 import { HOUR_MS } from "../../lib/time"
@@ -27,8 +18,12 @@ import {
 } from "./auto-resolve-job"
 import { parseBoxScore } from "./box-score-parse"
 import { persistBoxScore } from "./box-score-store"
+import {
+	gameExtractorFor,
+	loadGameEspnRefs,
+	loadGameSources,
+} from "./game-sources"
 import { SYNCED_LEAGUES } from "./leagues"
-import { byEspnId, loadEspnIds } from "./sync-refs"
 
 // How long past the game going final a retryable failure keeps being retried
 // before the question is handed to an admin.
@@ -64,44 +59,6 @@ const loadCandidates = (now: Date) =>
 
 type Candidate = Awaited<ReturnType<typeof loadCandidates>>[number]
 
-const subjectPlayerIds = (question: Candidate) =>
-	[question.subjectPlayerId, ...question.options.map((o) => o.playerId)].filter(
-		(id): id is string => id !== null,
-	)
-
-async function loadEspnRefs(
-	game: { id: string; homeTeamId: string; awayTeamId: string },
-	group: Candidate[],
-) {
-	const [eventIds, espnTeamIdByTeamId, espnAthleteIdByPlayerId] =
-		await Promise.all([
-			loadEspnIds("game", [game.id]),
-			loadEspnIds("team", [game.homeTeamId, game.awayTeamId]),
-			loadEspnIds("player", group.flatMap(subjectPlayerIds)),
-		])
-	return {
-		espnEventId: eventIds.get(game.id) ?? null,
-		espnTeamIdByTeamId,
-		espnAthleteIdByPlayerId,
-		playerIdByEspnAthleteId: byEspnId(espnAthleteIdByPlayerId),
-	}
-}
-
-function extractorFor(
-	question: Candidate,
-	leagueSlug: string,
-): GameExtractor | null {
-	const key = autoResolveStatKeyFor({
-		shape: question.shape,
-		leagueSlug,
-		statName: question.stat?.name,
-		customStat: question.customStat,
-		statAggregation: question.statAggregation,
-	})
-	const extractor = key ? EXTRACTORS[key] : null
-	return extractor?.scope === "game" ? extractor : null
-}
-
 // Reads one game's box score, plus whatever else its questions' stats need,
 // once, then settles each question from it.
 async function processGame(
@@ -121,7 +78,7 @@ async function processGame(
 	})
 
 	const config = SYNCED_LEAGUES.find((c) => c.leagueSlug === league.slug)
-	const refs = await loadEspnRefs(game, group)
+	const refs = await loadGameEspnRefs(game, group)
 	const espnEventId = refs.espnEventId
 	if (!config || !espnEventId) {
 		await applyAll(fail("missing_external_ref", "no ESPN event for this game"))
@@ -146,74 +103,18 @@ async function processGame(
 
 	const planned = group.map((question) => ({
 		question,
-		extractor: extractorFor(question, league.slug),
+		extractor: gameExtractorFor(question, league.slug),
 	}))
-	const needs = new Set(planned.flatMap((p) => p.extractor?.needs ?? []))
-	const failedNeeds = new Set<GameSourceNeed>()
-	const sources: GameSources = {
+	const { sources, failedNeeds } = await loadGameSources({
 		box,
-		didNotPlayByTeam: new Map(),
-		athleteGameStats: new Map(),
-	}
-
-	if (needs.has("roster")) {
-		for (const espnTeamId of refs.espnTeamIdByTeamId.values()) {
-			const roster = await requester.request(
-				`${league.slug} roster ${espnEventId}/${espnTeamId}`,
-				() =>
-					espn.fetchCompetitorRoster(config.espnPath, espnEventId, espnTeamId),
-			)
-			if (!roster) {
-				failedNeeds.add("roster")
-				continue
-			}
-			sources.didNotPlayByTeam.set(
-				espnTeamId,
-				new Map(roster.map((e) => [String(e.playerId), e.didNotPlay === true])),
-			)
-		}
-	}
-
-	if (needs.has("athleteGameStats")) {
-		const espnAthleteIds = new Set(
-			planned
-				.filter((p) => p.extractor?.needs.includes("athleteGameStats"))
-				.flatMap((p) => subjectPlayerIds(p.question))
-				.flatMap(
-					(playerId) => refs.espnAthleteIdByPlayerId.get(playerId) ?? [],
-				),
-		)
-		for (const espnAthleteId of espnAthleteIds) {
-			// Not in the box score means they didn't appear, which the extractor
-			// reads without these stats.
-			const athlete = box.athletes.get(espnAthleteId)
-			if (!athlete) continue
-			const stats = await requester.request(
-				`${league.slug} athlete ${espnAthleteId}`,
-				() =>
-					espn.fetchCompetitorAthleteStatistics(
-						config.espnPath,
-						espnEventId,
-						athlete.espnTeamId,
-						espnAthleteId,
-					),
-			)
-			if (!stats) {
-				failedNeeds.add("athleteGameStats")
-				continue
-			}
-			sources.athleteGameStats.set(
-				espnAthleteId,
-				new Map(
-					stats.splits.categories.flatMap((category) =>
-						category.stats.map(
-							(stat) => [`${category.name}.${stat.name}`, stat.value] as const,
-						),
-					),
-				),
-			)
-		}
-	}
+		planned,
+		refs,
+		espnEventId,
+		leagueSlug: league.slug,
+		espnPath: config.espnPath,
+		espn,
+		requester,
+	})
 
 	const boxScoreUrl = `https://www.espn.com/${league.slug}/boxscore/_/gameId/${espnEventId}`
 	for (const { question, extractor } of planned) {

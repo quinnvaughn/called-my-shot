@@ -55,7 +55,7 @@ export async function seedFinalGame(
 		finalizedAt?: Date
 		espnEventId?: string | null
 		seasonId?: string
-		status?: "final" | "scheduled"
+		status?: "final" | "scheduled" | "live"
 		boxScoreSyncedAt?: Date
 	},
 ) {

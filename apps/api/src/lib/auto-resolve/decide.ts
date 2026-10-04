@@ -231,10 +231,20 @@ export function decideFinalScore(ctx: FinalScoreContext): Decision {
 	)
 }
 
-// Settles a question from one box score, or says why it can't. Pure: every
-// ESPN read has already happened, so this is only the grading.
-export function decideGameQuestion(ctx: GameQuestionContext): Decision {
-	const { question, options, extractor, sources } = ctx
+// How one game question's subjects read from its sources: a player through
+// their ESPN athlete id, a team through its ESPN team id. Shared by settling a
+// question and by reading where it stands mid-game, so both look the same
+// subject up the same way.
+export function gameSubjectReaders(
+	ctx: Pick<
+		GameQuestionContext,
+		| "extractor"
+		| "sources"
+		| "espnAthleteIdByPlayerId"
+		| "espnTeamIdByTeamId"
+	>,
+) {
+	const { extractor, sources } = ctx
 
 	const readPlayer = (playerId: string | null): StatReading => {
 		if (extractor.subject !== "player") {
@@ -275,6 +285,15 @@ export function decideGameQuestion(ctx: GameQuestionContext): Decision {
 		}
 		return extractor.read(sources, espnTeamId)
 	}
+
+	return { readPlayer, readTeam }
+}
+
+// Settles a question from one box score, or says why it can't. Pure: every
+// ESPN read has already happened, so this is only the grading.
+export function decideGameQuestion(ctx: GameQuestionContext): Decision {
+	const { question, options, extractor, sources } = ctx
+	const { readPlayer, readTeam } = gameSubjectReaders(ctx)
 
 	const overUnder = (value: number) =>
 		gradeOverUnder(question.ouLine, options, value)
