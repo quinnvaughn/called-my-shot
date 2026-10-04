@@ -27,8 +27,8 @@ export function FirstCallDoneModal({ resolutionSource }: Props) {
 			<VStack gap="2" alignItems="flex-start">
 				<Modal.Title>That's a call</Modal.Title>
 				<Modal.Description>
-					It's in, and it can't be changed. Your pick stays hidden from anyone
-					who hasn't called this question yet, right up until it locks.
+					It's in, and anyone can see your pick. To change it before the
+					question locks, spend a redo. You earn them by inviting people.
 				</Modal.Description>
 				<p
 					className={css({
