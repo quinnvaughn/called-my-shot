@@ -225,15 +225,46 @@ export function GameSetRail({
 			</HStack>
 
 			{username ? (
-				<Summary
-					calledCount={summary.calledCount}
-					questionCount={summary.questionCount}
-					wins={summary.wins}
-					losses={summary.losses}
-					points={summary.points}
-				/>
+				<HStack justify="space-between" alignItems="center" gap="3">
+					<Summary
+						calledCount={summary.calledCount}
+						questionCount={summary.questionCount}
+						wins={summary.wins}
+						losses={summary.losses}
+						points={summary.points}
+					/>
+					{summary.calledCount > 0 && (
+						<GameShareRow
+							gameId={game.id}
+							username={username}
+							shareTitle={`@${username}'s ${matchup} picks`}
+							surface={currentQuestionId ? "question_strip" : "game_page"}
+							layout="icons"
+							tweetText={buildGameTweet({ matchup, ...summary, isOwn: true })}
+						/>
+					)}
+				</HStack>
 			) : (
 				<SignedOut openCount={openUncalled.length} />
+			)}
+
+			<RailStatusLine
+				gameStatus={game.status}
+				openUncalled={openUncalled}
+				updatedAt={latestReading(ordered)}
+			/>
+
+			{nextUncalled && (
+				<Link
+					to="/questions/$questionId/{-$slug}"
+					params={{
+						questionId: nextUncalled.id,
+						slug: buildQuestionSlug(nextUncalled.title),
+					}}
+					className={actionLinkClass}
+				>
+					Next uncalled: {gameSetRailLabel(nextUncalled)} →
+				</Link>
 			)}
 
 			<Card variant="surface">
@@ -261,39 +292,12 @@ export function GameSetRail({
 				</VStack>
 			</Card>
 
-			<RailFooter
-				gameStatus={game.status}
-				openUncalled={openUncalled}
-				updatedAt={latestReading(ordered)}
-			/>
-
-			{nextUncalled && (
-				<Link
-					to="/questions/$questionId/{-$slug}"
-					params={{
-						questionId: nextUncalled.id,
-						slug: buildQuestionSlug(nextUncalled.title),
-					}}
-					className={actionLinkClass}
-				>
-					Next uncalled: {gameSetRailLabel(nextUncalled)} →
-				</Link>
-			)}
-
+			{/* After the list rather than above it: it's the same picks as a
+			    page of their own, which is where you'd go having read them. */}
 			{username && summary.calledCount > 0 && (
-				<HStack justify="space-between" gap="3">
-					<Link to={gameEntryPath(game.id, username)} className={actionLinkClass}>
-						Your picks page →
-					</Link>
-					<GameShareRow
-						gameId={game.id}
-						username={username}
-						shareTitle={`@${username}'s ${matchup} picks`}
-						surface={currentQuestionId ? "question_strip" : "game_page"}
-						layout="icons"
-						tweetText={buildGameTweet({ matchup, ...summary, isOwn: true })}
-					/>
-				</HStack>
+				<Link to={gameEntryPath(game.id, username)} className={actionLinkClass}>
+					Your picks page →
+				</Link>
 			)}
 		</VStack>
 	)
@@ -538,9 +542,10 @@ function StandingCell({
 	)
 }
 
-// Before the game, how much is still open and when it locks. During it, how
-// fresh the live numbers are, since they trail the game by a few minutes.
-function RailFooter({
+// Above the list, since it's what there is still to do: before the game, how
+// much is still open and when it locks. During it, how fresh the live
+// numbers are, since they trail the game by a few minutes.
+function RailStatusLine({
 	gameStatus,
 	openUncalled,
 	updatedAt,
