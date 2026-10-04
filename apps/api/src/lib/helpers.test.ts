@@ -32,10 +32,11 @@ describe("typicalGameLengthHours", () => {
 		expect(typicalGameLengthHours("nba")).toBe(2.5)
 		expect(typicalGameLengthHours("nfl")).toBe(3.5)
 		expect(typicalGameLengthHours("mlb")).toBe(3.25)
+		expect(typicalGameLengthHours("nhl")).toBe(2.5)
 	})
 
 	it("falls back for a league it hasn't seen", () => {
-		expect(typicalGameLengthHours("nhl")).toBe(3)
+		expect(typicalGameLengthHours("not-a-league")).toBe(3)
 		expect(typicalGameLengthHours("")).toBe(3)
 	})
 })

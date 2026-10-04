@@ -227,6 +227,37 @@ describe("parseNflDepthChart", () => {
 		])
 	})
 
+	it("falls through an injured starter to the next playable player at the spot", () => {
+		const groups = parseNflDepthChart("28", [
+			{
+				name: "3WR 1TE",
+				positions: {
+					wr1: slot(
+						"WR",
+						["1", "Terry McLaurin", "Doubtful"],
+						["2", "Deebo Samuel"],
+					),
+					wr2: slot("WR", ["2", "Deebo Samuel"], ["3", "Luke McCaffrey"]),
+					qb: slot(
+						"QB",
+						["4", "Jayden Daniels", "Out"],
+						["5", "Marcus Mariota"],
+					),
+					te: slot("TE", ["6", "Zach Ertz", "Injured Reserve"]),
+				},
+			},
+		])
+
+		expect(
+			groups[0]?.starters.map((s) => [s.position, s.playerName, s.injuryStatus]),
+		).toEqual([
+			["QB", "Marcus Mariota", null],
+			["WR", "Deebo Samuel", null],
+			["WR", "Luke McCaffrey", null],
+			["TE", "Zach Ertz", "Injured Reserve"],
+		])
+	})
+
 	it("ignores a second defensive chart rather than letting it replace the first", () => {
 		const defense = parseNflDepthChart("19", charts).find(
 			(g) => g.role === "defense",

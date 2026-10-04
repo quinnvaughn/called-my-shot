@@ -1,6 +1,8 @@
+import { isPlayable } from "../../lib/game-questions/pick-subjects"
 import type { gameStarterRole } from "../schema"
 import type {
 	EspnDepthChart,
+	EspnDepthChartAthlete,
 	EspnDepthChartPosition,
 	EspnLineupEntry,
 	EspnProbable,
@@ -135,16 +137,28 @@ export function parseBattingOrders(
 	})
 }
 
-// athletes[0] at every position in the order given. A chart with nobody listed
-// anywhere produces no group, same as an unposted lineup.
+const injuryStatusOf = (athlete: EspnDepthChartAthlete) =>
+	athlete.injuries?.[0]?.status ?? null
+
+// The first playable athlete at every position, in the order given. Teams
+// leave an injured starter atop the chart with an "Out" tag on him, so the
+// slot falls through to whoever is actually taking the field, skipping anyone
+// already starting at another slot. When nobody at a slot is playable it keeps
+// athletes[0], whose injury tag says why. A chart with nobody listed anywhere
+// produces no group, same as an unposted lineup.
 function firstStringGroup(
 	espnTeamId: string,
 	role: StarterRole,
 	positions: [string, EspnDepthChartPosition][],
 ): ParsedStarterGroup[] {
+	const taken = new Set<string>()
 	const starters = positions.flatMap(([, slot], index) => {
-		const athlete = slot.athletes[0]
+		const athlete =
+			slot.athletes.find(
+				(a) => !taken.has(a.id) && isPlayable(injuryStatusOf(a)),
+			) ?? slot.athletes[0]
 		if (!athlete) return []
+		taken.add(athlete.id)
 		return [
 			{
 				espnAthleteId: athlete.id,
@@ -152,7 +166,7 @@ function firstStringGroup(
 				position: slot.position.abbreviation,
 				sortOrder: index + 1,
 				statLine: null,
-				injuryStatus: athlete.injuries?.[0]?.status ?? null,
+				injuryStatus: injuryStatusOf(athlete),
 			},
 		]
 	})

@@ -1,0 +1,93 @@
+name: Test and deploy
+
+# The only path to production: tests gate the deploy, so a red commit never
+# reaches Fly. Fly's own GitHub auto-deploy must stay off, or it ships the push
+# in parallel with this and skips the tests entirely.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch: {}
+
+# A newer push to main supersedes one still waiting to deploy, but never
+# cancels a deploy already in flight - a half-finished release_command is worse
+# than a slightly stale one.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    # Mirrors docker-compose.yml's postgres-test: same image, port and
+    # database name, so vitest.config.ts's default TEST_DATABASE_URL reaches
+    # it without any override.
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: called_my_shot_test
+        ports:
+          - 5435:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d called_my_shot_test"
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # Version comes from package.json's packageManager field.
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      # The GraphQL codegen output is gitignored and web's component tests
+      # import it (install's prepare hook already generated Panda's
+      # styled-system). api's schema:print, which codegen depends on,
+      # hardcodes --env-file=.env; the values are dummies, same as in
+      # apps/web/Dockerfile, since printing the schema never opens a database
+      # connection.
+      - name: Generate web's GraphQL types
+        run: |
+          printf 'DATABASE_URL=postgres://user:pass@localhost:5432/db\nPORT=4000\nCLIENT_ORIGIN=http://localhost:3000\nNODE_ENV=production\n' > apps/api/.env
+          pnpm exec turbo run codegen --filter=web
+
+      - run: pnpm test
+
+  # api before web: web's image build checks its queries against the live
+  # api's schema (apps/web/scripts/check-schema-compat.ts), so the api has to
+  # be serving this commit's schema first.
+  deploy-api:
+    needs: test
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: superfly/flyctl-actions/setup-flyctl@master
+      - run: flyctl deploy --config apps/api/fly.toml --remote-only
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+
+  deploy-web:
+    needs: deploy-api
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: superfly/flyctl-actions/setup-flyctl@master
+      - run: flyctl deploy --config apps/web/fly.toml --remote-only
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}

@@ -51,11 +51,11 @@ const LOCAL_SCHEMA_PATH = resolve(
 )
 
 // Budgeted to outlast a full api deploy, because that is what this is
-// actually waiting for. Fly deploys both apps off the same push to main with
-// no ordering between them, so on any schema-changing commit the web image
-// reaches this check while the previous api is still serving. Waiting here is
-// what makes the two effectively sequential - api first, then web - without
-// any orchestration between them.
+// actually waiting for. The deploy workflow (.github/workflows/deploy.yml)
+// releases the api before it starts on web, so there the first attempt
+// passes. A web deploy started any other way, alongside an api deploy, can
+// reach this check while the previous api is still serving, and waiting here
+// keeps the two sequential - api first, then web.
 //
 // 10 minutes covers the api's build, its release_command (drizzle-kit
 // migrate, which can be the slow part), machine start and health checks.

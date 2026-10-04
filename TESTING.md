@@ -5,8 +5,11 @@ docker compose up -d postgres-test   # once per machine / after a reboot
 pnpm test                            # everything, via turbo
 ```
 
-`pnpm test` is also the first thing `pnpm run deploy`, `deploy:api` and
-`deploy:web` do, so a red test aborts the deploy before flyctl is ever called.
+Every push to `main` runs the suite in `.github/workflows/deploy.yml`, and only
+a green run deploys: api first, then web. Pull requests run the tests without
+deploying. Fly's own GitHub auto-deploy stays off, since it would ship the push
+without waiting for the tests. Run by hand, `pnpm run deploy`, `deploy:api` and
+`deploy:web` also run `pnpm test` before flyctl is ever called.
 
 ## What runs where
 
