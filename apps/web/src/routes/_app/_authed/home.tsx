@@ -2,7 +2,7 @@ import { useQueryClient, useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router"
 import { type ReactNode, useEffect } from "react"
 import { css } from "styled-system/css"
-import { Grid, HStack, VStack } from "styled-system/jsx"
+import { HStack, VStack } from "styled-system/jsx"
 import { LeagueRoomCard } from "#/components/home/league-room-card"
 import { LiveCallsSection } from "#/components/my-calls/live-calls-section"
 import { OnboardingChecklist } from "#/components/onboarding/onboarding-checklist"
@@ -101,30 +101,15 @@ function RouteComponent() {
 			    width. */}
 			<LiveCallsSection filters={{}} />
 
-			{/* A row on phones rather than a stack: stacked, every league costs a
-			    full card of scrolling before Locking soon. From sm up they fit
-			    side by side as a grid. */}
-			<div className={css({ display: { base: "block", sm: "none" } })}>
-				<CardRail
-					items={leagues}
-					getKey={(league) => league.id}
-					renderItem={(league) => <LeagueRoomCard league={league} />}
-					itemLabel="league"
-					header={<SectionLabel>Leagues</SectionLabel>}
-				/>
-			</div>
-			<VStack
-				gap="3"
-				alignItems="stretch"
-				className={css({ display: { base: "none", sm: "flex" } })}
-			>
-				<SectionLabel>Leagues</SectionLabel>
-				<Grid gridTemplateColumns="repeat(3, 1fr)" gap="3">
-					{leagues.map((league) => (
-						<LeagueRoomCard key={league.id} league={league} />
-					))}
-				</Grid>
-			</VStack>
+			{/* A row rather than a stack: stacked, every league costs a full card
+			    of scrolling before Locking soon. */}
+			<CardRail
+				items={leagues}
+				getKey={(league) => league.id}
+				renderItem={(league) => <LeagueRoomCard league={league} />}
+				itemLabel="league"
+				header={<SectionLabel>Leagues</SectionLabel>}
+			/>
 
 			{/* Above Locking soon, which runs six cards deep: the calendar is a
 			    fixed height and the streaks a few short tiles, so they cost the
