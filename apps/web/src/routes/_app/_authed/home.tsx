@@ -191,7 +191,7 @@ function ResultsSection({ placement }: { placement: "main" | "rail" }) {
 						_hover: { textDecoration: "underline" },
 					})}
 				>
-					Full record
+					Full record →
 				</Link>
 			</HStack>
 			<ResultsCalendar

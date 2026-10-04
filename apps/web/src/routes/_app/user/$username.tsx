@@ -193,7 +193,6 @@ function breakdownGroups(record: ProfileRecord): PointsGroup[] {
 						rows: teams,
 						fold: { ends: TEAM_ROWS_AT_EACH_END, label: "Show all teams" },
 						pinned: noTeam,
-						ownScale: true,
 					},
 				]
 			: []),
@@ -204,6 +203,7 @@ function breakdownGroups(record: ProfileRecord): PointsGroup[] {
 			views: [
 				{
 					label: "Bonuses",
+					cardScale: true,
 					rows: [
 						{
 							key: "bonuses",

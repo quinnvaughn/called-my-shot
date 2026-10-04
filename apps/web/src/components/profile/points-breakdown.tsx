@@ -36,10 +36,9 @@ export type PointsView = {
 	fold?: { ends: number; label: string }
 	// Shown after rows and never folded.
 	pinned?: PointsRow[]
-	// Scales this view's bars against its own biggest row instead of the
-	// card's, for a view whose rows are compared with each other rather than
-	// with the rest of the card.
-	ownScale?: boolean
+	// Scales this view's bars against the biggest row on the card instead of
+	// its own, for a view with no other rows to be compared with.
+	cardScale?: boolean
 }
 
 // A group with more than one view splits the same calls more than one way,
@@ -90,14 +89,13 @@ function biggestSwing(views: PointsView[]): number {
 }
 
 // Where the points came from, one bar per row out from a shared zero line:
-// right and green for what a row netted, left and red for what it cost. Every
-// bar, nested ones included, is scaled against the biggest swing on the card,
-// so a short bar always means a small share of the total. A view with its own
-// scale is left out of that and measured against itself.
+// right and green for what a row netted, left and red for what it cost. Each
+// view's bars, nested ones included, are scaled against that view's biggest
+// swing, so leagues are compared with leagues and play types with play types.
+// A view on the card scale is measured against the biggest swing anywhere on
+// the card.
 export function PointsBreakdown({ groups, username }: Props) {
-	const max = biggestSwing(
-		groups.flatMap((group) => group.views).filter((view) => !view.ownScale),
-	)
+	const max = biggestSwing(groups.flatMap((group) => group.views))
 
 	return (
 		<Card variant="surface" size="md">
@@ -133,7 +131,7 @@ function BreakdownGroup({
 	const [unfolded, setUnfolded] = useState(false)
 	const view = group.views[selected] ?? group.views[0]
 	if (!view) return null
-	const scale = view.ownScale ? biggestSwing([view]) : max
+	const scale = view.cardScale ? max : biggestSwing([view])
 
 	// Folding away a single row would trade it for a button the same height.
 	const folds =
