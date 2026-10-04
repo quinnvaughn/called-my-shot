@@ -24,8 +24,10 @@ export function StepButton({
 				display: "inline-flex",
 				alignItems: "center",
 				justifyContent: "center",
-				width: "7",
-				height: "7",
+				// A size up below md, where it's a thumb rather than a pointer.
+				width: { base: "9", md: "7" },
+				height: { base: "9", md: "7" },
+				fontSize: { base: "lg", md: "inherit" },
 				borderRadius: "md",
 				border: "1px solid {colors.border.default}",
 				color: "fg.default",

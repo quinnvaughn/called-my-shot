@@ -122,7 +122,11 @@ export function AppShell({
 				overflowX: "clip",
 			})}
 		>
-			<MobileTopbar me={me} onMenuClick={() => setDrawerOpen(true)} />
+			<MobileTopbar
+				me={me}
+				unreadCount={unreadCount}
+				onMenuClick={() => setDrawerOpen(true)}
+			/>
 			{drawerOpen && (
 				// biome-ignore lint/a11y/noStaticElementInteractions: scrim closes the drawer; keyboard users close via Escape (handled above) or the drawer's own close button
 				// biome-ignore lint/a11y/useKeyWithClickEvents: see above
@@ -199,11 +203,32 @@ export function AppShell({
 	)
 }
 
+// The unread count, as on the sidebar's Notifications link and, below md, on
+// the menu button that opens it.
+const unreadBadge = css({
+	bg: "primary.default",
+	color: "bg.canvas",
+	fontFamily: "mono",
+	fontSize: "2xs",
+	fontWeight: "bold",
+	borderRadius: "full",
+	paddingInline: "1.5",
+	minWidth: "5",
+	textAlign: "center",
+	lineHeight: "1.6",
+})
+
+function unreadLabel(count: number): string {
+	return count > 99 ? "99+" : String(count)
+}
+
 function MobileTopbar({
 	me,
+	unreadCount,
 	onMenuClick,
 }: {
 	me: Me
+	unreadCount: number
 	onMenuClick: () => void
 }) {
 	return (
@@ -223,9 +248,14 @@ function MobileTopbar({
 			<HStack gap="3">
 				<button
 					type="button"
-					aria-label="Open menu"
+					aria-label={
+						unreadCount > 0
+							? `Open menu, ${unreadCount} unread notifications`
+							: "Open menu"
+					}
 					onClick={onMenuClick}
 					className={css({
+						position: "relative",
 						display: "flex",
 						alignItems: "center",
 						justifyContent: "center",
@@ -238,6 +268,24 @@ function MobileTopbar({
 					})}
 				>
 					<FiMenu size={20} />
+					{/* Notifications live in the drawer, so on a phone this is the
+					    only place an unread count can show without opening it. */}
+					{unreadCount > 0 && (
+						<span
+							aria-hidden
+							className={cx(
+								unreadBadge,
+								css({
+									position: "absolute",
+									top: "-1.5",
+									right: "-2",
+									border: "2px solid {colors.bg.canvas}",
+								}),
+							)}
+						>
+							{unreadLabel(unreadCount)}
+						</span>
+					)}
 				</button>
 				<Brand size="nav" />
 			</HStack>
@@ -363,21 +411,9 @@ function SidebarNav({
 							{item.label}
 							{item.to === "/notifications" && unreadCount > 0 && (
 								<span
-									className={css({
-										marginLeft: "auto",
-										bg: "primary.default",
-										color: "bg.canvas",
-										fontFamily: "mono",
-										fontSize: "2xs",
-										fontWeight: "bold",
-										borderRadius: "full",
-										paddingInline: "1.5",
-										minWidth: "5",
-										textAlign: "center",
-										lineHeight: "1.6",
-									})}
+									className={cx(unreadBadge, css({ marginLeft: "auto" }))}
 								>
-									{unreadCount > 99 ? "99+" : unreadCount}
+									{unreadLabel(unreadCount)}
 								</span>
 							)}
 						</Link>
