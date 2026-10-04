@@ -77,6 +77,8 @@ export const QuestionDetailDocument = graphql(`
 				avatarUrl
 			}
 			...GameStrip_question
+			# The rail beside a ballot question, from xl up (BallotSetRail).
+			...BallotSetRail_question
 			series {
 				id
 				roundLabel

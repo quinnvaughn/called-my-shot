@@ -140,12 +140,13 @@ type AnalyticsEvents = {
 		surface: "call_page" | "question_detail"
 	}
 	// A link to one person's filled-out ballot. `surface` separates sharing
-	// your own straight off the ballot you're filling in from sharing from the
-	// entry page itself, which anyone can do for anyone's.
+	// your own straight off the ballot you're filling in (its page, or the
+	// rail beside one of its questions) from sharing from the entry page
+	// itself, which anyone can do for anyone's.
 	ballot_link_shared: {
 		ballotId: string
 		method: "native" | "clipboard" | "x"
-		surface: "ballot_page" | "entry_page"
+		surface: "ballot_page" | "question_rail" | "entry_page"
 	}
 	// A link to one person's picks on a game's official questions: shared
 	// from the game page, from the game strip on a question page, or from the

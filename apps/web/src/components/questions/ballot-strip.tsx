@@ -44,18 +44,20 @@ export const BallotStripFragment = graphql(`
 
 type Props = {
 	question: FragmentType<typeof BallotStripFragment>
+	className?: string
 }
 
 // Renders nothing if this question isn't part of a (published) ballot.
 // Members come back already ordered by sortOrder (see BallotRef.members in
 // ballot.ts).
-export function BallotStrip({ question: questionProp }: Props) {
+export function BallotStrip({ question: questionProp, className }: Props) {
 	const question = useFragment(BallotStripFragment, questionProp)
 	const membership = question.ballotMembership
 	if (!membership) return null
 
 	return (
 		<QuestionSetStrip
+			className={className}
 			name={membership.ballot.name}
 			icon={MdBallot}
 			navigationLabel="ballot"

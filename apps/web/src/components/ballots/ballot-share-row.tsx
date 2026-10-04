@@ -10,7 +10,7 @@ import {
 } from "#/lib/ballot-entry"
 import { SITE_HOST, SITE_ORIGIN } from "#/lib/meta"
 
-type BallotShareSurface = "ballot_page" | "entry_page"
+type BallotShareSurface = "ballot_page" | "entry_page" | "question_rail"
 
 type Props = {
 	ballotId: string

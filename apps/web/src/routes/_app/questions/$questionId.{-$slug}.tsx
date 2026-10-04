@@ -18,6 +18,7 @@ import { GameMatchupHeader } from "#/components/games/game-matchup-header"
 import { GameSetRail } from "#/components/games/game-set-rail"
 import { FirstCallTour } from "#/components/onboarding/first-call-tour"
 import { TourAnchorProvider } from "#/components/onboarding/tour-anchors"
+import { BallotSetRail } from "#/components/ballots/ballot-set-rail"
 import { BallotStrip } from "#/components/questions/ballot-strip"
 import { CallSubmitBar } from "#/components/questions/call-submit-bar"
 import {
@@ -131,9 +132,9 @@ export const Route = createFileRoute("/_app/questions/$questionId/{-$slug}")({
 	// switching questions that way would submit against the question you
 	// were on when the component first mounted, not the one on screen.
 	remountDeps: ({ params }) => params.questionId,
-	// The game's official questions beside this one, in place of GameStrip
-	// from xl up. Renders nothing for a question with no game.
-	staticData: { rightRail: <QuestionGameRail /> },
+	// The set this question belongs to beside it, in place of its strip from
+	// xl up. Renders nothing for a question on neither a ballot nor a game.
+	staticData: { rightRail: <QuestionSetRailFor /> },
 	// head() can only read loaderData, so the meta-tag fields come back from
 	// here; the component reads the same cache entries via useSuspenseQuery.
 	loader: async ({ context, params }) => {
@@ -189,13 +190,21 @@ export const Route = createFileRoute("/_app/questions/$questionId/{-$slug}")({
 
 // Reads the cache entry RouteComponent loads and polls, so the rail moves
 // with the page rather than fetching on its own.
-function QuestionGameRail() {
+function QuestionSetRailFor() {
 	const { questionId } = Route.useParams()
 	const { data } = useSuspenseQuery(questionDetailQuery(questionId))
 	const { me } = useRouteContext({ from: "__root__" })
 	const question = data.question
-	const game = question?.game
-	if (!question || !game) return null
+	if (!question) return null
+	// Ballot members are season-long questions, so a question is on one set
+	// or the other, never both.
+	if (question.ballotMembership) {
+		return (
+			<BallotSetRail question={question} username={me?.username ?? null} />
+		)
+	}
+	const game = question.game
+	if (!game) return null
 	return (
 		<GameSetRail
 			game={game}
@@ -465,7 +474,10 @@ function RouteComponent() {
 						.otherwise(() => null)}
 					<Breadcrumb.Current>{question.title}</Breadcrumb.Current>
 				</Breadcrumb>
-				<BallotStrip question={question} />
+				<BallotStrip
+					question={question}
+					className={css({ display: { base: "flex", xl: "none" } })}
+				/>
 				<GameStrip
 					question={question}
 					className={css({ display: { base: "flex", xl: "none" } })}
