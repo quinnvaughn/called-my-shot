@@ -7,14 +7,23 @@ import { withJobLock } from "./job-lock"
 describe("withJobLock", () => {
 	it("runs one of two simultaneous holders and skips the other", async () => {
 		let ran = 0
-		const results = await Promise.all([
-			withJobLock("t", async () => {
-				ran += 1
-			}),
-			withJobLock("t", async () => {
-				ran += 1
-			}),
-		])
+		let finish!: () => void
+		const finished = new Promise<void>((resolve) => {
+			finish = resolve
+		})
+		// The winner holds the lease until finish(), so the other attempt is
+		// always made against a live lease. An instant job could otherwise
+		// release before a slow second acquire lands, and that one would rightly
+		// run.
+		const job = async () => {
+			ran += 1
+			await finished
+		}
+		const attempts = [withJobLock("t", job), withJobLock("t", job)]
+
+		expect(await Promise.race(attempts)).toEqual({ ran: false })
+		finish()
+		const results = await Promise.all(attempts)
 
 		expect(ran).toBe(1)
 		expect(results.filter((r) => r.ran)).toHaveLength(1)

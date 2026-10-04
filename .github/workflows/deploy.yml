@@ -29,25 +29,25 @@ jobs:
       matrix:
         shard: [1, 2, 3]
 
-    # Mirrors docker-compose.yml's postgres-test: same image, port and
-    # database name, so vitest.config.ts's default TEST_DATABASE_URL reaches
-    # it without any override.
-    services:
-      postgres:
-        image: postgres:18-alpine
-        env:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: called_my_shot_test
-        ports:
-          - 5435:5432
-        options: >-
-          --health-cmd "pg_isready -U postgres -d called_my_shot_test"
-          --health-interval 2s
-          --health-timeout 3s
-          --health-retries 30
-
     steps:
+      # Mirrors docker-compose.yml's postgres-test: same image, port and
+      # database name, so vitest.config.ts's default TEST_DATABASE_URL reaches
+      # it without any override, and the same tmpfs data directory. Every test
+      # truncates every table, and on the runner's disk each of those waited on
+      # an fsync - tests ran ~10x slower than locally. Durability is pointless
+      # for data thrown away after the run, so fsync is off too. A plain docker
+      # run rather than a service container, which can't take server flags.
+      # Started first so it's up by the time install finishes; global-setup.ts
+      # waits for it either way.
+      - name: Start Postgres
+        run: |
+          docker run -d --name postgres-test -p 5435:5432 \
+            -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=postgres \
+            -e POSTGRES_DB=called_my_shot_test \
+            --tmpfs /var/lib/postgresql \
+            postgres:18-alpine \
+            -c fsync=off -c synchronous_commit=off -c full_page_writes=off
+
       - uses: actions/checkout@v4
 
       # Version comes from package.json's packageManager field.
