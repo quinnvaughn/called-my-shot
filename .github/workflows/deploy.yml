@@ -17,9 +17,17 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  test:
+  # The api suite is the slow one, so it's split across runners, each with its
+  # own Postgres. Private-repo runners have 2 cores, which vitest.config.ts
+  # would turn into a single worker, but the suite mostly waits on Postgres
+  # rather than burning CPU, so TEST_WORKERS runs more than that.
+  test-api:
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    strategy:
+      fail-fast: true
+      matrix:
+        shard: [1, 2, 3]
 
     # Mirrors docker-compose.yml's postgres-test: same image, port and
     # database name, so vitest.config.ts's default TEST_DATABASE_URL reaches
@@ -52,6 +60,25 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
+      - run: pnpm --filter api exec vitest run --shard=${{ matrix.shard }}/3
+        env:
+          TEST_WORKERS: 3
+
+  # Everything but the api: web and the shared packages, none of which touch a
+  # database.
+  test-rest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
       # The GraphQL codegen output is gitignored and web's component tests
       # import it (install's prepare hook already generated Panda's
       # styled-system). api's schema:print, which codegen depends on,
@@ -63,13 +90,13 @@ jobs:
           printf 'DATABASE_URL=postgres://user:pass@localhost:5432/db\nPORT=4000\nCLIENT_ORIGIN=http://localhost:3000\nNODE_ENV=production\n' > apps/api/.env
           pnpm exec turbo run codegen --filter=web
 
-      - run: pnpm test
+      - run: pnpm exec turbo run test --filter='!api'
 
   # api before web: web's image build checks its queries against the live
   # api's schema (apps/web/scripts/check-schema-compat.ts), so the api has to
   # be serving this commit's schema first.
   deploy-api:
-    needs: test
+    needs: [test-api, test-rest]
     if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 30
