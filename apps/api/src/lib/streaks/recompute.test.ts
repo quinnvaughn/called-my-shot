@@ -374,11 +374,14 @@ describe("point awards", () => {
 		const committed = total(await committedOf(user.id))
 		const streak = Math.round(committed * STREAK_BONUS_SHARE)
 		const sweep = Math.round(committed * SWEEP_BONUS_SHARE)
+		// Both dated by the last game to go final: the milestone win, and the
+		// game that settled the slate.
+		const lastGameId = games.at(-1)?.game.id
 		expect(await awardsOf(user.id, "streak_milestone")).toEqual([
-			expect.objectContaining({ points: streak }),
+			expect.objectContaining({ points: streak, gameId: lastGameId }),
 		])
 		expect(await awardsOf(user.id, "sweep")).toEqual([
-			expect.objectContaining({ points: sweep }),
+			expect.objectContaining({ points: sweep, gameId: lastGameId }),
 		])
 		expect(await bonusOf(user.id)).toBe(streak + sweep)
 

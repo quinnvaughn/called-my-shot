@@ -109,7 +109,9 @@ export async function recomputeStreakTrack(
 			},
 			question: {
 				columns: { shape: true, status: true, seasonId: true },
-				with: { game: { columns: { startsAt: true, finalizedAt: true } } },
+				with: {
+					game: { columns: { id: true, startsAt: true, finalizedAt: true } },
+				},
 			},
 		},
 	})
@@ -132,6 +134,7 @@ export async function recomputeStreakTrack(
 				startsAt: game.startsAt,
 				committed: callCommitted(call.question.shape, call),
 				seasonId: call.question.seasonId,
+				gameId: game.id,
 			},
 		]
 	})
@@ -279,6 +282,8 @@ export async function recomputeSlate(
 	const slateQuestions: SlateQuestion[] = []
 	const outcomesByUser = new Map<string, Map<string, Outcome>>()
 	const committedByUser = new Map<string, number[]>()
+	// The award's game: the last to go final, the one that settled the sweep.
+	let lastGame: { id: string; realizedAt: Date } | null = null
 
 	for (const game of slateGames) {
 		const question = canonicalWinnerQuestion(
@@ -287,11 +292,15 @@ export async function recomputeSlate(
 			game.questions,
 		)
 		if (!question) continue
+		const realizedAt = game.finalizedAt ?? game.startsAt
+		if (!lastGame || realizedAt > lastGame.realizedAt) {
+			lastGame = { id: game.id, realizedAt }
+		}
 		slateQuestions.push({
 			questionId: question.id,
 			status: question.status,
 			startsAt: game.startsAt,
-			realizedAt: game.finalizedAt ?? game.startsAt,
+			realizedAt,
 		})
 		for (const call of question.calls) {
 			const outcomes =
@@ -328,6 +337,7 @@ export async function recomputeSlate(
 					leagueId,
 					seasonId,
 					sourceKey: userId,
+					gameId: lastGame?.id ?? null,
 					points: sweepAwardPoints(committedByUser.get(userId) ?? []),
 				}))
 			: [],

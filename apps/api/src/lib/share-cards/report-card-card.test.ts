@@ -21,7 +21,7 @@ const data = (
 	returnPct: 30.4,
 	wins: 12,
 	losses: 6,
-	netPoints: 540,
+	totalPoints: 540,
 	committedPoints: 1800,
 	pendingCount: 0,
 	rows: [

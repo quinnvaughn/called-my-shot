@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it } from "vitest"
 import { db } from "../../db"
 import {
 	callSelections,
+	pointAwards,
 	postseasonSeries,
 	questionOptions,
 } from "../../db/schema"
@@ -255,6 +256,53 @@ describe("loadReportCard", () => {
 			await windowFor(league, "2026-reg-w3"),
 		)
 		expect(card.settledCount).toBe(1)
+	})
+
+	it("adds the bonuses dated by this window's games to the total, and only the total", async () => {
+		const game = await gameInWeek()
+		const nextWeek = await makeGame({
+			leagueId: league.id,
+			seasonId,
+			seasonType: "regular",
+			weekNumber: 4,
+		})
+		const otherUserId = (await makeUser()).id
+		await optionCall({ gameId: game.id, correct: true, points: 120 })
+		const award = (
+			kind: "streak_milestone" | "sweep",
+			points: number,
+			gameId: string,
+			awardUserId = userId,
+		) => ({
+			userId: awardUserId,
+			leagueId: league.id,
+			seasonId,
+			kind,
+			scopeKey: `${kind}:${gameId}:${awardUserId}`,
+			sourceKey: awardUserId,
+			gameId,
+			points,
+		})
+		await db
+			.insert(pointAwards)
+			.values([
+				award("streak_milestone", 20, game.id),
+				award("sweep", 10, game.id),
+				award("sweep", 99, nextWeek.id),
+				award("streak_milestone", 50, game.id, otherUserId),
+			])
+
+		const card = await loadReportCard(
+			userId,
+			league,
+			await windowFor(league, "2026-reg-w3"),
+		)
+		expect(card.streakBonusPoints).toBe(20)
+		expect(card.sweepBonusPoints).toBe(10)
+		expect(card.netPoints).toBe(120)
+		expect(card.totalPoints).toBe(150)
+		// Still the calls' own return: 120 on 75 committed.
+		expect(card.returnPct).toBeCloseTo(160)
 	})
 })
 

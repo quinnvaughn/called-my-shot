@@ -2,7 +2,7 @@ import { eq } from "drizzle-orm"
 import { describe, expect, it } from "vitest"
 import { db } from "../db"
 import { pointAwards } from "../db/schema"
-import { makeLeague, makeSeason, makeUser } from "../test/factories"
+import { makeGame, makeLeague, makeSeason, makeUser } from "../test/factories"
 import { pointAwardScope, reconcileAwards } from "./point-awards"
 
 const awardsOf = (userId: string) =>
@@ -22,6 +22,7 @@ describe("reconcileAwards", () => {
 			leagueId: league.id,
 			seasonId: season.id,
 			sourceKey: user.id,
+			gameId: null as string | null,
 			points: 30,
 		}
 		const scope = pointAwardScope.slate(league.id, "day:2026-09-20")
@@ -37,6 +38,14 @@ describe("reconcileAwards", () => {
 		expect(await bonusOf(user.id)).toBe(30)
 
 		await reconcile([{ ...award, points: 50 }])
+		expect(await bonusOf(user.id)).toBe(50)
+
+		// Moving an award to another game replaces the row without moving the
+		// season total.
+		const game = await makeGame({ leagueId: league.id, seasonId: season.id })
+		await reconcile([{ ...award, points: 50, gameId: game.id }])
+		const [moved] = await awardsOf(user.id)
+		expect(moved?.gameId).toBe(game.id)
 		expect(await bonusOf(user.id)).toBe(50)
 
 		await reconcile([])

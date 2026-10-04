@@ -16,7 +16,11 @@ import {
 	type ShapeFamily,
 	shapeFamilyFor,
 } from "@called-my-shot/scoring"
-import type { CallUnscoredReason, Question } from "../../db/schema"
+import type {
+	CallUnscoredReason,
+	PointAwardKind,
+	Question,
+} from "../../db/schema"
 import { callOutcome } from "../streaks/compute"
 
 // The pure half of the report card - no database, so every exclusion rule
@@ -342,5 +346,42 @@ function pickGames(games: ReportCardGame[]): {
 	return {
 		bestGame: top && top.netPoints > 0 ? top : null,
 		worstGame: bottom && bottom.netPoints < 0 ? bottom : null,
+	}
+}
+
+// A streak milestone or sweep award dated inside the window - see
+// pointAwards.gameId for how one is placed.
+export type ReportCardAward = {
+	kind: PointAwardKind
+	points: number
+}
+
+export type ReportCardBonus = {
+	streakBonusPoints: number
+	sweepBonusPoints: number
+	// The calls' net plus both bonuses: what the window moved the caller's
+	// season total by.
+	totalPoints: number
+}
+
+// Kept out of buildReportCard and off every rate. A streak or sweep pays out
+// of wins the return already counts, so folding it into returnPct or the
+// grade would count those wins twice. The bonus moves the window's total and
+// nothing else.
+export function withBonuses<T extends ReportCardStats>(
+	card: T,
+	awards: ReportCardAward[],
+): T & ReportCardBonus {
+	const sumOf = (kind: PointAwardKind) =>
+		awards
+			.filter((award) => award.kind === kind)
+			.reduce((sum, award) => sum + award.points, 0)
+	const streakBonusPoints = sumOf("streak_milestone")
+	const sweepBonusPoints = sumOf("sweep")
+	return {
+		...card,
+		streakBonusPoints,
+		sweepBonusPoints,
+		totalPoints: card.netPoints + streakBonusPoints + sweepBonusPoints,
 	}
 }

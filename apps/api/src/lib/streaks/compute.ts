@@ -163,14 +163,16 @@ export type ScoredTrackRow = TrackRow & {
 	// What the call committed. Only read on a win.
 	committed: number
 	seasonId: string
+	gameId: string
 }
 
 export type StreakAward = {
 	// The run's first call and the milestone, which together name one award
 	// for as long as the run stands as it is.
 	sourceKey: string
-	// The season of the call that reached the milestone.
+	// The season and game of the call that reached the milestone.
 	seasonId: string
+	gameId: string
 	points: number
 }
 
@@ -196,6 +198,7 @@ export function streakAwards(rows: ScoredTrackRow[]): StreakAward[] {
 		awards.push({
 			sourceKey: `${first.callId}:${run.length}`,
 			seasonId: row.seasonId,
+			gameId: row.gameId,
 			points: shareOfPoints(committed, STREAK_BONUS_SHARE),
 		})
 	}

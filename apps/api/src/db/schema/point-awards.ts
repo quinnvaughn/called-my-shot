@@ -8,6 +8,7 @@ import {
 	unique,
 	uuid,
 } from "drizzle-orm/pg-core"
+import { games } from "./games"
 import { leagues, seasons } from "./sports"
 import { users } from "./users"
 
@@ -54,11 +55,21 @@ export const pointAwards = pgTable(
 		// user for a sweep.
 		sourceKey: text("source_key").notNull(),
 		points: integer("points").notNull(),
+		// The game the award is dated by, which is how a report card window
+		// claims it: for a streak, the game of the call that reached the
+		// milestone; for a sweep, the slate's last game. Every game of a slate
+		// sits in the same window, so which one doesn't change where it lands.
+		// Set null rather than cascaded on delete, for the same reason scopeKey
+		// is text: the rebuild has to find the row to reverse it.
+		gameId: uuid("game_id").references(() => games.id, {
+			onDelete: "set null",
+		}),
 		createdAt: timestamp("created_at").notNull().defaultNow(),
 	},
 	(t) => [
 		unique().on(t.kind, t.scopeKey, t.sourceKey),
 		index("point_awards_user_idx").on(t.userId, t.createdAt),
+		index("point_awards_user_game_idx").on(t.userId, t.gameId),
 	],
 )
 export type PointAward = typeof pointAwards.$inferSelect

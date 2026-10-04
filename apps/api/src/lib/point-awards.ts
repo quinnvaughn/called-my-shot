@@ -16,15 +16,16 @@ export type DesiredAward = {
 	leagueId: string
 	seasonId: string
 	sourceKey: string
+	gameId: string | null
 	points: number
 }
 
 type SeasonDelta = { userId: string; leagueId: string; seasonId: string }
 
 // Makes one scope hold exactly `desired`, and moves user_season_stats.
-// bonusPoints by the difference. An award whose points or season changed is
-// replaced, not adjusted, so the ledger never holds a row that doesn't match
-// what the scope earns now. A zero-point award isn't stored.
+// bonusPoints by the difference. An award whose points, season or game
+// changed is replaced, not adjusted, so the ledger never holds a row that
+// doesn't match what the scope earns now. A zero-point award isn't stored.
 //
 // Idempotent: a rebuild that finds nothing changed writes nothing.
 export async function reconcileAwards(
@@ -58,6 +59,7 @@ export async function reconcileAwards(
 			next.userId === row.userId &&
 			next.leagueId === row.leagueId &&
 			next.seasonId === row.seasonId &&
+			next.gameId === row.gameId &&
 			next.points === row.points
 		) {
 			wanted.delete(row.sourceKey)

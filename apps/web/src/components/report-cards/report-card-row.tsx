@@ -101,17 +101,64 @@ export function ReportCardRow({ row, nested = false }: Props) {
 	)
 }
 
+export type ReportCardBonusRowData = { label: string; points: number }
+
+// Points earned on top of the calls, sitting in the points column so the
+// breakdown still adds up to the NET POINTS tile. No record or return: a
+// bonus has neither.
+function ReportCardBonusRow({ row }: { row: ReportCardBonusRowData }) {
+	return (
+		<div
+			className={css({
+				gridColumn: "1 / -1",
+				display: "grid",
+				gridTemplateColumns: "subgrid",
+				alignItems: "baseline",
+				rowGap: "0.5",
+				paddingY: "1.5",
+			})}
+		>
+			<span
+				className={css({
+					gridColumn: { base: "1 / -1", sm: "1" },
+					fontSize: "sm",
+					fontWeight: "medium",
+					color: "fg.default",
+				})}
+			>
+				{row.label}
+			</span>
+			<span />
+			<span />
+			<span
+				className={css({
+					fontFamily: "mono",
+					fontSize: "2xs",
+					whiteSpace: "nowrap",
+					textAlign: "right",
+					color: returnTone(row.points),
+				})}
+			>
+				{formatSignedPoints(row.points)}
+			</span>
+			<span />
+		</div>
+	)
+}
+
 // The breakdown as a whole. On the inline card every row is a family. On the
 // permalink each family is followed by every shape inside it, so the rows
-// stay at one predictable grain.
+// stay at one predictable grain. Bonuses close it out.
 export function ReportCardBreakdown({
 	families,
 	shapesByFamily,
+	bonuses = [],
 }: {
 	families: (ReportCardRowData & { family: string })[]
 	// Omitted on the inline card, which stays at family grain. Supplied on the
 	// permalink, where there's room for the finer read.
 	shapesByFamily?: Record<string, ReportCardRowData[]>
+	bonuses?: ReportCardBonusRowData[]
 }) {
 	if (families.length === 0) return null
 	return (
@@ -147,6 +194,9 @@ export function ReportCardBreakdown({
 					</Fragment>
 				)
 			})}
+			{bonuses.map((bonus) => (
+				<ReportCardBonusRow key={bonus.label} row={bonus} />
+			))}
 		</div>
 	)
 }

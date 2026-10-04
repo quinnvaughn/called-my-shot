@@ -94,7 +94,14 @@ export const ReportCardRef = builder
 			wins: t.exposeInt("wins"),
 			losses: t.exposeInt("losses"),
 			pendingCount: t.exposeInt("pendingCount"),
+			// The calls alone, which is what returnPct is a return on.
 			netPoints: t.exposeInt("netPoints"),
+			// Streak milestones and sweeps dated in this window - see
+			// withBonuses for why neither touches returnPct or the grade.
+			streakBonusPoints: t.exposeInt("streakBonusPoints"),
+			sweepBonusPoints: t.exposeInt("sweepBonusPoints"),
+			// netPoints plus both bonuses.
+			totalPoints: t.exposeInt("totalPoints"),
 			committedPoints: t.exposeInt("committedPoints"),
 			pendingStake: t.exposeInt("pendingStake"),
 			// Left unrounded on purpose - every render site rounds once, the way

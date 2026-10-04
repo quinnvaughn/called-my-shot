@@ -28,7 +28,9 @@ function card(over: Record<string, unknown> = {}) {
 		wins: 12,
 		losses: 6,
 		pendingCount: 0,
-		netPoints: 540,
+		streakBonusPoints: 0,
+		sweepBonusPoints: 0,
+		totalPoints: 540,
 		committedPoints: 1800,
 		pendingStake: 0,
 		returnPct: 30,
@@ -59,7 +61,7 @@ describe("ReportCard", () => {
 			pendingCount: 0,
 			wins: 0,
 			losses: 0,
-			netPoints: 0,
+			totalPoints: 0,
 			committedPoints: 0,
 			returnPct: null,
 			grade: null,
@@ -91,6 +93,15 @@ describe("ReportCard", () => {
 		expect(screen.getByText("12–6")).toBeInTheDocument()
 		expect(screen.getByText("+30%")).toBeInTheDocument()
 		expect(screen.getByText("1800")).toBeInTheDocument()
+	})
+
+	it("lists each bonus the window earned under the breakdown", () => {
+		renderCard({ streakBonusPoints: 48, totalPoints: 588 })
+		expect(screen.getByText("Streak bonus")).toBeInTheDocument()
+		expect(screen.getByText("+48")).toBeInTheDocument()
+		expect(screen.getByText("+588")).toBeInTheDocument()
+		// No sweep in this window, so no row claiming one.
+		expect(screen.queryByText("Sweep bonus")).not.toBeInTheDocument()
 	})
 
 	it("names what is still out there while a slate runs", () => {

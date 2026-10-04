@@ -443,6 +443,7 @@ describe("streakAwards", () => {
 			...r,
 			committed: 10 * (index + 1),
 			seasonId: "season-1",
+			gameId: `game-${index}`,
 		}))
 	const wins = (n: number) => Array.from({ length: n }, () => W)
 
@@ -462,11 +463,13 @@ describe("streakAwards", () => {
 			{
 				sourceKey: `${first}:${STREAK_BONUS_STEP}`,
 				seasonId: "season-1",
+				gameId: `game-${STREAK_BONUS_STEP - 1}`,
 				points: Math.round(block(0) * STREAK_BONUS_SHARE),
 			},
 			{
 				sourceKey: `${first}:${STREAK_BONUS_STEP * 2}`,
 				seasonId: "season-1",
+				gameId: `game-${STREAK_BONUS_STEP * 2 - 1}`,
 				points: Math.round(block(STREAK_BONUS_STEP) * STREAK_BONUS_SHARE),
 			},
 		])

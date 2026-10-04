@@ -35,7 +35,8 @@ export type ReportCardShareData = {
 	returnPct: number | null
 	wins: number
 	losses: number
-	netPoints: number
+	// The calls' net plus streak and sweep bonuses, as the page's tile reads.
+	totalPoints: number
 	committedPoints: number
 	pendingCount: number
 	rows: ReportCardShareRow[]
@@ -122,7 +123,7 @@ export function buildReportCardShareCard(
 		}),
 		statCell(
 			"Net",
-			`${data.netPoints >= 0 ? "+" : "-"}${Math.abs(data.netPoints)}`,
+			`${data.totalPoints >= 0 ? "+" : "-"}${Math.abs(data.totalPoints)}`,
 		),
 		statCell("Committed", String(data.committedPoints)),
 	]
@@ -223,7 +224,7 @@ export async function loadReportCardShareData(
 		returnPct: card.returnPct,
 		wins: card.wins,
 		losses: card.losses,
-		netPoints: card.netPoints,
+		totalPoints: card.totalPoints,
 		committedPoints: card.committedPoints,
 		pendingCount: card.pendingCount,
 		rows: card.byFamily.map((row) => ({

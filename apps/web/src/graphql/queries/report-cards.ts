@@ -18,7 +18,7 @@ export const UserReportCardPageDocument = graphql(`
 				wins
 				losses
 				pendingCount
-				netPoints
+				totalPoints
 				committedPoints
 				returnPct
 				grade

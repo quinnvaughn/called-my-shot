@@ -6,6 +6,7 @@ import { css } from "styled-system/css"
 import { Grid, HStack, VStack } from "styled-system/jsx"
 import { StatTile } from "#/components/ballots/ballot-progress-card"
 import {
+	type ReportCardBonusRowData,
 	ReportCardBreakdown,
 	type ReportCardRowData,
 } from "#/components/report-cards/report-card-row"
@@ -40,7 +41,9 @@ export const ReportCardFragment = graphql(`
 		wins
 		losses
 		pendingCount
-		netPoints
+		streakBonusPoints
+		sweepBonusPoints
+		totalPoints
 		committedPoints
 		pendingStake
 		returnPct
@@ -364,6 +367,10 @@ export function ReportCard({ card: cardProp, expanded, owner }: Props) {
 	const returnText = formatReturn(card.returnPct)
 	const families: (ReportCardRowData & { family: string })[] =
 		card.byFamily.map((row) => ({ ...row, family: row.family }))
+	const bonuses: ReportCardBonusRowData[] = [
+		{ label: "Streak bonus", points: card.streakBonusPoints },
+		{ label: "Sweep bonus", points: card.sweepBonusPoints },
+	].filter((bonus) => bonus.points !== 0)
 	const shapesByFamily = expanded
 		? card.byShape.reduce<Record<string, ReportCardRowData[]>>((acc, row) => {
 				acc[row.family] = [...(acc[row.family] ?? []), row]
@@ -478,7 +485,7 @@ export function ReportCard({ card: cardProp, expanded, owner }: Props) {
 						<>
 							<Grid columns={{ base: 2, sm: 4 }} gap="3">
 								<StatTile
-									value={formatSignedPoints(card.netPoints)}
+									value={formatSignedPoints(card.totalPoints)}
 									label="NET POINTS"
 								/>
 								<StatTile
@@ -505,6 +512,7 @@ export function ReportCard({ card: cardProp, expanded, owner }: Props) {
 							<ReportCardBreakdown
 								families={families}
 								shapesByFamily={shapesByFamily}
+								bonuses={bonuses}
 							/>
 
 							{(card.biggestHit || card.biggestMiss) && (
@@ -581,7 +589,7 @@ export function ReportCard({ card: cardProp, expanded, owner }: Props) {
 								track: tweetTrack,
 								wins: card.wins,
 								losses: card.losses,
-								netPoints: card.netPoints,
+								totalPoints: card.totalPoints,
 								committedPoints: card.committedPoints,
 								returnPct: card.returnPct ?? null,
 								grade: card.grade ?? null,

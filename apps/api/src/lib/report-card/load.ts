@@ -6,14 +6,17 @@ import {
 	type Game,
 	games,
 	type League,
+	pointAwards,
 	postseasonSeries,
 } from "../../db/schema"
 import { type WindowDescriptor, windowGameFilter } from "../windows"
 import {
 	buildReportCard,
 	type ReportCard,
+	type ReportCardBonus,
 	type ReportCardCall,
 	type ReportCardGame,
+	withBonuses,
 } from "./compute"
 
 // Reads the rows ./compute.ts folds: the games the window holds, the series
@@ -151,18 +154,45 @@ export async function loadReportCard(
 	userId: string,
 	league: League,
 	window: WindowDescriptor,
-): Promise<ReportCard> {
+): Promise<ReportCard & ReportCardBonus> {
 	const inWindow = await windowGames(league, window)
-	if (inWindow.length === 0) return buildReportCard([])
+	if (inWindow.length === 0) return withBonuses(buildReportCard([]), [])
 	const gameIds = inWindow.map((g) => g.id)
 	const seriesIds = await windowSeriesIds(inWindow)
 
-	// Filtered by gameId/seriesId and nothing else - no isOfficial predicate
-	// anywhere. A community question on one of this window's games counts
-	// exactly like an official one, which is also what Game.questionCount and
-	// Game.viewerCalledCount do, so the card's totals reconcile with the "8
-	// questions · 3 called" subline on the rows underneath it.
-	const questions = await db.query.questions.findMany({
+	const [questions, awards] = await Promise.all([
+		windowQuestions(userId, gameIds, seriesIds),
+		// An award belongs to the window holding its game. A streak that
+		// started last window lands here whole if its milestone win is here.
+		db
+			.select({ kind: pointAwards.kind, points: pointAwards.points })
+			.from(pointAwards)
+			.where(
+				and(
+					eq(pointAwards.userId, userId),
+					inArray(pointAwards.gameId, gameIds),
+				),
+			),
+	])
+
+	const calls = questions.flatMap((question) =>
+		question.calls.map((call) => toReportCardCall(question, call)),
+	)
+
+	return withBonuses(buildReportCard(calls), awards)
+}
+
+// Filtered by gameId/seriesId and nothing else - no isOfficial predicate
+// anywhere. A community question on one of this window's games counts
+// exactly like an official one, which is also what Game.questionCount and
+// Game.viewerCalledCount do, so the card's totals reconcile with the "8
+// questions · 3 called" subline on the rows underneath it.
+function windowQuestions(
+	userId: string,
+	gameIds: string[],
+	seriesIds: string[],
+) {
+	return db.query.questions.findMany({
 		where:
 			seriesIds.length > 0
 				? {
@@ -198,24 +228,19 @@ export async function loadReportCard(
 			},
 		},
 	})
-
-	const calls = questions.flatMap((question) =>
-		question.calls.map((call) => toReportCardCall(question, call)),
-	)
-
-	return buildReportCard(calls)
 }
 
-export type ReportCardResult = ReportCard & {
-	league: League
-	window: WindowDescriptor
-	// Hydrated by loadReportCardResult - compute.ts deliberately never touches
-	// the database and only knows a call's id.
-	biggestHit: Call | null
-	biggestMiss: Call | null
-	bestGame: ReportCardGameResult | null
-	worstGame: ReportCardGameResult | null
-}
+export type ReportCardResult = ReportCard &
+	ReportCardBonus & {
+		league: League
+		window: WindowDescriptor
+		// Hydrated by loadReportCardResult - compute.ts deliberately never touches
+		// the database and only knows a call's id.
+		biggestHit: Call | null
+		biggestMiss: Call | null
+		bestGame: ReportCardGameResult | null
+		worstGame: ReportCardGameResult | null
+	}
 
 export type ReportCardGameResult = ReportCardGame & { game: Game }
 

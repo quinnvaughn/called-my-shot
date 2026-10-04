@@ -89,7 +89,9 @@ export type ReportCardFacts = {
 	track: string
 	wins: number
 	losses: number
-	netPoints: number
+	// Calls plus streak and sweep bonuses, the same figure as the NET POINTS
+	// tile.
+	totalPoints: number
 	committedPoints: number
 	returnPct: number | null
 	grade: string | null
@@ -107,7 +109,7 @@ export function reportCardPageMeta(facts: ReportCardFacts): {
 	const grade = facts.grade ? `${facts.grade} · ` : ""
 	const description = [
 		`${formatRecord(facts.wins, facts.losses)}${qualifier}`,
-		`${formatSignedPoints(facts.netPoints)} pts`,
+		`${formatSignedPoints(facts.totalPoints)} pts`,
 		formatReturn(facts.returnPct)
 			? `${formatReturn(facts.returnPct)} on ${facts.committedPoints} committed`
 			: null,
@@ -124,8 +126,8 @@ export function buildReportCardTweet(
 	facts: ReportCardFacts & { isOwn: boolean },
 ): string {
 	const line = facts.grade
-		? `${facts.grade}. ${formatRecord(facts.wins, facts.losses)} for ${formatSignedPoints(facts.netPoints)}.`
-		: `${formatRecord(facts.wins, facts.losses)} for ${formatSignedPoints(facts.netPoints)}.`
+		? `${facts.grade}. ${formatRecord(facts.wins, facts.losses)} for ${formatSignedPoints(facts.totalPoints)}.`
+		: `${formatRecord(facts.wins, facts.losses)} for ${formatSignedPoints(facts.totalPoints)}.`
 	return facts.isOwn
 		? `My ${facts.track} Report Card: ${line}`
 		: `@${facts.username}'s ${facts.track} Report Card: ${line}`
@@ -139,14 +141,14 @@ export function reportCardVersion(input: {
 	grade: string | null
 	wins: number
 	losses: number
-	netPoints: number
+	totalPoints: number
 	pendingCount: number
 }): string {
 	return [
 		input.grade ?? "ungraded",
 		input.wins,
 		input.losses,
-		input.netPoints,
+		input.totalPoints,
 		input.pendingCount,
 	].join("-")
 }
