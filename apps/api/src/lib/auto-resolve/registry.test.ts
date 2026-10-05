@@ -133,3 +133,41 @@ describe("UNSTORED_GAME_LEADER_STATS", () => {
 		expect([...UNSTORED_GAME_LEADER_STATS].sort()).toEqual(unstored.sort())
 	})
 })
+
+// The game stats an Over can't settle on mid-game: yards, which a loss takes
+// back, every rate, and saves, which aren't decided until the game ends.
+// Everything else is a count that only goes up. Adding a stat to the table
+// means deciding which it is, and this list is where a stat that can drop
+// has to show up.
+const CAN_DROP = new Set<GameKey>([
+	"nfl:game:player:Passing Yards",
+	"nfl:game:player:Rushing Yards",
+	"nfl:game:player:Rushing + Receiving Yards",
+	"nfl:game:player:Receiving Yards",
+	"nfl:game:team:Passing Yards",
+	"nfl:game:team:Rushing Yards",
+	"nfl:game:team:Receiving Yards",
+	"mlb:game:player:Batting Average",
+	"mlb:game:player:On-Base Percentage",
+	"mlb:game:player:Slugging Percentage",
+	"mlb:game:player:Saves",
+	"mlb:game:player:ERA",
+	"mlb:game:player:WHIP",
+	"mlb:game:team:Batting Average",
+	"mlb:game:team:On-Base Percentage",
+	"mlb:game:team:Slugging Percentage",
+	"mlb:game:team:Saves",
+	"mlb:game:team:ERA",
+	"mlb:game:team:WHIP",
+	"nhl:game:player:Save Percentage",
+])
+
+describe("GAME_EXTRACTORS onlyRises", () => {
+	it("marks every stat as only rising except the ones that can drop", () => {
+		const unmarked = gameEntries
+			.filter(([, e]) => !e.onlyRises)
+			.map(([key]) => key)
+
+		expect(unmarked.sort()).toEqual([...CAN_DROP].sort())
+	})
+})

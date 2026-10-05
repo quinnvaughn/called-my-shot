@@ -2,7 +2,11 @@ import { describe, expect, it } from "vitest"
 import { parseBoxScore } from "../../db/sync/box-score-parse"
 import type { EspnGameSummary } from "../../db/sync/espn-client"
 import { espnFixture } from "../../test/helpers"
-import { type LiveQuestionContext, readLiveGameQuestion } from "./live"
+import {
+	clinchedOver,
+	type LiveQuestionContext,
+	readLiveGameQuestion,
+} from "./live"
 import { GAME_EXTRACTORS } from "./registry"
 
 const nbaBox = () =>
@@ -14,6 +18,7 @@ function context(
 	return {
 		question: {
 			shape: "player_stat_over_under",
+			ouLine: null,
 			subjectPlayerId: "player",
 			subjectTeamId: null,
 		},
@@ -39,10 +44,10 @@ function context(
 const twoPlayers = (
 	shape: "player_vs_player" | "player_game_stat_leader",
 ): Pick<LiveQuestionContext, "question" | "options"> => ({
-	question: { shape, subjectPlayerId: null, subjectTeamId: null },
+	question: { shape, ouLine: null, subjectPlayerId: null, subjectTeamId: null },
 	options: [
-		{ id: "a", playerId: "pa", teamId: null },
-		{ id: "b", playerId: "pb", teamId: null },
+		{ id: "a", sortOrder: 0, playerId: "pa", teamId: null },
+		{ id: "b", sortOrder: 1, playerId: "pb", teamId: null },
 	],
 })
 
@@ -118,6 +123,7 @@ describe("readLiveGameQuestion", () => {
 				context({
 					question: {
 						shape: "game_total_over_under",
+						ouLine: null,
 						subjectPlayerId: null,
 						subjectTeamId: null,
 					},
@@ -133,12 +139,13 @@ describe("readLiveGameQuestion", () => {
 				context({
 					question: {
 						shape: "team_vs_team",
+						ouLine: null,
 						subjectPlayerId: null,
 						subjectTeamId: null,
 					},
 					options: [
-						{ id: "h", playerId: null, teamId: "home" },
-						{ id: "a", playerId: null, teamId: "away" },
+						{ id: "h", sortOrder: 0, playerId: null, teamId: "home" },
+						{ id: "a", sortOrder: 1, playerId: null, teamId: "away" },
 					],
 					extractor: null,
 				}),
@@ -158,9 +165,80 @@ describe("readLiveGameQuestion", () => {
 				context({
 					question: {
 						shape: "yes_no_prop",
+						ouLine: null,
 						subjectPlayerId: null,
 						subjectTeamId: null,
 					},
+				}),
+			),
+		).toBeNull()
+	})
+})
+
+describe("clinchedOver", () => {
+	const overUnder = (ouLine: number): Partial<LiveQuestionContext> => ({
+		question: {
+			shape: "player_stat_over_under",
+			ouLine,
+			subjectPlayerId: "player",
+			subjectTeamId: null,
+		},
+		options: [
+			{ id: "over", sortOrder: 0, playerId: null, teamId: null },
+			{ id: "under", sortOrder: 1, playerId: null, teamId: null },
+		],
+		// 4869780 has 25.
+		espnAthleteIdByPlayerId: new Map([["player", "4869780"]]),
+	})
+
+	it("settles an Over already past its line", () => {
+		expect(clinchedOver(context(overUnder(22.5)))).toMatchObject({
+			kind: "resolve",
+			correctOptionIds: ["over"],
+			actualValue: 25,
+		})
+	})
+
+	it("leaves an Over that hasn't cleared its line", () => {
+		expect(clinchedOver(context(overUnder(25.5)))).toBeNull()
+		expect(clinchedOver(context(overUnder(25)))).toBeNull()
+	})
+
+	it("leaves a stat that can still drop", () => {
+		const { onlyRises: _, ...canDrop } =
+			GAME_EXTRACTORS["nba:game:player:Points"]
+		expect(
+			clinchedOver(context({ ...overUnder(22.5), extractor: canDrop })),
+		).toBeNull()
+	})
+
+	it("adds both teams up for a game total", () => {
+		// 144-118.
+		expect(
+			clinchedOver(
+				context({
+					...overUnder(250.5),
+					question: {
+						shape: "game_total_over_under",
+						ouLine: 250.5,
+						subjectPlayerId: null,
+						subjectTeamId: null,
+					},
+					extractor: GAME_EXTRACTORS["nba:game:team:Points"],
+				}),
+			),
+		).toMatchObject({ correctOptionIds: ["over"], actualValue: 262 })
+	})
+
+	it("leaves a comparison to the rest of the game", () => {
+		expect(
+			clinchedOver(
+				context({
+					...twoPlayers("player_vs_player"),
+					espnAthleteIdByPlayerId: new Map([
+						["pa", "4869780"],
+						["pb", "3155535"],
+					]),
 				}),
 			),
 		).toBeNull()

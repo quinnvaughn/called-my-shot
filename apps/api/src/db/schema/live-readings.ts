@@ -6,8 +6,11 @@ export type LiveOptionValue = { optionId: string; value: number | null }
 // Where a game question stands while its game is being played, read off
 // ESPN's in-progress box score by db/sync/sync-live-readings.ts with the same
 // extractors that settle it. One row per question, overwritten each pass, so
-// it only ever holds the latest reading. Display only: nothing is graded from
-// it, and once the question settles its own result is what's shown.
+// it only ever holds the latest reading. Nothing is graded from the reading
+// itself, and once the question settles its own result is what's shown. The
+// one thing settled mid-game is an Over that has already cleared its line on
+// a stat that only goes up (see clinchedOver), once clinchedSince shows it has
+// held.
 export const questionLiveReadings = pgTable("question_live_readings", {
 	questionId: uuid("question_id")
 		.primaryKey()
@@ -20,6 +23,11 @@ export const questionLiveReadings = pgTable("question_live_readings", {
 	// options (head-to-head, leader, team vs team). A null value is a subject
 	// with nothing in the box score yet.
 	optionValues: jsonb("option_values").$type<LiveOptionValue[]>(),
+	// The first pass that saw the Over past its line, kept for as long as each
+	// pass after still does and cleared by one that doesn't. A replay can take
+	// a score back minutes after ESPN shows it, so the question settles only
+	// once this is old enough that a review would have come and gone.
+	clinchedSince: timestamp("clinched_since"),
 	updatedAt: timestamp("updated_at").notNull(),
 })
 export type QuestionLiveReading = typeof questionLiveReadings.$inferSelect

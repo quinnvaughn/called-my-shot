@@ -1,3 +1,4 @@
+import { eq } from "drizzle-orm"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { RECHECK_DELAY_MS } from "../../lib/auto-resolve/apply"
 import {
@@ -13,14 +14,17 @@ import {
 } from "../../test/factories"
 import { espnFixture } from "../../test/helpers"
 import { db } from "../index"
+import { games } from "../schema"
 import { autoResolveGames } from "./auto-resolve-games"
 import { persistBoxScore } from "./box-score-store"
 import { type EspnGameSummary, EspnRequestError } from "./espn-client"
 import { resolveGameWinner } from "./sync-games"
+import { CLINCH_HOLD_MS, syncLiveReadings } from "./sync-live-readings"
 import {
 	autoRowFor,
 	type FakeEspnClient,
 	fakeEspnClient,
+	type NbaSummaryGame,
 	questionById,
 	seedNbaSummaryGame,
 	seedPointsLine,
@@ -343,5 +347,85 @@ describe("autoResolveGames - re-check", () => {
 			).length,
 		).toBe(notificationsAfterFirst)
 		expect((await autoRowFor(question.id))?.recheckedAt).not.toBeNull()
+	})
+})
+
+describe("autoResolveGames - final read of a question settled mid-game", () => {
+	// The fixture with 4869780's points set to `points`.
+	const summaryWithPoints = (points: number) => {
+		const summary = nbaSummary()
+		for (const team of summary.boxscore?.players ?? []) {
+			for (const table of team.statistics) {
+				const pointsIndex = table.keys.indexOf("points")
+				for (const entry of table.athletes) {
+					if (entry.athlete.id === "4869780") {
+						entry.stats[pointsIndex] = String(points)
+					}
+				}
+			}
+		}
+		return summary
+	}
+
+	// Settles the line from the live job while the game is on, then ends it.
+	async function settleMidGame(setup: NbaSummaryGame, livePoints: number) {
+		const setStatus = (status: "live" | "final") =>
+			db.update(games).set({ status }).where(eq(games.id, setup.game.id))
+		await setStatus("live")
+		espn.fetchGameSummary.mockResolvedValue(summaryWithPoints(livePoints))
+		const mid = hoursAgo(3)
+		await syncLiveReadings({ now: mid, spacingMs: 0, espn })
+		await syncLiveReadings({
+			now: new Date(mid.getTime() + CLINCH_HOLD_MS),
+			spacingMs: 0,
+			espn,
+		})
+		await setStatus("final")
+	}
+
+	it("writes in the numbers the game finished with", async () => {
+		const setup = await seedNbaGame()
+		const { question, over } = await seedPointsLine(setup, "4869780", 22.5)
+		await settleMidGame(setup, 23)
+		expect((await questionById(question.id))?.numericActualValue).toBe(23)
+
+		espn.fetchGameSummary.mockResolvedValue(nbaSummary())
+		await run()
+
+		expect((await questionById(question.id))?.numericActualValue).toBe(25)
+		expect(await correctOptionIds(question.id)).toEqual([over.id])
+		expect(await autoRowFor(question.id)).toMatchObject({
+			awaitingFinal: false,
+			recheckDueAt: new Date(NOW.getTime() + RECHECK_DELAY_MS),
+			recheckedAt: null,
+		})
+	})
+
+	it("re-settles when the final box score takes the Over back", async () => {
+		const setup = await seedNbaGame()
+		const { question, under } = await seedPointsLine(setup, "4869780", 22.5)
+		await settleMidGame(setup, 23)
+
+		espn.fetchGameSummary.mockResolvedValue(summaryWithPoints(20))
+		await run()
+
+		expect(await correctOptionIds(question.id)).toEqual([under.id])
+		expect((await autoRowFor(question.id))?.awaitingFinal).toBe(false)
+	})
+
+	it("waits on a final box score ESPN hasn't finished", async () => {
+		const setup = await seedNbaGame(0)
+		const { question } = await seedPointsLine(setup, "4869780", 22.5)
+		await settleMidGame(setup, 23)
+
+		const partial = nbaSummary()
+		partial.header.competitions[0].boxscoreSource = "basic"
+		espn.fetchGameSummary.mockResolvedValue(partial)
+		await run()
+
+		expect((await questionById(question.id))?.numericActualValue).toBe(23)
+		const auto = await autoRowFor(question.id)
+		expect(auto?.awaitingFinal).toBe(true)
+		expect(auto?.nextAttemptAt?.getTime()).toBeGreaterThan(NOW.getTime())
 	})
 })

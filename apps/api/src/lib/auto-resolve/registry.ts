@@ -57,6 +57,12 @@ export type GamePlayerExtractor = {
 	// mlbSaves), or the box score's column for it is season-to-date rather
 	// than per-game (mlbBatterGameStat - see its comment).
 	source?: BoxStatSource
+	// Set on a stat that only ever goes up as a game is played, so an Over
+	// already past its line mid-game can't fall back under it (see
+	// clinchedOver in live.ts). Absent on anything that can drop - yards, which
+	// a loss takes back, and every rate - and on a save, which is only decided
+	// once the game ends.
+	onlyRises?: true
 }
 
 export type GameTeamExtractor = {
@@ -66,6 +72,8 @@ export type GameTeamExtractor = {
 	read: (sources: GameSources, espnTeamId: string) => StatReading
 	// See GamePlayerExtractor.source.
 	source?: BoxStatSource
+	// See GamePlayerExtractor.onlyRises.
+	onlyRises?: true
 }
 
 export type GameExtractor = GamePlayerExtractor | GameTeamExtractor
@@ -510,6 +518,12 @@ const standingsWins: SeasonExtractor = {
 	},
 }
 
+// A stat that only goes up over a game (see GamePlayerExtractor.onlyRises).
+const rising = <E extends GameExtractor>(extractor: E): E => ({
+	...extractor,
+	onlyRises: true,
+})
+
 type GameStatKey = Extract<AutoResolveStatKey, `${string}:game:${string}`>
 type SeasonStatKey = Extract<AutoResolveStatKey, `${string}:season:${string}`>
 
@@ -518,105 +532,119 @@ type SeasonStatKey = Extract<AutoResolveStatKey, `${string}:season:${string}`>
 // rebounds and turnovers include those credited to the team rather than a
 // player; NFL team passing yards are net of sacks, while a player's are gross;
 // NFL team sacks and interceptions are the defense's, not the offense's.
+// Every count is wrapped in rising; what's left bare can drop, or isn't
+// decided until the game ends.
 export const GAME_EXTRACTORS = {
-	"nba:game:player:Points": nbaPlayer("points"),
-	"nba:game:player:3-Pointers Made": nbaPlayer(
-		"threePointFieldGoalsMade-threePointFieldGoalsAttempted",
-		parseMadeAttempted,
+	"nba:game:player:Points": rising(nbaPlayer("points")),
+	"nba:game:player:3-Pointers Made": rising(
+		nbaPlayer(
+			"threePointFieldGoalsMade-threePointFieldGoalsAttempted",
+			parseMadeAttempted,
+		),
 	),
-	"nba:game:player:Rebounds": nbaPlayer("rebounds"),
-	"nba:game:player:Assists": nbaPlayer("assists"),
-	"nba:game:player:Turnovers": nbaPlayer("turnovers"),
-	"nba:game:player:Steals": nbaPlayer("steals"),
-	"nba:game:player:Blocks": nbaPlayer("blocks"),
-	"nba:game:player:Minutes": nbaPlayer("minutes"),
-	"nba:game:team:Points": teamScore,
-	"nba:game:team:3-Pointers Made": teamBoxStat(
-		"threePointFieldGoalsMade-threePointFieldGoalsAttempted",
-		parseMadeAttempted,
+	"nba:game:player:Rebounds": rising(nbaPlayer("rebounds")),
+	"nba:game:player:Assists": rising(nbaPlayer("assists")),
+	"nba:game:player:Turnovers": rising(nbaPlayer("turnovers")),
+	"nba:game:player:Steals": rising(nbaPlayer("steals")),
+	"nba:game:player:Blocks": rising(nbaPlayer("blocks")),
+	"nba:game:player:Minutes": rising(nbaPlayer("minutes")),
+	"nba:game:team:Points": rising(teamScore),
+	"nba:game:team:3-Pointers Made": rising(
+		teamBoxStat(
+			"threePointFieldGoalsMade-threePointFieldGoalsAttempted",
+			parseMadeAttempted,
+		),
 	),
-	"nba:game:team:Rebounds": teamBoxStat("totalRebounds"),
-	"nba:game:team:Assists": teamBoxStat("assists"),
-	"nba:game:team:Turnovers": teamBoxStat("totalTurnovers"),
-	"nba:game:team:Steals": teamBoxStat("steals"),
-	"nba:game:team:Blocks": teamBoxStat("blocks"),
+	"nba:game:team:Rebounds": rising(teamBoxStat("totalRebounds")),
+	"nba:game:team:Assists": rising(teamBoxStat("assists")),
+	"nba:game:team:Turnovers": rising(teamBoxStat("totalTurnovers")),
+	"nba:game:team:Steals": rising(teamBoxStat("steals")),
+	"nba:game:team:Blocks": rising(teamBoxStat("blocks")),
 
 	"nfl:game:player:Passing Yards": nflPlayer("passing.passingYards"),
-	"nfl:game:player:Passing Touchdowns": nflPlayer("passing.passingTouchdowns"),
+	"nfl:game:player:Passing Touchdowns": rising(
+		nflPlayer("passing.passingTouchdowns"),
+	),
 	"nfl:game:player:Rushing Yards": nflPlayer("rushing.rushingYards"),
-	"nfl:game:player:Rushing Touchdowns": nflPlayer("rushing.rushingTouchdowns"),
-	"nfl:game:player:Passing + Rushing Touchdowns": nflPlayer(
-		"passing.passingTouchdowns",
-		"rushing.rushingTouchdowns",
+	"nfl:game:player:Rushing Touchdowns": rising(
+		nflPlayer("rushing.rushingTouchdowns"),
+	),
+	"nfl:game:player:Passing + Rushing Touchdowns": rising(
+		nflPlayer("passing.passingTouchdowns", "rushing.rushingTouchdowns"),
 	),
 	"nfl:game:player:Rushing + Receiving Yards": nflPlayer(
 		"rushing.rushingYards",
 		"receiving.receivingYards",
 	),
 	"nfl:game:player:Receiving Yards": nflPlayer("receiving.receivingYards"),
-	"nfl:game:player:Receptions": nflPlayer("receiving.receptions"),
-	"nfl:game:player:Receiving Touchdowns": nflPlayer(
-		"receiving.receivingTouchdowns",
+	"nfl:game:player:Receptions": rising(nflPlayer("receiving.receptions")),
+	"nfl:game:player:Receiving Touchdowns": rising(
+		nflPlayer("receiving.receivingTouchdowns"),
 	),
-	"nfl:game:player:Sacks": nflPlayer("defensive.sacks"),
-	"nfl:game:player:Interceptions": nflPlayer("interceptions.interceptions"),
-	"nfl:game:team:Points": teamScore,
+	"nfl:game:player:Sacks": rising(nflPlayer("defensive.sacks")),
+	"nfl:game:player:Interceptions": rising(
+		nflPlayer("interceptions.interceptions"),
+	),
+	"nfl:game:team:Points": rising(teamScore),
 	"nfl:game:team:Passing Yards": teamBoxStat("netPassingYards"),
-	"nfl:game:team:Passing Touchdowns": teamTableTotal(
-		"passing.passingTouchdowns",
+	"nfl:game:team:Passing Touchdowns": rising(
+		teamTableTotal("passing.passingTouchdowns"),
 	),
 	"nfl:game:team:Rushing Yards": teamBoxStat("rushingYards"),
-	"nfl:game:team:Rushing Touchdowns": teamTableTotal(
-		"rushing.rushingTouchdowns",
+	"nfl:game:team:Rushing Touchdowns": rising(
+		teamTableTotal("rushing.rushingTouchdowns"),
 	),
 	"nfl:game:team:Receiving Yards": teamTableTotal("receiving.receivingYards"),
-	"nfl:game:team:Receptions": teamTableTotal("receiving.receptions"),
-	"nfl:game:team:Receiving Touchdowns": teamTableTotal(
-		"receiving.receivingTouchdowns",
+	"nfl:game:team:Receptions": rising(teamTableTotal("receiving.receptions")),
+	"nfl:game:team:Receiving Touchdowns": rising(
+		teamTableTotal("receiving.receivingTouchdowns"),
 	),
-	"nfl:game:team:Sacks": teamTableTotal("defensive.sacks"),
-	"nfl:game:team:Interceptions": teamTableTotal("interceptions.interceptions"),
+	"nfl:game:team:Sacks": rising(teamTableTotal("defensive.sacks")),
+	"nfl:game:team:Interceptions": rising(
+		teamTableTotal("interceptions.interceptions"),
+	),
 
-	"mlb:game:player:Hits": tableCounting("batting", "hits"),
-	"mlb:game:player:Home Runs": tableCounting("batting", "homeRuns"),
+	"mlb:game:player:Hits": rising(tableCounting("batting", "hits")),
+	"mlb:game:player:Home Runs": rising(tableCounting("batting", "homeRuns")),
 	// Derived from the play-by-play when the box score is parsed; see
 	// deriveTotalBases in db/sync/box-score-parse.ts.
-	"mlb:game:player:Total Bases": tableCounting("batting", "totalBases"),
-	"mlb:game:player:RBIs": tableCounting("batting", "RBIs"),
-	"mlb:game:player:Runs": tableCounting("batting", "runs"),
-	"mlb:game:player:Walks (Batting)": tableCounting("batting", "walks"),
-	"mlb:game:player:Strikeouts (Batting)": tableCounting(
-		"batting",
-		"strikeouts",
+	"mlb:game:player:Total Bases": rising(tableCounting("batting", "totalBases")),
+	"mlb:game:player:RBIs": rising(tableCounting("batting", "RBIs")),
+	"mlb:game:player:Runs": rising(tableCounting("batting", "runs")),
+	"mlb:game:player:Walks (Batting)": rising(tableCounting("batting", "walks")),
+	"mlb:game:player:Strikeouts (Batting)": rising(
+		tableCounting("batting", "strikeouts"),
 	),
-	"mlb:game:player:Stolen Bases": mlbBatterGameStat("stolenBases"),
+	"mlb:game:player:Stolen Bases": rising(mlbBatterGameStat("stolenBases")),
 	"mlb:game:player:Batting Average": mlbBatterGameStat("avg"),
 	"mlb:game:player:On-Base Percentage": mlbBatterGameStat("onBasePct"),
 	"mlb:game:player:Slugging Percentage": mlbBatterGameStat("slugAvg"),
-	"mlb:game:player:Strikeouts (Pitching)": tableCounting(
-		"pitching",
-		"strikeouts",
+	"mlb:game:player:Strikeouts (Pitching)": rising(
+		tableCounting("pitching", "strikeouts"),
 	),
-	"mlb:game:player:Earned Runs Allowed": tableCounting(
-		"pitching",
-		"earnedRuns",
+	"mlb:game:player:Earned Runs Allowed": rising(
+		tableCounting("pitching", "earnedRuns"),
 	),
 	"mlb:game:player:Saves": mlbSaves,
-	"mlb:game:player:Pitches Thrown": tableCounting("pitching", "pitches"),
+	"mlb:game:player:Pitches Thrown": rising(
+		tableCounting("pitching", "pitches"),
+	),
 	"mlb:game:player:ERA": mlbPitchingRate(
 		({ innings, earnedRuns }) => (9 * earnedRuns) / innings,
 	),
 	"mlb:game:player:WHIP": mlbPitchingRate(
 		({ innings, hits, walks }) => (hits + walks) / innings,
 	),
-	"mlb:game:team:Hits": teamBoxStat("batting.hits"),
-	"mlb:game:team:Home Runs": teamBoxStat("batting.homeRuns"),
-	"mlb:game:team:Total Bases": teamBoxStat("batting.totalBases"),
-	"mlb:game:team:RBIs": teamBoxStat("batting.RBIs"),
-	"mlb:game:team:Runs": teamBoxStat("batting.runs"),
-	"mlb:game:team:Walks (Batting)": teamBoxStat("batting.walks"),
-	"mlb:game:team:Strikeouts (Batting)": teamBoxStat("batting.strikeouts"),
-	"mlb:game:team:Stolen Bases": teamBoxStat("batting.stolenBases"),
+	"mlb:game:team:Hits": rising(teamBoxStat("batting.hits")),
+	"mlb:game:team:Home Runs": rising(teamBoxStat("batting.homeRuns")),
+	"mlb:game:team:Total Bases": rising(teamBoxStat("batting.totalBases")),
+	"mlb:game:team:RBIs": rising(teamBoxStat("batting.RBIs")),
+	"mlb:game:team:Runs": rising(teamBoxStat("batting.runs")),
+	"mlb:game:team:Walks (Batting)": rising(teamBoxStat("batting.walks")),
+	"mlb:game:team:Strikeouts (Batting)": rising(
+		teamBoxStat("batting.strikeouts"),
+	),
+	"mlb:game:team:Stolen Bases": rising(teamBoxStat("batting.stolenBases")),
 	"mlb:game:team:Batting Average": teamBoxStat("batting.avg", parseRate),
 	"mlb:game:team:On-Base Percentage": teamBoxStat(
 		"batting.onBasePct",
@@ -626,34 +654,46 @@ export const GAME_EXTRACTORS = {
 		"batting.slugAvg",
 		parseRate,
 	),
-	"mlb:game:team:Strikeouts (Pitching)": teamBoxStat("pitching.strikeouts"),
-	"mlb:game:team:Earned Runs Allowed": teamBoxStat("pitching.earnedRuns"),
+	"mlb:game:team:Strikeouts (Pitching)": rising(
+		teamBoxStat("pitching.strikeouts"),
+	),
+	"mlb:game:team:Earned Runs Allowed": rising(
+		teamBoxStat("pitching.earnedRuns"),
+	),
 	"mlb:game:team:Saves": teamBoxStat("pitching.saves"),
-	"mlb:game:team:Pitches Thrown": teamBoxStat("pitching.pitches"),
+	"mlb:game:team:Pitches Thrown": rising(teamBoxStat("pitching.pitches")),
 	"mlb:game:team:ERA": teamBoxStat("pitching.ERA", parseRate),
 	"mlb:game:team:WHIP": teamBoxStat("pitching.WHIP", parseRate),
 
 	// Points and the team totals are added up when the box score is parsed,
 	// and team goals leave out a shootout - see deriveHockeyStats in
 	// db/sync/box-score-parse.ts.
-	"nhl:game:player:Goals": tableCounting("skaters", "goals"),
-	"nhl:game:player:Assists": tableCounting("skaters", "assists"),
-	"nhl:game:player:Points": tableCounting("skaters", "points"),
-	"nhl:game:player:Shots on Goal": tableCounting("skaters", "shotsTotal"),
-	"nhl:game:player:Hits": tableCounting("skaters", "hits"),
-	"nhl:game:player:Blocked Shots": tableCounting("skaters", "blockedShots"),
-	"nhl:game:player:Penalty Minutes": tableCounting("skaters", "penaltyMinutes"),
-	"nhl:game:player:Saves": tableCounting("goalies", "saves"),
-	"nhl:game:player:Goals Against": tableCounting("goalies", "goalsAgainst"),
+	"nhl:game:player:Goals": rising(tableCounting("skaters", "goals")),
+	"nhl:game:player:Assists": rising(tableCounting("skaters", "assists")),
+	"nhl:game:player:Points": rising(tableCounting("skaters", "points")),
+	"nhl:game:player:Shots on Goal": rising(
+		tableCounting("skaters", "shotsTotal"),
+	),
+	"nhl:game:player:Hits": rising(tableCounting("skaters", "hits")),
+	"nhl:game:player:Blocked Shots": rising(
+		tableCounting("skaters", "blockedShots"),
+	),
+	"nhl:game:player:Penalty Minutes": rising(
+		tableCounting("skaters", "penaltyMinutes"),
+	),
+	"nhl:game:player:Saves": rising(tableCounting("goalies", "saves")),
+	"nhl:game:player:Goals Against": rising(
+		tableCounting("goalies", "goalsAgainst"),
+	),
 	"nhl:game:player:Save Percentage": nhlGameSavePct,
-	"nhl:game:team:Goals": teamBoxStat("goals"),
-	"nhl:game:team:Assists": teamTableTotal("skaters.assists"),
-	"nhl:game:team:Shots on Goal": teamBoxStat("shotsTotal"),
-	"nhl:game:team:Power Play Goals": teamBoxStat("powerPlayGoals"),
-	"nhl:game:team:Hits": teamBoxStat("hits"),
-	"nhl:game:team:Blocked Shots": teamBoxStat("blockedShots"),
-	"nhl:game:team:Penalty Minutes": teamBoxStat("penaltyMinutes"),
-	"nhl:game:team:Saves": teamTableTotal("goalies.saves"),
+	"nhl:game:team:Goals": rising(teamBoxStat("goals")),
+	"nhl:game:team:Assists": rising(teamTableTotal("skaters.assists")),
+	"nhl:game:team:Shots on Goal": rising(teamBoxStat("shotsTotal")),
+	"nhl:game:team:Power Play Goals": rising(teamBoxStat("powerPlayGoals")),
+	"nhl:game:team:Hits": rising(teamBoxStat("hits")),
+	"nhl:game:team:Blocked Shots": rising(teamBoxStat("blockedShots")),
+	"nhl:game:team:Penalty Minutes": rising(teamBoxStat("penaltyMinutes")),
+	"nhl:game:team:Saves": rising(teamTableTotal("goalies.saves")),
 } as const satisfies Record<GameStatKey, GameExtractor>
 
 // The same definitions as the game table, read from ESPN's season statistics:

@@ -1,7 +1,14 @@
+import { autoResolutionSource } from "@called-my-shot/schemas"
 import { sql } from "drizzle-orm"
-import { readLiveGameQuestion } from "../../lib/auto-resolve/live"
+import { applyDecision, autoResolveNotes } from "../../lib/auto-resolve/apply"
+import type { Decision } from "../../lib/auto-resolve/decide"
+import {
+	clinchedOver,
+	readLiveGameQuestion,
+} from "../../lib/auto-resolve/live"
 import { SYNC_LIVE_READINGS_LOCK } from "../../lib/job-lock"
 import { runCli } from "../../lib/run-cli"
+import { MINUTE_MS } from "../../lib/time"
 import { db } from "../index"
 import { questionLiveReadings } from "../schema"
 import { parseBoxScore } from "./box-score-parse"
@@ -16,6 +23,7 @@ import {
 	type EspnRequester,
 } from "./espn-requester"
 import {
+	espnBoxScoreUrl,
 	gameExtractorFor,
 	loadGameEspnRefs,
 	loadGameSources,
@@ -23,6 +31,14 @@ import {
 import { SYNCED_LEAGUES } from "./leagues"
 
 const NAME = "sync-live-readings"
+
+const NOTES = autoResolveNotes("ESPN's box score")
+
+// How long an Over has to stay past its line before it settles mid-game. Just
+// under this job's five-minute spacing, so it settles on the pass after the
+// one that first saw it, by which point a replay review that took the play
+// back would have shown up in the box score.
+export const CLINCH_HOLD_MS = 4 * MINUTE_MS
 
 // Unsettled questions the automatic resolver will settle, on games being
 // played right now. Those are exactly the ones whose stat the box score
@@ -42,7 +58,8 @@ type LiveQuestion = Awaited<ReturnType<typeof loadLiveQuestions>>[number]
 // Reads one game's in-progress box score, plus whatever else its questions'
 // stats need, once, and stores where each question stands. A question with
 // nothing to show this pass keeps its last reading rather than losing it to a
-// failed fetch.
+// failed fetch. An Over that has cleared its line and held there settles now
+// rather than waiting on the final (see clinchedOver).
 async function readGame(
 	group: LiveQuestion[],
 	{
@@ -50,21 +67,22 @@ async function readGame(
 		espn,
 		requester,
 	}: { now: Date; espn: EspnClient; requester: EspnRequester },
-): Promise<number> {
+): Promise<{ stored: number; settled: number }> {
+	const nothing = { stored: 0, settled: 0 }
 	const game = group[0]?.game
 	const league = group[0]?.league
-	if (!game || !league) return 0
+	if (!game || !league) return nothing
 
 	const config = SYNCED_LEAGUES.find((c) => c.leagueSlug === league.slug)
 	const refs = await loadGameEspnRefs(game, group)
 	const espnEventId = refs.espnEventId
-	if (!config || !espnEventId) return 0
+	if (!config || !espnEventId) return nothing
 
 	const summary = await requester.request(
 		`${league.slug} summary ${espnEventId}`,
 		() => espn.fetchGameSummary(config.espnPath, espnEventId),
 	)
-	if (!summary) return 0
+	if (!summary) return nothing
 	const box = parseBoxScore(summary)
 
 	const planned = group.map((question) => ({
@@ -82,9 +100,10 @@ async function readGame(
 		requester,
 	})
 
+	const clinched = new Map<string, Decision>()
 	const rows = planned.flatMap(({ question, extractor }) => {
 		if (extractor?.needs.some((need) => failedNeeds.has(need))) return []
-		const reading = readLiveGameQuestion({
+		const ctx = {
 			question,
 			options: question.options,
 			extractor,
@@ -94,12 +113,24 @@ async function readGame(
 			espnTeamIdByTeamId: refs.espnTeamIdByTeamId,
 			homeTeamId: game.homeTeamId,
 			awayTeamId: game.awayTeamId,
-		})
-		return reading ? [{ questionId: question.id, ...reading, updatedAt: now }] : []
+		}
+		const reading = readLiveGameQuestion(ctx)
+		if (!reading) return []
+		// Never while calls can still be made on it.
+		const decision = question.locksAt <= now ? clinchedOver(ctx) : null
+		if (decision) clinched.set(question.id, decision)
+		return [
+			{
+				questionId: question.id,
+				...reading,
+				clinchedSince: decision ? now : null,
+				updatedAt: now,
+			},
+		]
 	})
-	if (rows.length === 0) return 0
+	if (rows.length === 0) return nothing
 
-	await db
+	const stored = await db
 		.insert(questionLiveReadings)
 		.values(rows)
 		.onConflictDoUpdate({
@@ -107,10 +138,34 @@ async function readGame(
 			set: {
 				value: sql`excluded.value`,
 				optionValues: sql`excluded.option_values`,
+				clinchedSince: sql`case when excluded.clinched_since is null then null else coalesce(${questionLiveReadings.clinchedSince}, excluded.clinched_since) end`,
 				updatedAt: sql`excluded.updated_at`,
 			},
 		})
-	return rows.length
+		.returning({
+			questionId: questionLiveReadings.questionId,
+			clinchedSince: questionLiveReadings.clinchedSince,
+		})
+
+	const held = stored.filter(
+		({ clinchedSince }) =>
+			clinchedSince !== null &&
+			now.getTime() - clinchedSince.getTime() >= CLINCH_HOLD_MS,
+	)
+	for (const { questionId } of held) {
+		const decision = clinched.get(questionId)
+		if (!decision) continue
+		await applyDecision(questionId, decision, {
+			now,
+			// Only a resolve gets here, and a resolve never escalates.
+			escalateAt: now,
+			resolutionSource: autoResolutionSource("game"),
+			resolutionSourceUrl: espnBoxScoreUrl(league.slug, espnEventId),
+			...NOTES,
+			midGame: true,
+		})
+	}
+	return { stored: rows.length, settled: held.length }
 }
 
 // Takes a reading of every live game's questions. Runs right after
@@ -139,9 +194,12 @@ export async function syncLiveReadings({
 
 	const requester = createEspnRequester(NAME, spacingMs)
 	let stored = 0
+	let settled = 0
 	for (const [gameId, group] of groups) {
 		try {
-			stored += await readGame(group, { now, espn, requester })
+			const read = await readGame(group, { now, espn, requester })
+			stored += read.stored
+			settled += read.settled
 		} catch (err) {
 			if (err instanceof EspnRequestError) throw err
 			console.error(`[${NAME}] game ${gameId} failed:`, err)
@@ -149,7 +207,7 @@ export async function syncLiveReadings({
 	}
 
 	console.log(
-		`[${NAME}] ${stored} reading(s) across ${groups.size} game(s), ${requester.count()} ESPN request(s)`,
+		`[${NAME}] ${stored} reading(s) across ${groups.size} game(s), ${settled} settled mid-game, ${requester.count()} ESPN request(s)`,
 	)
 }
 

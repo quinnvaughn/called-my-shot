@@ -6,10 +6,12 @@ import { espnFixture } from "../../test/helpers"
 import { db } from "../index"
 import { questions } from "../schema"
 import type { EspnGameSummary } from "./espn-client"
-import { syncLiveReadings } from "./sync-live-readings"
+import { CLINCH_HOLD_MS, syncLiveReadings } from "./sync-live-readings"
 import {
+	autoRowFor,
 	type FakeEspnClient,
 	fakeEspnClient,
+	questionById,
 	seedFinalGame,
 	seedNbaLeague,
 	seedPointsLine,
@@ -134,5 +136,90 @@ describe("syncLiveReadings", () => {
 			question: { liveReading: unknown }
 		}>(LIVE_READING, { variables: { id: question.id } })
 		expect(data.question.liveReading).toBeNull()
+	})
+})
+
+describe("syncLiveReadings settling an Over mid-game", () => {
+	const held = new Date(NOW.getTime() + CLINCH_HOLD_MS)
+
+	it("settles an Over that has held past its line", async () => {
+		const setup = await seedGame("live")
+		// 4869780 has 25.
+		const { question, over } = await seedPointsLine(setup, "4869780", 22.5)
+		espn.fetchGameSummary.mockResolvedValue(nbaSummary())
+
+		await run()
+		expect((await questionById(question.id))?.status).toBe("locked")
+		expect((await readingFor(question.id))?.clinchedSince).toEqual(NOW)
+
+		await run(held)
+
+		const row = await questionById(question.id)
+		expect(row?.status).toBe("resolved")
+		expect(row?.resolutionMethod).toBe("system")
+		expect(row?.numericActualValue).toBe(25)
+		const options = await db.query.questionOptions.findMany({
+			where: { questionId: question.id },
+		})
+		expect(options.filter((o) => o.isCorrect).map((o) => o.id)).toEqual([
+			over.id,
+		])
+		expect(await autoRowFor(question.id)).toMatchObject({
+			settledAt: held,
+			awaitingFinal: true,
+			recheckDueAt: null,
+		})
+	})
+
+	it("starts the hold over when a pass sees it back under the line", async () => {
+		const setup = await seedGame("live")
+		const { question } = await seedPointsLine(setup, "4869780", 22.5)
+		espn.fetchGameSummary.mockResolvedValue(nbaSummary())
+		await run()
+
+		// Stands in for a replay taking the points back.
+		await db
+			.update(questions)
+			.set({ ouLine: 30.5 })
+			.where(eq(questions.id, question.id))
+		await run(held)
+		expect((await readingFor(question.id))?.clinchedSince).toBeNull()
+
+		await db
+			.update(questions)
+			.set({ ouLine: 22.5 })
+			.where(eq(questions.id, question.id))
+		const later = new Date(held.getTime() + HOUR / 12)
+		await run(later)
+
+		expect((await questionById(question.id))?.status).toBe("locked")
+		expect((await readingFor(question.id))?.clinchedSince).toEqual(later)
+	})
+
+	it("never settles an Under mid-game", async () => {
+		const setup = await seedGame("live")
+		const { question } = await seedPointsLine(setup, "4869780", 30.5)
+		espn.fetchGameSummary.mockResolvedValue(nbaSummary())
+
+		await run()
+		await run(held)
+
+		expect((await questionById(question.id))?.status).toBe("locked")
+		expect((await readingFor(question.id))?.clinchedSince).toBeNull()
+	})
+
+	it("never settles a question still taking calls", async () => {
+		const setup = await seedGame("live")
+		const { question } = await seedPointsLine(setup, "4869780", 22.5)
+		await db
+			.update(questions)
+			.set({ status: "open", locksAt: new Date(NOW.getTime() + HOUR) })
+			.where(eq(questions.id, question.id))
+		espn.fetchGameSummary.mockResolvedValue(nbaSummary())
+
+		await run()
+		await run(held)
+
+		expect((await questionById(question.id))?.status).toBe("open")
 	})
 })

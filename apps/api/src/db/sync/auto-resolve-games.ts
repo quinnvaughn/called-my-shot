@@ -1,5 +1,5 @@
 import { autoResolutionSource } from "@called-my-shot/schemas"
-import { autoResolveNotes } from "../../lib/auto-resolve/apply"
+import { autoResolveNotes, isAttemptDue } from "../../lib/auto-resolve/apply"
 import {
 	decideFinalScore,
 	decideGameQuestion,
@@ -19,6 +19,7 @@ import {
 import { parseBoxScore } from "./box-score-parse"
 import { persistBoxScore } from "./box-score-store"
 import {
+	espnBoxScoreUrl,
 	gameExtractorFor,
 	loadGameEspnRefs,
 	loadGameSources,
@@ -31,31 +32,48 @@ export const ESCALATE_AFTER_MS = 12 * HOUR_MS
 
 const NOTES = autoResolveNotes("ESPN's box score")
 
-// System questions on final games: the ones still waiting on a result, and
-// settled ones whose re-check is due. A box score that isn't complete yet fails
-// as box_score_not_final and is retried, and a stat ESPN corrects later is
-// caught by the re-check. team_vs_team is settled by resolveGameWinner the
-// moment the game goes final, so only its re-check comes through here.
-const loadCandidates = (now: Date) =>
-	loadDueCandidates(now, (due, phase) =>
+const CANDIDATE_WITH = {
+	game: true,
+	league: true,
+	stat: true,
+	options: true,
+	autoResolution: true,
+} as const
+
+// System questions on final games: the ones still waiting on a result, settled
+// ones whose re-check is due, and ones settled mid-game whose final box score
+// hasn't been read yet (see finalRead in lib/auto-resolve/apply.ts). A box
+// score that isn't complete yet fails as box_score_not_final and is retried,
+// and a stat ESPN corrects later is caught by the re-check. team_vs_team is
+// settled by resolveGameWinner the moment the game goes final, so only its
+// re-check comes through here.
+async function loadCandidates(now: Date) {
+	const [due, awaitingFinal] = await Promise.all([
+		loadDueCandidates(now, (due, phase) =>
+			db.query.questions.findMany({
+				where: {
+					resolutionMode: "system",
+					game: { status: "final" },
+					...(phase === "unsettled"
+						? { shape: { ne: "team_vs_team" as const } }
+						: {}),
+					...due,
+				},
+				with: CANDIDATE_WITH,
+			}),
+		),
 		db.query.questions.findMany({
 			where: {
 				resolutionMode: "system",
+				status: "resolved",
 				game: { status: "final" },
-				...(phase === "unsettled"
-					? { shape: { ne: "team_vs_team" as const } }
-					: {}),
-				...due,
+				autoResolution: { awaitingFinal: true },
 			},
-			with: {
-				game: true,
-				league: true,
-				stat: true,
-				options: true,
-				autoResolution: true,
-			},
+			with: CANDIDATE_WITH,
 		}),
-	)
+	])
+	return [...due, ...awaitingFinal.filter((q) => isAttemptDue(q, now))]
+}
 
 type Candidate = Awaited<ReturnType<typeof loadCandidates>>[number]
 
@@ -116,7 +134,7 @@ async function processGame(
 		requester,
 	})
 
-	const boxScoreUrl = `https://www.espn.com/${league.slug}/boxscore/_/gameId/${espnEventId}`
+	const boxScoreUrl = espnBoxScoreUrl(league.slug, espnEventId)
 	for (const { question, extractor } of planned) {
 		const decision =
 			question.shape === "team_vs_team"

@@ -1,4 +1,5 @@
 import {
+	boolean,
 	integer,
 	jsonb,
 	pgEnum,
@@ -13,8 +14,9 @@ import { questions } from "./questions"
 // fetch_failed / box_score_not_final / subject_not_in_box_score: the data may
 // still arrive, so the question is retried for a while before an admin sees it.
 // stat_undefined: the stat has no value for this game, like an ERA with no
-// innings pitched. recheck_disagreed: the 24-hour re-check couldn't settle a
-// question the first pass already had, so the posted result was left alone.
+// innings pitched. recheck_disagreed: the 24-hour re-check, or the final read of
+// a question settled mid-game, couldn't settle a question the first pass
+// already had, so the posted result was left alone.
 // The rest are what they say.
 export const autoResolveFailure = pgEnum("auto_resolve_failure", [
 	"fetch_failed",
@@ -53,6 +55,11 @@ export const questionAutoResolutions = pgTable("question_auto_resolutions", {
 	// once more at this time and re-scored if the result changed.
 	recheckDueAt: timestamp("recheck_due_at"),
 	recheckedAt: timestamp("rechecked_at"),
+	// Settled while its game was still being played (an Over that had already
+	// cleared its line), and the final box score hasn't been read for it yet.
+	// That read writes in the numbers the game finished with and schedules the
+	// re-check; until then recheckDueAt is null.
+	awaitingFinal: boolean("awaiting_final").notNull().default(false),
 	// The values the last decision was made from, for the admin queue.
 	evidence: jsonb("evidence").$type<Record<string, unknown>>(),
 })

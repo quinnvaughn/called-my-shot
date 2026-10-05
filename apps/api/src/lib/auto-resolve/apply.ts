@@ -35,6 +35,9 @@ export type ApplyContext = {
 	// The note is picked from the reason the question was voided, so a tie or a
 	// missing leader isn't reported as a player who didn't play.
 	voidedNote: (reason: QuestionVoidedReason) => string
+	// Settling from a box score that isn't final yet (see clinchedOver). The
+	// re-check waits for the final read instead of being scheduled now.
+	midGame?: true
 }
 
 // Both notes for a resolver reading one ESPN page, named by source.
@@ -120,7 +123,9 @@ export async function applyDecision(
 				firstPass(tx, question, decision, auto ?? null, ctx),
 			)
 			.with("resolved", "voided", () =>
-				recheck(tx, question, decision, auto ?? null, ctx),
+				auto?.awaitingFinal
+					? finalRead(tx, question, decision, ctx)
+					: recheck(tx, question, decision, auto ?? null, ctx),
 			)
 			.with("disputed", async () => null)
 			.exhaustive()
@@ -204,7 +209,10 @@ async function firstPass(
 	return {
 		...attempted,
 		settledAt: ctx.now,
-		recheckDueAt: new Date(ctx.now.getTime() + RECHECK_DELAY_MS),
+		awaitingFinal: ctx.midGame ?? false,
+		recheckDueAt: ctx.midGame
+			? null
+			: new Date(ctx.now.getTime() + RECHECK_DELAY_MS),
 		nextAttemptAt: null,
 		failureReason: null,
 		failureDetail: null,
@@ -266,6 +274,63 @@ async function recheck(
 		// stat without moving it across the line still has to reach the page
 		// that prints it, but nothing about the scoring changed, so it's written
 		// straight through instead of re-running resolution.
+		await restateValues(tx, question, decision)
+	} else {
+		await settleFrom(tx, question, decision, ctx)
+	}
+	return {
+		...done,
+		evidence: decision.kind === "resolve" ? decision.evidence : {},
+	}
+}
+
+// The first read of the final box score for a question settled mid-game. The
+// result only changes if a play or a scoring decision was overturned after
+// the settle, so this mostly writes in the numbers the game finished with. A
+// different result re-settles it, and a read that can't settle leaves it for
+// an admin. The 24-hour re-check is scheduled from here, off the final, the
+// same as for a question settled when its game ended.
+async function finalRead(
+	tx: Tx,
+	question: Question,
+	decision: Decision,
+	ctx: ApplyContext,
+): Promise<AutoResolutionPatch> {
+	const attempted = { lastAttemptAt: ctx.now }
+	const done = {
+		...attempted,
+		awaitingFinal: false,
+		nextAttemptAt: null,
+		recheckDueAt: new Date(ctx.now.getTime() + RECHECK_DELAY_MS),
+	}
+	// An admin's result, or one a dispute put a person on, isn't the
+	// resolver's to restate.
+	const dispute = await tx.query.resolutionDisputes.findFirst({
+		where: { questionId: question.id },
+	})
+	if (question.resolutionMethod !== "system" || dispute) {
+		return { ...attempted, awaitingFinal: false }
+	}
+
+	if (decision.kind === "fail") {
+		if (decision.retryable && ctx.now < ctx.escalateAt) {
+			return {
+				...attempted,
+				nextAttemptAt: new Date(ctx.now.getTime() + FIRST_RETRY_MS),
+			}
+		}
+		return decision.retryable
+			? done
+			: {
+					...attempted,
+					awaitingFinal: false,
+					failureReason: "recheck_disagreed",
+					failureDetail: `${decision.reason}: ${decision.detail}`,
+					escalatedAt: ctx.now,
+				}
+	}
+
+	if (await hasSameResult(tx, question, decision)) {
 		await restateValues(tx, question, decision)
 	} else {
 		await settleFrom(tx, question, decision, ctx)

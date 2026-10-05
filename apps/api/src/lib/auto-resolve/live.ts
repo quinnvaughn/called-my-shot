@@ -1,6 +1,11 @@
 import { match } from "ts-pattern"
 import type { LiveOptionValue, Question, QuestionOption } from "../../db/schema"
-import { type GameQuestionContext, gameSubjectReaders } from "./decide"
+import {
+	type Decision,
+	type GameQuestionContext,
+	gameSubjectReaders,
+	gradeOverUnder,
+} from "./decide"
 import type { GameExtractor, StatReading } from "./registry"
 
 export type LiveReading = {
@@ -12,8 +17,11 @@ export type LiveQuestionContext = Omit<
 	GameQuestionContext,
 	"question" | "options" | "extractor"
 > & {
-	question: Pick<Question, "shape" | "subjectPlayerId" | "subjectTeamId">
-	options: Pick<QuestionOption, "id" | "playerId" | "teamId">[]
+	question: Pick<
+		Question,
+		"shape" | "ouLine" | "subjectPlayerId" | "subjectTeamId"
+	>
+	options: Pick<QuestionOption, "id" | "sortOrder" | "playerId" | "teamId">[]
 	// Null for team_vs_team, which reads the scoreboard rather than a stat.
 	extractor: GameExtractor | null
 }
@@ -114,4 +122,54 @@ export function readLiveGameQuestion(
 			() => null,
 		)
 		.exhaustive()
+}
+
+// An over/under whose Over has already hit mid-game, settled the same way the
+// final box score would settle it. Only a stat that never goes down can get
+// here (onlyRises), so once it's past the line no later play takes it back.
+// Null for everything else: an Over that hasn't cleared its line yet, and an
+// Under, a numeric guess or a comparison, which all depend on the rest of the
+// game.
+export function clinchedOver(ctx: LiveQuestionContext): Decision | null {
+	const { question, options, extractor } = ctx
+	if (!extractor?.onlyRises || question.ouLine === null) return null
+	const { readPlayer, readTeam } = gameSubjectReaders({ ...ctx, extractor })
+
+	const value = match(question.shape)
+		.returnType<number | null>()
+		.with("player_stat_over_under", () =>
+			valueOf(readPlayer(question.subjectPlayerId)),
+		)
+		.with("team_stat_over_under", () =>
+			valueOf(readTeam(question.subjectTeamId)),
+		)
+		.with("game_total_over_under", () => {
+			const home = valueOf(readTeam(ctx.homeTeamId))
+			const away = valueOf(readTeam(ctx.awayTeamId))
+			return home === null || away === null ? null : home + away
+		})
+		.with(
+			"player_stat_numeric_guess",
+			"team_stat_numeric_guess",
+			"player_vs_player",
+			"player_game_stat_leader",
+			"team_vs_team",
+			"yes_no_prop",
+			"player_season_award",
+			"team_season_award",
+			"player_award_finalists",
+			"player_season_stat_over_under",
+			"team_season_stat_over_under",
+			"player_vs_player_season",
+			"team_vs_team_season",
+			"team_season_stat_numeric_guess",
+			"player_season_stat_leader",
+			"player_team_season_stat_leader",
+			() => null,
+		)
+		.exhaustive()
+	if (value === null || value <= question.ouLine) return null
+
+	const decision = gradeOverUnder(question.ouLine, options, value)
+	return decision.kind === "resolve" ? decision : null
 }

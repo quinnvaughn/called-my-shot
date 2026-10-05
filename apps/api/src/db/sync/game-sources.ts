@@ -44,6 +44,10 @@ export async function loadGameEspnRefs(
 
 export type GameEspnRefs = Awaited<ReturnType<typeof loadGameEspnRefs>>
 
+// ESPN's public box score page for a game, what a settled question links to.
+export const espnBoxScoreUrl = (leagueSlug: string, espnEventId: string) =>
+	`https://www.espn.com/${leagueSlug}/boxscore/_/gameId/${espnEventId}`
+
 // The game-scoped extractor a question's stat is read with, or null when it
 // has none (a hand-written stat, a season-long shape).
 export function gameExtractorFor(
