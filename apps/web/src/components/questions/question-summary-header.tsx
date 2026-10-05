@@ -1,35 +1,62 @@
 import type { ReactNode } from "react"
 import { css } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
-import type { GameStatus, QuestionShape } from "#/graphql/generated/graphql"
+import { type FragmentType, graphql, useFragment } from "#/graphql/generated"
 import { questionShapeLabel } from "#/lib/question-labels"
-import { BallotKicker, type BallotMembership } from "./ballot-kicker"
+import { BallotKicker, type BallotKickerFragment } from "./ballot-kicker"
 import { GameBlock } from "./game-block"
 import { PickStateIcon } from "./pick-state-icon"
-import { SeriesBlock, type SeriesBlockData } from "./series-block"
+import { SeriesBlock } from "./series-block"
 
-type QuestionSummaryData = {
-	title: string
-	shape: QuestionShape
-	isOfficial: boolean
-	league: { abbreviation: string }
-	// The single real-world matchup this question is about - null for
-	// anything not scoped to one game (season awards, an MVP race).
-	game: {
-		status: GameStatus
-		startsAt: string
-		homeScore: number | null
-		awayScore: number | null
-		homeTeam: { abbreviation: string; color: string; logoUrl?: string | null }
-		awayTeam: { abbreviation: string; color: string; logoUrl?: string | null }
-	} | null
-	// The postseason series a series question is about. Optional because not
-	// every fragment feeding this header asks for it.
-	series?: SeriesBlockData | null
-}
+// game is the single real-world matchup this question is about - null for
+// anything not scoped to one game (season awards, an MVP race). series is the
+// postseason series a series question is about.
+export const QuestionSummaryHeaderFragment = graphql(`
+	fragment QuestionSummaryHeader_question on Question {
+		id
+		title
+		shape
+		isOfficial
+		league {
+			id
+			abbreviation
+		}
+		game {
+			id
+			status
+			startsAt
+			homeScore
+			awayScore
+			homeTeam {
+				...Team_team @unmask
+			}
+			awayTeam {
+				...Team_team @unmask
+			}
+		}
+		series {
+			id
+			roundLabel
+			summary
+			seeds {
+				teamId
+				seed
+			}
+			gameOne {
+				id
+				homeTeam {
+					...Team_team @unmask
+				}
+				awayTeam {
+					...Team_team @unmask
+				}
+			}
+		}
+	}
+`)
 
 type Props = {
-	question: QuestionSummaryData
+	question: FragmentType<typeof QuestionSummaryHeaderFragment>
 	// Who put this question in front of the viewer in *this* list - QuestionCard
 	// only, since CallCard's list is calls, not shares. The Shared tab this
 	// comes from excludes the viewer's own shares server-side, so it's always
@@ -44,9 +71,9 @@ type Props = {
 	// "did I call this" to show there.
 	viewerCalled?: boolean
 	// Null for the overwhelming majority of questions, which aren't part of
-	// any (published) ballot. QuestionCard and CallCard each pass their own
-	// colocated fragment's ballotMembership straight through - see BallotKicker.
-	ballotMembership?: BallotMembership
+	// any (published) ballot. Kept out of this header's fragment so only
+	// QuestionCard and CallCard show it - see BallotKicker.
+	ballotMembership?: FragmentType<typeof BallotKickerFragment> | null
 	// Off where the page itself already names the game or series (a game's
 	// own detail page, under its GameMatchupHeader). Defaults to on.
 	showGame?: boolean
@@ -66,7 +93,7 @@ type Props = {
 // instead (shown separately below), and QuestionCard drops the credit line
 // entirely since the title carries enough on its own.
 export function QuestionSummaryHeader({
-	question,
+	question: questionProp,
 	sharedBy,
 	showTypeTag,
 	viewerCalled,
@@ -75,6 +102,7 @@ export function QuestionSummaryHeader({
 	dense = false,
 	trailing,
 }: Props) {
+	const question = useFragment(QuestionSummaryHeaderFragment, questionProp)
 	return (
 		<VStack gap={dense ? "2" : "3"} alignItems="stretch">
 			<HStack justify="space-between" alignItems="center" gap="2">

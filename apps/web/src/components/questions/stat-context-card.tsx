@@ -64,10 +64,7 @@ export const StatContextCardFragment = graphql(`
 				headshotUrl
 			}
 			team {
-				id
-				abbreviation
-				color
-				logoUrl
+				...Team_team @unmask
 			}
 			recentGames {
 				gameId
@@ -124,10 +121,7 @@ export const StatContextCardFragment = graphql(`
 				label
 				teamId
 				team {
-					id
-					abbreviation
-					color
-					logoUrl
+					...Team_team @unmask
 				}
 				isHome
 				differential {

@@ -2,26 +2,31 @@ import { MdBallot } from "react-icons/md"
 import { css } from "styled-system/css"
 import { HStack } from "styled-system/jsx"
 import { match, P } from "ts-pattern"
+import { type FragmentType, graphql, useFragment } from "#/graphql/generated"
 
-export type BallotMembership = {
-	ballot: {
-		name: string
-		memberCount: number
-		viewerCalledCount: number | null
+export const BallotKickerFragment = graphql(`
+	fragment BallotKicker_membership on BallotQuestion {
+		id
+		ballot {
+			id
+			name
+			memberCount
+			viewerCalledCount
+		}
 	}
-} | null
+`)
 
 type Props = {
-	membership: BallotMembership
+	membership: FragmentType<typeof BallotKickerFragment> | null
 }
 
 // Renders nothing for the overwhelming majority of questions, which aren't
-// part of any (published) ballot - QuestionCard and CallCard both pass their
-// own colocated fragment's ballotMembership straight through, no mapping
-// needed. viewerCalledCount null/0 reads as "hasn't started this ballot yet"
+// part of any (published) ballot - QuestionCard and CallCard both spread this
+// on their question's ballotMembership. viewerCalledCount null/0 reads as "hasn't started this ballot yet"
 // (shows the plain count instead of a progress fraction) - matches the
 // Ballot type's own null-or-zero convention.
-export function BallotKicker({ membership }: Props) {
+export function BallotKicker({ membership: membershipProp }: Props) {
+	const membership = useFragment(BallotKickerFragment, membershipProp)
 	if (!membership) return null
 	const { ballot } = membership
 

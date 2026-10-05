@@ -65,58 +65,21 @@ const GroupWelcomeDocument = graphql(`
 				}
 				question {
 					id
-					title
+					...QuestionSummaryHeader_question
 					shape
 					status
-					isOfficial
 					locksAt
 					picksRequired
 					ouLine
-					league {
-						id
-						abbreviation
-					}
 					game {
 						id
-						status
-						startsAt
-						homeScore
-						awayScore
 						homeTeam {
 							id
 							abbreviation
-							color
-							logoUrl
 						}
 						awayTeam {
 							id
 							abbreviation
-							color
-							logoUrl
-						}
-					}
-					series {
-						id
-						roundLabel
-						summary
-						seeds {
-							teamId
-							seed
-						}
-						gameOne {
-							id
-							homeTeam {
-								id
-								abbreviation
-								color
-								logoUrl
-							}
-							awayTeam {
-								id
-								abbreviation
-								color
-								logoUrl
-							}
 						}
 					}
 					numericActualValue

@@ -20,7 +20,6 @@ export const QuestionCardFragment = graphql(`
 		title
 		shape
 		status
-		isOfficial
 		locksAt
 		numericActualValue
 		callCount
@@ -40,10 +39,6 @@ export const QuestionCardFragment = graphql(`
 			}
 		}
 		ouLine
-		league {
-			id
-			abbreviation
-		}
 		options {
 			id
 			label
@@ -52,58 +47,12 @@ export const QuestionCardFragment = graphql(`
 			isCorrect
 			actualValue
 			team {
-				id
-				abbreviation
-				color
-				logoUrl
+				...Team_team @unmask
 			}
 			player {
 				id
 				name
 				headshotUrl
-			}
-		}
-		game {
-			id
-			status
-			startsAt
-			homeScore
-			awayScore
-			homeTeam {
-				id
-				abbreviation
-				color
-				logoUrl
-			}
-			awayTeam {
-				id
-				abbreviation
-				color
-				logoUrl
-			}
-		}
-		series {
-			id
-			roundLabel
-			summary
-			seeds {
-				teamId
-				seed
-			}
-			gameOne {
-				id
-				homeTeam {
-					id
-					abbreviation
-					color
-					logoUrl
-				}
-				awayTeam {
-					id
-					abbreviation
-					color
-					logoUrl
-				}
 			}
 		}
 		viewerCall {
@@ -117,14 +66,9 @@ export const QuestionCardFragment = graphql(`
 			}
 		}
 		ballotMembership {
-			id
-			ballot {
-				id
-				name
-				memberCount
-				viewerCalledCount
-			}
+			...BallotKicker_membership
 		}
+		...QuestionSummaryHeader_question
 	}
 `)
 

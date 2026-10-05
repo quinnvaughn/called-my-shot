@@ -65,10 +65,7 @@ export const CastCallFormFragment = graphql(`
 			callCount
 			lossRate
 			team {
-				id
-				abbreviation
-				color
-				logoUrl
+				...Team_team @unmask
 			}
 			player {
 				id

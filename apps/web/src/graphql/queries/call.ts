@@ -133,18 +133,10 @@ export const CallRecordDocument = graphql(`
 						clinchTeamIds
 					}
 					homeTeam {
-						id
-						name
-						abbreviation
-						color
-						logoUrl
+						...Team_team @unmask
 					}
 					awayTeam {
-						id
-						name
-						abbreviation
-						color
-						logoUrl
+						...Team_team @unmask
 					}
 					homeTeamRecord {
 						wins
@@ -171,16 +163,10 @@ export const CallRecordDocument = graphql(`
 					gameOne {
 						id
 						homeTeam {
-							id
-							abbreviation
-							color
-							logoUrl
+							...Team_team @unmask
 						}
 						awayTeam {
-							id
-							abbreviation
-							color
-							logoUrl
+							...Team_team @unmask
 						}
 					}
 				}
@@ -201,10 +187,7 @@ export const CallRecordDocument = graphql(`
 					# a different question.
 					actualValue
 					team {
-						id
-						abbreviation
-						color
-						logoUrl
+						...Team_team @unmask
 					}
 					player {
 						id

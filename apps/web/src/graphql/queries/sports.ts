@@ -172,18 +172,10 @@ export const GameByIdDocument = graphql(`
 				windowType
 			}
 			homeTeam {
-				id
-				name
-				abbreviation
-				color
-				logoUrl
+				...Team_team @unmask
 			}
 			awayTeam {
-				id
-				name
-				abbreviation
-				color
-				logoUrl
+				...Team_team @unmask
 			}
 			homeTeamRecord {
 				wins
@@ -282,18 +274,10 @@ export const GameEntryDocument = graphql(`
 				slug
 			}
 			homeTeam {
-				id
-				name
-				abbreviation
-				color
-				logoUrl
+				...Team_team @unmask
 			}
 			awayTeam {
-				id
-				name
-				abbreviation
-				color
-				logoUrl
+				...Team_team @unmask
 			}
 			homeTeamRecord {
 				wins
@@ -388,16 +372,10 @@ export const GamesByLeagueDocument = graphql(`
 			homeScore
 			awayScore
 			homeTeam {
-				id
-				abbreviation
-				color
-				logoUrl
+				...Team_team @unmask
 			}
 			awayTeam {
-				id
-				abbreviation
-				color
-				logoUrl
+				...Team_team @unmask
 			}
 		}
 	}
@@ -461,18 +439,10 @@ export const LeagueGamesForWindowDocument = graphql(`
 						clinchTeamIds
 					}
 					homeTeam {
-						id
-						name
-						abbreviation
-						color
-						logoUrl
+						...Team_team @unmask
 					}
 					awayTeam {
-						id
-						name
-						abbreviation
-						color
-						logoUrl
+						...Team_team @unmask
 					}
 				}
 			}
@@ -532,10 +502,7 @@ export const LeagueSearchDocument = graphql(`
 			id
 			name
 			currentTeam {
-				id
-				abbreviation
-				color
-				logoUrl
+				...Team_team @unmask
 			}
 		}
 	}

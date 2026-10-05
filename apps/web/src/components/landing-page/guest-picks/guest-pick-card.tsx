@@ -19,9 +19,9 @@ import type { GuestPick } from "#/stores/guest-picks-store"
 export const GuestPickCardFragment = graphql(`
 	fragment GuestPickCard_question on Question {
 		id
+		...QuestionSummaryHeader_question
 		title
 		shape
-		isOfficial
 		locksAt
 		callCount
 		ouLine
@@ -47,10 +47,7 @@ export const GuestPickCardFragment = graphql(`
 			fieldPct
 			callCount
 			team {
-				id
-				abbreviation
-				color
-				logoUrl
+				...Team_team @unmask
 			}
 			player {
 				id
@@ -66,18 +63,10 @@ export const GuestPickCardFragment = graphql(`
 			awayScore
 			venue
 			homeTeam {
-				id
-				name
-				abbreviation
-				color
-				logoUrl
+				...Team_team @unmask
 			}
 			awayTeam {
-				id
-				name
-				abbreviation
-				color
-				logoUrl
+				...Team_team @unmask
 			}
 			homeTeamRecord {
 				wins

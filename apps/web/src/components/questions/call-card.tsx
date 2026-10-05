@@ -5,24 +5,20 @@ import { Card } from "#/components/ui/card"
 import { type FragmentType, graphql, useFragment } from "#/graphql/generated"
 import type { CallCard_CallFragment } from "#/graphql/generated/graphql"
 import {
+	type CallSummaryData,
 	callMarginFor,
-	formatPayout,
 	marginLabel,
 	resultState,
+	toCallSummary,
 } from "#/lib/call-summary"
 import { toIdentity } from "#/lib/identity"
 import { isNumericQuestionShape } from "#/lib/question-labels"
 import { buildQuestionSlug } from "#/lib/slug"
-import {
-	RecordStat,
-	RecordTag,
-	type RecordTone,
-	recordTagFor,
-} from "./call-record-card"
+import { CallPoints } from "./call-points"
+import { RecordTag, type RecordTone, recordTagFor } from "./call-record-card"
 import { CardRule } from "./card-rule"
 import { CaseBlock } from "./case-block"
 import { DisputedFlag } from "./disputed-flag"
-import { LockLine } from "./lock-line"
 import { PersonLine } from "./person-line"
 import { PickList } from "./pick-list"
 import { QuestionSummaryHeader } from "./question-summary-header"
@@ -31,16 +27,7 @@ import { RedoBadge } from "./redo-badge"
 export const CallCardFragment = graphql(`
 	fragment CallCard_call on Call {
 		id
-		guessValue
-		conviction
-		totalPoints
-		unscoredReason
 		caseText
-		payout {
-			winLow
-			winHigh
-			lose
-		}
 		# Presence alone is the badge. What it used to say is only fetched on
 		# the call's own page, where there's room to show it.
 		redo {
@@ -48,8 +35,6 @@ export const CallCardFragment = graphql(`
 		}
 		streak {
 			length
-			family
-			familyLabel
 		}
 		user {
 			...Identity_user
@@ -57,105 +42,14 @@ export const CallCardFragment = graphql(`
 		question {
 			id
 			title
-			shape
 			status
-			isOfficial
-			ouLine
-			numericActualValue
-			numericToleranceAbsolute
-			numericTolerancePct
-			scoredOptions {
-				id
-				label
-				actualValue
-			}
-			stat {
-				id
-				toleranceTier {
-					id
-					toleranceMode
-					toleranceValue
-				}
-			}
-			locksAt
-			league {
-				id
-				abbreviation
-			}
-			game {
-				id
-				status
-				startsAt
-				homeScore
-				awayScore
-				homeTeam {
-					id
-					abbreviation
-					color
-					logoUrl
-				}
-				awayTeam {
-					id
-					abbreviation
-					color
-					logoUrl
-				}
-			}
-			series {
-				id
-				roundLabel
-				summary
-				seeds {
-					teamId
-					seed
-				}
-				gameOne {
-					id
-					homeTeam {
-						id
-						abbreviation
-						color
-						logoUrl
-					}
-					awayTeam {
-						id
-						abbreviation
-						color
-						logoUrl
-					}
-				}
-			}
 			ballotMembership {
-				id
-				ballot {
-					id
-					name
-					memberCount
-					viewerCalledCount
-				}
+				...BallotKicker_membership
 			}
+			...QuestionSummaryHeader_question
 		}
-		selections {
-			id
-			conviction
-			option {
-				id
-				label
-				isCorrect
-				actualValue
-				team {
-					id
-					abbreviation
-					color
-					logoUrl
-				}
-				player {
-					id
-					name
-					headshotUrl
-				}
-			}
-		}
+		...CallSummary_call
+		...CallPoints_call
 	}
 `)
 
@@ -175,7 +69,8 @@ const aboveOverlay = css({ position: "relative", zIndex: 1 })
 export function CallCard({ call: callProp, linked = true }: CallCardProps) {
 	const call = useFragment(CallCardFragment, callProp)
 	const caller = toIdentity(call.user)
-	const tag = callTag(call)
+	const summary = toCallSummary(call)
+	const tag = callTag(call, summary)
 
 	return (
 		<Card
@@ -211,7 +106,7 @@ export function CallCard({ call: callProp, linked = true }: CallCardProps) {
 					avatarUrl={caller.avatarUrl}
 					flair={caller.flair}
 				/>
-				<PickList call={call} />
+				<PickList call={summary} />
 				<CallPoints call={call} />
 				{/* CaseBlock renders a real "Show more" button when the case
 				overflows, so it has to sit above the overlay. It used to be
@@ -289,75 +184,25 @@ export function CallCard({ call: callProp, linked = true }: CallCardProps) {
 type CallCardData = CallCard_CallFragment
 
 // The same tag the call's own page leads with - see recordTagFor.
-function callTag(call: CallCardData): { tone: RecordTone; label: string } {
-	const result = resultState(call.totalPoints)
+function callTag(
+	call: CallCardData,
+	summary: CallSummaryData,
+): { tone: RecordTone; label: string } {
+	const result = resultState(summary.totalPoints)
 	const isWin = result.status === "pending" ? null : result.status === "win"
-	const margin = callMarginFor(call)
+	const margin = callMarginFor(summary)
 	return recordTagFor({
 		status: call.question.status,
 		isWin,
 		nailed:
 			isWin === true &&
-			isNumericQuestionShape(call.question.shape) &&
-			call.guessValue !== null &&
-			call.guessValue === call.question.numericActualValue,
+			isNumericQuestionShape(summary.question.shape) &&
+			summary.guessValue !== null &&
+			summary.guessValue === summary.question.numericActualValue,
 		marginLabel:
 			isWin !== null && margin?.verdict
 				? marginLabel(margin.verdict, isWin)
 				: null,
 		streakLength: call.streak?.length ?? null,
 	})
-}
-
-// The points at the card's scale. Settled, the final number, as big as the
-// call page states it. Before that, what the call pays if right and costs if
-// wrong on one quiet line with when it locks, so a feed of open
-// calls doesn't turn into a wall of green and red.
-function CallPoints({ call }: { call: CallCardData }) {
-	const status = call.question.status
-	if (status === "RESOLVED" || status === "DISPUTED") {
-		if (call.unscoredReason || call.totalPoints === null) return null
-		return (
-			<RecordStat
-				value={`${call.totalPoints >= 0 ? "+" : "−"}${Math.abs(call.totalPoints)}`}
-				label="Final"
-				tone={call.totalPoints >= 0 ? "success" : "danger"}
-			/>
-		)
-	}
-	if (status === "VOIDED") return null
-
-	// Locked needs no line of its own here: the tag already says it.
-	const payout = call.payout ? formatPayout(call.payout) : null
-	if (!payout && status !== "OPEN") return null
-	return (
-		<span
-			className={css({
-				fontFamily: "mono",
-				fontSize: "xs",
-				color: "fg.subtle",
-				whiteSpace: "nowrap",
-			})}
-		>
-			{payout && (
-				<>
-					<span
-						className={css({ color: "success.default", fontWeight: "bold" })}
-					>
-						{payout.win}
-					</span>
-					{" / "}
-					<span
-						className={css({ color: "danger.default", fontWeight: "bold" })}
-					>
-						{payout.lose}
-					</span>
-				</>
-			)}
-			{payout && status === "OPEN" && " · "}
-			{status === "OPEN" && (
-				<LockLine status={status} locksAt={call.question.locksAt} />
-			)}
-		</span>
-	)
 }

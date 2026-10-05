@@ -1,6 +1,6 @@
 import type { TypedDocumentNode } from "@graphql-typed-document-node/core"
 import { createIsomorphicFn } from "@tanstack/react-start"
-import { type DocumentNode, Kind, print } from "graphql"
+import { type DocumentNode, Kind, print, visit } from "graphql"
 import { env } from "../env.server"
 
 // The browser always talks to this app's own origin (same-origin /graphql,
@@ -16,10 +16,19 @@ const getGraphQLUrl = createIsomorphicFn()
 // entry lives exactly as long as the module holding that document.
 const printedDocuments = new WeakMap<DocumentNode, string>()
 
+// `@unmask` only tells codegen to inline a fragment's fields into the
+// spreading document's types. The api's schema has no such directive and
+// would reject the operation, so it comes off before the document is sent.
+function stripClientDirectives(document: DocumentNode): DocumentNode {
+	return visit(document, {
+		Directive: (node) => (node.name.value === "unmask" ? null : undefined),
+	})
+}
+
 function printDocument(document: DocumentNode): string {
 	const cached = printedDocuments.get(document)
 	if (cached !== undefined) return cached
-	const query = print(document)
+	const query = print(stripClientDirectives(document))
 	printedDocuments.set(document, query)
 	return query
 }

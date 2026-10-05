@@ -50,10 +50,7 @@ export const PickPositionRowCallFragment = graphql(`
 				fieldPct
 				isCorrect
 				team {
-					id
-					abbreviation
-					color
-					logoUrl
+					...Team_team @unmask
 				}
 				player {
 					id

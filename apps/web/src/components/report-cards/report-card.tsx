@@ -136,10 +136,7 @@ const HighlightFragment = graphql(`
 				label
 				isCorrect
 				team {
-					id
-					abbreviation
-					color
-					logoUrl
+					...Team_team @unmask
 				}
 				player {
 					id

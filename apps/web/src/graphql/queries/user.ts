@@ -131,11 +131,7 @@ export const UserRecordDocument = graphql(`
 				}
 				byTeam {
 					team {
-						id
-						name
-						abbreviation
-						color
-						logoUrl
+						...Team_team @unmask
 					}
 					settledCount
 					wins

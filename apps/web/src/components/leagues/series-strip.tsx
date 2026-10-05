@@ -22,11 +22,7 @@ export const SeriesCardFragment = graphql(`
 			wins
 			eliminated
 			team {
-				id
-				name
-				abbreviation
-				color
-				logoUrl
+				...Team_team @unmask
 			}
 		}
 		spotlightGame {

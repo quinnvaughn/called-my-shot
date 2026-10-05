@@ -52,10 +52,7 @@ export const QuestionDetailDocument = graphql(`
 				actualValue
 				callCount
 				team {
-					id
-					abbreviation
-					color
-					logoUrl
+					...Team_team @unmask
 				}
 				player {
 					id
@@ -90,16 +87,10 @@ export const QuestionDetailDocument = graphql(`
 				gameOne {
 					id
 					homeTeam {
-						id
-						abbreviation
-						color
-						logoUrl
+						...Team_team @unmask
 					}
 					awayTeam {
-						id
-						abbreviation
-						color
-						logoUrl
+						...Team_team @unmask
 					}
 				}
 			}
@@ -112,18 +103,10 @@ export const QuestionDetailDocument = graphql(`
 				awayScore
 				venue
 				homeTeam {
-					id
-					name
-					abbreviation
-					color
-					logoUrl
+					...Team_team @unmask
 				}
 				awayTeam {
-					id
-					name
-					abbreviation
-					color
-					logoUrl
+					...Team_team @unmask
 				}
 				homeTeamRecord {
 					wins
@@ -194,10 +177,7 @@ export const QuestionDetailDocument = graphql(`
 						# needs whoever they backed, not just whoever led.
 						actualValue
 						team {
-							id
-							abbreviation
-							color
-							logoUrl
+							...Team_team @unmask
 						}
 						player {
 							id

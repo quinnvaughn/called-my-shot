@@ -3,6 +3,7 @@ import type { ReactNode } from "react"
 import { css } from "styled-system/css"
 import { VStack } from "styled-system/jsx"
 import { type FragmentType, graphql, useFragment } from "#/graphql/generated"
+import { toCallSummary } from "#/lib/call-summary"
 import { toIdentity } from "#/lib/identity"
 import { CaseBlock } from "./case-block"
 import { PersonLine } from "./person-line"
@@ -12,9 +13,6 @@ import { RedoBadge } from "./redo-badge"
 export const CallRowFragment = graphql(`
 	fragment CallRow_call on Call {
 		id
-		guessValue
-		conviction
-		totalPoints
 		caseText
 		redo {
 			id
@@ -22,48 +20,7 @@ export const CallRowFragment = graphql(`
 		user {
 			...Identity_user
 		}
-		question {
-			id
-			shape
-			ouLine
-			numericActualValue
-			numericToleranceAbsolute
-			numericTolerancePct
-			scoredOptions {
-				id
-				label
-				actualValue
-			}
-			stat {
-				id
-				toleranceTier {
-					id
-					toleranceMode
-					toleranceValue
-				}
-			}
-		}
-		selections {
-			id
-			conviction
-			option {
-				id
-				label
-				isCorrect
-				actualValue
-				team {
-					id
-					abbreviation
-					color
-					logoUrl
-				}
-				player {
-					id
-					name
-					headshotUrl
-				}
-			}
-		}
+		...CallSummary_call
 	}
 `)
 
@@ -129,7 +86,7 @@ export function CallRow({ call: callProp, footer }: Props) {
 				// be read anywhere else in this list.
 				badge={call.redo ? <RedoBadge /> : undefined}
 			/>
-			<PickList call={call} />
+			<PickList call={toCallSummary(call)} />
 			{call.caseText && (
 				<div className={css({ position: "relative", zIndex: 1 })}>
 					<CaseBlock text={call.caseText} clampable />

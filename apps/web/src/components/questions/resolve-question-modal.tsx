@@ -37,10 +37,7 @@ export const ResolveQuestionModalFragment = graphql(`
 			id
 			label
 			team {
-				id
-				abbreviation
-				color
-				logoUrl
+				...Team_team @unmask
 			}
 			player {
 				id

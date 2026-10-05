@@ -18,16 +18,10 @@ export const GameStartersFragment = graphql(`
 	fragment GameStarters_game on Game {
 		id
 		awayTeam {
-			id
-			abbreviation
-			color
-			logoUrl
+			...Team_team @unmask
 		}
 		homeTeam {
-			id
-			abbreviation
-			color
-			logoUrl
+			...Team_team @unmask
 		}
 		starters {
 			id

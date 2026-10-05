@@ -10,6 +10,9 @@ import type {
 	ImagePlayer,
 	ImageTeam,
 } from "#/components/ui/player-or-team-image"
+import { CallSummaryFragment } from "#/graphql/fragments/call-summary"
+// A plain unwrap of a masked fragment, not a React hook - see #/lib/identity.
+import { type FragmentType, useFragment as unmask } from "#/graphql/generated"
 import type { QuestionShape } from "#/graphql/generated/graphql"
 import {
 	isRateStat as computeIsRateStat,
@@ -71,6 +74,14 @@ export type CallSummaryData = {
 			player?: ImagePlayer | null
 		}
 	}[]
+}
+
+// What a document has to select for toCallSummary to read it: the masked ref
+// a `...CallSummary_call` spread produces.
+export type CallSummaryRef = FragmentType<typeof CallSummaryFragment>
+
+export function toCallSummary(call: CallSummaryRef): CallSummaryData {
+	return unmask(CallSummaryFragment, call)
 }
 
 function isRateStat(question: CallSummaryData["question"]): boolean {
