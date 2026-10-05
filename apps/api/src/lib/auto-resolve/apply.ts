@@ -12,7 +12,10 @@ import {
 } from "../../db/schema"
 import { roundToThousandths } from "../../db/sync/box-score-parse"
 import type { Tx } from "../../db/types"
-import { resolveQuestionInternal } from "../resolve-question"
+import {
+	announceHeldSettle,
+	resolveQuestionInternal,
+} from "../resolve-question"
 import { HOUR_MS, MINUTE_MS } from "../time"
 import { markQuestionVoided } from "../void-question"
 import type { Decision } from "./decide"
@@ -35,8 +38,9 @@ export type ApplyContext = {
 	// The note is picked from the reason the question was voided, so a tie or a
 	// missing leader isn't reported as a player who didn't play.
 	voidedNote: (reason: QuestionVoidedReason) => string
-	// Settling from a box score that isn't final yet (see clinchedOver). The
-	// re-check waits for the final read instead of being scheduled now.
+	// Settling from a box score that isn't final yet (see decidedEarly). The
+	// re-check waits for the final read instead of being scheduled now, and so
+	// does telling callers: nobody hears about a game's results before it ends.
 	midGame?: true
 }
 
@@ -149,7 +153,10 @@ async function settleFrom(
 	question: Question,
 	decision: Exclude<Decision, { kind: "fail" }>,
 	ctx: ApplyContext,
+	// See ResolveOptions.holdNotices.
+	holdNotices = false,
 ): Promise<void> {
+	const hold = holdNotices ? { holdNotices: true as const } : {}
 	await match(decision)
 		.with({ kind: "resolve" }, (d) =>
 			resolveQuestionInternal(
@@ -169,6 +176,7 @@ async function settleFrom(
 							? { resolutionSourceUrl: ctx.resolutionSourceUrl }
 							: {}),
 					},
+					...hold,
 				},
 			),
 		)
@@ -177,6 +185,7 @@ async function settleFrom(
 				reason: d.reason,
 				note: ctx.voidedNote(d.reason),
 				voidedBy: { method: "system" },
+				...hold,
 			}),
 		)
 		.exhaustive()
@@ -205,7 +214,7 @@ async function firstPass(
 		}
 	}
 
-	await settleFrom(tx, question, decision, ctx)
+	await settleFrom(tx, question, decision, ctx, ctx.midGame)
 	return {
 		...attempted,
 		settledAt: ctx.now,
@@ -289,8 +298,21 @@ async function recheck(
 // the settle, so this mostly writes in the numbers the game finished with. A
 // different result re-settles it, and a read that can't settle leaves it for
 // an admin. The 24-hour re-check is scheduled from here, off the final, the
-// same as for a question settled when its game ended.
+// same as for a question settled when its game ended. Callers weren't told
+// anything when it settled, so they're told now, once the read is done with
+// it, about the result as it then stands.
 async function finalRead(
+	tx: Tx,
+	question: Question,
+	decision: Decision,
+	ctx: ApplyContext,
+): Promise<AutoResolutionPatch> {
+	const patch = await readFinal(tx, question, decision, ctx)
+	if (patch.awaitingFinal === false) await announceHeldSettle(tx, question.id)
+	return patch
+}
+
+async function readFinal(
 	tx: Tx,
 	question: Question,
 	decision: Decision,
@@ -333,7 +355,7 @@ async function finalRead(
 	if (await hasSameResult(tx, question, decision)) {
 		await restateValues(tx, question, decision)
 	} else {
-		await settleFrom(tx, question, decision, ctx)
+		await settleFrom(tx, question, decision, ctx, true)
 	}
 	return {
 		...done,

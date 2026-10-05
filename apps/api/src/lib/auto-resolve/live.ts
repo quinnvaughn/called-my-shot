@@ -2,6 +2,7 @@ import { match } from "ts-pattern"
 import type { LiveOptionValue, Question, QuestionOption } from "../../db/schema"
 import {
 	type Decision,
+	decideGameQuestion,
 	type GameQuestionContext,
 	gameSubjectReaders,
 	gradeOverUnder,
@@ -124,13 +125,68 @@ export function readLiveGameQuestion(
 		.exhaustive()
 }
 
-// An over/under whose Over has already hit mid-game, settled the same way the
-// final box score would settle it. Only a stat that never goes down can get
-// here (onlyRises), so once it's past the line no later play takes it back.
-// Null for everything else: an Over that hasn't cleared its line yet, and an
-// Under, a numeric guess or a comparison, which all depend on the rest of the
-// game.
-export function clinchedOver(ctx: LiveQuestionContext): Decision | null {
+// A game question whose result is already decided while its game is still
+// being played, settled the way the final box score would settle it. Null
+// while the rest of the game could still change it.
+export function decidedEarly(ctx: LiveQuestionContext): Decision | null {
+	return playersDone(ctx) ?? clinchedOver(ctx)
+}
+
+// Every player the question reads is out of the game in the role its stat is
+// read from (leftGame), so each one's number is what he'll finish with and
+// the question grades now exactly as it will at the final: an Under, a
+// numeric guess or a head-to-head as much as an Over. A leader question reads
+// everyone in the game, not just its options, so it waits.
+function playersDone(ctx: LiveQuestionContext): Decision | null {
+	const { question, options, extractor } = ctx
+	if (extractor?.subject !== "player" || !extractor.leftGame) return null
+	const { leftGame } = extractor
+
+	const playerIds = match(question.shape)
+		.returnType<(string | null)[]>()
+		.with("player_stat_over_under", "player_stat_numeric_guess", () => [
+			question.subjectPlayerId,
+		])
+		.with("player_vs_player", () => options.map((o) => o.playerId))
+		.with(
+			"player_game_stat_leader",
+			"team_stat_over_under",
+			"team_stat_numeric_guess",
+			"game_total_over_under",
+			"team_vs_team",
+			"yes_no_prop",
+			"player_season_award",
+			"team_season_award",
+			"player_award_finalists",
+			"player_season_stat_over_under",
+			"team_season_stat_over_under",
+			"player_vs_player_season",
+			"team_vs_team_season",
+			"team_season_stat_numeric_guess",
+			"player_season_stat_leader",
+			"player_team_season_stat_leader",
+			() => [],
+		)
+		.exhaustive()
+	const done = (playerId: string | null) => {
+		const espnAthleteId = playerId
+			? ctx.espnAthleteIdByPlayerId.get(playerId)
+			: undefined
+		return espnAthleteId !== undefined && leftGame(ctx.sources, espnAthleteId)
+	}
+	if (playerIds.length === 0 || !playerIds.every(done)) return null
+
+	// A read that can't settle (a rate with no at-bats behind it) is left for
+	// the final, where it fails the same way and goes to an admin.
+	const decision = decideGameQuestion({ ...ctx, extractor })
+	return decision.kind === "fail" ? null : decision
+}
+
+// An Over already past its line. Only a stat that never goes down gets here
+// (onlyRises), so no later play takes it back. An Over that hasn't cleared
+// its line, an Under, a numeric guess and a comparison all depend on the rest
+// of the game.
+function clinchedOver(ctx: LiveQuestionContext): Decision | null {
 	const { question, options, extractor } = ctx
 	if (!extractor?.onlyRises || question.ouLine === null) return null
 	const { readPlayer, readTeam } = gameSubjectReaders({ ...ctx, extractor })

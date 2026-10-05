@@ -59,10 +59,16 @@ export type GamePlayerExtractor = {
 	source?: BoxStatSource
 	// Set on a stat that only ever goes up as a game is played, so an Over
 	// already past its line mid-game can't fall back under it (see
-	// clinchedOver in live.ts). Absent on anything that can drop - yards, which
+	// decidedEarly in live.ts). Absent on anything that can drop - yards, which
 	// a loss takes back, and every rate - and on a save, which is only decided
 	// once the game ends.
 	onlyRises?: true
+	// Whether the player is out of the game in the role this stat is read
+	// from, so his number is already what he'll finish with (see
+	// decidedEarly in live.ts). Only MLB has it, since a player taken out
+	// there can't come back in. Absent on earned runs and ERA, which runners
+	// a pitcher left on base can still add to after he's gone.
+	leftGame?: (sources: GameSources, espnAthleteId: string) => boolean
 }
 
 export type GameTeamExtractor = {
@@ -524,6 +530,17 @@ const rising = <E extends GameExtractor>(extractor: E): E => ({
 	onlyRises: true,
 })
 
+// An MLB stat whose line is done once the player is taken out of the game in
+// that table's role (see GamePlayerExtractor.leftGame).
+const doneOncePulled = (
+	table: "batting" | "pitching",
+	extractor: GamePlayerExtractor,
+): GamePlayerExtractor => ({
+	...extractor,
+	leftGame: ({ box }, espnAthleteId) =>
+		box.athletes.get(espnAthleteId)?.leftGameIn.has(table) ?? false,
+})
+
 type GameStatKey = Extract<AutoResolveStatKey, `${string}:game:${string}`>
 type SeasonStatKey = Extract<AutoResolveStatKey, `${string}:season:${string}`>
 
@@ -604,36 +621,70 @@ export const GAME_EXTRACTORS = {
 		teamTableTotal("interceptions.interceptions"),
 	),
 
-	"mlb:game:player:Hits": rising(tableCounting("batting", "hits")),
-	"mlb:game:player:Home Runs": rising(tableCounting("batting", "homeRuns")),
+	"mlb:game:player:Hits": doneOncePulled(
+		"batting",
+		rising(tableCounting("batting", "hits")),
+	),
+	"mlb:game:player:Home Runs": doneOncePulled(
+		"batting",
+		rising(tableCounting("batting", "homeRuns")),
+	),
 	// Derived from the play-by-play when the box score is parsed; see
 	// deriveTotalBases in db/sync/box-score-parse.ts.
-	"mlb:game:player:Total Bases": rising(tableCounting("batting", "totalBases")),
-	"mlb:game:player:RBIs": rising(tableCounting("batting", "RBIs")),
-	"mlb:game:player:Runs": rising(tableCounting("batting", "runs")),
-	"mlb:game:player:Walks (Batting)": rising(tableCounting("batting", "walks")),
-	"mlb:game:player:Strikeouts (Batting)": rising(
-		tableCounting("batting", "strikeouts"),
+	"mlb:game:player:Total Bases": doneOncePulled(
+		"batting",
+		rising(tableCounting("batting", "totalBases")),
 	),
-	"mlb:game:player:Stolen Bases": rising(mlbBatterGameStat("stolenBases")),
-	"mlb:game:player:Batting Average": mlbBatterGameStat("avg"),
-	"mlb:game:player:On-Base Percentage": mlbBatterGameStat("onBasePct"),
-	"mlb:game:player:Slugging Percentage": mlbBatterGameStat("slugAvg"),
-	"mlb:game:player:Strikeouts (Pitching)": rising(
-		tableCounting("pitching", "strikeouts"),
+	"mlb:game:player:RBIs": doneOncePulled(
+		"batting",
+		rising(tableCounting("batting", "RBIs")),
+	),
+	"mlb:game:player:Runs": doneOncePulled(
+		"batting",
+		rising(tableCounting("batting", "runs")),
+	),
+	"mlb:game:player:Walks (Batting)": doneOncePulled(
+		"batting",
+		rising(tableCounting("batting", "walks")),
+	),
+	"mlb:game:player:Strikeouts (Batting)": doneOncePulled(
+		"batting",
+		rising(tableCounting("batting", "strikeouts")),
+	),
+	"mlb:game:player:Stolen Bases": doneOncePulled(
+		"batting",
+		rising(mlbBatterGameStat("stolenBases")),
+	),
+	"mlb:game:player:Batting Average": doneOncePulled(
+		"batting",
+		mlbBatterGameStat("avg"),
+	),
+	"mlb:game:player:On-Base Percentage": doneOncePulled(
+		"batting",
+		mlbBatterGameStat("onBasePct"),
+	),
+	"mlb:game:player:Slugging Percentage": doneOncePulled(
+		"batting",
+		mlbBatterGameStat("slugAvg"),
+	),
+	"mlb:game:player:Strikeouts (Pitching)": doneOncePulled(
+		"pitching",
+		rising(tableCounting("pitching", "strikeouts")),
 	),
 	"mlb:game:player:Earned Runs Allowed": rising(
 		tableCounting("pitching", "earnedRuns"),
 	),
-	"mlb:game:player:Saves": mlbSaves,
-	"mlb:game:player:Pitches Thrown": rising(
-		tableCounting("pitching", "pitches"),
+	"mlb:game:player:Saves": doneOncePulled("pitching", mlbSaves),
+	"mlb:game:player:Pitches Thrown": doneOncePulled(
+		"pitching",
+		rising(tableCounting("pitching", "pitches")),
 	),
 	"mlb:game:player:ERA": mlbPitchingRate(
 		({ innings, earnedRuns }) => (9 * earnedRuns) / innings,
 	),
-	"mlb:game:player:WHIP": mlbPitchingRate(
-		({ innings, hits, walks }) => (hits + walks) / innings,
+	"mlb:game:player:WHIP": doneOncePulled(
+		"pitching",
+		mlbPitchingRate(({ innings, hits, walks }) => (hits + walks) / innings),
 	),
 	"mlb:game:team:Hits": rising(teamBoxStat("batting.hits")),
 	"mlb:game:team:Home Runs": rising(teamBoxStat("batting.homeRuns")),

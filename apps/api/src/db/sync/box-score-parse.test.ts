@@ -51,6 +51,26 @@ describe("parseBoxScore", () => {
 		])
 	})
 
+	it("keeps which MLB tables a player has been taken out of", () => {
+		const summary = summaryFixture("mlb")
+		// 4019484 started and was relieved; 36093 is still pitching.
+		for (const team of summary.boxscore?.players ?? []) {
+			for (const table of team.statistics) {
+				for (const entry of table.athletes) {
+					entry.active = !(
+						table.type === "pitching" && entry.athlete.id === "4019484"
+					)
+				}
+			}
+		}
+		const box = parseBoxScore(summary)
+		expect([...(box.athletes.get("4019484")?.leftGameIn ?? [])]).toEqual([
+			"pitching",
+		])
+		expect(box.athletes.get("36093")?.leftGameIn.size).toBe(0)
+		expect(box.athletes.get("41197")?.leftGameIn.size).toBe(0)
+	})
+
 	it("counts an MLB batter's total bases off the play-by-play", () => {
 		const box = parseBoxScore(summaryFixture("mlb"))
 		expect(box.athletes.get("41197")?.stats.get("batting.totalBases")).toBe("4")

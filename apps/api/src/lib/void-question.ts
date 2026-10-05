@@ -23,7 +23,13 @@ import { markAchievementsDirty } from "./streaks/enqueue"
 export async function markQuestionVoided(
 	tx: Tx,
 	question: Question,
-	input: { reason: QuestionVoidedReason; note: string; voidedBy: ResolvedBy },
+	input: {
+		reason: QuestionVoidedReason
+		note: string
+		voidedBy: ResolvedBy
+		// See ResolveOptions.holdNotices.
+		holdNotices?: true
+	},
 ): Promise<Question> {
 	const questionCalls = await reverseQuestionLeagueStats(tx, question)
 
@@ -55,17 +61,18 @@ export async function markQuestionVoided(
 		.set({ isCorrect: null, actualValue: null })
 		.where(eq(questionOptions.questionId, question.id))
 
-	await createNotifications(
-		tx,
-		questionCalls.map((call) => ({
-			type: "call_voided" as const,
-			userId: call.userId,
-			questionId: question.id,
-			questionTitle: question.title,
-		})),
-	)
-
-	await markAchievementsDirty(tx, question)
+	if (!input.holdNotices) {
+		await createNotifications(
+			tx,
+			questionCalls.map((call) => ({
+				type: "call_voided" as const,
+				userId: call.userId,
+				questionId: question.id,
+				questionTitle: question.title,
+			})),
+		)
+		await markAchievementsDirty(tx, question)
+	}
 
 	const { voidedBy } = input
 	const [updated] = await tx

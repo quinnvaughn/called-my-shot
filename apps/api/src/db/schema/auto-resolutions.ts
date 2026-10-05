@@ -55,8 +55,8 @@ export const questionAutoResolutions = pgTable("question_auto_resolutions", {
 	// once more at this time and re-scored if the result changed.
 	recheckDueAt: timestamp("recheck_due_at"),
 	recheckedAt: timestamp("rechecked_at"),
-	// Settled while its game was still being played (an Over that had already
-	// cleared its line), and the final box score hasn't been read for it yet.
+	// Settled while its game was still being played (see decidedEarly), and the
+	// final box score hasn't been read for it yet.
 	// That read writes in the numbers the game finished with and schedules the
 	// re-check; until then recheckDueAt is null.
 	awaitingFinal: boolean("awaiting_final").notNull().default(false),

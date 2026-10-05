@@ -50,6 +50,10 @@ export type ResolveOptions = {
 	// persisted on a call, so an exclusion made at first resolution survives an
 	// overturn or admin re-resolve that doesn't pass it again.
 	unscoredUserIds?: UnscoredOverrides
+	// Scores and records the result but tells no one yet: no notification, no
+	// email, no achievements pass. A game question settled before its game
+	// ends holds them until it does (see announceHeldSettle).
+	holdNotices?: true
 }
 
 // The scoring + question-update core of resolving a question - shared by
@@ -115,35 +119,37 @@ export async function resolveQuestionInternal(
 	const notified = notifiedCallers(statDeltas, tally)
 
 	const { gameId } = question
-	await createNotifications(
-		tx,
-		notified.map(({ userId, callId, pointsDelta }) =>
-			gameId
-				? { type: "game_resolved" as const, userId, gameId }
-				: {
-						type: "call_resolved" as const,
-						userId,
-						questionId: question.id,
-						questionTitle: question.title,
-						pointsDelta,
-						callId: callId ?? null,
-					},
-		),
-	)
+	if (!opts.holdNotices) {
+		await createNotifications(
+			tx,
+			notified.map(({ userId, callId, pointsDelta }) =>
+				gameId
+					? { type: "game_resolved" as const, userId, gameId }
+					: {
+							type: "call_resolved" as const,
+							userId,
+							questionId: question.id,
+							questionTitle: question.title,
+							pointsDelta,
+							callId: callId ?? null,
+						},
+			),
+		)
 
-	// Queued, not sent. This runs inside the caller's transaction, so an
-	// inline send would go out before commit and again on any retry; and
-	// sync-live-scores resolves a whole slate at once, which for one caller
-	// with several open calls would be several emails within the hour. The
-	// drain (lib/email-digest.ts) coalesces those into one and is where the
-	// opt-out check happens - enqueuing everyone and filtering later is what
-	// makes an unsubscribe during the settling window still count.
-	await enqueueResolvedCallEmails(
-		tx,
-		notified.flatMap(({ userId, callId }) =>
-			callId ? [{ userId, questionId: question.id, callId }] : [],
-		),
-	)
+		// Queued, not sent. This runs inside the caller's transaction, so an
+		// inline send would go out before commit and again on any retry; and
+		// sync-live-scores resolves a whole slate at once, which for one caller
+		// with several open calls would be several emails within the hour. The
+		// drain (lib/email-digest.ts) coalesces those into one and is where the
+		// opt-out check happens - enqueuing everyone and filtering later is
+		// what makes an unsubscribe during the settling window still count.
+		await enqueueResolvedCallEmails(
+			tx,
+			notified.flatMap(({ userId, callId }) =>
+				callId ? [{ userId, questionId: question.id, callId }] : [],
+			),
+		)
+	}
 
 	const { resolvedBy, source } = opts
 
@@ -177,7 +183,7 @@ export async function resolveQuestionInternal(
 		),
 	)
 
-	await markAchievementsDirty(tx, question)
+	if (!opts.holdNotices) await markAchievementsDirty(tx, question)
 
 	const [updated] = await tx
 		.update(questions)
@@ -207,6 +213,58 @@ export async function resolveQuestionInternal(
 			"resolveQuestionInternal: question vanished mid-transaction",
 		)
 	return updated
+}
+
+// What a settle held back (holdNotices), sent once the question's game has
+// ended: the same notification, email and achievements pass a settle at the
+// final whistle gives. Everyone with a call hears the result as it now
+// stands, including a caller whose result a later read left where it was,
+// since nothing was sent to them the first time. A caller left unscored has
+// no result to report, the same as when a settle isn't held.
+export async function announceHeldSettle(
+	tx: Tx,
+	questionId: string,
+): Promise<void> {
+	const question = await tx.query.questions.findFirst({
+		where: { id: questionId },
+	})
+	const gameId = question?.gameId
+	if (!question || !gameId) return
+	const questionCalls = await tx.query.calls.findMany({
+		where: { questionId },
+		columns: { id: true, userId: true, unscoredReason: true },
+	})
+
+	if (question.status === "voided") {
+		await createNotifications(
+			tx,
+			questionCalls.map((call) => ({
+				type: "call_voided" as const,
+				userId: call.userId,
+				questionId,
+				questionTitle: question.title,
+			})),
+		)
+	} else if (question.status === "resolved") {
+		const scored = questionCalls.filter((call) => !call.unscoredReason)
+		await createNotifications(
+			tx,
+			scored.map((call) => ({
+				type: "game_resolved" as const,
+				userId: call.userId,
+				gameId,
+			})),
+		)
+		await enqueueResolvedCallEmails(
+			tx,
+			scored.map((call) => ({
+				userId: call.userId,
+				questionId,
+				callId: call.id,
+			})),
+		)
+	}
+	await markAchievementsDirty(tx, question)
 }
 
 // Scores a numeric-guess question's calls and writes each result onto its

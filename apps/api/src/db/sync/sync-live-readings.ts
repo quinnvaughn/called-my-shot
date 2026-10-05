@@ -3,7 +3,7 @@ import { sql } from "drizzle-orm"
 import { applyDecision, autoResolveNotes } from "../../lib/auto-resolve/apply"
 import type { Decision } from "../../lib/auto-resolve/decide"
 import {
-	clinchedOver,
+	decidedEarly,
 	readLiveGameQuestion,
 } from "../../lib/auto-resolve/live"
 import { SYNC_LIVE_READINGS_LOCK } from "../../lib/job-lock"
@@ -34,7 +34,7 @@ const NAME = "sync-live-readings"
 
 const NOTES = autoResolveNotes("ESPN's box score")
 
-// How long an Over has to stay past its line before it settles mid-game. Just
+// How long a result has to stay decided before it settles mid-game. Just
 // under this job's five-minute spacing, so it settles on the pass after the
 // one that first saw it, by which point a replay review that took the play
 // back would have shown up in the box score.
@@ -58,8 +58,8 @@ type LiveQuestion = Awaited<ReturnType<typeof loadLiveQuestions>>[number]
 // Reads one game's in-progress box score, plus whatever else its questions'
 // stats need, once, and stores where each question stands. A question with
 // nothing to show this pass keeps its last reading rather than losing it to a
-// failed fetch. An Over that has cleared its line and held there settles now
-// rather than waiting on the final (see clinchedOver).
+// failed fetch. A question whose result is already decided, and has held,
+// settles now rather than waiting on the final (see decidedEarly).
 async function readGame(
 	group: LiveQuestion[],
 	{
@@ -117,7 +117,7 @@ async function readGame(
 		const reading = readLiveGameQuestion(ctx)
 		if (!reading) return []
 		// Never while calls can still be made on it.
-		const decision = question.locksAt <= now ? clinchedOver(ctx) : null
+		const decision = question.locksAt <= now ? decidedEarly(ctx) : null
 		if (decision) clinched.set(question.id, decision)
 		return [
 			{

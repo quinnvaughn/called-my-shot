@@ -171,3 +171,35 @@ describe("GAME_EXTRACTORS onlyRises", () => {
 		expect(unmarked.sort()).toEqual([...CAN_DROP].sort())
 	})
 })
+
+// The game stats whose line is done once the player is taken out of the game
+// (see GamePlayerExtractor.leftGame): MLB's, since a player taken out there
+// can't come back in, less earned runs and ERA, which runners a pitcher left
+// on base can still add to after he's gone.
+const DONE_ONCE_PULLED = new Set<GameKey>([
+	"mlb:game:player:Hits",
+	"mlb:game:player:Home Runs",
+	"mlb:game:player:Total Bases",
+	"mlb:game:player:RBIs",
+	"mlb:game:player:Runs",
+	"mlb:game:player:Walks (Batting)",
+	"mlb:game:player:Strikeouts (Batting)",
+	"mlb:game:player:Stolen Bases",
+	"mlb:game:player:Batting Average",
+	"mlb:game:player:On-Base Percentage",
+	"mlb:game:player:Slugging Percentage",
+	"mlb:game:player:Strikeouts (Pitching)",
+	"mlb:game:player:Saves",
+	"mlb:game:player:Pitches Thrown",
+	"mlb:game:player:WHIP",
+])
+
+describe("GAME_EXTRACTORS leftGame", () => {
+	it("is set on exactly the stats a pulled player's line is done for", () => {
+		const marked = gameEntries
+			.filter(([, e]) => e.subject === "player" && e.leftGame)
+			.map(([key]) => key)
+
+		expect(marked.sort()).toEqual([...DONE_ONCE_PULLED].sort())
+	})
+})

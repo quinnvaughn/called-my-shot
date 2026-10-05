@@ -65,7 +65,7 @@ async function loadCandidates(now: Date) {
 		db.query.questions.findMany({
 			where: {
 				resolutionMode: "system",
-				status: "resolved",
+				status: { in: ["resolved", "voided"] },
 				game: { status: "final" },
 				autoResolution: { awaitingFinal: true },
 			},

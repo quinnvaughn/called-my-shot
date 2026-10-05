@@ -1,6 +1,10 @@
 import { eq } from "drizzle-orm"
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import { RECHECK_DELAY_MS } from "../../lib/auto-resolve/apply"
+import {
+	applyDecision,
+	autoResolveNotes,
+	RECHECK_DELAY_MS,
+} from "../../lib/auto-resolve/apply"
 import {
 	HOUR,
 	makeCall,
@@ -383,6 +387,43 @@ describe("autoResolveGames - final read of a question settled mid-game", () => {
 		await setStatus("final")
 	}
 
+	const noticesFor = (gameId: string) =>
+		db.query.notifications.findMany({
+			where: { gameId, type: "game_resolved" },
+		})
+	const emailsFor = (questionId: string) =>
+		db.query.emailOutbox.findMany({ where: { questionId } })
+
+	it("tells callers once the game ends, though the result didn't move", async () => {
+		const setup = await seedNbaGame()
+		const { question } = await seedPointsLine(setup, "4869780", 22.5)
+		await settleMidGame(setup, 23)
+		expect(await noticesFor(setup.game.id)).toHaveLength(0)
+
+		espn.fetchGameSummary.mockResolvedValue(nbaSummary())
+		await run()
+
+		expect(await noticesFor(setup.game.id)).toHaveLength(1)
+		expect(await emailsFor(question.id)).toHaveLength(1)
+		expect(
+			await db.query.streakRecomputeQueue.findMany({
+				where: { leagueId: setup.league.id },
+			}),
+		).not.toEqual([])
+	})
+
+	it("tells callers the corrected result, once, when the final changes it", async () => {
+		const setup = await seedNbaGame()
+		const { question } = await seedPointsLine(setup, "4869780", 22.5)
+		await settleMidGame(setup, 23)
+
+		espn.fetchGameSummary.mockResolvedValue(summaryWithPoints(20))
+		await run()
+
+		expect(await noticesFor(setup.game.id)).toHaveLength(1)
+		expect(await emailsFor(question.id)).toHaveLength(1)
+	})
+
 	it("writes in the numbers the game finished with", async () => {
 		const setup = await seedNbaGame()
 		const { question, over } = await seedPointsLine(setup, "4869780", 22.5)
@@ -413,6 +454,58 @@ describe("autoResolveGames - final read of a question settled mid-game", () => {
 		expect((await autoRowFor(question.id))?.awaitingFinal).toBe(false)
 	})
 
+	it("reads a question that voided mid-game too", async () => {
+		const setup = await seedNbaGame()
+		const rebounds = await makeStat({
+			sportId: setup.league.sportId,
+			name: "Rebounds",
+			appliesTo: "both",
+		})
+		const question = await makeQuestion({
+			shape: "player_vs_player",
+			leagueId: setup.league.id,
+			sportId: setup.league.sportId,
+			seasonId: setup.game.seasonId,
+			gameId: setup.game.id,
+			statId: rebounds.id,
+			status: "locked",
+			locksAt: setup.game.startsAt,
+			resolutionMode: "system",
+		})
+		// Both finished with 6.
+		for (const [sortOrder, espnAthleteId] of ["3155535", "4065804"].entries()) {
+			const player = await makePlayer({ currentTeamId: setup.away.id })
+			await makeExternalRef("player", `nba:${espnAthleteId}`, player.id)
+			await makeOption(question.id, {
+				label: espnAthleteId,
+				sortOrder,
+				playerId: player.id,
+			})
+		}
+		await applyDecision(
+			question.id,
+			{ kind: "void", reason: "tie" },
+			{
+				now: hoursAgo(3),
+				escalateAt: hoursAgo(3),
+				resolutionSource: "game",
+				resolutionSourceUrl: null,
+				...autoResolveNotes("ESPN's box score"),
+				midGame: true,
+			},
+		)
+		expect((await questionById(question.id))?.status).toBe("voided")
+
+		espn.fetchGameSummary.mockResolvedValue(nbaSummary())
+		await run()
+
+		expect((await questionById(question.id))?.status).toBe("voided")
+		expect(await autoRowFor(question.id)).toMatchObject({
+			awaitingFinal: false,
+			recheckDueAt: new Date(NOW.getTime() + RECHECK_DELAY_MS),
+		})
+	})
+
 	it("waits on a final box score ESPN hasn't finished", async () => {
 		const setup = await seedNbaGame(0)
 		const { question } = await seedPointsLine(setup, "4869780", 22.5)
@@ -427,5 +520,6 @@ describe("autoResolveGames - final read of a question settled mid-game", () => {
 		const auto = await autoRowFor(question.id)
 		expect(auto?.awaitingFinal).toBe(true)
 		expect(auto?.nextAttemptAt?.getTime()).toBeGreaterThan(NOW.getTime())
+		expect(await noticesFor(setup.game.id)).toHaveLength(0)
 	})
 })

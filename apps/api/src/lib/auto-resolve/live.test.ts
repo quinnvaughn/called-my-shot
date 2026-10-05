@@ -3,7 +3,7 @@ import { parseBoxScore } from "../../db/sync/box-score-parse"
 import type { EspnGameSummary } from "../../db/sync/espn-client"
 import { espnFixture } from "../../test/helpers"
 import {
-	clinchedOver,
+	decidedEarly,
 	type LiveQuestionContext,
 	readLiveGameQuestion,
 } from "./live"
@@ -175,7 +175,7 @@ describe("readLiveGameQuestion", () => {
 	})
 })
 
-describe("clinchedOver", () => {
+describe("decidedEarly: an Over already past its line", () => {
 	const overUnder = (ouLine: number): Partial<LiveQuestionContext> => ({
 		question: {
 			shape: "player_stat_over_under",
@@ -192,7 +192,7 @@ describe("clinchedOver", () => {
 	})
 
 	it("settles an Over already past its line", () => {
-		expect(clinchedOver(context(overUnder(22.5)))).toMatchObject({
+		expect(decidedEarly(context(overUnder(22.5)))).toMatchObject({
 			kind: "resolve",
 			correctOptionIds: ["over"],
 			actualValue: 25,
@@ -200,22 +200,22 @@ describe("clinchedOver", () => {
 	})
 
 	it("leaves an Over that hasn't cleared its line", () => {
-		expect(clinchedOver(context(overUnder(25.5)))).toBeNull()
-		expect(clinchedOver(context(overUnder(25)))).toBeNull()
+		expect(decidedEarly(context(overUnder(25.5)))).toBeNull()
+		expect(decidedEarly(context(overUnder(25)))).toBeNull()
 	})
 
 	it("leaves a stat that can still drop", () => {
 		const { onlyRises: _, ...canDrop } =
 			GAME_EXTRACTORS["nba:game:player:Points"]
 		expect(
-			clinchedOver(context({ ...overUnder(22.5), extractor: canDrop })),
+			decidedEarly(context({ ...overUnder(22.5), extractor: canDrop })),
 		).toBeNull()
 	})
 
 	it("adds both teams up for a game total", () => {
 		// 144-118.
 		expect(
-			clinchedOver(
+			decidedEarly(
 				context({
 					...overUnder(250.5),
 					question: {
@@ -232,13 +232,138 @@ describe("clinchedOver", () => {
 
 	it("leaves a comparison to the rest of the game", () => {
 		expect(
-			clinchedOver(
+			decidedEarly(
 				context({
 					...twoPlayers("player_vs_player"),
 					espnAthleteIdByPlayerId: new Map([
 						["pa", "4869780"],
 						["pb", "3155535"],
 					]),
+				}),
+			),
+		).toBeNull()
+	})
+})
+
+describe("decidedEarly: every player out of the game", () => {
+	// The MLB fixture as if still being played, with `pulled` taken out of the
+	// game in that table's role and everyone else still in.
+	const mlbSources = (pulled: { pitching?: string[]; batting?: string[] }) => {
+		const summary = espnFixture<EspnGameSummary>("mlb-summary.json")
+		for (const team of summary.boxscore?.players ?? []) {
+			for (const table of team.statistics) {
+				const out =
+					table.type === "pitching" || table.type === "batting"
+						? (pulled[table.type] ?? [])
+						: []
+				for (const entry of table.athletes) {
+					entry.active = !out.includes(entry.athlete.id)
+				}
+			}
+		}
+		return {
+			box: parseBoxScore(summary),
+			didNotPlayByTeam: new Map(),
+			athleteGameStats: new Map(),
+		}
+	}
+
+	const OVER_UNDER = [
+		{ id: "over", sortOrder: 0, playerId: null, teamId: null },
+		{ id: "under", sortOrder: 1, playerId: null, teamId: null },
+	]
+	// 4019484 threw 83 pitches with 4 earned runs; 32685 threw 80.
+	const pitcher = {
+		espnAthleteIdByPlayerId: new Map([
+			["player", "4019484"],
+			["pa", "4019484"],
+			["pb", "32685"],
+		]),
+	}
+	const pitchCount = (
+		shape: "player_stat_over_under" | "player_stat_numeric_guess",
+		ouLine: number | null,
+	): Partial<LiveQuestionContext> => ({
+		...pitcher,
+		question: {
+			shape,
+			ouLine,
+			subjectPlayerId: "player",
+			subjectTeamId: null,
+		},
+		options: shape === "player_stat_over_under" ? OVER_UNDER : [],
+		extractor: GAME_EXTRACTORS["mlb:game:player:Pitches Thrown"],
+	})
+
+	it("settles an Under once the pitcher is pulled", () => {
+		expect(
+			decidedEarly(
+				context({
+					...pitchCount("player_stat_over_under", 93.5),
+					sources: mlbSources({ pitching: ["4019484"] }),
+				}),
+			),
+		).toMatchObject({ correctOptionIds: ["under"], actualValue: 83 })
+	})
+
+	it("leaves an Under while the pitcher is still in", () => {
+		expect(
+			decidedEarly(
+				context({
+					...pitchCount("player_stat_over_under", 93.5),
+					sources: mlbSources({}),
+				}),
+			),
+		).toBeNull()
+	})
+
+	it("only counts the role the stat is read from", () => {
+		expect(
+			decidedEarly(
+				context({
+					...pitchCount("player_stat_over_under", 93.5),
+					sources: mlbSources({ batting: ["4019484"] }),
+				}),
+			),
+		).toBeNull()
+	})
+
+	it("settles a numeric guess once the pitcher is pulled", () => {
+		expect(
+			decidedEarly(
+				context({
+					...pitchCount("player_stat_numeric_guess", null),
+					sources: mlbSources({ pitching: ["4019484"] }),
+				}),
+			),
+		).toMatchObject({ kind: "resolve", actualValue: 83 })
+	})
+
+	it("settles a head-to-head only once both are pulled", () => {
+		const headToHead = (pulled: string[]) =>
+			decidedEarly(
+				context({
+					...pitcher,
+					...twoPlayers("player_vs_player"),
+					extractor: GAME_EXTRACTORS["mlb:game:player:Pitches Thrown"],
+					sources: mlbSources({ pitching: pulled }),
+				}),
+			)
+
+		expect(headToHead(["4019484"])).toBeNull()
+		expect(headToHead(["4019484", "32685"])).toMatchObject({
+			correctOptionIds: ["a"],
+		})
+	})
+
+	// Runners he left on base can still score on him.
+	it("leaves earned runs to the final", () => {
+		expect(
+			decidedEarly(
+				context({
+					...pitchCount("player_stat_over_under", 4.5),
+					extractor: GAME_EXTRACTORS["mlb:game:player:Earned Runs Allowed"],
+					sources: mlbSources({ pitching: ["4019484"] }),
 				}),
 			),
 		).toBeNull()

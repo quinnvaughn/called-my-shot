@@ -393,6 +393,9 @@ export type EspnBoxScoreAthlete = {
 	athlete: { id: string; displayName?: string }
 	// NBA only: set on anyone listed for the game who sat.
 	didNotPlay?: boolean
+	// MLB: false once a player has been taken out of the game in this table's
+	// role, a pitcher relieved or a batter pinch-hit or run for.
+	active?: boolean
 	// Lines up with the table's `keys`.
 	stats: string[]
 	// MLB pitchers carry their decision here ("W, 2-3", "S, 33").

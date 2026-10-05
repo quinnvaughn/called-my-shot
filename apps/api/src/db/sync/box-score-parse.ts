@@ -9,6 +9,10 @@ export type ParsedAthlete = {
 	// ESPN's display name, for naming someone who isn't in our players table.
 	name?: string
 	didNotPlay: boolean
+	// The tables ESPN marks them no longer in the game for ("batting",
+	// "pitching"), while it's being played. Only MLB's mean anything: a player
+	// taken out there can't come back in, so his line in that table is done.
+	leftGameIn: Set<string>
 	// "table.key" -> raw value ("passing.passingYards", "batting.hits"). NBA's
 	// one table is unnamed, so its keys carry no prefix ("points"). NHL
 	// forwards and defensemen share "skaters." (see TABLE_ALIASES).
@@ -93,10 +97,12 @@ export function parseBoxScore(summary: EspnGameSummary): ParsedBoxScore {
 					espnTeamId,
 					name: entry.athlete.displayName,
 					didNotPlay: false,
+					leftGameIn: new Set<string>(),
 					stats: new Map<string, string>(),
 					notes: [],
 				}
 				athlete.didNotPlay ||= entry.didNotPlay === true
+				if (entry.active === false && prefix) athlete.leftGameIn.add(prefix)
 				entry.stats.forEach((value, i) => {
 					const key = table.keys[i]
 					if (key !== undefined)

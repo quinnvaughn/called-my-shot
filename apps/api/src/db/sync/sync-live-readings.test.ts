@@ -44,6 +44,11 @@ async function seedGame(status: "live" | "final" | "scheduled") {
 const readingFor = (questionId: string) =>
 	db.query.questionLiveReadings.findFirst({ where: { questionId } })
 
+const noticesFor = (gameId: string) =>
+	db.query.notifications.findMany({ where: { gameId } })
+const emailsFor = (questionId: string) =>
+	db.query.emailOutbox.findMany({ where: { questionId } })
+
 const LIVE_READING = `
 	query ($id: ID!) {
 		question(id: $id) {
@@ -169,6 +174,24 @@ describe("syncLiveReadings settling an Over mid-game", () => {
 			awaitingFinal: true,
 			recheckDueAt: null,
 		})
+	})
+
+	it("tells no one until the game ends", async () => {
+		const setup = await seedGame("live")
+		const { question } = await seedPointsLine(setup, "4869780", 22.5)
+		espn.fetchGameSummary.mockResolvedValue(nbaSummary())
+
+		await run()
+		await run(held)
+
+		expect((await questionById(question.id))?.status).toBe("resolved")
+		expect(await noticesFor(setup.game.id)).toEqual([])
+		expect(await emailsFor(question.id)).toEqual([])
+		expect(
+			await db.query.streakRecomputeQueue.findMany({
+				where: { leagueId: setup.league.id },
+			}),
+		).toEqual([])
 	})
 
 	it("starts the hold over when a pass sees it back under the line", async () => {
