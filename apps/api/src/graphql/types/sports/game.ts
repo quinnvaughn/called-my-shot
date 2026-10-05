@@ -40,7 +40,7 @@ const GameEntrySplitRef = builder
 		}),
 	})
 
-const GameEntryRef = builder
+export const GameEntryRef = builder
 	.objectRef<GameEntry & { user: User; verdict: GameEntryVerdictValue | null }>(
 		"GameEntry",
 	)

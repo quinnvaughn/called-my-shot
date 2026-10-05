@@ -8,6 +8,7 @@ import { DisputeOverturnedRow } from "./rows/dispute-overturned-row"
 import { DisputeUpheldRow } from "./rows/dispute-upheld-row"
 import { FadeGloatedRow } from "./rows/fade-gloated-row"
 import { GameReminderRow } from "./rows/game-reminder-row"
+import { GameResolvedRow } from "./rows/game-resolved-row"
 import { GroupMemberJoinedRow } from "./rows/group-member-joined-row"
 import { GroupPinsExpiredRow } from "./rows/group-pins-expired-row"
 import { QuestionSharedToGroupRow } from "./rows/question-shared-to-group-row"
@@ -89,6 +90,9 @@ export function NotificationRow({ notification, unread, onOpen }: Props) {
 		))
 		.with({ __typename: "FadeGloatedNotification" }, (n) => (
 			<FadeGloatedRow notification={n} unread={unread} onOpen={onOpen} />
+		))
+		.with({ __typename: "GameResolvedNotification" }, (n) => (
+			<GameResolvedRow notification={n} unread={unread} onOpen={onOpen} />
 		))
 		.with({ __typename: "GroupPinsExpiredNotification" }, (n) => (
 			<GroupPinsExpiredRow notification={n} unread={unread} onOpen={onOpen} />

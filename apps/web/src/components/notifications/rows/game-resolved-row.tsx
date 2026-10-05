@@ -1,0 +1,124 @@
+import { Link } from "@tanstack/react-router"
+import { FiCheckCircle, FiXCircle } from "react-icons/fi"
+import { css } from "styled-system/css"
+import { VStack } from "styled-system/jsx"
+import { type FragmentType, graphql, useFragment } from "#/graphql/generated"
+import { resolvedFadeLine } from "#/lib/fade-copy"
+import { NotificationShell, type Target } from "../notification-shell"
+import { PointsPill } from "./call-resolved-row"
+
+export const GameResolvedRowFragment = graphql(`
+	fragment GameResolvedRow_notification on GameResolvedNotification {
+		id
+		createdAt
+		game {
+			id
+			homeTeam {
+				abbreviation
+			}
+			awayTeam {
+				abbreviation
+			}
+		}
+		entry {
+			wins
+			losses
+			points
+			user {
+				username
+			}
+		}
+		fades {
+			questionTitle
+			call {
+				id
+			}
+			fade {
+				fadedUsername
+				fadeLanded
+				targetFlipped
+				doubtersCashed
+				doubtersWrong
+				gloatOpen
+			}
+		}
+	}
+`)
+
+type Props = {
+	notification: FragmentType<typeof GameResolvedRowFragment>
+	unread: boolean
+	onOpen: (id: string) => void
+}
+
+// Every settled call of the viewer's on one game, as one row that comes back
+// unread as each later call on it settles. Opens their picks page for the
+// game, where each call is listed; a call a fade touched gets its own line
+// underneath, linking to the call page where its gloat is sent from.
+export function GameResolvedRow({
+	notification: notificationProp,
+	unread,
+	onOpen,
+}: Props) {
+	const n = useFragment(GameResolvedRowFragment, notificationProp)
+	const { game, entry } = n
+	const matchup = game
+		? `${game.awayTeam.abbreviation} @ ${game.homeTeam.abbreviation}`
+		: "this game"
+	const settled = entry ? entry.wins + entry.losses : 0
+	const target: Target =
+		game && entry
+			? {
+					to: "/games/$gameId/picks/$username",
+					params: { gameId: game.id, username: entry.user.username },
+				}
+			: null
+	const fadeLines = n.fades.flatMap((f) => {
+		const line = resolvedFadeLine(f.fade)
+		return line ? [{ callId: f.call.id, title: f.questionTitle, line }] : []
+	})
+
+	return (
+		<NotificationShell
+			id={n.id}
+			unread={unread}
+			createdAt={n.createdAt}
+			icon={entry && entry.points < 0 ? FiXCircle : FiCheckCircle}
+			target={target}
+			onOpen={onOpen}
+			trailing={entry ? <PointsPill points={entry.points} /> : null}
+			footer={
+				fadeLines.length > 0 && (
+					<VStack gap="1.5" alignItems="stretch">
+						{fadeLines.map((f) => (
+							<Link
+								key={f.callId}
+								to="/calls/$callId"
+								params={{ callId: f.callId }}
+								className={css({
+									fontSize: "sm",
+									color: "fg.muted",
+									textDecoration: "none",
+									_hover: { color: "fg.default" },
+								})}
+							>
+								<span className={css({ color: "fg.default" })}>
+									{f.title}:
+								</span>{" "}
+								{f.line}
+							</Link>
+						))}
+					</VStack>
+				)
+			}
+		>
+			<p className={css({ fontSize: "sm" })}>
+				{settled === 0
+					? `Your calls on ${matchup} settled`
+					: settled === 1
+						? `Your call on ${matchup} ${entry?.wins ? "hit" : "missed"}`
+						: `Your ${matchup} calls: ${entry?.wins} of ${settled} hit`}
+			</p>
+		</NotificationShell>
+	)
+}

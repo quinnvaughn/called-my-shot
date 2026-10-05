@@ -14,6 +14,10 @@ export type Target =
 	| { to: "/groups/$groupId"; params: { groupId: string } }
 	| { to: "/games/$gameId/{-$slug}"; params: { gameId: string; slug: string } }
 	| {
+			to: "/games/$gameId/picks/$username"
+			params: { gameId: string; username: string }
+	  }
+	| {
 			to: "/user/$username/streaks/$league/$family/$mode"
 			params: {
 				username: string
@@ -41,6 +45,9 @@ type Props = {
 	target: Target
 	onOpen: (id: string) => void
 	trailing?: ReactNode
+	// Under the row, outside its link, for lines with destinations of their
+	// own.
+	footer?: ReactNode
 	children: ReactNode
 }
 
@@ -56,6 +63,7 @@ export function NotificationShell({
 	target,
 	onOpen,
 	trailing,
+	footer,
 	children,
 }: Props) {
 	const ref = useRef<HTMLDivElement>(null)
@@ -86,63 +94,66 @@ export function NotificationShell({
 		}
 	}, [unread, id, onOpen])
 
-	const content = (
-		<Card
-			variant={unread ? "surface" : "outline"}
-			size="sm"
-			interactive={target !== null}
-		>
-			<Card.Body>
-				<HStack gap="3" alignItems="center">
-					{unread && (
-						<div
-							className={css({
-								width: "7px",
-								height: "7px",
-								borderRadius: "full",
-								bg: "primary.default",
-								flexShrink: 0,
-							})}
-						/>
-					)}
-					<Icon size={18} />
-					<div className={css({ flex: 1, minWidth: 0 })}>
-						{children}
-						<p
-							className={css({
-								fontFamily: "mono",
-								fontSize: "xs",
-								color: "fg.muted",
-								marginTop: "1",
-							})}
-						>
-							{new Date(createdAt).toLocaleString()}
-						</p>
-					</div>
-					{trailing}
-				</HStack>
-			</Card.Body>
-		</Card>
+	const body = (
+		<Card.Body>
+			<HStack gap="3" alignItems="center">
+				{unread && (
+					<div
+						className={css({
+							width: "7px",
+							height: "7px",
+							borderRadius: "full",
+							bg: "primary.default",
+							flexShrink: 0,
+						})}
+					/>
+				)}
+				<Icon size={18} />
+				<div className={css({ flex: 1, minWidth: 0 })}>
+					{children}
+					<p
+						className={css({
+							fontFamily: "mono",
+							fontSize: "xs",
+							color: "fg.muted",
+							marginTop: "1",
+						})}
+					>
+						{new Date(createdAt).toLocaleString()}
+					</p>
+				</div>
+				{trailing}
+			</HStack>
+		</Card.Body>
 	)
 
-	const wrapped = target ? (
-		<Link
-			to={target.to}
-			// Spread rather than passed directly: a paramless destination has
-			// no `params` key at all, and handing Link an explicit undefined
-			// is not the same as omitting it.
-			{...("params" in target ? { params: target.params } : {})}
-			className={css({
-				display: "block",
-				textDecoration: "none",
-				color: "inherit",
-			})}
-		>
-			{content}
-		</Link>
-	) : (
-		content
+	return (
+		<div ref={ref}>
+			<Card
+				variant={unread ? "surface" : "outline"}
+				size="sm"
+				interactive={target !== null}
+			>
+				{target ? (
+					<Link
+						to={target.to}
+						// Spread rather than passed directly: a paramless destination has
+						// no `params` key at all, and handing Link an explicit undefined
+						// is not the same as omitting it.
+						{...("params" in target ? { params: target.params } : {})}
+						className={css({
+							display: "block",
+							textDecoration: "none",
+							color: "inherit",
+						})}
+					>
+						{body}
+					</Link>
+				) : (
+					body
+				)}
+				{footer && <Card.Footer>{footer}</Card.Footer>}
+			</Card>
+		</div>
 	)
-
-	return <div ref={ref}>{wrapped}</div>
 }

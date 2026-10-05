@@ -34,6 +34,7 @@ export const NotificationsPageDocument = graphql(`
 						...StreakPersonalBestRow_notification
 						...StreakSnappedRow_notification
 						...GameReminderRow_notification
+						...GameResolvedRow_notification
 						...RedoEarnedRow_notification
 						...CallFadedRow_notification
 						...FadeGloatedRow_notification

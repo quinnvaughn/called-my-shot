@@ -1,9 +1,12 @@
 import { questionTitleWithGame } from "@called-my-shot/schemas"
 import type { StreakFamily } from "@called-my-shot/scoring"
+import { sql } from "drizzle-orm"
 import { notifications } from "../db/schema"
 import type { Tx } from "../db/types"
 
 export type NotificationInput =
+	// A call on a question with no game. One on a game's question is told as
+	// part of that game's game_resolved instead.
 	| {
 			type: "call_resolved"
 			userId: string
@@ -120,6 +123,15 @@ export type NotificationInput =
 			groupId: string
 			groupName: string
 	  }
+	// One of the recipient's calls on a game settled. One notification per
+	// recipient and game however many of their calls it covers: each later
+	// one marks it unread and moves it back to the top. What it says is read
+	// live off the calls, so it never needs rewriting.
+	| {
+			type: "game_resolved"
+			userId: string
+			gameId: string
+	  }
 
 function toRow(input: NotificationInput) {
 	return {
@@ -145,6 +157,7 @@ function toRow(input: NotificationInput) {
 		achievementCount:
 			"achievementCount" in input ? input.achievementCount : null,
 		previousBest: "previousBest" in input ? input.previousBest : null,
+		dedupeKey: input.type === "game_resolved" ? input.gameId : null,
 	}
 }
 
@@ -202,8 +215,23 @@ export async function createNotifications(
 ): Promise<{ id: string }[]> {
 	if (inputs.length === 0) return []
 	const titled = await withGameTitles(tx, inputs)
+	// One statement can't insert and then update the same row, so a batch
+	// repeating a recipient's dedupe key keeps only its last.
+	const rows = [
+		...new Map(
+			titled.map(toRow).map((row, i) => [
+				row.dedupeKey === null ? i : `${row.userId}:${row.dedupeKey}`,
+				row,
+			]),
+		).values(),
+	]
+	// Rows without a dedupe key never conflict: nulls are distinct.
 	return tx
 		.insert(notifications)
-		.values(titled.map(toRow))
+		.values(rows)
+		.onConflictDoUpdate({
+			target: [notifications.userId, notifications.dedupeKey],
+			set: { readAt: null, createdAt: sql`now()` },
+		})
 		.returning({ id: notifications.id })
 }

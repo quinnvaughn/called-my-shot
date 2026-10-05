@@ -586,6 +586,42 @@ describe("resolveQuestionInternal - notifications and source overrides", () => {
 		expect(new Set(rows.map((r) => r.type))).toEqual(new Set(["call_resolved"]))
 	})
 
+	it("tells a game's callers once per game, unread again as each call settles", async () => {
+		const game = await makeGame()
+		const user = await makeUser()
+		const settle = async () => {
+			const question = await makeQuestion({
+				gameId: game.id,
+				leagueId: game.leagueId,
+				seasonId: game.seasonId,
+			})
+			const yes = await makeOption(question.id, { label: "Yes" })
+			const call = await makeCall(question.id, user.id)
+			await makeSelection(call.id, yes.id)
+			await resolve(question, { correctOptionIds: [yes.id] })
+		}
+		const rowsFor = () =>
+			db.query.notifications.findMany({ where: { userId: user.id } })
+
+		await settle()
+		const [first, ...rest] = await rowsFor()
+		expect(rest).toHaveLength(0)
+		expect(first).toMatchObject({ type: "game_resolved", gameId: game.id })
+
+		const readAt = pastDate(1)
+		await db
+			.update(notifications)
+			.set({ readAt, createdAt: readAt })
+			.where(eq(notifications.id, first.id))
+
+		await settle()
+		const [again, ...more] = await rowsFor()
+		expect(more).toHaveLength(0)
+		expect(again.id).toBe(first.id)
+		expect(again.readAt).toBeNull()
+		expect(again.createdAt.getTime()).toBeGreaterThan(readAt.getTime())
+	})
+
 	it("notifies nobody when a question resolves with no calls", async () => {
 		const { question, options } = await seedOptionQuestion({ callers: [] })
 		await resolve(question, { correctOptionIds: [options[0].id] })

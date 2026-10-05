@@ -114,16 +114,21 @@ export async function resolveQuestionInternal(
 
 	const notified = notifiedCallers(statDeltas, tally)
 
+	const { gameId } = question
 	await createNotifications(
 		tx,
-		notified.map(({ userId, callId, pointsDelta }) => ({
-			type: "call_resolved" as const,
-			userId,
-			questionId: question.id,
-			questionTitle: question.title,
-			pointsDelta,
-			callId: callId ?? null,
-		})),
+		notified.map(({ userId, callId, pointsDelta }) =>
+			gameId
+				? { type: "game_resolved" as const, userId, gameId }
+				: {
+						type: "call_resolved" as const,
+						userId,
+						questionId: question.id,
+						questionTitle: question.title,
+						pointsDelta,
+						callId: callId ?? null,
+					},
+		),
 	)
 
 	// Queued, not sent. This runs inside the caller's transaction, so an

@@ -6,6 +6,7 @@ import {
 	primaryKey,
 	text,
 	timestamp,
+	uniqueIndex,
 	uuid,
 } from "drizzle-orm/pg-core"
 import { calls } from "./calls"
@@ -35,6 +36,7 @@ export const notificationType = pgEnum("notification_type", [
 	"call_faded",
 	"fade_gloated",
 	"group_pins_expired",
+	"game_resolved",
 ])
 
 // One row per (recipient, thing that happened) - see hook points in
@@ -66,7 +68,7 @@ export const notifications = pgTable(
 		disputeId: uuid("dispute_id").references(() => resolutionDisputes.id, {
 			onDelete: "set null",
 		}),
-		// game_reminder only
+		// game_reminder, and game_resolved
 		gameId: uuid("game_id").references(() => games.id, {
 			onDelete: "set null",
 		}),
@@ -95,6 +97,10 @@ export const notifications = pgTable(
 		achievementCount: integer("achievement_count"),
 		// streak_personal_best only - the best it beat.
 		previousBest: integer("previous_best"),
+		// Set only on a type that's updated in place instead of added again:
+		// game_resolved, one per recipient and game (see createNotifications).
+		// Null everywhere else, and nulls never collide on the unique index.
+		dedupeKey: text("dedupe_key"),
 		readAt: timestamp("read_at"),
 		createdAt: timestamp("created_at").notNull().defaultNow(),
 	},
@@ -104,6 +110,7 @@ export const notifications = pgTable(
 			t.readAt,
 			t.createdAt,
 		),
+		uniqueIndex("notifications_user_dedupe_key_idx").on(t.userId, t.dedupeKey),
 	],
 )
 export type Notification = typeof notifications.$inferSelect

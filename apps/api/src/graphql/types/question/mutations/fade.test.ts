@@ -4,6 +4,7 @@ import type { User } from "../../../../db/schema"
 import { loadOpenGloats } from "../../../../lib/fades"
 import {
 	makeCall,
+	makeGame,
 	makeRedoGrant,
 	makeSelection,
 	makeUser,
@@ -569,5 +570,82 @@ describe("call_resolved fade summary", () => {
 		})
 		const afterGloat = await expectData<Result>(NOTIFICATIONS, { as: fader })
 		expect(afterGloat.notifications.data.items[0]?.fade?.gloatOpen).toBe(false)
+	})
+})
+
+describe("game_resolved fade lines", () => {
+	const NOTIFICATIONS = /* GraphQL */ `
+		query Notifications {
+			notifications {
+				... on QueryNotificationsSuccess {
+					data { items {
+						__typename
+						... on GameResolvedNotification {
+							entry { wins losses user { username } }
+							fades {
+								questionTitle
+								call { id }
+								fade { fadedUsername fadeLanded gloatOpen }
+							}
+						}
+					} }
+				}
+			}
+		}
+	`
+
+	type Result = {
+		notifications: {
+			data: {
+				items: {
+					__typename: string
+					entry: {
+						wins: number
+						losses: number
+						user: { username: string }
+					} | null
+					fades: {
+						questionTitle: string
+						call: { id: string }
+						fade: {
+							fadedUsername: string | null
+							fadeLanded: boolean | null
+							gloatOpen: boolean
+						}
+					}[]
+				}[]
+			}
+		}
+	}
+
+	it("rolls a game's calls into one row, with a line for each fade", async () => {
+		const game = await makeGame()
+		const { question, no, target, op } = await seedTarget({
+			gameId: game.id,
+			leagueId: game.leagueId,
+			seasonId: game.seasonId,
+		})
+		const fader = await makeUser()
+		await fadeFresh(fader, target.id, no.id, question.id)
+		await resolve(question, { correctOptionIds: [no.id] })
+
+		const forFader = await expectData<Result>(NOTIFICATIONS, { as: fader })
+		expect(forFader.notifications.data.items).toEqual([
+			{
+				__typename: "GameResolvedNotification",
+				entry: { wins: 1, losses: 0, user: { username: fader.username } },
+				fades: [
+					{
+						questionTitle: question.title,
+						call: { id: expect.any(String) },
+						fade: {
+							fadedUsername: op.username,
+							fadeLanded: true,
+							gloatOpen: true,
+						},
+					},
+				],
+			},
+		])
 	})
 })
