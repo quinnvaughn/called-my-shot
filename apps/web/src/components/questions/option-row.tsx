@@ -22,8 +22,10 @@ type Props = {
 	// "pick" (the default) is the live picker's orange: choosing an option is
 	// part of the primary action. "record" is for a breakdown of calls
 	// already made - the highlighted row is where the viewer stands, in the
-	// secondary blue, and the crowd's fills go neutral.
-	tone?: "pick" | "record"
+	// secondary blue, and the crowd's fills go neutral. "field" is pick's
+	// scheme in the blue, for a read-only view of the field with nothing to
+	// act on (QuestionCard): orange is reserved for actions.
+	tone?: "pick" | "record" | "field"
 }
 
 const compactCount = new Intl.NumberFormat("en-US", { notation: "compact" })
@@ -43,7 +45,7 @@ export function OptionRow({
 	onClick,
 	tone = "pick",
 }: Props) {
-	const isRecord = tone === "record"
+	const isPick = tone === "pick"
 	const rowClassName = css({
 		position: "relative",
 		width: "full",
@@ -51,9 +53,9 @@ export function OptionRow({
 		background: "card",
 		border: "1px solid",
 		borderColor: selected
-			? isRecord
-				? "secondary.default"
-				: "primary.default"
+			? isPick
+				? "primary.default"
+				: "secondary.default"
 			: "border.default",
 		borderRadius: "md",
 		padding: "3",
@@ -74,12 +76,14 @@ export function OptionRow({
 						position: "absolute",
 						inset: "0",
 						backgroundColor: selected
-							? isRecord
-								? "secondary.default/18"
-								: "primary.default/18"
-							: isRecord
+							? isPick
+								? "primary.default/18"
+								: "secondary.default/18"
+							: tone === "record"
 								? "fg.default/6"
-								: "primary.default/10",
+								: isPick
+									? "primary.default/10"
+									: "secondary.default/10",
 						zIndex: 0,
 						transition: "background-color 0.15s ease",
 					})}
@@ -103,9 +107,9 @@ export function OptionRow({
 							fontFamily: "mono",
 							fontSize: "xs",
 							color: selected
-								? isRecord
-									? "secondary.default"
-									: "primary.default"
+								? isPick
+									? "primary.default"
+									: "secondary.default"
 								: "fg.muted",
 						})}
 					>
@@ -127,9 +131,9 @@ export function OptionRow({
 									fontFamily: "mono",
 									fontSize: "xs",
 									color: selected
-										? isRecord
-											? "secondary.default"
-											: "primary.default"
+										? isPick
+											? "primary.default"
+											: "secondary.default"
 										: "fg.subtle",
 								})}
 							>

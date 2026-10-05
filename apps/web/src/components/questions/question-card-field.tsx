@@ -78,6 +78,9 @@ export function QuestionCardField({
 			fieldPct={option.fieldPct}
 			count={option.callCount}
 			selected={pickedOptionIds.includes(option.id)}
+			// The card is never the picker, so there's no action for orange to
+			// point at.
+			tone="field"
 		/>
 	)
 
@@ -135,7 +138,7 @@ export function QuestionCardField({
 						{isMultiPick && picksBelowTop.length > 0 && (
 							<span className={mutedMonoClass}>
 								Also yours:{" "}
-								<span className={css({ color: "primary.default" })}>
+								<span className={css({ color: "secondary.default" })}>
 									{picksBelowTop.map((option) => option.label).join(", ")}
 								</span>
 							</span>
@@ -157,6 +160,7 @@ export function QuestionCardField({
 						buckets={guessDistribution}
 						averageGuess={averageGuess}
 						myGuess={myGuess}
+						tone="field"
 						isRateStat={isRateStat}
 						compact
 					/>
@@ -178,7 +182,7 @@ export function QuestionCardField({
 									fontFamily: "mono",
 									fontSize: "sm",
 									fontWeight: "bold",
-									color: "primary.default",
+									color: "secondary.default",
 								})}
 							>
 								{formatGuess(myGuess, isRateStat)}

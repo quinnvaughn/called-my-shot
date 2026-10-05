@@ -26,8 +26,10 @@ type Props = {
 	myGuess?: number | null
 	// "pick" (the default) while the viewer is still guessing: their bucket
 	// in the primary orange. "record" once the call is made: their bucket in
-	// the secondary blue, and the field average in a neutral tint.
-	tone?: "pick" | "record"
+	// the secondary blue, and the field average in a neutral tint. "field"
+	// is pick's scheme in the blue, for a read-only view with nothing to act
+	// on (QuestionCard): orange is reserved for actions.
+	tone?: "pick" | "record" | "field"
 	// True only for a rate stat (batting average, ERA) - every value below
 	// displays padded to a fixed 3 decimals when set, since a trailing zero
 	// is meaningful there (".300", never ".3") - see formatGuess.
@@ -191,13 +193,15 @@ export function GuessDistributionChart({
 								// the field landed, not just a flat gray chart.
 								background:
 									bucket.value === myGuess
-										? tone === "record"
-											? "secondary.default"
-											: "primary.default"
+										? tone === "pick"
+											? "primary.default"
+											: "secondary.default"
 										: bucket.value === avgBucketValue
 											? tone === "record"
 												? "fg.subtle"
-												: "primary.subtle"
+												: tone === "pick"
+													? "primary.subtle"
+													: "secondary.subtle"
 											: "border.emphasized",
 								borderRadius: "1px 1px 0 0",
 							})}
