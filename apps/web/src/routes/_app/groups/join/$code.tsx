@@ -4,14 +4,15 @@ import { createFileRoute, useNavigate, useRouter } from "@tanstack/react-router"
 import { FaRegTimesCircle } from "react-icons/fa"
 import { css } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
+import { GroupHeader } from "#/components/groups/group-header"
 import { PageBanner } from "#/components/images/page-banner"
 import { CallCard } from "#/components/questions/call-card"
 import { Avatar } from "#/components/ui/avatar"
 import { AvatarStack } from "#/components/ui/avatar-stack"
 import { Button } from "#/components/ui/button"
 import { Card } from "#/components/ui/card"
+import { CardRail } from "#/components/ui/card-rail"
 import { Eyebrow } from "#/components/ui/eyebrow"
-import { GroupLogo } from "#/components/ui/group-logo"
 import { NotFound } from "#/components/ui/not-found"
 import { ReactionGif } from "#/components/ui/reaction-gif"
 import { JoinGroupByCodeDocument } from "#/graphql/generated/graphql"
@@ -128,40 +129,97 @@ function RouteComponent() {
 			? `${preview.trackedLeagues[0].abbreviation} top scorer this season:`
 			: "top scorer this season:"
 
+	// Only for someone about to meet the signup form - a signed-in visitor
+	// joins in one tap.
+	const freeNote = !me && (
+		<p
+			className={css({
+				color: "fg.subtle",
+				fontFamily: "mono",
+				fontSize: "xs",
+				textAlign: "center",
+			})}
+		>
+			free · no money, ever · takes 30 seconds
+		</p>
+	)
+
 	return (
 		<VStack gap="0" alignItems="stretch">
 			{/* Outside the column below so it can run edge to edge. */}
 			{preview.bannerUrl && <PageBanner bannerUrl={preview.bannerUrl} />}
-			<VStack gap="4" alignItems="center" className={css({ paddingTop: "6" })}>
-				{preview.logoUrl && (
-					<GroupLogo size="lg" name={preview.name} src={preview.logoUrl} />
-				)}
-				{pitchInviter ? (
-					<>
+			<VStack gap="6" alignItems="stretch" className={css({ paddingTop: "6" })}>
+				<VStack gap="3" alignItems="stretch">
+					{pitchInviter ? (
 						<HStack gap="2.5" alignItems="center">
 							<Avatar
 								name={preview.invitedBy.name}
 								src={preview.invitedBy.avatarUrl}
 								size="sm"
 							/>
-							<Eyebrow variant="neutral">You've been invited</Eyebrow>
+							<Eyebrow variant="neutral">
+								@{preview.invitedBy.username} invited you
+							</Eyebrow>
 						</HStack>
-						<h1
-							className={css({
-								fontFamily: "heading",
-								fontSize: "2xl",
-								lineHeight: "tight",
-								textAlign: "center",
-							})}
-						>
-							@{preview.invitedBy.username} invited you to {preview.name}
-						</h1>
+					) : (
+						<Eyebrow variant="neutral">You've been invited to a group</Eyebrow>
+					)}
+					{/* The group page's own header, so joining lands on the shape
+					the invite already showed. From lg up the button takes the
+					header's action slot; below lg it's the pinned bar at the end
+					of the page instead. */}
+					<GroupHeader
+						name={preview.name}
+						logoUrl={preview.logoUrl}
+						description={preview.description}
+						links={[]}
+						large
+						actions={
+							<VStack
+								alignItems="stretch"
+								gap="2"
+								className={css({
+									display: { base: "none", lg: "flex" },
+									// The page's one job, so it stays the size it had as
+									// its own row rather than shrinking to fit the slot.
+									minWidth: "xs",
+								})}
+							>
+								<Button
+									variant="solid"
+									size="lg"
+									fullWidth
+									onClick={handleJoin}
+									loading={joinGroupByCode.isPending}
+								>
+									Join {preview.name}
+								</Button>
+								{freeNote}
+							</VStack>
+						}
+					/>
+					<HStack gap="3" alignItems="center" flexWrap="wrap">
+						<AvatarStack members={preview.members} />
 						<p
 							className={css({
-								maxWidth: "md",
+								fontFamily: "mono",
+								fontSize: "xs",
+								color: "fg.muted",
+							})}
+						>
+							{preview.memberCount} {pluralize(preview.memberCount, "member")} ·{" "}
+							{leaguesLabel}
+							{/* The eyebrow already names them when pitching. */}
+							{!pitchInviter &&
+								` · invited by ${preview.invitedBy.name} (@${preview.invitedBy.username})`}
+						</p>
+					</HStack>
+					{pitchInviter && (
+						<p
+							className={css({
+								maxWidth: "2xl",
 								lineHeight: "relaxed",
 								color: "fg.body",
-								textAlign: "center",
 							})}
 						>
 							Make calls on NFL, NBA, MLB and NHL games and whole seasons, or
@@ -169,44 +227,10 @@ function RouteComponent() {
 							once the result is in, and {preview.name} ranks its members on its
 							own leaderboard.
 						</p>
-					</>
-				) : (
-					<>
-						<Eyebrow variant="neutral">You've been invited to a group</Eyebrow>
-						<h1 className={css({ fontFamily: "heading", fontSize: "2xl" })}>
-							{preview.name}
-						</h1>
-					</>
-				)}
-				{preview.description && (
-					<p
-						className={css({
-							maxWidth: "md",
-							fontSize: "sm",
-							color: "fg.muted",
-							lineHeight: "relaxed",
-							textAlign: "center",
-						})}
-					>
-						{preview.description}
-					</p>
-				)}
-				<AvatarStack members={preview.members} />
-				<p
-					className={css({
-						fontFamily: "mono",
-						fontSize: "xs",
-						color: "fg.muted",
-					})}
-				>
-					{preview.memberCount} {pluralize(preview.memberCount, "member")} ·{" "}
-					{leaguesLabel}
-					{/* The heading already names them when pitching. */}
-					{!pitchInviter &&
-						` · invited by ${preview.invitedBy.name} (@${preview.invitedBy.username})`}
-				</p>
+					)}
+				</VStack>
 				{preview.topScorer && (
-					<Card size="sm">
+					<Card size="sm" className={css({ alignSelf: "flex-start" })}>
 						<Card.Body>
 							<p
 								className={css({
@@ -224,35 +248,24 @@ function RouteComponent() {
 						</Card.Body>
 					</Card>
 				)}
-				{/* order only applies from md up, where the button sits inline
-				between the top scorer and the gif. Below md it keeps its place
-				last in the page, which is what lets it stay pinned the whole way
-				down: a sticky element lets go once the page scrolls past where
-				it sits. */}
-				<div className={css({ md: { order: 2 } })}>
-					<ReactionGif pool={JOIN_GIFS} />
-				</div>
+				<ReactionGif pool={JOIN_GIFS} />
 				{preview.recentCalls.length > 0 && (
-					<VStack
-						gap="3"
-						alignItems="stretch"
-						className={css({
-							width: "full",
-							maxWidth: "xl",
-							marginTop: "4",
-							md: { order: 3 },
-						})}
-					>
-						<Eyebrow variant="neutral">Latest calls in the group</Eyebrow>
-						{/* Unlinked: clicking through would leave the invite
-						behind before the visitor has joined. */}
-						{preview.recentCalls.map((call) => (
-							<CallCard key={call.id} call={call} linked={false} />
-						))}
-					</VStack>
+					// Unlinked: clicking through would leave the invite behind
+					// before the visitor has joined.
+					<CardRail
+						items={preview.recentCalls}
+						getKey={(call) => call.id}
+						renderItem={(call) => <CallCard call={call} linked={false} />}
+						itemLabel="call"
+						header={
+							<Eyebrow variant="neutral">Latest calls in the group</Eyebrow>
+						}
+					/>
 				)}
-				{/* Sticks to the bottom of the viewport below md, over a backdrop
+				{/* Below lg, sticks to the bottom of the viewport over a backdrop
 				that runs edge to edge while the button keeps the column's width.
+				It has to stay last in the page to stay pinned the whole way down:
+				a sticky element lets go once the page scrolls past where it sits.
 				Same bar as /join/$code. */}
 				<VStack
 					alignItems="stretch"
@@ -260,6 +273,7 @@ function RouteComponent() {
 					className={css({
 						width: "full",
 						maxWidth: "md",
+						alignSelf: "center",
 						position: "sticky",
 						bottom: "0",
 						zIndex: 10,
@@ -280,14 +294,7 @@ function RouteComponent() {
 							backdropFilter: "blur(10px)",
 							borderTop: "1px solid {colors.border.default}",
 						},
-						md: {
-							order: 1,
-							maxWidth: "xs",
-							position: "static",
-							paddingBlock: "0",
-							marginBottom: "0",
-							_before: { display: "none" },
-						},
+						lg: { display: "none" },
 					})}
 				>
 					<Button
@@ -299,20 +306,7 @@ function RouteComponent() {
 					>
 						Join {preview.name}
 					</Button>
-					{/* Only for someone about to meet the signup form - a
-					signed-in visitor joins in one tap. */}
-					{!me && (
-						<p
-							className={css({
-								color: "fg.subtle",
-								fontFamily: "mono",
-								fontSize: "xs",
-								textAlign: "center",
-							})}
-						>
-							free · no money, ever · takes 30 seconds
-						</p>
-					)}
+					{freeNote}
 				</VStack>
 			</VStack>
 		</VStack>

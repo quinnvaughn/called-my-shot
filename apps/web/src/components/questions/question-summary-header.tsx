@@ -1,3 +1,4 @@
+import type { ReactNode } from "react"
 import { css } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
 import type { GameStatus, QuestionShape } from "#/graphql/generated/graphql"
@@ -52,6 +53,10 @@ type Props = {
 	// Tighter title and spacing, for the landing page's try-it card - it sits
 	// beside the hero copy and has to stay inside the fold.
 	dense?: boolean
+	// The top row's right end, opposite the league. CallCard puts the call's
+	// standing there so it reads as the card's status rather than a note on
+	// the caller's name.
+	trailing?: ReactNode
 }
 
 // Shared between QuestionCard and CallCard - both lead with "what is this
@@ -68,6 +73,7 @@ export function QuestionSummaryHeader({
 	ballotMembership,
 	showGame = true,
 	dense = false,
+	trailing,
 }: Props) {
 	return (
 		<VStack gap={dense ? "2" : "3"} alignItems="stretch">
@@ -104,6 +110,7 @@ export function QuestionSummaryHeader({
 					)}
 				</HStack>
 				{viewerCalled && <PickStateIcon state="win" />}
+				{trailing}
 			</HStack>
 			{sharedBy && (
 				<span

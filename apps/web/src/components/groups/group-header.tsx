@@ -37,6 +37,9 @@ type Props = {
 	description: string | null | undefined
 	links: { id: string; url: string; label?: string | null }[]
 	actions: ReactNode
+	// The invite page's header carries a full-size join button beside the
+	// name, which a group page's 3xl title looks undersized next to.
+	large?: boolean
 }
 
 export function GroupHeader({
@@ -45,6 +48,7 @@ export function GroupHeader({
 	description,
 	links,
 	actions,
+	large = false,
 }: Props) {
 	return (
 		<div className={layout({ hasLogo: !!logoUrl })}>
@@ -58,7 +62,7 @@ export function GroupHeader({
 			<h1
 				className={css({
 					gridArea: "title",
-					fontSize: "3xl",
+					fontSize: large ? { base: "3xl", lg: "5xl" } : "3xl",
 					fontFamily: "heading",
 					lineHeight: "1",
 					overflowWrap: "anywhere",

@@ -193,6 +193,15 @@ export function CallCard({ call: callProp, linked = true }: CallCardProps) {
 				<QuestionSummaryHeader
 					question={call.question}
 					ballotMembership={call.question.ballotMembership}
+					// The redo badge rides alongside the tag rather than
+					// replacing it - a redone call still has a standing, and
+					// which it is matters more than how it got there.
+					trailing={
+						<HStack gap="1.5" alignItems="center">
+							{call.redo && <RedoBadge />}
+							<RecordTag tone={tag.tone}>{tag.label}</RecordTag>
+						</HStack>
+					}
 				/>
 				<CardRule />
 				{call.question.status === "DISPUTED" && <DisputedFlag />}
@@ -201,15 +210,6 @@ export function CallCard({ call: callProp, linked = true }: CallCardProps) {
 					username={caller.username}
 					avatarUrl={caller.avatarUrl}
 					flair={caller.flair}
-					// The redo badge rides alongside the tag rather than
-					// replacing it - a redone call still has a standing, and
-					// which it is matters more than how it got there.
-					badge={
-						<HStack gap="1.5" alignItems="center">
-							{call.redo && <RedoBadge />}
-							<RecordTag tone={tag.tone}>{tag.label}</RecordTag>
-						</HStack>
-					}
 				/>
 				<PickList call={call} />
 				<CallPoints call={call} />
