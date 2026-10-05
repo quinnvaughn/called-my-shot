@@ -208,6 +208,16 @@ const FOOTBALL_STATS: StatEntry[] = [
 		"both",
 		{ player: 0.5, team: 1.5 },
 	],
+	// Every touchdown a quarterback accounts for, thrown or run in. Player-only:
+	// at team level it's just the offense's touchdowns less the odd defensive
+	// or return score, which Passing and Rushing Touchdowns already cover.
+	[
+		"Passing + Rushing Touchdowns",
+		"Passing",
+		"Low-Count Box Stat",
+		"player",
+		{ player: 1.5 },
+	],
 	// A back's yards from carries and catches together. Player-only: at team
 	// level it's just total offense, which Passing Yards and Rushing Yards
 	// already cover between them.

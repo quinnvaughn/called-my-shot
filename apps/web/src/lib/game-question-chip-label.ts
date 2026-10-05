@@ -19,6 +19,7 @@ const STAT_ABBREVIATIONS: Record<string, string> = {
 	Blocks: "BLK",
 	"3-Pointers Made": "3PM",
 	"Passing Yards": "PASS YDS",
+	"Passing + Rushing Touchdowns": "PASS+RUSH TD",
 	"Rushing Yards": "RUSH YDS",
 	"Rushing + Receiving Yards": "RUSH+REC YDS",
 	"Receiving Yards": "REC YDS",

@@ -296,6 +296,16 @@ describe("decideGameQuestion - NFL", () => {
 		expect(all?.get("3117251")).toBe(88)
 	})
 
+	it("counts touchdowns thrown and run in toward one total", () => {
+		// 4361741 threw 3 and ran for none; 4430737 ran one in and threw none.
+		const all =
+			GAME_EXTRACTORS["nfl:game:player:Passing + Rushing Touchdowns"].readAll?.(
+				nfl,
+			)
+		expect(all?.get("4361741")).toBe(3)
+		expect(all?.get("4430737")).toBe(1)
+	})
+
 	it("counts the defense's interceptions from the table totals", () => {
 		const decision = decideGameQuestion(
 			context({

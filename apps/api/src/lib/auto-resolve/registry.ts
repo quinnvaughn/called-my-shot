@@ -545,6 +545,10 @@ export const GAME_EXTRACTORS = {
 	"nfl:game:player:Passing Touchdowns": nflPlayer("passing.passingTouchdowns"),
 	"nfl:game:player:Rushing Yards": nflPlayer("rushing.rushingYards"),
 	"nfl:game:player:Rushing Touchdowns": nflPlayer("rushing.rushingTouchdowns"),
+	"nfl:game:player:Passing + Rushing Touchdowns": nflPlayer(
+		"passing.passingTouchdowns",
+		"rushing.rushingTouchdowns",
+	),
 	"nfl:game:player:Rushing + Receiving Yards": nflPlayer(
 		"rushing.rushingYards",
 		"receiving.receivingYards",
@@ -683,6 +687,10 @@ export const SEASON_EXTRACTORS = {
 	),
 	"nfl:season:player:Rushing Yards": seasonPlayer("rushing.rushingYards"),
 	"nfl:season:player:Rushing Touchdowns": seasonPlayer(
+		"rushing.rushingTouchdowns",
+	),
+	"nfl:season:player:Passing + Rushing Touchdowns": seasonPlayerSum(
+		"passing.passingTouchdowns",
 		"rushing.rushingTouchdowns",
 	),
 	"nfl:season:player:Rushing + Receiving Yards": seasonPlayerSum(

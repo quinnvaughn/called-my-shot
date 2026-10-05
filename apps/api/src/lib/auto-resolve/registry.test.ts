@@ -81,6 +81,10 @@ describe("GAME_EXTRACTORS box stat sources", () => {
 		expect(
 			GAME_EXTRACTORS["nfl:game:player:Rushing + Receiving Yards"].source?.keys,
 		).toEqual(["rushing.rushingYards", "receiving.receivingYards"])
+		expect(
+			GAME_EXTRACTORS["nfl:game:player:Passing + Rushing Touchdowns"].source
+				?.keys,
+		).toEqual(["passing.passingTouchdowns", "rushing.rushingTouchdowns"])
 	})
 
 	it("separates the three key namespaces", () => {

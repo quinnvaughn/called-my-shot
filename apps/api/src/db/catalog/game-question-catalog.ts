@@ -136,6 +136,15 @@ const NFL_QB: StarterPick = {
 	priorWeight: 4,
 }
 
+// The same quarterbacks, ranked and lined on every touchdown they account
+// for, so a running quarterback's scores count too.
+const NFL_QB_TOUCHDOWNS: StarterPick = {
+	role: "offense",
+	positions: ["QB"],
+	espnStat: ["passing.passingTouchdowns", "rushing.rushingTouchdowns"],
+	priorWeight: 4,
+}
+
 const NFL_RB: StarterPick = {
 	role: "offense",
 	positions: ["RB"],
@@ -271,6 +280,15 @@ export const GAME_QUESTION_CATALOG: Record<string, GameQuestionTemplate[]> = {
 			group: "passing-yards",
 			pick: NFL_QB,
 			line: { minGames: 3, shade: 0.95, minLine: 150.5 },
+		},
+		{
+			id: "qb-touchdowns",
+			tier: 1,
+			shape: "player_stat_over_under",
+			statName: "Passing + Rushing Touchdowns",
+			group: "qb-touchdowns",
+			pick: NFL_QB_TOUCHDOWNS,
+			line: { minGames: 3, shade: 0.95, minLine: 0.5 },
 		},
 		{
 			id: "rb-rushing-yards-duel",
