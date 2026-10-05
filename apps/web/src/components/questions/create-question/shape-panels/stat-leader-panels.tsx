@@ -9,8 +9,9 @@ import { StatPicker } from "../stat-picker"
 import { SubjectPicker } from "../subject-picker"
 import { PanelNote, ShapePanel } from "./shape-panel"
 
-// player_game_stat_leader - the pool is both rosters of the picked game, so
-// there's nothing to curate row by row.
+// player_game_stat_leader - the pool is both rosters of the picked game, less
+// the positions that can't lead the stat, so there's nothing to curate row by
+// row.
 export function GameStatLeaderPanel() {
 	const leagueId = useWatch("leagueId")
 	const { stats, selectedGame, gameStatLeaderPoolItems } = useQuestionData(
@@ -40,8 +41,8 @@ export function GameStatLeaderPanel() {
 				/>
 			)}
 			<PanelNote>
-				The pool is both teams' rosters - nothing to curate once a game's
-				picked.
+				The pool is every player on both teams who can record this stat.
+				Nothing to curate once a game's picked.
 			</PanelNote>
 		</ShapePanel>
 	)
@@ -117,8 +118,9 @@ export function TeamStatLeaderPanel() {
 				/>
 			)}
 			<PanelNote>
-				The pool is the team's roster. Only stats put up for this team count,
-				so a traded player keeps just their games here.
+				The pool is every player on the team who can record this stat. Only
+				stats put up for this team count, so a traded player keeps just their
+				games here.
 			</PanelNote>
 		</ShapePanel>
 	)

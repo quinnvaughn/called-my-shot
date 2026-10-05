@@ -1,4 +1,4 @@
-import { autoResolutionSource } from "@called-my-shot/schemas"
+import { autoResolutionSource, canLeadStat } from "@called-my-shot/schemas"
 import { defaultLossRate } from "@called-my-shot/scoring"
 import { and, eq, notExists, sql } from "drizzle-orm"
 import { match } from "ts-pattern"
@@ -297,13 +297,18 @@ async function planTemplate(
 		.with({ shape: "player_game_stat_leader" }, async ({ statName, pick }) => {
 			const key = generationKey(base)
 			if (isFilled(key)) return []
-			// Someone on the IL can't lead a stat, and leaving them in only
+			// Someone on the IL can't lead a stat, and neither can a position
+			// that never records it (see canLeadStat). Leaving either in only
 			// tempts a call that's dead on arrival.
 			const pool = (
 				await buildPlayerPool({
 					teamIds: [game.awayTeamId, game.homeTeamId],
 				})
-			).filter((player) => isPlayable(player.injuryStatus))
+			).filter(
+				(player) =>
+					isPlayable(player.injuryStatus) &&
+					canLeadStat(player, ctx.league.slug, statName),
+			)
 			if (pool.length < 2) return []
 			// Only a favorite who's one of the options can be checked against
 			// who actually led.

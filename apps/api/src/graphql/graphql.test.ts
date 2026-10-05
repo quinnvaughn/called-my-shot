@@ -620,6 +620,44 @@ describe("Mutation.createQuestion", () => {
 		expect(refused.createQuestion.__typename).toBe("ValidationError")
 	})
 
+	it("leaves the positions that can't lead the stat out of a leader's pool", async () => {
+		const league = await makeLeague({ slug: "nfl" })
+		await makeSeason({ leagueId: league.id })
+		const team = await makeTeam({ leagueId: league.id })
+		const end = await makePlayer({ currentTeamId: team.id, position: "DE" })
+		const backer = await makePlayer({ currentTeamId: team.id, position: "LB" })
+		await makePlayer({ currentTeamId: team.id, position: "QB" })
+		const stat = await makeStat({ sportId: league.sportId, name: "Sacks" })
+
+		const data = await expectData<{
+			createQuestion: { __typename: string; question: { id: string } }
+		}>(CREATE_QUESTION, {
+			as: await makeUser(),
+			variables: {
+				input: {
+					shape: "PLAYER_TEAM_SEASON_STAT_LEADER",
+					title: "Who will lead them in sacks this season?",
+					resolutionSource: "",
+					locksAt: futureDate().toISOString(),
+					sportId: league.sportId,
+					leagueId: league.id,
+					subjectTeamId: team.id,
+					statId: stat.id,
+					options: [{ label: "Ignored" }],
+				},
+			},
+		})
+		expect(data.createQuestion.__typename).toBe("QuestionPayload")
+
+		const stored = await db.query.questions.findFirst({
+			where: { id: data.createQuestion.question.id },
+			with: { options: true },
+		})
+		expect(stored?.options.map((o) => o.playerId).sort()).toEqual(
+			[end.id, backer.id].sort(),
+		)
+	})
+
 	it("refuses a non-admin trying to post officially", async () => {
 		const seed = await makeQuestion()
 		const league = await db.query.leagues.findFirst({

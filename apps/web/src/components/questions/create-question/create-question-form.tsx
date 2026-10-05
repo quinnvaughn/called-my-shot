@@ -34,7 +34,7 @@ export function CreateQuestionForm({ sports, isAdmin, lockedBallotId }: Props) {
 		titlePreview,
 		isAdminOnlyShape,
 		data,
-	} = useCreateQuestionForm()
+	} = useCreateQuestionForm({ sports })
 
 	return (
 		<FormProvider form={form}>

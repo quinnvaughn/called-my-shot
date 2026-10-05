@@ -4,6 +4,7 @@ import { useQueryClient } from "@tanstack/react-query"
 import { useNavigate, useRouter } from "@tanstack/react-router"
 import { useEffect, useState } from "react"
 import { match } from "ts-pattern"
+import type { SportsQuery } from "#/graphql/generated/graphql"
 import { useGqlMutation } from "#/graphql/hooks"
 import { CreateQuestionDocument } from "#/graphql/mutations/questions"
 import { track } from "#/lib/analytics"
@@ -23,7 +24,7 @@ import { useQuestionCatalog } from "./use-question-catalog"
  * stale-pick prunes, then the aggregation cleanup, then the title sync. They
  * write disjoint paths, so nothing here actually depends on that order.
  */
-export function useCreateQuestionForm() {
+export function useCreateQuestionForm({ sports }: { sports: SportsQuery["sports"] }) {
 	const [hasSelectedType, setHasSelectedType] = useState(false)
 	const [titleEdited, setTitleEdited] = useState(false)
 	const createQuestion = useGqlMutation(CreateQuestionDocument)
@@ -169,6 +170,14 @@ export function useCreateQuestionForm() {
 	const isFinalists = shape === "player_award_finalists"
 	const isAdminOnly = isAdminOnlyShape(shape)
 
+	const selectedStat = statId
+		? stats.find((stat) => stat.id === statId)
+		: undefined
+	const selectedStatName = selectedStat?.name
+	const leagueSlug = sports
+		.flatMap((sport) => sport.leagues)
+		.find((league) => league.id === leagueId)?.slug
+
 	const {
 		awardPoolItems,
 		gameStatLeaderPoolItems,
@@ -191,6 +200,8 @@ export function useCreateQuestionForm() {
 		awardPositions,
 		awardSeasonsInLeague,
 		awardRookieOnly,
+		leagueSlug,
+		statName: selectedStatName,
 	})
 
 	function selectType(next: typeof shape) {
@@ -266,10 +277,6 @@ export function useCreateQuestionForm() {
 	// Mirrors generateQuestionTitle's own server-side call (see createQuestion
 	// in apps/api's resolver) against whatever's filled in so far - null once
 	// any piece it needs is still missing, rather than a half-built string.
-	const selectedStat = statId
-		? stats.find((stat) => stat.id === statId)
-		: undefined
-	const selectedStatName = selectedStat?.name
 	const statName = selectedStatName ?? customStat
 	// A rate stat (batting average, ERA) always displays its line/guess padded
 	// to a fixed 3 decimals - a trailing zero is meaningful there (".300" is a

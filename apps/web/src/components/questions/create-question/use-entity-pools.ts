@@ -1,3 +1,4 @@
+import { canLeadStat } from "@called-my-shot/schemas"
 import { useMemo } from "react"
 import type { EntitySearchItem } from "./entity-search-field"
 import type { CatalogPlayer, CatalogTeam } from "./use-question-catalog"
@@ -22,6 +23,16 @@ export function toTeamItems(teams: CatalogTeam[]): EntitySearchItem[] {
 	}))
 }
 
+// Every stat leader pool leaves out the positions that can't lead the stat,
+// the same cut createQuestion makes - see canLeadStat.
+function canLead(
+	player: CatalogPlayer,
+	leagueSlug: string | undefined,
+	statName: string | undefined,
+) {
+	return !leagueSlug || canLeadStat(player, leagueSlug, statName)
+}
+
 type Args = {
 	isPlayerAward: boolean
 	isTeamAward: boolean
@@ -38,6 +49,9 @@ type Args = {
 	awardPositions: string[]
 	awardSeasonsInLeague: number[]
 	awardRookieOnly: boolean
+	leagueSlug: string | undefined
+	// The catalog stat's name. Off-catalog stats leave every position in.
+	statName: string | undefined
 }
 
 /**
@@ -67,6 +81,8 @@ export function useEntityPools({
 	awardPositions,
 	awardSeasonsInLeague,
 	awardRookieOnly,
+	leagueSlug,
+	statName,
 }: Args) {
 	// player_season_award/team_season_award's pool is always the full league
 	// roster (see pool-summary.tsx) - player_award_finalists' is a small,
@@ -144,22 +160,22 @@ export function useEntityPools({
 		awardRookieOnly,
 	])
 
-	// player_game_stat_leader's pool - both rosters of the picked game, no
-	// filters to narrow it further (unlike the award pool above, there's no
-	// real-world conference/division/position split a game-scoped stat leader
-	// could be narrowed by). Same auto-sync-into-options mechanism as
-	// PoolSummary/awardPoolItems above, so it needs the same stable-reference
-	// memoization to avoid retriggering PoolSummary's own sync effect every
-	// render.
+	// player_game_stat_leader's pool - both rosters of the picked game, less
+	// the positions that can't lead the stat. Same auto-sync-into-options
+	// mechanism as PoolSummary/awardPoolItems above, so it needs the same
+	// stable-reference memoization to avoid retriggering PoolSummary's own sync
+	// effect every render.
 	const gameStatLeaderPoolItems: EntitySearchItem[] | null = useMemo(() => {
 		if (!isGameStatLeader || !gameTeamIds) return null
 		return toPlayerItems(
 			players.filter(
 				(player) =>
-					player.currentTeam && gameTeamIds.has(player.currentTeam.id),
+					player.currentTeam &&
+					gameTeamIds.has(player.currentTeam.id) &&
+					canLead(player, leagueSlug, statName),
 			),
 		)
-	}, [isGameStatLeader, gameTeamIds, players])
+	}, [isGameStatLeader, gameTeamIds, players, leagueSlug, statName])
 
 	// player_team_season_stat_leader's pool - the picked team's roster, the
 	// same one the server derives when the question is created. Memoized for
@@ -167,9 +183,13 @@ export function useEntityPools({
 	const teamStatLeaderPoolItems: EntitySearchItem[] | null = useMemo(() => {
 		if (!isTeamSeasonStatLeader || !subjectTeamId) return null
 		return toPlayerItems(
-			players.filter((player) => player.currentTeam?.id === subjectTeamId),
+			players.filter(
+				(player) =>
+					player.currentTeam?.id === subjectTeamId &&
+					canLead(player, leagueSlug, statName),
+			),
 		)
-	}, [isTeamSeasonStatLeader, subjectTeamId, players])
+	}, [isTeamSeasonStatLeader, subjectTeamId, players, leagueSlug, statName])
 
 	// These two feed OptionList, which only reads them for autocomplete and
 	// never writes back - so unlike the two above they don't need a stable
@@ -179,9 +199,12 @@ export function useEntityPools({
 		: null
 	// player_season_stat_leader's pool - the whole league to pick from, since
 	// nothing scopes it the way gameStatLeaderPoolItems is scoped to a game's
-	// two rosters.
+	// two rosters. The creator names the players, but only from the positions
+	// that can lead the stat.
 	const seasonStatLeaderItems: EntitySearchItem[] | null = isSeasonStatLeader
-		? toPlayerItems(players)
+		? toPlayerItems(
+				players.filter((player) => canLead(player, leagueSlug, statName)),
+			)
 		: null
 
 	return {

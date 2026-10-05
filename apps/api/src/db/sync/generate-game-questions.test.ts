@@ -57,6 +57,7 @@ const REBOUNDS_LEADER = catalogTemplate("nba", "rebounds-leader")
 const POINTS_LEADER = catalogTemplate("nba", "points-leader")
 const BATTER_HITS = catalogTemplate("mlb", "batter-hits")
 const BATTER_RBIS = catalogTemplate("mlb", "batter-rbis")
+const HITS_LEADER = catalogTemplate("mlb", "hits-leader")
 const STRIKEOUTS_DUEL = catalogTemplate("mlb", "starter-strikeouts-duel")
 
 // With templates, posts exactly those on the league's games, each in a group
@@ -188,6 +189,7 @@ async function addPlayer(
 	const row = await makePlayer({
 		name: player.name,
 		currentTeamId: team.id,
+		position: player.positions?.[0] ?? null,
 		positions: player.positions ?? [],
 	})
 	await makeExternalRef("player", `${league.slug}:${player.espnId}`, row.id)
@@ -764,6 +766,50 @@ describe("generateGameQuestions", () => {
 			player_game_stat_leader: 1,
 			player_vs_player: 1,
 		})
+	})
+
+	it("leaves the positions that can't lead the stat out of a leader pool", async () => {
+		await makeUser({ username: OFFICIAL_ACCOUNT_USERNAME })
+		const league = await makeLeague({ slug: "mlb" })
+		const season = await makeSeason({ leagueId: league.id, year: 2027 })
+		await makeStat({ sportId: league.sportId, name: "Hits" })
+		const away = await makeTeam({ leagueId: league.id, name: "Mets" })
+		const home = await makeTeam({ leagueId: league.id, name: "Yankees" })
+		const game = await makeGame({
+			leagueId: league.id,
+			seasonId: season.id,
+			homeTeamId: home.id,
+			awayTeamId: away.id,
+			startsAt: hoursFromNow(10),
+		})
+		await addPlayer(league, away, {
+			name: "Francisco Lindor",
+			espnId: "11",
+			positions: ["SS"],
+			seasons: { 2027: mlbBattingSeason(1.5, 100) },
+		})
+		await addPlayer(league, away, {
+			name: "Kodai Senga",
+			espnId: "12",
+			positions: ["SP"],
+			seasons: {},
+		})
+		await addPlayer(league, home, {
+			name: "Aaron Judge",
+			espnId: "13",
+			positions: ["RF", "DH"],
+			seasons: { 2027: mlbBattingSeason(1.2, 100) },
+		})
+
+		await run([HITS_LEADER], "mlb")
+
+		const leader = (await questionsOn(game.id)).find(
+			(q) => q.shape === "player_game_stat_leader",
+		)
+		expect(leader?.options.map((o) => o.label).sort()).toEqual([
+			"Aaron Judge",
+			"Francisco Lindor",
+		])
 	})
 
 	it("asks about a roster batter before the lineup is out, and a lineup batter once it is", async () => {

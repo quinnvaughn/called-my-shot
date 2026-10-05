@@ -1,9 +1,11 @@
 import {
+	canLeadStat,
 	createQuestionSchema,
 	resolutionModeFor,
 } from "@called-my-shot/schemas"
 import { defaultLossRate, isNumericGuessShape } from "@called-my-shot/scoring"
 import { db } from "../../../../db"
+import type { Player } from "../../../../db/schema"
 import { requireUser } from "../../../../lib/auth"
 import { buildPlayerPool, buildTeamPool } from "../../../../lib/award-pool"
 import {
@@ -166,6 +168,16 @@ builder.mutationFields((t) => ({
 						)
 					: null
 
+			const league = await db.query.leagues.findFirst({
+				where: { id: data.leagueId },
+				columns: { slug: true },
+			})
+			if (!league) throw ValidationError.field("leagueId", "League not found")
+			// Both leader pools drop the positions that can't lead the stat - see
+			// canLeadStat.
+			const canLead = (player: Player) =>
+				canLeadStat(player, league.slug, stat?.name)
+
 			// player_game_stat_leader only - pool is just the active rosters of
 			// the two teams in the picked game, not the whole league (that's the
 			// whole point of this shape vs. player_season_award). gameId is
@@ -175,9 +187,11 @@ builder.mutationFields((t) => ({
 			// check below rejects it.
 			const gameLeaderPool =
 				data.shape === "player_game_stat_leader" && game
-					? await buildPlayerPool({
-							teamIds: [game.homeTeamId, game.awayTeamId],
-						})
+					? (
+							await buildPlayerPool({
+								teamIds: [game.homeTeamId, game.awayTeamId],
+							})
+						).filter(canLead)
 					: null
 
 			// player_team_season_stat_leader only - the subject team's roster, the
@@ -194,7 +208,9 @@ builder.mutationFields((t) => ({
 			}
 			const teamLeaderPool =
 				data.shape === "player_team_season_stat_leader" && subjectTeam
-					? await buildPlayerPool({ teamIds: [subjectTeam.id] })
+					? (await buildPlayerPool({ teamIds: [subjectTeam.id] })).filter(
+							canLead,
+						)
 					: null
 
 			// The tolerance band comes from the stat's own tolerance tier, not
@@ -276,11 +292,6 @@ builder.mutationFields((t) => ({
 
 			// A system question settles from ESPN, so there's no source for the
 			// creator to name and ESPN's is stored instead - see resolutionModeFor.
-			const league = await db.query.leagues.findFirst({
-				where: { id: data.leagueId },
-				columns: { slug: true },
-			})
-			if (!league) throw ValidationError.field("leagueId", "League not found")
 			const resolutionMode = resolutionModeFor({
 				shape: data.shape,
 				leagueSlug: league.slug,
