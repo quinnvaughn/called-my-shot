@@ -42,8 +42,8 @@ export function GroupPinsExpiredRow({
 			onOpen={onOpen}
 		>
 			<p className={css({ fontSize: "sm" })}>
-				Your pinned questions in {n.groupName} locked. Pin another so new
-				members have something to call.
+				Your pinned questions in {n.groupName} locked. Pin another to keep one
+				at the top of the group page.
 			</p>
 		</NotificationShell>
 	)

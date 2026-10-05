@@ -1,6 +1,6 @@
 import { useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute, useRouteContext } from "@tanstack/react-router"
-import { type ReactNode, useEffect, useRef, useState } from "react"
+import { type ReactNode, useState } from "react"
 import { FiSettings, FiUserPlus, FiUsers } from "react-icons/fi"
 import { HiMiniQuestionMarkCircle } from "react-icons/hi2"
 import { css } from "styled-system/css"
@@ -26,7 +26,6 @@ import {
 } from "#/components/groups/group-leaderboard"
 import { GroupMembersSheet } from "#/components/groups/group-members-sheet"
 import { GroupPinnedStrip } from "#/components/groups/group-pinned-strip"
-import { GroupWelcomeModal } from "#/components/groups/group-welcome-modal"
 import { InviteCodeModal } from "#/components/groups/invite-code-modal"
 import {
 	SharedQuestionsTab,
@@ -211,22 +210,6 @@ function GroupRail() {
 	)
 }
 
-// Opens the welcome modal for a member who hasn't been welcomed to this group
-// yet, once per group per mount. Deferred a frame because the root layout
-// closes every modal when the pathname changes, and its effect runs after
-// this one on the navigation that lands here from joining.
-function useOpenWelcome(groupId: string | null) {
-	const openedFor = useRef<string | null>(null)
-	useEffect(() => {
-		if (!groupId || openedFor.current === groupId) return
-		const frame = requestAnimationFrame(() => {
-			openedFor.current = groupId
-			openModal(<GroupWelcomeModal groupId={groupId} />)
-		})
-		return () => cancelAnimationFrame(frame)
-	}, [groupId])
-}
-
 function RouteComponent() {
 	const [activeTab, setActiveTab] = useState<"answered" | "created" | "shared">(
 		"answered",
@@ -234,7 +217,6 @@ function RouteComponent() {
 	const navigate = Route.useNavigate()
 	const { group, scope, filter } = useGroupDetail()
 	const { me } = useRouteContext({ from: "__root__" })
-	useOpenWelcome(group && !group.viewerDismissedWelcome ? group.id : null)
 
 	if (!group) {
 		return (

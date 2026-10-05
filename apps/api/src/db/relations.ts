@@ -155,10 +155,6 @@ export const relations = defineRelations(schema, (r) => ({
 			from: r.groupMembers.invitedById,
 			to: r.users.id,
 		}),
-		welcomeCall: r.one.calls({
-			from: r.groupMembers.welcomeCallId,
-			to: r.calls.id,
-		}),
 	},
 	groupPins: {
 		group: r.one.groups({

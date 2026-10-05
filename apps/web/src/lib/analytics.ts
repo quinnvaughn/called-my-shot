@@ -12,14 +12,9 @@ export function questionHorizon(shape: QuestionCallShape): QuestionHorizon {
 }
 
 // Where a call was made from. The question page is where most calls land;
-// the call page is a fade aimed at someone's receipt; group_welcome is the
-// modal a new member sees on first opening a group; guest_picks are the
+// the call page is a fade aimed at someone's receipt; guest_picks are the
 // landing page's picks, posted once the visitor has an account.
-export type CallSurface =
-	| "question_page"
-	| "call_page"
-	| "group_welcome"
-	| "guest_picks"
+export type CallSurface = "question_page" | "call_page" | "guest_picks"
 
 // Add new events here as they're needed - `track()` below is typed against
 // this map, so every call site gets the right property shape for free and a
@@ -84,13 +79,6 @@ type AnalyticsEvents = {
 
 	group_created: { groupId: string }
 	group_joined: { groupId: string; source: "invite_link" | "code_form" }
-	// One per open of a group's welcome modal. questionSource is what it
-	// offered to call: an admin's pin, a suggestion, or nothing open.
-	group_welcome_viewed: {
-		groupId: string
-		questionSource: "pinned" | "suggested" | "none"
-		hasInviterCall: boolean
-	}
 	// `surface` separates the header's Invite modal from the inline card small
 	// groups show, so it's visible which one actually gets links sent.
 	group_invite_shared: {

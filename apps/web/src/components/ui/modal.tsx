@@ -33,7 +33,7 @@ function useModalSlots(part: string) {
 
 type ModalProps = {
 	children: ReactNode
-	size?: "sm" | "md" | "lg"
+	size?: "sm" | "md"
 	// Runs when the viewer dismisses the modal themselves: the backdrop,
 	// Escape, or the close button. Not when something else unmounts it (a
 	// navigation, another modal stacked on top), and not when the modal's

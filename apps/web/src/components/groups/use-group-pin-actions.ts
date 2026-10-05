@@ -8,7 +8,7 @@ import {
 } from "#/graphql/mutations/groups"
 
 // Reordering and unpinning, shared by the pinned strip on the group page and
-// the Welcome section in settings. Invalidates only the two group queries
+// the Pins section in settings. Invalidates only the two group queries
 // that show pins, so whichever surface is open keeps its own state.
 export function useGroupPinActions(groupId: string) {
 	const queryClient = useQueryClient()

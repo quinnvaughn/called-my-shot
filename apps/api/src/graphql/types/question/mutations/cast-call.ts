@@ -1,8 +1,7 @@
 import { castCallSchema } from "@called-my-shot/schemas"
 import { isNumericGuessShape } from "@called-my-shot/scoring"
-import { and, eq, isNull } from "drizzle-orm"
 import { db } from "../../../../db"
-import { callSelections, calls, groupMembers } from "../../../../db/schema"
+import { callSelections, calls } from "../../../../db/schema"
 import { requireUser } from "../../../../lib/auth"
 import { validateCallInput } from "../../../../lib/call-input"
 import {
@@ -13,7 +12,6 @@ import {
 import { assertFadeable, recordFade } from "../../../../lib/fades"
 import { qualifyReferralOnFirstCall } from "../../../../lib/referrals"
 import { applySeasonStatDeltas } from "../../../../lib/user-season-stats"
-import { isUuid } from "../../../../lib/uuid"
 import { builder } from "../../../builder"
 import { parseInput } from "../../../helpers"
 import { CastCallInput, CastCallPayload } from "../inputs"
@@ -128,24 +126,6 @@ builder.mutationFields((t) => ({
 						fader: user,
 						question,
 					})
-				}
-
-				// Attribution only: a malformed id or a group the caller isn't in
-				// writes nothing, and never costs them the call.
-				const welcomeGroupId = args.input.welcomeGroupId
-					? String(args.input.welcomeGroupId)
-					: null
-				if (welcomeGroupId && isUuid(welcomeGroupId)) {
-					await tx
-						.update(groupMembers)
-						.set({ welcomeCallId: call.id })
-						.where(
-							and(
-								eq(groupMembers.groupId, welcomeGroupId),
-								eq(groupMembers.userId, user.id),
-								isNull(groupMembers.welcomeCallId),
-							),
-						)
 				}
 
 				return call

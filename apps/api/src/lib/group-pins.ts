@@ -49,8 +49,7 @@ export async function memberCallCounts(
 
 // Deletes every pin whose question can no longer be called (locked on the
 // clock, resolved, or voided), then tells the admins of each group that just
-// lost its last callable pin, since its welcome modal is back to suggesting
-// questions on its own. Only pins this run deleted can trigger a
+// lost its last callable pin. Only pins this run deleted can trigger a
 // notification, so running it twice sends nothing new.
 export async function expireGroupPins({
 	now = new Date(),

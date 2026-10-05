@@ -6,7 +6,6 @@ import { match } from "ts-pattern"
 import { CaseField } from "#/components/questions/cast-call-form/case-field"
 import { ConvictionCard } from "#/components/questions/cast-call-form/conviction-card"
 import {
-	type CalledPick,
 	type CastCallFormFragment,
 	useCastCallForm,
 } from "#/components/questions/cast-call-form/use-cast-call-form"
@@ -128,34 +127,19 @@ function NewFade(props: FadeCallModalProps) {
 	)
 }
 
-export type FadeCallFormProps = Pick<
+type FadeCallFormProps = Pick<
 	FadeCallModalProps,
 	"callId" | "optionId" | "opUsername" | "opPickLabel" | "pickLabel"
 > & {
 	question: FragmentType<typeof CastCallFormFragment>
 	surface: CallSurface
-	welcomeGroupId?: string
-	closeOnSuccess?: boolean
-	onCalled?: (pick: CalledPick) => void
 }
 
-// The NEW fade's form on its own, so a surface that already has the question
-// loaded (the group welcome modal) can show it in place rather than stacking
-// a second modal over itself.
-export function FadeCallForm({
-	question,
-	surface,
-	welcomeGroupId,
-	closeOnSuccess,
-	onCalled,
-	...props
-}: FadeCallFormProps) {
+// The NEW fade's form, once its question has loaded.
+function FadeCallForm({ question, surface, ...props }: FadeCallFormProps) {
 	const callForm = useCastCallForm(question, {
 		surface,
 		fade: { callId: props.callId, optionId: props.optionId },
-		welcomeGroupId,
-		closeOnSuccess,
-		onCalled,
 	})
 	const { form } = callForm
 

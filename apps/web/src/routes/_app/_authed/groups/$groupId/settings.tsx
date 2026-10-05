@@ -9,7 +9,7 @@ import { GroupImagesSection } from "#/components/groups/group-images-section"
 import { GroupInvitesSection } from "#/components/groups/group-invites-section"
 import { GroupLinksSection } from "#/components/groups/group-links-section"
 import { GroupMembersSection } from "#/components/groups/group-members-section"
-import { GroupWelcomeSection } from "#/components/groups/group-welcome-section"
+import { GroupPinsSection } from "#/components/groups/group-pins-section"
 import { Breadcrumb } from "#/components/ui/breadcrumb"
 import { NotFound } from "#/components/ui/not-found"
 import { PageHeader } from "#/components/ui/page-header"
@@ -98,12 +98,8 @@ function RouteComponent() {
 						<GroupLinksSection groupId={group.id} links={group.links} />
 					</VStack>
 					<VStack alignItems="stretch" gap="3">
-						{sectionLabel("Welcome")}
-						<GroupWelcomeSection
-							groupId={group.id}
-							welcomeMessage={group.welcomeMessage ?? null}
-							pins={group.pinnedQuestions}
-						/>
+						{sectionLabel("Pins")}
+						<GroupPinsSection groupId={group.id} pins={group.pinnedQuestions} />
 					</VStack>
 					<VStack alignItems="stretch" gap="3">
 						{sectionLabel("Logo and banner")}

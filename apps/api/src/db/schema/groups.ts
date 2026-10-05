@@ -9,7 +9,6 @@ import {
 	unique,
 	uuid,
 } from "drizzle-orm/pg-core"
-import { calls } from "./calls"
 import { flairs } from "./flairs"
 import { questions } from "./questions"
 import { leagues } from "./sports"
@@ -23,9 +22,6 @@ export const groups = pgTable("groups", {
 	// Optional pitch shown on the invite page and its link preview. Blank is
 	// stored as null, never an empty string.
 	description: text("description"),
-	// Shown to each new member in the welcome modal the first time they open
-	// the group. Blank is stored as null, same as description.
-	welcomeMessage: text("welcome_message"),
 	// R2 object keys (see lib/storage.ts). Null means no image: the logo falls
 	// back to the group's initial and the banner simply isn't drawn.
 	logoKey: text("logo_key"),
@@ -95,12 +91,6 @@ export const groupMembers = pgTable(
 		// member rather than per group, so one person opting out doesn't stop
 		// the card asking everyone else.
 		inviteCardDismissedAt: timestamp("invite_card_dismissed_at"),
-		// Set once this member closes or skips the group's welcome modal, or
-		// makes the call it offers. Null means it opens on their next visit
-		// to the group page. The
-		// creator's row is stamped at creation, and rows that predate the
-		// modal were backfilled to joinedAt.
-		welcomeDismissedAt: timestamp("welcome_dismissed_at"),
 		// The member whose invite link this person joined through. A user id
 		// rather than a group_invites reference: invite rows are deleted when
 		// their owner leaves and their codes regenerate in place, while who
@@ -108,11 +98,6 @@ export const groupMembers = pgTable(
 		// joined before this was recorded, and once the inviter's account is
 		// deleted.
 		invitedById: uuid("invited_by_id").references(() => users.id, {
-			onDelete: "set null",
-		}),
-		// The call this member made from the welcome modal, if they made one
-		// there. Written once by castCall and never overwritten.
-		welcomeCallId: uuid("welcome_call_id").references(() => calls.id, {
 			onDelete: "set null",
 		}),
 		// What this member wears inside this group, overriding whatever they
@@ -175,7 +160,7 @@ export const questionShares = pgTable(
 export type QuestionShare = typeof questionShares.$inferSelect
 
 // Questions a group's admins recommend members call, shown at the top of the
-// group page and offered first in the welcome modal. Only pins whose question
+// group page. Only pins whose question
 // is still callable count toward GROUP_PINS_MAX or show anywhere;
 // expireGroupPins (lib/group-pins.ts) deletes the rest when questions lock.
 export const groupPins = pgTable(

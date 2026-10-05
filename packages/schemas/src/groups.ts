@@ -45,23 +45,6 @@ export const updateGroupLinksSchema = z.object({
 })
 export type UpdateGroupLinksInput = z.input<typeof updateGroupLinksSchema>
 
-export const GROUP_WELCOME_MESSAGE_MAX = 500
-
-// Optional - a blank welcome message is saved as none (the api stores null).
-export const groupWelcomeMessageSchema = z
-	.string()
-	.trim()
-	.max(
-		GROUP_WELCOME_MESSAGE_MAX,
-		`Welcome message must be ${GROUP_WELCOME_MESSAGE_MAX} characters or fewer`,
-	)
-
-export const updateGroupWelcomeSchema = z.object({
-	groupId: z.string().uuid(),
-	welcomeMessage: groupWelcomeMessageSchema,
-})
-export type UpdateGroupWelcomeInput = z.infer<typeof updateGroupWelcomeSchema>
-
 // How many still-callable questions a group can have pinned at once.
 export const GROUP_PINS_MAX = 3
 

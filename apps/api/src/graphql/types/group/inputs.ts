@@ -60,17 +60,6 @@ export const UpdateGroupLinksInput = builder.inputType(
 	},
 )
 
-export const UpdateGroupWelcomeInput = builder.inputType(
-	"UpdateGroupWelcomeInput",
-	{
-		fields: (t) => ({
-			groupId: t.id({ required: true }),
-			// blank clears it
-			welcomeMessage: t.string({ required: true }),
-		}),
-	},
-)
-
 export const JoinGroupInput = builder.inputType("JoinGroupInput", {
 	fields: (t) => ({
 		code: t.string({ required: true }),

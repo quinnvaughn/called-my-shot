@@ -119,7 +119,6 @@ export const GroupRef = builder.drizzleObject("groups", {
 		id: t.exposeID("id"),
 		name: t.exposeString("name"),
 		description: t.exposeString("description", { nullable: true }),
-		welcomeMessage: t.exposeString("welcomeMessage", { nullable: true }),
 		// Null means none uploaded: the logo falls back to the group's initial
 		// and the banner isn't drawn at all.
 		logoUrl: t.string({
@@ -165,15 +164,6 @@ export const GroupRef = builder.drizzleObject("groups", {
 			type: "Boolean",
 			resolve: async (group, _args, ctx) =>
 				!!(await viewerMembership(ctx, group.id))?.inviteCardDismissedAt,
-		}),
-		// Whether the viewer is done with this group's welcome modal. True for
-		// non-members too, so nothing ever offers them one.
-		viewerDismissedWelcome: t.field({
-			type: "Boolean",
-			resolve: async (group, _args, ctx) => {
-				const membership = await viewerMembership(ctx, group.id)
-				return !membership || !!membership.welcomeDismissedAt
-			},
 		}),
 		// The leagues this group counts on its leaderboard, activity feeds, and
 		// shares. Empty means every league.

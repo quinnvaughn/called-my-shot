@@ -199,25 +199,12 @@ export type FadeMode = {
 	optionId: string
 }
 
-// The pick a new call landed with, for a surface that reacts to it.
-export type CalledPick = {
-	optionIds: string[]
-	guessValue: number | null
-}
-
 export type CastCallFormOptions = {
 	// Where the call is being made, for analytics.
 	surface: CallSurface
 	redo?: RedoMode
 	fade?: FadeMode
-	onCalled?: (pick: CalledPick) => void
-	// Set when the call is made from a group's welcome modal, so the server
-	// can record it as that member's welcome call.
-	welcomeGroupId?: string
-	// Whether a landed call closes the top modal. True for the confirm and
-	// fade modals, which exist only to submit; false for a modal that goes
-	// on to show something after the call.
-	closeOnSuccess?: boolean
+	onCalled?: () => void
 }
 
 // All of the state behind making a call, decoupled from where it renders.
@@ -232,18 +219,11 @@ export type CastCallFormOptions = {
 //
 // Passing `redo` switches it to replacing an existing call instead of making
 // a new one. Passing `fade` makes a new call that fades another. `onCalled`
-// runs once a new call has landed, the page has refreshed and (unless
-// closeOnSuccess is false) the confirm modal has closed.
+// runs once a new call has landed, the page has refreshed and the confirm
+// modal has closed.
 export function useCastCallForm(
 	questionProp: FragmentType<typeof CastCallFormFragment> | null | undefined,
-	{
-		surface,
-		redo,
-		fade,
-		onCalled,
-		welcomeGroupId,
-		closeOnSuccess = true,
-	}: CastCallFormOptions,
+	{ surface, redo, fade, onCalled }: CastCallFormOptions,
 ) {
 	const question = useFragment(CastCallFormFragment, questionProp)
 	const shape = (question?.shape.toLowerCase() ??
@@ -401,7 +381,6 @@ export function useCastCallForm(
 								conviction: values.conviction,
 								selections,
 								fadesCallId: fade?.callId,
-								welcomeGroupId,
 							},
 						})
 					)?.castCall
@@ -451,12 +430,8 @@ export function useCastCallForm(
 					// up the new viewerCall immediately.
 					await queryClient.invalidateQueries()
 					await router.invalidate()
-					if (closeOnSuccess) closeModal()
-					onCalled?.({
-						optionIds: values.selections.map((s) => s.optionId),
-						guessValue:
-							bucket === "numeric" ? (values.guessValue ?? null) : null,
-					})
+					closeModal()
+					onCalled?.()
 
 					// Closes out the walkthrough on the call it was built
 					// around. Asks the tour store rather than the ?tour param,
@@ -480,7 +455,7 @@ export function useCastCallForm(
 					// wallet and timing facts are.
 					await queryClient.invalidateQueries()
 					await router.invalidate()
-					if (closeOnSuccess) closeModal()
+					closeModal()
 				})
 				.with({ __typename: "AuthorizationError" }, async (r) => {
 					helpers.setFormError(r.message)
