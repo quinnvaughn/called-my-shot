@@ -88,6 +88,35 @@ function biggestSwing(views: PointsView[]): number {
 	)
 }
 
+// Every row on the card, nested and pinned ones included.
+function allRows(views: PointsView[]): PointsRow[] {
+	return views
+		.flatMap((view) => [...view.rows, ...(view.pinned ?? [])])
+		.flatMap((row) => [row, ...(row.children ?? [])])
+}
+
+function recordText(row: PointsRow): string {
+	return row.wins !== null && row.losses !== null
+		? formatRecord(row.wins, row.losses)
+		: ""
+}
+
+// Each number column's width in characters, set by its longest value on the
+// card, so the columns line up across every row and view. The values are in
+// a monospace font, so a character count is an exact width.
+type ColumnWidths = { points: number; record: number; ret: number }
+
+function columnWidths(views: PointsView[]): ColumnWidths {
+	const rows = allRows(views)
+	const longest = (text: (row: PointsRow) => string) =>
+		Math.max(0, ...rows.map((row) => text(row).length))
+	return {
+		points: longest((row) => formatSignedPoints(row.netPoints)),
+		record: longest(recordText),
+		ret: longest((row) => formatReturn(row.returnPct) ?? ""),
+	}
+}
+
 // Where the points came from, one bar per row out from a shared zero line:
 // right and green for what a row netted, left and red for what it cost. Each
 // view's bars, nested ones included, are scaled against that view's biggest
@@ -95,7 +124,9 @@ function biggestSwing(views: PointsView[]): number {
 // A view on the card scale is measured against the biggest swing anywhere on
 // the card.
 export function PointsBreakdown({ groups, username }: Props) {
-	const max = biggestSwing(groups.flatMap((group) => group.views))
+	const views = groups.flatMap((group) => group.views)
+	const max = biggestSwing(views)
+	const columns = columnWidths(views)
 
 	return (
 		<Card variant="surface" size="md">
@@ -106,6 +137,7 @@ export function PointsBreakdown({ groups, username }: Props) {
 							key={group.views.map((view) => view.label).join("|")}
 							group={group}
 							max={max}
+							columns={columns}
 							username={username}
 							divided={index > 0}
 						/>
@@ -119,11 +151,13 @@ export function PointsBreakdown({ groups, username }: Props) {
 function BreakdownGroup({
 	group,
 	max,
+	columns,
 	username,
 	divided,
 }: {
 	group: PointsGroup
 	max: number
+	columns: ColumnWidths
 	username: string
 	divided: boolean
 }) {
@@ -140,7 +174,13 @@ function BreakdownGroup({
 		view.rows.length > view.fold.ends * 2 + 1
 	const rows = (rows: PointsRow[]) =>
 		rows.map((row) => (
-			<BreakdownRow key={row.key} row={row} max={scale} username={username} />
+			<BreakdownRow
+				key={row.key}
+				row={row}
+				max={scale}
+				columns={columns}
+				username={username}
+			/>
 		))
 
 	return (
@@ -202,16 +242,22 @@ function BreakdownGroup({
 function BreakdownRow({
 	row,
 	max,
+	columns,
 	username,
 }: {
 	row: PointsRow
 	max: number
+	columns: ColumnWidths
 	username: string
 }) {
 	const [open, setOpen] = useState(false)
 	const expandable = (row.children?.length ?? 0) > 0
 
-	const body = <RowBody row={row} max={max} />
+	const chevron = (
+		<span className={leadSlot}>
+			{open ? <FiChevronDown /> : <FiChevronRight />}
+		</span>
+	)
 	const rowClass = css({
 		display: "block",
 		width: "full",
@@ -230,7 +276,7 @@ function BreakdownRow({
 					search={{ league: row.leagueSlug }}
 					className={rowClass}
 				>
-					{body}
+					<RowBody row={row} max={max} columns={columns} />
 				</Link>
 			) : expandable ? (
 				<button
@@ -239,29 +285,38 @@ function BreakdownRow({
 					onClick={() => setOpen((o) => !o)}
 					className={cx(rowClass, css({ cursor: "pointer" }))}
 				>
-					<HStack gap="1.5" alignItems="flex-start">
-						<span className={css({ color: "fg.muted", paddingTop: "0.5" })}>
-							{open ? <FiChevronDown /> : <FiChevronRight />}
-						</span>
-						<div className={css({ flex: "1", minWidth: "0" })}>{body}</div>
-					</HStack>
+					<RowBody row={row} max={max} columns={columns} lead={chevron} />
 				</button>
 			) : (
-				<div className={css({ padding: "2" })}>{body}</div>
+				<div className={css({ padding: "2" })}>
+					<RowBody row={row} max={max} columns={columns} />
+				</div>
 			)}
 			{open && row.children && (
 				<VStack
 					alignItems="stretch"
 					gap="0"
 					className={css({
-						marginLeft: "5",
-						borderLeft: "1px solid {colors.border.default}",
-						paddingLeft: "1",
+						position: "relative",
+						_before: {
+							content: '""',
+							position: "absolute",
+							top: "0",
+							bottom: "0",
+							left: "4",
+							borderLeft: "1px solid {colors.border.default}",
+						},
 					})}
 				>
 					{row.children.map((child) => (
 						<div key={child.key} className={css({ padding: "2" })}>
-							<RowBody row={child} max={max} nested />
+							<RowBody
+								row={child}
+								max={max}
+								columns={columns}
+								lead={<span aria-hidden className={leadSlot} />}
+								nested
+							/>
 						</div>
 					))}
 				</VStack>
@@ -270,13 +325,28 @@ function BreakdownRow({
 	)
 }
 
+// Holds a row's chevron, or the matching gap on a nested row, inside the
+// label column, so every row's bar track starts and ends at the same x and
+// the zero lines stack.
+const leadSlot = css({
+	display: "flex",
+	justifyContent: "center",
+	width: "4",
+	flexShrink: "0",
+	color: "fg.muted",
+})
+
 function RowBody({
 	row,
 	max,
+	columns,
+	lead,
 	nested = false,
 }: {
 	row: PointsRow
 	max: number
+	columns: ColumnWidths
+	lead?: ReactNode
 	nested?: boolean
 }) {
 	const width = `${(Math.abs(row.netPoints) / max) * 100}%`
@@ -305,6 +375,7 @@ function RowBody({
 						: css({ color: "fg.default", fontWeight: "medium" }),
 				)}
 			>
+				{lead}
 				{row.icon}
 				{row.label}
 			</span>
@@ -352,28 +423,27 @@ function RowBody({
 					<span
 						className={cx(
 							signedTone(row.netPoints),
-							css({ minWidth: "12", textAlign: "right" }),
+							css({ textAlign: "right" }),
 						)}
+						style={{ width: `${columns.points}ch` }}
 					>
 						{formatSignedPoints(row.netPoints)}
 					</span>
 					<span
 						className={css({
 							color: "fg.muted",
-							minWidth: "10",
 							textAlign: "right",
 						})}
+						style={{ width: `${columns.record}ch` }}
 					>
-						{row.wins !== null && row.losses !== null
-							? formatRecord(row.wins, row.losses)
-							: ""}
+						{recordText(row)}
 					</span>
 					<span
 						className={css({
 							color: "fg.muted",
-							minWidth: "10",
 							textAlign: "right",
 						})}
+						style={{ width: `${columns.ret}ch` }}
 					>
 						{ret ?? ""}
 					</span>

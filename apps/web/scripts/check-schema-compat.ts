@@ -12,6 +12,7 @@ import {
 	specifiedRules,
 	validate,
 } from "graphql"
+import { stripClientDirectives } from "../src/graphql/client-directives"
 
 // Codegen builds this app's types from ../api/schema.graphql, generated from
 // the api source sitting in the same commit - so the build always succeeds
@@ -74,10 +75,13 @@ async function loadAst(): Promise<DocumentNode> {
 
 	// Fragments live in the component files that use them and are spread from
 	// queries in other files, so each document is only valid alongside all the
-	// others.
-	return concatAST(
-		documents.flatMap((document) =>
-			document.document ? [document.document] : [],
+	// others. Stripped the same way gqlFetch strips them, so what's checked is
+	// what the api actually receives.
+	return stripClientDirectives(
+		concatAST(
+			documents.flatMap((document) =>
+				document.document ? [document.document] : [],
+			),
 		),
 	)
 }
