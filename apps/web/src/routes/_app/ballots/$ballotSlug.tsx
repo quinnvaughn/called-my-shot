@@ -1,4 +1,4 @@
-import { useSuspenseQuery } from "@tanstack/react-query"
+import { useQueryClient, useSuspenseQuery } from "@tanstack/react-query"
 import {
 	createFileRoute,
 	Link,
@@ -20,6 +20,7 @@ import {
 	BallotPositionRowFragment,
 } from "#/components/ballots/ballot-position-row"
 import { BallotProgressCard } from "#/components/ballots/ballot-progress-card"
+import { ProjectedStandings } from "#/components/ballots/projected-standings"
 import { BallotSectionHeading } from "#/components/ballots/ballot-section-heading"
 import {
 	BallotShareRow,
@@ -29,12 +30,21 @@ import { Breadcrumb } from "#/components/ui/breadcrumb"
 import { Card } from "#/components/ui/card"
 import { NotFound } from "#/components/ui/not-found"
 import { PageHeader } from "#/components/ui/page-header"
+import { Tabs } from "#/components/ui/tabs"
 import { Tag } from "#/components/ui/tag"
 import { useFragment } from "#/graphql/generated"
 import { BallotByRefDocument } from "#/graphql/queries/ballots"
 import { gqlQueryOptions } from "#/graphql/query-options"
+import {
+	ballotEntryPath,
+	formatRecord,
+	formatSignedPoints,
+	validateBallotPageSearch,
+} from "#/lib/ballot-entry"
 import { computeBallotProgressStats } from "#/lib/ballot-progress-stats"
 import { pageMeta } from "#/lib/meta"
+import { standingsTeams } from "#/lib/projected-standings"
+import { questionDetailState } from "#/lib/question-detail-state"
 import { isUuid } from "#/lib/uuid"
 
 const ballotQuery = (ref: string) =>
@@ -47,6 +57,7 @@ const ballotQuery = (ref: string) =>
 export const Route = createFileRoute("/_app/ballots/$ballotSlug")({
 	component: RouteComponent,
 	staleTime: 0,
+	validateSearch: validateBallotPageSearch,
 	// head() can only read loaderData, so the meta-tag fields come back from
 	// here; the component reads the same cache entry via useSuspenseQuery.
 	loader: async ({ context, params, location }) => {
@@ -84,6 +95,9 @@ export const Route = createFileRoute("/_app/ballots/$ballotSlug")({
 
 function RouteComponent() {
 	const { ballotSlug } = Route.useParams()
+	const { view } = Route.useSearch()
+	const navigate = Route.useNavigate()
+	const queryClient = useQueryClient()
 	const { data } = useSuspenseQuery(ballotQuery(ballotSlug))
 	const { me } = useRouteContext({ from: "__root__" })
 	const ballot = data.ballot
@@ -112,12 +126,37 @@ function RouteComponent() {
 		)
 	}
 
+	// The viewer's own picks as standings, on a win-totals ballot. Signed
+	// out or before any picks, every team reads as unpicked.
+	const teams = standingsTeams(
+		ballot.league.slug,
+		ballot.members.map((m) => ({
+			questionId: m.question.id,
+			team: m.question.subjectTeam,
+			statName: m.question.stat?.name,
+			wins: m.question.viewerCall?.guessValue,
+			tiebreakPosition: m.viewerTiebreakPosition,
+			conviction: m.question.viewerCall?.conviction,
+			callId: null,
+		})),
+	)
+	const gamesPerSeason = ballot.league.seasonFormat?.gamesPerSeason
+	const showStandings = Boolean(teams && gamesPerSeason)
+
 	const stats = computeBallotProgressStats(
 		members.map((member, i) => ({
 			...member,
 			call: ballot.members[i].question.viewerCall,
 		})),
 	)
+	const record = {
+		wins: stats.states.filter((s) => s === "won").length,
+		losses: stats.states.filter((s) => s === "lost").length,
+		points: ballot.members.reduce(
+			(sum, m) => sum + (m.question.viewerCall?.totalPoints ?? 0),
+			0,
+		),
+	}
 
 	// The soonest still-upcoming lock across every member - a member already
 	// past its own locksAt (open-and-called, or resolved) has nothing left to
@@ -181,6 +220,46 @@ function RouteComponent() {
 				offFieldCount={stats.offFieldCount}
 				contestedCount={stats.contestedCount}
 				fullBallotCount={completions?.count ?? 0}
+				footer={
+					me &&
+					stats.calledCount > 0 && (
+						<>
+							<Link
+								to={ballotEntryPath(ballot.slug, me.username)}
+								className={css({
+									fontFamily: "mono",
+									fontSize: "2xs",
+									letterSpacing: "wide",
+									textTransform: "uppercase",
+									color: "primary.default",
+									textDecoration: "none",
+									_hover: { opacity: 0.8 },
+								})}
+							>
+								{/* The card above already counts the calls, so the
+								    link only adds the record once one settles. */}
+								{record.wins + record.losses > 0 &&
+									`${formatRecord(record.wins, record.losses)} · ${formatSignedPoints(record.points)} pts · `}
+								See your picks →
+							</Link>
+							<BallotShareRow
+								ballotId={ballot.id}
+								ballotSlug={ballot.slug}
+								username={me.username}
+								shareTitle={`@${me.username}'s ${ballot.name} ballot`}
+								surface="ballot_page"
+								layout="icons"
+								tweetText={buildBallotTweet({
+									ballotName: ballot.name,
+									calledCount: stats.calledCount,
+									memberCount: ballot.memberCount,
+									...record,
+									isOwn: true,
+								})}
+							/>
+						</>
+					)
+				}
 			/>
 
 			{stats.nextUncalled && (
@@ -213,41 +292,53 @@ function RouteComponent() {
 				</Link>
 			)}
 
-			{me && stats.calledCount > 0 && (
-				<VStack gap="3" alignItems="stretch">
-					<span
-						className={css({
-							fontFamily: "mono",
-							fontSize: "2xs",
-							letterSpacing: "wide",
-							color: "fg.subtle",
-							textTransform: "uppercase",
-						})}
-					>
-						Share your ballot
-					</span>
-					<BallotShareRow
-						ballotId={ballot.id}
-						ballotSlug={ballot.slug}
-						username={me.username}
-						shareTitle={`@${me.username}'s ${ballot.name} ballot`}
-						surface="ballot_page"
-						tweetText={buildBallotTweet({
-							ballotName: ballot.name,
-							calledCount: stats.calledCount,
-							memberCount: ballot.memberCount,
-							wins: stats.states.filter((s) => s === "won").length,
-							losses: stats.states.filter((s) => s === "lost").length,
-							points: ballot.members.reduce(
-								(sum, m) => sum + (m.question.viewerCall?.totalPoints ?? 0),
-								0,
-							),
-							isOwn: true,
-						})}
-					/>
-				</VStack>
+			{showStandings && (
+				<Tabs
+					value={view ?? "questions"}
+					onValueChange={(next) =>
+						navigate({
+							search: next === "standings" ? { view: "standings" } : {},
+							replace: true,
+							resetScroll: false,
+						})
+					}
+				>
+					<Tabs.List stretch>
+						<Tabs.Trigger value="questions">Questions</Tabs.Trigger>
+						<Tabs.Trigger value="standings">Standings</Tabs.Trigger>
+					</Tabs.List>
+				</Tabs>
 			)}
 
+			{showStandings && view === "standings" && teams && gamesPerSeason ? (
+				<ProjectedStandings
+					leagueSlug={ballot.league.slug}
+					leagueAbbreviation={ballot.league.abbreviation}
+					gamesPerSeason={gamesPerSeason}
+					teams={teams}
+					reorderableQuestionIds={
+						new Set(
+							me
+								? ballot.members
+										.filter(
+											(m, i) =>
+												m.question.viewerCall &&
+												questionDetailState(members[i].question).canCall,
+										)
+										.map((m) => m.question.id)
+								: [],
+						)
+					}
+					ownerLabel="Your picks"
+					editing={{
+						ballotId: ballot.id,
+						onSaved: () =>
+							queryClient.invalidateQueries({
+								queryKey: ballotQuery(ballotSlug).queryKey,
+							}),
+					}}
+				/>
+			) : (
 			<VStack gap="3" alignItems="stretch">
 				<span
 					className={css({
@@ -284,6 +375,7 @@ function RouteComponent() {
 					</VStack>
 				</Card>
 			</VStack>
+			)}
 
 			<VStack gap="3" alignItems="stretch">
 				<span

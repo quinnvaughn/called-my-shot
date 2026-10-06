@@ -9,9 +9,12 @@ import {
 	buildBallotTweet,
 } from "#/components/ballots/ballot-share-row"
 import { EntryCallList } from "#/components/ballots/entry-call-list"
+import { ProjectedStandings } from "#/components/ballots/projected-standings"
+import { arrowLink } from "#/components/ui/arrow-link"
 import { Breadcrumb } from "#/components/ui/breadcrumb"
 import { NotFound } from "#/components/ui/not-found"
 import { PageHeader } from "#/components/ui/page-header"
+import { Tabs } from "#/components/ui/tabs"
 import { Tag } from "#/components/ui/tag"
 import { BallotEntryDocument } from "#/graphql/queries/ballots"
 import { gqlQueryOptions } from "#/graphql/query-options"
@@ -19,8 +22,10 @@ import {
 	ballotEntryPath,
 	formatRecord,
 	formatSignedPoints,
+	validateBallotEntrySearch,
 } from "#/lib/ballot-entry"
 import { pageMeta } from "#/lib/meta"
+import { standingsTeams } from "#/lib/projected-standings"
 import { questionDetailState } from "#/lib/question-detail-state"
 
 const ballotEntryQuery = (ref: string, username: string) =>
@@ -33,6 +38,7 @@ const ballotEntryQuery = (ref: string, username: string) =>
 export const Route = createFileRoute("/_app/ballots/$ballotSlug_/$username")({
 	component: RouteComponent,
 	staleTime: 0,
+	validateSearch: validateBallotEntrySearch,
 	loader: async ({ context, params }) => {
 		const data = await context.queryClient.query(
 			ballotEntryQuery(params.ballotSlug, params.username),
@@ -77,6 +83,8 @@ export const Route = createFileRoute("/_app/ballots/$ballotSlug_/$username")({
 
 function RouteComponent() {
 	const { ballotSlug, username } = Route.useParams()
+	const { view } = Route.useSearch()
+	const navigate = Route.useNavigate()
 	const { data } = useSuspenseQuery(ballotEntryQuery(ballotSlug, username))
 	const { me } = useRouteContext({ from: "__root__" })
 	const ballot = data.ballot
@@ -119,6 +127,22 @@ function RouteComponent() {
 			.map((m) => m.member.slot || m.member.label)
 	const notCalledYet = uncalledLabels(true)
 	const missed = uncalledLabels(false)
+
+	const teams = standingsTeams(
+		ballot.league.slug,
+		entry.members.map((m) => ({
+			questionId: m.member.question.id,
+			team: m.member.question.subjectTeam,
+			statName: m.member.question.stat?.name,
+			wins: m.call?.guessValue,
+			tiebreakPosition: m.tiebreakPosition,
+			conviction: m.call?.conviction,
+			callId: m.call?.id,
+		})),
+	)
+	const gamesPerSeason = ballot.league.seasonFormat?.gamesPerSeason
+	const showStandings = Boolean(teams && gamesPerSeason)
+	const tab = showStandings && view !== "picks" ? "standings" : "picks"
 
 	return (
 		<VStack gap="6" alignItems="stretch" className={css({ maxWidth: "2xl" })}>
@@ -201,16 +225,70 @@ function RouteComponent() {
 					</>
 				}
 			/>
-			<EntryCallList
-				rows={called.flatMap(({ member, call }) =>
-					call
-						? [{ key: member.id, section: member.section ?? null, call }]
-						: [],
-				)}
-				fallbackLabel="Questions"
-				notCalledYet={notCalledYet}
-				missed={missed}
-			/>
+			{showStandings && (
+				<Tabs
+					value={tab}
+					onValueChange={(next) =>
+						navigate({
+							search: next === "picks" ? { view: "picks" } : {},
+							replace: true,
+							resetScroll: false,
+						})
+					}
+				>
+					<Tabs.List stretch>
+						<Tabs.Trigger value="standings">Standings</Tabs.Trigger>
+						<Tabs.Trigger value="picks">Picks</Tabs.Trigger>
+					</Tabs.List>
+				</Tabs>
+			)}
+
+			{tab === "standings" && teams && gamesPerSeason ? (
+				<ProjectedStandings
+					leagueSlug={ballot.league.slug}
+					leagueAbbreviation={ballot.league.abbreviation}
+					gamesPerSeason={gamesPerSeason}
+					teams={teams}
+					reorderableQuestionIds={
+						new Set(
+							isOwn
+								? entry.members
+										.filter(
+											(m) =>
+												m.call &&
+												questionDetailState(m.member.question).canCall,
+										)
+										.map((m) => m.member.question.id)
+								: [],
+						)
+					}
+					ownerLabel={isOwn ? "Your picks" : `@${entry.user.username}'s picks`}
+					// The page others are sent to stays a clean view of the
+					// standings, owner included; ties get ordered on the ballot.
+					editing={null}
+					orderElsewhere={
+						<Link
+							to="/ballots/$ballotSlug"
+							params={{ ballotSlug: ballot.slug }}
+							search={{ view: "standings" }}
+							className={arrowLink({ tone: "primary" })}
+						>
+							Order your tied teams on the ballot →
+						</Link>
+					}
+				/>
+			) : (
+				<EntryCallList
+					rows={called.flatMap(({ member, call }) =>
+						call
+							? [{ key: member.id, section: member.section ?? null, call }]
+							: [],
+					)}
+					fallbackLabel="Questions"
+					notCalledYet={notCalledYet}
+					missed={missed}
+				/>
+			)}
 		</VStack>
 	)
 }

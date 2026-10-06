@@ -1,125 +1,104 @@
-import { eq } from "drizzle-orm"
 import { describe, expect, it } from "vitest"
 import { db } from "../db"
-import { type Player, questionOptions } from "../db/schema"
 import {
-	makeCall,
-	makeOption,
-	makePlayer,
-	makeQuestion,
-	makeSelection,
+	makeLeague,
+	makeSeason,
+	makeStat,
+	makeTeam,
 	makeUser,
+	pastDate,
 } from "../test/factories"
-import { reconcileAwardOptions } from "./season-questions"
+import { generateSeasonQuestions, winTotalLockTime } from "./season-questions"
 
-const optionsFor = (questionId: string) =>
-	db.query.questionOptions.findMany({
-		where: { questionId },
-		orderBy: { sortOrder: "asc" },
+const DAY_MS = 24 * 60 * 60 * 1000
+
+describe("winTotalLockTime", () => {
+	const season = { regularSeasonStartsAt: new Date("2026-09-28T12:00:00Z") }
+
+	it("adds the league's grace window to opening day", () => {
+		expect(winTotalLockTime("nhl", season)).toEqual(
+			new Date("2026-10-26T12:00:00Z"),
+		)
+		expect(winTotalLockTime("nba", season)).toEqual(
+			new Date("2026-11-09T12:00:00Z"),
+		)
 	})
 
-async function awardQuestion(overrides = {}) {
-	return makeQuestion({
-		shape: "player_season_award",
-		awardName: "Rookie of the Year",
-		awardVerb: "win",
-		picksRequired: 1,
-		awardRookieOnly: true,
-		...overrides,
+	it("locks on opening day for a league without a format entry", () => {
+		expect(winTotalLockTime("wnba", season)).toEqual(
+			season.regularSeasonStartsAt,
+		)
 	})
-}
+})
 
-describe("reconcileAwardOptions", () => {
-	it("adds a player who joined the pool after the question was generated", async () => {
-		const question = await awardQuestion()
-		const alreadyIn = await makePlayer()
-		await makeOption(question.id, {
-			label: alreadyIn.name,
-			playerId: alreadyIn.id,
-			sortOrder: 0,
+describe("generateSeasonQuestions win totals", () => {
+	// An NHL league whose regular season opened `daysAgo` days back, with two
+	// teams and the Wins stat.
+	async function seedNhl(daysAgo: number) {
+		const league = await makeLeague({ slug: "nhl" })
+		const season = await makeSeason({
+			leagueId: league.id,
+			regularSeasonStartsAt: pastDate(24 * daysAgo),
 		})
-		const calledUp = await makePlayer({ name: "September Call-Up" })
-
-		await reconcileAwardOptions(question, [alreadyIn, calledUp] as Player[])
-
-		const options = await optionsFor(question.id)
-		expect(options.map((o) => o.label)).toEqual([
-			alreadyIn.name,
-			"September Call-Up",
-		])
-		// Appended rather than renumbered - an existing caller's list must not
-		// reshuffle under them mid-season.
-		expect(options.map((o) => o.sortOrder)).toEqual([0, 1])
-	})
-
-	it("drops an option nobody called once its player leaves the pool", async () => {
-		const question = await awardQuestion()
-		const staying = await makePlayer()
-		const leaving = await makePlayer()
-		await makeOption(question.id, {
-			label: staying.name,
-			playerId: staying.id,
-			sortOrder: 0,
-		})
-		await makeOption(question.id, {
-			label: leaving.name,
-			playerId: leaving.id,
-			sortOrder: 1,
-		})
-
-		await reconcileAwardOptions(question, [staying] as Player[])
-
-		const options = await optionsFor(question.id)
-		expect(options.map((o) => o.playerId)).toEqual([staying.id])
-	})
-
-	it("keeps an option that has already been called, pool or no pool", async () => {
-		const question = await awardQuestion()
-		const leaving = await makePlayer()
-		const option = await makeOption(question.id, {
-			label: leaving.name,
-			playerId: leaving.id,
-			sortOrder: 0,
-		})
+		await makeStat(
+			{ sportId: league.sportId, name: "Wins" },
+			{ toleranceMode: "absolute", toleranceValue: 4 },
+		)
+		for (const abbreviation of ["BOS", "TOR"]) {
+			await makeTeam({
+				leagueId: league.id,
+				abbreviation,
+				name: abbreviation,
+				conference: "East",
+				division: "Atlantic Division",
+			})
+		}
 		const user = await makeUser()
-		const call = await makeCall(question.id, user.id)
-		await makeSelection(call.id, option.id)
+		return { league, season, user }
+	}
 
-		await reconcileAwardOptions(question, [] as Player[])
+	function generate(leagueId: string, createdBy: string) {
+		return generateSeasonQuestions({
+			leagueId,
+			resolutionSource: "ESPN",
+			createdBy,
+			templates: [
+				{
+					shape: "team_season_stat_numeric_guess",
+					ballotGroup: "Win Totals",
+					statName: "Wins",
+					perTeam: true,
+				},
+			],
+		})
+	}
 
-		const options = await optionsFor(question.id)
-		expect(options.map((o) => o.id)).toEqual([option.id])
+	it("still generates them a few days into the season, locking at the end of the grace window", async () => {
+		const { league, season, user } = await seedNhl(5)
+		await generate(league.id, user.id)
+
+		const questions = await db.query.questions.findMany({
+			where: { leagueId: league.id, shape: "team_season_stat_numeric_guess" },
+		})
+		expect(questions).toHaveLength(2)
+		for (const question of questions) {
+			expect(question.locksAt).toEqual(
+				new Date(season.regularSeasonStartsAt.getTime() + 28 * DAY_MS),
+			)
+		}
 	})
 
-	it("leaves a locked question's option set alone", async () => {
-		const question = await awardQuestion({ status: "locked" })
-		const stale = await makePlayer()
-		await makeOption(question.id, {
-			label: stale.name,
-			playerId: stale.id,
-			sortOrder: 0,
+	it("skips them once the grace window has passed", async () => {
+		const { league, user } = await seedNhl(30)
+		await generate(league.id, user.id)
+
+		const questions = await db.query.questions.findMany({
+			where: { leagueId: league.id, shape: "team_season_stat_numeric_guess" },
 		})
-		const missing = await makePlayer()
-
-		await reconcileAwardOptions(question, [missing] as Player[])
-
-		const options = await optionsFor(question.id)
-		expect(options.map((o) => o.playerId)).toEqual([stale.id])
-	})
-
-	it("does not touch a hand-built option that carries no player", async () => {
-		const question = await awardQuestion()
-		const freeform = await makeOption(question.id, {
-			label: "Field",
-			sortOrder: 0,
+		expect(questions).toHaveLength(0)
+		const ballots = await db.query.ballots.findMany({
+			where: { leagueId: league.id },
 		})
-
-		await reconcileAwardOptions(question, [] as Player[])
-
-		const remaining = await db
-			.select()
-			.from(questionOptions)
-			.where(eq(questionOptions.id, freeform.id))
-		expect(remaining).toHaveLength(1)
+		expect(ballots).toHaveLength(0)
 	})
 })

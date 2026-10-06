@@ -7,6 +7,7 @@ import { defaultLossRate } from "@called-my-shot/scoring"
 import { inArray, sql } from "drizzle-orm"
 import { match } from "ts-pattern"
 import { db } from "../db"
+import { LEAGUE_SEASON_FORMAT } from "../db/catalog/league-season-format"
 import type { RecurringQuestionTemplate } from "../db/catalog/recurring-question-catalog"
 import {
 	ballots,
@@ -504,6 +505,18 @@ async function generateTeamSeasonAward(
 	return { created: 1, skipped: 0 }
 }
 
+// When a league's win totals lock: opening day plus its grace window. A
+// league without an entry locks on opening day.
+export function winTotalLockTime(
+	leagueSlug: string,
+	season: { regularSeasonStartsAt: Date },
+): Date {
+	const graceDays = LEAGUE_SEASON_FORMAT[leagueSlug]?.winTotalGraceDays ?? 0
+	return new Date(
+		season.regularSeasonStartsAt.getTime() + graceDays * 24 * 60 * 60 * 1000,
+	)
+}
+
 // One discriminated-union catalog (RecurringQuestionTemplate), one generic
 // engine - dispatched via ts-pattern so a future template kind is a union
 // member + a match arm here, not a new system. Templates sharing a
@@ -531,27 +544,26 @@ export async function generateSeasonQuestions(params: {
 	if (!season) return { created: 0, skipped: 0 }
 
 	// Two different lock times, not one shared locksAt - a win-total guess
-	// stops being a real prediction once the season starts (see the filter
-	// below), so it locks then. An award race is still genuinely open all
-	// season - callers can call an MVP/DPOY/etc. pick any time up to the
-	// season's end, they just score worse the later they call (the early-tier
-	// multiplier in packages/scoring, which is exactly why player_season_award/
-	// team_season_award are season-long shapes there). Locking an award at
-	// season start would make that whole mechanic pointless.
-	const winTotalLocksAt = season.regularSeasonStartsAt
+	// stays open for the league's grace window after opening day
+	// (LEAGUE_SEASON_FORMAT.winTotalGraceDays), then locks. An award race is
+	// still genuinely open all season - callers can call an MVP/DPOY/etc. pick
+	// any time up to the season's end, they just score worse the later they
+	// call (the early-tier multiplier in packages/scoring, which is exactly
+	// why player_season_award/team_season_award are season-long shapes
+	// there). Locking an award early would make that whole mechanic pointless.
+	const winTotalLocksAt = winTotalLockTime(league.slug, season)
 	const awardLocksAt = season.regularSeasonEndsAt
 
-	// A win-total-style guess stops being a real prediction once the season
-	// it's about has already started (by September, an MLB win total isn't a
-	// guess anymore) - filtered out here, before any ballot gets created for
-	// it, so a fully-skipped group never leaves behind an empty published
-	// ballot. Award shapes have no such cutoff - real award races are still
-	// genuinely open all season.
-	const seasonAlreadyStarted = new Date() >= season.regularSeasonStartsAt
+	// Past the grace window a win total isn't a guess anymore (by September,
+	// an MLB one is mostly arithmetic) - filtered out here, before any ballot
+	// gets created for it, so a fully-skipped group never leaves behind an
+	// empty published ballot. Award shapes have no such cutoff - real award
+	// races are still genuinely open all season.
+	const winTotalsClosed = new Date() >= winTotalLocksAt
 	const templates = params.templates.filter((t) => {
-		if (t.shape === "team_season_stat_numeric_guess" && seasonAlreadyStarted) {
+		if (t.shape === "team_season_stat_numeric_guess" && winTotalsClosed) {
 			console.log(
-				`[season-questions] skipping "${t.statName}" win-total generation for ${league.slug} - ${season.displayName} season already started`,
+				`[season-questions] skipping "${t.statName}" win-total generation for ${league.slug} - ${season.displayName} win totals locked ${winTotalLocksAt.toISOString()}`,
 			)
 			return false
 		}

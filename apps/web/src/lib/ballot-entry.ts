@@ -11,3 +11,23 @@ export function formatRecord(wins: number, losses: number): string {
 export function formatSignedPoints(points: number): string {
 	return `${points >= 0 ? "+" : "−"}${Math.abs(points)}`
 }
+
+// A win-totals ballot can be read as projected standings as well as a list
+// of picks. The ballot page is where picks get made, so it opens on its
+// questions and ?view=standings switches. An entry page is someone's ballot
+// to look at, so it opens on standings and ?view=picks switches. Any other
+// ballot has only the list, and ignores the param.
+export type BallotPageSearch = { view?: "standings" }
+export type BallotEntrySearch = { view?: "picks" }
+
+export function validateBallotPageSearch(
+	search: Record<string, unknown>,
+): BallotPageSearch {
+	return search.view === "standings" ? { view: "standings" } : {}
+}
+
+export function validateBallotEntrySearch(
+	search: Record<string, unknown>,
+): BallotEntrySearch {
+	return search.view === "picks" ? { view: "picks" } : {}
+}

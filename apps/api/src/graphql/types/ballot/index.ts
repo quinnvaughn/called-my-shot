@@ -7,6 +7,7 @@ import "./inputs"
 import "./queries"
 import "./mutations/ballot"
 import "./mutations/ballot-questions"
+import "./mutations/tiebreaks"
 
 // The public surface other modules build on - everything else stays internal
 // to this directory. The queries and mutations are registered by the

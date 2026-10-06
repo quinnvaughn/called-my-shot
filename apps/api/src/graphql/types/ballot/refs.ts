@@ -8,6 +8,7 @@ import {
 	type User,
 } from "../../../db/schema"
 import { type BallotEntry, loadBallotEntry } from "../../../lib/ballot-entry"
+import { loadTiebreakPositions } from "../../../lib/ballot-tiebreaks"
 import { parsePgTimestamp } from "../../../lib/pg-timestamp"
 import { builder } from "../../builder"
 import { type Connection, PageInfoRef } from "../pagination"
@@ -28,6 +29,18 @@ export const BallotQuestionRef = builder.drizzleObject("ballotQuestions", {
 		sortOrder: t.exposeInt("sortOrder"),
 		question: t.relation("question"),
 		ballot: t.relation("ballot"),
+		// Where the viewer put this team among the others they gave the same
+		// win total (see ballotTiebreaks). Null when signed out or never set.
+		viewerTiebreakPosition: t.loadable({
+			type: "Int",
+			nullable: true,
+			load: async (questionIds: string[], ctx) => {
+				if (!ctx.user) return questionIds.map(() => null)
+				const positions = await loadTiebreakPositions(ctx.user.id, questionIds)
+				return questionIds.map((id) => positions.get(id) ?? null)
+			},
+			resolve: (member) => member.questionId,
+		}),
 	}),
 })
 
@@ -60,18 +73,27 @@ const BallotCompletionSummaryRef = builder
 		}),
 	})
 
+type EntryMember = BallotEntry["members"][number] & {
+	tiebreakPosition: number | null
+}
+
 // One member of someone's filled-out ballot.
 const BallotEntryMemberRef = builder
-	.objectRef<BallotEntry["members"][number]>("BallotEntryMember")
+	.objectRef<EntryMember>("BallotEntryMember")
 	.implement({
 		fields: (t) => ({
 			member: t.field({ type: BallotQuestionRef, resolve: (m) => m.member }),
 			call: t.field({ type: CallRef, nullable: true, resolve: (m) => m.call }),
+			// The entry owner's tiebreak position for this member - see
+			// BallotQuestion.viewerTiebreakPosition.
+			tiebreakPosition: t.exposeInt("tiebreakPosition", { nullable: true }),
 		}),
 	})
 
 const BallotEntryRef = builder
-	.objectRef<BallotEntry & { user: User }>("BallotEntry")
+	.objectRef<
+		Omit<BallotEntry, "members"> & { members: EntryMember[]; user: User }
+	>("BallotEntry")
 	.implement({
 		fields: (t) => ({
 			user: t.field({ type: UserRef, resolve: (e) => e.user }),
@@ -281,7 +303,19 @@ export const BallotRef = builder.drizzleObject("ballots", {
 				})
 				if (!user) return null
 				const entry = await loadBallotEntry(ballot.id, user.id)
-				return entry ? { ...entry, user } : null
+				if (!entry) return null
+				const positions = await loadTiebreakPositions(
+					user.id,
+					entry.members.map((m) => m.member.questionId),
+				)
+				return {
+					...entry,
+					members: entry.members.map((m) => ({
+						...m,
+						tiebreakPosition: positions.get(m.member.questionId) ?? null,
+					})),
+					user,
+				}
 			},
 		}),
 	}),

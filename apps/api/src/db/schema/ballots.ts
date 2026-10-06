@@ -133,3 +133,30 @@ export const ballotQuestions = pgTable(
 	],
 )
 export type BallotQuestion = typeof ballotQuestions.$inferSelect
+
+// One user's order for teams they gave the same win total on a win-totals
+// ballot - the projected standings view's tiebreaker, since a single wins
+// number can't feed a league's real ones (head-to-head, division record).
+// Display only: nothing scores off this, which is why it stays out of calls.
+// position is only ever compared among members currently tied in one
+// conference, so a row left behind by a pick that has since changed is inert
+// rather than wrong.
+export const ballotTiebreaks = pgTable(
+	"ballot_tiebreaks",
+	{
+		id: uuid("id").primaryKey().defaultRandom(),
+		ballotId: uuid("ballot_id")
+			.notNull()
+			.references(() => ballots.id, { onDelete: "cascade" }),
+		userId: uuid("user_id")
+			.notNull()
+			.references(() => users.id, { onDelete: "cascade" }),
+		questionId: uuid("question_id")
+			.notNull()
+			.references(() => questions.id, { onDelete: "cascade" }),
+		position: integer("position").notNull(),
+		updatedAt: timestamp("updated_at").notNull().defaultNow(),
+	},
+	(t) => [unique().on(t.ballotId, t.userId, t.questionId)],
+)
+export type BallotTiebreak = typeof ballotTiebreaks.$inferSelect

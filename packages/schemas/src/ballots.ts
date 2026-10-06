@@ -45,3 +45,16 @@ export const updateBallotQuestionSchema = z.object({
 export type UpdateBallotQuestionInput = z.infer<
 	typeof updateBallotQuestionSchema
 >
+
+// A run of win-total picks the user gave the same number, in the order they
+// want them to finish in their projected standings - first is highest.
+export const setBallotTiebreakOrderSchema = z.object({
+	ballotId: z.string().uuid(),
+	questionIds: z
+		.array(z.string().uuid())
+		.min(2, "Only tied teams need an order")
+		.refine((ids) => new Set(ids).size === ids.length, "A team is listed twice"),
+})
+export type SetBallotTiebreakOrderInput = z.infer<
+	typeof setBallotTiebreakOrderSchema
+>

@@ -19,6 +19,9 @@ export const BallotByRefDocument = graphql(`
 				name
 				abbreviation
 				slug
+				seasonFormat {
+					gamesPerSeason
+				}
 			}
 			memberCount
 			viewerCalledCount
@@ -27,14 +30,31 @@ export const BallotByRefDocument = graphql(`
 			}
 			members {
 				...BallotPositionRow_member
+				# The projected standings view on a win-totals ballot.
+				viewerTiebreakPosition
 				question {
 					id
+					stat {
+						id
+						name
+					}
+					subjectTeam {
+						id
+						name
+						abbreviation
+						color
+						logoUrl
+						conference
+						division
+					}
 					# Read by the page itself (progress stats, share text), not
 					# just the row, so selected here rather than left masked.
 					viewerCall {
 						id
 						hitTolerance
 						totalPoints
+						guessValue
+						conviction
 						selections {
 							id
 							option {
@@ -66,6 +86,9 @@ export const BallotEntryDocument = graphql(`
 				name
 				abbreviation
 				slug
+				seasonFormat {
+					gamesPerSeason
+				}
 			}
 			entry(username: $username) {
 				calledCount
@@ -88,12 +111,28 @@ export const BallotEntryDocument = graphql(`
 							id
 							status
 							locksAt
+							stat {
+								id
+								name
+							}
+							subjectTeam {
+								id
+								name
+								abbreviation
+								color
+								logoUrl
+								conference
+								division
+							}
 						}
 					}
 					call {
 						id
+						guessValue
+						conviction
 						...CallCard_call
 					}
+					tiebreakPosition
 				}
 			}
 		}

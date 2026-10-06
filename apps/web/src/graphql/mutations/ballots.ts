@@ -242,3 +242,25 @@ export const ReorderBallotQuestionsDocument = graphql(`
 		}
 	}
 `)
+
+// Orders a run of the viewer's win-total picks that share a number, for the
+// projected standings view. First id finishes highest.
+export const SetBallotTiebreakOrderDocument = graphql(`
+	mutation SetBallotTiebreakOrder($ballotId: ID!, $questionIds: [ID!]!) {
+		setBallotTiebreakOrder(ballotId: $ballotId, questionIds: $questionIds) {
+			__typename
+			... on MutationSetBallotTiebreakOrderSuccess {
+				data
+			}
+			... on AuthenticationError {
+				message
+			}
+			... on NotFoundError {
+				message
+			}
+			... on ValidationError {
+				message
+			}
+		}
+	}
+`)

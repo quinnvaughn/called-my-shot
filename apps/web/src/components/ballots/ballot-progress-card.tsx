@@ -1,3 +1,4 @@
+import type { ReactNode } from "react"
 import { css } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
 import { match, P } from "ts-pattern"
@@ -11,6 +12,9 @@ type Props = {
 	offFieldCount: number
 	contestedCount: number
 	fullBallotCount: number
+	// The viewer's own link out to their picks, and the share for it. Same
+	// footer the entry page's summary card carries.
+	footer?: ReactNode
 }
 
 export function StatTile({
@@ -57,6 +61,7 @@ export function BallotProgressCard({
 	offFieldCount,
 	contestedCount,
 	fullBallotCount,
+	footer,
 }: Props) {
 	const pct = memberCount === 0 ? 0 : Math.round((calledCount / memberCount) * 100)
 
@@ -126,6 +131,13 @@ export function BallotProgressCard({
 					</HStack>
 				</VStack>
 			</Card.Body>
+			{footer && (
+				<Card.Footer>
+					<HStack justify="space-between" gap="3" width="full">
+						{footer}
+					</HStack>
+				</Card.Footer>
+			)}
 		</Card>
 	)
 }
