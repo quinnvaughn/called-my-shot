@@ -18,6 +18,8 @@ export type StandingsTeamInput = {
 	wins: number | null
 	tiebreakPosition: number | null
 	conviction: number | null
+	// What the pick said before a Rebalance first moved it.
+	rebalancedFrom: number | null
 	// The call a row links to. Null links the team's question instead: an
 	// unpicked team, or the viewer's own ballot page, where the question is
 	// where a pick gets made or changed.
@@ -401,6 +403,7 @@ export function standingsTeams(
 		wins: number | null | undefined
 		tiebreakPosition: number | null | undefined
 		conviction: number | null | undefined
+		rebalancedFrom: number | null | undefined
 		callId: string | null | undefined
 	}[],
 ): StandingsTeamInput[] | null {
@@ -414,6 +417,7 @@ export function standingsTeams(
 			wins: member.wins ?? null,
 			tiebreakPosition: member.tiebreakPosition ?? null,
 			conviction: member.conviction ?? null,
+			rebalancedFrom: member.rebalancedFrom ?? null,
 			callId: member.callId ?? null,
 		})
 	}

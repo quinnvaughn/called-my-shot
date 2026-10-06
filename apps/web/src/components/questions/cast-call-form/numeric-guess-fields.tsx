@@ -8,6 +8,10 @@ import { FieldLabel } from "#/components/ui/field-label"
 import { FormError } from "#/components/ui/form-error"
 import { Slider } from "#/components/ui/slider"
 import { formatGuess } from "#/lib/field-signal"
+import {
+	type WinTotalBudget,
+	winTotalTrackerLine,
+} from "#/lib/win-total-tracker"
 import { GuessDistributionChart } from "../guess-distribution-chart"
 import { PointsPreview } from "../points-preview"
 import { CaseField } from "./case-field"
@@ -203,6 +207,30 @@ function GuessValueInput({
 	)
 }
 
+// Where this pick puts the viewer's win-totals ballot against the wins the
+// schedule actually hands out, updating as the guess moves.
+function WinTotalTracker({
+	budget,
+	guess,
+}: {
+	budget: WinTotalBudget
+	guess: number
+}) {
+	const { text, off } = winTotalTrackerLine(budget, guess)
+	return (
+		<span
+			className={css({
+				fontSize: "sm",
+				textAlign: "center",
+				color: off ? "warning.default" : "fg.muted",
+				maxWidth: "md",
+			})}
+		>
+			{text}
+		</span>
+	)
+}
+
 export function NumericGuessFields({ callForm }: Props) {
 	const {
 		question,
@@ -216,6 +244,7 @@ export function NumericGuessFields({ callForm }: Props) {
 		guessBuckets,
 		averageGuess,
 		isRateStat,
+		winTotalBudget,
 	} = callForm
 	const numericConviction = form.useWatch("conviction")
 	const stepSizes = isRateStat
@@ -271,6 +300,9 @@ export function NumericGuessFields({ callForm }: Props) {
 									))}
 								</HStack>
 							</HStack>
+							{winTotalBudget && guessValue !== undefined && (
+								<WinTotalTracker budget={winTotalBudget} guess={guessValue} />
+							)}
 							{toleranceBand !== null && (
 								<VStack
 									gap="0.5"

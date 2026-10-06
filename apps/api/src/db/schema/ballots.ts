@@ -1,6 +1,7 @@
 import {
 	index,
 	integer,
+	numeric,
 	pgEnum,
 	pgTable,
 	text,
@@ -8,6 +9,7 @@ import {
 	unique,
 	uuid,
 } from "drizzle-orm/pg-core"
+import { calls } from "./calls"
 import { questions } from "./questions"
 import { leagues, seasons, sports } from "./sports"
 import { users } from "./users"
@@ -160,3 +162,34 @@ export const ballotTiebreaks = pgTable(
 	(t) => [unique().on(t.ballotId, t.userId, t.questionId)],
 )
 export type BallotTiebreak = typeof ballotTiebreaks.$inferSelect
+
+// One row per pick a Rebalance moved: a win-totals ballot whose picks add up
+// to more (or fewer) wins than the schedule hands out can be brought back
+// toward it, one direction only (rebalanceWinTotals). The call itself holds
+// the new number; this keeps what it said before, so the change stays on
+// the record.
+export const callRebalances = pgTable(
+	"call_rebalances",
+	{
+		id: uuid("id").primaryKey().defaultRandom(),
+		callId: uuid("call_id")
+			.notNull()
+			.references(() => calls.id, { onDelete: "cascade" }),
+		ballotId: uuid("ballot_id")
+			.notNull()
+			.references(() => ballots.id, { onDelete: "cascade" }),
+		fromGuessValue: numeric("from_guess_value", {
+			precision: 8,
+			scale: 3,
+			mode: "number",
+		}).notNull(),
+		toGuessValue: numeric("to_guess_value", {
+			precision: 8,
+			scale: 3,
+			mode: "number",
+		}).notNull(),
+		createdAt: timestamp("created_at").notNull().defaultNow(),
+	},
+	(t) => [index("call_rebalances_call_id_idx").on(t.callId)],
+)
+export type CallRebalance = typeof callRebalances.$inferSelect

@@ -44,6 +44,7 @@ import {
 import { computeBallotProgressStats } from "#/lib/ballot-progress-stats"
 import { pageMeta } from "#/lib/meta"
 import { standingsTeams } from "#/lib/projected-standings"
+import { leagueWins } from "#/lib/win-total-tracker"
 import { questionDetailState } from "#/lib/question-detail-state"
 import { isUuid } from "#/lib/uuid"
 
@@ -137,6 +138,7 @@ function RouteComponent() {
 			wins: m.question.viewerCall?.guessValue,
 			tiebreakPosition: m.viewerTiebreakPosition,
 			conviction: m.question.viewerCall?.conviction,
+			rebalancedFrom: m.question.viewerCall?.rebalancedFrom,
 			callId: null,
 		})),
 	)
@@ -220,6 +222,14 @@ function RouteComponent() {
 				offFieldCount={stats.offFieldCount}
 				contestedCount={stats.contestedCount}
 				fullBallotCount={completions?.count ?? 0}
+				winsHandedOut={
+					showStandings && gamesPerSeason && ballot.viewerGuessSum != null
+						? {
+								total: ballot.viewerGuessSum,
+								target: leagueWins(gamesPerSeason, ballot.memberCount),
+							}
+						: null
+				}
 				footer={
 					me &&
 					stats.calledCount > 0 && (

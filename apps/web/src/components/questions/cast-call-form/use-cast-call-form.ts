@@ -10,6 +10,7 @@ import { match } from "ts-pattern"
 import { FirstCallDoneModal } from "#/components/onboarding/first-call-done-modal"
 import { type FragmentType, graphql, useFragment } from "#/graphql/generated"
 import { useGqlMutation } from "#/graphql/hooks"
+import type { WinTotalBudget } from "#/lib/win-total-tracker"
 import { CastCallDocument, RedoCallDocument } from "#/graphql/mutations/calls"
 import { type CallSurface, questionHorizon, track } from "#/lib/analytics"
 import { isRateStat as computeIsRateStat } from "#/lib/field-signal"
@@ -51,8 +52,20 @@ export const CastCallFormFragment = graphql(`
 		customStat
 		league {
 			id
+			abbreviation
 			seasonFormat {
 				gamesPerSeason
+			}
+		}
+		# The viewer's running total on a win-totals ballot (see
+		# winTotalBudget below).
+		ballotMembership {
+			id
+			ballot {
+				id
+				memberCount
+				viewerCalledCount
+				viewerGuessSum
 			}
 		}
 		sport {
@@ -291,6 +304,27 @@ export function useCastCallForm(
 	// guesses exist - this just covers the gap before any do.
 	const isWinTotalGuess = question?.stat?.name === "Wins"
 	const gamesPerSeason = question?.league?.seasonFormat?.gamesPerSeason ?? null
+
+	// The viewer's other picks on the same win-totals ballot, so the form can
+	// say where this pick puts their total against what the schedule hands
+	// out. A redo replaces a pick already counted in the sum, so it comes back
+	// out. Null off a win-totals ballot, or signed out.
+	const ballot = question?.ballotMembership?.ballot
+	const winTotalBudget: WinTotalBudget | null =
+		isWinTotalGuess &&
+		gamesPerSeason != null &&
+		ballot &&
+		ballot.viewerGuessSum != null &&
+		question?.league
+			? {
+					leagueAbbreviation: question.league.abbreviation,
+					gamesPerSeason,
+					teamCount: ballot.memberCount,
+					otherPicksSum:
+						ballot.viewerGuessSum - (redo?.current.guessValue ?? 0),
+					otherPicksCount: (ballot.viewerCalledCount ?? 0) - (redo ? 1 : 0),
+				}
+			: null
 
 	// castCallSchema itself only requires player_season_award/
 	// team_season_award to have >=1 pick - the comment on its own branch for
@@ -563,6 +597,7 @@ export function useCastCallForm(
 		focusCaseText,
 		guessStep,
 		setGuessStep,
+		winTotalBudget,
 	}
 }
 

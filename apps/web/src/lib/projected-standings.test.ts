@@ -25,6 +25,7 @@ function conference(
 			wins,
 			tiebreakPosition: positions[abbreviation] ?? null,
 			conviction: null,
+			rebalancedFrom: null,
 			callId: null,
 		})),
 	)

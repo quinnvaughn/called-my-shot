@@ -58,3 +58,19 @@ export const setBallotTiebreakOrderSchema = z.object({
 export type SetBallotTiebreakOrderInput = z.infer<
 	typeof setBallotTiebreakOrderSchema
 >
+
+// A win-totals ballot's Rebalance: new numbers for some of the user's picks,
+// checked against the schedule's total server-side (rebalanceProblem in
+// apps/api/src/lib/rebalance.ts).
+export const rebalanceWinTotalsSchema = z.object({
+	ballotId: z.string().uuid(),
+	changes: z
+		.array(
+			z.object({
+				questionId: z.string().uuid(),
+				guessValue: z.number(),
+			}),
+		)
+		.min(1, "Change at least one pick"),
+})
+export type RebalanceWinTotalsInput = z.infer<typeof rebalanceWinTotalsSchema>

@@ -137,6 +137,7 @@ function RouteComponent() {
 			wins: m.call?.guessValue,
 			tiebreakPosition: m.tiebreakPosition,
 			conviction: m.call?.conviction,
+			rebalancedFrom: m.call?.rebalancedFrom,
 			callId: m.call?.id,
 		})),
 	)
@@ -275,6 +276,21 @@ function RouteComponent() {
 						>
 							Order your tied teams on the ballot →
 						</Link>
+					}
+					rebalanceElsewhere={
+						isOwn &&
+						entry.members.every((m) =>
+							questionDetailState(m.member.question).canCall,
+						) && (
+							<Link
+								to="/ballots/$ballotSlug"
+								params={{ ballotSlug: ballot.slug }}
+								search={{ view: "standings" }}
+								className={arrowLink({ tone: "primary" })}
+							>
+								Rebalance on the ballot →
+							</Link>
+						)
 					}
 				/>
 			) : (

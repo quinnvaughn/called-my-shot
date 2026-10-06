@@ -264,3 +264,28 @@ export const SetBallotTiebreakOrderDocument = graphql(`
 		}
 	}
 `)
+
+// Brings a finished win-totals ballot back toward the wins the schedule hands
+// out, one direction only (see rebalanceWinTotals).
+export const RebalanceWinTotalsDocument = graphql(`
+	mutation RebalanceWinTotals(
+		$ballotId: ID!
+		$changes: [RebalanceChangeInput!]!
+	) {
+		rebalanceWinTotals(ballotId: $ballotId, changes: $changes) {
+			__typename
+			... on MutationRebalanceWinTotalsSuccess {
+				data
+			}
+			... on AuthenticationError {
+				message
+			}
+			... on NotFoundError {
+				message
+			}
+			... on ValidationError {
+				message
+			}
+		}
+	}
+`)

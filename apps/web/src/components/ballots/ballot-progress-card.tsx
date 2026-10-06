@@ -12,6 +12,9 @@ type Props = {
 	offFieldCount: number
 	contestedCount: number
 	fullBallotCount: number
+	// On a win-totals ballot: the wins the viewer's picks hand out, against
+	// the total the schedule has (see lib/win-total-tracker.ts).
+	winsHandedOut?: { total: number; target: number } | null
 	// The viewer's own link out to their picks, and the share for it. Same
 	// footer the entry page's summary card carries.
 	footer?: ReactNode
@@ -61,6 +64,7 @@ export function BallotProgressCard({
 	offFieldCount,
 	contestedCount,
 	fullBallotCount,
+	winsHandedOut,
 	footer,
 }: Props) {
 	const pct = memberCount === 0 ? 0 : Math.round((calledCount / memberCount) * 100)
@@ -128,6 +132,12 @@ export function BallotProgressCard({
 						<StatTile value={offFieldCount} label="OFF THE FIELD" />
 						<StatTile value={contestedCount} label="CONTESTED" />
 						<StatTile value={fullBallotCount} label="FULL BALLOTS" />
+						{winsHandedOut && (
+							<StatTile
+								value={winsHandedOut.total}
+								label={`OF ${winsHandedOut.target} WINS`}
+							/>
+						)}
 					</HStack>
 				</VStack>
 			</Card.Body>

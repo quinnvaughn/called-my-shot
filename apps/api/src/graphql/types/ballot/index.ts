@@ -7,6 +7,7 @@ import "./inputs"
 import "./queries"
 import "./mutations/ballot"
 import "./mutations/ballot-questions"
+import "./mutations/rebalance"
 import "./mutations/tiebreaks"
 
 // The public surface other modules build on - everything else stays internal

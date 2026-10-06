@@ -177,6 +177,37 @@ export const BallotRef = builder.drizzleObject("ballots", {
 			},
 			resolve: (ballot) => ballot.id,
 		}),
+		// The viewer's guesses across this ballot added up - on a win-totals
+		// ballot, how many of the league's wins they've handed out so far,
+		// which the pick form and progress card hold up against what the
+		// schedule allows. Null when signed out, 0 before any numeric pick.
+		viewerGuessSum: t.loadable({
+			type: "Float",
+			nullable: true,
+			load: async (ballotIds: string[], ctx) => {
+				if (!ctx.user) return ballotIds.map(() => null)
+				const rows = await db
+					.select({
+						ballotId: ballotQuestions.ballotId,
+						total: sql<string | null>`sum(${calls.guessValue})`,
+					})
+					.from(ballotQuestions)
+					.innerJoin(
+						calls,
+						and(
+							eq(calls.questionId, ballotQuestions.questionId),
+							eq(calls.userId, ctx.user.id),
+						),
+					)
+					.where(inArray(ballotQuestions.ballotId, ballotIds))
+					.groupBy(ballotQuestions.ballotId)
+				const byId = new Map(
+					rows.map((r) => [r.ballotId, Number(r.total ?? 0)]),
+				)
+				return ballotIds.map((id) => byId.get(id) ?? 0)
+			},
+			resolve: (ballot) => ballot.id,
+		}),
 		// Soonest still-upcoming lock among this ballot's member questions -
 		// null once every member has already locked. The ballot itself has no
 		// locksAt of its own (it's an editorial container, not a scoring unit -

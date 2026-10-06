@@ -10,7 +10,9 @@ import {
 	STREAK_FAMILY_LABEL,
 	seasonEarlyTierFor,
 } from "@called-my-shot/scoring"
-import type { Call } from "../../../db/schema"
+import { asc, inArray } from "drizzle-orm"
+import { db } from "../../../db"
+import { type Call, callRebalances } from "../../../db/schema"
 import { builder } from "../../builder"
 import type { Context } from "../../context"
 import { type Connection, PageInfoRef } from "../pagination"
@@ -179,6 +181,28 @@ export const CallRef = builder.drizzleObject("calls", {
 		// numeric_guess only - everything else scores through selections
 		guessValue: t.exposeFloat("guessValue", { nullable: true }),
 		conviction: t.exposeInt("conviction", { nullable: true }),
+		// What a win-total pick said before a Rebalance first moved it (see
+		// call_rebalances). Null for a pick that was never rebalanced.
+		rebalancedFrom: t.loadable({
+			type: "Float",
+			nullable: true,
+			load: async (callIds: string[]) => {
+				const rows = await db
+					.select({
+						callId: callRebalances.callId,
+						fromGuessValue: callRebalances.fromGuessValue,
+					})
+					.from(callRebalances)
+					.where(inArray(callRebalances.callId, callIds))
+					.orderBy(asc(callRebalances.createdAt))
+				const first = new Map<string, number>()
+				for (const row of rows) {
+					if (!first.has(row.callId)) first.set(row.callId, row.fromGuessValue)
+				}
+				return callIds.map((id) => first.get(id) ?? null)
+			},
+			resolve: (call) => call.id,
+		}),
 		hitTolerance: t.exposeBoolean("hitTolerance", { nullable: true }),
 		// numeric_guess only - the actual closeness multiplier (see
 		// numericGuessPoints/TIER_MIN_MULT/TIER_MAX_MULT in

@@ -1,14 +1,18 @@
 import { Link } from "@tanstack/react-router"
 import { Fragment, type ReactNode, useState } from "react"
-import { FiChevronDown, FiChevronUp } from "react-icons/fi"
+import { FiChevronDown, FiChevronUp, FiMinus, FiPlus } from "react-icons/fi"
 import { css } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
 import { match } from "ts-pattern"
 import { BallotSectionHeading } from "#/components/ballots/ballot-section-heading"
+import { Button } from "#/components/ui/button"
 import { Card } from "#/components/ui/card"
 import { ChipButton } from "#/components/ui/chip-button"
 import { TeamBadge } from "#/components/ui/team-badge"
-import { SetBallotTiebreakOrderDocument } from "#/graphql/mutations/ballots"
+import {
+	RebalanceWinTotalsDocument,
+	SetBallotTiebreakOrderDocument,
+} from "#/graphql/mutations/ballots"
 import { useGqlMutation } from "#/graphql/hooks"
 import {
 	projectStandings,
@@ -17,6 +21,7 @@ import {
 	type StandingsTeamInput,
 	tiebreakOrderAfterMove,
 } from "#/lib/projected-standings"
+import { leagueWins } from "#/lib/win-total-tracker"
 import { showToast } from "#/stores/toast-store"
 
 type Props = {
@@ -31,10 +36,21 @@ type Props = {
 	ownerLabel: string
 	// Set where ties are ordered in place (the ballot page). Null on a page
 	// that only shows standings, which gets `orderElsewhere` instead.
-	editing: { ballotId: string; onSaved: () => void } | null
+	editing: { ballotId: string; onSaved: () => Promise<unknown> | void } | null
 	// Shown in place of the arrows when the viewer has a tie they could order
 	// somewhere else.
 	orderElsewhere?: ReactNode
+	// Shown under an off total when the viewer could rebalance it somewhere
+	// else.
+	rebalanceElsewhere?: ReactNode
+}
+
+// One row's stepper while rebalancing. Null where the row can't move that
+// way: past what the rebalance has left, or back beyond its saved pick.
+type Adjust = {
+	original: number
+	down: (() => void) | null
+	up: (() => void) | null
 }
 
 // Moves a row past the one below it or above it in its table. Null where
@@ -56,16 +72,40 @@ export function ProjectedStandings({
 	ownerLabel,
 	editing,
 	orderElsewhere,
+	rebalanceElsewhere,
 }: Props) {
 	// Tie orders set here and not yet reflected in `teams`.
 	const [pending, setPending] = useState<Map<string, number>>(new Map())
 	const setOrder = useGqlMutation(SetBallotTiebreakOrderDocument)
+	const rebalanceMutation = useGqlMutation(RebalanceWinTotalsDocument)
 	const [conferenceKey, setConferenceKey] = useState<string | null>(null)
+	// The numbers a rebalance in progress has moved picks to, keyed by
+	// questionId. Null when not rebalancing.
+	const [draft, setDraft] = useState<Map<string, number> | null>(null)
+
+	// Measured on the saved picks, not the draft: how far off the ballot is
+	// is what a rebalance is allowed to make up.
+	const target = leagueWins(gamesPerSeason, teams.length)
+	const savedTotal = teams.reduce((sum, t) => sum + (t.wins ?? 0), 0)
+	const off = savedTotal - target
+	const allPicked = teams.every((t) => t.wins !== null)
+	const canRebalance =
+		editing !== null &&
+		allPicked &&
+		off !== 0 &&
+		teams.every((t) => reorderableQuestionIds.has(t.questionId))
 
 	const current = teams.map((team) => ({
 		...team,
+		wins: draft?.get(team.questionId) ?? team.wins,
 		tiebreakPosition: pending.get(team.questionId) ?? team.tiebreakPosition,
 	}))
+	const moved = teams.reduce(
+		(sum, t) =>
+			sum + Math.abs((draft?.get(t.questionId) ?? t.wins ?? 0) - (t.wins ?? 0)),
+		0,
+	)
+	const budgetLeft = Math.abs(off) - moved
 	const standings = projectStandings({
 		leagueSlug,
 		gamesPerSeason,
@@ -119,6 +159,7 @@ export function ProjectedStandings({
 		}
 	}
 	const movesFor = (section: StandingsSection, i: number): MoveHandlers => {
+		if (draft) return { up: null, down: null }
 		const { above, below } = neighbours(section, i)
 		const id = section.rows[i].team.questionId
 		return {
@@ -139,25 +180,111 @@ export function ProjectedStandings({
 		}),
 	)
 
-	const off = standings.projectedWins - standings.leagueWins
-	const allPicked = standings.pickedCount === standings.teamCount
+	const adjustFor = (row: StandingsRow): Adjust | null => {
+		if (!draft || row.wins === null) return null
+		const original = teams.find(
+			(t) => t.questionId === row.team.questionId,
+		)?.wins
+		if (original == null) return null
+		const value = row.wins
+		const set = (next: number) =>
+			setDraft((existing) => {
+				const updated = new Map(existing ?? [])
+				if (next === original) updated.delete(row.team.questionId)
+				else updated.set(row.team.questionId, next)
+				return updated
+			})
+		// Over the schedule: picks only come down, and back up as far as
+		// where they started. Under it, the mirror image.
+		return off > 0
+			? {
+					original,
+					down: budgetLeft > 0 && value > 0 ? () => set(value - 1) : null,
+					up: value < original ? () => set(value + 1) : null,
+				}
+			: {
+					original,
+					down: value > original ? () => set(value - 1) : null,
+					up:
+						budgetLeft > 0 && value < gamesPerSeason
+							? () => set(value + 1)
+							: null,
+				}
+	}
+
+	async function saveRebalance() {
+		if (!editing || !draft) return
+		const changes = [...draft.entries()].map(([questionId, guessValue]) => ({
+			questionId,
+			guessValue,
+		}))
+		if (changes.length === 0) {
+			setDraft(null)
+			return
+		}
+		try {
+			const { rebalanceWinTotals: result } =
+				await rebalanceMutation.mutateAsync({
+					ballotId: editing.ballotId,
+					changes,
+				})
+			if (result.__typename !== "MutationRebalanceWinTotalsSuccess") {
+				throw new Error(result.message ?? "Couldn't save the rebalance.")
+			}
+			await editing.onSaved()
+			setDraft(null)
+		} catch (caught) {
+			showToast({
+				message:
+					caught instanceof Error
+						? caught.message
+						: "Couldn't save the rebalance.",
+			})
+		}
+	}
 
 	return (
 		<VStack gap="6" alignItems="stretch">
-			<VStack gap="1" alignItems="flex-start">
-				<span className={css({ fontSize: "sm", color: "fg.muted" })}>
-					{allPicked
-						? `${ownerLabel} add up to ${standings.projectedWins} wins. A full ${leagueAbbreviation} season has exactly ${standings.leagueWins}, one per game.`
-						: `${standings.pickedCount} of ${standings.teamCount} teams picked. Unpicked teams sit at the bottom of their group.`}
-				</span>
-				{allPicked && off !== 0 && (
-					<span className={css({ fontSize: "sm", color: "warning.default" })}>
-						{off > 0
-							? `That's ${off} more ${off === 1 ? "win" : "wins"} than the schedule allows.`
-							: `That's ${-off} ${off === -1 ? "win" : "wins"} short of what the schedule hands out.`}
-					</span>
-				)}
-			</VStack>
+			{draft ? (
+				<RebalancePanel
+					off={off}
+					moved={moved}
+					target={target}
+					saving={rebalanceMutation.isPending}
+					onCancel={() => setDraft(null)}
+					onSave={saveRebalance}
+				/>
+			) : (
+				<VStack gap="2" alignItems="flex-start">
+					<VStack gap="1" alignItems="flex-start">
+						<span className={css({ fontSize: "sm", color: "fg.muted" })}>
+							{allPicked
+								? `${ownerLabel} add up to ${savedTotal} wins. A full ${leagueAbbreviation} season has exactly ${target}, one per game.`
+								: `${standings.pickedCount} of ${standings.teamCount} teams picked. Unpicked teams sit at the bottom of their group.`}
+						</span>
+						{allPicked && off !== 0 && (
+							<span
+								className={css({ fontSize: "sm", color: "warning.default" })}
+							>
+								{off > 0
+									? `That's ${off} more ${off === 1 ? "win" : "wins"} than the schedule allows.`
+									: `That's ${-off} ${off === -1 ? "win" : "wins"} short of what the schedule hands out.`}
+							</span>
+						)}
+					</VStack>
+					{canRebalance ? (
+						<Button
+							variant="outline"
+							size="sm"
+							onClick={() => setDraft(new Map())}
+						>
+							Rebalance
+						</Button>
+					) : (
+						allPicked && off !== 0 && rebalanceElsewhere
+					)}
+				</VStack>
+			)}
 
 			{standings.conferences.length > 1 && (
 				<HStack gap="2" flexWrap="wrap">
@@ -185,6 +312,7 @@ export function ProjectedStandings({
 						</span>
 					)}
 					{hasTies &&
+						!draft &&
 						(editing ? (
 							<span className={css({ fontSize: "xs", color: "fg.subtle" })}>
 								Teams on the same win total go alphabetically until you
@@ -201,6 +329,7 @@ export function ProjectedStandings({
 									section={section}
 									showLosses={standings.showLosses}
 									movesFor={movesFor}
+									adjustFor={adjustFor}
 								/>
 							))}
 						</VStack>
@@ -215,10 +344,12 @@ function SectionRows({
 	section,
 	showLosses,
 	movesFor,
+	adjustFor,
 }: {
 	section: StandingsSection
 	showLosses: boolean
 	movesFor: (section: StandingsSection, i: number) => MoveHandlers
+	adjustFor: (row: StandingsRow) => Adjust | null
 }) {
 	// A line under the last row says nothing the end of the table doesn't.
 	const lineAfter = new Map(
@@ -235,6 +366,7 @@ function SectionRows({
 						row={row}
 						showLosses={showLosses}
 						moves={movesFor(section, i)}
+						adjust={adjustFor(row)}
 					/>
 					{lineAfter.has(i) && <CutLine label={lineAfter.get(i) ?? ""} />}
 				</Fragment>
@@ -275,18 +407,31 @@ function statusLabel(row: StandingsRow): string | null {
 		.exhaustive()
 }
 
+// Where a pick's number came from, when it isn't simply what was called: a
+// draft move against the saved pick, or a saved Rebalance.
+function changeNote(row: StandingsRow, adjust: Adjust | null): string | null {
+	if (adjust) {
+		return row.wins !== adjust.original ? `was ${adjust.original}` : null
+	}
+	const from = row.team.rebalancedFrom
+	return from !== null && from !== row.wins ? `rebalanced from ${from}` : null
+}
+
 function StandingsRowView({
 	row,
 	showLosses,
 	moves,
+	adjust,
 }: {
 	row: StandingsRow
 	showLosses: boolean
 	moves: MoveHandlers
+	adjust: Adjust | null
 }) {
 	const picked = row.wins !== null
 	const detail = [
 		statusLabel(row),
+		changeNote(row, adjust),
 		row.team.conviction === null ? null : `${row.team.conviction}% conviction`,
 	]
 		.filter((part) => part !== null)
@@ -347,6 +492,7 @@ function StandingsRowView({
 					)}
 				</VStack>
 			</TeamLink>
+			{adjust && <AdjustButtons name={row.team.name} adjust={adjust} />}
 			{movable && (
 				<VStack gap="0.5" flexShrink="0">
 					<MoveButton label={`Move ${row.team.name} up`} onClick={moves.up}>
@@ -389,6 +535,107 @@ function StandingsRowView({
 				{row.seed ?? ""}
 			</span>
 		</HStack>
+	)
+}
+
+const stepperButtonClass = css({
+	display: "inline-flex",
+	alignItems: "center",
+	justifyContent: "center",
+	width: "7",
+	height: "7",
+	borderRadius: "md",
+	border: "1px solid {colors.border.default}",
+	backgroundColor: "bg.surface",
+	color: "fg.default",
+	cursor: "pointer",
+	_hover: { borderColor: "border.emphasized" },
+	_disabled: { opacity: 0.3, cursor: "default" },
+})
+
+function AdjustButtons({ name, adjust }: { name: string; adjust: Adjust }) {
+	return (
+		<HStack gap="1" flexShrink="0">
+			<button
+				type="button"
+				aria-label={`One fewer win for ${name}`}
+				disabled={adjust.down === null}
+				onClick={adjust.down ?? undefined}
+				className={stepperButtonClass}
+			>
+				<FiMinus />
+			</button>
+			<button
+				type="button"
+				aria-label={`One more win for ${name}`}
+				disabled={adjust.up === null}
+				onClick={adjust.up ?? undefined}
+				className={stepperButtonClass}
+			>
+				<FiPlus />
+			</button>
+		</HStack>
+	)
+}
+
+// Stands in for the summary line while a rebalance is open: how much of the
+// gap has been made up so far, and the way out either direction.
+function RebalancePanel({
+	off,
+	moved,
+	target,
+	saving,
+	onCancel,
+	onSave,
+}: {
+	off: number
+	moved: number
+	target: number
+	saving: boolean
+	onCancel: () => void
+	onSave: () => void
+}) {
+	const over = off > 0
+	const gap = Math.abs(off)
+	return (
+		<Card variant="subtle">
+			<VStack gap="3" alignItems="stretch" padding="4">
+				<VStack gap="1" alignItems="flex-start">
+					<span
+						className={css({
+							fontFamily: "mono",
+							fontSize: "sm",
+							fontWeight: "bold",
+							letterSpacing: "wide",
+							textTransform: "uppercase",
+						})}
+					>
+						{over
+							? `${moved} of ${gap} wins taken back`
+							: `${moved} of ${gap} wins added`}
+					</span>
+					<span className={css({ fontSize: "sm", color: "fg.muted" })}>
+						{over
+							? `Lower any of your teams. A rebalance can't raise a pick, and stops at the schedule's ${target}.`
+							: `Raise any of your teams. A rebalance can't lower a pick, and stops at the schedule's ${target}.`}
+					</span>
+				</VStack>
+				<HStack gap="2" justify="flex-end">
+					<Button variant="ghost" size="sm" onClick={onCancel}>
+						Cancel
+					</Button>
+					<Button
+						variant="solid"
+						size="sm"
+						disabled={moved === 0}
+						loading={saving}
+						onClick={onSave}
+					>
+						Save
+					</Button>
+				</HStack>
+			</VStack>
+		</Card>
 	)
 }
 

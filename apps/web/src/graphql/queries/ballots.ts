@@ -25,6 +25,7 @@ export const BallotByRefDocument = graphql(`
 			}
 			memberCount
 			viewerCalledCount
+			viewerGuessSum
 			completions {
 				...BallotCompletionsList_summary
 			}
@@ -55,6 +56,7 @@ export const BallotByRefDocument = graphql(`
 						totalPoints
 						guessValue
 						conviction
+						rebalancedFrom
 						selections {
 							id
 							option {
@@ -130,6 +132,7 @@ export const BallotEntryDocument = graphql(`
 						id
 						guessValue
 						conviction
+						rebalancedFrom
 						...CallCard_call
 					}
 					tiebreakPosition
