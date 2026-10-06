@@ -88,7 +88,7 @@ function LowVolumeGuesses({ totalGuesses }: { totalGuesses: number }) {
 				>
 					{totalGuesses === 0
 						? "No one's guessed yet - set the tone."
-						: "Early days - be one of the first to guess this one."}
+						: `Early days - the spread shows once ${MIN_GUESSES_FOR_CHART} guesses are in.`}
 				</span>
 			</HStack>
 		</VStack>
