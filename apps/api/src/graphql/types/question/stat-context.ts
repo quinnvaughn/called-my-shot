@@ -412,6 +412,10 @@ const MatchupRef = builder
 			// Most recent first, empty when these two haven't met this season,
 			// which is the normal case in a league whose teams meet once a year.
 			meetings: t.field({ type: [MeetingRef], resolve: (m) => m.meetings }),
+			// Whether either side has a playoff game behind this one, which the
+			// form figures and head to head then count and the season figures
+			// don't.
+			includesPostseason: t.exposeBoolean("includesPostseason"),
 		}),
 	})
 

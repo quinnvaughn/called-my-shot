@@ -179,6 +179,7 @@ export const StatContextCardFragment = graphql(`
 				homeScore
 				awayScore
 			}
+			includesPostseason
 		}
 	}
 `)
@@ -1136,7 +1137,9 @@ export function StatContextCard(props: {
 							{matchup && <Meetings matchup={matchup} teams={props.teams} />}
 							<p className={css({ fontSize: "xs", color: "fg.subtle" })}>
 								{matchup
-									? "Completed regular-season games this season, up to this one. Head to head is this season only."
+									? matchup.includesPostseason
+										? "Season figures are the regular season only. Last 10, streak, rest, recent results and head to head include the playoffs, up to this game."
+										: "Completed regular-season games this season, up to this one. Head to head is this season only."
 									: `From the box scores we resolve against, up to this game.${
 											anyStrip
 												? " Games a player sat out show as -- and stay out of every average."

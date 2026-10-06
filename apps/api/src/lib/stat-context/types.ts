@@ -281,9 +281,12 @@ export type StatContextMatchup = {
 	// pick form shows them, so the columns line up with the buttons. Which one
 	// is at home is on the side itself, not in the ordering.
 	sides: [StatContextMatchupSide, StatContextMatchupSide]
-	// Most recent first, this season only. Empty is the normal case in a league
-	// whose teams meet once or twice a year.
+	// Most recent first, this season only, playoffs included. Empty is the
+	// normal case in a league whose teams meet once or twice a year.
 	meetings: StatContextMeeting[]
+	// Whether either side has a playoff game behind this one. Season figures
+	// never include them; form and head to head do.
+	includesPostseason: boolean
 }
 
 export type StatContext = {

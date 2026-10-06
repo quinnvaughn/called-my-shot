@@ -54,16 +54,15 @@ export type CompletedGame = {
 	opponentAbbreviation: string
 	pointsFor: number
 	pointsAgainst: number
+	postseason: boolean
 }
 
-// Regular season only, which is what team_records holds and what the matchup
-// header directly above this card renders. Folding January in would print a
-// 13-4 under a header saying 11-6 and neither would be wrong, which is worse
-// than either. Postseason games dropping out of head-to-head is the price.
+// Both halves of the season. Which figures each half feeds is buildMatchup's
+// call, not this query's: season figures stay on the regular season, form and
+// head to head run through the playoffs.
 function completed(scope: MatchupScope): SQL {
 	return sql`
 		and g.season_id = ${scope.seasonId}
-		and g.season_type = 'regular'
 		and g.status = 'final'
 		and g.home_score is not null
 		and g.away_score is not null
@@ -95,6 +94,7 @@ export async function completedGames(
 		opponent_abbreviation: string
 		points_for: number
 		points_against: number
+		postseason: boolean
 	}>(sql`
 		select
 			g.home_team_id as team_id,
@@ -104,7 +104,8 @@ export async function completedGames(
 			g.away_team_id as opponent_team_id,
 			o.abbreviation as opponent_abbreviation,
 			g.home_score as points_for,
-			g.away_score as points_against
+			g.away_score as points_against,
+			g.season_type = 'postseason' as postseason
 		from games g
 		join teams o on o.id = g.away_team_id
 		where g.home_team_id in ${scope.teamIds}
@@ -118,7 +119,8 @@ export async function completedGames(
 			g.home_team_id,
 			o.abbreviation,
 			g.away_score,
-			g.home_score
+			g.home_score,
+			g.season_type = 'postseason'
 		from games g
 		join teams o on o.id = g.home_team_id
 		where g.away_team_id in ${scope.teamIds}
@@ -135,6 +137,7 @@ export async function completedGames(
 		opponentAbbreviation: row.opponent_abbreviation,
 		pointsFor: Number(row.points_for),
 		pointsAgainst: Number(row.points_against),
+		postseason: row.postseason,
 	}))
 }
 
@@ -411,8 +414,21 @@ export async function buildMatchup(
 	const sides = refs.map((ref): StatContextMatchupSide => {
 		const teamId = ref.teamId as string
 		const isHome = teamId === game.homeTeamId
-		const results = rows.filter((row) => row.teamId === teamId).map(toResult)
+		const ownRows = rows.filter((row) => row.teamId === teamId)
+		// Form runs through the playoffs: a team's last five, its streak and
+		// its rest into a Game 3 are the games it has actually just played.
+		const results = ownRows.map(toResult)
+		// Season figures stay on the regular season, which is what team_records
+		// holds and what the matchup header above this card renders. Folding
+		// October in would print a 101-61 under a header saying 98-59.
+		const seasonResults = ownRows
+			.filter((row) => !row.postseason)
+			.map(toResult)
 		const standing = standings.get(teamId)
+		// ESPN's last-ten and streak are regular-season standings text, frozen
+		// once the playoffs start. Past that point they describe a stretch that
+		// is no longer this team's most recent.
+		const standingIsCurrent = !ownRows.some((row) => row.postseason)
 
 		// ESPN's own splits and streak where a reading predates the lock,
 		// falling back to the same figures off this app's game rows otherwise.
@@ -446,20 +462,25 @@ export async function buildMatchup(
 			// total off this app's game rows otherwise.
 			differential:
 				(standing ? differentialFrom(question.leagueSlug, standing) : null) ??
-				derivedDifferentialFrom(question.leagueSlug, results),
-			overall: recordOf(results, ouLine),
+				derivedDifferentialFrom(question.leagueSlug, seasonResults),
+			overall: recordOf(seasonResults, ouLine),
 			inThisRole:
 				espnRole && espnRole.games > 0
 					? espnRole
-					: splitOf(results.filter((result) => result.isHome === isHome)),
+					: splitOf(
+							seasonResults.filter((result) => result.isHome === isHome),
+						),
 			headToHead: seriesRecord(allMeetings, teamId),
 			lastTen:
-				parseRecordText(standing?.lastTen ?? null, question.leagueSlug) ??
+				(standingIsCurrent
+					? parseRecordText(standing?.lastTen ?? null, question.leagueSlug)
+					: null) ??
 				(results.length >= LAST_TEN
 					? splitOf(results.slice(0, LAST_TEN))
 					: null),
 			streak:
-				parseStreak(standing?.streak ?? null) ?? streakOf(results),
+				(standingIsCurrent ? parseStreak(standing?.streak ?? null) : null) ??
+				streakOf(results),
 			recentResults: results.slice(0, lastN),
 			restDays: restDaysBefore(game.startsAt, results),
 		}
@@ -471,5 +492,6 @@ export async function buildMatchup(
 		focus,
 		sides,
 		meetings: allMeetings.slice(0, MEETING_LIMIT),
+		includesPostseason: rows.some((row) => row.postseason),
 	}
 }

@@ -1182,10 +1182,10 @@ describe("completedGames", () => {
 		expect(await completedGames(scopeFor(world))).toEqual([])
 	})
 
-	// team_records is ESPN's regular-season record and the matchup header
-	// prints it directly above this card. Folding January in would put a 13-4
-	// under a header saying 11-6.
-	it("keeps postseason games out of a season record", async () => {
+	// Returned and flagged rather than filtered: the matchup keeps them out of
+	// season figures and counts them in form and head to head.
+	it("returns postseason games flagged as such", async () => {
+		await finished(world, { daysAgo: 9, homeScore: 20, awayScore: 10 })
 		await finished(world, {
 			daysAgo: 5,
 			homeScore: 24,
@@ -1193,7 +1193,10 @@ describe("completedGames", () => {
 			seasonType: "postseason",
 		})
 
-		expect(await completedGames(scopeFor(world))).toEqual([])
+		const rows = await completedGames(scopeFor(world))
+		const ours = rows.filter((row) => row.teamId === world.team.id)
+
+		expect(ours.map((row) => row.postseason)).toEqual([true, false])
 	})
 })
 
@@ -1273,6 +1276,7 @@ describe("buildStatContext for a game-level question", () => {
 		const context = await askAbout()
 
 		expect(context?.matchup).not.toBeNull()
+		expect(context?.matchup?.includesPostseason).toBe(false)
 		expect(context?.subjects).toEqual([])
 		expect(context?.ranking).toEqual([])
 		expect(context?.statLabel).toBe("")
@@ -1585,6 +1589,74 @@ describe("buildStatContext for a game-level question", () => {
 		})
 		// The list itself stays capped.
 		expect(context?.matchup?.meetings).toHaveLength(5)
+	})
+
+	// Two regular-season games each against a third team, then a two-game
+	// playoff series between the two sides, split 1-1.
+	const intoTheSeries = async () => {
+		const other = await bothPlayed()
+		await finished(world, {
+			daysAgo: 2,
+			homeScore: 5,
+			awayScore: 3,
+			seasonType: "postseason",
+		})
+		await finished(world, {
+			daysAgo: 1,
+			homeScore: 2,
+			awayScore: 3,
+			seasonType: "postseason",
+		})
+		return other
+	}
+
+	it("keeps playoff games out of the season figures", async () => {
+		await intoTheSeries()
+
+		const context = await askAbout()
+		const [ours] = context?.matchup?.sides ?? []
+
+		expect(ours?.overall).toMatchObject({
+			games: 1,
+			wins: 1,
+			losses: 0,
+			pointsForPerGame: 30,
+			pointsAgainstPerGame: 20,
+		})
+		expect(ours?.inThisRole).toMatchObject({ games: 1, wins: 1, losses: 0 })
+	})
+
+	it("counts playoff games in form, rest and head to head", async () => {
+		await intoTheSeries()
+
+		const context = await askAbout()
+		const [ours, theirs] = context?.matchup?.sides ?? []
+
+		expect(context?.matchup?.includesPostseason).toBe(true)
+		expect(ours?.recentResults.map((result) => result.outcome)).toEqual([
+			"loss",
+			"win",
+			"win",
+		])
+		expect(ours?.streak).toEqual({ outcome: "loss", length: 1 })
+		expect(ours?.restDays).toBe(1)
+		expect(theirs?.headToHead).toMatchObject({ games: 2, wins: 1, losses: 1 })
+		expect(context?.matchup?.meetings).toHaveLength(2)
+	})
+
+	// ESPN's standings freeze at the end of the regular season, so its streak
+	// and last ten stop being this team's most recent once a playoff game is
+	// behind it.
+	it("drops ESPN's streak once a playoff game is behind the side", async () => {
+		await intoTheSeries()
+		await standingsRow({ teamId: world.team.id, daysAgo: 4, streak: "W4" })
+		await standingsRow({ teamId: world.opponent.id, daysAgo: 4 })
+
+		const context = await askAbout()
+		const [ours] = context?.matchup?.sides ?? []
+
+		expect(ours?.streak).toEqual({ outcome: "loss", length: 1 })
+		expect(ours?.lastTen).toBeNull()
 	})
 
 	it("has no series record when the two have not met", async () => {
