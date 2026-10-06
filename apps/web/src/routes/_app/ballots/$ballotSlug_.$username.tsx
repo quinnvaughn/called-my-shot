@@ -72,14 +72,33 @@ export const Route = createFileRoute("/_app/ballots/$ballotSlug_/$username")({
 			path: ballotEntryPath(ballot.slug, username),
 			image: {
 				// Changes whenever a number on the card does, so an unfurl cache
-				// holding an older card is handed a url it has never scraped. The
-				// proxy route ignores the param.
-				path: `/share/ballots/${ballot.slug}/users/${username}/card.png?v=${entry.calledCount}-${entry.wins}-${entry.losses}-${entry.points}`,
+				// holding an older card is handed a url it has never scraped. A
+				// win-totals card shows picks too, so a rebalance or a reordered
+				// tie changes it as well. The proxy route ignores the param.
+				path: `/share/ballots/${ballot.slug}/users/${username}/card.png?v=${entry.calledCount}-${entry.wins}-${entry.losses}-${entry.points}-${picksVersion(entry.members)}`,
 				alt: heading,
 			},
 		})
 	},
 })
+
+// A short fingerprint of every pick's number and tie order, for the card
+// url's version param above.
+function picksVersion(
+	members: {
+		call: { guessValue?: number | null } | null
+		tiebreakPosition?: number | null
+	}[],
+): string {
+	let hash = 0
+	for (const m of members) {
+		const part = `${m.call?.guessValue ?? ""}:${m.tiebreakPosition ?? ""};`
+		for (const char of part) {
+			hash = (hash * 31 + char.charCodeAt(0)) >>> 0
+		}
+	}
+	return hash.toString(36)
+}
 
 function RouteComponent() {
 	const { ballotSlug, username } = Route.useParams()
