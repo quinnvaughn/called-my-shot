@@ -32,16 +32,26 @@ export const db = drizzle({
 		// ~70-250ms per field in Apollo's own field-timing trace despite
 		// Query.questions - the actual query - taking under 10ms, and doesn't
 		// show up anywhere in Neon's query monitoring since it's a connection-
-		// level cost, not a query-level one. 0 disables the idle timeout so a
-		// connection, once opened, stays in the pool rather than getting
-		// closed and having to be renegotiated on the next request. pg-pool
-		// has a `min` option, but it only protects already-open idle
-		// connections from eviction - it never opens any itself - so it's
-		// useless without something to actually open them eagerly. See
-		// warmPool() below for that part.
-		idleTimeoutMillis: 0,
+		// level cost, not a query-level one. Four minutes keeps a connection
+		// warm across the ordinary gaps between requests while still closing
+		// it before Neon's five idle minutes are up, so an idle pool never
+		// stands between the compute and suspending. pg-pool has a `min`
+		// option, but it only protects already-open idle connections from
+		// eviction - it never opens any itself - so it's useless without
+		// something to actually open them eagerly. See warmPool() below for
+		// that part.
+		idleTimeoutMillis: 4 * 60 * 1000,
 	},
 	relations,
+})
+
+// When Neon suspends the compute it closes every connection, idle ones in
+// this pool included. pg-pool reports that as an "error" event on the pool,
+// and an EventEmitter with no listener for "error" throws, taking the whole
+// process down. The pool has already dropped the dead client by then, and the
+// next query opens a fresh one, so logging is all there is to do.
+db.$client.on("error", (error) => {
+	console.error("[db] idle connection closed:", error.message)
 })
 
 // See idleTimeoutMillis's comment above: left alone, the pool starts at zero

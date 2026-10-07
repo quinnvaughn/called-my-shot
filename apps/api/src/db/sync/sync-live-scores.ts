@@ -25,7 +25,7 @@ import { espnIdOf, findSourceId } from "./sync-refs"
 // whole season's worth of games the way sync:sports does. This is the thing
 // that makes this job cheap enough to run every couple of minutes, unlike
 // sync:sports's full team/season/player/game/question sweep.
-const LOOKBACK_MS = 6 * HOUR_MS
+export const LOOKBACK_MS = 6 * HOUR_MS
 const LOOKAHEAD_MS = 10 * MINUTE_MS
 
 // Returns the games this run moved to final, so the caller can settle their

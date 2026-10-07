@@ -323,6 +323,35 @@ async function syncDepthCharts(
 	return refreshed
 }
 
+const LEAGUE_PLANS = SYNCED_LEAGUES.flatMap((config) => {
+	const plan = starterPlanFor(config.leagueSlug)
+	return plan ? [{ config, plan }] : []
+})
+
+// How far ahead any league's starters are fetched.
+export const STARTERS_LOOKAHEAD_MS = Math.max(
+	0,
+	...LEAGUE_PLANS.map(({ plan }) => plan.horizonMs),
+)
+
+// Whether a run at `now` would refresh this game's starters. A scheduled game
+// inside its league's horizon whose last refresh has aged out.
+export function isStartersDue(
+	game: Pick<Game, "status" | "startsAt" | "startersSyncedAt">,
+	leagueSlug: string,
+	now: Date,
+): boolean {
+	const plan = starterPlanFor(leagueSlug)
+	const msUntilStart = game.startsAt.getTime() - now.getTime()
+	return (
+		plan !== null &&
+		game.status === "scheduled" &&
+		msUntilStart > 0 &&
+		msUntilStart <= plan.horizonMs &&
+		isStartersRefreshDue(game, plan.source, now)
+	)
+}
+
 export async function syncGameStarters({
 	now = new Date(),
 	spacingMs = DEFAULT_ESPN_SPACING_MS,
@@ -332,21 +361,12 @@ export async function syncGameStarters({
 	spacingMs?: number
 	espn?: EspnClient
 } = {}): Promise<void> {
-	const leaguePlans = SYNCED_LEAGUES.flatMap((config) => {
-		const plan = starterPlanFor(config.leagueSlug)
-		return plan ? [{ config, plan }] : []
-	})
-	const longestHorizonMs = Math.max(
-		0,
-		...leaguePlans.map(({ plan }) => plan.horizonMs),
-	)
-
 	const upcoming = await db.query.games.findMany({
 		where: {
 			status: "scheduled",
 			startsAt: {
 				gt: now,
-				lte: new Date(now.getTime() + longestHorizonMs),
+				lte: new Date(now.getTime() + STARTERS_LOOKAHEAD_MS),
 			},
 		},
 		with: { league: true },
@@ -356,12 +376,11 @@ export async function syncGameStarters({
 	const requester = createEspnRequester("sync-game-starters", spacingMs)
 	const access = { espn, requester }
 
-	for (const { config, plan } of leaguePlans) {
+	for (const { config, plan } of LEAGUE_PLANS) {
 		const dueGames = upcoming.filter(
 			(game) =>
 				game.league?.slug === config.leagueSlug &&
-				game.startsAt.getTime() - now.getTime() <= plan.horizonMs &&
-				isStartersRefreshDue(game, plan.source, now),
+				isStartersDue(game, config.leagueSlug, now),
 		)
 		if (dueGames.length === 0) continue
 

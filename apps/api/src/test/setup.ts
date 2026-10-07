@@ -26,9 +26,9 @@ beforeEach(async () => {
 	await db.execute(sql.raw(await getTruncateStatement()))
 })
 
-// db/index.ts opens a pool at import time with idleTimeoutMillis: 0, so
-// without this the connections stay open and vitest hangs after the last
-// test instead of exiting.
+// db/index.ts opens a pool at import time that keeps idle connections for
+// minutes, so without this the connections stay open and vitest hangs after
+// the last test instead of exiting.
 afterAll(async () => {
 	await db.$client.end()
 })

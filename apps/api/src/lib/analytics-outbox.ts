@@ -4,6 +4,7 @@ import { analyticsOutbox, type Question } from "../db/schema"
 import type { Tx } from "../db/types"
 import { env } from "../env"
 import { claimOutboxRows, markOutboxFailed, type Outbox } from "./outbox"
+import { markPending } from "./pending-work"
 
 // Server-side counterpart to apps/web's AnalyticsEvents map. Property names
 // match the browser events they get joined against (questionShape, leagueId,
@@ -95,6 +96,7 @@ export async function enqueueAnalyticsEvents(
 ): Promise<void> {
 	if (events.length === 0) return
 	await tx.insert(analyticsOutbox).values(events)
+	markPending("analytics")
 }
 
 const POSTHOG_BATCH_URL = "https://us.i.posthog.com/batch/"

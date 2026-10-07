@@ -5,7 +5,7 @@ import { recomputeSlate, recomputeStreakTrack } from "./recompute"
 
 const BATCH_SIZE = 200
 // A cap on rebuilds per run, so one run can't hold the lease indefinitely.
-// Anything past it is still queued for the next tick.
+// Anything past it is still queued for the next run.
 const MAX_PER_RUN = 5000
 
 // Rebuilds everything lib/streaks/enqueue.ts marked. Each rebuild is its own

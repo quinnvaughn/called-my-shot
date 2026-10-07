@@ -1,5 +1,9 @@
 import { autoResolutionSource } from "@called-my-shot/schemas"
-import { autoResolveNotes, isAttemptDue } from "../../lib/auto-resolve/apply"
+import {
+	attemptDueFrom,
+	autoResolveNotes,
+	isAttemptDue,
+} from "../../lib/auto-resolve/apply"
 import {
 	decideFinalScore,
 	decideGameQuestion,
@@ -73,6 +77,77 @@ async function loadCandidates(now: Date) {
 		}),
 	])
 	return [...due, ...awaitingFinal.filter((q) => isAttemptDue(q, now))]
+}
+
+// The earliest a question loadCandidates selects becomes due, or null when
+// none is waiting on this job. The same three sets as loadCandidates, without
+// the time conditions, which become the times it returns - so the scheduler
+// can leave the database alone until then (see lib/work-calendar.ts).
+export async function nextAutoResolveGamesAt(): Promise<Date | null> {
+	const autoResolution = {
+		columns: {
+			nextAttemptAt: true,
+			escalatedAt: true,
+			recheckDueAt: true,
+			recheckedAt: true,
+			awaitingFinal: true,
+		},
+	} as const
+	const [unsettled, settled] = await Promise.all([
+		db.query.questions.findMany({
+			where: {
+				resolutionMode: "system",
+				status: { in: ["open", "locked"] },
+				shape: { ne: "team_vs_team" },
+				game: { status: "final" },
+			},
+			columns: { status: true, locksAt: true },
+			with: { autoResolution },
+		}),
+		db.query.questions.findMany({
+			where: {
+				resolutionMode: "system",
+				status: { in: ["resolved", "voided"] },
+				game: { status: "final" },
+				OR: [
+					{
+						resolutionMethod: "system",
+						autoResolution: {
+							recheckDueAt: { isNotNull: true },
+							recheckedAt: { isNull: true },
+						},
+					},
+					{ autoResolution: { awaitingFinal: true } },
+				],
+			},
+			columns: { status: true, resolutionMethod: true },
+			with: { autoResolution },
+		}),
+	])
+
+	const later = (a: Date, b: Date) => (a > b ? a : b)
+	const dueTimes: Date[] = []
+	for (const question of unsettled) {
+		const from = attemptDueFrom(question)
+		if (from) dueTimes.push(later(from, question.locksAt))
+	}
+	for (const question of settled) {
+		const from = attemptDueFrom(question)
+		const auto = question.autoResolution
+		if (!from || !auto) continue
+		if (auto.awaitingFinal) dueTimes.push(from)
+		if (
+			question.resolutionMethod === "system" &&
+			auto.recheckDueAt &&
+			!auto.recheckedAt
+		) {
+			dueTimes.push(later(from, auto.recheckDueAt))
+		}
+	}
+	return dueTimes.reduce<Date | null>(
+		(earliest, due) => (earliest && earliest <= due ? earliest : due),
+		null,
+	)
 }
 
 type Candidate = Awaited<ReturnType<typeof loadCandidates>>[number]

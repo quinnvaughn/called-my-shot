@@ -19,6 +19,7 @@ import {
 	type Outbox,
 	utcTimestamp,
 } from "./outbox"
+import { markPending } from "./pending-work"
 import { parsePgTimestamp } from "./pg-timestamp"
 
 // How far ahead of the first game the announcement goes out. A window, not a
@@ -274,6 +275,7 @@ export async function enqueueSeasonStartEmails({
 		`)
 		queued += rowCount ?? 0
 	}
+	if (queued > 0) markPending("season-start")
 
 	console.log(
 		`[season-start] enqueued ${queued} row(s) across ${seasons.length} season(s): ${seasons

@@ -27,7 +27,7 @@ import { loadResolvedCallSummaries } from "./share-cards/call-summary"
 // How long a user's oldest unsent row has to sit before their digest can go
 // out, so a dispute filed right after a resolve still has a chance to stop
 // the mail.
-const SETTLE_MINUTES = 15
+export const SETTLE_MINUTES = 15
 // The digest day runs from 13:00 UTC (9am Eastern) to 13:00 UTC, not midnight
 // to midnight, so a West Coast game ending at 1am Eastern still belongs to the
 // night it was played. Within a day, a user's results wait until none of their

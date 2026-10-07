@@ -1,5 +1,6 @@
 import { emailOutbox } from "../db/schema"
 import type { Tx } from "../db/types"
+import { markPending } from "./pending-work"
 
 export type ResolvedCallEmail = {
 	userId: string
@@ -32,4 +33,5 @@ export async function enqueueResolvedCallEmails(
 			})),
 		)
 		.onConflictDoNothing()
+	markPending("digests")
 }

@@ -19,7 +19,7 @@ import {
 import { espnFixture } from "../../test/helpers"
 import { db } from "../index"
 import { games } from "../schema"
-import { autoResolveGames } from "./auto-resolve-games"
+import { autoResolveGames, nextAutoResolveGamesAt } from "./auto-resolve-games"
 import { persistBoxScore } from "./box-score-store"
 import { type EspnGameSummary, EspnRequestError } from "./espn-client"
 import { resolveGameWinner } from "./sync-games"
@@ -521,5 +521,61 @@ describe("autoResolveGames - final read of a question settled mid-game", () => {
 		expect(auto?.awaitingFinal).toBe(true)
 		expect(auto?.nextAttemptAt?.getTime()).toBeGreaterThan(NOW.getTime())
 		expect(await noticesFor(setup.game.id)).toHaveLength(0)
+	})
+})
+
+describe("nextAutoResolveGamesAt", () => {
+	it("is null with nothing waiting", async () => {
+		expect(await nextAutoResolveGamesAt()).toBeNull()
+	})
+
+	it("is the lock time of a question still waiting on its result", async () => {
+		const setup = await seedNbaGame()
+		await seedPointsLine(setup, "4869780", 22.5)
+		expect(await nextAutoResolveGamesAt()).toEqual(setup.game.startsAt)
+	})
+
+	it("is the next attempt of a question backing off", async () => {
+		const setup = await seedNbaGame(0)
+		const { question } = await seedPointsLine(setup, "4869780", 22.5)
+		const partial = nbaSummary()
+		partial.header.competitions[0].boxscoreSource = "basic"
+		espn.fetchGameSummary.mockResolvedValue(partial)
+
+		await run()
+
+		const auto = await autoRowFor(question.id)
+		expect(auto?.nextAttemptAt).not.toBeNull()
+		expect(await nextAutoResolveGamesAt()).toEqual(auto?.nextAttemptAt)
+	})
+
+	it("is the re-check of a settled question", async () => {
+		const setup = await seedNbaGame()
+		await seedPointsLine(setup, "4869780", 22.5)
+		espn.fetchGameSummary.mockResolvedValue(nbaSummary())
+
+		await run()
+
+		expect(await nextAutoResolveGamesAt()).toEqual(
+			new Date(NOW.getTime() + RECHECK_DELAY_MS),
+		)
+	})
+
+	it("ignores a question handed to an admin", async () => {
+		const setup = await seedNbaGame()
+		const { question } = await seedPointsLine(setup, "4869780", 22.5)
+		espn.fetchGameSummary.mockRejectedValue(new Error("timed out"))
+
+		await run()
+		await run(new Date(hoursAgo(2).getTime() + 13 * HOUR))
+
+		expect((await autoRowFor(question.id))?.escalatedAt).not.toBeNull()
+		expect(await nextAutoResolveGamesAt()).toBeNull()
+	})
+
+	it("ignores a question a person resolves", async () => {
+		const setup = await seedNbaGame()
+		await seedPointsLine(setup, "4869780", 22.5, "manual")
+		expect(await nextAutoResolveGamesAt()).toBeNull()
 	})
 })

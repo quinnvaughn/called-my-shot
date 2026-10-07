@@ -90,17 +90,25 @@ type AutoResolutionPatch = Partial<
 // A question backing off after a failure waits for its next attempt, and one
 // already handed to an admin waits for them. The re-check of a result that was
 // posted goes ahead either way.
-export function isAttemptDue(
-	question: Pick<Question, "status"> & {
-		autoResolution: QuestionAutoResolution | null
-	},
-	now: Date,
-): boolean {
+export function isAttemptDue(question: AttemptQuestion, now: Date): boolean {
+	const from = attemptDueFrom(question)
+	return from !== null && from <= now
+}
+
+type AttemptQuestion = Pick<Question, "status"> & {
+	autoResolution: Pick<
+		QuestionAutoResolution,
+		"nextAttemptAt" | "escalatedAt"
+	> | null
+}
+
+// The moment isAttemptDue starts holding, or null for a question waiting on an
+// admin, which nothing but the admin moves on.
+export function attemptDueFrom(question: AttemptQuestion): Date | null {
 	const auto = question.autoResolution
-	if (auto?.nextAttemptAt && auto.nextAttemptAt > now) return false
-	return question.status === "resolved" || question.status === "voided"
-		? true
-		: !auto?.escalatedAt
+	const settled = question.status === "resolved" || question.status === "voided"
+	if (!settled && auto?.escalatedAt) return null
+	return auto?.nextAttemptAt ?? new Date(0)
 }
 
 // Re-reads the question under a row lock before acting, so a resolution an
