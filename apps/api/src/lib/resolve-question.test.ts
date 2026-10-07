@@ -1,5 +1,5 @@
 import {
-	BASE_POINTS_BY_SHAPE,
+	basePointsFor,
 	earlyTierFor,
 	LOSS_RATE_BY_SHAPE,
 	pointsAtStake,
@@ -37,9 +37,12 @@ import {
 	reverseQuestionLeagueStats,
 } from "./resolve-question"
 
+// The factories make community questions unless told otherwise.
+const YES_NO_BASE = basePointsFor({ shape: "yes_no_prop", isOfficial: false })
+
 // What a full-conviction miss on a yes/no question costs.
 const FULL_MISS = -pointsAtStake(
-	BASE_POINTS_BY_SHAPE.yes_no_prop,
+	YES_NO_BASE,
 	LOSS_RATE_BY_SHAPE.yes_no_prop,
 	100,
 )
@@ -120,7 +123,7 @@ describe("resolveQuestionInternal - option-based shapes", () => {
 		await resolve(question, { correctOptionIds: [options[0].id] })
 
 		const expected = selectionPoints(
-			BASE_POINTS_BY_SHAPE.yes_no_prop,
+			YES_NO_BASE,
 			LOSS_RATE_BY_SHAPE.yes_no_prop,
 			50,
 			2,
@@ -158,7 +161,7 @@ describe("resolveQuestionInternal - option-based shapes", () => {
 		// the re-stamp that is no longer the caller who originally was first.
 		expect(untouched?.resultPoints).toBe(
 			selectionPoints(
-				BASE_POINTS_BY_SHAPE.yes_no_prop,
+				YES_NO_BASE,
 				LOSS_RATE_BY_SHAPE.yes_no_prop,
 				100,
 				2,
@@ -169,7 +172,7 @@ describe("resolveQuestionInternal - option-based shapes", () => {
 		)
 		expect(redone?.resultPoints).toBe(
 			selectionPoints(
-				BASE_POINTS_BY_SHAPE.yes_no_prop,
+				YES_NO_BASE,
 				LOSS_RATE_BY_SHAPE.yes_no_prop,
 				100,
 				2,
@@ -461,7 +464,10 @@ describe("resolveQuestionInternal - numeric guess shapes", () => {
 		expect(hit?.resultPoints).toBeGreaterThan(0)
 		expect(miss?.hitTolerance).toBe(false)
 		expect(miss?.resultPoints).toBe(
-			-BASE_POINTS_BY_SHAPE.player_stat_numeric_guess *
+			-basePointsFor({
+				shape: "player_stat_numeric_guess",
+				isOfficial: false,
+			}) *
 				LOSS_RATE_BY_SHAPE.player_stat_numeric_guess,
 		)
 	})
@@ -567,7 +573,7 @@ describe("resolveQuestionInternal - season-long earliness", () => {
 		const scored = await selectionFor(pick.id)
 		expect(scored?.resultPoints).toBe(
 			Math.round(
-				BASE_POINTS_BY_SHAPE.player_season_award * 1 * tierFor(100, 1).mult * 3,
+				basePointsFor({ shape: "player_season_award", isOfficial: true }) * 1 * tierFor(100, 1).mult * 3,
 			),
 		)
 	})

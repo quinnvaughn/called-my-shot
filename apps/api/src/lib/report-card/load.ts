@@ -102,7 +102,10 @@ type LoadedCall = {
 }
 
 export function toReportCardCall(
-	question: Pick<ReportCardCall, "gameId" | "shape" | "status" | "lossRate">,
+	question: Pick<
+		ReportCardCall,
+		"gameId" | "shape" | "isOfficial" | "status" | "lossRate"
+	>,
 	call: LoadedCall,
 ): ReportCardCall {
 	const numeric = isNumericGuessShape(question.shape)
@@ -110,6 +113,7 @@ export function toReportCardCall(
 		callId: call.id,
 		gameId: question.gameId,
 		shape: question.shape,
+		isOfficial: question.isOfficial,
 		status: question.status,
 		unscoredReason: call.unscoredReason,
 		hitTolerance: call.hitTolerance,
@@ -203,6 +207,7 @@ function windowQuestions(
 			id: true,
 			gameId: true,
 			shape: true,
+			isOfficial: true,
 			status: true,
 			lossRate: true,
 		},

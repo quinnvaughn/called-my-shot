@@ -159,6 +159,7 @@ export const QuestionDetailDocument = graphql(`
 				question {
 					id
 					shape
+					isOfficial
 					ouLine
 					lossRate
 				}

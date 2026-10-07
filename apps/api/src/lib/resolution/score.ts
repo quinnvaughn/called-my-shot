@@ -1,5 +1,5 @@
 import {
-	BASE_POINTS_BY_SHAPE,
+	basePointsFor,
 	effectiveLossRate,
 	fieldPct,
 	numericGuessPoints,
@@ -121,6 +121,7 @@ export type GuessCallUpdate = {
 // isn't part of the field and is left exactly as it was.
 export function scoreGuesses(input: {
 	shape: QuestionShape
+	isOfficial: boolean
 	lossRate: number
 	tolerance: ToleranceSpec
 	actualValue: number
@@ -139,7 +140,7 @@ export function scoreGuesses(input: {
 			createdAt: c.createdAt,
 		}))
 	const scored = numericGuessPoints(
-		BASE_POINTS_BY_SHAPE[input.shape],
+		basePointsFor(input),
 		input.lossRate,
 		guesses,
 		input.actualValue,
@@ -211,6 +212,7 @@ export type SelectionToScore = {
 // the earliness order. `earliness` says what that order is measured against.
 export function scoreSelections(input: {
 	shape: QuestionShape
+	isOfficial: boolean
 	lossRate: number
 	options: {
 		id: string
@@ -240,6 +242,7 @@ export function scoreSelections(input: {
 			effectiveLossRate(input.lossRate, o.lossRate),
 		]),
 	)
+	const basePoints = basePointsFor(input)
 	const correctOptionIds = new Set(input.correctOptionIds)
 	const callsById = new Map(input.selections.map((s) => [s.call.id, s.call]))
 	const earlyMultByCallId = earlinessFor(
@@ -261,7 +264,7 @@ export function scoreSelections(input: {
 			? null
 			: {
 					points: selectionPoints(
-						BASE_POINTS_BY_SHAPE[input.shape],
+						basePoints,
 						lossRateByOptionId.get(s.optionId) ?? input.lossRate,
 						fieldPct(
 							input.countByOption.get(s.optionId) ?? 0,

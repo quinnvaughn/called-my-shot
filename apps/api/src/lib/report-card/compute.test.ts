@@ -12,6 +12,7 @@ function call(overrides: Partial<ReportCardCall> = {}): ReportCardCall {
 		callId: `call-${seq}`,
 		gameId: null,
 		shape: "team_vs_team",
+		isOfficial: true,
 		status: "resolved",
 		unscoredReason: null,
 		hitTolerance: null,

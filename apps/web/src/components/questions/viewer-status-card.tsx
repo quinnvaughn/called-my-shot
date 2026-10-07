@@ -39,7 +39,7 @@ import {
 	optionDisplayLabel,
 } from "#/lib/question-labels"
 import {
-	BASE_POINTS_BY_GQL_SHAPE,
+	basePointsForGql,
 	formatMult,
 	previewNumericPoints,
 	previewSelectionPoints,
@@ -90,6 +90,7 @@ type ViewerCall = {
 	closenessFieldPct: number | null
 	question: {
 		shape: QuestionShape
+		isOfficial: boolean
 		ouLine: number | null
 		// The share of committed points a miss costs - see Question.lossRate.
 		lossRate: number
@@ -873,8 +874,8 @@ function PickRows({
 	numericToleranceAbsolute: number | null
 	isRateStat: boolean
 }) {
-	const { shape, ouLine, lossRate } = call.question
-	const basePoints = BASE_POINTS_BY_GQL_SHAPE[shape]
+	const { shape, isOfficial, ouLine, lossRate } = call.question
+	const basePoints = basePointsForGql(shape, isOfficial)
 
 	if (isNumericQuestionShape(shape)) {
 		const { guessValue, conviction } = call

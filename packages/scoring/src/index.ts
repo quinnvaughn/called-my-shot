@@ -830,21 +830,21 @@ export function pointsAtStake(
 	return Math.round(basePoints * (conviction / 100) * lossRate)
 }
 
-// A yes/no prop from a regular user is the one question whose difficulty is
-// whatever its creator writes, with no data to price it against, so a near-
-// sure thing can be posted and called for free points. Capping conviction
-// there limits that without touching a caller on an honest coin flip, who
-// rarely goes near the top of the range anyway. Official props keep the full
-// range.
-export const COMMUNITY_PROP_MAX_CONVICTION = 65
+// A community question's difficulty is whatever its creator writes, with no
+// house pricing behind it, so it's worth a bit less than an official one at
+// the same conviction. Scaled on the base rather than by capping conviction,
+// so the full 1-100 range still says how sure the caller is.
+export const COMMUNITY_POINTS_MULT = 0.8
 
-export function maxConvictionFor(question: {
+// The base every payout, stake and committed figure for a question starts
+// from. Not a stored column: it only ever depends on these two facts, which
+// never change after creation.
+export function basePointsFor(question: {
 	shape: QuestionShape
 	isOfficial: boolean
 }): number {
-	return question.shape === "yes_no_prop" && !question.isOfficial
-		? COMMUNITY_PROP_MAX_CONVICTION
-		: 100
+	const base = BASE_POINTS_BY_SHAPE[question.shape]
+	return question.isOfficial ? base : base * COMMUNITY_POINTS_MULT
 }
 
 export type PointsPreview = {

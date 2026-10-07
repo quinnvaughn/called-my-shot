@@ -1,5 +1,5 @@
 import {
-	BASE_POINTS_BY_SHAPE,
+	basePointsFor,
 	earlyTierFor,
 	effectiveLossRate,
 	fieldPct,
@@ -86,7 +86,7 @@ async function pendingPayout(
 	const question = await loadQuestionFacts(ctx, call.questionId)
 	if (!question) return null
 	if (question.status !== "open" && question.status !== "locked") return null
-	const basePoints = BASE_POINTS_BY_SHAPE[question.shape]
+	const basePoints = basePointsFor(question)
 	const [rank, callCount] = await Promise.all([
 		callRankLoader(ctx).load(call.id),
 		questionCallCountLoader(ctx).load(call.questionId),

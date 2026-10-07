@@ -207,6 +207,7 @@ export async function loadUserRecordInputs(
 						subjectPlayerId: true,
 						gameId: true,
 						shape: true,
+						isOfficial: true,
 						status: true,
 						lossRate: true,
 						resolvedAt: true,

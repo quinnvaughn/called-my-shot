@@ -1,5 +1,5 @@
 import {
-	BASE_POINTS_BY_SHAPE,
+	basePointsFor,
 	callReturnVariance,
 	effectiveLossRate,
 	type Grade,
@@ -40,6 +40,8 @@ export type ReportCardCall = {
 	// belong to a best or worst game.
 	gameId: string | null
 	shape: QuestionShape
+	// With shape, what basePointsFor needs to size committed and stake.
+	isOfficial: boolean
 	status: Question["status"]
 	unscoredReason: CallUnscoredReason | null
 	hitTolerance: boolean | null
@@ -169,7 +171,7 @@ function accumulate(
 	call: ReportCardCall,
 	classification: Classification,
 ): void {
-	const basePoints = BASE_POINTS_BY_SHAPE[call.shape]
+	const basePoints = basePointsFor(call)
 	if (classification.kind === "excluded") return
 
 	if (classification.kind === "pending") {

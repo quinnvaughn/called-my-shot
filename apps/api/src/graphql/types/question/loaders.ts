@@ -122,8 +122,10 @@ const questionFactsLoader = ctxLoader(async (questionIds: string[]) => {
 			shape: true,
 			seasonId: true,
 			locksAt: true,
-			// Call.payout prices a pending pick's miss at it.
+			// Call.payout prices a pending pick's miss at it, off the base
+			// isOfficial and shape decide together.
 			lossRate: true,
+			isOfficial: true,
 			// Call.viewerCanRedo needs it: a question voided while still open
 			// has a future locksAt but takes no redos, and the clock alone
 			// can't tell that apart from one still running.

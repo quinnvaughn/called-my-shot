@@ -291,6 +291,7 @@ async function scoreGuessCalls(
 	})
 	const { updates, tally } = scoreGuesses({
 		shape: question.shape,
+		isOfficial: question.isOfficial,
 		lossRate: question.lossRate,
 		tolerance: toleranceSpecFor(question),
 		actualValue: data.actualValue as number,
@@ -419,6 +420,7 @@ async function scoreOptionCalls(
 
 	const scored = scoreSelections({
 		shape: question.shape,
+		isOfficial: question.isOfficial,
 		lossRate: question.lossRate,
 		options,
 		correctOptionIds: data.correctOptionIds,

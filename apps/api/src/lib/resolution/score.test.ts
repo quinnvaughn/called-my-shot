@@ -1,5 +1,6 @@
 import {
 	BASE_POINTS_BY_SHAPE,
+	basePointsFor,
 	earlyTierFor,
 	LOSS_RATE_BY_SHAPE,
 	pointsAtStake,
@@ -64,6 +65,7 @@ function scoreYesNo(
 	extra: {
 		wasCorrect?: "yes" | "no"
 		unscoredUserIds?: ReturnType<typeof soleCaller>
+		isOfficial?: boolean
 	} = {},
 ) {
 	const countByOption = new Map<string, number>()
@@ -72,6 +74,7 @@ function scoreYesNo(
 	}
 	return scoreSelections({
 		shape: "yes_no_prop",
+		isOfficial: extra.isOfficial ?? true,
 		lossRate: LOSS_RATE,
 		options: yesNo(extra.wasCorrect),
 		correctOptionIds: [correct],
@@ -137,6 +140,33 @@ describe("scoreSelections", () => {
 		expect(pointsOf(result, "b-no")).toBe(miss(40))
 	})
 
+	it("scores a community question off its scaled-down base", () => {
+		const result = scoreYesNo(
+			[
+				pick("a", "yes", { createdAt: at(1) }),
+				pick("b", "no", { createdAt: at(2) }),
+			],
+			"yes",
+			{ isOfficial: false },
+		)
+		const base = basePointsFor({ shape: "yes_no_prop", isOfficial: false })
+		expect(base).toBeLessThan(BASE)
+		expect(pointsOf(result, "a-yes")).toBe(
+			selectionPoints(
+				base,
+				LOSS_RATE,
+				50,
+				2,
+				100,
+				true,
+				earlyTierFor(1, 2).mult,
+			),
+		)
+		expect(pointsOf(result, "b-no")).toBe(
+			-pointsAtStake(base, LOSS_RATE, 100),
+		)
+	})
+
 	it("charges a miss at its side's own rate when the line was priced", () => {
 		const selections = [
 			pick("a", "over", { conviction: 50 }),
@@ -144,6 +174,7 @@ describe("scoreSelections", () => {
 		]
 		const result = scoreSelections({
 			shape: "player_stat_over_under",
+			isOfficial: true,
 			lossRate: 1,
 			options: [
 				{ id: "over", isCorrect: null, lossRate: 0.5 },
@@ -162,6 +193,7 @@ describe("scoreSelections", () => {
 
 		const flipped = scoreSelections({
 			shape: "player_stat_over_under",
+			isOfficial: true,
 			lossRate: 1,
 			options: [
 				{ id: "over", isCorrect: null, lossRate: 0.5 },
@@ -210,6 +242,7 @@ describe("scoreSelections", () => {
 		}))
 		const result = scoreSelections({
 			shape: "player_season_award",
+			isOfficial: true,
 			lossRate: LOSS_RATE_BY_SHAPE.player_season_award,
 			options: [
 				{ id: "x", isCorrect: null },
@@ -380,6 +413,7 @@ describe("scoreGuesses", () => {
 	) =>
 		scoreGuesses({
 			shape: "player_stat_numeric_guess",
+			isOfficial: true,
 			lossRate: LOSS_RATE_BY_SHAPE.player_stat_numeric_guess,
 			tolerance: { mode: "percentage", pct: 0.1 },
 			actualValue: 100,

@@ -1,8 +1,7 @@
 import {
-	BASE_POINTS_BY_SHAPE,
+	basePointsFor,
 	effectiveLossRate,
 	isSeasonLongShape,
-	maxConvictionFor,
 	seasonEarlyTierFor,
 } from "@called-my-shot/scoring"
 import { css } from "styled-system/css"
@@ -33,11 +32,6 @@ export function ConvictionCard({ callForm }: { callForm: CastCallFormState }) {
 	const payoutAnchor = useTourAnchor("payout")
 
 	if (!question) return null
-
-	const maxConviction = maxConvictionFor({
-		shape,
-		isOfficial: question.isOfficial,
-	})
 
 	const selectedOption = selections[0]
 		? question.options.find((o) => o.id === selections[0].optionId)
@@ -90,20 +84,8 @@ export function ConvictionCard({ callForm }: { callForm: CastCallFormState }) {
 										form.setValue("selections.0.conviction", v)
 									}
 								}}
-								max={maxConviction}
 								aria-label="Conviction"
 							/>
-							{maxConviction < 100 && (
-								<span
-									className={css({
-										fontFamily: "mono",
-										fontSize: "3xs",
-										color: "fg.subtle",
-									})}
-								>
-									Community props max out at {maxConviction}% conviction.
-								</span>
-							)}
 						</VStack>
 						<div ref={payoutAnchor}>
 							<PointsPreview
@@ -111,7 +93,7 @@ export function ConvictionCard({ callForm }: { callForm: CastCallFormState }) {
 								fieldPct={selectedFieldPct}
 								totalOptions={question.options.length}
 								conviction={singleSelectConviction}
-								basePoints={BASE_POINTS_BY_SHAPE[shape]}
+								basePoints={basePointsFor({ shape, isOfficial: question.isOfficial })}
 								lossRate={effectiveLossRate(
 									question.lossRate,
 									selectedOption?.lossRate,

@@ -1,5 +1,5 @@
 import {
-	BASE_POINTS_BY_SHAPE,
+	basePointsFor,
 	isSeasonLongShape,
 	seasonEarlyTierFor,
 } from "@called-my-shot/scoring"
@@ -262,7 +262,10 @@ export function MultiSelectFields({ callForm }: Props) {
 												)}
 												totalOptions={question.options.length}
 												conviction={selection.conviction}
-												basePoints={BASE_POINTS_BY_SHAPE[shape]}
+												basePoints={basePointsFor({
+													shape,
+													isOfficial: question.isOfficial,
+												})}
 												lossRate={question.lossRate}
 												earlyTier={earlyTier}
 											/>

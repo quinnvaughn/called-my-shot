@@ -1,5 +1,5 @@
 import {
-	BASE_POINTS_BY_SHAPE,
+	basePointsFor,
 	effectiveLossRate,
 	isSeasonLongShape,
 	seasonEarlyTierFor,
@@ -62,7 +62,7 @@ export function ConfirmCallModal({
 
 	if (!question) return null
 
-	const basePoints = BASE_POINTS_BY_SHAPE[shape]
+	const basePoints = basePointsFor({ shape, isOfficial: question.isOfficial })
 	const { lossRate } = question
 	// Season-long shapes preview off games played so far, not rank - see
 	// PointsPreview's own comment on the same distinction. Null for a

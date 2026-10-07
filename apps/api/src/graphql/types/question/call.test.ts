@@ -1,5 +1,5 @@
 import {
-	BASE_POINTS_BY_SHAPE,
+	basePointsFor,
 	earlyTierFor,
 	previewSelectionPoints,
 } from "@called-my-shot/scoring"
@@ -203,7 +203,7 @@ describe("Call.currentRank and Call.payout", () => {
 		}>(RANK_AND_PAYOUT, { variables: { id: question.id } })
 		const byId = new Map(data.question.calls.items.map((c) => [c.id, c]))
 
-		const basePoints = BASE_POINTS_BY_SHAPE.yes_no_prop
+		const basePoints = basePointsFor(question)
 		const expectations = [
 			{ rank: 1, fieldPct: (2 / 3) * 100, conviction: 80 },
 			{ rank: 2, fieldPct: (1 / 3) * 100, conviction: 50 },

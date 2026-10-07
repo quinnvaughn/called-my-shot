@@ -1,5 +1,5 @@
 import {
-	BASE_POINTS_BY_SHAPE,
+	basePointsFor,
 	isNumericGuessShape,
 	pointsCommitted,
 	type QuestionShape,
@@ -52,11 +52,11 @@ const selectionsCorrect = (selections: LoadedSelection[]) =>
 // What a call committed: its own conviction on a numeric guess, every pick's
 // summed on everything else.
 const callCommitted = (
-	shape: QuestionShape,
+	question: { shape: QuestionShape; isOfficial: boolean },
 	call: { conviction: number | null; selections: LoadedSelection[] },
 ) => {
-	const base = BASE_POINTS_BY_SHAPE[shape]
-	return isNumericGuessShape(shape)
+	const base = basePointsFor(question)
+	return isNumericGuessShape(question.shape)
 		? pointsCommitted(base, call.conviction ?? 0)
 		: call.selections.reduce(
 				(sum, s) => sum + pointsCommitted(base, s.conviction),
@@ -108,7 +108,12 @@ export async function recomputeStreakTrack(
 				with: { option: { columns: { isCorrect: true } } },
 			},
 			question: {
-				columns: { shape: true, status: true, seasonId: true },
+				columns: {
+					shape: true,
+					isOfficial: true,
+					status: true,
+					seasonId: true,
+				},
 				with: {
 					game: { columns: { id: true, startsAt: true, finalizedAt: true } },
 				},
@@ -132,7 +137,7 @@ export async function recomputeStreakTrack(
 				}),
 				realizedAt: game.finalizedAt ?? game.startsAt,
 				startsAt: game.startsAt,
-				committed: callCommitted(call.question.shape, call),
+				committed: callCommitted(call.question, call),
 				seasonId: call.question.seasonId,
 				gameId: game.id,
 			},
@@ -318,7 +323,7 @@ export async function recomputeSlate(
 			outcomesByUser.set(call.userId, outcomes)
 			committedByUser.set(call.userId, [
 				...(committedByUser.get(call.userId) ?? []),
-				callCommitted("team_vs_team", call),
+				callCommitted({ shape: "team_vs_team", isOfficial: true }, call),
 			])
 		}
 	}

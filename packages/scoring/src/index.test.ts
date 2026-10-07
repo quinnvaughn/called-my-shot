@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest"
 import {
 	BASE_POINTS_BY_SHAPE,
-	COMMUNITY_PROP_MAX_CONVICTION,
+	basePointsFor,
+	COMMUNITY_POINTS_MULT,
 	breakEvenHitRate,
 	breakEvenLossRate,
 	convictionEdge,
@@ -18,7 +19,6 @@ import {
 	MIN_EDGE_SAMPLE,
 	NUMERIC_GUESS_SHAPES,
 	numericGuessPoints,
-	maxConvictionFor,
 	overProbability,
 	pointsAtStake,
 	pointsCommitted,
@@ -98,20 +98,19 @@ describe("BASE_POINTS_BY_SHAPE", () => {
 	})
 })
 
-describe("maxConvictionFor", () => {
-	it("caps a community yes/no prop", () => {
-		expect(maxConvictionFor({ shape: "yes_no_prop", isOfficial: false })).toBe(
-			COMMUNITY_PROP_MAX_CONVICTION,
-		)
+describe("basePointsFor", () => {
+	it("scales every community question's base down", () => {
+		for (const shape of ["yes_no_prop", "player_stat_numeric_guess"] as const) {
+			expect(basePointsFor({ shape, isOfficial: false })).toBe(
+				BASE_POINTS_BY_SHAPE[shape] * COMMUNITY_POINTS_MULT,
+			)
+		}
 	})
 
-	it("leaves official props and every other shape at 100", () => {
-		expect(maxConvictionFor({ shape: "yes_no_prop", isOfficial: true })).toBe(
-			100,
+	it("leaves an official question at its shape's base", () => {
+		expect(basePointsFor({ shape: "yes_no_prop", isOfficial: true })).toBe(
+			BASE_POINTS_BY_SHAPE.yes_no_prop,
 		)
-		expect(
-			maxConvictionFor({ shape: "player_stat_over_under", isOfficial: false }),
-		).toBe(100)
 	})
 })
 

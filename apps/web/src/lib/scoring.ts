@@ -6,6 +6,7 @@
 // resolution - the server remains the source of truth for the real payout.
 import {
 	BASE_POINTS_BY_SHAPE,
+	COMMUNITY_POINTS_MULT,
 	type ContrarianTier,
 	type EarlyTier,
 	earlyTierFor,
@@ -79,7 +80,7 @@ export function toleranceSpecFrom(
 // rest of @called-my-shot/scoring) key off the API's lower snake_case DB
 // enum instead - this is the one explicit place that bridges the two so a
 // typo can't silently fall back to the wrong base.
-export const BASE_POINTS_BY_GQL_SHAPE: Record<QuestionShape, number> = {
+const BASE_POINTS_BY_GQL_SHAPE: Record<QuestionShape, number> = {
 	PLAYER_STAT_OVER_UNDER: BASE_POINTS_BY_SHAPE.player_stat_over_under,
 	TEAM_STAT_OVER_UNDER: BASE_POINTS_BY_SHAPE.team_stat_over_under,
 	PLAYER_SEASON_STAT_OVER_UNDER:
@@ -102,6 +103,15 @@ export const BASE_POINTS_BY_GQL_SHAPE: Record<QuestionShape, number> = {
 	PLAYER_SEASON_AWARD: BASE_POINTS_BY_SHAPE.player_season_award,
 	TEAM_SEASON_AWARD: BASE_POINTS_BY_SHAPE.team_season_award,
 	PLAYER_AWARD_FINALISTS: BASE_POINTS_BY_SHAPE.player_award_finalists,
+}
+
+// basePointsFor in @called-my-shot/scoring, keyed by the GraphQL shape.
+export function basePointsForGql(
+	shape: QuestionShape,
+	isOfficial: boolean,
+): number {
+	const base = BASE_POINTS_BY_GQL_SHAPE[shape]
+	return isOfficial ? base : base * COMMUNITY_POINTS_MULT
 }
 
 // Mirrors SEASON_LONG_SHAPES/isSeasonLongShape in @called-my-shot/scoring -

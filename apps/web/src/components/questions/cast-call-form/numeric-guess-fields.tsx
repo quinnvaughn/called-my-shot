@@ -1,4 +1,4 @@
-import { BASE_POINTS_BY_SHAPE } from "@called-my-shot/scoring"
+import { basePointsFor } from "@called-my-shot/scoring"
 import { useEffect, useState } from "react"
 import { FiMinus, FiPlus } from "react-icons/fi"
 import { css, cx } from "styled-system/css"
@@ -376,7 +376,7 @@ export function NumericGuessFields({ callForm }: Props) {
 						<PointsPreview
 							kind="numeric"
 							conviction={numericConviction ?? 50}
-							basePoints={BASE_POINTS_BY_SHAPE[shape]}
+							basePoints={basePointsFor({ shape, isOfficial: question.isOfficial })}
 							lossRate={question.lossRate}
 						/>
 					</VStack>

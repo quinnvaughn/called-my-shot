@@ -82,6 +82,7 @@ export async function loadTrackRecord(
 				columns: {
 					gameId: true,
 					shape: true,
+					isOfficial: true,
 					status: true,
 					lossRate: true,
 					subjectTeamId: true,
