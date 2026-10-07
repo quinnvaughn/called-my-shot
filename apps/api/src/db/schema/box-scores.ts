@@ -135,6 +135,20 @@ export const playerGameStats = pgTable(
 			t.statKey,
 			t.gameDate.desc(),
 		),
+		// Which team a player was on for a game, and their latest team in a
+		// season (lib/user-record.ts). team_id trails the key so both lookups
+		// are answered from the index alone instead of fetching every stat row.
+		index("player_game_stats_player_game_team_idx").on(
+			t.playerId,
+			t.gameId,
+			t.teamId,
+		),
+		index("player_game_stats_player_season_date_team_idx").on(
+			t.playerId,
+			t.seasonId,
+			t.gameDate.desc(),
+			t.teamId,
+		),
 	],
 )
 export type PlayerGameStat = typeof playerGameStats.$inferSelect

@@ -1,0 +1,2 @@
+CREATE INDEX "player_game_stats_player_game_team_idx" ON "player_game_stats" ("player_id","game_id","team_id");--> statement-breakpoint
+CREATE INDEX "player_game_stats_player_season_date_team_idx" ON "player_game_stats" ("player_id","season_id","game_date" DESC NULLS LAST,"team_id");
