@@ -20,6 +20,7 @@ import { Route as AppConfirmEmailRouteImport } from './routes/_app/confirm-email
 import { Route as AppHowItWorksRouteImport } from './routes/_app/how-it-works'
 import { Route as AppLeaderboardRouteImport } from './routes/_app/leaderboard'
 import { Route as AppPrivacyRouteImport } from './routes/_app/privacy'
+import { Route as AppResetPasswordRouteImport } from './routes/_app/reset-password'
 import { Route as AppTermsRouteImport } from './routes/_app/terms'
 import { Route as AdminIndexRouteImport } from './routes/admin/index'
 import { Route as AdminBandsRouteImport } from './routes/admin/bands'
@@ -136,6 +137,11 @@ const AppLeaderboardRoute = AppLeaderboardRouteImport.update({
 const AppPrivacyRoute = AppPrivacyRouteImport.update({
   id: '/privacy',
   path: '/privacy',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppResetPasswordRoute = AppResetPasswordRouteImport.update({
+  id: '/reset-password',
+  path: '/reset-password',
   getParentRoute: () => AppRoute,
 } as any)
 const AppTermsRoute = AppTermsRouteImport.update({
@@ -491,6 +497,7 @@ export interface FileRoutesByFullPath {
   '/how-it-works': typeof AppHowItWorksRoute
   '/leaderboard': typeof AppLeaderboardRoute
   '/privacy': typeof AppPrivacyRoute
+  '/reset-password': typeof AppResetPasswordRoute
   '/terms': typeof AppTermsRoute
   '/admin/bands': typeof AdminBandsRoute
   '/admin/disputes': typeof AdminDisputesRoute
@@ -565,6 +572,7 @@ export interface FileRoutesByTo {
   '/how-it-works': typeof AppHowItWorksRoute
   '/leaderboard': typeof AppLeaderboardRoute
   '/privacy': typeof AppPrivacyRoute
+  '/reset-password': typeof AppResetPasswordRoute
   '/terms': typeof AppTermsRoute
   '/admin/bands': typeof AdminBandsRoute
   '/admin/disputes': typeof AdminDisputesRoute
@@ -641,6 +649,7 @@ export interface FileRoutesById {
   '/_app/how-it-works': typeof AppHowItWorksRoute
   '/_app/leaderboard': typeof AppLeaderboardRoute
   '/_app/privacy': typeof AppPrivacyRoute
+  '/_app/reset-password': typeof AppResetPasswordRoute
   '/_app/terms': typeof AppTermsRoute
   '/admin/bands': typeof AdminBandsRoute
   '/admin/disputes': typeof AdminDisputesRoute
@@ -718,6 +727,7 @@ export interface FileRouteTypes {
     | '/how-it-works'
     | '/leaderboard'
     | '/privacy'
+    | '/reset-password'
     | '/terms'
     | '/admin/bands'
     | '/admin/disputes'
@@ -792,6 +802,7 @@ export interface FileRouteTypes {
     | '/how-it-works'
     | '/leaderboard'
     | '/privacy'
+    | '/reset-password'
     | '/terms'
     | '/admin/bands'
     | '/admin/disputes'
@@ -867,6 +878,7 @@ export interface FileRouteTypes {
     | '/_app/how-it-works'
     | '/_app/leaderboard'
     | '/_app/privacy'
+    | '/_app/reset-password'
     | '/_app/terms'
     | '/admin/bands'
     | '/admin/disputes'
@@ -1034,6 +1046,13 @@ declare module '@tanstack/react-router' {
       path: '/privacy'
       fullPath: '/privacy'
       preLoaderRoute: typeof AppPrivacyRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/reset-password': {
+      id: '/_app/reset-password'
+      path: '/reset-password'
+      fullPath: '/reset-password'
+      preLoaderRoute: typeof AppResetPasswordRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/terms': {
@@ -1544,6 +1563,7 @@ interface AppRouteChildren {
   AppHowItWorksRoute: typeof AppHowItWorksRoute
   AppLeaderboardRoute: typeof AppLeaderboardRoute
   AppPrivacyRoute: typeof AppPrivacyRoute
+  AppResetPasswordRoute: typeof AppResetPasswordRoute
   AppTermsRoute: typeof AppTermsRoute
   AppBallotsBallotSlugRoute: typeof AppBallotsBallotSlugRoute
   AppCallsCallIdRoute: typeof AppCallsCallIdRoute
@@ -1565,6 +1585,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppHowItWorksRoute: AppHowItWorksRoute,
   AppLeaderboardRoute: AppLeaderboardRoute,
   AppPrivacyRoute: AppPrivacyRoute,
+  AppResetPasswordRoute: AppResetPasswordRoute,
   AppTermsRoute: AppTermsRoute,
   AppBallotsBallotSlugRoute: AppBallotsBallotSlugRoute,
   AppCallsCallIdRoute: AppCallsCallIdRoute,
@@ -1674,12 +1695,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { createStart } from '@tanstack/react-start'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-  }
-}

@@ -48,3 +48,30 @@ export const signInSchema = z.object({
 	password: z.string().min(1, "Enter your password"),
 })
 export type SignInInput = z.infer<typeof signInSchema>
+
+export const requestPasswordResetSchema = z.object({
+	email: emailSchema,
+})
+export type RequestPasswordResetInput = z.infer<
+	typeof requestPasswordResetSchema
+>
+
+// Server-facing - the token from the emailed link plus the new password.
+export const resetPasswordSchema = z.object({
+	token: z.string().min(1, "This reset link is missing its token."),
+	newPassword: passwordSchema,
+})
+export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>
+
+// Client-facing - the reset page's two fields. The token comes from the URL,
+// and confirmPassword is stripped back off before calling the mutation.
+export const resetPasswordFormSchema = z
+	.object({
+		newPassword: passwordSchema,
+		confirmPassword: z.string().min(1, "Confirm your new password"),
+	})
+	.refine((v) => v.newPassword === v.confirmPassword, {
+		message: "Passwords don't match",
+		path: ["confirmPassword"],
+	})
+export type ResetPasswordFormInput = z.infer<typeof resetPasswordFormSchema>

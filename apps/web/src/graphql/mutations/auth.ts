@@ -45,6 +45,39 @@ export const SignInDocument = graphql(`
 	}
 `)
 
+export const RequestPasswordResetDocument = graphql(`
+	mutation RequestPasswordReset($input: RequestPasswordResetInput!) {
+		requestPasswordReset(input: $input) {
+			__typename
+			... on ValidationError {
+				fieldErrors {
+					field
+					message
+				}
+			}
+		}
+	}
+`)
+
+export const ResetPasswordDocument = graphql(`
+	mutation ResetPassword($input: ResetPasswordInput!) {
+		resetPassword(input: $input) {
+			__typename
+			... on AuthPayload {
+				user {
+					id
+				}
+			}
+			... on ValidationError {
+				fieldErrors {
+					field
+					message
+				}
+			}
+		}
+	}
+`)
+
 export const SignOutDocument = graphql(`
 	mutation SignOut {
 		signOut

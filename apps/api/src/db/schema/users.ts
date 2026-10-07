@@ -148,3 +148,23 @@ export const pendingEmailChanges = pgTable(
 	(t) => [unique().on(t.userId)],
 )
 export type PendingEmailChange = typeof pendingEmailChanges.$inferSelect
+
+// One outstanding reset link per user - requesting another replaces it.
+// Stores a SHA-256 of the emailed token rather than the token itself, so a
+// leaked copy of this table can't be turned into working reset links. The
+// token is 32 random bytes, so a fast hash is enough; there's nothing to
+// brute-force.
+export const passwordResetTokens = pgTable(
+	"password_reset_tokens",
+	{
+		id: uuid("id").primaryKey().defaultRandom(),
+		userId: uuid("user_id")
+			.notNull()
+			.references(() => users.id, { onDelete: "cascade" }),
+		tokenHash: text("token_hash").notNull().unique(),
+		expiresAt: timestamp("expires_at").notNull(),
+		createdAt: timestamp("created_at").notNull().defaultNow(),
+	},
+	(t) => [unique().on(t.userId)],
+)
+export type PasswordResetToken = typeof passwordResetTokens.$inferSelect

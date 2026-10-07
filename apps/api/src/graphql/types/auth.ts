@@ -1,10 +1,19 @@
-import { signInSchema, signUpSchema } from "@called-my-shot/schemas"
+import {
+	requestPasswordResetSchema,
+	resetPasswordSchema,
+	signInSchema,
+	signUpSchema,
+} from "@called-my-shot/schemas"
 import { db } from "../../db"
 import type { User } from "../../db/schema"
 import { createAccount } from "../../lib/accounts"
 import { issuePendingEmailChange } from "../../lib/email-change"
 import { ValidationError } from "../../lib/errors"
 import { hashPassword, verifyPassword } from "../../lib/password"
+import {
+	consumePasswordReset,
+	issuePasswordReset,
+} from "../../lib/password-reset"
 import { clientIpOf } from "../../lib/request-ip"
 import {
 	clearSessionCookie,
@@ -60,6 +69,22 @@ const SignInInput = builder.inputType("SignInInput", {
 	fields: (t) => ({
 		identifier: t.string({ required: true }),
 		password: t.string({ required: true }),
+	}),
+})
+
+const RequestPasswordResetInput = builder.inputType(
+	"RequestPasswordResetInput",
+	{
+		fields: (t) => ({
+			email: t.string({ required: true }),
+		}),
+	},
+)
+
+const ResetPasswordInput = builder.inputType("ResetPasswordInput", {
+	fields: (t) => ({
+		token: t.string({ required: true }),
+		newPassword: t.string({ required: true }),
 	}),
 })
 
@@ -142,6 +167,45 @@ builder.mutationType({
 						"Invalid email/username or password",
 					)
 				}
+
+				const session = await createSession(user.id)
+				setSessionCookie(ctx.res, session)
+				ctx.ownedUserIds.add(user.id)
+
+				return { user }
+			},
+		}),
+
+		// Always true for a well-formed email. The lookup and send run after
+		// the response, so neither the answer nor how long it takes says
+		// whether the email has an account.
+		requestPasswordReset: t.field({
+			type: "Boolean",
+			errors: { union: { name: "RequestPasswordResetResult" } },
+			args: {
+				input: t.arg({ type: RequestPasswordResetInput, required: true }),
+			},
+			resolve: (_root, args) => {
+				const { email } = parseInput(requestPasswordResetSchema, args.input)
+				void issuePasswordReset(email).catch((error) => {
+					console.error("[password-reset] failed to issue:", error)
+				})
+				return true
+			},
+		}),
+
+		// Signs the user in on success. Every other session was just signed
+		// out, and the person holding the link has proved they own the inbox.
+		resetPassword: t.field({
+			type: AuthPayload,
+			errors: { directResult: true, union: { name: "ResetPasswordResult" } },
+			args: { input: t.arg({ type: ResetPasswordInput, required: true }) },
+			resolve: async (_root, args, ctx): Promise<AuthPayloadShape> => {
+				const { token, newPassword } = parseInput(
+					resetPasswordSchema,
+					args.input,
+				)
+				const user = await consumePasswordReset(token, newPassword)
 
 				const session = await createSession(user.id)
 				setSessionCookie(ctx.res, session)

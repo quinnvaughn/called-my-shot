@@ -35,6 +35,8 @@ type AnalyticsEvents = {
 	user_signed_in: { method: "email" | "google"; surface: AuthModalSurface }
 	user_signed_out: Record<string, never>
 	email_confirmed: Record<string, never>
+	password_reset_requested: Record<string, never>
+	password_reset_completed: Record<string, never>
 	account_deleted: Record<string, never>
 
 	// locksAt with horizon is the time-to-resolution signal: a game question
