@@ -25,6 +25,7 @@ import { QuestionCard } from "#/components/questions/question-card"
 import { SortSwitcher } from "#/components/questions/sort-switcher"
 import { Breadcrumb } from "#/components/ui/breadcrumb"
 import { button } from "#/components/ui/button"
+import { CountBadge } from "#/components/ui/count-badge"
 import { EmptyState } from "#/components/ui/empty-state"
 import { InfiniteScroll } from "#/components/ui/infinite-scroll"
 import { NotFound } from "#/components/ui/not-found"
@@ -317,7 +318,12 @@ function RouteComponent() {
 			<Tabs value={tab} onValueChange={selectTab}>
 				<Tabs.List>
 					<Tabs.Trigger value="official">Official</Tabs.Trigger>
-					<Tabs.Trigger value="community">Community</Tabs.Trigger>
+					<Tabs.Trigger value="community">
+						Community
+						{game.openCommunityQuestionCount > 0 && (
+							<CountBadge count={game.openCommunityQuestionCount} />
+						)}
+					</Tabs.Trigger>
 				</Tabs.List>
 			</Tabs>
 

@@ -25,11 +25,12 @@ type Props<T extends string> = {
 
 // The sort-pill row shared by the league feed, the game detail page's question
 // list, and the My Calls/My Questions pages - each caller supplies its own
-// subset of its own sort enum (the feed offers Closing Soon/Most Called/New; a
-// single game's questions all share one locksAt, so that page skips Closing
-// Soon entirely; My Calls offers a different enum again, since a call sorts by
-// things only a call has). Generic over the enum rather than tied to
-// QuestionSortOrder for that last reason.
+// subset of its own sort enum (the league Community tab offers Most Called/New,
+// with Closing Soon as its own row above; a single game's questions all share
+// one locksAt, so that page skips Closing Soon entirely; My Calls offers a
+// different enum again, since a call sorts by things only a call has).
+// Generic over the enum rather than tied to QuestionSortOrder for that last
+// reason.
 export function SortSwitcher<T extends string>({
 	sorts,
 	active,

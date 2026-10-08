@@ -1406,6 +1406,11 @@ export default defineConfig({
               borderBottom: "1px solid {colors.border.default}",
             },
             trigger: {
+              // Flex so anything after the label (a CountBadge) centers
+              // vertically on it rather than sitting on its text baseline.
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
               textAlign: "center",
               fontFamily: "mono",
               fontSize: "xs",

@@ -1,4 +1,4 @@
-import { and, count, eq, min, notInArray } from "drizzle-orm"
+import { and, count, eq, gt, min, notInArray } from "drizzle-orm"
 import { db } from "../../../db"
 import { LEAGUE_SEASON_FORMAT } from "../../../db/catalog/league-season-format"
 import { calls, games, type League, questions } from "../../../db/schema"
@@ -135,6 +135,26 @@ export const LeagueRef = builder.drizzleObject("leagues", {
 						),
 					)
 				return row?.locksAt ? new Date(row.locksAt) : null
+			},
+		}),
+		// Community questions in this league that can still be called, for the
+		// league room's Community tab label. locksAt as well as status, since
+		// lock-overdue-questions only flips "open" to "locked" every 15 minutes.
+		openCommunityQuestionCount: t.field({
+			type: "Int",
+			resolve: async (league) => {
+				const [{ n }] = await db
+					.select({ n: count() })
+					.from(questions)
+					.where(
+						and(
+							eq(questions.leagueId, league.id),
+							eq(questions.isOfficial, false),
+							eq(questions.status, "open"),
+							gt(questions.locksAt, new Date()),
+						),
+					)
+				return n
 			},
 		}),
 		// Null when signed out - Home (the only caller) is authed-only, but this

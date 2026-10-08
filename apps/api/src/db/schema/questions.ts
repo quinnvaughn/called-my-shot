@@ -1,3 +1,4 @@
+import { sql } from "drizzle-orm"
 import {
 	boolean,
 	index,
@@ -375,6 +376,10 @@ export const questions = pgTable(
 		uniqueIndex("questions_generation_key_idx").on(t.generationKey),
 		index("questions_game_id_idx").on(t.gameId),
 		index("questions_series_id_idx").on(t.seriesId),
+		// League.openCommunityQuestionCount, read on every league room load.
+		index("questions_open_community_idx")
+			.on(t.leagueId, t.locksAt)
+			.where(sql`is_official = false and status = 'open'`),
 	],
 )
 export type Question = typeof questions.$inferSelect

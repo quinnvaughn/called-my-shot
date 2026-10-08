@@ -1,4 +1,4 @@
-import { and, count, eq } from "drizzle-orm"
+import { and, count, eq, gt } from "drizzle-orm"
 import { DateTime } from "luxon"
 import { db } from "../../../db"
 import { calls, questions, type User } from "../../../db/schema"
@@ -186,6 +186,28 @@ export const GameRef = builder.drizzleObject("games", {
 				where: { isOfficial: true },
 				orderBy: { createdAt: "asc", id: "asc" },
 			}),
+		}),
+		// Community questions on this game that can still be called, for the
+		// game page's Community tab label - same rule as
+		// League.openCommunityQuestionCount, so the badge only ever means
+		// something is left to call. The tab's list still shows the locked and
+		// settled ones.
+		openCommunityQuestionCount: t.field({
+			type: "Int",
+			resolve: async (game) => {
+				const [{ n }] = await db
+					.select({ n: count() })
+					.from(questions)
+					.where(
+						and(
+							eq(questions.gameId, game.id),
+							eq(questions.isOfficial, false),
+							eq(questions.status, "open"),
+							gt(questions.locksAt, new Date()),
+						),
+					)
+				return n
+			},
 		}),
 		// The community questions on this game the viewer called, oldest
 		// first, for the game rail's Community tab. Empty when signed out.

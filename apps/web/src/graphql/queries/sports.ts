@@ -47,6 +47,7 @@ export const LeagueByIdDocument = graphql(`
 			slug
 			windowType
 			currentWindowGameCount
+			openCommunityQuestionCount
 			postseason {
 				roundLabels
 			}
@@ -150,6 +151,7 @@ export const GameByIdDocument = graphql(`
 			venue
 			windowKey
 			viewerHasReminder
+			openCommunityQuestionCount
 			# The game rail's Community tab (GameSetRail).
 			viewerCommunityQuestions {
 				id
@@ -558,6 +560,25 @@ export const LeagueCommunityDocument = graphql(`
 			pageInfo {
 				hasNextPage
 				endCursor
+			}
+		}
+	}
+`)
+
+// The Community tab's Closing Soon row. Its own document rather than
+// LeagueCommunity with sort: CLOSING_SOON, since that one backs an infinite
+// query and a plain query can't share its cache key.
+export const LeagueCommunityClosingSoonDocument = graphql(`
+	query LeagueCommunityClosingSoon($leagueId: ID!, $first: Int) {
+		questions(
+			leagueId: $leagueId
+			first: $first
+			sort: CLOSING_SOON
+			isOfficial: false
+		) {
+			items {
+				id
+				...QuestionCard_question
 			}
 		}
 	}

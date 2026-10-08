@@ -1,0 +1,1 @@
+CREATE INDEX "questions_open_community_idx" ON "questions" ("league_id","locks_at") WHERE is_official = false and status = 'open';

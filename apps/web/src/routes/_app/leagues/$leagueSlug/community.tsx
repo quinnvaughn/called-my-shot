@@ -1,6 +1,11 @@
-import { keepPreviousData, useInfiniteQuery } from "@tanstack/react-query"
+import {
+	keepPreviousData,
+	useInfiniteQuery,
+	useQuery,
+} from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
 import { useEffect, useState } from "react"
+import { css } from "styled-system/css"
 import { VStack } from "styled-system/jsx"
 import {
 	FeedSearchField,
@@ -8,40 +13,47 @@ import {
 } from "#/components/leagues/feed-search-field"
 import { QuestionCard } from "#/components/questions/question-card"
 import { SortSwitcher } from "#/components/questions/sort-switcher"
+import { CardRail } from "#/components/ui/card-rail"
 import { EmptyState } from "#/components/ui/empty-state"
 import { InfiniteScroll } from "#/components/ui/infinite-scroll"
 import type { QuestionSortOrder } from "#/graphql/generated/graphql"
-import { LeagueCommunityDocument } from "#/graphql/queries/sports"
-import { gqlInfiniteQueryOptions } from "#/graphql/query-options"
+import {
+	LeagueCommunityClosingSoonDocument,
+	LeagueCommunityDocument,
+} from "#/graphql/queries/sports"
+import {
+	gqlInfiniteQueryOptions,
+	gqlQueryOptions,
+} from "#/graphql/query-options"
 import { pageMeta } from "#/lib/meta"
 
+// Closing Soon isn't a sort here. It's bounded to the next 48 hours, so as a
+// list it can come up empty while the league has plenty of open questions
+// further out. It gets its own row above the list instead (ClosingSoonRow),
+// which doesn't render when nothing qualifies.
 const SORTS: { value: QuestionSortOrder; label: string }[] = [
-	{ value: "CLOSING_SOON", label: "Closing Soon" },
 	{ value: "MOST_CALLED", label: "Most Called" },
 	{ value: "NEW", label: "New" },
 ]
 
+const DEFAULT_SORT: QuestionSortOrder = "MOST_CALLED"
+
 // Most Called has no time decay at all - an old season's runaway-popular
 // question would otherwise rank at the top forever. New already self-limits
-// (an old question has an old createdAt, so it never surfaces there), and
-// Closing Soon already requires status "open" with a future locksAt, which a
-// past-season question essentially never satisfies - so only Most Called
-// actually needs this.
+// (an old question has an old createdAt, so it never surfaces there).
 function isCurrentSeasonOnly(sort: QuestionSortOrder): boolean {
 	return sort === "MOST_CALLED"
 }
 
-// This tab's job is sourcing things to call - a resolved/disputed question
-// has nothing left to do, so it doesn't belong under New or Most Called
-// (without this, a settled question that went viral once could camp the top
-// of Most Called forever). Closing Soon is a no-op here either way - its own
-// condition already requires status "open" with a future locksAt, so a
-// settled question can never appear there regardless of this flag.
-function excludeSettled(sort: QuestionSortOrder): boolean {
-	return sort !== "CLOSING_SOON"
-}
-
 const PAGE_SIZE = 10
+
+const CLOSING_SOON_LIMIT = 10
+
+const closingSoonQuery = (leagueId: string) =>
+	gqlQueryOptions(LeagueCommunityClosingSoonDocument, {
+		leagueId,
+		first: CLOSING_SOON_LIMIT,
+	})
 
 type CommunityFilters = {
 	leagueId: string
@@ -68,7 +80,10 @@ function leagueCommunityQuery({
 			// needlessly AND the two together, so teamId wins outright when set.
 			...(teamId ? { teamId } : { search: search || undefined }),
 			sort,
-			excludeSettled: excludeSettled(sort),
+			// This tab's job is sourcing things to call - a resolved/disputed
+			// question has nothing left to do (without this, a settled question
+			// that went viral once could camp the top of Most Called forever).
+			excludeSettled: true,
 			currentSeasonOnly: isCurrentSeasonOnly(sort),
 		},
 		(data) => data.questions,
@@ -79,17 +94,20 @@ export const Route = createFileRoute("/_app/leagues/$leagueSlug/community")({
 	component: RouteComponent,
 	staleTime: 0,
 	loader: ({ context }) =>
-		context.queryClient.infiniteQuery(
-			leagueCommunityQuery({
-				leagueId: context.league.id,
-				sort: "CLOSING_SOON",
-			}),
-		),
+		Promise.all([
+			context.queryClient.infiniteQuery(
+				leagueCommunityQuery({
+					leagueId: context.league.id,
+					sort: DEFAULT_SORT,
+				}),
+			),
+			context.queryClient.query(closingSoonQuery(context.league.id)),
+		]),
 	head: ({ match }) => {
 		const league = match.context.league
 		return pageMeta({
 			title: `${league.name} · Community · Called My Shot`,
-			description: `Open ${league.name} questions written by the community. Sort by what's closing soon, what's most called, or what's new.`,
+			description: `Open ${league.name} questions written by the community. See what's closing soon, what's most called, and what's new.`,
 			path: `/leagues/${league.slug}/community`,
 		})
 	},
@@ -109,7 +127,7 @@ function RouteComponent() {
 	const [search, setSearch] = useState("")
 	const [debouncedSearch, setDebouncedSearch] = useState("")
 	const [teamId, setTeamId] = useState<string | null>(null)
-	const [sort, setSort] = useState<QuestionSortOrder>("CLOSING_SOON")
+	const [sort, setSort] = useState<QuestionSortOrder>(DEFAULT_SORT)
 
 	// keepPreviousData holds the current results in place while a new filter's
 	// first page loads, rather than blanking the list between keystrokes.
@@ -143,6 +161,8 @@ function RouteComponent() {
 
 	return (
 		<VStack alignItems="stretch" gap="4">
+			<ClosingSoonRow leagueId={leagueId} />
+
 			<FeedSearchField
 				leagueId={leagueId}
 				value={search}
@@ -163,5 +183,39 @@ function RouteComponent() {
 				renderItem={(item) => <QuestionCard question={item} />}
 			/>
 		</VStack>
+	)
+}
+
+// Community questions locking in the next 48 hours, ahead of the list and
+// untouched by its search and sort. Renders nothing when none qualify.
+function ClosingSoonRow({ leagueId }: { leagueId: string }) {
+	const { data } = useQuery(closingSoonQuery(leagueId))
+	const questions = data?.questions.items ?? []
+
+	if (questions.length === 0) return null
+
+	return (
+		<section aria-label="Closing soon">
+			<CardRail
+				items={questions}
+				getKey={(question) => question.id}
+				renderItem={(question) => <QuestionCard question={question} />}
+				itemLabel="question"
+				header={
+					<span
+						className={css({
+							fontFamily: "mono",
+							fontSize: "2xs",
+							letterSpacing: "wide",
+							textTransform: "uppercase",
+							color: "fg.default",
+							fontWeight: "bold",
+						})}
+					>
+						Closing soon
+					</span>
+				}
+			/>
+		</section>
 	)
 }
