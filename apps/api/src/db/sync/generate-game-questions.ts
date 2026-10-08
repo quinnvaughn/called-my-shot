@@ -7,6 +7,7 @@ import { loadBandSettings } from "../../lib/game-questions/band-settings"
 import {
 	type DuelSpread,
 	duelSpreadFor,
+	type PricedSide,
 	playerLineTemplateFor,
 	priceDuel,
 } from "../../lib/game-questions/duel-pricing"
@@ -16,6 +17,7 @@ import {
 	parseGenerationKey,
 } from "../../lib/game-questions/generation-key"
 import { loadLeaderLossSettings } from "../../lib/game-questions/leader-settings"
+import { priceLeaderPool } from "../../lib/game-questions/leader-pricing"
 import { favoriteOf, type LeaderBasis } from "../../lib/game-questions/leaders"
 import {
 	loadLineSettings,
@@ -52,6 +54,7 @@ import {
 	type Samples,
 	type SeasonStatsFor,
 } from "../../lib/game-questions/player-samples"
+import { repriceUncalled } from "../../lib/game-questions/reprice"
 import { refreshGeneratedQuestionSchedule } from "../../lib/game-questions/schedule"
 import { selectGameTemplates } from "../../lib/game-questions/select-templates"
 import {
@@ -159,6 +162,13 @@ type LeagueContext = {
 		statName: string,
 		espnStat: string | readonly string[],
 	) => Promise<DuelSpread>
+	// Each pool player's price on a leader question, by player id - see
+	// priceLeaderPool. Empty when the pool can't be priced.
+	leaderPricesFor: (
+		game: DueGame,
+		template: Extract<GameQuestionTemplate, { shape: "player_game_stat_leader" }>,
+		playerIds: string[],
+	) => Promise<Map<string, PricedSide>>
 }
 
 type PlannedQuestion = {
@@ -316,7 +326,8 @@ async function planTemplate(
 				return planned
 			},
 		)
-		.with({ shape: "player_game_stat_leader" }, async ({ statName, pick }) => {
+		.with({ shape: "player_game_stat_leader" }, async (leader) => {
+			const { statName, pick } = leader
 			const key = generationKey(base)
 			if (isFilled(key)) return []
 			// Someone on the IL can't lead a stat, and neither can a position
@@ -350,6 +361,11 @@ async function planTemplate(
 						]
 					: [],
 			)
+			const prices = await ctx.leaderPricesFor(
+				game,
+				leader,
+				pool.map((player) => player.id),
+			)
 			return [
 				{
 					key,
@@ -359,6 +375,7 @@ async function planTemplate(
 						label: player.name,
 						sortOrder: index,
 						playerId: player.id,
+						...prices.get(player.id),
 					})),
 				},
 			]
@@ -540,6 +557,43 @@ async function insertPlanned(
 	})
 }
 
+// A leader question's prices keep up with its pool's averages until someone
+// calls it - see repriceUncalled. A pool that can't be priced this run leaves
+// whatever it has.
+async function repriceLeader(
+	ctx: LeagueContext,
+	game: DueGame,
+	template: Extract<GameQuestionTemplate, { shape: "player_game_stat_leader" }>,
+	questionId: string,
+): Promise<void> {
+	const options = await db.query.questionOptions.findMany({
+		where: { questionId },
+		columns: {
+			id: true,
+			playerId: true,
+			winMult: true,
+			lossRate: true,
+			modelHitRate: true,
+		},
+	})
+	const prices = await ctx.leaderPricesFor(
+		game,
+		template,
+		options.flatMap((option) => (option.playerId ? [option.playerId] : [])),
+	)
+	if (prices.size === 0) return
+	await db.transaction((tx) =>
+		repriceUncalled(
+			tx,
+			questionId,
+			options.map((option) => ({
+				option,
+				next: (option.playerId && prices.get(option.playerId)) || null,
+			})),
+		),
+	)
+}
+
 async function generateForGame(
 	ctx: LeagueContext,
 	game: DueGame,
@@ -585,6 +639,12 @@ async function generateForGame(
 		) {
 			if (await deleteIfUncalled(question.id)) removed++
 			continue
+		}
+		if (
+			template?.shape === "player_game_stat_leader" &&
+			question.status === "open"
+		) {
+			await repriceLeader(ctx, game, template, question.id)
 		}
 		liveKeys.push(key)
 	}
@@ -760,6 +820,19 @@ async function generateForLeague(
 	}
 
 	const duelSpreads = new Map<string, Promise<DuelSpread>>()
+	// The player over/under on a stat, measured the same way, whose resolved
+	// lines a head-to-head or leader pool on it is priced from. Read from the
+	// whole catalog, not just what this run posts: an over/under above the
+	// league's tier still has lines from when it was posted.
+	const playerLineFor = (
+		statName: string,
+		espnStat: string | readonly string[],
+	) =>
+		playerLineTemplateFor(
+			[...templates, ...(GAME_QUESTION_CATALOG[league.slug] ?? [])],
+			statName,
+			espnStat,
+		)
 	const ctx: LeagueContext = {
 		config,
 		league,
@@ -802,19 +875,29 @@ async function generateForLeague(
 			const key = `${statName}:${[espnStat].flat().join("+")}`
 			const cached = duelSpreads.get(key)
 			if (cached) return cached
-			// Read from the whole catalog, not just what this run posts: an
-			// over/under above the league's tier still has lines from when it
-			// was posted, and its spread is the same one.
-			const line = playerLineTemplateFor(
-				[...templates, ...(GAME_QUESTION_CATALOG[league.slug] ?? [])],
-				statName,
-				espnStat,
-			)
+			const line = playerLineFor(statName, espnStat)
 			const spread = line
 				? duelSpreadFor(league.slug, line.id, LINE_FORMULA.teamOnly)
 				: Promise.resolve({ ratios: [], pairs: [] })
 			duelSpreads.set(key, spread)
 			return spread
+		},
+		leaderPricesFor: async (game, template, playerIds) => {
+			const line = playerLineFor(template.statName, template.pick.espnStat)
+			if (!line) return new Map()
+			const { ratios } = await ctx.duelSpreadFor(
+				template.statName,
+				template.pick.espnStat,
+			)
+			return priceLeaderPool({
+				leagueSlug: league.slug,
+				statName: template.statName,
+				seasonId: game.seasonId,
+				asOf: game.startsAt,
+				playerIds,
+				minGames: line.line.minGames,
+				ratios,
+			})
 		},
 	}
 

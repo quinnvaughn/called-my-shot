@@ -13,6 +13,7 @@ import {
 	earlyTierFor,
 	effectiveLossRate,
 	fieldPct,
+	leaderProbabilities,
 	hitTolerance,
 	isNumericGuessShape,
 	isSeasonLongShape,
@@ -258,6 +259,40 @@ describe("pairedDuelProbability", () => {
 			[0.8, 1.2],
 		]
 		expect(pairedDuelProbability(pairs, 10, 10)).toBeCloseTo(0.5, 10)
+	})
+})
+
+describe("leaderProbabilities", () => {
+	const ratios = [0.5, 0.8, 1, 1.2, 1.5]
+
+	it("gives every contender a chance, summing to 1", () => {
+		const chances = leaderProbabilities(ratios, [100, 60, 40])
+		expect(chances.reduce((a, b) => a + b, 0)).toBeCloseTo(1, 10)
+		for (const chance of chances) {
+			expect(chance).toBeGreaterThan(0)
+			expect(chance).toBeLessThan(1)
+		}
+	})
+
+	it("favors the contender expected to produce the most", () => {
+		const [top, middle, bottom] = leaderProbabilities(ratios, [100, 60, 40])
+		expect(top).toBeGreaterThan(middle ?? 1)
+		expect(middle).toBeGreaterThan(bottom ?? 1)
+	})
+
+	it("splits evenly between contenders expected to produce the same", () => {
+		const chances = leaderProbabilities(ratios, [50, 50, 50, 50])
+		for (const chance of chances) expect(chance).toBeCloseTo(0.25, 10)
+	})
+
+	it("matches a head-to-head with two contenders", () => {
+		const [first] = leaderProbabilities(ratios, [12, 8])
+		expect(first).toBeCloseTo(duelProbability(ratios, 12, 8), 1)
+	})
+
+	it("leaves someone expected to produce nothing almost no chance", () => {
+		const [, nobody] = leaderProbabilities(ratios, [50, 0])
+		expect(nobody).toBeLessThan(0.1)
 	})
 })
 

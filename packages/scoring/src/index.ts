@@ -266,6 +266,55 @@ export function sidePrice(modelHitRate: number): SidePrice {
 	}
 }
 
+// Each contender's chance of leading a pool in a stat, from each one's
+// expected figure (`means`, in pool order) and how past results landed
+// against their own expectation (`ratios`, as in overProbability). A
+// contender leads a plausible game when the ratio it's drawn beats every
+// other contender's own draw from the same spread, so its chance is the share
+// of its draws every other contender falls short of. Ties count half against
+// each rival, and the chances are rescaled to sum to 1 and smoothed by one
+// pseudo-game in which every contender is as likely as any other, so no one
+// reads as certain or hopeless.
+export function leaderProbabilities(
+	ratios: number[],
+	means: number[],
+): number[] {
+	const sorted = [...ratios].sort((a, b) => a - b)
+	const count = sorted.length
+	if (count === 0 || means.length === 0) return means.map(() => 0)
+	// The share of one contender's draws under `value`, ties counting half.
+	const shareBelow = (mean: number, value: number): number => {
+		if (mean <= 0) return value > 0 ? 1 : 0.5
+		const threshold = value / mean
+		let below = 0
+		let equal = 0
+		for (const ratio of sorted) {
+			if (ratio < threshold) below++
+			else if (ratio === threshold) equal++
+			else break
+		}
+		return (below + equal / 2) / count
+	}
+	const raw = means.map((mean, i) => {
+		let total = 0
+		for (const ratio of sorted) {
+			const value = ratio * mean
+			let chance = 1
+			for (const [j, other] of means.entries()) {
+				if (j !== i) chance *= shareBelow(other, value)
+			}
+			total += chance
+		}
+		return total / count
+	})
+	const sum = raw.reduce((a, b) => a + b, 0)
+	const even = 1 / means.length
+	return raw.map((p) => {
+		const share = sum > 0 ? p / sum : even
+		return (share * count + even) / (count + 1)
+	})
+}
+
 // The chance the first side of a head-to-head out-produces the second, from
 // past games where both sides' results are known together (`pairs`, each
 // side's result / expectation in one game, first side first). Each past game

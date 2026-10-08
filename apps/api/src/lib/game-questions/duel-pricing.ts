@@ -53,7 +53,7 @@ export type PricedSide = SidePrice & { modelHitRate: number }
 
 const roundToThousandths = (value: number) => Math.round(value * 1000) / 1000
 
-function pricedSide(modelHitRate: number): PricedSide {
+export function pricedSide(modelHitRate: number): PricedSide {
 	return {
 		...sidePrice(modelHitRate),
 		modelHitRate: roundToThousandths(modelHitRate),

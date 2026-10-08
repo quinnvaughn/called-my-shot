@@ -1,10 +1,7 @@
 import { defaultLossRate } from "@called-my-shot/scoring"
-import { and, eq, notExists, sql } from "drizzle-orm"
-import {
-	createGameWinnerPricer,
-	type PricedSide,
-} from "../../lib/game-questions/duel-pricing"
+import { createGameWinnerPricer } from "../../lib/game-questions/duel-pricing"
 import { generationKey } from "../../lib/game-questions/generation-key"
+import { repriceUncalled } from "../../lib/game-questions/reprice"
 import { refreshGeneratedQuestionSchedule } from "../../lib/game-questions/schedule"
 import { gameQuestionTitle } from "../../lib/game-questions/titles"
 import { getOfficialAccountId } from "../../lib/official-account"
@@ -12,8 +9,7 @@ import { isGameAskable } from "../../lib/postseason/settle"
 import { insertQuestion, teamOptions } from "../../lib/questions/insert"
 import { getCurrentSeason } from "../../lib/seasons"
 import { db } from "../index"
-import { calls, type League, questionOptions } from "../schema"
-import type { Tx } from "../types"
+import type { League } from "../schema"
 import { defaultEspnClient, type EspnClient } from "./espn-client"
 
 // One team_vs_team question per synced game, created official (see
@@ -138,51 +134,17 @@ export async function syncGameQuestions(
 			}
 
 			if (existing?.status === "open" && sides) {
-				await repriceUncalled(tx, existing.id, existing.options, sides)
+				await repriceUncalled(
+					tx,
+					existing.id,
+					existing.options.map((option, index) => ({
+						option,
+						next: sides[index] ?? null,
+					})),
+				)
 			}
 
 			await refreshGeneratedQuestionSchedule(tx, gameWithTeams)
 		})
-	}
-}
-
-// Moves each side to its new price, only while nobody has called the
-// question: the check and the write are one statement, so a call landing
-// mid-run either sees the old price or keeps it.
-async function repriceUncalled(
-	tx: Tx,
-	questionId: string,
-	options: {
-		id: string
-		winMult: number | null
-		lossRate: number | null
-		modelHitRate: number | null
-	}[],
-	sides: [PricedSide, PricedSide],
-): Promise<void> {
-	for (const [index, option] of options.entries()) {
-		const side = sides[index]
-		if (
-			!side ||
-			(option.winMult === side.winMult &&
-				option.lossRate === side.lossRate &&
-				option.modelHitRate === side.modelHitRate)
-		) {
-			continue
-		}
-		await tx
-			.update(questionOptions)
-			.set(side)
-			.where(
-				and(
-					eq(questionOptions.id, option.id),
-					notExists(
-						tx
-							.select({ one: sql`1` })
-							.from(calls)
-							.where(eq(calls.questionId, questionId)),
-					),
-				),
-			)
 	}
 }
