@@ -8,9 +8,15 @@ import type { QuestionShape } from "#/graphql/generated/graphql"
 // lands in its shape's section and a new shape needs a section of its own
 // here. Any other official question on the game (an admin's own) goes under
 // More.
+//
+// The game total comes first: after who wins, how much scoring there'll be is
+// the call that needs the least knowledge of either roster.
 export const OFFICIAL_SECTIONS: { label: string; shapes: QuestionShape[] }[] = [
-	{ label: "Team lines", shapes: ["TEAM_STAT_OVER_UNDER"] },
-	{ label: "Team scores", shapes: ["TEAM_STAT_NUMERIC_GUESS"] },
+	{ label: "Game total", shapes: ["GAME_TOTAL_OVER_UNDER"] },
+	{
+		label: "Team lines",
+		shapes: ["TEAM_STAT_OVER_UNDER", "TEAM_STAT_NUMERIC_GUESS"],
+	},
 	{ label: "Head to head", shapes: ["PLAYER_VS_PLAYER"] },
 	{ label: "Player lines", shapes: ["PLAYER_STAT_OVER_UNDER"] },
 	{ label: "Game leader", shapes: ["PLAYER_GAME_STAT_LEADER"] },

@@ -56,6 +56,14 @@ type AnalyticsEvents = {
 		avgConviction: number
 		surface: CallSurface
 	}
+	// A tap on the step a new call points at, toward the next question on the
+	// game. aboutPickedTeam is whether the step was the one following from
+	// the viewer's winner pick.
+	next_up_tapped: {
+		fromQuestionId: string
+		toQuestionId: string
+		aboutPickedTeam: boolean
+	}
 	// One per mount of a question's page. viewerState is what the page offered:
 	// only a `canCall` view could have become a call, so viewed-to-called is
 	// measured over those, and the rest tell "nothing left to call" apart

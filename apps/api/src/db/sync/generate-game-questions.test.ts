@@ -56,6 +56,7 @@ const TEAM_POINTS: GameQuestionTemplate = {
 	statName: "Points",
 }
 const TEAM_POINTS_LINE = catalogTemplate("nba", "team-points-ou")
+const GAME_POINTS_TOTAL = catalogTemplate("nba", "game-points-total")
 const POINTS_DUEL = catalogTemplate("nba", "top-scorer-points-duel")
 const POINTS_LINE = catalogTemplate("nba", "top-scorer-points")
 const REBOUNDS_LEADER = catalogTemplate("nba", "rebounds-leader")
@@ -645,6 +646,54 @@ describe("generateGameQuestions", () => {
 			"team_stat_over_under",
 			"team_stat_over_under",
 		])
+	})
+
+	it("sets a game total from both teams' expected scores added up", async () => {
+		const { league, away, home, game } = await seedNbaGame()
+		await playFinals(league, game.seasonId, away, [100, 110, 120, 110, 110])
+		await playFinals(league, game.seasonId, home, [120, 130, 128, 122, 120])
+
+		await run([TEAM_POINTS_LINE, GAME_POINTS_TOTAL])
+
+		const posted = await questionsOn(game.id)
+		expect(shapeCounts(posted)).toEqual({
+			team_stat_over_under: 2,
+			game_total_over_under: 1,
+		})
+		const total = posted.find((q) => q.shape === "game_total_over_under")
+		const teamExpected = posted
+			.filter((q) => q.shape === "team_stat_over_under")
+			.reduce((sum, q) => sum + (q.lineBasis?.expectedMean ?? 0), 0)
+		// Each side moved by the defense it faces, the same as its own line.
+		expect(total?.lineBasis?.expectedMean).toBeCloseTo(teamExpected, 2)
+		expect(total?.lineBasis?.formula).toBe(LINE_FORMULA.opponentAdjusted)
+		expect(total?.ouLine).toBe(228.5)
+		expect(total?.title).toBe("Game total: over/under 228.5 points")
+		expect(total?.subjectTeamId).toBeNull()
+		expect(total?.options.map((o) => o.label)).toEqual(["Over", "Under"])
+	})
+
+	it("posts a game total once, however many times it runs", async () => {
+		const { league, away, home, game } = await seedNbaGame()
+		await playFinals(league, game.seasonId, away, [100, 110, 120, 110, 110])
+		await playFinals(league, game.seasonId, home, [120, 130, 128, 122, 120])
+
+		await run([GAME_POINTS_TOTAL])
+		await run([GAME_POINTS_TOTAL])
+
+		expect(shapeCounts(await questionsOn(game.id))).toEqual({
+			game_total_over_under: 1,
+		})
+	})
+
+	it("skips a game total while either team is too early for a line", async () => {
+		const { league, away, home, game } = await seedNbaGame()
+		await playFinals(league, game.seasonId, away, [100, 110])
+		await playFinals(league, game.seasonId, home, [120, 130, 128, 122, 120])
+
+		await run([GAME_POINTS_TOTAL])
+
+		expect(await questionsOn(game.id)).toEqual([])
 	})
 
 	it("posts only the team guesses before any starters are listed", async () => {

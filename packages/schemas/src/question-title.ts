@@ -210,7 +210,7 @@ function possessive(name: string): string {
 // (rather than splitting on spaces) is what makes hyphenated names work -
 // "On-Base" is two one-capital words, so it becomes "on-base", while "RBIs"
 // is a single three-capital word and stays put.
-function statInSentence(statName: string): string {
+export function statInSentence(statName: string): string {
 	return statName.replace(/[A-Za-z]+/g, (word) =>
 		(word.match(/[A-Z]/g) ?? []).length >= 2 ? word : word.toLowerCase(),
 	)

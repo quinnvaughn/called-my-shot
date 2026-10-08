@@ -16,13 +16,14 @@ export type LineRule = {
 	minLine: number
 }
 
-// The generated shapes whose lines setLine sets, and so the ones
-// ./line-calibration reads back and ./tune-lines moves the shade of. A team
+// The generated shapes whose lines setLine or setTotalLine sets, and so the
+// ones ./line-calibration reads back and ./tune-lines moves the shade of. A team
 // over/under's line is set from the team's own final scores, a player's from
 // ESPN season stats, but both land in lineBasis the same way.
 export const GENERATED_OVER_UNDER_SHAPES = [
 	"player_stat_over_under",
 	"team_stat_over_under",
+	"game_total_over_under",
 ] as const
 
 // One season's per-game average and the games it's over.
@@ -214,6 +215,62 @@ export function setLine(
 		expectedMean: roundToThousandths(expected),
 		opponent,
 		formula: formulaOf(opponent),
+		shade: rule.shade,
+		line,
+	}
+}
+
+// One team's side of a game total: its own scoring, and how much the other
+// side moves it.
+export type TotalSide = {
+	season: SeasonSample | null
+	prior: SeasonSample | null
+	opponent: OpponentAdjustment | null
+}
+
+// A game total's line: each side's expected score the way setLine would set
+// it, added together, then shaded and set on a half. Null when either side is
+// too thin to set its own line from, or the total falls under the rule's
+// floor. The basis stores the summed figures, so calibration reads a game
+// total's result against its expectation the same way it reads a team's.
+// Opponent-adjusted only when both sides can be: a sum with one side adjusted
+// and one not is neither model, so then neither side is.
+export function setTotalLine(
+	sides: [TotalSide, TotalSide],
+	priorWeight: number,
+	rule: LineRule,
+): LineBasis | null {
+	const blended = sides.map((side) =>
+		blendSamples(side.season, side.prior, priorWeight),
+	)
+	const [a, b] = blended
+	if (!a || !b || a.games < rule.minGames || b.games < rule.minGames) {
+		return null
+	}
+	const adjusted = sides.every((side) => side.opponent !== null)
+	const expected = sides.reduce(
+		(sum, side, i) =>
+			sum +
+			(blended[i]?.mean ?? 0) *
+				(adjusted ? (side.opponent?.multiplier ?? 1) : 1),
+		0,
+	)
+	const line = Math.floor(expected * rule.shade) + 0.5
+	if (line < rule.minLine) return null
+	const sumOf = (pick: (side: TotalSide) => SeasonSample | null) => {
+		const [x, y] = sides.map(pick)
+		return x && y ? roundToThousandths(x.mean + y.mean) : null
+	}
+	return {
+		seasonMean: sumOf((side) => side.season),
+		seasonGames: Math.min(...sides.map((side) => side.season?.games ?? 0)),
+		priorMean: sumOf((side) => side.prior),
+		priorGames: Math.min(...sides.map((side) => side.prior?.games ?? 0)),
+		priorWeight,
+		blendedMean: roundToThousandths(a.mean + b.mean),
+		expectedMean: roundToThousandths(expected),
+		opponent: null,
+		formula: adjusted ? LINE_FORMULA.opponentAdjusted : LINE_FORMULA.teamOnly,
 		shade: rule.shade,
 		line,
 	}

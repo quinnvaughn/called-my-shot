@@ -114,7 +114,12 @@ export const groupMembers = pgTable(
 			onDelete: "set null",
 		}),
 	},
-	(t) => [unique().on(t.groupId, t.userId)],
+	(t) => [
+		unique().on(t.groupId, t.userId),
+		// Every "groups this user is in" lookup. The unique constraint leads
+		// with group_id, so it can't serve one.
+		index("group_members_user_id_idx").on(t.userId),
+	],
 )
 
 export const groupInvites = pgTable(

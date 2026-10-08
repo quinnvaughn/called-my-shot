@@ -1,6 +1,26 @@
 import type { LineRule } from "../../lib/game-questions/lines"
 import type { StarterPick } from "../../lib/game-questions/pick-subjects"
 
+// What a line set from teams' final scores is built from, shared by the
+// per-team over/under and the game total.
+type TeamLineFields = {
+	statName: string
+	line: LineRule
+	// How many of this season's games a team needs before last season's
+	// scores stop standing in, the same blend a player line uses (see
+	// blendSamples).
+	priorWeight: number
+	// The "category.stat" last season's stand-in is read from, since that
+	// season isn't in the games table. The same key the season extractor for
+	// this stat uses (see SEASON_EXTRACTORS).
+	priorStat: string
+	// Games of league average the opposing side's own figure is regressed
+	// toward before it moves the line - see opponentAdjustment. Omitted for a
+	// stat with no stored figure for what an opponent gives up, which leaves
+	// the line on the subject's own average.
+	oppWeight?: number
+}
+
 // The official questions db/sync/generate-game-questions.ts posts on each
 // upcoming game, on top of the who-wins question sync-game-questions.ts
 // already gives every game. A discriminated union on `shape`, dispatched via
@@ -25,30 +45,24 @@ export type GameQuestionTemplate =
 			shape: "team_stat_numeric_guess"
 			statName: string
 	  }
-	| {
+	| ({
 			// A team's own final score over/under a line set from the games it
 			// has already played, once per team. The line comes from the games
 			// table rather than ESPN - see lib/game-questions/team-lines.ts.
 			id: string
 			tier: number
 			shape: "team_stat_over_under"
-			statName: string
-			line: LineRule
-			// How many of this season's games a team needs before last
-			// season's scores stop standing in, the same blend a player line
-			// uses (see blendSamples).
-			priorWeight: number
-			// The "category.stat" last season's stand-in is read from, since
-			// that season isn't in the games table. The same key the season
-			// extractor for this stat uses (see SEASON_EXTRACTORS).
-			priorStat: string
-			// Games of league average the opposing side's own figure is
-			// regressed toward before it moves this line - see
-			// opponentAdjustment. Omitted for a stat with no stored figure for
-			// what an opponent gives up, which leaves its line on the subject's
-			// own average.
-			oppWeight?: number
-	  }
+	  } & TeamLineFields)
+	| ({
+			// Both teams' final scores added together, over/under a line that is
+			// each team's own expected score summed (see setTotalLine), once per
+			// game. Posted beside the team lines rather than instead of them:
+			// it's the call for someone with a read on the game's pace but not
+			// on either side.
+			id: string
+			tier: number
+			shape: "game_total_over_under"
+	  } & TeamLineFields)
 	| {
 			// Each team's best starter at the pick, head to head.
 			id: string
@@ -265,6 +279,16 @@ export const GAME_QUESTION_CATALOG: Record<string, GameQuestionTemplate[]> = {
 			oppWeight: 12,
 		},
 		{
+			id: "game-points-total",
+			tier: 1,
+			shape: "game_total_over_under",
+			statName: "Points",
+			line: { minGames: 3, shade: 1, minLine: 20.5 },
+			priorWeight: 4,
+			priorStat: "scoring.totalPoints",
+			oppWeight: 12,
+		},
+		{
 			id: "qb-passing-yards-duel",
 			tier: 1,
 			shape: "player_vs_player",
@@ -397,6 +421,16 @@ export const GAME_QUESTION_CATALOG: Record<string, GameQuestionTemplate[]> = {
 			oppWeight: 13,
 		},
 		{
+			id: "game-points-total",
+			tier: 1,
+			shape: "game_total_over_under",
+			statName: "Points",
+			line: { minGames: 5, shade: 1, minLine: 160.5 },
+			priorWeight: 10,
+			priorStat: "offensive.points",
+			oppWeight: 13,
+		},
+		{
 			id: "top-scorer-points-duel",
 			tier: 1,
 			shape: "player_vs_player",
@@ -513,6 +547,16 @@ export const GAME_QUESTION_CATALOG: Record<string, GameQuestionTemplate[]> = {
 			oppWeight: 45,
 		},
 		{
+			id: "game-runs-total",
+			tier: 1,
+			shape: "game_total_over_under",
+			statName: "Runs",
+			line: { minGames: 10, shade: 1, minLine: 3.5 },
+			priorWeight: 20,
+			priorStat: "batting.runs",
+			oppWeight: 45,
+		},
+		{
 			id: "starter-strikeouts-duel",
 			tier: 1,
 			shape: "player_vs_player",
@@ -599,6 +643,18 @@ export const GAME_QUESTION_CATALOG: Record<string, GameQuestionTemplate[]> = {
 			priorStat: "offensive.goals",
 			// Goals allowed per game, 2025-26: 2.9 game-to-game against 0.071
 			// between teams, so 2.9 / 0.071 = 41.
+			oppWeight: 41,
+		},
+		{
+			id: "game-goals-total",
+			tier: 1,
+			shape: "game_total_over_under",
+			statName: "Goals",
+			// Off final scores like the team line above, so it starts high by the
+			// same shootout goal until the shade is tuned.
+			line: { minGames: 10, shade: 1, minLine: 3.5 },
+			priorWeight: 20,
+			priorStat: "offensive.goals",
 			oppWeight: 41,
 		},
 		{

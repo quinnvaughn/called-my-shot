@@ -6,8 +6,8 @@ import { type FragmentType, graphql, useFragment } from "#/graphql/generated"
 import { ballotMemberState } from "#/lib/ballot-member-state"
 import { viewerGamePicksSummary } from "#/lib/game-entry"
 import { gameQuestionChipLabels } from "#/lib/game-question-chip-label"
+import { nextUpEntry, pickNextUp } from "#/lib/next-up"
 import { officialQuestionSequence } from "#/lib/official-game-questions"
-import { questionSetNavigation } from "#/lib/question-set-navigation"
 import { openModal } from "#/stores/modal-store"
 import { QuestionSetStrip } from "./question-set-strip"
 
@@ -30,10 +30,12 @@ export const GameStripFragment = graphql(`
 			id
 			awayTeam {
 				id
+				name
 				abbreviation
 			}
 			homeTeam {
 				id
+				name
 				abbreviation
 			}
 			officialQuestions {
@@ -54,10 +56,22 @@ export const GameStripFragment = graphql(`
 				subjectPlayer {
 					id
 					name
+					currentTeam {
+						id
+					}
 				}
 				options {
 					id
 					label
+					team {
+						id
+					}
+					player {
+						id
+						currentTeam {
+							id
+						}
+					}
 				}
 				viewerCall {
 					id
@@ -87,11 +101,14 @@ export type GameNextUp = {
 	// the one on screen.
 	openCount: number
 	next: { questionId: string; title: string }
+	// The team the viewer picked to win, when the next question is about it.
+	leadInTeamName: string | null
 }
 
 // Where the viewer goes after calling this question: the next official
-// question on the same game they haven't called yet, in the strip's own
-// order. Null for a question with no game or once nothing on it is left open.
+// question on the same game they haven't called yet - who wins first, then
+// whatever is about the team they picked to win (see pickNextUp). Null for a
+// question with no game or once nothing on it is left open.
 export function useGameNextUp(
 	questionProp: FragmentType<typeof GameStripFragment> | null,
 ): GameNextUp | null {
@@ -104,15 +121,33 @@ export function useGameNextUp(
 	)
 	const states = sequence.map((q) => ballotMemberState(q, q.viewerCall))
 	const currentIndex = sequence.findIndex((q) => q.id === question.id)
-	const { nextUncalledIndex } = questionSetNavigation(states, currentIndex)
-	const next = nextUncalledIndex !== null ? sequence[nextUncalledIndex] : null
-	if (!next) return null
+	const teams = [game.awayTeam, game.homeTeam]
+	const winner = sequence.find((q) => q.shape === "TEAM_VS_TEAM")
+	const pickedOptionId = winner?.viewerCall?.selections[0]?.option.id
+	const pickedTeamId =
+		winner?.options.find((o) => o.id === pickedOptionId)?.team?.id ?? null
+	const pick = pickNextUp(
+		sequence.map((q) =>
+			nextUpEntry(
+				q,
+				teams.map((t) => t.id),
+			),
+		),
+		states,
+		currentIndex,
+		pickedTeamId,
+	)
+	const next = pick ? sequence[pick.index] : null
+	if (!pick || !next) return null
 
 	return {
 		matchup: `${game.awayTeam.abbreviation} @ ${game.homeTeam.abbreviation}`,
 		openCount: states.filter((s, i) => s === "uncalled" && i !== currentIndex)
 			.length,
 		next: { questionId: next.id, title: next.title },
+		leadInTeamName: pick.aboutPickedTeam
+			? (teams.find((t) => t.id === pickedTeamId)?.name ?? null)
+			: null,
 	}
 }
 

@@ -15,14 +15,16 @@ describe("sectionOfficialQuestions", () => {
 	it("orders sections by kind, oldest first within each, dropping empty ones", () => {
 		const sections = sectionOfficialQuestions([
 			question("leader", "PLAYER_GAME_STAT_LEADER", 5),
-			question("home-points", "TEAM_STAT_NUMERIC_GUESS", 2),
+			question("home-points", "TEAM_STAT_OVER_UNDER", 2),
 			question("admin", "YES_NO_PROP", 1),
 			question("away-points", "TEAM_STAT_NUMERIC_GUESS", 1),
+			question("total", "GAME_TOTAL_OVER_UNDER", 4),
 		])
 		expect(
 			sections.map((s) => [s.label, s.questions.map((q) => q.id)]),
 		).toEqual([
-			["Team scores", ["away-points", "home-points"]],
+			["Game total", ["total"]],
+			["Team lines", ["away-points", "home-points"]],
 			["Game leader", ["leader"]],
 			["More", ["admin"]],
 		])
@@ -34,11 +36,13 @@ describe("officialQuestionSequence", () => {
 		const sequence = officialQuestionSequence([
 			question("line", "PLAYER_STAT_OVER_UNDER", 3),
 			question("winner", "TEAM_VS_TEAM", 9),
-			question("away-points", "TEAM_STAT_NUMERIC_GUESS", 1),
+			question("away-points", "TEAM_STAT_OVER_UNDER", 1),
+			question("total", "GAME_TOTAL_OVER_UNDER", 2),
 		])
 		expect(sequence.map((e) => [e.section, e.question.id])).toEqual([
 			["Game winner", "winner"],
-			["Team scores", "away-points"],
+			["Game total", "total"],
+			["Team lines", "away-points"],
 			["Player lines", "line"],
 		])
 	})
@@ -46,8 +50,8 @@ describe("officialQuestionSequence", () => {
 	it("has no winner entry before the who-wins question exists", () => {
 		expect(
 			officialQuestionSequence([
-				question("away-points", "TEAM_STAT_NUMERIC_GUESS", 1),
+				question("away-points", "TEAM_STAT_OVER_UNDER", 1),
 			]).map((e) => e.section),
-		).toEqual(["Team scores"])
+		).toEqual(["Team lines"])
 	})
 })

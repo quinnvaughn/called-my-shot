@@ -9,7 +9,6 @@ import {
 } from "@called-my-shot/scoring"
 import { Link } from "@tanstack/react-router"
 import { type ReactNode, type Ref, useState } from "react"
-import { FiChevronRight } from "react-icons/fi"
 import { css, cx } from "styled-system/css"
 import { Flex, HStack, VStack } from "styled-system/jsx"
 import { match, P } from "ts-pattern"
@@ -20,6 +19,7 @@ import {
 import { CaseBlock } from "#/components/questions/case-block"
 import { DisputeModal } from "#/components/questions/dispute-modal"
 import type { GameNextUp } from "#/components/questions/game-strip"
+import { NextUpBlock } from "#/components/questions/next-up-block"
 import { RedoCta, type RedoOffer } from "#/components/questions/redo-cta"
 import {
 	type ImagePlayer,
@@ -47,7 +47,6 @@ import {
 	selectionEarlyTier,
 	toleranceSpecFrom,
 } from "#/lib/scoring"
-import { buildQuestionSlug } from "#/lib/slug"
 import type {
 	CallResult,
 	DisputeAction,
@@ -171,8 +170,8 @@ type Props = {
 	// card would read as a second subject.
 	redo: RedoOffer | null
 	// The next question on this game the viewer hasn't called, shown on the
-	// pending face so the card a new call lands on points at the rest of
-	// the game. Null off a game or once nothing on it is left open.
+	// pending face so the card a new call lands on leads straight into the
+	// next one. Null off a game or once nothing on it is left open.
 	nextUp: GameNextUp | null
 	// Attached to the pending face only: the route scrolls it into view when
 	// a new call turns the form into this card.
@@ -284,6 +283,11 @@ export function ViewerStatusCard({
 					call, where sharing it is what you do once you've settled
 					on it. */}
 					<RedoCta questionId={questionId} offer={redo} />
+					{/* The first thing after the pick itself: the moment a call lands
+					is when the next one is easiest to make. */}
+					{nextUp && (
+						<NextUpBlock fromQuestionId={questionId} nextUp={nextUp} />
+					)}
 					{/* An unresolved call is the one most worth putting on the record -
 					calling something months before it happens is the whole claim - so
 					this is here rather than only on the settled face below. */}
@@ -294,9 +298,6 @@ export function ViewerStatusCard({
 						numericToleranceAbsolute={numericToleranceAbsolute}
 						isRateStat={isRateStat}
 					/>
-					{/* Last, as the card's footer: everything above is about this
-					call, and this is where to go once it's made. */}
-					{nextUp && <NextUpFooter nextUp={nextUp} />}
 				</Shell>
 			))
 			// Same layout as pending, so the call reads as the same object once
@@ -510,69 +511,6 @@ function ShareCallSection({
 				})}
 			/>
 		</HStack>
-	)
-}
-
-// The rest of the game, as the pending card's footer: how much of it is
-// still open, and a way straight to the next one. Bleeds to the card's edges
-// (cancelling Shell's padding) so it reads as where the card leads rather
-// than one more box inside it.
-function NextUpFooter({ nextUp }: { nextUp: GameNextUp }) {
-	return (
-		<Link
-			to="/questions/$questionId/{-$slug}"
-			params={{
-				questionId: nextUp.next.questionId,
-				slug: buildQuestionSlug(nextUp.next.title),
-			}}
-			className={css({
-				display: "flex",
-				alignItems: "center",
-				justifyContent: "space-between",
-				gap: "3",
-				marginInline: "-5",
-				marginBottom: "-5",
-				marginTop: "1",
-				paddingBlock: "3.5",
-				paddingInline: "5",
-				backgroundColor: "bg.canvas/60",
-				borderTop: "1px solid {colors.border.default}",
-				borderBottomRadius: "xl",
-				textDecoration: "none",
-				transition: "background-color 0.15s ease",
-				_hover: { backgroundColor: "bg.canvas" },
-			})}
-		>
-			<VStack gap="1" alignItems="flex-start" minWidth="0">
-				<span
-					className={css({
-						fontFamily: "mono",
-						fontSize: "2xs",
-						letterSpacing: "wide",
-						textTransform: "uppercase",
-						color: "secondary.default",
-					})}
-				>
-					{nextUp.openCount} more open on {nextUp.matchup}
-				</span>
-				<span
-					className={css({
-						fontSize: "sm",
-						color: "fg.default",
-						overflow: "hidden",
-						textOverflow: "ellipsis",
-						whiteSpace: "nowrap",
-						maxWidth: "full",
-					})}
-				>
-					Next: {nextUp.next.title}
-				</span>
-			</VStack>
-			<FiChevronRight
-				size={18}
-				className={css({ flexShrink: "0", color: "fg.muted" })}
-			/>
-		</Link>
 	)
 }
 

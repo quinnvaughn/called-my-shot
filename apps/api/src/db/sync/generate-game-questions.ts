@@ -34,6 +34,7 @@ import {
 	type LineBasis,
 	type OpponentAdjustment,
 	setLine,
+	setTotalLine,
 } from "../../lib/game-questions/lines"
 import {
 	chooseFrom,
@@ -329,6 +330,48 @@ async function planTemplate(
 					})
 				}
 				return planned
+			},
+		)
+		.with(
+			{ shape: "game_total_over_under" },
+			async ({ statName, line, priorWeight, priorStat, oppWeight }) => {
+				const key = generationKey(base)
+				if (isFilled(key)) return []
+				const sideOf = async (team: Team) => {
+					const { season, prior } = await ctx.teamSamplesFor(
+						team.id,
+						game.season.year,
+						{ priorWeight, priorStat },
+					)
+					const opponent = await ctx.opponentFor(
+						team.id === game.homeTeamId ? game.awayTeamId : game.homeTeamId,
+						game.season.year,
+						{ priorWeight, oppWeight },
+					)
+					return { season, prior, opponent }
+				}
+				const basis = setTotalLine(
+					[await sideOf(game.awayTeam), await sideOf(game.homeTeam)],
+					priorWeight,
+					line,
+				)
+				if (!basis) return []
+				return [
+					{
+						key,
+						title: {
+							shape: "game_total_over_under",
+							statName,
+							ouLine: basis.line,
+						},
+						ouLine: basis.line,
+						lineBasis: basis,
+						options: [
+							{ label: "Over", sortOrder: 0 },
+							{ label: "Under", sortOrder: 1 },
+						],
+					},
+				]
 			},
 		)
 		.with({ shape: "player_game_stat_leader" }, async (leader) => {

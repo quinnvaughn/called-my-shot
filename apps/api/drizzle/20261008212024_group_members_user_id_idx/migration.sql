@@ -1,0 +1,1 @@
+CREATE INDEX "group_members_user_id_idx" ON "group_members" ("user_id");

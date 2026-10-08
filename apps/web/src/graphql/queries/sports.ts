@@ -260,6 +260,40 @@ export const GameQuestionsDocument = graphql(`
 	}
 `)
 
+// The Official tab and the game winner card: the same items as
+// GameQuestionsDocument plus what only a game page shows on a card (see
+// GameCardExtras_question). The Community tab stays on the plain document.
+export const GameOfficialQuestionsDocument = graphql(`
+	query GameOfficialQuestions($gameId: ID!, $first: Int) {
+		questions(gameId: $gameId, first: $first, isOfficial: true) {
+			items {
+				id
+				shape
+				createdAt
+				status
+				locksAt
+				# Read by the page itself for the Official tab's share section
+				# (whether there's anything to share, and the tweet's record).
+				viewerCall {
+					id
+					hitTolerance
+					totalPoints
+					selections {
+						id
+						option {
+							id
+							isCorrect
+						}
+					}
+				}
+				...QuestionCard_question
+				...GameSetRail_question
+				...GameCardExtras_question
+			}
+		}
+	}
+`)
+
 // /games/<id>/picks/<username> - one user's calls on a game's official
 // questions. Public like the game page; `entry` is null for an unknown
 // username or someone with no official calls on this game.

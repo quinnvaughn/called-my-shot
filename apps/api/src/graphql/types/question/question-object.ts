@@ -17,6 +17,7 @@ import {
 	questionShares,
 	type UserStreak,
 } from "../../../db/schema"
+import { loadCardFacts } from "../../../lib/card-fact/build"
 import { keysetPaginate } from "../../../lib/pagination"
 import { buildStatContext } from "../../../lib/stat-context/build"
 import { countsTowardAchievements } from "../../../lib/streaks/enqueue"
@@ -31,6 +32,7 @@ import { BallotQuestionRef } from "../ballot"
 import { type Connection, PageInfoRef } from "../pagination"
 import { StreakFamilyEnum } from "../user/enums"
 import { CallConnectionRef, CallRef } from "./call"
+import { CardFactRef } from "./card-fact"
 import {
 	AwardVerb,
 	QuestionShape,
@@ -39,6 +41,7 @@ import {
 	ResolutionMethod,
 	StatAggregation,
 } from "./enums"
+import { GroupPickTallyRef, loadViewerGroupPicks } from "./group-picks"
 import {
 	loadSeasonWindow,
 	optionSelectionCountLoader,
@@ -697,6 +700,30 @@ export const QuestionRef = builder.drizzleObject("questions", {
 				question.status === "open" || question.status === "locked"
 					? question.id
 					: null,
+		}),
+
+		// One line of recent form for the question's card on a game page - see
+		// lib/card-fact. Batched across the page, unlike statContext, which is
+		// why a list can select it. Only while the question can still be
+		// called: a locked card has its live reading, and the 60s refetch of
+		// a game in play never reaches the loader.
+		cardFact: t.loadable({
+			type: CardFactRef,
+			nullable: true,
+			load: (questionIds: string[]) => loadCardFacts(questionIds),
+			resolve: (question) =>
+				question.status === "open" && question.locksAt > new Date()
+					? question.id
+					: null,
+		}),
+
+		// Which side the people in the viewer's groups took, per option - see
+		// lib/group-picks. Empty signed out or when no group-mate has called it.
+		viewerGroupPicks: t.loadableList({
+			type: GroupPickTallyRef,
+			load: (questionIds: string[], ctx) =>
+				loadViewerGroupPicks(questionIds, ctx),
+			resolve: (question) => question.id,
 		}),
 
 		// The viewer's run in this question's league and family, when this

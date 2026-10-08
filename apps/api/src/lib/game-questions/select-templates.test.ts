@@ -82,6 +82,24 @@ describe("selectGameTemplates", () => {
 		}
 	})
 
+	it("posts a game total on every game without it taking a player slot", () => {
+		const catalog = [
+			{ id: "game-total", shape: "game_total_over_under" },
+			...CATALOG,
+		]
+		for (let i = 0; i < 20; i++) {
+			const ids = selectGameTemplates(catalog, {
+				gameId: `game-${i}`,
+				perGame: 3,
+				liveTemplateIds: new Set(),
+			}).map((template) => template.id)
+			expect(ids).toContain("game-total")
+			expect(
+				ids.filter((id) => id !== "game-total" && id !== "team-points"),
+			).toHaveLength(3)
+		}
+	})
+
 	it("keeps a template with a live question, even past the quota or a taken group", () => {
 		const ids = select("game-1", ["points-duel", "points-line"], 1)
 		expect(ids).toEqual(["team-points", "points-duel", "points-line"])

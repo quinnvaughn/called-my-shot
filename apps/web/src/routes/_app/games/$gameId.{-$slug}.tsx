@@ -13,6 +13,10 @@ import { useState } from "react"
 import { FaRegTimesCircle } from "react-icons/fa"
 import { css } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
+import {
+	GameCardContext,
+	GameCardStreak,
+} from "#/components/games/game-card-extras"
 import { GameGroupBoards } from "#/components/games/game-group-boards"
 import { GameMatchupHeader } from "#/components/games/game-matchup-header"
 import {
@@ -32,11 +36,12 @@ import { NotFound } from "#/components/ui/not-found"
 import { Tabs } from "#/components/ui/tabs"
 import type {
 	GameByIdQuery,
-	GameQuestionsQuery,
+	GameOfficialQuestionsQuery,
 	QuestionSortOrder,
 } from "#/graphql/generated/graphql"
 import {
 	GameByIdDocument,
+	GameOfficialQuestionsDocument,
 	GameQuestionsDocument,
 } from "#/graphql/queries/sports"
 import {
@@ -63,7 +68,7 @@ type GameTab = "official" | "community"
 
 type GameData = NonNullable<GameByIdQuery["game"]>
 
-type GameQuestion = GameQuestionsQuery["questions"]["items"][number]
+type GameQuestion = GameOfficialQuestionsQuery["questions"]["items"][number]
 
 const SORTS: { value: QuestionSortOrder; label: string }[] = [
 	{ value: "MOST_CALLED", label: "Most Called" },
@@ -88,10 +93,9 @@ const sectionLabelClass = css({
 const gameQuery = (id: string) => gqlQueryOptions(GameByIdDocument, { id })
 
 const officialQuestionsQuery = (gameId: string) =>
-	gqlQueryOptions(GameQuestionsDocument, {
+	gqlQueryOptions(GameOfficialQuestionsDocument, {
 		gameId,
 		first: OFFICIAL_LIMIT,
-		isOfficial: true,
 	})
 
 // sort is part of the key, so switching it starts a fresh list rather than
@@ -291,7 +295,7 @@ function RouteComponent() {
 			{hero && (
 				<VStack gap="2" alignItems="stretch">
 					<span className={sectionLabelClass}>{GAME_WINNER_LABEL}</span>
-					<QuestionCard question={hero} showGame={false} />
+					<OfficialCard question={hero} />
 				</VStack>
 			)}
 
@@ -450,16 +454,23 @@ function OfficialQuestions({
 					<span className={sectionLabelClass}>{section.label}</span>
 					<VStack gap="3" alignItems="stretch">
 						{section.questions.map((question) => (
-							<QuestionCard
-								key={question.id}
-								question={question}
-								showGame={false}
-							/>
+							<OfficialCard key={question.id} question={question} />
 						))}
 					</VStack>
 				</VStack>
 			))}
 		</VStack>
+	)
+}
+
+function OfficialCard({ question }: { question: GameQuestion }) {
+	return (
+		<QuestionCard
+			question={question}
+			showGame={false}
+			trailing={<GameCardStreak question={question} />}
+			context={<GameCardContext question={question} />}
+		/>
 	)
 }
 

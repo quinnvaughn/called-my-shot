@@ -36,6 +36,7 @@ export type GameQuestionTitleFacts =
 			ouLine: number
 	  }
 	| { shape: "player_game_stat_leader"; statName: string }
+	| { shape: "game_total_over_under"; statName: string; ouLine: number }
 
 export function gameQuestionTitle(
 	facts: GameQuestionTitleFacts,
@@ -88,6 +89,13 @@ export function gameQuestionTitle(
 				generateQuestionTitle({
 					shape: "player_game_stat_leader",
 					statName: f.statName,
+				}),
+			)
+			.with({ shape: "game_total_over_under" }, (f) =>
+				generateQuestionTitle({
+					shape: "game_total_over_under",
+					statName: f.statName,
+					ouLine: String(f.ouLine),
 				}),
 			)
 			.exhaustive()
@@ -158,10 +166,14 @@ export function titleFactsFor(
 		.with("player_game_stat_leader", () =>
 			statName ? { shape: "player_game_stat_leader", statName } : null,
 		)
+		.with("game_total_over_under", () =>
+			statName && question.ouLine !== null
+				? { shape: "game_total_over_under", statName, ouLine: question.ouLine }
+				: null,
+		)
 		.with(
 			"player_season_stat_over_under",
 			"team_season_stat_over_under",
-			"game_total_over_under",
 			"player_stat_numeric_guess",
 			"player_vs_player_season",
 			"team_vs_team_season",

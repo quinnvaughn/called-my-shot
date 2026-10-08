@@ -189,6 +189,7 @@ export function isStale(
 		.with(
 			{ shape: "team_stat_numeric_guess" },
 			{ shape: "team_stat_over_under" },
+			{ shape: "game_total_over_under" },
 			{ shape: "player_game_stat_leader" },
 			() => false,
 		)
@@ -209,6 +210,7 @@ export function subjectPlayerIds(
 		.with(
 			{ shape: "team_stat_numeric_guess" },
 			{ shape: "team_stat_over_under" },
+			{ shape: "game_total_over_under" },
 			{ shape: "player_game_stat_leader" },
 			() => [],
 		)

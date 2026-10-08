@@ -6,6 +6,7 @@ import {
 	opponentAdjustment,
 	perGameSample,
 	setLine,
+	setTotalLine,
 } from "./lines"
 
 const RULE = { minGames: 8, shade: 0.97, minLine: 10.5 }
@@ -197,6 +198,82 @@ describe("setLine with an opponent", () => {
 		const opponent = opponentAdjustment({ mean: 2, games: 500 }, 22, 12)
 		expect(
 			setLine({ mean: 21, games: 20 }, null, 12, RULE, opponent),
+		).toBeNull()
+	})
+})
+
+describe("setTotalLine", () => {
+	const TOTAL_RULE = { minGames: 8, shade: 1, minLine: 150.5 }
+
+	it("adds both sides' expectations and sets the sum on a half", () => {
+		const basis = setTotalLine(
+			[
+				{ season: { mean: 110, games: 20 }, prior: null, opponent: null },
+				{ season: { mean: 104.4, games: 20 }, prior: null, opponent: null },
+			],
+			12,
+			TOTAL_RULE,
+		)
+		expect(basis?.blendedMean).toBe(214.4)
+		expect(basis?.expectedMean).toBe(214.4)
+		expect(basis?.line).toBe(214.5)
+		expect(basis?.formula).toBe(LINE_FORMULA.teamOnly)
+	})
+
+	it("moves each side by the defense it faces", () => {
+		const generous = opponentAdjustment({ mean: 120, games: 100 }, 110, 13)
+		const stingy = opponentAdjustment({ mean: 100, games: 100 }, 110, 13)
+		const basis = setTotalLine(
+			[
+				{ season: { mean: 110, games: 20 }, prior: null, opponent: generous },
+				{ season: { mean: 110, games: 20 }, prior: null, opponent: stingy },
+			],
+			12,
+			TOTAL_RULE,
+		)
+		const expected =
+			110 * (generous?.multiplier ?? 1) + 110 * (stingy?.multiplier ?? 1)
+		expect(basis?.expectedMean).toBeCloseTo(expected, 3)
+		expect(basis?.formula).toBe(LINE_FORMULA.opponentAdjusted)
+	})
+
+	it("leaves both sides unadjusted when only one has an opponent figure", () => {
+		const generous = opponentAdjustment({ mean: 120, games: 100 }, 110, 13)
+		const basis = setTotalLine(
+			[
+				{ season: { mean: 110, games: 20 }, prior: null, opponent: generous },
+				{ season: { mean: 110, games: 20 }, prior: null, opponent: null },
+			],
+			12,
+			TOTAL_RULE,
+		)
+		expect(basis?.expectedMean).toBe(220)
+		expect(basis?.formula).toBe(LINE_FORMULA.teamOnly)
+	})
+
+	it("is null when either side is short of games", () => {
+		expect(
+			setTotalLine(
+				[
+					{ season: { mean: 110, games: 20 }, prior: null, opponent: null },
+					{ season: { mean: 110, games: 3 }, prior: null, opponent: null },
+				],
+				3,
+				TOTAL_RULE,
+			),
+		).toBeNull()
+	})
+
+	it("is null under the rule's floor", () => {
+		expect(
+			setTotalLine(
+				[
+					{ season: { mean: 70, games: 20 }, prior: null, opponent: null },
+					{ season: { mean: 70, games: 20 }, prior: null, opponent: null },
+				],
+				12,
+				TOTAL_RULE,
+			),
 		).toBeNull()
 	})
 })

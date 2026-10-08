@@ -1,4 +1,5 @@
 import { Link } from "@tanstack/react-router"
+import type { ReactNode } from "react"
 import { css } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
 import { Card } from "#/components/ui/card"
@@ -96,12 +97,19 @@ type QuestionCardProps = {
 	// Off on a game's own detail page, where the matchup is already the page
 	// header. Defaults to on.
 	showGame?: boolean
+	// The top row's right end - the game page's streak tag.
+	trailing?: ReactNode
+	// Under the options while the question is open or locked - the game page's
+	// line of recent form and group picks.
+	context?: ReactNode
 }
 
 export function QuestionCard({
 	question: questionProp,
 	sharedBy,
 	showGame = true,
+	trailing,
+	context,
 }: QuestionCardProps) {
 	const question = useFragment(QuestionCardFragment, questionProp)
 	const isSettled =
@@ -165,6 +173,7 @@ export function QuestionCard({
 						viewerCalled={question.viewerCall !== null}
 						ballotMembership={question.ballotMembership}
 						showGame={showGame}
+						trailing={trailing}
 					/>
 					<CardRule />
 					{isSettled ? (
@@ -188,6 +197,7 @@ export function QuestionCard({
 								picksRequired={question.picksRequired}
 								pointsFor={pointsFor}
 							/>
+							{context}
 							<HStack
 								justify="space-between"
 								alignItems="center"
