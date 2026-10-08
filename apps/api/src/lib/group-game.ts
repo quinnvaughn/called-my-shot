@@ -86,6 +86,10 @@ export const GROUP_GAMES_RECENT_FINAL_MS = 12 * 60 * 60 * 1000
 // A scheduled game whose start has passed but the score sync hasn't flipped
 // to live yet is still on, not gone.
 const GROUP_GAMES_LATE_START_MS = 6 * 60 * 60 * 1000
+// No real game runs this long. A game still marked live past it is a record
+// the score sync stopped checking (it only looks back six hours), not a game
+// in progress.
+export const GROUP_GAMES_MAX_LIVE_MS = 12 * 60 * 60 * 1000
 
 export type GroupGame = { game: Game; callerCount: number }
 
@@ -110,7 +114,10 @@ export async function loadGroupGames(
 				inArray(calls.userId, memberIds),
 				tracked ? inArray(games.leagueId, tracked) : undefined,
 				or(
-					eq(games.status, "live"),
+					and(
+						eq(games.status, "live"),
+						gte(games.startsAt, at(-GROUP_GAMES_MAX_LIVE_MS)),
+					),
 					and(
 						eq(games.status, "scheduled"),
 						gte(games.startsAt, at(-GROUP_GAMES_LATE_START_MS)),

@@ -274,10 +274,14 @@ describe("Group.liveGames", () => {
 			startsAt: new Date(now - 30 * HOUR),
 			finalizedAt: new Date(now - 26 * HOUR),
 		})
+		const stuckLive = await makeGame({
+			status: "live",
+			startsAt: new Date(now - 20 * HOUR),
+		})
 		const uncalled = await makeGame({ status: "live" })
 		await gameQuestion(uncalled)
 
-		for (const game of [justFinal, soon, live, farOff, oldFinal]) {
+		for (const game of [justFinal, soon, live, farOff, oldFinal, stuckLive]) {
 			const { question, yes } = await gameQuestion(game)
 			await pick(question.id, yes.id, viewer)
 		}
