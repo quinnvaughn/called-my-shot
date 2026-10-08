@@ -150,6 +150,14 @@ export const GameByIdDocument = graphql(`
 			venue
 			windowKey
 			viewerHasReminder
+			viewerGroupBoards {
+				callerCount
+				group {
+					id
+					name
+					logoUrl
+				}
+			}
 			startTimeTbd
 			postseason {
 				roundLabel

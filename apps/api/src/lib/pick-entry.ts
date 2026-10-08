@@ -46,11 +46,8 @@ export async function loadPickEntry<M>(
 
 	const callByQuestionId = new Map(callRows.map((c) => [c.questionId, c]))
 
-	let wins = 0
-	let losses = 0
-	let points = 0
 	const members: PickEntry<M>["members"] = []
-
+	const tallied: TallyRow[] = []
 	for (const { member, questionId, status } of memberRows) {
 		const row = callByQuestionId.get(questionId)
 		if (!row) {
@@ -59,9 +56,37 @@ export async function loadPickEntry<M>(
 		}
 		// Handed to CallRef as a bare row. A partially loaded relation left on
 		// the object would be read as the whole relation.
-		const { selections, ...call } = row
+		const { selections: _selections, ...call } = row
 		members.push({ member, call })
+		tallied.push({ call: row, status })
+	}
 
+	return { members, calledCount: callRows.length, ...tallyCalls(tallied) }
+}
+
+export type TallyRow = {
+	call: Call & {
+		selections: {
+			resultPoints: number | null
+			option: { isCorrect: boolean | null } | null
+		}[]
+	}
+	status: Question["status"] | undefined
+}
+
+// The record and points of a set of one user's calls, counted the way
+// PickEntry describes. Shared with the group game board, so a member's row
+// there and their own picks page never disagree.
+export function tallyCalls(rows: TallyRow[]): {
+	wins: number
+	losses: number
+	points: number
+} {
+	let wins = 0
+	let losses = 0
+	let points = 0
+	for (const { call, status } of rows) {
+		const { selections } = call
 		const totalPoints =
 			call.resultPoints ??
 			(selections.length > 0 && selections.every((s) => s.resultPoints !== null)
@@ -71,13 +96,11 @@ export async function loadPickEntry<M>(
 
 		// An unscored call has no result to count either way.
 		if (call.unscoredReason !== null) continue
-		const settled = status === "resolved" || status === "disputed"
-		if (!settled) continue
+		if (status !== "resolved" && status !== "disputed") continue
 		const correct =
 			call.hitTolerance ?? selections.some((s) => s.option?.isCorrect === true)
 		if (correct) wins++
 		else losses++
 	}
-
-	return { members, calledCount: callRows.length, wins, losses, points }
+	return { wins, losses, points }
 }

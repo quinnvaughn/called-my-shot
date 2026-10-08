@@ -13,12 +13,13 @@ import { useState } from "react"
 import { FaRegTimesCircle } from "react-icons/fa"
 import { css } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
-import { GameSetRail } from "#/components/games/game-set-rail"
+import { GameGroupBoards } from "#/components/games/game-group-boards"
 import { GameMatchupHeader } from "#/components/games/game-matchup-header"
 import {
 	canSetGameReminder,
 	GameReminderButton,
 } from "#/components/games/game-reminder-button"
+import { GameSetRail } from "#/components/games/game-set-rail"
 import { buildGameTweet, GameShareRow } from "#/components/games/game-share-row"
 import { QuestionCard } from "#/components/questions/question-card"
 import { SortSwitcher } from "#/components/questions/sort-switcher"
@@ -278,6 +279,14 @@ function RouteComponent() {
 				)}
 			</VStack>
 
+			{/* The rail carries this from xl up; below that the rail is hidden,
+			    and a phone beside the TV is where it matters most. */}
+			{game.viewerGroupBoards.length > 0 && (
+				<div className={css({ display: { base: "block", xl: "none" } })}>
+					<GameGroupBoards gameId={game.id} boards={game.viewerGroupBoards} />
+				</div>
+			)}
+
 			{hero && (
 				<VStack gap="2" alignItems="stretch">
 					<span className={sectionLabelClass}>{GAME_WINNER_LABEL}</span>
@@ -373,11 +382,17 @@ function GameRail() {
 	const { me } = useRouteContext({ from: "__root__" })
 	if (!gameData.game) return null
 	return (
-		<GameSetRail
-			game={gameData.game}
-			questions={officialData.questions.items}
-			username={me?.username ?? null}
-		/>
+		<VStack gap="6" alignItems="stretch">
+			<GameSetRail
+				game={gameData.game}
+				questions={officialData.questions.items}
+				username={me?.username ?? null}
+			/>
+			<GameGroupBoards
+				gameId={gameData.game.id}
+				boards={gameData.game.viewerGroupBoards}
+			/>
+		</VStack>
 	)
 }
 

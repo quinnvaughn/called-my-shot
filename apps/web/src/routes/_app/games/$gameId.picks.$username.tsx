@@ -1,4 +1,4 @@
-import { useSuspenseQuery } from "@tanstack/react-query"
+import { useQuery, useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute, Link, useRouteContext } from "@tanstack/react-router"
 import { FaRegTimesCircle } from "react-icons/fa"
 import { css } from "styled-system/css"
@@ -10,6 +10,7 @@ import { buildGameTweet, GameShareRow } from "#/components/games/game-share-row"
 import { Breadcrumb } from "#/components/ui/breadcrumb"
 import { NotFound } from "#/components/ui/not-found"
 import { PageHeader } from "#/components/ui/page-header"
+import { GroupCrumbDocument } from "#/graphql/queries/groups"
 import { GameEntryDocument } from "#/graphql/queries/sports"
 import { gqlQueryOptions } from "#/graphql/query-options"
 import { formatRecord, formatSignedPoints } from "#/lib/ballot-entry"
@@ -23,16 +24,28 @@ import { buildGameSlug } from "#/lib/slug"
 const gameEntryQuery = (id: string, username: string) =>
 	gqlQueryOptions(GameEntryDocument, { id, username })
 
+const groupCrumbQuery = (groupId: string) =>
+	gqlQueryOptions(GroupCrumbDocument, { groupId })
+
 // Public, like the game page and /ballots/:slug/:username - this url exists
 // to be pasted somewhere. Left out of the sitemap for the same reason: one
 // person's picks aren't something to index.
 export const Route = createFileRoute("/_app/games/$gameId/picks/$username")({
 	component: RouteComponent,
 	staleTime: 0,
-	loader: async ({ context, params }) => {
-		const data = await context.queryClient.query(
-			gameEntryQuery(params.gameId, params.username),
-		)
+	// Set when the page was opened from a group's board for this game, so the
+	// breadcrumb leads back to it. Ignored when the viewer can't see the group.
+	validateSearch: (search: Record<string, unknown>): { group?: string } => ({
+		group: typeof search.group === "string" ? search.group : undefined,
+	}),
+	loaderDeps: ({ search }) => ({ group: search.group }),
+	loader: async ({ context, params, deps }) => {
+		const [data] = await Promise.all([
+			context.queryClient.query(gameEntryQuery(params.gameId, params.username)),
+			deps.group
+				? context.queryClient.query(groupCrumbQuery(deps.group))
+				: null,
+		])
 		return { game: data.game ?? null }
 	},
 	head: ({ loaderData }) => {
@@ -71,6 +84,12 @@ export const Route = createFileRoute("/_app/games/$gameId/picks/$username")({
 function RouteComponent() {
 	const { gameId, username } = Route.useParams()
 	const { data } = useSuspenseQuery(gameEntryQuery(gameId, username))
+	const { group: groupId } = Route.useSearch()
+	const { data: crumbData } = useQuery({
+		...groupCrumbQuery(groupId ?? ""),
+		enabled: groupId !== undefined,
+	})
+	const crumbGroup = groupId ? (crumbData?.group ?? null) : null
 	const { me } = useRouteContext({ from: "__root__" })
 	const game = data.game
 
@@ -135,16 +154,35 @@ function RouteComponent() {
 	return (
 		<VStack gap="6" alignItems="stretch" className={css({ maxWidth: "2xl" })}>
 			<Breadcrumb>
-				<Breadcrumb.Link
-					to="/leagues/$leagueSlug/games"
-					params={{ leagueSlug: game.league.slug }}
-					search={{ windowKey: game.windowKey }}
-				>
-					{game.league.abbreviation}
-				</Breadcrumb.Link>
-				<Breadcrumb.Link to="/games/$gameId/{-$slug}" params={gameParams}>
-					{matchup}
-				</Breadcrumb.Link>
+				{crumbGroup ? (
+					<>
+						<Breadcrumb.Link
+							to="/groups/$groupId"
+							params={{ groupId: crumbGroup.id }}
+						>
+							{crumbGroup.name}
+						</Breadcrumb.Link>
+						<Breadcrumb.Link
+							to="/groups/$groupId/games/$gameId"
+							params={{ groupId: crumbGroup.id, gameId: game.id }}
+						>
+							{matchup}
+						</Breadcrumb.Link>
+					</>
+				) : (
+					<>
+						<Breadcrumb.Link
+							to="/leagues/$leagueSlug/games"
+							params={{ leagueSlug: game.league.slug }}
+							search={{ windowKey: game.windowKey }}
+						>
+							{game.league.abbreviation}
+						</Breadcrumb.Link>
+						<Breadcrumb.Link to="/games/$gameId/{-$slug}" params={gameParams}>
+							{matchup}
+						</Breadcrumb.Link>
+					</>
+				)}
 				<Breadcrumb.Current>@{entry.user.username}</Breadcrumb.Current>
 			</Breadcrumb>
 

@@ -184,6 +184,14 @@ export const GroupDetailDocument = graphql(`
             recentSweeps(limit: 3) {
                 ...GroupHighlights_sweep
             }
+            liveGames {
+                game {
+                    id
+                    status
+                    startsAt
+                }
+                ...GroupGamesStrip_game
+            }
             answeredQuestions(first: 10, after: $answeredAfter) {
                 items {
                     id
@@ -214,6 +222,82 @@ export const GroupDetailDocument = graphql(`
                     endCursor
                 }
             }
+        }
+    }
+`)
+
+// Every member's calls on one game, one row each, for
+// /groups/:groupId/games/:gameId. The game carries what GameMatchupHeader
+// needs, the same as the picks page it links to.
+export const GroupGameBoardDocument = graphql(`
+    query GroupGameBoard($groupId: ID!, $gameId: ID!) {
+        group(id: $groupId) {
+            id
+            name
+            gameBoard(gameId: $gameId) {
+                game {
+                    id
+                    startsAt
+                    status
+                    homeScore
+                    awayScore
+                    venue
+                    startTimeTbd
+                    postseason {
+                        roundLabel
+                        homeSeed
+                        awaySeed
+                        gameNumber
+                        ifNecessary
+                        summary
+                        clinchTeamIds
+                    }
+                    league {
+                        id
+                        abbreviation
+                        slug
+                    }
+                    homeTeam {
+                        ...Team_team @unmask
+                    }
+                    awayTeam {
+                        ...Team_team @unmask
+                    }
+                    homeTeamRecord {
+                        wins
+                        losses
+                        ties
+                        otLosses
+                    }
+                    awayTeamRecord {
+                        wins
+                        losses
+                        ties
+                        otLosses
+                    }
+                    # The rail beside the board, from xl up (GameSetRail).
+                    officialQuestions {
+                        id
+                        ...GameSetRail_question
+                    }
+                }
+                entries {
+                    user {
+                        id
+                    }
+                    ...GroupGameEntryRow_entry
+                }
+            }
+        }
+    }
+`)
+
+// The group's name for the picks page's breadcrumb back to a group board.
+export const GroupCrumbDocument = graphql(`
+    query GroupCrumb($groupId: ID!) {
+        group(id: $groupId) {
+            id
+            name
         }
     }
 `)

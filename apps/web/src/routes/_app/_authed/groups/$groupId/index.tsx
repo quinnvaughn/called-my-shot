@@ -14,6 +14,10 @@ import {
 	CreatedQuestionsTab,
 	createdQuestionsQuery,
 } from "#/components/groups/created-questions-tab"
+import {
+	GroupGamesStrip,
+	groupLiveGamesQuery,
+} from "#/components/groups/group-games-strip"
 import { GroupHeader } from "#/components/groups/group-header"
 import {
 	GroupHighlights,
@@ -109,6 +113,9 @@ export const Route = createFileRoute("/_app/_authed/groups/$groupId/")({
 		const group = data.group
 		if (!group) return
 
+		context.queryClient.setQueryData(groupLiveGamesQuery(groupId).queryKey, {
+			group: { id: group.id, liveGames: group.liveGames },
+		})
 		seedInfiniteQuery(context.queryClient, answeredQuestionsQuery(groupId), {
 			group: { id: group.id, answeredQuestions: group.answeredQuestions },
 		})
@@ -313,6 +320,7 @@ function RouteComponent() {
 				pins={group.pinnedQuestions}
 				viewerIsAdmin={group.viewerIsAdmin}
 			/>
+			<GroupGamesStrip groupId={group.id} />
 			{myInvite && (
 				<GroupInviteCard
 					groupId={group.id}

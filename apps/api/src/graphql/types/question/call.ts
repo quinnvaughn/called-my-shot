@@ -67,19 +67,21 @@ async function callSeasonWindow(ctx: Context, call: Call) {
 	return loadSeasonWindow(ctx, question, call.createdAt)
 }
 
-type CallPayout = { winLow: number; winHigh: number; lose: number }
+export type CallPayout = { winLow: number; winHigh: number; lose: number }
 
 // winLow and winHigh match on an option pick. A numeric guess's win depends
 // on how close the rest of the field lands, so it's a range until it settles.
-const CallPayoutRef = builder.objectRef<CallPayout>("CallPayout").implement({
-	fields: (t) => ({
-		winLow: t.exposeInt("winLow"),
-		winHigh: t.exposeInt("winHigh"),
-		lose: t.exposeInt("lose"),
-	}),
-})
+export const CallPayoutRef = builder
+	.objectRef<CallPayout>("CallPayout")
+	.implement({
+		fields: (t) => ({
+			winLow: t.exposeInt("winLow"),
+			winHigh: t.exposeInt("winHigh"),
+			lose: t.exposeInt("lose"),
+		}),
+	})
 
-async function pendingPayout(
+export async function pendingPayout(
 	ctx: Context,
 	call: Call,
 ): Promise<CallPayout | null> {
