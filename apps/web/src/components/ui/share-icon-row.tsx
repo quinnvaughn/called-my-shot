@@ -3,11 +3,15 @@ import { FiCheck, FiLink, FiShare } from "react-icons/fi"
 import { css } from "styled-system/css"
 import { HStack } from "styled-system/jsx"
 import { PostOnXLink } from "#/components/ui/post-on-x-link"
-
-export type ShareMethod = "clipboard" | "native" | "x"
+import {
+	type ShareCampaign,
+	type ShareMethod,
+	useTagShareUrl,
+} from "#/lib/share-links"
 
 type Props = {
 	url: string
+	campaign: ShareCampaign
 	// Omitted where posting to X isn't something anyone would do with the
 	// link, which leaves just Copy and the native share sheet.
 	tweetText?: string
@@ -31,11 +35,18 @@ const iconButtonClass = css({
 
 // Copy, native share and Post on X as one row of icon buttons, for a card
 // footer where sharing is one thing among several.
-export function ShareIconRow({ url, tweetText, shareTitle, onShared }: Props) {
+export function ShareIconRow({
+	url,
+	campaign,
+	tweetText,
+	shareTitle,
+	onShared,
+}: Props) {
 	const [copied, setCopied] = useState(false)
+	const tagShareUrl = useTagShareUrl(campaign)
 
 	function handleCopy() {
-		navigator.clipboard.writeText(url)
+		navigator.clipboard.writeText(tagShareUrl(url, "clipboard"))
 		onShared("clipboard")
 		setCopied(true)
 		setTimeout(() => setCopied(false), 1200)
@@ -43,7 +54,10 @@ export function ShareIconRow({ url, tweetText, shareTitle, onShared }: Props) {
 
 	async function handleNativeShare() {
 		try {
-			await navigator.share({ title: shareTitle, url })
+			await navigator.share({
+				title: shareTitle,
+				url: tagShareUrl(url, "native"),
+			})
 			onShared("native")
 		} catch {
 			// A dismissed share sheet rejects the same way a failure does, and
@@ -68,6 +82,7 @@ export function ShareIconRow({ url, tweetText, shareTitle, onShared }: Props) {
 				<PostOnXLink
 					text={tweetText}
 					url={url}
+					campaign={campaign}
 					onClick={() => onShared("x")}
 					iconClassName={iconButtonClass}
 				/>

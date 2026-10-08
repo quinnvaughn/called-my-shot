@@ -2,9 +2,10 @@ import {
 	createRootRouteWithContext,
 	HeadContent,
 	Scripts,
+	useRouter,
 	useRouterState,
 } from "@tanstack/react-router"
-import { useEffect } from "react"
+import { useEffect, useRef } from "react"
 
 import { ModalHost } from "#/components/ui/modal"
 import { RouteError } from "#/components/ui/route-error"
@@ -19,6 +20,7 @@ import {
 	trackPageview,
 } from "#/lib/analytics"
 import { useGoogleAuthReturn } from "#/lib/google-auth"
+import { readShareLanding } from "#/lib/share-links"
 import { closeAllModals } from "#/stores/modal-store"
 import fontsCss from "../fonts.css?url"
 import type { RouterContext } from "../router-context"
@@ -181,9 +183,23 @@ function RootDocument({ children }: { children: React.ReactNode }) {
 		select: (state) => state.location.href,
 	})
 
+	const router = useRouter()
+	const lastTrackedHref = useRef<string | null>(null)
+
+	// A shared link's params come off the address bar once the landing is
+	// counted, so someone re-sharing the page from there doesn't pass on the
+	// original sharer's ref. Removing them is a navigation of its own, and the
+	// href it lands on is the one already tracked, so it isn't counted twice.
 	useEffect(() => {
-		trackPageview(locationHref)
-	}, [locationHref])
+		const { landing, cleanHref } = readShareLanding(locationHref)
+		if (cleanHref !== lastTrackedHref.current) {
+			trackPageview(cleanHref, landing)
+			lastTrackedHref.current = cleanHref
+		}
+		if (landing) {
+			router.navigate({ href: cleanHref, replace: true, resetScroll: false })
+		}
+	}, [locationHref, router])
 
 	// Pathname, not href: a modal that writes to the search params is still
 	// on the same page and should stay open.

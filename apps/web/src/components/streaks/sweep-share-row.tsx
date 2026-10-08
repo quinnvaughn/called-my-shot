@@ -37,6 +37,7 @@ export function SweepShareRow({
 		return (
 			<ShareIconRow
 				url={url}
+				campaign="sweep"
 				tweetText={tweetText}
 				shareTitle={shareTitle}
 				onShared={(method) => track("sweep_link_shared", { ...props, method })}
@@ -48,6 +49,7 @@ export function SweepShareRow({
 		<VStack gap="3" alignItems="stretch">
 			<CopyLinkRow
 				url={url}
+				campaign="sweep"
 				displayUrl={`${SITE_HOST}${path}`}
 				shareTitle={shareTitle}
 				onCopied={() =>
@@ -60,6 +62,7 @@ export function SweepShareRow({
 			<PostOnXLink
 				text={tweetText}
 				url={url}
+				campaign="sweep"
 				onClick={() => track("sweep_link_shared", { ...props, method: "x" })}
 			/>
 		</VStack>

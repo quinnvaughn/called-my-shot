@@ -29,6 +29,7 @@ export function ReportCardShareRow({
 	return (
 		<ShareIconRow
 			url={`${SITE_ORIGIN}${reportCardPath(username, leagueSlug, windowKey)}`}
+			campaign="report_card"
 			tweetText={tweetText}
 			shareTitle={shareTitle}
 			onShared={(method) =>

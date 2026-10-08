@@ -60,6 +60,7 @@ export function GameShareRow({
 		return (
 			<ShareIconRow
 				url={url}
+				campaign="game_picks"
 				tweetText={tweetText}
 				shareTitle={shareTitle}
 				onShared={(method) =>
@@ -73,6 +74,7 @@ export function GameShareRow({
 		<VStack gap="3" alignItems="stretch">
 			<CopyLinkRow
 				url={url}
+				campaign="game_picks"
 				displayUrl={`${SITE_HOST}${path}`}
 				shareTitle={shareTitle}
 				onCopied={() =>
@@ -85,6 +87,7 @@ export function GameShareRow({
 			<PostOnXLink
 				text={tweetText}
 				url={url}
+				campaign="game_picks"
 				onClick={() =>
 					track("game_picks_shared", { gameId, method: "x", surface })
 				}

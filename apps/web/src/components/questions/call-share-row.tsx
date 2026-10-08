@@ -73,6 +73,7 @@ export function CallShareRow({
 		return (
 			<ShareIconRow
 				url={url}
+				campaign="call"
 				tweetText={tweetText}
 				shareTitle={shareTitle}
 				onShared={(method) =>
@@ -86,6 +87,7 @@ export function CallShareRow({
 		<VStack gap="3" alignItems="stretch">
 			<CopyLinkRow
 				url={url}
+				campaign="call"
 				displayUrl={displayUrl}
 				shareTitle={shareTitle}
 				onCopied={() =>
@@ -98,6 +100,7 @@ export function CallShareRow({
 			<PostOnXLink
 				text={tweetText}
 				url={url}
+				campaign="call"
 				onClick={() =>
 					track("call_link_shared", { callId, method: "x", surface })
 				}

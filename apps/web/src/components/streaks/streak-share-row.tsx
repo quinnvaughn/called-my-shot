@@ -50,6 +50,7 @@ export function StreakShareRow({
 		return (
 			<ShareIconRow
 				url={url}
+				campaign="streak"
 				tweetText={tweetText}
 				shareTitle={shareTitle}
 				onShared={(method) => track("streak_link_shared", { ...props, method })}
@@ -61,6 +62,7 @@ export function StreakShareRow({
 		<VStack gap="3" alignItems="stretch">
 			<CopyLinkRow
 				url={url}
+				campaign="streak"
 				displayUrl={`${SITE_HOST}${path}`}
 				shareTitle={shareTitle}
 				onCopied={() =>
@@ -73,6 +75,7 @@ export function StreakShareRow({
 			<PostOnXLink
 				text={tweetText}
 				url={url}
+				campaign="streak"
 				onClick={() => track("streak_link_shared", { ...props, method: "x" })}
 			/>
 		</VStack>

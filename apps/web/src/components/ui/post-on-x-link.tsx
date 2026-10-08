@@ -8,17 +8,27 @@ import {
 	openAppWithWebFallback,
 } from "#/lib/app-deep-link"
 import { detectDevicePlatform } from "#/lib/device-platform"
+import { type ShareCampaign, useTagShareUrl } from "#/lib/share-links"
 
 type Props = {
 	text: string
 	url: string
+	// Omitted for invite links, whose code already attributes the visit.
+	campaign?: ShareCampaign
 	onClick: () => void
 	// Replaces the labelled button with the caller's own icon-button class,
 	// for a row of share icons.
 	iconClassName?: string
 }
 
-export function PostOnXLink({ text, url, onClick, iconClassName }: Props) {
+export function PostOnXLink({
+	text,
+	url: rawUrl,
+	campaign,
+	onClick,
+	iconClassName,
+}: Props) {
+	const url = useTagShareUrl(campaign)(rawUrl, "x")
 	// x.com/intent/post rather than twitter.com/intent/tweet: the old host
 	// still 302s, but that adds a hop to the path a share takes. text and url
 	// stay separate params so X joins them itself and doesn't count the url

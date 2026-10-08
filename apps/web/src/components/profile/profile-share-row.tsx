@@ -16,6 +16,7 @@ export function ProfileShareRow({ userId, username, shareTitle }: Props) {
 	return (
 		<ShareIconRow
 			url={`${SITE_ORIGIN}/user/${username}`}
+			campaign="profile"
 			shareTitle={shareTitle}
 			onShared={(method) => track("profile_link_shared", { userId, method })}
 		/>

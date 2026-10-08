@@ -2,6 +2,7 @@ import { isSeasonLongShape } from "@called-my-shot/scoring"
 import posthog from "posthog-js"
 import type { AuthModalSurface } from "#/components/auth/auth-modal"
 import type { QuestionCallShape } from "#/components/questions/cast-call-form/use-cast-call-form"
+import type { ShareLanding } from "#/lib/share-links"
 import type { ViewerStatus } from "#/lib/viewer-status"
 
 // Whether a question settles off one game or off the season. Separates someone
@@ -303,10 +304,29 @@ export function track<E extends keyof AnalyticsEvents>(
 	posthog.capture(event as string, properties)
 }
 
-export function trackPageview(path: string) {
+// `share` is set when the visit arrived on a shared link (lib/share-links.ts).
+// It rides on the pageview as this landing's share, and is registered once
+// per browser as the first share, so a later user_signed_up can be traced
+// back to the share and the sharer that brought the visitor in. A sharer
+// opening their own link is not a share landing.
+export function trackPageview(path: string, share: ShareLanding | null) {
 	if (!initialized) return
+	const landing =
+		share && share.sharerId !== posthog.get_distinct_id() ? share : null
+	if (landing) {
+		posthog.register_once({
+			firstShareCampaign: landing.campaign,
+			firstShareMethod: landing.method,
+			firstShareRef: landing.sharerId,
+		})
+	}
 	posthog.capture("$pageview", {
 		$current_url: `${window.location.origin}${path}`,
+		...(landing && {
+			shareCampaign: landing.campaign,
+			shareMethod: landing.method,
+			shareRef: landing.sharerId,
+		}),
 	})
 }
 

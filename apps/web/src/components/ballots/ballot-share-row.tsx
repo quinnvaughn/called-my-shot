@@ -64,6 +64,7 @@ export function BallotShareRow({
 		return (
 			<ShareIconRow
 				url={url}
+				campaign="ballot"
 				tweetText={tweetText}
 				shareTitle={shareTitle}
 				onShared={(method) =>
@@ -77,6 +78,7 @@ export function BallotShareRow({
 		<VStack gap="3" alignItems="stretch">
 			<CopyLinkRow
 				url={url}
+				campaign="ballot"
 				displayUrl={`${SITE_HOST}${path}`}
 				shareTitle={shareTitle}
 				onCopied={() =>
@@ -93,6 +95,7 @@ export function BallotShareRow({
 			<PostOnXLink
 				text={tweetText}
 				url={url}
+				campaign="ballot"
 				onClick={() =>
 					track("ballot_link_shared", { ballotId, method: "x", surface })
 				}

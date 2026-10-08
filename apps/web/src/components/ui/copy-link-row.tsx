@@ -4,6 +4,7 @@ import { HStack, VStack } from "styled-system/jsx"
 import { arrowLink } from "#/components/ui/arrow-link"
 import { Button } from "#/components/ui/button"
 import { TextInput } from "#/components/ui/text-input"
+import { type ShareCampaign, useTagShareUrl } from "#/lib/share-links"
 
 type Props = {
 	// Absolute. Build it from SITE_ORIGIN (lib/meta.ts) rather than
@@ -14,6 +15,9 @@ type Props = {
 	// What the field shows. Usually the same url without its scheme, which is
 	// what fits and what people recognise.
 	displayUrl: string
+	// Tags the copied and shared url with where it came from. Omitted for
+	// invite links, whose code already attributes the visit.
+	campaign?: ShareCampaign
 	// The thing being shared, for the OS share sheet's title.
 	shareTitle: string
 	// Analytics belongs to the caller - this component doesn't know which
@@ -29,14 +33,16 @@ type Props = {
 export function CopyLinkRow({
 	url,
 	displayUrl,
+	campaign,
 	shareTitle,
 	onCopied,
 	onNativeShared,
 }: Props) {
 	const [copied, setCopied] = useState(false)
+	const tagShareUrl = useTagShareUrl(campaign)
 
 	function handleCopy() {
-		navigator.clipboard.writeText(url)
+		navigator.clipboard.writeText(tagShareUrl(url, "clipboard"))
 		onCopied?.()
 		setCopied(true)
 		setTimeout(() => setCopied(false), 1200)
@@ -44,7 +50,10 @@ export function CopyLinkRow({
 
 	async function handleNativeShare() {
 		try {
-			await navigator.share({ title: shareTitle, url })
+			await navigator.share({
+				title: shareTitle,
+				url: tagShareUrl(url, "native"),
+			})
 			onNativeShared?.()
 		} catch {
 			// A dismissed OS share sheet rejects the same way a failure does,

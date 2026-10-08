@@ -224,6 +224,7 @@ export function ShareQuestionModal({
 					<span className={labelClass}>Link</span>
 					<CopyLinkRow
 						url={SITE_ORIGIN + sharePath}
+						campaign="question"
 						displayUrl={`${SITE_HOST}${sharePath}`}
 						shareTitle={questionTitle}
 						onCopied={() =>
