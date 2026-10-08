@@ -36,6 +36,7 @@ import { Breadcrumb } from "#/components/ui/breadcrumb"
 import { Button, type ButtonVariantProps } from "#/components/ui/button"
 import { NotFound } from "#/components/ui/not-found"
 import { Tabs } from "#/components/ui/tabs"
+import { Tag } from "#/components/ui/tag"
 import {
 	GroupDetailDocument,
 	GroupLeaguesDocument,
@@ -233,6 +234,9 @@ function RouteComponent() {
 		)
 	}
 
+	// Null when a site admin is viewing a group they aren't in.
+	const myInvite = group.myInvite
+
 	return (
 		<VStack alignItems="stretch" gap="6">
 			<PageBanner
@@ -268,33 +272,39 @@ function RouteComponent() {
 								)
 							}
 						/>
-						<HeaderAction
-							label="Settings"
-							icon={<FiSettings size={16} />}
-							variant="outline"
-							onClick={() =>
-								navigate({
-									to: "/groups/$groupId/settings",
-									params: { groupId: group.id },
-								})
-							}
-						/>
-						<HeaderAction
-							label="Invite"
-							icon={<FiUserPlus size={16} />}
-							variant="dark"
-							onClick={() =>
-								openModal(
-									<InviteCodeModal
-										groupId={group.id}
-										groupName={group.name}
-										inviteId={group.myInvite.id}
-										inviteCode={group.myInvite.code}
-										expirationDate={group.myInvite.expiresAt}
-									/>,
-								)
-							}
-						/>
+						{group.viewerIsMember ? (
+							<HeaderAction
+								label="Settings"
+								icon={<FiSettings size={16} />}
+								variant="outline"
+								onClick={() =>
+									navigate({
+										to: "/groups/$groupId/settings",
+										params: { groupId: group.id },
+									})
+								}
+							/>
+						) : (
+							<Tag size="sm">Admin view</Tag>
+						)}
+						{myInvite && (
+							<HeaderAction
+								label="Invite"
+								icon={<FiUserPlus size={16} />}
+								variant="dark"
+								onClick={() =>
+									openModal(
+										<InviteCodeModal
+											groupId={group.id}
+											groupName={group.name}
+											inviteId={myInvite.id}
+											inviteCode={myInvite.code}
+											expirationDate={myInvite.expiresAt}
+										/>,
+									)
+								}
+							/>
+						)}
 					</HStack>
 				}
 			/>
@@ -303,13 +313,15 @@ function RouteComponent() {
 				pins={group.pinnedQuestions}
 				viewerIsAdmin={group.viewerIsAdmin}
 			/>
-			<GroupInviteCard
-				groupId={group.id}
-				groupName={group.name}
-				memberCount={group.memberCount}
-				inviteCode={group.myInvite.code}
-				dismissed={group.viewerDismissedInviteCard}
-			/>
+			{myInvite && (
+				<GroupInviteCard
+					groupId={group.id}
+					groupName={group.name}
+					memberCount={group.memberCount}
+					inviteCode={myInvite.code}
+					dismissed={group.viewerDismissedInviteCard}
+				/>
+			)}
 			<GroupLeaderboard
 				groupId={group.id}
 				leagues={scope.leagues}

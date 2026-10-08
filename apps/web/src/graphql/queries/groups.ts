@@ -69,6 +69,7 @@ export const GroupSettingsDocument = graphql(`
             description
             logoUrl
             bannerUrl
+            viewerIsMember
             viewerIsAdmin
             links {
                 id
@@ -138,6 +139,7 @@ export const GroupDetailDocument = graphql(`
             logoUrl
             bannerUrl
             memberCount
+            viewerIsMember
             viewerIsAdmin
             viewerDismissedInviteCard
             pinnedQuestions {

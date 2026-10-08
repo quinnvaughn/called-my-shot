@@ -50,7 +50,9 @@ function RouteComponent() {
 	const { data } = useSuspenseQuery(groupSettingsQuery(groupId))
 	const group = data.group
 
-	if (!group) {
+	// A site admin can view a group they aren't in, but its settings stay
+	// members-only.
+	if (!group?.viewerIsMember) {
 		return (
 			<NotFound
 				icon={<HiMiniQuestionMarkCircle size="24" />}

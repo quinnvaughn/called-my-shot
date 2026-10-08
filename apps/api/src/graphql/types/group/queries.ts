@@ -1,4 +1,6 @@
 import { db } from "../../../db"
+import { requireAdmin } from "../../../lib/auth"
+import { AuthenticationError, AuthorizationError } from "../../../lib/errors"
 import { isInviteExpired } from "../../../lib/groups"
 import { imageUrl } from "../../../lib/storage"
 import { isUuid } from "../../../lib/uuid"
@@ -28,8 +30,26 @@ builder.queryFields((t) => ({
 		args: { id: t.arg.id({ required: true }) },
 		resolve: async (_root, args, ctx) => {
 			if (!ctx.user || !isUuid(args.id)) return null
-			if (!(await viewerMembership(ctx, args.id))) return null
+			// Site admins can open any group read-only, member or not.
+			if (!ctx.user.isAdmin && !(await viewerMembership(ctx, args.id)))
+				return null
 			return db.query.groups.findFirst({ where: { id: args.id } })
+		},
+	}),
+
+	// Groups tab - every group on the site, newest first, so an admin can
+	// open one they aren't in (the group query lets them).
+	adminGroups: t.field({
+		type: [GroupRef],
+		errors: { types: [AuthenticationError, AuthorizationError] },
+		args: { search: t.arg.string({ required: false }) },
+		resolve: (_root, args, ctx) => {
+			requireAdmin(ctx)
+			const search = args.search?.trim()
+			return db.query.groups.findMany({
+				where: search ? { name: { ilike: `%${search}%` } } : undefined,
+				orderBy: { createdAt: "desc" },
+			})
 		},
 	}),
 

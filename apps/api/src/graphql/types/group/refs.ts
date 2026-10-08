@@ -1,7 +1,6 @@
 import { db } from "../../../db"
 import type { QuestionShare } from "../../../db/schema"
 import { requireUser } from "../../../lib/auth"
-import { NotFoundError } from "../../../lib/errors"
 import {
 	clampHighlightLimit,
 	type GroupHighlights,
@@ -137,11 +136,14 @@ export const GroupRef = builder.drizzleObject("groups", {
 		memberCount: t.relatedCount("members"),
 		members: t.relation("members"),
 		// the viewer's own invite link - every member gets one the moment they
-		// join (see createGroup / joinGroupByCode), so this should always exist
+		// join (see createGroup / joinGroupByCode). Null for a site admin
+		// viewing a group they aren't in, so none is minted for them.
 		myInvite: t.field({
 			type: GroupInviteRef,
-			resolve: (group, _args, ctx) => {
+			nullable: true,
+			resolve: async (group, _args, ctx) => {
 				const user = requireUser(ctx)
+				if (!(await viewerMembership(ctx, group.id))) return null
 				return getOrCreateMemberInvite(group.id, user.id)
 			},
 		}),
@@ -153,6 +155,12 @@ export const GroupRef = builder.drizzleObject("groups", {
 				if (membership?.role !== "admin") return []
 				return db.query.groupInvites.findMany({ where: { groupId: group.id } })
 			},
+		}),
+		// False only for a site admin viewing a group they aren't in.
+		viewerIsMember: t.field({
+			type: "Boolean",
+			resolve: async (group, _args, ctx) =>
+				!!(await viewerMembership(ctx, group.id)),
 		}),
 		viewerIsAdmin: t.field({
 			type: "Boolean",
@@ -225,12 +233,9 @@ export const GroupRef = builder.drizzleObject("groups", {
 					null,
 					ALL_TIME,
 				)
-				const entry = leaderboard.find((e) => e.user.id === user.id)
-				// group/myGroups already gate on the viewer being a member, so this
-				// should always be found
-				if (!entry)
-					throw new NotFoundError("You're not a member of this group.")
-				return entry.rank
+				// Not on the board only when a site admin is viewing a group
+				// they aren't in.
+				return leaderboard.find((e) => e.user.id === user.id)?.rank ?? null
 			},
 		}),
 		// the viewer's full leaderboard row (rank + points/accuracy), for the
@@ -253,8 +258,7 @@ export const GroupRef = builder.drizzleObject("groups", {
 					args.leagueId ?? null,
 					toSeasonFilter(args.season),
 				)
-				// group/myGroups already gate on the viewer being a member, so this
-				// should always be found
+				// null for a site admin viewing a group they aren't in
 				return leaderboard.find((e) => e.user.id === user.id) ?? null
 			},
 		}),

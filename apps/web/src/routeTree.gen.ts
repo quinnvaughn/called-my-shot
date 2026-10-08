@@ -26,6 +26,7 @@ import { Route as AdminIndexRouteImport } from './routes/admin/index'
 import { Route as AdminBandsRouteImport } from './routes/admin/bands'
 import { Route as AdminDisputesRouteImport } from './routes/admin/disputes'
 import { Route as AdminGifsRouteImport } from './routes/admin/gifs'
+import { Route as AdminGroupsRouteImport } from './routes/admin/groups'
 import { Route as AdminIntegrityRouteImport } from './routes/admin/integrity'
 import { Route as AdminLeadersRouteImport } from './routes/admin/leaders'
 import { Route as AdminLinesRouteImport } from './routes/admin/lines'
@@ -167,6 +168,11 @@ const AdminDisputesRoute = AdminDisputesRouteImport.update({
 const AdminGifsRoute = AdminGifsRouteImport.update({
   id: '/gifs',
   path: '/gifs',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminGroupsRoute = AdminGroupsRouteImport.update({
+  id: '/groups',
+  path: '/groups',
   getParentRoute: () => AdminRoute,
 } as any)
 const AdminIntegrityRoute = AdminIntegrityRouteImport.update({
@@ -502,6 +508,7 @@ export interface FileRoutesByFullPath {
   '/admin/bands': typeof AdminBandsRoute
   '/admin/disputes': typeof AdminDisputesRoute
   '/admin/gifs': typeof AdminGifsRoute
+  '/admin/groups': typeof AdminGroupsRoute
   '/admin/integrity': typeof AdminIntegrityRoute
   '/admin/leaders': typeof AdminLeadersRoute
   '/admin/lines': typeof AdminLinesRoute
@@ -577,6 +584,7 @@ export interface FileRoutesByTo {
   '/admin/bands': typeof AdminBandsRoute
   '/admin/disputes': typeof AdminDisputesRoute
   '/admin/gifs': typeof AdminGifsRoute
+  '/admin/groups': typeof AdminGroupsRoute
   '/admin/integrity': typeof AdminIntegrityRoute
   '/admin/leaders': typeof AdminLeadersRoute
   '/admin/lines': typeof AdminLinesRoute
@@ -654,6 +662,7 @@ export interface FileRoutesById {
   '/admin/bands': typeof AdminBandsRoute
   '/admin/disputes': typeof AdminDisputesRoute
   '/admin/gifs': typeof AdminGifsRoute
+  '/admin/groups': typeof AdminGroupsRoute
   '/admin/integrity': typeof AdminIntegrityRoute
   '/admin/leaders': typeof AdminLeadersRoute
   '/admin/lines': typeof AdminLinesRoute
@@ -732,6 +741,7 @@ export interface FileRouteTypes {
     | '/admin/bands'
     | '/admin/disputes'
     | '/admin/gifs'
+    | '/admin/groups'
     | '/admin/integrity'
     | '/admin/leaders'
     | '/admin/lines'
@@ -807,6 +817,7 @@ export interface FileRouteTypes {
     | '/admin/bands'
     | '/admin/disputes'
     | '/admin/gifs'
+    | '/admin/groups'
     | '/admin/integrity'
     | '/admin/leaders'
     | '/admin/lines'
@@ -883,6 +894,7 @@ export interface FileRouteTypes {
     | '/admin/bands'
     | '/admin/disputes'
     | '/admin/gifs'
+    | '/admin/groups'
     | '/admin/integrity'
     | '/admin/leaders'
     | '/admin/lines'
@@ -1088,6 +1100,13 @@ declare module '@tanstack/react-router' {
       path: '/gifs'
       fullPath: '/admin/gifs'
       preLoaderRoute: typeof AdminGifsRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/groups': {
+      id: '/admin/groups'
+      path: '/groups'
+      fullPath: '/admin/groups'
+      preLoaderRoute: typeof AdminGroupsRouteImport
       parentRoute: typeof AdminRoute
     }
     '/admin/integrity': {
@@ -1628,6 +1647,7 @@ interface AdminRouteChildren {
   AdminBandsRoute: typeof AdminBandsRoute
   AdminDisputesRoute: typeof AdminDisputesRoute
   AdminGifsRoute: typeof AdminGifsRoute
+  AdminGroupsRoute: typeof AdminGroupsRoute
   AdminIntegrityRoute: typeof AdminIntegrityRoute
   AdminLeadersRoute: typeof AdminLeadersRoute
   AdminLinesRoute: typeof AdminLinesRoute
@@ -1647,6 +1667,7 @@ const AdminRouteChildren: AdminRouteChildren = {
   AdminBandsRoute: AdminBandsRoute,
   AdminDisputesRoute: AdminDisputesRoute,
   AdminGifsRoute: AdminGifsRoute,
+  AdminGroupsRoute: AdminGroupsRoute,
   AdminIntegrityRoute: AdminIntegrityRoute,
   AdminLeadersRoute: AdminLeadersRoute,
   AdminLinesRoute: AdminLinesRoute,
@@ -1695,12 +1716,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { createStart } from '@tanstack/react-start'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-  }
-}
