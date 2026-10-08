@@ -37,7 +37,10 @@ const CHARS_PER_LINE_AT_WIDEST = 85
 const CHARS_PER_LINE_AT_NARROWEST = 34
 // Past this it overflows even on the widest card, so it overflows everywhere.
 const ALWAYS_OVERFLOWS = CLAMP_LINES * CHARS_PER_LINE_AT_WIDEST
-// Under this it fits even on the narrowest card, so it fits everywhere.
+// Under this it fits even on the narrowest card, so it fits everywhere - but
+// only for a single paragraph. Line breaks the caller typed are kept, and each
+// one starts a new line however few characters precede it, so a short case
+// with breaks can still run past CLAMP_LINES.
 const NEVER_OVERFLOWS = CLAMP_LINES * CHARS_PER_LINE_AT_NARROWEST
 
 // Plain labeled block, set off from whatever's above it by a top rule - not
@@ -51,17 +54,18 @@ export function CaseBlock({ text, label = "The case", clampable }: Props) {
 	// server's markup already carries the right answer and the common card
 	// never measures anything. Only the undecidable band falls through to the
 	// layout effect.
-	const undecidable =
-		clampable === true &&
-		text.length > NEVER_OVERFLOWS &&
-		text.length <= ALWAYS_OVERFLOWS
+	const hardLines = text.split("\n").length
+	const alwaysOverflows =
+		text.length > ALWAYS_OVERFLOWS || hardLines > CLAMP_LINES
+	const neverOverflows = hardLines === 1 && text.length <= NEVER_OVERFLOWS
+	const undecidable = clampable === true && !alwaysOverflows && !neverOverflows
 	const [measured, setMeasured] = useState(false)
 	const textRef = useRef<HTMLSpanElement>(null)
 	const clamped = clampable && !expanded
 
 	const overflowing = undecidable
 		? measured
-		: clampable === true && text.length > ALWAYS_OVERFLOWS
+		: clampable === true && alwaysOverflows
 
 	// Runs only for the undecidable band above - a case whose length settles
 	// the question never reaches here, so most cards do no DOM work at all and
@@ -145,6 +149,8 @@ export function CaseBlock({ text, label = "The case", clampable }: Props) {
 					fontSize: "sm",
 					color: "fg.body",
 					lineHeight: "relaxed",
+					whiteSpace: "pre-wrap",
+					overflowWrap: "anywhere",
 					lineClamp: clamped ? CLAMP_LINES : "none",
 				})}
 			>
