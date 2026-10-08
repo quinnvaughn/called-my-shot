@@ -646,28 +646,20 @@ export type ContrarianTier = { mult: number; label: string }
 export const TIER_MIN_MULT = 1
 export const TIER_MAX_MULT = 6
 
-// Continuous version of what used to be a 5-band lookup table (SAFE/STEADY/
-// BOLD/DARING/FEARLESS at flat field-% cutoffs of 20/10/5/2%). That table had
-// two problems: hard cliffs at each boundary (19.9% vs 20.1% swung the payout
-// 50% for a rounding error), and it was blind to how many options a question
-// even had - on a wide open-field multiple_choice question, an "average",
-// no-real-conviction option can sit under a flat 5% purely because the field
-// is split thin across many options, while the same 5% on a yes_no question
-// means the crowd is genuinely lopsided. Same old multiplier, very different
-// amount of real boldness behind it.
-//
-// relativeRarity fixes both: it's this option's share of the field divided
-// by the "expected" share if the field were spread evenly across every
-// option (1/totalOptions) - so it's normalized against field size before the
-// curve ever sees it. mult = clamp((0.4/relativeRarity)^0.6, 1, 6) was fit
-// directly against the old table's binary-question anchor points (totalOptions
-// = 2, since yes_no/over_under are always binary) and reproduces them closely:
-// 20%->1.0, 10%->1.52 (was 1.5), 5%->2.30 (was 2.5), 2%->3.98 (was 4), 1%->6.0
-// (was 6 under the old <2% floor). This isn't a rebalance, it's smoothing the
-// same curve the discrete table was already tracing and generalizing it to
-// account for option count. clamp handles both ends for free: relativeRarity
-// >= 0.4 floors to 1, and relativeRarity -> 0 (nobody else picked it, or
-// division by zero when literally no one did) ceilings to 6.
+const TIER_SATURATION_RARITY = 1 / 50
+const TIER_CURVE_EXPONENT =
+	Math.log(TIER_MAX_MULT) / -Math.log(TIER_SATURATION_RARITY)
+
+// relativeRarity is this option's share of the field divided by the share
+// it would hold if the field were spread evenly across every option
+// (1/totalOptions), so the same 5% reads as lopsided on a binary question but
+// as unremarkable on a 20-option one. mult = clamp(relativeRarity^-k, 1, 6):
+// an even split or better pays 1x, and every step into the minority pays
+// more, so even a modest underdog side earns something over the favorite.
+// k is solved so the ceiling lands at 1/50th of an even split (1% of a binary
+// field). Binary points: 50%->1.0, 33%->1.20, 22%->1.45, 20%->1.52,
+// 10%->2.09, 5%->2.87, 2%->4.37, 1%->6.0. relativeRarity -> 0 (nobody else
+// picked it, or division by zero when nobody did) ceilings to 6.
 //
 // fieldPct here is the option's FINAL share of the field, computed once at
 // resolution and applied to every selection on that option - not a
@@ -684,15 +676,14 @@ export function tierFor(
 	const relativeRarity = (fieldPct / 100) * totalOptions
 	const mult = Math.min(
 		TIER_MAX_MULT,
-		Math.max(TIER_MIN_MULT, (0.4 / relativeRarity) ** 0.6),
+		Math.max(TIER_MIN_MULT, relativeRarity ** -TIER_CURVE_EXPONENT),
 	)
 	return { mult, label: tierLabel(mult) }
 }
 
 // Bucketed purely for display (badges like "FEARLESS") - never used in point
-// math. Thresholds sit at the midpoints between the old table's fixed values
-// (1, 1.5, 2.5, 4, 6), so a label still means roughly what it always did even
-// though the underlying multiplier is now continuous.
+// math. Bands are by multiplier, so a label means the same payout bump
+// regardless of option count.
 function tierLabel(mult: number): string {
 	if (mult < 1.25) return "SAFE"
 	if (mult < 2) return "STEADY"

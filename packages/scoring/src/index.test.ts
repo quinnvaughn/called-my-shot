@@ -303,13 +303,15 @@ describe("fieldPct", () => {
 })
 
 describe("tierFor", () => {
-	// The curve was fit against the old discrete table's binary-question
-	// anchors; these are the values its own documentation claims.
+	// The binary-question points the curve's own documentation claims.
 	it.each([
-		[20, 1.0],
-		[10, 1.52],
-		[5, 2.3],
-		[2, 3.98],
+		[50, 1.0],
+		[33.33, 1.2],
+		[22.22, 1.45],
+		[20, 1.52],
+		[10, 2.09],
+		[5, 2.87],
+		[2, 4.37],
 		[1, 6.0],
 	])("binary question at %i%% of the field -> ~%sx", (pct, expected) => {
 		expect(tierFor(pct, 2).mult).toBeCloseTo(expected, 2)
@@ -328,6 +330,11 @@ describe("tierFor", () => {
 		expect(tierFor(50, 2).mult).toBeCloseTo(tierFor(10, 10).mult, 10)
 	})
 
+	it("pays any minority side more than the majority on a binary question", () => {
+		expect(tierFor(60, 2).mult).toBe(TIER_MIN_MULT)
+		expect(tierFor(40, 2).mult).toBeGreaterThan(TIER_MIN_MULT)
+	})
+
 	it("decreases monotonically as an option gets more popular", () => {
 		const mults = [1, 2, 5, 10, 20, 50, 100].map((p) => tierFor(p, 2).mult)
 		for (let i = 1; i < mults.length; i++) {
@@ -337,7 +344,7 @@ describe("tierFor", () => {
 
 	it("labels by multiplier band", () => {
 		expect(tierFor(100, 2).label).toBe("SAFE")
-		expect(tierFor(10, 2).label).toBe("STEADY")
+		expect(tierFor(20, 2).label).toBe("STEADY")
 		expect(tierFor(5, 2).label).toBe("BOLD")
 		expect(tierFor(2, 2).label).toBe("DARING")
 		expect(tierFor(0.5, 2).label).toBe("FEARLESS")
