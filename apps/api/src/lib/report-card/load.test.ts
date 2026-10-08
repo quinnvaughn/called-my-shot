@@ -69,7 +69,7 @@ async function optionCall(opts: {
 		gameId: opts.gameId ?? null,
 		seriesId: opts.seriesId ?? null,
 		status: opts.status ?? "resolved",
-		...(opts.isOfficial === undefined ? {} : { isOfficial: opts.isOfficial }),
+		isOfficial: opts.isOfficial ?? true,
 	})
 	const picked = await makeOption(question.id, { label: "Yes", sortOrder: 0 })
 	await makeOption(question.id, { label: "No", sortOrder: 1 })
@@ -107,7 +107,7 @@ describe("loadReportCard", () => {
 		expect(card.returnPct).toBeCloseTo(160)
 	})
 
-	it("counts a community question exactly like an official one", async () => {
+	it("counts a community question alongside an official one, off its own base", async () => {
 		const game = await gameInWeek()
 		await optionCall({
 			gameId: game.id,
@@ -125,6 +125,8 @@ describe("loadReportCard", () => {
 		const card = await loadReportCard(userId, league, await windowFor())
 		expect(card.settledCount).toBe(2)
 		expect(card.netPoints).toBe(150)
+		// 150 base x 50 conviction, plus the community 120 base x 50.
+		expect(card.committedPoints).toBe(135)
 	})
 
 	it("leaves out a season-long call with no game, made in the same week", async () => {
@@ -203,6 +205,7 @@ describe("loadReportCard", () => {
 			gameId: game.id,
 			shape: "player_stat_numeric_guess",
 			status: "resolved",
+			isOfficial: true,
 		})
 		await makeCall(question.id, userId, {
 			guessValue: 250,
