@@ -1021,6 +1021,34 @@ describe("generateGameQuestions", () => {
 			}
 		})
 
+		it("prices a duel posted before it could be, until someone calls it", async () => {
+			const game = await seedPitchers(
+				mlbPitchingSeason(5, 20),
+				mlbPitchingSeason(7, 20),
+			)
+			await run([STRIKEOUTS_DUEL], "mlb")
+			const duelOptions = async () =>
+				(await questionsOn(game.id)).find((q) => q.shape === "player_vs_player")
+					?.options ?? []
+			expect((await duelOptions()).map((o) => o.winMult)).toEqual([null, null])
+
+			await resolvedLines("mlb", catalogTemplate("mlb", "starter-strikeouts"))
+			await run([STRIKEOUTS_DUEL], "mlb")
+			const [smith, messick] = await duelOptions()
+			expect(smith?.winMult).toBeGreaterThan(1)
+			expect(messick?.lossRate).toBeGreaterThan(1)
+
+			const duel = (await questionsOn(game.id)).find(
+				(q) => q.shape === "player_vs_player",
+			)
+			if (!duel) throw new Error("expected a duel")
+			await makeCall(duel.id, (await makeUser()).id)
+			const called = await duelOptions()
+			seasonStats["21"] = { 2027: mlbPitchingSeason(7, 20) }
+			await run([STRIKEOUTS_DUEL], "mlb")
+			expect(await duelOptions()).toEqual(called)
+		})
+
 		it("isn't posted when one side's strikeouts are far behind", async () => {
 			const game = await seedPitchers(
 				mlbPitchingSeason(2.3, 20),

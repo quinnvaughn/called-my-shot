@@ -594,6 +594,55 @@ async function repriceLeader(
 	)
 }
 
+// A head-to-head's prices keep up with both players' averages until someone
+// calls it, the same as a leader pool's (see repriceLeader). Its options are
+// away player then home player, the order priceDuel prices them in.
+async function repriceDuel(
+	ctx: LeagueContext,
+	game: DueGame,
+	template: Extract<GameQuestionTemplate, { shape: "player_vs_player" }>,
+	questionId: string,
+): Promise<void> {
+	const options = await db.query.questionOptions.findMany({
+		where: { questionId },
+		columns: {
+			id: true,
+			playerId: true,
+			winMult: true,
+			lossRate: true,
+			modelHitRate: true,
+		},
+		orderBy: { sortOrder: "asc" },
+	})
+	const [away, home] = options
+	if (options.length !== 2 || !away?.playerId || !home?.playerId) return
+	const meanOf = async (playerId: string) => {
+		const { season, prior } = await playerSamples(
+			ctx.seasonStatsFor,
+			ctx.espnAthleteIdByPlayerId.get(playerId),
+			template.pick,
+			game.season.year,
+		)
+		return blendSamples(season, prior, template.pick.priorWeight)?.mean ?? null
+	}
+	const awayMean = await meanOf(away.playerId)
+	const homeMean = await meanOf(home.playerId)
+	if (awayMean == null || homeMean == null) return
+	const sides = priceDuel(
+		await ctx.duelSpreadFor(template.statName, template.pick.espnStat),
+		awayMean,
+		homeMean,
+	)
+	if (!sides) return
+	await db.transaction((tx) =>
+		repriceUncalled(
+			tx,
+			questionId,
+			options.map((option, index) => ({ option, next: sides[index] ?? null })),
+		),
+	)
+}
+
 async function generateForGame(
 	ctx: LeagueContext,
 	game: DueGame,
@@ -640,11 +689,12 @@ async function generateForGame(
 			if (await deleteIfUncalled(question.id)) removed++
 			continue
 		}
-		if (
-			template?.shape === "player_game_stat_leader" &&
-			question.status === "open"
-		) {
-			await repriceLeader(ctx, game, template, question.id)
+		if (template && question.status === "open") {
+			if (template.shape === "player_game_stat_leader") {
+				await repriceLeader(ctx, game, template, question.id)
+			} else if (template.shape === "player_vs_player") {
+				await repriceDuel(ctx, game, template, question.id)
+			}
 		}
 		liveKeys.push(key)
 	}
