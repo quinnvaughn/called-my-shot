@@ -189,6 +189,10 @@ export const GroupDetailDocument = graphql(`
                     id
                     status
                     startsAt
+                    league {
+                        id
+                        abbreviation
+                    }
                 }
                 ...GroupGamesStrip_game
             }

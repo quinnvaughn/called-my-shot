@@ -1,9 +1,11 @@
 import { useSuspenseQuery } from "@tanstack/react-query"
 import { Link } from "@tanstack/react-router"
+import { useState } from "react"
 import { css } from "styled-system/css"
-import { VStack } from "styled-system/jsx"
+import { HStack, VStack } from "styled-system/jsx"
 import { GameBlock } from "#/components/questions/game-block"
 import { CardRail } from "#/components/ui/card-rail"
+import { ChipButton } from "#/components/ui/chip-button"
 import { type FragmentType, graphql, useFragment } from "#/graphql/generated"
 import { gqlQueryOptions } from "#/graphql/query-options"
 import { IN_PLAY_REFETCH_MS, isGameInPlay } from "#/lib/game-status"
@@ -47,6 +49,10 @@ export const GroupLiveGamesDocument = graphql(`
 					id
 					status
 					startsAt
+					league {
+						id
+						abbreviation
+					}
 				}
 				...GroupGamesStrip_game
 			}
@@ -80,17 +86,60 @@ const headingClass = css({
 // Games the group has calls on that are on now, start within a day, or just
 // ended, each leading to the group's board for that game. Renders nothing
 // when there aren't any.
+//
+// League chips narrow it once it spans two or more leagues. All stays the
+// default so a live game is never hidden behind a pick, and the filter is
+// client-side: the window is small and the chips need every game's league
+// anyway.
 export function GroupGamesStrip({ groupId }: { groupId: string }) {
 	const { data } = useSuspenseQuery(groupLiveGamesQuery(groupId))
+	const [leagueId, setLeagueId] = useState<string | null>(null)
 	const games = data.group?.liveGames ?? []
 	if (games.length === 0) return null
 
+	const leagues = [
+		...new Map(games.map((g) => [g.game.league.id, g.game.league])).values(),
+	]
+	// A league whose last game aged out of the window since it was picked
+	// falls back to All rather than leaving an empty row.
+	const activeLeagueId = leagues.some((l) => l.id === leagueId)
+		? leagueId
+		: null
+	const shown = activeLeagueId
+		? games.filter((g) => g.game.league.id === activeLeagueId)
+		: games
+
 	return (
 		<CardRail
-			items={games}
+			items={shown}
 			getKey={(g) => g.game.id}
 			itemLabel="game"
-			header={<h2 className={headingClass}>Games</h2>}
+			header={
+				<HStack gap="3" alignItems="center" flexWrap="wrap">
+					<h2 className={headingClass}>Games</h2>
+					{leagues.length > 1 && (
+						<HStack gap="1.5" flexWrap="wrap">
+							<ChipButton
+								selected={activeLeagueId === null}
+								pressed={activeLeagueId === null}
+								onClick={() => setLeagueId(null)}
+							>
+								All
+							</ChipButton>
+							{leagues.map((league) => (
+								<ChipButton
+									key={league.id}
+									selected={activeLeagueId === league.id}
+									pressed={activeLeagueId === league.id}
+									onClick={() => setLeagueId(league.id)}
+								>
+									{league.abbreviation}
+								</ChipButton>
+							))}
+						</HStack>
+					)}
+				</HStack>
+			}
 			renderItem={(g) => <GameTile groupId={groupId} game={g} />}
 		/>
 	)
