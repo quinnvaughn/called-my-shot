@@ -10,6 +10,7 @@ import {
 	type ContrarianTier,
 	type EarlyTier,
 	earlyTierFor,
+	effectiveLossRate,
 	isSeasonLongShape,
 	type NumericPointsPreview,
 	type PointsPreview,
@@ -173,4 +174,25 @@ export function selectionEarlyTier(
 		seasonTotalGames !== null
 		? seasonEarlyTierFor(seasonGamesPlayed, seasonTotalGames)
 		: earlyTierFor(rank, totalCalls)
+}
+
+// How many misses a hit outweighs on a question, whatever conviction or timing
+// the caller picks: conviction scales the win and the loss equally, and the
+// boldness and early multipliers only ever raise the win, so 1 / lossRate is
+// the floor. Read off the steepest rate any option carries (an over/under side
+// can be priced above the question's own rate), so it holds for every pick.
+// Floored so the number shown is never more than the real one. Null below 2x,
+// where a hit and a miss weigh about the same and there's nothing to point out.
+export function hitMultiple(
+	questionRate: number,
+	optionRates: (number | null)[],
+): number | null {
+	// A numeric guess has no options, so the question's rate is the only one.
+	const rate =
+		optionRates.length > 0
+			? Math.max(...optionRates.map((r) => effectiveLossRate(questionRate, r)))
+			: questionRate
+	if (rate <= 0) return null
+	const multiple = Math.floor(1 / rate)
+	return multiple >= 2 ? multiple : null
 }

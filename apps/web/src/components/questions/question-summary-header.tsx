@@ -66,6 +66,10 @@ type Props = {
 	// via the pick itself, so calling out the type again here would be
 	// redundant there.
 	showTypeTag?: boolean
+	// QuestionCard only, on an open question - see hitMultiple in
+	// #/lib/scoring. Tells someone who'd otherwise skip a long-shot question
+	// that a guess is cheap before they open it. Null shows nothing.
+	hitMultiple?: number | null
 	// QuestionCard only - whether the viewer has already made a call on this
 	// question. CallCard is always about someone else's pick, so there's no
 	// "did I call this" to show there.
@@ -96,6 +100,7 @@ export function QuestionSummaryHeader({
 	question: questionProp,
 	sharedBy,
 	showTypeTag,
+	hitMultiple,
 	viewerCalled,
 	ballotMembership,
 	showGame = true,
@@ -134,6 +139,24 @@ export function QuestionSummaryHeader({
 							})}
 						>
 							Official
+						</span>
+					)}
+					{hitMultiple != null && (
+						<span
+							className={css({
+								fontFamily: "mono",
+								fontSize: "4xs",
+								fontWeight: "bold",
+								letterSpacing: "wide",
+								textTransform: "uppercase",
+								color: "secondary.default",
+								backgroundColor: "secondary.subtle",
+								padding: "{spacing.0.5} {spacing.1.5}",
+								borderRadius: "sm",
+								whiteSpace: "nowrap",
+							})}
+						>
+							Hits count {hitMultiple}×
 						</span>
 					)}
 				</HStack>

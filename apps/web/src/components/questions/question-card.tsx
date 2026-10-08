@@ -5,6 +5,7 @@ import { Card } from "#/components/ui/card"
 import { type FragmentType, graphql, useFragment } from "#/graphql/generated"
 import { callersText, isRateStat } from "#/lib/field-signal"
 import { AWAITING_RESULT_TEXT } from "#/lib/question-labels"
+import { hitMultiple } from "#/lib/scoring"
 import { buildQuestionSlug } from "#/lib/slug"
 import { CardRule } from "./card-rule"
 import { LockLine } from "./lock-line"
@@ -26,6 +27,7 @@ export const QuestionCardFragment = graphql(`
 		averageGuess
 		numericToleranceAbsolute
 		picksRequired
+		lossRate
 		guessDistribution {
 			value
 			count
@@ -44,6 +46,7 @@ export const QuestionCardFragment = graphql(`
 			label
 			fieldPct
 			callCount
+			lossRate
 			isCorrect
 			actualValue
 			team {
@@ -93,6 +96,15 @@ export function QuestionCard({
 		question.status === "RESOLVED" || question.status === "DISPUTED"
 	const isLocked = question.status === "LOCKED"
 	const isVoided = question.status === "VOIDED"
+	// Only while it can still be called: once locked it's no longer a reason
+	// to take a guess.
+	const multiple =
+		question.status === "OPEN"
+			? hitMultiple(
+					question.lossRate,
+					question.options.map((o) => o.lossRate),
+				)
+			: null
 
 	return (
 		<Link
@@ -122,6 +134,7 @@ export function QuestionCard({
 						question={question}
 						sharedBy={sharedBy}
 						showTypeTag
+						hitMultiple={multiple}
 						viewerCalled={question.viewerCall !== null}
 						ballotMembership={question.ballotMembership}
 						showGame={showGame}
