@@ -106,8 +106,11 @@ export function CardRail<T>({
 					scrollSnapType: "x mandatory",
 					scrollPaddingInline: "0",
 					overscrollBehaviorX: "contain",
-					scrollbarWidth: "thin",
-					paddingBlockEnd: "2",
+					// No scrollbar: the peek, the fade and the buttons already say
+					// the row scrolls, and the browser's bar under a card row reads
+					// as stray chrome.
+					scrollbarWidth: "none",
+					"&::-webkit-scrollbar": { display: "none" },
 					outline: "none",
 					borderRadius: "10px",
 					_focusVisible: {
