@@ -6,6 +6,7 @@ import {
 	type GameEntry,
 	type GameEntryVerdict as GameEntryVerdictValue,
 	gameEntryVerdict,
+	loadCalledCommunityQuestions,
 	loadGameEntry,
 } from "../../../lib/game-entry"
 import { hasGameReminder } from "../../../lib/game-reminders"
@@ -185,6 +186,13 @@ export const GameRef = builder.drizzleObject("games", {
 				where: { isOfficial: true },
 				orderBy: { createdAt: "asc", id: "asc" },
 			}),
+		}),
+		// The community questions on this game the viewer called, oldest
+		// first, for the game rail's Community tab. Empty when signed out.
+		viewerCommunityQuestions: t.field({
+			type: [QuestionRef],
+			resolve: (game, _args, ctx) =>
+				ctx.user ? loadCalledCommunityQuestions(game.id, ctx.user.id) : [],
 		}),
 		// Whether the viewer asked to be reminded before this game starts - see
 		// lib/game-reminders.tsx. False when signed out.

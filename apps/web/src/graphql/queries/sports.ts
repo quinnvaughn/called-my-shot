@@ -150,6 +150,11 @@ export const GameByIdDocument = graphql(`
 			venue
 			windowKey
 			viewerHasReminder
+			# The game rail's Community tab (GameSetRail).
+			viewerCommunityQuestions {
+				id
+				...GameSetRail_question
+			}
 			viewerGroupBoards {
 				callerCount
 				group {

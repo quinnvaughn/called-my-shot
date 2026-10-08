@@ -304,3 +304,60 @@ describe("Game.entry verdict", () => {
 		})
 	})
 })
+
+const VIEWER_COMMUNITY = /* GraphQL */ `
+	query ViewerCommunity($id: ID!) {
+		game(id: $id) {
+			viewerCommunityQuestions { id }
+		}
+	}
+`
+
+type ViewerCommunityData = {
+	game: { viewerCommunityQuestions: { id: string }[] }
+}
+
+describe("Game.viewerCommunityQuestions", () => {
+	it("lists only the community questions the viewer called, oldest first", async () => {
+		const { game, first, community, options } = await seedGame()
+		const later = await makeQuestion({
+			leagueId: game.leagueId,
+			seasonId: game.seasonId,
+			gameId: game.id,
+			isOfficial: false,
+		})
+		const laterOption = await makeOption(later.id, { label: "Yes" })
+		await makeQuestion({
+			leagueId: game.leagueId,
+			seasonId: game.seasonId,
+			gameId: game.id,
+			isOfficial: false,
+		})
+		const viewer = await makeUser()
+		for (const [questionId, optionId] of [
+			[later.id, laterOption.id],
+			[community.id, options.get(community.id) ?? ""],
+			[first.id, options.get(first.id) ?? ""],
+		]) {
+			const call = await makeCall(questionId, viewer.id)
+			await makeSelection(call.id, optionId)
+		}
+
+		const data = await expectData<ViewerCommunityData>(VIEWER_COMMUNITY, {
+			as: viewer,
+			variables: { id: game.id },
+		})
+		expect(data.game.viewerCommunityQuestions.map((q) => q.id)).toEqual([
+			community.id,
+			later.id,
+		])
+	})
+
+	it("is empty when signed out", async () => {
+		const { game } = await seedGame()
+		const data = await expectData<ViewerCommunityData>(VIEWER_COMMUNITY, {
+			variables: { id: game.id },
+		})
+		expect(data.game.viewerCommunityQuestions).toEqual([])
+	})
+})

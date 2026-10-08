@@ -209,6 +209,7 @@ function QuestionSetRailFor() {
 		<GameSetRail
 			game={game}
 			questions={game.officialQuestions}
+			communityQuestions={game.viewerCommunityQuestions}
 			username={me?.username ?? null}
 			currentQuestionId={question.id}
 			gameLinkParams={{

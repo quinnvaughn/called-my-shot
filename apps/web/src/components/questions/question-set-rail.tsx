@@ -1,6 +1,6 @@
 import { Link } from "@tanstack/react-router"
 import { DateTime } from "luxon"
-import type { ReactNode } from "react"
+import { type ReactNode, useState } from "react"
 import { css, cx } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
 import { AuthModal } from "#/components/auth/auth-modal"
@@ -8,6 +8,7 @@ import { LockLine } from "#/components/questions/lock-line"
 import { MemberStateIcon } from "#/components/questions/question-set-strip"
 import { Button } from "#/components/ui/button"
 import { Card } from "#/components/ui/card"
+import { Tabs } from "#/components/ui/tabs"
 import type { QuestionStatus } from "#/graphql/generated/graphql"
 import { formatRecord, formatSignedPoints } from "#/lib/ballot-entry"
 import type { BallotMemberState } from "#/lib/ballot-member-state"
@@ -47,17 +48,31 @@ export type QuestionSetRailSummary = {
 }
 
 // The viewer's tally over a set's rows, for the rail's summary and whatever
-// share text the page builds from it.
+// share text the page builds from it. extraRows are calls made on top of the
+// set (a game's community questions): they count toward the record and
+// points but not toward how much of the set is called, since they aren't
+// part of it.
 export function questionSetRailSummary(
 	rows: QuestionSetRailRow[],
+	extraRows: QuestionSetRailRow[] = [],
 ): QuestionSetRailSummary {
+	const all = [...rows, ...extraRows]
 	return {
 		calledCount: rows.filter((r) => r.call !== null).length,
 		questionCount: rows.length,
-		wins: rows.filter((r) => r.state === "won").length,
-		losses: rows.filter((r) => r.state === "lost").length,
-		points: rows.reduce((sum, r) => sum + (r.call?.totalPoints ?? 0), 0),
+		wins: all.filter((r) => r.state === "won").length,
+		losses: all.filter((r) => r.state === "lost").length,
+		points: all.reduce((sum, r) => sum + (r.call?.totalPoints ?? 0), 0),
 	}
+}
+
+// A second list behind tabs beside the set's own: calls made on top of the
+// set, like a game's community questions. The tab bar only shows once it has
+// rows.
+export type QuestionSetRailExtraTab = {
+	setLabel: string
+	extraLabel: string
+	rows: QuestionSetRailRow[]
 }
 
 type Props = {
@@ -79,6 +94,7 @@ type Props = {
 	picksPath: string | null
 	// When the live numbers were last read, while there are any.
 	statsAsOf?: string | null
+	extraTab?: QuestionSetRailExtraTab | null
 }
 
 const labelBase = css({
@@ -167,10 +183,29 @@ export function QuestionSetRail({
 	share,
 	picksPath,
 	statsAsOf = null,
+	extraTab = null,
 }: Props) {
-	if (rows.length === 0) return null
+	const extraRows = extraTab?.rows ?? []
+	const currentIsExtra = extraRows.some(
+		(r) => r.questionId === currentQuestionId,
+	)
+	// Opens on whichever list holds the question on screen. A tab picked by
+	// hand holds only while that question is, so moving to another question
+	// follows it to its list again.
+	const [picked, setPicked] = useState<{
+		tab: "set" | "extra"
+		on: string | undefined
+	} | null>(null)
+	const activeTab =
+		picked && picked.on === currentQuestionId
+			? picked.tab
+			: currentIsExtra
+				? "extra"
+				: "set"
 
-	const summary = questionSetRailSummary(rows)
+	if (rows.length === 0 && extraRows.length === 0) return null
+
+	const summary = questionSetRailSummary(rows, extraRows)
 	const currentIndex = rows.findIndex((r) => r.questionId === currentQuestionId)
 	const { nextUncalledIndex } = questionSetNavigation(
 		rows.map((r) => r.state),
@@ -179,6 +214,7 @@ export function QuestionSetRail({
 	const nextUncalled =
 		nextUncalledIndex !== null ? rows[nextUncalledIndex] : undefined
 	const openUncalled = rows.filter((r) => r.state === "uncalled")
+	const hasCalls = summary.calledCount > 0 || extraRows.length > 0
 
 	return (
 		<VStack gap="3" alignItems="stretch">
@@ -190,7 +226,7 @@ export function QuestionSetRail({
 			{username ? (
 				<HStack justify="space-between" alignItems="center" gap="3">
 					<Summary summary={summary} />
-					{summary.calledCount > 0 && share}
+					{hasCalls && share}
 				</HStack>
 			) : (
 				<SignedOut text={signedOutText} />
@@ -211,49 +247,81 @@ export function QuestionSetRail({
 				</Link>
 			)}
 
-			<Card variant="surface">
-				<VStack gap="0" alignItems="stretch" paddingBlock="1">
-					{sectionRuns(rows).map((run, i) => (
-						<VStack
-							// biome-ignore lint/suspicious/noArrayIndexKey: a section can repeat across runs, the position can't
-							key={`${run.label}-${i}`}
-							gap="0"
-							alignItems="stretch"
-						>
-							{run.label && (
-								<span
-									className={cx(
-										subtleLabelClass,
-										css({
-											paddingInline: "4",
-											paddingTop: "3",
-											paddingBottom: "1",
-										}),
-									)}
-								>
-									{run.label}
-								</span>
-							)}
-							{run.rows.map((row) => (
-								<RailRow
-									key={row.questionId}
-									row={row}
-									isCurrent={row.questionId === currentQuestionId}
-								/>
-							))}
-						</VStack>
-					))}
-				</VStack>
-			</Card>
+			{extraTab && extraRows.length > 0 && (
+				<Tabs
+					value={activeTab}
+					onValueChange={(tab) => setPicked({ tab, on: currentQuestionId })}
+				>
+					<Tabs.List stretch>
+						<Tabs.Trigger value="set">
+							{extraTab.setLabel} {summary.calledCount}/{summary.questionCount}
+						</Tabs.Trigger>
+						<Tabs.Trigger value="extra">
+							{extraTab.extraLabel} {extraRows.length}
+						</Tabs.Trigger>
+					</Tabs.List>
+				</Tabs>
+			)}
+
+			<RailList
+				rows={activeTab === "extra" && extraRows.length > 0 ? extraRows : rows}
+				currentQuestionId={currentQuestionId}
+			/>
 
 			{/* After the list rather than above it: it's the same picks as a
 			    page of their own, which is where you'd go having read them. */}
-			{username && picksPath && summary.calledCount > 0 && (
+			{username && picksPath && hasCalls && (
 				<Link to={picksPath} className={actionLinkClass}>
 					Your picks page →
 				</Link>
 			)}
 		</VStack>
+	)
+}
+
+function RailList({
+	rows,
+	currentQuestionId,
+}: {
+	rows: QuestionSetRailRow[]
+	currentQuestionId?: string
+}) {
+	if (rows.length === 0) return null
+	return (
+		<Card variant="surface">
+			<VStack gap="0" alignItems="stretch" paddingBlock="1">
+				{sectionRuns(rows).map((run, i) => (
+					<VStack
+						// biome-ignore lint/suspicious/noArrayIndexKey: a section can repeat across runs, the position can't
+						key={`${run.label}-${i}`}
+						gap="0"
+						alignItems="stretch"
+					>
+						{run.label && (
+							<span
+								className={cx(
+									subtleLabelClass,
+									css({
+										paddingInline: "4",
+										paddingTop: "3",
+										paddingBottom: "1",
+									}),
+								)}
+							>
+								{run.label}
+							</span>
+						)}
+						{run.rows.map((row) => (
+							<RailRow
+								key={row.questionId}
+								row={row}
+								isCurrent={row.questionId === currentQuestionId}
+							/>
+						))}
+					</VStack>
+				))}
+			</VStack>
+		</Card>
 	)
 }
 

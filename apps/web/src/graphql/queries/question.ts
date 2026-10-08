@@ -125,6 +125,10 @@ export const QuestionDetailDocument = graphql(`
 					id
 					...GameSetRail_question
 				}
+				viewerCommunityQuestions {
+					id
+					...GameSetRail_question
+				}
 			}
 			guessDistribution {
 				value

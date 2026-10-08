@@ -35,18 +35,7 @@ export async function loadGameEntry(
 			where: { gameId, isOfficial: true },
 			orderBy: { createdAt: "asc", id: "asc" },
 		}),
-		db
-			.select(getTableColumns(questions))
-			.from(questions)
-			.innerJoin(calls, eq(calls.questionId, questions.id))
-			.where(
-				and(
-					eq(questions.gameId, gameId),
-					eq(questions.isOfficial, false),
-					eq(calls.userId, userId),
-				),
-			)
-			.orderBy(asc(questions.createdAt), asc(questions.id)),
+		loadCalledCommunityQuestions(gameId, userId),
 	])
 	const asMembers = (rows: Question[]) =>
 		rows.map((question) => ({
@@ -69,6 +58,27 @@ export async function loadGameEntry(
 		losses: officialEntry.losses + communityEntry.losses,
 		points: officialEntry.points + communityEntry.points,
 	}
+}
+
+// The community questions on a game this user called, oldest first. Only
+// the called ones: community questions are whatever anyone posted, so there's
+// no slate to list the rest against. Shared with the game rail.
+export function loadCalledCommunityQuestions(
+	gameId: string,
+	userId: string,
+): Promise<Question[]> {
+	return db
+		.select(getTableColumns(questions))
+		.from(questions)
+		.innerJoin(calls, eq(calls.questionId, questions.id))
+		.where(
+			and(
+				eq(questions.gameId, gameId),
+				eq(questions.isOfficial, false),
+				eq(calls.userId, userId),
+			),
+		)
+		.orderBy(asc(questions.createdAt), asc(questions.id))
 }
 
 // The official slate of someone whose calls on this game are all community

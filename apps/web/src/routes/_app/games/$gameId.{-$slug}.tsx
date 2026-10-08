@@ -386,6 +386,7 @@ function GameRail() {
 			<GameSetRail
 				game={gameData.game}
 				questions={officialData.questions.items}
+				communityQuestions={gameData.game.viewerCommunityQuestions}
 				username={me?.username ?? null}
 			/>
 			<GameGroupBoards

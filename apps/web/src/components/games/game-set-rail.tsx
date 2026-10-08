@@ -8,7 +8,10 @@ import {
 	railHeadingLinkClass,
 } from "#/components/questions/question-set-rail"
 import { type FragmentType, graphql, useFragment } from "#/graphql/generated"
-import type { GameStatus } from "#/graphql/generated/graphql"
+import type {
+	GameSetRail_QuestionFragment,
+	GameStatus,
+} from "#/graphql/generated/graphql"
 import { ballotMemberState } from "#/lib/ballot-member-state"
 import { pickSummary } from "#/lib/call-summary"
 import { isRateStat } from "#/lib/field-signal"
@@ -88,6 +91,9 @@ type Props = {
 		homeTeam: { abbreviation: string }
 	}
 	questions: FragmentType<typeof GameSetRailFragment>[]
+	// The community questions on the game the viewer called, behind their own
+	// tab. Absent where the page doesn't ask for them.
+	communityQuestions?: FragmentType<typeof GameSetRailFragment>[]
 	// Null when signed out.
 	username: string | null
 	// The question on screen, when the rail sits beside one.
@@ -98,47 +104,36 @@ type Props = {
 }
 
 // A game's official questions beside the game page and each of its
-// questions, in place of GameStrip from xl up. While the game is on, each
+// questions, in place of GameStrip from xl up, with the community questions
+// the viewer called behind a second tab. While the game is on, each
 // pick also says where it stands from the live box score. Polling is the
 // page's job: this reads the same cache entries it refreshes.
 export function GameSetRail({
 	game,
 	questions: questionProps,
+	communityQuestions: communityProps = [],
 	username,
 	currentQuestionId,
 	gameLinkParams,
 }: Props) {
 	const questions = useFragment(GameSetRailFragment, questionProps)
+	const communityQuestions = useFragment(GameSetRailFragment, communityProps)
 	const rows = officialQuestionSequence([...questions]).map(
-		({ section, question }): QuestionSetRailRow => {
-			const call = question.viewerCall
-			return {
-				questionId: question.id,
-				questionTitle: question.title,
-				questionStatus: question.status,
-				locksAt: question.locksAt,
-				label: gameSetRailLabel(question),
-				section,
-				state: ballotMemberState(question, call),
-				call: call
-					? {
-							pick: pickSummary({ ...call, question }),
-							totalPoints: call.totalPoints,
-							payout: call.payout ?? null,
-						}
-					: null,
-				live: call
-					? liveStanding({
-							shape: question.shape,
-							reading: question.liveReading,
-							pickedOptionIds: call.selections.map((s) => s.option.id),
-							isRate: isRateStat(question),
-						})
-					: null,
-			}
-		},
+		({ section, question }) =>
+			railRow(question, section, gameSetRailLabel(question)),
 	)
-	const summary = questionSetRailSummary(rows)
+	// A community yes/no question has no stat to name, and its chip is only
+	// the subject, so it goes by the title its creator wrote.
+	const communityRows = communityQuestions.map((question) =>
+		railRow(
+			question,
+			null,
+			question.shape === "YES_NO_PROP"
+				? question.title
+				: gameSetRailLabel(question),
+		),
+	)
+	const summary = questionSetRailSummary(rows, communityRows)
 	const matchup = `${game.awayTeam.abbreviation} @ ${game.homeTeam.abbreviation}`
 	const isLive = game.status === "LIVE"
 
@@ -166,7 +161,14 @@ export function GameSetRail({
 					: "Sign in to see your calls and how they did."
 			}
 			currentQuestionId={currentQuestionId}
-			statsAsOf={isLive ? latestReading(questions) : null}
+			statsAsOf={
+				isLive ? latestReading([...questions, ...communityQuestions]) : null
+			}
+			extraTab={{
+				setLabel: "Official",
+				extraLabel: "Community",
+				rows: communityRows,
+			}}
 			picksPath={username ? gameEntryPath(game.id, username) : null}
 			share={
 				username && (
@@ -182,6 +184,38 @@ export function GameSetRail({
 			}
 		/>
 	)
+}
+
+function railRow(
+	question: GameSetRail_QuestionFragment,
+	section: string | null,
+	label: string,
+): QuestionSetRailRow {
+	const call = question.viewerCall
+	return {
+		questionId: question.id,
+		questionTitle: question.title,
+		questionStatus: question.status,
+		locksAt: question.locksAt,
+		label,
+		section,
+		state: ballotMemberState(question, call),
+		call: call
+			? {
+					pick: pickSummary({ ...call, question }),
+					totalPoints: call.totalPoints,
+					payout: call.payout ?? null,
+				}
+			: null,
+		live: call
+			? liveStanding({
+					shape: question.shape,
+					reading: question.liveReading,
+					pickedOptionIds: call.selections.map((s) => s.option.id),
+					isRate: isRateStat(question),
+				})
+			: null,
+	}
 }
 
 function latestReading(

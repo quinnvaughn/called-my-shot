@@ -280,6 +280,10 @@ export const GroupGameBoardDocument = graphql(`
                         id
                         ...GameSetRail_question
                     }
+                    viewerCommunityQuestions {
+                        id
+                        ...GameSetRail_question
+                    }
                 }
                 entries {
                     user {
