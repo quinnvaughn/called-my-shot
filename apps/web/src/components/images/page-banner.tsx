@@ -1,6 +1,6 @@
 import { FiCamera } from "react-icons/fi"
 import { css, cx } from "styled-system/css"
-import { useRightRail } from "#/components/app-shell/app-shell"
+import { useRightRail } from "#/components/app-shell/use-right-rail"
 import { useImagePicker } from "#/components/images/use-image-picker"
 import { Banner, BannerPlaceholder } from "#/components/ui/banner"
 import { ImageLightbox } from "#/components/ui/image-lightbox"
