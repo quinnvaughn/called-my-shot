@@ -84,7 +84,7 @@ export const Route = createFileRoute("/_app/leagues/$leagueSlug")({
 
 const TAB_ITEMS = [
 	{ to: "/leagues/$leagueSlug/games", label: "Games" },
-	{ to: "/leagues/$leagueSlug/season", label: "Season" },
+	{ to: "/leagues/$leagueSlug/season", label: "Season long" },
 	{ to: "/leagues/$leagueSlug/community", label: "Community" },
 ] as const
 
