@@ -14,8 +14,10 @@ import {
 } from "../../test/factories"
 import {
 	createGameWinnerPricer,
+	PRICING_MIN_SAMPLE,
 	playerLineTemplateFor,
 	priceDuel,
+	withBoxSpread,
 } from "./duel-pricing"
 import { LINE_TUNING, pairedRatiosForTemplate } from "./line-calibration"
 import { LINE_FORMULA, type LineFormula } from "./lines"
@@ -76,18 +78,41 @@ describe("priceDuel", () => {
 
 	it("reads the ratios alone until there are enough pairs", () => {
 		const ratios = evenRatios(LINE_TUNING.minSample)
-		const few = ratios.slice(1).map((ratio) => ({ home: ratio, away: ratio }))
+		const few = ratios.slice(0, PRICING_MIN_SAMPLE - 1).map((ratio) => ({ home: ratio, away: ratio }))
 		expect(priceDuel({ ratios, pairs: few }, 20, 22)).toEqual(
 			priceDuel({ ratios, pairs: [] }, 20, 22),
 		)
 	})
 
 	it("waits for enough resolved lines", () => {
-		expect(priceDuel(spreadOf(LINE_TUNING.minSample - 1), 18, 24)).toBeNull()
+		expect(priceDuel(spreadOf(PRICING_MIN_SAMPLE - 1), 18, 24)).toBeNull()
 	})
 
 	it("can't price two sides expected to produce nothing", () => {
 		expect(priceDuel(spreadOf(LINE_TUNING.minSample), 0, 0)).toBeNull()
+	})
+})
+
+describe("withBoxSpread", () => {
+	const lines = (count: number) => spreadOf(count)
+	const box = { ratios: evenRatios(200), pairs: [] }
+
+	it("prices from the box scores until the lines are as deep as a line is tuned from", () => {
+		expect(withBoxSpread(lines(LINE_TUNING.minSample - 1), box).ratios).toBe(
+			box.ratios,
+		)
+	})
+
+	it("switches to the lines once they are", () => {
+		const deep = lines(LINE_TUNING.minSample)
+		expect(withBoxSpread(deep, box).ratios).toBe(deep.ratios)
+	})
+
+	it("keeps the lines when the box scores are thinner still", () => {
+		const thin = lines(5)
+		expect(withBoxSpread(thin, { ratios: [1, 1], pairs: [] }).ratios).toBe(
+			thin.ratios,
+		)
 	})
 })
 
@@ -203,7 +228,7 @@ describe("createGameWinnerPricer", () => {
 
 	it("waits for enough resolved lines", async () => {
 		const { league, home, away } = await nbaMatchup(115, 95)
-		await resolvedTeamLines("nba", "team-points-ou", LINE_TUNING.minSample - 1)
+		await resolvedTeamLines("nba", "team-points-ou", PRICING_MIN_SAMPLE - 1)
 
 		const price = createGameWinnerPricer("nba", league.id, noEspn)
 		expect(

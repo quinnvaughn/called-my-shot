@@ -5,11 +5,16 @@ import { match } from "ts-pattern"
 import { buildPlayerPool } from "../../lib/award-pool"
 import { loadBandSettings } from "../../lib/game-questions/band-settings"
 import {
+	BOX_PRIOR_GAMES,
+	playerBoxSpread,
+} from "../../lib/game-questions/box-spread"
+import {
 	type DuelSpread,
 	duelSpreadFor,
 	type PricedSide,
 	playerLineTemplateFor,
 	priceDuel,
+	withBoxSpread,
 } from "../../lib/game-questions/duel-pricing"
 import {
 	generationKey,
@@ -155,9 +160,9 @@ type LeagueContext = {
 		year: number,
 		template: { priorWeight: number; oppWeight?: number },
 	) => Promise<OpponentAdjustment | null>
-	// What a player head-to-head is priced from: the resolved lines of the
-	// over/under on the same stat, measured the same way - see priceDuel.
-	// Empty when there's no such over/under.
+	// What a player head-to-head or leader pool is priced from: the resolved
+	// lines of the over/under on the same stat, measured the same way, or the
+	// box scores until there are enough of those - see withBoxSpread.
 	duelSpreadFor: (
 		statName: string,
 		espnStat: string | readonly string[],
@@ -926,15 +931,22 @@ async function generateForLeague(
 			const cached = duelSpreads.get(key)
 			if (cached) return cached
 			const line = playerLineFor(statName, espnStat)
-			const spread = line
-				? duelSpreadFor(league.slug, line.id, LINE_FORMULA.teamOnly)
-				: Promise.resolve({ ratios: [], pairs: [] })
+			const spread = Promise.all([
+				line
+					? duelSpreadFor(league.slug, line.id, LINE_FORMULA.teamOnly)
+					: { ratios: [], pairs: [] },
+				playerBoxSpread({
+					leagueId: league.id,
+					leagueSlug: league.slug,
+					statName,
+					asOf: now,
+				}),
+			]).then(([lines, box]) => withBoxSpread(lines, box))
 			duelSpreads.set(key, spread)
 			return spread
 		},
 		leaderPricesFor: async (game, template, playerIds) => {
 			const line = playerLineFor(template.statName, template.pick.espnStat)
-			if (!line) return new Map()
 			const { ratios } = await ctx.duelSpreadFor(
 				template.statName,
 				template.pick.espnStat,
@@ -945,7 +957,9 @@ async function generateForLeague(
 				seasonId: game.seasonId,
 				asOf: game.startsAt,
 				playerIds,
-				minGames: line.line.minGames,
+				// A stat with no over/under (sacks, blocks) takes the floor every
+				// box-score average is read at.
+				minGames: line?.line.minGames ?? BOX_PRIOR_GAMES,
 				ratios,
 			})
 		},

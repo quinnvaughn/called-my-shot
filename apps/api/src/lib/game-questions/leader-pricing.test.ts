@@ -12,6 +12,7 @@ import {
 } from "../../test/factories"
 import { boxStatSourceFor } from "../stat-context/stat-source"
 import { LINE_TUNING } from "./line-calibration"
+import { PRICING_MIN_SAMPLE } from "./duel-pricing"
 import { priceLeaderPool } from "./leader-pricing"
 
 const NOW = new Date("2026-11-10T16:00:00Z")
@@ -140,7 +141,7 @@ describe("priceLeaderPool", () => {
 		])
 
 		expect(
-			(await price(seasonId, ids, evenRatios(LINE_TUNING.minSample - 1)))
+			(await price(seasonId, ids, evenRatios(PRICING_MIN_SAMPLE - 1)))
 				.size,
 		).toBe(0)
 	})

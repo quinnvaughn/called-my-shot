@@ -1,8 +1,11 @@
 import { leaderProbabilities } from "@called-my-shot/scoring"
 import { poolRanking } from "../stat-context/queries"
 import { boxStatSourceFor } from "../stat-context/stat-source"
-import { type PricedSide, pricedSide } from "./duel-pricing"
-import { LINE_TUNING } from "./line-calibration"
+import {
+	PRICING_MIN_SAMPLE,
+	type PricedSide,
+	pricedSide,
+} from "./duel-pricing"
 
 // Prices each player in a "who leads the game" pool from the same model a
 // player over/under on the stat is set from: each player's per-game average
@@ -31,7 +34,7 @@ export async function priceLeaderPool(input: {
 	ratios: number[]
 }): Promise<Map<string, PricedSide>> {
 	const priced = new Map<string, PricedSide>()
-	if (input.ratios.length < LINE_TUNING.minSample) return priced
+	if (input.ratios.length < PRICING_MIN_SAMPLE) return priced
 	const source = boxStatSourceFor({
 		shape: "player_game_stat_leader",
 		leagueSlug: input.leagueSlug,

@@ -1,6 +1,7 @@
 import { LOSS_RATE_BY_SHAPE } from "@called-my-shot/scoring"
 import { eq } from "drizzle-orm"
 import { beforeEach, describe, expect, it } from "vitest"
+import { PRICING_MIN_SAMPLE } from "../../lib/game-questions/duel-pricing"
 import { parseGenerationKey } from "../../lib/game-questions/generation-key"
 import { LINE_TUNING } from "../../lib/game-questions/line-calibration"
 import { LINE_FORMULA } from "../../lib/game-questions/lines"
@@ -1006,7 +1007,7 @@ describe("generateGameQuestions", () => {
 			await resolvedLines(
 				"mlb",
 				catalogTemplate("mlb", "starter-strikeouts"),
-				LINE_TUNING.minSample - 1,
+				PRICING_MIN_SAMPLE - 1,
 			)
 
 			await run([STRIKEOUTS_DUEL], "mlb")
@@ -1171,7 +1172,7 @@ describe("syncGameQuestions", () => {
 
 	it("prices who-wins on a later run once it can be", async () => {
 		const { league, game } = await seedWhoWins(95, 115)
-		await resolvedLines("nba", TEAM_POINTS_LINE, LINE_TUNING.minSample - 1)
+		await resolvedLines("nba", TEAM_POINTS_LINE, PRICING_MIN_SAMPLE - 1)
 		await syncGameQuestions(league, NOW, espn)
 		expect(await whoWinsSides(game.id)).toEqual([
 			{ winMult: null, lossRate: null, modelHitRate: null },

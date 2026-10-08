@@ -14,6 +14,7 @@ import { defaultEspnClient, type EspnClient } from "../../db/sync/espn-client"
 import { createEspnRequester } from "../../db/sync/espn-requester"
 import { SYNCED_LEAGUES } from "../../db/sync/leagues"
 import { loadEspnIds } from "../../db/sync/sync-refs"
+import { playerBoxSpread, teamScoreBoxSpread } from "./box-spread"
 import {
 	LINE_TUNING,
 	pairedRatiosForTemplate,
@@ -39,13 +40,24 @@ import {
 } from "./team-lines"
 
 // Prices each side of a head-to-head from the same model an over/under on the
-// stat it compares is set from: each side's expected figure, and how that
-// stat's past lines landed against their own expectation. Once enough past
-// games had that over/under resolve on both teams, each of those games is
-// replayed at this matchup's two expectations, and the share a side wins is
-// its chance (see pairedDuelProbability) - whatever moved both sides of one
-// game at once, its pace or the home side's edge, stays in. Until then, two
-// sides are drawn from the stat's spread separately (see duelProbability).
+// stat it compares is set from: each side's expected figure, and how the stat
+// swings around an expectation from game to game. With enough past games that
+// carry both sides' results, each of those games is replayed at this
+// matchup's two expectations, and the share a side wins is its chance (see
+// pairedDuelProbability) - whatever moved both sides of one game at once, its
+// pace or the home side's edge, stays in. Short of that, two sides are drawn
+// from the stat's spread separately (see duelProbability).
+//
+// The spread is the over/under's own resolved lines once there are enough of
+// them, since those are measured against the exact expectation a line is set
+// from. Until then it's the stored box scores (see box-spread.ts), which carry
+// far more games from the first weeks of a season on.
+
+// The fewest past results a spread is priced from. A head-to-head between a
+// 120-yard receiver and a 53-yard one doesn't need a deep history to call
+// lopsided: this only keeps a price off a spread so thin that one odd game
+// would swing it.
+export const PRICING_MIN_SAMPLE = 10
 
 // One side's price, stored on its option (questionOptions.winMult, lossRate
 // and modelHitRate).
@@ -60,9 +72,26 @@ export function pricedSide(modelHitRate: number): PricedSide {
 	}
 }
 
-// What a head-to-head on one template is priced from: its resolved lines'
-// ratios one at a time, and the same-game pairs among them.
+// What a head-to-head on one template is priced from: past results' ratios one
+// at a time, and the same-game pairs among them.
 export type DuelSpread = { ratios: number[]; pairs: RatioPair[] }
+
+// The resolved lines' ratios and pairs, each once there are as many as a line
+// is tuned from, else the box scores', else whatever the lines have.
+export function withBoxSpread(
+	lines: DuelSpread,
+	box: DuelSpread,
+): DuelSpread {
+	const pick = <T>(fromLines: T[], fromBox: T[]): T[] =>
+		fromLines.length >= LINE_TUNING.minSample ||
+		fromBox.length < PRICING_MIN_SAMPLE
+			? fromLines
+			: fromBox
+	return {
+		ratios: pick(lines.ratios, box.ratios),
+		pairs: pick(lines.pairs, box.pairs),
+	}
+}
 
 export async function duelSpreadFor(
 	leagueSlug: string,
@@ -78,7 +107,7 @@ export async function duelSpreadFor(
 
 // Whether there are enough same-game pairs to price from them.
 export const isPaired = (spread: DuelSpread) =>
-	spread.pairs.length >= LINE_TUNING.minSample
+	spread.pairs.length >= PRICING_MIN_SAMPLE
 
 // Both sides, away first. Null with too few past lines to read a spread from,
 // or nothing expected of either side.
@@ -95,7 +124,7 @@ export function priceDuel(
 			awayMean,
 			homeMean,
 		)
-	} else if (spread.ratios.length >= LINE_TUNING.minSample) {
+	} else if (spread.ratios.length >= PRICING_MIN_SAMPLE) {
 		p = duelProbability(spread.ratios, awayMean, homeMean)
 	} else {
 		return null
@@ -169,12 +198,16 @@ async function priceUserDuelInner(
 		input.statName,
 	)
 	if (!template) return null
-	const spread = await duelSpreadFor(
-		league.slug,
-		template.id,
-		LINE_FORMULA.teamOnly,
+	const spread = withBoxSpread(
+		await duelSpreadFor(league.slug, template.id, LINE_FORMULA.teamOnly),
+		await playerBoxSpread({
+			leagueId: input.leagueId,
+			leagueSlug: league.slug,
+			statName: input.statName,
+			asOf: new Date(),
+		}),
 	)
-	if (spread.ratios.length < LINE_TUNING.minSample) return null
+	if (spread.ratios.length < PRICING_MIN_SAMPLE) return null
 
 	// Same-game pairs say which side of the game each result came from, so
 	// they only apply to two players on opposite teams of it. Anyone else is
@@ -226,9 +259,10 @@ export type GameWinnerGame = {
 // order their options are in). Each team's expected score is set the way its
 // own score over/under's line is - its blended scoring, moved by the other
 // side's defense where the template asks for it - and priced against how that
-// over/under's lines resolved. Same-game pairs already carry the home side's
-// edge; priced off the ratios alone, each expectation is moved by the season's
-// measured home edge instead (see homeEdge).
+// over/under's lines resolved, or until there are enough of those, how final
+// scores in the box scores swung (see withBoxSpread). Same-game pairs already
+// carry the home side's edge; priced off the ratios alone, each expectation is
+// moved by the season's measured home edge instead (see homeEdge).
 // One instance per run shares every season, standings and ESPN read across
 // all of a league's games.
 export function createGameWinnerPricer(
@@ -258,11 +292,15 @@ export function createGameWinnerPricer(
 			.filter(isGeneratedOverUnder)
 			.find((t) => t.shape === "team_stat_over_under")
 		if (!template || template.shape !== "team_stat_over_under") return null
+		const box = await teamScoreBoxSpread({ leagueId, asOf: new Date() })
 		const spreadByFormula = new Map<LineFormula, DuelSpread>()
 		for (const formula of Object.values(LINE_FORMULA)) {
 			spreadByFormula.set(
 				formula,
-				await duelSpreadFor(leagueSlug, template.id, formula),
+				withBoxSpread(
+					await duelSpreadFor(leagueSlug, template.id, formula),
+					box,
+				),
 			)
 		}
 		return { template, spreadByFormula }
@@ -275,8 +313,7 @@ export function createGameWinnerPricer(
 		if (!loaded) return null
 		const { template, spreadByFormula } = loaded
 		const enough = (formula: LineFormula) =>
-			(spreadByFormula.get(formula)?.ratios.length ?? 0) >=
-			LINE_TUNING.minSample
+			(spreadByFormula.get(formula)?.ratios.length ?? 0) >= PRICING_MIN_SAMPLE
 		const adjusted =
 			template.oppWeight !== undefined && enough(LINE_FORMULA.opponentAdjusted)
 		if (!adjusted && !enough(LINE_FORMULA.teamOnly)) return null
