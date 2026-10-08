@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest"
-import { sampleOf, scoresByTeam } from "./team-lines"
+import {
+	HOME_EDGE_WEIGHT,
+	homeEdge,
+	sampleOf,
+	scoresByTeam,
+	seasonTable,
+} from "./team-lines"
 
 const game = (
 	homeTeamId: string,
@@ -41,5 +47,22 @@ describe("sampleOf", () => {
 	it("is null with nothing to average", () => {
 		expect(sampleOf([])).toBeNull()
 		expect(sampleOf(undefined)).toBeNull()
+	})
+})
+
+describe("homeEdge", () => {
+	it("is no edge at all with nothing played", () => {
+		expect(homeEdge(seasonTable([]))).toEqual({ home: 1, away: 1 })
+	})
+
+	it("regresses a season's measured edge toward none", () => {
+		// Home sides score 110 to the away sides' 90, a 10% edge either way
+		// off the league's 100, over HOME_EDGE_WEIGHT games: trusted halfway.
+		const finals = Array.from({ length: HOME_EDGE_WEIGHT }, () =>
+			game("home", "away", 110, 90),
+		)
+		const edge = homeEdge(seasonTable(finals))
+		expect(edge.home).toBeCloseTo(1.05, 10)
+		expect(edge.away).toBeCloseTo(0.95, 10)
 	})
 })

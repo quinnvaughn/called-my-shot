@@ -1,5 +1,6 @@
 import {
 	effectiveLossRate,
+	type OptionPricing,
 	TIER_MAX_MULT,
 	TIER_MIN_MULT,
 	type ToleranceSpec,
@@ -106,8 +107,11 @@ type ViewerCall = {
 			label: string
 			isCorrect: boolean | null
 			fieldPct: number | null
-			// This side's own loss rate when the line was priced, else null.
+			// This side's own price and the model's chance it hits, when the
+			// question's sides were priced, else null.
 			lossRate: number | null
+			winMult: number | null
+			modelHitRate: number | null
 			// Set when the pick is a real player or team, for its image.
 			player?: ImagePlayer | null
 			team?: ImageTeam | null
@@ -923,6 +927,7 @@ function PickRows({
 					seasonTotalGames={call.seasonTotalGames}
 					basePoints={basePoints}
 					lossRate={effectiveLossRate(lossRate, selection.option.lossRate)}
+					pricing={selection.option}
 					// Several picks (player_season_award/team_season_award) need
 					// each row to say what it is; a single pick is named by the
 					// hero instead.
@@ -997,6 +1002,12 @@ const mathLose = css({
 })
 
 const missNote = "boldness and early bonuses only pay out on a hit"
+
+// A priced underdog's own multiplier in a win's math, ahead of the bonuses.
+// Nothing on any other side, which pays 1x before them.
+function underdogMath(winMult: number): string {
+	return winMult > 1 ? `× ${formatMult(winMult)} underdog ` : ""
+}
 
 function committedRow(
 	basePoints: number,
@@ -1304,6 +1315,7 @@ function SelectionPickRow({
 	seasonTotalGames,
 	basePoints,
 	lossRate,
+	pricing,
 	result,
 	// Only matters once resolved - the pending preview has nothing else
 	// naming the pick, so it always shows the name regardless of this flag.
@@ -1322,6 +1334,7 @@ function SelectionPickRow({
 	seasonTotalGames: number | null
 	basePoints: number
 	lossRate: number
+	pricing: OptionPricing
 	result: SelectionRowResult
 	showName?: boolean
 	hero?: boolean
@@ -1349,7 +1362,8 @@ function SelectionPickRow({
 		// multiplier is backed out from the authoritative number instead -
 		// committed and points are both trustworthy, so committed × mult =
 		// points always balances by construction.
-		const tier = tierFor(fieldPct, totalOptions)
+		const tier = tierFor(fieldPct, totalOptions, pricing.modelHitRate)
+		const winMult = pricing.winMult ?? 1
 		const committed = Math.round(basePoints * (conviction / 100))
 		// The combined multiplier backed out of the authoritative points value
 		// (see comment above), then divided back by the safe/live tier.mult to
@@ -1358,7 +1372,11 @@ function SelectionPickRow({
 		// reproduces result.points, it's never left as an unstated "rest."
 		const multipliers =
 			result.isCorrect && committed !== 0
-				? { boldness: tier.mult, early: result.points / committed / tier.mult }
+				? {
+						underdog: winMult,
+						boldness: tier.mult,
+						early: result.points / committed / winMult / tier.mult,
+					}
 				: null
 		// The raw number the multiplier came from, not a qualitative
 		// label - "33% of the field also picked this" stays true and
@@ -1380,7 +1398,8 @@ function SelectionPickRow({
 							<span className={mathDownside}>{committed}</span>
 							<span className={mathDefault}>
 								{" "}
-								× {formatMult(multipliers.boldness)} boldness ×{" "}
+								{underdogMath(multipliers.underdog)}×{" "}
+								{formatMult(multipliers.boldness)} boldness ×{" "}
 								{formatMult(multipliers.early)} early ={" "}
 							</span>
 							<span className={mathUpside}>+{result.points}</span>
@@ -1428,6 +1447,7 @@ function SelectionPickRow({
 		totalOptions,
 		conviction,
 		earlyTier,
+		pricing,
 	)
 	const committed = Math.round(basePoints * (conviction / 100))
 	return (
@@ -1445,7 +1465,8 @@ function SelectionPickRow({
 								<span className={mathDownside}>{committed}</span>
 								<span className={mathDefault}>
 									{" "}
-									× {formatMult(preview.tier.mult)} boldness ×{" "}
+									{underdogMath(preview.winMult)}×{" "}
+									{formatMult(preview.tier.mult)} boldness ×{" "}
 									{formatMult(preview.earlyTier.mult)} early ={" "}
 								</span>
 								<span className={mathUpside}>+{preview.win}</span>

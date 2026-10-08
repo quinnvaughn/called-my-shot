@@ -73,7 +73,9 @@ export async function syncSportsData({
 		// After syncGames, per its own doc comment - each synced game gets its
 		// team_vs_team "who will win?" question, which is what the game detail
 		// page (/games/$gameId) surfaces as its hero question.
-		await step(`${name} game questions`, () => syncGameQuestions(league, now))
+		await step(`${name} game questions`, () =>
+			syncGameQuestions(league, now, espn),
+		)
 
 		// After syncGames too: a series only exists once its games have synced,
 		// and its questions wait on Game 1's start time.

@@ -1,4 +1,8 @@
-import { overProbability, sideLossRates } from "@called-my-shot/scoring"
+import {
+	overProbability,
+	type SidePrice,
+	sidePrices,
+} from "@called-my-shot/scoring"
 import { db } from "../../db"
 import { GAME_QUESTION_CATALOG } from "../../db/catalog/game-question-catalog"
 import { defaultEspnClient, type EspnClient } from "../../db/sync/espn-client"
@@ -30,7 +34,7 @@ import {
 // generated line on that stat is set from: the subject's blended per-game
 // average, and how the template's past lines landed against their own
 // average. A line near the model's own prices both sides at a full loss; see
-// sideLossRates for how far off it has to be before that changes.
+// sidePrice for how far off it has to be before that changes.
 
 // What a priced line's sides were set from, stored on questions.linePricing.
 export type LinePricing = {
@@ -42,8 +46,8 @@ export type LinePricing = {
 
 export type PricedLine = {
 	pricing: LinePricing
-	over: number
-	under: number
+	over: SidePrice
+	under: SidePrice
 }
 
 type PriceInput = {
@@ -100,9 +104,13 @@ async function price(
 
 	const loaded = await withTimeout(
 		template.shape === "player_stat_over_under"
-			? loadPlayerSamples(input, template.pick, config, espn).then((samples) =>
-					samples ? { samples, opponent: null } : null,
-				)
+			? loadPlayerSamples(
+					input.subjectPlayerId,
+					template.pick,
+					config,
+					espn,
+					input.seasonYear,
+				).then((samples) => (samples ? { samples, opponent: null } : null))
 			: loadTeamSamples(input, template, config, espn),
 	)
 	if (!loaded) return null
@@ -133,28 +141,24 @@ async function price(
 			ratioCount: ratios.length,
 			pOver: Math.round(pOver * 1000) / 1000,
 		},
-		...sideLossRates(pOver),
+		...sidePrices(pOver),
 	}
 }
 
-async function loadPlayerSamples(
-	input: PriceInput,
+export async function loadPlayerSamples(
+	playerId: string | null | undefined,
 	pick: Parameters<typeof playerSamples>[2],
 	config: (typeof SYNCED_LEAGUES)[number],
 	espn: EspnClient,
+	seasonYear: number,
 ): Promise<Samples | null> {
-	if (!input.subjectPlayerId) return null
-	const espnIds = await loadEspnIds("player", [input.subjectPlayerId])
+	if (!playerId) return null
+	const espnIds = await loadEspnIds("player", [playerId])
 	const seasonStatsFor = createSeasonStatsCache(config, {
 		espn,
 		requester: createEspnRequester("line-pricing", 0),
 	})
-	return playerSamples(
-		seasonStatsFor,
-		espnIds.get(input.subjectPlayerId),
-		pick,
-		input.seasonYear,
-	)
+	return playerSamples(seasonStatsFor, espnIds.get(playerId), pick, seasonYear)
 }
 
 async function loadTeamSamples(
@@ -196,7 +200,7 @@ async function loadTeamSamples(
 	return { samples, opponent }
 }
 
-async function withTimeout<T>(work: Promise<T>): Promise<T | null> {
+export async function withTimeout<T>(work: Promise<T>): Promise<T | null> {
 	let timer: ReturnType<typeof setTimeout> | undefined
 	const timeout = new Promise<null>((resolve) => {
 		timer = setTimeout(() => resolve(null), ESPN_TIMEOUT_MS)

@@ -1,3 +1,4 @@
+import { LOSS_RATE_BY_SHAPE } from "@called-my-shot/scoring"
 import { eq } from "drizzle-orm"
 import { describe, expect, it } from "vitest"
 import { db } from "../db"
@@ -540,8 +541,19 @@ describe("Mutation.createQuestion", () => {
 			blendedMean: 100,
 		})
 		const [over, under] = stored?.options ?? []
-		expect(over?.lossRate).toBeLessThan(1)
+		// The long shot pays more on a hit (and, this far off, less on a
+		// miss); the likely side costs more on a miss.
+		expect(over?.winMult).toBeGreaterThan(1)
+		expect(over?.lossRate).toBeLessThanOrEqual(
+			LOSS_RATE_BY_SHAPE.team_stat_over_under,
+		)
+		expect(under?.winMult).toBe(1)
 		expect(under?.lossRate).toBeGreaterThan(1)
+		// Each side keeps the model's chance it hits, which the rarity
+		// multiplier measures the field against.
+		const pOver = stored?.linePricing?.pOver ?? Number.NaN
+		expect(over?.modelHitRate).toBe(pOver)
+		expect(under?.modelHitRate).toBeCloseTo(1 - pOver, 3)
 	})
 
 	it("builds a team leader's pool from the team's roster, resolved automatically", async () => {

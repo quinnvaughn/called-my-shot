@@ -39,6 +39,8 @@ type Props = {
 	// How many winners a season award asks callers to pick. Above 1, the card
 	// shows that many rows so the field's whole lineup is visible.
 	picksRequired: number | null
+	// Each row's win and miss, while the question can still be called.
+	pointsFor?: (optionId: string) => { win: number; lose: number }
 }
 
 // A single-pick stat leader or award question carries a whole roster or
@@ -64,6 +66,7 @@ export function QuestionCardField({
 	pickedOptionIds,
 	myGuess,
 	picksRequired,
+	pointsFor,
 }: Props) {
 	const renderRow = (option: Option) => (
 		<OptionRow
@@ -81,6 +84,7 @@ export function QuestionCardField({
 			// The card is never the picker, so there's no action for orange to
 			// point at.
 			tone="field"
+			points={pointsFor?.(option.id)}
 		/>
 	)
 

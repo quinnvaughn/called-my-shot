@@ -1,0 +1,1 @@
+ALTER TABLE "question_options" ADD COLUMN "win_mult" numeric(4,2);

@@ -411,11 +411,30 @@ export const questionOptions = pgTable("question_options", {
 		scale: 3,
 		mode: "number",
 	}),
-	// A miss's loss rate on this side alone, set at creation when a person-set
-	// over/under line is priced (see sideLossRates in @called-my-shot/scoring),
-	// and never changed after. Null on every other option, which scores at the
-	// question's lossRate.
+	// A miss's loss rate on this side alone, set when a two-sided question is
+	// priced (see sidePrice in @called-my-shot/scoring): a person-set
+	// over/under line, or a head-to-head with a model behind it. Fixed once
+	// anyone has called the question. Null on every other option, which scores
+	// at the question's lossRate.
 	lossRate: numeric("loss_rate", {
+		precision: 4,
+		scale: 3,
+		mode: "number",
+	}),
+	// What a hit on this side pays, as a multiple of committed before the
+	// boldness and early bonuses: above 1 on the unlikely side of a priced
+	// question, 1 on the likely one (see sidePrice). Set and fixed alongside
+	// lossRate. Null pays 1, which every side priced before win multipliers
+	// existed does too.
+	winMult: numeric("win_mult", {
+		precision: 4,
+		scale: 2,
+		mode: "number",
+	}),
+	// The model's chance this side hits, set alongside lossRate above and null
+	// whenever it is. The rarity multiplier measures the field against it (see
+	// tierFor), and a side's price can be checked against how often it hit.
+	modelHitRate: numeric("model_hit_rate", {
 		precision: 4,
 		scale: 3,
 		mode: "number",

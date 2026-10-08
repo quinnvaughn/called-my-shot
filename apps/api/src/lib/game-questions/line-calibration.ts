@@ -222,3 +222,68 @@ async function collectRatios(
 	}
 	return ratios
 }
+
+// One past game's results on both sides of it, each against its own
+// expectation (result / expectation), for the same template under the same
+// model. What a head-to-head is priced from once there are enough: a fast
+// game, a blowout or the home side's edge moves both results at once, and a
+// pair keeps that where two unrelated games' ratios can't.
+export type RatioPair = { home: number; away: number }
+
+// One template's same-game pairs under one model, most recent first: every
+// game where the template's lines on both teams resolved with a reading. A
+// per-team key's first slot after the template is the team it's about, which
+// is what says which side of the game a ratio belongs to.
+export async function pairedRatiosForTemplate(
+	leagueSlug: string,
+	templateId: string,
+	formula: LineFormula,
+): Promise<RatioPair[]> {
+	const resolved = await db.query.questions.findMany({
+		where: {
+			shape: { in: [...GENERATED_OVER_UNDER_SHAPES] },
+			status: "resolved",
+			generationKey: { like: `${leagueSlug}:%:${templateId}:%` },
+			lineBasis: { isNotNull: true },
+		},
+		columns: { generationKey: true, lineBasis: true },
+		with: {
+			autoResolution: { columns: { evidence: true } },
+			game: { columns: { id: true, homeTeamId: true, awayTeamId: true } },
+		},
+		orderBy: { locksAt: "desc" },
+	})
+
+	const byGame = new Map<string, Partial<RatioPair>>()
+	for (const question of resolved) {
+		const parsed = question.generationKey
+			? parseGenerationKey(question.generationKey)
+			: null
+		const basis = question.lineBasis
+		const mean = basis ? expectedMeanOf(basis) : null
+		const value = question.autoResolution?.evidence?.value
+		const game = question.game
+		if (!parsed || parsed.templateId !== templateId || !basis || !game) continue
+		if (formulaOfBasis(basis) !== formula) continue
+		if (!mean || mean <= 0 || typeof value !== "number") continue
+		const teamId = parsed.rest[0]
+		const side =
+			teamId === game.homeTeamId
+				? "home"
+				: teamId === game.awayTeamId
+					? "away"
+					: null
+		if (!side) continue
+		const pair = byGame.get(game.id) ?? {}
+		pair[side] ??= value / mean
+		byGame.set(game.id, pair)
+	}
+
+	const pairs: RatioPair[] = []
+	for (const { home, away } of byGame.values()) {
+		if (home === undefined || away === undefined) continue
+		pairs.push({ home, away })
+		if (pairs.length === LINE_TUNING.window) break
+	}
+	return pairs
+}

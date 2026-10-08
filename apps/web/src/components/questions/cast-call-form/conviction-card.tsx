@@ -99,6 +99,7 @@ export function ConvictionCard({ callForm }: { callForm: CastCallFormState }) {
 									selectedOption?.lossRate,
 								)}
 								earlyTier={earlyTier}
+								pricing={selectedOption}
 							/>
 						</div>
 					</VStack>

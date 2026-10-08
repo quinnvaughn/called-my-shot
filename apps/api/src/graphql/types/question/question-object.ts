@@ -114,9 +114,16 @@ export const QuestionOptionRef = builder.drizzleObject("questionOptions", {
 		// head-to-head and leader shapes, whose result is a comparison between
 		// the options. Null on every other shape and on a hand-entered result.
 		actualValue: t.exposeFloat("actualValue", { nullable: true }),
-		// A miss's loss rate on this side alone, set when a person-set line was
-		// priced. Null scores at the question's lossRate.
+		// A miss's loss rate on this side alone, set when the question's sides
+		// were priced. Null scores at the question's lossRate.
 		lossRate: t.exposeFloat("lossRate", { nullable: true }),
+		// What a hit on this side pays as a multiple of committed, before the
+		// boldness and early bonuses, set when its sides were priced. Null pays
+		// 1.
+		winMult: t.exposeFloat("winMult", { nullable: true }),
+		// The model's chance this side hits, set alongside lossRate. The rarity
+		// multiplier measures the field against it - see tierFor.
+		modelHitRate: t.exposeFloat("modelHitRate", { nullable: true }),
 		callCount: t.relatedCount("selections"),
 		// live % of the question's callers who picked this option - same formula
 		// resolution scores against at lock (see fieldPct in @called-my-shot/scoring),

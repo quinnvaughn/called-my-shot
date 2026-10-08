@@ -24,6 +24,8 @@ import { useRequireAuth } from "#/hooks/use-require-auth"
 import { formatGuess } from "#/lib/field-signal"
 import { optionDisplayLabel } from "#/lib/question-labels"
 import {
+	type ContrarianTier,
+	formatMult,
 	previewFieldPct,
 	previewNumericPoints,
 	previewSelectionPoints,
@@ -137,7 +139,19 @@ export function ConfirmCallModal({
 								option.callCount,
 								question.callCount,
 							)
-							const meta = `${tierFor(simulatedFieldPct, question.options.length).label} · ${Math.round(simulatedFieldPct)}% of the field${showConviction ? ` · ${selection.conviction}% conviction` : ""}`
+							const meta = [
+								...pickMeta(
+									tierFor(
+										simulatedFieldPct,
+										question.options.length,
+										option.modelHitRate,
+									),
+									simulatedFieldPct,
+									effectiveLossRate(lossRate, option.lossRate),
+									option,
+								),
+								...(showConviction ? [`${selection.conviction}% conviction`] : []),
+							].join(" · ")
 							return (
 								<ConfirmPickRow
 									key={selection.optionId}
@@ -151,6 +165,7 @@ export function ConfirmCallModal({
 										question.options.length,
 										selection.conviction,
 										earlyTier,
+										option,
 									)}
 								/>
 							)
@@ -363,4 +378,34 @@ function ConfirmPickRow({
 			)}
 		</HStack>
 	)
+}
+
+// What moved a pick's numbers, in the order they matter. An unpriced pick is
+// its boldness tier and field share. A priced one leads with its own price
+// (the underdog's on a hit, the favorite's on a miss - see sidePrice) and
+// sets the field share against the share its chance expects, since that's
+// what boldness is measured against there. Its tier only shows once it's
+// past SAFE: a SAFE beside an underdog's price reads as the pick being safe.
+function pickMeta(
+	tier: ContrarianTier,
+	fieldPct: number,
+	lossRate: number,
+	option: { winMult: number | null; modelHitRate: number | null },
+): string[] {
+	const field = `${Math.round(fieldPct)}% of the field`
+	const { modelHitRate } = option
+	if (modelHitRate == null) return [tier.label, field]
+	const winMult = option.winMult ?? 1
+	const price =
+		winMult > 1
+			? `×${formatMult(winMult)} underdog`
+			: modelHitRate > 0.5
+				? `×${formatMult(lossRate)} favorite`
+				: null
+	return [
+		...(tier.label !== "SAFE" ? [tier.label] : []),
+		...(price ? [price] : []),
+		field,
+		`${Math.round(modelHitRate * 100)}% expected`,
+	]
 }

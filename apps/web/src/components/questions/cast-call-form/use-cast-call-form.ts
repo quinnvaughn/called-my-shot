@@ -15,6 +15,7 @@ import { CastCallDocument, RedoCallDocument } from "#/graphql/mutations/calls"
 import { type CallSurface, questionHorizon, track } from "#/lib/analytics"
 import { isRateStat as computeIsRateStat } from "#/lib/field-signal"
 import { useForm } from "#/lib/form/use-form"
+import { DEFAULT_CONVICTION } from "#/lib/scoring"
 import { closeModal, openModal } from "#/stores/modal-store"
 import { consumeRanFirstCallTour } from "#/stores/tour-store"
 
@@ -77,6 +78,8 @@ export const CastCallFormFragment = graphql(`
 			fieldPct
 			callCount
 			lossRate
+			winMult
+			modelHitRate
 			team {
 				...Team_team @unmask
 			}
@@ -255,7 +258,7 @@ export function useCastCallForm(
 	// conviction per pick directly in form state instead (each pick's own
 	// slider), and the numeric-guess shapes use the schema's own top-level
 	// `conviction` field.
-	const [singleSelectConviction, setSingleSelectConviction] = useState(50)
+	const [singleSelectConviction, setSingleSelectConviction] = useState(DEFAULT_CONVICTION)
 
 	// Lets ConfirmCallModal send the viewer back to the case textarea when
 	// they open the confirm step without having written one - mirrors the
@@ -286,7 +289,7 @@ export function useCastCallForm(
 	const [convictionMode, setConvictionMode] = useState<"shared" | "split">(
 		"shared",
 	)
-	const [sharedConviction, setSharedConviction] = useState(50)
+	const [sharedConviction, setSharedConviction] = useState(DEFAULT_CONVICTION)
 
 	// The numeric-guess shapes only - how far the stepper's +/- buttons move
 	// the guess per click. Typing directly into the field always takes the
@@ -381,10 +384,10 @@ export function useCastCallForm(
 					: isWinTotalGuess && gamesPerSeason != null
 						? Math.round(gamesPerSeason / 2)
 						: 0),
-			conviction: redo?.current.conviction ?? 50,
+			conviction: redo?.current.conviction ?? DEFAULT_CONVICTION,
 			selections:
 				redo?.current.selections ??
-				(fade ? [{ optionId: fade.optionId, conviction: 50 }] : []),
+				(fade ? [{ optionId: fade.optionId, conviction: DEFAULT_CONVICTION }] : []),
 		},
 		onSubmit: async (values, helpers) => {
 			const selections = values.selections.map((s) => ({

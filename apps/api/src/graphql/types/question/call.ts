@@ -129,6 +129,7 @@ export async function pendingPayout(
 		window
 			? seasonEarlyTierFor(window.played, window.total)
 			: earlyTierFor(rank, callCount),
+		option ?? {},
 	)
 	return { winLow: preview.win, winHigh: preview.win, lose: preview.lose }
 }

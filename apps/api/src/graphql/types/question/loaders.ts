@@ -182,7 +182,13 @@ export const questionOptionCountLoader = ctxLoader(
 export const questionOptionLoader = ctxLoader(async (optionIds: string[]) => {
 	const rows = await db.query.questionOptions.findMany({
 		where: { id: { in: optionIds } },
-		columns: { id: true, questionId: true, lossRate: true },
+		columns: {
+			id: true,
+			questionId: true,
+			winMult: true,
+			lossRate: true,
+			modelHitRate: true,
+		},
 	})
 	return indexByKey(optionIds, rows, (row) => row.id, undefined)
 })

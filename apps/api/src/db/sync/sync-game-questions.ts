@@ -1,4 +1,9 @@
 import { defaultLossRate } from "@called-my-shot/scoring"
+import { and, eq, notExists, sql } from "drizzle-orm"
+import {
+	createGameWinnerPricer,
+	type PricedSide,
+} from "../../lib/game-questions/duel-pricing"
 import { generationKey } from "../../lib/game-questions/generation-key"
 import { refreshGeneratedQuestionSchedule } from "../../lib/game-questions/schedule"
 import { gameQuestionTitle } from "../../lib/game-questions/titles"
@@ -7,7 +12,9 @@ import { isGameAskable } from "../../lib/postseason/settle"
 import { insertQuestion, teamOptions } from "../../lib/questions/insert"
 import { getCurrentSeason } from "../../lib/seasons"
 import { db } from "../index"
-import type { League } from "../schema"
+import { calls, type League, questionOptions } from "../schema"
+import type { Tx } from "../types"
+import { defaultEspnClient, type EspnClient } from "./espn-client"
 
 // One team_vs_team question per synced game, created official (see
 // ADMIN_ONLY_SHAPES in packages/schemas/src/questions.ts - team_vs_team is
@@ -21,15 +28,22 @@ import type { League } from "../schema"
 // drifts from the real game. This runs across the whole season daily, which
 // covers a game moved out of generate-game-questions.ts's own window.
 //
+// Each side is priced from both teams' scoring (see createGameWinnerPricer),
+// and repriced on every run until someone calls it: a game months out is
+// priced off the season so far, and the price keeps up with the season until
+// a caller has agreed to one, after which it never moves.
+//
 // Requires syncGames(config, league) to have already run for this league.
 export async function syncGameQuestions(
 	league: League,
 	now: Date = new Date(),
+	espn: EspnClient = defaultEspnClient,
 ): Promise<void> {
 	const officialAccountId = await getOfficialAccountId()
+	const priceGame = createGameWinnerPricer(league.slug, league.id, espn)
 	const allLeagueGames = await db.query.games.findMany({
 		where: { leagueId: league.id },
-		with: { homeTeam: true, awayTeam: true },
+		with: { homeTeam: true, awayTeam: true, season: true },
 	})
 
 	// Every upcoming game of the current season gets its question in one
@@ -85,10 +99,18 @@ export async function syncGameQuestions(
 		// A postseason game that may never be played, or whose start time ESPN
 		// hasn't set, waits for a later run.
 		const askable = await isGameAskable(game)
+		const sides = game.season
+			? await priceGame({
+					awayTeam: game.awayTeam,
+					homeTeam: game.homeTeam,
+					seasonYear: game.season.year,
+				})
+			: null
 
 		await db.transaction(async (tx) => {
 			const existing = await tx.query.questions.findFirst({
 				where: { generationKey: key },
+				with: { options: { orderBy: { sortOrder: "asc" } } },
 			})
 
 			if (!existing && askable) {
@@ -109,11 +131,58 @@ export async function syncGameQuestions(
 						lossRate: defaultLossRate("team_vs_team", {}),
 					},
 					{ generationKey: key },
-					teamOptions([gameWithTeams.awayTeam, gameWithTeams.homeTeam]),
+					teamOptions([gameWithTeams.awayTeam, gameWithTeams.homeTeam]).map(
+						(option, index) => ({ ...option, ...sides?.[index] }),
+					),
 				)
+			}
+
+			if (existing?.status === "open" && sides) {
+				await repriceUncalled(tx, existing.id, existing.options, sides)
 			}
 
 			await refreshGeneratedQuestionSchedule(tx, gameWithTeams)
 		})
+	}
+}
+
+// Moves each side to its new price, only while nobody has called the
+// question: the check and the write are one statement, so a call landing
+// mid-run either sees the old price or keeps it.
+async function repriceUncalled(
+	tx: Tx,
+	questionId: string,
+	options: {
+		id: string
+		winMult: number | null
+		lossRate: number | null
+		modelHitRate: number | null
+	}[],
+	sides: [PricedSide, PricedSide],
+): Promise<void> {
+	for (const [index, option] of options.entries()) {
+		const side = sides[index]
+		if (
+			!side ||
+			(option.winMult === side.winMult &&
+				option.lossRate === side.lossRate &&
+				option.modelHitRate === side.modelHitRate)
+		) {
+			continue
+		}
+		await tx
+			.update(questionOptions)
+			.set(side)
+			.where(
+				and(
+					eq(questionOptions.id, option.id),
+					notExists(
+						tx
+							.select({ one: sql`1` })
+							.from(calls)
+							.where(eq(calls.questionId, questionId)),
+					),
+				),
+			)
 	}
 }

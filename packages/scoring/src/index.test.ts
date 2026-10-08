@@ -7,9 +7,11 @@ import {
 	breakEvenLossRate,
 	convictionEdge,
 	defaultLossRate,
+	duelProbability,
+	pairedDuelProbability,
+	expectedFieldShare,
 	earlyTierFor,
 	effectiveLossRate,
-	FAIR_LINE_MARGIN,
 	fieldPct,
 	hitTolerance,
 	isNumericGuessShape,
@@ -28,7 +30,9 @@ import {
 	SIDE_LOSS_RATE_BOUNDS,
 	selectionPoints,
 	shapesInFamily,
-	sideLossRates,
+	SIDE_WIN_MULT_MAX,
+	sidePrice,
+	sidePrices,
 	targetHitRate,
 	targetLossRate,
 	STREAK_FAMILY_BY_SHAPE,
@@ -163,29 +167,97 @@ describe("targetHitRate", () => {
 	})
 })
 
-describe("sideLossRates", () => {
-	it("prices anything within FAIR_LINE_MARGIN of even as a coin flip", () => {
-		const coinFlip = LOSS_RATE_BY_SHAPE.team_vs_team
-		expect(sideLossRates(0.5)).toEqual({ over: coinFlip, under: coinFlip })
-		expect(sideLossRates(0.55)).toEqual({ over: coinFlip, under: coinFlip })
-		expect(sideLossRates(0.5 - FAIR_LINE_MARGIN)).toEqual({
-			over: coinFlip,
-			under: coinFlip,
+describe("sidePrices", () => {
+	const coinFlip = LOSS_RATE_BY_SHAPE.team_vs_team
+
+	it("prices an even chance as a coin flip on both sides", () => {
+		const even = { winMult: 1, lossRate: coinFlip }
+		expect(sidePrices(0.5)).toEqual({ over: even, under: even })
+	})
+
+	it("raises the unlikely side's win and the likely side's miss", () => {
+		expect(sidePrices(0.65)).toEqual({
+			over: { winMult: 1, lossRate: 1.8 },
+			under: { winMult: 1.84, lossRate: coinFlip },
 		})
 	})
 
-	it("prices past the margin from its edge, not from even", () => {
-		// 65% sits 5 points past a 60% edge, priced as 55%
-		expect(sideLossRates(0.65)).toEqual({ over: 1.18, under: 0.78 })
-		expect(sideLossRates(0.25)).toEqual({ over: 0.51, under: 1.8 })
+	it("moves off a coin flip with any lean, however small", () => {
+		const { over, under } = sidePrices(0.55)
+		expect(over.lossRate).toBeGreaterThan(coinFlip)
+		expect(under.winMult).toBeGreaterThan(1)
 	})
 
-	it("caps the likely side at SIDE_LOSS_RATE_BOUNDS.max", () => {
-		expect(sideLossRates(0.9)).toEqual({
-			over: SIDE_LOSS_RATE_BOUNDS.max,
-			under: 0.22,
-		})
-		expect(sideLossRates(0.02).under).toBe(SIDE_LOSS_RATE_BOUNDS.max)
+	it("leaves a caller with no edge at PLAYER_EDGE on either side", () => {
+		for (const p of [0.1, 0.25, 0.35, 0.45, 0.55, 0.6]) {
+			const price = sidePrice(p)
+			expect(p * price.winMult - (1 - p) * price.lossRate).toBeCloseTo(
+				PLAYER_EDGE,
+				2,
+			)
+		}
+	})
+
+	it("never pays the likely side less than committed", () => {
+		expect(sidePrice(0.85).winMult).toBe(1)
+	})
+
+	it("prices a long shot past the win cap on its miss instead", () => {
+		expect(sidePrice(0.1)).toEqual({ winMult: SIDE_WIN_MULT_MAX, lossRate: 0.42 })
+		expect(sidePrice(0.001).lossRate).toBe(SIDE_LOSS_RATE_BOUNDS.min)
+	})
+
+	it("caps the likely side's miss, leaving it above PLAYER_EDGE", () => {
+		expect(sidePrice(0.75).lossRate).toBe(SIDE_LOSS_RATE_BOUNDS.max)
+		expect(0.75 - 0.25 * SIDE_LOSS_RATE_BOUNDS.max).toBeGreaterThan(PLAYER_EDGE)
+	})
+
+	it("prices each over/under side as its own sidePrice", () => {
+		expect(sidePrices(0.65).over).toEqual(sidePrice(0.65))
+		expect(sidePrices(0.65).under).toEqual(sidePrice(0.35))
+	})
+})
+
+describe("duelProbability", () => {
+	const ratios = [0.5, 0.8, 1, 1.2, 1.5]
+
+	it("is even between two sides expected to produce the same", () => {
+		expect(duelProbability(ratios, 10, 10)).toBeCloseTo(0.5, 10)
+	})
+
+	it("favors the side with the higher expectation", () => {
+		const p = duelProbability(ratios, 12, 8)
+		expect(p).toBeGreaterThan(0.5)
+		expect(p).toBeLessThan(1)
+		expect(duelProbability(ratios, 8, 12)).toBeCloseTo(1 - p, 10)
+	})
+
+	it("never reads as certain, however lopsided", () => {
+		expect(duelProbability(ratios, 100, 1)).toBeLessThan(1)
+		expect(duelProbability(ratios, 1, 100)).toBeGreaterThan(0)
+	})
+})
+
+describe("pairedDuelProbability", () => {
+	it("keeps what moved both sides of a game at once", () => {
+		// Every game moved both sides the same way, so the side expected to
+		// produce more always did.
+		const together: [number, number][] = [
+			[0.7, 0.7],
+			[1, 1],
+			[1.3, 1.3],
+		]
+		expect(pairedDuelProbability(together, 11, 10)).toBeCloseTo(3.5 / 4, 10)
+		// Mixed across games instead, the same results leave room for upsets.
+		expect(duelProbability([0.7, 1, 1.3], 11, 10)).toBeLessThan(3.5 / 4)
+	})
+
+	it("is even between two sides expected to produce the same over even games", () => {
+		const pairs: [number, number][] = [
+			[1.2, 0.8],
+			[0.8, 1.2],
+		]
+		expect(pairedDuelProbability(pairs, 10, 10)).toBeCloseTo(0.5, 10)
 	})
 })
 
@@ -342,6 +414,23 @@ describe("tierFor", () => {
 		}
 	})
 
+	it("measures a priced side against the model's chance", () => {
+		// An underdog the model gives 25%, called by 25% of the field, is
+		// exactly as popular as expected.
+		expect(tierFor(25, 2, 0.25).mult).toBe(TIER_MIN_MULT)
+		expect(tierFor(10, 2, 0.25).mult).toBeCloseTo(tierFor(20, 2).mult, 10)
+		// A favorite the field faded below its price pays for it.
+		expect(tierFor(40, 2, 0.75).mult).toBeGreaterThan(TIER_MIN_MULT)
+		// An even price is an even split.
+		expect(tierFor(30, 2, 0.5).mult).toBe(tierFor(30, 2).mult)
+	})
+
+	it("expects an unpriced option at an even split", () => {
+		expect(expectedFieldShare(2)).toBe(0.5)
+		expect(expectedFieldShare(4, null)).toBe(0.25)
+		expect(expectedFieldShare(2, 0.8)).toBe(0.8)
+	})
+
 	it("labels by multiplier band", () => {
 		expect(tierFor(100, 2).label).toBe("SAFE")
 		expect(tierFor(20, 2).label).toBe("STEADY")
@@ -485,6 +574,15 @@ describe("selectionPoints", () => {
 		// early multiplier a full-conviction win is exactly the base rate.
 		expect(selectionPoints(base, lossRate, 50, 2, 100, true, 1)).toBe(base)
 		expect(selectionPoints(base, lossRate, 50, 2, 50, true, 1)).toBe(base / 2)
+	})
+
+	it("pays a priced side's win multiplier on a hit, and never on a miss", () => {
+		expect(
+			selectionPoints(base, lossRate, 50, 2, 100, true, 1, { winMult: 1.84 }),
+		).toBe(Math.round(base * 1.84))
+		expect(
+			selectionPoints(base, lossRate, 50, 2, 100, false, 1, { winMult: 1.84 }),
+		).toBe(selectionPoints(base, lossRate, 50, 2, 100, false, 1))
 	})
 
 	it("multiplies the two bonuses together on a win", () => {

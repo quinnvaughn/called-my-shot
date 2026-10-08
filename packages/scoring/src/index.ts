@@ -183,13 +183,21 @@ export function breakEvenLossRate(hitRate: number): number {
 	return hitRate / (1 - hitRate)
 }
 
-// The range a priced over/under side's loss rate is held to. The likely side
-// of a soft line costs more than committed on a miss, but the price comes from
-// how past lines landed, and that history can't see a real change like a new
-// role. The cap keeps a miss the model got wrong from costing more than twice
-// the call, at the price of a very soft line's likely side keeping a small
-// edge past 67%.
+// The most a priced side's miss can cost, as a share of committed, and the
+// least. The likely side of a lopsided question costs more than committed on
+// a miss, but the price comes from how past results landed, and that history
+// can't see a real change like a new role. The cap keeps a miss the model got
+// wrong from costing more than twice the call, at the price of a side likelier
+// than about 67% keeping more than PLAYER_EDGE. The floor keeps a long shot's
+// miss from costing nothing at all.
 export const SIDE_LOSS_RATE_BOUNDS = { min: 0.05, max: 2 }
+
+// The most a priced side's hit can pay before the boldness and early bonuses,
+// as a multiple of committed. The unlikely side of a lopsided question pays
+// more on a hit, but past about a 20% chance the model's own error is a large
+// share of what it's pricing, so a longer shot is priced on its miss instead
+// (see sidePrice) rather than on a payout nobody can stand behind.
+export const SIDE_WIN_MULT_MAX = 4
 
 // The chance a result lands over `line`, read off how past results landed
 // against their own mean (`ratios`, result / mean). Smoothed by half a result
@@ -204,31 +212,103 @@ export function overProbability(
 	return (over + 0.5) / (ratios.length + 1)
 }
 
-// How far from even a priced line's over chance can sit and still count as a
-// coin flip. With 30-100 past results behind it, the estimate can't tell 55%
-// from 50%, and generated lines are only re-shaded outside 45-55% themselves.
-export const FAIR_LINE_MARGIN = 0.1
+// What a priced side's hit pays (winMult, a multiple of committed before the
+// boldness and early bonuses) and its miss costs (lossRate, a share of
+// committed).
+export type SidePrice = { winMult: number; lossRate: number }
 
-// Each side's loss rate for an over/under whose over lands `pOver` of the
-// time. Inside FAIR_LINE_MARGIN of even, both sides are priced as a coin flip.
-// Past it, each side is priced for a caller with no edge (see targetLossRate)
-// on how far the line sits beyond the margin, so a rate moves away from the
-// coin flip's at the margin's edge instead of jumping there. Held to
-// SIDE_LOSS_RATE_BOUNDS.
-export function sideLossRates(pOver: number): { over: number; under: number } {
-	const beyond = Math.abs(pOver - 0.5) - FAIR_LINE_MARGIN
-	if (beyond <= 0) {
-		return { over: COIN_FLIP_LOSS_RATE, under: COIN_FLIP_LOSS_RATE }
+// Each side's price for an over/under whose over lands `pOver` of the time -
+// see sidePrice.
+export function sidePrices(pOver: number): {
+	over: SidePrice
+	under: SidePrice
+} {
+	return { over: sidePrice(pOver), under: sidePrice(1 - pOver) }
+}
+
+// One side's price from the model's chance it hits, set so a caller with no
+// edge expects PLAYER_EDGE whichever side they take: hitRate x winMult -
+// (1 - hitRate) x lossRate = PLAYER_EDGE. An even chance is a coin flip, a hit
+// paying committed and a miss costing the coin flip's rate, and only one half
+// of the price moves away from it on each side:
+//
+// - The likely side's hit still pays committed, and its miss costs more (see
+//   targetLossRate), up to SIDE_LOSS_RATE_BOUNDS.max.
+// - The unlikely side's miss stays at the coin flip's rate, and its hit pays
+//   more, up to SIDE_WIN_MULT_MAX. A longer shot than that cap covers pays
+//   the cap and costs less on a miss instead, down to
+//   SIDE_LOSS_RATE_BOUNDS.min.
+//
+// So nobody is paid less than they committed for being right, taking the
+// long shot is what pays big, and only the likely side's cap leaves anyone
+// off PLAYER_EDGE, in their favor.
+export function sidePrice(modelHitRate: number): SidePrice {
+	const hitRate = Math.min(1, Math.max(0, modelHitRate))
+	if (hitRate >= 0.5) {
+		return {
+			winMult: 1,
+			lossRate:
+				hitRate === 0.5
+					? COIN_FLIP_LOSS_RATE
+					: roundRate(
+							Math.min(SIDE_LOSS_RATE_BOUNDS.max, targetLossRate(hitRate)),
+						),
+		}
 	}
-	const priced = 0.5 + Math.sign(pOver - 0.5) * beyond
-	const bounded = (hitRate: number) =>
-		roundRate(
-			Math.min(
-				SIDE_LOSS_RATE_BOUNDS.max,
-				Math.max(SIDE_LOSS_RATE_BOUNDS.min, targetLossRate(hitRate)),
-			),
-		)
-	return { over: bounded(priced), under: bounded(1 - priced) }
+	const winMult = (PLAYER_EDGE + (1 - hitRate) * COIN_FLIP_LOSS_RATE) / hitRate
+	if (winMult <= SIDE_WIN_MULT_MAX) {
+		return { winMult: roundRate(winMult), lossRate: COIN_FLIP_LOSS_RATE }
+	}
+	const lossRate = (hitRate * SIDE_WIN_MULT_MAX - PLAYER_EDGE) / (1 - hitRate)
+	return {
+		winMult: SIDE_WIN_MULT_MAX,
+		lossRate: roundRate(Math.max(SIDE_LOSS_RATE_BOUNDS.min, lossRate)),
+	}
+}
+
+// The chance the first side of a head-to-head out-produces the second, from
+// past games where both sides' results are known together (`pairs`, each
+// side's result / expectation in one game, first side first). Each past game
+// is replayed at these two expectations, and the share the first side wins
+// is the chance. Unlike duelProbability, whatever moved both sides of one game
+// at once (its pace, the score, the home side's edge) stays in. A tie counts
+// half, smoothed by half a game on each side.
+export function pairedDuelProbability(
+	pairs: [number, number][],
+	firstMean: number,
+	secondMean: number,
+): number {
+	let wins = 0
+	for (const [first, second] of pairs) {
+		const a = first * firstMean
+		const b = second * secondMean
+		if (a > b) wins += 1
+		else if (a === b) wins += 0.5
+	}
+	return (wins + 0.5) / (pairs.length + 1)
+}
+
+// The chance the first side of a head-to-head out-produces the second, from
+// each side's expected figure and how past results landed against their own
+// expectation (`ratios`, result / expectation, as in overProbability). Every
+// pairing of one past ratio per side is a plausible game, and the share the
+// first side wins is the chance. A tie counts half. Smoothed by half a
+// pairing on each side, like overProbability, so no duel reads as certain.
+export function duelProbability(
+	ratios: number[],
+	firstMean: number,
+	secondMean: number,
+): number {
+	let wins = 0
+	for (const first of ratios) {
+		for (const second of ratios) {
+			const a = first * firstMean
+			const b = second * secondMean
+			if (a > b) wins += 1
+			else if (a === b) wins += 0.5
+		}
+	}
+	return (wins + 0.5) / (ratios.length * ratios.length + 1)
 }
 
 // The loss rate a selection is scored at: its option's own rate when the
@@ -650,16 +730,32 @@ const TIER_SATURATION_RARITY = 1 / 50
 const TIER_CURVE_EXPONENT =
 	Math.log(TIER_MAX_MULT) / -Math.log(TIER_SATURATION_RARITY)
 
-// relativeRarity is this option's share of the field divided by the share
-// it would hold if the field were spread evenly across every option
-// (1/totalOptions), so the same 5% reads as lopsided on a binary question but
-// as unremarkable on a 20-option one. mult = clamp(relativeRarity^-k, 1, 6):
-// an even split or better pays 1x, and every step into the minority pays
-// more, so even a modest underdog side earns something over the favorite.
-// k is solved so the ceiling lands at 1/50th of an even split (1% of a binary
-// field). Binary points: 50%->1.0, 33%->1.20, 22%->1.45, 20%->1.52,
-// 10%->2.09, 5%->2.87, 2%->4.37, 1%->6.0. relativeRarity -> 0 (nobody else
-// picked it, or division by zero when nobody did) ceilings to 6.
+// The share of the field an option would hold if the field called it exactly
+// as often as it's expected to hit. A side the question priced (a two-sided
+// question with a model behind it, see sidePrice) is expected at the model's
+// chance it hits. Everything else is expected at an even split, since nothing
+// says one option is likelier than another.
+export function expectedFieldShare(
+	totalOptions: number,
+	modelHitRate?: number | null,
+): number {
+	if (modelHitRate != null) return modelHitRate
+	return totalOptions > 0 ? 1 / totalOptions : 1
+}
+
+// relativeRarity is this option's share of the field divided by its expected
+// share (see expectedFieldShare), so the same 5% reads as lopsided on a binary
+// question but as unremarkable on a 20-option one. On a priced side it pays
+// only for how far the field underrated the side beyond what its price
+// already accounts for: an underdog the model gives 25%, called by 25% of
+// the field, is 1x, because its bigger win (see sidePrice) already
+// pays for that risk.
+// mult = clamp(relativeRarity^-k, 1, 6): the expected share or more pays 1x,
+// and every step under it pays more. k is solved so the ceiling lands at
+// 1/50th of the expected share. Unpriced binary points: 50%->1.0, 33%->1.20,
+// 22%->1.45, 20%->1.52, 10%->2.09, 5%->2.87, 2%->4.37, 1%->6.0.
+// relativeRarity -> 0 (nobody else picked it, or division by zero when nobody
+// did) ceilings to 6.
 //
 // fieldPct here is the option's FINAL share of the field, computed once at
 // resolution and applied to every selection on that option - not a
@@ -672,8 +768,10 @@ const TIER_CURVE_EXPONENT =
 export function tierFor(
 	fieldPct: number,
 	totalOptions: number,
+	modelHitRate?: number | null,
 ): ContrarianTier {
-	const relativeRarity = (fieldPct / 100) * totalOptions
+	const relativeRarity =
+		fieldPct / 100 / expectedFieldShare(totalOptions, modelHitRate)
 	const mult = Math.min(
 		TIER_MAX_MULT,
 		Math.max(TIER_MIN_MULT, relativeRarity ** -TIER_CURVE_EXPONENT),
@@ -841,8 +939,18 @@ export function basePointsFor(question: {
 export type PointsPreview = {
 	win: number
 	lose: number
+	// The side's own price on a hit (see sidePrice), 1 on an unpriced side.
+	winMult: number
 	tier: ContrarianTier
 	earlyTier: EarlyTier
+}
+
+// A priced option's side of SidePrice plus the model's chance behind it, as
+// stored on questionOptions. Every field is null on an unpriced option, which
+// pays 1x on a hit and is expected at an even split of the field.
+export type OptionPricing = {
+	modelHitRate?: number | null
+	winMult?: number | null
 }
 
 // What an unsettled option pick pays if right and costs if wrong - both
@@ -853,6 +961,7 @@ export type PointsPreview = {
 // seasonEarlyTierFor for season-long ones - see isSeasonLongShape) since
 // which formula applies depends on the shape. Omitting it leaves the early
 // multiplier at 1x, which is also the right read before a call exists.
+// `pricing` is the option's own (see OptionPricing).
 export function previewSelectionPoints(
 	basePoints: number,
 	lossRate: number,
@@ -860,12 +969,15 @@ export function previewSelectionPoints(
 	totalOptions: number,
 	conviction: number,
 	earlyTier: EarlyTier = { mult: 1, label: "STANDARD" },
+	pricing: OptionPricing = {},
 ): PointsPreview {
 	const stake = conviction / 100
-	const tier = tierFor(fieldPct, totalOptions)
+	const tier = tierFor(fieldPct, totalOptions, pricing.modelHitRate)
+	const winMult = pricing.winMult ?? 1
 	return {
-		win: Math.round(basePoints * stake * tier.mult * earlyTier.mult),
+		win: Math.round(basePoints * stake * winMult * tier.mult * earlyTier.mult),
 		lose: pointsAtStake(basePoints, lossRate, conviction),
+		winMult,
 		tier,
 		earlyTier,
 	}
@@ -911,6 +1023,7 @@ export function previewNumericPoints(
 // (not the selection's) position in the field - a player_season_award/
 // team_season_award call has several selections made at the same instant, so
 // earliness is a property of the call, not of any one pick within it.
+// `pricing` is the option's own (see OptionPricing).
 export function selectionPoints(
 	basePoints: number,
 	lossRate: number,
@@ -919,12 +1032,14 @@ export function selectionPoints(
 	conviction: number,
 	isCorrect: boolean,
 	earlyMult: number,
+	pricing: OptionPricing = {},
 ): number {
 	if (!isCorrect) return -pointsAtStake(basePoints, lossRate, conviction)
 	return Math.round(
 		basePoints *
 			(conviction / 100) *
-			tierFor(optionFieldPct, totalOptions).mult *
+			(pricing.winMult ?? 1) *
+			tierFor(optionFieldPct, totalOptions, pricing.modelHitRate).mult *
 			earlyMult,
 	)
 }

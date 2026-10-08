@@ -5,6 +5,12 @@ import { match } from "ts-pattern"
 import { buildPlayerPool } from "../../lib/award-pool"
 import { loadBandSettings } from "../../lib/game-questions/band-settings"
 import {
+	type DuelSpread,
+	duelSpreadFor,
+	playerLineTemplateFor,
+	priceDuel,
+} from "../../lib/game-questions/duel-pricing"
+import {
 	generationKey,
 	isInSlot,
 	parseGenerationKey,
@@ -17,6 +23,7 @@ import {
 } from "../../lib/game-questions/line-settings"
 import {
 	blendSamples,
+	LINE_FORMULA,
 	type LineBasis,
 	type OpponentAdjustment,
 	setLine,
@@ -71,6 +78,7 @@ import {
 } from "../../lib/mismatch"
 import {
 	activeGameTemplates,
+	GAME_QUESTION_CATALOG,
 	type GameQuestionTemplate,
 	PLAYER_QUESTIONS_PER_GAME,
 	RETIRED_GAME_TEMPLATE_IDS,
@@ -144,6 +152,13 @@ type LeagueContext = {
 		year: number,
 		template: { priorWeight: number; oppWeight?: number },
 	) => Promise<OpponentAdjustment | null>
+	// What a player head-to-head is priced from: the resolved lines of the
+	// over/under on the same stat, measured the same way - see priceDuel.
+	// Empty when there's no such over/under.
+	duelSpreadFor: (
+		statName: string,
+		espnStat: string | readonly string[],
+	) => Promise<DuelSpread>
 }
 
 type PlannedQuestion = {
@@ -154,7 +169,14 @@ type PlannedQuestion = {
 	ouLine?: number
 	lineBasis?: LineBasis
 	leaderBasis?: LeaderBasis
-	options: { label: string; sortOrder: number; playerId?: string }[]
+	options: {
+		label: string
+		sortOrder: number
+		playerId?: string
+		winMult?: number
+		lossRate?: number
+		modelHitRate?: number
+	}[]
 }
 
 function loadCatalogStats(sportId: string, names: string[]) {
@@ -370,6 +392,12 @@ async function planTemplate(
 			if (awayMean == null || homeMean == null) return []
 			const share = shareOfLeader(awayMean, homeMean)
 			if (share !== null && share < GENERATED_DUEL_MIN_RATIO) return []
+			const [awayPrice, homePrice] =
+				priceDuel(
+					await ctx.duelSpreadFor(statName, pick.espnStat),
+					awayMean,
+					homeMean,
+				) ?? []
 			return [
 				{
 					key: generationKey([...base, awayId, homeId]),
@@ -379,8 +407,18 @@ async function planTemplate(
 						playerNames: [nameOf(awayId), nameOf(homeId)],
 					},
 					options: [
-						{ label: nameOf(awayId), sortOrder: 0, playerId: awayId },
-						{ label: nameOf(homeId), sortOrder: 1, playerId: homeId },
+						{
+							label: nameOf(awayId),
+							sortOrder: 0,
+							playerId: awayId,
+							...awayPrice,
+						},
+						{
+							label: nameOf(homeId),
+							sortOrder: 1,
+							playerId: homeId,
+							...homePrice,
+						},
 					],
 				},
 			]
@@ -492,6 +530,9 @@ async function insertPlanned(
 					label: option.label,
 					sortOrder: option.sortOrder,
 					playerId: option.playerId ?? null,
+					winMult: option.winMult ?? null,
+					lossRate: option.lossRate ?? null,
+					modelHitRate: option.modelHitRate ?? null,
 				})),
 			)
 		}
@@ -718,6 +759,7 @@ async function generateForLeague(
 		espnTeamIdByTeamId,
 	}
 
+	const duelSpreads = new Map<string, Promise<DuelSpread>>()
 	const ctx: LeagueContext = {
 		config,
 		league,
@@ -756,6 +798,24 @@ async function generateForLeague(
 			),
 		opponentFor: (opponentTeamId, year, template) =>
 			opponentFor(opponentDeps, template, opponentTeamId, year),
+		duelSpreadFor: (statName, espnStat) => {
+			const key = `${statName}:${[espnStat].flat().join("+")}`
+			const cached = duelSpreads.get(key)
+			if (cached) return cached
+			// Read from the whole catalog, not just what this run posts: an
+			// over/under above the league's tier still has lines from when it
+			// was posted, and its spread is the same one.
+			const line = playerLineTemplateFor(
+				[...templates, ...(GAME_QUESTION_CATALOG[league.slug] ?? [])],
+				statName,
+				espnStat,
+			)
+			const spread = line
+				? duelSpreadFor(league.slug, line.id, LINE_FORMULA.teamOnly)
+				: Promise.resolve({ ratios: [], pairs: [] })
+			duelSpreads.set(key, spread)
+			return spread
+		},
 	}
 
 	let created = 0

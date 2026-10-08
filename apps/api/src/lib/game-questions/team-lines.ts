@@ -35,6 +35,12 @@ export type SeasonTable = {
 	scored: TeamScores
 	allowed: TeamScores
 	leagueMean: number | null
+	// What a home side and an away side scored per game, over the same games
+	// as leagueMean, and how many games that was. The gap between them is the
+	// home edge a who-wins price is set with - see homeEdge.
+	homeMean: number | null
+	awayMean: number | null
+	games: number
 }
 
 type FinalGame = {
@@ -53,6 +59,8 @@ export function seasonTable(games: FinalGame[]): SeasonTable {
 	const allowed: TeamScores = new Map()
 	let total = 0
 	let teamGames = 0
+	let homeTotal = 0
+	let awayTotal = 0
 	const push = (into: TeamScores, teamId: string, value: number) => {
 		const prior = into.get(teamId) ?? []
 		prior.push(value)
@@ -65,12 +73,36 @@ export function seasonTable(games: FinalGame[]): SeasonTable {
 		push(allowed, game.homeTeamId, game.awayScore)
 		push(allowed, game.awayTeamId, game.homeScore)
 		total += game.homeScore + game.awayScore
+		homeTotal += game.homeScore
+		awayTotal += game.awayScore
 		teamGames += 2
 	}
+	const finals = teamGames / 2
 	return {
 		scored,
 		allowed,
 		leagueMean: teamGames === 0 ? null : total / teamGames,
+		homeMean: finals === 0 ? null : homeTotal / finals,
+		awayMean: finals === 0 ? null : awayTotal / finals,
+		games: finals,
+	}
+}
+
+// Games of no home edge at all that a season's measured one is regressed
+// toward. A home side scores a few percent more than an away one, which a
+// game's own swing of 10-15% buries until there are a lot of games, so a
+// season's first weeks barely move it and a full one moves it most of the way.
+export const HOME_EDGE_WEIGHT = 100
+
+// What a home side's and an away side's expected score are multiplied by.
+// Both 1 with nothing measured yet.
+export function homeEdge(table: SeasonTable): { home: number; away: number } {
+	const { homeMean, awayMean, leagueMean, games } = table
+	if (!homeMean || !awayMean || !leagueMean) return { home: 1, away: 1 }
+	const trust = games / (games + HOME_EDGE_WEIGHT)
+	return {
+		home: 1 + trust * (homeMean / leagueMean - 1),
+		away: 1 + trust * (awayMean / leagueMean - 1),
 	}
 }
 
@@ -86,6 +118,9 @@ const EMPTY_TABLE: SeasonTable = {
 	scored: new Map(),
 	allowed: new Map(),
 	leagueMean: null,
+	homeMean: null,
+	awayMean: null,
+	games: 0,
 }
 
 // One fetch per league season per run, however many games ask for it. A

@@ -48,6 +48,7 @@ export const PickPositionRowCallFragment = graphql(`
 				id
 				label
 				fieldPct
+				modelHitRate
 				isCorrect
 				team {
 					...Team_team @unmask
@@ -129,11 +130,14 @@ function PickStateDot({ state }: { state: BallotMemberState }) {
 function PickTierBadge({
 	fieldPct,
 	totalOptions,
+	modelHitRate = null,
 }: {
 	fieldPct: number
 	totalOptions: number
+	// The side's own price, when it has one - see tierFor.
+	modelHitRate?: number | null
 }) {
-	const tier = tierFor(fieldPct, totalOptions)
+	const tier = tierFor(fieldPct, totalOptions, modelHitRate)
 	return (
 		<span
 			className={css({
@@ -317,6 +321,7 @@ export function PickPositionRow({
 											<PickTierBadge
 												fieldPct={selection.option.fieldPct}
 												totalOptions={question.options.length}
+												modelHitRate={selection.option.modelHitRate}
 											/>
 										)}
 									</HStack>

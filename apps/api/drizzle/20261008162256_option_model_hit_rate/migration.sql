@@ -1,0 +1,1 @@
+ALTER TABLE "question_options" ADD COLUMN "model_hit_rate" numeric(4,3);

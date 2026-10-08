@@ -83,7 +83,7 @@ const price = (
 	})
 
 describe("priceUserLine", () => {
-	it("makes the long shot cheaper and the likely side dearer on a line far off the model", async () => {
+	it("raises the long shot's win and the likely side's miss on a line far off the model", async () => {
 		const { league, team } = await nbaTeam()
 		await resolvedLines(LINE_TUNING.minSample)
 
@@ -93,8 +93,12 @@ describe("priceUserLine", () => {
 			blendedMean: 100,
 			ratioCount: LINE_TUNING.minSample,
 		})
-		expect(priced?.over).toBeLessThan(1)
-		expect(priced?.under).toBeGreaterThan(1)
+		expect(priced?.over.winMult).toBeGreaterThan(1)
+		expect(priced?.over.lossRate).toBeLessThanOrEqual(
+			LOSS_RATE_BY_SHAPE.team_stat_over_under,
+		)
+		expect(priced?.under.winMult).toBe(1)
+		expect(priced?.under.lossRate).toBeGreaterThan(1)
 	})
 
 	it("prices a line near the model as a coin flip on both sides", async () => {
@@ -103,7 +107,8 @@ describe("priceUserLine", () => {
 
 		const priced = await price(league.id, team.id, 100.5)
 		const coinFlip = LOSS_RATE_BY_SHAPE.game_total_over_under
-		expect(priced).toMatchObject({ over: coinFlip, under: coinFlip })
+		const even = { winMult: 1, lossRate: coinFlip }
+		expect(priced).toMatchObject({ over: even, under: even })
 	})
 
 	it("waits for enough resolved lines", async () => {

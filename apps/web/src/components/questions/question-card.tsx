@@ -4,8 +4,15 @@ import { HStack, VStack } from "styled-system/jsx"
 import { Card } from "#/components/ui/card"
 import { type FragmentType, graphql, useFragment } from "#/graphql/generated"
 import { callersText, isRateStat } from "#/lib/field-signal"
-import { AWAITING_RESULT_TEXT } from "#/lib/question-labels"
-import { hitMultiple } from "#/lib/scoring"
+import {
+	AWAITING_RESULT_TEXT,
+	isNumericQuestionShape,
+} from "#/lib/question-labels"
+import {
+	DEFAULT_CONVICTION,
+	hitMultiple,
+	optionPointsPreview,
+} from "#/lib/scoring"
 import { buildQuestionSlug } from "#/lib/slug"
 import { CardRule } from "./card-rule"
 import { LockLine } from "./lock-line"
@@ -28,6 +35,9 @@ export const QuestionCardFragment = graphql(`
 		numericToleranceAbsolute
 		picksRequired
 		lossRate
+		isOfficial
+		seasonGamesPlayed
+		seasonTotalGames
 		guessDistribution {
 			value
 			count
@@ -47,6 +57,8 @@ export const QuestionCardFragment = graphql(`
 			fieldPct
 			callCount
 			lossRate
+			winMult
+			modelHitRate
 			isCorrect
 			actualValue
 			team {
@@ -100,11 +112,26 @@ export function QuestionCard({
 	// to take a guess.
 	const multiple =
 		question.status === "OPEN"
-			? hitMultiple(
-					question.lossRate,
-					question.options.map((o) => o.lossRate),
-				)
+			? hitMultiple(question.lossRate, question.options)
 			: null
+
+	// What each side pays at the conviction a call starts at, so the sides can
+	// be compared before the question is opened.
+	const showsPoints =
+		question.status === "OPEN" && !isNumericQuestionShape(question.shape)
+	const pointsFor = showsPoints
+		? (optionId: string) => {
+				const option = question.options.find((o) => o.id === optionId)
+				return option
+					? optionPointsPreview(
+							question,
+							option,
+							question.options.length,
+							DEFAULT_CONVICTION,
+						)
+					: { win: 0, lose: 0 }
+			}
+		: undefined
 
 	return (
 		<Link
@@ -159,6 +186,7 @@ export function QuestionCard({
 								}
 								myGuess={question.viewerCall?.guessValue ?? null}
 								picksRequired={question.picksRequired}
+								pointsFor={pointsFor}
 							/>
 							<HStack
 								justify="space-between"
@@ -175,6 +203,8 @@ export function QuestionCard({
 								>
 									{callersText(question.callCount)}
 									{isLocked && ` · ${AWAITING_RESULT_TEXT}`}
+									{showsPoints &&
+										` · points at ${DEFAULT_CONVICTION}% conviction`}
 								</span>
 								{isLocked ? (
 									<LockedBadge />

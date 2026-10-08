@@ -6,6 +6,7 @@ import {
 	REDO_BALANCE_CAP,
 	SEASON_EARLY_MAX_MULT,
 	SIDE_LOSS_RATE_BOUNDS,
+	SIDE_WIN_MULT_MAX,
 	TIER_MAX_MULT,
 	TIER_MIN_MULT,
 	targetHitRate,
@@ -392,6 +393,15 @@ export function HowItWorksSections() {
 					ceilingMult={`×${TIER_MAX_MULT}`}
 				/>
 				<P>
+					On a question whose sides are priced (see below), boldness is
+					measured against each side's chance of hitting instead of an even
+					split. If a side has a 35% chance and 35% of callers took it, that's
+					×1: its higher payout on a hit already covers the risk. Boldness only
+					kicks in when fewer people took a side than its chance says they
+					should. That works for the favorite too: if a side with a 65% chance
+					only gets 40% of callers, everyone on it gets a bonus.
+				</P>
+				<P>
 					The multiplier only applies on a hit. Miss, and you lose what you
 					committed (or a set share of it on the harder question types, see
 					below); the tier doesn't make a miss cost more.
@@ -434,11 +444,18 @@ export function HowItWorksSections() {
 					either multiplier. The loss rate is set by question type and saved on
 					the question when it's posted, so it can't change after you call. Stat
 					lines, yes/no, and head-to-head picks lose{" "}
-					{missCost(LOSS_RATE_BY_SHAPE.yes_no_prop)}, except a game stat line
-					someone set by hand. When its line sits well off where the player's or
-					team's history puts it, the side that history favors loses up to{" "}
-					{SIDE_LOSS_RATE_BOUNDS.max}× what you committed, and the other side
-					loses less. A numeric guess loses {missCost(NUMERIC_LOSS)}. A game
+					{missCost(LOSS_RATE_BY_SHAPE.yes_no_prop)}, except where the two
+					sides are priced: a game's winner, a player head-to-head on one game,
+					and a game stat line someone set by hand. Each side is priced from
+					how likely the players' or teams' history makes it, so picking
+					either side without any edge still comes out slightly ahead over
+					time. The likelier side's hit pays what you committed, and its miss
+					loses more, up to {SIDE_LOSS_RATE_BOUNDS.max}× what you committed.
+					The other side still loses{" "}
+					{missCost(LOSS_RATE_BY_SHAPE.yes_no_prop)} on a miss, and its hit
+					pays more, up to {SIDE_WIN_MULT_MAX}× what you committed before
+					either multiplier. A side too unlikely for that to cover loses less
+					on a miss instead. A numeric guess loses {missCost(NUMERIC_LOSS)}. A game
 					stat leader pick loses a share sized per stat so picking the player
 					with the best season average comes out slightly ahead, and a season
 					stat leader pick loses {missCost(SEASON_LEADER_LOSS)}. A single-pick

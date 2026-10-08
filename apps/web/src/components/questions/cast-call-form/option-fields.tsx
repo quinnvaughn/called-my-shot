@@ -5,6 +5,7 @@ import type { EntitySearchItem } from "#/components/questions/create-question/en
 import { EntitySearchField } from "#/components/questions/create-question/entity-search-field"
 import { FieldLabel } from "#/components/ui/field-label"
 import { optionDisplayLabel } from "#/lib/question-labels"
+import { optionPointsPreview } from "#/lib/scoring"
 import { CaseField } from "./case-field"
 import { ConvictionCard } from "./conviction-card"
 import { OPTIONS_PAGE_STEP, OptionPickerList } from "./option-picker-list"
@@ -17,7 +18,14 @@ type Props = {
 // Every single-pick shape (the seven that resolve to bucket "single" - see
 // castCallBucketFor) - exactly one pick from a fixed row list.
 export function OptionFields({ callForm }: Props) {
-	const { question, shape, selections, selectSingle, isRateStat } = callForm
+	const {
+		question,
+		shape,
+		selections,
+		selectSingle,
+		isRateStat,
+		singleSelectConviction,
+	} = callForm
 
 	const [optionSearch, setOptionSearch] = useState("")
 
@@ -40,6 +48,18 @@ export function OptionFields({ callForm }: Props) {
 						selections.some((s) => s.optionId === optionId)
 					}
 					onSelect={selectSingle}
+					pointsFor={(optionId) => {
+						const option = question.options.find((o) => o.id === optionId)
+						return option
+							? optionPointsPreview(
+									question,
+									option,
+									question.options.length,
+									singleSelectConviction,
+								)
+							: { win: 0, lose: 0 }
+					}}
+					pointsConviction={singleSelectConviction}
 				/>
 			</VStack>
 			{question.options.length > OPTIONS_PAGE_STEP && (

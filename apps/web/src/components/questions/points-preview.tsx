@@ -1,4 +1,4 @@
-import type { EarlyTier } from "@called-my-shot/scoring"
+import type { EarlyTier, OptionPricing } from "@called-my-shot/scoring"
 import { css } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
 import {
@@ -30,6 +30,8 @@ type Props =
 			// a call exists. Omitted defaults to 1x/STANDARD in
 			// previewSelectionPoints, same as every game-scoped shape.
 			earlyTier?: EarlyTier
+			// The picked side's own price, when it has one - see OptionPricing.
+			pricing?: OptionPricing
 	  }
 
 // Live "what would this actually pay" preview, shown right where the
@@ -77,17 +79,33 @@ export function PointsPreview(props: Props) {
 		props.totalOptions,
 		props.conviction,
 		props.earlyTier,
+		props.pricing,
 	)
 	const earlyText =
 		preview.earlyTier.mult > 1
 			? ` · ×${formatMult(preview.earlyTier.mult)} early`
 			: ""
+	// A priced side's price sits on one half: the underdog's on its hit, the
+	// favorite's on its miss (see sidePrice). Each is named in its own box.
+	const isFavorite = (props.pricing?.modelHitRate ?? 0) > 0.5
 	return (
 		<PointsPreviewShell
-			tierText={`${preview.tier.label} · ${Math.round(props.fieldPct)}% of the field agrees`}
+			tierText={
+				props.pricing?.modelHitRate != null
+					? `${preview.tier.label} · ${Math.round(props.fieldPct)}% of the field · ${Math.round(props.pricing.modelHitRate * 100)}% expected`
+					: `${preview.tier.label} · ${Math.round(props.fieldPct)}% of the field agrees`
+			}
 			tierVal={`×${formatMult(preview.tier.mult)} boldness${earlyText} bonus`}
 			winText={`+${preview.win}`}
+			winNote={
+				preview.winMult > 1
+					? `×${formatMult(preview.winMult)} underdog`
+					: undefined
+			}
 			loseText={`−${preview.lose}`}
+			loseNote={
+				isFavorite ? `×${formatMult(props.lossRate)} favorite` : undefined
+			}
 		/>
 	)
 }
@@ -96,12 +114,16 @@ function PointsPreviewShell({
 	tierText,
 	tierVal,
 	winText,
+	winNote,
 	loseText,
+	loseNote,
 }: {
 	tierText: string
 	tierVal?: string
 	winText: string | null
+	winNote?: string
 	loseText: string | null
+	loseNote?: string
 }) {
 	return (
 		<VStack gap="2" alignItems="stretch">
@@ -140,15 +162,7 @@ function PointsPreviewShell({
 							padding: "2",
 						})}
 					>
-						<span
-							className={css({
-								fontFamily: "mono",
-								fontSize: "2xs",
-								color: "fg.subtle",
-							})}
-						>
-							IF RIGHT
-						</span>
+						<BoxLabel label="IF RIGHT" note={winNote} />
 						<span
 							className={css({
 								fontFamily: "mono",
@@ -170,15 +184,7 @@ function PointsPreviewShell({
 							padding: "2",
 						})}
 					>
-						<span
-							className={css({
-								fontFamily: "mono",
-								fontSize: "2xs",
-								color: "fg.subtle",
-							})}
-						>
-							IF WRONG
-						</span>
+						<BoxLabel label="IF WRONG" note={loseNote} />
 						<span
 							className={css({
 								fontFamily: "mono",
@@ -193,5 +199,33 @@ function PointsPreviewShell({
 				</HStack>
 			)}
 		</VStack>
+	)
+}
+
+// A box's label, with what moved its number off the plain rate beside it.
+function BoxLabel({ label, note }: { label: string; note?: string }) {
+	return (
+		<HStack justify="space-between" gap="2" width="full">
+			<span
+				className={css({
+					fontFamily: "mono",
+					fontSize: "2xs",
+					color: "fg.subtle",
+				})}
+			>
+				{label}
+			</span>
+			{note && (
+				<span
+					className={css({
+						fontFamily: "mono",
+						fontSize: "2xs",
+						color: "fg.muted",
+					})}
+				>
+					{note}
+				</span>
+			)}
+		</HStack>
 	)
 }

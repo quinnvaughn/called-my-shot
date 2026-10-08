@@ -204,8 +204,8 @@ export type SelectionToScore = {
 }
 
 // Scores every selection on an option-based question. `options` carry
-// isCorrect as persisted before this pass, and the side's own lossRate where
-// a priced line set one - the only record of whether a
+// isCorrect as persisted before this pass, and the side's own price (winMult,
+// lossRate, modelHitRate) where its sides were priced - the only record of whether a
 // selection was previously right, which an overturn needs to net it out.
 // totalCalls and countByOption are the whole field, unscored calls included:
 // they were real picks at lock, so they keep their share and their place in
@@ -218,6 +218,8 @@ export function scoreSelections(input: {
 		id: string
 		isCorrect: boolean | null
 		lossRate?: number | null
+		winMult?: number | null
+		modelHitRate?: number | null
 	}[]
 	correctOptionIds: string[]
 	totalCalls: number
@@ -235,6 +237,12 @@ export function scoreSelections(input: {
 } {
 	const wasCorrectByOptionId = new Map(
 		input.options.map((o) => [o.id, o.isCorrect]),
+	)
+	const pricingByOptionId = new Map(
+		input.options.map((o) => [
+			o.id,
+			{ winMult: o.winMult, modelHitRate: o.modelHitRate },
+		]),
 	)
 	const lossRateByOptionId = new Map(
 		input.options.map((o) => [
@@ -274,6 +282,7 @@ export function scoreSelections(input: {
 						s.conviction,
 						isCorrect,
 						earlyMultByCallId.get(s.call.id) ?? 1,
+						pricingByOptionId.get(s.optionId),
 					),
 					correct: isCorrect,
 				}

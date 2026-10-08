@@ -1,6 +1,6 @@
 import type { ReactNode } from "react"
 import { css } from "styled-system/css"
-import { HStack } from "styled-system/jsx"
+import { HStack, VStack } from "styled-system/jsx"
 import { pluralize } from "#/lib/pluralize"
 
 type Props = {
@@ -26,6 +26,10 @@ type Props = {
 	// scheme in the blue, for a read-only view of the field with nothing to
 	// act on (QuestionCard): orange is reserved for actions.
 	tone?: "pick" | "record" | "field"
+	// What picking this option would pay if right and cost if wrong, at
+	// whatever conviction the caller names alongside the list. Omitted where
+	// there's nothing left to pick.
+	points?: { win: number; lose: number } | null
 }
 
 const compactCount = new Intl.NumberFormat("en-US", { notation: "compact" })
@@ -44,6 +48,7 @@ export function OptionRow({
 	selected,
 	onClick,
 	tone = "pick",
+	points,
 }: Props) {
 	const isPick = tone === "pick"
 	const rowClassName = css({
@@ -97,9 +102,22 @@ export function OptionRow({
 			>
 				<HStack gap="2" alignItems="center" minWidth="0">
 					{image}
-					<span className={css({ fontSize: "sm", fontWeight: "medium" })}>
-						{label}
-					</span>
+					<VStack gap="0" alignItems="flex-start" minWidth="0">
+						<span className={css({ fontSize: "sm", fontWeight: "medium" })}>
+							{label}
+						</span>
+						{points && (
+							<span className={css({ fontFamily: "mono", fontSize: "2xs" })}>
+								<span className={css({ color: "success.default" })}>
+									+{points.win}
+								</span>
+								<span className={css({ color: "fg.subtle" })}> / </span>
+								<span className={css({ color: "danger.default" })}>
+									−{points.lose}
+								</span>
+							</span>
+						)}
+					</VStack>
 				</HStack>
 				<HStack gap="1.5" flexShrink="0">
 					<span

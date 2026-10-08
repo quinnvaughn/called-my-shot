@@ -178,21 +178,72 @@ export function selectionEarlyTier(
 
 // How many misses a hit outweighs on a question, whatever conviction or timing
 // the caller picks: conviction scales the win and the loss equally, and the
-// boldness and early multipliers only ever raise the win, so 1 / lossRate is
-// the floor. Read off the steepest rate any option carries (an over/under side
-// can be priced above the question's own rate), so it holds for every pick.
-// Floored so the number shown is never more than the real one. Null below 2x,
-// where a hit and a miss weigh about the same and there's nothing to point out.
+// boldness and early multipliers only ever raise the win, so a side's own win
+// multiplier over its loss rate is the floor. Read off the side where that's
+// smallest (a priced question's likely side pays 1x and costs more than the
+// question's own rate), so it holds for every pick. Floored so the number
+// shown is never more than the real one. Null below 2x, where a hit and a miss
+// weigh about the same and there's nothing to point out.
 export function hitMultiple(
 	questionRate: number,
-	optionRates: (number | null)[],
+	options: { lossRate: number | null; winMult?: number | null }[],
 ): number | null {
 	// A numeric guess has no options, so the question's rate is the only one.
-	const rate =
-		optionRates.length > 0
-			? Math.max(...optionRates.map((r) => effectiveLossRate(questionRate, r)))
-			: questionRate
-	if (rate <= 0) return null
-	const multiple = Math.floor(1 / rate)
+	const ratios =
+		options.length > 0
+			? options.map(
+					(o) =>
+						(o.winMult ?? 1) / effectiveLossRate(questionRate, o.lossRate),
+				)
+			: [1 / questionRate]
+	const ratio = Math.min(...ratios)
+	if (!Number.isFinite(ratio) || ratio <= 0) return null
+	const multiple = Math.floor(ratio)
 	return multiple >= 2 ? multiple : null
+}
+
+// Where every conviction slider starts, and so the conviction an option's
+// points are shown at before anyone has moved one.
+export const DEFAULT_CONVICTION = 50
+
+// What picking one option would pay if right and cost if wrong at
+// `conviction`, as if this call were already in (see previewFieldPct): the
+// numbers an option row shows before anything is picked, and the same ones
+// PointsPreview shows once it is. Season-long shapes take their early bonus
+// from games played so far, which exists before a call does; a game-scoped
+// one's is rank-based and always 1x for a call not yet made.
+export function optionPointsPreview(
+	question: {
+		shape: QuestionShape
+		isOfficial: boolean
+		lossRate: number
+		callCount: number
+		seasonGamesPlayed?: number | null
+		seasonTotalGames?: number | null
+	},
+	option: {
+		callCount: number
+		lossRate: number | null
+		winMult: number | null
+		modelHitRate: number | null
+	},
+	totalOptions: number,
+	conviction: number,
+): PointsPreview {
+	const { seasonGamesPlayed, seasonTotalGames } = question
+	const earlyTier =
+		isSeasonLongGqlShape(question.shape) &&
+		seasonGamesPlayed != null &&
+		seasonTotalGames != null
+			? seasonEarlyTierFor(seasonGamesPlayed, seasonTotalGames)
+			: undefined
+	return previewSelectionPoints(
+		basePointsForGql(question.shape, question.isOfficial),
+		effectiveLossRate(question.lossRate, option.lossRate),
+		previewFieldPct(option.callCount, question.callCount),
+		totalOptions,
+		conviction,
+		earlyTier,
+		option,
+	)
 }

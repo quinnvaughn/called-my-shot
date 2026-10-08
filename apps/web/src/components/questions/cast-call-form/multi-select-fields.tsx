@@ -1,5 +1,6 @@
 import {
 	basePointsFor,
+	effectiveLossRate,
 	isSeasonLongShape,
 	seasonEarlyTierFor,
 } from "@called-my-shot/scoring"
@@ -12,7 +13,7 @@ import { Card } from "#/components/ui/card"
 import { FieldLabel } from "#/components/ui/field-label"
 import { PlayerOrTeamImage } from "#/components/ui/player-or-team-image"
 import { Slider } from "#/components/ui/slider"
-import { previewFieldPct } from "#/lib/scoring"
+import { optionPointsPreview, previewFieldPct } from "#/lib/scoring"
 import { PointsPreview } from "../points-preview"
 import { CaseField } from "./case-field"
 import { OptionPickerList } from "./option-picker-list"
@@ -89,6 +90,18 @@ export function MultiSelectFields({ callForm }: Props) {
 							? removeMultiSelectPick(optionId)
 							: addMultiSelectPick(optionId)
 					}
+					pointsFor={(optionId) => {
+						const option = question.options.find((o) => o.id === optionId)
+						return option
+							? optionPointsPreview(
+									question,
+									option,
+									question.options.length,
+									sharedConviction,
+								)
+							: { win: 0, lose: 0 }
+					}}
+					pointsConviction={sharedConviction}
 				/>
 
 				<EntitySearchField
@@ -266,8 +279,12 @@ export function MultiSelectFields({ callForm }: Props) {
 													shape,
 													isOfficial: question.isOfficial,
 												})}
-												lossRate={question.lossRate}
+												lossRate={effectiveLossRate(
+													question.lossRate,
+													option.lossRate,
+												)}
 												earlyTier={earlyTier}
+												pricing={option}
 											/>
 										</VStack>
 									)

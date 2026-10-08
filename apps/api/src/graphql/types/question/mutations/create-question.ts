@@ -15,6 +15,7 @@ import {
 } from "../../../../lib/errors"
 import { bandSettingFor } from "../../../../lib/game-questions/band-settings"
 import { leaderLossRateFor } from "../../../../lib/game-questions/leader-settings"
+import { priceUserDuel } from "../../../../lib/game-questions/duel-pricing"
 import { priceUserLine } from "../../../../lib/game-questions/line-pricing"
 import { titleLossRateFor } from "../../../../lib/game-questions/title-settings"
 import { numericToleranceFor } from "../../../../lib/numeric-tolerance"
@@ -335,14 +336,39 @@ builder.mutationFields((t) => ({
 							seasonYear: gameRow.season.year,
 						})
 					: null
-			const options = optionsFor(data, shapeContext).map((option) =>
-				pricedLine && (option.label === "Over" || option.label === "Under")
+			// A head-to-head on one game is priced the same way, from both
+			// players' averages - see priceUserDuel.
+			const duelPlayerIds = (data.options ?? []).map((o) => o.playerId)
+			const [firstPlayerId, secondPlayerId] = duelPlayerIds
+			const pricedDuel =
+				data.shape === "player_vs_player" &&
+				stat &&
+				gameRow?.season &&
+				duelPlayerIds.length === 2 &&
+				firstPlayerId &&
+				secondPlayerId
+					? await priceUserDuel({
+							leagueId: data.leagueId,
+							statName: stat.name,
+							playerIds: [firstPlayerId, secondPlayerId],
+							game: gameRow,
+							seasonYear: gameRow.season.year,
+						})
+					: null
+			const pOver = pricedLine?.pricing.pOver
+			const options = optionsFor(data, shapeContext).map((option, index) =>
+				pricedLine &&
+				pOver !== undefined &&
+				(option.label === "Over" || option.label === "Under")
 					? {
 							...option,
-							lossRate:
-								option.label === "Over" ? pricedLine.over : pricedLine.under,
+							...(option.label === "Over" ? pricedLine.over : pricedLine.under),
+							modelHitRate:
+								option.label === "Over"
+									? pOver
+									: Math.round((1 - pOver) * 1000) / 1000,
 						}
-					: option,
+					: { ...option, ...pricedDuel?.[index] },
 			)
 
 			const question = await db.transaction(async (tx) => {

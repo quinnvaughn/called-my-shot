@@ -60,6 +60,10 @@ type Props = {
 	isSelected: (optionId: string) => boolean
 	onSelect: (optionId: string) => void
 	extraRow?: ReactNode
+	// Each row's win and miss at `pointsConviction`, so every side can be
+	// compared before one is picked. Omitted, rows show no points.
+	pointsFor?: (optionId: string) => { win: number; lose: number }
+	pointsConviction?: number
 }
 
 // The picker half of "how the field's calling it" - single-pick
@@ -77,6 +81,8 @@ export function OptionPickerList({
 	isSelected,
 	onSelect,
 	extraRow,
+	pointsFor,
+	pointsConviction,
 }: Props) {
 	const [visibleOptionCount, setVisibleOptionCount] =
 		useState(OPTIONS_PAGE_STEP)
@@ -114,6 +120,7 @@ export function OptionPickerList({
 						count={option.callCount}
 						selected={isSelected(option.id)}
 						onClick={() => onSelect(option.id)}
+						points={pointsFor?.(option.id)}
 					/>
 				))}
 				{extraRow}
@@ -140,6 +147,9 @@ export function OptionPickerList({
 				})}
 			>
 				{callersText(callCount)}
+				{pointsFor &&
+					pointsConviction !== undefined &&
+					` · points at ${pointsConviction}% conviction`}
 			</span>
 		</VStack>
 	)

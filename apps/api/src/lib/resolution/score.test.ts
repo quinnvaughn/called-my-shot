@@ -5,6 +5,7 @@ import {
 	LOSS_RATE_BY_SHAPE,
 	pointsAtStake,
 	selectionPoints,
+	tierFor,
 } from "@called-my-shot/scoring"
 import { describe, expect, it } from "vitest"
 import type { LeagueStatDelta } from "../user-season-stats"
@@ -210,6 +211,61 @@ describe("scoreSelections", () => {
 		})
 		// No side rate of its own, so the question's full rate.
 		expect(pointsOf(flipped, "b-under")).toBe(-Math.round(BASE * 0.5))
+	})
+
+	it("pays a priced underdog's win multiplier, measuring its rarity against its price", () => {
+		// The underdog's model chance is 25% and a quarter of the field took
+		// it, so being in the minority pays less than it would on an unpriced
+		// question: the side's bigger win already pays for that.
+		const selections = [
+			pick("a", "underdog", { createdAt: at(1) }),
+			pick("b", "favorite", { createdAt: at(2) }),
+			pick("c", "favorite", { createdAt: at(3) }),
+			pick("d", "favorite", { createdAt: at(4) }),
+		]
+		const result = scoreSelections({
+			shape: "player_vs_player",
+			isOfficial: true,
+			lossRate: 1,
+			options: [
+				{
+					id: "underdog",
+					isCorrect: null,
+					winMult: 1.84,
+					lossRate: 0.96,
+					modelHitRate: 0.25,
+				},
+				{
+					id: "favorite",
+					isCorrect: null,
+					winMult: 1,
+					lossRate: 1.8,
+					modelHitRate: 0.75,
+				},
+			],
+			correctOptionIds: ["underdog"],
+			totalCalls: 4,
+			countByOption: new Map([
+				["underdog", 1],
+				["favorite", 3],
+			]),
+			selections,
+			earliness: { by: "rank", totalCalls: 4 },
+		})
+		const base = BASE_POINTS_BY_SHAPE.player_vs_player
+		const early = earlyTierFor(1, 4).mult
+		const pricing = { winMult: 1.84, modelHitRate: 0.25 }
+		const priced = selectionPoints(base, 0.96, 25, 2, 100, true, early, pricing)
+		expect(pointsOf(result, "a-underdog")).toBe(priced)
+		expect(priced).toBe(
+			Math.round(
+				base * 1.84 * tierFor(25, 2, 0.25).mult * early,
+			),
+		)
+		expect(tierFor(25, 2, 0.25).mult).toBeLessThan(tierFor(25, 2).mult)
+		expect(pointsOf(result, "b-favorite")).toBe(
+			-pointsAtStake(base, 1.8, 100),
+		)
 	})
 
 	it("banks conviction behind a hit on both sums and a miss on the total only", () => {

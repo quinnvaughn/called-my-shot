@@ -2,6 +2,8 @@ import { LOSS_RATE_BY_SHAPE } from "@called-my-shot/scoring"
 import { eq } from "drizzle-orm"
 import { beforeEach, describe, expect, it } from "vitest"
 import { parseGenerationKey } from "../../lib/game-questions/generation-key"
+import { LINE_TUNING } from "../../lib/game-questions/line-calibration"
+import { LINE_FORMULA } from "../../lib/game-questions/lines"
 import { OFFICIAL_ACCOUNT_USERNAME } from "../../lib/official-account"
 import {
 	HOUR,
@@ -10,6 +12,7 @@ import {
 	makeGame,
 	makeLeague,
 	makePlayer,
+	makeQuestion,
 	makeSeason,
 	makeStat,
 	makeTeam,
@@ -26,6 +29,7 @@ import {
 	games,
 	type League,
 	type Question,
+	questionAutoResolutions,
 	type Team,
 } from "../schema"
 import type { EspnSeasonStatistics } from "./espn-client"
@@ -280,6 +284,41 @@ const duelPlayers = (questions: Awaited<ReturnType<typeof questionsOn>>) =>
 	questions
 		.find((question) => question.shape === "player_vs_player")
 		?.options.map((option) => option.label)
+
+// `count` resolved generated lines on an over/under template, landing evenly
+// from 0.8x to 1.2x their expectation - the spread a duel on the same stat is
+// priced from.
+async function resolvedLines(
+	leagueSlug: string,
+	template: GameQuestionTemplate,
+	count = LINE_TUNING.minSample,
+) {
+	for (let i = 0; i < count; i++) {
+		const ratio = count > 1 ? 0.8 + (0.4 * i) / (count - 1) : 1
+		const question = await makeQuestion({
+			shape: template.shape,
+			status: "resolved",
+			ouLine: 9.5,
+			generationKey: `${leagueSlug}:game-${crypto.randomUUID()}:${template.id}:subject`,
+			lineBasis: {
+				seasonMean: 10,
+				seasonGames: 20,
+				priorMean: null,
+				priorGames: 0,
+				priorWeight: 10,
+				blendedMean: 10,
+				expectedMean: 10,
+				opponent: null,
+				formula: LINE_FORMULA.teamOnly,
+				shade: 1,
+				line: 9.5,
+			},
+		})
+		await db
+			.insert(questionAutoResolutions)
+			.values({ questionId: question.id, evidence: { value: 10 * ratio } })
+	}
+}
 
 const markOut = (playerName: string) =>
 	db
@@ -940,6 +979,48 @@ describe("generateGameQuestions", () => {
 			expect(duelPlayers(await questionsOn(game.id))).toHaveLength(2)
 		})
 
+		it("prices each side off the strikeout over/under's resolved lines", async () => {
+			const game = await seedPitchers(
+				mlbPitchingSeason(5, 20),
+				mlbPitchingSeason(7, 20),
+			)
+			await resolvedLines("mlb", catalogTemplate("mlb", "starter-strikeouts"))
+
+			await run([STRIKEOUTS_DUEL], "mlb")
+
+			const duel = (await questionsOn(game.id)).find(
+				(q) => q.shape === "player_vs_player",
+			)
+			const [smith, messick] = duel?.options ?? []
+			expect(smith?.modelHitRate).toBeLessThan(0.5)
+			expect(smith?.winMult).toBeGreaterThan(1)
+			expect(messick?.winMult).toBe(1)
+			expect(messick?.lossRate).toBeGreaterThan(1)
+		})
+
+		it("leaves a duel unpriced until its over/under has enough resolved lines", async () => {
+			const game = await seedPitchers(
+				mlbPitchingSeason(5, 20),
+				mlbPitchingSeason(7, 20),
+			)
+			await resolvedLines(
+				"mlb",
+				catalogTemplate("mlb", "starter-strikeouts"),
+				LINE_TUNING.minSample - 1,
+			)
+
+			await run([STRIKEOUTS_DUEL], "mlb")
+
+			const duel = (await questionsOn(game.id)).find(
+				(q) => q.shape === "player_vs_player",
+			)
+			for (const option of duel?.options ?? []) {
+				expect(option.winMult).toBeNull()
+				expect(option.lossRate).toBeNull()
+				expect(option.modelHitRate).toBeNull()
+			}
+		})
+
 		it("isn't posted when one side's strikeouts are far behind", async () => {
 			const game = await seedPitchers(
 				mlbPitchingSeason(2.3, 20),
@@ -1001,6 +1082,99 @@ describe("generateGameQuestions", () => {
 })
 
 describe("syncGameQuestions", () => {
+	// An upcoming NBA game where each side has played `games` finals against a
+	// third team this season, scoring the same number each time.
+	async function seedWhoWins(awayScore: number, homeScore: number, games = 12) {
+		const seeded = await seedNbaGame(48)
+		const { league, away, home, game } = seeded
+		const other = await makeTeam({ leagueId: league.id, name: "Nets" })
+		for (const [team, score] of [
+			[away, awayScore],
+			[home, homeScore],
+		] as const) {
+			await addFinals(league, game.seasonId, team, other, score, games)
+		}
+		return seeded
+	}
+
+	async function addFinals(
+		league: League,
+		seasonId: string,
+		team: Team,
+		other: Team,
+		score: number,
+		count: number,
+	) {
+		for (let i = 0; i < count; i++) {
+			const atHome = i % 2 === 0
+			await makeGame({
+				leagueId: league.id,
+				seasonId,
+				homeTeamId: atHome ? team.id : other.id,
+				awayTeamId: atHome ? other.id : team.id,
+				status: "final",
+				startsAt: hoursFromNow(-24 * (i + 1)),
+				homeScore: atHome ? score : 100,
+				awayScore: atHome ? 100 : score,
+			})
+		}
+	}
+
+	const whoWinsSides = async (gameId: string) =>
+		(await questionsOn(gameId))
+			.find((q) => q.shape === "team_vs_team")
+			?.options.map(({ winMult, lossRate, modelHitRate }) => ({
+				winMult,
+				lossRate,
+				modelHitRate,
+			}))
+
+	it("prices each side of who-wins off both teams' scoring", async () => {
+		const { league, game } = await seedWhoWins(95, 115)
+		await resolvedLines("nba", TEAM_POINTS_LINE)
+
+		await syncGameQuestions(league, NOW, espn)
+
+		const [awaySide, homeSide] = (await whoWinsSides(game.id)) ?? []
+		expect(awaySide?.modelHitRate).toBeLessThan(0.5)
+		expect(awaySide?.winMult).toBeGreaterThan(1)
+		expect(homeSide?.lossRate).toBeGreaterThan(1)
+	})
+
+	it("prices who-wins on a later run once it can be", async () => {
+		const { league, game } = await seedWhoWins(95, 115)
+		await resolvedLines("nba", TEAM_POINTS_LINE, LINE_TUNING.minSample - 1)
+		await syncGameQuestions(league, NOW, espn)
+		expect(await whoWinsSides(game.id)).toEqual([
+			{ winMult: null, lossRate: null, modelHitRate: null },
+			{ winMult: null, lossRate: null, modelHitRate: null },
+		])
+
+		await resolvedLines("nba", TEAM_POINTS_LINE, 1)
+		await syncGameQuestions(league, NOW, espn)
+
+		const [awaySide] = (await whoWinsSides(game.id)) ?? []
+		expect(awaySide?.winMult).toBeGreaterThan(1)
+	})
+
+	it("keeps who-wins at the price it was called at", async () => {
+		const { league, away, game } = await seedWhoWins(95, 115)
+		await resolvedLines("nba", TEAM_POINTS_LINE)
+		await syncGameQuestions(league, NOW, espn)
+		const called = await whoWinsSides(game.id)
+		const whoWins = (await questionsOn(game.id)).find(
+			(q) => q.shape === "team_vs_team",
+		)
+		if (!whoWins) throw new Error("expected a who-wins question")
+		await makeCall(whoWins.id, (await makeUser()).id)
+
+		const other = await makeTeam({ leagueId: league.id, name: "Nets" })
+		await addFinals(league, game.seasonId, away, other, 140, 20)
+		await syncGameQuestions(league, NOW, espn)
+
+		expect(await whoWinsSides(game.id)).toEqual(called)
+	})
+
 	it("carries every generated question on a moved game to its new start", async () => {
 		const { league, game } = await seedStandardGame()
 		await run([TEAM_POINTS, POINTS_LINE, REBOUNDS_LEADER])
