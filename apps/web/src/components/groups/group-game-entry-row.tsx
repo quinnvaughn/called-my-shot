@@ -3,6 +3,7 @@ import { css } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
 import { RecordStat } from "#/components/questions/call-record-card"
 import { Identity } from "#/components/ui/identity"
+import { Tag } from "#/components/ui/tag"
 import { type FragmentType, graphql, useFragment } from "#/graphql/generated"
 import { formatRecord, formatSignedPoints } from "#/lib/ballot-entry"
 import { formatPayout } from "#/lib/call-summary"
@@ -24,6 +25,11 @@ export const GroupGameEntryRowFragment = graphql(`
 			winLow
 			winHigh
 			lose
+		}
+		presser {
+			id
+			isOpen
+			answeredCount
 		}
 	}
 `)
@@ -55,6 +61,15 @@ export function GroupGameEntryRow({
 	const user = toIdentity(entry.user)
 	const hasResults = entry.wins + entry.losses > 0 || entry.points !== 0
 	const payout = entry.openPayout ? formatPayout(entry.openPayout) : null
+	// Their presser on this game, once it's open: still taking questions, or
+	// how much of it they answered.
+	const presserLabel = !entry.presser
+		? null
+		: entry.presser.isOpen
+			? "Presser open"
+			: entry.presser.answeredCount > 0
+				? `Presser · ${entry.presser.answeredCount} answered`
+				: null
 
 	return (
 		<Link
@@ -84,6 +99,11 @@ export function GroupGameEntryRow({
 						avatarUrl={user.avatarUrl}
 						flair={user.flair}
 					/>
+					{presserLabel && (
+						<Tag variant="secondary" size="sm">
+							{presserLabel}
+						</Tag>
+					)}
 					<span className={metaClass}>
 						{entry.calledCount} {pluralize(entry.calledCount, "call")}
 						{entry.wins + entry.losses > 0 &&

@@ -15,6 +15,7 @@ const NAV_ITEMS = [
 	{ to: "/admin/ballots", label: "Ballots" },
 	{ to: "/admin/disputes", label: "Disputes" },
 	{ to: "/admin/reports", label: "Reports" },
+	{ to: "/admin/presser-reports", label: "Presser reports" },
 	{ to: "/admin/users", label: "Users" },
 	{ to: "/admin/groups", label: "Groups" },
 	{ to: "/admin/integrity", label: "Integrity" },

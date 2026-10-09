@@ -148,6 +148,9 @@ export const GroupDetailDocument = graphql(`
             ballots {
                 ...GroupBallotsStrip_groupBallot
             }
+            presserHighlights {
+                ...GroupPresserStrip_highlight
+            }
             links {
                 id
                 url

@@ -1,6 +1,7 @@
 import { questionTitleWithGame } from "@called-my-shot/schemas"
 import type { StreakFamily } from "@called-my-shot/scoring"
 import { sql } from "drizzle-orm"
+import { match } from "ts-pattern"
 import { notifications } from "../db/schema"
 import type { Tx } from "../db/types"
 
@@ -132,6 +133,27 @@ export type NotificationInput =
 			userId: string
 			gameId: string
 	  }
+	// To a presser's owner. One per presser: each later question marks it
+	// unread and moves it back to the top, and the count it shows is read
+	// live. The actor is whoever asked last.
+	| {
+			type: "presser_question_received"
+			userId: string
+			presserId: string
+			gameId: string
+			actorId: string
+			actorUsername: string
+	  }
+	// To the asker, when the owner answers their question, "No comment"
+	// included.
+	| {
+			type: "presser_answered"
+			userId: string
+			presserId: string
+			gameId: string
+			actorId: string
+			actorUsername: string
+	  }
 
 function toRow(input: NotificationInput) {
 	return {
@@ -157,8 +179,22 @@ function toRow(input: NotificationInput) {
 		achievementCount:
 			"achievementCount" in input ? input.achievementCount : null,
 		previousBest: "previousBest" in input ? input.previousBest : null,
-		dedupeKey: input.type === "game_resolved" ? input.gameId : null,
+		presserId: "presserId" in input ? input.presserId : null,
+		dedupeKey: dedupeKeyFor(input),
 	}
+}
+
+// The types updated in place rather than added again. Keys share one unique
+// index per recipient across every type, so each but game_resolved's (which
+// predates the rest) carries its type as a prefix.
+function dedupeKeyFor(input: NotificationInput): string | null {
+	return match(input)
+		.with({ type: "game_resolved" }, ({ gameId }) => gameId)
+		.with(
+			{ type: "presser_question_received" },
+			({ presserId }) => `presser:${presserId}`,
+		)
+		.otherwise(() => null)
 }
 
 // A notification is read on its own, with nothing else on screen naming the
@@ -219,10 +255,12 @@ export async function createNotifications(
 	// repeating a recipient's dedupe key keeps only its last.
 	const rows = [
 		...new Map(
-			titled.map(toRow).map((row, i) => [
-				row.dedupeKey === null ? i : `${row.userId}:${row.dedupeKey}`,
-				row,
-			]),
+			titled
+				.map(toRow)
+				.map((row, i) => [
+					row.dedupeKey === null ? i : `${row.userId}:${row.dedupeKey}`,
+					row,
+				]),
 		).values(),
 	]
 	// Rows without a dedupe key never conflict: nulls are distinct.

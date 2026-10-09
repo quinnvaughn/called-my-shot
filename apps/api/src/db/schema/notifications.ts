@@ -12,6 +12,7 @@ import {
 import { calls } from "./calls"
 import { games } from "./games"
 import { groups } from "./groups"
+import { pressers } from "./pressers"
 import { resolutionDisputes } from "./question-moderation"
 import { questions } from "./questions"
 import { leagues } from "./sports"
@@ -37,6 +38,8 @@ export const notificationType = pgEnum("notification_type", [
 	"fade_gloated",
 	"group_pins_expired",
 	"game_resolved",
+	"presser_question_received",
+	"presser_answered",
 ])
 
 // One row per (recipient, thing that happened) - see hook points in
@@ -78,6 +81,11 @@ export const notifications = pgTable(
 		callId: uuid("call_id").references(() => calls.id, {
 			onDelete: "set null",
 		}),
+		// presser_question_received: the recipient's own presser.
+		// presser_answered: the presser whose owner answered the recipient.
+		presserId: uuid("presser_id").references(() => pressers.id, {
+			onDelete: "cascade",
+		}),
 		questionTitle: text("question_title"),
 		groupName: text("group_name"),
 		actorUsername: text("actor_username"),
@@ -98,7 +106,8 @@ export const notifications = pgTable(
 		// streak_personal_best only - the best it beat.
 		previousBest: integer("previous_best"),
 		// Set only on a type that's updated in place instead of added again:
-		// game_resolved, one per recipient and game (see createNotifications).
+		// game_resolved, one per recipient and game, and
+		// presser_question_received, one per presser (see dedupeKeyFor).
 		// Null everywhere else, and nulls never collide on the unique index.
 		dedupeKey: text("dedupe_key"),
 		readAt: timestamp("read_at"),

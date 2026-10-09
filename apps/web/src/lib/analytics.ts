@@ -2,6 +2,7 @@ import { isSeasonLongShape } from "@called-my-shot/scoring"
 import posthog from "posthog-js"
 import type { AuthModalSurface } from "#/components/auth/auth-modal"
 import type { QuestionCallShape } from "#/components/questions/cast-call-form/use-cast-call-form"
+import type { PresserAskStatus } from "#/graphql/generated/graphql"
 import type { ShareLanding } from "#/lib/share-links"
 import type { ViewerStatus } from "#/lib/viewer-status"
 
@@ -265,6 +266,28 @@ type AnalyticsEvents = {
 	// click at 3 (someone topping up) are different acts and would otherwise
 	// be indistinguishable.
 	redo_invite_clicked: { questionId: string; balance: number }
+
+	// The post-game presser's section rendering on a picks page, once per
+	// presser per visit. viaGroup is a visit that came from a group's page or
+	// board (the ?group= the breadcrumb reads). askStatus is what the viewer
+	// was offered, so "saw it, couldn't ask" is separable from "saw it, chose
+	// not to". Joins the server's presser_* events on presserId.
+	presser_viewed: {
+		presserId: string
+		isOwner: boolean
+		askStatus: PresserAskStatus
+		viaGroup: boolean
+	}
+	// A card in the group page's "From the pressers" strip. The strip's whole
+	// job is bringing people back to the group after games, so this against
+	// group page views is its measure.
+	group_presser_strip_clicked: {
+		groupId: string
+		presserId: string
+		ownerIsViewer: boolean
+	}
+	// "Read the full presser" under a call's record card.
+	presser_excerpt_clicked: { presserId: string; callId: string }
 }
 
 const POSTHOG_KEY = import.meta.env.VITE_PUBLIC_POSTHOG_KEY as

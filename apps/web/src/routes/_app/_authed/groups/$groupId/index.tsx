@@ -31,6 +31,7 @@ import {
 } from "#/components/groups/group-leaderboard"
 import { GroupMembersSheet } from "#/components/groups/group-members-sheet"
 import { GroupPinnedStrip } from "#/components/groups/group-pinned-strip"
+import { GroupPresserStrip } from "#/components/groups/group-presser-strip"
 import { InviteCodeModal } from "#/components/groups/invite-code-modal"
 import {
 	SharedQuestionsTab,
@@ -323,6 +324,11 @@ function RouteComponent() {
 				viewerIsAdmin={group.viewerIsAdmin}
 			/>
 			<GroupGamesStrip groupId={group.id} />
+			<GroupPresserStrip
+				groupId={group.id}
+				viewerId={me?.id ?? null}
+				highlights={group.presserHighlights}
+			/>
 			<GroupBallotsStrip
 				groupId={group.id}
 				ballots={group.ballots}

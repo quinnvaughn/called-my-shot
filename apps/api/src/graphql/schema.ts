@@ -16,6 +16,7 @@ import "./types/notification"
 import "./types/referral"
 import "./types/support"
 import "./types/call-gif"
+import "./types/presser"
 
 builder.queryType({})
 

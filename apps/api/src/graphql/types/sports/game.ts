@@ -42,9 +42,13 @@ const GameEntrySplitRef = builder
 	})
 
 export const GameEntryRef = builder
-	.objectRef<GameEntry & { user: User; verdict: GameEntryVerdictValue | null }>(
-		"GameEntry",
-	)
+	.objectRef<
+		GameEntry & {
+			gameId: string
+			user: User
+			verdict: GameEntryVerdictValue | null
+		}
+	>("GameEntry")
 	.implement({
 		fields: (t) => ({
 			user: t.field({ type: UserRef, resolve: (e) => e.user }),
@@ -256,6 +260,7 @@ export const GameRef = builder.drizzleObject("games", {
 				if (!entry) return null
 				return {
 					...entry,
+					gameId: game.id,
 					user,
 					verdict: gameEntryVerdict(entry.official, game.status),
 				}

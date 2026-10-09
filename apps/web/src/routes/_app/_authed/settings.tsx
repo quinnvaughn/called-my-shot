@@ -2,6 +2,7 @@ import { useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
 import { css } from "styled-system/css"
 import { VStack } from "styled-system/jsx"
+import { BlockedUsersSection } from "#/components/settings/blocked-users-section"
 import { DangerZone } from "#/components/settings/danger-zone"
 import { EmailNotificationsSection } from "#/components/settings/email-notifications-section"
 import { EmailSection } from "#/components/settings/email-section"
@@ -85,6 +86,10 @@ function RouteComponent() {
 			<VStack alignItems="stretch" gap="3">
 				{sectionLabel("Password")}
 				<PasswordSection hasPassword={me.hasPassword ?? true} />
+			</VStack>
+			<VStack alignItems="stretch" gap="3">
+				{sectionLabel("Blocked")}
+				<BlockedUsersSection />
 			</VStack>
 			<VStack alignItems="stretch" gap="3">
 				{sectionLabel("Danger zone")}

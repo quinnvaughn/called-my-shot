@@ -28,6 +28,7 @@ import {
 	ENQUEUE_SEASON_START_LOCK,
 	GENERATE_GAME_QUESTIONS_LOCK,
 	LOCK_OVERDUE_QUESTIONS_LOCK,
+	OPEN_PRESSERS_LOCK,
 	RECOMPUTE_ACHIEVEMENTS_LOCK,
 	RECONCILE_ACHIEVEMENTS_LOCK,
 	SYNC_GAME_STARTERS_LOCK,
@@ -41,6 +42,7 @@ import {
 	withJobLock,
 } from "./lib/job-lock"
 import { markPending, takePending } from "./lib/pending-work"
+import { drainPresserOpens } from "./lib/pressers/drain"
 import {
 	drainSeasonStartEmails,
 	enqueueSeasonStartEmails,
@@ -69,10 +71,18 @@ function runJob(name: string, fn: () => Promise<unknown>) {
 	}
 }
 
-const drainAchievements = runJob(
+const drainAchievementsJob = runJob(
 	RECOMPUTE_ACHIEVEMENTS_LOCK,
 	drainAchievementRecomputes,
 )
+const drainPressersJob = runJob(OPEN_PRESSERS_LOCK, drainPresserOpens)
+
+// What a settle leaves behind, in order: pressers after streaks, so the app's
+// presser questions read the streak a hit just extended.
+const drainAchievements = async () => {
+	await drainAchievementsJob()
+	await drainPressersJob()
+}
 
 export type ScheduledJob = {
 	// The cron task's name, and the lease name for a job that is one step.
@@ -150,7 +160,7 @@ export const JOBS: ScheduledJob[] = [
 		cron: "*/5 * * * *",
 		when: inGameWindow,
 		chains:
-			"auto-resolve-games, recompute-achievements and sync-box-scores when a game went final, then sync-live-readings",
+			"auto-resolve-games, recompute-achievements, open-pressers and sync-box-scores when a game went final, then sync-live-readings",
 		run: async () => {
 			await syncLiveScoresTick()
 			await refreshWorkCalendar()
@@ -189,7 +199,7 @@ export const JOBS: ScheduledJob[] = [
 		when: (now) =>
 			inGameWindow(now) ||
 			(now.getUTCMinutes() < 10 && workCalendar.isAutoResolveDue(now)),
-		chains: "recompute-achievements",
+		chains: "recompute-achievements, open-pressers",
 		run: async () => {
 			await autoResolveGamesTick()
 			await refreshWorkCalendar()
@@ -271,6 +281,7 @@ export const JOBS: ScheduledJob[] = [
 			TUNE_TITLE_LOSSES_LOCK,
 			RECONCILE_ACHIEVEMENTS_LOCK,
 			RECOMPUTE_ACHIEVEMENTS_LOCK,
+			OPEN_PRESSERS_LOCK,
 			LOCK_OVERDUE_QUESTIONS_LOCK,
 			SYNC_GAME_STARTERS_LOCK,
 			GENERATE_GAME_QUESTIONS_LOCK,

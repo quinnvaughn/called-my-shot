@@ -47,6 +47,26 @@ export const CallRecordDocument = graphql(`
 				}
 			}
 			viewerCanRedo
+			# The caller's presser on this call's game, for the excerpt under the
+			# record card.
+			presser {
+				id
+				statement
+				answeredCount
+				owner {
+					id
+					username
+				}
+				game {
+					id
+				}
+			}
+			presserQuestions {
+				id
+				body
+				answer
+				noComment
+			}
 			fadeOffer {
 				mode
 				option {

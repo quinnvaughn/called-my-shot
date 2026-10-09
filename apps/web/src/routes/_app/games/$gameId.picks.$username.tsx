@@ -7,6 +7,7 @@ import { BallotEntrySummaryCard } from "#/components/ballots/ballot-entry-summar
 import { EntryCallList } from "#/components/ballots/entry-call-list"
 import { GameMatchupHeader } from "#/components/games/game-matchup-header"
 import { buildGameTweet, GameShareRow } from "#/components/games/game-share-row"
+import { PresserSection } from "#/components/pressers/presser-section"
 import { Breadcrumb } from "#/components/ui/breadcrumb"
 import { NotFound } from "#/components/ui/not-found"
 import { PageHeader } from "#/components/ui/page-header"
@@ -244,6 +245,13 @@ function RouteComponent() {
 					</>
 				}
 			/>
+			{entry.presser && (
+				<PresserSection
+					presser={entry.presser}
+					viewerId={me?.id ?? null}
+					viaGroup={groupId !== undefined}
+				/>
+			)}
 			<EntryCallList
 				rows={called.flatMap((row) =>
 					row.call

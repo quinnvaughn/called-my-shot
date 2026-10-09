@@ -679,6 +679,10 @@ export const relations = defineRelations(schema, (r) => ({
 			from: r.notifications.callId,
 			to: r.calls.id,
 		}),
+		presser: r.one.pressers({
+			from: r.notifications.presserId,
+			to: r.pressers.id,
+		}),
 	},
 	achievementNotices: {
 		user: r.one.users({
@@ -704,6 +708,45 @@ export const relations = defineRelations(schema, (r) => ({
 		call: r.one.calls({
 			from: r.callStreakPositions.callId,
 			to: r.calls.id,
+		}),
+	},
+	pressers: {
+		user: r.one.users({
+			from: r.pressers.userId,
+			to: r.users.id,
+		}),
+		game: r.one.games({
+			from: r.pressers.gameId,
+			to: r.games.id,
+		}),
+		questions: r.many.presserQuestions(),
+	},
+	presserQuestions: {
+		presser: r.one.pressers({
+			from: r.presserQuestions.presserId,
+			to: r.pressers.id,
+		}),
+		asker: r.one.users({
+			from: r.presserQuestions.askerId,
+			to: r.users.id,
+		}),
+		call: r.one.calls({
+			from: r.presserQuestions.callId,
+			to: r.calls.id,
+		}),
+	},
+	presserReports: {
+		reporter: r.one.users({
+			from: r.presserReports.reporterId,
+			to: r.users.id,
+		}),
+		presser: r.one.pressers({
+			from: r.presserReports.presserId,
+			to: r.pressers.id,
+		}),
+		question: r.one.presserQuestions({
+			from: r.presserReports.presserQuestionId,
+			to: r.presserQuestions.id,
 		}),
 	},
 	userSweeps: {

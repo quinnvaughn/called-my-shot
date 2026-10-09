@@ -10,7 +10,7 @@ import {
 import type { Tx } from "../db/types"
 import { createNotifications } from "./notifications"
 import { type ResolvedBy, reverseQuestionLeagueStats } from "./resolve-question"
-import { markAchievementsDirty } from "./streaks/enqueue"
+import { markSettleFollowups } from "./settle-followups"
 
 // Settles a question with no result instead of deleting it: every call stays
 // visible but stops counting toward points, accuracy and call count, and the
@@ -71,7 +71,7 @@ export async function markQuestionVoided(
 				questionTitle: question.title,
 			})),
 		)
-		await markAchievementsDirty(tx, question)
+		await markSettleFollowups(tx, question)
 	}
 
 	const { voidedBy } = input

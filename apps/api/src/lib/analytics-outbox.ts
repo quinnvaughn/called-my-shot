@@ -78,6 +78,58 @@ type ServerAnalyticsEvents = {
 		convictionDelta: number
 		balanceAfter: number
 	}
+
+	// The post-game presser. Each is on the user who did the thing: the
+	// owner for opened, answered and statement; the asker for asked. presserId
+	// joins them, and joins the browser's presser_viewed.
+
+	// Every presser that opens, engaged with or not - the denominator.
+	// ownerInAGroup splits owners whose questions can come from friends from
+	// owners who only ever hear from strangers and the app.
+	presser_opened: {
+		presserId: string
+		gameId: string
+		leagueId: string
+		callCount: number
+		ownerInAGroup: boolean
+	}
+	presser_question_asked: {
+		presserId: string
+		gameId: string
+		source: "group" | "game_caller"
+		askerFadedOwner: boolean
+	}
+	// minutesToAnswer runs from when the question was asked (or, for the
+	// app's own questions, written on the owner's first look).
+	presser_question_answered: {
+		presserId: string
+		source: "app" | "group" | "game_caller"
+		noComment: boolean
+		minutesToAnswer: number
+	}
+	presser_statement_posted: {
+		presserId: string
+		minutesSinceOpen: number
+	}
+	// Text the moderation check turned away. Never carries the text itself:
+	// this is for spotting a filter that's too eager, not for reading what
+	// was said.
+	presser_text_blocked: {
+		field: "statement" | "question" | "answer"
+		category: "hate" | "threat" | "sexual" | "personal_info" | "harassment"
+		strictness: "standard" | "strict"
+	}
+	presser_content_reported: {
+		presserId: string
+		target: "question" | "answer" | "statement"
+		reason: string
+	}
+	// On the blocker. withdrawnQuestions is how many pending questions from
+	// the blocked user the block cleared off the blocker's open pressers.
+	user_blocked: {
+		blockedUserId: string
+		withdrawnQuestions: number
+	}
 }
 
 export type ServerAnalyticsEvent = {

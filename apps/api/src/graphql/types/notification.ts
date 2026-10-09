@@ -11,6 +11,8 @@ import { builder } from "../builder"
 import type { Context } from "../context"
 import { indexByKey } from "../loader"
 import { type Connection, PageInfoRef } from "./pagination"
+import { PresserRef } from "./presser"
+import { presserByUserGameLoader, presserKey } from "./presser/loaders"
 import { CallRef } from "./question/call"
 import { GloatMessageEnum } from "./question/fade"
 import {
@@ -47,6 +49,8 @@ const GQL_TYPE_BY_ROW_TYPE: Record<NotificationRow["type"], string> = {
 	fade_gloated: "FadeGloatedNotification",
 	group_pins_expired: "GroupPinsExpiredNotification",
 	game_resolved: "GameResolvedNotification",
+	presser_question_received: "PresserQuestionReceivedNotification",
+	presser_answered: "PresserAnsweredNotification",
 }
 
 // The sentence the row is told in, shared with the results email's
@@ -480,10 +484,22 @@ builder.drizzleObject("notifications", {
 				if (!game || !user || !entry) return null
 				return {
 					...entry,
+					gameId: game.id,
 					user,
 					verdict: gameEntryVerdict(entry.official, game.status),
 				}
 			},
+		}),
+		// The recipient's presser on the game, once it's open.
+		presser: t.field({
+			type: PresserRef,
+			nullable: true,
+			resolve: (row, _args, ctx) =>
+				row.gameId
+					? presserByUserGameLoader(ctx).load(
+							presserKey(row.userId, row.gameId),
+						)
+					: null,
 		}),
 		// The settled calls on the game a fade touched, in the game's question
 		// order. Each one's call page is where its gloat is sent from.
@@ -511,6 +527,48 @@ builder.drizzleObject("notifications", {
 					return fade ? [{ ...s, fade }] : []
 				})
 			},
+		}),
+	}),
+})
+
+// Someone asked a question at your presser - see askPresserQuestion. One per
+// presser, marked unread again by each later question; actor is whoever
+// asked last, and the waiting count is read live off the presser.
+builder.drizzleObject("notifications", {
+	variant: "PresserQuestionReceivedNotification",
+	interfaces: [NotificationNode],
+	fields: (t) => ({
+		actor: t.relation("actor", { nullable: true }),
+		actorUsername: t.exposeString("actorUsername", { nullable: true }),
+		presser: t.field({
+			type: PresserRef,
+			nullable: true,
+			resolve: (row) =>
+				row.presserId
+					? db.query.pressers
+							.findFirst({ where: { id: row.presserId } })
+							.then((presser) => presser ?? null)
+					: null,
+		}),
+	}),
+})
+
+// The owner of a presser answered your question - see answerPresserQuestion.
+builder.drizzleObject("notifications", {
+	variant: "PresserAnsweredNotification",
+	interfaces: [NotificationNode],
+	fields: (t) => ({
+		actor: t.relation("actor", { nullable: true }),
+		actorUsername: t.exposeString("actorUsername", { nullable: true }),
+		presser: t.field({
+			type: PresserRef,
+			nullable: true,
+			resolve: (row) =>
+				row.presserId
+					? db.query.pressers
+							.findFirst({ where: { id: row.presserId } })
+							.then((presser) => presser ?? null)
+					: null,
 		}),
 	}),
 })

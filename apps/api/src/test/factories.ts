@@ -14,6 +14,8 @@ import {
 	leagues,
 	type Player,
 	players,
+	presserQuestions,
+	pressers,
 	type Question,
 	questionOptions,
 	questions,
@@ -462,6 +464,42 @@ export function makeRedoGrant(
 		db
 			.insert(redoGrants)
 			.values({ source: "admin" as const, ...overrides, userId })
+			.returning(),
+	)
+}
+
+// An open presser unless the overrides say otherwise.
+export function makePresser(
+	overrides: Pick<typeof pressers.$inferInsert, "userId" | "gameId"> &
+		Partial<typeof pressers.$inferInsert>,
+) {
+	return insertOne(
+		db
+			.insert(pressers)
+			.values({
+				openedAt: pastDate(1),
+				closesAt: futureDate(47),
+				...overrides,
+			})
+			.returning(),
+	)
+}
+
+// A pending question from a groupmate unless the overrides say otherwise.
+export function makePresserQuestion(
+	presserId: string,
+	overrides: Partial<typeof presserQuestions.$inferInsert> = {},
+) {
+	return insertOne(
+		db
+			.insert(presserQuestions)
+			.values({
+				source: "group" as const,
+				body: `Question ${uniq()}`,
+				sortRank: 1,
+				...overrides,
+				presserId,
+			})
 			.returning(),
 	)
 }

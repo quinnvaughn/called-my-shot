@@ -27,7 +27,7 @@ import {
 	scoreSelections,
 	type UnscoredOverrides,
 } from "./resolution/score"
-import { markAchievementsDirty } from "./streaks/enqueue"
+import { markSettleFollowups } from "./settle-followups"
 import {
 	addLeagueStatDelta,
 	applySeasonStatDeltas,
@@ -183,7 +183,7 @@ export async function resolveQuestionInternal(
 		),
 	)
 
-	if (!opts.holdNotices) await markAchievementsDirty(tx, question)
+	if (!opts.holdNotices) await markSettleFollowups(tx, question)
 
 	const [updated] = await tx
 		.update(questions)
@@ -264,7 +264,7 @@ export async function announceHeldSettle(
 			})),
 		)
 	}
-	await markAchievementsDirty(tx, question)
+	await markSettleFollowups(tx, question)
 }
 
 // Scores a numeric-guess question's calls and writes each result onto its

@@ -28,6 +28,11 @@ export const GameResolvedRowFragment = graphql(`
 				username
 			}
 		}
+		presser {
+			id
+			isOpen
+			pendingCount
+		}
 		fades {
 			questionTitle
 			call {
@@ -73,6 +78,13 @@ export function GameResolvedRow({
 					params: { gameId: game.id, username: entry.user.username },
 				}
 			: null
+	// Once their presser on the game opens, and until it closes.
+	const pendingCount = n.presser?.pendingCount ?? 0
+	const presserLine = n.presser?.isOpen
+		? pendingCount > 0
+			? `Your presser is open. ${pendingCount} ${pendingCount === 1 ? "question" : "questions"} waiting.`
+			: "Your presser is open."
+		: null
 	const fadeLines = n.fades.flatMap((f) => {
 		const line = resolvedFadeLine(f.fade)
 		return line ? [{ callId: f.call.id, title: f.questionTitle, line }] : []
@@ -88,8 +100,23 @@ export function GameResolvedRow({
 			onOpen={onOpen}
 			trailing={entry ? <PointsPill points={entry.points} /> : null}
 			footer={
-				fadeLines.length > 0 && (
+				(fadeLines.length > 0 || presserLine) && (
 					<VStack gap="1.5" alignItems="stretch">
+						{presserLine && game && entry && (
+							<Link
+								to="/games/$gameId/picks/$username"
+								params={{ gameId: game.id, username: entry.user.username }}
+								hash="presser"
+								className={css({
+									fontSize: "sm",
+									color: "secondary.default",
+									textDecoration: "none",
+									_hover: { opacity: 0.8 },
+								})}
+							>
+								{presserLine}
+							</Link>
+						)}
 						{fadeLines.map((f) => (
 							<Link
 								key={f.callId}
@@ -102,9 +129,7 @@ export function GameResolvedRow({
 									_hover: { color: "fg.default" },
 								})}
 							>
-								<span className={css({ color: "fg.default" })}>
-									{f.title}:
-								</span>{" "}
+								<span className={css({ color: "fg.default" })}>{f.title}:</span>{" "}
 								{f.line}
 							</Link>
 						))}

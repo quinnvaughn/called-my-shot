@@ -17,6 +17,7 @@ import { memberUserIds, trackedLeagueIds } from "./leaderboard"
 import { GroupRef } from "./refs"
 
 type BoardEntry = Omit<GroupGameEntry, "openCalls"> & {
+	gameId: string
 	user: User
 	openCount: number
 	openPayout: CallPayout | null
@@ -24,7 +25,7 @@ type BoardEntry = Omit<GroupGameEntry, "openCalls"> & {
 
 // One member's row on the group game board. Links to their full picks on the
 // game; this is only the summary.
-const GroupGameEntryRef = builder
+export const GroupGameEntryRef = builder
 	.objectRef<BoardEntry>("GroupGameEntry")
 	.implement({
 		fields: (t) => ({
@@ -128,6 +129,7 @@ builder.objectFields(GroupRef, (t) => ({
 					return [
 						{
 							...entry,
+							gameId: game.id,
 							user,
 							openCount: openCalls.length,
 							openPayout: payouts[i] ?? null,

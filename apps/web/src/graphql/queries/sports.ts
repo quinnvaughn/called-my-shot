@@ -346,6 +346,9 @@ export const GameEntryDocument = graphql(`
 				losses
 				points
 				verdict
+				presser {
+					...PresserSection_presser
+				}
 				official {
 					wins
 					losses

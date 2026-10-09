@@ -38,6 +38,8 @@ export const NotificationsPageDocument = graphql(`
 						...RedoEarnedRow_notification
 						...CallFadedRow_notification
 						...FadeGloatedRow_notification
+						...PresserQuestionRow_notification
+						...PresserAnsweredRow_notification
 					}
 					pageInfo {
 						hasNextPage

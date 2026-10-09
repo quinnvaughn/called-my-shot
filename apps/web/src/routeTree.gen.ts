@@ -30,6 +30,7 @@ import { Route as AdminGroupsRouteImport } from './routes/admin/groups'
 import { Route as AdminIntegrityRouteImport } from './routes/admin/integrity'
 import { Route as AdminLeadersRouteImport } from './routes/admin/leaders'
 import { Route as AdminLinesRouteImport } from './routes/admin/lines'
+import { Route as AdminPresserReportsRouteImport } from './routes/admin/presser-reports'
 import { Route as AdminQuestionsRouteImport } from './routes/admin/questions'
 import { Route as AdminQueueRouteImport } from './routes/admin/queue'
 import { Route as AdminReportsRouteImport } from './routes/admin/reports'
@@ -190,6 +191,11 @@ const AdminLeadersRoute = AdminLeadersRouteImport.update({
 const AdminLinesRoute = AdminLinesRouteImport.update({
   id: '/lines',
   path: '/lines',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminPresserReportsRoute = AdminPresserReportsRouteImport.update({
+  id: '/presser-reports',
+  path: '/presser-reports',
   getParentRoute: () => AdminRoute,
 } as any)
 const AdminQuestionsRoute = AdminQuestionsRouteImport.update({
@@ -526,6 +532,7 @@ export interface FileRoutesByFullPath {
   '/admin/integrity': typeof AdminIntegrityRoute
   '/admin/leaders': typeof AdminLeadersRoute
   '/admin/lines': typeof AdminLinesRoute
+  '/admin/presser-reports': typeof AdminPresserReportsRoute
   '/admin/questions': typeof AdminQuestionsRoute
   '/admin/queue': typeof AdminQueueRoute
   '/admin/reports': typeof AdminReportsRoute
@@ -604,6 +611,7 @@ export interface FileRoutesByTo {
   '/admin/integrity': typeof AdminIntegrityRoute
   '/admin/leaders': typeof AdminLeadersRoute
   '/admin/lines': typeof AdminLinesRoute
+  '/admin/presser-reports': typeof AdminPresserReportsRoute
   '/admin/questions': typeof AdminQuestionsRoute
   '/admin/queue': typeof AdminQueueRoute
   '/admin/reports': typeof AdminReportsRoute
@@ -684,6 +692,7 @@ export interface FileRoutesById {
   '/admin/integrity': typeof AdminIntegrityRoute
   '/admin/leaders': typeof AdminLeadersRoute
   '/admin/lines': typeof AdminLinesRoute
+  '/admin/presser-reports': typeof AdminPresserReportsRoute
   '/admin/questions': typeof AdminQuestionsRoute
   '/admin/queue': typeof AdminQueueRoute
   '/admin/reports': typeof AdminReportsRoute
@@ -765,6 +774,7 @@ export interface FileRouteTypes {
     | '/admin/integrity'
     | '/admin/leaders'
     | '/admin/lines'
+    | '/admin/presser-reports'
     | '/admin/questions'
     | '/admin/queue'
     | '/admin/reports'
@@ -843,6 +853,7 @@ export interface FileRouteTypes {
     | '/admin/integrity'
     | '/admin/leaders'
     | '/admin/lines'
+    | '/admin/presser-reports'
     | '/admin/questions'
     | '/admin/queue'
     | '/admin/reports'
@@ -922,6 +933,7 @@ export interface FileRouteTypes {
     | '/admin/integrity'
     | '/admin/leaders'
     | '/admin/lines'
+    | '/admin/presser-reports'
     | '/admin/questions'
     | '/admin/queue'
     | '/admin/reports'
@@ -1154,6 +1166,13 @@ declare module '@tanstack/react-router' {
       path: '/lines'
       fullPath: '/admin/lines'
       preLoaderRoute: typeof AdminLinesRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/presser-reports': {
+      id: '/admin/presser-reports'
+      path: '/presser-reports'
+      fullPath: '/admin/presser-reports'
+      preLoaderRoute: typeof AdminPresserReportsRouteImport
       parentRoute: typeof AdminRoute
     }
     '/admin/questions': {
@@ -1697,6 +1716,7 @@ interface AdminRouteChildren {
   AdminIntegrityRoute: typeof AdminIntegrityRoute
   AdminLeadersRoute: typeof AdminLeadersRoute
   AdminLinesRoute: typeof AdminLinesRoute
+  AdminPresserReportsRoute: typeof AdminPresserReportsRoute
   AdminQuestionsRoute: typeof AdminQuestionsRoute
   AdminQueueRoute: typeof AdminQueueRoute
   AdminReportsRoute: typeof AdminReportsRoute
@@ -1717,6 +1737,7 @@ const AdminRouteChildren: AdminRouteChildren = {
   AdminIntegrityRoute: AdminIntegrityRoute,
   AdminLeadersRoute: AdminLeadersRoute,
   AdminLinesRoute: AdminLinesRoute,
+  AdminPresserReportsRoute: AdminPresserReportsRoute,
   AdminQuestionsRoute: AdminQuestionsRoute,
   AdminQueueRoute: AdminQueueRoute,
   AdminReportsRoute: AdminReportsRoute,

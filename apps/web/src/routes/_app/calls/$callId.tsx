@@ -5,6 +5,7 @@ import { css } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
 import { match } from "ts-pattern"
 import { GameMatchupHeader } from "#/components/games/game-matchup-header"
+import { CallPresserExcerpt } from "#/components/pressers/call-presser-excerpt"
 import {
 	CallRecordCard,
 	type CallRecordCardData,
@@ -451,6 +452,14 @@ function RouteComponent() {
 					</HStack>
 				}
 			/>
+
+			{call.presser && (
+				<CallPresserExcerpt
+					callId={call.id}
+					presser={call.presser}
+					questions={call.presserQuestions}
+				/>
+			)}
 
 			{!me && (
 				<CallSignupCta

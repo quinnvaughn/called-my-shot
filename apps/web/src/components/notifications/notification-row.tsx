@@ -11,6 +11,8 @@ import { GameReminderRow } from "./rows/game-reminder-row"
 import { GameResolvedRow } from "./rows/game-resolved-row"
 import { GroupMemberJoinedRow } from "./rows/group-member-joined-row"
 import { GroupPinsExpiredRow } from "./rows/group-pins-expired-row"
+import { PresserAnsweredRow } from "./rows/presser-answered-row"
+import { PresserQuestionRow } from "./rows/presser-question-row"
 import { QuestionSharedToGroupRow } from "./rows/question-shared-to-group-row"
 import { QuestionVoidedRow } from "./rows/question-voided-row"
 import { RedoEarnedRow } from "./rows/redo-earned-row"
@@ -96,6 +98,12 @@ export function NotificationRow({ notification, unread, onOpen }: Props) {
 		))
 		.with({ __typename: "GroupPinsExpiredNotification" }, (n) => (
 			<GroupPinsExpiredRow notification={n} unread={unread} onOpen={onOpen} />
+		))
+		.with({ __typename: "PresserQuestionReceivedNotification" }, (n) => (
+			<PresserQuestionRow notification={n} unread={unread} onOpen={onOpen} />
+		))
+		.with({ __typename: "PresserAnsweredNotification" }, (n) => (
+			<PresserAnsweredRow notification={n} unread={unread} onOpen={onOpen} />
 		))
 		.exhaustive()
 }
