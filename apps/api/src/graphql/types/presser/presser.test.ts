@@ -450,3 +450,45 @@ describe("reports", () => {
 		expect(report?.status).toBe("removed")
 	})
 })
+
+const PROFILE = /* GraphQL */ `
+	query Profile($username: String!) {
+		userByUsername(username: $username) {
+			openPressers { id }
+			pressers { id latestAnswer { body } }
+		}
+	}
+`
+
+describe("profile pressers", () => {
+	it("lists open ones, and every one with something public in it", async () => {
+		const owner = await makeUser()
+		const quiet = await makePresser({
+			userId: owner.id,
+			gameId: (await makeGame({ status: "final" })).id,
+		})
+		await makePresserQuestion(quiet.id, { askerId: (await makeUser()).id })
+		const closed = await makePresser({
+			userId: owner.id,
+			gameId: (await makeGame({ status: "final", startsAt: pastDate(80) })).id,
+			closesAt: pastDate(10),
+		})
+		await makePresserQuestion(closed.id, {
+			status: "answered",
+			answerText: "Still mad",
+			answeredAt: pastDate(20),
+			body: "How'd it go?",
+		})
+
+		const data = await expectData<{
+			userByUsername: {
+				openPressers: { id: string }[]
+				pressers: { id: string; latestAnswer: { body: string } | null }[]
+			}
+		}>(PROFILE, { variables: { username: owner.username } })
+		expect(data.userByUsername.openPressers).toEqual([{ id: quiet.id }])
+		expect(data.userByUsername.pressers).toEqual([
+			{ id: closed.id, latestAnswer: { body: "How'd it go?" } },
+		])
+	})
+})

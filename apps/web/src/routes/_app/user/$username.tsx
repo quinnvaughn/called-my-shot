@@ -11,6 +11,10 @@ import {
 	type PointsRow,
 	type PointsView,
 } from "#/components/profile/points-breakdown"
+import {
+	OpenPresserBanner,
+	PressersSection,
+} from "#/components/profile/pressers"
 import { ProfileHeader } from "#/components/profile/profile-header"
 import { ProfileShareRow } from "#/components/profile/profile-share-row"
 import { ResultsCalendar } from "#/components/profile/results-calendar"
@@ -300,6 +304,11 @@ function RouteComponent() {
 					)
 				}
 			/>
+			<OpenPresserBanner
+				username={user.username}
+				isOwn={isOwn}
+				pressers={user.openPressers}
+			/>
 			{/* One tab per league played, plus All. A single league skips the
 			    row entirely, since All and that league would be the same page. */}
 			{user.leagues.length > 1 && (
@@ -401,6 +410,12 @@ function RouteComponent() {
 					/>
 				</VStack>
 			)}
+			<PressersSection
+				heading={sectionLabel("Pressers")}
+				username={user.username}
+				pressers={user.pressers}
+				leagueId={leagueId}
+			/>
 			<VStack alignItems="stretch" gap="3">
 				{sectionLabel("Recent Calls")}
 				{user.recentCalls.length > 0 ? (

@@ -176,6 +176,19 @@ export const PresserRef = builder.objectRef<Presser>("Presser").implement({
 				return rows.filter((q) => canSeeQuestion(q, p, viewerId))
 			},
 		}),
+		// The most recent answer, for a one-line preview wherever the presser
+		// is listed. Public by definition, and reading it writes nothing.
+		latestAnswer: t.field({
+			type: PresserQuestionRef,
+			nullable: true,
+			resolve: async (p) => {
+				const row = await db.query.presserQuestions.findFirst({
+					where: { presserId: p.id, status: "answered" },
+					orderBy: { answeredAt: "desc" },
+				})
+				return row ?? null
+			},
+		}),
 		answeredCount: t.int({
 			resolve: (p) =>
 				countQuestions(p.id, eq(presserQuestions.status, "answered")),

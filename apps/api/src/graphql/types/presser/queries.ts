@@ -1,6 +1,11 @@
-import { and, desc, eq } from "drizzle-orm"
+import { and, desc, eq, exists, gt, isNotNull, isNull, or } from "drizzle-orm"
 import { db } from "../../../db"
-import { presserQuestions, presserReports } from "../../../db/schema"
+import {
+	games,
+	presserQuestions,
+	presserReports,
+	pressers,
+} from "../../../db/schema"
 import { requireAdmin } from "../../../lib/auth"
 import { blockedUsers } from "../../../lib/pressers/actions"
 import { isUuid } from "../../../lib/uuid"
@@ -93,5 +98,61 @@ builder.objectFields(CallRef, (t) => ({
 					),
 				)
 				.orderBy(desc(presserQuestions.answeredAt)),
+	}),
+}))
+
+// How many pressers a profile lists.
+const PROFILE_PRESSERS_MAX = 10
+
+builder.objectFields(UserRef, (t) => ({
+	// Pressers still taking questions, newest game first. What a profile
+	// points visitors at.
+	openPressers: t.field({
+		type: [PresserRef],
+		resolve: (user) =>
+			db
+				.select({ presser: pressers })
+				.from(pressers)
+				.innerJoin(games, eq(games.id, pressers.gameId))
+				.where(
+					and(eq(pressers.userId, user.id), gt(pressers.closesAt, new Date())),
+				)
+				.orderBy(desc(games.startsAt))
+				.then((rows) => rows.map((row) => row.presser)),
+	}),
+	// Pressers with something public in them, a statement or an answer, open
+	// or closed, newest game first. The permanent record of what they said.
+	pressers: t.field({
+		type: [PresserRef],
+		resolve: (user) =>
+			db
+				.select({ presser: pressers })
+				.from(pressers)
+				.innerJoin(games, eq(games.id, pressers.gameId))
+				.where(
+					and(
+						eq(pressers.userId, user.id),
+						or(
+							and(
+								isNotNull(pressers.statementText),
+								isNull(pressers.statementRemovedAt),
+							),
+							exists(
+								db
+									.select({ id: presserQuestions.id })
+									.from(presserQuestions)
+									.where(
+										and(
+											eq(presserQuestions.presserId, pressers.id),
+											eq(presserQuestions.status, "answered"),
+										),
+									),
+							),
+						),
+					),
+				)
+				.orderBy(desc(games.startsAt))
+				.limit(PROFILE_PRESSERS_MAX)
+				.then((rows) => rows.map((row) => row.presser)),
 	}),
 }))

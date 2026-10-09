@@ -68,6 +68,12 @@ export const UserProfileDocument = graphql(`
 				id
 				...CallCard_call
 			}
+			openPressers {
+				...ProfilePresser_presser
+			}
+			pressers {
+				...ProfilePresser_presser
+			}
 		}
 	}
 `)
