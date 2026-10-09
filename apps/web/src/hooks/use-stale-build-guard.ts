@@ -50,6 +50,14 @@ export function useStaleBuildGuard() {
 					stale = liveBuildId !== null && liveBuildId !== BUILD_ID
 				}
 				if (!stale) return false
+				// Back/forward has already moved the address bar by the time this
+				// runs, so reloading lands on the new entry. Blocking it instead
+				// would make history step forward again, which cancels the page
+				// load and leaves the tab stuck where it was.
+				if (action !== "PUSH" && action !== "REPLACE") {
+					window.location.reload()
+					return false
+				}
 				if (action === "REPLACE") window.location.replace(nextLocation.href)
 				else window.location.assign(nextLocation.href)
 				return true
