@@ -88,11 +88,11 @@ export function BallotGroupBoards({ ballotId, ballotSlug, boards }: Props) {
 							viewerIsAdmin,
 							onGroupPage,
 						}) => (
-							<HStack
+							<VStack
 								key={group.id}
-								gap="2"
+								gap="0"
+								alignItems="stretch"
 								className={css({
-									paddingInlineEnd: "3",
 									borderBottom: "1px solid {colors.border.default}",
 									_last: { borderBottom: "none" },
 								})}
@@ -143,16 +143,21 @@ export function BallotGroupBoards({ ballotId, ballotSlug, boards }: Props) {
 									</HStack>
 								</Link>
 								{viewerIsAdmin && (
-									<Button
-										variant={onGroupPage ? "ghost" : "outline"}
-										size="sm"
-										disabled={pendingGroupId !== null}
-										onClick={() => toggle(group.id, onGroupPage)}
+									<div
+										className={css({ paddingInline: "3", paddingBottom: "3" })}
 									>
-										{onGroupPage ? "Remove" : "Add to group"}
-									</Button>
+										<Button
+											variant={onGroupPage ? "ghost" : "outline"}
+											size="sm"
+											fullWidth
+											disabled={pendingGroupId !== null}
+											onClick={() => toggle(group.id, onGroupPage)}
+										>
+											{onGroupPage ? "Remove from group" : "Add to group"}
+										</Button>
+									</div>
 								)}
-							</HStack>
+							</VStack>
 						),
 					)}
 				</VStack>
