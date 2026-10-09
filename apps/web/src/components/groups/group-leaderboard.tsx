@@ -10,6 +10,7 @@ import {
 	EMPTY_CONNECTION,
 	gqlInfiniteQueryOptions,
 } from "#/graphql/query-options"
+import { formatShortDate } from "#/lib/format-date"
 import { type IdentityUser, toIdentity } from "#/lib/identity"
 import type {
 	FilterLeague,
@@ -33,6 +34,45 @@ export const GroupLeaderboardEntryFragment = graphql(`
 		}
 	}
 `)
+
+export const GroupLeaderboardUnsettledFragment = graphql(`
+	fragment GroupLeaderboard_unsettled on UnsettledCalls {
+		count
+		nextGame {
+			id
+			startsAt
+			homeTeam {
+				id
+				abbreviation
+			}
+			awayTeam {
+				id
+				abbreviation
+			}
+		}
+	}
+`)
+
+// What the viewer's card says while they're unranked: when their first
+// result is due, from the soonest game behind an unsettled call, or failing
+// that how many are waiting.
+function unrankedLabel(unsettled: {
+	count: number
+	nextGame: {
+		startsAt: string
+		homeTeam: { abbreviation: string }
+		awayTeam: { abbreviation: string }
+	} | null
+}): string {
+	const { count, nextGame } = unsettled
+	if (count === 0) return "Make a call to get ranked"
+	if (nextGame) {
+		return `First result after ${nextGame.awayTeam.abbreviation} @ ${nextGame.homeTeam.abbreviation} · ${formatShortDate(nextGame.startsAt)}`
+	}
+	return count === 1
+		? "Ranked once your call settles"
+		: `Ranked once one of your ${count} calls settles`
+}
 
 // Standalone from GroupDetailDocument - the filters and the "show more"
 // button both need to refetch this connection (and the viewer's own row,
@@ -67,6 +107,9 @@ export const GroupLeaderboardDocument = graphql(`
 			}
 			viewerLeaderboardEntry(leagueId: $leagueId, season: $season) {
 				...GroupLeaderboard_entry
+			}
+			viewerUnsettledCalls(leagueId: $leagueId, season: $season) {
+				...GroupLeaderboard_unsettled
 			}
 		}
 	}
@@ -141,6 +184,10 @@ export function GroupLeaderboard({
 	const viewerRow = unwrappedViewerEntry
 		? toRowData(unwrappedViewerEntry)
 		: null
+	const unsettled = useFragment(
+		GroupLeaderboardUnsettledFragment,
+		data?.pages[0]?.group?.viewerUnsettledCalls ?? null,
+	)
 
 	return (
 		<VStack alignItems="stretch" gap="3">
@@ -176,6 +223,9 @@ export function GroupLeaderboard({
 						items={rows}
 						viewerId={viewerId}
 						viewerEntry={viewerRow}
+						viewerUnrankedLabel={
+							unsettled ? unrankedLabel(unsettled) : undefined
+						}
 						hasMore={hasNextPage}
 						loading={isFetching}
 						onLoadMore={fetchNextPage}

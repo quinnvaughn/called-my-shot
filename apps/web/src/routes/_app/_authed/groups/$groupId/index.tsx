@@ -133,6 +133,7 @@ export const Route = createFileRoute("/_app/_authed/groups/$groupId/")({
 					id: group.id,
 					leaderboard: group.leaderboard,
 					viewerLeaderboardEntry: group.viewerLeaderboardEntry,
+					viewerUnsettledCalls: group.viewerUnsettledCalls,
 				},
 			},
 		)

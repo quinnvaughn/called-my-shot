@@ -5,6 +5,10 @@ import {
 	clampHighlightLimit,
 	type GroupHighlights,
 } from "../../../lib/group-highlights"
+import {
+	loadUnsettledCalls,
+	type UnsettledCalls,
+} from "../../../lib/group-leaderboard"
 import { getOrCreateMemberInvite } from "../../../lib/groups"
 import { keysetPaginate, sliceOffsetPage } from "../../../lib/pagination"
 import { ALL_TIME } from "../../../lib/seasons"
@@ -13,7 +17,7 @@ import { builder } from "../../builder"
 import { type Connection, PageInfoRef } from "../pagination"
 import { CallConnectionRef, QuestionConnectionRef } from "../question"
 import { SeasonFilterInput, toSeasonFilter } from "../season-filter"
-import { LeagueRef } from "../sports"
+import { GameRef, LeagueRef } from "../sports"
 import { GroupRole } from "./enums"
 import {
 	GroupStreakEntryRef,
@@ -24,10 +28,26 @@ import {
 	GroupLeaderboardConnectionRef,
 	GroupLeaderboardEntryRef,
 	getGroupLeaderboard,
+	groupLeaderboardScope,
 	memberUserIds,
 	trackedLeagueIds,
 	viewerMembership,
 } from "./leaderboard"
+
+const UnsettledCallsRef = builder
+	.objectRef<UnsettledCalls>("UnsettledCalls")
+	.implement({
+		fields: (t) => ({
+			count: t.exposeInt("count"),
+			// The soonest-starting game behind any of them. Null when none has
+			// a game (season stats, awards).
+			nextGame: t.field({
+				type: GameRef,
+				nullable: true,
+				resolve: (u) => u.nextGame,
+			}),
+		}),
+	})
 
 // One of the highlight lists on Group, trimmed to the limit the caller asks
 // for. Each takes a limit because the page's band shows three and the sheet
@@ -260,6 +280,26 @@ export const GroupRef = builder.drizzleObject("groups", {
 				)
 				// null for a site admin viewing a group they aren't in
 				return leaderboard.find((e) => e.user.id === user.id) ?? null
+			},
+		}),
+		// The viewer's calls in the same scope that haven't settled yet, so
+		// the "your rank" card can say when an unranked viewer's first result
+		// is coming.
+		viewerUnsettledCalls: t.field({
+			type: UnsettledCallsRef,
+			args: {
+				leagueId: t.arg.id(),
+				season: t.arg({ type: SeasonFilterInput, required: false }),
+			},
+			resolve: async (group, args, ctx) => {
+				const user = requireUser(ctx)
+				const { leagueIds, seasonIds } = await groupLeaderboardScope(
+					ctx,
+					group.id,
+					args.leagueId ?? null,
+					toSeasonFilter(args.season),
+				)
+				return loadUnsettledCalls(user.id, leagueIds, seasonIds)
 			},
 		}),
 		// The highlights band above the activity tabs. Unlike leaderboard above,

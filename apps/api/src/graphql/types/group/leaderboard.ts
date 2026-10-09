@@ -88,6 +88,22 @@ export function viewerMembership(
 // in-flight buildGroupLeaderboard call between them. The season filter is in
 // the key because two fields asking for different scopes must not share one
 // ranking.
+// The leagues and seasons one of the group's leaderboards ranks over.
+export async function groupLeaderboardScope(
+	ctx: Context,
+	groupId: string,
+	leagueId: string | null,
+	season: SeasonFilter,
+): Promise<{ leagueIds: string[] | null; seasonIds: string[] | null }> {
+	const leagueIds = leagueScope(await trackedLeagueIds(ctx, groupId), leagueId)
+	// A season only resolves against one league (see resolveSeasonIds);
+	// with several in scope, CURRENT unions every league's current season
+	// and the league filter in the aggregate drops the untracked ones.
+	const seasonLeagueId = leagueIds?.length === 1 ? leagueIds[0] : null
+	const seasonIds = await resolveSeasonIds(season, seasonLeagueId)
+	return { leagueIds, seasonIds }
+}
+
 export function getGroupLeaderboard(
 	ctx: Context,
 	groupId: string,
@@ -98,15 +114,12 @@ export function getGroupLeaderboard(
 		ctx,
 		`groupLeaderboard:${groupId}:${leagueId ?? ""}:${seasonFilterKey(season)}`,
 		async () => {
-			const leagueIds = leagueScope(
-				await trackedLeagueIds(ctx, groupId),
+			const { leagueIds, seasonIds } = await groupLeaderboardScope(
+				ctx,
+				groupId,
 				leagueId,
+				season,
 			)
-			// A season only resolves against one league (see resolveSeasonIds);
-			// with several in scope, CURRENT unions every league's current season
-			// and the league filter in the aggregate drops the untracked ones.
-			const seasonLeagueId = leagueIds?.length === 1 ? leagueIds[0] : null
-			const seasonIds = await resolveSeasonIds(season, seasonLeagueId)
 			return buildGroupLeaderboard(groupId, leagueIds, seasonIds)
 		},
 	)

@@ -172,6 +172,9 @@ export const GroupDetailDocument = graphql(`
             viewerLeaderboardEntry(leagueId: $leagueId, season: $season) {
                 ...GroupLeaderboard_entry
             }
+            viewerUnsettledCalls(leagueId: $leagueId, season: $season) {
+                ...GroupLeaderboard_unsettled
+            }
             hotStreaks(limit: 3) {
                 ...GroupHighlights_streak
             }

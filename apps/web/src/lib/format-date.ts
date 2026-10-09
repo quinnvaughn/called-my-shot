@@ -23,6 +23,14 @@ export function formatCallDate(iso: string): string {
 		.toFormat("MMM d, yyyy")
 }
 
+// A day on the sports calendar, without the year - "Oct 20". Pinned the same
+// way as formatCallDate above.
+export function formatShortDate(iso: string): string {
+	return DateTime.fromISO(iso, { zone: SPORTS_TIME_ZONE })
+		.setLocale("en-US")
+		.toFormat("MMM d")
+}
+
 // The moment a call went on the record, down to the minute, in the given
 // zone - "Mar 3, 2026, 10:42 AM PDT". The zone name rides along because a
 // clock time alone doesn't say whose clock it is. Render it through

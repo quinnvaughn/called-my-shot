@@ -109,8 +109,10 @@ export function GroupPinnedStrip({
 										color: "fg.subtle",
 									})}
 								>
+									{/* The card above counts callers site-wide; this is
+									    the group's share of them. */}
 									{pin.memberCallCount}{" "}
-									{pluralize(pin.memberCallCount, "member")} called
+									{pluralize(pin.memberCallCount, "caller")} from this group
 								</span>
 							)}
 							{viewerIsAdmin && (

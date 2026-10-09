@@ -53,12 +53,16 @@ type LeaderboardProps = {
 	loading?: boolean
 	onLoadMore?: () => void
 	emptyMessage?: string
+	// What the viewer's card says while they're unranked. Defaults to
+	// LeaderboardEntryCard's own.
+	viewerUnrankedLabel?: string
 }
 
 export function Leaderboard({
 	items,
 	viewerId,
 	viewerEntry,
+	viewerUnrankedLabel,
 	hasMore = false,
 	loading = false,
 	onLoadMore,
@@ -67,7 +71,11 @@ export function Leaderboard({
 	return (
 		<VStack alignItems="stretch" gap="3">
 			{viewerEntry && (
-				<LeaderboardEntryCard entry={viewerEntry} eyebrow="Your rank" />
+				<LeaderboardEntryCard
+					entry={viewerEntry}
+					eyebrow="Your rank"
+					unrankedLabel={viewerUnrankedLabel}
+				/>
 			)}
 			{items.length === 0 && !loading ? (
 				<EmptyState>{emptyMessage}</EmptyState>
@@ -139,11 +147,13 @@ export function LeaderboardEntryCard({
 							</span>
 							{entry.user.flair && <Flair flair={entry.user.flair} />}
 						</VStack>
+						{/* Informational, not something to tap, so never the
+						primary orange. */}
 						<span
 							className={css({
 								fontFamily: "heading",
 								fontSize: "xl",
-								color: "primary.default",
+								color: entry.rank !== null ? "secondary.default" : "fg.muted",
 								lineHeight: "1",
 								flexShrink: "0",
 							})}

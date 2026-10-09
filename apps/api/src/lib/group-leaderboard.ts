@@ -1,5 +1,6 @@
+import { and, asc, eq, inArray, isNull } from "drizzle-orm"
 import { db } from "../db"
-import type { User } from "../db/schema"
+import { calls, type Game, games, questions, type User } from "../db/schema"
 import { aggregatePointsByUser } from "./points-aggregate"
 import { accuracyFrom, rankEntries } from "./scoring"
 
@@ -78,4 +79,41 @@ export async function getMemberUserIds(groupId: string): Promise<string[]> {
 		columns: { userId: true },
 	})
 	return memberships.map((m) => m.userId)
+}
+
+export type UnsettledCalls = {
+	count: number
+	// The soonest-starting game behind any of them, or null when none has a
+	// game (season stats, awards).
+	nextGame: Game | null
+}
+
+// One user's calls in a leaderboard scope that haven't settled yet, so an
+// unranked member can be told when a first result is coming. Scoped the
+// same way as buildGroupLeaderboard; unscored calls never settle into a
+// rank, so they're left out.
+export async function loadUnsettledCalls(
+	userId: string,
+	leagueIds: string[] | null,
+	seasonIds: string[] | null,
+): Promise<UnsettledCalls> {
+	const rows = await db
+		.select({ game: games })
+		.from(calls)
+		.innerJoin(questions, eq(questions.id, calls.questionId))
+		.leftJoin(games, eq(games.id, questions.gameId))
+		.where(
+			and(
+				eq(calls.userId, userId),
+				isNull(calls.unscoredReason),
+				inArray(questions.status, ["open", "locked"]),
+				leagueIds ? inArray(questions.leagueId, leagueIds) : undefined,
+				seasonIds ? inArray(questions.seasonId, seasonIds) : undefined,
+			),
+		)
+		.orderBy(asc(games.startsAt))
+	return {
+		count: rows.length,
+		nextGame: rows.find((row) => row.game)?.game ?? null,
+	}
 }
