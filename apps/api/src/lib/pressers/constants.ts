@@ -1,19 +1,16 @@
-// How long a presser takes questions and answers after it opens. Past it,
-// pending questions stop showing and what was answered stays as the record.
-export const PRESSER_WINDOW_HOURS = 48
+// The window, the stranger cap and the asking gate are shared with the How it
+// works page, which states them. Past the window, pending questions stop
+// showing and what was answered stays as the record.
+export {
+	MIN_ACCOUNT_AGE_DAYS,
+	MIN_SETTLED_CALLS,
+	PRESSER_WINDOW_HOURS,
+	STRANGER_QUESTION_CAP,
+} from "@called-my-shot/schemas"
 
 // The most questions built from the owner's own results that one presser
 // holds at a time.
 export const APP_QUESTION_COUNT = 3
-
-// The most questions one presser takes from people who don't share a group
-// with the owner. Groupmates have no cap beyond one question each.
-export const STRANGER_QUESTION_CAP = 5
-
-// What an account needs before it can ask a question of someone it doesn't
-// share a group with, so a fresh throwaway can't.
-export const MIN_ACCOUNT_AGE_DAYS = 7
-export const MIN_SETTLED_CALLS = 10
 
 // sortRank values - see presserQuestions.sortRank.
 export const SORT_RANK = {

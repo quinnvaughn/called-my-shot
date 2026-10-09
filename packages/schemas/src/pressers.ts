@@ -1,5 +1,18 @@
 import { z } from "zod"
 
+// The presser rules people are told about (see the How it works page), kept
+// here so the api enforcing them and the page stating them can't disagree.
+
+// How long a presser takes questions and answers after it opens.
+export const PRESSER_WINDOW_HOURS = 48
+// The most questions one presser takes from people who don't share a group
+// with the owner. Groupmates have no cap beyond one question each.
+export const STRANGER_QUESTION_CAP = 5
+// What an account needs before it can ask someone it doesn't share a group
+// with, so a fresh throwaway can't.
+export const MIN_ACCOUNT_AGE_DAYS = 7
+export const MIN_SETTLED_CALLS = 10
+
 export const PRESSER_STATEMENT_MAX = 600
 export const PRESSER_QUESTION_MAX = 280
 export const PRESSER_ANSWER_MAX = 600

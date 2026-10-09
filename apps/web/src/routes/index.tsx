@@ -6,6 +6,7 @@ import {
 	FiLock,
 	FiMessageCircle,
 	FiMic,
+	FiRadio,
 	FiUsers,
 	FiZap,
 } from "react-icons/fi"
@@ -54,7 +55,7 @@ const whoItems = [
 			"Fantasy only scores the players you drafted. Run a group next to it so the league also settles who reads games right, including the weeks your roster is dead.",
 	},
 	{
-		icon: <FiMic />,
+		icon: <FiRadio />,
 		title: "Your audience",
 		description:
 			"Podcast, channel, newsletter, whatever you run. One invite link gives every follower a leaderboard to beat you on. Nobody puts money up, so it's a scoreboard, not a sportsbook.",
@@ -85,6 +86,12 @@ const whyItems = [
 		title: "Call every game",
 		description:
 			"It's free, so you don't have to pick your spots. Call every game you have an opinion on.",
+	},
+	{
+		icon: <FiMic />,
+		title: "Face the press",
+		description:
+			"After the game, your group gets to ask about that 95-conviction miss. Answer it or go with \"No comment.\"",
 	},
 ]
 
@@ -203,7 +210,7 @@ function Home() {
 			<LandingPageFeatureSection
 				id="why"
 				alt
-				columns={3}
+				columns={2}
 				eyebrow="Why play"
 				title="Being right is more fun when it's on the record."
 				description="Every call is timestamped, locked when the game starts, and scored against what the rest of the field said."
