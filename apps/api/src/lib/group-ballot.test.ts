@@ -5,7 +5,7 @@ import {
 	ballotQuestions,
 	ballots,
 	callSelections,
-	groupPins,
+	groupBallots,
 	questionOptions,
 	questions,
 	type User,
@@ -69,7 +69,7 @@ const BALLOT_GROUPS = /* GraphQL */ `
 				startedCount
 				finishedCount
 				viewerIsAdmin
-				isPinned
+				onGroupPage
 			}
 		}
 	}
@@ -83,7 +83,7 @@ type BallotGroupsData = {
 			startedCount: number
 			finishedCount: number
 			viewerIsAdmin: boolean
-			isPinned: boolean
+			onGroupPage: boolean
 		}[]
 	}
 }
@@ -237,8 +237,8 @@ describe("Ballot.viewerGroupBoards", () => {
 			leagueIds: [league.id],
 		})
 		await db
-			.insert(groupPins)
-			.values({ groupId: tracksIt.id, ballotId: ballot.id, position: 0 })
+			.insert(groupBallots)
+			.values({ groupId: tracksIt.id, ballotId: ballot.id })
 		await makeGroup({ admin: viewer, members: [friend], leagueIds: [other.id] })
 
 		for (const m of members) await pick(m.question.id, m.yes.id, friend)
@@ -255,7 +255,7 @@ describe("Ballot.viewerGroupBoards", () => {
 				startedCount: 2,
 				finishedCount: 1,
 				viewerIsAdmin: false,
-				isPinned: false,
+				onGroupPage: false,
 			},
 			{
 				group: { id: tracksIt.id },
@@ -263,7 +263,7 @@ describe("Ballot.viewerGroupBoards", () => {
 				startedCount: 1,
 				finishedCount: 0,
 				viewerIsAdmin: true,
-				isPinned: true,
+				onGroupPage: true,
 			},
 		])
 	})

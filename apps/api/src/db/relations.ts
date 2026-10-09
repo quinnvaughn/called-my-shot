@@ -119,6 +119,7 @@ export const relations = defineRelations(schema, (r) => ({
 		trackedLeagues: r.many.groupLeagues(),
 		links: r.many.groupLinks(),
 		pins: r.many.groupPins(),
+		ballots: r.many.groupBallots(),
 	},
 	groupLinks: {
 		group: r.one.groups({
@@ -167,6 +168,20 @@ export const relations = defineRelations(schema, (r) => ({
 		}),
 		pinnedByUser: r.one.users({
 			from: r.groupPins.pinnedBy,
+			to: r.users.id,
+		}),
+	},
+	groupBallots: {
+		group: r.one.groups({
+			from: r.groupBallots.groupId,
+			to: r.groups.id,
+		}),
+		ballot: r.one.ballots({
+			from: r.groupBallots.ballotId,
+			to: r.ballots.id,
+		}),
+		addedByUser: r.one.users({
+			from: r.groupBallots.addedBy,
 			to: r.users.id,
 		}),
 	},

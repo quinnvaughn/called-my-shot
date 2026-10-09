@@ -34,7 +34,7 @@ export const BallotByRefDocument = graphql(`
 				memberCount
 				finishedCount
 				viewerIsAdmin
-				isPinned
+				onGroupPage
 				group {
 					id
 					name

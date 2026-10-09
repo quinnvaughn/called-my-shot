@@ -14,6 +14,7 @@ import {
 	CreatedQuestionsTab,
 	createdQuestionsQuery,
 } from "#/components/groups/created-questions-tab"
+import { GroupBallotsStrip } from "#/components/groups/group-ballots-strip"
 import {
 	GroupGamesStrip,
 	groupLiveGamesQuery,
@@ -322,6 +323,11 @@ function RouteComponent() {
 				viewerIsAdmin={group.viewerIsAdmin}
 			/>
 			<GroupGamesStrip groupId={group.id} />
+			<GroupBallotsStrip
+				groupId={group.id}
+				ballots={group.ballots}
+				viewerIsAdmin={group.viewerIsAdmin}
+			/>
 			{myInvite && (
 				<GroupInviteCard
 					groupId={group.id}

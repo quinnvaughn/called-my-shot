@@ -152,3 +152,47 @@ export async function loadViewerGroupsOnBallot(
 		finishedCount: r.finished_count,
 	}))
 }
+
+// How many of `memberIds` have started each ballot, and how many have called
+// every one of its members, zeros included.
+export async function memberBallotProgress(
+	ballotIds: string[],
+	memberIds: string[],
+): Promise<Map<string, { started: number; finished: number }>> {
+	const progress = new Map(
+		ballotIds.map((id) => [id, { started: 0, finished: 0 }]),
+	)
+	if (ballotIds.length === 0 || memberIds.length === 0) return progress
+	const { rows } = await db.execute<{
+		ballot_id: string
+		started: number
+		finished: number
+	}>(sql`
+		with totals as (
+			select ballot_id, count(*)::int as n
+			from ballot_questions
+			where ballot_id in ${ballotIds}
+			group by ballot_id
+		),
+		per_user as (
+			select bq.ballot_id, c.user_id, count(distinct c.question_id)::int as called
+			from calls c
+			join ballot_questions bq on bq.question_id = c.question_id
+			where bq.ballot_id in ${ballotIds} and c.user_id in ${memberIds}
+			group by bq.ballot_id, c.user_id
+		)
+		select per_user.ballot_id,
+			count(*)::int as started,
+			count(*) filter (where per_user.called = totals.n)::int as finished
+		from per_user
+		join totals on totals.ballot_id = per_user.ballot_id
+		group by per_user.ballot_id
+	`)
+	for (const row of rows) {
+		progress.set(row.ballot_id, {
+			started: row.started,
+			finished: row.finished,
+		})
+	}
+	return progress
+}

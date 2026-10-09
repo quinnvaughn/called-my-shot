@@ -21,12 +21,12 @@ import {
 	BallotPositionRowFragment,
 } from "#/components/ballots/ballot-position-row"
 import { BallotProgressCard } from "#/components/ballots/ballot-progress-card"
-import { ProjectedStandings } from "#/components/ballots/projected-standings"
 import { BallotSectionHeading } from "#/components/ballots/ballot-section-heading"
 import {
 	BallotShareRow,
 	buildBallotTweet,
 } from "#/components/ballots/ballot-share-row"
+import { ProjectedStandings } from "#/components/ballots/projected-standings"
 import { Breadcrumb } from "#/components/ui/breadcrumb"
 import { Card } from "#/components/ui/card"
 import { NotFound } from "#/components/ui/not-found"
@@ -45,9 +45,9 @@ import {
 import { computeBallotProgressStats } from "#/lib/ballot-progress-stats"
 import { pageMeta } from "#/lib/meta"
 import { standingsTeams } from "#/lib/projected-standings"
-import { leagueWins } from "#/lib/win-total-tracker"
 import { questionDetailState } from "#/lib/question-detail-state"
 import { isUuid } from "#/lib/uuid"
+import { leagueWins } from "#/lib/win-total-tracker"
 
 const ballotQuery = (ref: string) =>
 	gqlQueryOptions(BallotByRefDocument, { ref })
@@ -109,7 +109,6 @@ function BallotRail() {
 		<BallotGroupBoards
 			ballotId={ballot.id}
 			ballotSlug={ballot.slug}
-			canPin={ballot.nextLocksAt !== null}
 			boards={ballot.viewerGroupBoards}
 		/>
 	)
@@ -370,42 +369,42 @@ function RouteComponent() {
 					}}
 				/>
 			) : (
-			<VStack gap="3" alignItems="stretch">
-				<span
-					className={css({
-						fontFamily: "mono",
-						fontSize: "2xs",
-						letterSpacing: "wide",
-						color: "fg.subtle",
-						textTransform: "uppercase",
-					})}
-				>
-					Questions
-				</span>
-				<Card>
-					<VStack gap="0" alignItems="stretch">
-						{ballot.members.map((member, i) => {
-							// Rendered from the still-masked ballot.members (passed
-							// straight through, unmasked again inside
-							// BallotPositionRow) - members[i] is the same list
-							// already unmasked above for the id this needs as a key,
-							// and for the section heading below.
-							const section = members[i].section
-							return (
-								<Fragment key={members[i].id}>
-									{section && section !== members[i - 1]?.section && (
-										<BallotSectionHeading label={section} />
-									)}
-									<BallotPositionRow
-										member={member}
-										call={member.question.viewerCall}
-									/>
-								</Fragment>
-							)
+				<VStack gap="3" alignItems="stretch">
+					<span
+						className={css({
+							fontFamily: "mono",
+							fontSize: "2xs",
+							letterSpacing: "wide",
+							color: "fg.subtle",
+							textTransform: "uppercase",
 						})}
-					</VStack>
-				</Card>
-			</VStack>
+					>
+						Questions
+					</span>
+					<Card>
+						<VStack gap="0" alignItems="stretch">
+							{ballot.members.map((member, i) => {
+								// Rendered from the still-masked ballot.members (passed
+								// straight through, unmasked again inside
+								// BallotPositionRow) - members[i] is the same list
+								// already unmasked above for the id this needs as a key,
+								// and for the section heading below.
+								const section = members[i].section
+								return (
+									<Fragment key={members[i].id}>
+										{section && section !== members[i - 1]?.section && (
+											<BallotSectionHeading label={section} />
+										)}
+										<BallotPositionRow
+											member={member}
+											call={member.question.viewerCall}
+										/>
+									</Fragment>
+								)
+							})}
+						</VStack>
+					</Card>
+				</VStack>
 			)}
 
 			{ballot.viewerGroupBoards.length > 0 && (
@@ -413,7 +412,6 @@ function RouteComponent() {
 					<BallotGroupBoards
 						ballotId={ballot.id}
 						ballotSlug={ballot.slug}
-						canPin={ballot.nextLocksAt !== null}
 						boards={ballot.viewerGroupBoards}
 					/>
 				</div>

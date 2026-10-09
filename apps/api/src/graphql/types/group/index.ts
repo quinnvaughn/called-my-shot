@@ -10,6 +10,7 @@ import "./inputs"
 import "./queries"
 import "./mutations"
 import "./pins"
+import "./ballots"
 import "./game-board"
 import "./ballot-board"
 

@@ -303,9 +303,9 @@ export const UnpinQuestionFromGroupDocument = graphql(`
 	}
 `)
 
-export const PinBallotToGroupDocument = graphql(`
-	mutation PinBallotToGroup($groupId: ID!, $ballotId: ID!) {
-		pinBallotToGroup(groupId: $groupId, ballotId: $ballotId) {
+export const AddBallotToGroupDocument = graphql(`
+	mutation AddBallotToGroup($groupId: ID!, $ballotId: ID!) {
+		addBallotToGroup(groupId: $groupId, ballotId: $ballotId) {
 			__typename
 			... on GroupPayload {
 				group {
@@ -328,9 +328,9 @@ export const PinBallotToGroupDocument = graphql(`
 	}
 `)
 
-export const UnpinBallotFromGroupDocument = graphql(`
-	mutation UnpinBallotFromGroup($groupId: ID!, $ballotId: ID!) {
-		unpinBallotFromGroup(groupId: $groupId, ballotId: $ballotId) {
+export const RemoveBallotFromGroupDocument = graphql(`
+	mutation RemoveBallotFromGroup($groupId: ID!, $ballotId: ID!) {
+		removeBallotFromGroup(groupId: $groupId, ballotId: $ballotId) {
 			__typename
 			... on GroupPayload {
 				group {

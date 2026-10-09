@@ -11,50 +11,43 @@ import { FormError } from "#/components/ui/form-error"
 import { GroupLogo } from "#/components/ui/group-logo"
 import { useGqlMutation } from "#/graphql/hooks"
 import {
-	PinBallotToGroupDocument,
-	UnpinBallotFromGroupDocument,
+	AddBallotToGroupDocument,
+	RemoveBallotFromGroupDocument,
 } from "#/graphql/mutations/groups"
 
 type Props = {
 	ballotId: string
 	ballotSlug: string
-	// False once everything on the ballot has locked. Unpinning stays
-	// available either way.
-	canPin: boolean
 	boards: {
 		memberCount: number
 		finishedCount: number
 		viewerIsAdmin: boolean
-		isPinned: boolean
+		onGroupPage: boolean
 		group: { id: string; name: string; logoUrl: string | null }
 	}[]
 }
 
 // The viewer's groups that follow this ballot's league, each opening that
 // group's board of everyone's progress on it. In a group the viewer admins,
-// this is also where the ballot gets pinned to the top of the group page.
+// this is also where the ballot gets added to or removed from the group page.
 // Renders nothing when there are none.
-export function BallotGroupBoards({
-	ballotId,
-	ballotSlug,
-	canPin,
-	boards,
-}: Props) {
+export function BallotGroupBoards({ ballotId, ballotSlug, boards }: Props) {
 	const queryClient = useQueryClient()
-	const pin = useGqlMutation(PinBallotToGroupDocument)
-	const unpin = useGqlMutation(UnpinBallotFromGroupDocument)
+	const add = useGqlMutation(AddBallotToGroupDocument)
+	const remove = useGqlMutation(RemoveBallotFromGroupDocument)
 	const [pendingGroupId, setPendingGroupId] = useState<string | null>(null)
 	const [error, setError] = useState<string | null>(null)
 
 	if (boards.length === 0) return null
 
-	async function togglePin(groupId: string, pinned: boolean) {
+	async function toggle(groupId: string, onGroupPage: boolean) {
 		setError(null)
 		setPendingGroupId(groupId)
 		try {
-			const result = pinned
-				? (await unpin.mutateAsync({ groupId, ballotId }))?.unpinBallotFromGroup
-				: (await pin.mutateAsync({ groupId, ballotId }))?.pinBallotToGroup
+			const result = onGroupPage
+				? (await remove.mutateAsync({ groupId, ballotId }))
+						?.removeBallotFromGroup
+				: (await add.mutateAsync({ groupId, ballotId }))?.addBallotToGroup
 			if (!result) {
 				setError("Something went wrong. Try again.")
 				return
@@ -93,7 +86,7 @@ export function BallotGroupBoards({
 							memberCount,
 							finishedCount,
 							viewerIsAdmin,
-							isPinned,
+							onGroupPage,
 						}) => (
 							<HStack
 								key={group.id}
@@ -149,14 +142,14 @@ export function BallotGroupBoards({
 										</VStack>
 									</HStack>
 								</Link>
-								{viewerIsAdmin && (isPinned || canPin) && (
+								{viewerIsAdmin && (
 									<Button
-										variant={isPinned ? "ghost" : "outline"}
+										variant={onGroupPage ? "ghost" : "outline"}
 										size="sm"
 										disabled={pendingGroupId !== null}
-										onClick={() => togglePin(group.id, isPinned)}
+										onClick={() => toggle(group.id, onGroupPage)}
 									>
-										{isPinned ? "Unpin" : "Pin"}
+										{onGroupPage ? "Remove" : "Add to group"}
 									</Button>
 								)}
 							</HStack>

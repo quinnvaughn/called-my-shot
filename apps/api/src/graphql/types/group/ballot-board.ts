@@ -58,7 +58,7 @@ const GroupBallotBoardRef = builder
 type BallotGroupBoard = ViewerGroupBallotProgress & {
 	group: Group
 	viewerIsAdmin: boolean
-	isPinned: boolean
+	onGroupPage: boolean
 }
 
 const BallotGroupBoardRef = builder
@@ -71,9 +71,15 @@ const BallotGroupBoardRef = builder
 			startedCount: t.exposeInt("startedCount"),
 			// Members who have called every member of it.
 			finishedCount: t.exposeInt("finishedCount"),
-			// Whether the viewer can pin or unpin it in this group.
+			// Whether the viewer can add it to or remove it from this group's
+			// page.
 			viewerIsAdmin: t.exposeBoolean("viewerIsAdmin"),
-			isPinned: t.exposeBoolean("isPinned"),
+			// Whether it's one of the group's ballots (Group.ballots).
+			onGroupPage: t.exposeBoolean("onGroupPage"),
+			isPinned: t.boolean({
+				deprecationReason: "Use onGroupPage.",
+				resolve: (b) => b.onGroupPage,
+			}),
 		}),
 	})
 
@@ -133,7 +139,7 @@ builder.objectFields(BallotRef, (t) => ({
 			const rows = await loadViewerGroupsOnBallot(ctx.user.id, ballot)
 			if (rows.length === 0) return []
 			const groupIds = rows.map((r) => r.groupId)
-			const [groups, adminRows, pinRows] = await Promise.all([
+			const [groups, adminRows, addedRows] = await Promise.all([
 				db.query.groups.findMany({ where: { id: { in: groupIds } } }),
 				db.query.groupMembers.findMany({
 					where: {
@@ -143,14 +149,14 @@ builder.objectFields(BallotRef, (t) => ({
 					},
 					columns: { groupId: true },
 				}),
-				db.query.groupPins.findMany({
+				db.query.groupBallots.findMany({
 					where: { ballotId: ballot.id, groupId: { in: groupIds } },
 					columns: { groupId: true },
 				}),
 			])
 			const groupById = new Map(groups.map((g) => [g.id, g]))
 			const adminOf = new Set(adminRows.map((r) => r.groupId))
-			const pinnedIn = new Set(pinRows.map((r) => r.groupId))
+			const addedTo = new Set(addedRows.map((r) => r.groupId))
 			return rows.flatMap((row): BallotGroupBoard[] => {
 				const group = groupById.get(row.groupId)
 				return group
@@ -159,7 +165,7 @@ builder.objectFields(BallotRef, (t) => ({
 								...row,
 								group,
 								viewerIsAdmin: adminOf.has(row.groupId),
-								isPinned: pinnedIn.has(row.groupId),
+								onGroupPage: addedTo.has(row.groupId),
 							},
 						]
 					: []

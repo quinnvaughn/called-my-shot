@@ -1,13 +1,11 @@
 import {
 	GROUP_PINS_MAX,
-	groupBallotPinSchema,
 	groupPinSchema,
 	setGroupPinOrderSchema,
 } from "@called-my-shot/schemas"
-import { and, eq, inArray, max, notInArray, sql } from "drizzle-orm"
+import { and, eq, inArray, max, notInArray } from "drizzle-orm"
 import { db } from "../../../db"
 import {
-	type Ballot,
 	type Group,
 	type GroupPin,
 	groupMembers,
@@ -24,12 +22,9 @@ import {
 	ValidationError,
 } from "../../../lib/errors"
 import {
-	ballotHasOpenMember,
 	type CallablePin,
 	callablePins,
-	memberBallotProgress,
 	memberCallCounts,
-	pinTarget,
 } from "../../../lib/group-pins"
 import {
 	assertGroupTracksLeague,
@@ -43,30 +38,25 @@ import { groupByKey } from "../../loader"
 import { BallotRef } from "../ballot"
 import { QuestionRef } from "../question"
 import { UserRef } from "../user"
+import { addBallotToGroup, removeBallotFromGroup } from "./ballots"
 import { GroupPayload } from "./inputs"
 import { memberUserIds, trackedLeagueIds } from "./leaderboard"
 import { GroupRef } from "./refs"
 
 type GroupPinView = {
 	pin: GroupPin
-	question: Question | null
-	ballot: Ballot | null
+	question: Question
 	pinnedBy: User | null
 	memberCallCount: number
-	memberFinishedCount: number | null
 }
 
 export const GroupPinRef = builder
 	.objectRef<GroupPinView>("GroupPin")
 	.implement({
 		fields: (t) => ({
-			// The pinned question's or ballot's id: each is pinned at most once
-			// per group.
-			id: t.id({
-				resolve: (view) => view.pin.questionId ?? view.pin.ballotId ?? "",
-			}),
+			// The pinned question's id: each is pinned at most once per group.
+			id: t.id({ resolve: (view) => view.pin.questionId }),
 			position: t.int({ resolve: (view) => view.pin.position }),
-			// Exactly one of question and ballot is set.
 			question: t.field({
 				type: QuestionRef,
 				nullable: true,
@@ -75,21 +65,20 @@ export const GroupPinRef = builder
 			ballot: t.field({
 				type: BallotRef,
 				nullable: true,
-				resolve: (view) => view.ballot,
+				deprecationReason: "Ballots moved to Group.ballots.",
+				resolve: () => null,
 			}),
 			pinnedBy: t.field({
 				type: UserRef,
 				nullable: true,
 				resolve: (view) => view.pinnedBy,
 			}),
-			// How many of the group's current members have called the question,
-			// or started the ballot.
+			// How many of the group's current members have called the question.
 			memberCallCount: t.int({ resolve: (view) => view.memberCallCount }),
-			// How many have called every member of the ballot. Null on a
-			// question pin.
 			memberFinishedCount: t.int({
 				nullable: true,
-				resolve: (view) => view.memberFinishedCount,
+				deprecationReason: "Ballots moved to Group.ballots.",
+				resolve: () => null,
 			}),
 		}),
 	})
@@ -106,52 +95,40 @@ async function loadPinViews(
 		memberUserIds(ctx, group.id),
 	])
 	const visible = rows.filter(
-		(row) => !tracked || tracked.includes(pinTarget(row).leagueId),
+		(row) => !tracked || tracked.includes(row.question.leagueId),
 	)
 	if (visible.length === 0) return []
 
 	const pinnerIds = visible.flatMap((row) =>
 		row.pin.pinnedBy ? [row.pin.pinnedBy] : [],
 	)
-	const [counts, progress, pinners] = await Promise.all([
+	const [counts, pinners] = await Promise.all([
 		memberCallCounts(
-			visible.flatMap((row) => (row.question ? [row.question.id] : [])),
-			memberIds,
-		),
-		memberBallotProgress(
-			visible.flatMap((row) => (row.ballot ? [row.ballot.id] : [])),
+			visible.map((row) => row.question.id),
 			memberIds,
 		),
 		pinnerIds.length > 0
 			? db.query.users.findMany({ where: { id: { in: pinnerIds } } })
 			: Promise.resolve([]),
 	])
-	return visible.map((row: CallablePin) => {
-		const ballotProgress = row.ballot ? progress.get(row.ballot.id) : null
-		return {
-			pin: row.pin,
-			question: row.question,
-			ballot: row.ballot,
-			pinnedBy: pinners.find((u) => u.id === row.pin.pinnedBy) ?? null,
-			memberCallCount: row.question
-				? (counts.get(row.question.id) ?? 0)
-				: (ballotProgress?.started ?? 0),
-			memberFinishedCount: row.ballot ? (ballotProgress?.finished ?? 0) : null,
-		}
-	})
+	return visible.map((row: CallablePin) => ({
+		pin: row.pin,
+		question: row.question,
+		pinnedBy: pinners.find((u) => u.id === row.pin.pinnedBy) ?? null,
+		memberCallCount: counts.get(row.question.id) ?? 0,
+	}))
 }
 
 builder.objectFields(GroupRef, (t) => ({
-	// The questions and ballots the group's admins recommend, in their order.
+	// The questions the group's admins recommend, in their order.
 	pins: t.field({
 		type: [GroupPinRef],
 		resolve: (group, _args, ctx) => loadPinViews(ctx, group),
 	}),
 	pinnedQuestions: t.field({
 		type: [GroupPinRef],
-		deprecationReason: "Use pins, which includes pinned ballots.",
-		resolve: async (group, _args, ctx) =>
-			(await loadPinViews(ctx, group)).filter((view) => view.question),
+		deprecationReason: "Use pins.",
+		resolve: (group, _args, ctx) => loadPinViews(ctx, group),
 	}),
 }))
 
@@ -230,7 +207,7 @@ builder.mutationFields((t) => ({
 				await assertGroupTracksLeague(group, question)
 
 				const pins = await callablePins(group.id, now, tx)
-				if (pins.some((row) => row.question?.id === question.id)) return group
+				if (pins.some((row) => row.question.id === question.id)) return group
 				if (pins.length >= GROUP_PINS_MAX) {
 					throw ValidationError.field(
 						null,
@@ -292,12 +269,9 @@ builder.mutationFields((t) => ({
 		},
 	}),
 
-	// Appends a ballot to the group's pins while any of its members can still
-	// be called. Pinning an already-pinned ballot is a no-op. Unlike a
-	// question, nothing is shared to the group's feed: the feed holds
-	// questions.
 	pinBallotToGroup: t.field({
 		type: GroupPayload,
+		deprecationReason: "Use addBallotToGroup.",
 		errors: {
 			types: [AuthenticationError, AuthorizationError, NotFoundError],
 			directResult: true,
@@ -307,78 +281,12 @@ builder.mutationFields((t) => ({
 			groupId: t.arg.id({ required: true }),
 			ballotId: t.arg.id({ required: true }),
 		},
-		resolve: async (_root, args, ctx) => {
-			const user = requireUser(ctx)
-			const input = parseInput(groupBallotPinSchema, args)
-			await requireGroupAdmin(input.groupId, user.id)
-
-			const ballot = await db.query.ballots.findFirst({
-				where: { id: input.ballotId },
-			})
-			if (ballot?.status !== "published") {
-				throw new NotFoundError("Ballot not found")
-			}
-			const now = new Date()
-			const { rows } = await db.execute<{ open: boolean }>(
-				sql`select ${ballotHasOpenMember(ballot.id, now)} as open`,
-			)
-			if (!rows[0]?.open) {
-				throw ValidationError.field(
-					null,
-					"Everything on this ballot has locked. Only open ballots can be pinned.",
-				)
-			}
-
-			const group = await db.transaction(async (tx) => {
-				// Locks the group so two admins pinning at once can't both pass
-				// the limit check below.
-				const [group] = await tx
-					.select()
-					.from(groups)
-					.where(eq(groups.id, input.groupId))
-					.for("update")
-				if (!group) throw new NotFoundError("Group not found")
-				await assertGroupTracksLeague(group, ballot)
-
-				const pins = await callablePins(group.id, now, tx)
-				if (pins.some((row) => row.ballot?.id === ballot.id)) return group
-				if (pins.length >= GROUP_PINS_MAX) {
-					throw ValidationError.field(
-						null,
-						`This group already has ${GROUP_PINS_MAX} pins. Unpin one first.`,
-					)
-				}
-
-				const [last] = await tx
-					.select({ position: max(groupPins.position) })
-					.from(groupPins)
-					.where(eq(groupPins.groupId, group.id))
-				await tx
-					.insert(groupPins)
-					.values({
-						groupId: group.id,
-						ballotId: ballot.id,
-						pinnedBy: user.id,
-						position: (last?.position ?? -1) + 1,
-					})
-					// A stale row for the same ballot (everything locked, not yet
-					// swept) is replaced rather than left blocking the pin.
-					.onConflictDoUpdate({
-						target: [groupPins.groupId, groupPins.ballotId],
-						set: {
-							pinnedBy: user.id,
-							position: (last?.position ?? -1) + 1,
-							createdAt: now,
-						},
-					})
-				return group
-			})
-			return { group }
-		},
+		resolve: (_root, args, ctx) => addBallotToGroup(ctx, args),
 	}),
 
 	unpinBallotFromGroup: t.field({
 		type: GroupPayload,
+		deprecationReason: "Use removeBallotFromGroup.",
 		errors: {
 			types: [AuthenticationError, AuthorizationError, NotFoundError],
 			directResult: true,
@@ -388,30 +296,12 @@ builder.mutationFields((t) => ({
 			groupId: t.arg.id({ required: true }),
 			ballotId: t.arg.id({ required: true }),
 		},
-		resolve: async (_root, args, ctx) => {
-			const user = requireUser(ctx)
-			const input = parseInput(groupBallotPinSchema, args)
-			await requireGroupAdmin(input.groupId, user.id)
-
-			await db
-				.delete(groupPins)
-				.where(
-					and(
-						eq(groupPins.groupId, input.groupId),
-						eq(groupPins.ballotId, input.ballotId),
-					),
-				)
-			const group = await db.query.groups.findFirst({
-				where: { id: input.groupId },
-			})
-			if (!group) throw new NotFoundError("Group not found")
-			return { group }
-		},
+		resolve: (_root, args, ctx) => removeBallotFromGroup(ctx, args),
 	}),
 
 	// Reorders the group's callable pins. The list has to be exactly the
 	// current set, so this can only rearrange pins, never add one around
-	// pinQuestionToGroup's or pinBallotToGroup's checks or drop one silently.
+	// pinQuestionToGroup's checks or drop one silently.
 	setGroupPinOrder: t.field({
 		type: GroupPayload,
 		errors: {
@@ -425,7 +315,7 @@ builder.mutationFields((t) => ({
 			pinIds: t.arg.idList({ required: false }),
 			questionIds: t.arg.idList({
 				required: false,
-				deprecationReason: "Use pinIds, which can hold ballots too.",
+				deprecationReason: "Use pinIds.",
 			}),
 		},
 		resolve: async (_root, args, ctx) => {
@@ -445,7 +335,7 @@ builder.mutationFields((t) => ({
 				if (!group) throw new NotFoundError("Group not found")
 
 				const currentPins = await callablePins(group.id, new Date(), tx)
-				const current = currentPins.map((row) => pinTarget(row).id)
+				const current = currentPins.map((row) => row.question.id)
 				const given = new Set(input.pinIds)
 				if (
 					given.size !== input.pinIds.length ||
@@ -474,7 +364,7 @@ builder.mutationFields((t) => ({
 				// Updated in place rather than reinserted, so who pinned each
 				// one and when survive a reorder.
 				const rowIdByTarget = new Map(
-					currentPins.map((row) => [pinTarget(row).id, row.pin.id]),
+					currentPins.map((row) => [row.question.id, row.pin.id]),
 				)
 				for (const [position, pinId] of input.pinIds.entries()) {
 					const rowId = rowIdByTarget.get(pinId)

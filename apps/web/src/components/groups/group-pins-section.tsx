@@ -16,15 +16,9 @@ export const GroupPinsSectionPinFragment = graphql(`
 	fragment GroupPinsSection_pin on GroupPin {
 		id
 		memberCallCount
-		memberFinishedCount
 		question {
 			id
 			title
-		}
-		ballot {
-			id
-			slug
-			name
 		}
 	}
 `)
@@ -72,11 +66,9 @@ export function GroupPinsSection({ groupId, pins: pinsProp }: Props) {
 						Pins · {pins.length}/{GROUP_PINS_MAX}
 					</FieldLabel>
 					<FieldHint>
-						Pin up to {GROUP_PINS_MAX} open questions or ballots. Pin a question
-						from its Share menu, and a ballot from "This ballot in your groups"
-						on the ballot's page. Pins show at the top of the group page. A
-						question drops off when it locks, and a ballot when everything on it
-						has.
+						Pin up to {GROUP_PINS_MAX} open questions from a question's Share
+						menu. They show at the top of the group page, and a pin drops off
+						when its question locks.
 					</FieldHint>
 					{pins.length === 0 ? (
 						<span
@@ -117,15 +109,6 @@ export function GroupPinsSection({ groupId, pins: pinsProp }: Props) {
 												{pin.question.title}
 											</Link>
 										)}
-										{pin.ballot && (
-											<Link
-												to="/ballots/$ballotSlug"
-												params={{ ballotSlug: pin.ballot.slug }}
-												className={titleClass}
-											>
-												{pin.ballot.name}
-											</Link>
-										)}
 										<span
 											className={css({
 												fontFamily: "mono",
@@ -133,9 +116,8 @@ export function GroupPinsSection({ groupId, pins: pinsProp }: Props) {
 												color: "fg.subtle",
 											})}
 										>
-											{pin.ballot
-												? `Ballot · ${pin.memberFinishedCount ?? 0} finished · ${pin.memberCallCount} started`
-												: `${pin.memberCallCount} ${pluralize(pin.memberCallCount, "member")} called`}
+											{pin.memberCallCount}{" "}
+											{pluralize(pin.memberCallCount, "member")} called
 										</span>
 									</VStack>
 									<button
@@ -161,12 +143,7 @@ export function GroupPinsSection({ groupId, pins: pinsProp }: Props) {
 										className={rowButton}
 										aria-label="Unpin"
 										disabled={pending}
-										onClick={() =>
-											unpin({
-												id: pin.id,
-												kind: pin.ballot ? "ballot" : "question",
-											})
-										}
+										onClick={() => unpin(pin.id)}
 									>
 										<FiX size={16} />
 									</button>

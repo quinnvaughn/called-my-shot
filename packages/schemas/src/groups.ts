@@ -53,13 +53,17 @@ export const groupPinSchema = z.object({
 	questionId: z.string().uuid(),
 })
 
-export const groupBallotPinSchema = z.object({
+// How many ballots a group can have on its page at once. They stay through
+// resolution until an admin removes them, so this counts settled ones too.
+export const GROUP_BALLOTS_MAX = 5
+
+export const groupBallotSchema = z.object({
 	groupId: z.string().uuid(),
 	ballotId: z.string().uuid(),
 })
 
 // The group's current callable pins, in their new display order. Each id is
-// the pinned question's or ballot's.
+// the pinned question's.
 export const setGroupPinOrderSchema = z.object({
 	groupId: z.string().uuid(),
 	pinIds: z.array(z.string().uuid()).max(GROUP_PINS_MAX),

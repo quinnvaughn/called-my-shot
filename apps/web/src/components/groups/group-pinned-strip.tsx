@@ -1,8 +1,6 @@
-import { Link } from "@tanstack/react-router"
 import { FiChevronLeft, FiChevronRight, FiX } from "react-icons/fi"
 import { css } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
-import { BallotCard } from "#/components/ballots/ballot-card"
 import { QuestionCard } from "#/components/questions/question-card"
 import { CardRail } from "#/components/ui/card-rail"
 import { FormError } from "#/components/ui/form-error"
@@ -14,15 +12,9 @@ export const GroupPinnedStripPinFragment = graphql(`
 	fragment GroupPinnedStrip_pin on GroupPin {
 		id
 		memberCallCount
-		memberFinishedCount
 		question {
 			id
 			...QuestionCard_question
-		}
-		ballot {
-			id
-			slug
-			...BallotCard_ballot
 		}
 	}
 `)
@@ -46,10 +38,10 @@ const controlButton = css({
 	_disabled: { opacity: 0.35, cursor: "default", _hover: { bg: "none" } },
 })
 
-// The questions and ballots the group's admins recommend calling, at the top
-// of the group page in their order. Admins can reorder and unpin from here;
-// pinning happens from a question's Share menu or a ballot's page. Renders
-// nothing when nothing is pinned.
+// The questions the group's admins recommend calling, at the top of the group
+// page in their order. Admins can reorder and unpin from here; pinning
+// happens from a question's Share menu. Renders nothing when nothing is
+// pinned.
 export function GroupPinnedStrip({
 	groupId,
 	pins: pinsProp,
@@ -83,38 +75,20 @@ export function GroupPinnedStrip({
 					<VStack gap="1.5" alignItems="stretch" height="full">
 						<div className={css({ flex: "1" })}>
 							{pin.question && <QuestionCard question={pin.question} />}
-							{pin.ballot && <BallotCard ballot={pin.ballot} />}
 						</div>
 						<HStack justify="space-between" gap="2" minHeight="7">
-							{pin.ballot ? (
-								<Link
-									to="/groups/$groupId/ballots/$ballotSlug"
-									params={{ groupId, ballotSlug: pin.ballot.slug }}
-									className={css({
-										fontFamily: "mono",
-										fontSize: "2xs",
-										color: "fg.subtle",
-										textDecoration: "none",
-										_hover: { color: "fg.default" },
-									})}
-								>
-									{pin.memberFinishedCount ?? 0} finished ·{" "}
-									{pin.memberCallCount} started →
-								</Link>
-							) : (
-								<span
-									className={css({
-										fontFamily: "mono",
-										fontSize: "2xs",
-										color: "fg.subtle",
-									})}
-								>
-									{/* The card above counts callers site-wide; this is
-									    the group's share of them. */}
-									{pin.memberCallCount}{" "}
-									{pluralize(pin.memberCallCount, "caller")} from this group
-								</span>
-							)}
+							<span
+								className={css({
+									fontFamily: "mono",
+									fontSize: "2xs",
+									color: "fg.subtle",
+								})}
+							>
+								{/* The card above counts callers site-wide; this is
+								    the group's share of them. */}
+								{pin.memberCallCount} {pluralize(pin.memberCallCount, "caller")}{" "}
+								from this group
+							</span>
 							{viewerIsAdmin && (
 								<HStack gap="0.5">
 									<button
@@ -140,12 +114,7 @@ export function GroupPinnedStrip({
 										className={controlButton}
 										aria-label="Unpin"
 										disabled={pending}
-										onClick={() =>
-											unpin({
-												id: pin.id,
-												kind: pin.ballot ? "ballot" : "question",
-											})
-										}
+										onClick={() => unpin(pin.id)}
 									>
 										<FiX size={15} />
 									</button>

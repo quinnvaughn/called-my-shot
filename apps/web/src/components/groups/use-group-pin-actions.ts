@@ -4,12 +4,8 @@ import { match } from "ts-pattern"
 import { useGqlMutation } from "#/graphql/hooks"
 import {
 	SetGroupPinOrderDocument,
-	UnpinBallotFromGroupDocument,
 	UnpinQuestionFromGroupDocument,
 } from "#/graphql/mutations/groups"
-
-// What a pin holds, as far as unpinning it needs to know.
-export type PinTarget = { id: string; kind: "question" | "ballot" }
 
 // Reordering and unpinning, shared by the pinned strip on the group page and
 // the Pins section in settings. Invalidates only the two group queries
@@ -18,7 +14,6 @@ export function useGroupPinActions(groupId: string) {
 	const queryClient = useQueryClient()
 	const setOrder = useGqlMutation(SetGroupPinOrderDocument)
 	const unpinQuestion = useGqlMutation(UnpinQuestionFromGroupDocument)
-	const unpinBallot = useGqlMutation(UnpinBallotFromGroupDocument)
 	const [error, setError] = useState<string | null>(null)
 
 	async function refresh() {
@@ -74,31 +69,16 @@ export function useGroupPinActions(groupId: string) {
 		await handle(data?.setGroupPinOrder)
 	}
 
-	async function unpin(target: PinTarget) {
+	async function unpin(questionId: string) {
 		setError(null)
-		await match(target.kind)
-			.with("question", async () => {
-				const data = await unpinQuestion.mutateAsync({
-					groupId,
-					questionId: target.id,
-				})
-				await handle(data?.unpinQuestionFromGroup)
-			})
-			.with("ballot", async () => {
-				const data = await unpinBallot.mutateAsync({
-					groupId,
-					ballotId: target.id,
-				})
-				await handle(data?.unpinBallotFromGroup)
-			})
-			.exhaustive()
+		const data = await unpinQuestion.mutateAsync({ groupId, questionId })
+		await handle(data?.unpinQuestionFromGroup)
 	}
 
 	return {
 		move,
 		unpin,
-		pending:
-			setOrder.isPending || unpinQuestion.isPending || unpinBallot.isPending,
+		pending: setOrder.isPending || unpinQuestion.isPending,
 		error,
 	}
 }

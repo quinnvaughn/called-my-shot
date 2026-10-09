@@ -145,6 +145,9 @@ export const GroupDetailDocument = graphql(`
             pins {
                 ...GroupPinnedStrip_pin
             }
+            ballots {
+                ...GroupBallotsStrip_groupBallot
+            }
             links {
                 id
                 url
