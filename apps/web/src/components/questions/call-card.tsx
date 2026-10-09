@@ -27,6 +27,7 @@ import { RedoBadge } from "./redo-badge"
 export const CallCardFragment = graphql(`
 	fragment CallCard_call on Call {
 		id
+		createdAt
 		caseText
 		# Presence alone is the badge. What it used to say is only fetched on
 		# the call's own page, where there's room to show it.
@@ -105,6 +106,7 @@ export function CallCard({ call: callProp, linked = true }: CallCardProps) {
 					username={caller.username}
 					avatarUrl={caller.avatarUrl}
 					flair={caller.flair}
+					calledAt={call.createdAt}
 				/>
 				<PickList call={summary} />
 				<CallPoints call={call} />
