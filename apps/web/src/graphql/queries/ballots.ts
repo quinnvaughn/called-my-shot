@@ -26,8 +26,20 @@ export const BallotByRefDocument = graphql(`
 			memberCount
 			viewerCalledCount
 			viewerGuessSum
+			nextLocksAt
 			completions {
 				...BallotCompletionsList_summary
+			}
+			viewerGroupBoards {
+				memberCount
+				finishedCount
+				viewerIsAdmin
+				isPinned
+				group {
+					id
+					name
+					logoUrl
+				}
 			}
 			members {
 				...BallotPositionRow_member

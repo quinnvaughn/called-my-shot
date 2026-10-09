@@ -1,4 +1,4 @@
-import { useSuspenseQuery } from "@tanstack/react-query"
+import { useQuery, useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute, Link, useRouteContext } from "@tanstack/react-router"
 import { FaRegTimesCircle } from "react-icons/fa"
 import { css } from "styled-system/css"
@@ -17,6 +17,7 @@ import { PageHeader } from "#/components/ui/page-header"
 import { Tabs } from "#/components/ui/tabs"
 import { Tag } from "#/components/ui/tag"
 import { BallotEntryDocument } from "#/graphql/queries/ballots"
+import { GroupCrumbDocument } from "#/graphql/queries/groups"
 import { gqlQueryOptions } from "#/graphql/query-options"
 import {
 	ballotEntryPath,
@@ -31,6 +32,9 @@ import { questionDetailState } from "#/lib/question-detail-state"
 const ballotEntryQuery = (ref: string, username: string) =>
 	gqlQueryOptions(BallotEntryDocument, { ref, username })
 
+const groupCrumbQuery = (groupId: string) =>
+	gqlQueryOptions(GroupCrumbDocument, { groupId })
+
 // Public, like the ballot page and /calls/:id - this url exists to be pasted
 // somewhere. Not a child of /ballots/$ballotSlug (that page has no outlet),
 // hence the trailing underscore. Left out of the sitemap for the same reason
@@ -39,10 +43,16 @@ export const Route = createFileRoute("/_app/ballots/$ballotSlug_/$username")({
 	component: RouteComponent,
 	staleTime: 0,
 	validateSearch: validateBallotEntrySearch,
-	loader: async ({ context, params }) => {
-		const data = await context.queryClient.query(
-			ballotEntryQuery(params.ballotSlug, params.username),
-		)
+	loaderDeps: ({ search }) => ({ group: search.group }),
+	loader: async ({ context, params, deps }) => {
+		const [data] = await Promise.all([
+			context.queryClient.query(
+				ballotEntryQuery(params.ballotSlug, params.username),
+			),
+			deps.group
+				? context.queryClient.query(groupCrumbQuery(deps.group))
+				: null,
+		])
 		return { ballot: data.ballot ?? null }
 	},
 	head: ({ loaderData }) => {
@@ -102,9 +112,16 @@ function picksVersion(
 
 function RouteComponent() {
 	const { ballotSlug, username } = Route.useParams()
-	const { view } = Route.useSearch()
+	const { view, group: groupId } = Route.useSearch()
 	const navigate = Route.useNavigate()
 	const { data } = useSuspenseQuery(ballotEntryQuery(ballotSlug, username))
+	// Set when opened from a group's ballot board. Ignored when the viewer
+	// can't see the group.
+	const { data: crumbData } = useQuery({
+		...groupCrumbQuery(groupId ?? ""),
+		enabled: groupId !== undefined,
+	})
+	const crumbGroup = groupId ? (crumbData?.group ?? null) : null
 	const { me } = useRouteContext({ from: "__root__" })
 	const ballot = data.ballot
 
@@ -167,24 +184,43 @@ function RouteComponent() {
 	return (
 		<VStack gap="6" alignItems="stretch" className={css({ maxWidth: "2xl" })}>
 			<Breadcrumb>
-				<Breadcrumb.Link
-					to="/leagues/$leagueSlug"
-					params={{ leagueSlug: ballot.league.slug }}
-				>
-					{ballot.league.abbreviation}
-				</Breadcrumb.Link>
-				<Breadcrumb.Link
-					to="/leagues/$leagueSlug/season"
-					params={{ leagueSlug: ballot.league.slug }}
-				>
-					Season
-				</Breadcrumb.Link>
-				<Breadcrumb.Link
-					to="/ballots/$ballotSlug"
-					params={{ ballotSlug: ballot.slug }}
-				>
-					{ballot.name}
-				</Breadcrumb.Link>
+				{crumbGroup ? (
+					<>
+						<Breadcrumb.Link
+							to="/groups/$groupId"
+							params={{ groupId: crumbGroup.id }}
+						>
+							{crumbGroup.name}
+						</Breadcrumb.Link>
+						<Breadcrumb.Link
+							to="/groups/$groupId/ballots/$ballotSlug"
+							params={{ groupId: crumbGroup.id, ballotSlug: ballot.slug }}
+						>
+							{ballot.name}
+						</Breadcrumb.Link>
+					</>
+				) : (
+					<>
+						<Breadcrumb.Link
+							to="/leagues/$leagueSlug"
+							params={{ leagueSlug: ballot.league.slug }}
+						>
+							{ballot.league.abbreviation}
+						</Breadcrumb.Link>
+						<Breadcrumb.Link
+							to="/leagues/$leagueSlug/season"
+							params={{ leagueSlug: ballot.league.slug }}
+						>
+							Season
+						</Breadcrumb.Link>
+						<Breadcrumb.Link
+							to="/ballots/$ballotSlug"
+							params={{ ballotSlug: ballot.slug }}
+						>
+							{ballot.name}
+						</Breadcrumb.Link>
+					</>
+				)}
 				<Breadcrumb.Current>@{entry.user.username}</Breadcrumb.Current>
 			</Breadcrumb>
 
@@ -250,7 +286,10 @@ function RouteComponent() {
 					value={tab}
 					onValueChange={(next) =>
 						navigate({
-							search: next === "picks" ? { view: "picks" } : {},
+							search: (prev) => ({
+								group: prev.group,
+								...(next === "picks" ? { view: "picks" as const } : {}),
+							}),
 							replace: true,
 							resetScroll: false,
 						})

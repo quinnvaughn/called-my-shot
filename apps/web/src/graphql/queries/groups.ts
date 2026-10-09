@@ -80,7 +80,7 @@ export const GroupSettingsDocument = graphql(`
                 id
                 abbreviation
             }
-            pinnedQuestions {
+            pins {
                 ...GroupPinsSection_pin
             }
             members {
@@ -142,7 +142,7 @@ export const GroupDetailDocument = graphql(`
             viewerIsMember
             viewerIsAdmin
             viewerDismissedInviteCard
-            pinnedQuestions {
+            pins {
                 ...GroupPinnedStrip_pin
             }
             links {
@@ -300,7 +300,47 @@ export const GroupGameBoardDocument = graphql(`
     }
 `)
 
-// The group's name for the picks page's breadcrumb back to a group board.
+// Every member's progress on one ballot, for
+// /groups/:groupId/ballots/:ballotSlug: the members who've started it, one
+// row each, and the ones who haven't.
+export const GroupBallotBoardDocument = graphql(`
+    query GroupBallotBoard($groupId: ID!, $ballotId: ID!) {
+        group(id: $groupId) {
+            id
+            name
+            ballotBoard(ballotId: $ballotId) {
+                ballot {
+                    id
+                    slug
+                    name
+                    memberCount
+                    nextLocksAt
+                    league {
+                        id
+                        abbreviation
+                    }
+                }
+                entries {
+                    user {
+                        id
+                    }
+                    calledCount
+                    completedAt
+                    wins
+                    losses
+                    ...GroupBallotEntryRow_entry
+                }
+                notStarted {
+                    id
+                    ...Identity_user
+                }
+            }
+        }
+    }
+`)
+
+// The group's name for a picks or entry page's breadcrumb back to a group
+// board.
 export const GroupCrumbDocument = graphql(`
     query GroupCrumb($groupId: ID!) {
         group(id: $groupId) {

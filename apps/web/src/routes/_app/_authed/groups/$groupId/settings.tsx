@@ -101,7 +101,7 @@ function RouteComponent() {
 					</VStack>
 					<VStack alignItems="stretch" gap="3">
 						{sectionLabel("Pins")}
-						<GroupPinsSection groupId={group.id} pins={group.pinnedQuestions} />
+						<GroupPinsSection groupId={group.id} pins={group.pins} />
 					</VStack>
 					<VStack alignItems="stretch" gap="3">
 						{sectionLabel("Logo and banner")}

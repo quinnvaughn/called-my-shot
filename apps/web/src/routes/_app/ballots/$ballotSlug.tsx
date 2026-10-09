@@ -15,6 +15,7 @@ import {
 	BallotCompletionsList,
 	BallotCompletionsListFragment,
 } from "#/components/ballots/ballot-completions-list"
+import { BallotGroupBoards } from "#/components/ballots/ballot-group-boards"
 import {
 	BallotPositionRow,
 	BallotPositionRowFragment,
@@ -57,6 +58,9 @@ const ballotQuery = (ref: string) =>
 // assembling one; one person's picks on it live at /ballots/<slug>/<username>.
 export const Route = createFileRoute("/_app/ballots/$ballotSlug")({
 	component: RouteComponent,
+	// The viewer's groups on this ballot. Below xl the rail is hidden and the
+	// page carries the same list inline.
+	staticData: { rightRail: <BallotRail /> },
 	staleTime: 0,
 	validateSearch: validateBallotPageSearch,
 	// head() can only read loaderData, so the meta-tag fields come back from
@@ -93,6 +97,23 @@ export const Route = createFileRoute("/_app/ballots/$ballotSlug")({
 		})
 	},
 })
+
+// Reads the cache entry RouteComponent loads, so the rail moves with the page
+// rather than fetching on its own.
+function BallotRail() {
+	const { ballotSlug } = Route.useParams()
+	const { data } = useSuspenseQuery(ballotQuery(ballotSlug))
+	const ballot = data.ballot
+	if (!ballot) return null
+	return (
+		<BallotGroupBoards
+			ballotId={ballot.id}
+			ballotSlug={ballot.slug}
+			canPin={ballot.nextLocksAt !== null}
+			boards={ballot.viewerGroupBoards}
+		/>
+	)
+}
 
 function RouteComponent() {
 	const { ballotSlug } = Route.useParams()
@@ -385,6 +406,17 @@ function RouteComponent() {
 					</VStack>
 				</Card>
 			</VStack>
+			)}
+
+			{ballot.viewerGroupBoards.length > 0 && (
+				<div className={css({ display: { base: "block", xl: "none" } })}>
+					<BallotGroupBoards
+						ballotId={ballot.id}
+						ballotSlug={ballot.slug}
+						canPin={ballot.nextLocksAt !== null}
+						boards={ballot.viewerGroupBoards}
+					/>
+				</div>
 			)}
 
 			<VStack gap="3" alignItems="stretch">

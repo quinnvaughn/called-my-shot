@@ -16,9 +16,15 @@ export const GroupPinsSectionPinFragment = graphql(`
 	fragment GroupPinsSection_pin on GroupPin {
 		id
 		memberCallCount
+		memberFinishedCount
 		question {
 			id
 			title
+		}
+		ballot {
+			id
+			slug
+			name
 		}
 	}
 `)
@@ -42,6 +48,15 @@ const rowButton = css({
 	_disabled: { opacity: 0.35, cursor: "default", _hover: { bg: "none" } },
 })
 
+const titleClass = css({
+	fontSize: "sm",
+	overflow: "hidden",
+	textOverflow: "ellipsis",
+	whiteSpace: "nowrap",
+	maxWidth: "full",
+	_hover: { textDecoration: "underline" },
+})
+
 // Admins only, like the rest of the group's own settings. Pins save as soon
 // as they're moved or removed.
 export function GroupPinsSection({ groupId, pins: pinsProp }: Props) {
@@ -54,12 +69,14 @@ export function GroupPinsSection({ groupId, pins: pinsProp }: Props) {
 			<Card.Body>
 				<VStack gap="3" alignItems="stretch">
 					<FieldLabel>
-						Pinned questions · {pins.length}/{GROUP_PINS_MAX}
+						Pins · {pins.length}/{GROUP_PINS_MAX}
 					</FieldLabel>
 					<FieldHint>
-						Pin up to {GROUP_PINS_MAX} open questions from a question's Share
-						menu. They show at the top of the group page, and a pin drops off
-						when its question locks.
+						Pin up to {GROUP_PINS_MAX} open questions or ballots. Pin a question
+						from its Share menu, and a ballot from "This ballot in your groups"
+						on the ballot's page. Pins show at the top of the group page. A
+						question drops off when it locks, and a ballot when everything on it
+						has.
 					</FieldHint>
 					{pins.length === 0 ? (
 						<span
@@ -88,23 +105,27 @@ export function GroupPinsSection({ groupId, pins: pinsProp }: Props) {
 										alignItems="flex-start"
 										className={css({ flex: "1", minWidth: "0" })}
 									>
-										<Link
-											to="/questions/$questionId/{-$slug}"
-											params={{
-												questionId: pin.question.id,
-												slug: buildQuestionSlug(pin.question.title),
-											}}
-											className={css({
-												fontSize: "sm",
-												overflow: "hidden",
-												textOverflow: "ellipsis",
-												whiteSpace: "nowrap",
-												maxWidth: "full",
-												_hover: { textDecoration: "underline" },
-											})}
-										>
-											{pin.question.title}
-										</Link>
+										{pin.question && (
+											<Link
+												to="/questions/$questionId/{-$slug}"
+												params={{
+													questionId: pin.question.id,
+													slug: buildQuestionSlug(pin.question.title),
+												}}
+												className={titleClass}
+											>
+												{pin.question.title}
+											</Link>
+										)}
+										{pin.ballot && (
+											<Link
+												to="/ballots/$ballotSlug"
+												params={{ ballotSlug: pin.ballot.slug }}
+												className={titleClass}
+											>
+												{pin.ballot.name}
+											</Link>
+										)}
 										<span
 											className={css({
 												fontFamily: "mono",
@@ -112,8 +133,9 @@ export function GroupPinsSection({ groupId, pins: pinsProp }: Props) {
 												color: "fg.subtle",
 											})}
 										>
-											{pin.memberCallCount}{" "}
-											{pluralize(pin.memberCallCount, "member")} called
+											{pin.ballot
+												? `Ballot · ${pin.memberFinishedCount ?? 0} finished · ${pin.memberCallCount} started`
+												: `${pin.memberCallCount} ${pluralize(pin.memberCallCount, "member")} called`}
 										</span>
 									</VStack>
 									<button
@@ -139,7 +161,12 @@ export function GroupPinsSection({ groupId, pins: pinsProp }: Props) {
 										className={rowButton}
 										aria-label="Unpin"
 										disabled={pending}
-										onClick={() => unpin(pin.id)}
+										onClick={() =>
+											unpin({
+												id: pin.id,
+												kind: pin.ballot ? "ballot" : "question",
+											})
+										}
 									>
 										<FiX size={16} />
 									</button>

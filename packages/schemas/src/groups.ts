@@ -53,10 +53,16 @@ export const groupPinSchema = z.object({
 	questionId: z.string().uuid(),
 })
 
-// The group's current callable pins, in their new display order.
+export const groupBallotPinSchema = z.object({
+	groupId: z.string().uuid(),
+	ballotId: z.string().uuid(),
+})
+
+// The group's current callable pins, in their new display order. Each id is
+// the pinned question's or ballot's.
 export const setGroupPinOrderSchema = z.object({
 	groupId: z.string().uuid(),
-	questionIds: z.array(z.string().uuid()).max(GROUP_PINS_MAX),
+	pinIds: z.array(z.string().uuid()).max(GROUP_PINS_MAX),
 })
 
 export const inviteCodeSchema = z

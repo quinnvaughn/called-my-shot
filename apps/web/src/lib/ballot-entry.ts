@@ -17,8 +17,11 @@ export function formatSignedPoints(points: number): string {
 // questions and ?view=standings switches. An entry page is someone's ballot
 // to look at, so it opens on standings and ?view=picks switches. Any other
 // ballot has only the list, and ignores the param.
+//
+// An entry page opened from a group's ballot board also carries ?group=, so
+// its breadcrumb leads back to that board.
 export type BallotPageSearch = { view?: "standings" }
-export type BallotEntrySearch = { view?: "picks" }
+export type BallotEntrySearch = { view?: "picks"; group?: string }
 
 export function validateBallotPageSearch(
 	search: Record<string, unknown>,
@@ -29,5 +32,8 @@ export function validateBallotPageSearch(
 export function validateBallotEntrySearch(
 	search: Record<string, unknown>,
 ): BallotEntrySearch {
-	return search.view === "picks" ? { view: "picks" } : {}
+	return {
+		...(search.view === "picks" ? { view: "picks" as const } : {}),
+		...(typeof search.group === "string" ? { group: search.group } : {}),
+	}
 }

@@ -78,6 +78,7 @@ import { Route as ShareUsersUsernameCardDotpngRouteImport } from './routes/share
 import { Route as AppAuthedGroupsGroupIdIndexRouteImport } from './routes/_app/_authed/groups/$groupId/index'
 import { Route as AppAuthedGroupsGroupIdSettingsRouteImport } from './routes/_app/_authed/groups/$groupId/settings'
 import { Route as AppGamesGameIdPicksUsernameRouteImport } from './routes/_app/games/$gameId.picks.$username'
+import { Route as AppAuthedGroupsGroupIdBallotsBallotSlugRouteImport } from './routes/_app/_authed/groups/$groupId/ballots/$ballotSlug'
 import { Route as AppAuthedGroupsGroupIdGamesGameIdRouteImport } from './routes/_app/_authed/groups/$groupId/games/$gameId'
 import { Route as AppUserUsernameReportCardsLeagueWindowKeyRouteImport } from './routes/_app/user/$username_.report-cards.$league.$windowKey'
 import { Route as AppUserUsernameSweepsLeagueSlateKeyRouteImport } from './routes/_app/user/$username_.sweeps.$league.$slateKey'
@@ -445,6 +446,12 @@ const AppGamesGameIdPicksUsernameRoute =
     path: '/games/$gameId/picks/$username',
     getParentRoute: () => AppRoute,
   } as any)
+const AppAuthedGroupsGroupIdBallotsBallotSlugRoute =
+  AppAuthedGroupsGroupIdBallotsBallotSlugRouteImport.update({
+    id: '/groups/$groupId/ballots/$ballotSlug',
+    path: '/groups/$groupId/ballots/$ballotSlug',
+    getParentRoute: () => AppAuthedRoute,
+  } as any)
 const AppAuthedGroupsGroupIdGamesGameIdRoute =
   AppAuthedGroupsGroupIdGamesGameIdRouteImport.update({
     id: '/groups/$groupId/games/$gameId',
@@ -568,6 +575,7 @@ export interface FileRoutesByFullPath {
   '/groups/$groupId/settings': typeof AppAuthedGroupsGroupIdSettingsRoute
   '/games/$gameId/picks/$username': typeof AppGamesGameIdPicksUsernameRoute
   '/groups/$groupId/': typeof AppAuthedGroupsGroupIdIndexRoute
+  '/groups/$groupId/ballots/$ballotSlug': typeof AppAuthedGroupsGroupIdBallotsBallotSlugRoute
   '/groups/$groupId/games/$gameId': typeof AppAuthedGroupsGroupIdGamesGameIdRoute
   '/user/$username/report-cards/$league/$windowKey': typeof AppUserUsernameReportCardsLeagueWindowKeyRoute
   '/user/$username/sweeps/$league/$slateKey': typeof AppUserUsernameSweepsLeagueSlateKeyRoute
@@ -643,6 +651,7 @@ export interface FileRoutesByTo {
   '/groups/$groupId/settings': typeof AppAuthedGroupsGroupIdSettingsRoute
   '/games/$gameId/picks/$username': typeof AppGamesGameIdPicksUsernameRoute
   '/groups/$groupId': typeof AppAuthedGroupsGroupIdIndexRoute
+  '/groups/$groupId/ballots/$ballotSlug': typeof AppAuthedGroupsGroupIdBallotsBallotSlugRoute
   '/groups/$groupId/games/$gameId': typeof AppAuthedGroupsGroupIdGamesGameIdRoute
   '/user/$username/report-cards/$league/$windowKey': typeof AppUserUsernameReportCardsLeagueWindowKeyRoute
   '/user/$username/sweeps/$league/$slateKey': typeof AppUserUsernameSweepsLeagueSlateKeyRoute
@@ -724,6 +733,7 @@ export interface FileRoutesById {
   '/_app/_authed/groups/$groupId/settings': typeof AppAuthedGroupsGroupIdSettingsRoute
   '/_app/games/$gameId/picks/$username': typeof AppGamesGameIdPicksUsernameRoute
   '/_app/_authed/groups/$groupId/': typeof AppAuthedGroupsGroupIdIndexRoute
+  '/_app/_authed/groups/$groupId/ballots/$ballotSlug': typeof AppAuthedGroupsGroupIdBallotsBallotSlugRoute
   '/_app/_authed/groups/$groupId/games/$gameId': typeof AppAuthedGroupsGroupIdGamesGameIdRoute
   '/_app/user/$username_/report-cards/$league/$windowKey': typeof AppUserUsernameReportCardsLeagueWindowKeyRoute
   '/_app/user/$username_/sweeps/$league/$slateKey': typeof AppUserUsernameSweepsLeagueSlateKeyRoute
@@ -804,6 +814,7 @@ export interface FileRouteTypes {
     | '/groups/$groupId/settings'
     | '/games/$gameId/picks/$username'
     | '/groups/$groupId/'
+    | '/groups/$groupId/ballots/$ballotSlug'
     | '/groups/$groupId/games/$gameId'
     | '/user/$username/report-cards/$league/$windowKey'
     | '/user/$username/sweeps/$league/$slateKey'
@@ -879,6 +890,7 @@ export interface FileRouteTypes {
     | '/groups/$groupId/settings'
     | '/games/$gameId/picks/$username'
     | '/groups/$groupId'
+    | '/groups/$groupId/ballots/$ballotSlug'
     | '/groups/$groupId/games/$gameId'
     | '/user/$username/report-cards/$league/$windowKey'
     | '/user/$username/sweeps/$league/$slateKey'
@@ -959,6 +971,7 @@ export interface FileRouteTypes {
     | '/_app/_authed/groups/$groupId/settings'
     | '/_app/games/$gameId/picks/$username'
     | '/_app/_authed/groups/$groupId/'
+    | '/_app/_authed/groups/$groupId/ballots/$ballotSlug'
     | '/_app/_authed/groups/$groupId/games/$gameId'
     | '/_app/user/$username_/report-cards/$league/$windowKey'
     | '/_app/user/$username_/sweeps/$league/$slateKey'
@@ -1479,6 +1492,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppGamesGameIdPicksUsernameRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/_authed/groups/$groupId/ballots/$ballotSlug': {
+      id: '/_app/_authed/groups/$groupId/ballots/$ballotSlug'
+      path: '/groups/$groupId/ballots/$ballotSlug'
+      fullPath: '/groups/$groupId/ballots/$ballotSlug'
+      preLoaderRoute: typeof AppAuthedGroupsGroupIdBallotsBallotSlugRouteImport
+      parentRoute: typeof AppAuthedRoute
+    }
     '/_app/_authed/groups/$groupId/games/$gameId': {
       id: '/_app/_authed/groups/$groupId/games/$gameId'
       path: '/groups/$groupId/games/$gameId'
@@ -1557,6 +1577,7 @@ interface AppAuthedRouteChildren {
   AppAuthedGroupsIndexRoute: typeof AppAuthedGroupsIndexRoute
   AppAuthedGroupsGroupIdSettingsRoute: typeof AppAuthedGroupsGroupIdSettingsRoute
   AppAuthedGroupsGroupIdIndexRoute: typeof AppAuthedGroupsGroupIdIndexRoute
+  AppAuthedGroupsGroupIdBallotsBallotSlugRoute: typeof AppAuthedGroupsGroupIdBallotsBallotSlugRoute
   AppAuthedGroupsGroupIdGamesGameIdRoute: typeof AppAuthedGroupsGroupIdGamesGameIdRoute
 }
 
@@ -1572,6 +1593,8 @@ const AppAuthedRouteChildren: AppAuthedRouteChildren = {
   AppAuthedGroupsIndexRoute: AppAuthedGroupsIndexRoute,
   AppAuthedGroupsGroupIdSettingsRoute: AppAuthedGroupsGroupIdSettingsRoute,
   AppAuthedGroupsGroupIdIndexRoute: AppAuthedGroupsGroupIdIndexRoute,
+  AppAuthedGroupsGroupIdBallotsBallotSlugRoute:
+    AppAuthedGroupsGroupIdBallotsBallotSlugRoute,
   AppAuthedGroupsGroupIdGamesGameIdRoute:
     AppAuthedGroupsGroupIdGamesGameIdRoute,
 }

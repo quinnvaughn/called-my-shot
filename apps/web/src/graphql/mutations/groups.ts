@@ -303,9 +303,59 @@ export const UnpinQuestionFromGroupDocument = graphql(`
 	}
 `)
 
+export const PinBallotToGroupDocument = graphql(`
+	mutation PinBallotToGroup($groupId: ID!, $ballotId: ID!) {
+		pinBallotToGroup(groupId: $groupId, ballotId: $ballotId) {
+			__typename
+			... on GroupPayload {
+				group {
+					id
+				}
+			}
+			... on AuthenticationError {
+				message
+			}
+			... on AuthorizationError {
+				message
+			}
+			... on NotFoundError {
+				message
+			}
+			... on ValidationError {
+				message
+			}
+		}
+	}
+`)
+
+export const UnpinBallotFromGroupDocument = graphql(`
+	mutation UnpinBallotFromGroup($groupId: ID!, $ballotId: ID!) {
+		unpinBallotFromGroup(groupId: $groupId, ballotId: $ballotId) {
+			__typename
+			... on GroupPayload {
+				group {
+					id
+				}
+			}
+			... on AuthenticationError {
+				message
+			}
+			... on AuthorizationError {
+				message
+			}
+			... on NotFoundError {
+				message
+			}
+			... on ValidationError {
+				message
+			}
+		}
+	}
+`)
+
 export const SetGroupPinOrderDocument = graphql(`
-	mutation SetGroupPinOrder($groupId: ID!, $questionIds: [ID!]!) {
-		setGroupPinOrder(groupId: $groupId, questionIds: $questionIds) {
+	mutation SetGroupPinOrder($groupId: ID!, $pinIds: [ID!]!) {
+		setGroupPinOrder(groupId: $groupId, pinIds: $pinIds) {
 			__typename
 			... on GroupPayload {
 				group {

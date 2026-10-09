@@ -1,4 +1,6 @@
+import { sql } from "drizzle-orm"
 import {
+	check,
 	index,
 	integer,
 	pgEnum,
@@ -9,6 +11,7 @@ import {
 	unique,
 	uuid,
 } from "drizzle-orm/pg-core"
+import { ballots } from "./ballots"
 import { flairs } from "./flairs"
 import { questions } from "./questions"
 import { leagues } from "./sports"
@@ -164,19 +167,24 @@ export const questionShares = pgTable(
 )
 export type QuestionShare = typeof questionShares.$inferSelect
 
-// Questions a group's admins recommend members call, shown at the top of the
-// group page. Only pins whose question
-// is still callable count toward GROUP_PINS_MAX or show anywhere;
-// expireGroupPins (lib/group-pins.ts) deletes the rest when questions lock.
+// Questions and ballots a group's admins recommend members call, shown at the
+// top of the group page. Each pin is exactly one of the two. Only pins that
+// can still be called count toward GROUP_PINS_MAX or show anywhere: a
+// question until it locks, a published ballot while any of its members is
+// still open. expireGroupPins (lib/group-pins.ts) deletes the rest.
 export const groupPins = pgTable(
 	"group_pins",
 	{
+		id: uuid("id").primaryKey().defaultRandom(),
 		groupId: uuid("group_id")
 			.notNull()
 			.references(() => groups.id, { onDelete: "cascade" }),
-		questionId: uuid("question_id")
-			.notNull()
-			.references(() => questions.id, { onDelete: "cascade" }),
+		questionId: uuid("question_id").references(() => questions.id, {
+			onDelete: "cascade",
+		}),
+		ballotId: uuid("ballot_id").references(() => ballots.id, {
+			onDelete: "cascade",
+		}),
 		// Nullable + set null on delete: an admin deleting their account
 		// shouldn't unpin what they pinned.
 		pinnedBy: uuid("pinned_by").references(() => users.id, {
@@ -188,8 +196,14 @@ export const groupPins = pgTable(
 		createdAt: timestamp("created_at").notNull().defaultNow(),
 	},
 	(t) => [
-		primaryKey({ columns: [t.groupId, t.questionId] }),
+		unique().on(t.groupId, t.questionId),
+		unique().on(t.groupId, t.ballotId),
 		index("group_pins_question_id_idx").on(t.questionId),
+		index("group_pins_ballot_id_idx").on(t.ballotId),
+		check(
+			"group_pins_one_target",
+			sql`num_nonnulls(${t.questionId}, ${t.ballotId}) = 1`,
+		),
 	],
 )
 export type GroupPin = typeof groupPins.$inferSelect

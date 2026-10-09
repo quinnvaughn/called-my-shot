@@ -317,7 +317,7 @@ function RouteComponent() {
 			/>
 			<GroupPinnedStrip
 				groupId={group.id}
-				pins={group.pinnedQuestions}
+				pins={group.pins}
 				viewerIsAdmin={group.viewerIsAdmin}
 			/>
 			<GroupGamesStrip groupId={group.id} />
