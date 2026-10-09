@@ -183,7 +183,11 @@ function GoogleButton({
 				fullWidth
 				loading={leaving}
 				disabled={leaving}
-				className={css({ fontFamily: "heading", letterSpacing: "wide" })}
+				className={css({
+					fontFamily: "heading",
+					textTransform: "uppercase",
+					letterSpacing: "wide",
+				})}
 				onClick={() => {
 					setLeaving(true)
 					startGoogleAuth({ surface, returnTo: hasOnSuccess ? href : "/home" })

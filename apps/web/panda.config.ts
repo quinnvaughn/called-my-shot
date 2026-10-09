@@ -1476,11 +1476,10 @@ export default defineConfig({
           variants: {
             // Text treatment (font family, case, weight) is a property of the *variant*,
             // not the size — every mockup CTA (primary-btn, join-btn, modal-submit,
-            // invite-join-btn) is uppercase Archivo Black regardless of how big it is,
-            // and outline buttons (secondary-btn, confirm-cancel) are uppercase Space
-            // Mono regardless of size too. Only ghost stays sentence-case Inter. `size`
-            // below is purely a padding/font-size scale — keeping the two axes separate
-            // means picking a size never silently opts a button in or out of caps.
+            // invite-join-btn) is uppercase Archivo Black regardless of how big it is.
+            // Ghost and outline stay sentence-case Inter. `size` below is purely a
+            // padding/font-size scale — keeping the two axes separate means picking
+            // a size never silently opts a button in or out of caps.
             variant: {
               solid: {
                 bg: "primary.default",
@@ -1504,22 +1503,15 @@ export default defineConfig({
                 _hover: { bg: "bg.subtle" },
                 _disabled: { _hover: { bg: "transparent" } },
               },
-              // Same shape as ghost, but reserves a transparent border so a border
-              // can fade in on hover without shifting layout. Mono + uppercase to
-              // match the mockups' secondary-btn / confirm-cancel treatment.
+              // Ghost with its border always drawn, so it reads as a button at rest.
               outline: {
                 bg: "transparent",
                 color: "fg.default",
-                fontFamily: "mono",
-                textTransform: "uppercase",
+                fontWeight: "medium",
                 borderRadius: "lg",
-                border: "1px solid transparent",
-                _hover: {
-                  borderColor: "border.default",
-                },
-                _disabled: {
-                  _hover: { borderColor: "transparent" },
-                },
+                border: "1px solid {colors.border.default}",
+                _hover: { bg: "bg.subtle" },
+                _disabled: { _hover: { bg: "transparent" } },
               },
               // Same treatment as solid, but ink-on-paper instead of signal-on-paper —
               // a neutral solid CTA that doesn't reach for the brand accent color

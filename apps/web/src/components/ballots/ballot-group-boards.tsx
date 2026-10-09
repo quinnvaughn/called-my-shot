@@ -147,7 +147,7 @@ export function BallotGroupBoards({ ballotId, ballotSlug, boards }: Props) {
 										className={css({ paddingInline: "3", paddingBottom: "3" })}
 									>
 										<Button
-											variant={onGroupPage ? "ghost" : "outline"}
+											variant="outline"
 											size="sm"
 											fullWidth
 											disabled={pendingGroupId !== null}
