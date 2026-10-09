@@ -21,6 +21,7 @@ import {
 } from "#/lib/analytics"
 import { useGoogleAuthReturn } from "#/lib/google-auth"
 import { readShareLanding } from "#/lib/share-links"
+import { rememberTimeZone, requestTimeZone } from "#/lib/time-zone"
 import { closeAllModals } from "#/stores/modal-store"
 import fontsCss from "../fonts.css?url"
 import type { RouterContext } from "../router-context"
@@ -32,7 +33,11 @@ export const Route = createRootRouteWithContext<RouterContext>()({
 	beforeLoad: async ({ context }) => {
 		try {
 			const data = await context.queryClient.query(meQuery)
-			return { me: data.me ?? null }
+			return {
+				me: data.me ?? null,
+				timeZone: requestTimeZone(),
+				now: Date.now(),
+			}
 		} catch (error) {
 			// The viewer barely changes between navigations, so the last known
 			// one is a better answer than tearing the app down. It also beats
@@ -42,7 +47,11 @@ export const Route = createRootRouteWithContext<RouterContext>()({
 			// nothing here can resurrect a session the api has already ended.
 			const cached = context.queryClient.getQueryData(meQuery.queryKey)
 			if (!cached) throw error
-			return { me: cached.me ?? null }
+			return {
+				me: cached.me ?? null,
+				timeZone: requestTimeZone(),
+				now: Date.now(),
+			}
 		}
 	},
 	// Nothing renders above the viewer query, so the failures that still escape
@@ -169,6 +178,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
 
 	useEffect(() => {
 		initAnalytics()
+		rememberTimeZone()
 	}, [])
 
 	useEffect(() => {

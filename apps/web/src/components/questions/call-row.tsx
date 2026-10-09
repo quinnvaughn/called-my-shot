@@ -13,6 +13,7 @@ import { RedoBadge } from "./redo-badge"
 export const CallRowFragment = graphql(`
 	fragment CallRow_call on Call {
 		id
+		createdAt
 		caseText
 		redo {
 			id
@@ -85,6 +86,7 @@ export function CallRow({ call: callProp, footer }: Props) {
 				// particular caller took their call back is per-row and can't
 				// be read anywhere else in this list.
 				badge={call.redo ? <RedoBadge /> : undefined}
+				calledAt={call.createdAt}
 			/>
 			<PickList call={toCallSummary(call)} />
 			{call.caseText && (

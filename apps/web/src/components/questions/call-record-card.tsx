@@ -4,6 +4,7 @@ import type { ReactNode } from "react"
 import { css, cx } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
 import { match } from "ts-pattern"
+import { CallTimestamp } from "#/components/questions/call-timestamp"
 import { Avatar } from "#/components/ui/avatar"
 import { Card } from "#/components/ui/card"
 import { Eyebrow } from "#/components/ui/eyebrow"
@@ -41,7 +42,7 @@ export type CallRecordCardData = {
 				team?: ImageTeam | null
 		  }[]
 		| null
-	// The date the call was made, already formatted (see formatCallDate). The
+	// When the call was made, as an ISO timestamp (see CallTimestamp). The
 	// point of a record is when it was set, so this is never optional.
 	calledAt: string
 	// Null on all three until the question resolves - a call with no outcome
@@ -173,7 +174,7 @@ export function CallRecordCard({ data, redo = null, footer }: Props) {
 									whiteSpace: "nowrap",
 								})}
 							>
-								· {data.calledAt}
+								· <CallTimestamp iso={data.calledAt} />
 							</span>
 						</HStack>
 						<RecordTag tone={tag.tone}>{tag.label}</RecordTag>

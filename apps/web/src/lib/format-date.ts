@@ -23,6 +23,38 @@ export function formatCallDate(iso: string): string {
 		.toFormat("MMM d, yyyy")
 }
 
+// The moment a call went on the record, down to the minute, in the given
+// zone - "Mar 3, 2026, 10:42 AM PDT". The zone name rides along because a
+// clock time alone doesn't say whose clock it is. Render it through
+// CallTimestamp rather than directly: that's what picks the reader's zone.
+export function formatCallTimestamp(iso: string, zone: string): string {
+	return DateTime.fromISO(iso, { zone })
+		.setLocale("en-US")
+		.toFormat("MMM d, yyyy, h:mm a ZZZZ")
+}
+
+const WEEK_MS = 7 * 24 * 60 * 60 * 1000
+
+// How long ago a call was made, for a list of calls - "just now", "5m ago",
+// "3h ago", "2d ago". Past a week the count stops meaning much ("23d ago"
+// makes the reader do arithmetic), so it gives the date instead, with the
+// year only once it's not this one. Render it through CallAge, which picks
+// the zone and the clock.
+export function formatCallAge(
+	iso: string,
+	nowMs: number,
+	zone: string,
+): string {
+	const at = DateTime.fromISO(iso, { zone }).setLocale("en-US")
+	const elapsed = nowMs - at.toMillis()
+	if (elapsed < 60_000) return "just now"
+	if (elapsed < 3_600_000) return `${Math.floor(elapsed / 60_000)}m ago`
+	if (elapsed < 86_400_000) return `${Math.floor(elapsed / 3_600_000)}h ago`
+	if (elapsed < WEEK_MS) return `${Math.floor(elapsed / 86_400_000)}d ago`
+	const thisYear = DateTime.fromMillis(nowMs, { zone }).year
+	return at.toFormat(at.year === thisYear ? "MMM d" : "MMM d, yyyy")
+}
+
 // The gap between calling something and being right about it - "11 months
 // before it resolved". Months rather than days, because a 340-day gap
 // reported as "340 days" is precision nobody asked for, and under a month

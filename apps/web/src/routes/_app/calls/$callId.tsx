@@ -189,8 +189,8 @@ function describeCall(call: NonNullable<CallRecordQuery["call"]>) {
 	// is to compare the two picks against the same outcome.
 	const redo = call.redo
 		? {
-				originalCalledAt: formatCallDate(call.redo.originalCreatedAt),
-				redoneAt: formatCallDate(call.redo.redoneAt),
+				originalCalledAt: call.redo.originalCreatedAt,
+				redoneAt: call.redo.redoneAt,
 				originalPickLabel: pickSummary({
 					...summaryData,
 					guessValue: call.redo.originalGuessValue,
@@ -292,7 +292,7 @@ function RouteComponent() {
 						team: s.option.team,
 					}))
 				: null,
-		calledAt: view.calledAt,
+		calledAt: call.createdAt,
 		isWin: view.isWin,
 		points: view.points,
 		inTheAir: call.payout ? formatPayout(call.payout) : null,

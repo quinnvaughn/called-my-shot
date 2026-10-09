@@ -1,10 +1,11 @@
 import { css } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
+import { CallTimestamp } from "#/components/questions/call-timestamp"
 import { Card } from "#/components/ui/card"
 import { Eyebrow } from "#/components/ui/eyebrow"
 
 export type RedoPanelData = {
-	// Both already formatted (see formatCallDate).
+	// Both ISO timestamps, rendered through CallTimestamp.
 	originalCalledAt: string
 	redoneAt: string
 	// What the call used to say, formatted the same way the live pick is (see
@@ -129,7 +130,7 @@ function RedoLine({
 					whiteSpace: "nowrap",
 				})}
 			>
-				{at}
+				<CallTimestamp iso={at} />
 			</span>
 		</HStack>
 	)

@@ -1,3 +1,4 @@
+import type { ReactNode } from "react"
 import { css, cx } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
 import { Avatar } from "./avatar"
@@ -14,7 +15,7 @@ type IdentityProps = {
 	// Trailing action word ("called"/"asked") - CallCard/CallRow's "who did
 	// this" usage appends one; the detail page's plain creator credit leaves
 	// it unset.
-	trailing?: string
+	trailing?: ReactNode
 	// Below md, puts the @handle on its own line under the name and lets both
 	// wrap, for narrow label/value rows where the full identity should stay
 	// readable rather than truncate. From md up it's the usual single line.
