@@ -38,16 +38,31 @@ jobs:
       # for data thrown away after the run, so fsync is off too. A plain docker
       # run rather than a service container, which can't take server flags.
       # Started first so it's up by the time install finishes; global-setup.ts
-      # waits for it either way. Pulled from ECR Public's mirror of the Docker
-      # official image: anonymous Docker Hub pulls share a rate limit across
-      # runners and fail the job outright when it's hit.
+      # waits for it either way. Anonymous pulls are rate limited on both ECR
+      # Public and Docker Hub, and the shards all pull at once from shared
+      # runner IPs, so each attempt tries ECR Public's mirror of the Docker
+      # official image, then Docker Hub, backing off between rounds.
       - name: Start Postgres
         run: |
+          image=""
+          for attempt in 1 2 3 4 5; do
+            for candidate in public.ecr.aws/docker/library/postgres:18-alpine postgres:18-alpine; do
+              if docker pull "$candidate"; then
+                image="$candidate"
+                break 2
+              fi
+            done
+            sleep $((attempt * 10))
+          done
+          if [ -z "$image" ]; then
+            echo "Could not pull postgres:18-alpine from any registry"
+            exit 1
+          fi
           docker run -d --name postgres-test -p 5435:5432 \
             -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=postgres \
             -e POSTGRES_DB=called_my_shot_test \
             --tmpfs /var/lib/postgresql \
-            public.ecr.aws/docker/library/postgres:18-alpine \
+            "$image" \
             -c fsync=off -c synchronous_commit=off -c full_page_writes=off
 
       - uses: actions/checkout@v4
