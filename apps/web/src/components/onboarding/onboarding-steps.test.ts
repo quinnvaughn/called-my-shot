@@ -12,6 +12,7 @@ const FRESH: OnboardingFacts = {
 	hasViewedLeaderboard: false,
 	hasGroup: false,
 	hasCreatedQuestion: false,
+	hasFavoriteTeams: false,
 	emailVerified: true,
 	questionCreationEnabled: true,
 }
@@ -35,10 +36,15 @@ describe("onboardingSteps", () => {
 	})
 
 	it("ticks the leaderboard off opening it, not off making a call", () => {
-		expect(
-			stepById({ hasViewedLeaderboard: true }, "leaderboard")?.done,
-		).toBe(true)
+		expect(stepById({ hasViewedLeaderboard: true }, "leaderboard")?.done).toBe(
+			true,
+		)
 		expect(stepById({ hasCalled: true }, "leaderboard")?.done).toBe(false)
+	})
+
+	it("ticks teams off having at least one saved", () => {
+		expect(stepById({ hasFavoriteTeams: true }, "teams")?.done).toBe(true)
+		expect(stepById({}, "teams")?.done).toBe(false)
 	})
 
 	it("counts a group somebody else started", () => {
@@ -71,6 +77,7 @@ describe("onboardingSteps", () => {
 			hasViewedLeaderboard: true,
 			hasGroup: true,
 			hasCreatedQuestion: true,
+			hasFavoriteTeams: true,
 			emailVerified: true,
 			questionCreationEnabled: true,
 		})

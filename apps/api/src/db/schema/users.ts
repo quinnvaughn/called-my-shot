@@ -71,6 +71,11 @@ export const users = pgTable("users", {
 	// leaves no other row to derive it from. Keeps the first visit's time; later
 	// visits don't move it. No backfill, same as onboardingDismissedAt.
 	leaderboardViewedAt: timestamp("leaderboard_viewed_at"),
+	// Stamped the moment the one-time favorite-teams prompt opens on /home, so
+	// it is shown once ever however it gets closed. The checklist step is the
+	// standing reminder after that. No backfill: an existing account without
+	// teams gets the prompt once, the same as a new one.
+	teamsPromptSeenAt: timestamp("teams_prompt_seen_at"),
 	// The one flair shown beside this user's name site-wide. Null means none,
 	// which is where every account starts - there's no default team to guess.
 	//

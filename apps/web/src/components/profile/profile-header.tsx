@@ -4,6 +4,11 @@ import { FiCamera } from "react-icons/fi"
 import { css } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
 import { useImagePicker } from "#/components/images/use-image-picker"
+import { FavoriteTeamsPickerModal } from "#/components/teams/favorite-teams-picker-modal"
+import {
+	type FavoriteTeam,
+	FavoriteTeamsRow,
+} from "#/components/teams/favorite-teams-row"
 import { Avatar } from "#/components/ui/avatar"
 import { Button } from "#/components/ui/button"
 import { Flair, type FlairData } from "#/components/ui/flair"
@@ -18,6 +23,7 @@ type Props = {
 		avatarUrl?: string | null
 		createdAt: string
 		flair?: FlairData | null
+		favoriteTeams: FavoriteTeam[]
 	}
 	viewerId?: string
 	// The profile's share row, beside Edit. Null until there's a record to
@@ -34,6 +40,14 @@ const avatarButton = css({
 		outline: "2px solid {colors.primary.default}",
 		outlineOffset: "2px",
 	},
+})
+
+const teamsEditButton = css({
+	fontSize: "xs",
+	fontWeight: "medium",
+	color: "fg.default",
+	textDecoration: "underline",
+	cursor: "pointer",
 })
 
 const cameraBadge = css({
@@ -124,6 +138,35 @@ export function ProfileHeader({ user, viewerId, share }: Props) {
 					>
 						Member since {DateTime.fromISO(user.createdAt).toFormat("MMM yyyy")}
 					</span>
+					{/* Someone else's empty list renders nothing. Your own gets the
+					    prompt to fill it, since this is where you'd notice it's
+					    missing. */}
+					{(user.favoriteTeams.length > 0 || isViewer) && (
+						<HStack gap="3" alignItems="center" flexWrap="wrap" marginTop="1.5">
+							{user.favoriteTeams.length > 0 && (
+								<FavoriteTeamsRow teams={user.favoriteTeams} />
+							)}
+							{isViewer && (
+								<button
+									type="button"
+									className={teamsEditButton}
+									onClick={() =>
+										openModal(
+											<FavoriteTeamsPickerModal
+												initialTeamIds={user.favoriteTeams.map(
+													(team) => team.id,
+												)}
+											/>,
+										)
+									}
+								>
+									{user.favoriteTeams.length > 0
+										? "Edit teams"
+										: "Add your teams"}
+								</button>
+							)}
+						</HStack>
+					)}
 				</VStack>
 			</HStack>
 			{hasActions && (

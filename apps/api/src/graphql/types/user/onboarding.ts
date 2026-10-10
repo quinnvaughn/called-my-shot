@@ -5,6 +5,7 @@ import {
 	groupMembers,
 	type Question,
 	questions,
+	userFavoriteTeams,
 	users,
 } from "../../../db/schema"
 import { requireUser } from "../../../lib/auth"
@@ -29,6 +30,7 @@ type ViewerOnboarding = {
 	hasViewedLeaderboard: boolean
 	hasGroup: boolean
 	hasCreatedQuestion: boolean
+	hasFavoriteTeams: boolean
 }
 
 const ViewerOnboardingRef = builder
@@ -44,6 +46,7 @@ const ViewerOnboardingRef = builder
 			// somebody else's group is the same outcome the step is asking for.
 			hasGroup: t.exposeBoolean("hasGroup"),
 			hasCreatedQuestion: t.exposeBoolean("hasCreatedQuestion"),
+			hasFavoriteTeams: t.exposeBoolean("hasFavoriteTeams"),
 			// The question to put in front of someone who has never called.
 			// Null only when nothing at all is open - see lib/onboarding.ts for
 			// the fallback ladder that keeps this populated in the offseason.
@@ -67,12 +70,12 @@ builder.queryFields((t) => ({
 		resolve: async (_root, _args, ctx) => {
 			const user = requireUser(ctx)
 
-			// Four lookups, run together since none depends on the others.
+			// Five lookups, run together since none depends on the others.
 			// hasCalled is deliberately not User.careerStats: that builds the
 			// entire global leaderboard to answer a single EXISTS. The leaderboard
 			// visit is read fresh rather than off ctx's user, which can predate a
 			// markLeaderboardViewed made earlier in the same session.
-			const [called, grouped, authored, viewer] = await Promise.all([
+			const [called, grouped, authored, viewer, followed] = await Promise.all([
 				db
 					.select({ id: calls.id })
 					.from(calls)
@@ -93,6 +96,11 @@ builder.queryFields((t) => ({
 					.from(users)
 					.where(eq(users.id, user.id))
 					.limit(1),
+				db
+					.select({ teamId: userFavoriteTeams.teamId })
+					.from(userFavoriteTeams)
+					.where(eq(userFavoriteTeams.userId, user.id))
+					.limit(1),
 			])
 
 			return {
@@ -101,6 +109,7 @@ builder.queryFields((t) => ({
 				hasViewedLeaderboard: viewer[0]?.leaderboardViewedAt != null,
 				hasGroup: grouped.length > 0,
 				hasCreatedQuestion: authored.length > 0,
+				hasFavoriteTeams: followed.length > 0,
 			}
 		},
 	}),

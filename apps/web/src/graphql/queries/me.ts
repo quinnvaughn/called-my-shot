@@ -16,6 +16,7 @@ export const MeDocument = graphql(`
 			createdAt
 			onboardingDismissedAt
 			onboardingCollapsedAt
+			teamsPromptSeenAt
 			# On the root query because the redo CTA is offered wherever the
 			# viewer's own open call appears, and the count is per-viewer
 			# rather than per-call - see Call.viewerCanRedo, which deliberately

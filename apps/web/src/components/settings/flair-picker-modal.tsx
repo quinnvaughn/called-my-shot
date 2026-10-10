@@ -25,6 +25,9 @@ const myFlairsQuery = gqlQueryOptions(MyFlairsDocument, {})
 // The tab earned flairs live under. Not a league slug, so it can't collide
 // with one.
 const EARNED = "earned"
+// The viewer's favorite teams, gathered from across the league tabs. Not a
+// league slug either.
+const YOUR_TEAMS = "your-teams"
 
 type Props = {
 	equippedFlairId: string | null
@@ -32,6 +35,7 @@ type Props = {
 
 type PickerFlair = {
 	id: string
+	teamId: string | null
 	// What search matches on: a team's full name, or an earned flair's label.
 	name: string
 	description: string | null
@@ -61,6 +65,7 @@ export function FlairPickerModal({ equippedFlairId }: Props) {
 				}
 				return {
 					id: flair.id,
+					teamId: flair.team?.id ?? null,
 					name: flair.team?.name ?? display.label,
 					description: flair.description ?? null,
 					group: flair.team?.league.slug ?? EARNED,
@@ -71,8 +76,23 @@ export function FlairPickerModal({ equippedFlairId }: Props) {
 		[data.myFlairs],
 	)
 
-	// One tab per league, plus Earned when there's anything in it. Leagues in
-	// alphabetical order so the row doesn't reshuffle as the catalog grows.
+	// In the order they listed them, which is also the order the tab shows.
+	const favoriteTeamIds = useMemo(
+		() => data.me?.favoriteTeams.map((team) => team.id) ?? [],
+		[data.me],
+	)
+	const favoriteFlairs = useMemo(
+		() =>
+			favoriteTeamIds.flatMap((teamId) => {
+				const flair = flairs.find((f) => f.teamId === teamId)
+				return flair ? [flair] : []
+			}),
+		[favoriteTeamIds, flairs],
+	)
+
+	// Your teams first when there are any, then Earned when there's anything
+	// in it, then one tab per league. Leagues in alphabetical order so the row
+	// doesn't reshuffle as the catalog grows.
 	const tabs = useMemo(() => {
 		const byGroup = new Map<string, string>()
 		for (const flair of flairs) byGroup.set(flair.group, flair.groupLabel)
@@ -80,23 +100,38 @@ export function FlairPickerModal({ equippedFlairId }: Props) {
 		const leagues = [...byGroup]
 			.map(([group, label]) => ({ group, label }))
 			.sort((a, b) => a.label.localeCompare(b.label))
-		return earned ? [{ group: EARNED, label: "Earned" }, ...leagues] : leagues
-	}, [flairs])
+		return [
+			...(favoriteFlairs.length > 0
+				? [{ group: YOUR_TEAMS, label: "Your teams" }]
+				: []),
+			...(earned ? [{ group: EARNED, label: "Earned" }] : []),
+			...leagues,
+		]
+	}, [flairs, favoriteFlairs])
 
 	// Open on the tab holding what they're already wearing, so the current
-	// choice is visible rather than something to go hunting for.
-	const [tab, setTab] = useState(
-		() =>
+	// choice is visible rather than something to go hunting for. Your teams
+	// counts as holding it when the flair is one of them, and is where a
+	// viewer wearing nothing starts.
+	const [tab, setTab] = useState(() => {
+		if (favoriteFlairs.some((flair) => flair.id === equippedFlairId)) {
+			return YOUR_TEAMS
+		}
+		return (
 			flairs.find((flair) => flair.id === equippedFlairId)?.group ??
 			tabs[0]?.group ??
-			EARNED,
-	)
+			EARNED
+		)
+	})
 
 	// Searching reaches across every league at once - nobody wants to pick the
 	// right tab before they can type a team name. Without a query it's one
 	// tab's worth, which is what keeps this from being one huge column.
 	const shown = useMemo(() => {
 		const query = search.trim().toLowerCase()
+		// Kept in their listed order rather than sorted, the same order the
+		// profile shows them in.
+		if (!query && tab === YOUR_TEAMS) return favoriteFlairs
 		const pool = query
 			? flairs.filter(
 					(flair) =>
@@ -105,7 +140,7 @@ export function FlairPickerModal({ equippedFlairId }: Props) {
 				)
 			: flairs.filter((flair) => flair.group === tab)
 		return [...pool].sort((a, b) => a.name.localeCompare(b.name))
-	}, [flairs, search, tab])
+	}, [flairs, favoriteFlairs, search, tab])
 
 	async function choose(flairId: string) {
 		setSaving(true)

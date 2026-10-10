@@ -10,6 +10,13 @@ export const UserProfileDocument = graphql(`
 			bannerUrl
 			createdAt
 			...Identity_user
+			favoriteTeams {
+				id
+				name
+				abbreviation
+				color
+				logoUrl
+			}
 			careerStats {
 				rank
 				totalPoints
@@ -212,6 +219,13 @@ export const SettingsPageDocument = graphql(`
 			equippedFlair {
 				id
 				...Flair_flair
+			}
+			favoriteTeams {
+				id
+				name
+				abbreviation
+				color
+				logoUrl
 			}
 		}
 	}

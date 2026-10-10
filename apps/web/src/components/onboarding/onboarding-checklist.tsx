@@ -5,6 +5,7 @@ import { FiCheck, FiChevronDown, FiChevronUp, FiX } from "react-icons/fi"
 import { css } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
 import { match } from "ts-pattern"
+import { FavoriteTeamsPickerModal } from "#/components/teams/favorite-teams-picker-modal"
 import { Button, button } from "#/components/ui/button"
 import { Card } from "#/components/ui/card"
 import { useGqlMutation } from "#/graphql/hooks"
@@ -16,6 +17,7 @@ import { ViewerOnboardingDocument } from "#/graphql/queries/onboarding"
 import { gqlQueryOptions } from "#/graphql/query-options"
 import { track } from "#/lib/analytics"
 import { buildQuestionSlug } from "#/lib/slug"
+import { openModal } from "#/stores/modal-store"
 import {
 	completedCount,
 	isOnboardingComplete,
@@ -86,6 +88,7 @@ export function OnboardingChecklist() {
 		hasViewedLeaderboard: onboarding.hasViewedLeaderboard,
 		hasGroup: onboarding.hasGroup,
 		hasCreatedQuestion: onboarding.hasCreatedQuestion,
+		hasFavoriteTeams: onboarding.hasFavoriteTeams,
 		emailVerified: me.emailVerified,
 		questionCreationEnabled: me.questionCreationEnabled,
 	})
@@ -253,6 +256,21 @@ export function OnboardingChecklist() {
 											</span>
 										),
 									)
+									// Never done when this renders, so the list starts
+									// empty.
+									.with({ id: "teams" }, () => (
+										<Button
+											variant="dark"
+											size="sm"
+											onClick={() =>
+												openModal(
+													<FavoriteTeamsPickerModal initialTeamIds={[]} />,
+												)
+											}
+										>
+											Pick your teams
+										</Button>
+									))
 									.with({ id: "leaderboard" }, () => (
 										<Link
 											to="/leaderboard"

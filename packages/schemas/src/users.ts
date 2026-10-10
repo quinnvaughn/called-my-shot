@@ -56,3 +56,22 @@ export const deleteAccountSchema = z.object({
 	password: z.string().min(1, "Enter your password"),
 })
 export type DeleteAccountInput = z.infer<typeof deleteAccountSchema>
+
+// How many favorite teams one account can list. Enough for a team in every
+// league plus a second in a couple, few enough that the profile row stays one
+// glance.
+export const MAX_FAVORITE_TEAMS = 10
+
+// Duplicates are dropped before the cap is checked, so a repeated id never
+// counts twice against it.
+export const setFavoriteTeamsSchema = z.object({
+	teamIds: z
+		.array(z.uuid("That team doesn't exist"))
+		.transform((ids) => [...new Set(ids)])
+		.pipe(
+			z
+				.array(z.string())
+				.max(MAX_FAVORITE_TEAMS, `Pick up to ${MAX_FAVORITE_TEAMS} teams`),
+		),
+})
+export type SetFavoriteTeamsInput = z.infer<typeof setFavoriteTeamsSchema>

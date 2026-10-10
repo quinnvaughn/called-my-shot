@@ -6,6 +6,7 @@ import { HStack, VStack } from "styled-system/jsx"
 import { LeagueRoomCard } from "#/components/home/league-room-card"
 import { LiveCallsSection } from "#/components/my-calls/live-calls-section"
 import { OnboardingChecklist } from "#/components/onboarding/onboarding-checklist"
+import { TeamsPrompt } from "#/components/onboarding/teams-prompt"
 import { ResultsCalendar } from "#/components/profile/results-calendar"
 import { StatGrid, statGridItems } from "#/components/profile/stat-grid"
 import { StreaksSection } from "#/components/profile/streaks-section"
@@ -86,6 +87,7 @@ function RouteComponent() {
 			    it, or dismissed it. This route's own comment calls itself a
 			    checklist of what's actionable right now, which is the same job. */}
 			<OnboardingChecklist />
+			<TeamsPrompt />
 
 			<StatGrid
 				items={statGridItems({

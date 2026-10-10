@@ -57,6 +57,10 @@ export const relations = defineRelations(schema, (r) => ({
 			from: r.users.id,
 			to: r.userFlairs.userId,
 		}),
+		favoriteTeams: r.many.userFavoriteTeams({
+			from: r.users.id,
+			to: r.userFavoriteTeams.userId,
+		}),
 	},
 	flairs: {
 		// Non-null only on a team flair, and the source of its label, icon and
@@ -72,6 +76,16 @@ export const relations = defineRelations(schema, (r) => ({
 		grants: r.many.userFlairs({
 			from: r.flairs.id,
 			to: r.userFlairs.flairId,
+		}),
+	},
+	userFavoriteTeams: {
+		user: r.one.users({
+			from: r.userFavoriteTeams.userId,
+			to: r.users.id,
+		}),
+		team: r.one.teams({
+			from: r.userFavoriteTeams.teamId,
+			to: r.teams.id,
 		}),
 	},
 	userFlairs: {

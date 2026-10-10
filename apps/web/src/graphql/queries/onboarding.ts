@@ -21,6 +21,7 @@ export const ViewerOnboardingDocument = graphql(`
 				hasViewedLeaderboard
 				hasGroup
 				hasCreatedQuestion
+				hasFavoriteTeams
 				suggestedQuestion {
 					id
 					title

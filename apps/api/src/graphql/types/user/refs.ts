@@ -19,7 +19,7 @@ import { builder } from "../../builder"
 import { groupByKey, indexByKey } from "../../loader"
 import { FlairRef } from "../flair"
 import { CallRef, VoidReason } from "../question"
-import { findLeague, ReportCardRef } from "../sports"
+import { findLeague, ReportCardRef, TeamRef } from "../sports"
 import { EmailPreferenceType, StreakFamilyEnum } from "./enums"
 import { getUserRecordInputs, UserRecordRef } from "./record"
 import { getGlobalLeaderboard, UserLeagueStatsRef } from "./stats"
@@ -195,6 +195,30 @@ export const UserRef = builder.drizzleObject("users", {
 				)
 			},
 			resolve: (user) => user.id,
+		}),
+		// The teams this user follows, in the order they listed them. Public:
+		// it's shown on the profile.
+		favoriteTeams: t.loadableList({
+			type: TeamRef,
+			load: async (userIds: string[]) => {
+				const rows = await db.query.userFavoriteTeams.findMany({
+					where: { userId: { in: userIds } },
+					orderBy: { position: "asc" },
+					with: { team: true },
+				})
+				return groupByKey(userIds, rows, (row) => row.userId).map((picks) =>
+					picks.flatMap((pick) => (pick.team ? [pick.team] : [])),
+				)
+			},
+			resolve: (user) => user.id,
+		}),
+		// Null until the one-time favorite-teams prompt has opened on /home.
+		// Viewer-only, like the rest of what drives this account's own nudges.
+		teamsPromptSeenAt: t.field({
+			type: "DateTime",
+			nullable: true,
+			resolve: (user, _args, ctx) =>
+				canSeePrivate(ctx, user.id) ? user.teamsPromptSeenAt : null,
 		}),
 		// Null on a brand new account, which is what makes the get-started
 		// checklist appear. Read straight off the Me query into router context,

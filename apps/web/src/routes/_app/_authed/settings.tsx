@@ -6,6 +6,7 @@ import { BlockedUsersSection } from "#/components/settings/blocked-users-section
 import { DangerZone } from "#/components/settings/danger-zone"
 import { EmailNotificationsSection } from "#/components/settings/email-notifications-section"
 import { EmailSection } from "#/components/settings/email-section"
+import { FavoriteTeamsSection } from "#/components/settings/favorite-teams-section"
 import { FlairSection } from "#/components/settings/flair-section"
 import { PasswordSection } from "#/components/settings/password-section"
 import { ProfileImagesSection } from "#/components/settings/profile-images-section"
@@ -62,6 +63,10 @@ function RouteComponent() {
 			<VStack alignItems="stretch" gap="3">
 				{sectionLabel("Username")}
 				<UsernameSection username={me.username} />
+			</VStack>
+			<VStack alignItems="stretch" gap="3">
+				{sectionLabel("Teams")}
+				<FavoriteTeamsSection teams={me.favoriteTeams} />
 			</VStack>
 			<VStack alignItems="stretch" gap="3">
 				{sectionLabel("Flair")}

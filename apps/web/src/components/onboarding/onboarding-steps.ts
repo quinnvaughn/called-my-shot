@@ -6,6 +6,7 @@
 
 export type OnboardingStepId =
 	| "call"
+	| "teams"
 	| "leaderboard"
 	| "group"
 	| "verify-email"
@@ -17,6 +18,7 @@ export type OnboardingFacts = {
 	hasViewedLeaderboard: boolean
 	hasGroup: boolean
 	hasCreatedQuestion: boolean
+	hasFavoriteTeams: boolean
 	emailVerified: boolean
 	// False means an admin suspended this account's question creation. Not the
 	// same as unverified: unverified is a step you can clear yourself, suspended
@@ -42,6 +44,12 @@ export function onboardingSteps(facts: OnboardingFacts): OnboardingStep[] {
 			title: "Make your first call",
 			body: "Pick the outcome you believe, then set your conviction. That single number scales what a hit pays and what a miss costs. One call per question, and it locks when the event starts.",
 			done: facts.hasCalled,
+		},
+		{
+			id: "teams",
+			title: "Pick your teams",
+			body: "Choose the teams you follow, in any league. They show on your profile, and your flair picker opens on them.",
+			done: facts.hasFavoriteTeams,
 		},
 		{
 			// Done once the leaderboard has been opened, like every other step

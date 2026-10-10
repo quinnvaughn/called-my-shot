@@ -9,6 +9,7 @@ import "./inputs"
 import "./queries"
 import "./mutations"
 import "./onboarding"
+import "./favorite-teams"
 import "./admin-report"
 
 // The public surface other modules build on - everything else stays internal
