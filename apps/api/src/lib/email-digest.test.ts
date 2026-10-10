@@ -1,10 +1,13 @@
-import { eq, inArray, sql } from "drizzle-orm"
+import { and, eq, inArray, sql } from "drizzle-orm"
 import { describe, expect, it } from "vitest"
 import { db } from "../db"
 import {
 	emailOptOuts,
 	emailOutbox,
+	games,
+	notifications,
 	type Question,
+	questionAutoResolutions,
 	questions,
 	users,
 } from "../db/schema"
@@ -18,6 +21,7 @@ import {
 import { hoursFromNow, mailRecorder, resolve } from "../test/helpers"
 import { drainResolutionDigests } from "./email-digest"
 import { DRAIN_DIGESTS_LOCK, withJobLock } from "./job-lock"
+import { announceHeldSettle } from "./resolve-question"
 import { announceOnce } from "./streaks/notices"
 
 /** A streak milestone announced to this user, as the rebuild job would. */
@@ -93,6 +97,10 @@ describe("drainResolutionDigests day grouping", () => {
 		await drainResolutionDigests({ send: early.send, now: NOW })
 		expect(early.sent).toHaveLength(0)
 
+		await db
+			.update(games)
+			.set({ status: "final" })
+			.where(eq(games.id, tonightGame.id))
 		await resolve(second.question, { correctOptionIds: [second.options[0].id] })
 		await setOutboxCreatedAt(hoursFrom(NOW, -1))
 
@@ -136,6 +144,143 @@ describe("drainResolutionDigests day grouping", () => {
 		await openCallOnGame(callers[0].user.id, hoursFrom(DAY_START, -3), "locked")
 		await resolve(question, { correctOptionIds: [options[0].id] })
 		await setOutboxCreatedAt(hoursFrom(NOW, -1))
+
+		const mail = mailRecorder()
+		await drainResolutionDigests({ send: mail.send, now: NOW })
+		expect(mail.sent).toHaveLength(1)
+	})
+})
+
+describe("drainResolutionDigests once a day", () => {
+	/** A resolved call by this user on a game today, queued an hour ago. */
+	async function resolvedToday(
+		userId: string | null,
+		startsAt: Date,
+		leagueId?: string,
+	) {
+		const game = await makeGame({
+			startsAt,
+			status: "final",
+			...(leagueId ? { leagueId } : {}),
+		})
+		const seeded = await seedOptionQuestion({
+			callers: userId ? [] : [{ optionIndex: 0 }],
+			question: { gameId: game.id },
+		})
+		const callerId = userId ?? seeded.callers[0].user.id
+		if (userId) {
+			const call = await makeCall(seeded.question.id, userId)
+			await makeSelection(call.id, seeded.options[0].id, 100)
+		}
+		await resolve(seeded.question, {
+			correctOptionIds: [seeded.options[0].id],
+		})
+		await db
+			.update(emailOutbox)
+			.set({ createdAt: hoursFrom(NOW, -1) })
+			.where(sql`sent_at is null`)
+		return { ...seeded, game, userId: callerId }
+	}
+
+	it("sends nothing more that day once the day's email has gone out", async () => {
+		const first = await resolvedToday(null, hoursFrom(DAY_START, 2))
+		const early = mailRecorder()
+		await drainResolutionDigests({ send: early.send, now: NOW })
+		expect(early.sent).toHaveLength(1)
+
+		// A game called after the first email went out.
+		const second = await resolvedToday(first.userId, hoursFrom(DAY_START, 4))
+		const late = mailRecorder()
+		await drainResolutionDigests({ send: late.send, now: hoursFrom(NOW, 2) })
+		expect(late.sent).toHaveLength(0)
+
+		const nextMorning = mailRecorder()
+		await drainResolutionDigests({
+			send: nextMorning.send,
+			now: hoursFrom(DAY_START, 24.5),
+		})
+		expect(nextMorning.sent).toHaveLength(1)
+		expect(nextMorning.sent[0].text).toContain(second.question.title)
+		expect(nextMorning.sent[0].text).not.toContain(first.question.title)
+	})
+
+	it("waits for the day's unfinished games in a league the user called", async () => {
+		const { game } = await resolvedToday(null, hoursFrom(DAY_START, 2))
+		const tonight = await makeGame({
+			leagueId: game.leagueId,
+			startsAt: hoursFrom(DAY_START, 10),
+		})
+
+		const held = mailRecorder()
+		await drainResolutionDigests({ send: held.send, now: NOW })
+		expect(held.sent).toHaveLength(0)
+
+		await db
+			.update(games)
+			.set({ status: "final" })
+			.where(eq(games.id, tonight.id))
+		const done = mailRecorder()
+		await drainResolutionDigests({ send: done.send, now: NOW })
+		expect(done.sent).toHaveLength(1)
+	})
+
+	// Three games finishing minutes apart, each with a call settled mid-game,
+	// used to go out as three emails: a mid-game settle is `resolved` at once
+	// but queues nothing until its game's final read.
+	it("holds a mid-game settle until its game's final read announces it", async () => {
+		const first = await resolvedToday(null, hoursFrom(DAY_START, 6))
+		const held = []
+		for (const hours of [6.5, 7]) {
+			const game = await makeGame({
+				leagueId: first.game.leagueId,
+				startsAt: hoursFrom(DAY_START, hours),
+				status: "final",
+			})
+			const seeded = await seedOptionQuestion({
+				callers: [],
+				question: { gameId: game.id },
+			})
+			const call = await makeCall(seeded.question.id, first.userId)
+			await makeSelection(call.id, seeded.options[0].id, 100)
+			await resolve(
+				seeded.question,
+				{ correctOptionIds: [seeded.options[0].id] },
+				{ holdNotices: true },
+			)
+			await db.insert(questionAutoResolutions).values({
+				questionId: seeded.question.id,
+				awaitingFinal: true,
+			})
+			held.push(seeded.question)
+		}
+
+		const early = mailRecorder()
+		await drainResolutionDigests({ send: early.send, now: NOW })
+		expect(early.sent).toHaveLength(0)
+
+		for (const question of held) {
+			await db
+				.update(questionAutoResolutions)
+				.set({ awaitingFinal: false })
+				.where(eq(questionAutoResolutions.questionId, question.id))
+			await db.transaction((tx) => announceHeldSettle(tx, question.id))
+		}
+		await db
+			.update(emailOutbox)
+			.set({ createdAt: hoursFrom(NOW, -1) })
+			.where(sql`sent_at is null`)
+
+		const done = mailRecorder()
+		await drainResolutionDigests({ send: done.send, now: NOW })
+		expect(done.sent).toHaveLength(1)
+		for (const question of [first.question, ...held]) {
+			expect(done.sent[0].text).toContain(question.title)
+		}
+	})
+
+	it("doesn't wait on games in a league the user didn't call", async () => {
+		await resolvedToday(null, hoursFrom(DAY_START, 2))
+		await makeGame({ startsAt: hoursFrom(DAY_START, 10) })
 
 		const mail = mailRecorder()
 		await drainResolutionDigests({ send: mail.send, now: NOW })
@@ -278,6 +423,94 @@ describe("drainResolutionDigests", () => {
 		expect(mail.sent).toHaveLength(0)
 		const [row] = await db.select().from(emailOutbox)
 		expect(row.skippedReason).toBe("no_longer_resolved")
+	})
+
+	describe("results already seen in-app", () => {
+		/** A resolved call on a game, with its outbox row past the settling window. */
+		async function resolvedOnGame() {
+			const game = await makeGame({
+				startsAt: hoursFromNow(-3),
+				status: "final",
+			})
+			const seeded = await seedOptionQuestion({
+				callers: [{ optionIndex: 0 }],
+				question: { gameId: game.id },
+			})
+			await resolve(seeded.question, {
+				correctOptionIds: [seeded.options[0].id],
+			})
+			await ageOutbox()
+			return { ...seeded, game, userId: seeded.callers[0].user.id }
+		}
+
+		const markGameRead = (userId: string, gameId: string) =>
+			db
+				.update(notifications)
+				.set({ readAt: new Date() })
+				.where(
+					and(eq(notifications.userId, userId), eq(notifications.gameId, gameId)),
+				)
+
+		it("skips a game whose notification the user has read", async () => {
+			const { game, userId } = await resolvedOnGame()
+			await markGameRead(userId, game.id)
+
+			const mail = mailRecorder()
+			await drainResolutionDigests({ send: mail.send })
+
+			expect(mail.sent).toHaveLength(0)
+			const [row] = await db.select().from(emailOutbox)
+			expect(row.skippedReason).toBe("seen_in_app")
+		})
+
+		it("still sends a game whose notification is unread", async () => {
+			await resolvedOnGame()
+
+			const mail = mailRecorder()
+			await drainResolutionDigests({ send: mail.send })
+
+			expect(mail.sent).toHaveLength(1)
+		})
+
+		it("sends only the games the user hasn't looked at", async () => {
+			const seen = await resolvedOnGame()
+			const otherGame = await makeGame({
+				startsAt: hoursFromNow(-3),
+				status: "final",
+			})
+			const other = await seedOptionQuestion({
+				callers: [],
+				question: { gameId: otherGame.id },
+			})
+			const call = await makeCall(other.question.id, seen.userId)
+			await makeSelection(call.id, other.options[0].id, 100)
+			await resolve(other.question, { correctOptionIds: [other.options[0].id] })
+			await ageOutbox()
+			await markGameRead(seen.userId, seen.game.id)
+
+			const mail = mailRecorder()
+			await drainResolutionDigests({ send: mail.send })
+
+			expect(mail.sent).toHaveLength(1)
+			expect(mail.sent[0].text).toContain(other.question.title)
+			expect(mail.sent[0].text).not.toContain(seen.question.title)
+		})
+
+		it("sends a result that landed after the notification was read", async () => {
+			const { game, userId } = await resolvedOnGame()
+			await db
+				.update(notifications)
+				.set({ readAt: hoursFromNow(-2) })
+				.where(
+					and(eq(notifications.userId, userId), eq(notifications.gameId, game.id)),
+				)
+			await ageOutbox(30)
+
+			const mail = mailRecorder()
+			await drainResolutionDigests({ send: mail.send })
+
+			expect(mail.sent).toHaveLength(1)
+		})
 	})
 
 	// Every link out of the email is attributed, so a visit that started in an

@@ -222,10 +222,10 @@ export const JOBS: ScheduledJob[] = [
 		() => lockOverdueQuestions(),
 		inGameWindow,
 	),
-	// A user's results only go out once their calls on the day's games have
-	// all settled, or at the 13:00 UTC backstop in daily-mail-sweep (see
-	// DAY_START_HOUR_UTC) - the frequency is how quickly a finished day goes
-	// out, not how often anyone gets mailed. Results settle in game windows,
+	// At most one results email per user a day, once their day is done or at
+	// the 13:00 UTC backstop in daily-mail-sweep (see DAY_START_HOUR_UTC) - the
+	// frequency is how quickly a finished day goes out, not how often anyone
+	// gets mailed. Results settle in game windows,
 	// and one settled outside them (a creator grading their own question)
 	// opens the gate once its rows have sat SETTLE_MINUTES.
 	job(
