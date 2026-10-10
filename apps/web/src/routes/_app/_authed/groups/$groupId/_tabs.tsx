@@ -213,7 +213,9 @@ function RouteComponent() {
 						key={item.to}
 						to={item.to}
 						params={{ groupId: group.id }}
-						activeOptions={{ exact: true }}
+						// Path only: a tab stays lit under its own filters, like the
+						// leaderboard's ?league=nfl&season=week.
+						activeOptions={{ exact: true, includeSearch: false }}
 					>
 						{item.label}
 					</Tabs.LinkTrigger>
