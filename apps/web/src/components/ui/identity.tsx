@@ -12,6 +12,8 @@ type IdentityProps = {
 	// Rendered on its own line under the name, never inline with it.
 	flair?: FlairData | null
 	size?: "xs" | "sm" | "md"
+	// See Avatar's crown.
+	crown?: string | null
 	// Trailing action word ("called"/"asked") - CallCard/CallRow's "who did
 	// this" usage appends one; the detail page's plain creator credit leaves
 	// it unset.
@@ -61,6 +63,7 @@ export function Identity({
 	avatarUrl,
 	flair,
 	size = "xs",
+	crown,
 	trailing,
 	stackOnMobile = false,
 }: IdentityProps) {
@@ -124,7 +127,7 @@ export function Identity({
 	// of what it is and costs the row nothing horizontally.
 	return (
 		<HStack gap="2" minWidth="0" alignItems={flair ? "flex-start" : "center"}>
-			<Avatar size={size} name={name} src={avatarUrl} />
+			<Avatar size={size} name={name} src={avatarUrl} crown={crown} />
 			{flair ? (
 				<VStack gap="1" alignItems="flex-start" minWidth="0">
 					{identityLine}

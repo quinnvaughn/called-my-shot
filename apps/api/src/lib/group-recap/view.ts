@@ -10,6 +10,7 @@ import type {
 	RecapMoment,
 	RecapMomentKind,
 	RecapMover,
+	RecapPlayerOfTheWeek,
 } from "./types"
 import { formatWeekLabel } from "./week"
 
@@ -31,6 +32,9 @@ export const MOMENT_PRIORITY: RecapMomentKind[] = [
 export const RECAP_MOMENTS_SHOWN = 2
 
 export type RecapSelection = {
+	// Never handed down: a winner hidden now leaves the slot to any co-winner,
+	// or empty.
+	playersOfTheWeek: RecapPlayerOfTheWeek[]
 	// Every visible call tied for the top, so usually one and sometimes more.
 	best: RecapCall[]
 	worst: RecapCall[]
@@ -85,6 +89,9 @@ export function selectRecapSlots(
 		)
 
 	return {
+		playersOfTheWeek: (data.playersOfTheWeek ?? []).filter((p) =>
+			visible.has(p.userId),
+		),
 		best: tiedForTop(data.bestCalls.filter(shown)),
 		worst: showWorstMiss ? tiedForTop(data.worstMisses.filter(shown)) : [],
 		moments,
@@ -181,6 +188,10 @@ export type RecapTile = {
 
 export type RecapMoverView = { user: User; from: number; to: number }
 
+export type RecapPlayerOfTheWeekView = Omit<RecapPlayerOfTheWeek, "userId"> & {
+	user: User
+}
+
 export type RecapView = {
 	recap: GroupRecap
 	group: Group
@@ -192,6 +203,7 @@ export type RecapView = {
 		// Whole percent, null with nothing settled.
 		accuracy: number | null
 	}
+	playersOfTheWeek: RecapPlayerOfTheWeekView[]
 	tiles: RecapTile[]
 	climber: RecapMoverView | null
 	slide: RecapMoverView | null
@@ -201,13 +213,27 @@ export type RecapView = {
 	cardVersion: string
 }
 
-const signed = (points: number) =>
+export const signed = (points: number) =>
 	points >= 0 ? `+${points}` : `−${Math.abs(points)}`
 
 const toneOf = (points: number) => (points >= 0 ? "success" : "danger")
 
 function formatGuess(value: number): string {
 	return String(Number(value.toFixed(3)))
+}
+
+// A game's questions are titled for its page, where the matchup is already
+// on screen ("Who will win?"). Out on a recap they need it said.
+export function recapQuestionTitle(question: {
+	title: string
+	game: {
+		homeTeam: { abbreviation: string } | null
+		awayTeam: { abbreviation: string } | null
+	} | null
+}): string {
+	const home = question.game?.homeTeam?.abbreviation
+	const away = question.game?.awayTeam?.abbreviation
+	return home && away ? `${away} @ ${home} · ${question.title}` : question.title
 }
 
 const pluralDays = (n: number) => (n === 1 ? "1 day" : `${n} days`)
@@ -252,6 +278,7 @@ export async function loadRecapView(
 	for (const mover of [selection.climber, selection.slide]) {
 		if (mover) userIds.add(mover.userId)
 	}
+	for (const player of selection.playersOfTheWeek) userIds.add(player.userId)
 
 	const [users, calls, questions, leagues, options] = await Promise.all([
 		userIds.size
@@ -307,15 +334,7 @@ export async function loadRecapView(
 	])
 	const userById = new Map(users.map((u) => [u.id, u]))
 	const callById = new Map(calls.map((c) => [c.id, c]))
-	// A game's questions are titled for its page, where the matchup is already
-	// on screen ("Who will win?"). Out on a recap they need it said.
-	const titleById = new Map(
-		questions.map((q) => {
-			const home = q.game?.homeTeam?.abbreviation
-			const away = q.game?.awayTeam?.abbreviation
-			return [q.id, home && away ? `${away} @ ${home} · ${q.title}` : q.title]
-		}),
-	)
+	const titleById = new Map(questions.map((q) => [q.id, recapQuestionTitle(q)]))
 	const leagueById = new Map(leagues.map((l) => [l.id, l]))
 	const optionLabel = new Map(options.map((o) => [o.id, o.label]))
 
@@ -498,6 +517,12 @@ export async function loadRecapView(
 	}
 	const climber = mover(selection.climber)
 	const slide = mover(selection.slide)
+	const playersOfTheWeek = selection.playersOfTheWeek.flatMap(
+		({ userId, ...week }) => {
+			const user = userById.get(userId)
+			return user ? [{ user, ...week }] : []
+		},
+	)
 
 	const { wins, losses, activeMembers } = recap.data.record
 	const settled = wins + losses
@@ -515,6 +540,7 @@ export async function loadRecapView(
 				group.name,
 				group.logoKey,
 				record,
+				playersOfTheWeek.map((p) => [p.user.id, p.user.name, p.points]),
 				tiles.map((t) => [t.kind, t.user?.id, t.value, t.headline, t.note]),
 				[climber, slide].map(
 					(m) => m && [m.user.id, m.user.name, m.from, m.to],
@@ -530,6 +556,7 @@ export async function loadRecapView(
 		group,
 		weekLabel: formatWeekLabel({ start: recap.weekStart, end: recap.weekEnd }),
 		record,
+		playersOfTheWeek,
 		tiles,
 		climber,
 		slide,

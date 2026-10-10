@@ -63,6 +63,15 @@ export type RecapMomentKind = RecapMoment["kind"]
 
 export type RecapStanding = { userId: string; rank: number }
 
+// A member's week: their settled calls' points plus any streak or sweep
+// bonus dated inside it, the same total the season board adds.
+export type RecapPlayerOfTheWeek = {
+	userId: string
+	points: number
+	wins: number
+	losses: number
+}
+
 // A member whose rank on the season board changed since the previous recap.
 // Positive delta is a climb.
 export type RecapMover = { userId: string; from: number; to: number }
@@ -75,6 +84,13 @@ export type GroupRecapData = {
 		losses: number
 		activeMembers: number
 	}
+	// Whoever had the most points among members with
+	// PLAYER_OF_THE_WEEK_MIN_CALLS settled calls, when that's above zero.
+	// Several on an exact tie, empty when nobody qualified. Every member is a
+	// candidate: unlike the other slots, a winner hidden at read time leaves
+	// the slot empty rather than handing it to whoever came second. Absent
+	// from a recap saved before the slot existed, which reads as nobody.
+	playersOfTheWeek?: RecapPlayerOfTheWeek[]
 	bestCalls: RecapCall[]
 	worstMisses: RecapCall[]
 	// Up to a few candidates per kind, best first within each kind. Which

@@ -6,6 +6,7 @@ import {
 	getMemberUserIds,
 	leagueScope,
 } from "../../../lib/group-leaderboard"
+import { buildGroupWeekLeaderboard } from "../../../lib/group-recap/board"
 import { getTrackedLeagueIds } from "../../../lib/groups"
 import {
 	resolveSeasonIds,
@@ -122,5 +123,23 @@ export function getGroupLeaderboard(
 			)
 			return buildGroupLeaderboard(groupId, leagueIds, seasonIds)
 		},
+	)
+}
+
+// The week in progress, scoped to a league tab the same way as the season
+// boards. Shared by leaderboard and viewerLeaderboardEntry like the above.
+export function getGroupWeekLeaderboard(
+	ctx: Context,
+	groupId: string,
+	leagueId: string | null,
+): Promise<GroupLeaderboardEntry[]> {
+	return ctxCache(
+		ctx,
+		`groupWeekLeaderboard:${groupId}:${leagueId ?? ""}`,
+		async () =>
+			buildGroupWeekLeaderboard(
+				groupId,
+				leagueScope(await trackedLeagueIds(ctx, groupId), leagueId),
+			),
 	)
 }

@@ -55,6 +55,16 @@ describe("buildGroupRecapCard", () => {
 		expect(texts.some((t) => t.startsWith("@"))).toBe(false)
 	})
 
+	it("labels Player of the Week without a league", () => {
+		const texts = textNodes(
+			buildGroupRecapCard({
+				...base,
+				tiles: [tile({ label: "Player of the Week", leagueAbbr: null })],
+			}),
+		)
+		expect(texts).toContain("Player of the Week")
+	})
+
 	it("calls a group miss the group's", () => {
 		const texts = textNodes(
 			buildGroupRecapCard({

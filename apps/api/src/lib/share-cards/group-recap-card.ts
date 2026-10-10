@@ -1,11 +1,11 @@
 // The og:image behind /recaps/:token. A group's week: its name and dates in
-// the header, up to three of its slots across the hero, and the week's record
-// and biggest climber in the stat row.
+// the header, its Player of the Week and then up to three slots in all across
+// the hero, and the week's record and biggest climber in the stat row.
 //
 // Built on the shared og:image frame (see frame.ts).
 import { db } from "../../db"
 import { COLOR } from "../brand-palette"
-import { loadRecapView, type RecapView } from "../group-recap/view"
+import { loadRecapView, type RecapView, signed } from "../group-recap/view"
 import { el, type SatoriNode } from "../share-image"
 import { cardFrame, clamp, eyebrow, PERSON_MAX, statCell } from "./frame"
 
@@ -25,7 +25,8 @@ const EYEBROW_NAME_MAX = 28
 
 export type GroupRecapCardTile = {
 	label: string
-	leagueAbbr: string
+	// Null for Player of the Week, which spans the group's leagues.
+	leagueAbbr: string | null
 	// Null for a group miss, which names nobody.
 	name: string | null
 	value: string
@@ -67,7 +68,7 @@ function tile(t: GroupRecapCardTile): SatoriNode {
 			overflow: "hidden",
 		},
 		[
-			eyebrow(`${t.label} · ${t.leagueAbbr}`),
+			eyebrow(t.leagueAbbr ? `${t.label} · ${t.leagueAbbr}` : t.label),
 			el(
 				"span",
 				{
@@ -180,15 +181,29 @@ export function recapCardData(view: RecapView): GroupRecapCardData {
 		losses: view.record.losses,
 		accuracy: view.record.accuracy,
 		activeMembers: view.record.activeMembers,
-		tiles: view.tiles.map((t) => ({
-			label: t.label,
-			leagueAbbr: t.leagueAbbr,
-			name: t.user?.name ?? null,
-			value: t.value,
-			tone: t.tone,
-			headline: t.headline,
-			note: t.note,
-		})),
+		tiles: [
+			...view.playersOfTheWeek.map((p) => ({
+				label: "Player of the Week",
+				leagueAbbr: null,
+				name: p.user.name,
+				value: signed(p.points),
+				tone: "success" as const,
+				headline: `${p.wins}–${p.losses} on the week`,
+				note:
+					view.playersOfTheWeek.length > 1
+						? "Tied for the most points in the group."
+						: "The most points in the group.",
+			})),
+			...view.tiles.map((t) => ({
+				label: t.label,
+				leagueAbbr: t.leagueAbbr,
+				name: t.user?.name ?? null,
+				value: t.value,
+				tone: t.tone,
+				headline: t.headline,
+				note: t.note,
+			})),
+		],
 		climber: view.climber
 			? {
 					name: view.climber.user.name,

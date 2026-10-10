@@ -8,6 +8,7 @@ import {
 	type LeaderboardFilter,
 	type LeaderboardSearch,
 	pickerSeasons,
+	THIS_WEEK,
 	toSearch,
 } from "#/lib/leaderboard-filter"
 
@@ -15,6 +16,8 @@ type LeaderboardFiltersProps = {
 	leagues: FilterLeague[]
 	filter: LeaderboardFilter
 	onChange: (search: LeaderboardSearch) => void
+	// Offers This week above the seasons. Group boards only.
+	weekly?: boolean
 }
 
 // Shared by the site leaderboard and the group one - both rank the same way
@@ -31,6 +34,7 @@ export function LeaderboardFilters({
 	leagues,
 	filter,
 	onChange,
+	weekly = false,
 }: LeaderboardFiltersProps) {
 	if (leagues.length === 0) return null
 
@@ -45,8 +49,9 @@ export function LeaderboardFilters({
 		// Season resets to the new league's current season rather than carrying
 		// the old one over - a season id from one league is meaningless in
 		// another, and "the season I was just looking at" isn't a thing that
-		// survives a league switch.
-		onChange(toSearch(next, "current"))
+		// survives a league switch. The week does: it's the same week in every
+		// league.
+		onChange(toSearch(next, filter.thisWeek ? THIS_WEEK : "current"))
 	}
 
 	return (
@@ -75,6 +80,7 @@ export function LeaderboardFilters({
 			>
 				<Select.Trigger>{seasonLabel(filter, league)}</Select.Trigger>
 				<Select.Content>
+					{weekly && <Select.Option value={THIS_WEEK}>This week</Select.Option>}
 					{league ? (
 						seasons.map((season) => (
 							<Select.Option key={season.id} value={season.year.toString()}>
@@ -95,6 +101,7 @@ function seasonLabel(
 	filter: LeaderboardFilter,
 	league: FilterLeague | null,
 ): string {
+	if (filter.thisWeek) return "This week"
 	if (filter.seasonValue === ALL_SEASONS) return "All time"
 	if (!league) return "Current season"
 	const season = pickerSeasons(league).find(

@@ -88,6 +88,7 @@ import { Route as AppAuthedGroupsGroupIdSettingsRouteImport } from './routes/_ap
 import { Route as AppGamesGameIdPicksUsernameRouteImport } from './routes/_app/games/$gameId.picks.$username'
 import { Route as AppAuthedGroupsGroupIdTabsIndexRouteImport } from './routes/_app/_authed/groups/$groupId/_tabs/index'
 import { Route as AppAuthedGroupsGroupIdTabsLeaderboardRouteImport } from './routes/_app/_authed/groups/$groupId/_tabs/leaderboard'
+import { Route as AppAuthedGroupsGroupIdTabsRecordBookRouteImport } from './routes/_app/_authed/groups/$groupId/_tabs/record-book'
 import { Route as AppAuthedGroupsGroupIdBallotsBallotSlugRouteImport } from './routes/_app/_authed/groups/$groupId/ballots/$ballotSlug'
 import { Route as AppAuthedGroupsGroupIdGamesGameIdRouteImport } from './routes/_app/_authed/groups/$groupId/games/$gameId'
 import { Route as AppUserUsernameReportCardsLeagueWindowKeyRouteImport } from './routes/_app/user/$username_.report-cards.$league.$windowKey'
@@ -509,6 +510,12 @@ const AppAuthedGroupsGroupIdTabsLeaderboardRoute =
     path: '/leaderboard',
     getParentRoute: () => AppAuthedGroupsGroupIdTabsRoute,
   } as any)
+const AppAuthedGroupsGroupIdTabsRecordBookRoute =
+  AppAuthedGroupsGroupIdTabsRecordBookRouteImport.update({
+    id: '/record-book',
+    path: '/record-book',
+    getParentRoute: () => AppAuthedGroupsGroupIdTabsRoute,
+  } as any)
 const AppAuthedGroupsGroupIdBallotsBallotSlugRoute =
   AppAuthedGroupsGroupIdBallotsBallotSlugRouteImport.update({
     id: '/groups/$groupId/ballots/$ballotSlug',
@@ -647,6 +654,7 @@ export interface FileRoutesByFullPath {
   '/groups/$groupId/settings': typeof AppAuthedGroupsGroupIdSettingsRoute
   '/games/$gameId/picks/$username': typeof AppGamesGameIdPicksUsernameRoute
   '/groups/$groupId/leaderboard': typeof AppAuthedGroupsGroupIdTabsLeaderboardRoute
+  '/groups/$groupId/record-book': typeof AppAuthedGroupsGroupIdTabsRecordBookRoute
   '/groups/$groupId/ballots/$ballotSlug': typeof AppAuthedGroupsGroupIdBallotsBallotSlugRoute
   '/groups/$groupId/games/$gameId': typeof AppAuthedGroupsGroupIdGamesGameIdRoute
   '/user/$username/report-cards/$league/$windowKey': typeof AppUserUsernameReportCardsLeagueWindowKeyRoute
@@ -732,6 +740,7 @@ export interface FileRoutesByTo {
   '/groups/$groupId/settings': typeof AppAuthedGroupsGroupIdSettingsRoute
   '/games/$gameId/picks/$username': typeof AppGamesGameIdPicksUsernameRoute
   '/groups/$groupId/leaderboard': typeof AppAuthedGroupsGroupIdTabsLeaderboardRoute
+  '/groups/$groupId/record-book': typeof AppAuthedGroupsGroupIdTabsRecordBookRoute
   '/groups/$groupId/ballots/$ballotSlug': typeof AppAuthedGroupsGroupIdBallotsBallotSlugRoute
   '/groups/$groupId/games/$gameId': typeof AppAuthedGroupsGroupIdGamesGameIdRoute
   '/user/$username/report-cards/$league/$windowKey': typeof AppUserUsernameReportCardsLeagueWindowKeyRoute
@@ -824,6 +833,7 @@ export interface FileRoutesById {
   '/_app/_authed/groups/$groupId/settings': typeof AppAuthedGroupsGroupIdSettingsRoute
   '/_app/games/$gameId/picks/$username': typeof AppGamesGameIdPicksUsernameRoute
   '/_app/_authed/groups/$groupId/_tabs/leaderboard': typeof AppAuthedGroupsGroupIdTabsLeaderboardRoute
+  '/_app/_authed/groups/$groupId/_tabs/record-book': typeof AppAuthedGroupsGroupIdTabsRecordBookRoute
   '/_app/_authed/groups/$groupId/ballots/$ballotSlug': typeof AppAuthedGroupsGroupIdBallotsBallotSlugRoute
   '/_app/_authed/groups/$groupId/games/$gameId': typeof AppAuthedGroupsGroupIdGamesGameIdRoute
   '/_app/user/$username_/report-cards/$league/$windowKey': typeof AppUserUsernameReportCardsLeagueWindowKeyRoute
@@ -915,6 +925,7 @@ export interface FileRouteTypes {
     | '/groups/$groupId/settings'
     | '/games/$gameId/picks/$username'
     | '/groups/$groupId/leaderboard'
+    | '/groups/$groupId/record-book'
     | '/groups/$groupId/ballots/$ballotSlug'
     | '/groups/$groupId/games/$gameId'
     | '/user/$username/report-cards/$league/$windowKey'
@@ -1000,6 +1011,7 @@ export interface FileRouteTypes {
     | '/groups/$groupId/settings'
     | '/games/$gameId/picks/$username'
     | '/groups/$groupId/leaderboard'
+    | '/groups/$groupId/record-book'
     | '/groups/$groupId/ballots/$ballotSlug'
     | '/groups/$groupId/games/$gameId'
     | '/user/$username/report-cards/$league/$windowKey'
@@ -1091,6 +1103,7 @@ export interface FileRouteTypes {
     | '/_app/_authed/groups/$groupId/settings'
     | '/_app/games/$gameId/picks/$username'
     | '/_app/_authed/groups/$groupId/_tabs/leaderboard'
+    | '/_app/_authed/groups/$groupId/_tabs/record-book'
     | '/_app/_authed/groups/$groupId/ballots/$ballotSlug'
     | '/_app/_authed/groups/$groupId/games/$gameId'
     | '/_app/user/$username_/report-cards/$league/$windowKey'
@@ -1684,6 +1697,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppAuthedGroupsGroupIdTabsLeaderboardRouteImport
       parentRoute: typeof AppAuthedGroupsGroupIdTabsRoute
     }
+    '/_app/_authed/groups/$groupId/_tabs/record-book': {
+      id: '/_app/_authed/groups/$groupId/_tabs/record-book'
+      path: '/record-book'
+      fullPath: '/groups/$groupId/record-book'
+      preLoaderRoute: typeof AppAuthedGroupsGroupIdTabsRecordBookRouteImport
+      parentRoute: typeof AppAuthedGroupsGroupIdTabsRoute
+    }
     '/_app/_authed/groups/$groupId/ballots/$ballotSlug': {
       id: '/_app/_authed/groups/$groupId/ballots/$ballotSlug'
       path: '/groups/$groupId/ballots/$ballotSlug'
@@ -1759,6 +1779,7 @@ declare module '@tanstack/react-router' {
 
 interface AppAuthedGroupsGroupIdTabsRouteChildren {
   AppAuthedGroupsGroupIdTabsLeaderboardRoute: typeof AppAuthedGroupsGroupIdTabsLeaderboardRoute
+  AppAuthedGroupsGroupIdTabsRecordBookRoute: typeof AppAuthedGroupsGroupIdTabsRecordBookRoute
   AppAuthedGroupsGroupIdTabsIndexRoute: typeof AppAuthedGroupsGroupIdTabsIndexRoute
 }
 
@@ -1766,6 +1787,8 @@ const AppAuthedGroupsGroupIdTabsRouteChildren: AppAuthedGroupsGroupIdTabsRouteCh
   {
     AppAuthedGroupsGroupIdTabsLeaderboardRoute:
       AppAuthedGroupsGroupIdTabsLeaderboardRoute,
+    AppAuthedGroupsGroupIdTabsRecordBookRoute:
+      AppAuthedGroupsGroupIdTabsRecordBookRoute,
     AppAuthedGroupsGroupIdTabsIndexRoute: AppAuthedGroupsGroupIdTabsIndexRoute,
   }
 

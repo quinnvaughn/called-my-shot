@@ -44,6 +44,7 @@ export const Route = createFileRoute("/_app/_authed/groups/$groupId/_tabs")({
 const TAB_ITEMS = [
 	{ to: "/groups/$groupId", label: "Home" },
 	{ to: "/groups/$groupId/leaderboard", label: "Leaderboard" },
+	{ to: "/groups/$groupId/record-book", label: "Record Book" },
 ] as const
 
 // A phone can't fit a group name and several labeled buttons on one line, and

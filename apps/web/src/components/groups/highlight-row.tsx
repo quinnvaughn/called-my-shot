@@ -17,7 +17,9 @@ const rowLink = css({
 
 type Props = {
 	user: IdentityData
-	leagueAbbr: string
+	// Omitted for a row that spans the group's leagues, like a Player of the
+	// Week award.
+	leagueAbbr?: string
 	// The track or slate this row is about: "Winners", "Week 3 Sunday Early".
 	label: string
 	// The headline figure alone - "7", "6 for 6". Big, because across a column
@@ -38,7 +40,7 @@ type Props = {
 	compact?: boolean
 }
 
-// The two pages a highlight row can lead to. A union rather than a path
+// The pages a highlight row can lead to. A union rather than a path
 // string, so each arm below keeps the router's typed params.
 export type Destination =
 	| {
@@ -51,9 +53,10 @@ export type Destination =
 			mode: StreakMode
 	  }
 	| { kind: "sweep"; username: string; league: string; slateKey: string }
+	| { kind: "call"; callId: string }
 
-// One member's streak or sweep, as the group highlights band and its sheet
-// both list them. Sized to sit three to a column, so the member and the number
+// One member's streak, sweep or record, as the group highlights band, its
+// sheet and the Record Book list them. Sized to sit three to a column, so the member and the number
 // are what read first and everything else is support.
 export function HighlightRow({
 	user,
@@ -75,7 +78,7 @@ export function HighlightRow({
 	)
 	const meta = (
 		<HStack gap="2" alignItems="center" minWidth="0">
-			<Tag size="sm">{leagueAbbr}</Tag>
+			{leagueAbbr && <Tag size="sm">{leagueAbbr}</Tag>}
 			<span
 				className={css({
 					fontSize: "xs",
@@ -196,6 +199,15 @@ export function HighlightRow({
 					league: d.league,
 					slateKey: d.slateKey,
 				}}
+				className={rowLink}
+			>
+				{body}
+			</Link>
+		))
+		.with({ kind: "call" }, (d) => (
+			<Link
+				to="/calls/$callId"
+				params={{ callId: d.callId }}
 				className={rowLink}
 			>
 				{body}

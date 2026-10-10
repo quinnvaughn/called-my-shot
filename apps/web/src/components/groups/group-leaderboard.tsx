@@ -1,4 +1,5 @@
 import { keepPreviousData, useInfiniteQuery } from "@tanstack/react-query"
+import { css } from "styled-system/css"
 import { VStack } from "styled-system/jsx"
 import { graphql, useFragment } from "#/graphql/generated"
 import type { SeasonFilterInput } from "#/graphql/generated/graphql"
@@ -79,6 +80,7 @@ export const GroupLeaderboardDocument = graphql(`
 		$groupId: ID!
 		$leagueId: ID
 		$season: SeasonFilterInput
+		$thisWeek: Boolean
 		$after: String
 	) {
 		group(id: $groupId) {
@@ -87,6 +89,7 @@ export const GroupLeaderboardDocument = graphql(`
 				first: 10
 				leagueId: $leagueId
 				season: $season
+				thisWeek: $thisWeek
 				after: $after
 			) {
 				items {
@@ -101,8 +104,18 @@ export const GroupLeaderboardDocument = graphql(`
 					endCursor
 				}
 			}
-			viewerLeaderboardEntry(leagueId: $leagueId, season: $season) {
+			viewerLeaderboardEntry(
+				leagueId: $leagueId
+				season: $season
+				thisWeek: $thisWeek
+			) {
 				...GroupLeaderboard_entry
+			}
+			reigningPlayersOfTheWeek {
+				weekLabel
+				users {
+					id
+				}
 			}
 			viewerUnsettledCalls(leagueId: $leagueId, season: $season) {
 				...GroupLeaderboard_unsettled
@@ -115,10 +128,11 @@ export const groupLeaderboardQuery = (
 	groupId: string,
 	leagueId: string | null,
 	season: SeasonFilterInput,
+	thisWeek: boolean,
 ) =>
 	gqlInfiniteQueryOptions(
 		GroupLeaderboardDocument,
-		{ groupId, leagueId, season },
+		{ groupId, leagueId, season, thisWeek },
 		(data) => data.group?.leaderboard ?? EMPTY_CONNECTION,
 	)
 
@@ -130,19 +144,24 @@ type GroupLeaderboardProps = {
 	viewerId?: string
 }
 
-function toRowData(entry: {
-	rank: number | null
-	totalPoints: number
-	resolvedCallCount: number
-	accuracy: number | null
-	user: IdentityUser
-}): LeaderboardRowData {
+function toRowData(
+	entry: {
+		rank: number | null
+		totalPoints: number
+		resolvedCallCount: number
+		accuracy: number | null
+		user: IdentityUser
+	},
+	crowned: { weekLabel: string; userIds: Set<string> } | null,
+): LeaderboardRowData {
+	const user = toIdentity(entry.user)
 	return {
 		rank: entry.rank,
 		totalPoints: entry.totalPoints,
 		resolvedCallCount: entry.resolvedCallCount,
 		accuracy: entry.accuracy,
-		user: toIdentity(entry.user),
+		playerOfTheWeek: crowned?.userIds.has(user.id) ? crowned.weekLabel : null,
+		user,
 	}
 }
 
@@ -163,20 +182,35 @@ export function GroupLeaderboard({
 	// keepPreviousData holds the outgoing scope's rows in place while the
 	// new one loads, instead of collapsing the list to empty mid-switch.
 	const { data, hasNextPage, isFetching, fetchNextPage } = useInfiniteQuery({
-		...groupLeaderboardQuery(groupId, filter.leagueId, filter.season),
+		...groupLeaderboardQuery(
+			groupId,
+			filter.leagueId,
+			filter.season,
+			filter.thisWeek,
+		),
 		placeholderData: keepPreviousData,
 	})
 	const items = data?.items ?? []
 	const viewerEntry = data?.pages[0]?.group?.viewerLeaderboardEntry ?? null
 
+	// Last week's winner keeps the crown on every scope of the board, not just
+	// This week.
+	const reigning = data?.pages[0]?.group?.reigningPlayersOfTheWeek ?? null
+	const crowned = reigning
+		? {
+				weekLabel: reigning.weekLabel,
+				userIds: new Set(reigning.users.map((u) => u.id)),
+			}
+		: null
+
 	const unwrappedItems = useFragment(GroupLeaderboardEntryFragment, items)
-	const rows = unwrappedItems.map(toRowData)
+	const rows = unwrappedItems.map((entry) => toRowData(entry, crowned))
 	const unwrappedViewerEntry = useFragment(
 		GroupLeaderboardEntryFragment,
 		viewerEntry,
 	)
 	const viewerRow = unwrappedViewerEntry
-		? toRowData(unwrappedViewerEntry)
+		? toRowData(unwrappedViewerEntry, crowned)
 		: null
 	const unsettled = useFragment(
 		GroupLeaderboardUnsettledFragment,
@@ -189,7 +223,14 @@ export function GroupLeaderboard({
 				leagues={leagues}
 				filter={filter}
 				onChange={onFilterChange}
+				weekly
 			/>
+			{filter.thisWeek && (
+				<p className={css({ fontSize: "xs", color: "fg.muted" })}>
+					Weeks run Tuesday through Monday. Player of the Week goes to the most
+					points among members with 3 or more settled calls.
+				</p>
+			)}
 			<Leaderboard
 				items={rows}
 				viewerId={viewerId}

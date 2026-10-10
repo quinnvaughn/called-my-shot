@@ -5,6 +5,7 @@ import type {
 	RecapCall,
 	RecapMoment,
 	RecapMover,
+	RecapPlayerOfTheWeek,
 	RecapStanding,
 } from "./types"
 
@@ -14,6 +15,10 @@ import type {
 // A week with fewer members than this settling a call isn't a group week,
 // it's one person's, and their own report card already covers it.
 export const RECAP_MIN_ACTIVE_MEMBERS = 2
+
+// Fewer settled calls than this and one lucky call could take the week.
+// Low enough that a group following one NFL slate a week still clears it.
+export const PLAYER_OF_THE_WEEK_MIN_CALLS = 3
 
 // How many candidates each slot keeps for read time to choose among (see the
 // note atop ./types.ts).
@@ -64,6 +69,8 @@ export type RecapInput = {
 		slateKey: string
 		gameCount: number
 	}[]
+	// Streak and sweep bonuses whose game's result landed in the week.
+	awards: { userId: string; points: number }[]
 	// Hot runs that ended in the week.
 	snaps: RecapTrackInput[]
 	// Hot runs still going at the week's close.
@@ -186,6 +193,46 @@ function movers(
 	})
 }
 
+// Each member's week: what Player of the Week is decided on, and what the
+// group's This week board ranks.
+export function weekTotals(
+	calls: Pick<RecapCallInput, "userId" | "outcome" | "points">[],
+	awards: RecapInput["awards"],
+): RecapPlayerOfTheWeek[] {
+	const byUser = new Map<string, RecapPlayerOfTheWeek>()
+	for (const call of calls) {
+		let e = byUser.get(call.userId)
+		if (!e) {
+			e = { userId: call.userId, points: 0, wins: 0, losses: 0 }
+			byUser.set(call.userId, e)
+		}
+		e.points += call.points
+		if (call.outcome === "win") e.wins++
+		else e.losses++
+	}
+	// A bonus is dated by the game of a call it pays out on, so its owner
+	// settled a call in the week and already has an entry. One without (that
+	// call since voided) has nothing left to add to.
+	for (const award of awards) {
+		const e = byUser.get(award.userId)
+		if (e) e.points += award.points
+	}
+	return [...byUser.values()]
+}
+
+function playersOfTheWeek(
+	calls: RecapCallInput[],
+	awards: RecapInput["awards"],
+): RecapPlayerOfTheWeek[] {
+	const qualified = weekTotals(calls, awards).filter(
+		(e) => e.wins + e.losses >= PLAYER_OF_THE_WEEK_MIN_CALLS && e.points > 0,
+	)
+	const top = Math.max(...qualified.map((e) => e.points))
+	return qualified
+		.filter((e) => e.points === top)
+		.sort((a, b) => a.userId.localeCompare(b.userId))
+}
+
 const byLength = (a: RecapTrackInput, b: RecapTrackInput) =>
 	b.length - a.length ||
 	a.userId.localeCompare(b.userId) ||
@@ -255,6 +302,7 @@ export function computeRecap(input: RecapInput): GroupRecapData | null {
 			losses: calls.filter((c) => c.outcome === "loss").length,
 			activeMembers,
 		},
+		playersOfTheWeek: playersOfTheWeek(calls, input.awards),
 		bestCalls: topCalls(
 			calls.filter((c) => c.points > 0),
 			(a, b) => b.points - a.points || byCallId(a, b),

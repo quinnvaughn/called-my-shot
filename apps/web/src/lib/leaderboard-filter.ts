@@ -13,13 +13,17 @@ export type FilterLeague = {
 	seasons: { id: string; year: number; displayName: string }[]
 }
 
-// URL shape: ?league=nba&season=2026, where season is a season year or the
-// literal "all". Slugs and years rather than uuids so a shared leaderboard
-// link is readable, and because the leagues in router context can translate
-// either one to an id before a loader runs - no extra round trip.
+// URL shape: ?league=nba&season=2026, where season is a season year, the
+// literal "all", or on a group's board the literal "week". Slugs and years
+// rather than uuids so a shared leaderboard link is readable, and because the
+// leagues in router context can translate either one to an id before a
+// loader runs - no extra round trip.
 export type LeaderboardSearch = { league?: string; season?: string }
 
 export const ALL_SEASONS = "all"
+// The week in progress, ranked the way Player of the Week is decided. Groups
+// only: Player of the Week is a group award.
+export const THIS_WEEK = "week"
 
 export type LeaderboardFilter = {
 	leagueId: string | null
@@ -28,6 +32,9 @@ export type LeaderboardFilter = {
 	// rather than re-deriving it from the search params.
 	league: FilterLeague | null
 	seasonValue: string
+	// The week in progress instead of a season. season still holds the
+	// current season, for the queries that don't take a week.
+	thisWeek: boolean
 	// "current season, every league" / "NBA, 2025-26" - for the page subtitle
 	// and the empty state, so an empty board says which scope is empty.
 	scopeLabel: string
@@ -64,16 +71,28 @@ export function validateLeaderboardSearch(
 // A single league has no All tab (see LeaderboardFilters), so it's the
 // default instead of a scope nobody can pick. allLeaguesLabel names what the
 // All tab ranks, for a caller whose league list isn't every league (a group
-// tracking a subset).
+// tracking a subset). allowWeek accepts THIS_WEEK, which otherwise falls back
+// to the default like any unrecognized value.
 export function resolveLeaderboardFilter(
 	leagues: FilterLeague[],
 	search: LeaderboardSearch,
-	options: { allLeaguesLabel?: string } = {},
+	options: { allLeaguesLabel?: string; allowWeek?: boolean } = {},
 ): LeaderboardFilter {
 	const league =
 		leagues.find((l) => l.slug === search.league) ??
 		(leagues.length === 1 ? leagues[0] : null)
 	const allLeaguesLabel = options.allLeaguesLabel ?? "every league"
+
+	if (options.allowWeek && search.season === THIS_WEEK) {
+		return {
+			leagueId: league?.id ?? null,
+			season: { scope: "CURRENT" },
+			league,
+			seasonValue: THIS_WEEK,
+			thisWeek: true,
+			scopeLabel: league ? `${league.abbreviation}, this week` : "This week",
+		}
+	}
 
 	const season = match(search.season)
 		.with(undefined, () => null)
@@ -94,6 +113,7 @@ export function resolveLeaderboardFilter(
 			season: { scope: "CURRENT" } as SeasonFilterInput,
 			league,
 			seasonValue: league?.currentSeason?.year.toString() ?? "current",
+			thisWeek: false,
 			scopeLabel: currentLabel(league, allLeaguesLabel),
 		}))
 		.with(ALL_SEASONS, () => ({
@@ -101,6 +121,7 @@ export function resolveLeaderboardFilter(
 			season: { scope: "ALL_TIME" } as SeasonFilterInput,
 			league,
 			seasonValue: ALL_SEASONS,
+			thisWeek: false,
 			scopeLabel: league ? `${league.abbreviation}, all time` : "All time",
 		}))
 		.otherwise((seasonId) => {
@@ -112,7 +133,9 @@ export function resolveLeaderboardFilter(
 				season: { scope: "SPECIFIC", seasonId } as SeasonFilterInput,
 				league,
 				seasonValue: found?.year.toString() ?? ALL_SEASONS,
-				scopeLabel: `${league?.abbreviation ?? ""} ${found?.displayName ?? ""}`.trim(),
+				thisWeek: false,
+				scopeLabel:
+					`${league?.abbreviation ?? ""} ${found?.displayName ?? ""}`.trim(),
 			}
 		})
 }

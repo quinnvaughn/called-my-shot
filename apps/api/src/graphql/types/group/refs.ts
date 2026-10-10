@@ -28,6 +28,7 @@ import {
 	GroupLeaderboardConnectionRef,
 	GroupLeaderboardEntryRef,
 	getGroupLeaderboard,
+	getGroupWeekLeaderboard,
 	groupLeaderboardScope,
 	memberUserIds,
 	trackedLeagueIds,
@@ -222,14 +223,19 @@ export const GroupRef = builder.drizzleObject("groups", {
 				after: t.arg.string(),
 				leagueId: t.arg.id(),
 				season: t.arg({ type: SeasonFilterInput, required: false }),
+				// The week in progress instead of a season, ranked the way Player
+				// of the Week is decided. season is ignored when it's set.
+				thisWeek: t.arg.boolean({ required: false }),
 			},
 			resolve: async (group, args, ctx) => {
-				const entries = await getGroupLeaderboard(
-					ctx,
-					group.id,
-					args.leagueId ?? null,
-					toSeasonFilter(args.season),
-				)
+				const entries = args.thisWeek
+					? await getGroupWeekLeaderboard(ctx, group.id, args.leagueId ?? null)
+					: await getGroupLeaderboard(
+							ctx,
+							group.id,
+							args.leagueId ?? null,
+							toSeasonFilter(args.season),
+						)
 				return sliceOffsetPage(
 					entries.filter((entry) => entry.rank !== null),
 					args,
@@ -268,15 +274,18 @@ export const GroupRef = builder.drizzleObject("groups", {
 			args: {
 				leagueId: t.arg.id(),
 				season: t.arg({ type: SeasonFilterInput, required: false }),
+				thisWeek: t.arg.boolean({ required: false }),
 			},
 			resolve: async (group, args, ctx) => {
 				const user = requireUser(ctx)
-				const leaderboard = await getGroupLeaderboard(
-					ctx,
-					group.id,
-					args.leagueId ?? null,
-					toSeasonFilter(args.season),
-				)
+				const leaderboard = args.thisWeek
+					? await getGroupWeekLeaderboard(ctx, group.id, args.leagueId ?? null)
+					: await getGroupLeaderboard(
+							ctx,
+							group.id,
+							args.leagueId ?? null,
+							toSeasonFilter(args.season),
+						)
 				// null for a site admin viewing a group they aren't in
 				return leaderboard.find((e) => e.user.id === user.id) ?? null
 			},

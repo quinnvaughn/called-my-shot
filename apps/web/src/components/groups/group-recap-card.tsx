@@ -22,6 +22,15 @@ export const GroupRecapCardFragment = graphql(`
 			activeMembers
 			accuracy
 		}
+		playersOfTheWeek {
+			points
+			wins
+			losses
+			user {
+				id
+				...Identity_user
+			}
+		}
 		tiles {
 			kind
 			label
@@ -64,8 +73,8 @@ type Props = {
 	groupName: string
 }
 
-// A group's week: the record across the top, its slots below, then who moved
-// on the season board. Used on the group's Home tab while the recap is fresh
+// A group's week: the record across the top, its Player of the Week, its
+// slots below, then who moved on the season board. Used on the group's Home tab while the recap is fresh
 // and on the recap's own public page. The share row only shows while the
 // group allows recap links.
 export function GroupRecapCard({ recap: recapProp, groupName }: Props) {
@@ -101,6 +110,55 @@ export function GroupRecapCard({ recap: recapProp, groupName }: Props) {
 			</Card.Header>
 			<Card.Body>
 				<VStack alignItems="stretch" gap="4">
+					{recap.playersOfTheWeek.length > 0 && (
+						<VStack
+							alignItems="stretch"
+							gap="3"
+							className={css({
+								padding: "4",
+								borderRadius: "xl",
+								bg: "bg.subtle",
+								border: "1px solid {colors.secondary.default}",
+							})}
+						>
+							<Eyebrow variant="secondary" size="sm">
+								{recap.playersOfTheWeek.length > 1
+									? "Players of the Week"
+									: "Player of the Week"}
+							</Eyebrow>
+							{recap.playersOfTheWeek.map((player) => (
+								<HStack
+									key={player.user.id}
+									justify="space-between"
+									alignItems="center"
+									gap="3"
+								>
+									<Identity
+										size="sm"
+										crown={`Player of the Week, ${recap.weekLabel}`}
+										{...toIdentity(player.user)}
+									/>
+									<VStack gap="0" alignItems="flex-end" flexShrink="0">
+										<span
+											className={css({
+												fontFamily: "heading",
+												fontSize: "2xl",
+												lineHeight: "1.1",
+												color: "success.default",
+											})}
+										>
+											+{player.points}
+										</span>
+										<span
+											className={css({ fontSize: "xs", color: "fg.muted" })}
+										>
+											{player.wins}–{player.losses} on the week
+										</span>
+									</VStack>
+								</HStack>
+							))}
+						</VStack>
+					)}
 					{recap.tiles.length > 0 && (
 						<Grid columns={{ base: 1, md: 2 }} gap="3">
 							{recap.tiles.map((tile) => (

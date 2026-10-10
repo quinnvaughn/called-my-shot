@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest"
-import { type FilterLeague, resolveLeaderboardFilter } from "./leaderboard-filter"
+import {
+	type FilterLeague,
+	resolveLeaderboardFilter,
+} from "./leaderboard-filter"
 
 function league(slug: string, abbreviation: string): FilterLeague {
 	return {
@@ -44,5 +47,20 @@ describe("resolveLeaderboardFilter", () => {
 				{ allLeaguesLabel: "NBA and NFL" },
 			).scopeLabel,
 		).toBe("Current season, NBA and NFL")
+	})
+
+	it("ranks the week in progress only where it's allowed", () => {
+		const week = resolveLeaderboardFilter(
+			[nba, nfl],
+			{ league: "nfl", season: "week" },
+			{ allowWeek: true },
+		)
+		expect(week.thisWeek).toBe(true)
+		expect(week.leagueId).toBe(nfl.id)
+		expect(week.scopeLabel).toBe("NFL, this week")
+
+		const site = resolveLeaderboardFilter([nba, nfl], { season: "week" })
+		expect(site.thisWeek).toBe(false)
+		expect(site.season).toEqual({ scope: "CURRENT" })
 	})
 })

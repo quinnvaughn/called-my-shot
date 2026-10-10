@@ -33,6 +33,9 @@ export type LeaderboardRowData = {
 	// board never counts it (accuracy and the ranking tiebreak agree)
 	resolvedCallCount: number
 	accuracy: number | null
+	// The week this member was named Player of the Week, while they still
+	// hold it ("Oct 6 to 12"). Group boards only.
+	playerOfTheWeek?: string | null
 	user: {
 		id: string
 		name: string
@@ -57,6 +60,9 @@ type LeaderboardProps = {
 	// LeaderboardEntryCard's own.
 	viewerUnrankedLabel?: string
 }
+
+const crownLabel = (entry: LeaderboardRowData) =>
+	entry.playerOfTheWeek ? `Player of the Week, ${entry.playerOfTheWeek}` : null
 
 export function Leaderboard({
 	items,
@@ -134,6 +140,7 @@ export function LeaderboardEntryCard({
 							size="md"
 							name={entry.user.name}
 							src={entry.user.avatarUrl}
+							crown={crownLabel(entry)}
 						/>
 						<VStack gap="0.5" alignItems="flex-start" flex="1" minWidth="0">
 							<Eyebrow variant="neutral">{eyebrow}</Eyebrow>
@@ -211,7 +218,12 @@ function LeaderboardRow({
 				(Table.Row active, below), so the tag repeated what the row said and
 				took width from the two things that name the person. */}
 				<HStack gap="3" minWidth="0">
-					<Avatar size="sm" name={item.user.name} src={item.user.avatarUrl} />
+					<Avatar
+						size="sm"
+						name={item.user.name}
+						src={item.user.avatarUrl}
+						crown={crownLabel(item)}
+					/>
 					<VStack gap="0.5" alignItems="flex-start" minWidth="0" flex="1">
 						<HStack gap="2" minWidth="0" maxWidth="full">
 							<Link

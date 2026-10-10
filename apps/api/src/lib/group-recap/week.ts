@@ -31,6 +31,21 @@ export function lastCompletedWeek(now: Date): RecapWeek {
 	return weekFrom(current.minus({ weeks: 1 }))
 }
 
+// Every week from the one holding `first` through the one holding `last`,
+// oldest first.
+export function weeksBetween(first: Date, last: Date): RecapWeek[] {
+	const end = weekContaining(last).start.getTime()
+	const weeks: RecapWeek[] = []
+	let start = DateTime.fromJSDate(weekContaining(first).start, {
+		zone: SPORTS_TIME_ZONE,
+	})
+	while (start.toMillis() <= end) {
+		weeks.push(weekFrom(start))
+		start = start.plus({ weeks: 1 })
+	}
+	return weeks
+}
+
 // "Oct 6 to 12", "Sep 29 to Oct 5". The end is the week's last day, the
 // Monday, not the Tuesday it ends at.
 export function formatWeekLabel(week: { start: Date; end: Date }): string {

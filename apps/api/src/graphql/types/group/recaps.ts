@@ -9,13 +9,18 @@ import {
 import { requireUser } from "../../../lib/auth"
 import { AuthenticationError, AuthorizationError } from "../../../lib/errors"
 import {
+	loadReigningPlayersOfTheWeek,
+	type ReigningPlayersOfTheWeek,
+} from "../../../lib/group-recap/board"
+import {
 	loadRecapView,
 	type RecapMoverView,
+	type RecapPlayerOfTheWeekView,
 	type RecapTile,
 	type RecapView,
 } from "../../../lib/group-recap/view"
+import { formatWeekLabel } from "../../../lib/group-recap/week"
 import { requireGroupAdmin, requireGroupMember } from "../../../lib/groups"
-import { loadPublicRecapView } from "../../../lib/share-cards/group-recap-card"
 import { imageUrl } from "../../../lib/storage"
 import { DAY_MS } from "../../../lib/time"
 import { builder } from "../../builder"
@@ -66,6 +71,28 @@ const RecapMoverRef = builder
 		}),
 	})
 
+export const RecapPlayerOfTheWeekRef = builder
+	.objectRef<RecapPlayerOfTheWeekView>("RecapPlayerOfTheWeek")
+	.implement({
+		fields: (t) => ({
+			user: t.field({ type: UserRef, resolve: (p) => p.user }),
+			// Calls plus any streak or sweep bonus, across the group's leagues.
+			points: t.exposeInt("points"),
+			wins: t.exposeInt("wins"),
+			losses: t.exposeInt("losses"),
+		}),
+	})
+
+const ReigningPlayersOfTheWeekRef = builder
+	.objectRef<ReigningPlayersOfTheWeek>("ReigningPlayersOfTheWeek")
+	.implement({
+		fields: (t) => ({
+			// The week they won: "Oct 6 to 12".
+			weekLabel: t.string({ resolve: (r) => formatWeekLabel(r.week) }),
+			users: t.field({ type: [UserRef], resolve: (r) => r.users }),
+		}),
+	})
+
 const RecapRecordRef = builder
 	.objectRef<RecapView["record"]>("RecapRecord")
 	.implement({
@@ -93,6 +120,12 @@ export const GroupRecapRef = builder
 				resolve: (v) => v.recap.createdAt,
 			}),
 			record: t.field({ type: RecapRecordRef, resolve: (v) => v.record }),
+			// Usually one, several on a tie, empty when nobody qualified or the
+			// winner is hidden from recaps.
+			playersOfTheWeek: t.field({
+				type: [RecapPlayerOfTheWeekRef],
+				resolve: (v) => v.playersOfTheWeek,
+			}),
 			tiles: t.field({ type: [RecapTileRef], resolve: (v) => v.tiles }),
 			climber: t.field({
 				type: RecapMoverRef,
@@ -148,6 +181,12 @@ builder.objectFields(GroupRef, (t) => ({
 		nullable: true,
 		resolve: (group) => currentRecap(group),
 	}),
+	// Last week's winners, for the crown on the leaderboard.
+	reigningPlayersOfTheWeek: t.field({
+		type: ReigningPlayersOfTheWeekRef,
+		nullable: true,
+		resolve: (group) => loadReigningPlayersOfTheWeek(group.id),
+	}),
 	recapLinksEnabled: t.exposeBoolean("recapLinksEnabled"),
 	recapShowsWorstMiss: t.exposeBoolean("recapShowsWorstMiss"),
 	viewerHiddenFromRecaps: t.field({
@@ -159,13 +198,26 @@ builder.objectFields(GroupRef, (t) => ({
 
 builder.queryFields((t) => ({
 	// Public: the token is the whole of the access check, the same as an
-	// invite code. Null for an unknown token and while the group's admins have
-	// recap links off.
+	// invite code. Null for an unknown token, and while the group's admins
+	// have recap links off for anyone but the group's members, who reach it
+	// from their Record Book.
 	groupRecap: t.field({
 		type: GroupRecapRef,
 		nullable: true,
 		args: { token: t.arg.string({ required: true }) },
-		resolve: (_root, args) => loadPublicRecapView(args.token),
+		resolve: async (_root, args, ctx) => {
+			const recap = await db.query.groupRecaps.findFirst({
+				where: { shareToken: args.token },
+			})
+			if (!recap) return null
+			const group = await db.query.groups.findFirst({
+				where: { id: recap.groupId },
+			})
+			if (!group) return null
+			if (!group.recapLinksEnabled && !(await viewerMembership(ctx, group.id)))
+				return null
+			return loadRecapView(recap, group)
+		},
 	}),
 }))
 

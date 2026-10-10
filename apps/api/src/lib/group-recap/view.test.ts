@@ -13,6 +13,7 @@ const recapCall = (userId: string, points: number): RecapCall => ({
 function data(overrides: Partial<GroupRecapData> = {}): GroupRecapData {
 	return {
 		record: { wins: 3, losses: 2, activeMembers: 3 },
+		playersOfTheWeek: [{ userId: "a", points: 52, wins: 4, losses: 1 }],
 		bestCalls: [recapCall("a", 40), recapCall("b", 20)],
 		worstMisses: [recapCall("c", -30), recapCall("b", -10)],
 		moments: [],
@@ -32,6 +33,18 @@ describe("selectRecapSlots", () => {
 		})
 		expect(picked.best.map((c) => c.userId)).toEqual(["b"])
 		expect(picked.worst.map((c) => c.userId)).toEqual(["c"])
+	})
+
+	it("leaves Player of the Week empty rather than handing it down", () => {
+		const picked = selectRecapSlots(data(), {
+			visible: new Set(["b", "c"]),
+			showWorstMiss: true,
+		})
+		expect(picked.playersOfTheWeek).toEqual([])
+		expect(
+			selectRecapSlots(data(), { visible: everyone, showWorstMiss: true })
+				.playersOfTheWeek,
+		).toEqual([{ userId: "a", points: 52, wins: 4, losses: 1 }])
 	})
 
 	it("shows every call tied for best or worst", () => {

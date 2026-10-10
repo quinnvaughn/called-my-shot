@@ -1,7 +1,13 @@
 import { HOT_STREAK_MIN, isNumericGuessShape } from "@called-my-shot/scoring"
-import { and, desc, eq, gte, inArray, lt } from "drizzle-orm"
+import { and, desc, eq, gte, inArray, isNull, lt, or } from "drizzle-orm"
 import { db } from "../../db"
-import { callFades, groupRecaps, notifications } from "../../db/schema"
+import {
+	callFades,
+	games,
+	groupRecaps,
+	notifications,
+	pointAwards,
+} from "../../db/schema"
 import { fadeWinner, loadCallSides } from "../fades"
 import { buildGroupLeaderboard, getMemberUserIds } from "../group-leaderboard"
 import { getTrackedLeagueIds } from "../groups"
@@ -34,7 +40,7 @@ function realizedAt(question: {
 	return question.resolvedAt
 }
 
-async function loadWeekCalls(
+export async function loadWeekCalls(
 	memberIds: string[],
 	tracked: string[] | null,
 	week: Window,
@@ -225,6 +231,37 @@ async function loadSnaps(
 	)
 }
 
+// Streak and sweep bonuses placed the way calls are: by when their game's
+// result became real (see realizedAt). An award whose game was deleted has
+// no date to place it by.
+export async function loadWeekAwards(
+	memberIds: string[],
+	tracked: string[] | null,
+	week: Window,
+): Promise<RecapInput["awards"]> {
+	return db
+		.select({ userId: pointAwards.userId, points: pointAwards.points })
+		.from(pointAwards)
+		.innerJoin(games, eq(games.id, pointAwards.gameId))
+		.where(
+			and(
+				inArray(pointAwards.userId, memberIds),
+				...(tracked ? [inArray(pointAwards.leagueId, tracked)] : []),
+				or(
+					and(
+						gte(games.finalizedAt, week.start),
+						lt(games.finalizedAt, week.end),
+					),
+					and(
+						isNull(games.finalizedAt),
+						gte(games.startsAt, week.start),
+						lt(games.startsAt, week.end),
+					),
+				),
+			),
+		)
+}
+
 // The board the group page shows by default: every tracked league, each
 // one's current season (see groupLeaderboardScope).
 async function loadStandings(
@@ -256,9 +293,10 @@ export async function loadRecapInput(
 		userId: { in: memberIds },
 		...(tracked ? { leagueId: { in: tracked } } : {}),
 	}
-	const [fadeWins, sweeps, snaps, activeStreaks, standings, previous] =
+	const [fadeWins, awards, sweeps, snaps, activeStreaks, standings, previous] =
 		await Promise.all([
 			loadFadeWins(calls, memberIds),
+			loadWeekAwards(memberIds, tracked, week),
 			db.query.userSweeps.findMany({
 				where: { ...scope, settledAt: { gte: week.start, lt: week.end } },
 				columns: {
@@ -295,6 +333,7 @@ export async function loadRecapInput(
 	return {
 		calls,
 		fadeWins,
+		awards,
 		sweeps,
 		snaps,
 		activeStreaks: activeStreaks.map((s) => ({

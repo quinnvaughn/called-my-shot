@@ -1,4 +1,5 @@
 import { type HTMLAttributes, useState } from "react"
+import { FaCrown } from "react-icons/fa6"
 import { css, cva, cx } from "styled-system/css"
 
 export const avatarStyle = cva({
@@ -39,15 +40,40 @@ type AvatarProps = HTMLAttributes<HTMLDivElement> & {
 	// the first letter of the name.
 	src?: string | null
 	size?: "xs" | "sm" | "md" | "lg"
+	// A crown tilted over the top-right edge, for the reigning Player of the
+	// Week. The string is what it says to a screen reader and on hover:
+	// "Player of the Week, Oct 6 to 12".
+	crown?: string | null
 }
 
-export function Avatar({ name, src, size, className, ...props }: AvatarProps) {
+// Blue rather than primary orange: it says who won, it isn't something to
+// tap. Outside the avatar's clipped circle, so it sits over the edge instead
+// of being cut off by it.
+const crownStyle = css({
+	position: "absolute",
+	top: "-1",
+	right: "-0.5",
+	display: "flex",
+	color: "secondary.default",
+	transform: "rotate(30deg)",
+	filter: "drop-shadow(0 1px 1px rgba(0, 0, 0, 0.6))",
+	pointerEvents: "none",
+})
+
+export function Avatar({
+	name,
+	src,
+	size,
+	crown,
+	className,
+	...props
+}: AvatarProps) {
 	// Remembers which URL failed rather than a plain flag, so a new upload
 	// gets its own chance to load.
 	const [failedSrc, setFailedSrc] = useState<string | null>(null)
 	const showImage = !!src && src !== failedSrc
 
-	return (
+	const avatar = (
 		<div className={cx(avatarStyle({ size }), className)} {...props}>
 			{showImage ? (
 				// Empty alt: the name is always rendered right beside an avatar, so
@@ -63,6 +89,18 @@ export function Avatar({ name, src, size, className, ...props }: AvatarProps) {
 			) : (
 				name.charAt(0).toUpperCase()
 			)}
+		</div>
+	)
+	if (!crown) return avatar
+
+	return (
+		<div
+			className={css({ position: "relative", display: "flex", flexShrink: 0 })}
+		>
+			{avatar}
+			<span role="img" aria-label={crown} title={crown} className={crownStyle}>
+				<FaCrown size={size === "lg" ? 22 : 14} aria-hidden />
+			</span>
 		</div>
 	)
 }

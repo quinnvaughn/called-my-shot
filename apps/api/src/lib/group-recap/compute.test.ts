@@ -3,6 +3,7 @@ import { DAY_MS } from "../time"
 import {
 	CALLED_EARLY_MIN_DAYS,
 	computeRecap,
+	PLAYER_OF_THE_WEEK_MIN_CALLS,
 	type RecapCallInput,
 	type RecapInput,
 } from "./compute"
@@ -35,6 +36,7 @@ function input(overrides: Partial<RecapInput> = {}): RecapInput {
 			call({ userId: "b", outcome: "loss", points: -5 }),
 		],
 		fadeWins: [],
+		awards: [],
 		sweeps: [],
 		snaps: [],
 		activeStreaks: [],
@@ -275,5 +277,50 @@ describe("computeRecap", () => {
 			input({ standings: [{ userId: "a", rank: 1 }], previousStandings: null }),
 		)
 		expect(data?.movers).toEqual([])
+	})
+})
+
+describe("Player of the Week", () => {
+	const week = (userId: string, points: number[]) =>
+		points.map((p) =>
+			call({ userId, points: p, outcome: p > 0 ? "win" : "loss" }),
+		)
+	const players = (overrides: Partial<RecapInput>) =>
+		computeRecap(input(overrides))?.playersOfTheWeek
+
+	it("needs enough settled calls that one lucky call can't take it", () => {
+		expect(PLAYER_OF_THE_WEEK_MIN_CALLS).toBe(3)
+		expect(
+			players({ calls: [...week("a", [100]), ...week("b", [10, 10, -5])] }),
+		).toEqual([{ userId: "b", points: 15, wins: 2, losses: 1 }])
+	})
+
+	it("goes to nobody when nobody finished up on points", () => {
+		expect(
+			players({
+				calls: [...week("a", [10, -20, 5]), ...week("b", [-5, -5, 3])],
+			}),
+		).toEqual([])
+	})
+
+	it("shares the award on an exact tie", () => {
+		expect(
+			players({
+				calls: [...week("b", [10, 10, 10]), ...week("a", [20, 15, -5])],
+			})?.map((p) => p.userId),
+		).toEqual(["a", "b"])
+	})
+
+	it("counts the week's streak and sweep bonuses", () => {
+		expect(
+			players({
+				calls: [...week("a", [10, 10, 10]), ...week("b", [10, 10, 5])],
+				awards: [
+					{ userId: "b", points: 8 },
+					// Nothing settled this week to add it to.
+					{ userId: "c", points: 500 },
+				],
+			}),
+		).toEqual([{ userId: "b", points: 33, wins: 3, losses: 0 }])
 	})
 })

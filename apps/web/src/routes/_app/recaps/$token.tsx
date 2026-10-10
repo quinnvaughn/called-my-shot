@@ -20,8 +20,8 @@ const groupRecapPageQuery = (token: string) =>
 
 // Public, like /calls/:id: this url exists to be pasted into the group's own
 // chat, where not everyone has an account. The token is the only way in, and
-// it stops working if the group's admins turn recap links off. Left out of
-// the sitemap.
+// if the group's admins turn recap links off it only opens for the group's
+// members, from their Record Book. Left out of the sitemap.
 export const Route = createFileRoute("/_app/recaps/$token")({
 	component: RouteComponent,
 	staleTime: 0,

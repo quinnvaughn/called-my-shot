@@ -260,7 +260,7 @@ describe("groupRecap", () => {
 		expect(data.groupRecap?.groupId).toBe(ctx.group.id)
 	})
 
-	it("stops answering once the group turns recap links off", async () => {
+	it("stops answering outsiders once the group turns recap links off", async () => {
 		const ctx = await setup()
 		await settledQuestion(ctx, [
 			{ user: ctx.admin, yes: true, points: 30 },
@@ -283,6 +283,14 @@ describe("groupRecap", () => {
 			variables: { token: recap.shareToken },
 		})
 		expect(data.groupRecap).toBeNull()
+
+		// Members still reach it from their Record Book, with nothing to share.
+		const member = await expectData<RecapResult>(RECAP, {
+			as: ctx.member,
+			variables: { token: recap.shareToken },
+		})
+		expect(member.groupRecap?.weekLabel).toBe("Oct 6 to 12")
+		expect(member.groupRecap?.shareToken).toBeNull()
 	})
 })
 

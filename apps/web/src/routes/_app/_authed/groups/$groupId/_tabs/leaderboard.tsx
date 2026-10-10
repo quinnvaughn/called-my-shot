@@ -60,9 +60,15 @@ export const Route = createFileRoute(
 		)
 		const filter = resolveLeaderboardFilter(scope.leagues, deps, {
 			allLeaguesLabel: scope.allLeaguesLabel,
+			allowWeek: true,
 		})
 		await context.queryClient.infiniteQuery(
-			groupLeaderboardQuery(groupId, filter.leagueId, filter.season),
+			groupLeaderboardQuery(
+				groupId,
+				filter.leagueId,
+				filter.season,
+				filter.thisWeek,
+			),
 		)
 	},
 })
@@ -81,6 +87,7 @@ function RouteComponent() {
 	)
 	const filter = resolveLeaderboardFilter(scope.leagues, search, {
 		allLeaguesLabel: scope.allLeaguesLabel,
+		allowWeek: true,
 	})
 	const group = shell.group
 	// The layout already shows the not-found state for a missing group.
