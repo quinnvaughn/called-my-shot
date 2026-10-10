@@ -10,9 +10,10 @@ import { computeRecap } from "./compute"
 import { loadRecapInput } from "./load"
 import { lastCompletedWeek, type RecapWeek } from "./week"
 
-// How long after its week ends a recap still follows the results under it.
-// Long enough for a dispute filed on the weekend to be decided, short enough
-// that a link people have already seen doesn't keep changing.
+// How long after its week ends a recap can still be made, and still follows
+// the results under it. Long enough for a dispute filed on the weekend to be
+// decided, short enough that a link people have already seen doesn't keep
+// changing.
 export const RECAP_REVISE_DAYS = 3
 
 // Makes one group's recap for a week, unless it has one or the week didn't
@@ -77,13 +78,23 @@ export async function reviseGroupRecap(recap: GroupRecap): Promise<boolean> {
 }
 
 // The daily pass: last week's recap for every group that doesn't have one,
-// then revisions for the ones still inside RECAP_REVISE_DAYS. Runs every day
-// rather than only on Tuesday, so a missed run catches up on the next.
+// while that week ended inside RECAP_REVISE_DAYS, then revisions for the
+// recaps still inside it. Runs every day rather than only on Tuesday, so a
+// missed run catches up on the next.
 export async function generateGroupRecaps(
 	now = new Date(),
 ): Promise<{ created: number; revised: number }> {
 	const week = lastCompletedWeek(now)
-	const groups = await db.query.groups.findMany({ columns: { id: true } })
+	// Only made while it's still news - the same window revisions get. A
+	// missed Tuesday still catches up on Wednesday or Thursday, but a week
+	// that ended days ago (the first run after recaps shipped mid-week) is
+	// skipped rather than posted late. Its standings would also be the
+	// baseline the next recap's movers compare against, a few days apart
+	// instead of a week.
+	const fresh = now.getTime() - week.end.getTime() < RECAP_REVISE_DAYS * DAY_MS
+	const groups = fresh
+		? await db.query.groups.findMany({ columns: { id: true } })
+		: []
 
 	const made = new Set<string>()
 	for (const group of groups) {

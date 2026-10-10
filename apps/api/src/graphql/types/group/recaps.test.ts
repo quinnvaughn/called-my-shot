@@ -4,6 +4,7 @@ import { db } from "../../../db"
 import { callSelections, type GroupRecap, type User } from "../../../db/schema"
 import {
 	ensureGroupRecap,
+	generateGroupRecaps,
 	reviseGroupRecap,
 } from "../../../lib/group-recap/generate"
 import { weekContaining } from "../../../lib/group-recap/week"
@@ -150,6 +151,34 @@ describe("ensureGroupRecap", () => {
 		])
 		const nextWeek = weekContaining(new Date("2026-10-15T12:00:00Z"))
 		expect(await ensureGroupRecap(ctx.group.id, nextWeek)).toBeNull()
+	})
+})
+
+describe("generateGroupRecaps", () => {
+	it("makes last week's recap on the Tuesday after", async () => {
+		const ctx = await setup()
+		await settledQuestion(ctx, [
+			{ user: ctx.admin, yes: true, points: 30 },
+			{ user: ctx.member, yes: false, points: -12 },
+		])
+		const result = await generateGroupRecaps(new Date("2026-10-13T09:00:00Z"))
+		expect(result.created).toBe(1)
+	})
+
+	it("skips a week that ended too long ago to be news", async () => {
+		const ctx = await setup()
+		await settledQuestion(ctx, [
+			{ user: ctx.admin, yes: true, points: 30 },
+			{ user: ctx.member, yes: false, points: -12 },
+		])
+		// Sunday: WEEK is still the last completed one, but it ended five days
+		// ago.
+		const result = await generateGroupRecaps(new Date("2026-10-18T09:00:00Z"))
+		expect(result.created).toBe(0)
+		const rows = await db.query.groupRecaps.findMany({
+			where: { groupId: ctx.group.id },
+		})
+		expect(rows).toEqual([])
 	})
 })
 
