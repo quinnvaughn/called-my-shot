@@ -111,6 +111,9 @@ export const CallRecordDocument = graphql(`
 				status
 				locksAt
 				resolvedAt
+				# Only official questions are on the caller's picks page for the
+				# game, so only they link to it.
+				isOfficial
 				ouLine
 				numericActualValue
 				numericToleranceAbsolute

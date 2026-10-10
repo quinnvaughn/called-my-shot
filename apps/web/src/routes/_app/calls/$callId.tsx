@@ -524,6 +524,24 @@ function RouteComponent() {
 			quietly show the later one as if it were the only one. */}
 			{view.redo && <RedoPanel data={view.redo} />}
 
+			{/* The rest of their calls on this game, and their presser on it
+			once the game is final. Official questions only, since those are
+			the ones the picks page lists. */}
+			{call.question.game && call.question.isOfficial && (
+				<Link
+					to="/games/$gameId/picks/$username"
+					params={{
+						gameId: call.question.game.id,
+						username: call.user.username,
+					}}
+					className={arrowLink({ tone: "quiet" })}
+				>
+					All of @{call.user.username}'s{" "}
+					{call.question.game.awayTeam.abbreviation} @{" "}
+					{call.question.game.homeTeam.abbreviation} picks →
+				</Link>
+			)}
+
 			{call.streak && (
 				<Link
 					to="/user/$username/streaks/$league/$family/$mode"
