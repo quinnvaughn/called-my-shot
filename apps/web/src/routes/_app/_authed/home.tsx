@@ -16,6 +16,7 @@ import { PageHeader } from "#/components/ui/page-header"
 import { HomeDashboardDocument } from "#/graphql/queries/home"
 import { myLiveCallsQuery } from "#/graphql/queries/my-calls"
 import { gqlQueryOptions } from "#/graphql/query-options"
+import { orderLeaguesByActivity } from "#/lib/league-order"
 import { submitGuestPicks } from "#/lib/submit-guest-picks"
 
 function SectionLabel({ children }: { children: ReactNode }) {
@@ -53,11 +54,12 @@ export const Route = createFileRoute("/_app/_authed/home")({
 	},
 })
 
-// Deliberately ranks nothing and grows with nothing - no MOST_CALLED/NEW sort, no
-// question list that scales with the catalogue. League cards are counts;
-// the two lists below are bounded by a time horizon, not by how many
-// questions exist (see HomeDashboardDocument). This is a checklist of what's
-// actionable right now, not a feed - that lives in each league's Feed tab.
+// Deliberately ranks no questions and grows with nothing - no MOST_CALLED/NEW
+// sort, no question list that scales with the catalogue. League cards are
+// counts, busiest league first; the two lists below are bounded by a time
+// horizon, not by how many questions exist (see HomeDashboardDocument). This
+// is a checklist of what's actionable right now, not a feed - that lives in
+// each league's Feed tab.
 function RouteComponent() {
 	const { data } = useSuspenseQuery(homeDashboardQuery)
 	const queryClient = useQueryClient()
@@ -69,7 +71,7 @@ function RouteComponent() {
 		void submitGuestPicks({ queryClient, router })
 	}, [queryClient, router])
 
-	const leagues = data.leagues
+	const leagues = orderLeaguesByActivity(data.leagues)
 	const lockingSoon = data.questions.items
 	const stats = data.me?.careerStats
 
