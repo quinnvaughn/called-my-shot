@@ -20,6 +20,7 @@ const NAV_ITEMS = [
 	{ to: "/admin/groups", label: "Groups" },
 	{ to: "/admin/integrity", label: "Integrity" },
 	{ to: "/admin/gifs", label: "Gifs" },
+	{ to: "/admin/updates", label: "Updates" },
 	{ to: "/admin/data", label: "Data" },
 ] as const
 
@@ -49,6 +50,10 @@ export function AdminShell({ children }: { children: ReactNode }) {
 					position: "sticky",
 					top: 0,
 					height: "100dvh",
+					// Scrolls on its own once the nav is taller than the window,
+					// without handing the scroll to the page underneath at either end.
+					overflowY: "auto",
+					overscrollBehavior: "contain",
 				})}
 			>
 				<VStack alignItems="stretch" gap="4">

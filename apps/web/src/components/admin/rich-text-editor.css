@@ -1,0 +1,50 @@
+/*
+ * MDXEditor's colors, pointed at the app's theme tokens. Plain CSS rather than
+ * Panda because the editor's own stylesheet is unlayered, and an unlayered rule
+ * beats anything in Panda's cascade layers no matter the selector. The doubled
+ * class outranks the editor's single-class root rule, where it sets these. Its
+ * own dark theme only swaps color scales and leaves --basePageBg white, which
+ * is what the toolbar's block-type select and every popup are painted with.
+ *
+ * The class goes on the editor root and on its popup container (MDXEditor
+ * applies its className to both), so dialogs and dropdowns match too.
+ */
+.update-editor-theme.update-editor-theme {
+	font-family: inherit;
+
+	--basePageBg: var(--colors-bg-surface);
+	--baseBase: var(--colors-bg-surface);
+	--baseBgSubtle: var(--colors-bg-subtle);
+	--baseBg: var(--colors-bg-subtle);
+	--baseBgHover: var(--colors-border-default);
+	--baseBgActive: var(--colors-border-emphasized);
+	--baseLine: var(--colors-border-default);
+	--baseBorder: var(--colors-border-default);
+	--baseBorderHover: var(--colors-border-emphasized);
+	--baseSolid: var(--colors-fg-subtle);
+	--baseSolidHover: var(--colors-fg-muted);
+	--baseText: var(--colors-fg-muted);
+	--baseTextContrast: var(--colors-fg-default);
+
+	--accentBase: var(--colors-bg-surface);
+	--accentBgSubtle: var(--colors-primary-subtle);
+	--accentBg: var(--colors-primary-subtle);
+	--accentBgHover: var(--colors-primary-subtle);
+	--accentBgActive: var(--colors-primary-subtle);
+	--accentLine: var(--colors-primary-default);
+	--accentBorder: var(--colors-primary-default);
+	--accentBorderHover: var(--colors-primary-default);
+	--accentSolid: var(--colors-primary-default);
+	--accentSolidHover: var(--colors-primary-default);
+	--accentText: var(--colors-primary-default);
+	--accentTextContrast: var(--colors-fg-default);
+
+	color: var(--colors-fg-default);
+}
+
+/* The editor box itself, not the popup container that shares its classes. */
+.mdxeditor.update-editor-theme {
+	border: 1px solid var(--colors-border-default);
+	border-radius: var(--radii-lg);
+	background: var(--colors-bg-surface);
+}

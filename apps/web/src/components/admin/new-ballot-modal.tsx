@@ -21,9 +21,7 @@ import { useForm } from "#/lib/form/use-form"
 import { closeModal } from "#/stores/modal-store"
 
 export function NewBallotModal() {
-	const { data: sportsData } = useQuery(
-		gqlQueryOptions(SportsDocument, {}, { abortable: false }),
-	)
+	const { data: sportsData } = useQuery(gqlQueryOptions(SportsDocument, {}))
 	const createBallot = useGqlMutation(CreateBallotDocument)
 	const navigate = useNavigate()
 	const [leagueInputText, setLeagueInputText] = useState("")

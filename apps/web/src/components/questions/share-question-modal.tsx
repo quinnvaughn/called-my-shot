@@ -40,14 +40,9 @@ const ShareTargetGroupsDocument = graphql(`
 	}
 `)
 
-// Opens with a modal, so not abortable (see gqlQueryOptions). staleTime keeps
-// reopening the sheet off the network entirely.
+// staleTime keeps reopening the sheet off the network entirely.
 const shareTargetGroupsQuery = () =>
-	gqlQueryOptions(
-		ShareTargetGroupsDocument,
-		{},
-		{ abortable: false, staleTime: 5 * 60_000 },
-	)
+	gqlQueryOptions(ShareTargetGroupsDocument, {}, { staleTime: 5 * 60_000 })
 
 const labelClass = css({
 	fontFamily: "mono",
@@ -130,14 +125,9 @@ export function ShareQuestionModal({
 				.with({ __typename: "QuestionSharePayload" }, async () => {
 					track("question_shared_to_group", { questionId, groupId })
 					setShared((current) => new Set(current).add(groupId))
-					// Scoped to the three operations a new share actually changes.
-					// A bare invalidateQueries() refetches the entire cache, which
-					// supersedes anything already in flight - including this
-					// modal's own ShareTargetGroups - and a superseded request is
-					// an aborted one. Elsewhere that goes unnoticed because the
-					// modal closes immediately after; this sheet stays open so you
-					// can share to several groups, so the cancelled requests land
-					// while its own query is still mounted.
+					// Scoped to the three operations a new share actually changes,
+					// rather than a bare invalidateQueries() refetching the entire
+					// cache after every share.
 					await Promise.all([
 						queryClient.invalidateQueries({ queryKey: ["SharedQuestions"] }),
 						queryClient.invalidateQueries({ queryKey: ["GroupDetail"] }),

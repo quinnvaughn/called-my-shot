@@ -21,6 +21,7 @@ const STATIC_PATHS = [
 	"/leaderboard",
 	"/privacy",
 	"/terms",
+	"/updates",
 ]
 
 // The league room's tabs. Its bare /leagues/$slug url is not listed: it only

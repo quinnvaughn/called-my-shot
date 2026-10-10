@@ -11,11 +11,15 @@ import { headImage } from "./storage"
 
 // Who an image belongs to. The key prefix is derived from it, so the only
 // keys someone can attach are ones under a prefix they're allowed to write.
+// "update" is any image in a product update post (the cover or one in the
+// body), all under one prefix since only admins can upload them.
 export type ImageOwner =
 	| { kind: UserImageKind; userId: string }
 	| { kind: GroupImageKind; groupId: string }
+	| { kind: "update" }
 
 function keyPrefix(owner: ImageOwner): string {
+	if (owner.kind === "update") return "updates/"
 	if ("userId" in owner) {
 		return owner.kind === "avatar"
 			? `avatars/${owner.userId}/`

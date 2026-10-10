@@ -63,7 +63,7 @@ const GroupImageKindEnum = builder.enumType("GroupImageKind", {
 	},
 })
 
-const UploadHeaderRef = builder
+export const UploadHeaderRef = builder
 	.objectRef<{ name: string; value: string }>("UploadHeader")
 	.implement({
 		fields: (t) => ({

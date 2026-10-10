@@ -28,15 +28,7 @@ export function gqlQueryKey<TResult, TVariables>(
 
 type QueryOverrides<TResult> = Partial<
 	Omit<UseQueryOptions<TResult, Error, TResult>, "queryKey" | "queryFn">
-> & {
-	// false for a query that opens with a modal. React-query cancels a query
-	// whenever a newer fetch supersedes it or its last observer goes away (the
-	// modal closing), and that abort reaches the dev server as a closed socket
-	// mid-request, which Nitro surfaces as an unhandled `aborted` in Vite's
-	// error overlay. Route preloads and paginated feeds are cancelled
-	// constantly and should be, so they keep the default.
-	abortable?: boolean
-}
+>
 
 /**
  * The same object drives a route loader (`queryClient.query`), the component
@@ -47,15 +39,12 @@ type QueryOverrides<TResult> = Partial<
 export function gqlQueryOptions<TResult, TVariables>(
 	document: TypedDocumentNode<TResult, TVariables>,
 	variables: TVariables,
-	{ abortable = true, ...overrides }: QueryOverrides<TResult> = {},
+	overrides: QueryOverrides<TResult> = {},
 ) {
 	return queryOptions({
 		queryKey: gqlQueryKey(document, variables),
 		queryFn: ({ signal, meta }) =>
-			gqlFetch(document, variables, {
-				cookie: meta?.cookie,
-				signal: abortable ? signal : undefined,
-			}),
+			gqlFetch(document, variables, { cookie: meta?.cookie, signal }),
 		...overrides,
 	})
 }
@@ -87,16 +76,7 @@ type InfiniteOverrides<TResult, TItem> = Partial<
 		>,
 		"queryKey" | "queryFn" | "initialPageParam" | "getNextPageParam" | "select"
 	>
-> & {
-	// Same escape hatch as gqlQueryOptions', and for the same reason - see the
-	// comment there. A paginated feed normally wants the default: its fetches
-	// are superseded constantly (every keystroke in a search box) and
-	// cancelling those is the point. Set this false only for a list that
-	// unmounts while a fetch can still be in flight - a list inside a tab or a
-	// modal - where the cancel isn't a superseded fetch but the observer going
-	// away, and the only thing it produces is a dev-server `aborted` overlay.
-	abortable?: boolean
-}
+>
 
 /**
  * Relay-style keyset pagination over a connection field. `selectConnection`
@@ -112,14 +92,14 @@ export function gqlInfiniteQueryOptions<TResult, TVariables, TItem>(
 	document: TypedDocumentNode<TResult, TVariables>,
 	variables: Omit<TVariables, "after">,
 	selectConnection: (result: TResult) => Connection<TItem>,
-	{ abortable = true, ...overrides }: InfiniteOverrides<TResult, TItem> = {},
+	overrides: InfiniteOverrides<TResult, TItem> = {},
 ) {
 	return infiniteQueryOptions({
 		queryKey: [getOperationName(document), variables, "infinite"] as const,
 		queryFn: ({ pageParam, signal, meta }) =>
 			gqlFetch(document, { ...variables, after: pageParam } as TVariables, {
 				cookie: meta?.cookie,
-				signal: abortable ? signal : undefined,
+				signal,
 			}),
 		initialPageParam: null as PageParam,
 		getNextPageParam: (lastPage: TResult) => {

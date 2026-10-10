@@ -271,21 +271,9 @@ export const QuestionStatContextDocument = graphql(`
 export const questionStatContextQuery = (id: string) =>
 	gqlQueryOptions(QuestionStatContextDocument, { id })
 
-// The same document for the landing page's try-it stack, which unmounts the
-// card the moment a call advances it. That abort is its last observer going
-// away rather than a superseded fetch, and the only thing it produces is a dev
-// server `aborted` in the error overlay - see gqlQueryOptions. Same key as
-// above, so the two share a cache entry.
-export const guestPickStatContextQuery = (id: string) =>
-	gqlQueryOptions(QuestionStatContextDocument, { id }, { abortable: false })
-
 // The question a call's next-up step points at: the game page's line of
 // recent form and group picks for it. Fetched only once a call has landed,
-// never as part of the awaited detail query. Not abortable: the refresh that
-// follows a call can move the step to another question, or remount it, while
-// this is still in flight, and that cancel is the observer going away rather
-// than a superseded fetch - it only ever surfaces as a dev server `aborted`.
-// See gqlQueryOptions.
+// never as part of the awaited detail query.
 export const NextUpQuestionDocument = graphql(`
 	query NextUpQuestion($id: ID!) {
 		question(id: $id) {
@@ -296,4 +284,4 @@ export const NextUpQuestionDocument = graphql(`
 `)
 
 export const nextUpQuestionQuery = (id: string) =>
-	gqlQueryOptions(NextUpQuestionDocument, { id }, { abortable: false })
+	gqlQueryOptions(NextUpQuestionDocument, { id })

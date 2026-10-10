@@ -13,6 +13,7 @@ import {
 	FiSettings,
 	FiShield,
 	FiUserPlus,
+	FiZap,
 } from "react-icons/fi"
 import { HiDotsCircleHorizontal } from "react-icons/hi"
 import type { IconType } from "react-icons/lib"
@@ -120,6 +121,11 @@ export function MoreMenu({ signedIn, isAdmin, onNavigate }: MoreMenuProps) {
 			label: "How It Works",
 			icon: FiHelpCircle,
 			onSelect: () => go("/how-it-works"),
+		},
+		{
+			label: "Updates",
+			icon: FiZap,
+			onSelect: () => go("/updates"),
 		},
 		// What makes skipping the walkthrough a free choice: it can always be
 		// started again, so nobody has to sit through it the first time just in

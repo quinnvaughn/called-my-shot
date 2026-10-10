@@ -29,8 +29,8 @@ import { users } from "./users"
 // in-app. Anything past this comment is email-only by the same test.
 //
 // "call_resolved" (lib/email-digest.ts), "game_reminder"
-// (lib/game-reminders.tsx) and "season_starting"
-// (lib/season-start-email.tsx) actually send today; the rest exist so the
+// (lib/game-reminders.tsx), "season_starting" (lib/season-start-email.tsx)
+// and "product_updates" (lib/update-email.tsx) actually send today; the rest exist so the
 // opt-out someone sets now is still honored when its email ships.
 export const emailPreferenceType = pgEnum("email_preference_type", [
 	"all",
@@ -53,6 +53,7 @@ export const emailPreferenceType = pgEnum("email_preference_type", [
 	"group_pins_expired",
 	// Email-only - see above.
 	"season_starting",
+	"product_updates",
 ])
 export type EmailPreferenceType =
 	(typeof emailPreferenceType.enumValues)[number]

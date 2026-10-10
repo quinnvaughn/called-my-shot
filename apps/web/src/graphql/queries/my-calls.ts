@@ -178,10 +178,4 @@ export const myCallsQuery = (
 		MyCallsDocument,
 		{ status, ...filters, sort, direction },
 		(data) => data.myCalls,
-		// The two tabs swap one list component for the other, so switching tabs
-		// unmounts whichever list is on screen - and with it the only observer
-		// of an in-flight fetch. That cancel isn't a superseded request, it's
-		// just the tab going away, and all it produces is an `aborted` overlay
-		// in dev. Same reasoning as the modal queries that pass this.
-		{ abortable: false },
 	)

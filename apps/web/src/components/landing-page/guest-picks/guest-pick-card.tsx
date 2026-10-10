@@ -8,7 +8,7 @@ import { StatContextHighlights } from "#/components/questions/stat-context-card"
 import { Card } from "#/components/ui/card"
 import { PlayerOrTeamImage } from "#/components/ui/player-or-team-image"
 import { type FragmentType, graphql, useFragment } from "#/graphql/generated"
-import { guestPickStatContextQuery } from "#/graphql/queries/question"
+import { questionStatContextQuery } from "#/graphql/queries/question"
 import { callersText, isRateStat } from "#/lib/field-signal"
 import {
 	isOverUnderQuestionShape,
@@ -168,7 +168,7 @@ export function GuestPickCard({
 	// per league, so it's fetched for the card on screen only. Fetched even
 	// though the section starts folded, because whether there is anything worth
 	// offering is only knowable from the answer.
-	const statContext = useQuery(guestPickStatContextQuery(question.id))
+	const statContext = useQuery(questionStatContextQuery(question.id))
 	// Both competitors, so a game log can name the opponent - the same pair the
 	// question page hands the card.
 	const teamLabels = question.game

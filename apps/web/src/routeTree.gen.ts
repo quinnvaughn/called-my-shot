@@ -53,11 +53,16 @@ import { Route as AppAuthedSupportRouteImport } from './routes/_app/_authed/supp
 import { Route as AppBallotsBallotSlugRouteImport } from './routes/_app/ballots/$ballotSlug'
 import { Route as AppCallsCallIdRouteImport } from './routes/_app/calls/$callId'
 import { Route as AppLeaguesLeagueSlugRouteImport } from './routes/_app/leagues/$leagueSlug'
+import { Route as AppUpdatesIndexRouteImport } from './routes/_app/updates/index'
+import { Route as AppUpdatesSlugRouteImport } from './routes/_app/updates/$slug'
 import { Route as AppUserUsernameRouteImport } from './routes/_app/user/$username'
 import { Route as AdminBallotsIndexRouteImport } from './routes/admin/ballots/index'
 import { Route as AdminBallotsBallotIdRouteImport } from './routes/admin/ballots/$ballotId'
 import { Route as AdminDataIndexRouteImport } from './routes/admin/data/index'
 import { Route as AdminDataLeagueIdRouteImport } from './routes/admin/data/$leagueId'
+import { Route as AdminUpdatesIndexRouteImport } from './routes/admin/updates/index'
+import { Route as AdminUpdatesUpdateIdRouteImport } from './routes/admin/updates/$updateId'
+import { Route as AdminUpdatesNewRouteImport } from './routes/admin/updates/new'
 import { Route as AuthGoogleIndexRouteImport } from './routes/auth/google/index'
 import { Route as AuthGoogleCallbackRouteImport } from './routes/auth/google/callback'
 import { Route as AppAuthedGroupsIndexRouteImport } from './routes/_app/_authed/groups/index'
@@ -308,6 +313,16 @@ const AppLeaguesLeagueSlugRoute = AppLeaguesLeagueSlugRouteImport.update({
   path: '/leagues/$leagueSlug',
   getParentRoute: () => AppRoute,
 } as any)
+const AppUpdatesIndexRoute = AppUpdatesIndexRouteImport.update({
+  id: '/updates/',
+  path: '/updates/',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppUpdatesSlugRoute = AppUpdatesSlugRouteImport.update({
+  id: '/updates/$slug',
+  path: '/updates/$slug',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppUserUsernameRoute = AppUserUsernameRouteImport.update({
   id: '/user/$username',
   path: '/user/$username',
@@ -331,6 +346,21 @@ const AdminDataIndexRoute = AdminDataIndexRouteImport.update({
 const AdminDataLeagueIdRoute = AdminDataLeagueIdRouteImport.update({
   id: '/data/$leagueId',
   path: '/data/$leagueId',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminUpdatesIndexRoute = AdminUpdatesIndexRouteImport.update({
+  id: '/updates/',
+  path: '/updates/',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminUpdatesUpdateIdRoute = AdminUpdatesUpdateIdRouteImport.update({
+  id: '/updates/$updateId',
+  path: '/updates/$updateId',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminUpdatesNewRoute = AdminUpdatesNewRouteImport.update({
+  id: '/updates/new',
+  path: '/updates/new',
   getParentRoute: () => AdminRoute,
 } as any)
 const AuthGoogleIndexRoute = AuthGoogleIndexRouteImport.update({
@@ -556,12 +586,17 @@ export interface FileRoutesByFullPath {
   '/ballots/$ballotSlug': typeof AppBallotsBallotSlugRoute
   '/calls/$callId': typeof AppCallsCallIdRoute
   '/leagues/$leagueSlug': typeof AppLeaguesLeagueSlugRouteWithChildren
+  '/updates/$slug': typeof AppUpdatesSlugRoute
   '/user/$username': typeof AppUserUsernameRoute
   '/admin/ballots/$ballotId': typeof AdminBallotsBallotIdRoute
   '/admin/data/$leagueId': typeof AdminDataLeagueIdRouteWithChildren
+  '/admin/updates/$updateId': typeof AdminUpdatesUpdateIdRoute
+  '/admin/updates/new': typeof AdminUpdatesNewRoute
   '/auth/google/callback': typeof AuthGoogleCallbackRoute
+  '/updates/': typeof AppUpdatesIndexRoute
   '/admin/ballots/': typeof AdminBallotsIndexRoute
   '/admin/data/': typeof AdminDataIndexRoute
+  '/admin/updates/': typeof AdminUpdatesIndexRoute
   '/auth/google/': typeof AuthGoogleIndexRoute
   '/ballots/$ballotSlug/$username': typeof AppBallotsBallotSlugUsernameRoute
   '/games/$gameId/{-$slug}': typeof AppGamesGameIdChar123SlugChar125Route
@@ -634,11 +669,16 @@ export interface FileRoutesByTo {
   '/support': typeof AppAuthedSupportRoute
   '/ballots/$ballotSlug': typeof AppBallotsBallotSlugRoute
   '/calls/$callId': typeof AppCallsCallIdRoute
+  '/updates/$slug': typeof AppUpdatesSlugRoute
   '/user/$username': typeof AppUserUsernameRoute
   '/admin/ballots/$ballotId': typeof AdminBallotsBallotIdRoute
+  '/admin/updates/$updateId': typeof AdminUpdatesUpdateIdRoute
+  '/admin/updates/new': typeof AdminUpdatesNewRoute
   '/auth/google/callback': typeof AuthGoogleCallbackRoute
+  '/updates': typeof AppUpdatesIndexRoute
   '/admin/ballots': typeof AdminBallotsIndexRoute
   '/admin/data': typeof AdminDataIndexRoute
+  '/admin/updates': typeof AdminUpdatesIndexRoute
   '/auth/google': typeof AuthGoogleIndexRoute
   '/ballots/$ballotSlug/$username': typeof AppBallotsBallotSlugUsernameRoute
   '/games/$gameId/{-$slug}': typeof AppGamesGameIdChar123SlugChar125Route
@@ -716,12 +756,17 @@ export interface FileRoutesById {
   '/_app/ballots/$ballotSlug': typeof AppBallotsBallotSlugRoute
   '/_app/calls/$callId': typeof AppCallsCallIdRoute
   '/_app/leagues/$leagueSlug': typeof AppLeaguesLeagueSlugRouteWithChildren
+  '/_app/updates/$slug': typeof AppUpdatesSlugRoute
   '/_app/user/$username': typeof AppUserUsernameRoute
   '/admin/ballots/$ballotId': typeof AdminBallotsBallotIdRoute
   '/admin/data/$leagueId': typeof AdminDataLeagueIdRouteWithChildren
+  '/admin/updates/$updateId': typeof AdminUpdatesUpdateIdRoute
+  '/admin/updates/new': typeof AdminUpdatesNewRoute
   '/auth/google/callback': typeof AuthGoogleCallbackRoute
+  '/_app/updates/': typeof AppUpdatesIndexRoute
   '/admin/ballots/': typeof AdminBallotsIndexRoute
   '/admin/data/': typeof AdminDataIndexRoute
+  '/admin/updates/': typeof AdminUpdatesIndexRoute
   '/auth/google/': typeof AuthGoogleIndexRoute
   '/_app/ballots/$ballotSlug_/$username': typeof AppBallotsBallotSlugUsernameRoute
   '/_app/games/$gameId/{-$slug}': typeof AppGamesGameIdChar123SlugChar125Route
@@ -798,12 +843,17 @@ export interface FileRouteTypes {
     | '/ballots/$ballotSlug'
     | '/calls/$callId'
     | '/leagues/$leagueSlug'
+    | '/updates/$slug'
     | '/user/$username'
     | '/admin/ballots/$ballotId'
     | '/admin/data/$leagueId'
+    | '/admin/updates/$updateId'
+    | '/admin/updates/new'
     | '/auth/google/callback'
+    | '/updates/'
     | '/admin/ballots/'
     | '/admin/data/'
+    | '/admin/updates/'
     | '/auth/google/'
     | '/ballots/$ballotSlug/$username'
     | '/games/$gameId/{-$slug}'
@@ -876,11 +926,16 @@ export interface FileRouteTypes {
     | '/support'
     | '/ballots/$ballotSlug'
     | '/calls/$callId'
+    | '/updates/$slug'
     | '/user/$username'
     | '/admin/ballots/$ballotId'
+    | '/admin/updates/$updateId'
+    | '/admin/updates/new'
     | '/auth/google/callback'
+    | '/updates'
     | '/admin/ballots'
     | '/admin/data'
+    | '/admin/updates'
     | '/auth/google'
     | '/ballots/$ballotSlug/$username'
     | '/games/$gameId/{-$slug}'
@@ -957,12 +1012,17 @@ export interface FileRouteTypes {
     | '/_app/ballots/$ballotSlug'
     | '/_app/calls/$callId'
     | '/_app/leagues/$leagueSlug'
+    | '/_app/updates/$slug'
     | '/_app/user/$username'
     | '/admin/ballots/$ballotId'
     | '/admin/data/$leagueId'
+    | '/admin/updates/$updateId'
+    | '/admin/updates/new'
     | '/auth/google/callback'
+    | '/_app/updates/'
     | '/admin/ballots/'
     | '/admin/data/'
+    | '/admin/updates/'
     | '/auth/google/'
     | '/_app/ballots/$ballotSlug_/$username'
     | '/_app/games/$gameId/{-$slug}'
@@ -1329,6 +1389,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppLeaguesLeagueSlugRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/updates/': {
+      id: '/_app/updates/'
+      path: '/updates'
+      fullPath: '/updates/'
+      preLoaderRoute: typeof AppUpdatesIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/updates/$slug': {
+      id: '/_app/updates/$slug'
+      path: '/updates/$slug'
+      fullPath: '/updates/$slug'
+      preLoaderRoute: typeof AppUpdatesSlugRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/user/$username': {
       id: '/_app/user/$username'
       path: '/user/$username'
@@ -1362,6 +1436,27 @@ declare module '@tanstack/react-router' {
       path: '/data/$leagueId'
       fullPath: '/admin/data/$leagueId'
       preLoaderRoute: typeof AdminDataLeagueIdRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/updates/': {
+      id: '/admin/updates/'
+      path: '/updates'
+      fullPath: '/admin/updates/'
+      preLoaderRoute: typeof AdminUpdatesIndexRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/updates/$updateId': {
+      id: '/admin/updates/$updateId'
+      path: '/updates/$updateId'
+      fullPath: '/admin/updates/$updateId'
+      preLoaderRoute: typeof AdminUpdatesUpdateIdRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/updates/new': {
+      id: '/admin/updates/new'
+      path: '/updates/new'
+      fullPath: '/admin/updates/new'
+      preLoaderRoute: typeof AdminUpdatesNewRouteImport
       parentRoute: typeof AdminRoute
     }
     '/auth/google/': {
@@ -1652,7 +1747,9 @@ interface AppRouteChildren {
   AppBallotsBallotSlugRoute: typeof AppBallotsBallotSlugRoute
   AppCallsCallIdRoute: typeof AppCallsCallIdRoute
   AppLeaguesLeagueSlugRoute: typeof AppLeaguesLeagueSlugRouteWithChildren
+  AppUpdatesSlugRoute: typeof AppUpdatesSlugRoute
   AppUserUsernameRoute: typeof AppUserUsernameRoute
+  AppUpdatesIndexRoute: typeof AppUpdatesIndexRoute
   AppBallotsBallotSlugUsernameRoute: typeof AppBallotsBallotSlugUsernameRoute
   AppGamesGameIdChar123SlugChar125Route: typeof AppGamesGameIdChar123SlugChar125Route
   AppGroupsJoinCodeRoute: typeof AppGroupsJoinCodeRoute
@@ -1674,7 +1771,9 @@ const AppRouteChildren: AppRouteChildren = {
   AppBallotsBallotSlugRoute: AppBallotsBallotSlugRoute,
   AppCallsCallIdRoute: AppCallsCallIdRoute,
   AppLeaguesLeagueSlugRoute: AppLeaguesLeagueSlugRouteWithChildren,
+  AppUpdatesSlugRoute: AppUpdatesSlugRoute,
   AppUserUsernameRoute: AppUserUsernameRoute,
+  AppUpdatesIndexRoute: AppUpdatesIndexRoute,
   AppBallotsBallotSlugUsernameRoute: AppBallotsBallotSlugUsernameRoute,
   AppGamesGameIdChar123SlugChar125Route: AppGamesGameIdChar123SlugChar125Route,
   AppGroupsJoinCodeRoute: AppGroupsJoinCodeRoute,
@@ -1725,8 +1824,11 @@ interface AdminRouteChildren {
   AdminIndexRoute: typeof AdminIndexRoute
   AdminBallotsBallotIdRoute: typeof AdminBallotsBallotIdRoute
   AdminDataLeagueIdRoute: typeof AdminDataLeagueIdRouteWithChildren
+  AdminUpdatesUpdateIdRoute: typeof AdminUpdatesUpdateIdRoute
+  AdminUpdatesNewRoute: typeof AdminUpdatesNewRoute
   AdminBallotsIndexRoute: typeof AdminBallotsIndexRoute
   AdminDataIndexRoute: typeof AdminDataIndexRoute
+  AdminUpdatesIndexRoute: typeof AdminUpdatesIndexRoute
 }
 
 const AdminRouteChildren: AdminRouteChildren = {
@@ -1746,8 +1848,11 @@ const AdminRouteChildren: AdminRouteChildren = {
   AdminIndexRoute: AdminIndexRoute,
   AdminBallotsBallotIdRoute: AdminBallotsBallotIdRoute,
   AdminDataLeagueIdRoute: AdminDataLeagueIdRouteWithChildren,
+  AdminUpdatesUpdateIdRoute: AdminUpdatesUpdateIdRoute,
+  AdminUpdatesNewRoute: AdminUpdatesNewRoute,
   AdminBallotsIndexRoute: AdminBallotsIndexRoute,
   AdminDataIndexRoute: AdminDataIndexRoute,
+  AdminUpdatesIndexRoute: AdminUpdatesIndexRoute,
 }
 
 const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)

@@ -76,7 +76,12 @@ export async function gqlFetch<TResult, TVariables>(
 	const response = await fetch(getGraphQLUrl(), {
 		method: "POST",
 		credentials: "include",
-		signal: options.signal,
+		// Dropped in dev. A cancelled request (react-query superseding or
+		// unmounting a query, a preload the pointer left) closes its socket
+		// mid-request, and the dev server reports every one of those as an
+		// `aborted` error overlay. Production has no overlay, so it keeps the
+		// cancellation and the upstream work it saves.
+		signal: import.meta.env.DEV ? undefined : options.signal,
 		headers: {
 			"content-type": "application/json",
 			...(options.cookie ? { cookie: options.cookie } : {}),

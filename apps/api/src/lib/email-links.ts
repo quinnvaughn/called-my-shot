@@ -14,6 +14,7 @@ export type EmailCampaign =
 	| "resolution_digest"
 	| "season_start"
 	| "game_reminder"
+	| "product_update"
 
 type Tag = {
 	campaign: EmailCampaign

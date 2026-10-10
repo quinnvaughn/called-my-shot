@@ -55,9 +55,7 @@ export function GroupMembersSheet({
 	groupId: string
 	viewerId?: string
 }) {
-	const { data } = useQuery(
-		gqlQueryOptions(GroupMembersDocument, { groupId }, { abortable: false }),
-	)
+	const { data } = useQuery(gqlQueryOptions(GroupMembersDocument, { groupId }))
 	const memberships = data?.group?.members ?? []
 	const usersWithRole = (role: "ADMIN" | "MEMBER") =>
 		memberships

@@ -27,11 +27,10 @@ export function AttachQuestionModal({ ballotId, leagueId, onAttached }: Props) {
 	const [search, setSearch] = useState("")
 	const debouncedSearch = useDebouncedValue(search, 300)
 	const { data, isPending } = useQuery(
-		gqlQueryOptions(
-			BallotAttachableQuestionsDocument,
-			{ leagueId, search: debouncedSearch || undefined },
-			{ abortable: false },
-		),
+		gqlQueryOptions(BallotAttachableQuestionsDocument, {
+			leagueId,
+			search: debouncedSearch || undefined,
+		}),
 	)
 	const attach = useGqlMutation(AttachQuestionToBallotDocument)
 	const [labels, setLabels] = useState<Record<string, string>>({})

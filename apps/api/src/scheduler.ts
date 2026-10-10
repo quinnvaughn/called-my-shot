@@ -25,6 +25,7 @@ import {
 	DRAIN_DIGESTS_LOCK,
 	DRAIN_GAME_REMINDERS_LOCK,
 	DRAIN_SEASON_START_LOCK,
+	DRAIN_UPDATE_EMAILS_LOCK,
 	ENQUEUE_SEASON_START_LOCK,
 	GENERATE_GAME_QUESTIONS_LOCK,
 	LOCK_OVERDUE_QUESTIONS_LOCK,
@@ -50,6 +51,7 @@ import {
 import { enqueueAchievementRecomputes } from "./lib/streaks/backfill"
 import { drainAchievementRecomputes } from "./lib/streaks/drain"
 import { DAY_MS, MINUTE_MS } from "./lib/time"
+import { drainUpdateEmails } from "./lib/update-email"
 import { refreshWorkCalendar, workCalendar } from "./lib/work-calendar"
 
 const RECONCILE_ACHIEVEMENTS_DAYS = 7
@@ -146,6 +148,12 @@ const syncStartersTick = async () => {
 const drainSeasonStartBatch = async () => {
 	const { sent, skipped, failed } = await drainSeasonStartEmails()
 	if (sent + skipped + failed > 0) markPending("season-start")
+}
+
+// Same shape as drainSeasonStartBatch above.
+const drainUpdateBatch = async () => {
+	const { sent, skipped, failed } = await drainUpdateEmails()
+	if (sent + skipped + failed > 0) markPending("updates")
 }
 
 export const JOBS: ScheduledJob[] = [
@@ -245,6 +253,10 @@ export const JOBS: ScheduledJob[] = [
 	job(DRAIN_SEASON_START_LOCK, "*/5 * * * *", drainSeasonStartBatch, (now) =>
 		takePending("season-start", now),
 	),
+	// A product update an admin just sent, in the same capped batches.
+	job(DRAIN_UPDATE_EMAILS_LOCK, "*/5 * * * *", drainUpdateBatch, (now) =>
+		takePending("updates", now),
+	),
 	// Every minute that something was queued on this machine, so a
 	// server-side event lands in PostHog close to when it happened. A tick
 	// that sent anything looks again on the next one, for a backlog bigger
@@ -331,6 +343,7 @@ export const JOBS: ScheduledJob[] = [
 		chains: [
 			ENQUEUE_SEASON_START_LOCK,
 			DRAIN_SEASON_START_LOCK,
+			DRAIN_UPDATE_EMAILS_LOCK,
 			DRAIN_DIGESTS_LOCK,
 			DRAIN_GAME_REMINDERS_LOCK,
 			DRAIN_ANALYTICS_LOCK,
@@ -340,6 +353,7 @@ export const JOBS: ScheduledJob[] = [
 				enqueueSeasonStartEmails({ commit: true }),
 			)()
 			await runJob(DRAIN_SEASON_START_LOCK, drainSeasonStartBatch)()
+			await runJob(DRAIN_UPDATE_EMAILS_LOCK, drainUpdateBatch)()
 			await runJob(DRAIN_DIGESTS_LOCK, () => drainResolutionDigests())()
 			await runJob(DRAIN_GAME_REMINDERS_LOCK, () => drainGameReminders())()
 			await runJob(DRAIN_ANALYTICS_LOCK, () => drainAnalyticsOutbox())()

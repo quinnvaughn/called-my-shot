@@ -31,6 +31,7 @@ export function EmailNotificationsSection({ mutedEmailTypes }: Props) {
 	const mutedResults = mutedEmailTypes.includes("CALL_RESOLVED")
 	const mutedSeasonStarts = mutedEmailTypes.includes("SEASON_STARTING")
 	const mutedGameReminders = mutedEmailTypes.includes("GAME_REMINDER")
+	const mutedProductUpdates = mutedEmailTypes.includes("PRODUCT_UPDATES")
 
 	async function toggle(type: EmailPreferenceType, enabled: boolean) {
 		setFormError(null)
@@ -102,6 +103,20 @@ export function EmailNotificationsSection({ mutedEmailTypes }: Props) {
 							!mutedAll &&
 							pending === null &&
 							toggle("SEASON_STARTING", checked)
+						}
+					/>
+					<ToggleRow
+						label="Product updates"
+						description={
+							mutedAll
+								? "Turn all email back on to change this."
+								: "An email when we ship a new feature, with how it works."
+						}
+						checked={!mutedAll && !mutedProductUpdates}
+						onChange={(checked) =>
+							!mutedAll &&
+							pending === null &&
+							toggle("PRODUCT_UPDATES", checked)
 						}
 					/>
 					<ToggleRow

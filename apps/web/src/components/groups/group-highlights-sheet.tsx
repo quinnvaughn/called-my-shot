@@ -51,7 +51,7 @@ export function GroupHighlightsSheet({
 }) {
 	const [tab, setTab] = useState<Tab>(initialTab)
 	const { data } = useQuery(
-		gqlQueryOptions(GroupHighlightsDocument, { groupId }, { abortable: false }),
+		gqlQueryOptions(GroupHighlightsDocument, { groupId }),
 	)
 	const group = data?.group
 	const hot = useStreakEntries(group?.hotStreaks ?? [])

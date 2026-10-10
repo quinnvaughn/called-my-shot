@@ -28,6 +28,7 @@ describe("JOBS", () => {
 			["drain-email-digests", "*/5 * * * *"],
 			["drain-game-reminders", "*/5 * * * *"],
 			["drain-season-start-emails", "*/5 * * * *"],
+			["drain-update-emails", "*/5 * * * *"],
 			["drain-analytics-outbox", "* * * * *"],
 			["daily-sync-sweep", "0 9 * * *"],
 			["daily-mail-sweep", "0 13 * * *"],

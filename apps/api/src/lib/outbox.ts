@@ -6,6 +6,7 @@ import type {
 	emailOutbox,
 	gameReminders,
 	seasonStartEmails,
+	updateEmails,
 } from "../db/schema"
 import type { DbOrTx } from "../db/types"
 
@@ -16,6 +17,7 @@ type OutboxTable =
 	| typeof emailOutbox
 	| typeof seasonStartEmails
 	| typeof gameReminders
+	| typeof updateEmails
 	| typeof analyticsOutbox
 
 // The ones that can finish without sending, recorded in skippedReason.

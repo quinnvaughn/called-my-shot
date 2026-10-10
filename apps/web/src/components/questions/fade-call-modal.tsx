@@ -107,11 +107,7 @@ function Sides({
 
 function NewFade(props: FadeCallModalProps) {
 	const { data, isPending } = useQuery(
-		gqlQueryOptions(
-			FadeCallQuestionDocument,
-			{ id: props.questionId },
-			{ abortable: false },
-		),
+		gqlQueryOptions(FadeCallQuestionDocument, { id: props.questionId }),
 	)
 
 	if (isPending) {
