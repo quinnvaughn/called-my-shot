@@ -16,16 +16,17 @@ import {
 // (see graphql/types/question/queries.ts) so both tabs preload in one round trip -
 // same pattern as GroupHomeDocument's per-tab connections.
 //
-// Unfiltered deliberately: this is the loader's first-paint query, and the page
-// always opens on the default filter state. Once a filter or sort moves off its
-// default, MyCallsDocument below takes over per tab.
+// Unfiltered deliberately, beyond the GAME scope: this is the loader's
+// first-paint query, and the page always opens on the Games side with the
+// default filter state. Once the Season side, a filter or a sort is picked,
+// MyCallsDocument below takes over per tab.
 export const MyCallsPageDocument = graphql(`
     query MyCallsPage($openAfter: String, $resolvedAfter: String) {
-        myCallCounts {
+        myCallCounts(scope: GAME) {
             open
             resolved
         }
-        open: myCalls(status: OPEN, first: 10, after: $openAfter) {
+        open: myCalls(status: OPEN, first: 10, after: $openAfter, scope: GAME) {
             items {
                 id
                 ...MyCallsTab_call
@@ -35,7 +36,12 @@ export const MyCallsPageDocument = graphql(`
                 endCursor
             }
         }
-        resolved: myCalls(status: RESOLVED, first: 10, after: $resolvedAfter) {
+        resolved: myCalls(
+            status: RESOLVED
+            first: 10
+            after: $resolvedAfter
+            scope: GAME
+        ) {
             items {
                 id
                 ...MyCallsTab_call
@@ -153,9 +159,12 @@ export const myCallCountsQuery = (filters: MyCallsFilters = {}) =>
 
 // `result` is dropped rather than passed through: it's a Resolved-tab filter
 // and every live call is by definition unsettled, so sending it could only
-// ever empty this section out.
+// ever empty this section out. `scope` is dropped too: a live call is always
+// a game call, so the Games side of My Calls and Home's unscoped row read the
+// same cache entry.
 export const myLiveCallsQuery = ({
 	result: _result,
+	scope: _scope,
 	...filters
 }: MyCallsFilters = {}) => gqlQueryOptions(MyLiveCallsDocument, filters)
 
@@ -163,8 +172,8 @@ export const myLiveCallsQuery = ({
 // query key, so changing one starts a fresh list rather than appending to the
 // previous one - same reasoning as leagueCommunityQuery.
 //
-// Called with no filters and no sort, this produces exactly the variables
-// MyCallsPageDocument's aliased fields were fetched under, which is what lets
+// Called with only the GAME scope and no sort, this produces exactly the
+// variables MyCallsPageDocument's aliased fields were fetched under, which is what lets
 // the route loader seed this cache entry (see seedInfiniteQuery in my-calls.tsx).
 // react-query hashes undefined-valued keys the same as absent ones, so the
 // optional fields below don't break that match.

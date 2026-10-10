@@ -9,6 +9,7 @@ import type {
 	SortDirection,
 } from "#/graphql/generated/graphql"
 import { type MyCallsFilters, myCallsQuery } from "#/graphql/queries/my-calls"
+import type { MyCallsKind } from "#/lib/my-calls-search"
 
 export const MyCallsTabFragment = graphql(`
 	fragment MyCallsTab_call on Call {
@@ -20,6 +21,7 @@ export const MyCallsTabFragment = graphql(`
 type MyCallItem = { id: string } & FragmentType<typeof MyCallsTabFragment>
 
 type MyCallsTabProps = {
+	kind: MyCallsKind
 	status: CallResolutionStatus
 	filters: MyCallsFilters
 	sort: CallSortOrder
@@ -30,6 +32,7 @@ type MyCallsTabProps = {
 }
 
 export function MyCallsTab({
+	kind,
 	status,
 	filters,
 	sort,
@@ -54,9 +57,7 @@ export function MyCallsTab({
 				<EmptyState>
 					{filtered
 						? "No calls match that."
-						: status === "OPEN"
-							? "No open calls yet."
-							: "No resolved calls yet."}
+						: `No ${status === "OPEN" ? "open" : "resolved"} ${kind === "game" ? "game" : "season"} calls yet.`}
 				</EmptyState>
 			}
 			renderItem={(item) => <MyCallCard call={item} />}

@@ -20,7 +20,7 @@ import {
 	type ToleranceSpec,
 	tierFor,
 } from "@called-my-shot/scoring"
-import type { QuestionShape } from "#/graphql/generated/graphql"
+import type { QuestionScope, QuestionShape } from "#/graphql/generated/graphql"
 
 export type {
 	ContrarianTier,
@@ -156,6 +156,17 @@ export function isSeasonLongGqlShape(shape: QuestionShape): boolean {
 	return SEASON_LONG_BY_GQL_SHAPE[shape]
 }
 
+// Whether a question of this shape can land on that side of a scope filter,
+// which splits on whether the question hangs off a game. A yes/no prop's game
+// is optional, so it's the one shape found on both sides.
+export function shapeFitsScope(
+	shape: QuestionShape,
+	scope: QuestionScope,
+): boolean {
+	if (shape === "YES_NO_PROP") return true
+	return isSeasonLongGqlShape(shape) === (scope === "SEASON_LONG")
+}
+
 // The early multiplier a pending pick previews with. Season-long shapes read
 // games played so far, not rank among callers. seasonGamesPlayed/
 // seasonTotalGames are only ever null for a game-scoped question (or a
@@ -192,8 +203,7 @@ export function hitMultiple(
 	const ratios =
 		options.length > 0
 			? options.map(
-					(o) =>
-						(o.winMult ?? 1) / effectiveLossRate(questionRate, o.lossRate),
+					(o) => (o.winMult ?? 1) / effectiveLossRate(questionRate, o.lossRate),
 				)
 			: [1 / questionRate]
 	const ratio = Math.min(...ratios)

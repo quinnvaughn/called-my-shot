@@ -25,23 +25,29 @@ describe("loader seeds land on the keys the components read", () => {
 			hashKey(
 				myCallsQuery(
 					"OPEN",
-					{},
+					{ scope: "GAME" },
 					MY_CALL_SORTS.open.default,
 					DEFAULT_MY_LIST_DIRECTION,
 				).queryKey,
 			),
-		).toBe(hashKey(myCallsQuery("OPEN", {}, "DATE", "DESC").queryKey))
+		).toBe(
+			hashKey(myCallsQuery("OPEN", { scope: "GAME" }, "DATE", "DESC").queryKey),
+		)
 
 		expect(
 			hashKey(
 				myCallsQuery(
 					"RESOLVED",
-					{},
+					{ scope: "GAME" },
 					MY_CALL_SORTS.resolved.default,
 					DEFAULT_MY_LIST_DIRECTION,
 				).queryKey,
 			),
-		).toBe(hashKey(myCallsQuery("RESOLVED", {}, "POINTS", "DESC").queryKey))
+		).toBe(
+			hashKey(
+				myCallsQuery("RESOLVED", { scope: "GAME" }, "POINTS", "DESC").queryKey,
+			),
+		)
 	})
 
 	// The bug this is really guarding against: seeding with no sort while the
@@ -53,29 +59,39 @@ describe("loader seeds land on the keys the components read", () => {
 	})
 
 	it("seeds the unfiltered counts under the key an unfiltered page reads", () => {
-		expect(hashKey(myCallCountsQuery().queryKey)).toBe(
-			hashKey(myCallCountsQuery({}).queryKey),
+		expect(hashKey(myCallCountsQuery({ scope: "GAME" }).queryKey)).toBe(
+			hashKey(
+				myCallCountsQuery(toQueryFilters(EMPTY_FILTERS, "", "open", "game"))
+					.queryKey,
+			),
 		)
 	})
 
-	// The other half of the match: the loader seeds with no filters at all, so
-	// an untouched filter bar has to serialise to exactly that. Sending an empty
-	// string or an empty array instead of omitting the variable would be a
-	// different key and would quietly undo the seed.
-	it("serialises an untouched filter bar to no variables", () => {
-		expect(toQueryFilters(EMPTY_FILTERS, "", "open")).toEqual({})
-		expect(toQueryFilters(EMPTY_FILTERS, "", "resolved")).toEqual({})
+	// The other half of the match: the loader seeds with only the Games scope,
+	// so an untouched filter bar has to serialise to exactly that. Sending an
+	// empty string or an empty array instead of omitting the variable would be
+	// a different key and would quietly undo the seed.
+	it("serialises an untouched filter bar to the scope alone", () => {
+		expect(toQueryFilters(EMPTY_FILTERS, "", "open", "game")).toEqual({
+			scope: "GAME",
+		})
+		expect(toQueryFilters(EMPTY_FILTERS, "", "resolved", "season")).toEqual({
+			scope: "SEASON_LONG",
+		})
 
 		expect(
 			hashKey(
 				myCallsQuery(
 					"OPEN",
-					toQueryFilters(EMPTY_FILTERS, "", "open"),
+					toQueryFilters(EMPTY_FILTERS, "", "open", "game"),
 					MY_CALL_SORTS.open.default,
 				).queryKey,
 			),
 		).toBe(
-			hashKey(myCallsQuery("OPEN", {}, MY_CALL_SORTS.open.default).queryKey),
+			hashKey(
+				myCallsQuery("OPEN", { scope: "GAME" }, MY_CALL_SORTS.open.default)
+					.queryKey,
+			),
 		)
 	})
 
@@ -83,25 +99,30 @@ describe("loader seeds land on the keys the components read", () => {
 	// it would match nothing (an open call has no outcome yet).
 	it("keeps the result filter off the open tab", () => {
 		const withResult = { ...EMPTY_FILTERS, result: "HIT" as const }
-		expect(toQueryFilters(withResult, "", "open")).toEqual({})
-		expect(toQueryFilters(withResult, "", "resolved")).toEqual({
+		expect(toQueryFilters(withResult, "", "open", "game")).toEqual({
+			scope: "GAME",
+		})
+		expect(toQueryFilters(withResult, "", "resolved", "game")).toEqual({
+			scope: "GAME",
 			result: "HIT",
 		})
 	})
 
 	// The Playing Now section reads under the filters the page opens on, and
 	// the loader seeds it unfiltered. `result` never reaches it at all - it's a
-	// Resolved-tab filter, and no live call has an outcome yet - so passing one
-	// has to land on the same key as passing none.
+	// Resolved-tab filter, and no live call has an outcome yet - and neither
+	// does `scope`, since every live call is a game call. Passing either has to
+	// land on the same key as passing none.
 	it("seeds the live calls under the key an unfiltered open tab reads", () => {
 		expect(hashKey(myLiveCallsQuery().queryKey)).toBe(
 			hashKey(
-				myLiveCallsQuery(toQueryFilters(EMPTY_FILTERS, "", "open")).queryKey,
+				myLiveCallsQuery(toQueryFilters(EMPTY_FILTERS, "", "open", "game"))
+					.queryKey,
 			),
 		)
-		expect(hashKey(myLiveCallsQuery({ result: "HIT" }).queryKey)).toBe(
-			hashKey(myLiveCallsQuery({}).queryKey),
-		)
+		expect(
+			hashKey(myLiveCallsQuery({ result: "HIT", scope: "GAME" }).queryKey),
+		).toBe(hashKey(myLiveCallsQuery({}).queryKey))
 	})
 
 	it("prefetches My Questions under its default sort", () => {

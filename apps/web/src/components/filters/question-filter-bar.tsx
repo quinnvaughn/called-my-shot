@@ -14,6 +14,7 @@ import {
 	SHAPE_FAMILIES,
 	shapeFamilyLabel,
 } from "#/lib/question-labels"
+import { shapeFitsScope } from "#/lib/scoring"
 
 // The league rows this reads out of router context (_app.tsx's beforeLoad) -
 // structurally what LeaguesDocument selects, declared here so this module
@@ -60,6 +61,14 @@ type Props = {
 	// The Resolved tab only. Off elsewhere, and the value is cleared alongside
 	// it by the caller so a hidden filter can't keep narrowing the list.
 	showResult?: boolean
+	// Off on My Calls, where game vs season is the page's own top-level split
+	// rather than a filter.
+	showScope?: boolean
+	// Limits the shape options to the ones that can occur on that side of the
+	// split - a season-long list has no single-game over/unders in it. The
+	// caller also drops any picked shape that falls outside it, so a hidden
+	// option can't keep narrowing the list.
+	shapeScope?: QuestionScope
 	searchPlaceholder: string
 }
 
@@ -92,6 +101,8 @@ export function QuestionFilterBar({
 	onChange,
 	leagues,
 	showResult,
+	showScope = true,
+	shapeScope,
 	searchPlaceholder,
 }: Props) {
 	function set<K extends keyof QuestionFilterValue>(
@@ -144,35 +155,43 @@ export function QuestionFilterBar({
 						{shapeTriggerLabel(value.shapes)}
 					</MultiSelect.Trigger>
 					<MultiSelect.Content>
-						{SHAPE_FAMILIES.map((family) => (
-							<div key={family}>
-								<MultiSelect.GroupLabel>
-									{shapeFamilyLabel[family]}
-								</MultiSelect.GroupLabel>
-								{shapesInFamily(family).map((shape) => (
-									<MultiSelect.Option key={shape} value={shape}>
-										{questionShapeLabel[shape]}
-									</MultiSelect.Option>
-								))}
-							</div>
-						))}
+						{SHAPE_FAMILIES.map((family) => {
+							const shapes = shapesInFamily(family, shapeScope)
+							// Awards are all season-long, so the game side has no
+							// group to show for them.
+							if (shapes.length === 0) return null
+							return (
+								<div key={family}>
+									<MultiSelect.GroupLabel>
+										{shapeFamilyLabel[family]}
+									</MultiSelect.GroupLabel>
+									{shapes.map((shape) => (
+										<MultiSelect.Option key={shape} value={shape}>
+											{questionShapeLabel[shape]}
+										</MultiSelect.Option>
+									))}
+								</div>
+							)
+						})}
 					</MultiSelect.Content>
 				</MultiSelect>
 
-				<Select
-					value={value.scope ?? ALL}
-					onValueChange={(next) =>
-						set("scope", next === ALL ? null : (next as QuestionScope))
-					}
-					className={control}
-				>
-					<Select.Trigger>{scopeLabel(value.scope)}</Select.Trigger>
-					<Select.Content>
-						<Select.Option value={ALL}>Game & season</Select.Option>
-						<Select.Option value="GAME">Single game</Select.Option>
-						<Select.Option value="SEASON_LONG">Season long</Select.Option>
-					</Select.Content>
-				</Select>
+				{showScope && (
+					<Select
+						value={value.scope ?? ALL}
+						onValueChange={(next) =>
+							set("scope", next === ALL ? null : (next as QuestionScope))
+						}
+						className={control}
+					>
+						<Select.Trigger>{scopeLabel(value.scope)}</Select.Trigger>
+						<Select.Content>
+							<Select.Option value={ALL}>Game & season</Select.Option>
+							<Select.Option value="GAME">Single game</Select.Option>
+							<Select.Option value="SEASON_LONG">Season long</Select.Option>
+						</Select.Content>
+					</Select>
+				)}
 
 				{showResult && (
 					<Select
@@ -206,9 +225,14 @@ export function QuestionFilterBar({
 	)
 }
 
-function shapesInFamily(family: (typeof SHAPE_FAMILIES)[number]) {
+function shapesInFamily(
+	family: (typeof SHAPE_FAMILIES)[number],
+	scope: QuestionScope | undefined,
+) {
 	return (Object.keys(questionShapeFamily) as QuestionShape[]).filter(
-		(shape) => questionShapeFamily[shape] === family,
+		(shape) =>
+			questionShapeFamily[shape] === family &&
+			(!scope || shapeFitsScope(shape, scope)),
 	)
 }
 
