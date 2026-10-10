@@ -114,6 +114,15 @@ export const CallRecordDocument = graphql(`
 				# Only official questions are on the caller's picks page for the
 				# game, so only they link to it.
 				isOfficial
+				# A ballot question links to the caller's entry on its ballot.
+				ballotMembership {
+					id
+					ballot {
+						id
+						name
+						slug
+					}
+				}
 				ouLine
 				numericActualValue
 				numericToleranceAbsolute

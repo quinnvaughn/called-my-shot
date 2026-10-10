@@ -542,6 +542,21 @@ function RouteComponent() {
 				</Link>
 			)}
 
+			{/* The same for a ballot question: the rest of their entry on it. */}
+			{call.question.ballotMembership && (
+				<Link
+					to="/ballots/$ballotSlug/$username"
+					params={{
+						ballotSlug: call.question.ballotMembership.ballot.slug,
+						username: call.user.username,
+					}}
+					className={arrowLink({ tone: "quiet" })}
+				>
+					All of @{call.user.username}'s{" "}
+					{call.question.ballotMembership.ballot.name} picks →
+				</Link>
+			)}
+
 			{call.streak && (
 				<Link
 					to="/user/$username/streaks/$league/$family/$mode"
