@@ -14,7 +14,7 @@ import {
 
 // open/resolved are fetched as aliased fields off the same myCalls connection
 // (see graphql/types/question/queries.ts) so both tabs preload in one round trip -
-// same pattern as GroupDetailDocument's per-tab connections.
+// same pattern as GroupHomeDocument's per-tab connections.
 //
 // Unfiltered deliberately: this is the loader's first-paint query, and the page
 // always opens on the default filter state. Once a filter or sort moves off its

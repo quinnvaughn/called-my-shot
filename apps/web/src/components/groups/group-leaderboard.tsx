@@ -1,9 +1,5 @@
 import { keepPreviousData, useInfiniteQuery } from "@tanstack/react-query"
-import { useState } from "react"
-import { FiChevronDown, FiChevronUp } from "react-icons/fi"
-import { css } from "styled-system/css"
-import { HStack, VStack } from "styled-system/jsx"
-import { Button } from "#/components/ui/button"
+import { VStack } from "styled-system/jsx"
 import { graphql, useFragment } from "#/graphql/generated"
 import type { SeasonFilterInput } from "#/graphql/generated/graphql"
 import {
@@ -74,10 +70,10 @@ function unrankedLabel(unsettled: {
 		: `Ranked once one of your ${count} calls settles`
 }
 
-// Standalone from GroupDetailDocument - the filters and the "show more"
-// button both need to refetch this connection (and the viewer's own row,
-// which moves with the scope too) on their own without touching the rest
-// of the group page.
+// The Leaderboard tab's own query - the filters and the "show more" button
+// both need to refetch this connection (and the viewer's own row, which
+// moves with the scope too) on their own without touching the group's
+// header.
 export const GroupLeaderboardDocument = graphql(`
 	query GroupLeaderboard(
 		$groupId: ID!
@@ -162,8 +158,6 @@ export function GroupLeaderboard({
 	onFilterChange,
 	viewerId,
 }: GroupLeaderboardProps) {
-	const [collapsed, setCollapsed] = useState(false)
-
 	// Both filters are part of the key, so changing either starts a fresh
 	// ranking rather than appending to the previous one - no manual reset.
 	// keepPreviousData holds the outgoing scope's rows in place while the
@@ -191,48 +185,21 @@ export function GroupLeaderboard({
 
 	return (
 		<VStack alignItems="stretch" gap="3">
-			<HStack justify="space-between" alignItems="center">
-				<h2
-					className={css({
-						fontFamily: "mono",
-						fontSize: "xs",
-						letterSpacing: "wide",
-						color: "fg.muted",
-						textTransform: "uppercase",
-					})}
-				>
-					Leaderboard
-				</h2>
-				<Button
-					variant="ghost"
-					size="sm"
-					onClick={() => setCollapsed((c) => !c)}
-				>
-					{collapsed ? <FiChevronDown /> : <FiChevronUp />}
-					{collapsed ? "Show" : "Hide"}
-				</Button>
-			</HStack>
-			{!collapsed && (
-				<>
-					<LeaderboardFilters
-						leagues={leagues}
-						filter={filter}
-						onChange={onFilterChange}
-					/>
-					<Leaderboard
-						items={rows}
-						viewerId={viewerId}
-						viewerEntry={viewerRow}
-						viewerUnrankedLabel={
-							unsettled ? unrankedLabel(unsettled) : undefined
-						}
-						hasMore={hasNextPage}
-						loading={isFetching}
-						onLoadMore={fetchNextPage}
-						emptyMessage={`No resolved calls yet. ${filter.scopeLabel}.`}
-					/>
-				</>
-			)}
+			<LeaderboardFilters
+				leagues={leagues}
+				filter={filter}
+				onChange={onFilterChange}
+			/>
+			<Leaderboard
+				items={rows}
+				viewerId={viewerId}
+				viewerEntry={viewerRow}
+				viewerUnrankedLabel={unsettled ? unrankedLabel(unsettled) : undefined}
+				hasMore={hasNextPage}
+				loading={isFetching}
+				onLoadMore={fetchNextPage}
+				emptyMessage={`No resolved calls yet. ${filter.scopeLabel}.`}
+			/>
 		</VStack>
 	)
 }

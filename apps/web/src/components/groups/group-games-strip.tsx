@@ -60,7 +60,7 @@ export const GroupLiveGamesDocument = graphql(`
 	}
 `)
 
-// Seeded from GroupDetail by the group route's loader, so the strip costs no
+// Seeded from GroupHome by the Home tab's loader, so the strip costs no
 // request of its own on load. Re-read on its own while a listed game is on,
 // so the scores move without refetching the rest of the page.
 export const groupLiveGamesQuery = (groupId: string) =>

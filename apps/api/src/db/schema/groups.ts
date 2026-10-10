@@ -1,6 +1,8 @@
 import {
+	boolean,
 	index,
 	integer,
+	jsonb,
 	pgEnum,
 	pgTable,
 	primaryKey,
@@ -9,6 +11,7 @@ import {
 	unique,
 	uuid,
 } from "drizzle-orm/pg-core"
+import type { GroupRecapData } from "../../lib/group-recap/types"
 import { ballots } from "./ballots"
 import { flairs } from "./flairs"
 import { questions } from "./questions"
@@ -32,6 +35,14 @@ export const groups = pgTable("groups", {
 	createdBy: uuid("created_by").references(() => users.id, {
 		onDelete: "set null",
 	}),
+	// Whether a recap's share link works. Off, the public page and its card
+	// 404 and the recap only shows on the group's own page, for members.
+	recapLinksEnabled: boolean("recap_links_enabled").notNull().default(true),
+	// Off hides the worst-miss slot on every recap, including ones already
+	// posted: the slot is chosen when a recap is read, not when it's made.
+	recapShowsWorstMiss: boolean("recap_shows_worst_miss")
+		.notNull()
+		.default(true),
 	createdAt: timestamp("created_at").notNull().defaultNow(),
 })
 export type Group = typeof groups.$inferSelect
@@ -88,10 +99,9 @@ export const groupMembers = pgTable(
 			.references(() => users.id, { onDelete: "cascade" }),
 		role: groupMemberRole("role").notNull().default("member"),
 		joinedAt: timestamp("joined_at").notNull().defaultNow(),
-		// Set when this member hides the invite card on the group's page. Per
-		// member rather than per group, so one person opting out doesn't stop
-		// the card asking everyone else.
-		inviteCardDismissedAt: timestamp("invite_card_dismissed_at"),
+		// Keeps this member off the group's recaps. Their calls still count
+		// toward the week's totals, which name nobody, but no slot shows them.
+		hiddenFromRecaps: boolean("hidden_from_recaps").notNull().default(false),
 		// The member whose invite link this person joined through. A user id
 		// rather than a group_invites reference: invite rows are deleted when
 		// their owner leaves and their codes regenerate in place, while who
@@ -221,6 +231,36 @@ export const groupBallots = pgTable(
 	],
 )
 export type GroupBallot = typeof groupBallots.$inferSelect
+
+// One row per group per week it had enough going on to recap (see
+// lib/group-recap). Made once the week closes and then frozen, apart from a
+// few days of revisions for results overturned after it was made - a recap's
+// link gets pasted into a group chat, and the card behind it shouldn't change
+// once people have seen it.
+export const groupRecaps = pgTable(
+	"group_recaps",
+	{
+		id: uuid("id").primaryKey().defaultRandom(),
+		groupId: uuid("group_id")
+			.notNull()
+			.references(() => groups.id, { onDelete: "cascade" }),
+		// The week's first day in the sports time zone, "2026-10-06". Weeks run
+		// Tuesday to Monday so an NFL week's Monday night game lands in it.
+		weekKey: text("week_key").notNull(),
+		weekStart: timestamp("week_start").notNull(),
+		weekEnd: timestamp("week_end").notNull(),
+		data: jsonb("data").$type<GroupRecapData>().notNull(),
+		// The public url's only identifier. Random rather than the row id or the
+		// group's, so a recap link can't be used to find the group's others.
+		shareToken: text("share_token").notNull().unique(),
+		// Bumped by every revision, for the card url's cache buster.
+		version: integer("version").notNull().default(1),
+		createdAt: timestamp("created_at").notNull().defaultNow(),
+		updatedAt: timestamp("updated_at").notNull().defaultNow(),
+	},
+	(t) => [unique().on(t.groupId, t.weekKey)],
+)
+export type GroupRecap = typeof groupRecaps.$inferSelect
 
 export const groupEventKind = pgEnum("group_event_kind", ["member_joined"])
 

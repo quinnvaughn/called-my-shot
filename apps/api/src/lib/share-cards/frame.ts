@@ -83,22 +83,23 @@ export type CardFrameOptions = {
 	hero: SatoriNode
 	// The footer's stat row, spread edge to edge.
 	cells: SatoriNode[]
-	username: string
 	// The gap between the stat row and the username line.
 	footerGap?: string
 	borderColor?: string
-}
+} & // person, or a byline of its own on one that isn't (a group's recap). // The footer's bottom-left line: "@username" on every card about one
+({ username: string; byline?: never } | { byline: string; username?: never })
 
 export function cardFrame({
 	eyebrow: eyebrowText,
 	hero,
 	cells,
 	username,
+	byline,
 	footerGap = "18px",
 	borderColor = COLOR.border,
 }: CardFrameOptions): SatoriNode {
 	const bottomLine: SatoriNode[] = [
-		el("span", { display: "flex" }, `@${username}`),
+		el("span", { display: "flex" }, byline ?? `@${username}`),
 		el("span", { display: "flex" }, "calledmyshot.com"),
 	]
 

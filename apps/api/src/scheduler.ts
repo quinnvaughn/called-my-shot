@@ -16,6 +16,7 @@ import { tuneLeaderLosses } from "./lib/game-questions/tune-leader-losses"
 import { tuneLines } from "./lib/game-questions/tune-lines"
 import { tuneTitleLosses } from "./lib/game-questions/tune-title-losses"
 import { drainGameReminders } from "./lib/game-reminders"
+import { generateGroupRecaps } from "./lib/group-recap/generate"
 import {
 	AUTO_RESOLVE_CHAMPIONSHIPS_LOCK,
 	AUTO_RESOLVE_GAMES_LOCK,
@@ -28,6 +29,7 @@ import {
 	DRAIN_UPDATE_EMAILS_LOCK,
 	ENQUEUE_SEASON_START_LOCK,
 	GENERATE_GAME_QUESTIONS_LOCK,
+	GENERATE_GROUP_RECAPS_LOCK,
 	LOCK_OVERDUE_QUESTIONS_LOCK,
 	OPEN_PRESSERS_LOCK,
 	RECOMPUTE_ACHIEVEMENTS_LOCK,
@@ -277,8 +279,10 @@ export const JOBS: ScheduledJob[] = [
 	// and the reconcile re-marks the last week's tracks and slates for what no
 	// settle event covers - a flexed game moving slot, ESPN correcting when a
 	// game went final. Each step keeps its own lease, and one failing doesn't
-	// stop the rest. Also where auto-resolve, lock-overdue and starters catch
-	// up on anything their gates kept them from.
+	// stop the rest. Group recaps come after the streak rebuild, which their
+	// streak lines read; on a Tuesday this is the run that makes last week's.
+	// Also where auto-resolve, lock-overdue and starters catch up on anything
+	// their gates kept them from.
 	{
 		name: "daily-sync-sweep",
 		cron: "0 9 * * *",
@@ -294,6 +298,7 @@ export const JOBS: ScheduledJob[] = [
 			RECONCILE_ACHIEVEMENTS_LOCK,
 			RECOMPUTE_ACHIEVEMENTS_LOCK,
 			OPEN_PRESSERS_LOCK,
+			GENERATE_GROUP_RECAPS_LOCK,
 			LOCK_OVERDUE_QUESTIONS_LOCK,
 			SYNC_GAME_STARTERS_LOCK,
 			GENERATE_GAME_QUESTIONS_LOCK,
@@ -323,6 +328,7 @@ export const JOBS: ScheduledJob[] = [
 				}),
 			)()
 			await drainAchievements()
+			await runJob(GENERATE_GROUP_RECAPS_LOCK, () => generateGroupRecaps())()
 			await runJob(LOCK_OVERDUE_QUESTIONS_LOCK, () => lockOverdueQuestions())()
 			await syncStartersTick()
 			await refreshWorkCalendar()

@@ -56,7 +56,7 @@ export function BallotGroupBoards({ ballotId, ballotSlug, boards }: Props) {
 				.with({ __typename: "GroupPayload" }, async () => {
 					await Promise.all([
 						queryClient.invalidateQueries({ queryKey: ["BallotByRef"] }),
-						queryClient.invalidateQueries({ queryKey: ["GroupDetail"] }),
+						queryClient.invalidateQueries({ queryKey: ["GroupHome"] }),
 						queryClient.invalidateQueries({ queryKey: ["GroupSettings"] }),
 					])
 				})

@@ -176,6 +176,11 @@ type AnalyticsEvents = {
 		windowKey: string
 		method: "native" | "clipboard" | "x"
 	}
+	// A group's weekly recap, from the group's page or the recap's own.
+	recap_link_shared: {
+		recapId: string
+		method: "native" | "clipboard" | "x"
+	}
 
 	support_ticket_filed: { category: string }
 

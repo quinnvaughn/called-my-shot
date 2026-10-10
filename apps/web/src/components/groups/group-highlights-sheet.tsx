@@ -17,7 +17,7 @@ import {
 } from "./group-highlights"
 
 // The full lists behind the band's "see all". Its own query rather than more
-// of GroupDetail's: the band asks for three of each on every group page load,
+// of GroupShell's: the rail asks for three of each on every group page load,
 // and nobody should pay for fifty until they open this.
 export const GroupHighlightsDocument = graphql(`
 	query GroupHighlights($groupId: ID!) {

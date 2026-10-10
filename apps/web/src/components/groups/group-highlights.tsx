@@ -311,7 +311,7 @@ function Highlights({
 	)
 }
 
-// Between the group page's leaderboard and its activity tabs, below xl.
+// Under the group's Leaderboard tab, below xl.
 export function GroupHighlights(props: Props) {
 	return <Highlights {...props} placement="band" />
 }

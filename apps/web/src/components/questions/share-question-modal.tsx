@@ -130,7 +130,7 @@ export function ShareQuestionModal({
 					// cache after every share.
 					await Promise.all([
 						queryClient.invalidateQueries({ queryKey: ["SharedQuestions"] }),
-						queryClient.invalidateQueries({ queryKey: ["GroupDetail"] }),
+						queryClient.invalidateQueries({ queryKey: ["GroupHome"] }),
 						queryClient.invalidateQueries({
 							queryKey: questionDetailQuery(questionId).queryKey,
 						}),
@@ -155,7 +155,7 @@ export function ShareQuestionModal({
 	async function refreshAfterPin() {
 		await Promise.all([
 			queryClient.invalidateQueries({ queryKey: ["SharedQuestions"] }),
-			queryClient.invalidateQueries({ queryKey: ["GroupDetail"] }),
+			queryClient.invalidateQueries({ queryKey: ["GroupHome"] }),
 			queryClient.invalidateQueries({ queryKey: ["GroupSettings"] }),
 			queryClient.invalidateQueries({
 				queryKey: questionDetailQuery(questionId).queryKey,

@@ -27,6 +27,7 @@
     "sync:game-starters": "tsx --env-file=.env src/db/sync/sync-game-starters.ts",
     "generate:game-questions": "tsx --env-file=.env src/db/sync/generate-game-questions.ts",
     "lock:overdue-questions": "tsx --env-file=.env src/db/lock-overdue-questions.ts",
+    "recaps:generate": "tsx --env-file=.env src/lib/group-recap/generate.ts",
     "db:sync-catalog": "tsx --env-file=.env src/db/catalog/run.ts",
     "release": "drizzle-kit migrate && tsx src/db/catalog/run.ts"
   },

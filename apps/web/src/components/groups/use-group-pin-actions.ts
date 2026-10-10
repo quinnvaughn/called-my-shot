@@ -18,7 +18,7 @@ export function useGroupPinActions(groupId: string) {
 
 	async function refresh() {
 		await Promise.all([
-			queryClient.invalidateQueries({ queryKey: ["GroupDetail"] }),
+			queryClient.invalidateQueries({ queryKey: ["GroupHome"] }),
 			queryClient.invalidateQueries({ queryKey: ["GroupSettings"] }),
 		])
 	}

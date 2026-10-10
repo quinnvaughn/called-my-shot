@@ -10,6 +10,7 @@ import { GroupInvitesSection } from "#/components/groups/group-invites-section"
 import { GroupLinksSection } from "#/components/groups/group-links-section"
 import { GroupMembersSection } from "#/components/groups/group-members-section"
 import { GroupPinsSection } from "#/components/groups/group-pins-section"
+import { GroupRecapsSection } from "#/components/groups/group-recaps-section"
 import { Breadcrumb } from "#/components/ui/breadcrumb"
 import { NotFound } from "#/components/ui/not-found"
 import { PageHeader } from "#/components/ui/page-header"
@@ -41,8 +42,8 @@ function sectionLabel(text: string) {
 	)
 }
 
-// Open to every member so anyone can leave; the sections that change the
-// group itself only render for admins.
+// Open to every member so anyone can leave or opt out of recaps; the
+// sections that change the group itself only render for admins.
 function RouteComponent() {
 	const { groupId } = Route.useParams()
 	const { leagues } = Route.useRouteContext()
@@ -127,6 +128,16 @@ function RouteComponent() {
 					</VStack>
 				</>
 			)}
+			<VStack alignItems="stretch" gap="3">
+				{sectionLabel("Recaps")}
+				<GroupRecapsSection
+					groupId={group.id}
+					viewerIsAdmin={group.viewerIsAdmin}
+					linksEnabled={group.recapLinksEnabled}
+					showsWorstMiss={group.recapShowsWorstMiss}
+					hiddenFromRecaps={group.viewerHiddenFromRecaps}
+				/>
+			</VStack>
 			<VStack alignItems="stretch" gap="3">
 				{sectionLabel("Danger zone")}
 				<GroupDangerZone

@@ -13,6 +13,10 @@ import {
 	loadGameShareCardData,
 } from "../lib/share-cards/game-card"
 import {
+	buildGroupRecapCard,
+	loadGroupRecapCardData,
+} from "../lib/share-cards/group-recap-card"
+import {
 	buildProfileShareCard,
 	loadProfileShareCardData,
 } from "../lib/share-cards/profile-card"
@@ -180,4 +184,16 @@ export function registerShareRoutes(app: Express) {
 			)
 		},
 	)
+
+	// The og:image behind /recaps/:token. 404s for an unknown token and for a
+	// group whose admins turned recap links off, so a link pasted before the
+	// switch stops unfurling the recap.
+	app.get("/share/recaps/:token.png", async (req, res) => {
+		await serveCard(
+			res,
+			await loadGroupRecapCardData(req.params.token),
+			buildGroupRecapCard,
+			SHARE_CARD_SIZE,
+		)
+	})
 }

@@ -44,8 +44,8 @@ export const GroupPreviewDocument = graphql(`
     }
 `)
 
-// Fetched ahead of GroupDetail by the group route's loader: the leaderboard
-// filter resolves against the leagues this group tracks, and GroupDetail
+// Fetched by the Leaderboard tab's loader ahead of the board itself: the
+// filter resolves against the leagues this group tracks, and the board
 // needs that resolved scope as its variables.
 export const GroupLeaguesDocument = graphql(`
     query GroupLeagues($groupId: ID!) {
@@ -71,6 +71,9 @@ export const GroupSettingsDocument = graphql(`
             bannerUrl
             viewerIsMember
             viewerIsAdmin
+            recapLinksEnabled
+            recapShowsWorstMiss
+            viewerHiddenFromRecaps
             links {
                 id
                 url
@@ -108,30 +111,16 @@ export const GroupSettingsDocument = graphql(`
     }
 `)
 
-// Per-tab connections spread the same fragments their standalone paginated
-// queries use (AnsweredQuestionsTab_call, etc.) - see components/groups/
-// *-questions-tab.tsx, colocated with the components that render them.
-// leaderboard is colocated the same way with group-leaderboard.tsx.
+// The group's header and right rail, which every tab under
+// /groups/:groupId shares. Read by the tabs' layout route, so switching tabs
+// doesn't refetch it.
 //
 // The four highlights lists take their three each here and are read straight
-// off this result - unlike the lists above they don't paginate, so the band
-// costs no request of its own and needs no seeding. Only the sheet behind its
-// "see all" queries separately, for the full fifty.
-//
-// The leaderboard's scope comes in as variables so its embedded first page is
-// the one the route actually renders (the loader seeds the infinite cache
-// with it) - a link to a filtered board shouldn't have to fetch the default
-// board first. The leagues themselves come from _app's router context rather
-// than being selected here.
-export const GroupDetailDocument = graphql(`
-    query GroupDetail(
-        $groupId: ID!
-        $leagueId: ID
-        $season: SeasonFilterInput
-        $answeredAfter: String
-        $createdAfter: String
-        $sharedAfter: String
-    ) {
+// off this result - unlike the lists on the tabs they don't paginate, so the
+// rail costs no request of its own and needs no seeding. Only the sheet behind
+// its "see all" queries separately, for the full fifty.
+export const GroupShellDocument = graphql(`
+    query GroupShell($groupId: ID!) {
         group(id: $groupId) {
             id
             name
@@ -141,45 +130,15 @@ export const GroupDetailDocument = graphql(`
             memberCount
             viewerIsMember
             viewerIsAdmin
-            viewerDismissedInviteCard
-            pins {
-                ...GroupPinnedStrip_pin
-            }
-            ballots {
-                ...GroupBallotsStrip_groupBallot
-            }
-            presserHighlights {
-                ...GroupPresserStrip_highlight
-            }
             links {
                 id
                 url
                 label
             }
-            viewerRank
             myInvite {
                 id
                 code
                 expiresAt
-            }
-            leaderboard(first: 10, leagueId: $leagueId, season: $season) {
-                items {
-                    rank
-                    user {
-                        id
-                    }
-                    ...GroupLeaderboard_entry
-                }
-                pageInfo {
-                    hasNextPage
-                    endCursor
-                }
-            }
-            viewerLeaderboardEntry(leagueId: $leagueId, season: $season) {
-                ...GroupLeaderboard_entry
-            }
-            viewerUnsettledCalls(leagueId: $leagueId, season: $season) {
-                ...GroupLeaderboard_unsettled
             }
             hotStreaks(limit: 3) {
                 ...GroupHighlights_streak
@@ -192,6 +151,38 @@ export const GroupDetailDocument = graphql(`
             }
             recentSweeps(limit: 3) {
                 ...GroupHighlights_sweep
+            }
+        }
+    }
+`)
+
+// The Home tab: what's happening in the group right now. Per-tab connections
+// spread the same fragments their standalone paginated queries use
+// (AnsweredQuestionsTab_call, etc.) - see components/groups/
+// *-questions-tab.tsx, colocated with the components that render them - so
+// the first page of each is handed to its infinite cache rather than costing
+// a request.
+export const GroupHomeDocument = graphql(`
+    query GroupHome(
+        $groupId: ID!
+        $answeredAfter: String
+        $createdAfter: String
+        $sharedAfter: String
+    ) {
+        group(id: $groupId) {
+            id
+            viewerIsAdmin
+            pins {
+                ...GroupPinnedStrip_pin
+            }
+            ballots {
+                ...GroupBallotsStrip_groupBallot
+            }
+            presserHighlights {
+                ...GroupPresserStrip_highlight
+            }
+            currentRecap {
+                ...GroupRecapCard_recap
             }
             liveGames {
                 game {
@@ -235,6 +226,26 @@ export const GroupDetailDocument = graphql(`
                     endCursor
                 }
             }
+        }
+    }
+`)
+
+// A recap by its share token, for /recaps/:token. Public: the token is the
+// whole of the access check.
+export const GroupRecapPageDocument = graphql(`
+    query GroupRecapPage($token: String!) {
+        groupRecap(token: $token) {
+            id
+            groupName
+            groupId
+            weekLabel
+            cardVersion
+            record {
+                wins
+                losses
+                activeMembers
+            }
+            ...GroupRecapCard_recap
         }
     }
 `)

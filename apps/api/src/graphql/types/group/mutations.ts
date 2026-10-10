@@ -426,10 +426,9 @@ builder.mutationFields((t) => ({
 		},
 	}),
 
-	// Hides the invite card for this member only. There's no undo: the Invite
-	// button in the group header still does everything the card did.
 	dismissGroupInviteCard: t.field({
 		type: GroupRef,
+		deprecationReason: "The invite card is gone.",
 		errors: {
 			types: [AuthenticationError, AuthorizationError],
 			directResult: true,
@@ -438,11 +437,7 @@ builder.mutationFields((t) => ({
 		args: { groupId: t.arg.id({ required: true }) },
 		resolve: async (_root, args, ctx) => {
 			const user = requireUser(ctx)
-			const membership = await requireGroupMember(args.groupId, user.id)
-			await db
-				.update(groupMembers)
-				.set({ inviteCardDismissedAt: new Date() })
-				.where(eq(groupMembers.id, membership.id))
+			await requireGroupMember(args.groupId, user.id)
 			const group = await db.query.groups.findFirst({
 				where: { id: args.groupId },
 			})

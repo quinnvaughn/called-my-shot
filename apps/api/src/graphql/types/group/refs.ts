@@ -187,11 +187,10 @@ export const GroupRef = builder.drizzleObject("groups", {
 			resolve: async (group, _args, ctx) =>
 				(await viewerMembership(ctx, group.id))?.role === "admin",
 		}),
-		// Whether the viewer hid the invite card on this group's page.
 		viewerDismissedInviteCard: t.field({
 			type: "Boolean",
-			resolve: async (group, _args, ctx) =>
-				!!(await viewerMembership(ctx, group.id))?.inviteCardDismissedAt,
+			deprecationReason: "The invite card is gone.",
+			resolve: () => true,
 		}),
 		// The leagues this group counts on its leaderboard, activity feeds, and
 		// shares. Empty means every league.

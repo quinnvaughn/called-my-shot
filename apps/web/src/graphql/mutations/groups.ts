@@ -67,25 +67,6 @@ export const ResetGroupInviteCodeDocument = graphql(`
 	}
 `)
 
-// Returns the group so the flag can be read off the result.
-export const DismissGroupInviteCardDocument = graphql(`
-	mutation DismissGroupInviteCard($groupId: ID!) {
-		dismissGroupInviteCard(groupId: $groupId) {
-			__typename
-			... on Group {
-				id
-				viewerDismissedInviteCard
-			}
-			... on AuthenticationError {
-				message
-			}
-			... on AuthorizationError {
-				message
-			}
-		}
-	}
-`)
-
 export const UpdateGroupDocument = graphql(`
 	mutation UpdateGroup($input: UpdateGroupInput!) {
 		updateGroup(input: $input) {
@@ -369,6 +350,53 @@ export const SetGroupPinOrderDocument = graphql(`
 				message
 			}
 			... on NotFoundError {
+				message
+			}
+			... on ValidationError {
+				message
+			}
+		}
+	}
+`)
+
+export const UpdateGroupRecapSettingsDocument = graphql(`
+	mutation UpdateGroupRecapSettings($input: GroupRecapSettingsInput!) {
+		updateGroupRecapSettings(input: $input) {
+			__typename
+			... on GroupPayload {
+				group {
+					id
+					recapLinksEnabled
+					recapShowsWorstMiss
+				}
+			}
+			... on AuthenticationError {
+				message
+			}
+			... on AuthorizationError {
+				message
+			}
+			... on ValidationError {
+				message
+			}
+		}
+	}
+`)
+
+export const SetHiddenFromRecapsDocument = graphql(`
+	mutation SetHiddenFromRecaps($groupId: ID!, $hidden: Boolean!) {
+		setHiddenFromRecaps(groupId: $groupId, hidden: $hidden) {
+			__typename
+			... on GroupPayload {
+				group {
+					id
+					viewerHiddenFromRecaps
+				}
+			}
+			... on AuthenticationError {
+				message
+			}
+			... on AuthorizationError {
 				message
 			}
 			... on ValidationError {

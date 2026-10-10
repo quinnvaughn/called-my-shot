@@ -70,7 +70,7 @@ export function GroupBallotsStrip({
 		await match(result)
 			.with({ __typename: "GroupPayload" }, async () => {
 				await Promise.all([
-					queryClient.invalidateQueries({ queryKey: ["GroupDetail"] }),
+					queryClient.invalidateQueries({ queryKey: ["GroupHome"] }),
 					queryClient.invalidateQueries({ queryKey: ["BallotByRef"] }),
 				])
 			})

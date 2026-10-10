@@ -11,6 +11,7 @@ export type ShareCampaign =
 	| "sweep"
 	| "report_card"
 	| "profile"
+	| "recap"
 
 export type ShareMethod = "clipboard" | "native" | "x"
 
