@@ -1,10 +1,14 @@
 import { and, eq, sql } from "drizzle-orm"
 import { DateTime } from "luxon"
-import { RECHECK_DELAY_MS } from "../../lib/auto-resolve/apply"
+import {
+	autoResolveNotes,
+	RECHECK_DELAY_MS,
+} from "../../lib/auto-resolve/apply"
 import { parsePostseasonNote } from "../../lib/postseason/series"
 import { findOrCreateSeries, settleSeries } from "../../lib/postseason/settle"
 import { resolveQuestionInternal } from "../../lib/resolve-question"
 import { parseTeamRecord } from "../../lib/team-record"
+import { markQuestionVoided } from "../../lib/void-question"
 import { ET_ZONE } from "../../lib/windows"
 import { db } from "../index"
 import type { League } from "../schema"
@@ -85,6 +89,8 @@ async function findSeasonId(
 	return match?.id ?? null
 }
 
+const FINAL_SCORE_NOTES = autoResolveNotes("ESPN's final score")
+
 // Resolves this game's team_vs_team ("who wins?") question off the final
 // score it was just synced with. Lives here (not sync-live-scores.ts alone)
 // and is called from both syncEvent below and sync-live-scores.ts's own
@@ -110,12 +116,7 @@ export async function resolveGameWinner(
 	awayScore: number | null,
 	now: Date = new Date(),
 ): Promise<void> {
-	// A tie has no winning option to mark (team_vs_team has no tie option -
-	// see sync-game-questions.ts) - leave it for manual resolution rather
-	// than guessing. Rare (NFL only), but a real possibility.
-	if (homeScore === null || awayScore === null || homeScore === awayScore) {
-		return
-	}
+	if (homeScore === null || awayScore === null) return
 
 	const [question] = await tx
 		.select()
@@ -134,27 +135,38 @@ export async function resolveGameWinner(
 		return
 	}
 
-	const options = await tx.query.questionOptions.findMany({
-		where: { questionId: question.id },
-	})
-	const winningTeamId = homeScore > awayScore ? homeTeamId : awayTeamId
-	const winningOption = options.find((o) => o.teamId === winningTeamId)
-	if (!winningOption) {
-		console.error(
-			`[sync-games] question ${question.id}: no option matches winning team ${winningTeamId} - skipping`,
-		)
-		return
-	}
+	// A tie (NFL only) has no winning option to mark - team_vs_team has no tie
+	// option, see sync-game-questions.ts - so it's voided, the same push
+	// gradeHeadToHead makes of any tied head-to-head.
+	if (homeScore === awayScore) {
+		await markQuestionVoided(tx, question, {
+			reason: "tie",
+			note: FINAL_SCORE_NOTES.voidedNote("tie"),
+			voidedBy: { method: "system" },
+		})
+	} else {
+		const options = await tx.query.questionOptions.findMany({
+			where: { questionId: question.id },
+		})
+		const winningTeamId = homeScore > awayScore ? homeTeamId : awayTeamId
+		const winningOption = options.find((o) => o.teamId === winningTeamId)
+		if (!winningOption) {
+			console.error(
+				`[sync-games] question ${question.id}: no option matches winning team ${winningTeamId} - skipping`,
+			)
+			return
+		}
 
-	await resolveQuestionInternal(
-		tx,
-		question,
-		{
-			correctOptionIds: [winningOption.id],
-			resolutionNote: "Resolved automatically from ESPN's final score.",
-		},
-		{ resolvedBy: { method: "system" } },
-	)
+		await resolveQuestionInternal(
+			tx,
+			question,
+			{
+				correctOptionIds: [winningOption.id],
+				resolutionNote: FINAL_SCORE_NOTES.resolvedNote,
+			},
+			{ resolvedBy: { method: "system" } },
+		)
+	}
 	// ESPN can still correct a final score, so auto-resolve-games reads the box
 	// score once more after RECHECK_DELAY_MS, the same re-check every other
 	// automatic result gets.
@@ -172,7 +184,9 @@ export async function resolveGameWinner(
 			target: questionAutoResolutions.questionId,
 			set: settled,
 		})
-	console.log(`[sync-games] resolved question ${question.id}`)
+	console.log(
+		`[sync-games] ${homeScore === awayScore ? "voided" : "resolved"} question ${question.id}`,
+	)
 }
 
 // Where a postseason game sits: its round, and for a series game its series

@@ -330,6 +330,59 @@ describe("autoResolveGames - re-check", () => {
 		expect((await autoRowFor(question.id))?.recheckedAt).not.toBeNull()
 	})
 
+	it("voids a matchup the final score left tied, so no call scores", async () => {
+		const setup = await seedNbaGame()
+		const { game } = setup
+		const question = await makeQuestion({
+			shape: "team_vs_team",
+			leagueId: setup.league.id,
+			sportId: setup.league.sportId,
+			seasonId: game.seasonId,
+			gameId: game.id,
+			status: "locked",
+			locksAt: game.startsAt,
+			resolutionMode: "system",
+		})
+		const home = await makeOption(question.id, {
+			label: "Home",
+			sortOrder: 0,
+			teamId: game.homeTeamId,
+		})
+		await makeOption(question.id, {
+			label: "Away",
+			sortOrder: 1,
+			teamId: game.awayTeamId,
+		})
+		const call = await makeCall(question.id, (await makeUser()).id)
+		await makeSelection(call.id, home.id)
+
+		await db.transaction((tx) =>
+			resolveGameWinner(
+				tx,
+				game.id,
+				game.homeTeamId,
+				game.awayTeamId,
+				27,
+				27,
+				NOW,
+			),
+		)
+
+		const voided = await questionById(question.id)
+		expect(voided?.status).toBe("voided")
+		expect(voided?.voidedReason).toBe("tie")
+		expect(voided?.resolutionNote).toBe(
+			autoResolveNotes("ESPN's final score").voidedNote("tie"),
+		)
+		expect(
+			(await db.query.calls.findFirst({ where: { id: call.id } }))
+				?.unscoredReason,
+		).toBe("question_voided")
+		expect((await autoRowFor(question.id))?.recheckDueAt?.getTime()).toBe(
+			NOW.getTime() + RECHECK_DELAY_MS,
+		)
+	})
+
 	it("changes nothing when the box score still says the same", async () => {
 		const setup = await seedNbaGame()
 		const { question } = await seedPointsLine(setup, "4869780", 22.5)
