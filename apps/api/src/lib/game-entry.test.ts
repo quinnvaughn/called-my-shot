@@ -8,7 +8,11 @@ import {
 	makeUser,
 } from "../test/factories"
 import { expectData } from "../test/graphql"
-import { GAME_ENTRY_VERDICT_MIN_CALLS, gameEntryVerdict } from "./game-entry"
+import {
+	GAME_ENTRY_VERDICT_MIN_CALLS,
+	gameEntryVerdict,
+	loadGameVerdicts,
+} from "./game-entry"
 
 const ENTRY = /* GraphQL */ `
 	query Entry($id: ID!, $username: String!) {
@@ -302,6 +306,105 @@ describe("Game.entry verdict", () => {
 			official: { wins: 5, losses: 0 },
 			community: { wins: 0, losses: 1 },
 		})
+	})
+})
+
+describe("loadGameVerdicts", () => {
+	const FINAL_AT = new Date("2026-10-08T03:00:00Z")
+
+	// A final game whose official questions each user called, true for a hit.
+	// A null pick leaves that question unresolved.
+	async function seedCard(picks: Map<string, (boolean | null)[]>) {
+		const game = await makeGame({ status: "final", finalizedAt: FINAL_AT })
+		const length = Math.max(...[...picks.values()].map((p) => p.length))
+		for (let i = 0; i < length; i++) {
+			const pending = [...picks.values()].some((p) => p[i] === null)
+			const question = await makeQuestion({
+				leagueId: game.leagueId,
+				seasonId: game.seasonId,
+				gameId: game.id,
+				isOfficial: true,
+				status: pending ? "locked" : "resolved",
+			})
+			const right = await makeOption(question.id, {
+				isCorrect: pending ? null : true,
+			})
+			const wrong = await makeOption(question.id, {
+				isCorrect: pending ? null : false,
+			})
+			for (const [userId, userPicks] of picks) {
+				const pick = userPicks[i]
+				if (pick === undefined) continue
+				const call = await makeCall(question.id, userId)
+				await makeSelection(call.id, pick === false ? wrong.id : right.id)
+			}
+		}
+		return game
+	}
+
+	it("finds perfect cards and oh-fers, and nothing short of either", async () => {
+		const [perfect, ohFer, mixed, short, waiting] = await Promise.all(
+			Array.from({ length: 5 }, () => makeUser()),
+		)
+		if (!perfect || !ohFer || !mixed || !short || !waiting) {
+			throw new Error("no users")
+		}
+		const min = GAME_ENTRY_VERDICT_MIN_CALLS
+		const game = await seedCard(
+			new Map([
+				[perfect.id, Array(min).fill(true)],
+				[ohFer.id, Array(min).fill(false)],
+				[mixed.id, [false, ...Array(min - 1).fill(true)]],
+				[short.id, Array(min - 1).fill(true)],
+			]),
+		)
+		await seedCard(new Map([[waiting.id, [...Array(min).fill(true), null]]]))
+
+		const verdicts = await loadGameVerdicts(
+			[perfect.id, ohFer.id, mixed.id, short.id, waiting.id],
+			null,
+			null,
+		)
+		expect(verdicts.sort((a, b) => a.losses - b.losses)).toEqual([
+			{
+				userId: perfect.id,
+				gameId: game.id,
+				leagueId: game.leagueId,
+				verdict: "perfect",
+				wins: min,
+				losses: 0,
+			},
+			{
+				userId: ohFer.id,
+				gameId: game.id,
+				leagueId: game.leagueId,
+				verdict: "oh_fer",
+				wins: 0,
+				losses: min,
+			},
+		])
+	})
+
+	it("keeps to the window and the tracked leagues", async () => {
+		const user = await makeUser()
+		const game = await seedCard(
+			new Map([[user.id, Array(GAME_ENTRY_VERDICT_MIN_CALLS).fill(true)]]),
+		)
+		const around = (offsetMs: number) => ({
+			start: new Date(FINAL_AT.getTime() + offsetMs - 60_000),
+			end: new Date(FINAL_AT.getTime() + offsetMs + 60_000),
+		})
+
+		expect(await loadGameVerdicts([user.id], null, around(0))).toHaveLength(1)
+		expect(
+			await loadGameVerdicts([user.id], null, around(-24 * 60 * 60 * 1000)),
+		).toEqual([])
+		expect(
+			await loadGameVerdicts([user.id], [game.leagueId], null),
+		).toHaveLength(1)
+		expect(
+			await loadGameVerdicts([user.id], [(await makeGame()).leagueId], null),
+		).toEqual([])
 	})
 })
 

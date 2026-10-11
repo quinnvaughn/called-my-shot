@@ -19,6 +19,8 @@ import { formatWeekLabel } from "./week"
 // bottom.
 export const MOMENT_PRIORITY: RecapMomentKind[] = [
 	"sweep",
+	"perfect_card",
+	"oh_fer",
 	"redo_backfired",
 	"lone_correct",
 	"consensus_miss",
@@ -112,6 +114,7 @@ type SlotRefs = {
 	callId: string | null
 	questionId: string | null
 	optionId: string | null
+	gameId: string | null
 	leagueId: string
 }
 
@@ -121,6 +124,7 @@ const NO_REFS = {
 	callId: null,
 	questionId: null,
 	optionId: null,
+	gameId: null,
 }
 
 // The rows a slot points at, whichever kind it is.
@@ -135,6 +139,16 @@ function refsOf(slot: Slot): SlotRefs {
 			{ kind: "streak_ended" },
 			{ kind: "longest_streak" },
 			({ userId, leagueId }) => ({ ...NO_REFS, userId, leagueId }),
+		)
+		.with(
+			{ kind: "perfect_card" },
+			{ kind: "oh_fer" },
+			({ userId, gameId, leagueId }) => ({
+				...NO_REFS,
+				userId,
+				gameId,
+				leagueId,
+			}),
 		)
 		.with({ kind: "consensus_miss" }, ({ questionId, optionId, leagueId }) => ({
 			...NO_REFS,
@@ -184,6 +198,9 @@ export type RecapTile = {
 	leagueAbbr: string
 	// What the tile links to, when it's about one call.
 	callId: string | null
+	// The game whose entry page the tile links to, when it's about the user's
+	// whole card on one game.
+	gameId: string | null
 }
 
 export type RecapMoverView = { user: User; from: number; to: number }
@@ -267,12 +284,14 @@ export async function loadRecapView(
 	const questionIds = new Set<string>()
 	const leagueIds = new Set<string>()
 	const optionIds = new Set<string>()
+	const gameIds = new Set<string>()
 	for (const slot of slots) {
 		const refs = refsOf(slot)
 		for (const id of [refs.userId, refs.targetUserId]) if (id) userIds.add(id)
 		if (refs.callId) callIds.add(refs.callId)
 		if (refs.questionId) questionIds.add(refs.questionId)
 		if (refs.optionId) optionIds.add(refs.optionId)
+		if (refs.gameId) gameIds.add(refs.gameId)
 		leagueIds.add(refs.leagueId)
 	}
 	for (const mover of [selection.climber, selection.slide]) {
@@ -280,7 +299,7 @@ export async function loadRecapView(
 	}
 	for (const player of selection.playersOfTheWeek) userIds.add(player.userId)
 
-	const [users, calls, questions, leagues, options] = await Promise.all([
+	const [users, calls, questions, leagues, options, games] = await Promise.all([
 		userIds.size
 			? db.query.users.findMany({ where: { id: { in: [...userIds] } } })
 			: [],
@@ -331,12 +350,29 @@ export async function loadRecapView(
 					columns: { id: true, label: true },
 				})
 			: [],
+		gameIds.size
+			? db.query.games.findMany({
+					where: { id: { in: [...gameIds] } },
+					columns: { id: true },
+					with: {
+						homeTeam: { columns: { abbreviation: true } },
+						awayTeam: { columns: { abbreviation: true } },
+					},
+				})
+			: [],
 	])
 	const userById = new Map(users.map((u) => [u.id, u]))
 	const callById = new Map(calls.map((c) => [c.id, c]))
 	const titleById = new Map(questions.map((q) => [q.id, recapQuestionTitle(q)]))
 	const leagueById = new Map(leagues.map((l) => [l.id, l]))
 	const optionLabel = new Map(options.map((o) => [o.id, o.label]))
+	const matchupById = new Map(
+		games.flatMap((g) =>
+			g.homeTeam && g.awayTeam
+				? [[g.id, `${g.awayTeam.abbreviation} @ ${g.homeTeam.abbreviation}`]]
+				: [],
+		),
+	)
 
 	const pickOf = (callId: string) => {
 		const call = callById.get(callId)
@@ -382,6 +418,7 @@ export async function loadRecapView(
 			user: user ?? null,
 			leagueAbbr,
 			callId: refs.callId,
+			gameId: refs.gameId,
 			headline: title,
 		}
 
@@ -416,7 +453,10 @@ export async function loadRecapView(
 
 		function momentTile(m: RecapMoment): RecapTile | null {
 			const tile = (
-				fields: Omit<RecapTile, "kind" | "user" | "leagueAbbr" | "callId">,
+				fields: Omit<
+					RecapTile,
+					"kind" | "user" | "leagueAbbr" | "callId" | "gameId"
+				>,
 			): RecapTile => ({ ...base, ...fields, kind: m.kind })
 
 			return match(m)
@@ -428,6 +468,20 @@ export async function loadRecapView(
 						tone: "success",
 						headline: `${leagueAbbr} ${slate ? formatSlateLabel(slate, league?.slug ?? "") : sweep.slateKey}`,
 						note: "Called every winner on the slate.",
+					})
+				})
+				.with({ kind: "perfect_card" }, { kind: "oh_fer" }, (card) => {
+					const matchup = matchupById.get(card.gameId)
+					if (!matchup) return null
+					const perfect = card.kind === "perfect_card"
+					return tile({
+						label: perfect ? "Perfect card" : "Oh-fer",
+						value: perfect ? `${card.count}–0` : `0–${card.count}`,
+						tone: perfect ? "success" : "danger",
+						headline: matchup,
+						note: perfect
+							? `Called all ${card.count} official questions right.`
+							: `Missed all ${card.count} official questions.`,
 					})
 				})
 				.with({ kind: "redo_backfired" }, { kind: "redo_paid_off" }, (redo) => {

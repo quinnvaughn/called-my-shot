@@ -69,6 +69,15 @@ export type RecapInput = {
 		slateKey: string
 		gameCount: number
 	}[]
+	// Perfect cards and Oh-fers on games whose result landed in the week.
+	gameVerdicts: {
+		userId: string
+		leagueId: string
+		gameId: string
+		verdict: "perfect" | "oh_fer"
+		wins: number
+		losses: number
+	}[]
 	// Streak and sweep bonuses whose game's result landed in the week.
 	awards: { userId: string; points: number }[]
 	// Hot runs that ended in the week.
@@ -233,6 +242,30 @@ function playersOfTheWeek(
 		.sort((a, b) => a.userId.localeCompare(b.userId))
 }
 
+// Longest card first: 8-0 says more than 5-0.
+function gameVerdictMoments(
+	verdicts: RecapInput["gameVerdicts"],
+	verdict: "perfect" | "oh_fer",
+): RecapMoment[] {
+	return top(
+		verdicts
+			.filter((v) => v.verdict === verdict)
+			.map((v) => ({
+				userId: v.userId,
+				leagueId: v.leagueId,
+				gameId: v.gameId,
+				count: verdict === "perfect" ? v.wins : v.losses,
+			})),
+		(a, b) =>
+			b.count - a.count ||
+			a.userId.localeCompare(b.userId) ||
+			a.gameId.localeCompare(b.gameId),
+	).map((v) => ({
+		kind: verdict === "perfect" ? "perfect_card" : "oh_fer",
+		...v,
+	}))
+}
+
 const byLength = (a: RecapTrackInput, b: RecapTrackInput) =>
 	b.length - a.length ||
 	a.userId.localeCompare(b.userId) ||
@@ -256,6 +289,8 @@ export function computeRecap(input: RecapInput): GroupRecapData | null {
 				a.userId.localeCompare(b.userId) ||
 				a.slateKey.localeCompare(b.slateKey),
 		).map((s) => ({ kind: "sweep" as const, ...s })),
+		...gameVerdictMoments(input.gameVerdicts, "perfect"),
+		...gameVerdictMoments(input.gameVerdicts, "oh_fer"),
 		...top(
 			redone.filter((c) => c.outcome === "loss" && c.redo?.originalWon),
 			(a, b) => a.points - b.points || byCallId(a, b),

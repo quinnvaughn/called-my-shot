@@ -11,6 +11,7 @@ import {
 	buildGroupWeekLeaderboard,
 	loadReigningPlayersOfTheWeek,
 } from "../../../lib/group-recap/board"
+import { GAME_ENTRY_VERDICT_MIN_CALLS } from "../../../lib/game-entry"
 import { ensureGroupRecap } from "../../../lib/group-recap/generate"
 import { weekContaining } from "../../../lib/group-recap/week"
 import {
@@ -129,6 +130,7 @@ const RECORD_BOOK = /* GraphQL */ `
 				mostPlayerOfTheWeekAwards { count user { username } }
 				mostPointsOnACall { points headline leagueAbbr user { username } }
 				mostSweeps { count }
+				mostPerfectCards { count user { username } }
 			}
 		}
 	}
@@ -158,6 +160,7 @@ type RecordBookResult = {
 				user: { username: string }
 			}[]
 			mostSweeps: { count: number }[]
+			mostPerfectCards: { count: number; user: { username: string } }[]
 		}
 	}
 }
@@ -256,6 +259,111 @@ describe("recordBook", () => {
 		})
 		expect(book.mostPointsOnACall[0]?.headline).toContain(" @ ")
 		expect(book.mostSweeps).toEqual([])
+		expect(book.mostPerfectCards).toEqual([])
+	})
+})
+
+describe("perfect cards and oh-fers", () => {
+	// A game that went final inside WEEK, its official questions all called
+	// right by the admin and all wrong by the member.
+	async function splitCard(ctx: Awaited<ReturnType<typeof setup>>) {
+		const game = await makeGame({
+			leagueId: ctx.league.id,
+			seasonId: ctx.season.id,
+			startsAt: GAME_START,
+			status: "final",
+			finalizedAt: new Date(GAME_START.getTime() + 3 * 60 * 60 * 1000),
+		})
+		for (let i = 0; i < GAME_ENTRY_VERDICT_MIN_CALLS; i++) {
+			const question = await makeQuestion({
+				leagueId: ctx.league.id,
+				seasonId: ctx.season.id,
+				gameId: game.id,
+				isOfficial: true,
+				locksAt: GAME_START,
+				status: "resolved",
+				resolvedAt: new Date(GAME_START.getTime() + 4 * 60 * 60 * 1000),
+			})
+			const yes = await makeOption(question.id, { isCorrect: true })
+			const no = await makeOption(question.id, { isCorrect: false })
+			for (const [user, optionId, points] of [
+				[ctx.admin, yes.id, 10],
+				[ctx.member, no.id, -5],
+			] as const) {
+				const call = await makeCall(question.id, user.id, {
+					createdAt: new Date(GAME_START.getTime() - 60 * 60 * 1000),
+				})
+				await db.insert(callSelections).values({
+					callId: call.id,
+					optionId,
+					conviction: 80,
+					resultPoints: points,
+				})
+			}
+		}
+		return game
+	}
+
+	it("puts both on the week's recap, linked to the game", async () => {
+		const ctx = await setup()
+		const game = await splitCard(ctx)
+		const made = await ensureGroupRecap(ctx.group.id, WEEK)
+
+		const data = await expectData<{
+			groupRecap: {
+				tiles: {
+					kind: string
+					value: string
+					tone: string
+					gameId: string | null
+					user: { username: string } | null
+				}[]
+			} | null
+		}>(
+			/* GraphQL */ `
+				query RecapTiles($token: String!) {
+					groupRecap(token: $token) {
+						tiles { kind value tone gameId user { username } }
+					}
+				}
+			`,
+			{ as: ctx.admin, variables: { token: made?.shareToken } },
+		)
+		const min = GAME_ENTRY_VERDICT_MIN_CALLS
+		expect(
+			data.groupRecap?.tiles.filter(
+				(t) => t.kind === "perfect_card" || t.kind === "oh_fer",
+			),
+		).toEqual([
+			{
+				kind: "perfect_card",
+				value: `${min}–0`,
+				tone: "SUCCESS",
+				gameId: game.id,
+				user: { username: ctx.admin.username },
+			},
+			{
+				kind: "oh_fer",
+				value: `0–${min}`,
+				tone: "DANGER",
+				gameId: game.id,
+				user: { username: ctx.member.username },
+			},
+		])
+	})
+
+	it("counts perfect cards in the Record Book", async () => {
+		const ctx = await setup()
+		await splitCard(ctx)
+		await splitCard(ctx)
+
+		const data = await expectData<RecordBookResult>(RECORD_BOOK, {
+			as: ctx.member,
+			variables: { groupId: ctx.group.id },
+		})
+		expect(data.group.recordBook.mostPerfectCards).toEqual([
+			{ count: 2, user: { username: ctx.admin.username } },
+		])
 	})
 })
 

@@ -74,6 +74,13 @@ export const RecordBookDocument = graphql(`
 						...Identity_user
 					}
 				}
+				mostPerfectCards {
+					count
+					user {
+						id
+						...Identity_user
+					}
+				}
 			}
 			streakRecords(limit: 5) {
 				...GroupHighlights_streak
@@ -322,6 +329,23 @@ export function GroupRecordBook({ data }: Props) {
 							</VStack>
 						) : (
 							<EmptyState>No sweeps yet.</EmptyState>
+						)}
+					</HighlightList>
+					<HighlightList label="Most perfect cards">
+						{book.mostPerfectCards.length > 0 ? (
+							<VStack alignItems="stretch" gap="2">
+								{book.mostPerfectCards.map((c) => (
+									<HighlightRow
+										key={c.user.id}
+										user={toIdentity(c.user)}
+										label="Every official question on a game"
+										value={String(c.count)}
+										valueLabel={pluralize(c.count, "perfect card")}
+									/>
+								))}
+							</VStack>
+						) : (
+							<EmptyState>No perfect cards yet.</EmptyState>
 						)}
 					</HighlightList>
 				</Grid>

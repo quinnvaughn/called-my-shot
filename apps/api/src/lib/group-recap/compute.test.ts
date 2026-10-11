@@ -36,6 +36,7 @@ function input(overrides: Partial<RecapInput> = {}): RecapInput {
 			call({ userId: "b", outcome: "loss", points: -5 }),
 		],
 		fadeWins: [],
+		gameVerdicts: [],
 		awards: [],
 		sweeps: [],
 		snaps: [],
@@ -309,6 +310,52 @@ describe("Player of the Week", () => {
 				calls: [...week("b", [10, 10, 10]), ...week("a", [20, 15, -5])],
 			})?.map((p) => p.userId),
 		).toEqual(["a", "b"])
+	})
+
+	it("turns perfect cards and oh-fers into moments, longest card first", () => {
+		const verdict = (
+			userId: string,
+			gameId: string,
+			wins: number,
+			losses: number,
+		) => ({
+			userId,
+			leagueId: "nfl",
+			gameId,
+			verdict: losses === 0 ? ("perfect" as const) : ("oh_fer" as const),
+			wins,
+			losses,
+		})
+		const data = computeRecap(
+			input({
+				gameVerdicts: [
+					verdict("a", "g1", 5, 0),
+					verdict("b", "g2", 7, 0),
+					verdict("c", "g3", 0, 6),
+				],
+			}),
+		)
+		expect(
+			data?.moments.filter(
+				(m) => m.kind === "perfect_card" || m.kind === "oh_fer",
+			),
+		).toEqual([
+			{
+				kind: "perfect_card",
+				userId: "b",
+				leagueId: "nfl",
+				gameId: "g2",
+				count: 7,
+			},
+			{
+				kind: "perfect_card",
+				userId: "a",
+				leagueId: "nfl",
+				gameId: "g1",
+				count: 5,
+			},
+			{ kind: "oh_fer", userId: "c", leagueId: "nfl", gameId: "g3", count: 6 },
+		])
 	})
 
 	it("counts the week's streak and sweep bonuses", () => {

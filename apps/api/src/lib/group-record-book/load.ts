@@ -2,6 +2,7 @@ import { and, asc, count, eq, inArray, sql } from "drizzle-orm"
 import { db } from "../../db"
 import { type Group, groupRecaps, type User, userSweeps } from "../../db/schema"
 import type { RecapCall, RecapPlayerOfTheWeek } from "../group-recap/types"
+import { loadGameVerdicts } from "../game-entry"
 import { recapQuestionTitle } from "../group-recap/view"
 import type { RecapWeek } from "../group-recap/week"
 import { getTrackedLeagueIds } from "../groups"
@@ -14,8 +15,9 @@ import {
 } from "./compute"
 
 // Reads a group's recaps for ./compute.ts, then puts names and titles on
-// what it hands back. Sweeps come off user_sweeps instead, bound the way the
-// group's highlights are: its members, in the leagues it tracks.
+// what it hands back. Sweeps come off user_sweeps and perfect cards off the
+// members' calls instead, bound the way the group's highlights are: its
+// members, in the leagues it tracks.
 
 export type RecordBookWeekView = {
 	week: RecapWeek
@@ -44,6 +46,7 @@ export type RecordBookView = {
 	mostPlayerOfTheWeekAwards: Named<RecordBookCount>[]
 	mostConsecutivePlayerOfTheWeekAwards: Named<RecordBookRun>[]
 	mostSweeps: Named<RecordBookCount>[]
+	mostPerfectCards: Named<RecordBookCount>[]
 }
 
 async function loadSweepCounts(
@@ -64,6 +67,23 @@ async function loadSweepCounts(
 		.groupBy(userSweeps.userId)
 		.orderBy(sql`${sweeps} desc`, asc(userSweeps.userId))
 		.limit(RECORD_BOOK_DEPTH)
+}
+
+async function loadPerfectCardCounts(
+	memberIds: string[],
+	tracked: string[] | null,
+): Promise<RecordBookCount[]> {
+	const verdicts = await loadGameVerdicts(memberIds, tracked, null)
+	const counts = new Map<string, number>()
+	for (const v of verdicts) {
+		if (v.verdict === "perfect") {
+			counts.set(v.userId, (counts.get(v.userId) ?? 0) + 1)
+		}
+	}
+	return [...counts]
+		.map(([userId, count]) => ({ userId, count }))
+		.sort((a, b) => b.count - a.count || a.userId.localeCompare(b.userId))
+		.slice(0, RECORD_BOOK_DEPTH)
 }
 
 export async function loadRecordBook(group: Group): Promise<RecordBookView> {
@@ -93,15 +113,17 @@ export async function loadRecordBook(group: Group): Promise<RecordBookView> {
 		members.filter((m) => !m.hiddenFromRecaps).map((m) => m.userId),
 	)
 	const book = compileRecordBook(recaps, visible)
-	const sweepCounts = await loadSweepCounts(
-		members.map((m) => m.userId),
-		tracked,
-	)
+	const memberIds = members.map((m) => m.userId)
+	const [sweepCounts, perfectCardCounts] = await Promise.all([
+		loadSweepCounts(memberIds, tracked),
+		loadPerfectCardCounts(memberIds, tracked),
+	])
 
 	const userIds = new Set([
 		...book.weeks.flatMap((w) => w.players.map((p) => p.userId)),
 		...book.mostPointsOnACall.map((c) => c.userId),
 		...sweepCounts.map((s) => s.userId),
+		...perfectCardCounts.map((p) => p.userId),
 	])
 	const callIds = book.mostPointsOnACall.map((c) => c.callId)
 	const [users, calls] = await Promise.all([
@@ -173,5 +195,6 @@ export async function loadRecordBook(group: Group): Promise<RecordBookView> {
 			book.mostConsecutivePlayerOfTheWeekAwards,
 		),
 		mostSweeps: named(sweepCounts),
+		mostPerfectCards: named(perfectCardCounts),
 	}
 }

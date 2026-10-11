@@ -57,6 +57,9 @@ const RecapTileRef = builder.objectRef<RecapTile>("RecapTile").implement({
 		note: t.exposeString("note"),
 		leagueAbbr: t.exposeString("leagueAbbr"),
 		callId: t.exposeID("callId", { nullable: true }),
+		// Set on a Perfect card or Oh-fer, which link to the user's entry
+		// page for that game.
+		gameId: t.exposeID("gameId", { nullable: true }),
 	}),
 })
 

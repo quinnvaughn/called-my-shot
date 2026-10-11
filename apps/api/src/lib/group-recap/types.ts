@@ -26,6 +26,16 @@ export type RecapMoment =
 			slateKey: string
 			gameCount: number
 	  }
+	// A final game with every official question called right (perfect_card,
+	// count is the wins) or every one wrong (oh_fer, count is the losses).
+	// See gameEntryVerdict.
+	| {
+			kind: "perfect_card" | "oh_fer"
+			userId: string
+			leagueId: string
+			gameId: string
+			count: number
+	  }
 	// A redo off a pick that would have hit, onto one that missed.
 	| ({ kind: "redo_backfired" } & RecapCall)
 	// The one member who got it right, with at least two others wrong.

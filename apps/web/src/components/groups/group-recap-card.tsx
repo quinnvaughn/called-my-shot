@@ -40,6 +40,7 @@ export const GroupRecapCardFragment = graphql(`
 			note
 			leagueAbbr
 			callId
+			gameId
 			user {
 				id
 				...Identity_user
@@ -164,7 +165,7 @@ export function GroupRecapCard({ recap: recapProp, groupName }: Props) {
 							{recap.tiles.map((tile) => (
 								<VStack
 									// Tied best or worst calls share a kind, each with its own call.
-									key={`${tile.kind}-${tile.callId ?? ""}`}
+									key={`${tile.kind}-${tile.callId ?? tile.gameId ?? ""}`}
 									alignItems="flex-start"
 									gap="2"
 									className={css({
@@ -203,6 +204,21 @@ export function GroupRecapCard({ recap: recapProp, groupName }: Props) {
 										<Link
 											to="/calls/$callId"
 											params={{ callId: tile.callId }}
+											className={css({
+												fontSize: "sm",
+												color: "fg.body",
+												_hover: { textDecoration: "underline" },
+											})}
+										>
+											{tile.headline}
+										</Link>
+									) : tile.gameId && tile.user ? (
+										<Link
+											to="/games/$gameId/picks/$username"
+											params={{
+												gameId: tile.gameId,
+												username: toIdentity(tile.user).username,
+											}}
 											className={css({
 												fontSize: "sm",
 												color: "fg.body",

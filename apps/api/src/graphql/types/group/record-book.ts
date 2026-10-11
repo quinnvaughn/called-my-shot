@@ -120,6 +120,10 @@ const GroupRecordBookRef = builder
 				type: [RecordBookCountRef],
 				resolve: (b) => b.mostSweeps,
 			}),
+			mostPerfectCards: t.field({
+				type: [RecordBookCountRef],
+				resolve: (b) => b.mostPerfectCards,
+			}),
 		}),
 	})
 

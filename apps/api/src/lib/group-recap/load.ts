@@ -9,6 +9,7 @@ import {
 	pointAwards,
 } from "../../db/schema"
 import { fadeWinner, loadCallSides } from "../fades"
+import { loadGameVerdicts } from "../game-entry"
 import { buildGroupLeaderboard, getMemberUserIds } from "../group-leaderboard"
 import { getTrackedLeagueIds } from "../groups"
 import { resolveSeasonIds } from "../seasons"
@@ -293,10 +294,19 @@ export async function loadRecapInput(
 		userId: { in: memberIds },
 		...(tracked ? { leagueId: { in: tracked } } : {}),
 	}
-	const [fadeWins, awards, sweeps, snaps, activeStreaks, standings, previous] =
-		await Promise.all([
+	const [
+		fadeWins,
+		awards,
+		gameVerdicts,
+		sweeps,
+		snaps,
+		activeStreaks,
+		standings,
+		previous,
+	] = await Promise.all([
 			loadFadeWins(calls, memberIds),
 			loadWeekAwards(memberIds, tracked, week),
+			loadGameVerdicts(memberIds, tracked, week),
 			db.query.userSweeps.findMany({
 				where: { ...scope, settledAt: { gte: week.start, lt: week.end } },
 				columns: {
@@ -334,6 +344,7 @@ export async function loadRecapInput(
 		calls,
 		fadeWins,
 		awards,
+		gameVerdicts,
 		sweeps,
 		snaps,
 		activeStreaks: activeStreaks.map((s) => ({

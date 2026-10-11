@@ -1,10 +1,24 @@
-import { and, asc, eq, getTableColumns } from "drizzle-orm"
+import {
+	and,
+	asc,
+	eq,
+	getTableColumns,
+	gte,
+	inArray,
+	isNull,
+	lt,
+	or,
+	sql,
+} from "drizzle-orm"
 import { db } from "../db"
 import {
 	type Call,
+	callSelections,
 	calls,
 	type Game,
+	games,
 	type Question,
+	questionOptions,
 	questions,
 } from "../db/schema"
 import { loadPickEntry, type PickEntry } from "./pick-entry"
@@ -125,8 +139,97 @@ export function gameEntryVerdict(
 			(member.status === "open" || member.status === "locked"),
 	)
 	if (awaitingResult) return null
-	if (entry.wins + entry.losses < GAME_ENTRY_VERDICT_MIN_CALLS) return null
-	if (entry.losses === 0) return "perfect"
-	if (entry.wins === 0) return "oh_fer"
+	return verdictOfRecord(entry)
+}
+
+// The record half of gameEntryVerdict, for a game already known to be final
+// with nothing still waiting on a result.
+function verdictOfRecord(record: {
+	wins: number
+	losses: number
+}): GameEntryVerdict | null {
+	if (record.wins + record.losses < GAME_ENTRY_VERDICT_MIN_CALLS) return null
+	if (record.losses === 0) return "perfect"
+	if (record.wins === 0) return "oh_fer"
 	return null
+}
+
+export type MemberGameVerdict = {
+	userId: string
+	gameId: string
+	leagueId: string
+	verdict: GameEntryVerdict
+	wins: number
+	losses: number
+}
+
+// Every Perfect card and Oh-fer these users have, for the group recap and
+// Record Book: the same verdict each entry page shows, counted in SQL rather
+// than loading every entry. tracked narrows to those leagues, null for every
+// league. With a window, only games whose result became real inside it - the
+// game going final, or its start for a game that went final before
+// finalizedAt was recorded - the same placing the recap gives calls.
+export async function loadGameVerdicts(
+	userIds: string[],
+	tracked: string[] | null,
+	window: { start: Date; end: Date } | null,
+): Promise<MemberGameVerdict[]> {
+	if (userIds.length === 0) return []
+	const counted = sql`${calls.unscoredReason} is null`
+	const settled = sql`${counted} and ${questions.status} in ('resolved', 'disputed')`
+	// The same reading as tallyCalls.
+	const correct = sql`coalesce(${calls.hitTolerance}, exists (
+		select 1 from ${callSelections}
+		inner join ${questionOptions} on ${questionOptions.id} = ${callSelections.optionId}
+		where ${callSelections.callId} = ${calls.id} and ${questionOptions.isCorrect}
+	))`
+	const wins = sql<number>`(count(*) filter (where ${settled} and ${correct}))::int`
+	const losses = sql<number>`(count(*) filter (where ${settled} and not ${correct}))::int`
+	const awaiting = sql`count(*) filter (where ${counted} and ${questions.status} in ('open', 'locked'))`
+
+	const rows = await db
+		.select({
+			userId: calls.userId,
+			gameId: games.id,
+			leagueId: games.leagueId,
+			wins,
+			losses,
+		})
+		.from(calls)
+		.innerJoin(questions, eq(questions.id, calls.questionId))
+		.innerJoin(games, eq(games.id, questions.gameId))
+		.where(
+			and(
+				inArray(calls.userId, userIds),
+				eq(questions.isOfficial, true),
+				eq(games.status, "final"),
+				tracked ? inArray(games.leagueId, tracked) : undefined,
+				window
+					? or(
+							and(
+								gte(games.finalizedAt, window.start),
+								lt(games.finalizedAt, window.end),
+							),
+							and(
+								isNull(games.finalizedAt),
+								gte(games.startsAt, window.start),
+								lt(games.startsAt, window.end),
+							),
+						)
+					: undefined,
+			),
+		)
+		.groupBy(calls.userId, games.id, games.leagueId)
+		.having(
+			and(
+				sql`${awaiting} = 0`,
+				sql`${wins} + ${losses} >= ${GAME_ENTRY_VERDICT_MIN_CALLS}`,
+				sql`(${wins} = 0 or ${losses} = 0)`,
+			),
+		)
+
+	return rows.flatMap((row) => {
+		const verdict = verdictOfRecord(row)
+		return verdict ? [{ ...row, verdict }] : []
+	})
 }
