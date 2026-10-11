@@ -14,7 +14,7 @@ import { isContested } from "#/lib/contested"
 import { callersText, formatGuess } from "#/lib/field-signal"
 import { questionDetailState } from "#/lib/question-detail-state"
 import { isNumericQuestionShape } from "#/lib/question-labels"
-import { tierFor } from "#/lib/scoring"
+import { crowdTierFor } from "#/lib/scoring"
 import { buildQuestionSlug } from "#/lib/slug"
 
 export const PickPositionRowFragment = graphql(`
@@ -47,7 +47,7 @@ export const PickPositionRowCallFragment = graphql(`
 			option {
 				id
 				label
-				fieldPct
+				crowdPct
 				modelHitRate
 				isCorrect
 				team {
@@ -134,10 +134,12 @@ function PickTierBadge({
 }: {
 	fieldPct: number
 	totalOptions: number
-	// The side's own price, when it has one - see tierFor.
+	// The side's own price, when it has one. A priced side has no boldness
+	// tier, so no badge - see crowdTierFor.
 	modelHitRate?: number | null
 }) {
-	const tier = tierFor(fieldPct, totalOptions, modelHitRate)
+	const tier = crowdTierFor(fieldPct, totalOptions, { modelHitRate })
+	if (!tier) return null
 	return (
 		<span
 			className={css({
@@ -317,9 +319,9 @@ export function PickPositionRow({
 										>
 											{selection.option.label}
 										</span>
-										{selection.option.fieldPct !== null && (
+										{selection.option.crowdPct !== null && (
 											<PickTierBadge
-												fieldPct={selection.option.fieldPct}
+												fieldPct={selection.option.crowdPct}
 												totalOptions={question.options.length}
 												modelHitRate={selection.option.modelHitRate}
 											/>

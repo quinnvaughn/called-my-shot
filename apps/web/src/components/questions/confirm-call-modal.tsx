@@ -25,11 +25,11 @@ import { formatGuess } from "#/lib/field-signal"
 import { optionDisplayLabel } from "#/lib/question-labels"
 import {
 	type ContrarianTier,
+	crowdTierFor,
 	formatMult,
-	previewFieldPct,
+	previewCrowdPct,
 	previewNumericPoints,
 	previewSelectionPoints,
-	tierFor,
 } from "#/lib/scoring"
 import { closeModal } from "#/stores/modal-store"
 
@@ -64,7 +64,13 @@ export function ConfirmCallModal({
 
 	if (!question) return null
 
-	const basePoints = basePointsFor({ shape, isOfficial: question.isOfficial })
+	// A season-long call at the viewer's pace so far - see SeasonPlay.
+	const basePoints =
+		basePointsFor({
+			shape,
+			isOfficial: question.isOfficial,
+			isPriced: question.isPriced,
+		}) * (question.viewerSeasonPlay?.weight ?? 1)
 	const { lossRate } = question
 	// Season-long shapes preview off games played so far, not rank - see
 	// PointsPreview's own comment on the same distinction. Null for a
@@ -132,21 +138,23 @@ export function ConfirmCallModal({
 							const showConviction =
 								bucket === "multi" && convictionMode === "split"
 							// Simulated as if this call already went through (see
-							// previewFieldPct) so this matches what fieldPct will
-							// actually read the instant after Lock It In, not the
-							// before-me snapshot the option list was queried with.
-							const simulatedFieldPct = previewFieldPct(
-								option.callCount,
-								question.callCount,
+							// previewCrowdPct) so this matches what the field's
+							// share will actually read the instant after Lock It
+							// In, not the before-me snapshot the option list was
+							// queried with.
+							const simulatedCrowdPct = previewCrowdPct(
+								option.convictionTotal,
+								question.fieldConviction,
+								selection.conviction,
 							)
 							const meta = [
 								...pickMeta(
-									tierFor(
-										simulatedFieldPct,
+									crowdTierFor(
+										simulatedCrowdPct,
 										question.options.length,
-										option.modelHitRate,
+										option,
 									),
-									simulatedFieldPct,
+									simulatedCrowdPct,
 									effectiveLossRate(lossRate, option.lossRate),
 									option,
 								),
@@ -161,7 +169,7 @@ export function ConfirmCallModal({
 									payout={previewSelectionPoints(
 										basePoints,
 										effectiveLossRate(lossRate, option.lossRate),
-										simulatedFieldPct,
+										simulatedCrowdPct,
 										question.options.length,
 										selection.conviction,
 										earlyTier,
@@ -381,20 +389,19 @@ function ConfirmPickRow({
 }
 
 // What moved a pick's numbers, in the order they matter. An unpriced pick is
-// its boldness tier and field share. A priced one leads with its own price
-// (the underdog's on a hit, the favorite's on a miss - see sidePrice) and
-// sets the field share against the share its chance expects, since that's
-// what boldness is measured against there. Its tier only shows once it's
-// past SAFE: a SAFE beside an underdog's price reads as the pick being safe.
+// its boldness tier and field share. A priced one is paid on its own price
+// alone (the underdog's on a hit, the favorite's on a miss - see sidePrice),
+// so it has no tier, and shows the field share beside the chance the model
+// gives it.
 function pickMeta(
-	tier: ContrarianTier,
-	fieldPct: number,
+	tier: ContrarianTier | null,
+	crowdPct: number,
 	lossRate: number,
 	option: { winMult: number | null; modelHitRate: number | null },
 ): string[] {
-	const field = `${Math.round(fieldPct)}% of the field`
+	const field = `${Math.round(crowdPct)}% of points on this side`
 	const { modelHitRate } = option
-	if (modelHitRate == null) return [tier.label, field]
+	if (modelHitRate == null) return [...(tier ? [tier.label] : []), field]
 	const winMult = option.winMult ?? 1
 	const price =
 		winMult > 1
@@ -403,7 +410,6 @@ function pickMeta(
 				? `×${formatMult(lossRate)} favorite`
 				: null
 	return [
-		...(tier.label !== "SAFE" ? [tier.label] : []),
 		...(price ? [price] : []),
 		field,
 		`${Math.round(modelHitRate * 100)}% expected`,

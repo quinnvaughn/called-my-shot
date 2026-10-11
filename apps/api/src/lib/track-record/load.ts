@@ -76,6 +76,8 @@ export async function loadTrackRecord(
 			resultPoints: true,
 			unscoredReason: true,
 			createdAt: true,
+			seasonPlayWeeksPlayed: true,
+			seasonPlayWeeksCounted: true,
 		},
 		with: {
 			question: {
@@ -102,6 +104,7 @@ export async function loadTrackRecord(
 							playerId: true,
 							isCorrect: true,
 							lossRate: true,
+							modelHitRate: true,
 						},
 					},
 				},

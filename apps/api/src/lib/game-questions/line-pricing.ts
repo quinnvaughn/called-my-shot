@@ -1,4 +1,5 @@
 import {
+	isWithinUserLineBounds,
 	overProbability,
 	type SidePrice,
 	sidePrices,
@@ -48,6 +49,9 @@ export type PricedLine = {
 	pricing: LinePricing
 	over: SidePrice
 	under: SidePrice
+	// The lowest and highest lines, on the half, that keep both sides within
+	// USER_LINE_CHANCE_BOUNDS. Null when no line does.
+	openRange: { min: number; max: number } | null
 }
 
 type PriceInput = {
@@ -142,7 +146,30 @@ async function price(
 			pOver: Math.round(pOver * 1000) / 1000,
 		},
 		...sidePrices(pOver),
+		openRange: openLineRange(ratios, expected),
 	}
+}
+
+// Every half line between the lowest and highest results the ratios have
+// seen, kept where the over's chance stays within USER_LINE_CHANCE_BOUNDS.
+// The over's chance only falls as the line rises, so the kept lines are one
+// unbroken run.
+export function openLineRange(
+	ratios: number[],
+	mean: number,
+): { min: number; max: number } | null {
+	const lowest = Math.floor(mean * Math.min(...ratios))
+	const highest = Math.ceil(mean * Math.max(...ratios))
+	const open: number[] = []
+	for (let whole = lowest; whole <= highest; whole++) {
+		const line = whole + 0.5
+		if (isWithinUserLineBounds(overProbability(ratios, mean, line))) {
+			open.push(line)
+		}
+	}
+	const [min] = open
+	const max = open.at(-1)
+	return min === undefined || max === undefined ? null : { min, max }
 }
 
 export async function loadPlayerSamples(

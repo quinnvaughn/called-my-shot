@@ -203,10 +203,10 @@ function RouteComponent() {
 					{ballot.league.abbreviation}
 				</Breadcrumb.Link>
 				<Breadcrumb.Link
-					to="/leagues/$leagueSlug/season"
+					to="/leagues/$leagueSlug/ballots"
 					params={{ leagueSlug: ballot.league.slug }}
 				>
-					Season
+					Ballots
 				</Breadcrumb.Link>
 				<Breadcrumb.Current>{ballot.name}</Breadcrumb.Current>
 			</Breadcrumb>

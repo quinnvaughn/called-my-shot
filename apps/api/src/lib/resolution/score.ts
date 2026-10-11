@@ -1,7 +1,9 @@
 import {
 	basePointsFor,
+	crowdTotals,
 	effectiveLossRate,
 	fieldPct,
+	isPricedQuestion,
 	numericGuessPoints,
 	type QuestionShape,
 	selectionPoints,
@@ -127,6 +129,9 @@ export function scoreGuesses(input: {
 	actualValue: number
 	calls: GuessCall[]
 	unscoredUserIds?: UnscoredOverrides
+	// What share of its full points each call is worth, by call - see
+	// seasonPlayWeight. A call missing from it is worth all of them.
+	weightByCallId?: ReadonlyMap<string, number>
 }): { updates: GuessCallUpdate[]; tally: ResolutionTally } {
 	const guesses = input.calls
 		.filter(
@@ -138,9 +143,11 @@ export function scoreGuesses(input: {
 			guessValue: c.guessValue,
 			conviction: c.conviction,
 			createdAt: c.createdAt,
+			weight: input.weightByCallId?.get(c.id),
 		}))
 	const scored = numericGuessPoints(
-		basePointsFor(input),
+		// A numeric guess has no model price.
+		basePointsFor({ ...input, isPriced: false }),
 		input.lossRate,
 		guesses,
 		input.actualValue,
@@ -207,9 +214,10 @@ export type SelectionToScore = {
 // isCorrect as persisted before this pass, and the side's own price (winMult,
 // lossRate, modelHitRate) where its sides were priced - the only record of whether a
 // selection was previously right, which an overturn needs to net it out.
-// totalCalls and countByOption are the whole field, unscored calls included:
-// they were real picks at lock, so they keep their share and their place in
-// the earliness order. `earliness` says what that order is measured against.
+// `selections` are the whole field, unscored calls included: they were real
+// picks at lock, so they keep their share of the field's conviction (see
+// crowdTotals) and their place in the earliness order. `earliness` says what
+// that order is measured against.
 export function scoreSelections(input: {
 	shape: QuestionShape
 	isOfficial: boolean
@@ -222,11 +230,12 @@ export function scoreSelections(input: {
 		modelHitRate?: number | null
 	}[]
 	correctOptionIds: string[]
-	totalCalls: number
-	countByOption: ReadonlyMap<string, number>
 	selections: SelectionToScore[]
 	earliness: EarlinessBasis
 	unscoredUserIds?: UnscoredOverrides
+	// What share of its full points each call is worth, by call - see
+	// seasonPlayWeight. A call missing from it is worth all of them.
+	weightByCallId?: ReadonlyMap<string, number>
 }): {
 	selectionPoints: { selectionId: string; resultPoints: number | null }[]
 	callReasons: {
@@ -250,9 +259,19 @@ export function scoreSelections(input: {
 			effectiveLossRate(input.lossRate, o.lossRate),
 		]),
 	)
-	const basePoints = basePointsFor(input)
+	const basePoints = basePointsFor({
+		...input,
+		isPriced: isPricedQuestion(input.options),
+	})
 	const correctOptionIds = new Set(input.correctOptionIds)
 	const callsById = new Map(input.selections.map((s) => [s.call.id, s.call]))
+	const crowd = crowdTotals(
+		input.selections.map((s) => ({
+			callId: s.call.id,
+			optionId: s.optionId,
+			conviction: s.conviction,
+		})),
+	)
 	const earlyMultByCallId = earlinessFor(
 		[...callsById.values()],
 		input.earliness,
@@ -272,12 +291,9 @@ export function scoreSelections(input: {
 			? null
 			: {
 					points: selectionPoints(
-						basePoints,
+						basePoints * (input.weightByCallId?.get(s.call.id) ?? 1),
 						lossRateByOptionId.get(s.optionId) ?? input.lossRate,
-						fieldPct(
-							input.countByOption.get(s.optionId) ?? 0,
-							input.totalCalls,
-						),
+						fieldPct(crowd.byOption.get(s.optionId) ?? 0, crowd.field),
 						input.options.length,
 						s.conviction,
 						isCorrect,

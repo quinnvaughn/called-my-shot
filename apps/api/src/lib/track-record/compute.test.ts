@@ -22,6 +22,8 @@ function call(overrides: Partial<TrackRecordCall> = {}): TrackRecordCall {
 		gameId: null,
 		shape: "team_stat_over_under",
 		isOfficial: true,
+		isPriced: false,
+		seasonPlayWeight: 1,
 		status: "resolved",
 		unscoredReason: null,
 		hitTolerance: null,

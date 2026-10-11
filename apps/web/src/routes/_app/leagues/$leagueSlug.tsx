@@ -8,7 +8,6 @@ import {
 import { FaRegTimesCircle } from "react-icons/fa"
 import { css } from "styled-system/css"
 import { VStack } from "styled-system/jsx"
-import { CountBadge } from "#/components/ui/count-badge"
 import { NotFound } from "#/components/ui/not-found"
 import { PageHeader } from "#/components/ui/page-header"
 import { Tabs } from "#/components/ui/tabs"
@@ -83,10 +82,12 @@ export const Route = createFileRoute("/_app/leagues/$leagueSlug")({
 	},
 })
 
+// By subject, not by who wrote the question: official and player-written
+// questions share each tab, and the Official badge tells them apart.
 const TAB_ITEMS = [
 	{ to: "/leagues/$leagueSlug/games", label: "Games" },
 	{ to: "/leagues/$leagueSlug/season", label: "Season long" },
-	{ to: "/leagues/$leagueSlug/community", label: "Community" },
+	{ to: "/leagues/$leagueSlug/ballots", label: "Ballots" },
 ] as const
 
 function LeagueNotFound() {
@@ -133,10 +134,6 @@ function RouteComponent() {
 				{TAB_ITEMS.map((item) => (
 					<Tabs.LinkTrigger key={item.to} to={item.to} params={{ leagueSlug }}>
 						{item.label}
-						{item.to === "/leagues/$leagueSlug/community" &&
-							league.openCommunityQuestionCount > 0 && (
-								<CountBadge count={league.openCommunityQuestionCount} />
-							)}
 					</Tabs.LinkTrigger>
 				))}
 			</Tabs.List>

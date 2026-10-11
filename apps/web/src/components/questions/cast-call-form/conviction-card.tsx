@@ -10,8 +10,9 @@ import { useTourAnchor } from "#/components/onboarding/tour-anchors"
 import { Card } from "#/components/ui/card"
 import { FieldLabel } from "#/components/ui/field-label"
 import { Slider } from "#/components/ui/slider"
-import { previewFieldPct } from "#/lib/scoring"
+import { previewCrowdPct } from "#/lib/scoring"
 import { PointsPreview } from "../points-preview"
+import { SeasonPlayNote } from "../season-play-note"
 import type { CastCallFormState } from "./use-cast-call-form"
 
 // Conviction on a single-pick call, with the payout it produces right under
@@ -37,11 +38,16 @@ export function ConvictionCard({ callForm }: { callForm: CastCallFormState }) {
 		? question.options.find((o) => o.id === selections[0].optionId)
 		: undefined
 	// null = nothing picked yet. Simulated as if this call already went
-	// through (see previewFieldPct) so the number shown here matches what
-	// fieldPct will actually read the instant after submitting, rather than
-	// a before-me snapshot that jumps once the real call is counted.
-	const selectedFieldPct = selections[0]
-		? previewFieldPct(selectedOption?.callCount ?? 0, question.callCount)
+	// through (see previewCrowdPct) so the number shown here matches what
+	// the field's share will actually read the instant after submitting,
+	// rather than a before-me snapshot that jumps once the real call is
+	// counted.
+	const selectedCrowdPct = selections[0]
+		? previewCrowdPct(
+				selectedOption?.convictionTotal ?? 0,
+				question.fieldConviction,
+				singleSelectConviction,
+			)
 		: null
 
 	// Season-long shapes preview off games played so far, not rank - see
@@ -90,10 +96,16 @@ export function ConvictionCard({ callForm }: { callForm: CastCallFormState }) {
 						<div ref={payoutAnchor}>
 							<PointsPreview
 								kind="option"
-								fieldPct={selectedFieldPct}
+								crowdPct={selectedCrowdPct}
 								totalOptions={question.options.length}
 								conviction={singleSelectConviction}
-								basePoints={basePointsFor({ shape, isOfficial: question.isOfficial })}
+								basePoints={
+									basePointsFor({
+										shape,
+										isOfficial: question.isOfficial,
+										isPriced: question.isPriced,
+									}) * (question.viewerSeasonPlay?.weight ?? 1)
+								}
 								lossRate={effectiveLossRate(
 									question.lossRate,
 									selectedOption?.lossRate,
@@ -101,6 +113,14 @@ export function ConvictionCard({ callForm }: { callForm: CastCallFormState }) {
 								earlyTier={earlyTier}
 								pricing={selectedOption}
 							/>
+							{question.viewerSeasonPlay && (
+								<div className={css({ marginTop: "2" })}>
+									<SeasonPlayNote
+										play={question.viewerSeasonPlay}
+										league={question.league.abbreviation}
+									/>
+								</div>
+							)}
 						</div>
 					</VStack>
 				</Card.Body>

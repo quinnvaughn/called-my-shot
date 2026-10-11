@@ -13,6 +13,7 @@ import {
 import { asc, inArray } from "drizzle-orm"
 import { db } from "../../../db"
 import { type Call, callRebalances } from "../../../db/schema"
+import { seasonPlayWeightOf } from "../../../lib/season-play"
 import { builder } from "../../builder"
 import type { Context } from "../../context"
 import { type Connection, PageInfoRef } from "../pagination"
@@ -28,11 +29,13 @@ import {
 	callStreakLoader,
 	loadQuestionFacts,
 	loadSeasonWindow,
-	optionSelectionCountLoader,
+	optionConvictionLoader,
 	questionCallCountLoader,
+	questionFieldConvictionLoader,
 	questionOptionCountLoader,
 	questionOptionLoader,
 } from "./loaders"
+import { callSeasonPlay, SeasonPlayRef } from "./season-play"
 
 // How far into a streak a call was when it landed - see Call.streak.
 const CallStreakMarkRef = builder
@@ -88,7 +91,11 @@ export async function pendingPayout(
 	const question = await loadQuestionFacts(ctx, call.questionId)
 	if (!question) return null
 	if (question.status !== "open" && question.status !== "locked") return null
-	const basePoints = basePointsFor(question)
+	// A season-long call is worth its share of the full points at its
+	// caller's pace so far - see seasonPlayWeight.
+	const play = await callSeasonPlay(ctx, call)
+	const basePoints =
+		basePointsFor(question) * (play ? seasonPlayWeightOf(play) : 1)
 	const [rank, callCount] = await Promise.all([
 		callRankLoader(ctx).load(call.id),
 		questionCallCountLoader(ctx).load(call.questionId),
@@ -112,18 +119,20 @@ export async function pendingPayout(
 
 	const [selection, ...rest] = await callSelectionsLoader(ctx).load(call.id)
 	if (!selection || rest.length > 0 || callCount === 0) return null
-	const [option, optionCalls, optionCount, window] = await Promise.all([
-		questionOptionLoader(ctx).load(selection.optionId),
-		optionSelectionCountLoader(ctx).load(selection.optionId),
-		questionOptionCountLoader(ctx).load(call.questionId),
-		isSeasonLongShape(question.shape)
-			? callSeasonWindow(ctx, call)
-			: Promise.resolve(null),
-	])
+	const [option, optionConviction, fieldConviction, optionCount, window] =
+		await Promise.all([
+			questionOptionLoader(ctx).load(selection.optionId),
+			optionConvictionLoader(ctx).load(selection.optionId),
+			questionFieldConvictionLoader(ctx).load(call.questionId),
+			questionOptionCountLoader(ctx).load(call.questionId),
+			isSeasonLongShape(question.shape)
+				? callSeasonWindow(ctx, call)
+				: Promise.resolve(null),
+		])
 	const preview = previewSelectionPoints(
 		basePoints,
 		effectiveLossRate(question.lossRate, option?.lossRate),
-		fieldPct(optionCalls, callCount),
+		fieldPct(optionConviction, fieldConviction),
 		optionCount,
 		selection.conviction,
 		window
@@ -276,6 +285,13 @@ export const CallRef = builder.drizzleObject("calls", {
 				const window = await callSeasonWindow(ctx, call)
 				return window?.total ?? null
 			},
+		}),
+		// How regularly the caller plays the league, on a season-long call -
+		// see SeasonPlay. Null on any other call.
+		seasonPlay: t.field({
+			type: SeasonPlayRef,
+			nullable: true,
+			resolve: (call, _args, ctx) => callSeasonPlay(ctx, call),
 		}),
 		user: t.relation("user"),
 		question: t.relation("question"),

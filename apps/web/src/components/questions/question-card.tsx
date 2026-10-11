@@ -37,6 +37,11 @@ export const QuestionCardFragment = graphql(`
 		picksRequired
 		lossRate
 		isOfficial
+		isPriced
+		fieldConviction
+		viewerSeasonPlay {
+			weight
+		}
 		seasonGamesPlayed
 		seasonTotalGames
 		guessDistribution {
@@ -57,6 +62,7 @@ export const QuestionCardFragment = graphql(`
 			label
 			fieldPct
 			callCount
+			convictionTotal
 			lossRate
 			winMult
 			modelHitRate

@@ -43,7 +43,7 @@ export type RecomputeOptions = {
 
 type LoadedSelection = {
 	conviction: number
-	option: { isCorrect: boolean | null } | null
+	option: { isCorrect: boolean | null; modelHitRate: number | null } | null
 }
 
 const selectionsCorrect = (selections: LoadedSelection[]) =>
@@ -55,7 +55,12 @@ const callCommitted = (
 	question: { shape: QuestionShape; isOfficial: boolean },
 	call: { conviction: number | null; selections: LoadedSelection[] },
 ) => {
-	const base = basePointsFor(question)
+	// Every option of a priced question carries the model's chance, so the
+	// call's own picks say whether it was.
+	const base = basePointsFor({
+		...question,
+		isPriced: call.selections.some((s) => s.option?.modelHitRate != null),
+	})
 	return isNumericGuessShape(question.shape)
 		? pointsCommitted(base, call.conviction ?? 0)
 		: call.selections.reduce(
@@ -105,7 +110,9 @@ export async function recomputeStreakTrack(
 		with: {
 			selections: {
 				columns: { id: true, conviction: true },
-				with: { option: { columns: { isCorrect: true } } },
+				with: {
+					option: { columns: { isCorrect: true, modelHitRate: true } },
+				},
 			},
 			question: {
 				columns: {
@@ -459,7 +466,13 @@ export function loadSlateGames(
 							selections: {
 								columns: { id: true, conviction: true },
 								with: {
-									option: { columns: { isCorrect: true, teamId: true } },
+									option: {
+										columns: {
+											isCorrect: true,
+											teamId: true,
+											modelHitRate: true,
+										},
+									},
 								},
 							},
 						},

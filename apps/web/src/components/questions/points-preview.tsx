@@ -16,9 +16,11 @@ type Props =
 	  }
 	| {
 			kind: "option"
-			// null = nothing picked yet, distinct from a genuinely new pick
-			// (fieldPct 0 - nobody's picked it yet either, but it IS a pick).
-			fieldPct: number | null
+			// The picked option's share of the field's conviction, the share
+			// boldness is read off (see previewCrowdPct). null = nothing picked
+			// yet, distinct from a genuinely new pick (0 - nobody's picked it
+			// yet either, but it IS a pick).
+			crowdPct: number | null
 			totalOptions: number
 			conviction: number
 			basePoints: number
@@ -62,7 +64,7 @@ export function PointsPreview(props: Props) {
 		)
 	}
 
-	if (props.fieldPct === null) {
+	if (props.crowdPct === null) {
 		return (
 			<PointsPreviewShell
 				tierText="Pick an option to see the points"
@@ -75,27 +77,33 @@ export function PointsPreview(props: Props) {
 	const preview = previewSelectionPoints(
 		props.basePoints,
 		props.lossRate,
-		props.fieldPct,
+		props.crowdPct,
 		props.totalOptions,
 		props.conviction,
 		props.earlyTier,
 		props.pricing,
 	)
-	const earlyText =
+	const { tier } = preview
+	const early =
 		preview.earlyTier.mult > 1
-			? ` · ×${formatMult(preview.earlyTier.mult)} early`
-			: ""
+			? `×${formatMult(preview.earlyTier.mult)} early`
+			: null
 	// A priced side's price sits on one half: the underdog's on its hit, the
-	// favorite's on its miss (see sidePrice). Each is named in its own box.
+	// favorite's on its miss (see sidePrice). Each is named in its own box. It
+	// has no boldness tier: the price already pays for how unlikely it is.
 	const isFavorite = (props.pricing?.modelHitRate ?? 0) > 0.5
+	const bonuses = [
+		...(tier ? [`×${formatMult(tier.mult)} boldness`] : []),
+		...(early ? [early] : []),
+	]
 	return (
 		<PointsPreviewShell
 			tierText={
 				props.pricing?.modelHitRate != null
-					? `${preview.tier.label} · ${Math.round(props.fieldPct)}% of the field · ${Math.round(props.pricing.modelHitRate * 100)}% expected`
-					: `${preview.tier.label} · ${Math.round(props.fieldPct)}% of the field agrees`
+					? `${Math.round(props.crowdPct)}% of points on this side · ${Math.round(props.pricing.modelHitRate * 100)}% expected`
+					: `${tier?.label ?? ""} · ${Math.round(props.crowdPct)}% of points on this side`
 			}
-			tierVal={`×${formatMult(preview.tier.mult)} boldness${earlyText} bonus`}
+			tierVal={bonuses.length > 0 ? `${bonuses.join(" · ")} bonus` : undefined}
 			winText={`+${preview.win}`}
 			winNote={
 				preview.winMult > 1

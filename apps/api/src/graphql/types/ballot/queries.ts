@@ -35,11 +35,11 @@ builder.queryFields((t) => ({
 		},
 	}),
 
-	// The league room's Season tab - published ballots for one league, plain
+	// The league room's Ballots tab - published ballots for one league, plain
 	// array like `leagues`/`sports` rather than a connection: a season's worth
 	// of award ballots for a single league is a handful of rows, not something
 	// worth paginating.
-	// The league room's Season tab - scoped to the current season (in
+	// The league room's Ballots tab - scoped to the current season (in
 	// progress, else soonest upcoming, else most recently completed - see
 	// getCurrentSeason) so a prior year's award ballots don't linger
 	// alongside this year's once a new season starts.

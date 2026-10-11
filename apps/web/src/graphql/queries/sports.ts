@@ -47,7 +47,6 @@ export const LeagueByIdDocument = graphql(`
 			slug
 			windowType
 			currentWindowGameCount
-			openCommunityQuestionCount
 			postseason {
 				roundLabels
 			}
@@ -502,27 +501,24 @@ export const LeagueGamesForWindowDocument = graphql(`
 	}
 `)
 
-// The league room's Season tab - published ballots plus every other official
-// question with no game behind it (award races today), both scoped
-// server-side to the current season (see currentSeasonOnly/leagueBallots' own
-// season filter) so a prior year's questions don't linger once a new season
-// starts - the current-season display itself lives in the room's shared
-// header instead (LeagueByIdDocument), not per-tab. excludeBallotMembers
-// keeps a question that's already grouped inside one of those ballots from
-// also showing again as a standalone card below it - the ballot card is where
-// it's meant to be called from.
-// Bounded to 50: a season's worth of official singles for one league is never
-// close to that, so no pagination UI is built for this tab.
-export const LeagueSeasonDocument = graphql(`
-	query LeagueSeason($leagueId: ID!) {
+// The league room's Ballots tab - published ballots plus every award and
+// title question outside them, official and player-written alike, both
+// scoped server-side to the current season (see currentSeasonOnly/
+// leagueBallots' own season filter) so a prior year's questions don't linger
+// once a new season starts. excludeBallotMembers keeps a question that's
+// already grouped inside one of those ballots from also showing again as a
+// standalone card below it - the ballot card is where it's meant to be called
+// from. Bounded to 50: a season's awards for one league are never close to
+// that, so no pagination UI is built for this tab.
+export const LeagueBallotsDocument = graphql(`
+	query LeagueBallots($leagueId: ID!) {
 		leagueBallots(leagueId: $leagueId) {
 			id
 			...BallotCard_ballot
 		}
 		questions(
 			leagueId: $leagueId
-			isOfficial: true
-			seasonLong: true
+			shapes: [PLAYER_SEASON_AWARD, TEAM_SEASON_AWARD, PLAYER_AWARD_FINALISTS]
 			currentSeasonOnly: true
 			excludeBallotMembers: true
 			first: 50
@@ -535,7 +531,7 @@ export const LeagueSeasonDocument = graphql(`
 	}
 `)
 
-// Fired on keystroke (debounced) from the league Community tab's search box - a
+// Fired on keystroke (debounced) from a league question list's search box - a
 // bounded, server-side team/player autocomplete scoped to this league, same
 // shape the old cross-league home feed's search bar used before it was
 // rebuilt away (HomeSearchDocument, now deleted) - client-filtering the full
@@ -560,15 +556,15 @@ export const LeagueSearchDocument = graphql(`
 	}
 `)
 
-// The league room's Community tab - search/sort over the questions people
-// wrote, scoped to one fixed league (no league-selector tab here, you're
-// already in the room). Official questions never show here: game ones live on
-// each game's page, season-long ones on the Season tab. Locked questions are
-// excluded too - can't call them, and (no comments yet) there's nothing else
-// to do with one from a browse list either; resolved ones stay visible since
-// an outcome is still worth seeing.
-export const LeagueCommunityDocument = graphql(`
-	query LeagueCommunity(
+// The league room's Season tab - search/sort over one fixed league's
+// season-long questions that aren't awards, official and player-written
+// together (no league-selector here, you're already in the room). Locked
+// questions are excluded - can't call
+// them, and (no comments yet) there's nothing else to do with one from a
+// browse list either; resolved ones stay visible unless excludeSettled says
+// otherwise, since an outcome is still worth seeing.
+export const LeagueSeasonDocument = graphql(`
+	query LeagueSeason(
 		$leagueId: ID!
 		$first: Int
 		$after: String
@@ -577,6 +573,9 @@ export const LeagueCommunityDocument = graphql(`
 		$sort: QuestionSortOrder
 		$excludeSettled: Boolean
 		$currentSeasonOnly: Boolean
+		$seasonLong: Boolean
+		$excludeSeasonAwards: Boolean
+		$excludeBallotMembers: Boolean
 	) {
 		questions(
 			leagueId: $leagueId
@@ -585,7 +584,9 @@ export const LeagueCommunityDocument = graphql(`
 			teamId: $teamId
 			search: $search
 			sort: $sort
-			isOfficial: false
+			seasonLong: $seasonLong
+			excludeSeasonAwards: $excludeSeasonAwards
+			excludeBallotMembers: $excludeBallotMembers
 			excludeLocked: true
 			excludeSettled: $excludeSettled
 			currentSeasonOnly: $currentSeasonOnly
@@ -602,16 +603,25 @@ export const LeagueCommunityDocument = graphql(`
 	}
 `)
 
-// The Community tab's Closing Soon row. Its own document rather than
-// LeagueCommunity with sort: CLOSING_SOON, since that one backs an infinite
-// query and a plain query can't share its cache key.
-export const LeagueCommunityClosingSoonDocument = graphql(`
-	query LeagueCommunityClosingSoon($leagueId: ID!, $first: Int) {
+// The Season tab's Closing Soon row. Its own document rather than
+// LeagueSeason with sort: CLOSING_SOON, since that one backs an
+// infinite query and a plain query can't share its cache key. Takes the same
+// scope variables as the list it sits above.
+export const LeagueSeasonClosingSoonDocument = graphql(`
+	query LeagueSeasonClosingSoon(
+		$leagueId: ID!
+		$first: Int
+		$seasonLong: Boolean
+		$excludeSeasonAwards: Boolean
+		$excludeBallotMembers: Boolean
+	) {
 		questions(
 			leagueId: $leagueId
 			first: $first
 			sort: CLOSING_SOON
-			isOfficial: false
+			seasonLong: $seasonLong
+			excludeSeasonAwards: $excludeSeasonAwards
+			excludeBallotMembers: $excludeBallotMembers
 		) {
 			items {
 				id

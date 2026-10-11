@@ -6,6 +6,8 @@ import {
 	breakEvenHitRate,
 	breakEvenLossRate,
 	convictionEdge,
+	crowdTierFor,
+	crowdTotals,
 	defaultLossRate,
 	duelProbability,
 	pairedDuelProbability,
@@ -16,6 +18,7 @@ import {
 	leaderProbabilities,
 	hitTolerance,
 	isNumericGuessShape,
+	isPricedQuestion,
 	isSeasonLongShape,
 	LOSS_RATE_BY_SHAPE,
 	PLAYER_EDGE,
@@ -33,6 +36,8 @@ import {
 	shapesInFamily,
 	SIDE_WIN_MULT_MAX,
 	sidePrice,
+	SEASON_PLAY_FLOOR,
+	seasonPlayWeight,
 	sidePrices,
 	targetHitRate,
 	targetLossRate,
@@ -104,18 +109,41 @@ describe("BASE_POINTS_BY_SHAPE", () => {
 })
 
 describe("basePointsFor", () => {
-	it("scales every community question's base down", () => {
+	it("scales an unpriced community question's base down", () => {
 		for (const shape of ["yes_no_prop", "player_stat_numeric_guess"] as const) {
-			expect(basePointsFor({ shape, isOfficial: false })).toBe(
+			expect(basePointsFor({ shape, isOfficial: false, isPriced: false })).toBe(
 				BASE_POINTS_BY_SHAPE[shape] * COMMUNITY_POINTS_MULT,
 			)
 		}
 	})
 
+	it("leaves a priced community question at its shape's base", () => {
+		expect(
+			basePointsFor({
+				shape: "player_stat_over_under",
+				isOfficial: false,
+				isPriced: true,
+			}),
+		).toBe(BASE_POINTS_BY_SHAPE.player_stat_over_under)
+	})
+
 	it("leaves an official question at its shape's base", () => {
-		expect(basePointsFor({ shape: "yes_no_prop", isOfficial: true })).toBe(
-			BASE_POINTS_BY_SHAPE.yes_no_prop,
-		)
+		expect(
+			basePointsFor({
+				shape: "yes_no_prop",
+				isOfficial: true,
+				isPriced: false,
+			}),
+		).toBe(BASE_POINTS_BY_SHAPE.yes_no_prop)
+	})
+})
+
+describe("isPricedQuestion", () => {
+	it("is priced when any option carries the model's chance", () => {
+		expect(
+			isPricedQuestion([{ modelHitRate: 0.4 }, { modelHitRate: 0.6 }]),
+		).toBe(true)
+		expect(isPricedQuestion([{ modelHitRate: null }, {}])).toBe(false)
 	})
 })
 
@@ -409,6 +437,64 @@ describe("fieldPct", () => {
 	})
 })
 
+describe("seasonPlayWeight", () => {
+	it("counts in full from SEASON_PLAY_FULL_SHARE of the weeks up", () => {
+		expect(seasonPlayWeight(8, 10)).toBe(1)
+		expect(seasonPlayWeight(10, 10)).toBe(1)
+	})
+
+	it("scales down evenly below that", () => {
+		expect(seasonPlayWeight(4, 10)).toBeCloseTo(0.5, 10)
+		expect(seasonPlayWeight(2, 10)).toBeCloseTo(0.25, 10)
+	})
+
+	it("never drops under the floor", () => {
+		expect(seasonPlayWeight(0, 20)).toBe(SEASON_PLAY_FLOOR)
+	})
+
+	it("is full before any week counts", () => {
+		expect(seasonPlayWeight(0, 0)).toBe(1)
+	})
+})
+
+describe("crowdTotals", () => {
+	it("weights each option by the conviction behind it", () => {
+		const { byOption, field } = crowdTotals([
+			{ callId: "a", optionId: "x", conviction: 100 },
+			{ callId: "b", optionId: "y", conviction: 1 },
+			{ callId: "c", optionId: "y", conviction: 1 },
+		])
+		expect(byOption.get("x")).toBe(100)
+		expect(byOption.get("y")).toBe(2)
+		expect(field).toBe(102)
+		// Two throwaway calls on y leave x's pick looking popular, not rare.
+		expect(fieldPct(byOption.get("x") ?? 0, field)).toBeGreaterThan(98)
+	})
+
+	it("counts a multi-pick call once in the field, at its average conviction", () => {
+		const { byOption, field } = crowdTotals([
+			{ callId: "a", optionId: "x", conviction: 80 },
+			{ callId: "a", optionId: "y", conviction: 40 },
+		])
+		expect(byOption.get("x")).toBe(80)
+		expect(byOption.get("y")).toBe(40)
+		expect(field).toBe(60)
+	})
+})
+
+describe("crowdTierFor", () => {
+	it("has no tier on a priced side", () => {
+		expect(crowdTierFor(5, 2, { modelHitRate: 0.3 })).toBeNull()
+	})
+
+	it("reads an unpriced side off the field, as tierFor does", () => {
+		expect(crowdTierFor(5, 2)).toEqual(tierFor(5, 2))
+		expect(crowdTierFor(5, 2, { winMult: null, modelHitRate: null })).toEqual(
+			tierFor(5, 2),
+		)
+	})
+})
+
 describe("tierFor", () => {
 	// The binary-question points the curve's own documentation claims.
 	it.each([
@@ -449,21 +535,9 @@ describe("tierFor", () => {
 		}
 	})
 
-	it("measures a priced side against the model's chance", () => {
-		// An underdog the model gives 25%, called by 25% of the field, is
-		// exactly as popular as expected.
-		expect(tierFor(25, 2, 0.25).mult).toBe(TIER_MIN_MULT)
-		expect(tierFor(10, 2, 0.25).mult).toBeCloseTo(tierFor(20, 2).mult, 10)
-		// A favorite the field faded below its price pays for it.
-		expect(tierFor(40, 2, 0.75).mult).toBeGreaterThan(TIER_MIN_MULT)
-		// An even price is an even split.
-		expect(tierFor(30, 2, 0.5).mult).toBe(tierFor(30, 2).mult)
-	})
-
-	it("expects an unpriced option at an even split", () => {
+	it("expects every option at an even split", () => {
 		expect(expectedFieldShare(2)).toBe(0.5)
-		expect(expectedFieldShare(4, null)).toBe(0.25)
-		expect(expectedFieldShare(2, 0.8)).toBe(0.8)
+		expect(expectedFieldShare(4)).toBe(0.25)
 	})
 
 	it("labels by multiplier band", () => {
@@ -620,6 +694,13 @@ describe("selectionPoints", () => {
 		).toBe(selectionPoints(base, lossRate, 50, 2, 100, false, 1))
 	})
 
+	it("pays a priced side no boldness, however few people called it", () => {
+		const priced = { winMult: 1.84, modelHitRate: 0.3 }
+		expect(selectionPoints(base, lossRate, 1, 2, 100, true, 1.5, priced)).toBe(
+			Math.round(base * 1.84 * 1.5),
+		)
+	})
+
 	it("multiplies the two bonuses together on a win", () => {
 		const tier = tierFor(10, 2).mult
 		expect(selectionPoints(base, lossRate, 10, 2, 100, true, 1.5)).toBe(
@@ -720,6 +801,24 @@ describe("numericGuessPoints", () => {
 			spec,
 		)
 		expect(results.map((r) => r.callId)).toEqual(["a", "b"])
+	})
+
+	it("reads closeness off the field's conviction, so a throwaway guess barely counts", () => {
+		const [exact, , throwaway] = numericGuessPoints(
+			base,
+			lossRate,
+			[
+				guess("a", 100, 0),
+				{ ...guess("b", 100, 1), conviction: 50 },
+				{ ...guess("c", 101, 2), conviction: 1 },
+			],
+			100,
+			spec,
+		)
+		// 150 of the field's 151 conviction landed at least as close as the
+		// exact guesses, the throwaway's 1 among the rest.
+		expect(exact.closenessFieldPct).toBeCloseTo((150 / 151) * 100, 10)
+		expect(throwaway.closenessFieldPct).toBe(100)
 	})
 
 	it("charges a miss the stake at the loss rate and records no closeness", () => {

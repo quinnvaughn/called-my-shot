@@ -44,25 +44,27 @@ describe("hitMultiple", () => {
 })
 
 describe("optionPointsPreview", () => {
-	// A 7-1 split on who-wins, before the viewer has called it.
+	// A 7-1 split on who-wins at 50 conviction each, before the viewer has
+	// called it.
 	const question = {
 		shape: "TEAM_VS_TEAM" as const,
 		isOfficial: true,
+		isPriced: false,
 		lossRate: 0.96,
-		callCount: 8,
+		fieldConviction: 400,
 	}
 	const unpriced = { lossRate: null, winMult: null, modelHitRate: null }
 
 	it("pays the side the field left alone more than the one it piled onto", () => {
 		const underdog = optionPointsPreview(
 			question,
-			{ ...unpriced, callCount: 1 },
+			{ ...unpriced, convictionTotal: 50 },
 			2,
 			50,
 		)
 		const favorite = optionPointsPreview(
 			question,
-			{ ...unpriced, callCount: 7 },
+			{ ...unpriced, convictionTotal: 350 },
 			2,
 			50,
 		)
@@ -73,24 +75,24 @@ describe("optionPointsPreview", () => {
 	it("prices a side at its own win multiplier and loss rate", () => {
 		const priced = optionPointsPreview(
 			question,
-			{ callCount: 1, lossRate: 0.5, winMult: 1, modelHitRate: 0.3 },
+			{ convictionTotal: 50, lossRate: 0.5, winMult: 1, modelHitRate: 0.3 },
 			2,
 			50,
 		)
 		const unpricedSide = optionPointsPreview(
 			question,
-			{ ...unpriced, callCount: 1 },
+			{ ...unpriced, convictionTotal: 50 },
 			2,
 			50,
 		)
 		expect(priced.lose).toBeLessThan(unpricedSide.lose)
-		// The field took it about as often as its price expects, so its rarity
-		// pays less than it would unpriced.
+		// A priced side has no boldness, so its win pays less than the same
+		// share of the field pays unpriced.
 		expect(priced.win).toBeLessThan(unpricedSide.win)
 	})
 
-	it("pays an underdog's win multiplier on top of its rarity", () => {
-		const side = { callCount: 1, lossRate: 0.96, modelHitRate: 0.25 }
+	it("pays an underdog's win multiplier, with no boldness on a priced side", () => {
+		const side = { convictionTotal: 50, lossRate: 0.96, modelHitRate: 0.25 }
 		const underdog = optionPointsPreview(
 			question,
 			{ ...side, winMult: 1.84 },
@@ -100,11 +102,29 @@ describe("optionPointsPreview", () => {
 		const flat = optionPointsPreview(question, { ...side, winMult: 1 }, 2, 50)
 		expect(underdog.win).toBeGreaterThan(flat.win)
 		expect(underdog.lose).toBe(flat.lose)
+		expect(underdog.tier).toBeNull()
+	})
+
+	it("counts a priced community question at the full base, an unpriced one at less", () => {
+		const community = { ...question, isOfficial: false }
+		const side = { ...unpriced, convictionTotal: 50 }
+		const official = optionPointsPreview(question, side, 2, 50)
+		expect(
+			optionPointsPreview({ ...community, isPriced: true }, side, 2, 50).lose,
+		).toBe(official.lose)
+		expect(optionPointsPreview(community, side, 2, 50).lose).toBeLessThan(
+			official.lose,
+		)
 	})
 
 	it("scales with conviction", () => {
 		const at = (conviction: number) =>
-			optionPointsPreview(question, { ...unpriced, callCount: 1 }, 2, conviction)
+			optionPointsPreview(
+				question,
+				{ ...unpriced, convictionTotal: 50 },
+				2,
+				conviction,
+			)
 		expect(at(100).win).toBeGreaterThan(at(50).win)
 		expect(at(100).lose).toBeGreaterThan(at(50).lose)
 	})
@@ -116,10 +136,15 @@ describe("optionPointsPreview", () => {
 			seasonGamesPlayed: 0,
 			seasonTotalGames: 100,
 		}
-		const early = optionPointsPreview(season, { ...unpriced, callCount: 4 }, 2, 50)
+		const early = optionPointsPreview(
+			season,
+			{ ...unpriced, convictionTotal: 200 },
+			2,
+			50,
+		)
 		const late = optionPointsPreview(
 			{ ...season, seasonGamesPlayed: 100 },
-			{ ...unpriced, callCount: 4 },
+			{ ...unpriced, convictionTotal: 200 },
 			2,
 			50,
 		)

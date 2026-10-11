@@ -268,7 +268,8 @@ function RouteComponent() {
 
 			{!hasGames ? (
 				<EmptyState>
-					Nothing scheduled. Season questions are still open in the Season tab.
+					Nothing scheduled. Season questions and ballots are still open in
+					their own tabs.
 				</EmptyState>
 			) : (
 				result.groups.map((group, i) => (

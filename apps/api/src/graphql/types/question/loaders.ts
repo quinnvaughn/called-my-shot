@@ -1,4 +1,5 @@
 import {
+	isPricedQuestion,
 	isSeasonLongShape,
 	STREAK_TAG_MIN,
 	type StreakFamily,
@@ -99,6 +100,49 @@ export const questionCallCountLoader = ctxLoader(
 	},
 )
 
+// The boldness tier's numerator: the field's conviction behind each option -
+// see crowdTotals.
+export const optionConvictionLoader = ctxLoader(async (optionIds: string[]) => {
+	const rows = await db
+		.select({
+			optionId: callSelections.optionId,
+			total: sql<number>`sum(${callSelections.conviction})::int`,
+		})
+		.from(callSelections)
+		.where(inArray(callSelections.optionId, optionIds))
+		.groupBy(callSelections.optionId)
+	return indexByKey(optionIds, rows, (r) => r.optionId, null).map(
+		(r) => r?.total ?? 0,
+	)
+})
+
+// The boldness tier's denominator: each call's average conviction across its
+// selections, summed per question - see crowdTotals.
+export const questionFieldConvictionLoader = ctxLoader(
+	async (questionIds: string[]) => {
+		const perCall = db
+			.select({
+				questionId: calls.questionId,
+				average: sql<number>`avg(${callSelections.conviction})`.as("average"),
+			})
+			.from(calls)
+			.innerJoin(callSelections, eq(callSelections.callId, calls.id))
+			.where(inArray(calls.questionId, questionIds))
+			.groupBy(calls.questionId, calls.id)
+			.as("per_call")
+		const rows = await db
+			.select({
+				questionId: perCall.questionId,
+				total: sql<number>`sum(${perCall.average})::float8`,
+			})
+			.from(perCall)
+			.groupBy(perCall.questionId)
+		return indexByKey(questionIds, rows, (r) => r.questionId, null).map(
+			(r) => r?.total ?? 0,
+		)
+	},
+)
+
 // averageGuess/numericHitRatePct/guessDistribution all read the same rows,
 // so they share one batched query per request.
 export const questionGuessCallsLoader = ctxLoader(
@@ -131,8 +175,19 @@ const questionFactsLoader = ctxLoader(async (questionIds: string[]) => {
 			// can't tell that apart from one still running.
 			status: true,
 		},
+		// Whether its sides carry the model's price, which sets its base -
+		// see basePointsFor.
+		with: { options: { columns: { modelHitRate: true } } },
 	})
-	return indexByKey(questionIds, rows, (q) => q.id, undefined)
+	return indexByKey(
+		questionIds,
+		rows.map(({ options, ...question }) => ({
+			...question,
+			isPriced: isPricedQuestion(options),
+		})),
+		(q) => q.id,
+		undefined,
+	)
 })
 
 export function loadQuestionFacts(ctx: Context, questionId: string) {

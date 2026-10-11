@@ -418,7 +418,7 @@ async function sendOne(
 		...tag,
 		content: "games_row",
 	})
-	const seasonUrl = emailUrl(`${leaguePath}/season`, {
+	const seasonUrl = emailUrl(`${leaguePath}/ballots`, {
 		...tag,
 		content: "season_row",
 	})
@@ -429,7 +429,7 @@ async function sendOne(
 			emailUrl(`${leaguePath}/games`, { ...tag, content: "hero_games" }),
 		)
 		.with("season", () =>
-			emailUrl(`${leaguePath}/season`, { ...tag, content: "hero_season" }),
+			emailUrl(`${leaguePath}/ballots`, { ...tag, content: "hero_season" }),
 		)
 		.exhaustive()
 

@@ -1,14 +1,18 @@
 import {
 	basePointsFor,
 	earlyTierFor,
+	pointsAtStake,
 	previewSelectionPoints,
+	SEASON_PLAY_FLOOR,
 } from "@called-my-shot/scoring"
 import { describe, expect, it } from "vitest"
 import {
 	makeCall,
 	makeGame,
+	makeOption,
 	makeQuestion,
 	makeSeason,
+	makeSelection,
 	makeUser,
 	seedOptionQuestion,
 } from "../../../test/factories"
@@ -173,6 +177,73 @@ describe("season window counts", () => {
 	})
 })
 
+describe("season play", () => {
+	const SEASON_PLAY = /* GraphQL */ `
+		query SeasonPlay($id: ID!) {
+			question(id: $id) {
+				viewerSeasonPlay { weeksPlayed weeksCounted weight settled }
+				calls(first: 10) {
+					items {
+						seasonPlay { weeksPlayed weeksCounted weight settled }
+						payout { lose }
+					}
+				}
+			}
+		}
+	`
+
+	it("sizes a pending season call at its caller's pace so far", async () => {
+		const season = await makeSeason()
+		for (const daysAgo of [21, 14]) {
+			await makeGame({
+				leagueId: season.leagueId,
+				seasonId: season.id,
+				startsAt: hoursAgo(24 * daysAgo),
+				status: "final",
+			})
+		}
+		const question = await makeQuestion({
+			shape: "team_vs_team_season",
+			isOfficial: true,
+			leagueId: season.leagueId,
+			seasonId: season.id,
+			locksAt: hoursFromNow(48),
+		})
+		const option = await makeOption(question.id, { label: "A" })
+		await makeOption(question.id, { label: "B" })
+		const user = await makeUser()
+		const call = await makeCall(question.id, user.id)
+		await makeSelection(call.id, option.id, 100)
+
+		const data = await expectData<{
+			question: {
+				viewerSeasonPlay: Record<string, unknown> | null
+				calls: {
+					items: {
+						seasonPlay: Record<string, unknown> | null
+						payout: { lose: number } | null
+					}[]
+				}
+			}
+		}>(SEASON_PLAY, { as: user, variables: { id: question.id } })
+
+		// Two finished weeks of games, neither played: the floor.
+		const pace = {
+			weeksPlayed: 0,
+			weeksCounted: 2,
+			weight: SEASON_PLAY_FLOOR,
+			settled: false,
+		}
+		expect(data.question.viewerSeasonPlay).toEqual(pace)
+		const [row] = data.question.calls.items
+		expect(row?.seasonPlay).toEqual(pace)
+		const base = basePointsFor({ ...question, isPriced: false })
+		expect(row?.payout?.lose).toBe(
+			pointsAtStake(base * SEASON_PLAY_FLOOR, question.lossRate, 100),
+		)
+	})
+})
+
 describe("Call.currentRank and Call.payout", () => {
 	const RANK_AND_PAYOUT = /* GraphQL */ `
 		query RankAndPayout($id: ID!) {
@@ -189,7 +260,7 @@ describe("Call.currentRank and Call.payout", () => {
 		payout: { winLow: number; winHigh: number; lose: number } | null
 	}
 
-	it("ranks each call by when it was made and prices it off the field as it stands", async () => {
+	it("ranks each call by when it was made and prices it off the field's conviction as it stands", async () => {
 		const { question, callers } = await seedOptionQuestion({
 			callers: [
 				{ optionIndex: 0, conviction: 80, createdAt: hoursAgo(3) },
@@ -203,11 +274,12 @@ describe("Call.currentRank and Call.payout", () => {
 		}>(RANK_AND_PAYOUT, { variables: { id: question.id } })
 		const byId = new Map(data.question.calls.items.map((c) => [c.id, c]))
 
-		const basePoints = basePointsFor(question)
+		const basePoints = basePointsFor({ ...question, isPriced: false })
+		// 180 of the field's 230 conviction is on the first option.
 		const expectations = [
-			{ rank: 1, fieldPct: (2 / 3) * 100, conviction: 80 },
-			{ rank: 2, fieldPct: (1 / 3) * 100, conviction: 50 },
-			{ rank: 3, fieldPct: (2 / 3) * 100, conviction: 100 },
+			{ rank: 1, fieldPct: (180 / 230) * 100, conviction: 80 },
+			{ rank: 2, fieldPct: (50 / 230) * 100, conviction: 50 },
+			{ rank: 3, fieldPct: (180 / 230) * 100, conviction: 100 },
 		]
 		for (const [index, expected] of expectations.entries()) {
 			const row = byId.get(callers[index].call.id)

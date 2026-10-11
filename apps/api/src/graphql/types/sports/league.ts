@@ -137,9 +137,9 @@ export const LeagueRef = builder.drizzleObject("leagues", {
 				return row?.locksAt ? new Date(row.locksAt) : null
 			},
 		}),
-		// Community questions in this league that can still be called, for the
-		// league room's Community tab label. locksAt as well as status, since
-		// lock-overdue-questions only flips "open" to "locked" every 15 minutes.
+		// Community questions in this league that can still be called.
+		// locksAt as well as status, since lock-overdue-questions only flips
+		// "open" to "locked" every 15 minutes.
 		openCommunityQuestionCount: t.field({
 			type: "Int",
 			resolve: async (league) => {

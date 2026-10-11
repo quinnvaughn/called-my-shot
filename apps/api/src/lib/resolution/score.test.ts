@@ -5,7 +5,6 @@ import {
 	LOSS_RATE_BY_SHAPE,
 	pointsAtStake,
 	selectionPoints,
-	tierFor,
 } from "@called-my-shot/scoring"
 import { describe, expect, it } from "vitest"
 import type { LeagueStatDelta } from "../user-season-stats"
@@ -69,18 +68,12 @@ function scoreYesNo(
 		isOfficial?: boolean
 	} = {},
 ) {
-	const countByOption = new Map<string, number>()
-	for (const s of selections) {
-		countByOption.set(s.optionId, (countByOption.get(s.optionId) ?? 0) + 1)
-	}
 	return scoreSelections({
 		shape: "yes_no_prop",
 		isOfficial: extra.isOfficial ?? true,
 		lossRate: LOSS_RATE,
 		options: yesNo(extra.wasCorrect),
 		correctOptionIds: [correct],
-		totalCalls: selections.length,
-		countByOption,
 		selections,
 		earliness: { by: "rank", totalCalls: selections.length },
 		unscoredUserIds: extra.unscoredUserIds,
@@ -116,13 +109,36 @@ describe("scoreSelections", () => {
 		expect(pointsOf(result, "b-no")).toBe(miss(100))
 	})
 
+	it("reads boldness off the field's conviction, not its head count", () => {
+		// Two throwaway calls on "no" don't make a full-conviction "yes" rare.
+		const result = scoreYesNo(
+			[
+				pick("a", "yes", { createdAt: at(1) }),
+				pick("b", "no", { conviction: 1, createdAt: at(2) }),
+				pick("c", "no", { conviction: 1, createdAt: at(3) }),
+			],
+			"yes",
+		)
+		expect(pointsOf(result, "a-yes")).toBe(
+			selectionPoints(
+				BASE,
+				LOSS_RATE,
+				(100 / 102) * 100,
+				2,
+				100,
+				true,
+				earlyTierFor(1, 3).mult,
+			),
+		)
+	})
+
 	it("scales a win by conviction", () => {
 		const points = (conviction: number) =>
 			pointsOf(
 				scoreYesNo(
 					[
 						pick("a", "yes", { conviction, createdAt: at(1) }),
-						pick("b", "no", { createdAt: at(2) }),
+						pick("b", "no", { conviction, createdAt: at(2) }),
 					],
 					"yes",
 				),
@@ -150,7 +166,11 @@ describe("scoreSelections", () => {
 			"yes",
 			{ isOfficial: false },
 		)
-		const base = basePointsFor({ shape: "yes_no_prop", isOfficial: false })
+		const base = basePointsFor({
+			shape: "yes_no_prop",
+			isOfficial: false,
+			isPriced: false,
+		})
 		expect(base).toBeLessThan(BASE)
 		expect(pointsOf(result, "a-yes")).toBe(
 			selectionPoints(
@@ -182,11 +202,6 @@ describe("scoreSelections", () => {
 				{ id: "under", isCorrect: null, lossRate: null },
 			],
 			correctOptionIds: ["under"],
-			totalCalls: 2,
-			countByOption: new Map([
-				["over", 1],
-				["under", 1],
-			]),
 			selections,
 			earliness: { by: "rank", totalCalls: 2 },
 		})
@@ -201,11 +216,6 @@ describe("scoreSelections", () => {
 				{ id: "under", isCorrect: null, lossRate: null },
 			],
 			correctOptionIds: ["over"],
-			totalCalls: 2,
-			countByOption: new Map([
-				["over", 1],
-				["under", 1],
-			]),
 			selections,
 			earliness: { by: "rank", totalCalls: 2 },
 		})
@@ -213,10 +223,40 @@ describe("scoreSelections", () => {
 		expect(pointsOf(flipped, "b-under")).toBe(-Math.round(BASE * 0.5))
 	})
 
-	it("pays a priced underdog's win multiplier, measuring its rarity against its price", () => {
-		// The underdog's model chance is 25% and a quarter of the field took
-		// it, so being in the minority pays less than it would on an unpriced
-		// question: the side's bigger win already pays for that.
+	it("scores a priced community question at the full base", () => {
+		const result = scoreSelections({
+			shape: "player_vs_player",
+			isOfficial: false,
+			lossRate: 1,
+			options: [
+				{
+					id: "a",
+					isCorrect: null,
+					winMult: 1,
+					lossRate: 0.96,
+					modelHitRate: 0.5,
+				},
+				{
+					id: "b",
+					isCorrect: null,
+					winMult: 1,
+					lossRate: 0.96,
+					modelHitRate: 0.5,
+				},
+			],
+			correctOptionIds: ["a"],
+			selections: [pick("x", "a"), pick("y", "b")],
+			earliness: { by: "rank", totalCalls: 2 },
+		})
+		expect(pointsOf(result, "y-b")).toBe(
+			-pointsAtStake(BASE_POINTS_BY_SHAPE.player_vs_player, 0.96, 100),
+		)
+	})
+
+	it("pays a priced underdog's win multiplier and no boldness", () => {
+		// A quarter of the field took the underdog, which would pay a boldness
+		// bonus on an unpriced question. Its bigger win already pays for how
+		// unlikely it was.
 		const selections = [
 			pick("a", "underdog", { createdAt: at(1) }),
 			pick("b", "favorite", { createdAt: at(2) }),
@@ -244,11 +284,6 @@ describe("scoreSelections", () => {
 				},
 			],
 			correctOptionIds: ["underdog"],
-			totalCalls: 4,
-			countByOption: new Map([
-				["underdog", 1],
-				["favorite", 3],
-			]),
 			selections,
 			earliness: { by: "rank", totalCalls: 4 },
 		})
@@ -257,15 +292,8 @@ describe("scoreSelections", () => {
 		const pricing = { winMult: 1.84, modelHitRate: 0.25 }
 		const priced = selectionPoints(base, 0.96, 25, 2, 100, true, early, pricing)
 		expect(pointsOf(result, "a-underdog")).toBe(priced)
-		expect(priced).toBe(
-			Math.round(
-				base * 1.84 * tierFor(25, 2, 0.25).mult * early,
-			),
-		)
-		expect(tierFor(25, 2, 0.25).mult).toBeLessThan(tierFor(25, 2).mult)
-		expect(pointsOf(result, "b-favorite")).toBe(
-			-pointsAtStake(base, 1.8, 100),
-		)
+		expect(priced).toBe(Math.round(base * 1.84 * early))
+		expect(pointsOf(result, "b-favorite")).toBe(-pointsAtStake(base, 1.8, 100))
 	})
 
 	it("banks conviction behind a hit on both sums and a miss on the total only", () => {
@@ -305,11 +333,6 @@ describe("scoreSelections", () => {
 				{ id: "y", isCorrect: null },
 			],
 			correctOptionIds: ["x"],
-			totalCalls: 1,
-			countByOption: new Map([
-				["x", 1],
-				["y", 1],
-			]),
 			selections,
 			earliness: { by: "season", games: [] },
 		})

@@ -14,6 +14,7 @@ import {
 } from "#/lib/win-total-tracker"
 import { GuessDistributionChart } from "../guess-distribution-chart"
 import { PointsPreview } from "../points-preview"
+import { SeasonPlayNote } from "../season-play-note"
 import { CaseField } from "./case-field"
 import type { CastCallFormState } from "./use-cast-call-form"
 
@@ -376,9 +377,21 @@ export function NumericGuessFields({ callForm }: Props) {
 						<PointsPreview
 							kind="numeric"
 							conviction={numericConviction ?? 50}
-							basePoints={basePointsFor({ shape, isOfficial: question.isOfficial })}
+							basePoints={
+								basePointsFor({
+									shape,
+									isOfficial: question.isOfficial,
+									isPriced: question.isPriced,
+								}) * (question.viewerSeasonPlay?.weight ?? 1)
+							}
 							lossRate={question.lossRate}
 						/>
+						{question.viewerSeasonPlay && (
+							<SeasonPlayNote
+								play={question.viewerSeasonPlay}
+								league={question.league.abbreviation}
+							/>
+						)}
 					</VStack>
 				</Card.Body>
 			</Card>

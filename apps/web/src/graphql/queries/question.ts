@@ -160,10 +160,21 @@ export const QuestionDetailDocument = graphql(`
 				closenessMult
 				closenessFieldPct
 				caseText
+				seasonPlay {
+					weight
+					weeksPlayed
+					weeksCounted
+					settled
+				}
 				question {
 					id
 					shape
 					isOfficial
+					isPriced
+					league {
+						id
+						abbreviation
+					}
 					ouLine
 					lossRate
 				}
@@ -176,6 +187,7 @@ export const QuestionDetailDocument = graphql(`
 						label
 						isCorrect
 						fieldPct
+						crowdPct
 						lossRate
 						winMult
 						modelHitRate

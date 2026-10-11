@@ -27,6 +27,7 @@ import {
 	scoreSelections,
 	type UnscoredOverrides,
 } from "./resolution/score"
+import { seasonPlayWeightsFor } from "./season-play"
 import { markSettleFollowups } from "./settle-followups"
 import {
 	addLeagueStatDelta,
@@ -287,8 +288,13 @@ async function scoreGuessCalls(
 			hitTolerance: true,
 			unscoredReason: true,
 			createdAt: true,
+			seasonPlayWeeksPlayed: true,
+			seasonPlayWeeksCounted: true,
 		},
 	})
+	const weightByCallId = isSeasonLongShape(question.shape)
+		? await seasonPlayWeightsFor(tx, question, guessCalls)
+		: undefined
 	const { updates, tally } = scoreGuesses({
 		shape: question.shape,
 		isOfficial: question.isOfficial,
@@ -297,6 +303,7 @@ async function scoreGuessCalls(
 		actualValue: data.actualValue as number,
 		calls: guessCalls,
 		unscoredUserIds,
+		weightByCallId,
 	})
 	for (const { callId, set } of updates) {
 		await tx.update(calls).set(set).where(eq(calls.id, callId))
@@ -374,13 +381,6 @@ async function scoreOptionCalls(
 		.from(calls)
 		.where(eq(calls.questionId, question.id))
 
-	const perOptionCounts = await tx
-		.select({ optionId: callSelections.optionId, n: count() })
-		.from(callSelections)
-		.innerJoin(calls, eq(calls.id, callSelections.callId))
-		.where(eq(calls.questionId, question.id))
-		.groupBy(callSelections.optionId)
-
 	const rawSelections = await tx.query.callSelections.findMany({
 		where: { call: { questionId: question.id } },
 		columns: {
@@ -396,6 +396,8 @@ async function scoreOptionCalls(
 					userId: true,
 					createdAt: true,
 					unscoredReason: true,
+					seasonPlayWeeksPlayed: true,
+					seasonPlayWeeksCounted: true,
 				},
 			},
 		},
@@ -430,11 +432,14 @@ async function scoreOptionCalls(
 		lossRate: question.lossRate,
 		options,
 		correctOptionIds: data.correctOptionIds,
-		totalCalls,
-		countByOption: new Map(perOptionCounts.map((r) => [r.optionId, r.n])),
 		selections,
 		earliness,
 		unscoredUserIds,
+		weightByCallId: isSeasonLongShape(question.shape)
+			? await seasonPlayWeightsFor(tx, question, [
+					...new Map(selections.map((s) => [s.call.id, s.call])).values(),
+				])
+			: undefined,
 	})
 
 	for (const { selectionId, resultPoints } of scored.selectionPoints) {

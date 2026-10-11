@@ -8,6 +8,7 @@ import {
 	BASE_POINTS_BY_SHAPE,
 	COMMUNITY_POINTS_MULT,
 	type ContrarianTier,
+	crowdTierFor,
 	type EarlyTier,
 	earlyTierFor,
 	effectiveLossRate,
@@ -30,6 +31,7 @@ export type {
 	ToleranceSpec,
 }
 export {
+	crowdTierFor,
 	earlyTierFor,
 	isSeasonLongShape,
 	previewNumericPoints,
@@ -53,6 +55,19 @@ export function previewFieldPct(
 	totalCalls: number,
 ): number {
 	return ((optionCallCount + 1) / (totalCalls + 1)) * 100
+}
+
+// The boldness tier's share of the field, which is read off the field's
+// conviction (see crowdTotals) rather than its head count, simulated the same
+// way as previewFieldPct: as if this call, at `conviction`, were already in.
+export function previewCrowdPct(
+	optionConviction: number,
+	fieldConviction: number,
+	conviction: number,
+): number {
+	return (
+		((optionConviction + conviction) / (fieldConviction + conviction)) * 100
+	)
 }
 
 // Both multipliers come off continuous power curves (tierFor/earlyTierFor),
@@ -110,9 +125,10 @@ const BASE_POINTS_BY_GQL_SHAPE: Record<QuestionShape, number> = {
 export function basePointsForGql(
 	shape: QuestionShape,
 	isOfficial: boolean,
+	isPriced: boolean,
 ): number {
 	const base = BASE_POINTS_BY_GQL_SHAPE[shape]
-	return isOfficial ? base : base * COMMUNITY_POINTS_MULT
+	return isOfficial || isPriced ? base : base * COMMUNITY_POINTS_MULT
 }
 
 // Mirrors SEASON_LONG_SHAPES/isSeasonLongShape in @called-my-shot/scoring -
@@ -217,7 +233,7 @@ export function hitMultiple(
 export const DEFAULT_CONVICTION = 50
 
 // What picking one option would pay if right and cost if wrong at
-// `conviction`, as if this call were already in (see previewFieldPct): the
+// `conviction`, as if this call were already in (see previewCrowdPct): the
 // numbers an option row shows before anything is picked, and the same ones
 // PointsPreview shows once it is. Season-long shapes take their early bonus
 // from games played so far, which exists before a call does; a game-scoped
@@ -226,13 +242,17 @@ export function optionPointsPreview(
 	question: {
 		shape: QuestionShape
 		isOfficial: boolean
+		isPriced: boolean
 		lossRate: number
-		callCount: number
+		fieldConviction: number
+		// A season-long question's share of its full points at the viewer's
+		// pace so far - see SeasonPlay. Null or missing is all of them.
+		viewerSeasonPlay?: { weight: number } | null
 		seasonGamesPlayed?: number | null
 		seasonTotalGames?: number | null
 	},
 	option: {
-		callCount: number
+		convictionTotal: number
 		lossRate: number | null
 		winMult: number | null
 		modelHitRate: number | null
@@ -248,9 +268,14 @@ export function optionPointsPreview(
 			? seasonEarlyTierFor(seasonGamesPlayed, seasonTotalGames)
 			: undefined
 	return previewSelectionPoints(
-		basePointsForGql(question.shape, question.isOfficial),
+		basePointsForGql(question.shape, question.isOfficial, question.isPriced) *
+			(question.viewerSeasonPlay?.weight ?? 1),
 		effectiveLossRate(question.lossRate, option.lossRate),
-		previewFieldPct(option.callCount, question.callCount),
+		previewCrowdPct(
+			option.convictionTotal,
+			question.fieldConviction,
+			conviction,
+		),
 		totalOptions,
 		conviction,
 		earlyTier,

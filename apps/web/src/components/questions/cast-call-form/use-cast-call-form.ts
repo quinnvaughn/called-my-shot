@@ -30,12 +30,19 @@ export const CastCallFormFragment = graphql(`
 		lossRate
 		picksRequired
 		callCount
+		fieldConviction
 		isOfficial
+		isPriced
 		# Named in the walkthrough's closing modal, which tells a first-time
 		# caller where the result is going to come from.
 		resolutionSource
 		seasonGamesPlayed
 		seasonTotalGames
+		viewerSeasonPlay {
+			weeksPlayed
+			weeksCounted
+			weight
+		}
 		averageGuess
 		guessDistribution {
 			value
@@ -77,6 +84,7 @@ export const CastCallFormFragment = graphql(`
 			label
 			fieldPct
 			callCount
+			convictionTotal
 			lossRate
 			winMult
 			modelHitRate
@@ -181,7 +189,8 @@ export function isOverUnderShape(shape: QuestionCallShape): boolean {
 // player_season_stat_leader's curated one, whose order is just the sequence
 // the creator happened to add names in), so OptionPickerList defaults it to
 // popularity instead of creation order (see its own comment) to surface the
-// obvious picks before someone's made one.
+// obvious picks before someone's made one. A pool the model priced goes by
+// each option's chance instead (see OptionPickerList).
 export function isAwardShape(shape: QuestionCallShape): boolean {
 	return (
 		shape === "player_season_award" ||

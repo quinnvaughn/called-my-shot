@@ -28,7 +28,7 @@ const STATIC_PATHS = [
 // redirects to the games tab (see leagues/$leagueSlug/index.tsx), and a
 // sitemap entry that redirects is a warning in Search Console rather than an
 // indexed page.
-const LEAGUE_TABS = ["games", "community", "season"]
+const LEAGUE_TABS = ["games", "season", "ballots"]
 
 function escapeXml(value: string): string {
 	return value

@@ -1,15 +1,20 @@
 import {
 	BASE_POINTS_BY_SHAPE,
+	COMMUNITY_POINTS_MULT,
 	defaultLossRate,
 	EARLY_MAX_MULT,
 	LOSS_RATE_BY_SHAPE,
 	REDO_BALANCE_CAP,
 	SEASON_EARLY_MAX_MULT,
+	SEASON_PLAY_FLOOR,
+	SEASON_PLAY_FULL_SHARE,
+	SEASON_PLAY_WEEK_MIN_CALLS,
 	SIDE_LOSS_RATE_BOUNDS,
 	SIDE_WIN_MULT_MAX,
 	TIER_MAX_MULT,
 	TIER_MIN_MULT,
 	targetHitRate,
+	USER_LINE_CHANCE_BOUNDS,
 } from "@called-my-shot/scoring"
 import {
 	MIN_ACCOUNT_AGE_DAYS,
@@ -320,6 +325,14 @@ export function HowItWorksSections() {
 					question, made public under your handle. Every call you make is
 					attached to your track record, win or lose.
 				</P>
+				<P>
+					Each league sorts its questions by what they're about, not who asked
+					them. <B>Games</B> has every game, and each game's page has the
+					questions on it, ours and players'. <B>Season long</B> has questions
+					that run the whole season, like stat lines and head-to-heads.{" "}
+					<B>Ballots</B> has awards, win totals and titles. Questions from the
+					site carry an Official tag.
+				</P>
 			</Accordion>
 
 			<Accordion
@@ -333,9 +346,10 @@ export function HowItWorksSections() {
 					are leaning.
 				</P>
 				<P>
-					Your multiplier comes from the <B>field</B> (the real percentage of
-					other callers who picked the same thing you did), not from anything
-					set ahead of time. It only exists after people have actually called.
+					On a question with no price of its own, your multiplier comes from the{" "}
+					<B>field</B> (the real share of other callers' conviction on the same
+					thing you picked), not from anything set ahead of time. It only exists
+					after people have actually called.
 				</P>
 				<P>
 					When you miss, those points aren't going anywhere: there's no other
@@ -384,14 +398,16 @@ export function HowItWorksSections() {
 			>
 				<P>
 					Your tier isn't something you choose: it's set automatically by how
-					many other callers picked the same thing you did, measured against the
-					field's final makeup once the question resolves, and relative to how
-					many options the question even had (1-in-20 means something different
-					than 1-in-2). The rarer your pick, the higher the multiplier on a win,
-					scaling smoothly rather than in fixed steps. This applies to every
-					option-based shape: stat lines, props, head-to-head picks, award
-					finalists, and each pick within a season-long award. The numeric-guess
-					shapes work differently (see below).
+					much of the field's conviction went on the same thing you picked,
+					measured against the field's final makeup once the question resolves,
+					and relative to how many options the question even had (1-in-20 means
+					something different than 1-in-2). It counts conviction, not heads, so
+					a call made at 1% barely moves anyone else's tier. The rarer your
+					pick, the higher the multiplier on a win, scaling smoothly rather than
+					in fixed steps. This applies to every option-based shape: stat lines,
+					props, head-to-head picks, award finalists, and each pick within a
+					season-long award. The numeric-guess shapes work differently (see
+					below).
 				</P>
 				<CurveScale
 					labels={["SAFE", "STEADY", "BOLD", "DARING", "FEARLESS"]}
@@ -399,13 +415,9 @@ export function HowItWorksSections() {
 					ceilingMult={`×${TIER_MAX_MULT}`}
 				/>
 				<P>
-					On a question whose sides are priced (see below), boldness is
-					measured against each side's chance of hitting instead of an even
-					split. If a side has a 35% chance and 35% of callers took it, that's
-					×1: its higher payout on a hit already covers the risk. Boldness only
-					kicks in when fewer people took a side than its chance says they
-					should. That works for the favorite too: if a side with a 65% chance
-					only gets 40% of callers, everyone on it gets a bonus.
+					A question whose sides are priced (see below) has no boldness bonus.
+					Each side's price already pays for how unlikely it is, so how many
+					people took it doesn't change your points.
 				</P>
 				<P>
 					The multiplier only applies on a hit. Miss, and you lose what you
@@ -473,6 +485,16 @@ export function HowItWorksSections() {
 					slightly ahead. Everything past a two-option pick misses far more often than it hits, and the rarity
 					multiplier can't make up for that when only a few people have called.
 				</P>
+				<P>
+					A stat line or head-to-head someone writes is priced the same way as
+					ours, so it scores the same as ours. It has to be one the model reads
+					as close: if it gives either side less than{" "}
+					{Math.round(USER_LINE_CHANCE_BOUNDS.min * 100)}% or more than{" "}
+					{Math.round(USER_LINE_CHANCE_BOUNDS.max * 100)}%, it isn't accepted,
+					since past that the likelier side's miss can't cost enough to stay
+					fair. A question someone writes that can't be priced scores at{" "}
+					{Math.round(COMMUNITY_POINTS_MULT * 100)}% of its base.
+				</P>
 
 				<ExampleCard
 					label="Worked example: hit, near-fearless rarity"
@@ -519,10 +541,10 @@ export function HowItWorksSections() {
 					A numeric guess doesn't have a discrete field to compare against the
 					way an option-based shape does, so it can't use field share directly.
 					It asks the same underlying question a different way instead: once a
-					question resolves, how much of the <B>whole field</B> (not just the
-					people who also hit) guessed at least as close to the actual result as
-					you did? The smaller that share, the higher your multiplier, scaling
-					smoothly on the exact same{" "}
+					question resolves, how much of the <B>whole field's conviction</B>{" "}
+					(not just the people who also hit) guessed at least as close to the
+					actual result as you did? The smaller that share, the higher your
+					multiplier, scaling smoothly on the exact same{" "}
 					<B>
 						×{TIER_MIN_MULT} to ×{TIER_MAX_MULT}
 					</B>{" "}
@@ -586,6 +608,28 @@ export function HowItWorksSections() {
 					about some picks than others; that toggle just decides how the slider
 					fills in your picks before you submit. Every pick is still stored and
 					scored with its own conviction underneath.
+				</P>
+			</Accordion>
+
+			<Accordion
+				title="Season-long calls"
+				subtitle="Worth more the more weeks you play"
+			>
+				<P>
+					A season-long call settles once, at the end, so what it's worth
+					depends on how regularly you play that league. A week counts once you
+					make {SEASON_PLAY_WEEK_MIN_CALLS} game calls in that league. Play{" "}
+					{Math.round(SEASON_PLAY_FULL_SHARE * 100)}% or more of the weeks that
+					have had games and your season-long calls count in full. Below that
+					they scale down evenly, to as little as{" "}
+					{Math.round(SEASON_PLAY_FLOOR * 100)}% of their points if you never
+					play the league.
+				</P>
+				<P>
+					It scales the hit and the miss alike, and it's set when the question
+					resolves, so the weeks after you make a season-long call still count.
+					Only regular-season weeks with games count, and the week in progress
+					counts as soon as you've played it.
 				</P>
 			</Accordion>
 

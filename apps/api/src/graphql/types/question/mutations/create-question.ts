@@ -3,7 +3,11 @@ import {
 	createQuestionSchema,
 	resolutionModeFor,
 } from "@called-my-shot/schemas"
-import { defaultLossRate, isNumericGuessShape } from "@called-my-shot/scoring"
+import {
+	defaultLossRate,
+	isNumericGuessShape,
+	isWithinUserLineBounds,
+} from "@called-my-shot/scoring"
 import { db } from "../../../../db"
 import type { Player } from "../../../../db/schema"
 import { requireUser } from "../../../../lib/auth"
@@ -355,6 +359,26 @@ builder.mutationFields((t) => ({
 							seasonYear: gameRow.season.year,
 						})
 					: null
+			// A line or matchup the model prices too lopsided isn't asked at
+			// all - see USER_LINE_CHANCE_BOUNDS.
+			if (pricedLine && !isWithinUserLineBounds(pricedLine.pricing.pOver)) {
+				const range = pricedLine.openRange
+				throw ValidationError.field(
+					"ouLine",
+					range
+						? `That line is too lopsided to be a fair call. Set it between ${range.min} and ${range.max}.`
+						: "That line is too lopsided to be a fair call. Set it closer to the average.",
+				)
+			}
+			if (
+				pricedDuel?.some((side) => !isWithinUserLineBounds(side.modelHitRate))
+			) {
+				throw ValidationError.field(
+					"options",
+					`These two are too far apart in ${stat?.name.toLowerCase() ?? "this stat"} to be a fair matchup. Pick two players closer together.`,
+				)
+			}
+
 			const pOver = pricedLine?.pricing.pOver
 			const options = optionsFor(data, shapeContext).map((option, index) =>
 				pricedLine &&

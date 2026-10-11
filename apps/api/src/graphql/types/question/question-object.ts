@@ -43,14 +43,18 @@ import {
 } from "./enums"
 import { GroupPickTallyRef, loadViewerGroupPicks } from "./group-picks"
 import {
+	loadQuestionFacts,
 	loadSeasonWindow,
+	optionConvictionLoader,
 	optionSelectionCountLoader,
 	questionCallCountLoader,
+	questionFieldConvictionLoader,
 	questionGuessCallsLoader,
 	scoredOptionsLoader,
 	viewerStreakLoader,
 } from "./loaders"
 import { QuestionReportRef, ResolutionDisputeRef } from "./moderation-objects"
+import { paceFor, SeasonPlayRef } from "./season-play"
 import { StatContextRef } from "./stat-context"
 
 // The viewer's streak a question's result would extend or end - see
@@ -143,6 +147,26 @@ export const QuestionOptionRef = builder.drizzleObject("questionOptions", {
 				return fieldPct(selectionCount, questionCallCount)
 			},
 		}),
+		// The field's conviction behind this option, which the boldness tier
+		// reads its share off - see crowdTotals.
+		convictionTotal: t.int({
+			resolve: (option, _args, ctx) =>
+				optionConvictionLoader(ctx).load(option.id),
+		}),
+		// This option's share of the field's conviction, the share the
+		// boldness tier is scored against. Null until anyone has called.
+		crowdPct: t.field({
+			type: "Float",
+			nullable: true,
+			resolve: async (option, _args, ctx) => {
+				const [optionConviction, fieldConviction] = await Promise.all([
+					optionConvictionLoader(ctx).load(option.id),
+					questionFieldConvictionLoader(ctx).load(option.questionId),
+				])
+				if (fieldConviction === 0) return null
+				return fieldPct(optionConviction, fieldConviction)
+			},
+		}),
 	}),
 })
 
@@ -211,6 +235,12 @@ export const QuestionRef = builder.drizzleObject("questions", {
 		shape: t.field({ type: QuestionShape, resolve: (q) => q.shape }),
 		title: t.exposeString("title"),
 		isOfficial: t.exposeBoolean("isOfficial"),
+		// Whether its sides carry the model's price. With isOfficial and
+		// shape, what sets its base - see basePointsFor.
+		isPriced: t.boolean({
+			resolve: async (question, _args, ctx) =>
+				(await loadQuestionFacts(ctx, question.id))?.isPriced ?? false,
+		}),
 
 		// manual resolution - a human states where they checked, in their own
 		// words, rather than picking from a fixed source list
@@ -447,6 +477,13 @@ export const QuestionRef = builder.drizzleObject("questions", {
 			},
 		}),
 		callCount: t.relatedCount("calls"),
+		// Every call's average conviction, summed: the whole field the
+		// boldness tier measures each option's share against - see
+		// crowdTotals.
+		fieldConviction: t.float({
+			resolve: (question, _args, ctx) =>
+				questionFieldConvictionLoader(ctx).load(question.id),
+		}),
 		disputes: t.relation("disputes"),
 
 		// The stat context cards for this question, or null when there's
@@ -667,6 +704,15 @@ export const QuestionRef = builder.drizzleObject("questions", {
 		// exactly why it went unnoticed - every anonymous/dev-scale test of
 		// these lists looked fine. load() batches the whole page's questionIds
 		// into a single `IN (...)` query per request.
+		// How regularly the viewer plays this question's league, on a
+		// season-long question: what a call made now is worth at their pace so
+		// far - see SeasonPlay. Null signed out, and on any other question.
+		viewerSeasonPlay: t.field({
+			type: SeasonPlayRef,
+			nullable: true,
+			resolve: (question, _args, ctx) =>
+				ctx.user ? paceFor(ctx, question, ctx.user.id) : null,
+		}),
 		viewerCall: t.loadable({
 			type: CallRef,
 			nullable: true,

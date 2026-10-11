@@ -1,10 +1,11 @@
 import {
+	crowdTierFor,
 	effectiveLossRate,
 	type OptionPricing,
+	SEASON_PLAY_WEEK_MIN_CALLS,
 	TIER_MAX_MULT,
 	TIER_MIN_MULT,
 	type ToleranceSpec,
-	tierFor,
 	toleranceBand,
 } from "@called-my-shot/scoring"
 import { Link } from "@tanstack/react-router"
@@ -88,9 +89,19 @@ type ViewerCall = {
 	// nullability as closenessMult. Exists purely so the resolved-state
 	// breakdown can explain "why this multiplier" with a real number.
 	closenessFieldPct: number | null
+	// How regularly the viewer plays the league, on a season-long call - see
+	// SeasonPlay. Null on any other call.
+	seasonPlay: {
+		weight: number
+		weeksPlayed: number
+		weeksCounted: number
+		settled: boolean
+	} | null
 	question: {
 		shape: QuestionShape
 		isOfficial: boolean
+		isPriced: boolean
+		league: { abbreviation: string }
 		ouLine: number | null
 		// The share of committed points a miss costs - see Question.lossRate.
 		lossRate: number
@@ -106,6 +117,9 @@ type ViewerCall = {
 			label: string
 			isCorrect: boolean | null
 			fieldPct: number | null
+			// This option's share of the field's conviction, which its
+			// boldness is read off - see crowdTotals.
+			crowdPct: number | null
 			// This side's own price and the model's chance it hits, when the
 			// question's sides were priced, else null.
 			lossRate: number | null
@@ -816,8 +830,12 @@ function PickRows({
 	numericToleranceAbsolute: number | null
 	isRateStat: boolean
 }) {
-	const { shape, isOfficial, ouLine, lossRate } = call.question
-	const basePoints = basePointsForGql(shape, isOfficial)
+	const { shape, isOfficial, isPriced, ouLine, lossRate, league } =
+		call.question
+	const basePoints = basePointsForGql(shape, isOfficial, isPriced)
+	const play: SeasonPlayTerm = call.seasonPlay
+		? { ...call.seasonPlay, league: league.abbreviation }
+		: null
 
 	if (isNumericQuestionShape(shape)) {
 		const { guessValue, conviction } = call
@@ -834,6 +852,7 @@ function PickRows({
 						rank={call.currentRank}
 						totalCalls={callCount}
 						basePoints={basePoints}
+						play={play}
 						lossRate={lossRate}
 						result={numericRowResult(call, settled)}
 						hero={hero}
@@ -855,7 +874,7 @@ function PickRows({
 						ouLine,
 						isRateStat,
 					)}
-					fieldPct={selection.option.fieldPct}
+					crowdPct={selection.option.crowdPct}
 					totalOptions={totalOptions}
 					conviction={selection.conviction}
 					rank={call.currentRank}
@@ -864,6 +883,7 @@ function PickRows({
 					seasonGamesPlayed={call.seasonGamesPlayed}
 					seasonTotalGames={call.seasonTotalGames}
 					basePoints={basePoints}
+					play={play}
 					lossRate={effectiveLossRate(lossRate, selection.option.lossRate)}
 					pricing={selection.option}
 					// Several picks (player_season_award/team_season_award) need
@@ -943,24 +963,77 @@ const missNote = "boldness and early bonuses only pay out on a hit"
 
 // A priced underdog's own multiplier in a win's math, ahead of the bonuses.
 // Nothing on any other side, which pays 1x before them.
+// A season-long call's season-play weight, the weeks behind it and the league
+// they're counted in (see SeasonPlay). Null on any other call.
+type SeasonPlayTerm = {
+	weight: number
+	weeksPlayed: number
+	weeksCounted: number
+	settled: boolean
+	league: string
+} | null
+
+const weeksWord = (count: number) => (count === 1 ? "week" : "weeks")
+
+// The line a season-long pick carries under its points, so what play is doing
+// to them shows without opening the breakdown.
+function seasonPlayLine(play: SeasonPlayTerm): string | null {
+	if (!play) return null
+	const { weight, weeksPlayed, weeksCounted, league } = play
+	const share =
+		weight >= 1 ? "in full" : `for ${Math.round(weight * 100)}% of its points`
+	const weeks = `${weeksPlayed} of ${weeksCounted} ${league} ${weeksWord(weeksCounted)}`
+	if (play.settled) return `Counted ${share}: you played ${weeks}.`
+	if (weeksCounted === 0) {
+		return `Counts in full so far. Make ${SEASON_PLAY_WEEK_MIN_CALLS} ${league} game calls a week to keep it there.`
+	}
+	return weight >= 1
+		? `Counts in full at your ${league} pace: ${weeks} played. Make ${SEASON_PLAY_WEEK_MIN_CALLS} ${league} game calls a week to keep it there.`
+		: `Counts ${share} at your ${league} pace: ${weeks} played. Playing more weeks grows it.`
+}
+
 function underdogMath(winMult: number): string {
 	return winMult > 1 ? `× ${formatMult(winMult)} underdog ` : ""
 }
 
-function committedRow(
+// A season-long call's committed points carry its season-play weight (see
+// seasonPlayWeight), so every row built off committed carries it too, and
+// the weeks behind it get a row of their own.
+function committedRows(
 	basePoints: number,
 	conviction: number,
 	committed: number,
-): LedgerRow {
+	play: SeasonPlayTerm,
+): LedgerRow[] {
+	const playText = play ? ` × ${formatMult(play.weight)} season play` : ""
+	return [
+		{
+			label: "COMMITTED",
+			math: (
+				<>
+					<span className={mathDefault}>
+						{basePoints} × {conviction}% conviction{playText} ={" "}
+					</span>
+					<span className={mathDownside}>{committed}</span>
+				</>
+			),
+		},
+		...(play ? [seasonPlayRow(play)] : []),
+	]
+}
+
+function seasonPlayRow(play: NonNullable<SeasonPlayTerm>): LedgerRow {
+	const { weeksPlayed, weeksCounted, league } = play
+	const weeks =
+		weeksCounted === 0
+			? `no ${league} weeks yet`
+			: `${weeksPlayed} of ${weeksCounted} ${league} ${weeksWord(weeksCounted)} ${play.settled ? "played" : "so far"}`
 	return {
-		label: "COMMITTED",
+		label: "SEASON PLAY",
 		math: (
-			<>
-				<span className={mathDefault}>
-					{basePoints} × {conviction}% conviction ={" "}
-				</span>
-				<span className={mathDownside}>{committed}</span>
-			</>
+			<span className={mathDefault}>
+				{weeks} = ×{formatMult(play.weight)}
+			</span>
 		),
 	}
 }
@@ -1051,6 +1124,7 @@ function PickRowShell({
 	name,
 	subject = null,
 	note,
+	playNote = null,
 	breakdown,
 	payout,
 	hero = false,
@@ -1058,6 +1132,8 @@ function PickRowShell({
 	name: string | null
 	subject?: PickSubject | null
 	note: string | null
+	// See seasonPlayLine.
+	playNote?: string | null
 	breakdown: Breakdown | null
 	payout: ReactNode
 	hero?: boolean
@@ -1098,6 +1174,17 @@ function PickRowShell({
 					</span>
 				)}
 				{payout}
+				{playNote && (
+					<span
+						className={css({
+							fontFamily: "mono",
+							fontSize: "xs",
+							color: "fg.muted",
+						})}
+					>
+						{playNote}
+					</span>
+				)}
 				{breakdown && <WhyThesePoints breakdown={breakdown} />}
 			</VStack>
 		)
@@ -1145,16 +1232,20 @@ function PickRowShell({
 					</span>
 				</HStack>
 			)}
-			{note && (
-				<span
-					className={css({
-						fontFamily: "mono",
-						fontSize: "xs",
-						color: "fg.muted",
-					})}
-				>
-					{note}
-				</span>
+			{[note, playNote].map(
+				(line) =>
+					line && (
+						<span
+							key={line}
+							className={css({
+								fontFamily: "mono",
+								fontSize: "xs",
+								color: "fg.muted",
+							})}
+						>
+							{line}
+						</span>
+					),
 			)}
 			{breakdown && <WhyThesePoints breakdown={breakdown} />}
 		</VStack>
@@ -1243,7 +1334,7 @@ function WhyThesePoints({ breakdown }: { breakdown: Breakdown }) {
 function SelectionPickRow({
 	label,
 	subject,
-	fieldPct,
+	crowdPct,
 	totalOptions,
 	conviction,
 	rank,
@@ -1252,6 +1343,7 @@ function SelectionPickRow({
 	seasonGamesPlayed,
 	seasonTotalGames,
 	basePoints,
+	play,
 	lossRate,
 	pricing,
 	result,
@@ -1262,7 +1354,8 @@ function SelectionPickRow({
 }: {
 	label: string
 	subject: PickSubject
-	fieldPct: number | null
+	// The pick's share of the field's conviction - see crowdTotals.
+	crowdPct: number | null
 	totalOptions: number
 	conviction: number
 	rank: number
@@ -1271,13 +1364,15 @@ function SelectionPickRow({
 	seasonGamesPlayed: number | null
 	seasonTotalGames: number | null
 	basePoints: number
+	play: SeasonPlayTerm
 	lossRate: number
 	pricing: OptionPricing
 	result: SelectionRowResult
 	showName?: boolean
 	hero?: boolean
 }) {
-	if (fieldPct === null) {
+	const playWeight = play?.weight ?? 1
+	if (crowdPct === null) {
 		return (
 			<PickRowShell
 				name={label}
@@ -1290,7 +1385,7 @@ function SelectionPickRow({
 	}
 
 	if (result.kind === "resolved") {
-		// tier comes from live fieldPct, which is safe to reuse post-resolution
+		// tier comes from live crowdPct, which is safe to reuse post-resolution
 		// (same formula, and no new calls can land on a locked question, so it
 		// can't drift). The early-caller bonus is not safe to re-derive the
 		// same way - it's frozen off rank/totalCalls at the moment resolution
@@ -1300,9 +1395,10 @@ function SelectionPickRow({
 		// multiplier is backed out from the authoritative number instead -
 		// committed and points are both trustworthy, so committed × mult =
 		// points always balances by construction.
-		const tier = tierFor(fieldPct, totalOptions, pricing.modelHitRate)
+		// Null on a priced side, which has no boldness - see crowdTierFor.
+		const tier = crowdTierFor(crowdPct, totalOptions, pricing)
 		const winMult = pricing.winMult ?? 1
-		const committed = Math.round(basePoints * (conviction / 100))
+		const committed = Math.round(basePoints * playWeight * (conviction / 100))
 		// The combined multiplier backed out of the authoritative points value
 		// (see comment above), then divided back by the safe/live tier.mult to
 		// isolate what the early-caller bonus alone must have been. Both steps
@@ -1312,15 +1408,15 @@ function SelectionPickRow({
 			result.isCorrect && committed !== 0
 				? {
 						underdog: winMult,
-						boldness: tier.mult,
-						early: result.points / committed / winMult / tier.mult,
+						boldness: tier?.mult ?? null,
+						early: result.points / committed / winMult / (tier?.mult ?? 1),
 					}
 				: null
 		// The raw number the multiplier came from, not a qualitative
 		// label - "33% of the field also picked this" stays true and
 		// legible no matter how small the field is, where a label like
 		// "ahead of the curve" would read strangely for, say, 1st of 3.
-		const fieldNote = `${Math.round(fieldPct)}% of the field also picked this`
+		const fieldNote = `${Math.round(crowdPct)}% of the field's points were on this pick`
 		// Matches the shipped mockup's own inconsistency on purpose: a hit
 		// still gets labeled "IF RIGHT" (it's explaining the formula, not
 		// narrating an event), a miss gets "RESULT" since there's no
@@ -1337,7 +1433,8 @@ function SelectionPickRow({
 							<span className={mathDefault}>
 								{" "}
 								{underdogMath(multipliers.underdog)}×{" "}
-								{formatMult(multipliers.boldness)} boldness ×{" "}
+								{multipliers.boldness !== null &&
+									`${formatMult(multipliers.boldness)} boldness × `}
 								{formatMult(multipliers.early)} early ={" "}
 							</span>
 							<span className={mathUpside}>+{result.points}</span>
@@ -1361,8 +1458,12 @@ function SelectionPickRow({
 				name={showName || hero ? label : null}
 				subject={subject}
 				note={null}
+				playNote={seasonPlayLine(play)}
 				breakdown={{
-					ledger: [committedRow(basePoints, conviction, committed), outcome],
+					ledger: [
+						...committedRows(basePoints, conviction, committed, play),
+						outcome,
+					],
 					note: outcome.note,
 				}}
 				payout={hero ? <HeroFinal points={result.points} /> : null}
@@ -1379,23 +1480,24 @@ function SelectionPickRow({
 		seasonTotalGames,
 	)
 	const preview = previewSelectionPoints(
-		basePoints,
+		basePoints * playWeight,
 		lossRate,
-		fieldPct,
+		crowdPct,
 		totalOptions,
 		conviction,
 		earlyTier,
 		pricing,
 	)
-	const committed = Math.round(basePoints * (conviction / 100))
+	const committed = Math.round(basePoints * playWeight * (conviction / 100))
 	return (
 		<PickRowShell
 			name={label}
 			subject={subject}
 			note={null}
+			playNote={seasonPlayLine(play)}
 			breakdown={{
 				ledger: [
-					committedRow(basePoints, conviction, committed),
+					...committedRows(basePoints, conviction, committed, play),
 					{
 						label: "IF RIGHT",
 						math: (
@@ -1404,7 +1506,8 @@ function SelectionPickRow({
 								<span className={mathDefault}>
 									{" "}
 									{underdogMath(preview.winMult)}×{" "}
-									{formatMult(preview.tier.mult)} boldness ×{" "}
+									{preview.tier &&
+										`${formatMult(preview.tier.mult)} boldness × `}
 									{formatMult(preview.earlyTier.mult)} early ={" "}
 								</span>
 								<span className={mathUpside}>+{preview.win}</span>
@@ -1433,6 +1536,7 @@ function NumericPickRow({
 	rank,
 	totalCalls,
 	basePoints,
+	play,
 	lossRate,
 	result,
 	hero = false,
@@ -1443,10 +1547,12 @@ function NumericPickRow({
 	rank: number
 	totalCalls: number
 	basePoints: number
+	play: SeasonPlayTerm
 	lossRate: number
 	result: NumericRowResult
 	hero?: boolean
 }) {
+	const playWeight = play?.weight ?? 1
 	const band = tolerance !== null ? toleranceBand(guessValue, tolerance) : null
 	// Absolute mode alone doesn't mean rate stat (a win-total's band is
 	// absolute too, e.g. 5) - see isRateStat's own comment in
@@ -1463,7 +1569,7 @@ function NumericPickRow({
 
 	if (result.kind === "resolved") {
 		const win = result.totalPoints >= 0
-		const committed = Math.round(basePoints * (conviction / 100))
+		const committed = Math.round(basePoints * playWeight * (conviction / 100))
 		// closenessMult is the real, persisted value (calls.closeness_mult) -
 		// not reconstructed. The early multiplier isn't stored separately, but
 		// unlike the closeness rank (which needs every other hit on the
@@ -1483,7 +1589,7 @@ function NumericPickRow({
 		// size, where a qualitative label wouldn't.
 		const closenessNote =
 			result.closenessFieldPct !== null
-				? `${Math.round(result.closenessFieldPct)}% of the field guessed at least this close`
+				? `${Math.round(result.closenessFieldPct)}% of the field's points guessed at least this close`
 				: undefined
 		const outcome = match({ win, multipliers })
 			.returnType<ResultLedger>()
@@ -1517,8 +1623,12 @@ function NumericPickRow({
 				// nothing else to name, as a numeric guess is always one pick.
 				name={hero ? formatGuess(guessValue, isRateStat) : null}
 				note={bandNote}
+				playNote={seasonPlayLine(play)}
 				breakdown={{
-					ledger: [committedRow(basePoints, conviction, committed), outcome],
+					ledger: [
+						...committedRows(basePoints, conviction, committed, play),
+						outcome,
+					],
 					note: outcome.note,
 				}}
 				payout={hero ? <HeroFinal points={result.totalPoints} /> : null}
@@ -1528,20 +1638,21 @@ function NumericPickRow({
 	}
 
 	const preview = previewNumericPoints(
-		basePoints,
+		basePoints * playWeight,
 		lossRate,
 		conviction,
 		rank,
 		totalCalls,
 	)
-	const committed = Math.round(basePoints * (conviction / 100))
+	const committed = Math.round(basePoints * playWeight * (conviction / 100))
 	return (
 		<PickRowShell
 			name={formatGuess(guessValue, isRateStat)}
 			note={bandNote}
+			playNote={seasonPlayLine(play)}
 			breakdown={{
 				ledger: [
-					committedRow(basePoints, conviction, committed),
+					...committedRows(basePoints, conviction, committed, play),
 					{
 						label: "IF RIGHT",
 						math: (

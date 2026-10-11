@@ -199,6 +199,25 @@ export const SIDE_LOSS_RATE_BOUNDS = { min: 0.05, max: 2 }
 // (see sidePrice) rather than on a payout nobody can stand behind.
 export const SIDE_WIN_MULT_MAX = 4
 
+// The chances a priced question someone writes has to give each side. A
+// generated line is set near even, but a written one can sit anywhere, and
+// a side likelier than the miss cap can price (about 67%) keeps more than
+// PLAYER_EDGE, up to close to free points on a near-sure side. So a written
+// line is held to where the cap still prices the likely side in full, and
+// the unlikely side the same distance from even.
+const USER_LINE_MAX_CHANCE = targetHitRate(SIDE_LOSS_RATE_BOUNDS.max)
+export const USER_LINE_CHANCE_BOUNDS = {
+	min: 1 - USER_LINE_MAX_CHANCE,
+	max: USER_LINE_MAX_CHANCE,
+}
+
+export function isWithinUserLineBounds(hitRate: number): boolean {
+	return (
+		hitRate >= USER_LINE_CHANCE_BOUNDS.min &&
+		hitRate <= USER_LINE_CHANCE_BOUNDS.max
+	)
+}
+
 // The chance a result lands over `line`, read off how past results landed
 // against their own mean (`ratios`, result / mean). Smoothed by half a result
 // on each side so a line past every ratio never reads as a sure thing.
@@ -396,6 +415,33 @@ export const SEASON_LONG_SHAPES = new Set<QuestionShape>([
 
 export function isSeasonLongShape(shape: QuestionShape): boolean {
 	return SEASON_LONG_SHAPES.has(shape)
+}
+
+// A season-long call settles once, at the end, so a few of them could
+// outweigh a season of regular play. What one is worth - its hit and its miss
+// alike - scales with how regularly its caller plays that league: the share
+// of the league's regular-season weeks in which they made at least
+// SEASON_PLAY_WEEK_MIN_CALLS game calls there. One throwaway call is too easy
+// to keep up without playing, and a few is nothing for someone who does.
+export const SEASON_PLAY_WEEK_MIN_CALLS = 3
+// The share of weeks that already counts in full, so missing a week or two
+// costs nothing.
+export const SEASON_PLAY_FULL_SHARE = 0.8
+// The least a season-long call is ever worth, so a drive-by caller's still
+// counts for something, just very little.
+export const SEASON_PLAY_FLOOR = 0.1
+
+// What share of its full points a season-long call is worth, from the weeks
+// its caller played (`weeksPlayed`) out of the weeks that count
+// (`weeksCounted`). No weeks counted yet - before the first week with games
+// is done - is full: there's no play to measure.
+export function seasonPlayWeight(
+	weeksPlayed: number,
+	weeksCounted: number,
+): number {
+	if (weeksCounted <= 0) return 1
+	const share = weeksPlayed / weeksCounted / SEASON_PLAY_FULL_SHARE
+	return Math.min(1, Math.max(SEASON_PLAY_FLOOR, share))
 }
 
 // Whose performance a shape is actually about. Drives the stat catalog filter
@@ -757,13 +803,36 @@ export function isNumericGuessShape(shape: QuestionShape): boolean {
 }
 
 // An option's share of the field, as of however many calls exist right now.
-// Used both for the live "X% of the field agrees" preview and, once a
-// question resolves, for scoring - same formula either way, so the number
-// shown while a question is open and the number it's actually scored against
-// at lock can never drift apart.
+// Read by head count for "X% picked", and by committed points (see
+// crowdTotals) for the boldness tier, both while a question is open and once
+// it resolves - same formula either way, so the number shown while a
+// question is open and the number it's actually scored against at lock can
+// never drift apart.
 export function fieldPct(optionCallCount: number, totalCalls: number): number {
 	if (totalCalls === 0) return 0
 	return (optionCallCount / totalCalls) * 100
+}
+
+// The field's conviction behind each option and behind the whole question,
+// which the boldness tier reads its share off (fieldPct(byOption, field)).
+// Weighted by conviction rather than counted by head, so a throwaway
+// 1%-conviction call barely moves how rare anyone else's pick looks. Each
+// call adds its average conviction to the field once, so a multi-pick call
+// counts like one caller, and each option it picked gets that selection's
+// own conviction.
+export function crowdTotals(
+	selections: { callId: string; optionId: string; conviction: number }[],
+): { byOption: Map<string, number>; field: number } {
+	const byOption = new Map<string, number>()
+	const byCall = new Map<string, { sum: number; count: number }>()
+	for (const { callId, optionId, conviction } of selections) {
+		byOption.set(optionId, (byOption.get(optionId) ?? 0) + conviction)
+		const call = byCall.get(callId) ?? { sum: 0, count: 0 }
+		byCall.set(callId, { sum: call.sum + conviction, count: call.count + 1 })
+	}
+	let field = 0
+	for (const { sum, count } of byCall.values()) field += sum / count
+	return { byOption, field }
 }
 
 export type ContrarianTier = { mult: number; label: string }
@@ -780,25 +849,16 @@ const TIER_CURVE_EXPONENT =
 	Math.log(TIER_MAX_MULT) / -Math.log(TIER_SATURATION_RARITY)
 
 // The share of the field an option would hold if the field called it exactly
-// as often as it's expected to hit. A side the question priced (a two-sided
-// question with a model behind it, see sidePrice) is expected at the model's
-// chance it hits. Everything else is expected at an even split, since nothing
-// says one option is likelier than another.
-export function expectedFieldShare(
-	totalOptions: number,
-	modelHitRate?: number | null,
-): number {
-	if (modelHitRate != null) return modelHitRate
+// as often as it's expected to hit: an even split, since an unpriced question
+// has nothing saying one option is likelier than another. A priced side has
+// no tier at all - see crowdTierFor.
+export function expectedFieldShare(totalOptions: number): number {
 	return totalOptions > 0 ? 1 / totalOptions : 1
 }
 
 // relativeRarity is this option's share of the field divided by its expected
 // share (see expectedFieldShare), so the same 5% reads as lopsided on a binary
-// question but as unremarkable on a 20-option one. On a priced side it pays
-// only for how far the field underrated the side beyond what its price
-// already accounts for: an underdog the model gives 25%, called by 25% of
-// the field, is 1x, because its bigger win (see sidePrice) already
-// pays for that risk.
+// question but as unremarkable on a 20-option one.
 // mult = clamp(relativeRarity^-k, 1, 6): the expected share or more pays 1x,
 // and every step under it pays more. k is solved so the ceiling lands at
 // 1/50th of the expected share. Unpriced binary points: 50%->1.0, 33%->1.20,
@@ -817,15 +877,26 @@ export function expectedFieldShare(
 export function tierFor(
 	fieldPct: number,
 	totalOptions: number,
-	modelHitRate?: number | null,
 ): ContrarianTier {
-	const relativeRarity =
-		fieldPct / 100 / expectedFieldShare(totalOptions, modelHitRate)
+	const relativeRarity = fieldPct / 100 / expectedFieldShare(totalOptions)
 	const mult = Math.min(
 		TIER_MAX_MULT,
 		Math.max(TIER_MIN_MULT, relativeRarity ** -TIER_CURVE_EXPONENT),
 	)
 	return { mult, label: tierLabel(mult) }
+}
+
+// The crowd's part of a hit's payout, or null where the side's own price
+// already says how unlikely it was (see sidePrice): a priced side is paid on
+// that price alone, so how few people called it adds nothing, and has no
+// tier to show. An unpriced side has no other read on how unlikely it was,
+// so the field's split stands in for one.
+export function crowdTierFor(
+	fieldPct: number,
+	totalOptions: number,
+	pricing: OptionPricing = {},
+): ContrarianTier | null {
+	return pricing.modelHitRate != null ? null : tierFor(fieldPct, totalOptions)
 }
 
 // Bucketed purely for display (badges like "FEARLESS") - never used in point
@@ -968,21 +1039,35 @@ export function pointsAtStake(
 	return Math.round(basePoints * (conviction / 100) * lossRate)
 }
 
-// A community question's difficulty is whatever its creator writes, with no
-// house pricing behind it, so it's worth a bit less than an official one at
-// the same conviction. Scaled on the base rather than by capping conviction,
-// so the full 1-100 range still says how sure the caller is.
+// A community question with no model behind it is priced at whatever its
+// creator writes, so it's worth a bit less than an official one at the same
+// conviction. One the model prices (a person-set line or matchup it can read,
+// see sidePrice) carries the same price an official one would, so it's worth
+// the same. Scaled on the base rather than by capping conviction, so the
+// full 1-100 range still says how sure the caller is.
 export const COMMUNITY_POINTS_MULT = 0.8
 
+// Whether a question's sides carry the model's price - true when any option
+// has a model chance.
+export function isPricedQuestion(
+	options: { modelHitRate?: number | null }[],
+): boolean {
+	return options.some((option) => option.modelHitRate != null)
+}
+
 // The base every payout, stake and committed figure for a question starts
-// from. Not a stored column: it only ever depends on these two facts, which
-// never change after creation.
+// from. Not a stored column: it only ever depends on these three facts. A
+// community question's price is set once at creation and never moves, so
+// none of them change after it.
 export function basePointsFor(question: {
 	shape: QuestionShape
 	isOfficial: boolean
+	isPriced: boolean
 }): number {
 	const base = BASE_POINTS_BY_SHAPE[question.shape]
-	return question.isOfficial ? base : base * COMMUNITY_POINTS_MULT
+	return question.isOfficial || question.isPriced
+		? base
+		: base * COMMUNITY_POINTS_MULT
 }
 
 export type PointsPreview = {
@@ -990,7 +1075,8 @@ export type PointsPreview = {
 	lose: number
 	// The side's own price on a hit (see sidePrice), 1 on an unpriced side.
 	winMult: number
-	tier: ContrarianTier
+	// Null on a priced side - see crowdTierFor.
+	tier: ContrarianTier | null
 	earlyTier: EarlyTier
 }
 
@@ -1021,10 +1107,12 @@ export function previewSelectionPoints(
 	pricing: OptionPricing = {},
 ): PointsPreview {
 	const stake = conviction / 100
-	const tier = tierFor(fieldPct, totalOptions, pricing.modelHitRate)
+	const tier = crowdTierFor(fieldPct, totalOptions, pricing)
 	const winMult = pricing.winMult ?? 1
 	return {
-		win: Math.round(basePoints * stake * winMult * tier.mult * earlyTier.mult),
+		win: Math.round(
+			basePoints * stake * winMult * (tier?.mult ?? 1) * earlyTier.mult,
+		),
 		lose: pointsAtStake(basePoints, lossRate, conviction),
 		winMult,
 		tier,
@@ -1088,7 +1176,7 @@ export function selectionPoints(
 		basePoints *
 			(conviction / 100) *
 			(pricing.winMult ?? 1) *
-			tierFor(optionFieldPct, totalOptions, pricing.modelHitRate).mult *
+			(crowdTierFor(optionFieldPct, totalOptions, pricing)?.mult ?? 1) *
 			earlyMult,
 	)
 }
@@ -1175,6 +1263,9 @@ export function numericGuessPoints(
 		guessValue: number
 		conviction: number
 		createdAt: Date
+		// What share of its full points this guess is worth - see
+		// seasonPlayWeight. Omitted is all of them.
+		weight?: number
 	}[],
 	actualValue: number,
 	spec: ToleranceSpec,
@@ -1211,13 +1302,16 @@ export function numericGuessPoints(
 	// selection: the client needs the actual multiplier AND the raw share it
 	// came from, not just the number it produced, or it has no way to show
 	// real "why these points" math (or "why this multiplier") after the fact.
+	// The share is of the field's conviction, not its head count, for the
+	// same reason as crowdTotals: a throwaway guess barely moves it.
 	const hits = withHit.filter((guess) => guess.hit)
+	const fieldConviction = guesses.reduce((sum, g) => sum + g.conviction, 0)
 	const closenessByCallId = new Map(
 		hits.map((guess) => {
-			const atLeastAsClose = hits.filter(
-				(other) => other.distance <= guess.distance,
-			).length
-			const sharePct = (atLeastAsClose / totalCalls) * 100
+			const atLeastAsClose = hits
+				.filter((other) => other.distance <= guess.distance)
+				.reduce((sum, other) => sum + other.conviction, 0)
+			const sharePct = fieldPct(atLeastAsClose, fieldConviction)
 			return [
 				guess.callId,
 				{ mult: tierFor(sharePct, 2).mult, sharePct },
@@ -1229,9 +1323,10 @@ export function numericGuessPoints(
 			const mult = closenessByCallId.get(guess.callId)?.mult ?? TIER_MIN_MULT
 			const stake = guess.conviction / 100
 			const earlyMult = earlyMultByCallId.get(guess.callId) ?? 1
+			const base = basePoints * (guess.weight ?? 1)
 			return [
 				guess.callId,
-				Math.round(basePoints * stake * mult * earlyMult),
+				Math.round(base * stake * mult * earlyMult),
 			] as const
 		}),
 	)
@@ -1247,7 +1342,11 @@ export function numericGuessPoints(
 			: null,
 		points: guess.hit
 			? (pointsByCallId.get(guess.callId) ?? 0)
-			: -pointsAtStake(basePoints, lossRate, guess.conviction),
+			: -pointsAtStake(
+					basePoints * (guess.weight ?? 1),
+					lossRate,
+					guess.conviction,
+				),
 	}))
 }
 

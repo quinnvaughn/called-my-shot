@@ -442,16 +442,16 @@ function RouteComponent() {
 						{question.league.abbreviation}
 					</Breadcrumb.Link>
 					{/* A ballot member's trail is the ballot's own (league /
-				season / ballot) - ballots are season-award questions, so no
+				ballots / ballot) - ballots are season-award questions, so no
 				member has a game crumb to show anyway. */}
 					{match({ ballot, game: question.game, gameLinkParams })
 						.with({ ballot: P.nonNullable }, ({ ballot }) => (
 							<>
 								<Breadcrumb.Link
-									to="/leagues/$leagueSlug/season"
+									to="/leagues/$leagueSlug/ballots"
 									params={{ leagueSlug: question.league.slug }}
 								>
-									Season
+									Ballots
 								</Breadcrumb.Link>
 								<Breadcrumb.Link
 									to="/ballots/$ballotSlug"

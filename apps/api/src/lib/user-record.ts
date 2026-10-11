@@ -184,6 +184,8 @@ export async function loadUserRecordInputs(
 				resultPoints: true,
 				unscoredReason: true,
 				createdAt: true,
+				seasonPlayWeeksPlayed: true,
+				seasonPlayWeeksCounted: true,
 			},
 			with: {
 				selections: {
@@ -193,6 +195,7 @@ export async function loadUserRecordInputs(
 							columns: {
 								isCorrect: true,
 								lossRate: true,
+								modelHitRate: true,
 								teamId: true,
 								playerId: true,
 							},

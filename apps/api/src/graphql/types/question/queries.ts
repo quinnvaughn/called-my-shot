@@ -220,11 +220,10 @@ builder.queryFields((t) => ({
 			// the filter, so this checks for the arg actually being present.
 			isOfficial: t.arg.boolean({ required: false }),
 			sort: t.arg({ type: QuestionSortOrder, required: false }),
-			// The league room's Feed tab only - season award singles and ballot
-			// positions get their own Season tab there, so the feed excludes
+			// The league room's Season and Ballots tabs - a ballot's positions
+			// are called from its ballot card, so a list beside it excludes
 			// anything already in a ballot to avoid showing it twice. Every other
-			// caller (home, groups) leaves this unset and sees everything, same as
-			// before this arg existed.
+			// caller (home, groups) leaves this unset and sees everything.
 			excludeBallotMembers: t.arg.boolean({ required: false }),
 			// The league room's Feed tab only - a locked-but-unresolved question
 			// has nothing left to do with it from a browse list (can't call it,
@@ -239,10 +238,9 @@ builder.queryFields((t) => ({
 			// card, reached via the Games tab. Every other caller leaves this
 			// unset and sees every shape.
 			excludeGameWinners: t.arg.boolean({ required: false }),
-			// The league room's Feed tab only - standalone season award races
+			// The league room's Season tab - standalone season award races
 			// (player_season_award/team_season_award/player_award_finalists)
-			// already have their own dedicated home on the Season tab, same
-			// reasoning as excludeGameWinners above. Every other caller leaves
+			// have their own home on the Ballots tab. Every other caller leaves
 			// this unset and sees every shape.
 			excludeSeasonAwards: t.arg.boolean({ required: false }),
 			// The league room's Feed tab's New sort only - a resolved/disputed
@@ -256,11 +254,11 @@ builder.queryFields((t) => ({
 			// Narrows to the listed shapes - every caller that leaves this unset
 			// gets every shape.
 			shapes: t.arg({ type: [QuestionShape], required: false }),
-			// The league room's Season tab - only questions with no game behind
-			// them (award races, win totals, season stat questions). Every other
-			// caller leaves this unset and gets game questions too.
+			// The league room's Season tab - only questions with no game or
+			// series behind them (season stat questions, head-to-heads, props).
+			// Every other caller leaves this unset and gets game questions too.
 			seasonLong: t.arg.boolean({ required: false }),
-			// The league room's Season tab only - scoped to the current season
+			// The league room's Season and Ballots tabs - scoped to the current season
 			// (in progress, else soonest upcoming, else most recently completed -
 			// see getCurrentSeason) so a prior year's award questions don't
 			// linger alongside this year's. Requires leagueId; every other

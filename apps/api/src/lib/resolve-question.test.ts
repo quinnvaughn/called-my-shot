@@ -3,6 +3,7 @@ import {
 	earlyTierFor,
 	LOSS_RATE_BY_SHAPE,
 	pointsAtStake,
+	SEASON_PLAY_FLOOR,
 	selectionPoints,
 	tierFor,
 } from "@called-my-shot/scoring"
@@ -38,7 +39,11 @@ import {
 } from "./resolve-question"
 
 // The factories make community questions unless told otherwise.
-const YES_NO_BASE = basePointsFor({ shape: "yes_no_prop", isOfficial: false })
+const YES_NO_BASE = basePointsFor({
+	shape: "yes_no_prop",
+	isOfficial: false,
+	isPriced: false,
+})
 
 // What a full-conviction miss on a yes/no question costs.
 const FULL_MISS = -pointsAtStake(
@@ -467,8 +472,8 @@ describe("resolveQuestionInternal - numeric guess shapes", () => {
 			-basePointsFor({
 				shape: "player_stat_numeric_guess",
 				isOfficial: false,
-			}) *
-				LOSS_RATE_BY_SHAPE.player_stat_numeric_guess,
+				isPriced: false,
+			}) * LOSS_RATE_BY_SHAPE.player_stat_numeric_guess,
 		)
 	})
 
@@ -554,12 +559,15 @@ describe("resolveQuestionInternal - season-long earliness", () => {
 			locksAt: pastDate(50),
 		})
 		const option = await makeOption(question.id, { label: "A" })
-		// Well after locksAt - must not count toward the window at all.
+		// Well after locksAt - must not count toward the window at all. A
+		// postseason game, so it plays no part in the caller's season-play
+		// weeks either.
 		await makeGame({
 			leagueId: question.leagueId,
 			seasonId: question.seasonId,
 			startsAt: pastDate(1),
 			status: "final",
+			seasonType: "postseason",
 		})
 		const user = await makeUser()
 		const call = await makeCall(question.id, user.id, {
@@ -573,9 +581,113 @@ describe("resolveQuestionInternal - season-long earliness", () => {
 		const scored = await selectionFor(pick.id)
 		expect(scored?.resultPoints).toBe(
 			Math.round(
-				basePointsFor({ shape: "player_season_award", isOfficial: true }) * 1 * tierFor(100, 1).mult * 3,
+				basePointsFor({
+					shape: "player_season_award",
+					isOfficial: true,
+					isPriced: false,
+				}) *
+					1 *
+					tierFor(100, 1).mult *
+					3,
 			),
 		)
+	})
+})
+
+describe("resolveQuestionInternal - season play", () => {
+	// A season question both callers took the same side of preseason, with
+	// two finished weeks of games since. `regular` made three game calls in
+	// each of them; `absent` made none.
+	async function seedSeasonPlay() {
+		const question = await makeQuestion({
+			shape: "team_vs_team_season",
+			isOfficial: true,
+			locksAt: pastDate(24 * 35),
+		})
+		const option = await makeOption(question.id, { label: "A" })
+		await makeOption(question.id, { label: "B" })
+		const regular = await makeUser()
+		const absent = await makeUser()
+		for (const daysAgo of [21, 14]) {
+			const game = await makeGame({
+				leagueId: question.leagueId,
+				seasonId: question.seasonId,
+				startsAt: pastDate(24 * daysAgo),
+				status: "final",
+			})
+			for (let i = 0; i < 3; i++) {
+				const gameQuestion = await makeQuestion({
+					leagueId: question.leagueId,
+					seasonId: question.seasonId,
+					gameId: game.id,
+					locksAt: game.startsAt,
+				})
+				await makeCall(gameQuestion.id, regular.id)
+			}
+		}
+		const picks = []
+		for (const user of [regular, absent]) {
+			const call = await makeCall(question.id, user.id, {
+				createdAt: pastDate(24 * 40),
+			})
+			picks.push({ call, pick: await makeSelection(call.id, option.id) })
+		}
+		const [regularPick, absentPick] = picks
+		if (!regularPick || !absentPick) throw new Error("picks vanished")
+		return { question, option, regularPick, absentPick }
+	}
+
+	it("scales a season call by how regularly its caller plays the league", async () => {
+		const { question, option, regularPick, absentPick } = await seedSeasonPlay()
+
+		await resolve(question, { correctOptionIds: [option.id] })
+
+		const full = (await selectionFor(regularPick.pick.id))?.resultPoints ?? 0
+		const floor = (await selectionFor(absentPick.pick.id))?.resultPoints ?? 0
+		expect(full).toBeGreaterThan(0)
+		expect(Math.abs(floor - full * SEASON_PLAY_FLOOR)).toBeLessThanOrEqual(1)
+	})
+
+	it("keeps the weeks it first read when the question is resolved again", async () => {
+		const { question, option, absentPick } = await seedSeasonPlay()
+		await resolve(question, { correctOptionIds: [option.id] })
+		const first = await db.query.calls.findFirst({
+			where: { id: absentPick.call.id },
+		})
+		expect(first).toMatchObject({
+			seasonPlayWeeksPlayed: 0,
+			seasonPlayWeeksCounted: 2,
+		})
+
+		// Playing a past week now doesn't change what the call was worth.
+		const game = await makeGame({
+			leagueId: question.leagueId,
+			seasonId: question.seasonId,
+			startsAt: pastDate(24 * 14),
+			status: "final",
+		})
+		for (let i = 0; i < 3; i++) {
+			const gameQuestion = await makeQuestion({
+				leagueId: question.leagueId,
+				seasonId: question.seasonId,
+				gameId: game.id,
+				locksAt: game.startsAt,
+			})
+			await makeCall(gameQuestion.id, absentPick.call.userId)
+		}
+		const resolvedAgain = await db.query.questions.findFirst({
+			where: { id: question.id },
+		})
+		if (!resolvedAgain) throw new Error("question vanished")
+		await resolve(resolvedAgain, { correctOptionIds: [option.id] })
+
+		const second = await db.query.calls.findFirst({
+			where: { id: absentPick.call.id },
+		})
+		expect(second).toMatchObject({
+			seasonPlayWeeksPlayed: 0,
+			seasonPlayWeeksCounted: 2,
+		})
 	})
 })
 

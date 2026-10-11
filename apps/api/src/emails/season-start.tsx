@@ -330,7 +330,7 @@ SeasonStart.PreviewProps = {
 	gameCount: 16,
 	ballotCount: 6,
 	gamesUrl: "https://calledmyshot.com/leagues/nfl/games",
-	seasonUrl: "https://calledmyshot.com/leagues/nfl/season",
+	seasonUrl: "https://calledmyshot.com/leagues/nfl/ballots",
 	heroUrl: "https://calledmyshot.com/leagues/nfl/games",
 	manageUrl: "https://calledmyshot.com/settings",
 	unsubscribeUrl: "https://calledmyshot.com/unsubscribe?token=preview",

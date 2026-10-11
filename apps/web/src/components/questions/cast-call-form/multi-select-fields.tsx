@@ -13,8 +13,9 @@ import { Card } from "#/components/ui/card"
 import { FieldLabel } from "#/components/ui/field-label"
 import { PlayerOrTeamImage } from "#/components/ui/player-or-team-image"
 import { Slider } from "#/components/ui/slider"
-import { optionPointsPreview, previewFieldPct } from "#/lib/scoring"
+import { optionPointsPreview, previewCrowdPct } from "#/lib/scoring"
 import { PointsPreview } from "../points-preview"
+import { SeasonPlayNote } from "../season-play-note"
 import { CaseField } from "./case-field"
 import { OptionPickerList } from "./option-picker-list"
 import type { CastCallFormState } from "./use-cast-call-form"
@@ -269,16 +270,20 @@ export function MultiSelectFields({ callForm }: Props) {
 											)}
 											<PointsPreview
 												kind="option"
-												fieldPct={previewFieldPct(
-													option.callCount,
-													question.callCount,
+												crowdPct={previewCrowdPct(
+													option.convictionTotal,
+													question.fieldConviction,
+													selection.conviction,
 												)}
 												totalOptions={question.options.length}
 												conviction={selection.conviction}
-												basePoints={basePointsFor({
-													shape,
-													isOfficial: question.isOfficial,
-												})}
+												basePoints={
+													basePointsFor({
+														shape,
+														isOfficial: question.isOfficial,
+														isPriced: question.isPriced,
+													}) * (question.viewerSeasonPlay?.weight ?? 1)
+												}
 												lossRate={effectiveLossRate(
 													question.lossRate,
 													option.lossRate,
@@ -300,6 +305,12 @@ export function MultiSelectFields({ callForm }: Props) {
 							>
 								Add picks above first.
 							</span>
+						)}
+						{question.viewerSeasonPlay && (
+							<SeasonPlayNote
+								play={question.viewerSeasonPlay}
+								league={question.league.abbreviation}
+							/>
 						)}
 					</VStack>
 				</Card.Body>

@@ -71,6 +71,7 @@ import { Route as AppBallotsBallotSlugUsernameRouteImport } from './routes/_app/
 import { Route as AppGamesGameIdChar123SlugChar125RouteImport } from './routes/_app/games/$gameId.{-$slug}'
 import { Route as AppGroupsJoinCodeRouteImport } from './routes/_app/groups/join/$code'
 import { Route as AppLeaguesLeagueSlugIndexRouteImport } from './routes/_app/leagues/$leagueSlug/index'
+import { Route as AppLeaguesLeagueSlugBallotsRouteImport } from './routes/_app/leagues/$leagueSlug/ballots'
 import { Route as AppLeaguesLeagueSlugCommunityRouteImport } from './routes/_app/leagues/$leagueSlug/community'
 import { Route as AppLeaguesLeagueSlugFeedRouteImport } from './routes/_app/leagues/$leagueSlug/feed'
 import { Route as AppLeaguesLeagueSlugGamesRouteImport } from './routes/_app/leagues/$leagueSlug/games'
@@ -411,6 +412,12 @@ const AppLeaguesLeagueSlugIndexRoute =
     path: '/',
     getParentRoute: () => AppLeaguesLeagueSlugRoute,
   } as any)
+const AppLeaguesLeagueSlugBallotsRoute =
+  AppLeaguesLeagueSlugBallotsRouteImport.update({
+    id: '/ballots',
+    path: '/ballots',
+    getParentRoute: () => AppLeaguesLeagueSlugRoute,
+  } as any)
 const AppLeaguesLeagueSlugCommunityRoute =
   AppLeaguesLeagueSlugCommunityRouteImport.update({
     id: '/community',
@@ -636,6 +643,7 @@ export interface FileRoutesByFullPath {
   '/ballots/$ballotSlug/$username': typeof AppBallotsBallotSlugUsernameRoute
   '/games/$gameId/{-$slug}': typeof AppGamesGameIdChar123SlugChar125Route
   '/groups/join/$code': typeof AppGroupsJoinCodeRoute
+  '/leagues/$leagueSlug/ballots': typeof AppLeaguesLeagueSlugBallotsRoute
   '/leagues/$leagueSlug/community': typeof AppLeaguesLeagueSlugCommunityRoute
   '/leagues/$leagueSlug/feed': typeof AppLeaguesLeagueSlugFeedRoute
   '/leagues/$leagueSlug/games': typeof AppLeaguesLeagueSlugGamesRoute
@@ -723,6 +731,7 @@ export interface FileRoutesByTo {
   '/ballots/$ballotSlug/$username': typeof AppBallotsBallotSlugUsernameRoute
   '/games/$gameId/{-$slug}': typeof AppGamesGameIdChar123SlugChar125Route
   '/groups/join/$code': typeof AppGroupsJoinCodeRoute
+  '/leagues/$leagueSlug/ballots': typeof AppLeaguesLeagueSlugBallotsRoute
   '/leagues/$leagueSlug/community': typeof AppLeaguesLeagueSlugCommunityRoute
   '/leagues/$leagueSlug/feed': typeof AppLeaguesLeagueSlugFeedRoute
   '/leagues/$leagueSlug/games': typeof AppLeaguesLeagueSlugGamesRoute
@@ -815,6 +824,7 @@ export interface FileRoutesById {
   '/_app/ballots/$ballotSlug_/$username': typeof AppBallotsBallotSlugUsernameRoute
   '/_app/games/$gameId/{-$slug}': typeof AppGamesGameIdChar123SlugChar125Route
   '/_app/groups/join/$code': typeof AppGroupsJoinCodeRoute
+  '/_app/leagues/$leagueSlug/ballots': typeof AppLeaguesLeagueSlugBallotsRoute
   '/_app/leagues/$leagueSlug/community': typeof AppLeaguesLeagueSlugCommunityRoute
   '/_app/leagues/$leagueSlug/feed': typeof AppLeaguesLeagueSlugFeedRoute
   '/_app/leagues/$leagueSlug/games': typeof AppLeaguesLeagueSlugGamesRoute
@@ -907,6 +917,7 @@ export interface FileRouteTypes {
     | '/ballots/$ballotSlug/$username'
     | '/games/$gameId/{-$slug}'
     | '/groups/join/$code'
+    | '/leagues/$leagueSlug/ballots'
     | '/leagues/$leagueSlug/community'
     | '/leagues/$leagueSlug/feed'
     | '/leagues/$leagueSlug/games'
@@ -994,6 +1005,7 @@ export interface FileRouteTypes {
     | '/ballots/$ballotSlug/$username'
     | '/games/$gameId/{-$slug}'
     | '/groups/join/$code'
+    | '/leagues/$leagueSlug/ballots'
     | '/leagues/$leagueSlug/community'
     | '/leagues/$leagueSlug/feed'
     | '/leagues/$leagueSlug/games'
@@ -1085,6 +1097,7 @@ export interface FileRouteTypes {
     | '/_app/ballots/$ballotSlug_/$username'
     | '/_app/games/$gameId/{-$slug}'
     | '/_app/groups/join/$code'
+    | '/_app/leagues/$leagueSlug/ballots'
     | '/_app/leagues/$leagueSlug/community'
     | '/_app/leagues/$leagueSlug/feed'
     | '/_app/leagues/$leagueSlug/games'
@@ -1578,6 +1591,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppLeaguesLeagueSlugIndexRouteImport
       parentRoute: typeof AppLeaguesLeagueSlugRoute
     }
+    '/_app/leagues/$leagueSlug/ballots': {
+      id: '/_app/leagues/$leagueSlug/ballots'
+      path: '/ballots'
+      fullPath: '/leagues/$leagueSlug/ballots'
+      preLoaderRoute: typeof AppLeaguesLeagueSlugBallotsRouteImport
+      parentRoute: typeof AppLeaguesLeagueSlugRoute
+    }
     '/_app/leagues/$leagueSlug/community': {
       id: '/_app/leagues/$leagueSlug/community'
       path: '/community'
@@ -1836,6 +1856,7 @@ const AppAuthedRouteWithChildren = AppAuthedRoute._addFileChildren(
 )
 
 interface AppLeaguesLeagueSlugRouteChildren {
+  AppLeaguesLeagueSlugBallotsRoute: typeof AppLeaguesLeagueSlugBallotsRoute
   AppLeaguesLeagueSlugCommunityRoute: typeof AppLeaguesLeagueSlugCommunityRoute
   AppLeaguesLeagueSlugFeedRoute: typeof AppLeaguesLeagueSlugFeedRoute
   AppLeaguesLeagueSlugGamesRoute: typeof AppLeaguesLeagueSlugGamesRoute
@@ -1844,6 +1865,7 @@ interface AppLeaguesLeagueSlugRouteChildren {
 }
 
 const AppLeaguesLeagueSlugRouteChildren: AppLeaguesLeagueSlugRouteChildren = {
+  AppLeaguesLeagueSlugBallotsRoute: AppLeaguesLeagueSlugBallotsRoute,
   AppLeaguesLeagueSlugCommunityRoute: AppLeaguesLeagueSlugCommunityRoute,
   AppLeaguesLeagueSlugFeedRoute: AppLeaguesLeagueSlugFeedRoute,
   AppLeaguesLeagueSlugGamesRoute: AppLeaguesLeagueSlugGamesRoute,

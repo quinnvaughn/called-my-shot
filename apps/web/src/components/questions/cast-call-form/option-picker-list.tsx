@@ -45,6 +45,8 @@ type PickerOption = {
 	label: string
 	fieldPct: number | null
 	callCount: number
+	// The model's chance this option hits, on a priced one.
+	modelHitRate?: number | null
 	// Set when the option is a real player or team, for its image.
 	player?: ImagePlayer | null
 	team?: ImageTeam | null
@@ -92,13 +94,30 @@ export function OptionPickerList({
 	// one - see isAwardShape. Sort is stable, so untouched options (fieldPct
 	// tied, usually 0 early on) keep falling back to sortOrder rather than
 	// jumping around arbitrarily.
-	const orderedOptions = isAwardShape(shape)
-		? [...options].sort((a, b) => (b.fieldPct ?? 0) - (a.fieldPct ?? 0))
-		: options
+	// A priced pool (a game stat leader) goes by the model's chance
+	// instead, ahead of popularity: the favorites first, the long shots a
+	// search or a few pages down, before anyone has called it. Any option
+	// someone has called still shows on the first page, in its place by
+	// chance, so a long shot people took isn't buried behind the favorites.
+	const isPriced = options.some((option) => option.modelHitRate != null)
+	const orderedOptions = isPriced
+		? [...options].sort(
+				(a, b) => (b.modelHitRate ?? -1) - (a.modelHitRate ?? -1),
+			)
+		: isAwardShape(shape)
+			? [...options].sort((a, b) => (b.fieldPct ?? 0) - (a.fieldPct ?? 0))
+			: options
+	const calledIds = new Set(
+		isPriced
+			? options
+					.filter((option) => option.callCount > 0)
+					.map((option) => option.id)
+			: [],
+	)
 	const { visible, nextCount } = pageOptions(
 		orderedOptions,
 		visibleOptionCount,
-		isSelected,
+		(optionId) => isSelected(optionId) || calledIds.has(optionId),
 	)
 
 	return (

@@ -52,6 +52,59 @@ const CREATE_QUESTION = /* GraphQL */ `
 	}
 `
 
+// An NBA team whose model sits at 100 points a game, thirty resolved
+// generated lines landing from 0.8x to 1.2x of it, and an upcoming game.
+async function seedPricedTeamLine() {
+	const league = await makeLeague({ slug: "nba" })
+	const season = await makeSeason({ leagueId: league.id, year: 2026 })
+	const team = await makeTeam({ leagueId: league.id })
+	// Twelve finals at 100 a game, so the model sits at 100.
+	for (let i = 0; i < 12; i++) {
+		await makeGame({
+			leagueId: league.id,
+			seasonId: season.id,
+			homeTeamId: team.id,
+			status: "final",
+			startsAt: pastDate(24 * (i + 1)),
+			homeScore: 100,
+			awayScore: 90,
+		})
+	}
+	// Thirty resolved generated lines landing from 0.8x to 1.2x.
+	for (let i = 0; i < 30; i++) {
+		const resolved = await makeQuestion({
+			shape: "team_stat_over_under",
+			status: "resolved",
+			ouLine: 99.5,
+			generationKey: `nba:game-${i}:team-points-ou:team`,
+			lineBasis: {
+				seasonMean: 100,
+				seasonGames: 20,
+				priorMean: null,
+				priorGames: 0,
+				priorWeight: 10,
+				blendedMean: 100,
+				expectedMean: 100,
+				opponent: null,
+				formula: LINE_FORMULA.teamOnly,
+				shade: 1,
+				line: 99.5,
+			},
+		})
+		await db.insert(questionAutoResolutions).values({
+			questionId: resolved.id,
+			evidence: { value: 100 * (0.8 + (0.4 * i) / 29) },
+		})
+	}
+	const game = await makeGame({
+		leagueId: league.id,
+		seasonId: season.id,
+		homeTeamId: team.id,
+	})
+	const stat = await makeStat({ sportId: league.sportId, name: "Points" })
+	return { league, team, game, stat }
+}
+
 function yesNoInput(overrides: Record<string, unknown> = {}) {
 	return {
 		shape: "YES_NO_PROP",
@@ -462,57 +515,59 @@ describe("Mutation.createQuestion", () => {
 		expect(stored?.options.length).toBeGreaterThanOrEqual(2)
 	})
 
-	it("prices each side of a team line set well off the model", async () => {
-		const league = await makeLeague({ slug: "nba" })
-		const season = await makeSeason({ leagueId: league.id, year: 2026 })
-		const team = await makeTeam({ leagueId: league.id })
-		// Twelve finals at 100 a game, so the model sits at 100.
-		for (let i = 0; i < 12; i++) {
-			await makeGame({
-				leagueId: league.id,
-				seasonId: season.id,
-				homeTeamId: team.id,
-				status: "final",
-				startsAt: pastDate(24 * (i + 1)),
-				homeScore: 100,
-				awayScore: 90,
-			})
-		}
-		// Thirty resolved generated lines landing from 0.8x to 1.2x.
-		for (let i = 0; i < 30; i++) {
-			const resolved = await makeQuestion({
-				shape: "team_stat_over_under",
-				status: "resolved",
-				ouLine: 99.5,
-				generationKey: `nba:game-${i}:team-points-ou:team`,
-				lineBasis: {
-					seasonMean: 100,
-					seasonGames: 20,
-					priorMean: null,
-					priorGames: 0,
-					priorWeight: 10,
-					blendedMean: 100,
-					expectedMean: 100,
-					opponent: null,
-					formula: LINE_FORMULA.teamOnly,
-					shade: 1,
-					line: 99.5,
-				},
-			})
-			await db.insert(questionAutoResolutions).values({
-				questionId: resolved.id,
-				evidence: { value: 100 * (0.8 + (0.4 * i) / 29) },
-			})
-		}
-		const game = await makeGame({
-			leagueId: league.id,
-			seasonId: season.id,
-			homeTeamId: team.id,
-		})
-		const stat = await makeStat({ sportId: league.sportId, name: "Points" })
+	it("prices each side of a team line set off the model", async () => {
+		const { league, team, game, stat } = await seedPricedTeamLine()
 
 		const data = await expectData<{
 			createQuestion: { __typename: string; question: { id: string } }
+		}>(CREATE_QUESTION, {
+			as: await makeUser(),
+			variables: {
+				input: {
+					shape: "TEAM_STAT_OVER_UNDER",
+					title: "Over/under 105.5 points?",
+					resolutionSource: "Box score",
+					locksAt: futureDate().toISOString(),
+					sportId: league.sportId,
+					leagueId: league.id,
+					gameId: game.id,
+					subjectTeamId: team.id,
+					statId: stat.id,
+					ouLine: 105.5,
+				},
+			},
+		})
+		expect(data.createQuestion.__typename).toBe("QuestionPayload")
+
+		const stored = await db.query.questions.findFirst({
+			where: { id: data.createQuestion.question.id },
+			with: { options: { orderBy: { sortOrder: "asc" } } },
+		})
+		expect(stored?.linePricing).toMatchObject({
+			templateId: "team-points-ou",
+			blendedMean: 100,
+		})
+		const [over, under] = stored?.options ?? []
+		// The long shot pays more on a hit; the likely side costs more on a
+		// miss.
+		expect(over?.winMult).toBeGreaterThan(1)
+		expect(over?.lossRate).toBeLessThanOrEqual(
+			LOSS_RATE_BY_SHAPE.team_stat_over_under,
+		)
+		expect(under?.winMult).toBe(1)
+		expect(under?.lossRate).toBeGreaterThan(1)
+		// Each side keeps the model's chance it hits, which the rarity
+		// multiplier measures the field against.
+		const pOver = stored?.linePricing?.pOver ?? Number.NaN
+		expect(over?.modelHitRate).toBe(pOver)
+		expect(under?.modelHitRate).toBeCloseTo(1 - pOver, 3)
+	})
+
+	it("refuses a line the model prices too lopsided, naming the open range", async () => {
+		const { league, team, game, stat } = await seedPricedTeamLine()
+
+		const data = await expectData<{
+			createQuestion: { __typename: string; message?: string }
 		}>(CREATE_QUESTION, {
 			as: await makeUser(),
 			variables: {
@@ -530,30 +585,10 @@ describe("Mutation.createQuestion", () => {
 				},
 			},
 		})
-		expect(data.createQuestion.__typename).toBe("QuestionPayload")
-
-		const stored = await db.query.questions.findFirst({
-			where: { id: data.createQuestion.question.id },
-			with: { options: { orderBy: { sortOrder: "asc" } } },
-		})
-		expect(stored?.linePricing).toMatchObject({
-			templateId: "team-points-ou",
-			blendedMean: 100,
-		})
-		const [over, under] = stored?.options ?? []
-		// The long shot pays more on a hit (and, this far off, less on a
-		// miss); the likely side costs more on a miss.
-		expect(over?.winMult).toBeGreaterThan(1)
-		expect(over?.lossRate).toBeLessThanOrEqual(
-			LOSS_RATE_BY_SHAPE.team_stat_over_under,
+		expect(data.createQuestion.__typename).toBe("ValidationError")
+		expect(data.createQuestion.message).toBe(
+			"That line is too lopsided to be a fair call. Set it between 92.5 and 107.5.",
 		)
-		expect(under?.winMult).toBe(1)
-		expect(under?.lossRate).toBeGreaterThan(1)
-		// Each side keeps the model's chance it hits, which the rarity
-		// multiplier measures the field against.
-		const pOver = stored?.linePricing?.pOver ?? Number.NaN
-		expect(over?.modelHitRate).toBe(pOver)
-		expect(under?.modelHitRate).toBeCloseTo(1 - pOver, 3)
 	})
 
 	it("builds a team leader's pool from the team's roster, resolved automatically", async () => {

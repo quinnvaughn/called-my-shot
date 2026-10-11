@@ -62,12 +62,13 @@ export const calls = pgTable(
 			scale: 2,
 			mode: "number",
 		}),
-		// What % of the WHOLE field (not just other hitters) guessed at least as
-		// close to the actual value as this call did - the raw share
-		// closenessMult above was derived from (see numericGuessPoints). Exposed
-		// separately, not just left for the client to back out of the
-		// multiplier, so the UI can explain "why this multiplier" (e.g. "62% of
-		// the field guessed at least this close") with a real number instead of
+		// What % of the WHOLE field's conviction (not just other hitters')
+		// guessed at least as close to the actual value as this call did - the
+		// raw share closenessMult above was derived from (see
+		// numericGuessPoints). Exposed separately, not just left for the client
+		// to back out of the multiplier, so the UI can explain "why this
+		// multiplier" (e.g. "62% of the field's points guessed at least this
+		// close") with a real number instead of
 		// inverting a curve on the frontend. Same resolve-time-only reasoning as
 		// closenessMult - null until resolved, null forever on a miss.
 		closenessFieldPct: numeric("closeness_field_pct", {
@@ -78,6 +79,12 @@ export const calls = pgTable(
 		// See callUnscoredReason above - null for every call that scores, or
 		// will once its question resolves.
 		unscoredReason: callUnscoredReason("unscored_reason"),
+		// On a season-long call, the weeks its caller played the league and
+		// the weeks that counted, as of the question's first resolution (see
+		// seasonPlayWeight). Set once so a re-resolve scores at the same
+		// weight; null on every other call, and until then.
+		seasonPlayWeeksPlayed: integer("season_play_weeks_played"),
+		seasonPlayWeeksCounted: integer("season_play_weeks_counted"),
 
 		createdAt: timestamp("created_at").notNull().defaultNow(),
 	},

@@ -27,7 +27,7 @@ function props(overrides: Partial<SeasonStartProps> = {}): SeasonStartProps {
 		gamesUrl:
 			"https://calledmyshot.com/leagues/nfl/games?utm_content=games_row",
 		seasonUrl:
-			"https://calledmyshot.com/leagues/nfl/season?utm_content=season_row",
+			"https://calledmyshot.com/leagues/nfl/ballots?utm_content=season_row",
 		heroUrl:
 			"https://calledmyshot.com/leagues/nfl/games?utm_content=hero_games",
 		manageUrl: "https://calledmyshot.com/settings",
@@ -161,7 +161,7 @@ describe("SeasonStart", () => {
 			SeasonStart(
 				props({
 					gameCount: 0,
-					heroUrl: "https://calledmyshot.com/leagues/nfl/season",
+					heroUrl: "https://calledmyshot.com/leagues/nfl/ballots",
 				}),
 			),
 		)
