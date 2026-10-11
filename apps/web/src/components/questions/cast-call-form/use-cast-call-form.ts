@@ -521,7 +521,11 @@ export function useCastCallForm(
 		}
 		form.setValue("selections", [
 			...current,
-			{ optionId, conviction: sharedConviction },
+			{
+				optionId,
+				conviction:
+					convictionMode === "shared" ? sharedConviction : DEFAULT_CONVICTION,
+			},
 		])
 	}
 
@@ -544,6 +548,18 @@ export function useCastCallForm(
 			form
 				.values()
 				.selections.map((s) => ({ ...s, conviction: sharedConviction })),
+		)
+	}
+
+	// Per-pick conviction starts every pick at the default rather than
+	// inheriting the shared level, so each pick is set on its own.
+	function setSplitMode() {
+		setConvictionMode("split")
+		form.setValue(
+			"selections",
+			form
+				.values()
+				.selections.map((s) => ({ ...s, conviction: DEFAULT_CONVICTION })),
 		)
 	}
 
@@ -590,7 +606,7 @@ export function useCastCallForm(
 		setMultiSelectSearch,
 		convictionMode,
 		setSharedMode,
-		setConvictionMode,
+		setSplitMode,
 		sharedConviction,
 		updateSharedConviction,
 		selectSingle,

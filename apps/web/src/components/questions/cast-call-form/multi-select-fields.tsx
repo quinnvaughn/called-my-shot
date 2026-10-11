@@ -35,7 +35,7 @@ export function MultiSelectFields({ callForm }: Props) {
 		multiSelectSearch,
 		setMultiSelectSearch,
 		convictionMode,
-		setConvictionMode,
+		setSplitMode,
 		setSharedMode,
 		sharedConviction,
 		updateSharedConviction,
@@ -142,7 +142,7 @@ export function MultiSelectFields({ callForm }: Props) {
 										onClick={
 											mode === "shared"
 												? setSharedMode
-												: () => setConvictionMode("split")
+												: setSplitMode
 										}
 										className={cx(
 											css({

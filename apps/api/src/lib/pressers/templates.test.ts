@@ -46,9 +46,18 @@ describe("pickAppQuestions", () => {
 				template: "game_summary",
 				callId: null,
 				appKey: "game_summary:game",
-				body: "You went 1-0 on LAL @ BOS for +120 points. Which call do you stand by?",
+				body: "You went 1-0 on LAL @ BOS for +120 points. Which call was your best read?",
 			},
 		])
+	})
+
+	it("asks what went wrong when the game summary is net negative", () => {
+		const drafts = pickAppQuestions(
+			facts([call({ won: false, resultPoints: -90 })], { points: -90 }),
+		)
+		expect(drafts.at(-1)?.body).toBe(
+			"You went 0-1 on LAL @ BOS for -90 points. What would you do differently?",
+		)
 	})
 
 	it("asks about a high-conviction miss with the margin", () => {

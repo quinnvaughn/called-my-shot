@@ -160,7 +160,7 @@ function gameQuestion(facts: PresserFacts): {
 		}))
 		.with(P.nullish, () => ({
 			template: "game_summary" as const,
-			body: `You went ${facts.wins}-${facts.losses} on ${facts.matchup} for ${signedPoints(facts.points)} points. Which call do you stand by?`,
+			body: `You went ${facts.wins}-${facts.losses} on ${facts.matchup} for ${signedPoints(facts.points)} points. ${facts.points > 0 ? "Which call was your best read?" : "What would you do differently?"}`,
 		}))
 		.exhaustive()
 }
