@@ -2,13 +2,13 @@ import { useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute, Link, redirect } from "@tanstack/react-router"
 import {
 	FiAward,
+	FiFlag,
 	FiHelpCircle,
 	FiLock,
 	FiMessageCircle,
 	FiMic,
 	FiRadio,
 	FiUsers,
-	FiZap,
 } from "react-icons/fi"
 import { css } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
@@ -82,10 +82,10 @@ const whyItems = [
 			"Post your own question and set your own line. If it has a public result somebody could check, anyone can call it.",
 	},
 	{
-		icon: <FiZap />,
-		title: "Call every game",
+		icon: <FiFlag />,
+		title: "Challenge anyone",
 		description:
-			"It's free, so you don't have to pick your spots. Call every game you have an opinion on.",
+			"Pick the questions and send the link. Everyone who takes it on gets their own 1v1 against you, whoever scores more points wins, and the receipt stays up.",
 	},
 	{
 		icon: <FiMic />,
