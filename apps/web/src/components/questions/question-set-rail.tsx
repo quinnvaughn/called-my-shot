@@ -90,6 +90,8 @@ type Props = {
 	currentQuestionId?: string
 	// Beside the summary once anything is called.
 	share: ReactNode
+	// A full-width action under the summary, for the signed-in viewer.
+	action?: ReactNode
 	// The viewer's picks on this set as a page of their own.
 	picksPath: string | null
 	// When the live numbers were last read, while there are any.
@@ -181,6 +183,7 @@ export function QuestionSetRail({
 	signedOutText,
 	currentQuestionId,
 	share,
+	action,
 	picksPath,
 	statsAsOf = null,
 	extraTab = null,
@@ -224,10 +227,13 @@ export function QuestionSetRail({
 			</HStack>
 
 			{username ? (
-				<HStack justify="space-between" alignItems="center" gap="3">
-					<Summary summary={summary} />
-					{hasCalls && share}
-				</HStack>
+				<>
+					<HStack justify="space-between" alignItems="center" gap="3">
+						<Summary summary={summary} />
+						{hasCalls && share}
+					</HStack>
+					{action}
+				</>
 			) : (
 				<SignedOut text={signedOutText} />
 			)}

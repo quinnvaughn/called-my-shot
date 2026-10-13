@@ -1,5 +1,4 @@
 import { Link } from "@tanstack/react-router"
-import { HStack } from "styled-system/jsx"
 import { buildGameTweet, GameShareRow } from "#/components/games/game-share-row"
 import {
 	QuestionSetRail,
@@ -180,33 +179,36 @@ export function GameSetRail({
 			picksPath={username ? gameEntryPath(game.id, username) : null}
 			share={
 				username && (
-					<HStack gap="3" flexWrap="wrap">
-						<GameShareRow
-							gameId={game.id}
-							username={username}
-							shareTitle={`@${username}'s ${matchup} picks`}
-							surface={currentQuestionId ? "question_strip" : "game_page"}
-							layout="icons"
-							tweetText={buildGameTweet({ matchup, ...summary, isOwn: true })}
-						/>
-						{/* Any game still open can be a challenge. With picks still
-						    open on it they come ready-made; without, the builder
-						    opens on the game's questions to pick from. */}
-						{openCount > 0 && (
-							<Link
-								to="/challenges/new"
-								search={{
-									game: game.id,
-									source: openPicks > 0 ? "game_picks" : "game",
-								}}
-								className={button({ variant: "solid", size: "sm" })}
-							>
-								{openPicks > 0
-									? "Challenge with these picks"
-									: "Challenge on this game"}
-							</Link>
-						)}
-					</HStack>
+					<GameShareRow
+						gameId={game.id}
+						username={username}
+						shareTitle={`@${username}'s ${matchup} picks`}
+						surface={currentQuestionId ? "question_strip" : "game_page"}
+						layout="icons"
+						tweetText={buildGameTweet({ matchup, ...summary, isOwn: true })}
+					/>
+				)
+			}
+			// Any game still open can be a challenge. With picks still open on
+			// it they come ready-made; without, the builder opens on the game's
+			// questions to pick from.
+			action={
+				username &&
+				openCount > 0 && (
+					<Link
+						to="/challenges/new"
+						search={{
+							game: game.id,
+							source: openPicks > 0 ? "game_picks" : "game",
+						}}
+						className={button({
+							variant: "solid",
+							size: "sm",
+							fullWidth: true,
+						})}
+					>
+						Start a challenge
+					</Link>
 				)
 			}
 		/>
