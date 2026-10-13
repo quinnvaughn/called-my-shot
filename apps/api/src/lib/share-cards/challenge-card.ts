@@ -1,9 +1,9 @@
 // The og:images behind /challenges/:code and /challenges/:code/vs/:username.
-// An open or live challenge shows the creator's calls, the dare itself; a
-// settled one shows how the creator did against the field. A 1v1's receipt
-// shows the two totals and who won.
+// A challenge's card is the dare: who to beat and what it's over, never the
+// creator's picks. A 1v1's receipt shows the two totals and who won.
 //
 // Built on the shared og:image frame (see frame.ts).
+import { questionTitleWithGame } from "@called-my-shot/schemas"
 import { db } from "../../db"
 import { COLOR } from "../brand-palette"
 import { loadChallengeQuestionFacts } from "../challenges/load"
@@ -17,12 +17,10 @@ import {
 	type Record3,
 } from "../challenges/outcome"
 import { el, type SatoriNode } from "../share-image"
-import { loadCallSummaries } from "./call-summary"
 import { cardFrame, clamp, eyebrow, PERSON_MAX, statCell } from "./frame"
 
-const ROWS_SHOWN = 4
-const TITLE_MAX = 60
-const PICK_MAX = 30
+const TITLES_SHOWN = 2
+const TITLES_MAX = 90
 
 export type ChallengeCardData = {
 	creatorName: string
@@ -31,7 +29,10 @@ export type ChallengeCardData = {
 	questionCount: number
 	acceptanceCount: number
 	tally: Record3
-	rows: { title: string; pick: string | null }[]
+	// "BUF @ LAR" when every question is on that one game, which then names
+	// it once over bare titles. Otherwise each title carries its own game.
+	gameLabel: string | null
+	titles: string[]
 }
 
 export type MatchupCardData = {
@@ -47,54 +48,51 @@ const signed = (n: number) => (n > 0 ? `+${n}` : String(n))
 const recordText = ({ wins, losses, draws }: Record3) =>
 	draws > 0 ? `${wins}-${losses}-${draws}` : `${wins}-${losses}`
 
-function questionRow(row: { title: string; pick: string | null }): SatoriNode {
-	return el(
-		"div",
-		{
-			display: "flex",
-			justifyContent: "space-between",
-			gap: "24px",
-			paddingBottom: "10px",
-			borderBottom: `1px solid ${COLOR.border}`,
-		},
-		[
-			el(
-				"span",
-				{ display: "flex", fontSize: "24px", color: COLOR.linen },
-				clamp(row.title, TITLE_MAX),
-			),
-			el(
-				"span",
-				{
-					display: "flex",
-					flexShrink: 0,
-					fontSize: "24px",
-					fontWeight: 600,
-					color: row.pick ? COLOR.ink : COLOR.dim,
-				},
-				row.pick ? clamp(row.pick, PICK_MAX) : "No call yet",
-			),
-		],
-	)
-}
-
 export function buildChallengeCard(data: ChallengeCardData): SatoriNode {
-	const shown = data.rows.slice(0, ROWS_SHOWN)
-	const more = data.rows.length - shown.length
+	// The dare is the card. The questions are only a line under it, enough
+	// to say what's being called.
+	const questions = `${data.questionCount} ${data.questionCount === 1 ? "question" : "questions"}`
+	const shown = data.titles.slice(0, TITLES_SHOWN)
+	const more = data.titles.length - shown.length
 	const hero = el(
 		"div",
 		{
 			display: "flex",
 			flex: "1",
-			overflow: "hidden",
 			flexDirection: "column",
+			alignItems: "center",
 			justifyContent: "center",
-			gap: "12px",
+			gap: "18px",
+			paddingLeft: "48px",
+			paddingRight: "48px",
 		},
 		[
-			eyebrow(`@${data.creatorUsername}'s calls`),
-			...shown.map(questionRow),
-			...(more > 0 ? [eyebrow(`+${more} more`)] : []),
+			el(
+				"span",
+				{
+					display: "flex",
+					fontFamily: "Archivo Black",
+					fontSize: "76px",
+					lineHeight: 1.05,
+					color: COLOR.ink,
+					textAlign: "center",
+				},
+				`Can you beat @${clamp(data.creatorUsername, PERSON_MAX)}?`,
+			),
+			eyebrow(data.gameLabel ? `${questions} on ${data.gameLabel}` : questions),
+			el(
+				"span",
+				{
+					display: "flex",
+					fontSize: "22px",
+					color: COLOR.dim,
+					textAlign: "center",
+				},
+				clamp(
+					[...shown, ...(more > 0 ? [`+${more} more`] : [])].join(" · "),
+					TITLES_MAX,
+				),
+			),
 		],
 	)
 	const settled = data.state === "settled"
@@ -220,25 +218,33 @@ export async function loadChallengeCardData(
 ): Promise<ChallengeCardData | null> {
 	const loaded = await loadChallenge(code)
 	if (!loaded) return null
-	const { challenge, creator, questions, state, matchups } = loaded
+	const { creator, questions, state, matchups } = loaded
 
-	const [titles, calls] = await Promise.all([
-		db.query.questions.findMany({
-			where: { id: { in: questions.map((q) => q.id) } },
-			columns: { id: true, title: true },
-		}),
-		db.query.calls.findMany({
-			where: {
-				userId: challenge.creatorId,
-				questionId: { in: questions.map((q) => q.id) },
+	const titles = await db.query.questions.findMany({
+		where: { id: { in: questions.map((q) => q.id) } },
+		columns: { id: true, title: true, gameId: true },
+		with: {
+			game: {
+				columns: {},
+				with: {
+					homeTeam: { columns: { abbreviation: true } },
+					awayTeam: { columns: { abbreviation: true } },
+				},
 			},
-			columns: { id: true, questionId: true },
-		}),
-	])
-	const summaries = await loadCallSummaries(calls.map((c) => c.id))
-	const titleById = new Map(titles.map((q) => [q.id, q.title]))
-	const pickByQuestionId = new Map(
-		calls.map((c) => [c.questionId, summaries.get(c.id)?.pickLabel ?? null]),
+		},
+	})
+	const gameIds = new Set(titles.map((q) => q.gameId))
+	const onlyGame =
+		gameIds.size === 1 && titles[0]?.gameId ? titles[0].game : null
+	const gameLabel =
+		onlyGame?.awayTeam && onlyGame.homeTeam
+			? `${onlyGame.awayTeam.abbreviation} @ ${onlyGame.homeTeam.abbreviation}`
+			: null
+	const titleById = new Map(
+		titles.map((q) => [
+			q.id,
+			gameLabel ? q.title : questionTitleWithGame(q.title, q.game),
+		]),
 	)
 
 	return {
@@ -248,10 +254,8 @@ export async function loadChallengeCardData(
 		questionCount: questions.length,
 		acceptanceCount: matchups.length,
 		tally: creatorTally(matchups),
-		rows: questions.map((q) => ({
-			title: titleById.get(q.id) ?? "",
-			pick: pickByQuestionId.get(q.id) ?? null,
-		})),
+		gameLabel,
+		titles: questions.map((q) => titleById.get(q.id) ?? ""),
 	}
 }
 

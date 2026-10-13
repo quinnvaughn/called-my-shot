@@ -3,6 +3,7 @@ import { createFileRoute, Link } from "@tanstack/react-router"
 import { FaRegTimesCircle } from "react-icons/fa"
 import { css } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
+import { match } from "ts-pattern"
 import { ChallengeHero } from "#/components/challenges/challenge-hero"
 import { ChallengeQuestionRow } from "#/components/challenges/challenge-question-row"
 import { ChallengeShareRow } from "#/components/challenges/challenge-share-row"
@@ -18,7 +19,7 @@ import { EmptyState } from "#/components/ui/empty-state"
 import { Eyebrow } from "#/components/ui/eyebrow"
 import { NotFound } from "#/components/ui/not-found"
 import { challengePageQuery } from "#/graphql/queries/challenges"
-import { singleGameOf } from "#/lib/challenge"
+import { recordLine, singleGameOf } from "#/lib/challenge"
 import { pageMeta } from "#/lib/meta"
 import { pluralize } from "#/lib/pluralize"
 import { openModal } from "#/stores/modal-store"
@@ -39,6 +40,7 @@ export const Route = createFileRoute("/_app/challenges/$code")({
 						questionCount: challenge.entries.length,
 						state: challenge.state,
 						acceptanceCount: challenge.acceptanceCount,
+						tally: challenge.creatorTally,
 						code: challenge.code,
 					}
 				: null,
@@ -49,8 +51,31 @@ export const Route = createFileRoute("/_app/challenges/$code")({
 		if (!meta) return {}
 		const questions = `${meta.questionCount} ${pluralize(meta.questionCount, "question")}`
 		return pageMeta({
-			title: `@${meta.creator}'s challenge on Called My Shot`,
-			description: `@${meta.creator} made their calls on ${questions}. Make yours, and whoever scores more points takes the 1v1.`,
+			title:
+				meta.state === "OPEN"
+					? `Can you beat @${meta.creator}? | Called My Shot`
+					: `@${meta.creator}'s challenge on Called My Shot`,
+			description: match(meta.state)
+				.with(
+					"OPEN",
+					() =>
+						`@${meta.creator} made their calls on ${questions} and dares you to do better. Make yours before the first one locks. Whoever scores more points wins the 1v1.`,
+				)
+				.with(
+					"LIVE",
+					() =>
+						`${meta.acceptanceCount} took on @${meta.creator} across ${questions}. It's playing out now.`,
+				)
+				.with("SETTLED", () =>
+					meta.acceptanceCount > 0
+						? `@${meta.creator} went ${recordLine(meta.tally)} against everyone who took on their ${questions}.`
+						: `@${meta.creator}'s challenge on ${questions} is over.`,
+				)
+				.with(
+					"VOIDED",
+					() => `Every question in @${meta.creator}'s challenge was voided.`,
+				)
+				.exhaustive(),
 			path: `/challenges/${params.code}`,
 			image: {
 				path: `/share/challenges/${meta.code}/card.png?v=${meta.state}-${meta.acceptanceCount}`,

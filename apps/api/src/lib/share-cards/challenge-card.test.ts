@@ -9,25 +9,24 @@ const challenge = {
 	questionCount: 6,
 	acceptanceCount: 3,
 	tally: { wins: 0, losses: 0, draws: 0 },
-	rows: [
-		{ title: "Jokic over 27.5 points", pick: "Over 27.5" },
-		{ title: "Nuggets win", pick: null },
-		{ title: "Q3", pick: "Yes" },
-		{ title: "Q4", pick: "No" },
-		{ title: "Q5", pick: "No" },
-		{ title: "Q6", pick: "No" },
-	],
+	gameLabel: "DEN @ LAL",
+	titles: ["Jokic over 27.5 points", "Who will win?", "Q3", "Q4", "Q5", "Q6"],
 }
 
 describe("buildChallengeCard", () => {
-	it("shows the creator's calls while it's open, and how many are left over", () => {
+	it("leads with the dare, the questions a line under it", () => {
 		const texts = textNodes(buildChallengeCard(challenge))
-		expect(texts).toContain("@quinn's calls")
-		expect(texts).toContain("Over 27.5")
-		expect(texts).toContain("No call yet")
-		expect(texts).toContain("+2 more")
+		expect(texts).toContain("Can you beat @quinn?")
+		expect(texts).toContain("6 questions on DEN @ LAL")
+		expect(texts).toContain("Jokic over 27.5 points · Who will win? · +4 more")
 		expect(texts).toContain("Open")
 		expect(texts).not.toContain("Record")
+	})
+
+	it("stays a dare once it's closed", () => {
+		const texts = textNodes(buildChallengeCard({ ...challenge, state: "live" }))
+		expect(texts).toContain("Can you beat @quinn?")
+		expect(texts).toContain("Playing")
 	})
 
 	it("shows the creator's record against the field once settled", () => {
