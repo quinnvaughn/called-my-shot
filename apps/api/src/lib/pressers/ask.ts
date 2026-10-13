@@ -58,7 +58,11 @@ export async function isBlockedEitherWay(
 	return row !== undefined
 }
 
-async function sharesGroup(q: DbOrTx, a: string, b: string): Promise<boolean> {
+export async function sharesGroup(
+	q: DbOrTx,
+	a: string,
+	b: string,
+): Promise<boolean> {
 	const other = alias(groupMembers, "other_member")
 	const [row] = await q
 		.select({ groupId: groupMembers.groupId })

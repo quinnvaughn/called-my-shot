@@ -9,6 +9,11 @@ export const UserProfileDocument = graphql(`
 			avatarUrl
 			bannerUrl
 			createdAt
+			headToHeadWithViewer {
+				wins
+				losses
+				draws
+			}
 			...Identity_user
 			favoriteTeams {
 				id

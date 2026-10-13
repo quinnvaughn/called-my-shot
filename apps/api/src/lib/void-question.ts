@@ -8,6 +8,7 @@ import {
 	questions,
 } from "../db/schema"
 import type { Tx } from "../db/types"
+import { notifyChallengesSettled } from "./challenges/settle-hook"
 import { createNotifications } from "./notifications"
 import { type ResolvedBy, reverseQuestionLeagueStats } from "./resolve-question"
 import { markSettleFollowups } from "./settle-followups"
@@ -41,6 +42,7 @@ export async function markQuestionVoided(
 				hitTolerance: null,
 				closenessMult: null,
 				closenessFieldPct: null,
+				challengePoints: null,
 				// An existing reason is kept, so a creator_sole_caller exclusion is
 				// still there if the question is later resolved again.
 				unscoredReason: sql`coalesce(${calls.unscoredReason}, 'question_voided')`,
@@ -48,7 +50,7 @@ export async function markQuestionVoided(
 			.where(eq(calls.questionId, question.id))
 		await tx
 			.update(callSelections)
-			.set({ resultPoints: null })
+			.set({ resultPoints: null, challengePoints: null })
 			.where(
 				inArray(
 					callSelections.callId,
@@ -92,5 +94,8 @@ export async function markQuestionVoided(
 		.returning()
 	if (!updated)
 		throw new Error("markQuestionVoided: question vanished mid-transaction")
+	// A void can finish a challenge too: it drops out, and whatever else is in
+	// the challenge may already have settled.
+	if (!input.holdNotices) await notifyChallengesSettled(tx, question.id)
 	return updated
 }

@@ -17,6 +17,7 @@ import {
 	createdQuestionsQuery,
 } from "#/components/groups/created-questions-tab"
 import { GroupBallotsStrip } from "#/components/groups/group-ballots-strip"
+import { GroupChallengeStrip } from "#/components/groups/group-challenge-strip"
 import {
 	GroupGamesStrip,
 	groupLiveGamesQuery,
@@ -105,6 +106,7 @@ function RouteComponent() {
 				viewerId={me?.id ?? null}
 				highlights={group.presserHighlights}
 			/>
+			<GroupChallengeStrip challenges={group.challengeHighlights} />
 			<GroupBallotsStrip
 				groupId={group.id}
 				ballots={group.ballots}

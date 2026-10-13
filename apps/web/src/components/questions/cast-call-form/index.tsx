@@ -8,7 +8,10 @@ import {
 } from "./use-cast-call-form"
 
 export { CastCallFormFragment, FORM_ID, useCastCallForm }
-export type { CastCallFormState } from "./use-cast-call-form"
+export type {
+	CallDraft,
+	CastCallFormState,
+} from "./use-cast-call-form"
 
 type Props = {
 	callForm: ReturnType<typeof useCastCallForm>
@@ -28,7 +31,7 @@ export function CastCallForm({ callForm }: Props) {
 	if (!question) return null
 
 	return (
-		<form id={FORM_ID} onSubmit={callForm.form.handleSubmit}>
+		<form id={callForm.formId} onSubmit={callForm.form.handleSubmit}>
 			{bucket === "single" && <OptionFields callForm={callForm} />}
 			{bucket === "multi" && <MultiSelectFields callForm={callForm} />}
 			{bucket === "numeric" && <NumericGuessFields callForm={callForm} />}

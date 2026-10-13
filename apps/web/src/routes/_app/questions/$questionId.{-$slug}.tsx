@@ -9,8 +9,8 @@ import {
 import { DateTime } from "luxon"
 import { useEffect, useRef, useState } from "react"
 import { FaRegTimesCircle } from "react-icons/fa"
-import { FiShare } from "react-icons/fi"
-import { css } from "styled-system/css"
+import { FiFlag, FiShare } from "react-icons/fi"
+import { css, cx } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
 import { match, P } from "ts-pattern"
 import { AuthModal } from "#/components/auth/auth-modal"
@@ -40,7 +40,7 @@ import { StatContextCard } from "#/components/questions/stat-context-card"
 import { StreakStakeLine } from "#/components/questions/streak-stake-line"
 import { ViewerStatusCard } from "#/components/questions/viewer-status-card"
 import { Breadcrumb } from "#/components/ui/breadcrumb"
-import { Button } from "#/components/ui/button"
+import { Button, button } from "#/components/ui/button"
 import { Card } from "#/components/ui/card"
 import { Identity } from "#/components/ui/identity"
 import { NotFound } from "#/components/ui/not-found"
@@ -121,8 +121,16 @@ export const Route = createFileRoute("/_app/questions/$questionId/{-$slug}")({
 	// undefined": a key that is always present, even valued undefined, makes
 	// `search` a required prop on every <Link> to this route, and there are a
 	// dozen of those that have nothing to do with onboarding.
-	validateSearch: (search: Record<string, unknown>): { tour?: "first-call" } =>
-		search.tour === "first-call" ? { tour: "first-call" } : {},
+	// `created` is set once, right after the viewer writes the question, to
+	// offer a challenge on it while it's fresh.
+	validateSearch: (
+		search: Record<string, unknown>,
+	): { tour?: "first-call"; created?: true } => ({
+		...(search.tour === "first-call" ? { tour: "first-call" as const } : {}),
+		...(search.created === true || search.created === "true"
+			? { created: true as const }
+			: {}),
+	}),
 	// Without this, navigating between two questions on this same route (e.g.
 	// a BallotStrip link) doesn't remount RouteComponent - only the loader data
 	// updates. useCastCallForm's internal useForm store (and its own
@@ -227,7 +235,7 @@ function QuestionSetRailFor() {
 
 function RouteComponent() {
 	const { questionId } = Route.useParams()
-	const { tour } = Route.useSearch()
+	const { tour, created } = Route.useSearch()
 	const navigate = Route.useNavigate()
 	const { data } = useSuspenseQuery({
 		...questionDetailQuery(questionId),
@@ -532,7 +540,47 @@ function RouteComponent() {
 							<FiShare size={14} />
 							Share
 						</Button>
+						{me &&
+							question.status === "OPEN" &&
+							new Date(question.locksAt) > new Date() && (
+								<Link
+									to="/challenges/new"
+									search={{ question: question.id, source: "question" }}
+									className={cx(
+										button({ variant: "ghost", size: "sm" }),
+										css({ flexShrink: 0 }),
+									)}
+								>
+									<FiFlag size={14} />
+									Challenge
+								</Link>
+							)}
 					</HStack>
+					{created &&
+						me &&
+						question.status === "OPEN" &&
+						new Date(question.locksAt) > new Date() && (
+							<Card variant="subtle" size="sm">
+								<Card.Body>
+									<HStack justify="space-between" gap="3" flexWrap="wrap">
+										<p className={css({ fontSize: "sm" })}>
+											Think people will get this wrong? Challenge them on it.
+											Whoever scores more points on it wins the 1v1.
+										</p>
+										<Link
+											to="/challenges/new"
+											search={{
+												question: question.id,
+												source: "new_question",
+											}}
+											className={button({ variant: "solid", size: "sm" })}
+										>
+											Make a challenge
+										</Link>
+									</HStack>
+								</Card.Body>
+							</Card>
+						)}
 					<h1 className={css({ fontSize: "2xl", fontFamily: "heading" })}>
 						{question.title}
 					</h1>

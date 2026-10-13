@@ -19,7 +19,8 @@ import {
 import type { Tx } from "../../db/types"
 import { enqueueAnalyticsEvents } from "../analytics-outbox"
 import { AuthorizationError, NotFoundError, ValidationError } from "../errors"
-import { categoryMessage, moderateText, type Strictness } from "../moderation"
+import type { Strictness } from "../moderation"
+import { assertAllowedText as assertAllowed } from "../moderation/guard"
 import { createNotification } from "../notifications"
 import { isPresserOpen } from "./app-questions"
 import { askEligibility, type PresserAskStatus } from "./ask"
@@ -39,30 +40,18 @@ async function lockPresser(tx: Tx, presserId: string): Promise<Presser> {
 const minutesBetween = (from: Date, to: Date) =>
 	Math.max(0, Math.round((to.getTime() - from.getTime()) / 60_000))
 
-// The moderation check, with whatever it turns away recorded (without the
-// text) so a filter that's too eager shows up in the numbers.
-async function assertAllowedText(
+// The shared check, recording a refusal as presser_text_blocked.
+function assertAllowedText(
 	user: User,
 	text: string,
 	field: { input: string; event: "statement" | "question" | "answer" },
 	strictness: Strictness,
 ): Promise<void> {
-	const result = await moderateText(text, { strictness })
-	if (result.ok) return
-	await db.transaction((tx) =>
-		enqueueAnalyticsEvents(tx, [
-			{
-				event: "presser_text_blocked",
-				userId: user.id,
-				properties: {
-					field: field.event,
-					category: result.category,
-					strictness,
-				},
-			},
-		]),
-	)
-	throw ValidationError.field(field.input, categoryMessage(result.category))
+	return assertAllowed(text, field.input, strictness, (category) => ({
+		event: "presser_text_blocked",
+		userId: user.id,
+		properties: { field: field.event, category, strictness },
+	}))
 }
 
 const ASK_REFUSAL: Record<Exclude<PresserAskStatus, "can_ask">, string> = {

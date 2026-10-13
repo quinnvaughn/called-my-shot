@@ -32,6 +32,7 @@ import {
 	type UserRecordQuery,
 } from "#/graphql/generated/graphql"
 import { gqlQueryOptions } from "#/graphql/query-options"
+import { recordLine } from "#/lib/challenge"
 import { toIdentity } from "#/lib/identity"
 import { pageMeta } from "#/lib/meta"
 import { profileCardVersion } from "#/lib/profile"
@@ -304,6 +305,12 @@ function RouteComponent() {
 					)
 				}
 			/>
+			{user.headToHeadWithViewer && (
+				<p className={css({ fontSize: "sm", color: "secondary.default" })}>
+					You're {recordLine(user.headToHeadWithViewer)} against @
+					{user.username} in challenges.
+				</p>
+			)}
 			<OpenPresserBanner
 				username={user.username}
 				isOwn={isOwn}

@@ -12,6 +12,12 @@ import { Card } from "#/components/ui/card"
 export type Target =
 	| { to: "/questions/$questionId/{-$slug}"; params: { questionId: string } }
 	| { to: "/groups/$groupId"; params: { groupId: string } }
+	| { to: "/challenges/$code"; params: { code: string } }
+	| {
+			to: "/challenges/$code/vs/$username"
+			params: { code: string; username: string }
+			hash?: string
+	  }
 	| { to: "/games/$gameId/{-$slug}"; params: { gameId: string; slug: string } }
 	| {
 			to: "/games/$gameId/picks/$username"
@@ -141,6 +147,7 @@ export function NotificationShell({
 						// no `params` key at all, and handing Link an explicit undefined
 						// is not the same as omitting it.
 						{...("params" in target ? { params: target.params } : {})}
+						{...("hash" in target ? { hash: target.hash } : {})}
 						className={css({
 							display: "block",
 							textDecoration: "none",

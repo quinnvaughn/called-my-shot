@@ -1,4 +1,5 @@
 import { Link } from "@tanstack/react-router"
+import { HStack } from "styled-system/jsx"
 import { buildGameTweet, GameShareRow } from "#/components/games/game-share-row"
 import {
 	QuestionSetRail,
@@ -7,6 +8,7 @@ import {
 	railHeadingClass,
 	railHeadingLinkClass,
 } from "#/components/questions/question-set-rail"
+import { button } from "#/components/ui/button"
 import { type FragmentType, graphql, useFragment } from "#/graphql/generated"
 import type {
 	GameSetRail_QuestionFragment,
@@ -136,6 +138,12 @@ export function GameSetRail({
 	const summary = questionSetRailSummary(rows, communityRows)
 	const matchup = `${game.awayTeam.abbreviation} @ ${game.homeTeam.abbreviation}`
 	const isLive = game.status === "LIVE"
+	const now = new Date()
+	const openRows = rows.filter(
+		(r) => r.questionStatus === "OPEN" && new Date(r.locksAt) > now,
+	)
+	const openCount = openRows.length
+	const openPicks = openRows.filter((r) => r.state === "pending").length
 
 	return (
 		<QuestionSetRail
@@ -172,14 +180,33 @@ export function GameSetRail({
 			picksPath={username ? gameEntryPath(game.id, username) : null}
 			share={
 				username && (
-					<GameShareRow
-						gameId={game.id}
-						username={username}
-						shareTitle={`@${username}'s ${matchup} picks`}
-						surface={currentQuestionId ? "question_strip" : "game_page"}
-						layout="icons"
-						tweetText={buildGameTweet({ matchup, ...summary, isOwn: true })}
-					/>
+					<HStack gap="3" flexWrap="wrap">
+						<GameShareRow
+							gameId={game.id}
+							username={username}
+							shareTitle={`@${username}'s ${matchup} picks`}
+							surface={currentQuestionId ? "question_strip" : "game_page"}
+							layout="icons"
+							tweetText={buildGameTweet({ matchup, ...summary, isOwn: true })}
+						/>
+						{/* Any game still open can be a challenge. With picks still
+						    open on it they come ready-made; without, the builder
+						    opens on the game's questions to pick from. */}
+						{openCount > 0 && (
+							<Link
+								to="/challenges/new"
+								search={{
+									game: game.id,
+									source: openPicks > 0 ? "game_picks" : "game",
+								}}
+								className={button({ variant: "solid", size: "sm" })}
+							>
+								{openPicks > 0
+									? "Challenge with these picks"
+									: "Challenge on this game"}
+							</Link>
+						)}
+					</HStack>
 				)
 			}
 		/>

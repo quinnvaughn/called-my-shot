@@ -39,9 +39,13 @@ export function ToggleRow({ label, description, checked, onChange }: Props) {
 						flexShrink: 0,
 						borderRadius: "full",
 						bg: "bg.subtle",
-						border: "1px solid",
-						borderColor: "border.default",
+						border: "1px solid {colors.border.default}",
+						cursor: "pointer",
 						transition: "background-color 0.15s ease, border-color 0.15s ease",
+						_hover: {
+							border: "1px solid {colors.border.emphasized}",
+							_after: { bg: "fg.default" },
+						},
 						_after: {
 							content: '""',
 							position: "absolute",
@@ -57,7 +61,12 @@ export function ToggleRow({ label, description, checked, onChange }: Props) {
 					checked &&
 						css({
 							bg: "primary.subtle",
-							borderColor: "primary.default",
+							border: "1px solid {colors.primary.default}",
+							_hover: {
+								bg: "primary.default/30",
+								border: "1px solid {colors.primary.default}",
+								_after: { bg: "primary.default" },
+							},
 							_after: {
 								transform: "translateX(18px)",
 								bg: "primary.default",

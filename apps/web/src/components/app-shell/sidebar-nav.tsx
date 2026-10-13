@@ -1,6 +1,6 @@
 import { Link } from "@tanstack/react-router"
 import { BsBarChartFill } from "react-icons/bs"
-import { FaSquareCheck, FaUser, FaUserGroup } from "react-icons/fa6"
+import { FaFlag, FaSquareCheck, FaUser, FaUserGroup } from "react-icons/fa6"
 import { FiBell, FiX } from "react-icons/fi"
 import { GoHomeFill } from "react-icons/go"
 import type { IconType } from "react-icons/lib"
@@ -32,6 +32,12 @@ const NAV_ITEMS: NavItem[] = [
 		to: "/my-calls",
 		label: "My Calls",
 		icon: FaSquareCheck,
+		authRequired: true,
+	},
+	{
+		to: "/challenges",
+		label: "Challenges",
+		icon: FaFlag,
 		authRequired: true,
 	},
 	{ to: "/leaderboard", label: "Leaderboard", icon: BsBarChartFill },

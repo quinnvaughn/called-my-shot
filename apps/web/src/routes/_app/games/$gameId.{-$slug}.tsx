@@ -11,7 +11,7 @@ import {
 } from "@tanstack/react-router"
 import { useState } from "react"
 import { FaRegTimesCircle } from "react-icons/fa"
-import { css } from "styled-system/css"
+import { css, cx } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
 import {
 	GameCardContext,
@@ -247,6 +247,10 @@ function RouteComponent() {
 
 	const matchup = `${game.awayTeam.abbreviation} @ ${game.homeTeam.abbreviation}`
 	const picks = viewerGamePicksSummary(officialQuestions)
+	const openQuestions = officialQuestions.filter(
+		(q) => q.status === "OPEN" && new Date(q.locksAt) > new Date(),
+	)
+	const openPicks = openQuestions.filter((q) => q.viewerCall !== null).length
 
 	function selectTab(next: GameTab) {
 		navigate({
@@ -274,12 +278,32 @@ function RouteComponent() {
 
 			<VStack gap="2" alignItems="stretch">
 				<GameMatchupHeader game={game} starters={game} />
-				{canSetGameReminder(game) && (
-					<HStack justify="flex-end">
-						<GameReminderButton
-							gameId={game.id}
-							hasReminder={game.viewerHasReminder}
-						/>
+				{(canSetGameReminder(game) || (me && openQuestions.length > 0)) && (
+					<HStack justify="flex-end" gap="2" flexWrap="wrap">
+						{/* The rail carries this from xl up. */}
+						{me && openQuestions.length > 0 && (
+							<Link
+								to="/challenges/new"
+								search={{
+									game: game.id,
+									source: openPicks > 0 ? "game_picks" : "game",
+								}}
+								className={cx(
+									button({ variant: "solid", size: "sm" }),
+									css({ xl: { display: "none" } }),
+								)}
+							>
+								{openPicks > 0
+									? "Challenge with these picks"
+									: "Challenge on this game"}
+							</Link>
+						)}
+						{canSetGameReminder(game) && (
+							<GameReminderButton
+								gameId={game.id}
+								hasReminder={game.viewerHasReminder}
+							/>
+						)}
 					</HStack>
 				)}
 			</VStack>

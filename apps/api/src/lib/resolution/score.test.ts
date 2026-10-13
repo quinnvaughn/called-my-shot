@@ -96,7 +96,48 @@ const firstOfTwoWin = (conviction: number) =>
 		earlyTierFor(1, 2).mult,
 	)
 
+const challengePointsOf = (
+	result: ReturnType<typeof scoreYesNo>,
+	selectionId: string,
+) =>
+	result.selectionPoints.find((p) => p.selectionId === selectionId)
+		?.challengePoints
+
 describe("scoreSelections", () => {
+	it("scores challenge points without earliness or the season-play weight", () => {
+		const selections = [
+			pick("a", "yes", { createdAt: at(1) }),
+			pick("b", "no", { createdAt: at(2) }),
+		]
+		const result = scoreSelections({
+			shape: "yes_no_prop",
+			isOfficial: true,
+			lossRate: LOSS_RATE,
+			options: yesNo(),
+			correctOptionIds: ["yes"],
+			selections,
+			earliness: { by: "rank", totalCalls: 2 },
+			weightByCallId: new Map([
+				["call-a", 0.5],
+				["call-b", 0.5],
+			]),
+		})
+		expect(challengePointsOf(result, "a-yes")).toBe(
+			selectionPoints(BASE, LOSS_RATE, 50, 2, 100, true, 1),
+		)
+		expect(challengePointsOf(result, "b-no")).toBe(miss(100))
+		expect(pointsOf(result, "b-no")).toBe(
+			-pointsAtStake(BASE * 0.5, LOSS_RATE, 100),
+		)
+	})
+
+	it("leaves an unscored call without challenge points", () => {
+		const result = scoreYesNo([pick("a", "yes")], "yes", {
+			unscoredUserIds: soleCaller("a"),
+		})
+		expect(challengePointsOf(result, "a-yes")).toBeNull()
+	})
+
 	it("matches the shared scoring formula exactly", () => {
 		const result = scoreYesNo(
 			[
@@ -183,9 +224,7 @@ describe("scoreSelections", () => {
 				earlyTierFor(1, 2).mult,
 			),
 		)
-		expect(pointsOf(result, "b-no")).toBe(
-			-pointsAtStake(base, LOSS_RATE, 100),
-		)
+		expect(pointsOf(result, "b-no")).toBe(-pointsAtStake(base, LOSS_RATE, 100))
 	})
 
 	it("charges a miss at its side's own rate when the line was priced", () => {
@@ -535,6 +574,7 @@ describe("scoreGuesses", () => {
 					hitTolerance: null,
 					closenessMult: null,
 					closenessFieldPct: null,
+					challengePoints: null,
 					unscoredReason: "creator_sole_caller",
 				},
 			},

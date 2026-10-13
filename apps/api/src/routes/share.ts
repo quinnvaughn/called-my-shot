@@ -7,6 +7,12 @@ import {
 	buildCallShareCard,
 	loadCallShareCardData,
 } from "../lib/share-cards/call-card"
+import {
+	buildChallengeCard,
+	buildMatchupCard,
+	loadChallengeCardData,
+	loadMatchupCardData,
+} from "../lib/share-cards/challenge-card"
 import { SHARE_CARD_SIZE } from "../lib/share-cards/frame"
 import {
 	buildGameShareCard,
@@ -193,6 +199,27 @@ export function registerShareRoutes(app: Express) {
 			res,
 			await loadGroupRecapCardData(req.params.token),
 			buildGroupRecapCard,
+			SHARE_CARD_SIZE,
+		)
+	})
+
+	// The og:image behind /challenges/:code: the creator's calls while it's
+	// open or playing out, how they did against the field once it's settled.
+	app.get("/share/challenges/:code.png", async (req, res) => {
+		await serveCard(
+			res,
+			await loadChallengeCardData(req.params.code),
+			buildChallengeCard,
+			SHARE_CARD_SIZE,
+		)
+	})
+
+	// The og:image behind /challenges/:code/vs/:username: one 1v1's totals.
+	app.get("/share/challenges/:code/vs/:username.png", async (req, res) => {
+		await serveCard(
+			res,
+			await loadMatchupCardData(req.params.code, req.params.username),
+			buildMatchupCard,
 			SHARE_CARD_SIZE,
 		)
 	})

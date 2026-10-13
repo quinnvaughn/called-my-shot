@@ -10,6 +10,7 @@ import {
 	uuid,
 } from "drizzle-orm/pg-core"
 import { calls } from "./calls"
+import { challenges } from "./challenges"
 import { games } from "./games"
 import { groups } from "./groups"
 import { pressers } from "./pressers"
@@ -40,6 +41,10 @@ export const notificationType = pgEnum("notification_type", [
 	"game_resolved",
 	"presser_question_received",
 	"presser_answered",
+	"challenge_accepted",
+	"challenge_settled",
+	"challenge_gloated",
+	"challenge_posted_to_group",
 ])
 
 // One row per (recipient, thing that happened) - see hook points in
@@ -84,6 +89,10 @@ export const notifications = pgTable(
 		// presser_question_received: the recipient's own presser.
 		// presser_answered: the presser whose owner answered the recipient.
 		presserId: uuid("presser_id").references(() => pressers.id, {
+			onDelete: "cascade",
+		}),
+		// Every challenge_* type: the challenge it's about.
+		challengeId: uuid("challenge_id").references(() => challenges.id, {
 			onDelete: "cascade",
 		}),
 		questionTitle: text("question_title"),

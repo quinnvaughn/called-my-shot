@@ -7,10 +7,7 @@ import {
 import { useRouteContext } from "@tanstack/react-router"
 import { css } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
-import {
-	type CastCallFormState,
-	FORM_ID,
-} from "#/components/questions/cast-call-form"
+import type { CastCallFormState } from "#/components/questions/cast-call-form"
 import { isOverUnderShape } from "#/components/questions/cast-call-form/use-cast-call-form"
 import { Button } from "#/components/ui/button"
 import { FormError } from "#/components/ui/form-error"
@@ -260,7 +257,7 @@ export function ConfirmCallModal({
 					<VStack gap="2" alignItems="stretch">
 						<Button
 							type={me ? "submit" : "button"}
-							form={FORM_ID}
+							form={callForm.formId}
 							variant="solid"
 							size="lg"
 							fullWidth
@@ -272,7 +269,7 @@ export function ConfirmCallModal({
 									: () =>
 											requireAuth(() => {
 												document
-													.querySelector<HTMLFormElement>(`#${FORM_ID}`)
+													.querySelector<HTMLFormElement>(`#${callForm.formId}`)
 													?.requestSubmit()
 											})
 							}

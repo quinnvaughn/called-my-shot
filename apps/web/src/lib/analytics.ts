@@ -16,7 +16,11 @@ export function questionHorizon(shape: QuestionCallShape): QuestionHorizon {
 // Where a call was made from. The question page is where most calls land;
 // the call page is a fade aimed at someone's receipt; guest_picks are the
 // landing page's picks, posted once the visitor has an account.
-export type CallSurface = "question_page" | "call_page" | "guest_picks"
+export type CallSurface =
+	| "question_page"
+	| "call_page"
+	| "guest_picks"
+	| "challenge"
 
 // Add new events here as they're needed - `track()` below is typed against
 // this map, so every call site gets the right property shape for free and a
@@ -180,6 +184,33 @@ type AnalyticsEvents = {
 	recap_link_shared: {
 		recapId: string
 		method: "native" | "clipboard" | "x"
+	}
+	// A challenge's link, or one 1v1's receipt.
+	challenge_link_shared: {
+		challengeId: string
+		receipt: boolean
+		method: "native" | "clipboard" | "x"
+	}
+
+	// source says where the builder was opened from.
+	challenge_created: {
+		challengeId: string
+		questionCount: number
+		groupCount: number
+		source:
+			| "question"
+			| "call"
+			| "game"
+			| "game_picks"
+			| "new_question"
+			| "builder"
+	}
+	// newCalls is how many questions they called as part of accepting, as
+	// against ones they'd already called.
+	challenge_accepted: {
+		challengeId: string
+		questionCount: number
+		newCalls: number
 	}
 
 	support_ticket_filed: { category: string }

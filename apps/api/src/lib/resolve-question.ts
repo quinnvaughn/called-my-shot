@@ -15,6 +15,7 @@ import {
 import type { Tx } from "../db/types"
 import { enqueueAnalyticsEvents } from "./analytics-outbox"
 import { reversalDeltas } from "./call-contribution"
+import { notifyChallengesSettled } from "./challenges/settle-hook"
 import { enqueueResolvedCallEmails } from "./email-outbox"
 import { ValidationError } from "./errors"
 import { createNotifications } from "./notifications"
@@ -213,6 +214,14 @@ export async function resolveQuestionInternal(
 		throw new Error(
 			"resolveQuestionInternal: question vanished mid-transaction",
 		)
+
+	if (!opts.holdNotices) {
+		await notifyChallengesSettled(
+			tx,
+			question.id,
+			new Set(notified.map((n) => n.userId)),
+		)
+	}
 	return updated
 }
 
@@ -266,6 +275,7 @@ export async function announceHeldSettle(
 		)
 	}
 	await markSettleFollowups(tx, question)
+	await notifyChallengesSettled(tx, questionId)
 }
 
 // Scores a numeric-guess question's calls and writes each result onto its
@@ -442,10 +452,14 @@ async function scoreOptionCalls(
 			: undefined,
 	})
 
-	for (const { selectionId, resultPoints } of scored.selectionPoints) {
+	for (const {
+		selectionId,
+		resultPoints,
+		challengePoints,
+	} of scored.selectionPoints) {
 		await tx
 			.update(callSelections)
-			.set({ resultPoints })
+			.set({ resultPoints, challengePoints })
 			.where(eq(callSelections.id, selectionId))
 	}
 	for (const { callId, unscoredReason } of scored.callReasons) {

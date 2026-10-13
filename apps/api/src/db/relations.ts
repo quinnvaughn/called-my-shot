@@ -697,6 +697,10 @@ export const relations = defineRelations(schema, (r) => ({
 			from: r.notifications.presserId,
 			to: r.pressers.id,
 		}),
+		challenge: r.one.challenges({
+			from: r.notifications.challengeId,
+			to: r.challenges.id,
+		}),
 	},
 	achievementNotices: {
 		user: r.one.users({
@@ -761,6 +765,73 @@ export const relations = defineRelations(schema, (r) => ({
 		question: r.one.presserQuestions({
 			from: r.presserReports.presserQuestionId,
 			to: r.presserQuestions.id,
+		}),
+	},
+	challenges: {
+		creator: r.one.users({
+			from: r.challenges.creatorId,
+			to: r.users.id,
+		}),
+		questions: r.many.challengeQuestions(),
+		acceptances: r.many.challengeAcceptances(),
+		groupPosts: r.many.challengeGroupPosts(),
+	},
+	challengeQuestions: {
+		challenge: r.one.challenges({
+			from: r.challengeQuestions.challengeId,
+			to: r.challenges.id,
+		}),
+		question: r.one.questions({
+			from: r.challengeQuestions.questionId,
+			to: r.questions.id,
+		}),
+	},
+	challengeAcceptances: {
+		challenge: r.one.challenges({
+			from: r.challengeAcceptances.challengeId,
+			to: r.challenges.id,
+		}),
+		acceptor: r.one.users({
+			from: r.challengeAcceptances.acceptorId,
+			to: r.users.id,
+		}),
+	},
+	challengeGroupPosts: {
+		challenge: r.one.challenges({
+			from: r.challengeGroupPosts.challengeId,
+			to: r.challenges.id,
+		}),
+		group: r.one.groups({
+			from: r.challengeGroupPosts.groupId,
+			to: r.groups.id,
+		}),
+		postedBy: r.one.users({
+			from: r.challengeGroupPosts.postedById,
+			to: r.users.id,
+		}),
+	},
+	gloats: {
+		sender: r.one.users({
+			from: r.gloats.senderId,
+			to: r.users.id,
+		}),
+		challenge: r.one.challenges({
+			from: r.gloats.challengeId,
+			to: r.challenges.id,
+		}),
+		acceptance: r.one.challengeAcceptances({
+			from: r.gloats.acceptanceId,
+			to: r.challengeAcceptances.id,
+		}),
+	},
+	gloatReports: {
+		reporter: r.one.users({
+			from: r.gloatReports.reporterId,
+			to: r.users.id,
+		}),
+		gloat: r.one.gloats({
+			from: r.gloatReports.gloatId,
+			to: r.gloats.id,
 		}),
 	},
 	userSweeps: {

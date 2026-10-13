@@ -9,6 +9,7 @@ import { GameMatchupHeader } from "#/components/games/game-matchup-header"
 import { buildGameTweet, GameShareRow } from "#/components/games/game-share-row"
 import { PresserSection } from "#/components/pressers/presser-section"
 import { Breadcrumb } from "#/components/ui/breadcrumb"
+import { button } from "#/components/ui/button"
 import { NotFound } from "#/components/ui/not-found"
 import { PageHeader } from "#/components/ui/page-header"
 import { GroupCrumbDocument } from "#/graphql/queries/groups"
@@ -224,6 +225,18 @@ function RouteComponent() {
 						>
 							{isOwn ? "Back to the game →" : "Make your own calls →"}
 						</Link>
+						{/* Their picks still open to call against, as a ready-made
+						    challenge they can trim or add to. */}
+						{isOwn &&
+							called.some((r) => questionDetailState(r.question).canCall) && (
+								<Link
+									to="/challenges/new"
+									search={{ game: game.id, source: "game_picks" }}
+									className={button({ variant: "solid", size: "sm" })}
+								>
+									Challenge with these picks
+								</Link>
+							)}
 						<GameShareRow
 							gameId={game.id}
 							username={entry.user.username}

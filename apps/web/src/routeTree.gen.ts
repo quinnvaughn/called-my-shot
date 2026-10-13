@@ -26,6 +26,7 @@ import { Route as AdminIndexRouteImport } from './routes/admin/index'
 import { Route as AdminBandsRouteImport } from './routes/admin/bands'
 import { Route as AdminDisputesRouteImport } from './routes/admin/disputes'
 import { Route as AdminGifsRouteImport } from './routes/admin/gifs'
+import { Route as AdminGloatReportsRouteImport } from './routes/admin/gloat-reports'
 import { Route as AdminGroupsRouteImport } from './routes/admin/groups'
 import { Route as AdminIntegrityRouteImport } from './routes/admin/integrity'
 import { Route as AdminLeadersRouteImport } from './routes/admin/leaders'
@@ -52,6 +53,7 @@ import { Route as AppAuthedSettingsRouteImport } from './routes/_app/_authed/set
 import { Route as AppAuthedSupportRouteImport } from './routes/_app/_authed/support'
 import { Route as AppBallotsBallotSlugRouteImport } from './routes/_app/ballots/$ballotSlug'
 import { Route as AppCallsCallIdRouteImport } from './routes/_app/calls/$callId'
+import { Route as AppChallengesCodeRouteImport } from './routes/_app/challenges/$code'
 import { Route as AppLeaguesLeagueSlugRouteImport } from './routes/_app/leagues/$leagueSlug'
 import { Route as AppRecapsTokenRouteImport } from './routes/_app/recaps/$token'
 import { Route as AppUpdatesIndexRouteImport } from './routes/_app/updates/index'
@@ -66,8 +68,11 @@ import { Route as AdminUpdatesUpdateIdRouteImport } from './routes/admin/updates
 import { Route as AdminUpdatesNewRouteImport } from './routes/admin/updates/new'
 import { Route as AuthGoogleIndexRouteImport } from './routes/auth/google/index'
 import { Route as AuthGoogleCallbackRouteImport } from './routes/auth/google/callback'
+import { Route as AppAuthedChallengesIndexRouteImport } from './routes/_app/_authed/challenges/index'
+import { Route as AppAuthedChallengesNewRouteImport } from './routes/_app/_authed/challenges/new'
 import { Route as AppAuthedGroupsIndexRouteImport } from './routes/_app/_authed/groups/index'
 import { Route as AppBallotsBallotSlugUsernameRouteImport } from './routes/_app/ballots/$ballotSlug_.$username'
+import { Route as AppChallengesCodePlayRouteImport } from './routes/_app/challenges/$code_.play'
 import { Route as AppGamesGameIdChar123SlugChar125RouteImport } from './routes/_app/games/$gameId.{-$slug}'
 import { Route as AppGroupsJoinCodeRouteImport } from './routes/_app/groups/join/$code'
 import { Route as AppLeaguesLeagueSlugIndexRouteImport } from './routes/_app/leagues/$leagueSlug/index'
@@ -82,10 +87,12 @@ import { Route as AdminDataLeagueIdGamesRouteImport } from './routes/admin/data/
 import { Route as AdminDataLeagueIdPlayersRouteImport } from './routes/admin/data/$leagueId/players'
 import { Route as AdminDataLeagueIdTeamsRouteImport } from './routes/admin/data/$leagueId/teams'
 import { Route as ShareCallsCallIdCardDotpngRouteImport } from './routes/share/calls/$callId/card[.]png'
+import { Route as ShareChallengesCodeCardDotpngRouteImport } from './routes/share/challenges/$code/card[.]png'
 import { Route as ShareRecapsTokenCardDotpngRouteImport } from './routes/share/recaps/$token/card[.]png'
 import { Route as ShareUsersUsernameCardDotpngRouteImport } from './routes/share/users/$username/card[.]png'
 import { Route as AppAuthedGroupsGroupIdTabsRouteImport } from './routes/_app/_authed/groups/$groupId/_tabs'
 import { Route as AppAuthedGroupsGroupIdSettingsRouteImport } from './routes/_app/_authed/groups/$groupId/settings'
+import { Route as AppChallengesCodeVsUsernameRouteImport } from './routes/_app/challenges/$code_.vs.$username'
 import { Route as AppGamesGameIdPicksUsernameRouteImport } from './routes/_app/games/$gameId.picks.$username'
 import { Route as AppAuthedGroupsGroupIdTabsIndexRouteImport } from './routes/_app/_authed/groups/$groupId/_tabs/index'
 import { Route as AppAuthedGroupsGroupIdTabsLeaderboardRouteImport } from './routes/_app/_authed/groups/$groupId/_tabs/leaderboard'
@@ -95,6 +102,7 @@ import { Route as AppAuthedGroupsGroupIdGamesGameIdRouteImport } from './routes/
 import { Route as AppUserUsernameReportCardsLeagueWindowKeyRouteImport } from './routes/_app/user/$username_.report-cards.$league.$windowKey'
 import { Route as AppUserUsernameSweepsLeagueSlateKeyRouteImport } from './routes/_app/user/$username_.sweeps.$league.$slateKey'
 import { Route as ShareBallotsBallotSlugUsersUsernameCardDotpngRouteImport } from './routes/share/ballots/$ballotSlug/users/$username/card[.]png'
+import { Route as ShareChallengesCodeVsUsernameCardDotpngRouteImport } from './routes/share/challenges/$code/vs/$username/card[.]png'
 import { Route as ShareGamesGameIdUsersUsernameCardDotpngRouteImport } from './routes/share/games/$gameId/users/$username/card[.]png'
 import { Route as ShareReportCardsUsernameLeagueWindowKeyCardDotpngRouteImport } from './routes/share/report-cards/$username/$league/$windowKey/card[.]png'
 import { Route as ShareSweepsUsernameLeagueSlateKeyCardDotpngRouteImport } from './routes/share/sweeps/$username/$league/$slateKey/card[.]png'
@@ -182,6 +190,11 @@ const AdminDisputesRoute = AdminDisputesRouteImport.update({
 const AdminGifsRoute = AdminGifsRouteImport.update({
   id: '/gifs',
   path: '/gifs',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminGloatReportsRoute = AdminGloatReportsRouteImport.update({
+  id: '/gloat-reports',
+  path: '/gloat-reports',
   getParentRoute: () => AdminRoute,
 } as any)
 const AdminGroupsRoute = AdminGroupsRouteImport.update({
@@ -314,6 +327,11 @@ const AppCallsCallIdRoute = AppCallsCallIdRouteImport.update({
   path: '/calls/$callId',
   getParentRoute: () => AppRoute,
 } as any)
+const AppChallengesCodeRoute = AppChallengesCodeRouteImport.update({
+  id: '/challenges/$code',
+  path: '/challenges/$code',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppLeaguesLeagueSlugRoute = AppLeaguesLeagueSlugRouteImport.update({
   id: '/leagues/$leagueSlug',
   path: '/leagues/$leagueSlug',
@@ -384,6 +402,17 @@ const AuthGoogleCallbackRoute = AuthGoogleCallbackRouteImport.update({
   path: '/auth/google/callback',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AppAuthedChallengesIndexRoute =
+  AppAuthedChallengesIndexRouteImport.update({
+    id: '/challenges/',
+    path: '/challenges/',
+    getParentRoute: () => AppAuthedRoute,
+  } as any)
+const AppAuthedChallengesNewRoute = AppAuthedChallengesNewRouteImport.update({
+  id: '/challenges/new',
+  path: '/challenges/new',
+  getParentRoute: () => AppAuthedRoute,
+} as any)
 const AppAuthedGroupsIndexRoute = AppAuthedGroupsIndexRouteImport.update({
   id: '/groups/',
   path: '/groups/',
@@ -395,6 +424,11 @@ const AppBallotsBallotSlugUsernameRoute =
     path: '/ballots/$ballotSlug/$username',
     getParentRoute: () => AppRoute,
   } as any)
+const AppChallengesCodePlayRoute = AppChallengesCodePlayRouteImport.update({
+  id: '/challenges/$code_/play',
+  path: '/challenges/$code/play',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppGamesGameIdChar123SlugChar125Route =
   AppGamesGameIdChar123SlugChar125RouteImport.update({
     id: '/games/$gameId/{-$slug}',
@@ -475,6 +509,12 @@ const ShareCallsCallIdCardDotpngRoute =
     path: '/share/calls/$callId/card.png',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ShareChallengesCodeCardDotpngRoute =
+  ShareChallengesCodeCardDotpngRouteImport.update({
+    id: '/share/challenges/$code/card.png',
+    path: '/share/challenges/$code/card.png',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ShareRecapsTokenCardDotpngRoute =
   ShareRecapsTokenCardDotpngRouteImport.update({
     id: '/share/recaps/$token/card.png',
@@ -498,6 +538,12 @@ const AppAuthedGroupsGroupIdSettingsRoute =
     id: '/groups/$groupId/settings',
     path: '/groups/$groupId/settings',
     getParentRoute: () => AppAuthedRoute,
+  } as any)
+const AppChallengesCodeVsUsernameRoute =
+  AppChallengesCodeVsUsernameRouteImport.update({
+    id: '/challenges/$code_/vs/$username',
+    path: '/challenges/$code/vs/$username',
+    getParentRoute: () => AppRoute,
   } as any)
 const AppGamesGameIdPicksUsernameRoute =
   AppGamesGameIdPicksUsernameRouteImport.update({
@@ -553,6 +599,12 @@ const ShareBallotsBallotSlugUsersUsernameCardDotpngRoute =
     path: '/share/ballots/$ballotSlug/users/$username/card.png',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ShareChallengesCodeVsUsernameCardDotpngRoute =
+  ShareChallengesCodeVsUsernameCardDotpngRouteImport.update({
+    id: '/share/challenges/$code/vs/$username/card.png',
+    path: '/share/challenges/$code/vs/$username/card.png',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ShareGamesGameIdUsersUsernameCardDotpngRoute =
   ShareGamesGameIdUsersUsernameCardDotpngRouteImport.update({
     id: '/share/games/$gameId/users/$username/card.png',
@@ -599,6 +651,7 @@ export interface FileRoutesByFullPath {
   '/admin/bands': typeof AdminBandsRoute
   '/admin/disputes': typeof AdminDisputesRoute
   '/admin/gifs': typeof AdminGifsRoute
+  '/admin/gloat-reports': typeof AdminGloatReportsRoute
   '/admin/groups': typeof AdminGroupsRoute
   '/admin/integrity': typeof AdminIntegrityRoute
   '/admin/leaders': typeof AdminLeadersRoute
@@ -626,6 +679,7 @@ export interface FileRoutesByFullPath {
   '/support': typeof AppAuthedSupportRoute
   '/ballots/$ballotSlug': typeof AppBallotsBallotSlugRoute
   '/calls/$callId': typeof AppCallsCallIdRoute
+  '/challenges/$code': typeof AppChallengesCodeRoute
   '/leagues/$leagueSlug': typeof AppLeaguesLeagueSlugRouteWithChildren
   '/recaps/$token': typeof AppRecapsTokenRoute
   '/updates/$slug': typeof AppUpdatesSlugRoute
@@ -640,7 +694,9 @@ export interface FileRoutesByFullPath {
   '/admin/data/': typeof AdminDataIndexRoute
   '/admin/updates/': typeof AdminUpdatesIndexRoute
   '/auth/google/': typeof AuthGoogleIndexRoute
+  '/challenges/new': typeof AppAuthedChallengesNewRoute
   '/ballots/$ballotSlug/$username': typeof AppBallotsBallotSlugUsernameRoute
+  '/challenges/$code/play': typeof AppChallengesCodePlayRoute
   '/games/$gameId/{-$slug}': typeof AppGamesGameIdChar123SlugChar125Route
   '/groups/join/$code': typeof AppGroupsJoinCodeRoute
   '/leagues/$leagueSlug/ballots': typeof AppLeaguesLeagueSlugBallotsRoute
@@ -653,13 +709,16 @@ export interface FileRoutesByFullPath {
   '/admin/data/$leagueId/players': typeof AdminDataLeagueIdPlayersRoute
   '/admin/data/$leagueId/teams': typeof AdminDataLeagueIdTeamsRoute
   '/share/calls/$callId/card.png': typeof ShareCallsCallIdCardDotpngRoute
+  '/share/challenges/$code/card.png': typeof ShareChallengesCodeCardDotpngRoute
   '/share/recaps/$token/card.png': typeof ShareRecapsTokenCardDotpngRoute
   '/share/users/$username/card.png': typeof ShareUsersUsernameCardDotpngRoute
+  '/challenges/': typeof AppAuthedChallengesIndexRoute
   '/groups/': typeof AppAuthedGroupsIndexRoute
   '/leagues/$leagueSlug/': typeof AppLeaguesLeagueSlugIndexRoute
   '/admin/data/$leagueId/': typeof AdminDataLeagueIdIndexRoute
   '/groups/$groupId': typeof AppAuthedGroupsGroupIdTabsRouteWithChildren
   '/groups/$groupId/settings': typeof AppAuthedGroupsGroupIdSettingsRoute
+  '/challenges/$code/vs/$username': typeof AppChallengesCodeVsUsernameRoute
   '/games/$gameId/picks/$username': typeof AppGamesGameIdPicksUsernameRoute
   '/groups/$groupId/leaderboard': typeof AppAuthedGroupsGroupIdTabsLeaderboardRoute
   '/groups/$groupId/record-book': typeof AppAuthedGroupsGroupIdTabsRecordBookRoute
@@ -668,6 +727,7 @@ export interface FileRoutesByFullPath {
   '/user/$username/report-cards/$league/$windowKey': typeof AppUserUsernameReportCardsLeagueWindowKeyRoute
   '/user/$username/sweeps/$league/$slateKey': typeof AppUserUsernameSweepsLeagueSlateKeyRoute
   '/share/ballots/$ballotSlug/users/$username/card.png': typeof ShareBallotsBallotSlugUsersUsernameCardDotpngRoute
+  '/share/challenges/$code/vs/$username/card.png': typeof ShareChallengesCodeVsUsernameCardDotpngRoute
   '/share/games/$gameId/users/$username/card.png': typeof ShareGamesGameIdUsersUsernameCardDotpngRoute
   '/share/report-cards/$username/$league/$windowKey/card.png': typeof ShareReportCardsUsernameLeagueWindowKeyCardDotpngRoute
   '/share/sweeps/$username/$league/$slateKey/card.png': typeof ShareSweepsUsernameLeagueSlateKeyCardDotpngRoute
@@ -689,6 +749,7 @@ export interface FileRoutesByTo {
   '/admin/bands': typeof AdminBandsRoute
   '/admin/disputes': typeof AdminDisputesRoute
   '/admin/gifs': typeof AdminGifsRoute
+  '/admin/gloat-reports': typeof AdminGloatReportsRoute
   '/admin/groups': typeof AdminGroupsRoute
   '/admin/integrity': typeof AdminIntegrityRoute
   '/admin/leaders': typeof AdminLeadersRoute
@@ -716,6 +777,7 @@ export interface FileRoutesByTo {
   '/support': typeof AppAuthedSupportRoute
   '/ballots/$ballotSlug': typeof AppBallotsBallotSlugRoute
   '/calls/$callId': typeof AppCallsCallIdRoute
+  '/challenges/$code': typeof AppChallengesCodeRoute
   '/recaps/$token': typeof AppRecapsTokenRoute
   '/updates/$slug': typeof AppUpdatesSlugRoute
   '/user/$username': typeof AppUserUsernameRoute
@@ -728,7 +790,9 @@ export interface FileRoutesByTo {
   '/admin/data': typeof AdminDataIndexRoute
   '/admin/updates': typeof AdminUpdatesIndexRoute
   '/auth/google': typeof AuthGoogleIndexRoute
+  '/challenges/new': typeof AppAuthedChallengesNewRoute
   '/ballots/$ballotSlug/$username': typeof AppBallotsBallotSlugUsernameRoute
+  '/challenges/$code/play': typeof AppChallengesCodePlayRoute
   '/games/$gameId/{-$slug}': typeof AppGamesGameIdChar123SlugChar125Route
   '/groups/join/$code': typeof AppGroupsJoinCodeRoute
   '/leagues/$leagueSlug/ballots': typeof AppLeaguesLeagueSlugBallotsRoute
@@ -741,12 +805,15 @@ export interface FileRoutesByTo {
   '/admin/data/$leagueId/players': typeof AdminDataLeagueIdPlayersRoute
   '/admin/data/$leagueId/teams': typeof AdminDataLeagueIdTeamsRoute
   '/share/calls/$callId/card.png': typeof ShareCallsCallIdCardDotpngRoute
+  '/share/challenges/$code/card.png': typeof ShareChallengesCodeCardDotpngRoute
   '/share/recaps/$token/card.png': typeof ShareRecapsTokenCardDotpngRoute
   '/share/users/$username/card.png': typeof ShareUsersUsernameCardDotpngRoute
+  '/challenges': typeof AppAuthedChallengesIndexRoute
   '/groups': typeof AppAuthedGroupsIndexRoute
   '/leagues/$leagueSlug': typeof AppLeaguesLeagueSlugIndexRoute
   '/admin/data/$leagueId': typeof AdminDataLeagueIdIndexRoute
   '/groups/$groupId/settings': typeof AppAuthedGroupsGroupIdSettingsRoute
+  '/challenges/$code/vs/$username': typeof AppChallengesCodeVsUsernameRoute
   '/games/$gameId/picks/$username': typeof AppGamesGameIdPicksUsernameRoute
   '/groups/$groupId/leaderboard': typeof AppAuthedGroupsGroupIdTabsLeaderboardRoute
   '/groups/$groupId/record-book': typeof AppAuthedGroupsGroupIdTabsRecordBookRoute
@@ -755,6 +822,7 @@ export interface FileRoutesByTo {
   '/user/$username/report-cards/$league/$windowKey': typeof AppUserUsernameReportCardsLeagueWindowKeyRoute
   '/user/$username/sweeps/$league/$slateKey': typeof AppUserUsernameSweepsLeagueSlateKeyRoute
   '/share/ballots/$ballotSlug/users/$username/card.png': typeof ShareBallotsBallotSlugUsersUsernameCardDotpngRoute
+  '/share/challenges/$code/vs/$username/card.png': typeof ShareChallengesCodeVsUsernameCardDotpngRoute
   '/share/games/$gameId/users/$username/card.png': typeof ShareGamesGameIdUsersUsernameCardDotpngRoute
   '/share/report-cards/$username/$league/$windowKey/card.png': typeof ShareReportCardsUsernameLeagueWindowKeyCardDotpngRoute
   '/share/sweeps/$username/$league/$slateKey/card.png': typeof ShareSweepsUsernameLeagueSlateKeyCardDotpngRoute
@@ -780,6 +848,7 @@ export interface FileRoutesById {
   '/admin/bands': typeof AdminBandsRoute
   '/admin/disputes': typeof AdminDisputesRoute
   '/admin/gifs': typeof AdminGifsRoute
+  '/admin/gloat-reports': typeof AdminGloatReportsRoute
   '/admin/groups': typeof AdminGroupsRoute
   '/admin/integrity': typeof AdminIntegrityRoute
   '/admin/leaders': typeof AdminLeadersRoute
@@ -807,6 +876,7 @@ export interface FileRoutesById {
   '/_app/_authed/support': typeof AppAuthedSupportRoute
   '/_app/ballots/$ballotSlug': typeof AppBallotsBallotSlugRoute
   '/_app/calls/$callId': typeof AppCallsCallIdRoute
+  '/_app/challenges/$code': typeof AppChallengesCodeRoute
   '/_app/leagues/$leagueSlug': typeof AppLeaguesLeagueSlugRouteWithChildren
   '/_app/recaps/$token': typeof AppRecapsTokenRoute
   '/_app/updates/$slug': typeof AppUpdatesSlugRoute
@@ -821,7 +891,9 @@ export interface FileRoutesById {
   '/admin/data/': typeof AdminDataIndexRoute
   '/admin/updates/': typeof AdminUpdatesIndexRoute
   '/auth/google/': typeof AuthGoogleIndexRoute
+  '/_app/_authed/challenges/new': typeof AppAuthedChallengesNewRoute
   '/_app/ballots/$ballotSlug_/$username': typeof AppBallotsBallotSlugUsernameRoute
+  '/_app/challenges/$code_/play': typeof AppChallengesCodePlayRoute
   '/_app/games/$gameId/{-$slug}': typeof AppGamesGameIdChar123SlugChar125Route
   '/_app/groups/join/$code': typeof AppGroupsJoinCodeRoute
   '/_app/leagues/$leagueSlug/ballots': typeof AppLeaguesLeagueSlugBallotsRoute
@@ -834,13 +906,16 @@ export interface FileRoutesById {
   '/admin/data/$leagueId/players': typeof AdminDataLeagueIdPlayersRoute
   '/admin/data/$leagueId/teams': typeof AdminDataLeagueIdTeamsRoute
   '/share/calls/$callId/card.png': typeof ShareCallsCallIdCardDotpngRoute
+  '/share/challenges/$code/card.png': typeof ShareChallengesCodeCardDotpngRoute
   '/share/recaps/$token/card.png': typeof ShareRecapsTokenCardDotpngRoute
   '/share/users/$username/card.png': typeof ShareUsersUsernameCardDotpngRoute
+  '/_app/_authed/challenges/': typeof AppAuthedChallengesIndexRoute
   '/_app/_authed/groups/': typeof AppAuthedGroupsIndexRoute
   '/_app/leagues/$leagueSlug/': typeof AppLeaguesLeagueSlugIndexRoute
   '/admin/data/$leagueId/': typeof AdminDataLeagueIdIndexRoute
   '/_app/_authed/groups/$groupId/_tabs': typeof AppAuthedGroupsGroupIdTabsRouteWithChildren
   '/_app/_authed/groups/$groupId/settings': typeof AppAuthedGroupsGroupIdSettingsRoute
+  '/_app/challenges/$code_/vs/$username': typeof AppChallengesCodeVsUsernameRoute
   '/_app/games/$gameId/picks/$username': typeof AppGamesGameIdPicksUsernameRoute
   '/_app/_authed/groups/$groupId/_tabs/leaderboard': typeof AppAuthedGroupsGroupIdTabsLeaderboardRoute
   '/_app/_authed/groups/$groupId/_tabs/record-book': typeof AppAuthedGroupsGroupIdTabsRecordBookRoute
@@ -849,6 +924,7 @@ export interface FileRoutesById {
   '/_app/user/$username_/report-cards/$league/$windowKey': typeof AppUserUsernameReportCardsLeagueWindowKeyRoute
   '/_app/user/$username_/sweeps/$league/$slateKey': typeof AppUserUsernameSweepsLeagueSlateKeyRoute
   '/share/ballots/$ballotSlug/users/$username/card.png': typeof ShareBallotsBallotSlugUsersUsernameCardDotpngRoute
+  '/share/challenges/$code/vs/$username/card.png': typeof ShareChallengesCodeVsUsernameCardDotpngRoute
   '/share/games/$gameId/users/$username/card.png': typeof ShareGamesGameIdUsersUsernameCardDotpngRoute
   '/share/report-cards/$username/$league/$windowKey/card.png': typeof ShareReportCardsUsernameLeagueWindowKeyCardDotpngRoute
   '/share/sweeps/$username/$league/$slateKey/card.png': typeof ShareSweepsUsernameLeagueSlateKeyCardDotpngRoute
@@ -873,6 +949,7 @@ export interface FileRouteTypes {
     | '/admin/bands'
     | '/admin/disputes'
     | '/admin/gifs'
+    | '/admin/gloat-reports'
     | '/admin/groups'
     | '/admin/integrity'
     | '/admin/leaders'
@@ -900,6 +977,7 @@ export interface FileRouteTypes {
     | '/support'
     | '/ballots/$ballotSlug'
     | '/calls/$callId'
+    | '/challenges/$code'
     | '/leagues/$leagueSlug'
     | '/recaps/$token'
     | '/updates/$slug'
@@ -914,7 +992,9 @@ export interface FileRouteTypes {
     | '/admin/data/'
     | '/admin/updates/'
     | '/auth/google/'
+    | '/challenges/new'
     | '/ballots/$ballotSlug/$username'
+    | '/challenges/$code/play'
     | '/games/$gameId/{-$slug}'
     | '/groups/join/$code'
     | '/leagues/$leagueSlug/ballots'
@@ -927,13 +1007,16 @@ export interface FileRouteTypes {
     | '/admin/data/$leagueId/players'
     | '/admin/data/$leagueId/teams'
     | '/share/calls/$callId/card.png'
+    | '/share/challenges/$code/card.png'
     | '/share/recaps/$token/card.png'
     | '/share/users/$username/card.png'
+    | '/challenges/'
     | '/groups/'
     | '/leagues/$leagueSlug/'
     | '/admin/data/$leagueId/'
     | '/groups/$groupId'
     | '/groups/$groupId/settings'
+    | '/challenges/$code/vs/$username'
     | '/games/$gameId/picks/$username'
     | '/groups/$groupId/leaderboard'
     | '/groups/$groupId/record-book'
@@ -942,6 +1025,7 @@ export interface FileRouteTypes {
     | '/user/$username/report-cards/$league/$windowKey'
     | '/user/$username/sweeps/$league/$slateKey'
     | '/share/ballots/$ballotSlug/users/$username/card.png'
+    | '/share/challenges/$code/vs/$username/card.png'
     | '/share/games/$gameId/users/$username/card.png'
     | '/share/report-cards/$username/$league/$windowKey/card.png'
     | '/share/sweeps/$username/$league/$slateKey/card.png'
@@ -963,6 +1047,7 @@ export interface FileRouteTypes {
     | '/admin/bands'
     | '/admin/disputes'
     | '/admin/gifs'
+    | '/admin/gloat-reports'
     | '/admin/groups'
     | '/admin/integrity'
     | '/admin/leaders'
@@ -990,6 +1075,7 @@ export interface FileRouteTypes {
     | '/support'
     | '/ballots/$ballotSlug'
     | '/calls/$callId'
+    | '/challenges/$code'
     | '/recaps/$token'
     | '/updates/$slug'
     | '/user/$username'
@@ -1002,7 +1088,9 @@ export interface FileRouteTypes {
     | '/admin/data'
     | '/admin/updates'
     | '/auth/google'
+    | '/challenges/new'
     | '/ballots/$ballotSlug/$username'
+    | '/challenges/$code/play'
     | '/games/$gameId/{-$slug}'
     | '/groups/join/$code'
     | '/leagues/$leagueSlug/ballots'
@@ -1015,12 +1103,15 @@ export interface FileRouteTypes {
     | '/admin/data/$leagueId/players'
     | '/admin/data/$leagueId/teams'
     | '/share/calls/$callId/card.png'
+    | '/share/challenges/$code/card.png'
     | '/share/recaps/$token/card.png'
     | '/share/users/$username/card.png'
+    | '/challenges'
     | '/groups'
     | '/leagues/$leagueSlug'
     | '/admin/data/$leagueId'
     | '/groups/$groupId/settings'
+    | '/challenges/$code/vs/$username'
     | '/games/$gameId/picks/$username'
     | '/groups/$groupId/leaderboard'
     | '/groups/$groupId/record-book'
@@ -1029,6 +1120,7 @@ export interface FileRouteTypes {
     | '/user/$username/report-cards/$league/$windowKey'
     | '/user/$username/sweeps/$league/$slateKey'
     | '/share/ballots/$ballotSlug/users/$username/card.png'
+    | '/share/challenges/$code/vs/$username/card.png'
     | '/share/games/$gameId/users/$username/card.png'
     | '/share/report-cards/$username/$league/$windowKey/card.png'
     | '/share/sweeps/$username/$league/$slateKey/card.png'
@@ -1053,6 +1145,7 @@ export interface FileRouteTypes {
     | '/admin/bands'
     | '/admin/disputes'
     | '/admin/gifs'
+    | '/admin/gloat-reports'
     | '/admin/groups'
     | '/admin/integrity'
     | '/admin/leaders'
@@ -1080,6 +1173,7 @@ export interface FileRouteTypes {
     | '/_app/_authed/support'
     | '/_app/ballots/$ballotSlug'
     | '/_app/calls/$callId'
+    | '/_app/challenges/$code'
     | '/_app/leagues/$leagueSlug'
     | '/_app/recaps/$token'
     | '/_app/updates/$slug'
@@ -1094,7 +1188,9 @@ export interface FileRouteTypes {
     | '/admin/data/'
     | '/admin/updates/'
     | '/auth/google/'
+    | '/_app/_authed/challenges/new'
     | '/_app/ballots/$ballotSlug_/$username'
+    | '/_app/challenges/$code_/play'
     | '/_app/games/$gameId/{-$slug}'
     | '/_app/groups/join/$code'
     | '/_app/leagues/$leagueSlug/ballots'
@@ -1107,13 +1203,16 @@ export interface FileRouteTypes {
     | '/admin/data/$leagueId/players'
     | '/admin/data/$leagueId/teams'
     | '/share/calls/$callId/card.png'
+    | '/share/challenges/$code/card.png'
     | '/share/recaps/$token/card.png'
     | '/share/users/$username/card.png'
+    | '/_app/_authed/challenges/'
     | '/_app/_authed/groups/'
     | '/_app/leagues/$leagueSlug/'
     | '/admin/data/$leagueId/'
     | '/_app/_authed/groups/$groupId/_tabs'
     | '/_app/_authed/groups/$groupId/settings'
+    | '/_app/challenges/$code_/vs/$username'
     | '/_app/games/$gameId/picks/$username'
     | '/_app/_authed/groups/$groupId/_tabs/leaderboard'
     | '/_app/_authed/groups/$groupId/_tabs/record-book'
@@ -1122,6 +1221,7 @@ export interface FileRouteTypes {
     | '/_app/user/$username_/report-cards/$league/$windowKey'
     | '/_app/user/$username_/sweeps/$league/$slateKey'
     | '/share/ballots/$ballotSlug/users/$username/card.png'
+    | '/share/challenges/$code/vs/$username/card.png'
     | '/share/games/$gameId/users/$username/card.png'
     | '/share/report-cards/$username/$league/$windowKey/card.png'
     | '/share/sweeps/$username/$league/$slateKey/card.png'
@@ -1146,9 +1246,11 @@ export interface RootRouteChildren {
   AuthGoogleCallbackRoute: typeof AuthGoogleCallbackRoute
   AuthGoogleIndexRoute: typeof AuthGoogleIndexRoute
   ShareCallsCallIdCardDotpngRoute: typeof ShareCallsCallIdCardDotpngRoute
+  ShareChallengesCodeCardDotpngRoute: typeof ShareChallengesCodeCardDotpngRoute
   ShareRecapsTokenCardDotpngRoute: typeof ShareRecapsTokenCardDotpngRoute
   ShareUsersUsernameCardDotpngRoute: typeof ShareUsersUsernameCardDotpngRoute
   ShareBallotsBallotSlugUsersUsernameCardDotpngRoute: typeof ShareBallotsBallotSlugUsersUsernameCardDotpngRoute
+  ShareChallengesCodeVsUsernameCardDotpngRoute: typeof ShareChallengesCodeVsUsernameCardDotpngRoute
   ShareGamesGameIdUsersUsernameCardDotpngRoute: typeof ShareGamesGameIdUsersUsernameCardDotpngRoute
   ShareReportCardsUsernameLeagueWindowKeyCardDotpngRoute: typeof ShareReportCardsUsernameLeagueWindowKeyCardDotpngRoute
   ShareSweepsUsernameLeagueSlateKeyCardDotpngRoute: typeof ShareSweepsUsernameLeagueSlateKeyCardDotpngRoute
@@ -1274,6 +1376,13 @@ declare module '@tanstack/react-router' {
       path: '/gifs'
       fullPath: '/admin/gifs'
       preLoaderRoute: typeof AdminGifsRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/gloat-reports': {
+      id: '/admin/gloat-reports'
+      path: '/gloat-reports'
+      fullPath: '/admin/gloat-reports'
+      preLoaderRoute: typeof AdminGloatReportsRouteImport
       parentRoute: typeof AdminRoute
     }
     '/admin/groups': {
@@ -1458,6 +1567,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppCallsCallIdRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/challenges/$code': {
+      id: '/_app/challenges/$code'
+      path: '/challenges/$code'
+      fullPath: '/challenges/$code'
+      preLoaderRoute: typeof AppChallengesCodeRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/leagues/$leagueSlug': {
       id: '/_app/leagues/$leagueSlug'
       path: '/leagues/$leagueSlug'
@@ -1556,6 +1672,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthGoogleCallbackRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_app/_authed/challenges/': {
+      id: '/_app/_authed/challenges/'
+      path: '/challenges'
+      fullPath: '/challenges/'
+      preLoaderRoute: typeof AppAuthedChallengesIndexRouteImport
+      parentRoute: typeof AppAuthedRoute
+    }
+    '/_app/_authed/challenges/new': {
+      id: '/_app/_authed/challenges/new'
+      path: '/challenges/new'
+      fullPath: '/challenges/new'
+      preLoaderRoute: typeof AppAuthedChallengesNewRouteImport
+      parentRoute: typeof AppAuthedRoute
+    }
     '/_app/_authed/groups/': {
       id: '/_app/_authed/groups/'
       path: '/groups'
@@ -1568,6 +1698,13 @@ declare module '@tanstack/react-router' {
       path: '/ballots/$ballotSlug/$username'
       fullPath: '/ballots/$ballotSlug/$username'
       preLoaderRoute: typeof AppBallotsBallotSlugUsernameRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/challenges/$code_/play': {
+      id: '/_app/challenges/$code_/play'
+      path: '/challenges/$code/play'
+      fullPath: '/challenges/$code/play'
+      preLoaderRoute: typeof AppChallengesCodePlayRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/games/$gameId/{-$slug}': {
@@ -1668,6 +1805,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ShareCallsCallIdCardDotpngRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/share/challenges/$code/card.png': {
+      id: '/share/challenges/$code/card.png'
+      path: '/share/challenges/$code/card.png'
+      fullPath: '/share/challenges/$code/card.png'
+      preLoaderRoute: typeof ShareChallengesCodeCardDotpngRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/share/recaps/$token/card.png': {
       id: '/share/recaps/$token/card.png'
       path: '/share/recaps/$token/card.png'
@@ -1695,6 +1839,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/groups/$groupId/settings'
       preLoaderRoute: typeof AppAuthedGroupsGroupIdSettingsRouteImport
       parentRoute: typeof AppAuthedRoute
+    }
+    '/_app/challenges/$code_/vs/$username': {
+      id: '/_app/challenges/$code_/vs/$username'
+      path: '/challenges/$code/vs/$username'
+      fullPath: '/challenges/$code/vs/$username'
+      preLoaderRoute: typeof AppChallengesCodeVsUsernameRouteImport
+      parentRoute: typeof AppRoute
     }
     '/_app/games/$gameId/picks/$username': {
       id: '/_app/games/$gameId/picks/$username'
@@ -1757,6 +1908,13 @@ declare module '@tanstack/react-router' {
       path: '/share/ballots/$ballotSlug/users/$username/card.png'
       fullPath: '/share/ballots/$ballotSlug/users/$username/card.png'
       preLoaderRoute: typeof ShareBallotsBallotSlugUsersUsernameCardDotpngRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/share/challenges/$code/vs/$username/card.png': {
+      id: '/share/challenges/$code/vs/$username/card.png'
+      path: '/share/challenges/$code/vs/$username/card.png'
+      fullPath: '/share/challenges/$code/vs/$username/card.png'
+      preLoaderRoute: typeof ShareChallengesCodeVsUsernameCardDotpngRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/share/games/$gameId/users/$username/card.png': {
@@ -1826,6 +1984,8 @@ interface AppAuthedRouteChildren {
   AppAuthedNotificationsRoute: typeof AppAuthedNotificationsRoute
   AppAuthedSettingsRoute: typeof AppAuthedSettingsRoute
   AppAuthedSupportRoute: typeof AppAuthedSupportRoute
+  AppAuthedChallengesNewRoute: typeof AppAuthedChallengesNewRoute
+  AppAuthedChallengesIndexRoute: typeof AppAuthedChallengesIndexRoute
   AppAuthedGroupsIndexRoute: typeof AppAuthedGroupsIndexRoute
   AppAuthedGroupsGroupIdTabsRoute: typeof AppAuthedGroupsGroupIdTabsRouteWithChildren
   AppAuthedGroupsGroupIdSettingsRoute: typeof AppAuthedGroupsGroupIdSettingsRoute
@@ -1842,6 +2002,8 @@ const AppAuthedRouteChildren: AppAuthedRouteChildren = {
   AppAuthedNotificationsRoute: AppAuthedNotificationsRoute,
   AppAuthedSettingsRoute: AppAuthedSettingsRoute,
   AppAuthedSupportRoute: AppAuthedSupportRoute,
+  AppAuthedChallengesNewRoute: AppAuthedChallengesNewRoute,
+  AppAuthedChallengesIndexRoute: AppAuthedChallengesIndexRoute,
   AppAuthedGroupsIndexRoute: AppAuthedGroupsIndexRoute,
   AppAuthedGroupsGroupIdTabsRoute: AppAuthedGroupsGroupIdTabsRouteWithChildren,
   AppAuthedGroupsGroupIdSettingsRoute: AppAuthedGroupsGroupIdSettingsRoute,
@@ -1886,15 +2048,18 @@ interface AppRouteChildren {
   AppTermsRoute: typeof AppTermsRoute
   AppBallotsBallotSlugRoute: typeof AppBallotsBallotSlugRoute
   AppCallsCallIdRoute: typeof AppCallsCallIdRoute
+  AppChallengesCodeRoute: typeof AppChallengesCodeRoute
   AppLeaguesLeagueSlugRoute: typeof AppLeaguesLeagueSlugRouteWithChildren
   AppRecapsTokenRoute: typeof AppRecapsTokenRoute
   AppUpdatesSlugRoute: typeof AppUpdatesSlugRoute
   AppUserUsernameRoute: typeof AppUserUsernameRoute
   AppUpdatesIndexRoute: typeof AppUpdatesIndexRoute
   AppBallotsBallotSlugUsernameRoute: typeof AppBallotsBallotSlugUsernameRoute
+  AppChallengesCodePlayRoute: typeof AppChallengesCodePlayRoute
   AppGamesGameIdChar123SlugChar125Route: typeof AppGamesGameIdChar123SlugChar125Route
   AppGroupsJoinCodeRoute: typeof AppGroupsJoinCodeRoute
   AppQuestionsQuestionIdChar123SlugChar125Route: typeof AppQuestionsQuestionIdChar123SlugChar125Route
+  AppChallengesCodeVsUsernameRoute: typeof AppChallengesCodeVsUsernameRoute
   AppGamesGameIdPicksUsernameRoute: typeof AppGamesGameIdPicksUsernameRoute
   AppUserUsernameReportCardsLeagueWindowKeyRoute: typeof AppUserUsernameReportCardsLeagueWindowKeyRoute
   AppUserUsernameSweepsLeagueSlateKeyRoute: typeof AppUserUsernameSweepsLeagueSlateKeyRoute
@@ -1911,16 +2076,19 @@ const AppRouteChildren: AppRouteChildren = {
   AppTermsRoute: AppTermsRoute,
   AppBallotsBallotSlugRoute: AppBallotsBallotSlugRoute,
   AppCallsCallIdRoute: AppCallsCallIdRoute,
+  AppChallengesCodeRoute: AppChallengesCodeRoute,
   AppLeaguesLeagueSlugRoute: AppLeaguesLeagueSlugRouteWithChildren,
   AppRecapsTokenRoute: AppRecapsTokenRoute,
   AppUpdatesSlugRoute: AppUpdatesSlugRoute,
   AppUserUsernameRoute: AppUserUsernameRoute,
   AppUpdatesIndexRoute: AppUpdatesIndexRoute,
   AppBallotsBallotSlugUsernameRoute: AppBallotsBallotSlugUsernameRoute,
+  AppChallengesCodePlayRoute: AppChallengesCodePlayRoute,
   AppGamesGameIdChar123SlugChar125Route: AppGamesGameIdChar123SlugChar125Route,
   AppGroupsJoinCodeRoute: AppGroupsJoinCodeRoute,
   AppQuestionsQuestionIdChar123SlugChar125Route:
     AppQuestionsQuestionIdChar123SlugChar125Route,
+  AppChallengesCodeVsUsernameRoute: AppChallengesCodeVsUsernameRoute,
   AppGamesGameIdPicksUsernameRoute: AppGamesGameIdPicksUsernameRoute,
   AppUserUsernameReportCardsLeagueWindowKeyRoute:
     AppUserUsernameReportCardsLeagueWindowKeyRoute,
@@ -1953,6 +2121,7 @@ interface AdminRouteChildren {
   AdminBandsRoute: typeof AdminBandsRoute
   AdminDisputesRoute: typeof AdminDisputesRoute
   AdminGifsRoute: typeof AdminGifsRoute
+  AdminGloatReportsRoute: typeof AdminGloatReportsRoute
   AdminGroupsRoute: typeof AdminGroupsRoute
   AdminIntegrityRoute: typeof AdminIntegrityRoute
   AdminLeadersRoute: typeof AdminLeadersRoute
@@ -1977,6 +2146,7 @@ const AdminRouteChildren: AdminRouteChildren = {
   AdminBandsRoute: AdminBandsRoute,
   AdminDisputesRoute: AdminDisputesRoute,
   AdminGifsRoute: AdminGifsRoute,
+  AdminGloatReportsRoute: AdminGloatReportsRoute,
   AdminGroupsRoute: AdminGroupsRoute,
   AdminIntegrityRoute: AdminIntegrityRoute,
   AdminLeadersRoute: AdminLeadersRoute,
@@ -2015,10 +2185,13 @@ const rootRouteChildren: RootRouteChildren = {
   AuthGoogleCallbackRoute: AuthGoogleCallbackRoute,
   AuthGoogleIndexRoute: AuthGoogleIndexRoute,
   ShareCallsCallIdCardDotpngRoute: ShareCallsCallIdCardDotpngRoute,
+  ShareChallengesCodeCardDotpngRoute: ShareChallengesCodeCardDotpngRoute,
   ShareRecapsTokenCardDotpngRoute: ShareRecapsTokenCardDotpngRoute,
   ShareUsersUsernameCardDotpngRoute: ShareUsersUsernameCardDotpngRoute,
   ShareBallotsBallotSlugUsersUsernameCardDotpngRoute:
     ShareBallotsBallotSlugUsersUsernameCardDotpngRoute,
+  ShareChallengesCodeVsUsernameCardDotpngRoute:
+    ShareChallengesCodeVsUsernameCardDotpngRoute,
   ShareGamesGameIdUsersUsernameCardDotpngRoute:
     ShareGamesGameIdUsersUsernameCardDotpngRoute,
   ShareReportCardsUsernameLeagueWindowKeyCardDotpngRoute:

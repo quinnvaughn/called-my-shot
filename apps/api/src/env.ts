@@ -57,6 +57,9 @@ const envSchema = z.object({
 	// production analytics. Without it the outbox holds its rows, and they go
 	// out with their original timestamps once a key is set.
 	POSTHOG_KEY: z.string().optional(),
+	// Klipy's API key, for the GIF picker on gloats. Unset, the picker has
+	// nothing to show and a gloat is words only.
+	KLIPY_API_KEY: z.string().optional(),
 	// The OAuth client for "Continue with Google". Optional so local dev needs
 	// no setup: without both, the Google routes redirect back with an error
 	// rather than starting a flow that can't finish.

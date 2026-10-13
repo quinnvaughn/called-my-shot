@@ -181,6 +181,9 @@ export const GroupHomeDocument = graphql(`
             presserHighlights {
                 ...GroupPresserStrip_highlight
             }
+            challengeHighlights {
+                ...GroupChallengeStrip_challenge
+            }
             currentRecap {
                 ...GroupRecapCard_recap
             }

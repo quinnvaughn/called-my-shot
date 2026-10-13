@@ -1275,6 +1275,11 @@ export function numericGuessPoints(
 	hit: boolean
 	closenessMult: number | null
 	closenessFieldPct: number | null
+	// What the guess is worth in a challenge: the same hit/miss math on the
+	// shape's own base, without earliness or the season-play weight. Neither
+	// says anything about who read the question better, which is all a
+	// challenge compares.
+	challengePoints: number
 }[] {
 	const withHit = guesses.map((guess) => ({
 		...guess,
@@ -1347,6 +1352,13 @@ export function numericGuessPoints(
 					lossRate,
 					guess.conviction,
 				),
+		challengePoints: guess.hit
+			? Math.round(
+					basePoints *
+						(guess.conviction / 100) *
+						(closenessByCallId.get(guess.callId)?.mult ?? TIER_MIN_MULT),
+				)
+			: -pointsAtStake(basePoints, lossRate, guess.conviction),
 	}))
 }
 

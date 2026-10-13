@@ -113,6 +113,7 @@ export type GuessCallUpdate = {
 		hitTolerance: boolean | null
 		closenessMult: number | null
 		closenessFieldPct: number | null
+		challengePoints: number | null
 		unscoredReason: ResolutionUnscoredReason | null
 	}
 }
@@ -173,6 +174,7 @@ export function scoreGuesses(input: {
 						hitTolerance: null,
 						closenessMult: null,
 						closenessFieldPct: null,
+						challengePoints: null,
 						unscoredReason,
 					}
 				: {
@@ -180,6 +182,7 @@ export function scoreGuesses(input: {
 						hitTolerance: r.hit,
 						closenessMult: r.closenessMult,
 						closenessFieldPct: r.closenessFieldPct,
+						challengePoints: r.challengePoints,
 						unscoredReason: null,
 					},
 		})
@@ -237,7 +240,11 @@ export function scoreSelections(input: {
 	// seasonPlayWeight. A call missing from it is worth all of them.
 	weightByCallId?: ReadonlyMap<string, number>
 }): {
-	selectionPoints: { selectionId: string; resultPoints: number | null }[]
+	selectionPoints: {
+		selectionId: string
+		resultPoints: number | null
+		challengePoints: number | null
+	}[]
 	callReasons: {
 		callId: string
 		unscoredReason: ResolutionUnscoredReason | null
@@ -278,7 +285,11 @@ export function scoreSelections(input: {
 	)
 
 	const tally = emptyTally()
-	const points: { selectionId: string; resultPoints: number | null }[] = []
+	const points: {
+		selectionId: string
+		resultPoints: number | null
+		challengePoints: number | null
+	}[] = []
 	for (const s of input.selections) {
 		const unscored =
 			unscoredReasonFor(
@@ -287,22 +298,33 @@ export function scoreSelections(input: {
 				s.call.unscoredReason,
 			) !== null
 		const isCorrect = correctOptionIds.has(s.optionId)
+		const pointsFor = (base: number, earlyMult: number) =>
+			selectionPoints(
+				base,
+				lossRateByOptionId.get(s.optionId) ?? input.lossRate,
+				fieldPct(crowd.byOption.get(s.optionId) ?? 0, crowd.field),
+				input.options.length,
+				s.conviction,
+				isCorrect,
+				earlyMult,
+				pricingByOptionId.get(s.optionId),
+			)
 		const next = unscored
 			? null
 			: {
-					points: selectionPoints(
+					points: pointsFor(
 						basePoints * (input.weightByCallId?.get(s.call.id) ?? 1),
-						lossRateByOptionId.get(s.optionId) ?? input.lossRate,
-						fieldPct(crowd.byOption.get(s.optionId) ?? 0, crowd.field),
-						input.options.length,
-						s.conviction,
-						isCorrect,
 						earlyMultByCallId.get(s.call.id) ?? 1,
-						pricingByOptionId.get(s.optionId),
 					),
 					correct: isCorrect,
 				}
-		points.push({ selectionId: s.id, resultPoints: next?.points ?? null })
+		points.push({
+			selectionId: s.id,
+			resultPoints: next?.points ?? null,
+			// A challenge compares how two people read the question, so neither
+			// earliness nor the season-play weight counts toward it.
+			challengePoints: unscored ? null : pointsFor(basePoints, 1),
+		})
 		record(
 			tally,
 			{ userId: s.call.userId, callId: s.call.id },

@@ -118,7 +118,7 @@ export const CreateQuestionInput = builder.inputType("CreateQuestionInput", {
 	}),
 })
 
-const CastCallSelectionInput = builder.inputType("CastCallSelectionInput", {
+export const CastCallSelectionInput = builder.inputType("CastCallSelectionInput", {
 	fields: (t) => ({
 		optionId: t.id({ required: true }),
 		conviction: t.int({ required: true }),

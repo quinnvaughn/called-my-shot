@@ -63,8 +63,16 @@ describe("markQuestionVoided", () => {
 		const resolved = await resolve(question, {
 			correctOptionIds: [options[0].id],
 		})
+		const scored = await db.query.callSelections.findMany({
+			where: { callId: { in: callers.map((c) => c.call.id) } },
+		})
+		expect(scored.every((s) => s.challengePoints !== null)).toBe(true)
 		await voidIt(resolved)
 
+		const cleared = await db.query.callSelections.findMany({
+			where: { callId: { in: callers.map((c) => c.call.id) } },
+		})
+		expect(cleared.every((s) => s.challengePoints === null)).toBe(true)
 		for (const caller of callers) {
 			const stats = await statsFor(caller.user.id)
 			expect(stats?.points).toBe(0)

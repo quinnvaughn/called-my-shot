@@ -821,6 +821,29 @@ describe("numericGuessPoints", () => {
 		expect(throwaway.closenessFieldPct).toBe(100)
 	})
 
+	it("leaves earliness and the season-play weight out of challenge points", () => {
+		const [early, late, missed] = numericGuessPoints(
+			base,
+			lossRate,
+			[
+				{ ...guess("a", 100, 0), weight: 0.5 },
+				guess("b", 100, 1),
+				{ ...guess("c", 500, 2), weight: 0.5 },
+			],
+			100,
+			spec,
+		)
+		// Same guess, same conviction: the earlier one scores more, but both
+		// are worth the same in a challenge.
+		expect(early.points).toBeGreaterThan(0)
+		expect(early.challengePoints).toBe(late.challengePoints)
+		expect(late.challengePoints).toBe(
+			Math.round(base * (late.closenessMult ?? 0)),
+		)
+		expect(missed.points).toBe(-pointsAtStake(base * 0.5, lossRate, 100))
+		expect(missed.challengePoints).toBe(-pointsAtStake(base, lossRate, 100))
+	})
+
 	it("charges a miss the stake at the loss rate and records no closeness", () => {
 		const [miss] = numericGuessPoints(
 			base,

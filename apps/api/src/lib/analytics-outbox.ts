@@ -119,6 +119,15 @@ type ServerAnalyticsEvents = {
 		category: "hate" | "threat" | "sexual" | "personal_info" | "harassment"
 		strictness: "standard" | "strict"
 	}
+	// Gloat text the moderation check refused.
+	gloat_text_blocked: {
+		category: "hate" | "threat" | "sexual" | "personal_info" | "harassment"
+		strictness: "standard" | "strict"
+	}
+	gloat_reported: {
+		gloatId: string
+		reason: string
+	}
 	presser_content_reported: {
 		presserId: string
 		target: "question" | "answer" | "statement"

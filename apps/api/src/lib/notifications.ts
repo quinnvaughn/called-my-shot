@@ -154,6 +154,41 @@ export type NotificationInput =
 			actorId: string
 			actorUsername: string
 	  }
+	// To a challenge's creator. One per challenge: each later acceptance
+	// marks it unread and moves it back to the top, and the count it shows is
+	// read live. The actor is whoever accepted last.
+	| {
+			type: "challenge_accepted"
+			userId: string
+			challengeId: string
+			actorId: string
+			actorUsername: string
+	  }
+	// To everyone in a challenge once every question in it has a result, or
+	// all of them were voided. An overturn that changes a result marks it
+	// unread again. How it went is read live.
+	| {
+			type: "challenge_settled"
+			userId: string
+			challengeId: string
+	  }
+	// To whoever a gloat was sent at. The actor is the sender.
+	| {
+			type: "challenge_gloated"
+			userId: string
+			challengeId: string
+			actorId: string
+			actorUsername: string
+	  }
+	| {
+			type: "challenge_posted_to_group"
+			userId: string
+			challengeId: string
+			groupId: string
+			groupName: string
+			actorId: string
+			actorUsername: string
+	  }
 
 function toRow(input: NotificationInput) {
 	return {
@@ -180,6 +215,7 @@ function toRow(input: NotificationInput) {
 			"achievementCount" in input ? input.achievementCount : null,
 		previousBest: "previousBest" in input ? input.previousBest : null,
 		presserId: "presserId" in input ? input.presserId : null,
+		challengeId: "challengeId" in input ? input.challengeId : null,
 		dedupeKey: dedupeKeyFor(input),
 	}
 }
@@ -193,6 +229,12 @@ function dedupeKeyFor(input: NotificationInput): string | null {
 		.with(
 			{ type: "presser_question_received" },
 			({ presserId }) => `presser:${presserId}`,
+		)
+		.with(
+			{ type: "challenge_accepted" },
+			{ type: "challenge_settled" },
+			{ type: "challenge_gloated" },
+			({ type, challengeId }) => `${type}:${challengeId}`,
 		)
 		.otherwise(() => null)
 }

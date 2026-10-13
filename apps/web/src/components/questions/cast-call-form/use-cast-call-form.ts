@@ -224,11 +224,31 @@ export type FadeMode = {
 	optionId: string
 }
 
+// A call that isn't sent yet: the picks are checked the same way, then handed
+// to onSave instead of going to the API, so a page can collect several before
+// sending them together (accepting a challenge). `initial` opens the form on
+// a draft saved earlier.
+export type CallDraft = {
+	caseText: string
+	guessValue: number | null
+	conviction: number | null
+	selections: { optionId: string; conviction: number }[]
+}
+
+export type DraftMode = {
+	initial?: CallDraft
+	onSave: (draft: CallDraft) => void
+}
+
 export type CastCallFormOptions = {
 	// Where the call is being made, for analytics.
 	surface: CallSurface
 	redo?: RedoMode
 	fade?: FadeMode
+	draft?: DraftMode
+	// The <form>'s id. Only needs setting when more than one form for
+	// different questions can be on the page at once.
+	formId?: string
 	onCalled?: () => void
 }
 
@@ -248,7 +268,14 @@ export type CastCallFormOptions = {
 // modal has closed.
 export function useCastCallForm(
 	questionProp: FragmentType<typeof CastCallFormFragment> | null | undefined,
-	{ surface, redo, fade, onCalled }: CastCallFormOptions,
+	{
+		surface,
+		redo,
+		fade,
+		draft,
+		formId = FORM_ID,
+		onCalled,
+	}: CastCallFormOptions,
 ) {
 	const question = useFragment(CastCallFormFragment, questionProp)
 	const shape = (question?.shape.toLowerCase() ??
@@ -369,7 +396,7 @@ export function useCastCallForm(
 		defaultValues: {
 			shape,
 			questionId: question?.id ?? "",
-			caseText: redo?.current.caseText ?? "",
+			caseText: draft?.initial?.caseText ?? redo?.current.caseText ?? "",
 			// The field's current average when there's enough data to have one -
 			// starting the stepper wherever the crowd already sits is a far more
 			// useful default than an arbitrary constant, and it's already computed
@@ -385,6 +412,7 @@ export function useCastCallForm(
 			// reasoning, I'm changing the pick" is one edit rather than a
 			// retype of everything.
 			guessValue:
+				draft?.initial?.guessValue ??
 				redo?.current.guessValue ??
 				(question?.averageGuess != null
 					? isRateStat
@@ -393,8 +421,12 @@ export function useCastCallForm(
 					: isWinTotalGuess && gamesPerSeason != null
 						? Math.round(gamesPerSeason / 2)
 						: 0),
-			conviction: redo?.current.conviction ?? DEFAULT_CONVICTION,
+			conviction:
+				draft?.initial?.conviction ??
+				redo?.current.conviction ??
+				DEFAULT_CONVICTION,
 			selections:
+				draft?.initial?.selections ??
 				redo?.current.selections ??
 				(fade ? [{ optionId: fade.optionId, conviction: DEFAULT_CONVICTION }] : []),
 		},
@@ -403,6 +435,15 @@ export function useCastCallForm(
 				optionId: s.optionId,
 				conviction: s.conviction,
 			}))
+			if (draft) {
+				draft.onSave({
+					caseText: values.caseText,
+					guessValue: values.guessValue ?? null,
+					conviction: values.conviction ?? null,
+					selections,
+				})
+				return
+			}
 			// The two mutations take the same picks; a redo is keyed on the
 			// call it replaces rather than on the question, which the server
 			// derives from it.
@@ -598,6 +639,7 @@ export function useCastCallForm(
 	const guessUnit = question?.stat?.name ?? question?.customStat ?? null
 
 	return {
+		formId,
 		question,
 		shape,
 		bucket,

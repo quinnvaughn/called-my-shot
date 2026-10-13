@@ -51,6 +51,10 @@ export const emailPreferenceType = pgEnum("email_preference_type", [
 	"call_faded",
 	"fade_gloated",
 	"group_pins_expired",
+	"challenge_accepted",
+	"challenge_settled",
+	"challenge_gloated",
+	"challenge_posted_to_group",
 	// Email-only - see above.
 	"season_starting",
 	"product_updates",

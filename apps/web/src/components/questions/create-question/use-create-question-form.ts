@@ -101,6 +101,7 @@ export function useCreateQuestionForm({ sports }: { sports: SportsQuery["sports"
 					await navigate({
 						to: "/questions/$questionId/{-$slug}",
 						params: { questionId: r.question.id },
+						search: { created: true },
 					})
 				})
 				.exhaustive()

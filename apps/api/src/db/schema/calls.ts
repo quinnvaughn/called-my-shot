@@ -50,6 +50,10 @@ export const calls = pgTable(
 		conviction: integer("conviction"), // 1-100
 		hitTolerance: boolean("hit_tolerance"),
 		resultPoints: integer("result_points"),
+		// What this counts for in a challenge: the same result without earliness
+		// or the season-play weight (see numericGuessPoints and scoreSelections).
+		// Written alongside resultPoints and cleared with it.
+		challengePoints: integer("challenge_points"),
 		// The closeness multiplier (1.00-6.00) actually applied at resolution -
 		// null until resolved, and null forever on a miss (see
 		// numericGuessPoints in @called-my-shot/scoring). Persisted rather than
@@ -117,6 +121,10 @@ export const callSelections = pgTable(
 			.references(() => questionOptions.id, { onDelete: "cascade" }),
 		conviction: integer("conviction").notNull(), // 1-100
 		resultPoints: integer("result_points"),
+		// What this counts for in a challenge: the same result without earliness
+		// or the season-play weight (see numericGuessPoints and scoreSelections).
+		// Written alongside resultPoints and cleared with it.
+		challengePoints: integer("challenge_points"),
 	},
 	(t) => [unique().on(t.callId, t.optionId)],
 )

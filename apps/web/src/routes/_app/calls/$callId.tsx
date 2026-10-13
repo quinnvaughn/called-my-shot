@@ -434,6 +434,25 @@ function RouteComponent() {
 						>
 							See the question →
 						</Link>
+						{me?.id === call.user.id &&
+							call.question.status === "OPEN" &&
+							new Date(call.question.locksAt) > new Date() && (
+								<Link
+									to="/challenges/new"
+									search={{ question: call.question.id, source: "call" }}
+									className={css({
+										fontFamily: "mono",
+										fontSize: "2xs",
+										letterSpacing: "wide",
+										textTransform: "uppercase",
+										color: "primary.default",
+										textDecoration: "none",
+										_hover: { opacity: 0.8 },
+									})}
+								>
+									Challenge on it →
+								</Link>
+							)}
 						<CallShareRow
 							callId={call.id}
 							shareTitle={call.question.title}

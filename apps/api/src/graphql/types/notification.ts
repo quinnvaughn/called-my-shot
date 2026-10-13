@@ -10,6 +10,7 @@ import { keysetPaginate } from "../../lib/pagination"
 import { builder } from "../builder"
 import type { Context } from "../context"
 import { indexByKey } from "../loader"
+import { ChallengeRef } from "./challenge"
 import { type Connection, PageInfoRef } from "./pagination"
 import { PresserRef } from "./presser"
 import { presserByUserGameLoader, presserKey } from "./presser/loaders"
@@ -51,6 +52,10 @@ const GQL_TYPE_BY_ROW_TYPE: Record<NotificationRow["type"], string> = {
 	game_resolved: "GameResolvedNotification",
 	presser_question_received: "PresserQuestionReceivedNotification",
 	presser_answered: "PresserAnsweredNotification",
+	challenge_accepted: "ChallengeAcceptedNotification",
+	challenge_settled: "ChallengeSettledNotification",
+	challenge_gloated: "ChallengeGloatedNotification",
+	challenge_posted_to_group: "ChallengePostedToGroupNotification",
 }
 
 // The sentence the row is told in, shared with the results email's
@@ -569,6 +574,77 @@ builder.drizzleObject("notifications", {
 							.findFirst({ where: { id: row.presserId } })
 							.then((presser) => presser ?? null)
 					: null,
+		}),
+	}),
+})
+
+const challengeField = (row: NotificationRow) =>
+	row.challengeId
+		? db.query.challenges
+				.findFirst({ where: { id: row.challengeId } })
+				.then((challenge) => challenge ?? null)
+		: null
+
+// Someone took on your challenge - see acceptChallenge. One per challenge:
+// the actor is whoever accepted last, and the count is read live off the
+// challenge.
+builder.drizzleObject("notifications", {
+	variant: "ChallengeAcceptedNotification",
+	interfaces: [NotificationNode],
+	fields: (t) => ({
+		actor: t.relation("actor", { nullable: true }),
+		actorUsername: t.exposeString("actorUsername", { nullable: true }),
+		challenge: t.field({
+			type: ChallengeRef,
+			nullable: true,
+			resolve: challengeField,
+		}),
+	}),
+})
+
+// A challenge you're in has finished - see notifyChallengesSettled. How it
+// went is read live off the challenge, so it follows an overturn.
+builder.drizzleObject("notifications", {
+	variant: "ChallengeSettledNotification",
+	interfaces: [NotificationNode],
+	fields: (t) => ({
+		challenge: t.field({
+			type: ChallengeRef,
+			nullable: true,
+			resolve: challengeField,
+		}),
+	}),
+})
+
+// Someone who beat you in a challenge gloated - see sendChallengeGloat.
+builder.drizzleObject("notifications", {
+	variant: "ChallengeGloatedNotification",
+	interfaces: [NotificationNode],
+	fields: (t) => ({
+		actor: t.relation("actor", { nullable: true }),
+		actorUsername: t.exposeString("actorUsername", { nullable: true }),
+		challenge: t.field({
+			type: ChallengeRef,
+			nullable: true,
+			resolve: challengeField,
+		}),
+	}),
+})
+
+// Someone posted a challenge into a group you're in - see
+// postChallengeToGroups.
+builder.drizzleObject("notifications", {
+	variant: "ChallengePostedToGroupNotification",
+	interfaces: [NotificationNode],
+	fields: (t) => ({
+		group: t.relation("group", { nullable: true }),
+		groupName: t.exposeString("groupName", { nullable: true }),
+		actor: t.relation("actor", { nullable: true }),
+		actorUsername: t.exposeString("actorUsername", { nullable: true }),
+		challenge: t.field({
+			type: ChallengeRef,
+			nullable: true,
+			resolve: challengeField,
 		}),
 	}),
 })

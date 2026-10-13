@@ -3,6 +3,12 @@ import type { NotificationsPageQuery } from "#/graphql/generated/graphql"
 import { CallFadedRow } from "./rows/call-faded-row"
 import { CallResolvedRow } from "./rows/call-resolved-row"
 import { CallVoidedRow } from "./rows/call-voided-row"
+import {
+	ChallengeAcceptedRow,
+	ChallengeGloatedRow,
+	ChallengePostedToGroupRow,
+	ChallengeSettledRow,
+} from "./rows/challenge-rows"
 import { DisputeFiledRow } from "./rows/dispute-filed-row"
 import { DisputeOverturnedRow } from "./rows/dispute-overturned-row"
 import { DisputeUpheldRow } from "./rows/dispute-upheld-row"
@@ -104,6 +110,22 @@ export function NotificationRow({ notification, unread, onOpen }: Props) {
 		))
 		.with({ __typename: "PresserAnsweredNotification" }, (n) => (
 			<PresserAnsweredRow notification={n} unread={unread} onOpen={onOpen} />
+		))
+		.with({ __typename: "ChallengeAcceptedNotification" }, (n) => (
+			<ChallengeAcceptedRow notification={n} unread={unread} onOpen={onOpen} />
+		))
+		.with({ __typename: "ChallengeSettledNotification" }, (n) => (
+			<ChallengeSettledRow notification={n} unread={unread} onOpen={onOpen} />
+		))
+		.with({ __typename: "ChallengeGloatedNotification" }, (n) => (
+			<ChallengeGloatedRow notification={n} unread={unread} onOpen={onOpen} />
+		))
+		.with({ __typename: "ChallengePostedToGroupNotification" }, (n) => (
+			<ChallengePostedToGroupRow
+				notification={n}
+				unread={unread}
+				onOpen={onOpen}
+			/>
 		))
 		.exhaustive()
 }
