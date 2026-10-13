@@ -9,7 +9,11 @@ import type {
 	ChallengeState,
 	MatchupOutcome,
 } from "#/graphql/generated/graphql"
-import { type ChallengeRecord, recordLine } from "#/lib/challenge"
+import {
+	type ChallengePointsRange,
+	type ChallengeRecord,
+	recordLine,
+} from "#/lib/challenge"
 import { pluralize } from "#/lib/pluralize"
 import { ChallengeFact } from "./challenge-fact"
 import { useStatusFact } from "./challenge-status"
@@ -47,6 +51,12 @@ export function ChallengeHero({
 		them: number
 		settled: number
 		outcome: MatchupOutcome | null
+		// What each side still has riding on the questions that haven't
+		// settled.
+		open: {
+			creator: ChallengePointsRange | null
+			acceptor: ChallengePointsRange | null
+		}
 	} | null
 	action: ReactNode
 	share: ReactNode
@@ -215,8 +225,16 @@ export function ChallengeHero({
 							</HStack>
 							<MatchupScoreboard
 								leading="acceptor"
-								acceptor={{ label: "You", points: score.you }}
-								creator={{ label: them, points: score.them }}
+								acceptor={{
+									label: "You",
+									points: score.you,
+									open: score.open.acceptor,
+								}}
+								creator={{
+									label: them,
+									points: score.them,
+									open: score.open.creator,
+								}}
 								outcome={score.outcome}
 							/>
 						</VStack>

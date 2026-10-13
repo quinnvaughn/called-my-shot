@@ -5,7 +5,10 @@ import { css } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
 import { match } from "ts-pattern"
 import { ChallengeHero } from "#/components/challenges/challenge-hero"
-import { ChallengeQuestionRow } from "#/components/challenges/challenge-question-row"
+import {
+	ChallengeQuestionRow,
+	openPointsBySide,
+} from "#/components/challenges/challenge-question-row"
 import { ChallengeShareRow } from "#/components/challenges/challenge-share-row"
 import { MatchupList } from "#/components/challenges/matchup-list"
 import { PostChallengeModal } from "#/components/challenges/post-challenge-modal"
@@ -190,6 +193,7 @@ function RouteComponent() {
 										e.question.status === "DISPUTED",
 								).length,
 								outcome: viewerMatchup.outcome,
+								open: openPointsBySide(challenge.entries, viewerMatchup.rows),
 							}
 						: null
 				}

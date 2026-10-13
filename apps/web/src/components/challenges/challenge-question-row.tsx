@@ -11,7 +11,13 @@ import type {
 	ChallengeMatchupRows_MatchupFragment,
 } from "#/graphql/generated/graphql"
 import { convictionSummary, pickSummary } from "#/lib/call-summary"
-import { challengePointsRange, signedPoints, toPicks } from "#/lib/challenge"
+import {
+	type ChallengePointsRange,
+	challengePointsRange,
+	signedPoints,
+	sumPointsRanges,
+	toPicks,
+} from "#/lib/challenge"
 
 type Entry = ChallengeEntry_EntryFragment
 type Row = ChallengeMatchupRows_MatchupFragment["rows"][number]
@@ -23,6 +29,51 @@ const ellipsis = css({
 	textOverflow: "ellipsis",
 	whiteSpace: "nowrap",
 })
+
+// What a call still stands to win or lose, while its question hasn't
+// settled.
+function openCallRange(
+	entry: Entry,
+	call: Call | null,
+): ChallengePointsRange | null {
+	const status = entry.question.status
+	if (
+		!call ||
+		status === "VOIDED" ||
+		status === "RESOLVED" ||
+		status === "DISPUTED"
+	) {
+		return null
+	}
+	return challengePointsRange(
+		unmask(CastCallFormFragment, entry.question),
+		toPicks(call),
+		false,
+	)
+}
+
+// Each side's total still riding on the questions that haven't settled. A
+// question with no 1v1 row yet counts the creator's call on its own.
+export function openPointsBySide(
+	entries: Entry[],
+	rows: Row[],
+): {
+	creator: ChallengePointsRange | null
+	acceptor: ChallengePointsRange | null
+} {
+	const rowFor = (entry: Entry) =>
+		rows.find((r) => r.question.id === entry.question.id) ?? null
+	return {
+		creator: sumPointsRanges(
+			entries.map((e) =>
+				openCallRange(e, rowFor(e)?.creatorCall ?? e.creatorCall),
+			),
+		),
+		acceptor: sumPointsRanges(
+			entries.map((e) => openCallRange(e, rowFor(e)?.acceptorCall ?? null)),
+		),
+	}
+}
 
 // What a call counts for in the 1v1, as far as it can be said yet: what it
 // stands to win or lose while the question is open, what it scored once it
@@ -58,12 +109,7 @@ function PointsCell({
 			</span>
 		)
 	}
-	if (!call) return null
-	const range = challengePointsRange(
-		unmask(CastCallFormFragment, entry.question),
-		toPicks(call),
-		false,
-	)
+	const range = openCallRange(entry, call)
 	if (!range) return null
 	return (
 		<span

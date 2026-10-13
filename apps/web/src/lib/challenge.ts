@@ -235,6 +235,21 @@ export function challengePointsRange(
 	return { winLow: win, winHigh: win, lose }
 }
 
+// Several calls' ranges as one: what they add together if every one is
+// right, what they take away if every one is wrong. Null when none of them
+// has a range.
+export function sumPointsRanges(
+	ranges: (ChallengePointsRange | null)[],
+): ChallengePointsRange | null {
+	const present = ranges.filter((r): r is ChallengePointsRange => r !== null)
+	if (present.length === 0) return null
+	return present.reduce((sum, r) => ({
+		winLow: sum.winLow + r.winLow,
+		winHigh: sum.winHigh + r.winHigh,
+		lose: sum.lose + r.lose,
+	}))
+}
+
 // A call that's in, as the picks challengePointsRange reads.
 export function toPicks(call: {
 	conviction: number | null

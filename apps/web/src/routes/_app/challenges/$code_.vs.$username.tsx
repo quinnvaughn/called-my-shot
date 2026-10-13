@@ -3,7 +3,10 @@ import { createFileRoute, Link } from "@tanstack/react-router"
 import { FaRegTimesCircle } from "react-icons/fa"
 import { css } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
-import { ChallengeQuestionRow } from "#/components/challenges/challenge-question-row"
+import {
+	ChallengeQuestionRow,
+	openPointsBySide,
+} from "#/components/challenges/challenge-question-row"
 import { outcomeLabel } from "#/components/challenges/matchup-list"
 import { MatchupScoreboard } from "#/components/challenges/matchup-scoreboard"
 import { GameMatchupHeader } from "#/components/games/game-matchup-header"
@@ -81,6 +84,7 @@ function RouteComponent() {
 	const creator = challenge.creator.username
 	const acceptor = matchup.acceptor.username
 	const game = singleGameOf(challenge.entries.map((e) => e.question))
+	const open = openPointsBySide(challenge.entries, matchup.rows)
 	const viewerSide =
 		me?.username === creator
 			? "creator"
@@ -143,10 +147,12 @@ function RouteComponent() {
 				creator={{
 					label: viewerSide === "creator" ? "You" : `@${creator}`,
 					points: matchup.creatorPoints,
+					open: open.creator,
 				}}
 				acceptor={{
 					label: viewerSide === "acceptor" ? "You" : `@${acceptor}`,
 					points: matchup.acceptorPoints,
+					open: open.acceptor,
 				}}
 				outcome={matchup.outcome}
 			/>

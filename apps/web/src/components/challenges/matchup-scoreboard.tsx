@@ -1,19 +1,20 @@
-import { css } from "styled-system/css"
+import { css, cx } from "styled-system/css"
 import { Grid, HStack, VStack } from "styled-system/jsx"
 import type { MatchupOutcome } from "#/graphql/generated/graphql"
-import { signedPoints } from "#/lib/challenge"
+import { type ChallengePointsRange, signedPoints } from "#/lib/challenge"
 
 type Result = "won" | "lost" | "draw" | null
 
-function SideTile({
-	label,
-	points,
-	result,
-}: {
+type Side = {
 	label: string
 	points: number
-	result: Result
-}) {
+	// What this side still has riding on the questions that haven't settled.
+	open?: ChallengePointsRange | null
+}
+
+const openValue = css({ fontWeight: "bold" })
+
+function SideTile({ label, points, open, result }: Side & { result: Result }) {
 	return (
 		<VStack
 			gap="2"
@@ -80,6 +81,32 @@ function SideTile({
 			>
 				{signedPoints(points)} pts
 			</span>
+			{open && !result && (
+				<VStack
+					gap="0.5"
+					alignItems="flex-start"
+					className={css({
+						fontFamily: "mono",
+						fontSize: "xs",
+						color: "fg.muted",
+					})}
+				>
+					<span>
+						<span className={cx(openValue, css({ color: "success.default" }))}>
+							{open.winLow === open.winHigh
+								? `+${open.winLow}`
+								: `+${open.winLow} to +${open.winHigh}`}
+						</span>{" "}
+						if every open call hits
+					</span>
+					<span>
+						<span className={cx(openValue, css({ color: "danger.default" }))}>
+							−{open.lose}
+						</span>{" "}
+						if every open call misses
+					</span>
+				</VStack>
+			)}
 		</VStack>
 	)
 }
@@ -92,8 +119,8 @@ export function MatchupScoreboard({
 	outcome,
 	leading,
 }: {
-	creator: { label: string; points: number }
-	acceptor: { label: string; points: number }
+	creator: Side
+	acceptor: Side
 	outcome: MatchupOutcome | null
 	leading: "creator" | "acceptor"
 }) {
@@ -110,6 +137,7 @@ export function MatchupScoreboard({
 			key="creator"
 			label={creator.label}
 			points={creator.points}
+			open={creator.open}
 			result={resultFor("CREATOR")}
 		/>
 	)
@@ -118,6 +146,7 @@ export function MatchupScoreboard({
 			key="acceptor"
 			label={acceptor.label}
 			points={acceptor.points}
+			open={acceptor.open}
 			result={resultFor("ACCEPTOR")}
 		/>
 	)
