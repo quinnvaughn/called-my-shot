@@ -8,25 +8,18 @@ export const LandingPageDocument = graphql(`
 			abbreviation
 			slug
 		}
-		# The hero's try-it stack. guestPickQuestions returns the soonest
-		# questions in every active league rather than the soonest overall, so
-		# a visitor who only follows one sport is offered it whether its next
-		# game is tomorrow or a month out. Limited to shapes that take a single
-		# tap to call. guestPickLeagues builds the chip row out of what comes
-		# back and orderGuestPicks scopes the stack to the chosen league.
+		# The hero's try-it stack. guestPickQuestions returns the soonest games
+		# in every active league rather than the soonest overall, so a visitor
+		# who only follows one sport is offered it whether its next game is
+		# tomorrow or a month out. guestPickLeagues builds the chip row out of
+		# what comes back and guestPickGames turns each game into its stack:
+		# who wins, then each team's total (see select-guest-picks.ts).
 		#
-		# 8 per league: the stack shows three, and the rest are what Skip draws
-		# on without leaving that league.
+		# 6 games per league: the stack shows one, and the rest are what Skip
+		# draws on without leaving that league.
 		guestPicks: guestPickQuestions(
-			perLeague: 8
-			shapes: [
-				TEAM_VS_TEAM
-				YES_NO_PROP
-				PLAYER_STAT_OVER_UNDER
-				TEAM_STAT_OVER_UNDER
-				GAME_TOTAL_OVER_UNDER
-				PLAYER_VS_PLAYER
-			]
+			perLeague: 6
+			shapes: [TEAM_VS_TEAM, TEAM_STAT_OVER_UNDER]
 		) {
 			id
 			shape
@@ -34,6 +27,15 @@ export const LandingPageDocument = graphql(`
 			league {
 				id
 				abbreviation
+			}
+			game {
+				id
+				awayTeam {
+					id
+				}
+			}
+			subjectTeam {
+				id
 			}
 			...GuestPickCard_question
 		}

@@ -395,58 +395,77 @@ builder.queryFields((t) => ({
 	// season sits months outside it. A visitor who only watches one of those
 	// gets offered nothing they have an opinion on.
 	//
-	// So: the soonest `perLeague` still-callable questions from every active
-	// league that has any, no time bound at all. A game a month out is a fine
-	// first call - it locks when that game starts like any other, and calling
-	// that far ahead of the field is worth more, not less. The hero opens on
-	// one league and its chip row switches between the rest (see the web side's
-	// select-guest-picks.ts).
+	// So: the soonest `perLeague` still-callable games from every active league
+	// that has any, no time bound at all, and every question of each game in
+	// `shapes`. A game a month out is a fine first call - it locks when that
+	// game starts like any other, and calling that far ahead of the field is
+	// worth more, not less. A game counts once its game-winner is callable:
+	// "who wins" is the card the stack opens on, so a game without one has
+	// nothing to open with. The hero opens on one league and its chip row
+	// switches between the rest (see the web side's select-guest-picks.ts).
 	guestPickQuestions: t.field({
 		type: [QuestionRef],
 		args: {
-			// Per league, not overall. The stack only ever shows three at a
-			// time; the rest are what Skip draws on, and they have to stay
-			// inside the league the visitor chose to be worth anything.
+			// Games per league, not questions, and per league rather than
+			// overall. The stack shows one game at a time; the rest are what
+			// Skip draws on, and they have to stay inside the league the
+			// visitor chose to be worth anything.
 			perLeague: t.arg.int(),
 			shapes: t.arg({ type: [QuestionShape], required: false }),
 		},
 		resolve: async (_root, args) => {
-			const perLeague = Math.max(1, Math.min(args.perLeague ?? 8, 25))
+			const perLeague = Math.max(1, Math.min(args.perLeague ?? 6, 25))
 			// Matches MIN_LEAD_MS on the web side, which drops anything closer
 			// than this because a pick has to survive the visitor filling in the
-			// sign-up form. Applied here too so a league whose next few questions
+			// sign-up form. Applied here too so a league whose next few games
 			// are all about to lock still contributes `perLeague` usable ones
 			// instead of silently losing its chip.
 			const earliest = DateTime.now().plus({ minutes: 20 }).toJSDate()
+			const callable = and(
+				eq(questions.isOfficial, true),
+				eq(questions.status, "open"),
+				gt(questions.locksAt, earliest),
+			)
 
-			const ranked = db
+			const nextGames = db
 				.select({
-					...getColumns(questions),
+					gameId: questions.gameId,
+					locksAt: questions.locksAt,
 					rank: sql<number>`row_number() over (
 						partition by ${questions.leagueId}
-						order by ${questions.locksAt} asc, ${questions.id} desc
+						order by ${questions.locksAt} asc, ${questions.gameId} desc
 					)`.as("rank"),
 				})
 				.from(questions)
 				.innerJoin(leagues, eq(leagues.id, questions.leagueId))
 				.where(
 					and(
-						eq(questions.isOfficial, true),
-						eq(questions.status, "open"),
+						callable,
 						eq(leagues.status, "active"),
-						gt(questions.locksAt, earliest),
+						eq(questions.shape, "team_vs_team"),
+						isNotNull(questions.gameId),
+					),
+				)
+				.as("next_games")
+
+			return db
+				.select(getColumns(questions))
+				.from(questions)
+				.innerJoin(nextGames, eq(nextGames.gameId, questions.gameId))
+				.where(
+					and(
+						lte(nextGames.rank, perLeague),
+						callable,
 						args.shapes && args.shapes.length > 0
 							? inArray(questions.shape, args.shapes)
 							: undefined,
 					),
 				)
-				.as("ranked")
-
-			return db
-				.select()
-				.from(ranked)
-				.where(lte(ranked.rank, perLeague))
-				.orderBy(asc(ranked.locksAt), desc(ranked.id))
+				.orderBy(
+					asc(nextGames.locksAt),
+					asc(questions.locksAt),
+					desc(questions.id),
+				)
 		},
 	}),
 

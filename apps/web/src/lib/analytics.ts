@@ -1,6 +1,7 @@
 import { isSeasonLongShape } from "@called-my-shot/scoring"
 import posthog from "posthog-js"
 import type { AuthModalSurface } from "#/components/auth/auth-modal"
+import type { GuestPicksAuthSource } from "#/components/landing-page/guest-picks/open-guest-picks-auth"
 import type { QuestionCallShape } from "#/components/questions/cast-call-form/use-cast-call-form"
 import type { PresserAskStatus } from "#/graphql/generated/graphql"
 import type { ShareLanding } from "#/lib/share-links"
@@ -230,7 +231,8 @@ type AnalyticsEvents = {
 	first_call_tour_step: { step: number }
 
 	// The landing page's try-it stack, before the visitor has an account.
-	// `index` is which card in the stack the pick was made on.
+	// `index` is which card of the game the pick was made on: 0 is who wins,
+	// then each team's total.
 	guest_pick_made: {
 		questionId: string
 		questionShape: QuestionCallShape
@@ -249,7 +251,10 @@ type AnalyticsEvents = {
 	// The hero's league chips. Without it there's no telling a visitor who found
 	// their sport apart from one who never noticed the row.
 	guest_picks_league_selected: { leagueId: string }
-	guest_picks_signup_opened: { pickCount: number }
+	guest_picks_signup_opened: {
+		pickCount: number
+		source: GuestPicksAuthSource
+	}
 	// Fired once the account exists and the held picks have been sent.
 	// `notPosted` counts refusals (the game locked, or already called) and
 	// failed requests together.

@@ -148,7 +148,9 @@ export default defineConfig({
           // The walkthrough launcher (onboarding/walkthrough-launcher.tsx) -
           // a fixed pill floating over page content. Deliberately BELOW
           // `overlay`: it is a standing offer, not something that should sit
-          // on top of a modal the user actually opened.
+          // on top of a modal the user actually opened. The landing page's
+          // lock-in bar (landing-page/guest-picks/guest-picks-lock-bar.tsx)
+          // is the same kind of offer and shares it.
           launcher: { value: "90" },
           // The onboarding walkthrough's dimming layer (ui/coachmark.tsx) -
           // a single box-shadow ring that darkens everything except the

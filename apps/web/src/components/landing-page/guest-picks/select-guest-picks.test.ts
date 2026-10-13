@@ -2,232 +2,199 @@ import { describe, expect, it } from "vitest"
 import type { QuestionShape } from "#/graphql/generated/graphql"
 import {
 	type GuestPickCandidate,
+	guestPickGames,
 	guestPickLeagues,
-	orderGuestPicks,
-	refillSlots,
 } from "./select-guest-picks"
 
 const NOW = Date.parse("2026-09-13T18:00:00Z")
 
 let n = 0
+type Game = { id: string; league: string; away: string; home: string }
+
+function game(league: string): Game {
+	n++
+	return { id: `game-${n}`, league, away: `away-${n}`, home: `home-${n}` }
+}
+
 function question(
-	league: string,
+	g: Game,
 	locksInMinutes: number,
-	shape: QuestionShape = "YES_NO_PROP",
+	shape: QuestionShape,
+	subjectTeamId: string | null = null,
 ): GuestPickCandidate {
 	n++
 	return {
-		id: `${league}-${locksInMinutes}-${n}`,
+		id: `${g.id}-${shape}-${n}`,
 		shape,
 		locksAt: new Date(NOW + locksInMinutes * 60_000).toISOString(),
-		league: { id: league, abbreviation: league.toUpperCase() },
+		league: { id: g.league, abbreviation: g.league.toUpperCase() },
+		game: { id: g.id, awayTeam: { id: g.away } },
+		subjectTeam: subjectTeamId ? { id: subjectTeamId } : null,
 	}
 }
 
+const winner = (g: Game, locksIn = 60) => question(g, locksIn, "TEAM_VS_TEAM")
+const teamTotal = (g: Game, teamId: string, locksIn = 60) =>
+	question(g, locksIn, "TEAM_STAT_OVER_UNDER", teamId)
+const gameTotal = (g: Game, locksIn = 60) =>
+	question(g, locksIn, "GAME_TOTAL_OVER_UNDER")
+
 const ids = (questions: GuestPickCandidate[]) => questions.map((q) => q.id)
 
-describe("orderGuestPicks", () => {
-	it("drops anything locking within 20 minutes", () => {
-		const tooSoon = question("mlb", 19)
-		const justEnough = question("mlb", 20)
-		const later = question("mlb", 90)
+describe("guestPickGames", () => {
+	it("opens on who wins, then the away team's total, then the home team's", () => {
+		const g = game("nfl")
+		const home = teamTotal(g, g.home)
+		const away = teamTotal(g, g.away)
+		const w = winner(g)
 
-		expect(ids(orderGuestPicks([tooSoon, justEnough, later], NOW))).toEqual(
-			ids([justEnough, later]),
-		)
+		const [stack] = guestPickGames([home, away, gameTotal(g), w], NOW)
+
+		expect(ids(stack.cards)).toEqual(ids([w, away, home]))
 	})
 
-	it("lets leagues take turns when no league is selected", () => {
-		const mlb30 = question("mlb", 30)
-		const mlb40 = question("mlb", 40)
-		const mlb50 = question("mlb", 50)
-		const nfl60 = question("nfl", 60)
+	it("fills a game without team totals with the next games' winners", () => {
+		const first = game("nba")
+		const second = game("nba")
+		const third = game("nba")
+		const fourth = game("nba")
+		const w1 = winner(first, 30)
+		const w2 = winner(second, 40)
+		const w3 = winner(third, 50)
 
-		expect(ids(orderGuestPicks([mlb50, nfl60, mlb40, mlb30], NOW))).toEqual(
-			ids([mlb30, nfl60, mlb40, mlb50]),
-		)
-	})
-
-	it("opens on the selected league and exhausts it before any other", () => {
-		const mlb30 = question("mlb", 30)
-		const mlb40 = question("mlb", 40)
-		const mlb50 = question("mlb", 50)
-		const nfl60 = question("nfl", 60)
-
-		expect(
-			ids(orderGuestPicks([mlb50, nfl60, mlb40, mlb30], NOW, "nfl")),
-		).toEqual(ids([nfl60, mlb30, mlb40, mlb50]))
-	})
-
-	it("fills a short slate from other leagues rather than a short stack", () => {
-		const nfl60 = question("nfl", 60)
-		const mlb30 = question("mlb", 30)
-		const nba40 = question("nba", 40)
-
-		expect(ids(orderGuestPicks([mlb30, nba40, nfl60], NOW, "nfl"))).toEqual(
-			ids([nfl60, mlb30, nba40]),
-		)
-	})
-
-	it("opens on three of the selected league when that is all it has", () => {
-		// Any league out of season: the only questions up are for opening
-		// night, so every one of them is a game-winner. The variety rule must
-		// not reach into another league to break them up.
-		const nba1 = question("nba", 5000, "TEAM_VS_TEAM")
-		const nba2 = question("nba", 5100, "TEAM_VS_TEAM")
-		const nba3 = question("nba", 5200, "TEAM_VS_TEAM")
-		const mlbOver = question("mlb", 30, "PLAYER_STAT_OVER_UNDER")
-		const mlbProp = question("mlb", 40, "YES_NO_PROP")
-
-		const ordered = orderGuestPicks(
-			[mlbOver, mlbProp, nba1, nba2, nba3],
+		const [stack] = guestPickGames(
+			[w3, winner(fourth, 60), gameTotal(first), w1, w2],
 			NOW,
 			"nba",
 		)
 
-		expect(ids(ordered.slice(0, 3))).toEqual(ids([nba1, nba2, nba3]))
+		expect(ids(stack.cards)).toEqual(ids([w1, w2, w3]))
 	})
 
-	it("only borrows another league once the selected one is spent", () => {
-		const nba1 = question("nba", 5000, "TEAM_VS_TEAM")
-		const nba2 = question("nba", 5100, "TEAM_VS_TEAM")
-		const mlbOver = question("mlb", 30, "PLAYER_STAT_OVER_UNDER")
+	it("borrows another league's winners once the selected one runs short", () => {
+		const nba = game("nba")
+		const nhl = game("nhl")
+		const wNba = winner(nba, 3000)
+		const wNhl = winner(nhl, 30)
 
-		expect(ids(orderGuestPicks([mlbOver, nba1, nba2], NOW, "nba"))).toEqual(
-			ids([nba1, nba2, mlbOver]),
+		const [stack] = guestPickGames([wNhl, wNba], NOW, "nba")
+
+		expect(ids(stack.cards)).toEqual(ids([wNba, wNhl]))
+	})
+
+	it("keeps a game with team totals to its own cards", () => {
+		const g = game("nfl")
+		const w = winner(g, 30)
+		const away = teamTotal(g, g.away, 30)
+
+		const [stack] = guestPickGames(
+			[w, away, winner(game("nfl"), 40)],
+			NOW,
+			"nfl",
 		)
+
+		expect(ids(stack.cards)).toEqual(ids([w, away]))
 	})
 
-	it("keeps a second game-winner out of the opening three", () => {
-		const nflWinner = question("nfl", 30, "TEAM_VS_TEAM")
-		const mlbWinner = question("mlb", 35, "TEAM_VS_TEAM")
-		const mlbOver = question("mlb", 40, "PLAYER_STAT_OVER_UNDER")
-		const mlbProp = question("mlb", 45, "YES_NO_PROP")
+	it("offers the winner alone when there is no other game", () => {
+		const g = game("nba")
+		const w = winner(g)
+
+		expect(ids(guestPickGames([w], NOW)[0].cards)).toEqual(ids([w]))
+	})
+
+	it("drops a game whose winner isn't callable", () => {
+		const locking = game("nfl")
+		const orphan = game("nfl")
 
 		expect(
-			ids(orderGuestPicks([nflWinner, mlbWinner, mlbOver, mlbProp], NOW)),
-		).toEqual(ids([nflWinner, mlbOver, mlbProp, mlbWinner]))
+			guestPickGames(
+				[winner(locking, 19), teamTotal(orphan, orphan.away)],
+				NOW,
+			),
+		).toEqual([])
 	})
 
-	it("defers a second game-winner within the selected league too", () => {
-		const first = question("mlb", 30, "TEAM_VS_TEAM")
-		const second = question("mlb", 40, "TEAM_VS_TEAM")
-		const prop = question("mlb", 50, "YES_NO_PROP")
-		const over = question("mlb", 60, "PLAYER_STAT_OVER_UNDER")
+	it("keeps one total per team", () => {
+		const g = game("nhl")
+		const w = winner(g)
+		const first = teamTotal(g, g.away)
 
 		expect(
-			ids(orderGuestPicks([first, second, prop, over], NOW, "mlb")),
-		).toEqual(ids([first, prop, over, second]))
+			ids(guestPickGames([w, first, teamTotal(g, g.away)], NOW)[0].cards),
+		).toEqual(ids([w, first]))
 	})
 
-	it("falls back to a second game-winner rather than a short stack", () => {
-		const first = question("mlb", 30, "TEAM_VS_TEAM")
-		const second = question("mlb", 40, "TEAM_VS_TEAM")
-		const third = question("mlb", 50, "TEAM_VS_TEAM")
+	it("orders games soonest first", () => {
+		const later = game("nfl")
+		const sooner = game("nfl")
 
-		expect(ids(orderGuestPicks([third, first, second], NOW))).toEqual(
-			ids([first, second, third]),
-		)
+		expect(
+			guestPickGames([winner(later, 120), winner(sooner, 30)], NOW).map(
+				(g) => g.id,
+			),
+		).toEqual([sooner.id, later.id])
 	})
 
-	it("returns what it can when fewer than three are eligible", () => {
-		const only = question("nfl", 120)
+	it("exhausts the selected league before any other", () => {
+		const mlb1 = game("mlb")
+		const mlb2 = game("mlb")
+		const nfl = game("nfl")
 
-		expect(ids(orderGuestPicks([only, question("nfl", 5)], NOW))).toEqual(
-			ids([only]),
-		)
-		expect(orderGuestPicks([question("nfl", 5)], NOW)).toEqual([])
-		expect(orderGuestPicks([], NOW)).toEqual([])
+		expect(
+			guestPickGames(
+				[winner(mlb1, 30), winner(mlb2, 40), winner(nfl, 600)],
+				NOW,
+				"nfl",
+			).map((g) => g.id),
+		).toEqual([nfl.id, mlb1.id, mlb2.id])
 	})
 
-	it("ignores a league with nothing eligible left in it", () => {
-		const nflLocking = question("nfl", 5)
-		const mlb30 = question("mlb", 30)
+	it("lets the other leagues take turns", () => {
+		const mlb1 = game("mlb")
+		const mlb2 = game("mlb")
+		const nhl = game("nhl")
 
-		expect(ids(orderGuestPicks([nflLocking, mlb30], NOW, "nfl"))).toEqual(
-			ids([mlb30]),
-		)
+		expect(
+			guestPickGames(
+				[winner(mlb1, 30), winner(mlb2, 40), winner(nhl, 50)],
+				NOW,
+			).map((g) => g.id),
+		).toEqual([mlb1.id, nhl.id, mlb2.id])
 	})
 })
 
 describe("guestPickLeagues", () => {
-	it("lists each league once, soonest-locking slate first", () => {
-		const leagues = guestPickLeagues(
-			[
-				question("mlb", 90),
-				question("nfl", 40),
-				question("mlb", 30),
-				question("nba", 60),
-			],
-			NOW,
-		)
-
-		expect(leagues).toEqual([
+	it("lists each league once, soonest game first", () => {
+		expect(
+			guestPickLeagues(
+				[
+					winner(game("mlb"), 90),
+					winner(game("nfl"), 40),
+					winner(game("mlb"), 30),
+					winner(game("nba"), 60),
+				],
+				NOW,
+			),
+		).toEqual([
 			{ id: "mlb", abbreviation: "MLB" },
 			{ id: "nfl", abbreviation: "NFL" },
 			{ id: "nba", abbreviation: "NBA" },
 		])
 	})
 
-	it("leaves out a league whose only question is about to lock", () => {
+	it("leaves out a league with no callable winner", () => {
+		const nfl = game("nfl")
 		expect(
-			guestPickLeagues([question("nfl", 5), question("mlb", 30)], NOW),
+			guestPickLeagues(
+				[winner(nfl, 5), teamTotal(nfl, nfl.away), winner(game("mlb"), 30)],
+				NOW,
+			),
 		).toEqual([{ id: "mlb", abbreviation: "MLB" }])
 	})
 
 	it("is empty when nothing is eligible", () => {
-		expect(guestPickLeagues([question("nfl", 5)], NOW)).toEqual([])
+		expect(guestPickLeagues([winner(game("nfl"), 5)], NOW)).toEqual([])
 		expect(guestPickLeagues([], NOW)).toEqual([])
-	})
-})
-
-describe("refillSlots", () => {
-	const none = new Set<string>()
-
-	it("swaps the whole stack when nothing has been called yet", () => {
-		expect(refillSlots(["a", "b", "c"], 0, none, ["x", "y", "z"])).toEqual([
-			"x",
-			"y",
-			"z",
-		])
-	})
-
-	it("leaves calls already made behind the visitor alone", () => {
-		expect(
-			refillSlots(["a", "b", "c"], 1, new Set(["a"]), ["x", "y", "z"]),
-		).toEqual(["a", "x", "y"])
-	})
-
-	it("replaces only the card on screen once every slot is called", () => {
-		// Change picks from the summary: all three are called and the visitor is
-		// back on the first card. Tapping another sport moves that one pick, not
-		// the two behind it.
-		const called = new Set(["a", "b", "c"])
-
-		expect(refillSlots(["a", "b", "c"], 0, called, ["x", "y"])).toEqual([
-			"x",
-			"b",
-			"c",
-		])
-		expect(refillSlots(["a", "b", "c"], 1, called, ["x", "y"])).toEqual([
-			"a",
-			"x",
-			"c",
-		])
-	})
-
-	it("skips over a later slot that already holds a call", () => {
-		expect(refillSlots(["a", "b", "c"], 0, new Set(["c"]), ["x", "y"])).toEqual(
-			["x", "y", "c"],
-		)
-	})
-
-	it("keeps what it cannot replace when the new league runs short", () => {
-		expect(refillSlots(["a", "b", "c"], 0, none, ["x"])).toEqual([
-			"x",
-			"b",
-			"c",
-		])
-		expect(refillSlots(["a", "b", "c"], 0, none, [])).toEqual(["a", "b", "c"])
 	})
 })

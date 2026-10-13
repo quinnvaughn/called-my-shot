@@ -143,6 +143,29 @@ const callHeadingClass = css({
 	textTransform: "uppercase",
 })
 
+const verdictClass = css({
+	fontSize: "sm",
+	fontWeight: "medium",
+	color: "secondary.default",
+})
+
+// Where the visitor's pick sits against everyone who has already called the
+// question. The split is what a first call is waiting to find out, so it's the
+// answer the card gives the moment they tap.
+function crowdVerdict(
+	questionCallCount: number,
+	option: { callCount: number; fieldPct: number | null },
+): string {
+	if (questionCallCount === 0) return "Nobody has called this yet."
+	const pct =
+		option.callCount > 0 && option.fieldPct !== null
+			? Math.round(option.fieldPct)
+			: 0
+	if (pct === 0) return "Nobody else has picked this yet."
+	if (pct >= 50) return `You're with ${pct}% of callers.`
+	return `Only ${pct}% of callers picked this.`
+}
+
 // One question in the landing page's try-it stack. The whole card runs a size
 // down from the question page's version - card padding, title, matchup, stats
 // and the option rows - because it has to sit whole inside the fold next to the
@@ -177,6 +200,7 @@ export function GuestPickCard({
 				[question.game.awayTeam.id]: question.game.awayTeam.abbreviation,
 			}
 		: {}
+	const picked = question.options.find((o) => o.id === pickedOptionId)
 
 	return (
 		<Card variant="surface" size="md">
@@ -272,6 +296,11 @@ export function GuestPickCard({
 								</button>
 							)
 						})}
+						{picked && (
+							<p className={verdictClass}>
+								{crowdVerdict(question.callCount, picked)}
+							</p>
+						)}
 					</VStack>
 					<HStack justify="space-between" alignItems="center" gap="3">
 						<span className={mutedMonoClass}>
