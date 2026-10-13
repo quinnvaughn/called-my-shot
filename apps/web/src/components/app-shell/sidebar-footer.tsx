@@ -25,6 +25,7 @@ export function SidebarFooter({ me }: { me: Me }) {
 						username={me.username}
 						avatarUrl={me.avatarUrl}
 						variant="sidebar"
+						isAdmin={me.isAdmin}
 					/>
 				</div>
 			) : (

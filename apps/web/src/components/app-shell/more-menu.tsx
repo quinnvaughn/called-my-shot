@@ -1,17 +1,10 @@
-import { useQueryClient } from "@tanstack/react-query"
-import { useNavigate, useRouter } from "@tanstack/react-router"
-import { Fragment, useState } from "react"
+import { useNavigate } from "@tanstack/react-router"
+import { useState } from "react"
 import { FaQuestion } from "react-icons/fa"
 import {
 	FiChevronDown,
 	FiChevronUp,
-	FiFileText,
-	FiHelpCircle,
 	FiLifeBuoy,
-	FiLock,
-	FiRefreshCw,
-	FiSettings,
-	FiShield,
 	FiUserPlus,
 	FiZap,
 } from "react-icons/fi"
@@ -19,27 +12,18 @@ import { HiDotsCircleHorizontal } from "react-icons/hi"
 import type { IconType } from "react-icons/lib"
 import { css } from "styled-system/css"
 import { Dropdown } from "#/components/ui/dropdown"
-import { useGqlMutation } from "#/graphql/hooks"
-import { RestartOnboardingDocument } from "#/graphql/mutations/onboarding"
-import { ViewerOnboardingDocument } from "#/graphql/queries/onboarding"
-import { gqlQueryOptions } from "#/graphql/query-options"
-import { buildQuestionSlug } from "#/lib/slug"
-import { endTour } from "#/stores/tour-store"
 
-const onboardingQuery = gqlQueryOptions(ViewerOnboardingDocument, {})
-
+// Account things (settings, admin) live in the account menu, replaying the
+// walkthrough in settings, and How It Works and the legal pages in the landing
+// page footer.
 type MoreMenuProps = {
 	signedIn: boolean
-	isAdmin: boolean
 	// Closes the mobile drawer the menu lives in once an item is picked.
 	onNavigate: () => void
 }
 
-export function MoreMenu({ signedIn, isAdmin, onNavigate }: MoreMenuProps) {
+export function MoreMenu({ signedIn, onNavigate }: MoreMenuProps) {
 	const navigate = useNavigate()
-	const router = useRouter()
-	const queryClient = useQueryClient()
-	const restartOnboarding = useGqlMutation(RestartOnboardingDocument)
 	const [expanded, setExpanded] = useState(false)
 
 	function go(to: string) {
@@ -47,52 +31,10 @@ export function MoreMenu({ signedIn, isAdmin, onNavigate }: MoreMenuProps) {
 		void navigate({ to })
 	}
 
-	// Starts the walkthrough outright rather than clearing the dismissal and
-	// hoping the launcher comes back. It would not: the launcher also hides
-	// once the viewer has made a call, so routing this through it made the menu
-	// item do nothing at all for everyone past their first call - which is
-	// everyone who would ever want a second look at how scoring works.
-	//
-	// Clearing the timestamp still matters for the case where they have not
-	// called yet and dismissed the pill: it puts the standing offer back too.
-	async function handleReplayWalkthrough() {
-		onNavigate()
-		// A tour abandoned by navigating away leaves its step index behind, and
-		// "replay" that resumes at step 3 is not a replay.
-		endTour()
-		await restartOnboarding.mutateAsync(undefined)
-		await queryClient.invalidateQueries()
-		await router.invalidate()
-
-		// suggestedFirstQuestion skips anything this viewer already called, so a
-		// replay lands on a question that is genuinely still callable and the
-		// coachmarks have a live form to point at.
-		const data = await queryClient.fetchQuery(onboardingQuery)
-		const suggested =
-			data.viewerOnboarding.__typename === "ViewerOnboarding"
-				? data.viewerOnboarding.suggestedQuestion
-				: null
-
-		if (!suggested) {
-			await navigate({ to: "/home" })
-			return
-		}
-		await navigate({
-			to: "/questions/$questionId/{-$slug}",
-			params: {
-				questionId: suggested.id,
-				slug: buildQuestionSlug(suggested.title),
-			},
-			search: { tour: "first-call" },
-		})
-	}
-
 	type Item = {
 		label: string
 		icon: IconType
 		onSelect: () => void
-		// Starts a new group, drawn with a divider above it.
-		groupStart?: boolean
 	}
 	const items: Item[] = [
 		...(signedIn
@@ -107,36 +49,15 @@ export function MoreMenu({ signedIn, isAdmin, onNavigate }: MoreMenuProps) {
 						icon: FiUserPlus,
 						onSelect: () => go("/invite"),
 					},
-					...(isAdmin
-						? [{ label: "Admin", icon: FiShield, onSelect: () => go("/admin") }]
-						: []),
-					{
-						label: "Settings",
-						icon: FiSettings,
-						onSelect: () => go("/settings"),
-					},
 				]
 			: []),
-		{
-			label: "How It Works",
-			icon: FiHelpCircle,
-			onSelect: () => go("/how-it-works"),
-		},
 		{
 			label: "Updates",
 			icon: FiZap,
 			onSelect: () => go("/updates"),
 		},
-		// What makes skipping the walkthrough a free choice: it can always be
-		// started again, so nobody has to sit through it the first time just in
-		// case.
 		...(signedIn
 			? [
-					{
-						label: "Replay Walkthrough",
-						icon: FiRefreshCw,
-						onSelect: handleReplayWalkthrough,
-					},
 					{
 						label: "Support",
 						icon: FiLifeBuoy,
@@ -144,13 +65,6 @@ export function MoreMenu({ signedIn, isAdmin, onNavigate }: MoreMenuProps) {
 					},
 				]
 			: []),
-		{
-			label: "Terms",
-			icon: FiFileText,
-			onSelect: () => go("/terms"),
-			groupStart: true,
-		},
-		{ label: "Privacy", icon: FiLock, onSelect: () => go("/privacy") },
 	]
 
 	return (
@@ -167,28 +81,18 @@ export function MoreMenu({ signedIn, isAdmin, onNavigate }: MoreMenuProps) {
 				</Dropdown.Trigger>
 				<Dropdown.Content placement="bottom" className={css({ width: "full" })}>
 					{items.map((item) => (
-						<Fragment key={item.label}>
-							{item.groupStart && (
-								<div
-									className={css({
-										borderTop: "1px solid {colors.border.default}",
-										marginBlock: "1",
-									})}
-								/>
-							)}
-							<Dropdown.Item onClick={item.onSelect}>
-								<span
-									className={css({
-										display: "flex",
-										alignItems: "center",
-										gap: "2",
-									})}
-								>
-									<item.icon size={14} />
-									{item.label}
-								</span>
-							</Dropdown.Item>
-						</Fragment>
+						<Dropdown.Item key={item.label} onClick={item.onSelect}>
+							<span
+								className={css({
+									display: "flex",
+									alignItems: "center",
+									gap: "2",
+								})}
+							>
+								<item.icon size={14} />
+								{item.label}
+							</span>
+						</Dropdown.Item>
 					))}
 				</Dropdown.Content>
 			</Dropdown>

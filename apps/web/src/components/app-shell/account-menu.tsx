@@ -1,4 +1,5 @@
-import { FiLogOut } from "react-icons/fi"
+import { useNavigate } from "@tanstack/react-router"
+import { FiLogOut, FiSettings, FiShield } from "react-icons/fi"
 import { css } from "styled-system/css"
 import { Avatar } from "#/components/ui/avatar"
 import { Dropdown } from "#/components/ui/dropdown"
@@ -12,15 +13,20 @@ type AccountMenuProps = {
 	// bottom of the nav column). "topbar": compact avatar-only trigger, menu
 	// opens downward (trigger sits in the mobile top bar).
 	variant?: "sidebar" | "topbar"
+	isAdmin?: boolean
 }
+
+const itemRow = css({ display: "flex", alignItems: "center", gap: "2" })
 
 export function AccountMenu({
 	name,
 	username,
 	avatarUrl,
 	variant = "sidebar",
+	isAdmin = false,
 }: AccountMenuProps) {
 	const { signOut } = useSignOut()
+	const navigate = useNavigate()
 
 	return (
 		<Dropdown
@@ -105,10 +111,28 @@ export function AccountMenu({
 						/>
 					</>
 				)}
+				<Dropdown.Item onClick={() => void navigate({ to: "/settings" })}>
+					<span className={itemRow}>
+						<FiSettings size={14} />
+						Settings
+					</span>
+				</Dropdown.Item>
+				{isAdmin && (
+					<Dropdown.Item onClick={() => void navigate({ to: "/admin" })}>
+						<span className={itemRow}>
+							<FiShield size={14} />
+							Admin
+						</span>
+					</Dropdown.Item>
+				)}
+				<div
+					className={css({
+						borderTop: "1px solid {colors.border.default}",
+						marginBlock: "1",
+					})}
+				/>
 				<Dropdown.Item onClick={signOut}>
-					<span
-						className={css({ display: "flex", alignItems: "center", gap: "2" })}
-					>
+					<span className={itemRow}>
 						<FiLogOut size={14} />
 						Log out
 					</span>

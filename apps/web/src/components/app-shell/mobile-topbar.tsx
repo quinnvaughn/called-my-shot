@@ -82,6 +82,7 @@ export function MobileTopbar({
 					username={me.username}
 					avatarUrl={me.avatarUrl}
 					variant="topbar"
+					isAdmin={me.isAdmin}
 				/>
 			) : (
 				<Button

@@ -11,6 +11,7 @@ import { FlairSection } from "#/components/settings/flair-section"
 import { PasswordSection } from "#/components/settings/password-section"
 import { ProfileImagesSection } from "#/components/settings/profile-images-section"
 import { UsernameSection } from "#/components/settings/username-section"
+import { WalkthroughSection } from "#/components/settings/walkthrough-section"
 import { PageHeader } from "#/components/ui/page-header"
 import { SettingsPageDocument } from "#/graphql/queries/user"
 import { gqlQueryOptions } from "#/graphql/query-options"
@@ -91,6 +92,10 @@ function RouteComponent() {
 			<VStack alignItems="stretch" gap="3">
 				{sectionLabel("Password")}
 				<PasswordSection hasPassword={me.hasPassword ?? true} />
+			</VStack>
+			<VStack alignItems="stretch" gap="3">
+				{sectionLabel("Walkthrough")}
+				<WalkthroughSection />
 			</VStack>
 			<VStack alignItems="stretch" gap="3">
 				{sectionLabel("Blocked")}

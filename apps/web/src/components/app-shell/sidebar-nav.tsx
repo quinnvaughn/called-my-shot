@@ -151,11 +151,7 @@ export function SidebarNav({
 							)}
 						</Link>
 					))}
-					<MoreMenu
-						signedIn={!!me}
-						isAdmin={me?.isAdmin ?? false}
-						onNavigate={onNavigate}
-					/>
+					<MoreMenu signedIn={!!me} onNavigate={onNavigate} />
 					<SidebarLeagues leagues={leagues} onNavigate={onNavigate} />
 					{me && (
 						<HStack paddingTop="6" width="full">
