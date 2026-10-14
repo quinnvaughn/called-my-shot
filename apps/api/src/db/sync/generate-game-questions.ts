@@ -17,6 +17,15 @@ import {
 	withBoxSpread,
 } from "../../lib/game-questions/duel-pricing"
 import {
+	createGameScoreModel,
+	type GameScoreModel,
+	lineFromDraws,
+	sideDraws,
+	teamLineBasis,
+	totalDraws,
+	totalLineBasis,
+} from "../../lib/game-questions/game-score-model"
+import {
 	generationKey,
 	isInSlot,
 	parseGenerationKey,
@@ -161,6 +170,15 @@ type LeagueContext = {
 		year: number,
 		template: { priorWeight: number; oppWeight?: number },
 	) => Promise<OpponentAdjustment | null>
+	// One model of the game's two scores that its team lines, its total and
+	// its who-wins price are all read from - see createGameScoreModel. Null
+	// until the league has enough history for one, when each line is set on
+	// its own from the template's shade instead.
+	// Also null for a stat other than the one the model's scores are in.
+	gameScoreModelFor: (
+		game: DueGame,
+		statName: string,
+	) => Promise<GameScoreModel | null>
 	// What a player head-to-head or leader pool is priced from: the resolved
 	// lines of the over/under on the same stat, measured the same way, or the
 	// box scores until there are enough of those - see withBoxSpread.
@@ -295,9 +313,8 @@ async function planTemplate(
 			{ shape: "team_stat_over_under" },
 			async ({ statName, line, priorWeight, priorStat, oppWeight }) => {
 				const planned: PlannedQuestion[] = []
-				for (const team of teams) {
-					const key = generationKey([...base, team.id])
-					if (isFilled(key)) continue
+				const model = await ctx.gameScoreModelFor(game, statName)
+				const shadedBasis = async (team: Team) => {
 					const { season, prior } = await ctx.teamSamplesFor(
 						team.id,
 						game.season.year,
@@ -308,9 +325,16 @@ async function planTemplate(
 						game.season.year,
 						{ priorWeight, oppWeight },
 					)
+					return setLine(season, prior, priorWeight, line, opponent)
+				}
+				for (const team of teams) {
+					const key = generationKey([...base, team.id])
+					if (isFilled(key)) continue
+					const basis = model
+						? modelTeamBasis(model, team.id === game.homeTeamId, line.minLine)
+						: await shadedBasis(team)
 					// A team too early in the season to carry a line is skipped;
 					// the numeric guess on the same stat still goes up.
-					const basis = setLine(season, prior, priorWeight, line, opponent)
 					if (!basis) continue
 					planned.push({
 						key,
@@ -337,6 +361,7 @@ async function planTemplate(
 			async ({ statName, line, priorWeight, priorStat, oppWeight }) => {
 				const key = generationKey(base)
 				if (isFilled(key)) return []
+				const model = await ctx.gameScoreModelFor(game, statName)
 				const sideOf = async (team: Team) => {
 					const { season, prior } = await ctx.teamSamplesFor(
 						team.id,
@@ -350,11 +375,13 @@ async function planTemplate(
 					)
 					return { season, prior, opponent }
 				}
-				const basis = setTotalLine(
-					[await sideOf(game.awayTeam), await sideOf(game.homeTeam)],
-					priorWeight,
-					line,
-				)
+				const basis = model
+					? modelTotalBasis(model, line.minLine)
+					: setTotalLine(
+							[await sideOf(game.awayTeam), await sideOf(game.homeTeam)],
+							priorWeight,
+							line,
+						)
 				if (!basis) return []
 				return [
 					{
@@ -534,6 +561,26 @@ async function planTemplate(
 			},
 		)
 		.exhaustive()
+}
+
+// A team's line off the game's score model, or null where it would fall under
+// the template's floor.
+function modelTeamBasis(
+	model: GameScoreModel,
+	isHome: boolean,
+	minLine: number,
+): LineBasis | null {
+	const side = isHome ? "home" : "away"
+	const picked = lineFromDraws(sideDraws(model, side), minLine)
+	return picked && teamLineBasis(model, side, picked)
+}
+
+function modelTotalBasis(
+	model: GameScoreModel,
+	minLine: number,
+): LineBasis | null {
+	const picked = lineFromDraws(totalDraws(model), minLine)
+	return picked && totalLineBasis(model, picked)
 }
 
 // Returns whether a question was actually inserted - a key that already
@@ -917,6 +964,12 @@ async function generateForLeague(
 		espnTeamIdByTeamId,
 	}
 
+	const gameScoreModel = createGameScoreModel(
+		league.slug,
+		league.id,
+		access.espn,
+	)
+
 	const duelSpreads = new Map<string, Promise<DuelSpread>>()
 	// The player over/under on a stat, measured the same way, whose resolved
 	// lines a head-to-head or leader pool on it is priced from. Read from the
@@ -969,6 +1022,16 @@ async function generateForLeague(
 			),
 		opponentFor: (opponentTeamId, year, template) =>
 			opponentFor(opponentDeps, template, opponentTeamId, year),
+		gameScoreModelFor: async (game, statName) => {
+			const model = await gameScoreModel({
+				awayTeam: game.awayTeam,
+				homeTeam: game.homeTeam,
+				seasonYear: game.season.year,
+				seasonId: game.seasonId,
+				seasonType: game.seasonType,
+			})
+			return model?.statName === statName ? model : null
+		},
 		duelSpreadFor: (statName, espnStat) => {
 			const key = `${statName}:${[espnStat].flat().join("+")}`
 			const cached = duelSpreads.get(key)

@@ -9,35 +9,23 @@ import {
 	GAME_QUESTION_CATALOG,
 	type GameQuestionTemplate,
 } from "../../db/catalog/game-question-catalog"
-import type { Team } from "../../db/schema"
 import { defaultEspnClient, type EspnClient } from "../../db/sync/espn-client"
-import { createEspnRequester } from "../../db/sync/espn-requester"
 import { SYNCED_LEAGUES } from "../../db/sync/leagues"
-import { loadEspnIds } from "../../db/sync/sync-refs"
-import { playerBoxSpread, teamScoreBoxSpread } from "./box-spread"
+import { playerBoxSpread } from "./box-spread"
 import {
 	LINE_TUNING,
+	type PoolOptions,
 	pairedRatiosForTemplate,
 	type RatioPair,
 	ratiosForTemplate,
 } from "./line-calibration"
 import { loadPlayerSamples, withTimeout } from "./line-pricing"
 import {
-	isGeneratedOverUnder,
 	loadLineSettings,
 	type OverUnderTemplate,
 	withLineSettings,
 } from "./line-settings"
 import { blendSamples, LINE_FORMULA, type LineFormula } from "./lines"
-import {
-	createSeasonTableCache,
-	createStandingsCache,
-	createTeamSeasonStatsCache,
-	homeEdge,
-	opponentFor,
-	teamSamples,
-	teamScoresFrom,
-} from "./team-lines"
 
 // Prices each side of a head-to-head from the same model an over/under on the
 // stat it compares is set from: each side's expected figure, and how the stat
@@ -97,10 +85,11 @@ export async function duelSpreadFor(
 	leagueSlug: string,
 	templateId: string,
 	formula: LineFormula,
+	options: PoolOptions = {},
 ): Promise<DuelSpread> {
 	const [ratios, pairs] = await Promise.all([
-		ratiosForTemplate(leagueSlug, templateId, formula),
-		pairedRatiosForTemplate(leagueSlug, templateId, formula),
+		ratiosForTemplate(leagueSlug, templateId, formula, options),
+		pairedRatiosForTemplate(leagueSlug, templateId, formula, options),
 	])
 	return { ratios, pairs }
 }
@@ -247,130 +236,4 @@ async function priceUserDuelInner(
 	if (!firstIsHome) return priceDuel(usable, first, second)
 	const sides = priceDuel(usable, second, first)
 	return sides ? [sides[1], sides[0]] : null
-}
-
-export type GameWinnerGame = {
-	homeTeam: Pick<Team, "id">
-	awayTeam: Pick<Team, "id">
-	seasonYear: number
-}
-
-// Prices who-wins questions for one league over one run, away side first (the
-// order their options are in). Each team's expected score is set the way its
-// own score over/under's line is - its blended scoring, moved by the other
-// side's defense where the template asks for it - and priced against how that
-// over/under's lines resolved, or until there are enough of those, how final
-// scores in the box scores swung (see withBoxSpread). Same-game pairs already
-// carry the home side's edge; priced off the ratios alone, each expectation is
-// moved by the season's measured home edge instead (see homeEdge).
-// One instance per run shares every season, standings and ESPN read across
-// all of a league's games.
-export function createGameWinnerPricer(
-	leagueSlug: string,
-	leagueId: string,
-	espn: EspnClient = defaultEspnClient,
-): (game: GameWinnerGame) => Promise<[PricedSide, PricedSide] | null> {
-	const config = SYNCED_LEAGUES.find((c) => c.leagueSlug === leagueSlug)
-	const access = { espn, requester: createEspnRequester("duel-pricing", 0) }
-	const seasonTableFor = createSeasonTableCache(leagueId)
-	const teamScoresFor = teamScoresFrom(seasonTableFor)
-	const teamSeasonStatsFor = config
-		? createTeamSeasonStatsCache(config, access)
-		: null
-	const standingsFor = config ? createStandingsCache(config, access) : null
-	const espnTeamIds = new Map<string, string>()
-	let setup: Promise<{
-		template: Extract<OverUnderTemplate, { shape: "team_stat_over_under" }>
-		spreadByFormula: Map<LineFormula, DuelSpread>
-	} | null> | null = null
-
-	const load = async () => {
-		const template = withLineSettings(
-			GAME_QUESTION_CATALOG[leagueSlug] ?? [],
-			await loadLineSettings(leagueSlug),
-		)
-			.filter(isGeneratedOverUnder)
-			.find((t) => t.shape === "team_stat_over_under")
-		if (!template || template.shape !== "team_stat_over_under") return null
-		const box = await teamScoreBoxSpread({ leagueId, asOf: new Date() })
-		const spreadByFormula = new Map<LineFormula, DuelSpread>()
-		for (const formula of Object.values(LINE_FORMULA)) {
-			spreadByFormula.set(
-				formula,
-				withBoxSpread(
-					await duelSpreadFor(leagueSlug, template.id, formula),
-					box,
-				),
-			)
-		}
-		return { template, spreadByFormula }
-	}
-
-	return async (game) => {
-		if (!config || !teamSeasonStatsFor || !standingsFor) return null
-		setup ??= load()
-		const loaded = await setup
-		if (!loaded) return null
-		const { template, spreadByFormula } = loaded
-		const enough = (formula: LineFormula) =>
-			(spreadByFormula.get(formula)?.ratios.length ?? 0) >= PRICING_MIN_SAMPLE
-		const adjusted =
-			template.oppWeight !== undefined && enough(LINE_FORMULA.opponentAdjusted)
-		if (!adjusted && !enough(LINE_FORMULA.teamOnly)) return null
-
-		const teamIds = [game.awayTeam.id, game.homeTeam.id]
-		const missing = teamIds.filter((id) => !espnTeamIds.has(id))
-		if (missing.length > 0) {
-			for (const [id, espnId] of await loadEspnIds("team", missing)) {
-				espnTeamIds.set(id, espnId)
-			}
-		}
-
-		const expectedFor = async (teamId: string, opponentTeamId: string) => {
-			const samples = await teamSamples(
-				teamScoresFor,
-				teamSeasonStatsFor,
-				espnTeamIds.get(teamId),
-				template,
-				teamId,
-				game.seasonYear,
-			)
-			const blended = blendSamples(
-				samples.season,
-				samples.prior,
-				template.priorWeight,
-			)
-			if (!blended || blended.games < template.line.minGames) return null
-			const opponent = adjusted
-				? await opponentFor(
-						{
-							seasonTableFor,
-							standingsFor,
-							espnTeamIdByTeamId: espnTeamIds,
-						},
-						template,
-						opponentTeamId,
-						game.seasonYear,
-					)
-				: null
-			return { mean: blended.mean, opponent }
-		}
-
-		const away = await expectedFor(game.awayTeam.id, game.homeTeam.id)
-		const home = await expectedFor(game.homeTeam.id, game.awayTeam.id)
-		if (!away || !home) return null
-		// Both sides are priced under one model, so a defense that couldn't be
-		// read on either side drops the adjustment from both.
-		const bothAdjusted = !!away.opponent && !!home.opponent
-		const spread = spreadByFormula.get(
-			bothAdjusted ? LINE_FORMULA.opponentAdjusted : LINE_FORMULA.teamOnly,
-		)
-		if (!spread) return null
-		const edge = isPaired(spread)
-			? { home: 1, away: 1 }
-			: homeEdge(await seasonTableFor(game.seasonYear))
-		const expected = (side: typeof away, mult: number) =>
-			side.mean * (bothAdjusted ? (side.opponent?.multiplier ?? 1) : 1) * mult
-		return priceDuel(spread, expected(away, edge.away), expected(home, edge.home))
-	}
 }

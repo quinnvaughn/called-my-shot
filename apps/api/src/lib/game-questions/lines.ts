@@ -16,6 +16,18 @@ export type LineRule = {
 	minLine: number
 }
 
+// The generated shapes whose lines are read off a game's score model once it
+// can be built (see game-score-model.ts), so a team's line, the game total and
+// who wins all come from one picture of the game. setLine and setTotalLine
+// still set them before there's enough history for the model.
+export const GAME_MODEL_SHAPES = [
+	"team_stat_over_under",
+	"game_total_over_under",
+] as const
+
+export const isGameModelShape = (shape: string) =>
+	(GAME_MODEL_SHAPES as readonly string[]).includes(shape)
+
 // The generated shapes whose lines setLine or setTotalLine sets, and so the
 // ones ./line-calibration reads back and ./tune-lines moves the shade of. A team
 // over/under's line is set from the team's own final scores, a player's from
@@ -49,7 +61,15 @@ export type LineBasis = {
 	// Which model set this line - see LINE_FORMULA. Absent on rows that
 	// predate the field, which were all set the teamOnly way.
 	formula?: string
-	shade: number
+	// Absent on a line read off a game's score model (see
+	// game-score-model.ts), which isn't shaded: it sits where the model's own
+	// chance of the over is closest to even, and pOver is that chance.
+	shade?: number
+	pOver?: number
+	// What the expectation was multiplied by for the scoring level of the part
+	// of the season the game is in - see postseasonFactor. Already in
+	// expectedMean. Absent where nothing moved it.
+	scoringFactor?: number
 	line: number
 }
 

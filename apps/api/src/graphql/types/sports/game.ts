@@ -98,6 +98,9 @@ export const GameRef = builder.drizzleObject("games", {
 		status: t.field({ type: GameStatus, resolve: (g) => g.status }),
 		// Only ever true while status is LIVE - see games.atHalftime.
 		atHalftime: t.exposeBoolean("atHalftime"),
+		// ESPN's one-line read of where a live game is ("Top 7th", "6:11 -
+		// 4th"). Null before it starts; where it ended once it's final.
+		statusDetail: t.exposeString("statusDetail", { nullable: true }),
 		// startsAt is a placeholder date with no real time yet - see
 		// games.startTimeTbd.
 		startTimeTbd: t.exposeBoolean("startTimeTbd"),

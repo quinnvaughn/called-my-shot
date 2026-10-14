@@ -4,6 +4,7 @@ import {
 	integer,
 	pgEnum,
 	pgTable,
+	real,
 	text,
 	timestamp,
 	unique,
@@ -130,6 +131,16 @@ export const games = pgTable(
 		// current by the same syncs that write status, so it's false again once
 		// the second half starts.
 		atHalftime: boolean("at_halftime").notNull().default(false),
+		// Where a live game is, per ESPN's scoreboard, written by
+		// sync-live-scores alongside the score: the period (quarter, period or
+		// inning), the time left in it in seconds, ESPN's own one-line read of
+		// both ("Top 7th", "6:11 - 4th", "Halftime"), and in baseball the outs
+		// in the current half. Null until a game starts; left as they last
+		// stood once it's final.
+		period: integer("period"),
+		clockSeconds: real("clock_seconds"),
+		statusDetail: text("status_detail"),
+		outs: integer("outs"),
 		seasonType: gameSeasonType("season_type").notNull().default("regular"),
 		// ESPN's own week number, stored verbatim - never derived, so leagues that
 		// carve up their season into byes/playoff rounds stay correct with zero

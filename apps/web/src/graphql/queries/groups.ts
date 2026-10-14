@@ -269,6 +269,7 @@ export const GroupGameBoardDocument = graphql(`
                     homeScore
                     awayScore
                     venue
+                    statusDetail
                     startTimeTbd
                     postseason {
                         roundLabel

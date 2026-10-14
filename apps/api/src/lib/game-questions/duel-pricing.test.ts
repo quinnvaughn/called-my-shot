@@ -3,17 +3,13 @@ import { describe, expect, it } from "vitest"
 import { GAME_QUESTION_CATALOG } from "../../db/catalog/game-question-catalog"
 import { db } from "../../db"
 import { questionAutoResolutions } from "../../db/schema"
-import type { EspnClient } from "../../db/sync/espn-client"
 import {
 	makeGame,
 	makeLeague,
 	makeQuestion,
-	makeSeason,
-	makeTeam,
 	pastDate,
 } from "../../test/factories"
 import {
-	createGameWinnerPricer,
 	PRICING_MIN_SAMPLE,
 	playerLineTemplateFor,
 	priceDuel,
@@ -21,8 +17,6 @@ import {
 } from "./duel-pricing"
 import { LINE_TUNING, pairedRatiosForTemplate } from "./line-calibration"
 import { LINE_FORMULA, type LineFormula } from "./lines"
-
-const YEAR = 2026
 
 // Spread evenly from 0.8x to 1.2x their expectation.
 const evenRatios = (count: number) =>
@@ -169,84 +163,6 @@ async function resolvedTeamLines(
 	}
 }
 
-// An NBA league where the home side has scored `homeScore` and the away side
-// `awayScore` in each of `games` finals against a third team, half at home.
-async function nbaMatchup(homeScore: number, awayScore: number, games = 12) {
-	const league = await makeLeague({ slug: "nba" })
-	const season = await makeSeason({ leagueId: league.id, year: YEAR })
-	const home = await makeTeam({ leagueId: league.id })
-	const away = await makeTeam({ leagueId: league.id })
-	const other = await makeTeam({ leagueId: league.id })
-	for (const [team, score] of [
-		[home, homeScore],
-		[away, awayScore],
-	] as const) {
-		for (let i = 0; i < games; i++) {
-			const atHome = i % 2 === 0
-			await makeGame({
-				leagueId: league.id,
-				seasonId: season.id,
-				homeTeamId: atHome ? team.id : other.id,
-				awayTeamId: atHome ? other.id : team.id,
-				status: "final",
-				startsAt: pastDate(24 * (i + 1)),
-				homeScore: atHome ? score : 100,
-				awayScore: atHome ? 100 : score,
-			})
-		}
-	}
-	return { league, home, away }
-}
-
-// Nothing in these tests reaches ESPN: no team has an ESPN id to fetch last
-// season by, and the opponent-adjusted pool is left empty.
-const noEspn = {} as EspnClient
-
-describe("createGameWinnerPricer", () => {
-	it("raises the weaker side's win and the stronger side's miss, away side first", async () => {
-		const { league, home, away } = await nbaMatchup(115, 95)
-		await resolvedTeamLines("nba", "team-points-ou", LINE_TUNING.minSample)
-
-		const price = createGameWinnerPricer("nba", league.id, noEspn)
-		const [awaySide, homeSide] =
-			(await price({ awayTeam: away, homeTeam: home, seasonYear: YEAR })) ?? []
-		expect(awaySide?.modelHitRate).toBeLessThan(0.5)
-		expect(awaySide?.winMult).toBeGreaterThan(1)
-		expect(homeSide?.winMult).toBe(1)
-		expect(homeSide?.lossRate).toBeGreaterThan(1)
-	})
-
-	it("prices two even sides as a coin flip", async () => {
-		const { league, home, away } = await nbaMatchup(105, 105)
-		await resolvedTeamLines("nba", "team-points-ou", LINE_TUNING.minSample)
-
-		const price = createGameWinnerPricer("nba", league.id, noEspn)
-		const coinFlip = LOSS_RATE_BY_SHAPE.team_vs_team
-		const sides = await price({ awayTeam: away, homeTeam: home, seasonYear: YEAR })
-		expect(sides?.map((side) => side.lossRate)).toEqual([coinFlip, coinFlip])
-	})
-
-	it("waits for enough resolved lines", async () => {
-		const { league, home, away } = await nbaMatchup(115, 95)
-		await resolvedTeamLines("nba", "team-points-ou", PRICING_MIN_SAMPLE - 1)
-
-		const price = createGameWinnerPricer("nba", league.id, noEspn)
-		expect(
-			await price({ awayTeam: away, homeTeam: home, seasonYear: YEAR }),
-		).toBeNull()
-	})
-
-	it("skips a team short of the template's games", async () => {
-		const { league, home, away } = await nbaMatchup(115, 95, 2)
-		await resolvedTeamLines("nba", "team-points-ou", LINE_TUNING.minSample)
-
-		const price = createGameWinnerPricer("nba", league.id, noEspn)
-		expect(
-			await price({ awayTeam: away, homeTeam: home, seasonYear: YEAR }),
-		).toBeNull()
-	})
-})
-
 // `count` past games, each with the template's line resolved on both teams:
 // the home side landing at `homeRatio` of its expectation and the away side
 // at `awayRatio`.
@@ -341,18 +257,5 @@ describe("pairedRatiosForTemplate", () => {
 				LINE_FORMULA.teamOnly,
 			),
 		).toEqual([])
-	})
-})
-
-describe("createGameWinnerPricer with same-game pairs", () => {
-	it("takes the home side's edge from the pairs", async () => {
-		const { league, home, away } = await nbaMatchup(105, 105)
-		await resolvedPairs("nba", "team-points-ou", LINE_TUNING.minSample, 1.05, 0.95)
-
-		const price = createGameWinnerPricer("nba", league.id, noEspn)
-		const [awaySide, homeSide] =
-			(await price({ awayTeam: away, homeTeam: home, seasonYear: YEAR })) ?? []
-		expect(awaySide?.modelHitRate).toBeLessThan(0.5)
-		expect(homeSide?.lossRate).toBeGreaterThan(LOSS_RATE_BY_SHAPE.team_vs_team)
 	})
 })

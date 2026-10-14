@@ -447,6 +447,7 @@ export const AdminLineSettingsDocument = graphql(`
 						minLine
 						minGames
 					}
+					setByGameModel
 					calibration {
 						resolved
 						overRate

@@ -17,6 +17,7 @@ import { NotFound } from "#/components/ui/not-found"
 import { ShareIconRow } from "#/components/ui/share-icon-row"
 import { challengeReceiptQuery } from "#/graphql/queries/challenges"
 import { track } from "#/lib/analytics"
+import { IN_PLAY_REFETCH_MS } from "#/lib/game-status"
 import { singleGameOf } from "#/lib/challenge"
 import { pageMeta, SITE_ORIGIN } from "#/lib/meta"
 
@@ -65,7 +66,13 @@ const profileLink = css({ _hover: { textDecoration: "underline" } })
 function RouteComponent() {
 	const { code, username } = Route.useParams()
 	const { me } = Route.useRouteContext()
-	const { data } = useSuspenseQuery(challengeReceiptQuery(code, username))
+	// Kept current while its games are being played, so the score moves with
+	// them.
+	const { data } = useSuspenseQuery({
+		...challengeReceiptQuery(code, username),
+		refetchInterval: (query) =>
+			query.state.data?.challenge?.state === "LIVE" ? IN_PLAY_REFETCH_MS : false,
+	})
 	const challenge = data.challenge
 	const matchup = challenge?.matchup
 

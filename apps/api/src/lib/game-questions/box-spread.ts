@@ -121,21 +121,25 @@ export async function playerBoxSpread(input: {
 }
 
 // A team's final score's spread, one result per team per game, paired by
-// game.
+// game. regularSeasonOnly leaves postseason games out of the results, though
+// a postseason game's average going in still counts every game before it.
 export async function teamScoreBoxSpread(input: {
 	leagueId: string
 	asOf: Date
+	regularSeasonOnly?: boolean
 }): Promise<BoxSpread> {
 	const { rows } = await db.execute<Row>(sql`
 		with per_game as (
-			select team_id, season_id, game_id, is_home, game_date,
-				sum(value_numeric) as value
-			from team_game_stats
-			where league_id = ${input.leagueId}
-				and scope = 'final_score'
-				and game_date < ${input.asOf}
-				and value_numeric is not null
-			group by team_id, season_id, game_id, is_home, game_date
+			select t.team_id, t.season_id, t.game_id, t.is_home, t.game_date,
+				g.season_type, sum(t.value_numeric) as value
+			from team_game_stats t
+			join games g on g.id = t.game_id
+			where t.league_id = ${input.leagueId}
+				and t.scope = 'final_score'
+				and t.game_date < ${input.asOf}
+				and t.value_numeric is not null
+			group by t.team_id, t.season_id, t.game_id, t.is_home, t.game_date,
+				g.season_type
 		), with_prior as (
 			select *,
 				avg(value) over prior as prior_mean,
@@ -149,6 +153,7 @@ export async function teamScoreBoxSpread(input: {
 		select game_id, is_home, value / prior_mean as ratio, 1 as team_rank
 		from with_prior
 		where prior_games >= ${BOX_PRIOR_GAMES} and prior_mean > 0
+			and (${!input.regularSeasonOnly} or season_type = 'regular')
 		order by game_date desc
 		limit ${BOX_SPREAD_WINDOW}
 	`)

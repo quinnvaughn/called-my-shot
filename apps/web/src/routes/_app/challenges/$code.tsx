@@ -23,6 +23,7 @@ import { Eyebrow } from "#/components/ui/eyebrow"
 import { NotFound } from "#/components/ui/not-found"
 import { challengePageQuery } from "#/graphql/queries/challenges"
 import { recordLine, singleGameOf } from "#/lib/challenge"
+import { IN_PLAY_REFETCH_MS } from "#/lib/game-status"
 import { pageMeta } from "#/lib/meta"
 import { pluralize } from "#/lib/pluralize"
 import { openModal } from "#/stores/modal-store"
@@ -90,7 +91,13 @@ export const Route = createFileRoute("/_app/challenges/$code")({
 
 function RouteComponent() {
 	const { code } = Route.useParams()
-	const { data } = useSuspenseQuery(challengePageQuery(code))
+	// Kept current while its games are being played, so the score moves with
+	// them.
+	const { data } = useSuspenseQuery({
+		...challengePageQuery(code),
+		refetchInterval: (query) =>
+			query.state.data?.challenge?.state === "LIVE" ? IN_PLAY_REFETCH_MS : false,
+	})
 	const { me } = Route.useRouteContext()
 	const challenge = data.challenge
 

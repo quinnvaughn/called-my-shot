@@ -26,7 +26,12 @@ const pointsKey = () => {
 	return key
 }
 
-type Matchup = { home: number; away: number; seasonId: string }
+type Matchup = {
+	home: number
+	away: number
+	seasonId: string
+	seasonType?: "regular" | "postseason"
+}
 
 // The same two teams playing each `games` entry in order, a day apart and
 // ending a day before NOW: each side's one player scoring `home`/`away`
@@ -46,6 +51,7 @@ async function seedGames(leagueId: string, games: Matchup[]) {
 			awayTeamId: awayTeam.id,
 			startsAt: date,
 			status: "final",
+			seasonType: matchup.seasonType ?? "regular",
 		})
 		for (const [player, team, opponent, isHome, value] of [
 			[homePlayer, homeTeam, awayTeam, true, matchup.home],
@@ -145,6 +151,23 @@ describe("teamScoreBoxSpread", () => {
 		])
 
 		const spread = await teamScoreBoxSpread({ leagueId: league.id, asOf: NOW })
+		expect(spread.pairs).toEqual([{ home: 1.2, away: 0.8 }])
+	})
+
+	it("leaves postseason games out when asked to", async () => {
+		const { league, season } = await nbaLeague()
+		await seedGames(league.id, [
+			{ home: 25, away: 25, seasonId: season.id },
+			{ home: 25, away: 25, seasonId: season.id },
+			{ home: 30, away: 20, seasonId: season.id },
+			{ home: 20, away: 20, seasonId: season.id, seasonType: "postseason" },
+		])
+
+		const spread = await teamScoreBoxSpread({
+			leagueId: league.id,
+			asOf: NOW,
+			regularSeasonOnly: true,
+		})
 		expect(spread.pairs).toEqual([{ home: 1.2, away: 0.8 }])
 	})
 })

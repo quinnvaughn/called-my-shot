@@ -153,6 +153,7 @@ defineSettingAdmin({
 			type: LineRuleRef,
 			resolve: (row) => row.defaultLine,
 		}),
+		setByGameModel: t.boolean({ resolve: (row) => row.setByGameModel }),
 		calibration: t.field({
 			type: LineCalibrationRef,
 			nullable: true,

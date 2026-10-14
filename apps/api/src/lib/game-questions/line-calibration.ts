@@ -17,8 +17,9 @@ export type CalibrationRow = {
 	league: string
 	template: string
 	// The shade these lines were set with. A template whose shade has changed
-	// has a row for each.
-	shade: number
+	// has a row for each. Null for the lines a game's score model set, which
+	// have no shade.
+	shade: number | null
 	// The model these lines were set with. Rows from an older model are kept
 	// and shown rather than dropped, so a change stays visible, but they are
 	// never averaged in with the current one.
@@ -49,7 +50,7 @@ export async function lineCalibration(): Promise<CalibrationRow[]> {
 		{
 			league: string
 			template: string
-			shade: number
+			shade: number | null
 			formula: string
 			overs: number
 			lines: number[]
@@ -63,11 +64,14 @@ export async function lineCalibration(): Promise<CalibrationRow[]> {
 		const basis = question.lineBasis
 		if (!parsed || !basis) continue
 		const formula = formulaOfBasis(basis)
-		const id = `${parsed.leagueSlug}:${parsed.templateId}:${basis.shade}:${formula}`
+		// Every line the game score model set counts as one group: it has no
+		// shade to tell them apart by.
+		const shade = basis.shade ?? null
+		const id = `${parsed.leagueSlug}:${parsed.templateId}:${shade}:${formula}`
 		const group = groups.get(id) ?? {
 			league: parsed.leagueSlug,
 			template: parsed.templateId,
-			shade: basis.shade,
+			shade,
 			formula,
 			overs: 0,
 			lines: [],
@@ -104,7 +108,7 @@ export async function lineCalibration(): Promise<CalibrationRow[]> {
 			(a, b) =>
 				a.league.localeCompare(b.league) ||
 				a.template.localeCompare(b.template) ||
-				a.shade - b.shade ||
+				(a.shade ?? 0) - (b.shade ?? 0) ||
 				a.formula.localeCompare(b.formula),
 		)
 }
@@ -175,19 +179,26 @@ export function ratiosByTemplate(): Promise<Map<string, number[]>> {
 	return collectRatios()
 }
 
+// Narrows a pool to regular-season games, for the game score model: it
+// measures a postseason's scoring level on its own (see postseasonFactor), so
+// postseason results in its spread would count that level twice.
+export type PoolOptions = { regularSeasonOnly?: boolean }
+
 // One template's ratios under one model, most recent first - what a
 // person-set line on the same stat is priced from (see line-pricing.ts).
 export async function ratiosForTemplate(
 	leagueSlug: string,
 	templateId: string,
 	formula: LineFormula,
+	options: PoolOptions = {},
 ): Promise<number[]> {
-	const ratios = await collectRatios(`${leagueSlug}:%:${templateId}:%`)
+	const ratios = await collectRatios(`${leagueSlug}:%:${templateId}:%`, options)
 	return ratios.get(ratioKey(leagueSlug, templateId, formula)) ?? []
 }
 
 async function collectRatios(
 	generationKeyLike?: string,
+	options: PoolOptions = {},
 ): Promise<Map<string, number[]>> {
 	const resolved = await db.query.questions.findMany({
 		where: {
@@ -197,6 +208,7 @@ async function collectRatios(
 				? { like: generationKeyLike }
 				: { isNotNull: true },
 			lineBasis: { isNotNull: true },
+			...(options.regularSeasonOnly && { game: { seasonType: "regular" } }),
 		},
 		columns: { generationKey: true, lineBasis: true },
 		with: { autoResolution: { columns: { evidence: true } } },
@@ -238,6 +250,7 @@ export async function pairedRatiosForTemplate(
 	leagueSlug: string,
 	templateId: string,
 	formula: LineFormula,
+	options: PoolOptions = {},
 ): Promise<RatioPair[]> {
 	const resolved = await db.query.questions.findMany({
 		where: {
@@ -245,6 +258,7 @@ export async function pairedRatiosForTemplate(
 			status: "resolved",
 			generationKey: { like: `${leagueSlug}:%:${templateId}:%` },
 			lineBasis: { isNotNull: true },
+			...(options.regularSeasonOnly && { game: { seasonType: "regular" } }),
 		},
 		columns: { generationKey: true, lineBasis: true },
 		with: {

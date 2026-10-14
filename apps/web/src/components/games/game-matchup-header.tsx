@@ -33,6 +33,9 @@ type Props = {
 		homeScore: number | null
 		awayScore: number | null
 		venue: string | null
+		// ESPN's read of where a live game is ("Top 7th", "6:11 - 4th").
+		// Absent wherever the query doesn't ask.
+		statusDetail?: string | null
 		homeTeam: Team
 		awayTeam: Team
 		homeTeamRecord?: TeamRecord
@@ -316,6 +319,12 @@ export function GameMatchupHeader({
 							LIVE
 						</span>
 					</HStack>
+				)}
+				{live && game.statusDetail && (
+					<>
+						<span>·</span>
+						<span>{game.statusDetail}</span>
+					</>
 				)}
 				{final && <span className={css({ fontWeight: "bold" })}>FINAL</span>}
 				{!live && !final && <span>{gameStartLabel(game)}</span>}

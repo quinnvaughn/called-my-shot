@@ -14,7 +14,12 @@ import {
 	ratioKey,
 	ratiosByTemplate,
 } from "./line-calibration"
-import { formulaFor, GENERATED_OVER_UNDER_SHAPES, type LineRule } from "./lines"
+import {
+	formulaFor,
+	GENERATED_OVER_UNDER_SHAPES,
+	isGameModelShape,
+	type LineRule,
+} from "./lines"
 import { defineTunableSetting, type SettingState } from "./tunable-setting"
 
 export type OverUnderTemplate = Extract<
@@ -58,6 +63,10 @@ export type LineSettingRow = SettingState & {
 	statName: string
 	line: LineRule
 	defaultLine: LineRule
+	// Whether its lines are read off a game's score model (see
+	// game-score-model.ts), which leaves the shade to the first weeks of a
+	// league's history only and keeps the tuner off it.
+	setByGameModel: boolean
 	calibration: CalibrationRow | null
 }
 
@@ -83,13 +92,17 @@ const settings = defineTunableSetting({
 		unit: "template(s)",
 		load: ratiosByTemplate,
 		defaultValue: (template) => template.line.shade,
+		// A game model template's lines don't read its shade once the model can
+		// be built, so tuning it would only move a number nothing uses.
 		next: (current, template, ratios) =>
-			nextShade(
-				current,
-				ratios.get(
-					ratioKey(template.leagueSlug, template.id, formulaOf(template)),
-				) ?? [],
-			),
+			isGameModelShape(template.shape)
+				? null
+				: nextShade(
+						current,
+						ratios.get(
+							ratioKey(template.leagueSlug, template.id, formulaOf(template)),
+						) ?? [],
+					),
 		// Minimum games and the lowest line stay as they are.
 		insertDefaults: (template) => ({
 			minLine: template.line.minLine,
@@ -100,12 +113,14 @@ const settings = defineTunableSetting({
 		load: () => lineCalibration(),
 		build: (template, saved, calibration) => {
 			const line = saved ? ruleOf(saved) : template.line
+			const setByGameModel = isGameModelShape(template.shape)
 			return {
 				leagueSlug: template.leagueSlug,
 				templateId: template.id,
 				statName: template.statName,
 				line,
 				defaultLine: template.line,
+				setByGameModel,
 				// The current model only: a row from an older one describes lines
 				// this template no longer sets, so showing it beside today's
 				// settings would read as their calibration.
@@ -114,7 +129,7 @@ const settings = defineTunableSetting({
 						(c) =>
 							c.league === template.leagueSlug &&
 							c.template === template.id &&
-							c.shade === line.shade &&
+							c.shade === (setByGameModel ? null : line.shade) &&
 							c.formula === formulaOf(template),
 					) ?? null,
 			}

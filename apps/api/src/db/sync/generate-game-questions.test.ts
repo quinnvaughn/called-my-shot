@@ -295,13 +295,18 @@ async function resolvedLines(
 	template: GameQuestionTemplate,
 	count = LINE_TUNING.minSample,
 ) {
+	const history = await makeLeague({
+		slug: `${leagueSlug}-history-${crypto.randomUUID()}`,
+	})
 	for (let i = 0; i < count; i++) {
 		const ratio = count > 1 ? 0.8 + (0.4 * i) / (count - 1) : 1
+		const game = await makeGame({ leagueId: history.id, status: "final" })
 		const question = await makeQuestion({
 			shape: template.shape,
 			status: "resolved",
+			gameId: game.id,
 			ouLine: 9.5,
-			generationKey: `${leagueSlug}:game-${crypto.randomUUID()}:${template.id}:subject`,
+			generationKey: `${leagueSlug}:${game.id}:${template.id}:subject`,
 			lineBasis: {
 				seasonMean: 10,
 				seasonGames: 20,
@@ -671,6 +676,34 @@ describe("generateGameQuestions", () => {
 		expect(total?.title).toBe("Game total: over/under 228.5 points")
 		expect(total?.subjectTeamId).toBeNull()
 		expect(total?.options.map((o) => o.label)).toEqual(["Over", "Under"])
+	})
+
+	it("reads team lines and the total off the game's score model once there's history for one", async () => {
+		const { league, away, home, game } = await seedNbaGame()
+		await playFinals(league, game.seasonId, away, [100, 110, 120, 110, 110])
+		await playFinals(league, game.seasonId, home, [120, 130, 128, 122, 120])
+		await resolvedLines("nba", TEAM_POINTS_LINE)
+
+		await run([TEAM_POINTS_LINE, GAME_POINTS_TOTAL])
+
+		const posted = await questionsOn(game.id)
+		expect(shapeCounts(posted)).toEqual({
+			team_stat_over_under: 2,
+			game_total_over_under: 1,
+		})
+		for (const question of posted) {
+			// Unshaded: each line sits where the model's own chance of the over
+			// is closest to even, and keeps that chance.
+			expect(question.lineBasis?.shade).toBeUndefined()
+			expect(question.lineBasis?.pOver).toBeGreaterThan(0.4)
+			expect(question.lineBasis?.pOver).toBeLessThan(0.6)
+			expect(question.lineBasis?.scoringFactor).toBe(1)
+		}
+		const total = posted.find((q) => q.shape === "game_total_over_under")
+		const teamExpected = posted
+			.filter((q) => q.shape === "team_stat_over_under")
+			.reduce((sum, q) => sum + (q.lineBasis?.expectedMean ?? 0), 0)
+		expect(total?.lineBasis?.expectedMean).toBeCloseTo(teamExpected, 2)
 	})
 
 	it("posts a game total once, however many times it runs", async () => {

@@ -154,6 +154,7 @@ export const CallRecordDocument = graphql(`
 					homeScore
 					awayScore
 					venue
+					statusDetail
 					startTimeTbd
 					postseason {
 						roundLabel

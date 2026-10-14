@@ -1,5 +1,5 @@
 import { defaultLossRate } from "@called-my-shot/scoring"
-import { createGameWinnerPricer } from "../../lib/game-questions/duel-pricing"
+import { createGameWinnerPricer } from "../../lib/game-questions/game-score-model"
 import { generationKey } from "../../lib/game-questions/generation-key"
 import { repriceUncalled } from "../../lib/game-questions/reprice"
 import { refreshGeneratedQuestionSchedule } from "../../lib/game-questions/schedule"
@@ -24,10 +24,11 @@ import { defaultEspnClient, type EspnClient } from "./espn-client"
 // drifts from the real game. This runs across the whole season daily, which
 // covers a game moved out of generate-game-questions.ts's own window.
 //
-// Each side is priced from both teams' scoring (see createGameWinnerPricer),
-// and repriced on every run until someone calls it: a game months out is
-// priced off the season so far, and the price keeps up with the season until
-// a caller has agreed to one, after which it never moves.
+// Each side is priced from the game's score model, the same one its team
+// lines and total are read from (see createGameWinnerPricer), and repriced on
+// every run until someone calls it: a game months out is priced off the
+// season so far, and the price keeps up with the season until a caller has
+// agreed to one, after which it never moves.
 //
 // Requires syncGames(config, league) to have already run for this league.
 export async function syncGameQuestions(
@@ -100,6 +101,8 @@ export async function syncGameQuestions(
 					awayTeam: game.awayTeam,
 					homeTeam: game.homeTeam,
 					seasonYear: game.season.year,
+					seasonId: game.seasonId,
+					seasonType: game.seasonType,
 				})
 			: null
 

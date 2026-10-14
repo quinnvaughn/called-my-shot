@@ -44,7 +44,7 @@ function RouteComponent() {
 			<PageHeader
 				title="Lines"
 				subtitle="Generated over/unders and how their lines land."
-				description="A template's lines are working when the over hits between 45% and 55% of the time. Each shade adjusts itself once a day as lines resolve, unless the template is set to manual. Over hit counts only lines set at the current shade."
+				description="A template's lines are working when the over hits between 45% and 55% of the time. Each shade adjusts itself once a day as lines resolve, unless the template is set to manual. Over hit counts only lines set at the current shade. Team score and game total lines come from the game model instead: each sits where the over is closest to even across past games replayed at that game's expected scores, so a game's team lines, total and winner agree. Their shade only applies before there's enough history for the model."
 			/>
 
 			<Table sortBy="template" sortDir="asc" wide>
@@ -72,7 +72,7 @@ function RouteComponent() {
 								{row.calibration?.averageLine ?? "-"}
 							</Table.Cell>
 							<Table.Cell numeric>
-								{row.autoTune ? (
+								{row.autoTune && !row.setByGameModel ? (
 									<HStack justify="flex-end">
 										<FiCheck aria-label="Adjusted automatically" />
 									</HStack>
@@ -80,7 +80,16 @@ function RouteComponent() {
 									"-"
 								)}
 							</Table.Cell>
-							<Table.Cell numeric>{row.line.shade}</Table.Cell>
+							<Table.Cell numeric>
+								{row.setByGameModel ? (
+									<HStack gap="2" justify="flex-end">
+										<Tag variant="secondary">Game model</Tag>
+										{row.line.shade}
+									</HStack>
+								) : (
+									row.line.shade
+								)}
+							</Table.Cell>
 							<Table.Cell numeric>{row.line.minLine}</Table.Cell>
 							<Table.Cell numeric>{row.line.minGames}</Table.Cell>
 							<Table.Cell numeric>

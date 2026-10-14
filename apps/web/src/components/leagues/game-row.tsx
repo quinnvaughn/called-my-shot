@@ -18,6 +18,7 @@ type Props = {
 		id: string
 		status: GameStatus
 		atHalftime: boolean
+		statusDetail?: string | null
 		startsAt: string
 		homeScore: number | null
 		awayScore: number | null
@@ -195,6 +196,17 @@ export function GameRow({ game, leagueSlug }: Props) {
 										>
 											{game.atHalftime ? "HALFTIME" : "LIVE"}
 										</span>
+										{!game.atHalftime && game.statusDetail && (
+											<span
+												className={css({
+													fontFamily: "mono",
+													fontSize: "2xs",
+													color: "fg.muted",
+												})}
+											>
+												{game.statusDetail}
+											</span>
+										)}
 									</HStack>
 								) : (
 									<span

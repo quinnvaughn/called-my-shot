@@ -94,6 +94,7 @@ export const ChallengeEntryFragment = graphql(`
 				homeScore
 				awayScore
 				venue
+				statusDetail
 				homeTeam {
 					...Team_team @unmask
 				}

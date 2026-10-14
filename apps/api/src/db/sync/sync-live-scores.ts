@@ -28,6 +28,24 @@ import { espnIdOf, findSourceId } from "./sync-refs"
 export const LOOKBACK_MS = 6 * HOUR_MS
 const LOOKAHEAD_MS = 10 * MINUTE_MS
 
+// Where a game is, as games stores it. Nothing before it starts; once it's
+// final, where it ended.
+export function progressOf(
+	status: "scheduled" | "live" | "final",
+	competition: EspnScoreboardEvent["competitions"][0],
+) {
+	if (status === "scheduled") {
+		return { period: null, clockSeconds: null, statusDetail: null, outs: null }
+	}
+	const { period, clock, type } = competition.status
+	return {
+		period: period ?? null,
+		clockSeconds: clock ?? null,
+		statusDetail: type.shortDetail ?? null,
+		outs: competition.situation?.outs ?? null,
+	}
+}
+
 // Returns the games this run moved to final, so the caller can settle their
 // questions straight away.
 export async function syncLiveScores({
@@ -102,6 +120,7 @@ export async function syncLiveScores({
 					homeScore,
 					awayScore,
 					finalizedAt: finalizedAtFor(status),
+					...progressOf(status, competition),
 				})
 				.where(eq(games.id, game.id))
 

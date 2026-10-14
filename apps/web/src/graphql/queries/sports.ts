@@ -148,6 +148,7 @@ export const GameByIdDocument = graphql(`
 			homeScore
 			awayScore
 			venue
+			statusDetail
 			windowKey
 			viewerHasReminder
 			openCommunityQuestionCount
@@ -305,6 +306,7 @@ export const GameEntryDocument = graphql(`
 			homeScore
 			awayScore
 			venue
+			statusDetail
 			windowKey
 			startTimeTbd
 			postseason {
@@ -476,6 +478,7 @@ export const LeagueGamesForWindowDocument = graphql(`
 					startsAt
 					status
 					atHalftime
+					statusDetail
 					homeScore
 					awayScore
 					questionCount

@@ -20,6 +20,7 @@ import {
 import { bandSettingFor } from "../../../../lib/game-questions/band-settings"
 import { leaderLossRateFor } from "../../../../lib/game-questions/leader-settings"
 import { priceUserDuel } from "../../../../lib/game-questions/duel-pricing"
+import { priceUserTeamLine } from "../../../../lib/game-questions/game-score-model"
 import { priceUserLine } from "../../../../lib/game-questions/line-pricing"
 import { titleLossRateFor } from "../../../../lib/game-questions/title-settings"
 import { numericToleranceFor } from "../../../../lib/numeric-tolerance"
@@ -318,10 +319,34 @@ builder.mutationFields((t) => ({
 			const isSystem = resolutionMode === "system"
 
 			// A game stat line is priced per side from the model a generated line
-			// on the same stat would use - see priceUserLine. Null leaves both
-			// sides on lossRate.
+			// on the same stat would use. A team's score is read off the game's
+			// score model first, the one its generated line, the game total and
+			// who wins come from (see priceUserTeamLine); anything else, or a
+			// game the model can't be built for yet, from the subject's own
+			// average (see priceUserLine). Null leaves both sides on lossRate.
+			const teamModelLine =
+				data.shape === "team_stat_over_under" &&
+				stat &&
+				gameRow?.season &&
+				data.subjectTeamId &&
+				data.ouLine !== undefined
+					? await priceUserTeamLine({
+							leagueId: data.leagueId,
+							statName: stat.name,
+							ouLine: data.ouLine,
+							subjectTeamId: data.subjectTeamId,
+							game: {
+								homeTeam: { id: gameRow.homeTeamId },
+								awayTeam: { id: gameRow.awayTeamId },
+								seasonYear: gameRow.season.year,
+								seasonId: gameRow.seasonId,
+								seasonType: gameRow.seasonType,
+							},
+						})
+					: null
 			const pricedLine =
-				(data.shape === "player_stat_over_under" ||
+				teamModelLine ??
+				((data.shape === "player_stat_over_under" ||
 					data.shape === "team_stat_over_under") &&
 				stat &&
 				gameRow?.season &&
@@ -339,7 +364,7 @@ builder.mutationFields((t) => ({
 									: gameRow.homeTeamId,
 							seasonYear: gameRow.season.year,
 						})
-					: null
+					: null)
 			// A head-to-head on one game is priced the same way, from both
 			// players' averages - see priceUserDuel.
 			const duelPlayerIds = (data.options ?? []).map((o) => o.playerId)

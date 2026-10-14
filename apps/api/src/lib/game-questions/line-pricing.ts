@@ -158,12 +158,20 @@ export function openLineRange(
 	ratios: number[],
 	mean: number,
 ): { min: number; max: number } | null {
-	const lowest = Math.floor(mean * Math.min(...ratios))
-	const highest = Math.ceil(mean * Math.max(...ratios))
+	return openLineRangeOf(ratios.map((ratio) => ratio * mean))
+}
+
+// The same, from the results themselves rather than ratios to scale: what a
+// game's score model replays (see game-score-model.ts).
+export function openLineRangeOf(
+	draws: number[],
+): { min: number; max: number } | null {
+	const lowest = Math.floor(Math.min(...draws))
+	const highest = Math.ceil(Math.max(...draws))
 	const open: number[] = []
 	for (let whole = lowest; whole <= highest; whole++) {
 		const line = whole + 0.5
-		if (isWithinUserLineBounds(overProbability(ratios, mean, line))) {
+		if (isWithinUserLineBounds(overProbability(draws, 1, line))) {
 			open.push(line)
 		}
 	}

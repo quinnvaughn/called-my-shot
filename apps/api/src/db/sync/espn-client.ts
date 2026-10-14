@@ -64,7 +64,14 @@ export type EspnEventStatus = {
 		completed: boolean
 		// "Final", "Final/OT", "Final/SO" - how a finished game ended.
 		detail?: string
+		// The same, shortened, and where a live game is: "Top 7th", "6:11 -
+		// 4th", "Halftime".
+		shortDetail?: string
 	}
+	// The quarter, period or inning, and the seconds left in it. A baseball
+	// clock is always 0.
+	period?: number
+	clock?: number
 }
 
 // A competitor's record entries, one per split ("total", or "ytd" in the NHL,
@@ -242,6 +249,8 @@ export type EspnScoreboardEvent = {
 				{ homeAway: "home" | "away"; team: { id: string }; score?: string },
 				{ homeAway: "home" | "away"; team: { id: string }; score?: string },
 			]
+			// Baseball only: the outs in the current half-inning.
+			situation?: { outs?: number }
 		},
 	]
 }

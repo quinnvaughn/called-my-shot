@@ -161,15 +161,31 @@ export function LineSettingModal({ setting, onChanged }: Props) {
 				{setting.leagueSlug.toUpperCase()} {setting.templateId}
 			</Modal.Title>
 			<VStack gap="4" alignItems="stretch">
-				<ToggleRow
-					label="Adjust shade automatically"
-					description="Once enough of its lines have resolved, the shade moves a little each day toward the over hitting half the time. Turn off to set it yourself."
-					checked={autoTune}
-					onChange={changeAutoTune}
-				/>
+				{setting.setByGameModel ? (
+					<p
+						className={css({
+							fontSize: "sm",
+							lineHeight: "1.55",
+							color: "fg.muted",
+						})}
+					>
+						These lines come from the game model: each one sits where the over
+						is closest to even across past games replayed at that game's
+						expected scores. The shade only sets lines before the league has
+						enough history for the model, so it isn't adjusted automatically.
+					</p>
+				) : (
+					<ToggleRow
+						label="Adjust shade automatically"
+						description="Once enough of its lines have resolved, the shade moves a little each day toward the over hitting half the time. Turn off to set it yourself."
+						checked={autoTune}
+						onChange={changeAutoTune}
+					/>
+				)}
 
 				{FIELDS.map((field) => {
-					const tuned = field.key === "shade" && autoTune
+					const tuned =
+						field.key === "shade" && autoTune && !setting.setByGameModel
 					return (
 						<TextInput
 							key={field.key}
