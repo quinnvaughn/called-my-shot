@@ -1,6 +1,6 @@
 import { useQueryClient } from "@tanstack/react-query"
 import { useRouter } from "@tanstack/react-router"
-import { useState } from "react"
+import { type ReactNode, useState } from "react"
 import { css } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
 import { match } from "ts-pattern"
@@ -24,14 +24,17 @@ import { isOfferState, promptStateFor } from "#/lib/push/prompt-state"
 import { PUSH_GROUPS, type PushGroup } from "./push-groups"
 
 type Props = {
+	// The section heading. Rendered here rather than by the page so it hides
+	// along with the section.
+	label: ReactNode
 	// Opt-outs, the same model as email: absence means on.
 	mutedPushTypes: PushPreferenceType[]
 }
 
 // Two halves: this device (turn push on or off here, or what's in the way),
 // and what's pushed at all, which is account-wide and holds on every device.
-// Hidden entirely while push is switched off on the api.
-export function PushNotificationsSection({ mutedPushTypes }: Props) {
+// Hidden entirely, heading included, while push is switched off on the api.
+export function PushNotificationsSection({ label, mutedPushTypes }: Props) {
 	const push = usePushState()
 	const state = promptStateFor(push)
 	const setPreference = useGqlMutation(SetPushPreferenceDocument)
@@ -126,72 +129,75 @@ export function PushNotificationsSection({ mutedPushTypes }: Props) {
 	}
 
 	return (
-		<Card>
-			<Card.Body>
-				<VStack alignItems="stretch" gap="5">
-					<VStack alignItems="stretch" gap="3">
-						<span className={css({ fontSize: "sm", fontWeight: "semibold" })}>
-							This device
-						</span>
-						{isOfferState(state) ? (
-							<PushOffer state={state} push={push} surface="settings" />
-						) : (
-							<DeviceStatus state={state} />
-						)}
-						{state === "on" && (
-							<HStack gap="2" flexWrap="wrap">
-								<Button
-									size="sm"
-									variant="outline"
-									onClick={sendTest}
-									disabled={deviceBusy}
-								>
-									Send a test
-								</Button>
-								<Button
-									size="sm"
-									variant="ghost"
-									onClick={turnOff}
-									disabled={deviceBusy}
-								>
-									Turn off on this device
-								</Button>
-							</HStack>
-						)}
-					</VStack>
-					{PUSH_GROUPS.map((group) => (
+		<VStack alignItems="stretch" gap="3">
+			{label}
+			<Card>
+				<Card.Body>
+					<VStack alignItems="stretch" gap="5">
+						<VStack alignItems="stretch" gap="3">
+							<span className={css({ fontSize: "sm", fontWeight: "semibold" })}>
+								This device
+							</span>
+							{isOfferState(state) ? (
+								<PushOffer state={state} push={push} surface="settings" />
+							) : (
+								<DeviceStatus state={state} />
+							)}
+							{state === "on" && (
+								<HStack gap="2" flexWrap="wrap">
+									<Button
+										size="sm"
+										variant="outline"
+										onClick={sendTest}
+										disabled={deviceBusy}
+									>
+										Send a test
+									</Button>
+									<Button
+										size="sm"
+										variant="ghost"
+										onClick={turnOff}
+										disabled={deviceBusy}
+									>
+										Turn off on this device
+									</Button>
+								</HStack>
+							)}
+						</VStack>
+						{PUSH_GROUPS.map((group) => (
+							<ToggleRow
+								key={group.key}
+								label={group.label}
+								description={
+									mutedAll
+										? "Turn all notifications back on to change this."
+										: group.description
+								}
+								checked={!mutedAll && groupOn(group)}
+								onChange={(checked) =>
+									!mutedAll &&
+									pending === null &&
+									toggle(group.key, group.types, checked)
+								}
+							/>
+						))}
 						<ToggleRow
-							key={group.key}
-							label={group.label}
-							description={
-								mutedAll
-									? "Turn all notifications back on to change this."
-									: group.description
-							}
-							checked={!mutedAll && groupOn(group)}
+							label="All notifications"
+							description="Off means nothing is pushed to any of your devices. The inbox in the app still fills up."
+							checked={!mutedAll}
 							onChange={(checked) =>
-								!mutedAll &&
-								pending === null &&
-								toggle(group.key, group.types, checked)
+								pending === null && toggle("all", ["ALL"], checked)
 							}
 						/>
-					))}
-					<ToggleRow
-						label="All notifications"
-						description="Off means nothing is pushed to any of your devices. The inbox in the app still fills up."
-						checked={!mutedAll}
-						onChange={(checked) =>
-							pending === null && toggle("all", ["ALL"], checked)
-						}
-					/>
-				</VStack>
-			</Card.Body>
-			<Card.Footer>
-				<HStack justify="flex-end" alignItems="center" gap="3" width="full">
-					<SaveNote>{savedNote}</SaveNote>
-					<FormError message={formError} />
-				</HStack>
-			</Card.Footer>
-		</Card>
+					</VStack>
+				</Card.Body>
+				<Card.Footer>
+					<HStack justify="flex-end" alignItems="center" gap="3" width="full">
+						<SaveNote>{savedNote}</SaveNote>
+						<FormError message={formError} />
+					</HStack>
+				</Card.Footer>
+			</Card>
+		</VStack>
 	)
 }

@@ -90,10 +90,10 @@ function RouteComponent() {
 				{sectionLabel("Email notifications")}
 				<EmailNotificationsSection mutedEmailTypes={me.mutedEmailTypes ?? []} />
 			</VStack>
-			<VStack alignItems="stretch" gap="3">
-				{sectionLabel("Push notifications")}
-				<PushNotificationsSection mutedPushTypes={me.mutedPushTypes ?? []} />
-			</VStack>
+			<PushNotificationsSection
+				label={sectionLabel("Push notifications")}
+				mutedPushTypes={me.mutedPushTypes ?? []}
+			/>
 			<VStack alignItems="stretch" gap="3">
 				{sectionLabel("Password")}
 				<PasswordSection hasPassword={me.hasPassword ?? true} />
