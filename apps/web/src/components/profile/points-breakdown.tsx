@@ -2,7 +2,7 @@ import { Link } from "@tanstack/react-router"
 import { type ReactNode, useState } from "react"
 import { FiChevronDown, FiChevronRight } from "react-icons/fi"
 import { css, cx } from "styled-system/css"
-import { Flex, HStack, VStack } from "styled-system/jsx"
+import { Grid, HStack, VStack } from "styled-system/jsx"
 import { button } from "#/components/ui/button"
 import { Card } from "#/components/ui/card"
 import { ChipButton } from "#/components/ui/chip-button"
@@ -353,22 +353,31 @@ function RowBody({
 	const ret = formatReturn(row.returnPct)
 
 	return (
-		// Label on its own line on a phone, beside the bar from sm up, so a
-		// long shape name wraps without squeezing the bar.
-		<Flex
-			direction={{ base: "column", sm: "row" }}
-			alignItems={{ base: "stretch", sm: "center" }}
-			gap={{ base: "1", sm: "3" }}
+		// On a phone the label and numbers share the first line and the bar
+		// gets the full width under them, rather than splitting one line with
+		// the numbers. From sm up it's one line: label, bar, numbers.
+		<Grid
+			gridTemplateColumns={{
+				base: "minmax(0, 1fr) auto",
+				sm: "10rem minmax(0, 1fr) auto",
+			}}
+			gridTemplateAreas={{
+				base: '"label values" "bar bar"',
+				sm: '"label bar values"',
+			}}
+			columnGap="3"
+			rowGap="1.5"
+			alignItems="center"
 		>
 			<span
 				className={cx(
 					css({
+						gridArea: "label",
 						display: "flex",
 						alignItems: "center",
 						gap: "2",
 						fontSize: "sm",
-						flexShrink: "0",
-						sm: { width: "40" },
+						minWidth: "0",
 					}),
 					nested
 						? css({ color: "fg.body" })
@@ -379,76 +388,79 @@ function RowBody({
 				{row.icon}
 				{row.label}
 			</span>
-			<HStack gap="3" flex="1" minWidth="0">
+			<div
+				aria-hidden
+				className={css({
+					gridArea: "bar",
+					display: "flex",
+					minWidth: "0",
+					height: "2.5",
+				})}
+			>
 				<div
-					aria-hidden
 					className={css({
-						display: "flex",
 						flex: "1",
-						minWidth: "0",
-						height: "2.5",
+						display: "flex",
+						justifyContent: "flex-end",
+						borderRight: "1px solid {colors.border.emphasized}",
 					})}
 				>
-					<div
-						className={css({
-							flex: "1",
-							display: "flex",
-							justifyContent: "flex-end",
-							borderRight: "1px solid {colors.border.emphasized}",
-						})}
-					>
-						{row.netPoints < 0 && (
-							<div
-								className={css({
-									bg: "danger.default",
-									borderRadius: "4px 0 0 4px",
-								})}
-								style={{ width }}
-							/>
-						)}
-					</div>
-					<div className={css({ flex: "1", display: "flex" })}>
-						{row.netPoints > 0 && (
-							<div
-								className={css({
-									bg: "success.vibrant",
-									borderRadius: "0 4px 4px 0",
-								})}
-								style={{ width }}
-							/>
-						)}
-					</div>
+					{row.netPoints < 0 && (
+						<div
+							className={css({
+								bg: "danger.default",
+								borderRadius: "4px 0 0 4px",
+							})}
+							style={{ width }}
+						/>
+					)}
 				</div>
-				<HStack gap="3" flexShrink="0" justify="flex-end" className={valueText}>
-					<span
-						className={cx(
-							signedTone(row.netPoints),
-							css({ textAlign: "right" }),
-						)}
-						style={{ width: `${columns.points}ch` }}
-					>
-						{formatSignedPoints(row.netPoints)}
-					</span>
-					<span
-						className={css({
-							color: "fg.muted",
-							textAlign: "right",
-						})}
-						style={{ width: `${columns.record}ch` }}
-					>
-						{recordText(row)}
-					</span>
-					<span
-						className={css({
-							color: "fg.muted",
-							textAlign: "right",
-						})}
-						style={{ width: `${columns.ret}ch` }}
-					>
-						{ret ?? ""}
-					</span>
-				</HStack>
+				<div className={css({ flex: "1", display: "flex" })}>
+					{row.netPoints > 0 && (
+						<div
+							className={css({
+								bg: "success.vibrant",
+								borderRadius: "0 4px 4px 0",
+							})}
+							style={{ width }}
+						/>
+					)}
+				</div>
+			</div>
+			<HStack
+				gap="3"
+				justify="flex-end"
+				gridArea="values"
+				className={valueText}
+			>
+				<span
+					className={cx(
+						signedTone(row.netPoints),
+						css({ textAlign: "right" }),
+					)}
+					style={{ width: `${columns.points}ch` }}
+				>
+					{formatSignedPoints(row.netPoints)}
+				</span>
+				<span
+					className={css({
+						color: "fg.muted",
+						textAlign: "right",
+					})}
+					style={{ width: `${columns.record}ch` }}
+				>
+					{recordText(row)}
+				</span>
+				<span
+					className={css({
+						color: "fg.muted",
+						textAlign: "right",
+					})}
+					style={{ width: `${columns.ret}ch` }}
+				>
+					{ret ?? ""}
+				</span>
 			</HStack>
-		</Flex>
+		</Grid>
 	)
 }
