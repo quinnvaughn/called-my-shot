@@ -195,11 +195,17 @@ describe("season play", () => {
 	it("sizes a pending season call at its caller's pace so far", async () => {
 		const season = await makeSeason()
 		for (const daysAgo of [21, 14]) {
-			await makeGame({
+			const game = await makeGame({
 				leagueId: season.leagueId,
 				seasonId: season.id,
 				startsAt: hoursAgo(24 * daysAgo),
 				status: "final",
+			})
+			await makeQuestion({
+				leagueId: season.leagueId,
+				seasonId: season.id,
+				gameId: game.id,
+				locksAt: game.startsAt,
 			})
 		}
 		const question = await makeQuestion({
@@ -227,7 +233,7 @@ describe("season play", () => {
 			}
 		}>(SEASON_PLAY, { as: user, variables: { id: question.id } })
 
-		// Two finished weeks of games, neither played: the floor.
+		// Two finished weeks of game questions, neither played: the floor.
 		const pace = {
 			weeksPlayed: 0,
 			weeksCounted: 2,
