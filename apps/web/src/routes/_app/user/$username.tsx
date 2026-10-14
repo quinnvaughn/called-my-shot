@@ -343,8 +343,8 @@ function RouteComponent() {
 					))}
 				</Tabs.List>
 			)}
-			{sectionLabel(scoped ? `${scoped.league.name} career` : "Career")}
 			<StatGrid
+				header={sectionLabel(scoped ? `${scoped.league.name} career` : "Career")}
 				items={statGridItems({
 					rank: stats?.rank ?? null,
 					totalPoints: stats?.totalPoints ?? 0,

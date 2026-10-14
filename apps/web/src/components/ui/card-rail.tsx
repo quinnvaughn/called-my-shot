@@ -13,6 +13,9 @@ type Props<T> = {
 	// Names one item for the buttons' labels, e.g. "live call" gives
 	// "Previous live call" and "Next live call".
 	itemLabel: string
+	// Each card's width when there's more than one. The default suits full
+	// cards; small tiles pass a narrower share so several show at once.
+	itemBasis?: string
 }
 
 // A horizontally scrolling row of cards under a header, for sets that would
@@ -29,6 +32,7 @@ export function CardRail<T>({
 	renderItem,
 	header,
 	itemLabel,
+	itemBasis = "min(85%, 360px)",
 }: Props<T>) {
 	const trackRef = useRef<HTMLDivElement>(null)
 	const [canScrollPrev, setCanScrollPrev] = useState(false)
@@ -128,7 +132,7 @@ export function CardRail<T>({
 							flexShrink: "0",
 						})}
 						style={{
-							flexBasis: multiple ? "min(85%, 360px)" : "100%",
+							flexBasis: multiple ? itemBasis : "100%",
 						}}
 					>
 						{renderItem(item)}

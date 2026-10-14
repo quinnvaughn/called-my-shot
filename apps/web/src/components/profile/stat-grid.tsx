@@ -1,7 +1,9 @@
 import { MIN_EDGE_SAMPLE } from "@called-my-shot/scoring"
+import type { ReactNode } from "react"
 import { css } from "styled-system/css"
 import { Grid, HStack, VStack } from "styled-system/jsx"
 import { Card } from "#/components/ui/card"
+import { CardRail } from "#/components/ui/card-rail"
 import { InfoTip } from "#/components/ui/info-tip"
 
 export type StatGridItem = {
@@ -84,54 +86,85 @@ export function statGridItems(stats: Stats): StatGridItem[] {
 	]
 }
 
-export function StatGrid({ items }: { items: StatGridItem[] }) {
+type Props = {
+	items: StatGridItem[]
+	// The section's heading, if it has one. On a phone it heads the rail,
+	// beside the prev/next buttons; from sm up it sits above the grid.
+	header?: ReactNode
+}
+
+// A sideways rail on a phone, where two columns of tiles run three rows
+// tall; a single row of five from sm up.
+export function StatGrid({ items, header }: Props) {
 	return (
-		<Grid
-			gridTemplateColumns={{ base: "1fr 1fr", sm: "repeat(5, 1fr)" }}
-			gap="2.5"
-		>
-			{items.map((item) => (
-				<Card key={item.label} size="sm" variant="surface">
-					<Card.Body>
-						<VStack gap="0.5" alignItems="stretch">
-							{/* The tip rides the value's row, so a label that wraps
-							    in a narrow tile doesn't drag the icon down with it. */}
-							<HStack justify="space-between" alignItems="center" gap="2">
-								{item.hint ? (
-									<span
-										className={css({
-											fontFamily: "mono",
-											fontSize: "xs",
-											letterSpacing: "wide",
-											color: "fg.subtle",
-										})}
-									>
-										{item.hint}
-									</span>
-								) : (
-									<span
-										className={css({ fontFamily: "heading", fontSize: "lg" })}
-									>
-										{item.value}
-									</span>
-								)}
-								<InfoTip label={item.label} text={item.description} />
-							</HStack>
+		<>
+			<div className={css({ display: { base: "block", sm: "none" } })}>
+				<CardRail
+					items={items}
+					getKey={(item) => item.label}
+					renderItem={(item) => <StatTile item={item} />}
+					header={header}
+					itemLabel="stat"
+					itemBasis="45%"
+				/>
+			</div>
+			<VStack
+				display={{ base: "none", sm: "flex" }}
+				alignItems="stretch"
+				gap="3"
+			>
+				{header}
+				<Grid gridTemplateColumns="repeat(5, 1fr)" gap="2.5">
+					{items.map((item) => (
+						<StatTile key={item.label} item={item} />
+					))}
+				</Grid>
+			</VStack>
+		</>
+	)
+}
+
+function StatTile({ item }: { item: StatGridItem }) {
+	return (
+		<Card size="sm" variant="surface">
+			<Card.Body>
+				<VStack gap="0.5" alignItems="stretch">
+					{/* The tip rides the value's row, so a label that wraps
+					    in a narrow tile doesn't drag the icon down with it. */}
+					<HStack justify="space-between" alignItems="center" gap="2">
+						{item.hint ? (
 							<span
 								className={css({
 									fontFamily: "mono",
-									fontSize: "3xs",
+									fontSize: "xs",
 									letterSpacing: "wide",
 									color: "fg.subtle",
-									textTransform: "uppercase",
 								})}
 							>
-								{item.label}
+								{item.hint}
 							</span>
-						</VStack>
-					</Card.Body>
-				</Card>
-			))}
-		</Grid>
+						) : (
+							<span
+								className={css({ fontFamily: "heading", fontSize: "lg" })}
+							>
+								{item.value}
+							</span>
+						)}
+						<InfoTip label={item.label} text={item.description} />
+					</HStack>
+					<span
+						className={css({
+							fontFamily: "mono",
+							fontSize: "3xs",
+							letterSpacing: "wide",
+							color: "fg.subtle",
+							textTransform: "uppercase",
+						})}
+					>
+						{item.label}
+					</span>
+				</VStack>
+			</Card.Body>
+		</Card>
 	)
 }

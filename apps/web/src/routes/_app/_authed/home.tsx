@@ -90,6 +90,7 @@ function RouteComponent() {
 			<TeamsPrompt />
 
 			<StatGrid
+				header={<SectionLabel>Career</SectionLabel>}
 				items={statGridItems({
 					rank: stats?.rank ?? null,
 					totalPoints: stats?.totalPoints ?? 0,
