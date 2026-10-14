@@ -1,8 +1,13 @@
-import { isSeasonLongShape, type QuestionShape } from "@called-my-shot/scoring"
+import {
+	isSeasonLongShape,
+	type QuestionShape,
+	SEASON_PLAY_WEEK_MIN_CALLS,
+} from "@called-my-shot/scoring"
 import type { Call } from "../../../db/schema"
 import {
 	loadSeasonPlay,
 	type SeasonPlay,
+	type SeasonPlayWeek,
 	seasonPlayWeightOf,
 } from "../../../lib/season-play"
 import { builder } from "../../builder"
@@ -26,6 +31,39 @@ export const SeasonPlayRef = builder
 			// True once read at the question's resolution and saved on the
 			// call; false while it's the pace so far.
 			settled: t.exposeBoolean("settled"),
+		}),
+	})
+
+// One week of the viewer's play in a league season - see SeasonPlayWeek.
+const SeasonPlayWeekRef = builder
+	.objectRef<SeasonPlayWeek>("SeasonPlayWeek")
+	.implement({
+		fields: (t) => ({
+			// The week's Tuesday, YYYY-MM-DD in the sports time zone.
+			startsOn: t.exposeString("startsOn"),
+			calls: t.exposeInt("calls"),
+			// Enough game calls to count toward season-long calls.
+			played: t.boolean({
+				resolve: (week) => week.calls >= SEASON_PLAY_WEEK_MIN_CALLS,
+			}),
+			// False on the week still running.
+			over: t.exposeBoolean("over"),
+		}),
+	})
+
+// The viewer's play in a league's current season, week by week, for the
+// league page's progress card.
+export const LeagueSeasonPlayRef = builder
+	.objectRef<SeasonPlay & { weeks: SeasonPlayWeek[] }>("LeagueSeasonPlay")
+	.implement({
+		fields: (t) => ({
+			weeksPlayed: t.exposeInt("weeksPlayed"),
+			weeksCounted: t.exposeInt("weeksCounted"),
+			weight: t.float({ resolve: (play) => seasonPlayWeightOf(play) }),
+			weeks: t.field({
+				type: [SeasonPlayWeekRef],
+				resolve: (play) => play.weeks,
+			}),
 		}),
 	})
 

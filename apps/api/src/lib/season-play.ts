@@ -11,9 +11,11 @@ import type { DbOrTx } from "../db/types"
 
 // How regularly someone plays a league, as of a moment: the regular-season
 // weeks they made at least SEASON_PLAY_WEEK_MIN_CALLS game calls in, out of
-// the weeks that count. A week counts once it's over, and the week still
-// running counts early only once it's been played, so a week in progress
-// never reads as one skipped. See seasonPlayWeight for what it's worth.
+// the weeks that count. Only weeks that had game questions to call count, so
+// the weeks of a season played before the league was on the site aren't
+// read as skipped. A week counts once it's over, and the week still running
+// counts early only once it's been played, so a week in progress never reads
+// as one skipped. See seasonPlayWeight for what it's worth.
 export type SeasonPlay = { weeksPlayed: number; weeksCounted: number }
 
 export function seasonPlayWeightOf(play: SeasonPlay): number {
@@ -27,17 +29,25 @@ export function seasonPlayWeightOf(play: SeasonPlay): number {
 const weekOf = (column: SQL | AnyPgColumn) =>
 	sql`to_char(date_trunc('week', (${column} at time zone 'UTC' at time zone ${SPORTS_TIME_ZONE}) - interval '1 day') + interval '1 day', 'YYYY-MM-DD')`
 
-// Each user's play in one league season, as of `asOf`. Game calls are bucketed
-// by the week their question locks, which for a game question is its game's
+// One week of a league season that had game questions to call, and how many
+// game calls a user made in it. `over` is false only on the week still
+// running.
+export type SeasonPlayWeek = {
+	startsOn: string
+	calls: number
+	over: boolean
+}
+
+// Every week of a league season up to `asOf`'s that had regular-season game
+// questions, with each user's game calls in it. Game calls are bucketed by
+// the week their question locks, which for a game question is its game's
 // start, so calling Tuesday's games on Monday still plays Tuesday's week.
-export async function loadSeasonPlay(
+async function loadWeeks(
 	seasonId: string,
 	userIds: string[],
 	asOf: Date,
-	executor: DbOrTx = db,
-): Promise<Map<string, SeasonPlay>> {
-	const result = new Map<string, SeasonPlay>()
-	if (userIds.length === 0) return result
+	executor: DbOrTx,
+): Promise<Map<string, SeasonPlayWeek[]>> {
 	const asOfUtc = asOf.toISOString()
 
 	const gameWeeks = await executor.execute<{ week: string; over: boolean }>(sql`
@@ -46,20 +56,25 @@ export async function loadSeasonPlay(
 			(week::date + 7)::timestamp
 				<= (${asOfUtc}::timestamptz at time zone ${SPORTS_TIME_ZONE}) as over
 		from (
-			select distinct ${weekOf(games.startsAt)} as week
-			from ${games}
-			where ${games.seasonId} = ${seasonId}
+			select distinct ${weekOf(questions.locksAt)} as week
+			from ${questions}
+			inner join ${games} on ${games.id} = ${questions.gameId}
+			where ${questions.seasonId} = ${seasonId}
 				and ${games.seasonType} = 'regular'
-				and ${games.startsAt} <= ${asOfUtc}::timestamp
 		) as weeks
+		where week <= ${weekOf(sql`${asOfUtc}::timestamp`)}
+		order by week
 	`)
-	const overByWeek = new Map(
-		gameWeeks.rows.map((row) => [row.week, row.over] as const),
-	)
-	const weeksOver = gameWeeks.rows.filter((row) => row.over).length
 
-	const played = await executor.execute<{ user_id: string; week: string }>(sql`
-		select ${calls.userId} as user_id, ${weekOf(questions.locksAt)} as week
+	const callRows = await executor.execute<{
+		user_id: string
+		week: string
+		calls: number
+	}>(sql`
+		select
+			${calls.userId} as user_id,
+			${weekOf(questions.locksAt)} as week,
+			count(*)::int as calls
 		from ${calls}
 		inner join ${questions} on ${questions.id} = ${calls.questionId}
 		where ${questions.seasonId} = ${seasonId}
@@ -69,23 +84,59 @@ export async function loadSeasonPlay(
 				sql`, `,
 			)})
 		group by 1, 2
-		having count(*) >= ${SEASON_PLAY_WEEK_MIN_CALLS}
 	`)
+	const callsByKey = new Map(
+		callRows.rows.map((row) => [`${row.user_id}:${row.week}`, row.calls]),
+	)
 
-	for (const userId of userIds) {
-		result.set(userId, { weeksPlayed: 0, weeksCounted: weeksOver })
+	return new Map(
+		userIds.map((userId) => [
+			userId,
+			gameWeeks.rows.map((row) => ({
+				startsOn: row.week,
+				calls: callsByKey.get(`${userId}:${row.week}`) ?? 0,
+				over: row.over,
+			})),
+		]),
+	)
+}
+
+const isPlayed = (week: SeasonPlayWeek) =>
+	week.calls >= SEASON_PLAY_WEEK_MIN_CALLS
+
+function playOf(weeks: SeasonPlayWeek[]): SeasonPlay {
+	return {
+		weeksPlayed: weeks.filter(isPlayed).length,
+		weeksCounted: weeks.filter((week) => week.over || isPlayed(week)).length,
 	}
-	for (const row of played.rows) {
-		const over = overByWeek.get(row.week)
-		if (over === undefined) continue
-		const play = result.get(row.user_id)
-		if (!play) continue
-		result.set(row.user_id, {
-			weeksPlayed: play.weeksPlayed + 1,
-			weeksCounted: play.weeksCounted + (over ? 0 : 1),
-		})
-	}
-	return result
+}
+
+// Each user's play in one league season, as of `asOf`.
+export async function loadSeasonPlay(
+	seasonId: string,
+	userIds: string[],
+	asOf: Date,
+	executor: DbOrTx = db,
+): Promise<Map<string, SeasonPlay>> {
+	if (userIds.length === 0) return new Map()
+	const weeks = await loadWeeks(seasonId, userIds, asOf, executor)
+	return new Map(
+		[...weeks].map(([userId, userWeeks]) => [userId, playOf(userWeeks)]),
+	)
+}
+
+// One user's play in a league season with the weeks behind it, oldest first.
+// Null before the season has had a week of game questions.
+export async function loadSeasonPlayWeeks(
+	seasonId: string,
+	userId: string,
+	asOf: Date,
+	executor: DbOrTx = db,
+): Promise<(SeasonPlay & { weeks: SeasonPlayWeek[] }) | null> {
+	const weeks =
+		(await loadWeeks(seasonId, [userId], asOf, executor)).get(userId) ?? []
+	if (weeks.length === 0) return null
+	return { ...playOf(weeks), weeks }
 }
 
 type PlayedCall = {

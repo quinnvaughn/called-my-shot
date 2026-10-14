@@ -3,10 +3,12 @@ import { db } from "../../../db"
 import { LEAGUE_SEASON_FORMAT } from "../../../db/catalog/league-season-format"
 import { calls, games, type League, questions } from "../../../db/schema"
 import { seasonPhase } from "../../../lib/postseason/current"
+import { loadSeasonPlayWeeks } from "../../../lib/season-play"
 import { getCurrentSeason, listLeagueSeasons } from "../../../lib/seasons"
 import { getLeagueWindows } from "../../../lib/windows"
 import { builder } from "../../builder"
 import { type Context, ctxCache } from "../../context"
+import { LeagueSeasonPlayRef } from "../question/season-play"
 import { LeagueStatus, LeagueWindowType, SeasonPhase } from "./enums"
 
 // Every league, read at most once per request. The table holds a handful of
@@ -155,6 +157,19 @@ export const LeagueRef = builder.drizzleObject("leagues", {
 						),
 					)
 				return n
+			},
+		}),
+		// The viewer's weeks in the current season, for what their season-long
+		// calls are worth. Null when signed out or before the season has had a
+		// week of game questions.
+		viewerSeasonPlay: t.field({
+			type: LeagueSeasonPlayRef,
+			nullable: true,
+			resolve: async (league, _args, ctx) => {
+				if (!ctx.user) return null
+				const season = await getCurrentSeason(league.id)
+				if (!season) return null
+				return loadSeasonPlayWeeks(season.id, ctx.user.id, new Date())
 			},
 		}),
 		// Null when signed out - Home (the only caller) is authed-only, but this

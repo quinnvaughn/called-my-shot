@@ -50,6 +50,15 @@ export const LeagueByIdDocument = graphql(`
 			postseason {
 				roundLabels
 			}
+			viewerSeasonPlay {
+				weight
+				weeks {
+					startsOn
+					calls
+					played
+					over
+				}
+			}
 		}
 		currentSeason(leagueId: $id) {
 			id

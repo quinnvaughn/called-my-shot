@@ -621,7 +621,7 @@ export function HowItWorksSections() {
 					depends on how regularly you play that league. A week counts once you
 					make {SEASON_PLAY_WEEK_MIN_CALLS} game calls in that league. Play{" "}
 					{Math.round(SEASON_PLAY_FULL_SHARE * 100)}% or more of the weeks that
-					have had games and your season-long calls count in full. Below that
+					have had games to call here and your season-long calls count in full. Below that
 					they scale down evenly, to as little as{" "}
 					{Math.round(SEASON_PLAY_FLOOR * 100)}% of their points if you never
 					play the league.

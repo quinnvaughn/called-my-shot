@@ -8,6 +8,7 @@ import {
 import { FaRegTimesCircle } from "react-icons/fa"
 import { css } from "styled-system/css"
 import { VStack } from "styled-system/jsx"
+import { SeasonPlayCard } from "#/components/leagues/season-play-card"
 import { NotFound } from "#/components/ui/not-found"
 import { PageHeader } from "#/components/ui/page-header"
 import { Tabs } from "#/components/ui/tabs"
@@ -130,6 +131,12 @@ function RouteComponent() {
 					.filter(Boolean)
 					.join(" · ")}
 			/>
+			{league.viewerSeasonPlay && (
+				<SeasonPlayCard
+					play={league.viewerSeasonPlay}
+					league={league.abbreviation}
+				/>
+			)}
 			<Tabs.List>
 				{TAB_ITEMS.map((item) => (
 					<Tabs.LinkTrigger key={item.to} to={item.to} params={{ leagueSlug }}>

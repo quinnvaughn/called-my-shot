@@ -420,8 +420,8 @@ export function isSeasonLongShape(shape: QuestionShape): boolean {
 // A season-long call settles once, at the end, so a few of them could
 // outweigh a season of regular play. What one is worth - its hit and its miss
 // alike - scales with how regularly its caller plays that league: the share
-// of the league's regular-season weeks in which they made at least
-// SEASON_PLAY_WEEK_MIN_CALLS game calls there. One throwaway call is too easy
+// of the league's regular-season weeks with game questions to call in which
+// they made at least SEASON_PLAY_WEEK_MIN_CALLS game calls there. One throwaway call is too easy
 // to keep up without playing, and a few is nothing for someone who does.
 export const SEASON_PLAY_WEEK_MIN_CALLS = 3
 // The share of weeks that already counts in full, so missing a week or two
@@ -433,8 +433,8 @@ export const SEASON_PLAY_FLOOR = 0.1
 
 // What share of its full points a season-long call is worth, from the weeks
 // its caller played (`weeksPlayed`) out of the weeks that count
-// (`weeksCounted`). No weeks counted yet - before the first week with games
-// is done - is full: there's no play to measure.
+// (`weeksCounted`). No weeks counted yet - before the first week with game
+// questions is done - is full: there's no play to measure.
 export function seasonPlayWeight(
 	weeksPlayed: number,
 	weeksCounted: number,
