@@ -107,14 +107,41 @@ export function ProfileHeader({ user, viewerId, share }: Props) {
 				gap: { base: "3", sm: "4" },
 			})}
 		>
-			<HStack gap="4" alignItems="center" flex="1" minWidth="0">
-				{isViewer ? (
-					<EditableAvatar name={user.name} avatarUrl={user.avatarUrl ?? null} />
-				) : (
-					<Avatar size="lg" name={user.name} src={user.avatarUrl} />
-				)}
-				<VStack gap="0.5" alignItems="flex-start" flex="1" minWidth="0">
-					<HStack gap="2" alignItems="center" minWidth="0" maxWidth="full">
+			{/* On a phone the teams take their own full-width row under the
+			    avatar and name, rather than squeezing into the column beside
+			    the avatar. From sm up they sit in that column, under the name. */}
+			<div
+				className={css({
+					display: "grid",
+					gridTemplateColumns: "auto minmax(0, 1fr)",
+					gridTemplateAreas: {
+						base: '"avatar info" "teams teams"',
+						sm: '"avatar info" "avatar teams"',
+					},
+					columnGap: "4",
+					alignItems: "center",
+					flex: "1",
+					minWidth: "0",
+				})}
+			>
+				<div className={css({ gridArea: "avatar" })}>
+					{isViewer ? (
+						<EditableAvatar name={user.name} avatarUrl={user.avatarUrl ?? null} />
+					) : (
+						<Avatar size="lg" name={user.name} src={user.avatarUrl} />
+					)}
+				</div>
+				<VStack gap="0.5" alignItems="flex-start" minWidth="0" gridArea="info">
+					{/* The flair wraps under the name on a phone instead of
+					    truncating beside it and pushing the name onto two lines. */}
+					<HStack
+						gap="2"
+						rowGap="1"
+						alignItems="center"
+						flexWrap={{ base: "wrap", sm: "nowrap" }}
+						minWidth="0"
+						maxWidth="full"
+					>
 						<span className={css({ fontFamily: "heading", fontSize: "xl" })}>
 							{user.name}
 						</span>
@@ -138,37 +165,44 @@ export function ProfileHeader({ user, viewerId, share }: Props) {
 					>
 						Member since {DateTime.fromISO(user.createdAt).toFormat("MMM yyyy")}
 					</span>
-					{/* Someone else's empty list renders nothing. Your own gets the
-					    prompt to fill it, since this is where you'd notice it's
-					    missing. */}
-					{(user.favoriteTeams.length > 0 || isViewer) && (
-						<HStack gap="3" alignItems="center" flexWrap="wrap" marginTop="1.5">
-							{user.favoriteTeams.length > 0 && (
-								<FavoriteTeamsRow teams={user.favoriteTeams} />
-							)}
-							{isViewer && (
-								<button
-									type="button"
-									className={teamsEditButton}
-									onClick={() =>
-										openModal(
-											<FavoriteTeamsPickerModal
-												initialTeamIds={user.favoriteTeams.map(
-													(team) => team.id,
-												)}
-											/>,
-										)
-									}
-								>
-									{user.favoriteTeams.length > 0
-										? "Edit teams"
-										: "Add your teams"}
-								</button>
-							)}
-						</HStack>
-					)}
 				</VStack>
-			</HStack>
+				{/* Someone else's empty list renders nothing. Your own gets the
+				    prompt to fill it, since this is where you'd notice it's
+				    missing. */}
+				{(user.favoriteTeams.length > 0 || isViewer) && (
+					<HStack
+						gap="3"
+						alignItems="center"
+						flexWrap="wrap"
+						minWidth="0"
+						gridArea="teams"
+						marginTop={{ base: "3", sm: "2" }}
+					>
+						{user.favoriteTeams.length > 0 && (
+							<FavoriteTeamsRow teams={user.favoriteTeams} />
+						)}
+						{isViewer && (
+							<button
+								type="button"
+								className={teamsEditButton}
+								onClick={() =>
+									openModal(
+										<FavoriteTeamsPickerModal
+											initialTeamIds={user.favoriteTeams.map(
+												(team) => team.id,
+											)}
+										/>,
+									)
+								}
+							>
+								{user.favoriteTeams.length > 0
+									? "Edit teams"
+									: "Add your teams"}
+							</button>
+						)}
+					</HStack>
+				)}
+			</div>
 			{hasActions && (
 				<HStack gap="2" alignItems="center" flexShrink="0">
 					{share}

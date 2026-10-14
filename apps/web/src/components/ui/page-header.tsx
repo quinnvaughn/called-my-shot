@@ -24,6 +24,10 @@ export function PageHeader({ title, subtitle, description, action }: Props) {
 						fontFamily: "heading",
 						lineHeight: "1",
 						overflowWrap: "anywhere",
+						// Greedy line filling, so a short last word drops to its own
+						// line rather than the browser pulling earlier words down to
+						// even the lines out.
+						textWrap: "wrap",
 					})}
 				>
 					{title}

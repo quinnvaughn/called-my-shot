@@ -1,3 +1,4 @@
+import { ClientOnly } from "@tanstack/react-router"
 import { type ReactNode, useState } from "react"
 import { FiCheck, FiLink, FiShare } from "react-icons/fi"
 import { css } from "styled-system/css"
@@ -73,11 +74,15 @@ export function ShareIconRow({
 			>
 				{copied ? <FiCheck size={15} /> : <FiLink size={15} />}
 			</IconButton>
-			{typeof navigator !== "undefined" && "share" in navigator && (
-				<IconButton label="Share" onClick={handleNativeShare}>
-					<FiShare size={15} />
-				</IconButton>
-			)}
+			{/* Client-only: the server can't know whether the browser has a share
+			    sheet, so rendering this during SSR mismatches on hydration. */}
+			<ClientOnly>
+				{typeof navigator !== "undefined" && "share" in navigator && (
+					<IconButton label="Share" onClick={handleNativeShare}>
+						<FiShare size={15} />
+					</IconButton>
+				)}
+			</ClientOnly>
 			{tweetText && (
 				<PostOnXLink
 					text={tweetText}

@@ -1,3 +1,4 @@
+import { ClientOnly } from "@tanstack/react-router"
 import { useState } from "react"
 import { css } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
@@ -75,16 +76,20 @@ export function CopyLinkRow({
 			</HStack>
 			{/* Only exists on mobile browsers (and Safari) - the Copy button
 			above is the universal path, this is the shortcut into
-			iMessage/WhatsApp/etc. where the OS offers one. */}
-			{typeof navigator !== "undefined" && "share" in navigator && (
-				<button
-					type="button"
-					onClick={handleNativeShare}
-					className={arrowLink({ tone: "quiet" })}
-				>
-					or open your device's share sheet →
-				</button>
-			)}
+			iMessage/WhatsApp/etc. where the OS offers one. Client-only, since the
+			server can't know whether there's a share sheet and rendering it
+			during SSR mismatches on hydration. */}
+			<ClientOnly>
+				{typeof navigator !== "undefined" && "share" in navigator && (
+					<button
+						type="button"
+						onClick={handleNativeShare}
+						className={arrowLink({ tone: "quiet" })}
+					>
+						or open your device's share sheet →
+					</button>
+				)}
+			</ClientOnly>
 		</VStack>
 	)
 }
