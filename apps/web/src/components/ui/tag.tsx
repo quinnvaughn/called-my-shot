@@ -2,7 +2,7 @@ import { css } from "styled-system/css"
 
 type Props = {
 	children: string
-	variant?: "primary" | "secondary" | "neutral" | "success"
+	variant?: "primary" | "secondary" | "neutral" | "success" | "danger"
 	size?: "sm" | "md" | "lg"
 }
 
@@ -25,7 +25,7 @@ export function Tag({ children, variant = "neutral", size = "md" }: Props) {
 				//
 				// success.default/success.subtle - the same pairing ResultBadge
 				// uses for a winning call, and only for a tag that reports an
-				// outcome. A tag naming a lifecycle state the viewer didn't earn
+				// outcome; danger is its losing counterpart. A tag naming a lifecycle state the viewer didn't earn
 				// (resolved, final, a permission that happens to be on) is
 				// neutral; secondary is for a state worth picking out of a column
 				// of neutral chrome, where neutral would erase the distinction.
@@ -36,7 +36,9 @@ export function Tag({ children, variant = "neutral", size = "md" }: Props) {
 							? "secondary.default"
 							: variant === "success"
 								? "success.default"
-								: "fg.default",
+								: variant === "danger"
+									? "danger.default"
+									: "fg.default",
 				backgroundColor:
 					variant === "primary"
 						? "primary.subtle"
@@ -44,7 +46,9 @@ export function Tag({ children, variant = "neutral", size = "md" }: Props) {
 							? "secondary.subtle"
 							: variant === "success"
 								? "success.subtle"
-								: "border.default",
+								: variant === "danger"
+									? "danger.subtle"
+									: "border.default",
 				fontSize: size === "lg" ? "sm" : size === "md" ? "xs" : "2xs",
 				padding:
 					size === "lg"

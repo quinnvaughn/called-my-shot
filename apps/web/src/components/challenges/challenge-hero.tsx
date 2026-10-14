@@ -13,6 +13,7 @@ import {
 	type ChallengePointsRange,
 	type ChallengeRecord,
 	recordLine,
+	signedPoints,
 } from "#/lib/challenge"
 import { pluralize } from "#/lib/pluralize"
 import { ChallengeFact } from "./challenge-fact"
@@ -24,24 +25,33 @@ import { MatchupScoreboard } from "./matchup-scoreboard"
 export function ChallengeHero({
 	creator,
 	isCreator,
+	matchup,
 	state,
 	closesAt,
 	questionCount,
 	acceptanceCount,
 	tally,
 	viewerHeadToHead,
+	creatorPoints,
 	score,
 	action,
 	share,
 }: {
 	creator: { name: string; username: string; avatarUrl: string | null }
 	isCreator: boolean
+	// "CLE @ TB" when every question is on one game, which names the
+	// challenge in the creator's heading.
+	matchup: string | null
 	state: ChallengeState
 	closesAt: string | null
 	questionCount: number
 	acceptanceCount: number
 	tally: ChallengeRecord
 	viewerHeadToHead: ChallengeRecord | null
+	// The creator's own total across the questions, shown on their view once
+	// a question has a result. The same in every 1v1, so it lives here
+	// rather than on each row of the list.
+	creatorPoints: number | null
 	// The viewer's own 1v1, once they've taken it on: both totals so far, and
 	// who won once it's settled.
 	// settled is how many of its questions have a result, which is all the
@@ -62,29 +72,28 @@ export function ChallengeHero({
 	share: ReactNode
 }) {
 	const them = `@${creator.username}`
-	// Only the creator plays the whole field. Everyone else sees the page as
-	// their own 1v1, or the one they'd be starting.
+	// Only the creator plays the whole field, and their heading just names
+	// the challenge: the facts under it carry how it went, and the status line
+	// where it stands. Everyone else sees the page as their own 1v1, or the
+	// one they'd be starting.
+	const creatorHeading = matchup ? `Your ${matchup} challenge` : "Your challenge"
 	const heading = match(state)
 		.with("OPEN", () =>
 			isCreator
-				? "Your challenge"
+				? creatorHeading
 				: score
 					? `You took on ${them}`
 					: `Can you beat ${them}?`,
 		)
 		.with("LIVE", () =>
 			isCreator
-				? "Your challenge is playing out"
+				? creatorHeading
 				: score
 					? `You vs ${them} is playing out`
 					: `${them}'s challenge is playing out`,
 		)
 		.with("SETTLED", () => {
-			if (isCreator) {
-				return acceptanceCount > 0
-					? `You went ${recordLine(tally)}`
-					: "Your challenge is over"
-			}
+			if (isCreator) return creatorHeading
 			if (!score?.outcome) return `${them}'s challenge is over`
 			return match(score.outcome)
 				.with("ACCEPTOR", () => `You beat ${them}`)
@@ -96,13 +105,26 @@ export function ChallengeHero({
 		.exhaustive()
 
 	const status = useStatusFact(state, closesAt)
+	const showFieldRecord =
+		isCreator && state === "SETTLED" && acceptanceCount > 0
+	const hasHeadline = isCreator || viewerHeadToHead !== null
 
 	return (
 		<Card variant="surface" size="lg">
 			<Card.Body>
 				<VStack gap="5" alignItems="stretch">
-					<HStack justify="space-between" gap="4" alignItems="flex-start">
-						<HStack gap="4" alignItems="center" minWidth="0">
+					{/* The share buttons drop to their own row on a phone, where
+					    beside the avatar they'd leave the heading a letter wide. */}
+					<div
+						className={css({
+							display: "flex",
+							flexDirection: { base: "column", sm: "row" },
+							justifyContent: "space-between",
+							alignItems: { base: "stretch", sm: "flex-start" },
+							gap: "4",
+						})}
+					>
+						<HStack gap="4" alignItems="flex-start" minWidth="0">
 							<Link
 								to="/user/$username"
 								params={{ username: creator.username }}
@@ -142,36 +164,68 @@ export function ChallengeHero({
 							</VStack>
 						</HStack>
 						<div className={css({ flexShrink: 0 })}>{share}</div>
-					</HStack>
+					</div>
 
-					<HStack gap={{ base: "6", md: "10" }} flexWrap="wrap">
-						<ChallengeFact
-							label={pluralize(questionCount, "Question")}
-							value={String(questionCount)}
-						/>
-						{isCreator && (
-							<ChallengeFact
-								label="Took it on"
-								value={String(acceptanceCount)}
-							/>
+					{/* The numbers that say how it went, big and colored by which
+					    way they went. The question count and status are context,
+					    so they share one quiet line under them. */}
+					<VStack gap="3" alignItems="stretch">
+						{hasHeadline && (
+							<HStack gap={{ base: "6", md: "10" }} flexWrap="wrap">
+								{isCreator && creatorPoints !== null && (
+									<ChallengeFact
+										size="xl"
+										label="Your points"
+										value={signedPoints(creatorPoints)}
+										tone={pointsTone(creatorPoints)}
+									/>
+								)}
+								{showFieldRecord && (
+									<ChallengeFact
+										size="xl"
+										label="You vs the field"
+										value={recordLine(tally)}
+										tone={recordTone(tally)}
+									/>
+								)}
+								{/* Until it settles, how many took it on is the
+								    creator's number. After, the record above counts
+								    them. */}
+								{isCreator && !showFieldRecord && (
+									<ChallengeFact
+										size="xl"
+										label="Took it on"
+										value={String(acceptanceCount)}
+									/>
+								)}
+								{/* Across every challenge between the two of them,
+								    either one's. Shown before taking this one on too:
+								    it's part of deciding whether to. */}
+								{viewerHeadToHead && (
+									<ChallengeFact
+										size="xl"
+										label={`Your record vs @${creator.username}`}
+										value={recordLine(viewerHeadToHead)}
+										tone={recordTone(viewerHeadToHead)}
+									/>
+								)}
+							</HStack>
 						)}
-						{/* Across every challenge between the two of them, either
-						    one's. Shown before taking this one on too: it's part of
-						    deciding whether to. */}
-						{viewerHeadToHead && (
-							<ChallengeFact
-								label={`Your record vs @${creator.username}`}
-								value={recordLine(viewerHeadToHead)}
-							/>
-						)}
-						<ChallengeFact label={status.label} value={status.value} />
-						{isCreator && state === "SETTLED" && acceptanceCount > 0 && (
-							<ChallengeFact
-								label="You vs the field"
-								value={recordLine(tally)}
-							/>
-						)}
-					</HStack>
+						<span
+							className={css({
+								fontFamily: "mono",
+								fontSize: "2xs",
+								letterSpacing: "wide",
+								textTransform: "uppercase",
+								color: "fg.subtle",
+							})}
+						>
+							{questionCount} {pluralize(questionCount, "question")} ·{" "}
+							{state === "OPEN" && closesAt
+								? `Closes ${status.value}`
+								: status.value}
+						</span>
+					</VStack>
 
 					<p
 						className={css({
@@ -245,4 +299,15 @@ export function ChallengeHero({
 			</Card.Body>
 		</Card>
 	)
+}
+
+function pointsTone(points: number): "default" | "success" | "danger" {
+	return points > 0 ? "success" : points < 0 ? "danger" : "default"
+}
+
+function recordTone({
+	wins,
+	losses,
+}: ChallengeRecord): "default" | "success" | "danger" {
+	return wins > losses ? "success" : losses > wins ? "danger" : "default"
 }

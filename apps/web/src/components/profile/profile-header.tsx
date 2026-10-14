@@ -119,7 +119,7 @@ export function ProfileHeader({ user, viewerId, share }: Props) {
 						sm: '"avatar info" "avatar teams"',
 					},
 					columnGap: "4",
-					alignItems: "center",
+					alignItems: "start",
 					flex: "1",
 					minWidth: "0",
 				})}

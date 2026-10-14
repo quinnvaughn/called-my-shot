@@ -10,7 +10,7 @@ export function ChallengeFact({
 }: {
 	label: string
 	value: string
-	size?: "md" | "lg"
+	size?: "md" | "lg" | "xl"
 	tone?: "default" | "success" | "danger"
 }) {
 	return (
@@ -29,7 +29,7 @@ export function ChallengeFact({
 			<span
 				className={css({
 					fontFamily: "heading",
-					fontSize: size === "lg" ? "xl" : "md",
+					fontSize: size === "xl" ? "3xl" : size === "lg" ? "xl" : "md",
 					lineHeight: "1",
 					color:
 						tone === "success"

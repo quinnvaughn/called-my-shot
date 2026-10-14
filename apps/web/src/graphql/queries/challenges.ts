@@ -182,6 +182,11 @@ export const ChallengeReceiptDocument = graphql(`
 			matchup(username: $username) {
 				...ChallengeMatchupSummary_matchup @unmask
 				...ChallengeMatchupRows_matchup @unmask
+				creatorHeadToHead {
+					wins
+					losses
+					draws
+				}
 			}
 		}
 	}

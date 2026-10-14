@@ -154,8 +154,8 @@ function CallLine({
 	const first = call?.selections[0]?.option
 	return (
 		<Grid
-			gridTemplateColumns="5.5rem minmax(0, 1fr) auto"
-			gap="3"
+			gridTemplateColumns="subgrid"
+			gridColumn="1 / -1"
 			alignItems="center"
 			className={
 				isViewer
@@ -253,24 +253,33 @@ export function ChallengeQuestionRow({
 						))}
 				</span>
 			</HStack>
-			<CallLine
-				who={creatorLabel}
-				entry={entry}
-				call={creatorCall}
-				scored={row ? row.creatorPoints : entry.creatorPoints}
-				empty="Not called yet"
-				isViewer={viewerSide === "creator"}
-			/>
-			{opponent && (
+			{/* Both sides' lines share one set of columns, so the picks line
+			    up while the name column is only as wide as the longest name
+			    shown, capped so a long handle truncates instead. */}
+			<Grid
+				gridTemplateColumns="fit-content(8rem) minmax(0, 1fr) auto"
+				columnGap="3"
+				rowGap="2"
+			>
 				<CallLine
-					who={opponent.label}
+					who={creatorLabel}
 					entry={entry}
-					call={opponentCall}
-					scored={row?.acceptorPoints}
-					empty="No call"
-					isViewer={viewerSide === "opponent"}
+					call={creatorCall}
+					scored={row ? row.creatorPoints : entry.creatorPoints}
+					empty="Not called yet"
+					isViewer={viewerSide === "creator"}
 				/>
-			)}
+				{opponent && (
+					<CallLine
+						who={opponent.label}
+						entry={entry}
+						call={opponentCall}
+						scored={row?.acceptorPoints}
+						empty="No call"
+						isViewer={viewerSide === "opponent"}
+					/>
+				)}
+			</Grid>
 		</VStack>
 	)
 }

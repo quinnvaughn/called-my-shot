@@ -2,7 +2,7 @@ import { Link } from "@tanstack/react-router"
 import { FiChevronRight } from "react-icons/fi"
 import { css } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
-import { Identity } from "#/components/ui/identity"
+import { Avatar } from "#/components/ui/avatar"
 import { Tag } from "#/components/ui/tag"
 import type { MatchupOutcome } from "#/graphql/generated/graphql"
 import { signedPoints } from "#/lib/challenge"
@@ -42,8 +42,10 @@ export function outcomeForSide(
 }
 
 // The creator's 1v1s on their own challenge, each opening its
-// question-by-question page. Told from the creator's side: their points
-// first, and "You won" rather than their own name.
+// question-by-question page. Told from the creator's side: "You won" or
+// "You lost" rather than their own name. Each row shows only the other
+// person's points, since the creator's are the same in every row and sit in
+// the hero instead.
 export function MatchupList({
 	code,
 	matchups,
@@ -69,35 +71,68 @@ export function MatchupList({
 					})}
 				>
 					<HStack justify="space-between" gap="3">
-						<Identity
-							name={m.acceptor.name}
-							username={m.acceptor.username}
-							avatarUrl={m.acceptor.avatarUrl}
-						/>
+						<HStack gap="3" minWidth="0">
+							<Avatar
+								size="sm"
+								name={m.acceptor.name}
+								src={m.acceptor.avatarUrl}
+							/>
+							<VStack gap="0.5" alignItems="flex-start" minWidth="0">
+								<HStack gap="2" minWidth="0" maxWidth="full">
+									<span
+										className={css({
+											fontSize: "sm",
+											fontWeight: "medium",
+											minWidth: "0",
+											overflow: "hidden",
+											textOverflow: "ellipsis",
+											whiteSpace: "nowrap",
+										})}
+									>
+										{m.acceptor.name}
+									</span>
+									<span
+										className={css({
+											fontFamily: "mono",
+											fontSize: "xs",
+											color: "fg.muted",
+											flexShrink: "0",
+										})}
+									>
+										@{m.acceptor.username}
+									</span>
+								</HStack>
+								<span
+									className={css({
+										fontFamily: "mono",
+										fontSize: "sm",
+										fontWeight: "bold",
+										color: "fg.default",
+									})}
+								>
+									{signedPoints(m.acceptorPoints)} points
+								</span>
+							</VStack>
+						</HStack>
 						<HStack gap="3" flexShrink="0">
-							<span
-								className={css({
-									fontFamily: "mono",
-									fontSize: "xs",
-									color: "fg.muted",
-								})}
-							>
-								You {signedPoints(m.creatorPoints)} · them{" "}
-								{signedPoints(m.acceptorPoints)}
-							</span>
 							{m.outcome ? (
 								<Tag
-									size="sm"
-									variant={m.outcome === "CREATOR" ? "success" : "neutral"}
+									variant={
+										m.outcome === "CREATOR"
+											? "success"
+											: m.outcome === "DRAW"
+												? "neutral"
+												: "danger"
+									}
 								>
 									{m.outcome === "CREATOR"
 										? "You won"
 										: m.outcome === "DRAW"
 											? "Draw"
-											: "They won"}
+											: "You lost"}
 								</Tag>
 							) : (
-								<Tag size="sm">Playing</Tag>
+								<Tag>Playing</Tag>
 							)}
 							<FiChevronRight aria-hidden />
 						</HStack>

@@ -35,7 +35,11 @@ const CHALLENGE = /* GraphQL */ `
 			questions { id }
 			viewerCanAccept
 			viewerMissingQuestionIds
-			viewerMatchup { acceptor { username } rows { question { id } } }
+			viewerMatchup {
+				acceptor { username }
+				creatorHeadToHead { wins losses draws }
+				rows { question { id } }
+			}
 		}
 	}
 `
@@ -50,6 +54,7 @@ type ChallengeData = {
 		viewerMissingQuestionIds: string[]
 		viewerMatchup: {
 			acceptor: { username: string }
+			creatorHeadToHead: { wins: number; losses: number; draws: number }
 			rows: { question: { id: string } }[]
 		} | null
 	} | null
@@ -111,6 +116,8 @@ describe("challenge GraphQL", () => {
 			viewerMissingQuestionIds: [],
 			viewerMatchup: {
 				acceptor: { username: acceptor.username },
+				// Nothing between them has settled yet.
+				creatorHeadToHead: { wins: 0, losses: 0, draws: 0 },
 				rows: [{ question: { id: question.id } }],
 			},
 		})

@@ -125,6 +125,17 @@ export const ChallengeMatchupRef = builder
 				nullable: true,
 				resolve: (p) => p.matchup.outcome,
 			}),
+			// The creator's record against this acceptor across every settled
+			// challenge between them, whichever of the two made it. The same
+			// for any viewer; the acceptor's side is the same record flipped.
+			creatorHeadToHead: t.field({
+				type: ChallengeRecordRef,
+				resolve: (p) =>
+					headToHead(
+						p.view.challenge.creatorId,
+						p.matchup.acceptance.acceptorId,
+					),
+			}),
 			rows: t.field({
 				type: [ChallengeMatchupRowRef],
 				resolve: (p) =>

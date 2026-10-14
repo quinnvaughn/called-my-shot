@@ -15,10 +15,11 @@ import { Breadcrumb } from "#/components/ui/breadcrumb"
 import { Card } from "#/components/ui/card"
 import { NotFound } from "#/components/ui/not-found"
 import { ShareIconRow } from "#/components/ui/share-icon-row"
+import { Tag } from "#/components/ui/tag"
 import { challengeReceiptQuery } from "#/graphql/queries/challenges"
 import { track } from "#/lib/analytics"
 import { IN_PLAY_REFETCH_MS } from "#/lib/game-status"
-import { singleGameOf } from "#/lib/challenge"
+import { type ChallengeRecord, recordLine, singleGameOf } from "#/lib/challenge"
 import { pageMeta, SITE_ORIGIN } from "#/lib/meta"
 
 // One 1v1's receipt: both sides' calls on every question and what each was
@@ -99,6 +100,13 @@ function RouteComponent() {
 				? "acceptor"
 				: null
 
+	const series = seriesTag(
+		matchup.creatorHeadToHead,
+		creator,
+		acceptor,
+		viewerSide,
+	)
+
 	return (
 		<VStack gap="6" alignItems="stretch" className={css({ paddingTop: "6" })}>
 			<VStack gap="2" alignItems="stretch">
@@ -113,23 +121,26 @@ function RouteComponent() {
 					<Breadcrumb.Current>vs @{acceptor}</Breadcrumb.Current>
 				</Breadcrumb>
 				<HStack justify="space-between" gap="3" flexWrap="wrap">
-					<h1 className={css({ fontSize: "3xl", fontFamily: "heading" })}>
-						<Link
-							to="/user/$username"
-							params={{ username: creator }}
-							className={profileLink}
-						>
-							@{creator}
-						</Link>{" "}
-						vs{" "}
-						<Link
-							to="/user/$username"
-							params={{ username: acceptor }}
-							className={profileLink}
-						>
-							@{acceptor}
-						</Link>
-					</h1>
+					<HStack gap="3" flexWrap="wrap">
+						<h1 className={css({ fontSize: "3xl", fontFamily: "heading" })}>
+							<Link
+								to="/user/$username"
+								params={{ username: creator }}
+								className={profileLink}
+							>
+								@{creator}
+							</Link>{" "}
+							vs{" "}
+							<Link
+								to="/user/$username"
+								params={{ username: acceptor }}
+								className={profileLink}
+							>
+								@{acceptor}
+							</Link>
+						</h1>
+						{series && <Tag variant={series.variant}>{series.label}</Tag>}
+					</HStack>
 					<ShareIconRow
 						url={`${SITE_ORIGIN}/challenges/${challenge.code}/vs/${acceptor}`}
 						campaign="challenge_receipt"
@@ -196,4 +207,38 @@ function RouteComponent() {
 			</Card>
 		</VStack>
 	)
+}
+
+// Who leads across every challenge between the two of them, as a tag beside
+// their names: the viewer's own standing in green or red when they're one of
+// the two, the leader named and uncolored for anyone else. Null until one of
+// their challenges has settled.
+function seriesTag(
+	creatorRecord: ChallengeRecord,
+	creator: string,
+	acceptor: string,
+	viewerSide: "creator" | "acceptor" | null,
+): { label: string; variant: "success" | "danger" | "neutral" } | null {
+	const { wins, losses, draws } = creatorRecord
+	if (wins + losses + draws === 0) return null
+	// Each side's record from its own side, leader's first in the label.
+	const sides = {
+		creator: { name: creator, record: creatorRecord },
+		acceptor: {
+			name: acceptor,
+			record: { wins: losses, losses: wins, draws },
+		},
+	}
+	if (wins === losses) {
+		return { label: `Tied ${recordLine(creatorRecord)}`, variant: "neutral" }
+	}
+	const leaderSide = wins > losses ? "creator" : "acceptor"
+	const leader = sides[leaderSide]
+	const score = recordLine(leader.record)
+	if (viewerSide === null) {
+		return { label: `@${leader.name} leads ${score}`, variant: "neutral" }
+	}
+	return viewerSide === leaderSide
+		? { label: `You lead ${score}`, variant: "success" }
+		: { label: `@${leader.name} leads ${score}`, variant: "danger" }
 }

@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query"
 import { createFileRoute, Link } from "@tanstack/react-router"
+import { FiPlus } from "react-icons/fi"
 import { css } from "styled-system/css"
 import { VStack } from "styled-system/jsx"
 import { ChallengeListRow } from "#/components/challenges/challenge-list-row"
@@ -33,8 +34,23 @@ function RouteComponent() {
 					<Link
 						to="/challenges/new"
 						className={button({ variant: "solid", size: "sm" })}
+						aria-label="New challenge"
 					>
-						New challenge
+						{/* Shortened on a phone, where the full label beside the title
+						    leaves "Challenges" too narrow to fit on one line. */}
+						<span
+							className={css({
+								display: { base: "flex", sm: "none" },
+								alignItems: "center",
+								gap: "1",
+							})}
+						>
+							<FiPlus aria-hidden />
+							New
+						</span>
+						<span className={css({ display: { base: "none", sm: "inline" } })}>
+							New challenge
+						</span>
 					</Link>
 				}
 			/>

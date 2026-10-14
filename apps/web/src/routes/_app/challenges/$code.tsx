@@ -117,6 +117,10 @@ function RouteComponent() {
 	const isCreator = me?.id === creator.id
 	const viewerMatchup = challenge.viewerMatchup
 	const questions = challenge.entries.map((e) => e.question)
+	// Points only mean something once a question has a result.
+	const settledCount = questions.filter(
+		(q) => q.status === "RESOLVED" || q.status === "DISPUTED",
+	).length
 	// A challenge on one game's card leads with that game, the way the game
 	// page does, and its questions don't repeat it.
 	const game = singleGameOf(questions)
@@ -183,22 +187,31 @@ function RouteComponent() {
 			<ChallengeHero
 				creator={creator}
 				isCreator={isCreator}
+				matchup={
+					game
+						? `${game.awayTeam.abbreviation} @ ${game.homeTeam.abbreviation}`
+						: null
+				}
 				state={challenge.state}
 				closesAt={challenge.closesAt}
 				questionCount={questions.length}
 				acceptanceCount={challenge.acceptanceCount}
 				tally={challenge.creatorTally}
 				viewerHeadToHead={challenge.viewerHeadToHead}
+				creatorPoints={
+					isCreator && settledCount > 0
+						? challenge.entries.reduce(
+								(sum, e) => sum + (e.creatorPoints ?? 0),
+								0,
+							)
+						: null
+				}
 				score={
 					viewerMatchup
 						? {
 								you: viewerMatchup.acceptorPoints,
 								them: viewerMatchup.creatorPoints,
-								settled: challenge.entries.filter(
-									(e) =>
-										e.question.status === "RESOLVED" ||
-										e.question.status === "DISPUTED",
-								).length,
+								settled: settledCount,
 								outcome: viewerMatchup.outcome,
 								open: openPointsBySide(challenge.entries, viewerMatchup.rows),
 							}
