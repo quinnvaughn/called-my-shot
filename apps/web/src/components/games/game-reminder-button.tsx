@@ -1,7 +1,8 @@
 import { useQueryClient } from "@tanstack/react-query"
 import { FiBell, FiCheck } from "react-icons/fi"
+import { css } from "styled-system/css"
+import { HStack } from "styled-system/jsx"
 import { match } from "ts-pattern"
-import { Button } from "#/components/ui/button"
 import { useGqlMutation } from "#/graphql/hooks"
 import {
 	MutedEmailTypesDocument,
@@ -40,7 +41,8 @@ export function canSetGameReminder(game: {
 	)
 }
 
-// Only rendered where canSetGameReminder allows - see the game detail page.
+// Only rendered where canSetGameReminder allows - see the game detail page,
+// which hands it to GameMatchupHeader to sit under the start time it's about.
 // The reminder itself is sent by drainGameReminders on the api, an hour before
 // the start.
 export function GameReminderButton({ gameId, hasReminder }: Props) {
@@ -124,11 +126,23 @@ export function GameReminderButton({ gameId, hasReminder }: Props) {
 	}
 
 	return (
-		<Button
-			variant="outline"
-			size="sm"
-			loading={pending}
+		<button
+			type="button"
+			disabled={pending}
 			aria-pressed={hasReminder}
+			className={css({
+				fontFamily: "mono",
+				fontSize: "2xs",
+				letterSpacing: "wide",
+				textTransform: "uppercase",
+				color: "primary.default",
+				bg: "transparent",
+				border: "none",
+				padding: "0",
+				cursor: "pointer",
+				_hover: { opacity: 0.8 },
+				_disabled: { opacity: 0.6, cursor: "default" },
+			})}
 			onClick={() => {
 				if (hasReminder) {
 					void remove()
@@ -148,8 +162,10 @@ export function GameReminderButton({ gameId, hasReminder }: Props) {
 				})
 			}}
 		>
-			{!pending && (hasReminder ? <FiCheck size={14} /> : <FiBell size={14} />)}
-			{hasReminder ? "Reminder set" : "Remind me"}
-		</Button>
+			<HStack gap="1.5" alignItems="center">
+				{hasReminder ? <FiCheck size={12} /> : <FiBell size={12} />}
+				{hasReminder ? "Reminder set" : "Remind me"}
+			</HStack>
+		</button>
 	)
 }

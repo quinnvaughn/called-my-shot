@@ -1,3 +1,4 @@
+import type { ReactNode } from "react"
 import { css } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
 import { Eyebrow } from "#/components/ui/eyebrow"
@@ -62,6 +63,9 @@ type Props = {
 	// Tighter padding, smaller team names, no venue - the same matchup on a
 	// card that has to fit inside the landing page's fold.
 	dense?: boolean
+	// A control about the start time (the game page's reminder toggle), on its
+	// own line under it.
+	startAction?: ReactNode
 }
 
 // maxWidth is what actually makes the ellipsis work: the name is a flex item
@@ -220,6 +224,7 @@ export function GameMatchupHeader({
 	starters,
 	compactStarters = false,
 	dense = false,
+	startAction,
 }: Props) {
 	const live = game.status === "LIVE"
 	const final = game.status === "FINAL"
@@ -335,6 +340,12 @@ export function GameMatchupHeader({
 					</>
 				)}
 			</HStack>
+
+			{startAction && (
+				<HStack justify="center" marginTop="-1">
+					{startAction}
+				</HStack>
+			)}
 
 			{starters && <GameStarters game={starters} compact={compactStarters} />}
 		</VStack>

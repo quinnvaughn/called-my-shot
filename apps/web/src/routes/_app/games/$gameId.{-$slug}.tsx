@@ -277,34 +277,35 @@ function RouteComponent() {
 			</Breadcrumb>
 
 			<VStack gap="2" alignItems="stretch">
-				<GameMatchupHeader game={game} starters={game} />
-				{(canSetGameReminder(game) || (me && openQuestions.length > 0)) && (
-					<HStack justify="flex-end" gap="2" flexWrap="wrap">
-						{/* The rail carries this from xl up. */}
-						{me && openQuestions.length > 0 && (
-							<Link
-								to="/challenges/new"
-								search={{
-									game: game.id,
-									source: openPicks > 0 ? "game_picks" : "game",
-								}}
-								className={cx(
-									button({ variant: "solid", size: "sm" }),
-									css({ xl: { display: "none" } }),
-								)}
-							>
-								{openPicks > 0
-									? "Challenge with these picks"
-									: "Challenge on this game"}
-							</Link>
-						)}
-						{canSetGameReminder(game) && (
+				<GameMatchupHeader
+					game={game}
+					starters={game}
+					startAction={
+						canSetGameReminder(game) && (
 							<GameReminderButton
 								gameId={game.id}
 								hasReminder={game.viewerHasReminder}
 							/>
+						)
+					}
+				/>
+				{/* The rail carries this from xl up, in the same treatment. */}
+				{me && openQuestions.length > 0 && (
+					<Link
+						to="/challenges/new"
+						search={{
+							game: game.id,
+							source: openPicks > 0 ? "game_picks" : "game",
+						}}
+						className={cx(
+							button({ variant: "dark", size: "sm", fullWidth: true }),
+							css({ xl: { display: "none" } }),
 						)}
-					</HStack>
+					>
+						{openPicks > 0
+							? "Challenge with these picks"
+							: "Challenge on this game"}
+					</Link>
 				)}
 			</VStack>
 
