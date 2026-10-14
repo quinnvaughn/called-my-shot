@@ -5,6 +5,7 @@ import type {
 	analyticsOutbox,
 	emailOutbox,
 	gameReminders,
+	pushOutbox,
 	seasonStartEmails,
 	updateEmails,
 } from "../db/schema"
@@ -19,6 +20,7 @@ type OutboxTable =
 	| typeof gameReminders
 	| typeof updateEmails
 	| typeof analyticsOutbox
+	| typeof pushOutbox
 
 // The ones that can finish without sending, recorded in skippedReason.
 type SkippableOutboxTable = Exclude<OutboxTable, typeof analyticsOutbox>

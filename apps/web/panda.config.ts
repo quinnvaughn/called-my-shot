@@ -844,7 +844,10 @@ export default defineConfig({
               borderTopLeftRadius: "xl",
               borderTopRightRadius: "xl",
               padding: "3",
-              paddingBottom: { base: "6", md: "3" },
+              paddingBottom: {
+                base: "calc({spacing.6} + env(safe-area-inset-bottom))",
+                md: "3",
+              },
               boxShadow: "0 12px 32px rgba(0, 0, 0, 0.4)",
               zIndex: "popover",
             },
@@ -1340,6 +1343,11 @@ export default defineConfig({
               },
               borderTopLeftRadius: { base: "xl", md: "0" },
               borderTopRightRadius: { base: "xl", md: "0" },
+              // Clear of the home indicator in the Home Screen app.
+              paddingBottom: {
+                base: "env(safe-area-inset-bottom)",
+                md: "0",
+              },
               boxShadow: "0 24px 60px rgba(0, 0, 0, 0.45)",
               animation: {
                 base: "sheetUp 0.22s ease",

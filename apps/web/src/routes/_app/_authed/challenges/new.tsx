@@ -22,6 +22,7 @@ import { pickSummary } from "#/lib/call-summary"
 import { groupCandidates } from "#/lib/challenge"
 import { formatShortDate } from "#/lib/format-date"
 import { pluralize } from "#/lib/pluralize"
+import { requestPushPrompt } from "#/stores/push-prompt-store"
 
 type Source =
 	| "question"
@@ -125,6 +126,7 @@ function RouteComponent() {
 			groupCount: groupIds.length,
 			source: search.source ?? "builder",
 		})
+		requestPushPrompt("challenge_created")
 		await navigate({
 			to: "/challenges/$code",
 			params: { code: result.challenge.code },

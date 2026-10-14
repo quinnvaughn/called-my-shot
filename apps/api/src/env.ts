@@ -78,6 +78,16 @@ const envSchema = z.object({
 		.url()
 		.transform((url) => url.replace(/\/+$/, ""))
 		.optional(),
+	// The VAPID key pair web push is signed with (lib/push-send.ts). Optional
+	// so local dev needs no setup: without both, nothing is queued or sent and
+	// the web app never offers to turn notifications on. Never rotate the
+	// production pair - every device's subscription is bound to the public
+	// key, and a new one silently cuts all of them off until each reopens the
+	// app and resubscribes.
+	VAPID_PUBLIC_KEY: z.string().optional(),
+	VAPID_PRIVATE_KEY: z.string().optional(),
+	// The contact push services are given for this sender.
+	VAPID_SUBJECT: z.string().default("mailto:support@calledmyshot.com"),
 })
 
 export const env = envSchema.parse(process.env)
@@ -94,9 +104,14 @@ export const env = envSchema.parse(process.env)
 // unsubscribe link in production would be forgeable by anyone who read it.
 // The other mail settings degrade honestly instead: no RESEND_API_KEY logs
 // rather than sends, and no RESEND_WEBHOOK_SECRET makes the webhook refuse
-// unverified payloads.
+// unverified payloads. Missing VAPID keys likewise only switch push off.
 export function assertProductionConfig(): void {
 	if (env.NODE_ENV !== "production") return
+	if (!env.VAPID_PUBLIC_KEY || !env.VAPID_PRIVATE_KEY) {
+		console.warn(
+			"[env] VAPID_PUBLIC_KEY/VAPID_PRIVATE_KEY unset - push notifications are off.",
+		)
+	}
 	if (!env.EMAIL_UNSUBSCRIBE_SECRET) {
 		throw new Error(
 			"EMAIL_UNSUBSCRIBE_SECRET is required in production - without it unsubscribe links are signed with a key committed to this repo.",

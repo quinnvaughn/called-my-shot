@@ -18,6 +18,7 @@ import { useForm } from "#/lib/form/use-form"
 import { DEFAULT_CONVICTION } from "#/lib/scoring"
 import { closeModal, openModal } from "#/stores/modal-store"
 import { consumeRanFirstCallTour } from "#/stores/tour-store"
+import { requestPushPrompt } from "#/stores/push-prompt-store"
 
 export const CastCallFormFragment = graphql(`
 	fragment CastCallForm_question on Question {
@@ -493,6 +494,7 @@ export function useCastCallForm(
 					helpers.setFormError(r.message)
 				})
 				.with({ __typename: "CastCallPayload" }, async () => {
+					requestPushPrompt("call")
 					const convictions = values.selections.length
 						? values.selections.map((s) => s.conviction)
 						: [values.conviction ?? 0]

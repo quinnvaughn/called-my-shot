@@ -7,7 +7,7 @@ import { dismissToast, type Toast, toastStore } from "#/stores/toast-store"
 const stackClass = css({
 	position: "fixed",
 	zIndex: "toast",
-	bottom: "5",
+	bottom: "calc({spacing.5} + env(safe-area-inset-bottom))",
 	left: "50%",
 	transform: "translateX(-50%)",
 	width: "calc(100% - 32px)",

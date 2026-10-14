@@ -217,6 +217,7 @@ export const SettingsPageDocument = graphql(`
 			emailVerified
 			hasPassword
 			mutedEmailTypes
+			mutedPushTypes
 			pendingEmailChange {
 				newEmail
 				expiresAt

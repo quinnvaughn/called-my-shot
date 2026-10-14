@@ -10,6 +10,7 @@ import {
 	readChallengeDrafts,
 	saveChallengeDrafts,
 } from "#/stores/challenge-drafts-store"
+import { requestPushPrompt } from "#/stores/push-prompt-store"
 
 // One send per challenge at a time, across remounts: signing in can remount
 // the page while the send it started is still running, and the page then
@@ -107,6 +108,7 @@ export function useAcceptChallenge({
 			})
 			await queryClient.invalidateQueries()
 			await router.invalidate()
+			requestPushPrompt("challenge_accepted")
 			onAccepted()
 		} catch {
 			setError("Something went wrong. Try again.")

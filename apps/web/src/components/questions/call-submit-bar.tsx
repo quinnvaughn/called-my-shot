@@ -47,7 +47,8 @@ export function CallSubmitBar({ callForm }: { callForm: CastCallFormState }) {
 						zIndex: 20,
 						backgroundColor: "bg.canvas",
 						borderTop: "1px solid {colors.border.default}",
-						paddingBlock: "4",
+						paddingTop: "4",
+						paddingBottom: "calc({spacing.4} + env(safe-area-inset-bottom))",
 					})}
 				>
 					<HStack

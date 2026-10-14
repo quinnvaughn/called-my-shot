@@ -10,6 +10,7 @@ import { FavoriteTeamsSection } from "#/components/settings/favorite-teams-secti
 import { FlairSection } from "#/components/settings/flair-section"
 import { PasswordSection } from "#/components/settings/password-section"
 import { ProfileImagesSection } from "#/components/settings/profile-images-section"
+import { PushNotificationsSection } from "#/components/settings/push-notifications-section"
 import { UsernameSection } from "#/components/settings/username-section"
 import { WalkthroughSection } from "#/components/settings/walkthrough-section"
 import { PageHeader } from "#/components/ui/page-header"
@@ -88,6 +89,10 @@ function RouteComponent() {
 			<VStack alignItems="stretch" gap="3">
 				{sectionLabel("Email notifications")}
 				<EmailNotificationsSection mutedEmailTypes={me.mutedEmailTypes ?? []} />
+			</VStack>
+			<VStack alignItems="stretch" gap="3">
+				{sectionLabel("Push notifications")}
+				<PushNotificationsSection mutedPushTypes={me.mutedPushTypes ?? []} />
 			</VStack>
 			<VStack alignItems="stretch" gap="3">
 				{sectionLabel("Password")}

@@ -1,8 +1,13 @@
 import { describe, expect, it } from "vitest"
 import { db } from "../db"
-import { emailOptOuts, gameReminders } from "../db/schema"
-import { makeGame, makeUser } from "../test/factories"
-import { mailRecorder } from "../test/helpers"
+import {
+	emailOptOuts,
+	gameReminders,
+	pushOptOuts,
+	pushOutbox,
+} from "../db/schema"
+import { makeGame, makePushSubscription, makeUser } from "../test/factories"
+import { mailRecorder, pushRecorder } from "../test/helpers"
 import { drainGameReminders, setGameReminder } from "./game-reminders"
 import { MINUTE_MS } from "./time"
 
@@ -29,6 +34,7 @@ describe("drainGameReminders", () => {
 		const mail = mailRecorder()
 		expect(await drainGameReminders({ send: mail.send, now: NOW })).toEqual({
 			sent: 1,
+			pushed: 0,
 			muted: 0,
 			failed: 0,
 		})
@@ -84,6 +90,7 @@ describe("drainGameReminders", () => {
 		const mail = mailRecorder()
 		expect(await drainGameReminders({ send: mail.send, now: NOW })).toEqual({
 			sent: 0,
+			pushed: 0,
 			muted: 1,
 			failed: 0,
 		})
@@ -135,5 +142,71 @@ describe("drainGameReminders", () => {
 		await drainGameReminders({ send: after.send, now: NOW })
 		expect(after.sent).toHaveLength(0)
 		expect(failing.sent).toHaveLength(3)
+	})
+
+	describe("with a device that has push on", () => {
+		it("pushes instead of emailing", async () => {
+			const { user, game } = await remind(45)
+			await makePushSubscription(user.id)
+
+			const mail = mailRecorder()
+			const push = pushRecorder()
+			expect(
+				await drainGameReminders({
+					send: mail.send,
+					pushSend: push.send,
+					now: NOW,
+				}),
+			).toEqual({ sent: 0, pushed: 1, muted: 0, failed: 0 })
+
+			expect(mail.sent).toHaveLength(0)
+			expect(push.sent).toHaveLength(1)
+			expect(push.sent[0].payload).toMatchObject({
+				body: "Check who's starting before calls lock.",
+				tag: `reminder:${game.id}`,
+			})
+			expect(push.sent[0].payload.title).toMatch(/ starts in 45 min$/)
+			expect(push.sent[0].options.urgency).toBe("high")
+			const [row] = await reminderRows()
+			expect(row.skippedReason).toBe("pushed")
+			// The in-app notification still lands, and isn't pushed a second time.
+			expect(await notificationsFor(user.id)).toHaveLength(1)
+			expect(await db.select().from(pushOutbox)).toHaveLength(0)
+		})
+
+		it("emails when no device accepted the push", async () => {
+			const { user } = await remind(45)
+			await makePushSubscription(user.id)
+
+			const mail = mailRecorder()
+			const push = pushRecorder(500)
+			await drainGameReminders({
+				send: mail.send,
+				pushSend: push.send,
+				now: NOW,
+			})
+
+			expect(push.sent).toHaveLength(1)
+			expect(mail.sent).toHaveLength(1)
+		})
+
+		it("emails when game reminders are muted for push", async () => {
+			const { user } = await remind(45)
+			await makePushSubscription(user.id)
+			await db
+				.insert(pushOptOuts)
+				.values({ userId: user.id, type: "game_reminder" })
+
+			const mail = mailRecorder()
+			const push = pushRecorder()
+			await drainGameReminders({
+				send: mail.send,
+				pushSend: push.send,
+				now: NOW,
+			})
+
+			expect(push.sent).toHaveLength(0)
+			expect(mail.sent).toHaveLength(1)
+		})
 	})
 })

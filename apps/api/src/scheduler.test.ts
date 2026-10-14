@@ -30,6 +30,7 @@ describe("JOBS", () => {
 			["drain-season-start-emails", "*/5 * * * *"],
 			["drain-update-emails", "*/5 * * * *"],
 			["drain-analytics-outbox", "* * * * *"],
+			["drain-push-outbox", "* * * * *"],
 			["daily-sync-sweep", "0 9 * * *"],
 			["daily-mail-sweep", "0 13 * * *"],
 		])
@@ -91,6 +92,14 @@ describe("JOBS", () => {
 		markPending("analytics", NOW)
 		expect(gate("drain-analytics-outbox")(NOW)).toBe(true)
 		expect(gate("drain-analytics-outbox")(NOW)).toBe(false)
+	})
+
+	it("drains push only when this process queued some", () => {
+		setWorkCalendarForTests({ games: [], nextAutoResolveAt: null })
+		expect(gate("drain-push-outbox")(NOW)).toBe(false)
+		markPending("push", NOW)
+		expect(gate("drain-push-outbox")(NOW)).toBe(true)
+		expect(gate("drain-push-outbox")(NOW)).toBe(false)
 	})
 
 	it("holds a digest outside a game window until its rows have settled", () => {

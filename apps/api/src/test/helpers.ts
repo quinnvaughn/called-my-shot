@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs"
 import { db } from "../db"
 import type { Question } from "../db/schema"
 import type { MailMessage, MailResult } from "../lib/mailer"
+import type { PushSendFn } from "../lib/push-send"
 import {
 	type ResolveOptions,
 	resolveQuestionInternal,
@@ -51,6 +52,34 @@ export function mailRecorder(result: MailResult = { ok: true }) {
 			return result
 		},
 	}
+}
+
+// Collects what would have been pushed, in place of web-push. Every device
+// answers `status` unless `statusByEndpoint` names it.
+export function pushRecorder(
+	status = 201,
+	statusByEndpoint: Record<string, number> = {},
+) {
+	const sent: {
+		endpoint: string
+		payload: {
+			title: string
+			body: string
+			url: string
+			tag: string
+			type: string
+		}
+		options: Parameters<PushSendFn>[2]
+	}[] = []
+	const send: PushSendFn = async (target, payload, options) => {
+		sent.push({
+			endpoint: target.endpoint,
+			payload: JSON.parse(payload),
+			options,
+		})
+		return { statusCode: statusByEndpoint[target.endpoint] ?? status }
+	}
+	return { sent, send }
 }
 
 // A recorded ESPN response from db/sync/fixtures/espn.

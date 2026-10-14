@@ -110,6 +110,18 @@ export const relations = defineRelations(schema, (r) => ({
 			to: r.users.id,
 		}),
 	},
+	pushSubscriptions: {
+		session: r.one.sessions({
+			from: r.pushSubscriptions.sessionId,
+			to: r.sessions.id,
+		}),
+	},
+	pushOutbox: {
+		notification: r.one.notifications({
+			from: r.pushOutbox.notificationId,
+			to: r.notifications.id,
+		}),
+	},
 	oauthAccounts: {
 		user: r.one.users({
 			from: r.oauthAccounts.userId,

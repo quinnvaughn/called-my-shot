@@ -4,6 +4,7 @@ import { sql } from "drizzle-orm"
 import { match } from "ts-pattern"
 import { notifications } from "../db/schema"
 import type { Tx } from "../db/types"
+import { enqueuePushes } from "./push-outbox"
 
 export type NotificationInput =
 	// A call on a question with no game. One on a game's question is told as
@@ -306,12 +307,23 @@ export async function createNotifications(
 		).values(),
 	]
 	// Rows without a dedupe key never conflict: nulls are distinct.
-	return tx
+	const written = await tx
 		.insert(notifications)
 		.values(rows)
 		.onConflictDoUpdate({
 			target: [notifications.userId, notifications.dedupeKey],
 			set: { readAt: null, createdAt: sql`now()` },
 		})
-		.returning({ id: notifications.id })
+		.returning({
+			id: notifications.id,
+			userId: notifications.userId,
+			type: notifications.type,
+			gameId: notifications.gameId,
+			callId: notifications.callId,
+			leagueId: notifications.leagueId,
+			slateKey: notifications.slateKey,
+			dedupeKey: notifications.dedupeKey,
+		})
+	await enqueuePushes(tx, written, new Date())
+	return written.map(({ id }) => ({ id }))
 }

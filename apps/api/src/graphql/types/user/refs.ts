@@ -3,6 +3,7 @@ import { db } from "../../../db"
 import { canSeePrivate } from "../../../lib/auth"
 import { mutedEmailTypes } from "../../../lib/email-prefs"
 import type { LeaderboardEntry } from "../../../lib/global-leaderboard"
+import { mutedPushTypes } from "../../../lib/push-prefs"
 import { redoBalanceFor } from "../../../lib/redos"
 import {
 	getOrCreateReferralCode,
@@ -20,7 +21,11 @@ import { groupByKey, indexByKey } from "../../loader"
 import { FlairRef } from "../flair"
 import { CallRef, VoidReason } from "../question"
 import { findLeague, ReportCardRef, TeamRef } from "../sports"
-import { EmailPreferenceType, StreakFamilyEnum } from "./enums"
+import {
+	EmailPreferenceType,
+	PushPreferenceType,
+	StreakFamilyEnum,
+} from "./enums"
 import { getUserRecordInputs, UserRecordRef } from "./record"
 import { getGlobalLeaderboard, UserLeagueStatsRef } from "./stats"
 import { UserStreakRef, UserSweepRef } from "./streaks"
@@ -144,6 +149,14 @@ export const UserRef = builder.drizzleObject("users", {
 			nullable: true,
 			resolve: (user, _args, ctx) =>
 				canSeePrivate(ctx, user.id) ? mutedEmailTypes(user.id) : null,
+		}),
+		// Same opt-out reading as mutedEmailTypes, for push. Account-wide, so
+		// it holds for every device the user turned push on for.
+		mutedPushTypes: t.field({
+			type: [PushPreferenceType],
+			nullable: true,
+			resolve: (user, _args, ctx) =>
+				canSeePrivate(ctx, user.id) ? mutedPushTypes(user.id) : null,
 		}),
 		// Unspent redos. Private: what someone is holding is theirs to know,
 		// and a public balance would make it obvious who to ask for one.

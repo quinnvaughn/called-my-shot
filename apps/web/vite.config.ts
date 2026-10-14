@@ -16,6 +16,13 @@ process.env.VITE_BUILD_ID ??= Date.now().toString(36)
 
 const config = defineConfig({
 	resolve: { tsconfigPaths: true },
+	// Dev server only. Lets a phone reach it through a Cloudflare quick
+	// tunnel, which is the https a phone needs to install the app and receive
+	// pushes. Not ngrok: its free plan answers the manifest request with a
+	// warning page, so iOS never learns the app's scope.
+	server: {
+		allowedHosts: [".trycloudflare.com"],
+	},
 	// The SSR build otherwise splits into multiple chunks that end up with a
 	// circular import between them (the router chunk and the root-route chunk
 	// each import from the other). That ordering hazard causes the generated

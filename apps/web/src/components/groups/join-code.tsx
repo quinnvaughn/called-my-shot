@@ -8,6 +8,7 @@ import { JoinGroupByCodeDocument } from "#/graphql/generated/graphql"
 import { useGqlMutation } from "#/graphql/hooks"
 import { track } from "#/lib/analytics"
 import { useForm } from "#/lib/form/use-form"
+import { requestPushPrompt } from "#/stores/push-prompt-store"
 import { Button } from "../ui/button"
 import { FormError } from "../ui/form-error"
 import { TextInput } from "../ui/text-input"
@@ -49,6 +50,7 @@ export function JoinCode() {
 				})
 				.with({ __typename: "GroupPayload" }, async (r) => {
 					track("group_joined", { groupId: r.group.id, source: "code_form" })
+					requestPushPrompt("group_joined")
 					await queryClient.invalidateQueries()
 					await router.invalidate()
 					await navigate({

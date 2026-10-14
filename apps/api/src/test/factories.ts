@@ -16,6 +16,7 @@ import {
 	players,
 	presserQuestions,
 	pressers,
+	pushSubscriptions,
 	type Question,
 	questionOptions,
 	questions,
@@ -23,6 +24,7 @@ import {
 	referralCodes,
 	referrals,
 	seasons,
+	sessions,
 	sports,
 	stats,
 	statToleranceTiers,
@@ -499,6 +501,38 @@ export function makePresserQuestion(
 				sortRank: 1,
 				...overrides,
 				presserId,
+			})
+			.returning(),
+	)
+}
+
+// A device with push on, under a fresh live session unless one is given.
+export async function makePushSubscription(
+	userId: string,
+	overrides: Partial<typeof pushSubscriptions.$inferInsert> = {},
+) {
+	const i = uniq()
+	const sessionId =
+		overrides.sessionId ??
+		(
+			await insertOne(
+				db
+					.insert(sessions)
+					.values({ userId, expiresAt: futureDate(24 * 30) })
+					.returning(),
+			)
+		).id
+	return insertOne(
+		db
+			.insert(pushSubscriptions)
+			.values({
+				endpoint: `https://fcm.googleapis.com/fcm/send/device-${i}`,
+				p256dh: "p256dh",
+				auth: "auth",
+				platform: "ios",
+				...overrides,
+				userId,
+				sessionId,
 			})
 			.returning(),
 	)

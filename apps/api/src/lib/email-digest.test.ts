@@ -14,13 +14,21 @@ import {
 import {
 	makeCall,
 	makeGame,
+	makePushSubscription,
 	makeQuestion,
 	makeSelection,
 	seedOptionQuestion,
 } from "../test/factories"
-import { hoursFromNow, mailRecorder, resolve } from "../test/helpers"
+import {
+	hoursFromNow,
+	mailRecorder,
+	pushRecorder,
+	resolve,
+} from "../test/helpers"
 import { drainResolutionDigests } from "./email-digest"
 import { DRAIN_DIGESTS_LOCK, withJobLock } from "./job-lock"
+import { clearPendingForTests } from "./pending-work"
+import { drainPushOutbox } from "./push-drain"
 import { announceHeldSettle } from "./resolve-question"
 import { announceOnce } from "./streaks/notices"
 
@@ -505,6 +513,65 @@ describe("drainResolutionDigests", () => {
 					and(eq(notifications.userId, userId), eq(notifications.gameId, game.id)),
 				)
 			await ageOutbox(30)
+
+			const mail = mailRecorder()
+			await drainResolutionDigests({ send: mail.send })
+
+			expect(mail.sent).toHaveLength(1)
+		})
+	})
+
+	describe("results already pushed", () => {
+		/** A resolved call on a game, by a user with push on. */
+		async function resolvedOnGameWithDevice() {
+			const game = await makeGame({
+				startsAt: hoursFromNow(-3),
+				status: "final",
+			})
+			const seeded = await seedOptionQuestion({
+				callers: [{ optionIndex: 0 }],
+				question: { gameId: game.id },
+			})
+			await makePushSubscription(seeded.callers[0].user.id)
+			await resolve(seeded.question, {
+				correctOptionIds: [seeded.options[0].id],
+			})
+			return seeded
+		}
+
+		const drainPushes = (status = 201) =>
+			drainPushOutbox({
+				send: pushRecorder(status).send,
+				now: new Date(Date.now() + 3 * 60 * 1000),
+			}).finally(clearPendingForTests)
+
+		it("skips a game a device was pushed about", async () => {
+			await resolvedOnGameWithDevice()
+			await drainPushes()
+			await ageOutbox()
+
+			const mail = mailRecorder()
+			await drainResolutionDigests({ send: mail.send })
+
+			expect(mail.sent).toHaveLength(0)
+			const [row] = await db.select().from(emailOutbox)
+			expect(row.skippedReason).toBe("pushed")
+		})
+
+		it("still emails a game whose push no device accepted", async () => {
+			await resolvedOnGameWithDevice()
+			await drainPushes(500)
+			await ageOutbox()
+
+			const mail = mailRecorder()
+			await drainResolutionDigests({ send: mail.send })
+
+			expect(mail.sent).toHaveLength(1)
+		})
+
+		it("still emails a game whose push hasn't gone out yet", async () => {
+			await resolvedOnGameWithDevice()
+			await ageOutbox()
 
 			const mail = mailRecorder()
 			await drainResolutionDigests({ send: mail.send })

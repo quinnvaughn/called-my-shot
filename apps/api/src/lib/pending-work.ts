@@ -7,7 +7,12 @@
 // Marked inside the enqueuing transaction, so a drain can occasionally take
 // the hint before the rows commit and find nothing. Those rows wait for the
 // next hint or sweep.
-export type PendingWork = "analytics" | "digests" | "season-start" | "updates"
+export type PendingWork =
+	| "analytics"
+	| "digests"
+	| "push"
+	| "season-start"
+	| "updates"
 
 // The earliest unconsumed mark of each kind.
 const markedAt = new Map<PendingWork, Date>()

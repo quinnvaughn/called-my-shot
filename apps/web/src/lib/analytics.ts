@@ -329,7 +329,35 @@ type AnalyticsEvents = {
 	}
 	// "Read the full presser" under a call's record card.
 	presser_excerpt_clicked: { presserId: string; callId: string }
+
+	// Push notifications. `reason` is what the card was shown after, `surface`
+	// whether it was that card or the settings page, and `state` what it
+	// offered: turning push on, the iPhone home screen steps, or opening the
+	// page in a real browser. Shown-to-enabled per state is the funnel.
+	push_prompt_shown: {
+		reason: PushPromptReason
+		state: PushPromptState
+	}
+	push_prompt_dismissed: { reason: PushPromptReason }
+	push_install_steps_opened: { surface: PushSurface }
+	push_permission_requested: { surface: PushSurface }
+	push_enabled: {
+		surface: PushSurface
+		platform: "ios" | "android" | "desktop"
+		standalone: boolean
+	}
+	push_permission_denied: { surface: PushSurface }
+	push_disabled: Record<string, never>
+	push_preference_changed: { group: string; enabled: boolean }
 }
+
+export type PushPromptReason =
+	| "call"
+	| "challenge_created"
+	| "challenge_accepted"
+	| "group_joined"
+export type PushPromptState = "enable" | "install" | "in_app_browser"
+export type PushSurface = "card" | "settings"
 
 const POSTHOG_KEY = import.meta.env.VITE_PUBLIC_POSTHOG_KEY as
 	| string
@@ -362,6 +390,15 @@ export function initAnalytics() {
 		// No feature flags in use - skips the extra remote-config request
 		// this would otherwise make on every init.
 		advanced_disable_flags: true,
+	})
+	// Every event says whether it came from the home-screen app or a browser
+	// tab, so the installed audience can be split out of any funnel.
+	posthog.register({
+		displayMode:
+			window.matchMedia?.("(display-mode: standalone)").matches ||
+			(navigator as Navigator & { standalone?: boolean }).standalone === true
+				? "standalone"
+				: "browser",
 	})
 	initialized = true
 }

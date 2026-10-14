@@ -17,6 +17,7 @@ import { ViewerOnboardingDocument } from "#/graphql/queries/onboarding"
 import { gqlQueryOptions } from "#/graphql/query-options"
 import { track } from "#/lib/analytics"
 import { buildQuestionSlug } from "#/lib/slug"
+import { pushCardShowingStore } from "#/stores/push-prompt-store"
 import { tourStepStore } from "#/stores/tour-store"
 
 const onboardingQuery = gqlQueryOptions(ViewerOnboardingDocument, {})
@@ -38,6 +39,8 @@ export function WalkthroughLauncher() {
 	// Hidden while the coachmarks are running, since it points at the thing
 	// already happening and would sit on top of the form being explained.
 	const tourRunning = useStore(tourStepStore, (s) => s !== null)
+	// The push card takes the same corner for the moment it's up.
+	const pushCardShowing = useStore(pushCardShowingStore, (s) => s)
 	// /home carries the get-started checklist, whose first row is this same
 	// offer with the rest of the product around it. Two prompts for one action
 	// on one page is just clutter, so the pill stands down where the fuller
@@ -53,6 +56,7 @@ export function WalkthroughLauncher() {
 		me.onboardingDismissedAt ||
 		dismissedLocally ||
 		tourRunning ||
+		pushCardShowing ||
 		onHome
 	) {
 		return null
@@ -99,7 +103,7 @@ export function WalkthroughLauncher() {
 			className={css({
 				position: "fixed",
 				zIndex: "launcher",
-				bottom: "5",
+				bottom: "calc({spacing.5} + env(safe-area-inset-bottom))",
 				// Corner on desktop, a bar across the bottom on mobile where
 				// there is no corner to spare.
 				right: { base: "4", md: "6" },

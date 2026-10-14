@@ -12,6 +12,7 @@ import { RouteError } from "#/components/ui/route-error"
 import { ToastHost } from "#/components/ui/toast"
 import { MeDocument } from "#/graphql/queries/me"
 import { gqlQueryOptions } from "#/graphql/query-options"
+import { usePushSync } from "#/hooks/use-push-sync"
 import { useStaleBuildGuard } from "#/hooks/use-stale-build-guard"
 import {
 	identifyUser,
@@ -68,7 +69,27 @@ export const Route = createRootRouteWithContext<RouterContext>()({
 			{
 				name: "viewport",
 				content:
-					"width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0",
+					"width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0, viewport-fit=cover",
+			},
+			// How the app looks once it's added to a home screen: full screen,
+			// with iOS's status bar drawn over the app's own dark canvas. The
+			// safe-area insets that viewport-fit=cover exposes keep the fixed
+			// bars clear of the notch and home indicator.
+			{
+				name: "mobile-web-app-capable",
+				content: "yes",
+			},
+			{
+				name: "apple-mobile-web-app-capable",
+				content: "yes",
+			},
+			{
+				name: "apple-mobile-web-app-status-bar-style",
+				content: "black-translucent",
+			},
+			{
+				name: "apple-mobile-web-app-title",
+				content: "Called My Shot",
 			},
 			// Pins the color browsers/OSes use for link-preview tinting, mobile
 			// address bar chrome, and PWA splash background to the app's actual
@@ -165,6 +186,10 @@ export const Route = createRootRouteWithContext<RouterContext>()({
 				sizes: "180x180",
 				href: "/apple-touch-icon.png",
 			},
+			{
+				rel: "manifest",
+				href: "/manifest.webmanifest",
+			},
 		],
 	}),
 	shellComponent: RootDocument,
@@ -175,6 +200,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
 
 	useStaleBuildGuard()
 	useGoogleAuthReturn(me?.username ?? null)
+	usePushSync(me?.id ?? null)
 
 	useEffect(() => {
 		initAnalytics()

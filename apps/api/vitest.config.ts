@@ -43,6 +43,10 @@ export default defineConfig({
 			TEST_DATABASE_URL,
 			NODE_ENV: "test",
 			CLIENT_ORIGIN: "http://localhost:3000",
+			// Switches push on (lib/push-send.ts pushConfigured). Never used to
+			// sign anything: every test that drains pushes injects its sender.
+			VAPID_PUBLIC_KEY: "test-public-key",
+			VAPID_PRIVATE_KEY: "test-private-key",
 		},
 		// Pothos builds the schema out of graphql-js classes. Left externalized
 		// it loads its own copy of graphql through node while the test's own

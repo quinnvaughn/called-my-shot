@@ -25,6 +25,7 @@ import {
 	DRAIN_ANALYTICS_LOCK,
 	DRAIN_DIGESTS_LOCK,
 	DRAIN_GAME_REMINDERS_LOCK,
+	DRAIN_PUSH_LOCK,
 	DRAIN_SEASON_START_LOCK,
 	DRAIN_UPDATE_EMAILS_LOCK,
 	ENQUEUE_SEASON_START_LOCK,
@@ -46,6 +47,7 @@ import {
 } from "./lib/job-lock"
 import { markPending, takePending } from "./lib/pending-work"
 import { drainPresserOpens } from "./lib/pressers/drain"
+import { drainPushOutbox } from "./lib/push-drain"
 import {
 	drainSeasonStartEmails,
 	enqueueSeasonStartEmails,
@@ -272,6 +274,15 @@ export const JOBS: ScheduledJob[] = [
 		},
 		(now) => takePending("analytics", now),
 	),
+	// Every minute that something was queued on this machine, since a push
+	// is only worth sending while it's news. A row still inside its hold keeps
+	// the gate open until it's due - see drainPushOutbox.
+	job(
+		DRAIN_PUSH_LOCK,
+		"* * * * *",
+		() => drainPushOutbox(),
+		(now) => takePending("push", now),
+	),
 	// Everything that runs once a day, as one chain so the database wakes for
 	// it once. 09:00 UTC is after the night's games have settled. The sports
 	// sync comes first, so what follows reads today's games; auto-resolve
@@ -353,6 +364,7 @@ export const JOBS: ScheduledJob[] = [
 			DRAIN_DIGESTS_LOCK,
 			DRAIN_GAME_REMINDERS_LOCK,
 			DRAIN_ANALYTICS_LOCK,
+			DRAIN_PUSH_LOCK,
 		].join(", "),
 		run: async () => {
 			await runJob(ENQUEUE_SEASON_START_LOCK, () =>
@@ -363,6 +375,7 @@ export const JOBS: ScheduledJob[] = [
 			await runJob(DRAIN_DIGESTS_LOCK, () => drainResolutionDigests())()
 			await runJob(DRAIN_GAME_REMINDERS_LOCK, () => drainGameReminders())()
 			await runJob(DRAIN_ANALYTICS_LOCK, () => drainAnalyticsOutbox())()
+			await runJob(DRAIN_PUSH_LOCK, () => drainPushOutbox())()
 			await refreshWorkCalendar()
 		},
 	},
@@ -370,6 +383,10 @@ export const JOBS: ScheduledJob[] = [
 
 export function startScheduler(): void {
 	void refreshWorkCalendar()
+	// The push gate is in memory, so a deploy or restart would otherwise
+	// strand pushes queued before it until the daily sweep, by which time
+	// they're stale. One look on boot picks them up.
+	markPending("push")
 	// Logged when a gate changes, not on every tick it turns away.
 	const gateOpen = new Map<string, boolean>()
 	for (const { name, cron: expression, when, run } of JOBS) {

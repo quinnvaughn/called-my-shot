@@ -1,4 +1,8 @@
-import { emailPreferenceType, streakFamily } from "../../../db/schema"
+import {
+	emailPreferenceType,
+	pushPreferenceType,
+	streakFamily,
+} from "../../../db/schema"
 import { builder } from "../../builder"
 
 export const StreakFamilyEnum = builder.enumType("StreakFamily", {
@@ -20,6 +24,19 @@ export const EmailPreferenceType = builder.enumType("EmailPreferenceType", {
 	) as Record<
 		string,
 		{ value: (typeof emailPreferenceType.enumValues)[number] }
+	>,
+})
+
+// Same construction as EmailPreferenceType, over every notification type.
+export const PushPreferenceType = builder.enumType("PushPreferenceType", {
+	values: Object.fromEntries(
+		pushPreferenceType.enumValues.map((value) => [
+			value.toUpperCase(),
+			{ value },
+		]),
+	) as Record<
+		string,
+		{ value: (typeof pushPreferenceType.enumValues)[number] }
 	>,
 })
 

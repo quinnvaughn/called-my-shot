@@ -6,6 +6,7 @@ import {
 	achievementNotices,
 	emailOutbox,
 	notifications,
+	pushOutbox,
 	questions,
 } from "../db/schema"
 import {
@@ -80,14 +81,19 @@ function callUrl(
 // results email days after the fact.
 const ACHIEVEMENT_WINDOW_HOURS = 36
 
-// Rows whose game the user has already looked at in-app. A game's
-// game_resolved notification is marked unread again by every result that
-// lands on it, so a read one means the user has seen everything on that game
-// up to the moment they read it.
-async function loadSeenInApp(
+// Rows the user has already been told about another way, and how. "seen_in_app"
+// is a game whose game_resolved notification they've read: every result that
+// lands on it marks it unread again, so a read one means they've seen
+// everything on that game up to the moment they read it. "pushed" is a result
+// a device accepted a push for after the row was queued - the game's push for a
+// game question, the call's own for one with no game. A push skipped as
+// "unchanged" counts too, since it was skipped for repeating one that went out.
+type AlreadyTold = "seen_in_app" | "pushed"
+
+async function loadAlreadyTold(
 	userId: string,
 	rows: { id: string }[],
-): Promise<Set<string>> {
+): Promise<Map<string, AlreadyTold>> {
 	const seen = await db
 		.select({ id: emailOutbox.id })
 		.from(emailOutbox)
@@ -102,7 +108,27 @@ async function loadSeenInApp(
 			),
 		)
 		.where(rowsIn(rows))
-	return new Set(seen.map((row) => row.id))
+	const pushed = await db
+		.select({ id: emailOutbox.id })
+		.from(emailOutbox)
+		.innerJoin(questions, eq(questions.id, emailOutbox.questionId))
+		.innerJoin(
+			pushOutbox,
+			and(
+				eq(pushOutbox.userId, userId),
+				eq(
+					pushOutbox.collapseKey,
+					sql`case when ${questions.gameId} is null then 'call:' || ${emailOutbox.callId} else 'game:' || ${questions.gameId} end`,
+				),
+				gte(pushOutbox.sentAt, emailOutbox.createdAt),
+				sql`(${pushOutbox.skippedReason} is null or ${pushOutbox.skippedReason} = 'unchanged')`,
+			),
+		)
+		.where(rowsIn(rows))
+	const told = new Map<string, AlreadyTold>()
+	for (const { id } of pushed) told.set(id, "pushed")
+	for (const { id } of seen) told.set(id, "seen_in_app")
+	return told
 }
 
 // The most recent 13:00 UTC at or before `now`.
@@ -323,16 +349,19 @@ async function drainOneUser(
 		return { sent: 0, skipped: claimed.length }
 	}
 
-	const seenInApp = await loadSeenInApp(userId, claimed)
-	if (seenInApp.size > 0) {
-		await markOutboxDone(
-			emailOutbox,
-			inArray(emailOutbox.id, [...seenInApp]),
-			{ now, skippedReason: "seen_in_app" },
+	const alreadyTold = await loadAlreadyTold(userId, claimed)
+	for (const reason of ["seen_in_app", "pushed"] as const) {
+		const ids = [...alreadyTold].flatMap(([id, how]) =>
+			how === reason ? [id] : [],
 		)
+		if (ids.length === 0) continue
+		await markOutboxDone(emailOutbox, inArray(emailOutbox.id, ids), {
+			now,
+			skippedReason: reason,
+		})
 	}
-	const unseen = claimed.filter((r) => !seenInApp.has(r.id))
-	if (unseen.length === 0) return { sent: 0, skipped: seenInApp.size }
+	const unseen = claimed.filter((r) => !alreadyTold.has(r.id))
+	if (unseen.length === 0) return { sent: 0, skipped: alreadyTold.size }
 
 	// Re-checks that each question is still `resolved`. A dispute filed inside
 	// the settling window flips it to `disputed`, at which point the result is
@@ -351,7 +380,7 @@ async function drainOneUser(
 			skippedReason: "no_longer_resolved",
 		})
 	}
-	const skipped = seenInApp.size + stale.length
+	const skipped = alreadyTold.size + stale.length
 	const live = unseen.filter((r) => summaries.has(r.callId))
 	if (live.length === 0) return { sent: 0, skipped }
 

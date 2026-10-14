@@ -3,6 +3,7 @@ import { useRouteContext } from "@tanstack/react-router"
 import { type ReactNode, useEffect, useState } from "react"
 import { css } from "styled-system/css"
 import { WalkthroughLauncher } from "#/components/onboarding/walkthrough-launcher"
+import { PushPromptHost } from "#/components/push/push-prompt-host"
 import { unreadNotificationCountQuery } from "#/graphql/queries/notifications"
 import { EmailBounceBanner } from "./email-bounce-banner"
 import { MobileTopbar } from "./mobile-topbar"
@@ -144,6 +145,7 @@ export function AppShell({
 			    it. Outside the layout row above so the right rail's sticky
 			    column has no say in where it sits. */}
 			<WalkthroughLauncher />
+			<PushPromptHost />
 		</div>
 	)
 }

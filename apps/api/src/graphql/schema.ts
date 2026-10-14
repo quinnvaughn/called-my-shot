@@ -19,6 +19,7 @@ import "./types/call-gif"
 import "./types/presser"
 import "./types/challenge"
 import "./types/update"
+import "./types/push"
 
 builder.queryType({})
 

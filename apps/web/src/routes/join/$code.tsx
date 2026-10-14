@@ -208,7 +208,9 @@ function RouteComponent() {
 								position: "sticky",
 								bottom: "0",
 								zIndex: 10,
-								paddingBlock: "4",
+								paddingTop: "4",
+								paddingBottom:
+									"calc({spacing.4} + env(safe-area-inset-bottom))",
 								_before: {
 									content: '""',
 									position: "absolute",

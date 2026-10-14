@@ -101,7 +101,8 @@ export function CallSignupCta({
 				position: "sticky",
 				bottom: "0",
 				zIndex: 10,
-				paddingBlock: "3",
+				paddingTop: "3",
+				paddingBottom: "calc({spacing.3} + env(safe-area-inset-bottom))",
 				_before: {
 					content: '""',
 					position: "absolute",

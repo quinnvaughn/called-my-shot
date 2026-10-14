@@ -70,7 +70,8 @@ export function SidebarNav({
 				flexShrink: 0,
 				display: "flex",
 				flexDirection: "column",
-				padding: "{spacing.6} {spacing.5}",
+				padding:
+					"calc({spacing.6} + env(safe-area-inset-top)) {spacing.5} calc({spacing.6} + env(safe-area-inset-bottom))",
 				borderRight: "1px solid {colors.border.default}",
 				bg: "bg.canvas",
 				position: { base: "fixed", md: "sticky" },

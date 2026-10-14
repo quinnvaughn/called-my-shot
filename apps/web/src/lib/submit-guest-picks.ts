@@ -14,6 +14,7 @@ import {
 	takeGuestPicksEntry,
 } from "#/stores/guest-picks-store"
 import { openModal } from "#/stores/modal-store"
+import { requestPushPrompt } from "#/stores/push-prompt-store"
 import { showToast } from "#/stores/toast-store"
 
 // Guest picks never show a conviction slider, so they go in at the midpoint the
@@ -84,6 +85,7 @@ async function postPicks(
 	})
 	await queryClient.invalidateQueries()
 	await router.invalidate()
+	if (posted.length > 0) requestPushPrompt("call")
 
 	// Someone signing in already has a record and knows what a call is, so the
 	// modal would be explaining the product to them with an OK button in the

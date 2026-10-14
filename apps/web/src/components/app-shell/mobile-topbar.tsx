@@ -29,7 +29,9 @@ export function MobileTopbar({
 				zIndex: "20",
 				bg: "bg.canvas",
 				borderBottom: "1px solid {colors.border.default}",
-				padding: "{spacing.3.5} {spacing.5}",
+				// The status bar draws over the top of the Home Screen app.
+				padding:
+					"calc({spacing.3.5} + env(safe-area-inset-top)) {spacing.5} {spacing.3.5}",
 			})}
 		>
 			<HStack gap="3">

@@ -13,7 +13,9 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AppRouteImport } from './routes/_app'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as GraphqlRouteImport } from './routes/graphql'
+import { Route as ManifestDotwebmanifestRouteImport } from './routes/manifest[.]webmanifest'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
+import { Route as SwRouteImport } from './routes/sw'
 import { Route as VersionRouteImport } from './routes/version'
 import { Route as AppAuthedRouteImport } from './routes/_app/_authed'
 import { Route as AppConfirmEmailRouteImport } from './routes/_app/confirm-email'
@@ -128,9 +130,19 @@ const GraphqlRoute = GraphqlRouteImport.update({
   path: '/graphql',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ManifestDotwebmanifestRoute = ManifestDotwebmanifestRouteImport.update({
+  id: '/manifest.webmanifest',
+  path: '/manifest.webmanifest',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
   id: '/sitemap.xml',
   path: '/sitemap.xml',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SwRoute = SwRouteImport.update({
+  id: '/sw',
+  path: '/sw',
   getParentRoute: () => rootRouteImport,
 } as any)
 const VersionRoute = VersionRouteImport.update({
@@ -640,7 +652,9 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/admin': typeof AdminRouteWithChildren
   '/graphql': typeof GraphqlRoute
+  '/manifest.webmanifest': typeof ManifestDotwebmanifestRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/sw': typeof SwRoute
   '/version': typeof VersionRoute
   '/confirm-email': typeof AppConfirmEmailRoute
   '/how-it-works': typeof AppHowItWorksRoute
@@ -738,7 +752,9 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/graphql': typeof GraphqlRoute
+  '/manifest.webmanifest': typeof ManifestDotwebmanifestRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/sw': typeof SwRoute
   '/version': typeof VersionRoute
   '/confirm-email': typeof AppConfirmEmailRoute
   '/how-it-works': typeof AppHowItWorksRoute
@@ -836,7 +852,9 @@ export interface FileRoutesById {
   '/_app': typeof AppRouteWithChildren
   '/admin': typeof AdminRouteWithChildren
   '/graphql': typeof GraphqlRoute
+  '/manifest.webmanifest': typeof ManifestDotwebmanifestRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/sw': typeof SwRoute
   '/version': typeof VersionRoute
   '/_app/_authed': typeof AppAuthedRouteWithChildren
   '/_app/confirm-email': typeof AppConfirmEmailRoute
@@ -938,7 +956,9 @@ export interface FileRouteTypes {
     | '/'
     | '/admin'
     | '/graphql'
+    | '/manifest.webmanifest'
     | '/sitemap.xml'
+    | '/sw'
     | '/version'
     | '/confirm-email'
     | '/how-it-works'
@@ -1036,7 +1056,9 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/graphql'
+    | '/manifest.webmanifest'
     | '/sitemap.xml'
+    | '/sw'
     | '/version'
     | '/confirm-email'
     | '/how-it-works'
@@ -1133,7 +1155,9 @@ export interface FileRouteTypes {
     | '/_app'
     | '/admin'
     | '/graphql'
+    | '/manifest.webmanifest'
     | '/sitemap.xml'
+    | '/sw'
     | '/version'
     | '/_app/_authed'
     | '/_app/confirm-email'
@@ -1235,7 +1259,9 @@ export interface RootRouteChildren {
   AppRoute: typeof AppRouteWithChildren
   AdminRoute: typeof AdminRouteWithChildren
   GraphqlRoute: typeof GraphqlRoute
+  ManifestDotwebmanifestRoute: typeof ManifestDotwebmanifestRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
+  SwRoute: typeof SwRoute
   VersionRoute: typeof VersionRoute
   AssetsSplatRoute: typeof AssetsSplatRoute
   IngestSplatRoute: typeof IngestSplatRoute
@@ -1287,11 +1313,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof GraphqlRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/manifest.webmanifest': {
+      id: '/manifest.webmanifest'
+      path: '/manifest.webmanifest'
+      fullPath: '/manifest.webmanifest'
+      preLoaderRoute: typeof ManifestDotwebmanifestRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/sitemap.xml': {
       id: '/sitemap.xml'
       path: '/sitemap.xml'
       fullPath: '/sitemap.xml'
       preLoaderRoute: typeof SitemapDotxmlRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/sw': {
+      id: '/sw'
+      path: '/sw'
+      fullPath: '/sw'
+      preLoaderRoute: typeof SwRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/version': {
@@ -2174,7 +2214,9 @@ const rootRouteChildren: RootRouteChildren = {
   AppRoute: AppRouteWithChildren,
   AdminRoute: AdminRouteWithChildren,
   GraphqlRoute: GraphqlRoute,
+  ManifestDotwebmanifestRoute: ManifestDotwebmanifestRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
+  SwRoute: SwRoute,
   VersionRoute: VersionRoute,
   AssetsSplatRoute: AssetsSplatRoute,
   IngestSplatRoute: IngestSplatRoute,

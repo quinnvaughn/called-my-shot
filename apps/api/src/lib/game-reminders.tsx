@@ -14,6 +14,15 @@ import { type SendFn, sendListEmail } from "./email-send"
 import { sendMail } from "./mailer"
 import { createNotifications } from "./notifications"
 import { markOutboxDone, markOutboxFailed, utcTimestamp } from "./outbox"
+import { isPushMuted, loadPushMutes } from "./push-prefs"
+import {
+	deliverPush,
+	type PushMessage,
+	type PushSendFn,
+	pushConfigured,
+	webPushSend,
+} from "./push-send"
+import { loadLiveSubscriptions } from "./push-subscriptions"
 
 // How long before a game starts its reminder goes out. An hour is late enough
 // that lineups and NFL inactives are usually posted, and early enough to still
@@ -153,7 +162,7 @@ const rowsIn = (rows: { id: string }[]) =>
 		rows.map((row) => row.id),
 	)
 
-type LoadedGame = ReminderGame & { id: string }
+type LoadedGame = ReminderGame & { id: string; path: string }
 
 async function loadGames(gameIds: string[]): Promise<Map<string, LoadedGame>> {
 	const rows = await db.query.games.findMany({
@@ -169,14 +178,16 @@ async function loadGames(gameIds: string[]): Promise<Map<string, LoadedGame>> {
 	for (const { league, homeTeam, awayTeam, ...game } of rows) {
 		// All three are non-null foreign keys; the relation types just can't say so.
 		if (!league || !homeTeam || !awayTeam) continue
+		const path = gamePath({ ...game, league, homeTeam, awayTeam })
 		byId.set(game.id, {
 			id: game.id,
+			path,
 			matchup: `${awayTeam.abbreviation} @ ${homeTeam.abbreviation}`,
 			awayTeamName: awayTeam.name,
 			homeTeamName: homeTeam.name,
 			leagueAbbr: league.abbreviation,
 			startsAt: game.startsAt,
-			gameUrl: emailUrl(gamePath({ ...game, league, homeTeam, awayTeam }), {
+			gameUrl: emailUrl(path, {
 				campaign: "game_reminder",
 				content: "game_row",
 			}),
@@ -211,20 +222,53 @@ async function finish(
 	})
 }
 
+// One push for a user's whole batch, opening the first game. The lock
+// screen has no time zone to show a start time in, so it counts down instead.
+export function gameReminderPush(batch: LoadedGame[], now: Date): PushMessage {
+	const [first] = batch
+	const minutes = Math.max(
+		1,
+		Math.round((first.startsAt.getTime() - now.getTime()) / 60_000),
+	)
+	return {
+		title:
+			batch.length === 1
+				? `${first.matchup} starts in ${minutes} min`
+				: `${batch.length} games you asked about start soon`,
+		body:
+			batch.length === 1
+				? "Check who's starting before calls lock."
+				: `First up: ${first.matchup} in ${minutes} min. Check who's starting before calls lock.`,
+		path: first.path,
+		tag: `reminder:${first.id}`,
+		type: "game_reminder",
+	}
+}
+
 // MUST be called under DRAIN_GAME_REMINDERS_LOCK (lib/job-lock.ts), for the
 // same reason as drainResolutionDigests.
+//
+// A user with a device gets a push instead of the email. The email is only
+// the fallback, for someone with no device or a push no device accepted.
 export async function drainGameReminders({
 	send = sendMail,
+	pushSend = webPushSend,
 	now = new Date(),
 }: {
 	send?: SendFn
+	pushSend?: PushSendFn
 	now?: Date
-} = {}): Promise<{ sent: number; muted: number; failed: number }> {
+} = {}): Promise<{
+	sent: number
+	pushed: number
+	muted: number
+	failed: number
+}> {
 	const started = await skipStartedGames(now)
 	const claimed = await claimDueBatches(now)
 	if (claimed.length === 0) {
 		if (started > 0) console.log(`[game-reminders] skipped_started=${started}`)
-		return { sent: 0, muted: 0, failed: 0 }
+		return { sent: 0, pushed: 0, muted: 0, failed: 0 }
 	}
 
 	const byUser = new Map<string, Claimed[]>()
@@ -237,8 +281,15 @@ export async function drainGameReminders({
 
 	const games = await loadGames([...new Set(claimed.map((r) => r.game_id))])
 	const recipients = await loadRecipients(userIds, "game_reminder")
+	const [devices, pushMutes] = pushConfigured()
+		? await Promise.all([
+				loadLiveSubscriptions(userIds, now),
+				loadPushMutes(userIds),
+			])
+		: [new Map(), new Map()]
 
 	let sent = 0
+	let pushed = 0
 	let muted = 0
 	let failed = 0
 	for (const [userId, rows] of byUser) {
@@ -249,6 +300,29 @@ export async function drainGameReminders({
 		// A user or game deleted since the claim cascades its reminder rows away,
 		// so both are present in practice; the guard is for the types.
 		if (!recipient || batch.length === 0) continue
+
+		const targets = devices.get(userId) ?? []
+		if (
+			targets.length > 0 &&
+			!isPushMuted(pushMutes.get(userId), "game_reminder")
+		) {
+			const ttl = Math.max(
+				60,
+				Math.round((batch[0].startsAt.getTime() - now.getTime()) / 1000),
+			)
+			const result = await deliverPush(
+				targets,
+				gameReminderPush(batch, now),
+				{ ttl, urgency: "high" },
+				pushSend,
+				now,
+			)
+			if (result.delivered > 0) {
+				await finish(userId, rows, "pushed", now)
+				pushed += 1
+				continue
+			}
+		}
 
 		// Deliberately not gated on emailVerified or emailBouncedAt, same as the
 		// resolution digest: this mails one person who just asked for it, and
@@ -287,7 +361,7 @@ export async function drainGameReminders({
 	}
 
 	console.log(
-		`[game-reminders] claimed=${claimed.length} users=${byUser.size} sent=${sent} muted=${muted} failed=${failed} skipped_started=${started}`,
+		`[game-reminders] claimed=${claimed.length} users=${byUser.size} sent=${sent} pushed=${pushed} muted=${muted} failed=${failed} skipped_started=${started}`,
 	)
-	return { sent, muted, failed }
+	return { sent, pushed, muted, failed }
 }

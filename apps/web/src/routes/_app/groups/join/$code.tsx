@@ -23,6 +23,7 @@ import { useRequireAuth } from "#/hooks/use-require-auth"
 import { track } from "#/lib/analytics"
 import { pageMeta } from "#/lib/meta"
 import { pluralize } from "#/lib/pluralize"
+import { requestPushPrompt } from "#/stores/push-prompt-store"
 
 const groupPreviewQuery = (code: string) =>
 	gqlQueryOptions(GroupPreviewDocument, { code })
@@ -76,6 +77,7 @@ function RouteComponent() {
 						groupId: result.group.id,
 						source: "invite_link",
 					})
+					requestPushPrompt("group_joined")
 					await queryClient.invalidateQueries()
 					await router.invalidate()
 					await navigate({
@@ -277,7 +279,8 @@ function RouteComponent() {
 						position: "sticky",
 						bottom: "0",
 						zIndex: 10,
-						paddingBlock: "3",
+						paddingTop: "3",
+						paddingBottom: "calc({spacing.3} + env(safe-area-inset-bottom))",
 						// Pulls the bar down over <main>'s bottom padding (5 below
 						// xl), so at the end of the page it rests flush with the
 						// viewport the same way it sits while pinned.

@@ -27,6 +27,7 @@ export function LandingPageNav({ leagues }: Props) {
 				bg: "bg.surface/88",
 				backdropFilter: "blur(10px)",
 				borderBottom: "1px solid {colors.border.default}",
+				paddingTop: "env(safe-area-inset-top)",
 			})}
 		>
 			<div
