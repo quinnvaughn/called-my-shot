@@ -378,7 +378,13 @@ export default defineConfig({
             field: {
               display: "block",
               width: "full",
-              minHeight: "24",
+              // Taller on a phone, where the narrow width fits only a few
+              // words a line. It also grows with what's typed, up to half the
+              // screen, where field-sizing is supported; elsewhere it stays
+              // at the minimum and scrolls.
+              minHeight: { base: "36", sm: "24" },
+              maxHeight: "50vh",
+              fieldSizing: "content",
               resize: "vertical",
               backgroundColor: "bg.canvas",
               border: "1px solid",

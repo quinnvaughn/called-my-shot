@@ -54,7 +54,18 @@ export function ColdStreaksSection({
 				>
 					<Card size="sm" interactive>
 						<Card.Body>
-							<HStack justify="space-between" alignItems="center" gap="3">
+							{/* Stacked on a phone the way a hot streak's card is: name,
+							    run, worst. On one line the run's big text left the
+							    name too narrow to fit beside it. */}
+							<div
+								className={css({
+									display: "flex",
+									flexDirection: { base: "column", sm: "row" },
+									justifyContent: "space-between",
+									alignItems: { base: "flex-start", sm: "center" },
+									gap: { base: "1.5", sm: "3" },
+								})}
+							>
 								<HStack gap="2" alignItems="center" minWidth="0">
 									{showLeague && (
 										<Tag size="sm">{streak.league.abbreviation}</Tag>
@@ -65,7 +76,15 @@ export function ColdStreaksSection({
 										{streak.familyLabel}
 									</span>
 								</HStack>
-								<HStack gap="3" alignItems="baseline" flexShrink="0">
+								<div
+									className={css({
+										display: "flex",
+										flexDirection: { base: "column", sm: "row" },
+										alignItems: { base: "flex-start", sm: "baseline" },
+										gap: { base: "1.5", sm: "3" },
+										flexShrink: "0",
+									})}
+								>
 									<span
 										className={css({ fontFamily: "heading", fontSize: "lg" })}
 									>
@@ -82,8 +101,8 @@ export function ColdStreaksSection({
 									>
 										Worst {streak.worstColdLength}
 									</span>
-								</HStack>
-							</HStack>
+								</div>
+							</div>
 						</Card.Body>
 					</Card>
 				</Link>
