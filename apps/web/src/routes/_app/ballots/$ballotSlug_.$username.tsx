@@ -1,7 +1,6 @@
 import { useQuery, useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
 import { FaRegTimesCircle } from "react-icons/fa"
-import { css } from "styled-system/css"
 import { VStack } from "styled-system/jsx"
 import { BallotEntryHeader } from "#/components/ballots/ballot-entry-header"
 import { BallotEntryStandings } from "#/components/ballots/ballot-entry-standings"
@@ -156,7 +155,7 @@ function RouteComponent() {
 	const tab = showStandings && view !== "picks" ? "standings" : "picks"
 
 	return (
-		<VStack gap="6" alignItems="stretch" className={css({ maxWidth: "2xl" })}>
+		<VStack gap="6" alignItems="stretch">
 			<BallotEntryHeader
 				ballot={ballot}
 				entry={entry}

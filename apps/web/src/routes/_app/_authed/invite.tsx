@@ -38,7 +38,7 @@ function RouteComponent() {
 	const displayUrl = `${SITE_HOST}/join/${code}`
 
 	return (
-		<VStack gap="6" alignItems="stretch" className={css({ maxWidth: "2xl" })}>
+		<VStack gap="6" alignItems="stretch">
 			<PageHeader
 				title="Invite a friend"
 				subtitle="They get a redo the moment they sign up. You get one when they make their first call."

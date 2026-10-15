@@ -89,7 +89,7 @@ export function AppShell({
 			<div
 				className={css({
 					display: "flex",
-					maxWidth: "1320px",
+					maxWidth: "1728px",
 					marginInline: "auto",
 					minHeight: "100dvh",
 				})}

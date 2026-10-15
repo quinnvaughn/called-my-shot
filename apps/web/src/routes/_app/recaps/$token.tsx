@@ -1,7 +1,6 @@
 import { useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
 import { FaRegTimesCircle } from "react-icons/fa"
-import { css } from "styled-system/css"
 import { VStack } from "styled-system/jsx"
 import { GroupRecapCard, recapPath } from "#/components/groups/group-recap-card"
 import { SignUpPrompt } from "#/components/groups/sign-up-prompt"
@@ -76,7 +75,7 @@ function RouteComponent() {
 	}
 
 	return (
-		<VStack gap="6" alignItems="stretch" className={css({ maxWidth: "3xl" })}>
+		<VStack gap="6" alignItems="stretch">
 			{recap.groupId && (
 				<Breadcrumb>
 					<Breadcrumb.Link to="/groups">Groups</Breadcrumb.Link>

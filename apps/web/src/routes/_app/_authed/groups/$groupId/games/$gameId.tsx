@@ -1,7 +1,6 @@
 import { useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute, Link } from "@tanstack/react-router"
 import { FaRegTimesCircle } from "react-icons/fa"
-import { css } from "styled-system/css"
 import { VStack } from "styled-system/jsx"
 import { GameMatchupHeader } from "#/components/games/game-matchup-header"
 import { GameSetRail } from "#/components/games/game-set-rail"
@@ -92,7 +91,7 @@ function RouteComponent() {
 	const gameParams = { gameId: game.id, slug: buildGameSlug(game) }
 
 	return (
-		<VStack gap="6" alignItems="stretch" className={css({ maxWidth: "2xl" })}>
+		<VStack gap="6" alignItems="stretch">
 			<Breadcrumb>
 				<Breadcrumb.Link to="/groups">Groups</Breadcrumb.Link>
 				<Breadcrumb.Link to="/groups/$groupId" params={{ groupId: group.id }}>

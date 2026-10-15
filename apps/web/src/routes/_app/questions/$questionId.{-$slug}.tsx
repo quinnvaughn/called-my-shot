@@ -303,7 +303,7 @@ function RouteComponent() {
 			<VStack
 				gap="6"
 				alignItems="stretch"
-				className={css({ maxWidth: "2xl", minHeight: "100%" })}
+				className={css({ minHeight: "100%" })}
 			>
 				<QuestionBreadcrumb question={question} />
 				<BallotStrip

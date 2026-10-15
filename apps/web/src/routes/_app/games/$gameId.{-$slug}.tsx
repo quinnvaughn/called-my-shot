@@ -193,7 +193,7 @@ function RouteComponent() {
 	}
 
 	return (
-		<VStack gap="6" alignItems="stretch" className={css({ maxWidth: "2xl" })}>
+		<VStack gap="6" alignItems="stretch">
 			<Breadcrumb>
 				{/* The Games tab on this game's own day/week, not today's. */}
 				<Breadcrumb.Link

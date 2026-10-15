@@ -109,7 +109,7 @@ function RouteComponent() {
 		: null
 
 	return (
-		<VStack gap="6" alignItems="stretch" className={css({ maxWidth: "2xl" })}>
+		<VStack gap="6" alignItems="stretch">
 			<CallPageHeader call={call} />
 
 			<CallPageRecord call={call} view={view} me={me} />

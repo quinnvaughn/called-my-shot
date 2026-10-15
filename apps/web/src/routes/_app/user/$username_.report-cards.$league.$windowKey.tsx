@@ -114,7 +114,7 @@ function RouteComponent() {
 	const empty = isEmptyReportCard(card)
 
 	return (
-		<VStack gap="6" alignItems="stretch" className={css({ maxWidth: "2xl" })}>
+		<VStack gap="6" alignItems="stretch">
 			<Breadcrumb>
 				<Breadcrumb.Link
 					to="/user/$username"

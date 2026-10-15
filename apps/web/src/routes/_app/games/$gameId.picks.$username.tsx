@@ -1,7 +1,6 @@
 import { useQuery, useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
 import { FaRegTimesCircle } from "react-icons/fa"
-import { css } from "styled-system/css"
 import { VStack } from "styled-system/jsx"
 import { z } from "zod"
 import { GameMatchupHeader } from "#/components/games/game-matchup-header"
@@ -122,7 +121,7 @@ function RouteComponent() {
 	)
 
 	return (
-		<VStack gap="6" alignItems="stretch" className={css({ maxWidth: "2xl" })}>
+		<VStack gap="6" alignItems="stretch">
 			<GamePicksBreadcrumb
 				game={game}
 				crumbGroup={crumbGroup}

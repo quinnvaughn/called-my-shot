@@ -5,7 +5,6 @@ import {
 	Outlet,
 	redirect,
 } from "@tanstack/react-router"
-import { css } from "styled-system/css"
 import { VStack } from "styled-system/jsx"
 import { LeagueNotFound } from "#/components/leagues/league-not-found"
 import { SeasonPlayCard } from "#/components/leagues/season-play-card"
@@ -103,7 +102,7 @@ function RouteComponent() {
 	const postseason = league.postseason ?? null
 
 	return (
-		<VStack gap="6" alignItems="stretch" className={css({ maxWidth: "3xl" })}>
+		<VStack gap="6" alignItems="stretch">
 			<PageHeader
 				title={league.name}
 				subtitle={[
