@@ -50,6 +50,15 @@ export const LeagueGamesForWindowDocument = graphql(`
 					awayScore
 					questionCount
 					viewerCalledCount
+					callerCount
+					viewerGroupCallers {
+						count
+						preview {
+							id
+							name
+							avatarUrl
+						}
+					}
 					startTimeTbd
 					postseason {
 						homeSeed

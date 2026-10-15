@@ -11,6 +11,7 @@ import { gameScoreLabel, gameTimeLabel } from "#/lib/game-status"
 import { pluralize } from "#/lib/pluralize"
 import { seededName, seriesStakesLabel } from "#/lib/postseason"
 import { buildGameSlug } from "#/lib/slug"
+import { GameRowCallers } from "./game-row-callers"
 
 type Props = {
 	// The league room already knows which league it is rendering; the game
@@ -26,6 +27,11 @@ type Props = {
 		awayScore: number | null
 		questionCount: number
 		viewerCalledCount: number | null
+		callerCount: number
+		viewerGroupCallers: {
+			count: number
+			preview: { id: string; name: string; avatarUrl?: string | null }[]
+		}
 		startTimeTbd: boolean
 		// The round itself is the heading this row sits under on a postseason
 		// day, so only the game's place in its series is here.
@@ -68,13 +74,13 @@ function questionsSubline(
 	const label = `${questionCount} ${pluralize(questionCount, "question")}`
 	if (viewerCalledCount === null) return label
 	return viewerCalledCount === 0
-		? `${label} · none called`
-		: `${label} · ${viewerCalledCount} called`
+		? `${label} · you called none`
+		: `${label} · you called ${viewerCalledCount}`
 }
 
 // The league Games tab's row - one real-world matchup, with enough of a
-// preview (question/called counts, live status) to decide whether it's worth
-// tapping into. Not GameBlock (components/questions/game-block.tsx): that's a
+// preview (question/called counts, who else called it, live status) to
+// decide whether it's worth tapping into. Not GameBlock (components/questions/game-block.tsx): that's a
 // compact inline badge built for sitting inside a question/call card, too
 // small to carry team names or the counts this tab needs.
 export function GameRow({ game, leagueSlug }: Props) {
@@ -168,6 +174,10 @@ export function GameRow({ game, leagueSlug }: Props) {
 							>
 								{questionsSubline(game.questionCount, game.viewerCalledCount)}
 							</span>
+							<GameRowCallers
+								callerCount={game.callerCount}
+								groupCallers={game.viewerGroupCallers}
+							/>
 						</VStack>
 
 						<HStack gap="3" alignItems="center" flexShrink="0">

@@ -1,7 +1,13 @@
 import { and, count, eq, gt } from "drizzle-orm"
 import { DateTime } from "luxon"
 import { db } from "../../../db"
-import { calls, questions, type User } from "../../../db/schema"
+import { questions, type User } from "../../../db/schema"
+import {
+	type GroupCallers,
+	loadCallerCounts,
+	loadGroupCallers,
+	loadUserCalledCounts,
+} from "../../../lib/game-callers"
 import {
 	type GameEntry,
 	type GameEntryVerdict as GameEntryVerdictValue,
@@ -12,6 +18,7 @@ import {
 import { hasGameReminder } from "../../../lib/game-reminders"
 import { buildWeekWindowKey, ET_ZONE } from "../../../lib/windows"
 import { builder } from "../../builder"
+import { ctxLoader } from "../../loader"
 import { CallRef } from "../question/call"
 import { QuestionRef } from "../question/question-object"
 import { UserRef } from "../user"
@@ -84,6 +91,42 @@ export const GameEntryRef = builder
 				type: [GameEntryMemberRef],
 				resolve: (e) => e.community.members,
 			}),
+		}),
+	})
+
+// The per-game counts below are keyed by game id alone, so every row on a
+// games list goes out as one query each. The viewer is fixed for the request.
+const callerCountLoader = ctxLoader(async (gameIds: string[]) => {
+	const counts = await loadCallerCounts(gameIds)
+	return gameIds.map((id) => counts.get(id) ?? 0)
+})
+
+const viewerCalledCountLoader = ctxLoader(
+	async (gameIds: string[], ctx): Promise<number[]> => {
+		if (!ctx.user) return gameIds.map(() => 0)
+		const counts = await loadUserCalledCounts(ctx.user.id, gameIds)
+		return gameIds.map((id) => counts.get(id) ?? 0)
+	},
+)
+
+const NO_GROUP_CALLERS: GroupCallers = { count: 0, preview: [] }
+
+const viewerGroupCallersLoader = ctxLoader(
+	async (gameIds: string[], ctx): Promise<GroupCallers[]> => {
+		if (!ctx.user) return gameIds.map(() => NO_GROUP_CALLERS)
+		const byGame = await loadGroupCallers(ctx.user.id, gameIds)
+		return gameIds.map((id) => byGame.get(id) ?? NO_GROUP_CALLERS)
+	},
+)
+
+const GameGroupCallersRef = builder
+	.objectRef<GroupCallers>("GameGroupCallers")
+	.implement({
+		fields: (t) => ({
+			count: t.exposeInt("count"),
+			// The most recent few callers, never more than
+			// GROUP_CALLER_PREVIEW.
+			preview: t.field({ type: [UserRef], resolve: (c) => c.preview }),
 		}),
 	})
 
@@ -231,22 +274,23 @@ export const GameRef = builder.drizzleObject("games", {
 				ctx.user ? hasGameReminder(ctx.user.id, game.id) : false,
 		}),
 		// Null when signed out - same reasoning as League.myOpenCallCount.
-		// A plain per-row resolve: a games list is one window's worth of games
-		// (a day or a week), never large enough to worry about N+1.
 		viewerCalledCount: t.field({
 			type: "Int",
 			nullable: true,
-			resolve: async (game, _args, ctx) => {
-				if (!ctx.user) return null
-				const [{ n }] = await db
-					.select({ n: count() })
-					.from(calls)
-					.innerJoin(questions, eq(questions.id, calls.questionId))
-					.where(
-						and(eq(calls.userId, ctx.user.id), eq(questions.gameId, game.id)),
-					)
-				return n
-			},
+			resolve: (game, _args, ctx) =>
+				ctx.user ? viewerCalledCountLoader(ctx).load(game.id) : null,
+		}),
+		// Everyone with a call on this game, the viewer included.
+		callerCount: t.field({
+			type: "Int",
+			resolve: (game, _args, ctx) => callerCountLoader(ctx).load(game.id),
+		}),
+		// People in the viewer's groups who called this game, the viewer left
+		// out. Empty when signed out.
+		viewerGroupCallers: t.field({
+			type: GameGroupCallersRef,
+			resolve: (game, _args, ctx) =>
+				viewerGroupCallersLoader(ctx).load(game.id),
 		}),
 		// One user's calls on this game, behind /games/:id/picks/:username.
 		// Null for an unknown user or one with no calls here.
