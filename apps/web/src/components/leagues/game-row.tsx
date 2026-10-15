@@ -3,10 +3,12 @@ import { FiChevronRight } from "react-icons/fi"
 import { css } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
 import { Card } from "#/components/ui/card"
+import { LiveDot } from "#/components/ui/live-dot"
 import { Tag } from "#/components/ui/tag"
 import { TeamBadge } from "#/components/ui/team-badge"
 import type { GameStatus } from "#/graphql/generated/graphql"
 import { gameScoreLabel, gameTimeLabel } from "#/lib/game-status"
+import { pluralize } from "#/lib/pluralize"
 import { seededName, seriesStakesLabel } from "#/lib/postseason"
 import { buildGameSlug } from "#/lib/slug"
 
@@ -63,7 +65,7 @@ function questionsSubline(
 	viewerCalledCount: number | null,
 ): string {
 	if (questionCount === 0) return "No questions yet"
-	const label = `${questionCount} question${questionCount === 1 ? "" : "s"}`
+	const label = `${questionCount} ${pluralize(questionCount, "question")}`
 	if (viewerCalledCount === null) return label
 	return viewerCalledCount === 0
 		? `${label} · none called`
@@ -105,8 +107,7 @@ export function GameRow({ game, leagueSlug }: Props) {
 								/>
 								<span
 									className={css({
-										fontFamily: "mono",
-										fontSize: "2xs",
+										textStyle: "meta",
 										color: "fg.subtle",
 									})}
 								>
@@ -142,10 +143,7 @@ export function GameRow({ game, leagueSlug }: Props) {
 									{series && (
 										<span
 											className={css({
-												fontFamily: "mono",
-												fontSize: "2xs",
-												letterSpacing: "wide",
-												textTransform: "uppercase",
+												textStyle: "label",
 												color: "secondary.default",
 											})}
 										>
@@ -164,8 +162,7 @@ export function GameRow({ game, leagueSlug }: Props) {
 							)}
 							<span
 								className={css({
-									fontFamily: "mono",
-									fontSize: "2xs",
+									textStyle: "meta",
 									color: game.viewerCalledCount ? "fg.default" : "fg.subtle",
 								})}
 							>
@@ -177,15 +174,7 @@ export function GameRow({ game, leagueSlug }: Props) {
 							<VStack alignItems="flex-end" gap="0.5">
 								{live ? (
 									<HStack gap="1.5" alignItems="center">
-										<span
-											className={css({
-												width: "1.5",
-												height: "1.5",
-												borderRadius: "full",
-												bg: "secondary.default",
-												animation: "pulse 1.6s ease-in-out infinite",
-											})}
-										/>
+										<LiveDot />
 										<span
 											className={css({
 												fontFamily: "mono",
@@ -199,8 +188,7 @@ export function GameRow({ game, leagueSlug }: Props) {
 										{!game.atHalftime && game.statusDetail && (
 											<span
 												className={css({
-													fontFamily: "mono",
-													fontSize: "2xs",
+													textStyle: "meta",
 													color: "fg.muted",
 												})}
 											>
@@ -211,8 +199,7 @@ export function GameRow({ game, leagueSlug }: Props) {
 								) : (
 									<span
 										className={css({
-											fontFamily: "mono",
-											fontSize: "2xs",
+											textStyle: "meta",
 											color: "fg.subtle",
 										})}
 									>

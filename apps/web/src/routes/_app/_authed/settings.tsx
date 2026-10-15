@@ -1,6 +1,5 @@
 import { useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
-import { css } from "styled-system/css"
 import { VStack } from "styled-system/jsx"
 import { BlockedUsersSection } from "#/components/settings/blocked-users-section"
 import { DangerZone } from "#/components/settings/danger-zone"
@@ -14,8 +13,9 @@ import { PushNotificationsSection } from "#/components/settings/push-notificatio
 import { UsernameSection } from "#/components/settings/username-section"
 import { WalkthroughSection } from "#/components/settings/walkthrough-section"
 import { PageHeader } from "#/components/ui/page-header"
-import { SettingsPageDocument } from "#/graphql/queries/user"
+import { SectionLabel } from "#/components/ui/section-label"
 import { gqlQueryOptions } from "#/graphql/query-options"
+import { SettingsPageDocument } from "#/graphql/user/settings/queries"
 import { toFlair } from "#/lib/identity"
 
 const settingsQuery = gqlQueryOptions(SettingsPageDocument, {})
@@ -24,22 +24,6 @@ export const Route = createFileRoute("/_app/_authed/settings")({
 	component: RouteComponent,
 	loader: ({ context }) => context.queryClient.query(settingsQuery),
 })
-
-function sectionLabel(text: string) {
-	return (
-		<h2
-			className={css({
-				fontFamily: "mono",
-				fontSize: "xs",
-				letterSpacing: "wide",
-				color: "fg.muted",
-				textTransform: "uppercase",
-			})}
-		>
-			{text}
-		</h2>
-	)
-}
 
 function RouteComponent() {
 	const { data } = useSuspenseQuery(settingsQuery)
@@ -55,7 +39,7 @@ function RouteComponent() {
 				subtitle="Manage your login and account-level preferences"
 			/>
 			<VStack alignItems="stretch" gap="3">
-				{sectionLabel("Avatar and banner")}
+				<SectionLabel>Avatar and banner</SectionLabel>
 				<ProfileImagesSection
 					name={me.name}
 					avatarUrl={me.avatarUrl ?? null}
@@ -63,22 +47,22 @@ function RouteComponent() {
 				/>
 			</VStack>
 			<VStack alignItems="stretch" gap="3">
-				{sectionLabel("Username")}
+				<SectionLabel>Username</SectionLabel>
 				<UsernameSection username={me.username} />
 			</VStack>
 			<VStack alignItems="stretch" gap="3">
-				{sectionLabel("Teams")}
+				<SectionLabel>Teams</SectionLabel>
 				<FavoriteTeamsSection teams={me.favoriteTeams} />
 			</VStack>
 			<VStack alignItems="stretch" gap="3">
-				{sectionLabel("Flair")}
+				<SectionLabel>Flair</SectionLabel>
 				<FlairSection
 					flair={toFlair(me.equippedFlair)}
 					flairId={me.equippedFlair?.id ?? null}
 				/>
 			</VStack>
 			<VStack alignItems="stretch" gap="3">
-				{sectionLabel("Email")}
+				<SectionLabel>Email</SectionLabel>
 				<EmailSection
 					email={me.email ?? ""}
 					emailVerified={me.emailVerified}
@@ -87,27 +71,27 @@ function RouteComponent() {
 				/>
 			</VStack>
 			<VStack alignItems="stretch" gap="3">
-				{sectionLabel("Email notifications")}
+				<SectionLabel>Email notifications</SectionLabel>
 				<EmailNotificationsSection mutedEmailTypes={me.mutedEmailTypes ?? []} />
 			</VStack>
 			<PushNotificationsSection
-				label={sectionLabel("Push notifications")}
+				label={<SectionLabel>Push notifications</SectionLabel>}
 				mutedPushTypes={me.mutedPushTypes ?? []}
 			/>
 			<VStack alignItems="stretch" gap="3">
-				{sectionLabel("Password")}
+				<SectionLabel>Password</SectionLabel>
 				<PasswordSection hasPassword={me.hasPassword ?? true} />
 			</VStack>
 			<VStack alignItems="stretch" gap="3">
-				{sectionLabel("Walkthrough")}
+				<SectionLabel>Walkthrough</SectionLabel>
 				<WalkthroughSection />
 			</VStack>
 			<VStack alignItems="stretch" gap="3">
-				{sectionLabel("Blocked")}
+				<SectionLabel>Blocked</SectionLabel>
 				<BlockedUsersSection />
 			</VStack>
 			<VStack alignItems="stretch" gap="3">
-				{sectionLabel("Danger zone")}
+				<SectionLabel>Danger zone</SectionLabel>
 				<DangerZone
 					username={me.username}
 					hasPassword={me.hasPassword ?? true}

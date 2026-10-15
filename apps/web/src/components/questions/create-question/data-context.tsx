@@ -12,6 +12,8 @@ import type {
 export type QuestionData = {
 	sports: SportsQuery["sports"]
 	isAdmin: boolean
+	// The ballot fixed by ?ballotId= on arrival, if any - see BallotField.
+	lockedBallotId?: string
 	teams: CatalogTeam[]
 	players: CatalogPlayer[]
 	stats: CatalogStat[]
@@ -35,15 +37,13 @@ const QuestionDataContext = createContext<QuestionData | null>(null)
 /**
  * The catalog data every shape panel reads, so a panel takes no props at all.
  *
- * Two rules keep this safe, both of them about the PoolSummary loop (see
- * use-entity-pools.ts):
+ * Pool items are computed once, above this provider, because the form owner
+ * also submits them as `options` (see useCreateQuestionForm) - a panel only
+ * displays them.
  *
- * 1. Pool items are computed once, above this provider. Computing them inside a
- *    panel would put them in a component that re-renders on every `options`
- *    write, which is the original infinite loop relocated.
- * 2. Nothing puts the value this hook returns into a dependency array. It's a
- *    fresh object every time the provider re-renders, so `useEffect(…, [data])`
- *    loops immediately. Destructure first and depend on the field.
+ * Nothing should put the value this hook returns into a dependency array. It's
+ * a fresh object every time the provider re-renders, so `useEffect(…, [data])`
+ * re-runs on every render. Destructure first and depend on the field.
  *
  * Deliberately carries no watched form scalar - a panel that needs `leagueId`
  * or `awardConferences` reads it with useWatch, so typing in one field doesn't

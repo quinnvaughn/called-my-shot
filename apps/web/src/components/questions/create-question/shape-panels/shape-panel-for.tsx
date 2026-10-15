@@ -2,14 +2,12 @@ import { match } from "ts-pattern"
 import type { CreateQuestionValues } from "../form-context"
 import { AwardPanel } from "./award-panel"
 import { FinalistsPanel } from "./finalists-panel"
+import { GameStatLeaderPanel } from "./game-stat-leader-panel"
 import { HeadToHeadPanel } from "./head-to-head-panel"
 import { MatchupPanel } from "./matchup-panel"
-import {
-	GameStatLeaderPanel,
-	SeasonStatLeaderPanel,
-	TeamStatLeaderPanel,
-} from "./stat-leader-panels"
+import { SeasonStatLeaderPanel } from "./season-stat-leader-panel"
 import { StatPanel } from "./stat-panel"
+import { TeamStatLeaderPanel } from "./team-stat-leader-panel"
 import { YesNoPanel } from "./yes-no-panel"
 
 // The one place a shape turns into a panel. Its own component rather than

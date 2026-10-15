@@ -3,6 +3,7 @@ import { HStack, VStack } from "styled-system/jsx"
 import { match } from "ts-pattern"
 import { useTourAnchor } from "#/components/onboarding/tour-anchors"
 import type { CastCallFormState } from "#/components/questions/cast-call-form"
+import { CastCallFormProvider } from "#/components/questions/cast-call-form/cast-call-form-context"
 import { ConfirmCallModal } from "#/components/questions/confirm-call-modal"
 import { Button } from "#/components/ui/button"
 import { callersText } from "#/lib/field-signal"
@@ -54,8 +55,7 @@ export function CallSubmitBar({ callForm }: { callForm: CastCallFormState }) {
 					<HStack
 						justify="space-between"
 						className={css({
-							fontFamily: "mono",
-							fontSize: "xs",
+							textStyle: "metaLg",
 							color: "fg.muted",
 						})}
 					>
@@ -68,7 +68,13 @@ export function CallSubmitBar({ callForm }: { callForm: CastCallFormState }) {
 						size="lg"
 						fullWidth
 						disabled={!canSubmit}
-						onClick={() => openModal(<ConfirmCallModal callForm={callForm} />)}
+						onClick={() =>
+							openModal(
+								<CastCallFormProvider callForm={callForm}>
+									<ConfirmCallModal />
+								</CastCallFormProvider>,
+							)
+						}
 					>
 						{label}
 					</Button>

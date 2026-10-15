@@ -1,6 +1,8 @@
 import { Link } from "@tanstack/react-router"
 import { css, cx } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
+import { RecordTag } from "#/components/records/record-tag"
+import { arrowLink } from "#/components/ui/arrow-link"
 import { Card } from "#/components/ui/card"
 import { type FragmentType, graphql, useFragment } from "#/graphql/generated"
 import type { CallCard_CallFragment } from "#/graphql/generated/graphql"
@@ -13,9 +15,9 @@ import {
 } from "#/lib/call-summary"
 import { toIdentity } from "#/lib/identity"
 import { isNumericQuestionShape } from "#/lib/question-labels"
+import { type RecordTone, recordTagFor } from "#/lib/record-tag"
 import { buildQuestionSlug } from "#/lib/slug"
 import { CallPoints } from "./call-points"
-import { RecordTag, type RecordTone, recordTagFor } from "./call-record-card"
 import { CardRule } from "./card-rule"
 import { CaseBlock } from "./case-block"
 import { DisputedFlag } from "./disputed-flag"
@@ -141,10 +143,7 @@ export function CallCard({ call: callProp, linked = true }: CallCardProps) {
 								slug: buildQuestionSlug(call.question.title),
 							}}
 							className={css({
-								fontFamily: "mono",
-								fontSize: "2xs",
-								letterSpacing: "wide",
-								textTransform: "uppercase",
+								textStyle: "label",
 								color: "fg.subtle",
 								textDecoration: "none",
 								_hover: { color: "fg.muted" },
@@ -163,15 +162,7 @@ export function CallCard({ call: callProp, linked = true }: CallCardProps) {
 							params={{ callId: call.id }}
 							className={cx(
 								aboveOverlay,
-								css({
-									fontFamily: "mono",
-									fontSize: "2xs",
-									letterSpacing: "wide",
-									textTransform: "uppercase",
-									color: "primary.default",
-									textDecoration: "none",
-									_hover: { opacity: 0.8 },
-								}),
+								arrowLink({ tone: "primary", align: "parent" }),
 							)}
 						>
 							The call →

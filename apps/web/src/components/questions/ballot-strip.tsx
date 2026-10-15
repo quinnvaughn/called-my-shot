@@ -1,7 +1,7 @@
 import { MdBallot } from "react-icons/md"
+import { QuestionSetStrip } from "#/components/questions/question-set-strip/question-set-strip"
 import { type FragmentType, graphql, useFragment } from "#/graphql/generated"
 import { ballotMemberState } from "#/lib/ballot-member-state"
-import { QuestionSetStrip } from "./question-set-strip"
 
 export const BallotStripFragment = graphql(`
 	fragment BallotStrip_question on Question {

@@ -56,12 +56,11 @@ export function OptionRow({
 		width: "full",
 		textAlign: "left",
 		background: "card",
-		border: "1px solid",
-		borderColor: selected
+		border: selected
 			? isPick
-				? "primary.default"
-				: "secondary.default"
-			: "border.default",
+				? "1px solid {colors.primary.default}"
+				: "1px solid {colors.secondary.default}"
+			: "1px solid {colors.border.default}",
 		borderRadius: "md",
 		padding: "3",
 		overflow: "hidden",
@@ -70,7 +69,10 @@ export function OptionRow({
 		// selected guard wins on source order regardless of specificity,
 		// so it was silently overriding primary.default back to
 		// border.emphasized on any selected row the pointer sat over.
-		_hover: !onClick || selected ? {} : { borderColor: "border.emphasized" },
+		_hover:
+			!onClick || selected
+				? {}
+				: { border: "1px solid {colors.border.emphasized}" },
 	})
 
 	const content = (
@@ -107,7 +109,7 @@ export function OptionRow({
 							{label}
 						</span>
 						{points && (
-							<span className={css({ fontFamily: "mono", fontSize: "2xs" })}>
+							<span className={css({ textStyle: "meta" })}>
 								<span className={css({ color: "success.default" })}>
 									+{points.win}
 								</span>
@@ -122,8 +124,7 @@ export function OptionRow({
 				<HStack gap="1.5" flexShrink="0">
 					<span
 						className={css({
-							fontFamily: "mono",
-							fontSize: "xs",
+							textStyle: "metaLg",
 							color: selected
 								? isPick
 									? "primary.default"
@@ -137,8 +138,7 @@ export function OptionRow({
 						<>
 							<span
 								className={css({
-									fontFamily: "mono",
-									fontSize: "xs",
+									textStyle: "metaLg",
 									color: "fg.subtle",
 								})}
 							>
@@ -146,8 +146,7 @@ export function OptionRow({
 							</span>
 							<span
 								className={css({
-									fontFamily: "mono",
-									fontSize: "xs",
+									textStyle: "metaLg",
 									color: selected
 										? isPick
 											? "primary.default"

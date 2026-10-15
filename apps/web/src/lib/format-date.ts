@@ -1,5 +1,6 @@
 import { SPORTS_TIME_ZONE } from "@called-my-shot/schemas"
 import { DateTime } from "luxon"
+import { pluralize } from "./pluralize"
 
 // Both the zone and the locale are pinned, and under SSR both matter.
 //
@@ -30,6 +31,22 @@ export function formatShortDate(iso: string): string {
 		.setLocale("en-US")
 		.toFormat("MMM d")
 }
+
+// A season week by its start: startsOn is a calendar date in the sports time
+// zone, so it's read at noon UTC to land on the same day in that zone.
+export const weekLabel = (startsOn: string) =>
+	formatShortDate(`${startsOn}T12:00:00Z`)
+
+// "10/20", for a dense column of dates. Pinned the same way as formatCallDate.
+export function formatNumericDate(iso: string): string {
+	return DateTime.fromISO(iso, { zone: SPORTS_TIME_ZONE })
+		.setLocale("en-US")
+		.toFormat("M/d")
+}
+
+// "Oct 20, 7:05 PM": a date and a clock time, without the year. A toFormat
+// pattern rather than a function, since each caller picks its own zone.
+export const MONTH_DAY_TIME_FORMAT = "MMM d, h:mm a"
 
 // The moment a call went on the record, down to the minute, in the given
 // zone - "Mar 3, 2026, 10:42 AM PDT". The zone name rides along because a
@@ -63,6 +80,16 @@ export function formatCallAge(
 	return at.toFormat(at.year === thisYear ? "MMM d" : "MMM d, yyyy")
 }
 
+// How long ago something happened, to the minute - "45m ago", "3h 12m ago".
+// Hours keep counting past a day rather than rolling over into days.
+export function formatTimeAgo(iso: string, nowMs: number = Date.now()): string {
+	const ms = nowMs - new Date(iso).getTime()
+	const hours = Math.floor(ms / (1000 * 60 * 60))
+	const minutes = Math.floor((ms % (1000 * 60 * 60)) / (1000 * 60))
+	if (hours <= 0) return `${minutes}m ago`
+	return `${hours}h ${minutes}m ago`
+}
+
 // The gap between calling something and being right about it - "11 months
 // before it resolved". Months rather than days, because a 340-day gap
 // reported as "340 days" is precision nobody asked for, and under a month
@@ -78,8 +105,8 @@ export function formatCallLead(
 	const months = Math.floor(resolved.diff(created, "months").months)
 	if (months < 1) return null
 	if (months < 12) {
-		return `Called ${months} month${months === 1 ? "" : "s"} before it resolved`
+		return `Called ${months} ${pluralize(months, "month")} before it resolved`
 	}
 	const years = Math.floor(months / 12)
-	return `Called ${years} year${years === 1 ? "" : "s"} before it resolved`
+	return `Called ${years} ${pluralize(years, "year")} before it resolved`
 }

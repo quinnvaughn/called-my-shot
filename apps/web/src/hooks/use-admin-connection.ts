@@ -33,15 +33,14 @@ export function useAdminConnection<TResult, TVariables, TItem, Sort extends stri
 
 	// keepPreviousData holds the current rows in place while the newly picked
 	// sort's first page loads, rather than emptying the table mid-click.
-	const { data, hasNextPage, isFetching, fetchNextPage, refetch } =
-		useInfiniteQuery({
-			...gqlInfiniteQueryOptions(
-				document,
-				variables({ sortBy, sortDir: sortDir === "asc" ? "ASC" : "DESC" }),
-				selectConnection,
-			),
-			placeholderData: keepPreviousData,
-		})
+	const { data, hasNextPage, isFetching, fetchNextPage } = useInfiniteQuery({
+		...gqlInfiniteQueryOptions(
+			document,
+			variables({ sortBy, sortDir: sortDir === "asc" ? "ASC" : "DESC" }),
+			selectConnection,
+		),
+		placeholderData: keepPreviousData,
+	})
 
 	function onSort(key: Sort) {
 		if (key === sortBy) setSortDir((d) => (d === "asc" ? "desc" : "asc"))
@@ -58,14 +57,10 @@ export function useAdminConnection<TResult, TVariables, TItem, Sort extends stri
 		sortBy,
 		sortDir,
 		onSort,
-		// Zero-arg wrappers: these are wired straight to onClick/onSaved, and
-		// the query client's own options argument has nothing to do with a
-		// click event.
+		// Zero-arg wrapper: wired straight to onClick, and the query client's
+		// own options argument has nothing to do with a click event.
 		loadMore: () => {
 			fetchNextPage()
-		},
-		reload: () => {
-			refetch()
 		},
 	}
 }

@@ -1,16 +1,18 @@
 import { useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "@tanstack/react-router"
-import type { ReactNode } from "react"
 import { css } from "styled-system/css"
-import { HStack, VStack } from "styled-system/jsx"
+import { VStack } from "styled-system/jsx"
 import { Button } from "#/components/ui/button"
 import { Card } from "#/components/ui/card"
+import { ConfirmActionModal } from "#/components/ui/confirm-action-modal"
 import { LeaveGroupDocument } from "#/graphql/generated/graphql"
+import { invalidateGroups } from "#/graphql/groups/mutations"
 import { useGqlMutation } from "#/graphql/hooks"
 import { track } from "#/lib/analytics"
+import { leaveConsequence } from "#/lib/leave-group"
 import { pluralize } from "#/lib/pluralize"
 import { openModal } from "#/stores/modal-store"
-import { ConfirmActionModal } from "./confirm-action-modal"
+import { DangerRow } from "./danger-row"
 import { DeleteGroupModal } from "./delete-group-modal"
 import type { SettingsMember } from "./settings-member"
 
@@ -26,35 +28,6 @@ const dangerButton = css({
 	border: "1px solid {colors.danger.default}",
 	color: "danger.default",
 })
-
-// What leaving does depends on who's left behind: the last member takes the
-// group with them, and the last admin hands it to the longest-standing
-// member (see leaveGroup).
-function leaveConsequence(
-	groupName: string,
-	viewer: SettingsMember | undefined,
-	others: SettingsMember[],
-) {
-	if (others.length === 0) {
-		return {
-			body: `You're the only member, so leaving deletes ${groupName}.`,
-			confirmLabel: "Leave and delete",
-		}
-	}
-	const successor = [...others].sort((a, b) =>
-		a.joinedAt.localeCompare(b.joinedAt),
-	)[0]
-	if (viewer?.role === "ADMIN" && !others.some((m) => m.role === "ADMIN")) {
-		return {
-			body: `You're the only admin, so @${successor.user.username} becomes admin when you leave. Your invite link stops working.`,
-			confirmLabel: "Leave group",
-		}
-	}
-	return {
-		body: `You'll drop off ${groupName}'s leaderboard and your invite link stops working. Anyone in the group can invite you back.`,
-		confirmLabel: "Leave group",
-	}
-}
 
 export function GroupDangerZone({
 	groupId,
@@ -80,7 +53,7 @@ export function GroupDangerZone({
 		// Away from the group first, so refetching doesn't briefly render this
 		// page for a group the viewer is no longer in.
 		await navigate({ to: "/groups" })
-		await queryClient.invalidateQueries()
+		await invalidateGroups(queryClient)
 		return null
 	}
 
@@ -140,35 +113,5 @@ export function GroupDangerZone({
 				</VStack>
 			</Card.Body>
 		</Card>
-	)
-}
-
-function DangerRow({
-	title,
-	description,
-	action,
-}: {
-	title: string
-	description: string
-	action: ReactNode
-}) {
-	return (
-		<HStack justify="space-between" alignItems="center" gap="4">
-			<VStack gap="0.5" alignItems="flex-start">
-				<span className={css({ fontWeight: "semibold", fontSize: "sm" })}>
-					{title}
-				</span>
-				<span
-					className={css({
-						fontSize: "xs",
-						color: "fg.muted",
-						maxWidth: "38ch",
-					})}
-				>
-					{description}
-				</span>
-			</VStack>
-			{action}
-		</HStack>
 	)
 }

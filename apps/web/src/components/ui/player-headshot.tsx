@@ -1,6 +1,7 @@
 import { useState } from "react"
 import { css, cva, cx } from "styled-system/css"
 import { imageFraming } from "#/lib/image-framing"
+import { initials } from "#/lib/initials"
 import { coverImage } from "./avatar"
 
 const headshotStyle = cva({
@@ -30,17 +31,6 @@ const headshotStyle = cva({
 // League headshots are framed head-and-shoulders, some portrait (MLB), so
 // cropping to a circle keeps the top rather than the chest.
 const headshotImage = css({ objectPosition: "top" })
-
-// "Ronald Acuña Jr." -> "RA".
-function initials(name: string): string {
-	const words = name
-		.split(/\s+/)
-		.filter((w) => !/^(jr|sr|ii|iii|iv)\.?$/i.test(w))
-	const first = words[0]?.charAt(0) ?? ""
-	const last =
-		words.length > 1 ? (words[words.length - 1]?.charAt(0) ?? "") : ""
-	return `${first}${last}`.toUpperCase()
-}
 
 type Props = {
 	name: string

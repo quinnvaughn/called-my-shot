@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { hitMultiple, optionPointsPreview } from "./scoring"
+import { hitMultiple, optionPointsPreview, pickMeta } from "./scoring"
 
 // Options carrying just these loss rates, unpriced on the win side.
 const rates = (...lossRates: (number | null)[]) =>
@@ -149,5 +149,45 @@ describe("optionPointsPreview", () => {
 			50,
 		)
 		expect(early.win).toBeGreaterThan(late.win)
+	})
+})
+
+describe("pickMeta", () => {
+	const unpriced = { winMult: null, modelHitRate: null }
+
+	it("gives an unpriced pick its tier and field share", () => {
+		expect(pickMeta({ label: "Bold", mult: 2 }, 12.4, 1, unpriced)).toEqual([
+			"Bold",
+			"12% of points on this side",
+		])
+	})
+
+	it("drops the tier when the pick has none", () => {
+		expect(pickMeta(null, 50, 1, unpriced)).toEqual([
+			"50% of points on this side",
+		])
+	})
+
+	it("names a priced underdog by its win multiple, with no tier", () => {
+		expect(
+			pickMeta({ label: "Bold", mult: 2 }, 20, 1, {
+				winMult: 2.5,
+				modelHitRate: 0.3,
+			}),
+		).toEqual(["×2.5 underdog", "20% of points on this side", "30% expected"])
+	})
+
+	it("names a priced favorite by its loss rate", () => {
+		expect(pickMeta(null, 80, 1.6, { winMult: 1, modelHitRate: 0.7 })).toEqual([
+			"×1.6 favorite",
+			"80% of points on this side",
+			"70% expected",
+		])
+	})
+
+	it("names no price on an even priced side", () => {
+		expect(pickMeta(null, 50, 1, { winMult: null, modelHitRate: 0.5 })).toEqual(
+			["50% of points on this side", "50% expected"],
+		)
 	})
 })

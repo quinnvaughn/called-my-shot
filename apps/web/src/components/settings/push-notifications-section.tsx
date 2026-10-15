@@ -4,7 +4,8 @@ import { type ReactNode, useState } from "react"
 import { css } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
 import { match } from "ts-pattern"
-import { DeviceStatus, PushOffer } from "#/components/push/notifications-prompt"
+import { DeviceStatus } from "#/components/push/device-status"
+import { PushOffer } from "#/components/push/push-offer"
 import { Button } from "#/components/ui/button"
 import { Card } from "#/components/ui/card"
 import { FormError } from "#/components/ui/form-error"
@@ -16,7 +17,9 @@ import { useGqlMutation } from "#/graphql/hooks"
 import {
 	SendTestPushDocument,
 	SetPushPreferenceDocument,
-} from "#/graphql/queries/push"
+} from "#/graphql/push/queries"
+import { gqlQueryPrefix } from "#/graphql/query-options"
+import { SettingsPageDocument } from "#/graphql/user/settings/queries"
 import { usePushState } from "#/hooks/use-push-state"
 import { track } from "#/lib/analytics"
 import { disablePush } from "#/lib/push/client"
@@ -76,7 +79,9 @@ export function PushNotificationsSection({ label, mutedPushTypes }: Props) {
 				})
 				.with({ __typename: "User" }, async () => {
 					track("push_preference_changed", { group: key, enabled })
-					await queryClient.invalidateQueries()
+					await queryClient.invalidateQueries({
+						queryKey: gqlQueryPrefix(SettingsPageDocument),
+					})
 					await router.invalidate()
 					flash("Saved")
 				})

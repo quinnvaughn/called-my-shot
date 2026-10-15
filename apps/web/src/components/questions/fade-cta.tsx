@@ -1,20 +1,8 @@
-import { css } from "styled-system/css"
-import { Flex, VStack } from "styled-system/jsx"
 import { match } from "ts-pattern"
-import { Button } from "#/components/ui/button"
+import { FadeCallModal } from "#/components/questions/fade-call-modal/fade-call-modal"
+import type { FadeCallModalProps } from "#/components/questions/fade-call-modal/types"
+import { PromptCta } from "#/components/ui/prompt-cta"
 import { openModal } from "#/stores/modal-store"
-import { FadeCallModal, type FadeCallModalProps } from "./fade-call-modal"
-
-const promptClass = css({
-	fontSize: "md",
-	fontWeight: "semibold",
-	color: "fg.default",
-})
-
-const subClass = css({
-	fontSize: "sm",
-	color: "fg.muted",
-})
 
 // The offer to bet against this call. For a signed-in viewer on someone
 // else's open call this is the one thing the page asks them to do, so it gets
@@ -36,29 +24,11 @@ export function FadeCta(props: FadeCallModalProps) {
 		.exhaustive()
 
 	return (
-		<Flex
-			direction={{ base: "column", sm: "row" }}
-			gap="4"
-			alignItems={{ base: "stretch", sm: "center" }}
-			justify="space-between"
-			className={css({
-				padding: "5",
-				borderRadius: "lg",
-				border: "1px solid {colors.border.default}",
-				background: "bg.subtle",
-			})}
-		>
-			<VStack gap="1" alignItems="flex-start">
-				<span className={promptClass}>Think @{props.opUsername} is wrong?</span>
-				<span className={subClass}>{sub}</span>
-			</VStack>
-			<Button
-				variant="solid"
-				size="md"
-				onClick={() => openModal(<FadeCallModal {...props} />)}
-			>
-				Fade @{props.opUsername}
-			</Button>
-		</Flex>
+		<PromptCta
+			prompt={`Think @${props.opUsername} is wrong?`}
+			sub={sub}
+			action={`Fade @${props.opUsername}`}
+			onAction={() => openModal(<FadeCallModal {...props} />)}
+		/>
 	)
 }

@@ -7,8 +7,12 @@ import { Button } from "#/components/ui/button"
 import { FormError } from "#/components/ui/form-error"
 import { Modal } from "#/components/ui/modal"
 import { Textarea } from "#/components/ui/textarea"
+import { ApiError } from "#/graphql/api-error"
 import { useGqlMutation } from "#/graphql/hooks"
-import { FileDisputeDocument } from "#/graphql/mutations/questions"
+import {
+	FileDisputeDocument,
+	invalidateAfterDispute,
+} from "#/graphql/questions/mutations"
 import { track } from "#/lib/analytics"
 import { useForm } from "#/lib/form/use-form"
 import { closeModal } from "#/stores/modal-store"
@@ -45,13 +49,7 @@ export function DisputeModal({ questionId }: Props) {
 					}
 					helpers.setErrors(errors)
 				})
-				.with({ __typename: "AuthenticationError" }, async (r) => {
-					helpers.setFormError(r.message)
-				})
-				.with({ __typename: "AuthorizationError" }, async (r) => {
-					helpers.setFormError(r.message)
-				})
-				.with({ __typename: "NotFoundError" }, async (r) => {
+				.with(ApiError, async (r) => {
 					helpers.setFormError(r.message)
 				})
 				.with({ __typename: "FileDisputePayload" }, async () => {
@@ -59,7 +57,7 @@ export function DisputeModal({ questionId }: Props) {
 						questionId: values.questionId,
 						reason: values.reason,
 					})
-					await queryClient.invalidateQueries()
+					await invalidateAfterDispute(queryClient)
 					await router.invalidate()
 					closeModal()
 				})

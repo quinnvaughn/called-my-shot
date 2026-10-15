@@ -1,6 +1,6 @@
 import { keepPreviousData, useQuery } from "@tanstack/react-query"
 import { Link } from "@tanstack/react-router"
-import { useEffect, useRef, useState } from "react"
+import { useState } from "react"
 import { css } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
 import { Combobox } from "#/components/ui/combobox"
@@ -10,8 +10,10 @@ import { TextInput } from "#/components/ui/text-input"
 import {
 	AdminBallotDocument,
 	AdminBallotSearchDocument,
-} from "#/graphql/queries/ballots"
+} from "#/graphql/ballots/queries"
 import { gqlQueryOptions } from "#/graphql/query-options"
+import { useDebouncedValue } from "#/hooks/use-debounced-value"
+import { pluralize } from "#/lib/pluralize"
 import { Subscribe, useSetValue, useWatch } from "./form-context"
 
 type Props = {
@@ -45,34 +47,10 @@ export function BallotField({ leagueId, lockedBallotId }: Props) {
 	const [inputText, setInputText] = useState("")
 	const [open, setOpen] = useState(false)
 	const [highlightedKey, setHighlightedKey] = useState<string | null>(null)
-	const [debouncedQuery, setDebouncedQuery] = useState("")
+	const debouncedQuery = useDebouncedValue(inputText.trim(), DEBOUNCE_MS)
 	const [selectedBallot, setSelectedBallot] = useState<SelectedBallot | null>(
 		null,
 	)
-
-	useEffect(() => {
-		const id = setTimeout(
-			() => setDebouncedQuery(inputText.trim()),
-			DEBOUNCE_MS,
-		)
-		return () => clearTimeout(id)
-	}, [inputText])
-
-	// A league change invalidates whatever ballot was picked under the old one
-	// (the server rejects a cross-league ballot at submit time anyway) - same
-	// pattern as GameField clearing gameId on a league change. Locked ballots
-	// (arrived via ?ballotId=) skip this - that context is fixed regardless of
-	// what the league field happens to show.
-	const prevLeagueId = useRef(leagueId)
-	useEffect(() => {
-		if (prevLeagueId.current !== leagueId) {
-			prevLeagueId.current = leagueId
-			if (!lockedBallotId && ballotId) {
-				setValue("ballot", undefined)
-				setSelectedBallot(null)
-			}
-		}
-	}, [leagueId, lockedBallotId, ballotId, setValue])
 
 	const { data: searchData } = useQuery(
 		gqlQueryOptions(
@@ -103,26 +81,16 @@ export function BallotField({ leagueId, lockedBallotId }: Props) {
 			? lockedData.adminBallot.data
 			: null
 
-	// Fixed context from the URL - set once, not re-derived on every render
-	// (which would otherwise stomp label/slot as the admin types them).
-	const appliedLockedBallotId = useRef<string | null>(null)
-	useEffect(() => {
-		if (lockedBallotId && appliedLockedBallotId.current !== lockedBallotId) {
-			appliedLockedBallotId.current = lockedBallotId
-			setValue("ballot", {
-				ballotId: lockedBallotId,
-				label: "",
-				slot: undefined,
-			})
-		}
-	}, [lockedBallotId, setValue])
-
 	function selectBallot(ballot: SelectedBallot) {
 		setValue("ballot", {
 			ballotId: ballot.id,
 			label: "",
 			slot: undefined,
 		})
+		// A ballot question is always official (see createQuestionSchema's
+		// superRefine) - forced the moment a ballot is picked rather than left
+		// for the admin to remember to also flip the toggle.
+		setValue("isOfficial", true)
 		setSelectedBallot(ballot)
 		setInputText("")
 		setOpen(false)
@@ -151,6 +119,8 @@ export function BallotField({ leagueId, lockedBallotId }: Props) {
 		})
 	}
 
+	// The picked ballot only while it's still the form's - a league change
+	// clears the form's ballot (see LeagueField) without touching this field.
 	const active = lockedBallotId
 		? lockedBallot
 			? {
@@ -159,7 +129,9 @@ export function BallotField({ leagueId, lockedBallotId }: Props) {
 					memberCount: lockedBallot.memberCount,
 				}
 			: null
-		: selectedBallot
+		: selectedBallot?.id === ballotId
+			? selectedBallot
+			: null
 
 	return (
 		<VStack gap="3" alignItems="stretch">
@@ -178,8 +150,8 @@ export function BallotField({ leagueId, lockedBallotId }: Props) {
 						<span className={css({ fontSize: "sm", fontWeight: "medium" })}>
 							{active.name}{" "}
 							<span className={css({ color: "fg.subtle" })}>
-								· {active.memberCount} question
-								{active.memberCount === 1 ? "" : "s"}
+								· {active.memberCount}{" "}
+								{pluralize(active.memberCount, "question")}
 							</span>
 						</span>
 						{lockedBallotId ? (
@@ -242,7 +214,7 @@ export function BallotField({ leagueId, lockedBallotId }: Props) {
 								<Combobox.Option
 									key={ballot.id}
 									optionKey={ballot.id}
-									meta={`${ballot.memberCount} question${ballot.memberCount === 1 ? "" : "s"}`}
+									meta={`${ballot.memberCount} ${pluralize(ballot.memberCount, "question")}`}
 								>
 									{ballot.name}
 								</Combobox.Option>

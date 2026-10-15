@@ -7,7 +7,8 @@ import { FieldLabel } from "#/components/ui/field-label"
 import type { StatsBySportQuery } from "#/graphql/generated/graphql"
 import type { EntitySearchItem } from "./entity-search-field"
 import { EntitySearchField } from "./entity-search-field"
-import { Field, useSetValue, useWatch } from "./form-context"
+import { Field, useFormValues, useSetValue, useWatch } from "./form-context"
+import { offersStatAggregationFor } from "./stat-aggregation"
 
 type Stat = StatsBySportQuery["stats"][number]
 
@@ -30,6 +31,7 @@ const QUICK_PICK_COUNT = 8
 export function StatPicker({ stats, catalogOnly }: Props) {
 	const statId = useWatch("statId")
 	const setValue = useSetValue()
+	const getValues = useFormValues()
 	const [searchText, setSearchText] = useState("")
 	const quickPicks = stats.slice(0, QUICK_PICK_COUNT)
 	const items: EntitySearchItem[] = stats.map((stat) => ({
@@ -42,6 +44,39 @@ export function StatPicker({ stats, catalogOnly }: Props) {
 		? (stats.find((s) => s.id === statId)?.name ?? "")
 		: null
 
+	// What was set for the old stat doesn't carry over to a different one. A
+	// line belongs to the stat it was set for: 24.5 is a fair Points line and a
+	// nonsense Batting Average one, and ouLine only rejects whole numbers, so a
+	// stale line would still publish. Dropping it re-exposes the placeholder
+	// for the new stat. An aggregation picked for Points would likewise still
+	// submit, and put "per game" in the title, after a switch to a stat that
+	// doesn't offer one.
+	function changeStat(next: {
+		statId: string | undefined
+		customStat?: string
+	}) {
+		const prev = getValues()
+		const nextCustomStat = next.customStat ?? prev.customStat
+		setValue("statId", next.statId)
+		if (next.customStat !== undefined) setValue("customStat", next.customStat)
+		if (
+			prev.ouLine !== undefined &&
+			(prev.statId ?? prev.customStat) !== (next.statId ?? nextCustomStat)
+		) {
+			setValue("ouLine", undefined)
+		}
+		const nextStat = next.statId
+			? stats.find((stat) => stat.id === next.statId)
+			: undefined
+		if (
+			prev.statAggregation &&
+			prev.shape === "player_season_stat_leader" &&
+			!offersStatAggregationFor(prev.shape, nextStat)
+		) {
+			setValue("statAggregation", undefined)
+		}
+	}
+
 	return (
 		<VStack gap="2.5" alignItems="stretch">
 			<FieldLabel required>Stat</FieldLabel>
@@ -51,10 +86,7 @@ export function StatPicker({ stats, catalogOnly }: Props) {
 						<ChipButton
 							key={stat.id}
 							selected={stat.id === statId}
-							onClick={() => {
-								setValue("statId", stat.id)
-								setValue("customStat", "")
-							}}
+							onClick={() => changeStat({ statId: stat.id, customStat: "" })}
 						>
 							{stat.name}
 						</ChipButton>
@@ -72,7 +104,7 @@ export function StatPicker({ stats, catalogOnly }: Props) {
 							required
 							error={field.meta.error ?? undefined}
 							onSelectItem={(item) => {
-								setValue("statId", item.id)
+								changeStat({ statId: item.id })
 								setSearchText("")
 							}}
 						/>
@@ -83,18 +115,16 @@ export function StatPicker({ stats, catalogOnly }: Props) {
 					{(field) => (
 						<EntitySearchField
 							value={selectedStatName ?? field.value}
-							onValueChange={(text) => {
-								setValue("statId", undefined)
-								field.onChange(text)
-							}}
+							onValueChange={(text) =>
+								changeStat({ statId: undefined, customStat: text })
+							}
 							items={items}
 							placeholder="Search stats or type your own…"
 							required
 							error={field.meta.error ?? undefined}
-							onSelectItem={(item) => {
-								setValue("statId", item.id)
-								field.onChange("")
-							}}
+							onSelectItem={(item) =>
+								changeStat({ statId: item.id, customStat: "" })
+							}
 						/>
 					)}
 				</Field>

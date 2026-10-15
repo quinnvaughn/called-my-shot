@@ -1,6 +1,6 @@
 import { keepPreviousData, useQuery } from "@tanstack/react-query"
 import { DateTime } from "luxon"
-import { useEffect, useRef, useState } from "react"
+import { useState } from "react"
 import { css } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
 import { Combobox } from "#/components/ui/combobox"
@@ -10,10 +10,13 @@ import { FieldLabel } from "#/components/ui/field-label"
 import { TeamBadge } from "#/components/ui/team-badge"
 import { TextInput } from "#/components/ui/text-input"
 import type { GameByIdQuery } from "#/graphql/generated/graphql"
-import { GamesByLeagueDocument } from "#/graphql/queries/sports"
 import { gqlQueryOptions } from "#/graphql/query-options"
+import { GamesByLeagueDocument } from "#/graphql/sports/catalog/queries"
+import { useDebouncedValue } from "#/hooks/use-debounced-value"
+import { MONTH_DAY_TIME_FORMAT } from "#/lib/format-date"
 import { GameBlock } from "../game-block"
-import { useSetValue, useWatch } from "./form-context"
+import { useQuestionData } from "./data-context"
+import { useFormValues, useSetValue, useWatch } from "./form-context"
 
 type Props = {
 	leagueId: string
@@ -41,32 +44,12 @@ const DEBOUNCE_MS = 250
 export function GameField({ leagueId, selectedGame, required }: Props) {
 	const gameId = useWatch("gameId")
 	const setValue = useSetValue()
+	const getValues = useFormValues()
+	const { players } = useQuestionData("GameField")
 	const [inputText, setInputText] = useState("")
 	const [open, setOpen] = useState(false)
 	const [highlightedKey, setHighlightedKey] = useState<string | null>(null)
-	const [debouncedQuery, setDebouncedQuery] = useState("")
-
-	useEffect(() => {
-		const id = setTimeout(
-			() => setDebouncedQuery(inputText.trim()),
-			DEBOUNCE_MS,
-		)
-		return () => clearTimeout(id)
-	}, [inputText])
-
-	// A league change invalidates whatever game was picked under the old one
-	// (the API resolver rejects a cross-league gameId at submit time anyway) -
-	// this just clears it proactively instead of leaving a stale selection.
-	const prevLeagueId = useRef(leagueId)
-	useEffect(() => {
-		if (prevLeagueId.current !== leagueId) {
-			prevLeagueId.current = leagueId
-			if (gameId) {
-				setValue("gameId", undefined)
-				setValue("locksAt", "")
-			}
-		}
-	}, [leagueId, gameId, setValue])
+	const debouncedQuery = useDebouncedValue(inputText.trim(), DEBOUNCE_MS)
 
 	const { data: searchData } = useQuery(
 		gqlQueryOptions(
@@ -87,9 +70,36 @@ export function GameField({ leagueId, selectedGame, required }: Props) {
 			"locksAt",
 			DateTime.fromISO(game.startsAt).toFormat(DATE_TIME_PICKER_VALUE_FORMAT),
 		)
+		dropPicksOutside(new Set([game.homeTeam.id, game.awayTeam.id]))
 		setInputText("")
 		setOpen(false)
 		setHighlightedKey(null)
+	}
+
+	// Picking a game narrows every team/player picker to its two sides, but
+	// that's cosmetic on its own - a subject or option picked before the game
+	// (or under a different one) can still be sitting in form state pointing
+	// outside them, so those go too. Clearing a game drops nothing: picks made
+	// under the full league-wide list are still valid without one.
+	function dropPicksOutside(sides: Set<string>) {
+		const onSide = (playerId: string) => {
+			const player = players.find((p) => p.id === playerId)
+			return !!player?.currentTeam && sides.has(player.currentTeam.id)
+		}
+		const { subjectTeamId, subjectPlayerId } = getValues()
+		if (subjectTeamId && !sides.has(subjectTeamId)) {
+			setValue("subjectTeamId", undefined)
+		}
+		if (subjectPlayerId && !onSide(subjectPlayerId)) {
+			setValue("subjectPlayerId", undefined)
+		}
+		setValue("options", (prev) =>
+			prev.filter((option) => {
+				if (option.teamId) return sides.has(option.teamId)
+				if (option.playerId) return onSide(option.playerId)
+				return true
+			}),
+		)
 	}
 
 	function clearGame() {
@@ -152,7 +162,9 @@ export function GameField({ leagueId, selectedGame, required }: Props) {
 							<Combobox.Option
 								key={game.id}
 								optionKey={game.id}
-								meta={DateTime.fromISO(game.startsAt).toFormat("MMM d, h:mm a")}
+								meta={DateTime.fromISO(game.startsAt).toFormat(
+									MONTH_DAY_TIME_FORMAT,
+								)}
 							>
 								<HStack gap="2" alignItems="center">
 									<TeamBadge

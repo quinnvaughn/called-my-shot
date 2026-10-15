@@ -23,9 +23,9 @@ export function Tag({ children, variant = "neutral", size = "md" }: Props) {
 				// by a prop is opaque to it, so the classes for whichever
 				// variants no other file happens to use would never be emitted.
 				//
-				// success.default/success.subtle - the same pairing ResultBadge
-				// uses for a winning call, and only for a tag that reports an
-				// outcome; danger is its losing counterpart. A tag naming a lifecycle state the viewer didn't earn
+				// success.default/success.subtle is for a tag that reports an
+				// outcome, like a winning call; danger is its losing
+				// counterpart. A tag naming a lifecycle state the viewer didn't earn
 				// (resolved, final, a permission that happens to be on) is
 				// neutral; secondary is for a state worth picking out of a column
 				// of neutral chrome, where neutral would erase the distinction.

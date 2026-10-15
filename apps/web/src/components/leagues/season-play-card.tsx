@@ -5,7 +5,10 @@ import {
 import { css } from "styled-system/css"
 import { HStack } from "styled-system/jsx"
 import { InfoTip } from "#/components/ui/info-tip"
+import { weekLabel } from "#/lib/format-date"
+import { pluralize } from "#/lib/pluralize"
 import { formatMult } from "#/lib/scoring"
+import { WeekSquare } from "./week-square"
 
 type Week = {
 	startsOn: string
@@ -21,18 +24,6 @@ type Props = {
 	}
 	league: string
 }
-
-// startsOn is a calendar date in the sports time zone, so it's read at noon
-// UTC to land on the same day wherever the viewer is.
-const weekLabel = (startsOn: string) =>
-	new Date(`${startsOn}T12:00:00Z`).toLocaleDateString("en-US", {
-		month: "short",
-		day: "numeric",
-		timeZone: "UTC",
-	})
-
-const plural = (count: number, word: string) =>
-	count === 1 ? `${count} ${word}` : `${count} ${word}s`
 
 const labelClass = css({
 	fontFamily: "mono",
@@ -66,8 +57,7 @@ export function SeasonPlayCard({ play, league }: Props) {
 				<span className={labelClass}>SEASON-LONG MULTIPLIER</span>
 				<span
 					className={css({
-						fontFamily: "mono",
-						fontSize: "xs",
+						textStyle: "metaLg",
 						fontWeight: "bold",
 						color: full ? "secondary.default" : "fg.default",
 					})}
@@ -85,7 +75,7 @@ export function SeasonPlayCard({ play, league }: Props) {
 						key={week.startsOn}
 						filled={week.played}
 						running={!week.over}
-						label={`${week.over ? "Week of" : "This week,"} ${weekLabel(week.startsOn)}: ${plural(week.calls, "game call")}`}
+						label={`${week.over ? "Week of" : "This week,"} ${weekLabel(week.startsOn)}: ${week.calls} ${pluralize(week.calls, "game call")}`}
 					/>
 				))}
 			</HStack>
@@ -94,8 +84,7 @@ export function SeasonPlayCard({ play, league }: Props) {
 					<span className={labelClass}>THIS WEEK</span>
 					<span
 						className={css({
-							fontFamily: "mono",
-							fontSize: "xs",
+							textStyle: "metaLg",
 							fontWeight: "bold",
 							color: thisWeek.played ? "secondary.default" : "fg.default",
 						})}
@@ -106,33 +95,5 @@ export function SeasonPlayCard({ play, league }: Props) {
 				</HStack>
 			)}
 		</HStack>
-	)
-}
-
-function WeekSquare({
-	filled,
-	running,
-	label,
-}: {
-	filled: boolean
-	running: boolean
-	label: string
-}) {
-	return (
-		<div
-			title={label}
-			role="img"
-			aria-label={label}
-			className={css({
-				width: "2.5",
-				height: "2.5",
-				borderRadius: "xs",
-				border:
-					filled || running
-						? "1px solid {colors.secondary.default}"
-						: "1px solid {colors.fg.muted}",
-				bg: filled ? "secondary.default" : "transparent",
-			})}
-		/>
 	)
 }

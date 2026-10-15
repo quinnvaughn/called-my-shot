@@ -8,9 +8,15 @@ import { match } from "ts-pattern"
 import { BallotCard } from "#/components/ballots/ballot-card"
 import { CardRail } from "#/components/ui/card-rail"
 import { FormError } from "#/components/ui/form-error"
+import { ApiError } from "#/graphql/api-error"
+import { BallotByRefDocument } from "#/graphql/ballots/queries"
 import { type FragmentType, graphql, useFragment } from "#/graphql/generated"
+import {
+	invalidateGroupBoards,
+	RemoveBallotFromGroupDocument,
+} from "#/graphql/groups/mutations"
 import { useGqlMutation } from "#/graphql/hooks"
-import { RemoveBallotFromGroupDocument } from "#/graphql/mutations/groups"
+import { gqlQueryPrefix } from "#/graphql/query-options"
 
 export const GroupBallotsStripBallotFragment = graphql(`
 	fragment GroupBallotsStrip_groupBallot on GroupBallot {
@@ -70,19 +76,15 @@ export function GroupBallotsStrip({
 		await match(result)
 			.with({ __typename: "GroupPayload" }, async () => {
 				await Promise.all([
-					queryClient.invalidateQueries({ queryKey: ["GroupHome"] }),
-					queryClient.invalidateQueries({ queryKey: ["BallotByRef"] }),
+					invalidateGroupBoards(queryClient, groupId),
+					queryClient.invalidateQueries({
+						queryKey: gqlQueryPrefix(BallotByRefDocument),
+					}),
 				])
 			})
-			.with(
-				{ __typename: "AuthenticationError" },
-				{ __typename: "AuthorizationError" },
-				{ __typename: "NotFoundError" },
-				{ __typename: "ValidationError" },
-				async (r) => {
-					setError(r.message)
-				},
-			)
+			.with(ApiError, { __typename: "ValidationError" }, async (r) => {
+				setError(r.message)
+			})
 			.exhaustive()
 	}
 
@@ -92,19 +94,7 @@ export function GroupBallotsStrip({
 				items={ballots}
 				getKey={(entry) => entry.id}
 				itemLabel="ballot"
-				header={
-					<span
-						className={css({
-							fontFamily: "mono",
-							fontSize: "xs",
-							letterSpacing: "wide",
-							color: "fg.muted",
-							textTransform: "uppercase",
-						})}
-					>
-						Ballots
-					</span>
-				}
+				title="Ballots"
 				renderItem={(entry) => (
 					<VStack gap="1.5" alignItems="stretch" height="full">
 						<div className={css({ flex: "1" })}>
@@ -115,8 +105,7 @@ export function GroupBallotsStrip({
 								to="/groups/$groupId/ballots/$ballotSlug"
 								params={{ groupId, ballotSlug: entry.ballot.slug }}
 								className={css({
-									fontFamily: "mono",
-									fontSize: "2xs",
+									textStyle: "meta",
 									color: "fg.subtle",
 									textDecoration: "none",
 									_hover: { color: "fg.default" },

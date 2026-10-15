@@ -1,16 +1,18 @@
-import { useQuery } from "@tanstack/react-query"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { css } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
 import { Modal } from "#/components/ui/modal"
 import { ToggleRow } from "#/components/ui/toggle-row"
-import { useGqlMutation } from "#/graphql/hooks"
 import {
+	invalidateAdminUsers,
 	SetUserQuestionCreationEnabledDocument,
 	SetUserVerifiedDocument,
-} from "#/graphql/mutations/admin"
-import { AdminUserVoidHistoryDocument } from "#/graphql/queries/admin"
+} from "#/graphql/admin/users/mutations"
+import { AdminUserVoidHistoryDocument } from "#/graphql/admin/users/queries"
+import { useGqlMutation } from "#/graphql/hooks"
 import { gqlQueryOptions } from "#/graphql/query-options"
 import { VOID_REASON_LABELS } from "#/lib/admin/void-defaults"
+import { formatCallDate } from "#/lib/format-date"
 
 type Props = {
 	user: {
@@ -22,10 +24,10 @@ type Props = {
 		isVerifiedPundit: boolean
 		careerStats: { totalPoints: number } | null
 	}
-	onChanged: () => void
 }
 
-export function UserDetailModal({ user, onChanged }: Props) {
+export function UserDetailModal({ user }: Props) {
+	const queryClient = useQueryClient()
 	const { data } = useQuery(
 		gqlQueryOptions(AdminUserVoidHistoryDocument, { userId: user.id }),
 	)
@@ -46,8 +48,7 @@ export function UserDetailModal({ user, onChanged }: Props) {
 			<HStack
 				gap="5"
 				className={css({
-					fontFamily: "mono",
-					fontSize: "xs",
+					textStyle: "metaLg",
 					color: "fg.muted",
 				})}
 			>
@@ -66,10 +67,7 @@ export function UserDetailModal({ user, onChanged }: Props) {
 			<VStack gap="2" alignItems="stretch">
 				<span
 					className={css({
-						fontFamily: "mono",
-						fontSize: "2xs",
-						letterSpacing: "wide",
-						textTransform: "uppercase",
+						textStyle: "label",
 						color: "fg.subtle",
 					})}
 				>
@@ -96,13 +94,12 @@ export function UserDetailModal({ user, onChanged }: Props) {
 							</span>
 							<span
 								className={css({
-									fontFamily: "mono",
-									fontSize: "2xs",
+									textStyle: "meta",
 									color: "fg.subtle",
 									whiteSpace: "nowrap",
 								})}
 							>
-								{new Date(v.createdAt).toLocaleDateString()}
+								{formatCallDate(v.createdAt)}
 							</span>
 						</HStack>
 					))
@@ -116,7 +113,7 @@ export function UserDetailModal({ user, onChanged }: Props) {
 				onChange={(enabled) => {
 					setCreationEnabled
 						.mutateAsync({ userId: user.id, enabled })
-						.then(onChanged)
+						.then(() => invalidateAdminUsers(queryClient))
 				}}
 			/>
 			<ToggleRow
@@ -124,7 +121,9 @@ export function UserDetailModal({ user, onChanged }: Props) {
 				description="Shows a verified badge: for media/pundit accounts."
 				checked={user.isVerifiedPundit}
 				onChange={(verified) => {
-					setVerified.mutateAsync({ userId: user.id, verified }).then(onChanged)
+					setVerified
+						.mutateAsync({ userId: user.id, verified })
+						.then(() => invalidateAdminUsers(queryClient))
 				}}
 			/>
 		</Modal>

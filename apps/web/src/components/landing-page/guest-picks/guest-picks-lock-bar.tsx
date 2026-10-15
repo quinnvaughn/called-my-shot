@@ -49,8 +49,7 @@ export function GuestPicksLockBar({ stackRef, pickCount }: Props) {
 		>
 			<span
 				className={css({
-					fontFamily: "mono",
-					fontSize: "xs",
+					textStyle: "metaLg",
 					color: "fg.muted",
 					whiteSpace: "nowrap",
 				})}

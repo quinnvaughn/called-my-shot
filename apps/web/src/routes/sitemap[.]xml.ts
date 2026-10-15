@@ -3,7 +3,7 @@ import { gqlFetch } from "#/graphql/fetcher"
 import {
 	SitemapLeagueContentDocument,
 	SitemapLeaguesDocument,
-} from "#/graphql/queries/sitemap"
+} from "#/graphql/sitemap/queries"
 import { buildGameSlug, questionPath } from "#/lib/slug"
 
 // Sitemap entries have to be absolute, and the host a crawler asks on isn't

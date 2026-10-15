@@ -1,3 +1,4 @@
+import { CastCallFormProvider } from "./cast-call-form-context"
 import { MultiSelectFields } from "./multi-select-fields"
 import { NumericGuessFields } from "./numeric-guess-fields"
 import { OptionFields } from "./option-fields"
@@ -31,10 +32,12 @@ export function CastCallForm({ callForm }: Props) {
 	if (!question) return null
 
 	return (
-		<form id={callForm.formId} onSubmit={callForm.form.handleSubmit}>
-			{bucket === "single" && <OptionFields callForm={callForm} />}
-			{bucket === "multi" && <MultiSelectFields callForm={callForm} />}
-			{bucket === "numeric" && <NumericGuessFields callForm={callForm} />}
-		</form>
+		<CastCallFormProvider callForm={callForm}>
+			<form id={callForm.formId} onSubmit={callForm.form.handleSubmit}>
+				{bucket === "single" && <OptionFields />}
+				{bucket === "multi" && <MultiSelectFields />}
+				{bucket === "numeric" && <NumericGuessFields />}
+			</form>
+		</CastCallFormProvider>
 	)
 }

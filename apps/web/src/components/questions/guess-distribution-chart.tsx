@@ -1,14 +1,16 @@
-import { FiZap } from "react-icons/fi"
 import { css, cx } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
+import {
+	LowVolumeGuesses,
+	MIN_GUESSES_FOR_CHART,
+} from "#/components/questions/low-volume-guesses"
 import { formatGuess } from "#/lib/field-signal"
 import { pluralize } from "#/lib/pluralize"
 
 type Bucket = { value: number; count: number }
 
 const tickLabelClass = css({
-	fontFamily: "mono",
-	fontSize: "3xs",
+	textStyle: "metaSm",
 	color: "fg.subtle",
 })
 
@@ -39,60 +41,6 @@ type Props = {
 	// renders nothing below MIN_GUESSES_FOR_CHART instead of the low-volume
 	// block.
 	compact?: boolean
-}
-
-// Below this many guesses, the bar chart is just 1-2 bars at full height -
-// technically accurate but reads as far more signal than it actually is.
-// Same "be the first" empty-state voice QuestionCallsList already uses for
-// the calls list on this same page, just gated on guess volume instead.
-const MIN_GUESSES_FOR_CHART = 5
-
-// A real stat display (count + label + nudge), not a generic <EmptyState>
-// line of text - a numeric-guess shape with 0-4 guesses still has a real number
-// worth putting on the page, it just isn't enough to plot as a chart yet.
-function LowVolumeGuesses({ totalGuesses }: { totalGuesses: number }) {
-	return (
-		<VStack
-			gap="1"
-			alignItems="center"
-			className={css({ padding: "5", textAlign: "center" })}
-		>
-			<span
-				className={css({
-					fontFamily: "mono",
-					fontSize: "2xl",
-					color: "fg.default",
-				})}
-			>
-				{totalGuesses}
-			</span>
-			<span
-				className={css({
-					fontFamily: "mono",
-					fontSize: "3xs",
-					letterSpacing: "wide",
-					color: "fg.subtle",
-					textTransform: "uppercase",
-				})}
-			>
-				{pluralize(totalGuesses, "guess", "guesses")} so far
-			</span>
-			<HStack gap="1.5" alignItems="center" className={css({ paddingTop: "2" })}>
-				<FiZap size={13} className={css({ color: "primary.default" })} />
-				<span
-					className={css({
-						fontFamily: "mono",
-						fontSize: "xs",
-						color: "primary.default",
-					})}
-				>
-					{totalGuesses === 0
-						? "No one's guessed yet - set the tone."
-						: `Early days - the spread shows once ${MIN_GUESSES_FOR_CHART} guesses are in.`}
-				</span>
-			</HStack>
-		</VStack>
-	)
 }
 
 // Hand-rolled bar chart, keyed by guess value rather than time - unlike the
@@ -150,7 +98,12 @@ export function GuessDistributionChart({
 				{avgMarkerPct !== null && (
 					<div
 						className={css({ position: "absolute", background: "fg.muted" })}
-						style={{ left: `${avgMarkerPct}%`, top: 0, bottom: 0, width: "1px" }}
+						style={{
+							left: `${avgMarkerPct}%`,
+							top: 0,
+							bottom: 0,
+							width: "1px",
+						}}
 					>
 						<span
 							className={css({
@@ -233,11 +186,8 @@ export function GuessDistributionChart({
 			{!compact && (
 				<span
 					className={css({
-						fontFamily: "mono",
-						fontSize: "3xs",
-						letterSpacing: "wide",
+						textStyle: "labelSm",
 						color: "fg.subtle",
-						textTransform: "uppercase",
 						textAlign: "center",
 					})}
 				>

@@ -1,9 +1,5 @@
 import { useSuspenseQuery } from "@tanstack/react-query"
-import {
-	createFileRoute,
-	redirect,
-	useRouteContext,
-} from "@tanstack/react-router"
+import { createFileRoute, redirect } from "@tanstack/react-router"
 import { useState } from "react"
 import { css } from "styled-system/css"
 import { VStack } from "styled-system/jsx"
@@ -32,7 +28,8 @@ import {
 import { Tabs } from "#/components/ui/tabs"
 import { GroupHomeDocument } from "#/graphql/generated/graphql"
 import { gqlQueryOptions, seedInfiniteQuery } from "#/graphql/query-options"
-import { validateLeaderboardSearch } from "#/lib/leaderboard-filter"
+import { useMe } from "#/hooks/use-me"
+import { leaderboardSearchSchema } from "#/lib/leaderboard-filter"
 import { groupShellQuery } from "../_tabs"
 
 const groupHomeQuery = (groupId: string) =>
@@ -47,7 +44,7 @@ export const Route = createFileRoute("/_app/_authed/groups/$groupId/_tabs/")({
 	// The leaderboard lived on this page before it had a tab, so a link shared
 	// back then carries its filter here. Sent on to the tab with the filter
 	// intact.
-	validateSearch: validateLeaderboardSearch,
+	validateSearch: leaderboardSearchSchema,
 	beforeLoad: ({ params, search }) => {
 		if (search.league || search.season) {
 			throw redirect({
@@ -86,7 +83,7 @@ function RouteComponent() {
 		"answered",
 	)
 	const { groupId } = Route.useParams()
-	const { me } = useRouteContext({ from: "__root__" })
+	const me = useMe()
 	const { data } = useSuspenseQuery(groupHomeQuery(groupId))
 	const { data: shell } = useSuspenseQuery(groupShellQuery(groupId))
 	const group = data.group
@@ -121,11 +118,8 @@ function RouteComponent() {
 			<VStack alignItems="stretch" gap="3">
 				<h2
 					className={css({
-						fontFamily: "mono",
-						fontSize: "xs",
-						letterSpacing: "wide",
+						textStyle: "sectionHeading",
 						color: "fg.muted",
-						textTransform: "uppercase",
 					})}
 				>
 					Activity

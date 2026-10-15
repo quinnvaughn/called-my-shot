@@ -63,8 +63,7 @@ const valueClass = css({
 })
 
 const subClass = css({
-	fontFamily: "mono",
-	fontSize: "3xs",
+	textStyle: "metaSm",
 	color: "fg.subtle",
 })
 
@@ -98,10 +97,7 @@ export function QuestionResultBlock({ question, disputed }: Props) {
 			<HStack justify="space-between" alignItems="center">
 				<span
 					className={css({
-						fontFamily: "mono",
-						fontSize: "3xs",
-						letterSpacing: "wide",
-						textTransform: "uppercase",
+						textStyle: "labelSm",
 						color: "fg.subtle",
 					})}
 				>

@@ -1,14 +1,10 @@
 import { Textarea } from "#/components/ui/textarea"
-import type { CastCallFormState } from "./use-cast-call-form"
-
-type Props = {
-	callForm: CastCallFormState
-}
+import { useCastCallFormContext } from "./cast-call-form-context"
 
 // Shared by every question type - the one field that isn't part of the
 // call itself.
-export function CaseField({ callForm }: Props) {
-	const { form, caseTextRef } = callForm
+export function CaseField() {
+	const { form, caseTextRef } = useCastCallFormContext()
 
 	return (
 		<form.Field name="caseText">

@@ -1,9 +1,6 @@
-import { VStack } from "styled-system/jsx"
-import { CopyLinkRow } from "#/components/ui/copy-link-row"
-import { PostOnXLink } from "#/components/ui/post-on-x-link"
-import { ShareIconRow } from "#/components/ui/share-icon-row"
+import { ShareLinkRow } from "#/components/ui/share-link-row"
 import { track } from "#/lib/analytics"
-import { SITE_HOST, SITE_ORIGIN } from "#/lib/meta"
+import { formatSigned } from "#/lib/format-number"
 
 type CallShareSurface = "call_page" | "question_detail"
 
@@ -48,7 +45,7 @@ export function buildCallTweet(
 			: `@${call.username} called ${call.pickLabel} on ${call.calledAt}.`
 	}
 
-	const signed = `${call.isWin ? "+" : "−"}${Math.abs(call.points)}`
+	const signed = formatSigned(call.points, { zeroSign: true })
 	if (call.isWin) {
 		return call.isOwn
 			? `Called it: ${call.pickLabel}. ${signed} pts.`
@@ -66,45 +63,16 @@ export function CallShareRow({
 	surface,
 	layout = "full",
 }: Props) {
-	const url = `${SITE_ORIGIN}/calls/${callId}`
-	const displayUrl = `${SITE_HOST}/calls/${callId}`
-
-	if (layout === "icons") {
-		return (
-			<ShareIconRow
-				url={url}
-				campaign="call"
-				tweetText={tweetText}
-				shareTitle={shareTitle}
-				onShared={(method) =>
-					track("call_link_shared", { callId, method, surface })
-				}
-			/>
-		)
-	}
-
 	return (
-		<VStack gap="3" alignItems="stretch">
-			<CopyLinkRow
-				url={url}
-				campaign="call"
-				displayUrl={displayUrl}
-				shareTitle={shareTitle}
-				onCopied={() =>
-					track("call_link_shared", { callId, method: "clipboard", surface })
-				}
-				onNativeShared={() =>
-					track("call_link_shared", { callId, method: "native", surface })
-				}
-			/>
-			<PostOnXLink
-				text={tweetText}
-				url={url}
-				campaign="call"
-				onClick={() =>
-					track("call_link_shared", { callId, method: "x", surface })
-				}
-			/>
-		</VStack>
+		<ShareLinkRow
+			path={`/calls/${callId}`}
+			campaign="call"
+			tweetText={tweetText}
+			shareTitle={shareTitle}
+			layout={layout}
+			onShared={(method) =>
+				track("call_link_shared", { callId, method, surface })
+			}
+		/>
 	)
 }

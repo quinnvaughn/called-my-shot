@@ -1,8 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router"
-import {
-	SeasonQuestionFeed,
-	preloadSeasonQuestionFeed,
-} from "#/components/leagues/season-question-feed"
+import { SeasonQuestionFeed } from "#/components/leagues/season-question-feed"
+import { preloadSeasonQuestionFeed } from "#/components/leagues/season-question-feed-query"
 import { pageMeta } from "#/lib/meta"
 
 export const Route = createFileRoute("/_app/leagues/$leagueSlug/season")({

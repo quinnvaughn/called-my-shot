@@ -8,8 +8,8 @@ import { PageHeader } from "#/components/ui/page-header"
 import { Table } from "#/components/ui/table"
 import { Tag } from "#/components/ui/tag"
 import { TextInput } from "#/components/ui/text-input"
+import { AdminUsersDocument } from "#/graphql/admin/users/queries"
 import type { AdminUserSort } from "#/graphql/generated/graphql"
-import { AdminUsersDocument } from "#/graphql/queries/admin"
 import { gqlQueryOptions } from "#/graphql/query-options"
 import { useDebouncedValue } from "#/hooks/use-debounced-value"
 import { openModal } from "#/stores/modal-store"
@@ -48,7 +48,7 @@ function RouteComponent() {
 	const [sortDir, setSortDir] = useState<"asc" | "desc">("asc")
 	const debouncedSearch = useDebouncedValue(search, 300)
 
-	const { data, refetch } = useQuery(
+	const { data } = useQuery(
 		gqlQueryOptions(AdminUsersDocument, {
 			search: debouncedSearch || undefined,
 			sortBy,
@@ -119,14 +119,7 @@ function RouteComponent() {
 								<Button
 									variant="outline"
 									size="sm"
-									onClick={() =>
-										openModal(
-											<UserDetailModal
-												user={user}
-												onChanged={() => refetch()}
-											/>,
-										)
-									}
+									onClick={() => openModal(<UserDetailModal user={user} />)}
 								>
 									View
 								</Button>

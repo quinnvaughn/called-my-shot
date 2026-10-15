@@ -3,7 +3,7 @@ import { css } from "styled-system/css"
 import { HStack } from "styled-system/jsx"
 import type { FlairData } from "#/components/ui/flair"
 import { Identity } from "#/components/ui/identity"
-import { CallAge } from "./call-timestamp"
+import { CallAge } from "./call-age"
 
 type Props = {
 	name: string

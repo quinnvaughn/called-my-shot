@@ -1,19 +1,12 @@
 import { useSuspenseInfiniteQuery } from "@tanstack/react-query"
-import { QuestionCard } from "#/components/questions/question-card"
 import { EmptyState } from "#/components/ui/empty-state"
 import { InfiniteScroll } from "#/components/ui/infinite-scroll"
-import { type FragmentType, graphql, useFragment } from "#/graphql/generated"
+import { graphql } from "#/graphql/generated"
 import {
 	EMPTY_CONNECTION,
 	gqlInfiniteQueryOptions,
 } from "#/graphql/query-options"
-
-export const CreatedQuestionsTabFragment = graphql(`
-	fragment CreatedQuestionsTab_question on Question {
-		id
-		...QuestionCard_question
-	}
-`)
+import { CreatedQuestionCard } from "./created-question-card"
 
 export const CreatedQuestionsDocument = graphql(`
 	query CreatedQuestions($groupId: ID!, $after: String) {
@@ -40,10 +33,6 @@ export const createdQuestionsQuery = (groupId: string) =>
 		(data) => data.group?.createdQuestions ?? EMPTY_CONNECTION,
 	)
 
-type CreatedQuestionItem = { id: string } & FragmentType<
-	typeof CreatedQuestionsTabFragment
->
-
 type CreatedQuestionsTabProps = {
 	groupId: string
 }
@@ -63,9 +52,4 @@ export function CreatedQuestionsTab({ groupId }: CreatedQuestionsTabProps) {
 			renderItem={(item) => <CreatedQuestionCard question={item} />}
 		/>
 	)
-}
-
-function CreatedQuestionCard({ question }: { question: CreatedQuestionItem }) {
-	const data = useFragment(CreatedQuestionsTabFragment, question)
-	return <QuestionCard question={data} />
 }

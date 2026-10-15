@@ -1,7 +1,7 @@
 import { useSuspenseInfiniteQuery } from "@tanstack/react-query"
 import { EmptyState } from "#/components/ui/empty-state"
 import { InfiniteScroll } from "#/components/ui/infinite-scroll"
-import { questionCallsQuery } from "#/graphql/queries/question"
+import { questionCallsQuery } from "#/graphql/questions/queries"
 import { CallRow } from "./call-row"
 
 type Props = {

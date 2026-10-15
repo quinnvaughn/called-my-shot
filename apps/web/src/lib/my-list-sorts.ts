@@ -12,7 +12,7 @@ import type {
 // loader seeds a cache entry under the default sort, and the component reads
 // the entry named by whatever sort it starts with. A default that drifts
 // between the two doesn't break anything visibly, it just quietly wastes the
-// preload - see graphql/queries/my-lists-seed.test.ts.
+// preload - see graphql/my-calls/my-lists-seed.test.ts.
 
 type CallSortSet = {
 	default: CallSortOrder

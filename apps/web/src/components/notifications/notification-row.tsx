@@ -3,12 +3,10 @@ import type { NotificationsPageQuery } from "#/graphql/generated/graphql"
 import { CallFadedRow } from "./rows/call-faded-row"
 import { CallResolvedRow } from "./rows/call-resolved-row"
 import { CallVoidedRow } from "./rows/call-voided-row"
-import {
-	ChallengeAcceptedRow,
-	ChallengeGloatedRow,
-	ChallengePostedToGroupRow,
-	ChallengeSettledRow,
-} from "./rows/challenge-rows"
+import { ChallengeAcceptedRow } from "./rows/challenge-accepted-row"
+import { ChallengeGloatedRow } from "./rows/challenge-gloated-row"
+import { ChallengePostedToGroupRow } from "./rows/challenge-posted-to-group-row"
+import { ChallengeSettledRow } from "./rows/challenge-settled-row"
 import { DisputeFiledRow } from "./rows/dispute-filed-row"
 import { DisputeOverturnedRow } from "./rows/dispute-overturned-row"
 import { DisputeUpheldRow } from "./rows/dispute-upheld-row"

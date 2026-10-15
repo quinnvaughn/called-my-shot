@@ -3,7 +3,8 @@ import { TextField, useWatch } from "../form-context"
 import { GameField } from "../game-field"
 import { LeagueField } from "../league-field"
 import { SubjectPicker } from "../subject-picker"
-import { PanelNote, ShapePanel } from "./shape-panel"
+import { PanelNote } from "./panel-note"
+import { ShapePanel } from "./shape-panel"
 
 // yes_no_prop - the one shape whose question text is written rather than
 // generated from a stat and a number.

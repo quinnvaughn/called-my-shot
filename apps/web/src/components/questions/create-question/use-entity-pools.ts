@@ -57,13 +57,10 @@ type Args = {
 /**
  * The candidate lists each option-based shape picks from.
  *
- * Two of these feed PoolSummary, which syncs its items straight into `options`
- * through an effect keyed on that same array - and `options` is watched right
- * back by the form owner. A fresh array reference on every render would
- * retrigger that effect every render, which changes options, which re-renders,
- * forever ("Maximum update depth exceeded"). That is why they're memoized here
- * rather than recomputed inline, and why they must be computed once at this
- * level rather than inside a panel that re-renders on every `options` write.
+ * The three pool shapes' lists (award, game stat leader, team stat leader) are
+ * also what those shapes submit as `options` (see useCreateQuestionForm), so
+ * they're computed once at this level and memoized: each filters the whole
+ * league roster, and the form owner re-renders on every keystroke.
  */
 export function useEntityPools({
 	isPlayerAward,
@@ -161,10 +158,7 @@ export function useEntityPools({
 	])
 
 	// player_game_stat_leader's pool - both rosters of the picked game, less
-	// the positions that can't lead the stat. Same auto-sync-into-options
-	// mechanism as PoolSummary/awardPoolItems above, so it needs the same
-	// stable-reference memoization to avoid retriggering PoolSummary's own sync
-	// effect every render.
+	// the positions that can't lead the stat.
 	const gameStatLeaderPoolItems: EntitySearchItem[] | null = useMemo(() => {
 		if (!isGameStatLeader || !gameTeamIds) return null
 		return toPlayerItems(
@@ -178,8 +172,7 @@ export function useEntityPools({
 	}, [isGameStatLeader, gameTeamIds, players, leagueSlug, statName])
 
 	// player_team_season_stat_leader's pool - the picked team's roster, the
-	// same one the server derives when the question is created. Memoized for
-	// the same PoolSummary reason as the game-scoped pool above.
+	// same one the server derives when the question is created.
 	const teamStatLeaderPoolItems: EntitySearchItem[] | null = useMemo(() => {
 		if (!isTeamSeasonStatLeader || !subjectTeamId) return null
 		return toPlayerItems(
@@ -191,9 +184,9 @@ export function useEntityPools({
 		)
 	}, [isTeamSeasonStatLeader, subjectTeamId, players, leagueSlug, statName])
 
-	// These two feed OptionList, which only reads them for autocomplete and
-	// never writes back - so unlike the two above they don't need a stable
-	// reference and aren't memoized.
+	// These two feed OptionList, which only reads them for autocomplete - the
+	// creator picks options from them by hand, so unlike the pools above
+	// they're never submitted whole and aren't memoized.
 	const finalistItems: EntitySearchItem[] | null = isFinalists
 		? toPlayerItems(players)
 		: null

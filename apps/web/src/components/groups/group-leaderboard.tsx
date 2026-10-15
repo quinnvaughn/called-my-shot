@@ -8,6 +8,7 @@ import {
 	gqlInfiniteQueryOptions,
 } from "#/graphql/query-options"
 import { formatShortDate } from "#/lib/format-date"
+import { matchupLabel } from "#/lib/game-status"
 import { type IdentityUser, toIdentity } from "#/lib/identity"
 import type {
 	FilterLeague,
@@ -64,7 +65,7 @@ function unrankedLabel(unsettled: {
 	const { count, nextGame } = unsettled
 	if (count === 0) return "Make a call to get ranked"
 	if (nextGame) {
-		return `First result after ${nextGame.awayTeam.abbreviation} @ ${nextGame.homeTeam.abbreviation} · ${formatShortDate(nextGame.startsAt)}`
+		return `First result after ${matchupLabel(nextGame)} · ${formatShortDate(nextGame.startsAt)}`
 	}
 	return count === 1
 		? "Ranked once your call settles"

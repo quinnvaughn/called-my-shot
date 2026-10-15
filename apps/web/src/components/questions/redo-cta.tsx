@@ -42,10 +42,7 @@ const actionClass = css({
 	alignItems: "center",
 	gap: "1.5",
 	flexShrink: "0",
-	fontFamily: "mono",
-	fontSize: "2xs",
-	letterSpacing: "wide",
-	textTransform: "uppercase",
+	textStyle: "label",
 	color: "fg.default",
 	background: "transparent",
 	border: "1px solid {colors.border.default}",
@@ -59,10 +56,7 @@ const actionClass = css({
 })
 
 const earnClass = css({
-	fontFamily: "mono",
-	fontSize: "2xs",
-	letterSpacing: "wide",
-	textTransform: "uppercase",
+	textStyle: "label",
 	color: "fg.subtle",
 	textDecoration: "none",
 	whiteSpace: "nowrap",
@@ -70,8 +64,7 @@ const earnClass = css({
 })
 
 const countClass = css({
-	fontFamily: "mono",
-	fontSize: "2xs",
+	textStyle: "meta",
 	color: "fg.subtle",
 	whiteSpace: "nowrap",
 })

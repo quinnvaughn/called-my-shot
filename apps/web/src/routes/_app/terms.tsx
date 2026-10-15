@@ -1,12 +1,10 @@
 import { createFileRoute, Link } from "@tanstack/react-router"
 import { css } from "styled-system/css"
-import {
-	LegalDocument,
-	LegalList,
-	LegalP,
-	LegalSection,
-	SupportEmail,
-} from "#/components/legal/legal-document"
+import { LegalDocument } from "#/components/legal/legal-document"
+import { LegalList } from "#/components/legal/legal-list"
+import { LegalP } from "#/components/legal/legal-p"
+import { LegalSection } from "#/components/legal/legal-section"
+import { SupportEmail } from "#/components/legal/support-email"
 import { pageMeta } from "#/lib/meta"
 
 export const Route = createFileRoute("/_app/terms")({

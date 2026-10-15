@@ -1,17 +1,13 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query"
-import { useRouteContext } from "@tanstack/react-router"
 import { useStore } from "@tanstack/react-store"
 import { useEffect, useRef } from "react"
 import { FavoriteTeamsPickerModal } from "#/components/teams/favorite-teams-picker-modal"
+import { MarkTeamsPromptSeenDocument } from "#/graphql/favorite-teams/mutations"
 import { useGqlMutation } from "#/graphql/hooks"
-import { MarkTeamsPromptSeenDocument } from "#/graphql/mutations/favorite-teams"
-import { MeDocument } from "#/graphql/queries/me"
-import { ViewerOnboardingDocument } from "#/graphql/queries/onboarding"
-import { gqlQueryOptions } from "#/graphql/query-options"
+import { meQuery } from "#/graphql/me/queries"
+import { onboardingQuery } from "#/graphql/onboarding/queries"
+import { useMe } from "#/hooks/use-me"
 import { modalStore, openModal } from "#/stores/modal-store"
-
-const onboardingQuery = gqlQueryOptions(ViewerOnboardingDocument, {})
-const meQuery = gqlQueryOptions(MeDocument, {})
 
 // How old an account has to be before the prompt can open. The visit you
 // sign up on belongs to the first-call walkthrough, so this is what makes it
@@ -23,7 +19,7 @@ const LATER_VISIT_MS = 12 * 60 * 60 * 1000
 // it any way at all is final. The checklist's "Pick your teams" step is the
 // standing reminder after that. Renders nothing itself.
 export function TeamsPrompt() {
-	const { me } = useRouteContext({ from: "__root__" })
+	const me = useMe()
 	const queryClient = useQueryClient()
 	const { mutate: markSeen } = useGqlMutation(MarkTeamsPromptSeenDocument)
 	// Shares the checklist's cache entry, so this costs no request of its own.

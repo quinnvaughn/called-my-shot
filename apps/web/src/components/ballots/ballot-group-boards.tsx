@@ -4,16 +4,20 @@ import { useState } from "react"
 import { css } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
 import { match } from "ts-pattern"
-import { railHeadingClass } from "#/components/questions/question-set-rail"
+import { railHeadingClass } from "#/components/questions/question-set-rail/rail-styles"
 import { Button } from "#/components/ui/button"
 import { Card } from "#/components/ui/card"
 import { FormError } from "#/components/ui/form-error"
 import { GroupLogo } from "#/components/ui/group-logo"
-import { useGqlMutation } from "#/graphql/hooks"
+import { ApiError } from "#/graphql/api-error"
+import { BallotByRefDocument } from "#/graphql/ballots/queries"
 import {
 	AddBallotToGroupDocument,
+	invalidateGroupBoards,
 	RemoveBallotFromGroupDocument,
-} from "#/graphql/mutations/groups"
+} from "#/graphql/groups/mutations"
+import { useGqlMutation } from "#/graphql/hooks"
+import { gqlQueryPrefix } from "#/graphql/query-options"
 
 type Props = {
 	ballotId: string
@@ -55,20 +59,15 @@ export function BallotGroupBoards({ ballotId, ballotSlug, boards }: Props) {
 			await match(result)
 				.with({ __typename: "GroupPayload" }, async () => {
 					await Promise.all([
-						queryClient.invalidateQueries({ queryKey: ["BallotByRef"] }),
-						queryClient.invalidateQueries({ queryKey: ["GroupHome"] }),
-						queryClient.invalidateQueries({ queryKey: ["GroupSettings"] }),
+						queryClient.invalidateQueries({
+							queryKey: gqlQueryPrefix(BallotByRefDocument),
+						}),
+						invalidateGroupBoards(queryClient, groupId),
 					])
 				})
-				.with(
-					{ __typename: "AuthenticationError" },
-					{ __typename: "AuthorizationError" },
-					{ __typename: "NotFoundError" },
-					{ __typename: "ValidationError" },
-					async (r) => {
-						setError(r.message)
-					},
-				)
+				.with(ApiError, { __typename: "ValidationError" }, async (r) => {
+					setError(r.message)
+				})
 				.exhaustive()
 		} finally {
 			setPendingGroupId(null)
@@ -122,17 +121,14 @@ export function BallotGroupBoards({ ballotId, ballotSlug, boards }: Props) {
 													fontSize: "sm",
 													fontWeight: "medium",
 													maxWidth: "full",
-													overflow: "hidden",
-													textOverflow: "ellipsis",
-													whiteSpace: "nowrap",
+													truncate: true,
 												})}
 											>
 												{group.name}
 											</span>
 											<span
 												className={css({
-													fontFamily: "mono",
-													fontSize: "2xs",
+													textStyle: "meta",
 													color: "fg.subtle",
 												})}
 											>

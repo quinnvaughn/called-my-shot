@@ -23,10 +23,7 @@ export function BallotUncalledLine({ heading, labels }: Props) {
 		>
 			<span
 				className={css({
-					fontFamily: "mono",
-					fontSize: "2xs",
-					letterSpacing: "wide",
-					textTransform: "uppercase",
+					textStyle: "label",
 					color: "fg.subtle",
 				})}
 			>

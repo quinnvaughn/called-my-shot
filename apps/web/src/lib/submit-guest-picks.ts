@@ -2,11 +2,14 @@ import type { QueryClient } from "@tanstack/react-query"
 import type { AnyRouter } from "@tanstack/react-router"
 import { createElement } from "react"
 import { GuestPicksPostedModal } from "#/components/onboarding/guest-picks-posted-modal"
-import type { QuestionCallShape } from "#/components/questions/cast-call-form/use-cast-call-form"
+import {
+	CastCallDocument,
+	invalidateAfterCall,
+} from "#/graphql/calls/mutations"
 import { gqlFetch } from "#/graphql/fetcher"
-import { CastCallDocument } from "#/graphql/mutations/calls"
 import { questionHorizon, track } from "#/lib/analytics"
 import { pluralize } from "#/lib/pluralize"
+import { toCallShape } from "#/lib/question-labels"
 import {
 	clearGuestPicks,
 	type GuestPick,
@@ -58,7 +61,7 @@ async function postPicks(
 			})
 			if (data.castCall?.__typename !== "CastCallPayload") continue
 			posted.push(pick)
-			const questionShape = pick.shape.toLowerCase() as QuestionCallShape
+			const questionShape = toCallShape(pick.shape)
 			track("call_submitted", {
 				questionId: pick.questionId,
 				questionShape,
@@ -83,7 +86,7 @@ async function postPicks(
 		posted: posted.length,
 		notPosted: notPostedCount,
 	})
-	await queryClient.invalidateQueries()
+	await invalidateAfterCall(queryClient)
 	await router.invalidate()
 	if (posted.length > 0) requestPushPrompt("call")
 

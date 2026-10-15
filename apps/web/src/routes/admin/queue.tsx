@@ -1,151 +1,25 @@
-import { SPORTS_TIME_ZONE } from "@called-my-shot/schemas"
-import { useQuery } from "@tanstack/react-query"
-import { createFileRoute, Link } from "@tanstack/react-router"
-import { DateTime } from "luxon"
-import { match } from "ts-pattern"
-import { css } from "styled-system/css"
-import { Grid, HStack, VStack } from "styled-system/jsx"
-import { MarkVoidedModal } from "#/components/admin/mark-voided-modal"
-import { ResolveButton } from "#/components/admin/question-row-actions"
-import { VoidQuestionModal } from "#/components/admin/void-question-modal"
-import { Button, button } from "#/components/ui/button"
-import { EmptyState } from "#/components/ui/empty-state"
+import { useSuspenseQuery } from "@tanstack/react-query"
+import { createFileRoute } from "@tanstack/react-router"
+import { VStack } from "styled-system/jsx"
+import { AutoResolveEscalatedSection } from "#/components/admin/admin-queue/auto-resolve-escalated-section"
+import { DisputedSection } from "#/components/admin/admin-queue/disputed-section"
+import { NeedsResolutionSection } from "#/components/admin/admin-queue/needs-resolution-section"
+import { ProbablyStillLiveSection } from "#/components/admin/admin-queue/probably-still-live-section"
+import { QueueStats } from "#/components/admin/admin-queue/queue-stats"
+import { ReportedSection } from "#/components/admin/admin-queue/reported-section"
 import { PageHeader } from "#/components/ui/page-header"
-import type {
-	AdminQueueSummaryQuery,
-	AutoResolveFailure,
-} from "#/graphql/generated/graphql"
-import { AdminQueueSummaryDocument } from "#/graphql/queries/admin"
-import { gqlQueryOptions } from "#/graphql/query-options"
-import { openModal } from "#/stores/modal-store"
+import { adminQueueSummaryQuery } from "#/graphql/admin/queue/queries"
 
 export const Route = createFileRoute("/admin/queue")({
 	component: RouteComponent,
+	loader: ({ context }) => context.queryClient.query(adminQueueSummaryQuery),
 })
 
-function StatCard({ value, label }: { value: number; label: string }) {
-	return (
-		<VStack
-			alignItems="flex-start"
-			gap="1"
-			className={css({
-				bg: "bg.surface",
-				border: "1px solid {colors.border.default}",
-				borderRadius: "xl",
-				padding: "4",
-			})}
-		>
-			<span
-				className={css({
-					fontFamily: "mono",
-					fontSize: "xl",
-					fontWeight: "semibold",
-				})}
-			>
-				{value}
-			</span>
-			<span className={css({ fontSize: "xs", color: "fg.muted" })}>
-				{label}
-			</span>
-		</VStack>
-	)
-}
-
-// Why the automatic resolver handed a question over - see autoResolveFailure
-// in the API.
-const AUTO_RESOLVE_FAILURE_LABELS: Record<AutoResolveFailure, string> = {
-	FETCH_FAILED: "ESPN requests kept failing",
-	BOX_SCORE_NOT_FINAL: "Box score never went final",
-	MISSING_EXTERNAL_REF: "Not linked to ESPN",
-	SUBJECT_NOT_IN_BOX_SCORE: "Not in ESPN's numbers",
-	STAT_UNDEFINED: "Stat has no value",
-	TIE: "Tie",
-	PUSH: "Landed exactly on the line",
-	LEADER_NOT_IN_POOL: "Leader isn't an option",
-	NO_LEADER: "Nobody recorded the stat",
-	UNMAPPED: "Stat doesn't settle automatically",
-	RECHECK_DISAGREED: "Re-check couldn't confirm the result",
-}
-
-type QueueGame = NonNullable<
-	Extract<
-		AdminQueueSummaryQuery["adminQueueSummary"],
-		{ __typename: "QueryAdminQueueSummarySuccess" }
-	>["data"]["needsResolution"][number]["game"]
->
-
-// A question title like "Who will win?" names nothing on its own, so each row
-// says which game it belongs to, when it started, and where it stands.
-function gameLine(game: QueueGame | null | undefined): string | null {
-	if (!game) return null
-	const when = DateTime.fromISO(game.startsAt, { zone: SPORTS_TIME_ZONE })
-		.setLocale("en-US")
-		.toFormat("MMM d, h:mm a")
-	const state = match(game.status)
-		.with("FINAL", () =>
-			game.awayScore != null && game.homeScore != null
-				? `Final ${game.awayScore}-${game.homeScore}`
-				: "Final",
-		)
-		.with("LIVE", () => "Live")
-		.with("SCHEDULED", () => "Not started")
-		.exhaustive()
-	return `${game.league.abbreviation.toUpperCase()} · ${game.awayTeam.abbreviation} @ ${game.homeTeam.abbreviation} · ${when} ET · ${state}`
-}
-
-function QuestionHeading({
-	question,
-}: {
-	question: { id: string; title: string; game?: QueueGame | null }
-}) {
-	const line = gameLine(question.game)
-	return (
-		<>
-			{line && (
-				<span
-					className={css({
-						fontFamily: "mono",
-						fontSize: "2xs",
-						letterSpacing: "wide",
-						color: "fg.muted",
-					})}
-				>
-					{line}
-				</span>
-			)}
-			<Link
-				to="/questions/$questionId/{-$slug}"
-				params={{ questionId: question.id }}
-				target="_blank"
-				className={css({
-					fontSize: "sm",
-					fontWeight: "medium",
-					color: "fg.default",
-					textDecoration: "none",
-					_hover: { textDecoration: "underline" },
-				})}
-			>
-				{question.title}
-			</Link>
-		</>
-	)
-}
-
-function timeAgo(iso: string) {
-	const ms = Date.now() - new Date(iso).getTime()
-	const hours = Math.floor(ms / (1000 * 60 * 60))
-	const minutes = Math.floor((ms % (1000 * 60 * 60)) / (1000 * 60))
-	if (hours <= 0) return `${minutes}m ago`
-	return `${hours}h ${minutes}m ago`
-}
-
 function RouteComponent() {
-	const { data, refetch } = useQuery(
-		gqlQueryOptions(AdminQueueSummaryDocument, {}),
-	)
+	const { data } = useSuspenseQuery(adminQueueSummaryQuery)
 
 	const summary =
-		data?.adminQueueSummary.__typename === "QueryAdminQueueSummarySuccess"
+		data.adminQueueSummary.__typename === "QueryAdminQueueSummarySuccess"
 			? data.adminQueueSummary.data
 			: null
 
@@ -156,314 +30,24 @@ function RouteComponent() {
 				subtitle="What actually needs your attention right now."
 			/>
 
-			<Grid
-				gridTemplateColumns={{ base: "1fr 1fr", md: "repeat(5, 1fr)" }}
-				gap="3"
-			>
-				<StatCard
-					value={summary?.needsResolution.length ?? 0}
-					label="Needs resolution"
-				/>
-				<StatCard value={summary?.disputed.length ?? 0} label="Disputed" />
-				<StatCard value={summary?.reported.length ?? 0} label="Reported" />
-				<StatCard value={summary?.usersLockedCount ?? 0} label="Users locked" />
-				<StatCard
-					value={summary?.liveQuestionsCount ?? 0}
-					label="Live questions"
-				/>
-			</Grid>
+			<QueueStats summary={summary} />
 
-			<VStack gap="3" alignItems="stretch">
-				<span
-					className={css({
-						fontFamily: "mono",
-						fontSize: "2xs",
-						letterSpacing: "wide",
-						textTransform: "uppercase",
-						color: "fg.subtle",
-					})}
-				>
-					Locked a while: likely over (estimate)
-				</span>
-				{!summary || summary.needsResolution.length === 0 ? (
-					<EmptyState>Nothing needs resolving right now.</EmptyState>
-				) : (
-					summary.needsResolution.map((question) => (
-						<HStack
-							key={question.id}
-							justify="space-between"
-							gap="4"
-							className={css({
-								bg: "bg.surface",
-								border: "1px solid {colors.border.default}",
-								borderRadius: "xl",
-								padding: "3.5",
-							})}
-						>
-							<VStack
-								gap="1"
-								alignItems="flex-start"
-								className={css({ minWidth: 0 })}
-							>
-								<QuestionHeading question={question} />
-								<span
-									className={css({
-										fontFamily: "mono",
-										fontSize: "2xs",
-										color: "danger.default",
-									})}
-								>
-									locked {timeAgo(question.locksAt)} · {question.callCount}{" "}
-									callers
-								</span>
-							</VStack>
-							<HStack gap="1.5" flexShrink={0}>
-								<ResolveButton
-									questionId={question.id}
-									onResolved={() => refetch()}
-								/>
-								<Button
-									variant="outline"
-									size="sm"
-									onClick={() =>
-										openModal(
-											<VoidQuestionModal
-												question={question}
-												onVoided={() => refetch()}
-											/>,
-										)
-									}
-								>
-									Void
-								</Button>
-							</HStack>
-						</HStack>
-					))
-				)}
-			</VStack>
+			<NeedsResolutionSection questions={summary?.needsResolution ?? []} />
 
 			{summary && summary.autoResolveEscalated.length > 0 && (
-				<VStack gap="3" alignItems="stretch">
-					<span
-						className={css({
-							fontFamily: "mono",
-							fontSize: "2xs",
-							letterSpacing: "wide",
-							textTransform: "uppercase",
-							color: "fg.subtle",
-						})}
-					>
-						Couldn't resolve automatically
-					</span>
-					{summary.autoResolveEscalated.map(
-						({ question, failureReason, failureDetail }) => (
-							<HStack
-								key={question.id}
-								justify="space-between"
-								gap="4"
-								className={css({
-									bg: "bg.surface",
-									border: "1px solid {colors.border.default}",
-									borderRadius: "xl",
-									padding: "3.5",
-								})}
-							>
-								<VStack
-									gap="1"
-									alignItems="flex-start"
-									className={css({ minWidth: 0 })}
-								>
-									<QuestionHeading question={question} />
-									<span
-										className={css({
-											fontFamily: "mono",
-											fontSize: "2xs",
-											color: "danger.default",
-										})}
-									>
-										{failureReason
-											? AUTO_RESOLVE_FAILURE_LABELS[failureReason]
-											: "Game never went final"}
-										{failureDetail && ` · ${failureDetail}`}
-									</span>
-								</VStack>
-								<HStack gap="1.5" flexShrink={0}>
-									<ResolveButton
-										questionId={question.id}
-										onResolved={() => refetch()}
-									/>
-									<Button
-										variant="outline"
-										size="sm"
-										onClick={() =>
-											openModal(
-												<MarkVoidedModal
-													question={question}
-													onVoided={() => refetch()}
-												/>,
-											)
-										}
-									>
-										No result
-									</Button>
-								</HStack>
-							</HStack>
-						),
-					)}
-				</VStack>
+				<AutoResolveEscalatedSection escalated={summary.autoResolveEscalated} />
 			)}
 
 			{summary && summary.probablyStillLive.length > 0 && (
-				<VStack gap="3" alignItems="stretch">
-					<span
-						className={css({
-							fontFamily: "mono",
-							fontSize: "2xs",
-							letterSpacing: "wide",
-							textTransform: "uppercase",
-							color: "fg.subtle",
-						})}
-					>
-						Locked recently: probably still live (estimate)
-					</span>
-					{summary.probablyStillLive.map((question) => (
-						<HStack
-							key={question.id}
-							justify="space-between"
-							gap="4"
-							className={css({
-								bg: "bg.surface",
-								border: "1px solid {colors.border.default}",
-								borderRadius: "xl",
-								padding: "3.5",
-							})}
-						>
-							<VStack gap="1" alignItems="flex-start">
-								<span className={css({ fontSize: "sm", fontWeight: "medium" })}>
-									{question.title}
-								</span>
-								<span
-									className={css({
-										fontFamily: "mono",
-										fontSize: "2xs",
-										color: "fg.subtle",
-									})}
-								>
-									locked {timeAgo(question.locksAt)} · {question.callCount}{" "}
-									callers
-								</span>
-							</VStack>
-						</HStack>
-					))}
-				</VStack>
+				<ProbablyStillLiveSection questions={summary.probablyStillLive} />
 			)}
 
 			{summary && summary.disputed.length > 0 && (
-				<VStack gap="3" alignItems="stretch">
-					<span
-						className={css({
-							fontFamily: "mono",
-							fontSize: "2xs",
-							letterSpacing: "wide",
-							textTransform: "uppercase",
-							color: "fg.subtle",
-						})}
-					>
-						Disputed
-					</span>
-					{summary.disputed.map((dispute) => (
-						<HStack
-							key={dispute.id}
-							justify="space-between"
-							gap="4"
-							className={css({
-								bg: "bg.surface",
-								border: "1px solid {colors.border.default}",
-								borderRadius: "xl",
-								padding: "3.5",
-							})}
-						>
-							<VStack
-								gap="1"
-								alignItems="flex-start"
-								className={css({ minWidth: 0 })}
-							>
-								<span className={css({ fontSize: "sm", fontWeight: "medium" })}>
-									{dispute.question.title}
-								</span>
-								<span
-									className={css({
-										fontFamily: "mono",
-										fontSize: "2xs",
-										color: "fg.subtle",
-									})}
-								>
-									@{dispute.user.username} · {timeAgo(dispute.createdAt)}
-								</span>
-							</VStack>
-							<Link
-								to="/admin/disputes"
-								className={button({ variant: "outline", size: "sm" })}
-							>
-								Review
-							</Link>
-						</HStack>
-					))}
-				</VStack>
+				<DisputedSection disputes={summary.disputed} />
 			)}
 
 			{summary && summary.reported.length > 0 && (
-				<VStack gap="3" alignItems="stretch">
-					<span
-						className={css({
-							fontFamily: "mono",
-							fontSize: "2xs",
-							letterSpacing: "wide",
-							textTransform: "uppercase",
-							color: "fg.subtle",
-						})}
-					>
-						Reported
-					</span>
-					{summary.reported.map((report) => (
-						<HStack
-							key={report.id}
-							justify="space-between"
-							gap="4"
-							className={css({
-								bg: "bg.surface",
-								border: "1px solid {colors.border.default}",
-								borderRadius: "xl",
-								padding: "3.5",
-							})}
-						>
-							<VStack
-								gap="1"
-								alignItems="flex-start"
-								className={css({ minWidth: 0 })}
-							>
-								<span className={css({ fontSize: "sm", fontWeight: "medium" })}>
-									{report.question.title}
-								</span>
-								<span
-									className={css({
-										fontFamily: "mono",
-										fontSize: "2xs",
-										color: "fg.subtle",
-									})}
-								>
-									@{report.reportedBy.username} · {timeAgo(report.createdAt)}
-								</span>
-							</VStack>
-							<Link
-								to="/admin/reports"
-								className={button({ variant: "outline", size: "sm" })}
-							>
-								Review
-							</Link>
-						</HStack>
-					))}
-				</VStack>
+				<ReportedSection reports={summary.reported} />
 			)}
 		</VStack>
 	)

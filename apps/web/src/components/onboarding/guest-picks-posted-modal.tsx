@@ -68,8 +68,7 @@ export function GuestPicksPostedModal({ posted, notPostedCount }: Props) {
 							</span>
 							<span
 								className={css({
-									fontFamily: "mono",
-									fontSize: "xs",
+									textStyle: "metaLg",
 									fontWeight: "bold",
 									color: "primary.default",
 								})}

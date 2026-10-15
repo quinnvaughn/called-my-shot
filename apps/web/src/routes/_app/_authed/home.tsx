@@ -1,42 +1,27 @@
 import { useQueryClient, useSuspenseQuery } from "@tanstack/react-query"
-import { createFileRoute, Link, useRouter } from "@tanstack/react-router"
-import { type ReactNode, useEffect } from "react"
+import { createFileRoute, useRouter } from "@tanstack/react-router"
+import { useEffect } from "react"
 import { css } from "styled-system/css"
-import { HStack, VStack } from "styled-system/jsx"
+import { VStack } from "styled-system/jsx"
+import { HomeHotStreaksSection } from "#/components/home/home-hot-streaks-section"
+import { HomeJustResolvedSection } from "#/components/home/home-just-resolved-section"
+import { HomeRail } from "#/components/home/home-rail"
+import { HomeResultsSection } from "#/components/home/home-results-section"
+import { HomeSectionLabel } from "#/components/home/home-section-label"
 import { LeagueRoomCard } from "#/components/home/league-room-card"
 import { LiveCallsSection } from "#/components/my-calls/live-calls-section"
 import { OnboardingChecklist } from "#/components/onboarding/onboarding-checklist"
 import { TeamsPrompt } from "#/components/onboarding/teams-prompt"
-import { ResultsCalendar } from "#/components/profile/results-calendar"
-import { StatGrid, statGridItems } from "#/components/profile/stat-grid"
-import { StreaksSection } from "#/components/profile/streaks-section"
+import { StatGrid } from "#/components/profile/stat-grid"
 import { QuestionCard } from "#/components/questions/question-card"
 import { CardRail } from "#/components/ui/card-rail"
 import { EmptyState } from "#/components/ui/empty-state"
 import { PageHeader } from "#/components/ui/page-header"
-import { HomeDashboardDocument } from "#/graphql/queries/home"
-import { myLiveCallsQuery } from "#/graphql/queries/my-calls"
-import { gqlQueryOptions } from "#/graphql/query-options"
+import { homeDashboardQuery } from "#/graphql/home/queries"
+import { myLiveCallsQuery } from "#/graphql/my-calls/queries"
 import { orderLeaguesByActivity } from "#/lib/league-order"
+import { statGridItems } from "#/lib/stat-grid"
 import { submitGuestPicks } from "#/lib/submit-guest-picks"
-
-function SectionLabel({ children }: { children: ReactNode }) {
-	return (
-		<h2
-			className={css({
-				fontFamily: "mono",
-				fontSize: "2xs",
-				letterSpacing: "wide",
-				textTransform: "uppercase",
-				color: "fg.muted",
-			})}
-		>
-			{children}
-		</h2>
-	)
-}
-
-const homeDashboardQuery = gqlQueryOptions(HomeDashboardDocument, {})
 
 export const Route = createFileRoute("/_app/_authed/home")({
 	component: RouteComponent,
@@ -90,7 +75,7 @@ function RouteComponent() {
 			<TeamsPrompt />
 
 			<StatGrid
-				header={<SectionLabel>Career</SectionLabel>}
+				header={<HomeSectionLabel>Career</HomeSectionLabel>}
 				items={statGridItems({
 					rank: stats?.rank ?? null,
 					totalPoints: stats?.totalPoints ?? 0,
@@ -113,7 +98,7 @@ function RouteComponent() {
 				getKey={(league) => league.id}
 				renderItem={(league) => <LeagueRoomCard league={league} />}
 				itemLabel="league"
-				header={<SectionLabel>Leagues</SectionLabel>}
+				header={<HomeSectionLabel>Leagues</HomeSectionLabel>}
 			/>
 
 			{/* Above Locking soon, which runs six cards deep: the calendar is a
@@ -124,12 +109,12 @@ function RouteComponent() {
 				alignItems="stretch"
 				className={css({ display: { base: "flex", xl: "none" } })}
 			>
-				<ResultsSection placement="main" />
-				<HotStreaksSection />
+				<HomeResultsSection placement="main" />
+				<HomeHotStreaksSection />
 			</VStack>
 
 			<VStack gap="3" alignItems="stretch">
-				<SectionLabel>Locking soon</SectionLabel>
+				<HomeSectionLabel>Locking soon</HomeSectionLabel>
 				{lockingSoon.length > 0 ? (
 					<VStack gap="3" alignItems="stretch">
 						{lockingSoon.map((question) => (
@@ -144,100 +129,9 @@ function RouteComponent() {
 			</VStack>
 
 			<div className={css({ display: { base: "block", xl: "none" } })}>
-				<JustResolvedSection />
+				<HomeJustResolvedSection />
 			</div>
 		</VStack>
 	)
 }
 
-function HomeRail() {
-	return (
-		<VStack gap="8" alignItems="stretch">
-			<ResultsSection placement="rail" />
-			<HotStreaksSection />
-			<JustResolvedSection />
-		</VStack>
-	)
-}
-
-function ResultsSection({ placement }: { placement: "main" | "rail" }) {
-	const { data } = useSuspenseQuery(homeDashboardQuery)
-	const me = data.me
-	const record = me?.record
-	if (!me || !record) {
-		return null
-	}
-	return (
-		<VStack gap="3" alignItems="stretch">
-			<HStack justify="space-between" alignItems="baseline" gap="3">
-				<SectionLabel>Your results</SectionLabel>
-				<Link
-					to="/user/$username"
-					params={{ username: me.username }}
-					className={css({
-						fontSize: "xs",
-						color: "primary.default",
-						whiteSpace: "nowrap",
-						_hover: { textDecoration: "underline" },
-					})}
-				>
-					Full record →
-				</Link>
-			</HStack>
-			<ResultsCalendar
-				calendar={record.calendar}
-				username={me.username}
-				compact={placement === "rail"}
-			/>
-		</VStack>
-	)
-}
-
-// Same cap as the profile's top row of live runs.
-const MAX_LIVE_STREAKS = 3
-
-// Live runs only. A run that has ended, or a cold one, gives the viewer
-// nothing to act on from here; both stay on the profile.
-function HotStreaksSection() {
-	const { data } = useSuspenseQuery(homeDashboardQuery)
-	const me = data.me
-	const live = (me?.streaks ?? [])
-		.filter((streak) => streak.currentLength > 0)
-		.slice(0, MAX_LIVE_STREAKS)
-	if (!me || live.length === 0) return null
-	return (
-		<VStack gap="3" alignItems="stretch">
-			<SectionLabel>Hot streaks</SectionLabel>
-			<StreaksSection
-				username={me.username}
-				streaks={live}
-				isOwn
-				layout="grid"
-			/>
-		</VStack>
-	)
-}
-
-function JustResolvedSection() {
-	const { data } = useSuspenseQuery(homeDashboardQuery)
-	const justResolved = data.myRecentResolvedCalls
-	return (
-		<VStack gap="3" alignItems="stretch">
-			<SectionLabel>Just resolved</SectionLabel>
-			{justResolved.length > 0 ? (
-				<VStack gap="3" alignItems="stretch">
-					{justResolved.map(
-						(call) =>
-							call.question && (
-								<QuestionCard key={call.id} question={call.question} />
-							),
-					)}
-				</VStack>
-			) : (
-				<EmptyState>
-					No results yet. Your calls will show up here as they resolve.
-				</EmptyState>
-			)}
-		</VStack>
-	)
-}

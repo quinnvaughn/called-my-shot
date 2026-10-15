@@ -1,7 +1,7 @@
-import { useRouteContext } from "@tanstack/react-router"
 import { FiAward } from "react-icons/fi"
 import { css } from "styled-system/css"
 import { type FragmentType, graphql, useFragment } from "#/graphql/generated"
+import { useMe } from "#/hooks/use-me"
 import { sweepTarget } from "../achievement-target"
 import { NotificationShell } from "../notification-shell"
 
@@ -30,7 +30,7 @@ export function SweepCompletedRow({
 	onOpen,
 }: Props) {
 	const n = useFragment(SweepCompletedRowFragment, notificationProp)
-	const { me } = useRouteContext({ from: "__root__" })
+	const me = useMe()
 
 	return (
 		<NotificationShell

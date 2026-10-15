@@ -30,16 +30,22 @@ export function CreateQuestionForm({ sports, isAdmin, lockedBallotId }: Props) {
 		ballotId,
 		hasSelectedType,
 		selectType,
+		title,
+		titleEdited,
 		setTitleEdited,
 		titlePreview,
+		handleSubmit,
+		canSubmit,
 		isAdminOnlyShape,
 		data,
-	} = useCreateQuestionForm({ sports })
+	} = useCreateQuestionForm({ sports, lockedBallotId })
 
 	return (
 		<FormProvider form={form}>
-			<QuestionDataProvider value={{ ...data, sports, isAdmin }}>
-				<form onSubmit={form.handleSubmit}>
+			<QuestionDataProvider
+				value={{ ...data, sports, isAdmin, lockedBallotId }}
+			>
+				<form onSubmit={handleSubmit}>
 					<VStack gap="6" alignItems="stretch">
 						<Section label="What kind of call is this?" required>
 							<QuestionTypePicker
@@ -60,17 +66,23 @@ export function CreateQuestionForm({ sports, isAdmin, lockedBallotId }: Props) {
 												<Field name="title">
 													{(field) => (
 														<TextInput
-															error={field.meta.error ?? undefined}
+															// The stored title stays empty until the
+															// creator types, so its required error only
+															// means something once they have.
+															error={
+																titleEdited
+																	? (field.meta.error ?? undefined)
+																	: undefined
+															}
 															description="Prefilled from the fields above - edit it if the generated phrasing reads awkwardly."
 														>
 															<TextInput.Label required>Title</TextInput.Label>
 															<TextInput.Group>
 																<TextInput.Field
-																	value={field.value}
-																	// Raw Field rather than TextField: this has to
-																	// flag the title as the creator's before the
-																	// value lands, and the kit's onValueChange
-																	// fires after.
+																	// Raw Field rather than TextField: the input
+																	// shows the effective title, which is the
+																	// generated preview until the creator types.
+																	value={title}
 																	onChange={(e) => {
 																		setTitleEdited(true)
 																		field.onChange(e)
@@ -125,7 +137,9 @@ export function CreateQuestionForm({ sports, isAdmin, lockedBallotId }: Props) {
 									</Section>
 								)}
 
-								<Subscribe selector={(s) => s.meta}>
+								<Subscribe
+									selector={(s) => ({ ...s.meta, canSubmit: canSubmit(s) })}
+								>
 									{(meta) => (
 										<VStack gap="2" alignItems="stretch">
 											<Button

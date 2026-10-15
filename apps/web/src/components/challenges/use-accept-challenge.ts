@@ -2,8 +2,9 @@ import { useQueryClient } from "@tanstack/react-query"
 import { useRouter } from "@tanstack/react-router"
 import { useEffect, useState } from "react"
 import type { CallDraft } from "#/components/questions/cast-call-form"
+import { invalidateAfterCall } from "#/graphql/calls/mutations"
+import { AcceptChallengeDocument } from "#/graphql/challenges/mutations"
 import { gqlFetch } from "#/graphql/fetcher"
-import { AcceptChallengeDocument } from "#/graphql/mutations/challenges"
 import { track } from "#/lib/analytics"
 import {
 	clearChallengeDrafts,
@@ -106,7 +107,7 @@ export function useAcceptChallenge({
 				questionCount,
 				newCalls: Object.keys(toSend).length,
 			})
-			await queryClient.invalidateQueries()
+			await invalidateAfterCall(queryClient)
 			await router.invalidate()
 			requestPushPrompt("challenge_accepted")
 			onAccepted()

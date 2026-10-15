@@ -1,8 +1,11 @@
 import { describe, expect, it } from "vitest"
 import {
 	type ConferenceStandings,
+	changeNote,
 	projectStandings,
+	type StandingsRow,
 	type StandingsTeamInput,
+	statusLabel,
 	tiebreakOrderAfterMove,
 } from "./projected-standings"
 
@@ -332,5 +335,39 @@ describe("projectStandings", () => {
 			)
 		expect(order("q-BUF", "q-MIA")).toEqual(["KC", "MIA", "BUF"])
 		expect(order("q-MIA", "q-BUF")).toEqual(["MIA", "BUF", "KC"])
+	})
+})
+
+describe("statusLabel", () => {
+	const row = (status: StandingsRow["status"]) => ({ status }) as StandingsRow
+
+	it("names only byes and play-ins", () => {
+		expect(statusLabel(row("bye"))).toBe("Bye")
+		expect(statusLabel(row("playIn"))).toBe("Play-in")
+		expect(statusLabel(row("playoff"))).toBeNull()
+		expect(statusLabel(row("out"))).toBeNull()
+		expect(statusLabel(row(null))).toBeNull()
+	})
+})
+
+describe("changeNote", () => {
+	const row = (wins: number | null, rebalancedFrom: number | null) =>
+		({
+			wins,
+			team: {
+				...conference("AFC", { East: { BUF: wins } })[0],
+				rebalancedFrom,
+			},
+		}) as StandingsRow
+
+	it("shows the saved pick while a draft has moved it", () => {
+		expect(changeNote(row(9, null), { original: 11 })).toBe("was 11")
+		expect(changeNote(row(11, 8), { original: 11 })).toBeNull()
+	})
+
+	it("shows where a saved rebalance started from", () => {
+		expect(changeNote(row(9, 11), null)).toBe("rebalanced from 11")
+		expect(changeNote(row(9, 9), null)).toBeNull()
+		expect(changeNote(row(9, null), null)).toBeNull()
 	})
 })

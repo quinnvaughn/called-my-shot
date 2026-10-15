@@ -1,4 +1,5 @@
 import { match } from "ts-pattern"
+import { z } from "zod"
 import type { SeasonFilterInput } from "#/graphql/generated/graphql"
 
 // The league rows both leaderboards read out of router context (_app.tsx's
@@ -18,7 +19,12 @@ export type FilterLeague = {
 // rather than uuids so a shared leaderboard link is readable, and because the
 // leagues in router context can translate either one to an id before a
 // loader runs - no extra round trip.
-export type LeaderboardSearch = { league?: string; season?: string }
+export const leaderboardSearchSchema = z.object({
+	league: z.string().optional().catch(undefined),
+	season: z.string().optional().catch(undefined),
+})
+
+export type LeaderboardSearch = z.output<typeof leaderboardSearchSchema>
 
 export const ALL_SEASONS = "all"
 // The week in progress, ranked the way Player of the Week is decided. Groups
@@ -52,15 +58,6 @@ export function pickerSeasons(league: FilterLeague): FilterLeague["seasons"] {
 		seasons.push(current)
 	}
 	return seasons.sort((a, b) => b.year - a.year)
-}
-
-export function validateLeaderboardSearch(
-	search: Record<string, unknown>,
-): LeaderboardSearch {
-	return {
-		league: typeof search.league === "string" ? search.league : undefined,
-		season: typeof search.season === "string" ? search.season : undefined,
-	}
 }
 
 // An unrecognized slug or year falls back to the default rather than

@@ -7,14 +7,11 @@ import { Sheet } from "#/components/ui/sheet"
 import { Tabs } from "#/components/ui/tabs"
 import { graphql } from "#/graphql/generated"
 import { gqlQueryOptions } from "#/graphql/query-options"
-import {
-	ColdStreakRows,
-	HotStreakRows,
-	StreakRecordRows,
-	SweepRows,
-	useStreakEntries,
-	useSweepEntries,
-} from "./group-highlights"
+import { ColdStreakRows } from "./cold-streak-rows"
+import { useStreakEntries, useSweepEntries } from "./group-highlight-entries"
+import { HotStreakRows } from "./hot-streak-rows"
+import { StreakRecordRows } from "./streak-record-rows"
+import { SweepRows } from "./sweep-rows"
 
 // The full lists behind the band's "see all". Its own query rather than more
 // of GroupShell's: the rail asks for three of each on every group page load,

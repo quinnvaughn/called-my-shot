@@ -122,13 +122,12 @@ export function OptionList({
 									fontSize: "xs",
 									letterSpacing: "wide",
 									color: "fg.subtle",
-									border: "1px dashed",
-									borderColor: "border.default",
+									border: "1px dashed {colors.border.default}",
 									borderRadius: "lg",
 									padding: "2.5",
 									cursor: "pointer",
 									_hover: {
-										borderColor: "border.emphasized",
+										border: "1px dashed {colors.border.emphasized}",
 										color: "fg.body",
 									},
 								})}

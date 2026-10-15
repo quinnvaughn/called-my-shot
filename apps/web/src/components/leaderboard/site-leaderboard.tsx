@@ -3,7 +3,7 @@ import { useFragment } from "#/graphql/generated"
 import {
 	LeaderboardEntryFragment,
 	leaderboardQuery,
-} from "#/graphql/queries/leaderboard"
+} from "#/graphql/leaderboard/queries"
 import { type IdentityUser, toIdentity } from "#/lib/identity"
 import type {
 	FilterLeague,

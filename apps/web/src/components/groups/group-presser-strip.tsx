@@ -12,6 +12,7 @@ import { CardRail } from "#/components/ui/card-rail"
 import { Identity } from "#/components/ui/identity"
 import { type FragmentType, graphql, useFragment } from "#/graphql/generated"
 import { track } from "#/lib/analytics"
+import { matchupLabel } from "#/lib/game-status"
 import { toIdentity } from "#/lib/identity"
 import { pluralize } from "#/lib/pluralize"
 
@@ -79,21 +80,8 @@ export function GroupPresserStrip({
 			items={highlights}
 			getKey={(h) => h.id}
 			itemLabel="presser"
-			header={
-				<HStack
-					gap="1.5"
-					className={css({
-						fontFamily: "mono",
-						fontSize: "xs",
-						letterSpacing: "wide",
-						color: "fg.muted",
-						textTransform: "uppercase",
-					})}
-				>
-					<FiMic size={12} aria-hidden />
-					From the pressers
-				</HStack>
-			}
+			title="From the pressers"
+			icon={<FiMic size={12} aria-hidden />}
 			renderItem={(h) => {
 				const owner = toIdentity(h.presser.owner)
 				const { game } = h.presser
@@ -125,7 +113,7 @@ export function GroupPresserStrip({
 							textDecoration: "none",
 							color: "inherit",
 							transition: "border-color 0.15s ease",
-							_hover: { borderColor: "border.emphasized" },
+							_hover: { border: "1px solid {colors.border.emphasized}" },
 						})}
 					>
 						<HStack justify="space-between" gap="3" alignItems="flex-start">
@@ -136,9 +124,7 @@ export function GroupPresserStrip({
 								flair={owner.flair}
 								size="xs"
 							/>
-							<span className={presserEyebrow}>
-								{game.awayTeam.abbreviation} @ {game.homeTeam.abbreviation}
-							</span>
+							<span className={presserEyebrow}>{matchupLabel(game)}</span>
 						</HStack>
 						<VStack gap="2" alignItems="stretch" className={css({ flex: "1" })}>
 							<div className={transcriptRow}>
@@ -181,10 +167,7 @@ export function GroupPresserStrip({
 						</VStack>
 						<span
 							className={css({
-								fontFamily: "mono",
-								fontSize: "2xs",
-								letterSpacing: "wide",
-								textTransform: "uppercase",
+								textStyle: "label",
 								color: "primary.default",
 							})}
 						>

@@ -7,8 +7,7 @@ export function SaveNote({ children }: { children: string | null }) {
 	return (
 		<span
 			className={css({
-				fontFamily: "mono",
-				fontSize: "3xs",
+				textStyle: "metaSm",
 				color: "fg.muted",
 			})}
 		>

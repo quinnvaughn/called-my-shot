@@ -1,47 +1,39 @@
 import { useSuspenseQuery } from "@tanstack/react-query"
-import { createFileRoute, useRouteContext } from "@tanstack/react-router"
+import { createFileRoute } from "@tanstack/react-router"
 import { FiUserX } from "react-icons/fi"
 import { css } from "styled-system/css"
 import { VStack } from "styled-system/jsx"
+import { z } from "zod"
 import { PageBanner } from "#/components/images/page-banner"
 import { ColdStreaksSection } from "#/components/profile/cold-streaks-section"
-import {
-	PointsBreakdown,
-	type PointsGroup,
-	type PointsRow,
-	type PointsView,
-} from "#/components/profile/points-breakdown"
-import {
-	OpenPresserBanner,
-	PressersSection,
-} from "#/components/profile/pressers"
+import { OpenPresserBanner } from "#/components/profile/open-presser-banner"
+import { PointsBreakdownSection } from "#/components/profile/points-breakdown-section"
+import { PressersSection } from "#/components/profile/pressers-section"
 import { ProfileHeader } from "#/components/profile/profile-header"
+import { ProfileLeagueTabs } from "#/components/profile/profile-league-tabs"
 import { ProfileShareRow } from "#/components/profile/profile-share-row"
-import { ResultsCalendar } from "#/components/profile/results-calendar"
-import { StatGrid, statGridItems } from "#/components/profile/stat-grid"
+import { ResultsSection } from "#/components/profile/results-section"
+import { StatGrid } from "#/components/profile/stat-grid"
 import { StreaksSection } from "#/components/profile/streaks-section"
 import { SweepsSection } from "#/components/profile/sweeps-section"
 import { CallCard } from "#/components/questions/call-card"
 import { EmptyState } from "#/components/ui/empty-state"
 import { NotFound } from "#/components/ui/not-found"
-import { Tabs } from "#/components/ui/tabs"
-import { TeamBadge } from "#/components/ui/team-badge"
+import { SectionLabel } from "#/components/ui/section-label"
 import {
 	UserProfileDocument,
 	UserRecordDocument,
-	type UserRecordQuery,
 } from "#/graphql/generated/graphql"
 import { gqlQueryOptions } from "#/graphql/query-options"
-import { recordLine } from "#/lib/challenge"
+import { useMe } from "#/hooks/use-me"
+import { formatRecord } from "#/lib/game-status"
 import { toIdentity } from "#/lib/identity"
 import { pageMeta } from "#/lib/meta"
-import { profileCardVersion } from "#/lib/profile"
+import { pluralize } from "#/lib/pluralize"
+import { profileCardVersion, scopedLeague } from "#/lib/profile"
+import { statGridItems } from "#/lib/stat-grid"
 
 const MAX_LIVE_STREAKS = 3
-// The best and worst teams the team view keeps on screen before the rest fold.
-const TEAM_ROWS_AT_EACH_END = 3
-
-type ProfileSearch = { league?: string }
 
 const userProfileQuery = (username: string) =>
 	gqlQueryOptions(UserProfileDocument, { username })
@@ -54,8 +46,8 @@ export const Route = createFileRoute("/_app/user/$username")({
 	// ?league=nba scopes the stats, calendar, breakdown and streaks to one
 	// league. A slug that names nothing this user has played falls back to
 	// the whole career rather than erroring, same as the leaderboard's filter.
-	validateSearch: (search: Record<string, unknown>): ProfileSearch => ({
-		league: typeof search.league === "string" ? search.league : undefined,
+	validateSearch: z.object({
+		league: z.string().optional().catch(undefined),
 	}),
 	loaderDeps: ({ search }) => ({ league: search.league }),
 	loader: async ({ context, params, deps }) => {
@@ -83,7 +75,7 @@ export const Route = createFileRoute("/_app/user/$username")({
 		const stats = user.careerStats
 		const summary = stats
 			? [
-					`${stats.resolvedCallCount.toLocaleString()} resolved call${stats.resolvedCallCount === 1 ? "" : "s"}`,
+					`${stats.resolvedCallCount.toLocaleString()} ${pluralize(stats.resolvedCallCount, "resolved call")}`,
 					stats.accuracy !== null
 						? `${Math.round(stats.accuracy)}% accuracy`
 						: null,
@@ -114,140 +106,12 @@ export const Route = createFileRoute("/_app/user/$username")({
 	},
 })
 
-type LeagueStats = {
-	league: { id: string; name: string; abbreviation: string; slug: string }
-}
-
-function scopedLeague<T extends LeagueStats>(
-	leagues: T[],
-	slug: string | undefined,
-): T | null {
-	return slug ? (leagues.find((row) => row.league.slug === slug) ?? null) : null
-}
-
-type ProfileRecord = NonNullable<
-	NonNullable<UserRecordQuery["userByUsername"]>["record"]
->
-
-// Leagues (career view only), then play-type families with their shapes
-// nested or teams, one at a time, then the bonuses no call earned. The league
-// rows, the family rows and the team rows each add up to the calls' net, and
-// any of them plus the bonuses is the points tile above them.
-function breakdownGroups(record: ProfileRecord): PointsGroup[] {
-	const groups: PointsGroup[] = []
-	if (record.byLeague.length > 0) {
-		groups.push({
-			views: [
-				{
-					label: "By league",
-					rows: record.byLeague.map((row) => ({
-						key: row.league.id,
-						label: row.league.name,
-						netPoints: row.netPoints,
-						wins: row.wins,
-						losses: row.losses,
-						returnPct: row.returnPct ?? null,
-						leagueSlug: row.league.slug,
-					})),
-				},
-			],
-		})
-	}
-	const families: PointsRow[] = record.byFamily.map((family) => ({
-		key: family.family,
-		label: family.label,
-		netPoints: family.netPoints,
-		wins: family.wins,
-		losses: family.losses,
-		returnPct: family.returnPct ?? null,
-		children: record.byShape
-			.filter((shape) => shape.family === family.family)
-			.map((shape) => ({
-				key: shape.shape,
-				label: shape.label,
-				netPoints: shape.netPoints,
-				wins: shape.wins,
-				losses: shape.losses,
-				returnPct: shape.returnPct ?? null,
-			})),
-	}))
-	const teamRows: PointsRow[] = record.byTeam.map((row) => ({
-		key: row.team?.id ?? "no-team",
-		label: row.team?.name ?? "No specific team",
-		icon: row.team && (
-			<TeamBadge
-				abbreviation={row.team.abbreviation}
-				color={row.team.color}
-				logoUrl={row.team.logoUrl}
-			/>
-		),
-		netPoints: row.netPoints,
-		wins: row.wins,
-		losses: row.losses,
-		returnPct: row.returnPct ?? null,
-	}))
-	// The API sorts the no-team row last, outside the best-to-worst order.
-	const teams = teamRows.filter((row) => row.key !== "no-team")
-	const noTeam = teamRows.filter((row) => row.key === "no-team")
-	const splits: PointsView[] = [
-		...(families.length > 0 ? [{ label: "By play type", rows: families }] : []),
-		...(teamRows.length > 0
-			? [
-					{
-						label: "By team",
-						rows: teams,
-						fold: { ends: TEAM_ROWS_AT_EACH_END, label: "Show all teams" },
-						pinned: noTeam,
-					},
-				]
-			: []),
-	]
-	if (splits.length > 0) groups.push({ views: splits })
-	if (record.bonusPoints !== 0) {
-		groups.push({
-			views: [
-				{
-					label: "Bonuses",
-					cardScale: true,
-					rows: [
-						{
-							key: "bonuses",
-							label: "Streaks & sweeps",
-							netPoints: record.bonusPoints,
-							wins: null,
-							losses: null,
-							returnPct: null,
-						},
-					],
-				},
-			],
-		})
-	}
-	return groups
-}
-
-function sectionLabel(text: string) {
-	return (
-		<h2
-			className={css({
-				fontFamily: "mono",
-				fontSize: "xs",
-				letterSpacing: "wide",
-				color: "fg.muted",
-				textTransform: "uppercase",
-			})}
-		>
-			{text}
-		</h2>
-	)
-}
-
 function RouteComponent() {
 	const { username } = Route.useParams()
 	const search = Route.useSearch()
 	const { data } = useSuspenseQuery(userProfileQuery(username))
 	const user = data.userByUsername
-	const { me } = useRouteContext({ from: "__root__" })
+	const me = useMe()
 	const scoped = scopedLeague(user?.leagues ?? [], search.league)
 	const { data: recordData } = useSuspenseQuery(
 		userRecordQuery(username, scoped?.league.slug ?? null),
@@ -280,8 +144,6 @@ function RouteComponent() {
 	const latestSweep = inScope(user.sweeps)[0]
 	const stats = scoped ?? user.careerStats
 
-	const breakdown = record ? breakdownGroups(record) : []
-
 	return (
 		<VStack alignItems="stretch" gap="6">
 			<PageBanner
@@ -307,8 +169,13 @@ function RouteComponent() {
 			/>
 			{user.headToHeadWithViewer && (
 				<p className={css({ fontSize: "sm", color: "secondary.default" })}>
-					You're {recordLine(user.headToHeadWithViewer)} against @
-					{user.username} in challenges.
+					You're{" "}
+					{formatRecord(
+						user.headToHeadWithViewer.wins,
+						user.headToHeadWithViewer.losses,
+						user.headToHeadWithViewer.draws || null,
+					)}{" "}
+					against @{user.username} in challenges.
 				</p>
 			)}
 			<OpenPresserBanner
@@ -316,35 +183,13 @@ function RouteComponent() {
 				isOwn={isOwn}
 				pressers={user.openPressers}
 			/>
-			{/* One tab per league played, plus All. A single league skips the
-			    row entirely, since All and that league would be the same page. */}
-			{user.leagues.length > 1 && (
-				<Tabs.List>
-					<Tabs.LinkTrigger
-						to="/user/$username"
-						params={{ username: user.username }}
-						search={{ league: undefined }}
-						// Without explicitUndefined, All's empty search would match
-						// every league's url too and stay lit alongside it.
-						activeOptions={{ includeSearch: true, explicitUndefined: true }}
-					>
-						All
-					</Tabs.LinkTrigger>
-					{user.leagues.map((row) => (
-						<Tabs.LinkTrigger
-							key={row.league.id}
-							to="/user/$username"
-							params={{ username: user.username }}
-							search={{ league: row.league.slug }}
-							activeOptions={{ includeSearch: true }}
-						>
-							{row.league.abbreviation}
-						</Tabs.LinkTrigger>
-					))}
-				</Tabs.List>
-			)}
+			<ProfileLeagueTabs username={user.username} leagues={user.leagues} />
 			<StatGrid
-				header={sectionLabel(scoped ? `${scoped.league.name} career` : "Career")}
+				header={
+					<SectionLabel>
+						{scoped ? `${scoped.league.name} career` : "Career"}
+					</SectionLabel>
+				}
 				items={statGridItems({
 					rank: stats?.rank ?? null,
 					totalPoints: stats?.totalPoints ?? 0,
@@ -354,40 +199,20 @@ function RouteComponent() {
 				})}
 			/>
 			{record && (
-				<VStack alignItems="stretch" gap="3">
-					{sectionLabel("Results")}
-					{/* Eight weeks below lg, half a year from it (see
-					    UserRecordDocument). Each is remounted per scope so its
-					    picked day and page reset to that scope's latest. */}
-					<div className={css({ display: { base: "block", lg: "none" } })}>
-						<ResultsCalendar
-							key={leagueId ?? "all"}
-							calendar={record.calendar}
-							username={user.username}
-							league={scoped?.league.slug ?? null}
-						/>
-					</div>
-					{wideRecord && (
-						<div className={css({ display: { base: "none", lg: "block" } })}>
-							<ResultsCalendar
-								key={leagueId ?? "all"}
-								calendar={wideRecord.calendar}
-								username={user.username}
-								league={scoped?.league.slug ?? null}
-							/>
-						</div>
-					)}
-				</VStack>
+				<ResultsSection
+					record={record}
+					wideRecord={wideRecord}
+					username={user.username}
+					leagueId={leagueId}
+					leagueSlug={scoped?.league.slug ?? null}
+				/>
 			)}
-			{breakdown.length > 0 && (
-				<VStack alignItems="stretch" gap="3">
-					{sectionLabel("Where the points come from")}
-					<PointsBreakdown groups={breakdown} username={user.username} />
-				</VStack>
+			{record && (
+				<PointsBreakdownSection record={record} username={user.username} />
 			)}
 			{liveStreaks.length > 0 && (
 				<VStack alignItems="stretch" gap="3">
-					{sectionLabel("Hot streaks")}
+					<SectionLabel>Hot streaks</SectionLabel>
 					<StreaksSection
 						username={user.username}
 						streaks={liveStreaks}
@@ -399,7 +224,7 @@ function RouteComponent() {
 			)}
 			{coldStreaks.length > 0 && (
 				<VStack alignItems="stretch" gap="3">
-					{sectionLabel("Cold streaks")}
+					<SectionLabel>Cold streaks</SectionLabel>
 					<ColdStreaksSection
 						username={user.username}
 						coldStreaks={coldStreaks}
@@ -409,7 +234,7 @@ function RouteComponent() {
 			)}
 			{latestSweep && (
 				<VStack alignItems="stretch" gap="3">
-					{sectionLabel("Latest sweep")}
+					<SectionLabel>Latest sweep</SectionLabel>
 					<SweepsSection
 						username={user.username}
 						sweeps={[latestSweep]}
@@ -418,13 +243,13 @@ function RouteComponent() {
 				</VStack>
 			)}
 			<PressersSection
-				heading={sectionLabel("Pressers")}
+				heading={<SectionLabel>Pressers</SectionLabel>}
 				username={user.username}
 				pressers={user.pressers}
 				leagueId={leagueId}
 			/>
 			<VStack alignItems="stretch" gap="3">
-				{sectionLabel("Recent Calls")}
+				<SectionLabel>Recent Calls</SectionLabel>
 				{user.recentCalls.length > 0 ? (
 					<VStack alignItems="stretch" gap="2">
 						{user.recentCalls.map((call) => (

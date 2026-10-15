@@ -38,7 +38,7 @@ export function Accordion({
 					padding: "4",
 					textAlign: "left",
 					cursor: "pointer",
-					_hover: { borderColor: "border.emphasized" },
+					_hover: { border: "1px solid {colors.border.emphasized}" },
 				})}
 			>
 				<VStack gap="0.5" alignItems="flex-start">

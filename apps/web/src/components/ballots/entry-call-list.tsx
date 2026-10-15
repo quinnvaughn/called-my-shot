@@ -26,14 +26,6 @@ type Props = {
 	missed: string[]
 }
 
-const labelClass = css({
-	fontFamily: "mono",
-	fontSize: "2xs",
-	letterSpacing: "wide",
-	color: "fg.subtle",
-	textTransform: "uppercase",
-})
-
 // An entry page's picks: each one as the CallCard it is everywhere else,
 // grouped under its section's label, then what wasn't called summed up
 // underneath so a set shared early isn't a long run of empty rows.
@@ -62,7 +54,9 @@ export function EntryCallList({
 					gap="3"
 					alignItems="stretch"
 				>
-					<span className={labelClass}>{group.label}</span>
+					<span className={css({ textStyle: "label", color: "fg.subtle" })}>
+						{group.label}
+					</span>
 					<VStack gap="2" alignItems="stretch">
 						{group.rows.map((row) => (
 							<CallCard key={row.key} call={row.call} />

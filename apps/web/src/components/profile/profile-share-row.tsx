@@ -1,6 +1,5 @@
-import { ShareIconRow } from "#/components/ui/share-icon-row"
+import { ShareLinkRow } from "#/components/ui/share-link-row"
 import { track } from "#/lib/analytics"
-import { SITE_ORIGIN } from "#/lib/meta"
 
 type Props = {
 	userId: string
@@ -14,10 +13,11 @@ type Props = {
 // posted to X the way a call or a report card is.
 export function ProfileShareRow({ userId, username, shareTitle }: Props) {
 	return (
-		<ShareIconRow
-			url={`${SITE_ORIGIN}/user/${username}`}
+		<ShareLinkRow
+			path={`/user/${username}`}
 			campaign="profile"
 			shareTitle={shareTitle}
+			layout="icons"
 			onShared={(method) => track("profile_link_shared", { userId, method })}
 		/>
 	)

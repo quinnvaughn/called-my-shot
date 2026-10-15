@@ -17,8 +17,7 @@ export function StreakStakeLine({ leagueAbbr, stake }: Props) {
 			<StreakTag length={stake.currentLength} track={track} />
 			<span
 				className={css({
-					fontFamily: "mono",
-					fontSize: "2xs",
+					textStyle: "meta",
 					color: "fg.muted",
 				})}
 			>

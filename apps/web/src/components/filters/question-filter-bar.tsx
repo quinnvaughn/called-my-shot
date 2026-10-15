@@ -1,7 +1,8 @@
 import { css } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
 import { match } from "ts-pattern"
-import { MultiSelect, Select } from "#/components/ui/select"
+import { MultiSelect } from "#/components/ui/multi-select"
+import { Select } from "#/components/ui/select"
 import { TextInput } from "#/components/ui/text-input"
 import type {
 	CallResultFilter,
@@ -80,10 +81,7 @@ const ALL = "all"
 const control = css({ width: "44", flexShrink: "0" })
 
 const clearButton = css({
-	fontFamily: "mono",
-	fontSize: "2xs",
-	letterSpacing: "wide",
-	textTransform: "uppercase",
+	textStyle: "label",
 	color: "fg.subtle",
 	background: "none",
 	border: "none",

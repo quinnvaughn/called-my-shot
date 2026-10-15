@@ -1,5 +1,6 @@
 import { FiCheckCircle, FiXCircle } from "react-icons/fi"
 import { css } from "styled-system/css"
+import { SignedPoints } from "#/components/ui/signed-points"
 import { type FragmentType, graphql, useFragment } from "#/graphql/generated"
 import { resultState } from "#/lib/call-summary"
 import { resolvedFadeLine } from "#/lib/fade-copy"
@@ -63,7 +64,9 @@ export function CallResolvedRow({
 			target={target}
 			onOpen={onOpen}
 			trailing={
-				n.pointsDelta !== null ? <PointsPill points={n.pointsDelta} /> : null
+				n.pointsDelta !== null ? (
+					<SignedPoints value={n.pointsDelta} zeroSign suffix=" PTS" pill />
+				) : null
 			}
 		>
 			<p className={css({ fontSize: "sm" })}>
@@ -74,31 +77,5 @@ export function CallResolvedRow({
 				<p className={css({ fontSize: "sm", color: "fg.muted" })}>{fadeLine}</p>
 			)}
 		</NotificationShell>
-	)
-}
-
-// Same success/danger token pattern ResultBadge uses for a call's own
-// points - reused here rather than a second convention for "did I win or
-// lose points".
-export function PointsPill({ points }: { points: number }) {
-	const result = resultState(points)
-	if (result.status === "pending") return null
-	return (
-		<span
-			className={css({
-				fontSize: "xs",
-				fontFamily: "mono",
-				fontWeight: "bold",
-				whiteSpace: "nowrap",
-				padding: "{spacing.1} {spacing.2.5}",
-				borderRadius: "sm",
-				color: result.status === "win" ? "success.default" : "danger.default",
-				backgroundColor:
-					result.status === "win" ? "success.subtle" : "danger.subtle",
-			})}
-		>
-			{result.status === "win" ? "+" : ""}
-			{result.points} PTS
-		</span>
 	)
 }

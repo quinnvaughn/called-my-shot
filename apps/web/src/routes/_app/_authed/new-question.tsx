@@ -1,16 +1,14 @@
 import { useSuspenseQuery } from "@tanstack/react-query"
-import { createFileRoute, useRouteContext } from "@tanstack/react-router"
-import { useState } from "react"
-import { css } from "styled-system/css"
-import { HStack, VStack } from "styled-system/jsx"
+import { createFileRoute } from "@tanstack/react-router"
+import { VStack } from "styled-system/jsx"
+import { z } from "zod"
 import { CreateQuestionForm } from "#/components/questions/create-question/create-question-form"
-import { Button } from "#/components/ui/button"
-import { Card } from "#/components/ui/card"
+import { SuspendedGate } from "#/components/questions/create-question/suspended-gate"
+import { VerifyEmailGate } from "#/components/questions/create-question/verify-email-gate"
 import { PageHeader } from "#/components/ui/page-header"
-import { useGqlMutation } from "#/graphql/hooks"
-import { SportsDocument } from "#/graphql/queries/sports"
-import { ResendEmailChangeDocument } from "#/graphql/queries/user"
 import { gqlQueryOptions } from "#/graphql/query-options"
+import { SportsDocument } from "#/graphql/sports/catalog/queries"
+import { useMe } from "#/hooks/use-me"
 
 const sportsQuery = gqlQueryOptions(SportsDocument, {})
 
@@ -19,87 +17,17 @@ export const Route = createFileRoute("/_app/_authed/new-question")({
 	// Set when arriving from the admin Ballots builder's "+ New Question"
 	// button - locks the create-question form's ballot field to this one
 	// rather than making the admin re-search for it (see ballot-field.tsx).
-	validateSearch: (search: Record<string, unknown>): { ballotId?: string } => ({
-		...(typeof search.ballotId === "string"
-			? { ballotId: search.ballotId }
-			: {}),
+	validateSearch: z.object({
+		ballotId: z.string().optional().catch(undefined),
 	}),
 	loader: ({ context }) => context.queryClient.query(sportsQuery),
 })
-
-function VerifyEmailGate() {
-	const resendEmailChange = useGqlMutation(ResendEmailChangeDocument)
-	const [sent, setSent] = useState(false)
-	const [error, setError] = useState<string | null>(null)
-
-	async function handleResend() {
-		setError(null)
-		const data = await resendEmailChange.mutateAsync({
-			redirectTo: "/new-question",
-		})
-		if (data?.resendEmailChange?.__typename !== "User") {
-			setError("Couldn't resend. Try again.")
-			return
-		}
-		setSent(true)
-	}
-
-	return (
-		<HStack justify="center">
-			<Card>
-				<Card.Body>
-					<VStack gap="4" alignItems="center" textAlign="center" padding="4">
-						<p className={css({ fontSize: "sm", lineHeight: "relaxed" })}>
-							Verify your email before posting a question.
-						</p>
-						<Button
-							variant="solid"
-							size="md"
-							fullWidth
-							disabled={sent}
-							onClick={handleResend}
-						>
-							{sent ? "Confirmation email sent" : "Resend confirmation email"}
-						</Button>
-						{error && (
-							<p className={css({ fontSize: "xs", color: "fg.error" })}>
-								{error}
-							</p>
-						)}
-					</VStack>
-				</Card.Body>
-			</Card>
-		</HStack>
-	)
-}
-
-function SuspendedGate() {
-	return (
-		<HStack justify="center">
-			<Card>
-				<Card.Body>
-					<p
-						className={css({
-							fontSize: "sm",
-							lineHeight: "relaxed",
-							textAlign: "center",
-							padding: "4",
-						})}
-					>
-						Your question creation has been suspended. Contact support if you
-						think this is a mistake.
-					</p>
-				</Card.Body>
-			</Card>
-		</HStack>
-	)
-}
 
 function RouteComponent() {
 	const { data } = useSuspenseQuery(sportsQuery)
 	const sports = data.sports
 	const { ballotId } = Route.useSearch()
-	const { me } = useRouteContext({ from: "__root__" })
+	const me = useMe()
 
 	return (
 		<VStack gap="6" alignItems="stretch">
@@ -113,6 +41,9 @@ function RouteComponent() {
 				<SuspendedGate />
 			) : (
 				<CreateQuestionForm
+					// The locked ballot is part of the form's starting values,
+					// so a different one starts a fresh form.
+					key={ballotId ?? ""}
 					sports={sports}
 					isAdmin={me?.isAdmin ?? false}
 					lockedBallotId={ballotId}

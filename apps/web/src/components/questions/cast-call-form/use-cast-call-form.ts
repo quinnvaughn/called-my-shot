@@ -8,13 +8,18 @@ import { useRouter } from "@tanstack/react-router"
 import { createElement, useMemo, useRef, useState } from "react"
 import { match } from "ts-pattern"
 import { FirstCallDoneModal } from "#/components/onboarding/first-call-done-modal"
+import {
+	CastCallDocument,
+	invalidateAfterCall,
+	RedoCallDocument,
+} from "#/graphql/calls/mutations"
 import { type FragmentType, graphql, useFragment } from "#/graphql/generated"
 import { useGqlMutation } from "#/graphql/hooks"
 import type { WinTotalBudget } from "#/lib/win-total-tracker"
-import { CastCallDocument, RedoCallDocument } from "#/graphql/mutations/calls"
 import { type CallSurface, questionHorizon, track } from "#/lib/analytics"
 import { isRateStat as computeIsRateStat } from "#/lib/field-signal"
 import { useForm } from "#/lib/form/use-form"
+import { toCallShape } from "#/lib/question-labels"
 import { DEFAULT_CONVICTION } from "#/lib/scoring"
 import { closeModal, openModal } from "#/stores/modal-store"
 import { consumeRanFirstCallTour } from "#/stores/tour-store"
@@ -279,8 +284,7 @@ export function useCastCallForm(
 	}: CastCallFormOptions,
 ) {
 	const question = useFragment(CastCallFormFragment, questionProp)
-	const shape = (question?.shape.toLowerCase() ??
-		"yes_no_prop") as QuestionCallShape
+	const shape = question ? toCallShape(question.shape) : "yes_no_prop"
 	// See isRateStat's own comment in #/lib/field-signal.ts - the single
 	// shared source for this check, not re-derived here.
 	const isRateStat = question != null && computeIsRateStat(question)
@@ -517,7 +521,7 @@ export function useCastCallForm(
 					// This page is the destination - refresh in place rather than
 					// navigating away, so the pending banner/locked calls list pick
 					// up the new viewerCall immediately.
-					await queryClient.invalidateQueries()
+					await invalidateAfterCall(queryClient)
 					await router.invalidate()
 					closeModal()
 					onCalled?.()
@@ -542,7 +546,7 @@ export function useCastCallForm(
 					// every funnel that starts at call_submitted. The spend is
 					// tracked server-side as redo_spent, which is where the
 					// wallet and timing facts are.
-					await queryClient.invalidateQueries()
+					await invalidateAfterCall(queryClient)
 					await router.invalidate()
 					closeModal()
 				})

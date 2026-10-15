@@ -1,7 +1,8 @@
 import { VStack } from "styled-system/jsx"
 import { ImageField } from "#/components/images/image-field"
 import { Avatar } from "#/components/ui/avatar"
-import { Banner, BannerPlaceholder } from "#/components/ui/banner"
+import { Banner } from "#/components/ui/banner"
+import { BannerPlaceholder } from "#/components/ui/banner-placeholder"
 import { Card } from "#/components/ui/card"
 
 type Props = {

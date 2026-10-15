@@ -58,19 +58,7 @@ export function GroupPinnedStrip({
 				items={pins.map((pin, index) => ({ pin, index }))}
 				getKey={({ pin }) => pin.id}
 				itemLabel="pin"
-				header={
-					<span
-						className={css({
-							fontFamily: "mono",
-							fontSize: "xs",
-							letterSpacing: "wide",
-							color: "fg.muted",
-							textTransform: "uppercase",
-						})}
-					>
-						Pinned
-					</span>
-				}
+				title="Pinned"
 				renderItem={({ pin, index }) => (
 					<VStack gap="1.5" alignItems="stretch" height="full">
 						<div className={css({ flex: "1" })}>
@@ -79,8 +67,7 @@ export function GroupPinnedStrip({
 						<HStack justify="space-between" gap="2" minHeight="7">
 							<span
 								className={css({
-									fontFamily: "mono",
-									fontSize: "2xs",
+									textStyle: "meta",
 									color: "fg.subtle",
 								})}
 							>

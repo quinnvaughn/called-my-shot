@@ -161,8 +161,7 @@ export function CaseBlock({ text, label = "The case", clampable }: Props) {
 					type="button"
 					onClick={() => setExpanded((v) => !v)}
 					className={css({
-						fontFamily: "mono",
-						fontSize: "2xs",
+						textStyle: "meta",
 						color: "primary.default",
 						background: "none",
 						border: "none",

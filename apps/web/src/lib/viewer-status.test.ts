@@ -1,5 +1,14 @@
 import { describe, expect, it } from "vitest"
-import { disputeAction, viewerStatus } from "./viewer-status"
+import {
+	disputeAction,
+	numericRowResult,
+	resultFace,
+	seasonPlayLine,
+	selectionRowResult,
+	underdogMath,
+	viewerStatus,
+	voidedText,
+} from "./viewer-status"
 
 const call = (totalPoints: number | null) => ({ totalPoints })
 
@@ -124,5 +133,140 @@ describe("disputeAction", () => {
 				hasViewerDispute: true,
 			}),
 		).toBe("hidden")
+	})
+})
+
+describe("voidedText", () => {
+	it("names the reason the question was voided", () => {
+		expect(voidedText("TIE")).toBe(
+			"It ended in a tie, so no call on it scores.",
+		)
+		expect(voidedText("SUBJECT_DID_NOT_PLAY")).toContain("didn't play")
+	})
+
+	it("falls back to a plain line with no specific reason", () => {
+		expect(voidedText(null)).toBe("No call on this question scores.")
+		expect(voidedText("OTHER")).toBe("No call on this question scores.")
+	})
+})
+
+describe("resultFace", () => {
+	it("reads a win and a loss with their points", () => {
+		expect(resultFace({ status: "win", points: 120 }, null)).toEqual({
+			tone: "success",
+			label: "Won",
+			outcome: { isWin: true, points: 120 },
+		})
+		expect(resultFace({ status: "loss", points: -40 }, null)).toEqual({
+			tone: "danger",
+			label: "Missed",
+			outcome: { isWin: false, points: -40 },
+		})
+	})
+
+	it("lets the margin label stand in for the verdict word", () => {
+		expect(
+			resultFace({ status: "loss", points: -40 }, "Inches away").label,
+		).toBe("Inches away")
+	})
+
+	it("has nothing to share before points are written or when unscored", () => {
+		expect(resultFace({ status: "pending" }, "Inches away")).toEqual({
+			tone: "neutral",
+			label: "Pending",
+			outcome: null,
+		})
+		expect(resultFace({ status: "unscored" }, null)).toEqual({
+			tone: "neutral",
+			label: "Not scored",
+			outcome: null,
+		})
+	})
+})
+
+describe("selectionRowResult", () => {
+	const selection = (
+		isCorrect: boolean | null,
+		resultPoints: number | null,
+	) => ({
+		resultPoints,
+		option: { isCorrect },
+	})
+
+	it("previews until settled and both the result and points are known", () => {
+		expect(selectionRowResult(selection(true, 80), false)).toEqual({
+			kind: "preview",
+		})
+		expect(selectionRowResult(selection(null, 80), true)).toEqual({
+			kind: "preview",
+		})
+		expect(selectionRowResult(selection(true, null), true)).toEqual({
+			kind: "preview",
+		})
+	})
+
+	it("reports the stored points once resolved", () => {
+		expect(selectionRowResult(selection(false, -30), true)).toEqual({
+			kind: "resolved",
+			isCorrect: false,
+			points: -30,
+		})
+	})
+})
+
+describe("numericRowResult", () => {
+	const call = { totalPoints: 90, closenessMult: 1.5, closenessFieldPct: 20 }
+
+	it("previews until settled with points written", () => {
+		expect(numericRowResult(call, false)).toEqual({ kind: "preview" })
+		expect(numericRowResult({ ...call, totalPoints: null }, true)).toEqual({
+			kind: "preview",
+		})
+	})
+
+	it("carries the persisted closeness values once resolved", () => {
+		expect(numericRowResult(call, true)).toEqual({ kind: "resolved", ...call })
+	})
+})
+
+describe("seasonPlayLine", () => {
+	const play = {
+		weight: 1,
+		weeksPlayed: 4,
+		weeksCounted: 4,
+		settled: false,
+		league: "NFL",
+	}
+
+	it("is null off a season-long call", () => {
+		expect(seasonPlayLine(null)).toBeNull()
+	})
+
+	it("states the settled share and the weeks behind it", () => {
+		expect(seasonPlayLine({ ...play, weight: 0.5, settled: true })).toBe(
+			"Counted for 50% of its points: you played 4 of 4 NFL weeks.",
+		)
+	})
+
+	it("counts in full before any weeks are counted", () => {
+		expect(seasonPlayLine({ ...play, weeksPlayed: 0, weeksCounted: 0 })).toBe(
+			"Counts in full so far. Make 3 NFL game calls a week to keep it there.",
+		)
+	})
+
+	it("reads the current pace while unsettled", () => {
+		expect(seasonPlayLine(play)).toBe(
+			"Counts in full at your NFL pace: 4 of 4 NFL weeks played. Make 3 NFL game calls a week to keep it there.",
+		)
+		expect(seasonPlayLine({ ...play, weight: 0.25, weeksPlayed: 1 })).toBe(
+			"Counts for 25% of its points at your NFL pace: 1 of 4 NFL weeks played. Playing more weeks grows it.",
+		)
+	})
+})
+
+describe("underdogMath", () => {
+	it("only shows a multiplier above 1x", () => {
+		expect(underdogMath(1)).toBe("")
+		expect(underdogMath(2.5)).toBe("× 2.5 underdog ")
 	})
 })

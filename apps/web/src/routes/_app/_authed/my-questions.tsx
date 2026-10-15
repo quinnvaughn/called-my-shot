@@ -15,13 +15,14 @@ import type { MyQuestionSort, SortDirection } from "#/graphql/generated/graphql"
 import {
 	type MyQuestionsFilters,
 	myQuestionsQuery,
-} from "#/graphql/queries/my-questions"
+} from "#/graphql/my-questions/queries"
 import { useDebouncedValue } from "#/hooks/use-debounced-value"
 import {
 	DEFAULT_MY_LIST_DIRECTION,
 	DEFAULT_MY_QUESTIONS_SORT,
 	MY_QUESTION_SORTS,
 } from "#/lib/my-list-sorts"
+import { pluralize } from "#/lib/pluralize"
 
 export const Route = createFileRoute("/_app/_authed/my-questions")({
 	component: RouteComponent,
@@ -91,7 +92,7 @@ function RouteComponent() {
 
 function subtitle(total: number | null): string {
 	if (total === null) return "Every question you've posted"
-	return total === 1 ? "1 question" : `${total} questions`
+	return `${total} ${pluralize(total, "question")}`
 }
 
 // Drops anything unset so an untouched filter sends no variable at all, keeping

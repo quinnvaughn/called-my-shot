@@ -2,7 +2,7 @@ import type { QuestionShape } from "#/graphql/generated/graphql"
 
 // A pick has to survive the visitor filling in the sign-up form after making
 // it, and the API refuses a call once its question's lock time has passed.
-export const MIN_LEAD_MS = 20 * 60 * 1000
+const MIN_LEAD_MS = 20 * 60 * 1000
 
 // Other games' winners a stack takes on when its own game has no team totals,
 // matching the two team totals a full game offers.

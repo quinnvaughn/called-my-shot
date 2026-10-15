@@ -9,6 +9,7 @@ import { createPortal } from "react-dom"
 import { css } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
 import { match } from "ts-pattern"
+import { clamp } from "#/lib/format-number"
 import { Button } from "./button"
 
 type Rect = { top: number; left: number; width: number; height: number }
@@ -85,13 +86,6 @@ function placementFor(rect: Rect, height: number): Placement {
 	return roomBelow >= height + GAP ? "below" : "above"
 }
 
-function clamp(value: number, min: number, max: number) {
-	// max can fall below min when the bubble is taller than the viewport, and
-	// pinning to the top is the better failure there - a bubble whose heading
-	// is off-screen is unreadable.
-	return Math.max(min, Math.min(value, Math.max(min, max)))
-}
-
 type Props = {
 	anchorRef: RefObject<HTMLElement | null>
 	title: string
@@ -155,7 +149,9 @@ export function Coachmark({
 		.exhaustive()
 
 	// Centred on the anchor, then clamped so a bubble pointing at something
-	// near the edge of a narrow screen stays fully on it.
+	// near the edge of a narrow screen stays fully on it. On a screen narrower
+	// than the bubble the range inverts and it pins to the left margin, so its
+	// start stays readable.
 	const left = clamp(
 		rect.left + rect.width / 2 - BUBBLE_WIDTH / 2,
 		VIEWPORT_MARGIN,
@@ -215,10 +211,7 @@ export function Coachmark({
 					<VStack gap="1.5" alignItems="flex-start">
 						<span
 							className={css({
-								fontFamily: "mono",
-								fontSize: "3xs",
-								letterSpacing: "wide",
-								textTransform: "uppercase",
+								textStyle: "labelSm",
 								color: "fg.muted",
 							})}
 						>
@@ -249,8 +242,7 @@ export function Coachmark({
 					{!onNext && hint && (
 						<span
 							className={css({
-								fontFamily: "mono",
-								fontSize: "2xs",
+								textStyle: "meta",
 								color: "fg.subtle",
 							})}
 						>
@@ -265,8 +257,7 @@ export function Coachmark({
 							type="button"
 							onClick={onSkip}
 							className={css({
-								fontFamily: "mono",
-								fontSize: "2xs",
+								textStyle: "meta",
 								color: "fg.muted",
 								whiteSpace: "nowrap",
 								cursor: "pointer",

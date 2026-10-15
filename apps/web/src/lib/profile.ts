@@ -12,3 +12,14 @@ export function profileCardVersion(input: {
 		input.rank ?? "unranked",
 	].join("-")
 }
+
+type LeagueStats = {
+	league: { id: string; name: string; abbreviation: string; slug: string }
+}
+
+export function scopedLeague<T extends LeagueStats>(
+	leagues: T[],
+	slug: string | undefined,
+): T | null {
+	return slug ? (leagues.find((row) => row.league.slug === slug) ?? null) : null
+}

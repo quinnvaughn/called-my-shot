@@ -6,11 +6,12 @@ import { match } from "ts-pattern"
 import { Button } from "#/components/ui/button"
 import { FormError } from "#/components/ui/form-error"
 import { Modal } from "#/components/ui/modal"
+import { ApiError } from "#/graphql/api-error"
+import { GloatDocument } from "#/graphql/calls/mutations"
+import { CallRecordDocument } from "#/graphql/calls/queries"
 import type { GloatMessage } from "#/graphql/generated/graphql"
 import { useGqlMutation } from "#/graphql/hooks"
-import { GloatDocument } from "#/graphql/mutations/calls"
-import { CallRecordDocument } from "#/graphql/queries/call"
-import { gqlQueryKey } from "#/graphql/query-options"
+import { gqlQueryPrefix } from "#/graphql/query-options"
 import { gloatChoices } from "#/lib/fade-copy"
 import { closeModal } from "#/stores/modal-store"
 
@@ -31,7 +32,7 @@ const choiceClass = css({
 	paddingBlock: "3",
 	paddingInline: "4",
 	cursor: "pointer",
-	_hover: { borderColor: "border.emphasized" },
+	_hover: { border: "1px solid {colors.border.emphasized}" },
 })
 
 const selectedClass = css({
@@ -87,19 +88,15 @@ export function GloatModal({ audience }: { audience: GloatAudience }) {
 				// Both call pages show a gloat: the target's Doubters list and
 				// the fader's own call.
 				await queryClient.invalidateQueries({
-					queryKey: [gqlQueryKey(CallRecordDocument, { id: "" })[0]],
+					queryKey: gqlQueryPrefix(CallRecordDocument),
 				})
 			})
 			.with({ __typename: "ValidationError" }, async (r) => {
 				setError(r.fieldErrors?.[0]?.message ?? "Couldn't send that.")
 			})
-			.with(
-				{ __typename: "AuthenticationError" },
-				{ __typename: "NotFoundError" },
-				async (r) => {
-					setError(r.message)
-				},
-			)
+			.with(ApiError, async (r) => {
+				setError(r.message)
+			})
 			.exhaustive()
 	}
 

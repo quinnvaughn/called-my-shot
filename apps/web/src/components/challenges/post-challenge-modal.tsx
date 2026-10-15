@@ -6,9 +6,12 @@ import { EmptyState } from "#/components/ui/empty-state"
 import { FormError } from "#/components/ui/form-error"
 import { Modal } from "#/components/ui/modal"
 import { ToggleRow } from "#/components/ui/toggle-row"
+import {
+	invalidateChallenges,
+	PostChallengeToGroupsDocument,
+} from "#/graphql/challenges/mutations"
+import { ChallengePostGroupsDocument } from "#/graphql/challenges/queries"
 import { useGqlMutation } from "#/graphql/hooks"
-import { PostChallengeToGroupsDocument } from "#/graphql/mutations/challenges"
-import { ChallengePostGroupsDocument } from "#/graphql/queries/challenges"
 import { gqlQueryOptions } from "#/graphql/query-options"
 import { closeModal } from "#/stores/modal-store"
 
@@ -28,7 +31,7 @@ export function PostChallengeModal({ challengeId }: { challengeId: string }) {
 			await post.mutateAsync({ input: { challengeId, groupIds } })
 		)?.postChallengeToGroups
 		if (result?.__typename === "ChallengePayload") {
-			await queryClient.invalidateQueries()
+			await invalidateChallenges(queryClient)
 			closeModal()
 			return
 		}

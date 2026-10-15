@@ -5,8 +5,11 @@ import { Button } from "#/components/ui/button"
 import { Card } from "#/components/ui/card"
 import { Identity } from "#/components/ui/identity"
 import { useGqlMutation } from "#/graphql/hooks"
-import { UnblockUserDocument } from "#/graphql/mutations/pressers"
-import { BlockedUsersDocument } from "#/graphql/queries/pressers"
+import {
+	invalidateAfterBlock,
+	UnblockUserDocument,
+} from "#/graphql/pressers/mutations"
+import { BlockedUsersDocument } from "#/graphql/pressers/queries"
 import { gqlQueryOptions } from "#/graphql/query-options"
 import { toIdentity } from "#/lib/identity"
 
@@ -42,7 +45,7 @@ export function BlockedUsersSection() {
 									disabled={unblock.isPending}
 									onClick={async () => {
 										await unblock.mutateAsync({ username: user.username })
-										await queryClient.invalidateQueries()
+										await invalidateAfterBlock(queryClient)
 									}}
 								>
 									Unblock

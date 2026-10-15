@@ -8,14 +8,15 @@ import { Button } from "#/components/ui/button"
 import { FormError } from "#/components/ui/form-error"
 import { Modal } from "#/components/ui/modal"
 import { Textarea } from "#/components/ui/textarea"
+import { ApiError } from "#/graphql/api-error"
 import { type FragmentType, graphql, useFragment } from "#/graphql/generated"
 import { useGqlMutation } from "#/graphql/hooks"
-import { ResolveQuestionDocument } from "#/graphql/mutations/questions"
+import { ResolveQuestionDocument } from "#/graphql/questions/mutations"
 import { track } from "#/lib/analytics"
 import { isRateStat as computeIsRateStat } from "#/lib/field-signal"
 import { useForm } from "#/lib/form/use-form"
+import { toCallShape } from "#/lib/question-labels"
 import { closeModal } from "#/stores/modal-store"
-import type { QuestionCallShape } from "./cast-call-form/use-cast-call-form"
 import { ResolveOutcomeFields } from "./resolve-outcome-fields"
 
 export const ResolveQuestionModalFragment = graphql(`
@@ -54,7 +55,7 @@ type Props = {
 
 export function ResolveQuestionModal({ question: questionProp }: Props) {
 	const question = useFragment(ResolveQuestionModalFragment, questionProp)
-	const shape = question.shape.toLowerCase() as QuestionCallShape
+	const shape = toCallShape(question.shape)
 	const isMultiPick =
 		shape === "player_season_award" ||
 		shape === "team_season_award" ||
@@ -99,17 +100,13 @@ export function ResolveQuestionModal({ question: questionProp }: Props) {
 					}
 					helpers.setErrors(errors)
 				})
-				.with({ __typename: "AuthenticationError" }, async (r) => {
-					helpers.setFormError(r.message)
-				})
-				.with({ __typename: "AuthorizationError" }, async (r) => {
-					helpers.setFormError(r.message)
-				})
-				.with({ __typename: "NotFoundError" }, async (r) => {
+				.with(ApiError, async (r) => {
 					helpers.setFormError(r.message)
 				})
 				.with({ __typename: "QuestionPayload" }, async () => {
 					track("question_resolved", { questionId: question.id, shape })
+					// Resolving settles every call on the question, which moves points,
+					// records, streaks and standings on nearly every page.
 					await queryClient.invalidateQueries()
 					await router.invalidate()
 					closeModal()
@@ -143,8 +140,7 @@ export function ResolveQuestionModal({ question: questionProp }: Props) {
 			</span>
 			<span
 				className={css({
-					fontFamily: "mono",
-					fontSize: "2xs",
+					textStyle: "meta",
 					color: "fg.subtle",
 				})}
 			>

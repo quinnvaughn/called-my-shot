@@ -1,19 +1,17 @@
-import { Link } from "@tanstack/react-router"
 import type { ReactNode } from "react"
 import { css } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
 import { GameVerdictStamp } from "#/components/games/game-verdict-stamp"
-import {
-	RecordStat,
-	RecordTag,
-	type RecordTone,
-} from "#/components/questions/call-record-card"
-import { Avatar } from "#/components/ui/avatar"
+import { RecordByline } from "#/components/records/record-byline"
+import { RecordStat } from "#/components/records/record-stat"
+import { RecordTag } from "#/components/records/record-tag"
 import { Card } from "#/components/ui/card"
+import { ProgressBar } from "#/components/ui/progress-bar"
 import type { GameEntryVerdict } from "#/graphql/generated/graphql"
-import { formatRecord, formatSignedPoints } from "#/lib/ballot-entry"
-
-type SplitRecord = { wins: number; losses: number; points: number }
+import { formatSigned } from "#/lib/format-number"
+import { formatRecord } from "#/lib/game-status"
+import type { RecordTone } from "#/lib/record-tag"
+import { BallotEntrySplitRow, type SplitRecord } from "./ballot-entry-split-row"
 
 type Props = {
 	person: { name: string; username: string; avatarUrl: string | null }
@@ -55,8 +53,6 @@ export function BallotEntrySummaryCard({
 	splits,
 	footer,
 }: Props) {
-	const pct =
-		memberCount === 0 ? 0 : Math.round((calledCount / memberCount) * 100)
 	const isComplete = calledCount === memberCount && memberCount > 0
 	const hasSettled = wins + losses > 0
 	const pointsTone = points >= 0 ? "success" : "danger"
@@ -76,37 +72,16 @@ export function BallotEntrySummaryCard({
 			<Card.Header>
 				<VStack gap="4" alignItems="stretch" width="full">
 					<HStack justify="space-between" gap="3" alignItems="center">
-						<Link
-							to="/user/$username"
-							params={{ username: person.username }}
-							className={css({
-								display: "inline-flex",
-								alignItems: "center",
-								gap: "2",
-								minWidth: "0",
-								textDecoration: "none",
-								color: "fg.default",
-								_hover: { "& span": { textDecoration: "underline" } },
-							})}
-						>
-							<Avatar size="xs" name={person.name} src={person.avatarUrl} />
-							<span
-								className={css({
-									fontFamily: "mono",
-									fontSize: "xs",
-									overflow: "hidden",
-									textOverflow: "ellipsis",
-									whiteSpace: "nowrap",
-								})}
-							>
-								@{person.username}
-							</span>
-						</Link>
+						<RecordByline
+							name={person.name}
+							username={person.username}
+							avatarUrl={person.avatarUrl}
+						/>
 						<RecordTag tone={standing.tone}>{standing.label}</RecordTag>
 					</HStack>
 					{hasSettled && (
 						<RecordStat
-							value={formatSignedPoints(points)}
+							value={formatSigned(points, { zeroSign: true })}
 							label="Points"
 							tone={pointsTone}
 						/>
@@ -132,24 +107,7 @@ export function BallotEntrySummaryCard({
 								{calledCount} OF {memberCount}
 								{splits ? " OFFICIAL QUESTIONS" : ""} CALLED
 							</span>
-							<div
-								className={css({
-									height: "1.5",
-									borderRadius: "full",
-									bg: "bg.subtle",
-									border: "1px solid {colors.border.default}",
-									overflow: "hidden",
-								})}
-							>
-								<div
-									className={css({
-										height: "full",
-										borderRadius: "full",
-										bg: "secondary.default",
-									})}
-									style={{ width: `${pct}%` }}
-								/>
-							</div>
+							<ProgressBar value={calledCount} max={memberCount} />
 						</>
 					)}
 					{splits && (
@@ -161,8 +119,11 @@ export function BallotEntrySummaryCard({
 								borderTop: "1px solid {colors.border.default}",
 							})}
 						>
-							<SplitRow label="Official" record={splits.official} />
-							<SplitRow label="Community" record={splits.community} />
+							<BallotEntrySplitRow label="Official" record={splits.official} />
+							<BallotEntrySplitRow
+								label="Community"
+								record={splits.community}
+							/>
 						</VStack>
 					)}
 					{verdict && (
@@ -185,59 +146,5 @@ export function BallotEntrySummaryCard({
 				</Card.Footer>
 			)}
 		</Card>
-	)
-}
-
-// One half of a game entry's record: the label, then its record and points,
-// or that nothing in it has settled yet.
-function SplitRow({ label, record }: { label: string; record: SplitRecord }) {
-	const settled = record.wins + record.losses > 0
-	return (
-		<HStack justify="space-between" alignItems="center" gap="3">
-			<span
-				className={css({
-					fontFamily: "mono",
-					fontSize: "2xs",
-					letterSpacing: "wide",
-					textTransform: "uppercase",
-					color: "fg.muted",
-				})}
-			>
-				{label}
-			</span>
-			{settled ? (
-				<HStack gap="3" alignItems="baseline">
-					<span
-						className={css({
-							fontFamily: "mono",
-							fontSize: "sm",
-							color: "fg.default",
-						})}
-					>
-						{formatRecord(record.wins, record.losses)}
-					</span>
-					<span
-						className={css({
-							fontFamily: "mono",
-							fontSize: "sm",
-							fontWeight: "bold",
-							color: record.points >= 0 ? "success.default" : "danger.default",
-						})}
-					>
-						{formatSignedPoints(record.points)}
-					</span>
-				</HStack>
-			) : (
-				<span
-					className={css({
-						fontFamily: "mono",
-						fontSize: "xs",
-						color: "fg.subtle",
-					})}
-				>
-					Awaiting results
-				</span>
-			)}
-		</HStack>
 	)
 }

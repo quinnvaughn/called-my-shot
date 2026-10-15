@@ -12,9 +12,12 @@ import { Modal } from "#/components/ui/modal"
 import { Tabs } from "#/components/ui/tabs"
 import { TeamBadge } from "#/components/ui/team-badge"
 import { TextInput } from "#/components/ui/text-input"
+import {
+	invalidateFavoriteTeams,
+	SetFavoriteTeamsDocument,
+} from "#/graphql/favorite-teams/mutations"
+import { FavoriteTeamOptionsDocument } from "#/graphql/favorite-teams/queries"
 import { useGqlMutation } from "#/graphql/hooks"
-import { SetFavoriteTeamsDocument } from "#/graphql/mutations/favorite-teams"
-import { FavoriteTeamOptionsDocument } from "#/graphql/queries/favorite-teams"
 import { gqlQueryOptions } from "#/graphql/query-options"
 import { closeModal } from "#/stores/modal-store"
 
@@ -112,7 +115,7 @@ export function FavoriteTeamsPickerModal({
 
 		await match(result)
 			.with({ __typename: "User" }, async () => {
-				await queryClient.invalidateQueries()
+				await invalidateFavoriteTeams(queryClient)
 				await router.invalidate()
 				closeModal()
 			})
@@ -181,8 +184,7 @@ export function FavoriteTeamsPickerModal({
 					))}
 					<span
 						className={css({
-							fontFamily: "mono",
-							fontSize: "2xs",
+							textStyle: "meta",
 							color: atCap ? "fg.default" : "fg.subtle",
 						})}
 					>

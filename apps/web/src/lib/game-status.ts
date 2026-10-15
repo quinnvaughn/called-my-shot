@@ -1,6 +1,9 @@
 import { DateTime } from "luxon"
 import { match } from "ts-pattern"
 import type { GameStatus, LeagueWindowType } from "#/graphql/generated/graphql"
+import { MONTH_DAY_TIME_FORMAT } from "./format-date"
+import { pluralize } from "./pluralize"
+import { seriesStakesLabel } from "./postseason"
 
 type StatusGame = {
 	status: GameStatus
@@ -23,7 +26,7 @@ export function gameStartLabel(game: StatusGame): string {
 	const date = DateTime.fromISO(game.startsAt)
 	return game.startTimeTbd
 		? `${date.toFormat("MMM d")}, time TBD`
-		: date.toFormat("MMM d, h:mm a")
+		: date.toFormat(MONTH_DAY_TIME_FORMAT)
 }
 
 // Time only, no date - for a context that already tells you the date some
@@ -83,27 +86,54 @@ export function gamesInWindowLabel(
 	const unit = windowUnitLabel(windowType)
 	return count === 0
 		? `No games ${unit}`
-		: `${count} game${count === 1 ? "" : "s"} ${unit}`
+		: `${count} ${pluralize(count, "game")} ${unit}`
 }
 
-// "W-L" for the overwhelming majority of sports, "W-L-T" only once a team
-// actually has a tie on the board (MLB/NBA never will; NFL occasionally
-// does) - showing "-0" on every row regardless would just be noise for the
-// sports that never see one. The NHL's "W-L-OTL" always carries its third
-// count, zero included, since that's how hockey records are written;
-// otLosses is null for every other league. Null in, null out:
-// GameRef.homeTeamRecord/awayTeamRecord are null for a game synced before
-// that data existed.
-export function formatTeamRecord(
-	record: {
-		wins: number
-		losses: number
-		ties: number
-		otLosses?: number | null
-	} | null,
-): string | null {
-	if (!record) return null
-	const base = `${record.wins}-${record.losses}`
-	if (record.otLosses != null) return `${base}-${record.otLosses}`
-	return record.ties > 0 ? `${base}-${record.ties}` : base
+// "BOS @ NYY": away team first, the way a schedule writes a game.
+export function matchupLabel(game: {
+	awayTeam: { abbreviation: string }
+	homeTeam: { abbreviation: string }
+}): string {
+	return `${game.awayTeam.abbreviation} @ ${game.homeTeam.abbreviation}`
+}
+
+// "12–4", or "12–4–1" with a third count. A tie or a draw is written only
+// once there is one, so pass it as `ties || null`: showing "–0" on every row
+// would be noise for the sports that never see one. The NHL's overtime losses
+// are passed even at zero, since that's how hockey records are written.
+export function formatRecord(
+	wins: number,
+	losses: number,
+	third?: number | null,
+): string {
+	return third == null ? `${wins}–${losses}` : `${wins}–${losses}–${third}`
+}
+
+// "Game 5, winner take all. Series tied 2-2." ahead of a series game's meta
+// description, so a shared link says what's riding on it. Null outside a
+// series.
+export function seriesLead(game: {
+	status: string
+	postseason?: {
+		gameNumber: number | null
+		ifNecessary: boolean
+		summary: string | null
+		clinchTeamIds: string[]
+	} | null
+}): string | null {
+	const postseason = game.postseason
+	if (!postseason?.gameNumber) return null
+	const stakes =
+		game.status !== "FINAL" && !postseason.ifNecessary
+			? seriesStakesLabel(postseason)
+			: null
+	const qualifier = stakes
+		? stakes.toLowerCase()
+		: postseason.ifNecessary
+			? "if necessary"
+			: null
+	const first = qualifier
+		? `Game ${postseason.gameNumber}, ${qualifier}.`
+		: `Game ${postseason.gameNumber}.`
+	return postseason.summary ? `${first} ${postseason.summary}.` : first
 }

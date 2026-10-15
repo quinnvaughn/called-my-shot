@@ -4,14 +4,13 @@ import { css } from "styled-system/css"
 import { VStack } from "styled-system/jsx"
 import { EmptyState } from "#/components/ui/empty-state"
 import { PageHeader } from "#/components/ui/page-header"
-import { UpdatesDocument } from "#/graphql/queries/updates"
-import { gqlQueryOptions } from "#/graphql/query-options"
+import { updatesQuery } from "#/graphql/updates/queries"
 import { formatCallDate } from "#/lib/format-date"
 import { pageMeta } from "#/lib/meta"
 
 export const Route = createFileRoute("/_app/updates/")({
 	loader: async ({ context }) => {
-		await context.queryClient.query(gqlQueryOptions(UpdatesDocument, {}))
+		await context.queryClient.query(updatesQuery)
 	},
 	component: RouteComponent,
 	head: () =>
@@ -23,7 +22,7 @@ export const Route = createFileRoute("/_app/updates/")({
 })
 
 function RouteComponent() {
-	const { data } = useSuspenseQuery(gqlQueryOptions(UpdatesDocument, {}))
+	const { data } = useSuspenseQuery(updatesQuery)
 
 	return (
 		<VStack gap="6" alignItems="stretch" maxWidth="2xl">
@@ -46,7 +45,7 @@ function RouteComponent() {
 									borderRadius: "xl",
 									border: "1px solid {colors.border.default}",
 									bg: "bg.surface",
-									_hover: { borderColor: "border.emphasized" },
+									_hover: { border: "1px solid {colors.border.emphasized}" },
 								})}
 							>
 								{update.coverImageUrl && (
@@ -64,10 +63,7 @@ function RouteComponent() {
 								{update.publishedAt && (
 									<span
 										className={css({
-											fontFamily: "mono",
-											fontSize: "2xs",
-											letterSpacing: "wide",
-											textTransform: "uppercase",
+											textStyle: "label",
 											color: "fg.subtle",
 										})}
 									>

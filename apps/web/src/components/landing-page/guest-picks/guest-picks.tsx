@@ -1,16 +1,13 @@
 import { useStore } from "@tanstack/react-store"
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { FiChevronLeft, FiChevronRight } from "react-icons/fi"
 import { css } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
-import { AuthModal } from "#/components/auth/auth-modal"
-import type { QuestionCallShape } from "#/components/questions/cast-call-form/use-cast-call-form"
 import { Button } from "#/components/ui/button"
-import { Card } from "#/components/ui/card"
 import { ChipButton } from "#/components/ui/chip-button"
-import { Eyebrow } from "#/components/ui/eyebrow"
 import type { FragmentType } from "#/graphql/generated"
 import { track } from "#/lib/analytics"
+import { toCallShape } from "#/lib/question-labels"
 import {
 	type GuestPick,
 	guestPicksStore,
@@ -18,8 +15,8 @@ import {
 	restoreGuestPicks,
 	setGuestPick,
 } from "#/stores/guest-picks-store"
-import { openModal } from "#/stores/modal-store"
 import { GuestPickCard, type GuestPickCardFragment } from "./guest-pick-card"
+import { GuestPicksEmpty } from "./guest-picks-empty"
 import { GuestPicksLockBar } from "./guest-picks-lock-bar"
 import { lockInLabel, openGuestPicksAuth } from "./open-guest-picks-auth"
 import {
@@ -81,6 +78,18 @@ export function GuestPicks({ questions }: Props) {
 		[games],
 	)
 
+	// Moves the stack to the card holding a question, selecting its league.
+	const showCard = useCallback(
+		(questionId: string) => {
+			const game = games.find((g) => g.cards.some((q) => q.id === questionId))
+			if (!game) return
+			setLeagueId(game.league.id)
+			setGameId(game.id)
+			setStep(game.cards.findIndex((q) => q.id === questionId))
+		},
+		[games],
+	)
+
 	// Runs once, after the first render. localStorage can't be read on the
 	// server or through hydration, so the stack starts from whatever the page
 	// rendered with and is moved here to the last call this visitor made, with
@@ -90,7 +99,7 @@ export function GuestPicks({ questions }: Props) {
 		restored.current = true
 		const last = restoreGuestPicks(offeredIds).at(-1)
 		if (last) showCard(last.questionId)
-	})
+	}, [offeredIds, showCard])
 
 	const pickFor = (questionId: string) =>
 		picks.find((p) => p.questionId === questionId)?.optionId ?? null
@@ -100,15 +109,6 @@ export function GuestPicks({ questions }: Props) {
 	// signs up to lock in both, and submit-guest-picks posts both.
 	const madePicks = picks.filter((p) => offeredIds.has(p.questionId))
 	const calledIds = new Set(madePicks.map((p) => p.questionId))
-
-	// Moves the stack to the card holding a question, selecting its league.
-	function showCard(questionId: string) {
-		const game = games.find((g) => g.cards.some((q) => q.id === questionId))
-		if (!game) return
-		setLeagueId(game.league.id)
-		setGameId(game.id)
-		setStep(game.cards.findIndex((q) => q.id === questionId))
-	}
 
 	// Where the stack goes once there's nothing new left to offer: back to the
 	// last call waiting, since that's still something to sign up for.
@@ -138,7 +138,7 @@ export function GuestPicks({ questions }: Props) {
 		setGuestPick(pick)
 		track("guest_pick_made", {
 			questionId: pick.questionId,
-			questionShape: pick.shape.toLowerCase() as QuestionCallShape,
+			questionShape: toCallShape(pick.shape),
 			leagueId: pick.leagueId,
 			index: step,
 		})
@@ -149,7 +149,7 @@ export function GuestPicks({ questions }: Props) {
 		removeGuestPick(card.id)
 		track("guest_pick_skipped", {
 			questionId: card.id,
-			questionShape: card.shape.toLowerCase() as QuestionCallShape,
+			questionShape: toCallShape(card.shape),
 			leagueId: card.league.id,
 		})
 		if (step > 0) {
@@ -291,45 +291,5 @@ export function GuestPicks({ questions }: Props) {
 			</div>
 			<GuestPicksLockBar stackRef={stackRef} pickCount={pickCount} />
 		</>
-	)
-}
-
-// Nothing official is locking soon enough to offer, or the visitor skipped past
-// everything there was.
-function GuestPicksEmpty() {
-	return (
-		<Card variant="surface" size="md">
-			<Card.Body>
-				<VStack gap="3" alignItems="flex-start">
-					<Eyebrow>Next slate</Eyebrow>
-					<h2
-						className={css({
-							fontFamily: "heading",
-							fontSize: "lg",
-							lineHeight: "snug",
-						})}
-					>
-						Nothing is about to lock right now.
-					</h2>
-					<p
-						className={css({
-							fontSize: "sm",
-							lineHeight: "relaxed",
-							color: "fg.muted",
-						})}
-					>
-						Questions go up ahead of every game, and calling early scores more.
-						Sign up and you'll be ready when the next ones post.
-					</p>
-					<Button
-						variant="solid"
-						size="md"
-						onClick={() => openModal(<AuthModal defaultView="signup" />)}
-					>
-						Sign up free
-					</Button>
-				</VStack>
-			</Card.Body>
-		</Card>
 	)
 }

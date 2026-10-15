@@ -14,11 +14,8 @@ export function FieldBreakdownCard({ children }: { children: ReactNode }) {
 				<VStack gap="3" alignItems="stretch">
 					<h2
 						className={css({
-							fontFamily: "mono",
-							fontSize: "xs",
-							letterSpacing: "wide",
+							textStyle: "sectionHeading",
 							color: "fg.muted",
-							textTransform: "uppercase",
 						})}
 					>
 						How the field called it

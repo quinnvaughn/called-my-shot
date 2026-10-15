@@ -3,6 +3,8 @@ import { css } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
 import { match, P } from "ts-pattern"
 import { Card } from "#/components/ui/card"
+import { ProgressBar } from "#/components/ui/progress-bar"
+import { StatTile } from "./stat-tile"
 
 type Props = {
 	calledCount: number
@@ -20,38 +22,6 @@ type Props = {
 	footer?: ReactNode
 }
 
-export function StatTile({
-	value,
-	label,
-}: {
-	value: number | string
-	label: string
-}) {
-	return (
-		<VStack gap="0.5" alignItems="flex-start">
-			<span
-				className={css({
-					fontFamily: "mono",
-					fontSize: "lg",
-					fontWeight: "bold",
-				})}
-			>
-				{value}
-			</span>
-			<span
-				className={css({
-					fontFamily: "mono",
-					fontSize: "3xs",
-					letterSpacing: "wide",
-					color: "fg.subtle",
-				})}
-			>
-				{label}
-			</span>
-		</VStack>
-	)
-}
-
 // The ballot detail page's summary card - a progress bar/line plus a 4-stat
 // row (called/off-field/contested/full-ballot-completions). All numbers are
 // pre-computed by computeBallotProgressStats (#/lib/ballot-progress-stats) -
@@ -67,8 +37,6 @@ export function BallotProgressCard({
 	winsHandedOut,
 	footer,
 }: Props) {
-	const pct = memberCount === 0 ? 0 : Math.round((calledCount / memberCount) * 100)
-
 	return (
 		<Card>
 			<Card.Body>
@@ -87,8 +55,7 @@ export function BallotProgressCard({
 						</span>
 						<span
 							className={css({
-								fontFamily: "mono",
-								fontSize: "2xs",
+								textStyle: "meta",
 								color: "fg.subtle",
 							})}
 						>
@@ -102,24 +69,7 @@ export function BallotProgressCard({
 								.exhaustive()}
 						</span>
 					</HStack>
-					<div
-						className={css({
-							height: "1.5",
-							borderRadius: "full",
-							bg: "bg.subtle",
-							border: "1px solid {colors.border.default}",
-							overflow: "hidden",
-						})}
-					>
-						<div
-							className={css({
-								height: "full",
-								borderRadius: "full",
-								bg: "secondary.default",
-							})}
-							style={{ width: `${pct}%` }}
-						/>
-					</div>
+					<ProgressBar value={calledCount} max={memberCount} />
 					<HStack
 						gap="6"
 						flexWrap="wrap"

@@ -18,11 +18,8 @@ export function Section({
 			<HStack
 				justify="space-between"
 				className={css({
-					fontFamily: "mono",
-					fontSize: "2xs",
-					letterSpacing: "wide",
+					textStyle: "label",
 					color: "fg.subtle",
-					textTransform: "uppercase",
 				})}
 			>
 				<span>{label}</span>

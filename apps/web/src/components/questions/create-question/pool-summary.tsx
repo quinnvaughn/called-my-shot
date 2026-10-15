@@ -1,9 +1,7 @@
-import { useEffect } from "react"
 import { css } from "styled-system/css"
 import { HStack } from "styled-system/jsx"
 import { FieldHint } from "#/components/ui/field-hint"
 import type { EntitySearchItem } from "./entity-search-field"
-import { useSetValue } from "./form-context"
 
 type Props = {
 	items: EntitySearchItem[]
@@ -24,20 +22,9 @@ type Props = {
 // picker fields above this in shape-panels/award-panel.tsx) for awards that are
 // genuinely scoped in reality (AL MVP vs NL MVP) rather than hand-curated row
 // by row - nobody's hand-searching and adding hundreds of players one at a
-// time. Syncs the list into `options` automatically.
+// time. Display only: the whole list is what submits as `options` (see
+// useCreateQuestionForm).
 export function PoolSummary({ items, scopeLabel, rookieOnly }: Props) {
-	const setValue = useSetValue()
-	useEffect(() => {
-		setValue(
-			"options",
-			items.map((item) => ({
-				label: item.label,
-				teamId: item.kind === "team" ? item.id : undefined,
-				playerId: item.kind === "player" ? item.id : undefined,
-			})),
-		)
-	}, [items, setValue])
-
 	if (items.length === 0) {
 		return <FieldHint>Pick a league to see the pool.</FieldHint>
 	}
@@ -49,8 +36,7 @@ export function PoolSummary({ items, scopeLabel, rookieOnly }: Props) {
 			justify="space-between"
 			className={css({
 				bg: "bg.canvas",
-				border: "1px solid",
-				borderColor: "border.default",
+				border: "1px solid {colors.border.default}",
 				borderRadius: "lg",
 				paddingBlock: "2.5",
 				paddingInline: "3.5",
@@ -58,11 +44,8 @@ export function PoolSummary({ items, scopeLabel, rookieOnly }: Props) {
 		>
 			<span
 				className={css({
-					fontFamily: "mono",
-					fontSize: "2xs",
-					letterSpacing: "wide",
+					textStyle: "label",
 					color: "fg.subtle",
-					textTransform: "uppercase",
 				})}
 			>
 				Pool

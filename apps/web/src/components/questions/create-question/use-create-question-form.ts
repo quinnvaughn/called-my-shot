@@ -2,15 +2,25 @@ import { createQuestionSchema, isAdminOnlyShape } from "@called-my-shot/schemas"
 import { isSeasonLongShape } from "@called-my-shot/scoring"
 import { useQueryClient } from "@tanstack/react-query"
 import { useNavigate, useRouter } from "@tanstack/react-router"
-import { useEffect, useState } from "react"
+import { type FormEvent, useState } from "react"
 import { match } from "ts-pattern"
 import type { SportsQuery } from "#/graphql/generated/graphql"
 import { useGqlMutation } from "#/graphql/hooks"
-import { CreateQuestionDocument } from "#/graphql/mutations/questions"
+import {
+	CreateQuestionDocument,
+	invalidateAfterQuestionCreated,
+} from "#/graphql/questions/mutations"
 import { track } from "#/lib/analytics"
 import { isRateToleranceTier } from "#/lib/field-signal"
-import { useForm } from "#/lib/form/use-form"
+import { type FormState, useForm } from "#/lib/form/use-form"
 import { buildTitlePreview } from "./build-title-preview"
+import {
+	canSubmitWith,
+	type DerivedValues,
+	toPoolOptions,
+} from "./derived-values"
+import type { CreateQuestionValues } from "./form-context"
+import { offersStatAggregationFor } from "./stat-aggregation"
 import { toCreateQuestionInput } from "./to-create-question-input"
 import { useEntityPools } from "./use-entity-pools"
 import { useQuestionCatalog } from "./use-question-catalog"
@@ -19,12 +29,19 @@ import { useQuestionCatalog } from "./use-question-catalog"
  * Owns the create-question form: its state, its submit, and every value
  * derived from what's filled in so far.
  *
- * Effect order matters only in that it's preserved from when all of this lived
- * in one component - the ballot/official effect, then the catalog's two
- * stale-pick prunes, then the aggregation cleanup, then the title sync. They
- * write disjoint paths, so nothing here actually depends on that order.
+ * The title and a pool shape's options are derived rather than typed (see
+ * derived-values.ts), and only written into the form at submit - so submit
+ * and the button's enabled state go through handleSubmit and canSubmit here,
+ * not the form's own.
  */
-export function useCreateQuestionForm({ sports }: { sports: SportsQuery["sports"] }) {
+export function useCreateQuestionForm({
+	sports,
+	lockedBallotId,
+}: {
+	sports: SportsQuery["sports"]
+	// Arriving with ?ballotId= - see new-question.tsx's validateSearch.
+	lockedBallotId?: string
+}) {
 	const [hasSelectedType, setHasSelectedType] = useState(false)
 	const [titleEdited, setTitleEdited] = useState(false)
 	const createQuestion = useGqlMutation(CreateQuestionDocument)
@@ -43,7 +60,9 @@ export function useCreateQuestionForm({ sports }: { sports: SportsQuery["sports"
 			resolutionSource: "",
 			resolutionSourceUrl: "",
 			locksAt: "",
-			isOfficial: false,
+			// A ballot question is always official (see createQuestionSchema's
+			// superRefine), so arriving with a ballot starts official too.
+			isOfficial: !!lockedBallotId,
 			options: [],
 			statId: undefined,
 			customStat: "",
@@ -60,7 +79,9 @@ export function useCreateQuestionForm({ sports }: { sports: SportsQuery["sports"
 			awardPositions: [],
 			awardSeasonsInLeague: [],
 			awardRookieOnly: false,
-			ballot: undefined,
+			ballot: lockedBallotId
+				? { ballotId: lockedBallotId, label: "", slot: undefined }
+				: undefined,
 		},
 		onSubmit: async (values, helpers) => {
 			const data = await createQuestion.mutateAsync({
@@ -96,7 +117,7 @@ export function useCreateQuestionForm({ sports }: { sports: SportsQuery["sports"
 						leagueId: values.leagueId,
 						isOfficial: values.isOfficial ?? false,
 					})
-					await queryClient.invalidateQueries()
+					await invalidateAfterQuestionCreated(queryClient)
 					await router.invalidate()
 					await navigate({
 						to: "/questions/$questionId/{-$slug}",
@@ -133,13 +154,6 @@ export function useCreateQuestionForm({ sports }: { sports: SportsQuery["sports"
 	// object don't type-check correctly with this form hook.
 	const ballotId = form.useWatch("ballot")?.ballotId
 
-	// A ballot question is always official (see createQuestionSchema's
-	// superRefine) - forced the moment a ballot is picked rather than left for
-	// the admin to remember to also flip the toggle.
-	useEffect(() => {
-		if (ballotId) form.setValue("isOfficial", true)
-	}, [ballotId, form])
-
 	const {
 		teams,
 		players,
@@ -153,14 +167,10 @@ export function useCreateQuestionForm({ sports }: { sports: SportsQuery["sports"
 		positionOptions,
 		yearsInLeagueOptions,
 	} = useQuestionCatalog({
-		form,
 		sportId,
 		leagueId,
 		gameId,
-		subjectTeamId,
-		subjectPlayerId,
 		awardConferences,
-		awardDivisions,
 	})
 
 	const isGameStatLeader = shape === "player_game_stat_leader"
@@ -286,25 +296,7 @@ export function useCreateQuestionForm({ sports }: { sports: SportsQuery["sports"
 	// in #/lib/field-signal. Also picks "more" vs "a higher" for the season
 	// head-to-head titles below.
 	const isRateStat = isRateToleranceTier(selectedStat?.toleranceTier)
-
-	// player_season_stat_leader only - the one shape where total-vs-per-game is
-	// genuinely optional rather than required. It disambiguates a counting stat
-	// ("the most points this season" vs "the most points per game") and nothing
-	// else: a rate stat is already a rate, and a freeform customStat can't be
-	// classified either way. So it's offered only for a catalog counting stat,
-	// and when it isn't offered statAggregation stays undefined and the title
-	// states no aggregation at all.
-	const offersStatAggregation =
-		isSeasonStatLeader && !!selectedStat && !isRateStat
-
-	// The stat can change after an aggregation was already picked (Points, "per
-	// game", then retyped as a freeform metric) - without this the abandoned
-	// value would still submit and still put "per game" in the title.
-	useEffect(() => {
-		if (isSeasonStatLeader && !offersStatAggregation && statAggregation) {
-			form.setValue("statAggregation", undefined)
-		}
-	}, [isSeasonStatLeader, offersStatAggregation, statAggregation, form])
+	const offersStatAggregation = offersStatAggregationFor(shape, selectedStat)
 	const selectedPlayerName = subjectPlayerId
 		? players.find((player) => player.id === subjectPlayerId)?.name
 		: undefined
@@ -334,18 +326,31 @@ export function useCreateQuestionForm({ sports }: { sports: SportsQuery["sports"
 		offersStatAggregation,
 	})
 
-	const title = form.useWatch("title")
-	// Once the creator types into the title field directly, stop overwriting
-	// it as titlePreview keeps recomputing from the fields above - it's theirs
-	// now. Before that, keep it synced live so the field always shows the
-	// current best-guess title rather than going stale the moment any other
-	// field changes.
-	useEffect(() => {
-		if (titleEdited) return
-		if (titlePreview !== null && titlePreview !== title) {
-			form.setValue("title", titlePreview)
-		}
-	}, [titlePreview, titleEdited, title, form])
+	// The title field holds only what the creator typed. Until they type into
+	// it, the title is the current preview, so it never goes stale as the
+	// fields above change. Once they do, it's theirs.
+	const storedTitle = form.useWatch("title")
+	const title =
+		titleEdited || titlePreview === null ? storedTitle : titlePreview
+
+	// The pool shapes submit their whole pool, never a hand-picked list.
+	const poolItems =
+		awardPoolItems ?? gameStatLeaderPoolItems ?? teamStatLeaderPoolItems
+	const poolOptions = poolItems ? toPoolOptions(poolItems) : null
+	const derivedValues: DerivedValues = {
+		title,
+		...(poolOptions && { options: poolOptions }),
+	}
+
+	function handleSubmit(e: FormEvent<HTMLFormElement>) {
+		form.setValue("title", title)
+		if (poolOptions) form.setValue("options", poolOptions)
+		return form.handleSubmit(e)
+	}
+
+	function canSubmit(state: FormState<CreateQuestionValues>) {
+		return canSubmitWith(state, derivedValues)
+	}
 
 	return {
 		form,
@@ -354,8 +359,12 @@ export function useCreateQuestionForm({ sports }: { sports: SportsQuery["sports"
 		ballotId,
 		hasSelectedType,
 		selectType,
+		title,
+		titleEdited,
 		setTitleEdited,
 		titlePreview,
+		handleSubmit,
+		canSubmit,
 		isAdminOnlyShape: isAdminOnly,
 		// Everything the shape panels read, shaped to go straight into
 		// QuestionDataProvider - see data-context.tsx for why none of it is a

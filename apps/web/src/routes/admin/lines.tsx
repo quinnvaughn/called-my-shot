@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query"
+import { useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
 import { FiCheck } from "react-icons/fi"
 import { HStack, VStack } from "styled-system/jsx"
@@ -7,12 +7,13 @@ import { Button } from "#/components/ui/button"
 import { PageHeader } from "#/components/ui/page-header"
 import { Table } from "#/components/ui/table"
 import { Tag } from "#/components/ui/tag"
-import { AdminLineSettingsDocument } from "#/graphql/queries/admin"
-import { gqlQueryOptions } from "#/graphql/query-options"
+import { adminLineSettingsQuery } from "#/graphql/admin/calibration/queries"
+import { formatPercent } from "#/lib/format-number"
 import { openModal } from "#/stores/modal-store"
 
 export const Route = createFileRoute("/admin/lines")({
 	component: RouteComponent,
+	loader: ({ context }) => context.queryClient.query(adminLineSettingsQuery),
 })
 
 const columns = [
@@ -27,15 +28,11 @@ const columns = [
 	{ key: "actions", label: "", sortable: false },
 ] as const
 
-const percent = (rate: number) => `${Math.round(rate * 100)}%`
-
 function RouteComponent() {
-	const { data, refetch } = useQuery(
-		gqlQueryOptions(AdminLineSettingsDocument, {}),
-	)
+	const { data } = useSuspenseQuery(adminLineSettingsQuery)
 
 	const rows =
-		data?.adminLineSettings.__typename === "QueryAdminLineSettingsSuccess"
+		data.adminLineSettings.__typename === "QueryAdminLineSettingsSuccess"
 			? data.adminLineSettings.data
 			: []
 
@@ -62,7 +59,7 @@ function RouteComponent() {
 										{row.calibration.outsideTarget && (
 											<Tag variant="primary">Off target</Tag>
 										)}
-										{percent(row.calibration.overRate)}
+										{formatPercent(row.calibration.overRate)}
 									</HStack>
 								) : (
 									"-"
@@ -96,14 +93,7 @@ function RouteComponent() {
 								<Button
 									variant="outline"
 									size="sm"
-									onClick={() =>
-										openModal(
-											<LineSettingModal
-												setting={row}
-												onChanged={() => refetch()}
-											/>,
-										)
-									}
+									onClick={() => openModal(<LineSettingModal setting={row} />)}
 								>
 									Edit
 								</Button>

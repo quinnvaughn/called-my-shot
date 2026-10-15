@@ -8,7 +8,7 @@ import {
 import { FieldHint } from "#/components/ui/field-hint"
 import { useQuestionData } from "../data-context"
 import type { CreateQuestionValues } from "../form-context"
-import { ChipField, useWatch } from "../form-context"
+import { ChipField, useSetValue, useWatch } from "../form-context"
 import { GameField } from "../game-field"
 import { LeagueField } from "../league-field"
 import { LineField } from "../line-field"
@@ -40,6 +40,7 @@ export type StatShape = Extract<
 // reading of it.
 export function StatPanel({ shape }: { shape: StatShape }) {
 	const leagueId = useWatch("leagueId")
+	const setValue = useSetValue()
 	const { stats, scopedTeams, scopedPlayers, selectedGame } =
 		useQuestionData("StatPanel")
 
@@ -81,6 +82,9 @@ export function StatPanel({ shape }: { shape: StatShape }) {
 								["total", "Total"],
 								["per_game", "Per game"],
 							]}
+							// A line is set for one reading of the stat: total and
+							// per-game differ by a season's worth of games.
+							onValueChange={() => setValue("ouLine", undefined)}
 						/>
 					)}
 					{isAnyOU && <LineField />}

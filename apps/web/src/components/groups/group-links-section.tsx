@@ -19,7 +19,9 @@ import { FieldHint } from "#/components/ui/field-hint"
 import { FormError } from "#/components/ui/form-error"
 import { SaveNote } from "#/components/ui/save-note"
 import { TextInput } from "#/components/ui/text-input"
+import { ApiError } from "#/graphql/api-error"
 import { UpdateGroupLinksDocument } from "#/graphql/generated/graphql"
+import { invalidateGroups } from "#/graphql/groups/mutations"
 import { useGqlMutation } from "#/graphql/hooks"
 import { useForm } from "#/lib/form/use-form"
 import { linkIcons } from "#/lib/link-icons"
@@ -82,19 +84,14 @@ export function GroupLinksSection({ groupId, links }: Props) {
 					}
 					helpers.setErrors(errors)
 				})
-				.with(
-					{ __typename: "AuthenticationError" },
-					{ __typename: "AuthorizationError" },
-					{ __typename: "NotFoundError" },
-					async (r) => {
-						helpers.setFormError(r.message)
-					},
-				)
+				.with(ApiError, async (r) => {
+					helpers.setFormError(r.message)
+				})
 				.with({ __typename: "GroupPayload" }, async (r) => {
 					// Back to what was stored, so "x.com/foo/" reads as the
 					// "https://x.com/foo" it was saved as.
 					helpers.reset({ links: toFormLinks(r.group.links) })
-					await queryClient.invalidateQueries()
+					await invalidateGroups(queryClient)
 					await router.invalidate()
 					setSavedNote("Saved")
 					setTimeout(() => setSavedNote(null), 2000)
@@ -221,7 +218,7 @@ export function GroupLinksSection({ groupId, links }: Props) {
 											padding: "2.5",
 											cursor: "pointer",
 											_hover: {
-												borderColor: "border.emphasized",
+												border: "1px dashed {colors.border.emphasized}",
 												color: "fg.body",
 											},
 										})}

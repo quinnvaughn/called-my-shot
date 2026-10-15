@@ -1,6 +1,7 @@
 import { questionTitleWithGame } from "@called-my-shot/schemas"
 import { match, P } from "ts-pattern"
 import type { CallRecordQuery } from "#/graphql/generated/graphql"
+import { formatSigned } from "./format-number"
 
 type CallQuestion = NonNullable<CallRecordQuery["call"]>["question"]
 
@@ -48,7 +49,7 @@ export function callPageMeta(input: CallMetaInput): {
 		.with(
 			{ points: P.number, isWin: P.boolean },
 			({ points, isWin, exact, pickLabel, marginLabel }) => {
-				const signed = `${isWin ? "+" : "−"}${Math.abs(points)} pts`
+				const signed = `${formatSigned(points, { zeroSign: true })} pts`
 				// An exact guess keeps its own lead over any margin, the same
 				// precedence the card's eyebrow uses. Otherwise a remarkable
 				// margin replaces the bare Won/Lost, since "Inches away" says

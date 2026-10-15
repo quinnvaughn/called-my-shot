@@ -62,8 +62,7 @@ export function InviteCodeModal({
 				<HStack justify="space-between" gap="4">
 					<span
 						className={css({
-							fontFamily: "mono",
-							fontSize: "xs",
+							textStyle: "metaLg",
 							color: "fg.muted",
 						})}
 					>
@@ -72,8 +71,7 @@ export function InviteCodeModal({
 					<button
 						type="button"
 						className={css({
-							fontFamily: "mono",
-							fontSize: "xs",
+							textStyle: "metaLg",
 							color: "primary.default",
 							cursor: "pointer",
 							_hover: { opacity: 0.8 },

@@ -119,8 +119,7 @@ export function NotificationShell({
 					{children}
 					<p
 						className={css({
-							fontFamily: "mono",
-							fontSize: "xs",
+							textStyle: "metaLg",
 							color: "fg.muted",
 							marginTop: "1",
 						})}

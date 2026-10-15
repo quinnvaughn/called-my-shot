@@ -1,5 +1,6 @@
-import { AuthModal, type AuthModalView } from "#/components/auth/auth-modal"
+import { AuthModal } from "#/components/auth/auth-modal"
 import { track } from "#/lib/analytics"
+import type { AuthModalView } from "#/lib/auth-modal-copy"
 import { pluralize } from "#/lib/pluralize"
 import { openModal } from "#/stores/modal-store"
 

@@ -1,39 +1,15 @@
 import { css } from "styled-system/css"
 import { HStack } from "styled-system/jsx"
-import { TeamBadge } from "#/components/ui/team-badge"
-
-type Team = {
-	id: string
-	abbreviation: string
-	color: string
-	logoUrl?: string | null
-}
+import {
+	SeededBadge,
+	type SeededTeam,
+} from "#/components/questions/seeded-badge"
 
 export type SeriesBlockData = {
 	roundLabel: string
 	summary: string | null
 	seeds: { teamId: string; seed: number }[]
-	gameOne: { awayTeam: Team; homeTeam: Team } | null
-}
-
-const seedClass = css({
-	fontFamily: "mono",
-	fontSize: "2xs",
-	color: "fg.muted",
-})
-
-function SeededBadge({ team, seed }: { team: Team; seed?: number }) {
-	return (
-		<HStack gap="1" alignItems="center">
-			{seed !== undefined && <span className={seedClass}>({seed})</span>}
-			<TeamBadge
-				abbreviation={team.abbreviation}
-				color={team.color}
-				logoUrl={team.logoUrl}
-				showAbbreviation
-			/>
-		</HStack>
-	)
+	gameOne: { awayTeam: SeededTeam; homeTeam: SeededTeam } | null
 }
 
 // GameBlock's counterpart for a series question: the two teams, the round,
@@ -62,8 +38,7 @@ export function SeriesBlock({ series }: { series: SeriesBlockData }) {
 					<SeededBadge team={teams.awayTeam} seed={seedOf(teams.awayTeam.id)} />
 					<span
 						className={css({
-							fontFamily: "mono",
-							fontSize: "2xs",
+							textStyle: "meta",
 							color: "fg.subtle",
 						})}
 					>
@@ -74,8 +49,7 @@ export function SeriesBlock({ series }: { series: SeriesBlockData }) {
 			)}
 			<span
 				className={css({
-					fontFamily: "mono",
-					fontSize: "2xs",
+					textStyle: "meta",
 					color: "secondary.default",
 					whiteSpace: "nowrap",
 				})}

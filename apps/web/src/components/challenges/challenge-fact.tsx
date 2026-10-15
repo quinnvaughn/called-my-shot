@@ -17,10 +17,7 @@ export function ChallengeFact({
 		<VStack gap="1" alignItems="flex-start">
 			<span
 				className={css({
-					fontFamily: "mono",
-					fontSize: "2xs",
-					letterSpacing: "wide",
-					textTransform: "uppercase",
+					textStyle: "label",
 					color: "fg.subtle",
 				})}
 			>

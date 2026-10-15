@@ -53,7 +53,7 @@ const conferenceByDirection = (conference: string) =>
 		.with("West", () => "Western Conference")
 		.otherwise(() => conference)
 
-export function leagueStandingsRules(leagueSlug: string): League | null {
+function leagueStandingsRules(leagueSlug: string): League | null {
 	return match(leagueSlug)
 		.returnType<League | null>()
 		.with("nfl", () => ({
@@ -422,4 +422,25 @@ export function standingsTeams(
 		})
 	}
 	return teams
+}
+
+export function statusLabel(row: StandingsRow): string | null {
+	return match(row.status)
+		.with("bye", () => "Bye")
+		.with("playIn", () => "Play-in")
+		.with("playoff", "out", null, () => null)
+		.exhaustive()
+}
+
+// Where a pick's number came from, when it isn't simply what was called: a
+// draft move against the saved pick, or a saved Rebalance.
+export function changeNote(
+	row: StandingsRow,
+	adjust: { original: number } | null,
+): string | null {
+	if (adjust) {
+		return row.wins !== adjust.original ? `was ${adjust.original}` : null
+	}
+	const from = row.team.rebalancedFrom
+	return from !== null && from !== row.wins ? `rebalanced from ${from}` : null
 }

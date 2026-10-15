@@ -7,17 +7,14 @@ import { FieldLabel } from "#/components/ui/field-label"
 import { optionDisplayLabel } from "#/lib/question-labels"
 import { optionPointsPreview } from "#/lib/scoring"
 import { CaseField } from "./case-field"
+import { useCastCallFormContext } from "./cast-call-form-context"
 import { ConvictionCard } from "./conviction-card"
 import { OPTIONS_PAGE_STEP, OptionPickerList } from "./option-picker-list"
-import { type CastCallFormState, isOverUnderShape } from "./use-cast-call-form"
-
-type Props = {
-	callForm: CastCallFormState
-}
+import { isOverUnderShape } from "./use-cast-call-form"
 
 // Every single-pick shape (the seven that resolve to bucket "single" - see
 // castCallBucketFor) - exactly one pick from a fixed row list.
-export function OptionFields({ callForm }: Props) {
+export function OptionFields() {
 	const {
 		question,
 		shape,
@@ -25,7 +22,7 @@ export function OptionFields({ callForm }: Props) {
 		selectSingle,
 		isRateStat,
 		singleSelectConviction,
-	} = callForm
+	} = useCastCallFormContext()
 
 	const [optionSearch, setOptionSearch] = useState("")
 
@@ -88,8 +85,8 @@ export function OptionFields({ callForm }: Props) {
 					onSelectItem={(item) => selectSingle(item.id)}
 				/>
 			)}
-			<ConvictionCard callForm={callForm} />
-			<CaseField callForm={callForm} />
+			<ConvictionCard />
+			<CaseField />
 		</VStack>
 	)
 }

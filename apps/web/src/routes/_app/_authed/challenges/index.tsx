@@ -3,20 +3,20 @@ import { createFileRoute, Link } from "@tanstack/react-router"
 import { FiPlus } from "react-icons/fi"
 import { css } from "styled-system/css"
 import { VStack } from "styled-system/jsx"
+import { z } from "zod"
 import { ChallengeListRow } from "#/components/challenges/challenge-list-row"
 import { button } from "#/components/ui/button"
 import { EmptyState } from "#/components/ui/empty-state"
 import { PageHeader } from "#/components/ui/page-header"
 import { Tabs } from "#/components/ui/tabs"
+import { myChallengesQuery } from "#/graphql/challenges/queries"
 import type { ChallengeRole } from "#/graphql/generated/graphql"
-import { myChallengesQuery } from "#/graphql/queries/challenges"
-
-type Search = { tab?: "accepted" }
 
 export const Route = createFileRoute("/_app/_authed/challenges/")({
 	component: RouteComponent,
-	validateSearch: (search: Record<string, unknown>): Search =>
-		search.tab === "accepted" ? { tab: "accepted" } : {},
+	validateSearch: z.object({
+		tab: z.literal("accepted").optional().catch(undefined),
+	}),
 })
 
 function RouteComponent() {

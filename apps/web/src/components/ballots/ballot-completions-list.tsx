@@ -86,8 +86,7 @@ export function BallotCompletionsList({
 						</div>
 						<span
 							className={css({
-								fontFamily: "mono",
-								fontSize: "2xs",
+								textStyle: "meta",
 								color: "fg.subtle",
 								flexShrink: "0",
 							})}
@@ -99,11 +98,8 @@ export function BallotCompletionsList({
 				{others > 0 && (
 					<span
 						className={css({
-							fontFamily: "mono",
-							fontSize: "2xs",
-							letterSpacing: "wide",
+							textStyle: "label",
 							color: "fg.subtle",
-							textTransform: "uppercase",
 							textAlign: "center",
 							padding: "3",
 						})}

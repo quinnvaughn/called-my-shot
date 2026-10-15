@@ -1,6 +1,8 @@
 import { FiMessageCircle } from "react-icons/fi"
 import { css } from "styled-system/css"
 import { type FragmentType, graphql, useFragment } from "#/graphql/generated"
+import { matchupLabel } from "#/lib/game-status"
+import { pluralize } from "#/lib/pluralize"
 import { NotificationShell, type Target } from "../notification-shell"
 
 export const PresserQuestionRowFragment = graphql(`
@@ -51,9 +53,7 @@ export function PresserQuestionRow({
 				params: { gameId: presser.game.id, username: presser.owner.username },
 			}
 		: null
-	const matchup = presser
-		? `${presser.game.awayTeam.abbreviation} @ ${presser.game.homeTeam.abbreviation}`
-		: "your game"
+	const matchup = presser ? matchupLabel(presser.game) : "your game"
 	const waiting = presser?.isOpen ? (presser.pendingCount ?? 0) : 0
 	const others = waiting - 1
 
@@ -69,7 +69,7 @@ export function PresserQuestionRow({
 			<p className={css({ fontSize: "sm" })}>
 				<b>@{n.actorUsername}</b>
 				{others > 0
-					? ` and ${others} ${others === 1 ? "other" : "others"} asked questions`
+					? ` and ${others} ${pluralize(others, "other")} asked questions`
 					: " asked a question"}{" "}
 				at your {matchup} presser
 			</p>

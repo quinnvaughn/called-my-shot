@@ -1,7 +1,7 @@
 import { Link } from "@tanstack/react-router"
 import { FiFlag } from "react-icons/fi"
 import { css } from "styled-system/css"
-import { HStack, VStack } from "styled-system/jsx"
+import { VStack } from "styled-system/jsx"
 import { ChallengeStatus } from "#/components/challenges/challenge-status"
 import { CardRail } from "#/components/ui/card-rail"
 import { Identity } from "#/components/ui/identity"
@@ -51,21 +51,8 @@ export function GroupChallengeStrip({
 			items={challenges}
 			getKey={(c) => c.id}
 			itemLabel="challenge"
-			header={
-				<HStack
-					gap="1.5"
-					className={css({
-						fontFamily: "mono",
-						fontSize: "xs",
-						letterSpacing: "wide",
-						color: "fg.muted",
-						textTransform: "uppercase",
-					})}
-				>
-					<FiFlag size={12} aria-hidden />
-					Challenges
-				</HStack>
-			}
+			title="Challenges"
+			icon={<FiFlag size={12} aria-hidden />}
 			renderItem={(c) => {
 				const titles = c.entries.map((e) => e.question.title)
 				return (
@@ -84,7 +71,7 @@ export function GroupChallengeStrip({
 							textDecoration: "none",
 							color: "inherit",
 							transition: "border-color 0.15s ease",
-							_hover: { borderColor: "border.emphasized" },
+							_hover: { border: "1px solid {colors.border.emphasized}" },
 						})}
 					>
 						<Identity
@@ -106,8 +93,7 @@ export function GroupChallengeStrip({
 							</p>
 							<p
 								className={css({
-									fontFamily: "mono",
-									fontSize: "xs",
+									textStyle: "metaLg",
 									color: "fg.muted",
 								})}
 							>
@@ -122,10 +108,7 @@ export function GroupChallengeStrip({
 						</VStack>
 						<span
 							className={css({
-								fontFamily: "mono",
-								fontSize: "2xs",
-								letterSpacing: "wide",
-								textTransform: "uppercase",
+								textStyle: "label",
 								color: "primary.default",
 							})}
 						>

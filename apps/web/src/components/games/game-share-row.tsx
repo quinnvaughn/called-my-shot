@@ -1,11 +1,8 @@
-import { VStack } from "styled-system/jsx"
-import { CopyLinkRow } from "#/components/ui/copy-link-row"
-import { PostOnXLink } from "#/components/ui/post-on-x-link"
-import { ShareIconRow } from "#/components/ui/share-icon-row"
+import { ShareLinkRow } from "#/components/ui/share-link-row"
 import { track } from "#/lib/analytics"
-import { formatRecord, formatSignedPoints } from "#/lib/ballot-entry"
+import { formatSigned } from "#/lib/format-number"
 import { gameEntryPath } from "#/lib/game-entry"
-import { SITE_HOST, SITE_ORIGIN } from "#/lib/meta"
+import { formatRecord } from "#/lib/game-status"
 
 type GameShareSurface = "game_page" | "question_strip" | "entry_page"
 
@@ -42,7 +39,7 @@ export function buildGameTweet(
 	if (entry.wins + entry.losses === 0) {
 		return `${subject}: ${entry.calledCount} of ${entry.questionCount} called.`
 	}
-	return `${subject}: ${formatRecord(entry.wins, entry.losses)}, ${formatSignedPoints(entry.points)} pts.`
+	return `${subject}: ${formatRecord(entry.wins, entry.losses)}, ${formatSigned(entry.points, { zeroSign: true })} pts.`
 }
 
 export function GameShareRow({
@@ -53,45 +50,16 @@ export function GameShareRow({
 	surface,
 	layout = "full",
 }: Props) {
-	const path = gameEntryPath(gameId, username)
-	const url = `${SITE_ORIGIN}${path}`
-
-	if (layout === "icons") {
-		return (
-			<ShareIconRow
-				url={url}
-				campaign="game_picks"
-				tweetText={tweetText}
-				shareTitle={shareTitle}
-				onShared={(method) =>
-					track("game_picks_shared", { gameId, method, surface })
-				}
-			/>
-		)
-	}
-
 	return (
-		<VStack gap="3" alignItems="stretch">
-			<CopyLinkRow
-				url={url}
-				campaign="game_picks"
-				displayUrl={`${SITE_HOST}${path}`}
-				shareTitle={shareTitle}
-				onCopied={() =>
-					track("game_picks_shared", { gameId, method: "clipboard", surface })
-				}
-				onNativeShared={() =>
-					track("game_picks_shared", { gameId, method: "native", surface })
-				}
-			/>
-			<PostOnXLink
-				text={tweetText}
-				url={url}
-				campaign="game_picks"
-				onClick={() =>
-					track("game_picks_shared", { gameId, method: "x", surface })
-				}
-			/>
-		</VStack>
+		<ShareLinkRow
+			path={gameEntryPath(gameId, username)}
+			campaign="game_picks"
+			tweetText={tweetText}
+			shareTitle={shareTitle}
+			layout={layout}
+			onShared={(method) =>
+				track("game_picks_shared", { gameId, method, surface })
+			}
+		/>
 	)
 }

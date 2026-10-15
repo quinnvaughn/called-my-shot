@@ -1,64 +1,37 @@
-import { useQuery, useSuspenseQuery } from "@tanstack/react-query"
+import { useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute, Link } from "@tanstack/react-router"
 import { useEffect, useRef } from "react"
 import { FaRegTimesCircle } from "react-icons/fa"
-import { FiChevronLeft, FiChevronRight } from "react-icons/fi"
 import { css, cx } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
-import { PossiblePoints } from "#/components/challenges/possible-points"
+import { z } from "zod"
+import { ChallengeReview } from "#/components/challenges/challenge-play/challenge-review"
+import { ChallengeStepForm } from "#/components/challenges/challenge-play/challenge-step-form"
+import type { Challenge } from "#/components/challenges/challenge-play/types"
 import { useAcceptChallenge } from "#/components/challenges/use-accept-challenge"
 import { GameMatchupHeader } from "#/components/games/game-matchup-header"
-import { CardRule } from "#/components/questions/card-rule"
-import {
-	type CallDraft,
-	CastCallForm,
-	CastCallFormFragment,
-	useCastCallForm,
-} from "#/components/questions/cast-call-form"
-import { PickList } from "#/components/questions/pick-list"
-import { QuestionSummaryHeader } from "#/components/questions/question-summary-header"
-import { StatContextCard } from "#/components/questions/stat-context-card"
 import { Breadcrumb } from "#/components/ui/breadcrumb"
 import { Button, button } from "#/components/ui/button"
-import { Card } from "#/components/ui/card"
 import { FormError } from "#/components/ui/form-error"
 import { NotFound } from "#/components/ui/not-found"
-import { useFragment as unmask } from "#/graphql/generated"
-import type { ChallengePageQuery } from "#/graphql/generated/graphql"
-import { challengePageQuery } from "#/graphql/queries/challenges"
-import { questionStatContextQuery } from "#/graphql/queries/question"
+import { challengePageQuery } from "#/graphql/challenges/queries"
 import { useRequireAuth } from "#/hooks/use-require-auth"
-import {
-	type ChallengePointsRange,
-	challengePointsRange,
-	draftSummary,
-	singleGameOf,
-	teamLabelsOf,
-	toPicks,
-} from "#/lib/challenge"
+import { singleGameOf } from "#/lib/challenge"
 import { pluralize } from "#/lib/pluralize"
-
-type Search = { step?: number; review?: true }
+import { searchFlag } from "#/lib/search-params"
 
 // Taking a challenge on: one question per screen, then a review of every
 // call, then one send. Calls are held in storage until then, so a visitor
 // can make them all before signing up.
 export const Route = createFileRoute("/_app/challenges/$code_/play")({
 	component: RouteComponent,
-	validateSearch: (search: Record<string, unknown>): Search => ({
-		...(typeof search.step === "number" && search.step > 0
-			? { step: search.step }
-			: {}),
-		...(search.review === true || search.review === "true"
-			? { review: true as const }
-			: {}),
+	validateSearch: z.object({
+		step: z.number().positive().optional().catch(undefined),
+		review: searchFlag,
 	}),
 	loader: ({ context, params }) =>
 		context.queryClient.query(challengePageQuery(params.code)),
 })
-
-type Challenge = NonNullable<ChallengePageQuery["challenge"]>
-type Entry = Challenge["entries"][number]
 
 const dotBase = css({ width: "2.5", height: "2.5", borderRadius: "full" })
 const dotDone = css({
@@ -72,14 +45,6 @@ const dotCurrent = css({
 const dotIdle = css({
 	backgroundColor: "transparent",
 	border: "2px solid {colors.border.emphasized}",
-})
-
-const sideLabel = css({
-	fontFamily: "mono",
-	fontSize: "2xs",
-	letterSpacing: "wide",
-	textTransform: "uppercase",
-	color: "fg.subtle",
 })
 
 function RouteComponent() {
@@ -239,14 +204,14 @@ function Play({ challenge }: { challenge: Challenge }) {
 			{game && <GameMatchupHeader game={game} dense />}
 
 			{reviewing ? (
-				<Review
+				<ChallengeReview
 					challenge={challenge}
 					showGame={!game}
 					drafts={accept.drafts}
 					onEdit={(index) => goTo(index)}
 				/>
 			) : current && accept.loaded ? (
-				<StepForm
+				<ChallengeStepForm
 					key={current.question.id}
 					entry={current}
 					creatorUsername={creator.username}
@@ -283,320 +248,3 @@ function Play({ challenge }: { challenge: Challenge }) {
 	)
 }
 
-// What the creator called, above the form, so the viewer is calling against
-// something they can see.
-function CreatorCall({
-	username,
-	call,
-}: {
-	username: string
-	call: Entry["creatorCall"]
-}) {
-	return (
-		<VStack
-			gap="2"
-			alignItems="stretch"
-			className={css({
-				padding: "3",
-				borderRadius: "lg",
-				backgroundColor: "bg.subtle",
-			})}
-		>
-			<span className={sideLabel}>@{username}'s call</span>
-			{call ? (
-				<PickList call={call} />
-			) : (
-				<p className={css({ fontSize: "sm", color: "fg.muted" })}>
-					Not called yet. It counts as 0 for them if it locks uncalled.
-				</p>
-			)}
-		</VStack>
-	)
-}
-
-function StepForm({
-	entry,
-	creatorUsername,
-	showGame,
-	initial,
-	isFirst,
-	isLast,
-	onBack,
-	onSave,
-}: {
-	entry: Entry
-	creatorUsername: string
-	showGame: boolean
-	initial: CallDraft | undefined
-	isFirst: boolean
-	isLast: boolean
-	onBack: () => void
-	onSave: (draft: CallDraft) => void
-}) {
-	const statContext = useQuery(questionStatContextQuery(entry.question.id))
-	const callForm = useCastCallForm(entry.question, {
-		surface: "challenge",
-		formId: "challenge-step-form",
-		draft: { initial, onSave },
-	})
-
-	return (
-		<VStack gap="4" alignItems="stretch">
-			<Card variant="surface" size="md">
-				<Card.Body>
-					<VStack gap="4" alignItems="stretch">
-						<QuestionSummaryHeader
-							question={entry.question}
-							showGame={showGame}
-						/>
-						<CreatorCall username={creatorUsername} call={entry.creatorCall} />
-					</VStack>
-				</Card.Body>
-			</Card>
-			{/* The same numbers the question page puts above its pick form, so
-			    calling here is never calling with less to go on. */}
-			<StatContextCard
-				statContext={statContext.data?.question?.statContext}
-				trackRecord={statContext.data?.question?.viewerTrackRecord}
-				teams={teamLabelsOf(entry.question.game)}
-				isCallable
-			/>
-			<CastCallForm callForm={callForm} />
-			<callForm.form.Subscribe selector={(s) => s.meta}>
-				{(meta) => (
-					<VStack gap="2" alignItems="stretch">
-						<HStack justify="space-between" gap="3">
-							<Button
-								variant="ghost"
-								size="md"
-								onClick={onBack}
-								className={css({ visibility: isFirst ? "hidden" : "visible" })}
-							>
-								<FiChevronLeft />
-								Back
-							</Button>
-							<Button
-								type="submit"
-								form={callForm.formId}
-								variant="solid"
-								size="md"
-								disabled={!meta.canSubmit}
-							>
-								{isLast ? "Review my calls" : "Next"}
-								<FiChevronRight />
-							</Button>
-						</HStack>
-						<FormError message={meta.formError} />
-					</VStack>
-				)}
-			</callForm.form.Subscribe>
-		</VStack>
-	)
-}
-
-// What each side's call on a question stands to count for in the 1v1.
-function entryPoints(
-	entry: Entry,
-	draft: CallDraft | undefined,
-	alreadyCalled: boolean,
-): {
-	yours: ChallengePointsRange | null
-	creator: ChallengePointsRange | null
-} {
-	const form = unmask(CastCallFormFragment, entry.question)
-	const yours = alreadyCalled
-		? entry.question.viewerCall &&
-			challengePointsRange(form, toPicks(entry.question.viewerCall), false)
-		: draft
-			? challengePointsRange(form, draft, true)
-			: null
-	const creator =
-		entry.creatorCall &&
-		challengePointsRange(form, toPicks(entry.creatorCall), false)
-	return { yours, creator }
-}
-
-type Totals = { best: number; worst: number }
-
-// Everything hitting, and everything missing. A question not called adds
-// nothing either way, the same as it scores.
-function totalsOf(ranges: (ChallengePointsRange | null)[]): Totals {
-	return ranges.reduce<Totals>(
-		(t, r) => (r ? { best: t.best + r.winHigh, worst: t.worst - r.lose } : t),
-		{ best: 0, worst: 0 },
-	)
-}
-
-function TotalsLine({ label, totals }: { label: string; totals: Totals }) {
-	return (
-		<HStack justify="space-between" gap="3" flexWrap="wrap">
-			<span className={css({ fontWeight: "semibold" })}>{label}</span>
-			<HStack gap="4" className={css({ fontFamily: "mono", fontSize: "sm" })}>
-				<span>
-					<span
-						className={css({ color: "success.default", fontWeight: "bold" })}
-					>
-						+{totals.best}
-					</span>{" "}
-					<span className={css({ color: "fg.muted", fontSize: "xs" })}>
-						all right
-					</span>
-				</span>
-				<span>
-					<span
-						className={css({ color: "danger.default", fontWeight: "bold" })}
-					>
-						{totals.worst === 0 ? "0" : `−${-totals.worst}`}
-					</span>{" "}
-					<span className={css({ color: "fg.muted", fontSize: "xs" })}>
-						all wrong
-					</span>
-				</span>
-			</HStack>
-		</HStack>
-	)
-}
-
-function Review({
-	challenge,
-	showGame,
-	drafts,
-	onEdit,
-}: {
-	challenge: Challenge
-	showGame: boolean
-	drafts: Record<string, CallDraft>
-	onEdit: (index: number) => void
-}) {
-	const missingIds = challenge.viewerMissingQuestionIds
-	const points = challenge.entries.map((entry) =>
-		entryPoints(
-			entry,
-			drafts[entry.question.id],
-			!missingIds.includes(entry.question.id),
-		),
-	)
-	return (
-		<VStack gap="3" alignItems="stretch">
-			<Card variant="subtle" size="md">
-				<Card.Body>
-					<VStack gap="3" alignItems="stretch">
-						<span className={sideLabel}>Across all of them</span>
-						<TotalsLine
-							label="You"
-							totals={totalsOf(points.map((p) => p.yours))}
-						/>
-						<TotalsLine
-							label={`@${challenge.creator.username}`}
-							totals={totalsOf(points.map((p) => p.creator))}
-						/>
-						<p className={css({ fontSize: "xs", color: "fg.subtle" })}>
-							The 1v1 goes to whoever ends up with more, so a mix of hits and
-							misses lands somewhere in between.
-						</p>
-					</VStack>
-				</Card.Body>
-			</Card>
-			{challenge.entries.map((entry) => {
-				const index = missingIds.indexOf(entry.question.id)
-				return (
-					<ReviewRow
-						key={entry.question.id}
-						entry={entry}
-						creatorUsername={challenge.creator.username}
-						showGame={showGame}
-						draft={drafts[entry.question.id]}
-						alreadyCalled={index === -1}
-						onEdit={() => onEdit(index)}
-					/>
-				)
-			})}
-		</VStack>
-	)
-}
-
-function ReviewRow({
-	entry,
-	creatorUsername,
-	showGame,
-	draft,
-	alreadyCalled,
-	onEdit,
-}: {
-	entry: Entry
-	creatorUsername: string
-	showGame: boolean
-	draft: CallDraft | undefined
-	alreadyCalled: boolean
-	onEdit: () => void
-}) {
-	const form = unmask(CastCallFormFragment, entry.question)
-	const yours = alreadyCalled
-		? entry.question.viewerCall
-		: draft
-			? draftSummary(form, draft)
-			: null
-	const { yours: yourPoints, creator: creatorPoints } = entryPoints(
-		entry,
-		draft,
-		alreadyCalled,
-	)
-
-	return (
-		<Card variant="surface" size="md">
-			<Card.Body>
-				<VStack gap="4" alignItems="stretch">
-					<QuestionSummaryHeader
-						question={entry.question}
-						showGame={showGame}
-					/>
-					<CardRule />
-					<VStack gap="4" alignItems="stretch">
-						<VStack gap="2" alignItems="stretch">
-							<HStack justify="space-between" alignItems="center" gap="3">
-								<span className={sideLabel}>
-									{alreadyCalled ? "Your call (already in)" : "Your call"}
-								</span>
-								{!alreadyCalled && (
-									<Button variant="dark" size="sm" onClick={onEdit}>
-										{draft ? "Change" : "Call it"}
-									</Button>
-								)}
-							</HStack>
-							{yours ? (
-								<VStack gap="2" alignItems="stretch">
-									<PickList call={yours} />
-									{yourPoints && <PossiblePoints range={yourPoints} />}
-								</VStack>
-							) : (
-								<p className={css({ fontSize: "sm", color: "fg.muted" })}>
-									Not called yet
-								</p>
-							)}
-						</VStack>
-						<VStack
-							gap="2"
-							alignItems="stretch"
-							className={css({
-								paddingTop: "4",
-								borderTop: "1px solid {colors.border.default}",
-							})}
-						>
-							<span className={sideLabel}>@{creatorUsername}'s call</span>
-							{entry.creatorCall ? (
-								<VStack gap="2" alignItems="stretch">
-									<PickList call={entry.creatorCall} />
-									{creatorPoints && <PossiblePoints range={creatorPoints} />}
-								</VStack>
-							) : (
-								<p className={css({ fontSize: "sm", color: "fg.muted" })}>
-									Not called yet
-								</p>
-							)}
-						</VStack>
-					</VStack>
-				</VStack>
-			</Card.Body>
-		</Card>
-	)
-}

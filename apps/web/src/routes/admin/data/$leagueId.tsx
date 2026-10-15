@@ -1,14 +1,15 @@
-import { useQuery } from "@tanstack/react-query"
+import { useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute, Link, Outlet } from "@tanstack/react-router"
 import { css } from "styled-system/css"
 import { VStack } from "styled-system/jsx"
 import { PageHeader } from "#/components/ui/page-header"
 import { Tabs } from "#/components/ui/tabs"
-import { AdminLeagueDocument } from "#/graphql/queries/admin"
-import { gqlQueryOptions } from "#/graphql/query-options"
+import { adminLeagueQuery } from "#/graphql/admin/data/queries"
 
 export const Route = createFileRoute("/admin/data/$leagueId")({
 	component: RouteComponent,
+	loader: ({ context, params }) =>
+		context.queryClient.query(adminLeagueQuery(params.leagueId)),
 })
 
 const NAV_ITEMS = [
@@ -19,7 +20,7 @@ const NAV_ITEMS = [
 
 function RouteComponent() {
 	const { leagueId } = Route.useParams()
-	const { data } = useQuery(gqlQueryOptions(AdminLeagueDocument, { leagueId }))
+	const { data } = useSuspenseQuery(adminLeagueQuery(leagueId))
 
 	return (
 		<VStack gap="6" alignItems="stretch">
@@ -27,15 +28,14 @@ function RouteComponent() {
 				<Link
 					to="/admin/data"
 					className={css({
-						fontFamily: "mono",
-						fontSize: "2xs",
+						textStyle: "meta",
 						color: "fg.subtle",
 						_hover: { color: "fg.muted" },
 					})}
 				>
 					← Back to Data
 				</Link>
-				<PageHeader title={data?.league?.name ?? "League"} />
+				<PageHeader title={data.league?.name ?? "League"} />
 			</VStack>
 
 			<Tabs.List>

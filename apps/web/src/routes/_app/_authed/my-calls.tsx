@@ -18,7 +18,7 @@ import {
 	myCallsPageQuery,
 	myCallsQuery,
 	myLiveCallsQuery,
-} from "#/graphql/queries/my-calls"
+} from "#/graphql/my-calls/queries"
 import { seedInfiniteQuery } from "#/graphql/query-options"
 import { useDebouncedValue } from "#/hooks/use-debounced-value"
 import {
@@ -28,10 +28,10 @@ import {
 	myCallsDirection,
 	myCallsKind,
 	myCallsScope,
+	myCallsSearchSchema,
 	myCallsSort,
 	myCallsTab,
 	type MyCallsTab as TabValue,
-	validateMyCallsSearch,
 } from "#/lib/my-calls-search"
 import { DEFAULT_MY_LIST_DIRECTION, MY_CALL_SORTS } from "#/lib/my-list-sorts"
 
@@ -39,7 +39,7 @@ export const Route = createFileRoute("/_app/_authed/my-calls")({
 	component: RouteComponent,
 	// Kind, tab, filters and sort all live in the URL (see lib/my-calls-search.ts),
 	// so coming back to this page from a call lands on the list as it was left.
-	validateSearch: validateMyCallsSearch,
+	validateSearch: myCallsSearchSchema,
 	// Both tabs' first pages and the counts arrive as fields of one query (see
 	// MyCallsPageDocument), so they're handed straight to the caches the page
 	// reads from rather than costing a request each. Only the Games side is
@@ -126,7 +126,7 @@ function RouteComponent() {
 
 	// Status, filters and sort carry across: the same league or search is
 	// usually still what's wanted on the other side. Picked shapes the other
-	// side can't hold are dropped by validateMyCallsSearch.
+	// side can't hold are dropped by myCallsSearchSchema.
 	function selectKind(next: MyCallsKind) {
 		updateSearch({ kind: next === "season" ? "season" : undefined })
 	}

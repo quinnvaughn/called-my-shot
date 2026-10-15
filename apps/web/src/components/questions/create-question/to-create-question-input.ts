@@ -1,11 +1,11 @@
 import { DateTime } from "luxon"
 import { DATE_TIME_PICKER_VALUE_FORMAT } from "#/components/ui/date-time-picker"
-import type {
-	AwardVerb,
-	CreateQuestionInput,
-	QuestionShape,
-	StatAggregation,
-} from "#/graphql/generated/graphql"
+import type { CreateQuestionInput } from "#/graphql/generated/graphql"
+import {
+	toAwardVerb,
+	toQuestionShape,
+	toStatAggregation,
+} from "#/lib/question-labels"
 import type { CreateQuestionValues } from "./form-context"
 
 // The form's values are the zod schema's shape; the mutation wants the GraphQL
@@ -15,7 +15,7 @@ export function toCreateQuestionInput(
 	values: CreateQuestionValues,
 ): CreateQuestionInput {
 	return {
-		shape: values.shape.toUpperCase() as QuestionShape,
+		shape: toQuestionShape(values.shape),
 		title: values.title,
 		sportId: values.sportId,
 		leagueId: values.leagueId,
@@ -41,14 +41,12 @@ export function toCreateQuestionInput(
 		customStat: values.customStat || undefined,
 		ouLine: values.ouLine,
 		statAggregation: values.statAggregation
-			? (values.statAggregation.toUpperCase() as StatAggregation)
+			? toStatAggregation(values.statAggregation)
 			: undefined,
 		subjectTeamId: values.subjectTeamId,
 		subjectPlayerId: values.subjectPlayerId,
 		picksRequired: values.picksRequired,
-		awardVerb: values.awardVerb
-			? (values.awardVerb.toUpperCase() as AwardVerb)
-			: undefined,
+		awardVerb: values.awardVerb ? toAwardVerb(values.awardVerb) : undefined,
 		eventClause: values.eventClause || undefined,
 		awardName: values.awardName || undefined,
 		awardConferences: values.awardConferences,

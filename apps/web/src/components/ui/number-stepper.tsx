@@ -1,8 +1,9 @@
-import { useEffect, useState } from "react"
+import { useState } from "react"
 import { FiMinus, FiPlus } from "react-icons/fi"
 import { css } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
 import { match } from "ts-pattern"
+import { useBufferedNumberText } from "#/hooks/use-buffered-number-text"
 import { ChipButton } from "./chip-button"
 
 // Guards against floating-point drift from repeated decimal stepping (e.g.
@@ -12,7 +13,7 @@ function round3(value: number): number {
 	return Math.round(value * 1000) / 1000
 }
 
-const stepButtonStyle = css({
+export const stepButtonStyle = css({
 	display: "flex",
 	alignItems: "center",
 	justifyContent: "center",
@@ -48,11 +49,8 @@ const valueInputStyle = css({
 })
 
 const unitStyle = css({
-	fontFamily: "mono",
-	fontSize: "2xs",
-	letterSpacing: "wide",
+	textStyle: "label",
 	color: "fg.subtle",
-	textTransform: "uppercase",
 })
 
 const stepLabelStyle = css({
@@ -104,15 +102,13 @@ export function NumberStepper({
 	hasError,
 }: Props) {
 	const [stepSize, setStepSize] = useState(() => stepSizes[0] ?? 1)
-	// A raw buffer rather than a value derived straight from `value`: round
-	// tripping "24." through Number() on every keystroke would immediately drop
-	// the trailing "." and make the fractional part impossible to ever type.
-	const [text, setText] = useState(() => String(value ?? ""))
-	useEffect(() => {
-		// Only resync from external changes (stepper clicks, a re-seed after the
-		// stat changes, form reset) - commitText below is what drives typing.
-		setText(String(value ?? ""))
-	}, [value])
+	// Snapping waits for blur - snapping mid-keystroke would fight every
+	// character typed.
+	const { text, onTextChange } = useBufferedNumberText({
+		value,
+		onChange,
+		allowDecimal: true,
+	})
 
 	// The half point at or just above the integer part - legal for anything
 	// coming in, whole or fractional. Floor rather than round-to-nearest
@@ -131,27 +127,6 @@ export function NumberStepper({
 
 	function stepBy(direction: 1 | -1) {
 		commit(round3((value ?? min) + direction * stepSize))
-	}
-
-	function commitText(raw: string) {
-		// Keep a single decimal point; everything else that isn't a digit goes.
-		let cleaned = raw.replace(/[^0-9.]/g, "")
-		const firstDot = cleaned.indexOf(".")
-		if (firstDot !== -1) {
-			cleaned =
-				cleaned.slice(0, firstDot + 1) +
-				cleaned.slice(firstDot + 1).replace(/\./g, "")
-		}
-		setText(cleaned)
-		const parsed = Number(cleaned)
-		// Empty commits as undefined, not 0, so a required line left blank fails
-		// validation instead of silently submitting a real zero. Snapping waits
-		// for blur - snapping mid-keystroke would fight every character typed.
-		onChange(
-			cleaned === "" || cleaned === "." || Number.isNaN(parsed)
-				? undefined
-				: parsed,
-		)
 	}
 
 	function handleBlur() {
@@ -179,7 +154,7 @@ export function NumberStepper({
 						aria-invalid={hasError || undefined}
 						value={text}
 						placeholder={placeholder}
-						onChange={(e) => commitText(e.target.value)}
+						onChange={(e) => onTextChange(e.target.value)}
 						onBlur={handleBlur}
 						// ch tracks the actual character count so a 3-digit
 						// passing-yards line gets more room than a 2-digit rebounds

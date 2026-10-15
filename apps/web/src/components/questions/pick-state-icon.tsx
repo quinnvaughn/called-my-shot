@@ -1,5 +1,6 @@
 import { FaCheck, FaXmark } from "react-icons/fa6"
 import { css } from "styled-system/css"
+import { LiveDot } from "#/components/ui/live-dot"
 
 type State = "win" | "loss" | "pending"
 
@@ -37,17 +38,7 @@ export function PickStateIcon({ state }: Props) {
 		>
 			{state === "win" && <FaCheck size={9} />}
 			{state === "loss" && <FaXmark size={9} />}
-			{state === "pending" && (
-				<span
-					className={css({
-						width: "1.5",
-						height: "1.5",
-						borderRadius: "full",
-						backgroundColor: "currentColor",
-						animation: "pulse 1.6s ease-in-out infinite",
-					})}
-				/>
-			)}
+			{state === "pending" && <LiveDot tone="current" />}
 		</div>
 	)
 }

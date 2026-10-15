@@ -1,7 +1,7 @@
-import { useRouteContext } from "@tanstack/react-router"
 import { FiTrendingUp } from "react-icons/fi"
 import { css } from "styled-system/css"
 import { type FragmentType, graphql, useFragment } from "#/graphql/generated"
+import { useMe } from "#/hooks/use-me"
 import { streakTarget } from "../achievement-target"
 import { NotificationShell } from "../notification-shell"
 
@@ -30,7 +30,7 @@ export function StreakMilestoneRow({
 	onOpen,
 }: Props) {
 	const n = useFragment(StreakMilestoneRowFragment, notificationProp)
-	const { me } = useRouteContext({ from: "__root__" })
+	const me = useMe()
 
 	return (
 		<NotificationShell

@@ -1,11 +1,13 @@
 import { useQueryClient } from "@tanstack/react-query"
 import { useState } from "react"
 import { match } from "ts-pattern"
-import { useGqlMutation } from "#/graphql/hooks"
+import { ApiError } from "#/graphql/api-error"
 import {
+	invalidateGroupBoards,
 	SetGroupPinOrderDocument,
 	UnpinQuestionFromGroupDocument,
-} from "#/graphql/mutations/groups"
+} from "#/graphql/groups/mutations"
+import { useGqlMutation } from "#/graphql/hooks"
 
 // Reordering and unpinning, shared by the pinned strip on the group page and
 // the Pins section in settings. Invalidates only the two group queries
@@ -17,10 +19,7 @@ export function useGroupPinActions(groupId: string) {
 	const [error, setError] = useState<string | null>(null)
 
 	async function refresh() {
-		await Promise.all([
-			queryClient.invalidateQueries({ queryKey: ["GroupHome"] }),
-			queryClient.invalidateQueries({ queryKey: ["GroupSettings"] }),
-		])
+		await invalidateGroupBoards(queryClient, groupId)
 	}
 
 	type Result =
@@ -43,18 +42,12 @@ export function useGroupPinActions(groupId: string) {
 			.with({ __typename: "GroupPayload" }, async () => {
 				await refresh()
 			})
-			.with(
-				{ __typename: "AuthenticationError" },
-				{ __typename: "AuthorizationError" },
-				{ __typename: "NotFoundError" },
-				{ __typename: "ValidationError" },
-				async (r) => {
-					setError(r.message)
-					// The set changed under the viewer (a pin locked, another
-					// admin reordered), so show them what's there now.
-					await refresh()
-				},
-			)
+			.with(ApiError, { __typename: "ValidationError" }, async (r) => {
+				setError(r.message)
+				// The set changed under the viewer (a pin locked, another
+				// admin reordered), so show them what's there now.
+				await refresh()
+			})
 			.exhaustive()
 	}
 

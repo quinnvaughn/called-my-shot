@@ -1,16 +1,18 @@
 import { useSuspenseQuery } from "@tanstack/react-query"
-import { createFileRoute, Link, useRouteContext } from "@tanstack/react-router"
+import { createFileRoute, Link } from "@tanstack/react-router"
 import { FaRegTimesCircle } from "react-icons/fa"
 import { css } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
 import { CallCard } from "#/components/questions/call-card"
 import { SweepRecordCard } from "#/components/streaks/sweep-record-card"
 import { SweepShareRow } from "#/components/streaks/sweep-share-row"
+import { arrowLink } from "#/components/ui/arrow-link"
 import { Breadcrumb } from "#/components/ui/breadcrumb"
 import { NotFound } from "#/components/ui/not-found"
 import { PageHeader } from "#/components/ui/page-header"
 import type { UserSweepPageQuery } from "#/graphql/generated/graphql"
-import { userSweepPageQuery } from "#/graphql/queries/streaks"
+import { userSweepPageQuery } from "#/graphql/streaks/queries"
+import { useMe } from "#/hooks/use-me"
 import { pageMeta } from "#/lib/meta"
 import {
 	buildSweepTweet,
@@ -85,7 +87,7 @@ function RouteComponent() {
 	const { data } = useSuspenseQuery(
 		userSweepPageQuery(username, league, slateKey),
 	)
-	const { me } = useRouteContext({ from: "__root__" })
+	const me = useMe()
 	const user = data.userByUsername
 	const sweep = user?.sweep
 
@@ -146,15 +148,7 @@ function RouteComponent() {
 						<Link
 							to="/user/$username"
 							params={{ username: user.username }}
-							className={css({
-								fontFamily: "mono",
-								fontSize: "2xs",
-								letterSpacing: "wide",
-								textTransform: "uppercase",
-								color: "primary.default",
-								textDecoration: "none",
-								_hover: { opacity: 0.8 },
-							})}
+							className={arrowLink({ tone: "primary", align: "parent" })}
 						>
 							{isOwn ? "Your profile →" : `@${user.username}'s profile →`}
 						</Link>
@@ -180,11 +174,8 @@ function RouteComponent() {
 			<VStack gap="3" alignItems="stretch">
 				<span
 					className={css({
-						fontFamily: "mono",
-						fontSize: "2xs",
-						letterSpacing: "wide",
+						textStyle: "label",
 						color: "fg.subtle",
-						textTransform: "uppercase",
 					})}
 				>
 					Games

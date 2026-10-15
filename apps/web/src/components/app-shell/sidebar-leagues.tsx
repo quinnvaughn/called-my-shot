@@ -61,8 +61,7 @@ export function SidebarLeagues({
 							borderRadius: "md",
 							bg: "bg.subtle",
 							border: "1px solid {colors.border.default}",
-							fontFamily: "mono",
-							fontSize: "3xs",
+							textStyle: "metaSm",
 							fontWeight: "bold",
 						})}
 					>

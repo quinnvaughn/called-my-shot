@@ -1,17 +1,16 @@
 import { useSuspenseQuery } from "@tanstack/react-query"
-import { createFileRoute, useRouteContext } from "@tanstack/react-router"
+import { createFileRoute } from "@tanstack/react-router"
 import { FaRegTimesCircle } from "react-icons/fa"
 import { css } from "styled-system/css"
-import { HStack, VStack } from "styled-system/jsx"
+import { VStack } from "styled-system/jsx"
 import { GroupRecapCard, recapPath } from "#/components/groups/group-recap-card"
+import { SignUpPrompt } from "#/components/groups/sign-up-prompt"
 import { Breadcrumb } from "#/components/ui/breadcrumb"
-import { Button } from "#/components/ui/button"
-import { Card } from "#/components/ui/card"
 import { NotFound } from "#/components/ui/not-found"
 import { PageHeader } from "#/components/ui/page-header"
 import { GroupRecapPageDocument } from "#/graphql/generated/graphql"
 import { gqlQueryOptions } from "#/graphql/query-options"
-import { useRequireAuth } from "#/hooks/use-require-auth"
+import { useMe } from "#/hooks/use-me"
 import { pageMeta } from "#/lib/meta"
 import { pluralize } from "#/lib/pluralize"
 
@@ -58,33 +57,9 @@ export const Route = createFileRoute("/_app/recaps/$token")({
 	},
 })
 
-function SignUpPrompt() {
-	const requireAuth = useRequireAuth()
-	return (
-		<Card>
-			<Card.Body>
-				<HStack
-					justify="space-between"
-					alignItems="center"
-					gap="4"
-					flexWrap="wrap"
-				>
-					<span className={css({ fontSize: "sm", color: "fg.body" })}>
-						Call games before they start, score points when you're right, and
-						see where you rank in your group.
-					</span>
-					<Button size="sm" onClick={() => requireAuth(() => {})}>
-						Sign up
-					</Button>
-				</HStack>
-			</Card.Body>
-		</Card>
-	)
-}
-
 function RouteComponent() {
 	const { token } = Route.useParams()
-	const { me } = useRouteContext({ from: "__root__" })
+	const me = useMe()
 	const { data } = useSuspenseQuery(groupRecapPageQuery(token))
 	const recap = data.groupRecap
 

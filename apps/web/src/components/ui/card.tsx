@@ -1,4 +1,4 @@
-import { createContext, type HTMLAttributes, useContext, useMemo } from "react"
+import { createContext, type HTMLAttributes, useContext } from "react"
 import { cx, sva } from "styled-system/css"
 import type { RecipeVariantProps } from "styled-system/types"
 
@@ -35,7 +35,7 @@ const cardRecipe = sva({
 			true: {
 				root: {
 					transition: "border-color 0.15s ease",
-					_hover: { borderColor: "border.emphasized" },
+					_hover: { border: "1px solid {colors.border.emphasized}" },
 				},
 			},
 		},
@@ -91,10 +91,7 @@ function Card({
 	children,
 	...props
 }: CardProps) {
-	const slots = useMemo(
-		() => cardRecipe({ variant, size, interactive, accent }),
-		[variant, size, interactive, accent],
-	)
+	const slots = cardRecipe({ variant, size, interactive, accent })
 	return (
 		<CardContext.Provider value={slots}>
 			<div className={cx(slots.root, className)} {...props}>

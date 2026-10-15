@@ -1,26 +1,27 @@
 import { useQueryClient } from "@tanstack/react-query"
-import { createFileRoute, useRouteContext } from "@tanstack/react-router"
+import { createFileRoute } from "@tanstack/react-router"
 import { useEffect } from "react"
 import { VStack } from "styled-system/jsx"
 import { SiteLeaderboard } from "#/components/leaderboard/site-leaderboard"
 import { PageHeader } from "#/components/ui/page-header"
 import { useGqlMutation } from "#/graphql/hooks"
-import { MarkLeaderboardViewedDocument } from "#/graphql/mutations/onboarding"
 import {
 	leaderboardPageQuery,
 	leaderboardQuery,
-} from "#/graphql/queries/leaderboard"
-import { ViewerOnboardingDocument } from "#/graphql/queries/onboarding"
-import { gqlQueryKey, seedInfiniteQuery } from "#/graphql/query-options"
+} from "#/graphql/leaderboard/queries"
+import { MarkLeaderboardViewedDocument } from "#/graphql/onboarding/mutations"
+import { onboardingQuery } from "#/graphql/onboarding/queries"
+import { seedInfiniteQuery } from "#/graphql/query-options"
+import { useMe } from "#/hooks/use-me"
 import {
+	leaderboardSearchSchema,
 	resolveLeaderboardFilter,
-	validateLeaderboardSearch,
 } from "#/lib/leaderboard-filter"
 import { pageMeta } from "#/lib/meta"
 
 export const Route = createFileRoute("/_app/leaderboard")({
 	component: RouteComponent,
-	validateSearch: validateLeaderboardSearch,
+	validateSearch: leaderboardSearchSchema,
 	loaderDeps: ({ search }) => ({
 		league: search.league,
 		season: search.season,
@@ -67,7 +68,7 @@ function RouteComponent() {
 	const search = Route.useSearch()
 	const navigate = Route.useNavigate()
 	const { leagues } = Route.useRouteContext()
-	const { me } = useRouteContext({ from: "__root__" })
+	const me = useMe()
 	const queryClient = useQueryClient()
 	const { mutate: markViewed } = useGqlMutation(MarkLeaderboardViewedDocument)
 
@@ -79,7 +80,7 @@ function RouteComponent() {
 		markViewed(undefined, {
 			onSuccess: () =>
 				queryClient.invalidateQueries({
-					queryKey: gqlQueryKey(ViewerOnboardingDocument, {}),
+					queryKey: onboardingQuery.queryKey,
 				}),
 		})
 	}, [me, markViewed, queryClient])

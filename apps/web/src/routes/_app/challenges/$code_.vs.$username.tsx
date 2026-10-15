@@ -3,10 +3,7 @@ import { createFileRoute, Link } from "@tanstack/react-router"
 import { FaRegTimesCircle } from "react-icons/fa"
 import { css } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
-import {
-	ChallengeQuestionRow,
-	openPointsBySide,
-} from "#/components/challenges/challenge-question-row"
+import { ChallengeQuestionRow } from "#/components/challenges/challenge-question-row/challenge-question-row"
 import { outcomeLabel } from "#/components/challenges/matchup-list"
 import { MatchupScoreboard } from "#/components/challenges/matchup-scoreboard"
 import { GameMatchupHeader } from "#/components/games/game-matchup-header"
@@ -16,10 +13,14 @@ import { Card } from "#/components/ui/card"
 import { NotFound } from "#/components/ui/not-found"
 import { ShareIconRow } from "#/components/ui/share-icon-row"
 import { Tag } from "#/components/ui/tag"
-import { challengeReceiptQuery } from "#/graphql/queries/challenges"
+import { challengeReceiptQuery } from "#/graphql/challenges/queries"
 import { track } from "#/lib/analytics"
-import { IN_PLAY_REFETCH_MS } from "#/lib/game-status"
-import { type ChallengeRecord, recordLine, singleGameOf } from "#/lib/challenge"
+import {
+	type ChallengeRecord,
+	openPointsBySide,
+	singleGameOf,
+} from "#/lib/challenge"
+import { formatRecord, IN_PLAY_REFETCH_MS } from "#/lib/game-status"
 import { pageMeta, SITE_ORIGIN } from "#/lib/meta"
 
 // One 1v1's receipt: both sides' calls on every question and what each was
@@ -230,11 +231,18 @@ function seriesTag(
 		},
 	}
 	if (wins === losses) {
-		return { label: `Tied ${recordLine(creatorRecord)}`, variant: "neutral" }
+		return {
+			label: `Tied ${formatRecord(creatorRecord.wins, creatorRecord.losses, creatorRecord.draws || null)}`,
+			variant: "neutral",
+		}
 	}
 	const leaderSide = wins > losses ? "creator" : "acceptor"
 	const leader = sides[leaderSide]
-	const score = recordLine(leader.record)
+	const score = formatRecord(
+		leader.record.wins,
+		leader.record.losses,
+		leader.record.draws || null,
+	)
 	if (viewerSide === null) {
 		return { label: `@${leader.name} leads ${score}`, variant: "neutral" }
 	}

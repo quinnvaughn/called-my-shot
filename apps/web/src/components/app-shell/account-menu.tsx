@@ -52,17 +52,14 @@ export function AccountMenu({
 							className={css({
 								fontSize: "sm",
 								fontWeight: "medium",
-								overflow: "hidden",
-								textOverflow: "ellipsis",
-								whiteSpace: "nowrap",
+								truncate: true,
 							})}
 						>
 							{name}
 						</div>
 						<div
 							className={css({
-								fontFamily: "mono",
-								fontSize: "3xs",
+								textStyle: "metaSm",
 								color: "fg.muted",
 							})}
 						>
@@ -86,17 +83,14 @@ export function AccountMenu({
 								className={css({
 									fontSize: "sm",
 									fontWeight: "medium",
-									overflow: "hidden",
-									textOverflow: "ellipsis",
-									whiteSpace: "nowrap",
+									truncate: true,
 								})}
 							>
 								{name}
 							</div>
 							<div
 								className={css({
-									fontFamily: "mono",
-									fontSize: "2xs",
+									textStyle: "meta",
 									color: "fg.muted",
 								})}
 							>

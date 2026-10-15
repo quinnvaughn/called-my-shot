@@ -1,17 +1,14 @@
 import { questionTitleWithGame } from "@called-my-shot/schemas"
-import { Link } from "@tanstack/react-router"
 import type { ReactNode } from "react"
 import { css } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
-import {
-	RecordTag,
-	type RecordTone,
-} from "#/components/questions/call-record-card"
-import { Avatar } from "#/components/ui/avatar"
+import { RecordByline } from "#/components/records/record-byline"
+import { RecordTag } from "#/components/records/record-tag"
 import { Card } from "#/components/ui/card"
 import { Eyebrow } from "#/components/ui/eyebrow"
 import { type FragmentType, graphql, useFragment } from "#/graphql/generated"
 import { pickSummary } from "#/lib/call-summary"
+import type { RecordTone } from "#/lib/record-tag"
 import { coldStreakText } from "#/lib/streak-meta"
 import { PointsTotal } from "./points-total"
 import { RecordStatRow } from "./record-stat-row"
@@ -117,32 +114,11 @@ export function StreakRecordCard(props: Props) {
 			<Card.Header>
 				<VStack gap="4" alignItems="stretch" width="full">
 					<HStack justify="space-between" gap="3" alignItems="center">
-						<Link
-							to="/user/$username"
-							params={{ username: props.username }}
-							className={css({
-								display: "inline-flex",
-								alignItems: "center",
-								gap: "2",
-								minWidth: "0",
-								textDecoration: "none",
-								color: "fg.default",
-								_hover: { "& span": { textDecoration: "underline" } },
-							})}
-						>
-							<Avatar size="xs" name={props.name} src={props.avatarUrl} />
-							<span
-								className={css({
-									fontFamily: "mono",
-									fontSize: "xs",
-									overflow: "hidden",
-									textOverflow: "ellipsis",
-									whiteSpace: "nowrap",
-								})}
-							>
-								@{props.username}
-							</span>
-						</Link>
+						<RecordByline
+							name={props.name}
+							username={props.username}
+							avatarUrl={props.avatarUrl}
+						/>
 						<RecordTag tone={tag.tone}>{tag.label}</RecordTag>
 					</HStack>
 					<VStack gap="3" alignItems="flex-start">

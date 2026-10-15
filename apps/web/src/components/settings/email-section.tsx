@@ -1,7 +1,7 @@
-import { useQueryClient } from "@tanstack/react-query"
 import { requestEmailChangeSchema } from "@called-my-shot/schemas"
+import { useQueryClient } from "@tanstack/react-query"
 import { useRouter } from "@tanstack/react-router"
-import { useMemo, useState } from "react"
+import { useState } from "react"
 import { css } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
 import { match } from "ts-pattern"
@@ -9,15 +9,17 @@ import { z } from "zod"
 import { Button } from "#/components/ui/button"
 import { Card } from "#/components/ui/card"
 import { FormError } from "#/components/ui/form-error"
-import { Tag } from "#/components/ui/tag"
 import { TextInput } from "#/components/ui/text-input"
 import { useGqlMutation } from "#/graphql/hooks"
+import { gqlQueryPrefix } from "#/graphql/query-options"
 import {
 	CancelEmailChangeDocument,
 	RequestEmailChangeDocument,
 	ResendEmailChangeDocument,
-} from "#/graphql/queries/user"
+} from "#/graphql/user/settings/mutations"
+import { SettingsPageDocument } from "#/graphql/user/settings/queries"
 import { useForm } from "#/lib/form/use-form"
+import { CurrentEmailRow } from "./current-email-row"
 
 type Props = {
 	email: string
@@ -26,38 +28,6 @@ type Props = {
 	// False for an account made through Google, which has no password to
 	// confirm the change with.
 	hasPassword: boolean
-}
-
-function CurrentEmailRow({
-	email,
-	emailVerified,
-}: {
-	email: string
-	emailVerified: boolean
-}) {
-	return (
-		<HStack justify="space-between" alignItems="center">
-			<VStack gap="0.5" alignItems="flex-start">
-				<span
-					className={css({
-						fontFamily: "mono",
-						fontSize: "3xs",
-						letterSpacing: "wide",
-						color: "fg.muted",
-						textTransform: "uppercase",
-					})}
-				>
-					Current email
-				</span>
-				<span className={css({ fontSize: "sm" })}>{email}</span>
-			</VStack>
-			{emailVerified && (
-				<Tag variant="success" size="sm">
-					Verified
-				</Tag>
-			)}
-		</HStack>
-	)
 }
 
 export function EmailSection({
@@ -76,13 +46,9 @@ export function EmailSection({
 		null,
 	)
 
-	const schema = useMemo(
-		() =>
-			hasPassword
-				? requestEmailChangeSchema
-				: requestEmailChangeSchema.extend({ password: z.string() }),
-		[hasPassword],
-	)
+	const schema = hasPassword
+		? requestEmailChangeSchema
+		: requestEmailChangeSchema.extend({ password: z.string() })
 
 	const form = useForm({
 		defaultValues: { newEmail: "", password: "" },
@@ -112,7 +78,9 @@ export function EmailSection({
 				})
 				.with({ __typename: "User" }, async () => {
 					helpers.reset()
-					await queryClient.invalidateQueries()
+					await queryClient.invalidateQueries({
+						queryKey: gqlQueryPrefix(SettingsPageDocument),
+					})
 					await router.invalidate()
 				})
 				.exhaustive()
@@ -126,7 +94,9 @@ export function EmailSection({
 			setPendingActionError("Couldn't resend. Try again.")
 			return
 		}
-		await queryClient.invalidateQueries()
+		await queryClient.invalidateQueries({
+			queryKey: gqlQueryPrefix(SettingsPageDocument),
+		})
 		await router.invalidate()
 		setResent(true)
 		setTimeout(() => setResent(false), 1500)
@@ -135,7 +105,9 @@ export function EmailSection({
 	async function handleCancel() {
 		setPendingActionError(null)
 		await cancelEmailChange.mutateAsync()
-		await queryClient.invalidateQueries()
+		await queryClient.invalidateQueries({
+			queryKey: gqlQueryPrefix(SettingsPageDocument),
+		})
 		await router.invalidate()
 	}
 

@@ -12,11 +12,8 @@ export function RedoBadge() {
 	return (
 		<span
 			className={css({
-				fontFamily: "mono",
-				fontSize: "2xs",
+				textStyle: "label",
 				fontWeight: "bold",
-				letterSpacing: "wide",
-				textTransform: "uppercase",
 				color: "fg.subtle",
 				border: "1px solid {colors.border.emphasized}",
 				padding: "{spacing.0.5} {spacing.1.5}",

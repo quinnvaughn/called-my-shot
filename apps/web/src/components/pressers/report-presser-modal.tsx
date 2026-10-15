@@ -2,12 +2,16 @@ import { reportPresserContentSchema } from "@called-my-shot/schemas"
 import { useQueryClient } from "@tanstack/react-query"
 import { match } from "ts-pattern"
 import { ReportContentModal } from "#/components/moderation/report-content-modal"
+import { ApiError } from "#/graphql/api-error"
 import type {
 	PresserReportReason as PresserReportReasonEnum,
 	PresserReportTarget,
 } from "#/graphql/generated/graphql"
 import { useGqlMutation } from "#/graphql/hooks"
-import { ReportPresserContentDocument } from "#/graphql/mutations/pressers"
+import {
+	invalidatePressers,
+	ReportPresserContentDocument,
+} from "#/graphql/pressers/mutations"
 
 type Props = {
 	presserId: string
@@ -59,18 +63,14 @@ export function ReportPresserModal({
 		if (!result) return "Something went wrong. Try again."
 		return match(result)
 			.with({ __typename: "PresserReportPayload" }, async () => {
-				await queryClient.invalidateQueries()
+				await invalidatePressers(queryClient)
 				return null
 			})
 			.with(
 				{ __typename: "ValidationError" },
 				async (r) => r.fieldErrors[0]?.message ?? r.message,
 			)
-			.with(
-				{ __typename: "AuthenticationError" },
-				{ __typename: "NotFoundError" },
-				async (r) => r.message,
-			)
+			.with(ApiError, async (r) => r.message)
 			.exhaustive()
 	}
 

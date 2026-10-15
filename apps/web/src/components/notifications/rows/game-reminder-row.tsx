@@ -2,6 +2,7 @@ import { DateTime } from "luxon"
 import { FiBell } from "react-icons/fi"
 import { css } from "styled-system/css"
 import { type FragmentType, graphql, useFragment } from "#/graphql/generated"
+import { matchupLabel } from "#/lib/game-status"
 import { buildGameSlug } from "#/lib/slug"
 import { NotificationShell, type Target } from "../notification-shell"
 
@@ -60,7 +61,7 @@ export function GameReminderRow({
 		>
 			<p className={css({ fontSize: "sm" })}>
 				{game
-					? `${game.awayTeam.abbreviation} @ ${game.homeTeam.abbreviation} starts at ${DateTime.fromISO(game.startsAt).toFormat("h:mm a")}. Check who's starting before calls lock.`
+					? `${matchupLabel(game)} starts at ${DateTime.fromISO(game.startsAt).toFormat("h:mm a")}. Check who's starting before calls lock.`
 					: "A game you set a reminder for is about to start."}
 			</p>
 		</NotificationShell>

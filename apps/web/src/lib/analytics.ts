@@ -1,9 +1,9 @@
 import { isSeasonLongShape } from "@called-my-shot/scoring"
 import posthog from "posthog-js"
-import type { AuthModalSurface } from "#/components/auth/auth-modal"
 import type { GuestPicksAuthSource } from "#/components/landing-page/guest-picks/open-guest-picks-auth"
 import type { QuestionCallShape } from "#/components/questions/cast-call-form/use-cast-call-form"
 import type { PresserAskStatus } from "#/graphql/generated/graphql"
+import type { AuthModalSurface } from "#/lib/auth-modal-copy"
 import type { ShareLanding } from "#/lib/share-links"
 import type { ViewerStatus } from "#/lib/viewer-status"
 

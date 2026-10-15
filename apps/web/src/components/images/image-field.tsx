@@ -3,6 +3,7 @@ import { useRouter } from "@tanstack/react-router"
 import { type ReactNode, useState } from "react"
 import { css } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
+import { invalidateAfterImageChange } from "#/graphql/images/mutations"
 import {
 	ImageSaveError,
 	type ImageTarget,
@@ -44,7 +45,7 @@ export function ImageField({
 		setRemoving(true)
 		try {
 			await removeImage(target)
-			await queryClient.invalidateQueries()
+			await invalidateAfterImageChange(queryClient, target)
 			await router.invalidate()
 		} catch (caught) {
 			showToast({

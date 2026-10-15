@@ -1,3 +1,5 @@
+import { pluralize } from "./pluralize"
+
 type SeriesStakes = { clinchTeamIds: string[] }
 
 // What a series game decides, read off the teams that win the series by
@@ -42,7 +44,7 @@ export function roundsPhrase(labels: string[]): string | null {
 
 // "2 elimination games", counting a winner-take-all game as one.
 export function eliminationGamesLabel(count: number): string {
-	return `${count} elimination game${count === 1 ? "" : "s"}`
+	return `${count} ${pluralize(count, "elimination game")}`
 }
 
 // The league room's meta description during a postseason. Round labels only
@@ -56,4 +58,35 @@ export function postseasonDescription(
 	return rounds
 		? `${leagueName} ${rounds} on the board. Call series winners, game winners and player lines.`
 		: `The ${leagueName} postseason is on the board. Call game winners, totals and player lines.`
+}
+
+type StakesGame = {
+	status: string
+	postseason: { ifNecessary: boolean; clinchTeamIds: string[] } | null
+}
+
+// "2 elimination games · 1 winner take all" for the window on screen, counted
+// the same way each row decides whether to show its stakes tag. Null when no
+// game in the window decides a series.
+export function windowStakesLine(
+	groups: { games: StakesGame[] }[],
+): string | null {
+	const stakes = groups
+		.flatMap((group) => group.games)
+		.flatMap((game) =>
+			game.postseason && game.status !== "FINAL" && !game.postseason.ifNecessary
+				? [game.postseason]
+				: [],
+		)
+		.filter((postseason) => seriesStakesLabel(postseason) !== null)
+	if (stakes.length === 0) return null
+	const winnerTakeAll = stakes.filter(
+		(postseason) => postseason.clinchTeamIds.length >= 2,
+	).length
+	return [
+		eliminationGamesLabel(stakes.length),
+		winnerTakeAll > 0 ? `${winnerTakeAll} winner take all` : null,
+	]
+		.filter(Boolean)
+		.join(" · ")
 }

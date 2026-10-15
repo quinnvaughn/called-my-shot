@@ -1,23 +1,14 @@
 import { isAdminOnlyShape, questionShapeSchema } from "@called-my-shot/schemas"
 import { css, cx } from "styled-system/css"
 import { Grid } from "styled-system/jsx"
-import type { QuestionShape } from "#/graphql/generated/graphql"
 import {
 	questionShapeDescription,
 	questionShapeIcon,
 	questionShapeLabel,
+	toQuestionShape,
 } from "#/lib/question-labels"
 
 type QuestionShapeValue = (typeof questionShapeSchema.options)[number]
-
-// questionShapeLabel/Icon/Description are keyed by the GraphQL enum's
-// SCREAMING_SNAKE_CASE names (matching every other consumer, e.g. question
-// cards); this form works in the lowercase values the schema/mutation
-// resolve to (see questions.ts in packages/schemas), so lookups convert at
-// the boundary rather than duplicating the maps in a second casing.
-function toEnumKey(value: QuestionShapeValue): QuestionShape {
-	return value.toUpperCase() as QuestionShape
-}
 
 type Props = {
 	value: QuestionShapeValue | null
@@ -38,7 +29,13 @@ export function QuestionTypePicker({ value, onChange, isAdmin }: Props) {
 			aria-label="Question shape"
 		>
 			{shapes.map((shape) => {
-				const key = toEnumKey(shape)
+				// questionShapeLabel/Icon/Description are keyed by the GraphQL
+				// enum's SCREAMING_SNAKE_CASE names (matching every other consumer,
+				// e.g. question cards); this form works in the lowercase values the
+				// schema/mutation resolve to (see questions.ts in packages/schemas),
+				// so lookups convert at the boundary rather than duplicating the
+				// maps in a second casing.
+				const key = toQuestionShape(shape)
 				const Icon = questionShapeIcon[key]
 				const selected = value === shape
 				return (
@@ -55,16 +52,18 @@ export function QuestionTypePicker({ value, onChange, isAdmin }: Props) {
 								gap: "2.5",
 								textAlign: "left",
 								bg: "bg.surface",
-								border: "1px solid",
-								borderColor: "border.default",
+								border: "1px solid {colors.border.default}",
 								borderRadius: "2xl",
 								padding: "4",
 								transition: "border-color 0.15s ease",
-								_hover: { borderColor: "border.emphasized", cursor: "pointer" },
+								_hover: {
+									border: "1px solid {colors.border.emphasized}",
+									cursor: "pointer",
+								},
 							}),
 							selected &&
 								css({
-									borderColor: "primary.default",
+									border: "1px solid {colors.primary.default}",
 									bg: "primary.subtle",
 								}),
 						)}

@@ -44,8 +44,7 @@ export function NotFound({ icon, eyebrowText, heading, subtitle, link }: Props) 
 				</VStack>
 				<p
 					className={css({
-						fontFamily: "mono",
-						fontSize: "xs",
+						textStyle: "metaLg",
 						color: "fg.subtle",
 					})}
 				>

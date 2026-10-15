@@ -1,15 +1,8 @@
-import { FiMoreHorizontal } from "react-icons/fi"
 import { css } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
-import { Dropdown } from "#/components/ui/dropdown"
 import { Identity } from "#/components/ui/identity"
 import type { IdentityData } from "#/lib/identity"
-
-export type PresserMenuAction = {
-	label: string
-	danger?: boolean
-	onSelect: () => void
-}
+import { PresserMenu, type PresserMenuAction } from "./presser-menu"
 
 export const presserEyebrow = css({
 	fontFamily: "mono",
@@ -39,50 +32,10 @@ type Props = {
 	children?: React.ReactNode
 }
 
-export function PresserMenu({
-	label,
-	actions,
-}: {
-	label: string
-	actions: PresserMenuAction[]
-}) {
-	if (actions.length === 0) return null
-	return (
-		<Dropdown>
-			<Dropdown.Trigger
-				aria-label={label}
-				className={css({
-					display: "flex",
-					padding: "1.5",
-					borderRadius: "md",
-					color: "fg.muted",
-					_hover: { bg: "fg.default/10", color: "fg.default" },
-				})}
-			>
-				<FiMoreHorizontal size={16} />
-			</Dropdown.Trigger>
-			<Dropdown.Content>
-				{actions.map((action) => (
-					<Dropdown.Item
-						key={action.label}
-						onClick={action.onSelect}
-						className={
-							action.danger ? css({ color: "danger.default" }) : undefined
-						}
-					>
-						{action.label}
-					</Dropdown.Item>
-				))}
-			</Dropdown.Content>
-		</Dropdown>
-	)
-}
-
 // The Q and A down the margin, the way a press conference transcript is
 // set. Kept narrow and quiet so the words carry the row.
 export const marginMark = css({
-	fontFamily: "mono",
-	fontSize: "xs",
+	textStyle: "metaLg",
 	fontWeight: "bold",
 	color: "fg.subtle",
 	lineHeight: "relaxed",
@@ -150,11 +103,8 @@ export function PresserQaItem({
 						<span
 							className={css({
 								justifySelf: "start",
-								fontFamily: "mono",
-								fontSize: "2xs",
+								textStyle: "label",
 								fontWeight: "bold",
-								letterSpacing: "wide",
-								textTransform: "uppercase",
 								color: "fg.muted",
 								paddingInline: "2",
 								paddingBlock: "1",

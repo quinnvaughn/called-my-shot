@@ -1,13 +1,15 @@
 import { useSuspenseQuery } from "@tanstack/react-query"
-import { createFileRoute, Link, useRouteContext } from "@tanstack/react-router"
+import { createFileRoute, Link } from "@tanstack/react-router"
 import { FaRegTimesCircle } from "react-icons/fa"
 import { css } from "styled-system/css"
 import { VStack } from "styled-system/jsx"
 import { ReportCard } from "#/components/report-cards/report-card"
+import { arrowLink } from "#/components/ui/arrow-link"
 import { Breadcrumb } from "#/components/ui/breadcrumb"
 import { NotFound } from "#/components/ui/not-found"
 import { PageHeader } from "#/components/ui/page-header"
-import { userReportCardPageQuery } from "#/graphql/queries/report-cards"
+import { userReportCardPageQuery } from "#/graphql/report-cards/queries"
+import { useMe } from "#/hooks/use-me"
 import { pageMeta } from "#/lib/meta"
 import {
 	isEmptyReportCard,
@@ -77,7 +79,7 @@ function RouteComponent() {
 	const { data } = useSuspenseQuery(
 		userReportCardPageQuery(username, league, windowKey),
 	)
-	const { me } = useRouteContext({ from: "__root__" })
+	const me = useMe()
 	const user = data.userByUsername
 	const card = user?.reportCard
 
@@ -138,15 +140,7 @@ function RouteComponent() {
 						to="/leagues/$leagueSlug/games"
 						params={{ leagueSlug: card.league.slug }}
 						search={{ windowKey: card.windowKey }}
-						className={css({
-							fontFamily: "mono",
-							fontSize: "2xs",
-							letterSpacing: "wide",
-							textTransform: "uppercase",
-							color: "primary.default",
-							textDecoration: "none",
-							_hover: { opacity: 0.8 },
-						})}
+						className={arrowLink({ tone: "primary" })}
 					>
 						See the games →
 					</Link>

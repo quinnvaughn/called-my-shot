@@ -1,9 +1,10 @@
-import { useRouteContext, useRouterState } from "@tanstack/react-router"
+import { useRouterState } from "@tanstack/react-router"
 import { useStore } from "@tanstack/react-store"
 import { useEffect, useRef, useState } from "react"
 import { FiX } from "react-icons/fi"
 import { css } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
+import { useMe } from "#/hooks/use-me"
 import { usePushState } from "#/hooks/use-push-state"
 import { type PushPromptReason, track } from "#/lib/analytics"
 import {
@@ -11,6 +12,7 @@ import {
 	readDismissals,
 	recordPromptDismissed,
 } from "#/lib/push/cooldown"
+import { reasonCopy } from "#/lib/push/prompt-copy"
 import { isOfferState, promptStateFor } from "#/lib/push/prompt-state"
 import { modalStore } from "#/stores/modal-store"
 import {
@@ -18,7 +20,7 @@ import {
 	pushPromptStore,
 	takePendingPushPrompt,
 } from "#/stores/push-prompt-store"
-import { PushOffer, reasonCopy } from "./notifications-prompt"
+import { PushOffer } from "./push-offer"
 
 // How long a page has to sit still before the card appears, so it lands on
 // the page a call or challenge leads to rather than flashing on the one it
@@ -30,7 +32,7 @@ const SETTLE_MS = 600
 // rather than a modal: closeAllModals runs on every page change, and this has
 // to survive the navigation that usually follows the moment that asked for it.
 export function PushPromptHost() {
-	const { me } = useRouteContext({ from: "__root__" })
+	const me = useMe()
 	const pending = useStore(pushPromptStore, (s) => s)
 	const modalOpen = useStore(modalStore, (stack) => stack.length > 0)
 	const pathname = useRouterState({ select: (s) => s.location.pathname })

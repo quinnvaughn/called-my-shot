@@ -1,15 +1,9 @@
+import { z } from "zod"
+
 // Where one user's filled-out ballot lives. There's no entry id: the ballot
 // slug and the username are the whole address.
 export function ballotEntryPath(ballotSlug: string, username: string): string {
 	return `/ballots/${ballotSlug}/${username}`
-}
-
-export function formatRecord(wins: number, losses: number): string {
-	return `${wins}–${losses}`
-}
-
-export function formatSignedPoints(points: number): string {
-	return `${points >= 0 ? "+" : "−"}${Math.abs(points)}`
 }
 
 // A win-totals ballot can be read as projected standings as well as a list
@@ -20,20 +14,29 @@ export function formatSignedPoints(points: number): string {
 //
 // An entry page opened from a group's ballot board also carries ?group=, so
 // its breadcrumb leads back to that board.
-export type BallotPageSearch = { view?: "standings" }
-export type BallotEntrySearch = { view?: "picks"; group?: string }
+export const ballotPageSearchSchema = z.object({
+	view: z.literal("standings").optional().catch(undefined),
+})
 
-export function validateBallotPageSearch(
-	search: Record<string, unknown>,
-): BallotPageSearch {
-	return search.view === "standings" ? { view: "standings" } : {}
-}
+export const ballotEntrySearchSchema = z.object({
+	view: z.literal("picks").optional().catch(undefined),
+	group: z.string().optional().catch(undefined),
+})
 
-export function validateBallotEntrySearch(
-	search: Record<string, unknown>,
-): BallotEntrySearch {
-	return {
-		...(search.view === "picks" ? { view: "picks" as const } : {}),
-		...(typeof search.group === "string" ? { group: search.group } : {}),
+// A short fingerprint of every pick's number and tie order, for the entry
+// page's card url version param.
+export function picksVersion(
+	members: {
+		call: { guessValue?: number | null } | null
+		tiebreakPosition?: number | null
+	}[],
+): string {
+	let hash = 0
+	for (const m of members) {
+		const part = `${m.call?.guessValue ?? ""}:${m.tiebreakPosition ?? ""};`
+		for (const char of part) {
+			hash = (hash * 31 + char.charCodeAt(0)) >>> 0
+		}
 	}
+	return hash.toString(36)
 }

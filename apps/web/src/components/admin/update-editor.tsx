@@ -15,84 +15,25 @@ import {
 	CreateUpdateDocument,
 	DeleteUpdateDocument,
 	EditUpdateDocument,
+	invalidateUpdates,
 	SendUpdateEmailDocument,
 	SendUpdateTestEmailDocument,
 	SetUpdatePublishedDocument,
-} from "#/graphql/mutations/updates"
+} from "#/graphql/updates/mutations"
+import {
+	type Draft,
+	draftOf,
+	type EditableUpdate,
+	type FieldErrors,
+	failureMessage,
+	fieldErrorsOf,
+} from "#/lib/admin/update-editor"
 import { ImageSaveError } from "#/lib/images/save-image"
 import { uploadUpdateImage } from "#/lib/images/upload-update-image"
+import { pluralize } from "#/lib/pluralize"
+import { EditorPlaceholder } from "./editor-placeholder"
 
 const RichTextEditor = lazy(() => import("./rich-text-editor"))
-
-export type EditableUpdate = {
-	id: string
-	slug: string | null
-	title: string
-	summary: string
-	body: string
-	coverImageKey: string | null
-	coverImageUrl: string | null
-	publishedAt: string | null
-	emailedAt: string | null
-	emailProgress: { sent: number; skipped: number; pending: number } | null
-}
-
-type Draft = {
-	title: string
-	summary: string
-	body: string
-	coverImageKey: string | null
-	coverImageUrl: string | null
-}
-
-type FieldErrors = Partial<Record<"title" | "summary" | "body", string>>
-
-// Every mutation here answers with a union whose failure members carry either
-// field errors or a message.
-type Failure =
-	| {
-			__typename: "ValidationError"
-			fieldErrors: { field: string | null; message: string }[]
-	  }
-	| {
-			__typename: "NotFoundError" | "AuthenticationError" | "AuthorizationError"
-			message: string
-	  }
-
-function failureMessage(failure: Failure): string {
-	return failure.__typename === "ValidationError"
-		? (failure.fieldErrors[0]?.message ?? "That didn't work.")
-		: failure.message
-}
-
-function fieldErrorsOf(failure: Failure): FieldErrors {
-	if (failure.__typename !== "ValidationError") return {}
-	const errors: FieldErrors = {}
-	for (const { field, message } of failure.fieldErrors) {
-		if (field === "title" || field === "summary" || field === "body") {
-			errors[field] = message
-		}
-	}
-	return errors
-}
-
-function draftOf(update: EditableUpdate | null): Draft {
-	return {
-		title: update?.title ?? "",
-		summary: update?.summary ?? "",
-		body: update?.body ?? "",
-		coverImageKey: update?.coverImageKey ?? null,
-		coverImageUrl: update?.coverImageUrl ?? null,
-	}
-}
-
-const sectionLabel = css({
-	fontFamily: "mono",
-	fontSize: "2xs",
-	letterSpacing: "wide",
-	textTransform: "uppercase",
-	color: "fg.subtle",
-})
 
 // Writes a new product update (update = null) or edits one. Publishing,
 // test sends and the real send all act on the saved version, so they wait
@@ -140,7 +81,7 @@ export function UpdateEditor({ update }: { update: EditableUpdate | null }) {
 		setFormError(message)
 	}
 
-	const refresh = () => queryClient.invalidateQueries()
+	const refresh = () => invalidateUpdates(queryClient)
 
 	async function handleSave() {
 		setErrors({})
@@ -224,7 +165,7 @@ export function UpdateEditor({ update }: { update: EditableUpdate | null }) {
 		}
 		await refresh()
 		flash(
-			`Sending to ${result.data} ${result.data === 1 ? "person" : "people"}`,
+			`Sending to ${result.data} ${pluralize(result.data, "person", "people")}`,
 		)
 	}
 
@@ -296,7 +237,7 @@ export function UpdateEditor({ update }: { update: EditableUpdate | null }) {
 						</Tag>
 					)}
 					{progress && (
-						<span className={css({ fontFamily: "mono", fontSize: "xs" })}>
+						<span className={css({ textStyle: "metaLg" })}>
 							{progress.sent} sent · {progress.pending} waiting ·{" "}
 							{progress.skipped} skipped
 						</span>
@@ -307,8 +248,7 @@ export function UpdateEditor({ update }: { update: EditableUpdate | null }) {
 							params={{ slug: update.slug }}
 							target="_blank"
 							className={css({
-								fontFamily: "mono",
-								fontSize: "xs",
+								textStyle: "metaLg",
 								color: "fg.muted",
 								textDecoration: "underline",
 							})}
@@ -351,7 +291,9 @@ export function UpdateEditor({ update }: { update: EditableUpdate | null }) {
 						</TextInput>
 
 						<VStack gap="2" alignItems="flex-start">
-							<span className={sectionLabel}>Cover image</span>
+							<span className={css({ textStyle: "label", color: "fg.subtle" })}>
+								Cover image
+							</span>
 							{draft.coverImageUrl && (
 								<img
 									src={draft.coverImageUrl}
@@ -400,7 +342,9 @@ export function UpdateEditor({ update }: { update: EditableUpdate | null }) {
 						</VStack>
 
 						<VStack gap="2" alignItems="stretch">
-							<span className={sectionLabel}>Body</span>
+							<span className={css({ textStyle: "label", color: "fg.subtle" })}>
+								Body
+							</span>
 							<ClientOnly fallback={<EditorPlaceholder />}>
 								<Suspense fallback={<EditorPlaceholder />}>
 									<RichTextEditor
@@ -490,18 +434,5 @@ export function UpdateEditor({ update }: { update: EditableUpdate | null }) {
 				← All updates
 			</Link>
 		</VStack>
-	)
-}
-
-function EditorPlaceholder() {
-	return (
-		<div
-			className={css({
-				minHeight: "80",
-				borderRadius: "lg",
-				border: "1px solid {colors.border.default}",
-				bg: "bg.surface",
-			})}
-		/>
 	)
 }

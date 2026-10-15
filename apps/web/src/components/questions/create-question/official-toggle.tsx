@@ -40,8 +40,7 @@ export function OfficialToggle({ checked, onChange, disabled }: Props) {
 						flexShrink: 0,
 						borderRadius: "full",
 						bg: "bg.subtle",
-						border: "1px solid",
-						borderColor: "border.default",
+						border: "1px solid {colors.border.default}",
 						transition: "background-color 0.15s ease, border-color 0.15s ease",
 						_after: {
 							content: '""',
@@ -58,7 +57,7 @@ export function OfficialToggle({ checked, onChange, disabled }: Props) {
 					checked &&
 						css({
 							bg: "primary.subtle",
-							borderColor: "primary.default",
+							border: "1px solid {colors.primary.default}",
 							_after: {
 								transform: "translateX(18px)",
 								bg: "primary.default",

@@ -12,7 +12,7 @@ import {
 	RemoveMyImageDocument,
 	SetGroupImageDocument,
 	SetMyImageDocument,
-} from "#/graphql/mutations/images"
+} from "#/graphql/images/mutations"
 
 // Whose image is being changed. Everything else (key prefix, permissions)
 // follows from this on the api side.

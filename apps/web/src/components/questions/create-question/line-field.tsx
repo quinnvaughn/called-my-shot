@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef } from "react"
+import { useId } from "react"
 import { VStack } from "styled-system/jsx"
 import { FieldHint } from "#/components/ui/field-hint"
 import { FieldLabel } from "#/components/ui/field-label"
@@ -6,7 +6,7 @@ import { FormError } from "#/components/ui/form-error"
 import { NumberStepper } from "#/components/ui/number-stepper"
 import { formatGuess, isRateToleranceTier } from "#/lib/field-signal"
 import { useQuestionData } from "./data-context"
-import { Field, useSetValue, useWatch } from "./form-context"
+import { Field, useWatch } from "./form-context"
 import { suggestLine } from "./suggest-line"
 
 // Every counting stat an over/under is set on tops out in the low hundreds, so
@@ -27,10 +27,8 @@ export function LineField() {
 	const hintId = useId()
 	const shape = useWatch("shape")
 	const statId = useWatch("statId")
-	const customStat = useWatch("customStat")
 	const statAggregation = useWatch("statAggregation")
 	const { stats } = useQuestionData("LineField")
-	const setValue = useSetValue()
 
 	// Derived here rather than read off useQuestionData: that context
 	// deliberately carries no watched form scalar, so that typing in one field
@@ -48,24 +46,6 @@ export function LineField() {
 		stat: selectedStat,
 		statAggregation,
 	})
-
-	// A line belongs to the stat it was set for: 24.5 is a fair Points line and
-	// a nonsense Batting Average one. Nothing downstream would catch that -
-	// ouLine only rejects whole numbers, so a stale line stays "valid" and
-	// publishes. Dropping it re-exposes the placeholder for the new stat, which
-	// is more use than a stale number anyway.
-	//
-	// Keyed on the whole stat reading, aggregation included: total and per-game
-	// differ by a season's worth of games.
-	const statKey = `${statId ?? customStat}|${statAggregation ?? ""}`
-	// Seeded with the mount-time key so first render never clears - only a real
-	// change after mount does.
-	const lastStatKeyRef = useRef(statKey)
-	useEffect(() => {
-		if (lastStatKeyRef.current === statKey) return
-		lastStatKeyRef.current = statKey
-		setValue("ouLine", undefined)
-	}, [statKey, setValue])
 
 	return (
 		<VStack gap="2.5" alignItems="stretch">

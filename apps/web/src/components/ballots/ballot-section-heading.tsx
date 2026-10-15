@@ -11,11 +11,8 @@ export function BallotSectionHeading({ label }: { label: string }) {
 	return (
 		<span
 			className={css({
-				fontFamily: "mono",
-				fontSize: "2xs",
+				textStyle: "label",
 				fontWeight: "bold",
-				letterSpacing: "wide",
-				textTransform: "uppercase",
 				color: "fg.subtle",
 				backgroundColor: "bg.subtle",
 				borderBottom: "1px solid {colors.border.default}",

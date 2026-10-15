@@ -6,16 +6,13 @@ import { VStack } from "styled-system/jsx"
 import { arrowLink } from "#/components/ui/arrow-link"
 import { NotFound } from "#/components/ui/not-found"
 import { UpdateBody } from "#/components/updates/update-body"
-import { UpdateDocument } from "#/graphql/queries/updates"
-import { gqlQueryOptions } from "#/graphql/query-options"
+import { updateQuery } from "#/graphql/updates/queries"
 import { formatCallDate } from "#/lib/format-date"
 import { pageMeta } from "#/lib/meta"
 
 export const Route = createFileRoute("/_app/updates/$slug")({
 	loader: async ({ context, params }) => {
-		const data = await context.queryClient.query(
-			gqlQueryOptions(UpdateDocument, { slug: params.slug }),
-		)
+		const data = await context.queryClient.query(updateQuery(params.slug))
 		return { update: data.update ?? null }
 	},
 	head: ({ loaderData }) => {
@@ -32,7 +29,7 @@ export const Route = createFileRoute("/_app/updates/$slug")({
 
 function RouteComponent() {
 	const { slug } = Route.useParams()
-	const { data } = useSuspenseQuery(gqlQueryOptions(UpdateDocument, { slug }))
+	const { data } = useSuspenseQuery(updateQuery(slug))
 	const update = data.update
 
 	if (!update) {
@@ -56,10 +53,7 @@ function RouteComponent() {
 				{update.publishedAt && (
 					<span
 						className={css({
-							fontFamily: "mono",
-							fontSize: "2xs",
-							letterSpacing: "wide",
-							textTransform: "uppercase",
+							textStyle: "label",
 							color: "fg.subtle",
 						})}
 					>

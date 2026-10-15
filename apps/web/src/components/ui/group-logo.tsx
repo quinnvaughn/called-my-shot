@@ -4,7 +4,7 @@ import { coverImage } from "./avatar"
 
 // Square with rounded corners where an avatar is a circle, so a group never
 // reads as a person at a glance.
-export const groupLogoStyle = cva({
+const groupLogoStyle = cva({
 	base: {
 		display: "flex",
 		alignItems: "center",

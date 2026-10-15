@@ -2,6 +2,7 @@ import { SHAPE_SUBJECT } from "@called-my-shot/scoring"
 import { css } from "styled-system/css"
 import { HStack } from "styled-system/jsx"
 import { FieldHint } from "#/components/ui/field-hint"
+import { pluralize } from "#/lib/pluralize"
 import { useQuestionData } from "../data-context"
 import type { CreateQuestionValues } from "../form-context"
 import {
@@ -16,15 +17,14 @@ import {
 } from "../form-context"
 import { LeagueField } from "../league-field"
 import { PoolSummary } from "../pool-summary"
+import { divisionsIn } from "../use-question-catalog"
 import { ShapePanel } from "./shape-panel"
 
 // "Rookie (0)" / "1 year" / "2 years" - shared between the option labels in
 // the years-in-league picker and the pool summary's scopeLabel, so the two
 // can't drift.
 function yearsInLeagueLabel(years: number): string {
-	return years === 0
-		? "Rookie (0)"
-		: `${years} ${years === 1 ? "year" : "years"}`
+	return years === 0 ? "Rookie (0)" : `${years} ${pluralize(years, "year")}`
 }
 
 function toOptions(values: string[]) {
@@ -52,6 +52,7 @@ export function AwardPanel({ shape }: { shape: AwardShape }) {
 	const awardRookieOnly = useWatch("awardRookieOnly")
 
 	const {
+		teams,
 		conferenceOptions,
 		divisionOptions,
 		positionOptions,
@@ -69,6 +70,17 @@ export function AwardPanel({ shape }: { shape: AwardShape }) {
 						label="Conference"
 						emptyLabel="Whole league"
 						options={toOptions(conferenceOptions)}
+						onValueChange={(next) => {
+							// Divisions are conference-scoped (see
+							// requireConferenceBeforeDivision in the schema), so
+							// deselecting a conference drops any picked division that
+							// no longer belongs to one still selected.
+							const allowed = new Set(divisionsIn(teams, next))
+							const kept = awardDivisions.filter((d) => allowed.has(d))
+							if (kept.length !== awardDivisions.length) {
+								setValue("awardDivisions", kept)
+							}
+						}}
 					/>
 				</div>
 				<div className={css({ flex: "1" })}>

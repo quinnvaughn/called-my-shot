@@ -1,4 +1,5 @@
 import { editQuestionTitleSchema } from "@called-my-shot/schemas"
+import { useQueryClient } from "@tanstack/react-query"
 import { useState } from "react"
 import { HStack, VStack } from "styled-system/jsx"
 import { match } from "ts-pattern"
@@ -6,16 +7,20 @@ import { Button } from "#/components/ui/button"
 import { FormError } from "#/components/ui/form-error"
 import { Modal } from "#/components/ui/modal"
 import { TextInput } from "#/components/ui/text-input"
+import {
+	EditQuestionTitleDocument,
+	invalidateAdminQueue,
+} from "#/graphql/admin/queue/mutations"
+import { ApiError } from "#/graphql/api-error"
 import { useGqlMutation } from "#/graphql/hooks"
-import { EditQuestionTitleDocument } from "#/graphql/mutations/admin"
 import { closeModal } from "#/stores/modal-store"
 
 type Props = {
 	question: { id: string; title: string }
-	onEdited: () => void
 }
 
-export function EditQuestionTitleModal({ question, onEdited }: Props) {
+export function EditQuestionTitleModal({ question }: Props) {
+	const queryClient = useQueryClient()
 	const editQuestionTitle = useGqlMutation(EditQuestionTitleDocument)
 	const [title, setTitle] = useState(question.title)
 	const [submitting, setSubmitting] = useState(false)
@@ -53,18 +58,12 @@ export function EditQuestionTitleModal({ question, onEdited }: Props) {
 						r.fieldErrors?.[0]?.message ?? "Check the form and try again.",
 					)
 				})
-				.with({ __typename: "AuthenticationError" }, async (r) => {
-					setFormError(r.message)
-				})
-				.with({ __typename: "AuthorizationError" }, async (r) => {
-					setFormError(r.message)
-				})
-				.with({ __typename: "NotFoundError" }, async (r) => {
+				.with(ApiError, async (r) => {
 					setFormError(r.message)
 				})
 				.with({ __typename: "QuestionPayload" }, async () => {
 					closeModal()
-					onEdited()
+					invalidateAdminQueue(queryClient)
 				})
 				.exhaustive()
 		} finally {

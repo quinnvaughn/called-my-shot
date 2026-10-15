@@ -4,6 +4,8 @@ import {
 	formatCallDate,
 	formatCallLead,
 	formatCallTimestamp,
+	formatNumericDate,
+	formatTimeAgo,
 } from "./format-date"
 
 describe("formatCallDate", () => {
@@ -86,5 +88,26 @@ describe("formatCallLead", () => {
 		expect(formatCallLead("2026-01-05T18:00:00Z", "2026-02-10T18:00:00Z")).toBe(
 			"Called 1 month before it resolved",
 		)
+	})
+})
+
+describe("formatNumericDate", () => {
+	it("writes month and day as numbers in the sports zone", () => {
+		expect(formatNumericDate("2026-10-20T23:00:00Z")).toBe("10/20")
+		// 02:00 UTC is still the previous evening in ET.
+		expect(formatNumericDate("2026-10-21T02:00:00Z")).toBe("10/20")
+	})
+})
+
+describe("formatTimeAgo", () => {
+	const now = Date.parse("2026-03-10T12:00:00Z")
+
+	it("counts minutes under an hour", () => {
+		expect(formatTimeAgo("2026-03-10T11:15:00Z", now)).toBe("45m ago")
+	})
+
+	it("counts hours and minutes past that, without rolling into days", () => {
+		expect(formatTimeAgo("2026-03-10T08:48:00Z", now)).toBe("3h 12m ago")
+		expect(formatTimeAgo("2026-03-08T10:00:00Z", now)).toBe("50h 0m ago")
 	})
 })

@@ -5,8 +5,8 @@ import {
 	filtersToSearch,
 	myCallsDirection,
 	myCallsKind,
+	myCallsSearchSchema,
 	myCallsSort,
-	validateMyCallsSearch,
 } from "./my-calls-search"
 
 const leagues = [
@@ -14,9 +14,9 @@ const leagues = [
 	{ id: "league-nfl", slug: "nfl" },
 ]
 
-describe("validateMyCallsSearch", () => {
+describe("myCallsSearchSchema", () => {
 	it("leaves the bare URL as all defaults", () => {
-		const search = validateMyCallsSearch({})
+		const search = myCallsSearchSchema.parse({})
 		expect(filtersFromSearch(search, leagues)).toEqual(EMPTY_FILTERS)
 		expect(myCallsKind(search)).toBe("game")
 		expect(myCallsSort(search)).toBe("DATE")
@@ -25,7 +25,7 @@ describe("validateMyCallsSearch", () => {
 
 	it("drops values it doesn't recognize", () => {
 		expect(
-			validateMyCallsSearch({
+			myCallsSearchSchema.parse({
 				kind: "playoffs",
 				tab: "archived",
 				scope: "WEEK",
@@ -40,14 +40,14 @@ describe("validateMyCallsSearch", () => {
 	// Points only exists on the Resolved tab, so a link carrying it onto Open
 	// falls back to Open's default.
 	it("only accepts a sort the tab offers", () => {
-		expect(validateMyCallsSearch({ sort: "POINTS" }).sort).toBeUndefined()
+		expect(myCallsSearchSchema.parse({ sort: "POINTS" }).sort).toBeUndefined()
 		expect(
-			validateMyCallsSearch({ tab: "resolved", sort: "POINTS" }).sort,
+			myCallsSearchSchema.parse({ tab: "resolved", sort: "POINTS" }).sort,
 		).toBe("POINTS")
 	})
 
 	it("defaults the resolved tab to its own sort", () => {
-		expect(myCallsSort(validateMyCallsSearch({ tab: "resolved" }))).toBe(
+		expect(myCallsSort(myCallsSearchSchema.parse({ tab: "resolved" }))).toBe(
 			"POINTS",
 		)
 	})
@@ -56,13 +56,13 @@ describe("validateMyCallsSearch", () => {
 describe("shapes on each side", () => {
 	it("drops a picked shape the side can't hold", () => {
 		expect(
-			validateMyCallsSearch({
+			myCallsSearchSchema.parse({
 				kind: "season",
 				shapes: "PLAYER_STAT_OVER_UNDER,PLAYER_SEASON_AWARD,YES_NO_PROP",
 			}).shapes,
 		).toBe("PLAYER_SEASON_AWARD,YES_NO_PROP")
 		expect(
-			validateMyCallsSearch({
+			myCallsSearchSchema.parse({
 				shapes: "PLAYER_STAT_OVER_UNDER,PLAYER_SEASON_AWARD,YES_NO_PROP",
 			}).shapes,
 		).toBe("PLAYER_STAT_OVER_UNDER,YES_NO_PROP")
@@ -70,8 +70,10 @@ describe("shapes on each side", () => {
 
 	it("clears the param when nothing picked fits", () => {
 		expect(
-			validateMyCallsSearch({ kind: "season", shapes: "GAME_TOTAL_OVER_UNDER" })
-				.shapes,
+			myCallsSearchSchema.parse({
+				kind: "season",
+				shapes: "GAME_TOTAL_OVER_UNDER",
+			}).shapes,
 		).toBeUndefined()
 	})
 })
@@ -85,7 +87,7 @@ describe("filters round-trip through the URL", () => {
 			scope: null,
 			result: "HIT" as const,
 		}
-		const search = validateMyCallsSearch(filtersToSearch(filters, leagues))
+		const search = myCallsSearchSchema.parse(filtersToSearch(filters, leagues))
 		expect(search.league).toBe("nba")
 		expect(filtersFromSearch(search, leagues)).toEqual(filters)
 	})

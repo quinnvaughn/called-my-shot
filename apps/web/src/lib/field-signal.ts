@@ -60,3 +60,10 @@ export function formatGuess(value: number, isRateStat = false): string {
 	if (Number.isInteger(value)) return String(value)
 	return String(Math.round(value * 1000) / 1000)
 }
+
+// Guards against floating-point drift from repeated decimal stepping (e.g.
+// 0.27 + 0.01 landing on 0.28000000000000003) - rounds to the same 3 decimal
+// places the guessValue column itself stores.
+export function roundGuess(value: number): number {
+	return Math.round(value * 1000) / 1000
+}

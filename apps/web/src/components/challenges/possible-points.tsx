@@ -16,7 +16,7 @@ export function PossiblePoints({ range }: { range: ChallengePointsRange }) {
 		<HStack
 			gap="3"
 			flexWrap="wrap"
-			className={css({ fontFamily: "mono", fontSize: "xs", color: "fg.muted" })}
+			className={css({ textStyle: "metaLg", color: "fg.muted" })}
 		>
 			<span>
 				<span className={css({ color: "success.default" })}>

@@ -15,8 +15,15 @@ import {
 	FaUserGroup,
 } from "react-icons/fa6"
 import type { IconType } from "react-icons/lib"
-import type { QuestionShape } from "#/graphql/generated/graphql"
+import { match } from "ts-pattern"
+import type { QuestionCallShape } from "#/components/questions/cast-call-form/use-cast-call-form"
+import type {
+	AwardVerb,
+	QuestionShape,
+	StatAggregation,
+} from "#/graphql/generated/graphql"
 import { formatGuess } from "#/lib/field-signal"
+import type { ToleranceSpec } from "#/lib/scoring"
 
 const OVER_UNDER_SHAPES: readonly QuestionShape[] = [
 	"PLAYER_STAT_OVER_UNDER",
@@ -124,6 +131,68 @@ export function isNumericQuestionShape(shape: QuestionShape): boolean {
 	return NUMERIC_GUESS_BY_SHAPE[shape]
 }
 
+// The GraphQL enum's SCREAMING_CASE against the lowercase names the shared zod
+// schemas and the cast-call form use. Spelled out as a Record rather than
+// toLowerCase() and a cast, so a shape added on one side and not the other
+// fails the build instead of passing through as a string the other side
+// doesn't know.
+const CALL_SHAPE_BY_SHAPE: Record<QuestionShape, QuestionCallShape> = {
+	PLAYER_STAT_OVER_UNDER: "player_stat_over_under",
+	TEAM_STAT_OVER_UNDER: "team_stat_over_under",
+	PLAYER_SEASON_STAT_OVER_UNDER: "player_season_stat_over_under",
+	TEAM_SEASON_STAT_OVER_UNDER: "team_season_stat_over_under",
+	GAME_TOTAL_OVER_UNDER: "game_total_over_under",
+	PLAYER_STAT_NUMERIC_GUESS: "player_stat_numeric_guess",
+	TEAM_STAT_NUMERIC_GUESS: "team_stat_numeric_guess",
+	TEAM_SEASON_STAT_NUMERIC_GUESS: "team_season_stat_numeric_guess",
+	PLAYER_VS_PLAYER: "player_vs_player",
+	PLAYER_VS_PLAYER_SEASON: "player_vs_player_season",
+	TEAM_VS_TEAM: "team_vs_team",
+	TEAM_VS_TEAM_SEASON: "team_vs_team_season",
+	PLAYER_GAME_STAT_LEADER: "player_game_stat_leader",
+	PLAYER_SEASON_STAT_LEADER: "player_season_stat_leader",
+	PLAYER_TEAM_SEASON_STAT_LEADER: "player_team_season_stat_leader",
+	YES_NO_PROP: "yes_no_prop",
+	PLAYER_SEASON_AWARD: "player_season_award",
+	TEAM_SEASON_AWARD: "team_season_award",
+	PLAYER_AWARD_FINALISTS: "player_award_finalists",
+}
+
+const SHAPE_BY_CALL_SHAPE = Object.fromEntries(
+	Object.entries(CALL_SHAPE_BY_SHAPE).map(([shape, callShape]) => [
+		callShape,
+		shape,
+	]),
+) as Record<QuestionCallShape, QuestionShape>
+
+export function toCallShape(shape: QuestionShape): QuestionCallShape {
+	return CALL_SHAPE_BY_SHAPE[shape]
+}
+
+export function toQuestionShape(callShape: QuestionCallShape): QuestionShape {
+	return SHAPE_BY_CALL_SHAPE[callShape]
+}
+
+const STAT_AGGREGATION: Record<Lowercase<StatAggregation>, StatAggregation> = {
+	total: "TOTAL",
+	per_game: "PER_GAME",
+}
+
+export function toStatAggregation(
+	value: Lowercase<StatAggregation>,
+): StatAggregation {
+	return STAT_AGGREGATION[value]
+}
+
+const AWARD_VERB: Record<Lowercase<AwardVerb>, AwardVerb> = {
+	be: "BE",
+	win: "WIN",
+}
+
+export function toAwardVerb(value: Lowercase<AwardVerb>): AwardVerb {
+	return AWARD_VERB[value]
+}
+
 // The *_over_under shapes' line is part of the option's identity, not shown
 // anywhere else on its own - every place an option label renders (the live
 // picker, the viewer's own pick, the field breakdown) needs the same
@@ -206,4 +275,29 @@ export const questionShapeDescription: Record<QuestionShape, string> = {
 		"A league-wide team award: a championship, a division title, anything decided at season's end.",
 	PLAYER_AWARD_FINALISTS:
 		"The real announced finalists for an award: pick the winner from the actual shortlist.",
+}
+
+export function toleranceLabel(tolerance: ToleranceSpec): string {
+	return match(tolerance)
+		.with(
+			{ mode: "absolute" },
+			({ amount }) => `±${formatGuess(amount, !Number.isInteger(amount))}`,
+		)
+		.with(
+			{ mode: "percentage" },
+			({ pct }) => `±${Math.round(pct * 100)}% of actual`,
+		)
+		.exhaustive()
+}
+
+// "How rare was being right" - the correct option's own fieldPct for
+// everything option-based, numericHitRatePct (computed across every scored
+// guess) for the numeric-guess shapes, which have no options at all.
+export function fieldAccuracyPctFor(question: {
+	shape: QuestionShape
+	numericHitRatePct: number | null
+	options: { isCorrect: boolean | null; fieldPct: number | null }[]
+}): number | null {
+	if (isNumericQuestionShape(question.shape)) return question.numericHitRatePct
+	return question.options.find((option) => option.isCorrect)?.fieldPct ?? null
 }

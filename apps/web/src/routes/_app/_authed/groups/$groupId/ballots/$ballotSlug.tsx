@@ -1,5 +1,5 @@
 import { useSuspenseQuery } from "@tanstack/react-query"
-import { createFileRoute, Link, useRouteContext } from "@tanstack/react-router"
+import { createFileRoute, Link } from "@tanstack/react-router"
 import { FaRegTimesCircle } from "react-icons/fa"
 import { css } from "styled-system/css"
 import { VStack } from "styled-system/jsx"
@@ -14,6 +14,7 @@ import { PageHeader } from "#/components/ui/page-header"
 import { Tag } from "#/components/ui/tag"
 import { GroupBallotBoardDocument } from "#/graphql/generated/graphql"
 import { gqlQueryOptions } from "#/graphql/query-options"
+import { useMe } from "#/hooks/use-me"
 import { toIdentity } from "#/lib/identity"
 
 const groupBallotBoardQuery = (groupId: string, ballotSlug: string) =>
@@ -34,17 +35,14 @@ export const Route = createFileRoute(
 })
 
 const sectionLabelClass = css({
-	fontFamily: "mono",
-	fontSize: "2xs",
-	letterSpacing: "wide",
+	textStyle: "label",
 	color: "fg.subtle",
-	textTransform: "uppercase",
 })
 
 function RouteComponent() {
 	const { groupId, ballotSlug } = Route.useParams()
 	const { data } = useSuspenseQuery(groupBallotBoardQuery(groupId, ballotSlug))
-	const { me } = useRouteContext({ from: "__root__" })
+	const me = useMe()
 	const group = data.group
 	const board = group?.ballotBoard
 

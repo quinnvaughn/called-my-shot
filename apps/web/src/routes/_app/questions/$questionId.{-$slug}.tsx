@@ -1,115 +1,55 @@
 import { questionTitleWithGame } from "@called-my-shot/schemas"
 import { useQuery, useSuspenseQuery } from "@tanstack/react-query"
-import {
-	createFileRoute,
-	Link,
-	redirect,
-	useRouteContext,
-} from "@tanstack/react-router"
-import { DateTime } from "luxon"
+import { createFileRoute, redirect } from "@tanstack/react-router"
 import { useEffect, useRef, useState } from "react"
 import { FaRegTimesCircle } from "react-icons/fa"
-import { FiFlag, FiShare } from "react-icons/fi"
-import { css, cx } from "styled-system/css"
-import { HStack, VStack } from "styled-system/jsx"
-import { match, P } from "ts-pattern"
-import { AuthModal } from "#/components/auth/auth-modal"
+import { css } from "styled-system/css"
+import { VStack } from "styled-system/jsx"
+import { z } from "zod"
+import { BallotSetRail } from "#/components/ballots/ballot-set-rail"
 import { GameMatchupHeader } from "#/components/games/game-matchup-header"
 import { GameSetRail } from "#/components/games/game-set-rail"
 import { FirstCallTour } from "#/components/onboarding/first-call-tour"
 import { TourAnchorProvider } from "#/components/onboarding/tour-anchors"
-import { BallotSetRail } from "#/components/ballots/ballot-set-rail"
 import { BallotStrip } from "#/components/questions/ballot-strip"
 import { CallSubmitBar } from "#/components/questions/call-submit-bar"
-import {
-	CastCallForm,
-	useCastCallForm,
-} from "#/components/questions/cast-call-form"
-import type { QuestionCallShape } from "#/components/questions/cast-call-form/use-cast-call-form"
-import { FieldBreakdownCard } from "#/components/questions/field-breakdown-card"
+import { useCastCallForm } from "#/components/questions/cast-call-form"
 import { GameStrip, useGameNextUp } from "#/components/questions/game-strip"
-import { GuessDistributionChart } from "#/components/questions/guess-distribution-chart"
-import { OptionFieldBreakdown } from "#/components/questions/option-field-breakdown"
-import { PanelRow } from "#/components/questions/panel-row"
 import { QuestionCallsList } from "#/components/questions/question-calls-list"
-import { ReportQuestionModal } from "#/components/questions/report-question-modal"
+import { QuestionBreadcrumb } from "#/components/questions/question-detail/question-breadcrumb"
+import { QuestionDetailHeader } from "#/components/questions/question-detail/question-detail-header"
+import { QuestionDetailsCard } from "#/components/questions/question-detail/question-details-card"
+import { QuestionPickSection } from "#/components/questions/question-detail/question-pick-section"
 import { ResolveQuestionModal } from "#/components/questions/resolve-question-modal"
 import { SeriesBlock } from "#/components/questions/series-block"
-import { ShareQuestionModal } from "#/components/questions/share-question-modal"
-import { StatContextCard } from "#/components/questions/stat-context-card"
-import { StreakStakeLine } from "#/components/questions/streak-stake-line"
-import { ViewerStatusCard } from "#/components/questions/viewer-status-card"
-import { Breadcrumb } from "#/components/ui/breadcrumb"
-import { Button, button } from "#/components/ui/button"
-import { Card } from "#/components/ui/card"
-import { Identity } from "#/components/ui/identity"
+import { StatContextCard } from "#/components/questions/stat-context-card/stat-context-card"
+import { ViewerStatusCard } from "#/components/questions/viewer-status-card/viewer-status-card"
+import { Button } from "#/components/ui/button"
 import { NotFound } from "#/components/ui/not-found"
-import { Tag } from "#/components/ui/tag"
-import type { QuestionShape } from "#/graphql/generated/graphql"
+import { SectionLabel } from "#/components/ui/section-label"
 import {
 	questionCallsQuery,
 	questionDetailQuery,
 	questionStatContextQuery,
-} from "#/graphql/queries/question"
+} from "#/graphql/questions/queries"
+import { useMe } from "#/hooks/use-me"
 import { questionHorizon, track } from "#/lib/analytics"
-import { callMarginFor, marginLabel } from "#/lib/call-summary"
-import { safeExternalUrl } from "#/lib/external-url"
-import { formatGuess } from "#/lib/field-signal"
+import { viewerMarginLabel } from "#/lib/call-summary"
 import { IN_PLAY_REFETCH_MS, isGameInPlay } from "#/lib/game-status"
 import { pageMeta } from "#/lib/meta"
 import { questionDetailState } from "#/lib/question-detail-state"
 import {
-	isNumericQuestionShape,
+	fieldAccuracyPctFor,
 	questionShapeLabel,
+	toCallShape,
 } from "#/lib/question-labels"
 import { resolvedAnswerSummary } from "#/lib/resolution-summary"
-import { type ToleranceSpec, toleranceSpecFrom } from "#/lib/scoring"
+import { searchFlag } from "#/lib/search-params"
 import { buildGameSlug, buildQuestionSlug, questionPath } from "#/lib/slug"
-import { disputeAction, viewerStatus } from "#/lib/viewer-status"
+import { viewerStatus } from "#/lib/viewer-status"
 import { openModal } from "#/stores/modal-store"
 
 const STATUS_CARD_SCROLL_DELAY_MS = 150
-
-function sectionLabel(text: string) {
-	return (
-		<h2
-			className={css({
-				fontFamily: "mono",
-				fontSize: "xs",
-				letterSpacing: "wide",
-				color: "fg.muted",
-				textTransform: "uppercase",
-			})}
-		>
-			{text}
-		</h2>
-	)
-}
-
-function toleranceLabel(tolerance: ToleranceSpec): string {
-	return match(tolerance)
-		.with(
-			{ mode: "absolute" },
-			({ amount }) => `±${formatGuess(amount, !Number.isInteger(amount))}`,
-		)
-		.with(
-			{ mode: "percentage" },
-			({ pct }) => `±${Math.round(pct * 100)}% of actual`,
-		)
-		.exhaustive()
-}
-
-// "How rare was being right" - the correct option's own fieldPct for
-// everything option-based, numericHitRatePct (computed across every scored
-// guess) for the numeric-guess shapes, which have no options at all.
-function fieldAccuracyPctFor(question: {
-	shape: QuestionShape
-	numericHitRatePct: number | null
-	options: { isCorrect: boolean | null; fieldPct: number | null }[]
-}): number | null {
-	if (isNumericQuestionShape(question.shape)) return question.numericHitRatePct
-	return question.options.find((option) => option.isCorrect)?.fieldPct ?? null
-}
 
 export const Route = createFileRoute("/_app/questions/$questionId/{-$slug}")({
 	component: RouteComponent,
@@ -117,19 +57,13 @@ export const Route = createFileRoute("/_app/questions/$questionId/{-$slug}")({
 	// store, so a reload (or a link someone was sent) resumes it instead of
 	// dropping the user into a form nobody explained. Anything else in `tour`
 	// is discarded rather than trusted.
-	// The return type keeps `tour` OPTIONAL rather than "first-call |
-	// undefined": a key that is always present, even valued undefined, makes
-	// `search` a required prop on every <Link> to this route, and there are a
-	// dozen of those that have nothing to do with onboarding.
+	// Both keys are optional, so the dozen <Link>s to this route that have
+	// nothing to do with onboarding needn't pass `search`.
 	// `created` is set once, right after the viewer writes the question, to
 	// offer a challenge on it while it's fresh.
-	validateSearch: (
-		search: Record<string, unknown>,
-	): { tour?: "first-call"; created?: true } => ({
-		...(search.tour === "first-call" ? { tour: "first-call" as const } : {}),
-		...(search.created === true || search.created === "true"
-			? { created: true as const }
-			: {}),
+	validateSearch: z.object({
+		tour: z.literal("first-call").optional().catch(undefined),
+		created: searchFlag,
 	}),
 	// Without this, navigating between two questions on this same route (e.g.
 	// a BallotStrip link) doesn't remount RouteComponent - only the loader data
@@ -201,7 +135,7 @@ export const Route = createFileRoute("/_app/questions/$questionId/{-$slug}")({
 function QuestionSetRailFor() {
 	const { questionId } = Route.useParams()
 	const { data } = useSuspenseQuery(questionDetailQuery(questionId))
-	const { me } = useRouteContext({ from: "__root__" })
+	const me = useMe()
 	const question = data.question
 	if (!question) return null
 	// Ballot members are season-long questions, so a question is on one set
@@ -258,7 +192,7 @@ function RouteComponent() {
 				[question.game.awayTeam.id]: question.game.awayTeam.abbreviation,
 			}
 		: {}
-	const { me } = useRouteContext({ from: "__root__" })
+	const me = useMe()
 	// Called unconditionally (hooks can't follow the early-return below) -
 	// harmless when there's no question yet, since nothing renders CastCallForm
 	// or CallSubmitBar in that case either.
@@ -313,26 +247,22 @@ function RouteComponent() {
 	// Captured once per mount, which remountDeps makes once per question. The
 	// state is what the page first offered, not what it becomes after a call.
 	const trackedView = useRef(false)
-	const viewedQuestion = question
-		? {
-				questionId: question.id,
-				questionShape: question.shape.toLowerCase() as QuestionCallShape,
-				leagueId: question.league.id,
-				sportId: question.sport.id,
-				viewerState: viewerStatus(
-					questionDetailState(question).phase,
-					question.viewerCall,
-				).kind,
-			}
-		: null
 	useEffect(() => {
-		if (!viewedQuestion || trackedView.current) return
+		if (!question || trackedView.current) return
 		trackedView.current = true
+		const questionShape = toCallShape(question.shape)
 		track("question_viewed", {
-			...viewedQuestion,
-			horizon: questionHorizon(viewedQuestion.questionShape),
+			questionId: question.id,
+			questionShape,
+			leagueId: question.league.id,
+			sportId: question.sport.id,
+			viewerState: viewerStatus(
+				questionDetailState(question).phase,
+				question.viewerCall,
+			).kind,
+			horizon: questionHorizon(questionShape),
 		})
-	})
+	}, [question])
 	const nextUp = useGameNextUp(question)
 
 	if (!question) {
@@ -353,23 +283,6 @@ function RouteComponent() {
 	// first-call tour) rather than the status and field breakdown cards.
 	const isCallable = status.kind === "canCall"
 	const isCreator = me?.id === question.creator?.id
-	const resolutionSourceUrl = safeExternalUrl(question.resolutionSourceUrl)
-	const gameLinkParams = question.game
-		? {
-				gameId: question.game.id,
-				slug: buildGameSlug({
-					league: question.league,
-					homeTeam: question.game.homeTeam,
-					awayTeam: question.game.awayTeam,
-					startsAt: question.game.startsAt,
-				}),
-			}
-		: null
-	const ballot = question.ballotMembership?.ballot ?? null
-	const tolerance = toleranceSpecFrom(
-		question.numericTolerancePct,
-		question.numericToleranceAbsolute,
-	)
 	const answer = state.isSettled ? resolvedAnswerSummary(question) : null
 	// The player or team the answer is, when exactly one option won.
 	const correctOptions = question.options.filter((o) => o.isCorrect)
@@ -383,57 +296,7 @@ function RouteComponent() {
 	// carries a deliberately trimmed ViewerCall, while this scope already has
 	// the whole resolved question. Same label the eyebrow on /calls/:id shows,
 	// so the two can't contradict each other about the same call.
-	const viewerMarginLabel = (() => {
-		const call = question.viewerCall
-		if (!call) return null
-		const margin = callMarginFor({
-			guessValue: call.guessValue,
-			conviction: call.conviction,
-			totalPoints: call.totalPoints,
-			question: {
-				shape: question.shape,
-				ouLine: question.ouLine,
-				numericActualValue: question.numericActualValue,
-				numericToleranceAbsolute: question.numericToleranceAbsolute,
-				numericTolerancePct: question.numericTolerancePct,
-				stat: question.stat,
-				scoredOptions: question.scoredOptions,
-			},
-			selections: call.selections.map((s) => ({
-				id: s.id,
-				conviction: s.conviction,
-				option: {
-					label: s.option.label,
-					isCorrect: s.option.isCorrect,
-					actualValue: s.option.actualValue,
-				},
-			})),
-		})
-		return margin?.verdict
-			? marginLabel(margin.verdict, (call.totalPoints ?? 0) >= 0)
-			: null
-	})()
-	// Which option row(s) read as "active" in the breakdown below: your own
-	// pick if you called (mirrors numeric's own myGuess highlight - it's your
-	// call being pointed at, not necessarily the right one), or the winning
-	// option(s) instead once resolved if you never called (nothing else on
-	// the row list is meaningful to a spectator on a settled question).
-	// Neither once locked-but-not-yet-resolved with no call of your own.
-	const breakdownHighlightIds = match(status)
-		.returnType<string[]>()
-		.with({ kind: P.union("pending", "resolved") }, ({ call }) =>
-			call.selections.map((selection) => selection.option.id),
-		)
-		.with({ kind: "resolvedNoCall" }, () =>
-			question.options
-				.filter((option) => option.isCorrect)
-				.map((option) => option.id),
-		)
-		.with({ kind: P.union("canCall", "lockedNoCall") }, () => [])
-		.with({ kind: "voided" }, ({ call }) =>
-			call ? call.selections.map((selection) => selection.option.id) : [],
-		)
-		.exhaustive()
+	const viewerMargin = viewerMarginLabel(question)
 
 	return (
 		<TourAnchorProvider>
@@ -442,47 +305,7 @@ function RouteComponent() {
 				alignItems="stretch"
 				className={css({ maxWidth: "2xl", minHeight: "100%" })}
 			>
-				<Breadcrumb>
-					<Breadcrumb.Link
-						to="/leagues/$leagueSlug"
-						params={{ leagueSlug: question.league.slug }}
-					>
-						{question.league.abbreviation}
-					</Breadcrumb.Link>
-					{/* A ballot member's trail is the ballot's own (league /
-				ballots / ballot) - ballots are season-award questions, so no
-				member has a game crumb to show anyway. */}
-					{match({ ballot, game: question.game, gameLinkParams })
-						.with({ ballot: P.nonNullable }, ({ ballot }) => (
-							<>
-								<Breadcrumb.Link
-									to="/leagues/$leagueSlug/ballots"
-									params={{ leagueSlug: question.league.slug }}
-								>
-									Ballots
-								</Breadcrumb.Link>
-								<Breadcrumb.Link
-									to="/ballots/$ballotSlug"
-									params={{ ballotSlug: ballot.slug }}
-								>
-									{ballot.name}
-								</Breadcrumb.Link>
-							</>
-						))
-						.with(
-							{ game: P.nonNullable, gameLinkParams: P.nonNullable },
-							({ game, gameLinkParams }) => (
-								<Breadcrumb.Link
-									to="/games/$gameId/{-$slug}"
-									params={gameLinkParams}
-								>
-									{game.awayTeam.abbreviation} @ {game.homeTeam.abbreviation}
-								</Breadcrumb.Link>
-							),
-						)
-						.otherwise(() => null)}
-					<Breadcrumb.Current>{question.title}</Breadcrumb.Current>
-				</Breadcrumb>
+				<QuestionBreadcrumb question={question} />
 				<BallotStrip
 					question={question}
 					className={css({ display: { base: "flex", xl: "none" } })}
@@ -491,128 +314,7 @@ function RouteComponent() {
 					question={question}
 					className={css({ display: { base: "flex", xl: "none" } })}
 				/>
-				<VStack gap="3" alignItems="stretch">
-					{/* The tags get the full width on a phone, with the actions on
-					    their own row under them, rather than wrapping one per line
-					    beside two buttons that don't shrink. */}
-					<div
-						className={css({
-							display: "flex",
-							flexDirection: { base: "column", sm: "row" },
-							justifyContent: "space-between",
-							alignItems: "flex-start",
-							gap: { base: "3", sm: "2" },
-						})}
-					>
-						<HStack gap="2" flexWrap="wrap">
-							{/* Stated either way: this row is the only thing on the page
-						that says what kind of question you're reading, and an absent
-						badge isn't a signal anyone reads. Feed cards keep tagging
-						Official alone, where a Community tag would sit on nearly every
-						card and carry nothing. */}
-							{question.isOfficial ? (
-								<Tag variant="primary">Official</Tag>
-							) : (
-								<Tag>Community</Tag>
-							)}
-							<Tag>{question.league.abbreviation}</Tag>
-							<Tag>{questionShapeLabel[question.shape]}</Tag>
-						</HStack>
-						{/* Shares the QUESTION - an invitation to call it. Distinct from
-					the link on a settled call below, which shares one person's own
-					record of it. Available regardless of status or whether you've
-					called: an open question is the one most worth sending someone. */}
-						<HStack gap="2" flexShrink="0">
-							<Button
-								variant="ghost"
-								size="sm"
-								aria-label="Share this question"
-								onClick={() => {
-									track("share_sheet_opened", {
-										questionId: question.id,
-										surface: "question_detail",
-									})
-									openModal(
-										<ShareQuestionModal
-											questionId={question.id}
-											questionTitle={question.title}
-											questionLeague={question.league}
-											sharedGroupIds={question.viewerSharedGroupIds}
-											pinnedGroupIds={question.viewerPinnedGroupIds}
-											canShareToGroup={me !== null}
-											canPin={
-												question.status === "OPEN" &&
-												new Date(question.locksAt) > new Date()
-											}
-										/>,
-									)
-								}}
-								className={css({ flexShrink: 0 })}
-							>
-								<FiShare size={14} />
-								Share
-							</Button>
-							{me &&
-								question.status === "OPEN" &&
-								new Date(question.locksAt) > new Date() && (
-									// On a game's question it opens the builder the way the
-									// rail's "Start a challenge" does, with the viewer's other
-									// open picks on the game already in, this question among
-									// them. From xl up that rail is on screen, so this would
-									// be a second, lesser copy of it.
-									<Link
-										to="/challenges/new"
-										search={
-											question.game
-												? {
-														game: question.game.id,
-														question: question.id,
-														source: "question",
-													}
-												: { question: question.id, source: "question" }
-										}
-										className={cx(
-											button({ variant: "dark", size: "sm" }),
-											question.game
-												? css({ flexShrink: 0, xl: { display: "none" } })
-												: css({ flexShrink: 0 }),
-										)}
-									>
-										<FiFlag size={14} />
-										Challenge
-									</Link>
-								)}
-						</HStack>
-					</div>
-					{created &&
-						me &&
-						question.status === "OPEN" &&
-						new Date(question.locksAt) > new Date() && (
-							<Card variant="subtle" size="sm">
-								<Card.Body>
-									<HStack justify="space-between" gap="3" flexWrap="wrap">
-										<p className={css({ fontSize: "sm" })}>
-											Think people will get this wrong? Challenge them on it.
-											Whoever scores more points on it wins the 1v1.
-										</p>
-										<Link
-											to="/challenges/new"
-											search={{
-												question: question.id,
-												source: "new_question",
-											}}
-											className={button({ variant: "solid", size: "sm" })}
-										>
-											Make a challenge
-										</Link>
-									</HStack>
-								</Card.Body>
-							</Card>
-						)}
-					<h1 className={css({ fontSize: "2xl", fontFamily: "heading" })}>
-						{question.title}
-					</h1>
-				</VStack>
+				<QuestionDetailHeader question={question} created={created} />
 				{/* Only rendered when this question is actually tied to a single
 			game - season-long questions (championship, MVP) have no game and
 			this stays hidden for those. */}
@@ -622,134 +324,7 @@ function RouteComponent() {
 				{/* A series question's counterpart: the round, the two teams and
 			where the series stands, which its short title leaves out. */}
 				{question.series && <SeriesBlock series={question.series} />}
-				<Card>
-					<Card.Body>
-						<VStack gap="0" alignItems="stretch">
-							<PanelRow
-								label="CREATED BY"
-								value={
-									question.creator ? (
-										<Link
-											to="/user/$username"
-											params={{ username: question.creator.username }}
-											className={css({
-												display: "inline-flex",
-												minWidth: "0",
-												_hover: {
-													"& span:first-of-type": {
-														textDecoration: "underline",
-													},
-												},
-											})}
-										>
-											<Identity
-												name={question.creator.name}
-												username={question.creator.username}
-												avatarUrl={question.creator.avatarUrl}
-												stackOnMobile
-											/>
-										</Link>
-									) : (
-										<span
-											className={css({ fontSize: "sm", color: "fg.subtle" })}
-										>
-											Deleted user
-										</span>
-									)
-								}
-							/>
-							<PanelRow
-								label="RESOLVES"
-								value={
-									resolutionSourceUrl ? (
-										<a
-											href={resolutionSourceUrl}
-											target="_blank"
-											rel="noreferrer"
-											className={css({
-												textDecoration: "underline",
-												textUnderlineOffset: "2px",
-												_hover: { color: "primary.default" },
-											})}
-										>
-											{question.resolutionSource} ↗
-										</a>
-									) : (
-										question.resolutionSource
-									)
-								}
-							/>
-							<PanelRow
-								label="LOCKS"
-								value={DateTime.fromISO(question.locksAt).toFormat(
-									"MMM d, h:mm a",
-								)}
-							/>
-							{tolerance && (
-								<PanelRow label="TOLERANCE" value={toleranceLabel(tolerance)} />
-							)}
-						</VStack>
-					</Card.Body>
-					<Card.Footer>
-						<HStack justify="center" gap="4" width="full">
-							<Link
-								to="/how-it-works"
-								hash="resolution"
-								className={css({
-									fontFamily: "mono",
-									fontSize: "2xs",
-									letterSpacing: "wide",
-									color: "fg.subtle",
-									_hover: { color: "fg.muted" },
-								})}
-							>
-								how resolution works →
-							</Link>
-							<span
-								className={css({
-									fontFamily: "mono",
-									fontSize: "2xs",
-									color: "fg.subtle",
-								})}
-							>
-								·
-							</span>
-							{question.viewerReport ? (
-								<span
-									className={css({
-										fontFamily: "mono",
-										fontSize: "2xs",
-										letterSpacing: "wide",
-										color: "fg.muted",
-									})}
-								>
-									reported, thanks
-								</span>
-							) : (
-								<button
-									type="button"
-									onClick={() =>
-										me
-											? openModal(
-													<ReportQuestionModal questionId={question.id} />,
-												)
-											: openModal(<AuthModal defaultView="signin" />)
-									}
-									className={css({
-										fontFamily: "mono",
-										fontSize: "2xs",
-										letterSpacing: "wide",
-										color: "fg.subtle",
-										cursor: "pointer",
-										_hover: { color: "primary.default" },
-									})}
-								>
-									report this question
-								</button>
-							)}
-						</HStack>
-					</Card.Footer>
-				</Card>
+				<QuestionDetailsCard question={question} />
 				{/* Hidden while re-picking. This card states the call as it
 			    stands, and leaving a "pending: your call is locked" face above
 			    a form that is changing that very call says two contradictory
@@ -757,24 +332,13 @@ function RouteComponent() {
 			    existing pick, so nothing is lost by standing it down. */}
 				{!isRedoing && (
 					<ViewerStatusCard
-						questionId={question.id}
-						status={status}
-						disputeAction={disputeAction(status, {
-							hasSettledDispute: question.hasSettledDispute,
-							hasViewerDispute: question.viewerDispute !== null,
-						})}
-						callCount={question.callCount}
-						totalOptions={question.options.length}
-						numericTolerancePct={question.numericTolerancePct}
-						numericToleranceAbsolute={question.numericToleranceAbsolute}
+						question={question}
+						phase={state.phase}
 						isRateStat={callForm.isRateStat}
 						answer={answer}
 						answerSubject={answerSubject}
-						resolutionNote={question.resolutionNote}
-						voidedReason={question.voidedReason}
 						fieldAccuracyPct={fieldAccuracyPct}
-						marginLabel={viewerMarginLabel}
-						questionTitle={question.title}
+						marginLabel={viewerMargin}
 						nextUp={nextUp}
 						ref={statusCardRef}
 						// Null unless this call could still be taken back, and once
@@ -782,8 +346,7 @@ function RouteComponent() {
 						redo={
 							question.viewerCall?.viewerCanRedo && !isRedoing
 								? {
-										questionShape:
-											question.shape.toLowerCase() as QuestionCallShape,
+										questionShape: toCallShape(question.shape),
 										balance: me?.redoBalance ?? 0,
 										action: {
 											// No confirmation step: opening the picker
@@ -808,46 +371,12 @@ function RouteComponent() {
 					teams={teamLabels}
 					isCallable={isCallable}
 				/>
-				{/* While the call is still open, the picker itself (CastCallForm)
-			shows this same live breakdown inline - one card for "make your
-			call" and "how the field's calling it", not two on the same page.
-			Once there's nothing left to pick (called, locked, resolved), it
-			needs a card of its own again - always after the status card above
-			(your call/outcome vs. how the whole field called it are two
-			different concepts, but the order between them never flips
-			regardless of which status - pending, won, either loss - is active). */}
-				{isCallable || isRedoing ? (
-					<VStack gap="3" alignItems="stretch">
-						{question.viewerStreak && (
-							<StreakStakeLine
-								leagueAbbr={question.league.abbreviation}
-								stake={question.viewerStreak}
-							/>
-						)}
-						<CastCallForm callForm={callForm} />
-					</VStack>
-				) : (
-					<FieldBreakdownCard>
-						{isNumericQuestionShape(question.shape) ? (
-							<GuessDistributionChart
-								buckets={question.guessDistribution}
-								averageGuess={question.averageGuess}
-								myGuess={question.viewerCall?.guessValue ?? null}
-								tone="record"
-								isRateStat={callForm.isRateStat}
-							/>
-						) : (
-							<OptionFieldBreakdown
-								options={question.options}
-								shape={question.shape}
-								ouLine={question.ouLine}
-								isRateStat={callForm.isRateStat}
-								callCount={question.callCount}
-								highlightedOptionIds={breakdownHighlightIds}
-							/>
-						)}
-					</FieldBreakdownCard>
-				)}
+				<QuestionPickSection
+					question={question}
+					status={status}
+					callForm={callForm}
+					showForm={isCallable || isRedoing}
+				/>
 				{isCreator &&
 					state.phase === "locked" &&
 					!question.resolvesAutomatically && (
@@ -861,7 +390,7 @@ function RouteComponent() {
 						</Button>
 					)}
 				<VStack gap="3" alignItems="stretch">
-					{sectionLabel("Calls")}
+					<SectionLabel>Calls</SectionLabel>
 					<QuestionCallsList questionId={question.id} />
 				</VStack>
 				{(isCallable || isRedoing) && <CallSubmitBar callForm={callForm} />}

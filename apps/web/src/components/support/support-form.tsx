@@ -15,9 +15,10 @@ import { TextInput } from "#/components/ui/text-input"
 import { Textarea } from "#/components/ui/textarea"
 import type { SupportCategory } from "#/graphql/generated/graphql"
 import { useGqlMutation } from "#/graphql/hooks"
-import { FileSupportTicketDocument } from "#/graphql/mutations/support"
+import { FileSupportTicketDocument } from "#/graphql/support/mutations"
 import { track } from "#/lib/analytics"
 import { useForm } from "#/lib/form/use-form"
+import { MONTH_DAY_TIME_FORMAT } from "#/lib/format-date"
 
 const supportCategoryLabel: Record<SupportCategory, string> = {
 	BUG: "Bug",
@@ -95,8 +96,7 @@ export function SupportForm() {
 						</h2>
 						<div
 							className={css({
-								fontFamily: "mono",
-								fontSize: "xs",
+								textStyle: "metaLg",
 								color: "fg.muted",
 								bg: "bg.subtle",
 								border: "1px solid {colors.border.default}",
@@ -105,7 +105,9 @@ export function SupportForm() {
 							})}
 						>
 							REF #{ticket.id.slice(0, 8).toUpperCase()} ·{" "}
-							{DateTime.fromISO(ticket.createdAt).toFormat("MMM d, h:mm a")}
+							{DateTime.fromISO(ticket.createdAt).toFormat(
+								MONTH_DAY_TIME_FORMAT,
+							)}
 						</div>
 					</VStack>
 				</Card.Body>

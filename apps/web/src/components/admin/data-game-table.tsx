@@ -1,20 +1,12 @@
 import { DateTime } from "luxon"
+import { AddEditGameModal } from "#/components/admin/data-entity-modal/add-edit-game-modal"
 import { Button } from "#/components/ui/button"
 import { Table } from "#/components/ui/table"
 import { Tag } from "#/components/ui/tag"
+import { matchupLabel } from "#/lib/game-status"
 import { openModal } from "#/stores/modal-store"
-import { AddEditGameModal } from "./data-entity-modal"
+import type { AdminGameRow, AdminTeamOption } from "./data-rows"
 
-type Game = {
-	id: string
-	startsAt: string
-	status: "SCHEDULED" | "LIVE" | "FINAL"
-	homeScore: number | null
-	awayScore: number | null
-	homeTeam: { id: string; name: string; abbreviation: string }
-	awayTeam: { id: string; name: string; abbreviation: string }
-}
-type TeamOption = { id: string; name: string; abbreviation: string }
 type SortKey = "STARTS_AT" | "STATUS"
 
 const columns = [
@@ -38,15 +30,13 @@ export function DataGameTable({
 	sortBy,
 	sortDir,
 	onSort,
-	onSaved,
 }: {
-	games: Game[]
+	games: AdminGameRow[]
 	leagueId: string
-	teams: TeamOption[]
+	teams: AdminTeamOption[]
 	sortBy: SortKey
 	sortDir: "asc" | "desc"
 	onSort: (key: SortKey) => void
-	onSaved: () => void
 }) {
 	return (
 		<Table
@@ -60,9 +50,7 @@ export function DataGameTable({
 					const tag = statusTag[game.status]
 					return (
 						<Table.Row key={game.id}>
-							<Table.Cell>
-								{game.awayTeam.abbreviation} @ {game.homeTeam.abbreviation}
-							</Table.Cell>
+							<Table.Cell>{matchupLabel(game)}</Table.Cell>
 							<Table.Cell>
 								{DateTime.fromISO(game.startsAt).toFormat(
 									"ccc, LLL d 'at' h:mm a",
@@ -86,7 +74,6 @@ export function DataGameTable({
 												leagueId={leagueId}
 												teams={teams}
 												game={game}
-												onSaved={onSaved}
 											/>,
 										)
 									}

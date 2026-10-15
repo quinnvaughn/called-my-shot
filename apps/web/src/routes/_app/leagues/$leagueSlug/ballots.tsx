@@ -5,8 +5,8 @@ import { VStack } from "styled-system/jsx"
 import { BallotCard } from "#/components/ballots/ballot-card"
 import { QuestionCard } from "#/components/questions/question-card"
 import { EmptyState } from "#/components/ui/empty-state"
-import { LeagueBallotsDocument } from "#/graphql/queries/sports"
 import { gqlQueryOptions } from "#/graphql/query-options"
+import { LeagueBallotsDocument } from "#/graphql/sports/leagues/queries"
 import { pageMeta } from "#/lib/meta"
 
 const leagueBallotsQuery = (leagueId: string) =>
@@ -28,11 +28,8 @@ export const Route = createFileRoute("/_app/leagues/$leagueSlug/ballots")({
 })
 
 const subHeadClass = css({
-	fontFamily: "mono",
-	fontSize: "2xs",
-	letterSpacing: "wide",
+	textStyle: "label",
 	color: "fg.subtle",
-	textTransform: "uppercase",
 })
 
 function RouteComponent() {

@@ -43,3 +43,15 @@ export function ballotMemberState(
 		call.selections.some((s) => s.option.isCorrect === true)
 	return correct ? "won" : "lost"
 }
+
+// A multi-pick question (player_season_award/team_season_award with more than
+// one slot, e.g. "OF (3)") scores each selection independently - one pick
+// can win while another loses on the very same call - so each gets its own
+// dot rather than one shared dot standing in for the whole question.
+export function selectionDotState(
+	isCorrect: boolean | null,
+	isSettled: boolean,
+): BallotMemberState {
+	if (!isSettled) return "pending"
+	return isCorrect ? "won" : "lost"
+}

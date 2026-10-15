@@ -3,7 +3,7 @@ import { css } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
 import { Modal } from "#/components/ui/modal"
 import { Tag } from "#/components/ui/tag"
-import { AdminFrequentCoCallersDocument } from "#/graphql/queries/integrity"
+import { AdminFrequentCoCallersDocument } from "#/graphql/admin/integrity/queries"
 import { gqlQueryOptions } from "#/graphql/query-options"
 
 type Props = {
@@ -32,10 +32,7 @@ export function IntegrityCreatorModal({ creator }: Props) {
 			<VStack gap="2" alignItems="stretch">
 				<span
 					className={css({
-						fontFamily: "mono",
-						fontSize: "2xs",
-						letterSpacing: "wide",
-						textTransform: "uppercase",
+						textStyle: "label",
 						color: "fg.subtle",
 					})}
 				>
@@ -63,8 +60,7 @@ export function IntegrityCreatorModal({ creator }: Props) {
 							</HStack>
 							<span
 								className={css({
-									fontFamily: "mono",
-									fontSize: "2xs",
+									textStyle: "meta",
 									color: "fg.subtle",
 									whiteSpace: "nowrap",
 								})}

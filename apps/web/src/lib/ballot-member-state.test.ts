@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { ballotMemberState } from "./ballot-member-state"
+import { ballotMemberState, selectionDotState } from "./ballot-member-state"
 
 const future = new Date(Date.now() + 86_400_000).toISOString()
 const past = new Date(Date.now() - 86_400_000).toISOString()
@@ -37,5 +37,18 @@ describe("ballotMemberState", () => {
 		const voided = { status: "VOIDED", locksAt: past } as const
 		expect(ballotMemberState(voided, pick(true))).toBe("voided")
 		expect(ballotMemberState(voided, null)).toBe("missed")
+	})
+})
+
+describe("selectionDotState", () => {
+	it("stays pending until the question settles", () => {
+		expect(selectionDotState(true, false)).toBe("pending")
+		expect(selectionDotState(null, false)).toBe("pending")
+	})
+
+	it("reads each settled selection on its own", () => {
+		expect(selectionDotState(true, true)).toBe("won")
+		expect(selectionDotState(false, true)).toBe("lost")
+		expect(selectionDotState(null, true)).toBe("lost")
 	})
 })

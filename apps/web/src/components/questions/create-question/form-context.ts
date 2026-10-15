@@ -15,6 +15,7 @@ export const {
 	Subscribe,
 	useWatch,
 	useSetValue,
+	useFormValues,
 	TextField,
 	NumberField,
 	MultiSelectField,

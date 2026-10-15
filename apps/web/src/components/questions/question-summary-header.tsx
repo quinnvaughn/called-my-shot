@@ -114,10 +114,7 @@ export function QuestionSummaryHeader({
 				<HStack gap="2" alignItems="center">
 					<span
 						className={css({
-							fontFamily: "mono",
-							fontSize: "3xs",
-							letterSpacing: "wide",
-							textTransform: "uppercase",
+							textStyle: "labelSm",
 							color: "fg.subtle",
 						})}
 					>
@@ -166,9 +163,8 @@ export function QuestionSummaryHeader({
 			{sharedBy && (
 				<span
 					className={css({
-						fontSize: "xs",
 						color: "fg.subtle",
-						fontFamily: "mono",
+						textStyle: "metaLg",
 					})}
 				>
 					Shared by {sharedBy.name}

@@ -2,31 +2,27 @@ import { useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute, Link } from "@tanstack/react-router"
 import { FaRegTimesCircle } from "react-icons/fa"
 import { css } from "styled-system/css"
-import { HStack, VStack } from "styled-system/jsx"
+import { VStack } from "styled-system/jsx"
 import { match } from "ts-pattern"
+import { ChallengeCallsCard } from "#/components/challenges/challenge-calls-card"
 import { ChallengeHero } from "#/components/challenges/challenge-hero"
-import {
-	ChallengeQuestionRow,
-	openPointsBySide,
-} from "#/components/challenges/challenge-question-row"
+import { ChallengeHeroAction } from "#/components/challenges/challenge-hero-action"
+import { ChallengeMatchupsCard } from "#/components/challenges/challenge-matchups-card"
 import { ChallengeShareRow } from "#/components/challenges/challenge-share-row"
-import { MatchupList } from "#/components/challenges/matchup-list"
-import { PostChallengeModal } from "#/components/challenges/post-challenge-modal"
 import { GameMatchupHeader } from "#/components/games/game-matchup-header"
 import { GloatCard } from "#/components/gloats/gloat-card"
-import { GloatComposerModal } from "#/components/gloats/gloat-composer-modal"
 import { Breadcrumb } from "#/components/ui/breadcrumb"
-import { Button, button } from "#/components/ui/button"
-import { Card } from "#/components/ui/card"
-import { EmptyState } from "#/components/ui/empty-state"
-import { Eyebrow } from "#/components/ui/eyebrow"
+import { button } from "#/components/ui/button"
 import { NotFound } from "#/components/ui/not-found"
-import { challengePageQuery } from "#/graphql/queries/challenges"
-import { recordLine, singleGameOf } from "#/lib/challenge"
-import { IN_PLAY_REFETCH_MS } from "#/lib/game-status"
+import { challengePageQuery } from "#/graphql/challenges/queries"
+import { openPointsBySide, singleGameOf } from "#/lib/challenge"
+import {
+	formatRecord,
+	IN_PLAY_REFETCH_MS,
+	matchupLabel,
+} from "#/lib/game-status"
 import { pageMeta } from "#/lib/meta"
 import { pluralize } from "#/lib/pluralize"
-import { openModal } from "#/stores/modal-store"
 
 // Public: the link is the whole point, and most people opening it won't
 // have an account yet.
@@ -72,7 +68,7 @@ export const Route = createFileRoute("/_app/challenges/$code")({
 				)
 				.with("SETTLED", () =>
 					meta.acceptanceCount > 0
-						? `@${meta.creator} went ${recordLine(meta.tally)} against everyone who took on their ${questions}.`
+						? `@${meta.creator} went ${formatRecord(meta.tally.wins, meta.tally.losses, meta.tally.draws || null)} against everyone who took on their ${questions}.`
 						: `@${meta.creator}'s challenge on ${questions} is over.`,
 				)
 				.with(
@@ -126,54 +122,6 @@ function RouteComponent() {
 	const game = singleGameOf(questions)
 	const canAccept = challenge.viewerCanAccept && !isCreator
 
-	const action = canAccept ? (
-		<Link
-			to="/challenges/$code/play"
-			params={{ code: challenge.code }}
-			className={button({ variant: "solid", size: "lg", fullWidth: true })}
-		>
-			Take on @{creator.username}
-		</Link>
-	) : challenge.viewerCanGloat ? (
-		<Button
-			variant="solid"
-			size="lg"
-			fullWidth
-			onClick={() =>
-				openModal(
-					<GloatComposerModal
-						challengeId={challenge.id}
-						recipients={
-							isCreator
-								? `the ${challenge.creatorTally.wins} ${pluralize(challenge.creatorTally.wins, "person", "people")} you beat`
-								: `@${creator.username}`
-						}
-					/>,
-				)
-			}
-		>
-			{isCreator
-				? "Talk trash to everyone you beat"
-				: `Talk trash to @${creator.username}`}
-		</Button>
-	) : isCreator && challenge.state === "OPEN" ? (
-		<HStack gap="3" flexWrap="wrap">
-			<p className={css({ fontSize: "sm", color: "fg.muted", flex: "1" })}>
-				Call every question before it locks. One you don't call counts as 0 for
-				you in every 1v1.
-			</p>
-			<Button
-				variant="outline"
-				size="sm"
-				onClick={() =>
-					openModal(<PostChallengeModal challengeId={challenge.id} />)
-				}
-			>
-				Post to a group
-			</Button>
-		</HStack>
-	) : null
-
 	return (
 		<VStack gap="6" alignItems="stretch" className={css({ paddingTop: "6" })}>
 			{me && (
@@ -189,7 +137,7 @@ function RouteComponent() {
 				isCreator={isCreator}
 				matchup={
 					game
-						? `${game.awayTeam.abbreviation} @ ${game.homeTeam.abbreviation}`
+						? matchupLabel(game)
 						: null
 				}
 				state={challenge.state}
@@ -217,7 +165,13 @@ function RouteComponent() {
 							}
 						: null
 				}
-				action={action}
+				action={
+					<ChallengeHeroAction
+						challenge={challenge}
+						isCreator={isCreator}
+						canAccept={canAccept}
+					/>
+				}
 				share={
 					<ChallengeShareRow
 						challengeId={challenge.id}
@@ -234,25 +188,10 @@ function RouteComponent() {
 			{/* The creator's page is their 1v1s: one row each, opening the
 			    question-by-question page for it. */}
 			{isCreator && (
-				<Card size="md">
-					<Card.Header>
-						<Eyebrow variant="neutral">
-							{`Your 1v1s · ${challenge.matchups.length}`}
-						</Eyebrow>
-					</Card.Header>
-					<Card.Body>
-						{challenge.matchups.length === 0 ? (
-							<EmptyState>
-								Nobody's taken it on yet. Anyone you send the link to can.
-							</EmptyState>
-						) : (
-							<MatchupList
-								code={challenge.code}
-								matchups={challenge.matchups}
-							/>
-						)}
-					</Card.Body>
-				</Card>
+				<ChallengeMatchupsCard
+					code={challenge.code}
+					matchups={challenge.matchups}
+				/>
 			)}
 
 			{game && <GameMatchupHeader game={game} />}
@@ -261,41 +200,7 @@ function RouteComponent() {
 				<GloatCard gloat={viewerMatchup.acceptorGloat} />
 			)}
 
-			<Card size="md">
-				<Card.Header>
-					<Eyebrow variant="neutral">
-						{isCreator
-							? "Your calls"
-							: viewerMatchup
-								? `Your 1v1 with @${creator.username}`
-								: `@${creator.username}'s calls`}
-					</Eyebrow>
-				</Card.Header>
-				<Card.Body className={css({ paddingBlock: "0" })}>
-					{challenge.entries.map((entry) => (
-						<ChallengeQuestionRow
-							key={entry.question.id}
-							entry={entry}
-							row={
-								viewerMatchup?.rows.find(
-									(r) => r.question.id === entry.question.id,
-								) ?? null
-							}
-							creatorLabel={isCreator ? "You" : `@${creator.username}`}
-							viewerSide={isCreator ? "creator" : "opponent"}
-							opponent={
-								isCreator
-									? null
-									: viewerMatchup
-										? { label: "You" }
-										: entry.question.viewerCall
-											? { label: "You", call: entry.question.viewerCall }
-											: null
-							}
-						/>
-					))}
-				</Card.Body>
-			</Card>
+			<ChallengeCallsCard challenge={challenge} isCreator={isCreator} />
 
 			{canAccept && (
 				<Link

@@ -1,4 +1,4 @@
-import { useRouteContext } from "@tanstack/react-router"
+import { useMe } from "#/hooks/use-me"
 
 // What a shared link points at, carried as utm_campaign so an inbound visit
 // lines up with the outbound *_link_shared event that sent it.
@@ -76,7 +76,7 @@ export function readShareLanding(href: string): {
 // Tags a url with the signed-in viewer as its sharer. A signed-out viewer
 // can still share a public page, and gets the utm tags without a ref.
 export function useTagShareUrl(campaign: ShareCampaign | undefined) {
-	const { me } = useRouteContext({ from: "__root__" })
+	const me = useMe()
 	return (url: string, method: ShareMethod) =>
 		campaign
 			? tagShareUrl(url, { campaign, method, sharerId: me?.id ?? null })

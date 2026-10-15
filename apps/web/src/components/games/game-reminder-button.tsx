@@ -4,12 +4,13 @@ import { css } from "styled-system/css"
 import { HStack } from "styled-system/jsx"
 import { match } from "ts-pattern"
 import { useGqlMutation } from "#/graphql/hooks"
+import { gqlQueryKey, gqlQueryOptions } from "#/graphql/query-options"
 import {
 	MutedEmailTypesDocument,
 	RemoveGameReminderDocument,
 	SetGameReminderDocument,
-} from "#/graphql/mutations/games"
-import { gqlQueryOptions } from "#/graphql/query-options"
+} from "#/graphql/sports/games/mutations"
+import { GameByIdDocument } from "#/graphql/sports/games/queries"
 import { useRequireAuth } from "#/hooks/use-require-auth"
 import { track } from "#/lib/analytics"
 import { showToast } from "#/stores/toast-store"
@@ -85,7 +86,9 @@ export function GameReminderButton({ gameId, hasReminder }: Props) {
 									"Reminder set. We'll email you an hour before the game starts, when lineups are usually out.",
 							},
 				)
-				await queryClient.invalidateQueries()
+				await queryClient.invalidateQueries({
+					queryKey: gqlQueryKey(GameByIdDocument, { id: gameId }),
+				})
 			})
 			.with({ __typename: "ValidationError" }, async (r) => {
 				showToast({ message: r.fieldErrors?.[0]?.message ?? FAILED })
@@ -111,7 +114,9 @@ export function GameReminderButton({ gameId, hasReminder }: Props) {
 			.with({ __typename: "Game" }, async () => {
 				track("game_reminder_removed", { gameId })
 				showToast({ message: "Reminder removed." })
-				await queryClient.invalidateQueries()
+				await queryClient.invalidateQueries({
+					queryKey: gqlQueryKey(GameByIdDocument, { id: gameId }),
+				})
 			})
 			.with({ __typename: "ValidationError" }, async (r) => {
 				showToast({ message: r.fieldErrors?.[0]?.message ?? FAILED })
@@ -131,10 +136,7 @@ export function GameReminderButton({ gameId, hasReminder }: Props) {
 			disabled={pending}
 			aria-pressed={hasReminder}
 			className={css({
-				fontFamily: "mono",
-				fontSize: "2xs",
-				letterSpacing: "wide",
-				textTransform: "uppercase",
+				textStyle: "label",
 				color: "primary.default",
 				bg: "transparent",
 				border: "none",

@@ -1,7 +1,8 @@
 import { css } from "styled-system/css"
+import { RecordStat } from "#/components/records/record-stat"
 import { type FragmentType, graphql, useFragment } from "#/graphql/generated"
 import { formatPayout } from "#/lib/call-summary"
-import { RecordStat } from "./call-record-card"
+import { formatSigned } from "#/lib/format-number"
 import { LockLine } from "./lock-line"
 
 export const CallPointsFragment = graphql(`
@@ -37,7 +38,7 @@ export function CallPoints({ call: callProp }: Props) {
 		if (call.unscoredReason || call.totalPoints === null) return null
 		return (
 			<RecordStat
-				value={`${call.totalPoints >= 0 ? "+" : "−"}${Math.abs(call.totalPoints)}`}
+				value={formatSigned(call.totalPoints, { zeroSign: true })}
 				label="Final"
 				tone={call.totalPoints >= 0 ? "success" : "danger"}
 			/>
@@ -51,8 +52,7 @@ export function CallPoints({ call: callProp }: Props) {
 	return (
 		<span
 			className={css({
-				fontFamily: "mono",
-				fontSize: "xs",
+				textStyle: "metaLg",
 				color: "fg.subtle",
 				whiteSpace: "nowrap",
 			})}

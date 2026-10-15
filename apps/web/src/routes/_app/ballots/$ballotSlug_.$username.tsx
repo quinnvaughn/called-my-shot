@@ -1,39 +1,31 @@
 import { useQuery, useSuspenseQuery } from "@tanstack/react-query"
-import { createFileRoute, Link, useRouteContext } from "@tanstack/react-router"
+import { createFileRoute } from "@tanstack/react-router"
 import { FaRegTimesCircle } from "react-icons/fa"
 import { css } from "styled-system/css"
 import { VStack } from "styled-system/jsx"
-import { BallotEntrySummaryCard } from "#/components/ballots/ballot-entry-summary-card"
-import {
-	BallotShareRow,
-	buildBallotTweet,
-} from "#/components/ballots/ballot-share-row"
+import { BallotEntryHeader } from "#/components/ballots/ballot-entry-header"
+import { BallotEntryStandings } from "#/components/ballots/ballot-entry-standings"
+import { BallotEntrySummary } from "#/components/ballots/ballot-entry-summary"
 import { EntryCallList } from "#/components/ballots/entry-call-list"
-import { ProjectedStandings } from "#/components/ballots/projected-standings"
-import { arrowLink } from "#/components/ui/arrow-link"
-import { Breadcrumb } from "#/components/ui/breadcrumb"
 import { NotFound } from "#/components/ui/not-found"
-import { PageHeader } from "#/components/ui/page-header"
 import { Tabs } from "#/components/ui/tabs"
-import { Tag } from "#/components/ui/tag"
-import { BallotEntryDocument } from "#/graphql/queries/ballots"
-import { GroupCrumbDocument } from "#/graphql/queries/groups"
+import { BallotEntryDocument } from "#/graphql/ballots/queries"
+import { groupCrumbQuery } from "#/graphql/groups/queries"
 import { gqlQueryOptions } from "#/graphql/query-options"
+import { useMe } from "#/hooks/use-me"
 import {
 	ballotEntryPath,
-	formatRecord,
-	formatSignedPoints,
-	validateBallotEntrySearch,
+	ballotEntrySearchSchema,
+	picksVersion,
 } from "#/lib/ballot-entry"
+import { formatSigned } from "#/lib/format-number"
+import { formatRecord } from "#/lib/game-status"
 import { pageMeta } from "#/lib/meta"
 import { standingsTeams } from "#/lib/projected-standings"
 import { questionDetailState } from "#/lib/question-detail-state"
 
 const ballotEntryQuery = (ref: string, username: string) =>
 	gqlQueryOptions(BallotEntryDocument, { ref, username })
-
-const groupCrumbQuery = (groupId: string) =>
-	gqlQueryOptions(GroupCrumbDocument, { groupId })
 
 // Public, like the ballot page and /calls/:id - this url exists to be pasted
 // somewhere. Not a child of /ballots/$ballotSlug (that page has no outlet),
@@ -42,7 +34,7 @@ const groupCrumbQuery = (groupId: string) =>
 export const Route = createFileRoute("/_app/ballots/$ballotSlug_/$username")({
 	component: RouteComponent,
 	staleTime: 0,
-	validateSearch: validateBallotEntrySearch,
+	validateSearch: ballotEntrySearchSchema,
 	loaderDeps: ({ search }) => ({ group: search.group }),
 	loader: async ({ context, params, deps }) => {
 		const [data] = await Promise.all([
@@ -65,7 +57,7 @@ export const Route = createFileRoute("/_app/ballots/$ballotSlug_/$username")({
 			entry.wins + entry.losses > 0
 				? [
 						formatRecord(entry.wins, entry.losses),
-						`${formatSignedPoints(entry.points)} pts`,
+						`${formatSigned(entry.points, { zeroSign: true })} pts`,
 					]
 				: []
 
@@ -92,24 +84,6 @@ export const Route = createFileRoute("/_app/ballots/$ballotSlug_/$username")({
 	},
 })
 
-// A short fingerprint of every pick's number and tie order, for the card
-// url's version param above.
-function picksVersion(
-	members: {
-		call: { guessValue?: number | null } | null
-		tiebreakPosition?: number | null
-	}[],
-): string {
-	let hash = 0
-	for (const m of members) {
-		const part = `${m.call?.guessValue ?? ""}:${m.tiebreakPosition ?? ""};`
-		for (const char of part) {
-			hash = (hash * 31 + char.charCodeAt(0)) >>> 0
-		}
-	}
-	return hash.toString(36)
-}
-
 function RouteComponent() {
 	const { ballotSlug, username } = Route.useParams()
 	const { view, group: groupId } = Route.useSearch()
@@ -122,7 +96,7 @@ function RouteComponent() {
 		enabled: groupId !== undefined,
 	})
 	const crumbGroup = groupId ? (crumbData?.group ?? null) : null
-	const { me } = useRouteContext({ from: "__root__" })
+	const me = useMe()
 	const ballot = data.ballot
 
 	if (!ballot) {
@@ -183,104 +157,13 @@ function RouteComponent() {
 
 	return (
 		<VStack gap="6" alignItems="stretch" className={css({ maxWidth: "2xl" })}>
-			<Breadcrumb>
-				{crumbGroup ? (
-					<>
-						<Breadcrumb.Link
-							to="/groups/$groupId"
-							params={{ groupId: crumbGroup.id }}
-						>
-							{crumbGroup.name}
-						</Breadcrumb.Link>
-						<Breadcrumb.Link
-							to="/groups/$groupId/ballots/$ballotSlug"
-							params={{ groupId: crumbGroup.id, ballotSlug: ballot.slug }}
-						>
-							{ballot.name}
-						</Breadcrumb.Link>
-					</>
-				) : (
-					<>
-						<Breadcrumb.Link
-							to="/leagues/$leagueSlug"
-							params={{ leagueSlug: ballot.league.slug }}
-						>
-							{ballot.league.abbreviation}
-						</Breadcrumb.Link>
-						<Breadcrumb.Link
-							to="/leagues/$leagueSlug/ballots"
-							params={{ leagueSlug: ballot.league.slug }}
-						>
-							Ballots
-						</Breadcrumb.Link>
-						<Breadcrumb.Link
-							to="/ballots/$ballotSlug"
-							params={{ ballotSlug: ballot.slug }}
-						>
-							{ballot.name}
-						</Breadcrumb.Link>
-					</>
-				)}
-				<Breadcrumb.Current>@{entry.user.username}</Breadcrumb.Current>
-			</Breadcrumb>
-
-			<VStack gap="2" alignItems="flex-start">
-				<Tag>{ballot.league.abbreviation}</Tag>
-				<PageHeader
-					title={ballot.name}
-					subtitle={`${entry.user.name}'s picks`}
-				/>
-			</VStack>
-
-			<BallotEntrySummaryCard
-				person={entry.user}
-				calledCount={entry.calledCount}
-				memberCount={ballot.memberCount}
-				wins={entry.wins}
-				losses={entry.losses}
-				points={entry.points}
-				isOpen={entry.members.some(
-					(m) => questionDetailState(m.member.question).canCall,
-				)}
-				footer={
-					<>
-						<Link
-							to="/ballots/$ballotSlug"
-							params={{ ballotSlug: ballot.slug }}
-							className={css({
-								fontFamily: "mono",
-								fontSize: "2xs",
-								letterSpacing: "wide",
-								textTransform: "uppercase",
-								color: "primary.default",
-								textDecoration: "none",
-								_hover: { opacity: 0.8 },
-							})}
-						>
-							{isOwn ? "Back to the ballot →" : "Fill out your own ballot →"}
-						</Link>
-						<BallotShareRow
-							ballotId={ballot.id}
-							ballotSlug={ballot.slug}
-							username={entry.user.username}
-							shareTitle={`@${entry.user.username}'s ${ballot.name} ballot`}
-							surface="entry_page"
-							layout="icons"
-							tweetText={buildBallotTweet({
-								ballotName: ballot.name,
-								calledCount: entry.calledCount,
-								memberCount: ballot.memberCount,
-								wins: entry.wins,
-								losses: entry.losses,
-								points: entry.points,
-								...(isOwn
-									? ({ isOwn: true } as const)
-									: ({ isOwn: false, username: entry.user.username } as const)),
-							})}
-						/>
-					</>
-				}
+			<BallotEntryHeader
+				ballot={ballot}
+				entry={entry}
+				crumbGroup={crumbGroup}
 			/>
+
+			<BallotEntrySummary ballot={ballot} entry={entry} isOwn={isOwn} />
 			{showStandings && (
 				<Tabs
 					value={tab}
@@ -303,53 +186,12 @@ function RouteComponent() {
 			)}
 
 			{tab === "standings" && teams && gamesPerSeason ? (
-				<ProjectedStandings
-					leagueSlug={ballot.league.slug}
-					leagueAbbreviation={ballot.league.abbreviation}
-					gamesPerSeason={gamesPerSeason}
+				<BallotEntryStandings
+					ballot={ballot}
+					entry={entry}
 					teams={teams}
-					reorderableQuestionIds={
-						new Set(
-							isOwn
-								? entry.members
-										.filter(
-											(m) =>
-												m.call &&
-												questionDetailState(m.member.question).canCall,
-										)
-										.map((m) => m.member.question.id)
-								: [],
-						)
-					}
-					ownerLabel={isOwn ? "Your picks" : `@${entry.user.username}'s picks`}
-					// The page others are sent to stays a clean view of the
-					// standings, owner included; ties get ordered on the ballot.
-					editing={null}
-					orderElsewhere={
-						<Link
-							to="/ballots/$ballotSlug"
-							params={{ ballotSlug: ballot.slug }}
-							search={{ view: "standings" }}
-							className={arrowLink({ tone: "primary" })}
-						>
-							Order your tied teams on the ballot →
-						</Link>
-					}
-					rebalanceElsewhere={
-						isOwn &&
-						entry.members.every((m) =>
-							questionDetailState(m.member.question).canCall,
-						) && (
-							<Link
-								to="/ballots/$ballotSlug"
-								params={{ ballotSlug: ballot.slug }}
-								search={{ view: "standings" }}
-								className={arrowLink({ tone: "primary" })}
-							>
-								Rebalance on the ballot →
-							</Link>
-						)
-					}
+					gamesPerSeason={gamesPerSeason}
+					isOwn={isOwn}
 				/>
 			) : (
 				<EntryCallList

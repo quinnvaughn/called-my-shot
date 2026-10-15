@@ -1,7 +1,8 @@
-import { Fragment } from "react"
-import { css } from "styled-system/css"
-import { formatRecord, formatSignedPoints } from "#/lib/ballot-entry"
-import { formatReturn, returnTone } from "#/lib/report-card"
+import { css, cx } from "styled-system/css"
+import { signTone } from "#/components/ui/sign-tone"
+import { formatSigned } from "#/lib/format-number"
+import { formatRecord } from "#/lib/game-status"
+import { formatReturn } from "#/lib/report-card"
 
 export type ReportCardRowData = {
 	label: string
@@ -52,8 +53,7 @@ export function ReportCardRow({ row, nested = false }: Props) {
 			</span>
 			<span
 				className={css({
-					fontFamily: "mono",
-					fontSize: "2xs",
+					textStyle: "meta",
 					whiteSpace: "nowrap",
 					// On narrow screens the record starts the numbers line, so it
 					// sits flush under its label (indented with it on a shape row)
@@ -67,8 +67,7 @@ export function ReportCardRow({ row, nested = false }: Props) {
 			</span>
 			<span
 				className={css({
-					fontFamily: "mono",
-					fontSize: "2xs",
+					textStyle: "meta",
 					whiteSpace: "nowrap",
 					color: "fg.muted",
 				})}
@@ -76,127 +75,29 @@ export function ReportCardRow({ row, nested = false }: Props) {
 				{row.pendingCount > 0 ? `${row.pendingCount} open` : ""}
 			</span>
 			<span
-				className={css({
-					fontFamily: "mono",
-					fontSize: "2xs",
-					whiteSpace: "nowrap",
-					textAlign: "right",
-					color: returnTone(row.netPoints),
-				})}
+				className={cx(
+					css({
+						textStyle: "meta",
+						whiteSpace: "nowrap",
+						textAlign: "right",
+					}),
+					signTone(row.netPoints),
+				)}
 			>
-				{settled > 0 ? formatSignedPoints(row.netPoints) : ""}
+				{settled > 0 ? formatSigned(row.netPoints, { zeroSign: true }) : ""}
 			</span>
 			<span
-				className={css({
-					fontFamily: "mono",
-					fontSize: "2xs",
-					whiteSpace: "nowrap",
-					textAlign: "right",
-					color: returnTone(row.returnPct),
-				})}
+				className={cx(
+					css({
+						textStyle: "meta",
+						whiteSpace: "nowrap",
+						textAlign: "right",
+					}),
+					signTone(row.returnPct),
+				)}
 			>
 				{settled > 0 ? returnText : ""}
 			</span>
-		</div>
-	)
-}
-
-export type ReportCardBonusRowData = { label: string; points: number }
-
-// Points earned on top of the calls, sitting in the points column so the
-// breakdown still adds up to the NET POINTS tile. No record or return: a
-// bonus has neither.
-function ReportCardBonusRow({ row }: { row: ReportCardBonusRowData }) {
-	return (
-		<div
-			className={css({
-				gridColumn: "1 / -1",
-				display: "grid",
-				gridTemplateColumns: "subgrid",
-				alignItems: "baseline",
-				rowGap: "0.5",
-				paddingY: "1.5",
-			})}
-		>
-			<span
-				className={css({
-					gridColumn: { base: "1 / -1", sm: "1" },
-					fontSize: "sm",
-					fontWeight: "medium",
-					color: "fg.default",
-				})}
-			>
-				{row.label}
-			</span>
-			<span />
-			<span />
-			<span
-				className={css({
-					fontFamily: "mono",
-					fontSize: "2xs",
-					whiteSpace: "nowrap",
-					textAlign: "right",
-					color: returnTone(row.points),
-				})}
-			>
-				{formatSignedPoints(row.points)}
-			</span>
-			<span />
-		</div>
-	)
-}
-
-// The breakdown as a whole. On the inline card every row is a family. On the
-// permalink each family is followed by every shape inside it, so the rows
-// stay at one predictable grain. Bonuses close it out.
-export function ReportCardBreakdown({
-	families,
-	shapesByFamily,
-	bonuses = [],
-}: {
-	families: (ReportCardRowData & { family: string })[]
-	// Omitted on the inline card, which stays at family grain. Supplied on the
-	// permalink, where there's room for the finer read.
-	shapesByFamily?: Record<string, ReportCardRowData[]>
-	bonuses?: ReportCardBonusRowData[]
-}) {
-	if (families.length === 0) return null
-	return (
-		<div
-			className={css({
-				display: "grid",
-				// Label on its own line above the numbers on narrow screens, so
-				// the numbers take the first four columns; from sm up the label
-				// fills the left and the numbers hug the right.
-				gridTemplateColumns: {
-					base: "auto auto auto auto 1fr",
-					sm: "1fr auto auto auto auto",
-				},
-				columnGap: "3",
-				borderTop: "1px solid {colors.border.default}",
-				paddingTop: "2",
-			})}
-		>
-			{families.map((family) => {
-				const shapes = shapesByFamily?.[family.family] ?? []
-				return (
-					<Fragment key={family.family}>
-						<ReportCardRow row={family} />
-						{/* Every shape, including a family that holds only one.
-						    Repeating the parent's numbers there is the point: it
-						    says the family IS that shape, which is information the
-						    family row alone doesn't carry. Suppressing it made a
-						    page where one family split and three didn't read as
-						    arbitrary. */}
-						{shapes.map((shape) => (
-							<ReportCardRow key={shape.label} row={shape} nested />
-						))}
-					</Fragment>
-				)
-			})}
-			{bonuses.map((bonus) => (
-				<ReportCardBonusRow key={bonus.label} row={bonus} />
-			))}
 		</div>
 	)
 }

@@ -65,10 +65,7 @@ export function StreaksSection({
 		const best = (
 			<span
 				className={css({
-					fontFamily: "mono",
-					fontSize: "2xs",
-					letterSpacing: "wide",
-					textTransform: "uppercase",
+					textStyle: "label",
 					color: "fg.subtle",
 				})}
 			>
@@ -78,8 +75,7 @@ export function StreaksSection({
 		const nudgeLine = nudge && (
 			<span
 				className={css({
-					fontFamily: "mono",
-					fontSize: "2xs",
+					textStyle: "meta",
 					color: "secondary.default",
 				})}
 			>

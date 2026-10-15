@@ -1,7 +1,6 @@
 import { ClientOnly } from "@tanstack/react-router"
-import { type ReactNode, useState } from "react"
+import { useState } from "react"
 import { FiCheck, FiLink, FiShare } from "react-icons/fi"
-import { css } from "styled-system/css"
 import { HStack } from "styled-system/jsx"
 import { PostOnXLink } from "#/components/ui/post-on-x-link"
 import {
@@ -9,6 +8,7 @@ import {
 	type ShareMethod,
 	useTagShareUrl,
 } from "#/lib/share-links"
+import { IconButton, iconButtonClass } from "./icon-button"
 
 type Props = {
 	url: string
@@ -19,20 +19,6 @@ type Props = {
 	shareTitle: string
 	onShared: (method: ShareMethod) => void
 }
-
-const iconButtonClass = css({
-	display: "inline-flex",
-	alignItems: "center",
-	justifyContent: "center",
-	width: { base: "11", sm: "9" },
-	height: { base: "11", sm: "9" },
-	borderRadius: "md",
-	border: "1px solid {colors.border.default}",
-	color: "fg.default",
-	cursor: "pointer",
-	transition: "background-color 0.15s ease",
-	_hover: { backgroundColor: "bg.subtle" },
-})
 
 // Copy, native share and Post on X as one row of icon buttons, for a card
 // footer where sharing is one thing among several.
@@ -93,27 +79,5 @@ export function ShareIconRow({
 				/>
 			)}
 		</HStack>
-	)
-}
-
-function IconButton({
-	label,
-	onClick,
-	children,
-}: {
-	label: string
-	onClick: () => void
-	children: ReactNode
-}) {
-	return (
-		<button
-			type="button"
-			aria-label={label}
-			title={label}
-			onClick={onClick}
-			className={iconButtonClass}
-		>
-			{children}
-		</button>
 	)
 }

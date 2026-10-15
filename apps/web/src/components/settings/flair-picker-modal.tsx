@@ -5,17 +5,17 @@ import { css } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
 import { match } from "ts-pattern"
 import { Button } from "#/components/ui/button"
-import { FlairOption } from "#/components/ui/flair"
+import { FlairOption } from "#/components/ui/flair-option"
 import { FormError } from "#/components/ui/form-error"
 import { Modal } from "#/components/ui/modal"
 import { Tabs } from "#/components/ui/tabs"
 import { TextInput } from "#/components/ui/text-input"
-import { useGqlMutation } from "#/graphql/hooks"
 import {
 	EquipFlairDocument,
 	UnequipFlairDocument,
-} from "#/graphql/mutations/flairs"
-import { MyFlairsDocument } from "#/graphql/queries/flairs"
+} from "#/graphql/flairs/mutations"
+import { MyFlairsDocument } from "#/graphql/flairs/queries"
+import { useGqlMutation } from "#/graphql/hooks"
 import { gqlQueryOptions } from "#/graphql/query-options"
 import { toFlair } from "#/lib/identity"
 import { closeModal } from "#/stores/modal-store"
@@ -155,6 +155,8 @@ export function FlairPickerModal({ equippedFlairId }: Props) {
 
 		await match(result)
 			.with({ __typename: "User" }, async () => {
+				// The equipped flair shows beside the viewer's name on nearly
+				// every page.
 				await queryClient.invalidateQueries()
 				await router.invalidate()
 				closeModal()
@@ -176,6 +178,8 @@ export function FlairPickerModal({ equippedFlairId }: Props) {
 		setError(null)
 		await unequip.mutateAsync(undefined)
 		setSaving(false)
+		// The equipped flair shows beside the viewer's name on nearly every
+		// page.
 		await queryClient.invalidateQueries()
 		await router.invalidate()
 		closeModal()

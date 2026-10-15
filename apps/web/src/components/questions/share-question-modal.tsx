@@ -1,25 +1,26 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { useState } from "react"
 import { css } from "styled-system/css"
-import { HStack, VStack } from "styled-system/jsx"
+import { VStack } from "styled-system/jsx"
 import { match } from "ts-pattern"
-import { Button } from "#/components/ui/button"
+import { GroupShareRow } from "#/components/questions/group-share-row"
 import { CopyLinkRow } from "#/components/ui/copy-link-row"
 import { FormError } from "#/components/ui/form-error"
-import { GroupLogo } from "#/components/ui/group-logo"
 import { Modal } from "#/components/ui/modal"
+import { ApiError } from "#/graphql/api-error"
 import { graphql } from "#/graphql/generated"
-import { useGqlMutation } from "#/graphql/hooks"
+import { SharedQuestionsDocument } from "#/graphql/generated/graphql"
 import {
+	invalidateGroupBoards,
 	PinQuestionToGroupDocument,
 	ShareQuestionToGroupDocument,
 	UnpinQuestionFromGroupDocument,
-} from "#/graphql/mutations/groups"
-import { questionDetailQuery } from "#/graphql/queries/question"
-import { gqlQueryOptions } from "#/graphql/query-options"
+} from "#/graphql/groups/mutations"
+import { useGqlMutation } from "#/graphql/hooks"
+import { gqlQueryKey, gqlQueryOptions } from "#/graphql/query-options"
+import { questionDetailQuery } from "#/graphql/questions/queries"
 import { track } from "#/lib/analytics"
 import { SITE_HOST, SITE_ORIGIN } from "#/lib/meta"
-import { pluralize } from "#/lib/pluralize"
 import { questionPath } from "#/lib/slug"
 
 // Deliberately not MyGroupsDocument - that one spreads GroupCard_group, which
@@ -43,14 +44,6 @@ const ShareTargetGroupsDocument = graphql(`
 // staleTime keeps reopening the sheet off the network entirely.
 const shareTargetGroupsQuery = () =>
 	gqlQueryOptions(ShareTargetGroupsDocument, {}, { staleTime: 5 * 60_000 })
-
-const labelClass = css({
-	fontFamily: "mono",
-	fontSize: "2xs",
-	letterSpacing: "wide",
-	textTransform: "uppercase",
-	color: "fg.subtle",
-})
 
 type Props = {
 	questionId: string
@@ -125,38 +118,25 @@ export function ShareQuestionModal({
 				.with({ __typename: "QuestionSharePayload" }, async () => {
 					track("question_shared_to_group", { questionId, groupId })
 					setShared((current) => new Set(current).add(groupId))
-					// Scoped to the three operations a new share actually changes,
-					// rather than a bare invalidateQueries() refetching the entire
-					// cache after every share.
-					await Promise.all([
-						queryClient.invalidateQueries({ queryKey: ["SharedQuestions"] }),
-						queryClient.invalidateQueries({ queryKey: ["GroupHome"] }),
-						queryClient.invalidateQueries({
-							queryKey: questionDetailQuery(questionId).queryKey,
-						}),
-					])
+					await refreshGroup(groupId)
 				})
-				.with(
-					{ __typename: "AuthenticationError" },
-					{ __typename: "AuthorizationError" },
-					{ __typename: "NotFoundError" },
-					{ __typename: "ValidationError" },
-					async (r) => {
-						setError(r.message)
-					},
-				)
+				.with(ApiError, { __typename: "ValidationError" }, async (r) => {
+					setError(r.message)
+				})
 				.exhaustive()
 		} finally {
 			setPendingGroupId(null)
 		}
 	}
 
-	// A pin also shares, so both land in the group's feeds and settings.
-	async function refreshAfterPin() {
+	// A share lands in the group's feeds and on this question's page. A pin
+	// also shares, and shows in the group's settings too.
+	async function refreshGroup(groupId: string) {
 		await Promise.all([
-			queryClient.invalidateQueries({ queryKey: ["SharedQuestions"] }),
-			queryClient.invalidateQueries({ queryKey: ["GroupHome"] }),
-			queryClient.invalidateQueries({ queryKey: ["GroupSettings"] }),
+			invalidateGroupBoards(queryClient, groupId),
+			queryClient.invalidateQueries({
+				queryKey: gqlQueryKey(SharedQuestionsDocument, { groupId }),
+			}),
 			queryClient.invalidateQueries({
 				queryKey: questionDetailQuery(questionId).queryKey,
 			}),
@@ -188,17 +168,11 @@ export function ShareQuestionModal({
 					if (!unpinning) {
 						setShared((current) => new Set(current).add(groupId))
 					}
-					await refreshAfterPin()
+					await refreshGroup(groupId)
 				})
-				.with(
-					{ __typename: "AuthenticationError" },
-					{ __typename: "AuthorizationError" },
-					{ __typename: "NotFoundError" },
-					{ __typename: "ValidationError" },
-					async (r) => {
-						setError(r.message)
-					},
-				)
+				.with(ApiError, { __typename: "ValidationError" }, async (r) => {
+					setError(r.message)
+				})
 				.exhaustive()
 		} finally {
 			setPendingGroupId(null)
@@ -211,7 +185,9 @@ export function ShareQuestionModal({
 			<Modal.Title>Share this question</Modal.Title>
 			<VStack gap="5" alignItems="stretch">
 				<VStack gap="2" alignItems="stretch">
-					<span className={labelClass}>Link</span>
+					<span className={css({ textStyle: "label", color: "fg.subtle" })}>
+						Link
+					</span>
 					<CopyLinkRow
 						url={SITE_ORIGIN + sharePath}
 						campaign="question"
@@ -228,12 +204,13 @@ export function ShareQuestionModal({
 
 				{canShareToGroup && (
 					<VStack gap="2" alignItems="stretch">
-						<span className={labelClass}>Share to a group</span>
+						<span className={css({ textStyle: "label", color: "fg.subtle" })}>
+							Share to a group
+						</span>
 						{isLoading ? (
 							<span
 								className={css({
-									fontFamily: "mono",
-									fontSize: "xs",
+									textStyle: "metaLg",
 									color: "fg.subtle",
 								})}
 							>
@@ -242,8 +219,7 @@ export function ShareQuestionModal({
 						) : groups.length === 0 ? (
 							<span
 								className={css({
-									fontFamily: "mono",
-									fontSize: "xs",
+									textStyle: "metaLg",
 									color: "fg.subtle",
 								})}
 							>
@@ -281,104 +257,5 @@ export function ShareQuestionModal({
 				<FormError message={error} />
 			</VStack>
 		</Modal>
-	)
-}
-
-function GroupShareRow({
-	name,
-	logoUrl,
-	memberCount,
-	alreadyShared,
-	pending,
-	disabled,
-	onShare,
-	pin,
-}: {
-	name: string
-	logoUrl: string | null
-	memberCount: number
-	alreadyShared: boolean
-	pending: boolean
-	disabled: boolean
-	onShare: () => void
-	// Admins only: pins the question to the top of the group page, or
-	// unpins it.
-	pin: { pinned: boolean; onToggle: () => void } | null
-}) {
-	return (
-		<HStack
-			justify="space-between"
-			gap="3"
-			className={css({
-				paddingBlock: "2.5",
-				borderBottom: "1px solid {colors.border.default}",
-				_last: { borderBottom: "none" },
-			})}
-		>
-			<HStack gap="2.5" alignItems="center" minWidth="0">
-				<GroupLogo size="sm" name={name} src={logoUrl} />
-				<VStack
-					gap="0.5"
-					alignItems="flex-start"
-					className={css({ minWidth: 0 })}
-				>
-					<span
-						className={css({
-							fontSize: "sm",
-							overflow: "hidden",
-							textOverflow: "ellipsis",
-							whiteSpace: "nowrap",
-							maxWidth: "full",
-						})}
-					>
-						{name}
-					</span>
-					<span
-						className={css({
-							fontFamily: "mono",
-							fontSize: "2xs",
-							color: "fg.subtle",
-						})}
-					>
-						{memberCount} {pluralize(memberCount, "member")}
-					</span>
-				</VStack>
-			</HStack>
-			<HStack gap="2" flexShrink="0">
-				{pin && (
-					<Button
-						variant={pin.pinned ? "ghost" : "outline"}
-						size="sm"
-						disabled={disabled}
-						onClick={pin.onToggle}
-					>
-						{pin.pinned ? "Unpin" : "Pin"}
-					</Button>
-				)}
-				{alreadyShared ? (
-					<span
-						className={css({
-							fontFamily: "mono",
-							fontSize: "2xs",
-							letterSpacing: "wide",
-							color: "success.default",
-							whiteSpace: "nowrap",
-						})}
-					>
-						✓ Shared
-					</span>
-				) : (
-					<Button
-						variant="outline"
-						size="sm"
-						loading={pending}
-						disabled={disabled}
-						onClick={onShare}
-					>
-						Share
-					</Button>
-				)}
-			</HStack>
-		</HStack>
 	)
 }

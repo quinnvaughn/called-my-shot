@@ -3,11 +3,8 @@ import { css, cx } from "styled-system/css"
 import { RequiredMark } from "./required-mark"
 
 const labelStyle = css({
-	fontFamily: "mono",
-	fontSize: "2xs",
-	letterSpacing: "wide",
+	textStyle: "label",
 	color: "fg.subtle",
-	textTransform: "uppercase",
 })
 
 type Props = {

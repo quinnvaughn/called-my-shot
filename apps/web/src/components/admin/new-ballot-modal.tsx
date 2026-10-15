@@ -1,5 +1,5 @@
 import { createBallotSchema } from "@called-my-shot/schemas"
-import { useQuery } from "@tanstack/react-query"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "@tanstack/react-router"
 import { useState } from "react"
 import { VStack } from "styled-system/jsx"
@@ -13,14 +13,18 @@ import { FieldLabel } from "#/components/ui/field-label"
 import { FormError } from "#/components/ui/form-error"
 import { Modal } from "#/components/ui/modal"
 import { TextInput } from "#/components/ui/text-input"
+import {
+	CreateBallotDocument,
+	invalidateBallots,
+} from "#/graphql/ballots/mutations"
 import { useGqlMutation } from "#/graphql/hooks"
-import { CreateBallotDocument } from "#/graphql/mutations/ballots"
-import { SportsDocument } from "#/graphql/queries/sports"
 import { gqlQueryOptions } from "#/graphql/query-options"
+import { SportsDocument } from "#/graphql/sports/catalog/queries"
 import { useForm } from "#/lib/form/use-form"
 import { closeModal } from "#/stores/modal-store"
 
 export function NewBallotModal() {
+	const queryClient = useQueryClient()
 	const { data: sportsData } = useQuery(gqlQueryOptions(SportsDocument, {}))
 	const createBallot = useGqlMutation(CreateBallotDocument)
 	const navigate = useNavigate()
@@ -57,6 +61,7 @@ export function NewBallotModal() {
 				})
 				.with({ __typename: "BallotPayload" }, async (r) => {
 					closeModal()
+					await invalidateBallots(queryClient)
 					await navigate({
 						to: "/admin/ballots/$ballotId",
 						params: { ballotId: r.ballot.id },

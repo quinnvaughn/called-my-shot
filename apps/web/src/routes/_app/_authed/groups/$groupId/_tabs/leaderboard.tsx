@@ -1,5 +1,5 @@
 import { useSuspenseQuery } from "@tanstack/react-query"
-import { createFileRoute, useRouteContext } from "@tanstack/react-router"
+import { createFileRoute } from "@tanstack/react-router"
 import { VStack } from "styled-system/jsx"
 import { GroupHighlights } from "#/components/groups/group-highlights"
 import {
@@ -8,10 +8,11 @@ import {
 } from "#/components/groups/group-leaderboard"
 import { GroupLeaguesDocument } from "#/graphql/generated/graphql"
 import { gqlQueryOptions } from "#/graphql/query-options"
+import { useMe } from "#/hooks/use-me"
 import {
 	type FilterLeague,
+	leaderboardSearchSchema,
 	resolveLeaderboardFilter,
-	validateLeaderboardSearch,
 } from "#/lib/leaderboard-filter"
 import { groupShellQuery } from "../_tabs"
 
@@ -41,7 +42,7 @@ export const Route = createFileRoute(
 	"/_app/_authed/groups/$groupId/_tabs/leaderboard",
 )({
 	component: RouteComponent,
-	validateSearch: validateLeaderboardSearch,
+	validateSearch: leaderboardSearchSchema,
 	loaderDeps: ({ search }) => ({
 		league: search.league,
 		season: search.season,
@@ -78,7 +79,7 @@ function RouteComponent() {
 	const search = Route.useSearch()
 	const navigate = Route.useNavigate()
 	const { leagues } = Route.useRouteContext()
-	const { me } = useRouteContext({ from: "__root__" })
+	const me = useMe()
 	const { data: trackedData } = useSuspenseQuery(groupLeaguesQuery(groupId))
 	const { data: shell } = useSuspenseQuery(groupShellQuery(groupId))
 	const scope = groupLeagueScope(

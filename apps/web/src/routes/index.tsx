@@ -25,7 +25,7 @@ import { Badge } from "#/components/ui/badge"
 import { Button } from "#/components/ui/button"
 import { Card } from "#/components/ui/card"
 import { Eyebrow } from "#/components/ui/eyebrow"
-import { LandingPageDocument } from "#/graphql/queries/landing-page"
+import { LandingPageDocument } from "#/graphql/landing-page/queries"
 import { gqlQueryOptions } from "#/graphql/query-options"
 import { openModal } from "#/stores/modal-store"
 
@@ -174,8 +174,7 @@ function Home() {
 								<p
 									className={css({
 										color: "fg.subtle",
-										fontFamily: "mono",
-										fontSize: "xs",
+										textStyle: "metaLg",
 									})}
 								>
 									free · no money, ever · takes 30 seconds

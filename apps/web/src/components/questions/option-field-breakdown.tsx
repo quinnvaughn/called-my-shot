@@ -140,11 +140,8 @@ export function OptionFieldBreakdown({
 			)}
 			<span
 				className={css({
-					fontFamily: "mono",
-					fontSize: "3xs",
-					letterSpacing: "wide",
+					textStyle: "labelSm",
 					color: "fg.subtle",
-					textTransform: "uppercase",
 					textAlign: "center",
 				})}
 			>

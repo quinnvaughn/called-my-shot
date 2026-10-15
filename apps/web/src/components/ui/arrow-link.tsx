@@ -9,11 +9,7 @@ import { cva } from "styled-system/css"
 // through the underline rather than through color.
 export const arrowLink = cva({
 	base: {
-		alignSelf: "flex-start",
-		fontFamily: "mono",
-		fontSize: "2xs",
-		letterSpacing: "wide",
-		textTransform: "uppercase",
+		textStyle: "label",
 		cursor: "pointer",
 		textUnderlineOffset: "3px",
 	},
@@ -30,6 +26,13 @@ export const arrowLink = cva({
 				_hover: { color: "fg.default" },
 			},
 		},
+		// `start` hugs the text on a line of its own in a column; `parent`
+		// leaves it to the container, for a link sitting in a row beside other
+		// controls or in a centered stack.
+		align: {
+			start: { alignSelf: "flex-start" },
+			parent: { alignSelf: "auto" },
+		},
 	},
-	defaultVariants: { tone: "primary" },
+	defaultVariants: { tone: "primary", align: "start" },
 })

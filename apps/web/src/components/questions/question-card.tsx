@@ -212,8 +212,7 @@ export function QuestionCard({
 							>
 								<span
 									className={css({
-										fontFamily: "mono",
-										fontSize: "3xs",
+										textStyle: "metaSm",
 										color: "fg.subtle",
 									})}
 								>
@@ -229,8 +228,7 @@ export function QuestionCard({
 								) : (
 									<span
 										className={css({
-											fontFamily: "mono",
-											fontSize: "3xs",
+											textStyle: "metaSm",
 											color: "fg.subtle",
 											whiteSpace: "nowrap",
 										})}

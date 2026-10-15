@@ -5,7 +5,7 @@ import { HStack, VStack } from "styled-system/jsx"
 import { EmptyState } from "#/components/ui/empty-state"
 import { PageHeader } from "#/components/ui/page-header"
 import { Table } from "#/components/ui/table"
-import { AdminGifHealthDocument } from "#/graphql/queries/gifs"
+import { AdminGifHealthDocument } from "#/graphql/gifs/queries"
 import { gqlQueryOptions } from "#/graphql/query-options"
 
 export const Route = createFileRoute("/admin/gifs")({
@@ -98,8 +98,7 @@ function RouteComponent() {
 										target="_blank"
 										rel="noreferrer"
 										className={css({
-											fontFamily: "mono",
-											fontSize: "2xs",
+											textStyle: "meta",
 											color: "fg.subtle",
 											_hover: { color: "fg.default" },
 										})}

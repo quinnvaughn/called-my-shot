@@ -9,7 +9,7 @@ import {
 	MarkNotificationsReadDocument,
 	notificationsQuery,
 	unreadNotificationCountQuery,
-} from "#/graphql/queries/notifications"
+} from "#/graphql/notifications/queries"
 import { NotificationRow } from "./notification-row"
 
 // How long to wait after a row is seen (see NotificationShell) before

@@ -2,30 +2,17 @@ import type { ReactNode } from "react"
 import { css } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
 import { Eyebrow } from "#/components/ui/eyebrow"
+import { LiveDot } from "#/components/ui/live-dot"
 import { Tag } from "#/components/ui/tag"
-import { TeamBadge } from "#/components/ui/team-badge"
 import type { FragmentType } from "#/graphql/generated"
 import type { GameStatus } from "#/graphql/generated/graphql"
-import {
-	formatTeamRecord,
-	gameScoreLabel,
-	gameStartLabel,
-} from "#/lib/game-status"
+import { gameScoreLabel, gameStartLabel } from "#/lib/game-status"
 import { postseasonHeading, seriesStakesLabel } from "#/lib/postseason"
-import { GameStarters, type GameStartersFragment } from "./game-starters"
-
-type TeamRecord = {
-	wins: number
-	losses: number
-	ties: number
-	otLosses?: number | null
-} | null
-type Team = {
-	name: string
-	abbreviation: string
-	color: string
-	logoUrl?: string | null
-}
+import {
+	GameStarters,
+	type GameStartersFragment,
+} from "./game-starters/game-starters"
+import { type Team, TeamLine, type TeamRecord } from "./team-line"
 
 type Props = {
 	game: {
@@ -68,33 +55,6 @@ type Props = {
 	startAction?: ReactNode
 }
 
-// maxWidth is what actually makes the ellipsis work: the name is a flex item
-// in a column stack, so on the cross axis it sizes to fit-content and would
-// otherwise overflow its column and collide with the score.
-const nameClass = css({
-	fontSize: { base: "sm", sm: "md" },
-	fontWeight: "bold",
-	maxWidth: "100%",
-	overflow: "hidden",
-	textOverflow: "ellipsis",
-	whiteSpace: "nowrap",
-})
-
-const denseNameClass = css({
-	fontSize: "sm",
-	fontWeight: "bold",
-	maxWidth: "100%",
-	overflow: "hidden",
-	textOverflow: "ellipsis",
-	whiteSpace: "nowrap",
-})
-
-const recordClass = css({
-	fontFamily: "mono",
-	fontSize: "2xs",
-	color: "fg.subtle",
-})
-
 // Narrow screens can't fit two full team names either side of a centered
 // score, so the matchup becomes one row per team - badge and name on the
 // left, that team's own score on the right - and only widens back into
@@ -114,22 +74,6 @@ const scoreboardClass = css({
 	},
 })
 
-// Both team lines read left-to-right on mobile; only the home line flips to
-// name-then-badge once it sits on the right of a centered score.
-const awayLineClass = css({
-	gridArea: "away",
-	justifyContent: "flex-start",
-})
-
-// flex-start at every breakpoint: row-reverse also flips the main axis, so
-// from sm up "start" is the right edge and flex-start is what pins the home
-// team there. flex-end would pack it left, against the score.
-const homeLineClass = css({
-	gridArea: "home",
-	flexDirection: { base: "row", sm: "row-reverse" },
-	justifyContent: "flex-start",
-})
-
 const teamScoreClass = css({
 	display: { base: "block", sm: "none" },
 	fontFamily: "mono",
@@ -140,6 +84,7 @@ const teamScoreClass = css({
 })
 
 const awayScoreClass = css({ gridArea: "awayScore" })
+
 const homeScoreClass = css({ gridArea: "homeScore" })
 
 const matchupScoreClass = css({
@@ -159,60 +104,6 @@ const versusClass = css({
 	color: "fg.subtle",
 	textAlign: "center",
 })
-
-function TeamLine({
-	team,
-	record,
-	seed,
-	home,
-	dense,
-}: {
-	team: Team
-	record: TeamRecord
-	// A playoff game's seed, within the team's own league or conference.
-	seed: number | null
-	home: boolean
-	dense: boolean
-}) {
-	const formattedRecord = [
-		formatTeamRecord(record),
-		seed ? `No. ${seed} seed` : null,
-	]
-		.filter(Boolean)
-		.join(" · ")
-
-	return (
-		<HStack
-			gap={dense ? "2" : "2.5"}
-			alignItems="center"
-			minWidth="0"
-			className={home ? homeLineClass : awayLineClass}
-		>
-			<TeamBadge
-				abbreviation={team.abbreviation}
-				color={team.color}
-				logoUrl={team.logoUrl}
-				size={dense ? "sm" : "lg"}
-			/>
-			{/* Alignment goes through the VStack prop, not a className: the
-			    pattern's own alignItems="center" default otherwise wins. Away
-			    reads from the left edge; home from the right once it sits on
-			    the right of the score. */}
-			<VStack
-				gap="0"
-				minWidth="0"
-				alignItems={
-					home ? { base: "flex-start", sm: "flex-end" } : "flex-start"
-				}
-			>
-				<span className={dense ? denseNameClass : nameClass}>{team.name}</span>
-				{formattedRecord && (
-					<span className={recordClass}>{formattedRecord}</span>
-				)}
-			</VStack>
-		</HStack>
-	)
-}
 
 // The full-size matchup header for the game detail page and a game-scoped
 // question's detail page - not GameBlock (components/questions/game-block.tsx),
@@ -301,23 +192,14 @@ export function GameMatchupHeader({
 				justify="center"
 				gap="2"
 				className={css({
-					fontFamily: "mono",
-					fontSize: "2xs",
+					textStyle: "meta",
 					color: "fg.muted",
 					flexWrap: "wrap",
 				})}
 			>
 				{live && (
 					<HStack gap="1.5" alignItems="center">
-						<span
-							className={css({
-								width: "1.5",
-								height: "1.5",
-								borderRadius: "full",
-								bg: "secondary.default",
-								animation: "pulse 1.6s ease-in-out infinite",
-							})}
-						/>
+						<LiveDot />
 						<span
 							className={css({ fontWeight: "bold", letterSpacing: "wide" })}
 						>

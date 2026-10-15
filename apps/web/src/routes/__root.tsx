@@ -7,11 +7,10 @@ import {
 } from "@tanstack/react-router"
 import { useEffect, useRef } from "react"
 
-import { ModalHost } from "#/components/ui/modal"
+import { ModalHost } from "#/components/ui/modal-host"
 import { RouteError } from "#/components/ui/route-error"
 import { ToastHost } from "#/components/ui/toast"
-import { MeDocument } from "#/graphql/queries/me"
-import { gqlQueryOptions } from "#/graphql/query-options"
+import { meQuery } from "#/graphql/me/queries"
 import { usePushSync } from "#/hooks/use-push-sync"
 import { useStaleBuildGuard } from "#/hooks/use-stale-build-guard"
 import {
@@ -27,8 +26,6 @@ import { closeAllModals } from "#/stores/modal-store"
 import fontsCss from "../fonts.css?url"
 import type { RouterContext } from "../router-context"
 import appCss from "../styles.css?url"
-
-const meQuery = gqlQueryOptions(MeDocument, {})
 
 export const Route = createRootRouteWithContext<RouterContext>()({
 	beforeLoad: async ({ context }) => {

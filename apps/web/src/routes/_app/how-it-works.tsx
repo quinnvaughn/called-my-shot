@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router"
 import { VStack } from "styled-system/jsx"
-import { HowItWorksSections } from "#/components/how-it-works/how-it-works-content"
+import { HowItWorksSections } from "#/components/how-it-works/how-it-works-sections"
 import { PageHeader } from "#/components/ui/page-header"
 import { pageMeta } from "#/lib/meta"
 

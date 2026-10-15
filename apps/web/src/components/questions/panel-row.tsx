@@ -40,8 +40,7 @@ export function PanelRow({ label, value }: Props) {
 			    label onto two lines. */}
 			<span
 				className={css({
-					fontFamily: "mono",
-					fontSize: "xs",
+					textStyle: "metaLg",
 					display: "flex",
 					justifyContent: "flex-end",
 					minWidth: "0",

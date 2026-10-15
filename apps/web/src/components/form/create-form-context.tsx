@@ -5,7 +5,7 @@ import type { z } from "zod"
 import { ChipButton } from "#/components/ui/chip-button"
 import { FieldHint } from "#/components/ui/field-hint"
 import { FieldLabel } from "#/components/ui/field-label"
-import { MultiSelect } from "#/components/ui/select"
+import { MultiSelect } from "#/components/ui/multi-select"
 import { TextInput } from "#/components/ui/text-input"
 import { ToggleRow } from "#/components/ui/toggle-row"
 import type {
@@ -262,6 +262,8 @@ export function createFormContext<Schema extends z.ZodType<AnyObject>>() {
 		emptyLabel: string
 		hint?: React.ReactNode
 		options: readonly { value: string; label: string }[]
+		// Fires after the value lands, same contract as TextField's.
+		onValueChange?: (next: string[]) => void
 	}) {
 		return (
 			<Field name={props.name}>
@@ -273,9 +275,10 @@ export function createFormContext<Schema extends z.ZodType<AnyObject>>() {
 						error={field.meta.error}
 						options={props.options}
 						value={field.value as string[]}
-						onValueChange={(next) =>
+						onValueChange={(next) => {
 							field.onChange(next as PathValue<Values, P>)
-						}
+							props.onValueChange?.(next)
+						}}
 					/>
 				)}
 			</Field>
@@ -328,6 +331,9 @@ export function createFormContext<Schema extends z.ZodType<AnyObject>>() {
 			value: NonNullable<PathValue<Values, P>>,
 			label: string,
 		])[]
+		// Fires after a different chip's value lands. Re-picking the chip
+		// already selected changes nothing, so it doesn't fire.
+		onValueChange?: (next: NonNullable<PathValue<Values, P>>) => void
 	}) {
 		return (
 			<Field name={props.name}>
@@ -340,7 +346,11 @@ export function createFormContext<Schema extends z.ZodType<AnyObject>>() {
 									key={String(value)}
 									selected={field.value === value}
 									pressed={field.value === value}
-									onClick={() => field.onChange(value)}
+									onClick={() => {
+										const changed = field.value !== value
+										field.onChange(value)
+										if (changed) props.onValueChange?.(value)
+									}}
 								>
 									{label}
 								</ChipButton>

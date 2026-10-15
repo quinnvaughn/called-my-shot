@@ -5,7 +5,6 @@ import {
 	gradeTone,
 	isEmptyReportCard,
 	reportCardStatusLine,
-	returnTone,
 } from "./report-card"
 
 describe("formatReturn", () => {
@@ -32,15 +31,6 @@ describe("gradeTone", () => {
 
 	it("is muted when there's no grade", () => {
 		expect(gradeTone(null)).toBe("fg.muted")
-	})
-})
-
-describe("returnTone", () => {
-	it("colors by side of break-even", () => {
-		expect(returnTone(1)).toBe("success.default")
-		expect(returnTone(-1)).toBe("danger.default")
-		expect(returnTone(0)).toBe("fg.default")
-		expect(returnTone(null)).toBe("fg.muted")
 	})
 })
 

@@ -1,7 +1,9 @@
 import { SPORTS_TIME_ZONE } from "@called-my-shot/schemas"
 import type { StreakMode } from "@called-my-shot/scoring"
 import { DateTime } from "luxon"
-import { formatRecord, formatSignedPoints } from "#/lib/ballot-entry"
+import { formatSigned } from "#/lib/format-number"
+import { formatRecord } from "#/lib/game-status"
+import { pluralize } from "#/lib/pluralize"
 
 // Everything a streak or sweep page, its share row and its og:image url say
 // in words. The og:image itself is apps/api's share-cards/streak-card.ts and
@@ -123,7 +125,7 @@ export function buildStreakTweet(streak: StreakFacts & TweetAuthor): string {
 // row": the number means the opposite thing, and these two strings turn up
 // next to each other everywhere.
 export function coldStreakText(length: number): string {
-	return `${length} ${length === 1 ? "miss" : "misses"} in a row`
+	return `${length} ${pluralize(length, "miss", "misses")} in a row`
 }
 
 type ColdFacts = {
@@ -232,7 +234,7 @@ export function sweepPageMeta(
 	const description = [
 		`${n} games`,
 		formatRecord(n, 0),
-		input.points !== null ? `${formatSignedPoints(input.points)} pts` : null,
+		input.points !== null ? `${formatSigned(input.points, { zeroSign: true })} pts` : null,
 		input.dates,
 	]
 		.filter((part) => part !== null)

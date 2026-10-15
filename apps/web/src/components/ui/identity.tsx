@@ -22,13 +22,17 @@ type IdentityProps = {
 	// wrap, for narrow label/value rows where the full identity should stay
 	// readable rather than truncate. From md up it's the usual single line.
 	stackOnMobile?: boolean
+	// "stacked" is a roster row: the name above the @handle at every width,
+	// a larger name, and the row filling its container. It shows no flair or
+	// trailing word.
+	layout?: "inline" | "stacked"
+	// Stacked only: tags on the @handle's line, like a member's role.
+	badges?: ReactNode
 }
 
 const truncateText = css({
 	minWidth: "0",
-	overflow: "hidden",
-	textOverflow: "ellipsis",
-	whiteSpace: "nowrap",
+	truncate: true,
 })
 
 const wrapOnMobileText = css({
@@ -46,6 +50,12 @@ const wrapOnMobileText = css({
 const handleText = css({
 	flexShrink: "0",
 	whiteSpace: "nowrap",
+})
+
+const stackedText = css({
+	minWidth: "0",
+	maxWidth: "full",
+	truncate: true,
 })
 
 const handleWrapOnMobile = css({
@@ -66,7 +76,40 @@ export function Identity({
 	crown,
 	trailing,
 	stackOnMobile = false,
+	layout = "inline",
+	badges,
 }: IdentityProps) {
+	if (layout === "stacked") {
+		// On its own line beside only short tags, the @handle truncates just
+		// when the row is narrower than the handle itself.
+		return (
+			<HStack gap="3" minWidth="0" flex="1">
+				<Avatar size={size} name={name} src={avatarUrl} crown={crown} />
+				<VStack gap="0.5" alignItems="flex-start" minWidth="0" flex="1">
+					<span
+						className={cx(
+							stackedText,
+							css({ fontSize: "sm", fontWeight: "medium" }),
+						)}
+					>
+						{name}
+					</span>
+					<HStack gap="1.5" minWidth="0" maxWidth="full">
+						<span
+							className={cx(
+								stackedText,
+								css({ textStyle: "metaLg", color: "fg.muted" }),
+							)}
+						>
+							@{username}
+						</span>
+						{badges}
+					</HStack>
+				</VStack>
+			</HStack>
+		)
+	}
+
 	const textFit = stackOnMobile ? wrapOnMobileText : truncateText
 	const nameEl = (
 		<span
@@ -78,7 +121,7 @@ export function Identity({
 	const handleEl = (
 		<span
 			className={cx(
-				css({ fontSize: "xs", color: "fg.muted", fontFamily: "mono" }),
+				css({ color: "fg.muted", textStyle: "metaLg" }),
 				stackOnMobile ? handleWrapOnMobile : handleText,
 			)}
 		>

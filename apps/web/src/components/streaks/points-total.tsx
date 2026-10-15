@@ -1,7 +1,7 @@
 import { css } from "styled-system/css"
 import { VStack } from "styled-system/jsx"
-import { RecordStat } from "#/components/questions/call-record-card"
-import { formatSignedPoints } from "#/lib/ballot-entry"
+import { RecordStat } from "#/components/records/record-stat"
+import { formatSigned } from "#/lib/format-number"
 
 // What a run or a sweep added up to, at the call page's Final scale. With a
 // bonus, the big number is the total actually gained and the line under it
@@ -23,19 +23,19 @@ export function PointsTotal({
 	return (
 		<VStack gap="1.5" alignItems="flex-start">
 			<RecordStat
-				value={formatSignedPoints(total)}
+				value={formatSigned(total, { zeroSign: true })}
 				label={bonus > 0 ? "Total points" : label}
 				tone={total >= 0 ? "success" : "danger"}
 			/>
 			{bonus > 0 && (
 				<span
 					className={css({
-						fontFamily: "mono",
-						fontSize: "xs",
+						textStyle: "metaLg",
 						color: "fg.subtle",
 					})}
 				>
-					{formatSignedPoints(callPoints)} from calls · +{bonus} {bonusLabel}
+					{formatSigned(callPoints, { zeroSign: true })} from calls · +{bonus}{" "}
+					{bonusLabel}
 				</span>
 			)}
 		</VStack>

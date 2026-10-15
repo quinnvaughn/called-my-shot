@@ -1,19 +1,11 @@
 import { Link } from "@tanstack/react-router"
 import { css } from "styled-system/css"
+import { AddEditLeagueModal } from "#/components/admin/data-entity-modal/add-edit-league-modal"
 import { Button } from "#/components/ui/button"
 import { Table } from "#/components/ui/table"
 import { Tag } from "#/components/ui/tag"
 import { openModal } from "#/stores/modal-store"
-import { AddEditLeagueModal } from "./data-entity-modal"
-
-type League = {
-	id: string
-	name: string
-	abbreviation: string
-	slug: string
-	status: string
-	sport: { id: string; name: string }
-}
+import type { AdminLeagueRow } from "./data-rows"
 
 type SortKey = "NAME" | "STATUS"
 
@@ -30,14 +22,12 @@ export function DataLeagueTable({
 	sortBy,
 	sortDir,
 	onSort,
-	onSaved,
 }: {
-	leagues: League[]
+	leagues: AdminLeagueRow[]
 	sports: { id: string; name: string }[]
 	sortBy: SortKey
 	sortDir: "asc" | "desc"
 	onSort: (key: SortKey) => void
-	onSaved: () => void
 }) {
 	return (
 		<Table
@@ -76,11 +66,7 @@ export function DataLeagueTable({
 								size="sm"
 								onClick={() =>
 									openModal(
-										<AddEditLeagueModal
-											sports={sports}
-											league={league}
-											onSaved={onSaved}
-										/>,
+										<AddEditLeagueModal sports={sports} league={league} />,
 									)
 								}
 							>

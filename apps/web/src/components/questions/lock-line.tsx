@@ -17,7 +17,13 @@ export function LockLine({
 	return <>{formatLockLine(locksAt, now)}</>
 }
 
-function formatLockLine(locksAt: string, now: number): string {
+// `label` leads the countdown while the lock is still ahead: "Locks in 3
+// hours", or "Next lock in 3 hours" where several locks share one line.
+export function formatLockLine(
+	locksAt: string,
+	now: number,
+	label = "Locks",
+): string {
 	const locksAtTime = DateTime.fromISO(locksAt)
 	const current = DateTime.fromMillis(now)
 	if (locksAtTime <= current) {
@@ -31,5 +37,5 @@ function formatLockLine(locksAt: string, now: number): string {
 			? "Locking any moment"
 			: "Locked"
 	}
-	return `Locks ${locksAtTime.toRelative({ base: current })}`
+	return `${label} ${locksAtTime.toRelative({ base: current })}`
 }

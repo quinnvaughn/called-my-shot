@@ -1,24 +1,17 @@
-import {
-	keepPreviousData,
-	useInfiniteQuery,
-	useSuspenseQuery,
-} from "@tanstack/react-query"
-import {
-	createFileRoute,
-	Link,
-	redirect,
-	useRouteContext,
-} from "@tanstack/react-router"
-import { useState } from "react"
+import { useSuspenseQuery } from "@tanstack/react-query"
+import { createFileRoute, Link, redirect } from "@tanstack/react-router"
 import { FaRegTimesCircle } from "react-icons/fa"
 import { css, cx } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
+import { z } from "zod"
 import {
-	GameCardContext,
-	GameCardStreak,
-} from "#/components/games/game-card-extras"
+	communityQuestionsQuery,
+	GameCommunityQuestions,
+} from "#/components/games/game-community-questions"
 import { GameGroupBoards } from "#/components/games/game-group-boards"
 import { GameMatchupHeader } from "#/components/games/game-matchup-header"
+import { GameOfficialCard } from "#/components/games/game-official-card"
+import { GameOfficialQuestions } from "#/components/games/game-official-questions"
 import {
 	canSetGameReminder,
 	GameReminderButton,
@@ -26,56 +19,36 @@ import {
 import { GameSetRail } from "#/components/games/game-set-rail"
 import { buildGameTweet, GameShareRow } from "#/components/games/game-share-row"
 import { QuestionCard } from "#/components/questions/question-card"
-import { SortSwitcher } from "#/components/questions/sort-switcher"
+import { arrowLink } from "#/components/ui/arrow-link"
 import { Breadcrumb } from "#/components/ui/breadcrumb"
 import { button } from "#/components/ui/button"
 import { CountBadge } from "#/components/ui/count-badge"
-import { EmptyState } from "#/components/ui/empty-state"
-import { InfiniteScroll } from "#/components/ui/infinite-scroll"
 import { NotFound } from "#/components/ui/not-found"
 import { Tabs } from "#/components/ui/tabs"
-import type {
-	GameByIdQuery,
-	GameOfficialQuestionsQuery,
-	QuestionSortOrder,
-} from "#/graphql/generated/graphql"
+import { gqlQueryOptions } from "#/graphql/query-options"
 import {
 	GameByIdDocument,
 	GameOfficialQuestionsDocument,
-	GameQuestionsDocument,
-} from "#/graphql/queries/sports"
-import {
-	gqlInfiniteQueryOptions,
-	gqlQueryOptions,
-} from "#/graphql/query-options"
-import { formatRecord, formatSignedPoints } from "#/lib/ballot-entry"
+} from "#/graphql/sports/games/queries"
+import { useMe } from "#/hooks/use-me"
+import { formatSigned } from "#/lib/format-number"
 import { gameEntryPath, viewerGamePicksSummary } from "#/lib/game-entry"
-import { IN_PLAY_REFETCH_MS, isGameInPlay } from "#/lib/game-status"
+import {
+	formatRecord,
+	IN_PLAY_REFETCH_MS,
+	isGameInPlay,
+	matchupLabel,
+	seriesLead,
+} from "#/lib/game-status"
 import { pageMeta } from "#/lib/meta"
 import {
 	findGameWinnerQuestion,
 	GAME_WINNER_LABEL,
-	sectionOfficialQuestions,
 } from "#/lib/official-game-questions"
-import {
-	postseasonHeading,
-	seededName,
-	seriesStakesLabel,
-} from "#/lib/postseason"
+import { postseasonHeading, seededName } from "#/lib/postseason"
 import { buildGameSlug } from "#/lib/slug"
 
 type GameTab = "official" | "community"
-
-type GameData = NonNullable<GameByIdQuery["game"]>
-
-type GameQuestion = GameOfficialQuestionsQuery["questions"]["items"][number]
-
-const SORTS: { value: QuestionSortOrder; label: string }[] = [
-	{ value: "MOST_CALLED", label: "Most Called" },
-	{ value: "NEW", label: "New" },
-]
-
-const PAGE_SIZE = 15
 
 // A game's official questions always fit on one page - the who-wins question
 // plus one catalog's worth (apps/api/src/db/catalog/game-question-catalog.ts)
@@ -83,11 +56,8 @@ const PAGE_SIZE = 15
 const OFFICIAL_LIMIT = 50
 
 const sectionLabelClass = css({
-	fontFamily: "mono",
-	fontSize: "2xs",
-	letterSpacing: "wide",
+	textStyle: "label",
 	color: "fg.subtle",
-	textTransform: "uppercase",
 })
 
 const gameQuery = (id: string) => gqlQueryOptions(GameByIdDocument, { id })
@@ -98,15 +68,6 @@ const officialQuestionsQuery = (gameId: string) =>
 		first: OFFICIAL_LIMIT,
 	})
 
-// sort is part of the key, so switching it starts a fresh list rather than
-// appending to the previous ordering.
-const communityQuestionsQuery = (gameId: string, sort: QuestionSortOrder) =>
-	gqlInfiniteQueryOptions(
-		GameQuestionsDocument,
-		{ gameId, first: PAGE_SIZE, sort, isOfficial: false },
-		(data) => data.questions,
-	)
-
 export const Route = createFileRoute("/_app/games/$gameId/{-$slug}")({
 	component: RouteComponent,
 	// The game's official questions with the viewer's call on each. The shell
@@ -116,8 +77,8 @@ export const Route = createFileRoute("/_app/games/$gameId/{-$slug}")({
 	staleTime: 0,
 	// Official is the default and stays off the url, so a shared game link
 	// always opens on it.
-	validateSearch: (search: Record<string, unknown>): { tab?: "community" } => ({
-		tab: search.tab === "community" ? "community" : undefined,
+	validateSearch: z.object({
+		tab: z.literal("community").optional().catch(undefined),
 	}),
 	loaderDeps: ({ search }) => ({ tab: search.tab ?? "official" }),
 	// head() can only read loaderData, so the meta-tag fields come back from
@@ -177,35 +138,6 @@ export const Route = createFileRoute("/_app/games/$gameId/{-$slug}")({
 	},
 })
 
-// "Game 5, winner take all. Series tied 2-2." ahead of a series game's meta
-// description, so a shared link says what's riding on it. Null outside a
-// series.
-function seriesLead(game: {
-	status: string
-	postseason?: {
-		gameNumber: number | null
-		ifNecessary: boolean
-		summary: string | null
-		clinchTeamIds: string[]
-	} | null
-}): string | null {
-	const postseason = game.postseason
-	if (!postseason?.gameNumber) return null
-	const stakes =
-		game.status !== "FINAL" && !postseason.ifNecessary
-			? seriesStakesLabel(postseason)
-			: null
-	const qualifier = stakes
-		? stakes.toLowerCase()
-		: postseason.ifNecessary
-			? "if necessary"
-			: null
-	const first = qualifier
-		? `Game ${postseason.gameNumber}, ${qualifier}.`
-		: `Game ${postseason.gameNumber}.`
-	return postseason.summary ? `${first} ${postseason.summary}.` : first
-}
-
 function RouteComponent() {
 	const { gameId } = Route.useParams()
 	const { tab: tabParam } = Route.useSearch()
@@ -224,7 +156,7 @@ function RouteComponent() {
 		refetchInterval:
 			gameData.game && isGameInPlay(gameData.game) ? IN_PLAY_REFETCH_MS : false,
 	})
-	const { me } = useRouteContext({ from: "__root__" })
+	const me = useMe()
 	const game = gameData.game
 	const officialQuestions = officialData.questions.items
 
@@ -245,7 +177,7 @@ function RouteComponent() {
 	// than showing a placeholder that implies something's broken.
 	const hero = findGameWinnerQuestion(officialQuestions)
 
-	const matchup = `${game.awayTeam.abbreviation} @ ${game.homeTeam.abbreviation}`
+	const matchup = matchupLabel(game)
 	const picks = viewerGamePicksSummary(officialQuestions)
 	const openQuestions = officialQuestions.filter(
 		(q) => q.status === "OPEN" && new Date(q.locksAt) > new Date(),
@@ -271,9 +203,7 @@ function RouteComponent() {
 				>
 					{game.league.abbreviation}
 				</Breadcrumb.Link>
-				<Breadcrumb.Current>
-					{game.awayTeam.abbreviation} @ {game.homeTeam.abbreviation}
-				</Breadcrumb.Current>
+				<Breadcrumb.Current>{matchupLabel(game)}</Breadcrumb.Current>
 			</Breadcrumb>
 
 			<VStack gap="2" alignItems="stretch">
@@ -320,7 +250,7 @@ function RouteComponent() {
 			{hero && (
 				<VStack gap="2" alignItems="stretch">
 					<span className={sectionLabelClass}>{GAME_WINNER_LABEL}</span>
-					<OfficialCard question={hero} />
+					<GameOfficialCard question={hero} />
 				</VStack>
 			)}
 
@@ -366,22 +296,14 @@ function RouteComponent() {
 						>
 							<Link
 								to={gameEntryPath(game.id, me.username)}
-								className={css({
-									fontFamily: "mono",
-									fontSize: "2xs",
-									letterSpacing: "wide",
-									textTransform: "uppercase",
-									color: "primary.default",
-									textDecoration: "none",
-									_hover: { opacity: 0.8 },
-								})}
+								className={arrowLink({ tone: "primary", align: "parent" })}
 							>
 								{/* Says what the linked page holds, and so what the icons
 								    beside it share: the count until a question settles,
 								    the record after, same as buildGameTweet. */}
 								{picks.wins + picks.losses === 0
 									? `${picks.calledCount} of ${picks.questionCount} called`
-									: `${formatRecord(picks.wins, picks.losses)} · ${formatSignedPoints(picks.points)} pts`}{" "}
+									: `${formatRecord(picks.wins, picks.losses)} · ${formatSigned(picks.points, { zeroSign: true })} pts`}{" "}
 								· See your picks →
 							</Link>
 							<GameShareRow
@@ -394,13 +316,13 @@ function RouteComponent() {
 							/>
 						</HStack>
 					)}
-					<OfficialQuestions
+					<GameOfficialQuestions
 						game={game}
 						questions={officialQuestions.filter((q) => q.id !== hero?.id)}
 					/>
 				</VStack>
 			) : (
-				<CommunityQuestions gameId={game.id} />
+				<GameCommunityQuestions gameId={game.id} />
 			)}
 		</VStack>
 	)
@@ -414,7 +336,7 @@ function GameRail() {
 	const { data: officialData } = useSuspenseQuery(
 		officialQuestionsQuery(gameId),
 	)
-	const { me } = useRouteContext({ from: "__root__" })
+	const me = useMe()
 	if (!gameData.game) return null
 	return (
 		<VStack gap="6" alignItems="stretch">
@@ -427,116 +349,6 @@ function GameRail() {
 			<GameGroupBoards
 				gameId={gameData.game.id}
 				boards={gameData.game.viewerGroupBoards}
-			/>
-		</VStack>
-	)
-}
-
-function OfficialQuestions({
-	game,
-	questions,
-}: {
-	game: GameData
-	questions: GameQuestion[]
-}) {
-	const sections = sectionOfficialQuestions(questions)
-
-	if (sections.length === 0) {
-		// Catalog questions only go up inside generate-game-questions.ts's
-		// window, so a game further out has just its who-wins question until
-		// then.
-		if (game.postseason?.ifNecessary) {
-			return (
-				<EmptyState>
-					This game is only played if the series is still going. Questions go up
-					once it is.
-				</EmptyState>
-			)
-		}
-		if (game.status === "SCHEDULED" && game.startTimeTbd) {
-			return (
-				<EmptyState>
-					Questions go up once this game has a start time.
-				</EmptyState>
-			)
-		}
-		if (game.status === "SCHEDULED") {
-			return (
-				<EmptyState>
-					{game.league.windowType === "WEEK"
-						? "More official questions go up once this game's week is next on the schedule."
-						: "More official questions go up about a day before the game."}
-				</EmptyState>
-			)
-		}
-		return <EmptyState>No other official questions on this game.</EmptyState>
-	}
-
-	return (
-		<VStack gap="6" alignItems="stretch">
-			{sections.map((section) => (
-				<VStack key={section.label} gap="2" alignItems="stretch">
-					<span className={sectionLabelClass}>{section.label}</span>
-					<VStack gap="3" alignItems="stretch">
-						{section.questions.map((question) => (
-							<OfficialCard key={question.id} question={question} />
-						))}
-					</VStack>
-				</VStack>
-			))}
-		</VStack>
-	)
-}
-
-function OfficialCard({ question }: { question: GameQuestion }) {
-	return (
-		<QuestionCard
-			question={question}
-			showGame={false}
-			trailing={<GameCardStreak question={question} />}
-			context={<GameCardContext question={question} />}
-		/>
-	)
-}
-
-function CommunityQuestions({ gameId }: { gameId: string }) {
-	const [sort, setSort] = useState<QuestionSortOrder>("MOST_CALLED")
-
-	// keepPreviousData holds the current ordering on screen while the newly
-	// picked sort's first page loads.
-	const { data, hasNextPage, isFetching, fetchNextPage } = useInfiniteQuery({
-		...communityQuestionsQuery(gameId, sort),
-		placeholderData: keepPreviousData,
-	})
-
-	return (
-		<VStack gap="4" alignItems="stretch">
-			<SortSwitcher sorts={SORTS} active={sort} onChange={setSort} />
-
-			<InfiniteScroll
-				items={data?.items ?? []}
-				getKey={(question) => question.id}
-				hasNextPage={hasNextPage}
-				loading={isFetching}
-				onLoadMore={fetchNextPage}
-				emptyState={
-					<EmptyState
-						action={
-							<Link
-								to="/new-question"
-								className={button({ variant: "solid", size: "sm" })}
-							>
-								Create a question
-							</Link>
-						}
-					>
-						No community questions on this game yet. Why don't you get it
-						started?
-					</EmptyState>
-				}
-				renderItem={(question) => (
-					<QuestionCard question={question} showGame={false} />
-				)}
 			/>
 		</VStack>
 	)

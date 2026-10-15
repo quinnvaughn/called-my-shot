@@ -1,18 +1,24 @@
 import { useSuspenseQuery } from "@tanstack/react-query"
-import { createFileRoute, Link, useRouteContext } from "@tanstack/react-router"
+import { createFileRoute, Link } from "@tanstack/react-router"
 import { FaRegTimesCircle } from "react-icons/fa"
 import { css } from "styled-system/css"
 import { VStack } from "styled-system/jsx"
 import { GameMatchupHeader } from "#/components/games/game-matchup-header"
 import { GameSetRail } from "#/components/games/game-set-rail"
 import { GroupGameEntryRow } from "#/components/groups/group-game-entry-row"
+import { arrowLink } from "#/components/ui/arrow-link"
 import { Breadcrumb } from "#/components/ui/breadcrumb"
 import { EmptyState } from "#/components/ui/empty-state"
 import { NotFound } from "#/components/ui/not-found"
 import { PageHeader } from "#/components/ui/page-header"
 import { GroupGameBoardDocument } from "#/graphql/generated/graphql"
 import { gqlQueryOptions } from "#/graphql/query-options"
-import { IN_PLAY_REFETCH_MS, isGameInPlay } from "#/lib/game-status"
+import { useMe } from "#/hooks/use-me"
+import {
+	IN_PLAY_REFETCH_MS,
+	isGameInPlay,
+	matchupLabel,
+} from "#/lib/game-status"
 import { buildGameSlug } from "#/lib/slug"
 
 // Polls while the game is on, so points move as calls settle mid-game and
@@ -43,22 +49,12 @@ export const Route = createFileRoute(
 		),
 })
 
-const linkClass = css({
-	fontFamily: "mono",
-	fontSize: "2xs",
-	letterSpacing: "wide",
-	textTransform: "uppercase",
-	color: "primary.default",
-	textDecoration: "none",
-	_hover: { opacity: 0.8 },
-})
-
 // Reads the cache entry RouteComponent loads and polls, so the rail moves
 // with the board rather than fetching on its own.
 function BoardRail() {
 	const { groupId, gameId } = Route.useParams()
 	const { data } = useSuspenseQuery(groupGameBoardQuery(groupId, gameId))
-	const { me } = useRouteContext({ from: "__root__" })
+	const me = useMe()
 	const game = data.group?.gameBoard?.game
 	if (!game) return null
 	return (
@@ -75,7 +71,7 @@ function BoardRail() {
 function RouteComponent() {
 	const { groupId, gameId } = Route.useParams()
 	const { data } = useSuspenseQuery(groupGameBoardQuery(groupId, gameId))
-	const { me } = useRouteContext({ from: "__root__" })
+	const me = useMe()
 	const group = data.group
 	const board = group?.gameBoard
 
@@ -92,7 +88,7 @@ function RouteComponent() {
 	}
 
 	const { game, entries } = board
-	const matchup = `${game.awayTeam.abbreviation} @ ${game.homeTeam.abbreviation}`
+	const matchup = matchupLabel(game)
 	const gameParams = { gameId: game.id, slug: buildGameSlug(game) }
 
 	return (
@@ -116,7 +112,7 @@ function RouteComponent() {
 							<Link
 								to="/games/$gameId/{-$slug}"
 								params={gameParams}
-								className={linkClass}
+								className={arrowLink({ tone: "primary", align: "parent" })}
 							>
 								Go to the game →
 							</Link>
@@ -141,7 +137,7 @@ function RouteComponent() {
 				<Link
 					to="/games/$gameId/{-$slug}"
 					params={gameParams}
-					className={linkClass}
+					className={arrowLink({ tone: "primary" })}
 				>
 					Go to the game →
 				</Link>

@@ -10,9 +10,13 @@ import { Button } from "#/components/ui/button"
 import { FormError } from "#/components/ui/form-error"
 import { Modal } from "#/components/ui/modal"
 import { Textarea } from "#/components/ui/textarea"
+import { ApiError } from "#/graphql/api-error"
 import type { VoidReason } from "#/graphql/generated/graphql"
 import { useGqlMutation } from "#/graphql/hooks"
-import { ReportQuestionDocument } from "#/graphql/mutations/questions"
+import {
+	invalidateAfterReport,
+	ReportQuestionDocument,
+} from "#/graphql/questions/mutations"
 import { track } from "#/lib/analytics"
 import { REPORT_REASON_LABELS } from "#/lib/report-defaults"
 import { closeModal } from "#/stores/modal-store"
@@ -72,15 +76,12 @@ export function ReportQuestionModal({ questionId }: Props) {
 						r.fieldErrors?.[0]?.message ?? "Check the form and try again.",
 					)
 				})
-				.with({ __typename: "AuthenticationError" }, async (r) => {
-					setFormError(r.message)
-				})
-				.with({ __typename: "NotFoundError" }, async (r) => {
+				.with(ApiError, async (r) => {
 					setFormError(r.message)
 				})
 				.with({ __typename: "ReportQuestionPayload" }, async () => {
 					track("question_reported", { questionId, reason })
-					await queryClient.invalidateQueries()
+					await invalidateAfterReport(queryClient)
 					await router.invalidate()
 					closeModal()
 				})
@@ -98,10 +99,7 @@ export function ReportQuestionModal({ questionId }: Props) {
 				<VStack gap="2" alignItems="stretch">
 					<span
 						className={css({
-							fontFamily: "mono",
-							fontSize: "2xs",
-							letterSpacing: "wide",
-							textTransform: "uppercase",
+							textStyle: "label",
 							color: "fg.subtle",
 						})}
 					>

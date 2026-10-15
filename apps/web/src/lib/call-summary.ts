@@ -361,6 +361,44 @@ export function marginLabel(verdict: MarginVerdict, won: boolean): string {
 		.exhaustive()
 }
 
+// The viewer's own call on a resolved question, as the margin word its
+// status badge leads with. Null with no call, a pending one, or a margin
+// with no verdict.
+export function viewerMarginLabel(
+	question: CallSummaryData["question"] & {
+		viewerCall: Omit<CallSummaryData, "question"> | null
+	},
+): string | null {
+	const call = question.viewerCall
+	if (!call) return null
+	const margin = callMarginFor({
+		guessValue: call.guessValue,
+		conviction: call.conviction,
+		totalPoints: call.totalPoints,
+		question: {
+			shape: question.shape,
+			ouLine: question.ouLine,
+			numericActualValue: question.numericActualValue,
+			numericToleranceAbsolute: question.numericToleranceAbsolute,
+			numericTolerancePct: question.numericTolerancePct,
+			stat: question.stat,
+			scoredOptions: question.scoredOptions,
+		},
+		selections: call.selections.map((s) => ({
+			id: s.id,
+			conviction: s.conviction,
+			option: {
+				label: s.option.label,
+				isCorrect: s.option.isCorrect,
+				actualValue: s.option.actualValue,
+			},
+		})),
+	})
+	return margin?.verdict
+		? marginLabel(margin.verdict, (call.totalPoints ?? 0) >= 0)
+		: null
+}
+
 // The sub-line under a pick on a feed card or a call row: the caller's
 // conviction, then whatever else is worth saying about how it landed. Built
 // as clauses rather than one sentence so a shape that has nothing to add

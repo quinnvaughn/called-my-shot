@@ -6,6 +6,7 @@ import {
 	lossContext,
 	marginLabel,
 	resultContext,
+	viewerMarginLabel,
 } from "#/lib/call-summary"
 
 // The Standard tier from apps/api's db/catalog/stats.ts, in the GraphQL
@@ -246,5 +247,33 @@ describe("resultContext", () => {
 				}),
 			),
 		).toEqual([])
+	})
+})
+
+describe("viewerMarginLabel", () => {
+	const lost = call({
+		shape: "PLAYER_STAT_OVER_UNDER",
+		totalPoints: -120,
+		ouLine: 224.5,
+		numericActualValue: 224,
+		tier: HIGH_VOLUME_TIER,
+	})
+	const question = (viewerCall: Omit<CallSummaryData, "question"> | null) => ({
+		...lost.question,
+		viewerCall,
+	})
+
+	it("labels the viewer's own call by its margin and result", () => {
+		expect(viewerMarginLabel(question(lost))).toBe("Inches away")
+		expect(viewerMarginLabel(question({ ...lost, totalPoints: 150 }))).toBe(
+			"By a hair",
+		)
+	})
+
+	it("is null with no call, or one still pending", () => {
+		expect(viewerMarginLabel(question(null))).toBeNull()
+		expect(
+			viewerMarginLabel(question({ ...lost, totalPoints: null })),
+		).toBeNull()
 	})
 })

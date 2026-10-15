@@ -1,7 +1,6 @@
 import { useSuspenseQuery } from "@tanstack/react-query"
-import { createFileRoute, useRouteContext } from "@tanstack/react-router"
+import { createFileRoute } from "@tanstack/react-router"
 import { HiMiniQuestionMarkCircle } from "react-icons/hi2"
-import { css } from "styled-system/css"
 import { VStack } from "styled-system/jsx"
 import { GroupDangerZone } from "#/components/groups/group-danger-zone"
 import { GroupGeneralSection } from "#/components/groups/group-general-section"
@@ -14,8 +13,10 @@ import { GroupRecapsSection } from "#/components/groups/group-recaps-section"
 import { Breadcrumb } from "#/components/ui/breadcrumb"
 import { NotFound } from "#/components/ui/not-found"
 import { PageHeader } from "#/components/ui/page-header"
+import { SectionLabel } from "#/components/ui/section-label"
 import { GroupSettingsDocument } from "#/graphql/generated/graphql"
 import { gqlQueryOptions } from "#/graphql/query-options"
+import { useMe } from "#/hooks/use-me"
 
 const groupSettingsQuery = (groupId: string) =>
 	gqlQueryOptions(GroupSettingsDocument, { groupId })
@@ -26,28 +27,12 @@ export const Route = createFileRoute("/_app/_authed/groups/$groupId/settings")({
 		context.queryClient.query(groupSettingsQuery(params.groupId)),
 })
 
-function sectionLabel(text: string) {
-	return (
-		<h2
-			className={css({
-				fontFamily: "mono",
-				fontSize: "xs",
-				letterSpacing: "wide",
-				color: "fg.muted",
-				textTransform: "uppercase",
-			})}
-		>
-			{text}
-		</h2>
-	)
-}
-
 // Open to every member so anyone can leave or opt out of recaps; the
 // sections that change the group itself only render for admins.
 function RouteComponent() {
 	const { groupId } = Route.useParams()
 	const { leagues } = Route.useRouteContext()
-	const { me } = useRouteContext({ from: "__root__" })
+	const me = useMe()
 	const { data } = useSuspenseQuery(groupSettingsQuery(groupId))
 	const group = data.group
 
@@ -87,7 +72,7 @@ function RouteComponent() {
 			{group.viewerIsAdmin && (
 				<>
 					<VStack alignItems="stretch" gap="3">
-						{sectionLabel("General")}
+						<SectionLabel>General</SectionLabel>
 						<GroupGeneralSection
 							groupId={group.id}
 							groupName={group.name}
@@ -97,15 +82,15 @@ function RouteComponent() {
 						/>
 					</VStack>
 					<VStack alignItems="stretch" gap="3">
-						{sectionLabel("Links")}
+						<SectionLabel>Links</SectionLabel>
 						<GroupLinksSection groupId={group.id} links={group.links} />
 					</VStack>
 					<VStack alignItems="stretch" gap="3">
-						{sectionLabel("Pins")}
+						<SectionLabel>Pins</SectionLabel>
 						<GroupPinsSection groupId={group.id} pins={group.pins} />
 					</VStack>
 					<VStack alignItems="stretch" gap="3">
-						{sectionLabel("Logo and banner")}
+						<SectionLabel>Logo and banner</SectionLabel>
 						<GroupImagesSection
 							groupId={group.id}
 							groupName={group.name}
@@ -114,7 +99,7 @@ function RouteComponent() {
 						/>
 					</VStack>
 					<VStack alignItems="stretch" gap="3">
-						{sectionLabel(`Members · ${members.length}`)}
+						<SectionLabel>{`Members · ${members.length}`}</SectionLabel>
 						<GroupMembersSection
 							groupId={group.id}
 							groupName={group.name}
@@ -123,13 +108,13 @@ function RouteComponent() {
 						/>
 					</VStack>
 					<VStack alignItems="stretch" gap="3">
-						{sectionLabel("Invite links")}
+						<SectionLabel>Invite links</SectionLabel>
 						<GroupInvitesSection invites={group.invites} />
 					</VStack>
 				</>
 			)}
 			<VStack alignItems="stretch" gap="3">
-				{sectionLabel("Recaps")}
+				<SectionLabel>Recaps</SectionLabel>
 				<GroupRecapsSection
 					groupId={group.id}
 					viewerIsAdmin={group.viewerIsAdmin}
@@ -139,7 +124,7 @@ function RouteComponent() {
 				/>
 			</VStack>
 			<VStack alignItems="stretch" gap="3">
-				{sectionLabel("Danger zone")}
+				<SectionLabel>Danger zone</SectionLabel>
 				<GroupDangerZone
 					groupId={group.id}
 					groupName={group.name}

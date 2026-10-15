@@ -40,26 +40,12 @@ export {
 	tierFor,
 }
 
-// The option/question call counts a not-yet-submitted call reads are always
-// "before this call" - it doesn't exist yet. Feeding that raw fieldPct
-// straight into a preview means the number the caller sees right before
-// submitting isn't the number they'll see right after: their own selection
-// is missing from both the option's count and the total, and adding it can
-// swing fieldPct hard when the field is still small (going from 3 to 4
-// total callers, adding yourself moves the ratio by 25%+, versus a rounding
-// error once the field is large). Simulating "as if I already submitted"
-// here means the preview always matches what fieldPct actually reads the
-// instant after Lock It In, not a stale before-me snapshot.
-export function previewFieldPct(
-	optionCallCount: number,
-	totalCalls: number,
-): number {
-	return ((optionCallCount + 1) / (totalCalls + 1)) * 100
-}
-
 // The boldness tier's share of the field, which is read off the field's
-// conviction (see crowdTotals) rather than its head count, simulated the same
-// way as previewFieldPct: as if this call, at `conviction`, were already in.
+// conviction (see crowdTotals) rather than its head count, simulated as if
+// this call, at `conviction`, were already in. The counts a not-yet-submitted
+// call reads don't include it yet, and adding it can swing the share hard
+// while the field is small, so the preview matches what the share reads the
+// instant after Lock It In rather than a before-me snapshot.
 export function previewCrowdPct(
 	optionConviction: number,
 	fieldConviction: number,
@@ -281,4 +267,32 @@ export function optionPointsPreview(
 		earlyTier,
 		option,
 	)
+}
+
+// What moved a pick's numbers, in the order they matter. An unpriced pick is
+// its boldness tier and field share. A priced one is paid on its own price
+// alone (the underdog's on a hit, the favorite's on a miss - see sidePrice),
+// so it has no tier, and shows the field share beside the chance the model
+// gives it.
+export function pickMeta(
+	tier: ContrarianTier | null,
+	crowdPct: number,
+	lossRate: number,
+	option: { winMult: number | null; modelHitRate: number | null },
+): string[] {
+	const field = `${Math.round(crowdPct)}% of points on this side`
+	const { modelHitRate } = option
+	if (modelHitRate == null) return [...(tier ? [tier.label] : []), field]
+	const winMult = option.winMult ?? 1
+	const price =
+		winMult > 1
+			? `×${formatMult(winMult)} underdog`
+			: modelHitRate > 0.5
+				? `×${formatMult(lossRate)} favorite`
+				: null
+	return [
+		...(price ? [price] : []),
+		field,
+		`${Math.round(modelHitRate * 100)}% expected`,
+	]
 }

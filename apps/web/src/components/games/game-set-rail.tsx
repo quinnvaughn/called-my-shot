@@ -1,12 +1,10 @@
 import { Link } from "@tanstack/react-router"
 import { buildGameTweet, GameShareRow } from "#/components/games/game-share-row"
+import { QuestionSetRail } from "#/components/questions/question-set-rail/question-set-rail"
 import {
-	QuestionSetRail,
-	type QuestionSetRailRow,
-	questionSetRailSummary,
 	railHeadingClass,
 	railHeadingLinkClass,
-} from "#/components/questions/question-set-rail"
+} from "#/components/questions/question-set-rail/rail-styles"
 import { button } from "#/components/ui/button"
 import { type FragmentType, graphql, useFragment } from "#/graphql/generated"
 import type {
@@ -18,7 +16,12 @@ import { pickSummary } from "#/lib/call-summary"
 import { isRateStat } from "#/lib/field-signal"
 import { gameEntryPath } from "#/lib/game-entry"
 import { gameSetRailLabel, liveStanding } from "#/lib/game-set-rail"
+import { matchupLabel } from "#/lib/game-status"
 import { officialQuestionSequence } from "#/lib/official-game-questions"
+import {
+	type QuestionSetRailRow,
+	questionSetRailSummary,
+} from "#/lib/question-set-rail"
 
 export const GameSetRailFragment = graphql(`
 	fragment GameSetRail_question on Question {
@@ -135,7 +138,7 @@ export function GameSetRail({
 		),
 	)
 	const summary = questionSetRailSummary(rows, communityRows)
-	const matchup = `${game.awayTeam.abbreviation} @ ${game.homeTeam.abbreviation}`
+	const matchup = matchupLabel(game)
 	const isLive = game.status === "LIVE"
 	const now = new Date()
 	const openRows = rows.filter(

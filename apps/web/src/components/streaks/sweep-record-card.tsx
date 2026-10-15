@@ -1,11 +1,11 @@
-import { Link } from "@tanstack/react-router"
 import type { ReactNode } from "react"
 import { css } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
-import { Avatar } from "#/components/ui/avatar"
+import { RecordByline } from "#/components/records/record-byline"
 import { Card } from "#/components/ui/card"
 import { Eyebrow } from "#/components/ui/eyebrow"
 import { type FragmentType, graphql, useFragment } from "#/graphql/generated"
+import { ChipTeam } from "./chip-team"
 import { PointsTotal } from "./points-total"
 
 export const SweepRecordCardCallFragment = graphql(`
@@ -68,45 +68,12 @@ export function SweepRecordCard(props: Props) {
 			<Card.Header>
 				<VStack gap="4" alignItems="stretch" width="full">
 					{/* Who and when, the same row CallRecordCard opens with. */}
-					<HStack gap="2" alignItems="center" minWidth="0">
-						<Link
-							to="/user/$username"
-							params={{ username: props.username }}
-							className={css({
-								display: "inline-flex",
-								alignItems: "center",
-								gap: "2",
-								minWidth: "0",
-								textDecoration: "none",
-								color: "fg.default",
-								_hover: { "& span": { textDecoration: "underline" } },
-							})}
-						>
-							<Avatar size="xs" name={props.name} src={props.avatarUrl} />
-							<span
-								className={css({
-									fontFamily: "mono",
-									fontSize: "xs",
-									overflow: "hidden",
-									textOverflow: "ellipsis",
-									whiteSpace: "nowrap",
-								})}
-							>
-								@{props.username}
-							</span>
-						</Link>
-						<span
-							className={css({
-								flexShrink: "0",
-								fontFamily: "mono",
-								fontSize: "xs",
-								color: "fg.muted",
-								whiteSpace: "nowrap",
-							})}
-						>
-							· {props.dates}
-						</span>
-					</HStack>
+					<RecordByline
+						name={props.name}
+						username={props.username}
+						avatarUrl={props.avatarUrl}
+						date={props.dates}
+					/>
 					<VStack gap="3" alignItems="flex-start">
 						<Eyebrow size="sm" variant="neutral">
 							Every winner called
@@ -131,8 +98,7 @@ export function SweepRecordCard(props: Props) {
 										key={call.id}
 										gap="1"
 										className={css({
-											fontFamily: "mono",
-											fontSize: "2xs",
+											textStyle: "meta",
 											paddingBlock: "1",
 											paddingInline: "1.5",
 											borderRadius: "md",
@@ -166,21 +132,5 @@ export function SweepRecordCard(props: Props) {
 			</Card.Header>
 			<Card.Footer>{props.footer}</Card.Footer>
 		</Card>
-	)
-}
-
-function ChipTeam({ abbr, picked }: { abbr: string; picked: boolean }) {
-	return (
-		<span
-			className={css({
-				paddingInline: "1",
-				borderRadius: "sm",
-				fontWeight: picked ? "bold" : "normal",
-				color: picked ? "secondary.default" : "fg.muted",
-				bg: picked ? "secondary.subtle" : "transparent",
-			})}
-		>
-			{abbr}
-		</span>
 	)
 }

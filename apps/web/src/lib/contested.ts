@@ -23,3 +23,15 @@ export function isContested(options: FieldOption[], callCount: number): boolean 
 	const [leader, runnerUp] = ranked
 	return leader - runnerUp <= MAX_GAP_PTS
 }
+
+// Leading option by live fieldPct, dropping options nobody's called yet -
+// same "what is the field actually saying" question isContested/rankByField
+// answer, just keeping the label alongside the number for display.
+export function leadingOption<T extends FieldOption>(options: T[]): T | null {
+	let best: T | null = null
+	for (const option of options) {
+		if (option.fieldPct === null) continue
+		if (!best || option.fieldPct > (best.fieldPct ?? -1)) best = option
+	}
+	return best
+}

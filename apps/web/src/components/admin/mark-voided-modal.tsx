@@ -1,16 +1,22 @@
 import { adminMarkQuestionVoidedSchema } from "@called-my-shot/schemas"
+import { useQueryClient } from "@tanstack/react-query"
 import { useState } from "react"
 import { css } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
 import { match } from "ts-pattern"
+import { AdminCallout } from "#/components/ui/admin-callout"
 import { Button } from "#/components/ui/button"
 import { ChipButton } from "#/components/ui/chip-button"
 import { FormError } from "#/components/ui/form-error"
 import { Modal } from "#/components/ui/modal"
 import { Textarea } from "#/components/ui/textarea"
+import {
+	AdminMarkQuestionVoidedDocument,
+	invalidateAdminQueue,
+} from "#/graphql/admin/queue/mutations"
+import { ApiError } from "#/graphql/api-error"
 import type { QuestionVoidedReason } from "#/graphql/generated/graphql"
 import { useGqlMutation } from "#/graphql/hooks"
-import { AdminMarkQuestionVoidedDocument } from "#/graphql/mutations/admin"
 import { closeModal } from "#/stores/modal-store"
 
 const REASON_OPTIONS: { value: QuestionVoidedReason; label: string }[] = [
@@ -33,13 +39,13 @@ const reasonToSchemaValue = {
 
 type Props = {
 	question: { id: string; title: string }
-	onVoided: () => void
 }
 
 // Settles a question with no result and keeps it - see adminMarkQuestionVoided.
 // VoidQuestionModal is the other void: a moderation action that deletes the
 // question and can strike its asker.
-export function MarkVoidedModal({ question, onVoided }: Props) {
+export function MarkVoidedModal({ question }: Props) {
+	const queryClient = useQueryClient()
 	const markVoided = useGqlMutation(AdminMarkQuestionVoidedDocument)
 	const [reason, setReason] = useState<QuestionVoidedReason>(
 		"SUBJECT_DID_NOT_PLAY",
@@ -79,17 +85,12 @@ export function MarkVoidedModal({ question, onVoided }: Props) {
 						r.fieldErrors?.[0]?.message ?? "Check the form and try again.",
 					)
 				})
-				.with(
-					{ __typename: "AuthenticationError" },
-					{ __typename: "AuthorizationError" },
-					{ __typename: "NotFoundError" },
-					(r) => {
-						setFormError(r.message)
-					},
-				)
+				.with(ApiError, (r) => {
+					setFormError(r.message)
+				})
 				.with({ __typename: "QuestionPayload" }, () => {
 					closeModal()
-					onVoided()
+					invalidateAdminQueue(queryClient)
 				})
 				.exhaustive()
 		} finally {
@@ -118,10 +119,7 @@ export function MarkVoidedModal({ question, onVoided }: Props) {
 				<VStack gap="2" alignItems="stretch">
 					<span
 						className={css({
-							fontFamily: "mono",
-							fontSize: "2xs",
-							letterSpacing: "wide",
-							textTransform: "uppercase",
+							textStyle: "label",
 							color: "fg.subtle",
 						})}
 					>
@@ -150,21 +148,11 @@ export function MarkVoidedModal({ question, onVoided }: Props) {
 					/>
 				</Textarea>
 
-				<p
-					className={css({
-						fontSize: "xs",
-						lineHeight: "1.55",
-						color: "fg.subtle",
-						bg: "bg.canvas",
-						border: "1px solid {colors.border.default}",
-						borderRadius: "lg",
-						padding: "3",
-					})}
-				>
+				<AdminCallout>
 					Keeps the question and every call on it, but none of them score. Any
 					points it already paid out come back off. Resolving it later gives it
 					a result again.
-				</p>
+				</AdminCallout>
 
 				<FormError message={formError} />
 			</VStack>

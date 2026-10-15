@@ -47,12 +47,6 @@ type Props = {
 // league of options, so the card shows only the most-called few.
 const MAX_RANKED_ROWS = 3
 
-const mutedMonoClass = css({
-	fontFamily: "mono",
-	fontSize: "3xs",
-	color: "fg.subtle",
-})
-
 // How the field is calling a still-unsettled question, shown on QuestionCard
 // itself: every option's share for a two-way question, the top few for a
 // many-option one, and the guess histogram for a numeric one.
@@ -123,7 +117,11 @@ export function QuestionCardField({
 					)
 					.sort((a, b) => b.callCount - a.callCount)
 				if (ranked.length === 0) {
-					return <span className={mutedMonoClass}>No callers yet</span>
+					return (
+						<span className={css({ textStyle: "metaSm", color: "fg.subtle" })}>
+							No callers yet
+						</span>
+					)
 				}
 				const isMultiPick = picksRequired !== null && picksRequired > 1
 				const rowCount = isMultiPick ? picksRequired : MAX_RANKED_ROWS
@@ -140,7 +138,9 @@ export function QuestionCardField({
 					<VStack gap="2" alignItems="stretch">
 						{rows.map(renderRow)}
 						{isMultiPick && picksBelowTop.length > 0 && (
-							<span className={mutedMonoClass}>
+							<span
+								className={css({ textStyle: "metaSm", color: "fg.subtle" })}
+							>
 								Also yours:{" "}
 								<span className={css({ color: "secondary.default" })}>
 									{picksBelowTop.map((option) => option.label).join(", ")}
@@ -148,7 +148,11 @@ export function QuestionCardField({
 							</span>
 						)}
 						{hiddenCount > 0 && (
-							<span className={mutedMonoClass}>+{hiddenCount} more</span>
+							<span
+								className={css({ textStyle: "metaSm", color: "fg.subtle" })}
+							>
+								+{hiddenCount} more
+							</span>
 						)}
 					</VStack>
 				)
@@ -172,10 +176,7 @@ export function QuestionCardField({
 						<HStack gap="1.5" alignItems="baseline">
 							<span
 								className={css({
-									fontFamily: "mono",
-									fontSize: "3xs",
-									letterSpacing: "wide",
-									textTransform: "uppercase",
+									textStyle: "labelSm",
 									color: "fg.subtle",
 								})}
 							>

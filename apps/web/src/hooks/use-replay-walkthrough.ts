@@ -1,13 +1,13 @@
 import { useQueryClient } from "@tanstack/react-query"
 import { useNavigate, useRouter } from "@tanstack/react-router"
 import { useGqlMutation } from "#/graphql/hooks"
-import { RestartOnboardingDocument } from "#/graphql/mutations/onboarding"
-import { ViewerOnboardingDocument } from "#/graphql/queries/onboarding"
-import { gqlQueryOptions } from "#/graphql/query-options"
+import {
+	invalidateOnboarding,
+	RestartOnboardingDocument,
+} from "#/graphql/onboarding/mutations"
+import { onboardingQuery } from "#/graphql/onboarding/queries"
 import { buildQuestionSlug } from "#/lib/slug"
 import { endTour } from "#/stores/tour-store"
-
-const onboardingQuery = gqlQueryOptions(ViewerOnboardingDocument, {})
 
 // Starts the walkthrough outright rather than clearing the dismissal and
 // hoping the launcher comes back. It would not: the launcher also hides once
@@ -28,7 +28,7 @@ export function useReplayWalkthrough() {
 		// "replay" that resumes at step 3 is not a replay.
 		endTour()
 		await restartOnboarding.mutateAsync(undefined)
-		await queryClient.invalidateQueries()
+		await invalidateOnboarding(queryClient)
 		await router.invalidate()
 
 		// suggestedFirstQuestion skips anything this viewer already called, so a

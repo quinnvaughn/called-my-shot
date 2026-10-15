@@ -1,6 +1,7 @@
 import { type Grade, REPORT_CARD_MIN_SETTLED } from "@called-my-shot/scoring"
 import { match, P } from "ts-pattern"
-import { formatRecord, formatSignedPoints } from "#/lib/ballot-entry"
+import { formatSigned } from "#/lib/format-number"
+import { formatRecord } from "#/lib/game-status"
 import { pluralize } from "#/lib/pluralize"
 
 // Every number the card shows is rounded here and only here. The API sends
@@ -8,8 +9,7 @@ import { pluralize } from "#/lib/pluralize"
 // differently and disagree by a point.
 export function formatReturn(returnPct: number | null): string | null {
 	if (returnPct === null) return null
-	const rounded = Math.round(returnPct)
-	return `${rounded >= 0 ? "+" : "−"}${Math.abs(rounded)}%`
+	return `${formatSigned(returnPct, { round: "whole", zeroSign: true })}%`
 }
 
 // Green above break-even, red below, neutral at C. Break-even is where the
@@ -21,13 +21,6 @@ export function gradeTone(grade: string | null): string {
 		.with("C", () => "fg.default")
 		.with("D", "F", () => "danger.default")
 		.otherwise(() => "fg.muted")
-}
-
-export function returnTone(returnPct: number | null): string {
-	if (returnPct === null) return "fg.muted"
-	if (returnPct > 0) return "success.default"
-	if (returnPct < 0) return "danger.default"
-	return "fg.default"
 }
 
 export type ReportCardStatus = {
@@ -109,7 +102,7 @@ export function reportCardPageMeta(facts: ReportCardFacts): {
 	const grade = facts.grade ? `${facts.grade} · ` : ""
 	const description = [
 		`${formatRecord(facts.wins, facts.losses)}${qualifier}`,
-		`${formatSignedPoints(facts.totalPoints)} pts`,
+		`${formatSigned(facts.totalPoints, { zeroSign: true })} pts`,
 		formatReturn(facts.returnPct)
 			? `${formatReturn(facts.returnPct)} on ${facts.committedPoints} committed`
 			: null,
@@ -126,8 +119,8 @@ export function buildReportCardTweet(
 	facts: ReportCardFacts & { isOwn: boolean },
 ): string {
 	const line = facts.grade
-		? `${facts.grade}. ${formatRecord(facts.wins, facts.losses)} for ${formatSignedPoints(facts.totalPoints)}.`
-		: `${formatRecord(facts.wins, facts.losses)} for ${formatSignedPoints(facts.totalPoints)}.`
+		? `${facts.grade}. ${formatRecord(facts.wins, facts.losses)} for ${formatSigned(facts.totalPoints, { zeroSign: true })}.`
+		: `${formatRecord(facts.wins, facts.losses)} for ${formatSigned(facts.totalPoints, { zeroSign: true })}.`
 	return facts.isOwn
 		? `My ${facts.track} Report Card: ${line}`
 		: `@${facts.username}'s ${facts.track} Report Card: ${line}`

@@ -34,12 +34,12 @@ export function StepButton({
 				bg: "transparent",
 				cursor: "pointer",
 				transition: "color 0.15s ease, border-color 0.15s ease",
-				_hover: { borderColor: "border.emphasized" },
+				_hover: { border: "1px solid {colors.border.emphasized}" },
 				_disabled: {
 					color: "fg.subtle",
 					opacity: 0.4,
 					cursor: "default",
-					_hover: { borderColor: "border.default" },
+					_hover: { border: "1px solid {colors.border.default}" },
 				},
 			})}
 		>

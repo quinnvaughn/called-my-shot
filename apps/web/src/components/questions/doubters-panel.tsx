@@ -31,10 +31,7 @@ export const DoubtersPanelFragment = graphql(`
 `)
 
 const metaClass = css({
-	fontFamily: "mono",
-	fontSize: "xs",
-	letterSpacing: "wide",
-	textTransform: "uppercase",
+	textStyle: "sectionHeading",
 	color: "fg.muted",
 	whiteSpace: "nowrap",
 })
@@ -100,10 +97,7 @@ export function DoubtersPanel({
 						{verdict && (
 							<span
 								className={css({
-									fontFamily: "mono",
-									fontSize: "2xs",
-									textTransform: "uppercase",
-									letterSpacing: "wide",
+									textStyle: "label",
 									color: "fg.default",
 								})}
 							>

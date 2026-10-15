@@ -24,11 +24,11 @@ export type PushEnvironment = {
 const IN_APP_BROWSER =
 	/FBAN|FBAV|Instagram|Line\/|Twitter|TikTok|musical_ly|Snapchat|LinkedInApp|GSA\//
 
-export function isInAppBrowser(userAgent: string): boolean {
+function isInAppBrowser(userAgent: string): boolean {
 	return IN_APP_BROWSER.test(userAgent)
 }
 
-export function isIos(userAgent: string, maxTouchPoints: number): boolean {
+function isIos(userAgent: string, maxTouchPoints: number): boolean {
 	if (/iPhone|iPad|iPod/.test(userAgent)) return true
 	// iPadOS Safari reports a desktop Mac user agent; touch support is the tell.
 	return /Macintosh/.test(userAgent) && maxTouchPoints > 1

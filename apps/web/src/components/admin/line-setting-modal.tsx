@@ -1,19 +1,26 @@
 import { updateLineSettingSchema } from "@called-my-shot/schemas"
+import { useQueryClient } from "@tanstack/react-query"
 import { useState } from "react"
 import { css } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
 import { match } from "ts-pattern"
+import { AdminCallout } from "#/components/ui/admin-callout"
 import { Button } from "#/components/ui/button"
 import { FormError } from "#/components/ui/form-error"
 import { Modal } from "#/components/ui/modal"
 import { TextInput } from "#/components/ui/text-input"
 import { ToggleRow } from "#/components/ui/toggle-row"
-import type { AdminLineSettingsQuery } from "#/graphql/generated/graphql"
-import { useGqlMutation } from "#/graphql/hooks"
 import {
 	AdminResetLineSettingDocument,
 	AdminUpdateLineSettingDocument,
-} from "#/graphql/mutations/admin"
+} from "#/graphql/admin/calibration/mutations"
+import { ApiError } from "#/graphql/api-error"
+import {
+	AdminLineSettingsDocument,
+	type AdminLineSettingsQuery,
+} from "#/graphql/generated/graphql"
+import { useGqlMutation } from "#/graphql/hooks"
+import { gqlQueryPrefix } from "#/graphql/query-options"
 import { closeModal } from "#/stores/modal-store"
 
 type LineSetting = Extract<
@@ -46,12 +53,12 @@ const FIELDS: { key: Field; label: string; step: string; help: string }[] = [
 
 type Props = {
 	setting: LineSetting
-	onChanged: () => void
 }
 
 // Edits the settings one generated over/under template's lines are set from -
 // see adminUpdateLineSetting.
-export function LineSettingModal({ setting, onChanged }: Props) {
+export function LineSettingModal({ setting }: Props) {
+	const queryClient = useQueryClient()
 	const updateSetting = useGqlMutation(AdminUpdateLineSettingDocument)
 	const resetSetting = useGqlMutation(AdminResetLineSettingDocument)
 	const [autoTune, setAutoTune] = useState(setting.autoTune)
@@ -68,7 +75,9 @@ export function LineSettingModal({ setting, onChanged }: Props) {
 
 	function done() {
 		closeModal()
-		onChanged()
+		queryClient.invalidateQueries({
+			queryKey: gqlQueryPrefix(AdminLineSettingsDocument),
+		})
 	}
 
 	function changeAutoTune(on: boolean) {
@@ -116,12 +125,7 @@ export function LineSettingModal({ setting, onChanged }: Props) {
 						r.fieldErrors?.[0]?.message ?? "Check the settings and try again.",
 					)
 				})
-				.with(
-					{ __typename: "AuthenticationError" },
-					{ __typename: "AuthorizationError" },
-					{ __typename: "NotFoundError" },
-					(r) => setFormError(r.message),
-				)
+				.with(ApiError, (r) => setFormError(r.message))
 				.with({ __typename: "LineSetting" }, done)
 				.exhaustive()
 		} finally {
@@ -141,12 +145,7 @@ export function LineSettingModal({ setting, onChanged }: Props) {
 				.with({ __typename: "ValidationError" }, () =>
 					setFormError("Couldn't go back to the defaults. Try again."),
 				)
-				.with(
-					{ __typename: "AuthenticationError" },
-					{ __typename: "AuthorizationError" },
-					{ __typename: "NotFoundError" },
-					(r) => setFormError(r.message),
-				)
+				.with(ApiError, (r) => setFormError(r.message))
 				.with({ __typename: "LineSetting" }, done)
 				.exhaustive()
 		} finally {
@@ -216,20 +215,10 @@ export function LineSettingModal({ setting, onChanged }: Props) {
 					)
 				})}
 
-				<p
-					className={css({
-						fontSize: "xs",
-						lineHeight: "1.55",
-						color: "fg.subtle",
-						bg: "bg.canvas",
-						border: "1px solid {colors.border.default}",
-						borderRadius: "lg",
-						padding: "3",
-					})}
-				>
+				<AdminCallout>
 					Applies to lines set from now on. Over/unders already posted keep
 					their line.
-				</p>
+				</AdminCallout>
 
 				<FormError message={formError} />
 			</VStack>

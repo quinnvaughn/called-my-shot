@@ -4,10 +4,16 @@ import { css } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
 import { Button } from "#/components/ui/button"
 import { Card } from "#/components/ui/card"
-import { ResetGroupInviteCodeDocument } from "#/graphql/generated/graphql"
+import { ConfirmActionModal } from "#/components/ui/confirm-action-modal"
+import {
+	GroupSettingsDocument,
+	GroupShellDocument,
+	ResetGroupInviteCodeDocument,
+} from "#/graphql/generated/graphql"
 import { useGqlMutation } from "#/graphql/hooks"
+import { gqlQueryPrefix } from "#/graphql/query-options"
+import { formatShortDate } from "#/lib/format-date"
 import { openModal } from "#/stores/modal-store"
-import { ConfirmActionModal } from "./confirm-action-modal"
 
 export type SettingsInvite = {
 	id: string
@@ -23,16 +29,13 @@ type Props = {
 const truncate = css({
 	minWidth: "0",
 	maxWidth: "full",
-	overflow: "hidden",
-	textOverflow: "ellipsis",
-	whiteSpace: "nowrap",
+	truncate: true,
 })
 
 function expiryLabel(expiresAt: string | null) {
 	if (expiresAt === null) return "Never expires"
-	const date = new Date(expiresAt)
-	if (date.getTime() < Date.now()) return "Expired"
-	return `Expires ${date.toLocaleDateString("en", { month: "short", day: "numeric" })}`
+	if (new Date(expiresAt).getTime() < Date.now()) return "Expired"
+	return `Expires ${formatShortDate(expiresAt)}`
 }
 
 // Admins only. Every member has their own link; this is where an admin kills
@@ -50,7 +53,14 @@ export function GroupInvitesSection({ invites }: Props) {
 		})
 		const result = data?.resetGroupInviteCode
 		if (result?.__typename === "GroupInvite") {
-			await queryClient.invalidateQueries()
+			await Promise.all([
+				queryClient.invalidateQueries({
+					queryKey: gqlQueryPrefix(GroupSettingsDocument),
+				}),
+				queryClient.invalidateQueries({
+					queryKey: gqlQueryPrefix(GroupShellDocument),
+				}),
+			])
 			await router.invalidate()
 			return null
 		}
@@ -72,7 +82,7 @@ export function GroupInvitesSection({ invites }: Props) {
 										@{invite.creator.username}
 									</span>
 									<span
-										className={`${truncate} ${css({ fontFamily: "mono", fontSize: "xs", color: "fg.muted" })}`}
+										className={`${truncate} ${css({ textStyle: "metaLg", color: "fg.muted" })}`}
 									>
 										{invite.code} · {expiryLabel(invite.expiresAt)}
 									</span>

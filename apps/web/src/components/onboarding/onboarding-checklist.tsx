@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query"
-import { Link, useNavigate, useRouteContext } from "@tanstack/react-router"
-import { useEffect, useRef, useState } from "react"
-import { FiCheck, FiChevronDown, FiChevronUp, FiX } from "react-icons/fi"
+import { Link, useNavigate } from "@tanstack/react-router"
+import { useState } from "react"
+import { FiChevronDown, FiChevronUp, FiX } from "react-icons/fi"
 import { css } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
 import { match } from "ts-pattern"
@@ -12,20 +12,18 @@ import { useGqlMutation } from "#/graphql/hooks"
 import {
 	DismissOnboardingDocument,
 	SetOnboardingCollapsedDocument,
-} from "#/graphql/mutations/onboarding"
-import { ViewerOnboardingDocument } from "#/graphql/queries/onboarding"
-import { gqlQueryOptions } from "#/graphql/query-options"
+} from "#/graphql/onboarding/mutations"
+import { onboardingQuery } from "#/graphql/onboarding/queries"
+import { useMe } from "#/hooks/use-me"
 import { track } from "#/lib/analytics"
 import { buildQuestionSlug } from "#/lib/slug"
 import { openModal } from "#/stores/modal-store"
 import {
 	completedCount,
 	isOnboardingComplete,
-	type OnboardingStep,
 	onboardingSteps,
 } from "./onboarding-steps"
-
-const onboardingQuery = gqlQueryOptions(ViewerOnboardingDocument, {})
+import { StepRow } from "./step-row"
 
 // The standing map of the product, for anyone who wants one.
 //
@@ -41,7 +39,7 @@ const onboardingQuery = gqlQueryOptions(ViewerOnboardingDocument, {})
 // explained at all, so a single stray click on a card most people will not
 // have finished should not be able to take that away.
 export function OnboardingChecklist() {
-	const { me } = useRouteContext({ from: "__root__" })
+	const me = useMe()
 	const navigate = useNavigate()
 	const dismiss = useGqlMutation(DismissOnboardingDocument)
 	const setCollapsed = useGqlMutation(SetOnboardingCollapsedDocument)
@@ -58,22 +56,20 @@ export function OnboardingChecklist() {
 	//
 	// null means "no local opinion yet, use whatever the server said".
 	const serverCollapsed = !!me?.onboardingCollapsedAt
-	const [collapsedOverride, setCollapsedOverride] = useState<boolean | null>(
-		null,
-	)
+	const [collapsedOverride, setCollapsedOverride] = useState<{
+		collapsed: boolean
+		serverCollapsed: boolean
+	} | null>(null)
 	const [dismissedLocally, setDismissedLocally] = useState(false)
 
 	// The stored value can also change from outside this card: "Replay
 	// walkthrough" clears both timestamps. That is authoritative, so a local
-	// override is dropped the moment the server disagrees with where it came
-	// from, rather than pinning the card shut after a replay.
-	const lastServerCollapsed = useRef(serverCollapsed)
-	useEffect(() => {
-		if (lastServerCollapsed.current !== serverCollapsed) {
-			lastServerCollapsed.current = serverCollapsed
-			setCollapsedOverride(null)
-		}
-	}, [serverCollapsed])
+	// override only counts while the server still says what it said when the
+	// override was made, rather than pinning the card shut after a replay.
+	const collapsed =
+		collapsedOverride?.serverCollapsed === serverCollapsed
+			? collapsedOverride.collapsed
+			: serverCollapsed
 
 	if (!me || me.onboardingDismissedAt || dismissedLocally) return null
 
@@ -103,9 +99,9 @@ export function OnboardingChecklist() {
 		dismiss.mutate(undefined)
 	}
 
-	function handleCollapse(collapsed: boolean) {
-		setCollapsedOverride(collapsed)
-		setCollapsed.mutate({ collapsed })
+	function handleCollapse(next: boolean) {
+		setCollapsedOverride({ collapsed: next, serverCollapsed })
+		setCollapsed.mutate({ collapsed: next })
 	}
 
 	function startFirstCall() {
@@ -124,7 +120,7 @@ export function OnboardingChecklist() {
 	// Collapsed: one row that still reports progress, so it stays a reminder
 	// rather than becoming invisible. This is also the only place the permanent
 	// dismiss is offered.
-	if (collapsedOverride ?? serverCollapsed) {
+	if (collapsed) {
 		return (
 			<Card>
 				<Card.Body>
@@ -148,10 +144,7 @@ export function OnboardingChecklist() {
 							</span>
 							<span
 								className={css({
-									fontFamily: "mono",
-									fontSize: "2xs",
-									letterSpacing: "wide",
-									textTransform: "uppercase",
+									textStyle: "label",
 									color: "fg.muted",
 									whiteSpace: "nowrap",
 								})}
@@ -196,10 +189,7 @@ export function OnboardingChecklist() {
 							</h2>
 							<span
 								className={css({
-									fontFamily: "mono",
-									fontSize: "2xs",
-									letterSpacing: "wide",
-									textTransform: "uppercase",
+									textStyle: "label",
 									color: "fg.muted",
 								})}
 							>
@@ -247,8 +237,7 @@ export function OnboardingChecklist() {
 											// to point at right now.
 											<span
 												className={css({
-													fontFamily: "mono",
-													fontSize: "2xs",
+													textStyle: "meta",
 													color: "fg.subtle",
 												})}
 											>
@@ -318,69 +307,5 @@ export function OnboardingChecklist() {
 				</VStack>
 			</Card.Body>
 		</Card>
-	)
-}
-
-function StepRow({
-	step,
-	action,
-}: {
-	step: OnboardingStep
-	action: React.ReactNode
-}) {
-	return (
-		<HStack gap="3" alignItems="flex-start">
-			<span
-				aria-hidden
-				className={css({
-					display: "flex",
-					flexShrink: 0,
-					alignItems: "center",
-					justifyContent: "center",
-					width: "5",
-					height: "5",
-					marginTop: "0.5",
-					borderRadius: "full",
-					border: "1px solid {colors.border.emphasized}",
-					bg: step.done ? "primary.default" : "transparent",
-					color: "primary.contrast",
-				})}
-			>
-				{step.done && <FiCheck size={12} />}
-			</span>
-			<VStack gap="1.5" alignItems="flex-start" minWidth="0">
-				<span
-					className={css({
-						fontSize: "sm",
-						fontWeight: "semibold",
-						color: step.done ? "fg.muted" : "fg.default",
-						textDecoration: step.done ? "line-through" : "none",
-					})}
-				>
-					{step.title}
-				</span>
-				<p
-					className={css({
-						fontSize: "xs",
-						lineHeight: "relaxed",
-						color: "fg.muted",
-					})}
-				>
-					{step.body}
-				</p>
-				{step.blockedBy && (
-					<span
-						className={css({
-							fontFamily: "mono",
-							fontSize: "2xs",
-							color: "fg.subtle",
-						})}
-					>
-						Verify your email first
-					</span>
-				)}
-				{action}
-			</VStack>
-		</HStack>
 	)
 }

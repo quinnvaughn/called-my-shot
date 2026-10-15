@@ -1,10 +1,11 @@
 import { Link } from "@tanstack/react-router"
-import { DateTime } from "luxon"
 import { css } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
+import { formatLockLine } from "#/components/questions/lock-line"
 import { Card } from "#/components/ui/card"
 import { Tag } from "#/components/ui/tag"
 import type { LeagueWindowType } from "#/graphql/generated/graphql"
+import { useNow } from "#/hooks/use-now"
 import { gamesInWindowLabel, windowUnitLabel } from "#/lib/game-status"
 import { eliminationGamesLabel, roundsPhrase } from "#/lib/postseason"
 
@@ -38,10 +39,11 @@ export function LeagueRoomCard({ league }: Props) {
 		league.windowType,
 	)
 
+	const now = useNow(!live && league.nextLockAt ? 60_000 : null)
 	const detail = live
 		? `${league.liveGameCount} live now`
 		: league.nextLockAt
-			? `Next lock ${DateTime.fromISO(league.nextLockAt).toRelative()}`
+			? formatLockLine(league.nextLockAt, now, "Next lock")
 			: "Nothing open right now"
 
 	// "ALDS & NLDS · 2 elimination games today". Only the parts that have
@@ -76,8 +78,7 @@ export function LeagueRoomCard({ league }: Props) {
 									borderRadius: "lg",
 									bg: "bg.subtle",
 									border: "1px solid {colors.border.default}",
-									fontFamily: "mono",
-									fontSize: "3xs",
+									textStyle: "metaSm",
 									fontWeight: "bold",
 								})}
 							>
@@ -103,10 +104,7 @@ export function LeagueRoomCard({ league }: Props) {
 						{stakes && (
 							<span
 								className={css({
-									fontFamily: "mono",
-									fontSize: "2xs",
-									letterSpacing: "wide",
-									textTransform: "uppercase",
+									textStyle: "label",
 									fontWeight: "bold",
 									color: "secondary.default",
 								})}
@@ -133,8 +131,7 @@ export function LeagueRoomCard({ league }: Props) {
 							</HStack>
 							<span
 								className={css({
-									fontFamily: "mono",
-									fontSize: "2xs",
+									textStyle: "meta",
 									color: live ? "fg.default" : "fg.subtle",
 								})}
 							>
@@ -144,8 +141,7 @@ export function LeagueRoomCard({ league }: Props) {
 						{league.myOpenCallCount !== null && (
 							<span
 								className={css({
-									fontFamily: "mono",
-									fontSize: "2xs",
+									textStyle: "meta",
 									color: "fg.subtle",
 									paddingTop: "2",
 									borderTop: "1px solid {colors.border.default}",

@@ -1,61 +1,15 @@
-import { useQueryClient } from "@tanstack/react-query"
 import { Link } from "@tanstack/react-router"
 import { HStack } from "styled-system/jsx"
-import type { QuestionCallShape } from "#/components/questions/cast-call-form/use-cast-call-form"
 import { Button, button } from "#/components/ui/button"
-import { QuestionDetailDocument } from "#/graphql/queries/question"
-import { gqlQueryOptions } from "#/graphql/query-options"
-import { isRateStat } from "#/lib/field-signal"
 import { openModal } from "#/stores/modal-store"
-import { AdminResolveModal } from "./admin-resolve-modal"
 import { DeleteQuestionModal } from "./delete-question-modal"
 import { EditQuestionTitleModal } from "./edit-question-title-modal"
 import { MarkVoidedModal } from "./mark-voided-modal"
+import { ResolveButton } from "./resolve-button"
 import { VoidQuestionModal } from "./void-question-modal"
-
-// Loads the option pool on demand rather than requiring every caller (the
-// Questions page's full list, the Queue page's needs-resolution list) to
-// select it just in case a row's Resolve button gets clicked - most rows
-// never do.
-export function ResolveButton({
-	questionId,
-	onResolved,
-}: {
-	questionId: string
-	onResolved: () => void
-}) {
-	const queryClient = useQueryClient()
-
-	async function openResolve() {
-		const data = await queryClient.query(
-			gqlQueryOptions(QuestionDetailDocument, { id: questionId }),
-		)
-		if (!data?.question) return
-		openModal(
-			<AdminResolveModal
-				question={{
-					id: data.question.id,
-					title: data.question.title,
-					shape: data.question.shape.toLowerCase() as QuestionCallShape,
-					ouLine: data.question.ouLine ?? null,
-					options: data.question.options,
-					isRateStat: isRateStat(data.question),
-				}}
-				onResolved={onResolved}
-			/>,
-		)
-	}
-
-	return (
-		<Button variant="outline" size="sm" onClick={openResolve}>
-			Resolve
-		</Button>
-	)
-}
 
 export function QuestionRowActions({
 	question,
-	onChanged,
 }: {
 	question: {
 		id: string
@@ -64,7 +18,6 @@ export function QuestionRowActions({
 		isOfficial: boolean
 		creator: { username: string } | null
 	}
-	onChanged: () => void
 }) {
 	// Settles the question with no result and keeps it, unlike Void, which
 	// deletes it.
@@ -72,9 +25,7 @@ export function QuestionRowActions({
 		<Button
 			variant="outline"
 			size="sm"
-			onClick={() =>
-				openModal(<MarkVoidedModal question={question} onVoided={onChanged} />)
-			}
+			onClick={() => openModal(<MarkVoidedModal question={question} />)}
 		>
 			No result
 		</Button>
@@ -84,11 +35,7 @@ export function QuestionRowActions({
 		<Button
 			variant="outline"
 			size="sm"
-			onClick={() =>
-				openModal(
-					<EditQuestionTitleModal question={question} onEdited={onChanged} />,
-				)
-			}
+			onClick={() => openModal(<EditQuestionTitleModal question={question} />)}
 		>
 			Edit title
 		</Button>
@@ -101,11 +48,7 @@ export function QuestionRowActions({
 		<Button
 			variant="outline"
 			size="sm"
-			onClick={() =>
-				openModal(
-					<DeleteQuestionModal question={question} onDeleted={onChanged} />,
-				)
-			}
+			onClick={() => openModal(<DeleteQuestionModal question={question} />)}
 		>
 			Delete
 		</Button>
@@ -139,7 +82,7 @@ export function QuestionRowActions({
 	if (question.status === "VOIDED") {
 		return (
 			<HStack gap="1.5" justify="flex-end">
-				<ResolveButton questionId={question.id} onResolved={onChanged} />
+				<ResolveButton questionId={question.id} />
 				{editTitleButton}
 				{deleteButton}
 			</HStack>
@@ -148,15 +91,11 @@ export function QuestionRowActions({
 
 	return (
 		<HStack gap="1.5" justify="flex-end">
-			<ResolveButton questionId={question.id} onResolved={onChanged} />
+			<ResolveButton questionId={question.id} />
 			<Button
 				variant="outline"
 				size="sm"
-				onClick={() =>
-					openModal(
-						<VoidQuestionModal question={question} onVoided={onChanged} />,
-					)
-				}
+				onClick={() => openModal(<VoidQuestionModal question={question} />)}
 			>
 				Void
 			</Button>

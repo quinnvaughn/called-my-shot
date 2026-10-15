@@ -1,18 +1,11 @@
 import { css } from "styled-system/css"
 import { HStack } from "styled-system/jsx"
+import { AddEditTeamModal } from "#/components/admin/data-entity-modal/add-edit-team-modal"
 import { Button } from "#/components/ui/button"
 import { Table } from "#/components/ui/table"
 import { openModal } from "#/stores/modal-store"
-import { AddEditTeamModal } from "./data-entity-modal"
+import type { AdminTeamRow } from "./data-rows"
 
-type Team = {
-	id: string
-	name: string
-	abbreviation: string
-	color: string
-	conference: string | null
-	division: string | null
-}
 type SortKey = "NAME" | "ABBREVIATION"
 
 const columns = [
@@ -28,14 +21,12 @@ export function DataTeamTable({
 	sortBy,
 	sortDir,
 	onSort,
-	onSaved,
 }: {
-	teams: Team[]
+	teams: AdminTeamRow[]
 	leagueId: string
 	sortBy: SortKey
 	sortDir: "asc" | "desc"
 	onSort: (key: SortKey) => void
-	onSaved: () => void
 }) {
 	return (
 		<Table
@@ -70,11 +61,7 @@ export function DataTeamTable({
 								size="sm"
 								onClick={() =>
 									openModal(
-										<AddEditTeamModal
-											leagueId={leagueId}
-											team={team}
-											onSaved={onSaved}
-										/>,
+										<AddEditTeamModal leagueId={leagueId} team={team} />,
 									)
 								}
 							>

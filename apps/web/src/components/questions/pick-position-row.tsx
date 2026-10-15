@@ -1,20 +1,18 @@
 import { Link } from "@tanstack/react-router"
-import { FaCheck, FaXmark } from "react-icons/fa6"
-import { css, cx } from "styled-system/css"
+import { css } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
 import { match, P } from "ts-pattern"
+import { MemberStateIcon } from "#/components/questions/member-state-icon"
+import { NotCalledYet } from "#/components/questions/not-called-yet"
+import { PickTierBadge } from "#/components/questions/pick-tier-badge"
 import { PlayerOrTeamImage } from "#/components/ui/player-or-team-image"
 import { Tag } from "#/components/ui/tag"
 import { type FragmentType, graphql, useFragment } from "#/graphql/generated"
-import {
-	type BallotMemberState,
-	ballotMemberState,
-} from "#/lib/ballot-member-state"
-import { isContested } from "#/lib/contested"
+import { ballotMemberState, selectionDotState } from "#/lib/ballot-member-state"
+import { isContested, leadingOption } from "#/lib/contested"
 import { callersText, formatGuess } from "#/lib/field-signal"
 import { questionDetailState } from "#/lib/question-detail-state"
 import { isNumericQuestionShape } from "#/lib/question-labels"
-import { crowdTierFor } from "#/lib/scoring"
 import { buildQuestionSlug } from "#/lib/slug"
 
 export const PickPositionRowFragment = graphql(`
@@ -63,8 +61,6 @@ export const PickPositionRowCallFragment = graphql(`
 	}
 `)
 
-type PositionOption = { label: string; fieldPct: number | null }
-
 type Props = {
 	question: FragmentType<typeof PickPositionRowFragment>
 	// The viewer's own call on the ballot page, the entry owner's on an entry
@@ -74,124 +70,6 @@ type Props = {
 	// label. Null draws the label alone.
 	code: string | null
 	label: string
-}
-
-const stateDotStyle: Record<BallotMemberState, string> = {
-	uncalled: css({ border: "1px solid {colors.fg.subtle}" }),
-	pending: css({
-		backgroundColor: "fg.subtle",
-		border: "1px solid {colors.fg.subtle}",
-	}),
-	won: css({
-		backgroundColor: "success.default/15",
-		border: "1px solid {colors.success.default/50}",
-		color: "success.default",
-	}),
-	lost: css({
-		backgroundColor: "danger.default/15",
-		border: "1px solid {colors.danger.default/50}",
-		color: "danger.default",
-	}),
-	missed: css({
-		border: "1px dashed {colors.fg.subtle}",
-		opacity: 0.5,
-	}),
-	voided: css({
-		border: "1px solid {colors.fg.subtle}",
-		opacity: 0.5,
-	}),
-}
-
-// Sits inline with the pick itself ("your pick" line), not as a leading
-// row-level marker - the row's actual leading element is the code/label
-// column below, which every row has regardless of call state.
-function PickStateDot({ state }: { state: BallotMemberState }) {
-	return (
-		<div
-			className={cx(
-				css({
-					display: "flex",
-					alignItems: "center",
-					justifyContent: "center",
-					width: "14px",
-					height: "14px",
-					borderRadius: "full",
-					flexShrink: "0",
-				}),
-				stateDotStyle[state],
-			)}
-		>
-			{state === "won" && <FaCheck size={8} />}
-			{state === "lost" && <FaXmark size={8} />}
-		</div>
-	)
-}
-
-function PickTierBadge({
-	fieldPct,
-	totalOptions,
-	modelHitRate = null,
-}: {
-	fieldPct: number
-	totalOptions: number
-	// The side's own price, when it has one. A priced side has no boldness
-	// tier, so no badge - see crowdTierFor.
-	modelHitRate?: number | null
-}) {
-	const tier = crowdTierFor(fieldPct, totalOptions, { modelHitRate })
-	if (!tier) return null
-	return (
-		<span
-			className={css({
-				fontFamily: "mono",
-				fontSize: "3xs",
-				fontWeight: "bold",
-				letterSpacing: "wide",
-				color: "fg.subtle",
-				border: "1px solid {colors.border.default}",
-				borderRadius: "sm",
-				padding: "{spacing.0.5} {spacing.1.5}",
-				flexShrink: "0",
-			})}
-		>
-			{tier.label} ×{tier.mult.toFixed(1)}
-		</span>
-	)
-}
-
-function NotCalledYet({ state }: { state: BallotMemberState }) {
-	return (
-		<HStack gap="2" alignItems="center">
-			<PickStateDot state={state} />
-			<span className={css({ fontSize: "xs", color: "fg.subtle" })}>
-				Not called yet
-			</span>
-		</HStack>
-	)
-}
-
-// A multi-pick question (player_season_award/team_season_award with more than
-// one slot, e.g. "OF (3)") scores each selection independently - one pick
-// can win while another loses on the very same call - so each gets its own
-// dot rather than one shared dot standing in for the whole question.
-function selectionDotState(
-	isCorrect: boolean | null,
-	isSettled: boolean,
-): BallotMemberState {
-	if (!isSettled) return "pending"
-	return isCorrect ? "won" : "lost"
-}
-
-// Leading option by live fieldPct, dropping options nobody's called yet -
-// same "what is the field actually saying" question isContested/rankByField
-// answer, just keeping the label alongside the number for display.
-function leadingOption<T extends PositionOption>(options: T[]): T | null {
-	let best: T | null = null
-	for (const option of options) {
-		if (option.fieldPct === null) continue
-		if (!best || option.fieldPct > (best.fieldPct ?? -1)) best = option
-	}
-	return best
 }
 
 // One question of a set someone called through (a ballot, a game's official
@@ -250,10 +128,7 @@ export function PickPositionRow({
 				)}
 				<span
 					className={css({
-						fontFamily: "mono",
-						fontSize: "3xs",
-						letterSpacing: "wide",
-						textTransform: "uppercase",
+						textStyle: "labelSm",
 						color: "fg.subtle",
 						whiteSpace: "normal",
 						lineClamp: 2,
@@ -279,7 +154,7 @@ export function PickPositionRow({
 					.with({ call: null }, () => <NotCalledYet state={state} />)
 					.with({ isNumericGuess: true }, ({ call }) => (
 						<HStack gap="2" alignItems="center" flexWrap="wrap">
-							<PickStateDot state={state} />
+							<MemberStateIcon state={state} />
 							<span className={css({ fontSize: "sm", fontWeight: "bold" })}>
 								{formatGuess(call?.guessValue ?? 0)}
 							</span>
@@ -304,7 +179,7 @@ export function PickPositionRow({
 							<VStack gap="1" alignItems="flex-start">
 								{selections.map((selection) => (
 									<HStack key={selection.id} gap="2" alignItems="center">
-										<PickStateDot
+										<MemberStateIcon
 											state={selectionDotState(
 												selection.option.isCorrect,
 												isSettled,
@@ -348,8 +223,7 @@ export function PickPositionRow({
 				<HStack gap="2" alignItems="center" flexWrap="wrap">
 					<span
 						className={css({
-							fontFamily: "mono",
-							fontSize: "2xs",
+							textStyle: "meta",
 							color: "fg.subtle",
 						})}
 					>
@@ -360,8 +234,7 @@ export function PickPositionRow({
 					{leader && (
 						<span
 							className={css({
-								fontFamily: "mono",
-								fontSize: "2xs",
+								textStyle: "meta",
 								color: "fg.subtle",
 							})}
 						>

@@ -1,47 +1,39 @@
-import { useQuery } from "@tanstack/react-query"
+import { useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
 import { HStack, VStack } from "styled-system/jsx"
-import { AddEditLeagueModal } from "#/components/admin/data-entity-modal"
+import { AddEditLeagueModal } from "#/components/admin/data-entity-modal/add-edit-league-modal"
 import { DataLeagueTable } from "#/components/admin/data-league-table"
 import { Button } from "#/components/ui/button"
 import { PageHeader } from "#/components/ui/page-header"
-import type { AdminLeagueSort } from "#/graphql/generated/graphql"
 import {
 	AdminLeaguesDocument,
-	SportsForAdminDocument,
-} from "#/graphql/queries/admin"
-import { EMPTY_CONNECTION, gqlQueryOptions } from "#/graphql/query-options"
+	sportsForAdminQuery,
+} from "#/graphql/admin/data/queries"
+import type { AdminLeagueSort } from "#/graphql/generated/graphql"
+import { EMPTY_CONNECTION } from "#/graphql/query-options"
 import { useAdminConnection } from "#/hooks/use-admin-connection"
 import { openModal } from "#/stores/modal-store"
 
 export const Route = createFileRoute("/admin/data/")({
 	component: RouteComponent,
+	loader: ({ context }) => context.queryClient.query(sportsForAdminQuery),
 })
 
 function RouteComponent() {
-	const { data: sportsData } = useQuery(
-		gqlQueryOptions(SportsForAdminDocument, {}),
-	)
-	const sports = sportsData?.sports ?? []
-
 	const {
-		items,
-		loading,
-		hasNextPage,
-		sortBy,
-		sortDir,
-		onSort,
-		loadMore,
-		reload,
-	} = useAdminConnection({
-		defaultSort: "NAME" as AdminLeagueSort,
-		document: AdminLeaguesDocument,
-		variables: ({ sortBy, sortDir }) => ({ sortBy, sortDir }),
-		selectConnection: (data) =>
-			data.adminLeagues.__typename === "QueryAdminLeaguesSuccess"
-				? data.adminLeagues.data
-				: EMPTY_CONNECTION,
-	})
+		data: { sports },
+	} = useSuspenseQuery(sportsForAdminQuery)
+
+	const { items, loading, hasNextPage, sortBy, sortDir, onSort, loadMore } =
+		useAdminConnection({
+			defaultSort: "NAME" as AdminLeagueSort,
+			document: AdminLeaguesDocument,
+			variables: ({ sortBy, sortDir }) => ({ sortBy, sortDir }),
+			selectConnection: (data) =>
+				data.adminLeagues.__typename === "QueryAdminLeaguesSuccess"
+					? data.adminLeagues.data
+					: EMPTY_CONNECTION,
+		})
 
 	return (
 		<VStack gap="6" alignItems="stretch">
@@ -50,9 +42,7 @@ function RouteComponent() {
 			<HStack justify="flex-end">
 				<Button
 					variant="solid"
-					onClick={() =>
-						openModal(<AddEditLeagueModal sports={sports} onSaved={reload} />)
-					}
+					onClick={() => openModal(<AddEditLeagueModal sports={sports} />)}
 				>
 					+ Add league
 				</Button>
@@ -64,7 +54,6 @@ function RouteComponent() {
 				sortBy={sortBy}
 				sortDir={sortDir}
 				onSort={onSort}
-				onSaved={reload}
 			/>
 
 			{hasNextPage && (

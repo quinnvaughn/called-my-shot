@@ -1,44 +1,12 @@
 import { useSuspenseQuery } from "@tanstack/react-query"
-import { Link } from "@tanstack/react-router"
 import { useState } from "react"
-import { css } from "styled-system/css"
-import { HStack, VStack } from "styled-system/jsx"
-import { GameBlock } from "#/components/questions/game-block"
+import { HStack } from "styled-system/jsx"
 import { CardRail } from "#/components/ui/card-rail"
 import { ChipButton } from "#/components/ui/chip-button"
-import { type FragmentType, graphql, useFragment } from "#/graphql/generated"
+import { graphql } from "#/graphql/generated"
 import { gqlQueryOptions } from "#/graphql/query-options"
 import { IN_PLAY_REFETCH_MS, isGameInPlay } from "#/lib/game-status"
-
-export const GroupGamesStripFragment = graphql(`
-	fragment GroupGamesStrip_game on GroupGame {
-		callerCount
-		game {
-			id
-			status
-			startsAt
-			homeScore
-			awayScore
-			startTimeTbd
-			league {
-				id
-				abbreviation
-			}
-			homeTeam {
-				id
-				abbreviation
-				color
-				logoUrl
-			}
-			awayTeam {
-				id
-				abbreviation
-				color
-				logoUrl
-			}
-		}
-	}
-`)
+import { GameTile } from "./game-tile"
 
 export const GroupLiveGamesDocument = graphql(`
 	query GroupLiveGames($groupId: ID!) {
@@ -75,14 +43,6 @@ export const groupLiveGamesQuery = (groupId: string) =>
 		},
 	)
 
-const headingClass = css({
-	fontFamily: "mono",
-	fontSize: "xs",
-	letterSpacing: "wide",
-	color: "fg.muted",
-	textTransform: "uppercase",
-})
-
 // Games the group has calls on that are on now, start within a day, or just
 // ended, each leading to the group's board for that game. Renders nothing
 // when there aren't any.
@@ -114,70 +74,31 @@ export function GroupGamesStrip({ groupId }: { groupId: string }) {
 			items={shown}
 			getKey={(g) => g.game.id}
 			itemLabel="game"
+			title="Games"
 			header={
-				<HStack gap="3" alignItems="center" flexWrap="wrap">
-					<h2 className={headingClass}>Games</h2>
-					{leagues.length > 1 && (
-						<HStack gap="1.5" flexWrap="wrap">
+				leagues.length > 1 && (
+					<HStack gap="1.5" flexWrap="wrap">
+						<ChipButton
+							selected={activeLeagueId === null}
+							pressed={activeLeagueId === null}
+							onClick={() => setLeagueId(null)}
+						>
+							All
+						</ChipButton>
+						{leagues.map((league) => (
 							<ChipButton
-								selected={activeLeagueId === null}
-								pressed={activeLeagueId === null}
-								onClick={() => setLeagueId(null)}
+								key={league.id}
+								selected={activeLeagueId === league.id}
+								pressed={activeLeagueId === league.id}
+								onClick={() => setLeagueId(league.id)}
 							>
-								All
+								{league.abbreviation}
 							</ChipButton>
-							{leagues.map((league) => (
-								<ChipButton
-									key={league.id}
-									selected={activeLeagueId === league.id}
-									pressed={activeLeagueId === league.id}
-									onClick={() => setLeagueId(league.id)}
-								>
-									{league.abbreviation}
-								</ChipButton>
-							))}
-						</HStack>
-					)}
-				</HStack>
+						))}
+					</HStack>
+				)
 			}
 			renderItem={(g) => <GameTile groupId={groupId} game={g} />}
 		/>
-	)
-}
-
-function GameTile({
-	groupId,
-	game: gameProp,
-}: {
-	groupId: string
-	game: FragmentType<typeof GroupGamesStripFragment>
-}) {
-	const { callerCount, game } = useFragment(GroupGamesStripFragment, gameProp)
-	return (
-		<Link
-			to="/groups/$groupId/games/$gameId"
-			params={{ groupId, gameId: game.id }}
-			className={css({
-				display: "block",
-				textDecoration: "none",
-				color: "inherit",
-				borderRadius: "lg",
-				_hover: { opacity: 0.85 },
-			})}
-		>
-			<VStack gap="1.5" alignItems="stretch">
-				<GameBlock game={game} />
-				<span
-					className={css({
-						fontFamily: "mono",
-						fontSize: "2xs",
-						color: "fg.subtle",
-						paddingInline: "1",
-					})}
-				>
-					{game.league.abbreviation} · {callerCount} in the group called it
-				</span>
-			</VStack>
-		</Link>
 	)
 }

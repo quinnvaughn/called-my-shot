@@ -1,10 +1,6 @@
 import type { StreakMode } from "@called-my-shot/scoring"
-import { VStack } from "styled-system/jsx"
-import { CopyLinkRow } from "#/components/ui/copy-link-row"
-import { PostOnXLink } from "#/components/ui/post-on-x-link"
-import { ShareIconRow } from "#/components/ui/share-icon-row"
+import { ShareLinkRow } from "#/components/ui/share-link-row"
 import { track } from "#/lib/analytics"
-import { SITE_HOST, SITE_ORIGIN } from "#/lib/meta"
 import {
 	type StreakFamilyValue,
 	streakFamilyParam,
@@ -38,46 +34,20 @@ export function StreakShareRow({
 	shareTitle,
 	layout = "full",
 }: Props) {
-	const path = streakPath(username, leagueSlug, family, mode)
-	const url = `${SITE_ORIGIN}${path}`
 	const props = {
 		userId,
 		league: leagueSlug,
 		family: streakFamilyParam(family),
 	}
 
-	if (layout === "icons") {
-		return (
-			<ShareIconRow
-				url={url}
-				campaign="streak"
-				tweetText={tweetText}
-				shareTitle={shareTitle}
-				onShared={(method) => track("streak_link_shared", { ...props, method })}
-			/>
-		)
-	}
-
 	return (
-		<VStack gap="3" alignItems="stretch">
-			<CopyLinkRow
-				url={url}
-				campaign="streak"
-				displayUrl={`${SITE_HOST}${path}`}
-				shareTitle={shareTitle}
-				onCopied={() =>
-					track("streak_link_shared", { ...props, method: "clipboard" })
-				}
-				onNativeShared={() =>
-					track("streak_link_shared", { ...props, method: "native" })
-				}
-			/>
-			<PostOnXLink
-				text={tweetText}
-				url={url}
-				campaign="streak"
-				onClick={() => track("streak_link_shared", { ...props, method: "x" })}
-			/>
-		</VStack>
+		<ShareLinkRow
+			path={streakPath(username, leagueSlug, family, mode)}
+			campaign="streak"
+			tweetText={tweetText}
+			shareTitle={shareTitle}
+			layout={layout}
+			onShared={(method) => track("streak_link_shared", { ...props, method })}
+		/>
 	)
 }

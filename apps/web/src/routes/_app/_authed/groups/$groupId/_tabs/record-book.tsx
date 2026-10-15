@@ -3,7 +3,7 @@ import { createFileRoute } from "@tanstack/react-router"
 import {
 	GroupRecordBook,
 	recordBookQuery,
-} from "#/components/groups/group-record-book"
+} from "#/components/groups/group-record-book/group-record-book"
 
 // Who won each week, and the group's records.
 export const Route = createFileRoute(

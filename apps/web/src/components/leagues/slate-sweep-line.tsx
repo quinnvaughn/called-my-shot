@@ -1,7 +1,8 @@
-import { Link, useRouteContext } from "@tanstack/react-router"
+import { Link } from "@tanstack/react-router"
 import { css } from "styled-system/css"
 import { match } from "ts-pattern"
 import { type FragmentType, graphql, useFragment } from "#/graphql/generated"
+import { useMe } from "#/hooks/use-me"
 import { slateSweepText } from "#/lib/sweep-progress"
 
 export const SlateSweepLineFragment = graphql(`
@@ -46,7 +47,7 @@ type Props = {
 // finished sweep links to its page.
 export function SlateSweepLine({ progress: progressProp, leagueSlug }: Props) {
 	const progress = useFragment(SlateSweepLineFragment, progressProp)
-	const { me } = useRouteContext({ from: "__root__" })
+	const me = useMe()
 	const text = slateSweepText(progress)
 	const className = css({
 		fontFamily: "mono",

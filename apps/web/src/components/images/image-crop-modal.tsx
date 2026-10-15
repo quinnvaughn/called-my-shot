@@ -5,6 +5,7 @@ import { useEffect, useState } from "react"
 import Cropper, { type Area } from "react-easy-crop"
 import { css } from "styled-system/css"
 import { VStack } from "styled-system/jsx"
+import { invalidateAfterImageChange } from "#/graphql/images/mutations"
 import { cropToBlob } from "#/lib/images/crop-to-blob"
 import {
 	ImageSaveError,
@@ -65,7 +66,7 @@ export function ImageCropModal({ target, file, title }: Props) {
 		try {
 			const blob = await cropToBlob(src, area, size)
 			await saveImage(target, blob)
-			await queryClient.invalidateQueries()
+			await invalidateAfterImageChange(queryClient, target)
 			await router.invalidate()
 			closeModal()
 		} catch (caught) {

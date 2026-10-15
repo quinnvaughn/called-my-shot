@@ -1,5 +1,5 @@
 import { gqlFetch } from "#/graphql/fetcher"
-import { CreateUpdateImageUploadDocument } from "#/graphql/mutations/updates"
+import { CreateUpdateImageUploadDocument } from "#/graphql/updates/mutations"
 import { cropToBlob, loadImage } from "./crop-to-blob"
 import { ImageSaveError } from "./save-image"
 

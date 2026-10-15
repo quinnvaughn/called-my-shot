@@ -1,15 +1,11 @@
 import { deleteAccountSchema } from "@called-my-shot/schemas"
-import { useMemo, useState } from "react"
 import { css } from "styled-system/css"
-import { VStack } from "styled-system/jsx"
 import { match } from "ts-pattern"
 import { z } from "zod"
-import { Button } from "#/components/ui/button"
-import { FormError } from "#/components/ui/form-error"
-import { Modal } from "#/components/ui/modal"
+import { ConfirmByTypingModal } from "#/components/ui/confirm-by-typing-modal"
 import { TextInput } from "#/components/ui/text-input"
 import { useGqlMutation } from "#/graphql/hooks"
-import { DeleteAccountDocument } from "#/graphql/queries/user"
+import { DeleteAccountDocument } from "#/graphql/user/settings/mutations"
 import { useSignOut } from "#/hooks/use-sign-out"
 import { track } from "#/lib/analytics"
 import { useForm } from "#/lib/form/use-form"
@@ -25,15 +21,10 @@ type Props = {
 export function DeleteAccountModal({ username, hasPassword }: Props) {
 	const { signOut } = useSignOut()
 	const deleteAccount = useGqlMutation(DeleteAccountDocument)
-	const [confirmText, setConfirmText] = useState("")
 
-	const schema = useMemo(
-		() =>
-			hasPassword
-				? deleteAccountSchema
-				: deleteAccountSchema.extend({ password: z.string() }),
-		[hasPassword],
-	)
+	const schema = hasPassword
+		? deleteAccountSchema
+		: deleteAccountSchema.extend({ password: z.string() })
 
 	const form = useForm({
 		defaultValues: { password: "" },
@@ -71,21 +62,28 @@ export function DeleteAccountModal({ username, hasPassword }: Props) {
 	})
 
 	return (
-		<Modal size="sm">
-			<Modal.CloseButton />
-			<Modal.Title className={css({ color: "danger.default" })}>
-				Delete account
-			</Modal.Title>
-			<form onSubmit={form.handleSubmit}>
-				<VStack gap="3.5" alignItems="stretch">
-					<Modal.Description>
-						This deletes{" "}
-						<b className={css({ fontWeight: "semibold", color: "fg.default" })}>
-							@{username}
-						</b>{" "}
-						and every call, point, and rank tied to it. There's no getting it
-						back.
-					</Modal.Description>
+		<form.Subscribe selector={(s) => s.meta}>
+			{(meta) => (
+				<ConfirmByTypingModal
+					title="Delete account"
+					description={
+						<>
+							This deletes{" "}
+							<b
+								className={css({ fontWeight: "semibold", color: "fg.default" })}
+							>
+								@{username}
+							</b>{" "}
+							and every call, point, and rank tied to it. There's no getting it
+							back.
+						</>
+					}
+					confirmLabel="Delete my account"
+					submitting={meta.isSubmitting}
+					canSubmit={meta.canSubmit}
+					error={meta.formError}
+					onSubmit={form.handleSubmit}
+				>
 					{hasPassword && (
 						<form.Field name="password">
 							{(field) => (
@@ -102,41 +100,8 @@ export function DeleteAccountModal({ username, hasPassword }: Props) {
 							)}
 						</form.Field>
 					)}
-					<TextInput>
-						<TextInput.Label>Type DELETE to confirm</TextInput.Label>
-						<TextInput.Group>
-							<TextInput.Field
-								placeholder="DELETE"
-								autoComplete="off"
-								value={confirmText}
-								onChange={(e) => setConfirmText(e.target.value)}
-							/>
-						</TextInput.Group>
-					</TextInput>
-					<form.Subscribe selector={(s) => s.meta}>
-						{(meta) => (
-							<VStack gap="2" alignItems="stretch">
-								<Button
-									type="submit"
-									variant="solid"
-									size="md"
-									fullWidth
-									loading={meta.isSubmitting}
-									disabled={
-										meta.isSubmitting ||
-										!meta.canSubmit ||
-										confirmText !== "DELETE"
-									}
-									className={css({ bg: "danger.default" })}
-								>
-									Delete my account
-								</Button>
-								<FormError message={meta.formError} />
-							</VStack>
-						)}
-					</form.Subscribe>
-				</VStack>
-			</form>
-		</Modal>
+				</ConfirmByTypingModal>
+			)}
+		</form.Subscribe>
 	)
 }

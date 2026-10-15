@@ -217,6 +217,47 @@ describe("StatPanel: which stats it offers", () => {
 		expect(line).toHaveAttribute("placeholder", "7.5")
 	})
 
+	it("keeps the line when the stat already picked is picked again", async () => {
+		const user = userEvent.setup()
+		renderPanel(<StatPanel shape="player_stat_over_under" />, {
+			values: {
+				shape: "player_stat_over_under",
+				leagueId: "l",
+				sportId: "s",
+				statId: "p",
+			},
+			data: { stats },
+		})
+
+		const line = screen.getByRole("textbox", { name: "Number" })
+		await user.type(line, "24.5")
+		await user.click(screen.getByRole("button", { name: "Points" }))
+		expect(line).toHaveValue("24.5")
+	})
+
+	it("drops a line already set when the total/per-game reading changes", async () => {
+		const user = userEvent.setup()
+		renderPanel(<StatPanel shape="player_season_stat_over_under" />, {
+			values: {
+				shape: "player_season_stat_over_under",
+				leagueId: "l",
+				sportId: "s",
+				statId: "p",
+				statAggregation: "total",
+			},
+			data: { stats },
+		})
+
+		const line = screen.getByRole("textbox", { name: "Number" })
+		await user.type(line, "1999.5")
+		await user.click(screen.getByRole("button", { name: "Total" }))
+		expect(line).toHaveValue("1999.5")
+
+		await user.click(screen.getByRole("button", { name: "Per game" }))
+		// Total and per-game differ by a season's worth of games.
+		expect(line).toHaveValue("")
+	})
+
 	it("treats game_total_over_under as a team shape", () => {
 		renderPanel(<StatPanel shape="game_total_over_under" />, {
 			values: { shape: "game_total_over_under", leagueId: "l", sportId: "s" },

@@ -1,10 +1,10 @@
 import { useQuery } from "@tanstack/react-query"
-import { useRouteContext } from "@tanstack/react-router"
 import { type ReactNode, useEffect, useState } from "react"
 import { css } from "styled-system/css"
 import { WalkthroughLauncher } from "#/components/onboarding/walkthrough-launcher"
 import { PushPromptHost } from "#/components/push/push-prompt-host"
-import { unreadNotificationCountQuery } from "#/graphql/queries/notifications"
+import { unreadNotificationCountQuery } from "#/graphql/notifications/queries"
+import { useMe } from "#/hooks/use-me"
 import { EmailBounceBanner } from "./email-bounce-banner"
 import { MobileTopbar } from "./mobile-topbar"
 import { SidebarNav } from "./sidebar-nav"
@@ -18,7 +18,7 @@ export function AppShell({
 	children: ReactNode
 	leagues: League[]
 }) {
-	const { me: rawMe } = useRouteContext({ from: "__root__" })
+	const rawMe = useMe()
 	const me: Me = rawMe
 		? {
 				name: rawMe.name ?? "",

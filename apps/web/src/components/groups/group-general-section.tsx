@@ -15,7 +15,9 @@ import { FormError } from "#/components/ui/form-error"
 import { SaveNote } from "#/components/ui/save-note"
 import { TextInput } from "#/components/ui/text-input"
 import { Textarea } from "#/components/ui/textarea"
+import { ApiError } from "#/graphql/api-error"
 import { UpdateGroupDocument } from "#/graphql/generated/graphql"
+import { invalidateGroups } from "#/graphql/groups/mutations"
 import { useGqlMutation } from "#/graphql/hooks"
 import { useForm } from "#/lib/form/use-form"
 import { TrackedLeaguesPicker } from "./tracked-leagues-picker"
@@ -72,16 +74,11 @@ export function GroupGeneralSection({
 					}
 					helpers.setErrors(errors)
 				})
-				.with(
-					{ __typename: "AuthenticationError" },
-					{ __typename: "AuthorizationError" },
-					{ __typename: "NotFoundError" },
-					async (r) => {
-						helpers.setFormError(r.message)
-					},
-				)
+				.with(ApiError, async (r) => {
+					helpers.setFormError(r.message)
+				})
 				.with({ __typename: "GroupPayload" }, async () => {
-					await queryClient.invalidateQueries()
+					await invalidateGroups(queryClient)
 					await router.invalidate()
 					setSavedNote("Saved")
 					setTimeout(() => setSavedNote(null), 2000)

@@ -41,7 +41,7 @@ export function DangerZone({ username, hasPassword }: Props) {
 							)
 						}
 						className={css({
-							borderColor: "danger.default",
+							border: "1px solid {colors.danger.default}",
 							color: "danger.default",
 						})}
 					>

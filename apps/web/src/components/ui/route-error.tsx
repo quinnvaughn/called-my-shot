@@ -47,8 +47,7 @@ export function RouteError({ error, reset }: ErrorComponentProps) {
 				</VStack>
 				<p
 					className={css({
-						fontFamily: "mono",
-						fontSize: "xs",
+						textStyle: "metaLg",
 						color: "fg.subtle",
 						textAlign: "center",
 						maxWidth: "md",

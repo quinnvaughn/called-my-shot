@@ -1,5 +1,5 @@
 import { match, P } from "ts-pattern"
-import { formatRecord } from "#/lib/ballot-entry"
+import { formatRecord, matchupLabel } from "#/lib/game-status"
 import { pluralize } from "#/lib/pluralize"
 
 type SlateGame = {
@@ -21,9 +21,7 @@ const MAX_NAMED_GAMES = 2
 
 // "BUF @ MIA", "BUF @ MIA and NYJ @ NE", "BUF @ MIA, NYJ @ NE and 3 more".
 function nameGames(games: SlateGame[]): string {
-	const named = games
-		.slice(0, MAX_NAMED_GAMES)
-		.map((g) => `${g.awayTeam.abbreviation} @ ${g.homeTeam.abbreviation}`)
+	const named = games.slice(0, MAX_NAMED_GAMES).map((g) => matchupLabel(g))
 	const rest = games.length - named.length
 	if (rest > 0) return `${named.join(", ")} and ${rest} more`
 	return named.join(" and ")

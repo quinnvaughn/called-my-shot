@@ -1,17 +1,20 @@
 import { useQueryClient } from "@tanstack/react-query"
-import { useRouteContext } from "@tanstack/react-router"
 import { css } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
 import { ReportContentModal } from "#/components/moderation/report-content-modal"
 import {
 	PresserMenu,
 	type PresserMenuAction,
-} from "#/components/pressers/presser-qa-item"
+} from "#/components/pressers/presser-menu"
 import { Identity } from "#/components/ui/identity"
+import { ReportGloatDocument } from "#/graphql/challenges/mutations"
 import type { PresserReportReason } from "#/graphql/generated/graphql"
 import { useGqlMutation } from "#/graphql/hooks"
-import { ReportGloatDocument } from "#/graphql/mutations/challenges"
-import { BlockUserDocument } from "#/graphql/mutations/pressers"
+import {
+	BlockUserDocument,
+	invalidateAfterBlock,
+} from "#/graphql/pressers/mutations"
+import { useMe } from "#/hooks/use-me"
 import { openModal } from "#/stores/modal-store"
 
 export type GloatData = {
@@ -35,7 +38,7 @@ export type GloatData = {
 // A sent gloat: who sent it, their words and GIF, and a menu to report it
 // or block whoever sent it.
 export function GloatCard({ gloat }: { gloat: GloatData }) {
-	const { me } = useRouteContext({ from: "__root__" })
+	const me = useMe()
 	const report = useGqlMutation(ReportGloatDocument)
 	const block = useGqlMutation(BlockUserDocument)
 	const queryClient = useQueryClient()
@@ -73,7 +76,7 @@ export function GloatCard({ gloat }: { gloat: GloatData }) {
 						danger: true,
 						onSelect: async () => {
 							await block.mutateAsync({ username: gloat.sender.username })
-							await queryClient.invalidateQueries()
+							await invalidateAfterBlock(queryClient)
 						},
 					},
 				]

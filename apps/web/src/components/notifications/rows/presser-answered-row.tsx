@@ -1,6 +1,7 @@
 import { FiMessageSquare } from "react-icons/fi"
 import { css } from "styled-system/css"
 import { type FragmentType, graphql, useFragment } from "#/graphql/generated"
+import { matchupLabel } from "#/lib/game-status"
 import { NotificationShell, type Target } from "../notification-shell"
 
 export const PresserAnsweredRowFragment = graphql(`
@@ -49,7 +50,7 @@ export function PresserAnsweredRow({
 			}
 		: null
 	const matchup = presser
-		? ` at their ${presser.game.awayTeam.abbreviation} @ ${presser.game.homeTeam.abbreviation} presser`
+		? ` at their ${matchupLabel(presser.game)} presser`
 		: ""
 
 	return (

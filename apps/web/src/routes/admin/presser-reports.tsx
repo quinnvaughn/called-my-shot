@@ -1,5 +1,5 @@
 import { PRESSER_REPORT_REASON_LABELS } from "@called-my-shot/schemas"
-import { useQuery } from "@tanstack/react-query"
+import { useQueryClient, useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute, Link } from "@tanstack/react-router"
 import { css } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
@@ -11,12 +11,17 @@ import { useGqlMutation } from "#/graphql/hooks"
 import {
 	AdminDismissPresserReportDocument,
 	AdminRemovePresserContentDocument,
-} from "#/graphql/mutations/pressers"
-import { AdminPresserReportsDocument } from "#/graphql/queries/pressers"
-import { gqlQueryOptions } from "#/graphql/query-options"
+	invalidatePressers,
+} from "#/graphql/pressers/mutations"
+import {
+	AdminPresserReportsDocument,
+	adminPresserReportsQuery,
+} from "#/graphql/pressers/queries"
+import { gqlQueryPrefix } from "#/graphql/query-options"
 
 export const Route = createFileRoute("/admin/presser-reports")({
 	component: RouteComponent,
+	loader: ({ context }) => context.queryClient.query(adminPresserReportsQuery),
 })
 
 const TARGET_LABELS: Record<PresserReportTarget, string> = {
@@ -26,12 +31,15 @@ const TARGET_LABELS: Record<PresserReportTarget, string> = {
 }
 
 function RouteComponent() {
-	const { data, refetch } = useQuery(
-		gqlQueryOptions(AdminPresserReportsDocument, {}),
-	)
+	const { data } = useSuspenseQuery(adminPresserReportsQuery)
+	const queryClient = useQueryClient()
+	const refresh = () =>
+		queryClient.invalidateQueries({
+			queryKey: gqlQueryPrefix(AdminPresserReportsDocument),
+		})
 	const dismiss = useGqlMutation(AdminDismissPresserReportDocument)
 	const remove = useGqlMutation(AdminRemovePresserContentDocument)
-	const reports = data?.adminPresserReports ?? []
+	const reports = data.adminPresserReports
 
 	return (
 		<VStack gap="6" alignItems="stretch">
@@ -119,7 +127,7 @@ function RouteComponent() {
 										loading={dismiss.isPending}
 										onClick={async () => {
 											await dismiss.mutateAsync({ reportId: report.id })
-											await refetch()
+											await refresh()
 										}}
 									>
 										Dismiss
@@ -131,7 +139,7 @@ function RouteComponent() {
 										loading={remove.isPending}
 										onClick={async () => {
 											await remove.mutateAsync({ reportId: report.id })
-											await refetch()
+											await invalidatePressers(queryClient)
 										}}
 									>
 										Remove

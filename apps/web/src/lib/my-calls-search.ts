@@ -1,3 +1,4 @@
+import { z } from "zod"
 import type { QuestionFilterValue } from "#/components/filters/question-filter-bar"
 import type {
 	CallResultFilter,
@@ -39,36 +40,48 @@ export type MyCallsSearch = {
 
 type SlugLeague = { id: string; slug: string }
 
-const RESULTS: CallResultFilter[] = ["HIT", "MISS", "UNSCORED"]
+const RESULTS = [
+	"HIT",
+	"MISS",
+	"UNSCORED",
+] as const satisfies readonly CallResultFilter[]
+const SORTS = [
+	"CONVICTION",
+	"DATE",
+	"POINTS",
+] as const satisfies readonly CallSortOrder[]
 
 // Anything unrecognized is dropped rather than erroring, so a hand-edited or
-// stale link lands on the default view instead of a broken one. So is a shape
-// the current side can't hold: switching Games to Season with a single-game
-// shape picked would otherwise leave a filter the shape picker no longer
-// shows, matching nothing.
-export function validateMyCallsSearch(
-	search: Record<string, unknown>,
-): MyCallsSearch {
-	const kind = search.kind === "season" ? "season" : undefined
-	const tab = search.tab === "resolved" ? "resolved" : undefined
-	const sortOptions = MY_CALL_SORTS[tab ?? "open"].options
-	const scope = myCallsScope(kind ?? "game")
-	return {
-		kind,
-		tab,
-		q: typeof search.q === "string" && search.q !== "" ? search.q : undefined,
-		league: typeof search.league === "string" ? search.league : undefined,
-		shapes:
-			typeof search.shapes === "string"
-				? parseShapes(search.shapes)
-						.filter((shape) => shapeFitsScope(shape, scope))
-						.join(",") || undefined
-				: undefined,
-		result: RESULTS.find((r) => r === search.result),
-		sort: sortOptions.find((o) => o.value === search.sort)?.value,
-		dir: search.dir === "asc" ? "asc" : undefined,
-	}
-}
+// stale link lands on the default view instead of a broken one. So is a sort
+// the current tab doesn't offer, and a shape the current side can't hold:
+// switching Games to Season with a single-game shape picked would otherwise
+// leave a filter the shape picker no longer shows, matching nothing.
+export const myCallsSearchSchema = z
+	.object({
+		kind: z.literal("season").optional().catch(undefined),
+		tab: z.literal("resolved").optional().catch(undefined),
+		q: z.string().optional().catch(undefined),
+		league: z.string().optional().catch(undefined),
+		shapes: z.string().optional().catch(undefined),
+		result: z.enum(RESULTS).optional().catch(undefined),
+		sort: z.enum(SORTS).optional().catch(undefined),
+		dir: z.literal("asc").optional().catch(undefined),
+	})
+	.transform((search): MyCallsSearch => {
+		const sortOptions = MY_CALL_SORTS[search.tab ?? "open"].options
+		const scope = myCallsScope(search.kind ?? "game")
+		return {
+			...search,
+			q: search.q === "" ? undefined : search.q,
+			shapes:
+				search.shapes === undefined
+					? undefined
+					: parseShapes(search.shapes)
+							.filter((shape) => shapeFitsScope(shape, scope))
+							.join(",") || undefined,
+			sort: sortOptions.find((o) => o.value === search.sort)?.value,
+		}
+	})
 
 function parseShapes(value: string): QuestionShape[] {
 	return value

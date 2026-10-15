@@ -88,12 +88,10 @@ export function InviteSettingsModal({
 								className={cx(
 									css({
 										flex: 1,
-										fontFamily: "mono",
-										fontSize: "xs",
+										textStyle: "metaLg",
 										textAlign: "center",
 										padding: "2.5",
 										borderRadius: "md",
-										border: "1px solid",
 										cursor: "pointer",
 									}),
 									css(
@@ -101,12 +99,12 @@ export function InviteSettingsModal({
 											? {
 													backgroundColor: "fg.default",
 													color: "bg.canvas",
-													borderColor: "fg.default",
+													border: "1px solid {colors.fg.default}",
 												}
 											: {
 													backgroundColor: "transparent",
 													color: "fg.muted",
-													borderColor: "border.emphasized",
+													border: "1px solid {colors.border.emphasized}",
 												},
 									),
 								)}
@@ -131,8 +129,7 @@ export function InviteSettingsModal({
 					type="button"
 					onClick={closeModal}
 					className={css({
-						fontFamily: "mono",
-						fontSize: "xs",
+						textStyle: "metaLg",
 						color: "fg.muted",
 						textAlign: "center",
 						cursor: "pointer",

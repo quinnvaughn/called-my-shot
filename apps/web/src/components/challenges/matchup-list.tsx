@@ -5,7 +5,7 @@ import { HStack, VStack } from "styled-system/jsx"
 import { Avatar } from "#/components/ui/avatar"
 import { Tag } from "#/components/ui/tag"
 import type { MatchupOutcome } from "#/graphql/generated/graphql"
-import { signedPoints } from "#/lib/challenge"
+import { formatSigned } from "#/lib/format-number"
 
 export type MatchupSummary = {
 	id: string
@@ -84,17 +84,14 @@ export function MatchupList({
 											fontSize: "sm",
 											fontWeight: "medium",
 											minWidth: "0",
-											overflow: "hidden",
-											textOverflow: "ellipsis",
-											whiteSpace: "nowrap",
+											truncate: true,
 										})}
 									>
 										{m.acceptor.name}
 									</span>
 									<span
 										className={css({
-											fontFamily: "mono",
-											fontSize: "xs",
+											textStyle: "metaLg",
 											color: "fg.muted",
 											flexShrink: "0",
 										})}
@@ -110,7 +107,7 @@ export function MatchupList({
 										color: "fg.default",
 									})}
 								>
-									{signedPoints(m.acceptorPoints)} points
+									{formatSigned(m.acceptorPoints)} points
 								</span>
 							</VStack>
 						</HStack>

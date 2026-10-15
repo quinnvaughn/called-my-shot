@@ -9,12 +9,9 @@ import type {
 	ChallengeState,
 	MatchupOutcome,
 } from "#/graphql/generated/graphql"
-import {
-	type ChallengePointsRange,
-	type ChallengeRecord,
-	recordLine,
-	signedPoints,
-} from "#/lib/challenge"
+import type { ChallengePointsRange, ChallengeRecord } from "#/lib/challenge"
+import { formatSigned } from "#/lib/format-number"
+import { formatRecord } from "#/lib/game-status"
 import { pluralize } from "#/lib/pluralize"
 import { ChallengeFact } from "./challenge-fact"
 import { useStatusFact } from "./challenge-status"
@@ -176,7 +173,7 @@ export function ChallengeHero({
 									<ChallengeFact
 										size="xl"
 										label="Your points"
-										value={signedPoints(creatorPoints)}
+										value={formatSigned(creatorPoints)}
 										tone={pointsTone(creatorPoints)}
 									/>
 								)}
@@ -184,7 +181,11 @@ export function ChallengeHero({
 									<ChallengeFact
 										size="xl"
 										label="You vs the field"
-										value={recordLine(tally)}
+										value={formatRecord(
+											tally.wins,
+											tally.losses,
+											tally.draws || null,
+										)}
 										tone={recordTone(tally)}
 									/>
 								)}
@@ -205,7 +206,11 @@ export function ChallengeHero({
 									<ChallengeFact
 										size="xl"
 										label={`Your record vs @${creator.username}`}
-										value={recordLine(viewerHeadToHead)}
+										value={formatRecord(
+											viewerHeadToHead.wins,
+											viewerHeadToHead.losses,
+											viewerHeadToHead.draws || null,
+										)}
 										tone={recordTone(viewerHeadToHead)}
 									/>
 								)}
@@ -213,10 +218,7 @@ export function ChallengeHero({
 						)}
 						<span
 							className={css({
-								fontFamily: "mono",
-								fontSize: "2xs",
-								letterSpacing: "wide",
-								textTransform: "uppercase",
+								textStyle: "label",
 								color: "fg.subtle",
 							})}
 						>
@@ -250,10 +252,7 @@ export function ChallengeHero({
 							<HStack justify="space-between" gap="3" flexWrap="wrap">
 								<span
 									className={css({
-										fontFamily: "mono",
-										fontSize: "2xs",
-										letterSpacing: "wide",
-										textTransform: "uppercase",
+										textStyle: "label",
 										color: "fg.subtle",
 									})}
 								>

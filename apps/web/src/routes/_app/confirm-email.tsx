@@ -1,19 +1,20 @@
 import { createFileRoute, Link } from "@tanstack/react-router"
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useRef } from "react"
 import { css } from "styled-system/css"
 import { VStack } from "styled-system/jsx"
+import { match, P } from "ts-pattern"
+import { z } from "zod"
 import { button } from "#/components/ui/button"
 import { Card } from "#/components/ui/card"
 import { useGqlMutation } from "#/graphql/hooks"
-import { ConfirmEmailChangeDocument } from "#/graphql/queries/user"
+import { ConfirmEmailChangeDocument } from "#/graphql/user/settings/mutations"
 import { track } from "#/lib/analytics"
 
 export const Route = createFileRoute("/_app/confirm-email")({
 	component: RouteComponent,
-	validateSearch: (search: Record<string, unknown>) => ({
-		token: typeof search.token === "string" ? search.token : "",
-		redirect:
-			typeof search.redirect === "string" ? search.redirect : "/settings",
+	validateSearch: z.object({
+		token: z.string().catch(""),
+		redirect: z.string().catch("/settings"),
 	}),
 })
 
@@ -21,45 +22,58 @@ type Status = "pending" | "success" | "error"
 
 function RouteComponent() {
 	const { token, redirect } = Route.useSearch()
-	const confirmEmailChange = useGqlMutation(ConfirmEmailChangeDocument)
-	const [status, setStatus] = useState<Status>("pending")
-	const [message, setMessage] = useState<string | null>(null)
+	const confirmEmailChange = useGqlMutation(ConfirmEmailChangeDocument, {
+		onSuccess: (data) => {
+			if (data?.confirmEmailChange?.__typename === "User") {
+				track("email_confirmed", {})
+			}
+		},
+	})
+	const { mutate } = confirmEmailChange
 	const ranRef = useRef(false)
 
 	useEffect(() => {
-		if (ranRef.current) return
+		if (ranRef.current || !token) return
 		ranRef.current = true
+		mutate({ token })
+	}, [token, mutate])
 
-		if (!token) {
-			setStatus("error")
-			setMessage("This confirmation link is missing its token.")
-			return
-		}
-
-		confirmEmailChange
-			.mutateAsync({ token })
-			.then((data) => {
-				const result = data?.confirmEmailChange
-				if (result?.__typename === "User") {
-					track("email_confirmed", {})
-					setStatus("success")
-					setMessage(`Your email is now ${result.email}.`)
-				} else if (result?.__typename === "ValidationError") {
-					setStatus("error")
-					setMessage(
+	const { status, message } = match(confirmEmailChange)
+		.returnType<{ status: Status; message: string | null }>()
+		.when(
+			() => !token,
+			() => ({
+				status: "error",
+				message: "This confirmation link is missing its token.",
+			}),
+		)
+		.with({ status: "success" }, ({ data }) =>
+			match(data?.confirmEmailChange)
+				.returnType<{ status: Status; message: string | null }>()
+				.with({ __typename: "User" }, (result) => ({
+					status: "success",
+					message: `Your email is now ${result.email}.`,
+				}))
+				.with({ __typename: "ValidationError" }, (result) => ({
+					status: "error",
+					message:
 						result.fieldErrors?.[0]?.message ??
-							"This confirmation link is invalid or expired.",
-					)
-				} else {
-					setStatus("error")
-					setMessage("Something went wrong. Try again.")
-				}
-			})
-			.catch(() => {
-				setStatus("error")
-				setMessage("Something went wrong. Try again.")
-			})
-	}, [token, confirmEmailChange])
+						"This confirmation link is invalid or expired.",
+				}))
+				.otherwise(() => ({
+					status: "error",
+					message: "Something went wrong. Try again.",
+				})),
+		)
+		.with({ status: "error" }, () => ({
+			status: "error",
+			message: "Something went wrong. Try again.",
+		}))
+		.with({ status: P.union("idle", "pending") }, () => ({
+			status: "pending",
+			message: null,
+		}))
+		.exhaustive()
 
 	return (
 		<VStack alignItems="center" justify="center" minHeight="60vh" gap="6">

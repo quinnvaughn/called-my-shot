@@ -1,16 +1,14 @@
 import { useQuery } from "@tanstack/react-query"
 import { css } from "styled-system/css"
 import { VStack } from "styled-system/jsx"
-import { MyCallsTabFragment } from "#/components/my-calls/my-calls-tab"
-import { CallCard } from "#/components/questions/call-card"
 import { CardRail } from "#/components/ui/card-rail"
-import { type FragmentType, useFragment } from "#/graphql/generated"
+import { LiveDot } from "#/components/ui/live-dot"
 import {
 	type MyCallsFilters,
 	myLiveCallsQuery,
-} from "#/graphql/queries/my-calls"
-
-type LiveCall = { id: string } & FragmentType<typeof MyCallsTabFragment>
+} from "#/graphql/my-calls/queries"
+import { pluralize } from "#/lib/pluralize"
+import { MyCallCard } from "./my-call-card"
 
 // The viewer's calls whose game is being played right now, as a horizontally
 // scrolling row. On My Calls it sits between the Open tab's tabs and sort, and
@@ -40,25 +38,14 @@ export function LiveCallsSection({
 				<CardRail
 					items={calls}
 					getKey={(call) => call.id}
-					renderItem={(call) => <LiveCallCard call={call} />}
+					renderItem={(call) => <MyCallCard call={call} />}
 					itemLabel="live call"
 					header={
 						<>
+							<LiveDot />
 							<span
 								className={css({
-									width: "1.5",
-									height: "1.5",
-									borderRadius: "full",
-									bg: "secondary.default",
-									animation: "pulse 1.6s ease-in-out infinite",
-								})}
-							/>
-							<span
-								className={css({
-									fontFamily: "mono",
-									fontSize: "2xs",
-									letterSpacing: "wide",
-									textTransform: "uppercase",
+									textStyle: "label",
 									color: "fg.default",
 									fontWeight: "bold",
 								})}
@@ -67,12 +54,11 @@ export function LiveCallsSection({
 							</span>
 							<span
 								className={css({
-									fontFamily: "mono",
-									fontSize: "2xs",
+									textStyle: "meta",
 									color: "fg.subtle",
 								})}
 							>
-								{calls.length} call{calls.length === 1 ? "" : "s"}
+								{calls.length} {pluralize(calls.length, "call")}
 							</span>
 						</>
 					}
@@ -89,9 +75,4 @@ export function LiveCallsSection({
 			</VStack>
 		</section>
 	)
-}
-
-function LiveCallCard({ call }: { call: LiveCall }) {
-	const data = useFragment(MyCallsTabFragment, call)
-	return <CallCard call={data} />
 }

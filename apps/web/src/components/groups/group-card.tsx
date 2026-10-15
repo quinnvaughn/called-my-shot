@@ -54,9 +54,8 @@ export function GroupCard(props: GroupCardProps) {
 									</span>
 									<span
 										className={css({
-											fontSize: "xs",
 											color: "fg.muted",
-											fontFamily: "mono",
+											textStyle: "metaLg",
 										})}
 									>
 										{group.memberCount} {pluralize(group.memberCount, "member")}

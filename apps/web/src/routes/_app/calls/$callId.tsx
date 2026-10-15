@@ -1,53 +1,29 @@
 import { useSuspenseQuery } from "@tanstack/react-query"
-import { createFileRoute, Link, useRouteContext } from "@tanstack/react-router"
+import { createFileRoute } from "@tanstack/react-router"
 import { FaRegTimesCircle } from "react-icons/fa"
 import { css } from "styled-system/css"
-import { HStack, VStack } from "styled-system/jsx"
-import { match } from "ts-pattern"
-import { GameMatchupHeader } from "#/components/games/game-matchup-header"
+import { VStack } from "styled-system/jsx"
 import { CallPresserExcerpt } from "#/components/pressers/call-presser-excerpt"
-import {
-	CallRecordCard,
-	type CallRecordCardData,
-} from "#/components/questions/call-record-card"
-import {
-	buildCallTweet,
-	CallShareRow,
-} from "#/components/questions/call-share-row"
-import { CallSignupCta } from "#/components/questions/call-signup-cta"
-import type { QuestionCallShape } from "#/components/questions/cast-call-form/use-cast-call-form"
+import { CallPageHeader } from "#/components/questions/call-page/call-page-header"
+import { CallPageLinks } from "#/components/questions/call-page/call-page-links"
+import { CallPageRecord } from "#/components/questions/call-page/call-page-record"
+import { CallPageViewerActions } from "#/components/questions/call-page/call-page-viewer-actions"
 import { DoubtersPanel } from "#/components/questions/doubters-panel"
-import { FadeCta } from "#/components/questions/fade-cta"
-import { GloatCta } from "#/components/questions/gloat-cta"
-import { RedoCta } from "#/components/questions/redo-cta"
 import { RedoPanel } from "#/components/questions/redo-panel"
-import { SeriesBlock } from "#/components/questions/series-block"
-import { arrowLink } from "#/components/ui/arrow-link"
-import { Breadcrumb } from "#/components/ui/breadcrumb"
 import { NotFound } from "#/components/ui/not-found"
-import type { CallRecordQuery } from "#/graphql/generated/graphql"
-import { callRecordQuery } from "#/graphql/queries/call"
-import { callGifState } from "#/lib/call-gif"
+import { callRecordQuery } from "#/graphql/calls/queries"
+import { useMe } from "#/hooks/use-me"
 import { callCardVersion, callPageMeta } from "#/lib/call-meta"
-import {
-	actualSummary,
-	callMarginFor,
-	formatPayout,
-	marginLabel,
-	pickSummary,
-} from "#/lib/call-summary"
-import { gloatText } from "#/lib/fade-copy"
-import { formatGuess, isRateStat } from "#/lib/field-signal"
+import { marginLabel } from "#/lib/call-summary"
+import { describeCall } from "#/lib/call-view"
+import { isRateStat } from "#/lib/field-signal"
 import { formatCallDate, formatCallLead } from "#/lib/format-date"
 import { pageMeta } from "#/lib/meta"
 import {
-	isNumericQuestionShape,
 	isOverUnderQuestionShape,
 	optionDisplayLabel,
 	shareCardShapeLabel,
 } from "#/lib/question-labels"
-import { buildQuestionSlug } from "#/lib/slug"
-import { streakFamilyParam } from "#/lib/streak-meta"
 
 // No slug segment, unlike /questions/:id/:slug and /games/:id/:slug. A slug
 // there earns its keep with crawlers; nothing about a single person's call
@@ -108,155 +84,11 @@ export const Route = createFileRoute("/_app/calls/$callId")({
 	},
 })
 
-// Everything the page and its meta tags both need, derived once. Mirrors what
-// apps/api's share-cards/call-summary.ts derives for the og:image off the
-// same call, so the page and the picture of it state the same facts.
-function describeCall(call: NonNullable<CallRecordQuery["call"]>) {
-	const isNumeric = isNumericQuestionShape(call.question.shape)
-	const points = call.totalPoints
-	const isWin = points === null ? null : points >= 0
-
-	const summaryData = {
-		guessValue: call.guessValue,
-		conviction: call.conviction,
-		totalPoints: call.totalPoints,
-		question: {
-			shape: call.question.shape,
-			ouLine: call.question.ouLine,
-			numericActualValue: call.question.numericActualValue,
-			numericToleranceAbsolute: call.question.numericToleranceAbsolute,
-			numericTolerancePct: call.question.numericTolerancePct,
-			stat: call.question.stat,
-			scoredOptions: call.question.scoredOptions,
-		},
-		selections: call.selections.map((s) => ({
-			id: s.id,
-			conviction: s.conviction,
-			option: {
-				label: s.option.label,
-				isCorrect: s.option.isCorrect,
-				actualValue: s.option.actualValue,
-			},
-		})),
-	}
-	const pickLabel = pickSummary(summaryData)
-
-	// "Field agreed" only means something for a lone selection. A numeric guess
-	// is too specific for anyone to share it, and
-	// player_season_award/team_season_award's several independent picks have
-	// no single number, so both stay null rather than stating a share nobody
-	// actually picked.
-	const fieldPct =
-		!isNumeric && call.selections.length === 1
-			? (call.selections[0]?.option.fieldPct ?? null)
-			: null
-
-	// A numeric guess's closeness to the real number is its own stat: without
-	// it the card states the guess and the points but never how near it landed.
-	const distance =
-		isNumeric &&
-		call.guessValue !== null &&
-		call.question.numericActualValue !== null
-			? Math.abs(call.guessValue - call.question.numericActualValue)
-			: null
-	const closeness: CallRecordCardData["closeness"] =
-		distance === null
-			? null
-			: distance === 0
-				? { kind: "exact" }
-				: {
-						kind: "off",
-						by: formatGuess(distance, isRateStat(call.question)),
-					}
-
-	const conviction = isNumeric
-		? (call.conviction ?? 0)
-		: call.selections.length > 0
-			? Math.round(
-					call.selections.reduce((sum, s) => sum + s.conviction, 0) /
-						call.selections.length,
-				)
-			: 0
-
-	// How far the call landed from its line, on every shape with two numbers
-	// to subtract rather than just the numeric guesses `closeness` covers.
-	// Null verdict is the ordinary case: the distance is worth stating, the
-	// size of it isn't worth a word.
-	const margin = callMarginFor(summaryData)
-
-	// The abandoned pick, run through the same summariser as the live one so
-	// the two read as the same kind of claim rather than one being a raw
-	// label. Uses the question as it stands, which is right: the whole point
-	// is to compare the two picks against the same outcome.
-	const redo = call.redo
-		? {
-				originalCalledAt: call.redo.originalCreatedAt,
-				redoneAt: call.redo.redoneAt,
-				originalPickLabel: pickSummary({
-					...summaryData,
-					guessValue: call.redo.originalGuessValue,
-					conviction: call.redo.originalConviction,
-					selections: call.redo.originalSelections.map((s) => ({
-						id: s.id,
-						conviction: s.conviction,
-						option: {
-							label: s.option.label,
-							isCorrect: s.option.isCorrect,
-							actualValue: s.option.actualValue,
-						},
-					})),
-				}),
-				currentPickLabel: pickLabel,
-				originalCaseText: call.redo.originalCaseText,
-				// Null until the question resolves, which is when isCorrect
-				// stops being null. A numeric guess has no "would the old
-				// number have hit" without re-running the tolerance band, so
-				// it stays null and the panel simply shows both guesses.
-				originalWasCorrect: isNumeric
-					? null
-					: firstDefined(
-							call.redo.originalSelections.map((s) => s.option.isCorrect),
-						),
-				currentIsWin: isWin,
-			}
-		: null
-
-	return {
-		pickLabel,
-		points,
-		isWin,
-		fieldPct,
-		closeness,
-		margin,
-		redo,
-		actual: actualSummary({ question: summaryData.question }),
-		conviction,
-		username: call.user.username,
-		name: call.user.name,
-		avatarUrl: call.user.avatarUrl,
-		leagueAbbr: call.question.league.abbreviation.toUpperCase(),
-		calledAt: formatCallDate(call.createdAt),
-		questionStatus: call.question.status,
-		locksAt: call.question.locksAt,
-		resolvedAt: call.question.resolvedAt,
-	}
-}
-
-// An award call has several picks; it counts as having been right if any of
-// them was. Null while the question is unresolved, where every isCorrect is
-// still null.
-function firstDefined(flags: (boolean | null | undefined)[]): boolean | null {
-	if (flags.length === 0 || flags.every((f) => f === null || f === undefined)) {
-		return null
-	}
-	return flags.some((f) => f === true)
-}
-
 function RouteComponent() {
 	const { callId } = Route.useParams()
 	const { data } = useSuspenseQuery(callRecordQuery(callId))
 	const call = data.call
-	const { me } = useRouteContext({ from: "__root__" })
+	const me = useMe()
 
 	if (!call) {
 		return (
@@ -271,85 +103,6 @@ function RouteComponent() {
 	}
 
 	const view = describeCall(call)
-	const resolved = view.points !== null && view.isWin !== null
-
-	const cardData: CallRecordCardData = {
-		name: view.name,
-		username: view.username,
-		avatarUrl: view.avatarUrl,
-		pickLabel: view.pickLabel,
-		pickSubject:
-			call.selections.length === 1
-				? (call.selections[0]?.option ?? null)
-				: null,
-		picks:
-			(call.question.shape === "PLAYER_SEASON_AWARD" ||
-				call.question.shape === "TEAM_SEASON_AWARD") &&
-			call.selections.length > 1
-				? call.selections.map((s) => ({
-						label: s.option.label,
-						hit: s.option.isCorrect ?? null,
-						player: s.option.player,
-						team: s.option.team,
-					}))
-				: null,
-		calledAt: call.createdAt,
-		isWin: view.isWin,
-		points: view.points,
-		inTheAir: call.payout ? formatPayout(call.payout) : null,
-		fieldPct: view.fieldPct,
-		closeness: view.closeness,
-		// The label replaces the verdict word in the card's eyebrow; the
-		// distance fills the Off by row underneath it. Only a resolved call
-		// with a real gap has either.
-		marginLabel:
-			resolved && view.margin?.verdict
-				? marginLabel(view.margin.verdict, view.isWin === true)
-				: null,
-		offBy:
-			resolved && view.margin
-				? formatGuess(view.margin.displayDistance, isRateStat(call.question))
-				: null,
-		actual: view.actual,
-		conviction: view.conviction,
-		caseText: call.caseText,
-		streakLength: call.streak?.length ?? null,
-		fading: call.fading
-			? {
-					username: call.fading.target.user.username,
-					callId: call.fading.target.id,
-					settled:
-						view.questionStatus !== "OPEN" && view.questionStatus !== "LOCKED",
-					outcome: call.fading.targetFlippedAt
-						? "flipped"
-						: call.fading.winner === "FADER"
-							? "won"
-							: call.fading.winner === "TARGET"
-								? "lost"
-								: null,
-					gloat: call.fading.gloat
-						? {
-								username:
-									call.fading.winner === "FADER"
-										? view.username
-										: call.fading.target.user.username,
-								text: gloatText(call.fading.gloat),
-							}
-						: null,
-				}
-			: null,
-		// Which reaction pool the card draws from. Derived from the same facts
-		// the eyebrow above it is, so the gif and the words agree about what
-		// happened - see callGifState for the two precedence rules that aren't
-		// obvious.
-		gifState: callGifState(view),
-		questionStatus: view.questionStatus,
-		pendingLabel: match(view.questionStatus)
-			.with("OPEN", () => `Locks ${formatCallDate(view.locksAt)}`)
-			.with("VOIDED", () => "Voided, no result")
-			.with("LOCKED", "RESOLVED", "DISPUTED", () => "Awaiting result")
-			.exhaustive(),
-	}
 
 	const lead = view.resolvedAt
 		? formatCallLead(call.createdAt, view.resolvedAt)
@@ -357,120 +110,9 @@ function RouteComponent() {
 
 	return (
 		<VStack gap="6" alignItems="stretch" className={css({ maxWidth: "2xl" })}>
-			<Breadcrumb>
-				<Breadcrumb.Link
-					to="/leagues/$leagueSlug"
-					params={{ leagueSlug: call.question.league.slug }}
-				>
-					{call.question.league.abbreviation}
-				</Breadcrumb.Link>
-				<Breadcrumb.Link
-					to="/questions/$questionId/{-$slug}"
-					params={{
-						questionId: call.question.id,
-						slug: buildQuestionSlug(call.question.title),
-					}}
-				>
-					{call.question.title}
-				</Breadcrumb.Link>
-				<Breadcrumb.Current>@{call.user.username}</Breadcrumb.Current>
-			</Breadcrumb>
+			<CallPageHeader call={call} />
 
-			{/* The question is the page's title, as it is on the question page,
-			and the card below is one person's answer to it - whose is on the
-			card's own header. */}
-			<h1 className={css({ fontSize: "2xl", fontFamily: "heading" })}>
-				{call.question.title}
-			</h1>
-
-			{/* Which game or series the title is about, as on the question
-			page: "Who will win?" means nothing without it. */}
-			{call.question.game && <GameMatchupHeader game={call.question.game} />}
-			{call.question.series && <SeriesBlock series={call.question.series} />}
-
-			<CallRecordCard
-				data={cardData}
-				// The page about one call is where someone goes when they want
-				// to change that call, so the offer belongs here as much as on
-				// the question. The form itself lives on the question page
-				// rather than being duplicated onto a page whose job is stating
-				// a record.
-				redo={
-					<RedoCta
-						questionId={call.question.id}
-						offer={
-							call.viewerCanRedo
-								? {
-										questionShape:
-											call.question.shape.toLowerCase() as QuestionCallShape,
-										balance: me?.redoBalance ?? 0,
-										action: {
-											kind: "navigate",
-											questionId: call.question.id,
-											slug: buildQuestionSlug(call.question.title),
-										},
-									}
-								: null
-						}
-					/>
-				}
-				footer={
-					<HStack justify="space-between" gap="3" width="full">
-						<Link
-							to="/questions/$questionId/{-$slug}"
-							params={{
-								questionId: call.question.id,
-								slug: buildQuestionSlug(call.question.title),
-							}}
-							className={css({
-								fontFamily: "mono",
-								fontSize: "2xs",
-								letterSpacing: "wide",
-								textTransform: "uppercase",
-								color: "primary.default",
-								textDecoration: "none",
-								_hover: { opacity: 0.8 },
-							})}
-						>
-							See the question →
-						</Link>
-						{me?.id === call.user.id &&
-							call.question.status === "OPEN" &&
-							new Date(call.question.locksAt) > new Date() && (
-								<Link
-									to="/challenges/new"
-									search={{ question: call.question.id, source: "call" }}
-									className={css({
-										fontFamily: "mono",
-										fontSize: "2xs",
-										letterSpacing: "wide",
-										textTransform: "uppercase",
-										color: "primary.default",
-										textDecoration: "none",
-										_hover: { opacity: 0.8 },
-									})}
-								>
-									Challenge on it →
-								</Link>
-							)}
-						<CallShareRow
-							callId={call.id}
-							shareTitle={call.question.title}
-							surface="call_page"
-							layout="icons"
-							tweetText={buildCallTweet({
-								pickLabel: view.pickLabel,
-								points: view.points,
-								isWin: view.isWin,
-								calledAt: view.calledAt,
-								...(me?.id === call.user.id
-									? ({ isOwn: true } as const)
-									: ({ isOwn: false, username: view.username } as const)),
-							})}
-						/>
-					</HStack>
-				}
-			/>
+			<CallPageRecord call={call} view={view} me={me} />
 
 			{call.presser && (
 				<CallPresserExcerpt
@@ -480,118 +122,14 @@ function RouteComponent() {
 				/>
 			)}
 
-			{!me && (
-				<CallSignupCta
-					state={match(view)
-						.with({ questionStatus: "OPEN" }, () => ({ kind: "open" }) as const)
-						.with({ isWin: true }, () => ({ kind: "hit" }) as const)
-						.with({ isWin: false }, () => ({ kind: "miss" }) as const)
-						.otherwise(() => ({ kind: "closed" }) as const)}
-					username={view.username}
-					questionId={call.question.id}
-					slug={buildQuestionSlug(call.question.title)}
-					leagueSlug={call.question.league.slug}
-				/>
-			)}
-
-			{/* A signed-in viewer's counterpart to the signup CTA above, in the
-			same spot: on someone else's open call, fading it is the one thing
-			the page asks them to do. Signed out, the signup CTA already offers
-			a call on this question, so this would be a second competing box. */}
-			{me && call.fadeOffer && (
-				<FadeCta
-					callId={call.id}
-					questionId={call.question.id}
-					opUsername={view.username}
-					opPickLabel={view.pickLabel}
-					pickLabel={optionDisplayLabel(
-						call.fadeOffer.option.label,
-						isOverUnderQuestionShape(call.question.shape),
-						call.question.ouLine,
-						isRateStat(call.question),
-					)}
-					optionId={call.fadeOffer.option.id}
-					mode={call.fadeOffer.mode}
-				/>
-			)}
-
-			{/* Once a fade settles, the winning side's one gloat, in the same
-			spot the fade offer held while the question was open. */}
-			{call.viewerGloat &&
-				(call.viewerGloat.audience === "DOUBTERS" ? (
-					<GloatCta
-						audience={{
-							kind: "doubters",
-							callId: call.id,
-							count: call.viewerGloat.count,
-						}}
-					/>
-				) : (
-					call.viewerGloat.fadeId && (
-						<GloatCta
-							audience={{
-								kind: "target",
-								fadeId: call.viewerGloat.fadeId,
-								username: call.viewerGloat.targetUsername ?? view.username,
-							}}
-						/>
-					)
-				))}
+			<CallPageViewerActions call={call} view={view} signedIn={Boolean(me)} />
 
 			{/* Directly under the record, because it is about the record: this
 			call's time is the redo's time, and without this the page would
 			quietly show the later one as if it were the only one. */}
 			{view.redo && <RedoPanel data={view.redo} />}
 
-			{/* The rest of their calls on this game, and their presser on it
-			once the game is final. Official questions only, since those are
-			the ones the picks page lists. */}
-			{call.question.game && call.question.isOfficial && (
-				<Link
-					to="/games/$gameId/picks/$username"
-					params={{
-						gameId: call.question.game.id,
-						username: call.user.username,
-					}}
-					className={arrowLink({ tone: "quiet" })}
-				>
-					All of @{call.user.username}'s{" "}
-					{call.question.game.awayTeam.abbreviation} @{" "}
-					{call.question.game.homeTeam.abbreviation} picks →
-				</Link>
-			)}
-
-			{/* The same for a ballot question: the rest of their entry on it. */}
-			{call.question.ballotMembership && (
-				<Link
-					to="/ballots/$ballotSlug/$username"
-					params={{
-						ballotSlug: call.question.ballotMembership.ballot.slug,
-						username: call.user.username,
-					}}
-					className={arrowLink({ tone: "quiet" })}
-				>
-					All of @{call.user.username}'s{" "}
-					{call.question.ballotMembership.ballot.name} picks →
-				</Link>
-			)}
-
-			{call.streak && (
-				<Link
-					to="/user/$username/streaks/$league/$family/$mode"
-					params={{
-						username: call.user.username,
-						league: call.question.league.slug,
-						family: streakFamilyParam(call.streak.family),
-						// A call carries a streak tag only when it extended a run.
-						mode: "hot",
-					}}
-					className={arrowLink({ tone: "quiet" })}
-				>
-					Part of a {call.streak.length}-call {view.leagueAbbr}{" "}
-					{call.streak.familyLabel} streak →
-				</Link>
-			)}
+			<CallPageLinks call={call} view={view} />
 
 			{/* The gap between calling something and being right about it is the
 			claim this page exists to make, so it's stated in words rather than
@@ -599,10 +137,7 @@ function RouteComponent() {
 			{lead && (
 				<span
 					className={css({
-						fontFamily: "mono",
-						fontSize: "2xs",
-						letterSpacing: "wide",
-						textTransform: "uppercase",
+						textStyle: "label",
 						color: "fg.subtle",
 					})}
 				>

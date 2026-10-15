@@ -16,8 +16,7 @@ export function EmptyState({ children, action }: EmptyStateProps) {
 		<VStack gap="3" alignItems="center" className={css({ padding: "6" })}>
 			<p
 				className={css({
-					fontSize: "xs",
-					fontFamily: "mono",
+					textStyle: "metaLg",
 					color: "fg.muted",
 					textAlign: "center",
 				})}

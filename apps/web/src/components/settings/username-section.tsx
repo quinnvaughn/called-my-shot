@@ -11,11 +11,9 @@ import { FormError } from "#/components/ui/form-error"
 import { SaveNote } from "#/components/ui/save-note"
 import { TextInput } from "#/components/ui/text-input"
 import { useGqlMutation } from "#/graphql/hooks"
-import {
-	UpdateUsernameDocument,
-	UsernameAvailableDocument,
-} from "#/graphql/queries/user"
 import { gqlQueryOptions } from "#/graphql/query-options"
+import { UpdateUsernameDocument } from "#/graphql/user/settings/mutations"
+import { UsernameAvailableDocument } from "#/graphql/user/settings/queries"
 import { useDebouncedValue } from "#/hooks/use-debounced-value"
 import { useForm } from "#/lib/form/use-form"
 
@@ -54,6 +52,7 @@ export function UsernameSection({ username: currentUsername }: Props) {
 					helpers.setFormError("You need to sign in to do that.")
 				})
 				.with({ __typename: "User" }, async () => {
+					// The username is in every profile link and @mention on the site.
 					await queryClient.invalidateQueries()
 					await router.invalidate()
 					setSavedNote("Saved")
@@ -121,8 +120,7 @@ export function UsernameSection({ username: currentUsername }: Props) {
 						{showStatus && (
 							<p
 								className={css({
-									fontFamily: "mono",
-									fontSize: "xs",
+									textStyle: "metaLg",
 									color: checking
 										? "fg.muted"
 										: isAvailable

@@ -1,18 +1,24 @@
 import { voidQuestionSchema } from "@called-my-shot/schemas"
+import { useQueryClient } from "@tanstack/react-query"
 import { useState } from "react"
 import { css } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
 import { match } from "ts-pattern"
-import { ChipButton } from "#/components/ui/chip-button"
+import { AdminCallout } from "#/components/ui/admin-callout"
 import { Button } from "#/components/ui/button"
+import { ChipButton } from "#/components/ui/chip-button"
 import { FormError } from "#/components/ui/form-error"
 import { Modal } from "#/components/ui/modal"
 import { TextInput } from "#/components/ui/text-input"
 import { Textarea } from "#/components/ui/textarea"
 import { ToggleRow } from "#/components/ui/toggle-row"
+import {
+	invalidateAdminQueue,
+	VoidQuestionDocument,
+} from "#/graphql/admin/queue/mutations"
+import { ApiError } from "#/graphql/api-error"
 import type { VoidReason } from "#/graphql/generated/graphql"
 import { useGqlMutation } from "#/graphql/hooks"
-import { VoidQuestionDocument } from "#/graphql/mutations/admin"
 import {
 	defaultCountsAsStrike,
 	VOID_REASON_LABELS,
@@ -33,10 +39,10 @@ const reasonToSchemaValue = {
 
 type Props = {
 	question: { id: string; title: string; creator: { username: string } | null }
-	onVoided: () => void
 }
 
-export function VoidQuestionModal({ question, onVoided }: Props) {
+export function VoidQuestionModal({ question }: Props) {
+	const queryClient = useQueryClient()
 	const voidQuestion = useGqlMutation(VoidQuestionDocument)
 	const [reason, setReason] = useState<VoidReason>("NONSENSICAL")
 	const [duplicateOfQuestionId, setDuplicateOfQuestionId] = useState("")
@@ -94,18 +100,12 @@ export function VoidQuestionModal({ question, onVoided }: Props) {
 						r.fieldErrors?.[0]?.message ?? "Check the form and try again.",
 					)
 				})
-				.with({ __typename: "AuthenticationError" }, async (r) => {
-					setFormError(r.message)
-				})
-				.with({ __typename: "AuthorizationError" }, async (r) => {
-					setFormError(r.message)
-				})
-				.with({ __typename: "NotFoundError" }, async (r) => {
+				.with(ApiError, async (r) => {
 					setFormError(r.message)
 				})
 				.with({ __typename: "VoidQuestionPayload" }, async () => {
 					closeModal()
-					onVoided()
+					invalidateAdminQueue(queryClient)
 				})
 				.exhaustive()
 		} finally {
@@ -133,8 +133,7 @@ export function VoidQuestionModal({ question, onVoided }: Props) {
 					</span>
 					<span
 						className={css({
-							fontFamily: "mono",
-							fontSize: "2xs",
+							textStyle: "meta",
 							color: "fg.subtle",
 						})}
 					>
@@ -148,10 +147,7 @@ export function VoidQuestionModal({ question, onVoided }: Props) {
 				<VStack gap="2" alignItems="stretch">
 					<span
 						className={css({
-							fontFamily: "mono",
-							fontSize: "2xs",
-							letterSpacing: "wide",
-							textTransform: "uppercase",
+							textStyle: "label",
 							color: "fg.subtle",
 						})}
 					>
@@ -207,21 +203,11 @@ export function VoidQuestionModal({ question, onVoided }: Props) {
 					}}
 				/>
 
-				<p
-					className={css({
-						fontSize: "xs",
-						lineHeight: "1.55",
-						color: "fg.subtle",
-						bg: "bg.canvas",
-						border: "1px solid {colors.border.default}",
-						borderRadius: "lg",
-						padding: "3",
-					})}
-				>
+				<AdminCallout>
 					Deletes the question and every call made on it. No points move:
 					nothing's committed until resolution, so there's nothing to reverse.
 					Can't be undone.
-				</p>
+				</AdminCallout>
 
 				<FormError message={formError ?? fieldError} />
 			</VStack>
@@ -230,10 +216,9 @@ export function VoidQuestionModal({ question, onVoided }: Props) {
 					Cancel
 				</Button>
 				<Button
-					variant="solid"
+					variant="danger"
 					loading={submitting}
 					disabled={submitting}
-					className={css({ bg: "danger.default" })}
 					onClick={handleVoid}
 				>
 					Void question

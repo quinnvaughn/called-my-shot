@@ -43,8 +43,7 @@ export function GameBlock({ game }: Props) {
 				/>
 				<span
 					className={css({
-						fontFamily: "mono",
-						fontSize: "2xs",
+						textStyle: "meta",
 						color: "fg.subtle",
 					})}
 				>
@@ -59,8 +58,7 @@ export function GameBlock({ game }: Props) {
 			</HStack>
 			<span
 				className={css({
-					fontFamily: "mono",
-					fontSize: "2xs",
+					textStyle: "meta",
 					color: "fg.muted",
 					whiteSpace: "nowrap",
 				})}

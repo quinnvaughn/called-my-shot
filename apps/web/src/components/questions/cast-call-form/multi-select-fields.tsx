@@ -17,17 +17,13 @@ import { optionPointsPreview, previewCrowdPct } from "#/lib/scoring"
 import { PointsPreview } from "../points-preview"
 import { SeasonPlayNote } from "../season-play-note"
 import { CaseField } from "./case-field"
+import { useCastCallFormContext } from "./cast-call-form-context"
 import { OptionPickerList } from "./option-picker-list"
-import type { CastCallFormState } from "./use-cast-call-form"
-
-type Props = {
-	callForm: CastCallFormState
-}
 
 // The exact same row list + pagination + total-count OptionFields shows for
 // a single pick (see OptionPickerList) - here a row toggles into/out of
 // `selections` instead of replacing it, that's the entire difference.
-export function MultiSelectFields({ callForm }: Props) {
+export function MultiSelectFields() {
 	const {
 		question,
 		shape,
@@ -42,7 +38,7 @@ export function MultiSelectFields({ callForm }: Props) {
 		updateSharedConviction,
 		addMultiSelectPick,
 		removeMultiSelectPick,
-	} = callForm
+	} = useCastCallFormContext()
 
 	if (!question) return null
 
@@ -69,8 +65,7 @@ export function MultiSelectFields({ callForm }: Props) {
 					</FieldLabel>
 					<span
 						className={css({
-							fontFamily: "mono",
-							fontSize: "2xs",
+							textStyle: "meta",
 							color: "fg.subtle",
 						})}
 					>
@@ -173,14 +168,13 @@ export function MultiSelectFields({ callForm }: Props) {
 								<HStack justify="space-between">
 									<span
 										className={css({
-											fontFamily: "mono",
-											fontSize: "2xs",
+											textStyle: "meta",
 											color: "fg.subtle",
 										})}
 									>
 										Applies to all picks
 									</span>
-									<span className={css({ fontFamily: "mono", fontSize: "xs" })}>
+									<span className={css({ textStyle: "metaLg" })}>
 										{sharedConviction}%
 									</span>
 								</HStack>
@@ -259,8 +253,7 @@ export function MultiSelectFields({ callForm }: Props) {
 													/>
 													<span
 														className={css({
-															fontFamily: "mono",
-															fontSize: "xs",
+															textStyle: "metaLg",
 															flexShrink: "0",
 														})}
 													>
@@ -298,8 +291,7 @@ export function MultiSelectFields({ callForm }: Props) {
 						) : (
 							<span
 								className={css({
-									fontFamily: "mono",
-									fontSize: "xs",
+									textStyle: "metaLg",
 									color: "fg.subtle",
 								})}
 							>
@@ -315,7 +307,7 @@ export function MultiSelectFields({ callForm }: Props) {
 					</VStack>
 				</Card.Body>
 			</Card>
-			<CaseField callForm={callForm} />
+			<CaseField />
 		</VStack>
 	)
 }

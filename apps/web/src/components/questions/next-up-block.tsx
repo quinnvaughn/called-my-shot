@@ -2,10 +2,10 @@ import { useQuery } from "@tanstack/react-query"
 import { Link } from "@tanstack/react-router"
 import { css } from "styled-system/css"
 import { VStack } from "styled-system/jsx"
-import { GameCardContext } from "#/components/games/game-card-extras"
+import { GameCardContext } from "#/components/games/game-card-context"
 import type { GameNextUp } from "#/components/questions/game-strip"
 import { button } from "#/components/ui/button"
-import { nextUpQuestionQuery } from "#/graphql/queries/question"
+import { nextUpQuestionQuery } from "#/graphql/questions/queries"
 import { track } from "#/lib/analytics"
 import { buildQuestionSlug } from "#/lib/slug"
 
@@ -44,10 +44,7 @@ export function NextUpBlock({ fromQuestionId, nextUp }: Props) {
 		>
 			<span
 				className={css({
-					fontFamily: "mono",
-					fontSize: "2xs",
-					letterSpacing: "wide",
-					textTransform: "uppercase",
+					textStyle: "label",
 					color: "secondary.default",
 				})}
 			>

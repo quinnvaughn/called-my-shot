@@ -2,13 +2,14 @@ import { REDO_BALANCE_CAP } from "@called-my-shot/scoring"
 import { useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
 import { css } from "styled-system/css"
-import { HStack, VStack } from "styled-system/jsx"
+import { VStack } from "styled-system/jsx"
+import { StatLine } from "#/components/invite/stat-line"
 import { Card } from "#/components/ui/card"
 import { CopyLinkRow } from "#/components/ui/copy-link-row"
 import { Eyebrow } from "#/components/ui/eyebrow"
 import { PageHeader } from "#/components/ui/page-header"
 import { PostOnXLink } from "#/components/ui/post-on-x-link"
-import { invitePageQuery } from "#/graphql/queries/invite"
+import { invitePageQuery } from "#/graphql/invite/queries"
 import { track } from "#/lib/analytics"
 import { pageMeta, SITE_HOST, SITE_ORIGIN } from "#/lib/meta"
 import { pluralize } from "#/lib/pluralize"
@@ -65,8 +66,7 @@ function RouteComponent() {
 					<Card.Body>
 						<p
 							className={css({
-								fontFamily: "mono",
-								fontSize: "2xs",
+								textStyle: "meta",
 								color: "fg.subtle",
 							})}
 						>
@@ -113,8 +113,7 @@ function RouteComponent() {
 						/>
 						<p
 							className={css({
-								fontFamily: "mono",
-								fontSize: "3xs",
+								textStyle: "metaSm",
 								color: "fg.subtle",
 							})}
 						>
@@ -149,24 +148,5 @@ function RouteComponent() {
 				</Card>
 			)}
 		</VStack>
-	)
-}
-
-function StatLine({ label, value }: { label: string; value: string }) {
-	return (
-		<HStack justify="space-between" alignItems="baseline">
-			<span
-				className={css({
-					fontFamily: "mono",
-					fontSize: "2xs",
-					textTransform: "uppercase",
-					letterSpacing: "wide",
-					color: "fg.subtle",
-				})}
-			>
-				{label}
-			</span>
-			<span className={css({ fontWeight: "semibold" })}>{value}</span>
-		</HStack>
 	)
 }

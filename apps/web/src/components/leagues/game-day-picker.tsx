@@ -193,8 +193,7 @@ export function GameDayPicker({
 											{gameCount > 0 && (
 												<span
 													className={css({
-														fontFamily: "mono",
-														fontSize: "3xs",
+														textStyle: "metaSm",
 														fontWeight: "normal",
 														opacity: 0.7,
 													})}
@@ -218,8 +217,7 @@ export function GameDayPicker({
 								className={css({
 									display: { base: "block", md: "none" },
 									textAlign: "center",
-									fontFamily: "mono",
-									fontSize: "2xs",
+									textStyle: "meta",
 									color: "fg.subtle",
 								})}
 							>

@@ -1,9 +1,10 @@
 import { Link } from "@tanstack/react-router"
-import { DateTime } from "luxon"
 import { MdBallot } from "react-icons/md"
 import { css } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
+import { LockLine } from "#/components/questions/lock-line"
 import { Card } from "#/components/ui/card"
+import { ProgressBar } from "#/components/ui/progress-bar"
 import { type FragmentType, graphql, useFragment } from "#/graphql/generated"
 
 export const BallotCardFragment = graphql(`
@@ -28,10 +29,6 @@ type Props = {
 export function BallotCard({ ballot: ballotProp }: Props) {
 	const ballot = useFragment(BallotCardFragment, ballotProp)
 	const calledCount = ballot.viewerCalledCount ?? 0
-	const pct =
-		ballot.memberCount === 0
-			? 0
-			: Math.round((calledCount / ballot.memberCount) * 100)
 
 	return (
 		<Link to="/ballots/$ballotSlug" params={{ ballotSlug: ballot.slug }}>
@@ -47,38 +44,18 @@ export function BallotCard({ ballot: ballotProp }: Props) {
 								className={css({
 									fontSize: "sm",
 									fontWeight: "semibold",
-									overflow: "hidden",
-									textOverflow: "ellipsis",
-									whiteSpace: "nowrap",
+									truncate: true,
 								})}
 							>
 								{ballot.name}
 							</span>
 						</HStack>
-						<div
-							className={css({
-								height: "1.5",
-								borderRadius: "full",
-								bg: "bg.subtle",
-								border: "1px solid {colors.border.default}",
-								overflow: "hidden",
-							})}
-						>
-							<div
-								className={css({
-									height: "full",
-									borderRadius: "full",
-									bg: "secondary.default",
-								})}
-								style={{ width: `${pct}%` }}
-							/>
-						</div>
+						<ProgressBar value={calledCount} max={ballot.memberCount} />
 						<HStack
 							justify="space-between"
 							gap="2"
 							className={css({
-								fontFamily: "mono",
-								fontSize: "2xs",
+								textStyle: "meta",
 								color: "fg.subtle",
 							})}
 						>
@@ -88,9 +65,11 @@ export function BallotCard({ ballot: ballotProp }: Props) {
 									: `${calledCount} of ${ballot.memberCount} called`}
 							</span>
 							<span>
-								{ballot.nextLocksAt
-									? `Locks ${DateTime.fromISO(ballot.nextLocksAt).toRelative()}`
-									: "Locked"}
+								{ballot.nextLocksAt ? (
+									<LockLine status="OPEN" locksAt={ballot.nextLocksAt} />
+								) : (
+									"Locked"
+								)}
 							</span>
 						</HStack>
 					</VStack>

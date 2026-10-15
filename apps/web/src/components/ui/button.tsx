@@ -35,6 +35,8 @@ export function Button({
 						width: "3.5",
 						height: "3.5",
 						borderRadius: "full",
+						// Spinner ring follows the button's text color, which no token
+						// can express, so the color is split out from the border.
 						border: "2px solid",
 						borderColor: "color-mix(in srgb, currentColor 30%, transparent)",
 						borderTopColor: "currentColor",

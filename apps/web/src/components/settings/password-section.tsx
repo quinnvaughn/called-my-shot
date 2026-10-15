@@ -1,6 +1,6 @@
 import { passwordFormSchema } from "@called-my-shot/schemas"
 import { useQueryClient } from "@tanstack/react-query"
-import { useMemo, useState } from "react"
+import { useState } from "react"
 import { css } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
 import { match } from "ts-pattern"
@@ -10,7 +10,9 @@ import { FormError } from "#/components/ui/form-error"
 import { SaveNote } from "#/components/ui/save-note"
 import { TextInput } from "#/components/ui/text-input"
 import { useGqlMutation } from "#/graphql/hooks"
-import { UpdatePasswordDocument } from "#/graphql/queries/user"
+import { gqlQueryPrefix } from "#/graphql/query-options"
+import { UpdatePasswordDocument } from "#/graphql/user/settings/mutations"
+import { SettingsPageDocument } from "#/graphql/user/settings/queries"
 import { useForm } from "#/lib/form/use-form"
 
 type Props = {
@@ -23,7 +25,7 @@ export function PasswordSection({ hasPassword }: Props) {
 	const updatePassword = useGqlMutation(UpdatePasswordDocument)
 	const queryClient = useQueryClient()
 	const [savedNote, setSavedNote] = useState<string | null>(null)
-	const schema = useMemo(() => passwordFormSchema(hasPassword), [hasPassword])
+	const schema = passwordFormSchema(hasPassword)
 
 	const form = useForm({
 		defaultValues: {
@@ -60,7 +62,11 @@ export function PasswordSection({ hasPassword }: Props) {
 				})
 				.with({ __typename: "User" }, async () => {
 					helpers.reset()
-					if (!hasPassword) await queryClient.invalidateQueries()
+					if (!hasPassword) {
+						await queryClient.invalidateQueries({
+							queryKey: gqlQueryPrefix(SettingsPageDocument),
+						})
+					}
 					setSavedNote(hasPassword ? "Updated" : "Password set")
 					setTimeout(() => setSavedNote(null), 2000)
 				})

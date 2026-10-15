@@ -13,12 +13,12 @@ import { Slider } from "#/components/ui/slider"
 import { previewCrowdPct } from "#/lib/scoring"
 import { PointsPreview } from "../points-preview"
 import { SeasonPlayNote } from "../season-play-note"
-import type { CastCallFormState } from "./use-cast-call-form"
+import { useCastCallFormContext } from "./cast-call-form-context"
 
 // Conviction on a single-pick call, with the payout it produces right under
 // the slider. Shared by the call form and the fade modal, which fixes the pick
 // but leaves conviction to the fader.
-export function ConvictionCard({ callForm }: { callForm: CastCallFormState }) {
+export function ConvictionCard() {
 	const {
 		question,
 		shape,
@@ -26,7 +26,7 @@ export function ConvictionCard({ callForm }: { callForm: CastCallFormState }) {
 		selections,
 		singleSelectConviction,
 		setSingleSelectConviction,
-	} = callForm
+	} = useCastCallFormContext()
 
 	// No-ops unless a first-call walkthrough is running above this card.
 	const convictionAnchor = useTourAnchor("conviction")
@@ -78,7 +78,7 @@ export function ConvictionCard({ callForm }: { callForm: CastCallFormState }) {
 						<VStack gap="1.5" alignItems="stretch">
 							<HStack justify="space-between">
 								<FieldLabel>Conviction</FieldLabel>
-								<span className={css({ fontFamily: "mono", fontSize: "xs" })}>
+								<span className={css({ textStyle: "metaLg" })}>
 									{singleSelectConviction}%
 								</span>
 							</HStack>

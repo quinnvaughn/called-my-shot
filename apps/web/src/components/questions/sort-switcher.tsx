@@ -53,10 +53,7 @@ export function SortSwitcher<T extends string>({
 		<HStack gap="2" alignItems="center" flexWrap="wrap">
 			<span
 				className={css({
-					fontFamily: "mono",
-					fontSize: "2xs",
-					letterSpacing: "wide",
-					textTransform: "uppercase",
+					textStyle: "label",
 					color: "fg.subtle",
 				})}
 			>
@@ -99,7 +96,7 @@ export function SortSwitcher<T extends string>({
 								"color 0.15s ease, border-color 0.15s ease, background-color 0.15s ease",
 							_hover: {
 								color: "fg.default",
-								borderColor: "border.emphasized",
+								border: "1px solid {colors.border.emphasized}",
 							},
 						})}
 					>

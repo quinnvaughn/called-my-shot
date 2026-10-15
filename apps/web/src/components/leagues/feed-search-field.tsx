@@ -1,10 +1,11 @@
 import { keepPreviousData, useQuery } from "@tanstack/react-query"
-import { useEffect, useState } from "react"
+import { useState } from "react"
 import { Combobox } from "#/components/ui/combobox"
 import { TeamBadge } from "#/components/ui/team-badge"
 import { TextInput } from "#/components/ui/text-input"
-import { LeagueSearchDocument } from "#/graphql/queries/sports"
 import { gqlQueryOptions } from "#/graphql/query-options"
+import { LeagueSearchDocument } from "#/graphql/sports/leagues/queries"
+import { useDebouncedValue } from "#/hooks/use-debounced-value"
 
 type Team = { id: string; name: string; abbreviation: string; color: string }
 
@@ -36,12 +37,7 @@ export function FeedSearchField({
 }: Props) {
 	const [open, setOpen] = useState(false)
 	const [highlightedKey, setHighlightedKey] = useState<string | null>(null)
-	const [debouncedQuery, setDebouncedQuery] = useState("")
-
-	useEffect(() => {
-		const id = setTimeout(() => setDebouncedQuery(value.trim()), DEBOUNCE_MS)
-		return () => clearTimeout(id)
-	}, [value])
+	const debouncedQuery = useDebouncedValue(value.trim(), DEBOUNCE_MS)
 
 	const { data } = useQuery(
 		gqlQueryOptions(

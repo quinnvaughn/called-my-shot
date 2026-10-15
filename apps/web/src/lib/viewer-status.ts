@@ -1,6 +1,11 @@
+import { SEASON_PLAY_WEEK_MIN_CALLS } from "@called-my-shot/scoring"
 import { match, P } from "ts-pattern"
+import type { QuestionVoidedReason } from "#/graphql/generated/graphql"
 import { resultState } from "#/lib/call-summary"
+import { pluralize } from "#/lib/pluralize"
 import type { QuestionPhase } from "#/lib/question-detail-state"
+import type { RecordTone } from "#/lib/record-tag"
+import { formatMult } from "#/lib/scoring"
 
 // "unscored": the question resolved but this call was left out of scoring
 // (see callUnscoredReason on the API), so it has no win or loss to show.
@@ -79,4 +84,159 @@ export function disputeAction(
 			return dispute.hasViewerDispute ? "underReview" : "available"
 		})
 		.exhaustive()
+}
+
+// What a voided question's card says in place of a result.
+export function voidedText(reason: QuestionVoidedReason | null): string {
+	return match(reason)
+		.with(
+			"SUBJECT_DID_NOT_PLAY",
+			() => "The player this is about didn't play, so no call on it scores.",
+		)
+		.with(
+			"GAME_NOT_COMPLETED",
+			() => "The game wasn't completed, so no call on it scores.",
+		)
+		.with("TIE", () => "It ended in a tie, so no call on it scores.")
+		.with(
+			"NO_LEADER",
+			() => "Nobody recorded this stat, so no call on it scores.",
+		)
+		.with(
+			"LEADER_NOT_IN_POOL",
+			() => "The leader wasn't one of the options, so no call on it scores.",
+		)
+		.with("OTHER", null, () => "No call on this question scores.")
+		.exhaustive()
+}
+
+export type ShareOutcome = { isWin: boolean; points: number }
+
+export type ResultFace = {
+	tone: RecordTone
+	label: string
+	outcome: ShareOutcome | null
+}
+
+// A settled call's own result as the card presents it: the badge, plus the
+// win and points it's shared with (null until the call's points are written).
+// marginLabel replaces the verdict word when this call's margin was
+// remarkable, exactly as it does in the eyebrow on /calls/:id. The two are the
+// same claim about the same call, so one reading "Inches away" while the other
+// says "Missed" would be a visible contradiction.
+export function resultFace(
+	result: CallResult,
+	marginLabel: string | null,
+): ResultFace {
+	return match(result)
+		.returnType<ResultFace>()
+		.with({ status: "pending" }, () => ({
+			tone: "neutral",
+			label: "Pending",
+			outcome: null,
+		}))
+		.with({ status: "win" }, ({ points }) => ({
+			tone: "success",
+			label: marginLabel ?? "Won",
+			outcome: { isWin: true, points },
+		}))
+		.with({ status: "loss" }, ({ points }) => ({
+			tone: "danger",
+			label: marginLabel ?? "Missed",
+			outcome: { isWin: false, points },
+		}))
+		.with({ status: "unscored" }, () => ({
+			tone: "neutral",
+			label: "Not scored",
+			outcome: null,
+		}))
+		.exhaustive()
+}
+
+// A pick's row renders one of two ways depending on whether the question has
+// resolved yet - "preview" (pending) shows the projected range if the pick
+// turns out right, "resolved" shows what actually happened. Same row shape,
+// same "why these points" ledger either way, which is the whole point: this
+// is the one component both the pending card and the won/lost card render
+// through, not two near-duplicate ones.
+export type SelectionRowResult =
+	| { kind: "preview" }
+	// points is the real call_selections.result_points value, not
+	// recomputed from live fieldPct/rank - see resultPoints in
+	// ViewerStatusCardFragment for why that distinction matters.
+	| { kind: "resolved"; isCorrect: boolean; points: number }
+export type NumericRowResult =
+	| { kind: "preview" }
+	// closenessMult and closenessFieldPct are the real, persisted values (null
+	// on a miss) - the early multiplier isn't stored separately, but it's
+	// exact arithmetic to back out: totalPoints / (committed × closenessMult).
+	| {
+			kind: "resolved"
+			totalPoints: number
+			closenessMult: number | null
+			closenessFieldPct: number | null
+	  }
+
+export function selectionRowResult(
+	selection: {
+		resultPoints: number | null
+		option: { isCorrect: boolean | null }
+	},
+	settled: boolean,
+): SelectionRowResult {
+	const { isCorrect } = selection.option
+	if (!settled || isCorrect === null || selection.resultPoints === null) {
+		return { kind: "preview" }
+	}
+	return { kind: "resolved", isCorrect, points: selection.resultPoints }
+}
+
+export function numericRowResult(
+	call: {
+		totalPoints: number | null
+		closenessMult: number | null
+		closenessFieldPct: number | null
+	},
+	settled: boolean,
+): NumericRowResult {
+	if (!settled || call.totalPoints === null) return { kind: "preview" }
+	return {
+		kind: "resolved",
+		totalPoints: call.totalPoints,
+		closenessMult: call.closenessMult,
+		closenessFieldPct: call.closenessFieldPct,
+	}
+}
+
+// A season-long call's season-play weight, the weeks behind it and the league
+// they're counted in (see SeasonPlay). Null on any other call.
+export type SeasonPlayTerm = {
+	weight: number
+	weeksPlayed: number
+	weeksCounted: number
+	settled: boolean
+	league: string
+} | null
+
+// The line a season-long pick carries under its points, so what play is doing
+// to them shows without opening the breakdown.
+export function seasonPlayLine(play: SeasonPlayTerm): string | null {
+	if (!play) return null
+	const { weight, weeksPlayed, weeksCounted, league } = play
+	const share =
+		weight >= 1 ? "in full" : `for ${Math.round(weight * 100)}% of its points`
+	const weeks = `${weeksPlayed} of ${weeksCounted} ${league} ${pluralize(weeksCounted, "week")}`
+	if (play.settled) return `Counted ${share}: you played ${weeks}.`
+	if (weeksCounted === 0) {
+		return `Counts in full so far. Make ${SEASON_PLAY_WEEK_MIN_CALLS} ${league} game calls a week to keep it there.`
+	}
+	return weight >= 1
+		? `Counts in full at your ${league} pace: ${weeks} played. Make ${SEASON_PLAY_WEEK_MIN_CALLS} ${league} game calls a week to keep it there.`
+		: `Counts ${share} at your ${league} pace: ${weeks} played. Playing more weeks grows it.`
+}
+
+// A priced underdog's own multiplier in a win's math, ahead of the bonuses.
+// Nothing on any other side, which pays 1x before them.
+export function underdogMath(winMult: number): string {
+	return winMult > 1 ? `× ${formatMult(winMult)} underdog ` : ""
 }

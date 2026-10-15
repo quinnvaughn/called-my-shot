@@ -9,7 +9,8 @@ import { LeagueField } from "../league-field"
 import { OptionList } from "../option-list"
 import { StatPicker } from "../stat-picker"
 import { toPlayerItems, toTeamItems } from "../use-entity-pools"
-import { PanelNote, ShapePanel } from "./shape-panel"
+import { PanelNote } from "./panel-note"
+import { ShapePanel } from "./shape-panel"
 
 export type HeadToHeadShape = Extract<
 	CreateQuestionValues["shape"],

@@ -43,6 +43,7 @@ export function RoutePending() {
 						width: "5",
 						height: "5",
 						borderRadius: "full",
+						// The spinning top arc is a separate side color over the ring.
 						border:
 							"2px solid color-mix(in srgb, currentColor 25%, transparent)",
 						borderTopColor: "currentColor",

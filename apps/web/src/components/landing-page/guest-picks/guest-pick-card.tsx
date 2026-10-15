@@ -4,11 +4,11 @@ import { HStack, VStack } from "styled-system/jsx"
 import { GameMatchupHeader } from "#/components/games/game-matchup-header"
 import { LockLine } from "#/components/questions/lock-line"
 import { QuestionSummaryHeader } from "#/components/questions/question-summary-header"
-import { StatContextHighlights } from "#/components/questions/stat-context-card"
+import { StatContextHighlights } from "#/components/questions/stat-context-card/stat-context-highlights"
 import { Card } from "#/components/ui/card"
 import { PlayerOrTeamImage } from "#/components/ui/player-or-team-image"
 import { type FragmentType, graphql, useFragment } from "#/graphql/generated"
-import { questionStatContextQuery } from "#/graphql/queries/question"
+import { questionStatContextQuery } from "#/graphql/questions/queries"
 import { callersText, isRateStat } from "#/lib/field-signal"
 import {
 	isOverUnderQuestionShape,
@@ -91,8 +91,7 @@ type Props = {
 }
 
 const mutedMonoClass = css({
-	fontFamily: "mono",
-	fontSize: "3xs",
+	textStyle: "metaSm",
 	color: "fg.subtle",
 	whiteSpace: "nowrap",
 })
@@ -136,11 +135,8 @@ const radioSelectedClass = css({
 })
 
 const callHeadingClass = css({
-	fontFamily: "mono",
-	fontSize: "xs",
-	letterSpacing: "wide",
+	textStyle: "sectionHeading",
 	color: "fg.muted",
-	textTransform: "uppercase",
 })
 
 const verdictClass = css({
@@ -271,8 +267,7 @@ export function GuestPickCard({
 									{selected ? (
 										<span
 											className={css({
-												fontFamily: "mono",
-												fontSize: "xs",
+												textStyle: "metaLg",
 												fontWeight: "bold",
 												color: "primary.default",
 											})}
@@ -284,8 +279,7 @@ export function GuestPickCard({
 										option.fieldPct !== null && (
 											<span
 												className={css({
-													fontFamily: "mono",
-													fontSize: "xs",
+													textStyle: "metaLg",
 													color: "fg.muted",
 												})}
 											>

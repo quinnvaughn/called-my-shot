@@ -1,7 +1,7 @@
 import { useQueryClient } from "@tanstack/react-query"
 import { useNavigate, useRouter } from "@tanstack/react-router"
+import { SignOutDocument } from "#/graphql/auth/mutations"
 import { useGqlMutation } from "#/graphql/hooks"
-import { SignOutDocument } from "#/graphql/mutations/auth"
 import { track } from "#/lib/analytics"
 
 export function useSignOut() {

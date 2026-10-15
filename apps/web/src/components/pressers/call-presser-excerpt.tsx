@@ -1,6 +1,7 @@
 import { Link } from "@tanstack/react-router"
 import { css, cx } from "styled-system/css"
 import { VStack } from "styled-system/jsx"
+import { arrowLink } from "#/components/ui/arrow-link"
 import { track } from "#/lib/analytics"
 import { presserBodyText, presserEyebrow } from "./presser-qa-item"
 
@@ -64,15 +65,7 @@ export function CallPresserExcerpt({ callId, presser, questions }: Props) {
 				onClick={() =>
 					track("presser_excerpt_clicked", { presserId: presser.id, callId })
 				}
-				className={css({
-					fontFamily: "mono",
-					fontSize: "2xs",
-					letterSpacing: "wide",
-					textTransform: "uppercase",
-					color: "primary.default",
-					textDecoration: "none",
-					_hover: { opacity: 0.8 },
-				})}
+				className={arrowLink({ tone: "primary" })}
 			>
 				Read the full presser →
 			</Link>

@@ -1,51 +1,26 @@
-import { useQuery } from "@tanstack/react-query"
+import { useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute, Link } from "@tanstack/react-router"
 import { css } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
+import { DismissButton } from "#/components/admin/dismiss-button"
 import { VoidQuestionModal } from "#/components/admin/void-question-modal"
 import { Button } from "#/components/ui/button"
 import { EmptyState } from "#/components/ui/empty-state"
 import { PageHeader } from "#/components/ui/page-header"
-import { useGqlMutation } from "#/graphql/hooks"
-import { DismissReportDocument } from "#/graphql/mutations/admin"
-import { AdminReportsDocument } from "#/graphql/queries/admin"
-import { gqlQueryOptions } from "#/graphql/query-options"
+import { adminReportsQuery } from "#/graphql/admin/queue/queries"
 import { VOID_REASON_LABELS } from "#/lib/admin/void-defaults"
 import { openModal } from "#/stores/modal-store"
 
 export const Route = createFileRoute("/admin/reports")({
 	component: RouteComponent,
+	loader: ({ context }) => context.queryClient.query(adminReportsQuery),
 })
 
-function DismissButton({
-	reportId,
-	onDismissed,
-}: {
-	reportId: string
-	onDismissed: () => void
-}) {
-	const dismissReport = useGqlMutation(DismissReportDocument)
-
-	return (
-		<Button
-			variant="outline"
-			size="sm"
-			loading={dismissReport.isPending}
-			onClick={async () => {
-				const data = await dismissReport.mutateAsync({ input: { reportId } })
-				if (data?.dismissReport.__typename === "QuestionReport") onDismissed()
-			}}
-		>
-			Dismiss
-		</Button>
-	)
-}
-
 function RouteComponent() {
-	const { data, refetch } = useQuery(gqlQueryOptions(AdminReportsDocument, {}))
+	const { data } = useSuspenseQuery(adminReportsQuery)
 
 	const reports =
-		data?.adminQueueSummary.__typename === "QueryAdminQueueSummarySuccess"
+		data.adminQueueSummary.__typename === "QueryAdminQueueSummarySuccess"
 			? data.adminQueueSummary.data.reported
 			: []
 
@@ -102,10 +77,7 @@ function RouteComponent() {
 									</p>
 								</VStack>
 								<HStack gap="1.5" flexShrink={0}>
-									<DismissButton
-										reportId={report.id}
-										onDismissed={() => refetch()}
-									/>
+									<DismissButton reportId={report.id} />
 									<Button
 										variant="outline"
 										size="sm"
@@ -118,7 +90,6 @@ function RouteComponent() {
 														title: report.question.title,
 														creator: report.question.creator,
 													}}
-													onVoided={() => refetch()}
 												/>,
 											)
 										}

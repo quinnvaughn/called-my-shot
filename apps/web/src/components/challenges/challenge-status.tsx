@@ -1,9 +1,10 @@
-import { useRouteContext } from "@tanstack/react-router"
 import { DateTime } from "luxon"
 import { match } from "ts-pattern"
 import type { ChallengeState } from "#/graphql/generated/graphql"
+import { useMe } from "#/hooks/use-me"
 import { useNow } from "#/hooks/use-now"
-import { type ChallengeRecord, recordLine } from "#/lib/challenge"
+import type { ChallengeRecord } from "#/lib/challenge"
+import { formatRecord } from "#/lib/game-status"
 import { pluralize } from "#/lib/pluralize"
 
 type Props = {
@@ -46,7 +47,7 @@ export function ChallengeStatus({
 	creator,
 	tally,
 }: Props) {
-	const { me } = useRouteContext({ from: "__root__" })
+	const me = useMe()
 	const who = me?.id === creator.id ? "You" : `@${creator.username}`
 	const now = useNow(state === "OPEN" ? 60_000 : null)
 	const taken = `${acceptanceCount} ${pluralize(acceptanceCount, "person", "people")} took it on`
@@ -62,7 +63,7 @@ export function ChallengeStatus({
 				.with("LIVE", () => `Closed · ${taken} · waiting on results`)
 				.with("SETTLED", () =>
 					acceptanceCount > 0
-						? `Final · ${who} went ${recordLine(tally)}`
+						? `Final · ${who} went ${formatRecord(tally.wins, tally.losses, tally.draws || null)}`
 						: "Final · nobody took it on",
 				)
 				.with("VOIDED", () => "Every question in it was voided")

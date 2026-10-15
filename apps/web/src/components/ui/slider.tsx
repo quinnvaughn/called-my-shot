@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react"
 import { css, cx } from "styled-system/css"
+import { clamp } from "#/lib/format-number"
 
 type Props = {
 	value: number
@@ -77,10 +78,6 @@ const knobStyle = css({
 })
 
 const knobDraggingStyle = css({ transform: "scale(1.15)" })
-
-function clamp(value: number, min: number, max: number): number {
-	return Math.min(max, Math.max(min, value))
-}
 
 export function Slider({
 	value,

@@ -1,22 +1,14 @@
-import { questionTitleWithGame } from "@called-my-shot/schemas"
 import { Link } from "@tanstack/react-router"
 import { useState } from "react"
 import { FiChevronDown } from "react-icons/fi"
 import { css } from "styled-system/css"
 import { Grid, HStack, VStack } from "styled-system/jsx"
-import { StatTile } from "#/components/ballots/ballot-progress-card"
-import {
-	type ReportCardBonusRowData,
-	ReportCardBreakdown,
-	type ReportCardRowData,
-} from "#/components/report-cards/report-card-row"
-import { ReportCardShareRow } from "#/components/report-cards/report-card-share-row"
+import { StatTile } from "#/components/ballots/stat-tile"
+import { arrowLink } from "#/components/ui/arrow-link"
 import { Card } from "#/components/ui/card"
-import { Eyebrow } from "#/components/ui/eyebrow"
-import { PlayerOrTeamImage } from "#/components/ui/player-or-team-image"
 import { type FragmentType, graphql, useFragment } from "#/graphql/generated"
-import { formatRecord, formatSignedPoints } from "#/lib/ballot-entry"
-import { pickSummary } from "#/lib/call-summary"
+import { formatSigned } from "#/lib/format-number"
+import { formatRecord } from "#/lib/game-status"
 import {
 	buildReportCardTweet,
 	formatReturn,
@@ -24,9 +16,13 @@ import {
 	isEmptyReportCard,
 	reportCardPath,
 	reportCardStatusLine,
-	returnTone,
 } from "#/lib/report-card"
-import { buildGameSlug } from "#/lib/slug"
+import type { ReportCardBonusRowData } from "./report-card-bonus-row"
+import { ReportCardBreakdown } from "./report-card-breakdown"
+import { ReportCardGameHighlight } from "./report-card-game-highlight"
+import { ReportCardHighlight } from "./report-card-highlight"
+import type { ReportCardRowData } from "./report-card-row"
+import { ReportCardShareRow } from "./report-card-share-row"
 
 // One key for every window, not one per window: folding this away is a
 // standing preference about the block, not a judgment about week 3.
@@ -90,90 +86,6 @@ export const ReportCardFragment = graphql(`
 	}
 `)
 
-// What pickSummary needs plus the question's title and matchup. It
-// deliberately leaves out the optional margin fields (numericTolerancePct,
-// scoredOptions, option.actualValue) - a highlight states the pick, what it
-// answered, and the points, and selecting a leader pool's worth of options to render "Josh Allen" would
-// be a real cost for no gain. See the comment on CallSummaryData in
-// #/lib/call-summary for why those are opt-in.
-const HighlightFragment = graphql(`
-	fragment ReportCardHighlight_call on Call {
-		id
-		guessValue
-		conviction
-		totalPoints
-		question {
-			id
-			title
-			shape
-			ouLine
-			numericActualValue
-			numericToleranceAbsolute
-			stat {
-				id
-				toleranceTier {
-					toleranceMode
-					toleranceValue
-				}
-			}
-			game {
-				id
-				awayTeam {
-					id
-					abbreviation
-				}
-				homeTeam {
-					id
-					abbreviation
-				}
-			}
-		}
-		selections {
-			id
-			conviction
-			option {
-				id
-				label
-				isCorrect
-				team {
-					...Team_team @unmask
-				}
-				player {
-					id
-					name
-					headshotUrl
-				}
-			}
-		}
-	}
-`)
-
-const GameHighlightFragment = graphql(`
-	fragment ReportCardGameHighlight_game on ReportCardGame {
-		netPoints
-		wins
-		losses
-		game {
-			id
-			startsAt
-			league {
-				id
-				slug
-			}
-			homeTeam {
-				id
-				name
-				abbreviation
-			}
-			awayTeam {
-				id
-				name
-				abbreviation
-			}
-		}
-	}
-`)
-
 type Props = {
 	card: FragmentType<typeof ReportCardFragment>
 	// Set on the permalink, where the breakdown expands to shapes and the
@@ -183,150 +95,6 @@ type Props = {
 	// permalink (or, on the permalink, to the window's games). Omitted when
 	// signed out.
 	owner?: { id: string; username: string; isOwn: boolean } | null
-}
-
-function Highlight({
-	label,
-	call,
-}: {
-	label: string
-	call: FragmentType<typeof HighlightFragment> | null | undefined
-}) {
-	const data = useFragment(HighlightFragment, call ?? null)
-	if (!data) return null
-	return (
-		<HStack
-			justify="space-between"
-			alignItems="baseline"
-			gap="3"
-			className={css({ paddingY: "1" })}
-		>
-			<VStack
-				gap="0"
-				alignItems="flex-start"
-				className={css({ minWidth: "0" })}
-			>
-				<Eyebrow size="sm" variant="neutral">
-					{label}
-				</Eyebrow>
-				<HStack gap="2" alignItems="center" minWidth="0" maxWidth="full">
-					{data.selections.length === 1 && (
-						<PlayerOrTeamImage
-							player={data.selections[0]?.option.player}
-							team={data.selections[0]?.option.team}
-						/>
-					)}
-					<Link
-						to="/calls/$callId"
-						params={{ callId: data.id }}
-						className={css({
-							fontSize: "sm",
-							color: "fg.default",
-							textDecoration: "none",
-							overflow: "hidden",
-							textOverflow: "ellipsis",
-							whiteSpace: "nowrap",
-							_hover: { textDecoration: "underline" },
-						})}
-					>
-						{pickSummary(data)}
-					</Link>
-				</HStack>
-				{/* A bare pick ("Under 0.5") says nothing without the question it
-				    answers. */}
-				<span
-					className={css({
-						fontSize: "xs",
-						color: "fg.subtle",
-						overflow: "hidden",
-						textOverflow: "ellipsis",
-						whiteSpace: "nowrap",
-						maxWidth: "full",
-					})}
-				>
-					{questionTitleWithGame(data.question.title, data.question.game)}
-				</span>
-			</VStack>
-			<span
-				className={css({
-					fontFamily: "mono",
-					fontSize: "sm",
-					fontWeight: "bold",
-					whiteSpace: "nowrap",
-					color: returnTone(data.totalPoints ?? 0),
-				})}
-			>
-				{formatSignedPoints(data.totalPoints ?? 0)}
-			</span>
-		</HStack>
-	)
-}
-
-// Opens the owner's picks on that game, which count the same calls this
-// record and points do. Falls back to the game itself with no owner to name.
-function GameHighlight({
-	label,
-	row,
-	username,
-}: {
-	label: string
-	row: FragmentType<typeof GameHighlightFragment> | null | undefined
-	username: string | null
-}) {
-	const data = useFragment(GameHighlightFragment, row ?? null)
-	if (!data) return null
-	const { game } = data
-	return (
-		<HStack
-			justify="space-between"
-			alignItems="baseline"
-			gap="3"
-			className={css({ paddingY: "1" })}
-		>
-			<VStack
-				gap="0"
-				alignItems="flex-start"
-				className={css({ minWidth: "0" })}
-			>
-				<Eyebrow size="sm" variant="neutral">
-					{label}
-				</Eyebrow>
-				<Link
-					{...(username
-						? {
-								to: "/games/$gameId/picks/$username",
-								params: { gameId: game.id, username },
-							}
-						: {
-								to: "/games/$gameId/{-$slug}",
-								params: { gameId: game.id, slug: buildGameSlug(game) },
-							})}
-					className={css({
-						fontSize: "sm",
-						color: "fg.default",
-						textDecoration: "none",
-						overflow: "hidden",
-						textOverflow: "ellipsis",
-						whiteSpace: "nowrap",
-						_hover: { textDecoration: "underline" },
-					})}
-				>
-					{`${game.awayTeam.abbreviation} @ ${game.homeTeam.abbreviation} · ${formatRecord(data.wins, data.losses)}`}
-				</Link>
-			</VStack>
-			<span
-				className={css({
-					fontFamily: "mono",
-					fontSize: "sm",
-					fontWeight: "bold",
-					whiteSpace: "nowrap",
-					color: returnTone(data.netPoints),
-				})}
-			>
-				{formatSignedPoints(data.netPoints)}
-			</span>
-		</HStack>
-	)
 }
 
 // The viewer's whole day or week, graded. Renders nothing at all for a window
@@ -482,7 +250,7 @@ export function ReportCard({ card: cardProp, expanded, owner }: Props) {
 						<>
 							<Grid columns={{ base: 2, sm: 4 }} gap="3">
 								<StatTile
-									value={formatSignedPoints(card.totalPoints)}
+									value={formatSigned(card.totalPoints, { zeroSign: true })}
 									label="NET POINTS"
 								/>
 								<StatTile
@@ -521,8 +289,14 @@ export function ReportCard({ card: cardProp, expanded, owner }: Props) {
 										paddingTop: "2",
 									})}
 								>
-									<Highlight label="Biggest hit" call={card.biggestHit} />
-									<Highlight label="Biggest miss" call={card.biggestMiss} />
+									<ReportCardHighlight
+										label="Biggest hit"
+										call={card.biggestHit}
+									/>
+									<ReportCardHighlight
+										label="Biggest miss"
+										call={card.biggestMiss}
+									/>
 								</VStack>
 							)}
 
@@ -535,12 +309,12 @@ export function ReportCard({ card: cardProp, expanded, owner }: Props) {
 										paddingTop: "2",
 									})}
 								>
-									<GameHighlight
+									<ReportCardGameHighlight
 										label="Best game"
 										row={card.bestGame}
 										username={owner?.username ?? null}
 									/>
-									<GameHighlight
+									<ReportCardGameHighlight
 										label="Worst game"
 										row={card.worstGame}
 										username={owner?.username ?? null}
@@ -559,7 +333,7 @@ export function ReportCard({ card: cardProp, expanded, owner }: Props) {
 								to="/leagues/$leagueSlug/games"
 								params={{ leagueSlug: card.league.slug }}
 								search={{ windowKey: card.windowKey }}
-								className={footerLinkClass}
+								className={arrowLink({ tone: "primary", align: "parent" })}
 							>
 								See the games →
 							</Link>
@@ -570,7 +344,7 @@ export function ReportCard({ card: cardProp, expanded, owner }: Props) {
 									card.league.slug,
 									card.windowKey,
 								)}
-								className={footerLinkClass}
+								className={arrowLink({ tone: "primary", align: "parent" })}
 							>
 								Open Full Report Card →
 							</Link>
@@ -600,13 +374,3 @@ export function ReportCard({ card: cardProp, expanded, owner }: Props) {
 		</Card>
 	)
 }
-
-const footerLinkClass = css({
-	fontFamily: "mono",
-	fontSize: "2xs",
-	letterSpacing: "wide",
-	textTransform: "uppercase",
-	color: "primary.default",
-	textDecoration: "none",
-	_hover: { opacity: 0.8 },
-})

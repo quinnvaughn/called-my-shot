@@ -1,21 +1,19 @@
-import { useRouteContext } from "@tanstack/react-router"
 import { MdScoreboard } from "react-icons/md"
 import { css } from "styled-system/css"
 import { GameShareModal } from "#/components/games/game-share-modal"
+import { QuestionSetStrip } from "#/components/questions/question-set-strip/question-set-strip"
 import { type FragmentType, graphql, useFragment } from "#/graphql/generated"
+import { useMe } from "#/hooks/use-me"
 import { ballotMemberState } from "#/lib/ballot-member-state"
 import { viewerGamePicksSummary } from "#/lib/game-entry"
 import { gameQuestionChipLabels } from "#/lib/game-question-chip-label"
+import { matchupLabel } from "#/lib/game-status"
 import { nextUpEntry, pickNextUp } from "#/lib/next-up"
 import { officialQuestionSequence } from "#/lib/official-game-questions"
 import { openModal } from "#/stores/modal-store"
-import { QuestionSetStrip } from "./question-set-strip"
 
 const shareActionClass = css({
-	fontFamily: "mono",
-	fontSize: "2xs",
-	letterSpacing: "wide",
-	textTransform: "uppercase",
+	textStyle: "label",
 	color: "primary.default",
 	whiteSpace: "nowrap",
 	minHeight: { base: "44px", sm: "0" },
@@ -141,7 +139,7 @@ export function useGameNextUp(
 	if (!pick || !next) return null
 
 	return {
-		matchup: `${game.awayTeam.abbreviation} @ ${game.homeTeam.abbreviation}`,
+		matchup: matchupLabel(game),
 		openCount: states.filter((s, i) => s === "uncalled" && i !== currentIndex)
 			.length,
 		next: { questionId: next.id, title: next.title },
@@ -156,13 +154,13 @@ export function useGameNextUp(
 // no game, or a game with fewer than two official questions to move between.
 export function GameStrip({ question: questionProp, className }: Props) {
 	const question = useFragment(GameStripFragment, questionProp)
-	const { me } = useRouteContext({ from: "__root__" })
+	const me = useMe()
 	const game = question.game
 	if (!game || game.officialQuestions.length < 2) return null
 
 	const sequence = officialQuestionSequence(game.officialQuestions)
 	const chipLabels = gameQuestionChipLabels(sequence.map((e) => e.question))
-	const matchup = `${game.awayTeam.abbreviation} @ ${game.homeTeam.abbreviation}`
+	const matchup = matchupLabel(game)
 	const summary = viewerGamePicksSummary(game.officialQuestions)
 
 	return (

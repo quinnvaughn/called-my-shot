@@ -11,14 +11,6 @@ export function readableTextColor(hex: string): string {
 	return yiq >= 128 ? "#000000" : "#ffffff"
 }
 
-// Low-opacity tint of an arbitrary hex color - team colors, so this can't be
-// a themed `*.subtle` token (those only exist for the fixed brand/status
-// palette).
-export function hexToRgba(hex: string, alpha: number): string {
-	const { r, g, b } = hexToRgb(hex)
-	return `rgba(${r}, ${g}, ${b}, ${alpha})`
-}
-
 function hexToRgb(hex: string): { r: number; g: number; b: number } {
 	const normalized = hex.replace("#", "")
 	const value =

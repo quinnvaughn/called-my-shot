@@ -1,11 +1,14 @@
-import { Link, useRouteContext } from "@tanstack/react-router"
+import { Link } from "@tanstack/react-router"
 import { DateTime } from "luxon"
 import { css } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
 import { Card } from "#/components/ui/card"
 import { Identity } from "#/components/ui/identity"
 import type { MyChallengesQuery } from "#/graphql/generated/graphql"
-import { recordLine, signedPoints, singleGameOf } from "#/lib/challenge"
+import { useMe } from "#/hooks/use-me"
+import { singleGameOf } from "#/lib/challenge"
+import { formatSigned } from "#/lib/format-number"
+import { formatRecord, matchupLabel } from "#/lib/game-status"
 import { pluralize } from "#/lib/pluralize"
 import { ChallengeFact } from "./challenge-fact"
 import { useStatusFact } from "./challenge-status"
@@ -17,7 +20,7 @@ type Item = MyChallengesQuery["myChallenges"][number]
 function gameLine(questions: Item["entries"][number]["question"][]): string {
 	const game = singleGameOf(questions)
 	if (game) {
-		return `${game.awayTeam.abbreviation} @ ${game.homeTeam.abbreviation} · ${DateTime.fromISO(game.startsAt).toFormat("EEE, MMM d")}`
+		return `${matchupLabel(game)} · ${DateTime.fromISO(game.startsAt).toFormat("EEE, MMM d")}`
 	}
 	const games = new Set(questions.flatMap((q) => (q.game ? [q.game.id] : [])))
 	return games.size > 0
@@ -29,7 +32,7 @@ function gameLine(questions: Item["entries"][number]["question"][]): string {
 // The viewer's own is told from the creator's side (who took it on, the
 // record against them); one they took on, from their 1v1, with whose it is.
 export function ChallengeListRow({ challenge }: { challenge: Item }) {
-	const { me } = useRouteContext({ from: "__root__" })
+	const me = useMe()
 	const isCreator = challenge.creator.id === me?.id
 	const mine = challenge.viewerMatchup
 	const questions = challenge.entries.map((e) => e.question)
@@ -52,10 +55,7 @@ export function ChallengeListRow({ challenge }: { challenge: Item }) {
 							{isCreator ? (
 								<span
 									className={css({
-										fontFamily: "mono",
-										fontSize: "xs",
-										letterSpacing: "wide",
-										textTransform: "uppercase",
+										textStyle: "sectionHeading",
 										color: "fg.muted",
 									})}
 								>
@@ -71,8 +71,7 @@ export function ChallengeListRow({ challenge }: { challenge: Item }) {
 							{!isCreator && (
 								<span
 									className={css({
-										fontFamily: "mono",
-										fontSize: "xs",
+										textStyle: "metaLg",
 										color: "fg.muted",
 										flexShrink: 0,
 									})}
@@ -103,7 +102,7 @@ export function ChallengeListRow({ challenge }: { challenge: Item }) {
 								<ChallengeFact
 									size="md"
 									label="Your points"
-									value={signedPoints(creatorTotal)}
+									value={formatSigned(creatorTotal)}
 								/>
 							)}
 							{isCreator &&
@@ -112,7 +111,11 @@ export function ChallengeListRow({ challenge }: { challenge: Item }) {
 									<ChallengeFact
 										size="md"
 										label="You vs the field"
-										value={recordLine(challenge.creatorTally)}
+										value={formatRecord(
+											challenge.creatorTally.wins,
+											challenge.creatorTally.losses,
+											challenge.creatorTally.draws || null,
+										)}
 									/>
 								)}
 							{mine && anySettled && (
@@ -120,12 +123,12 @@ export function ChallengeListRow({ challenge }: { challenge: Item }) {
 									<ChallengeFact
 										size="md"
 										label="You"
-										value={signedPoints(mine.acceptorPoints)}
+										value={formatSigned(mine.acceptorPoints)}
 									/>
 									<ChallengeFact
 										size="md"
 										label={`@${challenge.creator.username}`}
-										value={signedPoints(mine.creatorPoints)}
+										value={formatSigned(mine.creatorPoints)}
 									/>
 								</>
 							)}

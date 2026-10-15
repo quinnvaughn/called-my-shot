@@ -31,7 +31,7 @@ const MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000
 
 // Starts empty on the server and through hydration, then filled from storage
 // on mount - same reasoning as guestPicksStore.
-export const referralStore = new Store<CapturedReferral | null>(null)
+const referralStore = new Store<CapturedReferral | null>(null)
 
 function readStorage(): CapturedReferral | null {
 	try {
@@ -79,12 +79,6 @@ export function captureReferral(
 	source: CapturedReferral["source"] = "invite_link",
 ) {
 	write({ code: code.trim().toUpperCase(), source, capturedAt: Date.now() })
-}
-
-export function restoreReferral(): CapturedReferral | null {
-	const referral = unexpired(current())
-	if (!referral && current()) write(null)
-	return referral
 }
 
 // What the signup form should send. Null when nothing was captured, which is

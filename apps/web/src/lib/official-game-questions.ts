@@ -11,7 +11,7 @@ import type { QuestionShape } from "#/graphql/generated/graphql"
 //
 // The game total comes first: after who wins, how much scoring there'll be is
 // the call that needs the least knowledge of either roster.
-export const OFFICIAL_SECTIONS: { label: string; shapes: QuestionShape[] }[] = [
+const OFFICIAL_SECTIONS: { label: string; shapes: QuestionShape[] }[] = [
 	{ label: "Game total", shapes: ["GAME_TOTAL_OVER_UNDER"] },
 	{
 		label: "Team lines",

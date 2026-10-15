@@ -1,14 +1,7 @@
 import { useQueryClient, useSuspenseQuery } from "@tanstack/react-query"
-import {
-	createFileRoute,
-	Link,
-	redirect,
-	useRouteContext,
-} from "@tanstack/react-router"
+import { createFileRoute, redirect } from "@tanstack/react-router"
 import { DateTime } from "luxon"
-import { Fragment } from "react"
 import { FaRegTimesCircle } from "react-icons/fa"
-import { FiChevronRight } from "react-icons/fi"
 import { css } from "styled-system/css"
 import { VStack } from "styled-system/jsx"
 import {
@@ -16,34 +9,20 @@ import {
 	BallotCompletionsListFragment,
 } from "#/components/ballots/ballot-completions-list"
 import { BallotGroupBoards } from "#/components/ballots/ballot-group-boards"
-import {
-	BallotPositionRow,
-	BallotPositionRowFragment,
-} from "#/components/ballots/ballot-position-row"
-import { BallotProgressCard } from "#/components/ballots/ballot-progress-card"
-import { BallotSectionHeading } from "#/components/ballots/ballot-section-heading"
-import {
-	BallotShareRow,
-	buildBallotTweet,
-} from "#/components/ballots/ballot-share-row"
-import { ProjectedStandings } from "#/components/ballots/projected-standings"
-import { Breadcrumb } from "#/components/ui/breadcrumb"
-import { Card } from "#/components/ui/card"
+import { BallotPageHeader } from "#/components/ballots/ballot-page-header"
+import { BallotPageProgress } from "#/components/ballots/ballot-page-progress"
+import { BallotPositionRowFragment } from "#/components/ballots/ballot-position-row"
+import { BallotQuestionList } from "#/components/ballots/ballot-question-list"
+import { ProjectedStandings } from "#/components/ballots/projected-standings/projected-standings"
 import { NotFound } from "#/components/ui/not-found"
-import { PageHeader } from "#/components/ui/page-header"
 import { Tabs } from "#/components/ui/tabs"
-import { Tag } from "#/components/ui/tag"
+import { BallotByRefDocument } from "#/graphql/ballots/queries"
 import { useFragment } from "#/graphql/generated"
-import { BallotByRefDocument } from "#/graphql/queries/ballots"
 import { gqlQueryOptions } from "#/graphql/query-options"
-import {
-	ballotEntryPath,
-	formatRecord,
-	formatSignedPoints,
-	validateBallotPageSearch,
-} from "#/lib/ballot-entry"
-import { computeBallotProgressStats } from "#/lib/ballot-progress-stats"
+import { useMe } from "#/hooks/use-me"
+import { ballotPageSearchSchema } from "#/lib/ballot-entry"
 import { pageMeta } from "#/lib/meta"
+import { pluralize } from "#/lib/pluralize"
 import { standingsTeams } from "#/lib/projected-standings"
 import { questionDetailState } from "#/lib/question-detail-state"
 import { isUuid } from "#/lib/uuid"
@@ -62,7 +41,7 @@ export const Route = createFileRoute("/_app/ballots/$ballotSlug")({
 	// page carries the same list inline.
 	staticData: { rightRail: <BallotRail /> },
 	staleTime: 0,
-	validateSearch: validateBallotPageSearch,
+	validateSearch: ballotPageSearchSchema,
 	// head() can only read loaderData, so the meta-tag fields come back from
 	// here; the component reads the same cache entry via useSuspenseQuery.
 	loader: async ({ context, params, location }) => {
@@ -92,7 +71,7 @@ export const Route = createFileRoute("/_app/ballots/$ballotSlug")({
 		// indexed twice.
 		return pageMeta({
 			title: `${ballot.name} · Called My Shot`,
-			description: `${ballot.memberCount} question${ballot.memberCount === 1 ? "" : "s"} in the ${ballot.league.name} ${ballot.name}.`,
+			description: `${ballot.memberCount} ${pluralize(ballot.memberCount, "question")} in the ${ballot.league.name} ${ballot.name}.`,
 			path: `/ballots/${ballot.slug}`,
 		})
 	},
@@ -120,7 +99,7 @@ function RouteComponent() {
 	const navigate = Route.useNavigate()
 	const queryClient = useQueryClient()
 	const { data } = useSuspenseQuery(ballotQuery(ballotSlug))
-	const { me } = useRouteContext({ from: "__root__" })
+	const me = useMe()
 	const ballot = data.ballot
 
 	// Unmasked once here (not per-row) - the server already returns members
@@ -165,82 +144,28 @@ function RouteComponent() {
 	const gamesPerSeason = ballot.league.seasonFormat?.gamesPerSeason
 	const showStandings = Boolean(teams && gamesPerSeason)
 
-	const stats = computeBallotProgressStats(
-		members.map((member, i) => ({
-			...member,
-			call: ballot.members[i].question.viewerCall,
-		})),
-	)
-	const record = {
-		wins: stats.states.filter((s) => s === "won").length,
-		losses: stats.states.filter((s) => s === "lost").length,
-		points: ballot.members.reduce(
-			(sum, m) => sum + (m.question.viewerCall?.totalPoints ?? 0),
-			0,
-		),
-	}
-
 	// The soonest still-upcoming lock across every member - a member already
 	// past its own locksAt (open-and-called, or resolved) has nothing left to
 	// warn about here, so it's excluded rather than dragging the ballot-level
 	// line back into the past.
 	const now = DateTime.now()
 	const upcomingLocks = members
-		.map((m) => DateTime.fromISO(m.question.locksAt))
-		.filter((dt) => dt > now)
+		.map((m) => m.question.locksAt)
+		.filter((locksAt) => DateTime.fromISO(locksAt) > now)
 	const soonestLock =
 		upcomingLocks.length > 0
-			? upcomingLocks.reduce((a, b) => (b < a ? b : a))
+			? upcomingLocks.reduce((a, b) =>
+					DateTime.fromISO(b) < DateTime.fromISO(a) ? b : a,
+				)
 			: null
 
 	return (
 		<VStack gap="6" alignItems="stretch" className={css({ maxWidth: "2xl" })}>
-			<Breadcrumb>
-				<Breadcrumb.Link
-					to="/leagues/$leagueSlug"
-					params={{ leagueSlug: ballot.league.slug }}
-				>
-					{ballot.league.abbreviation}
-				</Breadcrumb.Link>
-				<Breadcrumb.Link
-					to="/leagues/$leagueSlug/ballots"
-					params={{ leagueSlug: ballot.league.slug }}
-				>
-					Ballots
-				</Breadcrumb.Link>
-				<Breadcrumb.Current>{ballot.name}</Breadcrumb.Current>
-			</Breadcrumb>
+			<BallotPageHeader ballot={ballot} soonestLock={soonestLock} />
 
-			<VStack gap="2" alignItems="flex-start">
-				<Tag>{ballot.league.abbreviation}</Tag>
-				<PageHeader
-					title={ballot.name}
-					subtitle={
-						ballot.memberCount === 1
-							? "1 question"
-							: `${ballot.memberCount} questions`
-					}
-				/>
-				<span
-					className={css({
-						fontFamily: "mono",
-						fontSize: "xs",
-						color: "fg.subtle",
-					})}
-				>
-					{soonestLock
-						? `Locks ${soonestLock.toRelative()}`
-						: "All positions locked"}
-				</span>
-			</VStack>
-
-			<BallotProgressCard
-				calledCount={stats.calledCount}
-				memberCount={ballot.memberCount}
-				remainingOpenCount={stats.remainingOpenCount}
-				isComplete={stats.isComplete}
-				offFieldCount={stats.offFieldCount}
-				contestedCount={stats.contestedCount}
+			<BallotPageProgress
+				ballot={ballot}
+				members={members}
 				fullBallotCount={completions?.count ?? 0}
 				winsHandedOut={
 					showStandings && gamesPerSeason && ballot.viewerGuessSum != null
@@ -250,77 +175,8 @@ function RouteComponent() {
 							}
 						: null
 				}
-				footer={
-					me &&
-					stats.calledCount > 0 && (
-						<>
-							<Link
-								to={ballotEntryPath(ballot.slug, me.username)}
-								className={css({
-									fontFamily: "mono",
-									fontSize: "2xs",
-									letterSpacing: "wide",
-									textTransform: "uppercase",
-									color: "primary.default",
-									textDecoration: "none",
-									_hover: { opacity: 0.8 },
-								})}
-							>
-								{/* The card above already counts the calls, so the
-								    link only adds the record once one settles. */}
-								{record.wins + record.losses > 0 &&
-									`${formatRecord(record.wins, record.losses)} · ${formatSignedPoints(record.points)} pts · `}
-								See your picks →
-							</Link>
-							<BallotShareRow
-								ballotId={ballot.id}
-								ballotSlug={ballot.slug}
-								username={me.username}
-								shareTitle={`@${me.username}'s ${ballot.name} ballot`}
-								surface="ballot_page"
-								layout="icons"
-								tweetText={buildBallotTweet({
-									ballotName: ballot.name,
-									calledCount: stats.calledCount,
-									memberCount: ballot.memberCount,
-									...record,
-									isOwn: true,
-								})}
-							/>
-						</>
-					)
-				}
+				viewerUsername={me?.username ?? null}
 			/>
-
-			{stats.nextUncalled && (
-				<Link
-					to="/questions/$questionId/{-$slug}"
-					params={{ questionId: stats.nextUncalled.question.id }}
-					className={css({
-						display: "flex",
-						alignItems: "center",
-						justifyContent: "center",
-						gap: "1.5",
-						width: "full",
-						backgroundColor: "bg.subtle",
-						border: "1px solid {colors.primary.default}",
-						borderRadius: "lg",
-						paddingBlock: "3",
-						fontFamily: "mono",
-						fontSize: "xs",
-						fontWeight: "bold",
-						letterSpacing: "wide",
-						color: "primary.default",
-						_hover: { backgroundColor: "primary.subtle" },
-					})}
-				>
-					<span className={css({ textTransform: "uppercase" })}>
-						Continue ballot · Next:{" "}
-						{stats.nextUncalled.slot || stats.nextUncalled.label}
-					</span>
-					<FiChevronRight />
-				</Link>
-			)}
 
 			{showStandings && (
 				<Tabs
@@ -369,42 +225,7 @@ function RouteComponent() {
 					}}
 				/>
 			) : (
-				<VStack gap="3" alignItems="stretch">
-					<span
-						className={css({
-							fontFamily: "mono",
-							fontSize: "2xs",
-							letterSpacing: "wide",
-							color: "fg.subtle",
-							textTransform: "uppercase",
-						})}
-					>
-						Questions
-					</span>
-					<Card>
-						<VStack gap="0" alignItems="stretch">
-							{ballot.members.map((member, i) => {
-								// Rendered from the still-masked ballot.members (passed
-								// straight through, unmasked again inside
-								// BallotPositionRow) - members[i] is the same list
-								// already unmasked above for the id this needs as a key,
-								// and for the section heading below.
-								const section = members[i].section
-								return (
-									<Fragment key={members[i].id}>
-										{section && section !== members[i - 1]?.section && (
-											<BallotSectionHeading label={section} />
-										)}
-										<BallotPositionRow
-											member={member}
-											call={member.question.viewerCall}
-										/>
-									</Fragment>
-								)
-							})}
-						</VStack>
-					</Card>
-				</VStack>
+				<BallotQuestionList ballot={ballot} members={members} />
 			)}
 
 			{ballot.viewerGroupBoards.length > 0 && (
@@ -420,11 +241,8 @@ function RouteComponent() {
 			<VStack gap="3" alignItems="stretch">
 				<span
 					className={css({
-						fontFamily: "mono",
-						fontSize: "2xs",
-						letterSpacing: "wide",
+						textStyle: "label",
 						color: "fg.subtle",
-						textTransform: "uppercase",
 					})}
 				>
 					Completed ballots

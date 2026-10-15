@@ -1,7 +1,7 @@
 import { Link } from "@tanstack/react-router"
 import { css } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
-import { railHeadingClass } from "#/components/questions/question-set-rail"
+import { railHeadingClass } from "#/components/questions/question-set-rail/rail-styles"
 import { Card } from "#/components/ui/card"
 import { GroupLogo } from "#/components/ui/group-logo"
 
@@ -44,9 +44,7 @@ export function GameGroupBoards({ gameId, boards }: Props) {
 											fontSize: "sm",
 											fontWeight: "medium",
 											minWidth: "0",
-											overflow: "hidden",
-											textOverflow: "ellipsis",
-											whiteSpace: "nowrap",
+											truncate: true,
 										})}
 									>
 										{group.name}
@@ -54,8 +52,7 @@ export function GameGroupBoards({ gameId, boards }: Props) {
 								</HStack>
 								<span
 									className={css({
-										fontFamily: "mono",
-										fontSize: "2xs",
+										textStyle: "meta",
 										color: "fg.subtle",
 										whiteSpace: "nowrap",
 									})}

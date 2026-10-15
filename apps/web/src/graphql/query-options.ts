@@ -7,6 +7,7 @@ import {
 	type UseInfiniteQueryOptions,
 	type UseQueryOptions,
 } from "@tanstack/react-query"
+import type { DocumentNode } from "graphql"
 import { getOperationName, gqlFetch } from "./fetcher"
 
 // SSR has to forward the browser's session cookie, but the queryFn is called
@@ -24,6 +25,28 @@ export function gqlQueryKey<TResult, TVariables>(
 	variables: TVariables,
 ) {
 	return [getOperationName(document), variables] as const
+}
+
+/**
+ * Matches every cached entry of one operation, whatever its variables, and
+ * its infinite-query variant too, since both keys lead with the operation
+ * name. For invalidating a query from a place that doesn't hold the
+ * variables it was read with.
+ */
+export function gqlQueryPrefix(document: DocumentNode) {
+	return [getOperationName(document)] as const
+}
+
+/** Invalidates every cached entry of each operation, whatever its variables. */
+export function invalidateOperations(
+	queryClient: QueryClient,
+	documents: readonly DocumentNode[],
+) {
+	return Promise.all(
+		documents.map((document) =>
+			queryClient.invalidateQueries({ queryKey: gqlQueryPrefix(document) }),
+		),
+	)
 }
 
 type QueryOverrides<TResult> = Partial<
@@ -119,7 +142,7 @@ export function gqlInfiniteQueryOptions<TResult, TVariables, TItem>(
 /**
  * Several routes fetch the first page of two or three lists as aliased fields
  * of one combined query, so the whole page preloads in a single round trip
- * (see graphql/queries/my-calls.ts). That first page arrives under the
+ * (see graphql/my-calls/queries.ts). That first page arrives under the
  * combined query's shape, not the per-list one the infinite query paginates
  * with, so hand it over directly rather than splitting those documents and
  * paying a request per list.

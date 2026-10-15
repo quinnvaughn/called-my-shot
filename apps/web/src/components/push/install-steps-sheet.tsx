@@ -53,8 +53,7 @@ export function InstallStepsSheet() {
 										display: "flex",
 										alignItems: "center",
 										justifyContent: "center",
-										fontFamily: "mono",
-										fontSize: "xs",
+										textStyle: "metaLg",
 										color: "secondary.default",
 										border: "1px solid {colors.secondary.default}",
 									})}

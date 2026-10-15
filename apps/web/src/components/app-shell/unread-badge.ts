@@ -5,8 +5,7 @@ import { css } from "styled-system/css"
 export const unreadBadge = css({
 	bg: "primary.default",
 	color: "bg.canvas",
-	fontFamily: "mono",
-	fontSize: "2xs",
+	textStyle: "meta",
 	fontWeight: "bold",
 	borderRadius: "full",
 	paddingInline: "1.5",

@@ -59,8 +59,7 @@ export function SweepsSection({ username, sweeps, showLeague = true }: Props) {
 									</HStack>
 									<span
 										className={css({
-											fontFamily: "mono",
-											fontSize: "2xs",
+											textStyle: "meta",
 											color: "fg.subtle",
 										})}
 									>

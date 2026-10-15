@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query"
+import { useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute, Link } from "@tanstack/react-router"
 import { css } from "styled-system/css"
 import { VStack } from "styled-system/jsx"
@@ -7,12 +7,12 @@ import { EmptyState } from "#/components/ui/empty-state"
 import { PageHeader } from "#/components/ui/page-header"
 import { Table } from "#/components/ui/table"
 import { Tag } from "#/components/ui/tag"
-import { AdminUpdatesDocument } from "#/graphql/queries/updates"
-import { gqlQueryOptions } from "#/graphql/query-options"
+import { adminUpdatesQuery } from "#/graphql/updates/queries"
 import { formatCallDate } from "#/lib/format-date"
 
 export const Route = createFileRoute("/admin/updates/")({
 	component: RouteComponent,
+	loader: ({ context }) => context.queryClient.query(adminUpdatesQuery),
 })
 
 const columns = [
@@ -24,11 +24,9 @@ const columns = [
 // Product updates: posts announcing a feature, shown at /updates and emailed
 // to everyone subscribed when sent from the editor.
 function RouteComponent() {
-	const { data, isFetching } = useQuery(
-		gqlQueryOptions(AdminUpdatesDocument, {}),
-	)
+	const { data } = useSuspenseQuery(adminUpdatesQuery)
 	const updates =
-		data?.adminUpdates.__typename === "QueryAdminUpdatesSuccess"
+		data.adminUpdates.__typename === "QueryAdminUpdatesSuccess"
 			? data.adminUpdates.data
 			: []
 
@@ -46,7 +44,7 @@ function RouteComponent() {
 					</Link>
 				}
 			/>
-			{updates.length === 0 && !isFetching ? (
+			{updates.length === 0 ? (
 				<EmptyState>No updates yet.</EmptyState>
 			) : (
 				<Table sortBy="title" sortDir="asc" wide>

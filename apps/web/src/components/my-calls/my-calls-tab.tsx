@@ -1,24 +1,14 @@
 import { keepPreviousData, useInfiniteQuery } from "@tanstack/react-query"
-import { CallCard } from "#/components/questions/call-card"
 import { EmptyState } from "#/components/ui/empty-state"
 import { InfiniteScroll } from "#/components/ui/infinite-scroll"
-import { type FragmentType, graphql, useFragment } from "#/graphql/generated"
 import type {
 	CallResolutionStatus,
 	CallSortOrder,
 	SortDirection,
 } from "#/graphql/generated/graphql"
-import { type MyCallsFilters, myCallsQuery } from "#/graphql/queries/my-calls"
+import { type MyCallsFilters, myCallsQuery } from "#/graphql/my-calls/queries"
 import type { MyCallsKind } from "#/lib/my-calls-search"
-
-export const MyCallsTabFragment = graphql(`
-	fragment MyCallsTab_call on Call {
-		id
-		...CallCard_call
-	}
-`)
-
-type MyCallItem = { id: string } & FragmentType<typeof MyCallsTabFragment>
+import { MyCallCard } from "./my-call-card"
 
 type MyCallsTabProps = {
 	kind: MyCallsKind
@@ -63,9 +53,4 @@ export function MyCallsTab({
 			renderItem={(item) => <MyCallCard call={item} />}
 		/>
 	)
-}
-
-function MyCallCard({ call }: { call: MyCallItem }) {
-	const data = useFragment(MyCallsTabFragment, call)
-	return <CallCard call={data} />
 }

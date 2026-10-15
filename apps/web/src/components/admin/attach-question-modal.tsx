@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { useState } from "react"
 import { css } from "styled-system/css"
 import { VStack } from "styled-system/jsx"
@@ -6,9 +6,12 @@ import { Button } from "#/components/ui/button"
 import { FormError } from "#/components/ui/form-error"
 import { Modal } from "#/components/ui/modal"
 import { TextInput } from "#/components/ui/text-input"
+import {
+	AttachQuestionToBallotDocument,
+	invalidateBallots,
+} from "#/graphql/ballots/mutations"
+import { BallotAttachableQuestionsDocument } from "#/graphql/ballots/queries"
 import { useGqlMutation } from "#/graphql/hooks"
-import { AttachQuestionToBallotDocument } from "#/graphql/mutations/ballots"
-import { BallotAttachableQuestionsDocument } from "#/graphql/queries/ballots"
 import { gqlQueryOptions } from "#/graphql/query-options"
 import { useDebouncedValue } from "#/hooks/use-debounced-value"
 import { questionShapeLabel } from "#/lib/question-labels"
@@ -17,13 +20,13 @@ import { closeModal } from "#/stores/modal-store"
 type Props = {
 	ballotId: string
 	leagueId: string
-	onAttached: () => void
 }
 
 // A question attached here needs a label too (required, same as one created
 // straight into the ballot) - collected inline per row rather than a second
 // step, since there's exactly one field to fill in.
-export function AttachQuestionModal({ ballotId, leagueId, onAttached }: Props) {
+export function AttachQuestionModal({ ballotId, leagueId }: Props) {
+	const queryClient = useQueryClient()
 	const [search, setSearch] = useState("")
 	const debouncedSearch = useDebouncedValue(search, 300)
 	const { data, isPending } = useQuery(
@@ -56,7 +59,7 @@ export function AttachQuestionModal({ ballotId, leagueId, onAttached }: Props) {
 		setAttachingId(null)
 		const result = data?.attachQuestionToBallot
 		if (result?.__typename === "BallotQuestionPayload") {
-			onAttached()
+			await invalidateBallots(queryClient)
 		} else if (result?.__typename === "ValidationError") {
 			setRowError(
 				result.fieldErrors?.[0]?.message ?? "Couldn't attach that question",

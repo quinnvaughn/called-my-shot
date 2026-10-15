@@ -5,14 +5,13 @@ import {
 	Outlet,
 	redirect,
 } from "@tanstack/react-router"
-import { FaRegTimesCircle } from "react-icons/fa"
 import { css } from "styled-system/css"
 import { VStack } from "styled-system/jsx"
+import { LeagueNotFound } from "#/components/leagues/league-not-found"
 import { SeasonPlayCard } from "#/components/leagues/season-play-card"
-import { NotFound } from "#/components/ui/not-found"
 import { PageHeader } from "#/components/ui/page-header"
 import { Tabs } from "#/components/ui/tabs"
-import { leagueQuery } from "#/graphql/queries/sports"
+import { leagueQuery } from "#/graphql/sports/leagues/queries"
 import { gamesInWindowLabel } from "#/lib/game-status"
 import { pageMeta } from "#/lib/meta"
 import { postseasonDescription, roundsPhrase } from "#/lib/postseason"
@@ -90,18 +89,6 @@ const TAB_ITEMS = [
 	{ to: "/leagues/$leagueSlug/season", label: "Season long" },
 	{ to: "/leagues/$leagueSlug/ballots", label: "Ballots" },
 ] as const
-
-function LeagueNotFound() {
-	return (
-		<NotFound
-			icon={<FaRegTimesCircle size={24} />}
-			eyebrowText="League"
-			heading="This league doesn't exist"
-			subtitle="Double check the link, or pick a league from the sidebar."
-			link={{ text: "Back home", url: "/home" }}
-		/>
-	)
-}
 
 function RouteComponent() {
 	const { league: contextLeague } = Route.useRouteContext()

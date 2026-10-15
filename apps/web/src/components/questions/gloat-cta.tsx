@@ -1,19 +1,6 @@
-import { css } from "styled-system/css"
-import { Flex, VStack } from "styled-system/jsx"
-import { Button } from "#/components/ui/button"
+import { PromptCta } from "#/components/ui/prompt-cta"
 import { openModal } from "#/stores/modal-store"
 import { type GloatAudience, GloatModal } from "./gloat-modal"
-
-const promptClass = css({
-	fontSize: "md",
-	fontWeight: "semibold",
-	color: "fg.default",
-})
-
-const subClass = css({
-	fontSize: "sm",
-	color: "fg.muted",
-})
 
 // The winning side of a fade, offered its one gloat. Same weight and spot as
 // FadeCta: once a fade settles, this is the thing the page asks the winner to
@@ -31,29 +18,11 @@ export function GloatCta({ audience }: { audience: GloatAudience }) {
 			: "Send them a line."
 
 	return (
-		<Flex
-			direction={{ base: "column", sm: "row" }}
-			gap="4"
-			alignItems={{ base: "stretch", sm: "center" }}
-			justify="space-between"
-			className={css({
-				padding: "5",
-				borderRadius: "lg",
-				border: "1px solid {colors.border.default}",
-				background: "bg.subtle",
-			})}
-		>
-			<VStack gap="1" alignItems="flex-start">
-				<span className={promptClass}>{prompt}</span>
-				<span className={subClass}>{sub}</span>
-			</VStack>
-			<Button
-				variant="solid"
-				size="md"
-				onClick={() => openModal(<GloatModal audience={audience} />)}
-			>
-				Gloat
-			</Button>
-		</Flex>
+		<PromptCta
+			prompt={prompt}
+			sub={sub}
+			action="Gloat"
+			onAction={() => openModal(<GloatModal audience={audience} />)}
+		/>
 	)
 }

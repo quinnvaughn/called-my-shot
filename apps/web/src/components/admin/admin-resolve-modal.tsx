@@ -1,37 +1,30 @@
 import { adminResolveQuestionSchema } from "@called-my-shot/schemas"
+import { useQueryClient } from "@tanstack/react-query"
 import { useState } from "react"
 import { css } from "styled-system/css"
 import { VStack } from "styled-system/jsx"
 import { match } from "ts-pattern"
-import type { QuestionCallShape } from "#/components/questions/cast-call-form/use-cast-call-form"
 import { ResolveOutcomeFields } from "#/components/questions/resolve-outcome-fields"
 import { Button } from "#/components/ui/button"
 import { FormError } from "#/components/ui/form-error"
 import { Modal } from "#/components/ui/modal"
 import { TextInput } from "#/components/ui/text-input"
 import { Textarea } from "#/components/ui/textarea"
+import {
+	AdminResolveQuestionDocument,
+	invalidateAdminQueue,
+} from "#/graphql/admin/queue/mutations"
+import { ApiError } from "#/graphql/api-error"
 import { useGqlMutation } from "#/graphql/hooks"
-import { AdminResolveQuestionDocument } from "#/graphql/mutations/admin"
+import type { QuestionForResolve } from "#/lib/question-for-resolve"
 import { closeModal } from "#/stores/modal-store"
-
-type QuestionForResolve = {
-	id: string
-	title: string
-	shape: QuestionCallShape
-	ouLine: number | null
-	options: { id: string; label: string }[]
-	// True only for a rate stat (batting average, ERA) - see formatGuess in
-	// #/lib/field-signal.
-	isRateStat: boolean
-}
 
 export function AdminResolveModal({
 	question,
-	onResolved,
 }: {
 	question: QuestionForResolve
-	onResolved: () => void
 }) {
+	const queryClient = useQueryClient()
 	const adminResolveQuestion = useGqlMutation(AdminResolveQuestionDocument)
 	const [correctOptionIds, setCorrectOptionIds] = useState<string[]>([])
 	const [actualValue, setActualValue] = useState<number | undefined>()
@@ -102,18 +95,12 @@ export function AdminResolveModal({
 						r.fieldErrors?.[0]?.message ?? "Check the outcome and try again.",
 					)
 				})
-				.with({ __typename: "AuthenticationError" }, async (r) => {
-					setFormError(r.message)
-				})
-				.with({ __typename: "AuthorizationError" }, async (r) => {
-					setFormError(r.message)
-				})
-				.with({ __typename: "NotFoundError" }, async (r) => {
+				.with(ApiError, async (r) => {
 					setFormError(r.message)
 				})
 				.with({ __typename: "QuestionPayload" }, async () => {
 					closeModal()
-					onResolved()
+					invalidateAdminQueue(queryClient)
 				})
 				.exhaustive()
 		} finally {

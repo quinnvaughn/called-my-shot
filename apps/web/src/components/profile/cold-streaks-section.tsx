@@ -92,10 +92,7 @@ export function ColdStreaksSection({
 									</span>
 									<span
 										className={css({
-											fontFamily: "mono",
-											fontSize: "2xs",
-											letterSpacing: "wide",
-											textTransform: "uppercase",
+											textStyle: "label",
 											color: "fg.subtle",
 										})}
 									>

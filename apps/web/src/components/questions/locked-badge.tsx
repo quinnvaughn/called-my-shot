@@ -1,5 +1,6 @@
 import { css } from "styled-system/css"
 import { HStack } from "styled-system/jsx"
+import { LiveDot } from "#/components/ui/live-dot"
 
 // Not final, awaiting an answer - distinct from the live OPEN countdown
 // (this doesn't tick) and from RESOLVED (which has one). Shared by
@@ -10,11 +11,8 @@ export function LockedBadge() {
 			gap="1.5"
 			alignItems="center"
 			className={css({
-				fontFamily: "mono",
-				fontSize: "2xs",
+				textStyle: "label",
 				fontWeight: "bold",
-				letterSpacing: "wide",
-				textTransform: "uppercase",
 				color: "fg.subtle",
 				backgroundColor: "bg.subtle",
 				padding: "{spacing.1} {spacing.2}",
@@ -22,15 +20,7 @@ export function LockedBadge() {
 				whiteSpace: "nowrap",
 			})}
 		>
-			<span
-				className={css({
-					width: "1.5",
-					height: "1.5",
-					borderRadius: "full",
-					backgroundColor: "currentColor",
-					animation: "pulse 1.6s ease-in-out infinite",
-				})}
-			/>
+			<LiveDot tone="current" />
 			Locked
 		</HStack>
 	)

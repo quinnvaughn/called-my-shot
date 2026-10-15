@@ -1,5 +1,5 @@
-import { targetHitRate, LOSS_RATE_BY_SHAPE } from "@called-my-shot/scoring"
-import { useQuery } from "@tanstack/react-query"
+import { LOSS_RATE_BY_SHAPE, targetHitRate } from "@called-my-shot/scoring"
+import { useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
 import { FiCheck } from "react-icons/fi"
 import { HStack, VStack } from "styled-system/jsx"
@@ -11,12 +11,13 @@ import { Button } from "#/components/ui/button"
 import { PageHeader } from "#/components/ui/page-header"
 import { Table } from "#/components/ui/table"
 import { Tag } from "#/components/ui/tag"
-import { AdminBandSettingsDocument } from "#/graphql/queries/admin"
-import { gqlQueryOptions } from "#/graphql/query-options"
+import { adminBandSettingsQuery } from "#/graphql/admin/calibration/queries"
+import { formatPercent } from "#/lib/format-number"
 import { openModal } from "#/stores/modal-store"
 
 export const Route = createFileRoute("/admin/bands")({
 	component: RouteComponent,
+	loader: ({ context }) => context.queryClient.query(adminBandSettingsQuery),
 })
 
 const columns = [
@@ -30,17 +31,13 @@ const columns = [
 	{ key: "actions", label: "", sortable: false },
 ] as const
 
-const percent = (rate: number) => `${Math.round(rate * 100)}%`
-
 const TARGET = targetHitRate(LOSS_RATE_BY_SHAPE.team_stat_numeric_guess)
 
 function RouteComponent() {
-	const { data, refetch } = useQuery(
-		gqlQueryOptions(AdminBandSettingsDocument, {}),
-	)
+	const { data } = useSuspenseQuery(adminBandSettingsQuery)
 
 	const rows =
-		data?.adminBandSettings.__typename === "QueryAdminBandSettingsSuccess"
+		data.adminBandSettings.__typename === "QueryAdminBandSettingsSuccess"
 			? data.adminBandSettings.data
 			: []
 
@@ -49,7 +46,7 @@ function RouteComponent() {
 			<PageHeader
 				title="Bands"
 				subtitle="How close a team score guess has to land to count as a hit."
-				description={`A band is working when a guess at a team's average over its earlier games that season lands inside it about ${percent(TARGET)} of the time, which is where a numeric guess comes out slightly ahead at its loss rate. Each band adjusts itself once a day from final scores, unless it's set to manual. Hit rate and Suggested read the most recent final scores. Callers is how real guesses on resolved questions did, for comparison only.`}
+				description={`A band is working when a guess at a team's average over its earlier games that season lands inside it about ${formatPercent(TARGET)} of the time, which is where a numeric guess comes out slightly ahead at its loss rate. Each band adjusts itself once a day from final scores, unless it's set to manual. Hit rate and Suggested read the most recent final scores. Callers is how real guesses on resolved questions did, for comparison only.`}
 			/>
 
 			<Table sortBy="stat" sortDir="asc" wide>
@@ -67,7 +64,7 @@ function RouteComponent() {
 										{row.calibration.outsideTarget && (
 											<Tag variant="primary">Off target</Tag>
 										)}
-										{percent(row.calibration.hitRate)}
+										{formatPercent(row.calibration.hitRate)}
 									</HStack>
 								) : (
 									"-"
@@ -80,7 +77,7 @@ function RouteComponent() {
 							</Table.Cell>
 							<Table.Cell numeric>
 								{row.calibration.callerHitRate !== null
-									? `${percent(row.calibration.callerHitRate)} of ${row.calibration.callerCalls}`
+									? `${formatPercent(row.calibration.callerHitRate)} of ${row.calibration.callerCalls}`
 									: "-"}
 							</Table.Cell>
 							<Table.Cell numeric>
@@ -99,14 +96,7 @@ function RouteComponent() {
 								<Button
 									variant="outline"
 									size="sm"
-									onClick={() =>
-										openModal(
-											<BandSettingModal
-												setting={row}
-												onChanged={() => refetch()}
-											/>,
-										)
-									}
+									onClick={() => openModal(<BandSettingModal setting={row} />)}
 								>
 									Edit
 								</Button>

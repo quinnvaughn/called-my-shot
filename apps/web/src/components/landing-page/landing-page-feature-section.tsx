@@ -1,15 +1,7 @@
-import type { ReactNode } from "react"
 import { css } from "styled-system/css"
-import { Grid, VStack } from "styled-system/jsx"
-import { Card } from "../ui/card"
+import { Grid } from "styled-system/jsx"
+import { FeatureCard, type FeatureItem } from "./feature-card"
 import { LandingPageContentSection } from "./landing-page-content-section"
-
-type FeatureItem = {
-	icon: ReactNode
-	title: string
-	description: string
-	example?: string
-}
 
 type Props = {
 	eyebrow: string
@@ -49,55 +41,5 @@ export function LandingPageFeatureSection({
 				))}
 			</Grid>
 		</LandingPageContentSection>
-	)
-}
-
-function FeatureCard({ icon, title, description, example }: FeatureItem) {
-	return (
-		<Card>
-			<Card.Body>
-				<VStack alignItems="flex-start" gap="3.5">
-					<div
-						className={css({
-							width: "9",
-							height: "9",
-							borderRadius: "lg",
-							bg: "primary.subtle",
-							color: "primary.default",
-							display: "flex",
-							alignItems: "center",
-							justifyContent: "center",
-							flexShrink: "0",
-						})}
-					>
-						{icon}
-					</div>
-					<div className={css({ fontWeight: "semibold" })}>{title}</div>
-					<div
-						className={css({
-							color: "fg.muted",
-							fontSize: "sm",
-							lineHeight: "relaxed",
-						})}
-					>
-						{description}
-					</div>
-					{example && (
-						<div
-							className={css({
-								fontFamily: "mono",
-								fontSize: "xs",
-								color: "fg.subtle",
-								borderTop: "1px solid {border.default}",
-								paddingTop: "3",
-								width: "full",
-							})}
-						>
-							{example}
-						</div>
-					)}
-				</VStack>
-			</Card.Body>
-		</Card>
 	)
 }

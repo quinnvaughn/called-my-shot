@@ -36,10 +36,7 @@ export function EmailBounceBanner() {
 			<Link
 				to="/settings"
 				className={css({
-					fontFamily: "mono",
-					fontSize: "xs",
-					letterSpacing: "wide",
-					textTransform: "uppercase",
+					textStyle: "sectionHeading",
 					color: "danger.default",
 					textDecoration: "underline",
 				})}

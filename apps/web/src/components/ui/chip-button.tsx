@@ -28,12 +28,11 @@ export function ChipButton({ selected, pressed, onClick, children }: Props) {
 					fontSize: "2xs",
 					letterSpacing: "wide",
 					color: "fg.subtle",
-					border: "1px solid",
-					borderColor: "border.default",
+					border: "1px solid {colors.border.default}",
 					borderRadius: "md",
 					padding: "{spacing.1.5} {spacing.2.5}",
 					_hover: {
-						borderColor: "border.emphasized",
+						border: "1px solid {colors.border.emphasized}",
 						color: "fg.body",
 						cursor: "pointer",
 					},
@@ -41,11 +40,11 @@ export function ChipButton({ selected, pressed, onClick, children }: Props) {
 				selected &&
 					css({
 						color: "fg.default",
-						borderColor: "primary.default",
+						border: "1px solid {colors.primary.default}",
 						bg: "primary.subtle",
 						_hover: {
 							color: "fg.default",
-							borderColor: "primary.default",
+							border: "1px solid {colors.primary.default}",
 							bg: "primary.subtle",
 							cursor: "pointer",
 						},

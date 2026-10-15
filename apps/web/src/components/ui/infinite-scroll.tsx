@@ -56,8 +56,7 @@ export function InfiniteScroll<T>({
 				<p
 					className={css({
 						textAlign: "center",
-						fontSize: "xs",
-						fontFamily: "mono",
+						textStyle: "metaLg",
 						color: "fg.muted",
 						padding: "3",
 					})}

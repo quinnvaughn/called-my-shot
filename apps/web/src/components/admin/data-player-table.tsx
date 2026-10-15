@@ -1,15 +1,9 @@
+import { AddEditPlayerModal } from "#/components/admin/data-entity-modal/add-edit-player-modal"
 import { Button } from "#/components/ui/button"
 import { Table } from "#/components/ui/table"
 import { openModal } from "#/stores/modal-store"
-import { AddEditPlayerModal } from "./data-entity-modal"
+import type { AdminPlayerRow, AdminTeamOption } from "./data-rows"
 
-type Player = {
-	id: string
-	name: string
-	position: string | null
-	currentTeam: { id: string; name: string; abbreviation: string } | null
-}
-type TeamOption = { id: string; name: string; abbreviation: string }
 type SortKey = "NAME" | "POSITION"
 
 const columns = [
@@ -25,14 +19,12 @@ export function DataPlayerTable({
 	sortBy,
 	sortDir,
 	onSort,
-	onSaved,
 }: {
-	players: Player[]
-	teams: TeamOption[]
+	players: AdminPlayerRow[]
+	teams: AdminTeamOption[]
 	sortBy: SortKey
 	sortDir: "asc" | "desc"
 	onSort: (key: SortKey) => void
-	onSaved: () => void
 }) {
 	return (
 		<Table
@@ -53,11 +45,7 @@ export function DataPlayerTable({
 								size="sm"
 								onClick={() =>
 									openModal(
-										<AddEditPlayerModal
-											teams={teams}
-											player={player}
-											onSaved={onSaved}
-										/>,
+										<AddEditPlayerModal teams={teams} player={player} />,
 									)
 								}
 							>

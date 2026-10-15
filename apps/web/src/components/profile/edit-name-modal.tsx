@@ -48,6 +48,7 @@ export function EditNameModal({ currentName }: Props) {
 					helpers.setFormError("You need to sign in to do that.")
 				})
 				.with({ __typename: "User" }, async () => {
+					// The name shows beside the viewer's calls on nearly every page.
 					await queryClient.invalidateQueries()
 					await router.invalidate()
 					closeModal()

@@ -82,12 +82,3 @@ export function cardFactParts(fact: CardFactInput): CardFactPart[] | null {
 		])
 		.exhaustive()
 }
-
-export function cardFactText(fact: CardFactInput): string | null {
-	const parts = cardFactParts(fact)
-	return parts
-		? parts
-				.map((part) => (typeof part === "string" ? part : part.figure))
-				.join("")
-		: null
-}

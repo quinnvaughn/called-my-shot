@@ -1,27 +1,21 @@
 import { useSuspenseQuery } from "@tanstack/react-query"
-import {
-	createFileRoute,
-	Outlet,
-	useNavigate,
-	useRouteContext,
-} from "@tanstack/react-router"
-import type { ReactNode } from "react"
+import { createFileRoute, Outlet, useNavigate } from "@tanstack/react-router"
 import { FiSettings, FiUserPlus, FiUsers } from "react-icons/fi"
 import { HiMiniQuestionMarkCircle } from "react-icons/hi2"
-import { css } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
 import { GroupHeader } from "#/components/groups/group-header"
 import { GroupHighlightsRail } from "#/components/groups/group-highlights"
 import { GroupMembersSheet } from "#/components/groups/group-members-sheet"
+import { HeaderAction } from "#/components/groups/header-action"
 import { InviteCodeModal } from "#/components/groups/invite-code-modal"
 import { PageBanner } from "#/components/images/page-banner"
 import { Breadcrumb } from "#/components/ui/breadcrumb"
-import { Button, type ButtonVariantProps } from "#/components/ui/button"
 import { NotFound } from "#/components/ui/not-found"
 import { Tabs } from "#/components/ui/tabs"
 import { Tag } from "#/components/ui/tag"
 import { GroupShellDocument } from "#/graphql/generated/graphql"
 import { gqlQueryOptions } from "#/graphql/query-options"
+import { useMe } from "#/hooks/use-me"
 import { pluralize } from "#/lib/pluralize"
 import { openModal } from "#/stores/modal-store"
 
@@ -47,52 +41,6 @@ const TAB_ITEMS = [
 	{ to: "/groups/$groupId/record-book", label: "Record Book" },
 ] as const
 
-// A phone can't fit a group name and several labeled buttons on one line, and
-// the name is the more important half - so below md each action shows only its
-// icon (plus compactLabel, when set), with the label carried as the button's
-// accessible name.
-function HeaderAction({
-	label,
-	compactLabel,
-	icon,
-	variant,
-	onClick,
-}: {
-	label: string
-	compactLabel?: string
-	icon: ReactNode
-	variant: ButtonVariantProps["variant"]
-	onClick: () => void
-}) {
-	return (
-		<Button
-			size="sm"
-			variant={variant}
-			aria-label={label}
-			onClick={onClick}
-			// Square off the horizontal padding while only the icon shows, so the
-			// button doesn't read as a wide empty pill.
-			className={css({
-				paddingInline: { base: compactLabel ? "3" : "2.5", md: "4.5" },
-			})}
-		>
-			<span
-				className={css({
-					display: { base: "flex", md: "none" },
-					alignItems: "center",
-					gap: "1.5",
-				})}
-			>
-				{icon}
-				{compactLabel}
-			</span>
-			<span className={css({ display: { base: "none", md: "inline" } })}>
-				{label}
-			</span>
-		</Button>
-	)
-}
-
 // The rail renders in the app shell, outside this route's component, so it
 // reads the same cached shell query rather than being handed props.
 function GroupRail() {
@@ -114,7 +62,7 @@ function GroupRail() {
 function RouteComponent() {
 	const { groupId } = Route.useParams()
 	const navigate = useNavigate()
-	const { me } = useRouteContext({ from: "__root__" })
+	const me = useMe()
 	const { data } = useSuspenseQuery(groupShellQuery(groupId))
 	const group = data.group
 

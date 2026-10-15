@@ -64,10 +64,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
 					<span
 						className={css({
 							alignSelf: "flex-start",
-							fontFamily: "mono",
-							fontSize: "2xs",
-							letterSpacing: "wide",
-							textTransform: "uppercase",
+							textStyle: "label",
 							color: "danger.default",
 							bg: "danger.default/12",
 							padding: "{spacing.1} {spacing.2}",
@@ -79,8 +76,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
 					<Link
 						to="/home"
 						className={css({
-							fontFamily: "mono",
-							fontSize: "2xs",
+							textStyle: "meta",
 							color: "fg.subtle",
 							_hover: { color: "fg.muted" },
 						})}

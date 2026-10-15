@@ -1,14 +1,8 @@
-import { VStack } from "styled-system/jsx"
-import { CopyLinkRow } from "#/components/ui/copy-link-row"
-import { PostOnXLink } from "#/components/ui/post-on-x-link"
-import { ShareIconRow } from "#/components/ui/share-icon-row"
+import { ShareLinkRow } from "#/components/ui/share-link-row"
 import { track } from "#/lib/analytics"
-import {
-	ballotEntryPath,
-	formatRecord,
-	formatSignedPoints,
-} from "#/lib/ballot-entry"
-import { SITE_HOST, SITE_ORIGIN } from "#/lib/meta"
+import { ballotEntryPath } from "#/lib/ballot-entry"
+import { formatSigned } from "#/lib/format-number"
+import { formatRecord } from "#/lib/game-status"
 
 type BallotShareSurface = "ballot_page" | "entry_page" | "question_rail"
 
@@ -45,7 +39,7 @@ export function buildBallotTweet(
 	if (entry.wins + entry.losses === 0) {
 		return `${subject}: ${entry.calledCount} of ${entry.memberCount} called.`
 	}
-	return `${subject}: ${formatRecord(entry.wins, entry.losses)}, ${formatSignedPoints(entry.points)} pts.`
+	return `${subject}: ${formatRecord(entry.wins, entry.losses)}, ${formatSigned(entry.points, { zeroSign: true })} pts.`
 }
 
 export function BallotShareRow({
@@ -57,49 +51,16 @@ export function BallotShareRow({
 	surface,
 	layout = "full",
 }: Props) {
-	const path = ballotEntryPath(ballotSlug, username)
-	const url = `${SITE_ORIGIN}${path}`
-
-	if (layout === "icons") {
-		return (
-			<ShareIconRow
-				url={url}
-				campaign="ballot"
-				tweetText={tweetText}
-				shareTitle={shareTitle}
-				onShared={(method) =>
-					track("ballot_link_shared", { ballotId, method, surface })
-				}
-			/>
-		)
-	}
-
 	return (
-		<VStack gap="3" alignItems="stretch">
-			<CopyLinkRow
-				url={url}
-				campaign="ballot"
-				displayUrl={`${SITE_HOST}${path}`}
-				shareTitle={shareTitle}
-				onCopied={() =>
-					track("ballot_link_shared", {
-						ballotId,
-						method: "clipboard",
-						surface,
-					})
-				}
-				onNativeShared={() =>
-					track("ballot_link_shared", { ballotId, method: "native", surface })
-				}
-			/>
-			<PostOnXLink
-				text={tweetText}
-				url={url}
-				campaign="ballot"
-				onClick={() =>
-					track("ballot_link_shared", { ballotId, method: "x", surface })
-				}
-			/>
-		</VStack>
+		<ShareLinkRow
+			path={ballotEntryPath(ballotSlug, username)}
+			campaign="ballot"
+			tweetText={tweetText}
+			shareTitle={shareTitle}
+			layout={layout}
+			onShared={(method) =>
+				track("ballot_link_shared", { ballotId, method, surface })
+			}
+		/>
 	)
 }

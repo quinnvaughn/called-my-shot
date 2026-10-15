@@ -5,11 +5,15 @@ import { match } from "ts-pattern"
 import { Card } from "#/components/ui/card"
 import { FormError } from "#/components/ui/form-error"
 import { ToggleRow } from "#/components/ui/toggle-row"
-import { useGqlMutation } from "#/graphql/hooks"
+import { ApiError } from "#/graphql/api-error"
 import {
+	invalidateGroupBoards,
 	SetHiddenFromRecapsDocument,
 	UpdateGroupRecapSettingsDocument,
-} from "#/graphql/mutations/groups"
+} from "#/graphql/groups/mutations"
+import { GroupRecapPageDocument } from "#/graphql/groups/queries"
+import { useGqlMutation } from "#/graphql/hooks"
+import { gqlQueryPrefix } from "#/graphql/query-options"
 
 type Props = {
 	groupId: string
@@ -51,16 +55,15 @@ export function GroupRecapsSection({
 		}
 		match(result)
 			.with({ __typename: "GroupPayload" }, () => setError(null))
-			.with(
-				{ __typename: "AuthenticationError" },
-				{ __typename: "AuthorizationError" },
-				{ __typename: "ValidationError" },
-				(r) => setError(r.message),
+			.with(ApiError, { __typename: "ValidationError" }, (r) =>
+				setError(r.message),
 			)
 			.exhaustive()
 		await Promise.all([
-			queryClient.invalidateQueries({ queryKey: ["GroupSettings"] }),
-			queryClient.invalidateQueries({ queryKey: ["GroupHome"] }),
+			invalidateGroupBoards(queryClient, groupId),
+			queryClient.invalidateQueries({
+				queryKey: gqlQueryPrefix(GroupRecapPageDocument),
+			}),
 		])
 	}
 

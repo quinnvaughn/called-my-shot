@@ -3,16 +3,16 @@ import {
 	BallotShareRow,
 	buildBallotTweet,
 } from "#/components/ballots/ballot-share-row"
-import {
-	QuestionSetRail,
-	type QuestionSetRailRow,
-	questionSetRailSummary,
-	railHeadingLinkClass,
-} from "#/components/questions/question-set-rail"
+import { QuestionSetRail } from "#/components/questions/question-set-rail/question-set-rail"
+import { railHeadingLinkClass } from "#/components/questions/question-set-rail/rail-styles"
 import { type FragmentType, graphql, useFragment } from "#/graphql/generated"
 import { ballotEntryPath } from "#/lib/ballot-entry"
 import { ballotMemberState } from "#/lib/ballot-member-state"
 import { pickSummary } from "#/lib/call-summary"
+import {
+	type QuestionSetRailRow,
+	questionSetRailSummary,
+} from "#/lib/question-set-rail"
 
 export const BallotSetRailFragment = graphql(`
 	fragment BallotSetRail_question on Question {

@@ -7,7 +7,7 @@ import { VStack } from "styled-system/jsx"
 import { PageHeader } from "#/components/ui/page-header"
 import { Table } from "#/components/ui/table"
 import { TextInput } from "#/components/ui/text-input"
-import { AdminGroupsDocument } from "#/graphql/queries/admin"
+import { AdminGroupsDocument } from "#/graphql/admin/groups/queries"
 import { gqlQueryOptions } from "#/graphql/query-options"
 import { useDebouncedValue } from "#/hooks/use-debounced-value"
 

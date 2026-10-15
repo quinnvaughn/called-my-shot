@@ -3,6 +3,7 @@ import { css } from "styled-system/css"
 import { HStack } from "styled-system/jsx"
 import { match, P } from "ts-pattern"
 import { type FragmentType, graphql, useFragment } from "#/graphql/generated"
+import { pluralize } from "#/lib/pluralize"
 
 export const BallotKickerFragment = graphql(`
 	fragment BallotKicker_membership on BallotQuestion {
@@ -40,21 +41,16 @@ export function BallotKicker({ membership: membershipProp }: Props) {
 			<MdBallot size={14} className={css({ flexShrink: "0" })} />
 			<span
 				className={css({
-					fontFamily: "mono",
-					fontSize: "3xs",
-					letterSpacing: "wide",
-					textTransform: "uppercase",
-					overflow: "hidden",
-					textOverflow: "ellipsis",
-					whiteSpace: "nowrap",
+					textStyle: "labelSm",
+					truncate: true,
 				})}
 			>
 				{ballot.name} ·{" "}
 				{match(ballot.viewerCalledCount)
-					.with(P.union(null, 0), () =>
-						ballot.memberCount === 1
-							? "1 question"
-							: `${ballot.memberCount} questions`,
+					.with(
+						P.union(null, 0),
+						() =>
+							`${ballot.memberCount} ${pluralize(ballot.memberCount, "question")}`,
 					)
 					.with(ballot.memberCount, () => "All called")
 					.otherwise(

@@ -5,6 +5,7 @@ import { css } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
 import { match } from "ts-pattern"
 import { JoinGroupByCodeDocument } from "#/graphql/generated/graphql"
+import { invalidateGroups } from "#/graphql/groups/mutations"
 import { useGqlMutation } from "#/graphql/hooks"
 import { track } from "#/lib/analytics"
 import { useForm } from "#/lib/form/use-form"
@@ -51,7 +52,7 @@ export function JoinCode() {
 				.with({ __typename: "GroupPayload" }, async (r) => {
 					track("group_joined", { groupId: r.group.id, source: "code_form" })
 					requestPushPrompt("group_joined")
-					await queryClient.invalidateQueries()
+					await invalidateGroups(queryClient)
 					await router.invalidate()
 					await navigate({
 						to: "/groups/$groupId",

@@ -1,18 +1,16 @@
-import { useStore } from "@tanstack/react-store"
 import {
 	createContext,
 	type HTMLAttributes,
 	type ReactNode,
 	useContext,
 	useId,
-	useMemo,
 	useRef,
 } from "react"
 import { createPortal } from "react-dom"
 import { FiX } from "react-icons/fi"
 import { cx } from "styled-system/css"
 import { modal as modalRecipe } from "styled-system/recipes"
-import { closeModal, modalStore } from "#/stores/modal-store"
+import { closeModal } from "#/stores/modal-store"
 import { useDialogBehavior } from "./use-dialog-behavior"
 
 type ModalSlots = ReturnType<typeof modalRecipe>
@@ -49,7 +47,7 @@ type ModalProps = {
 function Modal({ children, size = "sm", onClose }: ModalProps) {
 	const boxRef = useRef<HTMLDivElement>(null)
 	const titleId = useId()
-	const slots = useMemo(() => modalRecipe({ size }), [size])
+	const slots = modalRecipe({ size })
 
 	function dismiss() {
 		onClose?.()
@@ -116,11 +114,3 @@ Modal.Title = ModalTitle
 Modal.Description = ModalDescription
 
 export { Modal }
-
-// Mounted once at the app root. Purely renders the top of modalStore's stack
-// — opening a modal is openModal(<YourModal />), where YourModal renders
-// <Modal>...</Modal> as its own root. ModalHost never needs to change when a
-// new modal is added, nested or not.
-export function ModalHost() {
-	return useStore(modalStore, (state) => state.at(-1) ?? null)
-}

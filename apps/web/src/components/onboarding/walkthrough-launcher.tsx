@@ -1,10 +1,6 @@
 import { questionTitleWithGame } from "@called-my-shot/schemas"
 import { useQuery } from "@tanstack/react-query"
-import {
-	useNavigate,
-	useRouteContext,
-	useRouterState,
-} from "@tanstack/react-router"
+import { useNavigate, useRouterState } from "@tanstack/react-router"
 import { useStore } from "@tanstack/react-store"
 import { useState } from "react"
 import { FiX } from "react-icons/fi"
@@ -12,15 +8,13 @@ import { css } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
 import { Button } from "#/components/ui/button"
 import { useGqlMutation } from "#/graphql/hooks"
-import { DismissOnboardingDocument } from "#/graphql/mutations/onboarding"
-import { ViewerOnboardingDocument } from "#/graphql/queries/onboarding"
-import { gqlQueryOptions } from "#/graphql/query-options"
+import { DismissOnboardingDocument } from "#/graphql/onboarding/mutations"
+import { onboardingQuery } from "#/graphql/onboarding/queries"
+import { useMe } from "#/hooks/use-me"
 import { track } from "#/lib/analytics"
 import { buildQuestionSlug } from "#/lib/slug"
 import { pushCardShowingStore } from "#/stores/push-prompt-store"
 import { tourStepStore } from "#/stores/tour-store"
-
-const onboardingQuery = gqlQueryOptions(ViewerOnboardingDocument, {})
 
 // The walkthrough's entry point: a pill floating in the corner of every page
 // inside the app shell.
@@ -32,7 +26,7 @@ const onboardingQuery = gqlQueryOptions(ViewerOnboardingDocument, {})
 // that interrupts gets dismissed reflexively, an offer that just sits there
 // can be taken whenever someone actually wants it.
 export function WalkthroughLauncher() {
-	const { me } = useRouteContext({ from: "__root__" })
+	const me = useMe()
 	const navigate = useNavigate()
 	const dismiss = useGqlMutation(DismissOnboardingDocument)
 	const [dismissedLocally, setDismissedLocally] = useState(false)

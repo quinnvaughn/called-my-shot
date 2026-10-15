@@ -40,16 +40,14 @@ export function GroupLinks({ links }: Props) {
 							transition: "color 0.15s ease, border-color 0.15s ease",
 							_hover: {
 								color: "fg.default",
-								borderColor: "border.emphasized",
+								border: "1px solid {colors.border.emphasized}",
 							},
 						})}
 					>
 						<Icon size={13} aria-hidden className={css({ flexShrink: 0 })} />
 						<span
 							className={css({
-								overflow: "hidden",
-								textOverflow: "ellipsis",
-								whiteSpace: "nowrap",
+								truncate: true,
 							})}
 						>
 							{label}

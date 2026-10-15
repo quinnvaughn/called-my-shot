@@ -44,9 +44,7 @@ const rowButton = css({
 
 const titleClass = css({
 	fontSize: "sm",
-	overflow: "hidden",
-	textOverflow: "ellipsis",
-	whiteSpace: "nowrap",
+	truncate: true,
 	maxWidth: "full",
 	_hover: { textDecoration: "underline" },
 })
@@ -73,8 +71,7 @@ export function GroupPinsSection({ groupId, pins: pinsProp }: Props) {
 					{pins.length === 0 ? (
 						<span
 							className={css({
-								fontFamily: "mono",
-								fontSize: "xs",
+								textStyle: "metaLg",
 								color: "fg.subtle",
 							})}
 						>
@@ -111,8 +108,7 @@ export function GroupPinsSection({ groupId, pins: pinsProp }: Props) {
 										)}
 										<span
 											className={css({
-												fontFamily: "mono",
-												fontSize: "2xs",
+												textStyle: "meta",
 												color: "fg.subtle",
 											})}
 										>

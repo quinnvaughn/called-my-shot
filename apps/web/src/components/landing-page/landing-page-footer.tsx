@@ -40,8 +40,7 @@ export function LandingPageFooter() {
 					className={css({
 						display: "flex",
 						gap: "4",
-						fontFamily: "mono",
-						fontSize: "xs",
+						textStyle: "metaLg",
 						color: "fg.subtle",
 					})}
 				>

@@ -60,7 +60,7 @@ export function CallRow({ call: callProp, footer }: Props) {
 				borderRadius: "md",
 				padding: "3",
 				transition: "border-color 0.15s ease",
-				_hover: { borderColor: "border.emphasized" },
+				_hover: { border: "1px solid {colors.border.emphasized}" },
 			})}
 		>
 			{/* Stretched over the whole row instead of wrapping the row in an

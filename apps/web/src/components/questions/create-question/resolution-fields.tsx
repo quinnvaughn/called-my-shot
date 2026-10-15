@@ -11,8 +11,8 @@ import {
 } from "#/components/ui/date-time-picker"
 import { FieldLabel } from "#/components/ui/field-label"
 import { TextInput } from "#/components/ui/text-input"
-import { CurrentSeasonByLeagueDocument } from "#/graphql/queries/sports"
 import { gqlQueryOptions } from "#/graphql/query-options"
+import { CurrentSeasonByLeagueDocument } from "#/graphql/sports/catalog/queries"
 import { useQuestionData } from "./data-context"
 import { Field, useWatch } from "./form-context"
 

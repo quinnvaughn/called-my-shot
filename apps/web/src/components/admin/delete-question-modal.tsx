@@ -1,20 +1,26 @@
+import { useQueryClient } from "@tanstack/react-query"
 import { useState } from "react"
 import { css } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
 import { match } from "ts-pattern"
+import { AdminCallout } from "#/components/ui/admin-callout"
 import { Button } from "#/components/ui/button"
 import { FormError } from "#/components/ui/form-error"
 import { Modal } from "#/components/ui/modal"
+import {
+	DeleteQuestionDocument,
+	invalidateAdminQueue,
+} from "#/graphql/admin/queue/mutations"
+import { ApiError } from "#/graphql/api-error"
 import { useGqlMutation } from "#/graphql/hooks"
-import { DeleteQuestionDocument } from "#/graphql/mutations/admin"
 import { closeModal } from "#/stores/modal-store"
 
 type Props = {
 	question: { id: string; title: string }
-	onDeleted: () => void
 }
 
-export function DeleteQuestionModal({ question, onDeleted }: Props) {
+export function DeleteQuestionModal({ question }: Props) {
+	const queryClient = useQueryClient()
 	const deleteQuestion = useGqlMutation(DeleteQuestionDocument)
 	const [submitting, setSubmitting] = useState(false)
 	const [formError, setFormError] = useState<string | null>(null)
@@ -37,18 +43,12 @@ export function DeleteQuestionModal({ question, onDeleted }: Props) {
 						r.fieldErrors?.[0]?.message ?? "Check the form and try again.",
 					)
 				})
-				.with({ __typename: "AuthenticationError" }, async (r) => {
-					setFormError(r.message)
-				})
-				.with({ __typename: "AuthorizationError" }, async (r) => {
-					setFormError(r.message)
-				})
-				.with({ __typename: "NotFoundError" }, async (r) => {
+				.with(ApiError, async (r) => {
 					setFormError(r.message)
 				})
 				.with({ __typename: "DeleteQuestionPayload" }, async () => {
 					closeModal()
-					onDeleted()
+					invalidateAdminQueue(queryClient)
 				})
 				.exhaustive()
 		} finally {
@@ -76,20 +76,10 @@ export function DeleteQuestionModal({ question, onDeleted }: Props) {
 					</span>
 				</VStack>
 
-				<p
-					className={css({
-						fontSize: "xs",
-						lineHeight: "1.55",
-						color: "fg.subtle",
-						bg: "bg.canvas",
-						border: "1px solid {colors.border.default}",
-						borderRadius: "lg",
-						padding: "3",
-					})}
-				>
+				<AdminCallout>
 					Deletes this official question and every call made on it. Can't be
 					undone.
-				</p>
+				</AdminCallout>
 
 				<FormError message={formError} />
 			</VStack>
@@ -98,10 +88,9 @@ export function DeleteQuestionModal({ question, onDeleted }: Props) {
 					Cancel
 				</Button>
 				<Button
-					variant="solid"
+					variant="danger"
 					loading={submitting}
 					disabled={submitting}
-					className={css({ bg: "danger.default" })}
 					onClick={handleDelete}
 				>
 					Delete question

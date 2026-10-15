@@ -1,13 +1,10 @@
-import { Link } from "@tanstack/react-router"
-import { css } from "styled-system/css"
-import { HStack, VStack } from "styled-system/jsx"
-import { Avatar } from "#/components/ui/avatar"
+import { VStack } from "styled-system/jsx"
 import { Button } from "#/components/ui/button"
-import { Card } from "#/components/ui/card"
 import { EmptyState } from "#/components/ui/empty-state"
-import { Eyebrow } from "#/components/ui/eyebrow"
-import { Flair, type FlairData } from "#/components/ui/flair"
+import type { FlairData } from "#/components/ui/flair"
 import { Table, type TableColumn } from "#/components/ui/table"
+import { LeaderboardEntryCard } from "./leaderboard-entry-card"
+import { LeaderboardRow } from "./leaderboard-row"
 
 type LeaderboardColumnKey =
 	| "rank"
@@ -61,9 +58,6 @@ type LeaderboardProps = {
 	viewerUnrankedLabel?: string
 }
 
-const crownLabel = (entry: LeaderboardRowData) =>
-	entry.playerOfTheWeek ? `Player of the Week, ${entry.playerOfTheWeek}` : null
-
 export function Leaderboard({
 	items,
 	viewerId,
@@ -110,173 +104,5 @@ export function Leaderboard({
 				</Button>
 			)}
 		</VStack>
-	)
-}
-
-// One person's standing as a single card: identity, rank, and the stat line
-// the board's columns would otherwise carry. Pinned above the board for the
-// viewer, and on its own wherever a person's record needs showing without the
-// table around it.
-export function LeaderboardEntryCard({
-	entry,
-	eyebrow,
-	unrankedLabel = "Needs a resolved call",
-}: {
-	entry: LeaderboardRowData
-	eyebrow: string
-	// What the stat line says while rank is null
-	unrankedLabel?: string
-}) {
-	return (
-		<Card size="sm" variant="surface">
-			<Card.Body>
-				<VStack alignItems="stretch" gap="2">
-					{/* Only the rank shares the identity's row, and only because
-					it is two characters. The stat line gets the row below, full
-					width - beside the name it was the one thing long enough to
-					break it across lines on a phone. */}
-					<HStack gap="3.5" alignItems="flex-start">
-						<Avatar
-							size="md"
-							name={entry.user.name}
-							src={entry.user.avatarUrl}
-							crown={crownLabel(entry)}
-						/>
-						<VStack gap="0.5" alignItems="flex-start" flex="1" minWidth="0">
-							<Eyebrow variant="neutral">{eyebrow}</Eyebrow>
-							<span
-								className={css({
-									fontSize: "sm",
-									fontWeight: "semibold",
-								})}
-							>
-								{entry.user.name}
-							</span>
-							{entry.user.flair && <Flair flair={entry.user.flair} />}
-						</VStack>
-						{/* Informational, not something to tap, so never the
-						primary orange. */}
-						<span
-							className={css({
-								fontFamily: "heading",
-								fontSize: "xl",
-								color: entry.rank !== null ? "secondary.default" : "fg.muted",
-								lineHeight: "1",
-								flexShrink: "0",
-							})}
-						>
-							{entry.rank !== null ? `#${entry.rank}` : "N/A"}
-						</span>
-					</HStack>
-					<span
-						className={css({
-							fontFamily: "mono",
-							fontSize: "xs",
-							color: "fg.muted",
-							textAlign: "right",
-						})}
-					>
-						{entry.rank !== null ? (
-							<>
-								{entry.totalPoints} pts · {entry.resolvedCallCount} resolved
-								{entry.accuracy !== null && ` · ${Math.round(entry.accuracy)}%`}
-							</>
-						) : (
-							unrankedLabel
-						)}
-					</span>
-				</VStack>
-			</Card.Body>
-		</Card>
-	)
-}
-
-function LeaderboardRow({
-	item,
-	viewerId,
-}: {
-	item: LeaderboardRowData
-	viewerId?: string
-}) {
-	const isTop3 = item.rank !== null && item.rank <= 3
-	return (
-		<Table.Row active={item.user.id === viewerId}>
-			<Table.Cell
-				numeric
-				className={css({
-					color: isTop3 ? "primary.default" : "fg.subtle",
-					fontWeight: isTop3 ? "bold" : "inherit",
-					fontSize: "sm",
-					fontFamily: "mono",
-				})}
-			>
-				{item.rank}
-			</Table.Cell>
-			<Table.Cell>
-				{/* Name and handle share the top line; the flair gets the second to
-				itself. No "you" tag - the row is already highlighted for the viewer
-				(Table.Row active, below), so the tag repeated what the row said and
-				took width from the two things that name the person. */}
-				<HStack gap="3" minWidth="0">
-					<Avatar
-						size="sm"
-						name={item.user.name}
-						src={item.user.avatarUrl}
-						crown={crownLabel(item)}
-					/>
-					<VStack gap="0.5" alignItems="flex-start" minWidth="0" flex="1">
-						<HStack gap="2" minWidth="0" maxWidth="full">
-							<Link
-								to={"/user/$username"}
-								params={{ username: item.user.username }}
-								className={css({
-									minWidth: "0",
-									overflow: "hidden",
-									textOverflow: "ellipsis",
-									whiteSpace: "nowrap",
-									fontSize: "sm",
-									fontWeight: "medium",
-									_hover: { textDecoration: "underline" },
-								})}
-							>
-								{item.user.name}
-							</Link>
-							<span
-								className={css({
-									minWidth: "0",
-									overflow: "hidden",
-									textOverflow: "ellipsis",
-									whiteSpace: "nowrap",
-									fontFamily: "mono",
-									fontSize: "xs",
-									color: "fg.muted",
-								})}
-							>
-								@{item.user.username}
-							</span>
-						</HStack>
-						{item.user.flair && <Flair flair={item.user.flair} />}
-					</VStack>
-				</HStack>
-			</Table.Cell>
-			<Table.Cell
-				numeric
-				className={css({ fontFamily: "mono", fontSize: "sm" })}
-			>
-				{item.totalPoints}
-			</Table.Cell>
-			<Table.Cell
-				numeric
-				className={css({ fontFamily: "mono", fontSize: "sm" })}
-			>
-				{item.resolvedCallCount}
-			</Table.Cell>
-			<Table.Cell
-				numeric
-				className={css({ fontFamily: "mono", fontSize: "sm" })}
-			>
-				{item.accuracy !== null ? `${Math.round(item.accuracy)}%` : "-"}
-			</Table.Cell>
-		</Table.Row>
 	)
 }

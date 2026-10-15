@@ -2,10 +2,12 @@ import { Link } from "@tanstack/react-router"
 import { FiCheckCircle, FiXCircle } from "react-icons/fi"
 import { css } from "styled-system/css"
 import { VStack } from "styled-system/jsx"
+import { SignedPoints } from "#/components/ui/signed-points"
 import { type FragmentType, graphql, useFragment } from "#/graphql/generated"
 import { resolvedFadeLine } from "#/lib/fade-copy"
+import { matchupLabel } from "#/lib/game-status"
+import { pluralize } from "#/lib/pluralize"
 import { NotificationShell, type Target } from "../notification-shell"
-import { PointsPill } from "./call-resolved-row"
 
 export const GameResolvedRowFragment = graphql(`
 	fragment GameResolvedRow_notification on GameResolvedNotification {
@@ -67,9 +69,7 @@ export function GameResolvedRow({
 }: Props) {
 	const n = useFragment(GameResolvedRowFragment, notificationProp)
 	const { game, entry } = n
-	const matchup = game
-		? `${game.awayTeam.abbreviation} @ ${game.homeTeam.abbreviation}`
-		: "this game"
+	const matchup = game ? matchupLabel(game) : "this game"
 	const settled = entry ? entry.wins + entry.losses : 0
 	const target: Target =
 		game && entry
@@ -82,7 +82,7 @@ export function GameResolvedRow({
 	const pendingCount = n.presser?.pendingCount ?? 0
 	const presserLine = n.presser?.isOpen
 		? pendingCount > 0
-			? `Your presser is open. ${pendingCount} ${pendingCount === 1 ? "question" : "questions"} waiting.`
+			? `Your presser is open. ${pendingCount} ${pluralize(pendingCount, "question")} waiting.`
 			: "Your presser is open."
 		: null
 	const fadeLines = n.fades.flatMap((f) => {
@@ -98,7 +98,11 @@ export function GameResolvedRow({
 			icon={entry && entry.points < 0 ? FiXCircle : FiCheckCircle}
 			target={target}
 			onOpen={onOpen}
-			trailing={entry ? <PointsPill points={entry.points} /> : null}
+			trailing={
+				entry ? (
+					<SignedPoints value={entry.points} zeroSign suffix=" PTS" pill />
+				) : null
+			}
 			footer={
 				(fadeLines.length > 0 || presserLine) && (
 					<VStack gap="1.5" alignItems="stretch">

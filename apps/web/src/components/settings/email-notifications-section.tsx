@@ -9,7 +9,10 @@ import { SaveNote } from "#/components/ui/save-note"
 import { ToggleRow } from "#/components/ui/toggle-row"
 import type { EmailPreferenceType } from "#/graphql/generated/graphql"
 import { useGqlMutation } from "#/graphql/hooks"
-import { SetEmailPreferenceDocument } from "#/graphql/queries/user"
+import { invalidateOperations } from "#/graphql/query-options"
+import { MutedEmailTypesDocument } from "#/graphql/sports/games/mutations"
+import { SetEmailPreferenceDocument } from "#/graphql/user/settings/mutations"
+import { SettingsPageDocument } from "#/graphql/user/settings/queries"
 
 type Props = {
 	// The types this user has muted. Absence means subscribed - see
@@ -52,7 +55,10 @@ export function EmailNotificationsSection({ mutedEmailTypes }: Props) {
 					setFormError("You need to sign in to do that.")
 				})
 				.with({ __typename: "User" }, async () => {
-					await queryClient.invalidateQueries()
+					await invalidateOperations(queryClient, [
+						SettingsPageDocument,
+						MutedEmailTypesDocument,
+					])
 					await router.invalidate()
 					setSavedNote("Saved")
 					setTimeout(() => setSavedNote(null), 2000)

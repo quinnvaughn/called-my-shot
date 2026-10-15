@@ -1,3 +1,5 @@
+import { pluralize } from "./pluralize"
+
 // A win-totals ballot hands out a fixed number of wins: every game has one
 // winner, so a league's totals add up to gamesPerSeason × teams / 2. This is
 // the running count of a user's picks against that number, shown while they
@@ -17,11 +19,11 @@ export function leagueWins(gamesPerSeason: number, teamCount: number): number {
 }
 
 function wins(n: number): string {
-	return `${n} ${Math.abs(n) === 1 ? "win" : "wins"}`
+	return `${n} ${pluralize(Math.abs(n), "win")}`
 }
 
 function teams(n: number): string {
-	return `${n} ${n === 1 ? "team" : "teams"}`
+	return `${n} ${pluralize(n, "team")}`
 }
 
 // The tracker line for a pick of `guess`. `off` marks a total the schedule

@@ -1,12 +1,13 @@
 import { Link } from "@tanstack/react-router"
 import { css } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
-import { RecordStat } from "#/components/questions/call-record-card"
+import { RecordStat } from "#/components/records/record-stat"
 import { Identity } from "#/components/ui/identity"
 import { Tag } from "#/components/ui/tag"
 import { type FragmentType, graphql, useFragment } from "#/graphql/generated"
-import { formatRecord, formatSignedPoints } from "#/lib/ballot-entry"
 import { formatPayout } from "#/lib/call-summary"
+import { formatSigned } from "#/lib/format-number"
+import { formatRecord } from "#/lib/game-status"
 import { toIdentity } from "#/lib/identity"
 import { pluralize } from "#/lib/pluralize"
 
@@ -42,8 +43,7 @@ type Props = {
 }
 
 const metaClass = css({
-	fontFamily: "mono",
-	fontSize: "xs",
+	textStyle: "metaLg",
 	color: "fg.subtle",
 	whiteSpace: "nowrap",
 })
@@ -88,7 +88,7 @@ export function GroupGameEntryRow({
 				border: isViewer
 					? "1px solid {colors.secondary.default}"
 					: "1px solid {colors.border.default}",
-				_hover: { borderColor: "border.emphasized" },
+				_hover: { border: "1px solid {colors.border.emphasized}" },
 			})}
 		>
 			<HStack justify="space-between" alignItems="center" gap="4">
@@ -139,7 +139,7 @@ export function GroupGameEntryRow({
 				</VStack>
 				{hasResults ? (
 					<RecordStat
-						value={formatSignedPoints(entry.points)}
+						value={formatSigned(entry.points, { zeroSign: true })}
 						label={entry.openCount > 0 ? "So far" : "Final"}
 						tone={entry.points >= 0 ? "success" : "danger"}
 					/>

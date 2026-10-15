@@ -1,7 +1,7 @@
 import { createFileRoute, Outlet } from "@tanstack/react-router"
 import { AppShell } from "#/components/app-shell/app-shell"
-import { LeaguesDocument } from "#/graphql/queries/sports"
 import { gqlQueryOptions } from "#/graphql/query-options"
+import { LeaguesDocument } from "#/graphql/sports/catalog/queries"
 
 // staleTime: Infinity because beforeLoad isn't staleTime-gated the way a
 // loader is - without it every navigation inside the shell would refetch the

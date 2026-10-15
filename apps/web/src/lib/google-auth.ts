@@ -1,7 +1,7 @@
 import { useRouter } from "@tanstack/react-router"
 import { useEffect } from "react"
-import type { AuthModalSurface } from "#/components/auth/auth-modal"
 import { track } from "#/lib/analytics"
+import type { AuthModalSurface } from "#/lib/auth-modal-copy"
 import { rememberSignInMethod } from "#/lib/last-sign-in"
 import { markGuestPicksEntry } from "#/stores/guest-picks-store"
 import { clearReferral, readReferral } from "#/stores/referral-store"

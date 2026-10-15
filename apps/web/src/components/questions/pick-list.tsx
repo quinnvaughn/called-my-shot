@@ -1,7 +1,7 @@
-import type { ReactNode } from "react"
 import { css } from "styled-system/css"
 import { VStack } from "styled-system/jsx"
 import { match } from "ts-pattern"
+import { PickRow } from "#/components/questions/pick-row"
 import { PlayerOrTeamImage } from "#/components/ui/player-or-team-image"
 import {
 	type CallSummaryData,
@@ -10,7 +10,6 @@ import {
 	resultContext,
 	resultState,
 } from "#/lib/call-summary"
-import { PickStateIcon } from "./pick-state-icon"
 
 type Props = {
 	call: CallSummaryData
@@ -58,8 +57,7 @@ export function PickList({ call }: Props) {
 							<span
 								className={css({
 									marginLeft: "auto",
-									fontFamily: "mono",
-									fontSize: "3xs",
+									textStyle: "metaSm",
 									color: "fg.subtle",
 									flexShrink: "0",
 								})}
@@ -118,8 +116,7 @@ export function PickList({ call }: Props) {
 						</PickRow>
 						<span
 							className={css({
-								fontFamily: "mono",
-								fontSize: "3xs",
+								textStyle: "metaSm",
 								color: "fg.subtle",
 								paddingLeft: "6",
 							})}
@@ -133,29 +130,4 @@ export function PickList({ call }: Props) {
 			},
 		)
 		.exhaustive()
-}
-
-function PickRow({
-	state,
-	image,
-	children,
-}: {
-	state: "win" | "loss" | "pending"
-	image?: ReactNode
-	children: ReactNode
-}) {
-	return (
-		<div
-			className={css({
-				display: "flex",
-				alignItems: "center",
-				gap: "2.5",
-				paddingBlock: "1",
-			})}
-		>
-			<PickStateIcon state={state} />
-			{image}
-			{children}
-		</div>
-	)
 }

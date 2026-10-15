@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query"
 import { useCallback, useEffect, useState } from "react"
-import { PushPublicKeyDocument } from "#/graphql/queries/push"
+import { PushPublicKeyDocument } from "#/graphql/push/queries"
 import { gqlQueryOptions } from "#/graphql/query-options"
 import { currentSubscription } from "#/lib/push/client"
 import {

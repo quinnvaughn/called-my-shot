@@ -4,26 +4,21 @@ import {
 	isSeasonLongShape,
 	seasonEarlyTierFor,
 } from "@called-my-shot/scoring"
-import { useRouteContext } from "@tanstack/react-router"
 import { css } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
-import type { CastCallFormState } from "#/components/questions/cast-call-form"
+import { useCastCallFormContext } from "#/components/questions/cast-call-form/cast-call-form-context"
 import { isOverUnderShape } from "#/components/questions/cast-call-form/use-cast-call-form"
+import { ConfirmPickRow } from "#/components/questions/confirm-pick-row"
 import { Button } from "#/components/ui/button"
 import { FormError } from "#/components/ui/form-error"
 import { Modal } from "#/components/ui/modal"
-import {
-	type ImagePlayer,
-	type ImageTeam,
-	PlayerOrTeamImage,
-} from "#/components/ui/player-or-team-image"
+import { useMe } from "#/hooks/use-me"
 import { useRequireAuth } from "#/hooks/use-require-auth"
 import { formatGuess } from "#/lib/field-signal"
 import { optionDisplayLabel } from "#/lib/question-labels"
 import {
-	type ContrarianTier,
 	crowdTierFor,
-	formatMult,
+	pickMeta,
 	previewCrowdPct,
 	previewNumericPoints,
 	previewSelectionPoints,
@@ -34,11 +29,8 @@ import { closeModal } from "#/stores/modal-store"
 // together before anything actually locks in - reads live off the same form
 // instance CastCallForm is filling out (rather than a snapshot taken when it
 // opened), so it can't show a selection the viewer has since changed.
-export function ConfirmCallModal({
-	callForm,
-}: {
-	callForm: CastCallFormState
-}) {
+export function ConfirmCallModal() {
+	const callForm = useCastCallFormContext()
 	const {
 		question,
 		shape,
@@ -51,7 +43,7 @@ export function ConfirmCallModal({
 		toleranceBand,
 		isRateStat,
 	} = callForm
-	const { me } = useRouteContext({ from: "__root__" })
+	const me = useMe()
 	const requireAuth = useRequireAuth()
 
 	const selections = form.useWatch("selections")
@@ -209,11 +201,8 @@ export function ConfirmCallModal({
 				>
 					<span
 						className={css({
-							fontFamily: "mono",
-							fontSize: "2xs",
-							letterSpacing: "wide",
+							textStyle: "label",
 							color: "fg.subtle",
-							textTransform: "uppercase",
 						})}
 					>
 						Your case
@@ -245,7 +234,10 @@ export function ConfirmCallModal({
 						borderRadius: "md",
 						paddingBlock: "2.5",
 						cursor: "pointer",
-						_hover: { color: "fg.default", borderColor: "border.emphasized" },
+						_hover: {
+							color: "fg.default",
+							border: "1px dashed {colors.border.emphasized}",
+						},
 					})}
 				>
 					+ add a case before locking in
@@ -298,117 +290,4 @@ export function ConfirmCallModal({
 			</form.Subscribe>
 		</Modal>
 	)
-}
-
-// Name is always the highest-contrast text in the row - this is the one
-// thing being confirmed, everything else here is supporting detail.
-function ConfirmPickRow({
-	name,
-	subject = null,
-	meta,
-	payout,
-}: {
-	name: string
-	// The player or team the pick is, shown beside it.
-	subject?: { player?: ImagePlayer | null; team?: ImageTeam | null } | null
-	meta: string
-	payout:
-		| { win: number; lose: number }
-		| { winLow: number; winHigh: number; lose: number }
-		| null
-}) {
-	return (
-		<HStack
-			justify="space-between"
-			gap="3"
-			className={css({
-				backgroundColor: "bg.canvas",
-				borderRadius: "md",
-				paddingBlock: "2.5",
-				paddingInline: "3.5",
-			})}
-		>
-			<VStack gap="0.5" alignItems="stretch" className={css({ minWidth: 0 })}>
-				<HStack gap="2" alignItems="center" minWidth="0">
-					{subject && (
-						<PlayerOrTeamImage player={subject.player} team={subject.team} />
-					)}
-					<span
-						className={css({
-							fontSize: "sm",
-							fontWeight: "bold",
-							color: "fg.default",
-							overflow: "hidden",
-							textOverflow: "ellipsis",
-							whiteSpace: "nowrap",
-						})}
-					>
-						{name}
-					</span>
-				</HStack>
-				<span
-					className={css({
-						fontFamily: "mono",
-						fontSize: "2xs",
-						color: "fg.subtle",
-					})}
-				>
-					{meta}
-				</span>
-			</VStack>
-			{payout && (
-				<span
-					className={css({
-						flexShrink: "0",
-						fontFamily: "mono",
-						fontSize: "xs",
-						whiteSpace: "nowrap",
-					})}
-				>
-					<span
-						className={css({ color: "success.default", fontWeight: "bold" })}
-					>
-						+
-						{"win" in payout
-							? payout.win
-							: `${payout.winLow}–${payout.winHigh}`}
-					</span>
-					<span className={css({ color: "fg.subtle" })}> / </span>
-					<span
-						className={css({ color: "danger.default", fontWeight: "bold" })}
-					>
-						−{payout.lose}
-					</span>
-				</span>
-			)}
-		</HStack>
-	)
-}
-
-// What moved a pick's numbers, in the order they matter. An unpriced pick is
-// its boldness tier and field share. A priced one is paid on its own price
-// alone (the underdog's on a hit, the favorite's on a miss - see sidePrice),
-// so it has no tier, and shows the field share beside the chance the model
-// gives it.
-function pickMeta(
-	tier: ContrarianTier | null,
-	crowdPct: number,
-	lossRate: number,
-	option: { winMult: number | null; modelHitRate: number | null },
-): string[] {
-	const field = `${Math.round(crowdPct)}% of points on this side`
-	const { modelHitRate } = option
-	if (modelHitRate == null) return [...(tier ? [tier.label] : []), field]
-	const winMult = option.winMult ?? 1
-	const price =
-		winMult > 1
-			? `×${formatMult(winMult)} underdog`
-			: modelHitRate > 0.5
-				? `×${formatMult(lossRate)} favorite`
-				: null
-	return [
-		...(price ? [price] : []),
-		field,
-		`${Math.round(modelHitRate * 100)}% expected`,
-	]
 }

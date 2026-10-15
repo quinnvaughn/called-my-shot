@@ -248,11 +248,54 @@ export default defineConfig({
           danger: {
             default: { value: "{colors.loss}" },
             subtle: { value: "{colors.lossMuted}" },
+            // text/icon color to place on top of a solid `danger.default` fill (e.g. destructive buttons)
+            contrast: { value: "{colors.paper}" },
           },
           warning: {
             default: { value: "{colors.caution}" },
             subtle: { value: "{colors.cautionMuted}" },
           },
+        },
+      },
+      // Typography only: textStyles can't carry color, so each use pairs
+      // `textStyle` with its own `color` in the same css() call.
+      textStyles: {
+        // Field labels, eyebrows, stat captions.
+        label: {
+          value: {
+            fontFamily: "mono",
+            fontSize: "2xs",
+            letterSpacing: "wide",
+            textTransform: "uppercase",
+          },
+        },
+        // label one size down, for dense rows and chart axes.
+        labelSm: {
+          value: {
+            fontFamily: "mono",
+            fontSize: "3xs",
+            letterSpacing: "wide",
+            textTransform: "uppercase",
+          },
+        },
+        // Section and panel headings inside a card or modal.
+        sectionHeading: {
+          value: {
+            fontFamily: "mono",
+            fontSize: "xs",
+            letterSpacing: "wide",
+            textTransform: "uppercase",
+          },
+        },
+        // Sentence-case mono detail text: timestamps, counts, records.
+        metaSm: {
+          value: { fontFamily: "mono", fontSize: "3xs" },
+        },
+        meta: {
+          value: { fontFamily: "mono", fontSize: "2xs" },
+        },
+        metaLg: {
+          value: { fontFamily: "mono", fontSize: "xs" },
         },
       },
       slotRecipes: {
@@ -280,11 +323,8 @@ export default defineConfig({
             },
             label: {
               display: "block",
-              fontFamily: "mono",
-              fontSize: "2xs",
-              letterSpacing: "wide",
+              textStyle: "label",
               color: "fg.subtle",
-              textTransform: "uppercase",
             },
             group: {
               display: "flex",
@@ -292,13 +332,12 @@ export default defineConfig({
               gap: "2",
               width: "full",
               backgroundColor: "bg.canvas",
-              border: "1px solid",
-              borderColor: "border.default",
+              border: "1px solid {colors.border.default}",
               borderRadius: "lg",
               paddingInline: "3.5",
               transition: "border-color 0.15s ease",
               _focusWithin: {
-                borderColor: "primary.default",
+                border: "1px solid {colors.primary.default}",
               },
             },
             field: {
@@ -348,7 +387,7 @@ export default defineConfig({
             error: {
               true: {
                 group: {
-                  borderColor: "danger.default",
+                  border: "1px solid {colors.danger.default}",
                 },
               },
             },
@@ -369,11 +408,8 @@ export default defineConfig({
             },
             label: {
               display: "block",
-              fontFamily: "mono",
-              fontSize: "2xs",
-              letterSpacing: "wide",
+              textStyle: "label",
               color: "fg.subtle",
-              textTransform: "uppercase",
             },
             field: {
               display: "block",
@@ -387,8 +423,7 @@ export default defineConfig({
               fieldSizing: "content",
               resize: "vertical",
               backgroundColor: "bg.canvas",
-              border: "1px solid",
-              borderColor: "border.default",
+              border: "1px solid {colors.border.default}",
               borderRadius: "lg",
               padding: "3.5",
               color: "fg.default",
@@ -401,7 +436,7 @@ export default defineConfig({
                 color: "fg.subtle",
               },
               _focus: {
-                borderColor: "primary.default",
+                border: "1px solid {colors.primary.default}",
               },
             },
             description: {
@@ -414,8 +449,7 @@ export default defineConfig({
             },
             count: {
               display: "block",
-              fontFamily: "mono",
-              fontSize: "2xs",
+              textStyle: "meta",
               color: "fg.subtle",
               textAlign: "right",
             },
@@ -424,7 +458,7 @@ export default defineConfig({
             error: {
               true: {
                 field: {
-                  borderColor: "danger.default",
+                  border: "1px solid {colors.danger.default}",
                 },
               },
             },
@@ -454,8 +488,7 @@ export default defineConfig({
               minWidth: "44",
               gap: "0.5",
               backgroundColor: "bg.surface",
-              border: "1px solid",
-              borderColor: "border.default",
+              border: "1px solid {colors.border.default}",
               borderRadius: "xl",
               padding: "1.5",
               boxShadow: "0 12px 32px rgba(0, 0, 0, 0.4)",
@@ -527,8 +560,7 @@ export default defineConfig({
               right: "0",
               gap: "0.5",
               backgroundColor: "bg.surface",
-              border: "1px solid",
-              borderColor: "border.default",
+              border: "1px solid {colors.border.default}",
               borderRadius: "xl",
               padding: "1.5",
               maxHeight: "80",
@@ -540,11 +572,8 @@ export default defineConfig({
               display: "flex",
               justifyContent: "space-between",
               alignItems: "center",
-              fontFamily: "mono",
-              fontSize: "3xs",
-              letterSpacing: "wide",
+              textStyle: "labelSm",
               color: "fg.subtle",
-              textTransform: "uppercase",
               padding: "{spacing.2} {spacing.2.5} {spacing.1}",
             },
             option: {
@@ -576,15 +605,13 @@ export default defineConfig({
             },
             optionMeta: {
               flexShrink: "0",
-              fontFamily: "mono",
-              fontSize: "3xs",
+              textStyle: "metaSm",
               color: "fg.subtle",
             },
             empty: {
               padding: "4 2.5",
               textAlign: "center",
-              fontFamily: "mono",
-              fontSize: "2xs",
+              textStyle: "meta",
               color: "fg.subtle",
             },
           },
@@ -628,8 +655,7 @@ export default defineConfig({
               gap: "2.5",
               width: "full",
               backgroundColor: "bg.surface",
-              border: "1px solid",
-              borderColor: "border.default",
+              border: "1px solid {colors.border.default}",
               borderRadius: "lg",
               paddingBlock: "2.5",
               paddingInline: "3.5",
@@ -640,7 +666,7 @@ export default defineConfig({
               cursor: "pointer",
               transition: "border-color 0.15s ease",
               _hover: {
-                borderColor: "border.emphasized",
+                border: "1px solid {colors.border.emphasized}",
               },
             },
             triggerLabel: {
@@ -665,8 +691,7 @@ export default defineConfig({
               right: "0",
               gap: "0.5",
               backgroundColor: "bg.surface",
-              border: "1px solid",
-              borderColor: "border.default",
+              border: "1px solid {colors.border.default}",
               borderRadius: "xl",
               padding: "1.5",
               maxHeight: "80",
@@ -675,11 +700,8 @@ export default defineConfig({
               zIndex: "popover",
             },
             groupLabel: {
-              fontFamily: "mono",
-              fontSize: "3xs",
-              letterSpacing: "wide",
+              textStyle: "labelSm",
               color: "fg.subtle",
-              textTransform: "uppercase",
               padding: "{spacing.2} {spacing.2.5} {spacing.1}",
             },
             option: {
@@ -712,7 +734,7 @@ export default defineConfig({
             open: {
               true: {
                 trigger: {
-                  borderColor: "primary.default",
+                  border: "1px solid {colors.primary.default}",
                 },
                 caret: {
                   transform: "rotate(180deg)",
@@ -722,7 +744,7 @@ export default defineConfig({
             hasError: {
               true: {
                 trigger: {
-                  borderColor: "danger.default",
+                  border: "1px solid {colors.danger.default}",
                 },
               },
             },
@@ -779,8 +801,7 @@ export default defineConfig({
               gap: "2",
               width: "full",
               backgroundColor: "bg.canvas",
-              border: "1px solid",
-              borderColor: "border.default",
+              border: "1px solid {colors.border.default}",
               borderRadius: "lg",
               paddingBlock: "3",
               paddingInline: "3.5",
@@ -789,7 +810,7 @@ export default defineConfig({
               cursor: "pointer",
               transition: "border-color 0.15s ease, opacity 0.15s ease",
               _hover: {
-                borderColor: "border.emphasized",
+                border: "1px solid {colors.border.emphasized}",
               },
               // Locked to a picked game's kickoff (see game-field.tsx) - same
               // native :disabled treatment as the button recipe's _disabled,
@@ -798,7 +819,7 @@ export default defineConfig({
                 cursor: "not-allowed",
                 opacity: 0.6,
                 _hover: {
-                  borderColor: "border.default",
+                  border: "1px solid {colors.border.default}",
                 },
               },
             },
@@ -842,8 +863,7 @@ export default defineConfig({
               maxHeight: { base: "85vh", md: "none" },
               overflowY: { base: "auto", md: "visible" },
               backgroundColor: "bg.surface",
-              border: "1px solid",
-              borderColor: "border.default",
+              border: "1px solid {colors.border.default}",
               borderRadius: { base: "0", md: "xl" },
               // Top corners stay rounded on the mobile sheet too - only the
               // bottom ones flatten out to sit flush with the screen edge.
@@ -893,10 +913,7 @@ export default defineConfig({
               },
             },
             monthLabel: {
-              fontFamily: "mono",
-              fontSize: "xs",
-              letterSpacing: "wide",
-              textTransform: "uppercase",
+              textStyle: "sectionHeading",
               color: "fg.default",
             },
             weekdayRow: {
@@ -905,10 +922,7 @@ export default defineConfig({
             },
             weekday: {
               textAlign: "center",
-              fontFamily: "mono",
-              fontSize: "3xs",
-              letterSpacing: "wide",
-              textTransform: "uppercase",
+              textStyle: "labelSm",
               color: "fg.subtle",
               paddingBlock: "1",
             },
@@ -939,15 +953,13 @@ export default defineConfig({
               display: "flex",
               alignItems: "center",
               gap: "2",
-              borderTop: "1px solid",
-              borderColor: "border.default",
+              borderTop: "1px solid {colors.border.default}",
               paddingTop: "2",
             },
             timeField: {
               width: "12",
               backgroundColor: "bg.canvas",
-              border: "1px solid",
-              borderColor: "border.default",
+              border: "1px solid {colors.border.default}",
               borderRadius: "md",
               paddingBlock: "1.5",
               textAlign: "center",
@@ -956,7 +968,7 @@ export default defineConfig({
               color: "fg.default",
               outline: "none",
               _focus: {
-                borderColor: "primary.default",
+                border: "1px solid {colors.primary.default}",
               },
             },
             timeSeparator: {
@@ -966,8 +978,7 @@ export default defineConfig({
             ampmGroup: {
               display: "flex",
               marginLeft: "auto",
-              border: "1px solid",
-              borderColor: "border.default",
+              border: "1px solid {colors.border.default}",
               borderRadius: "md",
               overflow: "hidden",
             },
@@ -976,10 +987,7 @@ export default defineConfig({
               backgroundColor: "transparent",
               paddingInline: "2.5",
               paddingBlock: "2",
-              fontFamily: "mono",
-              fontSize: "2xs",
-              letterSpacing: "wide",
-              textTransform: "uppercase",
+              textStyle: "label",
               color: "fg.subtle",
               cursor: "pointer",
               transition: "background-color 0.15s ease, color 0.15s ease",
@@ -991,8 +999,7 @@ export default defineConfig({
               display: "flex",
               alignItems: "center",
               justifyContent: "space-between",
-              borderTop: "1px solid",
-              borderColor: "border.default",
+              borderTop: "1px solid {colors.border.default}",
               paddingTop: "2",
             },
             description: {
@@ -1007,12 +1014,12 @@ export default defineConfig({
           variants: {
             open: {
               true: {
-                trigger: { borderColor: "primary.default" },
+                trigger: { border: "1px solid {colors.primary.default}" },
               },
             },
             hasError: {
               true: {
-                trigger: { borderColor: "danger.default" },
+                trigger: { border: "1px solid {colors.danger.default}" },
               },
             },
             dayOutside: {
@@ -1106,10 +1113,7 @@ export default defineConfig({
             },
             headerCell: {
               color: "fg.subtle",
-              fontFamily: "mono",
-              fontSize: "xs",
-              letterSpacing: "wide",
-              textTransform: "uppercase",
+              textStyle: "sectionHeading",
               opacity: "0.8",
               cursor: "default",
               borderBottom: "1px solid {colors.border.default}",
@@ -1147,8 +1151,7 @@ export default defineConfig({
               height: "9",
               paddingInline: "3",
               borderRadius: "lg",
-              border: "1px solid",
-              borderColor: "border.default",
+              border: "1px solid {colors.border.default}",
               fontFamily: "mono",
               fontSize: "sm",
               backgroundColor: "bg.surface",
@@ -1211,7 +1214,7 @@ export default defineConfig({
                 pageButton: {
                   backgroundColor: "primary.default",
                   color: "primary.contrast",
-                  borderColor: "primary.default",
+                  border: "1px solid {colors.primary.default}",
                 },
               },
             },
@@ -1227,7 +1230,7 @@ export default defineConfig({
               true: {
                 pageButton: {
                   cursor: "pointer",
-                  _hover: { borderColor: "primary.default" },
+                  _hover: { border: "1px solid {colors.primary.default}" },
                 },
               },
             },
@@ -1262,8 +1265,7 @@ export default defineConfig({
               maxHeight: "calc(100dvh - {spacing.10})",
               overflowY: "auto",
               backgroundColor: "bg.surface",
-              border: "1px solid",
-              borderColor: "border.default",
+              border: "1px solid {colors.border.default}",
               borderRadius: "2xl",
               padding: "7",
               boxShadow: "0 24px 60px rgba(0, 0, 0, 0.45)",
@@ -1428,13 +1430,10 @@ export default defineConfig({
               alignItems: "center",
               justifyContent: "center",
               textAlign: "center",
-              fontFamily: "mono",
-              fontSize: "xs",
+              textStyle: "sectionHeading",
               fontWeight: "semibold",
-              letterSpacing: "wide",
               color: "fg.subtle",
               backgroundColor: "transparent",
-              textTransform: "uppercase",
               padding: "{spacing.2.5} {spacing.0.5}",
               marginBottom: "-1px",
               borderBottom: "2px solid transparent",
@@ -1543,6 +1542,18 @@ export default defineConfig({
                 _hover: { opacity: 0.88 },
                 _disabled: { _hover: { opacity: 0.6 } },
               },
+              // Solid's treatment on the danger fill, for destructive confirms
+              // (delete, void).
+              danger: {
+                bg: "danger.default",
+                color: "danger.contrast",
+                fontFamily: "heading",
+                textTransform: "uppercase",
+                letterSpacing: "wide",
+                borderRadius: "lg",
+                _hover: { opacity: 0.88 },
+                _disabled: { _hover: { opacity: 0.6 } },
+              },
             },
             size: {
               sm: {
@@ -1569,7 +1580,7 @@ export default defineConfig({
           },
           compoundVariants: [
             {
-              variant: ["solid", "outline", "dark"],
+              variant: ["solid", "outline", "dark", "danger"],
               size: "lg",
               css: {
                 borderRadius: "xl",

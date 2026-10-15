@@ -3,7 +3,7 @@ import type { PushPlatform } from "#/graphql/generated/graphql"
 import {
 	RemovePushSubscriptionDocument,
 	SavePushSubscriptionDocument,
-} from "#/graphql/queries/push"
+} from "#/graphql/push/queries"
 import { detectDevicePlatform } from "#/lib/device-platform"
 import { isStandalone } from "./support"
 
@@ -15,9 +15,7 @@ export function registerServiceWorker(): Promise<ServiceWorkerRegistration> {
 }
 
 // The VAPID key arrives base64url-encoded; subscribe() wants the raw bytes.
-export function urlBase64ToUint8Array(
-	base64Url: string,
-): Uint8Array<ArrayBuffer> {
+function urlBase64ToUint8Array(base64Url: string): Uint8Array<ArrayBuffer> {
 	const padded = (base64Url + "=".repeat((4 - (base64Url.length % 4)) % 4))
 		.replace(/-/g, "+")
 		.replace(/_/g, "/")

@@ -1,55 +1,29 @@
-import { useQuery } from "@tanstack/react-query"
+import { useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute, Link } from "@tanstack/react-router"
 import { css } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
 import { OverturnDisputeModal } from "#/components/admin/overturn-dispute-modal"
+import { UpholdButton } from "#/components/admin/uphold-button"
 import { VoidQuestionModal } from "#/components/admin/void-question-modal"
-import type { QuestionCallShape } from "#/components/questions/cast-call-form/use-cast-call-form"
 import { Button } from "#/components/ui/button"
 import { EmptyState } from "#/components/ui/empty-state"
 import { PageHeader } from "#/components/ui/page-header"
-import { useGqlMutation } from "#/graphql/hooks"
-import { UpholdDisputeDocument } from "#/graphql/mutations/admin"
-import { AdminDisputesDocument } from "#/graphql/queries/admin"
-import { gqlQueryOptions } from "#/graphql/query-options"
+import { adminDisputesQuery } from "#/graphql/admin/queue/queries"
 import { safeExternalUrl } from "#/lib/external-url"
-import { isRateStat } from "#/lib/field-signal"
+import { toQuestionForResolve } from "#/lib/question-for-resolve"
 import { resolvedAnswerSummary } from "#/lib/resolution-summary"
 import { openModal } from "#/stores/modal-store"
 
 export const Route = createFileRoute("/admin/disputes")({
 	component: RouteComponent,
+	loader: ({ context }) => context.queryClient.query(adminDisputesQuery),
 })
 
-function UpholdButton({
-	disputeId,
-	onUpheld,
-}: {
-	disputeId: string
-	onUpheld: () => void
-}) {
-	const upholdDispute = useGqlMutation(UpholdDisputeDocument)
-
-	return (
-		<Button
-			variant="outline"
-			size="sm"
-			loading={upholdDispute.isPending}
-			onClick={async () => {
-				const data = await upholdDispute.mutateAsync({ input: { disputeId } })
-				if (data?.upholdDispute.__typename === "ResolutionDispute") onUpheld()
-			}}
-		>
-			Uphold
-		</Button>
-	)
-}
-
 function RouteComponent() {
-	const { data, refetch } = useQuery(gqlQueryOptions(AdminDisputesDocument, {}))
+	const { data } = useSuspenseQuery(adminDisputesQuery)
 
 	const disputes =
-		data?.adminQueueSummary.__typename === "QueryAdminQueueSummarySuccess"
+		data.adminQueueSummary.__typename === "QueryAdminQueueSummarySuccess"
 			? data.adminQueueSummary.data.disputed
 			: []
 
@@ -118,8 +92,7 @@ function RouteComponent() {
 												target="_blank"
 												rel="noreferrer"
 												className={css({
-													fontFamily: "mono",
-													fontSize: "2xs",
+													textStyle: "meta",
 													color: "fg.subtle",
 													textDecoration: "underline",
 												})}
@@ -130,8 +103,7 @@ function RouteComponent() {
 											dispute.question.resolutionSource && (
 												<span
 													className={css({
-														fontFamily: "mono",
-														fontSize: "2xs",
+														textStyle: "meta",
 														color: "fg.subtle",
 													})}
 												>
@@ -144,10 +116,7 @@ function RouteComponent() {
 										</p>
 									</VStack>
 									<HStack gap="1.5" flexShrink={0}>
-										<UpholdButton
-											disputeId={dispute.id}
-											onUpheld={() => refetch()}
-										/>
+										<UpholdButton disputeId={dispute.id} />
 										<Button
 											variant="outline"
 											size="sm"
@@ -155,16 +124,7 @@ function RouteComponent() {
 												openModal(
 													<OverturnDisputeModal
 														disputeId={dispute.id}
-														question={{
-															id: dispute.question.id,
-															title: dispute.question.title,
-															shape:
-																dispute.question.shape.toLowerCase() as QuestionCallShape,
-															ouLine: dispute.question.ouLine ?? null,
-															options: dispute.question.options,
-															isRateStat: isRateStat(dispute.question),
-														}}
-														onOverturned={() => refetch()}
+														question={toQuestionForResolve(dispute.question)}
 													/>,
 												)
 											}
@@ -183,7 +143,6 @@ function RouteComponent() {
 															title: dispute.question.title,
 															creator: { username: dispute.user.username },
 														}}
-														onVoided={() => refetch()}
 													/>,
 												)
 											}

@@ -121,11 +121,10 @@ export function LandingPageNav({ leagues }: Props) {
 							width: "8",
 							height: "8",
 							borderRadius: "lg",
-							border: "1px solid",
-							borderColor: "border.default",
+							border: "1px solid {colors.border.default}",
 							color: "fg.default",
 							_hover: {
-								borderColor: "border.emphasized",
+								border: "1px solid {colors.border.emphasized}",
 							},
 						})}
 					>

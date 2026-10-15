@@ -8,8 +8,12 @@ type Props<T> = {
 	items: T[]
 	getKey: (item: T) => string
 	renderItem: (item: T) => ReactNode
-	// The left side of the header row. The prev/next buttons sit at its end.
-	header: ReactNode
+	// A section heading for the rail, with an optional leading icon.
+	title?: string
+	icon?: ReactNode
+	// The left side of the header row, after the title when there is one.
+	// The prev/next buttons sit at its end.
+	header?: ReactNode
 	// Names one item for the buttons' labels, e.g. "live call" gives
 	// "Previous live call" and "Next live call".
 	itemLabel: string
@@ -30,6 +34,8 @@ export function CardRail<T>({
 	items,
 	getKey,
 	renderItem,
+	title,
+	icon,
 	header,
 	itemLabel,
 	itemBasis = "min(85%, 360px)",
@@ -76,7 +82,25 @@ export function CardRail<T>({
 	return (
 		<VStack alignItems="stretch" gap="3">
 			<HStack gap="2" alignItems="center" minHeight="7">
-				{header}
+				{title === undefined ? (
+					header
+				) : (
+					<HStack gap="3" alignItems="center" flexWrap="wrap">
+						<h2
+							className={css({
+								display: "flex",
+								alignItems: "center",
+								gap: "1.5",
+								textStyle: "sectionHeading",
+								color: "fg.muted",
+							})}
+						>
+							{icon}
+							{title}
+						</h2>
+						{header}
+					</HStack>
+				)}
 				{overflowing && (
 					<HStack gap="1.5" marginInlineStart="auto">
 						<StepButton
