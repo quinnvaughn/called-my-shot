@@ -22,7 +22,7 @@ export function StatusCardShell({
 				position: "relative",
 				borderRadius: "xl",
 				padding: "5",
-				// Clears the sticky mobile top bar when scrolled to after a call.
+				// Clears the sticky top bar when scrolled to after a call.
 				scrollMarginTop: "20",
 				backgroundColor: "bg.surface",
 				border: "1px solid {colors.border.default}",

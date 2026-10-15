@@ -1,7 +1,6 @@
 import { css } from "styled-system/css"
 
-// The unread count, as on the sidebar's Notifications link and, below md, on
-// the menu button that opens it.
+// The unread count on the top bar's notifications bell.
 export const unreadBadge = css({
 	bg: "primary.default",
 	color: "bg.canvas",

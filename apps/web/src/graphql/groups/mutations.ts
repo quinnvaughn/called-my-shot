@@ -29,6 +29,7 @@ import {
 	RecordBookDocument,
 	SharedQuestionsDocument,
 	ShareTargetGroupsDocument,
+	SidebarGroupsDocument,
 	ViewerOnboardingDocument,
 } from "#/graphql/generated/graphql"
 import { gqlQueryKey, invalidateOperations } from "#/graphql/query-options"
@@ -472,6 +473,7 @@ const GROUP_DOCUMENTS = [
 	RecordBookDocument,
 	SharedQuestionsDocument,
 	ShareTargetGroupsDocument,
+	SidebarGroupsDocument,
 	ViewerOnboardingDocument,
 ]
 

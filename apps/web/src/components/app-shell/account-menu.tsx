@@ -10,8 +10,8 @@ type AccountMenuProps = {
 	username: string
 	avatarUrl: string | null
 	// "sidebar": full identity chip, menu opens upward (trigger sits at the
-	// bottom of the nav column). "topbar": compact avatar-only trigger, menu
-	// opens downward (trigger sits in the mobile top bar).
+	// bottom of the admin nav column). "topbar": compact avatar-only trigger,
+	// menu opens downward (trigger sits in the app's top bar).
 	variant?: "sidebar" | "topbar"
 	isAdmin?: boolean
 }
@@ -78,25 +78,42 @@ export function AccountMenu({
 			>
 				{variant === "topbar" && (
 					<>
-						<div className={css({ padding: "{spacing.1} {spacing.2.5}" })}>
-							<div
+						<Dropdown.Item
+							onClick={() =>
+								void navigate({ to: "/user/$username", params: { username } })
+							}
+						>
+							<span
 								className={css({
-									fontSize: "sm",
-									fontWeight: "medium",
-									truncate: true,
+									display: "flex",
+									alignItems: "center",
+									gap: "2.5",
 								})}
 							>
-								{name}
-							</div>
-							<div
-								className={css({
-									textStyle: "meta",
-									color: "fg.muted",
-								})}
-							>
-								@{username}
-							</div>
-						</div>
+								<Avatar name={name} size="sm" src={avatarUrl} />
+								<span className={css({ minWidth: 0, textAlign: "left" })}>
+									<span
+										className={css({
+											display: "block",
+											fontSize: "sm",
+											fontWeight: "medium",
+										})}
+									>
+										View Profile
+									</span>
+									<span
+										className={css({
+											display: "block",
+											textStyle: "meta",
+											color: "fg.muted",
+											truncate: true,
+										})}
+									>
+										@{username}
+									</span>
+								</span>
+							</span>
+						</Dropdown.Item>
 						<div
 							className={css({
 								borderTop: "1px solid {colors.border.default}",

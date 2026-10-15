@@ -2,16 +2,10 @@ import { css } from "styled-system/css"
 import { HStack } from "styled-system/jsx"
 import { SOCIALS } from "#/lib/socials"
 
-// Pinned to the bottom of the sidebar, so it stays on screen on every page
-// without being part of the nav list.
+// Pinned to the bottom of the sidebar, below its scrolling sections.
 export function SocialLinks() {
 	return (
-		<HStack
-			gap="1"
-			paddingTop="4"
-			paddingInline="1"
-			className={css({ borderTop: "1px solid {colors.border.default}" })}
-		>
+		<HStack gap="1" paddingInline="2">
 			{SOCIALS.map((social) => (
 				<a
 					key={social.label}

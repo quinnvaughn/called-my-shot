@@ -10,6 +10,18 @@ export const MyGroupsDocument = graphql(`
     }
 `)
 
+// Just enough of each group to list it in the sidebar. Its own operation
+// rather than MyGroupsDocument, which spreads the whole GroupCard_group.
+export const SidebarGroupsDocument = graphql(`
+    query SidebarGroups {
+        myGroups {
+            id
+            name
+            logoUrl
+        }
+    }
+`)
+
 export const GroupPreviewDocument = graphql(`
     query GroupPreview($code: String!) {
         groupPreview(code: $code) {

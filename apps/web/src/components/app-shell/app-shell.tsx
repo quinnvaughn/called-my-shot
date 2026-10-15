@@ -6,8 +6,8 @@ import { PushPromptHost } from "#/components/push/push-prompt-host"
 import { unreadNotificationCountQuery } from "#/graphql/notifications/queries"
 import { useMe } from "#/hooks/use-me"
 import { EmailBounceBanner } from "./email-bounce-banner"
-import { MobileTopbar } from "./mobile-topbar"
 import { SidebarNav } from "./sidebar-nav"
+import { TopBar } from "./top-bar"
 import type { League, Me } from "./types"
 import { useRightRail } from "./use-right-rail"
 
@@ -67,7 +67,7 @@ export function AppShell({
 				overflowX: "clip",
 			})}
 		>
-			<MobileTopbar
+			<TopBar
 				me={me}
 				unreadCount={unreadCount}
 				onMenuClick={() => setDrawerOpen(true)}
@@ -91,12 +91,10 @@ export function AppShell({
 					display: "flex",
 					maxWidth: "1728px",
 					marginInline: "auto",
-					minHeight: "100dvh",
 				})}
 			>
 				<SidebarNav
 					me={me}
-					unreadCount={unreadCount}
 					leagues={leagues}
 					drawerOpen={drawerOpen}
 					onNavigate={() => setDrawerOpen(false)}
@@ -126,8 +124,9 @@ export function AppShell({
 							width: "80",
 							flexShrink: 0,
 							position: "sticky",
-							top: 0,
-							height: "100dvh",
+							// Under the top bar (h 16 in top-bar.tsx).
+							top: "16",
+							height: "calc(100dvh - {spacing.16})",
 							overflowY: "auto",
 							padding: "6",
 							borderLeft: "1px solid {colors.border.default}",

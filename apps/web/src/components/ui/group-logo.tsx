@@ -19,6 +19,7 @@ const groupLogoStyle = cva({
 	},
 	variants: {
 		size: {
+			xs: { width: "6", height: "6", fontSize: "xs" },
 			sm: { width: "8", height: "8", fontSize: "sm" },
 			md: { width: "10", height: "10", fontSize: "md" },
 			lg: { width: "16", height: "16", fontSize: "2xl" },
@@ -31,7 +32,7 @@ type Props = HTMLAttributes<HTMLDivElement> & {
 	name: string
 	// Null or missing, or failing to load, falls back to the group's initial.
 	src?: string | null
-	size?: "sm" | "md" | "lg"
+	size?: "xs" | "sm" | "md" | "lg"
 }
 
 export function GroupLogo({ name, src, size, className, ...props }: Props) {
