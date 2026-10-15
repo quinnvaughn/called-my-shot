@@ -64,7 +64,12 @@ export function TopBar({
 					>
 						<FiMenu size={20} />
 					</button>
-					<Link to="/home" aria-label="Home">
+					{/* Phones get the logo at the top of the drawer instead. */}
+					<Link
+						to="/home"
+						aria-label="Home"
+						className={css({ display: { base: "none", md: "block" } })}
+					>
 						<Brand size="nav" />
 					</Link>
 				</HStack>
