@@ -38,6 +38,7 @@ import {
 	sidePrice,
 	SEASON_PLAY_FLOOR,
 	seasonPlayWeight,
+	seriesStageWeight,
 	sidePrices,
 	targetHitRate,
 	targetLossRate,
@@ -454,6 +455,23 @@ describe("seasonPlayWeight", () => {
 
 	it("is full before any week counts", () => {
 		expect(seasonPlayWeight(0, 0)).toBe(1)
+	})
+})
+
+describe("seriesStageWeight", () => {
+	it("is full before Game 1", () => {
+		expect(seriesStageWeight(0, 7)).toBe(1)
+	})
+
+	it("drops by one game's share for each game played", () => {
+		expect(seriesStageWeight(2, 7)).toBe(0.714)
+		expect(seriesStageWeight(6, 7)).toBe(0.143)
+		expect(seriesStageWeight(1, 3)).toBe(0.667)
+	})
+
+	it("stays between 0 and 1", () => {
+		expect(seriesStageWeight(9, 7)).toBe(0)
+		expect(seriesStageWeight(0, 0)).toBe(1)
 	})
 })
 

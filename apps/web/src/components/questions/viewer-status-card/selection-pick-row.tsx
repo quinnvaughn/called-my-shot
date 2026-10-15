@@ -9,7 +9,9 @@ import {
 import {
 	type SeasonPlayTerm,
 	type SelectionRowResult,
+	type SeriesStageTerm,
 	seasonPlayLine,
+	seriesStageLine,
 	underdogMath,
 } from "#/lib/viewer-status"
 import { HeroFinal } from "./hero-final"
@@ -33,6 +35,7 @@ export function SelectionPickRow({
 	seasonTotalGames,
 	basePoints,
 	play,
+	stage = null,
 	lossRate,
 	pricing,
 	result,
@@ -54,13 +57,15 @@ export function SelectionPickRow({
 	seasonTotalGames: number | null
 	basePoints: number
 	play: SeasonPlayTerm
+	stage?: SeriesStageTerm
 	lossRate: number
 	pricing: OptionPricing
 	result: SelectionRowResult
 	showName?: boolean
 	hero?: boolean
 }) {
-	const playWeight = play?.weight ?? 1
+	const playWeight = (play?.weight ?? 1) * (stage?.weight ?? 1)
+	const playNote = seasonPlayLine(play) ?? seriesStageLine(stage)
 	if (crowdPct === null) {
 		return (
 			<PickRowShell
@@ -147,10 +152,10 @@ export function SelectionPickRow({
 				name={showName || hero ? label : null}
 				subject={subject}
 				note={null}
-				playNote={seasonPlayLine(play)}
+				playNote={playNote}
 				breakdown={{
 					ledger: [
-						...committedRows(basePoints, conviction, committed, play),
+						...committedRows(basePoints, conviction, committed, play, stage),
 						outcome,
 					],
 					note: outcome.note,
@@ -183,10 +188,10 @@ export function SelectionPickRow({
 			name={label}
 			subject={subject}
 			note={null}
-			playNote={seasonPlayLine(play)}
+			playNote={playNote}
 			breakdown={{
 				ledger: [
-					...committedRows(basePoints, conviction, committed, play),
+					...committedRows(basePoints, conviction, committed, play, stage),
 					{
 						label: "IF RIGHT",
 						math: (

@@ -398,6 +398,9 @@ async function scoreOptionCalls(
 			optionId: true,
 			conviction: true,
 			resultPoints: true,
+			lossRate: true,
+			winMult: true,
+			modelHitRate: true,
 		},
 		with: {
 			call: {
@@ -408,6 +411,7 @@ async function scoreOptionCalls(
 					unscoredReason: true,
 					seasonPlayWeeksPlayed: true,
 					seasonPlayWeeksCounted: true,
+					seriesWeight: true,
 				},
 			},
 		},
@@ -449,7 +453,11 @@ async function scoreOptionCalls(
 			? await seasonPlayWeightsFor(tx, question, [
 					...new Map(selections.map((s) => [s.call.id, s.call])).values(),
 				])
-			: undefined,
+			: question.seriesId
+				? new Map(
+						selections.map((s) => [s.call.id, s.call.seriesWeight ?? 1]),
+					)
+				: undefined,
 	})
 
 	for (const {

@@ -41,6 +41,9 @@ function pick(
 		optionId,
 		conviction: 100,
 		resultPoints: null,
+		lossRate: null,
+		winMult: null,
+		modelHitRate: null,
 		...rest,
 		call: {
 			id: `call-${userId}`,
@@ -229,7 +232,7 @@ describe("scoreSelections", () => {
 
 	it("charges a miss at its side's own rate when the line was priced", () => {
 		const selections = [
-			pick("a", "over", { conviction: 50 }),
+			pick("a", "over", { conviction: 50, lossRate: 0.5 }),
 			pick("b", "under", { conviction: 50 }),
 		]
 		const result = scoreSelections({
@@ -284,7 +287,10 @@ describe("scoreSelections", () => {
 				},
 			],
 			correctOptionIds: ["a"],
-			selections: [pick("x", "a"), pick("y", "b")],
+			selections: [
+				pick("x", "a", { winMult: 1, lossRate: 0.96, modelHitRate: 0.5 }),
+				pick("y", "b", { winMult: 1, lossRate: 0.96, modelHitRate: 0.5 }),
+			],
 			earliness: { by: "rank", totalCalls: 2 },
 		})
 		expect(pointsOf(result, "y-b")).toBe(
@@ -296,11 +302,13 @@ describe("scoreSelections", () => {
 		// A quarter of the field took the underdog, which would pay a boldness
 		// bonus on an unpriced question. Its bigger win already pays for how
 		// unlikely it was.
+		const underdog = { winMult: 1.84, lossRate: 0.96, modelHitRate: 0.25 }
+		const favorite = { winMult: 1, lossRate: 1.8, modelHitRate: 0.75 }
 		const selections = [
-			pick("a", "underdog", { createdAt: at(1) }),
-			pick("b", "favorite", { createdAt: at(2) }),
-			pick("c", "favorite", { createdAt: at(3) }),
-			pick("d", "favorite", { createdAt: at(4) }),
+			pick("a", "underdog", { createdAt: at(1), ...underdog }),
+			pick("b", "favorite", { createdAt: at(2), ...favorite }),
+			pick("c", "favorite", { createdAt: at(3), ...favorite }),
+			pick("d", "favorite", { createdAt: at(4), ...favorite }),
 		]
 		const result = scoreSelections({
 			shape: "player_vs_player",
@@ -333,6 +341,88 @@ describe("scoreSelections", () => {
 		expect(pointsOf(result, "a-underdog")).toBe(priced)
 		expect(priced).toBe(Math.round(base * 1.84 * early))
 		expect(pointsOf(result, "b-favorite")).toBe(-pointsAtStake(base, 1.8, 100))
+	})
+
+	it("scores each pick at the price it was made at, not its side's current one", () => {
+		// A series question's sides move between games: the early pick on the
+		// team that's since gone up 3-0 was made as an underdog.
+		const result = scoreSelections({
+			shape: "team_vs_team",
+			isOfficial: true,
+			lossRate: LOSS_RATE_BY_SHAPE.team_vs_team,
+			options: [
+				{
+					id: "a",
+					isCorrect: null,
+					winMult: 1,
+					lossRate: 2,
+					modelHitRate: 0.95,
+				},
+				{
+					id: "b",
+					isCorrect: null,
+					winMult: 4,
+					lossRate: 0.2,
+					modelHitRate: 0.05,
+				},
+			],
+			correctOptionIds: ["a"],
+			selections: [
+				pick("early", "a", {
+					winMult: 1.84,
+					lossRate: 0.96,
+					modelHitRate: 0.25,
+				}),
+				pick("late", "b", { winMult: 4, lossRate: 0.2, modelHitRate: 0.05 }),
+			],
+			earliness: { by: "rank", totalCalls: 2 },
+		})
+		const base = BASE_POINTS_BY_SHAPE.team_vs_team
+		const pricing = { winMult: 1.84, modelHitRate: 0.25 }
+		expect(pointsOf(result, "early-a")).toBe(
+			selectionPoints(
+				base,
+				0.96,
+				50,
+				2,
+				100,
+				true,
+				earlyTierFor(1, 2).mult,
+				pricing,
+			),
+		)
+		expect(pointsOf(result, "late-b")).toBe(-pointsAtStake(base, 0.2, 100))
+	})
+
+	it("scales a weighted call's hit and miss alike", () => {
+		const selections = [pick("a", "yes"), pick("b", "no")]
+		const result = scoreSelections({
+			shape: "yes_no_prop",
+			isOfficial: true,
+			lossRate: LOSS_RATE,
+			options: yesNo(),
+			correctOptionIds: ["yes"],
+			selections,
+			earliness: { by: "rank", totalCalls: 2 },
+			weightByCallId: new Map([
+				["call-a", 0.5],
+				["call-b", 0.5],
+			]),
+		})
+		expect(pointsOf(result, "a-yes")).toBe(
+			selectionPoints(
+				BASE * 0.5,
+				LOSS_RATE,
+				50,
+				2,
+				100,
+				true,
+				earlyTierFor(1, 2).mult,
+			),
+		)
+		expect(pointsOf(result, "b-no")).toBe(
+			-pointsAtStake(BASE * 0.5, LOSS_RATE, 100),
+		)
 	})
 
 	it("banks conviction behind a hit on both sums and a miss on the total only", () => {

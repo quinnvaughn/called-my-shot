@@ -235,6 +235,22 @@ export function seasonPlayLine(play: SeasonPlayTerm): string | null {
 		: `Counts ${share} at your ${league} pace: ${weeks} played. Playing more weeks grows it.`
 }
 
+// How far into its series a call on a series question was made, and the
+// share of its full points that leaves it (see SeriesStage). Null on any
+// other call.
+export type SeriesStageTerm = {
+	weight: number
+	gamesPlayed: number
+	bestOf: number
+} | null
+
+// The line a series pick carries under its points once it counts for less
+// than all of them. Nothing on one made before Game 1, which counts in full.
+export function seriesStageLine(stage: SeriesStageTerm): string | null {
+	if (!stage || stage.gamesPlayed === 0) return null
+	return `Called before Game ${stage.gamesPlayed + 1} of ${stage.bestOf}: counts for ${Math.round(stage.weight * 100)}% of its points.`
+}
+
 // A priced underdog's own multiplier in a win's math, ahead of the bonuses.
 // Nothing on any other side, which pays 1x before them.
 export function underdogMath(winMult: number): string {

@@ -121,9 +121,10 @@ describe("entryPoints", () => {
 			},
 		],
 	}
+	const overPrice = { lossRate: 0.8, winMult: 1.5, modelHitRate: 0.4 }
 	const overCall = {
 		conviction: null,
-		selections: [{ conviction: 100, option: { id: "over" } }],
+		selections: [{ conviction: 100, option: { id: "over" }, ...overPrice }],
 	}
 	const overDraft = {
 		caseText: "",
@@ -145,12 +146,36 @@ describe("entryPoints", () => {
 				question,
 				{
 					conviction: null,
-					selections: [{ optionId: "over", conviction: 100 }],
+					selections: [
+						{ optionId: "over", conviction: 100, price: overPrice },
+					],
 				},
 				false,
 			),
 		)
 		expect(points.creator).toBeNull()
+	})
+
+	it("reads a call already in at the price it was made at", () => {
+		const points = entryPoints({
+			question,
+			viewerCall: null,
+			creatorCall: {
+				conviction: null,
+				selections: [
+					{
+						conviction: 100,
+						option: { id: "over" },
+						lossRate: 0.96,
+						winMult: 1,
+						modelHitRate: 0.5,
+					},
+				],
+			},
+			draft: undefined,
+			alreadyCalled: false,
+		})
+		expect(points.creator).toEqual({ winLow: 150, winHigh: 150, lose: 144 })
 	})
 
 	it("adds a draft to the field as a new call", () => {
@@ -219,9 +244,18 @@ describe("openPointsBySide", () => {
 			},
 		],
 	}
+	// A call made at its side's current price.
+	const priceOf = (optionId: string) => {
+		const option = scoring.options.find((o) => o.id === optionId)
+		if (!option) throw new Error(`no option ${optionId}`)
+		const { lossRate, winMult, modelHitRate } = option
+		return { lossRate, winMult, modelHitRate }
+	}
 	const call = (optionId: string) => ({
 		conviction: null,
-		selections: [{ conviction: 100, option: { id: optionId } }],
+		selections: [
+			{ conviction: 100, option: { id: optionId }, ...priceOf(optionId) },
+		],
 	})
 	const range = (optionId: string) =>
 		challengePointsRange(

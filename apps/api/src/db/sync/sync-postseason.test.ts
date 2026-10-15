@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest"
+import { insertCallInTx } from "../../lib/cast-call"
 import { OFFICIAL_ACCOUNT_USERNAME } from "../../lib/official-account"
 import { isGameAskable } from "../../lib/postseason/settle"
 import {
@@ -32,6 +33,9 @@ function seriesEvent(
 		startsAt: Date
 		homeWon?: boolean
 		ifNecessary?: boolean
+		// Whether ESPN has set its start time. An If Necessary game's isn't,
+		// until it's needed.
+		timeValid?: boolean
 	},
 ): EspnEvent {
 	const final = options.homeWon !== undefined
@@ -41,7 +45,7 @@ function seriesEvent(
 		id: `40100${number}`,
 		date: options.startsAt.toISOString(),
 		seasonType: { type: 3 },
-		timeValid: !options.ifNecessary,
+		timeValid: options.timeValid ?? !options.ifNecessary,
 		competitions: [
 			{
 				notes: [
@@ -139,7 +143,7 @@ describe("postseason sync", () => {
 		])
 		await syncGames(MLB, league, { now: NOW, espn })
 		await syncGameQuestions(league, NOW)
-		await syncSeriesQuestions(league, NOW)
+		await syncSeriesQuestions(league, NOW, espn)
 
 		const series = await db.query.postseasonSeries.findFirst({
 			where: { leagueId: league.id },
@@ -221,6 +225,102 @@ describe("postseason sync", () => {
 		const [winner, distance] = settled
 		expect(winner?.options.find((o) => o.isCorrect)?.teamId).toBe(seattle.id)
 		expect(distance?.options.find((o) => o.isCorrect)?.label).toBe("No")
+	})
+
+	it("reopens the series questions between games, priced from the series score", async () => {
+		const schedule = {
+			one: { startsAt: daysFromNow(-0.5), homeWon: true },
+			two: { startsAt: daysFromNow(1) },
+			three: { startsAt: daysFromNow(2), ifNecessary: true },
+		}
+		serve([
+			seriesEvent(1, schedule.one),
+			seriesEvent(2, schedule.two),
+			seriesEvent(3, schedule.three),
+		])
+		await syncGames(MLB, league, { now: NOW, espn })
+		await syncSeriesQuestions(league, NOW, espn)
+
+		const series = await db.query.postseasonSeries.findFirst({
+			where: { leagueId: league.id },
+		})
+		const [winner, distance] = await db.query.questions.findMany({
+			where: { seriesId: series?.id },
+			with: { options: true },
+			orderBy: { createdAt: "asc" },
+		})
+		if (!winner || !distance) throw new Error("series questions not posted")
+		// Up 1-0 in a best-of-3 with every game even, Seattle needs one of the
+		// next two: 3 in 4. The series goes 3 only if Detroit takes Game 2.
+		for (const question of [winner, distance]) {
+			expect(question.status).toBe("open")
+			expect(question.locksAt.getTime()).toBe(
+				schedule.two.startsAt.getTime(),
+			)
+		}
+		expect(
+			winner.options.find((o) => o.teamId === seattle.id)?.modelHitRate,
+		).toBe(0.75)
+		expect(
+			distance.options.find((o) => o.label === "Yes")?.modelHitRate,
+		).toBe(0.5)
+
+		const caller = await makeUser()
+		const seattleSide = winner.options.find((o) => o.teamId === seattle.id)
+		if (!seattleSide) throw new Error("no Seattle option")
+		const call = await db.transaction((tx) =>
+			insertCallInTx(tx, {
+				userId: caller.id,
+				question: winner,
+				data: {
+					shape: "team_vs_team",
+					questionId: winner.id,
+					caseText: "",
+					selections: [{ optionId: seattleSide.id, conviction: 100 }],
+				},
+			}),
+		)
+		expect(call).toMatchObject({ seriesGamesPlayed: 1, seriesWeight: 0.667 })
+		const [selection] = await db.query.callSelections.findMany({
+			where: { callId: call.id },
+		})
+		expect(selection).toMatchObject({
+			lossRate: seattleSide.lossRate,
+			winMult: seattleSide.winMult,
+			modelHitRate: 0.75,
+		})
+
+		// Detroit evens it, so Game 3 is played: who wins reopens before it,
+		// whether it goes 3 is already settled by Game 3 being needed.
+		serve([
+			seriesEvent(1, schedule.one),
+			seriesEvent(2, { startsAt: daysFromNow(-0.1), homeWon: false }),
+			seriesEvent(3, { ...schedule.three, timeValid: true }),
+		])
+		await syncGames(MLB, league, { now: NOW, espn })
+		await syncSeriesQuestions(league, NOW, espn)
+
+		const reopened = await db.query.questions.findFirst({
+			where: { id: winner.id },
+			with: { options: true },
+		})
+		expect(reopened?.status).toBe("open")
+		expect(reopened?.locksAt.getTime()).toBe(
+			schedule.three.startsAt.getTime(),
+		)
+		expect(
+			reopened?.options.find((o) => o.teamId === seattle.id)?.modelHitRate,
+		).toBe(0.5)
+		const held = await db.query.questions.findFirst({
+			where: { id: distance.id },
+		})
+		expect(held?.locksAt.getTime()).toBe(schedule.two.startsAt.getTime())
+		// The call keeps the price it was made at.
+		expect(
+			await db.query.callSelections.findFirst({
+				where: { callId: call.id },
+			}),
+		).toMatchObject({ modelHitRate: 0.75 })
 	})
 
 	it("skips a game whose opponent is still TBD and syncs the rest", async () => {

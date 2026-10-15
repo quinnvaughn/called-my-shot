@@ -254,9 +254,9 @@ function RouteComponent() {
 				</VStack>
 			)}
 
-			{/* The series' own questions, on every game of the series. They lock
-			    when Game 1 starts, so on a later game they show how the calls
-			    made before the series stand. */}
+			{/* The series' own questions, on every game of the series. They take
+			    calls between games until the last one they can be asked before,
+			    so on a later game they're open until it starts. */}
 			{game.postseason && game.postseason.seriesQuestions.length > 0 && (
 				<VStack gap="2" alignItems="stretch">
 					<span className={sectionLabelClass}>

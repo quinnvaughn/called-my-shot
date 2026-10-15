@@ -186,10 +186,11 @@ export async function loadUserRecordInputs(
 				createdAt: true,
 				seasonPlayWeeksPlayed: true,
 				seasonPlayWeeksCounted: true,
+				seriesWeight: true,
 			},
 			with: {
 				selections: {
-					columns: { conviction: true, resultPoints: true },
+					columns: { conviction: true, resultPoints: true, lossRate: true },
 					with: {
 						option: {
 							columns: {

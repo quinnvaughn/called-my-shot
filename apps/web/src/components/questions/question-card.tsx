@@ -42,6 +42,9 @@ export const QuestionCardFragment = graphql(`
 		viewerSeasonPlay {
 			weight
 		}
+		seriesStage {
+			weight
+		}
 		seasonGamesPlayed
 		seasonTotalGames
 		guessDistribution {

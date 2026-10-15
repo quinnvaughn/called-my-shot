@@ -205,6 +205,11 @@ export type SelectionToScore = {
 	optionId: string
 	conviction: number
 	resultPoints: number | null
+	// The side's price when the pick was made - see callSelections.lossRate.
+	// All null on an unpriced side.
+	lossRate: number | null
+	winMult: number | null
+	modelHitRate: number | null
 	call: {
 		id: string
 		userId: string
@@ -213,10 +218,11 @@ export type SelectionToScore = {
 	}
 }
 
-// Scores every selection on an option-based question. `options` carry
-// isCorrect as persisted before this pass, and the side's own price (winMult,
-// lossRate, modelHitRate) where its sides were priced - the only record of whether a
-// selection was previously right, which an overturn needs to net it out.
+// Scores every selection on an option-based question, each at the price its
+// side had when it was picked. `options` carry isCorrect as persisted before
+// this pass - the only record of whether a selection was previously right,
+// which an overturn needs to net it out - and whether the question's sides
+// are priced now, which sets its base points.
 // `selections` are the whole field, unscored calls included: they were real
 // picks at lock, so they keep their share of the field's conviction (see
 // crowdTotals) and their place in the earliness order. `earliness` says what
@@ -237,7 +243,8 @@ export function scoreSelections(input: {
 	earliness: EarlinessBasis
 	unscoredUserIds?: UnscoredOverrides
 	// What share of its full points each call is worth, by call - see
-	// seasonPlayWeight. A call missing from it is worth all of them.
+	// seasonPlayWeight and seriesStageWeight. A call missing from it is worth
+	// all of them.
 	weightByCallId?: ReadonlyMap<string, number>
 }): {
 	selectionPoints: {
@@ -253,18 +260,6 @@ export function scoreSelections(input: {
 } {
 	const wasCorrectByOptionId = new Map(
 		input.options.map((o) => [o.id, o.isCorrect]),
-	)
-	const pricingByOptionId = new Map(
-		input.options.map((o) => [
-			o.id,
-			{ winMult: o.winMult, modelHitRate: o.modelHitRate },
-		]),
-	)
-	const lossRateByOptionId = new Map(
-		input.options.map((o) => [
-			o.id,
-			effectiveLossRate(input.lossRate, o.lossRate),
-		]),
 	)
 	const basePoints = basePointsFor({
 		...input,
@@ -301,13 +296,13 @@ export function scoreSelections(input: {
 		const pointsFor = (base: number, earlyMult: number) =>
 			selectionPoints(
 				base,
-				lossRateByOptionId.get(s.optionId) ?? input.lossRate,
+				effectiveLossRate(input.lossRate, s.lossRate),
 				fieldPct(crowd.byOption.get(s.optionId) ?? 0, crowd.field),
 				input.options.length,
 				s.conviction,
 				isCorrect,
 				earlyMult,
-				pricingByOptionId.get(s.optionId),
+				{ winMult: s.winMult, modelHitRate: s.modelHitRate },
 			)
 		const next = unscored
 			? null

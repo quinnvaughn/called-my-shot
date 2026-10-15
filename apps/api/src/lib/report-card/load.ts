@@ -98,9 +98,14 @@ type LoadedCall = {
 	// calls.seasonPlayWeeksPlayed.
 	seasonPlayWeeksPlayed?: number | null
 	seasonPlayWeeksCounted?: number | null
+	// See calls.seriesWeight.
+	seriesWeight: number | null
 	selections: {
 		conviction: number
 		resultPoints: number | null
+		// The side's price when the pick was made - see
+		// callSelections.lossRate.
+		lossRate: number | null
 		option: {
 			isCorrect: boolean | null
 			lossRate: number | null
@@ -125,13 +130,13 @@ export function toReportCardCall(
 		// Every option of a priced question carries the model's chance, so
 		// the call's own picks say whether it was.
 		isPriced: call.selections.some((s) => s.option?.modelHitRate != null),
-		seasonPlayWeight:
-			call.seasonPlayWeeksPlayed != null && call.seasonPlayWeeksCounted != null
+		pointsWeight:
+			(call.seasonPlayWeeksPlayed != null && call.seasonPlayWeeksCounted != null
 				? seasonPlayWeight(
 						call.seasonPlayWeeksPlayed,
 						call.seasonPlayWeeksCounted,
 					)
-				: 1,
+				: 1) * (call.seriesWeight ?? 1),
 		status: question.status,
 		unscoredReason: call.unscoredReason,
 		hitTolerance: call.hitTolerance,
@@ -156,7 +161,7 @@ export function toReportCardCall(
 				: [call.conviction]
 			: call.selections.map((s) => s.conviction),
 		selectionsCorrect: call.selections.map((s) => s.option?.isCorrect ?? null),
-		selectionLossRates: call.selections.map((s) => s.option?.lossRate ?? null),
+		selectionLossRates: call.selections.map((s) => s.lossRate),
 		createdAt: call.createdAt,
 	}
 }
@@ -239,10 +244,11 @@ function windowQuestions(
 					resultPoints: true,
 					unscoredReason: true,
 					createdAt: true,
+					seriesWeight: true,
 				},
 				with: {
 					selections: {
-						columns: { conviction: true, resultPoints: true },
+						columns: { conviction: true, resultPoints: true, lossRate: true },
 						with: {
 							option: {
 								columns: {

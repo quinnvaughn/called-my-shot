@@ -53,13 +53,16 @@ export function ConfirmCallModal() {
 
 	if (!question) return null
 
-	// A season-long call at the viewer's pace so far - see SeasonPlay.
+	// A season-long call at the viewer's pace so far - see SeasonPlay - and a
+	// series call at how far into the series it is - see SeriesStage.
 	const basePoints =
 		basePointsFor({
 			shape,
 			isOfficial: question.isOfficial,
 			isPriced: question.isPriced,
-		}) * (question.viewerSeasonPlay?.weight ?? 1)
+		}) *
+		(question.viewerSeasonPlay?.weight ?? 1) *
+		(question.seriesStage?.weight ?? 1)
 	const { lossRate } = question
 	// Season-long shapes preview off games played so far, not rank - see
 	// PointsPreview's own comment on the same distinction. Null for a

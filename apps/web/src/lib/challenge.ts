@@ -169,6 +169,14 @@ export type ChallengePointsQuestion = {
 	}[]
 }
 
+// The side's price a pick was made at, which it's scored at rather than its
+// option's current one - see CallSelection.lossRate.
+export type PickPrice = {
+	lossRate: number | null
+	winMult: number | null
+	modelHitRate: number | null
+}
+
 export type ChallengePointsRange = {
 	winLow: number
 	winHigh: number
@@ -186,7 +194,7 @@ export function challengePointsRange(
 	question: ChallengePointsQuestion,
 	call: {
 		conviction: number | null
-		selections: { optionId: string; conviction: number }[]
+		selections: { optionId: string; conviction: number; price?: PickPrice }[]
 	},
 	isNew: boolean,
 ): ChallengePointsRange | null {
@@ -215,14 +223,15 @@ export function challengePointsRange(
 			: question.fieldConviction > 0
 				? (option.convictionTotal / question.fieldConviction) * 100
 				: 0
+		const price = s.price ?? option
 		const p = previewSelectionPoints(
 			base,
-			effectiveLossRate(question.lossRate, option.lossRate),
+			effectiveLossRate(question.lossRate, price.lossRate),
 			crowd,
 			question.options.length,
 			s.conviction,
 			undefined,
-			option,
+			price,
 		)
 		win += p.win
 		lose += p.lose
@@ -245,16 +254,22 @@ export function sumPointsRanges(
 	}))
 }
 
-// A call that's in, as the picks challengePointsRange reads.
+// A call that's in, as the picks challengePointsRange reads, each at the
+// price it was made at.
 export function toPicks(call: {
 	conviction: number | null
-	selections: { conviction: number; option: { id: string } }[]
+	selections: ({ conviction: number; option: { id: string } } & PickPrice)[]
 }) {
 	return {
 		conviction: call.conviction,
 		selections: call.selections.map((s) => ({
 			optionId: s.option.id,
 			conviction: s.conviction,
+			price: {
+				lossRate: s.lossRate,
+				winMult: s.winMult,
+				modelHitRate: s.modelHitRate,
+			},
 		})),
 	}
 }

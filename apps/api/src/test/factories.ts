@@ -305,15 +305,21 @@ export function makeCall(
 	)
 }
 
-export function makeSelection(
+// Carries its option's price as it stands now, as a real pick does - see
+// callSelections.lossRate.
+export async function makeSelection(
 	callId: string,
 	optionId: string,
 	conviction = 100,
 ) {
+	const option = await db.query.questionOptions.findFirst({
+		where: { id: optionId },
+		columns: { lossRate: true, winMult: true, modelHitRate: true },
+	})
 	return insertOne(
 		db
 			.insert(callSelections)
-			.values({ callId, optionId, conviction })
+			.values({ callId, optionId, conviction, ...option })
 			.returning(),
 	)
 }

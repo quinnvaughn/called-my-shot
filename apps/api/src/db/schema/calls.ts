@@ -89,6 +89,16 @@ export const calls = pgTable(
 		// weight; null on every other call, and until then.
 		seasonPlayWeeksPlayed: integer("season_play_weeks_played"),
 		seasonPlayWeeksCounted: integer("season_play_weeks_counted"),
+		// On a series question, how many of the series' games were final when
+		// the call was made, and the share of its full points that leaves it
+		// worth (see seriesStageWeight). Set with the call, and again by a redo,
+		// which calls it anew; null on every other call.
+		seriesGamesPlayed: integer("series_games_played"),
+		seriesWeight: numeric("series_weight", {
+			precision: 4,
+			scale: 3,
+			mode: "number",
+		}),
 
 		createdAt: timestamp("created_at").notNull().defaultNow(),
 	},
@@ -120,6 +130,27 @@ export const callSelections = pgTable(
 			.notNull()
 			.references(() => questionOptions.id, { onDelete: "cascade" }),
 		conviction: integer("conviction").notNull(), // 1-100
+		// The side's price when this pick was made: its option's lossRate,
+		// winMult and modelHitRate, copied at the time (all null on an
+		// unpriced side). A pick is scored at these, never at the option's
+		// current price. Most questions' prices stop moving once anyone calls,
+		// so the two agree; a series question's sides are repriced after every
+		// game, and each pick keeps the price it was made at.
+		lossRate: numeric("loss_rate", {
+			precision: 4,
+			scale: 3,
+			mode: "number",
+		}),
+		winMult: numeric("win_mult", {
+			precision: 4,
+			scale: 2,
+			mode: "number",
+		}),
+		modelHitRate: numeric("model_hit_rate", {
+			precision: 4,
+			scale: 3,
+			mode: "number",
+		}),
 		resultPoints: integer("result_points"),
 		// What this counts for in a challenge: the same result without earliness
 		// or the season-play weight (see numericGuessPoints and scoreSelections).

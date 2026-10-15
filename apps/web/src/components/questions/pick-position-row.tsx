@@ -42,6 +42,9 @@ export const PickPositionRowCallFragment = graphql(`
 		closenessFieldPct
 		selections {
 			id
+			# The side's price when the pick was made, which says whether it
+			# was priced - see PickTierBadge.
+			modelHitRate
 			option {
 				id
 				label
@@ -198,7 +201,7 @@ export function PickPositionRow({
 											<PickTierBadge
 												fieldPct={selection.option.crowdPct}
 												totalOptions={question.options.length}
-												modelHitRate={selection.option.modelHitRate}
+												modelHitRate={selection.modelHitRate}
 											/>
 										)}
 									</HStack>

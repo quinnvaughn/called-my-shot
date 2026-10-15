@@ -234,6 +234,9 @@ export function optionPointsPreview(
 		// A season-long question's share of its full points at the viewer's
 		// pace so far - see SeasonPlay. Null or missing is all of them.
 		viewerSeasonPlay?: { weight: number } | null
+		// A series question's share of its full points for a call made now -
+		// see SeriesStage. Null or missing is all of them.
+		seriesStage?: { weight: number } | null
 		seasonGamesPlayed?: number | null
 		seasonTotalGames?: number | null
 	},
@@ -255,7 +258,8 @@ export function optionPointsPreview(
 			: undefined
 	return previewSelectionPoints(
 		basePointsForGql(question.shape, question.isOfficial, question.isPriced) *
-			(question.viewerSeasonPlay?.weight ?? 1),
+			(question.viewerSeasonPlay?.weight ?? 1) *
+			(question.seriesStage?.weight ?? 1),
 		effectiveLossRate(question.lossRate, option.lossRate),
 		previewCrowdPct(
 			option.convictionTotal,

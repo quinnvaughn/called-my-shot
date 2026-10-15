@@ -444,6 +444,19 @@ export function seasonPlayWeight(
 	return Math.min(1, Math.max(SEASON_PLAY_FLOOR, share))
 }
 
+// A series question stays open between the series' games, priced each time
+// from where the series stands, so a later call is never a free read on a
+// lopsided series. It is still an easier call than one made before Game 1:
+// more of the series is known, and the price can't see everything that has
+// happened in it. So a call is worth, hit and miss alike, the share of the
+// series' possible games still to be played when it was made: all of its
+// points before Game 1, 5/7 of them before Game 3 of a best-of-7.
+export function seriesStageWeight(gamesPlayed: number, bestOf: number): number {
+	if (bestOf <= 0) return 1
+	const share = (bestOf - gamesPlayed) / bestOf
+	return Math.round(Math.min(1, Math.max(0, share)) * 1000) / 1000
+}
+
 // Whose performance a shape is actually about. Drives the stat catalog filter
 // (a team stat can't be asked of a player) and which picker the create form
 // shows.

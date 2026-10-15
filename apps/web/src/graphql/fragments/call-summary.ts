@@ -34,6 +34,10 @@ export const CallSummaryFragment = graphql(`
 		selections {
 			id
 			conviction
+			# The side's price when the pick was made, which it's scored at.
+			lossRate
+			winMult
+			modelHitRate
 			option {
 				id
 				label

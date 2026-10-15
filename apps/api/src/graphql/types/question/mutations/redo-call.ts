@@ -23,6 +23,10 @@ import {
 	ValidationError,
 } from "../../../../lib/errors"
 import { reconcileFadesAfterRedo } from "../../../../lib/fades"
+import {
+	selectionRows,
+	seriesStageFields,
+} from "../../../../lib/cast-call"
 import { consumeRedoGrant, redoBalanceFor } from "../../../../lib/redos"
 import { releaseWaitingReferral } from "../../../../lib/referrals"
 import { builder } from "../../../builder"
@@ -135,13 +139,9 @@ builder.mutationFields((t) => ({
 					.delete(callSelections)
 					.where(eq(callSelections.callId, call.id))
 				if (data.selections.length > 0) {
-					await tx.insert(callSelections).values(
-						data.selections.map((s) => ({
-							callId: call.id,
-							optionId: s.optionId,
-							conviction: s.conviction,
-						})),
-					)
+					await tx
+						.insert(callSelections)
+						.values(await selectionRows(tx, call.id, data.selections))
 				}
 
 				if (isTwoSidedShape(question.shape)) {
@@ -163,6 +163,9 @@ builder.mutationFields((t) => ({
 						// not then. The original time is not lost; it's on the
 						// redo row above, and the call page shows both.
 						createdAt: now,
+						// A redo is a call made now, at the price and series stage
+						// it's made at (see selectionRows).
+						...(await seriesStageFields(tx, question)),
 					})
 					.where(eq(calls.id, call.id))
 					.returning()

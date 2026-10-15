@@ -9,6 +9,7 @@ import { basePointsForGql, toleranceSpecFrom } from "#/lib/scoring"
 import {
 	numericRowResult,
 	type SeasonPlayTerm,
+	type SeriesStageTerm,
 	selectionRowResult,
 } from "#/lib/viewer-status"
 import { NumericPickRow } from "./numeric-pick-row"
@@ -46,6 +47,7 @@ export function PickRows({
 	const play: SeasonPlayTerm = call.seasonPlay
 		? { ...call.seasonPlay, league: league.abbreviation }
 		: null
+	const stage: SeriesStageTerm = call.seriesStage
 
 	if (isNumericQuestionShape(shape)) {
 		const { guessValue, conviction } = call
@@ -94,8 +96,9 @@ export function PickRows({
 					seasonTotalGames={call.seasonTotalGames}
 					basePoints={basePoints}
 					play={play}
-					lossRate={effectiveLossRate(lossRate, selection.option.lossRate)}
-					pricing={selection.option}
+					stage={stage}
+					lossRate={effectiveLossRate(lossRate, selection.lossRate)}
+					pricing={selection}
 					// Several picks (player_season_award/team_season_award) need
 					// each row to say what it is; a single pick is named by the
 					// hero instead.

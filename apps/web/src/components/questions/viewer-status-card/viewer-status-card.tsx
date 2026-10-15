@@ -89,6 +89,13 @@ export const ViewerStatusCardFragment = graphql(`
 				weeksCounted
 				settled
 			}
+			# How far into its series the call was made, on a series question -
+			# see SeriesStage. Null on any other call.
+			seriesStage {
+				gamesPlayed
+				bestOf
+				weight
+			}
 			question {
 				id
 				shape
@@ -111,6 +118,12 @@ export const ViewerStatusCardFragment = graphql(`
 				# rank/fieldPct data, which can drift from whatever those values
 				# were at the moment resolution actually ran.
 				resultPoints
+				# The side's price when the pick was made, which it's scored at -
+				# a series question's sides move between games, so the option's
+				# own price below can have moved since. Null on an unpriced side.
+				lossRate
+				winMult
+				modelHitRate
 				option {
 					id
 					label

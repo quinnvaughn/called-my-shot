@@ -72,6 +72,19 @@ describe("optionPointsPreview", () => {
 		expect(underdog.lose).toBe(favorite.lose)
 	})
 
+	it("scales a series call's win and loss by its stage", () => {
+		const side = { ...unpriced, convictionTotal: 200 }
+		const full = optionPointsPreview(question, side, 2, 50)
+		const late = optionPointsPreview(
+			{ ...question, seriesStage: { weight: 0.5 } },
+			side,
+			2,
+			50,
+		)
+		expect(late.lose).toBe(Math.round(full.lose / 2))
+		expect(late.win).toBeLessThan(full.win)
+	})
+
 	it("prices a side at its own win multiplier and loss rate", () => {
 		const priced = optionPointsPreview(
 			question,

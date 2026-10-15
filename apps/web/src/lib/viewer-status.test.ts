@@ -5,6 +5,7 @@ import {
 	resultFace,
 	seasonPlayLine,
 	selectionRowResult,
+	seriesStageLine,
 	underdogMath,
 	viewerStatus,
 	voidedText,
@@ -268,5 +269,18 @@ describe("underdogMath", () => {
 	it("only shows a multiplier above 1x", () => {
 		expect(underdogMath(1)).toBe("")
 		expect(underdogMath(2.5)).toBe("× 2.5 underdog ")
+	})
+})
+
+describe("seriesStageLine", () => {
+	it("says nothing about a call made before Game 1", () => {
+		expect(seriesStageLine({ gamesPlayed: 0, bestOf: 7, weight: 1 })).toBeNull()
+		expect(seriesStageLine(null)).toBeNull()
+	})
+
+	it("names the game a later call was made before and its share", () => {
+		expect(
+			seriesStageLine({ gamesPlayed: 2, bestOf: 7, weight: 0.714 }),
+		).toBe("Called before Game 3 of 7: counts for 71% of its points.")
 	})
 })

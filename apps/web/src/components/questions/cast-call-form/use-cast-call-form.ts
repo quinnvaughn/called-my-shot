@@ -49,6 +49,11 @@ export const CastCallFormFragment = graphql(`
 			weeksCounted
 			weight
 		}
+		seriesStage {
+			gamesPlayed
+			bestOf
+			weight
+		}
 		averageGuess
 		guessDistribution {
 			value

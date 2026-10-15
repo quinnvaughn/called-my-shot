@@ -78,6 +78,7 @@ export async function loadTrackRecord(
 			createdAt: true,
 			seasonPlayWeeksPlayed: true,
 			seasonPlayWeeksCounted: true,
+			seriesWeight: true,
 		},
 		with: {
 			question: {
@@ -95,7 +96,7 @@ export async function loadTrackRecord(
 				},
 			},
 			selections: {
-				columns: { conviction: true, resultPoints: true },
+				columns: { conviction: true, resultPoints: true, lossRate: true },
 				with: {
 					option: {
 						columns: {

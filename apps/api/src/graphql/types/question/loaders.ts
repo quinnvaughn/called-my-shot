@@ -165,6 +165,8 @@ const questionFactsLoader = ctxLoader(async (questionIds: string[]) => {
 			leagueId: true,
 			shape: true,
 			seasonId: true,
+			// Call.seriesStage reads the series' length off it.
+			seriesId: true,
 			locksAt: true,
 			// Call.payout prices a pending pick's miss at it, off the base
 			// isOfficial and shape decide together.

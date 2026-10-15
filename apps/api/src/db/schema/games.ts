@@ -2,6 +2,7 @@ import {
 	boolean,
 	index,
 	integer,
+	numeric,
 	pgEnum,
 	pgTable,
 	real,
@@ -92,6 +93,20 @@ export const postseasonSeries = pgTable(
 			.notNull()
 			.references(() => teams.id, { onDelete: "restrict" }),
 		bestOf: integer("best_of"),
+		// The chance each team wins one of the series' games at home, from the
+		// game score model (see createGameWinnerPricer), refreshed by the daily
+		// sync. What the series questions are priced from between games, when
+		// a game going final reopens them; null until a model could be read.
+		teamAHomeWinChance: numeric("team_a_home_win_chance", {
+			precision: 4,
+			scale: 3,
+			mode: "number",
+		}),
+		teamBHomeWinChance: numeric("team_b_home_win_chance", {
+			precision: 4,
+			scale: 3,
+			mode: "number",
+		}),
 		winnerTeamId: uuid("winner_team_id").references(() => teams.id, {
 			onDelete: "restrict",
 		}),

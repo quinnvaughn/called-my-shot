@@ -234,3 +234,90 @@ export function seriesSummary(
 		? `${abbreviationOf(leaderId)} wins series ${score}`
 		: `${abbreviationOf(leaderId)} leads ${score}`
 }
+
+// The chance each team wins one of the series' games at home - see
+// postseasonSeries.teamAHomeWinChance.
+export type SeriesGameChances = {
+	teamAId: string
+	teamAHome: number
+	teamBHome: number
+}
+
+// The chance team A wins game `number`, from which team that game lists as
+// home. A game ESPN hasn't listed is read as neutral: the two home chances
+// averaged from team A's side.
+function teamAGameChance(
+	games: SeriesGame[],
+	number: number,
+	chances: SeriesGameChances,
+): number {
+	const game = games.find((g) => g.seriesGameNumber === number)
+	const atHome = chances.teamAHome
+	const away = 1 - chances.teamBHome
+	if (!game) return (atHome + away) / 2
+	return game.homeTeamId === chances.teamAId ? atHome : away
+}
+
+export type SeriesOutlook = {
+	// The chance team A wins the series from here.
+	teamAWins: number
+	// The chance the series is still undecided going into its last possible
+	// game, which is when "does it go all N games?" is settled yes.
+	goesDistance: number
+}
+
+// Where a series is headed from its final games so far, playing out every
+// way its remaining games could go one game at a time, each at its own home
+// side's chance.
+export function seriesOutlook(
+	games: SeriesGame[],
+	bestOf: number,
+	teamBId: string,
+	chances: SeriesGameChances,
+): SeriesOutlook {
+	const need = winsNeeded(bestOf)
+	const wins = seriesWins(games)
+	const memo = new Map<string, SeriesOutlook>()
+	const from = (a: number, b: number): SeriesOutlook => {
+		if (a >= need) return { teamAWins: 1, goesDistance: 0 }
+		if (b >= need) return { teamAWins: 0, goesDistance: 0 }
+		if (a === need - 1 && b === need - 1) {
+			const p = teamAGameChance(games, bestOf, chances)
+			return { teamAWins: p, goesDistance: 1 }
+		}
+		const key = `${a}:${b}`
+		const known = memo.get(key)
+		if (known) return known
+		const p = teamAGameChance(games, a + b + 1, chances)
+		const ifA = from(a + 1, b)
+		const ifB = from(a, b + 1)
+		const outlook = {
+			teamAWins: p * ifA.teamAWins + (1 - p) * ifB.teamAWins,
+			goesDistance: p * ifA.goesDistance + (1 - p) * ifB.goesDistance,
+		}
+		memo.set(key, outlook)
+		return outlook
+	}
+	return from(wins.get(chances.teamAId) ?? 0, wins.get(teamBId) ?? 0)
+}
+
+// How far into a series a call made now would be: its games already final,
+// and the number of the one coming up.
+export function seriesStage(games: SeriesGame[]): {
+	gamesPlayed: number
+	nextGameNumber: number
+} {
+	const gamesPlayed = games.filter((g) => g.status === "final").length
+	return { gamesPlayed, nextGameNumber: gamesPlayed + 1 }
+}
+
+// The last game before which each series question still takes calls. Who
+// wins stays open until the last possible game starts. Whether the series
+// goes the distance is settled the moment that game is needed at all, so it
+// stops a game earlier.
+export function lastAskableGame(
+	template: "winner" | "distance",
+	bestOf: number,
+): number {
+	return template === "winner" ? bestOf : bestOf - 1
+}

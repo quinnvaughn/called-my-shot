@@ -80,7 +80,7 @@ export async function syncSportsData({
 		// After syncGames too: a series only exists once its games have synced,
 		// and its questions wait on Game 1's start time.
 		await step(`${name} series questions`, () =>
-			syncSeriesQuestions(league, now),
+			syncSeriesQuestions(league, now, espn),
 		)
 
 		// Idempotent per question (see syncSeasonQuestions) - safe to run

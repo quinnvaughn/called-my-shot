@@ -55,6 +55,7 @@ import {
 } from "./loaders"
 import { QuestionReportRef, ResolutionDisputeRef } from "./moderation-objects"
 import { paceFor, SeasonPlayRef } from "./season-play"
+import { questionSeriesStage, SeriesStageRef } from "./series-stage"
 import { StatContextRef } from "./stat-context"
 
 // The viewer's streak a question's result would extend or end - see
@@ -712,6 +713,13 @@ export const QuestionRef = builder.drizzleObject("questions", {
 			nullable: true,
 			resolve: (question, _args, ctx) =>
 				ctx.user ? paceFor(ctx, question, ctx.user.id) : null,
+		}),
+		// What a call made now on a series question is worth, for how far
+		// into the series it is - see SeriesStage. Null on any other question.
+		seriesStage: t.field({
+			type: SeriesStageRef,
+			nullable: true,
+			resolve: (question, _args, ctx) => questionSeriesStage(ctx, question),
 		}),
 		viewerCall: t.loadable({
 			type: CallRef,

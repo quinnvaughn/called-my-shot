@@ -144,6 +144,9 @@ async function seedRandomCalls(userIds: string[]): Promise<void> {
 					callId: call.id,
 					optionId: option.id,
 					conviction: randomConviction(),
+					lossRate: option.lossRate,
+					winMult: option.winMult,
+					modelHitRate: option.modelHitRate,
 				})),
 			)
 			callCount++

@@ -4,7 +4,10 @@ import {
 	isGameConfirmed,
 	parsePostseasonNote,
 	roundLabel,
+	lastAskableGame,
 	type SeriesGame,
+	seriesOutlook,
+	seriesStage,
 	seriesSummary,
 	seriesWinner,
 	standingBefore,
@@ -148,5 +151,64 @@ describe("series state", () => {
 		expect(seriesSummary(done[2] as SeriesGame, done, 3, abbreviation)).toBe(
 			"DET wins series 2-1",
 		)
+	})
+})
+
+describe("seriesOutlook", () => {
+	const even = { teamAId: HOME, teamAHome: 0.5, teamBHome: 0.5 }
+
+	it("reads an even best-of-7 before Game 1", () => {
+		const outlook = seriesOutlook([], 7, AWAY, even)
+		expect(outlook.teamAWins).toBeCloseTo(0.5, 10)
+		// Both sides at 3 after six even games: C(6,3) / 2^6.
+		expect(outlook.goesDistance).toBeCloseTo(20 / 64, 10)
+	})
+
+	it("moves with the series score", () => {
+		const games = [game(1, "home"), game(2, "home"), game(3, "home")]
+		const outlook = seriesOutlook(games, 7, AWAY, even)
+		// Down 0-3, the other side has to win four straight.
+		expect(outlook.teamAWins).toBeCloseTo(1 - 1 / 16, 10)
+		expect(outlook.goesDistance).toBeCloseTo(1 / 8, 10)
+	})
+
+	it("plays each game at its own home side's chance", () => {
+		// Best of 3, both games so far split; Game 3 is at AWAY's park.
+		const games = [
+			game(1, "home"),
+			game(2, "away"),
+			game(3, undefined, { homeTeamId: AWAY, awayTeamId: HOME }),
+		]
+		const outlook = seriesOutlook(games, 3, AWAY, {
+			teamAId: HOME,
+			teamAHome: 0.6,
+			teamBHome: 0.7,
+		})
+		expect(outlook.teamAWins).toBeCloseTo(0.3, 10)
+		expect(outlook.goesDistance).toBe(1)
+	})
+
+	it("is settled once a side has won", () => {
+		const games = [game(1, "away"), game(2, "away")]
+		expect(seriesOutlook(games, 3, AWAY, even)).toEqual({
+			teamAWins: 0,
+			goesDistance: 0,
+		})
+	})
+})
+
+describe("seriesStage", () => {
+	it("counts the final games and names the next one", () => {
+		expect(seriesStage([game(1, "home"), game(2, "away"), game(3)])).toEqual({
+			gamesPlayed: 2,
+			nextGameNumber: 3,
+		})
+	})
+})
+
+describe("lastAskableGame", () => {
+	it("stops the distance question a game before the winner", () => {
+		expect(lastAskableGame("winner", 7)).toBe(7)
+		expect(lastAskableGame("distance", 7)).toBe(6)
 	})
 })

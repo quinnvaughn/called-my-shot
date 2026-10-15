@@ -13,6 +13,7 @@ import { Slider } from "#/components/ui/slider"
 import { previewCrowdPct } from "#/lib/scoring"
 import { PointsPreview } from "../points-preview"
 import { SeasonPlayNote } from "../season-play-note"
+import { SeriesStageNote } from "../series-stage-note"
 import { useCastCallFormContext } from "./cast-call-form-context"
 
 // Conviction on a single-pick call, with the payout it produces right under
@@ -104,7 +105,9 @@ export function ConvictionCard() {
 										shape,
 										isOfficial: question.isOfficial,
 										isPriced: question.isPriced,
-									}) * (question.viewerSeasonPlay?.weight ?? 1)
+									}) *
+									(question.viewerSeasonPlay?.weight ?? 1) *
+									(question.seriesStage?.weight ?? 1)
 								}
 								lossRate={effectiveLossRate(
 									question.lossRate,
@@ -119,6 +122,11 @@ export function ConvictionCard() {
 										play={question.viewerSeasonPlay}
 										league={question.league.abbreviation}
 									/>
+								</div>
+							)}
+							{question.seriesStage && (
+								<div className={css({ marginTop: "2" })}>
+									<SeriesStageNote stage={question.seriesStage} />
 								</div>
 							)}
 						</div>

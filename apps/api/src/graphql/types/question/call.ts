@@ -33,9 +33,9 @@ import {
 	questionCallCountLoader,
 	questionFieldConvictionLoader,
 	questionOptionCountLoader,
-	questionOptionLoader,
 } from "./loaders"
 import { callSeasonPlay, SeasonPlayRef } from "./season-play"
+import { callSeriesStage, SeriesStageRef } from "./series-stage"
 
 // How far into a streak a call was when it landed - see Call.streak.
 const CallStreakMarkRef = builder
@@ -58,6 +58,11 @@ export const CallSelectionRef = builder.drizzleObject("callSelections", {
 		conviction: t.exposeInt("conviction"),
 		// null until the question resolves
 		resultPoints: t.exposeInt("resultPoints", { nullable: true }),
+		// The side's price when this pick was made, which it's scored at - see
+		// call_selections.loss_rate. Null on an unpriced side.
+		lossRate: t.exposeFloat("lossRate", { nullable: true }),
+		winMult: t.exposeFloat("winMult", { nullable: true }),
+		modelHitRate: t.exposeFloat("modelHitRate", { nullable: true }),
 		option: t.relation("option"),
 	}),
 })
@@ -92,10 +97,13 @@ export async function pendingPayout(
 	if (!question) return null
 	if (question.status !== "open" && question.status !== "locked") return null
 	// A season-long call is worth its share of the full points at its
-	// caller's pace so far - see seasonPlayWeight.
+	// caller's pace so far - see seasonPlayWeight - and a series call its
+	// share for how far into the series it was made - see seriesStageWeight.
 	const play = await callSeasonPlay(ctx, call)
 	const basePoints =
-		basePointsFor(question) * (play ? seasonPlayWeightOf(play) : 1)
+		basePointsFor(question) *
+		(play ? seasonPlayWeightOf(play) : 1) *
+		(call.seriesWeight ?? 1)
 	const [rank, callCount] = await Promise.all([
 		callRankLoader(ctx).load(call.id),
 		questionCallCountLoader(ctx).load(call.questionId),
@@ -119,9 +127,8 @@ export async function pendingPayout(
 
 	const [selection, ...rest] = await callSelectionsLoader(ctx).load(call.id)
 	if (!selection || rest.length > 0 || callCount === 0) return null
-	const [option, optionConviction, fieldConviction, optionCount, window] =
+	const [optionConviction, fieldConviction, optionCount, window] =
 		await Promise.all([
-			questionOptionLoader(ctx).load(selection.optionId),
 			optionConvictionLoader(ctx).load(selection.optionId),
 			questionFieldConvictionLoader(ctx).load(call.questionId),
 			questionOptionCountLoader(ctx).load(call.questionId),
@@ -131,14 +138,14 @@ export async function pendingPayout(
 		])
 	const preview = previewSelectionPoints(
 		basePoints,
-		effectiveLossRate(question.lossRate, option?.lossRate),
+		effectiveLossRate(question.lossRate, selection.lossRate),
 		fieldPct(optionConviction, fieldConviction),
 		optionCount,
 		selection.conviction,
 		window
 			? seasonEarlyTierFor(window.played, window.total)
 			: earlyTierFor(rank, callCount),
-		option ?? {},
+		selection,
 	)
 	return { winLow: preview.win, winHigh: preview.win, lose: preview.lose }
 }
@@ -292,6 +299,13 @@ export const CallRef = builder.drizzleObject("calls", {
 			type: SeasonPlayRef,
 			nullable: true,
 			resolve: (call, _args, ctx) => callSeasonPlay(ctx, call),
+		}),
+		// How far into its series the call was made, on a series question -
+		// see SeriesStage. Null on any other call.
+		seriesStage: t.field({
+			type: SeriesStageRef,
+			nullable: true,
+			resolve: (call, _args, ctx) => callSeriesStage(ctx, call),
 		}),
 		user: t.relation("user"),
 		question: t.relation("question"),

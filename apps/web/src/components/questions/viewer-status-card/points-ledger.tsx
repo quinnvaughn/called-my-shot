@@ -1,35 +1,57 @@
 import { pluralize } from "#/lib/pluralize"
 import { formatMult } from "#/lib/scoring"
-import type { SeasonPlayTerm } from "#/lib/viewer-status"
+import type { SeasonPlayTerm, SeriesStageTerm } from "#/lib/viewer-status"
 import { mathDefault, mathDownside, mathLose } from "./styles"
 import type { LedgerRow, ResultLedger } from "./types"
 
 const missNote = "boldness and early bonuses only pay out on a hit"
 
 // A season-long call's committed points carry its season-play weight (see
-// seasonPlayWeight), so every row built off committed carries it too, and
-// the weeks behind it get a row of their own.
+// seasonPlayWeight), and a series call's its series stage (see
+// seriesStageWeight), so every row built off committed carries it too, and
+// what's behind it gets a row of its own. A series call made before Game 1
+// counts in full and gets neither.
 export function committedRows(
 	basePoints: number,
 	conviction: number,
 	committed: number,
 	play: SeasonPlayTerm,
+	stage: SeriesStageTerm = null,
 ): LedgerRow[] {
 	const playText = play ? ` × ${formatMult(play.weight)} season play` : ""
+	const scaledStage = stage && stage.gamesPlayed > 0 ? stage : null
+	const stageText = scaledStage
+		? ` × ${formatMult(scaledStage.weight)} series stage`
+		: ""
 	return [
 		{
 			label: "COMMITTED",
 			math: (
 				<>
 					<span className={mathDefault}>
-						{basePoints} × {conviction}% conviction{playText} ={" "}
+						{basePoints} × {conviction}% conviction{playText}
+						{stageText} ={" "}
 					</span>
 					<span className={mathDownside}>{committed}</span>
 				</>
 			),
 		},
 		...(play ? [seasonPlayRow(play)] : []),
+		...(scaledStage ? [seriesStageRow(scaledStage)] : []),
 	]
+}
+
+function seriesStageRow(stage: NonNullable<SeriesStageTerm>): LedgerRow {
+	const { gamesPlayed, bestOf } = stage
+	return {
+		label: "SERIES STAGE",
+		math: (
+			<span className={mathDefault}>
+				called before Game {gamesPlayed + 1} of {bestOf} = ×
+				{formatMult(stage.weight)}
+			</span>
+		),
+	}
 }
 
 function seasonPlayRow(play: NonNullable<SeasonPlayTerm>): LedgerRow {

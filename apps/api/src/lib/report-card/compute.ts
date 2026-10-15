@@ -44,10 +44,11 @@ export type ReportCardCall = {
 	isOfficial: boolean
 	isPriced: boolean
 	// What share of its full points the call was worth - see
-	// seasonPlayWeight. 1 on anything but a resolved season-long call. Sizes
-	// committed with the points, so a caller's grade reads how well they
-	// called, not how regularly they played.
-	seasonPlayWeight: number
+	// seasonPlayWeight and seriesStageWeight. 1 on anything but a resolved
+	// season-long call or a series call made after Game 1. Sizes committed
+	// with the points, so a caller's grade reads how well they called, not
+	// how regularly they played or how late in a series they called it.
+	pointsWeight: number
 	status: Question["status"]
 	unscoredReason: CallUnscoredReason | null
 	hitTolerance: boolean | null
@@ -177,7 +178,7 @@ function accumulate(
 	call: ReportCardCall,
 	classification: Classification,
 ): void {
-	const basePoints = basePointsFor(call) * call.seasonPlayWeight
+	const basePoints = basePointsFor(call) * call.pointsWeight
 	if (classification.kind === "excluded") return
 
 	if (classification.kind === "pending") {
