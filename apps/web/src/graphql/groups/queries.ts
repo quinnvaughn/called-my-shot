@@ -124,14 +124,8 @@ export const GroupSettingsDocument = graphql(`
     }
 `)
 
-// The group's header and right rail, which every tab under
-// /groups/:groupId shares. Read by the tabs' layout route, so switching tabs
-// doesn't refetch it.
-//
-// The four highlights lists take their three each here and are read straight
-// off this result - unlike the lists on the tabs they don't paginate, so the
-// rail costs no request of its own and needs no seeding. Only the sheet behind
-// its "see all" queries separately, for the full fifty.
+// The group's header, which every tab under /groups/:groupId shares. Read by
+// the tabs' layout route, so switching tabs doesn't refetch it.
 export const GroupShellDocument = graphql(`
     query GroupShell($groupId: ID!) {
         group(id: $groupId) {
@@ -152,18 +146,6 @@ export const GroupShellDocument = graphql(`
                 id
                 code
                 expiresAt
-            }
-            hotStreaks(limit: 3) {
-                ...GroupHighlights_streak
-            }
-            coldStreaks(limit: 3) {
-                ...GroupHighlights_streak
-            }
-            streakRecords(limit: 3) {
-                ...GroupHighlights_streak
-            }
-            recentSweeps(limit: 3) {
-                ...GroupHighlights_sweep
             }
         }
     }

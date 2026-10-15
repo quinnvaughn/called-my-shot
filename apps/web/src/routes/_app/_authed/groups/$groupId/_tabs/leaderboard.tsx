@@ -1,7 +1,10 @@
 import { useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
 import { VStack } from "styled-system/jsx"
-import { GroupHighlights } from "#/components/groups/group-highlights"
+import {
+	GroupHighlights,
+	groupHighlightsQuery,
+} from "#/components/groups/group-highlights"
 import {
 	GroupLeaderboard,
 	groupLeaderboardQuery,
@@ -36,8 +39,7 @@ function groupLeagueScope(
 	}
 }
 
-// The group's standings, plus its highlights below xl, where the shell has no
-// rail to put them in.
+// The group's standings, then its streak and sweep highlights.
 export const Route = createFileRoute(
 	"/_app/_authed/groups/$groupId/_tabs/leaderboard",
 )({
@@ -63,14 +65,17 @@ export const Route = createFileRoute(
 			allLeaguesLabel: scope.allLeaguesLabel,
 			allowWeek: true,
 		})
-		await context.queryClient.infiniteQuery(
-			groupLeaderboardQuery(
-				groupId,
-				filter.leagueId,
-				filter.season,
-				filter.thisWeek,
+		await Promise.all([
+			context.queryClient.infiniteQuery(
+				groupLeaderboardQuery(
+					groupId,
+					filter.leagueId,
+					filter.season,
+					filter.thisWeek,
+				),
 			),
-		)
+			context.queryClient.query(groupHighlightsQuery(groupId)),
+		])
 	},
 })
 
@@ -103,13 +108,7 @@ function RouteComponent() {
 				onFilterChange={(next) => navigate({ search: next })}
 				viewerId={me?.id}
 			/>
-			<GroupHighlights
-				groupId={group.id}
-				hotStreaks={group.hotStreaks}
-				coldStreaks={group.coldStreaks}
-				streakRecords={group.streakRecords}
-				recentSweeps={group.recentSweeps}
-			/>
+			<GroupHighlights groupId={group.id} />
 		</VStack>
 	)
 }

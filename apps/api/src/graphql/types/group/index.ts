@@ -16,6 +16,8 @@ import "./ballot-board"
 import "./pressers"
 import "./recaps"
 import "./record-book"
+import "./still-open"
+import "./week-race"
 
 // The public surface other modules build on - everything else stays internal
 // to this directory. The queries and mutations are registered by the

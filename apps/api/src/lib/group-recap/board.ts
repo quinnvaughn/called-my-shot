@@ -49,7 +49,11 @@ export async function buildGroupWeekLeaderboard(
 	)
 }
 
-export type ReigningPlayersOfTheWeek = { week: RecapWeek; users: User[] }
+export type ReigningPlayersOfTheWeek = {
+	week: RecapWeek
+	points: number
+	users: User[]
+}
 
 // The newest recap's winners, the same ones its card names, until a newer
 // recap names someone else. Null when the group has no recap or nobody
@@ -81,5 +85,5 @@ export async function loadReigningPlayersOfTheWeek(
 		with: { user: true },
 	})
 	const users = members.flatMap((m) => (m.user ? [m.user] : []))
-	return users.length > 0 ? { week, users } : null
+	return users.length > 0 ? { week, points: winners[0].points, users } : null
 }

@@ -4,18 +4,11 @@ import { pluralize } from "#/lib/pluralize"
 import { entryKey, type StreakEntry, streakTo } from "./group-highlight-entries"
 import { HighlightRow } from "./highlight-row"
 
-export function ColdStreakRows({
-	entries,
-	compact,
-}: {
-	entries: StreakEntry[]
-	compact?: boolean
-}) {
+export function ColdStreakRows({ entries }: { entries: StreakEntry[] }) {
 	return (
 		<VStack alignItems="stretch" gap="2">
 			{entries.map((e) => (
 				<HighlightRow
-					compact={compact}
 					key={entryKey(e)}
 					user={toIdentity(e.user)}
 					leagueAbbr={e.league.abbreviation}

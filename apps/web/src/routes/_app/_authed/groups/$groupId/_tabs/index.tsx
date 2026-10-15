@@ -21,6 +21,8 @@ import {
 import { GroupPinnedStrip } from "#/components/groups/group-pinned-strip"
 import { GroupPresserStrip } from "#/components/groups/group-presser-strip"
 import { GroupRecapCard } from "#/components/groups/group-recap-card"
+import { GroupStillOpen } from "#/components/groups/group-still-open/group-still-open"
+import { GroupWeekRace } from "#/components/groups/group-week-race/group-week-race"
 import {
 	SharedQuestionsTab,
 	sharedQuestionsQuery,
@@ -35,8 +37,10 @@ import { groupShellQuery } from "../_tabs"
 const groupHomeQuery = (groupId: string) =>
 	gqlQueryOptions(GroupHomeDocument, { groupId })
 
-// What's happening in the group right now: pins, games on or about to be,
-// fresh presser answers, ballots, this week's recap, then the activity feed.
+// What's happening in the group right now: pins, what's still open to call
+// and the week race below xl (the rail has both from there), games on or
+// about to be, fresh presser answers, ballots, this week's recap, then the
+// activity feed.
 // Every strip renders nothing when it has nothing current, so a quiet week
 // makes a shorter page rather than a row of empty boxes.
 export const Route = createFileRoute("/_app/_authed/groups/$groupId/_tabs/")({
@@ -97,6 +101,8 @@ function RouteComponent() {
 				pins={group.pins}
 				viewerIsAdmin={group.viewerIsAdmin}
 			/>
+			<GroupStillOpen groupId={group.id} placement="band" />
+			<GroupWeekRace groupId={group.id} placement="band" />
 			<GroupGamesStrip groupId={group.id} />
 			<GroupPresserStrip
 				groupId={group.id}

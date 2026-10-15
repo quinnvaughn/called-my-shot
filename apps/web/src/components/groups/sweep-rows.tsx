@@ -4,18 +4,11 @@ import { pluralize } from "#/lib/pluralize"
 import type { SweepEntry } from "./group-highlight-entries"
 import { HighlightRow } from "./highlight-row"
 
-export function SweepRows({
-	entries,
-	compact,
-}: {
-	entries: SweepEntry[]
-	compact?: boolean
-}) {
+export function SweepRows({ entries }: { entries: SweepEntry[] }) {
 	return (
 		<VStack alignItems="stretch" gap="2">
 			{entries.map((e) => (
 				<HighlightRow
-					compact={compact}
 					key={`${toIdentity(e.user).id}-${e.league.id}-${e.slateKey}`}
 					user={toIdentity(e.user)}
 					leagueAbbr={e.league.abbreviation}

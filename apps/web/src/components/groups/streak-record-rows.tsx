@@ -6,18 +6,11 @@ import { HighlightRow } from "./highlight-row"
 // The group's longest runs ever, shown in the hot list's place when nobody is
 // on one now. These are history, so they lead with the best length and don't
 // claim anything about right now.
-export function StreakRecordRows({
-	entries,
-	compact,
-}: {
-	entries: StreakEntry[]
-	compact?: boolean
-}) {
+export function StreakRecordRows({ entries }: { entries: StreakEntry[] }) {
 	return (
 		<VStack alignItems="stretch" gap="2">
 			{entries.map((e) => (
 				<HighlightRow
-					compact={compact}
 					key={entryKey(e)}
 					user={toIdentity(e.user)}
 					leagueAbbr={e.league.abbreviation}

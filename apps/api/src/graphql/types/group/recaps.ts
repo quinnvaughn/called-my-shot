@@ -92,6 +92,8 @@ const ReigningPlayersOfTheWeekRef = builder
 		fields: (t) => ({
 			// The week they won: "Oct 6 to 12".
 			weekLabel: t.string({ resolve: (r) => formatWeekLabel(r.week) }),
+			// What they won with. Winners share it: a tie is an exact one.
+			points: t.exposeInt("points"),
 			users: t.field({ type: [UserRef], resolve: (r) => r.users }),
 		}),
 	})

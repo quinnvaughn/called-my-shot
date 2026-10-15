@@ -14,8 +14,8 @@ import { StreakRecordRows } from "./streak-record-rows"
 import { SweepRows } from "./sweep-rows"
 
 // The full lists behind the band's "see all". Its own query rather than more
-// of GroupShell's: the rail asks for three of each on every group page load,
-// and nobody should pay for fifty until they open this.
+// of the band's: the band asks for three of each, and nobody should pay for
+// fifty until they open this.
 export const GroupHighlightsDocument = graphql(`
 	query GroupHighlights($groupId: ID!) {
 		group(id: $groupId) {

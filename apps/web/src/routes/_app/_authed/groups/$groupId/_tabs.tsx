@@ -4,8 +4,13 @@ import { FiSettings, FiUserPlus, FiUsers } from "react-icons/fi"
 import { HiMiniQuestionMarkCircle } from "react-icons/hi2"
 import { HStack, VStack } from "styled-system/jsx"
 import { GroupHeader } from "#/components/groups/group-header"
-import { GroupHighlightsRail } from "#/components/groups/group-highlights"
 import { GroupMembersSheet } from "#/components/groups/group-members-sheet"
+import { GroupStillOpen } from "#/components/groups/group-still-open/group-still-open"
+import { groupStillOpenQuery } from "#/components/groups/group-still-open/still-open-query"
+import {
+	GroupWeekRace,
+	groupWeekRaceQuery,
+} from "#/components/groups/group-week-race/group-week-race"
 import { HeaderAction } from "#/components/groups/header-action"
 import { InviteCodeModal } from "#/components/groups/invite-code-modal"
 import { PageBanner } from "#/components/images/page-banner"
@@ -23,7 +28,7 @@ export const groupShellQuery = (groupId: string) =>
 	gqlQueryOptions(GroupShellDocument, { groupId })
 
 // Everything the group's tabs share: the banner, the header and its actions,
-// the tab row, and the highlights rail. Each tab below loads only its own
+// the tab row, and the rail: what's still open to call, then the week race. Each tab below loads only its own
 // content, so switching between them doesn't refetch any of this.
 //
 // New areas of a group get a tab here rather than another strip on Home,
@@ -31,8 +36,17 @@ export const groupShellQuery = (groupId: string) =>
 export const Route = createFileRoute("/_app/_authed/groups/$groupId/_tabs")({
 	component: RouteComponent,
 	staticData: { rightRail: <GroupRail /> },
-	loader: ({ context, params }) =>
-		context.queryClient.query(groupShellQuery(params.groupId)),
+	// The rail's lists load here rather than in the rail, so it doesn't
+	// suspend on requests of its own after the page has drawn. Home reads the
+	// same caches for its below-xl copies.
+	loader: async ({ context, params }) => {
+		const [shell] = await Promise.all([
+			context.queryClient.query(groupShellQuery(params.groupId)),
+			context.queryClient.query(groupStillOpenQuery(params.groupId)),
+			context.queryClient.query(groupWeekRaceQuery(params.groupId)),
+		])
+		return shell
+	},
 })
 
 const TAB_ITEMS = [
@@ -46,16 +60,12 @@ const TAB_ITEMS = [
 function GroupRail() {
 	const { groupId } = Route.useParams()
 	const { data } = useSuspenseQuery(groupShellQuery(groupId))
-	const group = data.group
-	if (!group) return null
+	if (!data.group) return null
 	return (
-		<GroupHighlightsRail
-			groupId={group.id}
-			hotStreaks={group.hotStreaks}
-			coldStreaks={group.coldStreaks}
-			streakRecords={group.streakRecords}
-			recentSweeps={group.recentSweeps}
-		/>
+		<VStack alignItems="stretch" gap="8">
+			<GroupStillOpen groupId={groupId} placement="rail" />
+			<GroupWeekRace groupId={groupId} placement="rail" />
+		</VStack>
 	)
 }
 
