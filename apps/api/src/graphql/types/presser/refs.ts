@@ -162,7 +162,7 @@ export const PresserRef = builder.objectRef<Presser>("Presser").implement({
 			resolve: (p) => (visibleStatement(p) ? p.statementPostedAt : null),
 		}),
 		// What the viewer may see, app questions first, then groupmates, then
-		// people who faded the owner, then everyone else, each oldest first.
+		// everyone else, each oldest first.
 		// The owner's first look writes the app's questions.
 		questions: t.field({
 			type: [PresserQuestionRef],

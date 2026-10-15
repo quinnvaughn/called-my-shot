@@ -26,7 +26,6 @@ export const MOMENT_PRIORITY: RecapMomentKind[] = [
 	"consensus_miss",
 	"redo_paid_off",
 	"streak_ended",
-	"fade_hit",
 	"called_early",
 	"longest_streak",
 ]
@@ -47,7 +46,6 @@ export type RecapSelection = {
 
 function momentUsers(moment: RecapMoment): string[] {
 	if (moment.kind === "consensus_miss") return []
-	if (moment.kind === "fade_hit") return [moment.userId, moment.targetUserId]
 	return [moment.userId]
 }
 
@@ -110,7 +108,6 @@ type Slot =
 
 type SlotRefs = {
 	userId: string | null
-	targetUserId: string | null
 	callId: string | null
 	questionId: string | null
 	optionId: string | null
@@ -120,7 +117,6 @@ type SlotRefs = {
 
 const NO_REFS = {
 	userId: null,
-	targetUserId: null,
 	callId: null,
 	questionId: null,
 	optionId: null,
@@ -156,17 +152,6 @@ function refsOf(slot: Slot): SlotRefs {
 			optionId,
 			leagueId,
 		}))
-		.with(
-			{ kind: "fade_hit" },
-			({ userId, targetUserId, callId, questionId, leagueId }) => ({
-				...NO_REFS,
-				userId,
-				targetUserId,
-				callId,
-				questionId,
-				leagueId,
-			}),
-		)
 		.with(
 			{ kind: "redo_backfired" },
 			{ kind: "redo_paid_off" },
@@ -287,7 +272,7 @@ export async function loadRecapView(
 	const gameIds = new Set<string>()
 	for (const slot of slots) {
 		const refs = refsOf(slot)
-		for (const id of [refs.userId, refs.targetUserId]) if (id) userIds.add(id)
+		if (refs.userId) userIds.add(refs.userId)
 		if (refs.callId) callIds.add(refs.callId)
 		if (refs.questionId) questionIds.add(refs.questionId)
 		if (refs.optionId) optionIds.add(refs.optionId)
@@ -528,17 +513,6 @@ export async function loadRecapView(
 						note: `A run of ${snap.length} straight hits ended.`,
 					}),
 				)
-				.with({ kind: "fade_hit" }, (fade) => {
-					const target = userById.get(fade.targetUserId)
-					if (!target) return null
-					return tile({
-						label: "Fade that hit",
-						value: signed(fade.points),
-						tone: "success",
-						headline: title,
-						note: `Faded ${target.name} and was right.`,
-					})
-				})
 				.with({ kind: "called_early" }, (early) =>
 					tile({
 						label: "Called it early",

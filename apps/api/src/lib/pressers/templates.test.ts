@@ -18,8 +18,6 @@ function call(overrides: Partial<CallFacts> = {}): CallFacts {
 		closenessFieldPct: null,
 		lostBy: null,
 		redoFlipped: false,
-		fadersRight: [],
-		fadersWrong: [],
 		streakLength: null,
 		questionCreatedAt: new Date(2026, 0, n),
 		...overrides,
@@ -75,28 +73,9 @@ describe("pickAppQuestions", () => {
 		})
 	})
 
-	it("puts a fade that landed ahead of everything else", () => {
-		const faded = call({
-			won: false,
-			conviction: 95,
-			fadersRight: ["jay", "sam", "kit"],
-			resultPoints: -50,
-		})
-		const [first] = pickAppQuestions(facts([faded]))
-		expect(first?.template).toBe("faded_and_lost")
-		expect(first?.body).toBe(
-			"@jay and 2 others faded your Lakers call and were right. What did they see that you didn't?",
-		)
-	})
-
 	it("asks at most one question per call and caps the total", () => {
 		const calls = [
-			call({
-				won: false,
-				conviction: 90,
-				fadersRight: ["jay"],
-				resultPoints: -80,
-			}),
+			call({ won: false, conviction: 90, resultPoints: -80 }),
 			call({ won: false, conviction: 85, resultPoints: -70 }),
 			call({ won: true, fieldSharePct: 8, resultPoints: 300 }),
 			call({ won: true, streakLength: 7, resultPoints: 60 }),
@@ -135,17 +114,11 @@ describe("pickAppQuestions", () => {
 
 	it("never writes an em dash or betting language", () => {
 		const calls = [
-			call({
-				won: false,
-				conviction: 90,
-				fadersRight: ["a"],
-				resultPoints: -9,
-			}),
+			call({ won: false, conviction: 90, resultPoints: -9 }),
 			call({ won: false, conviction: 99, lostBy: 3, resultPoints: -8 }),
 			call({ won: false, redoFlipped: true, resultPoints: -7 }),
 			call({ won: true, fieldSharePct: 5, resultPoints: 6 }),
 			call({ won: false, fieldSharePct: 5, resultPoints: -5 }),
-			call({ won: true, fadersWrong: ["b"], resultPoints: 4 }),
 			call({ won: true, streakLength: 9, resultPoints: 3 }),
 		]
 		const bodies = [

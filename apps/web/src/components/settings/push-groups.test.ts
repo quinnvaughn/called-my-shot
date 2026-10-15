@@ -6,7 +6,6 @@ import { PUSH_GROUPS } from "./push-groups"
 // to the schema fails to compile here until it's listed.
 const ALL_TYPES: Record<PushPreferenceType, true> = {
 	ALL: true,
-	CALL_FADED: true,
 	CALL_RESOLVED: true,
 	CALL_VOIDED: true,
 	CHALLENGE_ACCEPTED: true,
@@ -16,7 +15,6 @@ const ALL_TYPES: Record<PushPreferenceType, true> = {
 	DISPUTE_FILED: true,
 	DISPUTE_OVERTURNED: true,
 	DISPUTE_UPHELD: true,
-	FADE_GLOATED: true,
 	GAME_REMINDER: true,
 	GAME_RESOLVED: true,
 	GROUP_MEMBER_JOINED: true,

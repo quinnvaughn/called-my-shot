@@ -172,17 +172,6 @@ export async function buildPushContent(
 				path,
 			}
 		})
-		.with("call_faded", "fade_gloated", async (type) => {
-			if (!n.callId) return null
-			return {
-				title: `@${n.actorUsername}`,
-				body:
-					type === "call_faded"
-						? `Faded your call on ${quoted(n.questionTitle)}`
-						: `Gloated on ${quoted(n.questionTitle)}`,
-				path: `/calls/${n.callId}`,
-			}
-		})
 		.with(
 			"dispute_filed",
 			"dispute_upheld",

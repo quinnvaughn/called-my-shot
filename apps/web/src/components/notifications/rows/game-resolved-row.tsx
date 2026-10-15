@@ -1,10 +1,8 @@
 import { Link } from "@tanstack/react-router"
 import { FiCheckCircle, FiXCircle } from "react-icons/fi"
 import { css } from "styled-system/css"
-import { VStack } from "styled-system/jsx"
 import { SignedPoints } from "#/components/ui/signed-points"
 import { type FragmentType, graphql, useFragment } from "#/graphql/generated"
-import { resolvedFadeLine } from "#/lib/fade-copy"
 import { matchupLabel } from "#/lib/game-status"
 import { pluralize } from "#/lib/pluralize"
 import { NotificationShell, type Target } from "../notification-shell"
@@ -35,20 +33,6 @@ export const GameResolvedRowFragment = graphql(`
 			isOpen
 			pendingCount
 		}
-		fades {
-			questionTitle
-			call {
-				id
-			}
-			fade {
-				fadedUsername
-				fadeLanded
-				targetFlipped
-				doubtersCashed
-				doubtersWrong
-				gloatOpen
-			}
-		}
 	}
 `)
 
@@ -60,8 +44,7 @@ type Props = {
 
 // Every settled call of the viewer's on one game, as one row that comes back
 // unread as each later call on it settles. Opens their picks page for the
-// game, where each call is listed; a call a fade touched gets its own line
-// underneath, linking to the call page where its gloat is sent from.
+// game, where each call is listed.
 export function GameResolvedRow({
 	notification: notificationProp,
 	unread,
@@ -85,10 +68,6 @@ export function GameResolvedRow({
 			? `Your presser is open. ${pendingCount} ${pluralize(pendingCount, "question")} waiting.`
 			: "Your presser is open."
 		: null
-	const fadeLines = n.fades.flatMap((f) => {
-		const line = resolvedFadeLine(f.fade)
-		return line ? [{ callId: f.call.id, title: f.questionTitle, line }] : []
-	})
 
 	return (
 		<NotificationShell
@@ -104,40 +83,22 @@ export function GameResolvedRow({
 				) : null
 			}
 			footer={
-				(fadeLines.length > 0 || presserLine) && (
-					<VStack gap="1.5" alignItems="stretch">
-						{presserLine && game && entry && (
-							<Link
-								to="/games/$gameId/picks/$username"
-								params={{ gameId: game.id, username: entry.user.username }}
-								hash="presser"
-								className={css({
-									fontSize: "sm",
-									color: "secondary.default",
-									textDecoration: "none",
-									_hover: { opacity: 0.8 },
-								})}
-							>
-								{presserLine}
-							</Link>
-						)}
-						{fadeLines.map((f) => (
-							<Link
-								key={f.callId}
-								to="/calls/$callId"
-								params={{ callId: f.callId }}
-								className={css({
-									fontSize: "sm",
-									color: "fg.muted",
-									textDecoration: "none",
-									_hover: { color: "fg.default" },
-								})}
-							>
-								<span className={css({ color: "fg.default" })}>{f.title}:</span>{" "}
-								{f.line}
-							</Link>
-						))}
-					</VStack>
+				presserLine &&
+				game &&
+				entry && (
+					<Link
+						to="/games/$gameId/picks/$username"
+						params={{ gameId: game.id, username: entry.user.username }}
+						hash="presser"
+						className={css({
+							fontSize: "sm",
+							color: "secondary.default",
+							textDecoration: "none",
+							_hover: { opacity: 0.8 },
+						})}
+					>
+						{presserLine}
+					</Link>
 				)
 			}
 		>

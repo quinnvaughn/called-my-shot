@@ -15,8 +15,8 @@ export function questionHorizon(shape: QuestionCallShape): QuestionHorizon {
 }
 
 // Where a call was made from. The question page is where most calls land;
-// the call page is a fade aimed at someone's receipt; guest_picks are the
-// landing page's picks, posted once the visitor has an account.
+// the call page is someone's receipt; guest_picks are the landing page's
+// picks, posted once the visitor has an account.
 export type CallSurface =
 	| "question_page"
 	| "call_page"

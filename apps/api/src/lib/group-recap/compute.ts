@@ -61,8 +61,6 @@ export type RecapTrackInput = {
 export type RecapInput = {
 	// Every member's scored calls whose result landed in the week.
 	calls: RecapCallInput[]
-	// Fades in the week that the fader won, both sides members.
-	fadeWins: { faderCallId: string; targetUserId: string }[]
 	sweeps: {
 		userId: string
 		leagueId: string
@@ -278,7 +276,6 @@ export function computeRecap(input: RecapInput): GroupRecapData | null {
 	const activeMembers = new Set(calls.map((c) => c.userId)).size
 	if (activeMembers < RECAP_MIN_ACTIVE_MEMBERS) return null
 
-	const callById = new Map(calls.map((c) => [c.callId, c]))
 	const redone = calls.filter((c) => c.redo !== null)
 
 	const moments: RecapMoment[] = [
@@ -304,15 +301,6 @@ export function computeRecap(input: RecapInput): GroupRecapData | null {
 			kind: "streak_ended" as const,
 			...s,
 		})),
-		...top(
-			input.fadeWins.flatMap((fade) => {
-				const call = callById.get(fade.faderCallId)
-				return call && call.outcome === "win"
-					? [{ ...toRecapCall(call), targetUserId: fade.targetUserId }]
-					: []
-			}),
-			(a, b) => b.points - a.points || byCallId(a, b),
-		).map((f) => ({ kind: "fade_hit" as const, ...f })),
 		...top(
 			calls.flatMap((c) => {
 				const daysAhead = Math.floor(

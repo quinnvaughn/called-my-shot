@@ -12,7 +12,6 @@ import { PlayerOrTeamImage } from "#/components/ui/player-or-team-image"
 import { ReactionGif } from "#/components/ui/reaction-gif"
 import { formatSigned } from "#/lib/format-number"
 import { recordTagFor } from "#/lib/record-tag"
-import { CallRecordFadeLine } from "./call-record-fade-line"
 import { CallRecordPickLine } from "./call-record-pick-line"
 import { CallRecordStatRow } from "./call-record-stat-row"
 import type { CallRecordCardData } from "./types"
@@ -156,10 +155,6 @@ export function CallRecordCard({ data, redo = null, footer }: Props) {
 							</span>
 						</HStack>
 					)}
-					{/* After the question and what actually happened, so the pick
-					reads as an answer to the question first and the fade reads
-					as a second claim about it, not as the thing being asked. */}
-					{data.fading && <CallRecordFadeLine fading={data.fading} />}
 				</VStack>
 			</Card.Header>
 			<Card.Body>

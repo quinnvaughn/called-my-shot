@@ -48,8 +48,8 @@ export function challengeState(
 	if (closesAt && now < closesAt && live.every((q) => q.status === "open")) {
 		return "open"
 	}
-	// disputed counts as having a result, the same as a fade's: the result
-	// stands until an admin overturns it, and an overturn rescores the calls.
+	// disputed counts as having a result: the result stands until an admin
+	// overturns it, and an overturn rescores the calls.
 	return live.some((q) => q.status === "open" || q.status === "locked")
 		? "live"
 		: "settled"

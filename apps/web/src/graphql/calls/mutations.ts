@@ -14,7 +14,6 @@ import {
 	ChallengePageDocument,
 	ChallengeReceiptDocument,
 	CreatedQuestionsDocument,
-	FadeCallQuestionDocument,
 	GameByIdDocument,
 	GameEntryDocument,
 	GameOfficialQuestionsDocument,
@@ -109,57 +108,6 @@ export const RedoCallDocument = graphql(`
 	}
 `)
 
-export const AttachFadeDocument = graphql(`
-	mutation AttachFade($input: AttachFadeInput!) {
-		attachFade(input: $input) {
-			__typename
-			... on AttachFadePayload {
-				call {
-					id
-				}
-			}
-			... on ValidationError {
-				fieldErrors {
-					field
-					message
-				}
-			}
-			... on AuthenticationError {
-				message
-			}
-			... on NotFoundError {
-				message
-			}
-		}
-	}
-`)
-
-export const GloatDocument = graphql(`
-	mutation Gloat($input: GloatInput!) {
-		gloat(input: $input) {
-			__typename
-			... on GloatPayload {
-				fades {
-					id
-					gloat
-				}
-			}
-			... on ValidationError {
-				fieldErrors {
-					field
-					message
-				}
-			}
-			... on AuthenticationError {
-				message
-			}
-			... on NotFoundError {
-				message
-			}
-		}
-	}
-`)
-
 // Every read a new or changed call can reach: the question's tallies and the
 // viewer's pick on it wherever it's listed, the viewer's call lists, counts
 // and pending record, ballot, game and challenge progress, group boards, and
@@ -178,7 +126,6 @@ const CALL_DOCUMENTS = [
 	ChallengePageDocument,
 	ChallengeReceiptDocument,
 	CreatedQuestionsDocument,
-	FadeCallQuestionDocument,
 	GameByIdDocument,
 	GameEntryDocument,
 	GameOfficialQuestionsDocument,

@@ -137,10 +137,6 @@ export const CastCallInput = builder.inputType("CastCallInput", {
 		// Every other shape: exactly 1, except player_season_award/
 		// team_season_award (a question's picksRequired worth)
 		selections: t.field({ type: [CastCallSelectionInput], required: false }),
-
-		// Casts this call as a fade of another call on the same question: a
-		// two-sided question, on the other side from it.
-		fadesCallId: t.id({ required: false }),
 	}),
 })
 

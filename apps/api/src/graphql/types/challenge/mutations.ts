@@ -30,7 +30,7 @@ const CreateChallengeInput = builder.inputType("CreateChallengeInput", {
 	}),
 })
 
-// A call made while accepting. castCall's input without a fade.
+// A call made while accepting. Shaped like castCall's input.
 const ChallengeCallInput = builder.inputType("ChallengeCallInput", {
 	fields: (t) => ({
 		questionId: t.id({ required: true }),

@@ -77,17 +77,4 @@ export type CallRecordCardData = {
 	caseText: string | null
 	// Set on a win at least STREAK_TAG_MIN into its league-and-family streak.
 	streakLength: number | null
-	// Set when this call is a fade: whose call it was aimed at, and once the
-	// question has closed, how it went and the line the winner sent.
-	fading: {
-		username: string
-		callId: string
-		// Past tense once the question is resolved or voided.
-		settled: boolean
-		// won/lost from this call's side. flipped: the target switched onto
-		// this side after being faded, so neither won. Null until there's a
-		// result, and after a void.
-		outcome: "won" | "lost" | "flipped" | null
-		gloat: { username: string; text: string } | null
-	} | null
 }

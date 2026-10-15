@@ -229,7 +229,6 @@ describe("askPresserQuestion", () => {
 			properties: {
 				presserId: presser.id,
 				source: "group",
-				askerFadedOwner: false,
 			},
 		})
 	})

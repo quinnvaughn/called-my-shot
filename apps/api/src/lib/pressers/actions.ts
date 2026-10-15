@@ -24,7 +24,6 @@ import { assertAllowedText as assertAllowed } from "../moderation/guard"
 import { createNotification } from "../notifications"
 import { isPresserOpen } from "./app-questions"
 import { askEligibility, type PresserAskStatus } from "./ask"
-import { SORT_RANK } from "./constants"
 import { canSeeQuestion, visibleStatement } from "./visibility"
 
 async function lockPresser(tx: Tx, presserId: string): Promise<Presser> {
@@ -161,7 +160,6 @@ export async function askPresserQuestion(
 					presserId: locked.id,
 					gameId: locked.gameId,
 					source: eligibility.source,
-					askerFadedOwner: eligibility.sortRank === SORT_RANK.fader,
 				},
 			},
 		])

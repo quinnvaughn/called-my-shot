@@ -23,9 +23,6 @@ export type CallFacts = {
 	lostBy: number | null
 	// The call's one redo moved it off its original pick.
 	redoFlipped: boolean
-	// Who faded this call, split by which side the result went to.
-	fadersRight: string[]
-	fadersWrong: string[]
 	// Where this call left its streak, when it was a hit.
 	streakLength: number | null
 	questionCreatedAt: Date
@@ -57,12 +54,10 @@ const STREAK_MIN = 5
 // the first call it fits (most points either way, then oldest question)
 // takes it.
 const CALL_TEMPLATES = [
-	"faded_and_lost",
 	"high_conviction_miss",
 	"redo_flip_lost",
 	"contrarian_hit",
 	"contrarian_miss",
-	"faders_wrong",
 	"streak_extended",
 ] as const satisfies readonly PresserAppTemplate[]
 type CallTemplate = (typeof CALL_TEMPLATES)[number]
@@ -78,14 +73,6 @@ function pct(value: number): string {
 	return value < 1 ? "under 1" : String(Math.round(value))
 }
 
-// "@jay", "@jay and @sam", "@jay and 3 others"
-function namesList(usernames: string[]): string {
-	const [first, second, ...rest] = usernames.map((name) => `@${name}`)
-	if (!second) return first ?? ""
-	if (rest.length === 0) return `${first} and ${second}`
-	return `${first} and ${rest.length + 1} others`
-}
-
 function signedPoints(points: number): string {
 	return points > 0 ? `+${points}` : String(points)
 }
@@ -94,11 +81,6 @@ function signedPoints(points: number): string {
 // it.
 function callQuestion(template: CallTemplate, call: CallFacts): string | null {
 	return match(template)
-		.with("faded_and_lost", () => {
-			if (call.won || call.fadersRight.length === 0) return null
-			const verb = call.fadersRight.length === 1 ? "was" : "were"
-			return `${namesList(call.fadersRight)} faded your ${call.pickLabel} call and ${verb} right. What did they see that you didn't?`
-		})
 		.with("high_conviction_miss", () => {
 			if (call.won || (call.conviction ?? 0) < HIGH_CONVICTION) return null
 			const margin = call.lostBy ? ` and they lost by ${call.lostBy}` : ""
@@ -133,10 +115,6 @@ function callQuestion(template: CallTemplate, call: CallFacts): string | null {
 				return null
 			}
 			return `Only ${pct(call.fieldSharePct)}% of the field took ${call.pickLabel}, and it missed. Still think it was the right read?`
-		})
-		.with("faders_wrong", () => {
-			if (!call.won || call.fadersWrong.length === 0) return null
-			return `${namesList(call.fadersWrong)} faded your ${call.pickLabel} call and got it wrong. Anything to say to them?`
 		})
 		.with("streak_extended", () => {
 			if (!call.won || (call.streakLength ?? 0) < STREAK_MIN) return null

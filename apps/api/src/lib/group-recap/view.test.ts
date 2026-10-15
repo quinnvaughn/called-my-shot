@@ -93,17 +93,6 @@ describe("selectRecapSlots", () => {
 		expect(picked.moments).toHaveLength(RECAP_MOMENTS_SHOWN)
 	})
 
-	it("needs both sides of a fade to be showable", () => {
-		const moments: RecapMoment[] = [
-			{ kind: "fade_hit", ...recapCall("a", 18), targetUserId: "b" },
-		]
-		const picked = selectRecapSlots(data({ moments }), {
-			visible: new Set(["a", "c"]),
-			showWorstMiss: true,
-		})
-		expect(picked.moments).toEqual([])
-	})
-
 	it("shows a group miss whoever opted out, since it names nobody", () => {
 		const moments: RecapMoment[] = [
 			{

@@ -13,7 +13,6 @@ import type { useMe } from "#/hooks/use-me"
 import { callGifState } from "#/lib/call-gif"
 import { formatPayout, marginLabel } from "#/lib/call-summary"
 import type { CallRecord, CallView } from "#/lib/call-view"
-import { gloatText } from "#/lib/fade-copy"
 import { formatGuess, isRateStat } from "#/lib/field-signal"
 import { formatCallDate } from "#/lib/format-date"
 import { toCallShape } from "#/lib/question-labels"
@@ -69,30 +68,6 @@ export function CallPageRecord({ call, view, me }: Props) {
 		conviction: view.conviction,
 		caseText: call.caseText,
 		streakLength: call.streak?.length ?? null,
-		fading: call.fading
-			? {
-					username: call.fading.target.user.username,
-					callId: call.fading.target.id,
-					settled:
-						view.questionStatus !== "OPEN" && view.questionStatus !== "LOCKED",
-					outcome: call.fading.targetFlippedAt
-						? "flipped"
-						: call.fading.winner === "FADER"
-							? "won"
-							: call.fading.winner === "TARGET"
-								? "lost"
-								: null,
-					gloat: call.fading.gloat
-						? {
-								username:
-									call.fading.winner === "FADER"
-										? view.username
-										: call.fading.target.user.username,
-								text: gloatText(call.fading.gloat),
-							}
-						: null,
-				}
-			: null,
 		// Which reaction pool the card draws from. Derived from the same facts
 		// the eyebrow above it is, so the gif and the words agree about what
 		// happened - see callGifState for the two precedence rules that aren't

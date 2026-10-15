@@ -18,7 +18,6 @@ import {
 import { env } from "../env"
 import { emailUrl } from "./email-links"
 import { loadRecipients } from "./email-prefs"
-import { loadOpenGloats } from "./fades"
 import { type SendFn, sendListEmail } from "./email-send"
 import { sendMail } from "./mailer"
 import {
@@ -67,7 +66,7 @@ const rowsIn = (rows: { id: string }[]) =>
 // button is pulling its weight or people are picking a call out of the list.
 function callUrl(
 	callId: string,
-	content: "hero" | "call_row" | "gloat",
+	content: "hero" | "call_row",
 ): string {
 	return emailUrl(`/calls/${callId}`, {
 		campaign: "resolution_digest",
@@ -393,19 +392,10 @@ async function drainOneUser(
 		})
 		.sort((a, b) => Math.abs(b.points) - Math.abs(a.points))
 
-	// Read at send time, so a gloat sent from the app during the settling
-	// window isn't asked for again.
-	const gloats = await loadOpenGloats(
-		db,
-		ordered.map((s) => s.callId),
-	)
-
 	// Every resolved call, not a page of them - the template applies its own
 	// display cap. Slicing here would have the record and net describe only
 	// the rows that fit.
-	const calls: DigestCall[] = ordered.map((s) => {
-		const gloat = gloats.get(s.callId)
-		return {
+	const calls: DigestCall[] = ordered.map((s) => ({
 		questionTitle: s.questionTitle,
 		leagueAbbr: s.leagueAbbr,
 		shapeLabel: s.shapeLabel,
@@ -414,9 +404,7 @@ async function drainOneUser(
 		isWin: s.isWin,
 		marginLabel: s.margin?.label ?? null,
 		callUrl: callUrl(s.callId, "call_row"),
-		gloat: gloat ? { prompt: gloat, url: callUrl(s.callId, "gloat") } : null,
-		}
-	})
+	}))
 
 	// The card worth leading with: the biggest win if there is one, otherwise
 	// the biggest miss. A loss card is still worth sharing here - owning a

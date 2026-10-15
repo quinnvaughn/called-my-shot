@@ -10,7 +10,6 @@ import {
 	NotFoundError,
 	ValidationError,
 } from "../../../../lib/errors"
-import { assertFadeable, recordFade } from "../../../../lib/fades"
 import { builder } from "../../../builder"
 import { CastCallInput, CastCallPayload } from "../inputs"
 
@@ -50,30 +49,13 @@ builder.mutationFields((t) => ({
 
 			const data = await prepareCall(question, args.input)
 
-			const call = await db.transaction(async (tx) => {
-				const call = await insertCallInTx(tx, {
+			const call = await db.transaction((tx) =>
+				insertCallInTx(tx, {
 					userId: user.id,
 					question,
 					data,
-				})
-
-				if (args.input.fadesCallId) {
-					const targetCall = await assertFadeable(tx, {
-						targetCallId: String(args.input.fadesCallId),
-						faderUserId: user.id,
-						faderOptionId: data.selections[0]?.optionId,
-						question,
-					})
-					await recordFade(tx, {
-						faderCallId: call.id,
-						targetCall,
-						fader: user,
-						question,
-					})
-				}
-
-				return call
-			})
+				}),
+			)
 
 			return { call }
 		},

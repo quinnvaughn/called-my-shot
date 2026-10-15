@@ -1,26 +1,17 @@
 import { type AchievementKind, achievementText } from "@called-my-shot/schemas"
-import { and, asc, count, eq, inArray, isNull } from "drizzle-orm"
+import { and, count, eq, inArray, isNull } from "drizzle-orm"
 import { db } from "../../db"
-import { type Call, calls, notifications, questions } from "../../db/schema"
+import { notifications } from "../../db/schema"
 import { requireUser } from "../../lib/auth"
 import { AuthenticationError } from "../../lib/errors"
-import { fadeWinner } from "../../lib/fades"
 import { gameEntryVerdict, loadGameEntry } from "../../lib/game-entry"
 import { keysetPaginate } from "../../lib/pagination"
 import { builder } from "../builder"
-import type { Context } from "../context"
 import { indexByKey } from "../loader"
 import { ChallengeRef } from "./challenge"
 import { type Connection, PageInfoRef } from "./pagination"
 import { PresserRef } from "./presser"
 import { presserByUserGameLoader, presserKey } from "./presser/loaders"
-import { CallRef } from "./question/call"
-import { GloatMessageEnum } from "./question/fade"
-import {
-	callSideLoader,
-	fadeByFaderLoader,
-	fadesByTargetLoader,
-} from "./question/loaders"
 import { GameEntryRef, GameRef } from "./sports"
 import { StreakFamilyEnum } from "./user"
 
@@ -46,8 +37,6 @@ const GQL_TYPE_BY_ROW_TYPE: Record<NotificationRow["type"], string> = {
 	streak_snapped: "StreakSnappedNotification",
 	game_reminder: "GameReminderNotification",
 	redo_earned: "RedoEarnedNotification",
-	call_faded: "CallFadedNotification",
-	fade_gloated: "FadeGloatedNotification",
 	group_pins_expired: "GroupPinsExpiredNotification",
 	game_resolved: "GameResolvedNotification",
 	presser_question_received: "PresserQuestionReceivedNotification",
@@ -96,90 +85,6 @@ const NotificationNode = builder.drizzleInterface("notifications", {
 	}),
 })
 
-// How the fades on a resolved call came out, from the recipient's side. The
-// fader half is set when their call faded someone; the doubter half when
-// their call was faded. Read live off the fades, not snapshotted, so it
-// follows a re-resolve and simply drops out if a linked call is deleted.
-type CallResolvedFade = {
-	fadedUsername: string | null
-	fadeLanded: boolean | null
-	targetFlipped: boolean
-	doubterCount: number
-	doubtersCashed: number
-	doubtersWrong: number
-	gloatOpen: boolean
-}
-
-const CallResolvedFadeRef = builder
-	.objectRef<CallResolvedFade>("CallResolvedFade")
-	.implement({
-		fields: (t) => ({
-			// Whose call the recipient faded. Null when they faded nobody.
-			fadedUsername: t.exposeString("fadedUsername", { nullable: true }),
-			// Whether that fade was right. Null when there's no answer: a flip
-			// or a void.
-			fadeLanded: t.exposeBoolean("fadeLanded", { nullable: true }),
-			// The call they faded redid onto their side.
-			targetFlipped: t.exposeBoolean("targetFlipped"),
-			// How many calls faded the recipient's, and how those came out.
-			// Cashed and wrong needn't add up to the count: a doubter the
-			// recipient flipped onto the same side neither won nor lost.
-			doubterCount: t.exposeInt("doubterCount"),
-			doubtersCashed: t.exposeInt("doubtersCashed"),
-			doubtersWrong: t.exposeInt("doubtersWrong"),
-			// The recipient won a side of a fade here and hasn't gloated on it
-			// yet, so the call page still offers them a gloat.
-			gloatOpen: t.exposeBoolean("gloatOpen"),
-		}),
-	})
-
-async function loadCallResolvedFade(
-	ctx: Context,
-	callId: string,
-): Promise<CallResolvedFade | null> {
-	const [fading, doubters] = await Promise.all([
-		fadeByFaderLoader(ctx).load(callId),
-		fadesByTargetLoader(ctx).load(callId),
-	])
-	if (!fading && doubters.length === 0) return null
-
-	const winnerOf = async (fade: {
-		faderCallId: string
-		targetCallId: string
-	}) => {
-		const [fader, target] = await Promise.all([
-			callSideLoader(ctx).load(fade.faderCallId),
-			callSideLoader(ctx).load(fade.targetCallId),
-		])
-		return fadeWinner(fader ?? undefined, target ?? undefined)
-	}
-
-	const faded = fading
-		? await db.query.calls.findFirst({
-				where: { id: fading.targetCallId },
-				columns: {},
-				with: { user: { columns: { username: true } } },
-			})
-		: undefined
-	const fadingWinner = fading ? await winnerOf(fading) : null
-	const doubterWinners = await Promise.all(doubters.map(winnerOf))
-
-	return {
-		fadedUsername: faded?.user?.username ?? null,
-		fadeLanded: fadingWinner === null ? null : fadingWinner === "fader",
-		targetFlipped: fading?.targetFlippedAt != null,
-		doubterCount: doubters.length,
-		doubtersCashed: doubterWinners.filter((w) => w === "fader").length,
-		doubtersWrong: doubterWinners.filter((w) => w === "target").length,
-		gloatOpen:
-			(fadingWinner === "fader" && fading?.faderGloatedAt === null) ||
-			doubters.some(
-				(fade, i) =>
-					doubterWinners[i] === "target" && fade.targetGloatedAt === null,
-			),
-	}
-}
-
 // Your call on a question got scored (won or lost) - see resolveQuestionInternal.
 builder.drizzleObject("notifications", {
 	variant: "CallResolvedNotification",
@@ -190,59 +95,6 @@ builder.drizzleObject("notifications", {
 		pointsDelta: t.exposeInt("pointsDelta", { nullable: true }),
 		// The recipient's resolved call.
 		call: t.relation("call", { nullable: true }),
-		// Null unless the call faded someone or was faded.
-		fade: t.field({
-			type: CallResolvedFadeRef,
-			nullable: true,
-			resolve: (row, _args, ctx) =>
-				row.callId ? loadCallResolvedFade(ctx, row.callId) : null,
-		}),
-	}),
-})
-
-// Someone faded your call - see recordFade. call is the recipient's own call,
-// the one the fade was aimed at.
-builder.drizzleObject("notifications", {
-	variant: "CallFadedNotification",
-	interfaces: [NotificationNode],
-	fields: (t) => ({
-		actor: t.relation("actor", { nullable: true }),
-		actorUsername: t.exposeString("actorUsername", { nullable: true }),
-		questionTitle: t.exposeString("questionTitle", { nullable: true }),
-		call: t.relation("call", { nullable: true }),
-	}),
-})
-
-// The winning side of a fade you lost gloated - see gloat in lib/fades.ts.
-// call is the recipient's own call, the losing side.
-builder.drizzleObject("notifications", {
-	variant: "FadeGloatedNotification",
-	interfaces: [NotificationNode],
-	fields: (t) => ({
-		actor: t.relation("actor", { nullable: true }),
-		actorUsername: t.exposeString("actorUsername", { nullable: true }),
-		questionTitle: t.exposeString("questionTitle", { nullable: true }),
-		call: t.relation("call", { nullable: true }),
-		// The line they sent. Read off the fade between the two calls; null if
-		// either call is gone.
-		gloat: t.field({
-			type: GloatMessageEnum,
-			nullable: true,
-			resolve: async (row, _args, ctx) => {
-				if (!row.callId) return null
-				const fading = await fadeByFaderLoader(ctx).load(row.callId)
-				if (fading) {
-					const target = await callSideLoader(ctx).load(fading.targetCallId)
-					if (target?.userId === row.actorId) return fading.targetGloatMessage
-				}
-				const doubters = await fadesByTargetLoader(ctx).load(row.callId)
-				for (const fade of doubters) {
-					const fader = await callSideLoader(ctx).load(fade.faderCallId)
-					if (fader?.userId === row.actorId) return fade.faderGloatMessage
-				}
-				return null
-			},
-		}),
 	}),
 })
 
@@ -445,22 +297,6 @@ builder.drizzleObject("notifications", {
 	}),
 })
 
-// One of the recipient's calls on a game that a fade touched, and how that
-// fade came out.
-const GameResolvedFadeRef = builder
-	.objectRef<{
-		call: Call
-		questionTitle: string
-		fade: CallResolvedFade
-	}>("GameResolvedFade")
-	.implement({
-		fields: (t) => ({
-			call: t.field({ type: CallRef, resolve: (f) => f.call }),
-			questionTitle: t.exposeString("questionTitle"),
-			fade: t.field({ type: CallResolvedFadeRef, resolve: (f) => f.fade }),
-		}),
-	})
-
 // Calls of yours on a game have settled - see resolveQuestionInternal. One
 // per recipient and game, marked unread again as each later call on it
 // settles, so everything below is read live rather than snapshotted.
@@ -505,33 +341,6 @@ builder.drizzleObject("notifications", {
 							presserKey(row.userId, row.gameId),
 						)
 					: null,
-		}),
-		// The settled calls on the game a fade touched, in the game's question
-		// order. Each one's call page is where its gloat is sent from.
-		fades: t.field({
-			type: [GameResolvedFadeRef],
-			resolve: async (row, _args, ctx) => {
-				if (!row.gameId) return []
-				const settled = await db
-					.select({ call: calls, questionTitle: questions.title })
-					.from(calls)
-					.innerJoin(questions, eq(questions.id, calls.questionId))
-					.where(
-						and(
-							eq(calls.userId, row.userId),
-							eq(questions.gameId, row.gameId),
-							eq(questions.status, "resolved"),
-						),
-					)
-					.orderBy(asc(questions.createdAt), asc(questions.id))
-				const fades = await Promise.all(
-					settled.map(({ call }) => loadCallResolvedFade(ctx, call.id)),
-				)
-				return settled.flatMap((s, i) => {
-					const fade = fades[i]
-					return fade ? [{ ...s, fade }] : []
-				})
-			},
 		}),
 	}),
 })

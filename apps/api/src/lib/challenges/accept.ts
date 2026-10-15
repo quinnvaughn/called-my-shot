@@ -9,7 +9,7 @@ import { loadChallengeQuestionFacts } from "./load"
 import { challengeState } from "./outcome"
 
 // A call made as part of accepting, one per question the acceptor hasn't
-// called yet. Shaped like castCall's input, without a fade.
+// called yet. Shaped like castCall's input.
 export type ChallengeCallInput = { questionId: string } & Record<
 	string,
 	unknown

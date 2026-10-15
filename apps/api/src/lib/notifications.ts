@@ -107,17 +107,6 @@ export type NotificationInput =
 			actorId: string
 			actorUsername: string
 	  }
-	// callId is the recipient's own call: the one that was faded, or the one
-	// on the losing side of the fade that was gloated over.
-	| {
-			type: "call_faded" | "fade_gloated"
-			userId: string
-			actorId: string
-			actorUsername: string
-			questionId: string
-			questionTitle: string
-			callId: string
-	  }
 	// To a group's admins, when the last of its callable pins locks.
 	| {
 			type: "group_pins_expired"

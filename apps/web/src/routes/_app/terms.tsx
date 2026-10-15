@@ -93,8 +93,8 @@ function RouteComponent() {
 						Anything illegal, or content you don't have the right to post.
 					</li>
 					<li>
-						Using more than one account to farm rewards, manipulate leaderboards
-						or fade yourself.
+						Using more than one account to farm rewards or manipulate
+						leaderboards.
 					</li>
 					<li>
 						Scraping, automated access, or anything that interferes with the

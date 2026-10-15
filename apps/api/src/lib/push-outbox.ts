@@ -56,8 +56,6 @@ export const PUSH_POLICY: Record<NotificationType, PushPolicy | null> = {
 	streak_personal_best: NOW,
 	streak_snapped: NOW,
 	redo_earned: NOW,
-	call_faded: NOW,
-	fade_gloated: NOW,
 	presser_answered: NOW,
 	challenge_settled: NOW,
 	challenge_gloated: NOW,

@@ -58,8 +58,6 @@ export type RecapMoment =
 			family: StreakFamily
 			length: number
 	  }
-	// userId is the fader. Both sides are members.
-	| ({ kind: "fade_hit"; targetUserId: string } & RecapCall)
 	| ({ kind: "called_early"; daysAhead: number } & RecapCall)
 	| {
 			kind: "longest_streak"

@@ -13,7 +13,6 @@ import {
 	games,
 	questionOptions,
 } from "../../../db/schema"
-import { loadCallSides } from "../../../lib/fades"
 import { aggregatePointsByUser } from "../../../lib/points-aggregate"
 import { accuracyFrom } from "../../../lib/scoring"
 import type { Context } from "../../context"
@@ -385,32 +384,7 @@ export function loadSeasonWindow(
 	})
 }
 
-// Call.doubters - every fade aimed at a call, oldest first.
-export const fadesByTargetLoader = ctxLoader(async (callIds: string[]) => {
-	const rows = await db.query.callFades.findMany({
-		where: { targetCallId: { in: callIds } },
-		orderBy: { createdAt: "asc" },
-	})
-	return groupByKey(callIds, rows, (row) => row.targetCallId)
-})
-
-// Call.fading - the one fade a call carries, if it was aimed at anyone.
-export const fadeByFaderLoader = ctxLoader(async (callIds: string[]) => {
-	const rows = await db.query.callFades.findMany({
-		where: { faderCallId: { in: callIds } },
-	})
-	return indexByKey(callIds, rows, (row) => row.faderCallId, null)
-})
-
-// Which side each call is on, for everything that compares two calls in a
-// fade (who won, whether a viewer is on the other side).
-export const callSideLoader = ctxLoader(async (callIds: string[]) => {
-	const sides = await loadCallSides(db, callIds)
-	return callIds.map((id) => sides.get(id) ?? null)
-})
-
-// A viewer's own call on a question, keyed "<userId>:<questionId>" - what
-// Call.fadeOffer checks to tell a new caller from one who already picked.
+// A viewer's own call on a question, keyed "<userId>:<questionId>".
 export const userQuestionCallLoader = ctxLoader(async (keys: string[]) => {
 	const parts = keys.map((key) => key.split(":"))
 	const rows = await db.query.calls.findMany({

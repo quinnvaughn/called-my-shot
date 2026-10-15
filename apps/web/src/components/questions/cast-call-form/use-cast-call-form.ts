@@ -228,13 +228,6 @@ export type RedoMode = {
 	}
 }
 
-// A fade: a new call aimed at an existing one, on the other side from it. The
-// pick is fixed to that side, so the form opens with it already selected.
-export type FadeMode = {
-	callId: string
-	optionId: string
-}
-
 // A call that isn't sent yet: the picks are checked the same way, then handed
 // to onSave instead of going to the API, so a page can collect several before
 // sending them together (accepting a challenge). `initial` opens the form on
@@ -255,7 +248,6 @@ export type CastCallFormOptions = {
 	// Where the call is being made, for analytics.
 	surface: CallSurface
 	redo?: RedoMode
-	fade?: FadeMode
 	draft?: DraftMode
 	// The <form>'s id. Only needs setting when more than one form for
 	// different questions can be on the page at once.
@@ -274,7 +266,7 @@ export type CastCallFormOptions = {
 // a real question - and therefore a mounted CastCallForm/CallSubmitBar - exists.
 //
 // Passing `redo` switches it to replacing an existing call instead of making
-// a new one. Passing `fade` makes a new call that fades another. `onCalled`
+// a new one. `onCalled`
 // runs once a new call has landed, the page has refreshed and the confirm
 // modal has closed.
 export function useCastCallForm(
@@ -282,7 +274,6 @@ export function useCastCallForm(
 	{
 		surface,
 		redo,
-		fade,
 		draft,
 		formId = FORM_ID,
 		onCalled,
@@ -436,9 +427,7 @@ export function useCastCallForm(
 				redo?.current.conviction ??
 				DEFAULT_CONVICTION,
 			selections:
-				draft?.initial?.selections ??
-				redo?.current.selections ??
-				(fade ? [{ optionId: fade.optionId, conviction: DEFAULT_CONVICTION }] : []),
+				draft?.initial?.selections ?? redo?.current.selections ?? [],
 		},
 		onSubmit: async (values, helpers) => {
 			const selections = values.selections.map((s) => ({
@@ -477,7 +466,6 @@ export function useCastCallForm(
 								guessValue: values.guessValue,
 								conviction: values.conviction,
 								selections,
-								fadesCallId: fade?.callId,
 							},
 						})
 					)?.castCall

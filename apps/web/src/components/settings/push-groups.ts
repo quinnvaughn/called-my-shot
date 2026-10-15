@@ -42,10 +42,8 @@ export const PUSH_GROUPS: PushGroup[] = [
 		key: "social",
 		label: "Social and streaks",
 		description:
-			"Fades on your calls, people joining or sharing in your groups, streak runs, and questions at your presser.",
+			"People joining or sharing in your groups, streak runs, and questions at your presser.",
 		types: [
-			"CALL_FADED",
-			"FADE_GLOATED",
 			"GROUP_MEMBER_JOINED",
 			"QUESTION_SHARED_TO_GROUP",
 			"STREAK_MILESTONE",

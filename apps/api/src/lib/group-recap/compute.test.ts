@@ -35,7 +35,6 @@ function input(overrides: Partial<RecapInput> = {}): RecapInput {
 			call({ userId: "a" }),
 			call({ userId: "b", outcome: "loss", points: -5 }),
 		],
-		fadeWins: [],
 		gameVerdicts: [],
 		awards: [],
 		sweeps: [],
@@ -233,23 +232,6 @@ describe("computeRecap", () => {
 		)
 		expect(early_).toHaveLength(1)
 		expect(early_[0]).toMatchObject({ userId: "a", daysAhead: 5 })
-	})
-
-	it("keeps a fade only when its call is in the week", () => {
-		const fader = call({ userId: "a", points: 18 })
-		const data = computeRecap(
-			input({
-				calls: [fader, call({ userId: "b", outcome: "loss", points: -5 })],
-				fadeWins: [
-					{ faderCallId: fader.callId, targetUserId: "b" },
-					{ faderCallId: "not-this-week", targetUserId: "b" },
-				],
-			}),
-		)
-		const fades = (data?.moments ?? []).filter((m) => m.kind === "fade_hit")
-		expect(fades).toEqual([
-			expect.objectContaining({ userId: "a", targetUserId: "b", points: 18 }),
-		])
 	})
 
 	it("reads movers against the previous recap's board", () => {

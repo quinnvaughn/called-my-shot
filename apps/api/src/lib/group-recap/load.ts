@@ -1,14 +1,7 @@
 import { HOT_STREAK_MIN, isNumericGuessShape } from "@called-my-shot/scoring"
 import { and, desc, eq, gte, inArray, isNull, lt, or } from "drizzle-orm"
 import { db } from "../../db"
-import {
-	callFades,
-	games,
-	groupRecaps,
-	notifications,
-	pointAwards,
-} from "../../db/schema"
-import { fadeWinner, loadCallSides } from "../fades"
+import { games, groupRecaps, notifications, pointAwards } from "../../db/schema"
 import { loadGameVerdicts } from "../game-entry"
 import { buildGroupLeaderboard, getMemberUserIds } from "../group-leaderboard"
 import { getTrackedLeagueIds } from "../groups"
@@ -159,39 +152,6 @@ export async function loadWeekCalls(
 	})
 }
 
-async function loadFadeWins(
-	calls: RecapCallInput[],
-	memberIds: string[],
-): Promise<RecapInput["fadeWins"]> {
-	if (calls.length === 0) return []
-	const fades = await db
-		.select({
-			faderCallId: callFades.faderCallId,
-			targetCallId: callFades.targetCallId,
-		})
-		.from(callFades)
-		.where(
-			inArray(
-				callFades.faderCallId,
-				calls.map((c) => c.callId),
-			),
-		)
-	if (fades.length === 0) return []
-
-	const sides = await loadCallSides(db, [
-		...fades.map((f) => f.faderCallId),
-		...fades.map((f) => f.targetCallId),
-	])
-	const members = new Set(memberIds)
-	return fades.flatMap((fade) => {
-		const target = sides.get(fade.targetCallId)
-		if (!target || !members.has(target.userId)) return []
-		return fadeWinner(sides.get(fade.faderCallId), target) === "fader"
-			? [{ faderCallId: fade.faderCallId, targetUserId: target.userId }]
-			: []
-	})
-}
-
 // Runs that ended in the week, read off the streak_snapped notifications the
 // streak rebuild already sends rather than re-walking every member's tracks.
 // That inherits its rules: only runs of STREAK_NOTIFY_MIN or more, and only
@@ -295,7 +255,6 @@ export async function loadRecapInput(
 		...(tracked ? { leagueId: { in: tracked } } : {}),
 	}
 	const [
-		fadeWins,
 		awards,
 		gameVerdicts,
 		sweeps,
@@ -304,7 +263,6 @@ export async function loadRecapInput(
 		standings,
 		previous,
 	] = await Promise.all([
-			loadFadeWins(calls, memberIds),
 			loadWeekAwards(memberIds, tracked, week),
 			loadGameVerdicts(memberIds, tracked, week),
 			db.query.userSweeps.findMany({
@@ -342,7 +300,6 @@ export async function loadRecapInput(
 
 	return {
 		calls,
-		fadeWins,
 		awards,
 		gameVerdicts,
 		sweeps,

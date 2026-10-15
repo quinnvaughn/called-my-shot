@@ -514,16 +514,6 @@ export const relations = defineRelations(schema, (r) => ({
 			to: r.callRedos.callId,
 		}),
 	},
-	callFades: {
-		faderCall: r.one.calls({
-			from: r.callFades.faderCallId,
-			to: r.calls.id,
-		}),
-		targetCall: r.one.calls({
-			from: r.callFades.targetCallId,
-			to: r.calls.id,
-		}),
-	},
 	callSelections: {
 		call: r.one.calls({
 			from: r.callSelections.callId,

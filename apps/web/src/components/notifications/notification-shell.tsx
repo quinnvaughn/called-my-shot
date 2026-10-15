@@ -39,8 +39,6 @@ export type Target =
 	// The first destination here that takes no params - the invite screen,
 	// where an earned redo is spent or another link is sent.
 	| { to: "/invite" }
-	// A single call's own page - where a fade on it, and its Doubters, are.
-	| { to: "/calls/$callId"; params: { callId: string } }
 	| null
 
 type Props = {

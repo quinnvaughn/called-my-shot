@@ -3,7 +3,6 @@ import { css } from "styled-system/css"
 import { SignedPoints } from "#/components/ui/signed-points"
 import { type FragmentType, graphql, useFragment } from "#/graphql/generated"
 import { resultState } from "#/lib/call-summary"
-import { resolvedFadeLine } from "#/lib/fade-copy"
 import { NotificationShell, type Target } from "../notification-shell"
 
 export const CallResolvedRowFragment = graphql(`
@@ -17,14 +16,6 @@ export const CallResolvedRowFragment = graphql(`
 		}
 		call {
 			id
-		}
-		fade {
-			fadedUsername
-			fadeLanded
-			targetFlipped
-			doubtersCashed
-			doubtersWrong
-			gloatOpen
 		}
 	}
 `)
@@ -42,18 +33,12 @@ export function CallResolvedRow({
 }: Props) {
 	const n = useFragment(CallResolvedRowFragment, notificationProp)
 	const result = n.pointsDelta !== null ? resultState(n.pointsDelta) : null
-	const fadeLine = n.fade ? resolvedFadeLine(n.fade) : null
-	// An open gloat can only be sent from the call page, so that's where the
-	// row goes while there is one.
-	const target: Target =
-		n.fade?.gloatOpen && n.call
-			? { to: "/calls/$callId", params: { callId: n.call.id } }
-			: n.question
-				? {
-						to: "/questions/$questionId/{-$slug}",
-						params: { questionId: n.question.id },
-					}
-				: null
+	const target: Target = n.question
+		? {
+				to: "/questions/$questionId/{-$slug}",
+				params: { questionId: n.question.id },
+			}
+		: null
 
 	return (
 		<NotificationShell
@@ -73,9 +58,6 @@ export function CallResolvedRow({
 				Your call on "{n.questionTitle}"{" "}
 				{result?.status === "win" ? "hit" : "missed"}
 			</p>
-			{fadeLine && (
-				<p className={css({ fontSize: "sm", color: "fg.muted" })}>{fadeLine}</p>
-			)}
 		</NotificationShell>
 	)
 }

@@ -44,7 +44,7 @@ function RouteComponent() {
 					</li>
 					<li>
 						<LegalB>What you do here.</LegalB> Your calls and their conviction,
-						questions you create, groups you join, fades, redos, and your
+						questions you create, groups you join, redos, and your
 						points, streaks and ranks.
 					</li>
 					<li>

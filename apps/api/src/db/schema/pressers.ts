@@ -75,12 +75,10 @@ export type PresserQuestionStatus =
 
 // Which fact an app question was built from - see lib/pressers/templates.ts.
 export const presserAppTemplate = pgEnum("presser_app_template", [
-	"faded_and_lost",
 	"high_conviction_miss",
 	"redo_flip_lost",
 	"contrarian_hit",
 	"contrarian_miss",
-	"faders_wrong",
 	"streak_extended",
 	"perfect_game",
 	"oh_fer_game",
@@ -116,8 +114,8 @@ export const presserQuestions = pgTable(
 		noComment: boolean("no_comment").notNull().default(false),
 		answeredAt: timestamp("answered_at"),
 		status: presserQuestionStatus("status").notNull().default("pending"),
-		// Display order, fixed when asked: 0 app, 1 groupmate, 2 someone who
-		// faded the owner on this game, 3 anyone else who called it.
+		// Display order, fixed when asked: 0 app, 1 groupmate, 2 anyone else
+		// who called the game.
 		sortRank: integer("sort_rank").notNull(),
 		createdAt: timestamp("created_at").notNull().defaultNow(),
 	},

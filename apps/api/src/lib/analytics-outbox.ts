@@ -97,7 +97,6 @@ type ServerAnalyticsEvents = {
 		presserId: string
 		gameId: string
 		source: "group" | "game_caller"
-		askerFadedOwner: boolean
 	}
 	// minutesToAnswer runs from when the question was asked (or, for the
 	// app's own questions, written on the owner's first look).

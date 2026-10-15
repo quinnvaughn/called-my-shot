@@ -35,8 +35,6 @@ export const notificationType = pgEnum("notification_type", [
 	"streak_snapped",
 	"game_reminder",
 	"redo_earned",
-	"call_faded",
-	"fade_gloated",
 	"group_pins_expired",
 	"game_resolved",
 	"presser_question_received",
@@ -80,9 +78,7 @@ export const notifications = pgTable(
 		gameId: uuid("game_id").references(() => games.id, {
 			onDelete: "set null",
 		}),
-		// call_resolved: the recipient's own call, which its fade line reads
-		// from. call_faded: the recipient's call that was faded.
-		// fade_gloated: the recipient's call that lost the fade.
+		// call_resolved: the recipient's own call.
 		callId: uuid("call_id").references(() => calls.id, {
 			onDelete: "set null",
 		}),

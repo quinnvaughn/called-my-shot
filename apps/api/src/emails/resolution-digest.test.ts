@@ -4,7 +4,6 @@ import {
 	type DigestCall,
 	digestPreview,
 	digestSubject,
-	gloatPromptLine,
 	ResolutionDigest,
 	type ResolutionDigestProps,
 } from "./resolution-digest"
@@ -20,7 +19,6 @@ function call(overrides: Partial<DigestCall> = {}): DigestCall {
 		marginLabel: null,
 		callUrl:
 			"https://calledmyshot.com/calls/00000000-0000-4000-8000-000000000001",
-		gloat: null,
 		...overrides,
 	}
 }
@@ -200,44 +198,5 @@ describe("ResolutionDigest", () => {
 			),
 		)
 		expect(shutout.text).toContain("Share your biggest miss")
-	})
-
-	// The page is the only place a gloat can be sent, so a winner who doesn't
-	// open the app has to hear about it here.
-	it("asks the winning side of a fade to gloat, linking to the call", async () => {
-		const { text } = await renderEmail(
-			ResolutionDigest(
-				props([
-					call({
-						gloat: {
-							prompt: { audience: "doubters", count: 1 },
-							url: "https://calledmyshot.com/calls/aaa?utm_content=gloat",
-						},
-					}),
-				]),
-			),
-		)
-		expect(text).toContain("Your doubter was wrong. Send them a line.")
-		expect(text).toContain("https://calledmyshot.com/calls/aaa?utm_content=gloat")
-	})
-
-	it("says nothing about gloating when there's nothing to gloat about", async () => {
-		const { text } = await renderEmail(ResolutionDigest(props([call()])))
-		expect(text.toLowerCase()).not.toContain("gloat")
-		expect(text).not.toContain("Send them")
-	})
-})
-
-describe("gloatPromptLine", () => {
-	it("words each audience the way the call page's gloat card does", () => {
-		expect(gloatPromptLine({ audience: "doubters", count: 1 })).toBe(
-			"Your doubter was wrong. Send them a line.",
-		)
-		expect(gloatPromptLine({ audience: "doubters", count: 3 })).toBe(
-			"3 doubters were wrong. Send them all a line.",
-		)
-		expect(gloatPromptLine({ audience: "target", username: "op" })).toBe(
-			"Your fade on @op hit. Send them a line.",
-		)
 	})
 })

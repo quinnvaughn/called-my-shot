@@ -1,7 +1,6 @@
 import { and, count, eq, or, sum } from "drizzle-orm"
 import { alias } from "drizzle-orm/pg-core"
 import {
-	callFades,
 	calls,
 	groupMembers,
 	type Presser,
@@ -87,31 +86,6 @@ async function calledGame(
 	return row !== undefined
 }
 
-// Whether the asker faded any of the owner's calls on this game.
-async function fadedOwnerOnGame(
-	q: DbOrTx,
-	askerId: string,
-	presser: Pick<Presser, "userId" | "gameId">,
-): Promise<boolean> {
-	const faderCall = alias(calls, "fader_call")
-	const targetCall = alias(calls, "target_call")
-	const [row] = await q
-		.select({ id: callFades.id })
-		.from(callFades)
-		.innerJoin(faderCall, eq(faderCall.id, callFades.faderCallId))
-		.innerJoin(targetCall, eq(targetCall.id, callFades.targetCallId))
-		.innerJoin(questions, eq(questions.id, targetCall.questionId))
-		.where(
-			and(
-				eq(faderCall.userId, askerId),
-				eq(targetCall.userId, presser.userId),
-				eq(questions.gameId, presser.gameId),
-			),
-		)
-		.limit(1)
-	return row !== undefined
-}
-
 async function settledCallCount(q: DbOrTx, userId: string): Promise<number> {
 	const [row] = await q
 		.select({ n: sum(userSeasonStats.resolvedCallCount) })
@@ -181,10 +155,9 @@ export async function askEligibility(
 	if ((await strangerQuestionCount(q, presser.id)) >= STRANGER_QUESTION_CAP) {
 		return { status: "stranger_cap_reached" }
 	}
-	const fader = await fadedOwnerOnGame(q, viewer.id, presser)
 	return {
 		status: "can_ask",
 		source: "game_caller",
-		sortRank: fader ? SORT_RANK.fader : SORT_RANK.gameCaller,
+		sortRank: SORT_RANK.gameCaller,
 	}
 }

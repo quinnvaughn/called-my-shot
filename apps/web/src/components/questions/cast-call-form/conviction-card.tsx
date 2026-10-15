@@ -17,8 +17,7 @@ import { SeriesStageNote } from "../series-stage-note"
 import { useCastCallFormContext } from "./cast-call-form-context"
 
 // Conviction on a single-pick call, with the payout it produces right under
-// the slider. Shared by the call form and the fade modal, which fixes the pick
-// but leaves conviction to the fader.
+// the slider.
 export function ConvictionCard() {
 	const {
 		question,

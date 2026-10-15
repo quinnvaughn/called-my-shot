@@ -16,6 +16,5 @@ export const APP_QUESTION_COUNT = 3
 export const SORT_RANK = {
 	app: 0,
 	groupmate: 1,
-	fader: 2,
-	gameCaller: 3,
+	gameCaller: 2,
 } as const

@@ -8,7 +8,6 @@ import { CallPageHeader } from "#/components/questions/call-page/call-page-heade
 import { CallPageLinks } from "#/components/questions/call-page/call-page-links"
 import { CallPageRecord } from "#/components/questions/call-page/call-page-record"
 import { CallPageViewerActions } from "#/components/questions/call-page/call-page-viewer-actions"
-import { DoubtersPanel } from "#/components/questions/doubters-panel"
 import { RedoPanel } from "#/components/questions/redo-panel"
 import { NotFound } from "#/components/ui/not-found"
 import { callRecordQuery } from "#/graphql/calls/queries"
@@ -16,14 +15,9 @@ import { useMe } from "#/hooks/use-me"
 import { callCardVersion, callPageMeta } from "#/lib/call-meta"
 import { marginLabel } from "#/lib/call-summary"
 import { describeCall } from "#/lib/call-view"
-import { isRateStat } from "#/lib/field-signal"
 import { formatCallDate, formatCallLead } from "#/lib/format-date"
 import { pageMeta } from "#/lib/meta"
-import {
-	isOverUnderQuestionShape,
-	optionDisplayLabel,
-	shareCardShapeLabel,
-} from "#/lib/question-labels"
+import { shareCardShapeLabel } from "#/lib/question-labels"
 
 // No slug segment, unlike /questions/:id/:slug and /games/:id/:slug. A slug
 // there earns its keep with crawlers; nothing about a single person's call
@@ -145,18 +139,6 @@ function RouteComponent() {
 				</span>
 			)}
 
-			<DoubtersPanel
-				fades={call.doubters}
-				opUsername={view.username}
-				formatPick={(label) =>
-					optionDisplayLabel(
-						label,
-						isOverUnderQuestionShape(call.question.shape),
-						call.question.ouLine,
-						isRateStat(call.question),
-					)
-				}
-			/>
 		</VStack>
 	)
 }

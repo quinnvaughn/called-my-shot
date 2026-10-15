@@ -1,14 +1,7 @@
 import { fieldPct } from "@called-my-shot/scoring"
-import { count, eq, inArray } from "drizzle-orm"
-import {
-	callFades,
-	callSelections,
-	callStreakPositions,
-	calls,
-	users,
-} from "../../db/schema"
+import { count, inArray } from "drizzle-orm"
+import { callSelections, callStreakPositions, calls } from "../../db/schema"
 import type { DbOrTx } from "../../db/types"
-import { fadeWinner, loadCallSides } from "../fades"
 import { gameEntryVerdict, loadGameEntry } from "../game-entry"
 import type { CallFacts, PresserFacts } from "./templates"
 
@@ -59,7 +52,7 @@ export async function loadPresserFacts(
 		row.selections.length === 1 ? [row.selections[0].optionId] : [],
 	)
 	const questionIds = [...new Set(scored.map((row) => row.questionId))]
-	const [optionCounts, questionCounts, fades, streaks] = await Promise.all([
+	const [optionCounts, questionCounts, streaks] = await Promise.all([
 		singleOptionIds.length > 0
 			? q
 					.select({ optionId: callSelections.optionId, n: count() })
@@ -74,27 +67,12 @@ export async function loadPresserFacts(
 			.groupBy(calls.questionId),
 		q
 			.select({
-				faderCallId: callFades.faderCallId,
-				targetCallId: callFades.targetCallId,
-				username: users.username,
-			})
-			.from(callFades)
-			.innerJoin(calls, eq(calls.id, callFades.faderCallId))
-			.innerJoin(users, eq(users.id, calls.userId))
-			.where(inArray(callFades.targetCallId, callIds)),
-		q
-			.select({
 				callId: callStreakPositions.callId,
 				length: callStreakPositions.length,
 			})
 			.from(callStreakPositions)
 			.where(inArray(callStreakPositions.callId, callIds)),
 	])
-	const sides = await loadCallSides(q, [
-		...callIds,
-		...fades.map((fade) => fade.faderCallId),
-	])
-
 	const optionCount = new Map(optionCounts.map((row) => [row.optionId, row.n]))
 	const questionCount = new Map(
 		questionCounts.map((row) => [row.questionId, row.n]),
@@ -147,18 +125,6 @@ export async function loadPresserFacts(
 			(originalOptions.length !== currentOptions.length ||
 				originalOptions.some((id) => !currentOptions.includes(id)))
 
-		const fadersRight: string[] = []
-		const fadersWrong: string[] = []
-		for (const fade of fades) {
-			if (fade.targetCallId !== row.id) continue
-			const winner = fadeWinner(
-				sides.get(fade.faderCallId),
-				sides.get(fade.targetCallId),
-			)
-			if (winner === "fader") fadersRight.push(fade.username)
-			if (winner === "target") fadersWrong.push(fade.username)
-		}
-
 		const total = questionCount.get(row.questionId) ?? 0
 		const convictions = [
 			...(row.conviction !== null ? [row.conviction] : []),
@@ -178,8 +144,6 @@ export async function loadPresserFacts(
 			closenessFieldPct: won ? row.closenessFieldPct : null,
 			lostBy,
 			redoFlipped,
-			fadersRight,
-			fadersWrong,
 			streakLength: won ? (streakByCall.get(row.id) ?? null) : null,
 			questionCreatedAt: row.question?.createdAt ?? row.createdAt,
 		}

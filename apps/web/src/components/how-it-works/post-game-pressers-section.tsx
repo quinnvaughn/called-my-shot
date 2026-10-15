@@ -32,7 +32,7 @@ export function PostGamePressersSection({
 				{MIN_ACCOUNT_AGE_DAYS} days old with {MIN_SETTLED_CALLS} settled calls,
 				up to {STRANGER_QUESTION_CAP} of those per presser. The app asks a few
 				of its own too, built from your results: a high-conviction miss, a pick
-				almost nobody else made, a fade that landed on you.
+				almost nobody else made, a redo that switched you onto a miss.
 			</P>
 			<P>
 				A question stays between you and whoever asked it until you answer.

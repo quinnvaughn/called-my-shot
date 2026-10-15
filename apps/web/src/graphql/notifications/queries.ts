@@ -36,8 +36,6 @@ export const NotificationsPageDocument = graphql(`
 						...GameReminderRow_notification
 						...GameResolvedRow_notification
 						...RedoEarnedRow_notification
-						...CallFadedRow_notification
-						...FadeGloatedRow_notification
 						...PresserQuestionRow_notification
 						...PresserAnsweredRow_notification
 						...ChallengeAcceptedRow_notification
