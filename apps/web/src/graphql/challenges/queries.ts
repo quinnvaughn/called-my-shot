@@ -124,6 +124,7 @@ export const ChallengeEntryFragment = graphql(`
 
 export const ChallengePageDocument = graphql(`
 	query ChallengePage($code: String!) {
+		gifsEnabled
 		challenge(code: $code) {
 			id
 			code
@@ -287,7 +288,6 @@ export const myChallengesQuery = (role: ChallengeRole) =>
 // GIFs for a gloat: a search, or what's trending without one.
 export const GifSearchDocument = graphql(`
 	query GifSearch($query: String, $page: Int) {
-		gifsEnabled
 		gifSearch(query: $query, page: $page) {
 			id
 			url

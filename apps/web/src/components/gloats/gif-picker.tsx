@@ -1,4 +1,4 @@
-import { keepPreviousData, useQuery } from "@tanstack/react-query"
+import { useQuery } from "@tanstack/react-query"
 import { useState } from "react"
 import { FiX } from "react-icons/fi"
 import { css } from "styled-system/css"
@@ -10,6 +10,9 @@ import { useDebouncedValue } from "#/hooks/use-debounced-value"
 
 export type Gif = GifSearchQuery["gifSearch"][number]
 
+// One full first view of the grid.
+const SKELETON_TILES = 9
+
 export function GifPicker({
 	selected,
 	onSelect,
@@ -19,16 +22,7 @@ export function GifPicker({
 }) {
 	const [search, setSearch] = useState("")
 	const query = useDebouncedValue(search.trim(), 350)
-	// The last results stay up while a new search loads, so nothing in the
-	// picker blinks out between keystrokes.
-	const { data, isFetching } = useQuery({
-		...gifSearchQuery(query),
-		placeholderData: keepPreviousData,
-	})
-
-	// Hidden until the api says GIFs are on, so it never flashes up where
-	// they aren't.
-	if (!data?.gifsEnabled) return null
+	const { data, isPending, isError } = useQuery(gifSearchQuery(query))
 
 	if (selected) {
 		return (
@@ -99,6 +93,20 @@ export function GifPicker({
 				gap="1.5"
 				className={css({ maxHeight: "64", overflowY: "auto" })}
 			>
+				{isPending &&
+					Array.from({ length: SKELETON_TILES }, (_, i) => (
+						<div
+							// biome-ignore lint/suspicious/noArrayIndexKey: placeholders with no identity
+							key={i}
+							aria-hidden
+							className={css({
+								height: "24",
+								borderRadius: "md",
+								bg: "bg.subtle",
+								animation: "pulse 1.6s ease-in-out infinite",
+							})}
+						/>
+					))}
 				{gifs.map((g) => (
 					<button
 						key={g.id}
@@ -126,14 +134,16 @@ export function GifPicker({
 					</button>
 				))}
 			</Grid>
-			<span
-				className={css({
-					textStyle: "meta",
-					color: "fg.subtle",
-				})}
-			>
-				{isFetching ? "Searching…" : gifs.length === 0 ? "No GIFs found" : ""}
-			</span>
+			{!isPending && gifs.length === 0 && (
+				<span
+					className={css({
+						textStyle: "meta",
+						color: "fg.subtle",
+					})}
+				>
+					{isError ? "Couldn't load GIFs. Try again." : "No GIFs found"}
+				</span>
+			)}
 		</VStack>
 	)
 }

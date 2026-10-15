@@ -12,12 +12,14 @@ type Props = {
 	challenge: NonNullable<ChallengePageQuery["challenge"]>
 	isCreator: boolean
 	canAccept: boolean
+	gifsEnabled: boolean
 }
 
 export function ChallengeHeroAction({
 	challenge,
 	isCreator,
 	canAccept,
+	gifsEnabled,
 }: Props) {
 	const creator = challenge.creator
 
@@ -38,6 +40,7 @@ export function ChallengeHeroAction({
 				openModal(
 					<GloatComposerModal
 						challengeId={challenge.id}
+						gifsEnabled={gifsEnabled}
 						recipients={
 							isCreator
 								? `the ${challenge.creatorTally.wins} ${pluralize(challenge.creatorTally.wins, "person", "people")} you beat`

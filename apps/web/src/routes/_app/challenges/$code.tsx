@@ -170,6 +170,7 @@ function RouteComponent() {
 						challenge={challenge}
 						isCreator={isCreator}
 						canAccept={canAccept}
+						gifsEnabled={data.gifsEnabled}
 					/>
 				}
 				share={

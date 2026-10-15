@@ -1,5 +1,5 @@
 import { GLOAT_TEXT_MAX } from "@called-my-shot/schemas"
-import { useQuery, useQueryClient } from "@tanstack/react-query"
+import { useQueryClient } from "@tanstack/react-query"
 import { useState } from "react"
 import { VStack } from "styled-system/jsx"
 import { Button } from "#/components/ui/button"
@@ -10,7 +10,6 @@ import {
 	invalidateChallenges,
 	SendChallengeGloatDocument,
 } from "#/graphql/challenges/mutations"
-import { gifSearchQuery } from "#/graphql/challenges/queries"
 import { useGqlMutation } from "#/graphql/hooks"
 import { closeModal } from "#/stores/modal-store"
 import { type Gif, GifPicker } from "./gif-picker"
@@ -19,19 +18,23 @@ type Props = {
 	challengeId: string
 	// Who it goes to, as the modal says it: "@quinn", "the 4 people you beat".
 	recipients: string
+	// Read with the page, so the picker is there the moment the modal opens.
+	gifsEnabled: boolean
 }
 
 // A winner's one gloat: their own words, a GIF, or both. Sent once, and it
 // can't be taken back.
-export function GloatComposerModal({ challengeId, recipients }: Props) {
+export function GloatComposerModal({
+	challengeId,
+	recipients,
+	gifsEnabled,
+}: Props) {
 	const send = useGqlMutation(SendChallengeGloatDocument)
 	const queryClient = useQueryClient()
 	const [text, setText] = useState("")
 	const [gif, setGif] = useState<Gif | null>(null)
 	const [error, setError] = useState<string | null>(null)
 	const canSend = text.trim().length > 0 || gif !== null
-	// The picker's own first load, read here for whether a GIF is an option.
-	const gifsEnabled = useQuery(gifSearchQuery("")).data?.gifsEnabled ?? false
 
 	async function submit() {
 		setError(null)
@@ -86,7 +89,7 @@ export function GloatComposerModal({ challengeId, recipients }: Props) {
 					/>
 					<Textarea.CharCount value={text} max={GLOAT_TEXT_MAX} />
 				</Textarea>
-				<GifPicker selected={gif} onSelect={setGif} />
+				{gifsEnabled && <GifPicker selected={gif} onSelect={setGif} />}
 				<FormError message={error} />
 				<Button
 					variant="solid"
