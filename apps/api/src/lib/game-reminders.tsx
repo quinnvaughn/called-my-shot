@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto"
 import { gamePath } from "@called-my-shot/schemas"
 import { and, eq, inArray, sql } from "drizzle-orm"
 import { db } from "../db"
@@ -203,6 +204,7 @@ async function finish(
 	rows: Claimed[],
 	skippedReason: string | null,
 	now: Date,
+	notificationIds?: Map<string, string>,
 ): Promise<void> {
 	await db.transaction(async (tx) => {
 		await createNotifications(
@@ -211,6 +213,7 @@ async function finish(
 				type: "game_reminder" as const,
 				userId,
 				gameId: row.game_id,
+				id: notificationIds?.get(row.id),
 			})),
 		)
 		await markOutboxDone(
@@ -224,7 +227,11 @@ async function finish(
 
 // One push for a user's whole batch, opening the first game. The lock
 // screen has no time zone to show a start time in, so it counts down instead.
-export function gameReminderPush(batch: LoadedGame[], now: Date): PushMessage {
+export function gameReminderPush(
+	batch: LoadedGame[],
+	now: Date,
+	notificationIds: string[],
+): PushMessage {
 	const [first] = batch
 	const minutes = Math.max(
 		1,
@@ -242,6 +249,7 @@ export function gameReminderPush(batch: LoadedGame[], now: Date): PushMessage {
 		path: first.path,
 		tag: `reminder:${first.id}`,
 		type: "game_reminder",
+		notificationIds,
 	}
 }
 
@@ -310,15 +318,18 @@ export async function drainGameReminders({
 				60,
 				Math.round((batch[0].startsAt.getTime() - now.getTime()) / 1000),
 			)
+			// The notifications are written only once the push lands, so their
+			// ids are picked now for the push to carry.
+			const notificationIds = new Map(rows.map((row) => [row.id, randomUUID()]))
 			const result = await deliverPush(
 				targets,
-				gameReminderPush(batch, now),
+				gameReminderPush(batch, now, [...notificationIds.values()]),
 				{ ttl, urgency: "high" },
 				pushSend,
 				now,
 			)
 			if (result.delivered > 0) {
-				await finish(userId, rows, "pushed", now)
+				await finish(userId, rows, "pushed", now, notificationIds)
 				pushed += 1
 				continue
 			}

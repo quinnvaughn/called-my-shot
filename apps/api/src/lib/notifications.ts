@@ -93,6 +93,9 @@ export type NotificationInput =
 			type: "game_reminder"
 			userId: string
 			gameId: string
+			// Picked ahead when a push announcing it goes out first, so the push
+			// can name what to mark read once it's tapped.
+			id?: string
 	  }
 	// The referrer's side of an invite. Sent when the person they invited
 	// makes their first call, which is the moment the redo actually lands.
@@ -182,6 +185,7 @@ export type NotificationInput =
 
 function toRow(input: NotificationInput) {
 	return {
+		id: "id" in input ? input.id : undefined,
 		userId: input.userId,
 		type: input.type,
 		actorId: "actorId" in input ? input.actorId : null,

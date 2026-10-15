@@ -146,7 +146,12 @@ export async function drainPushOutbox({
 
 			const result = await deliverPush(
 				targets,
-				{ ...content, tag: row.collapseKey, type: row.type },
+				{
+					...content,
+					tag: row.collapseKey,
+					type: row.type,
+					notificationIds: [notification.id],
+				},
 				{ ttl: policy.ttlSeconds, urgency: policy.urgency },
 				send,
 				now,

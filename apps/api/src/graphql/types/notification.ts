@@ -6,6 +6,7 @@ import { requireUser } from "../../lib/auth"
 import { AuthenticationError } from "../../lib/errors"
 import { gameEntryVerdict, loadGameEntry } from "../../lib/game-entry"
 import { keysetPaginate } from "../../lib/pagination"
+import { markPushRead } from "../../lib/push-read"
 import { builder } from "../builder"
 import { indexByKey } from "../loader"
 import { ChallengeRef } from "./challenge"
@@ -539,6 +540,21 @@ builder.mutationFields((t) => ({
 						? and(scope, inArray(notifications.id, args.ids))
 						: scope,
 				)
+			return true
+		},
+	}),
+	// A tapped push: the notifications it was sent for, plus the earlier ones
+	// it stood for on the lock screen (see lib/push-read.ts). Called by the
+	// service worker, not the app.
+	markPushRead: t.field({
+		type: "Boolean",
+		errors: { types: [AuthenticationError] },
+		args: {
+			ids: t.arg({ type: ["ID"], required: true }),
+		},
+		resolve: async (_root, args, ctx) => {
+			const user = requireUser(ctx)
+			await markPushRead(user.id, args.ids)
 			return true
 		},
 	}),

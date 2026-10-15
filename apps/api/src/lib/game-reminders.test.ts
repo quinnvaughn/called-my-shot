@@ -169,8 +169,12 @@ describe("drainGameReminders", () => {
 			expect(push.sent[0].options.urgency).toBe("high")
 			const [row] = await reminderRows()
 			expect(row.skippedReason).toBe("pushed")
-			// The in-app notification still lands, and isn't pushed a second time.
-			expect(await notificationsFor(user.id)).toHaveLength(1)
+			// The in-app notification still lands, under the id the push carries
+			// for marking it read, and isn't pushed a second time.
+			const notifications = await notificationsFor(user.id)
+			expect(notifications.map((n) => n.id)).toEqual(
+				push.sent[0].payload.notificationIds,
+			)
 			expect(await db.select().from(pushOutbox)).toHaveLength(0)
 		})
 

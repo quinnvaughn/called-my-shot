@@ -1,6 +1,10 @@
-import { useQuery } from "@tanstack/react-query"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { useRouter } from "@tanstack/react-router"
 import { useEffect } from "react"
+import {
+	notificationsQuery,
+	unreadNotificationCountQuery,
+} from "#/graphql/notifications/queries"
 import {
 	currentSubscription,
 	enablePush,
@@ -16,15 +20,26 @@ const SYNCED_KEY = "cms.pushSynced"
 // browser session: a device is tied to the session it was saved under, so
 // signing back in after signing out (or after a session expires) would
 // otherwise leave it pushing to no one. Also re-subscribes after a server key
-// change, and follows a tapped notification into an already-open tab.
+// change, follows a tapped notification into an already-open tab, and
+// refreshes what's unread once the tap has marked it read.
 export function usePushSync(userId: string | null) {
 	const router = useRouter()
+	const queryClient = useQueryClient()
 	const { data } = useQuery({ ...pushPublicKeyQuery, enabled: Boolean(userId) })
 	const publicKey = data?.pushPublicKey ?? null
 
 	useEffect(() => {
 		if (!("serviceWorker" in navigator)) return
 		const onMessage = (event: MessageEvent) => {
+			if (event.data?.type === "notifications-read") {
+				void queryClient.invalidateQueries({
+					queryKey: unreadNotificationCountQuery.queryKey,
+				})
+				void queryClient.invalidateQueries({
+					queryKey: notificationsQuery().queryKey,
+				})
+				return
+			}
 			if (event.data?.type !== "navigate" || typeof event.data.url !== "string")
 				return
 			const url = new URL(event.data.url, window.location.origin)
@@ -34,7 +49,7 @@ export function usePushSync(userId: string | null) {
 		navigator.serviceWorker.addEventListener("message", onMessage)
 		return () =>
 			navigator.serviceWorker.removeEventListener("message", onMessage)
-	}, [router])
+	}, [router, queryClient])
 
 	useEffect(() => {
 		if (!userId || !publicKey || !("serviceWorker" in navigator)) return

@@ -74,6 +74,8 @@ export type PushMessage = {
 	tag: string
 	// Which notification type it announces, for the click's utm_campaign.
 	type: string
+	// The in-app notifications it announces, marked read when it's tapped.
+	notificationIds: string[]
 }
 
 export function pushPayload(message: PushMessage): string {
@@ -88,6 +90,7 @@ export function pushPayload(message: PushMessage): string {
 		url: `${url.pathname}${url.search}${url.hash}`,
 		tag: message.tag,
 		type: message.type,
+		notificationIds: message.notificationIds,
 	})
 }
 

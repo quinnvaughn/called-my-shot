@@ -69,6 +69,7 @@ describe("drainPushOutbox", () => {
 			"/invite?utm_source=push&utm_medium=push&utm_campaign=redo_earned",
 		)
 		const [row] = await outboxRows()
+		expect(push.sent[0].payload.notificationIds).toEqual([row.notificationId])
 		expect(row).toMatchObject({
 			skippedReason: null,
 			deliveredCount: 1,

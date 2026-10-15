@@ -30,36 +30,64 @@ self.addEventListener("push", (event) => {
 			tag: data.tag,
 			icon: "/android-chrome-192x192.png",
 			badge: "/android-chrome-192x192.png",
-			data: { url: data.url || "/notifications" },
+			data: {
+				url: data.url || "/notifications",
+				notificationIds: Array.isArray(data.notificationIds)
+					? data.notificationIds
+					: [],
+			},
 		}),
 	)
 })
 
+// Tapping a push is seeing what it announced, so its notifications are
+// marked read alongside opening it rather than waiting for a visit to the
+// inbox. Open tabs are told once it lands so their unread badge catches up.
+async function markRead(ids) {
+	if (ids.length === 0) return
+	try {
+		await fetch("/graphql", {
+			method: "POST",
+			credentials: "include",
+			headers: { "content-type": "application/json" },
+			body: JSON.stringify({
+				query:
+					"mutation ($ids: [ID!]!) { markPushRead(ids: $ids) { __typename } }",
+				variables: { ids },
+			}),
+		})
+	} catch {
+		return
+	}
+	const windows = await self.clients.matchAll({ type: "window" })
+	for (const client of windows) client.postMessage({ type: "notifications-read" })
+}
+
 // Opens what the notification is about: in a tab of the app that's already
 // open if there is one (the app navigates itself, see usePushSync), otherwise
 // in a new one.
+async function openUrl(url) {
+	const windows = await self.clients.matchAll({
+		type: "window",
+		includeUncontrolled: true,
+	})
+	const open = windows.find(
+		(client) => new URL(client.url).origin === self.location.origin,
+	)
+	if (open) {
+		await open.focus()
+		open.postMessage({ type: "navigate", url })
+		return
+	}
+	await self.clients.openWindow(url)
+}
+
 self.addEventListener("notificationclick", (event) => {
 	event.notification.close()
-	const url = new URL(
-		event.notification.data?.url || "/notifications",
-		self.location.origin,
-	).href
+	const data = event.notification.data ?? {}
+	const url = new URL(data.url || "/notifications", self.location.origin).href
 	event.waitUntil(
-		(async () => {
-			const windows = await self.clients.matchAll({
-				type: "window",
-				includeUncontrolled: true,
-			})
-			const open = windows.find(
-				(client) => new URL(client.url).origin === self.location.origin,
-			)
-			if (open) {
-				await open.focus()
-				open.postMessage({ type: "navigate", url })
-				return
-			}
-			await self.clients.openWindow(url)
-		})(),
+		Promise.all([openUrl(url), markRead(data.notificationIds ?? [])]),
 	)
 })
 

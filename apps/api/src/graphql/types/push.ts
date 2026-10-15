@@ -149,6 +149,7 @@ builder.mutationFields((t) => ({
 					path: "/notifications",
 					tag: "test",
 					type: "test",
+					notificationIds: [],
 				},
 				{ ttl: 60, urgency: "high" },
 				webPushSend,

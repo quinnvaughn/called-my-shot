@@ -68,6 +68,7 @@ export function pushRecorder(
 			url: string
 			tag: string
 			type: string
+			notificationIds: string[]
 		}
 		options: Parameters<PushSendFn>[2]
 	}[] = []

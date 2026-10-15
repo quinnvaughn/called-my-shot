@@ -75,7 +75,7 @@ export function TopBar({
 				</HStack>
 
 				{me ? (
-					<HStack gap="2">
+					<HStack gap={{ base: "4", md: "2" }}>
 						<Link
 							to="/new-question"
 							aria-label="New Question"
