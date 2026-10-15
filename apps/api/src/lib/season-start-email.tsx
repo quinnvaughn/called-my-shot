@@ -21,6 +21,7 @@ import {
 } from "./outbox"
 import { markPending } from "./pending-work"
 import { parsePgTimestamp } from "./pg-timestamp"
+import { ET_ZONE } from "./windows"
 
 // How far ahead of the first game the announcement goes out. A window, not a
 // target date: the enqueue asks "does this season start within the next
@@ -143,12 +144,14 @@ async function firstSlate(
 			// kickoff - a 10pm PT first pitch belongs to the opening day people
 			// were told about, not to the UTC day after it.
 			const { rows } = await db.execute<{ game_count: number }>(sql`
-				select count(*)::int as game_count
+				select
+					(starts_at at time zone 'UTC' at time zone ${ET_ZONE})::date as day,
+					count(*)::int as game_count
 				from games
 				where season_id = ${seasonId}
 					and season_type = 'regular'
-				group by (starts_at at time zone 'America/New_York')::date
-				order by (starts_at at time zone 'America/New_York')::date asc
+				group by day
+				order by day asc
 				limit 1
 			`)
 			return {
