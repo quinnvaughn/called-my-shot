@@ -9,7 +9,8 @@ import { openModal } from "#/stores/modal-store"
 export type GuestPicksAuthSource = "card" | "lock_bar"
 
 // Signing up (or in) from here needs no onSuccess of its own: AuthModal lands
-// everyone on Home, which posts whatever is waiting in guest-picks-store.
+// everyone on Home, and the root posts whatever is waiting in
+// guest-picks-store once there's an account (see useSubmitGuestPicks).
 export function openGuestPicksAuth(
 	view: AuthModalView,
 	pickCount: number,

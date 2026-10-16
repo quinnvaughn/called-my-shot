@@ -8,7 +8,7 @@ export const LandingPageDocument = graphql(`
 			abbreviation
 			slug
 		}
-		# The hero's try-it stack. guestPickQuestions returns the soonest games
+		# The solo section's try-it stack. guestPickQuestions returns the soonest games
 		# in every active league rather than the soonest overall, so a visitor
 		# who only follows one sport is offered it whether its next game is
 		# tomorrow or a month out. guestPickLeagues builds the chip row out of
@@ -38,14 +38,6 @@ export const LandingPageDocument = graphql(`
 				id
 			}
 			...GuestPickCard_question
-		}
-		# Current season, matching /leaderboard's own default - "the
-		# leaderboard" should mean the same thing on the front page as it does
-		# on the page itself.
-		leaderboard(first: 5, season: { scope: CURRENT }) {
-			items {
-				...Leaderboard_entry
-			}
 		}
 	}
 `)

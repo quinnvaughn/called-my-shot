@@ -12,7 +12,9 @@ import { RouteError } from "#/components/ui/route-error"
 import { ToastHost } from "#/components/ui/toast"
 import { meQuery } from "#/graphql/me/queries"
 import { usePushSync } from "#/hooks/use-push-sync"
+import { useResumeAuthIntent } from "#/hooks/use-resume-auth-intent"
 import { useStaleBuildGuard } from "#/hooks/use-stale-build-guard"
+import { useSubmitGuestPicks } from "#/hooks/use-submit-guest-picks"
 import {
 	identifyUser,
 	initAnalytics,
@@ -196,8 +198,10 @@ function RootDocument({ children }: { children: React.ReactNode }) {
 	const { me } = Route.useRouteContext()
 
 	useStaleBuildGuard()
-	useGoogleAuthReturn(me?.username ?? null)
+	const resumeAuthIntent = useResumeAuthIntent()
+	useGoogleAuthReturn(me?.username ?? null, resumeAuthIntent)
 	usePushSync(me?.id ?? null)
+	useSubmitGuestPicks(me?.id ?? null)
 
 	useEffect(() => {
 		initAnalytics()

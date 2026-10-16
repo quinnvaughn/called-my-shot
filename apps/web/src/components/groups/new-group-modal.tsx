@@ -2,14 +2,9 @@ import {
 	createGroupSchema,
 	GROUP_DESCRIPTION_MAX,
 } from "@called-my-shot/schemas"
-import { useQueryClient } from "@tanstack/react-query"
-import { useNavigate, useRouter } from "@tanstack/react-router"
 import { VStack } from "styled-system/jsx"
 import { match } from "ts-pattern"
-import { CreateGroupDocument } from "#/graphql/generated/graphql"
-import { invalidateGroups } from "#/graphql/groups/mutations"
-import { useGqlMutation } from "#/graphql/hooks"
-import { track } from "#/lib/analytics"
+import { useCreateGroupFlow } from "#/hooks/use-create-group-flow"
 import { useForm } from "#/lib/form/use-form"
 import { closeModal } from "#/stores/modal-store"
 import { Button } from "../ui/button"
@@ -28,10 +23,7 @@ type Props = {
 }
 
 export function NewGroupModal({ leagues }: Props) {
-	const createGroup = useGqlMutation(CreateGroupDocument)
-	const router = useRouter()
-	const queryClient = useQueryClient()
-	const navigate = useNavigate()
+	const { createGroup } = useCreateGroupFlow()
 
 	const form = useForm({
 		defaultValues: {
@@ -41,8 +33,7 @@ export function NewGroupModal({ leagues }: Props) {
 		},
 		schema: createGroupSchema,
 		onSubmit: async (values, helpers) => {
-			const data = await createGroup.mutateAsync({ input: values })
-			const result = data?.createGroup
+			const result = await createGroup(values, "in_app")
 
 			if (!result) {
 				helpers.setFormError("Something went wrong. Try again.")
@@ -61,14 +52,8 @@ export function NewGroupModal({ leagues }: Props) {
 				.with({ __typename: "AuthenticationError" }, async () => {
 					helpers.setFormError("You need to sign in to create a group.")
 				})
-				.with({ __typename: "GroupPayload" }, async (r) => {
-					track("group_created", { groupId: r.group.id })
-					await invalidateGroups(queryClient)
-					await router.invalidate()
-					await navigate({
-						to: "/groups/$groupId",
-						params: { groupId: r.group.id },
-					})
+				// Already moved to the group by the flow.
+				.with({ __typename: "GroupPayload" }, async () => {
 					closeModal()
 				})
 				.exhaustive()

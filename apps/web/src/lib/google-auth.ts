@@ -3,6 +3,11 @@ import { useEffect } from "react"
 import { track } from "#/lib/analytics"
 import type { AuthModalSurface } from "#/lib/auth-modal-copy"
 import { rememberSignInMethod } from "#/lib/last-sign-in"
+import {
+	type AuthIntent,
+	saveAuthIntent,
+	takeAuthIntent,
+} from "#/stores/auth-intent-store"
 import { markGuestPicksEntry } from "#/stores/guest-picks-store"
 import { clearReferral, readReferral } from "#/stores/referral-store"
 import { showToast } from "#/stores/toast-store"
@@ -20,14 +25,18 @@ type Pending = {
 
 // Leaves for Google. The captured invite code goes along in the URL, since
 // the api can't read this browser's storage and the account is created on
-// the far side of the redirect.
+// the far side of the redirect. `intent` is the action the visitor was
+// signing up to do, finished by useGoogleAuthReturn once they're back.
 export function startGoogleAuth({
 	surface,
 	returnTo,
+	intent,
 }: {
 	surface: AuthModalSurface
 	returnTo: string
+	intent: AuthIntent | null
 }) {
+	saveAuthIntent(intent)
 	const referral = readReferral()
 	const pending: Pending = {
 		surface,
@@ -64,8 +73,14 @@ const REDO_TOAST_DELAY_MS = 600
 
 // Runs once on the page a Google sign-in returns to. The api reports how it
 // went in the query string; this reads it, does what the auth modal does on a
-// normal signup, and strips the params so a refresh doesn't do it twice.
-export function useGoogleAuthReturn(username: string | null) {
+// normal signup, and strips the params so a refresh doesn't do it twice. An
+// intent saved before leaving goes to `resume`, the same way an email form's
+// onSuccess runs the gated action. Only on a return that signed someone in, so
+// an intent from a trip that was abandoned or failed never fires.
+export function useGoogleAuthReturn(
+	username: string | null,
+	resume: (intent: AuthIntent) => void,
+) {
 	const router = useRouter()
 
 	// biome-ignore lint/correctness/useExhaustiveDependencies: one arrival per page load
@@ -81,6 +96,8 @@ export function useGoogleAuthReturn(username: string | null) {
 		}
 		router.history.replace(`${url.pathname}${url.search}${url.hash}`)
 
+		const intent = takeAuthIntent()
+
 		if (authError) {
 			takePending()
 			showToast({ message: "Google sign-in didn't go through. Try again." })
@@ -95,6 +112,7 @@ export function useGoogleAuthReturn(username: string | null) {
 		if (auth === "google_signin") {
 			track("user_signed_in", { method: "google", surface })
 			markGuestPicksEntry("signin")
+			if (intent) resume(intent)
 			return
 		}
 
@@ -104,6 +122,7 @@ export function useGoogleAuthReturn(username: string | null) {
 		// Spent, the same as after an email signup.
 		clearReferral()
 		markGuestPicksEntry("signup")
+		if (intent) resume(intent)
 
 		if (username) {
 			showToast({

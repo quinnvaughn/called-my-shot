@@ -8,6 +8,7 @@ import { openModal } from "#/stores/modal-store"
 import { Brand } from "../ui/brand"
 import { Button } from "../ui/button"
 import { Dropdown } from "../ui/dropdown"
+import { StartGroupModal } from "./start-group-modal"
 
 type League = { id: string; name: string; abbreviation: string; slug: string }
 
@@ -106,9 +107,9 @@ export function LandingPageNav({ leagues }: Props) {
 					</Button>
 					<Button
 						variant="solid"
-						onClick={() => openModal(<AuthModal defaultView="signup" />)}
+						onClick={() => openModal(<StartGroupModal surface="landing_nav" />)}
 					>
-						Get Started
+						Start a group
 					</Button>
 				</HStack>
 				<Dropdown className={css({ display: { base: "block", md: "none" } })}>
@@ -182,9 +183,11 @@ export function LandingPageNav({ leagues }: Props) {
 						</Dropdown.Item>
 						<Dropdown.Item
 							variant="primary"
-							onClick={() => openModal(<AuthModal defaultView="signup" />)}
+							onClick={() =>
+								openModal(<StartGroupModal surface="landing_nav" />)
+							}
 						>
-							Get Started
+							Start a group
 						</Dropdown.Item>
 					</Dropdown.Content>
 				</Dropdown>

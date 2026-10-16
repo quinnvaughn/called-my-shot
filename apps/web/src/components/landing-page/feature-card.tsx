@@ -8,6 +8,8 @@ export type FeatureItem = {
 	title: string
 	description: string
 	example?: string
+	// A button under the description, for a card that's also a way in.
+	action?: ReactNode
 }
 
 export function FeatureCard({
@@ -15,6 +17,7 @@ export function FeatureCard({
 	title,
 	description,
 	example,
+	action,
 }: FeatureItem) {
 	return (
 		<Card>
@@ -58,6 +61,7 @@ export function FeatureCard({
 							{example}
 						</div>
 					)}
+					{action}
 				</VStack>
 			</Card.Body>
 		</Card>

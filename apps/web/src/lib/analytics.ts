@@ -23,6 +23,18 @@ export type CallSurface =
 	| "guest_picks"
 	| "challenge"
 
+// Which landing page button someone named a group from: the hero's form, an
+// audience card, the nav, or the closing section.
+export type StartGroupSurface =
+	| "landing_hero"
+	| "landing_card"
+	| "landing_nav"
+	| "landing_final"
+
+// Where a group was created from. resume_google is a group named on the
+// landing page whose creation waited out the trip through Google signup.
+export type GroupCreatedSurface = "landing" | "in_app" | "resume_google"
+
 // Add new events here as they're needed - `track()` below is typed against
 // this map, so every call site gets the right property shape for free and a
 // typo'd event name is a compile error instead of a silent no-op in PostHog.
@@ -94,8 +106,21 @@ type AnalyticsEvents = {
 	question_disputed: { questionId: string; reason: string }
 	question_reported: { questionId: string; reason: string }
 
-	group_created: { groupId: string }
-	group_joined: { groupId: string; source: "invite_link" | "code_form" }
+	// Someone submitted a group name on the landing page, before signing up
+	// for it. The step between landing and user_signed_up(surface=start_group)
+	// in the group funnel.
+	group_start_submitted: {
+		surface: StartGroupSurface
+		signedIn: boolean
+	}
+	group_created: { groupId: string; surface: GroupCreatedSurface }
+	// resumedAfterGoogle separates an invite that joined on its own once a
+	// Google signup came back from one joined with a tap.
+	group_joined: {
+		groupId: string
+		source: "invite_link" | "code_form"
+		resumedAfterGoogle?: boolean
+	}
 	// `surface` separates the header's Invite modal from the inline card small
 	// groups show, so it's visible which one actually gets links sent.
 	group_invite_shared: {

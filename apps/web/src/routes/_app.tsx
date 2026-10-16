@@ -1,5 +1,6 @@
 import { createFileRoute, Outlet } from "@tanstack/react-router"
 import { AppShell } from "#/components/app-shell/app-shell"
+import { sidebarGroupsQuery } from "#/components/app-shell/sidebar-groups"
 import { gqlQueryOptions } from "#/graphql/query-options"
 import { LeaguesDocument } from "#/graphql/sports/catalog/queries"
 
@@ -30,6 +31,12 @@ export const Route = createFileRoute("/_app")({
 	beforeLoad: async ({ context }) => {
 		const data = await context.queryClient.query(leaguesQuery)
 		return { leagues: data.leagues }
+	},
+	// The signed-in sidebar's group list, loaded with the page rather than
+	// fetched by the sidebar after it renders. A loader, not beforeLoad: it
+	// runs alongside the page's own loaders instead of holding them up.
+	loader: async ({ context }) => {
+		if (context.me) await context.queryClient.query(sidebarGroupsQuery)
 	},
 })
 

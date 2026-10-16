@@ -1,5 +1,6 @@
 import { useSuspenseQuery } from "@tanstack/react-query"
 import { createFileRoute, Outlet, useNavigate } from "@tanstack/react-router"
+import { useEffect } from "react"
 import { FiSettings, FiUserPlus, FiUsers } from "react-icons/fi"
 import { HiMiniQuestionMarkCircle } from "react-icons/hi2"
 import { HStack, VStack } from "styled-system/jsx"
@@ -22,6 +23,7 @@ import { GroupShellDocument } from "#/graphql/generated/graphql"
 import { gqlQueryOptions } from "#/graphql/query-options"
 import { useMe } from "#/hooks/use-me"
 import { pluralize } from "#/lib/pluralize"
+import { takeFreshGroup } from "#/stores/fresh-group-store"
 import { openModal } from "#/stores/modal-store"
 
 export const groupShellQuery = (groupId: string) =>
@@ -75,6 +77,33 @@ function RouteComponent() {
 	const me = useMe()
 	const { data } = useSuspenseQuery(groupShellQuery(groupId))
 	const group = data.group
+
+	// A group this tab just created opens on its invite link, since there's
+	// nobody else in it yet. Deferred a tick so it opens after the root closes
+	// the previous page's modals on the route change, whichever of the two
+	// effects runs first.
+	const freshInvite = group?.myInvite
+		? { ...group.myInvite, name: group.name }
+		: null
+	// biome-ignore lint/correctness/useExhaustiveDependencies: once per group
+	useEffect(() => {
+		if (!freshInvite) return
+		// Taken inside the timer, so a cleared one (React's dev double effect)
+		// leaves the flag for the run that sticks.
+		const timer = setTimeout(() => {
+			if (!takeFreshGroup(groupId)) return
+			openModal(
+				<InviteCodeModal
+					groupId={groupId}
+					groupName={freshInvite.name}
+					inviteId={freshInvite.id}
+					inviteCode={freshInvite.code}
+					expirationDate={freshInvite.expiresAt}
+				/>,
+			)
+		}, 0)
+		return () => clearTimeout(timer)
+	}, [groupId])
 
 	if (!group) {
 		return (

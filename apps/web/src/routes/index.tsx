@@ -1,30 +1,23 @@
 import { useSuspenseQuery } from "@tanstack/react-query"
-import { createFileRoute, Link, redirect } from "@tanstack/react-router"
-import {
-	FiAward,
-	FiFlag,
-	FiHelpCircle,
-	FiLock,
-	FiMessageCircle,
-	FiMic,
-	FiRadio,
-	FiUsers,
-} from "react-icons/fi"
+import { createFileRoute, redirect } from "@tanstack/react-router"
+import { FiAward, FiMessageCircle, FiRadio, FiUsers } from "react-icons/fi"
 import { css } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
 import { AuthModal } from "#/components/auth/auth-modal"
+import { EveryWeekVisual } from "#/components/landing-page/every-week/every-week-visual"
+import { GroupCallDemo } from "#/components/landing-page/group-call-demo/group-call-demo"
 import { GuestPicks } from "#/components/landing-page/guest-picks/guest-picks"
 import { LandingPageFeatureSection } from "#/components/landing-page/landing-page-feature-section"
 import { LandingPageFooter } from "#/components/landing-page/landing-page-footer"
 import { LandingPageGetStartedSection } from "#/components/landing-page/landing-page-get-started-section"
-import { LandingPageLeaderboardSection } from "#/components/landing-page/landing-page-leaderboard-section"
 import { LandingPageNav } from "#/components/landing-page/landing-page-nav"
 import { LandingPageSection } from "#/components/landing-page/landing-page-section"
+import { LandingPageSectionHeader } from "#/components/landing-page/landing-page-section-header"
 import { LandingPageWrap } from "#/components/landing-page/landing-page-wrap"
+import { StartGroupForm } from "#/components/landing-page/start-group-form"
+import { StartGroupModal } from "#/components/landing-page/start-group-modal"
 import { Badge } from "#/components/ui/badge"
 import { Button } from "#/components/ui/button"
-import { Card } from "#/components/ui/card"
-import { Eyebrow } from "#/components/ui/eyebrow"
 import { LandingPageDocument } from "#/graphql/landing-page/queries"
 import { gqlQueryOptions } from "#/graphql/query-options"
 import { openModal } from "#/stores/modal-store"
@@ -41,81 +34,44 @@ export const Route = createFileRoute("/")({
 	component: Home,
 })
 
+const startOne = (
+	<Button
+		variant="outline"
+		size="md"
+		onClick={() => openModal(<StartGroupModal surface="landing_card" />)}
+	>
+		Start one
+	</Button>
+)
+
 const whoItems = [
 	{
 		icon: <FiMessageCircle />,
 		title: "Your group chat",
+		action: startOne,
 		description:
 			"The takes are already flying. Start a group, drop the invite link in the chat, and the standings remember who said what.",
 	},
 	{
 		icon: <FiAward />,
 		title: "Your fantasy league",
+		action: startOne,
 		description:
 			"Fantasy only scores the players you drafted. Run a group next to it so the league also settles who reads games right, including the weeks your roster is dead.",
 	},
 	{
 		icon: <FiRadio />,
 		title: "Your audience",
+		action: startOne,
 		description:
 			"Podcast, channel, newsletter, whatever you run. One invite link gives every follower a leaderboard to beat you on. Nobody puts money up, so it's a scoreboard, not a sportsbook.",
 	},
 	{
 		icon: <FiUsers />,
 		title: "Your community",
+		action: startOne,
 		description:
 			"Discord server, subreddit, a stats group, whatever you're already in. Nobody has to run it. Post the invite link once and the board sorts out who in the room calls games right.",
-	},
-]
-
-const whyItems = [
-	{
-		icon: <FiLock />,
-		title: "Receipts, not vibes",
-		description:
-			"Every call locks when the game starts and can't be edited after. Your accuracy sits on your profile for anyone to check.",
-	},
-	{
-		icon: <FiHelpCircle />,
-		title: "Ask anything",
-		description:
-			"Post your own question and set your own line. If it has a public result somebody could check, anyone can call it.",
-	},
-	{
-		icon: <FiFlag />,
-		title: "Challenge anyone",
-		description:
-			"Pick the questions and send the link. Everyone who takes it on gets their own 1v1 against you, whoever scores more points wins, and the receipt stays up.",
-	},
-	{
-		icon: <FiMic />,
-		title: "Face the press",
-		description:
-			"After the game, your group gets to ask about that 95-conviction miss. Answer it or go with \"No comment.\"",
-	},
-]
-
-// The caps come straight from packages/scoring: the contrarian multiplier tops
-// out at 6x, the early multiplier at 2x for a game and 3x for a season-long
-// question, and conviction scales both what a hit pays and what a miss costs.
-const scoringItems = [
-	{
-		figure: "Up to 6x",
-		title: "Against the crowd",
-		description:
-			"A hit pays more the less of the field ended up on your side. On a two-way question, the boost starts once your side is under 20%.",
-	},
-	{
-		figure: "Up to 3x",
-		title: "Calling early",
-		description:
-			"Calling ahead of the rest of the field pays up to 2x on a game. Calling a season-long question before the games get played pays up to 3x.",
-	},
-	{
-		figure: "1 to 100",
-		title: "Your conviction",
-		description:
-			"You set how much rides on each call. Higher pays more on a hit and costs more on a miss.",
 	},
 ]
 
@@ -131,14 +87,14 @@ function Home() {
 						display: "grid",
 						gridTemplateColumns: { base: "1fr", lg: "1fr 1fr" },
 						// Stacked, this gap is the only thing between the pitch
-						// and the try-it stack, so it has to read as a break
-						// between two sections rather than the space between two
-						// paragraphs. Side by side it's just the column gutter.
+						// and the demo, so it has to read as a break between two
+						// sections rather than the space between two paragraphs.
+						// Side by side it's just the column gutter.
 						gap: { base: "16", lg: "10" },
 						// Both columns start at the top. Centring hung the copy
-						// off the middle of whatever height the try-it card
-						// happened to be, which moves the headline down the page
-						// for no reason the reader can see.
+						// off the middle of whatever height the demo happened to
+						// be, which moves the headline down the page for no
+						// reason the reader can see.
 						alignItems: "flex-start",
 					})}
 				>
@@ -154,8 +110,7 @@ function Home() {
 										letterSpacing: "tight",
 									})}
 								>
-									You already think you know more than your friends. Now prove
-									it.
+									Find out who in your group actually knows sports.
 								</h1>
 								<p
 									className={css({
@@ -164,41 +119,48 @@ function Home() {
 										maxWidth: "lg",
 									})}
 								>
-									Make calls on real games for free, then put a leaderboard
-									behind it for your group chat, your fantasy league, or your
-									whole audience. Every call goes on your record, right or
-									wrong.
+									Start a group and send the link. Everyone makes calls on the
+									same games, and the leaderboard keeps score.
 								</p>
 							</VStack>
-							<VStack alignItems="flex-start" gap="3">
+							<VStack alignItems="stretch" gap="3" width="full" maxWidth="lg">
+								<StartGroupForm surface="landing_hero" />
 								<p
 									className={css({
 										color: "fg.subtle",
 										textStyle: "metaLg",
 									})}
 								>
-									free · no money, ever · takes 30 seconds
+									free · no money, ever
 								</p>
-								<HStack gap="3" flexWrap="wrap">
-									<p className={css({ color: "fg.muted", fontSize: "sm" })}>
-										Already have an account?
-									</p>
-									<Button
-										variant="dark"
-										size="md"
-										onClick={() => openModal(<AuthModal defaultView="signin" />)}
-									>
-										Sign in
-									</Button>
-								</HStack>
 							</VStack>
+							<HStack gap="3" flexWrap="wrap">
+								<p className={css({ color: "fg.muted", fontSize: "sm" })}>
+									Playing on your own?
+								</p>
+								<Button
+									variant="dark"
+									size="md"
+									onClick={() => openModal(<AuthModal defaultView="signup" />)}
+								>
+									Sign up
+								</Button>
+							</HStack>
 						</VStack>
 					</div>
-					<div id="make-calls" className={css({ scrollMarginTop: "24" })}>
-						<GuestPicks questions={data.guestPicks} />
-					</div>
+					<GroupCallDemo />
 				</LandingPageWrap>
 			</header>
+			<LandingPageSection alt>
+				<LandingPageWrap className={twoColumns}>
+					<LandingPageSectionHeader
+						eyebrow="Every week"
+						title="Somebody wins the week. Somebody has to explain themselves."
+						description="Your group gets its own leaderboard, a Player of the Week, and a record book for the best weeks and longest streaks. After each game, anyone in the group can ask about a call, and “No comment” counts as an answer. Want it one on one? Send a challenge and whoever scores more wins."
+					/>
+					<EveryWeekVisual />
+				</LandingPageWrap>
+			</LandingPageSection>
 			<LandingPageFeatureSection
 				id="who"
 				eyebrow="Who it's for"
@@ -206,90 +168,35 @@ function Home() {
 				description="A group is a private leaderboard for people who already argue about this. Free to join, no money in it, so anyone you'd invite can actually play."
 				items={whoItems}
 			/>
-			<LandingPageFeatureSection
-				id="why"
-				alt
-				columns={2}
-				eyebrow="Why play"
-				title="Being right is more fun when it's on the record."
-				description="Every call is timestamped, locked when the game starts, and scored against what the rest of the field said."
-				items={whyItems}
-			/>
-			<LandingPageSection>
-				<LandingPageWrap
-					className={css({
-						display: "grid",
-						gridTemplateColumns: { base: "1fr", lg: "2fr 3fr" },
-						gap: { base: "8", lg: "12" },
-						alignItems: "center",
-					})}
-				>
-					<VStack alignItems="flex-start" gap="4">
-						<Eyebrow>How scoring works</Eyebrow>
-						<h2
-							className={css({
-								fontFamily: "heading",
-								fontSize: { base: "xl", lg: "2xl" },
-								lineHeight: "snug",
-							})}
+			<LandingPageSection alt id="make-calls">
+				<LandingPageWrap className={twoColumns}>
+					<VStack alignItems="flex-start" gap="6">
+						<LandingPageSectionHeader
+							eyebrow="On your own"
+							title="No group? Play anyway."
+							description="Every call goes on your record and the public leaderboard, group or not. Sign up and start calling, or try one of these first."
+						/>
+						<Button
+							variant="outline"
+							size="lg"
+							onClick={() => openModal(<AuthModal defaultView="signup" />)}
 						>
-							Bold calls against the crowd score more. Misses cost what you
-							committed.
-						</h2>
-						<Link
-							to="/how-it-works"
-							className={css({
-								fontSize: "sm",
-								fontWeight: "medium",
-								color: "primary.default",
-								_hover: { textDecoration: "underline" },
-							})}
-						>
-							Read how scoring works →
-						</Link>
+							Sign up
+						</Button>
 					</VStack>
-					<div
-						className={css({
-							display: "grid",
-							gridTemplateColumns: { base: "1fr", md: "repeat(3, 1fr)" },
-							gap: "4",
-						})}
-					>
-						{scoringItems.map((item) => (
-							<Card key={item.title}>
-								<Card.Body>
-									<VStack alignItems="flex-start" gap="2">
-										<span
-											className={css({
-												fontFamily: "heading",
-												fontSize: "2xl",
-												color: "secondary.default",
-											})}
-										>
-											{item.figure}
-										</span>
-										<span className={css({ fontWeight: "semibold" })}>
-											{item.title}
-										</span>
-										<p
-											className={css({
-												fontSize: "sm",
-												lineHeight: "relaxed",
-												color: "fg.muted",
-											})}
-										>
-											{item.description}
-										</p>
-									</VStack>
-								</Card.Body>
-							</Card>
-						))}
-					</div>
+					<GuestPicks questions={data.guestPicks} />
 				</LandingPageWrap>
 			</LandingPageSection>
-			<LandingPageLeaderboardSection entries={data.leaderboard.items} />
 			<LandingPageGetStartedSection />
 			<LandingPageFooter />
 		</div>
 	)
 }
+
+const twoColumns = css({
+	display: "grid",
+	gridTemplateColumns: { base: "1fr", lg: "2fr 3fr" },
+	gap: { base: "8", lg: "12" },
+	alignItems: "flex-start",
+	scrollMarginTop: "24",
+})

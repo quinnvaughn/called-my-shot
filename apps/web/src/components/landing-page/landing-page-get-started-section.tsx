@@ -1,35 +1,34 @@
-import { Link } from "@tanstack/react-router"
 import { HStack } from "styled-system/jsx"
 import { AuthModal } from "#/components/auth/auth-modal"
 import { openModal } from "#/stores/modal-store"
-import { Button, button } from "../ui/button"
+import { Button } from "../ui/button"
 import { LandingPageContentSection } from "./landing-page-content-section"
+import { StartGroupModal } from "./start-group-modal"
 
-// Sends people back up to the hero's picks first, since trying a few is the
-// easier yes. Anyone who'd rather skip straight to an account still can, and
-// picks already made post either way once they land on Home.
+// Both ways in, side by side: start a group, or make an account and play on
+// your own.
 export function LandingPageGetStartedSection() {
 	return (
 		<LandingPageContentSection
 			center
 			eyebrow="Get started"
-			title="Your friends already have opinions. Get yours on the record."
-			description="Free, and it takes about 30 seconds."
+			title="Play with your group or on your own."
+			description="Free, no money in it. Every call goes on your record either way."
 		>
 			<HStack gap="4" flexWrap="wrap" justify="center">
-				<Link
-					to="/"
-					hash="make-calls"
-					className={button({ variant: "solid", size: "lg" })}
-				>
-					Make your calls ↑
-				</Link>
 				<Button
-					variant="ghost"
+					variant="solid"
+					size="lg"
+					onClick={() => openModal(<StartGroupModal surface="landing_final" />)}
+				>
+					Start a group
+				</Button>
+				<Button
+					variant="outline"
 					size="lg"
 					onClick={() => openModal(<AuthModal defaultView="signup" />)}
 				>
-					Just sign up
+					Sign up
 				</Button>
 			</HStack>
 		</LandingPageContentSection>

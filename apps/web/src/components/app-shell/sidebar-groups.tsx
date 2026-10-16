@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query"
+import { useSuspenseQuery } from "@tanstack/react-query"
 import { FaUserGroup } from "react-icons/fa6"
 import { FiPlus } from "react-icons/fi"
 import { NewGroupModal } from "#/components/groups/new-group-modal"
@@ -11,7 +11,9 @@ import { sidebarLeading, sidebarRow } from "./sidebar-row"
 import { SidebarSection } from "./sidebar-section"
 import type { League } from "./types"
 
-const sidebarGroupsQuery = gqlQueryOptions(SidebarGroupsDocument, {})
+// Loaded by the _app layout for a signed-in viewer, so the list is there on
+// the first render instead of filling in after the page draws.
+export const sidebarGroupsQuery = gqlQueryOptions(SidebarGroupsDocument, {})
 
 // Signed-in only: the caller doesn't render it for a signed-out reader.
 export function SidebarGroups({
@@ -21,8 +23,8 @@ export function SidebarGroups({
 	leagues: League[]
 	onNavigate: () => void
 }) {
-	const { data } = useQuery(sidebarGroupsQuery)
-	const groups = data?.myGroups ?? []
+	const { data } = useSuspenseQuery(sidebarGroupsQuery)
+	const groups = data.myGroups
 
 	return (
 		<SidebarSection id="groups" label="GROUPS">

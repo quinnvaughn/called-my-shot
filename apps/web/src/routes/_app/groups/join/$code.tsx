@@ -1,6 +1,6 @@
 import { JOIN_GIFS } from "@called-my-shot/gifs"
-import { useQueryClient, useSuspenseQuery } from "@tanstack/react-query"
-import { createFileRoute, useNavigate, useRouter } from "@tanstack/react-router"
+import { useSuspenseQuery } from "@tanstack/react-query"
+import { createFileRoute } from "@tanstack/react-router"
 import { FaRegTimesCircle } from "react-icons/fa"
 import { css } from "styled-system/css"
 import { VStack } from "styled-system/jsx"
@@ -13,16 +13,12 @@ import { CardRail } from "#/components/ui/card-rail"
 import { Eyebrow } from "#/components/ui/eyebrow"
 import { NotFound } from "#/components/ui/not-found"
 import { ReactionGif } from "#/components/ui/reaction-gif"
-import { JoinGroupByCodeDocument } from "#/graphql/generated/graphql"
-import { invalidateGroups } from "#/graphql/groups/mutations"
 import { GroupPreviewDocument } from "#/graphql/groups/queries"
-import { useGqlMutation } from "#/graphql/hooks"
 import { gqlQueryOptions } from "#/graphql/query-options"
+import { useJoinGroupFlow } from "#/hooks/use-join-group-flow"
 import { useRequireAuth } from "#/hooks/use-require-auth"
-import { track } from "#/lib/analytics"
 import { pageMeta } from "#/lib/meta"
 import { pluralize } from "#/lib/pluralize"
-import { requestPushPrompt } from "#/stores/push-prompt-store"
 
 const groupPreviewQuery = (code: string) =>
 	gqlQueryOptions(GroupPreviewDocument, { code })
@@ -59,31 +55,13 @@ function RouteComponent() {
 	const { data } = useSuspenseQuery(groupPreviewQuery(code))
 	const preview = data.groupPreview
 	const requireAuth = useRequireAuth()
-	const joinGroupByCode = useGqlMutation(JoinGroupByCodeDocument)
-	const router = useRouter()
-	const queryClient = useQueryClient()
-	const navigate = useNavigate()
+	const { joinGroup, isPending: joining } = useJoinGroupFlow()
 	const { me } = Route.useRouteContext()
 
 	function handleJoin() {
 		requireAuth(
-			async () => {
-				const data = await joinGroupByCode.mutateAsync({ input: { code } })
-				const result = data?.joinGroupByCode
-
-				if (result?.__typename === "GroupPayload") {
-					track("group_joined", {
-						groupId: result.group.id,
-						source: "invite_link",
-					})
-					requestPushPrompt("group_joined")
-					await invalidateGroups(queryClient)
-					await router.invalidate()
-					await navigate({
-						to: "/groups/$groupId",
-						params: { groupId: result.group.id },
-					})
-				}
+			() => {
+				void joinGroup(code)
 			},
 			{
 				signup: {
@@ -95,6 +73,7 @@ function RouteComponent() {
 					description: "Log back in to accept this invite.",
 				},
 			},
+			{ intent: { kind: "join_group", code }, surface: "group_invite" },
 		)
 	}
 
@@ -141,7 +120,7 @@ function RouteComponent() {
 					preview={preview}
 					pitchInviter={pitchInviter}
 					onJoin={handleJoin}
-					joining={joinGroupByCode.isPending}
+					joining={joining}
 					freeNote={freeNote}
 				/>
 				{preview.topScorer && (
@@ -167,7 +146,7 @@ function RouteComponent() {
 				<GroupInviteJoinBar
 					groupName={preview.name}
 					onJoin={handleJoin}
-					joining={joinGroupByCode.isPending}
+					joining={joining}
 					freeNote={freeNote}
 				/>
 			</VStack>

@@ -27,10 +27,10 @@ const GUEST_PICK_CONVICTION = 50
 let inFlight: Promise<void> | null = null
 
 // Posts whatever a visitor picked on the landing page before they had an
-// account, then tells them how many made it. Home runs this on mount, and every
-// sign-up and sign-in lands there, so it's one path no matter which button got
-// them in. The shared promise keeps a second mount (React's dev double effect)
-// from posting the same picks twice.
+// account, then tells them how many made it. The root runs this whenever there
+// is a viewer (see useSubmitGuestPicks), so picks post on whatever page the
+// account arrived on, not only Home. The shared promise keeps a second run
+// (React's dev double effect) from posting the same picks twice.
 export function submitGuestPicks(deps: {
 	queryClient: QueryClient
 	router: AnyRouter
@@ -93,8 +93,11 @@ async function postPicks(
 	// Someone signing in already has a record and knows what a call is, so the
 	// modal would be explaining the product to them with an OK button in the
 	// way of the page they came for. What they still need is whether the picks
-	// landed, which a toast answers without being dismissed.
-	if (takeGuestPicksEntry() === "signin") {
+	// landed, which a toast answers without being dismissed. The same goes for
+	// a signup that landed anywhere but Home: it came to start or join a group,
+	// and that page has its own next step to show.
+	const entry = takeGuestPicksEntry()
+	if (entry === "signin" || window.location.pathname !== "/home") {
 		showToast({
 			message: postedMessage(posted.length, notPostedCount),
 			action:

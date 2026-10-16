@@ -10,6 +10,7 @@ import type {
 	AuthModalView,
 } from "#/lib/auth-modal-copy"
 import { readLastSignInMethod } from "#/lib/last-sign-in"
+import type { AuthIntent } from "#/stores/auth-intent-store"
 import { ForgotPasswordFields } from "./forgot-password-fields"
 import { GoogleButton } from "./google-button"
 import { OrDivider } from "./or-divider"
@@ -26,6 +27,10 @@ type AuthModalProps = {
 	// succeeds - lets callers (e.g. useRequireAuth) resume whatever action
 	// was gated behind auth.
 	onSuccess?: () => void
+	// onSuccess written down, for the one path that can't run a callback: a
+	// Google signup leaves the page and comes back. Optional, since not every
+	// gated action has been given one.
+	intent?: AuthIntent
 	// Where the modal was opened from, recorded on the signed-up/signed-in
 	// event.
 	surface?: AuthModalSurface
@@ -51,6 +56,7 @@ export function AuthModal({
 	defaultView = "signin",
 	copy,
 	onSuccess,
+	intent,
 	surface = "default",
 }: AuthModalProps) {
 	const [view, setView] = useState<AuthModalView>(defaultView)
@@ -95,6 +101,7 @@ export function AuthModal({
 			</VStack>
 			<GoogleButton
 				hasOnSuccess={Boolean(onSuccess)}
+				intent={intent ?? null}
 				surface={surface}
 				lastUsed={view === "signin" && lastMethod === "google"}
 			/>
