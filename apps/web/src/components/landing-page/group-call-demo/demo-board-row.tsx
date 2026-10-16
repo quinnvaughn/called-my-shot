@@ -27,9 +27,9 @@ export function DemoBoardRow({
 			>
 				{rank}
 			</span>
-			<Avatar name={entry.username.replace("@", "")} size="xs" />
+			<Avatar name={entry.name} size="xs" />
 			<span className={css({ flex: 1, fontSize: "sm", fontWeight: "medium" })}>
-				{entry.username}
+				{entry.name}
 				{entry.moved > 0 && (
 					<span
 						className={css({

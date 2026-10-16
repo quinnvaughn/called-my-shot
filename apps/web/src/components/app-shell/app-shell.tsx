@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query"
+import { useMatches } from "@tanstack/react-router"
 import { type ReactNode, useEffect, useState } from "react"
 import { css } from "styled-system/css"
 import { WalkthroughLauncher } from "#/components/onboarding/walkthrough-launcher"
@@ -29,6 +30,9 @@ export function AppShell({
 		: null
 	const [drawerOpen, setDrawerOpen] = useState(false)
 	const rightRail = useRightRail()
+	const bareSignedOut = useMatches({
+		select: (matches) => matches.some((m) => m.staticData?.bareSignedOut),
+	})
 
 	// Shares notifications-list.tsx's options object so the key it invalidates
 	// after marking rows read is exactly the key this reads.
@@ -55,6 +59,9 @@ export function AppShell({
 			document.removeEventListener("keydown", onKeyDown)
 		}
 	}, [drawerOpen])
+
+	// The page draws its own chrome for someone who hasn't seen the app yet.
+	if (!me && bareSignedOut) return children
 
 	return (
 		// overflowX clip: PageBanner bleeds to the window edge using 100vw, which

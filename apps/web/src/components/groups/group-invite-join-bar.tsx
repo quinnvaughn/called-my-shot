@@ -7,7 +7,8 @@ type Props = {
 	groupName: string
 	onJoin: () => void
 	joining: boolean
-	freeNote: ReactNode
+	// Under the button for someone about to meet the signup form.
+	freeNote?: ReactNode
 }
 
 // Below lg, sticks to the bottom of the viewport over a backdrop that runs

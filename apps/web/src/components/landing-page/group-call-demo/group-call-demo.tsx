@@ -1,4 +1,5 @@
 import { Link } from "@tanstack/react-router"
+import { useMemo } from "react"
 import { css, cx } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
 import { Card } from "#/components/ui/card"
@@ -8,12 +9,11 @@ import { Slider } from "#/components/ui/slider"
 import { Tag } from "#/components/ui/tag"
 import { DemoBoard } from "./demo-board"
 import {
+	buildDemo,
 	DEMO_CONVICTION,
-	DEMO_GROUP,
 	DEMO_MATCHUP,
-	DEMO_PICK_ID,
-	DEMO_POINTS,
-	DEMO_SIDES,
+	type DemoCast,
+	LANDING_CAST,
 } from "./demo-fixture"
 import { DemoPresser } from "./demo-presser"
 import { DemoSide } from "./demo-side"
@@ -39,21 +39,21 @@ const panel = css({
 // A call playing out inside a group, on a loop: pick a side, set conviction,
 // lock at kickoff, then the result, the group board moving, and a groupmate's
 // presser question. Built from the app's own pieces on made-up data, and not
-// interactive: the picks a visitor can actually make are further down the
-// page.
-export function GroupCallDemo() {
+// interactive. `cast` puts it in a real group (its invite page); the landing
+// page's made-up group otherwise.
+export function GroupCallDemo({ cast = LANDING_CAST }: { cast?: DemoCast }) {
+	const demo = useMemo(() => buildDemo(cast), [cast])
 	const { step, conviction, replay } = useDemoTimeline()
 	const picked = step >= DEMO_STEP.picked
 	const final = step >= DEMO_STEP.final
 	const status =
 		step < DEMO_STEP.locked ? "Locks at kickoff" : final ? "Final" : "Locked"
-	const against = DEMO_SIDES.find((s) => s.id !== DEMO_PICK_ID)?.groupmates
-		.length
+	const against = demo.sides.find((s) => !s.isPick)?.groupmates.length ?? 0
 
 	return (
 		<VStack gap="3" alignItems="stretch">
 			<figure
-				aria-label={`Example: a call on ${DEMO_MATCHUP} inside a group. You take the Bills at conviction ${DEMO_CONVICTION}, they win, you get ${DEMO_POINTS} points, move up the group leaderboard, and a groupmate asks about it in your presser.`}
+				aria-label={`Example: a call on ${DEMO_MATCHUP} inside a group. You take the Bills at conviction ${DEMO_CONVICTION}, they win, you get ${demo.points} points, move up the group leaderboard, and a groupmate asks about it in your presser.`}
 			>
 				<Card>
 					<Card.Body>
@@ -61,7 +61,11 @@ export function GroupCallDemo() {
 						<div inert aria-hidden>
 							<VStack gap="4" alignItems="stretch">
 								<HStack gap="3">
-									<GroupLogo name={DEMO_GROUP.name} size="sm" />
+									<GroupLogo
+										name={cast.groupName}
+										src={cast.groupLogoUrl}
+										size="sm"
+									/>
 									<VStack gap="0" alignItems="flex-start" flex="1">
 										<span
 											className={css({
@@ -69,12 +73,12 @@ export function GroupCallDemo() {
 												fontWeight: "semibold",
 											})}
 										>
-											{DEMO_GROUP.name}
+											{cast.groupName}
 										</span>
 										<span
 											className={css({ textStyle: "meta", color: "fg.subtle" })}
 										>
-											{DEMO_GROUP.memberCount} members
+											{cast.groupMeta}
 										</span>
 									</VStack>
 									<Tag size="sm" variant={final ? "secondary" : "neutral"}>
@@ -93,8 +97,8 @@ export function GroupCallDemo() {
 								</h3>
 
 								<VStack gap="3" alignItems="stretch">
-									{DEMO_SIDES.map((side) => {
-										const isPick = side.id === DEMO_PICK_ID
+									{demo.sides.map((side) => {
+										const isPick = side.isPick
 										return (
 											<DemoSide
 												key={side.id}
@@ -140,10 +144,10 @@ export function GroupCallDemo() {
 											color: "fg.body",
 										})}
 									>
-										Called it. You and @sam took the Bills over {against} of
-										your group.
+										Called it. You and {demo.ally} took the Bills over {against}{" "}
+										of your group.
 									</p>
-									<SignedPoints value={DEMO_POINTS} suffix=" pts" pill />
+									<SignedPoints value={demo.points} suffix=" pts" pill />
 								</HStack>
 
 								<div
@@ -159,7 +163,7 @@ export function GroupCallDemo() {
 											step >= DEMO_STEP.board ? shown : hidden,
 										)}
 									>
-										<DemoBoard />
+										<DemoBoard board={demo.board} />
 									</div>
 									<div
 										className={cx(
@@ -167,7 +171,7 @@ export function GroupCallDemo() {
 											step >= DEMO_STEP.presser ? shown : hidden,
 										)}
 									>
-										<DemoPresser />
+										<DemoPresser {...demo.presser} />
 									</div>
 								</div>
 							</VStack>

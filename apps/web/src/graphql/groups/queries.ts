@@ -44,11 +44,14 @@ export const GroupPreviewDocument = graphql(`
             trackedLeagues {
                 abbreviation
             }
-            topScorer {
+            leaders {
+                rank
                 name
                 username
+                avatarUrl
                 points
             }
+            viewerIsMember
             recentCalls {
                 id
                 ...CallCard_call

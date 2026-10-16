@@ -3,6 +3,7 @@ import { builder } from "../../builder"
 import { CallRef } from "../question"
 import { memberUserIds, trackedLeagueIds } from "./leaderboard"
 
+export const GROUP_PREVIEW_LEADER_LIMIT = 5
 export const GROUP_PREVIEW_MEMBER_LIMIT = 5
 export const GROUP_PREVIEW_CALL_LIMIT = 3
 
@@ -42,6 +43,24 @@ const GroupPreviewTopScorerRef = builder
 		}),
 	})
 
+const GroupPreviewLeaderRef = builder
+	.objectRef<{
+		rank: number
+		name: string
+		username: string
+		avatarUrl: string | null
+		points: number
+	}>("GroupPreviewLeader")
+	.implement({
+		fields: (t) => ({
+			rank: t.exposeInt("rank"),
+			name: t.exposeString("name"),
+			username: t.exposeString("username"),
+			avatarUrl: t.exposeString("avatarUrl", { nullable: true }),
+			points: t.exposeInt("points"),
+		}),
+	})
+
 const GroupPreviewLeagueRef = builder
 	.objectRef<{ abbreviation: string }>("GroupPreviewLeague")
 	.implement({
@@ -62,6 +81,14 @@ export const GroupPreviewRef = builder
 		invitedBy: { name: string; username: string; avatarUrl: string | null }
 		trackedLeagues: { abbreviation: string }[]
 		topScorer: { name: string; username: string; points: number } | null
+		leaders: {
+			rank: number
+			name: string
+			username: string
+			avatarUrl: string | null
+			points: number
+		}[]
+		viewerIsMember: boolean
 	}>("GroupPreview")
 	.implement({
 		fields: (t) => ({
@@ -94,6 +121,16 @@ export const GroupPreviewRef = builder
 				nullable: true,
 				resolve: (preview) => preview.topScorer,
 			}),
+			// The top of that same board, for an invitee to see who they'd be
+			// up against. Only members with points, so an offseason group shows
+			// an empty board rather than a list of zeros.
+			leaders: t.field({
+				type: [GroupPreviewLeaderRef],
+				resolve: (preview) => preview.leaders,
+			}),
+			// False when signed out. A member opening their own group's link
+			// is sent to the group instead of being asked to join it.
+			viewerIsMember: t.exposeBoolean("viewerIsMember"),
 			// The newest calls any member made in the group's tracked leagues,
 			// so an invitee sees what the group actually calls before joining.
 			recentCalls: t.field({

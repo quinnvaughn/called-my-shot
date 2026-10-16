@@ -6,7 +6,11 @@ import { imageUrl } from "../../../lib/storage"
 import { isUuid } from "../../../lib/uuid"
 import { builder } from "../../builder"
 import { getGroupLeaderboard, viewerMembership } from "./leaderboard"
-import { GROUP_PREVIEW_MEMBER_LIMIT, GroupPreviewRef } from "./preview"
+import {
+	GROUP_PREVIEW_LEADER_LIMIT,
+	GROUP_PREVIEW_MEMBER_LIMIT,
+	GroupPreviewRef,
+} from "./preview"
 import { GroupRef } from "./refs"
 
 builder.queryFields((t) => ({
@@ -85,6 +89,17 @@ builder.queryFields((t) => ({
 			])
 			const memberUsers = members.flatMap((m) => (m.user ? [m.user] : []))
 			const leader = leaderboard[0]
+			const leaders = leaderboard
+				.filter((entry) => entry.rank !== null && entry.totalPoints > 0)
+				.slice(0, GROUP_PREVIEW_LEADER_LIMIT)
+				.map((entry) => ({
+					rank: entry.rank ?? 0,
+					name: entry.user.name,
+					username: entry.user.username,
+					avatarUrl: imageUrl(entry.user.avatarKey),
+					points: entry.totalPoints,
+				}))
+			const viewerId = ctx.user?.id
 
 			return {
 				id: group.id,
@@ -116,6 +131,9 @@ builder.queryFields((t) => ({
 								points: leader.totalPoints,
 							}
 						: null,
+				leaders,
+				viewerIsMember:
+					viewerId !== undefined && members.some((m) => m.userId === viewerId),
 			}
 		},
 	}),

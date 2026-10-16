@@ -85,5 +85,8 @@ declare module "@tanstack/react-router" {
 	}
 	interface StaticDataRouteOption {
 		rightRail?: ReactNode
+		// Renders the page without the app shell for a signed-out visitor, for
+		// a page that's someone's first look at the site (the group invite).
+		bareSignedOut?: boolean
 	}
 }

@@ -1,12 +1,13 @@
 import { JOIN_GIFS } from "@called-my-shot/gifs"
 import { useSuspenseQuery } from "@tanstack/react-query"
-import { createFileRoute } from "@tanstack/react-router"
+import { createFileRoute, redirect } from "@tanstack/react-router"
 import { FaRegTimesCircle } from "react-icons/fa"
 import { css } from "styled-system/css"
 import { VStack } from "styled-system/jsx"
+import { GroupInviteLanding } from "#/components/groups/group-invite/group-invite-landing"
+import { GroupInviteLeaders } from "#/components/groups/group-invite/group-invite-leaders"
 import { GroupInviteIntro } from "#/components/groups/group-invite-intro"
 import { GroupInviteJoinBar } from "#/components/groups/group-invite-join-bar"
-import { GroupInviteTopScorer } from "#/components/groups/group-invite-top-scorer"
 import { PageBanner } from "#/components/images/page-banner"
 import { CallCard } from "#/components/questions/call-card"
 import { CardRail } from "#/components/ui/card-rail"
@@ -28,11 +29,22 @@ const groupPreviewQuery = (code: string) =>
 // _authed rather than nesting under /groups.
 export const Route = createFileRoute("/_app/groups/join/$code")({
 	component: RouteComponent,
+	// Signed out, the page is its own landing rather than a page in the app
+	// (see GroupInviteLanding).
+	staticData: { bareSignedOut: true },
 	// head() can only read loaderData, so the meta-tag fields come back from
 	// here; the component reads the same cache entry via useSuspenseQuery.
 	loader: async ({ context, params }) => {
 		const data = await context.queryClient.query(groupPreviewQuery(params.code))
-		return { preview: data.groupPreview ?? null }
+		const preview = data.groupPreview ?? null
+		// A member opening their own group's link has nothing to join.
+		if (preview?.viewerIsMember) {
+			throw redirect({
+				to: "/groups/$groupId",
+				params: { groupId: preview.id },
+			})
+		}
+		return { preview }
 	},
 	head: ({ loaderData, params }) => {
 		const preview = loaderData?.preview
@@ -92,24 +104,15 @@ function RouteComponent() {
 		)
 	}
 
-	// A signed-out visitor gets the invite framed around the person who sent
-	// it, plus a line on what the app is: the call cards below assume both.
-	// Not when the invite's creator is gone, since there is no one to name.
-	const pitchInviter = !me && preview.invitedBy.username !== ""
-
-	// Only for someone about to meet the signup form - a signed-in visitor
-	// joins in one tap.
-	const freeNote = !me && (
-		<p
-			className={css({
-				color: "fg.subtle",
-				textStyle: "metaLg",
-				textAlign: "center",
-			})}
-		>
-			free · no money, ever · takes 30 seconds
-		</p>
-	)
+	if (!me) {
+		return (
+			<GroupInviteLanding
+				preview={preview}
+				onJoin={handleJoin}
+				joining={joining}
+			/>
+		)
+	}
 
 	return (
 		<VStack gap="0" alignItems="stretch">
@@ -118,16 +121,11 @@ function RouteComponent() {
 			<VStack gap="6" alignItems="stretch" className={css({ paddingTop: "6" })}>
 				<GroupInviteIntro
 					preview={preview}
-					pitchInviter={pitchInviter}
 					onJoin={handleJoin}
 					joining={joining}
-					freeNote={freeNote}
 				/>
-				{preview.topScorer && (
-					<GroupInviteTopScorer
-						topScorer={preview.topScorer}
-						trackedLeagues={preview.trackedLeagues}
-					/>
+				{preview.leaders.length > 0 && (
+					<GroupInviteLeaders leaders={preview.leaders} />
 				)}
 				<ReactionGif pool={JOIN_GIFS} />
 				{preview.recentCalls.length > 0 && (
@@ -147,7 +145,6 @@ function RouteComponent() {
 					groupName={preview.name}
 					onJoin={handleJoin}
 					joining={joining}
-					freeNote={freeNote}
 				/>
 			</VStack>
 		</VStack>
