@@ -30,6 +30,7 @@ function RouteComponent() {
 		<VStack gap="6" alignItems="stretch" className={css({ paddingTop: "6" })}>
 			<PageHeader
 				title="Challenges"
+				description="Pick some questions and share the link. Anyone who accepts goes one on one with you on those questions, and the higher point total wins."
 				action={
 					<Link
 						to="/challenges/new"
