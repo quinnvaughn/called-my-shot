@@ -1,12 +1,11 @@
-name: Test and deploy
+name: Deploy
 
-# The only path to production: tests gate the deploy, so a red commit never
-# reaches Fly. Fly's own GitHub auto-deploy must stay off, or it ships the push
-# in parallel with this and skips the tests entirely.
+# The only path to production. Tests run locally before pushing rather than on
+# a runner. Fly's own GitHub auto-deploy must stay off, or it ships the push
+# in parallel with this and skips the api-before-web ordering below.
 on:
   push:
     branches: [main]
-  pull_request:
   workflow_dispatch: {}
 
 # A newer push to main supersedes one still waiting to deploy, but never
@@ -14,107 +13,13 @@ on:
 # than a slightly stale one.
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  cancel-in-progress: false
 
 jobs:
-  # The api suite is the slow one, so it's split across runners, each with its
-  # own Postgres. Private-repo runners have 2 cores, which vitest.config.ts
-  # would turn into a single worker, but the suite mostly waits on Postgres
-  # rather than burning CPU, so TEST_WORKERS runs more than that.
-  test-api:
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    strategy:
-      fail-fast: true
-      matrix:
-        shard: [1, 2, 3]
-
-    steps:
-      # Mirrors docker-compose.yml's postgres-test: same image, port and
-      # database name, so vitest.config.ts's default TEST_DATABASE_URL reaches
-      # it without any override, and the same tmpfs data directory. Every test
-      # truncates every table, and on the runner's disk each of those waited on
-      # an fsync - tests ran ~10x slower than locally. Durability is pointless
-      # for data thrown away after the run, so fsync is off too. A plain docker
-      # run rather than a service container, which can't take server flags.
-      # Started first so it's up by the time install finishes; global-setup.ts
-      # waits for it either way. Anonymous pulls are rate limited on both ECR
-      # Public and Docker Hub, and the shards all pull at once from shared
-      # runner IPs, so each attempt tries ECR Public's mirror of the Docker
-      # official image, then Docker Hub, backing off between rounds.
-      - name: Start Postgres
-        run: |
-          image=""
-          for attempt in 1 2 3 4 5; do
-            for candidate in public.ecr.aws/docker/library/postgres:18-alpine postgres:18-alpine; do
-              if docker pull "$candidate"; then
-                image="$candidate"
-                break 2
-              fi
-            done
-            sleep $((attempt * 10))
-          done
-          if [ -z "$image" ]; then
-            echo "Could not pull postgres:18-alpine from any registry"
-            exit 1
-          fi
-          docker run -d --name postgres-test -p 5435:5432 \
-            -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=postgres \
-            -e POSTGRES_DB=called_my_shot_test \
-            --tmpfs /var/lib/postgresql \
-            "$image" \
-            -c fsync=off -c synchronous_commit=off -c full_page_writes=off
-
-      - uses: actions/checkout@v4
-
-      # Version comes from package.json's packageManager field.
-      - uses: pnpm/action-setup@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: pnpm
-
-      - run: pnpm install --frozen-lockfile
-
-      - run: pnpm --filter api exec vitest run --shard=${{ matrix.shard }}/3
-        env:
-          TEST_WORKERS: 3
-
-  # Everything but the api: web and the shared packages, none of which touch a
-  # database.
-  test-rest:
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: pnpm
-
-      - run: pnpm install --frozen-lockfile
-
-      # The GraphQL codegen output is gitignored and web's component tests
-      # import it (install's prepare hook already generated Panda's
-      # styled-system). api's schema:print, which codegen depends on,
-      # hardcodes --env-file=.env; the values are dummies, same as in
-      # apps/web/Dockerfile, since printing the schema never opens a database
-      # connection.
-      - name: Generate web's GraphQL types
-        run: |
-          printf 'DATABASE_URL=postgres://user:pass@localhost:5432/db\nPORT=4000\nCLIENT_ORIGIN=http://localhost:3000\nNODE_ENV=production\n' > apps/api/.env
-          pnpm exec turbo run codegen --filter=web
-
-      - run: pnpm exec turbo run test --filter='!api'
-
   # api before web: web's image build checks its queries against the live
   # api's schema (apps/web/scripts/check-schema-compat.ts), so the api has to
   # be serving this commit's schema first.
   deploy-api:
-    needs: [test-api, test-rest]
-    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -126,7 +31,6 @@ jobs:
 
   deploy-web:
     needs: deploy-api
-    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
