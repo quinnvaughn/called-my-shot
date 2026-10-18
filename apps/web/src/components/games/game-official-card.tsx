@@ -11,7 +11,6 @@ export function GameOfficialCard({ question }: { question: GameQuestion }) {
 		<QuestionCard
 			question={question}
 			showGame={false}
-			pickable
 			trailing={<GameCardStreak question={question} />}
 			context={<GameCardContext question={question} />}
 		/>

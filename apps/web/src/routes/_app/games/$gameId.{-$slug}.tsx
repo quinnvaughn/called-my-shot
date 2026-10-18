@@ -240,7 +240,6 @@ function RouteComponent() {
 								key={question.id}
 								question={question}
 								showGame={false}
-								pickable
 							/>
 						))}
 					</VStack>

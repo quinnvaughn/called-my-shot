@@ -91,7 +91,7 @@ declare module "@tanstack/react-router" {
 	}
 	interface HistoryState {
 		// The option a game page card was tapped on, for the question page it
-		// opens to pick on arrival (see QuestionCard's pickable). In history
+		// opens to pick on arrival (see QuestionCard's canPick). In history
 		// state rather than the url, so it never needs clearing out of a link
 		// someone could share or reload.
 		pick?: string

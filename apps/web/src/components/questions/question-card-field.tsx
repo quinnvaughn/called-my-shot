@@ -44,7 +44,7 @@ type Props = {
 	// Each row's win and miss, while the question can still be called.
 	pointsFor?: (optionId: string) => { win: number; lose: number }
 	// Each row is a way into the question with that option already picked
-	// (see QuestionCard's pickable). Omitted, the rows are a read-only view of
+	// (see QuestionCard's canPick). Omitted, the rows are a read-only view of
 	// the field.
 	pickable?: boolean
 }

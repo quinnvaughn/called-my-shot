@@ -113,11 +113,6 @@ type QuestionCardProps = {
 	// Under the options while the question is open or locked - the game page's
 	// line of recent form and group picks.
 	context?: ReactNode
-	// Each option row opens the question with that side already picked, so a
-	// tap on the side someone likes still lands them on the stats and the
-	// conviction slider before it counts. Only while one tap is the whole
-	// pick: an open, uncalled, single-pick question.
-	pickable?: boolean
 }
 
 export function QuestionCard({
@@ -126,7 +121,6 @@ export function QuestionCard({
 	showGame = true,
 	trailing,
 	context,
-	pickable = false,
 }: QuestionCardProps) {
 	const question = useFragment(QuestionCardFragment, questionProp)
 	const navigate = useNavigate()
@@ -159,10 +153,12 @@ export function QuestionCard({
 			}
 		: undefined
 
-	// A numeric guess needs a typed number and a multi-pick award several
-	// picks, so only a question one tap fully answers starts from a row.
+	// Each option row opens the question with that side already picked, so a
+	// tap on the side someone likes still lands them on the stats and the
+	// conviction slider before it counts. Only while one tap is the whole
+	// pick: an open, uncalled, single-pick question. A numeric guess needs a
+	// typed number and a multi-pick award several picks.
 	const canPick =
-		pickable &&
 		question.status === "OPEN" &&
 		question.viewerCall === null &&
 		castCallBucketFor(
