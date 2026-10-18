@@ -7,49 +7,35 @@ import {
 import { css } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
 import { useCastCallFormContext } from "#/components/questions/cast-call-form/cast-call-form-context"
-import { isOverUnderShape } from "#/components/questions/cast-call-form/use-cast-call-form"
 import { ConfirmPickRow } from "#/components/questions/confirm-pick-row"
 import { Button } from "#/components/ui/button"
 import { FormError } from "#/components/ui/form-error"
 import { Modal } from "#/components/ui/modal"
 import { useMe } from "#/hooks/use-me"
 import { useRequireAuth } from "#/hooks/use-require-auth"
-import { formatGuess } from "#/lib/field-signal"
-import { optionDisplayLabel } from "#/lib/question-labels"
 import {
 	crowdTierFor,
 	pickMeta,
 	previewCrowdPct,
-	previewNumericPoints,
 	previewSelectionPoints,
 } from "#/lib/scoring"
 import { closeModal } from "#/stores/modal-store"
 
-// The one place conviction, case, and payout are all guaranteed to be seen
-// together before anything actually locks in - reads live off the same form
-// instance CastCallForm is filling out (rather than a snapshot taken when it
-// opened), so it can't show a selection the viewer has since changed.
+// The last look before a multi-pick call (a multi-winner award) locks in:
+// every pick with its own payout, conviction, and the case, together. A
+// single pick or a numeric guess fits on CallSubmitBar's one line and locks
+// in from there instead. Reads live off the same form instance CastCallForm
+// is filling out (rather than a snapshot taken when it opened), so it can't
+// show a selection the viewer has since changed.
 export function ConfirmCallModal() {
 	const callForm = useCastCallFormContext()
-	const {
-		question,
-		shape,
-		bucket,
-		form,
-		convictionMode,
-		singleSelectConviction,
-		sharedConviction,
-		focusCaseText,
-		toleranceBand,
-		isRateStat,
-	} = callForm
+	const { question, shape, form, convictionMode, sharedConviction, focusCaseText } =
+		callForm
 	const me = useMe()
 	const requireAuth = useRequireAuth()
 
 	const selections = form.useWatch("selections")
-	const guessValue = form.useWatch("guessValue")
 	const caseText = form.useWatch("caseText")
-	const numericConviction = form.useWatch("conviction")
 
 	if (!question) return null
 
@@ -66,9 +52,8 @@ export function ConfirmCallModal() {
 	const { lossRate } = question
 	// Season-long shapes preview off games played so far, not rank - see
 	// PointsPreview's own comment on the same distinction. Null for a
-	// game-scoped shape (or a season-long one with no games synced yet, where
-	// seasonEarlyTierFor's own zero-games guard lands on the same preseason
-	// ceiling either way).
+	// season-long one with no games synced yet, where seasonEarlyTierFor's own
+	// zero-games guard lands on the same preseason ceiling either way.
 	const earlyTier =
 		isSeasonLongShape(shape) &&
 		question.seasonGamesPlayed !== null &&
@@ -81,19 +66,7 @@ export function ConfirmCallModal() {
 
 	// Split mode already shows each pick's own conviction inline below - a
 	// single summary number above the list would just be misleading there.
-	const showConvictionRow = !(bucket === "multi" && convictionMode === "split")
-	const convictionValue =
-		bucket === "numeric"
-			? (numericConviction ?? 50)
-			: bucket === "multi"
-				? sharedConviction
-				: singleSelectConviction
-
-	const ouLine = question.ouLine
-	const isOverUnder = isOverUnderShape(shape)
-	function optionLabel(option: { label: string }) {
-		return optionDisplayLabel(option.label, isOverUnder, ouLine, isRateStat)
-	}
+	const isSplit = convictionMode === "split"
 
 	const trimmedCaseText = caseText.trim()
 
@@ -106,29 +79,11 @@ export function ConfirmCallModal() {
 			</Modal.Description>
 
 			<VStack gap="2" alignItems="stretch">
-				{bucket === "numeric"
-					? guessValue !== undefined && (
-							<ConfirmPickRow
-								name={formatGuess(guessValue, isRateStat)}
-								meta={
-									toleranceBand !== null
-										? `within ±${formatGuess(toleranceBand, isRateStat)} counts as a hit`
-										: "counts as a hit within tolerance"
-								}
-								payout={previewNumericPoints(
-									basePoints,
-									lossRate,
-									convictionValue,
-								)}
-							/>
-						)
-					: selections.map((selection) => {
+				{selections.map((selection) => {
 							const option = question.options.find(
 								(o) => o.id === selection.optionId,
 							)
 							if (!option) return null
-							const showConviction =
-								bucket === "multi" && convictionMode === "split"
 							// Simulated as if this call already went through (see
 							// previewCrowdPct) so this matches what the field's
 							// share will actually read the instant after Lock It
@@ -150,12 +105,12 @@ export function ConfirmCallModal() {
 									effectiveLossRate(lossRate, option.lossRate),
 									option,
 								),
-								...(showConviction ? [`${selection.conviction}% conviction`] : []),
+								...(isSplit ? [`${selection.conviction}% conviction`] : []),
 							].join(" · ")
 							return (
 								<ConfirmPickRow
 									key={selection.optionId}
-									name={optionLabel(option)}
+									name={option.label}
 									subject={option}
 									meta={meta}
 									payout={previewSelectionPoints(
@@ -172,7 +127,7 @@ export function ConfirmCallModal() {
 						})}
 			</VStack>
 
-			{showConvictionRow && (
+			{!isSplit && (
 				<HStack
 					justify="space-between"
 					className={css({
@@ -185,7 +140,7 @@ export function ConfirmCallModal() {
 				>
 					<span>CONVICTION</span>
 					<span className={css({ color: "fg.default", fontWeight: "bold" })}>
-						{convictionValue}%
+						{sharedConviction}%
 					</span>
 				</HStack>
 			)}

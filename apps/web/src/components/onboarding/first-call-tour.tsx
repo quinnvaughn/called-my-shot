@@ -66,7 +66,7 @@ const STEPS: TourStep[] = [
 		// the question as long as they like.
 		anchor: "submit",
 		title: "Lock it in when you're ready",
-		body: "You get a last look before it counts. Once a call is locked it cannot be changed, and it scores when the result is official.",
+		body: "It counts the moment you tap Lock It In. Once a call is locked it cannot be changed, and it scores when the result is official.",
 		gate: "read",
 	},
 ]

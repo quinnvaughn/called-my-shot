@@ -347,8 +347,8 @@ function RouteComponent() {
 										action: {
 											// No confirmation step: opening the picker
 											// spends nothing. The redo is only charged
-											// on submit, which already goes through
-											// ConfirmCallModal like any other call.
+											// on submit, the same Lock It In as any
+											// other call.
 											kind: "open",
 											onStart: () => setRedoRequested(true),
 										},
