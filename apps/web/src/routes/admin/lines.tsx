@@ -79,9 +79,8 @@ function RouteComponent() {
 							</Table.Cell>
 							<Table.Cell numeric>
 								{row.setByGameModel ? (
-									<HStack gap="2" justify="flex-end">
+									<HStack justify="flex-end">
 										<Tag variant="secondary">Game model</Tag>
-										{row.line.shade}
 									</HStack>
 								) : (
 									row.line.shade

@@ -170,8 +170,9 @@ export function LineSettingModal({ setting }: Props) {
 					>
 						These lines come from the game model: each one sits where the over
 						is closest to even across past games replayed at that game's
-						expected scores. The shade only sets lines before the league has
-						enough history for the model, so it isn't adjusted automatically.
+						expected scores. Before the league has enough history for the
+						model, a line sits at the team's expected score with no shade, so
+						the two team lines always add up to the game total.
 					</p>
 				) : (
 					<ToggleRow
@@ -182,7 +183,9 @@ export function LineSettingModal({ setting }: Props) {
 					/>
 				)}
 
-				{FIELDS.map((field) => {
+				{FIELDS.filter(
+					(field) => !(field.key === "shade" && setting.setByGameModel),
+				).map((field) => {
 					const tuned =
 						field.key === "shade" && autoTune && !setting.setByGameModel
 					return (

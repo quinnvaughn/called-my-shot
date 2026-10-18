@@ -96,6 +96,32 @@ describe("line settings", () => {
 		})
 	})
 
+	it("never shades a game model template's lines, whatever was saved", async () => {
+		const admin = await makeUser({ isAdmin: true })
+		const teamPoints = lineSettings.template("nfl", "team-points-ou")
+		if (!teamPoints) throw new Error("no nfl over/under team-points-ou")
+		const saved = { shade: 1.06, minLine: 12.5, minGames: 4 }
+
+		await lineSettings.save(
+			{
+				templateId: teamPoints.id,
+				leagueSlug: "nfl",
+				autoTune: false,
+				...saved,
+			},
+			admin.id,
+		)
+
+		const settings = await loadLineSettings("nfl")
+		expect(withLineSettings([teamPoints], settings)).toEqual([
+			{ ...teamPoints, line: { ...saved, shade: 1 } },
+		])
+		expect(await lineSettings.row("nfl", teamPoints.id)).toMatchObject({
+			setByGameModel: true,
+			line: { ...saved, shade: 1 },
+		})
+	})
+
 	it("treats saving the catalog's own settings on automatic as a reset", async () => {
 		const admin = await makeUser({ isAdmin: true })
 		await lineSettings.save(

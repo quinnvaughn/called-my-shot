@@ -76,6 +76,20 @@ const ruleOf = (row: GameQuestionLineSetting): LineRule => ({
 	minGames: row.minGames,
 })
 
+// The rule a template's lines are set with: its saved settings where it has
+// any, otherwise the catalog's. A game model template's are never shaded. Its
+// team lines and its game total are set from the same expected scores, so a
+// shade tuned on one and not the other posts team lines that don't add up to
+// the total, and the score model itself needs none: its line already sits
+// where the over is closest to even.
+function effectiveRule(
+	template: OverUnderTemplate,
+	saved: LineRule | undefined,
+): LineRule {
+	const rule = saved ?? template.line
+	return isGameModelShape(template.shape) ? { ...rule, shade: 1 } : rule
+}
+
 const sameRule = (a: LineRule, b: LineRule) =>
 	a.shade === b.shade && a.minLine === b.minLine && a.minGames === b.minGames
 
@@ -112,7 +126,7 @@ const settings = defineTunableSetting({
 	rows: {
 		load: () => lineCalibration(),
 		build: (template, saved, calibration) => {
-			const line = saved ? ruleOf(saved) : template.line
+			const line = effectiveRule(template, saved ? ruleOf(saved) : undefined)
 			const setByGameModel = isGameModelShape(template.shape)
 			return {
 				leagueSlug: template.leagueSlug,
@@ -164,7 +178,7 @@ export function withLineSettings(
 ): GameQuestionTemplate[] {
 	return templates.map((template) =>
 		isGeneratedOverUnder(template)
-			? { ...template, line: saved.get(template.id) ?? template.line }
+			? { ...template, line: effectiveRule(template, saved.get(template.id)) }
 			: template,
 	)
 }
