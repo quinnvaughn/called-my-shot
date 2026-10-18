@@ -8,7 +8,7 @@ import { optionDisplayLabel } from "#/lib/question-labels"
 import { optionPointsPreview } from "#/lib/scoring"
 import { CaseField } from "./case-field"
 import { useCastCallFormContext } from "./cast-call-form-context"
-import { ConvictionCard } from "./conviction-card"
+import { ConvictionRow } from "./conviction-row"
 import { OPTIONS_PAGE_STEP, OptionPickerList } from "./option-picker-list"
 import { isOverUnderShape } from "./use-cast-call-form"
 
@@ -22,19 +22,24 @@ export function OptionFields() {
 		selectSingle,
 		isRateStat,
 		singleSelectConviction,
+		optionPages,
+		showMoreOptions,
 	} = useCastCallFormContext()
 
 	const [optionSearch, setOptionSearch] = useState("")
 
-	// No-ops unless a first-call walkthrough is running above this form.
+	// No-ops unless a first-call walkthrough is running above this form. The
+	// points step points at the rows too, since that's where the points are.
 	const picksAnchor = useTourAnchor("picks")
+	const payoutAnchor = useTourAnchor("payout")
 
 	if (!question) return null
 
 	return (
-		<VStack gap="5" alignItems="stretch">
+		<VStack gap="4" alignItems="stretch">
 			<VStack gap="1.5" alignItems="stretch" ref={picksAnchor}>
-				<FieldLabel required>Make your call</FieldLabel>
+				<FieldLabel>Make your call</FieldLabel>
+				<div ref={payoutAnchor}>
 				<OptionPickerList
 					options={question.options}
 					shape={shape}
@@ -57,7 +62,11 @@ export function OptionFields() {
 							: { win: 0, lose: 0 }
 					}}
 					pointsConviction={singleSelectConviction}
+					pages={optionPages}
+					onShowMore={showMoreOptions}
+					showFieldLine={false}
 				/>
+				</div>
 			</VStack>
 			{question.options.length > OPTIONS_PAGE_STEP && (
 				<EntitySearchField
@@ -85,7 +94,7 @@ export function OptionFields() {
 					onSelectItem={(item) => selectSingle(item.id)}
 				/>
 			)}
-			<ConvictionCard />
+			<ConvictionRow />
 			<CaseField />
 		</VStack>
 	)

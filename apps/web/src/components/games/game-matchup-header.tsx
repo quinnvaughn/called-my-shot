@@ -53,6 +53,11 @@ type Props = {
 	// A control about the start time (the game page's reminder toggle), on its
 	// own line under it.
 	startAction?: ReactNode
+	// Under the start time, inside the card: a question page's facts about
+	// how it resolves.
+	footer?: ReactNode
+	// See GameStarters' foldOnMobile.
+	foldStartersOnMobile?: boolean
 }
 
 // Narrow screens can't fit two full team names either side of a centered
@@ -116,6 +121,8 @@ export function GameMatchupHeader({
 	compactStarters = false,
 	dense = false,
 	startAction,
+	footer,
+	foldStartersOnMobile = false,
 }: Props) {
 	const live = game.status === "LIVE"
 	const final = game.status === "FINAL"
@@ -229,7 +236,15 @@ export function GameMatchupHeader({
 				</HStack>
 			)}
 
-			{starters && <GameStarters game={starters} compact={compactStarters} />}
+			{footer}
+
+			{starters && (
+				<GameStarters
+					game={starters}
+					compact={compactStarters}
+					foldOnMobile={foldStartersOnMobile}
+				/>
+			)}
 		</VStack>
 	)
 }

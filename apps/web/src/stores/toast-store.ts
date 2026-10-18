@@ -14,6 +14,13 @@ export type Toast = {
 	id: number
 	message: string
 	action?: ToastAction
+	// "top" sits under the top bar instead of over the bottom of the page,
+	// for a toast landing on a page whose own action is pinned to the bottom
+	// (a question's Lock It In bar).
+	placement?: "top" | "bottom"
+	// On screen this long instead of the default, for a confirmation meant
+	// only to be glanced at.
+	durationMs?: number
 }
 
 // Newest last. ToastHost renders whatever is here; showToast/dismissToast are
@@ -37,7 +44,8 @@ export function showToast(toast: Omit<Toast, "id">): number {
 	)
 	setTimeout(
 		() => dismissToast(id),
-		toast.action ? DURATION_WITH_ACTION_MS : DURATION_MS,
+		toast.durationMs ??
+			(toast.action ? DURATION_WITH_ACTION_MS : DURATION_MS),
 	)
 	return id
 }

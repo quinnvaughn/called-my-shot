@@ -19,6 +19,11 @@ type Props = {
 	// full opacity rather than a dimmed "disabled" look, since there's
 	// nothing actually unavailable about it.
 	onClick?: () => void
+	// Inside a link that handles the tap itself (QuestionCard's pickable
+	// rows): still a plain element, since a button can't sit in an <a>, but
+	// with the pointer and hover of one, and its option id for the link to
+	// read off the tap.
+	targetId?: string
 	// "pick" (the default) is the live picker's orange: choosing an option is
 	// part of the primary action. "record" is for a breakdown of calls
 	// already made - the highlighted row is where the viewer stands, in the
@@ -49,7 +54,9 @@ export function OptionRow({
 	onClick,
 	tone = "pick",
 	points,
+	targetId,
 }: Props) {
+	const isTarget = onClick !== undefined || targetId !== undefined
 	const isPick = tone === "pick"
 	const rowClassName = css({
 		position: "relative",
@@ -64,13 +71,13 @@ export function OptionRow({
 		borderRadius: "md",
 		padding: "3",
 		overflow: "hidden",
-		cursor: onClick ? "pointer" : "default",
+		cursor: isTarget ? "pointer" : "default",
 		// Selected already owns the border color - a hover rule with no
 		// selected guard wins on source order regardless of specificity,
 		// so it was silently overriding primary.default back to
 		// border.emphasized on any selected row the pointer sat over.
 		_hover:
-			!onClick || selected
+			!isTarget || selected
 				? {}
 				: { border: "1px solid {colors.border.emphasized}" },
 	})
@@ -121,6 +128,8 @@ export function OptionRow({
 						)}
 					</VStack>
 				</HStack>
+				{/* Nothing to say about the field until someone has called it. */}
+				{(fieldPct !== null || (count ?? 0) > 0) && (
 				<HStack gap="1.5" flexShrink="0">
 					<span
 						className={css({
@@ -159,15 +168,23 @@ export function OptionRow({
 						</>
 					)}
 				</HStack>
+				)}
 			</HStack>
 		</>
 	)
 
 	return onClick ? (
-		<button type="button" onClick={onClick} className={rowClassName}>
+		<button
+			type="button"
+			aria-pressed={selected}
+			onClick={onClick}
+			className={rowClassName}
+		>
 			{content}
 		</button>
 	) : (
-		<div className={rowClassName}>{content}</div>
+		<div data-option-target={targetId} className={rowClassName}>
+			{content}
+		</div>
 	)
 }

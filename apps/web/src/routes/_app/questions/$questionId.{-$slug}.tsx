@@ -1,7 +1,15 @@
 import { questionTitleWithGame } from "@called-my-shot/schemas"
-import { useQuery, useSuspenseQuery } from "@tanstack/react-query"
-import { createFileRoute, redirect } from "@tanstack/react-router"
-import { useEffect, useRef, useState } from "react"
+import {
+	useQuery,
+	useQueryClient,
+	useSuspenseQuery,
+} from "@tanstack/react-query"
+import {
+	createFileRoute,
+	redirect,
+	useRouterState,
+} from "@tanstack/react-router"
+import { useEffect, useLayoutEffect, useRef, useState } from "react"
 import { FaRegTimesCircle } from "react-icons/fa"
 import { css } from "styled-system/css"
 import { VStack } from "styled-system/jsx"
@@ -14,15 +22,18 @@ import { FirstCallTour } from "#/components/onboarding/first-call-tour"
 import { TourAnchorProvider } from "#/components/onboarding/tour-anchors"
 import { CallSubmitBar } from "#/components/questions/call-submit-bar"
 import { useCastCallForm } from "#/components/questions/cast-call-form"
+import { callFormPickLabel } from "#/components/questions/cast-call-form/call-form-pick-label"
+import { gameNextUp } from "#/components/questions/game-next-up"
 import { QuestionCallsList } from "#/components/questions/question-calls-list"
 import { QuestionBreadcrumb } from "#/components/questions/question-detail/question-breadcrumb"
 import { QuestionDetailHeader } from "#/components/questions/question-detail/question-detail-header"
-import { QuestionDetailsCard } from "#/components/questions/question-detail/question-details-card"
+import { QuestionFacts } from "#/components/questions/question-detail/question-facts"
 import { QuestionPickSection } from "#/components/questions/question-detail/question-pick-section"
+import { questionSetPosition } from "#/components/questions/question-detail/question-set-position"
+import { useQuestionPageShortcuts } from "#/components/questions/question-detail/use-question-page-shortcuts"
 import { ResolveQuestionModal } from "#/components/questions/resolve-question-modal"
 import { SeriesBlock } from "#/components/questions/series-block"
 import { StatContextCard } from "#/components/questions/stat-context-card/stat-context-card"
-import { useGameNextUp } from "#/components/questions/use-game-next-up"
 import { ViewerStatusCard } from "#/components/questions/viewer-status-card/viewer-status-card"
 import { Button } from "#/components/ui/button"
 import { NotFound } from "#/components/ui/not-found"
@@ -48,8 +59,10 @@ import { searchFlag } from "#/lib/search-params"
 import { buildGameSlug, buildQuestionSlug, questionPath } from "#/lib/slug"
 import { viewerStatus } from "#/lib/viewer-status"
 import { openModal } from "#/stores/modal-store"
+import { showToast } from "#/stores/toast-store"
 
 const STATUS_CARD_SCROLL_DELAY_MS = 150
+const ADVANCE_TOAST_MS = 2000
 
 export const Route = createFileRoute("/_app/questions/$questionId/{-$slug}")({
 	component: RouteComponent,
@@ -169,6 +182,7 @@ function QuestionSetRailFor() {
 function RouteComponent() {
 	const { questionId } = Route.useParams()
 	const { tour, created } = Route.useSearch()
+	const pick = useRouterState({ select: (s) => s.location.state.pick })
 	const navigate = Route.useNavigate()
 	const { data } = useSuspenseQuery({
 		...questionDetailQuery(questionId),
@@ -213,11 +227,11 @@ function RouteComponent() {
 				},
 			}
 		: undefined
-	// A new call swaps the form for the pending card, which can land anywhere
-	// relative to where the viewer was scrolled. Flagged once the submit has
-	// finished and the confirm modal is gone, then scrolled to after a short
-	// delay so the card has rendered and the router's refresh has settled -
-	// not on a redo or a plain page load.
+	// A new call that stays on this page swaps the form for the pending card,
+	// which can land anywhere relative to where the viewer was scrolled.
+	// Flagged once the submit has finished and the confirm modal is gone, then
+	// scrolled to after a short delay so the card has rendered and the
+	// router's refresh has settled - not on a redo or a plain page load.
 	const statusCardRef = useRef<HTMLDivElement>(null)
 	const [scrollToStatusCard, setScrollToStatusCard] = useState(false)
 	useEffect(() => {
@@ -231,10 +245,50 @@ function RouteComponent() {
 		}, STATUS_CARD_SCROLL_DELAY_MS)
 		return () => clearTimeout(timeout)
 	}, [scrollToStatusCard])
+	const queryClient = useQueryClient()
 	const callForm = useCastCallForm(question, {
 		surface: "question_page",
 		redo: redoMode,
-		onCalled: () => setScrollToStatusCard(true),
+		// A new call on a game question moves straight on to the next one the
+		// viewer hasn't called, in the game page's order. Worked out from the
+		// refetched cache rather than this render's question, so the call just
+		// made already counts as called. The call that ends the first-call
+		// walkthrough stays put under the modal that closes it out, and so does
+		// one with nothing open left after it.
+		onCalled: ({ finishedFirstCallTour }) => {
+			const called = queryClient.getQueryData(
+				questionDetailQuery(questionId).queryKey,
+			)?.question
+			const nextUp = finishedFirstCallTour ? null : gameNextUp(called)
+			if (!called || !nextUp) {
+				setScrollToStatusCard(true)
+				return
+			}
+			track("next_up_auto_advanced", {
+				fromQuestionId: called.id,
+				toQuestionId: nextUp.next.questionId,
+			})
+			// The page is about to change under them, so a glance-length line
+			// says the call landed. At the top, clear of the next question's
+			// Lock It In bar, and with nowhere to go but the next call.
+			const pick = callFormPickLabel(callForm, callForm.form.values())
+			const unit =
+				callForm.bucket === "numeric" && callForm.guessUnit
+					? ` ${callForm.guessUnit.toLowerCase()}`
+					: ""
+			showToast({
+				message: pick ? `${pick}${unit} locked in.` : "Call locked in.",
+				placement: "top",
+				durationMs: ADVANCE_TOAST_MS,
+			})
+			void navigate({
+				to: "/questions/$questionId/{-$slug}",
+				params: {
+					questionId: nextUp.next.questionId,
+					slug: buildQuestionSlug(nextUp.next.title),
+				},
+			})
+		},
 	})
 	const [redoRequested, setRedoRequested] = useState(false)
 	// Gated on redoMode as well as the click, so the form closes itself once
@@ -262,7 +316,45 @@ function RouteComponent() {
 			horizon: questionHorizon(questionShape),
 		})
 	}, [question])
-	const nextUp = useGameNextUp(question)
+	// Open and not yet called: the page is the call form (picker, submit bar,
+	// first-call tour) rather than the status and field breakdown cards.
+	const isCallable =
+		question != null &&
+		viewerStatus(questionDetailState(question).phase, question.viewerCall)
+			.kind === "canCall"
+	// The picker is on screen, for a first call or a redo.
+	const isPicking = isCallable || isRedoing
+	// The side tapped on the game page's card (carried in history state, see
+	// HistoryState in router.tsx), picked once on arrival. Ignored unless it's
+	// still a first call on a single-pick question that has that option. The
+	// page then opens on the form, so the pick, its conviction and Lock It In
+	// are what's on screen: placed before the first paint, with the card's
+	// navigation leaving the scroll alone, so there's no trip from the top.
+	const appliedPick = useRef(false)
+	const pickSectionRef = useRef<HTMLDivElement>(null)
+	useLayoutEffect(() => {
+		if (!pick || appliedPick.current) return
+		appliedPick.current = true
+		if (
+			!isCallable ||
+			callForm.bucket !== "single" ||
+			!question?.options.some((o) => o.id === pick)
+		) {
+			return
+		}
+		callForm.selectSingle(pick)
+		pickSectionRef.current?.scrollIntoView({
+			block: "start",
+			behavior: "instant",
+		})
+	}, [pick, isCallable, callForm, question])
+	const setPosition = question ? questionSetPosition(question) : null
+	useQuestionPageShortcuts({
+		callForm,
+		canPick: isPicking,
+		prev: setPosition?.prev ?? null,
+		next: setPosition?.next ?? null,
+	})
 
 	if (!question) {
 		return (
@@ -278,9 +370,6 @@ function RouteComponent() {
 
 	const state = questionDetailState(question)
 	const status = viewerStatus(state.phase, question.viewerCall)
-	// Open and not yet called: the page is the call form (picker, submit bar,
-	// first-call tour) rather than the status and field breakdown cards.
-	const isCallable = status.kind === "canCall"
 	const isCreator = me?.id === question.creator?.id
 	const answer = state.isSettled ? resolvedAnswerSummary(question) : null
 	// The player or team the answer is, when exactly one option won.
@@ -296,6 +385,27 @@ function RouteComponent() {
 	// the whole resolved question. Same label the eyebrow on /calls/:id shows,
 	// so the two can't contradict each other about the same call.
 	const viewerMargin = viewerMarginLabel(question)
+	// The game or the series, and how the question resolves: inside the
+	// matchup card for a game's question, on their own under anything else.
+	const questionContext = (
+		<>
+			{/* Only rendered when this question is actually tied to a single
+			game - season-long questions (championship, MVP) have no game and
+			this stays hidden for those. */}
+			{question.game && (
+				<GameMatchupHeader
+					game={question.game}
+					starters={question.game}
+					foldStartersOnMobile
+					footer={<QuestionFacts question={question} centered />}
+				/>
+			)}
+			{/* A series question's counterpart: the round, the two teams and
+			where the series stands, which its short title leaves out. */}
+			{question.series && <SeriesBlock series={question.series} />}
+			{!question.game && <QuestionFacts question={question} />}
+		</>
+	)
 
 	return (
 		<TourAnchorProvider>
@@ -311,16 +421,7 @@ function RouteComponent() {
 					</RailTab>
 				)}
 				<QuestionDetailHeader question={question} created={created} />
-				{/* Only rendered when this question is actually tied to a single
-			game - season-long questions (championship, MVP) have no game and
-			this stays hidden for those. */}
-				{question.game && (
-					<GameMatchupHeader game={question.game} starters={question.game} />
-				)}
-				{/* A series question's counterpart: the round, the two teams and
-			where the series stands, which its short title leaves out. */}
-				{question.series && <SeriesBlock series={question.series} />}
-				<QuestionDetailsCard question={question} />
+				{questionContext}
 				{/* Hidden while re-picking. This card states the call as it
 			    stands, and leaving a "pending: your call is locked" face above
 			    a form that is changing that very call says two contradictory
@@ -335,7 +436,6 @@ function RouteComponent() {
 						answerSubject={answerSubject}
 						fieldAccuracyPct={fieldAccuracyPct}
 						marginLabel={viewerMargin}
-						nextUp={nextUp}
 						ref={statusCardRef}
 						// Null unless this call could still be taken back, and once
 						// the picker is open the offer has been taken.
@@ -367,12 +467,14 @@ function RouteComponent() {
 					teams={teamLabels}
 					isCallable={isCallable}
 				/>
-				<QuestionPickSection
-					question={question}
-					status={status}
-					callForm={callForm}
-					showForm={isCallable || isRedoing}
-				/>
+				<div ref={pickSectionRef}>
+					<QuestionPickSection
+						question={question}
+						status={status}
+						callForm={callForm}
+						showForm={isPicking}
+					/>
+				</div>
 				{isCreator &&
 					state.phase === "locked" &&
 					!question.resolvesAutomatically && (
@@ -389,7 +491,7 @@ function RouteComponent() {
 					<SectionLabel>Calls</SectionLabel>
 					<QuestionCallsList questionId={question.id} />
 				</VStack>
-				{(isCallable || isRedoing) && <CallSubmitBar callForm={callForm} />}
+				{isPicking && <CallSubmitBar callForm={callForm} />}
 				{/* Rendered last so its effects run after the anchors above have
 			    mounted and registered themselves. Gated on the same condition
 			    as the form itself: there is nothing to walk through on a

@@ -283,18 +283,3 @@ export const QuestionStatContextDocument = graphql(`
 
 export const questionStatContextQuery = (id: string) =>
 	gqlQueryOptions(QuestionStatContextDocument, { id })
-
-// The question a call's next-up step points at: the game page's line of
-// recent form and group picks for it. Fetched only once a call has landed,
-// never as part of the awaited detail query.
-export const NextUpQuestionDocument = graphql(`
-	query NextUpQuestion($id: ID!) {
-		question(id: $id) {
-			id
-			...GameCardExtras_question
-		}
-	}
-`)
-
-export const nextUpQuestionQuery = (id: string) =>
-	gqlQueryOptions(NextUpQuestionDocument, { id })

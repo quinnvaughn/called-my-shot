@@ -1,9 +1,7 @@
 import type { ReactNode, Ref } from "react"
 import { match } from "ts-pattern"
 import { CaseBlock } from "#/components/questions/case-block"
-import { NextUpBlock } from "#/components/questions/next-up-block"
 import { RedoCta, type RedoOffer } from "#/components/questions/redo-cta"
-import type { GameNextUp } from "#/components/questions/use-game-next-up"
 import { RecordTag } from "#/components/records/record-tag"
 import { type FragmentType, graphql, useFragment } from "#/graphql/generated"
 import type { QuestionPhase } from "#/lib/question-detail-state"
@@ -183,12 +181,8 @@ type Props = {
 	// redo is an action on the call this card already states, and a second
 	// card would read as a second subject.
 	redo: RedoOffer | null
-	// The next question on this game the viewer hasn't called, shown on the
-	// pending face so the card a new call lands on leads straight into the
-	// next one. Null off a game or once nothing on it is left open.
-	nextUp: GameNextUp | null
 	// Attached to the pending face only: the route scrolls it into view when
-	// a new call turns the form into this card.
+	// a new call turns the form into this card and the page stays put.
 	ref?: Ref<HTMLDivElement>
 }
 
@@ -206,7 +200,6 @@ export function ViewerStatusCard({
 	fieldAccuracyPct,
 	marginLabel,
 	redo,
-	nextUp,
 	ref,
 }: Props) {
 	const question = useFragment(ViewerStatusCardFragment, questionProp)
@@ -300,11 +293,6 @@ export function ViewerStatusCard({
 					call, where sharing it is what you do once you've settled
 					on it. */}
 					<RedoCta questionId={questionId} offer={redo} />
-					{/* The first thing after the pick itself: the moment a call lands
-					is when the next one is easiest to make. */}
-					{nextUp && (
-						<NextUpBlock fromQuestionId={questionId} nextUp={nextUp} />
-					)}
 					{/* An unresolved call is the one most worth putting on the record -
 					calling something months before it happens is the whole claim - so
 					this is here rather than only on the settled face below. */}

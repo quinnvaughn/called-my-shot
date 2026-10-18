@@ -40,7 +40,7 @@ export function pageOptions<T extends { id: string }>(
 	return { visible, nextCount }
 }
 
-type PickerOption = {
+export type PickerOption = {
 	id: string
 	label: string
 	fieldPct: number | null
@@ -66,6 +66,55 @@ type Props = {
 	// compared before one is picked. Omitted, rows show no points.
 	pointsFor?: (optionId: string) => { win: number; lose: number }
 	pointsConviction?: number
+	// How many pages of rows are showing, when the caller keeps count (the
+	// question page's number-key picks need to know which row is which).
+	// Omitted, the list keeps its own.
+	pages?: number
+	onShowMore?: () => void
+	// The caller count and "points at N% conviction" line under the rows. Off
+	// where the conviction it names sits right below and the caller count is
+	// already in the submit bar (the single-pick form).
+	showFieldLine?: boolean
+}
+
+// The rows the picker shows, in the order it shows them, for `pages` pages.
+//
+// Award shapes default to popularity (highest fieldPct first) instead of
+// the API's sortOrder, so the obvious picks surface before anyone's made
+// one - see isAwardShape. Sort is stable, so untouched options (fieldPct
+// tied, usually 0 early on) keep falling back to sortOrder rather than
+// jumping around arbitrarily.
+// A priced pool (a game stat leader) goes by the model's chance
+// instead, ahead of popularity: the favorites first, the long shots a
+// search or a few pages down, before anyone has called it. Any option
+// someone has called still shows on the first page, in its place by
+// chance, so a long shot people took isn't buried behind the favorites.
+export function shownPickerOptions<T extends PickerOption>(
+	options: T[],
+	shape: QuestionCallShape,
+	pages: number,
+	isSelected: (optionId: string) => boolean,
+) {
+	const isPriced = options.some((option) => option.modelHitRate != null)
+	const orderedOptions = isPriced
+		? [...options].sort(
+				(a, b) => (b.modelHitRate ?? -1) - (a.modelHitRate ?? -1),
+			)
+		: isAwardShape(shape)
+			? [...options].sort((a, b) => (b.fieldPct ?? 0) - (a.fieldPct ?? 0))
+			: options
+	const calledIds = new Set(
+		isPriced
+			? options
+					.filter((option) => option.callCount > 0)
+					.map((option) => option.id)
+			: [],
+	)
+	return pageOptions(
+		orderedOptions,
+		pages * OPTIONS_PAGE_STEP,
+		(optionId) => isSelected(optionId) || calledIds.has(optionId),
+	)
 }
 
 // The picker half of "how the field's calling it" - single-pick
@@ -85,39 +134,17 @@ export function OptionPickerList({
 	extraRow,
 	pointsFor,
 	pointsConviction,
+	pages: pagesProp,
+	onShowMore,
+	showFieldLine = true,
 }: Props) {
-	const [visibleOptionCount, setVisibleOptionCount] =
-		useState(OPTIONS_PAGE_STEP)
-
-	// Award shapes default to popularity (highest fieldPct first) instead of
-	// the API's sortOrder, so the obvious picks surface before anyone's made
-	// one - see isAwardShape. Sort is stable, so untouched options (fieldPct
-	// tied, usually 0 early on) keep falling back to sortOrder rather than
-	// jumping around arbitrarily.
-	// A priced pool (a game stat leader) goes by the model's chance
-	// instead, ahead of popularity: the favorites first, the long shots a
-	// search or a few pages down, before anyone has called it. Any option
-	// someone has called still shows on the first page, in its place by
-	// chance, so a long shot people took isn't buried behind the favorites.
-	const isPriced = options.some((option) => option.modelHitRate != null)
-	const orderedOptions = isPriced
-		? [...options].sort(
-				(a, b) => (b.modelHitRate ?? -1) - (a.modelHitRate ?? -1),
-			)
-		: isAwardShape(shape)
-			? [...options].sort((a, b) => (b.fieldPct ?? 0) - (a.fieldPct ?? 0))
-			: options
-	const calledIds = new Set(
-		isPriced
-			? options
-					.filter((option) => option.callCount > 0)
-					.map((option) => option.id)
-			: [],
-	)
-	const { visible, nextCount } = pageOptions(
-		orderedOptions,
-		visibleOptionCount,
-		(optionId) => isSelected(optionId) || calledIds.has(optionId),
+	const [ownPages, setOwnPages] = useState(1)
+	const pages = pagesProp ?? ownPages
+	const { visible, nextCount } = shownPickerOptions(
+		options,
+		shape,
+		pages,
+		isSelected,
 	)
 
 	return (
@@ -150,23 +177,27 @@ export function OptionPickerList({
 					variant="outline"
 					size="sm"
 					fullWidth
-					onClick={() => setVisibleOptionCount((v) => v + OPTIONS_PAGE_STEP)}
+					onClick={() =>
+						onShowMore ? onShowMore() : setOwnPages((p) => p + 1)
+					}
 				>
 					Show {nextCount} more
 				</Button>
 			)}
-			<span
-				className={css({
-					textStyle: "labelSm",
-					color: "fg.subtle",
-					textAlign: "center",
-				})}
-			>
-				{callersText(callCount)}
-				{pointsFor &&
-					pointsConviction !== undefined &&
-					` · points at ${pointsConviction}% conviction`}
-			</span>
+			{showFieldLine && (
+				<span
+					className={css({
+						textStyle: "labelSm",
+						color: "fg.subtle",
+						textAlign: "center",
+					})}
+				>
+					{callersText(callCount)}
+					{pointsFor &&
+						pointsConviction !== undefined &&
+						` · points at ${pointsConviction}% conviction`}
+				</span>
+			)}
 		</VStack>
 	)
 }

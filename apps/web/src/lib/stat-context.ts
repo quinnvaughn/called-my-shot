@@ -254,6 +254,46 @@ export function matchupHeadline(
 	}
 }
 
+// The headline figure for each side of the card, one line apiece, for the
+// phone's folded summary (StatContextSummary): a pool's front-runners, each
+// team in a matchup, or each player or team the question is about. `name` is
+// whose figure it is; `value` and `label` are the headline itself. Rows with
+// no headline are left out rather than shown blank.
+export type SummaryRow = { key: string; name: string } & Headline
+
+const SUMMARY_RANKING = 3
+
+export function summaryRows(
+	context: Pick<
+		StatContextCard_StatContextFragment,
+		"ranking" | "matchup" | "subjects"
+	>,
+): SummaryRow[] {
+	if (context.ranking.length > 0) {
+		return context.ranking.slice(0, SUMMARY_RANKING).map((player) => ({
+			key: player.playerId,
+			name: player.label,
+			value: round(player.mean),
+			label: player.games === 1 ? "last game" : `${player.games} games`,
+		}))
+	}
+	const matchup = context.matchup
+	const rows = matchup
+		? matchup.sides.map((side) => ({
+				key: side.teamId,
+				name: side.label,
+				lead: matchupHeadline(side, matchup.focus),
+			}))
+		: context.subjects.map((subject) => ({
+				key: subject.label,
+				name: subject.label,
+				lead: headline(subject),
+			}))
+	return rows.flatMap(({ key, name, lead }) =>
+		lead ? [{ key, name, ...lead }] : [],
+	)
+}
+
 export function matchupTiles(
 	side: MatchupSide,
 	focus: Matchup["focus"],

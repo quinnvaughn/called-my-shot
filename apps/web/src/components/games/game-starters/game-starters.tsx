@@ -43,13 +43,21 @@ type Props = {
 	// For a card that has to hold a fixed height, like the landing page's
 	// try-it stack.
 	compact?: boolean
+	// Collapsed, a phone shows only the Starters heading and its toggle, not
+	// the key lines, for a page where the matchup sits above calls to make
+	// (a game's page, a question's).
+	foldOnMobile?: boolean
 }
 
 // Who's starting, as a section of GameMatchupHeader's card rather than a card
 // of its own - it's the same object, this game. Collapsed to one key line per
 // team so the call form below isn't pushed down, with the full lists a tap
 // away. Renders nothing for a game the starters sync hasn't reached.
-export function GameStarters({ compact = false, ...props }: Props) {
+export function GameStarters({
+	compact = false,
+	foldOnMobile = false,
+	...props
+}: Props) {
 	const game = useFragment(GameStartersFragment, props.game)
 	const [expanded, setExpanded] = useState(false)
 	const open = expanded && !compact
@@ -82,7 +90,18 @@ export function GameStarters({ compact = false, ...props }: Props) {
 						onClick={() => setExpanded((o) => !o)}
 						className={button({ variant: "ghost", size: "sm" })}
 					>
-						{open ? "Hide" : "Show all"}
+						{open ? (
+							"Hide"
+						) : foldOnMobile ? (
+							<>
+								<span className={css({ md: { display: "none" } })}>Show</span>
+								<span className={css({ display: { base: "none", md: "inline" } })}>
+									Show all
+								</span>
+							</>
+						) : (
+							"Show all"
+						)}
 						{open ? <FiChevronUp /> : <FiChevronDown />}
 					</button>
 				)}
@@ -116,7 +135,15 @@ export function GameStarters({ compact = false, ...props }: Props) {
 					</p>
 				</>
 			) : (
-				<VStack gap={compact ? "1" : "2"} alignItems="stretch">
+				<VStack
+					gap={compact ? "1" : "2"}
+					alignItems="stretch"
+					className={
+						foldOnMobile
+							? css({ display: { base: "none", md: "flex" } })
+							: undefined
+					}
+				>
 					{teams.map(({ team, starters }) => (
 						<KeyLine key={team.id} team={team} starters={starters} />
 					))}

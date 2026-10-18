@@ -20,6 +20,8 @@ type Option = {
 	label: string
 	fieldPct: number | null
 	callCount: number
+	// The model's chance this option hits, on a priced one.
+	modelHitRate?: number | null
 	// Set when the option is a real player or team, for its image.
 	player?: ImagePlayer | null
 	team?: ImageTeam | null
@@ -41,6 +43,10 @@ type Props = {
 	picksRequired: number | null
 	// Each row's win and miss, while the question can still be called.
 	pointsFor?: (optionId: string) => { win: number; lose: number }
+	// Each row is a way into the question with that option already picked
+	// (see QuestionCard's pickable). Omitted, the rows are a read-only view of
+	// the field.
+	pickable?: boolean
 }
 
 // A single-pick stat leader or award question carries a whole roster or
@@ -61,6 +67,7 @@ export function QuestionCardField({
 	myGuess,
 	picksRequired,
 	pointsFor,
+	pickable = false,
 }: Props) {
 	const renderRow = (option: Option) => (
 		<OptionRow
@@ -75,9 +82,11 @@ export function QuestionCardField({
 			fieldPct={option.fieldPct}
 			count={option.callCount}
 			selected={pickedOptionIds.includes(option.id)}
-			// The card is never the picker, so there's no action for orange to
+			// Orange only where a tap on the row starts a call with it. Otherwise
+			// the card isn't the picker, so there's no action for orange to
 			// point at.
-			tone="field"
+			tone={pickable ? "pick" : "field"}
+			targetId={pickable ? option.id : undefined}
 			points={pointsFor?.(option.id)}
 		/>
 	)
@@ -109,13 +118,24 @@ export function QuestionCardField({
 			"PLAYER_AWARD_FINALISTS",
 			() => {
 				// Same ranking as OptionFieldBreakdown: most-called first, uncalled
-				// options dropped unless they're the viewer's own pick.
-				const ranked = options
-					.filter(
-						(option) =>
-							option.callCount > 0 || pickedOptionIds.includes(option.id),
-					)
-					.sort((a, b) => b.callCount - a.callCount)
+				// options dropped unless they're the viewer's own pick. A pickable
+				// card keeps every option instead, so there's something to start
+				// from before anyone has called it, and on a priced pool goes by
+				// the model's chance like OptionPickerList, so the rows on offer
+				// are the favorites rather than whoever was called first.
+				const isPriced = options.some((option) => option.modelHitRate != null)
+				const ranked = pickable
+					? [...options].sort((a, b) =>
+							isPriced
+								? (b.modelHitRate ?? -1) - (a.modelHitRate ?? -1)
+								: b.callCount - a.callCount,
+						)
+					: options
+							.filter(
+								(option) =>
+									option.callCount > 0 || pickedOptionIds.includes(option.id),
+							)
+							.sort((a, b) => b.callCount - a.callCount)
 				if (ranked.length === 0) {
 					return (
 						<span className={css({ textStyle: "metaSm", color: "fg.subtle" })}>
@@ -152,6 +172,7 @@ export function QuestionCardField({
 								className={css({ textStyle: "metaSm", color: "fg.subtle" })}
 							>
 								+{hiddenCount} more
+								{pickable && " on the question page"}
 							</span>
 						)}
 					</VStack>

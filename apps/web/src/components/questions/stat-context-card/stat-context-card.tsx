@@ -7,7 +7,6 @@ import { Card } from "#/components/ui/card"
 import { type FragmentType, useFragment } from "#/graphql/generated"
 import {
 	headline,
-	MIN_LOG,
 	sectionTitle,
 	supportingTiles,
 	type TeamLabels,
@@ -16,11 +15,9 @@ import {
 	StatContextCardFragment,
 	StatContextTrackRecordFragment,
 } from "./fragments"
-import { MatchupColumn } from "./matchup-column"
-import { Meetings } from "./meetings"
 import { MismatchTag } from "./mismatch-tag"
-import { Ranking } from "./ranking"
-import { SubjectColumn } from "./subject-column"
+import { StatContextBody } from "./stat-context-body"
+import { StatContextSummary } from "./stat-context-summary"
 import { TrackRecordStrip } from "./track-record-strip"
 
 export function StatContextCard(props: {
@@ -55,31 +52,20 @@ export function StatContextCard(props: {
 
 	// Not gated on subjects being present: a pool question deliberately has
 	// none, because its ranking stands in for them, and a game-level question
-	// has a matchup instead. The real check is below, once all three have been
-	// built.
-	const ranking = context.ranking
-	const matchup = context.matchup
-	const columns = context.subjects
-		.map((subject) => ({
-			subject,
-			lead: headline(subject),
-			tiles: supportingTiles(subject, props.teams),
-		}))
-		.filter((column) => column.lead || column.tiles.length > 0)
+	// has a matchup instead.
+	const hasColumns = context.subjects.some(
+		(subject) =>
+			headline(subject) !== null ||
+			supportingTiles(subject, props.teams).length > 0,
+	)
 
 	// Everything got gated out, so there's nothing worth a card. Renders
 	// nothing rather than an empty state, the same as GameStarters.
-	if (!matchup && columns.length === 0 && ranking.length === 0) {
+	if (!context.matchup && !hasColumns && context.ranking.length === 0) {
 		return recordOnly
 	}
 
-	const twoUp = matchup ? true : columns.length > 1
-	// The sat-out note only makes sense next to a strip that can show one.
-	const anyStrip = columns.some(
-		(column) => column.subject.recentGames.length >= MIN_LOG,
-	)
-
-	return (
+	const full = (
 		<Card>
 			<Card.Body>
 				<VStack gap="3" alignItems="stretch">
@@ -107,59 +93,32 @@ export function StatContextCard(props: {
 					</HStack>
 
 					{expanded && (
-						<>
-							{ranking.length > 0 && (
-								<Ranking
-									ranking={ranking}
-									defenses={context.defenses}
-									teams={props.teams}
-								/>
-							)}
-							<div
-								className={css({
-									display: "grid",
-									gridTemplateColumns: twoUp
-										? {
-												base: "minmax(0, 1fr)",
-												sm: "repeat(2, minmax(0, 1fr))",
-											}
-										: "minmax(0, 1fr)",
-									gap: { base: "5", sm: "6" },
-								})}
-							>
-								{matchup
-									? matchup.sides.map((side) => (
-											<MatchupColumn
-												key={side.teamId}
-												side={side}
-												focus={matchup.focus}
-											/>
-										))
-									: columns.map((column) => (
-											<SubjectColumn
-												key={column.subject.label}
-												subject={column.subject}
-												teams={props.teams}
-											/>
-										))}
-							</div>
-							{matchup && <Meetings matchup={matchup} teams={props.teams} />}
-							<p className={css({ fontSize: "xs", color: "fg.subtle" })}>
-								{matchup
-									? matchup.includesPostseason
-										? "Season figures are the regular season only. Last 10, streak, rest, recent results and head to head include the playoffs, up to this game."
-										: "Completed regular-season games this season, up to this one. Head to head is this season only."
-									: `From the box scores we resolve against, up to this game.${
-											anyStrip
-												? " Games a player sat out show as -- and stay out of every average."
-												: ""
-										}`}
-							</p>
-							{trackRecord && <TrackRecordStrip record={trackRecord} />}
-						</>
+						<StatContextBody
+							context={context}
+							trackRecord={trackRecord}
+							teams={props.teams}
+						/>
 					)}
 				</VStack>
 			</Card.Body>
 		</Card>
+	)
+
+	// On a phone, while there's a call to make, the folded summary stands in
+	// for the card: open, it would sit between the viewer and the options.
+	if (!props.isCallable) return full
+	return (
+		<>
+			<div className={css({ display: { base: "block", md: "none" } })}>
+				<StatContextSummary
+					context={context}
+					trackRecord={trackRecord}
+					teams={props.teams}
+				/>
+			</div>
+			<div className={css({ display: { base: "none", md: "block" } })}>
+				{full}
+			</div>
+		</>
 	)
 }

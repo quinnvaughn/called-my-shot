@@ -9,6 +9,7 @@ import {
 	type Subject,
 	sectionTitle,
 	seriesSummary,
+	summaryRows,
 	supportingTiles,
 } from "./stat-context"
 
@@ -303,5 +304,56 @@ describe("seriesSummary", () => {
 		expect(
 			seriesSummary({ ...record(2, 9), ties: 1 }, first, second, teams),
 		).toBe("HOU leads 9-2-1")
+	})
+})
+
+describe("summaryRows", () => {
+	it("gives each subject its headline, leaving out one with none", () => {
+		const rows = summaryRows({
+			ranking: [],
+			matchup: null,
+			subjects: [
+				subject({
+					label: "Jaylen Warren",
+					recentGames: [game("g1", 127), game("g2", 93), game("g3", 101)],
+				}),
+				subject({ label: "Bucky Irving", recentGames: [game("g1", null, true)] }),
+			],
+		})
+		expect(rows).toEqual([
+			{
+				key: "Jaylen Warren",
+				name: "Jaylen Warren",
+				value: "107",
+				label: "per game, last 3",
+			},
+		])
+	})
+
+	it("leads a pool with its first three, saying how many games each is over", () => {
+		const entry = (playerId: string, mean: number, games: number) => ({
+			playerId,
+			player: null,
+			label: playerId,
+			mean,
+			games,
+			opponentTeamId: null,
+			isHome: true,
+		})
+		const rows = summaryRows({
+			ranking: [
+				entry("A", 31.25, 4),
+				entry("B", 28, 1),
+				entry("C", 25, 3),
+				entry("D", 20, 3),
+			],
+			matchup: null,
+			subjects: [],
+		})
+		expect(rows.map((r) => [r.name, r.value, r.label])).toEqual([
+			["A", "31.3", "4 games"],
+			["B", "28", "last game"],
+			["C", "25", "3 games"],
+		])
 	})
 })

@@ -1,4 +1,4 @@
-import { Link } from "@tanstack/react-router"
+import { Link, useNavigate } from "@tanstack/react-router"
 import type { ReactNode } from "react"
 import { css } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
@@ -8,6 +8,7 @@ import { callersText, isRateStat } from "#/lib/field-signal"
 import {
 	AWAITING_RESULT_TEXT,
 	isNumericQuestionShape,
+	toCallShape,
 } from "#/lib/question-labels"
 import {
 	DEFAULT_CONVICTION,
@@ -16,6 +17,7 @@ import {
 } from "#/lib/scoring"
 import { buildQuestionSlug } from "#/lib/slug"
 import { CardRule } from "./card-rule"
+import { castCallBucketFor } from "./cast-call-form/use-cast-call-form"
 import { LockLine } from "./lock-line"
 import { LockedBadge } from "./locked-badge"
 import { QuestionCardField } from "./question-card-field"
@@ -111,6 +113,11 @@ type QuestionCardProps = {
 	// Under the options while the question is open or locked - the game page's
 	// line of recent form and group picks.
 	context?: ReactNode
+	// Each option row opens the question with that side already picked, so a
+	// tap on the side someone likes still lands them on the stats and the
+	// conviction slider before it counts. Only while one tap is the whole
+	// pick: an open, uncalled, single-pick question.
+	pickable?: boolean
 }
 
 export function QuestionCard({
@@ -119,8 +126,10 @@ export function QuestionCard({
 	showGame = true,
 	trailing,
 	context,
+	pickable = false,
 }: QuestionCardProps) {
 	const question = useFragment(QuestionCardFragment, questionProp)
+	const navigate = useNavigate()
 	const isSettled =
 		question.status === "RESOLVED" || question.status === "DISPUTED"
 	const isLocked = question.status === "LOCKED"
@@ -150,12 +159,48 @@ export function QuestionCard({
 			}
 		: undefined
 
+	// A numeric guess needs a typed number and a multi-pick award several
+	// picks, so only a question one tap fully answers starts from a row.
+	const canPick =
+		pickable &&
+		question.status === "OPEN" &&
+		question.viewerCall === null &&
+		castCallBucketFor(
+			toCallShape(question.shape),
+			question.picksRequired ?? 1,
+		) === "single"
+	const params = {
+		questionId: question.id,
+		slug: buildQuestionSlug(question.title),
+	}
+
 	return (
 		<Link
 			to="/questions/$questionId/{-$slug}"
-			params={{
-				questionId: question.id,
-				slug: buildQuestionSlug(question.title),
+			params={params}
+			// The whole card is the one link, since rows can't be buttons or
+			// links of their own inside it. A plain tap on a row goes to the same
+			// page with that row's option picked; a modified click (new tab) is
+			// left to the link.
+			onClick={(event) => {
+				if (!canPick) return
+				if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey)
+					return
+				const row =
+					event.target instanceof Element
+						? event.target.closest<HTMLElement>("[data-option-target]")
+						: null
+				const pick = row?.dataset.optionTarget
+				if (!pick) return
+				event.preventDefault()
+				void navigate({
+					to: "/questions/$questionId/{-$slug}",
+					params,
+					state: { pick },
+					// The question page puts the viewer on its form itself, before
+					// it paints. A reset to the top first would show as a jump.
+					resetScroll: false,
+				})
 			}}
 			className={css({
 				display: "block",
@@ -205,6 +250,7 @@ export function QuestionCard({
 								myGuess={question.viewerCall?.guessValue ?? null}
 								picksRequired={question.picksRequired}
 								pointsFor={pointsFor}
+								pickable={canPick}
 							/>
 							{context}
 							<HStack

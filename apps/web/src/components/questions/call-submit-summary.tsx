@@ -1,9 +1,8 @@
 import { css } from "styled-system/css"
 import { HStack } from "styled-system/jsx"
 import type { CastCallFormState } from "#/components/questions/cast-call-form"
-import { isOverUnderShape } from "#/components/questions/cast-call-form/use-cast-call-form"
-import { callersText, formatGuess } from "#/lib/field-signal"
-import { optionDisplayLabel } from "#/lib/question-labels"
+import { callFormPickLabel } from "#/components/questions/cast-call-form/call-form-pick-label"
+import { callersText } from "#/lib/field-signal"
 import {
 	basePointsForGql,
 	DEFAULT_CONVICTION,
@@ -20,33 +19,32 @@ export function CallSubmitSummary({
 }: {
 	callForm: CastCallFormState
 }) {
-	const {
-		question,
-		shape,
-		bucket,
-		form,
-		selections,
-		singleSelectConviction,
-		isRateStat,
-	} = callForm
+	const { question, bucket, form, selections, singleSelectConviction } =
+		callForm
 	const guessValue = form.useWatch("guessValue")
 	const numericConviction = form.useWatch("conviction")
 
 	if (!question) return null
 
+	const pick = callFormPickLabel(callForm, { selections, guessValue })
+
 	const summary = (() => {
+		if (pick === null) return null
 		if (bucket === "numeric") {
-			if (guessValue === undefined) return null
 			const conviction = numericConviction ?? DEFAULT_CONVICTION
 			const payout = previewNumericPoints(
-				basePointsForGql(question.shape, question.isOfficial, question.isPriced) *
+				basePointsForGql(
+					question.shape,
+					question.isOfficial,
+					question.isPriced,
+				) *
 					(question.viewerSeasonPlay?.weight ?? 1) *
 					(question.seriesStage?.weight ?? 1),
 				question.lossRate,
 				conviction,
 			)
 			return {
-				pick: formatGuess(guessValue, isRateStat),
+				pick,
 				conviction,
 				win:
 					payout.winLow === payout.winHigh
@@ -66,12 +64,7 @@ export function CallSubmitSummary({
 			singleSelectConviction,
 		)
 		return {
-			pick: optionDisplayLabel(
-				option.label,
-				isOverUnderShape(shape),
-				question.ouLine,
-				isRateStat,
-			),
+			pick,
 			conviction: singleSelectConviction,
 			win: `+${payout.win}`,
 			lose: `−${payout.lose}`,

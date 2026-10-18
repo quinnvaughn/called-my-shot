@@ -1,10 +1,30 @@
+import { FiPlus } from "react-icons/fi"
+import { css, cx } from "styled-system/css"
+import { button } from "#/components/ui/button"
 import { Textarea } from "#/components/ui/textarea"
 import { useCastCallFormContext } from "./cast-call-form-context"
 
 // Shared by every question type - the one field that isn't part of the
-// call itself.
+// call itself. A single line until it's wanted (see caseOpen).
 export function CaseField() {
-	const { form, caseTextRef } = useCastCallFormContext()
+	const { form, caseTextRef, caseOpen, focusCaseText } =
+		useCastCallFormContext()
+
+	if (!caseOpen) {
+		return (
+			<button
+				type="button"
+				onClick={focusCaseText}
+				className={cx(
+					button({ variant: "outline", size: "sm" }),
+					css({ alignSelf: "flex-start" }),
+				)}
+			>
+				<FiPlus size={14} />
+				Add a case
+			</button>
+		)
+	}
 
 	return (
 		<form.Field name="caseText">

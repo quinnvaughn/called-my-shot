@@ -7,7 +7,7 @@ import {
 import { cx, sva } from "styled-system/css"
 
 const breadcrumbRecipe = sva({
-	slots: ["root", "list", "item", "link", "current"],
+	slots: ["root", "list", "item", "linkItem", "currentItem", "link", "current"],
 	base: {
 		root: {
 			minWidth: "0",
@@ -28,6 +28,17 @@ const breadcrumbRecipe = sva({
 			minWidth: "0",
 			_before: { content: '"/"' },
 			_first: { _before: { display: "none" } },
+		},
+		// The crumbs before the current page are the way back and need to read
+		// whole, so they keep their width, up to a cap a long ballot name
+		// truncates at. The current page takes whatever is left: you're already
+		// on it, and the title under the trail names it.
+		linkItem: {
+			flexShrink: 0,
+			maxWidth: "12rem",
+		},
+		currentItem: {
+			flex: "1 1 0",
 		},
 		link: {
 			display: "block",
@@ -51,8 +62,7 @@ const slots = breadcrumbRecipe()
 // the way back names where it goes instead of relying on browser history.
 // Link and Current each render their own <li>, so a call site is just the
 // crumbs in order; the "/" between them comes from CSS, not markup. The trail
-// stays on one line and every crumb truncates, so a long question title in the
-// middle of it shortens instead of wrapping.
+// stays on one line and shortens instead of wrapping, from the current page.
 function Breadcrumb({ className, children, ...props }: HTMLAttributes<HTMLElement>) {
 	return (
 		<nav
@@ -76,7 +86,7 @@ const BreadcrumbLinkAnchor = createLink(
 )
 
 const BreadcrumbLink: LinkComponent<typeof BreadcrumbLinkAnchor> = (props) => (
-	<li className={slots.item}>
+	<li className={cx(slots.item, slots.linkItem)}>
 		<BreadcrumbLinkAnchor {...props} />
 	</li>
 )
@@ -87,7 +97,7 @@ function BreadcrumbCurrent({
 	...props
 }: HTMLAttributes<HTMLSpanElement>) {
 	return (
-		<li className={slots.item}>
+		<li className={cx(slots.item, slots.currentItem)}>
 			<span
 				aria-current="page"
 				className={cx(slots.current, className)}

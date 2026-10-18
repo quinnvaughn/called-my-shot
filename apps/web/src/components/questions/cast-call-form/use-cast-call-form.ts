@@ -252,7 +252,14 @@ export type CastCallFormOptions = {
 	// The <form>'s id. Only needs setting when more than one form for
 	// different questions can be on the page at once.
 	formId?: string
-	onCalled?: () => void
+	onCalled?: (landed: LandedCall) => void
+}
+
+// What onCalled is told about the call that just landed. finishedFirstCallTour
+// is set on the call the first-call walkthrough was built around, which opens
+// the walkthrough's closing modal on this page.
+export type LandedCall = {
+	finishedFirstCallTour: boolean
 }
 
 // All of the state behind making a call, decoupled from where it renders.
@@ -266,9 +273,8 @@ export type CastCallFormOptions = {
 // a real question - and therefore a mounted CastCallForm/CallSubmitBar - exists.
 //
 // Passing `redo` switches it to replacing an existing call instead of making
-// a new one. `onCalled`
-// runs once a new call has landed, the page has refreshed and the confirm
-// modal has closed.
+// a new one. `onCalled` runs once a new call has landed, the page's queries
+// have refetched and the confirm modal has closed.
 export function useCastCallForm(
 	questionProp: FragmentType<typeof CastCallFormFragment> | null | undefined,
 	{
@@ -297,6 +303,19 @@ export function useCastCallForm(
 	// `conviction` field.
 	const [singleSelectConviction, setSingleSelectConviction] = useState(DEFAULT_CONVICTION)
 
+	// How many pages of a single-pick question's rows are showing. Kept here
+	// rather than in the list so a number key on the question page picks the
+	// row that's actually Nth on screen (see shownPickerOptions).
+	const [optionPages, setOptionPages] = useState(1)
+	const showMoreOptions = () => setOptionPages((p) => p + 1)
+
+	// The case sits behind "+ Add a case" until it's wanted, since most calls
+	// go in without one. Open from the start when there's one already (a redo
+	// or a saved draft), so it isn't hidden.
+	const [caseOpen, setCaseOpen] = useState(() =>
+		Boolean(draft?.initial?.caseText ?? redo?.current.caseText),
+	)
+
 	// Lets ConfirmCallModal send the viewer back to the case textarea when
 	// they open the confirm step without having written one - mirrors the
 	// mockup's "+ add a case before locking in" button, which closes the
@@ -307,6 +326,7 @@ export function useCastCallForm(
 	// otherwise steal focus straight back off the textarea.
 	const caseTextRef = useRef<HTMLTextAreaElement>(null)
 	function focusCaseText() {
+		setCaseOpen(true)
 		requestAnimationFrame(() => {
 			caseTextRef.current?.scrollIntoView({
 				block: "center",
@@ -511,19 +531,21 @@ export function useCastCallForm(
 						})
 					}
 
-					// This page is the destination - refresh in place rather than
-					// navigating away, so the pending banner/locked calls list pick
-					// up the new viewerCall immediately.
+					// Refreshed in place, so the pending banner/locked calls list
+					// pick up the new viewerCall immediately. Whether the page then
+					// stays put or moves on is onCalled's to decide.
 					await invalidateAfterCall(queryClient)
 					await router.invalidate()
 					closeModal()
-					onCalled?.()
 
 					// Closes out the walkthrough on the call it was built
 					// around. Asks the tour store rather than the ?tour param,
 					// which the tour clears as soon as it ends - well before
 					// the user gets around to actually submitting.
-					if (question && consumeRanFirstCallTour()) {
+					const finishedFirstCallTour =
+						question != null && consumeRanFirstCallTour()
+					onCalled?.({ finishedFirstCallTour })
+					if (question && finishedFirstCallTour) {
 						track("onboarding_completed", {})
 						// createElement rather than JSX: this hook is a .ts file.
 						openModal(
@@ -652,6 +674,8 @@ export function useCastCallForm(
 		averageGuess: question?.averageGuess ?? null,
 		singleSelectConviction,
 		setSingleSelectConviction,
+		optionPages,
+		showMoreOptions,
 		multiSelectSearch,
 		setMultiSelectSearch,
 		convictionMode,
@@ -664,6 +688,8 @@ export function useCastCallForm(
 		removeMultiSelectPick,
 		caseTextRef,
 		focusCaseText,
+		caseOpen,
+		openCase: () => setCaseOpen(true),
 		guessStep,
 		setGuessStep,
 		winTotalBudget,

@@ -197,6 +197,7 @@ function RouteComponent() {
 			<GameMatchupHeader
 				game={game}
 				starters={game}
+				foldStartersOnMobile
 				startAction={
 					canSetGameReminder(game) && (
 						<GameReminderButton
@@ -239,6 +240,7 @@ function RouteComponent() {
 								key={question.id}
 								question={question}
 								showGame={false}
+								pickable
 							/>
 						))}
 					</VStack>

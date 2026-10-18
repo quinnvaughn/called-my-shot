@@ -51,11 +51,11 @@ const STEPS: TourStep[] = [
 		// Describes the shape of the multiplier rather than quoting its 6x
 		// ceiling. On a two-option question the bonus is a flat 1x until about
 		// 20% of the field is on your side, and 6x needs roughly 1%, so leading
-		// with the cap would sell a number almost nobody sees here. The preview
-		// underneath is live, so point at that instead.
+		// with the cap would sell a number almost nobody sees here. The points
+		// on the option rows are live, so point at those instead.
 		anchor: "payout",
 		title: "What it actually pays",
-		body: "This updates as you pick. Calling it the same way as the field pays the base rate. A multiplier only starts once you are well under an even share of the calls, and it climbs quickly from there. A miss costs your conviction flat either way, so a bold call never deepens the loss.",
+		body: "Each side shows what it pays if right and costs if wrong, and the numbers move with conviction. Calling it the same way as the field pays the base rate. A multiplier only starts once you are well under an even share of the calls, and it climbs quickly from there. A miss costs your conviction flat either way, so a bold call never deepens the loss.",
 		gate: "read",
 	},
 	{

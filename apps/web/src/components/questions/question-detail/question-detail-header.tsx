@@ -5,14 +5,12 @@ import { HStack, VStack } from "styled-system/jsx"
 import { ShareQuestionModal } from "#/components/questions/share-question-modal"
 import { Button, button } from "#/components/ui/button"
 import { Card } from "#/components/ui/card"
-import { Tag } from "#/components/ui/tag"
 import { useMe } from "#/hooks/use-me"
 import { track } from "#/lib/analytics"
-import { questionShapeLabel } from "#/lib/question-labels"
 import { openModal } from "#/stores/modal-store"
 import type { QuestionDetail } from "./types"
 
-// The kind-of-question tags, the share and challenge actions, and the title.
+// The share and challenge actions, and the title.
 // `created` offers a challenge on a question the viewer has just written.
 export function QuestionDetailHeader({
 	question,
@@ -25,37 +23,36 @@ export function QuestionDetailHeader({
 
 	return (
 		<VStack gap="3" alignItems="stretch">
-			{/* The tags get the full width on a phone, with the actions on
-			    their own row under them, rather than wrapping one per line
-			    beside two buttons that don't shrink. */}
+			{/* The title with the actions beside it, or under it on a phone,
+			    where beside it they'd squeeze the title into a narrow column.
+			    What kind of question this is, its league and whether it's
+			    official are already said by the title, the breadcrumb and the
+			    matchup, and a community question's maker is named in the context
+			    strip and the details card. */}
 			<div
 				className={css({
 					display: "flex",
-					flexDirection: { base: "column", sm: "row" },
+					flexDirection: { base: "column", md: "row" },
 					justifyContent: "space-between",
-					alignItems: "flex-start",
-					gap: { base: "3", sm: "2" },
+					alignItems: { base: "stretch", md: "flex-start" },
+					gap: "3",
 				})}
 			>
-				<HStack gap="2" flexWrap="wrap">
-					{/* Stated either way: this row is the only thing on the page
-				that says what kind of question you're reading, and an absent
-				badge isn't a signal anyone reads. Feed cards keep tagging
-				Official alone, where a Community tag would sit on nearly every
-				card and carry nothing. */}
-					{question.isOfficial ? (
-						<Tag variant="primary">Official</Tag>
-					) : (
-						<Tag>Community</Tag>
-					)}
-					<Tag>{question.league.abbreviation}</Tag>
-					<Tag>{questionShapeLabel[question.shape]}</Tag>
-				</HStack>
-				{/* Shares the QUESTION - an invitation to call it. Distinct from
-			the link on a settled call below, which shares one person's own
-			record of it. Available regardless of status or whether you've
-			called: an open question is the one most worth sending someone. */}
+				<h1
+					className={css({
+						minWidth: "0",
+						fontSize: { base: "xl", md: "2xl" },
+						fontFamily: "heading",
+						textWrap: "pretty",
+					})}
+				>
+					{question.title}
+				</h1>
 				<HStack gap="2" flexShrink="0">
+					{/* Shares the QUESTION - an invitation to call it. Distinct from
+				the link on a settled call below, which shares one person's own
+				record of it. Available regardless of status or whether you've
+				called: an open question is the one most worth sending someone. */}
 					<Button
 						variant="ghost"
 						size="sm"
@@ -112,7 +109,7 @@ export function QuestionDetailHeader({
 								)}
 							>
 								<FiFlag size={14} />
-								Challenge
+								Start a challenge
 							</Link>
 						)}
 				</HStack>
@@ -142,9 +139,6 @@ export function QuestionDetailHeader({
 						</Card.Body>
 					</Card>
 				)}
-			<h1 className={css({ fontSize: "2xl", fontFamily: "heading" })}>
-				{question.title}
-			</h1>
 		</VStack>
 	)
 }
