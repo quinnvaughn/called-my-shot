@@ -25,6 +25,15 @@ export const noticeKey = {
 		`snapped:${leagueId}:${family}:${runStartCallId}`,
 }
 
+// The run a streak event's key names, as `leagueId:family:runStartCallId`, so
+// a milestone, a best and a snap of the same run can be told apart from a
+// later run on the same track. Null for a sweep key.
+export function noticeRun(dedupeKey: string): string | null {
+	const [kind, leagueId, family, runStartCallId] = dedupeKey.split(":")
+	if (kind === "sweep" || !leagueId || !family || !runStartCallId) return null
+	return `${leagueId}:${family}:${runStartCallId}`
+}
+
 // Notifies the user of an event only the first time its key is seen for them,
 // ever. The insert is the check, so it holds under a rebuild that runs again,
 // and after a result is overturned and then restored.

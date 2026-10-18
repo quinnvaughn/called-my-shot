@@ -746,6 +746,36 @@ describe("drainResolutionDigests achievement lines", () => {
 		expect(notice?.emailedAt).not.toBeNull()
 	})
 
+	it("tells a run that hit a milestone and then snapped as one line", async () => {
+		const { question, options, callers } = await seedOptionQuestion({
+			callers: [{ optionIndex: 0 }],
+		})
+		const { user } = callers[0]
+		await resolve(question, { correctOptionIds: [options[0].id] })
+		await announceMilestone(user.id, question.leagueId)
+		await db.transaction((tx) =>
+			announceOnce(tx, `snapped:${question.leagueId}:player_stats:call-1`, {
+				type: "streak_snapped",
+				userId: user.id,
+				leagueId: question.leagueId,
+				streakFamily: "player_stats",
+				achievementLabel: "NFL Player Stats",
+				achievementCount: 7,
+			}),
+		)
+		await ageOutbox()
+
+		const mail = mailRecorder()
+		await drainResolutionDigests({ send: mail.send })
+
+		const [message] = mail.sent
+		expect(message.text).toContain("Your NFL Player Stats streak ended at 7.")
+		expect(message.text).not.toContain("5 in a row")
+		const notices = await noticesFor(user.id)
+		expect(notices).toHaveLength(2)
+		expect(notices.every((n) => n.emailedAt !== null)).toBe(true)
+	})
+
 	it("keeps the line for the next digest when the send fails", async () => {
 		const { question, options, callers } = await seedOptionQuestion({
 			callers: [{ optionIndex: 0 }],

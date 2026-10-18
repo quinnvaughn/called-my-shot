@@ -28,6 +28,7 @@ import {
 	utcTimestamp,
 } from "./outbox"
 import { loadResolvedCallSummaries } from "./share-cards/call-summary"
+import { noticeRun } from "./streaks/notices"
 
 // How long a user's oldest unsent row has to sit before their digest can go
 // out, so a dispute filed right after a resolve still has a chance to stop
@@ -138,13 +139,21 @@ function digestDayStart(now: Date): Date {
 	return dayStart
 }
 
+type DigestAchievementEntry = {
+	// Every notice the line stands for, all marked emailed once it sends.
+	dedupeKeys: string[]
+	achievement: DigestAchievement
+}
+
 // The user's sweep and streak events not yet in any email, each as its line
-// and a link to the page that shows it off.
+// and a link to the page that shows it off. A streak run gets one line: a
+// snap stands for the whole run, otherwise its longest milestone or best
+// does, so the email never says "5 in a row" next to "ended at 5".
 async function loadDigestAchievements(
 	userId: string,
 	username: string,
 	now: Date,
-): Promise<{ dedupeKey: string; achievement: DigestAchievement }[]> {
+): Promise<DigestAchievementEntry[]> {
 	const rows = await db.query.achievementNotices.findMany({
 		where: {
 			userId,
@@ -162,7 +171,7 @@ async function loadDigestAchievements(
 		},
 	})
 
-	return rows.flatMap(({ dedupeKey, notification: n }) => {
+	const events = rows.flatMap(({ dedupeKey, notification: n }) => {
 		const leagueSlug = n?.league?.slug
 		if (!n || !leagueSlug) return []
 		const target = match(n.type)
@@ -189,14 +198,18 @@ async function loadDigestAchievements(
 			.otherwise(() => null)
 		if (!target) return []
 		const kind: AchievementKind = target.kind
+		const count = n.achievementCount ?? 0
 		return [
 			{
 				dedupeKey,
+				run: noticeRun(dedupeKey),
+				kind,
+				count,
 				achievement: {
 					text: achievementText({
 						kind,
 						label: n.achievementLabel ?? "",
-						count: n.achievementCount ?? 0,
+						count,
 						previousBest: n.previousBest,
 					}),
 					url: emailUrl(target.path, {
@@ -207,6 +220,41 @@ async function loadDigestAchievements(
 			},
 		]
 	})
+
+	const entries: DigestAchievementEntry[] = []
+	const runLines = new Map<
+		string,
+		{ entry: DigestAchievementEntry; kind: AchievementKind; count: number }
+	>()
+	for (const event of events) {
+		if (!event.run) {
+			entries.push({
+				dedupeKeys: [event.dedupeKey],
+				achievement: event.achievement,
+			})
+			continue
+		}
+		const line = runLines.get(event.run)
+		if (!line) {
+			const entry = {
+				dedupeKeys: [event.dedupeKey],
+				achievement: event.achievement,
+			}
+			runLines.set(event.run, { entry, kind: event.kind, count: event.count })
+			entries.push(entry)
+			continue
+		}
+		line.entry.dedupeKeys.push(event.dedupeKey)
+		const replaces =
+			line.kind !== "streak_snapped" &&
+			(event.kind === "streak_snapped" || event.count > line.count)
+		if (replaces) {
+			line.entry.achievement = event.achievement
+			line.kind = event.kind
+			line.count = event.count
+		}
+	}
+	return entries
 }
 
 // Drained on a cron rather than sent at resolve time - see the comment on
@@ -455,7 +503,7 @@ async function drainOneUser(
 					eq(achievementNotices.userId, userId),
 					inArray(
 						achievementNotices.dedupeKey,
-						achievements.map((a) => a.dedupeKey),
+						achievements.flatMap((a) => a.dedupeKeys),
 					),
 				),
 			)
