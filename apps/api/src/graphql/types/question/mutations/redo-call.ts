@@ -23,7 +23,11 @@ import {
 	NotFoundError,
 	ValidationError,
 } from "../../../../lib/errors"
-import { consumeRedoGrant, redoBalanceFor } from "../../../../lib/redos"
+import {
+	consumeAdminRedo,
+	consumeRedoGrant,
+	redoBalanceFor,
+} from "../../../../lib/redos"
 import { releaseWaitingReferral } from "../../../../lib/referrals"
 import { builder } from "../../../builder"
 import { lockOrThrow, parseInput } from "../../../helpers"
@@ -102,7 +106,9 @@ builder.mutationFields((t) => ({
 					optionIds: data.selections.map((s) => s.optionId),
 				})
 
-				const grant = await consumeRedoGrant(tx, user.id, call.id)
+				const grant = user.isAdmin
+					? await consumeAdminRedo(tx, user.id, call.id)
+					: await consumeRedoGrant(tx, user.id, call.id)
 				if (!grant) {
 					throw ValidationError.field(
 						null,

@@ -444,6 +444,7 @@ function RouteComponent() {
 								? {
 										questionShape: toCallShape(question.shape),
 										balance: me?.redoBalance ?? 0,
+										unlimited: me?.isAdmin ?? false,
 										action: {
 											// No confirmation step: opening the picker
 											// spends nothing. The redo is only charged

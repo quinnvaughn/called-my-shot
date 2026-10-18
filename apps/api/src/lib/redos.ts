@@ -41,6 +41,27 @@ export async function consumeRedoGrant(tx: Tx, userId: string, callId: string) {
 	return consumed ?? null
 }
 
+// Admins redo without a wallet. Their earned redos are left untouched, and
+// the grant is minted already spent so the redo still has a receipt like any
+// other (call_redos.grant_id is not null).
+export async function consumeAdminRedo(
+	tx: Tx,
+	userId: string,
+	callId: string,
+) {
+	const [grant] = await tx
+		.insert(redoGrants)
+		.values({
+			userId,
+			source: "admin",
+			note: "Admin redo, no wallet",
+			consumedAt: new Date(),
+			consumedByCallId: callId,
+		})
+		.returning()
+	return grant
+}
+
 // Both sides of an invite get a redo, which is what makes a link worth
 // sending: the ask is "here's a free redo" rather than "do me a favour". This
 // is the invitee's side, granted at signup rather than on their first call,

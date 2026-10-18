@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm"
 import { describe, expect, it } from "vitest"
 import { db } from "../../../../db"
-import { callRedos, calls, redoGrants } from "../../../../db/schema"
+import { callRedos, calls, redoGrants, users } from "../../../../db/schema"
 import {
 	makeOption,
 	makeQuestion,
@@ -261,6 +261,39 @@ describe("redoCall", () => {
 		expect(
 			await db.query.callRedos.findFirst({ where: { callId: call.id } }),
 		).toBeUndefined()
+	})
+
+	it("lets an admin redo without spending from the wallet", async () => {
+		const { options, call, user, grant } = await seedRedoable()
+		const [admin] = await db
+			.update(users)
+			.set({ isAdmin: true })
+			.where(eq(users.id, user.id))
+			.returning()
+
+		const data = await expectData<{
+			redoCall: { __typename: string; redoBalance: number }
+		}>(REDO_CALL, {
+			as: admin,
+			variables: {
+				input: {
+					callId: call.id,
+					selections: [{ optionId: options[1].id, conviction: 50 }],
+				},
+			},
+		})
+
+		expect(data.redoCall.__typename).toBe("RedoCallPayload")
+		expect(data.redoCall.redoBalance).toBe(1)
+		const earned = await db.query.redoGrants.findFirst({
+			where: { id: grant.id },
+		})
+		expect(earned?.consumedAt).toBeNull()
+		const redo = await db.query.callRedos.findFirst({
+			where: { callId: call.id },
+			with: { grant: true },
+		})
+		expect(redo?.grant.source).toBe("admin")
 	})
 
 	it("refuses someone else's call", async () => {

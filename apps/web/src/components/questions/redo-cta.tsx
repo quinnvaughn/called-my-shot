@@ -25,6 +25,9 @@ export type RedoAction =
 export type RedoOffer = {
 	questionShape: QuestionCallShape
 	balance: number
+	// Admins redo without spending from the wallet, so there is no count to
+	// show and no reason to send them off to earn more.
+	unlimited: boolean
 	action: RedoAction
 }
 
@@ -104,7 +107,7 @@ export function RedoCta({
 	return (
 		<HStack justify="space-between" gap="3" flexWrap="wrap">
 			<HStack gap="2.5" alignItems="center">
-				{offer.balance === 0 ? (
+				{offer.balance === 0 && !offer.unlimited ? (
 					// Still offered at zero, and the click opens how to earn one
 					// instead of the pick form.
 					<button
@@ -142,26 +145,30 @@ export function RedoCta({
 						))
 						.exhaustive()
 				)}
-				<HStack gap="1" alignItems="center">
-					<span className={countClass}>
-						{offer.balance} of {REDO_BALANCE_CAP} left
-					</span>
-					<InfoTip label="redos" text={REDO_HINT} />
-				</HStack>
+				{!offer.unlimited && (
+					<HStack gap="1" alignItems="center">
+						<span className={countClass}>
+							{offer.balance} of {REDO_BALANCE_CAP} left
+						</span>
+						<InfoTip label="redos" text={REDO_HINT} />
+					</HStack>
+				)}
 			</HStack>
 
-			<Link
-				to="/invite"
-				className={earnClass}
-				onClick={() =>
-					track("redo_invite_clicked", {
-						questionId,
-						balance: offer.balance,
-					})
-				}
-			>
-				Get more by inviting →
-			</Link>
+			{!offer.unlimited && (
+				<Link
+					to="/invite"
+					className={earnClass}
+					onClick={() =>
+						track("redo_invite_clicked", {
+							questionId,
+							balance: offer.balance,
+						})
+					}
+				>
+					Get more by inviting →
+				</Link>
+			)}
 		</HStack>
 	)
 }

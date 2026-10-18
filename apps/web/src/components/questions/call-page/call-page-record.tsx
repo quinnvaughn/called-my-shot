@@ -97,6 +97,7 @@ export function CallPageRecord({ call, view, me }: Props) {
 							? {
 									questionShape: toCallShape(call.question.shape),
 									balance: me?.redoBalance ?? 0,
+									unlimited: me?.isAdmin ?? false,
 									action: {
 										kind: "navigate",
 										questionId: call.question.id,
