@@ -41,6 +41,12 @@ export const NotificationsPageDocument = graphql(`
 						...ChallengeAcceptedRow_notification
 						...ChallengeSettledRow_notification
 						...ChallengeGloatedRow_notification
+						...ChainLinkRequestedRow_notification
+						...ChainLinkDecidedRow_notification
+						...ChainMemberLeftRow_notification
+						...ChainCalledOffRow_notification
+						...ChainSettledRow_notification
+						...ChainCommentedRow_notification
 						...ChallengePostedToGroupRow_notification
 					}
 					pageInfo {

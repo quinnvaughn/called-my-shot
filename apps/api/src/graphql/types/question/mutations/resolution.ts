@@ -7,6 +7,7 @@ import { eq } from "drizzle-orm"
 import { db } from "../../../../db"
 import { calls, questions, resolutionDisputes } from "../../../../db/schema"
 import { requireAdmin, requireUser } from "../../../../lib/auth"
+import { drainChainsNow } from "../../../../lib/chains/drain"
 import {
 	AuthenticationError,
 	AuthorizationError,
@@ -150,6 +151,7 @@ builder.mutationFields((t) => ({
 					adminResolution(admin.id, resolution),
 				)
 			})
+			await drainChainsNow()
 
 			return { question }
 		},
@@ -210,6 +212,7 @@ builder.mutationFields((t) => ({
 
 				return updated
 			})
+			await drainChainsNow()
 
 			return { question }
 		},

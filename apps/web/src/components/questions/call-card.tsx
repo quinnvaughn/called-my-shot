@@ -20,6 +20,7 @@ import { buildQuestionSlug } from "#/lib/slug"
 import { CallPoints } from "./call-points"
 import { CardRule } from "./card-rule"
 import { CaseBlock } from "./case-block"
+import { ChainBreakerBadge } from "./chain-breaker-badge"
 import { DisputedFlag } from "./disputed-flag"
 import { PersonLine } from "./person-line"
 import { PickList } from "./pick-list"
@@ -36,6 +37,7 @@ export const CallCardFragment = graphql(`
 		redo {
 			id
 		}
+		brokeChain
 		streak {
 			length
 		}
@@ -97,6 +99,7 @@ export function CallCard({ call: callProp, linked = true }: CallCardProps) {
 					trailing={
 						<HStack gap="1.5" alignItems="center">
 							{call.redo && <RedoBadge />}
+							{call.brokeChain && <ChainBreakerBadge />}
 							<RecordTag tone={tag.tone}>{tag.label}</RecordTag>
 						</HStack>
 					}

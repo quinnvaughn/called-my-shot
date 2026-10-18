@@ -30,6 +30,7 @@ function card(over: Record<string, unknown> = {}) {
 		pendingCount: 0,
 		streakBonusPoints: 0,
 		sweepBonusPoints: 0,
+		chainBonusPoints: 0,
 		totalPoints: 540,
 		committedPoints: 1800,
 		pendingStake: 0,

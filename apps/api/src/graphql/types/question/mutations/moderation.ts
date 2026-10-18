@@ -14,6 +14,7 @@ import {
 	users,
 } from "../../../../db/schema"
 import { requireAdmin, requireUser } from "../../../../lib/auth"
+import { drainChainsNow } from "../../../../lib/chains/drain"
 import {
 	AuthenticationError,
 	AuthorizationError,
@@ -149,6 +150,7 @@ builder.mutationFields((t) => ({
 				await markSettleFollowups(tx, question)
 				await tx.delete(questions).where(eq(questions.id, question.id))
 			})
+			await drainChainsNow()
 
 			return { questionId }
 		},
@@ -236,6 +238,7 @@ builder.mutationFields((t) => ({
 
 				await tx.delete(questions).where(eq(questions.id, question.id))
 			})
+			await drainChainsNow()
 
 			return { questionId: data.questionId }
 		},
@@ -337,6 +340,7 @@ builder.mutationFields((t) => ({
 					voidedBy: { method: "admin", userId: admin.id },
 				})
 			})
+			await drainChainsNow()
 
 			return { question }
 		},

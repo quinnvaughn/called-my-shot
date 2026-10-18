@@ -17,17 +17,16 @@ import {
 	pastDate,
 } from "../../test/factories"
 import { resolve } from "../../test/helpers"
+import {
+	dismissCommentReport,
+	removeComment,
+	reportComment,
+} from "../comments/reports"
 import { setModerationProvider } from "../moderation"
 import { markQuestionVoided } from "../void-question"
 import { acceptChallenge } from "./accept"
 import { createChallenge } from "./create"
-import {
-	canGloat,
-	dismissGloatReport,
-	removeGloat,
-	reportGloat,
-	sendChallengeGloat,
-} from "./gloat"
+import { canGloat, sendChallengeGloat } from "./gloat"
 import { loadChallengeQuestionFacts } from "./load"
 import {
 	buildMatchups,
@@ -536,28 +535,34 @@ describe("gloats", () => {
 		})
 		const admin = await makeUser({ isAdmin: true })
 
-		const first = await reportGloat(loserA, {
-			gloatId: gloat.id,
+		const first = await reportComment(loserA, {
+			commentId: gloat.id,
 			reason: "harassment",
 			details: "",
 		})
 		await expect(
-			reportGloat(loserA, { gloatId: gloat.id, reason: "spam", details: "" }),
+			reportComment(loserA, {
+				commentId: gloat.id,
+				reason: "spam",
+				details: "",
+			}),
 		).rejects.toThrow("You've already reported this.")
-		await reportGloat(loserB, {
-			gloatId: gloat.id,
+		await reportComment(loserB, {
+			commentId: gloat.id,
 			reason: "spam",
 			details: "",
 		})
 
-		await removeGloat(admin, first.id)
-		const reports = await db.query.gloatReports.findMany({
-			where: { gloatId: gloat.id },
+		await removeComment(admin, first.id)
+		const reports = await db.query.commentReports.findMany({
+			where: { commentId: gloat.id },
 		})
 		expect(reports.every((r) => r.status === "removed")).toBe(true)
-		const removed = await db.query.gloats.findFirst({ where: { id: gloat.id } })
+		const removed = await db.query.comments.findFirst({
+			where: { id: gloat.id },
+		})
 		expect(removed?.removedAt).not.toBeNull()
-		await expect(dismissGloatReport(admin, first.id)).rejects.toThrow(
+		await expect(dismissCommentReport(admin, first.id)).rejects.toThrow(
 			"Report not found",
 		)
 	})

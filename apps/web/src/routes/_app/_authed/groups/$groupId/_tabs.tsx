@@ -16,6 +16,7 @@ import { HeaderAction } from "#/components/groups/header-action"
 import { InviteCodeModal } from "#/components/groups/invite-code-modal"
 import { PageBanner } from "#/components/images/page-banner"
 import { Breadcrumb } from "#/components/ui/breadcrumb"
+import { CountBadge } from "#/components/ui/count-badge"
 import { NotFound } from "#/components/ui/not-found"
 import { Tabs } from "#/components/ui/tabs"
 import { Tag } from "#/components/ui/tag"
@@ -54,6 +55,7 @@ export const Route = createFileRoute("/_app/_authed/groups/$groupId/_tabs")({
 const TAB_ITEMS = [
 	{ to: "/groups/$groupId", label: "Home" },
 	{ to: "/groups/$groupId/leaderboard", label: "Leaderboard" },
+	{ to: "/groups/$groupId/chains", label: "Chains" },
 	{ to: "/groups/$groupId/record-book", label: "Record Book" },
 ] as const
 
@@ -205,6 +207,10 @@ function RouteComponent() {
 						activeOptions={{ exact: true, includeSearch: false }}
 					>
 						{item.label}
+						{item.to === "/groups/$groupId/chains" &&
+							group.activeChainCount > 0 && (
+								<CountBadge count={group.activeChainCount} />
+							)}
 					</Tabs.LinkTrigger>
 				))}
 			</Tabs.List>

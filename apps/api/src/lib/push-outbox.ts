@@ -60,6 +60,13 @@ export const PUSH_POLICY: Record<NotificationType, PushPolicy | null> = {
 	challenge_settled: NOW,
 	challenge_gloated: NOW,
 	challenge_posted_to_group: NOW,
+	// Folds into its game's results push - see collapseKeyFor.
+	chain_settled: RESULT,
+	chain_link_requested: SHORT_HOLD,
+	chain_commented: SHORT_HOLD,
+	chain_link_decided: NOW,
+	chain_member_left: NOW,
+	chain_called_off: NOW,
 	game_reminder: null,
 	group_pins_expired: null,
 }
@@ -72,7 +79,11 @@ export type PushKeyFields = Pick<
 >
 
 export function collapseKeyFor(n: PushKeyFields): string {
-	if (n.type === "game_resolved" && n.gameId) return `game:${n.gameId}`
+	// A chain's result shares its settling game's key, so whichever of the two
+	// lands last, one push tells both - see buildPushContent.
+	if ((n.type === "game_resolved" || n.type === "chain_settled") && n.gameId) {
+		return `game:${n.gameId}`
+	}
 	if (n.type === "call_resolved") return `call:${n.callId ?? n.id}`
 	if (n.type === "sweep_completed" && n.leagueId && n.slateKey) {
 		return `sweep:${n.leagueId}:${n.slateKey}`

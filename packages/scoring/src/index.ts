@@ -1425,6 +1425,26 @@ export function convictionEdge(summary: {
 	)
 }
 
+// A chain's multipliers and what it awards, layered on top of each link's own
+// score rather than changing it.
+export {
+	CHAIN_HOLD_BOOST,
+	CHAIN_LINK_SHAPES,
+	CHAIN_MAX_LINKS,
+	CHAIN_MIN_LINKS,
+	CHAIN_MULT_CAP,
+	CHAIN_OVER_UNDER_SHAPES,
+	type ChainAward,
+	type ChainLinkFacts,
+	type ChainLinkOutcome,
+	type ChainResult,
+	type ChainState,
+	chainHitChance,
+	chainMultiplier,
+	computeChain,
+	formatChainMultiplier,
+} from "./chain"
+
 // How far a resolved call landed from its line, and whether that was
 // remarkable. Split out from the scoring math above: it describes a result,
 // it doesn't score one. Nothing above imports it - see the header

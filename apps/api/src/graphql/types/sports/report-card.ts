@@ -96,11 +96,12 @@ export const ReportCardRef = builder
 			pendingCount: t.exposeInt("pendingCount"),
 			// The calls alone, which is what returnPct is a return on.
 			netPoints: t.exposeInt("netPoints"),
-			// Streak milestones and sweeps dated in this window - see
-			// withBonuses for why neither touches returnPct or the grade.
+			// Streak milestones, sweeps and chains dated in this window - see
+			// withBonuses for why none touches returnPct or the grade.
 			streakBonusPoints: t.exposeInt("streakBonusPoints"),
 			sweepBonusPoints: t.exposeInt("sweepBonusPoints"),
-			// netPoints plus both bonuses.
+			chainBonusPoints: t.exposeInt("chainBonusPoints"),
+			// netPoints plus every bonus.
 			totalPoints: t.exposeInt("totalPoints"),
 			committedPoints: t.exposeInt("committedPoints"),
 			pendingStake: t.exposeInt("pendingStake"),

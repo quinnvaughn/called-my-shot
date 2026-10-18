@@ -227,11 +227,22 @@ describe("loadUserRecordInputs + buildUserRecord", () => {
 			sourceKey: "u",
 			points: 25,
 		})
+		// A chain that broke on a hit, which takes points back.
+		await db.insert(pointAwards).values({
+			userId,
+			leagueId: nfl.id,
+			seasonId: nflSeason,
+			kind: "chain",
+			scopeKey: "c",
+			sourceKey: "u",
+			points: -15,
+		})
 
 		const inputs = await loadUserRecordInputs(userId)
 		const career = buildUserRecord(inputs, { leagueId: null, weeks: 2, now })
 		expect(career.netFromCalls).toBe(40)
-		expect(career.bonusPoints).toBe(25)
+		expect(career.bonusPoints).toBe(10)
+		expect(career.chainBonusPoints).toBe(-15)
 		expect(career.wins).toBe(1)
 		expect(career.losses).toBe(2)
 		// Best net first.
@@ -245,6 +256,7 @@ describe("loadUserRecordInputs + buildUserRecord", () => {
 		const nbaOnly = buildUserRecord(inputs, { leagueId: nba.id, weeks: 2, now })
 		expect(nbaOnly.netFromCalls).toBe(70)
 		expect(nbaOnly.bonusPoints).toBe(25)
+		expect(nbaOnly.chainBonusPoints).toBe(0)
 		expect(nbaOnly.byLeague).toEqual([])
 		expect(nbaOnly.byFamily.reduce((sum, row) => sum + row.netPoints, 0)).toBe(
 			70,

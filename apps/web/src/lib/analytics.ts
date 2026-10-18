@@ -380,6 +380,8 @@ export type PushPromptReason =
 	| "call"
 	| "challenge_created"
 	| "challenge_accepted"
+	| "chain_started"
+	| "chain_joined"
 	| "group_joined"
 export type PushPromptState = "enable" | "install" | "in_app_browser"
 export type PushSurface = "card" | "settings"

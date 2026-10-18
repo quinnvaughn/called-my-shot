@@ -118,14 +118,35 @@ type ServerAnalyticsEvents = {
 		category: "hate" | "threat" | "sexual" | "personal_info" | "harassment"
 		strictness: "standard" | "strict"
 	}
-	// Gloat text the moderation check refused.
-	gloat_text_blocked: {
+	// Comment text the moderation check refused. on is what it was posted
+	// on: a challenge's gloat or a chain's thread.
+	comment_text_blocked: {
 		category: "hate" | "threat" | "sexual" | "personal_info" | "harassment"
 		strictness: "standard" | "strict"
+		on: "challenge" | "chain"
 	}
-	gloat_reported: {
-		gloatId: string
+	comment_reported: {
+		commentId: string
 		reason: string
+	}
+	chain_started: {
+		chainId: string
+		groupId: string
+	}
+	chain_link_requested: {
+		chainId: string
+		hitChance: number
+	}
+	chain_link_decided: {
+		chainId: string
+		approved: boolean
+	}
+	chain_left: {
+		chainId: string
+	}
+	chain_called_off: {
+		chainId: string
+		links: number
 	}
 	presser_content_reported: {
 		presserId: string

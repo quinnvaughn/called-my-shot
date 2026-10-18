@@ -89,7 +89,9 @@ export function EmailSection({
 
 	async function handleResend() {
 		setPendingActionError(null)
-		const data = await resendEmailChange.mutateAsync({ redirectTo: "/settings" })
+		const data = await resendEmailChange.mutateAsync({
+			redirectTo: "/settings",
+		})
 		if (data?.resendEmailChange?.__typename !== "User") {
 			setPendingActionError("Couldn't resend. Try again.")
 			return

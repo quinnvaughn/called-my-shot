@@ -36,11 +36,11 @@ export function PasswordSection({ hasPassword }: Props) {
 		schema,
 		onSubmit: async (values, helpers) => {
 			const data = await updatePassword.mutateAsync({
-					input: {
-						currentPassword: hasPassword ? values.currentPassword : null,
-						newPassword: values.newPassword,
-					},
-				})
+				input: {
+					currentPassword: hasPassword ? values.currentPassword : null,
+					newPassword: values.newPassword,
+				},
+			})
 			const result = data?.updatePassword
 
 			if (!result) {

@@ -16,8 +16,13 @@ export const PUSH_GROUPS: PushGroup[] = [
 		key: "results",
 		label: "Calls settle",
 		description:
-			"One per game when your calls on it settle, plus calls with no game and sweeps.",
-		types: ["GAME_RESOLVED", "CALL_RESOLVED", "SWEEP_COMPLETED"],
+			"One per game when your calls on it settle, with any chain that game decided, plus calls with no game and sweeps.",
+		types: [
+			"GAME_RESOLVED",
+			"CALL_RESOLVED",
+			"SWEEP_COMPLETED",
+			"CHAIN_SETTLED",
+		],
 	},
 	{
 		key: "challenges",
@@ -29,6 +34,19 @@ export const PUSH_GROUPS: PushGroup[] = [
 			"CHALLENGE_SETTLED",
 			"CHALLENGE_GLOATED",
 			"CHALLENGE_POSTED_TO_GROUP",
+		],
+	},
+	{
+		key: "chains",
+		label: "Chains",
+		description:
+			"When someone asks into your chain, your request is answered, someone leaves or calls a chain off, or someone posts in a chain you're in.",
+		types: [
+			"CHAIN_LINK_REQUESTED",
+			"CHAIN_LINK_DECIDED",
+			"CHAIN_MEMBER_LEFT",
+			"CHAIN_CALLED_OFF",
+			"CHAIN_COMMENTED",
 		],
 	},
 	{

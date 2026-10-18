@@ -112,6 +112,7 @@ export const UserRecordDocument = graphql(`
 				returnPct
 				netFromCalls
 				bonusPoints
+				chainBonusPoints
 				calendar {
 					...ResultsCalendar_calendar
 				}

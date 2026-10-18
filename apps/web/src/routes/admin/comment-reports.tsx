@@ -7,41 +7,41 @@ import { Button } from "#/components/ui/button"
 import { EmptyState } from "#/components/ui/empty-state"
 import { PageHeader } from "#/components/ui/page-header"
 import {
-	AdminDismissGloatReportDocument,
-	AdminRemoveGloatDocument,
-} from "#/graphql/admin/gloat-reports/mutations"
+	AdminDismissCommentReportDocument,
+	AdminRemoveCommentDocument,
+} from "#/graphql/admin/comment-reports/mutations"
 import {
-	AdminGloatReportsDocument,
-	adminGloatReportsQuery,
-} from "#/graphql/admin/gloat-reports/queries"
+	AdminCommentReportsDocument,
+	adminCommentReportsQuery,
+} from "#/graphql/admin/comment-reports/queries"
 import { invalidateChallenges } from "#/graphql/challenges/mutations"
 import { useGqlMutation } from "#/graphql/hooks"
 import { gqlQueryPrefix } from "#/graphql/query-options"
 
-export const Route = createFileRoute("/admin/gloat-reports")({
+export const Route = createFileRoute("/admin/comment-reports")({
 	component: RouteComponent,
-	loader: ({ context }) => context.queryClient.query(adminGloatReportsQuery),
+	loader: ({ context }) => context.queryClient.query(adminCommentReportsQuery),
 })
 
 function RouteComponent() {
-	const { data } = useSuspenseQuery(adminGloatReportsQuery)
+	const { data } = useSuspenseQuery(adminCommentReportsQuery)
 	const queryClient = useQueryClient()
 	const refresh = () =>
 		queryClient.invalidateQueries({
-			queryKey: gqlQueryPrefix(AdminGloatReportsDocument),
+			queryKey: gqlQueryPrefix(AdminCommentReportsDocument),
 		})
-	const dismiss = useGqlMutation(AdminDismissGloatReportDocument)
-	const remove = useGqlMutation(AdminRemoveGloatDocument)
-	const reports = data.adminGloatReports
+	const dismiss = useGqlMutation(AdminDismissCommentReportDocument)
+	const remove = useGqlMutation(AdminRemoveCommentDocument)
+	const reports = data.adminCommentReports
 
 	return (
 		<VStack gap="6" alignItems="stretch">
 			<PageHeader
-				title="Trash talk reports"
-				subtitle="Trash talk people flagged after a challenge. Removing takes the words and the GIF down."
+				title="Comment reports"
+				subtitle="Comments people flagged, from challenge trash talk and chain threads. Removing takes the words and the GIF down."
 			/>
 			{reports.length === 0 ? (
-				<EmptyState>No open trash talk reports.</EmptyState>
+				<EmptyState>No open comment reports.</EmptyState>
 			) : (
 				<VStack gap="3" alignItems="stretch">
 					{reports.map((report) => (
@@ -67,7 +67,7 @@ function RouteComponent() {
 										]
 									}
 								</span>
-								{report.gloat.text && (
+								{report.comment.text && (
 									<p
 										className={css({
 											fontSize: "sm",
@@ -75,13 +75,13 @@ function RouteComponent() {
 											overflowWrap: "anywhere",
 										})}
 									>
-										{report.gloat.text}
+										{report.comment.text}
 									</p>
 								)}
-								{report.gloat.gif && (
+								{report.comment.gif && (
 									<img
-										src={report.gloat.gif.url}
-										alt={report.gloat.gif.alt}
+										src={report.comment.gif.url}
+										alt={report.comment.gif.alt}
 										className={css({ maxHeight: "40", borderRadius: "md" })}
 									/>
 								)}
@@ -91,9 +91,25 @@ function RouteComponent() {
 									</p>
 								)}
 								<p className={css({ fontSize: "xs", color: "fg.muted" })}>
-									by @{report.gloat.sender.username} · reported by @
+									by @{report.comment.sender.username} · reported by @
 									{report.reporter?.username ?? "deleted"}
 								</p>
+								{report.chainId && report.groupId && (
+									<Link
+										to="/groups/$groupId/chains/$chainId"
+										params={{
+											groupId: report.groupId,
+											chainId: report.chainId,
+										}}
+										className={css({
+											fontSize: "xs",
+											color: "fg.default",
+											textDecoration: "underline",
+										})}
+									>
+										Open the chain
+									</Link>
+								)}
 								{report.challengeCode && (
 									<Link
 										to="/challenges/$code"

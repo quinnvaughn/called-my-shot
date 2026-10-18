@@ -39,6 +39,7 @@ export const ReportCardFragment = graphql(`
 		pendingCount
 		streakBonusPoints
 		sweepBonusPoints
+		chainBonusPoints
 		totalPoints
 		committedPoints
 		pendingStake
@@ -135,6 +136,7 @@ export function ReportCard({ card: cardProp, expanded, owner }: Props) {
 	const bonuses: ReportCardBonusRowData[] = [
 		{ label: "Streak bonus", points: card.streakBonusPoints },
 		{ label: "Sweep bonus", points: card.sweepBonusPoints },
+		{ label: "Chains", points: card.chainBonusPoints },
 	].filter((bonus) => bonus.points !== 0)
 	const shapesByFamily = expanded
 		? card.byShape.reduce<Record<string, ReportCardRowData[]>>((acc, row) => {

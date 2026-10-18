@@ -15,6 +15,16 @@ export function reasonCopy(reason: PushPromptReason): string {
 			() => "Get a notification when this challenge settles.",
 		)
 		.with(
+			"chain_started",
+			() =>
+				"Get a notification when someone asks into your chain and when it holds or breaks.",
+		)
+		.with(
+			"chain_joined",
+			() =>
+				"Get a notification when your link is answered and when the chain holds or breaks.",
+		)
+		.with(
 			"group_joined",
 			() =>
 				"Get a notification when people join this group and share calls to it.",

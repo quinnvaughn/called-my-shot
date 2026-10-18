@@ -182,6 +182,41 @@ export type NotificationInput =
 			actorId: string
 			actorUsername: string
 	  }
+	// To a chain's starter when someone asks to add a link. One per chain:
+	// each later request marks it unread again, and who's waiting is read
+	// live.
+	// To whoever asked, once the starter answers. One per chain, and whether
+	// it was approved is read live.
+	// To everyone still in a chain when a member leaves it before lock.
+	// To everyone in or asking into a chain its starter called off.
+	// To a chain's members when someone posts in its thread. One per chain,
+	// and who posted last is read live.
+	// The actor is whoever asked, answered, left, called it off or posted.
+	| {
+			type:
+				| "chain_link_requested"
+				| "chain_link_decided"
+				| "chain_member_left"
+				| "chain_called_off"
+				| "chain_commented"
+			userId: string
+			chainId: string
+			groupId: string
+			groupName: string
+			actorId: string
+			actorUsername: string
+	  }
+	// To every member once the chain holds or breaks, tagged with the game
+	// that settled it so its push folds into that game's results push. One
+	// per chain; how it went is read live.
+	| {
+			type: "chain_settled"
+			userId: string
+			chainId: string
+			groupId: string
+			groupName: string
+			gameId: string
+	  }
 
 function toRow(input: NotificationInput) {
 	return {
@@ -210,6 +245,7 @@ function toRow(input: NotificationInput) {
 		previousBest: "previousBest" in input ? input.previousBest : null,
 		presserId: "presserId" in input ? input.presserId : null,
 		challengeId: "challengeId" in input ? input.challengeId : null,
+		chainId: "chainId" in input ? input.chainId : null,
 		dedupeKey: dedupeKeyFor(input),
 	}
 }
@@ -229,6 +265,13 @@ function dedupeKeyFor(input: NotificationInput): string | null {
 			{ type: "challenge_settled" },
 			{ type: "challenge_gloated" },
 			({ type, challengeId }) => `${type}:${challengeId}`,
+		)
+		.with(
+			{ type: "chain_link_requested" },
+			{ type: "chain_link_decided" },
+			{ type: "chain_settled" },
+			{ type: "chain_commented" },
+			({ type, chainId }) => `${type}:${chainId}`,
 		)
 		.otherwise(() => null)
 }

@@ -53,6 +53,12 @@ export const emailPreferenceType = pgEnum("email_preference_type", [
 	"challenge_settled",
 	"challenge_gloated",
 	"challenge_posted_to_group",
+	"chain_link_requested",
+	"chain_link_decided",
+	"chain_member_left",
+	"chain_called_off",
+	"chain_settled",
+	"chain_commented",
 	// Email-only - see above.
 	"season_starting",
 	"product_updates",

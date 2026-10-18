@@ -9,8 +9,8 @@ import { ChallengeHero } from "#/components/challenges/challenge-hero"
 import { ChallengeHeroAction } from "#/components/challenges/challenge-hero-action"
 import { ChallengeMatchupsCard } from "#/components/challenges/challenge-matchups-card"
 import { ChallengeShareRow } from "#/components/challenges/challenge-share-row"
+import { CommentCard } from "#/components/comments/comment-card"
 import { GameMatchupHeader } from "#/components/games/game-matchup-header"
-import { GloatCard } from "#/components/gloats/gloat-card"
 import { Breadcrumb } from "#/components/ui/breadcrumb"
 import { button } from "#/components/ui/button"
 import { NotFound } from "#/components/ui/not-found"
@@ -92,7 +92,9 @@ function RouteComponent() {
 	const { data } = useSuspenseQuery({
 		...challengePageQuery(code),
 		refetchInterval: (query) =>
-			query.state.data?.challenge?.state === "LIVE" ? IN_PLAY_REFETCH_MS : false,
+			query.state.data?.challenge?.state === "LIVE"
+				? IN_PLAY_REFETCH_MS
+				: false,
 	})
 	const { me } = Route.useRouteContext()
 	const challenge = data.challenge
@@ -135,11 +137,7 @@ function RouteComponent() {
 			<ChallengeHero
 				creator={creator}
 				isCreator={isCreator}
-				matchup={
-					game
-						? matchupLabel(game)
-						: null
-				}
+				matchup={game ? matchupLabel(game) : null}
 				state={challenge.state}
 				closesAt={challenge.closesAt}
 				questionCount={questions.length}
@@ -184,7 +182,13 @@ function RouteComponent() {
 				}
 			/>
 
-			{challenge.creatorGloat && <GloatCard gloat={challenge.creatorGloat} />}
+			{challenge.creatorGloat && (
+				<CommentCard
+					comment={challenge.creatorGloat}
+					trailing="talked trash"
+					reportTitle="Report this trash talk"
+				/>
+			)}
 
 			{/* The creator's page is their 1v1s: one row each, opening the
 			    question-by-question page for it. */}
@@ -198,7 +202,11 @@ function RouteComponent() {
 			{game && <GameMatchupHeader game={game} />}
 
 			{viewerMatchup?.acceptorGloat && (
-				<GloatCard gloat={viewerMatchup.acceptorGloat} />
+				<CommentCard
+					comment={viewerMatchup.acceptorGloat}
+					trailing="talked trash"
+					reportTitle="Report this trash talk"
+				/>
 			)}
 
 			<ChallengeCallsCard challenge={challenge} isCreator={isCreator} />

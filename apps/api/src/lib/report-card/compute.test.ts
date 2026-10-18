@@ -1,6 +1,6 @@
 import { REPORT_CARD_MIN_SETTLED } from "@called-my-shot/scoring"
 import { describe, expect, it } from "vitest"
-import { buildReportCard, type ReportCardCall } from "./compute"
+import { buildReportCard, type ReportCardCall, withBonuses } from "./compute"
 
 let seq = 0
 
@@ -423,5 +423,18 @@ describe("the breakdown", () => {
 		expect(card.byShape).toStrictEqual([])
 		expect(card.settledCount).toBe(0)
 		expect(card.returnPct).toBeNull()
+	})
+})
+
+describe("withBonuses", () => {
+	it("moves the total by what chains added and took back", () => {
+		const card = withBonuses(buildReportCard([call()]), [
+			{ kind: "sweep", points: 30 },
+			{ kind: "chain", points: 450 },
+			{ kind: "chain", points: -90 },
+		])
+		expect(card.chainBonusPoints).toBe(360)
+		expect(card.sweepBonusPoints).toBe(30)
+		expect(card.totalPoints).toBe(card.netPoints + 390)
 	})
 })

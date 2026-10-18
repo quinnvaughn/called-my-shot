@@ -86,22 +86,35 @@ function breakdownGroups(record: ProfileRecord): PointsGroup[] {
 			: []),
 	]
 	if (splits.length > 0) groups.push({ views: splits })
-	if (record.bonusPoints !== 0) {
+	// Chains are their own row: they can take points back, which "Streaks &
+	// sweeps" never does.
+	const streaksAndSweeps = record.bonusPoints - record.chainBonusPoints
+	const bonusRows = [
+		...(streaksAndSweeps !== 0
+			? [
+					{
+						key: "bonuses",
+						label: "Streaks & sweeps",
+						netPoints: streaksAndSweeps,
+					},
+				]
+			: []),
+		...(record.chainBonusPoints !== 0
+			? [{ key: "chains", label: "Chains", netPoints: record.chainBonusPoints }]
+			: []),
+	]
+	if (bonusRows.length > 0) {
 		groups.push({
 			views: [
 				{
 					label: "Bonuses",
 					cardScale: true,
-					rows: [
-						{
-							key: "bonuses",
-							label: "Streaks & sweeps",
-							netPoints: record.bonusPoints,
-							wins: null,
-							losses: null,
-							returnPct: null,
-						},
-					],
+					rows: bonusRows.map((row) => ({
+						...row,
+						wins: null,
+						losses: null,
+						returnPct: null,
+					})),
 				},
 			],
 		})

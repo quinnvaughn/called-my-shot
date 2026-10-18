@@ -96,7 +96,10 @@ export function useAnchoredPopover({
 		function onKeyDown(event: KeyboardEvent) {
 			if (event.key === "Escape") setOpen(false)
 		}
-		function onScroll() {
+		// Scrolling the page moves the trigger out from under the panel, so it
+		// closes; scrolling inside the panel itself (a list it holds) doesn't.
+		function onScroll(event: Event) {
+			if (contentRef.current?.contains(event.target as Node)) return
 			setOpen(false)
 		}
 		window.addEventListener("resize", updateTriggerEdges)

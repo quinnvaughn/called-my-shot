@@ -5,6 +5,7 @@ import type { Question } from "../db/schema"
 import { callSelections, calls, questionOptions } from "../db/schema"
 import type { DbOrTx, Tx } from "../db/types"
 import { validateCallInput } from "./call-input"
+import { assertNoChainHedge } from "./chains/hedge"
 import { ValidationError } from "./errors"
 import { seriesCallStage } from "./postseason/series-questions"
 import { qualifyReferralOnFirstCall } from "./referrals"
@@ -94,6 +95,11 @@ export async function insertCallInTx(
 ) {
 	const { userId, question, data } = input
 	const isNumericGuess = isNumericGuessShape(data.shape)
+	await assertNoChainHedge(tx, {
+		userId,
+		questionId: question.id,
+		optionIds: data.selections.map((s) => s.optionId),
+	})
 
 	const [call] = await tx
 		.insert(calls)

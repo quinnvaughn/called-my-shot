@@ -1,26 +1,22 @@
-import {
-	type ReportGloatInput,
-	reportGloatSchema,
-	type SendGloatInput,
-	sendGloatSchema,
-} from "@called-my-shot/schemas"
-import { and, eq, inArray, isNull } from "drizzle-orm"
+import type { CommentInput } from "@called-my-shot/schemas"
+import { eq, inArray } from "drizzle-orm"
 import { db } from "../../db"
 import {
+	type Comment,
 	challengeAcceptances,
 	challenges,
-	type Gloat,
-	type GloatReport,
-	gloatReports,
-	gloats,
 	type User,
 } from "../../db/schema"
 import type { Tx } from "../../db/types"
-import { enqueueAnalyticsEvents } from "../analytics-outbox"
+import {
+	afterCommentSent,
+	assertAllowedCommentText,
+	insertComment,
+	parseComment,
+	unblockedRecipients,
+} from "../comments/send"
 import { NotFoundError, ValidationError } from "../errors"
-import { registerGifShare, reportGifToKlipy } from "../gifs/klipy"
 import type { Strictness } from "../moderation"
-import { assertAllowedText } from "../moderation/guard"
 import { createNotifications } from "../notifications"
 import { isBlockedEitherWay, sharesGroup } from "../pressers/ask"
 import { loadChallengeQuestionFacts } from "./load"
@@ -106,7 +102,7 @@ export async function canGloat(
 	return db.transaction(async (tx) => {
 		const targets = await gloatTargets(tx, viewer, challenge)
 		if (!targets.ok) return false
-		const sent = await tx.query.gloats.findFirst({
+		const sent = await tx.query.comments.findFirst({
 			where: {
 				challengeId: challenge.id,
 				senderId: viewer.id,
@@ -120,15 +116,14 @@ export async function canGloat(
 	})
 }
 
-// A winner's one gloat on a challenge: their own words, a GIF, or both.
+// A winner's one gloat on a challenge: a comment, sent only to whoever they
+// beat.
 export async function sendChallengeGloat(
 	sender: User,
 	challengeId: string,
-	input: SendGloatInput,
-): Promise<Gloat> {
-	const parsed = sendGloatSchema.safeParse(input)
-	if (!parsed.success) throw ValidationError.fromZodIssues(parsed.error.issues)
-	const { text, gif } = parsed.data
+	input: CommentInput,
+): Promise<Comment> {
+	const comment = parseComment(input)
 
 	const challenge = await db.query.challenges.findFirst({
 		where: { id: challengeId },
@@ -137,17 +132,18 @@ export async function sendChallengeGloat(
 
 	// The creator's goes to people who may share nothing with them; an
 	// acceptor's goes to one person, judged the way a presser question is.
-	if (text.length > 0) {
+	if (comment.text.length > 0) {
 		const strictness: Strictness =
 			sender.id !== challenge.creatorId &&
 			(await sharesGroup(db, sender.id, challenge.creatorId))
 				? "standard"
 				: "strict"
-		await assertAllowedText(text, "text", strictness, (category) => ({
-			event: "gloat_text_blocked",
-			userId: sender.id,
-			properties: { category, strictness },
-		}))
+		await assertAllowedCommentText(
+			comment.text,
+			sender.id,
+			strictness,
+			"challenge",
+		)
 	}
 
 	const gloat = await db.transaction(async (tx) => {
@@ -166,7 +162,7 @@ export async function sendChallengeGloat(
 		}
 
 		// The row lock above makes this check safe against a second send.
-		const sent = await tx.query.gloats.findFirst({
+		const sent = await tx.query.comments.findFirst({
 			where: {
 				challengeId: challenge.id,
 				senderId: sender.id,
@@ -182,22 +178,18 @@ export async function sendChallengeGloat(
 				"You've already talked trash on this one.",
 			)
 		}
-		const [row] = await tx
-			.insert(gloats)
-			.values({
-				senderId: sender.id,
-				source: targets.acceptance ? "challenge_acceptor" : "challenge_creator",
-				challengeId: challenge.id,
-				acceptanceId: targets.acceptance?.id ?? null,
-				text: text.length > 0 ? text : null,
-				gifProvider: gif ? "klipy" : null,
-				gifId: gif?.id ?? null,
-				gifUrl: gif?.url ?? null,
-				gifWidth: gif?.width ?? null,
-				gifHeight: gif?.height ?? null,
-				gifAlt: gif?.alt || null,
-			})
-			.returning()
+		const row = await insertComment(
+			tx,
+			sender.id,
+			targets.acceptance
+				? {
+						kind: "challenge_acceptor",
+						challengeId: challenge.id,
+						acceptanceId: targets.acceptance.id,
+					}
+				: { kind: "challenge_creator", challengeId: challenge.id },
+			comment,
+		)
 
 		const recipientIds = targets.acceptance
 			? [challenge.creatorId]
@@ -213,12 +205,7 @@ export async function sendChallengeGloat(
 					),
 				)
 		}
-		const unblocked = []
-		for (const userId of recipientIds) {
-			if (!(await isBlockedEitherWay(tx, sender.id, userId))) {
-				unblocked.push(userId)
-			}
-		}
+		const unblocked = await unblockedRecipients(tx, sender.id, recipientIds)
 		await createNotifications(
 			tx,
 			unblocked.map((userId) => ({
@@ -232,95 +219,6 @@ export async function sendChallengeGloat(
 		return row
 	})
 
-	if (gif) registerGifShare(gif.id, sender.id)
+	afterCommentSent(comment, sender.id)
 	return gloat
-}
-
-// Anyone signed in can report a gloat, once. Reports wait for an admin;
-// nothing comes down on its own.
-export async function reportGloat(
-	reporter: User,
-	input: ReportGloatInput,
-): Promise<GloatReport> {
-	const parsed = reportGloatSchema.safeParse(input)
-	if (!parsed.success) throw ValidationError.fromZodIssues(parsed.error.issues)
-	const gloat = await db.query.gloats.findFirst({
-		where: { id: parsed.data.gloatId },
-	})
-	if (!gloat || gloat.removedAt) throw new NotFoundError("Trash talk not found")
-	if (gloat.senderId === reporter.id) {
-		throw ValidationError.field(null, "You can't report your own trash talk.")
-	}
-
-	const report = await db.transaction(async (tx) => {
-		const [row] = await tx
-			.insert(gloatReports)
-			.values({
-				reporterId: reporter.id,
-				gloatId: gloat.id,
-				reason: parsed.data.reason,
-				details: parsed.data.details || null,
-			})
-			.onConflictDoNothing()
-			.returning()
-		if (!row) throw ValidationError.field(null, "You've already reported this.")
-		await enqueueAnalyticsEvents(tx, [
-			{
-				event: "gloat_reported",
-				userId: reporter.id,
-				properties: { gloatId: gloat.id, reason: parsed.data.reason },
-			},
-		])
-		return row
-	})
-	if (gloat.gifId)
-		reportGifToKlipy(gloat.gifId, reporter.id, parsed.data.reason)
-	return report
-}
-
-export async function dismissGloatReport(
-	admin: User,
-	reportId: string,
-	now = new Date(),
-): Promise<GloatReport> {
-	const [report] = await db
-		.update(gloatReports)
-		.set({ status: "dismissed", reviewedAt: now, reviewedByAdminId: admin.id })
-		.where(and(eq(gloatReports.id, reportId), eq(gloatReports.status, "open")))
-		.returning()
-	if (!report) throw new NotFoundError("Report not found")
-	return report
-}
-
-// Takes the reported gloat down, closing every open report on it. The
-// content stays on the row for the report's record.
-export async function removeGloat(
-	admin: User,
-	reportId: string,
-	now = new Date(),
-): Promise<GloatReport> {
-	return db.transaction(async (tx) => {
-		const report = await tx.query.gloatReports.findFirst({
-			where: { id: reportId },
-		})
-		if (!report) throw new NotFoundError("Report not found")
-		await tx
-			.update(gloats)
-			.set({ removedAt: now })
-			.where(and(eq(gloats.id, report.gloatId), isNull(gloats.removedAt)))
-		await tx
-			.update(gloatReports)
-			.set({ status: "removed", reviewedAt: now, reviewedByAdminId: admin.id })
-			.where(
-				and(
-					eq(gloatReports.gloatId, report.gloatId),
-					eq(gloatReports.status, "open"),
-				),
-			)
-		const updated = await tx.query.gloatReports.findFirst({
-			where: { id: reportId },
-		})
-		if (!updated) throw new NotFoundError("Report not found")
-		return updated
-	})
 }

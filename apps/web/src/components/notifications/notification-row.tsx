@@ -2,6 +2,12 @@ import { match } from "ts-pattern"
 import type { NotificationsPageQuery } from "#/graphql/generated/graphql"
 import { CallResolvedRow } from "./rows/call-resolved-row"
 import { CallVoidedRow } from "./rows/call-voided-row"
+import { ChainCalledOffRow } from "./rows/chain-called-off-row"
+import { ChainCommentedRow } from "./rows/chain-commented-row"
+import { ChainLinkDecidedRow } from "./rows/chain-link-decided-row"
+import { ChainLinkRequestedRow } from "./rows/chain-link-requested-row"
+import { ChainMemberLeftRow } from "./rows/chain-member-left-row"
+import { ChainSettledRow } from "./rows/chain-settled-row"
 import { ChallengeAcceptedRow } from "./rows/challenge-accepted-row"
 import { ChallengeGloatedRow } from "./rows/challenge-gloated-row"
 import { ChallengePostedToGroupRow } from "./rows/challenge-posted-to-group-row"
@@ -116,6 +122,24 @@ export function NotificationRow({ notification, unread, onOpen }: Props) {
 				unread={unread}
 				onOpen={onOpen}
 			/>
+		))
+		.with({ __typename: "ChainLinkRequestedNotification" }, (n) => (
+			<ChainLinkRequestedRow notification={n} unread={unread} onOpen={onOpen} />
+		))
+		.with({ __typename: "ChainLinkDecidedNotification" }, (n) => (
+			<ChainLinkDecidedRow notification={n} unread={unread} onOpen={onOpen} />
+		))
+		.with({ __typename: "ChainMemberLeftNotification" }, (n) => (
+			<ChainMemberLeftRow notification={n} unread={unread} onOpen={onOpen} />
+		))
+		.with({ __typename: "ChainCalledOffNotification" }, (n) => (
+			<ChainCalledOffRow notification={n} unread={unread} onOpen={onOpen} />
+		))
+		.with({ __typename: "ChainSettledNotification" }, (n) => (
+			<ChainSettledRow notification={n} unread={unread} onOpen={onOpen} />
+		))
+		.with({ __typename: "ChainCommentedNotification" }, (n) => (
+			<ChainCommentedRow notification={n} unread={unread} onOpen={onOpen} />
 		))
 		.exhaustive()
 }

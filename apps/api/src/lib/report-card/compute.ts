@@ -358,7 +358,7 @@ function pickGames(games: ReportCardGame[]): {
 	}
 }
 
-// A streak milestone or sweep award dated inside the window - see
+// A streak milestone, sweep or chain award dated inside the window - see
 // pointAwards.gameId for how one is placed.
 export type ReportCardAward = {
 	kind: PointAwardKind
@@ -368,15 +368,17 @@ export type ReportCardAward = {
 export type ReportCardBonus = {
 	streakBonusPoints: number
 	sweepBonusPoints: number
-	// The calls' net plus both bonuses: what the window moved the caller's
+	// What chains added or took back. Negative when a chain zeroed a hit.
+	chainBonusPoints: number
+	// The calls' net plus every bonus: what the window moved the caller's
 	// season total by.
 	totalPoints: number
 }
 
-// Kept out of buildReportCard and off every rate. A streak or sweep pays out
-// of wins the return already counts, so folding it into returnPct or the
-// grade would count those wins twice. The bonus moves the window's total and
-// nothing else.
+// Kept out of buildReportCard and off every rate. A streak, sweep or chain
+// pays out of (or takes back) wins the return already counts, so folding it
+// into returnPct or the grade would count those wins twice. The bonus moves
+// the window's total and nothing else.
 export function withBonuses<T extends ReportCardStats>(
 	card: T,
 	awards: ReportCardAward[],
@@ -387,10 +389,13 @@ export function withBonuses<T extends ReportCardStats>(
 			.reduce((sum, award) => sum + award.points, 0)
 	const streakBonusPoints = sumOf("streak_milestone")
 	const sweepBonusPoints = sumOf("sweep")
+	const chainBonusPoints = sumOf("chain")
 	return {
 		...card,
 		streakBonusPoints,
 		sweepBonusPoints,
-		totalPoints: card.netPoints + streakBonusPoints + sweepBonusPoints,
+		chainBonusPoints,
+		totalPoints:
+			card.netPoints + streakBonusPoints + sweepBonusPoints + chainBonusPoints,
 	}
 }

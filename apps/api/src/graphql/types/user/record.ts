@@ -144,7 +144,10 @@ export const UserRecordRef = builder
 			// What the settled calls in scope netted. Plus bonusPoints, this is
 			// the scope's point total.
 			netFromCalls: t.exposeInt("netFromCalls"),
-			// Streak milestones and sweeps, which no single call earned.
+			// Streak milestones, sweeps and chains, which no single call earned.
 			bonusPoints: t.exposeInt("bonusPoints"),
+			// The chains' part of bonusPoints: what held chains added and broken
+			// ones took back.
+			chainBonusPoints: t.exposeInt("chainBonusPoints"),
 		}),
 	})

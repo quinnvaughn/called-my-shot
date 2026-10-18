@@ -10,6 +10,7 @@ import { syncGameStarters } from "./db/sync/sync-game-starters"
 import { syncLiveReadings } from "./db/sync/sync-live-readings"
 import { syncLiveScores } from "./db/sync/sync-live-scores"
 import { drainAnalyticsOutbox } from "./lib/analytics-outbox"
+import { drainChainRecomputes } from "./lib/chains/drain"
 import { drainResolutionDigests, SETTLE_MINUTES } from "./lib/email-digest"
 import { tuneBands } from "./lib/game-questions/tune-bands"
 import { tuneLeaderLosses } from "./lib/game-questions/tune-leader-losses"
@@ -34,6 +35,7 @@ import {
 	LOCK_OVERDUE_QUESTIONS_LOCK,
 	OPEN_PRESSERS_LOCK,
 	RECOMPUTE_ACHIEVEMENTS_LOCK,
+	RECOMPUTE_CHAINS_LOCK,
 	RECONCILE_ACHIEVEMENTS_LOCK,
 	SYNC_GAME_STARTERS_LOCK,
 	SYNC_LIVE_READINGS_LOCK,
@@ -81,12 +83,15 @@ const drainAchievementsJob = runJob(
 	RECOMPUTE_ACHIEVEMENTS_LOCK,
 	drainAchievementRecomputes,
 )
+const drainChainsJob = runJob(RECOMPUTE_CHAINS_LOCK, drainChainRecomputes)
 const drainPressersJob = runJob(OPEN_PRESSERS_LOCK, drainPresserOpens)
 
 // What a settle leaves behind, in order: pressers after streaks, so the app's
-// presser questions read the streak a hit just extended.
+// presser questions read the streak a hit just extended. Chains right after
+// the settle too, so a chain's result lands inside its game's push hold.
 const drainAchievements = async () => {
 	await drainAchievementsJob()
+	await drainChainsJob()
 	await drainPressersJob()
 }
 
@@ -308,6 +313,7 @@ export const JOBS: ScheduledJob[] = [
 			TUNE_TITLE_LOSSES_LOCK,
 			RECONCILE_ACHIEVEMENTS_LOCK,
 			RECOMPUTE_ACHIEVEMENTS_LOCK,
+			RECOMPUTE_CHAINS_LOCK,
 			OPEN_PRESSERS_LOCK,
 			GENERATE_GROUP_RECAPS_LOCK,
 			LOCK_OVERDUE_QUESTIONS_LOCK,

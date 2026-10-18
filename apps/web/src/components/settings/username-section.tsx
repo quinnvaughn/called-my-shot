@@ -1,5 +1,9 @@
-import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query"
 import { updateUsernameSchema } from "@called-my-shot/schemas"
+import {
+	keepPreviousData,
+	useQuery,
+	useQueryClient,
+} from "@tanstack/react-query"
 import { useRouter } from "@tanstack/react-router"
 import { useState } from "react"
 import { css } from "styled-system/css"

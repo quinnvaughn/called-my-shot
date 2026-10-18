@@ -7,6 +7,14 @@ import {
 import { match } from "ts-pattern"
 import { db } from "../db"
 import type { Notification } from "../db/schema"
+import {
+	chainLinesFor,
+	chainPath,
+	lastCommenter,
+	linkWasApproved,
+	loadChainForPush,
+	pendingRequestCount,
+} from "./chains/push"
 import { loadGameEntry } from "./game-entry"
 
 // What a push says and where tapping it goes, minus the tag. Null when what
@@ -123,6 +131,43 @@ async function achievement(n: Notification, kind: AchievementKind) {
 	}
 }
 
+// A game's results for one person, with any chain the game settled for them
+// after: "2 of 3 calls hit. +210 pts. @dave broke the chain." Null when they
+// had no calls on it.
+async function gameResultsPush(
+	gameId: string,
+	userId: string,
+): Promise<PushContent | null> {
+	const [game, entry, username, presser, chainLines] = await Promise.all([
+		loadGame(gameId),
+		loadGameEntry(gameId, userId),
+		loadUsername(userId),
+		db.query.pressers.findFirst({
+			where: { gameId, userId },
+			columns: { closesAt: true },
+		}),
+		chainLinesFor(gameId, userId),
+	])
+	if (!game || !entry || !username) return null
+	const settled = entry.wins + entry.losses
+	const record =
+		settled === 0
+			? "Your calls settled."
+			: settled === 1
+				? `Your call ${entry.wins ? "hit" : "missed"}. ${signedPoints(entry.points)}.`
+				: `${entry.wins} of ${settled} calls hit. ${signedPoints(entry.points)}.`
+	const presserOpen = presser && presser.closesAt > new Date()
+	return {
+		title: game.matchup,
+		body: [
+			record,
+			...chainLines,
+			...(presserOpen ? ["Your presser is open."] : []),
+		].join(" "),
+		path: `/games/${game.id}/picks/${username}`,
+	}
+}
+
 // Every pushed notification type, told the way its in-app row tells it
 // (apps/web/src/components/notifications/rows) and opening the page that row
 // opens. Read at send time, so a game's results push counts every call that
@@ -131,30 +176,22 @@ export async function buildPushContent(
 	n: Notification,
 ): Promise<PushContent | null> {
 	return match(n.type)
-		.with("game_resolved", async () => {
+		.with("game_resolved", async () =>
+			n.gameId ? gameResultsPush(n.gameId, n.userId) : null,
+		)
+		.with("chain_settled", async () => {
 			if (!n.gameId) return null
-			const [game, entry, username, presser] = await Promise.all([
-				loadGame(n.gameId),
-				loadGameEntry(n.gameId, n.userId),
-				loadUsername(n.userId),
-				db.query.pressers.findFirst({
-					where: { gameId: n.gameId, userId: n.userId },
-					columns: { closesAt: true },
-				}),
-			])
-			if (!game || !entry || !username) return null
-			const settled = entry.wins + entry.losses
-			const record =
-				settled === 0
-					? "Your calls settled."
-					: settled === 1
-						? `Your call ${entry.wins ? "hit" : "missed"}. ${signedPoints(entry.points)}.`
-						: `${entry.wins} of ${settled} calls hit. ${signedPoints(entry.points)}.`
-			const presserOpen = presser && presser.closesAt > new Date()
+			// Whichever of this and the game's own results push the outbox row
+			// ended up as, it says the same thing.
+			const combined = await gameResultsPush(n.gameId, n.userId)
+			if (combined) return combined
+			const chain = await loadChainForPush(n.chainId)
+			const lines = await chainLinesFor(n.gameId, n.userId)
+			if (!chain || lines.length === 0) return null
 			return {
-				title: game.matchup,
-				body: presserOpen ? `${record} Your presser is open.` : record,
-				path: `/games/${game.id}/picks/${username}`,
+				title: n.groupName ?? "Your chain",
+				body: lines.join(" "),
+				path: chainPath(chain),
 			}
 		})
 		.with("call_resolved", async () => {
@@ -285,6 +322,48 @@ export async function buildPushContent(
 						path,
 					}))
 					.exhaustive()
+			},
+		)
+		.with(
+			"chain_link_requested",
+			"chain_link_decided",
+			"chain_member_left",
+			"chain_called_off",
+			"chain_commented",
+			async (type) => {
+				const chain = await loadChainForPush(n.chainId)
+				if (!chain) return null
+				const title = n.groupName ?? "Your chain"
+				const path = chainPath(chain)
+				const body = await match(type)
+					.with("chain_link_requested", async () => {
+						const others = (await pendingRequestCount(chain.id)) - 1
+						return others > 0
+							? `@${n.actorUsername} and ${others} ${others === 1 ? "other" : "others"} want in on your chain`
+							: `@${n.actorUsername} wants in on your chain`
+					})
+					.with("chain_link_decided", async () => {
+						const approved = await linkWasApproved(chain.id, n.userId)
+						if (approved === null) return null
+						return approved
+							? `@${n.actorUsername} added your link to the chain`
+							: `@${n.actorUsername} turned down your link`
+					})
+					.with(
+						"chain_member_left",
+						async () => `@${n.actorUsername} left your chain`,
+					)
+					.with(
+						"chain_called_off",
+						async () => `@${n.actorUsername} called off the chain`,
+					)
+					.with("chain_commented", async () => {
+						const username =
+							(await lastCommenter(chain.id, n.userId)) ?? n.actorUsername
+						return `@${username} posted in the chain`
+					})
+					.exhaustive()
+				return body ? { title, body, path } : null
 			},
 		)
 		.with("game_reminder", async () => {

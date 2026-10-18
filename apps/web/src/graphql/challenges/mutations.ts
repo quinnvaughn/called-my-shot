@@ -99,28 +99,6 @@ export const SendChallengeGloatDocument = graphql(`
 	}
 `)
 
-export const ReportGloatDocument = graphql(`
-	mutation ReportGloat($input: ReportGloatInput!) {
-		reportGloat(input: $input) {
-			__typename
-			... on GloatReportPayload {
-				report {
-					id
-				}
-			}
-			... on Error {
-				message
-			}
-			... on ValidationError {
-				fieldErrors {
-					field
-					message
-				}
-			}
-		}
-	}
-`)
-
 // Every read that shows a challenge's posts or gloats: its own pages, the
 // viewer's list, and the Home of the groups it's posted to.
 const CHALLENGE_DOCUMENTS = [

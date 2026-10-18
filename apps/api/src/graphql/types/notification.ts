@@ -3,12 +3,18 @@ import { and, count, eq, inArray, isNull } from "drizzle-orm"
 import { db } from "../../db"
 import { notifications } from "../../db/schema"
 import { requireUser } from "../../lib/auth"
+import {
+	lastCommenter,
+	linkWasApproved,
+	pendingRequestCount,
+} from "../../lib/chains/push"
 import { AuthenticationError } from "../../lib/errors"
 import { gameEntryVerdict, loadGameEntry } from "../../lib/game-entry"
 import { keysetPaginate } from "../../lib/pagination"
 import { markPushRead } from "../../lib/push-read"
 import { builder } from "../builder"
 import { indexByKey } from "../loader"
+import { ChainRef } from "./chain"
 import { ChallengeRef } from "./challenge"
 import { type Connection, PageInfoRef } from "./pagination"
 import { PresserRef } from "./presser"
@@ -46,6 +52,12 @@ const GQL_TYPE_BY_ROW_TYPE: Record<NotificationRow["type"], string> = {
 	challenge_settled: "ChallengeSettledNotification",
 	challenge_gloated: "ChallengeGloatedNotification",
 	challenge_posted_to_group: "ChallengePostedToGroupNotification",
+	chain_link_requested: "ChainLinkRequestedNotification",
+	chain_link_decided: "ChainLinkDecidedNotification",
+	chain_member_left: "ChainMemberLeftNotification",
+	chain_called_off: "ChainCalledOffNotification",
+	chain_settled: "ChainSettledNotification",
+	chain_commented: "ChainCommentedNotification",
 }
 
 // The sentence the row is told in, shared with the results email's
@@ -455,6 +467,102 @@ builder.drizzleObject("notifications", {
 			type: ChallengeRef,
 			nullable: true,
 			resolve: challengeField,
+		}),
+	}),
+})
+
+const chainField = (row: NotificationRow) =>
+	row.chainId
+		? db.query.chains
+				.findFirst({ where: { id: row.chainId } })
+				.then((chain) => chain ?? null)
+		: null
+
+// Someone asked to add a link to a chain you started - see requestLink. One
+// per chain: the actor is whoever asked last, and how many are waiting is
+// read live.
+builder.drizzleObject("notifications", {
+	variant: "ChainLinkRequestedNotification",
+	interfaces: [NotificationNode],
+	fields: (t) => ({
+		actor: t.relation("actor", { nullable: true }),
+		actorUsername: t.exposeString("actorUsername", { nullable: true }),
+		groupName: t.exposeString("groupName", { nullable: true }),
+		chain: t.field({ type: ChainRef, nullable: true, resolve: chainField }),
+		pendingCount: t.int({
+			resolve: (row) => (row.chainId ? pendingRequestCount(row.chainId) : 0),
+		}),
+	}),
+})
+
+// A chain's starter answered your request - see decideLink. Which way is
+// read live; null once it's neither, as after you left.
+builder.drizzleObject("notifications", {
+	variant: "ChainLinkDecidedNotification",
+	interfaces: [NotificationNode],
+	fields: (t) => ({
+		actor: t.relation("actor", { nullable: true }),
+		actorUsername: t.exposeString("actorUsername", { nullable: true }),
+		groupName: t.exposeString("groupName", { nullable: true }),
+		chain: t.field({ type: ChainRef, nullable: true, resolve: chainField }),
+		approved: t.boolean({
+			nullable: true,
+			resolve: (row) =>
+				row.chainId ? linkWasApproved(row.chainId, row.userId) : null,
+		}),
+	}),
+})
+
+// Someone left a chain you're in before it locked - see leaveChain.
+builder.drizzleObject("notifications", {
+	variant: "ChainMemberLeftNotification",
+	interfaces: [NotificationNode],
+	fields: (t) => ({
+		actor: t.relation("actor", { nullable: true }),
+		actorUsername: t.exposeString("actorUsername", { nullable: true }),
+		groupName: t.exposeString("groupName", { nullable: true }),
+		chain: t.field({ type: ChainRef, nullable: true, resolve: chainField }),
+	}),
+})
+
+// A chain you were in, or asked into, was called off - see callOffChain.
+builder.drizzleObject("notifications", {
+	variant: "ChainCalledOffNotification",
+	interfaces: [NotificationNode],
+	fields: (t) => ({
+		actor: t.relation("actor", { nullable: true }),
+		actorUsername: t.exposeString("actorUsername", { nullable: true }),
+		groupName: t.exposeString("groupName", { nullable: true }),
+		chain: t.field({ type: ChainRef, nullable: true, resolve: chainField }),
+	}),
+})
+
+// A chain you're in held or broke - see recomputeChain. How it went is read
+// live off the chain, so it follows an overturn.
+builder.drizzleObject("notifications", {
+	variant: "ChainSettledNotification",
+	interfaces: [NotificationNode],
+	fields: (t) => ({
+		groupName: t.exposeString("groupName", { nullable: true }),
+		chain: t.field({ type: ChainRef, nullable: true, resolve: chainField }),
+	}),
+})
+
+// Someone posted in a chain you're in - see sendChainComment. One per chain;
+// who posted last is read live.
+builder.drizzleObject("notifications", {
+	variant: "ChainCommentedNotification",
+	interfaces: [NotificationNode],
+	fields: (t) => ({
+		groupName: t.exposeString("groupName", { nullable: true }),
+		chain: t.field({ type: ChainRef, nullable: true, resolve: chainField }),
+		lastCommenterUsername: t.string({
+			nullable: true,
+			resolve: async (row) =>
+				row.chainId
+					? ((await lastCommenter(row.chainId, row.userId)) ??
+						row.actorUsername)
+					: row.actorUsername,
 		}),
 	}),
 })

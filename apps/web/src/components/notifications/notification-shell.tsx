@@ -12,6 +12,11 @@ import { Card } from "#/components/ui/card"
 export type Target =
 	| { to: "/questions/$questionId/{-$slug}"; params: { questionId: string } }
 	| { to: "/groups/$groupId"; params: { groupId: string } }
+	| {
+			to: "/groups/$groupId/chains/$chainId"
+			params: { groupId: string; chainId: string }
+			search?: { tab?: "chain" | "chat" }
+	  }
 	| { to: "/challenges/$code"; params: { code: string } }
 	| {
 			to: "/challenges/$code/vs/$username"
@@ -145,6 +150,7 @@ export function NotificationShell({
 						// is not the same as omitting it.
 						{...("params" in target ? { params: target.params } : {})}
 						{...("hash" in target ? { hash: target.hash } : {})}
+						{...("search" in target ? { search: target.search } : {})}
 						className={css({
 							display: "block",
 							textDecoration: "none",

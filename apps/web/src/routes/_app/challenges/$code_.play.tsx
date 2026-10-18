@@ -247,4 +247,3 @@ function Play({ challenge }: { challenge: Challenge }) {
 		</VStack>
 	)
 }
-

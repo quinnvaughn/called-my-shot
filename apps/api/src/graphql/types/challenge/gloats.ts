@@ -1,14 +1,18 @@
-import { eq } from "drizzle-orm"
+import { and, eq, isNotNull } from "drizzle-orm"
 import { db } from "../../../db"
-import { type Gloat, type GloatReport, gloatReports } from "../../../db/schema"
-import { requireAdmin, requireUser } from "../../../lib/auth"
 import {
-	canGloat,
-	dismissGloatReport,
-	removeGloat,
-	reportGloat,
-	sendChallengeGloat,
-} from "../../../lib/challenges/gloat"
+	type Comment,
+	type CommentReport,
+	commentReports,
+	comments,
+} from "../../../db/schema"
+import { requireAdmin, requireUser } from "../../../lib/auth"
+import { canGloat, sendChallengeGloat } from "../../../lib/challenges/gloat"
+import {
+	dismissCommentReport,
+	removeComment,
+	reportComment,
+} from "../../../lib/comments/reports"
 import {
 	AuthenticationError,
 	AuthorizationError,
@@ -25,30 +29,24 @@ import {
 import { builder } from "../../builder"
 import type { Context } from "../../context"
 import { ctxLoader, groupByKey } from "../../loader"
+import { viewerBlockedIdsLoader } from "../comment"
 import { PresserReportReasonEnum } from "../presser/refs"
 import { UserRef } from "../user"
 import { type ChallengeView, challengeViewLoader } from "./loaders"
 import { ChallengeMatchupRef, ChallengeRef } from "./refs"
 
-// Everyone the viewer has blocked: their gloats aren't shown to the viewer.
-const viewerBlockedIdsLoader = ctxLoader(
-	async (viewerIds: string[]): Promise<Set<string>[]> => {
-		const rows = await db.query.userBlocks.findMany({
-			where: { blockerId: { in: viewerIds } },
-			columns: { blockerId: true, blockedId: true },
-		})
-		return groupByKey(viewerIds, rows, (r) => r.blockerId).map(
-			(list) => new Set(list.map((r) => r.blockedId)),
-		)
-	},
-)
+// A gloat is a comment on a challenge, under the challenge's rules (see
+// lib/challenges/gloat.ts). The names here stay "gloat" because that's what
+// the challenge screens call it.
+type Gloat = Comment
+type GloatReport = CommentReport
 
 const gloatsByChallengeLoader = ctxLoader(
 	async (challengeIds: string[]): Promise<Gloat[][]> => {
-		const rows = await db.query.gloats.findMany({
+		const rows = await db.query.comments.findMany({
 			where: { challengeId: { in: challengeIds } },
 		})
-		return groupByKey(challengeIds, rows, (g) => g.challengeId)
+		return groupByKey(challengeIds, rows, (g) => g.challengeId ?? "")
 	},
 )
 
@@ -188,8 +186,8 @@ export const GloatReportRef = builder
 			gloat: t.field({
 				type: GloatRef,
 				resolve: async (r) => {
-					const gloat = await db.query.gloats.findFirst({
-						where: { id: r.gloatId },
+					const gloat = await db.query.comments.findFirst({
+						where: { id: r.commentId },
 					})
 					if (!gloat) throw new Error("Reported gloat missing")
 					return gloat
@@ -198,8 +196,8 @@ export const GloatReportRef = builder
 			// Where the gloat was sent, for the admin to read it in place.
 			challengeCode: t.string({
 				resolve: async (r) => {
-					const gloat = await db.query.gloats.findFirst({
-						where: { id: r.gloatId },
+					const gloat = await db.query.comments.findFirst({
+						where: { id: r.commentId },
 						with: { challenge: { columns: { code: true } } },
 					})
 					return gloat?.challenge?.code ?? ""
@@ -285,16 +283,25 @@ builder.queryFields((t) => ({
 		},
 	}),
 
-	// Open reports on gloats, oldest first.
+	// Open reports on gloats, oldest first. Only challenge comments: every
+	// report, chain comments included, is on adminCommentReports.
 	adminGloatReports: t.field({
 		type: [GloatReportRef],
+		deprecationReason: "Use adminCommentReports.",
 		resolve: (_root, _args, ctx) => {
 			requireAdmin(ctx)
 			return db
-				.select()
-				.from(gloatReports)
-				.where(eq(gloatReports.status, "open"))
-				.orderBy(gloatReports.createdAt)
+				.select({ report: commentReports })
+				.from(commentReports)
+				.innerJoin(comments, eq(comments.id, commentReports.commentId))
+				.where(
+					and(
+						eq(commentReports.status, "open"),
+						isNotNull(comments.challengeId),
+					),
+				)
+				.orderBy(commentReports.createdAt)
+				.then((rows) => rows.map((row) => row.report))
 		},
 	}),
 }))
@@ -341,8 +348,8 @@ builder.mutationFields((t) => ({
 		args: { input: t.arg({ type: ReportGloatInput, required: true }) },
 		resolve: async (_root, args, ctx) => {
 			const user = requireUser(ctx)
-			const report = await reportGloat(user, {
-				gloatId: String(args.input.gloatId),
+			const report = await reportComment(user, {
+				commentId: String(args.input.gloatId),
 				reason: args.input.reason,
 				details: args.input.details ?? "",
 			})
@@ -352,6 +359,7 @@ builder.mutationFields((t) => ({
 
 	adminDismissGloatReport: t.field({
 		type: GloatReportPayload,
+		deprecationReason: "Use adminDismissCommentReport.",
 		errors: {
 			types: [...GLOAT_ERRORS],
 			directResult: true,
@@ -360,13 +368,16 @@ builder.mutationFields((t) => ({
 		args: { reportId: t.arg.id({ required: true }) },
 		resolve: async (_root, args, ctx) => {
 			const admin = requireAdmin(ctx)
-			return { report: await dismissGloatReport(admin, String(args.reportId)) }
+			return {
+				report: await dismissCommentReport(admin, String(args.reportId)),
+			}
 		},
 	}),
 
 	// Takes the reported gloat down and closes every open report on it.
 	adminRemoveGloat: t.field({
 		type: GloatReportPayload,
+		deprecationReason: "Use adminRemoveComment.",
 		errors: {
 			types: [...GLOAT_ERRORS],
 			directResult: true,
@@ -375,7 +386,7 @@ builder.mutationFields((t) => ({
 		args: { reportId: t.arg.id({ required: true }) },
 		resolve: async (_root, args, ctx) => {
 			const admin = requireAdmin(ctx)
-			return { report: await removeGloat(admin, String(args.reportId)) }
+			return { report: await removeComment(admin, String(args.reportId)) }
 		},
 	}),
 }))

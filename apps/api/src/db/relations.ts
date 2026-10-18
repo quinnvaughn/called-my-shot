@@ -703,6 +703,10 @@ export const relations = defineRelations(schema, (r) => ({
 			from: r.notifications.challengeId,
 			to: r.challenges.id,
 		}),
+		chain: r.one.chains({
+			from: r.notifications.chainId,
+			to: r.chains.id,
+		}),
 	},
 	achievementNotices: {
 		user: r.one.users({
@@ -812,28 +816,66 @@ export const relations = defineRelations(schema, (r) => ({
 			to: r.users.id,
 		}),
 	},
-	gloats: {
+	comments: {
 		sender: r.one.users({
-			from: r.gloats.senderId,
+			from: r.comments.senderId,
 			to: r.users.id,
 		}),
 		challenge: r.one.challenges({
-			from: r.gloats.challengeId,
+			from: r.comments.challengeId,
 			to: r.challenges.id,
 		}),
 		acceptance: r.one.challengeAcceptances({
-			from: r.gloats.acceptanceId,
+			from: r.comments.acceptanceId,
 			to: r.challengeAcceptances.id,
 		}),
+		chain: r.one.chains({
+			from: r.comments.chainId,
+			to: r.chains.id,
+		}),
 	},
-	gloatReports: {
+	commentReports: {
 		reporter: r.one.users({
-			from: r.gloatReports.reporterId,
+			from: r.commentReports.reporterId,
 			to: r.users.id,
 		}),
-		gloat: r.one.gloats({
-			from: r.gloatReports.gloatId,
-			to: r.gloats.id,
+		comment: r.one.comments({
+			from: r.commentReports.commentId,
+			to: r.comments.id,
+		}),
+	},
+	chains: {
+		group: r.one.groups({
+			from: r.chains.groupId,
+			to: r.groups.id,
+		}),
+		starter: r.one.users({
+			from: r.chains.starterId,
+			to: r.users.id,
+		}),
+		links: r.many.chainLinks(),
+		comments: r.many.comments(),
+	},
+	chainLinks: {
+		chain: r.one.chains({
+			from: r.chainLinks.chainId,
+			to: r.chains.id,
+		}),
+		call: r.one.calls({
+			from: r.chainLinks.callId,
+			to: r.calls.id,
+		}),
+		user: r.one.users({
+			from: r.chainLinks.userId,
+			to: r.users.id,
+		}),
+		question: r.one.questions({
+			from: r.chainLinks.questionId,
+			to: r.questions.id,
+		}),
+		game: r.one.games({
+			from: r.chainLinks.gameId,
+			to: r.games.id,
 		}),
 	},
 	userSweeps: {

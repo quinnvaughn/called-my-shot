@@ -1,6 +1,5 @@
 import { useQuery } from "@tanstack/react-query"
 import { useState } from "react"
-import { FiX } from "react-icons/fi"
 import { css } from "styled-system/css"
 import { Grid, VStack } from "styled-system/jsx"
 import { TextInput } from "#/components/ui/text-input"
@@ -14,66 +13,16 @@ export type Gif = GifSearchQuery["gifSearch"][number]
 const SKELETON_TILES = 9
 
 export function GifPicker({
-	selected,
 	onSelect,
+	autoFocus = false,
 }: {
-	selected: Gif | null
-	onSelect: (gif: Gif | null) => void
+	onSelect: (gif: Gif) => void
+	// Puts the cursor in the search box, for a picker that just opened.
+	autoFocus?: boolean
 }) {
 	const [search, setSearch] = useState("")
 	const query = useDebouncedValue(search.trim(), 350)
 	const { data, isPending, isError } = useQuery(gifSearchQuery(query))
-
-	if (selected) {
-		return (
-			<div
-				className={css({
-					position: "relative",
-					alignSelf: "center",
-					width: "fit-content",
-					maxWidth: "full",
-				})}
-			>
-				<img
-					src={selected.url}
-					alt={selected.alt}
-					width={selected.width}
-					height={selected.height}
-					className={css({
-						display: "block",
-						maxHeight: "48",
-						maxWidth: "full",
-						width: "auto",
-						height: "auto",
-						borderRadius: "md",
-					})}
-				/>
-				<button
-					type="button"
-					aria-label="Remove GIF"
-					onClick={() => onSelect(null)}
-					className={css({
-						position: "absolute",
-						top: "2",
-						right: "2",
-						display: "flex",
-						alignItems: "center",
-						justifyContent: "center",
-						width: "8",
-						height: "8",
-						borderRadius: "full",
-						bg: "bg.surface",
-						border: "1px solid {colors.border.default}",
-						color: "fg.default",
-						cursor: "pointer",
-						_hover: { bg: "bg.subtle" },
-					})}
-				>
-					<FiX size={16} />
-				</button>
-			</div>
-		)
-	}
 
 	const gifs = data?.gifSearch ?? []
 	return (
@@ -82,6 +31,7 @@ export function GifPicker({
 				<TextInput.Group>
 					<TextInput.Field
 						type="search"
+						autoFocus={autoFocus}
 						placeholder="Search KLIPY"
 						value={search}
 						onChange={(e) => setSearch(e.target.value)}

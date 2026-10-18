@@ -26,9 +26,9 @@ import { Route as AppResetPasswordRouteImport } from './routes/_app/reset-passwo
 import { Route as AppTermsRouteImport } from './routes/_app/terms'
 import { Route as AdminIndexRouteImport } from './routes/admin/index'
 import { Route as AdminBandsRouteImport } from './routes/admin/bands'
+import { Route as AdminCommentReportsRouteImport } from './routes/admin/comment-reports'
 import { Route as AdminDisputesRouteImport } from './routes/admin/disputes'
 import { Route as AdminGifsRouteImport } from './routes/admin/gifs'
-import { Route as AdminGloatReportsRouteImport } from './routes/admin/gloat-reports'
 import { Route as AdminGroupsRouteImport } from './routes/admin/groups'
 import { Route as AdminIntegrityRouteImport } from './routes/admin/integrity'
 import { Route as AdminLeadersRouteImport } from './routes/admin/leaders'
@@ -97,9 +97,11 @@ import { Route as AppAuthedGroupsGroupIdSettingsRouteImport } from './routes/_ap
 import { Route as AppChallengesCodeVsUsernameRouteImport } from './routes/_app/challenges/$code_.vs.$username'
 import { Route as AppGamesGameIdPicksUsernameRouteImport } from './routes/_app/games/$gameId.picks.$username'
 import { Route as AppAuthedGroupsGroupIdTabsIndexRouteImport } from './routes/_app/_authed/groups/$groupId/_tabs/index'
+import { Route as AppAuthedGroupsGroupIdTabsChainsRouteImport } from './routes/_app/_authed/groups/$groupId/_tabs/chains'
 import { Route as AppAuthedGroupsGroupIdTabsLeaderboardRouteImport } from './routes/_app/_authed/groups/$groupId/_tabs/leaderboard'
 import { Route as AppAuthedGroupsGroupIdTabsRecordBookRouteImport } from './routes/_app/_authed/groups/$groupId/_tabs/record-book'
 import { Route as AppAuthedGroupsGroupIdBallotsBallotSlugRouteImport } from './routes/_app/_authed/groups/$groupId/ballots/$ballotSlug'
+import { Route as AppAuthedGroupsGroupIdChainsChainIdRouteImport } from './routes/_app/_authed/groups/$groupId/chains/$chainId'
 import { Route as AppAuthedGroupsGroupIdGamesGameIdRouteImport } from './routes/_app/_authed/groups/$groupId/games/$gameId'
 import { Route as AppUserUsernameReportCardsLeagueWindowKeyRouteImport } from './routes/_app/user/$username_.report-cards.$league.$windowKey'
 import { Route as AppUserUsernameSweepsLeagueSlateKeyRouteImport } from './routes/_app/user/$username_.sweeps.$league.$slateKey'
@@ -194,6 +196,11 @@ const AdminBandsRoute = AdminBandsRouteImport.update({
   path: '/bands',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminCommentReportsRoute = AdminCommentReportsRouteImport.update({
+  id: '/comment-reports',
+  path: '/comment-reports',
+  getParentRoute: () => AdminRoute,
+} as any)
 const AdminDisputesRoute = AdminDisputesRouteImport.update({
   id: '/disputes',
   path: '/disputes',
@@ -202,11 +209,6 @@ const AdminDisputesRoute = AdminDisputesRouteImport.update({
 const AdminGifsRoute = AdminGifsRouteImport.update({
   id: '/gifs',
   path: '/gifs',
-  getParentRoute: () => AdminRoute,
-} as any)
-const AdminGloatReportsRoute = AdminGloatReportsRouteImport.update({
-  id: '/gloat-reports',
-  path: '/gloat-reports',
   getParentRoute: () => AdminRoute,
 } as any)
 const AdminGroupsRoute = AdminGroupsRouteImport.update({
@@ -569,6 +571,12 @@ const AppAuthedGroupsGroupIdTabsIndexRoute =
     path: '/',
     getParentRoute: () => AppAuthedGroupsGroupIdTabsRoute,
   } as any)
+const AppAuthedGroupsGroupIdTabsChainsRoute =
+  AppAuthedGroupsGroupIdTabsChainsRouteImport.update({
+    id: '/chains',
+    path: '/chains',
+    getParentRoute: () => AppAuthedGroupsGroupIdTabsRoute,
+  } as any)
 const AppAuthedGroupsGroupIdTabsLeaderboardRoute =
   AppAuthedGroupsGroupIdTabsLeaderboardRouteImport.update({
     id: '/leaderboard',
@@ -585,6 +593,12 @@ const AppAuthedGroupsGroupIdBallotsBallotSlugRoute =
   AppAuthedGroupsGroupIdBallotsBallotSlugRouteImport.update({
     id: '/groups/$groupId/ballots/$ballotSlug',
     path: '/groups/$groupId/ballots/$ballotSlug',
+    getParentRoute: () => AppAuthedRoute,
+  } as any)
+const AppAuthedGroupsGroupIdChainsChainIdRoute =
+  AppAuthedGroupsGroupIdChainsChainIdRouteImport.update({
+    id: '/groups/$groupId/chains/$chainId',
+    path: '/groups/$groupId/chains/$chainId',
     getParentRoute: () => AppAuthedRoute,
   } as any)
 const AppAuthedGroupsGroupIdGamesGameIdRoute =
@@ -663,9 +677,9 @@ export interface FileRoutesByFullPath {
   '/reset-password': typeof AppResetPasswordRoute
   '/terms': typeof AppTermsRoute
   '/admin/bands': typeof AdminBandsRoute
+  '/admin/comment-reports': typeof AdminCommentReportsRoute
   '/admin/disputes': typeof AdminDisputesRoute
   '/admin/gifs': typeof AdminGifsRoute
-  '/admin/gloat-reports': typeof AdminGloatReportsRoute
   '/admin/groups': typeof AdminGroupsRoute
   '/admin/integrity': typeof AdminIntegrityRoute
   '/admin/leaders': typeof AdminLeadersRoute
@@ -734,9 +748,11 @@ export interface FileRoutesByFullPath {
   '/groups/$groupId/settings': typeof AppAuthedGroupsGroupIdSettingsRoute
   '/challenges/$code/vs/$username': typeof AppChallengesCodeVsUsernameRoute
   '/games/$gameId/picks/$username': typeof AppGamesGameIdPicksUsernameRoute
+  '/groups/$groupId/chains': typeof AppAuthedGroupsGroupIdTabsChainsRoute
   '/groups/$groupId/leaderboard': typeof AppAuthedGroupsGroupIdTabsLeaderboardRoute
   '/groups/$groupId/record-book': typeof AppAuthedGroupsGroupIdTabsRecordBookRoute
   '/groups/$groupId/ballots/$ballotSlug': typeof AppAuthedGroupsGroupIdBallotsBallotSlugRoute
+  '/groups/$groupId/chains/$chainId': typeof AppAuthedGroupsGroupIdChainsChainIdRoute
   '/groups/$groupId/games/$gameId': typeof AppAuthedGroupsGroupIdGamesGameIdRoute
   '/user/$username/report-cards/$league/$windowKey': typeof AppUserUsernameReportCardsLeagueWindowKeyRoute
   '/user/$username/sweeps/$league/$slateKey': typeof AppUserUsernameSweepsLeagueSlateKeyRoute
@@ -763,9 +779,9 @@ export interface FileRoutesByTo {
   '/reset-password': typeof AppResetPasswordRoute
   '/terms': typeof AppTermsRoute
   '/admin/bands': typeof AdminBandsRoute
+  '/admin/comment-reports': typeof AdminCommentReportsRoute
   '/admin/disputes': typeof AdminDisputesRoute
   '/admin/gifs': typeof AdminGifsRoute
-  '/admin/gloat-reports': typeof AdminGloatReportsRoute
   '/admin/groups': typeof AdminGroupsRoute
   '/admin/integrity': typeof AdminIntegrityRoute
   '/admin/leaders': typeof AdminLeadersRoute
@@ -831,9 +847,11 @@ export interface FileRoutesByTo {
   '/groups/$groupId/settings': typeof AppAuthedGroupsGroupIdSettingsRoute
   '/challenges/$code/vs/$username': typeof AppChallengesCodeVsUsernameRoute
   '/games/$gameId/picks/$username': typeof AppGamesGameIdPicksUsernameRoute
+  '/groups/$groupId/chains': typeof AppAuthedGroupsGroupIdTabsChainsRoute
   '/groups/$groupId/leaderboard': typeof AppAuthedGroupsGroupIdTabsLeaderboardRoute
   '/groups/$groupId/record-book': typeof AppAuthedGroupsGroupIdTabsRecordBookRoute
   '/groups/$groupId/ballots/$ballotSlug': typeof AppAuthedGroupsGroupIdBallotsBallotSlugRoute
+  '/groups/$groupId/chains/$chainId': typeof AppAuthedGroupsGroupIdChainsChainIdRoute
   '/groups/$groupId/games/$gameId': typeof AppAuthedGroupsGroupIdGamesGameIdRoute
   '/user/$username/report-cards/$league/$windowKey': typeof AppUserUsernameReportCardsLeagueWindowKeyRoute
   '/user/$username/sweeps/$league/$slateKey': typeof AppUserUsernameSweepsLeagueSlateKeyRoute
@@ -864,9 +882,9 @@ export interface FileRoutesById {
   '/_app/reset-password': typeof AppResetPasswordRoute
   '/_app/terms': typeof AppTermsRoute
   '/admin/bands': typeof AdminBandsRoute
+  '/admin/comment-reports': typeof AdminCommentReportsRoute
   '/admin/disputes': typeof AdminDisputesRoute
   '/admin/gifs': typeof AdminGifsRoute
-  '/admin/gloat-reports': typeof AdminGloatReportsRoute
   '/admin/groups': typeof AdminGroupsRoute
   '/admin/integrity': typeof AdminIntegrityRoute
   '/admin/leaders': typeof AdminLeadersRoute
@@ -935,9 +953,11 @@ export interface FileRoutesById {
   '/_app/_authed/groups/$groupId/settings': typeof AppAuthedGroupsGroupIdSettingsRoute
   '/_app/challenges/$code_/vs/$username': typeof AppChallengesCodeVsUsernameRoute
   '/_app/games/$gameId/picks/$username': typeof AppGamesGameIdPicksUsernameRoute
+  '/_app/_authed/groups/$groupId/_tabs/chains': typeof AppAuthedGroupsGroupIdTabsChainsRoute
   '/_app/_authed/groups/$groupId/_tabs/leaderboard': typeof AppAuthedGroupsGroupIdTabsLeaderboardRoute
   '/_app/_authed/groups/$groupId/_tabs/record-book': typeof AppAuthedGroupsGroupIdTabsRecordBookRoute
   '/_app/_authed/groups/$groupId/ballots/$ballotSlug': typeof AppAuthedGroupsGroupIdBallotsBallotSlugRoute
+  '/_app/_authed/groups/$groupId/chains/$chainId': typeof AppAuthedGroupsGroupIdChainsChainIdRoute
   '/_app/_authed/groups/$groupId/games/$gameId': typeof AppAuthedGroupsGroupIdGamesGameIdRoute
   '/_app/user/$username_/report-cards/$league/$windowKey': typeof AppUserUsernameReportCardsLeagueWindowKeyRoute
   '/_app/user/$username_/sweeps/$league/$slateKey': typeof AppUserUsernameSweepsLeagueSlateKeyRoute
@@ -967,9 +987,9 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/terms'
     | '/admin/bands'
+    | '/admin/comment-reports'
     | '/admin/disputes'
     | '/admin/gifs'
-    | '/admin/gloat-reports'
     | '/admin/groups'
     | '/admin/integrity'
     | '/admin/leaders'
@@ -1038,9 +1058,11 @@ export interface FileRouteTypes {
     | '/groups/$groupId/settings'
     | '/challenges/$code/vs/$username'
     | '/games/$gameId/picks/$username'
+    | '/groups/$groupId/chains'
     | '/groups/$groupId/leaderboard'
     | '/groups/$groupId/record-book'
     | '/groups/$groupId/ballots/$ballotSlug'
+    | '/groups/$groupId/chains/$chainId'
     | '/groups/$groupId/games/$gameId'
     | '/user/$username/report-cards/$league/$windowKey'
     | '/user/$username/sweeps/$league/$slateKey'
@@ -1067,9 +1089,9 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/terms'
     | '/admin/bands'
+    | '/admin/comment-reports'
     | '/admin/disputes'
     | '/admin/gifs'
-    | '/admin/gloat-reports'
     | '/admin/groups'
     | '/admin/integrity'
     | '/admin/leaders'
@@ -1135,9 +1157,11 @@ export interface FileRouteTypes {
     | '/groups/$groupId/settings'
     | '/challenges/$code/vs/$username'
     | '/games/$gameId/picks/$username'
+    | '/groups/$groupId/chains'
     | '/groups/$groupId/leaderboard'
     | '/groups/$groupId/record-book'
     | '/groups/$groupId/ballots/$ballotSlug'
+    | '/groups/$groupId/chains/$chainId'
     | '/groups/$groupId/games/$gameId'
     | '/user/$username/report-cards/$league/$windowKey'
     | '/user/$username/sweeps/$league/$slateKey'
@@ -1167,9 +1191,9 @@ export interface FileRouteTypes {
     | '/_app/reset-password'
     | '/_app/terms'
     | '/admin/bands'
+    | '/admin/comment-reports'
     | '/admin/disputes'
     | '/admin/gifs'
-    | '/admin/gloat-reports'
     | '/admin/groups'
     | '/admin/integrity'
     | '/admin/leaders'
@@ -1238,9 +1262,11 @@ export interface FileRouteTypes {
     | '/_app/_authed/groups/$groupId/settings'
     | '/_app/challenges/$code_/vs/$username'
     | '/_app/games/$gameId/picks/$username'
+    | '/_app/_authed/groups/$groupId/_tabs/chains'
     | '/_app/_authed/groups/$groupId/_tabs/leaderboard'
     | '/_app/_authed/groups/$groupId/_tabs/record-book'
     | '/_app/_authed/groups/$groupId/ballots/$ballotSlug'
+    | '/_app/_authed/groups/$groupId/chains/$chainId'
     | '/_app/_authed/groups/$groupId/games/$gameId'
     | '/_app/user/$username_/report-cards/$league/$windowKey'
     | '/_app/user/$username_/sweeps/$league/$slateKey'
@@ -1404,6 +1430,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminBandsRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/comment-reports': {
+      id: '/admin/comment-reports'
+      path: '/comment-reports'
+      fullPath: '/admin/comment-reports'
+      preLoaderRoute: typeof AdminCommentReportsRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/admin/disputes': {
       id: '/admin/disputes'
       path: '/disputes'
@@ -1416,13 +1449,6 @@ declare module '@tanstack/react-router' {
       path: '/gifs'
       fullPath: '/admin/gifs'
       preLoaderRoute: typeof AdminGifsRouteImport
-      parentRoute: typeof AdminRoute
-    }
-    '/admin/gloat-reports': {
-      id: '/admin/gloat-reports'
-      path: '/gloat-reports'
-      fullPath: '/admin/gloat-reports'
-      preLoaderRoute: typeof AdminGloatReportsRouteImport
       parentRoute: typeof AdminRoute
     }
     '/admin/groups': {
@@ -1901,6 +1927,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppAuthedGroupsGroupIdTabsIndexRouteImport
       parentRoute: typeof AppAuthedGroupsGroupIdTabsRoute
     }
+    '/_app/_authed/groups/$groupId/_tabs/chains': {
+      id: '/_app/_authed/groups/$groupId/_tabs/chains'
+      path: '/chains'
+      fullPath: '/groups/$groupId/chains'
+      preLoaderRoute: typeof AppAuthedGroupsGroupIdTabsChainsRouteImport
+      parentRoute: typeof AppAuthedGroupsGroupIdTabsRoute
+    }
     '/_app/_authed/groups/$groupId/_tabs/leaderboard': {
       id: '/_app/_authed/groups/$groupId/_tabs/leaderboard'
       path: '/leaderboard'
@@ -1920,6 +1953,13 @@ declare module '@tanstack/react-router' {
       path: '/groups/$groupId/ballots/$ballotSlug'
       fullPath: '/groups/$groupId/ballots/$ballotSlug'
       preLoaderRoute: typeof AppAuthedGroupsGroupIdBallotsBallotSlugRouteImport
+      parentRoute: typeof AppAuthedRoute
+    }
+    '/_app/_authed/groups/$groupId/chains/$chainId': {
+      id: '/_app/_authed/groups/$groupId/chains/$chainId'
+      path: '/groups/$groupId/chains/$chainId'
+      fullPath: '/groups/$groupId/chains/$chainId'
+      preLoaderRoute: typeof AppAuthedGroupsGroupIdChainsChainIdRouteImport
       parentRoute: typeof AppAuthedRoute
     }
     '/_app/_authed/groups/$groupId/games/$gameId': {
@@ -1996,6 +2036,7 @@ declare module '@tanstack/react-router' {
 }
 
 interface AppAuthedGroupsGroupIdTabsRouteChildren {
+  AppAuthedGroupsGroupIdTabsChainsRoute: typeof AppAuthedGroupsGroupIdTabsChainsRoute
   AppAuthedGroupsGroupIdTabsLeaderboardRoute: typeof AppAuthedGroupsGroupIdTabsLeaderboardRoute
   AppAuthedGroupsGroupIdTabsRecordBookRoute: typeof AppAuthedGroupsGroupIdTabsRecordBookRoute
   AppAuthedGroupsGroupIdTabsIndexRoute: typeof AppAuthedGroupsGroupIdTabsIndexRoute
@@ -2003,6 +2044,8 @@ interface AppAuthedGroupsGroupIdTabsRouteChildren {
 
 const AppAuthedGroupsGroupIdTabsRouteChildren: AppAuthedGroupsGroupIdTabsRouteChildren =
   {
+    AppAuthedGroupsGroupIdTabsChainsRoute:
+      AppAuthedGroupsGroupIdTabsChainsRoute,
     AppAuthedGroupsGroupIdTabsLeaderboardRoute:
       AppAuthedGroupsGroupIdTabsLeaderboardRoute,
     AppAuthedGroupsGroupIdTabsRecordBookRoute:
@@ -2030,6 +2073,7 @@ interface AppAuthedRouteChildren {
   AppAuthedGroupsGroupIdTabsRoute: typeof AppAuthedGroupsGroupIdTabsRouteWithChildren
   AppAuthedGroupsGroupIdSettingsRoute: typeof AppAuthedGroupsGroupIdSettingsRoute
   AppAuthedGroupsGroupIdBallotsBallotSlugRoute: typeof AppAuthedGroupsGroupIdBallotsBallotSlugRoute
+  AppAuthedGroupsGroupIdChainsChainIdRoute: typeof AppAuthedGroupsGroupIdChainsChainIdRoute
   AppAuthedGroupsGroupIdGamesGameIdRoute: typeof AppAuthedGroupsGroupIdGamesGameIdRoute
 }
 
@@ -2049,6 +2093,8 @@ const AppAuthedRouteChildren: AppAuthedRouteChildren = {
   AppAuthedGroupsGroupIdSettingsRoute: AppAuthedGroupsGroupIdSettingsRoute,
   AppAuthedGroupsGroupIdBallotsBallotSlugRoute:
     AppAuthedGroupsGroupIdBallotsBallotSlugRoute,
+  AppAuthedGroupsGroupIdChainsChainIdRoute:
+    AppAuthedGroupsGroupIdChainsChainIdRoute,
   AppAuthedGroupsGroupIdGamesGameIdRoute:
     AppAuthedGroupsGroupIdGamesGameIdRoute,
 }
@@ -2159,9 +2205,9 @@ const AdminDataLeagueIdRouteWithChildren =
 
 interface AdminRouteChildren {
   AdminBandsRoute: typeof AdminBandsRoute
+  AdminCommentReportsRoute: typeof AdminCommentReportsRoute
   AdminDisputesRoute: typeof AdminDisputesRoute
   AdminGifsRoute: typeof AdminGifsRoute
-  AdminGloatReportsRoute: typeof AdminGloatReportsRoute
   AdminGroupsRoute: typeof AdminGroupsRoute
   AdminIntegrityRoute: typeof AdminIntegrityRoute
   AdminLeadersRoute: typeof AdminLeadersRoute
@@ -2184,9 +2230,9 @@ interface AdminRouteChildren {
 
 const AdminRouteChildren: AdminRouteChildren = {
   AdminBandsRoute: AdminBandsRoute,
+  AdminCommentReportsRoute: AdminCommentReportsRoute,
   AdminDisputesRoute: AdminDisputesRoute,
   AdminGifsRoute: AdminGifsRoute,
-  AdminGloatReportsRoute: AdminGloatReportsRoute,
   AdminGroupsRoute: AdminGroupsRoute,
   AdminIntegrityRoute: AdminIntegrityRoute,
   AdminLeadersRoute: AdminLeadersRoute,

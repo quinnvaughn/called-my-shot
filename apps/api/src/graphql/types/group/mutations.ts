@@ -15,6 +15,7 @@ import {
 } from "../../../db/schema"
 import type { Tx } from "../../../db/types"
 import { requireUser } from "../../../lib/auth"
+import { releaseLinksOnLeave } from "../../../lib/chains/mutate"
 import {
 	AuthenticationError,
 	AuthorizationError,
@@ -270,6 +271,11 @@ builder.mutationFields((t) => ({
 			await requireGroupAdmin(args.groupId, user.id)
 
 			await db.transaction(async (tx) => {
+				const removed = await tx.query.users.findFirst({
+					where: { id: String(args.userId) },
+					columns: { id: true, username: true },
+				})
+				if (removed) await releaseLinksOnLeave(tx, removed, args.groupId)
 				await tx
 					.delete(groupMembers)
 					.where(
@@ -391,6 +397,7 @@ builder.mutationFields((t) => ({
 						.where(eq(groupMembers.id, others[0].id))
 				}
 
+				await releaseLinksOnLeave(tx, user, args.groupId)
 				await tx
 					.delete(groupMembers)
 					.where(eq(groupMembers.id, actorMembership.id))

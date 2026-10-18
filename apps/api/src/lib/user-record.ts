@@ -38,8 +38,11 @@ export type UserRecordInputs = {
 	leagues: League[]
 	// Every team some call is about.
 	teams: Team[]
-	// Streak and sweep awards, which belong to no call. Keyed by league id.
+	// Streak, sweep and chain awards, which belong to no call. Keyed by
+	// league id.
 	bonusByLeague: Map<string, number>
+	// The chain awards among them, so a breakdown can name them apart.
+	chainByLeague: Map<string, number>
 }
 
 // What a call is about, before a player is placed on a team.
@@ -227,7 +230,7 @@ export async function loadUserRecordInputs(
 		}),
 		db.query.pointAwards.findMany({
 			where: { userId },
-			columns: { leagueId: true, points: true },
+			columns: { leagueId: true, points: true, kind: true },
 		}),
 	])
 
@@ -308,14 +311,21 @@ export async function loadUserRecordInputs(
 		: []
 
 	const bonusByLeague = new Map<string, number>()
+	const chainByLeague = new Map<string, number>()
 	for (const award of awards) {
 		bonusByLeague.set(
 			award.leagueId,
 			(bonusByLeague.get(award.leagueId) ?? 0) + award.points,
 		)
+		if (award.kind === "chain") {
+			chainByLeague.set(
+				award.leagueId,
+				(chainByLeague.get(award.leagueId) ?? 0) + award.points,
+			)
+		}
 	}
 
-	return { calls, leagues, teams, bonusByLeague }
+	return { calls, leagues, teams, bonusByLeague, chainByLeague }
 }
 
 export type RecordDayLeague = ReportCardStats & {
@@ -367,6 +377,8 @@ export type UserRecord = {
 	returnPct: number | null
 	netFromCalls: number
 	bonusPoints: number
+	// The part of bonusPoints chains added or took back.
+	chainBonusPoints: number
 }
 
 const hasCalls = (stats: ReportCardStats) =>
@@ -517,9 +529,12 @@ export function buildUserRecord(
 			(a.team?.name ?? "").localeCompare(b.team?.name ?? ""),
 	)
 
-	const bonusPoints = leagueId
-		? (inputs.bonusByLeague.get(leagueId) ?? 0)
-		: [...inputs.bonusByLeague.values()].reduce((sum, n) => sum + n, 0)
+	const inScope = (byLeague: Map<string, number>) =>
+		leagueId
+			? (byLeague.get(leagueId) ?? 0)
+			: [...byLeague.values()].reduce((sum, n) => sum + n, 0)
+	const bonusPoints = inScope(inputs.bonusByLeague)
+	const chainBonusPoints = inScope(inputs.chainByLeague)
 
 	return {
 		calendar: buildCalendar(
@@ -536,5 +551,6 @@ export function buildUserRecord(
 		returnPct: card.returnPct,
 		netFromCalls: card.netPoints,
 		bonusPoints,
+		chainBonusPoints,
 	}
 }

@@ -14,9 +14,11 @@ import { users } from "./users"
 
 // streak_milestone: every STREAK_BONUS_STEP wins in a row on one streak track.
 // sweep: every winner in a slate called right.
+// chain: what a chain added to or took back from a member's link.
 export const pointAwardKind = pgEnum("point_award_kind", [
 	"streak_milestone",
 	"sweep",
+	"chain",
 ])
 export type PointAwardKind = (typeof pointAwardKind.enumValues)[number]
 
@@ -52,13 +54,14 @@ export const pointAwards = pgTable(
 		// and reverse, not cascade it away with the points still counted.
 		scopeKey: text("scope_key").notNull(),
 		// Which award within the scope: the run and milestone for a streak, the
-		// user for a sweep.
+		// user for a sweep or a chain.
 		sourceKey: text("source_key").notNull(),
 		points: integer("points").notNull(),
 		// The game the award is dated by, which is how a report card window
 		// claims it: for a streak, the game of the call that reached the
 		// milestone; for a sweep, the slate's last game. Every game of a slate
 		// sits in the same window, so which one doesn't change where it lands.
+		// For a chain, the game of the member's own link.
 		// Set null rather than cascaded on delete, for the same reason scopeKey
 		// is text: the rebuild has to find the row to reverse it.
 		gameId: uuid("game_id").references(() => games.id, {

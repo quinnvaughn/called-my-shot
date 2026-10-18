@@ -1,19 +1,21 @@
 import { graphql } from "#/graphql/generated"
 import { gqlQueryOptions } from "#/graphql/query-options"
 
-export const AdminGloatReportsDocument = graphql(`
-	query AdminGloatReports {
-		adminGloatReports {
+export const AdminCommentReportsDocument = graphql(`
+	query AdminCommentReports {
+		adminCommentReports {
 			id
 			reason
 			details
 			createdAt
 			challengeCode
+			chainId
+			groupId
 			reporter {
 				id
 				username
 			}
-			gloat {
+			comment {
 				id
 				text
 				gif {
@@ -29,7 +31,7 @@ export const AdminGloatReportsDocument = graphql(`
 	}
 `)
 
-export const adminGloatReportsQuery = gqlQueryOptions(
-	AdminGloatReportsDocument,
+export const adminCommentReportsQuery = gqlQueryOptions(
+	AdminCommentReportsDocument,
 	{},
 )

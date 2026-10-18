@@ -140,6 +140,7 @@ export const GroupShellDocument = graphql(`
             memberCount
             viewerIsMember
             viewerIsAdmin
+            activeChainCount
             links {
                 id
                 url

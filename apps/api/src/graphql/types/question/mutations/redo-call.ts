@@ -12,16 +12,17 @@ import {
 import { enqueueAnalyticsEvents } from "../../../../lib/analytics-outbox"
 import { requireUser } from "../../../../lib/auth"
 import { validateCallInput } from "../../../../lib/call-input"
+import { selectionRows, seriesStageFields } from "../../../../lib/cast-call"
+import {
+	assertNoChainHedge,
+	assertNotActiveLink,
+} from "../../../../lib/chains/hedge"
 import {
 	AuthenticationError,
 	AuthorizationError,
 	NotFoundError,
 	ValidationError,
 } from "../../../../lib/errors"
-import {
-	selectionRows,
-	seriesStageFields,
-} from "../../../../lib/cast-call"
 import { consumeRedoGrant, redoBalanceFor } from "../../../../lib/redos"
 import { releaseWaitingReferral } from "../../../../lib/referrals"
 import { builder } from "../../../builder"
@@ -94,6 +95,12 @@ builder.mutationFields((t) => ({
 					shape: question.shape,
 				})
 				await validateCallInput(question, data, tx)
+				await assertNotActiveLink(tx, call.id)
+				await assertNoChainHedge(tx, {
+					userId: user.id,
+					questionId: question.id,
+					optionIds: data.selections.map((s) => s.optionId),
+				})
 
 				const grant = await consumeRedoGrant(tx, user.id, call.id)
 				if (!grant) {

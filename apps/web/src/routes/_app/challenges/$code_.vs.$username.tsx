@@ -6,8 +6,8 @@ import { HStack, VStack } from "styled-system/jsx"
 import { ChallengeQuestionRow } from "#/components/challenges/challenge-question-row/challenge-question-row"
 import { outcomeLabel } from "#/components/challenges/matchup-list"
 import { MatchupScoreboard } from "#/components/challenges/matchup-scoreboard"
+import { CommentCard } from "#/components/comments/comment-card"
 import { GameMatchupHeader } from "#/components/games/game-matchup-header"
-import { GloatCard } from "#/components/gloats/gloat-card"
 import { Breadcrumb } from "#/components/ui/breadcrumb"
 import { Card } from "#/components/ui/card"
 import { NotFound } from "#/components/ui/not-found"
@@ -73,7 +73,9 @@ function RouteComponent() {
 	const { data } = useSuspenseQuery({
 		...challengeReceiptQuery(code, username),
 		refetchInterval: (query) =>
-			query.state.data?.challenge?.state === "LIVE" ? IN_PLAY_REFETCH_MS : false,
+			query.state.data?.challenge?.state === "LIVE"
+				? IN_PLAY_REFETCH_MS
+				: false,
 	})
 	const challenge = data.challenge
 	const matchup = challenge?.matchup
@@ -183,8 +185,20 @@ function RouteComponent() {
 					alignItems="stretch"
 					className={css({ scrollMarginTop: "20" })}
 				>
-					{matchup.creatorGloat && <GloatCard gloat={matchup.creatorGloat} />}
-					{matchup.acceptorGloat && <GloatCard gloat={matchup.acceptorGloat} />}
+					{matchup.creatorGloat && (
+						<CommentCard
+							comment={matchup.creatorGloat}
+							trailing="talked trash"
+							reportTitle="Report this trash talk"
+						/>
+					)}
+					{matchup.acceptorGloat && (
+						<CommentCard
+							comment={matchup.acceptorGloat}
+							trailing="talked trash"
+							reportTitle="Report this trash talk"
+						/>
+					)}
 				</VStack>
 			)}
 			<Card size="md">
