@@ -6,15 +6,14 @@ import { FaRegTimesCircle } from "react-icons/fa"
 import { css } from "styled-system/css"
 import { VStack } from "styled-system/jsx"
 import { z } from "zod"
+import { RailTab } from "#/components/app-shell/rail-tab"
 import { BallotSetRail } from "#/components/ballots/ballot-set-rail"
 import { GameMatchupHeader } from "#/components/games/game-matchup-header"
 import { GameSetRail } from "#/components/games/game-set-rail"
 import { FirstCallTour } from "#/components/onboarding/first-call-tour"
 import { TourAnchorProvider } from "#/components/onboarding/tour-anchors"
-import { BallotStrip } from "#/components/questions/ballot-strip"
 import { CallSubmitBar } from "#/components/questions/call-submit-bar"
 import { useCastCallForm } from "#/components/questions/cast-call-form"
-import { GameStrip, useGameNextUp } from "#/components/questions/game-strip"
 import { QuestionCallsList } from "#/components/questions/question-calls-list"
 import { QuestionBreadcrumb } from "#/components/questions/question-detail/question-breadcrumb"
 import { QuestionDetailHeader } from "#/components/questions/question-detail/question-detail-header"
@@ -23,6 +22,7 @@ import { QuestionPickSection } from "#/components/questions/question-detail/ques
 import { ResolveQuestionModal } from "#/components/questions/resolve-question-modal"
 import { SeriesBlock } from "#/components/questions/series-block"
 import { StatContextCard } from "#/components/questions/stat-context-card/stat-context-card"
+import { useGameNextUp } from "#/components/questions/use-game-next-up"
 import { ViewerStatusCard } from "#/components/questions/viewer-status-card/viewer-status-card"
 import { Button } from "#/components/ui/button"
 import { NotFound } from "#/components/ui/not-found"
@@ -66,7 +66,7 @@ export const Route = createFileRoute("/_app/questions/$questionId/{-$slug}")({
 		created: searchFlag,
 	}),
 	// Without this, navigating between two questions on this same route (e.g.
-	// a BallotStrip link) doesn't remount RouteComponent - only the loader data
+	// a rail link) doesn't remount RouteComponent - only the loader data
 	// updates. useCastCallForm's internal useForm store (and its own
 	// useState calls for conviction/search/step) are all created once via
 	// useState(() => ...), so they'd keep the PREVIOUS question's form state
@@ -74,8 +74,9 @@ export const Route = createFileRoute("/_app/questions/$questionId/{-$slug}")({
 	// switching questions that way would submit against the question you
 	// were on when the component first mounted, not the one on screen.
 	remountDeps: ({ params }) => params.questionId,
-	// The set this question belongs to beside it, in place of its strip from
-	// xl up. Renders nothing for a question on neither a ballot nor a game.
+	// The set this question belongs to beside it, from xl up, and a sheet from
+	// RailTab below that. Renders nothing for a question on neither a ballot
+	// nor a game.
 	staticData: { rightRail: <QuestionSetRailFor /> },
 	// head() can only read loaderData, so the meta-tag fields come back from
 	// here; the component reads the same cache entries via useSuspenseQuery.
@@ -141,9 +142,7 @@ function QuestionSetRailFor() {
 	// Ballot members are season-long questions, so a question is on one set
 	// or the other, never both.
 	if (question.ballotMembership) {
-		return (
-			<BallotSetRail question={question} username={me?.username ?? null} />
-		)
+		return <BallotSetRail question={question} username={me?.username ?? null} />
 	}
 	const game = question.game
 	if (!game) return null
@@ -306,14 +305,11 @@ function RouteComponent() {
 				className={css({ minHeight: "100%" })}
 			>
 				<QuestionBreadcrumb question={question} />
-				<BallotStrip
-					question={question}
-					className={css({ display: { base: "flex", xl: "none" } })}
-				/>
-				<GameStrip
-					question={question}
-					className={css({ display: { base: "flex", xl: "none" } })}
-				/>
+				{(question.game || question.ballotMembership) && (
+					<RailTab title="Your calls">
+						<QuestionSetRailFor />
+					</RailTab>
+				)}
 				<QuestionDetailHeader question={question} created={created} />
 				{/* Only rendered when this question is actually tied to a single
 			game - season-long questions (championship, MVP) have no game and

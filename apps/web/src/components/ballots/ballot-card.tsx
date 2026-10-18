@@ -23,8 +23,7 @@ type Props = {
 }
 
 // The league room's Season tab list item - a compact stand-in for however
-// many member questions a ballot has, same reasoning as BallotStrip/
-// BallotKicker: the ballot itself never resolves, only its members do, so
+// many member questions a ballot has, same reasoning as BallotKicker: the ballot itself never resolves, only its members do, so
 // this only ever shows a progress fraction, never a result.
 export function BallotCard({ ballot: ballotProp }: Props) {
 	const ballot = useFragment(BallotCardFragment, ballotProp)

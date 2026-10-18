@@ -26,8 +26,7 @@ const SEASON_SHAPES = [
 export type RailTone = "success" | "danger" | "muted" | "default"
 
 // What a called question is about, short enough for one line of the game
-// page's rail. Longer than its GameStrip chip, which sits under a section
-// heading the rail doesn't have, so the stat is always named.
+// page's rail. Longer than its chip label, so the stat is always named.
 export function gameSetRailLabel(
 	question: ChipLabelQuestion & { title: string },
 ): string {

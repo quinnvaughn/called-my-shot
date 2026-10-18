@@ -2,7 +2,7 @@ import type { QuestionShape } from "#/graphql/generated/graphql"
 
 // A game's official questions in the order the game page reads them: the
 // who-wins question first, then one section per kind of call. Shared by the
-// game page and GameStrip so the two can't disagree on what comes next.
+// game page and its rail so the two can't disagree on what comes next.
 
 // Each names the kind of call its questions are, so a new catalog template
 // lands in its shape's section and a new shape needs a section of its own

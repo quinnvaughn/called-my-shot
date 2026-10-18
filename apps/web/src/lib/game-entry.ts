@@ -1,4 +1,3 @@
-import { ballotMemberState } from "./ballot-member-state"
 import {
 	type ChipLabelQuestion,
 	gameQuestionChipLabels,
@@ -12,31 +11,6 @@ export function gameEntryPath(gameId: string, username: string): string {
 	return `/games/${gameId}/picks/${username}`
 }
 
-type SummaryQuestion = Parameters<typeof ballotMemberState>[0] & {
-	viewerCall:
-		| (NonNullable<Parameters<typeof ballotMemberState>[1]> & {
-				totalPoints: number | null
-		  })
-		| null
-}
-
-// The viewer's own tally on a game's official questions, for the share text
-// on the game page and the game strip. Counted from the same member states
-// the strip draws, so the tweet and the dots can't disagree.
-export function viewerGamePicksSummary(questions: SummaryQuestion[]) {
-	const states = questions.map((q) => ballotMemberState(q, q.viewerCall))
-	return {
-		calledCount: questions.filter((q) => q.viewerCall !== null).length,
-		questionCount: questions.length,
-		wins: states.filter((s) => s === "won").length,
-		losses: states.filter((s) => s === "lost").length,
-		points: questions.reduce(
-			(sum, q) => sum + (q.viewerCall?.totalPoints ?? 0),
-			0,
-		),
-	}
-}
-
 type EntryQuestion = Parameters<typeof officialQuestionSequence>[0][number] &
 	ChipLabelQuestion &
 	Parameters<typeof questionDetailState>[0]
@@ -48,7 +22,7 @@ export type GameEntryRow<Q, C> = {
 	code: string
 }
 
-// Same order and sections as the game page and GameStrip. Only called
+// Same order and sections as the game page and its rail. Only called
 // questions get a row; the rest are summed up underneath, split by whether
 // they can still be called, so picks shared early aren't a long run of
 // empty rows.

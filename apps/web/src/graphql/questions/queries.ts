@@ -73,7 +73,7 @@ export const QuestionDetailDocument = graphql(`
 				username
 				avatarUrl
 			}
-			...GameStrip_question
+			...GameNextUp_question
 			# The rail beside a ballot question, from xl up (BallotSetRail).
 			...BallotSetRail_question
 			series {
@@ -216,8 +216,8 @@ export const QuestionDetailDocument = graphql(`
 			}
 			viewerSharedGroupIds
 			viewerPinnedGroupIds
-			# Read unmasked by the page's breadcrumb (BallotStrip selects its
-			# own copy of this membership for the strip itself) - a ballot
+			# Read unmasked by the page's breadcrumb (BallotSetRail selects its
+			# own copy of this membership for the rail itself) - a ballot
 			# question's trail names the ballot it was published as part of.
 			ballotMembership {
 				id
@@ -229,7 +229,6 @@ export const QuestionDetailDocument = graphql(`
 			}
 			...CastCallForm_question
 			...ResolveQuestionModal_question
-			...BallotStrip_question
 			...ViewerStatusCard_question
 		}
 	}

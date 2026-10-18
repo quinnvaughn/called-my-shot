@@ -108,7 +108,7 @@ type Props = {
 }
 
 // A game's official questions beside the game page and each of its
-// questions, in place of GameStrip from xl up, with the community questions
+// questions (a sheet from RailTab below xl), with the community questions
 // the viewer called behind a second tab. While the game is on, each
 // pick also says where it stands from the live box score. Polling is the
 // page's job: this reads the same cache entries it refreshes.

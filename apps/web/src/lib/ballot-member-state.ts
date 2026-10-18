@@ -15,7 +15,7 @@ type MemberCall = {
 	selections: { option: { isCorrect: boolean | null } }[]
 }
 
-// Shared by BallotStrip (the question-detail-page nav strip), the public
+// Shared by BallotSetRail (the question-detail-page rail), the public
 // ballot detail page's member list and a user's ballot entry page - all need
 // to bucket a member into the same faces from the same underlying fields the
 // rest of the app already uses for won/lost (see question-result-block.tsx/

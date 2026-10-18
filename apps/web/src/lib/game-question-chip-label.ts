@@ -49,9 +49,8 @@ export function playerLastName(fullName: string): string {
 	return (named.at(-1) ?? fullName).replace(/,$/, "")
 }
 
-// The short text on a question's chip in GameStrip. Null when the question
-// doesn't carry what its label is built from; the strip shows its position
-// instead.
+// The short code for a question on a game, as on a picks page row. Null when
+// the question doesn't carry what its label is built from.
 export function gameQuestionChipLabel(
 	question: ChipLabelQuestion,
 ): string | null {

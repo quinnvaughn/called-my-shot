@@ -78,8 +78,8 @@ type Props = {
 	username: string | null
 }
 
-// A ballot's members beside each of its questions, in place of BallotStrip
-// from xl up. Renders nothing for a question that isn't on a (published)
+// A ballot's members beside each of its questions, also opened as a sheet
+// from RailTab below xl. Renders nothing for a question that isn't on a (published)
 // ballot. Members come back in the ballot's own order (see
 // BallotRef.members).
 export function BallotSetRail({ question: questionProp, username }: Props) {

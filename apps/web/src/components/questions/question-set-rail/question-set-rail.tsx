@@ -51,8 +51,7 @@ type Props = {
 // A set of questions (a game's official ones, a ballot's members) as one list
 // beside the page, with the viewer's call on each. What's left to do sits on
 // top, since the list can run past the bottom of the screen: the open count
-// and the next uncalled question. QuestionSetStrip's job from xl up, with the
-// room to say what each pick is.
+// and the next uncalled question. Opened as a sheet from RailTab below xl.
 export function QuestionSetRail({
 	heading,
 	isLive = false,

@@ -7,8 +7,7 @@ import { buildQuestionSlug } from "#/lib/slug"
 import { monoSmall, TONE_COLOR } from "./rail-styles"
 import { RowStanding } from "./row-standing"
 
-// One finished class per row kind, for the same reason as the strip's chip
-// classes (see question-set-strip/set-chip.tsx): the current row swaps the
+// One finished class per row kind: the current row swaps the
 // left border, and Panda only emits what it sees literally inside css().
 const rowClass = {
 	default: css({

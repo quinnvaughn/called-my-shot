@@ -199,11 +199,10 @@ export function ReportCard({ card: cardProp, expanded, owner }: Props) {
 		<Card>
 			<Card.Body>
 				<VStack gap="3" alignItems="stretch">
-					{/* The whole header row is the collapse target, matching
-					    QuestionSetStrip - the thing that reopens a folded card
-					    should be the easiest element on it to hit. The permalink
-					    renders the same header with no control, since there's
-					    nothing there to collapse into. */}
+					{/* The whole header row is the collapse target - the thing that
+					    reopens a folded card should be the easiest element on it
+					    to hit. The permalink renders the same header with no
+					    control, since there's nothing there to collapse into. */}
 					{expanded ? (
 						<HStack alignItems="center" gap="4">
 							{gradeMark}
@@ -240,8 +239,7 @@ export function ReportCard({ card: cardProp, expanded, owner }: Props) {
 									color: "fg.subtle",
 									flexShrink: "0",
 									transition: "transform 0.15s ease",
-									// Down to open, up to close - the same rotation
-									// QuestionSetStrip uses.
+									// Down to open, up to close.
 									transform: collapsed ? "rotate(0deg)" : "rotate(180deg)",
 								})}
 							/>
