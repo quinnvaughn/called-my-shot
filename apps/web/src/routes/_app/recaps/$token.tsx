@@ -1,25 +1,25 @@
 import { useSuspenseQuery } from "@tanstack/react-query"
-import { createFileRoute } from "@tanstack/react-router"
+import { createFileRoute, redirect } from "@tanstack/react-router"
 import { FaRegTimesCircle } from "react-icons/fa"
+import { css } from "styled-system/css"
 import { VStack } from "styled-system/jsx"
+import { GroupInviteJoinBar } from "#/components/groups/group-invite-join-bar"
 import { GroupRecapCard, recapPath } from "#/components/groups/group-recap-card"
-import { SignUpPrompt } from "#/components/groups/sign-up-prompt"
-import { Breadcrumb } from "#/components/ui/breadcrumb"
+import { Button } from "#/components/ui/button"
 import { NotFound } from "#/components/ui/not-found"
 import { PageHeader } from "#/components/ui/page-header"
-import { GroupRecapPageDocument } from "#/graphql/generated/graphql"
-import { gqlQueryOptions } from "#/graphql/query-options"
-import { useMe } from "#/hooks/use-me"
+import { groupRecapPageQuery } from "#/graphql/groups/queries"
+import { useJoinGroupFlow } from "#/hooks/use-join-group-flow"
+import { useRequireAuth } from "#/hooks/use-require-auth"
 import { pageMeta } from "#/lib/meta"
 import { pluralize } from "#/lib/pluralize"
 
-const groupRecapPageQuery = (token: string) =>
-	gqlQueryOptions(GroupRecapPageDocument, { token })
-
-// Public, like /calls/:id: this url exists to be pasted into the group's own
-// chat, where not everyone has an account. The token is the only way in, and
-// if the group's admins turn recap links off it only opens for the group's
-// members, from their Record Book. Left out of the sitemap.
+// The link a recap is shared by, pasted into the group's own chat. Public,
+// like /calls/:id: not everyone in a chat has an account or is in the group
+// yet, and for them the recap is a way in, with a Join button that adds them
+// straight to the group. A member is sent on to the group's own copy of the
+// recap. The token is the only way in, and while the group's admins have
+// recap links off, only members get anything back. Left out of the sitemap.
 export const Route = createFileRoute("/_app/recaps/$token")({
 	component: RouteComponent,
 	staleTime: 0,
@@ -27,7 +27,15 @@ export const Route = createFileRoute("/_app/recaps/$token")({
 		const data = await context.queryClient.query(
 			groupRecapPageQuery(params.token),
 		)
-		return { recap: data.groupRecap ?? null }
+		const recap = data.groupRecap ?? null
+		// groupId only comes back for a member.
+		if (recap?.groupId) {
+			throw redirect({
+				to: "/groups/$groupId/recaps/$token",
+				params: { groupId: recap.groupId, token: params.token },
+			})
+		}
+		return { recap }
 	},
 	head: ({ loaderData, params }) => {
 		const recap = loaderData?.recap
@@ -58,9 +66,10 @@ export const Route = createFileRoute("/_app/recaps/$token")({
 
 function RouteComponent() {
 	const { token } = Route.useParams()
-	const me = useMe()
 	const { data } = useSuspenseQuery(groupRecapPageQuery(token))
 	const recap = data.groupRecap
+	const requireAuth = useRequireAuth()
+	const { joinGroupFromRecap, isPending: joining } = useJoinGroupFlow()
 
 	if (!recap) {
 		return (
@@ -74,26 +83,47 @@ function RouteComponent() {
 		)
 	}
 
+	const groupName = recap.groupName
+	function handleJoin() {
+		requireAuth(
+			() => {
+				void joinGroupFromRecap(token)
+			},
+			{
+				signup: {
+					title: `Sign up to join ${groupName}`,
+					description: "Create a free account and you're in the group.",
+				},
+				signin: {
+					title: `Sign in to join ${groupName}`,
+					description: "Log back in and you're in the group.",
+				},
+			},
+			{ intent: { kind: "join_group_recap", token }, surface: "group_invite" },
+		)
+	}
+
 	return (
 		<VStack gap="6" alignItems="stretch">
-			{recap.groupId && (
-				<Breadcrumb>
-					<Breadcrumb.Link to="/groups">Groups</Breadcrumb.Link>
-					<Breadcrumb.Link
-						to="/groups/$groupId"
-						params={{ groupId: recap.groupId }}
-					>
-						{recap.groupName}
-					</Breadcrumb.Link>
-					<Breadcrumb.Current>{recap.weekLabel}</Breadcrumb.Current>
-				</Breadcrumb>
-			)}
 			<PageHeader
-				title={recap.groupName}
+				title={groupName}
 				subtitle={`Weekly recap · ${recap.weekLabel}`}
+				action={
+					// Below lg the join bar pinned to the bottom of the screen
+					// does this.
+					<span className={css({ display: { base: "none", lg: "block" } })}>
+						<Button variant="solid" onClick={handleJoin} loading={joining}>
+							Join {groupName}
+						</Button>
+					</span>
+				}
 			/>
-			<GroupRecapCard recap={recap} groupName={recap.groupName} />
-			{!me && <SignUpPrompt />}
+			<GroupRecapCard recap={recap} groupName={groupName} />
+			<GroupInviteJoinBar
+				groupName={groupName}
+				onJoin={handleJoin}
+				joining={joining}
+			/>
 		</VStack>
 	)
 }

@@ -270,7 +270,7 @@ export function OnboardingChecklist() {
 									))
 									.with({ id: "group" }, () => (
 										<Link
-											to="/groups"
+											to="/spaces"
 											className={button({ variant: "dark", size: "sm" })}
 										>
 											Start a group

@@ -8,7 +8,6 @@ import { and, eq } from "drizzle-orm"
 import { db } from "../../../db"
 import {
 	type Group,
-	groupEvents,
 	groupInvites,
 	groupMembers,
 	groups,
@@ -23,12 +22,12 @@ import {
 	ValidationError,
 } from "../../../lib/errors"
 import {
+	addGroupMember,
 	assertGroupTracksLeague,
 	expiryToDate,
 	getOrCreateMemberInvite,
 	insertGroupInvite,
 	isInviteExpired,
-	notifyOtherMembers,
 	regenerateInviteCode,
 	requireGroupAdmin,
 	requireGroupMember,
@@ -212,39 +211,7 @@ builder.mutationFields((t) => ({
 			})
 			if (!group) throw new NotFoundError("Group not found")
 
-			// Joining a group you're already in is a no-op, not an error. The
-			// conflict check and the insert are one statement, so two joins racing
-			// can't both notify.
-			await db.transaction(async (tx) => {
-				const [joined] = await tx
-					.insert(groupMembers)
-					.values({
-						groupId: group.id,
-						userId: user.id,
-						role: "member",
-						invitedById: invite.createdBy,
-					})
-					.onConflictDoNothing()
-					.returning()
-				if (!joined) return
-				await tx.insert(groupEvents).values({
-					groupId: group.id,
-					kind: "member_joined",
-					actorId: user.id,
-					invitedById: invite.createdBy,
-				})
-				await notifyOtherMembers(tx, group.id, user.id, (userId) => ({
-					type: "group_member_joined",
-					userId,
-					groupId: group.id,
-					groupName: group.name,
-					actorId: user.id,
-					actorUsername: user.username,
-				}))
-			})
-			// every member gets their own invite link, same as the creator does in
-			// createGroup - myInvite should never be null for a member
-			await getOrCreateMemberInvite(invite.groupId, user.id)
+			await addGroupMember(group, user, invite.createdBy)
 
 			return { group }
 		},

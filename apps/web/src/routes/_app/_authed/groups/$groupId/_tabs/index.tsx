@@ -29,10 +29,10 @@ import {
 } from "#/components/groups/shared-questions-tab"
 import { Tabs } from "#/components/ui/tabs"
 import { GroupHomeDocument } from "#/graphql/generated/graphql"
+import { groupShellQuery } from "#/graphql/groups/queries"
 import { gqlQueryOptions, seedInfiniteQuery } from "#/graphql/query-options"
 import { useMe } from "#/hooks/use-me"
 import { leaderboardSearchSchema } from "#/lib/leaderboard-filter"
-import { groupShellQuery } from "../_tabs"
 
 const groupHomeQuery = (groupId: string) =>
 	gqlQueryOptions(GroupHomeDocument, { groupId })

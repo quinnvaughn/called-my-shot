@@ -28,7 +28,14 @@ export function GroupChains({
 	const live = chains.filter((chain) => chain.phase === "LIVE")
 	return (
 		<VStack gap="6" alignItems="stretch">
-			<HStack justify="space-between" gap="4" flexWrap="wrap">
+			{/* Stacked on a phone, where beside the button the explanation is
+			    squeezed into a narrow column. */}
+			<HStack
+				justify="space-between"
+				gap="4"
+				flexDirection={{ base: "column", md: "row" }}
+				alignItems={{ base: "stretch", md: "center" }}
+			>
 				<p className={css({ fontSize: "sm", color: "fg.muted", flex: "1" })}>
 					Everyone in a chain puts in one call on a different game. If every
 					link hits, every win is multiplied by the odds plus {CHAIN_BONUS_PCT}

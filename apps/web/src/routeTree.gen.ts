@@ -23,6 +23,7 @@ import { Route as AppHowItWorksRouteImport } from './routes/_app/how-it-works'
 import { Route as AppLeaderboardRouteImport } from './routes/_app/leaderboard'
 import { Route as AppPrivacyRouteImport } from './routes/_app/privacy'
 import { Route as AppResetPasswordRouteImport } from './routes/_app/reset-password'
+import { Route as AppSpacesRouteImport } from './routes/_app/spaces'
 import { Route as AppTermsRouteImport } from './routes/_app/terms'
 import { Route as AdminIndexRouteImport } from './routes/admin/index'
 import { Route as AdminBandsRouteImport } from './routes/admin/bands'
@@ -57,6 +58,8 @@ import { Route as AppBallotsBallotSlugRouteImport } from './routes/_app/ballots/
 import { Route as AppCallsCallIdRouteImport } from './routes/_app/calls/$callId'
 import { Route as AppChallengesCodeRouteImport } from './routes/_app/challenges/$code'
 import { Route as AppLeaguesLeagueSlugRouteImport } from './routes/_app/leagues/$leagueSlug'
+import { Route as AppPlayIndexRouteImport } from './routes/_app/play/index'
+import { Route as AppPlayGameSlugRouteImport } from './routes/_app/play/$gameSlug'
 import { Route as AppRecapsTokenRouteImport } from './routes/_app/recaps/$token'
 import { Route as AppUpdatesIndexRouteImport } from './routes/_app/updates/index'
 import { Route as AppUpdatesSlugRouteImport } from './routes/_app/updates/$slug'
@@ -103,6 +106,7 @@ import { Route as AppAuthedGroupsGroupIdTabsRecordBookRouteImport } from './rout
 import { Route as AppAuthedGroupsGroupIdBallotsBallotSlugRouteImport } from './routes/_app/_authed/groups/$groupId/ballots/$ballotSlug'
 import { Route as AppAuthedGroupsGroupIdChainsChainIdRouteImport } from './routes/_app/_authed/groups/$groupId/chains/$chainId'
 import { Route as AppAuthedGroupsGroupIdGamesGameIdRouteImport } from './routes/_app/_authed/groups/$groupId/games/$gameId'
+import { Route as AppAuthedGroupsGroupIdRecapsTokenRouteImport } from './routes/_app/_authed/groups/$groupId/recaps/$token'
 import { Route as AppUserUsernameReportCardsLeagueWindowKeyRouteImport } from './routes/_app/user/$username_.report-cards.$league.$windowKey'
 import { Route as AppUserUsernameSweepsLeagueSlateKeyRouteImport } from './routes/_app/user/$username_.sweeps.$league.$slateKey'
 import { Route as ShareBallotsBallotSlugUsersUsernameCardDotpngRouteImport } from './routes/share/ballots/$ballotSlug/users/$username/card[.]png'
@@ -179,6 +183,11 @@ const AppPrivacyRoute = AppPrivacyRouteImport.update({
 const AppResetPasswordRoute = AppResetPasswordRouteImport.update({
   id: '/reset-password',
   path: '/reset-password',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppSpacesRoute = AppSpacesRouteImport.update({
+  id: '/spaces',
+  path: '/spaces',
   getParentRoute: () => AppRoute,
 } as any)
 const AppTermsRoute = AppTermsRouteImport.update({
@@ -349,6 +358,16 @@ const AppChallengesCodeRoute = AppChallengesCodeRouteImport.update({
 const AppLeaguesLeagueSlugRoute = AppLeaguesLeagueSlugRouteImport.update({
   id: '/leagues/$leagueSlug',
   path: '/leagues/$leagueSlug',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppPlayIndexRoute = AppPlayIndexRouteImport.update({
+  id: '/play/',
+  path: '/play/',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppPlayGameSlugRoute = AppPlayGameSlugRouteImport.update({
+  id: '/play/$gameSlug',
+  path: '/play/$gameSlug',
   getParentRoute: () => AppRoute,
 } as any)
 const AppRecapsTokenRoute = AppRecapsTokenRouteImport.update({
@@ -607,6 +626,12 @@ const AppAuthedGroupsGroupIdGamesGameIdRoute =
     path: '/groups/$groupId/games/$gameId',
     getParentRoute: () => AppAuthedRoute,
   } as any)
+const AppAuthedGroupsGroupIdRecapsTokenRoute =
+  AppAuthedGroupsGroupIdRecapsTokenRouteImport.update({
+    id: '/groups/$groupId/recaps/$token',
+    path: '/groups/$groupId/recaps/$token',
+    getParentRoute: () => AppAuthedRoute,
+  } as any)
 const AppUserUsernameReportCardsLeagueWindowKeyRoute =
   AppUserUsernameReportCardsLeagueWindowKeyRouteImport.update({
     id: '/user/$username_/report-cards/$league/$windowKey',
@@ -675,6 +700,7 @@ export interface FileRoutesByFullPath {
   '/leaderboard': typeof AppLeaderboardRoute
   '/privacy': typeof AppPrivacyRoute
   '/reset-password': typeof AppResetPasswordRoute
+  '/spaces': typeof AppSpacesRoute
   '/terms': typeof AppTermsRoute
   '/admin/bands': typeof AdminBandsRoute
   '/admin/comment-reports': typeof AdminCommentReportsRoute
@@ -709,6 +735,7 @@ export interface FileRoutesByFullPath {
   '/calls/$callId': typeof AppCallsCallIdRoute
   '/challenges/$code': typeof AppChallengesCodeRoute
   '/leagues/$leagueSlug': typeof AppLeaguesLeagueSlugRouteWithChildren
+  '/play/$gameSlug': typeof AppPlayGameSlugRoute
   '/recaps/$token': typeof AppRecapsTokenRoute
   '/updates/$slug': typeof AppUpdatesSlugRoute
   '/user/$username': typeof AppUserUsernameRoute
@@ -717,6 +744,7 @@ export interface FileRoutesByFullPath {
   '/admin/updates/$updateId': typeof AdminUpdatesUpdateIdRoute
   '/admin/updates/new': typeof AdminUpdatesNewRoute
   '/auth/google/callback': typeof AuthGoogleCallbackRoute
+  '/play/': typeof AppPlayIndexRoute
   '/updates/': typeof AppUpdatesIndexRoute
   '/admin/ballots/': typeof AdminBallotsIndexRoute
   '/admin/data/': typeof AdminDataIndexRoute
@@ -754,6 +782,7 @@ export interface FileRoutesByFullPath {
   '/groups/$groupId/ballots/$ballotSlug': typeof AppAuthedGroupsGroupIdBallotsBallotSlugRoute
   '/groups/$groupId/chains/$chainId': typeof AppAuthedGroupsGroupIdChainsChainIdRoute
   '/groups/$groupId/games/$gameId': typeof AppAuthedGroupsGroupIdGamesGameIdRoute
+  '/groups/$groupId/recaps/$token': typeof AppAuthedGroupsGroupIdRecapsTokenRoute
   '/user/$username/report-cards/$league/$windowKey': typeof AppUserUsernameReportCardsLeagueWindowKeyRoute
   '/user/$username/sweeps/$league/$slateKey': typeof AppUserUsernameSweepsLeagueSlateKeyRoute
   '/share/ballots/$ballotSlug/users/$username/card.png': typeof ShareBallotsBallotSlugUsersUsernameCardDotpngRoute
@@ -777,6 +806,7 @@ export interface FileRoutesByTo {
   '/leaderboard': typeof AppLeaderboardRoute
   '/privacy': typeof AppPrivacyRoute
   '/reset-password': typeof AppResetPasswordRoute
+  '/spaces': typeof AppSpacesRoute
   '/terms': typeof AppTermsRoute
   '/admin/bands': typeof AdminBandsRoute
   '/admin/comment-reports': typeof AdminCommentReportsRoute
@@ -810,6 +840,7 @@ export interface FileRoutesByTo {
   '/ballots/$ballotSlug': typeof AppBallotsBallotSlugRoute
   '/calls/$callId': typeof AppCallsCallIdRoute
   '/challenges/$code': typeof AppChallengesCodeRoute
+  '/play/$gameSlug': typeof AppPlayGameSlugRoute
   '/recaps/$token': typeof AppRecapsTokenRoute
   '/updates/$slug': typeof AppUpdatesSlugRoute
   '/user/$username': typeof AppUserUsernameRoute
@@ -817,6 +848,7 @@ export interface FileRoutesByTo {
   '/admin/updates/$updateId': typeof AdminUpdatesUpdateIdRoute
   '/admin/updates/new': typeof AdminUpdatesNewRoute
   '/auth/google/callback': typeof AuthGoogleCallbackRoute
+  '/play': typeof AppPlayIndexRoute
   '/updates': typeof AppUpdatesIndexRoute
   '/admin/ballots': typeof AdminBallotsIndexRoute
   '/admin/data': typeof AdminDataIndexRoute
@@ -853,6 +885,7 @@ export interface FileRoutesByTo {
   '/groups/$groupId/ballots/$ballotSlug': typeof AppAuthedGroupsGroupIdBallotsBallotSlugRoute
   '/groups/$groupId/chains/$chainId': typeof AppAuthedGroupsGroupIdChainsChainIdRoute
   '/groups/$groupId/games/$gameId': typeof AppAuthedGroupsGroupIdGamesGameIdRoute
+  '/groups/$groupId/recaps/$token': typeof AppAuthedGroupsGroupIdRecapsTokenRoute
   '/user/$username/report-cards/$league/$windowKey': typeof AppUserUsernameReportCardsLeagueWindowKeyRoute
   '/user/$username/sweeps/$league/$slateKey': typeof AppUserUsernameSweepsLeagueSlateKeyRoute
   '/share/ballots/$ballotSlug/users/$username/card.png': typeof ShareBallotsBallotSlugUsersUsernameCardDotpngRoute
@@ -880,6 +913,7 @@ export interface FileRoutesById {
   '/_app/leaderboard': typeof AppLeaderboardRoute
   '/_app/privacy': typeof AppPrivacyRoute
   '/_app/reset-password': typeof AppResetPasswordRoute
+  '/_app/spaces': typeof AppSpacesRoute
   '/_app/terms': typeof AppTermsRoute
   '/admin/bands': typeof AdminBandsRoute
   '/admin/comment-reports': typeof AdminCommentReportsRoute
@@ -914,6 +948,7 @@ export interface FileRoutesById {
   '/_app/calls/$callId': typeof AppCallsCallIdRoute
   '/_app/challenges/$code': typeof AppChallengesCodeRoute
   '/_app/leagues/$leagueSlug': typeof AppLeaguesLeagueSlugRouteWithChildren
+  '/_app/play/$gameSlug': typeof AppPlayGameSlugRoute
   '/_app/recaps/$token': typeof AppRecapsTokenRoute
   '/_app/updates/$slug': typeof AppUpdatesSlugRoute
   '/_app/user/$username': typeof AppUserUsernameRoute
@@ -922,6 +957,7 @@ export interface FileRoutesById {
   '/admin/updates/$updateId': typeof AdminUpdatesUpdateIdRoute
   '/admin/updates/new': typeof AdminUpdatesNewRoute
   '/auth/google/callback': typeof AuthGoogleCallbackRoute
+  '/_app/play/': typeof AppPlayIndexRoute
   '/_app/updates/': typeof AppUpdatesIndexRoute
   '/admin/ballots/': typeof AdminBallotsIndexRoute
   '/admin/data/': typeof AdminDataIndexRoute
@@ -959,6 +995,7 @@ export interface FileRoutesById {
   '/_app/_authed/groups/$groupId/ballots/$ballotSlug': typeof AppAuthedGroupsGroupIdBallotsBallotSlugRoute
   '/_app/_authed/groups/$groupId/chains/$chainId': typeof AppAuthedGroupsGroupIdChainsChainIdRoute
   '/_app/_authed/groups/$groupId/games/$gameId': typeof AppAuthedGroupsGroupIdGamesGameIdRoute
+  '/_app/_authed/groups/$groupId/recaps/$token': typeof AppAuthedGroupsGroupIdRecapsTokenRoute
   '/_app/user/$username_/report-cards/$league/$windowKey': typeof AppUserUsernameReportCardsLeagueWindowKeyRoute
   '/_app/user/$username_/sweeps/$league/$slateKey': typeof AppUserUsernameSweepsLeagueSlateKeyRoute
   '/share/ballots/$ballotSlug/users/$username/card.png': typeof ShareBallotsBallotSlugUsersUsernameCardDotpngRoute
@@ -985,6 +1022,7 @@ export interface FileRouteTypes {
     | '/leaderboard'
     | '/privacy'
     | '/reset-password'
+    | '/spaces'
     | '/terms'
     | '/admin/bands'
     | '/admin/comment-reports'
@@ -1019,6 +1057,7 @@ export interface FileRouteTypes {
     | '/calls/$callId'
     | '/challenges/$code'
     | '/leagues/$leagueSlug'
+    | '/play/$gameSlug'
     | '/recaps/$token'
     | '/updates/$slug'
     | '/user/$username'
@@ -1027,6 +1066,7 @@ export interface FileRouteTypes {
     | '/admin/updates/$updateId'
     | '/admin/updates/new'
     | '/auth/google/callback'
+    | '/play/'
     | '/updates/'
     | '/admin/ballots/'
     | '/admin/data/'
@@ -1064,6 +1104,7 @@ export interface FileRouteTypes {
     | '/groups/$groupId/ballots/$ballotSlug'
     | '/groups/$groupId/chains/$chainId'
     | '/groups/$groupId/games/$gameId'
+    | '/groups/$groupId/recaps/$token'
     | '/user/$username/report-cards/$league/$windowKey'
     | '/user/$username/sweeps/$league/$slateKey'
     | '/share/ballots/$ballotSlug/users/$username/card.png'
@@ -1087,6 +1128,7 @@ export interface FileRouteTypes {
     | '/leaderboard'
     | '/privacy'
     | '/reset-password'
+    | '/spaces'
     | '/terms'
     | '/admin/bands'
     | '/admin/comment-reports'
@@ -1120,6 +1162,7 @@ export interface FileRouteTypes {
     | '/ballots/$ballotSlug'
     | '/calls/$callId'
     | '/challenges/$code'
+    | '/play/$gameSlug'
     | '/recaps/$token'
     | '/updates/$slug'
     | '/user/$username'
@@ -1127,6 +1170,7 @@ export interface FileRouteTypes {
     | '/admin/updates/$updateId'
     | '/admin/updates/new'
     | '/auth/google/callback'
+    | '/play'
     | '/updates'
     | '/admin/ballots'
     | '/admin/data'
@@ -1163,6 +1207,7 @@ export interface FileRouteTypes {
     | '/groups/$groupId/ballots/$ballotSlug'
     | '/groups/$groupId/chains/$chainId'
     | '/groups/$groupId/games/$gameId'
+    | '/groups/$groupId/recaps/$token'
     | '/user/$username/report-cards/$league/$windowKey'
     | '/user/$username/sweeps/$league/$slateKey'
     | '/share/ballots/$ballotSlug/users/$username/card.png'
@@ -1189,6 +1234,7 @@ export interface FileRouteTypes {
     | '/_app/leaderboard'
     | '/_app/privacy'
     | '/_app/reset-password'
+    | '/_app/spaces'
     | '/_app/terms'
     | '/admin/bands'
     | '/admin/comment-reports'
@@ -1223,6 +1269,7 @@ export interface FileRouteTypes {
     | '/_app/calls/$callId'
     | '/_app/challenges/$code'
     | '/_app/leagues/$leagueSlug'
+    | '/_app/play/$gameSlug'
     | '/_app/recaps/$token'
     | '/_app/updates/$slug'
     | '/_app/user/$username'
@@ -1231,6 +1278,7 @@ export interface FileRouteTypes {
     | '/admin/updates/$updateId'
     | '/admin/updates/new'
     | '/auth/google/callback'
+    | '/_app/play/'
     | '/_app/updates/'
     | '/admin/ballots/'
     | '/admin/data/'
@@ -1268,6 +1316,7 @@ export interface FileRouteTypes {
     | '/_app/_authed/groups/$groupId/ballots/$ballotSlug'
     | '/_app/_authed/groups/$groupId/chains/$chainId'
     | '/_app/_authed/groups/$groupId/games/$gameId'
+    | '/_app/_authed/groups/$groupId/recaps/$token'
     | '/_app/user/$username_/report-cards/$league/$windowKey'
     | '/_app/user/$username_/sweeps/$league/$slateKey'
     | '/share/ballots/$ballotSlug/users/$username/card.png'
@@ -1407,6 +1456,13 @@ declare module '@tanstack/react-router' {
       path: '/reset-password'
       fullPath: '/reset-password'
       preLoaderRoute: typeof AppResetPasswordRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/spaces': {
+      id: '/_app/spaces'
+      path: '/spaces'
+      fullPath: '/spaces'
+      preLoaderRoute: typeof AppSpacesRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/terms': {
@@ -1645,6 +1701,20 @@ declare module '@tanstack/react-router' {
       path: '/leagues/$leagueSlug'
       fullPath: '/leagues/$leagueSlug'
       preLoaderRoute: typeof AppLeaguesLeagueSlugRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/play/': {
+      id: '/_app/play/'
+      path: '/play'
+      fullPath: '/play/'
+      preLoaderRoute: typeof AppPlayIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/play/$gameSlug': {
+      id: '/_app/play/$gameSlug'
+      path: '/play/$gameSlug'
+      fullPath: '/play/$gameSlug'
+      preLoaderRoute: typeof AppPlayGameSlugRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/recaps/$token': {
@@ -1969,6 +2039,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppAuthedGroupsGroupIdGamesGameIdRouteImport
       parentRoute: typeof AppAuthedRoute
     }
+    '/_app/_authed/groups/$groupId/recaps/$token': {
+      id: '/_app/_authed/groups/$groupId/recaps/$token'
+      path: '/groups/$groupId/recaps/$token'
+      fullPath: '/groups/$groupId/recaps/$token'
+      preLoaderRoute: typeof AppAuthedGroupsGroupIdRecapsTokenRouteImport
+      parentRoute: typeof AppAuthedRoute
+    }
     '/_app/user/$username_/report-cards/$league/$windowKey': {
       id: '/_app/user/$username_/report-cards/$league/$windowKey'
       path: '/user/$username/report-cards/$league/$windowKey'
@@ -2075,6 +2152,7 @@ interface AppAuthedRouteChildren {
   AppAuthedGroupsGroupIdBallotsBallotSlugRoute: typeof AppAuthedGroupsGroupIdBallotsBallotSlugRoute
   AppAuthedGroupsGroupIdChainsChainIdRoute: typeof AppAuthedGroupsGroupIdChainsChainIdRoute
   AppAuthedGroupsGroupIdGamesGameIdRoute: typeof AppAuthedGroupsGroupIdGamesGameIdRoute
+  AppAuthedGroupsGroupIdRecapsTokenRoute: typeof AppAuthedGroupsGroupIdRecapsTokenRoute
 }
 
 const AppAuthedRouteChildren: AppAuthedRouteChildren = {
@@ -2097,6 +2175,8 @@ const AppAuthedRouteChildren: AppAuthedRouteChildren = {
     AppAuthedGroupsGroupIdChainsChainIdRoute,
   AppAuthedGroupsGroupIdGamesGameIdRoute:
     AppAuthedGroupsGroupIdGamesGameIdRoute,
+  AppAuthedGroupsGroupIdRecapsTokenRoute:
+    AppAuthedGroupsGroupIdRecapsTokenRoute,
 }
 
 const AppAuthedRouteWithChildren = AppAuthedRoute._addFileChildren(
@@ -2131,14 +2211,17 @@ interface AppRouteChildren {
   AppLeaderboardRoute: typeof AppLeaderboardRoute
   AppPrivacyRoute: typeof AppPrivacyRoute
   AppResetPasswordRoute: typeof AppResetPasswordRoute
+  AppSpacesRoute: typeof AppSpacesRoute
   AppTermsRoute: typeof AppTermsRoute
   AppBallotsBallotSlugRoute: typeof AppBallotsBallotSlugRoute
   AppCallsCallIdRoute: typeof AppCallsCallIdRoute
   AppChallengesCodeRoute: typeof AppChallengesCodeRoute
   AppLeaguesLeagueSlugRoute: typeof AppLeaguesLeagueSlugRouteWithChildren
+  AppPlayGameSlugRoute: typeof AppPlayGameSlugRoute
   AppRecapsTokenRoute: typeof AppRecapsTokenRoute
   AppUpdatesSlugRoute: typeof AppUpdatesSlugRoute
   AppUserUsernameRoute: typeof AppUserUsernameRoute
+  AppPlayIndexRoute: typeof AppPlayIndexRoute
   AppUpdatesIndexRoute: typeof AppUpdatesIndexRoute
   AppBallotsBallotSlugUsernameRoute: typeof AppBallotsBallotSlugUsernameRoute
   AppChallengesCodePlayRoute: typeof AppChallengesCodePlayRoute
@@ -2159,14 +2242,17 @@ const AppRouteChildren: AppRouteChildren = {
   AppLeaderboardRoute: AppLeaderboardRoute,
   AppPrivacyRoute: AppPrivacyRoute,
   AppResetPasswordRoute: AppResetPasswordRoute,
+  AppSpacesRoute: AppSpacesRoute,
   AppTermsRoute: AppTermsRoute,
   AppBallotsBallotSlugRoute: AppBallotsBallotSlugRoute,
   AppCallsCallIdRoute: AppCallsCallIdRoute,
   AppChallengesCodeRoute: AppChallengesCodeRoute,
   AppLeaguesLeagueSlugRoute: AppLeaguesLeagueSlugRouteWithChildren,
+  AppPlayGameSlugRoute: AppPlayGameSlugRoute,
   AppRecapsTokenRoute: AppRecapsTokenRoute,
   AppUpdatesSlugRoute: AppUpdatesSlugRoute,
   AppUserUsernameRoute: AppUserUsernameRoute,
+  AppPlayIndexRoute: AppPlayIndexRoute,
   AppUpdatesIndexRoute: AppUpdatesIndexRoute,
   AppBallotsBallotSlugUsernameRoute: AppBallotsBallotSlugUsernameRoute,
   AppChallengesCodePlayRoute: AppChallengesCodePlayRoute,

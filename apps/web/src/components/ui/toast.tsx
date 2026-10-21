@@ -16,7 +16,8 @@ const stackClass = css({
 	pointerEvents: "none",
 })
 const bottomClass = css({
-	bottom: "calc({spacing.5} + env(safe-area-inset-bottom))",
+	bottom:
+		"calc({spacing.5} + var(--bottom-nav-height) + var(--bottom-safe-area))",
 })
 // Under the top bar (h 16 in app-shell/top-bar.tsx).
 const topClass = css({ top: "calc({spacing.16} + {spacing.3})" })

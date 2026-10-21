@@ -9,7 +9,7 @@ import type { Week } from "./types"
 
 // One week: who won it, or why nobody did. A recapped week links to its
 // recap's page.
-export function WeekRow({ week }: { week: Week }) {
+export function WeekRow({ groupId, week }: { groupId: string; week: Week }) {
 	const players = week.playersOfTheWeek
 	const body = (
 		<Card size="sm" interactive={week.recapped}>
@@ -75,8 +75,8 @@ export function WeekRow({ week }: { week: Week }) {
 	if (!week.shareToken) return body
 	return (
 		<Link
-			to="/recaps/$token"
-			params={{ token: week.shareToken }}
+			to="/groups/$groupId/recaps/$token"
+			params={{ groupId, token: week.shareToken }}
 			className={css({
 				display: "block",
 				textDecoration: "none",

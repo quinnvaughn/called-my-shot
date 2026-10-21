@@ -116,7 +116,7 @@ type AnalyticsEvents = {
 	// Google signup came back from one joined with a tap.
 	group_joined: {
 		groupId: string
-		source: "invite_link" | "code_form"
+		source: "invite_link" | "code_form" | "recap_link"
 		resumedAfterGoogle?: boolean
 	}
 	// `surface` separates the header's Invite modal from the inline card small

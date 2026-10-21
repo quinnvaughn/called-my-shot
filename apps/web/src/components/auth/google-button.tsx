@@ -61,13 +61,14 @@ export function GoogleButton({
 }
 
 // A group named on the landing page can't come back to "/", which sends a
-// signed-in visitor to Home. The groups list is where it would have been
-// made in the app, and the resumed creation moves on from there to the group.
+// signed-in visitor to Home. Spaces, which lists the viewer's groups, is
+// where it would have been made in the app, and the resumed creation moves on
+// from there to the group.
 function returnPath(
 	intent: AuthIntent | null,
 	hasOnSuccess: boolean,
 	href: string,
 ): string {
-	if (intent?.kind === "create_group") return "/groups"
+	if (intent?.kind === "create_group") return "/spaces"
 	return hasOnSuccess ? href : "/home"
 }

@@ -97,7 +97,8 @@ export function WalkthroughLauncher() {
 			className={css({
 				position: "fixed",
 				zIndex: "launcher",
-				bottom: "calc({spacing.5} + env(safe-area-inset-bottom))",
+				bottom:
+					"calc({spacing.5} + var(--bottom-nav-height) + var(--bottom-safe-area))",
 				// Corner on desktop, a bar across the bottom on mobile where
 				// there is no corner to spare.
 				right: { base: "4", md: "6" },

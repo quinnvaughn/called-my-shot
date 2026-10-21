@@ -1,7 +1,7 @@
 import { randomInt } from "node:crypto"
 
-// Shared by every kind of hand-shareable code in the app - group invites and
-// personal referral links. One alphabet rather than one per feature: these
+// Shared by every kind of hand-shareable code in the app - group invites,
+// personal referral links and recap links. One alphabet rather than one per feature: these
 // codes get read aloud off a phone screen and typed into a different device,
 // and two subtly different alphabets would mean "is 0 allowed here" has two
 // answers.
@@ -11,9 +11,9 @@ const INVITE_CODE_ALPHABET = "23456789ABCDEFGHJKMNPQRSTUVWXYZ"
 const INVITE_CODE_LENGTH = 6
 const MAX_CODE_ATTEMPTS = 5
 
-export function generateInviteCode() {
+export function generateInviteCode(length = INVITE_CODE_LENGTH) {
 	let code = ""
-	for (let i = 0; i < INVITE_CODE_LENGTH; i++) {
+	for (let i = 0; i < length; i++) {
 		code += INVITE_CODE_ALPHABET[randomInt(INVITE_CODE_ALPHABET.length)]
 	}
 	return code
@@ -48,10 +48,11 @@ export function isUniqueViolation(err: unknown): boolean {
 // transaction - see insertGroupInvite.
 export async function withRetriedCode<T>(
 	attempt: (code: string) => Promise<T>,
+	length = INVITE_CODE_LENGTH,
 ): Promise<T> {
 	for (let i = 0; i < MAX_CODE_ATTEMPTS; i++) {
 		try {
-			return await attempt(generateInviteCode())
+			return await attempt(generateInviteCode(length))
 		} catch (err) {
 			if (!isUniqueViolation(err) || i === MAX_CODE_ATTEMPTS - 1) throw err
 		}

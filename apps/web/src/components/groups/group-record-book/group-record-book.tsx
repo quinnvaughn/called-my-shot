@@ -104,7 +104,7 @@ export function GroupRecordBook({ data }: Props) {
 
 	return (
 		<VStack alignItems="stretch" gap="8">
-			<PlayerOfTheWeekHistory weeks={book.weeks} />
+			<PlayerOfTheWeekHistory groupId={data.id} weeks={book.weeks} />
 
 			<VStack alignItems="stretch" gap="3">
 				<SectionHeading>Single week</SectionHeading>

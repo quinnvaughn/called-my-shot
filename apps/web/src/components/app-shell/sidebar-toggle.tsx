@@ -1,10 +1,10 @@
 import { FiMenu } from "react-icons/fi"
 import { css } from "styled-system/css"
 
-// The round button straddling the sidebar's right edge, md up only (below
-// md the sidebar is a drawer with its own open and close). Its tooltip is
-// pure CSS: the button only exists where there's a mouse to hover it, and
-// keyboard focus shows it too.
+// The round button straddling the side column's right edge, md up only
+// (below md there's no side column; the bottom nav stands in for it). Its
+// tooltip is pure CSS: the button only exists where there's a mouse to hover
+// it, and keyboard focus shows it too.
 export function SidebarToggle({
 	collapsed,
 	onToggle,

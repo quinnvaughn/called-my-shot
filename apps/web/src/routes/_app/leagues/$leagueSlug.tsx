@@ -6,6 +6,7 @@ import {
 	redirect,
 } from "@tanstack/react-router"
 import { VStack } from "styled-system/jsx"
+import { useSectionTabsClass } from "#/components/app-shell/use-section-tabs-class"
 import { LeagueNotFound } from "#/components/leagues/league-not-found"
 import { SeasonPlayCard } from "#/components/leagues/season-play-card"
 import { PageHeader } from "#/components/ui/page-header"
@@ -93,6 +94,7 @@ function RouteComponent() {
 	const { league: contextLeague } = Route.useRouteContext()
 	const { data } = useSuspenseQuery(leagueQuery(contextLeague.id))
 	const { leagueSlug } = Route.useParams()
+	const tabsClass = useSectionTabsClass()
 
 	// The loader already threw notFound() for a missing league; this narrows
 	// the type for the render below.
@@ -123,7 +125,7 @@ function RouteComponent() {
 					league={league.abbreviation}
 				/>
 			)}
-			<Tabs.List>
+			<Tabs.List className={tabsClass}>
 				{TAB_ITEMS.map((item) => (
 					<Tabs.LinkTrigger key={item.to} to={item.to} params={{ leagueSlug }}>
 						{item.label}

@@ -294,6 +294,94 @@ describe("groupRecap", () => {
 	})
 })
 
+const JOIN = /* GraphQL */ `
+	mutation Join($token: String!) {
+		joinGroupByRecap(token: $token) {
+			__typename
+			... on GroupPayload {
+				group { id }
+			}
+		}
+	}
+`
+
+type JoinResult = {
+	joinGroupByRecap: { __typename: string; group?: { id: string } }
+}
+
+async function membersOf(groupId: string) {
+	return db.query.groupMembers.findMany({
+		where: { groupId },
+		columns: { userId: true, invitedById: true },
+	})
+}
+
+describe("joinGroupByRecap", () => {
+	it("lets someone holding the link join, with no inviter", async () => {
+		const ctx = await setup()
+		await settledQuestion(ctx, [
+			{ user: ctx.admin, yes: true, points: 30 },
+			{ user: ctx.member, yes: false, points: -12 },
+		])
+		const recap = (await ensureGroupRecap(ctx.group.id, WEEK)) as GroupRecap
+		const outsider = await makeUser()
+
+		const data = await expectData<JoinResult>(JOIN, {
+			as: outsider,
+			variables: { token: recap.shareToken },
+		})
+		expect(data.joinGroupByRecap.group?.id).toBe(ctx.group.id)
+		const joined = (await membersOf(ctx.group.id)).find(
+			(m) => m.userId === outsider.id,
+		)
+		expect(joined).toEqual({ userId: outsider.id, invitedById: null })
+	})
+
+	it("leaves a member's membership as it was", async () => {
+		const ctx = await setup()
+		await settledQuestion(ctx, [
+			{ user: ctx.admin, yes: true, points: 30 },
+			{ user: ctx.member, yes: false, points: -12 },
+		])
+		const recap = (await ensureGroupRecap(ctx.group.id, WEEK)) as GroupRecap
+		const before = await membersOf(ctx.group.id)
+
+		await expectData<JoinResult>(JOIN, {
+			as: ctx.member,
+			variables: { token: recap.shareToken },
+		})
+		expect(await membersOf(ctx.group.id)).toEqual(before)
+	})
+
+	it("refuses once the group turns recap links off", async () => {
+		const ctx = await setup()
+		await settledQuestion(ctx, [
+			{ user: ctx.admin, yes: true, points: 30 },
+			{ user: ctx.member, yes: false, points: -12 },
+		])
+		const recap = (await ensureGroupRecap(ctx.group.id, WEEK)) as GroupRecap
+		await expectData(UPDATE_SETTINGS, {
+			as: ctx.admin,
+			variables: {
+				input: {
+					groupId: ctx.group.id,
+					linksEnabled: false,
+					showsWorstMiss: true,
+				},
+			},
+		})
+		const outsider = await makeUser()
+
+		const data = await expectData<JoinResult>(JOIN, {
+			as: outsider,
+			variables: { token: recap.shareToken },
+		})
+		expect(data.joinGroupByRecap.__typename).toBe("NotFoundError")
+		const members = await membersOf(ctx.group.id)
+		expect(members.some((m) => m.userId === outsider.id)).toBe(false)
+	})
+})
+
 const UPDATE_SETTINGS = /* GraphQL */ `
 	mutation Update($input: GroupRecapSettingsInput!) {
 		updateGroupRecapSettings(input: $input) {

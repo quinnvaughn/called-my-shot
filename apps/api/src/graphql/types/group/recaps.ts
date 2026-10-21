@@ -7,7 +7,11 @@ import {
 	groups,
 } from "../../../db/schema"
 import { requireUser } from "../../../lib/auth"
-import { AuthenticationError, AuthorizationError } from "../../../lib/errors"
+import {
+	AuthenticationError,
+	AuthorizationError,
+	NotFoundError,
+} from "../../../lib/errors"
 import {
 	loadReigningPlayersOfTheWeek,
 	type ReigningPlayersOfTheWeek,
@@ -20,7 +24,11 @@ import {
 	type RecapView,
 } from "../../../lib/group-recap/view"
 import { formatWeekLabel } from "../../../lib/group-recap/week"
-import { requireGroupAdmin, requireGroupMember } from "../../../lib/groups"
+import {
+	addGroupMember,
+	requireGroupAdmin,
+	requireGroupMember,
+} from "../../../lib/groups"
 import { imageUrl } from "../../../lib/storage"
 import { DAY_MS } from "../../../lib/time"
 import { builder } from "../../builder"
@@ -258,6 +266,33 @@ builder.mutationFields((t) => ({
 			if (!group) {
 				throw new Error("updateGroupRecapSettings: group vanished mid-request")
 			}
+			return { group }
+		},
+	}),
+
+	// Anyone holding a recap's link can join the group it's for, the same
+	// people who can read it: while the group's admins have recap links off,
+	// neither works for outsiders.
+	joinGroupByRecap: t.field({
+		type: GroupPayload,
+		errors: {
+			types: [AuthenticationError, NotFoundError],
+			directResult: true,
+			union: { name: "JoinGroupByRecapResult" },
+		},
+		args: { token: t.arg.string({ required: true }) },
+		resolve: async (_root, args, ctx) => {
+			const user = requireUser(ctx)
+			const recap = await db.query.groupRecaps.findFirst({
+				where: { shareToken: args.token },
+			})
+			const group = recap
+				? await db.query.groups.findFirst({ where: { id: recap.groupId } })
+				: null
+			if (!group || !group.recapLinksEnabled) {
+				throw new NotFoundError("This recap isn't available")
+			}
+			await addGroupMember(group, user, null)
 			return { group }
 		},
 	}),

@@ -1,6 +1,6 @@
 import { createFileRoute, Outlet } from "@tanstack/react-router"
 import { AppShell } from "#/components/app-shell/app-shell"
-import { sidebarGroupsQuery } from "#/components/app-shell/sidebar-groups"
+import { sidebarGroupsQuery } from "#/graphql/groups/queries"
 import { gqlQueryOptions } from "#/graphql/query-options"
 import { LeaguesDocument } from "#/graphql/sports/catalog/queries"
 
@@ -17,7 +17,7 @@ const leaguesQuery = gqlQueryOptions(
 
 export const Route = createFileRoute("/_app")({
 	component: RouteComponent,
-	// Powers the sidebar's persistent league rail (see app-shell.tsx) - loaded
+	// Powers the space rail's league tiles (see app-shell.tsx) - loaded
 	// once here rather than in AppShell itself, since AppShell has no route of
 	// its own to hang a loader off. Scoped to this pathless layout (not
 	// __root__) so admin and the share-image proxy routes, which never render
@@ -32,8 +32,8 @@ export const Route = createFileRoute("/_app")({
 		const data = await context.queryClient.query(leaguesQuery)
 		return { leagues: data.leagues }
 	},
-	// The signed-in sidebar's group list, loaded with the page rather than
-	// fetched by the sidebar after it renders. A loader, not beforeLoad: it
+	// The signed-in space rail's group tiles, loaded with the page rather
+	// than fetched by the rail after it renders. A loader, not beforeLoad: it
 	// runs alongside the page's own loaders instead of holding them up.
 	loader: async ({ context }) => {
 		if (context.me) await context.queryClient.query(sidebarGroupsQuery)

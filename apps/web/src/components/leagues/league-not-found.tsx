@@ -7,7 +7,7 @@ export function LeagueNotFound() {
 			icon={<FaRegTimesCircle size={24} />}
 			eyebrowText="League"
 			heading="This league doesn't exist"
-			subtitle="Double check the link, or pick a league from the sidebar."
+			subtitle="Double check the link, or pick a league from Spaces."
 			link={{ text: "Back home", url: "/home" }}
 		/>
 	)

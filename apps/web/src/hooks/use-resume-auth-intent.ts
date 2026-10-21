@@ -9,7 +9,7 @@ import { useJoinGroupFlow } from "./use-join-group-flow"
 // modal's onSuccess had they used email.
 export function useResumeAuthIntent() {
 	const { createGroup } = useCreateGroupFlow()
-	const { joinGroup } = useJoinGroupFlow()
+	const { joinGroup, joinGroupFromRecap } = useJoinGroupFlow()
 
 	return (intent: AuthIntent) => {
 		match(intent)
@@ -26,6 +26,9 @@ export function useResumeAuthIntent() {
 			})
 			.with({ kind: "join_group" }, ({ code }) =>
 				joinGroup(code, { resumedAfterGoogle: true }),
+			)
+			.with({ kind: "join_group_recap" }, ({ token }) =>
+				joinGroupFromRecap(token, { resumedAfterGoogle: true }),
 			)
 			.exhaustive()
 	}

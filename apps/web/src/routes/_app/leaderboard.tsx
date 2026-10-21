@@ -96,7 +96,11 @@ function RouteComponent() {
 			<SiteLeaderboard
 				leagues={leagues}
 				filter={filter}
-				onFilterChange={(next) => navigate({ search: next })}
+				// A filter swaps the board in place, so the page stays where
+				// the reader is rather than jumping back above the header.
+				onFilterChange={(next) =>
+					navigate({ search: next, resetScroll: false })
+				}
 				viewerId={me?.id}
 			/>
 		</VStack>

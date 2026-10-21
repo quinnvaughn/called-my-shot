@@ -4,9 +4,11 @@ import { match } from "ts-pattern"
 import { db } from "../db"
 import {
 	type Group,
+	groupEvents,
 	groupInvites,
 	groupLeagues,
 	groupLinks,
+	groupMembers,
 	type Question,
 	questionShares,
 	type User,
@@ -203,6 +205,48 @@ export async function notifyOtherMembers(
 		tx,
 		others.map((member) => notificationFor(member.userId)),
 	)
+}
+
+// Adds `user` to `group` as a member and tells the rest of the group. Already
+// being in it is a no-op, not an error: the conflict check and the insert are
+// one statement, so two joins racing can't both notify. `invitedById` is whose
+// invite link brought them in, null when they came in some other way (a
+// recap link).
+export async function addGroupMember(
+	group: Pick<Group, "id" | "name">,
+	user: Pick<User, "id" | "username">,
+	invitedById: string | null,
+) {
+	await db.transaction(async (tx) => {
+		const [joined] = await tx
+			.insert(groupMembers)
+			.values({
+				groupId: group.id,
+				userId: user.id,
+				role: "member",
+				invitedById,
+			})
+			.onConflictDoNothing()
+			.returning()
+		if (!joined) return
+		await tx.insert(groupEvents).values({
+			groupId: group.id,
+			kind: "member_joined",
+			actorId: user.id,
+			invitedById,
+		})
+		await notifyOtherMembers(tx, group.id, user.id, (userId) => ({
+			type: "group_member_joined",
+			userId,
+			groupId: group.id,
+			groupName: group.name,
+			actorId: user.id,
+			actorUsername: user.username,
+		}))
+	})
+	// Every member gets their own invite link, same as the creator does in
+	// createGroup - myInvite should never be null for a member.
+	await getOrCreateMemberInvite(group.id, user.id)
 }
 
 // A group only takes questions from the leagues it tracks - the same filter

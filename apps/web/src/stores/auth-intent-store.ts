@@ -6,6 +6,7 @@
 export type AuthIntent =
 	| { kind: "create_group"; name: string }
 	| { kind: "join_group"; code: string }
+	| { kind: "join_group_recap"; token: string }
 
 const STORAGE_KEY = "cms.authIntent.v1"
 
@@ -43,6 +44,9 @@ function parseAuthIntent(value: unknown): AuthIntent | null {
 	}
 	if (record.kind === "join_group" && typeof record.code === "string") {
 		return { kind: "join_group", code: record.code }
+	}
+	if (record.kind === "join_group_recap" && typeof record.token === "string") {
+		return { kind: "join_group_recap", token: record.token }
 	}
 	return null
 }

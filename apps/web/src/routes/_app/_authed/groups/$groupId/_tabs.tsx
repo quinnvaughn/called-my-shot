@@ -3,7 +3,9 @@ import { createFileRoute, Outlet, useNavigate } from "@tanstack/react-router"
 import { useEffect } from "react"
 import { FiSettings, FiUserPlus, FiUsers } from "react-icons/fi"
 import { HiMiniQuestionMarkCircle } from "react-icons/hi2"
+import { css } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
+import { useSectionTabsClass } from "#/components/app-shell/use-section-tabs-class"
 import { GroupHeader } from "#/components/groups/group-header"
 import { GroupMembersSheet } from "#/components/groups/group-members-sheet"
 import { GroupStillOpen } from "#/components/groups/group-still-open/group-still-open"
@@ -20,15 +22,11 @@ import { CountBadge } from "#/components/ui/count-badge"
 import { NotFound } from "#/components/ui/not-found"
 import { Tabs } from "#/components/ui/tabs"
 import { Tag } from "#/components/ui/tag"
-import { GroupShellDocument } from "#/graphql/generated/graphql"
-import { gqlQueryOptions } from "#/graphql/query-options"
+import { groupShellQuery } from "#/graphql/groups/queries"
 import { useMe } from "#/hooks/use-me"
 import { pluralize } from "#/lib/pluralize"
 import { takeFreshGroup } from "#/stores/fresh-group-store"
 import { openModal } from "#/stores/modal-store"
-
-export const groupShellQuery = (groupId: string) =>
-	gqlQueryOptions(GroupShellDocument, { groupId })
 
 // Everything the group's tabs share: the banner, the header and its actions,
 // the tab row, and the rail: what's still open to call, then the week race. Each tab below loads only its own
@@ -77,6 +75,7 @@ function RouteComponent() {
 	const { groupId } = Route.useParams()
 	const navigate = useNavigate()
 	const me = useMe()
+	const tabsClass = useSectionTabsClass()
 	const { data } = useSuspenseQuery(groupShellQuery(groupId))
 	const group = data.group
 
@@ -116,7 +115,7 @@ function RouteComponent() {
 				subtitle="It may have been deleted, or the link's just wrong. Double check the URL."
 				link={{
 					text: "View your groups",
-					url: "/groups",
+					url: "/spaces",
 				}}
 			/>
 		)
@@ -139,7 +138,7 @@ function RouteComponent() {
 				}
 			/>
 			<Breadcrumb>
-				<Breadcrumb.Link to="/groups">Groups</Breadcrumb.Link>
+				<Breadcrumb.Link to="/spaces">Spaces</Breadcrumb.Link>
 				<Breadcrumb.Current>{group.name}</Breadcrumb.Current>
 			</Breadcrumb>
 			<GroupHeader
@@ -196,7 +195,7 @@ function RouteComponent() {
 					</HStack>
 				}
 			/>
-			<Tabs.List>
+			<Tabs.List className={tabsClass}>
 				{TAB_ITEMS.map((item) => (
 					<Tabs.LinkTrigger
 						key={item.to}
@@ -205,6 +204,10 @@ function RouteComponent() {
 						// Path only: a tab stays lit under its own filters, like the
 						// leaderboard's ?league=nfl&season=week.
 						activeOptions={{ exact: true, includeSearch: false }}
+						// Swaps the content under the header in place, so the page
+						// stays where the reader is rather than jumping back above
+						// the banner.
+						resetScroll={false}
 					>
 						{item.label}
 						{item.to === "/groups/$groupId/chains" &&
@@ -214,7 +217,16 @@ function RouteComponent() {
 					</Tabs.LinkTrigger>
 				))}
 			</Tabs.List>
-			<Outlet />
+			{/* At least a screen tall under the top bar and bottom nav, so a
+			    short tab (Chains) never leaves the page shorter than where the
+			    reader was scrolled, which would pull the page up. */}
+			<div
+				className={css({
+					minHeight: "calc(100dvh - {spacing.16} - var(--bottom-nav-height))",
+				})}
+			>
+				<Outlet />
+			</div>
 		</VStack>
 	)
 }

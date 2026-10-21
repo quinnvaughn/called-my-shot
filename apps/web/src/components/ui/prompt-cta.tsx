@@ -37,10 +37,10 @@ const stickyClass = css({
 	alignItems: { base: "stretch", md: "center" },
 	justifyContent: "space-between",
 	position: "sticky",
-	bottom: "0",
+	bottom: "var(--bottom-nav-height)",
 	zIndex: 10,
 	paddingTop: "3",
-	paddingBottom: "calc({spacing.3} + env(safe-area-inset-bottom))",
+	paddingBottom: "calc({spacing.3} + var(--bottom-safe-area))",
 	_before: {
 		content: '""',
 		position: "absolute",

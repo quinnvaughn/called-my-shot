@@ -10,6 +10,7 @@ import {
 	groupLeaderboardQuery,
 } from "#/components/groups/group-leaderboard"
 import { GroupLeaguesDocument } from "#/graphql/generated/graphql"
+import { groupShellQuery } from "#/graphql/groups/queries"
 import { gqlQueryOptions } from "#/graphql/query-options"
 import { useMe } from "#/hooks/use-me"
 import {
@@ -17,7 +18,6 @@ import {
 	leaderboardSearchSchema,
 	resolveLeaderboardFilter,
 } from "#/lib/leaderboard-filter"
-import { groupShellQuery } from "../_tabs"
 
 const groupLeaguesQuery = (groupId: string) =>
 	gqlQueryOptions(GroupLeaguesDocument, { groupId })
@@ -105,7 +105,11 @@ function RouteComponent() {
 				groupId={group.id}
 				leagues={scope.leagues}
 				filter={filter}
-				onFilterChange={(next) => navigate({ search: next })}
+				// A filter swaps the board in place, so the page stays where
+				// the reader is rather than jumping back above the header.
+				onFilterChange={(next) =>
+					navigate({ search: next, resetScroll: false })
+				}
 				viewerId={me?.id}
 			/>
 			<GroupHighlights groupId={group.id} />

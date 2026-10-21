@@ -14,12 +14,12 @@ import { CallSubmitSummary } from "./call-submit-summary"
 
 const barClass = css({
 	position: "sticky",
-	bottom: 0,
+	bottom: "var(--bottom-nav-height)",
 	zIndex: 20,
 	backgroundColor: "bg.canvas",
 	borderTop: "1px solid {colors.border.default}",
 	paddingTop: "4",
-	paddingBottom: "calc({spacing.4} + env(safe-area-inset-bottom))",
+	paddingBottom: "calc({spacing.4} + var(--bottom-safe-area))",
 })
 
 // A plain `position: sticky` bar - same as the reference mockup's

@@ -28,3 +28,20 @@ body {
   margin: 0;
 }
 
+/* What anything pinned to the bottom of the screen sits above.
+   --bottom-nav-height is how much of the screen the app shell's bottom nav
+   takes (components/app-shell/bottom-nav.tsx, below md only), safe area
+   included. --bottom-safe-area is the safe area left over once the nav has
+   taken its share. Pages without the nav get 0 and the bare safe area. */
+:root {
+  --bottom-nav-height: 0px;
+  --bottom-safe-area: env(safe-area-inset-bottom);
+}
+
+/* Below md. 3.5rem is the nav's row height (h 14 in bottom-nav-item.tsx). */
+@media screen and (max-width: 47.9975rem) {
+  :root:has([data-bottom-nav]) {
+    --bottom-nav-height: calc(3.5rem + env(safe-area-inset-bottom));
+    --bottom-safe-area: 0px;
+  }
+}

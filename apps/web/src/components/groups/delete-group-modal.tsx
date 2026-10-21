@@ -34,7 +34,7 @@ export function DeleteGroupModal({ groupId, groupName, memberCount }: Props) {
 		closeModal()
 		// Away from the group first, so refetching doesn't briefly render a page
 		// for a group that no longer exists.
-		await navigate({ to: "/groups" })
+		await navigate({ to: "/spaces" })
 		await invalidateGroups(queryClient)
 	}
 

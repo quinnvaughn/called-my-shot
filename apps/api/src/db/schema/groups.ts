@@ -106,8 +106,8 @@ export const groupMembers = pgTable(
 		// rather than a group_invites reference: invite rows are deleted when
 		// their owner leaves and their codes regenerate in place, while who
 		// brought someone in stays true. Null for the creator, for members who
-		// joined before this was recorded, and once the inviter's account is
-		// deleted.
+		// joined from a recap link or before this was recorded, and once the
+		// inviter's account is deleted.
 		invitedById: uuid("invited_by_id").references(() => users.id, {
 			onDelete: "set null",
 		}),

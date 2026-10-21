@@ -30,10 +30,10 @@ export function GroupInviteJoinBar({
 				maxWidth: "md",
 				alignSelf: "center",
 				position: "sticky",
-				bottom: "0",
+				bottom: "var(--bottom-nav-height)",
 				zIndex: 10,
 				paddingTop: "3",
-				paddingBottom: "calc({spacing.3} + env(safe-area-inset-bottom))",
+				paddingBottom: "calc({spacing.3} + var(--bottom-safe-area))",
 				// Pulls the bar down over <main>'s bottom padding (5 below
 				// xl), so at the end of the page it rests flush with the
 				// viewport the same way it sits while pinned.

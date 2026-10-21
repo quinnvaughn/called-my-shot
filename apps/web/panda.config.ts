@@ -58,11 +58,16 @@ export default defineConfig({
         { dayDisabled: ["true"] },
         { ampmActive: ["true"] },
       ],
-      // modal's `size` prop and tabs' `active`/`stretch` are always passed
-      // through a variable (a component prop, active-tab comparison, etc.),
+      // modal's `size` prop and tabs' `active`/`stretch`/`variant` are
+      // always passed through a variable (a component prop, active-tab
+      // comparison, the list's variant handed down through context, etc.),
       // never a literal at the call site - same reasoning as above.
       modal: [{ size: ["sm", "md"] }],
-      tabs: [{ active: ["true"] }, { stretch: ["true"] }],
+      tabs: [
+        { active: ["true"] },
+        { stretch: ["true"] },
+        { variant: ["underline", "pill"] },
+      ],
     },
   },
 
@@ -206,6 +211,10 @@ export default defineConfig({
             canvas: { value: "{colors.paper}" },
             surface: { value: "{colors.card}" },
             subtle: { value: "{colors.cardMuted}" },
+            // Something floating over the page that has to read as separate
+            // from it at a glance (the space rail's tooltips): a clear step
+            // lighter than any surface.
+            raised: { value: "{colors.border}" },
             overlay: { value: "{colors.overlay}" },
           },
           border: {
@@ -1408,20 +1417,24 @@ export default defineConfig({
             },
           },
         }),
-        // Underlined tabs, not bordered pill buttons - a shared baseline rule
-        // (each trigger's bottom border) plus one accent-colored border per
-        // active tab is what actually reads as "tabs" rather than "a row of
-        // buttons." Only the border's color changes between states, so it's
-        // one literal `borderBottom` string per state rather than splitting
-        // border/borderColor.
+        // Underlined tabs by default, not bordered pill buttons - a shared
+        // baseline rule (each trigger's bottom border) plus one
+        // accent-colored border per active tab is what actually reads as
+        // "tabs" rather than "a row of buttons." Only the border's color
+        // changes between states, so it's one literal `borderBottom` string
+        // per state rather than splitting border/borderColor.
+        //
+        // The pill variant is the app shell's row of a space's sections on
+        // phones, a level above any underlined tabs on the page under it, so
+        // the two never read as one row of tabs continuing another. It
+        // scrolls sideways rather than wrapping when the sections outgrow
+        // the screen.
         tabs: defineSlotRecipe({
           className: "tabs",
           slots: ["list", "trigger"],
           base: {
             list: {
               display: "flex",
-              gap: "5",
-              borderBottom: "1px solid {colors.border.default}",
             },
             trigger: {
               // Flex so anything after the label (a CountBadge) centers
@@ -1430,26 +1443,54 @@ export default defineConfig({
               alignItems: "center",
               justifyContent: "center",
               textAlign: "center",
-              textStyle: "sectionHeading",
-              fontWeight: "semibold",
               color: "fg.subtle",
               backgroundColor: "transparent",
-              padding: "{spacing.2.5} {spacing.0.5}",
-              marginBottom: "-1px",
-              borderBottom: "2px solid transparent",
               cursor: "pointer",
-              transition: "color 0.15s ease, border-color 0.15s ease",
               _hover: {
                 color: "fg.default",
               },
             },
           },
           variants: {
+            variant: {
+              underline: {
+                list: {
+                  gap: "5",
+                  borderBottom: "1px solid {colors.border.default}",
+                },
+                trigger: {
+                  textStyle: "sectionHeading",
+                  fontWeight: "semibold",
+                  padding: "{spacing.2.5} {spacing.0.5}",
+                  marginBottom: "-1px",
+                  borderBottom: "2px solid transparent",
+                  transition: "color 0.15s ease, border-color 0.15s ease",
+                },
+              },
+              pill: {
+                list: {
+                  gap: "2",
+                  overflowX: "auto",
+                  scrollbarWidth: "none",
+                  "&::-webkit-scrollbar": { display: "none" },
+                },
+                trigger: {
+                  flexShrink: 0,
+                  whiteSpace: "nowrap",
+                  textStyle: "label",
+                  fontWeight: "bold",
+                  padding: "{spacing.2} {spacing.3}",
+                  borderRadius: "lg",
+                  border: "1px solid {colors.border.default}",
+                  transition:
+                    "color 0.15s ease, background-color 0.15s ease, border-color 0.15s ease",
+                },
+              },
+            },
             active: {
               true: {
                 trigger: {
                   color: "fg.default",
-                  borderBottom: "2px solid {colors.primary.default}",
                 },
               },
             },
@@ -1462,6 +1503,34 @@ export default defineConfig({
                 },
               },
             },
+          },
+          compoundVariants: [
+            {
+              variant: "underline",
+              active: true,
+              css: {
+                trigger: {
+                  borderBottom: "2px solid {colors.primary.default}",
+                },
+              },
+            },
+            // Where you are, not something to press, so the default
+            // foreground rather than primary.
+            {
+              variant: "pill",
+              active: true,
+              css: {
+                trigger: {
+                  color: "bg.canvas",
+                  backgroundColor: "fg.default",
+                  border: "1px solid {colors.fg.default}",
+                  _hover: { color: "bg.canvas" },
+                },
+              },
+            },
+          ],
+          defaultVariants: {
+            variant: "underline",
           },
         }),
       },

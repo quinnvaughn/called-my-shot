@@ -47,7 +47,7 @@ function RouteComponent() {
 				subtitle="It may have been deleted, or the link's just wrong. Double check the URL."
 				link={{
 					text: "View your groups",
-					url: "/groups",
+					url: "/spaces",
 				}}
 			/>
 		)
@@ -62,7 +62,7 @@ function RouteComponent() {
 	return (
 		<VStack alignItems="stretch" gap="8" maxWidth="xl">
 			<Breadcrumb>
-				<Breadcrumb.Link to="/groups">Groups</Breadcrumb.Link>
+				<Breadcrumb.Link to="/spaces">Spaces</Breadcrumb.Link>
 				<Breadcrumb.Link to="/groups/$groupId" params={{ groupId: group.id }}>
 					{group.name}
 				</Breadcrumb.Link>

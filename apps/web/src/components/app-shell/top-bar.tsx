@@ -1,26 +1,19 @@
 import { Link } from "@tanstack/react-router"
-import { FiBell, FiMenu, FiPlus } from "react-icons/fi"
+import { FiBell } from "react-icons/fi"
 import { css, cx } from "styled-system/css"
 import { HStack } from "styled-system/jsx"
 import { AuthModal } from "#/components/auth/auth-modal"
 import { Brand } from "#/components/ui/brand"
-import { Button, button } from "#/components/ui/button"
+import { Button } from "#/components/ui/button"
 import { openModal } from "#/stores/modal-store"
 import { AccountMenu } from "./account-menu"
 import type { Me } from "./types"
 import { unreadBadge, unreadLabel } from "./unread-badge"
 
-// h 16 is load-bearing: the sidebar and the right rail stick just under it
-// (see sidebar-nav.tsx and app-shell.tsx).
-export function TopBar({
-	me,
-	unreadCount,
-	onMenuClick,
-}: {
-	me: Me
-	unreadCount: number
-	onMenuClick: () => void
-}) {
+// h 16 is load-bearing: the space rail, the side column and the right rail
+// stick just under it (see space-rail.tsx, space-column.tsx and
+// app-shell.tsx).
+export function TopBar({ me, unreadCount }: { me: Me; unreadCount: number }) {
 	return (
 		<div
 			className={css({
@@ -45,52 +38,12 @@ export function TopBar({
 					paddingInline: { base: "5", md: "7" },
 				})}
 			>
-				<HStack gap="3">
-					<button
-						type="button"
-						aria-label="Open menu"
-						onClick={onMenuClick}
-						className={css({
-							display: { base: "flex", md: "none" },
-							alignItems: "center",
-							justifyContent: "center",
-							width: "8",
-							height: "8",
-							borderRadius: "lg",
-							color: "fg.default",
-							cursor: "pointer",
-							_hover: { bg: "fg.default/10" },
-						})}
-					>
-						<FiMenu size={20} />
-					</button>
-					{/* Phones get the logo at the top of the drawer instead. */}
-					<Link
-						to="/home"
-						aria-label="Home"
-						className={css({ display: { base: "none", md: "block" } })}
-					>
-						<Brand size="nav" />
-					</Link>
-				</HStack>
+				<Link to="/home" aria-label="Home">
+					<Brand size="nav" />
+				</Link>
 
 				{me ? (
 					<HStack gap={{ base: "4", md: "2" }}>
-						<Link
-							to="/new-question"
-							aria-label="New Question"
-							className={cx(
-								button({ variant: "dark", size: "sm" }),
-								css({ paddingInline: { base: "2.5", md: "4.5" } }),
-							)}
-						>
-							<FiPlus size={16} />
-							<span
-								className={css({ display: { base: "none", md: "inline" } })}
-							>
-								New Question
-							</span>
-						</Link>
 						<Link
 							to="/notifications"
 							aria-label={

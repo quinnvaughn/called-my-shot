@@ -51,13 +51,29 @@ function Tabs<T extends string>({
 	)
 }
 
+type TabsVariant = "underline" | "pill"
+
+// Set by Tabs.List for the triggers inside it, so a row's look is chosen once
+// on the row rather than repeated on every trigger.
+const TabsVariantContext = createContext<TabsVariant>("underline")
+
 type TabsListProps = HTMLAttributes<HTMLDivElement> & {
 	stretch?: boolean
+	variant?: TabsVariant
 }
 
-function TabsList({ stretch, className, ...props }: TabsListProps) {
-	const slots = tabsRecipe({ stretch })
-	return <div role="tablist" className={cx(slots.list, className)} {...props} />
+function TabsList({
+	stretch,
+	variant = "underline",
+	className,
+	...props
+}: TabsListProps) {
+	const slots = tabsRecipe({ stretch, variant })
+	return (
+		<TabsVariantContext.Provider value={variant}>
+			<div role="tablist" className={cx(slots.list, className)} {...props} />
+		</TabsVariantContext.Provider>
+	)
 }
 
 type TabsTriggerProps = Omit<
@@ -69,8 +85,9 @@ type TabsTriggerProps = Omit<
 
 function TabsTrigger({ value, className, ...props }: TabsTriggerProps) {
 	const { value: activeValue, onValueChange } = useTabsContext("Trigger")
+	const variant = useContext(TabsVariantContext)
 	const isActive = activeValue === value
-	const slots = tabsRecipe({ active: isActive })
+	const slots = tabsRecipe({ active: isActive, variant })
 	return (
 		<button
 			type="button"
@@ -102,12 +119,13 @@ type TabsLinkAnchorProps = ComponentPropsWithoutRef<"a"> & {
 
 const TabsLinkAnchor = createLink(
 	forwardRef<HTMLAnchorElement, TabsLinkAnchorProps>((props, ref) => {
+		const variant = useContext(TabsVariantContext)
 		const isActive = props["data-status"] === "active"
 		return (
 			<a
 				ref={ref}
 				{...props}
-				className={tabsRecipe({ active: isActive }).trigger}
+				className={tabsRecipe({ active: isActive, variant }).trigger}
 			/>
 		)
 	}),

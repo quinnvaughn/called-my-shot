@@ -1,16 +1,20 @@
 import { useQuery } from "@tanstack/react-query"
 import { useMatches } from "@tanstack/react-router"
-import { type ReactNode, useEffect, useState } from "react"
+import type { ReactNode } from "react"
 import { css } from "styled-system/css"
 import { WalkthroughLauncher } from "#/components/onboarding/walkthrough-launcher"
 import { PushPromptHost } from "#/components/push/push-prompt-host"
 import { unreadNotificationCountQuery } from "#/graphql/notifications/queries"
 import { useMe } from "#/hooks/use-me"
+import { BottomNav } from "./bottom-nav"
 import { EmailBounceBanner } from "./email-bounce-banner"
-import { SidebarNav } from "./sidebar-nav"
+import { SpaceColumn } from "./space-column"
+import { SpaceRail } from "./space-rail"
+import { SpaceTabs } from "./space-tabs"
 import { TopBar } from "./top-bar"
 import type { League, Me } from "./types"
 import { useRightRail } from "./use-right-rail"
+import { useSpace } from "./use-space"
 
 export function AppShell({
 	children,
@@ -26,9 +30,10 @@ export function AppShell({
 				username: rawMe.username ?? "",
 				avatarUrl: rawMe.avatarUrl ?? null,
 				isAdmin: rawMe.isAdmin ?? false,
+				emailBouncedAt: rawMe.emailBouncedAt ?? null,
 			}
 		: null
-	const [drawerOpen, setDrawerOpen] = useState(false)
+	const space = useSpace(leagues)
 	const rightRail = useRightRail()
 	const bareSignedOut = useMatches({
 		select: (matches) => matches.some((m) => m.staticData?.bareSignedOut),
@@ -47,19 +52,6 @@ export function AppShell({
 			? unreadData.unreadNotificationCount.data
 			: 0
 
-	useEffect(() => {
-		if (!drawerOpen) return
-		document.body.style.overflow = "hidden"
-		function onKeyDown(event: KeyboardEvent) {
-			if (event.key === "Escape") setDrawerOpen(false)
-		}
-		document.addEventListener("keydown", onKeyDown)
-		return () => {
-			document.body.style.overflow = ""
-			document.removeEventListener("keydown", onKeyDown)
-		}
-	}, [drawerOpen])
-
 	// The page draws its own chrome for someone who hasn't seen the app yet.
 	if (!me && bareSignedOut) return children
 
@@ -74,25 +66,7 @@ export function AppShell({
 				overflowX: "clip",
 			})}
 		>
-			<TopBar
-				me={me}
-				unreadCount={unreadCount}
-				onMenuClick={() => setDrawerOpen(true)}
-			/>
-			{drawerOpen && (
-				// biome-ignore lint/a11y/noStaticElementInteractions: scrim closes the drawer; keyboard users close via Escape (handled above) or the drawer's own close button
-				// biome-ignore lint/a11y/useKeyWithClickEvents: see above
-				<div
-					onClick={() => setDrawerOpen(false)}
-					className={css({
-						display: { base: "block", md: "none" },
-						position: "fixed",
-						inset: 0,
-						bg: "bg.overlay/60",
-						zIndex: "40",
-					})}
-				/>
-			)}
+			<TopBar me={me} unreadCount={unreadCount} />
 			<div
 				className={css({
 					display: "flex",
@@ -100,12 +74,8 @@ export function AppShell({
 					marginInline: "auto",
 				})}
 			>
-				<SidebarNav
-					me={me}
-					leagues={leagues}
-					drawerOpen={drawerOpen}
-					onNavigate={() => setDrawerOpen(false)}
-				/>
+				<SpaceRail me={me} leagues={leagues} space={space} />
+				<SpaceColumn me={me} space={space} />
 				<main
 					className={css({
 						flex: 1,
@@ -115,6 +85,11 @@ export function AppShell({
 							base: "5",
 							xl: "{spacing.6} {spacing.8}",
 						},
+						// Clear of the bottom nav (see styles.css).
+						paddingBottom: {
+							base: "calc({spacing.5} + var(--bottom-nav-height))",
+							xl: "6",
+						},
 					})}
 				>
 					{me?.emailBouncedAt && (
@@ -122,6 +97,7 @@ export function AppShell({
 							<EmailBounceBanner />
 						</div>
 					)}
+					<SpaceTabs space={space} />
 					{children}
 				</main>
 				{rightRail && (
@@ -146,6 +122,7 @@ export function AppShell({
 					</div>
 				)}
 			</div>
+			<BottomNav me={me} space={space} />
 			{/* Fixed, so it belongs to the shell rather than to any one page -
 			    the offer follows the user around until they take it or close
 			    it. Outside the layout row above so the right rail's sticky

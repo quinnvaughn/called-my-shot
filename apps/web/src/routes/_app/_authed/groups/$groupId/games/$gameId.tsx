@@ -81,7 +81,7 @@ function RouteComponent() {
 				eyebrowText="Group"
 				heading={group ? "This game doesn't exist" : "This group doesn't exist"}
 				subtitle="It may have been removed, or the link's just wrong."
-				link={{ text: "View your groups", url: "/groups" }}
+				link={{ text: "View your groups", url: "/spaces" }}
 			/>
 		)
 	}
@@ -93,7 +93,7 @@ function RouteComponent() {
 	return (
 		<VStack gap="6" alignItems="stretch">
 			<Breadcrumb>
-				<Breadcrumb.Link to="/groups">Groups</Breadcrumb.Link>
+				<Breadcrumb.Link to="/spaces">Spaces</Breadcrumb.Link>
 				<Breadcrumb.Link to="/groups/$groupId" params={{ groupId: group.id }}>
 					{group.name}
 				</Breadcrumb.Link>

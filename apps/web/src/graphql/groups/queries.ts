@@ -22,6 +22,10 @@ export const SidebarGroupsDocument = graphql(`
     }
 `)
 
+// Loaded by the _app layout for a signed-in viewer, so the space rail has the
+// list on its first render instead of filling in after the page draws.
+export const sidebarGroupsQuery = gqlQueryOptions(SidebarGroupsDocument, {})
+
 export const GroupPreviewDocument = graphql(`
     query GroupPreview($code: String!) {
         groupPreview(code: $code) {
@@ -155,6 +159,9 @@ export const GroupShellDocument = graphql(`
     }
 `)
 
+export const groupShellQuery = (groupId: string) =>
+	gqlQueryOptions(GroupShellDocument, { groupId })
+
 // The Home tab: what's happening in the group right now. Per-tab connections
 // spread the same fragments their standalone paginated queries use
 // (AnsweredQuestionsTab_call, etc.) - see components/groups/
@@ -232,8 +239,9 @@ export const GroupHomeDocument = graphql(`
     }
 `)
 
-// A recap by its share token, for /recaps/:token. Public: the token is the
-// whole of the access check.
+// A recap by its share token, for /recaps/:token and the members' copy under
+// the group. Public: the token is the whole of the access check, and groupId
+// only comes back for a member.
 export const GroupRecapPageDocument = graphql(`
     query GroupRecapPage($token: String!) {
         groupRecap(token: $token) {
@@ -251,6 +259,9 @@ export const GroupRecapPageDocument = graphql(`
         }
     }
 `)
+
+export const groupRecapPageQuery = (token: string) =>
+	gqlQueryOptions(GroupRecapPageDocument, { token })
 
 // Every member's calls on one game, one row each, for
 // /groups/:groupId/games/:gameId. The game carries what GameMatchupHeader

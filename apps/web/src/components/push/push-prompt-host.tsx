@@ -89,7 +89,8 @@ export function PushPromptHost() {
 			className={css({
 				position: "fixed",
 				zIndex: "launcher",
-				bottom: "calc({spacing.5} + env(safe-area-inset-bottom))",
+				bottom:
+					"calc({spacing.5} + var(--bottom-nav-height) + var(--bottom-safe-area))",
 				right: { base: "4", md: "6" },
 				left: { base: "4", md: "auto" },
 				width: { base: "auto", md: "sm" },

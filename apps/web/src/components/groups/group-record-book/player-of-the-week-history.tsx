@@ -10,7 +10,13 @@ import { WeekRow } from "./week-row"
 // records.
 const WEEKS_SHOWN = 8
 
-export function PlayerOfTheWeekHistory({ weeks }: { weeks: Week[] }) {
+export function PlayerOfTheWeekHistory({
+	groupId,
+	weeks,
+}: {
+	groupId: string
+	weeks: Week[]
+}) {
 	const [showAll, setShowAll] = useState(false)
 	const shown = showAll ? weeks : weeks.slice(0, WEEKS_SHOWN)
 
@@ -25,7 +31,7 @@ export function PlayerOfTheWeekHistory({ weeks }: { weeks: Week[] }) {
 			) : (
 				<VStack alignItems="stretch" gap="2">
 					{shown.map((week) => (
-						<WeekRow key={week.weekKey} week={week} />
+						<WeekRow key={week.weekKey} groupId={groupId} week={week} />
 					))}
 					{!showAll && weeks.length > WEEKS_SHOWN && (
 						<Button

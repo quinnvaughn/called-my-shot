@@ -1,6 +1,8 @@
 import { keepPreviousData, useInfiniteQuery } from "@tanstack/react-query"
-import { createFileRoute } from "@tanstack/react-router"
+import { createFileRoute, Link } from "@tanstack/react-router"
 import { useState } from "react"
+import { FiPlus } from "react-icons/fi"
+import { css } from "styled-system/css"
 import { VStack } from "styled-system/jsx"
 import {
 	EMPTY_FILTERS,
@@ -10,6 +12,7 @@ import {
 } from "#/components/filters/question-filter-bar"
 import { MyQuestionsTab } from "#/components/my-questions/my-questions-tab"
 import { SortSwitcher } from "#/components/questions/sort-switcher"
+import { button } from "#/components/ui/button"
 import { PageHeader } from "#/components/ui/page-header"
 import type { MyQuestionSort, SortDirection } from "#/graphql/generated/graphql"
 import {
@@ -63,7 +66,33 @@ function RouteComponent() {
 
 	return (
 		<VStack alignItems="stretch" gap="6">
-			<PageHeader title="My Questions" subtitle={subtitle(total)} />
+			<PageHeader
+				title="My Questions"
+				subtitle={subtitle(total)}
+				action={
+					<Link
+						to="/new-question"
+						className={button({ variant: "solid", size: "sm" })}
+						aria-label="New question"
+					>
+						{/* Shortened on a phone, where the full label beside the title
+						    leaves "My Questions" too narrow to fit on one line. */}
+						<span
+							className={css({
+								display: { base: "flex", sm: "none" },
+								alignItems: "center",
+								gap: "1",
+							})}
+						>
+							<FiPlus aria-hidden />
+							New
+						</span>
+						<span className={css({ display: { base: "none", sm: "inline" } })}>
+							New question
+						</span>
+					</Link>
+				}
+			/>
 
 			<QuestionFilterBar
 				value={filters}

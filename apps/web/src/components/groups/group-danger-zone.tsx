@@ -52,7 +52,7 @@ export function GroupDangerZone({
 		track("group_left", { groupId, memberCount: members.length })
 		// Away from the group first, so refetching doesn't briefly render this
 		// page for a group the viewer is no longer in.
-		await navigate({ to: "/groups" })
+		await navigate({ to: "/spaces" })
 		await invalidateGroups(queryClient)
 		return null
 	}

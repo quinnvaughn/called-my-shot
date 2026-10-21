@@ -75,6 +75,22 @@ export const JoinGroupByCodeDocument = graphql(`
 	}
 `)
 
+// Joining from a recap's link, for someone who isn't in the group yet.
+export const JoinGroupByRecapDocument = graphql(`
+	mutation JoinGroupByRecap($token: String!) {
+		joinGroupByRecap(token: $token) {
+			__typename
+			... on GroupPayload {
+				group {
+					id
+					name
+					memberCount
+				}
+			}
+		}
+	}
+`)
+
 export const ResetGroupInviteCodeDocument = graphql(`
 	mutation ResetGroupInviteCode($inviteId: ID!, $expiry: InviteExpiry!) {
 		resetGroupInviteCode(inviteId: $inviteId, expiry: $expiry) {
