@@ -60,7 +60,7 @@ export function ChallengeReviewRow({
 									{alreadyCalled ? "Your call (already in)" : "Your call"}
 								</span>
 								{!alreadyCalled && (
-									<Button variant="dark" size="sm" onClick={onEdit}>
+									<Button variant="light" size="sm" onClick={onEdit}>
 										{draft ? "Change" : "Call it"}
 									</Button>
 								)}

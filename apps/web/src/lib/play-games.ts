@@ -1,5 +1,5 @@
 import type { IconType } from "react-icons"
-import { FaListOl, FaQuestion, FaUserSecret } from "react-icons/fa6"
+import { FaCalendarDays, FaListOl, FaQuestion } from "react-icons/fa6"
 
 export type PlayGame = {
 	slug: string
@@ -12,11 +12,10 @@ export type PlayGame = {
 // them.
 export const PLAY_GAMES: PlayGame[] = [
 	{
-		slug: "name-that-fan",
-		name: "Name That Fan",
-		description:
-			"Six clues about one fanbase. Every wrong guess reveals another.",
-		icon: FaUserSecret,
+		slug: "name-that-season",
+		name: "Name That Season",
+		description: "One team's season in six clues. Name the team and the year.",
+		icon: FaCalendarDays,
 	},
 	{
 		slug: "blind-rank",

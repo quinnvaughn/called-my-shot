@@ -14,6 +14,7 @@ export type ShareCampaign =
 	| "recap"
 	| "challenge"
 	| "challenge_receipt"
+	| "name_that_season"
 
 export type ShareMethod = "clipboard" | "native" | "x"
 

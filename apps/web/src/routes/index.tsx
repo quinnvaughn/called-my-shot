@@ -139,7 +139,7 @@ function Home() {
 									Playing on your own?
 								</p>
 								<Button
-									variant="dark"
+									variant="light"
 									size="md"
 									onClick={() => openModal(<AuthModal defaultView="signup" />)}
 								>

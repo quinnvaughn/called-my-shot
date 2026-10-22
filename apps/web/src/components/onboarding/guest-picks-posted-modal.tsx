@@ -89,7 +89,7 @@ export function GuestPicksPostedModal({ posted, notPostedCount }: Props) {
 						to="/my-calls"
 						onClick={closeModal}
 						className={button({
-							variant: "dark",
+							variant: "light",
 							size: "lg",
 							fullWidth: true,
 						})}

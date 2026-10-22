@@ -102,7 +102,7 @@ export function QuestionDetailHeader({
 										: { question: question.id, source: "question" }
 								}
 								className={cx(
-									button({ variant: "dark", size: "sm" }),
+									button({ variant: "light", size: "sm" }),
 									question.game
 										? css({ flexShrink: 0, xl: { display: "none" } })
 										: css({ flexShrink: 0 }),

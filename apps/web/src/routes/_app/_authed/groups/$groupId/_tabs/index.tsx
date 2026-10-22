@@ -14,6 +14,7 @@ import {
 } from "#/components/groups/created-questions-tab"
 import { GroupBallotsStrip } from "#/components/groups/group-ballots-strip"
 import { GroupChallengeStrip } from "#/components/groups/group-challenge-strip"
+import { GroupSeasonStrip } from "#/components/groups/group-season/group-season-strip"
 import {
 	GroupGamesStrip,
 	groupLiveGamesQuery,
@@ -37,8 +38,9 @@ import { leaderboardSearchSchema } from "#/lib/leaderboard-filter"
 const groupHomeQuery = (groupId: string) =>
 	gqlQueryOptions(GroupHomeDocument, { groupId })
 
-// What's happening in the group right now: pins, what's still open to call
-// and the week race below xl (the rail has both from there), games on or
+// What's happening in the group right now: pins, today's Name That Season,
+// what's still open to call and the week race below xl (the rail has both
+// from there), games on or
 // about to be, fresh presser answers, ballots, this week's recap, then the
 // activity feed.
 // Every strip renders nothing when it has nothing current, so a quiet week
@@ -101,6 +103,7 @@ function RouteComponent() {
 				pins={group.pins}
 				viewerIsAdmin={group.viewerIsAdmin}
 			/>
+			<GroupSeasonStrip groupId={group.id} />
 			<GroupStillOpen groupId={group.id} placement="band" />
 			<GroupWeekRace groupId={group.id} placement="band" />
 			<GroupGamesStrip groupId={group.id} />

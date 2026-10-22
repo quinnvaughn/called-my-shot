@@ -13,6 +13,7 @@ import {
 	FiZap,
 } from "react-icons/fi"
 import { GoHomeFill } from "react-icons/go"
+import { IoGameController } from "react-icons/io5"
 import type { IconType } from "react-icons/lib"
 import { match } from "ts-pattern"
 import { PLAY_GAMES } from "#/lib/play-games"
@@ -108,6 +109,11 @@ export function groupSections(
 			label: "Record Book",
 			icon: FiBookOpen,
 			to: `/groups/${groupId}/record-book`,
+		},
+		{
+			label: "Daily",
+			icon: IoGameController,
+			to: `/groups/${groupId}/daily`,
 		},
 		...(shell?.viewerIsMember
 			? [

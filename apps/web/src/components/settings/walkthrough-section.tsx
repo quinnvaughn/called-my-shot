@@ -21,7 +21,7 @@ export function WalkthroughSection() {
 						</span>
 					</VStack>
 					<Button
-						variant="dark"
+						variant="light"
 						size="sm"
 						loading={walkthrough.pending}
 						onClick={() => void walkthrough.replay()}

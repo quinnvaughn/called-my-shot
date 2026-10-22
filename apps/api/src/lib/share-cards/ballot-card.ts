@@ -16,6 +16,7 @@ import { COLOR } from "../brand-palette"
 import { el, image, type SatoriNode } from "../share-image"
 import { formatCallDate } from "./call-summary"
 import { cardFrame, clamp, eyebrow, PERSON_MAX, statCell } from "./frame"
+import { logoDataUri } from "./team-logo"
 
 // Same measurements as call-card.ts's pick label, which sits in the same slot
 // at the same sizes.
@@ -25,7 +26,6 @@ const NAME_MAX = 42
 // How many teams each conference shows on a win-totals card.
 const TOP_PER_CONFERENCE = 3
 const LOGO_PX = 52
-const LOGO_TIMEOUT_MS = 2000
 
 export type StandingsCardTeam = {
 	abbreviation: string
@@ -185,9 +185,7 @@ function standingsRow(team: StandingsCardTeam, rank: number): SatoriNode {
 					fontSize: "28px",
 					color: COLOR.ink,
 				},
-				team.losses === null
-					? `${team.wins} W`
-					: `${team.wins}-${team.losses}`,
+				team.losses === null ? `${team.wins} W` : `${team.wins}-${team.losses}`,
 			),
 		],
 	)
@@ -232,21 +230,6 @@ function standingsHero(name: string, standings: StandingsCardData): SatoriNode {
 			),
 		],
 	)
-}
-
-async function logoDataUri(url: string | null): Promise<string | null> {
-	if (!url) return null
-	try {
-		const response = await fetch(url, {
-			signal: AbortSignal.timeout(LOGO_TIMEOUT_MS),
-		})
-		if (!response.ok) return null
-		const type = response.headers.get("content-type") ?? "image/png"
-		const bytes = Buffer.from(await response.arrayBuffer())
-		return `data:${type};base64,${bytes.toString("base64")}`
-	} catch {
-		return null
-	}
 }
 
 // The best few records in each conference on a win-totals ballot, in the
@@ -374,11 +357,7 @@ export async function loadBallotShareCardData(
 		.orderBy(asc(questions.locksAt))
 		.limit(1)
 
-	const standings = await loadStandingsCard(
-		ballot.league.slug,
-		user.id,
-		entry,
-	)
+	const standings = await loadStandingsCard(ballot.league.slug, user.id, entry)
 
 	return {
 		standings,

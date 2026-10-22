@@ -17,13 +17,16 @@ const startGroupSchema = z.object({ name: groupNameSchema })
 type Props = {
 	surface: StartGroupSurface
 	autoFocus?: boolean
+	// The button under the name instead of beside it, for a narrow container
+	// like a modal.
+	stacked?: boolean
 }
 
 // Names a group before there's an account to own it. Submitting opens signup
 // with the group's name on it, and the group is created the moment the
 // account exists, by the modal's onSuccess for email or by the resumed intent
 // for Google. Tracked leagues start as all of them, changeable in Settings.
-export function StartGroupForm({ surface, autoFocus }: Props) {
+export function StartGroupForm({ surface, autoFocus, stacked }: Props) {
 	const me = useMe()
 	const requireAuth = useRequireAuth()
 	const { createGroup } = useCreateGroupFlow()
@@ -66,8 +69,12 @@ export function StartGroupForm({ surface, autoFocus }: Props) {
 						<div
 							className={css({
 								display: "flex",
-								flexDirection: { base: "column", sm: "row" },
-								alignItems: { base: "stretch", sm: "flex-end" },
+								flexDirection: stacked
+									? "column"
+									: { base: "column", sm: "row" },
+								alignItems: stacked
+									? "stretch"
+									: { base: "stretch", sm: "flex-end" },
 								gap: "3",
 							})}
 						>
@@ -94,7 +101,7 @@ export function StartGroupForm({ surface, autoFocus }: Props) {
 										variant="solid"
 										size="lg"
 										loading={meta.isSubmitting}
-										disabled={meta.isSubmitting}
+										disabled={meta.isSubmitting || !meta.canSubmit}
 									>
 										Start a group
 									</Button>

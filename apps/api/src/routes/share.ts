@@ -31,6 +31,10 @@ import {
 	loadReportCardShareData,
 } from "../lib/share-cards/report-card-card"
 import {
+	buildSeasonPuzzleCard,
+	loadSeasonPuzzleCardData,
+} from "../lib/share-cards/season-puzzle-card"
+import {
 	buildStreakShareCard,
 	loadStreakShareCardData,
 	parseStreakMode,
@@ -199,6 +203,23 @@ export function registerShareRoutes(app: Express) {
 			res,
 			await loadGroupRecapCardData(req.params.token),
 			buildGroupRecapCard,
+			SHARE_CARD_SIZE,
+		)
+	})
+
+	// The og:image behind /play/name-that-season/:date/:result. Squares only
+	// on the day; the season once the day is over. ?by= names the player when
+	// it's really their result. The page's ?v= flips when
+	// it does, so a pasted link's preview picks up the reveal.
+	app.get("/share/name-that-season/:date/:result.png", async (req, res) => {
+		await serveCard(
+			res,
+			await loadSeasonPuzzleCardData(
+				req.params.date,
+				req.params.result,
+				typeof req.query.by === "string" ? req.query.by : undefined,
+			),
+			buildSeasonPuzzleCard,
 			SHARE_CARD_SIZE,
 		)
 	})

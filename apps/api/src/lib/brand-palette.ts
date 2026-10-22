@@ -24,5 +24,8 @@ export const COLOR = {
 	success: "#34D399", // success.default (and success.vibrant, same value)
 	successSubtle: "#112921", // success.subtle
 	danger: "#E24B4A", // danger.default
+	caution: "#E8A33D", // warning.default
 	dangerSubtle: "#2E1616", // danger.subtle
+	// Name That Season's own color, on its card, result and share image.
+	season: "#4F46E5", // season.default
 }

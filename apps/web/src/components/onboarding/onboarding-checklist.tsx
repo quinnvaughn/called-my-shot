@@ -249,7 +249,7 @@ export function OnboardingChecklist() {
 									// empty.
 									.with({ id: "teams" }, () => (
 										<Button
-											variant="dark"
+											variant="light"
 											size="sm"
 											onClick={() =>
 												openModal(
@@ -263,7 +263,7 @@ export function OnboardingChecklist() {
 									.with({ id: "leaderboard" }, () => (
 										<Link
 											to="/leaderboard"
-											className={button({ variant: "dark", size: "sm" })}
+											className={button({ variant: "light", size: "sm" })}
 										>
 											See the leaderboard
 										</Link>
@@ -271,7 +271,7 @@ export function OnboardingChecklist() {
 									.with({ id: "group" }, () => (
 										<Link
 											to="/spaces"
-											className={button({ variant: "dark", size: "sm" })}
+											className={button({ variant: "light", size: "sm" })}
 										>
 											Start a group
 										</Link>
@@ -295,7 +295,7 @@ export function OnboardingChecklist() {
 									.with({ id: "question" }, () => (
 										<Link
 											to="/new-question"
-											className={button({ variant: "dark", size: "sm" })}
+											className={button({ variant: "light", size: "sm" })}
 										>
 											Post a question
 										</Link>

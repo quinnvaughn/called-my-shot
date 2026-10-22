@@ -878,6 +878,32 @@ export const relations = defineRelations(schema, (r) => ({
 			to: r.games.id,
 		}),
 	},
+	teamSeasons: {
+		team: r.one.teams({
+			from: r.teamSeasons.teamId,
+			to: r.teams.id,
+			optional: false,
+		}),
+		league: r.one.leagues({
+			from: r.teamSeasons.leagueId,
+			to: r.leagues.id,
+			optional: false,
+		}),
+	},
+	seasonPuzzles: {
+		teamSeason: r.one.teamSeasons({
+			from: r.seasonPuzzles.teamSeasonId,
+			to: r.teamSeasons.id,
+			optional: false,
+		}),
+	},
+	seasonPuzzleResults: {
+		puzzle: r.one.seasonPuzzles({
+			from: r.seasonPuzzleResults.puzzleId,
+			to: r.seasonPuzzles.id,
+			optional: false,
+		}),
+	},
 	userSweeps: {
 		user: r.one.users({
 			from: r.userSweeps.userId,

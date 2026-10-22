@@ -19,7 +19,7 @@ export function StartGroupModal({ surface }: Props) {
 					on the same leaderboard.
 				</Modal.Description>
 			</VStack>
-			<StartGroupForm surface={surface} autoFocus />
+			<StartGroupForm surface={surface} autoFocus stacked />
 		</Modal>
 	)
 }

@@ -19,6 +19,7 @@ import { tuneTitleLosses } from "./lib/game-questions/tune-title-losses"
 import { drainGameReminders } from "./lib/game-reminders"
 import { generateGroupRecaps } from "./lib/group-recap/generate"
 import {
+	ARCHIVE_SEASONS_LOCK,
 	AUTO_RESOLVE_CHAMPIONSHIPS_LOCK,
 	AUTO_RESOLVE_GAMES_LOCK,
 	AUTO_RESOLVE_SEASONS_LOCK,
@@ -30,6 +31,7 @@ import {
 	DRAIN_SEASON_START_LOCK,
 	DRAIN_UPDATE_EMAILS_LOCK,
 	ENQUEUE_SEASON_START_LOCK,
+	FILL_SEASON_SCHEDULE_LOCK,
 	GENERATE_GAME_QUESTIONS_LOCK,
 	GENERATE_GROUP_RECAPS_LOCK,
 	LOCK_OVERDUE_QUESTIONS_LOCK,
@@ -50,6 +52,8 @@ import {
 import { markPending, takePending } from "./lib/pending-work"
 import { drainPresserOpens } from "./lib/pressers/drain"
 import { drainPushOutbox } from "./lib/push-drain"
+import { archiveFinishedSeasons } from "./lib/season-puzzles/archive"
+import { fillSeasonSchedule } from "./lib/season-puzzles/schedule"
 import {
 	drainSeasonStartEmails,
 	enqueueSeasonStartEmails,
@@ -316,6 +320,8 @@ export const JOBS: ScheduledJob[] = [
 			RECOMPUTE_CHAINS_LOCK,
 			OPEN_PRESSERS_LOCK,
 			GENERATE_GROUP_RECAPS_LOCK,
+			ARCHIVE_SEASONS_LOCK,
+			FILL_SEASON_SCHEDULE_LOCK,
 			LOCK_OVERDUE_QUESTIONS_LOCK,
 			SYNC_GAME_STARTERS_LOCK,
 			GENERATE_GAME_QUESTIONS_LOCK,
@@ -346,6 +352,10 @@ export const JOBS: ScheduledJob[] = [
 			)()
 			await drainAchievements()
 			await runJob(GENERATE_GROUP_RECAPS_LOCK, () => generateGroupRecaps())()
+			// Adds a league's season to Name That Season's archive once its
+			// postseason is over, then keeps the next two weeks scheduled.
+			await runJob(ARCHIVE_SEASONS_LOCK, () => archiveFinishedSeasons())()
+			await runJob(FILL_SEASON_SCHEDULE_LOCK, () => fillSeasonSchedule())()
 			await runJob(LOCK_OVERDUE_QUESTIONS_LOCK, () => lockOverdueQuestions())()
 			await syncStartersTick()
 			await refreshWorkCalendar()

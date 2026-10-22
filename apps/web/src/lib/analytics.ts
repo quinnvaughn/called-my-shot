@@ -26,6 +26,7 @@ export type CallSurface =
 // Which landing page button someone named a group from: the hero's form, an
 // audience card, the nav, or the closing section.
 export type StartGroupSurface =
+	| "season_puzzle"
 	| "landing_hero"
 	| "landing_card"
 	| "landing_nav"
@@ -116,8 +117,33 @@ type AnalyticsEvents = {
 	// Google signup came back from one joined with a tap.
 	group_joined: {
 		groupId: string
-		source: "invite_link" | "code_form" | "recap_link"
+		source: "invite_link" | "code_form" | "recap_link" | "season_puzzle"
 		resumedAfterGoogle?: boolean
+	}
+	// Name That Season. `date` is the puzzle's day. A finished game's result is
+	// the guesses it took, or "x" for a miss.
+	season_puzzle_started: { date: string; signedIn: boolean }
+	// outcome: the season, the right team in the wrong year, or the wrong
+	// team.
+	season_guess_made: {
+		date: string
+		guessNumber: number
+		outcome: "HIT" | "CLOSE" | "MISS"
+	}
+	season_puzzle_finished: {
+		date: string
+		result: number | "x"
+		signedIn: boolean
+	}
+	season_result_shared: {
+		date: string
+		method: "clipboard" | "native" | "x"
+		toGroup: boolean
+	}
+	// The steps under a finished game, the funnel from playing to an account,
+	// a group and calls.
+	season_next_step_clicked: {
+		step: "sign_up" | "join_group" | "start_group" | "group_board" | "calls"
 	}
 	// `surface` separates the header's Invite modal from the inline card small
 	// groups show, so it's visible which one actually gets links sent.

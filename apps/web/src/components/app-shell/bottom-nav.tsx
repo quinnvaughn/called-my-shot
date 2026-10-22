@@ -1,7 +1,7 @@
-import { BsGrid3X3GapFill } from "react-icons/bs"
 import { FiMenu, FiUser } from "react-icons/fi"
 import { GoHomeFill } from "react-icons/go"
 import { HiMiniSquares2X2 } from "react-icons/hi2"
+import { IoGameController } from "react-icons/io5"
 import { css } from "styled-system/css"
 import { AuthModal } from "#/components/auth/auth-modal"
 import { openModal } from "#/stores/modal-store"
@@ -41,7 +41,7 @@ export function BottomNav({ me, space }: { me: Me; space: Space }) {
 			<BottomNavItem
 				to="/play"
 				label="Play"
-				icon={BsGrid3X3GapFill}
+				icon={IoGameController}
 				active={space.kind === "play"}
 			/>
 			<BottomNavItem

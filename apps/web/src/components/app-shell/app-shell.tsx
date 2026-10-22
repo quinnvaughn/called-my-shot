@@ -38,6 +38,9 @@ export function AppShell({
 	const bareSignedOut = useMatches({
 		select: (matches) => matches.some((m) => m.staticData?.bareSignedOut),
 	})
+	const focus = useMatches({
+		select: (matches) => matches.some((m) => m.staticData?.focus),
+	})
 
 	// Shares notifications-list.tsx's options object so the key it invalidates
 	// after marking rows read is exactly the key this reads.
@@ -74,8 +77,10 @@ export function AppShell({
 					marginInline: "auto",
 				})}
 			>
-				<SpaceRail me={me} leagues={leagues} space={space} />
-				<SpaceColumn me={me} space={space} />
+				{(me || !focus) && (
+					<SpaceRail me={me} leagues={leagues} space={space} />
+				)}
+				{!focus && <SpaceColumn me={me} space={space} />}
 				<main
 					className={css({
 						flex: 1,
@@ -97,10 +102,10 @@ export function AppShell({
 							<EmailBounceBanner />
 						</div>
 					)}
-					<SpaceTabs space={space} />
+					{!focus && <SpaceTabs space={space} />}
 					{children}
 				</main>
-				{rightRail && (
+				{rightRail && !focus && (
 					<div
 						className={css({
 							display: { base: "none", xl: "block" },
@@ -122,7 +127,7 @@ export function AppShell({
 					</div>
 				)}
 			</div>
-			<BottomNav me={me} space={space} />
+			{(me || !focus) && <BottomNav me={me} space={space} />}
 			{/* Fixed, so it belongs to the shell rather than to any one page -
 			    the offer follows the user around until they take it or close
 			    it. Outside the layout row above so the right rail's sticky

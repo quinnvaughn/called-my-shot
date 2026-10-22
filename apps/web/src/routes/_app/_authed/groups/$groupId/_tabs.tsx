@@ -55,6 +55,7 @@ const TAB_ITEMS = [
 	{ to: "/groups/$groupId/leaderboard", label: "Leaderboard" },
 	{ to: "/groups/$groupId/chains", label: "Chains" },
 	{ to: "/groups/$groupId/record-book", label: "Record Book" },
+	{ to: "/groups/$groupId/daily", label: "Daily" },
 ] as const
 
 // The rail renders in the app shell, outside this route's component, so it
@@ -178,7 +179,7 @@ function RouteComponent() {
 							<HeaderAction
 								label="Invite"
 								icon={<FiUserPlus size={16} />}
-								variant="dark"
+								variant="light"
 								onClick={() =>
 									openModal(
 										<InviteCodeModal

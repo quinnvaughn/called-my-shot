@@ -11,6 +11,7 @@ import { ModalHost } from "#/components/ui/modal-host"
 import { RouteError } from "#/components/ui/route-error"
 import { ToastHost } from "#/components/ui/toast"
 import { meQuery } from "#/graphql/me/queries"
+import { useImportSeasonGuesses } from "#/hooks/use-import-season-guesses"
 import { usePushSync } from "#/hooks/use-push-sync"
 import { useResumeAuthIntent } from "#/hooks/use-resume-auth-intent"
 import { useStaleBuildGuard } from "#/hooks/use-stale-build-guard"
@@ -202,6 +203,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
 	useGoogleAuthReturn(me?.username ?? null, resumeAuthIntent)
 	usePushSync(me?.id ?? null)
 	useSubmitGuestPicks(me?.id ?? null)
+	useImportSeasonGuesses(me?.id ?? null)
 
 	useEffect(() => {
 		initAnalytics()

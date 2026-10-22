@@ -22,6 +22,7 @@ import "./types/challenge"
 import "./types/chain"
 import "./types/update"
 import "./types/push"
+import "./types/season-puzzle"
 
 builder.queryType({})
 

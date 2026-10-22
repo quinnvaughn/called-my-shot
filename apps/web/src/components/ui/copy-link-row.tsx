@@ -70,7 +70,7 @@ export function CopyLinkRow({
 						<TextInput.Field readOnly value={displayUrl} />
 					</TextInput.Group>
 				</TextInput>
-				<Button variant="dark" onClick={handleCopy}>
+				<Button variant="light" onClick={handleCopy}>
 					{copied ? "Copied" : "Copy"}
 				</Button>
 			</HStack>

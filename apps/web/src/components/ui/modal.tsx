@@ -89,6 +89,10 @@ function ModalCloseButton() {
 			type="button"
 			className={slots.closeButton}
 			aria-label="Close"
+			// Pressing it doesn't take focus from a field, so the field doesn't
+			// blur, validate and show an error that grows the modal out from
+			// under the pointer before the click lands.
+			onMouseDown={(event) => event.preventDefault()}
 			onClick={dismiss}
 		>
 			<FiX size={16} />

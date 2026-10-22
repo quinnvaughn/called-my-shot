@@ -114,6 +114,7 @@ export default defineConfig({
           // badges, completion progress, live dots. Sits 47° of hue off
           // `verified`, far enough that a label never reads as a won call.
           sky: { value: "#6AC0FF" }, // 9.9:1 on paper, 9.2:1 on card
+          indigo: { value: "#4F46E5" }, // Name That Season's color; ink on it is 5.9:1
           skyMuted: { value: "#162633" }, // pale sky-tinted background — pitched at verifiedMuted's luminance, so sky-on-skyMuted holds ~7.8:1
           // Same color as verifiedVibrant below — the light theme split these in
           // two only because #34D399 as *text* on white measured ~1.9:1 (illegible;
@@ -234,6 +235,12 @@ export default defineConfig({
             subtle: { value: "{colors.signalMuted}" },
             // text/icon color to place on top of a solid `primary.default` fill (e.g. primary buttons)
             contrast: { value: "{colors.paper}" },
+          },
+          // Name That Season's own color: its card, its result and its share
+          // image. Never a button color (orange means interact).
+          season: {
+            default: { value: "{colors.indigo}" },
+            ink: { value: "{colors.ink}" },
           },
           secondary: {
             default: { value: "{colors.sky}" },
@@ -1597,11 +1604,11 @@ export default defineConfig({
                 _hover: { bg: "bg.subtle" },
                 _disabled: { _hover: { bg: "transparent" } },
               },
-              // Same treatment as solid, but ink-on-paper instead of signal-on-paper —
-              // a neutral solid CTA that doesn't reach for the brand accent color
-              // (see join-btn in the groups.html mockup, formerly the "white" variant
-              // back when the theme was dark and this was the light-on-dark option).
-              dark: {
+              // Same treatment as solid, but a light fill (ink) with paper text
+              // instead of the brand orange: a neutral solid CTA, for an action
+              // that shouldn't compete with the page's orange one or sits on a
+              // colored panel.
+              light: {
                 bg: "ink",
                 color: "paper",
                 fontFamily: "heading",
@@ -1649,7 +1656,7 @@ export default defineConfig({
           },
           compoundVariants: [
             {
-              variant: ["solid", "outline", "dark", "danger"],
+              variant: ["solid", "outline", "light", "danger"],
               size: "lg",
               css: {
                 borderRadius: "xl",

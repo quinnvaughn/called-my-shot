@@ -686,14 +686,20 @@ const STANDINGS_BASE_URL = "https://site.api.espn.com/apis/v2/sports"
 // arrive as numbers. A reader that only looked at value would silently drop
 // every split.
 export type EspnStandingsEntry = {
-	team: { id: string }
+	// displayName is the team's name in the season asked for ("Houston
+	// Oilers"), and on old seasons can carry runs of padding spaces.
+	team: { id: string; displayName?: string }
 	stats: { name: string; value?: number; displayValue?: string }[]
 }
 
 // Conferences, then divisions - a league's standings nest to whatever depth
 // it groups teams by, with entries at the leaves.
 export type EspnStandingsGroup = {
-	standings?: { entries: EspnStandingsEntry[] }
+	// The season's own name for the group ("AFC Central"), not today's.
+	name?: string
+	// `season` is the year the table is for. Asked for a year it has no
+	// standings for, ESPN answers with the current season's instead.
+	standings?: { season?: number; entries: EspnStandingsEntry[] }
 	children?: EspnStandingsGroup[]
 }
 
@@ -701,17 +707,94 @@ export type EspnStandingsGroup = {
 // considers current, which between seasons is next year's empty preseason.
 // leagueWide asks for one league-wide table (level=1) instead of ESPN's
 // default split by conference - see SyncLeagueConfig.seedsLeagueWide.
+// divisions asks for the deepest split instead (level=3): conferences, then
+// divisions, by the names they had that season. The NHL answers it with
+// conferences only.
 async function fetchStandings(
 	sportPath: EspnSportPath,
 	year: number,
-	{ leagueWide = false }: { leagueWide?: boolean } = {},
+	{
+		leagueWide = false,
+		divisions = false,
+	}: { leagueWide?: boolean; divisions?: boolean } = {},
 ): Promise<EspnStandingsGroup> {
-	const path = `${sportPath}/standings?season=${year}${leagueWide ? "&level=1" : ""}`
+	const level = leagueWide ? "&level=1" : divisions ? "&level=3" : ""
+	const path = `${sportPath}/standings?season=${year}${level}`
 	const res = await fetch(`${STANDINGS_BASE_URL}/${path}`, {
 		signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
 	})
 	if (!res.ok) throw new EspnRequestError(path, res.status)
 	return res.json() as Promise<EspnStandingsGroup>
+}
+
+// One team's leaders in each stat category over a regular season. Each
+// category's first leader is the team's best; the athlete is a $ref to
+// resolve with fetchCoreAthlete.
+export type EspnTeamLeaders = {
+	categories: {
+		name: string
+		leaders: { displayValue: string; athlete?: { $ref: string } }[]
+	}[]
+}
+
+async function fetchTeamLeaders(
+	sportPath: EspnSportPath,
+	year: number,
+	espnTeamId: string,
+): Promise<EspnTeamLeaders | null> {
+	return coreEspnGetOrNotFound<EspnTeamLeaders>(
+		`${toLeaguesPath(sportPath)}/seasons/${year}/types/2/teams/${espnTeamId}/leaders`,
+	)
+}
+
+export type EspnCoreAthlete = { displayName: string }
+
+// An athlete by the core API $ref a leader carries. They come as http://
+// links, which are fetched over https.
+async function fetchCoreAthlete(ref: string): Promise<EspnCoreAthlete | null> {
+	const url = ref.replace(/^http:/, "https:")
+	const res = await fetch(url, {
+		signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+	})
+	if (res.status === 404) return null
+	if (!res.ok) throw new EspnRequestError(url, res.status)
+	return res.json() as Promise<EspnCoreAthlete>
+}
+
+// A finished postseason game from one team's schedule. Empty for a team
+// that missed the playoffs.
+export type EspnTeamPostseasonEvent = {
+	id: string
+	date: string
+	competitions: [
+		{
+			competitors: { team: { id: string }; winner?: boolean }[]
+		},
+	]
+}
+
+// `served` is the season ESPN actually answered with, which it only says
+// when there are games. For older seasons it isn't the one asked for:
+// verified live, the NBA's season=1988 serves the 1989 postseason while
+// season=1995 serves 1995's. See archiveLeagueSeason.
+export type EspnTeamPostseason = {
+	events: EspnTeamPostseasonEvent[]
+	served: number | null
+}
+
+async function fetchTeamPostseason(
+	sportPath: EspnSportPath,
+	season: number,
+	espnTeamId: string,
+): Promise<EspnTeamPostseason> {
+	const data = await espnGet<{
+		events?: EspnTeamPostseasonEvent[]
+		requestedSeason?: { year: number }
+	}>(`${sportPath}/teams/${espnTeamId}/schedule?season=${season}&seasontype=3`)
+	return {
+		events: data.events ?? [],
+		served: data.requestedSeason?.year ?? null,
+	}
 }
 
 // Every ESPN read a job makes, as one object so a job can be handed a fake in
@@ -736,6 +819,9 @@ export const defaultEspnClient = {
 	fetchAthleteSeasonStatistics,
 	fetchTeamSeasonStatistics,
 	fetchStandings,
+	fetchTeamLeaders,
+	fetchCoreAthlete,
+	fetchTeamPostseason,
 }
 
 export type EspnClient = typeof defaultEspnClient

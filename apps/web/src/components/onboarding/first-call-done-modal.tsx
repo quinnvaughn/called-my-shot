@@ -46,16 +46,16 @@ export function FirstCallDoneModal({ resolutionSource }: Props) {
 				<Button variant="solid" size="lg" fullWidth onClick={closeModal}>
 					Got it
 				</Button>
-				{/* dark, not outline or ghost: both of those render with no fill,
+				{/* light, not outline or ghost: both of those render with no fill,
 				    and outline additionally switches to mono, which reads as
 				    stray text under a heading-font primary rather than as a
-				    second button. dark is the same treatment as solid in
+				    second button. light is the same treatment as solid in
 				    ink-on-paper instead of the brand accent. */}
 				<Link
 					to="/my-calls"
 					onClick={closeModal}
 					className={button({
-						variant: "dark",
+						variant: "light",
 						size: "lg",
 						fullWidth: true,
 					})}

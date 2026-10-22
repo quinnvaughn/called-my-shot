@@ -260,7 +260,7 @@ export function ProjectedStandings({
 					</VStack>
 					{canRebalance ? (
 						<Button
-							variant="dark"
+							variant="light"
 							size="sm"
 							onClick={() => setDraft(new Map())}
 						>

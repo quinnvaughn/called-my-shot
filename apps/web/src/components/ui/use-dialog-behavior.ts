@@ -22,10 +22,14 @@ export function useDialogBehavior(
 		const lastFocused = document.activeElement as HTMLElement | null
 		document.body.style.overflow = "hidden"
 
-		const focusTarget =
-			containerRef.current?.querySelector<HTMLElement>(FOCUSABLE_SELECTOR) ??
-			containerRef.current
-		focusTarget?.focus()
+		// A field that took focus on mount (autoFocus) keeps it; moving it to
+		// the first focusable would blur the field, which validates it.
+		const container = containerRef.current
+		if (!container?.contains(document.activeElement)) {
+			const focusTarget =
+				container?.querySelector<HTMLElement>(FOCUSABLE_SELECTOR) ?? container
+			focusTarget?.focus()
+		}
 
 		function onKeyDown(event: KeyboardEvent) {
 			if (event.key === "Escape") dismissRef.current()

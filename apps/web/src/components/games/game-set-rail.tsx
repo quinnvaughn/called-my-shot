@@ -205,7 +205,7 @@ export function GameSetRail({
 							source: openPicks > 0 ? "game_picks" : "game",
 						}}
 						className={button({
-							variant: "dark",
+							variant: "light",
 							size: "sm",
 							fullWidth: true,
 						})}

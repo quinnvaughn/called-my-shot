@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query"
-import { BsGrid3X3GapFill } from "react-icons/bs"
 import { FiPlus } from "react-icons/fi"
 import { GoHomeFill } from "react-icons/go"
+import { IoGameController } from "react-icons/io5"
 import { css } from "styled-system/css"
 import { NewGroupModal } from "#/components/groups/new-group-modal"
 import { GroupLogo } from "#/components/ui/group-logo"
@@ -70,7 +70,7 @@ export function SpaceRail({
 			</RailTile>
 			<RailTile to="/play" label="Play" active={space.kind === "play"}>
 				<span className={railGlyph}>
-					<BsGrid3X3GapFill size={16} />
+					<IoGameController size={16} />
 				</span>
 			</RailTile>
 
