@@ -70,22 +70,3 @@ export function takeGuestSeasonGame(): GuestSeasonGame | null {
 	write(null)
 	return game && game.guesses.length > 0 ? game : null
 }
-
-// The group invite a shared result link carried (?invite=CODE), so the
-// "Join this group" step can offer it once the visitor has played. Session
-// storage: it belongs to the visit the link opened.
-const INVITE_KEY = "cms.seasonPuzzle.invite"
-
-export function rememberSeasonInvite(code: string) {
-	try {
-		window.sessionStorage.setItem(INVITE_KEY, code)
-	} catch {}
-}
-
-export function readSeasonInvite(): string | null {
-	try {
-		return window.sessionStorage.getItem(INVITE_KEY)
-	} catch {
-		return null
-	}
-}

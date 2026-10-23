@@ -1,9 +1,9 @@
 import { css } from "styled-system/css"
 import { match } from "ts-pattern"
+import { ArcadeSpaceColumn } from "./arcade-space-column"
 import { GroupSpaceColumn } from "./group-space-column"
 import { HomeSpaceColumn } from "./home-space-column"
 import { LeagueSpaceColumn } from "./league-space-column"
-import { PlaySpaceColumn } from "./play-space-column"
 import { SidebarToggle } from "./sidebar-toggle"
 import { SocialLinks } from "./social-links"
 import type { Space } from "./space"
@@ -105,7 +105,7 @@ export function SpaceColumn({ me, space }: { me: Me; space: Space }) {
 					>
 						<nav aria-label="Sections">
 							{match(space)
-								.with({ kind: "play" }, () => <PlaySpaceColumn />)
+								.with({ kind: "arcade" }, () => <ArcadeSpaceColumn />)
 								.with({ kind: "league" }, ({ league }) => (
 									<LeagueSpaceColumn league={league} />
 								))

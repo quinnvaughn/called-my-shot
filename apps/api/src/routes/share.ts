@@ -4,6 +4,10 @@ import {
 	loadBallotShareCardData,
 } from "../lib/share-cards/ballot-card"
 import {
+	buildBlindRankCard,
+	loadBlindRankCardData,
+} from "../lib/share-cards/blind-rank-card"
+import {
 	buildCallShareCard,
 	loadCallShareCardData,
 } from "../lib/share-cards/call-card"
@@ -220,6 +224,22 @@ export function registerShareRoutes(app: Express) {
 				typeof req.query.by === "string" ? req.query.by : undefined,
 			),
 			buildSeasonPuzzleCard,
+			SHARE_CARD_SIZE,
+		)
+	})
+
+	// The og:image behind /play/blind-rank/:date/:result. The prompt and the
+	// squares on the day; who was first once it's over. ?by= names the player
+	// when it's really their result.
+	app.get("/share/blind-rank/:date/:result.png", async (req, res) => {
+		await serveCard(
+			res,
+			await loadBlindRankCardData(
+				req.params.date,
+				req.params.result,
+				typeof req.query.by === "string" ? req.query.by : undefined,
+			),
+			buildBlindRankCard,
 			SHARE_CARD_SIZE,
 		)
 	})

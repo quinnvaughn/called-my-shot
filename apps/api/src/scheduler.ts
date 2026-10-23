@@ -10,6 +10,8 @@ import { syncGameStarters } from "./db/sync/sync-game-starters"
 import { syncLiveReadings } from "./db/sync/sync-live-readings"
 import { syncLiveScores } from "./db/sync/sync-live-scores"
 import { drainAnalyticsOutbox } from "./lib/analytics-outbox"
+import { archiveFinishedRankData } from "./lib/blind-rank/rank-archive"
+import { fillRankSchedule } from "./lib/blind-rank/schedule"
 import { drainChainRecomputes } from "./lib/chains/drain"
 import { drainResolutionDigests, SETTLE_MINUTES } from "./lib/email-digest"
 import { tuneBands } from "./lib/game-questions/tune-bands"
@@ -19,6 +21,7 @@ import { tuneTitleLosses } from "./lib/game-questions/tune-title-losses"
 import { drainGameReminders } from "./lib/game-reminders"
 import { generateGroupRecaps } from "./lib/group-recap/generate"
 import {
+	ARCHIVE_RANK_LOCK,
 	ARCHIVE_SEASONS_LOCK,
 	AUTO_RESOLVE_CHAMPIONSHIPS_LOCK,
 	AUTO_RESOLVE_GAMES_LOCK,
@@ -31,6 +34,7 @@ import {
 	DRAIN_SEASON_START_LOCK,
 	DRAIN_UPDATE_EMAILS_LOCK,
 	ENQUEUE_SEASON_START_LOCK,
+	FILL_RANK_SCHEDULE_LOCK,
 	FILL_SEASON_SCHEDULE_LOCK,
 	GENERATE_GAME_QUESTIONS_LOCK,
 	GENERATE_GROUP_RECAPS_LOCK,
@@ -322,6 +326,8 @@ export const JOBS: ScheduledJob[] = [
 			GENERATE_GROUP_RECAPS_LOCK,
 			ARCHIVE_SEASONS_LOCK,
 			FILL_SEASON_SCHEDULE_LOCK,
+			ARCHIVE_RANK_LOCK,
+			FILL_RANK_SCHEDULE_LOCK,
 			LOCK_OVERDUE_QUESTIONS_LOCK,
 			SYNC_GAME_STARTERS_LOCK,
 			GENERATE_GAME_QUESTIONS_LOCK,
@@ -356,6 +362,11 @@ export const JOBS: ScheduledJob[] = [
 			// postseason is over, then keeps the next two weeks scheduled.
 			await runJob(ARCHIVE_SEASONS_LOCK, () => archiveFinishedSeasons())()
 			await runJob(FILL_SEASON_SCHEDULE_LOCK, () => fillSeasonSchedule())()
+			// Blind Rank's pools draw on that archive's seasons, so they come
+			// after it: the newest season's leaders and careers, then the next
+			// two weeks.
+			await runJob(ARCHIVE_RANK_LOCK, () => archiveFinishedRankData())()
+			await runJob(FILL_RANK_SCHEDULE_LOCK, () => fillRankSchedule())()
 			await runJob(LOCK_OVERDUE_QUESTIONS_LOCK, () => lockOverdueQuestions())()
 			await syncStartersTick()
 			await refreshWorkCalendar()

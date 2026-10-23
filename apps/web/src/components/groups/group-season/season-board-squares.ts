@@ -1,4 +1,4 @@
-import type { SeasonOutcome } from "#/components/play/name-that-season/season-result"
+import type { SeasonOutcome } from "#/components/arcade/name-that-season/season-result"
 
 export type SeasonBoardStatus = "SOLVED" | "MISSED" | "PLAYING" | "NOT_PLAYED"
 

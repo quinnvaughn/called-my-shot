@@ -1,6 +1,6 @@
 import { db } from "../../../db"
 import type { Team, TeamSeason } from "../../../db/schema"
-import { nextSeasonPuzzleAt } from "../../../lib/season-puzzles/day"
+import { nextArcadeDayAt } from "../../../lib/arcade/day"
 import {
 	type LoadedSeasonPuzzle,
 	type SeasonPlayView,
@@ -166,7 +166,7 @@ export const SeasonPuzzleRef = builder
 			}),
 			nextPuzzleAt: t.field({
 				type: "DateTime",
-				resolve: () => nextSeasonPuzzleAt(new Date()),
+				resolve: () => nextArcadeDayAt(new Date()),
 			}),
 		}),
 	})

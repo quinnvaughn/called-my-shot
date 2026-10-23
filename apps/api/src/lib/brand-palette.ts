@@ -28,4 +28,6 @@ export const COLOR = {
 	dangerSubtle: "#2E1616", // danger.subtle
 	// Name That Season's own color, on its card, result and share image.
 	season: "#4F46E5", // season.default
+	// Blind Rank's own color.
+	rank: "#C026D3", // rank.default
 }

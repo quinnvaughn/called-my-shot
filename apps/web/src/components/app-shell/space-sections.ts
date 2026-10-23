@@ -16,7 +16,7 @@ import { GoHomeFill } from "react-icons/go"
 import { IoGameController } from "react-icons/io5"
 import type { IconType } from "react-icons/lib"
 import { match } from "ts-pattern"
-import { PLAY_GAMES } from "#/lib/play-games"
+import { ARCADE_GAMES } from "#/lib/arcade-games"
 import type { Space } from "./space"
 
 // One place a space can send you. The side column lists these on desktop and
@@ -30,7 +30,7 @@ export type SpaceSection = {
 	// the search count toward the link being lit.
 	search?: Record<string, string>
 	// Lit on this exact path only, for a section with sections of its own
-	// under it (Play's Today above each game).
+	// under it (Arcade's Today above each game).
 	exact?: boolean
 	badge?: number
 }
@@ -58,12 +58,12 @@ export function resourceSections(signedIn: boolean): SpaceSection[] {
 	]
 }
 
-export const playSections: SpaceSection[] = [
-	{ label: "Today", icon: FiCalendar, to: "/play", exact: true },
-	...PLAY_GAMES.map((game) => ({
+export const arcadeSections: SpaceSection[] = [
+	{ label: "Today", icon: FiCalendar, to: "/arcade", exact: true },
+	...ARCADE_GAMES.map((game) => ({
 		label: game.name,
 		icon: game.icon,
-		to: `/play/${game.slug}`,
+		to: `/arcade/${game.slug}`,
 	})),
 ]
 
@@ -111,9 +111,9 @@ export function groupSections(
 			to: `/groups/${groupId}/record-book`,
 		},
 		{
-			label: "Daily",
+			label: "Arcade",
 			icon: IoGameController,
-			to: `/groups/${groupId}/daily`,
+			to: `/groups/${groupId}/arcade`,
 		},
 		...(shell?.viewerIsMember
 			? [
@@ -134,7 +134,7 @@ export function spaceTabSections(space: Space): SpaceSection[] {
 		match(space)
 			.with({ kind: "home" }, () => homeSections)
 			.with({ kind: "you" }, () => youSections)
-			.with({ kind: "play" }, () => playSections)
+			.with({ kind: "arcade" }, () => arcadeSections)
 			// Leagues and groups draw their own tab row under their header.
 			.with(
 				{ kind: "league" },

@@ -39,10 +39,10 @@ export function BottomNav({ me, space }: { me: Me; space: Space }) {
 				active={space.kind === "home"}
 			/>
 			<BottomNavItem
-				to="/play"
-				label="Play"
+				to="/arcade"
+				label="Arcade"
 				icon={IoGameController}
-				active={space.kind === "play"}
+				active={space.kind === "arcade"}
 			/>
 			<BottomNavItem
 				to="/spaces"

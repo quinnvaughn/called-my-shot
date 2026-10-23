@@ -7,8 +7,8 @@
 import { SPORTS_TIME_ZONE, seasonResultLine } from "@called-my-shot/schemas"
 import { DateTime } from "luxon"
 import { db } from "../../db"
+import { arcadeDay, isArcadeDay } from "../arcade/day"
 import { COLOR } from "../brand-palette"
-import { isSeasonPuzzleDay, seasonPuzzleDay } from "../season-puzzles/day"
 import { findSeasonPuzzleForDay, verifiedSharer } from "../season-puzzles/load"
 import {
 	parseSeasonSquaresCode,
@@ -294,10 +294,10 @@ export async function loadSeasonPuzzleCardData(
 	result: string,
 	by?: string,
 ): Promise<SeasonPuzzleCardData | null> {
-	if (!isSeasonPuzzleDay(day)) return null
+	if (!isArcadeDay(day)) return null
 	const outcomes = parseSeasonSquaresCode(result)
 	if (!outcomes) return null
-	const today = seasonPuzzleDay(new Date())
+	const today = arcadeDay(new Date())
 	if (day > today) return null
 	const puzzle = await findSeasonPuzzleForDay(day)
 	if (!puzzle) return null

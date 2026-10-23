@@ -6,11 +6,11 @@ import {
 	type TeamSeason,
 	teamSeasons,
 } from "../../db/schema"
+import { addArcadeDays, arcadeDay } from "../arcade/day"
 import { FILL_SEASON_SCHEDULE_LOCK } from "../job-lock"
 import { runCli } from "../run-cli"
 import { isSeasonLeague } from "./archive-parse"
 import { seasonClues } from "./clues"
-import { addSeasonPuzzleDays, seasonPuzzleDay } from "./day"
 
 // How far ahead the schedule is kept full, so the admin page shows what's
 // coming well before it runs.
@@ -90,9 +90,9 @@ export function planSeasonSchedule(
 	}
 
 	for (let offset = 0; offset < SEASON_SCHEDULE_AHEAD_DAYS; offset++) {
-		const day = addSeasonPuzzleDays(today, offset)
+		const day = addArcadeDays(today, offset)
 		if (byDay.has(day)) continue
-		const yesterday = byDay.get(addSeasonPuzzleDays(day, -1))?.leagueId
+		const yesterday = byDay.get(addArcadeDays(day, -1))?.leagueId
 		const order = [...leagueIds].sort(
 			(a, b) =>
 				Number(a === yesterday) - Number(b === yesterday) ||
@@ -150,15 +150,12 @@ export async function recentSchedule(today: string): Promise<Scheduled[]> {
 		.from(seasonPuzzles)
 		.innerJoin(teamSeasons, eq(teamSeasons.id, seasonPuzzles.teamSeasonId))
 		.where(
-			gte(
-				seasonPuzzles.playDate,
-				addSeasonPuzzleDays(today, -SEASON_TEAM_REST_DAYS),
-			),
+			gte(seasonPuzzles.playDate, addArcadeDays(today, -SEASON_TEAM_REST_DAYS)),
 		)
 }
 
 export async function fillSeasonSchedule(now = new Date()) {
-	const today = seasonPuzzleDay(now)
+	const today = arcadeDay(now)
 	const [scheduled, pool] = await Promise.all([
 		recentSchedule(today),
 		schedulableSeasons(),

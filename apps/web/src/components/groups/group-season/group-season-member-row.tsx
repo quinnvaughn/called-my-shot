@@ -1,9 +1,9 @@
 import { css } from "styled-system/css"
-import { GuessSquares } from "#/components/play/name-that-season/guess-squares"
+import { GuessSquares } from "#/components/arcade/name-that-season/guess-squares"
 import {
 	type SeasonOutcome,
 	seasonSquares,
-} from "#/components/play/name-that-season/season-result"
+} from "#/components/arcade/name-that-season/season-result"
 import { Identity } from "#/components/ui/identity"
 import {
 	type SeasonBoardStatus,

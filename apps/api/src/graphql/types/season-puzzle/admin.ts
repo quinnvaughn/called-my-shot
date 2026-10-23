@@ -1,10 +1,11 @@
-import { eq } from "drizzle-orm"
+import { and, eq } from "drizzle-orm"
 import { db } from "../../../db"
 import {
 	type League,
 	seasonPuzzleResults,
 	seasonPuzzles,
 } from "../../../db/schema"
+import { addArcadeDays, arcadeDay } from "../../../lib/arcade/day"
 import { requireAdmin } from "../../../lib/auth"
 import {
 	AuthenticationError,
@@ -15,11 +16,6 @@ import {
 import { isSeasonLeague } from "../../../lib/season-puzzles/archive-parse"
 import { seasonClues } from "../../../lib/season-puzzles/clues"
 import {
-	addSeasonPuzzleDays,
-	isSeasonPuzzleDay,
-	seasonPuzzleDay,
-} from "../../../lib/season-puzzles/day"
-import {
 	findSeasonPuzzleForDay,
 	type LoadedSeasonPuzzle,
 } from "../../../lib/season-puzzles/load"
@@ -29,8 +25,9 @@ import {
 	schedulableSeasons,
 } from "../../../lib/season-puzzles/schedule"
 import { builder } from "../../builder"
+import { futureArcadeDay } from "../arcade/override-day"
 import { LeagueRef } from "../sports"
-import { TeamSeasonRef } from "./refs"
+import { SeasonPuzzleRef, TeamSeasonRef } from "./refs"
 
 // The longest a clue can be when an admin rewrites one.
 const CLUE_MAX_LENGTH = 200
@@ -103,18 +100,6 @@ const adminEntityErrors = [
 	ValidationError,
 ]
 
-// A day an override can change: a real date, and after today, since today's
-// puzzle is already being played.
-function futureDay(date: string): string {
-	if (!isSeasonPuzzleDay(date)) {
-		throw ValidationError.field("date", "That isn't a date.")
-	}
-	if (date <= seasonPuzzleDay(new Date())) {
-		throw ValidationError.field("date", "Pick a day after today.")
-	}
-	return date
-}
-
 async function puzzleOn(date: string): Promise<LoadedSeasonPuzzle> {
 	const puzzle = await findSeasonPuzzleForDay(date)
 	if (!puzzle) throw new NotFoundError("Nothing is scheduled that day")
@@ -144,9 +129,9 @@ builder.queryFields((t) => ({
 		args: { days: t.arg.int({ required: false }) },
 		resolve: async (_root, args, ctx) => {
 			requireAdmin(ctx)
-			const today = seasonPuzzleDay(new Date())
+			const today = arcadeDay(new Date())
 			const span = Math.min(Math.max(args.days ?? 30, 1), 90)
-			const last = addSeasonPuzzleDays(today, span - 1)
+			const last = addArcadeDays(today, span - 1)
 			const [scheduled, pool, leagueRows] = await Promise.all([
 				db.query.seasonPuzzles.findMany({
 					where: { playDate: { gte: today, lte: last } },
@@ -165,7 +150,7 @@ builder.queryFields((t) => ({
 			}
 			return {
 				days: Array.from({ length: span }, (_, i) => {
-					const date = addSeasonPuzzleDays(today, i)
+					const date = addArcadeDays(today, i)
 					return { date, puzzle: byDay.get(date) ?? null }
 				}),
 				pool: leagueRows
@@ -176,7 +161,50 @@ builder.queryFields((t) => ({
 	}),
 }))
 
+builder.queryFields((t) => ({
+	// Any scheduled day's puzzle as players get it, for an admin to play as
+	// practice through seasonPuzzleGuestPlay. Nothing played that way is
+	// saved.
+	adminSeasonPuzzle: t.field({
+		type: SeasonPuzzleRef,
+		errors: {
+			types: adminEntityErrors,
+			directResult: true,
+			union: { name: "AdminSeasonPuzzleResult" },
+		},
+		args: { date: t.arg.string({ required: true }) },
+		resolve: async (_root, args, ctx) => {
+			requireAdmin(ctx)
+			return puzzleOn(args.date)
+		},
+	}),
+}))
+
 builder.mutationFields((t) => ({
+	// Deletes the admin's own game on today's puzzle, so they can play it
+	// again signed in.
+	resetMySeasonPlay: t.field({
+		type: SeasonPuzzleRef,
+		errors: {
+			types: adminEntityErrors,
+			directResult: true,
+			union: { name: "ResetMySeasonPlayResult" },
+		},
+		resolve: async (_root, _args, ctx) => {
+			const user = requireAdmin(ctx)
+			const puzzle = await puzzleOn(arcadeDay(new Date()))
+			await db
+				.delete(seasonPuzzleResults)
+				.where(
+					and(
+						eq(seasonPuzzleResults.puzzleId, puzzle.id),
+						eq(seasonPuzzleResults.userId, user.id),
+					),
+				)
+			return puzzle
+		},
+	}),
+
 	// A random season in place of a day's, from the same league, or from
 	// `leagueId` when given. Fills an empty day too.
 	rerollSeasonPuzzle: t.field({
@@ -192,14 +220,14 @@ builder.mutationFields((t) => ({
 		},
 		resolve: async (_root, args, ctx) => {
 			requireAdmin(ctx)
-			const date = futureDay(args.date)
+			const date = futureArcadeDay(args.date)
 			const current = await findSeasonPuzzleForDay(date)
 			const leagueId = args.leagueId
 				? String(args.leagueId)
 				: current?.teamSeason.leagueId
 			const [pool, recent] = await Promise.all([
 				schedulableSeasons(leagueId),
-				recentSchedule(seasonPuzzleDay(new Date())),
+				recentSchedule(arcadeDay(new Date())),
 			])
 			const pick = pickSeason(
 				[...pool.values()].map(({ season }) => ({
@@ -237,7 +265,7 @@ builder.mutationFields((t) => ({
 		},
 		resolve: async (_root, args, ctx) => {
 			requireAdmin(ctx)
-			const date = futureDay(args.date)
+			const date = futureArcadeDay(args.date)
 			const season = await db.query.teamSeasons.findFirst({
 				where: { teamId: String(args.teamId), year: args.year },
 				with: { league: true },
@@ -282,7 +310,7 @@ builder.mutationFields((t) => ({
 		resolve: async (_root, args, ctx) => {
 			requireAdmin(ctx)
 			const current = await puzzleOn(args.date)
-			if (current.playDate < seasonPuzzleDay(new Date())) {
+			if (current.playDate < arcadeDay(new Date())) {
 				throw ValidationError.field("date", "That day is over.")
 			}
 			const clues = args.clues.map((c) => c.trim())
@@ -322,8 +350,8 @@ builder.mutationFields((t) => ({
 		},
 		resolve: async (_root, args, ctx) => {
 			requireAdmin(ctx)
-			const date = futureDay(args.date)
-			const otherDate = futureDay(args.otherDate)
+			const date = futureArcadeDay(args.date)
+			const otherDate = futureArcadeDay(args.otherDate)
 			const [a, b] = await Promise.all([puzzleOn(date), puzzleOn(otherDate)])
 			await db.transaction(async (tx) => {
 				await tx

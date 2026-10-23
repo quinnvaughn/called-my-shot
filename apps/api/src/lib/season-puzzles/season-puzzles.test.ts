@@ -4,6 +4,7 @@ import type {
 	EspnStandingsGroup,
 	EspnTeamPostseasonEvent,
 } from "../../db/sync/espn-client"
+import { addArcadeDays, arcadeDay, nextArcadeDayAt } from "../arcade/day"
 import {
 	leadersLookComplete,
 	parseArchiveStandings,
@@ -11,7 +12,6 @@ import {
 	seasonLabel,
 } from "./archive-parse"
 import { readableLine, seasonClues } from "./clues"
-import { addSeasonPuzzleDays, nextSeasonPuzzleAt, seasonPuzzleDay } from "./day"
 import {
 	evaluateSeasonGuesses,
 	legalSeasonGuesses,
@@ -167,16 +167,16 @@ describe("parseSeasonSquaresCode", () => {
 
 describe("season puzzle days", () => {
 	it("turns over at midnight Eastern", () => {
-		expect(seasonPuzzleDay(new Date("2026-10-21T03:59:00Z"))).toBe("2026-10-20")
-		expect(seasonPuzzleDay(new Date("2026-10-21T04:00:00Z"))).toBe("2026-10-21")
+		expect(arcadeDay(new Date("2026-10-21T03:59:00Z"))).toBe("2026-10-20")
+		expect(arcadeDay(new Date("2026-10-21T04:00:00Z"))).toBe("2026-10-21")
 		expect(
-			nextSeasonPuzzleAt(new Date("2026-10-20T15:00:00Z")).toISOString(),
+			nextArcadeDayAt(new Date("2026-10-20T15:00:00Z")).toISOString(),
 		).toBe("2026-10-21T04:00:00.000Z")
 	})
 
 	it("steps over the DST change without skipping a day", () => {
-		expect(addSeasonPuzzleDays("2026-10-31", 1)).toBe("2026-11-01")
-		expect(addSeasonPuzzleDays("2026-11-01", 1)).toBe("2026-11-02")
+		expect(addArcadeDays("2026-10-31", 1)).toBe("2026-11-01")
+		expect(addArcadeDays("2026-11-01", 1)).toBe("2026-11-02")
 	})
 })
 

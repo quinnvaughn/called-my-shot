@@ -5,16 +5,13 @@ import {
 	seasonPuzzleResults,
 	teamSeasons,
 } from "../../../db/schema"
+import { arcadeDay, isArcadeDay } from "../../../lib/arcade/day"
 import { requireUser } from "../../../lib/auth"
 import {
 	AuthenticationError,
 	NotFoundError,
 	ValidationError,
 } from "../../../lib/errors"
-import {
-	isSeasonPuzzleDay,
-	seasonPuzzleDay,
-} from "../../../lib/season-puzzles/day"
 import {
 	archivedSeasons,
 	findSeasonPuzzle,
@@ -44,12 +41,14 @@ import {
 } from "./refs"
 
 // Today's puzzle by id, the only one that can be played. Anything else, a
-// puzzle from yesterday included, is over.
+// puzzle from yesterday included, is over. `anyDay` lifts that for an
+// admin's unsaved practice game.
 async function playableSeasonPuzzle(
 	puzzleId: string,
+	{ anyDay = false } = {},
 ): Promise<LoadedSeasonPuzzle> {
 	const puzzle = await findSeasonPuzzle(puzzleId)
-	if (!puzzle || puzzle.playDate !== seasonPuzzleDay(new Date())) {
+	if (!puzzle || (!anyDay && puzzle.playDate !== arcadeDay(new Date()))) {
 		throw new NotFoundError("That puzzle isn't today's")
 	}
 	return puzzle
@@ -87,7 +86,7 @@ builder.queryFields((t) => ({
 		type: SeasonPuzzleRef,
 		nullable: true,
 		resolve: async () => {
-			const today = seasonPuzzleDay(new Date())
+			const today = arcadeDay(new Date())
 			const found = await findSeasonPuzzleForDay(today)
 			if (found) return found
 			try {
@@ -136,7 +135,8 @@ builder.queryFields((t) => ({
 	}),
 
 	// A signed-out player's game, held in their browser. Stateless: the
-	// guesses passed in are checked and evaluated, nothing is stored.
+	// guesses passed in are checked and evaluated, nothing is stored. Admins
+	// can play any day's this way, as practice.
 	seasonPuzzleGuestPlay: t.field({
 		type: SeasonPlayRef,
 		errors: {
@@ -148,8 +148,10 @@ builder.queryFields((t) => ({
 			puzzleId: t.arg.id({ required: true }),
 			guesses: t.arg({ type: [SeasonGuessInputRef], required: true }),
 		},
-		resolve: async (_root, args) => {
-			const puzzle = await playableSeasonPuzzle(String(args.puzzleId))
+		resolve: async (_root, args, ctx) => {
+			const puzzle = await playableSeasonPuzzle(String(args.puzzleId), {
+				anyDay: ctx.user?.isAdmin === true,
+			})
 			const guesses = legalSeasonGuesses(
 				seasonPuzzleAnswer(puzzle),
 				toGuesses(args.guesses),
@@ -166,8 +168,8 @@ builder.queryFields((t) => ({
 		nullable: true,
 		args: { date: t.arg.string({ required: true }) },
 		resolve: async (_root, args) => {
-			if (!isSeasonPuzzleDay(args.date)) return null
-			const today = seasonPuzzleDay(new Date())
+			if (!isArcadeDay(args.date)) return null
+			const today = arcadeDay(new Date())
 			if (args.date > today) return null
 			const puzzle = await findSeasonPuzzleForDay(args.date)
 			if (!puzzle) return null
@@ -183,7 +185,7 @@ builder.queryFields((t) => ({
 			if (!ctx.user) return null
 			return seasonStats(
 				await loadFinishedSeasonGames(ctx.user.id),
-				seasonPuzzleDay(new Date()),
+				arcadeDay(new Date()),
 			)
 		},
 	}),

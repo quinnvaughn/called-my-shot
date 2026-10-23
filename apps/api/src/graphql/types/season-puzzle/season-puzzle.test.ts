@@ -1,10 +1,7 @@
 import { describe, expect, it } from "vitest"
 import { db } from "../../../db"
 import { seasonPuzzles, type TeamSeason, teamSeasons } from "../../../db/schema"
-import {
-	addSeasonPuzzleDays,
-	seasonPuzzleDay,
-} from "../../../lib/season-puzzles/day"
+import { addArcadeDays, arcadeDay } from "../../../lib/arcade/day"
 import {
 	makeAdmin,
 	makeGroup,
@@ -71,7 +68,7 @@ async function archive(
 	return row
 }
 
-async function setup(day = seasonPuzzleDay(new Date())) {
+async function setup(day = arcadeDay(new Date())) {
 	const league = await makeLeague()
 	const answerTeam = await makeTeam({ leagueId: league.id })
 	const wrongTeam = await makeTeam({ leagueId: league.id })
@@ -163,9 +160,7 @@ describe("guessSeason", () => {
 	})
 
 	it("only plays today's puzzle", async () => {
-		const ctx = await setup(
-			addSeasonPuzzleDays(seasonPuzzleDay(new Date()), -1),
-		)
+		const ctx = await setup(addArcadeDays(arcadeDay(new Date()), -1))
 		const data = await expectData<GuessResult>(GUESS, {
 			as: await makeUser(),
 			variables: {
@@ -192,7 +187,7 @@ describe("seasonPuzzleToday", () => {
 		const data = await expectData<{
 			seasonPuzzleToday: { date: string; league: { id: string } } | null
 		}>(TODAY)
-		expect(data.seasonPuzzleToday?.date).toBe(seasonPuzzleDay(new Date()))
+		expect(data.seasonPuzzleToday?.date).toBe(arcadeDay(new Date()))
 		expect(data.seasonPuzzleToday?.league.id).toBe(league.id)
 		const puzzle = await db.query.seasonPuzzles.findFirst({
 			where: { teamSeasonId: season.id },
@@ -271,6 +266,84 @@ describe("seasonPuzzleGuestPlay", () => {
 	})
 })
 
+describe("admin practice", () => {
+	it("plays any day's puzzle unsaved for an admin, and no one else", async () => {
+		const ctx = await setup(addArcadeDays(arcadeDay(new Date()), 3))
+		const admin = await makeAdmin()
+		type Guest = { seasonPuzzleGuestPlay: Play & { __typename: string } }
+		const variables = {
+			puzzleId: ctx.puzzle.id,
+			guesses: [{ teamId: ctx.wrongTeam.id, year: 2008 }],
+		}
+		const refused = await expectData<Guest>(GUEST, {
+			as: await makeUser(),
+			variables,
+		})
+		expect(refused.seasonPuzzleGuestPlay.__typename).toBe("NotFoundError")
+		const practice = await expectData<Guest>(GUEST, { as: admin, variables })
+		expect(practice.seasonPuzzleGuestPlay.clues).toEqual(CLUES.slice(0, 2))
+
+		const PUZZLE = /* GraphQL */ `
+			query Puzzle($date: String!) {
+				adminSeasonPuzzle(date: $date) {
+					__typename
+					... on SeasonPuzzle { id }
+				}
+			}
+		`
+		type Puzzle = { adminSeasonPuzzle: { __typename: string; id?: string } }
+		const date = { date: ctx.puzzle.playDate }
+		const denied = await expectData<Puzzle>(PUZZLE, {
+			as: await makeUser(),
+			variables: date,
+		})
+		expect(denied.adminSeasonPuzzle.__typename).toBe("AuthorizationError")
+		const found = await expectData<Puzzle>(PUZZLE, {
+			as: admin,
+			variables: date,
+		})
+		expect(found.adminSeasonPuzzle.id).toBe(ctx.puzzle.id)
+	})
+
+	it("resets only the admin's own game on today's puzzle", async () => {
+		const ctx = await setup()
+		const admin = await makeAdmin()
+		const player = await makeUser()
+		for (const as of [admin, player]) {
+			await expectData<GuessResult>(GUESS, {
+				as,
+				variables: {
+					puzzleId: ctx.puzzle.id,
+					teamId: ctx.answerTeam.id,
+					year: 2007,
+				},
+			})
+		}
+		const RESET = /* GraphQL */ `
+			mutation Reset {
+				resetMySeasonPlay {
+					__typename
+					... on SeasonPuzzle { viewerPlay { status } }
+				}
+			}
+		`
+		type Reset = {
+			resetMySeasonPlay: {
+				__typename: string
+				viewerPlay?: { status: string } | null
+			}
+		}
+		const denied = await expectData<Reset>(RESET, { as: player })
+		expect(denied.resetMySeasonPlay.__typename).toBe("AuthorizationError")
+		const reset = await expectData<Reset>(RESET, { as: admin })
+		expect(reset.resetMySeasonPlay.viewerPlay?.status).toBe("PLAYING")
+		const rows = await db.query.seasonPuzzleResults.findMany({
+			where: { puzzleId: ctx.puzzle.id },
+		})
+		expect(rows.map((r) => r.userId)).toEqual([player.id])
+	})
+})
+
 const IMPORT = /* GraphQL */ `
 	mutation Import($puzzleId: ID!, $guesses: [SeasonPuzzleGuessInput!]!) {
 		importSeasonGuesses(puzzleId: $puzzleId, guesses: $guesses) {
@@ -315,10 +388,10 @@ const SHARE = /* GraphQL */ `
 
 describe("seasonPuzzleShare", () => {
 	it("hides the answer on the day and shows it after", async () => {
-		const today = seasonPuzzleDay(new Date())
+		const today = arcadeDay(new Date())
 		await setup(today)
-		const past = await setup(addSeasonPuzzleDays(today, -3))
-		const future = addSeasonPuzzleDays(today, 3)
+		const past = await setup(addArcadeDays(today, -3))
+		const future = addArcadeDays(today, 3)
 		await setup(future)
 
 		type Share = {
@@ -428,7 +501,7 @@ describe("admin overrides", () => {
 		const data = await expectData<SetResult>(SET, {
 			as: await makeUser(),
 			variables: {
-				date: addSeasonPuzzleDays(seasonPuzzleDay(new Date()), 5),
+				date: addArcadeDays(arcadeDay(new Date()), 5),
 				teamId: team.id,
 				year: 1999,
 			},
@@ -439,9 +512,9 @@ describe("admin overrides", () => {
 	it("puts a chosen season on a day with fresh clues, and swaps two days", async () => {
 		const admin = await makeAdmin()
 		const team = await archivedTeam()
-		const today = seasonPuzzleDay(new Date())
-		const dayA = addSeasonPuzzleDays(today, 5)
-		const dayB = addSeasonPuzzleDays(today, 6)
+		const today = arcadeDay(new Date())
+		const dayA = addArcadeDays(today, 5)
+		const dayB = addArcadeDays(today, 6)
 		const a = await expectData<SetResult>(SET, {
 			as: admin,
 			variables: { date: dayA, teamId: team.id, year: 1999 },
@@ -466,7 +539,7 @@ describe("admin overrides", () => {
 	it("won't change today, or schedule a season twice", async () => {
 		const admin = await makeAdmin()
 		const team = await archivedTeam()
-		const today = seasonPuzzleDay(new Date())
+		const today = arcadeDay(new Date())
 		const onToday = await expectData<SetResult>(SET, {
 			as: admin,
 			variables: { date: today, teamId: team.id, year: 1999 },
@@ -476,7 +549,7 @@ describe("admin overrides", () => {
 		await expectData(SET, {
 			as: admin,
 			variables: {
-				date: addSeasonPuzzleDays(today, 2),
+				date: addArcadeDays(today, 2),
 				teamId: team.id,
 				year: 1999,
 			},
@@ -484,7 +557,7 @@ describe("admin overrides", () => {
 		const twice = await expectData<SetResult>(SET, {
 			as: admin,
 			variables: {
-				date: addSeasonPuzzleDays(today, 3),
+				date: addArcadeDays(today, 3),
 				teamId: team.id,
 				year: 1999,
 			},
@@ -519,8 +592,8 @@ const BOARD = /* GraphQL */ `
 		group(id: $groupId) {
 			seasonPuzzleBoard {
 				today { user { id } status squares }
-				week { user { id } points played }
 			}
+			arcadeWeek { user { id } points played }
 		}
 	}
 `
@@ -529,8 +602,10 @@ type BoardResult = {
 	group: {
 		seasonPuzzleBoard: {
 			today: { user: { id: string }; status: string; squares: string[] }[]
-			week: { user: { id: string }; points: number; played: number }[]
 		} | null
+		arcadeWeek:
+			| { user: { id: string }; points: number; played: number }[]
+			| null
 	} | null
 }
 
@@ -561,7 +636,7 @@ describe("Group.seasonPuzzleBoard", () => {
 			[admin.id, "SOLVED", ["CLOSE", "HIT"]],
 			[idle.id, "NOT_PLAYED", []],
 		])
-		expect(board?.week[0]).toEqual({
+		expect(data.group?.arcadeWeek?.[0]).toEqual({
 			user: { id: member.id },
 			points: 6,
 			played: 1,

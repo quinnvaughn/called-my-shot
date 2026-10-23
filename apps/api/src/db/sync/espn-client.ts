@@ -747,7 +747,9 @@ async function fetchTeamLeaders(
 	)
 }
 
-export type EspnCoreAthlete = { displayName: string }
+// The athlete as of one season when fetched through a season's $ref, which
+// is when `team` is the team they played for that season.
+export type EspnCoreAthlete = { displayName: string; team?: { $ref: string } }
 
 // An athlete by the core API $ref a leader carries. They come as http://
 // links, which are fetched over https.
@@ -759,6 +761,44 @@ async function fetchCoreAthlete(ref: string): Promise<EspnCoreAthlete | null> {
 	if (res.status === 404) return null
 	if (!res.ok) throw new EspnRequestError(url, res.status)
 	return res.json() as Promise<EspnCoreAthlete>
+}
+
+// A league's top players in each stat for one regular season, best first.
+// Each leader's athlete is a $ref into that season, which is also how a
+// stand-in answer is caught: asked for a year it has nothing for, ESPN
+// answers with a later season's.
+export type EspnSeasonLeaders = {
+	categories: {
+		name: string
+		leaders: { value: number; athlete?: { $ref: string } }[]
+	}[]
+}
+
+async function fetchSeasonLeaders(
+	sportPath: EspnSportPath,
+	year: number,
+	limit: number,
+): Promise<EspnSeasonLeaders | null> {
+	return coreEspnGetOrNotFound<EspnSeasonLeaders>(
+		`${toLeaguesPath(sportPath)}/seasons/${year}/types/2/leaders?limit=${limit}`,
+	)
+}
+
+// A player's regular-season career totals, grouped the way ESPN groups them
+// ("passing", "offensive").
+export type EspnAthleteCareer = {
+	splits?: {
+		categories: { name: string; stats: { name: string; value?: number }[] }[]
+	}
+}
+
+async function fetchAthleteCareer(
+	sportPath: EspnSportPath,
+	espnAthleteId: string,
+): Promise<EspnAthleteCareer | null> {
+	return coreEspnGetOrNotFound<EspnAthleteCareer>(
+		`${toLeaguesPath(sportPath)}/athletes/${espnAthleteId}/statistics`,
+	)
 }
 
 // A finished postseason game from one team's schedule. Empty for a team
@@ -822,6 +862,8 @@ export const defaultEspnClient = {
 	fetchTeamLeaders,
 	fetchCoreAthlete,
 	fetchTeamPostseason,
+	fetchSeasonLeaders,
+	fetchAthleteCareer,
 }
 
 export type EspnClient = typeof defaultEspnClient

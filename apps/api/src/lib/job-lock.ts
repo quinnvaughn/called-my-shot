@@ -97,6 +97,7 @@ export async function withJobLock(
 export const AUTO_RESOLVE_CHAMPIONSHIPS_LOCK = "auto-resolve-championships"
 export const AUTO_RESOLVE_GAMES_LOCK = "auto-resolve-games"
 export const AUTO_RESOLVE_SEASONS_LOCK = "auto-resolve-seasons"
+export const ARCHIVE_RANK_LOCK = "archive-rank"
 export const ARCHIVE_SEASONS_LOCK = "archive-seasons"
 // Held by the box score backfill and by the went-final sweep, so a hand-run
 // backfill and a tick can't both be fetching the same games. Deliberately not
@@ -112,6 +113,7 @@ export const DRAIN_PUSH_LOCK = "drain-push-outbox"
 export const DRAIN_SEASON_START_LOCK = "drain-season-start-emails"
 export const DRAIN_UPDATE_EMAILS_LOCK = "drain-update-emails"
 export const ENQUEUE_SEASON_START_LOCK = "enqueue-season-start-emails"
+export const FILL_RANK_SCHEDULE_LOCK = "fill-rank-schedule"
 export const FILL_SEASON_SCHEDULE_LOCK = "fill-season-schedule"
 export const GENERATE_GAME_QUESTIONS_LOCK = "generate-game-questions"
 export const GENERATE_GROUP_RECAPS_LOCK = "generate-group-recaps"

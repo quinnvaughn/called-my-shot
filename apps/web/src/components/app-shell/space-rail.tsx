@@ -18,7 +18,7 @@ const divider = css({
 	marginBlock: "1",
 })
 
-// The column of spaces down the left edge, md up: Home and Play, every
+// The column of spaces down the left edge, md up: Home and Arcade, every
 // league, then the viewer's groups. Picking one fills the side column beside
 // it with that space's sections.
 export function SpaceRail({
@@ -68,7 +68,7 @@ export function SpaceRail({
 					<GoHomeFill size={18} />
 				</span>
 			</RailTile>
-			<RailTile to="/play" label="Play" active={space.kind === "play"}>
+			<RailTile to="/arcade" label="Arcade" active={space.kind === "arcade"}>
 				<span className={railGlyph}>
 					<IoGameController size={16} />
 				</span>

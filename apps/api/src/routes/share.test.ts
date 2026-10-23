@@ -4,7 +4,7 @@ import express from "express"
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest"
 import { db } from "../db"
 import { seasonPuzzles, teamSeasons } from "../db/schema"
-import { addSeasonPuzzleDays, seasonPuzzleDay } from "../lib/season-puzzles/day"
+import { addArcadeDays, arcadeDay } from "../lib/arcade/day"
 import { loadSeasonPuzzleCardData } from "../lib/share-cards/season-puzzle-card"
 import {
 	makeTeam,
@@ -72,8 +72,8 @@ describe("share routes", () => {
 
 	it("renders a Name That Season result, keeping the season off it until the day is over", async () => {
 		const team = await makeTeam()
-		const today = seasonPuzzleDay(new Date())
-		const yesterday = addSeasonPuzzleDays(today, -1)
+		const today = arcadeDay(new Date())
+		const yesterday = addArcadeDays(today, -1)
 		for (const [year, playDate] of [
 			[1995, today],
 			[1996, yesterday],
@@ -111,7 +111,7 @@ describe("share routes", () => {
 		expect(
 			(await loadSeasonPuzzleCardData(yesterday, "ryyg"))?.team?.name,
 		).toBe("1996 Houston Oilers")
-		const future = addSeasonPuzzleDays(today, 1)
+		const future = addArcadeDays(today, 1)
 		expect(
 			(await fetch(`${origin}/share/name-that-season/${future}/g.png`)).status,
 		).toBe(404)

@@ -27,6 +27,7 @@ export type CallSurface =
 // audience card, the nav, or the closing section.
 export type StartGroupSurface =
 	| "season_puzzle"
+	| "blind_rank"
 	| "landing_hero"
 	| "landing_card"
 	| "landing_nav"
@@ -117,7 +118,12 @@ type AnalyticsEvents = {
 	// Google signup came back from one joined with a tap.
 	group_joined: {
 		groupId: string
-		source: "invite_link" | "code_form" | "recap_link" | "season_puzzle"
+		source:
+			| "invite_link"
+			| "code_form"
+			| "recap_link"
+			| "season_puzzle"
+			| "blind_rank"
 		resumedAfterGoogle?: boolean
 	}
 	// Name That Season. `date` is the puzzle's day. A finished game's result is
@@ -143,6 +149,20 @@ type AnalyticsEvents = {
 	// The steps under a finished game, the funnel from playing to an account,
 	// a group and calls.
 	season_next_step_clicked: {
+		step: "sign_up" | "join_group" | "start_group" | "group_board" | "calls"
+	}
+	// Blind Rank. `date` is the puzzle's day. A finished game's result is how
+	// many of the five landed in the right slot.
+	rank_puzzle_started: { date: string; signedIn: boolean }
+	// placement: which of the five this was, 1 to 5.
+	rank_placed: { date: string; placement: number }
+	rank_puzzle_finished: { date: string; result: number; signedIn: boolean }
+	rank_result_shared: {
+		date: string
+		method: "clipboard" | "native" | "x"
+		toGroup: boolean
+	}
+	rank_next_step_clicked: {
 		step: "sign_up" | "join_group" | "start_group" | "group_board" | "calls"
 	}
 	// `surface` separates the header's Invite modal from the inline card small

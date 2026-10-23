@@ -23,6 +23,8 @@ import "./types/chain"
 import "./types/update"
 import "./types/push"
 import "./types/season-puzzle"
+import "./types/blind-rank"
+import "./types/arcade"
 
 builder.queryType({})
 

@@ -45,10 +45,10 @@ describe("resolveSpace", () => {
 		})
 	})
 
-	it("resolves play and its games", () => {
-		expect(resolveSpace("/play", null, leagues)).toEqual({ kind: "play" })
-		expect(resolveSpace("/play/blind-rank/", null, leagues)).toEqual({
-			kind: "play",
+	it("resolves the arcade and its games", () => {
+		expect(resolveSpace("/arcade", null, leagues)).toEqual({ kind: "arcade" })
+		expect(resolveSpace("/arcade/blind-rank/", null, leagues)).toEqual({
+			kind: "arcade",
 		})
 	})
 

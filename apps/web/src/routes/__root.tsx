@@ -11,6 +11,7 @@ import { ModalHost } from "#/components/ui/modal-host"
 import { RouteError } from "#/components/ui/route-error"
 import { ToastHost } from "#/components/ui/toast"
 import { meQuery } from "#/graphql/me/queries"
+import { useImportRankPlacements } from "#/hooks/use-import-rank-placements"
 import { useImportSeasonGuesses } from "#/hooks/use-import-season-guesses"
 import { usePushSync } from "#/hooks/use-push-sync"
 import { useResumeAuthIntent } from "#/hooks/use-resume-auth-intent"
@@ -204,6 +205,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
 	usePushSync(me?.id ?? null)
 	useSubmitGuestPicks(me?.id ?? null)
 	useImportSeasonGuesses(me?.id ?? null)
+	useImportRankPlacements(me?.id ?? null)
 
 	useEffect(() => {
 		initAnalytics()

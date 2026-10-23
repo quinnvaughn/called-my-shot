@@ -1,4 +1,4 @@
-import { addSeasonPuzzleDays } from "./day"
+import { arcadeStreaks } from "../arcade/streaks"
 import { SEASON_PUZZLE_MAX_GUESSES } from "./play"
 
 // One finished game: the day it was for, and how many guesses it took (null
@@ -30,23 +30,10 @@ export function seasonStats(
 		distribution[game.guessCount - 1]++
 	}
 
-	const days = [...new Set(games.map((g) => g.day))].sort()
-	let bestStreak = 0
-	let run = 0
-	let previous: string | null = null
-	for (const day of days) {
-		run = previous && addSeasonPuzzleDays(previous, 1) === day ? run + 1 : 1
-		bestStreak = Math.max(bestStreak, run)
-		previous = day
-	}
-
-	const played = new Set(days)
-	let currentStreak = 0
-	let cursor = played.has(today) ? today : addSeasonPuzzleDays(today, -1)
-	while (played.has(cursor)) {
-		currentStreak++
-		cursor = addSeasonPuzzleDays(cursor, -1)
-	}
+	const { currentStreak, bestStreak } = arcadeStreaks(
+		games.map((g) => g.day),
+		today,
+	)
 
 	return {
 		played: games.length,

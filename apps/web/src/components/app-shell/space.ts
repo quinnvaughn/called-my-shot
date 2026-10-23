@@ -10,7 +10,7 @@ import type { League } from "./types"
 export type Space =
 	| { kind: "home" }
 	| { kind: "you" }
-	| { kind: "play" }
+	| { kind: "arcade" }
 	| { kind: "spaces" }
 	| { kind: "league"; league: League }
 	| { kind: "group"; groupId: string }
@@ -18,7 +18,7 @@ export type Space =
 
 const HOME: Space = { kind: "home" }
 const YOU: Space = { kind: "you" }
-const PLAY: Space = { kind: "play" }
+const ARCADE: Space = { kind: "arcade" }
 const SPACES: Space = { kind: "spaces" }
 const ELSEWHERE: Space = { kind: "elsewhere" }
 
@@ -45,7 +45,7 @@ export function resolveSpace(
 				["challenges", "new"],
 				() => YOU,
 			)
-			.with(["play", ...P.array(P.string)], () => PLAY)
+			.with(["arcade", ...P.array(P.string)], () => ARCADE)
 			.with(["spaces"], () => SPACES)
 			.with(
 				["leagues", P.string, ...P.array(P.string)],

@@ -51,7 +51,7 @@ export class ArchiveIncompleteError extends Error {}
 // read gets a few tries before the season is given up on.
 const ATTEMPTS = 3
 
-async function read<T>(
+export async function read<T>(
 	requester: EspnRequester,
 	label: string,
 	fetcher: () => Promise<T>,

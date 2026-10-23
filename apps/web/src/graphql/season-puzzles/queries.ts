@@ -61,6 +61,28 @@ export const seasonPuzzleTodayQuery = gqlQueryOptions(
 	{},
 )
 
+// Any scheduled day's puzzle, for an admin's practice game. Admins only.
+export const AdminSeasonPuzzleDocument = graphql(`
+	query AdminSeasonPuzzle($date: String!) {
+		adminSeasonPuzzle(date: $date) {
+			__typename
+			... on SeasonPuzzle {
+				id
+				date
+				nextPuzzleAt
+				league {
+					id
+					name
+					abbreviation
+				}
+			}
+		}
+	}
+`)
+
+export const adminSeasonPuzzleQuery = (date: string) =>
+	gqlQueryOptions(AdminSeasonPuzzleDocument, { date })
+
 export const SeasonPuzzleGuestPlayDocument = graphql(`
 	query SeasonPuzzleGuestPlay(
 		$puzzleId: ID!
@@ -160,38 +182,6 @@ export const viewerSeasonPuzzleStatsQuery = gqlQueryOptions(
 	{},
 )
 
-// The viewer's groups with each one's board for today, for the result's
-// "your groups today" and the share row's "send to a group".
-export const SeasonViewerGroupsDocument = graphql(`
-	query SeasonViewerGroups {
-		myGroups {
-			id
-			name
-			logoUrl
-			myInvite {
-				id
-				code
-			}
-			seasonPuzzleBoard {
-				date
-				today {
-					status
-					squares
-					user {
-						id
-						username
-					}
-				}
-			}
-		}
-	}
-`)
-
-export const seasonViewerGroupsQuery = gqlQueryOptions(
-	SeasonViewerGroupsDocument,
-	{},
-)
-
 export const SeasonPuzzleAdminFragment = graphql(`
 	fragment SeasonPuzzleAdmin_puzzle on SeasonPuzzleAdmin {
 		id
@@ -256,16 +246,6 @@ export const GroupSeasonBoardDocument = graphql(`
 						avatarUrl
 					}
 				}
-				week {
-					points
-					played
-					user {
-						id
-						username
-						name
-						avatarUrl
-					}
-				}
 			}
 		}
 	}
@@ -273,33 +253,3 @@ export const GroupSeasonBoardDocument = graphql(`
 
 export const groupSeasonBoardQuery = (groupId: string) =>
 	gqlQueryOptions(GroupSeasonBoardDocument, { groupId })
-
-// Whether anything is open to call right now, for the line under a finished
-// game that points at today's games. Never shown when it would be a dead end.
-export const SeasonOpenCallsDocument = graphql(`
-	query SeasonOpenCalls {
-		leagues {
-			id
-			nextLockAt
-		}
-	}
-`)
-
-export const seasonOpenCallsQuery = gqlQueryOptions(SeasonOpenCallsDocument, {})
-
-// The group a shared result link's invite is for, so the step under a
-// finished game can name it.
-export const SeasonInviteGroupDocument = graphql(`
-	query SeasonInviteGroup($code: String!) {
-		groupPreview(code: $code) {
-			id
-			name
-			logoUrl
-			memberCount
-			viewerIsMember
-		}
-	}
-`)
-
-export const seasonInviteGroupQuery = (code: string) =>
-	gqlQueryOptions(SeasonInviteGroupDocument, { code })

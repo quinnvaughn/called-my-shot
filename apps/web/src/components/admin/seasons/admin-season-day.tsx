@@ -1,13 +1,14 @@
+import { Link } from "@tanstack/react-router"
 import { useState } from "react"
 import { css } from "styled-system/css"
-import { seasonDateLabel } from "#/components/play/name-that-season/season-result"
+import { seasonDateLabel } from "#/components/arcade/name-that-season/season-result"
 import { Tag } from "#/components/ui/tag"
 import { TeamBadge } from "#/components/ui/team-badge"
 import type { SeasonPuzzleAdmin_PuzzleFragment } from "#/graphql/generated/graphql"
 import { AdminSeasonDayEditor } from "./admin-season-day-editor"
 
-// One day of the schedule: the season running then, or a gap, and the
-// overrides for it behind "Change".
+// One day of the schedule: the season running then, or a gap, an unsaved
+// practice game behind "Play", and the overrides for it behind "Change".
 export function AdminSeasonDay({
 	date,
 	isToday,
@@ -73,17 +74,28 @@ export function AdminSeasonDay({
 						Nothing scheduled
 					</Tag>
 				)}
-				<button
-					type="button"
-					onClick={() => setOpen(!open)}
-					className={css({
-						textStyle: "label",
-						color: "fg.muted",
-						cursor: "pointer",
-					})}
-				>
-					{open ? "Close" : "Change"}
-				</button>
+				<span className={css({ display: "flex", gap: "3" })}>
+					{puzzle && (
+						<Link
+							to="/arcade/name-that-season"
+							search={{ practice: date }}
+							className={css({ textStyle: "label", color: "fg.muted" })}
+						>
+							Play
+						</Link>
+					)}
+					<button
+						type="button"
+						onClick={() => setOpen(!open)}
+						className={css({
+							textStyle: "label",
+							color: "fg.muted",
+							cursor: "pointer",
+						})}
+					>
+						{open ? "Close" : "Change"}
+					</button>
+				</span>
 			</div>
 			{open && (
 				<AdminSeasonDayEditor

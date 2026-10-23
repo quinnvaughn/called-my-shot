@@ -23,6 +23,7 @@ const NAV_ITEMS = [
 	{ to: "/admin/gifs", label: "Gifs" },
 	{ to: "/admin/updates", label: "Updates" },
 	{ to: "/admin/seasons", label: "Name That Season" },
+	{ to: "/admin/blind-rank", label: "Blind Rank" },
 	{ to: "/admin/data", label: "Data" },
 ] as const
 

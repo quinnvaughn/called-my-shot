@@ -15,6 +15,7 @@ export type ShareCampaign =
 	| "challenge"
 	| "challenge_receipt"
 	| "name_that_season"
+	| "blind_rank"
 
 export type ShareMethod = "clipboard" | "native" | "x"
 

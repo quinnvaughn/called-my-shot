@@ -55,7 +55,7 @@ const TAB_ITEMS = [
 	{ to: "/groups/$groupId/leaderboard", label: "Leaderboard" },
 	{ to: "/groups/$groupId/chains", label: "Chains" },
 	{ to: "/groups/$groupId/record-book", label: "Record Book" },
-	{ to: "/groups/$groupId/daily", label: "Daily" },
+	{ to: "/groups/$groupId/arcade", label: "Arcade" },
 ] as const
 
 // The rail renders in the app shell, outside this route's component, so it

@@ -14,7 +14,6 @@ import {
 } from "#/components/groups/created-questions-tab"
 import { GroupBallotsStrip } from "#/components/groups/group-ballots-strip"
 import { GroupChallengeStrip } from "#/components/groups/group-challenge-strip"
-import { GroupSeasonStrip } from "#/components/groups/group-season/group-season-strip"
 import {
 	GroupGamesStrip,
 	groupLiveGamesQuery,
@@ -22,6 +21,7 @@ import {
 import { GroupPinnedStrip } from "#/components/groups/group-pinned-strip"
 import { GroupPresserStrip } from "#/components/groups/group-presser-strip"
 import { GroupRecapCard } from "#/components/groups/group-recap-card"
+import { GroupSeasonStrip } from "#/components/groups/group-season/group-season-strip"
 import { GroupStillOpen } from "#/components/groups/group-still-open/group-still-open"
 import { GroupWeekRace } from "#/components/groups/group-week-race/group-week-race"
 import {

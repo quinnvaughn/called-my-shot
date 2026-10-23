@@ -1,8 +1,8 @@
 import { useQuery } from "@tanstack/react-query"
 import { Link } from "@tanstack/react-router"
 import { css } from "styled-system/css"
-import { GuessSquares } from "#/components/play/name-that-season/guess-squares"
-import { seasonSquares } from "#/components/play/name-that-season/season-result"
+import { GuessSquares } from "#/components/arcade/name-that-season/guess-squares"
+import { seasonSquares } from "#/components/arcade/name-that-season/season-result"
 import { button } from "#/components/ui/button"
 import { Card } from "#/components/ui/card"
 import { groupSeasonBoardQuery } from "#/graphql/season-puzzles/queries"
@@ -62,7 +62,7 @@ export function GroupSeasonStrip({ groupId }: { groupId: string }) {
 						</div>
 						<div className={css({ display: "flex", gap: "2" })}>
 							<Link
-								to="/groups/$groupId/daily"
+								to="/groups/$groupId/arcade"
 								params={{ groupId }}
 								className={button({ variant: "outline", size: "sm" })}
 							>
@@ -70,7 +70,7 @@ export function GroupSeasonStrip({ groupId }: { groupId: string }) {
 							</Link>
 							{!viewerDone && (
 								<Link
-									to="/play/name-that-season"
+									to="/arcade/name-that-season"
 									className={button({ variant: "solid", size: "sm" })}
 								>
 									Play

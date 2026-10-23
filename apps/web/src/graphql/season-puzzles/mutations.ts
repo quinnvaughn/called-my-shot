@@ -1,11 +1,14 @@
 import type { QueryClient } from "@tanstack/react-query"
+import {
+	ArcadeViewerGroupsDocument,
+	GroupArcadeWeekDocument,
+} from "#/graphql/arcade/queries"
 import { graphql } from "#/graphql/generated"
 import { invalidateOperations } from "#/graphql/query-options"
 import {
 	AdminSeasonScheduleDocument,
 	GroupSeasonBoardDocument,
 	SeasonPuzzleTodayDocument,
-	SeasonViewerGroupsDocument,
 	ViewerSeasonPuzzleStatsDocument,
 } from "./queries"
 
@@ -39,6 +42,15 @@ export const ImportSeasonGuessesDocument = graphql(`
 			... on SeasonPuzzlePlay {
 				status
 			}
+		}
+	}
+`)
+
+// Deletes the admin's own game on today's puzzle.
+export const ResetMySeasonPlayDocument = graphql(`
+	mutation ResetMySeasonPlay {
+		resetMySeasonPlay {
+			__typename
 		}
 	}
 `)
@@ -116,8 +128,9 @@ export function invalidateSeasonPuzzles(queryClient: QueryClient) {
 	return invalidateOperations(queryClient, [
 		SeasonPuzzleTodayDocument,
 		ViewerSeasonPuzzleStatsDocument,
-		SeasonViewerGroupsDocument,
+		ArcadeViewerGroupsDocument,
 		GroupSeasonBoardDocument,
+		GroupArcadeWeekDocument,
 		AdminSeasonScheduleDocument,
 	])
 }

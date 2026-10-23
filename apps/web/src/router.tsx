@@ -88,7 +88,7 @@ declare module "@tanstack/react-router" {
 		// Renders the page without the app shell for a signed-out visitor, for
 		// a page that's someone's first look at the site (the group invite).
 		bareSignedOut?: boolean
-		// A daily game: the page alone in the middle, no side column, tab row
+		// An arcade game: the page alone in the middle, no side column, tab row
 		// or right rail. Signed out, the space rail and bottom nav go too.
 		focus?: boolean
 	}
