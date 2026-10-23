@@ -1,11 +1,11 @@
-// The og:image behind /play/name-that-season/:date/:result: a Name That
-// Season result as squares, the way it's shared in a group chat. On the day
-// it shows nothing that could give the answer away beyond the league
-// everyone plays in: the left panel wears the game's own color, never the
-// team's. Once the day is over it names the season.
+// Name That Season's og:images. A result
+// (/arcade/name-that-season/:date/:result) is squares, the way it's shared
+// in a group chat. On the day it shows nothing that could give the answer
+// away beyond the league everyone plays in: the left panel wears the game's
+// own color, never the team's. Once the day is over it names the season.
+// Today's card (/arcade/name-that-season) is the first clue.
 
-import { SPORTS_TIME_ZONE, seasonResultLine } from "@called-my-shot/schemas"
-import { DateTime } from "luxon"
+import { seasonResultLine } from "@called-my-shot/schemas"
 import { db } from "../../db"
 import { arcadeDay, isArcadeDay } from "../arcade/day"
 import { COLOR } from "../brand-palette"
@@ -16,15 +16,29 @@ import {
 	type SeasonGuessOutcome,
 } from "../season-puzzles/play"
 import { el, image, type SatoriNode } from "../share-image"
-import { brandWordmark } from "./brand-wordmark"
-import { clamp, eyebrow, SHARE_CARD_SIZE } from "./frame"
+import {
+	type ArcadePanel,
+	arcadeCard,
+	arcadeHeadline,
+	arcadeSubline,
+} from "./arcade-frame"
+import { clamp, eyebrow } from "./frame"
 import { logoDataUri } from "./team-logo"
 
 const SQUARE_PX = 92
 const LOGO_PX = 56
 const SEASON_NAME_MAX = 36
 const SHARER_MAX = 24
-const WORDMARK_SCALE = 1.4
+const FIRST_CLUE_MAX = 90
+const TODAY_HEADLINE_PX = 48
+
+// Today's puzzle as /arcade/name-that-season previews it: the first clue,
+// which anyone opening the game sees before guessing anyway.
+export type SeasonTodayCardData = {
+	day: string
+	league: string
+	firstClue: string
+}
 
 export type SeasonPuzzleCardData = {
 	day: string
@@ -107,181 +121,52 @@ function teamLine(team: NonNullable<SeasonPuzzleCardData["team"]>): SatoriNode {
 	])
 }
 
+function panel(day: string, league: string): ArcadePanel {
+	return {
+		color: COLOR.season,
+		title: ["NAME", "THAT", "SEASON"],
+		rule: "Name the team and year from six clues.",
+		day,
+		league,
+	}
+}
+
 export function buildSeasonPuzzleCard(data: SeasonPuzzleCardData): SatoriNode {
-	const dateLabel = DateTime.fromISO(data.day, { zone: SPORTS_TIME_ZONE })
-		.toFormat("LLL d")
-		.toUpperCase()
 	const solved = data.squares.at(-1) === "hit"
 	const result = !solved
 		? "MISSED IT"
 		: data.squares.length === 1
 			? "FIRST GUESS"
 			: `GOT IT IN ${data.squares.length}`
+	return arcadeCard(
+		panel(data.day, data.league),
+		eyebrow(
+			data.sharer
+				? `@${clamp(data.sharer, SHARER_MAX)} played it`
+				: "Which season is this?",
+		),
+		el("div", { display: "flex", flexDirection: "column", gap: "30px" }, [
+			el("div", { display: "flex", gap: "14px" }, squares(data.squares)),
+			el("div", { display: "flex", flexDirection: "column", gap: "10px" }, [
+				arcadeHeadline(result),
+				arcadeSubline(seasonResultLine(solved ? data.squares.length : null)),
+			]),
+			...(data.team ? [teamLine(data.team)] : []),
+		]),
+	)
+}
 
-	return el(
-		"div",
-		{
-			display: "flex",
-			width: `${SHARE_CARD_SIZE.width}px`,
-			height: `${SHARE_CARD_SIZE.height}px`,
-			padding: "14px",
-			backgroundColor: COLOR.paper,
-			fontFamily: "Inter",
-		},
-		[
-			el(
-				"div",
-				{
-					display: "flex",
-					flex: "1",
-					borderRadius: "20px",
-					overflow: "hidden",
-					border: `1px solid ${COLOR.border}`,
-				},
-				[
-					// The game's panel: what game, how it's played, and which day.
-					el(
-						"div",
-						{
-							display: "flex",
-							flexDirection: "column",
-							justifyContent: "space-between",
-							width: "400px",
-							padding: "44px 40px",
-							backgroundColor: COLOR.season,
-							color: COLOR.ink,
-						},
-						[
-							el(
-								"div",
-								{ display: "flex", flexDirection: "column", gap: "22px" },
-								[
-									el(
-										"div",
-										{
-											display: "flex",
-											flexDirection: "column",
-											fontFamily: "Archivo Black",
-											fontSize: "72px",
-											lineHeight: 0.95,
-										},
-										[
-											el("span", { display: "flex" }, "NAME"),
-											el("span", { display: "flex" }, "THAT"),
-											el("span", { display: "flex" }, "SEASON"),
-										],
-									),
-									// The whole rule, for someone who's never played.
-									el(
-										"span",
-										{
-											display: "flex",
-											fontFamily: "Inter",
-											fontWeight: 600,
-											fontSize: "24px",
-											lineHeight: 1.3,
-										},
-										"Name the team and year from six clues.",
-									),
-								],
-							),
-							el(
-								"div",
-								{
-									display: "flex",
-									flexDirection: "column",
-									gap: "6px",
-									fontFamily: "Space Mono",
-									fontWeight: 700,
-									fontSize: "26px",
-									letterSpacing: "1px",
-								},
-								[
-									el("span", { display: "flex" }, dateLabel),
-									el("span", { display: "flex" }, data.league),
-								],
-							),
-						],
-					),
-					// The result.
-					el(
-						"div",
-						{
-							display: "flex",
-							flexDirection: "column",
-							flex: "1",
-							justifyContent: "space-between",
-							padding: "44px 48px",
-							backgroundColor: COLOR.card,
-						},
-						[
-							eyebrow(
-								data.sharer
-									? `@${clamp(data.sharer, SHARER_MAX)} played it`
-									: "Which season is this?",
-							),
-							el(
-								"div",
-								{ display: "flex", flexDirection: "column", gap: "30px" },
-								[
-									el(
-										"div",
-										{ display: "flex", gap: "14px" },
-										squares(data.squares),
-									),
-									el(
-										"div",
-										{ display: "flex", flexDirection: "column", gap: "10px" },
-										[
-											el(
-												"span",
-												{
-													display: "flex",
-													fontFamily: "Archivo Black",
-													fontSize: "64px",
-													color: COLOR.ink,
-												},
-												result,
-											),
-											el(
-												"span",
-												{
-													display: "flex",
-													fontFamily: "Inter",
-													fontWeight: 600,
-													fontSize: "28px",
-													color: COLOR.linen,
-												},
-												seasonResultLine(solved ? data.squares.length : null),
-											),
-										],
-									),
-									...(data.team ? [teamLine(data.team)] : []),
-								],
-							),
-							el(
-								"div",
-								{
-									display: "flex",
-									alignItems: "center",
-									justifyContent: "space-between",
-									fontFamily: "Space Mono",
-									fontSize: "18px",
-									color: COLOR.dim,
-								},
-								[
-									brandWordmark(
-										(n: number) => `${Math.round(n * WORDMARK_SCALE)}px`,
-										WORDMARK_SCALE,
-									),
-									el("span", { display: "flex" }, "calledmyshot.com"),
-								],
-							),
-						],
-					),
-				],
-			),
-		],
+export function buildSeasonTodayCard(data: SeasonTodayCardData): SatoriNode {
+	return arcadeCard(
+		panel(data.day, data.league),
+		eyebrow("Today's season"),
+		el("div", { display: "flex", flexDirection: "column", gap: "30px" }, [
+			el("div", { display: "flex", gap: "14px" }, squares([])),
+			el("div", { display: "flex", flexDirection: "column", gap: "10px" }, [
+				arcadeHeadline("CAN YOU NAME IT?", TODAY_HEADLINE_PX),
+				arcadeSubline(clamp(`Clue 1: ${data.firstClue}`, FIRST_CLUE_MAX)),
+			]),
+		]),
 	)
 }
 
@@ -321,4 +206,19 @@ export async function loadSeasonPuzzleCardData(
 					}
 				: null,
 	}
+}
+
+// Null for a day with no puzzle or one still to come.
+export async function loadSeasonTodayCardData(
+	day: string,
+): Promise<SeasonTodayCardData | null> {
+	if (!isArcadeDay(day) || day > arcadeDay(new Date())) return null
+	const puzzle = await findSeasonPuzzleForDay(day)
+	const firstClue = puzzle?.clues[0]
+	if (!puzzle || !firstClue) return null
+	const league = await db.query.leagues.findFirst({
+		where: { id: puzzle.teamSeason.leagueId },
+	})
+	if (!league) return null
+	return { day, league: league.abbreviation, firstClue }
 }

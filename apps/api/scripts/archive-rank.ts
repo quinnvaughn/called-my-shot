@@ -1,7 +1,7 @@
 import { archiveRankData } from "../src/lib/blind-rank/rank-archive"
 import { ARCHIVE_RANK_LOCK, withJobLock } from "../src/lib/job-lock"
 import { isSeasonLeague } from "../src/lib/season-puzzles/archive-parse"
-import { parseFlags } from "./parse-flags"
+import { parseFlags, spacingFlag } from "./parse-flags"
 
 // Thin CLI over src/lib/blind-rank/rank-archive.ts. Reads every finished
 // season's stat leaders from ESPN, then the career totals of the players who
@@ -9,6 +9,7 @@ import { parseFlags } from "./parse-flags"
 //
 //   pnpm --filter api rank:archive
 //   pnpm --filter api rank:archive -- --league=nba --from=1996 --to=1996
+//   pnpm --filter api rank:archive -- --spacing=0   (no pause between ESPN requests)
 //
 // Interrupting it is safe: a season already archived is skipped, and so is
 // a career already read, so the same command resumes.
@@ -26,7 +27,7 @@ const { ran } = await withJobLock(ARCHIVE_RANK_LOCK, async () => {
 		leagues: leagues?.length ? leagues : undefined,
 		from: Number(flags.from) || undefined,
 		to: Number(flags.to) || undefined,
-		spacingMs: Number(flags.spacing) || undefined,
+		spacingMs: spacingFlag(flags.spacing),
 		log: (line) => console.log(line),
 	})
 	console.log(

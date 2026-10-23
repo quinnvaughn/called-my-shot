@@ -5,7 +5,9 @@ import {
 } from "../lib/share-cards/ballot-card"
 import {
 	buildBlindRankCard,
+	buildBlindRankTodayCard,
 	loadBlindRankCardData,
+	loadBlindRankTodayCardData,
 } from "../lib/share-cards/blind-rank-card"
 import {
 	buildCallShareCard,
@@ -36,7 +38,9 @@ import {
 } from "../lib/share-cards/report-card-card"
 import {
 	buildSeasonPuzzleCard,
+	buildSeasonTodayCard,
 	loadSeasonPuzzleCardData,
+	loadSeasonTodayCardData,
 } from "../lib/share-cards/season-puzzle-card"
 import {
 	buildStreakShareCard,
@@ -211,7 +215,18 @@ export function registerShareRoutes(app: Express) {
 		)
 	})
 
-	// The og:image behind /play/name-that-season/:date/:result. Squares only
+	// The og:image behind /arcade/name-that-season: today's first clue. The
+	// date is in the path so a link pasted yesterday doesn't show today's.
+	app.get("/share/name-that-season/:date.png", async (req, res) => {
+		await serveCard(
+			res,
+			await loadSeasonTodayCardData(req.params.date),
+			buildSeasonTodayCard,
+			SHARE_CARD_SIZE,
+		)
+	})
+
+	// The og:image behind /arcade/name-that-season/:date/:result. Squares only
 	// on the day; the season once the day is over. ?by= names the player when
 	// it's really their result. The page's ?v= flips when
 	// it does, so a pasted link's preview picks up the reveal.
@@ -228,7 +243,18 @@ export function registerShareRoutes(app: Express) {
 		)
 	})
 
-	// The og:image behind /play/blind-rank/:date/:result. The prompt and the
+	// The og:image behind /arcade/blind-rank: today's prompt and the first of
+	// the five.
+	app.get("/share/blind-rank/:date.png", async (req, res) => {
+		await serveCard(
+			res,
+			await loadBlindRankTodayCardData(req.params.date),
+			buildBlindRankTodayCard,
+			SHARE_CARD_SIZE,
+		)
+	})
+
+	// The og:image behind /arcade/blind-rank/:date/:result. The prompt and the
 	// squares on the day; who was first once it's over. ?by= names the player
 	// when it's really their result.
 	app.get("/share/blind-rank/:date/:result.png", async (req, res) => {

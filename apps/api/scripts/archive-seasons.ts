@@ -1,7 +1,7 @@
 import { isSeasonLeague } from "../src/lib/season-puzzles/archive-parse"
 import { archiveSeasons } from "../src/lib/season-puzzles/archive"
 import { ARCHIVE_SEASONS_LOCK, withJobLock } from "../src/lib/job-lock"
-import { parseFlags } from "./parse-flags"
+import { parseFlags, spacingFlag } from "./parse-flags"
 
 // Thin CLI over src/lib/season-puzzles/archive.ts. Reads every finished
 // season from ESPN into team_seasons, Name That Season's answer pool.
@@ -9,6 +9,7 @@ import { parseFlags } from "./parse-flags"
 //   pnpm --filter api seasons:archive
 //   pnpm --filter api seasons:archive -- --league=nfl,nba
 //   pnpm --filter api seasons:archive -- --league=nba --from=1996 --to=1996 --refresh
+//   pnpm --filter api seasons:archive -- --spacing=0   (no pause between ESPN requests)
 //
 // Interrupting it is safe: a season already archived is skipped, so the same
 // command resumes. --refresh rewrites the seasons in range instead.
@@ -28,7 +29,7 @@ const { ran } = await withJobLock(ARCHIVE_SEASONS_LOCK, async () => {
 		from: Number(flags.from) || undefined,
 		to: Number(flags.to) || undefined,
 		refresh: flags.refresh,
-		spacingMs: Number(flags.spacing) || undefined,
+		spacingMs: spacingFlag(flags.spacing),
 		log: (line) => console.log(line),
 	})
 	console.log(

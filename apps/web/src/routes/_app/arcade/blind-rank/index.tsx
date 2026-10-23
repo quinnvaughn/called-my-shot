@@ -6,6 +6,7 @@ import { z } from "zod"
 import { BlindRankGame } from "#/components/arcade/blind-rank/blind-rank-game"
 import { RankPractice } from "#/components/arcade/blind-rank/rank-practice"
 import { RankResetBar } from "#/components/arcade/blind-rank/rank-reset-bar"
+import { seasonDateLabel } from "#/components/arcade/name-that-season/season-result"
 import { EmptyState } from "#/components/ui/empty-state"
 import {
 	adminRankPuzzleQuery,
@@ -31,13 +32,27 @@ export const Route = createFileRoute("/_app/arcade/blind-rank/")({
 		deps.practice
 			? context.queryClient.query(adminRankPuzzleQuery(deps.practice))
 			: context.queryClient.query(rankPuzzleTodayQuery),
-	head: () =>
-		pageMeta({
+	// Today's prompt on the preview, so a link pasted in a chat says what's
+	// being ranked, not just which game.
+	head: ({ loaderData }) => {
+		const puzzle =
+			loaderData && "rankPuzzleToday" in loaderData
+				? loaderData.rankPuzzleToday
+				: null
+		return pageMeta({
 			title: "Blind Rank · Called My Shot",
-			description:
-				"Five things, one at a time. Rank each before you see the next, and you can't move them once they're placed.",
+			description: puzzle
+				? `Today's ranking: ${puzzle.prompt} · ${puzzle.context}. Five of them, one at a time, and you can't move them once they're placed.`
+				: "Five things, one at a time. Rank each before you see the next, and you can't move them once they're placed.",
 			path: "/arcade/blind-rank",
-		}),
+			image: puzzle
+				? {
+						path: `/share/blind-rank/${puzzle.date}/card.png`,
+						alt: `Blind Rank, ${seasonDateLabel(puzzle.date)}: ${puzzle.prompt} · ${puzzle.context}`,
+					}
+				: undefined,
+		})
+	},
 })
 
 function RouteComponent() {

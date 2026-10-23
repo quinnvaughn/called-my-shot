@@ -3,10 +3,11 @@ import type { AddressInfo } from "node:net"
 import express from "express"
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest"
 import { db } from "../db"
-import { seasonPuzzles, teamSeasons } from "../db/schema"
+import { rankPuzzles, seasonPuzzles, teamSeasons } from "../db/schema"
 import { addArcadeDays, arcadeDay } from "../lib/arcade/day"
 import { loadSeasonPuzzleCardData } from "../lib/share-cards/season-puzzle-card"
 import {
+	makeLeague,
 	makeTeam,
 	makeUser,
 	makeUserSeasonStats,
@@ -111,12 +112,43 @@ describe("share routes", () => {
 		expect(
 			(await loadSeasonPuzzleCardData(yesterday, "ryyg"))?.team?.name,
 		).toBe("1996 Houston Oilers")
+		// Today's puzzle, as the game page previews it.
+		await expectPng(`/share/name-that-season/${today}.png`)
 		const future = addArcadeDays(today, 1)
+		expect(
+			(await fetch(`${origin}/share/name-that-season/${future}.png`)).status,
+		).toBe(404)
 		expect(
 			(await fetch(`${origin}/share/name-that-season/${future}/g.png`)).status,
 		).toBe(404)
 		expect(
 			(await fetch(`${origin}/share/name-that-season/${today}/gr.png`)).status,
+		).toBe(404)
+	})
+
+	it("renders Blind Rank's result and today's puzzle, but not a day to come", async () => {
+		const league = await makeLeague()
+		const today = arcadeDay(new Date())
+		await db.insert(rankPuzzles).values({
+			leagueId: league.id,
+			kind: "career_stat",
+			prompt: "Career sacks",
+			context: "NFL",
+			items: [50, 40, 30, 20, 10].map((value) => ({
+				label: `Player ${value}`,
+				sublabel: null,
+				teamId: null,
+				value,
+				display: String(value),
+			})),
+			signature: `share-test:${today}`,
+			playDate: today,
+		})
+		await expectPng(`/share/blind-rank/${today}/grgrg.png`)
+		await expectPng(`/share/blind-rank/${today}.png`)
+		const future = addArcadeDays(today, 1)
+		expect(
+			(await fetch(`${origin}/share/blind-rank/${future}.png`)).status,
 		).toBe(404)
 	})
 

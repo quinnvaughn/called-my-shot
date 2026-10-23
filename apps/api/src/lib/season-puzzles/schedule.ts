@@ -2,6 +2,7 @@ import { and, eq, gte, notInArray } from "drizzle-orm"
 import { db } from "../../db"
 import {
 	leagues,
+	seasonPuzzleResults,
 	seasonPuzzles,
 	type TeamSeason,
 	teamSeasons,
@@ -180,9 +181,34 @@ export async function fillSeasonSchedule(now = new Date()) {
 	return { scheduled: plan.length }
 }
 
+// Unschedules every day from today on that nobody has played, so the next
+// fill picks them again from the archive as it is now: for a schedule made
+// while the archive was still being backfilled.
+export async function clearUnplayedSeasonSchedule(now = new Date()) {
+	const played = db
+		.selectDistinct({ id: seasonPuzzleResults.puzzleId })
+		.from(seasonPuzzleResults)
+	const cleared = await db
+		.delete(seasonPuzzles)
+		.where(
+			and(
+				gte(seasonPuzzles.playDate, arcadeDay(now)),
+				notInArray(seasonPuzzles.id, played),
+			),
+		)
+		.returning({ id: seasonPuzzles.id })
+	return { cleared: cleared.length }
+}
+
+//   pnpm seasons:schedule              fills the empty days
+//   pnpm seasons:schedule -- --reset   clears the unplayed days first
 runCli(
 	import.meta.url,
 	async () => {
+		if (process.argv.includes("--reset")) {
+			const { cleared } = await clearUnplayedSeasonSchedule()
+			console.log(`Cleared ${cleared} unplayed Name That Season days.`)
+		}
 		const { scheduled } = await fillSeasonSchedule()
 		console.log(`Scheduled ${scheduled} Name That Season puzzles.`)
 	},

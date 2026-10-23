@@ -94,8 +94,10 @@ import { Route as AdminDataLeagueIdIndexRouteImport } from './routes/admin/data/
 import { Route as AdminDataLeagueIdGamesRouteImport } from './routes/admin/data/$leagueId/games'
 import { Route as AdminDataLeagueIdPlayersRouteImport } from './routes/admin/data/$leagueId/players'
 import { Route as AdminDataLeagueIdTeamsRouteImport } from './routes/admin/data/$leagueId/teams'
+import { Route as ShareBlindRankDateCardDotpngRouteImport } from './routes/share/blind-rank/$date/card[.]png'
 import { Route as ShareCallsCallIdCardDotpngRouteImport } from './routes/share/calls/$callId/card[.]png'
 import { Route as ShareChallengesCodeCardDotpngRouteImport } from './routes/share/challenges/$code/card[.]png'
+import { Route as ShareNameThatSeasonDateCardDotpngRouteImport } from './routes/share/name-that-season/$date/card[.]png'
 import { Route as ShareRecapsTokenCardDotpngRouteImport } from './routes/share/recaps/$token/card[.]png'
 import { Route as ShareUsersUsernameCardDotpngRouteImport } from './routes/share/users/$username/card[.]png'
 import { Route as AppAuthedGroupsGroupIdTabsRouteImport } from './routes/_app/_authed/groups/$groupId/_tabs'
@@ -560,6 +562,12 @@ const AdminDataLeagueIdTeamsRoute = AdminDataLeagueIdTeamsRouteImport.update({
   path: '/teams',
   getParentRoute: () => AdminDataLeagueIdRoute,
 } as any)
+const ShareBlindRankDateCardDotpngRoute =
+  ShareBlindRankDateCardDotpngRouteImport.update({
+    id: '/share/blind-rank/$date/card.png',
+    path: '/share/blind-rank/$date/card.png',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ShareCallsCallIdCardDotpngRoute =
   ShareCallsCallIdCardDotpngRouteImport.update({
     id: '/share/calls/$callId/card.png',
@@ -570,6 +578,12 @@ const ShareChallengesCodeCardDotpngRoute =
   ShareChallengesCodeCardDotpngRouteImport.update({
     id: '/share/challenges/$code/card.png',
     path: '/share/challenges/$code/card.png',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ShareNameThatSeasonDateCardDotpngRoute =
+  ShareNameThatSeasonDateCardDotpngRouteImport.update({
+    id: '/share/name-that-season/$date/card.png',
+    path: '/share/name-that-season/$date/card.png',
     getParentRoute: () => rootRouteImport,
   } as any)
 const ShareRecapsTokenCardDotpngRoute =
@@ -819,8 +833,10 @@ export interface FileRoutesByFullPath {
   '/admin/data/$leagueId/games': typeof AdminDataLeagueIdGamesRoute
   '/admin/data/$leagueId/players': typeof AdminDataLeagueIdPlayersRoute
   '/admin/data/$leagueId/teams': typeof AdminDataLeagueIdTeamsRoute
+  '/share/blind-rank/$date/card.png': typeof ShareBlindRankDateCardDotpngRoute
   '/share/calls/$callId/card.png': typeof ShareCallsCallIdCardDotpngRoute
   '/share/challenges/$code/card.png': typeof ShareChallengesCodeCardDotpngRoute
+  '/share/name-that-season/$date/card.png': typeof ShareNameThatSeasonDateCardDotpngRoute
   '/share/recaps/$token/card.png': typeof ShareRecapsTokenCardDotpngRoute
   '/share/users/$username/card.png': typeof ShareUsersUsernameCardDotpngRoute
   '/challenges/': typeof AppAuthedChallengesIndexRoute
@@ -931,8 +947,10 @@ export interface FileRoutesByTo {
   '/admin/data/$leagueId/games': typeof AdminDataLeagueIdGamesRoute
   '/admin/data/$leagueId/players': typeof AdminDataLeagueIdPlayersRoute
   '/admin/data/$leagueId/teams': typeof AdminDataLeagueIdTeamsRoute
+  '/share/blind-rank/$date/card.png': typeof ShareBlindRankDateCardDotpngRoute
   '/share/calls/$callId/card.png': typeof ShareCallsCallIdCardDotpngRoute
   '/share/challenges/$code/card.png': typeof ShareChallengesCodeCardDotpngRoute
+  '/share/name-that-season/$date/card.png': typeof ShareNameThatSeasonDateCardDotpngRoute
   '/share/recaps/$token/card.png': typeof ShareRecapsTokenCardDotpngRoute
   '/share/users/$username/card.png': typeof ShareUsersUsernameCardDotpngRoute
   '/challenges': typeof AppAuthedChallengesIndexRoute
@@ -1048,8 +1066,10 @@ export interface FileRoutesById {
   '/admin/data/$leagueId/games': typeof AdminDataLeagueIdGamesRoute
   '/admin/data/$leagueId/players': typeof AdminDataLeagueIdPlayersRoute
   '/admin/data/$leagueId/teams': typeof AdminDataLeagueIdTeamsRoute
+  '/share/blind-rank/$date/card.png': typeof ShareBlindRankDateCardDotpngRoute
   '/share/calls/$callId/card.png': typeof ShareCallsCallIdCardDotpngRoute
   '/share/challenges/$code/card.png': typeof ShareChallengesCodeCardDotpngRoute
+  '/share/name-that-season/$date/card.png': typeof ShareNameThatSeasonDateCardDotpngRoute
   '/share/recaps/$token/card.png': typeof ShareRecapsTokenCardDotpngRoute
   '/share/users/$username/card.png': typeof ShareUsersUsernameCardDotpngRoute
   '/_app/_authed/challenges/': typeof AppAuthedChallengesIndexRoute
@@ -1165,8 +1185,10 @@ export interface FileRouteTypes {
     | '/admin/data/$leagueId/games'
     | '/admin/data/$leagueId/players'
     | '/admin/data/$leagueId/teams'
+    | '/share/blind-rank/$date/card.png'
     | '/share/calls/$callId/card.png'
     | '/share/challenges/$code/card.png'
+    | '/share/name-that-season/$date/card.png'
     | '/share/recaps/$token/card.png'
     | '/share/users/$username/card.png'
     | '/challenges/'
@@ -1277,8 +1299,10 @@ export interface FileRouteTypes {
     | '/admin/data/$leagueId/games'
     | '/admin/data/$leagueId/players'
     | '/admin/data/$leagueId/teams'
+    | '/share/blind-rank/$date/card.png'
     | '/share/calls/$callId/card.png'
     | '/share/challenges/$code/card.png'
+    | '/share/name-that-season/$date/card.png'
     | '/share/recaps/$token/card.png'
     | '/share/users/$username/card.png'
     | '/challenges'
@@ -1393,8 +1417,10 @@ export interface FileRouteTypes {
     | '/admin/data/$leagueId/games'
     | '/admin/data/$leagueId/players'
     | '/admin/data/$leagueId/teams'
+    | '/share/blind-rank/$date/card.png'
     | '/share/calls/$callId/card.png'
     | '/share/challenges/$code/card.png'
+    | '/share/name-that-season/$date/card.png'
     | '/share/recaps/$token/card.png'
     | '/share/users/$username/card.png'
     | '/_app/_authed/challenges/'
@@ -1448,8 +1474,10 @@ export interface RootRouteChildren {
   UnsubscribeIndexRoute: typeof UnsubscribeIndexRoute
   AuthGoogleCallbackRoute: typeof AuthGoogleCallbackRoute
   AuthGoogleIndexRoute: typeof AuthGoogleIndexRoute
+  ShareBlindRankDateCardDotpngRoute: typeof ShareBlindRankDateCardDotpngRoute
   ShareCallsCallIdCardDotpngRoute: typeof ShareCallsCallIdCardDotpngRoute
   ShareChallengesCodeCardDotpngRoute: typeof ShareChallengesCodeCardDotpngRoute
+  ShareNameThatSeasonDateCardDotpngRoute: typeof ShareNameThatSeasonDateCardDotpngRoute
   ShareRecapsTokenCardDotpngRoute: typeof ShareRecapsTokenCardDotpngRoute
   ShareUsersUsernameCardDotpngRoute: typeof ShareUsersUsernameCardDotpngRoute
   ShareBlindRankDateResultCardDotpngRoute: typeof ShareBlindRankDateResultCardDotpngRoute
@@ -2059,6 +2087,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminDataLeagueIdTeamsRouteImport
       parentRoute: typeof AdminDataLeagueIdRoute
     }
+    '/share/blind-rank/$date/card.png': {
+      id: '/share/blind-rank/$date/card.png'
+      path: '/share/blind-rank/$date/card.png'
+      fullPath: '/share/blind-rank/$date/card.png'
+      preLoaderRoute: typeof ShareBlindRankDateCardDotpngRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/share/calls/$callId/card.png': {
       id: '/share/calls/$callId/card.png'
       path: '/share/calls/$callId/card.png'
@@ -2071,6 +2106,13 @@ declare module '@tanstack/react-router' {
       path: '/share/challenges/$code/card.png'
       fullPath: '/share/challenges/$code/card.png'
       preLoaderRoute: typeof ShareChallengesCodeCardDotpngRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/share/name-that-season/$date/card.png': {
+      id: '/share/name-that-season/$date/card.png'
+      path: '/share/name-that-season/$date/card.png'
+      fullPath: '/share/name-that-season/$date/card.png'
+      preLoaderRoute: typeof ShareNameThatSeasonDateCardDotpngRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/share/recaps/$token/card.png': {
@@ -2532,8 +2574,11 @@ const rootRouteChildren: RootRouteChildren = {
   UnsubscribeIndexRoute: UnsubscribeIndexRoute,
   AuthGoogleCallbackRoute: AuthGoogleCallbackRoute,
   AuthGoogleIndexRoute: AuthGoogleIndexRoute,
+  ShareBlindRankDateCardDotpngRoute: ShareBlindRankDateCardDotpngRoute,
   ShareCallsCallIdCardDotpngRoute: ShareCallsCallIdCardDotpngRoute,
   ShareChallengesCodeCardDotpngRoute: ShareChallengesCodeCardDotpngRoute,
+  ShareNameThatSeasonDateCardDotpngRoute:
+    ShareNameThatSeasonDateCardDotpngRoute,
   ShareRecapsTokenCardDotpngRoute: ShareRecapsTokenCardDotpngRoute,
   ShareUsersUsernameCardDotpngRoute: ShareUsersUsernameCardDotpngRoute,
   ShareBlindRankDateResultCardDotpngRoute:

@@ -6,6 +6,7 @@ import { z } from "zod"
 import { NameThatSeasonGame } from "#/components/arcade/name-that-season/name-that-season-game"
 import { SeasonPractice } from "#/components/arcade/name-that-season/season-practice"
 import { SeasonResetBar } from "#/components/arcade/name-that-season/season-reset-bar"
+import { seasonDateLabel } from "#/components/arcade/name-that-season/season-result"
 import { EmptyState } from "#/components/ui/empty-state"
 import {
 	adminSeasonPuzzleQuery,
@@ -31,13 +32,27 @@ export const Route = createFileRoute("/_app/arcade/name-that-season/")({
 		deps.practice
 			? context.queryClient.query(adminSeasonPuzzleQuery(deps.practice))
 			: context.queryClient.query(seasonPuzzleTodayQuery),
-	head: () =>
-		pageMeta({
+	// Today's league and its first clue on the preview, so a link pasted in a
+	// chat says what today's puzzle is, not just which game.
+	head: ({ loaderData }) => {
+		const puzzle =
+			loaderData && "seasonPuzzleToday" in loaderData
+				? loaderData.seasonPuzzleToday
+				: null
+		return pageMeta({
 			title: "Name That Season · Called My Shot",
-			description:
-				"One team's season a day. Name the team and the year from six clues. Every wrong guess reveals another.",
+			description: puzzle
+				? `Today's puzzle is an ${puzzle.league.abbreviation} season. Name the team and the year from six clues. Every wrong guess reveals another.`
+				: "One team's season a day. Name the team and the year from six clues. Every wrong guess reveals another.",
 			path: "/arcade/name-that-season",
-		}),
+			image: puzzle
+				? {
+						path: `/share/name-that-season/${puzzle.date}/card.png`,
+						alt: `Name That Season, ${seasonDateLabel(puzzle.date)}: today's ${puzzle.league.abbreviation} season and its first clue`,
+					}
+				: undefined,
+		})
+	},
 })
 
 function RouteComponent() {

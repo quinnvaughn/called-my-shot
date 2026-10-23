@@ -1,27 +1,32 @@
-// The og:image behind /play/blind-rank/:date/:result: a Blind Rank result as
-// five squares, one per slot from the top. On the day it shows what was
-// ranked but none of the five; once the day is over it names who was first.
+// Blind Rank's og:images. A result (/arcade/blind-rank/:date/:result) is
+// five squares, one per slot from the top: on the day it shows what was
+// ranked but none of the five, and once the day is over it names who was
+// first. Today's card (/arcade/blind-rank) is the prompt and the first of
+// the five, which anyone opening the game sees first anyway.
 
-import {
-	rankResultHeadline,
-	rankResultLine,
-	SPORTS_TIME_ZONE,
-} from "@called-my-shot/schemas"
-import { DateTime } from "luxon"
+import { rankResultHeadline, rankResultLine } from "@called-my-shot/schemas"
 import { db } from "../../db"
 import { arcadeDay, isArcadeDay } from "../arcade/day"
 import { findRankPuzzleForDay, verifiedRankSharer } from "../blind-rank/load"
 import { parseRankSquaresCode, trueSlotsOf } from "../blind-rank/play"
 import { COLOR } from "../brand-palette"
 import { el, type SatoriNode } from "../share-image"
-import { brandWordmark } from "./brand-wordmark"
-import { clamp, eyebrow, SHARE_CARD_SIZE } from "./frame"
+import {
+	type ArcadePanel,
+	arcadeCard,
+	arcadeHeadline,
+	arcadeSubline,
+	emptySquare,
+} from "./arcade-frame"
+import { clamp, eyebrow } from "./frame"
 
 const SQUARE_PX = 92
 const PROMPT_MAX = 40
 const TOP_MAX = 44
+const FIRST_UP_MAX = 34
 const SHARER_MAX = 24
-const WORDMARK_SCALE = 1.4
+const SLOTS = 5
+const TODAY_HEADLINE_PX = 48
 
 export type BlindRankCardData = {
 	day: string
@@ -33,6 +38,24 @@ export type BlindRankCardData = {
 	sharer: string | null
 	// Only once the day is over: who was first, and their value.
 	top: { label: string; display: string } | null
+}
+
+export type BlindRankTodayCardData = {
+	day: string
+	league: string
+	prompt: string
+	// The first of the five to place.
+	firstUp: string
+}
+
+function panel(day: string, league: string): ArcadePanel {
+	return {
+		color: COLOR.rank,
+		title: ["BLIND", "RANK"],
+		rule: "Rank five, one at a time. No moving them.",
+		day,
+		league,
+	}
 }
 
 function square(right: boolean): SatoriNode {
@@ -51,196 +74,68 @@ function square(right: boolean): SatoriNode {
 	)
 }
 
-export function buildBlindRankCard(data: BlindRankCardData): SatoriNode {
-	const dateLabel = DateTime.fromISO(data.day, { zone: SPORTS_TIME_ZONE })
-		.toFormat("LLL d")
-		.toUpperCase()
-	const correct = data.squares.filter(Boolean).length
+function promptBlock(label: string, prompt: string): SatoriNode {
+	return el("div", { display: "flex", flexDirection: "column", gap: "10px" }, [
+		eyebrow(label),
+		el(
+			"span",
+			{
+				display: "flex",
+				fontFamily: "Inter",
+				fontWeight: 700,
+				fontSize: "30px",
+				color: COLOR.ink,
+			},
+			clamp(prompt, PROMPT_MAX),
+		),
+	])
+}
 
-	return el(
-		"div",
-		{
-			display: "flex",
-			width: `${SHARE_CARD_SIZE.width}px`,
-			height: `${SHARE_CARD_SIZE.height}px`,
-			padding: "14px",
-			backgroundColor: COLOR.paper,
-			fontFamily: "Inter",
-		},
-		[
-			el(
-				"div",
-				{
-					display: "flex",
-					flex: "1",
-					borderRadius: "20px",
-					overflow: "hidden",
-					border: `1px solid ${COLOR.border}`,
-				},
-				[
-					// The game's panel: what game, how it's played, and which day.
-					el(
-						"div",
-						{
-							display: "flex",
-							flexDirection: "column",
-							justifyContent: "space-between",
-							width: "400px",
-							padding: "44px 40px",
-							backgroundColor: COLOR.rank,
-							color: COLOR.ink,
-						},
-						[
-							el(
-								"div",
-								{ display: "flex", flexDirection: "column", gap: "22px" },
-								[
-									el(
-										"div",
-										{
-											display: "flex",
-											flexDirection: "column",
-											fontFamily: "Archivo Black",
-											fontSize: "72px",
-											lineHeight: 0.95,
-										},
-										[
-											el("span", { display: "flex" }, "BLIND"),
-											el("span", { display: "flex" }, "RANK"),
-										],
-									),
-									// The whole rule, for someone who's never played.
-									el(
-										"span",
-										{
-											display: "flex",
-											fontFamily: "Inter",
-											fontWeight: 600,
-											fontSize: "24px",
-											lineHeight: 1.3,
-										},
-										"Rank five, one at a time. No moving them.",
-									),
-								],
-							),
-							el(
-								"div",
-								{
-									display: "flex",
-									flexDirection: "column",
-									gap: "6px",
-									fontFamily: "Space Mono",
-									fontWeight: 700,
-									fontSize: "26px",
-									letterSpacing: "1px",
-								},
-								[
-									el("span", { display: "flex" }, dateLabel),
-									el("span", { display: "flex" }, data.league),
-								],
-							),
-						],
-					),
-					// The result.
-					el(
-						"div",
-						{
-							display: "flex",
-							flexDirection: "column",
-							flex: "1",
-							justifyContent: "space-between",
-							padding: "44px 48px",
-							backgroundColor: COLOR.card,
-						},
-						[
-							el(
-								"div",
-								{ display: "flex", flexDirection: "column", gap: "10px" },
-								[
-									eyebrow(
-										data.sharer
-											? `@${clamp(data.sharer, SHARER_MAX)} played it`
-											: "Rank them",
-									),
-									el(
-										"span",
-										{
-											display: "flex",
-											fontFamily: "Inter",
-											fontWeight: 700,
-											fontSize: "30px",
-											color: COLOR.ink,
-										},
-										clamp(data.prompt, PROMPT_MAX),
-									),
-								],
-							),
-							el(
-								"div",
-								{ display: "flex", flexDirection: "column", gap: "24px" },
-								[
-									el(
-										"div",
-										{ display: "flex", gap: "14px" },
-										data.squares.map(square),
-									),
-									el(
-										"div",
-										{ display: "flex", flexDirection: "column", gap: "8px" },
-										[
-											el(
-												"span",
-												{
-													display: "flex",
-													fontFamily: "Archivo Black",
-													fontSize: "64px",
-													color: COLOR.ink,
-												},
-												rankResultHeadline(correct).toUpperCase(),
-											),
-											el(
-												"span",
-												{
-													display: "flex",
-													fontFamily: "Inter",
-													fontWeight: 600,
-													fontSize: "28px",
-													color: COLOR.linen,
-												},
-												data.top
-													? clamp(
-															`No. 1 was ${data.top.label} (${data.top.display})`,
-															TOP_MAX,
-														)
-													: rankResultLine(correct),
-											),
-										],
-									),
-								],
-							),
-							el(
-								"div",
-								{
-									display: "flex",
-									alignItems: "center",
-									justifyContent: "space-between",
-									fontFamily: "Space Mono",
-									fontSize: "18px",
-									color: COLOR.dim,
-								},
-								[
-									brandWordmark(
-										(n: number) => `${Math.round(n * WORDMARK_SCALE)}px`,
-										WORDMARK_SCALE,
-									),
-									el("span", { display: "flex" }, "calledmyshot.com"),
-								],
-							),
-						],
-					),
-				],
-			),
-		],
+function squaresAndLines(
+	row: SatoriNode[],
+	headline: SatoriNode,
+	line: string,
+): SatoriNode {
+	return el("div", { display: "flex", flexDirection: "column", gap: "24px" }, [
+		el("div", { display: "flex", gap: "14px" }, row),
+		el("div", { display: "flex", flexDirection: "column", gap: "8px" }, [
+			headline,
+			arcadeSubline(line),
+		]),
+	])
+}
+
+export function buildBlindRankCard(data: BlindRankCardData): SatoriNode {
+	const correct = data.squares.filter(Boolean).length
+	return arcadeCard(
+		panel(data.day, data.league),
+		promptBlock(
+			data.sharer
+				? `@${clamp(data.sharer, SHARER_MAX)} played it`
+				: "Rank them",
+			data.prompt,
+		),
+		squaresAndLines(
+			data.squares.map(square),
+			arcadeHeadline(rankResultHeadline(correct).toUpperCase()),
+			data.top
+				? clamp(`No. 1 was ${data.top.label} (${data.top.display})`, TOP_MAX)
+				: rankResultLine(correct),
+		),
+	)
+}
+
+export function buildBlindRankTodayCard(
+	data: BlindRankTodayCardData,
+): SatoriNode {
+	return arcadeCard(
+		panel(data.day, data.league),
+		promptBlock("Today's ranking", data.prompt),
+		squaresAndLines(
+			Array.from({ length: SLOTS }, () => emptySquare(SQUARE_PX)),
+			arcadeHeadline("CAN YOU RANK THEM?", TODAY_HEADLINE_PX),
+			clamp(`First up: ${data.firstUp}`, FIRST_UP_MAX),
+		),
 	)
 }
 
@@ -276,5 +171,25 @@ export async function loadBlindRankCardData(
 			day < today && first
 				? { label: first.label, display: first.display }
 				: null,
+	}
+}
+
+// Null for a day with no puzzle or one still to come.
+export async function loadBlindRankTodayCardData(
+	day: string,
+): Promise<BlindRankTodayCardData | null> {
+	if (!isArcadeDay(day) || day > arcadeDay(new Date())) return null
+	const puzzle = await findRankPuzzleForDay(day)
+	const firstUp = puzzle?.items[0]
+	if (!puzzle || !firstUp) return null
+	const league = await db.query.leagues.findFirst({
+		where: { id: puzzle.leagueId },
+	})
+	if (!league) return null
+	return {
+		day,
+		league: league.abbreviation,
+		prompt: `${puzzle.prompt} · ${puzzle.context}`,
+		firstUp: firstUp.label,
 	}
 }

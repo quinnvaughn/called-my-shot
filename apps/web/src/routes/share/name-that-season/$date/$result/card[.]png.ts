@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router"
 import { apiUrl } from "#/env.server"
 
 // Same passthrough as /share/calls/$callId/card.png, for the og:image on
-// /play/name-that-season/:date/:result - including the static card.png segment
+// /arcade/name-that-season/:date/:result - including the static card.png segment
 // and the ignored `?v=` cache-buster, for the same reasons given there.
 export const Route = createFileRoute(
 	"/share/name-that-season/$date/$result/card.png",

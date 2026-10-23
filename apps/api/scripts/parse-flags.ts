@@ -16,3 +16,11 @@ export function parseFlags<const T extends ParseArgsOptionsConfig>(
 		allowPositionals: false,
 	}).values
 }
+
+// --spacing in milliseconds between ESPN requests, 0 included. Undefined
+// leaves the caller's default.
+export function spacingFlag(raw: string | undefined): number | undefined {
+	if (raw === undefined) return undefined
+	const ms = Number(raw)
+	return Number.isFinite(ms) && ms >= 0 ? ms : undefined
+}
