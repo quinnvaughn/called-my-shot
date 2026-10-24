@@ -73,6 +73,7 @@ export function RankSlotRow({
 		<li>
 			<button
 				type="button"
+				data-rank-slot
 				aria-pressed={selected}
 				disabled={disabled}
 				onClick={onSelect}

@@ -87,13 +87,13 @@ export function BlindRankGame({
 	const placedCount = slots.filter((s) => s.placed).length
 	const done = play?.status === "DONE"
 
-	async function confirm() {
-		if (picked === null) return
+	const pending = place.isPending || guestFetching
+
+	async function confirm(slot: number) {
 		setError(null)
 		if (placedCount === 0 && !practice) {
 			track("rank_puzzle_started", { date: puzzle.date, signedIn: !!me })
 		}
-		const slot = picked
 		setPicked(null)
 
 		if (guest) {
@@ -120,6 +120,42 @@ export function BlindRankGame({
 		)
 		if (result.status === "DONE") void invalidateRankPuzzles(queryClient)
 	}
+
+	// With a keyboard, a slot's number picks that slot and Enter places the
+	// current item there, the same two steps as clicking.
+	useEffect(() => {
+		function onKeyDown(event: KeyboardEvent) {
+			if (event.repeat || event.metaKey || event.ctrlKey || event.altKey) return
+			const target = event.target as HTMLElement | null
+			if (
+				target?.isContentEditable ||
+				target?.closest("input, textarea, select")
+			) {
+				return
+			}
+			if (done || pending || !play?.next) return
+			if (event.key === "Enter") {
+				if (picked === null) return
+				// Other focused buttons and links keep their own Enter.
+				if (
+					target?.closest("button, a") &&
+					!target.closest("[data-rank-slot]")
+				) {
+					return
+				}
+				event.preventDefault()
+				void confirm(picked)
+				return
+			}
+			const slot = Number(event.key)
+			if (!Number.isInteger(slot) || slot < 1 || slot > RANK_SLOTS) return
+			if (slots.find((s) => s.slot === slot)?.placed) return
+			event.preventDefault()
+			setPicked(slot)
+		}
+		document.addEventListener("keydown", onKeyDown)
+		return () => document.removeEventListener("keydown", onKeyDown)
+	})
 
 	// Analytics as each placement comes back, signed in or out alike. The
 	// count seen on first load is the baseline, so a game restored from
@@ -184,7 +220,6 @@ export function BlindRankGame({
 		)
 	}
 
-	const pending = place.isPending || guestFetching
 	const left = RANK_SLOTS - placedCount
 	return (
 		<div
@@ -224,12 +259,18 @@ export function BlindRankGame({
 				<p className={css({ textStyle: "label", color: "fg.muted" })}>
 					{left === 1 ? "Last one to place" : `${left} to place`} · no moving
 					them once placed
+					<span className={css({ display: { base: "none", lg: "inline" } })}>
+						{" "}
+						· press a slot's number to pick it, Enter to place
+					</span>
 				</p>
 				<Button
 					variant="solid"
 					disabled={picked === null}
 					loading={pending}
-					onClick={() => void confirm()}
+					onClick={() => {
+						if (picked !== null) void confirm(picked)
+					}}
 				>
 					{picked === null ? "Pick a slot" : `Place at ${picked}`}
 				</Button>
