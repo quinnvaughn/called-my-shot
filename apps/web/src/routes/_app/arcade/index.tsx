@@ -14,13 +14,25 @@ export const Route = createFileRoute("/_app/arcade/")({
 			context.queryClient.query(seasonPuzzleTodayQuery),
 			context.queryClient.query(rankPuzzleTodayQuery),
 		]),
-	head: () =>
-		pageMeta({
-			title: "Arcade · Called My Shot",
-			description:
-				"Sports games to play: Name That Season and Blind Rank.",
+	// Today's puzzle for each game on the preview, so a link pasted in a chat
+	// says what's up today, not just which games exist.
+	head: ({ loaderData }) => {
+		const season = loaderData?.[0].seasonPuzzleToday
+		const rank = loaderData?.[1].rankPuzzleToday
+		return pageMeta({
+			title: "Arcade: Sports Games · Called My Shot",
+			description: [
+				"Sports games and puzzles, free to play.",
+				season
+					? `Name That Season: today's is an ${season.league.abbreviation} season. Name the team and the year from six clues.`
+					: "Name That Season: name the team and the year from six clues.",
+				rank
+					? `Blind Rank: today's ranking is ${rank.prompt} · ${rank.context}. Five of them, one at a time, no moving them once placed.`
+					: "Blind Rank: rank five things one at a time, with no moving them once placed.",
+			].join(" "),
 			path: "/arcade",
-		}),
+		})
+	},
 })
 
 function RouteComponent() {
