@@ -55,6 +55,7 @@ export function LandingPageNav({ leagues }: Props) {
 					})}
 				>
 					<Link to="/how-it-works">How It Works</Link>
+					<Link to="/arcade">Arcade</Link>
 					{leagues.length > 0 && (
 						<Dropdown>
 							<Dropdown.Trigger
@@ -166,6 +167,12 @@ export function LandingPageNav({ leagues }: Props) {
 						)}
 					</Dropdown.Trigger>
 					<Dropdown.Content>
+						<Link
+							to="/arcade"
+							className={cx(dropdownItem, css({ display: "block" }))}
+						>
+							Arcade
+						</Link>
 						{leagues.map((league) => (
 							<Link
 								key={league.id}

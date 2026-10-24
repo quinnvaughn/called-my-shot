@@ -10,10 +10,11 @@ import { StartGroupModal } from "./start-group-modal"
 export function LandingPageGetStartedSection() {
 	return (
 		<LandingPageContentSection
+			alt
 			center
 			eyebrow="Get started"
 			title="Play with your group or on your own."
-			description="Free, no money in it. Every call goes on your record either way."
+			description="Free, no money in it. Your calls and arcade streaks count either way."
 		>
 			<HStack gap="4" flexWrap="wrap" justify="center">
 				<Button

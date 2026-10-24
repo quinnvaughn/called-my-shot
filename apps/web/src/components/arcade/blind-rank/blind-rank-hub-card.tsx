@@ -70,6 +70,7 @@ export function BlindRankHubCard() {
 					justifyContent: "space-between",
 					gap: "3",
 					flexWrap: "wrap",
+					marginTop: "auto",
 				})}
 			>
 				<span

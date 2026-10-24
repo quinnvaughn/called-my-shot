@@ -5,7 +5,7 @@ import { css } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
 import { AuthModal } from "#/components/auth/auth-modal"
 import { EveryWeekVisual } from "#/components/landing-page/every-week/every-week-visual"
-import { GroupCallDemo } from "#/components/landing-page/group-call-demo/group-call-demo"
+import { GroupDayDemo } from "#/components/landing-page/group-day-demo/group-day-demo"
 import { GuestPicks } from "#/components/landing-page/guest-picks/guest-picks"
 import { LandingPageFeatureSection } from "#/components/landing-page/landing-page-feature-section"
 import { LandingPageFooter } from "#/components/landing-page/landing-page-footer"
@@ -16,10 +16,13 @@ import { LandingPageSectionHeader } from "#/components/landing-page/landing-page
 import { LandingPageWrap } from "#/components/landing-page/landing-page-wrap"
 import { StartGroupForm } from "#/components/landing-page/start-group-form"
 import { StartGroupModal } from "#/components/landing-page/start-group-modal"
+import { LandingPageToday } from "#/components/landing-page/today/landing-page-today"
 import { Badge } from "#/components/ui/badge"
-import { Button } from "#/components/ui/button"
+import { Button, button } from "#/components/ui/button"
+import { rankPuzzleTodayQuery } from "#/graphql/blind-rank/queries"
 import { LandingPageDocument } from "#/graphql/landing-page/queries"
 import { gqlQueryOptions } from "#/graphql/query-options"
+import { seasonPuzzleTodayQuery } from "#/graphql/season-puzzles/queries"
 import { openModal } from "#/stores/modal-store"
 
 const landingPageQuery = gqlQueryOptions(LandingPageDocument, {})
@@ -30,7 +33,12 @@ export const Route = createFileRoute("/")({
 			throw redirect({ to: "/home" })
 		}
 	},
-	loader: ({ context }) => context.queryClient.query(landingPageQuery),
+	loader: ({ context }) =>
+		Promise.all([
+			context.queryClient.query(landingPageQuery),
+			context.queryClient.query(seasonPuzzleTodayQuery),
+			context.queryClient.query(rankPuzzleTodayQuery),
+		]),
 	component: Home,
 })
 
@@ -57,7 +65,7 @@ const whoItems = [
 		title: "Your fantasy league",
 		action: startOne,
 		description:
-			"Fantasy only scores the players you drafted. Run a group next to it so the league also settles who reads games right, including the weeks your roster is dead.",
+			"Fantasy only scores the players you drafted. Run a group next to it and the league has a board to win every day, including the weeks your roster is dead.",
 	},
 	{
 		icon: <FiRadio />,
@@ -71,7 +79,7 @@ const whoItems = [
 		title: "Your community",
 		action: startOne,
 		description:
-			"Discord server, subreddit, a stats group, whatever you're already in. Nobody has to run it. Post the invite link once and the board sorts out who in the room calls games right.",
+			"Discord server, subreddit, a stats group, whatever you're already in. Nobody has to run it. Post the invite link once and the boards sort out who in the room actually knows sports.",
 	},
 ]
 
@@ -119,8 +127,9 @@ function Home() {
 										maxWidth: "lg",
 									})}
 								>
-									Start a group and send the link. Everyone makes calls on the
-									same games, and the leaderboard keeps score.
+									Start a group and send the link. Everyone plays the same daily
+									sports puzzles and calls the same real games, and the group's
+									boards keep score.
 								</p>
 							</VStack>
 							<VStack alignItems="stretch" gap="3" width="full" maxWidth="lg">
@@ -136,45 +145,38 @@ function Home() {
 							</VStack>
 							<HStack gap="3" flexWrap="wrap">
 								<p className={css({ color: "fg.muted", fontSize: "sm" })}>
-									Playing on your own?
+									Or try it first, no account needed.
 								</p>
-								<Button
-									variant="light"
-									size="md"
-									onClick={() => openModal(<AuthModal defaultView="signup" />)}
+								<a
+									href="#today"
+									className={button({ variant: "light", size: "md" })}
 								>
-									Sign up
-								</Button>
+									Play today's games
+								</a>
 							</HStack>
 						</VStack>
 					</div>
-					<GroupCallDemo />
+					<GroupDayDemo />
 				</LandingPageWrap>
 			</header>
-			<LandingPageSection alt>
+			<LandingPageToday questions={data.guestPicks} />
+			<LandingPageSection>
 				<LandingPageWrap className={twoColumns}>
 					<LandingPageSectionHeader
-						eyebrow="Every week"
+						eyebrow="With your group"
 						title="Somebody wins the week. Somebody has to explain themselves."
-						description="Your group gets its own leaderboard, a Player of the Week, and a record book for the best weeks and longest streaks. After each game, anyone in the group can ask about a call, and “No comment” counts as an answer. Want it one on one? Send a challenge and whoever scores more wins."
+						description="Your group gets a leaderboard for calls and a board for each arcade game, plus a Player of the Week and a record book for the best weeks and longest streaks. After each game, anyone in the group can ask about a call, and “No comment” counts as an answer. Want it one on one? Send a challenge and whoever scores more wins."
 					/>
 					<EveryWeekVisual />
 				</LandingPageWrap>
 			</LandingPageSection>
-			<LandingPageFeatureSection
-				id="who"
-				eyebrow="Who it's for"
-				title="Somebody in every group needs to be proven wrong."
-				description="A group is a private leaderboard for people who already argue about this. Free to join, no money in it, so anyone you'd invite can actually play."
-				items={whoItems}
-			/>
-			<LandingPageSection alt id="make-calls">
+			<LandingPageSection alt id="calls">
 				<LandingPageWrap className={twoColumns}>
 					<VStack alignItems="flex-start" gap="6">
 						<LandingPageSectionHeader
-							eyebrow="On your own"
-							title="No group? Play anyway."
-							description="Every call goes on your record and the public leaderboard, group or not. Sign up and start calling, or try one of these first."
+							eyebrow="Calls"
+							title="Try a call on a real game."
+							description="Every call goes on your record and the public leaderboard, group or not. Make one here and it's saved when you sign up."
 						/>
 						<Button
 							variant="outline"
@@ -187,6 +189,13 @@ function Home() {
 					<GuestPicks questions={data.guestPicks} />
 				</LandingPageWrap>
 			</LandingPageSection>
+			<LandingPageFeatureSection
+				id="who"
+				eyebrow="Who it's for"
+				title="Somebody in every group needs to be proven wrong."
+				description="A group is a private leaderboard for people who already argue about this. Free to join, no money in it, so anyone you'd invite can actually play."
+				items={whoItems}
+			/>
 			<LandingPageGetStartedSection />
 			<LandingPageFooter />
 		</div>

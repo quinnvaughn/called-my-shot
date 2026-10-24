@@ -73,6 +73,7 @@ export function NameThatSeasonHubCard() {
 					justifyContent: "space-between",
 					gap: "3",
 					flexWrap: "wrap",
+					marginTop: "auto",
 				})}
 			>
 				<span

@@ -109,7 +109,7 @@ export const Route = createRootRouteWithContext<RouterContext>()({
 			{
 				name: "description",
 				content:
-					"Make calls on real games for free and settle it on a private leaderboard with your group chat, your fantasy league, or your audience. No money, ever.",
+					"Daily sports puzzles and calls on real games, scored on private leaderboards with your group chat, your fantasy league, or your audience. Free, no money ever.",
 			},
 			{
 				property: "og:type",
@@ -126,7 +126,7 @@ export const Route = createRootRouteWithContext<RouterContext>()({
 			{
 				property: "og:description",
 				content:
-					"Make calls on real games for free and settle it on a private leaderboard with your group chat, your fantasy league, or your audience. No money, ever.",
+					"Daily sports puzzles and calls on real games, scored on private leaderboards with your group chat, your fantasy league, or your audience. Free, no money ever.",
 			},
 			{
 				property: "og:url",
@@ -147,7 +147,7 @@ export const Route = createRootRouteWithContext<RouterContext>()({
 			{
 				name: "twitter:description",
 				content:
-					"Make calls on real games for free and settle it on a private leaderboard with your group chat, your fantasy league, or your audience. No money, ever.",
+					"Daily sports puzzles and calls on real games, scored on private leaderboards with your group chat, your fantasy league, or your audience. Free, no money ever.",
 			},
 			{
 				name: "twitter:image",

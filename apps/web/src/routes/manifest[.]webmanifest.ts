@@ -8,7 +8,7 @@ const MANIFEST = {
 	name: "Called My Shot",
 	short_name: "Called My Shot",
 	description:
-		"Make calls on real games for free and settle it on a private leaderboard with your group chat, your fantasy league, or your audience.",
+		"Daily sports puzzles and calls on real games, scored on private leaderboards with your group chat, your fantasy league, or your audience.",
 	start_url: "/",
 	scope: "/",
 	display: "standalone",
