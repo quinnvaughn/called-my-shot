@@ -56,7 +56,7 @@ export function ResetForm({
 					rememberSignInMethod("email")
 					queryClient.clear()
 					await router.invalidate()
-					await navigate({ to: "/home", replace: true })
+					await navigate({ to: "/", replace: true })
 					// After leaving, so the event's URL isn't the one carrying
 					// the token.
 					track("password_reset_completed", {})

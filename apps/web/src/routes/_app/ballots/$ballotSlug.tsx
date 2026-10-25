@@ -121,7 +121,7 @@ function RouteComponent() {
 				eyebrowText="Ballot"
 				heading="This ballot doesn't exist"
 				subtitle="It may not be published yet, or the link's just wrong."
-				link={{ text: "Back home", url: "/home" }}
+				link={{ text: "Back home", url: "/" }}
 			/>
 		)
 	}

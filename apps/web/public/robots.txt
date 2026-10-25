@@ -1,8 +1,7 @@
 User-agent: *
 
-# Signed-in only (see routes/_app/_authed) - a crawler gets a redirect to the
-# landing page, so there is nothing here worth the crawl.
-Disallow: /home
+# Signed-in only (see routes/_app/_authed) - a crawler gets a redirect to
+# Home, so there is nothing here worth the crawl.
 Disallow: /my-calls
 Disallow: /my-questions
 Disallow: /new-question

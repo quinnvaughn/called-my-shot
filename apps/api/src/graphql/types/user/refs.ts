@@ -225,7 +225,7 @@ export const UserRef = builder.drizzleObject("users", {
 			},
 			resolve: (user) => user.id,
 		}),
-		// Null until the one-time favorite-teams prompt has opened on /home.
+		// Null until the one-time favorite-teams prompt has opened on Home.
 		// Viewer-only, like the rest of what drives this account's own nudges.
 		teamsPromptSeenAt: t.field({
 			type: "DateTime",

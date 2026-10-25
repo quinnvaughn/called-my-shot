@@ -31,8 +31,8 @@ type Props = {
 	questions: Candidate[]
 }
 
-// The landing page's hero: one real game a visitor can call before they have
-// an account. Who wins comes first, then each team's total, or the next games'
+// The calling side of a signed-out Home: one real game a visitor can call
+// before they have an account. Who wins comes first, then each team's total, or the next games'
 // winners where there are no totals yet (see select-guest-picks.ts). Picks are held in guest-picks-store and posted from
 // Home once they sign up or sign in (see lib/submit-guest-picks.ts).
 //

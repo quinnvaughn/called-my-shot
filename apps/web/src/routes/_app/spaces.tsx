@@ -3,6 +3,7 @@ import { createFileRoute } from "@tanstack/react-router"
 import { Grid, HStack, VStack } from "styled-system/jsx"
 import { GroupCard } from "#/components/groups/group-card"
 import { NewGroupModal } from "#/components/groups/new-group-modal"
+import { StartGroupModal } from "#/components/groups/start-group-modal"
 import { SpaceLeagueRow } from "#/components/spaces/space-league-row"
 import { SpaceTeamRow } from "#/components/spaces/space-team-row"
 import { Button } from "#/components/ui/button"
@@ -21,6 +22,8 @@ const myGroupsQuery = gqlQueryOptions(MyGroupsDocument, {})
 // Every space in one list: the leagues, each with a follow toggle, the
 // teams the viewer follows, then their groups and the way to start one. The
 // bottom nav's Spaces tab on phones, and the compass on the space rail.
+// Signed out, Groups is still there with the way to start one, since this is
+// where a phone visitor finds out groups exist.
 export const Route = createFileRoute("/_app/spaces")({
 	component: RouteComponent,
 	loader: async ({ context }) => {
@@ -91,31 +94,37 @@ function RouteComponent() {
 				</VStack>
 			)}
 
-			{me && (
-				<VStack gap="3" alignItems="stretch">
-					<HStack justifyContent="space-between" alignItems="center">
-						<SectionLabel>Groups</SectionLabel>
-						<Button
-							variant="solid"
-							size="sm"
-							onClick={() => openModal(<NewGroupModal leagues={leagues} />)}
-						>
-							+ New Group
-						</Button>
-					</HStack>
-					{groups.length > 0 ? (
-						<Grid gap="6" gridTemplateColumns="1fr">
-							{groups.map((group) => (
-								<GroupCard key={group.id} group={group} />
-							))}
-						</Grid>
-					) : (
-						<EmptyState>
-							No groups yet. Start one, or open a friend's invite link to join theirs.
-						</EmptyState>
-					)}
-				</VStack>
-			)}
+			<VStack gap="3" alignItems="stretch">
+				<HStack justifyContent="space-between" alignItems="center">
+					<SectionLabel>Groups</SectionLabel>
+					<Button
+						variant="solid"
+						size="sm"
+						onClick={() =>
+							openModal(
+								me ? (
+									<NewGroupModal leagues={leagues} />
+								) : (
+									<StartGroupModal surface="spaces" />
+								),
+							)
+						}
+					>
+						+ New Group
+					</Button>
+				</HStack>
+				{groups.length > 0 ? (
+					<Grid gap="6" gridTemplateColumns="1fr">
+						{groups.map((group) => (
+							<GroupCard key={group.id} group={group} />
+						))}
+					</Grid>
+				) : (
+					<EmptyState>
+						{`${me ? "No groups yet. " : ""}Start one, or open a friend's invite link to join theirs.`}
+					</EmptyState>
+				)}
+			</VStack>
 		</VStack>
 	)
 }

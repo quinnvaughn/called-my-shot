@@ -73,7 +73,7 @@ function RouteComponent() {
 				eyebrowText="Rushmore"
 				heading="This Rushmore prompt doesn't exist"
 				subtitle="Check the link with whoever sent it."
-				link={{ text: "Back to home", url: "/home" }}
+				link={{ text: "Back to home", url: "/" }}
 			/>
 		)
 	}

@@ -24,7 +24,7 @@ export function TeamsPrompt() {
 	const { mutate: markSeen } = useGqlMutation(MarkTeamsPromptSeenDocument)
 	// Shares the checklist's cache entry, so this costs no request of its own.
 	const { data } = useQuery({ ...onboardingQuery, enabled: !!me })
-	// Never stacked on another modal, such as the one /home opens after
+	// Never stacked on another modal, such as the one Home opens after
 	// posting picks made before signing up.
 	const modalOpen = useStore(modalStore, (stack) => stack.length > 0)
 	const opened = useRef(false)
@@ -43,7 +43,7 @@ export function TeamsPrompt() {
 
 		opened.current = true
 		openModal(<FavoriteTeamsPickerModal initialTeamIds={[]} variant="prompt" />)
-		// Refetching Me is what stops the next visit to /home in this session
+		// Refetching Me is what stops the next visit to Home in this session
 		// from opening it again, since router context reads Me's cache.
 		markSeen(undefined, {
 			onSuccess: () =>

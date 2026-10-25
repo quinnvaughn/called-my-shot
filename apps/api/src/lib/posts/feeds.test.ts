@@ -15,6 +15,7 @@ import {
 	groupFeed,
 	homeFeed,
 	promptAnswers,
+	publicFeed,
 	spaceFeed,
 	userFeed,
 } from "./feeds"
@@ -181,6 +182,34 @@ describe("homeFeed", () => {
 		expect([...ids(first), ...ids(second)]).toEqual(
 			made.map((post) => post.id).reverse(),
 		)
+	})
+})
+
+describe("publicFeed", () => {
+	it("is every public post and no group posts", async () => {
+		const s = await scene()
+		const author = await makeUser()
+		const group = await makeGroup({ admin: author })
+		const inOneLeague = await makeRushmore({
+			author,
+			prompt: s.prompt,
+			playerIds: s.playerIds,
+		})
+		const inAnother = await makeRushmore({
+			author: await makeUser(),
+			prompt: s.otherPrompt,
+			playerIds: s.playerIds,
+		})
+		await makeRushmore({
+			author,
+			prompt: s.prompt,
+			groupId: group.id,
+			playerIds: s.playerIds,
+		})
+		expect(ids(await publicFeed(null, {}))).toEqual([
+			inAnother.id,
+			inOneLeague.id,
+		])
 	})
 })
 

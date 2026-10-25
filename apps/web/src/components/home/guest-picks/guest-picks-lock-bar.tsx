@@ -11,9 +11,9 @@ type Props = {
 	pickCount: number
 }
 
-// Follows a visitor with calls waiting down the rest of the landing page on
-// mobile, where the stack is a full screen above the sections they scroll into.
-// Side by side on desktop the stack stays in the hero, so the bar isn't needed.
+// Follows a visitor with calls waiting down Home's feed on mobile, where the
+// stack is a full screen above the posts they scroll into. Sits on the bottom
+// nav rather than over it.
 export function GuestPicksLockBar({ stackRef, pickCount }: Props) {
 	const [stackVisible, setStackVisible] = useState(true)
 
@@ -38,10 +38,10 @@ export function GuestPicksLockBar({ stackRef, pickCount }: Props) {
 				gap: "3",
 				position: "fixed",
 				insetInline: "0",
-				bottom: "0",
+				bottom: "var(--bottom-nav-height)",
 				zIndex: "launcher",
 				padding:
-					"{spacing.3} {spacing.4} calc({spacing.3} + env(safe-area-inset-bottom))",
+					"{spacing.3} {spacing.4} calc({spacing.3} + var(--bottom-safe-area))",
 				bg: "bg.surface/88",
 				backdropFilter: "blur(10px)",
 				borderTop: "1px solid {colors.border.default}",

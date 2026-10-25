@@ -172,8 +172,7 @@ export const LeagueRef = builder.drizzleObject("leagues", {
 				return loadSeasonPlayWeeks(season.id, ctx.user.id, new Date())
 			},
 		}),
-		// Null when signed out - Home (the only caller) is authed-only, but this
-		// field itself doesn't assume that. Calls, not uncalled questions: this
+		// Null when signed out. Calls, not uncalled questions: this
 		// is "how much of what you've already picked in this league is still
 		// live," not "how much is left to call."
 		myOpenCallCount: t.field({

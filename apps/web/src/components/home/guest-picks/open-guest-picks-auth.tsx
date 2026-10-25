@@ -4,7 +4,7 @@ import type { AuthModalView } from "#/lib/auth-modal-copy"
 import { pluralize } from "#/lib/pluralize"
 import { openModal } from "#/stores/modal-store"
 
-// Where on the landing page the visitor asked to sign up from: under the card
+// Where on Home the visitor asked to sign up from: under the card
 // they just called, or the bar that follows them down the page on mobile.
 export type GuestPicksAuthSource = "card" | "lock_bar"
 

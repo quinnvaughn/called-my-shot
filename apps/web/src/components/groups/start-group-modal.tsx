@@ -1,13 +1,14 @@
 import { VStack } from "styled-system/jsx"
+import { Modal } from "#/components/ui/modal"
 import type { StartGroupSurface } from "#/lib/analytics"
-import { Modal } from "../ui/modal"
 import { StartGroupForm } from "./start-group-form"
 
 type Props = {
 	surface: StartGroupSurface
 }
 
-// The hero's group form, for every landing page button that isn't next to it.
+// The name-it-first group form, for a signed-out visitor away from Home's
+// intro: the rail's New group tile, the Spaces page, an arcade game's end.
 export function StartGroupModal({ surface }: Props) {
 	return (
 		<Modal>

@@ -4,6 +4,7 @@ import { ArcadeSpaceColumn } from "./arcade-space-column"
 import { GroupSpaceColumn } from "./group-space-column"
 import { HomeSpaceColumn } from "./home-space-column"
 import { LeagueSpaceColumn } from "./league-space-column"
+import { LegalLinks } from "./legal-links"
 import { SidebarToggle } from "./sidebar-toggle"
 import { SocialLinks } from "./social-links"
 import type { Space } from "./space"
@@ -67,7 +68,7 @@ export function SpaceColumn({ me, space }: { me: Me; space: Space }) {
 					})}
 				>
 					{/* The sections scroll on their own once they outgrow the
-					    window; the social links below stay pinned. */}
+					    window; the social and legal links below stay pinned. */}
 					<div
 						className={css({
 							flex: 1,
@@ -129,9 +130,13 @@ export function SpaceColumn({ me, space }: { me: Me; space: Space }) {
 						className={css({
 							padding: "{spacing.3} {spacing.3} {spacing.4}",
 							borderTop: "1px solid {colors.border.default}",
+							display: "flex",
+							flexDirection: "column",
+							gap: "2",
 						})}
 					>
 						<SocialLinks />
+						<LegalLinks />
 					</div>
 				</div>
 			</div>

@@ -39,7 +39,7 @@ export type SpaceSection = {
 }
 
 export const homeSections: SpaceSection[] = [
-	{ label: "Home", icon: GoHomeFill, to: "/home", exact: true },
+	{ label: "Home", icon: GoHomeFill, to: "/", exact: true },
 	{ label: "Leaderboard", icon: BsBarChartFill, to: "/leaderboard" },
 ]
 

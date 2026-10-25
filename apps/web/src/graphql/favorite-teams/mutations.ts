@@ -32,7 +32,7 @@ export const SetFavoriteTeamsDocument = graphql(`
 	}
 `)
 
-// Fired by the /home prompt as it opens. The server keeps the first time, so
+// Fired by the Home prompt as it opens. The server keeps the first time, so
 // sending it again is harmless.
 export const MarkTeamsPromptSeenDocument = graphql(`
 	mutation MarkTeamsPromptSeen {

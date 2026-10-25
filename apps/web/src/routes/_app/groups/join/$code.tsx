@@ -98,7 +98,7 @@ function RouteComponent() {
 				subtitle="It may have expired, been reset, or never existed. Ask whoever invited you for a new one."
 				link={{
 					text: "Back to home",
-					url: "/home",
+					url: "/",
 				}}
 			/>
 		)

@@ -23,7 +23,7 @@ type AuthModalProps = {
 	// "join a group" behind auth should explain *why* auth is required
 	// instead of showing the generic copy.
 	copy?: AuthModalCopyOverride
-	// Runs instead of the default "/home" redirect once sign-in/sign-up
+	// Runs instead of the default redirect to Home once sign-in/sign-up
 	// succeeds - lets callers (e.g. useRequireAuth) resume whatever action
 	// was gated behind auth.
 	onSuccess?: () => void

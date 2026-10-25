@@ -25,7 +25,7 @@ const teamOptionsQuery = gqlQueryOptions(FavoriteTeamOptionsDocument, {})
 
 type Props = {
 	initialTeamIds: string[]
-	// "prompt" is the one-time ask on /home. Same picker, but it's an
+	// "prompt" is the one-time ask on Home. Same picker, but it's an
 	// interruption the viewer didn't ask for, so it says why and offers a way
 	// out that reads as "later" rather than "cancel".
 	variant?: "edit" | "prompt"

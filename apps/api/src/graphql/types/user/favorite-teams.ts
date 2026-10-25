@@ -59,7 +59,7 @@ builder.mutationFields((t) => ({
 		},
 	}),
 
-	// Stamped by the /home prompt as it opens, not when it closes, so a
+	// Stamped by the Home prompt as it opens, not when it closes, so a
 	// reload or a navigation away can't bring it back. coalesce keeps the
 	// first time.
 	markTeamsPromptSeen: t.field({

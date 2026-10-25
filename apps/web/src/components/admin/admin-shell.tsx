@@ -77,7 +77,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
 						Admin
 					</span>
 					<Link
-						to="/home"
+						to="/"
 						className={css({
 							textStyle: "meta",
 							color: "fg.subtle",

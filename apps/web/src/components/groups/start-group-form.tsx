@@ -2,15 +2,15 @@ import { groupNameSchema } from "@called-my-shot/schemas"
 import { css } from "styled-system/css"
 import { VStack } from "styled-system/jsx"
 import { z } from "zod"
+import { Button } from "#/components/ui/button"
+import { FormError } from "#/components/ui/form-error"
+import { TextInput } from "#/components/ui/text-input"
 import { useCreateGroupFlow } from "#/hooks/use-create-group-flow"
 import { useMe } from "#/hooks/use-me"
 import { useRequireAuth } from "#/hooks/use-require-auth"
 import { type StartGroupSurface, track } from "#/lib/analytics"
 import { useForm } from "#/lib/form/use-form"
 import { showToast } from "#/stores/toast-store"
-import { Button } from "../ui/button"
-import { FormError } from "../ui/form-error"
-import { TextInput } from "../ui/text-input"
 
 const startGroupSchema = z.object({ name: groupNameSchema })
 
@@ -38,7 +38,10 @@ export function StartGroupForm({ surface, autoFocus, stacked }: Props) {
 			track("group_start_submitted", { surface, signedIn: Boolean(me) })
 			requireAuth(
 				async () => {
-					const result = await createGroup({ name, leagueIds: [] }, "landing")
+					const result = await createGroup(
+						{ name, leagueIds: [] },
+						"start_form",
+					)
 					if (result?.__typename !== "GroupPayload") {
 						showToast({
 							message: `${name} didn't get created. Try again from New Group.`,

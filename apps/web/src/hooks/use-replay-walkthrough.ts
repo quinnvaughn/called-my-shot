@@ -41,7 +41,7 @@ export function useReplayWalkthrough() {
 				: null
 
 		if (!suggested) {
-			await navigate({ to: "/home" })
+			await navigate({ to: "/" })
 			return
 		}
 		await navigate({

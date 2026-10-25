@@ -15,7 +15,7 @@ export function ArcadeCallsLine({ onClick }: { onClick: () => void }) {
 	)
 	if (!me || !open) return null
 	return (
-		<Link to="/home" onClick={onClick} className={button({ variant: "outline" })}>
+		<Link to="/" onClick={onClick} className={button({ variant: "outline" })}>
 			Think you know sports? Call today's games
 		</Link>
 	)

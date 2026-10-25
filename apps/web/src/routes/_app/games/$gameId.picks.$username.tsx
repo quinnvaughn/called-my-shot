@@ -94,7 +94,7 @@ function RouteComponent() {
 				eyebrowText="Game"
 				heading="This game doesn't exist"
 				subtitle="It may have been removed, or the link's just wrong."
-				link={{ text: "Back home", url: "/home" }}
+				link={{ text: "Back home", url: "/" }}
 			/>
 		)
 	}
@@ -110,7 +110,7 @@ function RouteComponent() {
 				eyebrowText="Game"
 				heading="No picks here"
 				subtitle={`@${username} hasn't called anything on ${matchup}.`}
-				link={{ text: "Back home", url: "/home" }}
+				link={{ text: "Back home", url: "/" }}
 			/>
 		)
 	}

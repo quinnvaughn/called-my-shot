@@ -60,7 +60,7 @@ function RouteComponent() {
 				eyebrowText="Challenge"
 				heading="This challenge doesn't exist"
 				subtitle="Check the link with whoever sent it."
-				link={{ text: "Back to home", url: "/home" }}
+				link={{ text: "Back to home", url: "/" }}
 			/>
 		)
 	}

@@ -867,6 +867,20 @@ describe("Query.myLiveCalls", () => {
 		return { game, call: await makeCall(question.id, userId) }
 	}
 
+	// Home renders for guests too, and one throwing field fails its whole query.
+	it("is empty for an anonymous viewer, alongside the resolved list", async () => {
+		const data = await expectData<
+			LiveResult & { myRecentResolvedCalls: { id: string }[] }
+		>(/* GraphQL */ `
+			query GuestHome {
+				myLiveCalls { id }
+				myRecentResolvedCalls(first: 3) { id }
+			}
+		`)
+		expect(data.myLiveCalls).toEqual([])
+		expect(data.myRecentResolvedCalls).toEqual([])
+	})
+
 	// Earliest kickoff first: that game is closest to finishing, so its outcome
 	// is the one about to be decided.
 	it("returns live calls with the longest-running game first", async () => {

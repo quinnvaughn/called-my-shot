@@ -12,20 +12,20 @@ import { captureReferral } from "#/stores/referral-store"
 // Where an invite link lands. Sits outside _app because the visitor has no
 // account for the app shell to frame.
 //
-// Shaped like the top of the landing page, but with every link stripped out:
-// the nav's leagues, the footer's pages, the sign-in escape hatch. Nobody
+// A landing page of its own, with every link stripped out: the nav's
+// leagues, the footer's pages, the sign-in escape hatch. Nobody
 // arrives here cold - a friend sent them - so the page has one job and
 // anything clickable that isn't the signup button is a way out of it.
 export const Route = createFileRoute("/join/$code")({
 	// An invite does nothing for an account that already exists, so there is
 	// nothing to claim and no reason to pitch.
 	//
-	// /home specifically, matching where AuthModal sends a new account. This
+	// Home specifically, matching where AuthModal sends a new account. This
 	// runs again on the router invalidate that follows a signup, at which
 	// point `me` is set - and redirecting somewhere the modal isn't already
 	// navigating makes the two race and abort each other.
 	beforeLoad: ({ context }) => {
-		if (context.me) throw redirect({ to: "/home" })
+		if (context.me) throw redirect({ to: "/" })
 	},
 	loader: ({ context, params }) =>
 		context.queryClient.query(referralPreviewQuery(params.code)),

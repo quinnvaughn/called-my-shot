@@ -15,23 +15,6 @@ import { unreadBadge, unreadLabel } from "./unread-badge"
 // stick just under it (see space-rail.tsx, space-column.tsx and
 // app-shell.tsx).
 export function TopBar({ me, unreadCount }: { me: Me; unreadCount: number }) {
-	// Signed out, making anything starts with an account.
-	const createButton = (
-		<Button
-			variant="solid"
-			size="sm"
-			aria-label="Create"
-			onClick={() =>
-				openModal(me ? <CreateSheet /> : <AuthModal defaultView="signup" />)
-			}
-		>
-			<FiPlus size={16} />
-			<span className={css({ display: { base: "none", sm: "inline" } })}>
-				Create
-			</span>
-		</Button>
-	)
-
 	return (
 		<div
 			className={css({
@@ -56,13 +39,25 @@ export function TopBar({ me, unreadCount }: { me: Me; unreadCount: number }) {
 					paddingInline: { base: "5", md: "7" },
 				})}
 			>
-				<Link to="/home" aria-label="Home">
+				<Link to="/" aria-label="Home">
 					<Brand size="nav" />
 				</Link>
 
 				{me ? (
 					<HStack gap={{ base: "4", md: "2" }}>
-						{createButton}
+						<Button
+							variant="solid"
+							size="sm"
+							aria-label="Create"
+							onClick={() => openModal(<CreateSheet />)}
+						>
+							<FiPlus size={16} />
+							<span
+								className={css({ display: { base: "none", sm: "inline" } })}
+							>
+								Create
+							</span>
+						</Button>
 						<Link
 							to="/notifications"
 							aria-label={
@@ -113,7 +108,6 @@ export function TopBar({ me, unreadCount }: { me: Me; unreadCount: number }) {
 					</HStack>
 				) : (
 					<HStack gap="2">
-						{createButton}
 						<Button
 							variant="outline"
 							size="sm"

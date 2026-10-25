@@ -72,7 +72,7 @@ export function resolveSpace(
 	const ownUsername = me?.username.toLowerCase() ?? null
 	return (
 		match(segments)
-			.with(["home"], () => HOME)
+			.with([], () => HOME)
 			// A leaderboard filtered to one league is that league's board.
 			.with(["leaderboard"], () => leagueSpace(leagues, leagueSearch) ?? HOME)
 			.with(

@@ -33,7 +33,7 @@ export function BottomNav({ me, space }: { me: Me; space: Space }) {
 			})}
 		>
 			<BottomNavItem
-				to="/home"
+				to="/"
 				label="Home"
 				icon={GoHomeFill}
 				active={space.kind === "home"}

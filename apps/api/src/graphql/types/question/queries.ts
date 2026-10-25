@@ -668,7 +668,8 @@ builder.queryFields((t) => ({
 	//
 	// Not a connection: a viewer can only have as many live calls as there are
 	// games in flight, so this is a naturally small set. The cap is a
-	// backstop against a pathological account, not real pagination.
+	// backstop against a pathological account, not real pagination. Empty
+	// signed out, since Home renders for guests too.
 	myLiveCalls: t.field({
 		type: [CallRef],
 		args: {
@@ -678,7 +679,8 @@ builder.queryFields((t) => ({
 			scope: t.arg({ type: QuestionScope, required: false }),
 		},
 		resolve: async (_root, args, ctx) => {
-			const user = requireUser(ctx)
+			const user = ctx.user
+			if (!user) return []
 			return (
 				joinQuestionPeople(
 					db
@@ -706,11 +708,13 @@ builder.queryFields((t) => ({
 	// question actually resolved (not when the call was made, unlike myCalls'
 	// createdAt-desc order) so this reads as "recently decided," not "recently
 	// picked." Not paginated - a small fixed list, not a page of My Calls.
+	// Empty signed out.
 	myRecentResolvedCalls: t.field({
 		type: [CallRef],
 		args: { first: t.arg.int({ required: false }) },
 		resolve: async (_root, args, ctx) => {
-			const user = requireUser(ctx)
+			const user = ctx.user
+			if (!user) return []
 			const limit = clampTypeahead(args.first, 5)
 			// RQBv2's orderBy can't sort by a relation's column, and a resolved
 			// call's own createdAt (when it was MADE) isn't what "recently

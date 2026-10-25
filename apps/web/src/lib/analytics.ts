@@ -1,6 +1,6 @@
 import { isSeasonLongShape } from "@called-my-shot/scoring"
 import posthog from "posthog-js"
-import type { GuestPicksAuthSource } from "#/components/landing-page/guest-picks/open-guest-picks-auth"
+import type { GuestPicksAuthSource } from "#/components/home/guest-picks/open-guest-picks-auth"
 import type { QuestionCallShape } from "#/components/questions/cast-call-form/use-cast-call-form"
 import type { PresserAskStatus } from "#/graphql/generated/graphql"
 import type { AuthModalSurface } from "#/lib/auth-modal-copy"
@@ -15,7 +15,7 @@ export function questionHorizon(shape: QuestionCallShape): QuestionHorizon {
 }
 
 // Where a call was made from. The question page is where most calls land;
-// the call page is someone's receipt; guest_picks are the landing page's
+// the call page is someone's receipt; guest_picks are the signed-out Home's
 // picks, posted once the visitor has an account.
 export type CallSurface =
 	| "question_page"
@@ -23,25 +23,26 @@ export type CallSurface =
 	| "guest_picks"
 	| "challenge"
 
-// Which landing page button someone named a group from: the hero's form, an
-// audience card, the nav, or the closing section.
+// Where someone named a group before having an account: the signed-out
+// Home's intro, the rail's New group tile, the Spaces page, or an arcade
+// game's next steps.
 export type StartGroupSurface =
 	| "season_puzzle"
 	| "blind_rank"
-	| "landing_hero"
-	| "landing_card"
-	| "landing_nav"
-	| "landing_final"
+	| "home_intro"
+	| "rail"
+	| "spaces"
 
-// Where a group was created from. resume_google is a group named on the
-// landing page whose creation waited out the trip through Google signup.
-export type GroupCreatedSurface = "landing" | "in_app" | "resume_google"
+// Where a group was created from. start_form is the name-it-first form a
+// signed-out visitor fills in; resume_google is one of those whose creation
+// waited out the trip through Google signup.
+export type GroupCreatedSurface = "start_form" | "in_app" | "resume_google"
 
 // Add new events here as they're needed - `track()` below is typed against
 // this map, so every call site gets the right property shape for free and a
 // typo'd event name is a compile error instead of a silent no-op in PostHog.
 type AnalyticsEvents = {
-	// `surface` separates the landing page's "lock these in" prompt from every
+	// `surface` separates the guest picks' "lock these in" prompt from every
 	// other way into the auth modal, so it's visible whether trying picks first
 	// actually moves signups.
 	// referralSource is null for the front door. Carried here as well as on
@@ -106,9 +107,8 @@ type AnalyticsEvents = {
 	question_disputed: { questionId: string; reason: string }
 	question_reported: { questionId: string; reason: string }
 
-	// Someone submitted a group name on the landing page, before signing up
-	// for it. The step between landing and user_signed_up(surface=start_group)
-	// in the group funnel.
+	// Someone submitted a group name before signing up for it. The step
+	// before user_signed_up(surface=start_group) in the group funnel.
 	group_start_submitted: {
 		surface: StartGroupSurface
 		signedIn: boolean
@@ -306,7 +306,7 @@ type AnalyticsEvents = {
 	onboarding_completed: Record<string, never>
 	first_call_tour_step: { step: number }
 
-	// The landing page's try-it stack, before the visitor has an account.
+	// The signed-out Home's try-it stack, before the visitor has an account.
 	// `index` is which card of the game the pick was made on: 0 is who wins,
 	// then each team's total.
 	guest_pick_made: {

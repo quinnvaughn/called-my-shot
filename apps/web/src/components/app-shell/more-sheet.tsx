@@ -3,6 +3,7 @@ import { css } from "styled-system/css"
 import { AuthModal } from "#/components/auth/auth-modal"
 import { Sheet } from "#/components/ui/sheet"
 import { closeModal, openModal } from "#/stores/modal-store"
+import { LegalLinks } from "./legal-links"
 import { sidebarLeading, sidebarRow } from "./sidebar-row"
 import { SidebarSection } from "./sidebar-section"
 import { SocialLinks } from "./social-links"
@@ -57,9 +58,13 @@ export function MoreSheet({ signedIn }: { signedIn: boolean }) {
 					className={css({
 						paddingTop: "3",
 						borderTop: "1px solid {colors.border.default}",
+						display: "flex",
+						flexDirection: "column",
+						gap: "2",
 					})}
 				>
 					<SocialLinks />
+					<LegalLinks onNavigate={closeModal} />
 				</div>
 			</Sheet.Body>
 		</Sheet>

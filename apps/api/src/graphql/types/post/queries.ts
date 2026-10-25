@@ -3,6 +3,7 @@ import {
 	groupFeed,
 	homeFeed,
 	popularTeamRushmores,
+	publicFeed,
 	spaceFeed,
 	userFeed,
 } from "../../../lib/posts/feeds"
@@ -29,14 +30,14 @@ builder.queryFields((t) => ({
 			return (await loadVisiblePost(db, ctx.user?.id ?? null, id))?.post ?? null
 		},
 	}),
-	// The signed-in viewer's Home: public posts in the spaces they follow
+	// Home: for a signed-in viewer, public posts in the spaces they follow
 	// and by the people they follow, everything in their groups, and their
-	// own. Empty signed out.
+	// own. Signed out, every public post.
 	homeFeed: t.field({
 		type: PostConnectionRef,
 		args: { first: t.arg.int(), after: t.arg.string() },
 		resolve: (_root, args, ctx) =>
-			ctx.user ? homeFeed(ctx.user.id, args) : EMPTY,
+			ctx.user ? homeFeed(ctx.user.id, args) : publicFeed(null, args),
 	}),
 	// A league's, team's or player's feed: public posts tagged with it.
 	spaceFeed: t.field({

@@ -9,14 +9,15 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as IndexRouteImport } from './routes/index'
 import { Route as AppRouteImport } from './routes/_app'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as GraphqlRouteImport } from './routes/graphql'
+import { Route as HomeRouteImport } from './routes/home'
 import { Route as ManifestDotwebmanifestRouteImport } from './routes/manifest[.]webmanifest'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as SwRouteImport } from './routes/sw'
 import { Route as VersionRouteImport } from './routes/version'
+import { Route as AppIndexRouteImport } from './routes/_app/index'
 import { Route as AppAuthedRouteImport } from './routes/_app/_authed'
 import { Route as AppConfirmEmailRouteImport } from './routes/_app/confirm-email'
 import { Route as AppHowItWorksRouteImport } from './routes/_app/how-it-works'
@@ -47,7 +48,6 @@ import { Route as JoinCodeRouteImport } from './routes/join/$code'
 import { Route as UnsubscribeIndexRouteImport } from './routes/unsubscribe/index'
 import { Route as UnsubscribeOneClickRouteImport } from './routes/unsubscribe/one-click'
 import { Route as WebhooksResendRouteImport } from './routes/webhooks/resend'
-import { Route as AppAuthedHomeRouteImport } from './routes/_app/_authed/home'
 import { Route as AppAuthedInviteRouteImport } from './routes/_app/_authed/invite'
 import { Route as AppAuthedMyCallsRouteImport } from './routes/_app/_authed/my-calls'
 import { Route as AppAuthedMyQuestionsRouteImport } from './routes/_app/_authed/my-questions'
@@ -138,11 +138,6 @@ import { Route as ShareSweepsUsernameLeagueSlateKeyCardDotpngRouteImport } from 
 import { Route as AppUserUsernameStreaksLeagueFamilyModeRouteImport } from './routes/_app/user/$username_.streaks.$league.$family.$mode'
 import { Route as ShareStreaksUsernameLeagueFamilyModeCardDotpngRouteImport } from './routes/share/streaks/$username/$league/$family/$mode/card[.]png'
 
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const AppRoute = AppRouteImport.update({
   id: '/_app',
   getParentRoute: () => rootRouteImport,
@@ -155,6 +150,11 @@ const AdminRoute = AdminRouteImport.update({
 const GraphqlRoute = GraphqlRouteImport.update({
   id: '/graphql',
   path: '/graphql',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const HomeRoute = HomeRouteImport.update({
+  id: '/home',
+  path: '/home',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ManifestDotwebmanifestRoute = ManifestDotwebmanifestRouteImport.update({
@@ -176,6 +176,11 @@ const VersionRoute = VersionRouteImport.update({
   id: '/version',
   path: '/version',
   getParentRoute: () => rootRouteImport,
+} as any)
+const AppIndexRoute = AppIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AppRoute,
 } as any)
 const AppAuthedRoute = AppAuthedRouteImport.update({
   id: '/_authed',
@@ -325,11 +330,6 @@ const WebhooksResendRoute = WebhooksResendRouteImport.update({
   id: '/webhooks/resend',
   path: '/webhooks/resend',
   getParentRoute: () => rootRouteImport,
-} as any)
-const AppAuthedHomeRoute = AppAuthedHomeRouteImport.update({
-  id: '/home',
-  path: '/home',
-  getParentRoute: () => AppAuthedRoute,
 } as any)
 const AppAuthedInviteRoute = AppAuthedInviteRouteImport.update({
   id: '/invite',
@@ -828,9 +828,10 @@ const ShareStreaksUsernameLeagueFamilyModeCardDotpngRoute =
   } as any)
 
 export interface FileRoutesByFullPath {
-  '/': typeof IndexRoute
+  '/': typeof AppIndexRoute
   '/admin': typeof AdminRouteWithChildren
   '/graphql': typeof GraphqlRoute
+  '/home': typeof HomeRoute
   '/manifest.webmanifest': typeof ManifestDotwebmanifestRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/sw': typeof SwRoute
@@ -864,7 +865,6 @@ export interface FileRoutesByFullPath {
   '/webhooks/resend': typeof WebhooksResendRoute
   '/admin/': typeof AdminIndexRoute
   '/unsubscribe/': typeof UnsubscribeIndexRoute
-  '/home': typeof AppAuthedHomeRoute
   '/invite': typeof AppAuthedInviteRoute
   '/my-calls': typeof AppAuthedMyCallsRoute
   '/my-questions': typeof AppAuthedMyQuestionsRoute
@@ -956,12 +956,13 @@ export interface FileRoutesByFullPath {
   '/share/streaks/$username/$league/$family/$mode/card.png': typeof ShareStreaksUsernameLeagueFamilyModeCardDotpngRoute
 }
 export interface FileRoutesByTo {
-  '/': typeof IndexRoute
   '/graphql': typeof GraphqlRoute
+  '/home': typeof HomeRoute
   '/manifest.webmanifest': typeof ManifestDotwebmanifestRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/sw': typeof SwRoute
   '/version': typeof VersionRoute
+  '/': typeof AppIndexRoute
   '/confirm-email': typeof AppConfirmEmailRoute
   '/how-it-works': typeof AppHowItWorksRoute
   '/leaderboard': typeof AppLeaderboardRoute
@@ -991,7 +992,6 @@ export interface FileRoutesByTo {
   '/webhooks/resend': typeof WebhooksResendRoute
   '/admin': typeof AdminIndexRoute
   '/unsubscribe': typeof UnsubscribeIndexRoute
-  '/home': typeof AppAuthedHomeRoute
   '/invite': typeof AppAuthedInviteRoute
   '/my-calls': typeof AppAuthedMyCallsRoute
   '/my-questions': typeof AppAuthedMyQuestionsRoute
@@ -1081,10 +1081,10 @@ export interface FileRoutesByTo {
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
-  '/': typeof IndexRoute
   '/_app': typeof AppRouteWithChildren
   '/admin': typeof AdminRouteWithChildren
   '/graphql': typeof GraphqlRoute
+  '/home': typeof HomeRoute
   '/manifest.webmanifest': typeof ManifestDotwebmanifestRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/sw': typeof SwRoute
@@ -1117,9 +1117,9 @@ export interface FileRoutesById {
   '/join/$code': typeof JoinCodeRoute
   '/unsubscribe/one-click': typeof UnsubscribeOneClickRoute
   '/webhooks/resend': typeof WebhooksResendRoute
+  '/_app/': typeof AppIndexRoute
   '/admin/': typeof AdminIndexRoute
   '/unsubscribe/': typeof UnsubscribeIndexRoute
-  '/_app/_authed/home': typeof AppAuthedHomeRoute
   '/_app/_authed/invite': typeof AppAuthedInviteRoute
   '/_app/_authed/my-calls': typeof AppAuthedMyCallsRoute
   '/_app/_authed/my-questions': typeof AppAuthedMyQuestionsRoute
@@ -1216,6 +1216,7 @@ export interface FileRouteTypes {
     | '/'
     | '/admin'
     | '/graphql'
+    | '/home'
     | '/manifest.webmanifest'
     | '/sitemap.xml'
     | '/sw'
@@ -1249,7 +1250,6 @@ export interface FileRouteTypes {
     | '/webhooks/resend'
     | '/admin/'
     | '/unsubscribe/'
-    | '/home'
     | '/invite'
     | '/my-calls'
     | '/my-questions'
@@ -1341,12 +1341,13 @@ export interface FileRouteTypes {
     | '/share/streaks/$username/$league/$family/$mode/card.png'
   fileRoutesByTo: FileRoutesByTo
   to:
-    | '/'
     | '/graphql'
+    | '/home'
     | '/manifest.webmanifest'
     | '/sitemap.xml'
     | '/sw'
     | '/version'
+    | '/'
     | '/confirm-email'
     | '/how-it-works'
     | '/leaderboard'
@@ -1376,7 +1377,6 @@ export interface FileRouteTypes {
     | '/webhooks/resend'
     | '/admin'
     | '/unsubscribe'
-    | '/home'
     | '/invite'
     | '/my-calls'
     | '/my-questions'
@@ -1465,10 +1465,10 @@ export interface FileRouteTypes {
     | '/share/streaks/$username/$league/$family/$mode/card.png'
   id:
     | '__root__'
-    | '/'
     | '/_app'
     | '/admin'
     | '/graphql'
+    | '/home'
     | '/manifest.webmanifest'
     | '/sitemap.xml'
     | '/sw'
@@ -1501,9 +1501,9 @@ export interface FileRouteTypes {
     | '/join/$code'
     | '/unsubscribe/one-click'
     | '/webhooks/resend'
+    | '/_app/'
     | '/admin/'
     | '/unsubscribe/'
-    | '/_app/_authed/home'
     | '/_app/_authed/invite'
     | '/_app/_authed/my-calls'
     | '/_app/_authed/my-questions'
@@ -1596,10 +1596,10 @@ export interface FileRouteTypes {
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
-  IndexRoute: typeof IndexRoute
   AppRoute: typeof AppRouteWithChildren
   AdminRoute: typeof AdminRouteWithChildren
   GraphqlRoute: typeof GraphqlRoute
+  HomeRoute: typeof HomeRoute
   ManifestDotwebmanifestRoute: typeof ManifestDotwebmanifestRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   SwRoute: typeof SwRoute
@@ -1633,13 +1633,6 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/_app': {
       id: '/_app'
       path: ''
@@ -1659,6 +1652,13 @@ declare module '@tanstack/react-router' {
       path: '/graphql'
       fullPath: '/graphql'
       preLoaderRoute: typeof GraphqlRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/home': {
+      id: '/home'
+      path: '/home'
+      fullPath: '/home'
+      preLoaderRoute: typeof HomeRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/manifest.webmanifest': {
@@ -1688,6 +1688,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/version'
       preLoaderRoute: typeof VersionRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/_app/': {
+      id: '/_app/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof AppIndexRouteImport
+      parentRoute: typeof AppRoute
     }
     '/_app/_authed': {
       id: '/_app/_authed'
@@ -1898,13 +1905,6 @@ declare module '@tanstack/react-router' {
       fullPath: '/webhooks/resend'
       preLoaderRoute: typeof WebhooksResendRouteImport
       parentRoute: typeof rootRouteImport
-    }
-    '/_app/_authed/home': {
-      id: '/_app/_authed/home'
-      path: '/home'
-      fullPath: '/home'
-      preLoaderRoute: typeof AppAuthedHomeRouteImport
-      parentRoute: typeof AppAuthedRoute
     }
     '/_app/_authed/invite': {
       id: '/_app/_authed/invite'
@@ -2561,7 +2561,6 @@ const AppAuthedGroupsGroupIdTabsRouteWithChildren =
   )
 
 interface AppAuthedRouteChildren {
-  AppAuthedHomeRoute: typeof AppAuthedHomeRoute
   AppAuthedInviteRoute: typeof AppAuthedInviteRoute
   AppAuthedMyCallsRoute: typeof AppAuthedMyCallsRoute
   AppAuthedMyQuestionsRoute: typeof AppAuthedMyQuestionsRoute
@@ -2582,7 +2581,6 @@ interface AppAuthedRouteChildren {
 }
 
 const AppAuthedRouteChildren: AppAuthedRouteChildren = {
-  AppAuthedHomeRoute: AppAuthedHomeRoute,
   AppAuthedInviteRoute: AppAuthedInviteRoute,
   AppAuthedMyCallsRoute: AppAuthedMyCallsRoute,
   AppAuthedMyQuestionsRoute: AppAuthedMyQuestionsRoute,
@@ -2654,6 +2652,7 @@ interface AppRouteChildren {
   AppResetPasswordRoute: typeof AppResetPasswordRoute
   AppSpacesRoute: typeof AppSpacesRoute
   AppTermsRoute: typeof AppTermsRoute
+  AppIndexRoute: typeof AppIndexRoute
   AppBallotsBallotSlugRoute: typeof AppBallotsBallotSlugRoute
   AppCallsCallIdRoute: typeof AppCallsCallIdRoute
   AppChallengesCodeRoute: typeof AppChallengesCodeRoute
@@ -2691,6 +2690,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppResetPasswordRoute: AppResetPasswordRoute,
   AppSpacesRoute: AppSpacesRoute,
   AppTermsRoute: AppTermsRoute,
+  AppIndexRoute: AppIndexRoute,
   AppBallotsBallotSlugRoute: AppBallotsBallotSlugRoute,
   AppCallsCallIdRoute: AppCallsCallIdRoute,
   AppChallengesCodeRoute: AppChallengesCodeRoute,
@@ -2803,10 +2803,10 @@ const AdminRouteChildren: AdminRouteChildren = {
 const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
-  IndexRoute: IndexRoute,
   AppRoute: AppRouteWithChildren,
   AdminRoute: AdminRouteWithChildren,
   GraphqlRoute: GraphqlRoute,
+  HomeRoute: HomeRoute,
   ManifestDotwebmanifestRoute: ManifestDotwebmanifestRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   SwRoute: SwRoute,

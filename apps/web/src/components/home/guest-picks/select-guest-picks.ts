@@ -121,7 +121,7 @@ function interleaveByLeague<G extends { league: GuestPickLeague }>(
 	return interleaved
 }
 
-// Orders the landing page's games for the hero stack. The first is the game the
+// Orders the signed-out Home's games for its stack. The first is the game the
 // visitor walks through; the rest back the Skip button on its winner card.
 //
 // leagueId is the league the chip row has selected. Its games come first and

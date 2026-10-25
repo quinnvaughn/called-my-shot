@@ -44,7 +44,7 @@ export function OnboardingChecklist() {
 	const dismiss = useGqlMutation(DismissOnboardingDocument)
 	const setCollapsed = useGqlMutation(SetOnboardingCollapsedDocument)
 
-	// useQuery, not useSuspenseQuery: /home already suspends on its dashboard
+	// useQuery, not useSuspenseQuery: Home already suspends on its dashboard
 	// loader, and the checklist is the least important thing on the page. It
 	// should never be what holds up the questions locking tonight.
 	const { data } = useQuery({ ...onboardingQuery, enabled: !!me })

@@ -7,8 +7,8 @@ import { useGqlMutation } from "#/graphql/hooks"
 import { type GroupCreatedSurface, track } from "#/lib/analytics"
 import { markFreshGroup } from "#/stores/fresh-group-store"
 
-// Creating a group and moving to it, shared by the in-app modal, the landing
-// page's form, and a creation resumed after Google signup. Returns the
+// Creating a group and moving to it, shared by the in-app modal, the
+// signed-out start form, and a creation resumed after Google signup. Returns the
 // mutation's result so a form can map a ValidationError onto its fields; a
 // created group has already been navigated to by then.
 export function useCreateGroupFlow() {

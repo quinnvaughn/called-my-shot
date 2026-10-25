@@ -32,7 +32,7 @@ describe("spaceOfPage", () => {
 
 describe("resolveSpace", () => {
 	it("puts Home and the unfiltered leaderboard in the home space", () => {
-		expect(resolveSpace("/home", null, leagues, null)).toEqual({ kind: "home" })
+		expect(resolveSpace("/", null, leagues, null)).toEqual({ kind: "home" })
 		expect(resolveSpace("/leaderboard", null, leagues, null)).toEqual({
 			kind: "home",
 		})

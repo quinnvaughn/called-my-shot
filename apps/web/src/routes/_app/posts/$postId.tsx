@@ -63,7 +63,7 @@ function RouteComponent() {
 				eyebrowText="Post"
 				heading="This post isn't here"
 				subtitle="It was deleted, or it was posted in a group you're not in."
-				link={{ text: "Back to home", url: "/home" }}
+				link={{ text: "Back to home", url: "/" }}
 			/>
 		)
 	}

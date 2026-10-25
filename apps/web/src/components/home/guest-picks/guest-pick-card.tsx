@@ -162,11 +162,10 @@ function crowdVerdict(
 	return `Only ${pct}% of callers picked this.`
 }
 
-// One question in the landing page's try-it stack. The whole card runs a size
-// down from the question page's version - card padding, title, matchup, stats
-// and the option rows - because it has to sit whole inside the fold next to the
-// hero copy. A visitor who has to scroll to find the options doesn't know there
-// are any.
+// One question in the signed-out Home's try-it stack. The whole card runs a
+// size down from the question page's version - card padding, title, matchup,
+// stats and the option rows - because it has to sit whole on a phone screen. A
+// visitor who has to scroll to find the options doesn't know there are any.
 //
 // The matchup shows the teams and when it starts, without starters: a lineup is
 // for someone already deciding, and this card is still trying to get them to
@@ -182,7 +181,7 @@ export function GuestPickCard({
 	const question = useFragment(GuestPickCardFragment, questionProp)
 	const isOverUnder = isOverUnderQuestionShape(question.shape)
 	const rateStat = isRateStat(question)
-	// Its own request, never folded into the landing page query: statContext
+	// Its own request, never folded into the guest picks query: statContext
 	// runs several queries per question and the stack is offered eight of them
 	// per league, so it's fetched for the card on screen only. Fetched even
 	// though the section starts folded, because whether there is anything worth

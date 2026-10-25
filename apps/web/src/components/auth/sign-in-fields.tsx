@@ -60,7 +60,7 @@ export function SignInFields({
 					await router.invalidate()
 					closeModal()
 					if (onSuccess) onSuccess()
-					else await navigate({ to: "/home" })
+					else await navigate({ to: "/" })
 				})
 				.exhaustive()
 		},

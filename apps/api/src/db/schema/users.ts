@@ -48,7 +48,7 @@ export const users = pgTable("users", {
 	questionCreationEnabled: boolean("question_creation_enabled")
 		.notNull()
 		.default(true),
-	// Null means the get-started checklist is still showing on /home. Together
+	// Null means the get-started checklist is still showing on Home. Together
 	// with onboardingCollapsedAt and leaderboardViewedAt below, the only
 	// onboarding state stored at all: every other step is derived from the
 	// user's real calls, groups and email status, so these record what no other
@@ -71,7 +71,7 @@ export const users = pgTable("users", {
 	// leaves no other row to derive it from. Keeps the first visit's time; later
 	// visits don't move it. No backfill, same as onboardingDismissedAt.
 	leaderboardViewedAt: timestamp("leaderboard_viewed_at"),
-	// Stamped the moment the one-time favorite-teams prompt opens on /home, so
+	// Stamped the moment the one-time favorite-teams prompt opens on Home, so
 	// it is shown once ever however it gets closed. The checklist step is the
 	// standing reminder after that. No backfill: an existing account without
 	// teams gets the prompt once, the same as a new one.

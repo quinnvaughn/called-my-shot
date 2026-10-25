@@ -16,6 +16,7 @@ import { pluralize } from "#/lib/pluralize"
 import { GroupInviteJoinBar } from "../group-invite-join-bar"
 import { GroupInviteLeaders } from "./group-invite-leaders"
 import { GroupInviteNav } from "./group-invite-nav"
+import { GroupInviteWeek } from "./group-invite-week"
 import { inviteDemoCast } from "./invite-demo-cast"
 import { leaguesLabel } from "./leagues-label"
 import type { GroupPreview } from "./types"
@@ -179,6 +180,7 @@ export function GroupInviteLanding({ preview, onJoin, joining }: Props) {
 					</LandingPageWrap>
 				</section>
 			)}
+			<GroupInviteWeek groupName={preview.name} />
 			<LandingPageFooter />
 			<GroupInviteJoinBar
 				groupName={preview.name}

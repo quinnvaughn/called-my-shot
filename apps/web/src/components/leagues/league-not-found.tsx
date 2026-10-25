@@ -8,7 +8,7 @@ export function LeagueNotFound() {
 			eyebrowText="League"
 			heading="This league doesn't exist"
 			subtitle="Double check the link, or pick a league from Spaces."
-			link={{ text: "Back home", url: "/home" }}
+			link={{ text: "Back home", url: "/" }}
 		/>
 	)
 }

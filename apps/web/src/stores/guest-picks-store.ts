@@ -1,7 +1,7 @@
 import { Store } from "@tanstack/react-store"
 import type { QuestionShape } from "#/graphql/generated/graphql"
 
-// A pick a signed-out visitor made in the landing page's hero, held until they
+// A pick a signed-out visitor made in Home's try-it stack, held until they
 // have an account to post it from. Carries its own title and label so the
 // summary and the posted modal can list it without refetching the question.
 export type GuestPick = {

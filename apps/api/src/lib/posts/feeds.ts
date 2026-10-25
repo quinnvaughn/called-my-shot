@@ -91,6 +91,11 @@ export function homeFeed(viewerId: string, args: PageArgs): Feed {
 	)
 }
 
+// Every public post, for a signed-out Home.
+export function publicFeed(viewerId: string | null, args: PageArgs): Feed {
+	return keysetFeed(args, viewerId, isNull(posts.groupId))
+}
+
 // A league's, team's or player's space: public posts tagged with it.
 export function spaceFeed(
 	viewerId: string | null,

@@ -67,7 +67,7 @@ function TeamNotFound() {
 			eyebrowText="Team"
 			heading="This team doesn't exist"
 			subtitle="Double check the link, or pick a team from its league's Teams tab."
-			link={{ text: "Back home", url: "/home" }}
+			link={{ text: "Back home", url: "/" }}
 		/>
 	)
 }

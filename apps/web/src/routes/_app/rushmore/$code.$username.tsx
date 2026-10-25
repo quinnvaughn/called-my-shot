@@ -25,7 +25,7 @@ export const Route = createFileRoute("/_app/rushmore/$code/$username")({
 			eyebrowText="Rushmore"
 			heading="This Rushmore isn't here"
 			subtitle="It was deleted, or that person hasn't made one for this prompt."
-			link={{ text: "Back to home", url: "/home" }}
+			link={{ text: "Back to home", url: "/" }}
 		/>
 	),
 })

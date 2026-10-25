@@ -12,7 +12,7 @@ import { buildGameSlug, questionPath } from "#/lib/slug"
 const ORIGIN = "https://calledmyshot.com"
 
 // Every public page that isn't derived from data. The rest of the app is
-// either behind _authed (home, settings, my-calls, ...), admin-only, or
+// either behind _authed (settings, my-calls, ...), admin-only, or
 // reached from a link nobody should be indexing (group invites, email
 // confirmation) - see public/robots.txt for the matching disallow list.
 const STATIC_PATHS = [

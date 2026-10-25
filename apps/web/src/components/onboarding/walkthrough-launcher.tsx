@@ -35,12 +35,12 @@ export function WalkthroughLauncher() {
 	const tourRunning = useStore(tourStepStore, (s) => s !== null)
 	// The push card takes the same corner for the moment it's up.
 	const pushCardShowing = useStore(pushCardShowingStore, (s) => s)
-	// /home carries the get-started checklist, whose first row is this same
+	// Home carries the get-started checklist, whose first row is this same
 	// offer with the rest of the product around it. Two prompts for one action
 	// on one page is just clutter, so the pill stands down where the fuller
 	// version already is.
 	const onHome = useRouterState({
-		select: (s) => s.location.pathname === "/home",
+		select: (s) => s.location.pathname === "/",
 	})
 
 	const { data } = useQuery({ ...onboardingQuery, enabled: !!me })

@@ -94,7 +94,7 @@ export function SignUpFields({ onSuccess, surface }: FieldsProps) {
 					await router.invalidate()
 					closeModal()
 					if (onSuccess) onSuccess()
-					else await navigate({ to: "/home" })
+					else await navigate({ to: "/" })
 
 					// After the navigation, and a beat behind it. This is the
 					// one moment the account is told it already owns a redo -

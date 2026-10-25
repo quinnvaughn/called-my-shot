@@ -14,10 +14,9 @@ type Props = {
 	notPostedCount: number
 }
 
-// Shown on Home right after the picks someone made on the landing page post to
-// their new account. Laid out like FirstCallDoneModal, since it's the same
-// moment for someone who came in through the landing page instead of a
-// question page.
+// Shown on Home right after the picks someone made signed out post to their
+// new account. Laid out like FirstCallDoneModal, since it's the same moment
+// for someone who came in through the try-it stack instead of a question page.
 export function GuestPicksPostedModal({ posted, notPostedCount }: Props) {
 	const postedCount = posted.length
 

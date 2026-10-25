@@ -12,7 +12,7 @@ import { LastUsed } from "./last-used"
 // a new one, so which tab someone was on doesn't matter.
 //
 // A signup here lands back on the page it started from when the caller had
-// something to resume there, and on /home otherwise, the same split as the
+// something to resume there, and on Home otherwise, the same split as the
 // email forms' onSuccess. A caller whose action can be written down passes it
 // as `intent`, and it's finished on the far side of the trip (see
 // useGoogleAuthReturn). An action with no intent only gets its page back.
@@ -60,15 +60,14 @@ export function GoogleButton({
 	)
 }
 
-// A group named on the landing page can't come back to "/", which sends a
-// signed-in visitor to Home. Spaces, which lists the viewer's groups, is
-// where it would have been made in the app, and the resumed creation moves on
-// from there to the group.
+// A group named before signup comes back to Spaces, which lists the viewer's
+// groups and is where it would have been made in the app. The resumed
+// creation moves on from there to the group.
 function returnPath(
 	intent: AuthIntent | null,
 	hasOnSuccess: boolean,
 	href: string,
 ): string {
 	if (intent?.kind === "create_group") return "/spaces"
-	return hasOnSuccess ? href : "/home"
+	return hasOnSuccess ? href : "/"
 }

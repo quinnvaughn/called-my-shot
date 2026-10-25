@@ -4,6 +4,7 @@ import { GoHomeFill } from "react-icons/go"
 import { IoGameController } from "react-icons/io5"
 import { css } from "styled-system/css"
 import { NewGroupModal } from "#/components/groups/new-group-modal"
+import { StartGroupModal } from "#/components/groups/start-group-modal"
 import { GroupLogo } from "#/components/ui/group-logo"
 import { myFollowsQuery } from "#/graphql/follows/queries"
 import { sidebarGroupsQuery } from "#/graphql/groups/queries"
@@ -27,6 +28,8 @@ const divider = css({
 // or team is what puts it here; following a person never does. Signed out,
 // every league shows. The compass under them opens Spaces, every league to
 // follow or follow again, the way the bottom nav's Spaces tab does on phones.
+// The New group tile shows signed out too, so a visitor can see groups are a
+// thing before they have one.
 export function SpaceRail({
 	me,
 	leagues,
@@ -89,7 +92,7 @@ export function SpaceRail({
 			})}
 		>
 			<RailTile
-				to="/home"
+				to="/"
 				label="Home"
 				active={space.kind === "home" || space.kind === "you"}
 			>
@@ -140,7 +143,7 @@ export function SpaceRail({
 				</RailTile>
 			)}
 
-			{me && <span aria-hidden className={divider} />}
+			<span aria-hidden className={divider} />
 			{groups.map((group) => (
 				<RailTile
 					key={group.id}
@@ -151,16 +154,22 @@ export function SpaceRail({
 					<GroupLogo name={group.name} src={group.logoUrl} size="md" />
 				</RailTile>
 			))}
-			{me && (
-				<RailTile
-					label="New group"
-					onClick={() => openModal(<NewGroupModal leagues={leagues} />)}
-				>
-					<span className={railGlyphDashed}>
-						<FiPlus size={18} />
-					</span>
-				</RailTile>
-			)}
+			<RailTile
+				label="New group"
+				onClick={() =>
+					openModal(
+						me ? (
+							<NewGroupModal leagues={leagues} />
+						) : (
+							<StartGroupModal surface="rail" />
+						),
+					)
+				}
+			>
+				<span className={railGlyphDashed}>
+					<FiPlus size={18} />
+				</span>
+			</RailTile>
 		</nav>
 	)
 }

@@ -59,7 +59,7 @@ export function usePostActions(
 									return postErrorMessage(result)
 								}
 								await invalidatePosts(queryClient)
-								void navigate({ to: "/home" })
+								void navigate({ to: "/" })
 								return null
 							}}
 						>
@@ -100,7 +100,7 @@ export function usePostActions(
 			onSelect: async () => {
 				await block.mutateAsync({ username: post.author.username })
 				await invalidateAfterBlock(queryClient)
-				void navigate({ to: "/home" })
+				void navigate({ to: "/" })
 			},
 		},
 	]

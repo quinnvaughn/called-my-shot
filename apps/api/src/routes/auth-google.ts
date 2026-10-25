@@ -51,9 +51,9 @@ export type Flow = z.infer<typeof flowSchema>
 
 // Only a same-site path. Anything else would make this an open redirect.
 function safeReturnTo(raw: unknown): string {
-	if (typeof raw !== "string") return "/home"
+	if (typeof raw !== "string") return "/"
 	if (!raw.startsWith("/") || raw.startsWith("//") || raw.includes("\\")) {
-		return "/home"
+		return "/"
 	}
 	return raw
 }
