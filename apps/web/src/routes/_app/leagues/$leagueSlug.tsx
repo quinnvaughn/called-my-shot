@@ -7,6 +7,7 @@ import {
 } from "@tanstack/react-router"
 import { VStack } from "styled-system/jsx"
 import { useSectionTabsClass } from "#/components/app-shell/use-section-tabs-class"
+import { FollowButton } from "#/components/follows/follow-button"
 import { LeagueNotFound } from "#/components/leagues/league-not-found"
 import { SeasonPlayCard } from "#/components/leagues/season-play-card"
 import { PageHeader } from "#/components/ui/page-header"
@@ -82,12 +83,14 @@ export const Route = createFileRoute("/_app/leagues/$leagueSlug")({
 	},
 })
 
-// By subject, not by who wrote the question: official and player-written
+// Feed first, then the questions by subject: official and player-written
 // questions share each tab, and the Official badge tells them apart.
 const TAB_ITEMS = [
+	{ to: "/leagues/$leagueSlug/feed", label: "Feed" },
 	{ to: "/leagues/$leagueSlug/games", label: "Games" },
 	{ to: "/leagues/$leagueSlug/season", label: "Season long" },
 	{ to: "/leagues/$leagueSlug/ballots", label: "Ballots" },
+	{ to: "/leagues/$leagueSlug/teams", label: "Teams" },
 ] as const
 
 function RouteComponent() {
@@ -118,6 +121,14 @@ function RouteComponent() {
 				]
 					.filter(Boolean)
 					.join(" · ")}
+				action={
+					<FollowButton
+						kind="LEAGUE"
+						id={league.id}
+						following={league.viewerFollows}
+						name={league.name}
+					/>
+				}
 			/>
 			{league.viewerSeasonPlay && (
 				<SeasonPlayCard

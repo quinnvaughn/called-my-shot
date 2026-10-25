@@ -19,6 +19,7 @@ import {
 import type { Tx } from "../../db/types"
 import { enqueueAnalyticsEvents } from "../analytics-outbox"
 import { AuthorizationError, NotFoundError, ValidationError } from "../errors"
+import { dropFollowsBetween } from "../follows/follow"
 import type { Strictness } from "../moderation"
 import { assertAllowedText as assertAllowed } from "../moderation/guard"
 import { createNotification } from "../notifications"
@@ -301,7 +302,7 @@ export async function reportPresserContent(
 
 // Also withdraws the blocked user's pending questions on any of the
 // blocker's open pressers, so blocking someone clears what they already
-// asked.
+// asked, and ends any following between the two.
 export async function blockUser(
 	user: User,
 	username: string,
@@ -318,6 +319,7 @@ export async function blockUser(
 			.values({ blockerId: user.id, blockedId: target.id })
 			.onConflictDoNothing()
 			.returning({ blockedId: userBlocks.blockedId })
+		await dropFollowsBetween(tx, user.id, target.id)
 		const open = tx
 			.select({ id: pressers.id })
 			.from(pressers)

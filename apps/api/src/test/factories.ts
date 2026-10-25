@@ -13,9 +13,13 @@ import {
 	type League,
 	leagues,
 	type Player,
+	playerFranchiseStints,
 	players,
+	posts,
+	postTags,
 	presserQuestions,
 	pressers,
+	prompts,
 	pushSubscriptions,
 	type Question,
 	questionOptions,
@@ -23,6 +27,7 @@ import {
 	redoGrants,
 	referralCodes,
 	referrals,
+	rushmorePicks,
 	seasons,
 	sessions,
 	sports,
@@ -36,6 +41,7 @@ import {
 	users,
 } from "../db/schema"
 import { generateInviteCode } from "../lib/invite-codes"
+import { rushmoreTags } from "../lib/posts/tags"
 
 // Monotonic within a test file so every generated slug/username/abbreviation
 // is unique without the caller having to name one. Reset is unnecessary -
@@ -542,6 +548,87 @@ export async function makePushSubscription(
 			})
 			.returning(),
 	)
+}
+
+// A Rushmore prompt. Defaults to a franchise one with no creator when given
+// a teamId; pass creatorId for someone's own.
+export async function makePrompt(
+	overrides: Partial<typeof prompts.$inferInsert> & {
+		leagueId: string | null
+	},
+) {
+	const i = uniq()
+	return insertOne(
+		db
+			.insert(prompts)
+			.values({
+				kind: "rushmore",
+				code: `p${i}`,
+				title: `Prompt ${i} Rushmore`,
+				...overrides,
+			})
+			.returning(),
+	)
+}
+
+// Puts a player in a franchise's all-time pool.
+export function makeStint(
+	playerId: string,
+	teamId: string,
+	overrides: Partial<typeof playerFranchiseStints.$inferInsert> = {},
+) {
+	return insertOne(
+		db
+			.insert(playerFranchiseStints)
+			.values({
+				firstSeason: 1990,
+				lastSeason: 1999,
+				seasons: 10,
+				...overrides,
+				playerId,
+				teamId,
+			})
+			.returning(),
+	)
+}
+
+// A Rushmore written straight to the tables, picks and tags included,
+// without lib/posts/create-rushmore's pool and moderation checks.
+export async function makeRushmore(opts: {
+	author: User
+	prompt: { id: string; leagueId: string | null; teamId: string | null }
+	playerIds: string[]
+	groupId?: string | null
+	body?: string | null
+	createdAt?: Date
+}) {
+	const post = await insertOne(
+		db
+			.insert(posts)
+			.values({
+				authorId: opts.author.id,
+				kind: "rushmore",
+				promptId: opts.prompt.id,
+				groupId: opts.groupId ?? null,
+				body: opts.body ?? null,
+				...(opts.createdAt ? { createdAt: opts.createdAt } : {}),
+			})
+			.returning(),
+	)
+	await db.insert(rushmorePicks).values(
+		opts.playerIds.map((playerId, position) => ({
+			postId: post.id,
+			playerId,
+			position,
+		})),
+	)
+	await db.insert(postTags).values(
+		rushmoreTags(opts.prompt, opts.playerIds).map((tag) => ({
+			postId: post.id,
+			...tag,
+		})),
+	)
+	return post
 }
 
 export type { Call, League, Player, Question, Team }

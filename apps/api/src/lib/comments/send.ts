@@ -14,12 +14,20 @@ import { isBlockedEitherWay } from "../pressers/ask"
 // What every comment shares, whatever it was posted on: parsing, the text
 // check, the row itself, and the GIF share after it commits. Who may post on
 // a thing, how often, and who hears about it are the caller's rules - see
-// lib/challenges/gloat.ts and lib/chains/comment.ts.
+// lib/challenges/gloat.ts, lib/chains/comment.ts and lib/posts/comment.ts.
 
 export type CommentTarget =
 	| { kind: "challenge_creator"; challengeId: string }
 	| { kind: "challenge_acceptor"; challengeId: string; acceptanceId: string }
 	| { kind: "chain"; chainId: string }
+	// A post's thread. parentId is the top-level comment a reply sits under,
+	// replyToUserId whoever a reply to a reply answers.
+	| {
+			kind: "post"
+			postId: string
+			parentId: string | null
+			replyToUserId: string | null
+	  }
 
 export type ParsedComment = { text: string; gif: CommentGif | null }
 
@@ -35,7 +43,7 @@ export async function assertAllowedCommentText(
 	text: string,
 	senderId: string,
 	strictness: Strictness,
-	on: "challenge" | "chain",
+	on: "challenge" | "chain" | "post",
 ): Promise<void> {
 	if (text.length === 0) return
 	await assertAllowedText(text, "text", strictness, (category) => ({
@@ -59,6 +67,9 @@ export async function insertComment(
 			challengeId: "challengeId" in target ? target.challengeId : null,
 			acceptanceId: "acceptanceId" in target ? target.acceptanceId : null,
 			chainId: "chainId" in target ? target.chainId : null,
+			postId: "postId" in target ? target.postId : null,
+			parentId: "parentId" in target ? target.parentId : null,
+			replyToUserId: "replyToUserId" in target ? target.replyToUserId : null,
 			text: text.length > 0 ? text : null,
 			gifProvider: gif ? "klipy" : null,
 			gifId: gif?.id ?? null,

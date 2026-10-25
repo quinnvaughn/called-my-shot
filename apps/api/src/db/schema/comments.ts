@@ -1,10 +1,12 @@
 import { sql } from "drizzle-orm"
 import {
+	type AnyPgColumn,
 	check,
 	index,
 	integer,
 	pgEnum,
 	pgTable,
+	primaryKey,
 	text,
 	timestamp,
 	unique,
@@ -13,6 +15,7 @@ import {
 } from "drizzle-orm/pg-core"
 import { chains } from "./chains"
 import { challengeAcceptances, challenges } from "./challenges"
+import { posts } from "./posts"
 import { presserReportReason, presserReportStatus } from "./pressers"
 import { users } from "./users"
 
@@ -20,10 +23,12 @@ import { users } from "./users"
 // challenge_creator: a challenge creator's gloat, to every acceptor they beat.
 // challenge_acceptor: an acceptor's gloat, to the creator they beat.
 // chain: a post in a chain's thread, from anyone in the chain's group.
+// post: a comment or reply on a post (a Rushmore), from anyone who can see it.
 export const commentKind = pgEnum("comment_kind", [
 	"challenge_creator",
 	"challenge_acceptor",
 	"chain",
+	"post",
 ])
 export type CommentKind = (typeof commentKind.enumValues)[number]
 
@@ -36,6 +41,11 @@ export const gifProvider = pgEnum("gif_provider", ["klipy"])
 // Exactly one of the target columns is set. A gloat is a comment with the
 // challenge rules on top (one per sender per 1v1, winners only - see
 // lib/challenges/gloat.ts); a chain's thread takes as many as people post.
+//
+// A post's comments go two levels deep and no further. parentId is the
+// top-level comment a reply sits under, never another reply: answering a
+// reply stays at the second level and names who it's answering in
+// replyToUserId.
 export const comments = pgTable(
 	"comments",
 	{
@@ -55,6 +65,15 @@ export const comments = pgTable(
 		),
 		chainId: uuid("chain_id").references(() => chains.id, {
 			onDelete: "cascade",
+		}),
+		postId: uuid("post_id").references(() => posts.id, {
+			onDelete: "cascade",
+		}),
+		parentId: uuid("parent_id").references((): AnyPgColumn => comments.id, {
+			onDelete: "cascade",
+		}),
+		replyToUserId: uuid("reply_to_user_id").references(() => users.id, {
+			onDelete: "set null",
 		}),
 		text: text("text"),
 		gifProvider: gifProvider("gif_provider"),
@@ -83,9 +102,16 @@ export const comments = pgTable(
 			"comments_has_content",
 			sql`${t.text} is not null or ${t.gifUrl} is not null`,
 		),
+		index("comments_post_parent_created_idx")
+			.on(t.postId, t.parentId, t.createdAt)
+			.where(sql`${t.postId} is not null`),
 		check(
 			"comments_one_target",
-			sql`(${t.challengeId} is null) <> (${t.chainId} is null)`,
+			sql`num_nonnulls(${t.challengeId}, ${t.chainId}, ${t.postId}) = 1`,
+		),
+		check(
+			"comments_threads_on_posts_only",
+			sql`${t.postId} is not null or (${t.parentId} is null and ${t.replyToUserId} is null)`,
 		),
 	],
 )
@@ -118,3 +144,17 @@ export const commentReports = pgTable(
 	],
 )
 export type CommentReport = typeof commentReports.$inferSelect
+
+export const commentLikes = pgTable(
+	"comment_likes",
+	{
+		commentId: uuid("comment_id")
+			.notNull()
+			.references(() => comments.id, { onDelete: "cascade" }),
+		userId: uuid("user_id")
+			.notNull()
+			.references(() => users.id, { onDelete: "cascade" }),
+		createdAt: timestamp("created_at").notNull().defaultNow(),
+	},
+	(t) => [primaryKey({ columns: [t.commentId, t.userId] })],
+)

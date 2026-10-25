@@ -27,6 +27,7 @@ import {
 	AUTO_RESOLVE_GAMES_LOCK,
 	AUTO_RESOLVE_SEASONS_LOCK,
 	BOX_SCORE_SYNC_LOCK,
+	BUILD_PORTRAITS_LOCK,
 	DRAIN_ANALYTICS_LOCK,
 	DRAIN_DIGESTS_LOCK,
 	DRAIN_GAME_REMINDERS_LOCK,
@@ -54,6 +55,7 @@ import {
 	withJobLock,
 } from "./lib/job-lock"
 import { markPending, takePending } from "./lib/pending-work"
+import { buildCurrentPortraits } from "./lib/portraits/current"
 import { drainPresserOpens } from "./lib/pressers/drain"
 import { drainPushOutbox } from "./lib/push-drain"
 import { archiveFinishedSeasons } from "./lib/season-puzzles/archive"
@@ -208,6 +210,9 @@ export const JOBS: ScheduledJob[] = [
 		chains: "generate-game-questions",
 		run: async () => {
 			await syncStartersTick()
+			// After the sync has refreshed headshots: builds the Mount Rushmore
+			// portrait of any current player who doesn't have one.
+			await runJob(BUILD_PORTRAITS_LOCK, () => buildCurrentPortraits())()
 			await refreshWorkCalendar()
 		},
 	},
@@ -331,6 +336,7 @@ export const JOBS: ScheduledJob[] = [
 			LOCK_OVERDUE_QUESTIONS_LOCK,
 			SYNC_GAME_STARTERS_LOCK,
 			GENERATE_GAME_QUESTIONS_LOCK,
+			BUILD_PORTRAITS_LOCK,
 		].join(", "),
 		run: async () => {
 			await runJob(SYNC_SPORTS_DATA_LOCK, () => syncSportsData())()

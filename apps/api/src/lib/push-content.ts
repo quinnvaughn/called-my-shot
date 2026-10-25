@@ -16,6 +16,12 @@ import {
 	pendingRequestCount,
 } from "./chains/push"
 import { loadGameEntry } from "./game-entry"
+import {
+	lastPostCommenter,
+	lastReplier,
+	loadPostForPush,
+	postPath,
+} from "./posts/push"
 
 // What a push says and where tapping it goes, minus the tag. Null when what
 // it was about is gone (a deleted question, a game no longer there), in which
@@ -171,7 +177,9 @@ async function gameResultsPush(
 // Every pushed notification type, told the way its in-app row tells it
 // (apps/web/src/components/notifications/rows) and opening the page that row
 // opens. Read at send time, so a game's results push counts every call that
-// settled during its hold.
+// settled during its hold. user_followed and likes_milestone are never
+// queued (see PUSH_POLICY) but are told the same way, so every type has an
+// answer.
 export async function buildPushContent(
 	n: Notification,
 ): Promise<PushContent | null> {
@@ -376,6 +384,50 @@ export async function buildPushContent(
 				path: gamePath(game),
 			}
 		})
+		.with("post_commented", async () => {
+			const post = await loadPostForPush(n.postId)
+			if (!post) return null
+			const username =
+				(await lastPostCommenter(post.id, n.userId)) ?? n.actorUsername
+			return {
+				title: post.promptTitle,
+				body: `@${username} commented on your Rushmore`,
+				path: postPath(post.id),
+			}
+		})
+		.with("comment_replied", async () => {
+			const post = await loadPostForPush(n.postId)
+			if (!post || !n.commentId) return null
+			const parent = await db.query.comments.findFirst({
+				where: { id: n.commentId },
+				columns: { senderId: true },
+			})
+			if (!parent) return null
+			const username =
+				(await lastReplier(n.commentId, n.userId)) ?? n.actorUsername
+			return {
+				title: post.promptTitle,
+				body:
+					parent.senderId === n.userId
+						? `@${username} replied to your comment`
+						: `@${username} replied to you`,
+				path: postPath(post.id),
+			}
+		})
+		.with("likes_milestone", async () => {
+			const post = await loadPostForPush(n.postId)
+			if (!post) return null
+			return {
+				title: post.promptTitle,
+				body: `Your ${n.commentId ? "comment" : "Rushmore"} hit ${n.achievementCount ?? 0} likes`,
+				path: postPath(post.id),
+			}
+		})
+		.with("user_followed", async () => ({
+			title: "Called My Shot",
+			body: `@${n.actorUsername} followed you`,
+			path: n.actorUsername ? `/user/${n.actorUsername}` : "/notifications",
+		}))
 		.with("group_pins_expired", async () => {
 			if (!n.groupId) return null
 			return {

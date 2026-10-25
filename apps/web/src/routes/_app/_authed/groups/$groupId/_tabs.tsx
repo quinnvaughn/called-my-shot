@@ -52,6 +52,7 @@ export const Route = createFileRoute("/_app/_authed/groups/$groupId/_tabs")({
 
 const TAB_ITEMS = [
 	{ to: "/groups/$groupId", label: "Home" },
+	{ to: "/groups/$groupId/posts", label: "Posts" },
 	{ to: "/groups/$groupId/leaderboard", label: "Leaderboard" },
 	{ to: "/groups/$groupId/chains", label: "Chains" },
 	{ to: "/groups/$groupId/record-book", label: "Record Book" },

@@ -12,6 +12,7 @@ import { ChallengeAcceptedRow } from "./rows/challenge-accepted-row"
 import { ChallengeGloatedRow } from "./rows/challenge-gloated-row"
 import { ChallengePostedToGroupRow } from "./rows/challenge-posted-to-group-row"
 import { ChallengeSettledRow } from "./rows/challenge-settled-row"
+import { CommentRepliedRow } from "./rows/comment-replied-row"
 import { DisputeFiledRow } from "./rows/dispute-filed-row"
 import { DisputeOverturnedRow } from "./rows/dispute-overturned-row"
 import { DisputeUpheldRow } from "./rows/dispute-upheld-row"
@@ -19,6 +20,8 @@ import { GameReminderRow } from "./rows/game-reminder-row"
 import { GameResolvedRow } from "./rows/game-resolved-row"
 import { GroupMemberJoinedRow } from "./rows/group-member-joined-row"
 import { GroupPinsExpiredRow } from "./rows/group-pins-expired-row"
+import { LikesMilestoneRow } from "./rows/likes-milestone-row"
+import { PostCommentedRow } from "./rows/post-commented-row"
 import { PresserAnsweredRow } from "./rows/presser-answered-row"
 import { PresserQuestionRow } from "./rows/presser-question-row"
 import { QuestionSharedToGroupRow } from "./rows/question-shared-to-group-row"
@@ -28,6 +31,7 @@ import { StreakMilestoneRow } from "./rows/streak-milestone-row"
 import { StreakPersonalBestRow } from "./rows/streak-personal-best-row"
 import { StreakSnappedRow } from "./rows/streak-snapped-row"
 import { SweepCompletedRow } from "./rows/sweep-completed-row"
+import { UserFollowedRow } from "./rows/user-followed-row"
 
 export type NotificationItem = NonNullable<
 	Extract<
@@ -140,6 +144,18 @@ export function NotificationRow({ notification, unread, onOpen }: Props) {
 		))
 		.with({ __typename: "ChainCommentedNotification" }, (n) => (
 			<ChainCommentedRow notification={n} unread={unread} onOpen={onOpen} />
+		))
+		.with({ __typename: "PostCommentedNotification" }, (n) => (
+			<PostCommentedRow notification={n} unread={unread} onOpen={onOpen} />
+		))
+		.with({ __typename: "CommentRepliedNotification" }, (n) => (
+			<CommentRepliedRow notification={n} unread={unread} onOpen={onOpen} />
+		))
+		.with({ __typename: "UserFollowedNotification" }, (n) => (
+			<UserFollowedRow notification={n} unread={unread} onOpen={onOpen} />
+		))
+		.with({ __typename: "LikesMilestoneNotification" }, (n) => (
+			<LikesMilestoneRow notification={n} unread={unread} onOpen={onOpen} />
 		))
 		.exhaustive()
 }

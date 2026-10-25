@@ -5,62 +5,69 @@ import { css } from "styled-system/css"
 import { VStack } from "styled-system/jsx"
 import { z } from "zod"
 import { PageBanner } from "#/components/images/page-banner"
-import { ColdStreaksSection } from "#/components/profile/cold-streaks-section"
+import { PostFeed } from "#/components/posts/post-feed"
 import { OpenPresserBanner } from "#/components/profile/open-presser-banner"
-import { PointsBreakdownSection } from "#/components/profile/points-breakdown-section"
-import { PressersSection } from "#/components/profile/pressers-section"
+import { ProfileCallsTab } from "#/components/profile/profile-calls-tab"
 import { ProfileHeader } from "#/components/profile/profile-header"
-import { ProfileLeagueTabs } from "#/components/profile/profile-league-tabs"
 import { ProfileShareRow } from "#/components/profile/profile-share-row"
-import { ResultsSection } from "#/components/profile/results-section"
-import { StatGrid } from "#/components/profile/stat-grid"
-import { StreaksSection } from "#/components/profile/streaks-section"
-import { SweepsSection } from "#/components/profile/sweeps-section"
-import { CallCard } from "#/components/questions/call-card"
 import { EmptyState } from "#/components/ui/empty-state"
 import { NotFound } from "#/components/ui/not-found"
-import { SectionLabel } from "#/components/ui/section-label"
+import { Tabs } from "#/components/ui/tabs"
+import { homeDashboardQuery } from "#/graphql/home/queries"
+import { userPostsQuery } from "#/graphql/posts/queries"
 import {
-	UserProfileDocument,
-	UserRecordDocument,
-} from "#/graphql/generated/graphql"
-import { gqlQueryOptions } from "#/graphql/query-options"
+	userProfileQuery,
+	userRecordQuery,
+} from "#/graphql/user/profile/queries"
 import { useMe } from "#/hooks/use-me"
 import { formatRecord } from "#/lib/game-status"
 import { toIdentity } from "#/lib/identity"
 import { pageMeta } from "#/lib/meta"
 import { pluralize } from "#/lib/pluralize"
 import { profileCardVersion, scopedLeague } from "#/lib/profile"
-import { statGridItems } from "#/lib/stat-grid"
 
-const MAX_LIVE_STREAKS = 3
+type ProfileTab = "posts" | "calls"
 
-const userProfileQuery = (username: string) =>
-	gqlQueryOptions(UserProfileDocument, { username })
-
-const userRecordQuery = (username: string, league: string | null) =>
-	gqlQueryOptions(UserRecordDocument, { username, league })
+// A league filter only means something on Calls, so a link that carries one
+// (a points breakdown row) lands there without naming the tab.
+function profileTab(search: { tab?: ProfileTab; league?: string }): ProfileTab {
+	return search.tab ?? (search.league ? "calls" : "posts")
+}
 
 export const Route = createFileRoute("/_app/user/$username")({
 	component: RouteComponent,
-	// ?league=nba scopes the stats, calendar, breakdown and streaks to one
-	// league. A slug that names nothing this user has played falls back to
-	// the whole career rather than erroring, same as the leaderboard's filter.
+	// ?tab=calls opens the record; Posts is the default. ?league=nba scopes
+	// the Calls tab's stats, calendar, breakdown and streaks to one league. A
+	// slug that names nothing this user has played falls back to the whole
+	// career rather than erroring, same as the leaderboard's filter.
 	validateSearch: z.object({
+		tab: z.enum(["posts", "calls"]).optional().catch(undefined),
 		league: z.string().optional().catch(undefined),
 	}),
-	loaderDeps: ({ search }) => ({ league: search.league }),
+	loaderDeps: ({ search }) => ({
+		tab: profileTab(search),
+		league: search.league,
+	}),
 	loader: async ({ context, params, deps }) => {
 		const profile = await context.queryClient.query(
 			userProfileQuery(params.username),
 		)
+		if (deps.tab === "posts") {
+			await context.queryClient.infiniteQuery(userPostsQuery(params.username))
+			return profile
+		}
 		const league = scopedLeague(
 			profile.userByUsername?.leagues ?? [],
 			deps.league,
 		)
-		await context.queryClient.query(
-			userRecordQuery(params.username, league?.league.slug ?? null),
-		)
+		const isOwn = !!context.me && context.me.id === profile.userByUsername?.id
+		await Promise.all([
+			context.queryClient.query(
+				userRecordQuery(params.username, league?.league.slug ?? null),
+			),
+			// The league cards that lead the owner's own Calls tab.
+			isOwn ? context.queryClient.query(homeDashboardQuery) : null,
+		])
 		return profile
 	},
 	// The og:image and the description stay career-wide whatever league is
@@ -109,15 +116,11 @@ export const Route = createFileRoute("/_app/user/$username")({
 function RouteComponent() {
 	const { username } = Route.useParams()
 	const search = Route.useSearch()
+	const navigate = Route.useNavigate()
 	const { data } = useSuspenseQuery(userProfileQuery(username))
 	const user = data.userByUsername
 	const me = useMe()
-	const scoped = scopedLeague(user?.leagues ?? [], search.league)
-	const { data: recordData } = useSuspenseQuery(
-		userRecordQuery(username, scoped?.league.slug ?? null),
-	)
-	const record = recordData.userByUsername?.record ?? null
-	const wideRecord = recordData.userByUsername?.wideRecord ?? null
+	const tab = profileTab(search)
 
 	if (!user) {
 		return (
@@ -132,17 +135,14 @@ function RouteComponent() {
 	}
 
 	const isOwn = me?.id === user.id
-	const leagueId = scoped?.league.id ?? null
-	const inScope = <T extends { league: { id: string } }>(rows: T[]) =>
-		leagueId ? rows.filter((row) => row.league.id === leagueId) : rows
 
-	// Only runs still going make the top of the profile.
-	const liveStreaks = inScope(user.streaks)
-		.filter((streak) => streak.currentLength > 0)
-		.slice(0, MAX_LIVE_STREAKS)
-	const coldStreaks = inScope(user.coldStreaks)
-	const latestSweep = inScope(user.sweeps)[0]
-	const stats = scoped ?? user.careerStats
+	function selectTab(next: ProfileTab) {
+		navigate({
+			search: next === "calls" ? { tab: "calls" } : {},
+			replace: true,
+			resetScroll: false,
+		})
+	}
 
 	return (
 		<VStack alignItems="stretch" gap="6">
@@ -183,83 +183,26 @@ function RouteComponent() {
 				isOwn={isOwn}
 				pressers={user.openPressers}
 			/>
-			<ProfileLeagueTabs username={user.username} leagues={user.leagues} />
-			<StatGrid
-				header={
-					<SectionLabel>
-						{scoped ? `${scoped.league.name} career` : "Career"}
-					</SectionLabel>
-				}
-				items={statGridItems({
-					rank: stats?.rank ?? null,
-					totalPoints: stats?.totalPoints ?? 0,
-					accuracy: stats?.accuracy ?? null,
-					convictionEdge: stats?.convictionEdge ?? null,
-					resolvedCallCount: stats?.resolvedCallCount ?? 0,
-				})}
-			/>
-			{record && (
-				<ResultsSection
-					record={record}
-					wideRecord={wideRecord}
-					username={user.username}
-					leagueId={leagueId}
-					leagueSlug={scoped?.league.slug ?? null}
+			<Tabs value={tab} onValueChange={selectTab}>
+				<Tabs.List>
+					<Tabs.Trigger value="posts">Posts</Tabs.Trigger>
+					<Tabs.Trigger value="calls">Calls</Tabs.Trigger>
+				</Tabs.List>
+			</Tabs>
+			{tab === "posts" ? (
+				<PostFeed
+					query={userPostsQuery(user.username)}
+					empty={
+						<EmptyState>
+							{isOwn
+								? "You haven't posted yet. Tap Create to make a Mount Rushmore. Posts you share with a group stay in that group."
+								: `@${user.username} hasn't posted anything public yet.`}
+						</EmptyState>
+					}
 				/>
+			) : (
+				<ProfileCallsTab user={user} leagueSlug={search.league} isOwn={isOwn} />
 			)}
-			{record && (
-				<PointsBreakdownSection record={record} username={user.username} />
-			)}
-			{liveStreaks.length > 0 && (
-				<VStack alignItems="stretch" gap="3">
-					<SectionLabel>Hot streaks</SectionLabel>
-					<StreaksSection
-						username={user.username}
-						streaks={liveStreaks}
-						isOwn={isOwn}
-						showLeague={!scoped}
-						layout="grid"
-					/>
-				</VStack>
-			)}
-			{coldStreaks.length > 0 && (
-				<VStack alignItems="stretch" gap="3">
-					<SectionLabel>Cold streaks</SectionLabel>
-					<ColdStreaksSection
-						username={user.username}
-						coldStreaks={coldStreaks}
-						showLeague={!scoped}
-					/>
-				</VStack>
-			)}
-			{latestSweep && (
-				<VStack alignItems="stretch" gap="3">
-					<SectionLabel>Latest sweep</SectionLabel>
-					<SweepsSection
-						username={user.username}
-						sweeps={[latestSweep]}
-						showLeague={!scoped}
-					/>
-				</VStack>
-			)}
-			<PressersSection
-				heading={<SectionLabel>Pressers</SectionLabel>}
-				username={user.username}
-				pressers={user.pressers}
-				leagueId={leagueId}
-			/>
-			<VStack alignItems="stretch" gap="3">
-				<SectionLabel>Recent Calls</SectionLabel>
-				{user.recentCalls.length > 0 ? (
-					<VStack alignItems="stretch" gap="2">
-						{user.recentCalls.map((call) => (
-							<CallCard key={call.id} call={call} />
-						))}
-					</VStack>
-				) : (
-					<EmptyState>No calls yet.</EmptyState>
-				)}
-			</VStack>
 		</VStack>
 	)
 }

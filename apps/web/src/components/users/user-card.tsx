@@ -3,9 +3,11 @@ import { useQuery } from "@tanstack/react-query"
 import { Link } from "@tanstack/react-router"
 import { css } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
+import { FollowButton } from "#/components/follows/follow-button"
 import { Avatar } from "#/components/ui/avatar"
 import { button } from "#/components/ui/button"
 import { userCardQuery } from "#/graphql/users/queries"
+import { useMe } from "#/hooks/use-me"
 import { formatSigned } from "#/lib/format-number"
 import { UserCardStat } from "./user-card-stat"
 
@@ -17,7 +19,8 @@ export type UserCardData = {
 
 // Who someone is, in the card a name opens: their standing, a streak if
 // they're on one, how they've done against the viewer, and the way to their
-// profile. The numbers load as it opens.
+// profile, with a follow button on anyone but yourself. The numbers load as
+// it opens.
 export function UserCard({
 	user,
 	onNavigate,
@@ -25,6 +28,7 @@ export function UserCard({
 	user: UserCardData
 	onNavigate: () => void
 }) {
+	const me = useMe()
 	const { data } = useQuery(userCardQuery(user.username))
 	const profile = data?.userByUsername
 	const stats = profile?.careerStats
@@ -33,6 +37,8 @@ export function UserCard({
 		.sort((a, b) => b.currentLength - a.currentLength)[0]
 	const h2h = profile?.headToHeadWithViewer
 	const played = h2h ? h2h.wins + h2h.losses + h2h.draws : 0
+	const isViewer =
+		!!me?.username && me.username.toLowerCase() === user.username.toLowerCase()
 
 	return (
 		<VStack gap="4" alignItems="stretch">
@@ -102,14 +108,28 @@ export function UserCard({
 					)}
 				</VStack>
 			)}
-			<Link
-				to="/user/$username"
-				params={{ username: user.username }}
-				onClick={onNavigate}
-				className={button({ variant: "outline", size: "sm", fullWidth: true })}
-			>
-				View profile
-			</Link>
+			<HStack gap="2">
+				{profile && !isViewer && (
+					<FollowButton
+						kind="USER"
+						id={profile.id}
+						following={profile.viewerFollows}
+						name={`@${user.username}`}
+					/>
+				)}
+				<Link
+					to="/user/$username"
+					params={{ username: user.username }}
+					onClick={onNavigate}
+					className={button({
+						variant: "outline",
+						size: "sm",
+						fullWidth: true,
+					})}
+				>
+					View profile
+				</Link>
+			</HStack>
 		</VStack>
 	)
 }

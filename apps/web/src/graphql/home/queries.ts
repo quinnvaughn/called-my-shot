@@ -1,16 +1,13 @@
 import { graphql } from "#/graphql/generated"
 import { gqlQueryOptions } from "#/graphql/query-options"
 
-// Home - a bounded, time-scoped checklist, not a growing catalogue (see
-// home.tsx). Seven sections, one query: the viewer's career stats (the same
-// numbers the profile leads with), their calls on games in flight (the same
-// list My Calls pins above its Open tab), room cards (per-league counts),
-// locking soon (site-wide, closing-soon open questions - reuses the same
-// `questions(sort: CLOSING_SOON)` behavior the old cross-league feed used),
-// just resolved (the viewer's own calls, most recently decided first), the
-// viewer's live hot streaks, and their results calendar (the server's
-// default span, at every width: no column Home puts it in is wide enough to
-// want more).
+// Home's calls strip and right rail, one query: the viewer's calls on games
+// in flight (the same list My Calls pins above its Open tab), locking soon
+// (site-wide, closing-soon open questions), room cards (per-league counts,
+// which lead the viewer's own profile Calls tab), just resolved (the
+// viewer's own calls, most recently decided first), the viewer's live hot
+// streaks, and their results calendar (the server's default span: no column
+// it sits in is wide enough to want more).
 export const HomeDashboardDocument = graphql(`
 	query HomeDashboard {
 		leagues {
@@ -37,13 +34,6 @@ export const HomeDashboardDocument = graphql(`
 		me {
 			id
 			username
-			careerStats {
-				rank
-				totalPoints
-				accuracy
-				convictionEdge
-				resolvedCallCount
-			}
 			streaks {
 				league {
 					id

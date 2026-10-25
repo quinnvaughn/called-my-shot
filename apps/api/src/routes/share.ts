@@ -37,6 +37,12 @@ import {
 	loadReportCardShareData,
 } from "../lib/share-cards/report-card-card"
 import {
+	buildRushmoreCard,
+	loadPromptCard,
+	loadRushmoreCard,
+	RUSHMORE_SIZE,
+} from "../lib/share-cards/rushmore-card"
+import {
 	buildSeasonPuzzleCard,
 	buildSeasonTodayCard,
 	loadSeasonPuzzleCardData,
@@ -267,6 +273,39 @@ export function registerShareRoutes(app: Express) {
 			),
 			buildBlindRankCard,
 			SHARE_CARD_SIZE,
+		)
+	})
+
+	// The og:image behind /posts/:id: one person's Rushmore. Public posts only. A group's posts 404 here like a removed
+	// one, so the image can't carry them out of the group.
+	app.get("/share/rushmore/:postId.png", async (req, res) => {
+		await serveCard(
+			res,
+			await loadRushmoreCard(req.params.postId),
+			(data) => buildRushmoreCard(data, "landscape"),
+			RUSHMORE_SIZE.landscape,
+		)
+	})
+
+	// The same Rushmore at 4:5, the image the post page's share button saves
+	// or hands to the phone's share sheet.
+	app.get("/share/rushmore/:postId/portrait.png", async (req, res) => {
+		await serveCard(
+			res,
+			await loadRushmoreCard(req.params.postId),
+			(data) => buildRushmoreCard(data, "portrait"),
+			RUSHMORE_SIZE.portrait,
+		)
+	})
+
+	// The og:image behind /rushmore/:code: the crowd's four for a prompt. 404s until
+	// it has a public answer.
+	app.get("/share/rushmore-prompts/:code.png", async (req, res) => {
+		await serveCard(
+			res,
+			await loadPromptCard(req.params.code),
+			(data) => buildRushmoreCard(data, "landscape"),
+			RUSHMORE_SIZE.landscape,
 		)
 	})
 

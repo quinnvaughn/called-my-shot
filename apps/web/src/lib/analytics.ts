@@ -261,6 +261,13 @@ type AnalyticsEvents = {
 		receipt: boolean
 		method: "native" | "clipboard" | "x"
 	}
+	// A Rushmore's link, from its own page. `own` separates an author
+	// sharing theirs from someone passing along another person's.
+	rushmore_link_shared: {
+		postId: string
+		own: boolean
+		method: "native" | "clipboard" | "x"
+	}
 
 	// source says where the builder was opened from.
 	challenge_created: {

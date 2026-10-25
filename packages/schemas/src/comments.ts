@@ -2,7 +2,7 @@ import { z } from "zod"
 import { PRESSER_REPORT_DETAILS_MAX, PRESSER_REPORT_REASONS } from "./pressers"
 
 // A comment is someone's own words, a GIF, or both, posted on one thing: a
-// challenge's gloat or a chain's thread. Each thing it's posted on adds its
+// challenge's gloat, a chain's thread or a post's. Each thing it's posted on adds its
 // own rules on who can post and how often; what a comment is stays the same.
 
 export const COMMENT_TEXT_MAX = 280

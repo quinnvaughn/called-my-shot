@@ -37,8 +37,9 @@ const NOW: PushPolicy = {
 
 // Every notification type, so a new one has to decide. Null is never queued
 // here: game_reminder is pushed by its own drain (lib/game-reminders.tsx),
-// which needs to know whether a push landed before deciding to email, and
-// group_pins_expired is housekeeping for admins that can wait for the inbox.
+// which needs to know whether a push landed before deciding to email,
+// group_pins_expired is housekeeping for admins that can wait for the inbox,
+// and a new follower or a likes milestone isn't worth buzzing a phone over.
 export const PUSH_POLICY: Record<NotificationType, PushPolicy | null> = {
 	game_resolved: RESULT,
 	sweep_completed: RESULT,
@@ -67,8 +68,12 @@ export const PUSH_POLICY: Record<NotificationType, PushPolicy | null> = {
 	chain_link_decided: NOW,
 	chain_member_left: NOW,
 	chain_called_off: NOW,
+	post_commented: SHORT_HOLD,
+	comment_replied: SHORT_HOLD,
 	game_reminder: null,
 	group_pins_expired: null,
+	user_followed: null,
+	likes_milestone: null,
 }
 
 // Rows sharing a key fold into one push. Also the device-side tag, so a later

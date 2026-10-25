@@ -9,8 +9,8 @@ export type PushGroup = {
 
 // One settings toggle per group, each writing every type in it. Every pushed
 // notification type belongs to exactly one (push-groups.test.ts holds that),
-// so a new type has to be placed before it can ship. GROUP_PINS_EXPIRED is
-// never pushed, so it has no toggle.
+// so a new type has to be placed before it can ship. GROUP_PINS_EXPIRED,
+// USER_FOLLOWED and LIKES_MILESTONE are never pushed, so they have no toggle.
 export const PUSH_GROUPS: PushGroup[] = [
 	{
 		key: "results",
@@ -48,6 +48,13 @@ export const PUSH_GROUPS: PushGroup[] = [
 			"CHAIN_CALLED_OFF",
 			"CHAIN_COMMENTED",
 		],
+	},
+	{
+		key: "posts",
+		label: "Comments on posts",
+		description:
+			"When someone comments on your Rushmore, replies to your comment, or @mentions you in a reply.",
+		types: ["POST_COMMENTED", "COMMENT_REPLIED"],
 	},
 	{
 		key: "reminders",

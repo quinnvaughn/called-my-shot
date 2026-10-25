@@ -34,6 +34,7 @@ import { Route as AdminGroupsRouteImport } from './routes/admin/groups'
 import { Route as AdminIntegrityRouteImport } from './routes/admin/integrity'
 import { Route as AdminLeadersRouteImport } from './routes/admin/leaders'
 import { Route as AdminLinesRouteImport } from './routes/admin/lines'
+import { Route as AdminPostReportsRouteImport } from './routes/admin/post-reports'
 import { Route as AdminPresserReportsRouteImport } from './routes/admin/presser-reports'
 import { Route as AdminQuestionsRouteImport } from './routes/admin/questions'
 import { Route as AdminQueueRouteImport } from './routes/admin/queue'
@@ -59,7 +60,9 @@ import { Route as AppBallotsBallotSlugRouteImport } from './routes/_app/ballots/
 import { Route as AppCallsCallIdRouteImport } from './routes/_app/calls/$callId'
 import { Route as AppChallengesCodeRouteImport } from './routes/_app/challenges/$code'
 import { Route as AppLeaguesLeagueSlugRouteImport } from './routes/_app/leagues/$leagueSlug'
+import { Route as AppPostsPostIdRouteImport } from './routes/_app/posts/$postId'
 import { Route as AppRecapsTokenRouteImport } from './routes/_app/recaps/$token'
+import { Route as AppRushmoreCodeRouteImport } from './routes/_app/rushmore/$code'
 import { Route as AppUpdatesIndexRouteImport } from './routes/_app/updates/index'
 import { Route as AppUpdatesSlugRouteImport } from './routes/_app/updates/$slug'
 import { Route as AppUserUsernameRouteImport } from './routes/_app/user/$username'
@@ -77,6 +80,7 @@ import { Route as AuthGoogleCallbackRouteImport } from './routes/auth/google/cal
 import { Route as AppAuthedChallengesIndexRouteImport } from './routes/_app/_authed/challenges/index'
 import { Route as AppAuthedChallengesNewRouteImport } from './routes/_app/_authed/challenges/new'
 import { Route as AppAuthedGroupsIndexRouteImport } from './routes/_app/_authed/groups/index'
+import { Route as AppAuthedRushmoreNewRouteImport } from './routes/_app/_authed/rushmore/new'
 import { Route as AppArcadeBlindRankIndexRouteImport } from './routes/_app/arcade/blind-rank/index'
 import { Route as AppArcadeNameThatSeasonIndexRouteImport } from './routes/_app/arcade/name-that-season/index'
 import { Route as AppBallotsBallotSlugUsernameRouteImport } from './routes/_app/ballots/$ballotSlug_.$username'
@@ -89,7 +93,9 @@ import { Route as AppLeaguesLeagueSlugCommunityRouteImport } from './routes/_app
 import { Route as AppLeaguesLeagueSlugFeedRouteImport } from './routes/_app/leagues/$leagueSlug/feed'
 import { Route as AppLeaguesLeagueSlugGamesRouteImport } from './routes/_app/leagues/$leagueSlug/games'
 import { Route as AppLeaguesLeagueSlugSeasonRouteImport } from './routes/_app/leagues/$leagueSlug/season'
+import { Route as AppLeaguesLeagueSlugTeamsRouteImport } from './routes/_app/leagues/$leagueSlug/teams'
 import { Route as AppQuestionsQuestionIdChar123SlugChar125RouteImport } from './routes/_app/questions/$questionId.{-$slug}'
+import { Route as AppRushmoreCodeUsernameRouteImport } from './routes/_app/rushmore/$code.$username'
 import { Route as AdminDataLeagueIdIndexRouteImport } from './routes/admin/data/$leagueId/index'
 import { Route as AdminDataLeagueIdGamesRouteImport } from './routes/admin/data/$leagueId/games'
 import { Route as AdminDataLeagueIdPlayersRouteImport } from './routes/admin/data/$leagueId/players'
@@ -99,6 +105,9 @@ import { Route as ShareCallsCallIdCardDotpngRouteImport } from './routes/share/c
 import { Route as ShareChallengesCodeCardDotpngRouteImport } from './routes/share/challenges/$code/card[.]png'
 import { Route as ShareNameThatSeasonDateCardDotpngRouteImport } from './routes/share/name-that-season/$date/card[.]png'
 import { Route as ShareRecapsTokenCardDotpngRouteImport } from './routes/share/recaps/$token/card[.]png'
+import { Route as ShareRushmorePromptsCodeCardDotpngRouteImport } from './routes/share/rushmore-prompts/$code/card[.]png'
+import { Route as ShareRushmorePostIdCardDotpngRouteImport } from './routes/share/rushmore/$postId/card[.]png'
+import { Route as ShareRushmorePostIdPortraitRouteImport } from './routes/share/rushmore/$postId/portrait'
 import { Route as ShareUsersUsernameCardDotpngRouteImport } from './routes/share/users/$username/card[.]png'
 import { Route as AppAuthedGroupsGroupIdTabsRouteImport } from './routes/_app/_authed/groups/$groupId/_tabs'
 import { Route as AppAuthedGroupsGroupIdSettingsRouteImport } from './routes/_app/_authed/groups/$groupId/settings'
@@ -106,12 +115,14 @@ import { Route as AppArcadeBlindRankDateResultRouteImport } from './routes/_app/
 import { Route as AppArcadeNameThatSeasonDateResultRouteImport } from './routes/_app/arcade/name-that-season/$date.$result'
 import { Route as AppChallengesCodeVsUsernameRouteImport } from './routes/_app/challenges/$code_.vs.$username'
 import { Route as AppGamesGameIdPicksUsernameRouteImport } from './routes/_app/games/$gameId.picks.$username'
+import { Route as AppLeaguesLeagueSlugTeamsTeamSlugRouteImport } from './routes/_app/leagues/$leagueSlug_.teams.$teamSlug'
 import { Route as ShareBlindRankDateResultCardDotpngRouteImport } from './routes/share/blind-rank/$date/$result/card[.]png'
 import { Route as ShareNameThatSeasonDateResultCardDotpngRouteImport } from './routes/share/name-that-season/$date/$result/card[.]png'
 import { Route as AppAuthedGroupsGroupIdTabsIndexRouteImport } from './routes/_app/_authed/groups/$groupId/_tabs/index'
 import { Route as AppAuthedGroupsGroupIdTabsArcadeRouteImport } from './routes/_app/_authed/groups/$groupId/_tabs/arcade'
 import { Route as AppAuthedGroupsGroupIdTabsChainsRouteImport } from './routes/_app/_authed/groups/$groupId/_tabs/chains'
 import { Route as AppAuthedGroupsGroupIdTabsLeaderboardRouteImport } from './routes/_app/_authed/groups/$groupId/_tabs/leaderboard'
+import { Route as AppAuthedGroupsGroupIdTabsPostsRouteImport } from './routes/_app/_authed/groups/$groupId/_tabs/posts'
 import { Route as AppAuthedGroupsGroupIdTabsRecordBookRouteImport } from './routes/_app/_authed/groups/$groupId/_tabs/record-book'
 import { Route as AppAuthedGroupsGroupIdBallotsBallotSlugRouteImport } from './routes/_app/_authed/groups/$groupId/ballots/$ballotSlug'
 import { Route as AppAuthedGroupsGroupIdChainsChainIdRouteImport } from './routes/_app/_authed/groups/$groupId/chains/$chainId'
@@ -250,6 +261,11 @@ const AdminLinesRoute = AdminLinesRouteImport.update({
   path: '/lines',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminPostReportsRoute = AdminPostReportsRouteImport.update({
+  id: '/post-reports',
+  path: '/post-reports',
+  getParentRoute: () => AdminRoute,
+} as any)
 const AdminPresserReportsRoute = AdminPresserReportsRouteImport.update({
   id: '/presser-reports',
   path: '/presser-reports',
@@ -375,9 +391,19 @@ const AppLeaguesLeagueSlugRoute = AppLeaguesLeagueSlugRouteImport.update({
   path: '/leagues/$leagueSlug',
   getParentRoute: () => AppRoute,
 } as any)
+const AppPostsPostIdRoute = AppPostsPostIdRouteImport.update({
+  id: '/posts/$postId',
+  path: '/posts/$postId',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppRecapsTokenRoute = AppRecapsTokenRouteImport.update({
   id: '/recaps/$token',
   path: '/recaps/$token',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppRushmoreCodeRoute = AppRushmoreCodeRouteImport.update({
+  id: '/rushmore/$code',
+  path: '/rushmore/$code',
   getParentRoute: () => AppRoute,
 } as any)
 const AppUpdatesIndexRoute = AppUpdatesIndexRouteImport.update({
@@ -466,6 +492,11 @@ const AppAuthedGroupsIndexRoute = AppAuthedGroupsIndexRouteImport.update({
   path: '/groups/',
   getParentRoute: () => AppAuthedRoute,
 } as any)
+const AppAuthedRushmoreNewRoute = AppAuthedRushmoreNewRouteImport.update({
+  id: '/rushmore/new',
+  path: '/rushmore/new',
+  getParentRoute: () => AppAuthedRoute,
+} as any)
 const AppArcadeBlindRankIndexRoute = AppArcadeBlindRankIndexRouteImport.update({
   id: '/arcade/blind-rank/',
   path: '/arcade/blind-rank/',
@@ -535,12 +566,23 @@ const AppLeaguesLeagueSlugSeasonRoute =
     path: '/season',
     getParentRoute: () => AppLeaguesLeagueSlugRoute,
   } as any)
+const AppLeaguesLeagueSlugTeamsRoute =
+  AppLeaguesLeagueSlugTeamsRouteImport.update({
+    id: '/teams',
+    path: '/teams',
+    getParentRoute: () => AppLeaguesLeagueSlugRoute,
+  } as any)
 const AppQuestionsQuestionIdChar123SlugChar125Route =
   AppQuestionsQuestionIdChar123SlugChar125RouteImport.update({
     id: '/questions/$questionId/{-$slug}',
     path: '/questions/$questionId/{-$slug}',
     getParentRoute: () => AppRoute,
   } as any)
+const AppRushmoreCodeUsernameRoute = AppRushmoreCodeUsernameRouteImport.update({
+  id: '/$username',
+  path: '/$username',
+  getParentRoute: () => AppRushmoreCodeRoute,
+} as any)
 const AdminDataLeagueIdIndexRoute = AdminDataLeagueIdIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -592,6 +634,24 @@ const ShareRecapsTokenCardDotpngRoute =
     path: '/share/recaps/$token/card.png',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ShareRushmorePromptsCodeCardDotpngRoute =
+  ShareRushmorePromptsCodeCardDotpngRouteImport.update({
+    id: '/share/rushmore-prompts/$code/card.png',
+    path: '/share/rushmore-prompts/$code/card.png',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ShareRushmorePostIdCardDotpngRoute =
+  ShareRushmorePostIdCardDotpngRouteImport.update({
+    id: '/share/rushmore/$postId/card.png',
+    path: '/share/rushmore/$postId/card.png',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ShareRushmorePostIdPortraitRoute =
+  ShareRushmorePostIdPortraitRouteImport.update({
+    id: '/share/rushmore/$postId/portrait',
+    path: '/share/rushmore/$postId/portrait',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ShareUsersUsernameCardDotpngRoute =
   ShareUsersUsernameCardDotpngRouteImport.update({
     id: '/share/users/$username/card.png',
@@ -634,6 +694,12 @@ const AppGamesGameIdPicksUsernameRoute =
     path: '/games/$gameId/picks/$username',
     getParentRoute: () => AppRoute,
   } as any)
+const AppLeaguesLeagueSlugTeamsTeamSlugRoute =
+  AppLeaguesLeagueSlugTeamsTeamSlugRouteImport.update({
+    id: '/leagues/$leagueSlug_/teams/$teamSlug',
+    path: '/leagues/$leagueSlug/teams/$teamSlug',
+    getParentRoute: () => AppRoute,
+  } as any)
 const ShareBlindRankDateResultCardDotpngRoute =
   ShareBlindRankDateResultCardDotpngRouteImport.update({
     id: '/share/blind-rank/$date/$result/card.png',
@@ -668,6 +734,12 @@ const AppAuthedGroupsGroupIdTabsLeaderboardRoute =
   AppAuthedGroupsGroupIdTabsLeaderboardRouteImport.update({
     id: '/leaderboard',
     path: '/leaderboard',
+    getParentRoute: () => AppAuthedGroupsGroupIdTabsRoute,
+  } as any)
+const AppAuthedGroupsGroupIdTabsPostsRoute =
+  AppAuthedGroupsGroupIdTabsPostsRouteImport.update({
+    id: '/posts',
+    path: '/posts',
     getParentRoute: () => AppAuthedGroupsGroupIdTabsRoute,
   } as any)
 const AppAuthedGroupsGroupIdTabsRecordBookRoute =
@@ -778,6 +850,7 @@ export interface FileRoutesByFullPath {
   '/admin/integrity': typeof AdminIntegrityRoute
   '/admin/leaders': typeof AdminLeadersRoute
   '/admin/lines': typeof AdminLinesRoute
+  '/admin/post-reports': typeof AdminPostReportsRoute
   '/admin/presser-reports': typeof AdminPresserReportsRoute
   '/admin/questions': typeof AdminQuestionsRoute
   '/admin/queue': typeof AdminQueueRoute
@@ -803,7 +876,9 @@ export interface FileRoutesByFullPath {
   '/calls/$callId': typeof AppCallsCallIdRoute
   '/challenges/$code': typeof AppChallengesCodeRoute
   '/leagues/$leagueSlug': typeof AppLeaguesLeagueSlugRouteWithChildren
+  '/posts/$postId': typeof AppPostsPostIdRoute
   '/recaps/$token': typeof AppRecapsTokenRoute
+  '/rushmore/$code': typeof AppRushmoreCodeRouteWithChildren
   '/updates/$slug': typeof AppUpdatesSlugRoute
   '/user/$username': typeof AppUserUsernameRoute
   '/admin/ballots/$ballotId': typeof AdminBallotsBallotIdRoute
@@ -820,6 +895,7 @@ export interface FileRoutesByFullPath {
   '/admin/updates/': typeof AdminUpdatesIndexRoute
   '/auth/google/': typeof AuthGoogleIndexRoute
   '/challenges/new': typeof AppAuthedChallengesNewRoute
+  '/rushmore/new': typeof AppAuthedRushmoreNewRoute
   '/ballots/$ballotSlug/$username': typeof AppBallotsBallotSlugUsernameRoute
   '/challenges/$code/play': typeof AppChallengesCodePlayRoute
   '/games/$gameId/{-$slug}': typeof AppGamesGameIdChar123SlugChar125Route
@@ -829,7 +905,9 @@ export interface FileRoutesByFullPath {
   '/leagues/$leagueSlug/feed': typeof AppLeaguesLeagueSlugFeedRoute
   '/leagues/$leagueSlug/games': typeof AppLeaguesLeagueSlugGamesRoute
   '/leagues/$leagueSlug/season': typeof AppLeaguesLeagueSlugSeasonRoute
+  '/leagues/$leagueSlug/teams': typeof AppLeaguesLeagueSlugTeamsRoute
   '/questions/$questionId/{-$slug}': typeof AppQuestionsQuestionIdChar123SlugChar125Route
+  '/rushmore/$code/$username': typeof AppRushmoreCodeUsernameRoute
   '/admin/data/$leagueId/games': typeof AdminDataLeagueIdGamesRoute
   '/admin/data/$leagueId/players': typeof AdminDataLeagueIdPlayersRoute
   '/admin/data/$leagueId/teams': typeof AdminDataLeagueIdTeamsRoute
@@ -838,6 +916,9 @@ export interface FileRoutesByFullPath {
   '/share/challenges/$code/card.png': typeof ShareChallengesCodeCardDotpngRoute
   '/share/name-that-season/$date/card.png': typeof ShareNameThatSeasonDateCardDotpngRoute
   '/share/recaps/$token/card.png': typeof ShareRecapsTokenCardDotpngRoute
+  '/share/rushmore-prompts/$code/card.png': typeof ShareRushmorePromptsCodeCardDotpngRoute
+  '/share/rushmore/$postId/card.png': typeof ShareRushmorePostIdCardDotpngRoute
+  '/share/rushmore/$postId/portrait': typeof ShareRushmorePostIdPortraitRoute
   '/share/users/$username/card.png': typeof ShareUsersUsernameCardDotpngRoute
   '/challenges/': typeof AppAuthedChallengesIndexRoute
   '/groups/': typeof AppAuthedGroupsIndexRoute
@@ -851,11 +932,13 @@ export interface FileRoutesByFullPath {
   '/arcade/name-that-season/$date/$result': typeof AppArcadeNameThatSeasonDateResultRoute
   '/challenges/$code/vs/$username': typeof AppChallengesCodeVsUsernameRoute
   '/games/$gameId/picks/$username': typeof AppGamesGameIdPicksUsernameRoute
+  '/leagues/$leagueSlug/teams/$teamSlug': typeof AppLeaguesLeagueSlugTeamsTeamSlugRoute
   '/share/blind-rank/$date/$result/card.png': typeof ShareBlindRankDateResultCardDotpngRoute
   '/share/name-that-season/$date/$result/card.png': typeof ShareNameThatSeasonDateResultCardDotpngRoute
   '/groups/$groupId/arcade': typeof AppAuthedGroupsGroupIdTabsArcadeRoute
   '/groups/$groupId/chains': typeof AppAuthedGroupsGroupIdTabsChainsRoute
   '/groups/$groupId/leaderboard': typeof AppAuthedGroupsGroupIdTabsLeaderboardRoute
+  '/groups/$groupId/posts': typeof AppAuthedGroupsGroupIdTabsPostsRoute
   '/groups/$groupId/record-book': typeof AppAuthedGroupsGroupIdTabsRecordBookRoute
   '/groups/$groupId/ballots/$ballotSlug': typeof AppAuthedGroupsGroupIdBallotsBallotSlugRoute
   '/groups/$groupId/chains/$chainId': typeof AppAuthedGroupsGroupIdChainsChainIdRoute
@@ -894,6 +977,7 @@ export interface FileRoutesByTo {
   '/admin/integrity': typeof AdminIntegrityRoute
   '/admin/leaders': typeof AdminLeadersRoute
   '/admin/lines': typeof AdminLinesRoute
+  '/admin/post-reports': typeof AdminPostReportsRoute
   '/admin/presser-reports': typeof AdminPresserReportsRoute
   '/admin/questions': typeof AdminQuestionsRoute
   '/admin/queue': typeof AdminQueueRoute
@@ -918,7 +1002,9 @@ export interface FileRoutesByTo {
   '/ballots/$ballotSlug': typeof AppBallotsBallotSlugRoute
   '/calls/$callId': typeof AppCallsCallIdRoute
   '/challenges/$code': typeof AppChallengesCodeRoute
+  '/posts/$postId': typeof AppPostsPostIdRoute
   '/recaps/$token': typeof AppRecapsTokenRoute
+  '/rushmore/$code': typeof AppRushmoreCodeRouteWithChildren
   '/updates/$slug': typeof AppUpdatesSlugRoute
   '/user/$username': typeof AppUserUsernameRoute
   '/admin/ballots/$ballotId': typeof AdminBallotsBallotIdRoute
@@ -934,6 +1020,7 @@ export interface FileRoutesByTo {
   '/admin/updates': typeof AdminUpdatesIndexRoute
   '/auth/google': typeof AuthGoogleIndexRoute
   '/challenges/new': typeof AppAuthedChallengesNewRoute
+  '/rushmore/new': typeof AppAuthedRushmoreNewRoute
   '/ballots/$ballotSlug/$username': typeof AppBallotsBallotSlugUsernameRoute
   '/challenges/$code/play': typeof AppChallengesCodePlayRoute
   '/games/$gameId/{-$slug}': typeof AppGamesGameIdChar123SlugChar125Route
@@ -943,7 +1030,9 @@ export interface FileRoutesByTo {
   '/leagues/$leagueSlug/feed': typeof AppLeaguesLeagueSlugFeedRoute
   '/leagues/$leagueSlug/games': typeof AppLeaguesLeagueSlugGamesRoute
   '/leagues/$leagueSlug/season': typeof AppLeaguesLeagueSlugSeasonRoute
+  '/leagues/$leagueSlug/teams': typeof AppLeaguesLeagueSlugTeamsRoute
   '/questions/$questionId/{-$slug}': typeof AppQuestionsQuestionIdChar123SlugChar125Route
+  '/rushmore/$code/$username': typeof AppRushmoreCodeUsernameRoute
   '/admin/data/$leagueId/games': typeof AdminDataLeagueIdGamesRoute
   '/admin/data/$leagueId/players': typeof AdminDataLeagueIdPlayersRoute
   '/admin/data/$leagueId/teams': typeof AdminDataLeagueIdTeamsRoute
@@ -952,6 +1041,9 @@ export interface FileRoutesByTo {
   '/share/challenges/$code/card.png': typeof ShareChallengesCodeCardDotpngRoute
   '/share/name-that-season/$date/card.png': typeof ShareNameThatSeasonDateCardDotpngRoute
   '/share/recaps/$token/card.png': typeof ShareRecapsTokenCardDotpngRoute
+  '/share/rushmore-prompts/$code/card.png': typeof ShareRushmorePromptsCodeCardDotpngRoute
+  '/share/rushmore/$postId/card.png': typeof ShareRushmorePostIdCardDotpngRoute
+  '/share/rushmore/$postId/portrait': typeof ShareRushmorePostIdPortraitRoute
   '/share/users/$username/card.png': typeof ShareUsersUsernameCardDotpngRoute
   '/challenges': typeof AppAuthedChallengesIndexRoute
   '/groups': typeof AppAuthedGroupsIndexRoute
@@ -964,11 +1056,13 @@ export interface FileRoutesByTo {
   '/arcade/name-that-season/$date/$result': typeof AppArcadeNameThatSeasonDateResultRoute
   '/challenges/$code/vs/$username': typeof AppChallengesCodeVsUsernameRoute
   '/games/$gameId/picks/$username': typeof AppGamesGameIdPicksUsernameRoute
+  '/leagues/$leagueSlug/teams/$teamSlug': typeof AppLeaguesLeagueSlugTeamsTeamSlugRoute
   '/share/blind-rank/$date/$result/card.png': typeof ShareBlindRankDateResultCardDotpngRoute
   '/share/name-that-season/$date/$result/card.png': typeof ShareNameThatSeasonDateResultCardDotpngRoute
   '/groups/$groupId/arcade': typeof AppAuthedGroupsGroupIdTabsArcadeRoute
   '/groups/$groupId/chains': typeof AppAuthedGroupsGroupIdTabsChainsRoute
   '/groups/$groupId/leaderboard': typeof AppAuthedGroupsGroupIdTabsLeaderboardRoute
+  '/groups/$groupId/posts': typeof AppAuthedGroupsGroupIdTabsPostsRoute
   '/groups/$groupId/record-book': typeof AppAuthedGroupsGroupIdTabsRecordBookRoute
   '/groups/$groupId/ballots/$ballotSlug': typeof AppAuthedGroupsGroupIdBallotsBallotSlugRoute
   '/groups/$groupId/chains/$chainId': typeof AppAuthedGroupsGroupIdChainsChainIdRoute
@@ -1011,6 +1105,7 @@ export interface FileRoutesById {
   '/admin/integrity': typeof AdminIntegrityRoute
   '/admin/leaders': typeof AdminLeadersRoute
   '/admin/lines': typeof AdminLinesRoute
+  '/admin/post-reports': typeof AdminPostReportsRoute
   '/admin/presser-reports': typeof AdminPresserReportsRoute
   '/admin/questions': typeof AdminQuestionsRoute
   '/admin/queue': typeof AdminQueueRoute
@@ -1036,7 +1131,9 @@ export interface FileRoutesById {
   '/_app/calls/$callId': typeof AppCallsCallIdRoute
   '/_app/challenges/$code': typeof AppChallengesCodeRoute
   '/_app/leagues/$leagueSlug': typeof AppLeaguesLeagueSlugRouteWithChildren
+  '/_app/posts/$postId': typeof AppPostsPostIdRoute
   '/_app/recaps/$token': typeof AppRecapsTokenRoute
+  '/_app/rushmore/$code': typeof AppRushmoreCodeRouteWithChildren
   '/_app/updates/$slug': typeof AppUpdatesSlugRoute
   '/_app/user/$username': typeof AppUserUsernameRoute
   '/admin/ballots/$ballotId': typeof AdminBallotsBallotIdRoute
@@ -1053,6 +1150,7 @@ export interface FileRoutesById {
   '/admin/updates/': typeof AdminUpdatesIndexRoute
   '/auth/google/': typeof AuthGoogleIndexRoute
   '/_app/_authed/challenges/new': typeof AppAuthedChallengesNewRoute
+  '/_app/_authed/rushmore/new': typeof AppAuthedRushmoreNewRoute
   '/_app/ballots/$ballotSlug_/$username': typeof AppBallotsBallotSlugUsernameRoute
   '/_app/challenges/$code_/play': typeof AppChallengesCodePlayRoute
   '/_app/games/$gameId/{-$slug}': typeof AppGamesGameIdChar123SlugChar125Route
@@ -1062,7 +1160,9 @@ export interface FileRoutesById {
   '/_app/leagues/$leagueSlug/feed': typeof AppLeaguesLeagueSlugFeedRoute
   '/_app/leagues/$leagueSlug/games': typeof AppLeaguesLeagueSlugGamesRoute
   '/_app/leagues/$leagueSlug/season': typeof AppLeaguesLeagueSlugSeasonRoute
+  '/_app/leagues/$leagueSlug/teams': typeof AppLeaguesLeagueSlugTeamsRoute
   '/_app/questions/$questionId/{-$slug}': typeof AppQuestionsQuestionIdChar123SlugChar125Route
+  '/_app/rushmore/$code/$username': typeof AppRushmoreCodeUsernameRoute
   '/admin/data/$leagueId/games': typeof AdminDataLeagueIdGamesRoute
   '/admin/data/$leagueId/players': typeof AdminDataLeagueIdPlayersRoute
   '/admin/data/$leagueId/teams': typeof AdminDataLeagueIdTeamsRoute
@@ -1071,6 +1171,9 @@ export interface FileRoutesById {
   '/share/challenges/$code/card.png': typeof ShareChallengesCodeCardDotpngRoute
   '/share/name-that-season/$date/card.png': typeof ShareNameThatSeasonDateCardDotpngRoute
   '/share/recaps/$token/card.png': typeof ShareRecapsTokenCardDotpngRoute
+  '/share/rushmore-prompts/$code/card.png': typeof ShareRushmorePromptsCodeCardDotpngRoute
+  '/share/rushmore/$postId/card.png': typeof ShareRushmorePostIdCardDotpngRoute
+  '/share/rushmore/$postId/portrait': typeof ShareRushmorePostIdPortraitRoute
   '/share/users/$username/card.png': typeof ShareUsersUsernameCardDotpngRoute
   '/_app/_authed/challenges/': typeof AppAuthedChallengesIndexRoute
   '/_app/_authed/groups/': typeof AppAuthedGroupsIndexRoute
@@ -1084,11 +1187,13 @@ export interface FileRoutesById {
   '/_app/arcade/name-that-season/$date/$result': typeof AppArcadeNameThatSeasonDateResultRoute
   '/_app/challenges/$code_/vs/$username': typeof AppChallengesCodeVsUsernameRoute
   '/_app/games/$gameId/picks/$username': typeof AppGamesGameIdPicksUsernameRoute
+  '/_app/leagues/$leagueSlug_/teams/$teamSlug': typeof AppLeaguesLeagueSlugTeamsTeamSlugRoute
   '/share/blind-rank/$date/$result/card.png': typeof ShareBlindRankDateResultCardDotpngRoute
   '/share/name-that-season/$date/$result/card.png': typeof ShareNameThatSeasonDateResultCardDotpngRoute
   '/_app/_authed/groups/$groupId/_tabs/arcade': typeof AppAuthedGroupsGroupIdTabsArcadeRoute
   '/_app/_authed/groups/$groupId/_tabs/chains': typeof AppAuthedGroupsGroupIdTabsChainsRoute
   '/_app/_authed/groups/$groupId/_tabs/leaderboard': typeof AppAuthedGroupsGroupIdTabsLeaderboardRoute
+  '/_app/_authed/groups/$groupId/_tabs/posts': typeof AppAuthedGroupsGroupIdTabsPostsRoute
   '/_app/_authed/groups/$groupId/_tabs/record-book': typeof AppAuthedGroupsGroupIdTabsRecordBookRoute
   '/_app/_authed/groups/$groupId/ballots/$ballotSlug': typeof AppAuthedGroupsGroupIdBallotsBallotSlugRoute
   '/_app/_authed/groups/$groupId/chains/$chainId': typeof AppAuthedGroupsGroupIdChainsChainIdRoute
@@ -1130,6 +1235,7 @@ export interface FileRouteTypes {
     | '/admin/integrity'
     | '/admin/leaders'
     | '/admin/lines'
+    | '/admin/post-reports'
     | '/admin/presser-reports'
     | '/admin/questions'
     | '/admin/queue'
@@ -1155,7 +1261,9 @@ export interface FileRouteTypes {
     | '/calls/$callId'
     | '/challenges/$code'
     | '/leagues/$leagueSlug'
+    | '/posts/$postId'
     | '/recaps/$token'
+    | '/rushmore/$code'
     | '/updates/$slug'
     | '/user/$username'
     | '/admin/ballots/$ballotId'
@@ -1172,6 +1280,7 @@ export interface FileRouteTypes {
     | '/admin/updates/'
     | '/auth/google/'
     | '/challenges/new'
+    | '/rushmore/new'
     | '/ballots/$ballotSlug/$username'
     | '/challenges/$code/play'
     | '/games/$gameId/{-$slug}'
@@ -1181,7 +1290,9 @@ export interface FileRouteTypes {
     | '/leagues/$leagueSlug/feed'
     | '/leagues/$leagueSlug/games'
     | '/leagues/$leagueSlug/season'
+    | '/leagues/$leagueSlug/teams'
     | '/questions/$questionId/{-$slug}'
+    | '/rushmore/$code/$username'
     | '/admin/data/$leagueId/games'
     | '/admin/data/$leagueId/players'
     | '/admin/data/$leagueId/teams'
@@ -1190,6 +1301,9 @@ export interface FileRouteTypes {
     | '/share/challenges/$code/card.png'
     | '/share/name-that-season/$date/card.png'
     | '/share/recaps/$token/card.png'
+    | '/share/rushmore-prompts/$code/card.png'
+    | '/share/rushmore/$postId/card.png'
+    | '/share/rushmore/$postId/portrait'
     | '/share/users/$username/card.png'
     | '/challenges/'
     | '/groups/'
@@ -1203,11 +1317,13 @@ export interface FileRouteTypes {
     | '/arcade/name-that-season/$date/$result'
     | '/challenges/$code/vs/$username'
     | '/games/$gameId/picks/$username'
+    | '/leagues/$leagueSlug/teams/$teamSlug'
     | '/share/blind-rank/$date/$result/card.png'
     | '/share/name-that-season/$date/$result/card.png'
     | '/groups/$groupId/arcade'
     | '/groups/$groupId/chains'
     | '/groups/$groupId/leaderboard'
+    | '/groups/$groupId/posts'
     | '/groups/$groupId/record-book'
     | '/groups/$groupId/ballots/$ballotSlug'
     | '/groups/$groupId/chains/$chainId'
@@ -1246,6 +1362,7 @@ export interface FileRouteTypes {
     | '/admin/integrity'
     | '/admin/leaders'
     | '/admin/lines'
+    | '/admin/post-reports'
     | '/admin/presser-reports'
     | '/admin/questions'
     | '/admin/queue'
@@ -1270,7 +1387,9 @@ export interface FileRouteTypes {
     | '/ballots/$ballotSlug'
     | '/calls/$callId'
     | '/challenges/$code'
+    | '/posts/$postId'
     | '/recaps/$token'
+    | '/rushmore/$code'
     | '/updates/$slug'
     | '/user/$username'
     | '/admin/ballots/$ballotId'
@@ -1286,6 +1405,7 @@ export interface FileRouteTypes {
     | '/admin/updates'
     | '/auth/google'
     | '/challenges/new'
+    | '/rushmore/new'
     | '/ballots/$ballotSlug/$username'
     | '/challenges/$code/play'
     | '/games/$gameId/{-$slug}'
@@ -1295,7 +1415,9 @@ export interface FileRouteTypes {
     | '/leagues/$leagueSlug/feed'
     | '/leagues/$leagueSlug/games'
     | '/leagues/$leagueSlug/season'
+    | '/leagues/$leagueSlug/teams'
     | '/questions/$questionId/{-$slug}'
+    | '/rushmore/$code/$username'
     | '/admin/data/$leagueId/games'
     | '/admin/data/$leagueId/players'
     | '/admin/data/$leagueId/teams'
@@ -1304,6 +1426,9 @@ export interface FileRouteTypes {
     | '/share/challenges/$code/card.png'
     | '/share/name-that-season/$date/card.png'
     | '/share/recaps/$token/card.png'
+    | '/share/rushmore-prompts/$code/card.png'
+    | '/share/rushmore/$postId/card.png'
+    | '/share/rushmore/$postId/portrait'
     | '/share/users/$username/card.png'
     | '/challenges'
     | '/groups'
@@ -1316,11 +1441,13 @@ export interface FileRouteTypes {
     | '/arcade/name-that-season/$date/$result'
     | '/challenges/$code/vs/$username'
     | '/games/$gameId/picks/$username'
+    | '/leagues/$leagueSlug/teams/$teamSlug'
     | '/share/blind-rank/$date/$result/card.png'
     | '/share/name-that-season/$date/$result/card.png'
     | '/groups/$groupId/arcade'
     | '/groups/$groupId/chains'
     | '/groups/$groupId/leaderboard'
+    | '/groups/$groupId/posts'
     | '/groups/$groupId/record-book'
     | '/groups/$groupId/ballots/$ballotSlug'
     | '/groups/$groupId/chains/$chainId'
@@ -1362,6 +1489,7 @@ export interface FileRouteTypes {
     | '/admin/integrity'
     | '/admin/leaders'
     | '/admin/lines'
+    | '/admin/post-reports'
     | '/admin/presser-reports'
     | '/admin/questions'
     | '/admin/queue'
@@ -1387,7 +1515,9 @@ export interface FileRouteTypes {
     | '/_app/calls/$callId'
     | '/_app/challenges/$code'
     | '/_app/leagues/$leagueSlug'
+    | '/_app/posts/$postId'
     | '/_app/recaps/$token'
+    | '/_app/rushmore/$code'
     | '/_app/updates/$slug'
     | '/_app/user/$username'
     | '/admin/ballots/$ballotId'
@@ -1404,6 +1534,7 @@ export interface FileRouteTypes {
     | '/admin/updates/'
     | '/auth/google/'
     | '/_app/_authed/challenges/new'
+    | '/_app/_authed/rushmore/new'
     | '/_app/ballots/$ballotSlug_/$username'
     | '/_app/challenges/$code_/play'
     | '/_app/games/$gameId/{-$slug}'
@@ -1413,7 +1544,9 @@ export interface FileRouteTypes {
     | '/_app/leagues/$leagueSlug/feed'
     | '/_app/leagues/$leagueSlug/games'
     | '/_app/leagues/$leagueSlug/season'
+    | '/_app/leagues/$leagueSlug/teams'
     | '/_app/questions/$questionId/{-$slug}'
+    | '/_app/rushmore/$code/$username'
     | '/admin/data/$leagueId/games'
     | '/admin/data/$leagueId/players'
     | '/admin/data/$leagueId/teams'
@@ -1422,6 +1555,9 @@ export interface FileRouteTypes {
     | '/share/challenges/$code/card.png'
     | '/share/name-that-season/$date/card.png'
     | '/share/recaps/$token/card.png'
+    | '/share/rushmore-prompts/$code/card.png'
+    | '/share/rushmore/$postId/card.png'
+    | '/share/rushmore/$postId/portrait'
     | '/share/users/$username/card.png'
     | '/_app/_authed/challenges/'
     | '/_app/_authed/groups/'
@@ -1435,11 +1571,13 @@ export interface FileRouteTypes {
     | '/_app/arcade/name-that-season/$date/$result'
     | '/_app/challenges/$code_/vs/$username'
     | '/_app/games/$gameId/picks/$username'
+    | '/_app/leagues/$leagueSlug_/teams/$teamSlug'
     | '/share/blind-rank/$date/$result/card.png'
     | '/share/name-that-season/$date/$result/card.png'
     | '/_app/_authed/groups/$groupId/_tabs/arcade'
     | '/_app/_authed/groups/$groupId/_tabs/chains'
     | '/_app/_authed/groups/$groupId/_tabs/leaderboard'
+    | '/_app/_authed/groups/$groupId/_tabs/posts'
     | '/_app/_authed/groups/$groupId/_tabs/record-book'
     | '/_app/_authed/groups/$groupId/ballots/$ballotSlug'
     | '/_app/_authed/groups/$groupId/chains/$chainId'
@@ -1479,6 +1617,9 @@ export interface RootRouteChildren {
   ShareChallengesCodeCardDotpngRoute: typeof ShareChallengesCodeCardDotpngRoute
   ShareNameThatSeasonDateCardDotpngRoute: typeof ShareNameThatSeasonDateCardDotpngRoute
   ShareRecapsTokenCardDotpngRoute: typeof ShareRecapsTokenCardDotpngRoute
+  ShareRushmorePromptsCodeCardDotpngRoute: typeof ShareRushmorePromptsCodeCardDotpngRoute
+  ShareRushmorePostIdCardDotpngRoute: typeof ShareRushmorePostIdCardDotpngRoute
+  ShareRushmorePostIdPortraitRoute: typeof ShareRushmorePostIdPortraitRoute
   ShareUsersUsernameCardDotpngRoute: typeof ShareUsersUsernameCardDotpngRoute
   ShareBlindRankDateResultCardDotpngRoute: typeof ShareBlindRankDateResultCardDotpngRoute
   ShareNameThatSeasonDateResultCardDotpngRoute: typeof ShareNameThatSeasonDateResultCardDotpngRoute
@@ -1667,6 +1808,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminLinesRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/post-reports': {
+      id: '/admin/post-reports'
+      path: '/post-reports'
+      fullPath: '/admin/post-reports'
+      preLoaderRoute: typeof AdminPostReportsRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/admin/presser-reports': {
       id: '/admin/presser-reports'
       path: '/presser-reports'
@@ -1842,11 +1990,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppLeaguesLeagueSlugRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/posts/$postId': {
+      id: '/_app/posts/$postId'
+      path: '/posts/$postId'
+      fullPath: '/posts/$postId'
+      preLoaderRoute: typeof AppPostsPostIdRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/recaps/$token': {
       id: '/_app/recaps/$token'
       path: '/recaps/$token'
       fullPath: '/recaps/$token'
       preLoaderRoute: typeof AppRecapsTokenRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/rushmore/$code': {
+      id: '/_app/rushmore/$code'
+      path: '/rushmore/$code'
+      fullPath: '/rushmore/$code'
+      preLoaderRoute: typeof AppRushmoreCodeRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/updates/': {
@@ -1968,6 +2130,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppAuthedGroupsIndexRouteImport
       parentRoute: typeof AppAuthedRoute
     }
+    '/_app/_authed/rushmore/new': {
+      id: '/_app/_authed/rushmore/new'
+      path: '/rushmore/new'
+      fullPath: '/rushmore/new'
+      preLoaderRoute: typeof AppAuthedRushmoreNewRouteImport
+      parentRoute: typeof AppAuthedRoute
+    }
     '/_app/arcade/blind-rank/': {
       id: '/_app/arcade/blind-rank/'
       path: '/arcade/blind-rank'
@@ -2052,12 +2221,26 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppLeaguesLeagueSlugSeasonRouteImport
       parentRoute: typeof AppLeaguesLeagueSlugRoute
     }
+    '/_app/leagues/$leagueSlug/teams': {
+      id: '/_app/leagues/$leagueSlug/teams'
+      path: '/teams'
+      fullPath: '/leagues/$leagueSlug/teams'
+      preLoaderRoute: typeof AppLeaguesLeagueSlugTeamsRouteImport
+      parentRoute: typeof AppLeaguesLeagueSlugRoute
+    }
     '/_app/questions/$questionId/{-$slug}': {
       id: '/_app/questions/$questionId/{-$slug}'
       path: '/questions/$questionId/{-$slug}'
       fullPath: '/questions/$questionId/{-$slug}'
       preLoaderRoute: typeof AppQuestionsQuestionIdChar123SlugChar125RouteImport
       parentRoute: typeof AppRoute
+    }
+    '/_app/rushmore/$code/$username': {
+      id: '/_app/rushmore/$code/$username'
+      path: '/$username'
+      fullPath: '/rushmore/$code/$username'
+      preLoaderRoute: typeof AppRushmoreCodeUsernameRouteImport
+      parentRoute: typeof AppRushmoreCodeRoute
     }
     '/admin/data/$leagueId/': {
       id: '/admin/data/$leagueId/'
@@ -2122,6 +2305,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ShareRecapsTokenCardDotpngRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/share/rushmore-prompts/$code/card.png': {
+      id: '/share/rushmore-prompts/$code/card.png'
+      path: '/share/rushmore-prompts/$code/card.png'
+      fullPath: '/share/rushmore-prompts/$code/card.png'
+      preLoaderRoute: typeof ShareRushmorePromptsCodeCardDotpngRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/share/rushmore/$postId/card.png': {
+      id: '/share/rushmore/$postId/card.png'
+      path: '/share/rushmore/$postId/card.png'
+      fullPath: '/share/rushmore/$postId/card.png'
+      preLoaderRoute: typeof ShareRushmorePostIdCardDotpngRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/share/rushmore/$postId/portrait': {
+      id: '/share/rushmore/$postId/portrait'
+      path: '/share/rushmore/$postId/portrait'
+      fullPath: '/share/rushmore/$postId/portrait'
+      preLoaderRoute: typeof ShareRushmorePostIdPortraitRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/share/users/$username/card.png': {
       id: '/share/users/$username/card.png'
       path: '/share/users/$username/card.png'
@@ -2171,6 +2375,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppGamesGameIdPicksUsernameRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/leagues/$leagueSlug_/teams/$teamSlug': {
+      id: '/_app/leagues/$leagueSlug_/teams/$teamSlug'
+      path: '/leagues/$leagueSlug/teams/$teamSlug'
+      fullPath: '/leagues/$leagueSlug/teams/$teamSlug'
+      preLoaderRoute: typeof AppLeaguesLeagueSlugTeamsTeamSlugRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/share/blind-rank/$date/$result/card.png': {
       id: '/share/blind-rank/$date/$result/card.png'
       path: '/share/blind-rank/$date/$result/card.png'
@@ -2211,6 +2422,13 @@ declare module '@tanstack/react-router' {
       path: '/leaderboard'
       fullPath: '/groups/$groupId/leaderboard'
       preLoaderRoute: typeof AppAuthedGroupsGroupIdTabsLeaderboardRouteImport
+      parentRoute: typeof AppAuthedGroupsGroupIdTabsRoute
+    }
+    '/_app/_authed/groups/$groupId/_tabs/posts': {
+      id: '/_app/_authed/groups/$groupId/_tabs/posts'
+      path: '/posts'
+      fullPath: '/groups/$groupId/posts'
+      preLoaderRoute: typeof AppAuthedGroupsGroupIdTabsPostsRouteImport
       parentRoute: typeof AppAuthedGroupsGroupIdTabsRoute
     }
     '/_app/_authed/groups/$groupId/_tabs/record-book': {
@@ -2318,6 +2536,7 @@ interface AppAuthedGroupsGroupIdTabsRouteChildren {
   AppAuthedGroupsGroupIdTabsArcadeRoute: typeof AppAuthedGroupsGroupIdTabsArcadeRoute
   AppAuthedGroupsGroupIdTabsChainsRoute: typeof AppAuthedGroupsGroupIdTabsChainsRoute
   AppAuthedGroupsGroupIdTabsLeaderboardRoute: typeof AppAuthedGroupsGroupIdTabsLeaderboardRoute
+  AppAuthedGroupsGroupIdTabsPostsRoute: typeof AppAuthedGroupsGroupIdTabsPostsRoute
   AppAuthedGroupsGroupIdTabsRecordBookRoute: typeof AppAuthedGroupsGroupIdTabsRecordBookRoute
   AppAuthedGroupsGroupIdTabsIndexRoute: typeof AppAuthedGroupsGroupIdTabsIndexRoute
 }
@@ -2330,6 +2549,7 @@ const AppAuthedGroupsGroupIdTabsRouteChildren: AppAuthedGroupsGroupIdTabsRouteCh
       AppAuthedGroupsGroupIdTabsChainsRoute,
     AppAuthedGroupsGroupIdTabsLeaderboardRoute:
       AppAuthedGroupsGroupIdTabsLeaderboardRoute,
+    AppAuthedGroupsGroupIdTabsPostsRoute: AppAuthedGroupsGroupIdTabsPostsRoute,
     AppAuthedGroupsGroupIdTabsRecordBookRoute:
       AppAuthedGroupsGroupIdTabsRecordBookRoute,
     AppAuthedGroupsGroupIdTabsIndexRoute: AppAuthedGroupsGroupIdTabsIndexRoute,
@@ -2350,6 +2570,7 @@ interface AppAuthedRouteChildren {
   AppAuthedSettingsRoute: typeof AppAuthedSettingsRoute
   AppAuthedSupportRoute: typeof AppAuthedSupportRoute
   AppAuthedChallengesNewRoute: typeof AppAuthedChallengesNewRoute
+  AppAuthedRushmoreNewRoute: typeof AppAuthedRushmoreNewRoute
   AppAuthedChallengesIndexRoute: typeof AppAuthedChallengesIndexRoute
   AppAuthedGroupsIndexRoute: typeof AppAuthedGroupsIndexRoute
   AppAuthedGroupsGroupIdTabsRoute: typeof AppAuthedGroupsGroupIdTabsRouteWithChildren
@@ -2370,6 +2591,7 @@ const AppAuthedRouteChildren: AppAuthedRouteChildren = {
   AppAuthedSettingsRoute: AppAuthedSettingsRoute,
   AppAuthedSupportRoute: AppAuthedSupportRoute,
   AppAuthedChallengesNewRoute: AppAuthedChallengesNewRoute,
+  AppAuthedRushmoreNewRoute: AppAuthedRushmoreNewRoute,
   AppAuthedChallengesIndexRoute: AppAuthedChallengesIndexRoute,
   AppAuthedGroupsIndexRoute: AppAuthedGroupsIndexRoute,
   AppAuthedGroupsGroupIdTabsRoute: AppAuthedGroupsGroupIdTabsRouteWithChildren,
@@ -2394,6 +2616,7 @@ interface AppLeaguesLeagueSlugRouteChildren {
   AppLeaguesLeagueSlugFeedRoute: typeof AppLeaguesLeagueSlugFeedRoute
   AppLeaguesLeagueSlugGamesRoute: typeof AppLeaguesLeagueSlugGamesRoute
   AppLeaguesLeagueSlugSeasonRoute: typeof AppLeaguesLeagueSlugSeasonRoute
+  AppLeaguesLeagueSlugTeamsRoute: typeof AppLeaguesLeagueSlugTeamsRoute
   AppLeaguesLeagueSlugIndexRoute: typeof AppLeaguesLeagueSlugIndexRoute
 }
 
@@ -2403,11 +2626,24 @@ const AppLeaguesLeagueSlugRouteChildren: AppLeaguesLeagueSlugRouteChildren = {
   AppLeaguesLeagueSlugFeedRoute: AppLeaguesLeagueSlugFeedRoute,
   AppLeaguesLeagueSlugGamesRoute: AppLeaguesLeagueSlugGamesRoute,
   AppLeaguesLeagueSlugSeasonRoute: AppLeaguesLeagueSlugSeasonRoute,
+  AppLeaguesLeagueSlugTeamsRoute: AppLeaguesLeagueSlugTeamsRoute,
   AppLeaguesLeagueSlugIndexRoute: AppLeaguesLeagueSlugIndexRoute,
 }
 
 const AppLeaguesLeagueSlugRouteWithChildren =
   AppLeaguesLeagueSlugRoute._addFileChildren(AppLeaguesLeagueSlugRouteChildren)
+
+interface AppRushmoreCodeRouteChildren {
+  AppRushmoreCodeUsernameRoute: typeof AppRushmoreCodeUsernameRoute
+}
+
+const AppRushmoreCodeRouteChildren: AppRushmoreCodeRouteChildren = {
+  AppRushmoreCodeUsernameRoute: AppRushmoreCodeUsernameRoute,
+}
+
+const AppRushmoreCodeRouteWithChildren = AppRushmoreCodeRoute._addFileChildren(
+  AppRushmoreCodeRouteChildren,
+)
 
 interface AppRouteChildren {
   AppAuthedRoute: typeof AppAuthedRouteWithChildren
@@ -2422,7 +2658,9 @@ interface AppRouteChildren {
   AppCallsCallIdRoute: typeof AppCallsCallIdRoute
   AppChallengesCodeRoute: typeof AppChallengesCodeRoute
   AppLeaguesLeagueSlugRoute: typeof AppLeaguesLeagueSlugRouteWithChildren
+  AppPostsPostIdRoute: typeof AppPostsPostIdRoute
   AppRecapsTokenRoute: typeof AppRecapsTokenRoute
+  AppRushmoreCodeRoute: typeof AppRushmoreCodeRouteWithChildren
   AppUpdatesSlugRoute: typeof AppUpdatesSlugRoute
   AppUserUsernameRoute: typeof AppUserUsernameRoute
   AppArcadeIndexRoute: typeof AppArcadeIndexRoute
@@ -2438,6 +2676,7 @@ interface AppRouteChildren {
   AppArcadeNameThatSeasonDateResultRoute: typeof AppArcadeNameThatSeasonDateResultRoute
   AppChallengesCodeVsUsernameRoute: typeof AppChallengesCodeVsUsernameRoute
   AppGamesGameIdPicksUsernameRoute: typeof AppGamesGameIdPicksUsernameRoute
+  AppLeaguesLeagueSlugTeamsTeamSlugRoute: typeof AppLeaguesLeagueSlugTeamsTeamSlugRoute
   AppUserUsernameReportCardsLeagueWindowKeyRoute: typeof AppUserUsernameReportCardsLeagueWindowKeyRoute
   AppUserUsernameSweepsLeagueSlateKeyRoute: typeof AppUserUsernameSweepsLeagueSlateKeyRoute
   AppUserUsernameStreaksLeagueFamilyModeRoute: typeof AppUserUsernameStreaksLeagueFamilyModeRoute
@@ -2456,7 +2695,9 @@ const AppRouteChildren: AppRouteChildren = {
   AppCallsCallIdRoute: AppCallsCallIdRoute,
   AppChallengesCodeRoute: AppChallengesCodeRoute,
   AppLeaguesLeagueSlugRoute: AppLeaguesLeagueSlugRouteWithChildren,
+  AppPostsPostIdRoute: AppPostsPostIdRoute,
   AppRecapsTokenRoute: AppRecapsTokenRoute,
+  AppRushmoreCodeRoute: AppRushmoreCodeRouteWithChildren,
   AppUpdatesSlugRoute: AppUpdatesSlugRoute,
   AppUserUsernameRoute: AppUserUsernameRoute,
   AppArcadeIndexRoute: AppArcadeIndexRoute,
@@ -2474,6 +2715,8 @@ const AppRouteChildren: AppRouteChildren = {
     AppArcadeNameThatSeasonDateResultRoute,
   AppChallengesCodeVsUsernameRoute: AppChallengesCodeVsUsernameRoute,
   AppGamesGameIdPicksUsernameRoute: AppGamesGameIdPicksUsernameRoute,
+  AppLeaguesLeagueSlugTeamsTeamSlugRoute:
+    AppLeaguesLeagueSlugTeamsTeamSlugRoute,
   AppUserUsernameReportCardsLeagueWindowKeyRoute:
     AppUserUsernameReportCardsLeagueWindowKeyRoute,
   AppUserUsernameSweepsLeagueSlateKeyRoute:
@@ -2510,6 +2753,7 @@ interface AdminRouteChildren {
   AdminIntegrityRoute: typeof AdminIntegrityRoute
   AdminLeadersRoute: typeof AdminLeadersRoute
   AdminLinesRoute: typeof AdminLinesRoute
+  AdminPostReportsRoute: typeof AdminPostReportsRoute
   AdminPresserReportsRoute: typeof AdminPresserReportsRoute
   AdminQuestionsRoute: typeof AdminQuestionsRoute
   AdminQueueRoute: typeof AdminQueueRoute
@@ -2537,6 +2781,7 @@ const AdminRouteChildren: AdminRouteChildren = {
   AdminIntegrityRoute: AdminIntegrityRoute,
   AdminLeadersRoute: AdminLeadersRoute,
   AdminLinesRoute: AdminLinesRoute,
+  AdminPostReportsRoute: AdminPostReportsRoute,
   AdminPresserReportsRoute: AdminPresserReportsRoute,
   AdminQuestionsRoute: AdminQuestionsRoute,
   AdminQueueRoute: AdminQueueRoute,
@@ -2580,6 +2825,10 @@ const rootRouteChildren: RootRouteChildren = {
   ShareNameThatSeasonDateCardDotpngRoute:
     ShareNameThatSeasonDateCardDotpngRoute,
   ShareRecapsTokenCardDotpngRoute: ShareRecapsTokenCardDotpngRoute,
+  ShareRushmorePromptsCodeCardDotpngRoute:
+    ShareRushmorePromptsCodeCardDotpngRoute,
+  ShareRushmorePostIdCardDotpngRoute: ShareRushmorePostIdCardDotpngRoute,
+  ShareRushmorePostIdPortraitRoute: ShareRushmorePostIdPortraitRoute,
   ShareUsersUsernameCardDotpngRoute: ShareUsersUsernameCardDotpngRoute,
   ShareBlindRankDateResultCardDotpngRoute:
     ShareBlindRankDateResultCardDotpngRoute,

@@ -24,6 +24,7 @@ export function HomeResultsSection({
 				<Link
 					to="/user/$username"
 					params={{ username: me.username }}
+					search={{ tab: "calls" }}
 					className={css({
 						fontSize: "xs",
 						color: "primary.default",

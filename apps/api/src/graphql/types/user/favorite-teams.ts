@@ -4,6 +4,7 @@ import { db } from "../../../db"
 import { teams, userFavoriteTeams, users } from "../../../db/schema"
 import { requireUser } from "../../../lib/auth"
 import { AuthenticationError, NotFoundError } from "../../../lib/errors"
+import { followTeamsAndLeagues } from "../../../lib/follows/follow"
 import { builder } from "../../builder"
 import { parseInput } from "../../helpers"
 import { UserRef } from "./refs"
@@ -12,6 +13,9 @@ builder.mutationFields((t) => ({
 	// Replaces the whole list, in the order given. The picker edits a local
 	// copy and saves once, so there is no add/remove pair to keep consistent
 	// and the order is whatever the array says. An empty array clears it.
+	//
+	// Also follows each team and its league, so a fan's Home has their team
+	// in it. Removing a favorite leaves those follows alone.
 	setFavoriteTeams: t.field({
 		type: UserRef,
 		errors: {
@@ -49,6 +53,7 @@ builder.mutationFields((t) => ({
 						})),
 					)
 				}
+				await followTeamsAndLeagues(tx, user.id, teamIds)
 			})
 			return user
 		},

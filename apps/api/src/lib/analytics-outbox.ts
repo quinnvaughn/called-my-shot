@@ -119,11 +119,22 @@ type ServerAnalyticsEvents = {
 		strictness: "standard" | "strict"
 	}
 	// Comment text the moderation check refused. on is what it was posted
-	// on: a challenge's gloat or a chain's thread.
+	// on: a challenge's gloat, a chain's thread or a post's.
 	comment_text_blocked: {
 		category: "hate" | "threat" | "sexual" | "personal_info" | "harassment"
 		strictness: "standard" | "strict"
-		on: "challenge" | "chain"
+		on: "challenge" | "chain" | "post"
+	}
+	// Post text the moderation check refused: a post's body, a Rushmore
+	// pick's reason, or a new prompt's title.
+	post_text_blocked: {
+		field: "body" | "reason" | "title"
+		category: "hate" | "threat" | "sexual" | "personal_info" | "harassment"
+		strictness: "standard" | "strict"
+	}
+	post_reported: {
+		postId: string
+		reason: string
 	}
 	comment_reported: {
 		commentId: string

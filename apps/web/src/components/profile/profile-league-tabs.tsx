@@ -3,8 +3,9 @@ import type { UserProfileQuery } from "#/graphql/generated/graphql"
 
 type Leagues = NonNullable<UserProfileQuery["userByUsername"]>["leagues"]
 
-// One tab per league played, plus All. A single league skips the row
-// entirely, since All and that league would be the same page.
+// One tab per league played, plus All, inside the profile's Calls tab. A
+// single league skips the row entirely, since All and that league would be
+// the same page.
 export function ProfileLeagueTabs({
 	username,
 	leagues,
@@ -18,7 +19,7 @@ export function ProfileLeagueTabs({
 			<Tabs.LinkTrigger
 				to="/user/$username"
 				params={{ username }}
-				search={{ league: undefined }}
+				search={{ tab: "calls", league: undefined }}
 				// Without explicitUndefined, All's empty search would match
 				// every league's url too and stay lit alongside it.
 				activeOptions={{ includeSearch: true, explicitUndefined: true }}
@@ -30,7 +31,7 @@ export function ProfileLeagueTabs({
 					key={row.league.id}
 					to="/user/$username"
 					params={{ username }}
-					search={{ league: row.league.slug }}
+					search={{ tab: "calls", league: row.league.slug }}
 					activeOptions={{ includeSearch: true }}
 				>
 					{row.league.abbreviation}

@@ -3,11 +3,12 @@ import { CountBadge } from "#/components/ui/count-badge"
 import { Tabs } from "#/components/ui/tabs"
 import type { Space } from "./space"
 import { spaceTabSections } from "./space-sections"
+import type { Me } from "./types"
 
 // The current space's sections as a row above the page, below md only: the
 // side column's job on a screen with no room for it.
-export function SpaceTabs({ space }: { space: Space }) {
-	const sections = spaceTabSections(space)
+export function SpaceTabs({ me, space }: { me: Me; space: Space }) {
+	const sections = spaceTabSections(space, me)
 	if (sections.length === 0) return null
 
 	return (

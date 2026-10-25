@@ -123,3 +123,27 @@ export function sliceOffsetPage<T>(
 		},
 	}
 }
+
+// One page of a ranking the database orders (most-liked first), addressed by
+// offset cursor like sliceOffsetPage but without loading every row: `fetch`
+// gets the offset and limit + 1, and the extra row says whether there's more.
+export async function offsetPaginate<T>(
+	args: PageArgs,
+	fetch: (page: { offset: number; limit: number }) => Promise<T[]>,
+): Promise<{
+	items: T[]
+	pageInfo: { hasNextPage: boolean; endCursor: string | null }
+}> {
+	const limit = clampPageSize(args.first)
+	const offset = args.after ? decodeOffsetCursor(args.after) : 0
+	const rows = await fetch({ offset, limit: limit + 1 })
+	const items = rows.slice(0, limit)
+	return {
+		items,
+		pageInfo: {
+			hasNextPage: rows.length > limit,
+			endCursor:
+				items.length > 0 ? encodeOffsetCursor(offset + items.length) : null,
+		},
+	}
+}

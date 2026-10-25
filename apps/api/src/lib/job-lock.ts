@@ -106,6 +106,10 @@ export const ARCHIVE_SEASONS_LOCK = "archive-seasons"
 // Overlap on one individual game is handled by persistBoxScore's own
 // SELECT ... FOR UPDATE.
 export const BOX_SCORE_SYNC_LOCK = "sync-box-scores"
+// The portrait backfill (scripts/build-portraits.ts) and the daily portrait
+// step for current players share one lease, so the two never upload a
+// portrait for the same player at once.
+export const BUILD_PORTRAITS_LOCK = "build-portraits"
 export const DRAIN_ANALYTICS_LOCK = "drain-analytics-outbox"
 export const DRAIN_DIGESTS_LOCK = "drain-email-digests"
 export const DRAIN_GAME_REMINDERS_LOCK = "drain-game-reminders"
@@ -117,6 +121,7 @@ export const FILL_RANK_SCHEDULE_LOCK = "fill-rank-schedule"
 export const FILL_SEASON_SCHEDULE_LOCK = "fill-season-schedule"
 export const GENERATE_GAME_QUESTIONS_LOCK = "generate-game-questions"
 export const GENERATE_GROUP_RECAPS_LOCK = "generate-group-recaps"
+export const INGEST_HISTORY_LOCK = "ingest-franchise-history"
 export const LOCK_OVERDUE_QUESTIONS_LOCK = "lock-overdue-questions"
 export const OPEN_PRESSERS_LOCK = "open-pressers"
 export const RECOMPUTE_ACHIEVEMENTS_LOCK = "recompute-achievements"

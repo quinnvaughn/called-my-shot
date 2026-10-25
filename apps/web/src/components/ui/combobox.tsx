@@ -55,6 +55,49 @@ type ComboboxProps = {
 // version - it lands in the same spot the old absolutely-positioned panel
 // did, since it's a normal-flow sibling of whatever came right before
 // <Combobox> (typically the input), full width of that shared parent.
+// The recipe's maxHeight (spacing 80), the panel's height when there's room.
+const FULL_HEIGHT = 320
+const GAP = 6
+// Kept clear between the panel and the window's edge.
+const EDGE = 12
+// Below this much room under the input, the panel opens upward instead when
+// there's more room above.
+const MIN_BELOW = 200
+
+type PanelPlacement = {
+	left: number
+	width: number
+	maxHeight: number
+} & ({ top: number; bottom?: never } | { bottom: number; top?: never })
+
+// Under the input, shrunk to the room left in the window so its last options
+// stay reachable. An input near the bottom of the window with more room
+// above it gets the panel above it instead.
+function placePanel(marker: HTMLElement): PanelPlacement {
+	const r = marker.getBoundingClientRect()
+	// The marker sits under the input; the element before it (the input or
+	// its field wrapper) is what an upward panel opens above.
+	const anchorTop = (
+		marker.previousElementSibling ?? marker
+	).getBoundingClientRect().top
+	const below = window.innerHeight - r.bottom - GAP - EDGE
+	const above = anchorTop - GAP - EDGE
+	if (below >= Math.min(FULL_HEIGHT, MIN_BELOW) || below >= above) {
+		return {
+			top: r.bottom + GAP,
+			left: r.left,
+			width: r.width,
+			maxHeight: Math.min(FULL_HEIGHT, below),
+		}
+	}
+	return {
+		bottom: window.innerHeight - anchorTop + GAP,
+		left: r.left,
+		width: r.width,
+		maxHeight: Math.min(FULL_HEIGHT, above),
+	}
+}
+
 function Combobox({
 	open,
 	highlightedKey,
@@ -66,11 +109,7 @@ function Combobox({
 	const slots = comboboxRecipe()
 	const markerRef = useRef<HTMLDivElement>(null)
 	const contentRef = useRef<HTMLDivElement>(null)
-	const [rect, setRect] = useState<{
-		top: number
-		left: number
-		width: number
-	} | null>(null)
+	const [rect, setRect] = useState<PanelPlacement | null>(null)
 
 	useEffect(() => {
 		if (!open) return
@@ -78,8 +117,7 @@ function Combobox({
 		function updateRect() {
 			const el = markerRef.current
 			if (!el) return
-			const r = el.getBoundingClientRect()
-			setRect({ top: r.bottom + 6, left: r.left, width: r.width })
+			setRect(placePanel(el))
 		}
 		updateRect()
 		window.addEventListener("resize", updateRect)
@@ -114,10 +152,12 @@ function Combobox({
 							className={cx(slots.content, className)}
 							style={{
 								position: "fixed",
-								top: rect.top,
+								top: rect.top ?? "auto",
+								bottom: rect.bottom ?? "auto",
 								left: rect.left,
 								width: rect.width,
 								right: "auto",
+								maxHeight: rect.maxHeight,
 							}}
 						>
 							{children}
