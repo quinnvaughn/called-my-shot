@@ -1,0 +1,62 @@
+{
+	"copyright": "Copyright 2026 MLB Advanced Media, L.P.  Use of any content on this page acknowledges agreement to the terms posted here http://gdx.mlb.com/components/copyright.txt",
+	"roster": [
+		{
+			"person": {
+				"id": 114680,
+				"fullName": "Lou Gehrig",
+				"link": "/api/v1/people/114680"
+			},
+			"jerseyNumber": "",
+			"position": {
+				"code": "3",
+				"name": "First Base",
+				"type": "Infielder",
+				"abbreviation": "1B"
+			},
+			"status": {
+				"code": "A",
+				"description": "Active"
+			}
+		},
+		{
+			"person": {
+				"id": 116241,
+				"fullName": "Waite Hoyt",
+				"link": "/api/v1/people/116241"
+			},
+			"jerseyNumber": "",
+			"position": {
+				"code": "1",
+				"name": "Pitcher",
+				"type": "Pitcher",
+				"abbreviation": "P"
+			},
+			"status": {
+				"code": "A",
+				"description": "Active"
+			}
+		},
+		{
+			"person": {
+				"id": 121578,
+				"fullName": "Babe Ruth",
+				"link": "/api/v1/people/121578"
+			},
+			"jerseyNumber": "",
+			"position": {
+				"code": "O",
+				"name": "Outfield",
+				"type": "Outfielder",
+				"abbreviation": "OF"
+			},
+			"status": {
+				"code": "A",
+				"description": "Active"
+			}
+		}
+	],
+	"link": "/api/v1/teams/147/roster",
+	"teamId": 147,
+	"rosterType": "fullSeason"
+}

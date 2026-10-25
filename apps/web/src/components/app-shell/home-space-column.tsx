@@ -17,7 +17,7 @@ export function HomeSpaceColumn({ me }: { me: Me }) {
 			<SpaceSectionList sections={homeSections} />
 			{me && (
 				<SidebarSection id="you" label="YOU">
-					<SpaceSectionList sections={youSections} />
+					<SpaceSectionList sections={youSections(me.username)} />
 				</SidebarSection>
 			)}
 			<SidebarSection id="resources" label="RESOURCES">

@@ -33,7 +33,7 @@ export function AppShell({
 				emailBouncedAt: rawMe.emailBouncedAt ?? null,
 			}
 		: null
-	const space = useSpace(leagues)
+	const space = useSpace(leagues, me)
 	const rightRail = useRightRail()
 	const bareSignedOut = useMatches({
 		select: (matches) => matches.some((m) => m.staticData?.bareSignedOut),
@@ -102,7 +102,7 @@ export function AppShell({
 							<EmailBounceBanner />
 						</div>
 					)}
-					{!focus && <SpaceTabs space={space} />}
+					{!focus && <SpaceTabs me={me} space={space} />}
 					{children}
 				</main>
 				{rightRail && !focus && (

@@ -1,4 +1,5 @@
 import { graphql } from "#/graphql/generated"
+import { gqlQueryOptions } from "#/graphql/query-options"
 
 export const UserProfileDocument = graphql(`
 	query UserProfile($username: String!) {
@@ -9,6 +10,9 @@ export const UserProfileDocument = graphql(`
 			avatarUrl
 			bannerUrl
 			createdAt
+			viewerFollows
+			followerCount
+			followingCount
 			headToHeadWithViewer {
 				wins
 				losses
@@ -184,3 +188,9 @@ export const UserRecordCalendarDocument = graphql(`
 		}
 	}
 `)
+
+export const userProfileQuery = (username: string) =>
+	gqlQueryOptions(UserProfileDocument, { username })
+
+export const userRecordQuery = (username: string, league: string | null) =>
+	gqlQueryOptions(UserRecordDocument, { username, league })

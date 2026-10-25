@@ -51,12 +51,13 @@ export function BottomNav({ me, space }: { me: Me; space: Space }) {
 				active={
 					space.kind === "spaces" ||
 					space.kind === "league" ||
+					space.kind === "team" ||
 					space.kind === "group"
 				}
 			/>
 			{me ? (
 				<BottomNavItem
-					to="/my-calls"
+					to={`/user/${me.username}`}
 					label="You"
 					icon={FiUser}
 					active={space.kind === "you"}

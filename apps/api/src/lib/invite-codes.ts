@@ -33,13 +33,12 @@ export function isValidInviteCodeShape(code: string): boolean {
 	)
 }
 
+// Drizzle wraps the driver's error in its own (DrizzleQueryError), with the
+// Postgres error as its cause, so both are checked.
 export function isUniqueViolation(err: unknown): boolean {
-	return (
-		typeof err === "object" &&
-		err !== null &&
-		"code" in err &&
-		(err as { code?: string }).code === "23505"
-	)
+	if (typeof err !== "object" || err === null) return false
+	if ((err as { code?: string }).code === "23505") return true
+	return "cause" in err && isUniqueViolation((err as { cause: unknown }).cause)
 }
 
 // Retries an insert that could collide on the code's unique index. Callers

@@ -1,8 +1,9 @@
 import { Link } from "@tanstack/react-router"
-import { FiBell } from "react-icons/fi"
+import { FiBell, FiPlus } from "react-icons/fi"
 import { css, cx } from "styled-system/css"
 import { HStack } from "styled-system/jsx"
 import { AuthModal } from "#/components/auth/auth-modal"
+import { CreateSheet } from "#/components/create/create-sheet"
 import { Brand } from "#/components/ui/brand"
 import { Button } from "#/components/ui/button"
 import { openModal } from "#/stores/modal-store"
@@ -14,6 +15,23 @@ import { unreadBadge, unreadLabel } from "./unread-badge"
 // stick just under it (see space-rail.tsx, space-column.tsx and
 // app-shell.tsx).
 export function TopBar({ me, unreadCount }: { me: Me; unreadCount: number }) {
+	// Signed out, making anything starts with an account.
+	const createButton = (
+		<Button
+			variant="solid"
+			size="sm"
+			aria-label="Create"
+			onClick={() =>
+				openModal(me ? <CreateSheet /> : <AuthModal defaultView="signup" />)
+			}
+		>
+			<FiPlus size={16} />
+			<span className={css({ display: { base: "none", sm: "inline" } })}>
+				Create
+			</span>
+		</Button>
+	)
+
 	return (
 		<div
 			className={css({
@@ -44,6 +62,7 @@ export function TopBar({ me, unreadCount }: { me: Me; unreadCount: number }) {
 
 				{me ? (
 					<HStack gap={{ base: "4", md: "2" }}>
+						{createButton}
 						<Link
 							to="/notifications"
 							aria-label={
@@ -94,6 +113,7 @@ export function TopBar({ me, unreadCount }: { me: Me; unreadCount: number }) {
 					</HStack>
 				) : (
 					<HStack gap="2">
+						{createButton}
 						<Button
 							variant="outline"
 							size="sm"

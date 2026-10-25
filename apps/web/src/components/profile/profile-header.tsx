@@ -2,6 +2,7 @@ import { DateTime } from "luxon"
 import type { ReactNode } from "react"
 import { css } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
+import { FollowButton } from "#/components/follows/follow-button"
 import { FavoriteTeamsPickerModal } from "#/components/teams/favorite-teams-picker-modal"
 import {
 	type FavoriteTeam,
@@ -10,6 +11,7 @@ import {
 import { Avatar } from "#/components/ui/avatar"
 import { Button } from "#/components/ui/button"
 import { Flair, type FlairData } from "#/components/ui/flair"
+import { pluralize } from "#/lib/pluralize"
 import { openModal } from "#/stores/modal-store"
 import { EditNameModal } from "./edit-name-modal"
 import { EditableAvatar } from "./editable-avatar"
@@ -23,10 +25,13 @@ type Props = {
 		createdAt: string
 		flair?: FlairData | null
 		favoriteTeams: FavoriteTeam[]
+		followerCount: number
+		followingCount: number
+		viewerFollows: boolean
 	}
 	viewerId?: string
-	// The profile's share row, beside Edit. Null until there's a record to
-	// share.
+	// The profile's share row, beside Edit (or Follow on someone else's).
+	// Null until there's a record to share.
 	share?: ReactNode
 }
 
@@ -40,7 +45,6 @@ const teamsEditButton = css({
 
 export function ProfileHeader({ user, viewerId, share }: Props) {
 	const isViewer = viewerId === user.id
-	const hasActions = isViewer || Boolean(share)
 	return (
 		// The actions drop to their own row on a phone, where three share
 		// icons and Edit beside the avatar would leave the name no room.
@@ -106,6 +110,16 @@ export function ProfileHeader({ user, viewerId, share }: Props) {
 					<span
 						className={css({
 							textStyle: "meta",
+							color: "fg.muted",
+						})}
+					>
+						{user.followerCount.toLocaleString()}{" "}
+						{pluralize(user.followerCount, "follower")} ·{" "}
+						{user.followingCount.toLocaleString()} following
+					</span>
+					<span
+						className={css({
+							textStyle: "meta",
 							color: "fg.subtle",
 						})}
 					>
@@ -147,22 +161,25 @@ export function ProfileHeader({ user, viewerId, share }: Props) {
 					</HStack>
 				)}
 			</div>
-			{hasActions && (
-				<HStack gap="2" alignItems="center" flexShrink="0">
-					{share}
-					{isViewer && (
-						<Button
-							variant="outline"
-							size="sm"
-							onClick={() =>
-								openModal(<EditNameModal currentName={user.name} />)
-							}
-						>
-							Edit
-						</Button>
-					)}
-				</HStack>
-			)}
+			<HStack gap="2" alignItems="center" flexShrink="0">
+				{share}
+				{isViewer ? (
+					<Button
+						variant="outline"
+						size="sm"
+						onClick={() => openModal(<EditNameModal currentName={user.name} />)}
+					>
+						Edit
+					</Button>
+				) : (
+					<FollowButton
+						kind="USER"
+						id={user.id}
+						following={user.viewerFollows}
+						name={`@${user.username}`}
+					/>
+				)}
+			</HStack>
 		</div>
 	)
 }

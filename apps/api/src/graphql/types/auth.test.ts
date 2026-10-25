@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest"
 import { db } from "../../db"
 import { redoBalanceFor } from "../../lib/redos"
-import { makeReferralCode, makeUser } from "../../test/factories"
+import { makeLeague, makeReferralCode, makeUser } from "../../test/factories"
 import { expectData } from "../../test/graphql"
 
 const SIGN_UP = /* GraphQL */ `
@@ -119,6 +119,23 @@ describe("signUp referral attribution", () => {
 		// The redo is the link's benefit. Giving it to everyone would delete
 		// the reason the link exists.
 		expect(await redoBalanceFor(data.signUp.user?.id ?? "")).toBe(0)
+	})
+})
+
+describe("signUp follows", () => {
+	it("starts a new account following every active league", async () => {
+		const active = await makeLeague()
+		const inactive = await makeLeague({ status: "inactive" })
+		const data = await expectData<SignUpResult>(SIGN_UP, {
+			variables: { input: newAccount() },
+		})
+
+		const followed = await db.query.follows.findMany({
+			where: { followerId: data.signUp.user?.id ?? "", targetKind: "league" },
+		})
+		const ids = followed.map((row) => row.targetId)
+		expect(ids).toContain(active.id)
+		expect(ids).not.toContain(inactive.id)
 	})
 })
 

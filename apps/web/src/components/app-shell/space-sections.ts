@@ -5,10 +5,13 @@ import {
 	FiBookOpen,
 	FiCalendar,
 	FiClipboard,
+	FiGrid,
 	FiLifeBuoy,
 	FiLink,
+	FiMessageSquare,
 	FiSettings,
 	FiTrendingUp,
+	FiUser,
 	FiUserPlus,
 	FiZap,
 } from "react-icons/fi"
@@ -40,11 +43,21 @@ export const homeSections: SpaceSection[] = [
 	{ label: "Leaderboard", icon: BsBarChartFill, to: "/leaderboard" },
 ]
 
-export const youSections: SpaceSection[] = [
+// The viewer's own lists, in the side column's YOU section under their
+// profile and in the More sheet on phones.
+export const youPageSections: SpaceSection[] = [
 	{ label: "My Calls", icon: FaSquareCheck, to: "/my-calls" },
 	{ label: "My Questions", icon: FaQuestion, to: "/my-questions" },
 	{ label: "Challenges", icon: FaFlag, to: "/challenges" },
 ]
+
+// The profile leads, since it's where the bottom nav's You tab lands.
+export function youSections(username: string): SpaceSection[] {
+	return [
+		{ label: "Profile", icon: FiUser, to: `/user/${username}`, exact: true },
+		...youPageSections,
+	]
+}
 
 export function resourceSections(signedIn: boolean): SpaceSection[] {
 	return [
@@ -67,13 +80,16 @@ export const arcadeSections: SpaceSection[] = [
 	})),
 ]
 
-// By subject, not by who wrote the question: official and player-written
+// Feed first, then the questions by subject: official and player-written
 // questions share each section, and the Official badge tells them apart.
+// Teams stays lit on a team's own page, which lives under it.
 export function leagueSections(slug: string): SpaceSection[] {
 	return [
+		{ label: "Feed", icon: FiMessageSquare, to: `/leagues/${slug}/feed` },
 		{ label: "Games", icon: FiCalendar, to: `/leagues/${slug}/games` },
 		{ label: "Season long", icon: FiTrendingUp, to: `/leagues/${slug}/season` },
 		{ label: "Ballots", icon: FiClipboard, to: `/leagues/${slug}/ballots` },
+		{ label: "Teams", icon: FiGrid, to: `/leagues/${slug}/teams` },
 		{
 			label: "Leaderboard",
 			icon: BsBarChartFill,
@@ -94,6 +110,11 @@ export function groupSections(
 ): SpaceSection[] {
 	return [
 		{ label: "Home", icon: GoHomeFill, to: `/groups/${groupId}`, exact: true },
+		{
+			label: "Posts",
+			icon: FiMessageSquare,
+			to: `/groups/${groupId}/posts`,
+		},
 		{
 			label: "Leaderboard",
 			icon: BsBarChartFill,
@@ -129,15 +150,20 @@ export function groupSections(
 
 // The tab row above the page on phones. Home's sections split in two there,
 // since Home and You are separate tabs in the bottom nav.
-export function spaceTabSections(space: Space): SpaceSection[] {
+export function spaceTabSections(
+	space: Space,
+	me: { username: string } | null,
+): SpaceSection[] {
 	return (
 		match(space)
 			.with({ kind: "home" }, () => homeSections)
-			.with({ kind: "you" }, () => youSections)
+			.with({ kind: "you" }, () => (me ? youSections(me.username) : []))
 			.with({ kind: "arcade" }, () => arcadeSections)
-			// Leagues and groups draw their own tab row under their header.
+			// Leagues and groups draw their own tab row under their header, and
+			// a team page links back to its league from its breadcrumb.
 			.with(
 				{ kind: "league" },
+				{ kind: "team" },
 				{ kind: "group" },
 				{ kind: "spaces" },
 				{ kind: "elsewhere" },

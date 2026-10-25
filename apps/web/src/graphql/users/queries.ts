@@ -7,6 +7,7 @@ export const UserCardDocument = graphql(`
 	query UserCard($username: String!) {
 		userByUsername(username: $username) {
 			id
+			viewerFollows
 			careerStats {
 				totalPoints
 				rank

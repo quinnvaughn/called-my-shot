@@ -11,12 +11,15 @@ import {
 import { AuthenticationError } from "../../lib/errors"
 import { gameEntryVerdict, loadGameEntry } from "../../lib/game-entry"
 import { keysetPaginate } from "../../lib/pagination"
+import { lastPostCommenter, lastReplier } from "../../lib/posts/push"
 import { markPushRead } from "../../lib/push-read"
 import { builder } from "../builder"
 import { indexByKey } from "../loader"
 import { ChainRef } from "./chain"
 import { ChallengeRef } from "./challenge"
+import { CommentRef } from "./comment"
 import { type Connection, PageInfoRef } from "./pagination"
+import { PostInterfaceRef } from "./post"
 import { PresserRef } from "./presser"
 import { presserByUserGameLoader, presserKey } from "./presser/loaders"
 import { GameEntryRef, GameRef } from "./sports"
@@ -58,6 +61,10 @@ const GQL_TYPE_BY_ROW_TYPE: Record<NotificationRow["type"], string> = {
 	chain_called_off: "ChainCalledOffNotification",
 	chain_settled: "ChainSettledNotification",
 	chain_commented: "ChainCommentedNotification",
+	post_commented: "PostCommentedNotification",
+	comment_replied: "CommentRepliedNotification",
+	user_followed: "UserFollowedNotification",
+	likes_milestone: "LikesMilestoneNotification",
 }
 
 // The sentence the row is told in, shared with the results email's
@@ -564,6 +571,111 @@ builder.drizzleObject("notifications", {
 						row.actorUsername)
 					: row.actorUsername,
 		}),
+	}),
+})
+
+// The post a thread notification is about. Null once it's gone or taken
+// down, along with its prompt.
+const postField = async (row: NotificationRow) => {
+	if (!row.postId) return null
+	const post = await db.query.posts.findFirst({
+		where: { id: row.postId },
+		with: { prompt: { columns: { removedAt: true } } },
+	})
+	if (!post || post.removedAt || post.prompt?.removedAt) return null
+	const { prompt: _prompt, ...rest } = post
+	return rest
+}
+
+// Someone commented on your post - see sendPostComment. One per post; who
+// commented last is read live.
+builder.drizzleObject("notifications", {
+	variant: "PostCommentedNotification",
+	interfaces: [NotificationNode],
+	fields: (t) => ({
+		post: t.field({
+			type: PostInterfaceRef,
+			nullable: true,
+			resolve: postField,
+		}),
+		lastCommenterUsername: t.string({
+			nullable: true,
+			resolve: async (row) =>
+				row.postId
+					? ((await lastPostCommenter(row.postId, row.userId)) ??
+						row.actorUsername)
+					: row.actorUsername,
+		}),
+	}),
+})
+
+// Someone replied to your comment on a post, or to you in its replies - see
+// sendPostComment. One per top-level comment; who replied last is read
+// live. comment is that top-level comment: yours, unless you were
+// @mentioned under someone else's.
+builder.drizzleObject("notifications", {
+	variant: "CommentRepliedNotification",
+	interfaces: [NotificationNode],
+	fields: (t) => ({
+		post: t.field({
+			type: PostInterfaceRef,
+			nullable: true,
+			resolve: postField,
+		}),
+		comment: t.field({
+			type: CommentRef,
+			nullable: true,
+			resolve: async (row) =>
+				row.commentId
+					? ((await db.query.comments.findFirst({
+							where: { id: row.commentId },
+						})) ?? null)
+					: null,
+		}),
+		lastReplierUsername: t.string({
+			nullable: true,
+			resolve: async (row) =>
+				row.commentId
+					? ((await lastReplier(row.commentId, row.userId)) ??
+						row.actorUsername)
+					: row.actorUsername,
+		}),
+	}),
+})
+
+// A post of yours, or your comment on one, reached a likes milestone - see
+// lib/likes.ts. In-app only. comment is null when it was the post.
+builder.drizzleObject("notifications", {
+	variant: "LikesMilestoneNotification",
+	interfaces: [NotificationNode],
+	fields: (t) => ({
+		post: t.field({
+			type: PostInterfaceRef,
+			nullable: true,
+			resolve: postField,
+		}),
+		comment: t.field({
+			type: CommentRef,
+			nullable: true,
+			resolve: async (row) =>
+				row.commentId
+					? ((await db.query.comments.findFirst({
+							where: { id: row.commentId },
+						})) ?? null)
+					: null,
+		}),
+		// The milestone reached, not the live count.
+		likeCount: t.int({ resolve: (row) => row.achievementCount ?? 0 }),
+	}),
+})
+
+// Someone started following you - see lib/follows. In-app only.
+builder.drizzleObject("notifications", {
+	variant: "UserFollowedNotification",
+	interfaces: [NotificationNode],
+	fields: (t) => ({
+		actor: t.relation("actor", { nullable: true }),
+		actorUsername: t.exposeString("actorUsername", { nullable: true }),
 	}),
 })
 

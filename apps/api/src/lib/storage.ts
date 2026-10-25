@@ -137,6 +137,27 @@ export async function presignImagePut(
 	}
 }
 
+// A write from the server itself, for images it makes rather than ones a
+// browser uploads (the Rushmore portraits in lib/portraits). Same immutable
+// caching as an upload, so the key has to be new whenever the bytes are.
+export async function putObject(
+	key: string,
+	body: Uint8Array,
+	contentType: string,
+): Promise<void> {
+	const { s3, bucket } = r2()
+	await s3.send(
+		new PutObjectCommand({
+			Bucket: bucket,
+			Key: key,
+			Body: body,
+			ContentType: contentType,
+			ContentLength: body.byteLength,
+			CacheControl: IMAGE_CACHE_CONTROL,
+		}),
+	)
+}
+
 export type StoredImage = { contentType: string | null; contentLength: number }
 
 // What's actually in the bucket under a key, or null if nothing is. Checked

@@ -49,6 +49,12 @@ services:
     # cluster and refuse to boot.
     tmpfs:
       - /var/lib/postgresql
+    # The suite truncates every table before each test, and each truncate
+    # gives every table and index a fresh file. Postgres only deletes the old,
+    # emptied ones at a checkpoint, so at the default 5 minutes a single run
+    # piles up more files than the tmpfs has inodes. Checkpointing often keeps
+    # the pile small, and costs nothing on a disposable in-memory cluster.
+    command: ["postgres", "-c", "checkpoint_timeout=30s"]
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d called_my_shot_test"]
       interval: 2s

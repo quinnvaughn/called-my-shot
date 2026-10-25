@@ -217,6 +217,49 @@ export type NotificationInput =
 			groupName: string
 			gameId: string
 	  }
+	// To a post's author when someone comments on it (top level; a reply
+	// tells whoever it answers instead). One per post: each later comment
+	// marks it unread and moves it back to the top, and who commented last is
+	// read live. The actor is the first commenter it was written for.
+	| {
+			type: "post_commented"
+			userId: string
+			postId: string
+			actorId: string
+			actorUsername: string
+	  }
+	// To whoever a reply answers: the top-level comment's author, and the
+	// person @mentioned when it answers another reply. One per recipient and
+	// top-level comment, folded the same way as post_commented. commentId is
+	// that top-level comment.
+	| {
+			type: "comment_replied"
+			userId: string
+			postId: string
+			commentId: string
+			actorId: string
+			actorUsername: string
+	  }
+	// To the author of a post or a comment on one when its likes reach a
+	// milestone (lib/likes.ts). In-app only, never a like at a time. One per
+	// post or comment: a higher milestone rewrites achievementCount and marks
+	// it unread again.
+	| {
+			type: "likes_milestone"
+			userId: string
+			postId: string
+			commentId: string | null
+			achievementCount: number
+	  }
+	// To someone a person started following. In-app only. One per follower,
+	// so following again after an unfollow re-surfaces it instead of adding
+	// another.
+	| {
+			type: "user_followed"
+			userId: string
+			actorId: string
+			actorUsername: string
+	  }
 
 function toRow(input: NotificationInput) {
 	return {
@@ -246,6 +289,8 @@ function toRow(input: NotificationInput) {
 		presserId: "presserId" in input ? input.presserId : null,
 		challengeId: "challengeId" in input ? input.challengeId : null,
 		chainId: "chainId" in input ? input.chainId : null,
+		postId: "postId" in input ? input.postId : null,
+		commentId: "commentId" in input ? input.commentId : null,
 		dedupeKey: dedupeKeyFor(input),
 	}
 }
@@ -273,7 +318,28 @@ function dedupeKeyFor(input: NotificationInput): string | null {
 			{ type: "chain_commented" },
 			({ type, chainId }) => `${type}:${chainId}`,
 		)
+		.with({ type: "post_commented" }, ({ type, postId }) => `${type}:${postId}`)
+		.with(
+			{ type: "comment_replied" },
+			({ type, commentId }) => `${type}:${commentId}`,
+		)
+		.with(
+			{ type: "user_followed" },
+			({ type, actorId }) => `${type}:${actorId}`,
+		)
+		.with({ type: "likes_milestone" }, ({ postId, commentId }) =>
+			likesMilestoneKey(postId, commentId),
+		)
 		.otherwise(() => null)
+}
+
+export function likesMilestoneKey(
+	postId: string,
+	commentId: string | null,
+): string {
+	return commentId
+		? `likes_milestone:comment:${commentId}`
+		: `likes_milestone:post:${postId}`
 }
 
 // A notification is read on its own, with nothing else on screen naming the
@@ -348,7 +414,13 @@ export async function createNotifications(
 		.values(rows)
 		.onConflictDoUpdate({
 			target: [notifications.userId, notifications.dedupeKey],
-			set: { readAt: null, createdAt: sql`now()` },
+			// achievementCount moves with it for likes_milestone, the one updated
+			// type that sets it; every other type's is null both ways.
+			set: {
+				readAt: null,
+				createdAt: sql`now()`,
+				achievementCount: sql`excluded.achievement_count`,
+			},
 		})
 		.returning({
 			id: notifications.id,

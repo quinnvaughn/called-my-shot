@@ -1,5 +1,5 @@
 import { randomInt } from "node:crypto"
-import { type User, users } from "../db/schema"
+import { follows, type User, users } from "../db/schema"
 import type { Tx } from "../db/types"
 import { isUniqueViolation } from "./invite-codes"
 import { grantWelcomeRedo } from "./redos"
@@ -31,6 +31,22 @@ export async function createAccount(
 	const { referral, signupIp, ...values } = account
 	const [created] = await tx.insert(users).values(values).returning()
 	if (!created) throw new Error("User insert returned no row")
+
+	// Following a league is what puts it on the space rail and in Home, so a
+	// new account starts out following every one it could play in.
+	const activeLeagues = await tx.query.leagues.findMany({
+		where: { status: "active" },
+		columns: { id: true },
+	})
+	if (activeLeagues.length > 0) {
+		await tx.insert(follows).values(
+			activeLeagues.map((league) => ({
+				followerId: created.id,
+				targetKind: "league" as const,
+				targetId: league.id,
+			})),
+		)
+	}
 
 	if (!referral) return { user: created, redoGranted: false }
 

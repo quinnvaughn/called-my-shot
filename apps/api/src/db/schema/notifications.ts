@@ -12,8 +12,10 @@ import {
 import { calls } from "./calls"
 import { chains } from "./chains"
 import { challenges } from "./challenges"
+import { comments } from "./comments"
 import { games } from "./games"
 import { groups } from "./groups"
+import { posts } from "./posts"
 import { pressers } from "./pressers"
 import { resolutionDisputes } from "./question-moderation"
 import { questions } from "./questions"
@@ -50,6 +52,10 @@ export const notificationType = pgEnum("notification_type", [
 	"chain_called_off",
 	"chain_settled",
 	"chain_commented",
+	"post_commented",
+	"comment_replied",
+	"user_followed",
+	"likes_milestone",
 ])
 
 // One row per (recipient, thing that happened) - see hook points in
@@ -102,6 +108,17 @@ export const notifications = pgTable(
 		chainId: uuid("chain_id").references(() => chains.id, {
 			onDelete: "cascade",
 		}),
+		// post_commented, comment_replied and likes_milestone: the post the
+		// thread is on, or the post that was liked.
+		postId: uuid("post_id").references(() => posts.id, {
+			onDelete: "cascade",
+		}),
+		// comment_replied: the recipient's top-level comment, or the one
+		// whose replies they were @mentioned in. likes_milestone: the comment
+		// that was liked, null when it was the post.
+		commentId: uuid("comment_id").references(() => comments.id, {
+			onDelete: "cascade",
+		}),
 		questionTitle: text("question_title"),
 		groupName: text("group_name"),
 		actorUsername: text("actor_username"),
@@ -111,7 +128,8 @@ export const notifications = pgTable(
 		strikeCount: integer("strike_count"),
 		// The sweep and streak types. achievementLabel is a snapshot of what the
 		// run or slate was called ("NFL Player Stats", "NFL Week 3 Sunday Early");
-		// achievementCount is the streak's length or the sweep's game count.
+		// achievementCount is the streak's length or the sweep's game count, and
+		// likes_milestone's the milestone reached (25 likes).
 		leagueId: uuid("league_id").references(() => leagues.id, {
 			onDelete: "cascade",
 		}),

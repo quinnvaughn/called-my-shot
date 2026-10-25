@@ -39,8 +39,8 @@ const COMMENT_ERRORS = [
 ] as const
 
 builder.queryFields((t) => ({
-	// Open reports on every comment, gloats and chain threads alike, oldest
-	// first.
+	// Open reports on every comment, gloats and chain and post threads
+	// alike, oldest first.
 	adminCommentReports: t.field({
 		type: [CommentReportRef],
 		resolve: (_root, _args, ctx) => {

@@ -27,10 +27,9 @@ type Props = {
 	}
 }
 
-// One entry point per league - the primary way Home points you at where the
-// real action is (especially on mobile, where this is most of what's above
-// the fold). Deliberately not a feed row: it's a room to go into, not
-// something to read here.
+// One entry point per league, on the viewer's own profile Calls tab: where
+// their open calls are and what's about to lock. Deliberately not a feed
+// row: it's a room to go into, not something to read here.
 export function LeagueRoomCard({ league }: Props) {
 	const live = league.liveGameCount > 0
 

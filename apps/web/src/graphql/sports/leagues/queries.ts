@@ -16,6 +16,7 @@ export const LeagueByIdDocument = graphql(`
 			slug
 			windowType
 			currentWindowGameCount
+			viewerFollows
 			postseason {
 				roundLabels
 			}
@@ -40,6 +41,56 @@ export const LeagueByIdDocument = graphql(`
 // windowType off the same league - one cache entry rather than a query each.
 export const leagueQuery = (id: string) =>
 	gqlQueryOptions(LeagueByIdDocument, { id })
+
+// The league's Teams tab: every franchise, each linking to its team space
+// with a follow toggle beside it.
+export const LeagueTeamsDocument = graphql(`
+	query LeagueTeams($leagueId: ID!) {
+		league(id: $leagueId) {
+			id
+			teams {
+				id
+				name
+				abbreviation
+				color
+				logoUrl
+				viewerFollows
+			}
+		}
+	}
+`)
+
+export const leagueTeamsQuery = (leagueId: string) =>
+	gqlQueryOptions(LeagueTeamsDocument, { leagueId })
+
+// A team space, addressed by its league and lowercased abbreviation. There's
+// no lookup by abbreviation, so this reads the league's whole list and the
+// route picks the team out of it; the franchise prompt comes along for the
+// consensus card.
+export const LeagueTeamSpaceDocument = graphql(`
+	query LeagueTeamSpace($leagueId: ID!) {
+		league(id: $leagueId) {
+			id
+			teams {
+				id
+				name
+				abbreviation
+				color
+				logoUrl
+				conference
+				division
+				viewerFollows
+				rushmorePrompt {
+					id
+					code
+				}
+			}
+		}
+	}
+`)
+
+export const leagueTeamSpaceQuery = (leagueId: string) =>
+	gqlQueryOptions(LeagueTeamSpaceDocument, { leagueId })
 
 // Fired on keystroke (debounced) from a league question list's search box - a
 // bounded, server-side team/player autocomplete scoped to this league, same

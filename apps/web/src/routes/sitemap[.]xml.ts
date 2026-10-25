@@ -25,10 +25,10 @@ const STATIC_PATHS = [
 ]
 
 // The league room's tabs. Its bare /leagues/$slug url is not listed: it only
-// redirects to the games tab (see leagues/$leagueSlug/index.tsx), and a
+// redirects to the feed tab (see leagues/$leagueSlug/index.tsx), and a
 // sitemap entry that redirects is a warning in Search Console rather than an
 // indexed page.
-const LEAGUE_TABS = ["games", "season", "ballots"]
+const LEAGUE_TABS = ["feed", "games", "season", "ballots", "teams"]
 
 function escapeXml(value: string): string {
 	return value

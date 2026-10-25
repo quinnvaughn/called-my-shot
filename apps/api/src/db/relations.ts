@@ -385,6 +385,19 @@ export const relations = defineRelations(schema, (r) => ({
 			to: r.teams.id,
 		}),
 		gameStats: r.many.playerGameStats(),
+		franchiseStints: r.many.playerFranchiseStints(),
+	},
+	playerFranchiseStints: {
+		player: r.one.players({
+			from: r.playerFranchiseStints.playerId,
+			to: r.players.id,
+			optional: false,
+		}),
+		team: r.one.teams({
+			from: r.playerFranchiseStints.teamId,
+			to: r.teams.id,
+			optional: false,
+		}),
 	},
 	games: {
 		league: r.one.leagues({
@@ -707,6 +720,14 @@ export const relations = defineRelations(schema, (r) => ({
 			from: r.notifications.chainId,
 			to: r.chains.id,
 		}),
+		post: r.one.posts({
+			from: r.notifications.postId,
+			to: r.posts.id,
+		}),
+		comment: r.one.comments({
+			from: r.notifications.commentId,
+			to: r.comments.id,
+		}),
 	},
 	achievementNotices: {
 		user: r.one.users({
@@ -832,6 +853,120 @@ export const relations = defineRelations(schema, (r) => ({
 		chain: r.one.chains({
 			from: r.comments.chainId,
 			to: r.chains.id,
+		}),
+		post: r.one.posts({
+			from: r.comments.postId,
+			to: r.posts.id,
+		}),
+		parent: r.one.comments({
+			from: r.comments.parentId,
+			to: r.comments.id,
+			alias: "replies",
+		}),
+		replies: r.many.comments({
+			from: r.comments.id,
+			to: r.comments.parentId,
+			alias: "replies",
+		}),
+		replyToUser: r.one.users({
+			from: r.comments.replyToUserId,
+			to: r.users.id,
+		}),
+		likes: r.many.commentLikes(),
+	},
+	commentLikes: {
+		comment: r.one.comments({
+			from: r.commentLikes.commentId,
+			to: r.comments.id,
+			optional: false,
+		}),
+		user: r.one.users({
+			from: r.commentLikes.userId,
+			to: r.users.id,
+			optional: false,
+		}),
+	},
+	prompts: {
+		creator: r.one.users({
+			from: r.prompts.creatorId,
+			to: r.users.id,
+		}),
+		league: r.one.leagues({
+			from: r.prompts.leagueId,
+			to: r.leagues.id,
+		}),
+		team: r.one.teams({
+			from: r.prompts.teamId,
+			to: r.teams.id,
+		}),
+		posts: r.many.posts(),
+	},
+	posts: {
+		author: r.one.users({
+			from: r.posts.authorId,
+			to: r.users.id,
+			optional: false,
+		}),
+		prompt: r.one.prompts({
+			from: r.posts.promptId,
+			to: r.prompts.id,
+			optional: false,
+		}),
+		group: r.one.groups({
+			from: r.posts.groupId,
+			to: r.groups.id,
+		}),
+		picks: r.many.rushmorePicks(),
+		tags: r.many.postTags(),
+		likes: r.many.postLikes(),
+		comments: r.many.comments(),
+	},
+	rushmorePicks: {
+		post: r.one.posts({
+			from: r.rushmorePicks.postId,
+			to: r.posts.id,
+			optional: false,
+		}),
+		player: r.one.players({
+			from: r.rushmorePicks.playerId,
+			to: r.players.id,
+			optional: false,
+		}),
+	},
+	postTags: {
+		post: r.one.posts({
+			from: r.postTags.postId,
+			to: r.posts.id,
+			optional: false,
+		}),
+	},
+	postLikes: {
+		post: r.one.posts({
+			from: r.postLikes.postId,
+			to: r.posts.id,
+			optional: false,
+		}),
+		user: r.one.users({
+			from: r.postLikes.userId,
+			to: r.users.id,
+			optional: false,
+		}),
+	},
+	postReports: {
+		reporter: r.one.users({
+			from: r.postReports.reporterId,
+			to: r.users.id,
+		}),
+		post: r.one.posts({
+			from: r.postReports.postId,
+			to: r.posts.id,
+		}),
+	},
+	follows: {
+		follower: r.one.users({
+			from: r.follows.followerId,
+			to: r.users.id,
+			optional: false,
 		}),
 	},
 	commentReports: {

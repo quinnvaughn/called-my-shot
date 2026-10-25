@@ -4,12 +4,14 @@ import { AuthModal } from "#/components/auth/auth-modal"
 import { Sheet } from "#/components/ui/sheet"
 import { closeModal, openModal } from "#/stores/modal-store"
 import { sidebarLeading, sidebarRow } from "./sidebar-row"
+import { SidebarSection } from "./sidebar-section"
 import { SocialLinks } from "./social-links"
 import { SpaceSectionList } from "./space-section-list"
-import { resourceSections } from "./space-sections"
+import { resourceSections, youPageSections } from "./space-sections"
 
-// The bottom nav's More tab: what the side column's Resources section holds
-// on desktop, plus Settings, on a screen with no side column.
+// The bottom nav's More tab: what the side column's You and Resources
+// sections hold on desktop, plus Settings, on a screen with no side column.
+// The You tab itself opens the profile, so the viewer's lists live here too.
 export function MoreSheet({ signedIn }: { signedIn: boolean }) {
 	const sections = signedIn
 		? [
@@ -27,6 +29,14 @@ export function MoreSheet({ signedIn }: { signedIn: boolean }) {
 			<Sheet.Body
 				className={css({ display: "flex", flexDirection: "column", gap: "4" })}
 			>
+				{signedIn && (
+					<SidebarSection id="more-you" label="YOU">
+						<SpaceSectionList
+							sections={youPageSections}
+							onNavigate={closeModal}
+						/>
+					</SidebarSection>
+				)}
 				<SpaceSectionList sections={sections} onNavigate={closeModal} />
 				{!signedIn && (
 					<button

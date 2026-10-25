@@ -5,10 +5,14 @@ import { questions } from "../db/schema"
 import {
 	makeGroup,
 	makeLeague,
+	makePlayer,
+	makePrompt,
 	makeQuestion,
+	makeRushmore,
 	makeUser,
 } from "../test/factories"
 import { createNotifications, type NotificationInput } from "./notifications"
+import { sendPostComment } from "./posts/comment"
 import { buildPushContent } from "./push-content"
 
 async function contentFor(input: NotificationInput) {
@@ -106,6 +110,45 @@ describe("buildPushContent", () => {
 			title: "Called My Shot",
 			body: 'Your question "Gone question" was voided',
 			path: "/notifications",
+		})
+	})
+
+	it("tells a post's author who commented last, and a commenter who replied", async () => {
+		const league = await makeLeague()
+		const prompt = await makePrompt({
+			leagueId: league.id,
+			title: "Rushmore of NBA point guards",
+		})
+		const players = await Promise.all(
+			Array.from({ length: 4 }, () => makePlayer()),
+		)
+		const author = await makeUser()
+		const post = await makeRushmore({
+			author,
+			prompt,
+			playerIds: players.map((player) => player.id),
+		})
+		const amy = await makeUser({ username: "amy" })
+		const ben = await makeUser({ username: "ben" })
+		const top = await sendPostComment(amy, post.id, { text: "Magic first" })
+		await sendPostComment(ben, post.id, { text: "Stockton" })
+		await sendPostComment(ben, post.id, { text: "No", parentId: top.id })
+
+		const toAuthor = await db.query.notifications.findFirst({
+			where: { userId: author.id, type: "post_commented" },
+		})
+		expect(toAuthor && (await buildPushContent(toAuthor))).toEqual({
+			title: "Rushmore of NBA point guards",
+			body: "@ben commented on your Rushmore",
+			path: `/posts/${post.id}`,
+		})
+		const toAmy = await db.query.notifications.findFirst({
+			where: { userId: amy.id, type: "comment_replied" },
+		})
+		expect(toAmy && (await buildPushContent(toAmy))).toEqual({
+			title: "Rushmore of NBA point guards",
+			body: "@ben replied to your comment",
+			path: `/posts/${post.id}`,
 		})
 	})
 })

@@ -106,7 +106,9 @@ export function SpaceColumn({ me, space }: { me: Me; space: Space }) {
 						<nav aria-label="Sections">
 							{match(space)
 								.with({ kind: "arcade" }, () => <ArcadeSpaceColumn />)
-								.with({ kind: "league" }, ({ league }) => (
+								// A team's page sits under its league's Teams section,
+								// which stays lit there.
+								.with({ kind: "league" }, { kind: "team" }, ({ league }) => (
 									<LeagueSpaceColumn league={league} />
 								))
 								.with({ kind: "group" }, ({ groupId }) => (

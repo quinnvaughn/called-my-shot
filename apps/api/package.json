@@ -29,6 +29,8 @@
     "lock:overdue-questions": "tsx --env-file=.env src/db/lock-overdue-questions.ts",
     "recaps:generate": "tsx --env-file=.env src/lib/group-recap/generate.ts",
     "rank:archive": "tsx --env-file=.env scripts/archive-rank.ts",
+    "history:ingest": "tsx --env-file=.env src/lib/franchise-history/run.ts",
+    "portraits:build": "tsx --env-file=.env scripts/build-portraits.ts",
     "rank:schedule": "tsx --env-file=.env src/lib/blind-rank/schedule.ts",
     "seasons:archive": "tsx --env-file=.env scripts/archive-seasons.ts",
     "seasons:schedule": "tsx --env-file=.env src/lib/season-puzzles/schedule.ts",
@@ -66,6 +68,7 @@
     "react-email": "6.9.3",
     "resend": "^6.20.0",
     "satori": "^0.29.0",
+    "sharp": "0.35.4",
     "ts-pattern": "^5.9.0",
     "web-push": "^3.6.7",
     "zod": "^4.4.3"

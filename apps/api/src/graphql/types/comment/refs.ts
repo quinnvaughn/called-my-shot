@@ -173,7 +173,8 @@ export const CommentReportRef = builder
 				},
 			}),
 			// Where the comment was posted, for the admin to read it in place:
-			// a challenge's code, or a chain and the group it's in.
+			// a challenge's code, a chain and the group it's in, or a post (and
+			// its group, if it was posted in one).
 			challengeCode: t.string({
 				nullable: true,
 				resolve: async (r) => {
@@ -194,14 +195,27 @@ export const CommentReportRef = builder
 					return comment?.chainId ?? null
 				},
 			}),
+			postId: t.id({
+				nullable: true,
+				resolve: async (r) => {
+					const comment = await db.query.comments.findFirst({
+						where: { id: r.commentId },
+						columns: { postId: true },
+					})
+					return comment?.postId ?? null
+				},
+			}),
 			groupId: t.id({
 				nullable: true,
 				resolve: async (r) => {
 					const comment = await db.query.comments.findFirst({
 						where: { id: r.commentId },
-						with: { chain: { columns: { groupId: true } } },
+						with: {
+							chain: { columns: { groupId: true } },
+							post: { columns: { groupId: true } },
+						},
 					})
-					return comment?.chain?.groupId ?? null
+					return comment?.chain?.groupId ?? comment?.post?.groupId ?? null
 				},
 			}),
 		}),

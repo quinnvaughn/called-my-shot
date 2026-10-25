@@ -48,6 +48,10 @@ export const NotificationsPageDocument = graphql(`
 						...ChainSettledRow_notification
 						...ChainCommentedRow_notification
 						...ChallengePostedToGroupRow_notification
+						...PostCommentedRow_notification
+						...CommentRepliedRow_notification
+						...UserFollowedRow_notification
+						...LikesMilestoneRow_notification
 					}
 					pageInfo {
 						hasNextPage

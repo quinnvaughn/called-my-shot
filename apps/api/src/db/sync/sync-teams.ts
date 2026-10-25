@@ -56,6 +56,23 @@ function toHex(color: string): string {
 	return `#${color.toUpperCase()}`
 }
 
+// Teams whose ESPN primary color isn't the one fans know them by: ESPN has
+// the Red Sox navy and the Warriors gold, which would draw the Red Sox in
+// blue. Keyed by league slug, then abbreviation. Applied on every sync, so
+// the next run doesn't put ESPN's color back.
+const COLOR_OVERRIDES: Record<string, Record<string, string>> = {
+	mlb: { BOS: "#BD3039" },
+	nba: { GS: "#1D428A" },
+}
+
+function teamColor(
+	leagueSlug: string,
+	abbreviation: string,
+	espnColor: string,
+) {
+	return COLOR_OVERRIDES[leagueSlug]?.[abbreviation] ?? toHex(espnColor)
+}
+
 type ConferenceDivision = { conference: string; division: string | null }
 
 // A division's own name sometimes already carries its conference as a
@@ -140,7 +157,11 @@ export async function syncTeams(
 					leagueId: league.id,
 					name: espnTeam.displayName,
 					abbreviation: espnTeam.abbreviation,
-					color: toHex(espnTeam.color),
+					color: teamColor(
+						config.leagueSlug,
+						espnTeam.abbreviation,
+						espnTeam.color,
+					),
 					conference: conferenceDivision?.conference ?? null,
 					division: conferenceDivision?.division ?? null,
 					logoUrl,
@@ -149,7 +170,11 @@ export async function syncTeams(
 					target: [teams.leagueId, teams.abbreviation],
 					set: {
 						name: espnTeam.displayName,
-						color: toHex(espnTeam.color),
+						color: teamColor(
+							config.leagueSlug,
+							espnTeam.abbreviation,
+							espnTeam.color,
+						),
 						conference: conferenceDivision?.conference ?? null,
 						division: conferenceDivision?.division ?? null,
 						// A source that's down this run keeps the logo it had.

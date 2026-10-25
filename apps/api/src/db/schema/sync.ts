@@ -7,7 +7,16 @@ import {
 	uuid,
 } from "drizzle-orm/pg-core"
 
-export const syncSource = pgEnum("sync_source", ["espn"])
+// espn: the live sync. The rest are the all-time franchise histories
+// (lib/franchise-history), each keyed by that source's own player id:
+// Basketball-Reference, MLB Advanced Media, NHL.com and nflverse.
+export const syncSource = pgEnum("sync_source", [
+	"espn",
+	"bref",
+	"mlbam",
+	"nhl",
+	"nflverse",
+])
 
 export const syncEntityType = pgEnum("sync_entity_type", [
 	"team",

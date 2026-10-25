@@ -1,0 +1,2 @@
+ALTER TABLE "prompts" ALTER COLUMN "league_id" DROP NOT NULL;--> statement-breakpoint
+ALTER TABLE "prompts" ADD CONSTRAINT "prompts_team_has_league" CHECK ("team_id" is null or "league_id" is not null);

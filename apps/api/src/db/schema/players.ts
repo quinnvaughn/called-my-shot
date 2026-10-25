@@ -1,4 +1,11 @@
-import { boolean, integer, pgTable, text, uuid } from "drizzle-orm/pg-core"
+import {
+	boolean,
+	integer,
+	pgTable,
+	text,
+	timestamp,
+	uuid,
+} from "drizzle-orm/pg-core"
 import { teams } from "./teams"
 
 // currentTeamId is a plain "who they play for right now" pointer, kept up to
@@ -58,5 +65,14 @@ export const players = pgTable("players", {
 	// league's roster had no match for this player, which the UI renders as
 	// initials.
 	headshotUrl: text("headshot_url"),
+	// The player's square head-and-shoulders portrait for Mount Rushmore art,
+	// as an R2 key (see lib/portraits). Built once from the best photo any source has
+	// and never hotlinked, since the share image renders it on every request.
+	portraitKey: text("portrait_key"),
+	// When the portrait pipeline last looked for a photo of this player, found
+	// or not. A player checked with no portraitKey had no usable photo, and
+	// the art shows their initials instead; the backfill skips them unless
+	// forced.
+	portraitCheckedAt: timestamp("portrait_checked_at"),
 })
 export type Player = typeof players.$inferSelect

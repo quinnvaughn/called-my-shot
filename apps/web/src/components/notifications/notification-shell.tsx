@@ -18,6 +18,8 @@ export type Target =
 			search?: { tab?: "chain" | "chat" }
 	  }
 	| { to: "/challenges/$code"; params: { code: string } }
+	| { to: "/posts/$postId"; params: { postId: string }; hash?: string }
+	| { to: "/user/$username"; params: { username: string } }
 	| {
 			to: "/challenges/$code/vs/$username"
 			params: { code: string; username: string }
