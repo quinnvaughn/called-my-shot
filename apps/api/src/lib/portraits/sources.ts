@@ -217,9 +217,12 @@ export function cdnCandidates(subject: PortraitSubject): PortraitCandidate[] {
 		.exhaustive()
 }
 
-// Every source for the offline backfill: the league CDN first, then the
-// reference sites' photos, then Wikipedia.
-export function allCandidates(subject: PortraitSubject): PortraitCandidate[] {
+// The backfill's slower sources, for a player the league CDN has no photo
+// of: the reference sites' photos, then Wikipedia. Wikipedia and an MLB
+// player's Baseball-Reference id need addWikipediaPhotos first.
+export function fallbackCandidates(
+	subject: PortraitSubject,
+): PortraitCandidate[] {
 	const reference = match(subject.league)
 		.with("nba", () =>
 			subject.historyId
@@ -246,7 +249,12 @@ export function allCandidates(subject: PortraitSubject): PortraitCandidate[] {
 		)
 		.with("nhl", "nfl", () => [])
 		.exhaustive()
-	return [...cdnCandidates(subject), ...reference, ...wikipedia(subject)]
+	return [...reference, ...wikipedia(subject)]
+}
+
+// Every source, best first: the league CDN, then the fallbacks.
+export function allCandidates(subject: PortraitSubject): PortraitCandidate[] {
+	return [...cdnCandidates(subject), ...fallbackCandidates(subject)]
 }
 
 // The first real photo the candidates have.

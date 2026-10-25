@@ -105,10 +105,15 @@ export const ARCHIVE_SEASONS_LOCK = "archive-seasons"
 // and blocking resolution for that long would cost callers their results.
 // Overlap on one individual game is handled by persistBoxScore's own
 // SELECT ... FOR UPDATE.
+// The portrait backfill, run by hand (scripts/build-portraits.ts). Its own
+// lease, not BUILD_PORTRAITS_LOCK: the scheduler's step can hold that one
+// for a long stretch the first time it meets thousands of current players,
+// and the two rarely touch the same player. When they do, each just uploads
+// the player's portrait and the later one stands.
+export const BACKFILL_PORTRAITS_LOCK = "backfill-portraits"
 export const BOX_SCORE_SYNC_LOCK = "sync-box-scores"
-// The portrait backfill (scripts/build-portraits.ts) and the daily portrait
-// step for current players share one lease, so the two never upload a
-// portrait for the same player at once.
+// The scheduler's portrait step for current players (lib/portraits/current),
+// so two machines never run it at once.
 export const BUILD_PORTRAITS_LOCK = "build-portraits"
 export const DRAIN_ANALYTICS_LOCK = "drain-analytics-outbox"
 export const DRAIN_DIGESTS_LOCK = "drain-email-digests"
