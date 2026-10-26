@@ -35,7 +35,16 @@ export function UserHandle({
 }) {
 	const popover = useAnchoredPopover()
 	return (
-		<span ref={popover.rootRef} className={css({ display: "inline" })}>
+		// Wrapping a block like Identity, an inline root would add a text
+		// line's descender space under it and throw off anything centered
+		// beside it.
+		<span
+			ref={popover.rootRef}
+			className={css({
+				display: children ? "inline-flex" : "inline",
+				minWidth: "0",
+			})}
+		>
 			<button
 				ref={popover.triggerRef}
 				type="button"

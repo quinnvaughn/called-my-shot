@@ -2,11 +2,11 @@ import { Link } from "@tanstack/react-router"
 import { FiMessageCircle } from "react-icons/fi"
 import { css, cx } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
+import { CallAge } from "#/components/questions/call-age"
 import { Card } from "#/components/ui/card"
 import { Identity } from "#/components/ui/identity"
 import { UserHandle } from "#/components/users/user-handle"
 import { type FragmentType, graphql, useFragment } from "#/graphql/generated"
-import { formatTimeAgo } from "#/lib/format-date"
 import { pluralize } from "#/lib/pluralize"
 import { LikeButton } from "./like-button"
 import { PostGroupChip } from "./post-group-chip"
@@ -57,6 +57,9 @@ export const RushmorePostCardFragment = graphql(`
 
 // Lifts an element above the post link's overlay so it stays clickable.
 const aboveOverlay = css({ position: "relative", zIndex: 1 })
+// A flex box rather than an inline span, so the identity's box is exactly
+// the avatar's height and the age beside it centers on the same line.
+const identitySlot = css({ display: "flex", minWidth: "0" })
 
 // A Rushmore in a feed: who made it, then the Rushmore itself on its
 // franchise's color the way the post shows it, the start of what they
@@ -75,9 +78,9 @@ export function RushmorePostCard({
 		<Card interactive className={css({ position: "relative" })}>
 			<Card.Body>
 				<VStack gap="3" alignItems="stretch">
-					<HStack justify="space-between" gap="3" alignItems="flex-start">
+					<HStack justify="space-between" gap="3">
 						<HStack gap="2" minWidth="0" flexWrap="wrap">
-							<span className={aboveOverlay}>
+							<span className={cx(aboveOverlay, identitySlot)}>
 								<UserHandle user={post.author}>
 									<Identity
 										name={post.author.name}
@@ -88,7 +91,7 @@ export function RushmorePostCard({
 								</UserHandle>
 							</span>
 							<span className={css({ textStyle: "meta", color: "fg.subtle" })}>
-								{formatTimeAgo(post.createdAt)}
+								<CallAge iso={post.createdAt} />
 							</span>
 						</HStack>
 						{post.group && (

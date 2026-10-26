@@ -4,10 +4,10 @@ import { FiMessageCircle } from "react-icons/fi"
 import { css } from "styled-system/css"
 import { HStack, VStack } from "styled-system/jsx"
 import { PresserMenu } from "#/components/pressers/presser-menu"
+import { CallAge } from "#/components/questions/call-age"
 import { Card } from "#/components/ui/card"
 import { UserHandle } from "#/components/users/user-handle"
 import type { PostPageQuery } from "#/graphql/generated/graphql"
-import { formatTimeAgo } from "#/lib/format-date"
 import { SITE_HOST } from "#/lib/meta"
 import { pluralize } from "#/lib/pluralize"
 import { sharedSlotsLine } from "#/lib/shared-slots"
@@ -106,7 +106,7 @@ export function RedraftPostView({
 								</span>
 							</UserHandle>
 							<span className={css({ opacity: 0.75 })}>
-								{formatTimeAgo(post.createdAt)}
+								<CallAge iso={post.createdAt} />
 								{post.editedAt ? " · edited" : ""}
 							</span>
 							{post.group && <PostGroupChip group={post.group} />}
