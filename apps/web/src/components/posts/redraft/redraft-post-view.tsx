@@ -22,6 +22,7 @@ import { usePostLike } from "../use-post-like"
 import { YoursAction } from "../yours-action"
 import { RedraftBoard } from "./redraft-board"
 import { RedraftBreadcrumb } from "./redraft-breadcrumb"
+import { RedraftDare } from "./redraft-dare"
 import { RedraftEyebrow } from "./redraft-eyebrow"
 import { RedraftRow } from "./redraft-row"
 import { RedraftShareRow } from "./redraft-share-row"
@@ -53,13 +54,13 @@ export function RedraftPostView({
 		post.prompt.viewerAnswer?.__typename === "RedraftPost"
 			? post.prompt.viewerAnswer
 			: null
+	// Someone else's, to pass around. The author gets RedraftDare instead.
 	const shareRow = post.sharePath && (
 		<RedraftShareRow
 			postId={post.id}
 			path={post.sharePath}
 			classTitle={post.prompt.title}
 			authorUsername={post.author.username}
-			own={post.viewerIsAuthor}
 			pickNames={post.picks.map((pick) => pick.player.name)}
 		/>
 	)
@@ -209,9 +210,7 @@ export function RedraftPostView({
 							{post.commentCount} {pluralize(post.commentCount, "comment")}
 						</a>
 					</HStack>
-					{post.viewerIsAuthor ? (
-						shareRow
-					) : (
+					{!post.viewerIsAuthor && (
 						<YoursAction
 							kind="redraft"
 							code={post.prompt.code}
@@ -224,7 +223,17 @@ export function RedraftPostView({
 						{sharedSlotsLine(post.picks, yours.picks)}
 					</p>
 				)}
-				{!post.viewerIsAuthor && shareRow}
+				{post.viewerIsAuthor
+					? post.sharePath && (
+							<RedraftDare
+								postId={post.id}
+								path={post.sharePath}
+								classTitle={post.prompt.title}
+								answerCount={post.prompt.answerCount}
+								picks={post.picks}
+							/>
+						)
+					: shareRow}
 			</VStack>
 
 			<PostCommentThread

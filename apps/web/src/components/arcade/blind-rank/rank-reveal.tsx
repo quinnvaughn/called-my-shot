@@ -130,6 +130,7 @@ export function RankReveal({
 				>
 					<ArcadeShareRow
 						game="rank"
+						dare={rankShareDare(correctCount, slots.length)}
 						url={resultUrl}
 						title={`Blind Rank · ${day}`}
 						tweetText={`${rankResultHeadline(correctCount)} on ${day}'s Blind Rank: ${prompt}. Can you do better?`}
@@ -141,4 +142,11 @@ export function RankReveal({
 			</div>
 		</section>
 	)
+}
+
+// The question the share panel puts to the player's friends.
+function rankShareDare(correctCount: number, total: number): string {
+	if (correctCount === 0) return "Can your friends get any right?"
+	if (correctCount === total) return "Can your friends go perfect too?"
+	return `Can your friends get more than ${correctCount} right?`
 }

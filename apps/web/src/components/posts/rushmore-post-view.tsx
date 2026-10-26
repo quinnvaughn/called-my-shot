@@ -18,6 +18,7 @@ import { PostEditForm } from "./post-edit-form"
 import { PostGroupChip } from "./post-group-chip"
 import { BrandBadge } from "./rushmore-band/brand-badge"
 import { RushmoreBand } from "./rushmore-band/rushmore-band"
+import { RushmoreDare } from "./rushmore-dare"
 import { RushmoreEyebrow } from "./rushmore-eyebrow"
 import { RushmoreShareRow } from "./rushmore-share-row"
 import { usePostActions } from "./use-post-actions"
@@ -50,15 +51,13 @@ export function RushmorePostView({
 		post.prompt.viewerAnswer?.__typename === "RushmorePost"
 			? post.prompt.viewerAnswer
 			: null
-	// For everyone, the author included: anyone's Rushmore is theirs to pass
-	// around.
+	// Someone else's, to pass around. The author gets RushmoreDare instead.
 	const shareRow = post.sharePath && (
 		<RushmoreShareRow
 			postId={post.id}
 			path={post.sharePath}
 			promptTitle={post.prompt.title}
 			authorUsername={post.author.username}
-			own={post.viewerIsAuthor}
 			pickNames={picks.map((pick) => pick.player.name)}
 		/>
 	)
@@ -180,9 +179,7 @@ export function RushmorePostView({
 							{post.commentCount} {pluralize(post.commentCount, "comment")}
 						</a>
 					</HStack>
-					{post.viewerIsAuthor ? (
-						shareRow
-					) : (
+					{!post.viewerIsAuthor && (
 						<YoursAction
 							kind="rushmore"
 							code={post.prompt.code}
@@ -198,7 +195,17 @@ export function RushmorePostView({
 						)}
 					</p>
 				)}
-				{!post.viewerIsAuthor && shareRow}
+				{post.viewerIsAuthor
+					? post.sharePath && (
+							<RushmoreDare
+								postId={post.id}
+								path={post.sharePath}
+								promptTitle={post.prompt.title}
+								answerCount={post.prompt.answerCount}
+								picks={picks}
+							/>
+						)
+					: shareRow}
 			</VStack>
 
 			<PostCommentThread

@@ -11,7 +11,6 @@ type Props = {
 	// "2003 NBA Draft".
 	classTitle: string
 	authorUsername: string
-	own: boolean
 	// Slot order.
 	pickNames: string[]
 }
@@ -19,19 +18,17 @@ type Props = {
 // How many picks the posted text names before it trails off.
 const NAMED = 3
 
-// Sharing a public redraft: its link, and the picture people post. A group's
-// redrafts stay in the group and never get this row.
+// Sharing someone else's public redraft: its link, and the picture people
+// post. The author's own gets RedraftDare. A group's redrafts stay in the
+// group and never get this row.
 export function RedraftShareRow({
 	postId,
 	path,
 	classTitle,
 	authorUsername,
-	own,
 	pickNames,
 }: Props) {
-	const subject = own
-		? `My redraft of the ${classTitle}`
-		: `@${authorUsername}'s redraft of the ${classTitle}`
+	const subject = `@${authorUsername}'s redraft of the ${classTitle}`
 	const top = pickNames
 		.slice(0, NAMED)
 		.map((name, i) => `${i + 1}. ${surname(name)}`)
@@ -45,7 +42,7 @@ export function RedraftShareRow({
 				shareTitle={subject}
 				tweetText={`${subject}: ${top}${pickNames.length > NAMED ? "…" : "."}`}
 				onShared={(method) =>
-					track("redraft_link_shared", { postId, own, method })
+					track("redraft_link_shared", { postId, own: false, method })
 				}
 			/>
 			<ShareImageButton

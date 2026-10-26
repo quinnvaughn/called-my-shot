@@ -9,6 +9,7 @@ import { NotFound } from "#/components/ui/not-found"
 import type { PostPageQuery } from "#/graphql/generated/graphql"
 import { postPageQuery } from "#/graphql/posts/queries"
 import { pageMeta } from "#/lib/meta"
+import { redraftHook, rushmoreHook } from "#/lib/post-hook"
 import { promptSpace } from "#/lib/prompt-space"
 
 // Public for a public post, so a shared link opens for anyone. A group's
@@ -51,6 +52,8 @@ export const Route = createFileRoute("/_app/posts/$postId")({
 	},
 })
 
+const hookSentence = (hook: string | null) => (hook ? ` ${hook}` : "")
+
 // What a shared link to a public post unfurls to.
 function postMeta(post: NonNullable<PostPageQuery["post"]>) {
 	return match(post)
@@ -63,7 +66,7 @@ function postMeta(post: NonNullable<PostPageQuery["post"]>) {
 			return {
 				kind: "rushmore" as const,
 				title,
-				description: `${picks}. Who are yours? Make your own.`,
+				description: `${picks}.${hookSentence(rushmoreHook(rushmore.picks, rushmore.prompt.answerCount))} Who are yours? Make your own.`,
 				alt: `${title}, ${picks}`,
 			}
 		})
@@ -76,7 +79,7 @@ function postMeta(post: NonNullable<PostPageQuery["post"]>) {
 			return {
 				kind: "redraft" as const,
 				title,
-				description: `${top}. Who would you take? Redraft it yourself.`,
+				description: `${top}.${hookSentence(redraftHook(redraft.picks, redraft.prompt.answerCount))} Who would you take? Redraft it yourself.`,
 				alt: `${title}: ${top}`,
 			}
 		})

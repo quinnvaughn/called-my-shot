@@ -70,6 +70,13 @@ export function seasonResultHeadline(guessCount: number | null): string {
 	return `Got it in ${guessCount}`
 }
 
+// The question the share panel puts to the player's friends.
+export function seasonShareDare(guessCount: number | null): string {
+	if (guessCount === null) return "Can your friends name it?"
+	if (guessCount === 1) return "Can your friends get it on the first guess?"
+	return `Can your friends beat ${guessCount} guesses?`
+}
+
 // "Oct 20", the name a puzzle goes by.
 export function seasonDateLabel(date: string): string {
 	const [year, month, day] = date.split("-").map(Number)

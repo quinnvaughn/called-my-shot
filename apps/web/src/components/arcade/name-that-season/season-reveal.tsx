@@ -10,6 +10,7 @@ import {
 	seasonDateLabel,
 	seasonGuessCount,
 	seasonResultHeadline,
+	seasonShareDare,
 	seasonSquares,
 } from "./season-result"
 
@@ -150,6 +151,7 @@ export function SeasonReveal({
 				</div>
 				<ArcadeShareRow
 					game="season"
+					dare={seasonShareDare(guessCount)}
 					url={resultUrl}
 					title={`Name That Season · ${seasonDateLabel(date)}`}
 					tweetText={

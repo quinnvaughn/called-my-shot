@@ -9,23 +9,20 @@ type Props = {
 	path: string
 	promptTitle: string
 	authorUsername: string
-	own: boolean
 	pickNames: string[]
 }
 
-// Sharing a public Rushmore: its link, and the picture people post. A
-// group's Rushmores stay in the group and never get this row.
+// Sharing someone else's public Rushmore: its link, and the picture people
+// post. The author's own gets RushmoreDare. A group's Rushmores stay in the
+// group and never get this row.
 export function RushmoreShareRow({
 	postId,
 	path,
 	promptTitle,
 	authorUsername,
-	own,
 	pickNames,
 }: Props) {
-	const subject = own
-		? `My Mount Rushmore: ${promptTitle}`
-		: `@${authorUsername}'s Mount Rushmore: ${promptTitle}`
+	const subject = `@${authorUsername}'s Mount Rushmore: ${promptTitle}`
 	return (
 		<HStack gap="2">
 			<ShareLinkRow
@@ -35,7 +32,7 @@ export function RushmoreShareRow({
 				shareTitle={subject}
 				tweetText={`${subject}: ${pickNames.join(", ")}.`}
 				onShared={(method) =>
-					track("rushmore_link_shared", { postId, own, method })
+					track("rushmore_link_shared", { postId, own: false, method })
 				}
 			/>
 			<ShareImageButton
