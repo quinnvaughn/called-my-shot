@@ -1,3 +1,4 @@
+import { match } from "ts-pattern"
 import { db } from "../../../db"
 import { CONSENSUS_SIZE, sharePercent } from "../../../lib/posts/consensus"
 import { promptAnswers } from "../../../lib/posts/feeds"
@@ -5,9 +6,13 @@ import { canViewPost } from "../../../lib/posts/visibility"
 import { isUuid } from "../../../lib/uuid"
 import { builder } from "../../builder"
 import { ctxLoader, indexByKey } from "../../loader"
-import { RushmorePromptRef } from "../prompt/refs"
+import { PromptInterfaceRef, RushmorePromptRef } from "../prompt/refs"
 import { PlayerRef, TeamRef } from "../sports"
-import { consensusLoader, playerByIdLoader } from "./loaders"
+import {
+	consensusLoader,
+	playerByIdLoader,
+	redraftConsensusLoader,
+} from "./loaders"
 import { AnswerSortEnum, PostConnectionRef, PostInterfaceRef } from "./refs"
 
 type ConsensusEntry = { playerId: string; count: number; share: number }
@@ -32,11 +37,6 @@ const ConsensusPickRef = builder
 	})
 
 builder.objectFields(RushmorePromptRef, (t) => ({
-	// Public answers. Group answers stay in their group and aren't counted.
-	answerCount: t.int({
-		resolve: async (p, _args, ctx) =>
-			(await consensusLoader(ctx).load(p.id)).answerCount,
-	}),
 	// The most-picked players, most first: the crowd's Rushmore at the
 	// default of four, further down the list with a bigger first.
 	consensus: t.field({
@@ -47,6 +47,24 @@ builder.objectFields(RushmorePromptRef, (t) => ({
 				0,
 				Math.max(0, args.first ?? CONSENSUS_SIZE),
 			),
+	}),
+}))
+
+builder.interfaceFields(PromptInterfaceRef, (t) => ({
+	// Public answers. Group answers stay in their group and aren't counted.
+	answerCount: t.int({
+		resolve: async (p, _args, ctx) =>
+			match(p.kind)
+				.with(
+					"rushmore",
+					async () => (await consensusLoader(ctx).load(p.id)).answerCount,
+				)
+				.with(
+					"redraft",
+					async () =>
+						(await redraftConsensusLoader(ctx).load(p.id)).answerCount,
+				)
+				.exhaustive(),
 	}),
 	// The viewer's own answer: the public one, or the one in groupId. Null
 	// when they haven't made one, which is when "Make yours" shows.
@@ -69,7 +87,7 @@ builder.objectFields(RushmorePromptRef, (t) => ({
 		},
 	}),
 	// Someone's public answer, by their username: what
-	// /rushmore/{prompt}/{username} opens. Null when they haven't made one, or
+	// /rushmore/{prompt}/{username} (or /redraft/...) opens. Null when they haven't made one, or
 	// the viewer can't see it.
 	publicAnswerBy: t.field({
 		type: PostInterfaceRef,
@@ -113,6 +131,7 @@ builder.objectFields(RushmorePromptRef, (t) => ({
 const franchisePromptLoader = ctxLoader(async (teamIds: string[]) => {
 	const rows = await db.query.prompts.findMany({
 		where: {
+			kind: "rushmore",
 			teamId: { in: teamIds },
 			creatorId: { isNull: true },
 			removedAt: { isNull: true },

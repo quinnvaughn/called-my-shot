@@ -1,6 +1,12 @@
 import { match } from "ts-pattern"
 import { db } from "../../../db"
-import type { Post, PostTag, RushmorePick } from "../../../db/schema"
+import type {
+	Post,
+	PostTag,
+	Prompt,
+	RedraftPick,
+	RushmorePick,
+} from "../../../db/schema"
 import { postLikeCountLoader, viewerLikedPostLoader } from "../../../lib/likes"
 import { canCommentOnPost } from "../../../lib/posts/comment"
 import {
@@ -8,19 +14,24 @@ import {
 	topLevelComments,
 } from "../../../lib/posts/comment-thread"
 import { sharePercent } from "../../../lib/posts/consensus"
+import { slotShare } from "../../../lib/posts/redraft-consensus"
 import { isUuid } from "../../../lib/uuid"
 import { builder } from "../../builder"
 import { CommentConnectionRef, CommentRef } from "../comment"
 import { type Connection, PageInfoRef } from "../pagination"
-import { RushmorePromptRef } from "../prompt/refs"
+import { RedraftPromptRef, RushmorePromptRef } from "../prompt/refs"
 import { LeagueRef, PlayerRef, TeamRef } from "../sports"
 import {
+	classSlotsLoader,
 	commentCountLoader,
 	consensusLoader,
 	leagueByIdLoader,
+	originalPickLoader,
 	picksByPostLoader,
 	playerByIdLoader,
 	promptByIdLoader,
+	redraftConsensusLoader,
+	redraftPicksByPostLoader,
 	tagsByPostLoader,
 	teamByIdLoader,
 } from "./loaders"
@@ -88,13 +99,14 @@ export const PostTagRef = builder.objectRef<PostTag>("PostTag").implement({
 })
 
 // What every kind of post has, whatever it's made of. Each kind is a
-// variant over the same posts row (RushmorePost), the same pattern as
-// NotificationNode.
+// variant over the same posts row (RushmorePost, RedraftPost), the same
+// pattern as NotificationNode.
 export const PostInterfaceRef = builder.drizzleInterface("posts", {
 	name: "Post",
 	resolveType: (post) =>
 		match(post.kind)
 			.with("rushmore", () => "RushmorePost")
+			.with("redraft", () => "RedraftPost")
 			.exhaustive(),
 	fields: (t) => ({
 		id: t.exposeID("id"),
@@ -147,8 +159,9 @@ export const PostInterfaceRef = builder.drizzleInterface("posts", {
 			},
 		}),
 		// The address printed on its share image and handed out when it's
-		// shared, /rushmore/{prompt}/{author}: one person has one public answer
-		// per prompt, so the two name it. Null for a group post.
+		// shared, /rushmore/{prompt}/{author} or /redraft/{class}/{author}: one
+		// person has one public answer per prompt, so the two name it. Null for
+		// a group post.
 		sharePath: t.string({
 			nullable: true,
 			resolve: async (p, _args, ctx) => {
@@ -161,7 +174,7 @@ export const PostInterfaceRef = builder.drizzleInterface("posts", {
 					}),
 				])
 				return prompt && author
-					? `/rushmore/${prompt.code}/${author.username}`
+					? `/${prompt.kind}/${prompt.code}/${author.username}`
 					: null
 			},
 		}),
@@ -246,6 +259,91 @@ export const RushmorePostRef = builder.drizzleObject("posts", {
 					pick,
 					promptId: p.promptId,
 				})),
+		}),
+	}),
+})
+
+export type RedraftPickParent = { pick: RedraftPick; prompt: Prompt }
+
+// One slot on a redraft: who the author would take there now, the team that
+// held the pick, and where that player really went.
+export const RedraftPickRef = builder
+	.objectRef<RedraftPickParent>("RedraftPick")
+	.implement({
+		fields: (t) => ({
+			slot: t.int({ resolve: (p) => p.pick.slot }),
+			player: t.field({
+				type: PlayerRef,
+				resolve: async (p, _args, ctx) => {
+					const player = await playerByIdLoader(ctx).load(p.pick.playerId)
+					if (!player) throw new Error("Redraft pick's player missing")
+					return player
+				},
+			}),
+			// Today's franchise for the team that held this pick. Null for one
+			// that folded.
+			slotTeam: t.field({
+				type: TeamRef,
+				nullable: true,
+				resolve: async (p, _args, ctx) => {
+					const slots = await classSlotsLoader(ctx).load(p.prompt)
+					const teamId = slots[p.pick.slot - 1]?.teamId
+					return teamId ? teamByIdLoader(ctx).load(teamId) : null
+				},
+			}),
+			// What that team was called the year of the draft ("Seattle
+			// SuperSonics").
+			slotTeamName: t.string({
+				nullable: true,
+				resolve: async (p, _args, ctx) =>
+					(await classSlotsLoader(ctx).load(p.prompt))[p.pick.slot - 1]
+						?.teamName ?? null,
+			}),
+			// The pick he really was. Null when he came in undrafted.
+			originalOverall: t.int({
+				nullable: true,
+				resolve: (p, _args, ctx) =>
+					originalPickLoader(ctx).load(
+						`${p.prompt.leagueId}|${p.pick.playerId}`,
+					),
+			}),
+			// How many of the public redrafts reaching this slot put him here.
+			sharePercent: t.int({
+				resolve: async (p, _args, ctx) =>
+					sharePercent(
+						slotShare(
+							await redraftConsensusLoader(ctx).load(p.prompt.id),
+							p.pick.slot,
+							p.pick.playerId,
+						),
+					),
+			}),
+		}),
+	})
+
+export const RedraftPostRef = builder.drizzleObject("posts", {
+	variant: "RedraftPost",
+	interfaces: [PostInterfaceRef],
+	fields: (t) => ({
+		prompt: t.field({
+			type: RedraftPromptRef,
+			resolve: async (p, _args, ctx) => {
+				const prompt = await promptByIdLoader(ctx).load(p.promptId)
+				if (!prompt) throw new Error("Post's prompt missing")
+				return prompt
+			},
+		}),
+		// Every slot it fills, first pick first.
+		picks: t.field({
+			type: [RedraftPickRef],
+			resolve: async (p, _args, ctx) => {
+				const [prompt, picks] = await Promise.all([
+					promptByIdLoader(ctx).load(p.promptId),
+					redraftPicksByPostLoader(ctx).load(p.id),
+				])
+				if (!prompt) throw new Error("Post's prompt missing")
+				return picks.map((pick) => ({ pick, prompt }))
+			},
 		}),
 	}),
 })

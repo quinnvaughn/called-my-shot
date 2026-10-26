@@ -62,6 +62,7 @@ import { Route as AppChallengesCodeRouteImport } from './routes/_app/challenges/
 import { Route as AppLeaguesLeagueSlugRouteImport } from './routes/_app/leagues/$leagueSlug'
 import { Route as AppPostsPostIdRouteImport } from './routes/_app/posts/$postId'
 import { Route as AppRecapsTokenRouteImport } from './routes/_app/recaps/$token'
+import { Route as AppRedraftCodeRouteImport } from './routes/_app/redraft/$code'
 import { Route as AppRushmoreCodeRouteImport } from './routes/_app/rushmore/$code'
 import { Route as AppUpdatesIndexRouteImport } from './routes/_app/updates/index'
 import { Route as AppUpdatesSlugRouteImport } from './routes/_app/updates/$slug'
@@ -80,6 +81,7 @@ import { Route as AuthGoogleCallbackRouteImport } from './routes/auth/google/cal
 import { Route as AppAuthedChallengesIndexRouteImport } from './routes/_app/_authed/challenges/index'
 import { Route as AppAuthedChallengesNewRouteImport } from './routes/_app/_authed/challenges/new'
 import { Route as AppAuthedGroupsIndexRouteImport } from './routes/_app/_authed/groups/index'
+import { Route as AppAuthedRedraftNewRouteImport } from './routes/_app/_authed/redraft/new'
 import { Route as AppAuthedRushmoreNewRouteImport } from './routes/_app/_authed/rushmore/new'
 import { Route as AppArcadeBlindRankIndexRouteImport } from './routes/_app/arcade/blind-rank/index'
 import { Route as AppArcadeNameThatSeasonIndexRouteImport } from './routes/_app/arcade/name-that-season/index'
@@ -95,6 +97,7 @@ import { Route as AppLeaguesLeagueSlugGamesRouteImport } from './routes/_app/lea
 import { Route as AppLeaguesLeagueSlugSeasonRouteImport } from './routes/_app/leagues/$leagueSlug/season'
 import { Route as AppLeaguesLeagueSlugTeamsRouteImport } from './routes/_app/leagues/$leagueSlug/teams'
 import { Route as AppQuestionsQuestionIdChar123SlugChar125RouteImport } from './routes/_app/questions/$questionId.{-$slug}'
+import { Route as AppRedraftCodeUsernameRouteImport } from './routes/_app/redraft/$code.$username'
 import { Route as AppRushmoreCodeUsernameRouteImport } from './routes/_app/rushmore/$code.$username'
 import { Route as AdminDataLeagueIdIndexRouteImport } from './routes/admin/data/$leagueId/index'
 import { Route as AdminDataLeagueIdGamesRouteImport } from './routes/admin/data/$leagueId/games'
@@ -105,6 +108,9 @@ import { Route as ShareCallsCallIdCardDotpngRouteImport } from './routes/share/c
 import { Route as ShareChallengesCodeCardDotpngRouteImport } from './routes/share/challenges/$code/card[.]png'
 import { Route as ShareNameThatSeasonDateCardDotpngRouteImport } from './routes/share/name-that-season/$date/card[.]png'
 import { Route as ShareRecapsTokenCardDotpngRouteImport } from './routes/share/recaps/$token/card[.]png'
+import { Route as ShareRedraftPromptsCodeCardDotpngRouteImport } from './routes/share/redraft-prompts/$code/card[.]png'
+import { Route as ShareRedraftPostIdCardDotpngRouteImport } from './routes/share/redraft/$postId/card[.]png'
+import { Route as ShareRedraftPostIdPortraitRouteImport } from './routes/share/redraft/$postId/portrait'
 import { Route as ShareRushmorePromptsCodeCardDotpngRouteImport } from './routes/share/rushmore-prompts/$code/card[.]png'
 import { Route as ShareRushmorePostIdCardDotpngRouteImport } from './routes/share/rushmore/$postId/card[.]png'
 import { Route as ShareRushmorePostIdPortraitRouteImport } from './routes/share/rushmore/$postId/portrait'
@@ -401,6 +407,11 @@ const AppRecapsTokenRoute = AppRecapsTokenRouteImport.update({
   path: '/recaps/$token',
   getParentRoute: () => AppRoute,
 } as any)
+const AppRedraftCodeRoute = AppRedraftCodeRouteImport.update({
+  id: '/redraft/$code',
+  path: '/redraft/$code',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppRushmoreCodeRoute = AppRushmoreCodeRouteImport.update({
   id: '/rushmore/$code',
   path: '/rushmore/$code',
@@ -492,6 +503,11 @@ const AppAuthedGroupsIndexRoute = AppAuthedGroupsIndexRouteImport.update({
   path: '/groups/',
   getParentRoute: () => AppAuthedRoute,
 } as any)
+const AppAuthedRedraftNewRoute = AppAuthedRedraftNewRouteImport.update({
+  id: '/redraft/new',
+  path: '/redraft/new',
+  getParentRoute: () => AppAuthedRoute,
+} as any)
 const AppAuthedRushmoreNewRoute = AppAuthedRushmoreNewRouteImport.update({
   id: '/rushmore/new',
   path: '/rushmore/new',
@@ -578,6 +594,11 @@ const AppQuestionsQuestionIdChar123SlugChar125Route =
     path: '/questions/$questionId/{-$slug}',
     getParentRoute: () => AppRoute,
   } as any)
+const AppRedraftCodeUsernameRoute = AppRedraftCodeUsernameRouteImport.update({
+  id: '/$username',
+  path: '/$username',
+  getParentRoute: () => AppRedraftCodeRoute,
+} as any)
 const AppRushmoreCodeUsernameRoute = AppRushmoreCodeUsernameRouteImport.update({
   id: '/$username',
   path: '/$username',
@@ -632,6 +653,24 @@ const ShareRecapsTokenCardDotpngRoute =
   ShareRecapsTokenCardDotpngRouteImport.update({
     id: '/share/recaps/$token/card.png',
     path: '/share/recaps/$token/card.png',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ShareRedraftPromptsCodeCardDotpngRoute =
+  ShareRedraftPromptsCodeCardDotpngRouteImport.update({
+    id: '/share/redraft-prompts/$code/card.png',
+    path: '/share/redraft-prompts/$code/card.png',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ShareRedraftPostIdCardDotpngRoute =
+  ShareRedraftPostIdCardDotpngRouteImport.update({
+    id: '/share/redraft/$postId/card.png',
+    path: '/share/redraft/$postId/card.png',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ShareRedraftPostIdPortraitRoute =
+  ShareRedraftPostIdPortraitRouteImport.update({
+    id: '/share/redraft/$postId/portrait',
+    path: '/share/redraft/$postId/portrait',
     getParentRoute: () => rootRouteImport,
   } as any)
 const ShareRushmorePromptsCodeCardDotpngRoute =
@@ -878,6 +917,7 @@ export interface FileRoutesByFullPath {
   '/leagues/$leagueSlug': typeof AppLeaguesLeagueSlugRouteWithChildren
   '/posts/$postId': typeof AppPostsPostIdRoute
   '/recaps/$token': typeof AppRecapsTokenRoute
+  '/redraft/$code': typeof AppRedraftCodeRouteWithChildren
   '/rushmore/$code': typeof AppRushmoreCodeRouteWithChildren
   '/updates/$slug': typeof AppUpdatesSlugRoute
   '/user/$username': typeof AppUserUsernameRoute
@@ -895,6 +935,7 @@ export interface FileRoutesByFullPath {
   '/admin/updates/': typeof AdminUpdatesIndexRoute
   '/auth/google/': typeof AuthGoogleIndexRoute
   '/challenges/new': typeof AppAuthedChallengesNewRoute
+  '/redraft/new': typeof AppAuthedRedraftNewRoute
   '/rushmore/new': typeof AppAuthedRushmoreNewRoute
   '/ballots/$ballotSlug/$username': typeof AppBallotsBallotSlugUsernameRoute
   '/challenges/$code/play': typeof AppChallengesCodePlayRoute
@@ -907,6 +948,7 @@ export interface FileRoutesByFullPath {
   '/leagues/$leagueSlug/season': typeof AppLeaguesLeagueSlugSeasonRoute
   '/leagues/$leagueSlug/teams': typeof AppLeaguesLeagueSlugTeamsRoute
   '/questions/$questionId/{-$slug}': typeof AppQuestionsQuestionIdChar123SlugChar125Route
+  '/redraft/$code/$username': typeof AppRedraftCodeUsernameRoute
   '/rushmore/$code/$username': typeof AppRushmoreCodeUsernameRoute
   '/admin/data/$leagueId/games': typeof AdminDataLeagueIdGamesRoute
   '/admin/data/$leagueId/players': typeof AdminDataLeagueIdPlayersRoute
@@ -916,6 +958,9 @@ export interface FileRoutesByFullPath {
   '/share/challenges/$code/card.png': typeof ShareChallengesCodeCardDotpngRoute
   '/share/name-that-season/$date/card.png': typeof ShareNameThatSeasonDateCardDotpngRoute
   '/share/recaps/$token/card.png': typeof ShareRecapsTokenCardDotpngRoute
+  '/share/redraft-prompts/$code/card.png': typeof ShareRedraftPromptsCodeCardDotpngRoute
+  '/share/redraft/$postId/card.png': typeof ShareRedraftPostIdCardDotpngRoute
+  '/share/redraft/$postId/portrait': typeof ShareRedraftPostIdPortraitRoute
   '/share/rushmore-prompts/$code/card.png': typeof ShareRushmorePromptsCodeCardDotpngRoute
   '/share/rushmore/$postId/card.png': typeof ShareRushmorePostIdCardDotpngRoute
   '/share/rushmore/$postId/portrait': typeof ShareRushmorePostIdPortraitRoute
@@ -1004,6 +1049,7 @@ export interface FileRoutesByTo {
   '/challenges/$code': typeof AppChallengesCodeRoute
   '/posts/$postId': typeof AppPostsPostIdRoute
   '/recaps/$token': typeof AppRecapsTokenRoute
+  '/redraft/$code': typeof AppRedraftCodeRouteWithChildren
   '/rushmore/$code': typeof AppRushmoreCodeRouteWithChildren
   '/updates/$slug': typeof AppUpdatesSlugRoute
   '/user/$username': typeof AppUserUsernameRoute
@@ -1020,6 +1066,7 @@ export interface FileRoutesByTo {
   '/admin/updates': typeof AdminUpdatesIndexRoute
   '/auth/google': typeof AuthGoogleIndexRoute
   '/challenges/new': typeof AppAuthedChallengesNewRoute
+  '/redraft/new': typeof AppAuthedRedraftNewRoute
   '/rushmore/new': typeof AppAuthedRushmoreNewRoute
   '/ballots/$ballotSlug/$username': typeof AppBallotsBallotSlugUsernameRoute
   '/challenges/$code/play': typeof AppChallengesCodePlayRoute
@@ -1032,6 +1079,7 @@ export interface FileRoutesByTo {
   '/leagues/$leagueSlug/season': typeof AppLeaguesLeagueSlugSeasonRoute
   '/leagues/$leagueSlug/teams': typeof AppLeaguesLeagueSlugTeamsRoute
   '/questions/$questionId/{-$slug}': typeof AppQuestionsQuestionIdChar123SlugChar125Route
+  '/redraft/$code/$username': typeof AppRedraftCodeUsernameRoute
   '/rushmore/$code/$username': typeof AppRushmoreCodeUsernameRoute
   '/admin/data/$leagueId/games': typeof AdminDataLeagueIdGamesRoute
   '/admin/data/$leagueId/players': typeof AdminDataLeagueIdPlayersRoute
@@ -1041,6 +1089,9 @@ export interface FileRoutesByTo {
   '/share/challenges/$code/card.png': typeof ShareChallengesCodeCardDotpngRoute
   '/share/name-that-season/$date/card.png': typeof ShareNameThatSeasonDateCardDotpngRoute
   '/share/recaps/$token/card.png': typeof ShareRecapsTokenCardDotpngRoute
+  '/share/redraft-prompts/$code/card.png': typeof ShareRedraftPromptsCodeCardDotpngRoute
+  '/share/redraft/$postId/card.png': typeof ShareRedraftPostIdCardDotpngRoute
+  '/share/redraft/$postId/portrait': typeof ShareRedraftPostIdPortraitRoute
   '/share/rushmore-prompts/$code/card.png': typeof ShareRushmorePromptsCodeCardDotpngRoute
   '/share/rushmore/$postId/card.png': typeof ShareRushmorePostIdCardDotpngRoute
   '/share/rushmore/$postId/portrait': typeof ShareRushmorePostIdPortraitRoute
@@ -1133,6 +1184,7 @@ export interface FileRoutesById {
   '/_app/leagues/$leagueSlug': typeof AppLeaguesLeagueSlugRouteWithChildren
   '/_app/posts/$postId': typeof AppPostsPostIdRoute
   '/_app/recaps/$token': typeof AppRecapsTokenRoute
+  '/_app/redraft/$code': typeof AppRedraftCodeRouteWithChildren
   '/_app/rushmore/$code': typeof AppRushmoreCodeRouteWithChildren
   '/_app/updates/$slug': typeof AppUpdatesSlugRoute
   '/_app/user/$username': typeof AppUserUsernameRoute
@@ -1150,6 +1202,7 @@ export interface FileRoutesById {
   '/admin/updates/': typeof AdminUpdatesIndexRoute
   '/auth/google/': typeof AuthGoogleIndexRoute
   '/_app/_authed/challenges/new': typeof AppAuthedChallengesNewRoute
+  '/_app/_authed/redraft/new': typeof AppAuthedRedraftNewRoute
   '/_app/_authed/rushmore/new': typeof AppAuthedRushmoreNewRoute
   '/_app/ballots/$ballotSlug_/$username': typeof AppBallotsBallotSlugUsernameRoute
   '/_app/challenges/$code_/play': typeof AppChallengesCodePlayRoute
@@ -1162,6 +1215,7 @@ export interface FileRoutesById {
   '/_app/leagues/$leagueSlug/season': typeof AppLeaguesLeagueSlugSeasonRoute
   '/_app/leagues/$leagueSlug/teams': typeof AppLeaguesLeagueSlugTeamsRoute
   '/_app/questions/$questionId/{-$slug}': typeof AppQuestionsQuestionIdChar123SlugChar125Route
+  '/_app/redraft/$code/$username': typeof AppRedraftCodeUsernameRoute
   '/_app/rushmore/$code/$username': typeof AppRushmoreCodeUsernameRoute
   '/admin/data/$leagueId/games': typeof AdminDataLeagueIdGamesRoute
   '/admin/data/$leagueId/players': typeof AdminDataLeagueIdPlayersRoute
@@ -1171,6 +1225,9 @@ export interface FileRoutesById {
   '/share/challenges/$code/card.png': typeof ShareChallengesCodeCardDotpngRoute
   '/share/name-that-season/$date/card.png': typeof ShareNameThatSeasonDateCardDotpngRoute
   '/share/recaps/$token/card.png': typeof ShareRecapsTokenCardDotpngRoute
+  '/share/redraft-prompts/$code/card.png': typeof ShareRedraftPromptsCodeCardDotpngRoute
+  '/share/redraft/$postId/card.png': typeof ShareRedraftPostIdCardDotpngRoute
+  '/share/redraft/$postId/portrait': typeof ShareRedraftPostIdPortraitRoute
   '/share/rushmore-prompts/$code/card.png': typeof ShareRushmorePromptsCodeCardDotpngRoute
   '/share/rushmore/$postId/card.png': typeof ShareRushmorePostIdCardDotpngRoute
   '/share/rushmore/$postId/portrait': typeof ShareRushmorePostIdPortraitRoute
@@ -1263,6 +1320,7 @@ export interface FileRouteTypes {
     | '/leagues/$leagueSlug'
     | '/posts/$postId'
     | '/recaps/$token'
+    | '/redraft/$code'
     | '/rushmore/$code'
     | '/updates/$slug'
     | '/user/$username'
@@ -1280,6 +1338,7 @@ export interface FileRouteTypes {
     | '/admin/updates/'
     | '/auth/google/'
     | '/challenges/new'
+    | '/redraft/new'
     | '/rushmore/new'
     | '/ballots/$ballotSlug/$username'
     | '/challenges/$code/play'
@@ -1292,6 +1351,7 @@ export interface FileRouteTypes {
     | '/leagues/$leagueSlug/season'
     | '/leagues/$leagueSlug/teams'
     | '/questions/$questionId/{-$slug}'
+    | '/redraft/$code/$username'
     | '/rushmore/$code/$username'
     | '/admin/data/$leagueId/games'
     | '/admin/data/$leagueId/players'
@@ -1301,6 +1361,9 @@ export interface FileRouteTypes {
     | '/share/challenges/$code/card.png'
     | '/share/name-that-season/$date/card.png'
     | '/share/recaps/$token/card.png'
+    | '/share/redraft-prompts/$code/card.png'
+    | '/share/redraft/$postId/card.png'
+    | '/share/redraft/$postId/portrait'
     | '/share/rushmore-prompts/$code/card.png'
     | '/share/rushmore/$postId/card.png'
     | '/share/rushmore/$postId/portrait'
@@ -1389,6 +1452,7 @@ export interface FileRouteTypes {
     | '/challenges/$code'
     | '/posts/$postId'
     | '/recaps/$token'
+    | '/redraft/$code'
     | '/rushmore/$code'
     | '/updates/$slug'
     | '/user/$username'
@@ -1405,6 +1469,7 @@ export interface FileRouteTypes {
     | '/admin/updates'
     | '/auth/google'
     | '/challenges/new'
+    | '/redraft/new'
     | '/rushmore/new'
     | '/ballots/$ballotSlug/$username'
     | '/challenges/$code/play'
@@ -1417,6 +1482,7 @@ export interface FileRouteTypes {
     | '/leagues/$leagueSlug/season'
     | '/leagues/$leagueSlug/teams'
     | '/questions/$questionId/{-$slug}'
+    | '/redraft/$code/$username'
     | '/rushmore/$code/$username'
     | '/admin/data/$leagueId/games'
     | '/admin/data/$leagueId/players'
@@ -1426,6 +1492,9 @@ export interface FileRouteTypes {
     | '/share/challenges/$code/card.png'
     | '/share/name-that-season/$date/card.png'
     | '/share/recaps/$token/card.png'
+    | '/share/redraft-prompts/$code/card.png'
+    | '/share/redraft/$postId/card.png'
+    | '/share/redraft/$postId/portrait'
     | '/share/rushmore-prompts/$code/card.png'
     | '/share/rushmore/$postId/card.png'
     | '/share/rushmore/$postId/portrait'
@@ -1517,6 +1586,7 @@ export interface FileRouteTypes {
     | '/_app/leagues/$leagueSlug'
     | '/_app/posts/$postId'
     | '/_app/recaps/$token'
+    | '/_app/redraft/$code'
     | '/_app/rushmore/$code'
     | '/_app/updates/$slug'
     | '/_app/user/$username'
@@ -1534,6 +1604,7 @@ export interface FileRouteTypes {
     | '/admin/updates/'
     | '/auth/google/'
     | '/_app/_authed/challenges/new'
+    | '/_app/_authed/redraft/new'
     | '/_app/_authed/rushmore/new'
     | '/_app/ballots/$ballotSlug_/$username'
     | '/_app/challenges/$code_/play'
@@ -1546,6 +1617,7 @@ export interface FileRouteTypes {
     | '/_app/leagues/$leagueSlug/season'
     | '/_app/leagues/$leagueSlug/teams'
     | '/_app/questions/$questionId/{-$slug}'
+    | '/_app/redraft/$code/$username'
     | '/_app/rushmore/$code/$username'
     | '/admin/data/$leagueId/games'
     | '/admin/data/$leagueId/players'
@@ -1555,6 +1627,9 @@ export interface FileRouteTypes {
     | '/share/challenges/$code/card.png'
     | '/share/name-that-season/$date/card.png'
     | '/share/recaps/$token/card.png'
+    | '/share/redraft-prompts/$code/card.png'
+    | '/share/redraft/$postId/card.png'
+    | '/share/redraft/$postId/portrait'
     | '/share/rushmore-prompts/$code/card.png'
     | '/share/rushmore/$postId/card.png'
     | '/share/rushmore/$postId/portrait'
@@ -1617,6 +1692,9 @@ export interface RootRouteChildren {
   ShareChallengesCodeCardDotpngRoute: typeof ShareChallengesCodeCardDotpngRoute
   ShareNameThatSeasonDateCardDotpngRoute: typeof ShareNameThatSeasonDateCardDotpngRoute
   ShareRecapsTokenCardDotpngRoute: typeof ShareRecapsTokenCardDotpngRoute
+  ShareRedraftPromptsCodeCardDotpngRoute: typeof ShareRedraftPromptsCodeCardDotpngRoute
+  ShareRedraftPostIdCardDotpngRoute: typeof ShareRedraftPostIdCardDotpngRoute
+  ShareRedraftPostIdPortraitRoute: typeof ShareRedraftPostIdPortraitRoute
   ShareRushmorePromptsCodeCardDotpngRoute: typeof ShareRushmorePromptsCodeCardDotpngRoute
   ShareRushmorePostIdCardDotpngRoute: typeof ShareRushmorePostIdCardDotpngRoute
   ShareRushmorePostIdPortraitRoute: typeof ShareRushmorePostIdPortraitRoute
@@ -2004,6 +2082,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppRecapsTokenRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/redraft/$code': {
+      id: '/_app/redraft/$code'
+      path: '/redraft/$code'
+      fullPath: '/redraft/$code'
+      preLoaderRoute: typeof AppRedraftCodeRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/rushmore/$code': {
       id: '/_app/rushmore/$code'
       path: '/rushmore/$code'
@@ -2130,6 +2215,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppAuthedGroupsIndexRouteImport
       parentRoute: typeof AppAuthedRoute
     }
+    '/_app/_authed/redraft/new': {
+      id: '/_app/_authed/redraft/new'
+      path: '/redraft/new'
+      fullPath: '/redraft/new'
+      preLoaderRoute: typeof AppAuthedRedraftNewRouteImport
+      parentRoute: typeof AppAuthedRoute
+    }
     '/_app/_authed/rushmore/new': {
       id: '/_app/_authed/rushmore/new'
       path: '/rushmore/new'
@@ -2235,6 +2327,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppQuestionsQuestionIdChar123SlugChar125RouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/redraft/$code/$username': {
+      id: '/_app/redraft/$code/$username'
+      path: '/$username'
+      fullPath: '/redraft/$code/$username'
+      preLoaderRoute: typeof AppRedraftCodeUsernameRouteImport
+      parentRoute: typeof AppRedraftCodeRoute
+    }
     '/_app/rushmore/$code/$username': {
       id: '/_app/rushmore/$code/$username'
       path: '/$username'
@@ -2303,6 +2402,27 @@ declare module '@tanstack/react-router' {
       path: '/share/recaps/$token/card.png'
       fullPath: '/share/recaps/$token/card.png'
       preLoaderRoute: typeof ShareRecapsTokenCardDotpngRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/share/redraft-prompts/$code/card.png': {
+      id: '/share/redraft-prompts/$code/card.png'
+      path: '/share/redraft-prompts/$code/card.png'
+      fullPath: '/share/redraft-prompts/$code/card.png'
+      preLoaderRoute: typeof ShareRedraftPromptsCodeCardDotpngRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/share/redraft/$postId/card.png': {
+      id: '/share/redraft/$postId/card.png'
+      path: '/share/redraft/$postId/card.png'
+      fullPath: '/share/redraft/$postId/card.png'
+      preLoaderRoute: typeof ShareRedraftPostIdCardDotpngRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/share/redraft/$postId/portrait': {
+      id: '/share/redraft/$postId/portrait'
+      path: '/share/redraft/$postId/portrait'
+      fullPath: '/share/redraft/$postId/portrait'
+      preLoaderRoute: typeof ShareRedraftPostIdPortraitRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/share/rushmore-prompts/$code/card.png': {
@@ -2569,6 +2689,7 @@ interface AppAuthedRouteChildren {
   AppAuthedSettingsRoute: typeof AppAuthedSettingsRoute
   AppAuthedSupportRoute: typeof AppAuthedSupportRoute
   AppAuthedChallengesNewRoute: typeof AppAuthedChallengesNewRoute
+  AppAuthedRedraftNewRoute: typeof AppAuthedRedraftNewRoute
   AppAuthedRushmoreNewRoute: typeof AppAuthedRushmoreNewRoute
   AppAuthedChallengesIndexRoute: typeof AppAuthedChallengesIndexRoute
   AppAuthedGroupsIndexRoute: typeof AppAuthedGroupsIndexRoute
@@ -2589,6 +2710,7 @@ const AppAuthedRouteChildren: AppAuthedRouteChildren = {
   AppAuthedSettingsRoute: AppAuthedSettingsRoute,
   AppAuthedSupportRoute: AppAuthedSupportRoute,
   AppAuthedChallengesNewRoute: AppAuthedChallengesNewRoute,
+  AppAuthedRedraftNewRoute: AppAuthedRedraftNewRoute,
   AppAuthedRushmoreNewRoute: AppAuthedRushmoreNewRoute,
   AppAuthedChallengesIndexRoute: AppAuthedChallengesIndexRoute,
   AppAuthedGroupsIndexRoute: AppAuthedGroupsIndexRoute,
@@ -2631,6 +2753,18 @@ const AppLeaguesLeagueSlugRouteChildren: AppLeaguesLeagueSlugRouteChildren = {
 const AppLeaguesLeagueSlugRouteWithChildren =
   AppLeaguesLeagueSlugRoute._addFileChildren(AppLeaguesLeagueSlugRouteChildren)
 
+interface AppRedraftCodeRouteChildren {
+  AppRedraftCodeUsernameRoute: typeof AppRedraftCodeUsernameRoute
+}
+
+const AppRedraftCodeRouteChildren: AppRedraftCodeRouteChildren = {
+  AppRedraftCodeUsernameRoute: AppRedraftCodeUsernameRoute,
+}
+
+const AppRedraftCodeRouteWithChildren = AppRedraftCodeRoute._addFileChildren(
+  AppRedraftCodeRouteChildren,
+)
+
 interface AppRushmoreCodeRouteChildren {
   AppRushmoreCodeUsernameRoute: typeof AppRushmoreCodeUsernameRoute
 }
@@ -2659,6 +2793,7 @@ interface AppRouteChildren {
   AppLeaguesLeagueSlugRoute: typeof AppLeaguesLeagueSlugRouteWithChildren
   AppPostsPostIdRoute: typeof AppPostsPostIdRoute
   AppRecapsTokenRoute: typeof AppRecapsTokenRoute
+  AppRedraftCodeRoute: typeof AppRedraftCodeRouteWithChildren
   AppRushmoreCodeRoute: typeof AppRushmoreCodeRouteWithChildren
   AppUpdatesSlugRoute: typeof AppUpdatesSlugRoute
   AppUserUsernameRoute: typeof AppUserUsernameRoute
@@ -2697,6 +2832,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppLeaguesLeagueSlugRoute: AppLeaguesLeagueSlugRouteWithChildren,
   AppPostsPostIdRoute: AppPostsPostIdRoute,
   AppRecapsTokenRoute: AppRecapsTokenRoute,
+  AppRedraftCodeRoute: AppRedraftCodeRouteWithChildren,
   AppRushmoreCodeRoute: AppRushmoreCodeRouteWithChildren,
   AppUpdatesSlugRoute: AppUpdatesSlugRoute,
   AppUserUsernameRoute: AppUserUsernameRoute,
@@ -2825,6 +2961,10 @@ const rootRouteChildren: RootRouteChildren = {
   ShareNameThatSeasonDateCardDotpngRoute:
     ShareNameThatSeasonDateCardDotpngRoute,
   ShareRecapsTokenCardDotpngRoute: ShareRecapsTokenCardDotpngRoute,
+  ShareRedraftPromptsCodeCardDotpngRoute:
+    ShareRedraftPromptsCodeCardDotpngRoute,
+  ShareRedraftPostIdCardDotpngRoute: ShareRedraftPostIdCardDotpngRoute,
+  ShareRedraftPostIdPortraitRoute: ShareRedraftPostIdPortraitRoute,
   ShareRushmorePromptsCodeCardDotpngRoute:
     ShareRushmorePromptsCodeCardDotpngRoute,
   ShareRushmorePostIdCardDotpngRoute: ShareRushmorePostIdCardDotpngRoute,

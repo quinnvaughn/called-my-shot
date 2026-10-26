@@ -1,0 +1,7 @@
+season,round,pick,team,gsis_id,pfr_player_id,cfb_player_id,pfr_player_name,hof,position,category,side,college,age,to,allpro,probowls,seasons_started,w_av,car_av,dr_av,games,pass_completions,pass_attempts,pass_yards,pass_tds,pass_ints,rush_atts,rush_yards,rush_tds,receptions,rec_yards,rec_tds,def_solo_tackles,def_ints,def_sacks
+1980,1,1,DET,SIM659150,SimsBi00,billy-sims-1,Billy Sims,FALSE,RB,RB,O,Oklahoma,24,1984,0,3,5,58,,58,60,0,0,0,0,0,1131,5106,42,186,2072,5,,,
+1983,1,1,BAL,00-0004884,ElwaJo00,john-elway-1,John Elway,TRUE,QB,QB,O,Stanford,23,1998,0,9,16,140,,,234,4123,7250,51475,300,226,774,3407,33,3,61,1,,,
+1984,1,1,NWE,00-0005616,FryaIr00,irving-fryar-1,Irving Fryar,FALSE,WR,WR,O,Nebraska,21,2000,0,5,13,80,,31,255,0,1,0,0,0,44,242,1,851,12785,84,,,
+2000,6,199,NWE,00-0019596,BradTo00,tom-brady-1,Tom Brady,FALSE,QB,QB,O,Michigan,23,2022,3,15,21,184,,168,335,7753,12050,89214,649,212,693,1123,28,3,65,0,1,,
+2007,1,2,DET,00-0025389,JohnCa00,calvin-johnson-1,Calvin Johnson,TRUE,WR,WR,O,Georgia Tech,21,2015,3,6,9,78,,78,135,0,0,0,0,0,19,167,1,731,11619,83,,,
+1985,4,92,TAM,,,mike-heaven-1,Mike Heaven,FALSE,DB,DB,D,Illinois,,,0,0,0,,,,,,,,,,,,,,,,,,

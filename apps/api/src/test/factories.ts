@@ -4,6 +4,7 @@ import {
 	type Call,
 	callSelections,
 	calls,
+	draftEntries,
 	externalRefs,
 	flairs,
 	games,
@@ -25,6 +26,7 @@ import {
 	questionOptions,
 	questions,
 	redoGrants,
+	redraftPicks,
 	referralCodes,
 	referrals,
 	rushmorePicks,
@@ -41,7 +43,7 @@ import {
 	users,
 } from "../db/schema"
 import { generateInviteCode } from "../lib/invite-codes"
-import { rushmoreTags } from "../lib/posts/tags"
+import { redraftTags, rushmoreTags } from "../lib/posts/tags"
 
 // Monotonic within a test file so every generated slug/username/abbreviation
 // is unique without the caller having to name one. Reset is unnecessary -
@@ -624,6 +626,84 @@ export async function makeRushmore(opts: {
 	)
 	await db.insert(postTags).values(
 		rushmoreTags(opts.prompt, opts.playerIds).map((tag) => ({
+			postId: post.id,
+			...tag,
+		})),
+	)
+	return post
+}
+
+// A draft class's redraft prompt.
+export async function makeRedraftPrompt(leagueId: string, draftYear: number) {
+	const i = uniq()
+	return insertOne(
+		db
+			.insert(prompts)
+			.values({
+				kind: "redraft",
+				code: `d${i}-${draftYear}`,
+				title: `${draftYear} Draft ${i}`,
+				leagueId,
+				draftYear,
+			})
+			.returning(),
+	)
+}
+
+// One class member: a pick when overall is given, else someone who came in
+// undrafted.
+export function makeDraftEntry(
+	overrides: Partial<typeof draftEntries.$inferInsert> & {
+		leagueId: string
+		year: number
+	},
+) {
+	return insertOne(
+		db
+			.insert(draftEntries)
+			.values({
+				playerName: "Draftee",
+				round: overrides.overall ? 1 : null,
+				...overrides,
+			})
+			.returning(),
+	)
+}
+
+// A redraft written straight to the tables, picks and tags included,
+// without lib/posts/create-redraft's class and moderation checks.
+export async function makeRedraft(opts: {
+	author: User
+	prompt: { id: string; leagueId: string | null }
+	playerIds: string[]
+	groupId?: string | null
+	body?: string | null
+	createdAt?: Date
+}) {
+	const leagueId = opts.prompt.leagueId
+	if (!leagueId) throw new Error("A redraft prompt has a league")
+	const post = await insertOne(
+		db
+			.insert(posts)
+			.values({
+				authorId: opts.author.id,
+				kind: "redraft",
+				promptId: opts.prompt.id,
+				groupId: opts.groupId ?? null,
+				body: opts.body ?? null,
+				...(opts.createdAt ? { createdAt: opts.createdAt } : {}),
+			})
+			.returning(),
+	)
+	await db.insert(redraftPicks).values(
+		opts.playerIds.map((playerId, i) => ({
+			postId: post.id,
+			slot: i + 1,
+			playerId,
+		})),
+	)
+	await db.insert(postTags).values(
+		redraftTags({ leagueId }, opts.playerIds).map((tag) => ({
 			postId: post.id,
 			...tag,
 		})),

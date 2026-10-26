@@ -1,6 +1,11 @@
 import { MLB_FRANCHISES } from "./franchise-map"
 import { fetchJson, fetchText, mapPool } from "./http"
-import type { HistoryPlayer, HistoryStint, Log } from "./types"
+import {
+	HALL_OF_FAME_BONUS,
+	type HistoryPlayer,
+	type HistoryStint,
+	type Log,
+} from "./types"
 import { sparql } from "./wikidata"
 
 // MLB's all-time pools. Membership comes from statsapi.mlb.com's full-season
@@ -100,7 +105,7 @@ export function warTeamFranchises(
 // game so players without WAR still sort by how long they stayed, and a Hall
 // of Fame bonus worth a strong decade.
 export function mlbScore(war: number, games: number, hallOfFame: boolean) {
-	return war + games / 1_000 + (hallOfFame ? 20 : 0)
+	return war + games / 1_000 + (hallOfFame ? HALL_OF_FAME_BONUS.mlb : 0)
 }
 
 async function loadHallOfFame(): Promise<Set<string>> {

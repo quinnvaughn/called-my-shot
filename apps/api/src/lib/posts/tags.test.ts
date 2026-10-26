@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { rushmoreTags } from "./tags"
+import { redraftTags, rushmoreTags } from "./tags"
 
 describe("rushmoreTags", () => {
 	it("tags a franchise Rushmore with its team and league, and each pick as a mention", () => {
@@ -41,6 +41,18 @@ describe("rushmoreTags", () => {
 		])
 		expect(tags.filter((tag) => tag.spaceKind === "team")).toEqual([
 			{ spaceKind: "team", spaceId: "celtics", role: "subject" },
+		])
+	})
+})
+
+describe("redraftTags", () => {
+	it("tags a redraft with its league and each pick as a mention, never a team", () => {
+		expect(
+			redraftTags({ leagueId: "nba" }, ["lebron", "wade", "lebron"]),
+		).toEqual([
+			{ spaceKind: "league", spaceId: "nba", role: "subject" },
+			{ spaceKind: "player", spaceId: "lebron", role: "mention" },
+			{ spaceKind: "player", spaceId: "wade", role: "mention" },
 		])
 	})
 })

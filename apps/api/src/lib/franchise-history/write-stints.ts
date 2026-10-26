@@ -68,7 +68,7 @@ const RECENT_SEASONS = 6
 // The value an upsert tried to insert, for its DO UPDATE SET.
 const excluded = (column: string) => sql.raw(`excluded.${column}`)
 
-function chunks<T>(items: T[], size = CHUNK): T[][] {
+export function chunks<T>(items: T[], size = CHUNK): T[][] {
 	const out: T[][] = []
 	for (let i = 0; i < items.length; i += size)
 		out.push(items.slice(i, i + size))

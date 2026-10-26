@@ -36,6 +36,17 @@ export type HistoryPlayer = {
 	stints: HistoryStint[]
 }
 
+// The flat bonus each league's stint score gives a Hall of Famer, on every
+// stint he has, so it never decides between two of his franchises. Summing a
+// player's stints counts it once per team, which is why a career total takes
+// the extras back off (see lib/drafts/pool.ts).
+export const HALL_OF_FAME_BONUS = {
+	nba: 1_500,
+	mlb: 20,
+	nhl: 500,
+	nfl: 100,
+} as const satisfies Record<HistoryLeague, number>
+
 // The external_refs source each league's history is keyed by.
 export const HISTORY_SOURCE = {
 	nba: "bref",

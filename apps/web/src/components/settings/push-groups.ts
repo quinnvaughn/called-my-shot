@@ -53,7 +53,7 @@ export const PUSH_GROUPS: PushGroup[] = [
 		key: "posts",
 		label: "Comments on posts",
 		description:
-			"When someone comments on your Rushmore, replies to your comment, or @mentions you in a reply.",
+			"When someone comments on your Rushmore or redraft, replies to your comment, or @mentions you in a reply.",
 		types: ["POST_COMMENTED", "COMMENT_REPLIED"],
 	},
 	{

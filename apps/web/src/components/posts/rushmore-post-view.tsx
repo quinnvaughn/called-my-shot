@@ -14,15 +14,15 @@ import { sharedPicksLine } from "#/lib/shared-picks"
 import { LikeButton } from "./like-button"
 import { PostBreadcrumb } from "./post-breadcrumb"
 import { PostCommentThread } from "./post-comments/thread"
+import { PostEditForm } from "./post-edit-form"
 import { PostGroupChip } from "./post-group-chip"
 import { BrandBadge } from "./rushmore-band/brand-badge"
 import { RushmoreBand } from "./rushmore-band/rushmore-band"
-import { RushmoreEditForm } from "./rushmore-edit-form"
 import { RushmoreEyebrow } from "./rushmore-eyebrow"
 import { RushmoreShareRow } from "./rushmore-share-row"
 import { usePostActions } from "./use-post-actions"
 import { usePostLike } from "./use-post-like"
-import { YourFourAction } from "./your-four-action"
+import { YoursAction } from "./yours-action"
 
 export type RushmorePostData = Extract<
 	NonNullable<PostPageQuery["post"]>,
@@ -42,11 +42,14 @@ export function RushmorePostView({
 	gifsEnabled: boolean
 }) {
 	const [editing, setEditing] = useState(false)
-	const actions = usePostActions(post, () => setEditing(true))
+	const actions = usePostActions("rushmore", post, () => setEditing(true))
 	const like = usePostLike(post)
 	const picks = [...post.picks].sort((a, b) => a.position - b.position)
 	// The viewer's own public answer to the same prompt.
-	const yours = post.prompt.viewerAnswer ?? null
+	const yours =
+		post.prompt.viewerAnswer?.__typename === "RushmorePost"
+			? post.prompt.viewerAnswer
+			: null
 	// For everyone, the author included: anyone's Rushmore is theirs to pass
 	// around.
 	const shareRow = post.sharePath && (
@@ -133,7 +136,7 @@ export function RushmorePostView({
 			{editing ? (
 				<Card>
 					<Card.Body>
-						<RushmoreEditForm post={post} onDone={() => setEditing(false)} />
+						<PostEditForm post={post} onDone={() => setEditing(false)} />
 					</Card.Body>
 				</Card>
 			) : (
@@ -180,7 +183,8 @@ export function RushmorePostView({
 					{post.viewerIsAuthor ? (
 						shareRow
 					) : (
-						<YourFourAction
+						<YoursAction
+							kind="rushmore"
 							code={post.prompt.code}
 							yoursId={yours?.id ?? null}
 						/>

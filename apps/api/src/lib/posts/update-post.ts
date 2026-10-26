@@ -1,22 +1,20 @@
-import {
-	type UpdateRushmoreInput,
-	updateRushmoreSchema,
-} from "@called-my-shot/schemas"
+import { type UpdatePostInput, updatePostSchema } from "@called-my-shot/schemas"
 import { eq } from "drizzle-orm"
 import { db } from "../../db"
 import { type Post, posts, type User } from "../../db/schema"
 import { AuthorizationError, NotFoundError, ValidationError } from "../errors"
 import { assertAllowedPostText } from "./moderation"
 
-// The words on a Rushmore are its author's to change; the faces aren't. A
-// different four is a different Rushmore, which means deleting this one, so
-// the crowd's numbers never count someone who's no longer up there.
-export async function updateRushmore(
+// The words on a post are its author's to change; the picks aren't. A
+// different four on a Rushmore, or a different order on a redraft, is a
+// different post, which means deleting this one, so the crowd's numbers never
+// count a pick that's no longer there.
+export async function updatePost(
 	author: User,
-	input: UpdateRushmoreInput,
+	input: UpdatePostInput,
 	now = new Date(),
 ): Promise<Post> {
-	const result = updateRushmoreSchema.safeParse(input)
+	const result = updatePostSchema.safeParse(input)
 	if (!result.success) throw ValidationError.fromZodIssues(result.error.issues)
 	const parsed = result.data
 

@@ -86,6 +86,7 @@ export function PromptConsensusCard({
 						</Link>
 					) : (
 						<MakeYoursButton
+							kind="rushmore"
 							code={prompt.code}
 							label={count === 0 ? "Make the first" : "Make yours"}
 						/>

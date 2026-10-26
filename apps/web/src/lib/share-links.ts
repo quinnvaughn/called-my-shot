@@ -17,6 +17,7 @@ export type ShareCampaign =
 	| "name_that_season"
 	| "blind_rank"
 	| "rushmore"
+	| "redraft"
 
 export type ShareMethod = "clipboard" | "native" | "x"
 

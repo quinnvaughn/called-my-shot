@@ -387,6 +387,21 @@ export const relations = defineRelations(schema, (r) => ({
 		gameStats: r.many.playerGameStats(),
 		franchiseStints: r.many.playerFranchiseStints(),
 	},
+	draftEntries: {
+		league: r.one.leagues({
+			from: r.draftEntries.leagueId,
+			to: r.leagues.id,
+			optional: false,
+		}),
+		team: r.one.teams({
+			from: r.draftEntries.teamId,
+			to: r.teams.id,
+		}),
+		player: r.one.players({
+			from: r.draftEntries.playerId,
+			to: r.players.id,
+		}),
+	},
 	playerFranchiseStints: {
 		player: r.one.players({
 			from: r.playerFranchiseStints.playerId,
@@ -917,6 +932,7 @@ export const relations = defineRelations(schema, (r) => ({
 			to: r.groups.id,
 		}),
 		picks: r.many.rushmorePicks(),
+		redraftPicks: r.many.redraftPicks(),
 		tags: r.many.postTags(),
 		likes: r.many.postLikes(),
 		comments: r.many.comments(),
@@ -929,6 +945,18 @@ export const relations = defineRelations(schema, (r) => ({
 		}),
 		player: r.one.players({
 			from: r.rushmorePicks.playerId,
+			to: r.players.id,
+			optional: false,
+		}),
+	},
+	redraftPicks: {
+		post: r.one.posts({
+			from: r.redraftPicks.postId,
+			to: r.posts.id,
+			optional: false,
+		}),
+		player: r.one.players({
+			from: r.redraftPicks.playerId,
 			to: r.players.id,
 			optional: false,
 		}),

@@ -4,8 +4,9 @@ import { PROMPT_COLOR_HEXES } from "./prompt-colors"
 import { RUSHMORE_YEAR_MAX, RUSHMORE_YEAR_MIN } from "./rushmore-positions"
 
 // Posts are what people make for everyone (or one group) to see, answering a
-// prompt: a Mount Rushmore of four players, and a few words if they want. The api enforces these limits and the
-// composer counts down against the same numbers.
+// prompt: a Mount Rushmore of four players or a redraft of a draft class (see
+// ./redraft.ts), and a few words if they want. The api enforces these limits
+// and the composer counts down against the same numbers.
 
 export const RUSHMORE_PICK_COUNT = 4
 export const POST_BODY_MAX = 1000
@@ -34,12 +35,12 @@ export const createRushmoreSchema = z.object({
 })
 export type CreateRushmoreInput = z.input<typeof createRushmoreSchema>
 
-// Only the words change after posting.
-export const updateRushmoreSchema = z.object({
+// Only the words change after posting, whatever kind of post it is.
+export const updatePostSchema = z.object({
 	postId: z.string().uuid(),
 	body,
 })
-export type UpdateRushmoreInput = z.input<typeof updateRushmoreSchema>
+export type UpdatePostInput = z.input<typeof updatePostSchema>
 
 const promptYear = z
 	.number()

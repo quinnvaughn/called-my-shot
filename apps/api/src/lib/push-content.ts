@@ -391,7 +391,7 @@ export async function buildPushContent(
 				(await lastPostCommenter(post.id, n.userId)) ?? n.actorUsername
 			return {
 				title: post.promptTitle,
-				body: `@${username} commented on your Rushmore`,
+				body: `@${username} commented on your ${post.noun}`,
 				path: postPath(post.id),
 			}
 		})
@@ -419,7 +419,7 @@ export async function buildPushContent(
 			if (!post) return null
 			return {
 				title: post.promptTitle,
-				body: `Your ${n.commentId ? "comment" : "Rushmore"} hit ${n.achievementCount ?? 0} likes`,
+				body: `Your ${n.commentId ? "comment" : post.noun} hit ${n.achievementCount ?? 0} likes`,
 				path: postPath(post.id),
 			}
 		})

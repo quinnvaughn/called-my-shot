@@ -30,6 +30,7 @@
     "recaps:generate": "tsx --env-file=.env src/lib/group-recap/generate.ts",
     "rank:archive": "tsx --env-file=.env scripts/archive-rank.ts",
     "history:ingest": "tsx --env-file=.env src/lib/franchise-history/run.ts",
+    "drafts:ingest": "tsx --env-file=.env src/lib/draft-history/run.ts",
     "portraits:build": "tsx --env-file=.env scripts/build-portraits.ts",
     "rank:schedule": "tsx --env-file=.env src/lib/blind-rank/schedule.ts",
     "seasons:archive": "tsx --env-file=.env scripts/archive-seasons.ts",

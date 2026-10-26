@@ -8,8 +8,9 @@ import { type Prompt, posts, prompts } from "../../db/schema"
 // shares ("Rushmore", "all-time", "of") are skipped. Most-answered first,
 // which is also the order the composer's prompt search lists them in.
 //
-// A league narrows to its prompts, a team to that team's. Without either it's
-// every prompt, franchise ones included, which is what the composer's one
+// Rushmore prompts only: a draft class is found by lib/drafts/search.ts. A
+// league narrows to its prompts, a team to that team's. Without either it's
+// every Rushmore prompt, franchise ones included, which is what the composer's one
 // search box looks through: "celtics" finds the Boston Celtics Rushmore by its
 // title.
 
@@ -74,6 +75,7 @@ export async function searchPrompts({
 		)
 		.where(
 			and(
+				eq(prompts.kind, "rushmore"),
 				leagueId ? eq(prompts.leagueId, leagueId) : undefined,
 				isNull(prompts.removedAt),
 				teamId ? eq(prompts.teamId, teamId) : undefined,

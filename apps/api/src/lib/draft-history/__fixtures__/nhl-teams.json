@@ -1,0 +1,34 @@
+{
+ "data": [
+  {
+   "id": 5,
+   "franchiseId": 17,
+   "fullName": "Pittsburgh Penguins",
+   "triCode": "PIT"
+  },
+  {
+   "id": 12,
+   "franchiseId": 26,
+   "fullName": "Carolina Hurricanes",
+   "triCode": "CAR"
+  },
+  {
+   "id": 13,
+   "franchiseId": 33,
+   "fullName": "Florida Panthers",
+   "triCode": "FLA"
+  },
+  {
+   "id": 22,
+   "franchiseId": 25,
+   "fullName": "Edmonton Oilers",
+   "triCode": "EDM"
+  },
+  {
+   "id": 33,
+   "franchiseId": 35,
+   "fullName": "Winnipeg Jets (1979)",
+   "triCode": "WIN"
+  }
+ ]
+}

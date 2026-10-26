@@ -269,6 +269,13 @@ type AnalyticsEvents = {
 		method: "native" | "clipboard" | "x"
 	}
 
+	// A redraft's link, from its own page, the same as rushmore_link_shared.
+	redraft_link_shared: {
+		postId: string
+		own: boolean
+		method: "native" | "clipboard" | "x"
+	}
+
 	// source says where the builder was opened from.
 	challenge_created: {
 		challengeId: string

@@ -171,6 +171,7 @@ export function popularTeamRushmores(
 			.where(
 				and(
 					isNull(posts.groupId),
+					eq(posts.kind, "rushmore"),
 					sql`${prompts.teamId} is not null`,
 					isNull(prompts.creatorId),
 					liveAndUnblocked(posts, viewerId),

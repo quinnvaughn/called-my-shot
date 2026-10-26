@@ -4,15 +4,18 @@ import { HStack } from "styled-system/jsx"
 import { Textarea } from "#/components/ui/textarea"
 import { RoomLeft } from "./room-left"
 
-// The words that go with a Rushmore as a whole, under the four faces.
+// The words that go with a post as a whole, under its picks. The
+// placeholder suggests what to write for the kind of post.
 export function PostBodyField({
 	value,
 	onChange,
 	error,
+	placeholder = "Who just missed the cut, or the case for your four. Shown under the faces.",
 }: {
 	value: string
 	onChange: (value: string) => void
 	error?: string
+	placeholder?: string
 }) {
 	return (
 		<Textarea error={error}>
@@ -26,7 +29,7 @@ export function PostBodyField({
 				className={css({ minHeight: "48" })}
 				maxLength={POST_BODY_MAX}
 				value={value}
-				placeholder="Who just missed the cut, or the case for your four. Shown under the faces."
+				placeholder={placeholder}
 				onChange={(event) => onChange(event.target.value)}
 			/>
 		</Textarea>

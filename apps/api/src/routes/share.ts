@@ -33,6 +33,12 @@ import {
 	loadProfileShareCardData,
 } from "../lib/share-cards/profile-card"
 import {
+	buildRedraftCard,
+	loadRedraftCard,
+	loadRedraftPromptCard,
+	REDRAFT_SIZE,
+} from "../lib/share-cards/redraft-card"
+import {
 	buildReportCardShareCard,
 	loadReportCardShareData,
 } from "../lib/share-cards/report-card-card"
@@ -306,6 +312,38 @@ export function registerShareRoutes(app: Express) {
 			await loadPromptCard(req.params.code),
 			(data) => buildRushmoreCard(data, "landscape"),
 			RUSHMORE_SIZE.landscape,
+		)
+	})
+
+	// The og:image behind /posts/:id for a redraft. Public posts only, like a
+	// Rushmore's.
+	app.get("/share/redraft/:postId.png", async (req, res) => {
+		await serveCard(
+			res,
+			await loadRedraftCard(req.params.postId),
+			(data) => buildRedraftCard(data, "landscape"),
+			REDRAFT_SIZE.landscape,
+		)
+	})
+
+	// The whole redraft at 4:5, for saving or the phone's share sheet.
+	app.get("/share/redraft/:postId/portrait.png", async (req, res) => {
+		await serveCard(
+			res,
+			await loadRedraftCard(req.params.postId),
+			(data) => buildRedraftCard(data, "portrait"),
+			REDRAFT_SIZE.portrait,
+		)
+	})
+
+	// The og:image behind /redraft/:code: the crowd's redraft of a class.
+	// 404s until it has a public answer.
+	app.get("/share/redraft-prompts/:code.png", async (req, res) => {
+		await serveCard(
+			res,
+			await loadRedraftPromptCard(req.params.code),
+			(data) => buildRedraftCard(data, "landscape"),
+			REDRAFT_SIZE.landscape,
 		)
 	})
 

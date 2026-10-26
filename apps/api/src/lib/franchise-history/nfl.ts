@@ -2,7 +2,12 @@ import { normalizeName } from "../../db/sync/name-match"
 import { parseCsv } from "./csv"
 import { nflFranchiseTeam } from "./franchise-map"
 import { fetchText, mapPool, politeFetch } from "./http"
-import type { HistoryPlayer, HistoryStint, Log } from "./types"
+import {
+	HALL_OF_FAME_BONUS,
+	type HistoryPlayer,
+	type HistoryStint,
+	type Log,
+} from "./types"
 import { sparql } from "./wikidata"
 
 // The NFL's all-time pools, from nflverse's season rosters (1920 on), which
@@ -137,7 +142,7 @@ export function nflScore(
 	draftAv: number,
 	hallOfFame: boolean,
 ) {
-	return seasons * 5 + draftAv + (hallOfFame ? 100 : 0)
+	return seasons * 5 + draftAv + (hallOfFame ? HALL_OF_FAME_BONUS.nfl : 0)
 }
 
 async function loadHallOfFame(): Promise<NflHallOfFamer[]> {

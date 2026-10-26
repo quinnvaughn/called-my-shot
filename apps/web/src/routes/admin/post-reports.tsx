@@ -28,7 +28,7 @@ function RouteComponent() {
 		<VStack gap="6" alignItems="stretch">
 			<PageHeader
 				title="Post reports"
-				subtitle="Rushmores people flagged. Removing a post takes it down; removing the prompt takes down every answer to it."
+				subtitle="Posts people flagged. Removing a post takes it down; removing a Rushmore prompt takes down every answer to it."
 			/>
 			{reports.length === 0 ? (
 				<EmptyState>No open post reports.</EmptyState>

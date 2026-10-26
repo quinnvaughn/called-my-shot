@@ -1,8 +1,10 @@
 import { graphql } from "#/graphql/generated"
 import { gqlQueryOptions } from "#/graphql/query-options"
 
-// What the Rushmore composer reads: the leagues and teams to pick a prompt
-// from, the prompts themselves, the chosen prompt, and its player pool.
+// What the composers read. The Rushmore composer: the leagues and teams to
+// pick a prompt from, the prompts themselves, the chosen prompt, and its
+// player pool. The redraft composer: draft classes, the chosen class, and
+// who's in it.
 
 export const RushmoreLeaguesDocument = graphql(`
 	query RushmoreLeagues {
@@ -182,6 +184,100 @@ export const RushmorePoolDocument = graphql(`
 
 export const rushmorePoolQuery = (promptId: string, search: string) =>
 	gqlQueryOptions(RushmorePoolDocument, {
+		promptId,
+		search: search || undefined,
+		first: 20,
+	})
+
+// Draft classes for the redraft composer: one league's or every one's,
+// searched by year or a player in the class, newest first.
+export const RedraftClassesDocument = graphql(`
+	query RedraftClasses($leagueId: ID, $query: String, $first: Int) {
+		redraftClasses(leagueId: $leagueId, query: $query, first: $first) {
+			id
+			code
+			title
+			draftYear
+			answerCount
+			league {
+				id
+				abbreviation
+			}
+		}
+	}
+`)
+
+export const redraftClassesQuery = (leagueId: string | null, query: string) =>
+	gqlQueryOptions(RedraftClassesDocument, {
+		leagueId: leagueId ?? undefined,
+		query: query || undefined,
+		first: 12,
+	})
+
+// The class being redrafted: its lengths, its real picks as far as its
+// longest length, and the viewer's redraft of it for the chosen audience if
+// they've made one (groupId null is Everyone).
+export const ComposerRedraftDocument = graphql(`
+	query ComposerRedraft($code: String!, $groupId: ID) {
+		redraftPrompt(code: $code) {
+			id
+			code
+			title
+			color
+			draftYear
+			answerCount
+			league {
+				id
+				abbreviation
+			}
+			lengths {
+				count
+				label
+				isDefault
+			}
+			slots {
+				slot
+				overall
+				teamName
+				playerName
+				team {
+					id
+					abbreviation
+					color
+					logoUrl
+				}
+			}
+			viewerAnswer(groupId: $groupId) {
+				id
+			}
+		}
+	}
+`)
+
+export const composerRedraftQuery = (code: string, groupId: string | null) =>
+	gqlQueryOptions(ComposerRedraftDocument, { code, groupId })
+
+// Who can go in a redraft of the class, best careers first.
+export const RedraftPoolDocument = graphql(`
+	query RedraftPool($promptId: ID!, $search: String, $first: Int) {
+		redraftPool(promptId: $promptId, search: $search, first: $first) {
+			overall
+			firstSeason
+			lastSeason
+			hallOfFame
+			player {
+				id
+				name
+				position
+				headshotUrl
+				portraitUrl
+			}
+		}
+	}
+`)
+
+export const redraftPoolQuery = (promptId: string, search: string) =>
+	gqlQueryOptions(RedraftPoolDocument, {
 		promptId,
 		search: search || undefined,
 		first: 20,

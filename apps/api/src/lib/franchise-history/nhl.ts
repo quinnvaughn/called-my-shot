@@ -1,6 +1,11 @@
 import { nhlFranchiseTeam } from "./franchise-map"
 import { fetchJson } from "./http"
-import type { HistoryPlayer, HistoryStint, Log } from "./types"
+import {
+	HALL_OF_FAME_BONUS,
+	type HistoryPlayer,
+	type HistoryStint,
+	type Log,
+} from "./types"
 
 // The NHL's all-time pools, from records.nhl.com: career totals per player
 // per franchise, skaters and goalies separately, keyed by the NHL's own
@@ -42,7 +47,7 @@ export function nhlScore(
 		row.gamesPlayed / 2 +
 		(row.points ?? 0) +
 		(row.wins ?? 0) * 2 +
-		(flags.hallOfFame ? 500 : 0) +
+		(flags.hallOfFame ? HALL_OF_FAME_BONUS.nhl : 0) +
 		(flags.top100 ? 300 : 0)
 	)
 }

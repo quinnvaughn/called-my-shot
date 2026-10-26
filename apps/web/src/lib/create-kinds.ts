@@ -1,13 +1,13 @@
 import type { IconType } from "react-icons"
 import { FaQuestion } from "react-icons/fa"
-import { FaFlag, FaMountain } from "react-icons/fa6"
+import { FaFlag, FaListOl, FaMountain } from "react-icons/fa6"
 
 export type CreateKind = {
-	key: "rushmore" | "question" | "challenge"
+	key: "rushmore" | "redraft" | "question" | "challenge"
 	label: string
 	description: string
 	icon: IconType
-	to: "/rushmore/new" | "/new-question" | "/challenges/new"
+	to: "/rushmore/new" | "/redraft/new" | "/new-question" | "/challenges/new"
 }
 
 // What the Create (+) button can make, in the order its sheet lists them.
@@ -21,6 +21,14 @@ export const CREATE_KINDS: CreateKind[] = [
 			"Pick the four players who define a team or any prompt, with a reason for each.",
 		icon: FaMountain,
 		to: "/rushmore/new",
+	},
+	{
+		key: "redraft",
+		label: "Redraft",
+		description:
+			"Pick a real draft class over again, knowing how every career turned out. Each slot belongs to the team that held the pick.",
+		icon: FaListOl,
+		to: "/redraft/new",
 	},
 	{
 		key: "question",

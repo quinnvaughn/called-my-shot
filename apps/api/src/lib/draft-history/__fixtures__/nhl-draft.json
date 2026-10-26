@@ -1,0 +1,49 @@
+{
+ "data": [
+  {
+   "draftYear": 2003,
+   "overallPickNumber": 2,
+   "roundNumber": 1,
+   "draftedByTeamId": 12,
+   "triCode": "CAR",
+   "playerId": 8470595,
+   "playerName": "Eric Staal"
+  },
+  {
+   "draftYear": 2003,
+   "overallPickNumber": 3,
+   "roundNumber": 1,
+   "draftedByTeamId": 13,
+   "triCode": "FLA",
+   "playerId": 8470596,
+   "playerName": "Nathan Horton"
+  },
+  {
+   "draftYear": 2003,
+   "overallPickNumber": 1,
+   "roundNumber": 1,
+   "draftedByTeamId": 5,
+   "triCode": "PIT",
+   "playerId": 8470594,
+   "playerName": "Marc-Andre Fleury"
+  },
+  {
+   "draftYear": 2002,
+   "overallPickNumber": 123,
+   "roundNumber": 4,
+   "draftedByTeamId": 22,
+   "triCode": "EDM",
+   "playerId": null,
+   "playerName": "INVALID"
+  },
+  {
+   "draftYear": 1979,
+   "overallPickNumber": 19,
+   "roundNumber": 1,
+   "draftedByTeamId": 33,
+   "triCode": "WIN",
+   "playerId": 8449119,
+   "playerName": "Jimmy Mann"
+  }
+ ]
+}

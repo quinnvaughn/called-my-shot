@@ -10,6 +10,8 @@ import {
 	PostPageDocument,
 	PromptAnswersDocument,
 	PromptPageDocument,
+	RedraftAnswersDocument,
+	RedraftPromptPageDocument,
 	SpaceFeedDocument,
 	UserPostsDocument,
 } from "./queries"
@@ -59,9 +61,31 @@ export const CreateRushmoreDocument = graphql(`
 	}
 `)
 
-export const UpdateRushmoreDocument = graphql(`
-	mutation UpdateRushmore($input: UpdateRushmoreInput!) {
-		updateRushmore(input: $input) {
+export const CreateRedraftDocument = graphql(`
+	mutation CreateRedraft($input: CreateRedraftInput!) {
+		createRedraft(input: $input) {
+			__typename
+			... on PostPayload {
+				post {
+					id
+				}
+			}
+			... on Error {
+				message
+			}
+			... on ValidationError {
+				fieldErrors {
+					field
+					message
+				}
+			}
+		}
+	}
+`)
+
+export const UpdatePostDocument = graphql(`
+	mutation UpdatePost($input: UpdatePostInput!) {
+		updatePost(input: $input) {
 			__typename
 			... on PostPayload {
 				post {
@@ -241,6 +265,8 @@ const POST_DOCUMENTS = [
 	PopularRushmoresDocument,
 	PostPageDocument,
 	PromptPageDocument,
+	RedraftAnswersDocument,
+	RedraftPromptPageDocument,
 ]
 
 export function invalidatePosts(queryClient: QueryClient) {

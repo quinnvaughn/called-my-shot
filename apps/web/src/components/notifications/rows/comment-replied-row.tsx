@@ -19,8 +19,15 @@ export const CommentRepliedRowFragment = graphql(`
 			}
 		}
 		post {
+			__typename
 			id
 			... on RushmorePost {
+				prompt {
+					id
+					title
+				}
+			}
+			... on RedraftPost {
 				prompt {
 					id
 					title

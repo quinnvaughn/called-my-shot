@@ -5,4 +5,8 @@ import "./refs"
 import "./queries"
 import "./mutations"
 
-export { RushmorePromptRef } from "./refs"
+export {
+	PromptInterfaceRef,
+	RedraftPromptRef,
+	RushmorePromptRef,
+} from "./refs"

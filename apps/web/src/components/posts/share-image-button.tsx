@@ -4,17 +4,19 @@ import { Button } from "#/components/ui/button"
 import { showToast } from "#/stores/toast-store"
 
 type Props = {
-	postId: string
+	// The post's 4:5 share image, through the web's passthrough
+	// (/share/rushmore/{id}/portrait, /share/redraft/{id}/portrait).
+	imagePath: string
 	// What the saved file is called, e.g. "celtics-rushmore.png".
 	fileName: string
 }
 
-// The Rushmore as a picture, for people who'd rather post an image than a
+// The post as a picture, for people who'd rather post an image than a
 // link (Reddit, Instagram, a group chat), whenever they get to it. On a
 // computer it downloads the 4:5 portrait card. On a phone it opens the share
 // sheet, since that's where Save Image lives on iOS, with the apps beside it.
 // Sits beside the post's ShareLinkRow, which shares the link instead.
-export function ShareImageButton({ postId, fileName }: Props) {
+export function ShareImageButton({ imagePath, fileName }: Props) {
 	const [pending, setPending] = useState(false)
 	// Kept once fetched. A share sheet only opens straight off a tap, and a
 	// slow render can outlast that, so the second tap needs the file ready.
@@ -22,9 +24,7 @@ export function ShareImageButton({ postId, fileName }: Props) {
 
 	async function loadImage(): Promise<File> {
 		if (fileRef.current) return fileRef.current
-		const response = await fetch(
-			`/share/rushmore/${encodeURIComponent(postId)}/portrait`,
-		)
+		const response = await fetch(imagePath)
 		if (!response.ok) throw new Error(`Share image: ${response.status}`)
 		const blob = await response.blob()
 		const name = fileName.endsWith(".png") ? fileName : `${fileName}.png`

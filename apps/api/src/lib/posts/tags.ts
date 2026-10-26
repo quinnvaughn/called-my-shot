@@ -55,3 +55,22 @@ export function rushmoreTags(
 	)
 	return [...subjects, ...mentions]
 }
+
+// A redraft is its league's post, the class being the league's own, and a
+// mention of each player in it. The teams that held its picks aren't tagged:
+// every first round would otherwise land in thirty team spaces.
+export function redraftTags(
+	prompt: { leagueId: string },
+	playerIds: string[],
+): DerivedTag[] {
+	return [
+		{ spaceKind: "league", spaceId: prompt.leagueId, role: "subject" },
+		...[...new Set(playerIds)].map(
+			(playerId): DerivedTag => ({
+				spaceKind: "player",
+				spaceId: playerId,
+				role: "mention",
+			}),
+		),
+	]
+}

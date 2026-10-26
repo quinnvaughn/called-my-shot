@@ -16,6 +16,7 @@ import {
 	invalidateAfterBlock,
 } from "#/graphql/pressers/mutations"
 import { useMe } from "#/hooks/use-me"
+import { type PostKind, postNoun } from "#/lib/post-kind"
 import { openModal } from "#/stores/modal-store"
 
 type Post = {
@@ -28,9 +29,11 @@ type Post = {
 // The post's menu. The author can change the words or delete it; anyone
 // else signed in can report it or block whoever posted it.
 export function usePostActions(
+	kind: PostKind,
 	post: Post,
 	onEdit: () => void,
 ): PresserMenuAction[] {
+	const noun = postNoun(kind)
 	const me = useMe()
 	const queryClient = useQueryClient()
 	const navigate = useNavigate()
@@ -49,7 +52,7 @@ export function usePostActions(
 				onSelect: () =>
 					openModal(
 						<ConfirmActionModal
-							title="Delete this Rushmore?"
+							title={`Delete this ${noun}?`}
 							confirmLabel="Delete"
 							danger
 							onConfirm={async () => {
@@ -64,7 +67,7 @@ export function usePostActions(
 							}}
 						>
 							Its likes and comments go with it. You can make a new one for this
-							prompt afterward.
+							{kind === "redraft" ? " class" : " prompt"} afterward.
 						</ConfirmActionModal>,
 					),
 			},
@@ -77,7 +80,7 @@ export function usePostActions(
 			onSelect: () =>
 				openModal(
 					<ReportContentModal
-						title="Report this Rushmore"
+						title={`Report this ${noun}`}
 						submit={async ({ reason, details }) => {
 							const result = (
 								await report.mutateAsync({

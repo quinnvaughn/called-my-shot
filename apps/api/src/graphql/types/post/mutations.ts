@@ -14,9 +14,10 @@ import {
 } from "../../../lib/likes"
 import { buildPickedPortraits } from "../../../lib/portraits/picked"
 import { sendPostComment } from "../../../lib/posts/comment"
+import { createRedraft } from "../../../lib/posts/create-redraft"
 import { createRushmore } from "../../../lib/posts/create-rushmore"
 import { deletePost } from "../../../lib/posts/delete-post"
-import { updateRushmore } from "../../../lib/posts/update-rushmore"
+import { updatePost } from "../../../lib/posts/update-post"
 import { builder } from "../../builder"
 import { CommentGifInput, CommentRef, gifInputOf } from "../comment"
 import { PostInterfaceRef } from "./refs"
@@ -54,10 +55,28 @@ const CreateRushmoreInput = builder.inputType("CreateRushmoreInput", {
 	}),
 })
 
-const UpdateRushmoreInput = builder.inputType("UpdateRushmoreInput", {
+const CreateRedraftInput = builder.inputType("CreateRedraftInput", {
+	fields: (t) => ({
+		promptId: t.id({ required: true }),
+		// Posts into this group instead of for everyone.
+		groupId: t.id({ required: false }),
+		body: t.string({ required: false }),
+		// Slot order, first pick first: as many as one of the class's lengths.
+		playerIds: t.idList({ required: true }),
+	}),
+})
+
+const UpdatePostInput = builder.inputType("UpdatePostInput", {
 	fields: (t) => ({
 		postId: t.id({ required: true }),
 		// An empty string clears it.
+		body: t.string({ required: true }),
+	}),
+})
+
+const UpdateRushmoreInput = builder.inputType("UpdateRushmoreInput", {
+	fields: (t) => ({
+		postId: t.id({ required: true }),
 		body: t.string({ required: true }),
 	}),
 })
@@ -107,6 +126,19 @@ const idOrNull = (id: string | number | null | undefined) =>
 // How long posting waits on its picks' portraits.
 const PORTRAIT_WAIT_MS = 6000
 
+// Portraits for any pick that doesn't have one yet, so the share image has
+// their faces from the start. Capped, since a slow photo CDN shouldn't hold
+// up posting: a portrait that misses the cap still lands in R2 and shows from
+// the next load on.
+async function portraitsFor(playerIds: string[]): Promise<void> {
+	await Promise.race([
+		buildPickedPortraits(playerIds).catch((error) => {
+			console.error("[portraits] building picks failed:", error)
+		}),
+		new Promise((resolve) => setTimeout(resolve, PORTRAIT_WAIT_MS)),
+	])
+}
+
 builder.mutationFields((t) => ({
 	createRushmore: t.field({
 		type: PostPayload,
@@ -114,35 +146,60 @@ builder.mutationFields((t) => ({
 		args: { input: t.arg({ type: CreateRushmoreInput, required: true }) },
 		resolve: async (_root, args, ctx) => {
 			const user = requireUser(ctx)
+			const playerIds = args.input.playerIds.map(String)
 			const post = await createRushmore(user, {
 				promptId: String(args.input.promptId),
 				groupId: idOrNull(args.input.groupId),
 				body: args.input.body ?? "",
-				playerIds: args.input.playerIds.map(String),
+				playerIds,
 			})
-			// Portraits for any pick that doesn't have one yet, so the share image
-			// has their faces from the start. Capped, since a slow photo CDN
-			// shouldn't hold up posting: a portrait that misses the cap still
-			// lands in R2 and shows from the next load on.
-			await Promise.race([
-				buildPickedPortraits(args.input.playerIds.map(String)).catch(
-					(error) => {
-						console.error("[portraits] building picks failed:", error)
-					},
-				),
-				new Promise((resolve) => setTimeout(resolve, PORTRAIT_WAIT_MS)),
-			])
+			await portraitsFor(playerIds)
 			return { post }
 		},
 	}),
 
+	createRedraft: t.field({
+		type: PostPayload,
+		errors: errors("CreateRedraftResult"),
+		args: { input: t.arg({ type: CreateRedraftInput, required: true }) },
+		resolve: async (_root, args, ctx) => {
+			const user = requireUser(ctx)
+			const playerIds = args.input.playerIds.map(String)
+			const post = await createRedraft(user, {
+				promptId: String(args.input.promptId),
+				groupId: idOrNull(args.input.groupId),
+				body: args.input.body ?? "",
+				playerIds,
+			})
+			await portraitsFor(playerIds)
+			return { post }
+		},
+	}),
+
+	updatePost: t.field({
+		type: PostPayload,
+		errors: errors("UpdatePostResult"),
+		args: { input: t.arg({ type: UpdatePostInput, required: true }) },
+		resolve: async (_root, args, ctx) => {
+			const user = requireUser(ctx)
+			const post = await updatePost(user, {
+				postId: String(args.input.postId),
+				body: args.input.body,
+			})
+			return { post }
+		},
+	}),
+
+	// The name updatePost had before posts came in more than one kind. Kept
+	// while web clients from before it are still loaded.
 	updateRushmore: t.field({
+		deprecationReason: "Use updatePost.",
 		type: PostPayload,
 		errors: errors("UpdateRushmoreResult"),
 		args: { input: t.arg({ type: UpdateRushmoreInput, required: true }) },
 		resolve: async (_root, args, ctx) => {
 			const user = requireUser(ctx)
-			const post = await updateRushmore(user, {
+			const post = await updatePost(user, {
 				postId: String(args.input.postId),
 				body: args.input.body,
 			})

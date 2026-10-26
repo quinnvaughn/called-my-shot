@@ -41,6 +41,20 @@ export const AdminPostReportsDocument = graphql(`
 						}
 					}
 				}
+				... on RedraftPost {
+					prompt {
+						id
+						code
+						title
+					}
+					picks {
+						slot
+						player {
+							id
+							name
+						}
+					}
+				}
 			}
 		}
 	}

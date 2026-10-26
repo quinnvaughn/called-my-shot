@@ -3,6 +3,7 @@ import { css } from "styled-system/css"
 import { NotificationShell } from "#/components/notifications/notification-shell"
 import { postTarget } from "#/components/notifications/post-target"
 import { type FragmentType, graphql, useFragment } from "#/graphql/generated"
+import { postKindOf, postNoun } from "#/lib/post-kind"
 import { text } from "./styles"
 import type { RowProps } from "./types"
 
@@ -12,8 +13,15 @@ export const PostCommentedRowFragment = graphql(`
 		createdAt
 		lastCommenterUsername
 		post {
+			__typename
 			id
 			... on RushmorePost {
+				prompt {
+					id
+					title
+				}
+			}
+			... on RedraftPost {
 				prompt {
 					id
 					title
@@ -40,8 +48,8 @@ export function PostCommentedRow({
 			onOpen={onOpen}
 		>
 			<p className={text}>
-				<b>@{n.lastCommenterUsername ?? "someone"}</b> commented on your
-				Rushmore
+				<b>@{n.lastCommenterUsername ?? "someone"}</b> commented on your{" "}
+				{n.post ? postNoun(postKindOf(n.post.__typename)) : "post"}
 			</p>
 			{n.post?.prompt && (
 				<p className={css({ fontSize: "sm", color: "fg.muted" })}>

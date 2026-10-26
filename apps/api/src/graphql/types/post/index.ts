@@ -4,9 +4,15 @@
 // graphql/schema.ts).
 import "./refs"
 import "./prompt-fields"
+import "./redraft-fields"
 import "./comment-fields"
 import "./queries"
 import "./mutations"
 import "./reports"
 
-export { PostConnectionRef, PostInterfaceRef, RushmorePostRef } from "./refs"
+export {
+	PostConnectionRef,
+	PostInterfaceRef,
+	RedraftPostRef,
+	RushmorePostRef,
+} from "./refs"

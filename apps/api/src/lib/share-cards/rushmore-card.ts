@@ -271,7 +271,8 @@ function shareAddress(data: RushmoreCardData): string {
 
 // The app's logo in the top left corner, in its own colors on the app's dark
 // ground: the crosshair's orange would get lost on a red or orange team.
-function logo(layout: RushmoreLayout): SatoriNode {
+// Redraft images share it (redraft-card.ts).
+export function cardLogo(layout: RushmoreLayout): SatoriNode {
 	const landscape = layout === "landscape"
 	const scale = landscape ? 1.1 : 1.5
 	return el(
@@ -393,7 +394,7 @@ function landscapeCard(data: RushmoreCardData): SatoriNode {
 					}),
 				],
 			),
-			logo("landscape"),
+			cardLogo("landscape"),
 			...heads(data, "landscape", palette),
 			footer(data, "landscape", palette),
 		],
@@ -421,7 +422,7 @@ function portraitCard(data: RushmoreCardData): SatoriNode {
 				{ left: 0, top: 620, width, height: height - 620 },
 				palette,
 			),
-			logo("portrait"),
+			cardLogo("portrait"),
 			el(
 				"div",
 				{
@@ -530,7 +531,7 @@ export async function loadPromptCard(
 	code: string,
 ): Promise<RushmoreCardData | null> {
 	const prompt = await db.query.prompts.findFirst({
-		where: { code, removedAt: { isNull: true } },
+		where: { kind: "rushmore", code, removedAt: { isNull: true } },
 		with: { team: true },
 	})
 	if (!prompt) return null

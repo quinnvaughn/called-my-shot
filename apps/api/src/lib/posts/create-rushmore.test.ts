@@ -11,7 +11,7 @@ import {
 } from "../../test/factories"
 import { AuthorizationError, ValidationError } from "../errors"
 import { createRushmore } from "./create-rushmore"
-import { updateRushmore } from "./update-rushmore"
+import { updatePost } from "./update-post"
 
 async function franchise(poolSize = 5) {
 	const league = await makeLeague()
@@ -229,7 +229,7 @@ describe("createRushmore", () => {
 	})
 })
 
-describe("updateRushmore", () => {
+describe("updatePost", () => {
 	it("changes the body and marks it edited", async () => {
 		const { prompt, players } = await franchise()
 		const author = await makeUser()
@@ -238,7 +238,7 @@ describe("updateRushmore", () => {
 			playerIds: picksOf(players),
 		})
 
-		const updated = await updateRushmore(author, {
+		const updated = await updatePost(author, {
 			postId: post.id,
 			body: "Changed my mind on the words.",
 		})
@@ -253,7 +253,7 @@ describe("updateRushmore", () => {
 			playerIds: picksOf(players),
 		})
 		await expect(
-			updateRushmore(await makeUser(), { postId: post.id, body: "Mine now" }),
+			updatePost(await makeUser(), { postId: post.id, body: "Mine now" }),
 		).rejects.toBeInstanceOf(AuthorizationError)
 	})
 })

@@ -1,0 +1,90 @@
+{
+ "drafts": {
+  "draftYear": 2003,
+  "rounds": [
+   {
+    "round": "1",
+    "picks": [
+     {
+      "pickRound": "1",
+      "pickNumber": 1,
+      "isPass": false,
+      "team": {
+       "id": 139,
+       "name": "Tampa Bay Rays"
+      },
+      "person": {
+       "id": 430321,
+       "fullName": "Delmon Young",
+       "mlbDebutDate": "2006-08-29"
+      }
+     },
+     {
+      "pickRound": "1",
+      "pickNumber": 2,
+      "isPass": false,
+      "team": {
+       "id": 158,
+       "name": "Milwaukee Brewers"
+      },
+      "person": {
+       "id": 430001,
+       "fullName": "Rickie Weeks Jr.",
+       "mlbDebutDate": "2003-09-15"
+      }
+     }
+    ]
+   },
+   {
+    "round": "C-1",
+    "picks": [
+     {
+      "pickRound": "C-1",
+      "pickNumber": 31,
+      "isPass": false,
+      "team": {
+       "id": 114,
+       "name": "Cleveland Guardians"
+      },
+      "person": {
+       "id": 449089,
+       "fullName": "Adam Miller"
+      }
+     }
+    ]
+   },
+   {
+    "round": "13",
+    "picks": [
+     {
+      "pickRound": "13",
+      "pickNumber": 369,
+      "isPass": false,
+      "team": {
+       "id": 158,
+       "name": "Milwaukee Brewers"
+      },
+      "person": {
+       "id": 450600,
+       "fullName": "Luke Cannon"
+      }
+     },
+     {
+      "pickRound": "13",
+      "pickNumber": 368,
+      "isPass": false,
+      "team": {
+       "id": 139,
+       "name": "Tampa Bay Rays"
+      },
+      "person": {
+       "id": 435378,
+       "fullName": "Chad Orvella",
+       "mlbDebutDate": "2005-05-31"
+      }
+     }
+    ]
+   }
+  ]
+ }
+}

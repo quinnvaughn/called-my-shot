@@ -3,6 +3,7 @@ import { css } from "styled-system/css"
 import { NotificationShell } from "#/components/notifications/notification-shell"
 import { postTarget } from "#/components/notifications/post-target"
 import { type FragmentType, graphql, useFragment } from "#/graphql/generated"
+import { postKindOf, postNoun } from "#/lib/post-kind"
 import { text } from "./styles"
 import type { RowProps } from "./types"
 
@@ -15,8 +16,15 @@ export const LikesMilestoneRowFragment = graphql(`
 			id
 		}
 		post {
+			__typename
 			id
 			... on RushmorePost {
+				prompt {
+					id
+					title
+				}
+			}
+			... on RedraftPost {
 				prompt {
 					id
 					title
@@ -50,7 +58,13 @@ export function LikesMilestoneRow({
 			onOpen={onOpen}
 		>
 			<p className={text}>
-				Your {n.comment ? "comment" : "Rushmore"} hit <b>{n.likeCount} likes</b>
+				Your{" "}
+				{n.comment
+					? "comment"
+					: n.post
+						? postNoun(postKindOf(n.post.__typename))
+						: "post"}{" "}
+				hit <b>{n.likeCount} likes</b>
 			</p>
 			{n.post?.prompt && (
 				<p className={css({ fontSize: "sm", color: "fg.muted" })}>

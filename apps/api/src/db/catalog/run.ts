@@ -1,5 +1,6 @@
 import { runCli } from "../../lib/run-cli"
 import { syncFlairCatalog } from "./flairs"
+import { syncRedraftPromptCatalog } from "./redraft-prompts"
 import { syncRushmorePromptCatalog } from "./rushmore-prompts"
 import { syncStatCatalog } from "./stats"
 
@@ -20,6 +21,10 @@ async function main() {
 	console.log("[catalog] syncing Rushmore prompts...")
 	const rushmorePrompts = await syncRushmorePromptCatalog()
 	console.log(`[catalog] done - ${rushmorePrompts} franchise prompts`)
+
+	console.log("[catalog] syncing redraft prompts...")
+	const redraftPrompts = await syncRedraftPromptCatalog()
+	console.log(`[catalog] done - ${redraftPrompts} draft class prompts`)
 }
 
 runCli(import.meta.url, main)

@@ -20,9 +20,10 @@ import { teams } from "./teams"
 import { users } from "./users"
 
 // What a post is. Each kind keeps its own content in its own table
-// (rushmore_picks for a Rushmore); posts holds what every kind shares, so
-// feeds, comments, likes and reports work the same for all of them.
-export const postKind = pgEnum("post_kind", ["rushmore"])
+// (rushmore_picks for a Rushmore, redraft_picks for a redraft); posts holds
+// what every kind shares, so feeds, comments, likes and reports work the same
+// for all of them.
+export const postKind = pgEnum("post_kind", ["rushmore", "redraft"])
 export type PostKind = (typeof postKind.enumValues)[number]
 
 // A question people answer with posts: "Celtics Rushmore", "Rushmore of NBA
@@ -33,19 +34,25 @@ export type PostKind = (typeof postKind.enumValues)[number]
 //
 // code is the prompt's public address, /rushmore/{code}, printed on share
 // images, so it reads as what it is: boston-red-sox for a franchise, the
-// title for anyone else's (see lib/prompts/slug.ts).
+// title for anyone else's (see lib/prompts/slug.ts). A redraft's is its
+// class, /redraft/nba-2003. Each kind has its own addresses, so a code is
+// unique within its kind.
 //
 // The prompt's league and team decide who can be picked (the franchise's
 // players, anyone who played in the league, or with neither anyone from any
 // league) and the tags every answer carries (lib/posts/tags.ts). A team
 // always comes with its league. positions (the league's codes) and the
 // played-between years narrow the picks further; see lib/prompts/pool.ts.
+//
+// A redraft prompt is a draft class: its league and draftYear, one per class,
+// all app-made (see syncRedraftPromptCatalog). The class's draft_entries are
+// both its slots and its pool.
 export const prompts = pgTable(
 	"prompts",
 	{
 		id: uuid("id").primaryKey().defaultRandom(),
 		kind: postKind("kind").notNull(),
-		code: text("code").notNull().unique(),
+		code: text("code").notNull(),
 		creatorId: uuid("creator_id").references(() => users.id, {
 			onDelete: "set null",
 		}),
@@ -64,15 +71,21 @@ export const prompts = pgTable(
 		// Calendar years: anyone who played in any of them fits.
 		fromYear: integer("from_year"),
 		toYear: integer("to_year"),
+		draftYear: integer("draft_year"),
 		// An admin taking it down off a report. Its answers go with it.
 		removedAt: timestamp("removed_at"),
 		createdAt: timestamp("created_at").notNull().defaultNow(),
 	},
 	(t) => [
+		unique("prompts_kind_code_unique").on(t.kind, t.code),
 		// One app-made prompt per franchise.
 		uniqueIndex("prompts_system_team_idx")
 			.on(t.kind, t.teamId)
 			.where(sql`${t.creatorId} is null and ${t.teamId} is not null`),
+		// One app-made prompt per draft class.
+		uniqueIndex("prompts_system_draft_idx")
+			.on(t.kind, t.leagueId, t.draftYear)
+			.where(sql`${t.creatorId} is null and ${t.draftYear} is not null`),
 		index("prompts_league_idx").on(t.leagueId),
 		check(
 			"prompts_team_has_league",
@@ -81,6 +94,10 @@ export const prompts = pgTable(
 		check(
 			"prompts_positions_have_league",
 			sql`cardinality(${t.positions}) = 0 or ${t.leagueId} is not null`,
+		),
+		check(
+			"prompts_draft_has_league",
+			sql`${t.draftYear} is null or ${t.leagueId} is not null`,
 		),
 		check(
 			"prompts_years_in_order",
@@ -159,15 +176,39 @@ export const rushmorePicks = pgTable(
 )
 export type RushmorePick = typeof rushmorePicks.$inferSelect
 
+// A redraft's picks, slot 1 first. The slot is the class's own pick number,
+// so slot 3 is whoever held the third pick that year; the team and who it
+// really took come from draft_entries. How many slots a redraft fills is the
+// author's choice of length (lib/drafts/class.ts).
+export const redraftPicks = pgTable(
+	"redraft_picks",
+	{
+		postId: uuid("post_id")
+			.notNull()
+			.references(() => posts.id, { onDelete: "cascade" }),
+		slot: integer("slot").notNull(),
+		playerId: uuid("player_id")
+			.notNull()
+			.references(() => players.id, { onDelete: "cascade" }),
+	},
+	(t) => [
+		primaryKey({ columns: [t.postId, t.slot] }),
+		unique().on(t.postId, t.playerId),
+		index("redraft_picks_player_idx").on(t.playerId),
+		check("redraft_picks_slot", sql`${t.slot} >= 1`),
+	],
+)
+export type RedraftPick = typeof redraftPicks.$inferSelect
+
 // The spaces a post shows up in. Nobody picks these: lib/posts/tags.ts works
 // them out when the post is written and they never change after, so a post
 // about a player stays a post about the team he played for at the time.
 //
 // subject is what the post is about, and carries everything above it (a
 // Celtics Rushmore is a Celtics post and an NBA post). mention is something
-// it names along the way: each player on a Rushmore. Mentions don't pull in
-// their parents, or every Celtics Rushmore with Garnett on it would land in
-// the Timberwolves' space too.
+// it names along the way: each player on a Rushmore or a redraft. Mentions
+// don't pull in their parents, or every Celtics Rushmore with Garnett on it
+// would land in the Timberwolves' space too.
 //
 // spaceId points into leagues, teams or players depending on spaceKind, so
 // there's no FK - the same trade-off as external_refs.entityId.

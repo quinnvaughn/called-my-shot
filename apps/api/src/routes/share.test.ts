@@ -14,9 +14,12 @@ import {
 import { addArcadeDays, arcadeDay } from "../lib/arcade/day"
 import { loadSeasonPuzzleCardData } from "../lib/share-cards/season-puzzle-card"
 import {
+	makeDraftEntry,
 	makeGroup,
 	makeLeague,
 	makePlayer,
+	makeRedraft,
+	makeRedraftPrompt,
 	makeTeam,
 	makeUser,
 	makeUserSeasonStats,
@@ -232,6 +235,51 @@ describe("share routes", () => {
 					.status,
 			).toBe(404)
 		}
+	})
+
+	it("renders a public redraft in both sizes, long or short, and its class's crowd card", async () => {
+		const team = await makeTeam()
+		const prompt = await makeRedraftPrompt(team.leagueId, 2003)
+		const playerIds: string[] = []
+		for (let overall = 1; overall <= 30; overall++) {
+			const player = await makePlayer({ name: `Pick Number${overall}` })
+			await makeDraftEntry({
+				leagueId: team.leagueId,
+				year: 2003,
+				overall,
+				teamId: team.id,
+				playerId: player.id,
+				playerName: player.name,
+			})
+			playerIds.push(player.id)
+		}
+		const short = await makeRedraft({
+			author: await makeUser(),
+			prompt,
+			playerIds: playerIds.slice(0, 5),
+		})
+		const firstRound = await makeRedraft({
+			author: await makeUser(),
+			prompt,
+			playerIds: [...playerIds].reverse(),
+		})
+		for (const post of [short, firstRound]) {
+			await expectPng(`/share/redraft/${post.id}.png`)
+			await expectPng(`/share/redraft/${post.id}/portrait.png`)
+		}
+		await expectPng(`/share/redraft-prompts/${prompt.code}.png`)
+
+		const admin = await makeUser()
+		const group = await makeGroup({ admin })
+		const inGroup = await makeRedraft({
+			author: admin,
+			prompt,
+			groupId: group.id,
+			playerIds: playerIds.slice(0, 5),
+		})
+		expect(
+			(await fetch(`${origin}/share/redraft/${inGroup.id}.png`)).status,
+		).toBe(404)
 	})
 
 	it.each([

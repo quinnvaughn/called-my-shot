@@ -1,6 +1,11 @@
 import { NBA_FRANCHISES } from "./franchise-map"
 import { fetchText } from "./http"
-import type { HistoryPlayer, HistoryStint, Log } from "./types"
+import {
+	HALL_OF_FAME_BONUS,
+	type HistoryPlayer,
+	type HistoryStint,
+	type Log,
+} from "./types"
 import { sparql } from "./wikidata"
 
 // The NBA's all-time pools, from Basketball-Reference: each franchise's
@@ -97,7 +102,7 @@ export function nbaScore(row: BrefFranchiseRow, hallOfFame: boolean): number {
 	return (
 		row.games +
 		(row.points + row.rebounds + row.assists) / 10 +
-		(hallOfFame ? 1_500 : 0)
+		(hallOfFame ? HALL_OF_FAME_BONUS.nba : 0)
 	)
 }
 

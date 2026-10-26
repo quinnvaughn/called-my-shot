@@ -39,7 +39,7 @@ export function RushmoreShareRow({
 				}
 			/>
 			<ShareImageButton
-				postId={postId}
+				imagePath={`/share/rushmore/${encodeURIComponent(postId)}/portrait`}
 				fileName={`${promptTitle.toLowerCase().replace(/[^a-z0-9]+/g, "-")}.png`}
 			/>
 		</HStack>

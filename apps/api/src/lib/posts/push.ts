@@ -1,6 +1,7 @@
 import { and, desc, eq, isNull, ne } from "drizzle-orm"
+import { match } from "ts-pattern"
 import { db } from "../../db"
-import { comments, users } from "../../db/schema"
+import { comments, type PostKind, users } from "../../db/schema"
 import { notBlockedWith } from "./visibility"
 
 // What a post thread's notifications say, read live at send (or render)
@@ -9,15 +10,26 @@ import { notBlockedWith } from "./visibility"
 
 export const postPath = (postId: string) => `/posts/${postId}`
 
+// What a kind of post is called in a sentence: "commented on your redraft".
+export const postNoun = (kind: PostKind) =>
+	match(kind)
+		.with("rushmore", () => "Rushmore")
+		.with("redraft", () => "redraft")
+		.exhaustive()
+
 export async function loadPostForPush(postId: string | null) {
 	if (!postId) return null
 	const post = await db.query.posts.findFirst({
 		where: { id: postId },
-		columns: { id: true, removedAt: true },
+		columns: { id: true, kind: true, removedAt: true },
 		with: { prompt: { columns: { title: true, removedAt: true } } },
 	})
 	if (!post?.prompt || post.removedAt || post.prompt.removedAt) return null
-	return { id: post.id, promptTitle: post.prompt.title }
+	return {
+		id: post.id,
+		promptTitle: post.prompt.title,
+		noun: postNoun(post.kind),
+	}
 }
 
 // Who commented on the post last (top level), other than the recipient and

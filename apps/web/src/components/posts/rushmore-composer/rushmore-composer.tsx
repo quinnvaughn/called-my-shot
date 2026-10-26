@@ -78,6 +78,7 @@ export function RushmoreComposer({
 							onChange={() => onPromptChange(null)}
 						/>
 						<AudienceSelect
+							kind="rushmore"
 							groups={groups}
 							value={groupId}
 							onChange={setGroupId}
@@ -87,6 +88,7 @@ export function RushmoreComposer({
 			</VStack>
 			{prompt?.viewerAnswer && (
 				<AlreadyAnsweredNotice
+					kind="rushmore"
 					postId={prompt.viewerAnswer.id}
 					audience={audience}
 				/>

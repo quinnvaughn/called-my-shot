@@ -39,10 +39,17 @@ export function PostReportRow({
 	const removePost = useGqlMutation(AdminRemovePostDocument)
 	const removePrompt = useGqlMutation(AdminRemovePromptDocument)
 	const post = report.post
-	const prompt = post.__typename === "RushmorePost" ? post.prompt : null
-	const picks =
-		post.__typename === "RushmorePost"
-			? [...post.picks].sort((a, b) => a.position - b.position)
+	// A redraft's prompt is a draft class the app made, so there's no title
+	// anyone wrote to take down; only a Rushmore's can be removed.
+	const rushmore = post.__typename === "RushmorePost" ? post : null
+	const redraft = post.__typename === "RedraftPost" ? post : null
+	const prompt = rushmore?.prompt ?? null
+	const picks = rushmore
+		? [...rushmore.picks]
+				.sort((a, b) => a.position - b.position)
+				.map((pick) => `${pick.position}. ${pick.player.name}`)
+		: redraft
+			? redraft.picks.map((pick) => `${pick.slot}. ${pick.player.name}`)
 			: []
 
 	async function run(
@@ -89,12 +96,13 @@ export function PostReportRow({
 						{prompt.isFranchise ? " (franchise prompt)" : ""}
 					</span>
 				)}
-				{picks.length > 0 && (
-					<span className={metaClass}>
-						{picks
-							.map((pick) => `${pick.position}. ${pick.player.name}`)
-							.join(" · ")}
+				{redraft && (
+					<span className={css({ fontSize: "sm" })}>
+						Redraft of the {redraft.prompt.title}
 					</span>
+				)}
+				{picks.length > 0 && (
+					<span className={metaClass}>{picks.join(" · ")}</span>
 				)}
 				{post.body && (
 					<p
@@ -131,6 +139,15 @@ export function PostReportRow({
 							className={linkClass}
 						>
 							Open the prompt
+						</Link>
+					)}
+					{redraft && (
+						<Link
+							to="/redraft/$code"
+							params={{ code: redraft.prompt.code }}
+							className={linkClass}
+						>
+							Open the class
 						</Link>
 					)}
 				</HStack>

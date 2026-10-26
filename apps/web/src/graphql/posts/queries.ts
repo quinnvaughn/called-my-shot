@@ -1,5 +1,6 @@
 // Reads for posts and their prompts: every feed a PostFeed renders, a post's
-// page and thread, a prompt's page, and what the Rushmore composer searches.
+// page and thread, and a prompt's page (a Rushmore prompt's or a draft
+// class's).
 import type { TypedDocumentNode } from "@graphql-typed-document-node/core"
 import { infiniteQueryOptions } from "@tanstack/react-query"
 import { getOperationName, gqlFetch } from "#/graphql/fetcher"
@@ -24,6 +25,7 @@ export const PostCardFragment = graphql(`
 		__typename
 		id
 		...RushmorePostCard_post
+		...RedraftPostCard_post
 	}
 `)
 
@@ -198,8 +200,8 @@ export const popularRushmoresQuery = () =>
 		(result) => result.popularRushmores,
 	)
 
-// A Rushmore's page: the four faces, the words, who posted it and where, and
-// the franchise color its band is drawn in.
+// A post's page: its picks (a Rushmore's four faces, or a redraft's slots),
+// the words, who posted it and where, and the color it's drawn in.
 export const PostPageDocument = graphql(`
 	query PostPage($postId: ID!) {
 		gifsEnabled
@@ -237,6 +239,7 @@ export const PostPageDocument = graphql(`
 					answerCount
 					isFranchise
 					viewerAnswer {
+						__typename
 						id
 						... on RushmorePost {
 							picks {
@@ -270,6 +273,51 @@ export const PostPageDocument = graphql(`
 					}
 				}
 			}
+			... on RedraftPost {
+				prompt {
+					id
+					code
+					title
+					color
+					draftYear
+					answerCount
+					viewerAnswer {
+						__typename
+						id
+						... on RedraftPost {
+							picks {
+								slot
+								player {
+									id
+								}
+							}
+						}
+					}
+					league {
+						id
+						slug
+						abbreviation
+					}
+				}
+				picks {
+					slot
+					sharePercent
+					originalOverall
+					slotTeamName
+					slotTeam {
+						id
+						abbreviation
+						color
+						logoUrl
+					}
+					player {
+						id
+						name
+						portraitUrl
+						headshotUrl
+					}
+				}
+			}
 		}
 	}
 `)
@@ -292,6 +340,106 @@ export const PromptPublicAnswerDocument = graphql(`
 
 export const promptPublicAnswerQuery = (code: string, username: string) =>
 	gqlQueryOptions(PromptPublicAnswerDocument, { code, username })
+
+// Someone's public redraft of a class, by username: what
+// /redraft/{code}/{username} on its share image opens.
+export const RedraftPublicAnswerDocument = graphql(`
+	query RedraftPublicAnswer($code: String!, $username: String!) {
+		redraftPrompt(code: $code) {
+			id
+			publicAnswerBy(username: $username) {
+				id
+			}
+		}
+	}
+`)
+
+export const redraftPublicAnswerQuery = (code: string, username: string) =>
+	gqlQueryOptions(RedraftPublicAnswerDocument, { code, username })
+
+// A draft class's page and its crowd card: the crowd's redraft at the
+// class's default length, how many redrafts there are, the real picks to
+// set it against, and whether the viewer has posted one for everyone.
+export const RedraftPromptPageDocument = graphql(`
+	query RedraftPromptPage($code: String!) {
+		redraftPrompt(code: $code) {
+			id
+			code
+			title
+			color
+			draftYear
+			answerCount
+			league {
+				id
+				slug
+				name
+				abbreviation
+			}
+			lengths {
+				count
+				label
+				isDefault
+			}
+			consensus {
+				slot
+				sharePercent
+				originalOverall
+				player {
+					id
+					name
+					portraitUrl
+					headshotUrl
+				}
+			}
+			slots {
+				slot
+				teamName
+				playerName
+				team {
+					id
+					abbreviation
+					color
+					logoUrl
+				}
+			}
+			viewerAnswer {
+				id
+			}
+		}
+	}
+`)
+
+export const redraftPromptPageQuery = (code: string) =>
+	gqlQueryOptions(RedraftPromptPageDocument, { code })
+
+export const RedraftAnswersDocument = graphql(`
+	query RedraftAnswers(
+		$code: String!
+		$sort: AnswerSort
+		$first: Int
+		$after: String
+	) {
+		redraftPrompt(code: $code) {
+			id
+			answers(sort: $sort, first: $first, after: $after) {
+				...PostFeed_connection @unmask
+			}
+		}
+	}
+`)
+
+export const redraftAnswersQuery = ({
+	code,
+	sort,
+}: {
+	code: string
+	sort: AnswerSort
+}) =>
+	postFeedOptions(
+		RedraftAnswersDocument,
+		{ code, sort, first: FEED_PAGE_SIZE },
+		(result) => result.redraftPrompt?.answers ?? EMPTY_CONNECTION,
+	)
 
 // A prompt's page and its consensus card: the four players on the most
 // answers, how many answers there are, and whether the viewer has posted one
