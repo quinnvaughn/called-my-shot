@@ -34,3 +34,11 @@ export function isArcadeDay(value: string): boolean {
 		DateTime.fromISO(value, { zone: SPORTS_TIME_ZONE }).isValid
 	)
 }
+
+// When `day` begins in the sports time zone, for games scored by when they
+// were finished rather than by a puzzle's play_date.
+export function arcadeDayStart(day: string): Date {
+	return DateTime.fromISO(day, { zone: SPORTS_TIME_ZONE })
+		.startOf("day")
+		.toJSDate()
+}

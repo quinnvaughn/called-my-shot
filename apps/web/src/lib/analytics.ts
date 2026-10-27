@@ -30,6 +30,7 @@ export type StartGroupSurface =
 	| "season_puzzle"
 	| "blind_rank"
 	| "teammate_chain"
+	| "were_you_watching"
 	| "home_intro"
 	| "rail"
 	| "spaces"
@@ -126,6 +127,7 @@ type AnalyticsEvents = {
 			| "season_puzzle"
 			| "blind_rank"
 			| "teammate_chain"
+			| "were_you_watching"
 		resumedAfterGoogle?: boolean
 	}
 	// Name That Season. `date` is the puzzle's day. A finished game's result is
@@ -189,6 +191,39 @@ type AnalyticsEvents = {
 		toGroup: boolean
 	}
 	chain_next_step_clicked: {
+		step: "sign_up" | "join_group" | "start_group" | "group_board" | "calls"
+	}
+	// Were You Watching?. `league` and `team` are the quiz's slugs, `code`
+	// its game's day.
+	watch_quiz_started: {
+		league: string
+		team: string
+		code: string
+		signedIn: boolean
+	}
+	watch_question_answered: {
+		code: string
+		index: number
+		correct: boolean
+		timedOut: boolean
+	}
+	watch_tab_hidden: { code: string; index: number }
+	watch_quiz_finished: {
+		league: string
+		team: string
+		code: string
+		correct: number
+		total: number
+		seconds: number
+		clean: boolean
+		signedIn: boolean
+	}
+	watch_result_shared: {
+		code: string
+		method: "clipboard" | "native" | "x"
+		toGroup: boolean
+	}
+	watch_next_step_clicked: {
 		step: "sign_up" | "join_group" | "start_group" | "group_board" | "calls"
 	}
 	// `surface` separates the header's Invite modal from the inline card small

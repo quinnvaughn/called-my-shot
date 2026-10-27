@@ -1,5 +1,5 @@
 import type { IconType } from "react-icons"
-import { FaCalendarDays, FaLink, FaListOl } from "react-icons/fa6"
+import { FaCalendarDays, FaLink, FaListOl, FaTv } from "react-icons/fa6"
 
 export type ArcadeGame = {
 	slug: string
@@ -30,5 +30,12 @@ export const ARCADE_GAMES: ArcadeGame[] = [
 		description:
 			"Two players, one chain of teammates between them. Connect them in as few links as you can.",
 		icon: FaLink,
+	},
+	{
+		slug: "were-you-watching",
+		name: "Were You Watching?",
+		description:
+			"Box score questions on your team's last game. Four choices, 10 seconds each.",
+		icon: FaTv,
 	},
 ]

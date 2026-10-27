@@ -36,6 +36,7 @@
     "seasons:archive": "tsx --env-file=.env scripts/archive-seasons.ts",
     "seasons:schedule": "tsx --env-file=.env src/lib/season-puzzles/schedule.ts",
     "chain:schedule": "tsx --env-file=.env src/lib/teammate-chain/schedule.ts",
+    "build:watch-quizzes": "tsx --env-file=.env src/lib/were-you-watching/generate.ts",
     "db:sync-catalog": "tsx --env-file=.env src/db/catalog/run.ts",
     "release": "drizzle-kit migrate && tsx src/db/catalog/run.ts"
   },

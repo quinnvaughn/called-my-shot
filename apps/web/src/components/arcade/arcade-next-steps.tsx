@@ -12,6 +12,7 @@ import {
 	arcadeInviteGroupQuery,
 	arcadeViewerGroupsQuery,
 } from "#/graphql/arcade/queries"
+import { watchViewerGroupsQuery } from "#/graphql/were-you-watching/queries"
 import { useJoinGroupFlow } from "#/hooks/use-join-group-flow"
 import { useMe } from "#/hooks/use-me"
 import { useRequireAuth } from "#/hooks/use-require-auth"
@@ -28,14 +29,17 @@ import { NextStepCard } from "./next-step-card"
 
 // What comes after a finished arcade game: keeping the result (an account)
 // and playing it with friends (a group). The game is the way in; this is
-// where it leads.
+// where it leads. Were You Watching? has a quiz per team rather than one a
+// day, so its groups are counted on `watchQuizId`.
 export function ArcadeNextSteps({
 	game,
+	watchQuizId,
 	resultUrl,
 	onStep,
 	onShared,
 }: {
 	game: ArcadeGameKey
+	watchQuizId?: string
 	resultUrl: string
 	onStep: (step: NextStep) => void
 	onShared: (method: ShareMethod) => void
@@ -55,12 +59,42 @@ export function ArcadeNextSteps({
 	})
 	const { data: groupsData } = useQuery({
 		...arcadeViewerGroupsQuery,
-		enabled: !!me,
+		enabled: !!me && game !== "watch",
+	})
+	const { data: watchGroupsData } = useQuery({
+		...watchViewerGroupsQuery(watchQuizId ?? ""),
+		enabled: !!me && game === "watch" && !!watchQuizId,
 	})
 
 	const invited = inviteData?.groupPreview
 	const inviteGroup = invited && !invited.viewerIsMember ? invited : null
-	const groups = groupsData?.myGroups ?? []
+	// Each group with its members' statuses on what was just played.
+	const groups =
+		game === "watch"
+			? (watchGroupsData?.myGroups ?? []).map((group) => ({
+					group,
+					statuses: (group.watchQuizBoard?.members ?? []).map((m) => m.status),
+				}))
+			: (groupsData?.myGroups ?? []).map((group) => ({
+					group,
+					statuses: (
+						match(game)
+							.with("season", () => group.seasonPuzzleBoard?.today)
+							.with("rank", () => group.rankBoard?.today)
+							.with("chain", () => group.teammateChainBoard?.today)
+							.exhaustive() ?? []
+					).map((m) => m.status),
+				}))
+	const saveCopy =
+		game === "watch"
+			? {
+					title: "Save your result",
+					body: "Sign up and your score goes on this quiz's board. Your account also lets you call real games and compete with your friends in a group.",
+				}
+			: {
+					title: "Save today's result",
+					body: "Sign up and today counts as day one of your streak. Your account also lets you call real games and compete with your friends in a group.",
+				}
 
 	function signUp() {
 		onStep("sign_up")
@@ -70,9 +104,11 @@ export function ArcadeNextSteps({
 				surface={surface}
 				copy={{
 					signup: {
-						title: "Save today's result",
+						title: saveCopy.title,
 						description:
-							"Today counts as day one of your streak. Your account also lets you call real games and compete with your friends.",
+							game === "watch"
+								? "Your score goes on this quiz's board. Your account also lets you call real games and compete with your friends."
+								: "Today counts as day one of your streak. Your account also lets you call real games and compete with your friends.",
 					},
 				}}
 			/>,
@@ -109,8 +145,8 @@ export function ArcadeNextSteps({
 
 			{!me && (
 				<NextStepCard
-					title="Save today's result"
-					body="Sign up and today counts as day one of your streak. Your account also lets you call real games and compete with your friends in a group."
+					title={saveCopy.title}
+					body={saveCopy.body}
 					action={
 						<Button variant="solid" onClick={signUp}>
 							Sign up
@@ -152,20 +188,14 @@ export function ArcadeNextSteps({
 					>
 						Your groups
 					</div>
-					{groups.map((group) => {
-						const today =
-							match(game)
-								.with("season", () => group.seasonPuzzleBoard?.today)
-								.with("rank", () => group.rankBoard?.today)
-								.with("chain", () => group.teammateChainBoard?.today)
-								.exhaustive() ?? []
+					{groups.map(({ group, statuses }) => {
 						return (
 							<ArcadeGroupRow
 								key={group.id}
 								game={game}
 								group={group}
-								played={today.filter((m) => m.status !== "NOT_PLAYED").length}
-								members={today.length}
+								played={statuses.filter((s) => s !== "NOT_PLAYED").length}
+								members={statuses.length}
 								resultUrl={resultUrl}
 								onShared={onShared}
 								onOpened={() => onStep("group_board")}

@@ -5,12 +5,14 @@ import { VStack } from "styled-system/jsx"
 import { PostFeed } from "#/components/posts/post-feed"
 import { PromptConsensusCard } from "#/components/posts/prompt-consensus-card"
 import { TeamSpaceHeader } from "#/components/teams/team-space-header"
+import { TeamWatchCard } from "#/components/teams/team-watch-card"
 import { Breadcrumb } from "#/components/ui/breadcrumb"
 import { EmptyState } from "#/components/ui/empty-state"
 import { NotFound } from "#/components/ui/not-found"
 import { SectionLabel } from "#/components/ui/section-label"
 import { promptPageQuery, spaceFeedQuery } from "#/graphql/posts/queries"
 import { leagueTeamSpaceQuery } from "#/graphql/sports/leagues/queries"
+import { watchTeamQuizQuery } from "#/graphql/were-you-watching/queries"
 import { pageMeta } from "#/lib/meta"
 import { teamSlug } from "#/lib/team-slug"
 
@@ -45,6 +47,9 @@ export const Route = createFileRoute(
 			promptCode
 				? context.queryClient.query(promptPageQuery(promptCode))
 				: null,
+			context.queryClient.query(
+				watchTeamQuizQuery(params.leagueSlug, params.teamSlug),
+			),
 		])
 		return { team: { name: team.name } }
 	},
@@ -98,6 +103,7 @@ function RouteComponent() {
 				<Breadcrumb.Current>{team.name}</Breadcrumb.Current>
 			</Breadcrumb>
 			<TeamSpaceHeader team={team} leagueAbbreviation={league.abbreviation} />
+			<TeamWatchCard leagueSlug={leagueSlug} teamSlug={slug} />
 			{promptCode && <PromptConsensusCard code={promptCode} />}
 			<VStack gap="3" alignItems="stretch">
 				<SectionLabel>Feed</SectionLabel>

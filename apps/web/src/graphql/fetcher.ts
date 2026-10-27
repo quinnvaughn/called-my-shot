@@ -64,6 +64,9 @@ type GqlFetchOptions = {
 	 */
 	cookie?: string
 	signal?: AbortSignal
+	// Lets the request finish after the page is hidden or closed, for a
+	// report sent on the way out.
+	keepalive?: boolean
 }
 
 export async function gqlFetch<TResult, TVariables>(
@@ -82,6 +85,7 @@ export async function gqlFetch<TResult, TVariables>(
 		// `aborted` error overlay. Production has no overlay, so it keeps the
 		// cancellation and the upstream work it saves.
 		signal: import.meta.env.DEV ? undefined : options.signal,
+		keepalive: options.keepalive,
 		headers: {
 			"content-type": "application/json",
 			...(options.cookie ? { cookie: options.cookie } : {}),

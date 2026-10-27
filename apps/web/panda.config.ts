@@ -117,6 +117,7 @@ export default defineConfig({
           indigo: { value: "#4F46E5" }, // Name That Season's color; ink on it is 5.9:1
           magenta: { value: "#C026D3" }, // Blind Rank's color; ink on it is 4.9:1
           teal: { value: "#0F766E" }, // Teammate Chain's color; ink on it is 4.9:1
+          wine: { value: "#9F1239" }, // Were You Watching?'s color; ink on it is 7.1:1
           skyMuted: { value: "#162633" }, // pale sky-tinted background — pitched at verifiedMuted's luminance, so sky-on-skyMuted holds ~7.8:1
           // Same color as verifiedVibrant below — the light theme split these in
           // two only because #34D399 as *text* on white measured ~1.9:1 (illegible;
@@ -252,6 +253,11 @@ export default defineConfig({
           // Teammate Chain's own color, the same way.
           chain: {
             default: { value: "{colors.teal}" },
+            ink: { value: "{colors.ink}" },
+          },
+          // Were You Watching?'s own color, the same way.
+          watch: {
+            default: { value: "{colors.wine}" },
             ink: { value: "{colors.ink}" },
           },
           secondary: {

@@ -1,8 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router"
+import { css } from "styled-system/css"
 import { VStack } from "styled-system/jsx"
 import { BlindRankHubCard } from "#/components/arcade/blind-rank/blind-rank-hub-card"
 import { NameThatSeasonHubCard } from "#/components/arcade/name-that-season/name-that-season-hub-card"
 import { TeammateChainHubCard } from "#/components/arcade/teammate-chain/teammate-chain-hub-card"
+import { WatchHubCard } from "#/components/arcade/were-you-watching/watch-hub-card"
 import { PageHeader } from "#/components/ui/page-header"
 import { rankPuzzleTodayQuery } from "#/graphql/blind-rank/queries"
 import { seasonPuzzleTodayQuery } from "#/graphql/season-puzzles/queries"
@@ -36,6 +38,7 @@ export const Route = createFileRoute("/_app/arcade/")({
 				chain
 					? `Teammate Chain: today's is ${chain.start.player.name} to ${chain.target.player.name}. Connect them through teammates in as few links as you can.`
 					: "Teammate Chain: connect two players through teammates in as few links as you can.",
+				"Were You Watching?: a quiz on your team's last game, four choices and 10 seconds each.",
 			].join(" "),
 			path: "/arcade",
 		})
@@ -46,9 +49,18 @@ function RouteComponent() {
 	return (
 		<VStack gap="6" alignItems="stretch">
 			<PageHeader title="Arcade" subtitle="Sports games" />
-			<NameThatSeasonHubCard />
-			<BlindRankHubCard />
-			<TeammateChainHubCard />
+			<div
+				className={css({
+					display: "grid",
+					gridTemplateColumns: { base: "1fr", lg: "1fr 1fr" },
+					gap: "4",
+				})}
+			>
+				<NameThatSeasonHubCard />
+				<BlindRankHubCard />
+				<TeammateChainHubCard />
+				<WatchHubCard />
+			</div>
 		</VStack>
 	)
 }

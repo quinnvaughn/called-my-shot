@@ -10,7 +10,11 @@ import {
 	type TeamGameStat,
 	teamGameStats,
 } from "../schema"
-import { defaultStatParser, type ParsedBoxScore } from "./box-score-parse"
+import {
+	defaultStatParser,
+	type ParsedBoxScore,
+	parseStatNumber,
+} from "./box-score-parse"
 import { scopedSourceId } from "./sync-refs"
 
 // Postgres caps a statement at 65535 bindings. An NFL game is the biggest at
@@ -75,7 +79,7 @@ function numericFor(
 }
 
 // Stores one final box score in full: every athlete's every cell, both teams'
-// team-box cells, and the player tables' totals rows. Replaces the game's rows
+// team-box cells, the player tables' totals rows, and the linescores. Replaces the game's rows
 // wholesale rather than upserting, the same way saveStarters replaces a game's
 // starters - it's the only strategy that handles ESPN dropping a column or a
 // player during the stat correction the 24h re-check exists to catch.
@@ -160,6 +164,7 @@ export async function persistBoxScore(args: {
 					sourceAthleteId,
 					playerId,
 					didNotPlay: athlete.didNotPlay,
+					starter: athlete.starter,
 					statKey,
 					valueText,
 					valueNumeric: numericFor(parsers, "athlete", statKey, valueText),
@@ -203,6 +208,20 @@ export async function persistBoxScore(args: {
 			),
 		)
 		collectTeamRows("player_table_total", "player_table_total", box.tableTotals)
+		for (const [espnTeamId, periods] of box.periodScores) {
+			const side = sideOf(espnTeamId)
+			if (!side) continue
+			for (const [statKey, valueText] of periods) {
+				teamRows.push({
+					...common,
+					...side,
+					scope: "period",
+					statKey,
+					valueText,
+					valueNumeric: parseStatNumber(valueText),
+				})
+			}
+		}
 
 		await tx.delete(playerGameStats).where(eq(playerGameStats.gameId, game.id))
 		await tx.delete(teamGameStats).where(eq(teamGameStats.gameId, game.id))

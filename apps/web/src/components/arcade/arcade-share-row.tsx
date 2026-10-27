@@ -49,6 +49,11 @@ export function ArcadeShareRow({
 						() =>
 							"Everyone connects the same two players today. Send them your link and see whose route is shorter.",
 					)
+					.with(
+						"watch",
+						() =>
+							"Everyone gets the same questions until the team plays again. Send them your link and see who was really watching.",
+					)
 					.exhaustive()}
 			>
 				<SendToFriendsRow

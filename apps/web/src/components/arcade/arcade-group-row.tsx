@@ -99,7 +99,8 @@ export function ArcadeGroupRow({
 						{group.name}
 					</span>
 					<span className={css({ textStyle: "label", color: "fg.muted" })}>
-						{played} of {members} {pluralize(members, "member")} played today
+						{played} of {members} {pluralize(members, "member")} played{" "}
+						{game === "watch" ? "this quiz" : "today"}
 					</span>
 				</span>
 			</Link>

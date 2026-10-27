@@ -87,6 +87,7 @@ import { Route as AppAuthedRushmoreNewRouteImport } from './routes/_app/_authed/
 import { Route as AppArcadeBlindRankIndexRouteImport } from './routes/_app/arcade/blind-rank/index'
 import { Route as AppArcadeNameThatSeasonIndexRouteImport } from './routes/_app/arcade/name-that-season/index'
 import { Route as AppArcadeTeammateChainIndexRouteImport } from './routes/_app/arcade/teammate-chain/index'
+import { Route as AppArcadeWereYouWatchingIndexRouteImport } from './routes/_app/arcade/were-you-watching/index'
 import { Route as AppBallotsBallotSlugUsernameRouteImport } from './routes/_app/ballots/$ballotSlug_.$username'
 import { Route as AppChallengesCodePlayRouteImport } from './routes/_app/challenges/$code_.play'
 import { Route as AppGamesGameIdChar123SlugChar125RouteImport } from './routes/_app/games/$gameId.{-$slug}'
@@ -129,6 +130,7 @@ import { Route as AppLeaguesLeagueSlugTeamsTeamSlugRouteImport } from './routes/
 import { Route as ShareBlindRankDateResultCardDotpngRouteImport } from './routes/share/blind-rank/$date/$result/card[.]png'
 import { Route as ShareNameThatSeasonDateResultCardDotpngRouteImport } from './routes/share/name-that-season/$date/$result/card[.]png'
 import { Route as ShareTeammateChainDateResultCardDotpngRouteImport } from './routes/share/teammate-chain/$date/$result/card[.]png'
+import { Route as ShareWereYouWatchingLeagueSlugTeamSlugCardDotpngRouteImport } from './routes/share/were-you-watching/$leagueSlug/$teamSlug/card[.]png'
 import { Route as AppAuthedGroupsGroupIdTabsIndexRouteImport } from './routes/_app/_authed/groups/$groupId/_tabs/index'
 import { Route as AppAuthedGroupsGroupIdTabsArcadeRouteImport } from './routes/_app/_authed/groups/$groupId/_tabs/arcade'
 import { Route as AppAuthedGroupsGroupIdTabsChainsRouteImport } from './routes/_app/_authed/groups/$groupId/_tabs/chains'
@@ -139,6 +141,7 @@ import { Route as AppAuthedGroupsGroupIdBallotsBallotSlugRouteImport } from './r
 import { Route as AppAuthedGroupsGroupIdChainsChainIdRouteImport } from './routes/_app/_authed/groups/$groupId/chains/$chainId'
 import { Route as AppAuthedGroupsGroupIdGamesGameIdRouteImport } from './routes/_app/_authed/groups/$groupId/games/$gameId'
 import { Route as AppAuthedGroupsGroupIdRecapsTokenRouteImport } from './routes/_app/_authed/groups/$groupId/recaps/$token'
+import { Route as AppArcadeWereYouWatchingLeagueSlugTeamSlugIndexRouteImport } from './routes/_app/arcade/were-you-watching/$leagueSlug.$teamSlug.index'
 import { Route as AppUserUsernameReportCardsLeagueWindowKeyRouteImport } from './routes/_app/user/$username_.report-cards.$league.$windowKey'
 import { Route as AppUserUsernameSweepsLeagueSlateKeyRouteImport } from './routes/_app/user/$username_.sweeps.$league.$slateKey'
 import { Route as ShareBallotsBallotSlugUsersUsernameCardDotpngRouteImport } from './routes/share/ballots/$ballotSlug/users/$username/card[.]png'
@@ -146,8 +149,11 @@ import { Route as ShareChallengesCodeVsUsernameCardDotpngRouteImport } from './r
 import { Route as ShareGamesGameIdUsersUsernameCardDotpngRouteImport } from './routes/share/games/$gameId/users/$username/card[.]png'
 import { Route as ShareReportCardsUsernameLeagueWindowKeyCardDotpngRouteImport } from './routes/share/report-cards/$username/$league/$windowKey/card[.]png'
 import { Route as ShareSweepsUsernameLeagueSlateKeyCardDotpngRouteImport } from './routes/share/sweeps/$username/$league/$slateKey/card[.]png'
+import { Route as AppArcadeWereYouWatchingLeagueSlugTeamSlugCodeIndexRouteImport } from './routes/_app/arcade/were-you-watching/$leagueSlug.$teamSlug.$code.index'
+import { Route as AppArcadeWereYouWatchingLeagueSlugTeamSlugCodeResultRouteImport } from './routes/_app/arcade/were-you-watching/$leagueSlug.$teamSlug.$code.$result'
 import { Route as AppUserUsernameStreaksLeagueFamilyModeRouteImport } from './routes/_app/user/$username_.streaks.$league.$family.$mode'
 import { Route as ShareStreaksUsernameLeagueFamilyModeCardDotpngRouteImport } from './routes/share/streaks/$username/$league/$family/$mode/card[.]png'
+import { Route as ShareWereYouWatchingLeagueSlugTeamSlugCodeResultCardDotpngRouteImport } from './routes/share/were-you-watching/$leagueSlug/$teamSlug/$code/$result/card[.]png'
 
 const AppRoute = AppRouteImport.update({
   id: '/_app',
@@ -540,6 +546,12 @@ const AppArcadeTeammateChainIndexRoute =
     path: '/arcade/teammate-chain/',
     getParentRoute: () => AppRoute,
   } as any)
+const AppArcadeWereYouWatchingIndexRoute =
+  AppArcadeWereYouWatchingIndexRouteImport.update({
+    id: '/arcade/were-you-watching/',
+    path: '/arcade/were-you-watching/',
+    getParentRoute: () => AppRoute,
+  } as any)
 const AppBallotsBallotSlugUsernameRoute =
   AppBallotsBallotSlugUsernameRouteImport.update({
     id: '/ballots/$ballotSlug_/$username',
@@ -785,6 +797,12 @@ const ShareTeammateChainDateResultCardDotpngRoute =
     path: '/share/teammate-chain/$date/$result/card.png',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ShareWereYouWatchingLeagueSlugTeamSlugCardDotpngRoute =
+  ShareWereYouWatchingLeagueSlugTeamSlugCardDotpngRouteImport.update({
+    id: '/share/were-you-watching/$leagueSlug/$teamSlug/card.png',
+    path: '/share/were-you-watching/$leagueSlug/$teamSlug/card.png',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const AppAuthedGroupsGroupIdTabsIndexRoute =
   AppAuthedGroupsGroupIdTabsIndexRouteImport.update({
     id: '/',
@@ -845,6 +863,12 @@ const AppAuthedGroupsGroupIdRecapsTokenRoute =
     path: '/groups/$groupId/recaps/$token',
     getParentRoute: () => AppAuthedRoute,
   } as any)
+const AppArcadeWereYouWatchingLeagueSlugTeamSlugIndexRoute =
+  AppArcadeWereYouWatchingLeagueSlugTeamSlugIndexRouteImport.update({
+    id: '/arcade/were-you-watching/$leagueSlug/$teamSlug/',
+    path: '/arcade/were-you-watching/$leagueSlug/$teamSlug/',
+    getParentRoute: () => AppRoute,
+  } as any)
 const AppUserUsernameReportCardsLeagueWindowKeyRoute =
   AppUserUsernameReportCardsLeagueWindowKeyRouteImport.update({
     id: '/user/$username_/report-cards/$league/$windowKey',
@@ -887,6 +911,18 @@ const ShareSweepsUsernameLeagueSlateKeyCardDotpngRoute =
     path: '/share/sweeps/$username/$league/$slateKey/card.png',
     getParentRoute: () => rootRouteImport,
   } as any)
+const AppArcadeWereYouWatchingLeagueSlugTeamSlugCodeIndexRoute =
+  AppArcadeWereYouWatchingLeagueSlugTeamSlugCodeIndexRouteImport.update({
+    id: '/arcade/were-you-watching/$leagueSlug/$teamSlug/$code/',
+    path: '/arcade/were-you-watching/$leagueSlug/$teamSlug/$code/',
+    getParentRoute: () => AppRoute,
+  } as any)
+const AppArcadeWereYouWatchingLeagueSlugTeamSlugCodeResultRoute =
+  AppArcadeWereYouWatchingLeagueSlugTeamSlugCodeResultRouteImport.update({
+    id: '/arcade/were-you-watching/$leagueSlug/$teamSlug/$code/$result',
+    path: '/arcade/were-you-watching/$leagueSlug/$teamSlug/$code/$result',
+    getParentRoute: () => AppRoute,
+  } as any)
 const AppUserUsernameStreaksLeagueFamilyModeRoute =
   AppUserUsernameStreaksLeagueFamilyModeRouteImport.update({
     id: '/user/$username_/streaks/$league/$family/$mode',
@@ -897,6 +933,12 @@ const ShareStreaksUsernameLeagueFamilyModeCardDotpngRoute =
   ShareStreaksUsernameLeagueFamilyModeCardDotpngRouteImport.update({
     id: '/share/streaks/$username/$league/$family/$mode/card.png',
     path: '/share/streaks/$username/$league/$family/$mode/card.png',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ShareWereYouWatchingLeagueSlugTeamSlugCodeResultCardDotpngRoute =
+  ShareWereYouWatchingLeagueSlugTeamSlugCodeResultCardDotpngRouteImport.update({
+    id: '/share/were-you-watching/$leagueSlug/$teamSlug/$code/$result/card.png',
+    path: '/share/were-you-watching/$leagueSlug/$teamSlug/$code/$result/card.png',
     getParentRoute: () => rootRouteImport,
   } as any)
 
@@ -1006,6 +1048,7 @@ export interface FileRoutesByFullPath {
   '/arcade/blind-rank/': typeof AppArcadeBlindRankIndexRoute
   '/arcade/name-that-season/': typeof AppArcadeNameThatSeasonIndexRoute
   '/arcade/teammate-chain/': typeof AppArcadeTeammateChainIndexRoute
+  '/arcade/were-you-watching/': typeof AppArcadeWereYouWatchingIndexRoute
   '/leagues/$leagueSlug/': typeof AppLeaguesLeagueSlugIndexRoute
   '/admin/data/$leagueId/': typeof AdminDataLeagueIdIndexRoute
   '/groups/$groupId': typeof AppAuthedGroupsGroupIdTabsRouteWithChildren
@@ -1019,6 +1062,7 @@ export interface FileRoutesByFullPath {
   '/share/blind-rank/$date/$result/card.png': typeof ShareBlindRankDateResultCardDotpngRoute
   '/share/name-that-season/$date/$result/card.png': typeof ShareNameThatSeasonDateResultCardDotpngRoute
   '/share/teammate-chain/$date/$result/card.png': typeof ShareTeammateChainDateResultCardDotpngRoute
+  '/share/were-you-watching/$leagueSlug/$teamSlug/card.png': typeof ShareWereYouWatchingLeagueSlugTeamSlugCardDotpngRoute
   '/groups/$groupId/arcade': typeof AppAuthedGroupsGroupIdTabsArcadeRoute
   '/groups/$groupId/chains': typeof AppAuthedGroupsGroupIdTabsChainsRoute
   '/groups/$groupId/leaderboard': typeof AppAuthedGroupsGroupIdTabsLeaderboardRoute
@@ -1036,8 +1080,12 @@ export interface FileRoutesByFullPath {
   '/share/report-cards/$username/$league/$windowKey/card.png': typeof ShareReportCardsUsernameLeagueWindowKeyCardDotpngRoute
   '/share/sweeps/$username/$league/$slateKey/card.png': typeof ShareSweepsUsernameLeagueSlateKeyCardDotpngRoute
   '/groups/$groupId/': typeof AppAuthedGroupsGroupIdTabsIndexRoute
+  '/arcade/were-you-watching/$leagueSlug/$teamSlug/': typeof AppArcadeWereYouWatchingLeagueSlugTeamSlugIndexRoute
+  '/arcade/were-you-watching/$leagueSlug/$teamSlug/$code/$result': typeof AppArcadeWereYouWatchingLeagueSlugTeamSlugCodeResultRoute
   '/user/$username/streaks/$league/$family/$mode': typeof AppUserUsernameStreaksLeagueFamilyModeRoute
   '/share/streaks/$username/$league/$family/$mode/card.png': typeof ShareStreaksUsernameLeagueFamilyModeCardDotpngRoute
+  '/share/were-you-watching/$leagueSlug/$teamSlug/$code/$result/card.png': typeof ShareWereYouWatchingLeagueSlugTeamSlugCodeResultCardDotpngRoute
+  '/arcade/were-you-watching/$leagueSlug/$teamSlug/$code/': typeof AppArcadeWereYouWatchingLeagueSlugTeamSlugCodeIndexRoute
 }
 export interface FileRoutesByTo {
   '/graphql': typeof GraphqlRoute
@@ -1142,6 +1190,7 @@ export interface FileRoutesByTo {
   '/arcade/blind-rank': typeof AppArcadeBlindRankIndexRoute
   '/arcade/name-that-season': typeof AppArcadeNameThatSeasonIndexRoute
   '/arcade/teammate-chain': typeof AppArcadeTeammateChainIndexRoute
+  '/arcade/were-you-watching': typeof AppArcadeWereYouWatchingIndexRoute
   '/leagues/$leagueSlug': typeof AppLeaguesLeagueSlugIndexRoute
   '/admin/data/$leagueId': typeof AdminDataLeagueIdIndexRoute
   '/groups/$groupId/settings': typeof AppAuthedGroupsGroupIdSettingsRoute
@@ -1154,6 +1203,7 @@ export interface FileRoutesByTo {
   '/share/blind-rank/$date/$result/card.png': typeof ShareBlindRankDateResultCardDotpngRoute
   '/share/name-that-season/$date/$result/card.png': typeof ShareNameThatSeasonDateResultCardDotpngRoute
   '/share/teammate-chain/$date/$result/card.png': typeof ShareTeammateChainDateResultCardDotpngRoute
+  '/share/were-you-watching/$leagueSlug/$teamSlug/card.png': typeof ShareWereYouWatchingLeagueSlugTeamSlugCardDotpngRoute
   '/groups/$groupId/arcade': typeof AppAuthedGroupsGroupIdTabsArcadeRoute
   '/groups/$groupId/chains': typeof AppAuthedGroupsGroupIdTabsChainsRoute
   '/groups/$groupId/leaderboard': typeof AppAuthedGroupsGroupIdTabsLeaderboardRoute
@@ -1171,8 +1221,12 @@ export interface FileRoutesByTo {
   '/share/report-cards/$username/$league/$windowKey/card.png': typeof ShareReportCardsUsernameLeagueWindowKeyCardDotpngRoute
   '/share/sweeps/$username/$league/$slateKey/card.png': typeof ShareSweepsUsernameLeagueSlateKeyCardDotpngRoute
   '/groups/$groupId': typeof AppAuthedGroupsGroupIdTabsIndexRoute
+  '/arcade/were-you-watching/$leagueSlug/$teamSlug': typeof AppArcadeWereYouWatchingLeagueSlugTeamSlugIndexRoute
+  '/arcade/were-you-watching/$leagueSlug/$teamSlug/$code/$result': typeof AppArcadeWereYouWatchingLeagueSlugTeamSlugCodeResultRoute
   '/user/$username/streaks/$league/$family/$mode': typeof AppUserUsernameStreaksLeagueFamilyModeRoute
   '/share/streaks/$username/$league/$family/$mode/card.png': typeof ShareStreaksUsernameLeagueFamilyModeCardDotpngRoute
+  '/share/were-you-watching/$leagueSlug/$teamSlug/$code/$result/card.png': typeof ShareWereYouWatchingLeagueSlugTeamSlugCodeResultCardDotpngRoute
+  '/arcade/were-you-watching/$leagueSlug/$teamSlug/$code': typeof AppArcadeWereYouWatchingLeagueSlugTeamSlugCodeIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -1283,6 +1337,7 @@ export interface FileRoutesById {
   '/_app/arcade/blind-rank/': typeof AppArcadeBlindRankIndexRoute
   '/_app/arcade/name-that-season/': typeof AppArcadeNameThatSeasonIndexRoute
   '/_app/arcade/teammate-chain/': typeof AppArcadeTeammateChainIndexRoute
+  '/_app/arcade/were-you-watching/': typeof AppArcadeWereYouWatchingIndexRoute
   '/_app/leagues/$leagueSlug/': typeof AppLeaguesLeagueSlugIndexRoute
   '/admin/data/$leagueId/': typeof AdminDataLeagueIdIndexRoute
   '/_app/_authed/groups/$groupId/_tabs': typeof AppAuthedGroupsGroupIdTabsRouteWithChildren
@@ -1296,6 +1351,7 @@ export interface FileRoutesById {
   '/share/blind-rank/$date/$result/card.png': typeof ShareBlindRankDateResultCardDotpngRoute
   '/share/name-that-season/$date/$result/card.png': typeof ShareNameThatSeasonDateResultCardDotpngRoute
   '/share/teammate-chain/$date/$result/card.png': typeof ShareTeammateChainDateResultCardDotpngRoute
+  '/share/were-you-watching/$leagueSlug/$teamSlug/card.png': typeof ShareWereYouWatchingLeagueSlugTeamSlugCardDotpngRoute
   '/_app/_authed/groups/$groupId/_tabs/arcade': typeof AppAuthedGroupsGroupIdTabsArcadeRoute
   '/_app/_authed/groups/$groupId/_tabs/chains': typeof AppAuthedGroupsGroupIdTabsChainsRoute
   '/_app/_authed/groups/$groupId/_tabs/leaderboard': typeof AppAuthedGroupsGroupIdTabsLeaderboardRoute
@@ -1313,8 +1369,12 @@ export interface FileRoutesById {
   '/share/report-cards/$username/$league/$windowKey/card.png': typeof ShareReportCardsUsernameLeagueWindowKeyCardDotpngRoute
   '/share/sweeps/$username/$league/$slateKey/card.png': typeof ShareSweepsUsernameLeagueSlateKeyCardDotpngRoute
   '/_app/_authed/groups/$groupId/_tabs/': typeof AppAuthedGroupsGroupIdTabsIndexRoute
+  '/_app/arcade/were-you-watching/$leagueSlug/$teamSlug/': typeof AppArcadeWereYouWatchingLeagueSlugTeamSlugIndexRoute
+  '/_app/arcade/were-you-watching/$leagueSlug/$teamSlug/$code/$result': typeof AppArcadeWereYouWatchingLeagueSlugTeamSlugCodeResultRoute
   '/_app/user/$username_/streaks/$league/$family/$mode': typeof AppUserUsernameStreaksLeagueFamilyModeRoute
   '/share/streaks/$username/$league/$family/$mode/card.png': typeof ShareStreaksUsernameLeagueFamilyModeCardDotpngRoute
+  '/share/were-you-watching/$leagueSlug/$teamSlug/$code/$result/card.png': typeof ShareWereYouWatchingLeagueSlugTeamSlugCodeResultCardDotpngRoute
+  '/_app/arcade/were-you-watching/$leagueSlug/$teamSlug/$code/': typeof AppArcadeWereYouWatchingLeagueSlugTeamSlugCodeIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -1424,6 +1484,7 @@ export interface FileRouteTypes {
     | '/arcade/blind-rank/'
     | '/arcade/name-that-season/'
     | '/arcade/teammate-chain/'
+    | '/arcade/were-you-watching/'
     | '/leagues/$leagueSlug/'
     | '/admin/data/$leagueId/'
     | '/groups/$groupId'
@@ -1437,6 +1498,7 @@ export interface FileRouteTypes {
     | '/share/blind-rank/$date/$result/card.png'
     | '/share/name-that-season/$date/$result/card.png'
     | '/share/teammate-chain/$date/$result/card.png'
+    | '/share/were-you-watching/$leagueSlug/$teamSlug/card.png'
     | '/groups/$groupId/arcade'
     | '/groups/$groupId/chains'
     | '/groups/$groupId/leaderboard'
@@ -1454,8 +1516,12 @@ export interface FileRouteTypes {
     | '/share/report-cards/$username/$league/$windowKey/card.png'
     | '/share/sweeps/$username/$league/$slateKey/card.png'
     | '/groups/$groupId/'
+    | '/arcade/were-you-watching/$leagueSlug/$teamSlug/'
+    | '/arcade/were-you-watching/$leagueSlug/$teamSlug/$code/$result'
     | '/user/$username/streaks/$league/$family/$mode'
     | '/share/streaks/$username/$league/$family/$mode/card.png'
+    | '/share/were-you-watching/$leagueSlug/$teamSlug/$code/$result/card.png'
+    | '/arcade/were-you-watching/$leagueSlug/$teamSlug/$code/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/graphql'
@@ -1560,6 +1626,7 @@ export interface FileRouteTypes {
     | '/arcade/blind-rank'
     | '/arcade/name-that-season'
     | '/arcade/teammate-chain'
+    | '/arcade/were-you-watching'
     | '/leagues/$leagueSlug'
     | '/admin/data/$leagueId'
     | '/groups/$groupId/settings'
@@ -1572,6 +1639,7 @@ export interface FileRouteTypes {
     | '/share/blind-rank/$date/$result/card.png'
     | '/share/name-that-season/$date/$result/card.png'
     | '/share/teammate-chain/$date/$result/card.png'
+    | '/share/were-you-watching/$leagueSlug/$teamSlug/card.png'
     | '/groups/$groupId/arcade'
     | '/groups/$groupId/chains'
     | '/groups/$groupId/leaderboard'
@@ -1589,8 +1657,12 @@ export interface FileRouteTypes {
     | '/share/report-cards/$username/$league/$windowKey/card.png'
     | '/share/sweeps/$username/$league/$slateKey/card.png'
     | '/groups/$groupId'
+    | '/arcade/were-you-watching/$leagueSlug/$teamSlug'
+    | '/arcade/were-you-watching/$leagueSlug/$teamSlug/$code/$result'
     | '/user/$username/streaks/$league/$family/$mode'
     | '/share/streaks/$username/$league/$family/$mode/card.png'
+    | '/share/were-you-watching/$leagueSlug/$teamSlug/$code/$result/card.png'
+    | '/arcade/were-you-watching/$leagueSlug/$teamSlug/$code'
   id:
     | '__root__'
     | '/_app'
@@ -1700,6 +1772,7 @@ export interface FileRouteTypes {
     | '/_app/arcade/blind-rank/'
     | '/_app/arcade/name-that-season/'
     | '/_app/arcade/teammate-chain/'
+    | '/_app/arcade/were-you-watching/'
     | '/_app/leagues/$leagueSlug/'
     | '/admin/data/$leagueId/'
     | '/_app/_authed/groups/$groupId/_tabs'
@@ -1713,6 +1786,7 @@ export interface FileRouteTypes {
     | '/share/blind-rank/$date/$result/card.png'
     | '/share/name-that-season/$date/$result/card.png'
     | '/share/teammate-chain/$date/$result/card.png'
+    | '/share/were-you-watching/$leagueSlug/$teamSlug/card.png'
     | '/_app/_authed/groups/$groupId/_tabs/arcade'
     | '/_app/_authed/groups/$groupId/_tabs/chains'
     | '/_app/_authed/groups/$groupId/_tabs/leaderboard'
@@ -1730,8 +1804,12 @@ export interface FileRouteTypes {
     | '/share/report-cards/$username/$league/$windowKey/card.png'
     | '/share/sweeps/$username/$league/$slateKey/card.png'
     | '/_app/_authed/groups/$groupId/_tabs/'
+    | '/_app/arcade/were-you-watching/$leagueSlug/$teamSlug/'
+    | '/_app/arcade/were-you-watching/$leagueSlug/$teamSlug/$code/$result'
     | '/_app/user/$username_/streaks/$league/$family/$mode'
     | '/share/streaks/$username/$league/$family/$mode/card.png'
+    | '/share/were-you-watching/$leagueSlug/$teamSlug/$code/$result/card.png'
+    | '/_app/arcade/were-you-watching/$leagueSlug/$teamSlug/$code/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -1767,12 +1845,14 @@ export interface RootRouteChildren {
   ShareBlindRankDateResultCardDotpngRoute: typeof ShareBlindRankDateResultCardDotpngRoute
   ShareNameThatSeasonDateResultCardDotpngRoute: typeof ShareNameThatSeasonDateResultCardDotpngRoute
   ShareTeammateChainDateResultCardDotpngRoute: typeof ShareTeammateChainDateResultCardDotpngRoute
+  ShareWereYouWatchingLeagueSlugTeamSlugCardDotpngRoute: typeof ShareWereYouWatchingLeagueSlugTeamSlugCardDotpngRoute
   ShareBallotsBallotSlugUsersUsernameCardDotpngRoute: typeof ShareBallotsBallotSlugUsersUsernameCardDotpngRoute
   ShareChallengesCodeVsUsernameCardDotpngRoute: typeof ShareChallengesCodeVsUsernameCardDotpngRoute
   ShareGamesGameIdUsersUsernameCardDotpngRoute: typeof ShareGamesGameIdUsersUsernameCardDotpngRoute
   ShareReportCardsUsernameLeagueWindowKeyCardDotpngRoute: typeof ShareReportCardsUsernameLeagueWindowKeyCardDotpngRoute
   ShareSweepsUsernameLeagueSlateKeyCardDotpngRoute: typeof ShareSweepsUsernameLeagueSlateKeyCardDotpngRoute
   ShareStreaksUsernameLeagueFamilyModeCardDotpngRoute: typeof ShareStreaksUsernameLeagueFamilyModeCardDotpngRoute
+  ShareWereYouWatchingLeagueSlugTeamSlugCodeResultCardDotpngRoute: typeof ShareWereYouWatchingLeagueSlugTeamSlugCodeResultCardDotpngRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -2323,6 +2403,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppArcadeTeammateChainIndexRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/arcade/were-you-watching/': {
+      id: '/_app/arcade/were-you-watching/'
+      path: '/arcade/were-you-watching'
+      fullPath: '/arcade/were-you-watching/'
+      preLoaderRoute: typeof AppArcadeWereYouWatchingIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/ballots/$ballotSlug_/$username': {
       id: '/_app/ballots/$ballotSlug_/$username'
       path: '/ballots/$ballotSlug/$username'
@@ -2617,6 +2704,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ShareTeammateChainDateResultCardDotpngRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/share/were-you-watching/$leagueSlug/$teamSlug/card.png': {
+      id: '/share/were-you-watching/$leagueSlug/$teamSlug/card.png'
+      path: '/share/were-you-watching/$leagueSlug/$teamSlug/card.png'
+      fullPath: '/share/were-you-watching/$leagueSlug/$teamSlug/card.png'
+      preLoaderRoute: typeof ShareWereYouWatchingLeagueSlugTeamSlugCardDotpngRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_app/_authed/groups/$groupId/_tabs/': {
       id: '/_app/_authed/groups/$groupId/_tabs/'
       path: '/'
@@ -2687,6 +2781,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppAuthedGroupsGroupIdRecapsTokenRouteImport
       parentRoute: typeof AppAuthedRoute
     }
+    '/_app/arcade/were-you-watching/$leagueSlug/$teamSlug/': {
+      id: '/_app/arcade/were-you-watching/$leagueSlug/$teamSlug/'
+      path: '/arcade/were-you-watching/$leagueSlug/$teamSlug'
+      fullPath: '/arcade/were-you-watching/$leagueSlug/$teamSlug/'
+      preLoaderRoute: typeof AppArcadeWereYouWatchingLeagueSlugTeamSlugIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/user/$username_/report-cards/$league/$windowKey': {
       id: '/_app/user/$username_/report-cards/$league/$windowKey'
       path: '/user/$username/report-cards/$league/$windowKey'
@@ -2736,6 +2837,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ShareSweepsUsernameLeagueSlateKeyCardDotpngRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_app/arcade/were-you-watching/$leagueSlug/$teamSlug/$code/': {
+      id: '/_app/arcade/were-you-watching/$leagueSlug/$teamSlug/$code/'
+      path: '/arcade/were-you-watching/$leagueSlug/$teamSlug/$code'
+      fullPath: '/arcade/were-you-watching/$leagueSlug/$teamSlug/$code/'
+      preLoaderRoute: typeof AppArcadeWereYouWatchingLeagueSlugTeamSlugCodeIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/arcade/were-you-watching/$leagueSlug/$teamSlug/$code/$result': {
+      id: '/_app/arcade/were-you-watching/$leagueSlug/$teamSlug/$code/$result'
+      path: '/arcade/were-you-watching/$leagueSlug/$teamSlug/$code/$result'
+      fullPath: '/arcade/were-you-watching/$leagueSlug/$teamSlug/$code/$result'
+      preLoaderRoute: typeof AppArcadeWereYouWatchingLeagueSlugTeamSlugCodeResultRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/user/$username_/streaks/$league/$family/$mode': {
       id: '/_app/user/$username_/streaks/$league/$family/$mode'
       path: '/user/$username/streaks/$league/$family/$mode'
@@ -2748,6 +2863,13 @@ declare module '@tanstack/react-router' {
       path: '/share/streaks/$username/$league/$family/$mode/card.png'
       fullPath: '/share/streaks/$username/$league/$family/$mode/card.png'
       preLoaderRoute: typeof ShareStreaksUsernameLeagueFamilyModeCardDotpngRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/share/were-you-watching/$leagueSlug/$teamSlug/$code/$result/card.png': {
+      id: '/share/were-you-watching/$leagueSlug/$teamSlug/$code/$result/card.png'
+      path: '/share/were-you-watching/$leagueSlug/$teamSlug/$code/$result/card.png'
+      fullPath: '/share/were-you-watching/$leagueSlug/$teamSlug/$code/$result/card.png'
+      preLoaderRoute: typeof ShareWereYouWatchingLeagueSlugTeamSlugCodeResultCardDotpngRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
@@ -2908,6 +3030,7 @@ interface AppRouteChildren {
   AppArcadeBlindRankIndexRoute: typeof AppArcadeBlindRankIndexRoute
   AppArcadeNameThatSeasonIndexRoute: typeof AppArcadeNameThatSeasonIndexRoute
   AppArcadeTeammateChainIndexRoute: typeof AppArcadeTeammateChainIndexRoute
+  AppArcadeWereYouWatchingIndexRoute: typeof AppArcadeWereYouWatchingIndexRoute
   AppArcadeBlindRankDateResultRoute: typeof AppArcadeBlindRankDateResultRoute
   AppArcadeNameThatSeasonDateResultRoute: typeof AppArcadeNameThatSeasonDateResultRoute
   AppArcadeTeammateChainDateResultRoute: typeof AppArcadeTeammateChainDateResultRoute
@@ -2916,7 +3039,10 @@ interface AppRouteChildren {
   AppLeaguesLeagueSlugTeamsTeamSlugRoute: typeof AppLeaguesLeagueSlugTeamsTeamSlugRoute
   AppUserUsernameReportCardsLeagueWindowKeyRoute: typeof AppUserUsernameReportCardsLeagueWindowKeyRoute
   AppUserUsernameSweepsLeagueSlateKeyRoute: typeof AppUserUsernameSweepsLeagueSlateKeyRoute
+  AppArcadeWereYouWatchingLeagueSlugTeamSlugIndexRoute: typeof AppArcadeWereYouWatchingLeagueSlugTeamSlugIndexRoute
+  AppArcadeWereYouWatchingLeagueSlugTeamSlugCodeResultRoute: typeof AppArcadeWereYouWatchingLeagueSlugTeamSlugCodeResultRoute
   AppUserUsernameStreaksLeagueFamilyModeRoute: typeof AppUserUsernameStreaksLeagueFamilyModeRoute
+  AppArcadeWereYouWatchingLeagueSlugTeamSlugCodeIndexRoute: typeof AppArcadeWereYouWatchingLeagueSlugTeamSlugCodeIndexRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
@@ -2950,6 +3076,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppArcadeBlindRankIndexRoute: AppArcadeBlindRankIndexRoute,
   AppArcadeNameThatSeasonIndexRoute: AppArcadeNameThatSeasonIndexRoute,
   AppArcadeTeammateChainIndexRoute: AppArcadeTeammateChainIndexRoute,
+  AppArcadeWereYouWatchingIndexRoute: AppArcadeWereYouWatchingIndexRoute,
   AppArcadeBlindRankDateResultRoute: AppArcadeBlindRankDateResultRoute,
   AppArcadeNameThatSeasonDateResultRoute:
     AppArcadeNameThatSeasonDateResultRoute,
@@ -2962,8 +3089,14 @@ const AppRouteChildren: AppRouteChildren = {
     AppUserUsernameReportCardsLeagueWindowKeyRoute,
   AppUserUsernameSweepsLeagueSlateKeyRoute:
     AppUserUsernameSweepsLeagueSlateKeyRoute,
+  AppArcadeWereYouWatchingLeagueSlugTeamSlugIndexRoute:
+    AppArcadeWereYouWatchingLeagueSlugTeamSlugIndexRoute,
+  AppArcadeWereYouWatchingLeagueSlugTeamSlugCodeResultRoute:
+    AppArcadeWereYouWatchingLeagueSlugTeamSlugCodeResultRoute,
   AppUserUsernameStreaksLeagueFamilyModeRoute:
     AppUserUsernameStreaksLeagueFamilyModeRoute,
+  AppArcadeWereYouWatchingLeagueSlugTeamSlugCodeIndexRoute:
+    AppArcadeWereYouWatchingLeagueSlugTeamSlugCodeIndexRoute,
 }
 
 const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
@@ -3084,6 +3217,8 @@ const rootRouteChildren: RootRouteChildren = {
     ShareNameThatSeasonDateResultCardDotpngRoute,
   ShareTeammateChainDateResultCardDotpngRoute:
     ShareTeammateChainDateResultCardDotpngRoute,
+  ShareWereYouWatchingLeagueSlugTeamSlugCardDotpngRoute:
+    ShareWereYouWatchingLeagueSlugTeamSlugCardDotpngRoute,
   ShareBallotsBallotSlugUsersUsernameCardDotpngRoute:
     ShareBallotsBallotSlugUsersUsernameCardDotpngRoute,
   ShareChallengesCodeVsUsernameCardDotpngRoute:
@@ -3096,6 +3231,8 @@ const rootRouteChildren: RootRouteChildren = {
     ShareSweepsUsernameLeagueSlateKeyCardDotpngRoute,
   ShareStreaksUsernameLeagueFamilyModeCardDotpngRoute:
     ShareStreaksUsernameLeagueFamilyModeCardDotpngRoute,
+  ShareWereYouWatchingLeagueSlugTeamSlugCodeResultCardDotpngRoute:
+    ShareWereYouWatchingLeagueSlugTeamSlugCodeResultCardDotpngRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

@@ -45,6 +45,10 @@ export const teamGameStatScope = pgEnum("team_game_stat_scope", [
 	// question about a team's points is just another team stat and needs no
 	// special path through the query layer.
 	"final_score",
+	// A linescore: the team's score in one period, keyed by the period's
+	// number ("1", "4" for NHL overtime) or "SO" for a shootout. Like the
+	// final score, ESPN carries it on the competitor, not in the box.
+	"period",
 ])
 
 // Columns every box-score row carries so the aggregate queries stay
@@ -115,6 +119,9 @@ export const playerGameStats = pgTable(
 		// Duplicated across all of one athlete's rows for a game. A byte each,
 		// and it earns that by keeping every filter single-table.
 		didNotPlay: boolean("did_not_play").notNull(),
+		// Duplicated the same way. Null for leagues whose feed doesn't say who
+		// started (NFL, NHL).
+		starter: boolean("starter"),
 	},
 	(t) => [
 		primaryKey({ columns: [t.gameId, t.sourceAthleteId, t.statKey] }),

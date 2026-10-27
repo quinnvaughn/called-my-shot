@@ -14,6 +14,7 @@ import { meQuery } from "#/graphql/me/queries"
 import { useImportRankPlacements } from "#/hooks/use-import-rank-placements"
 import { useImportSeasonGuesses } from "#/hooks/use-import-season-guesses"
 import { useImportTeammateChain } from "#/hooks/use-import-teammate-chain"
+import { useImportWatchQuiz } from "#/hooks/use-import-watch-quiz"
 import { usePushSync } from "#/hooks/use-push-sync"
 import { useResumeAuthIntent } from "#/hooks/use-resume-auth-intent"
 import { useStaleBuildGuard } from "#/hooks/use-stale-build-guard"
@@ -208,6 +209,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
 	useImportSeasonGuesses(me?.id ?? null)
 	useImportRankPlacements(me?.id ?? null)
 	useImportTeammateChain(me?.id ?? null)
+	useImportWatchQuiz(me?.id ?? null)
 
 	useEffect(() => {
 		initAnalytics()

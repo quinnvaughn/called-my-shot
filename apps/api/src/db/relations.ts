@@ -1094,6 +1094,35 @@ export const relations = defineRelations(schema, (r) => ({
 			optional: false,
 		}),
 	},
+	watchQuizzes: {
+		league: r.one.leagues({
+			from: r.watchQuizzes.leagueId,
+			to: r.leagues.id,
+			optional: false,
+		}),
+		team: r.one.teams({
+			from: r.watchQuizzes.teamId,
+			to: r.teams.id,
+			optional: false,
+		}),
+		opponent: r.one.teams({
+			from: r.watchQuizzes.opponentTeamId,
+			to: r.teams.id,
+			optional: false,
+		}),
+	},
+	watchQuizAttempts: {
+		quiz: r.one.watchQuizzes({
+			from: r.watchQuizAttempts.quizId,
+			to: r.watchQuizzes.id,
+			optional: false,
+		}),
+		user: r.one.users({
+			from: r.watchQuizAttempts.userId,
+			to: r.users.id,
+			optional: false,
+		}),
+	},
 	seasonPuzzleResults: {
 		puzzle: r.one.seasonPuzzles({
 			from: r.seasonPuzzleResults.puzzleId,

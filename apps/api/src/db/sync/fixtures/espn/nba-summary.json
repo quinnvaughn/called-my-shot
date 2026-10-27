@@ -14,12 +14,40 @@
      {
       "id": "2",
       "homeAway": "home",
-      "score": "144"
+      "score": "144",
+      "linescores": [
+       {
+        "displayValue": "36"
+       },
+       {
+        "displayValue": "38"
+       },
+       {
+        "displayValue": "35"
+       },
+       {
+        "displayValue": "35"
+       }
+      ]
      },
      {
       "id": "3",
       "homeAway": "away",
-      "score": "118"
+      "score": "118",
+      "linescores": [
+       {
+        "displayValue": "30"
+       },
+       {
+        "displayValue": "28"
+       },
+       {
+        "displayValue": "32"
+       },
+       {
+        "displayValue": "28"
+       }
+      ]
      }
     ]
    }
@@ -86,7 +114,8 @@
          "0",
          "-29"
         ],
-        "didNotPlay": false
+        "didNotPlay": false,
+        "starter": true
        },
        {
         "athlete": {
@@ -108,7 +137,8 @@
          "1",
          "-24"
         ],
-        "didNotPlay": false
+        "didNotPlay": false,
+        "starter": true
        },
        {
         "athlete": {
@@ -130,7 +160,8 @@
          "1",
          "-40"
         ],
-        "didNotPlay": false
+        "didNotPlay": false,
+        "starter": true
        },
        {
         "athlete": {
@@ -152,7 +183,8 @@
          "5",
          "-5"
         ],
-        "didNotPlay": false
+        "didNotPlay": false,
+        "starter": true
        },
        {
         "athlete": {
@@ -174,7 +206,8 @@
          "4",
          "-32"
         ],
-        "didNotPlay": false
+        "didNotPlay": false,
+        "starter": true
        },
        {
         "athlete": {
@@ -196,7 +229,8 @@
          "4",
          "+6"
         ],
-        "didNotPlay": false
+        "didNotPlay": false,
+        "starter": false
        },
        {
         "athlete": {
@@ -218,7 +252,8 @@
          "0",
          "-11"
         ],
-        "didNotPlay": false
+        "didNotPlay": false,
+        "starter": false
        },
        {
         "athlete": {
@@ -240,7 +275,8 @@
          "3",
          "+2"
         ],
-        "didNotPlay": false
+        "didNotPlay": false,
+        "starter": false
        },
        {
         "athlete": {
@@ -262,21 +298,24 @@
          "1",
          "+3"
         ],
-        "didNotPlay": false
+        "didNotPlay": false,
+        "starter": false
        },
        {
         "athlete": {
          "id": "3442"
         },
         "stats": [],
-        "didNotPlay": true
+        "didNotPlay": true,
+        "starter": false
        },
        {
         "athlete": {
          "id": "4576086"
         },
         "stats": [],
-        "didNotPlay": true
+        "didNotPlay": true,
+        "starter": false
        }
       ]
      }
@@ -341,7 +380,8 @@
          "4",
          "+21"
         ],
-        "didNotPlay": false
+        "didNotPlay": false,
+        "starter": true
        },
        {
         "athlete": {
@@ -363,7 +403,8 @@
          "1",
          "+13"
         ],
-        "didNotPlay": false
+        "didNotPlay": false,
+        "starter": true
        },
        {
         "athlete": {
@@ -385,7 +426,8 @@
          "0",
          "+18"
         ],
-        "didNotPlay": false
+        "didNotPlay": false,
+        "starter": true
        },
        {
         "athlete": {
@@ -407,7 +449,8 @@
          "4",
          "+24"
         ],
-        "didNotPlay": false
+        "didNotPlay": false,
+        "starter": true
        },
        {
         "athlete": {
@@ -429,7 +472,8 @@
          "2",
          "+17"
         ],
-        "didNotPlay": false
+        "didNotPlay": false,
+        "starter": true
        },
        {
         "athlete": {
@@ -451,7 +495,8 @@
          "1",
          "+15"
         ],
-        "didNotPlay": false
+        "didNotPlay": false,
+        "starter": false
        },
        {
         "athlete": {
@@ -473,7 +518,8 @@
          "4",
          "-2"
         ],
-        "didNotPlay": false
+        "didNotPlay": false,
+        "starter": false
        },
        {
         "athlete": {
@@ -495,7 +541,8 @@
          "3",
          "+29"
         ],
-        "didNotPlay": false
+        "didNotPlay": false,
+        "starter": false
        },
        {
         "athlete": {
@@ -517,7 +564,8 @@
          "0",
          "-8"
         ],
-        "didNotPlay": false
+        "didNotPlay": false,
+        "starter": false
        },
        {
         "athlete": {
@@ -539,7 +587,8 @@
          "2",
          "+5"
         ],
-        "didNotPlay": false
+        "didNotPlay": false,
+        "starter": false
        },
        {
         "athlete": {
@@ -561,7 +610,8 @@
          "1",
          "-13"
         ],
-        "didNotPlay": false
+        "didNotPlay": false,
+        "starter": false
        },
        {
         "athlete": {
@@ -583,21 +633,24 @@
          "4",
          "+11"
         ],
-        "didNotPlay": false
+        "didNotPlay": false,
+        "starter": false
        },
        {
         "athlete": {
          "id": "4593043"
         },
         "stats": [],
-        "didNotPlay": true
+        "didNotPlay": true,
+        "starter": false
        },
        {
         "athlete": {
          "id": "4702745"
         },
         "stats": [],
-        "didNotPlay": true
+        "didNotPlay": true,
+        "starter": false
        }
       ]
      }

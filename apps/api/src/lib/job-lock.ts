@@ -115,6 +115,7 @@ export const BOX_SCORE_SYNC_LOCK = "sync-box-scores"
 // The scheduler's portrait step for current players (lib/portraits/current),
 // so two machines never run it at once.
 export const BUILD_PORTRAITS_LOCK = "build-portraits"
+export const BUILD_WATCH_QUIZZES_LOCK = "build-watch-quizzes"
 export const DRAIN_ANALYTICS_LOCK = "drain-analytics-outbox"
 export const DRAIN_DIGESTS_LOCK = "drain-email-digests"
 export const DRAIN_GAME_REMINDERS_LOCK = "drain-game-reminders"

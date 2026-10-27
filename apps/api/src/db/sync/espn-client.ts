@@ -402,6 +402,9 @@ export type EspnBoxScoreAthlete = {
 	athlete: { id: string; displayName?: string }
 	// NBA only: set on anyone listed for the game who sat.
 	didNotPlay?: boolean
+	// NBA and MLB: whether they started, in this table's role. NFL and NHL
+	// leave it out (verified live).
+	starter?: boolean
 	// MLB: false once a player has been taken out of the game in this table's
 	// role, a pitcher relieved or a batter pinch-hit or run for.
 	active?: boolean

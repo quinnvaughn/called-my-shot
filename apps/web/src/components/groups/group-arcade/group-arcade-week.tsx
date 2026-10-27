@@ -19,7 +19,8 @@ export function GroupArcadeWeek({ groupId }: { groupId: string }) {
 				a first guess down to 1 for a sixth, and nothing for a miss. Blind Rank
 				is worth a point for each of the five in the right slot. Teammate Chain
 				is worth 6 points at par, 1 less for each link over it and each hint
-				(never below 1), and nothing if you give up.
+				(never below 1), and nothing if you give up. Were You Watching? is worth
+				a point for each question right, from your best quiz each day.
 			</p>
 			<Card>
 				{week.map((row, i) => (

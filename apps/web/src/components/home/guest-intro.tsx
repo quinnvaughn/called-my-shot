@@ -3,6 +3,7 @@ import { VStack } from "styled-system/jsx"
 import { BlindRankHubCard } from "#/components/arcade/blind-rank/blind-rank-hub-card"
 import { NameThatSeasonHubCard } from "#/components/arcade/name-that-season/name-that-season-hub-card"
 import { TeammateChainHubCard } from "#/components/arcade/teammate-chain/teammate-chain-hub-card"
+import { WatchHubCard } from "#/components/arcade/were-you-watching/watch-hub-card"
 import { StartGroupForm } from "#/components/groups/start-group-form"
 
 // The top of Home for a signed-out visitor, in place of the page header: what
@@ -43,9 +44,8 @@ export function GuestIntro() {
 			>
 				<NameThatSeasonHubCard />
 				<BlindRankHubCard />
-				<div className={css({ display: "grid", gridColumn: { lg: "1 / -1" } })}>
-					<TeammateChainHubCard />
-				</div>
+				<TeammateChainHubCard />
+				<WatchHubCard />
 			</div>
 		</VStack>
 	)

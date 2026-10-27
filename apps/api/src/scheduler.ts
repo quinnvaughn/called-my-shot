@@ -28,6 +28,7 @@ import {
 	AUTO_RESOLVE_SEASONS_LOCK,
 	BOX_SCORE_SYNC_LOCK,
 	BUILD_PORTRAITS_LOCK,
+	BUILD_WATCH_QUIZZES_LOCK,
 	DRAIN_ANALYTICS_LOCK,
 	DRAIN_DIGESTS_LOCK,
 	DRAIN_GAME_REMINDERS_LOCK,
@@ -70,6 +71,7 @@ import { drainAchievementRecomputes } from "./lib/streaks/drain"
 import { fillChainSchedule } from "./lib/teammate-chain/schedule"
 import { DAY_MS, MINUTE_MS } from "./lib/time"
 import { drainUpdateEmails } from "./lib/update-email"
+import { buildWatchQuizzes } from "./lib/were-you-watching/generate"
 import { refreshWorkCalendar, workCalendar } from "./lib/work-calendar"
 
 const RECONCILE_ACHIEVEMENTS_DAYS = 7
@@ -146,6 +148,7 @@ const syncLiveScoresTick = async () => {
 		// nothing to do. What it picks up is the games that path never
 		// touches - see syncBoxScores.
 		await runJob(BOX_SCORE_SYNC_LOCK, () => syncBoxScores())()
+		await runJob(BUILD_WATCH_QUIZZES_LOCK, () => buildWatchQuizzes())()
 	}
 	await runJob(SYNC_LIVE_READINGS_LOCK, () => syncLiveReadings())()
 }
@@ -157,6 +160,9 @@ const syncLiveScoresTick = async () => {
 const autoResolveGamesTick = async () => {
 	await runJob(AUTO_RESOLVE_GAMES_LOCK, () => autoResolveGames())()
 	await drainAchievements()
+	// Auto-resolve stores box scores too, its retries and 24h re-check
+	// included, so a quiz waiting on one is built here.
+	await runJob(BUILD_WATCH_QUIZZES_LOCK, () => buildWatchQuizzes())()
 }
 
 const syncStartersTick = async () => {

@@ -15,12 +15,13 @@ export type AuthModalCopyOverride = Partial<
 
 // Where the modal was opened from, recorded on the signed-up/signed-in event.
 // start_group is the landing page's pre-signup group form; group_invite is a
-// group's invite link; season_puzzle, blind_rank and teammate_chain are the
-// next steps under a finished arcade game.
+// group's invite link; season_puzzle, blind_rank, teammate_chain and
+// were_you_watching are the next steps under a finished arcade game.
 export type AuthModalSurface =
 	| "season_puzzle"
 	| "blind_rank"
 	| "teammate_chain"
+	| "were_you_watching"
 	| "guest_picks"
 	| "call_page"
 	| "start_group"

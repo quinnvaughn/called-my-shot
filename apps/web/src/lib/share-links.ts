@@ -17,6 +17,7 @@ export type ShareCampaign =
 	| "name_that_season"
 	| "blind_rank"
 	| "teammate_chain"
+	| "were_you_watching"
 	| "rushmore"
 	| "redraft"
 

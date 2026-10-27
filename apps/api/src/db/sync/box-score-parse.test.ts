@@ -171,6 +171,38 @@ describe("parseBoxScore", () => {
 		expect(box.teamStats.get("3")?.has("goals")).toBe(false)
 	})
 
+	it("keeps each team's score by period", () => {
+		const box = parseBoxScore(summaryFixture("nba"))
+		expect([...(box.periodScores.get("2") ?? [])]).toEqual([
+			["1", "36"],
+			["2", "38"],
+			["3", "35"],
+			["4", "35"],
+		])
+		expect(
+			parseBoxScore(summaryFixture("nhl")).periodScores.get("13")?.size,
+		).toBe(3)
+	})
+
+	it("keys a shootout's linescore SO rather than as a period", () => {
+		const periods = parseBoxScore(nhlShootoutFixture()).periodScores.get("9")
+		expect([...(periods?.keys() ?? [])]).toEqual(["1", "2", "3", "4", "SO"])
+		expect(periods?.get("SO")).toBe("1")
+	})
+
+	it("marks who started where the feed says, in any of their tables", () => {
+		const nba = parseBoxScore(summaryFixture("nba"))
+		expect(nba.athletes.get("4869780")?.starter).toBe(true)
+		expect(nba.athletes.get("3442")?.starter).toBe(false)
+
+		const mlb = parseBoxScore(summaryFixture("mlb"))
+		expect(mlb.athletes.get("4019484")?.starter).toBe(true)
+		expect(mlb.athletes.get("36093")?.starter).toBe(false)
+
+		const nfl = parseBoxScore(summaryFixture("nfl"))
+		expect(nfl.athletes.get("4361741")?.starter).toBeNull()
+	})
+
 	it("isn't final until ESPN marks the game completed with a full box score", () => {
 		const partial = summaryFixture("nba")
 		partial.header.competitions[0].boxscoreSource = "basic"

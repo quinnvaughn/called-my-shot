@@ -9,6 +9,10 @@ export type ParsedAthlete = {
 	// ESPN's display name, for naming someone who isn't in our players table.
 	name?: string
 	didNotPlay: boolean
+	// Started the game in any of their tables, so an MLB starting pitcher and
+	// a starting batter both count. Null where the league's feed never says
+	// (NFL, NHL).
+	starter: boolean | null
 	// The tables ESPN marks them no longer in the game for ("batting",
 	// "pitching"), while it's being played. Only MLB's mean anything: a player
 	// taken out there can't come back in, so his line in that table is done.
@@ -32,6 +36,9 @@ export type ParsedBoxScore = {
 	// tables' totals rows. A column missing here had nobody record it.
 	tableTotals: Map<string, Map<string, string>>
 	athletes: Map<string, ParsedAthlete>
+	// espnTeamId -> that team's score in each period, in order, keyed "1".."n".
+	// A shootout's entry is keyed "SO" rather than counted as a period.
+	periodScores: Map<string, Map<string, string>>
 }
 
 // The NHL splits its skaters into forwards and defensemen, with the same
@@ -97,11 +104,14 @@ export function parseBoxScore(summary: EspnGameSummary): ParsedBoxScore {
 					espnTeamId,
 					name: entry.athlete.displayName,
 					didNotPlay: false,
+					starter: null,
 					leftGameIn: new Set<string>(),
 					stats: new Map<string, string>(),
 					notes: [],
 				}
 				athlete.didNotPlay ||= entry.didNotPlay === true
+				if (entry.starter !== undefined)
+					athlete.starter = (athlete.starter ?? false) || entry.starter
 				if (entry.active === false && prefix) athlete.leftGameIn.add(prefix)
 				entry.stats.forEach((value, i) => {
 					const key = table.keys[i]
@@ -117,7 +127,31 @@ export function parseBoxScore(summary: EspnGameSummary): ParsedBoxScore {
 	deriveTotalBases(summary.plays ?? [], athletes)
 	deriveHockeyStats(competition, athletes, teamStats, tableTotals)
 
-	return { isFinal, scoreByEspnTeamId, teamStats, tableTotals, athletes }
+	return {
+		isFinal,
+		scoreByEspnTeamId,
+		teamStats,
+		tableTotals,
+		athletes,
+		periodScores: parsePeriodScores(competition),
+	}
+}
+
+function parsePeriodScores(
+	competition: EspnGameSummary["header"]["competitions"][0],
+): Map<string, Map<string, string>> {
+	const shootout = competition.status.type.detail?.endsWith("/SO") ?? false
+	const periodScores = new Map<string, Map<string, string>>()
+	for (const competitor of competition.competitors) {
+		const linescores = competitor.linescores ?? []
+		const periods = new Map<string, string>()
+		linescores.forEach((line, i) => {
+			const isShootout = shootout && i === linescores.length - 1
+			periods.set(isShootout ? "SO" : String(i + 1), line.displayValue)
+		})
+		if (periods.size > 0) periodScores.set(competitor.id, periods)
+	}
+	return periodScores
 }
 
 const BASES_PER_HIT: Record<string, number> = {

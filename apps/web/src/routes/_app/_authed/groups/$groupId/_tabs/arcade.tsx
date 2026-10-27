@@ -4,6 +4,7 @@ import { groupArcadeWeekQuery } from "#/graphql/arcade/queries"
 import { groupRankBoardQuery } from "#/graphql/blind-rank/queries"
 import { groupSeasonBoardQuery } from "#/graphql/season-puzzles/queries"
 import { groupTeammateChainBoardQuery } from "#/graphql/teammate-chain/queries"
+import { groupWatchRecentQuery } from "#/graphql/were-you-watching/queries"
 
 // The group's arcade games: today's board for each, member by member, and the
 // week's standings across all of them.
@@ -16,6 +17,7 @@ export const Route = createFileRoute(
 			context.queryClient.query(groupSeasonBoardQuery(params.groupId)),
 			context.queryClient.query(groupRankBoardQuery(params.groupId)),
 			context.queryClient.query(groupTeammateChainBoardQuery(params.groupId)),
+			context.queryClient.query(groupWatchRecentQuery(params.groupId)),
 			context.queryClient.query(groupArcadeWeekQuery(params.groupId)),
 		]),
 })

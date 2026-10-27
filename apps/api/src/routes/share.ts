@@ -70,6 +70,12 @@ import {
 	loadTeammateChainTodayCardData,
 } from "../lib/share-cards/teammate-chain-card"
 import {
+	buildWatchQuizCard,
+	buildWatchResultCard,
+	loadWatchQuizCardData,
+	loadWatchResultCardData,
+} from "../lib/share-cards/were-you-watching-card"
+import {
 	type RenderOptions,
 	renderShareImage,
 	type SatoriNode,
@@ -313,6 +319,38 @@ export function registerShareRoutes(app: Express) {
 			SHARE_CARD_SIZE,
 		)
 	})
+
+	// The og:image behind /arcade/were-you-watching/:league/:team: the
+	// team's current quiz. The page keys it by the quiz's code so a preview
+	// refreshes when a newer game replaces it.
+	app.get("/share/were-you-watching/:league/:team.png", async (req, res) => {
+		await serveCard(
+			res,
+			await loadWatchQuizCardData(req.params.league, req.params.team),
+			buildWatchQuizCard,
+			SHARE_CARD_SIZE,
+		)
+	})
+
+	// The og:image behind /arcade/were-you-watching/:league/:team/:code/
+	// :result. ?by= names the player when it's really their result.
+	app.get(
+		"/share/were-you-watching/:league/:team/:code/:result.png",
+		async (req, res) => {
+			await serveCard(
+				res,
+				await loadWatchResultCardData(
+					req.params.league,
+					req.params.team,
+					req.params.code,
+					req.params.result,
+					typeof req.query.by === "string" ? req.query.by : undefined,
+				),
+				buildWatchResultCard,
+				SHARE_CARD_SIZE,
+			)
+		},
+	)
 
 	// The og:image behind /posts/:id: one person's Rushmore. Public posts only. A group's posts 404 here like a removed
 	// one, so the image can't carry them out of the group.

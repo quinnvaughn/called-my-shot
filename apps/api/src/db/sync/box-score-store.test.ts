@@ -112,7 +112,7 @@ describe("persistBoxScore", () => {
 		const rows = await teamRows(setup.game.id)
 		const scopes = new Set(rows.map((r) => r.scope))
 		expect(scopes).toEqual(
-			new Set(["team_box", "player_table_total", "final_score"]),
+			new Set(["team_box", "player_table_total", "final_score", "period"]),
 		)
 
 		// The score isn't a box-score cell, so it's stored under its own scope
@@ -128,6 +128,36 @@ describe("persistBoxScore", () => {
 		const tableTotals = rows.filter((r) => r.scope === "player_table_total")
 		expect(teamBox.some((r) => r.statKey === "totalRebounds")).toBe(true)
 		expect(tableTotals.some((r) => r.statKey === "rebounds")).toBe(true)
+	})
+
+	it("stores each side's linescore under the period scope", async () => {
+		const setup = await seed("nba")
+		await persist(setup, "nba")
+
+		const periods = (await teamRows(setup.game.id))
+			.filter((r) => r.scope === "period" && r.teamId === setup.home.id)
+			.sort((a, b) => a.statKey.localeCompare(b.statKey))
+		expect(periods.map((r) => [r.statKey, r.valueNumeric])).toEqual([
+			["1", 36],
+			["2", 38],
+			["3", 35],
+			["4", 35],
+		])
+	})
+
+	it("carries whether each athlete started onto their rows", async () => {
+		const setup = await seed("nba")
+		await persist(setup, "nba")
+
+		const rows = await playerRows(setup.game.id)
+		const starters = new Set(
+			rows.filter((r) => r.starter).map((r) => r.sourceAthleteId),
+		)
+		expect(starters.size).toBe(10)
+		expect(starters.has("nba:4869780")).toBe(true)
+		expect(rows.find((r) => r.sourceAthleteId === "nba:4432068")?.starter).toBe(
+			false,
+		)
 	})
 
 	it("prefixes MLB keys by table and parses innings as thirds", async () => {

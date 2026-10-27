@@ -54,3 +54,76 @@ export function chainDurationLabel(seconds: number): string {
 export function chainResultHeadline(links: number | null): string {
 	return links === null ? "Gave up" : `Connected in ${links}`
 }
+
+// The nicknames that run to two words. Everywhere else a team's nickname is
+// the last word of its full name ("Boston Celtics" -> "Celtics"), the way
+// Were You Watching? names a team in its questions.
+const TWO_WORD_NICKNAMES = new Set([
+	"Trail Blazers",
+	"Red Sox",
+	"White Sox",
+	"Blue Jays",
+	"Maple Leafs",
+	"Blue Jackets",
+	"Red Wings",
+	"Golden Knights",
+	"Hockey Club",
+])
+
+export function teamNickname(fullName: string): string {
+	const words = fullName.trim().split(/\s+/)
+	const lastTwo = words.slice(-2).join(" ")
+	if (words.length > 2 && TWO_WORD_NICKNAMES.has(lastTwo)) return lastTwo
+	return words.at(-1) ?? fullName
+}
+
+export const possessive = (name: string) =>
+	name.endsWith("s") ? `${name}'` : `${name}'s`
+
+// What a Were You Watching? share link carries: "6-7-284" is 6 of 7 in 28.4
+// seconds, and a trailing "-h" means they left the page during a question.
+export function watchResultCode(run: {
+	correct: number
+	total: number
+	totalMs: number
+	clean: boolean
+}): string {
+	const tenths = Math.round(run.totalMs / 100)
+	return `${run.correct}-${run.total}-${tenths}${run.clean ? "" : "-h"}`
+}
+
+export type WatchResult = {
+	correct: number
+	total: number
+	seconds: number
+	clean: boolean
+}
+
+export function parseWatchResultCode(code: string): WatchResult | null {
+	const found = /^(\d{1,2})-(\d{1,2})-(\d{1,5})(-h)?$/.exec(code.toLowerCase())
+	if (!found) return null
+	const correct = Number(found[1])
+	const total = Number(found[2])
+	if (total === 0 || correct > total) return null
+	return { correct, total, seconds: Number(found[3]) / 10, clean: !found[4] }
+}
+
+export function watchResultHeadline(correct: number, total: number): string {
+	if (correct === total) return "Didn't miss a thing"
+	if (correct === 0) return "Were you even watching?"
+	return `${correct} of ${total}`
+}
+
+// The jab under a Were You Watching? result, by the share of questions
+// right.
+export function watchResultLine(correct: number, total: number): string {
+	if (total === 0) return ""
+	const share = correct / total
+	if (share === 1) return "You were watching, all right."
+	if (share >= 0.75)
+		return "You watched. Maybe checked your phone once or twice."
+	if (share >= 0.5) return "Half watching, by the look of it."
+	if (share >= 0.25) return "Are you sure you watched the game?"
+	if (share > 0) return "Did you have it on in another room?"
+	return "Not one. Catch the next game."
+}

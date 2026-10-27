@@ -32,4 +32,6 @@ export const COLOR = {
 	rank: "#C026D3", // rank.default
 	// Teammate Chain's own color.
 	chain: "#0F766E", // chain.default
+	// Were You Watching?'s own color.
+	watch: "#9F1239", // watch.default
 }
