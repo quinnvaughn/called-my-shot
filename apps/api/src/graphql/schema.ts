@@ -27,6 +27,7 @@ import "./types/update"
 import "./types/push"
 import "./types/season-puzzle"
 import "./types/blind-rank"
+import "./types/teammate-chain"
 import "./types/arcade"
 
 builder.queryType({})

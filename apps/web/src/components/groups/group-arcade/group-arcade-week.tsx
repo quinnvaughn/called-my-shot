@@ -6,7 +6,7 @@ import { SectionLabel } from "#/components/ui/section-label"
 import { groupArcadeWeekQuery } from "#/graphql/arcade/queries"
 import { GroupArcadeWeekRow } from "./group-arcade-week-row"
 
-// The week so far across both arcade games, most points first.
+// The week so far across every arcade game, most points first.
 export function GroupArcadeWeek({ groupId }: { groupId: string }) {
 	const { data } = useSuspenseQuery(groupArcadeWeekQuery(groupId))
 	const week = data.group?.arcadeWeek
@@ -17,7 +17,9 @@ export function GroupArcadeWeek({ groupId }: { groupId: string }) {
 			<p className={css({ fontSize: "sm", color: "fg.muted" })}>
 				Weeks run Tuesday through Monday. Name That Season is worth 6 points for
 				a first guess down to 1 for a sixth, and nothing for a miss. Blind Rank
-				is worth a point for each of the five in the right slot.
+				is worth a point for each of the five in the right slot. Teammate Chain
+				is worth 6 points at par, 1 less for each link over it and each hint
+				(never below 1), and nothing if you give up.
 			</p>
 			<Card>
 				{week.map((row, i) => (

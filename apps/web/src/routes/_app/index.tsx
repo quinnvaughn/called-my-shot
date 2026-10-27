@@ -15,6 +15,7 @@ import { homeDashboardQuery } from "#/graphql/home/queries"
 import { myLiveCallsQuery } from "#/graphql/my-calls/queries"
 import { homeFeedQuery, popularRushmoresQuery } from "#/graphql/posts/queries"
 import { seasonPuzzleTodayQuery } from "#/graphql/season-puzzles/queries"
+import { teammateChainTodayQuery } from "#/graphql/teammate-chain/queries"
 import { useMe } from "#/hooks/use-me"
 import { pageMeta } from "#/lib/meta"
 
@@ -47,6 +48,7 @@ export const Route = createFileRoute("/_app/")({
 						queryClient.query(guestPicksQuery),
 						queryClient.query(seasonPuzzleTodayQuery),
 						queryClient.query(rankPuzzleTodayQuery),
+						queryClient.query(teammateChainTodayQuery),
 					]),
 		])
 		// An empty feed shows popular Rushmores in its place.

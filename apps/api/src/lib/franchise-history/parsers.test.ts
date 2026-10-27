@@ -12,10 +12,17 @@ import {
 	decodeEntities,
 	nbaScore,
 	parseBrefFranchisePlayers,
+	parseBrefFranchiseSeasons,
 	parseBrefHallOfFame,
+	parseBrefSeasonTotals,
 } from "./nba"
 import { isNflHallOfFamer, nflPeople, parseNflRoster } from "./nfl"
-import { type NhlCareerRow, nhlStints, seasonEndYear } from "./nhl"
+import {
+	type NhlCareerRow,
+	nhlStints,
+	nhlTeamSeasons,
+	seasonEndYear,
+} from "./nhl"
 
 const fixture = (name: string) =>
 	readFileSync(new URL(`./__fixtures__/${name}`, import.meta.url), "utf8")
@@ -107,6 +114,26 @@ describe("Basketball-Reference", () => {
 		expect(score("russebi01")).toBeGreaterThan(score("cousybo01"))
 	})
 
+	it("reads which code each of a franchise's seasons was played under", () => {
+		expect(
+			parseBrefFranchiseSeasons(fixture("bref-okc-franchise.html")),
+		).toEqual([
+			{ code: "OKC", season: 2009, league: "NBA" },
+			{ code: "SEA", season: 2008, league: "NBA" },
+			{ code: "SEA", season: 1968, league: "NBA" },
+		])
+	})
+
+	it("reads a row per team from a season's totals, skipping combined rows and the playoffs", () => {
+		const rows = parseBrefSeasonTotals(fixture("bref-nba-2005-totals.html"))
+		expect(rows).toEqual([
+			{ brefId: "iversal01", code: "PHI" },
+			{ brefId: "cartevi01", code: "TOR" },
+			{ brefId: "cartevi01", code: "NJN" },
+			{ brefId: "allenra02", code: "SEA" },
+		])
+	})
+
 	it("decodes entities in names", () => {
 		expect(decodeEntities("Shaquille O&#39;Neal &amp; Co")).toBe(
 			"Shaquille O'Neal & Co",
@@ -188,6 +215,26 @@ describe("NHL", () => {
 		const stints = nhlStints(rows, { hallOfFame: new Set(), top100: new Set() })
 		const goalie = rows.find((row) => row.franchiseId === 12) as NhlCareerRow
 		expect(stints.get(goalie.playerId)?.stints[0]?.teamAbbreviation).toBe("DET")
+	})
+})
+
+describe("NHL seasons", () => {
+	it("gives a traded player a season with each team and drops the original Jets", () => {
+		const seasons = nhlTeamSeasons(
+			JSON.parse(fixture("nhl-season-skaters.json")).data,
+			JSON.parse(fixture("nhl-teams.json")).data,
+		)
+		expect(seasons.get(8447364)).toEqual([
+			{ teamAbbreviation: "NYR", season: 1998 },
+		])
+		expect(seasons.get(8459174)).toEqual([
+			{ teamAbbreviation: "EDM", season: 1998 },
+			{ teamAbbreviation: "PHI", season: 1998 },
+		])
+		// WIN,ANA: the Winnipeg half belongs to the Coyotes' lineage.
+		expect(seasons.get(8457981)).toEqual([
+			{ teamAbbreviation: "ANA", season: 1996 },
+		])
 	})
 })
 

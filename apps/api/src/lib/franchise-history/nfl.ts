@@ -250,6 +250,9 @@ export async function loadNflHistory(log: Log): Promise<HistoryPlayer[]> {
 				(person.espnId ? espnNflHeadshotUrl(person.espnId) : null),
 			active: stints.some((stint) => stint.lastSeason >= latestSeason - 1),
 			stints,
+			teamSeasons: [...person.seasons].flatMap(([team, years]) =>
+				[...years].map((season) => ({ teamAbbreviation: team, season })),
+			),
 		}
 	})
 }

@@ -44,6 +44,11 @@ export function ArcadeShareRow({
 						"rank",
 						() => "Everyone ranks the same list today. Send them your squares.",
 					)
+					.with(
+						"chain",
+						() =>
+							"Everyone connects the same two players today. Send them your link and see whose route is shorter.",
+					)
 					.exhaustive()}
 			>
 				<SendToFriendsRow

@@ -1,0 +1,34 @@
+{
+	"data": [
+		{
+			"triCode": "WPG",
+			"franchiseId": 35,
+			"fullName": "Winnipeg Jets"
+		},
+		{
+			"triCode": "NYR",
+			"franchiseId": 10,
+			"fullName": "New York Rangers"
+		},
+		{
+			"triCode": "ANA",
+			"franchiseId": 32,
+			"fullName": "Anaheim Ducks"
+		},
+		{
+			"triCode": "PHI",
+			"franchiseId": 16,
+			"fullName": "Philadelphia Flyers"
+		},
+		{
+			"triCode": "EDM",
+			"franchiseId": 25,
+			"fullName": "Edmonton Oilers"
+		},
+		{
+			"triCode": "WIN",
+			"franchiseId": 35,
+			"fullName": "Winnipeg Jets (1979)"
+		}
+	]
+}

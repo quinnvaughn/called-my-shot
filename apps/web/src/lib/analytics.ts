@@ -29,6 +29,7 @@ export type CallSurface =
 export type StartGroupSurface =
 	| "season_puzzle"
 	| "blind_rank"
+	| "teammate_chain"
 	| "home_intro"
 	| "rail"
 	| "spaces"
@@ -124,6 +125,7 @@ type AnalyticsEvents = {
 			| "recap_link"
 			| "season_puzzle"
 			| "blind_rank"
+			| "teammate_chain"
 		resumedAfterGoogle?: boolean
 	}
 	// Name That Season. `date` is the puzzle's day. A finished game's result is
@@ -163,6 +165,30 @@ type AnalyticsEvents = {
 		toGroup: boolean
 	}
 	rank_next_step_clicked: {
+		step: "sign_up" | "join_group" | "start_group" | "group_board" | "calls"
+	}
+	// Teammate Chain. `date` is the puzzle's day. A finished game's result is
+	// the links it took, or "x" for a game given up.
+	chain_puzzle_started: { date: string; signedIn: boolean }
+	// position: where in the chain the player went, 1 for next to the start.
+	chain_player_added: { date: string; position: number }
+	chain_missed: { date: string; misses: number }
+	// clue: which clue about the current mystery teammate this was, 1 to 4.
+	chain_hint_used: { date: string; hints: number; clue: number }
+	chain_puzzle_finished: {
+		date: string
+		result: number | "x"
+		par: number
+		misses: number
+		seconds: number | null
+		signedIn: boolean
+	}
+	chain_result_shared: {
+		date: string
+		method: "clipboard" | "native" | "x"
+		toGroup: boolean
+	}
+	chain_next_step_clicked: {
 		step: "sign_up" | "join_group" | "start_group" | "group_board" | "calls"
 	}
 	// `surface` separates the header's Invite modal from the inline card small

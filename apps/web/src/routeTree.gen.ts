@@ -73,6 +73,7 @@ import { Route as AdminBlindRankIndexRouteImport } from './routes/admin/blind-ra
 import { Route as AdminDataIndexRouteImport } from './routes/admin/data/index'
 import { Route as AdminDataLeagueIdRouteImport } from './routes/admin/data/$leagueId'
 import { Route as AdminSeasonsIndexRouteImport } from './routes/admin/seasons/index'
+import { Route as AdminTeammateChainIndexRouteImport } from './routes/admin/teammate-chain/index'
 import { Route as AdminUpdatesIndexRouteImport } from './routes/admin/updates/index'
 import { Route as AdminUpdatesUpdateIdRouteImport } from './routes/admin/updates/$updateId'
 import { Route as AdminUpdatesNewRouteImport } from './routes/admin/updates/new'
@@ -85,6 +86,7 @@ import { Route as AppAuthedRedraftNewRouteImport } from './routes/_app/_authed/r
 import { Route as AppAuthedRushmoreNewRouteImport } from './routes/_app/_authed/rushmore/new'
 import { Route as AppArcadeBlindRankIndexRouteImport } from './routes/_app/arcade/blind-rank/index'
 import { Route as AppArcadeNameThatSeasonIndexRouteImport } from './routes/_app/arcade/name-that-season/index'
+import { Route as AppArcadeTeammateChainIndexRouteImport } from './routes/_app/arcade/teammate-chain/index'
 import { Route as AppBallotsBallotSlugUsernameRouteImport } from './routes/_app/ballots/$ballotSlug_.$username'
 import { Route as AppChallengesCodePlayRouteImport } from './routes/_app/challenges/$code_.play'
 import { Route as AppGamesGameIdChar123SlugChar125RouteImport } from './routes/_app/games/$gameId.{-$slug}'
@@ -114,16 +116,19 @@ import { Route as ShareRedraftPostIdPortraitRouteImport } from './routes/share/r
 import { Route as ShareRushmorePromptsCodeCardDotpngRouteImport } from './routes/share/rushmore-prompts/$code/card[.]png'
 import { Route as ShareRushmorePostIdCardDotpngRouteImport } from './routes/share/rushmore/$postId/card[.]png'
 import { Route as ShareRushmorePostIdPortraitRouteImport } from './routes/share/rushmore/$postId/portrait'
+import { Route as ShareTeammateChainDateCardDotpngRouteImport } from './routes/share/teammate-chain/$date/card[.]png'
 import { Route as ShareUsersUsernameCardDotpngRouteImport } from './routes/share/users/$username/card[.]png'
 import { Route as AppAuthedGroupsGroupIdTabsRouteImport } from './routes/_app/_authed/groups/$groupId/_tabs'
 import { Route as AppAuthedGroupsGroupIdSettingsRouteImport } from './routes/_app/_authed/groups/$groupId/settings'
 import { Route as AppArcadeBlindRankDateResultRouteImport } from './routes/_app/arcade/blind-rank/$date.$result'
 import { Route as AppArcadeNameThatSeasonDateResultRouteImport } from './routes/_app/arcade/name-that-season/$date.$result'
+import { Route as AppArcadeTeammateChainDateResultRouteImport } from './routes/_app/arcade/teammate-chain/$date.$result'
 import { Route as AppChallengesCodeVsUsernameRouteImport } from './routes/_app/challenges/$code_.vs.$username'
 import { Route as AppGamesGameIdPicksUsernameRouteImport } from './routes/_app/games/$gameId.picks.$username'
 import { Route as AppLeaguesLeagueSlugTeamsTeamSlugRouteImport } from './routes/_app/leagues/$leagueSlug_.teams.$teamSlug'
 import { Route as ShareBlindRankDateResultCardDotpngRouteImport } from './routes/share/blind-rank/$date/$result/card[.]png'
 import { Route as ShareNameThatSeasonDateResultCardDotpngRouteImport } from './routes/share/name-that-season/$date/$result/card[.]png'
+import { Route as ShareTeammateChainDateResultCardDotpngRouteImport } from './routes/share/teammate-chain/$date/$result/card[.]png'
 import { Route as AppAuthedGroupsGroupIdTabsIndexRouteImport } from './routes/_app/_authed/groups/$groupId/_tabs/index'
 import { Route as AppAuthedGroupsGroupIdTabsArcadeRouteImport } from './routes/_app/_authed/groups/$groupId/_tabs/arcade'
 import { Route as AppAuthedGroupsGroupIdTabsChainsRouteImport } from './routes/_app/_authed/groups/$groupId/_tabs/chains'
@@ -462,6 +467,11 @@ const AdminSeasonsIndexRoute = AdminSeasonsIndexRouteImport.update({
   path: '/seasons/',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminTeammateChainIndexRoute = AdminTeammateChainIndexRouteImport.update({
+  id: '/teammate-chain/',
+  path: '/teammate-chain/',
+  getParentRoute: () => AdminRoute,
+} as any)
 const AdminUpdatesIndexRoute = AdminUpdatesIndexRouteImport.update({
   id: '/updates/',
   path: '/updates/',
@@ -522,6 +532,12 @@ const AppArcadeNameThatSeasonIndexRoute =
   AppArcadeNameThatSeasonIndexRouteImport.update({
     id: '/arcade/name-that-season/',
     path: '/arcade/name-that-season/',
+    getParentRoute: () => AppRoute,
+  } as any)
+const AppArcadeTeammateChainIndexRoute =
+  AppArcadeTeammateChainIndexRouteImport.update({
+    id: '/arcade/teammate-chain/',
+    path: '/arcade/teammate-chain/',
     getParentRoute: () => AppRoute,
   } as any)
 const AppBallotsBallotSlugUsernameRoute =
@@ -691,6 +707,12 @@ const ShareRushmorePostIdPortraitRoute =
     path: '/share/rushmore/$postId/portrait',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ShareTeammateChainDateCardDotpngRoute =
+  ShareTeammateChainDateCardDotpngRouteImport.update({
+    id: '/share/teammate-chain/$date/card.png',
+    path: '/share/teammate-chain/$date/card.png',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ShareUsersUsernameCardDotpngRoute =
   ShareUsersUsernameCardDotpngRouteImport.update({
     id: '/share/users/$username/card.png',
@@ -721,6 +743,12 @@ const AppArcadeNameThatSeasonDateResultRoute =
     path: '/arcade/name-that-season/$date/$result',
     getParentRoute: () => AppRoute,
   } as any)
+const AppArcadeTeammateChainDateResultRoute =
+  AppArcadeTeammateChainDateResultRouteImport.update({
+    id: '/arcade/teammate-chain/$date/$result',
+    path: '/arcade/teammate-chain/$date/$result',
+    getParentRoute: () => AppRoute,
+  } as any)
 const AppChallengesCodeVsUsernameRoute =
   AppChallengesCodeVsUsernameRouteImport.update({
     id: '/challenges/$code_/vs/$username',
@@ -749,6 +777,12 @@ const ShareNameThatSeasonDateResultCardDotpngRoute =
   ShareNameThatSeasonDateResultCardDotpngRouteImport.update({
     id: '/share/name-that-season/$date/$result/card.png',
     path: '/share/name-that-season/$date/$result/card.png',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ShareTeammateChainDateResultCardDotpngRoute =
+  ShareTeammateChainDateResultCardDotpngRouteImport.update({
+    id: '/share/teammate-chain/$date/$result/card.png',
+    path: '/share/teammate-chain/$date/$result/card.png',
     getParentRoute: () => rootRouteImport,
   } as any)
 const AppAuthedGroupsGroupIdTabsIndexRoute =
@@ -932,6 +966,7 @@ export interface FileRoutesByFullPath {
   '/admin/blind-rank/': typeof AdminBlindRankIndexRoute
   '/admin/data/': typeof AdminDataIndexRoute
   '/admin/seasons/': typeof AdminSeasonsIndexRoute
+  '/admin/teammate-chain/': typeof AdminTeammateChainIndexRoute
   '/admin/updates/': typeof AdminUpdatesIndexRoute
   '/auth/google/': typeof AuthGoogleIndexRoute
   '/challenges/new': typeof AppAuthedChallengesNewRoute
@@ -964,22 +999,26 @@ export interface FileRoutesByFullPath {
   '/share/rushmore-prompts/$code/card.png': typeof ShareRushmorePromptsCodeCardDotpngRoute
   '/share/rushmore/$postId/card.png': typeof ShareRushmorePostIdCardDotpngRoute
   '/share/rushmore/$postId/portrait': typeof ShareRushmorePostIdPortraitRoute
+  '/share/teammate-chain/$date/card.png': typeof ShareTeammateChainDateCardDotpngRoute
   '/share/users/$username/card.png': typeof ShareUsersUsernameCardDotpngRoute
   '/challenges/': typeof AppAuthedChallengesIndexRoute
   '/groups/': typeof AppAuthedGroupsIndexRoute
   '/arcade/blind-rank/': typeof AppArcadeBlindRankIndexRoute
   '/arcade/name-that-season/': typeof AppArcadeNameThatSeasonIndexRoute
+  '/arcade/teammate-chain/': typeof AppArcadeTeammateChainIndexRoute
   '/leagues/$leagueSlug/': typeof AppLeaguesLeagueSlugIndexRoute
   '/admin/data/$leagueId/': typeof AdminDataLeagueIdIndexRoute
   '/groups/$groupId': typeof AppAuthedGroupsGroupIdTabsRouteWithChildren
   '/groups/$groupId/settings': typeof AppAuthedGroupsGroupIdSettingsRoute
   '/arcade/blind-rank/$date/$result': typeof AppArcadeBlindRankDateResultRoute
   '/arcade/name-that-season/$date/$result': typeof AppArcadeNameThatSeasonDateResultRoute
+  '/arcade/teammate-chain/$date/$result': typeof AppArcadeTeammateChainDateResultRoute
   '/challenges/$code/vs/$username': typeof AppChallengesCodeVsUsernameRoute
   '/games/$gameId/picks/$username': typeof AppGamesGameIdPicksUsernameRoute
   '/leagues/$leagueSlug/teams/$teamSlug': typeof AppLeaguesLeagueSlugTeamsTeamSlugRoute
   '/share/blind-rank/$date/$result/card.png': typeof ShareBlindRankDateResultCardDotpngRoute
   '/share/name-that-season/$date/$result/card.png': typeof ShareNameThatSeasonDateResultCardDotpngRoute
+  '/share/teammate-chain/$date/$result/card.png': typeof ShareTeammateChainDateResultCardDotpngRoute
   '/groups/$groupId/arcade': typeof AppAuthedGroupsGroupIdTabsArcadeRoute
   '/groups/$groupId/chains': typeof AppAuthedGroupsGroupIdTabsChainsRoute
   '/groups/$groupId/leaderboard': typeof AppAuthedGroupsGroupIdTabsLeaderboardRoute
@@ -1063,6 +1102,7 @@ export interface FileRoutesByTo {
   '/admin/blind-rank': typeof AdminBlindRankIndexRoute
   '/admin/data': typeof AdminDataIndexRoute
   '/admin/seasons': typeof AdminSeasonsIndexRoute
+  '/admin/teammate-chain': typeof AdminTeammateChainIndexRoute
   '/admin/updates': typeof AdminUpdatesIndexRoute
   '/auth/google': typeof AuthGoogleIndexRoute
   '/challenges/new': typeof AppAuthedChallengesNewRoute
@@ -1095,21 +1135,25 @@ export interface FileRoutesByTo {
   '/share/rushmore-prompts/$code/card.png': typeof ShareRushmorePromptsCodeCardDotpngRoute
   '/share/rushmore/$postId/card.png': typeof ShareRushmorePostIdCardDotpngRoute
   '/share/rushmore/$postId/portrait': typeof ShareRushmorePostIdPortraitRoute
+  '/share/teammate-chain/$date/card.png': typeof ShareTeammateChainDateCardDotpngRoute
   '/share/users/$username/card.png': typeof ShareUsersUsernameCardDotpngRoute
   '/challenges': typeof AppAuthedChallengesIndexRoute
   '/groups': typeof AppAuthedGroupsIndexRoute
   '/arcade/blind-rank': typeof AppArcadeBlindRankIndexRoute
   '/arcade/name-that-season': typeof AppArcadeNameThatSeasonIndexRoute
+  '/arcade/teammate-chain': typeof AppArcadeTeammateChainIndexRoute
   '/leagues/$leagueSlug': typeof AppLeaguesLeagueSlugIndexRoute
   '/admin/data/$leagueId': typeof AdminDataLeagueIdIndexRoute
   '/groups/$groupId/settings': typeof AppAuthedGroupsGroupIdSettingsRoute
   '/arcade/blind-rank/$date/$result': typeof AppArcadeBlindRankDateResultRoute
   '/arcade/name-that-season/$date/$result': typeof AppArcadeNameThatSeasonDateResultRoute
+  '/arcade/teammate-chain/$date/$result': typeof AppArcadeTeammateChainDateResultRoute
   '/challenges/$code/vs/$username': typeof AppChallengesCodeVsUsernameRoute
   '/games/$gameId/picks/$username': typeof AppGamesGameIdPicksUsernameRoute
   '/leagues/$leagueSlug/teams/$teamSlug': typeof AppLeaguesLeagueSlugTeamsTeamSlugRoute
   '/share/blind-rank/$date/$result/card.png': typeof ShareBlindRankDateResultCardDotpngRoute
   '/share/name-that-season/$date/$result/card.png': typeof ShareNameThatSeasonDateResultCardDotpngRoute
+  '/share/teammate-chain/$date/$result/card.png': typeof ShareTeammateChainDateResultCardDotpngRoute
   '/groups/$groupId/arcade': typeof AppAuthedGroupsGroupIdTabsArcadeRoute
   '/groups/$groupId/chains': typeof AppAuthedGroupsGroupIdTabsChainsRoute
   '/groups/$groupId/leaderboard': typeof AppAuthedGroupsGroupIdTabsLeaderboardRoute
@@ -1199,6 +1243,7 @@ export interface FileRoutesById {
   '/admin/blind-rank/': typeof AdminBlindRankIndexRoute
   '/admin/data/': typeof AdminDataIndexRoute
   '/admin/seasons/': typeof AdminSeasonsIndexRoute
+  '/admin/teammate-chain/': typeof AdminTeammateChainIndexRoute
   '/admin/updates/': typeof AdminUpdatesIndexRoute
   '/auth/google/': typeof AuthGoogleIndexRoute
   '/_app/_authed/challenges/new': typeof AppAuthedChallengesNewRoute
@@ -1231,22 +1276,26 @@ export interface FileRoutesById {
   '/share/rushmore-prompts/$code/card.png': typeof ShareRushmorePromptsCodeCardDotpngRoute
   '/share/rushmore/$postId/card.png': typeof ShareRushmorePostIdCardDotpngRoute
   '/share/rushmore/$postId/portrait': typeof ShareRushmorePostIdPortraitRoute
+  '/share/teammate-chain/$date/card.png': typeof ShareTeammateChainDateCardDotpngRoute
   '/share/users/$username/card.png': typeof ShareUsersUsernameCardDotpngRoute
   '/_app/_authed/challenges/': typeof AppAuthedChallengesIndexRoute
   '/_app/_authed/groups/': typeof AppAuthedGroupsIndexRoute
   '/_app/arcade/blind-rank/': typeof AppArcadeBlindRankIndexRoute
   '/_app/arcade/name-that-season/': typeof AppArcadeNameThatSeasonIndexRoute
+  '/_app/arcade/teammate-chain/': typeof AppArcadeTeammateChainIndexRoute
   '/_app/leagues/$leagueSlug/': typeof AppLeaguesLeagueSlugIndexRoute
   '/admin/data/$leagueId/': typeof AdminDataLeagueIdIndexRoute
   '/_app/_authed/groups/$groupId/_tabs': typeof AppAuthedGroupsGroupIdTabsRouteWithChildren
   '/_app/_authed/groups/$groupId/settings': typeof AppAuthedGroupsGroupIdSettingsRoute
   '/_app/arcade/blind-rank/$date/$result': typeof AppArcadeBlindRankDateResultRoute
   '/_app/arcade/name-that-season/$date/$result': typeof AppArcadeNameThatSeasonDateResultRoute
+  '/_app/arcade/teammate-chain/$date/$result': typeof AppArcadeTeammateChainDateResultRoute
   '/_app/challenges/$code_/vs/$username': typeof AppChallengesCodeVsUsernameRoute
   '/_app/games/$gameId/picks/$username': typeof AppGamesGameIdPicksUsernameRoute
   '/_app/leagues/$leagueSlug_/teams/$teamSlug': typeof AppLeaguesLeagueSlugTeamsTeamSlugRoute
   '/share/blind-rank/$date/$result/card.png': typeof ShareBlindRankDateResultCardDotpngRoute
   '/share/name-that-season/$date/$result/card.png': typeof ShareNameThatSeasonDateResultCardDotpngRoute
+  '/share/teammate-chain/$date/$result/card.png': typeof ShareTeammateChainDateResultCardDotpngRoute
   '/_app/_authed/groups/$groupId/_tabs/arcade': typeof AppAuthedGroupsGroupIdTabsArcadeRoute
   '/_app/_authed/groups/$groupId/_tabs/chains': typeof AppAuthedGroupsGroupIdTabsChainsRoute
   '/_app/_authed/groups/$groupId/_tabs/leaderboard': typeof AppAuthedGroupsGroupIdTabsLeaderboardRoute
@@ -1335,6 +1384,7 @@ export interface FileRouteTypes {
     | '/admin/blind-rank/'
     | '/admin/data/'
     | '/admin/seasons/'
+    | '/admin/teammate-chain/'
     | '/admin/updates/'
     | '/auth/google/'
     | '/challenges/new'
@@ -1367,22 +1417,26 @@ export interface FileRouteTypes {
     | '/share/rushmore-prompts/$code/card.png'
     | '/share/rushmore/$postId/card.png'
     | '/share/rushmore/$postId/portrait'
+    | '/share/teammate-chain/$date/card.png'
     | '/share/users/$username/card.png'
     | '/challenges/'
     | '/groups/'
     | '/arcade/blind-rank/'
     | '/arcade/name-that-season/'
+    | '/arcade/teammate-chain/'
     | '/leagues/$leagueSlug/'
     | '/admin/data/$leagueId/'
     | '/groups/$groupId'
     | '/groups/$groupId/settings'
     | '/arcade/blind-rank/$date/$result'
     | '/arcade/name-that-season/$date/$result'
+    | '/arcade/teammate-chain/$date/$result'
     | '/challenges/$code/vs/$username'
     | '/games/$gameId/picks/$username'
     | '/leagues/$leagueSlug/teams/$teamSlug'
     | '/share/blind-rank/$date/$result/card.png'
     | '/share/name-that-season/$date/$result/card.png'
+    | '/share/teammate-chain/$date/$result/card.png'
     | '/groups/$groupId/arcade'
     | '/groups/$groupId/chains'
     | '/groups/$groupId/leaderboard'
@@ -1466,6 +1520,7 @@ export interface FileRouteTypes {
     | '/admin/blind-rank'
     | '/admin/data'
     | '/admin/seasons'
+    | '/admin/teammate-chain'
     | '/admin/updates'
     | '/auth/google'
     | '/challenges/new'
@@ -1498,21 +1553,25 @@ export interface FileRouteTypes {
     | '/share/rushmore-prompts/$code/card.png'
     | '/share/rushmore/$postId/card.png'
     | '/share/rushmore/$postId/portrait'
+    | '/share/teammate-chain/$date/card.png'
     | '/share/users/$username/card.png'
     | '/challenges'
     | '/groups'
     | '/arcade/blind-rank'
     | '/arcade/name-that-season'
+    | '/arcade/teammate-chain'
     | '/leagues/$leagueSlug'
     | '/admin/data/$leagueId'
     | '/groups/$groupId/settings'
     | '/arcade/blind-rank/$date/$result'
     | '/arcade/name-that-season/$date/$result'
+    | '/arcade/teammate-chain/$date/$result'
     | '/challenges/$code/vs/$username'
     | '/games/$gameId/picks/$username'
     | '/leagues/$leagueSlug/teams/$teamSlug'
     | '/share/blind-rank/$date/$result/card.png'
     | '/share/name-that-season/$date/$result/card.png'
+    | '/share/teammate-chain/$date/$result/card.png'
     | '/groups/$groupId/arcade'
     | '/groups/$groupId/chains'
     | '/groups/$groupId/leaderboard'
@@ -1601,6 +1660,7 @@ export interface FileRouteTypes {
     | '/admin/blind-rank/'
     | '/admin/data/'
     | '/admin/seasons/'
+    | '/admin/teammate-chain/'
     | '/admin/updates/'
     | '/auth/google/'
     | '/_app/_authed/challenges/new'
@@ -1633,22 +1693,26 @@ export interface FileRouteTypes {
     | '/share/rushmore-prompts/$code/card.png'
     | '/share/rushmore/$postId/card.png'
     | '/share/rushmore/$postId/portrait'
+    | '/share/teammate-chain/$date/card.png'
     | '/share/users/$username/card.png'
     | '/_app/_authed/challenges/'
     | '/_app/_authed/groups/'
     | '/_app/arcade/blind-rank/'
     | '/_app/arcade/name-that-season/'
+    | '/_app/arcade/teammate-chain/'
     | '/_app/leagues/$leagueSlug/'
     | '/admin/data/$leagueId/'
     | '/_app/_authed/groups/$groupId/_tabs'
     | '/_app/_authed/groups/$groupId/settings'
     | '/_app/arcade/blind-rank/$date/$result'
     | '/_app/arcade/name-that-season/$date/$result'
+    | '/_app/arcade/teammate-chain/$date/$result'
     | '/_app/challenges/$code_/vs/$username'
     | '/_app/games/$gameId/picks/$username'
     | '/_app/leagues/$leagueSlug_/teams/$teamSlug'
     | '/share/blind-rank/$date/$result/card.png'
     | '/share/name-that-season/$date/$result/card.png'
+    | '/share/teammate-chain/$date/$result/card.png'
     | '/_app/_authed/groups/$groupId/_tabs/arcade'
     | '/_app/_authed/groups/$groupId/_tabs/chains'
     | '/_app/_authed/groups/$groupId/_tabs/leaderboard'
@@ -1698,9 +1762,11 @@ export interface RootRouteChildren {
   ShareRushmorePromptsCodeCardDotpngRoute: typeof ShareRushmorePromptsCodeCardDotpngRoute
   ShareRushmorePostIdCardDotpngRoute: typeof ShareRushmorePostIdCardDotpngRoute
   ShareRushmorePostIdPortraitRoute: typeof ShareRushmorePostIdPortraitRoute
+  ShareTeammateChainDateCardDotpngRoute: typeof ShareTeammateChainDateCardDotpngRoute
   ShareUsersUsernameCardDotpngRoute: typeof ShareUsersUsernameCardDotpngRoute
   ShareBlindRankDateResultCardDotpngRoute: typeof ShareBlindRankDateResultCardDotpngRoute
   ShareNameThatSeasonDateResultCardDotpngRoute: typeof ShareNameThatSeasonDateResultCardDotpngRoute
+  ShareTeammateChainDateResultCardDotpngRoute: typeof ShareTeammateChainDateResultCardDotpngRoute
   ShareBallotsBallotSlugUsersUsernameCardDotpngRoute: typeof ShareBallotsBallotSlugUsersUsernameCardDotpngRoute
   ShareChallengesCodeVsUsernameCardDotpngRoute: typeof ShareChallengesCodeVsUsernameCardDotpngRoute
   ShareGamesGameIdUsersUsernameCardDotpngRoute: typeof ShareGamesGameIdUsersUsernameCardDotpngRoute
@@ -2159,6 +2225,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminSeasonsIndexRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/teammate-chain/': {
+      id: '/admin/teammate-chain/'
+      path: '/teammate-chain'
+      fullPath: '/admin/teammate-chain/'
+      preLoaderRoute: typeof AdminTeammateChainIndexRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/admin/updates/': {
       id: '/admin/updates/'
       path: '/updates'
@@ -2241,6 +2314,13 @@ declare module '@tanstack/react-router' {
       path: '/arcade/name-that-season'
       fullPath: '/arcade/name-that-season/'
       preLoaderRoute: typeof AppArcadeNameThatSeasonIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/arcade/teammate-chain/': {
+      id: '/_app/arcade/teammate-chain/'
+      path: '/arcade/teammate-chain'
+      fullPath: '/arcade/teammate-chain/'
+      preLoaderRoute: typeof AppArcadeTeammateChainIndexRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/ballots/$ballotSlug_/$username': {
@@ -2446,6 +2526,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ShareRushmorePostIdPortraitRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/share/teammate-chain/$date/card.png': {
+      id: '/share/teammate-chain/$date/card.png'
+      path: '/share/teammate-chain/$date/card.png'
+      fullPath: '/share/teammate-chain/$date/card.png'
+      preLoaderRoute: typeof ShareTeammateChainDateCardDotpngRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/share/users/$username/card.png': {
       id: '/share/users/$username/card.png'
       path: '/share/users/$username/card.png'
@@ -2481,6 +2568,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppArcadeNameThatSeasonDateResultRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/arcade/teammate-chain/$date/$result': {
+      id: '/_app/arcade/teammate-chain/$date/$result'
+      path: '/arcade/teammate-chain/$date/$result'
+      fullPath: '/arcade/teammate-chain/$date/$result'
+      preLoaderRoute: typeof AppArcadeTeammateChainDateResultRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/challenges/$code_/vs/$username': {
       id: '/_app/challenges/$code_/vs/$username'
       path: '/challenges/$code/vs/$username'
@@ -2514,6 +2608,13 @@ declare module '@tanstack/react-router' {
       path: '/share/name-that-season/$date/$result/card.png'
       fullPath: '/share/name-that-season/$date/$result/card.png'
       preLoaderRoute: typeof ShareNameThatSeasonDateResultCardDotpngRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/share/teammate-chain/$date/$result/card.png': {
+      id: '/share/teammate-chain/$date/$result/card.png'
+      path: '/share/teammate-chain/$date/$result/card.png'
+      fullPath: '/share/teammate-chain/$date/$result/card.png'
+      preLoaderRoute: typeof ShareTeammateChainDateResultCardDotpngRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_app/_authed/groups/$groupId/_tabs/': {
@@ -2806,8 +2907,10 @@ interface AppRouteChildren {
   AppQuestionsQuestionIdChar123SlugChar125Route: typeof AppQuestionsQuestionIdChar123SlugChar125Route
   AppArcadeBlindRankIndexRoute: typeof AppArcadeBlindRankIndexRoute
   AppArcadeNameThatSeasonIndexRoute: typeof AppArcadeNameThatSeasonIndexRoute
+  AppArcadeTeammateChainIndexRoute: typeof AppArcadeTeammateChainIndexRoute
   AppArcadeBlindRankDateResultRoute: typeof AppArcadeBlindRankDateResultRoute
   AppArcadeNameThatSeasonDateResultRoute: typeof AppArcadeNameThatSeasonDateResultRoute
+  AppArcadeTeammateChainDateResultRoute: typeof AppArcadeTeammateChainDateResultRoute
   AppChallengesCodeVsUsernameRoute: typeof AppChallengesCodeVsUsernameRoute
   AppGamesGameIdPicksUsernameRoute: typeof AppGamesGameIdPicksUsernameRoute
   AppLeaguesLeagueSlugTeamsTeamSlugRoute: typeof AppLeaguesLeagueSlugTeamsTeamSlugRoute
@@ -2846,9 +2949,11 @@ const AppRouteChildren: AppRouteChildren = {
     AppQuestionsQuestionIdChar123SlugChar125Route,
   AppArcadeBlindRankIndexRoute: AppArcadeBlindRankIndexRoute,
   AppArcadeNameThatSeasonIndexRoute: AppArcadeNameThatSeasonIndexRoute,
+  AppArcadeTeammateChainIndexRoute: AppArcadeTeammateChainIndexRoute,
   AppArcadeBlindRankDateResultRoute: AppArcadeBlindRankDateResultRoute,
   AppArcadeNameThatSeasonDateResultRoute:
     AppArcadeNameThatSeasonDateResultRoute,
+  AppArcadeTeammateChainDateResultRoute: AppArcadeTeammateChainDateResultRoute,
   AppChallengesCodeVsUsernameRoute: AppChallengesCodeVsUsernameRoute,
   AppGamesGameIdPicksUsernameRoute: AppGamesGameIdPicksUsernameRoute,
   AppLeaguesLeagueSlugTeamsTeamSlugRoute:
@@ -2905,6 +3010,7 @@ interface AdminRouteChildren {
   AdminBlindRankIndexRoute: typeof AdminBlindRankIndexRoute
   AdminDataIndexRoute: typeof AdminDataIndexRoute
   AdminSeasonsIndexRoute: typeof AdminSeasonsIndexRoute
+  AdminTeammateChainIndexRoute: typeof AdminTeammateChainIndexRoute
   AdminUpdatesIndexRoute: typeof AdminUpdatesIndexRoute
 }
 
@@ -2933,6 +3039,7 @@ const AdminRouteChildren: AdminRouteChildren = {
   AdminBlindRankIndexRoute: AdminBlindRankIndexRoute,
   AdminDataIndexRoute: AdminDataIndexRoute,
   AdminSeasonsIndexRoute: AdminSeasonsIndexRoute,
+  AdminTeammateChainIndexRoute: AdminTeammateChainIndexRoute,
   AdminUpdatesIndexRoute: AdminUpdatesIndexRoute,
 }
 
@@ -2969,11 +3076,14 @@ const rootRouteChildren: RootRouteChildren = {
     ShareRushmorePromptsCodeCardDotpngRoute,
   ShareRushmorePostIdCardDotpngRoute: ShareRushmorePostIdCardDotpngRoute,
   ShareRushmorePostIdPortraitRoute: ShareRushmorePostIdPortraitRoute,
+  ShareTeammateChainDateCardDotpngRoute: ShareTeammateChainDateCardDotpngRoute,
   ShareUsersUsernameCardDotpngRoute: ShareUsersUsernameCardDotpngRoute,
   ShareBlindRankDateResultCardDotpngRoute:
     ShareBlindRankDateResultCardDotpngRoute,
   ShareNameThatSeasonDateResultCardDotpngRoute:
     ShareNameThatSeasonDateResultCardDotpngRoute,
+  ShareTeammateChainDateResultCardDotpngRoute:
+    ShareTeammateChainDateResultCardDotpngRoute,
   ShareBallotsBallotSlugUsersUsernameCardDotpngRoute:
     ShareBallotsBallotSlugUsersUsernameCardDotpngRoute,
   ShareChallengesCodeVsUsernameCardDotpngRoute:

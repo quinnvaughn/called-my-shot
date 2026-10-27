@@ -5,6 +5,7 @@ import {
 	externalRefs,
 	playerFranchiseStints,
 	players,
+	playerTeamSeasons,
 	teams,
 } from "../../db/schema"
 import {
@@ -22,7 +23,8 @@ import {
 } from "./types"
 
 // Writes a league's all-time history: every source player linked to a
-// players row, and one player_franchise_stints row per player per franchise.
+// players row, one player_franchise_stints row per player per franchise, and
+// one player_team_seasons row per player per franchise per season.
 //
 // A source player is matched to a row this app already has in order of how
 // sure the match is:
@@ -35,12 +37,14 @@ import {
 // Whichever way he was found, the source id is linked so the next ingest
 // takes step 1.
 //
-// A rerun replaces the league's stints: whatever this run didn't write (a
-// franchise mapping that changed, a source row that went away) is deleted.
+// A rerun replaces the league's stints and seasons: whatever this run didn't
+// write (a franchise mapping that changed, a source row that went away) is
+// deleted.
 
 export type WriteResult = {
 	players: number
 	stints: number
+	teamSeasons: number
 	linkedByRef: number
 	linkedByEspn: number
 	linkedByImage: number
@@ -142,6 +146,12 @@ export async function writeHistory(
 		bySource.set(player.sourceId, {
 			...player,
 			stints: mergeStints([...(prev?.stints ?? []), ...stints]),
+			teamSeasons: [
+				...(prev?.teamSeasons ?? []),
+				...player.teamSeasons.filter((row) =>
+					leagueTeams.byAbbreviation.has(row.teamAbbreviation),
+				),
+			],
 		})
 	}
 	if (unknownTeams.size > 0) {
@@ -337,6 +347,7 @@ export async function writeHistory(
 	}
 
 	let stintCount = 0
+	let teamSeasonCount = 0
 	await db.transaction(async (tx) => {
 		const created = [...bySource.values()].filter(
 			(player) => resolutions.get(player.sourceId)?.kind === "new",
@@ -444,11 +455,39 @@ export async function writeHistory(
 					lt(playerFranchiseStints.updatedAt, runStartedAt),
 				),
 			)
+
+		const seasonRows = new Map<
+			string,
+			{ playerId: string; teamId: string; season: number }
+		>()
+		for (const player of bySource.values()) {
+			const playerId = (resolutions.get(player.sourceId) as Resolution).playerId
+			for (const row of player.teamSeasons) {
+				const teamId = (
+					leagueTeams.byAbbreviation.get(row.teamAbbreviation) as {
+						id: string
+					}
+				).id
+				seasonRows.set(`${playerId}:${teamId}:${row.season}`, {
+					playerId,
+					teamId,
+					season: row.season,
+				})
+			}
+		}
+		teamSeasonCount = seasonRows.size
+		await tx
+			.delete(playerTeamSeasons)
+			.where(inArray(playerTeamSeasons.teamId, leagueTeamIds))
+		for (const batch of chunks([...seasonRows.values()])) {
+			await tx.insert(playerTeamSeasons).values(batch)
+		}
 	})
 
 	return {
 		players: bySource.size,
 		stints: stintCount,
+		teamSeasons: teamSeasonCount,
 		linkedByRef: counts.ref,
 		linkedByEspn: counts.espn,
 		linkedByImage: counts.image,
@@ -459,4 +498,4 @@ export async function writeHistory(
 }
 
 export const describeResult = (league: HistoryLeague, r: WriteResult) =>
-	`${league}: ${r.players} players, ${r.stints} stints; linked ${r.linkedByRef} by ref, ${r.linkedByEspn} by ESPN id, ${r.linkedByImage} by headshot id, ${r.linkedByName} by name; created ${r.created}`
+	`${league}: ${r.players} players, ${r.stints} stints, ${r.teamSeasons} player seasons; linked ${r.linkedByRef} by ref, ${r.linkedByEspn} by ESPN id, ${r.linkedByImage} by headshot id, ${r.linkedByName} by name; created ${r.created}`

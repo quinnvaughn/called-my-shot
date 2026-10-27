@@ -25,6 +25,7 @@ const NAV_ITEMS = [
 	{ to: "/admin/updates", label: "Updates" },
 	{ to: "/admin/seasons", label: "Name That Season" },
 	{ to: "/admin/blind-rank", label: "Blind Rank" },
+	{ to: "/admin/teammate-chain", label: "Teammate Chain" },
 	{ to: "/admin/data", label: "Data" },
 ] as const
 

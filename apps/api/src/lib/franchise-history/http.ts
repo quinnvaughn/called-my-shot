@@ -18,6 +18,7 @@ const HOST_SPACING_MS: Record<string, number> = {
 	"thumb.wikimedia.org": 200,
 	"statsapi.mlb.com": 25,
 	"records.nhl.com": 250,
+	"api.nhle.com": 250,
 }
 const DEFAULT_SPACING_MS = 50
 

@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query"
 import { useEffect, useState } from "react"
 import { css } from "styled-system/css"
+import { match } from "ts-pattern"
 import { AuthModal } from "#/components/auth/auth-modal"
 import { StartGroupModal } from "#/components/groups/start-group-modal"
 import { Button } from "#/components/ui/button"
@@ -153,9 +154,11 @@ export function ArcadeNextSteps({
 					</div>
 					{groups.map((group) => {
 						const today =
-							(game === "season"
-								? group.seasonPuzzleBoard?.today
-								: group.rankBoard?.today) ?? []
+							match(game)
+								.with("season", () => group.seasonPuzzleBoard?.today)
+								.with("rank", () => group.rankBoard?.today)
+								.with("chain", () => group.teammateChainBoard?.today)
+								.exhaustive() ?? []
 						return (
 							<ArcadeGroupRow
 								key={group.id}

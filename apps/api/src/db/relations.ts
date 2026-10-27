@@ -1080,6 +1080,20 @@ export const relations = defineRelations(schema, (r) => ({
 			optional: false,
 		}),
 	},
+	teammateChainPuzzles: {
+		league: r.one.leagues({
+			from: r.teammateChainPuzzles.leagueId,
+			to: r.leagues.id,
+			optional: false,
+		}),
+	},
+	teammateChainResults: {
+		puzzle: r.one.teammateChainPuzzles({
+			from: r.teammateChainResults.puzzleId,
+			to: r.teammateChainPuzzles.id,
+			optional: false,
+		}),
+	},
 	seasonPuzzleResults: {
 		puzzle: r.one.seasonPuzzles({
 			from: r.seasonPuzzleResults.puzzleId,

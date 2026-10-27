@@ -23,6 +23,11 @@ export const ArcadeViewerGroupsDocument = graphql(`
 					status
 				}
 			}
+			teammateChainBoard {
+				today {
+					status
+				}
+			}
 		}
 	}
 `)
@@ -62,7 +67,7 @@ export const ArcadeInviteGroupDocument = graphql(`
 export const arcadeInviteGroupQuery = (code: string) =>
 	gqlQueryOptions(ArcadeInviteGroupDocument, { code })
 
-// A group's points from both arcade games this week.
+// A group's points from every arcade game this week.
 export const GroupArcadeWeekDocument = graphql(`
 	query GroupArcadeWeek($groupId: ID!) {
 		group(id: $groupId) {

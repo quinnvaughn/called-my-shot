@@ -30,4 +30,6 @@ export const COLOR = {
 	season: "#4F46E5", // season.default
 	// Blind Rank's own color.
 	rank: "#C026D3", // rank.default
+	// Teammate Chain's own color.
+	chain: "#0F766E", // chain.default
 }

@@ -6,15 +6,15 @@ import { arrowLink } from "#/components/ui/arrow-link"
 import { graphql, useFragment } from "#/graphql/generated"
 import { gqlQueryOptions } from "#/graphql/query-options"
 import { formatShortDate } from "#/lib/format-date"
-import { IN_PLAY_REFETCH_MS, isGameInPlay, matchupLabel } from "#/lib/game-status"
+import {
+	IN_PLAY_REFETCH_MS,
+	isGameInPlay,
+	matchupLabel,
+} from "#/lib/game-status"
 import { toIdentity } from "#/lib/identity"
 import { crownLabel } from "#/lib/leaderboard"
 import { THIS_WEEK } from "#/lib/leaderboard-filter"
-import {
-	raceEndsLabel,
-	raceRowNote,
-	viewerStandingLine,
-} from "#/lib/week-race"
+import { raceEndsLabel, raceRowNote, viewerStandingLine } from "#/lib/week-race"
 import { WeekRaceRow } from "./week-race-row"
 
 const WeekRaceEntryFragment = graphql(`

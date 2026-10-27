@@ -4,6 +4,7 @@ import {
 	HALL_OF_FAME_BONUS,
 	type HistoryPlayer,
 	type HistoryStint,
+	type HistoryTeamSeason,
 	type Log,
 } from "./types"
 import { sparql } from "./wikidata"
@@ -11,7 +12,8 @@ import { sparql } from "./wikidata"
 // The NBA's all-time pools, from Basketball-Reference: each franchise's
 // /teams/{code}/players.html lists everyone who played for it with their
 // totals there, keyed by bref's player id, and /awards/hof.html marks the
-// Hall of Famers. Wikidata crosswalks bref ids to ESPN's and NBA.com's.
+// Hall of Famers. Wikidata crosswalks bref ids to ESPN's and NBA.com's. The
+// exact seasons behind each stint come from every season's player totals.
 
 const BREF = "https://www.basketball-reference.com"
 
@@ -81,6 +83,57 @@ export function parseBrefFranchisePlayers(html: string): BrefFranchiseRow[] {
 	return rows
 }
 
+// One season on a franchise's /teams/{code}/ page: the code Basketball-
+// Reference keys that season's team by (SEA for the Sonics years on OKC's
+// page) and the league it played in (NBA, BAA, ABA).
+export type BrefFranchiseSeason = {
+	code: string
+	season: number
+	league: string
+}
+
+export function parseBrefFranchiseSeasons(html: string): BrefFranchiseSeason[] {
+	const seasons: BrefFranchiseSeason[] = []
+	for (const row of html.split("<tr").slice(1)) {
+		const team = row.match(
+			/data-stat="season"[^>]*><a href="\/teams\/(\w+)\/(\d{4})\.html"/,
+		)
+		const league = row.match(
+			/data-stat="lg_id"[^>]*><a href="\/leagues\/(\w+)_\d{4}\.html"/,
+		)?.[1]
+		if (!team || !league) continue
+		seasons.push({
+			code: team[1] as string,
+			season: Number(team[2]),
+			league,
+		})
+	}
+	return seasons
+}
+
+// One row of a season's regular-season player totals: who, and the code of
+// the team the row is for. A player traded mid-season has a row per team plus
+// a combined one (2TM, 3TM) that links to no team and is skipped. The page's
+// playoff table comes after and is left out.
+export type BrefSeasonTotalsRow = { brefId: string; code: string }
+
+export function parseBrefSeasonTotals(html: string): BrefSeasonTotalsRow[] {
+	const start = html.indexOf('id="totals_stats"')
+	if (start < 0) return []
+	const table = html.slice(start, html.indexOf("</table>", start))
+	const rows: BrefSeasonTotalsRow[] = []
+	for (const row of table.split("<tr").slice(1)) {
+		const brefId = row.match(
+			/data-append-csv="([^"]+)" data-stat="(?:name_display|player)"/,
+		)?.[1]
+		const code = row.match(
+			/data-stat="(?:team_name_abbr|team_id)"[^>]*><a href="\/teams\/(\w+)\/\d{4}\.html"/,
+		)?.[1]
+		if (brefId && code) rows.push({ brefId, code })
+	}
+	return rows
+}
+
 // Bref ids of everyone inducted as a player. Coaches, referees and
 // contributors are listed on the same page, some with a playing career too
 // (Bill Russell went in again as a coach), so only the Player rows count.
@@ -131,6 +184,42 @@ async function loadCrosswalk(): Promise<Map<string, NbaCrosswalk>> {
 export const nbaHeadshotUrl = (nbaId: string) =>
 	`https://cdn.nba.com/headshots/nba/latest/1040x760/${nbaId}.png`
 
+// Bref id -> every NBA (and BAA) season he played, with the franchise. The
+// franchise pages say which of today's franchises each season's team code
+// belongs to, and each season's totals page says who played for which team.
+async function loadNbaTeamSeasons(
+	log: Log,
+): Promise<Map<string, HistoryTeamSeason[]>> {
+	const franchiseOf = new Map<string, string>()
+	const seasons = new Map<string, { league: string; season: number }>()
+	for (const [code, abbreviation] of Object.entries(NBA_FRANCHISES)) {
+		for (const row of parseBrefFranchiseSeasons(
+			await fetchText(`${BREF}/teams/${code}/`),
+		)) {
+			if (row.league !== "NBA" && row.league !== "BAA") continue
+			franchiseOf.set(`${row.code}:${row.season}`, abbreviation)
+			seasons.set(`${row.league}_${row.season}`, row)
+		}
+	}
+	log(`nba: reading ${seasons.size} seasons of player totals`)
+
+	const out = new Map<string, HistoryTeamSeason[]>()
+	for (const [key, { season }] of seasons) {
+		const rows = parseBrefSeasonTotals(
+			await fetchText(`${BREF}/leagues/${key}_totals.html`),
+		)
+		for (const row of rows) {
+			const team = franchiseOf.get(`${row.code}:${season}`)
+			if (!team) continue
+			out.set(row.brefId, [
+				...(out.get(row.brefId) ?? []),
+				{ teamAbbreviation: team, season },
+			])
+		}
+	}
+	return out
+}
+
 export async function loadNbaHistory(log: Log): Promise<HistoryPlayer[]> {
 	const hallOfFame = parseBrefHallOfFame(
 		await fetchText(`${BREF}/awards/hof.html`),
@@ -163,6 +252,8 @@ export async function loadNbaHistory(log: Log): Promise<HistoryPlayer[]> {
 		}
 	}
 
+	const teamSeasons = await loadNbaTeamSeasons(log)
+
 	return [...byPlayer].map(([brefId, { name, stints }]) => {
 		const ids = crosswalk.get(brefId)
 		return {
@@ -174,6 +265,7 @@ export async function loadNbaHistory(log: Log): Promise<HistoryPlayer[]> {
 			headshotUrl: ids?.nbaId ? nbaHeadshotUrl(ids.nbaId) : null,
 			active: stints.some((stint) => stint.lastSeason >= latestSeason - 1),
 			stints,
+			teamSeasons: teamSeasons.get(brefId) ?? [],
 		}
 	})
 }

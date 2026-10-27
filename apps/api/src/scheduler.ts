@@ -35,6 +35,7 @@ import {
 	DRAIN_SEASON_START_LOCK,
 	DRAIN_UPDATE_EMAILS_LOCK,
 	ENQUEUE_SEASON_START_LOCK,
+	FILL_CHAIN_SCHEDULE_LOCK,
 	FILL_RANK_SCHEDULE_LOCK,
 	FILL_SEASON_SCHEDULE_LOCK,
 	GENERATE_GAME_QUESTIONS_LOCK,
@@ -66,6 +67,7 @@ import {
 } from "./lib/season-start-email"
 import { enqueueAchievementRecomputes } from "./lib/streaks/backfill"
 import { drainAchievementRecomputes } from "./lib/streaks/drain"
+import { fillChainSchedule } from "./lib/teammate-chain/schedule"
 import { DAY_MS, MINUTE_MS } from "./lib/time"
 import { drainUpdateEmails } from "./lib/update-email"
 import { refreshWorkCalendar, workCalendar } from "./lib/work-calendar"
@@ -333,6 +335,7 @@ export const JOBS: ScheduledJob[] = [
 			FILL_SEASON_SCHEDULE_LOCK,
 			ARCHIVE_RANK_LOCK,
 			FILL_RANK_SCHEDULE_LOCK,
+			FILL_CHAIN_SCHEDULE_LOCK,
 			LOCK_OVERDUE_QUESTIONS_LOCK,
 			SYNC_GAME_STARTERS_LOCK,
 			GENERATE_GAME_QUESTIONS_LOCK,
@@ -373,6 +376,9 @@ export const JOBS: ScheduledJob[] = [
 			// two weeks.
 			await runJob(ARCHIVE_RANK_LOCK, () => archiveFinishedRankData())()
 			await runJob(FILL_RANK_SCHEDULE_LOCK, () => fillRankSchedule())()
+			// Teammate Chain reads the franchise histories, which only move when
+			// history:ingest runs, so most days this just tops up the far end.
+			await runJob(FILL_CHAIN_SCHEDULE_LOCK, () => fillChainSchedule())()
 			await runJob(LOCK_OVERDUE_QUESTIONS_LOCK, () => lockOverdueQuestions())()
 			await syncStartersTick()
 			await refreshWorkCalendar()

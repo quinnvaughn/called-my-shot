@@ -35,6 +35,7 @@
     "rank:schedule": "tsx --env-file=.env src/lib/blind-rank/schedule.ts",
     "seasons:archive": "tsx --env-file=.env scripts/archive-seasons.ts",
     "seasons:schedule": "tsx --env-file=.env src/lib/season-puzzles/schedule.ts",
+    "chain:schedule": "tsx --env-file=.env src/lib/teammate-chain/schedule.ts",
     "db:sync-catalog": "tsx --env-file=.env src/db/catalog/run.ts",
     "release": "drizzle-kit migrate && tsx src/db/catalog/run.ts"
   },

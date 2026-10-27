@@ -16,6 +16,7 @@ export type ShareCampaign =
 	| "challenge_receipt"
 	| "name_that_season"
 	| "blind_rank"
+	| "teammate_chain"
 	| "rushmore"
 	| "redraft"
 

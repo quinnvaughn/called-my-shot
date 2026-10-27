@@ -9,10 +9,13 @@ import {
 	rankPuzzles,
 	rushmorePicks,
 	seasonPuzzles,
+	teammateChainPuzzles,
+	teammateChainResults,
 	teamSeasons,
 } from "../db/schema"
 import { addArcadeDays, arcadeDay } from "../lib/arcade/day"
 import { loadSeasonPuzzleCardData } from "../lib/share-cards/season-puzzle-card"
+import { loadTeammateChainCardData } from "../lib/share-cards/teammate-chain-card"
 import {
 	makeDraftEntry,
 	makeGroup,
@@ -205,6 +208,70 @@ describe("share routes", () => {
 		const future = addArcadeDays(today, 1)
 		expect(
 			(await fetch(`${origin}/share/blind-rank/${future}.png`)).status,
+		).toBe(404)
+	})
+
+	it("renders Teammate Chain's result and today's pair, with the route only once the day is over", async () => {
+		const league = await makeLeague()
+		const [start, middle, target] = await Promise.all(
+			["Start Guy", "Middle Guy", "Target Guy"].map((name) =>
+				makePlayer({ name }),
+			),
+		)
+		if (!start || !middle || !target) throw new Error("players")
+		const today = arcadeDay(new Date())
+		const yesterday = addArcadeDays(today, -1)
+		const sharer = await makeUser()
+		for (const playDate of [today, yesterday]) {
+			const [puzzle] = await db
+				.insert(teammateChainPuzzles)
+				.values({
+					leagueId: league.id,
+					startPlayerId: start.id,
+					targetPlayerId: target.id,
+					par: 2,
+					parRoute: [middle.id],
+					signature: `share-test:${playDate}`,
+					playDate,
+				})
+				.returning()
+			if (!puzzle) throw new Error("no puzzle")
+			const startedAt = new Date(Date.now() - 60_000)
+			await db.insert(teammateChainResults).values({
+				puzzleId: puzzle.id,
+				userId: sharer.id,
+				moves: [{ kind: "add", playerId: middle.id, connects: true }],
+				startedAt,
+				finishedAt: new Date(startedAt.getTime() + 30_000),
+				solved: true,
+				route: [middle.id],
+			})
+		}
+		await expectPng(`/share/teammate-chain/${today}/2-0-0-30.png`)
+		await expectPng(`/share/teammate-chain/${today}/x-3-0.png`)
+		await expectPng(`/share/teammate-chain/${today}.png`)
+		const onTheDay = await loadTeammateChainCardData(
+			today,
+			"2-0-0-30",
+			sharer.username,
+		)
+		expect(onTheDay?.sharer).toBe(sharer.username)
+		expect(onTheDay?.route).toBeNull()
+		expect(
+			(
+				await loadTeammateChainCardData(yesterday, "2-0-0-30", sharer.username)
+			)?.route?.map((player) => player.name),
+		).toEqual(["Middle Guy"])
+		expect(
+			(await loadTeammateChainCardData(yesterday, "2-0-0-31", sharer.username))
+				?.sharer,
+		).toBeNull()
+		const future = addArcadeDays(today, 1)
+		expect(
+			(await fetch(`${origin}/share/teammate-chain/${future}.png`)).status,
+		).toBe(404)
+		expect(
+			(await fetch(`${origin}/share/teammate-chain/${today}/9-9.png`)).status,
 		).toBe(404)
 	})
 

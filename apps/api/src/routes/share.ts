@@ -64,6 +64,12 @@ import {
 	loadSweepShareCardData,
 } from "../lib/share-cards/sweep-card"
 import {
+	buildTeammateChainCard,
+	buildTeammateChainTodayCard,
+	loadTeammateChainCardData,
+	loadTeammateChainTodayCardData,
+} from "../lib/share-cards/teammate-chain-card"
+import {
 	type RenderOptions,
 	renderShareImage,
 	type SatoriNode,
@@ -278,6 +284,32 @@ export function registerShareRoutes(app: Express) {
 				typeof req.query.by === "string" ? req.query.by : undefined,
 			),
 			buildBlindRankCard,
+			SHARE_CARD_SIZE,
+		)
+	})
+
+	// The og:image behind /arcade/teammate-chain: today's pair and par.
+	app.get("/share/teammate-chain/:date.png", async (req, res) => {
+		await serveCard(
+			res,
+			await loadTeammateChainTodayCardData(req.params.date),
+			buildTeammateChainTodayCard,
+			SHARE_CARD_SIZE,
+		)
+	})
+
+	// The og:image behind /arcade/teammate-chain/:date/:result. Links, misses
+	// and time on the day; the sharer's route once it's over. ?by= names the
+	// player when it's really their result.
+	app.get("/share/teammate-chain/:date/:result.png", async (req, res) => {
+		await serveCard(
+			res,
+			await loadTeammateChainCardData(
+				req.params.date,
+				req.params.result,
+				typeof req.query.by === "string" ? req.query.by : undefined,
+			),
+			buildTeammateChainCard,
 			SHARE_CARD_SIZE,
 		)
 	})

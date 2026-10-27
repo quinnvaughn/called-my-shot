@@ -1,0 +1,23 @@
+{
+	"data": [
+		{
+			"playerId": 8447364,
+			"skaterFullName": "Adam Graves",
+			"seasonId": 19971998,
+			"teamAbbrevs": "NYR"
+		},
+		{
+			"playerId": 8459174,
+			"skaterFullName": "Dan McGillis",
+			"seasonId": 19971998,
+			"teamAbbrevs": "EDM,PHI"
+		},
+		{
+			"playerId": 8457981,
+			"skaterFullName": "Teemu Selanne",
+			"seasonId": 19951996,
+			"teamAbbrevs": "WIN,ANA"
+		}
+	],
+	"total": 3
+}

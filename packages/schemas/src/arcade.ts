@@ -35,3 +35,22 @@ export function rankResultLine(correctCount: number): string {
 export function rankResultHeadline(correctCount: number): string {
 	return correctCount === 5 ? "Perfect" : `${correctCount} of 5`
 }
+
+// The running clock while a Teammate Chain game is going: "0:48", "12:05".
+export function chainTimeLabel(seconds: number): string {
+	const minutes = Math.floor(seconds / 60)
+	return `${minutes}:${String(seconds % 60).padStart(2, "0")}`
+}
+
+// How long a finished Teammate Chain took: "48s", "1m 34s".
+export function chainDurationLabel(seconds: number): string {
+	const minutes = Math.floor(seconds / 60)
+	const rest = seconds % 60
+	return minutes === 0 ? `${rest}s` : `${minutes}m ${rest}s`
+}
+
+// What a Teammate Chain result says. Par, the time, hints and misses are
+// drawn around it rather than written out. Null links is a game given up.
+export function chainResultHeadline(links: number | null): string {
+	return links === null ? "Gave up" : `Connected in ${links}`
+}

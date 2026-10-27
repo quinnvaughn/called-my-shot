@@ -16,6 +16,8 @@ export type ArcadePanel = {
 	color: string
 	// The game's name, one line each.
 	title: string[]
+	// The title's size, for a name with a line too long for the default.
+	titlePx?: number
 	// The whole rule, for someone who's never played.
 	rule: string
 	day: string
@@ -65,7 +67,7 @@ function panel(p: ArcadePanel): SatoriNode {
 						display: "flex",
 						flexDirection: "column",
 						fontFamily: "Archivo Black",
-						fontSize: "72px",
+						fontSize: `${p.titlePx ?? 72}px`,
 						lineHeight: 0.95,
 					},
 					p.title.map((line) => el("span", { display: "flex" }, line)),

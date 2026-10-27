@@ -116,6 +116,7 @@ export default defineConfig({
           sky: { value: "#6AC0FF" }, // 9.9:1 on paper, 9.2:1 on card
           indigo: { value: "#4F46E5" }, // Name That Season's color; ink on it is 5.9:1
           magenta: { value: "#C026D3" }, // Blind Rank's color; ink on it is 4.9:1
+          teal: { value: "#0F766E" }, // Teammate Chain's color; ink on it is 4.9:1
           skyMuted: { value: "#162633" }, // pale sky-tinted background — pitched at verifiedMuted's luminance, so sky-on-skyMuted holds ~7.8:1
           // Same color as verifiedVibrant below — the light theme split these in
           // two only because #34D399 as *text* on white measured ~1.9:1 (illegible;
@@ -246,6 +247,11 @@ export default defineConfig({
           // Blind Rank's own color, the same way.
           rank: {
             default: { value: "{colors.magenta}" },
+            ink: { value: "{colors.ink}" },
+          },
+          // Teammate Chain's own color, the same way.
+          chain: {
+            default: { value: "{colors.teal}" },
             ink: { value: "{colors.ink}" },
           },
           secondary: {

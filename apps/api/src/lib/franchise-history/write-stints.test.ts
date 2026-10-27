@@ -38,6 +38,7 @@ const historyPlayer = (
 	headshotUrl: null,
 	active: true,
 	stints: [stint()],
+	teamSeasons: [],
 	...overrides,
 })
 
@@ -272,5 +273,42 @@ describe("writeHistory", () => {
 		expect(rows.map((row) => row.teamId)).toEqual([lal.id])
 		expect(rows[0]?.score).toBe(900)
 		expect(rows.some((row) => row.teamId === bos.id)).toBe(false)
+	})
+
+	it("writes each season a player spent with a franchise and replaces them on a rerun", async () => {
+		const { bos } = await seedNba()
+		const seasonsOf = async (playerId: string) =>
+			(await db.query.playerTeamSeasons.findMany({ where: { playerId } }))
+				.map((row) => `${row.teamId === bos.id ? "BOS" : "LAL"}:${row.season}`)
+				.sort()
+		const jordan = (teamSeasons: HistoryPlayer["teamSeasons"]) =>
+			historyPlayer({
+				sourceId: "jordami01",
+				name: "Michael Jordan",
+				active: false,
+				stints: [stint({ teamAbbreviation: "BOS" })],
+				teamSeasons,
+			})
+
+		await writeHistory("nba", [
+			jordan([
+				{ teamAbbreviation: "BOS", season: 1993 },
+				{ teamAbbreviation: "BOS", season: 1995 },
+				{ teamAbbreviation: "LAL", season: 1996 },
+				{ teamAbbreviation: "SEA", season: 1997 },
+			]),
+		])
+		const ref = await refFor("bref", "jordami01")
+		expect(await seasonsOf(ref?.entityId as string)).toEqual([
+			"BOS:1993",
+			"BOS:1995",
+			"LAL:1996",
+		])
+
+		const result = await writeHistory("nba", [
+			jordan([{ teamAbbreviation: "BOS", season: 1993 }]),
+		])
+		expect(result.teamSeasons).toBe(1)
+		expect(await seasonsOf(ref?.entityId as string)).toEqual(["BOS:1993"])
 	})
 })

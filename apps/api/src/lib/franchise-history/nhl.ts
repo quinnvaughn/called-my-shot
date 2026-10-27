@@ -4,13 +4,15 @@ import {
 	HALL_OF_FAME_BONUS,
 	type HistoryPlayer,
 	type HistoryStint,
+	type HistoryTeamSeason,
 	type Log,
 } from "./types"
 
 // The NHL's all-time pools, from records.nhl.com: career totals per player
 // per franchise, skaters and goalies separately, keyed by the NHL's own
 // player id (the one its mugshot CDN uses). The same API flags Hall of
-// Famers and the league's 100 Greatest Players.
+// Famers and the league's 100 Greatest Players. The exact seasons behind
+// each stint come from the stats API's season-by-season summaries.
 
 const RECORDS = "https://records.nhl.com/site/api"
 
@@ -98,6 +100,62 @@ async function playerIds(cayenneExp: string): Promise<Set<number>> {
 	return new Set(json.data.map((player) => player.id))
 }
 
+const STATS = "https://api.nhle.com/stats/rest/en"
+
+// One player's regular season in the NHL's stats API: every team he played
+// for that season, by the team's code then ("QUE", "EDM,PHI" after a trade).
+export type NhlSeasonRow = {
+	playerId: number
+	seasonId: number
+	teamAbbrevs: string | null
+}
+
+export type NhlTeamRow = { triCode: string; franchiseId: number }
+
+// Player id -> each franchise and season-end year he played, as
+// player_team_seasons rows. Codes of franchises today's teams don't continue
+// (the Maroons, the original Jets) drop out, as they do from the stints.
+export function nhlTeamSeasons(
+	rows: NhlSeasonRow[],
+	teams: NhlTeamRow[],
+): Map<number, HistoryTeamSeason[]> {
+	const franchiseOf = new Map(
+		teams.map((team) => [team.triCode, team.franchiseId]),
+	)
+	const out = new Map<number, HistoryTeamSeason[]>()
+	for (const row of rows) {
+		for (const code of (row.teamAbbrevs ?? "").split(",")) {
+			const franchiseId = franchiseOf.get(code.trim())
+			if (franchiseId === undefined) continue
+			const team = nhlFranchiseTeam(franchiseId, code)
+			if (!team) continue
+			out.set(row.playerId, [
+				...(out.get(row.playerId) ?? []),
+				{ teamAbbreviation: team, season: seasonEndYear(row.seasonId) },
+			])
+		}
+	}
+	return out
+}
+
+async function loadNhlTeamSeasons(
+	log: Log,
+): Promise<Map<number, HistoryTeamSeason[]>> {
+	const teams = await fetchJson<{ data: NhlTeamRow[] }>(`${STATS}/team`)
+	const seasons = await fetchJson<{ data: { id: number }[] }>(`${STATS}/season`)
+	log(`nhl: reading ${seasons.data.length} seasons of rosters`)
+	const rows: NhlSeasonRow[] = []
+	for (const { id } of seasons.data) {
+		for (const kind of ["skater", "goalie"]) {
+			const page = await fetchJson<{ data: NhlSeasonRow[] }>(
+				`${STATS}/${kind}/summary?isAggregate=false&isGame=false&limit=-1&cayenneExp=${encodeURIComponent(`seasonId=${id} and gameTypeId=2`)}`,
+			)
+			rows.push(...page.data)
+		}
+	}
+	return nhlTeamSeasons(rows, teams.data)
+}
+
 export const nhlHeadshotUrl = (playerId: string) =>
 	`https://assets.nhle.com/mugs/nhl/latest/${playerId}.png`
 
@@ -128,6 +186,7 @@ export async function loadNhlHistory(log: Log): Promise<HistoryPlayer[]> {
 	log(
 		`nhl: ${flags.hallOfFame.size} Hall of Famers, ${flags.top100.size} of the 100 Greatest`,
 	)
+	const teamSeasons = await loadNhlTeamSeasons(log)
 
 	return [...nhlStints(rows, flags)].map(
 		([playerId, { row, active, stints }]) => ({
@@ -139,6 +198,7 @@ export async function loadNhlHistory(log: Log): Promise<HistoryPlayer[]> {
 			headshotUrl: nhlHeadshotUrl(String(playerId)),
 			active,
 			stints,
+			teamSeasons: teamSeasons.get(playerId) ?? [],
 		}),
 	)
 }

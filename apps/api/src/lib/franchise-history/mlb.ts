@@ -254,6 +254,12 @@ export async function loadMlbHistory(log: Log): Promise<HistoryPlayer[]> {
 			headshotUrl: mlbHeadshotUrl(mlbamId),
 			active: stints.some((stint) => stint.lastSeason >= latestSeason - 1),
 			stints,
+			teamSeasons: [...byTeam].flatMap(([teamId, seasons]) =>
+				[...seasons].map((season) => ({
+					teamAbbreviation: MLB_FRANCHISES[Number(teamId)] as string,
+					season,
+				})),
+			),
 		}
 	})
 }

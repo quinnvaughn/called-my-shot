@@ -13,6 +13,12 @@ export type HistoryStint = {
 	hallOfFame: boolean
 }
 
+// One season a player spent with one of today's franchises.
+export type HistoryTeamSeason = {
+	teamAbbreviation: string
+	season: number
+}
+
 // One player as a league's source knows him, with every franchise he played
 // for. The ids beyond sourceId are crosswalks the writer uses to find a
 // player this app already has.
@@ -34,6 +40,9 @@ export type HistoryPlayer = {
 	// current roster by name: a name shared across eras is never evidence.
 	active: boolean
 	stints: HistoryStint[]
+	// Every season behind the stints, for player_team_seasons. A player
+	// traded mid-season has a row with each team.
+	teamSeasons: HistoryTeamSeason[]
 }
 
 // The flat bonus each league's stint score gives a Hall of Famer, on every

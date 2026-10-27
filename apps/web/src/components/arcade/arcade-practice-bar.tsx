@@ -11,7 +11,7 @@ export function ArcadePracticeBar({
 	onRestart,
 }: {
 	date: string
-	schedulePath: "/admin/seasons" | "/admin/blind-rank"
+	schedulePath: "/admin/seasons" | "/admin/blind-rank" | "/admin/teammate-chain"
 	onRestart: () => void
 }) {
 	return (

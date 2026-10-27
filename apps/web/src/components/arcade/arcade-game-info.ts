@@ -5,7 +5,7 @@ import type { ShareCampaign } from "#/lib/share-links"
 // The arcade games, and what the parts they share need to know about each:
 // where a sign-up or a new group came from, which campaign a share is, and
 // where a group keeps its board.
-export type ArcadeGameKey = "season" | "rank"
+export type ArcadeGameKey = "season" | "rank" | "chain"
 
 export type NextStep =
 	| "sign_up"
@@ -28,4 +28,9 @@ export const ARCADE_GAME_INFO: Record<
 		campaign: "name_that_season",
 	},
 	rank: { name: "Blind Rank", surface: "blind_rank", campaign: "blind_rank" },
+	chain: {
+		name: "Teammate Chain",
+		surface: "teammate_chain",
+		campaign: "teammate_chain",
+	},
 }

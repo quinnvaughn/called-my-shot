@@ -108,15 +108,15 @@ export function StillOpenRow({
 				{split &&
 					match(split)
 						.with({ kind: "sides" }, ({ first, second }) => (
-								<VStack alignItems="stretch" gap="1">
-									<span className={css({ textStyle: "meta", truncate: true })}>
-										{first.label} {first.count} · {second.label} {second.count}
-									</span>
-									<ProgressBar
-										value={first.count}
-										max={first.count + second.count}
-									/>
-								</VStack>
+							<VStack alignItems="stretch" gap="1">
+								<span className={css({ textStyle: "meta", truncate: true })}>
+									{first.label} {first.count} · {second.label} {second.count}
+								</span>
+								<ProgressBar
+									value={first.count}
+									max={first.count + second.count}
+								/>
+							</VStack>
 						))
 						.with({ kind: "leader" }, { kind: "median" }, ({ text }) => (
 							<span className={css({ textStyle: "meta", truncate: true })}>
