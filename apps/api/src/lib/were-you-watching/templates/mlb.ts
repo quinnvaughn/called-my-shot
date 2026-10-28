@@ -81,7 +81,7 @@ const pitcherLine: WatchTemplate = (ctx) => {
 		template: "mlb.pitcher_line",
 		prompt: `What was ${possessive(pitcher.name)} line?`,
 		values: [hits, runs, ks],
-		spreads: [3, 2, 3],
+		spreads: [4, 3, 4],
 		format: ([h, er, k]) => `${ip} IP, ${h} H, ${er} ER, ${k} K`,
 		rng: ctx.rng,
 		reveal: `${lastName(pitcher.name)} gave up ${count(runs, "earned run")} on ${count(hits, "hit")} and struck out ${ks}.`,

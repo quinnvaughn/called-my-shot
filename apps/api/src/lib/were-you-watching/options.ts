@@ -123,8 +123,11 @@ export function presenceQuestion(
 	}
 }
 
-// A stat line to pick from four. Each wrong line moves one or two of the
-// numbers by up to that number's spread; a spread of 0 holds it fixed.
+// A stat line to pick from four. Each wrong line moves two of the numbers
+// (one when only one can move) by at least half that number's spread and
+// at most all of it; a spread of 0 holds it fixed. Every line is clearly
+// apart from every other in that many numbers, so no two read as the same
+// line off by one.
 export function lineQuestion(
 	args: Base & {
 		values: number[]
@@ -137,20 +140,27 @@ export function lineQuestion(
 	const { values, spreads, format, rng } = args
 	const movable = spreads.flatMap((s, i) => (s > 0 ? [i] : []))
 	if (movable.length === 0) return null
-	const correct = format(values)
-	const labels = new Set([correct])
-	for (let i = 0; i < TRIES && labels.size < OPTION_COUNT; i++) {
+	const moves = Math.min(movable.length, 2)
+	const gaps = spreads.map((s) => Math.ceil(s / 2))
+	const apart = (a: number[], b: number[]) =>
+		movable.filter((i) => Math.abs((a[i] ?? 0) - (b[i] ?? 0)) >= (gaps[i] ?? 0))
+			.length >= moves
+	const lines = [values]
+	for (let i = 0; i < TRIES && lines.length < OPTION_COUNT; i++) {
 		const next = [...values]
-		const moves = Math.min(movable.length, randomInt(rng, 1, 2))
 		for (const index of shuffled(movable, rng).slice(0, moves)) {
 			const spread = spreads[index] ?? 0
-			const delta = randomInt(rng, 1, spread) * (rng() < 0.5 ? -1 : 1)
+			const delta =
+				randomInt(rng, gaps[index] ?? 1, spread) * (rng() < 0.5 ? -1 : 1)
 			next[index] = (next[index] ?? 0) + delta
 		}
 		if (next.some((v) => v < 0)) continue
 		if (args.valid && !args.valid(next)) continue
-		labels.add(format(next))
+		if (!lines.every((line) => apart(line, next))) continue
+		lines.push(next)
 	}
+	const correct = format(values)
+	const labels = new Set(lines.map(format))
 	if (labels.size < OPTION_COUNT) return null
 	const [, ...wrong] = [...labels]
 	const { options, answer } = placeAnswer(

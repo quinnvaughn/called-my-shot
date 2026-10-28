@@ -52,7 +52,7 @@ const starterLine: WatchTemplate = (ctx) => {
 		template: "nba.starter_line",
 		prompt: `What was ${possessive(pick.name)} line?`,
 		values: [pts, reb, ast],
-		spreads: [6, 3, 3],
+		spreads: [8, 5, 5],
 		format: ([p, r, a]) => `${p} PTS, ${r} REB, ${a} AST`,
 		rng: ctx.rng,
 		reveal: `${lastName(pick.name)} had ${count(pts, "point")}, ${count(reb, "rebound")} and ${count(ast, "assist")}.`,
